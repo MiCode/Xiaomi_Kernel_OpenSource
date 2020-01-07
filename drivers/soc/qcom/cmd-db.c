@@ -4,7 +4,6 @@
 #include <linux/debugfs.h>
 #include <linux/fs.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -398,7 +397,9 @@ static struct platform_driver cmd_db_dev_driver = {
 		   .of_match_table = cmd_db_match_table,
 	},
 };
-builtin_platform_driver(cmd_db_dev_driver);
 
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm Technologies, Inc. CommandDB driver");
+static int __init cmd_db_device_init(void)
+{
+	return platform_driver_register(&cmd_db_dev_driver);
+}
+arch_initcall(cmd_db_device_init);
