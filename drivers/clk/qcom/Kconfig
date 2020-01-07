@@ -470,6 +470,15 @@ config SDM_GPUCC_LAGOON
 	 Say Y if you want to support graphics controller devices
 	 and it's functionalities.
 
+config SDM_NPUCC_LAGOON
+	tristate "LAGOON NPU Clock Controller"
+	select SDM_GCC_LAGOON
+	help
+	  Support for the NPU clock controller on Qualcomm Technologies, Inc.
+	  LAGOON devices.
+	  Say Y if you want to enable use of the Network Processing Unit in
+	  order to speed up certain types of calculations.
+
 config SDM_VIDEOCC_LAGOON
 	tristate "LAGOON Video Clock Controller"
 	select SDM_GCC_LAGOON
