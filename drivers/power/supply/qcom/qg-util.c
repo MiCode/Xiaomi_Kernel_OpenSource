@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/alarmtimer.h>
@@ -434,6 +434,24 @@ int qg_get_vbat_avg(struct qpnp_qg *chip, int *vbat_uv)
 	}
 
 	*vbat_uv = V_RAW_TO_UV(last_vbat);
+
+	return 0;
+}
+
+int qg_get_ibat_avg(struct qpnp_qg *chip, int *ibat_ua)
+{
+	int rc = 0;
+	int last_ibat = 0;
+
+	rc = qg_read(chip, chip->qg_base + QG_S2_NORMAL_AVG_I_DATA0_REG,
+				(u8 *)&last_ibat, 2);
+	if (rc < 0) {
+		pr_err("Failed to read S2_NORMAL_AVG_I reg, rc=%d\n", rc);
+		return rc;
+	}
+
+	last_ibat = sign_extend32(last_ibat, 15);
+	*ibat_ua = qg_iraw_to_ua(chip, last_ibat);
 
 	return 0;
 }
