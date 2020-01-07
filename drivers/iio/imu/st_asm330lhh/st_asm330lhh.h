@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 
 #define ST_ASM330LHH_REVISION		"2.0.1"
-#define ST_ASM330LHH_PATCH		"1"
+#define ST_ASM330LHH_PATCH		"2"
 
 #define ST_ASM330LHH_VERSION		"v"	\
 	ST_ASM330LHH_REVISION			\
@@ -220,7 +220,10 @@ struct st_asm330lhh_hw {
 	u8 enable_mask;
 
 	s64 ts_offset;
+	u32 hw_val;
+	u32 hw_val_old;
 	s64 hw_ts;
+	s64 hw_ts_high;
 	s64 delta_ts;
 	s64 ts;
 	s64 tsample;
