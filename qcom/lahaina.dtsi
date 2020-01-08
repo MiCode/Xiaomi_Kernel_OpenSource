@@ -1057,6 +1057,37 @@
 			0x18040060 0x18050060 0x18060060 0x18070060>;
 	};
 
+	apps_rsc: rsc@18200000 {
+		label = "apps_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0x18200000 0x10000>,
+		      <0x18210000 0x10000>,
+		      <0x18220000 0x10000>;
+		reg-names = "drv-0", "drv-1", "drv-2";
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+			    <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,tcs-offset = <0xd00>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				  <SLEEP_TCS   3>,
+				  <WAKE_TCS    3>,
+				  <CONTROL_TCS 1>;
+
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
+
+		system_pm {
+			compatible = "qcom,system-pm";
+		};
+
+		clock_rpmh: qcom,rpmhclk {
+			compatible = "qcom,lahaina-rpmh-clk";
+			#clock-cells = <1>;
+		};
+	};
+
 	aggre1_noc: interconnect@16e0000 {
 		compatible = "qcom,lahaina-aggre1_noc";
 		#interconnect-cells = <1>;
@@ -1437,37 +1468,6 @@
 		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
 		interrupt-controller;
-	};
-
-	apps_rsc: rsc@18200000 {
-		label = "apps_rsc";
-		compatible = "qcom,rpmh-rsc";
-		reg = <0x18200000 0x10000>,
-		      <0x18210000 0x10000>,
-		      <0x18220000 0x10000>;
-		reg-names = "drv-0", "drv-1", "drv-2";
-		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
-			    <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,tcs-offset = <0xd00>;
-		qcom,drv-id = <2>;
-		qcom,tcs-config = <ACTIVE_TCS  2>,
-				  <SLEEP_TCS   3>,
-				  <WAKE_TCS    3>,
-				  <CONTROL_TCS 1>;
-
-		apps_bcm_voter: bcm_voter {
-			compatible = "qcom,bcm-voter";
-		};
-
-		system_pm {
-			compatible = "qcom,system-pm";
-		};
-
-		clock_rpmh: qcom,rpmhclk {
-			compatible = "qcom,lahaina-rpmh-clk";
-			#clock-cells = <1>;
-		};
 	};
 
 	disp_rsc: rsc@af20000 {
