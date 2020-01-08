@@ -1470,7 +1470,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 						(mdata->mdp_rev ==
 							MDSS_MDP_HW_REV_300) ||
 						(mdata->mdp_rev ==
-							MDSS_MDP_HW_REV_301)) {
+							MDSS_MDP_HW_REV_301) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_320)) {
 						ctrl_reg += 0x8;
 						value_reg += 0x8;
 					}
