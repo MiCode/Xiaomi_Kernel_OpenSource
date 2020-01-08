@@ -1,0 +1,15 @@
+* QTI Over the Air (OTA) Crypto device used in FSM9xxx target
+
+
+Required properties:
+- compatible : Should be "qcom,qcota"
+- reg        : Offset and length of the register set for the device
+
+Optional property:
+
+Example:
+	qcom_cedev: qcota@1de0000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+	};
