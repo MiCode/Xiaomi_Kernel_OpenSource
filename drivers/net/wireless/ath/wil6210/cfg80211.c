@@ -452,7 +452,7 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_UNSPEC,
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 			 WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.policy = wil_nl_60g_policy,
+		.policy = VENDOR_CMD_RAW_DATA,
 		.doit = wil_nl_60g_handle_cmd
 	},
 };
