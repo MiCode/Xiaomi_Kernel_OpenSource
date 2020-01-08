@@ -365,6 +365,18 @@ static struct platform_driver qcom_icc_bcm_voter_driver = {
 		.of_match_table = bcm_voter_of_match,
 	},
 };
-module_platform_driver(qcom_icc_bcm_voter_driver);
+
+static int __init bcm_voter_driver_init(void)
+{
+	return platform_driver_register(&qcom_icc_bcm_voter_driver);
+}
+core_initcall(bcm_voter_driver_init);
+
+static void __exit bcm_voter_driver_exit(void)
+{
+	platform_driver_unregister(&qcom_icc_bcm_voter_driver);
+}
+module_exit(bcm_voter_driver_exit);
+
 MODULE_DESCRIPTION("QTI BCM Voter interconnect driver");
 MODULE_LICENSE("GPL v2");
