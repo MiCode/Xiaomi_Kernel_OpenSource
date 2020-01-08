@@ -63,6 +63,37 @@ enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_ERROR;
 
 #endif
 
+void mhi_reg_write_work(struct work_struct *w)
+{
+	struct mhi_controller *mhi_cntrl = container_of(w,
+						struct mhi_controller,
+						reg_write_work);
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct reg_write_info *info =
+				&mhi_cntrl->reg_write_q[mhi_cntrl->read_idx];
+
+	if (!info->valid)
+		return;
+
+	if (mhi_is_active(mhi_cntrl->mhi_dev) && msm_pcie_prevent_l1(pci_dev))
+		return;
+
+	while (info->valid) {
+		if (!mhi_is_active(mhi_cntrl->mhi_dev))
+			return;
+
+		writel_relaxed(info->val, info->reg_addr);
+		info->valid = false;
+		mhi_cntrl->read_idx =
+				(mhi_cntrl->read_idx + 1) &
+						(REG_WRITE_QUEUE_LEN - 1);
+		info = &mhi_cntrl->reg_write_q[mhi_cntrl->read_idx];
+	}
+
+	msm_pcie_allow_l1(pci_dev);
+}
+
 static int mhi_arch_pm_notifier(struct notifier_block *nb,
 				unsigned long event, void *unused)
 {
@@ -173,6 +204,7 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 		return ret;
 	}
 
+	mhi_dev->mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 	return mhi_pci_probe(pci_dev, NULL);
 }
 
@@ -295,7 +327,8 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 
 	/* wait for device to enter boot stage */
 	wait_event_timeout(mhi_cntrl->state_event, mhi_cntrl->ee == MHI_EE_AMSS
-			   || mhi_cntrl->ee == MHI_EE_DISABLE_TRANSITION,
+			   || mhi_cntrl->ee == MHI_EE_DISABLE_TRANSITION
+			   || mhi_cntrl->power_down,
 			   timeout);
 
 	ipc_log_string(arch_info->boot_ipc_log, HLOG "Device current ee = %s\n",
@@ -316,8 +349,9 @@ int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 
-	/* start a boot monitor */
-	arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
+	/* start a boot monitor if not in crashed state */
+	if (!mhi_dev->mdm_state)
+		arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
 
 	return 0;
 }

@@ -2278,34 +2278,6 @@ static int venus_hfi_core_release(void *dev)
 	return rc;
 }
 
-static int __get_q_size(struct venus_hfi_device *dev, unsigned int q_index)
-{
-	struct hfi_queue_header *queue;
-	struct vidc_iface_q_info *q_info;
-	u32 write_ptr, read_ptr;
-
-	if (q_index >= VIDC_IFACEQ_NUMQ) {
-		dprintk(VIDC_ERR, "Invalid q index: %d\n", q_index);
-		return -ENOENT;
-	}
-
-	q_info = &dev->iface_queues[q_index];
-	if (!q_info) {
-		dprintk(VIDC_ERR, "cannot read shared Q's\n");
-		return -ENOENT;
-	}
-
-	queue = (struct hfi_queue_header *)q_info->q_hdr;
-	if (!queue) {
-		dprintk(VIDC_ERR, "queue not present\n");
-		return -ENOENT;
-	}
-
-	write_ptr = (u32)queue->qhdr_write_idx;
-	read_ptr = (u32)queue->qhdr_read_idx;
-	return read_ptr - write_ptr;
-}
-
 static void __core_clear_interrupt(struct venus_hfi_device *device)
 {
 	u32 intr_status = 0, mask = 0;
@@ -3692,8 +3664,7 @@ static int __response_handler(struct venus_hfi_device *device)
 			*session_id = session->session_id;
 		}
 
-		if (packet_count >= max_packets &&
-				__get_q_size(device, VIDC_IFACEQ_MSGQ_IDX)) {
+		if (packet_count >= max_packets) {
 			dprintk(VIDC_WARN,
 					"Too many packets in message queue to handle at once, deferring read\n");
 			break;

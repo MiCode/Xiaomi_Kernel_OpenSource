@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -658,12 +658,18 @@
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "smpc8";
+		qcom,regulator-type = "pmic5-hfsmps";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_RET
+			 RPMH_REGULATOR_MODE_AUTO>;
+		 qcom,mode-threshold-currents = <0 200000>;
 		S8C: pm8150l_s8: regulator-pm8150l-s8 {
 			regulator-name = "pm8150l_s8";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1352000>;
 			regulator-max-microvolt = <1352000>;
 			qcom,init-voltage = <1352000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_RET>;
 		};
 	};
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define _CAM_ICP_CONTEXT_H_
 
 #include "cam_context.h"
+#include "cam_icp_hw_mgr_intf.h"
 
 /**
  * struct cam_icp_context - icp context
@@ -26,7 +27,7 @@
 struct cam_icp_context {
 	struct cam_context *base;
 	struct cam_ctx_ops *state_machine;
-	struct cam_ctx_request req_base[CAM_CTX_REQ_MAX];
+	struct cam_ctx_request req_base[CAM_ICP_CTX_REQ_MAX];
 	uint32_t state;
 	void *ctxt_to_hw_map;
 };

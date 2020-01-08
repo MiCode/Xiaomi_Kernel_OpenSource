@@ -2466,6 +2466,22 @@ done:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa3_read_app_clk_vote(
+	struct file *file,
+	char __user *ubuf,
+	size_t count,
+	loff_t *ppos)
+{
+	int cnt =
+		scnprintf(
+			dbg_buff,
+			IPA_MAX_MSG_LEN,
+			"%u\n",
+			ipa3_ctx->app_clock_vote.cnt);
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
 	IPA_DUMP_STATUS_FIELD(status_opcode);
@@ -2764,7 +2780,11 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 		"usb_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_usb_gsi_stats,
 		}
-	}
+	}, {
+		"app_clk_vote_cnt", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_app_clk_vote,
+		}
+	},
 };
 
 void ipa3_debugfs_pre_init(void)

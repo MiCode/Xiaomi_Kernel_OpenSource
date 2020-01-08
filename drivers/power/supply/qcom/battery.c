@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,7 +204,8 @@ static int get_hvdcp3_icl_limit(struct pl_data *chip)
 
 	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_REAL_TYPE, &pval);
-	if ((rc < 0) || (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3))
+	if ((rc < 0) || (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3
+			&& pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3P5))
 		return target_icl;
 
 	/*
