@@ -3,7 +3,7 @@
 		compatible = "qcom,lpi-pinctrl";
 		reg = <0x33c0000 0x0>;
 		qcom,slew-reg = <0x355a000 0x0>;
-		qcom,num-gpios = <14>;
+		qcom,num-gpios = <15>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,
@@ -12,14 +12,16 @@
 				      <0x00006000>, <0x00007000>,
 				      <0x00008000>, <0x00009000>,
 				      <0x0000A000>, <0x0000B000>,
-				      <0x0000C000>, <0x0000D000>;
+				      <0x0000C000>, <0x0000D000>,
+				      <0x0000E000>;
 		qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
 					   <0x00000004>, <0x00000008>,
 					   <0x0000000A>, <0x0000000C>,
 					   <0x00000000>, <0x00000000>,
 					   <0x00000000>, <0x00000000>,
 					   <0x00000010>, <0x00000012>,
-					   <0x00000000>, <0x00000000>;
+					   <0x00000000>, <0x00000000>,
+					   <0x00000006>;
 
 		clock-names = "lpass_core_hw_vote";
 		clocks = <&lpass_core_hw_vote 0>;
@@ -1372,7 +1374,7 @@
 			};
 		};
 
-		tx_swr_data1_sleep: tx_swr_data1_sleep {
+		tx_swr_data0_sleep: tx_swr_data0_sleep {
 			mux {
 				pins = "gpio1";
 				function = "func1";
@@ -1386,7 +1388,7 @@
 			};
 		};
 
-		tx_swr_data1_active: tx_swr_data1_active {
+		tx_swr_data0_active: tx_swr_data0_active {
 			mux {
 				pins = "gpio1";
 				function = "func1";
@@ -1400,7 +1402,7 @@
 			};
 		};
 
-		tx_swr_data2_sleep: tx_swr_data2_sleep {
+		tx_swr_data1_sleep: tx_swr_data1_sleep {
 			mux {
 				pins = "gpio2";
 				function = "func1";
@@ -1414,7 +1416,7 @@
 			};
 		};
 
-		tx_swr_data2_active: tx_swr_data2_active {
+		tx_swr_data1_active: tx_swr_data1_active {
 			mux {
 				pins = "gpio2";
 				function = "func1";
@@ -1422,6 +1424,34 @@
 
 			config {
 				pins = "gpio2";
+				drive-strength = <2>;
+				slew-rate = <1>;
+				bias-bus-hold;
+			};
+		};
+
+		tx_swr_data2_sleep: tx_swr_data2_sleep {
+			mux {
+				pins = "gpio14";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <2>;
+				input-enable;
+				bias-pull-down;
+			};
+		};
+
+		tx_swr_data2_active: tx_swr_data2_active {
+			mux {
+				pins = "gpio14";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio14";
 				drive-strength = <2>;
 				slew-rate = <1>;
 				bias-bus-hold;
@@ -1487,7 +1517,7 @@
 		rx_swr_data1_sleep: rx_swr_data1_sleep {
 			mux {
 				pins = "gpio5";
-				function = "func2";
+				function = "func1";
 			};
 
 			config {
@@ -1501,7 +1531,7 @@
 		rx_swr_data1_active: rx_swr_data1_active {
 			mux {
 				pins = "gpio5";
-				function = "func2";
+				function = "func1";
 			};
 
 			config {
