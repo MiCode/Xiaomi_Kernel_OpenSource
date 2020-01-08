@@ -99,6 +99,12 @@
 	status = "ok";
 };
 
+&msm_vidc {
+	compatible = "qcom,msm-vidc", "qcom,sm6150-vidc", "qcom,sa6155p-vidc";
+	qcom,allowed-clock-rates = <133330000 240000000 300000000
+		380000000 410000000 460000000>;
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sa6155", "syscon";
 	/delete-property/ protected-clocks;

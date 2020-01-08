@@ -960,6 +960,12 @@ int read_platform_resources_from_dt(
 		goto err_load_allowed_clocks_table;
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,sa6155p-vidc")) {
+		res->max_load = 2073600;
+		dprintk(VIDC_INFO, "msm_vidc: Use higher max_load on Auto\n");
+	}
+
 	rc = msm_vidc_load_reset_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
