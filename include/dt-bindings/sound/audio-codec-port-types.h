@@ -37,5 +37,18 @@
 #define DMIC9 31
 #define DMIC10 32
 #define PCM_OUT1 33
+#define SWRM_TX1_CH1 34
+#define SWRM_TX1_CH2 35
+#define SWRM_TX1_CH3 36
+#define SWRM_TX1_CH4 37
+#define SWRM_TX2_CH1 38
+#define SWRM_TX2_CH2 39
+#define SWRM_TX2_CH3 40
+#define SWRM_TX2_CH4 41
+#define SWRM_TX3_CH1 42
+#define SWRM_TX3_CH2 43
+#define SWRM_TX3_CH3 44
+#define SWRM_TX3_CH4 45
+#define SWRM_PCM_IN 46
 
 #endif /* __AUDIO_CODEC_PORT_TYPES_H */
