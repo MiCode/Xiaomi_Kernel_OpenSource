@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "msm_cvp.h"
 #include "cvp_hfi.h"
 #include <synx_api.h>
 #include "cvp_core_hfi.h"
+#include "cvp_hfi_helper.h"
 
 struct cvp_power_level {
 	unsigned long core_sum;
