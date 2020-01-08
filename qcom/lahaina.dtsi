@@ -2872,6 +2872,7 @@
 #include "lahaina-coresight.dtsi"
 #include "lahaina-pm.dtsi"
 #include "lahaina-qupv3.dtsi"
+#include "lahaina-audio.dtsi"
 #include "lahaina-vidc.dtsi"
 #include "lahaina-cvp.dtsi"
 #include "lahaina-pcie.dtsi"
