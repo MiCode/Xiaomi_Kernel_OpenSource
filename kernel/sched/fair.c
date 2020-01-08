@@ -7003,7 +7003,7 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	struct perf_domain *pd;
 	unsigned long cur_energy;
 	cpumask_t *candidates;
-	bool is_rtg;
+	bool is_rtg, curr_is_rtg;
 	struct find_best_target_env fbt_env;
 	bool need_idle = wake_to_idle(p);
 	int placement_boost = task_boost_policy(p);
@@ -7017,6 +7017,7 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		goto eas_not_ready;
 
 	is_rtg = task_in_related_thread_group(p);
+	curr_is_rtg = task_in_related_thread_group(cpu_rq(cpu)->curr);
 
 	fbt_env.fastpath = 0;
 
@@ -7027,7 +7028,7 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	candidates = this_cpu_ptr(&energy_cpus);
 	cpumask_clear(candidates);
 
-	if (need_idle)
+	if (sync && (need_idle || (is_rtg && curr_is_rtg)))
 		sync = 0;
 
 	if (sync && bias_to_this_cpu(p, cpu, start_cpu)) {
