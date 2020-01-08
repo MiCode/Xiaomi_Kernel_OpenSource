@@ -439,6 +439,9 @@ static int inv_acc_gyro_early_buff_init(struct iio_dev *indio_dev)
 	st->acc_buffer_inv_samples = true;
 	st->gyro_buffer_inv_samples = true;
 
+	mutex_init(&st->acc_sensor_buff);
+	mutex_init(&st->gyro_sensor_buff);
+
 	inv_enable_acc_gyro(st);
 
 	return 1;

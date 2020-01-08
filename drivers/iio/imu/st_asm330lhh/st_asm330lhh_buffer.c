@@ -228,6 +228,7 @@ static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
 {
 	int x, y, z;
 
+	mutex_lock(&sensor->sensor_buff);
 	if (false == sensor->buffer_asm_samples)
 		return;
 
@@ -253,6 +254,7 @@ static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
 				sensor->id, sensor->bufsample_cnt);
 		sensor->buffer_asm_samples = false;
 	}
+	mutex_unlock(&sensor->sensor_buff);
 }
 #else
 static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
@@ -310,7 +312,6 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 					     word_len, buf);
 		if (err < 0)
 			return err;
-
 		for (i = 0; i < word_len; i += ST_ASM330LHH_FIFO_SAMPLE_SIZE) {
 			ptr = &buf[i + ST_ASM330LHH_TAG_SIZE];
 			tag = buf[i] >> 3;
@@ -357,7 +358,6 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 					>= ST_ASM330LHH_SAMPLE_DISCHARD)) {
 					continue;
 				}
-
 				memcpy(iio_buf, ptr, ST_ASM330LHH_SAMPLE_SIZE);
 
 				hw->tsample = min_t(s64,

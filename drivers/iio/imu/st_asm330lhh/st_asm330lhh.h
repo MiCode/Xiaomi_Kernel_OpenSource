@@ -191,6 +191,7 @@ struct st_asm330lhh_sensor {
 	int max_buffer_time;
 	struct input_dev *buf_dev;
 	int report_evt_cnt;
+	struct mutex sensor_buff;
 #endif
 };
 

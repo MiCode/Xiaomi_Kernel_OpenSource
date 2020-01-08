@@ -571,8 +571,9 @@ static int asm_read_bootsampl(struct st_asm330lhh_sensor  *sensor,
 {
 	int i = 0;
 
+	sensor->buffer_asm_samples = false;
+
 	if (enable_read) {
-		sensor->buffer_asm_samples = false;
 		for (i = 0; i < sensor->bufsample_cnt; i++) {
 			dev_dbg(sensor->hw->dev,
 				"sensor:%d count:%d x=%d,y=%d,z=%d,tsec=%d,nsec=%lld\n",
@@ -599,7 +600,6 @@ static int asm_read_bootsampl(struct st_asm330lhh_sensor  *sensor,
 			for (i = 0; i < ASM_MAXSAMPLE; i++)
 				kmem_cache_free(sensor->asm_cachepool,
 					sensor->asm_samplist[i]);
-			kmem_cache_destroy(sensor->asm_cachepool);
 			sensor->bufsample_cnt = 0;
 		}
 
@@ -636,10 +636,15 @@ static ssize_t read_gyro_boot_sample_store(struct device *dev,
 				"Invalid value of input, input=%ld\n", enable);
 		return -EINVAL;
 	}
+
+	mutex_lock(&sensor->sensor_buff);
 	err = asm_read_bootsampl(sensor, enable);
+	mutex_unlock(&sensor->sensor_buff);
 	if (err)
 		return err;
+
 	sensor->read_boot_sample = enable;
+
 	return count;
 
 }
@@ -671,10 +676,15 @@ static ssize_t read_acc_boot_sample_store(struct device *dev,
 				"Invalid value of input, input=%ld\n", enable);
 		return -EINVAL;
 	}
+
+	mutex_lock(&sensor->sensor_buff);
 	err = asm_read_bootsampl(sensor, enable);
+	mutex_unlock(&sensor->sensor_buff);
 	if (err)
 		return err;
+
 	sensor->read_boot_sample = enable;
+
 	return count;
 }
 #endif
@@ -1066,6 +1076,8 @@ static int asm330_acc_gyro_early_buff_init(struct st_asm330lhh_hw *hw)
 
 	acc->buffer_asm_samples = true;
 	gyro->buffer_asm_samples = true;
+	mutex_init(&acc->sensor_buff);
+	mutex_init(&gyro->sensor_buff);
 
 	return 1;
 clean_exit5:
