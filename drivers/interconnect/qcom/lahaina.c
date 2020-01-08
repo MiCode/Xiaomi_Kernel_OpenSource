@@ -301,19 +301,13 @@ DEFINE_QNODE(qns_gemnoc_sf, SLAVE_SNOC_GEM_NOC_SF, 1, 16, 1,
 		MASTER_SNOC_SF_MEM_NOC);
 DEFINE_QNODE(srvc_snoc, SLAVE_SERVICE_SNOC, 1, 4, 0);
 
-DEFINE_QBCM(bcm_acv, "ACV", 1, false,
+DEFINE_QBCM(bcm_acv, "ACV", false, 1,
 		&ebi);
-DEFINE_QBCM(bcm_mc0, "MC0", 1, false,
-		&ebi);
-DEFINE_QBCM(bcm_sh0, "SH0", 1, false,
-		&qns_llcc);
-DEFINE_QBCM(bcm_mm0, "MM0", 1, false,
-		&qns_mem_noc_hf);
-DEFINE_QBCM(bcm_co0, "CO0", 1, false,
-		&qns_nsp_gemnoc);
-DEFINE_QBCM(bcm_ce0, "CE0", 1, false,
+DEFINE_QBCM(bcm_ce0, "CE0", false, 1,
 		&qxm_crypto);
-DEFINE_QBCM(bcm_cn0, "CN0", 47, false,
+DEFINE_QBCM(bcm_cn0, "CN0", true, 2,
+		&qnm_gemnoc_cnoc, &qnm_gemnoc_pcie);
+DEFINE_QBCM(bcm_cn1, "CN1", false, 47,
 		&xm_qdss_dap, &qhs_ahb2phy0, &qhs_ahb2phy1,
 		&qhs_aoss, &qhs_apss, &qhs_camera_cfg,
 		&qhs_clk_ctl, &qhs_compute_cfg, &qhs_cpr_cx,
@@ -330,49 +324,55 @@ DEFINE_QBCM(bcm_cn0, "CN0", 47, false,
 		&qhs_venus_cfg, &qhs_vsense_ctrl_cfg, &qns_a1_noc_cfg,
 		&qns_a2_noc_cfg, &qns_ddrss_cfg, &qns_mnoc_cfg,
 		&qns_snoc_cfg, &srvc_cnoc);
-DEFINE_QBCM(bcm_mm1, "MM1", 3, false,
-		&qnm_camnoc_hf, &qxm_mdp0, &qxm_mdp1);
-DEFINE_QBCM(bcm_cn1, "CN1", 5, false,
+DEFINE_QBCM(bcm_cn2, "CN2", false, 5,
 		&qhs_lpass_cfg, &qhs_pdm, &qhs_qspi,
 		&qhs_sdc2, &qhs_sdc4);
-DEFINE_QBCM(bcm_sh2, "SH2", 2, false,
-		&alm_gpu_tcu, &alm_sys_tcu);
-DEFINE_QBCM(bcm_cn2, "CN2", 2, false,
-		&qnm_gemnoc_cnoc, &qnm_gemnoc_pcie);
-DEFINE_QBCM(bcm_co3, "CO3", 1, false,
+DEFINE_QBCM(bcm_co0, "CO0", false, 1,
+		&qns_nsp_gemnoc);
+DEFINE_QBCM(bcm_co3, "CO3", false, 1,
 		&qxm_nsp);
-DEFINE_QBCM(bcm_qup0, "QUP0", 1, false,
-		&qhm_qup0);
-DEFINE_QBCM(bcm_qup1, "QUP1", 1, false,
-		&qhm_qup1);
-DEFINE_QBCM(bcm_sh3, "SH3", 1, false,
-		&qnm_cmpnoc);
-DEFINE_QBCM(bcm_sh4, "SH4", 1, false,
-		&chm_apps);
-DEFINE_QBCM(bcm_mm4, "MM4", 1, false,
+DEFINE_QBCM(bcm_mc0, "MC0", true, 1,
+		&ebi);
+DEFINE_QBCM(bcm_mm0, "MM0", false, 1,
+		&qns_mem_noc_hf);
+DEFINE_QBCM(bcm_mm1, "MM1", false, 3,
+		&qnm_camnoc_hf, &qxm_mdp0, &qxm_mdp1);
+DEFINE_QBCM(bcm_mm4, "MM4", false, 1,
 		&qns_mem_noc_sf);
-DEFINE_QBCM(bcm_mm5, "MM5", 6, false,
+DEFINE_QBCM(bcm_mm5, "MM5", false, 6,
 		&qnm_camnoc_icp, &qnm_camnoc_sf, &qnm_video0,
 		&qnm_video1, &qnm_video_cvp, &qxm_rot);
-DEFINE_QBCM(bcm_qup2, "QUP2", 1, false,
-		&qhm_qup2);
-DEFINE_QBCM(bcm_sn0, "SN0", 1, false,
+DEFINE_QBCM(bcm_qup0, "QUP0", false, 1,
+		&qup0_core_slave);
+DEFINE_QBCM(bcm_qup1, "QUP1", false, 1,
+		&qup1_core_slave);
+DEFINE_QBCM(bcm_qup2, "QUP2", false, 1,
+		&qup2_core_slave);
+DEFINE_QBCM(bcm_sh0, "SH0", true, 1,
+		&qns_llcc);
+DEFINE_QBCM(bcm_sh2, "SH2", false, 2,
+		&alm_gpu_tcu, &alm_sys_tcu);
+DEFINE_QBCM(bcm_sh3, "SH3", false, 1,
+		&qnm_cmpnoc);
+DEFINE_QBCM(bcm_sh4, "SH4", false, 1,
+		&chm_apps);
+DEFINE_QBCM(bcm_sn0, "SN0", true, 1,
 		&qns_gemnoc_sf);
-DEFINE_QBCM(bcm_sn2, "SN2", 1, false,
+DEFINE_QBCM(bcm_sn2, "SN2", false, 1,
 		&qns_gemnoc_gc);
-DEFINE_QBCM(bcm_sn3, "SN3", 1, false,
+DEFINE_QBCM(bcm_sn3, "SN3", false, 1,
 		&qxs_pimem);
-DEFINE_QBCM(bcm_sn4, "SN4", 1, false,
+DEFINE_QBCM(bcm_sn4, "SN4", false, 1,
 		&xs_qdss_stm);
-DEFINE_QBCM(bcm_sn5, "SN5", 1, false,
+DEFINE_QBCM(bcm_sn5, "SN5", false, 1,
 		&xm_pcie3_0);
-DEFINE_QBCM(bcm_sn6, "SN6", 1, false,
+DEFINE_QBCM(bcm_sn6, "SN6", false, 1,
 		&xm_pcie3_1);
-DEFINE_QBCM(bcm_sn7, "SN7", 1, false,
+DEFINE_QBCM(bcm_sn7, "SN7", false, 1,
 		&qnm_aggre1_noc);
-DEFINE_QBCM(bcm_sn8, "SN8", 1, false,
+DEFINE_QBCM(bcm_sn8, "SN8", false, 1,
 		&qnm_aggre2_noc);
-DEFINE_QBCM(bcm_sn14, "SN14", 1, false,
+DEFINE_QBCM(bcm_sn14, "SN14", false, 1,
 		&qns_pcie_mem_noc);
 
 static struct qcom_icc_bcm *aggre1_noc_bcms[] = {
