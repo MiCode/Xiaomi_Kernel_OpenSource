@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -457,6 +457,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SPSS_SP_SHARED";
 	case VMID_CP_SPSS_HLOS_SHARED:
 		return "VMID_CP_SPSS_HLOS_SHARED";
+	case VMID_CP_CAMERA_ENCODE:
+		return "VMID_CP_CAMERA_ENCODE";
 	case VMID_CP_CDSP:
 		return "VMID_CP_CDSP";
 	case VMID_CP_DSP_EXT:

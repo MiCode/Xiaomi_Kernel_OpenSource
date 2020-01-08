@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ enum vmid {
 	VMID_CP_CAMERA_PREVIEW = 0x1D,
 	VMID_CP_SPSS_SP_SHARED = 0x22,
 	VMID_CP_SPSS_HLOS_SHARED = 0x24,
+	VMID_CP_CAMERA_ENCODE = 0x29,
 	VMID_CP_CDSP = 0x2A,
 	VMID_CP_DSP_EXT = 0x2E,
 	VMID_NAV = 0x2B,

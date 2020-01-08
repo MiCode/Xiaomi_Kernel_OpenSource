@@ -61,7 +61,8 @@ static bool is_cp_flag_present(unsigned long flags)
 			ION_FLAG_CP_BITSTREAM |
 			ION_FLAG_CP_PIXEL |
 			ION_FLAG_CP_NON_PIXEL |
-			ION_FLAG_CP_CAMERA);
+			ION_FLAG_CP_CAMERA |
+			ION_FLAG_CP_CAMERA_ENCODE);
 }
 
 static void ion_system_secure_heap_free(struct ion_buffer *buffer)
