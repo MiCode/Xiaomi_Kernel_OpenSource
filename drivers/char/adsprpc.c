@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -155,6 +155,8 @@
 		(((offset >= 0) && (offset < PERF_KEY_MAX)) ?\
 			(int64_t *)(perf_ptr + offset)\
 				: (int64_t *)NULL) : (int64_t *)NULL)
+
+#define IS_ASYNC_FASTRPC_AVAILABLE (0)
 
 static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
 					unsigned long code,
@@ -2709,36 +2711,62 @@ bail:
 }
 
 static int fastrpc_get_info_from_kernel(
-		struct fastrpc_ioctl_dsp_capabilities *dsp_cap,
+		struct fastrpc_ioctl_remote_dsp_capability *dsp_cap,
 		struct fastrpc_file *fl)
 {
 	int err = 0;
 	uint32_t domain_support;
 	uint32_t domain = dsp_cap->domain;
+	uint32_t async_capability = IS_ASYNC_FASTRPC_AVAILABLE;
+	struct fastrpc_dsp_capabilities *dsp_cap_ptr;
 
-	if (!gcinfo[domain].dsp_cap_kernel.is_cached) {
+	VERIFY(err, dsp_cap->domain < NUM_CHANNELS);
+
+	/*
+	 * Check if number of attribute IDs obtained from userspace
+	 * is less than the number of attribute IDs supported by
+	 * kernel
+	 */
+	if (dsp_cap->attribute_ID >= FASTRPC_MAX_DSP_ATTRIBUTES) {
+		err = EOVERFLOW;
+		dsp_cap->capability = 0;
+		goto bail;
+	}
+
+	dsp_cap_ptr = &gcinfo[domain].dsp_cap_kernel;
+
+	if (!dsp_cap_ptr->is_cached) {
 		/*
 		 * Information not on kernel, query device for information
 		 * and cache on kernel
 		 */
-		err = fastrpc_get_info_from_dsp(fl, dsp_cap->dsp_attributes,
-				FASTRPC_MAX_DSP_ATTRIBUTES - 1,
-				domain);
+		err = fastrpc_get_info_from_dsp(fl,
+			  dsp_cap_ptr->dsp_attributes,
+			  FASTRPC_MAX_DSP_ATTRIBUTES - 1,
+			  domain);
 		if (err)
 			goto bail;
 
-		domain_support = dsp_cap->dsp_attributes[0];
+		domain_support =
+			dsp_cap_ptr->dsp_attributes[0];
+
 		switch (domain_support) {
 		case 0:
-			memset(dsp_cap->dsp_attributes, 0,
-				sizeof(dsp_cap->dsp_attributes));
-			memset(&gcinfo[domain].dsp_cap_kernel.dsp_attributes,
-				0, sizeof(dsp_cap->dsp_attributes));
+			memset(&dsp_cap_ptr->dsp_attributes,
+				0,
+				sizeof(dsp_cap_ptr->dsp_attributes));
+			memset(&dsp_cap->capability,
+				0, sizeof(dsp_cap->capability));
 			break;
 		case 1:
-			memcpy(&gcinfo[domain].dsp_cap_kernel.dsp_attributes,
-				dsp_cap->dsp_attributes,
-				sizeof(dsp_cap->dsp_attributes));
+			async_capability =
+				async_capability &&
+				dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP];
+			dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP] =
+				async_capability;
+			memcpy(&dsp_cap->capability,
+			&dsp_cap_ptr->dsp_attributes[dsp_cap->attribute_ID],
+			sizeof(dsp_cap->capability));
 			break;
 		default:
 			err = -1;
@@ -2746,19 +2774,19 @@ static int fastrpc_get_info_from_kernel(
 			 * Reset is_cached flag to 0 so subsequent calls
 			 * can try to query dsp again
 			 */
-			gcinfo[domain].dsp_cap_kernel.is_cached = 0;
+			dsp_cap_ptr->is_cached = 0;
 			pr_warn("adsprpc: %s: %s: returned bad domain support value %d\n",
 					current->comm,
 					__func__,
 					domain_support);
 			goto bail;
 		}
-		gcinfo[domain].dsp_cap_kernel.is_cached = 1;
+		dsp_cap_ptr->is_cached = 1;
 	} else {
 		// Information on Kernel, pass it to user
-		memcpy(dsp_cap->dsp_attributes,
-			&gcinfo[domain].dsp_cap_kernel.dsp_attributes,
-			sizeof(dsp_cap->dsp_attributes));
+		memcpy(&dsp_cap->capability,
+			&dsp_cap_ptr->dsp_attributes[dsp_cap->attribute_ID],
+			sizeof(dsp_cap->capability));
 	}
 bail:
 	return err;
@@ -4041,13 +4069,15 @@ static int fastrpc_control(struct fastrpc_ioctl_control *cp,
 bail:
 	return err;
 }
-static int fastrpc_get_dsp_info(struct fastrpc_ioctl_dsp_capabilities *dsp_cap,
-				void *param, struct fastrpc_file *fl)
+
+static int fastrpc_get_dsp_info(
+		struct fastrpc_ioctl_remote_dsp_capability *dsp_cap,
+		void *param, struct fastrpc_file *fl)
 {
 	int err = 0;
 
 	K_COPY_FROM_USER(err, 0, dsp_cap, param,
-			sizeof(struct fastrpc_ioctl_dsp_capabilities));
+			sizeof(struct fastrpc_ioctl_remote_dsp_capability));
 	VERIFY(err, dsp_cap->domain < NUM_CHANNELS);
 	if (err)
 		goto bail;
@@ -4055,8 +4085,13 @@ static int fastrpc_get_dsp_info(struct fastrpc_ioctl_dsp_capabilities *dsp_cap,
 	err = fastrpc_get_info_from_kernel(dsp_cap, fl);
 	if (err)
 		goto bail;
-	K_COPY_TO_USER(err, 0, param, dsp_cap,
-			sizeof(struct fastrpc_ioctl_dsp_capabilities));
+	K_COPY_TO_USER(
+			err,
+			0,
+			&((struct fastrpc_ioctl_remote_dsp_capability *)
+				param)->capability,
+			&dsp_cap->capability,
+			sizeof(dsp_cap->capability));
 bail:
 	return err;
 }
@@ -4074,7 +4109,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
 		struct fastrpc_ioctl_control cp;
-		struct fastrpc_ioctl_dsp_capabilities dsp_cap;
+		struct fastrpc_ioctl_remote_dsp_capability dsp_cap;
 	} p;
 	union {
 		struct fastrpc_ioctl_mmap mmap;
