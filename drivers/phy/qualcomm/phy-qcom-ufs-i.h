@@ -113,6 +113,7 @@ struct ufs_qcom_phy {
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
  * @ctrl_rx_linecfg: pointer to a function that controls the enable/disable of
  * Rx line config
+ * @dbg_register_dump: pointer to a function that dumps phy registers for debug.
  */
 struct ufs_qcom_phy_specific_ops {
 	int (*calibrate)(struct ufs_qcom_phy *ufs_qcom_phy, bool is_rate_B,
@@ -122,6 +123,7 @@ struct ufs_qcom_phy_specific_ops {
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
 	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
+	void (*dbg_register_dump)(struct ufs_qcom_phy *phy);
 };
 
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
@@ -139,4 +141,9 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			struct ufs_qcom_phy_calibration *tbl_A, int tbl_size_A,
 			struct ufs_qcom_phy_calibration *tbl_B, int tbl_size_B,
 			bool is_rate_B);
+void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
+			struct ufs_qcom_phy_calibration *tbl,
+			int tbl_size);
+int ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy,
+			    int offset, int len, char *prefix);
 #endif

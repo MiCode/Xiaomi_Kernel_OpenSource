@@ -15,13 +15,24 @@
 
 #define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
 
+void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
+			    struct ufs_qcom_phy_calibration *tbl,
+			    int tbl_size)
+{
+	int i;
+
+	for (i = 0; i < tbl_size; i++)
+		writel_relaxed(tbl[i].cfg_value,
+			       ufs_qcom_phy->mmio + tbl[i].reg_offset);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_write_tbl);
+
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
 			   int tbl_size_A,
 			   struct ufs_qcom_phy_calibration *tbl_B,
 			   int tbl_size_B, bool is_rate_B)
 {
-	int i;
 	int ret = 0;
 
 	if (!tbl_A) {
@@ -30,9 +41,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 		goto out;
 	}
 
-	for (i = 0; i < tbl_size_A; i++)
-		writel_relaxed(tbl_A[i].cfg_value,
-			       ufs_qcom_phy->mmio + tbl_A[i].reg_offset);
+	ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl_A, tbl_size_A);
 
 	/*
 	 * In case we would like to work in rate B, we need
@@ -48,9 +57,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			goto out;
 		}
 
-		for (i = 0; i < tbl_size_B; i++)
-			writel_relaxed(tbl_B[i].cfg_value,
-				ufs_qcom_phy->mmio + tbl_B[i].reg_offset);
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl_B, tbl_size_B);
 	}
 
 	/* flush buffered writes */
@@ -720,6 +727,40 @@ void ufs_qcom_phy_ctrl_rx_linecfg(struct phy *generic_phy, bool ctrl)
 		ufs_qcom_phy->phy_spec_ops->ctrl_rx_linecfg(ufs_qcom_phy, ctrl);
 }
 EXPORT_SYMBOL(ufs_qcom_phy_ctrl_rx_linecfg);
+
+int ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy, int offset,
+		int len, char *prefix)
+{
+	u32 *regs;
+	size_t pos;
+
+	if (offset % 4 != 0 || len % 4 != 0) /* keep readl happy */
+		return -EINVAL;
+
+	regs = kzalloc(len, GFP_KERNEL);
+	if (!regs)
+		return -ENOMEM;
+
+	for (pos = 0; pos < len; pos += 4)
+		regs[pos / 4] = readl_relaxed(phy->mmio + offset + pos);
+
+	print_hex_dump(KERN_ERR, prefix,
+			len > 4 ? DUMP_PREFIX_OFFSET : DUMP_PREFIX_NONE,
+			16, 4, regs, len, false);
+	kfree(regs);
+
+	return 0;
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dump_regs);
+
+void ufs_qcom_phy_dbg_register_dump(struct phy *generic_phy)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+
+	if (ufs_qcom_phy->phy_spec_ops->dbg_register_dump)
+		ufs_qcom_phy->phy_spec_ops->dbg_register_dump(ufs_qcom_phy);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dbg_register_dump);
 
 MODULE_AUTHOR("Yaniv Gardi <ygardi@codeaurora.org>");
 MODULE_AUTHOR("Vivek Gautam <vivek.gautam@codeaurora.org>");
