@@ -22,3 +22,4 @@ obj-$(CONFIG_DRM_PANEL_K6885V1_64_ALPHA_01) += k6885v1_64_alpha/panel-k6885v1-64
 obj-$(CONFIG_DRM_PANEL_K6885V1_64_ALPHA_VDO_01) += k6885v1_64_alpha/panel-k6885v1-64-alpha-vdo-01.o
 obj-$(CONFIG_DRM_PANEL_K6885V1_64_ALPHA_VDO_02) += k6885v1_64_alpha/panel-k6885v1-64-alpha-vdo-02.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD) += panel-tianma-r66451-cmd.o
+obj-$(CONFIG_DRM_PANEL_TRULY_TD4330_VDO_FAKE_WCG) += panel-truly-td4330-vdo-fake-wcg.o
