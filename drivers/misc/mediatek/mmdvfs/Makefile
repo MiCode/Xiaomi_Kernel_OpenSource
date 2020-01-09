@@ -63,6 +63,8 @@ SUPPORT_MMP := true
 SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
+FORCE_STEP0 := false
+ccflags-y += -DCHECK_VOLTAGE
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)

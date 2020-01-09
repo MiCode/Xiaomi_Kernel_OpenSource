@@ -3844,6 +3844,8 @@
 		mdp_step2 = <343 1 8 17>;
 		mdp_step3 = <229 1 8 18>;
 
+		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
+
 		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
 		vopp_steps = <0 1 2 3>;
 		disp_freq = "disp_step0", "disp_step1",
