@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/msm_rtb.h>
 
@@ -654,6 +654,8 @@ struct mhi_event {
 			     struct mhi_event *mhi_event,
 			     u32 event_quota);
 	struct mhi_controller *mhi_cntrl;
+	struct mhi_tre last_cached_tre;
+	u64 last_dev_rp;
 };
 
 struct mhi_chan {
