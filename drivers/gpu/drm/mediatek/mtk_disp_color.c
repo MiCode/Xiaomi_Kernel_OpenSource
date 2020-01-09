@@ -2191,6 +2191,25 @@ static bool color_get_MDP_HDR0_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_MDP_COLOR0_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_color0");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc) {
+		DDPINFO("Fail to get MDP_COLOR0 REG\n");
+		return false;
+	}
+
+	DDPDBG("MDP_COLOR0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 #if defined(SUPPORT_MDP_AAL)
 static bool color_get_MDP_AAL0_REG(struct resource *res)
 {
@@ -2323,6 +2342,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	if (color_get_MDP_HDR0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
 		DDPDBG("addr=0x%lx, module=MDP_HDR0\n", addr);
+		return 2;
+	}
+
+	if (color_get_MDP_COLOR0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MDP_COLOR0\n", addr);
 		return 2;
 	}
 
@@ -2496,17 +2521,12 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 				ret = res.start;
 			break;
 		}
-#if defined(DISP_MDP_COLOR_ON) || defined(MDP_COLOR_ON)
 	case SWREG_MDP_COLOR_BASE_ADDRESS:
 		{
-#if defined(NO_COLOR_SHARED)
-			ret = MDP_COLOR_PA_BASE;
-#else
-			ret = comp->regs_pa;
-#endif
+			if (color_get_MDP_COLOR0_REG(&res))
+				ret = res.start;
 			break;
 		}
-#endif
 	case SWREG_COLOR_MODE:
 		{
 			ret = COLOR_MODE;
