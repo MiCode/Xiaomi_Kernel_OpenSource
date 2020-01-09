@@ -81,7 +81,6 @@
 	(TMC_CTRL_CMD_TX_POWER \
 	| (TMC_TW_PWR_REDUCE_NR_MAX_TX_EVENT << 16)	\
 	| (pwr << 24))
-#define TMC_REDUCE_TX_PWR
 
 #if 0
 /*
@@ -94,6 +93,7 @@
 
 /* State of "MD off & noIMS" are not included. */
 #define MAX_NUM_INSTANCE_MTK_COOLER_MUTT  8
+#define MAX_NUM_TX_PWR_LV  3
 
 #define MTK_CL_MUTT_GET_LIMIT(limit, state) \
 { (limit) = (short) (((unsigned long) (state))>>16); }
@@ -117,6 +117,7 @@ do { \
 #define for_each_mutt_type(i)	for (i = 0; i < NR_MUTT_TYPE; i++)
 #define for_each_mutt_cooler_instance(i) \
 	for (i = 0; i < MAX_NUM_INSTANCE_MTK_COOLER_MUTT; i++)
+#define for_each_tx_pwr_lv(i)  for (i = 0; i < MAX_NUM_TX_PWR_LV; i++)
 
 /* LOG */
 #define mtk_cooler_mutt_dprintk_always(fmt, args...) \
@@ -264,6 +265,7 @@ struct clmutt_cooler {
 	enum mutt_type type;
 	char *name;
 	int target_level;
+	int target_tx_pwr_level;
 #if FEATURE_ADAPTIVE_MUTT
 	int adp_level;
 	struct clmutt_adaptive_algo_param adp_param;
@@ -272,15 +274,21 @@ struct clmutt_cooler {
 #endif
 	/* mdoff cooler */
 	struct thermal_cooling_device *mdoff_dev;
-	unsigned int mdoff_state;
+	unsigned long mdoff_state;
 	/* noIMS cooler */
 	struct thermal_cooling_device *noIMS_dev;
-	unsigned int noIMS_state;
+	unsigned long noIMS_state;
 	/* normal cooler */
 	struct thermal_cooling_device *dev[MAX_NUM_INSTANCE_MTK_COOLER_MUTT];
 	unsigned long state[MAX_NUM_INSTANCE_MTK_COOLER_MUTT];
 	/* To identify cooler type and level */
-	unsigned int id;
+	unsigned int id[MAX_NUM_INSTANCE_MTK_COOLER_MUTT];
+	/* TX power cooler */
+	struct thermal_cooling_device *tx_pwr_dev[MAX_NUM_TX_PWR_LV];
+	unsigned long tx_pwr_state[MAX_NUM_TX_PWR_LV];
+	unsigned int tx_pwr_db[MAX_NUM_TX_PWR_LV];
+	/* To identify cooler type and reduce tx power level */
+	unsigned int id_tx_pwr[MAX_NUM_TX_PWR_LV];
 };
 
 struct clmutt_param {
@@ -301,7 +309,9 @@ struct clmutt_param {
 	struct task_struct *pg_task;
 	struct clmutt_cooler cooler_param[NR_MUTT_TYPE];
 	struct mutex lock;
-	/* command input */
+	struct thermal_cooling_device *scg_off_dev;
+	unsigned long scg_off_state;
+	/* cache command input */
 	int cooler_lv_ctrl[NR_MUTT_TYPE];
 	unsigned int ca_ctrl; /* LTE only */
 	unsigned int pa_ctrl; /* LTE only */
@@ -309,7 +319,7 @@ struct clmutt_param {
 	unsigned int active_period_100ms; /* LTE only, 0 is disable */
 	unsigned int suspend_period_100ms; /* LTE only, 0 is disable */
 	unsigned int scg_off; /* NR only */
-	unsigned int reduce_max_tx_pwr[NR_MUTT_TYPE];
+	unsigned int reduce_tx_pwr[NR_MUTT_TYPE];
 };
 
 /****************************************************************************
@@ -323,23 +333,31 @@ static struct clmutt_param clmutt_data = {
 			.type = MUTT_LTE,
 			.name = __stringify(MUTT_LTE),
 			.target_level = -1,
+			.target_tx_pwr_level = -1,
 #if FEATURE_ADAPTIVE_MUTT
 			.adp_level = -1,
 			.adp_param = {0, 58000, 1000, 50, 50, 0},
 #endif
 			.dev = { 0 },
 			.state = { 0 },
+			.tx_pwr_dev = { 0 },
+			.tx_pwr_state = { 0 },
+			.tx_pwr_db = {1, 2, 3},
 		},
 		[MUTT_NR] = {
 			.type = MUTT_NR,
 			.name = __stringify(MUTT_NR),
 			.target_level = -1,
+			.target_tx_pwr_level = -1,
 #if FEATURE_ADAPTIVE_MUTT
 			.adp_level = -1,
 			.adp_param = {0, 58000, 1000, 50, 50, 0},
 #endif
 			.dev = { 0 },
 			.state = { 0 },
+			.tx_pwr_dev = { 0 },
+			.tx_pwr_state = { 0 },
+			.tx_pwr_db = {1, 2, 3},
 		},
 	},
 	.lock = __MUTEX_INITIALIZER(clmutt_data.lock),
@@ -382,7 +400,7 @@ static int clmutt_decide_final_level(enum mutt_type type, int lv)
 	return final_lv;
 }
 
-static void clmutt_cooler_param_reset(int mdoff_state)
+static void clmutt_cooler_param_reset(unsigned long mdoff_state)
 {
 	int i, j;
 
@@ -529,7 +547,7 @@ static int clmutt_send_tmd_signal(int level)
 }
 #endif
 
-static int clmutt_send_tm_signal(enum mutt_type type, int state)
+static int clmutt_send_tm_signal(enum mutt_type type, unsigned long state)
 {
 	int ret = 0;
 	int target_lv;
@@ -657,6 +675,47 @@ static int clmutt_resend_limit(void)
 	return clmutt_send_tmc_cmd(cmd);
 }
 
+static int clmutt_send_scg_off_cmd(int onoff)
+{
+	int ret = -1;
+	unsigned int limit;
+
+	if (onoff)
+		limit = TMC_CTRL_CMD_SCG_OFF;
+	else
+		limit = TMC_CTRL_CMD_SCG_ON;
+
+	ret = clmutt_send_tmc_cmd(limit);
+	mtk_cooler_mutt_dprintk_always(
+		"[%s] set SCG off:%d(0x%08x). ret:%d, bcnt:%lu\n",
+		__func__, onoff, limit,
+		ret, clmutt_data.last_md_boot_cnt);
+
+	return ret;
+}
+
+static int clmutt_send_reduce_tx_pwr_cmd(
+	enum mutt_type type, unsigned int pwr)
+{
+	int ret = -1;
+	unsigned int limit;
+
+	if (pwr < 0)
+		pwr = 0;
+
+	limit = (type == MUTT_NR)
+		? TMC_REDUCE_NR_MAX_TX_POWER(pwr)
+		: TMC_REDUCE_OTHER_MAX_TX_POWER(pwr);
+	ret = clmutt_send_tmc_cmd(limit);
+
+	mtk_cooler_mutt_dprintk_always(
+		"[%s] set %s tx_pwr:%d(0x%08x). ret:%d, bcnt:%lu\n",
+		__func__, clmutt_data.cooler_param[type].name, pwr,
+		limit, ret, clmutt_data.last_md_boot_cnt);
+
+	return ret;
+}
+
 /*
  * cooling device callback functions (mtk_cl_mdoff_ops)
  * 1 : True and 0 : False
@@ -728,7 +787,7 @@ static struct thermal_cooling_device_ops mtk_cl_mdoff_ops = {
 	.set_cur_state = mtk_cl_mdoff_set_cur_state,
 };
 
-static void mtk_cl_mutt_set_onIMS(enum mutt_type type, unsigned int state)
+static void mtk_cl_mutt_set_onIMS(enum mutt_type type, unsigned long state)
 {
 	int ret = 0, target_lv;
 
@@ -993,7 +1052,8 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		goto end;
 	}
 
-	mtk_cooler_mutt_dprintk("[%s] %s %lu\n", __func__, cdev->type, state);
+	mtk_cooler_mutt_dprintk("[%s] %s id%d cid%d %lu\n",
+		__func__, cdev->type, id, cooler_id, state);
 
 	MTK_CL_MUTT_SET_CURR_STATE(state,
 		clmutt_data.cooler_param[type].state[cooler_id]);
@@ -1177,12 +1237,189 @@ static struct thermal_cooling_device_ops mtk_cl_adp_mutt_ops = {
 };
 #endif
 
+static int mtk_cl_scg_off_get_max_state(struct thermal_cooling_device *cdev,
+				unsigned long *state)
+{
+	*state = 1;
+	mtk_cooler_mutt_dprintk("%s() %s %lu\n", __func__,
+				cdev->type, *state);
+
+	return 0;
+}
+
+static int mtk_cl_scg_off_get_cur_state(struct thermal_cooling_device *cdev,
+				unsigned long *state)
+{
+	*state = clmutt_data.scg_off_state;
+	mtk_cooler_mutt_dprintk(
+		"[%s] %lu (0: SCG on;  1: SCG off)\n", __func__, *state);
+	return 0;
+}
+
+static int mtk_cl_scg_off_set_cur_state(struct thermal_cooling_device *cdev,
+				unsigned long state)
+{
+	if ((state >= 0) && (state <= 1))
+		mtk_cooler_mutt_dprintk(
+			"[%s] %lu (0: SCG on; 1: SCG off)\n", __func__, state);
+	else {
+		mtk_cooler_mutt_dprintk(
+		"[%s]: Invalid input (0:SCG on; 1: SCG off)\n", __func__);
+
+		return 0;
+	}
+
+	mutex_lock(&clmutt_data.lock);
+
+	if (IS_MD_OFF_OR_NO_IMS(clmutt_data.cur_level)) {
+		mtk_cooler_mutt_dprintk_always("[%s] MD OFF or noIMS!!\n",
+						__func__);
+		goto end;
+	}
+
+	mtk_cooler_mutt_dprintk("[%s] %lu\n", __func__, state);
+
+	if (clmutt_data.scg_off_state == state)
+		goto end;
+
+	if (clmutt_send_scg_off_cmd((int)state))
+		clmutt_data.cur_limit = 0;
+	else
+		clmutt_data.scg_off_state = state;
+
+end:
+	mutex_unlock(&clmutt_data.lock);
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops mtk_cl_scg_off_ops = {
+	.get_max_state = mtk_cl_scg_off_get_max_state,
+	.get_cur_state = mtk_cl_scg_off_get_cur_state,
+	.set_cur_state = mtk_cl_scg_off_set_cur_state,
+};
+
+static int mtk_cl_tx_pwr_get_max_state(
+struct thermal_cooling_device *cdev, unsigned long *state)
+{
+	*state = 1;
+	mtk_cooler_mutt_dprintk("%s() %s %lu\n", __func__,
+				cdev->type, *state);
+
+	return 0;
+}
+
+static int mtk_cl_tx_pwr_get_cur_state(
+struct thermal_cooling_device *cdev, unsigned long *state)
+{
+	unsigned int id = *(unsigned int *)cdev->devdata;
+	unsigned int type = id / MAX_NUM_TX_PWR_LV;
+	unsigned int cid = id % MAX_NUM_TX_PWR_LV;
+
+	if (!IS_MUTT_TYPE_VALID(type)) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s: Invalid mutt type %d\n",
+			__func__, cdev->type, type);
+		return 0;
+	}
+
+	if (cid >= MAX_NUM_TX_PWR_LV) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s: Invalid tx pwr id %d\n",
+			__func__, cdev->type, cid);
+		return 0;
+	}
+
+	*state = clmutt_data.cooler_param[type].tx_pwr_state[cid];
+	mtk_cooler_mutt_dprintk("%s() %s %lu\n", __func__,
+							cdev->type, *state);
+	return 0;
+}
+
+static int mtk_cl_tx_pwr_set_cur_state(
+struct thermal_cooling_device *cdev, unsigned long state)
+{
+	unsigned int id = *(unsigned int *)cdev->devdata;
+	unsigned int type = id / MAX_NUM_TX_PWR_LV;
+	unsigned int cid = id % MAX_NUM_TX_PWR_LV;
+	int i, target_lv = -1, ret = -1;
+
+	if (!IS_MUTT_TYPE_VALID(type)) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s: Invalid mutt type %d\n",
+			__func__, cdev->type, type);
+		return 0;
+	}
+
+	if (cid >= MAX_NUM_TX_PWR_LV) {
+		mtk_cooler_mutt_dprintk_always(
+			"[%s] %s: Invalid tx pwr id %d\n",
+			__func__, cdev->type, cid);
+		return 0;
+	}
+
+	if ((state != 0) && (state != 1)) {
+		mtk_cooler_mutt_dprintk_always(
+		"[%s] %s: Invalid input(0:tx pwr off; 1:tx pwr on)\n",
+			__func__, cdev->type);
+		return 0;
+	}
+
+	mutex_lock(&clmutt_data.lock);
+
+	if (IS_MD_OFF_OR_NO_IMS(clmutt_data.cur_level)) {
+		mtk_cooler_mutt_dprintk_always("[%s] %s: MD OFF or noIMS!!\n",
+						__func__, cdev->type);
+		goto end;
+	}
+
+	mtk_cooler_mutt_dprintk("[%s] %s %d %lu\n", __func__,
+		cdev->type, cid, state);
+
+	clmutt_data.cooler_param[type].tx_pwr_state[cid] = state;
+	for_each_tx_pwr_lv(i) {
+		if (clmutt_data.cooler_param[type].tx_pwr_state[i] == 1)
+			target_lv = i;
+	}
+
+	if (target_lv == clmutt_data.cooler_param[type].target_tx_pwr_level)
+		goto end;
+	else if (target_lv < 0)
+		ret = clmutt_send_reduce_tx_pwr_cmd(type, 0); /* cancel */
+	else if (target_lv < MAX_NUM_TX_PWR_LV)
+		ret = clmutt_send_reduce_tx_pwr_cmd(type,
+			clmutt_data.cooler_param[type].tx_pwr_db[target_lv]);
+
+	if (ret != 0) {
+		clmutt_data.cur_limit = 0;
+	} else {
+		clmutt_data.cooler_param[type].target_tx_pwr_level = target_lv;
+		mtk_cooler_mutt_dprintk_always("[%s] %s:reduce tx %d dBm\n",
+			__func__, clmutt_data.cooler_param[type].name,
+			clmutt_data.cooler_param[type].tx_pwr_db[target_lv]);
+	}
+
+end:
+	mutex_unlock(&clmutt_data.lock);
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops mtk_cl_tx_pwr_ops = {
+	.get_max_state = mtk_cl_tx_pwr_get_max_state,
+	.get_cur_state = mtk_cl_tx_pwr_get_cur_state,
+	.set_cur_state = mtk_cl_tx_pwr_set_cur_state,
+};
+
 static int mtk_cooler_mutt_register_ltf(void)
 {
 	struct clmutt_cooler *p_cooler;
-	int i, j, id = 0;
+	int i, j, id = 0, id_tx_pwr = 0;
 
 	mtk_cooler_mutt_dprintk("register ltf\n");
+
+	clmutt_data.scg_off_dev = mtk_thermal_cooling_device_register(
+		"mtk-cl-scg-off", NULL, &mtk_cl_scg_off_ops);
 
 	for_each_mutt_type(i) {
 		char postfix[4] = {"\0"};
@@ -1193,14 +1430,25 @@ static int mtk_cooler_mutt_register_ltf(void)
 
 		p_cooler = &clmutt_data.cooler_param[i];
 		for_each_mutt_cooler_instance(j) {
-			p_cooler->id = id;
+			p_cooler->id[j] = id;
 			sprintf(temp, "mtk-cl-mutt%02d%s", j, postfix);
 			/* put mutt state to cooler devdata */
 			p_cooler->dev[j] =
 				mtk_thermal_cooling_device_register(temp,
-					(void *)&p_cooler->id,
+					(void *)&p_cooler->id[j],
 					&mtk_cl_mutt_ops);
 			id++;
+		}
+		for_each_tx_pwr_lv(j) {
+			p_cooler->id_tx_pwr[j] = id_tx_pwr;
+			sprintf(temp, "mtk-cl-tx-pwr%02d%s",
+				j, postfix);
+			/* put mutt state to cooler devdata */
+			p_cooler->tx_pwr_dev[j] =
+				mtk_thermal_cooling_device_register(temp,
+					(void *)&p_cooler->id_tx_pwr[j],
+					&mtk_cl_tx_pwr_ops);
+			id_tx_pwr++;
 		}
 
 		sprintf(temp, "mtk-cl-noIMS%s", postfix);
@@ -1230,15 +1478,29 @@ static void mtk_cooler_mutt_unregister_ltf(void)
 
 	mtk_cooler_mutt_dprintk("unregister ltf\n");
 
+	if (clmutt_data.scg_off_dev) {
+		mtk_thermal_cooling_device_unregister(clmutt_data.scg_off_dev);
+		clmutt_data.scg_off_dev = NULL;
+		clmutt_data.scg_off_state = 0;
+	}
+
 	for_each_mutt_type(i) {
 		p_cooler = &clmutt_data.cooler_param[i];
 
 		for_each_mutt_cooler_instance(j) {
-			if (!p_cooler->dev[j]) {
+			if (p_cooler->dev[j]) {
 				mtk_thermal_cooling_device_unregister(
 					p_cooler->dev[j]);
 				p_cooler->dev[j] = NULL;
 				p_cooler->state[j] = 0;
+			}
+		}
+		for_each_tx_pwr_lv(j) {
+			if (p_cooler->tx_pwr_dev[j]) {
+				mtk_thermal_cooling_device_unregister(
+					p_cooler->tx_pwr_dev[j]);
+				p_cooler->tx_pwr_dev[j] = NULL;
+				p_cooler->tx_pwr_state[j] = 0;
 			}
 		}
 		if (p_cooler->noIMS_dev) {
@@ -1284,6 +1546,7 @@ static int clmutt_setting_proc_read(struct seq_file *m, void *v)
 
 	seq_printf(m, "cur_limit: 0x%08x, cur_level: %d\n",
 		clmutt_data.cur_limit, clmutt_data.cur_level);
+	seq_printf(m, "\tscgoff_state:%lu\n", clmutt_data.scg_off_state);
 
 	for_each_mutt_type(i) {
 		seq_printf(m, "[%d][%s]\n",
@@ -1291,6 +1554,8 @@ static int clmutt_setting_proc_read(struct seq_file *m, void *v)
 			clmutt_data.cooler_param[i].name);
 		seq_printf(m, "\ttarget_level:%d\n",
 			clmutt_data.cooler_param[i].target_level);
+		seq_printf(m, "\ttarget_tx_pwr_level:%d\n",
+			clmutt_data.cooler_param[i].target_tx_pwr_level);
 #if FEATURE_ADAPTIVE_MUTT
 		seq_printf(m, "\ttarget_t:%d\n",
 			clmutt_data.cooler_param[i].adp_param.target_t);
@@ -1299,9 +1564,9 @@ static int clmutt_setting_proc_read(struct seq_file *m, void *v)
 		seq_printf(m, "\tadp_state:%lu\n",
 			clmutt_data.cooler_param[i].adp_state);
 #endif
-		seq_printf(m, "\tmdoff_state:%d\n",
+		seq_printf(m, "\tmdoff_state:%lu\n",
 			clmutt_data.cooler_param[i].mdoff_state);
-		seq_printf(m, "\tnoIMS_state:%d\n",
+		seq_printf(m, "\tnoIMS_state:%lu\n",
 			clmutt_data.cooler_param[i].noIMS_state);
 
 		for_each_mutt_cooler_instance(j) {
@@ -1310,6 +1575,12 @@ static int clmutt_setting_proc_read(struct seq_file *m, void *v)
 			MTK_CL_MUTT_GET_CURR_STATE(state,
 				clmutt_data.cooler_param[i].state[j]);
 			seq_printf(m, "\tstate[%d]:%lu\n", j, state);
+		}
+		for_each_tx_pwr_lv(j) {
+			seq_printf(m, "\ttx_pwr_state[%d]:%lu, pwr:%d dBm\n",
+				j,
+				clmutt_data.cooler_param[i].tx_pwr_state[j],
+				clmutt_data.cooler_param[i].tx_pwr_db[j]);
 		}
 	}
 
@@ -1320,19 +1591,18 @@ static ssize_t clmutt_setting_proc_write(
 struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 {
 	char desc[PROC_BUFFER_LEN];
-	int len = 0, klog_on, target_t_nr, target_t;
+	int len = 0, i, klog_on, target_t_nr, target_t;
+	int tx_pwr[MAX_NUM_TX_PWR_LV];
+	int tx_pwr_nr[MAX_NUM_TX_PWR_LV];
 	int scan_count = 0;
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
-	scan_count = sscanf(desc, "%d %d %d",
-		&klog_on, &target_t_nr, &target_t);
-	if (scan_count == 3) {
+	scan_count = sscanf(desc, "%d %d %d %d %d %d %d %d %d",
+		&klog_on, &target_t_nr, &target_t, &tx_pwr_nr[0],
+		&tx_pwr_nr[1], &tx_pwr_nr[2], &tx_pwr[0],
+		&tx_pwr[1], &tx_pwr[2]);
+	if (scan_count == 3 + NR_MUTT_TYPE * MAX_NUM_TX_PWR_LV) {
 		mtk_cooler_mutt_dprintk_always(
 			"[%s] klog_on:%d, target_t_nr:%d, target_t:%d\n",
 			__func__, klog_on, target_t_nr, target_t);
@@ -1343,6 +1613,12 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 			= target_t_nr;
 		clmutt_data.cooler_param[MUTT_LTE].adp_param.target_t
 			= target_t;
+		for_each_tx_pwr_lv(i) {
+			clmutt_data.cooler_param[MUTT_NR].tx_pwr_db[i]
+				= tx_pwr_nr[i];
+			clmutt_data.cooler_param[MUTT_LTE].tx_pwr_db[i]
+				= tx_pwr[i];
+		}
 		mutex_unlock(&clmutt_data.lock);
 
 		return len;
@@ -1370,11 +1646,6 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 	int ret = 0, len = 0;
 
 	len = copy_proc_data(buffer, count, desc);
-
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
 
 	ret = kstrtouint(desc, 10, &clmutt_data.tm_input_pid);
 	if (ret)
@@ -1404,11 +1675,6 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
 	ret = kstrtouint(desc, 10, &clmutt_data.tmd_input_pid);
 	if (ret)
 		WARN_ON_ONCE(1);
@@ -1432,17 +1698,10 @@ static ssize_t clmutt_klog_on_proc_write(struct file *filp,
 {
 	char desc[PROC_BUFFER_LEN];
 	int len = 0, klog_on;
-	int scan_count = 0;
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
-	scan_count = sscanf(desc, "%d", &klog_on);
-	if (scan_count == 1) {
+	if (kstrtoint(desc, 10, &klog_on) == 0) {
 		mtk_cooler_mutt_dprintk_always(
 			"[%s] klog_on:%d\n", __func__, klog_on);
 
@@ -1477,11 +1736,6 @@ static ssize_t clmutt_duty_ctrl_proc_write(struct file *filp,
 	unsigned int limit;
 
 	len = copy_proc_data(buffer, count, desc);
-
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
 
 	scan_count = sscanf(desc, "%d %d %d", &no_ims, &active, &suspend);
 	if (scan_count == 3) {
@@ -1545,18 +1799,11 @@ static ssize_t clmutt_ca_ctrl_proc_write(struct file *filp,
 {
 	char desc[PROC_BUFFER_LEN];
 	int ret = 0, len = 0, ca_ctrl;
-	int scan_count = 0;
 	unsigned int limit;
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
-	scan_count = sscanf(desc, "%d", &ca_ctrl);
-	if (scan_count == 1) {
+	if (kstrtoint(desc, 10, &ca_ctrl) == 0) {
 		mtk_cooler_mutt_dprintk_always(
 			"[%s] ca_ctrl:%d\n", __func__, ca_ctrl);
 
@@ -1605,18 +1852,11 @@ static ssize_t clmutt_pa_ctrl_proc_write(struct file *filp,
 {
 	char desc[PROC_BUFFER_LEN];
 	int ret = 0, len = 0, pa_ctrl;
-	int scan_count = 0;
 	unsigned int limit;
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
-	scan_count = sscanf(desc, "%d", &pa_ctrl);
-	if (scan_count == 1) {
+	if (kstrtoint(desc, 10, &pa_ctrl) == 0) {
 		mtk_cooler_mutt_dprintk_always(
 			"[%s] pa_ctrl:%d\n", __func__, pa_ctrl);
 
@@ -1678,11 +1918,6 @@ static ssize_t clmutt_cooler_lv_proc_write(struct file *filp,
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
 	scan_count = sscanf(desc, "%d %d", &type, &lv);
 	if (scan_count == 2) {
 		mtk_cooler_mutt_dprintk_always(
@@ -1740,18 +1975,10 @@ static ssize_t clmutt_scg_off_proc_write(struct file *filp,
 {
 	char desc[PROC_BUFFER_LEN];
 	int ret = 0, len = 0, off;
-	int scan_count = 0;
-	unsigned int limit;
 
 	len = copy_proc_data(buffer, count, desc);
 
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
-
-	scan_count = sscanf(desc, "%d", &off);
-	if (scan_count == 1) {
+	if (kstrtoint(desc, 10, &off) == 0) {
 		mtk_cooler_mutt_dprintk_always(
 			"[%s] off:%d\n", __func__, off);
 
@@ -1764,14 +1991,7 @@ static ssize_t clmutt_scg_off_proc_write(struct file *filp,
 		if (ret)
 			goto end;
 
-		limit = (off) ? TMC_CTRL_CMD_SCG_OFF : TMC_CTRL_CMD_SCG_ON;
-		ret = clmutt_send_tmc_cmd(limit);
-
-		mtk_cooler_mutt_dprintk_always(
-			"[%s] set SCG off:%d(0x%08x). ret:%d, bcnt:%lu\n",
-			__func__, off, limit,
-			ret, clmutt_data.last_md_boot_cnt);
-
+		ret = clmutt_send_scg_off_cmd(off);
 		if (ret)
 			clmutt_data.cur_limit = 0;
 		else
@@ -1792,12 +2012,12 @@ static int clmutt_tx_pwr_proc_read(struct seq_file *m, void *v)
 {
 	int i;
 
-	seq_puts(m, "reduce max tx power: (unit: db)\n");
+	seq_puts(m, "Reduce tx power: (unit: db)\n");
 
 	for_each_mutt_type(i)
 		seq_printf(m, "[%s] = %d\n",
 			clmutt_data.cooler_param[i].name,
-			clmutt_data.reduce_max_tx_pwr[i]);
+			clmutt_data.reduce_tx_pwr[i]);
 
 	return 0;
 }
@@ -1808,14 +2028,8 @@ static ssize_t clmutt_tx_pwr_proc_write(struct file *filp,
 	char desc[PROC_BUFFER_LEN];
 	int ret = 0, len = 0, type, tx_pwr;
 	int scan_count = 0;
-	unsigned int limit;
 
 	len = copy_proc_data(buffer, count, desc);
-
-	if (data == NULL) {
-		mtk_cooler_mutt_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
-	}
 
 	scan_count = sscanf(desc, "%d %d", &type, &tx_pwr);
 	if (scan_count == 2) {
@@ -1830,24 +2044,16 @@ static ssize_t clmutt_tx_pwr_proc_write(struct file *filp,
 
 		mutex_lock(&clmutt_data.lock);
 
-		if (tx_pwr <= 0)
-			tx_pwr = 0xFF;
+		if (tx_pwr == clmutt_data.reduce_tx_pwr[type])
+			goto end;
 
-		limit = (type == MUTT_NR)
-			? TMC_REDUCE_NR_MAX_TX_POWER(tx_pwr)
-			: TMC_REDUCE_OTHER_MAX_TX_POWER(tx_pwr);
-		ret = clmutt_send_tmc_cmd(limit);
-
-		mtk_cooler_mutt_dprintk_always(
-			"[%s] set %s tx_pwr:%d(0x%08x). ret:%d, bcnt:%lu\n",
-			__func__, clmutt_data.cooler_param[type].name, tx_pwr,
-			limit, ret, clmutt_data.last_md_boot_cnt);
-
+		ret = clmutt_send_reduce_tx_pwr_cmd(type, tx_pwr);
 		if (ret)
 			clmutt_data.cur_limit = 0;
 		else
-			clmutt_data.reduce_max_tx_pwr[type] = tx_pwr;
+			clmutt_data.reduce_tx_pwr[type] = tx_pwr;
 
+end:
 		mutex_unlock(&clmutt_data.lock);
 
 		return len;
@@ -1857,7 +2063,6 @@ static ssize_t clmutt_tx_pwr_proc_write(struct file *filp,
 
 	return -EINVAL;
 }
-
 
 PROC_FOPS_RW(setting);
 PROC_FOPS_RW(tm_pid);
