@@ -2143,7 +2143,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		 * bitdepth, level, we need to stop to play it
 		 */
 		if (need_seq_header) {
-			mtk_v4l2_err("[%d]Error!! Need seq header!",
+			mtk_v4l2_debug(3, "[%d]Error!! Need seq header!",
 						 ctx->id);
 			mtk_vdec_queue_noseqheader_event(ctx);
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
