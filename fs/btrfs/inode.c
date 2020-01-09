@@ -712,10 +712,12 @@ cleanup_and_bail_uncompressed:
 	 * to our extent and set things up for the async work queue to run
 	 * cow_file_range to do the normal delalloc dance.
 	 */
-	if (page_offset(async_chunk->locked_page) >= start &&
-	    page_offset(async_chunk->locked_page) <= end)
+	if (async_chunk->locked_page &&
+	    (page_offset(async_chunk->locked_page) >= start &&
+	     page_offset(async_chunk->locked_page)) <= end) {
 		__set_page_dirty_nobuffers(async_chunk->locked_page);
 		/* unlocked later on in the async handlers */
+	}
 
 	if (redirty)
 		extent_range_redirty_for_io(inode, start, end);
@@ -795,7 +797,7 @@ retry:
 						  async_extent->start +
 						  async_extent->ram_size - 1,
 						  WB_SYNC_ALL);
-			else if (ret)
+			else if (ret && async_chunk->locked_page)
 				unlock_page(async_chunk->locked_page);
 			kfree(async_extent);
 			cond_resched();
@@ -1264,14 +1266,27 @@ static int cow_file_range_async(struct inode *inode, struct page *locked_page,
 		async_chunk[i].inode = inode;
 		async_chunk[i].start = start;
 		async_chunk[i].end = cur_end;
-		async_chunk[i].locked_page = locked_page;
 		async_chunk[i].write_flags = write_flags;
 		INIT_LIST_HEAD(&async_chunk[i].extents);
 
-		btrfs_init_work(&async_chunk[i].work,
-				btrfs_delalloc_helper,
-				async_cow_start, async_cow_submit,
-				async_cow_free);
+		/*
+		 * The locked_page comes all the way from writepage and its
+		 * the original page we were actually given.  As we spread
+		 * this large delalloc region across multiple async_chunk
+		 * structs, only the first struct needs a pointer to locked_page
+		 *
+		 * This way we don't need racey decisions about who is supposed
+		 * to unlock it.
+		 */
+		if (locked_page) {
+			async_chunk[i].locked_page = locked_page;
+			locked_page = NULL;
+		} else {
+			async_chunk[i].locked_page = NULL;
+		}
+
+		btrfs_init_work(&async_chunk[i].work, async_cow_start,
+				async_cow_submit, async_cow_free);
 
 		nr_pages = DIV_ROUND_UP(cur_end - start, PAGE_SIZE);
 		atomic_add(nr_pages, &fs_info->async_delalloc_pages);
@@ -1439,10 +1454,10 @@ next_slot:
 			disk_num_bytes =
 				btrfs_file_extent_disk_num_bytes(leaf, fi);
 			/*
-			 * If extent we got ends before our range starts, skip
-			 * to next extent
+			 * If the extent we got ends before our current offset,
+			 * skip to the next extent.
 			 */
-			if (extent_end <= start) {
+			if (extent_end <= cur_offset) {
 				path->slots[0]++;
 				goto next_slot;
 			}
@@ -2264,8 +2279,7 @@ int btrfs_writepage_cow_fixup(struct page *page, u64 start, u64 end)
 
 	SetPageChecked(page);
 	get_page(page);
-	btrfs_init_work(&fixup->work, btrfs_fixup_helper,
-			btrfs_writepage_fixup_worker, NULL, NULL);
+	btrfs_init_work(&fixup->work, btrfs_writepage_fixup_worker, NULL, NULL);
 	fixup->page = page;
 	btrfs_queue_work(fs_info->fixup_workers, &fixup->work);
 	return -EBUSY;
@@ -3258,7 +3272,6 @@ void btrfs_writepage_endio_finish_ordered(struct page *page, u64 start,
 	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
 	struct btrfs_ordered_extent *ordered_extent = NULL;
 	struct btrfs_workqueue *wq;
-	btrfs_work_func_t func;
 
 	trace_btrfs_writepage_end_io_hook(page, start, end, uptodate);
 
@@ -3267,16 +3280,12 @@ void btrfs_writepage_endio_finish_ordered(struct page *page, u64 start,
 					    end - start + 1, uptodate))
 		return;
 
-	if (btrfs_is_free_space_inode(BTRFS_I(inode))) {
+	if (btrfs_is_free_space_inode(BTRFS_I(inode)))
 		wq = fs_info->endio_freespace_worker;
-		func = btrfs_freespace_write_helper;
-	} else {
+	else
 		wq = fs_info->endio_write_workers;
-		func = btrfs_endio_write_helper;
-	}
 
-	btrfs_init_work(&ordered_extent->work, func, finish_ordered_fn, NULL,
-			NULL);
+	btrfs_init_work(&ordered_extent->work, finish_ordered_fn, NULL, NULL);
 	btrfs_queue_work(wq, &ordered_extent->work);
 }
 
@@ -8213,18 +8222,14 @@ static void __endio_write_update_ordered(struct inode *inode,
 	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
 	struct btrfs_ordered_extent *ordered = NULL;
 	struct btrfs_workqueue *wq;
-	btrfs_work_func_t func;
 	u64 ordered_offset = offset;
 	u64 ordered_bytes = bytes;
 	u64 last_offset;
 
-	if (btrfs_is_free_space_inode(BTRFS_I(inode))) {
+	if (btrfs_is_free_space_inode(BTRFS_I(inode)))
 		wq = fs_info->endio_freespace_worker;
-		func = btrfs_freespace_write_helper;
-	} else {
+	else
 		wq = fs_info->endio_write_workers;
-		func = btrfs_endio_write_helper;
-	}
 
 	while (ordered_offset < offset + bytes) {
 		last_offset = ordered_offset;
@@ -8232,9 +8237,8 @@ static void __endio_write_update_ordered(struct inode *inode,
 							   &ordered_offset,
 							   ordered_bytes,
 							   uptodate)) {
-			btrfs_init_work(&ordered->work, func,
-					finish_ordered_fn,
-					NULL, NULL);
+			btrfs_init_work(&ordered->work, finish_ordered_fn, NULL,
+					NULL);
 			btrfs_queue_work(wq, &ordered->work);
 		}
 		/*
@@ -10119,8 +10123,7 @@ static struct btrfs_delalloc_work *btrfs_alloc_delalloc_work(struct inode *inode
 	init_completion(&work->completion);
 	INIT_LIST_HEAD(&work->list);
 	work->inode = inode;
-	btrfs_init_work(&work->work, btrfs_flush_delalloc_helper,
-			btrfs_run_delalloc_work, NULL, NULL);
+	btrfs_init_work(&work->work, btrfs_run_delalloc_work, NULL, NULL);
 
 	return work;
 }
