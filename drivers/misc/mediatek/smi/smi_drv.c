@@ -710,7 +710,8 @@ static void smi_common_assert_cb(struct cmdq_cb_data data)
 	nsec = do_div(smi_cmdq.tick, 1000000000);
 
 	smi_debug_bus_hang_detect(false, DEV_NAME);
-	SMIERR("[%5llu.%06lu] assert condition failed\n", smi_cmdq.tick, nsec);
+	SMIWRN(1, "[%5llu.%06lu] assert condition failed\n",
+		smi_cmdq.tick, nsec);
 }
 #endif
 
