@@ -905,7 +905,11 @@ static int gt9896s_read_config(struct gt9896s_ts_device *dev,
 
 	/* clear command */
 	gt9896s_cmd_init(dev, &ts_cmd, TS_CMD_REG_READY, 0, cmd_reg);
-	gt9896s_send_command(dev, &ts_cmd);
+	r = gt9896s_send_command(dev, &ts_cmd);
+	if (r) {
+		ts_err("Failed send read config command");
+		goto exit;
+	}
 
 exit:
 	return r;
