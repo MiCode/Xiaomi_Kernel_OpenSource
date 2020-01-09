@@ -83,9 +83,12 @@ extern "C" {
  * - Added BASE_JD_REQ_JOB_SLOT.
  * - Reused padding field in base_jd_atom_v2 to pass job slot number.
  * - New ioctl: KBASE_IOCTL_GET_CPU_GPU_TIMEINFO
+ * 11.18
+ * - Added base_jd_atom_v3, which is v2 + seq_nr.
+ *   KBASE_IOCTL_JOB_SUBMIT supports both in parallel.
  */
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 17
+#define BASE_UK_VERSION_MINOR 18
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility with kernel
@@ -116,9 +119,9 @@ struct kbase_ioctl_set_flags {
 /**
  * struct kbase_ioctl_job_submit - Submit jobs/atoms to the kernel
  *
- * @addr: Memory address of an array of struct base_jd_atom_v2
+ * @addr: Memory address of an array of struct base_jd_atom_v2 or v3
  * @nr_atoms: Number of entries in the array
- * @stride: sizeof(struct base_jd_atom_v2)
+ * @stride: sizeof(struct base_jd_atom_v2) or sizeof(struct base_jd_atom_v3)
  */
 struct kbase_ioctl_job_submit {
 	__u64 addr;

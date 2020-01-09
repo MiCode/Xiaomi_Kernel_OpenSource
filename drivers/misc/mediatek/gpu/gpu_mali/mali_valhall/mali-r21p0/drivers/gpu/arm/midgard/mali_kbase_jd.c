@@ -187,7 +187,7 @@ static void kbase_jd_post_external_resources(struct kbase_jd_atom *katom)
  * jctx.lock must be held when this is called.
  */
 
-static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const struct base_jd_atom_v2 *user_atom)
+static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const struct base_jd_atom_v3 *user_atom)
 {
 	int err_ret_val = -EINVAL;
 	u32 res_no;
@@ -692,7 +692,7 @@ static const char *kbasep_map_core_reqs_to_string(base_jd_core_req core_req)
 }
 #endif
 
-bool jd_submit_atom(struct kbase_context *kctx, const struct base_jd_atom_v2 *user_atom, struct kbase_jd_atom *katom)
+bool jd_submit_atom(struct kbase_context *kctx, const struct base_jd_atom_v3 *user_atom, struct kbase_jd_atom *katom)
 {
 	struct kbase_device *kbdev = kctx->kbdev;
 	struct kbase_jd_context *jctx = &kctx->jctx;
@@ -719,6 +719,7 @@ bool jd_submit_atom(struct kbase_context *kctx, const struct base_jd_atom_v2 *us
 	katom->jc = user_atom->jc;
 	katom->core_req = user_atom->core_req;
 	katom->jobslot = user_atom->jobslot;
+	katom->seq_nr = user_atom->seq_nr;
 	katom->atom_flags = 0;
 	katom->retry_count = 0;
 	katom->need_cache_flush_cores_retained = 0;
@@ -1017,6 +1018,8 @@ int kbase_jd_submit(struct kbase_context *kctx,
 	struct kbase_device *kbdev;
 	u32 latest_flush;
 
+	bool v2 = stride == sizeof(struct base_jd_atom_v2);
+
 	/*
 	 * kbase_jd_submit isn't expected to fail and so all errors with the
 	 * jobs are reported by immediately failing them (through event system)
@@ -1030,7 +1033,8 @@ int kbase_jd_submit(struct kbase_context *kctx,
 		return -EINVAL;
 	}
 
-	if (stride != sizeof(base_jd_atom_v2)) {
+	if (stride != sizeof(base_jd_atom_v2) &&
+	    stride != sizeof(struct base_jd_atom_v3)) {
 		dev_err(kbdev->dev, "Stride passed to job_submit doesn't match kernel");
 		return -EINVAL;
 	}
@@ -1039,13 +1043,25 @@ int kbase_jd_submit(struct kbase_context *kctx,
 	latest_flush = kbase_backend_get_current_flush_id(kbdev);
 
 	for (i = 0; i < nr_atoms; i++) {
-		struct base_jd_atom_v2 user_atom;
+		struct base_jd_atom_v3 user_atom;
 		struct kbase_jd_atom *katom;
 
-		if (copy_from_user(&user_atom, user_addr,
-					sizeof(user_atom)) != 0) {
-			err = -EINVAL;
-			break;
+		if (unlikely(v2)) {
+			if (copy_from_user(&user_atom.jc, user_addr,
+						sizeof(struct base_jd_atom_v2)) != 0) {
+				err = -EINVAL;
+				break;
+			}
+
+			/* no seq_nr in v2 */
+			user_atom.seq_nr = 0;
+		} else {
+			if (copy_from_user(&user_atom, user_addr,
+						sizeof(user_atom)) != 0) {
+				err = -EINVAL;
+				break;
+			}
+
 		}
 
 		user_addr = (void __user *)((uintptr_t) user_addr + stride);

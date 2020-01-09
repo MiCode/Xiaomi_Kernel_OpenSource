@@ -923,6 +923,26 @@ typedef struct base_jd_atom_v2 {
 #endif
 } base_jd_atom_v2;
 
+struct base_jd_atom_v3 {
+	u64 seq_nr;               /**< Sequence number of logical grouping of atoms */
+	u64 jc;			    /**< job-chain GPU address */
+	struct base_jd_udata udata;		    /**< user data */
+	u64 extres_list;	    /**< list of external resources */
+	u16 nr_extres;			    /**< nr of external resources or JIT allocations */
+	u16 compat_core_req;	            /**< core requirements which correspond to the legacy support for UK 10.2 */
+	struct base_dependency pre_dep[2];  /**< pre-dependencies, one need to use SETTER function to assign this field,
+					      * this is done in order to reduce possibility of improper assignment of a dependency field
+					      */
+	base_atom_id atom_number;	    /**< unique number to identify the atom */
+	base_jd_prio prio;                  /**< Atom priority. Refer to @ref base_jd_prio for more details */
+	u8 device_nr;			    /**< coregroup when BASE_JD_REQ_SPECIFIC_COHERENT_GROUP specified */
+	u8 jobslot;			    /**< Job slot to use when BASE_JD_REQ_JOB_SLOT is specified */
+	base_jd_core_req core_req;          /**< core requirements */
+#if defined(MTK_GPU_BM_2)
+        u32 frame_nr;                   /** frame number to the atom */
+#endif
+};
+
 typedef enum base_external_resource_access {
 	BASE_EXT_RES_ACCESS_SHARED,
 	BASE_EXT_RES_ACCESS_EXCLUSIVE
@@ -1032,6 +1052,13 @@ static inline void base_jd_fence_trigger_setup_v2(struct base_jd_atom_v2 *atom, 
 	atom->core_req = BASE_JD_REQ_SOFT_FENCE_TRIGGER;
 }
 
+static inline void base_jd_fence_trigger_setup_v3(struct base_jd_atom_v3 * atom, base_fence * fence)
+{
+	LOCAL_ASSERT(atom);
+	LOCAL_ASSERT(fence);
+	base_jd_fence_trigger_setup_v2((base_jd_atom_v2*)(&(atom->jc)), fence);
+}
+
 /**
  * @brief Soft-atom fence wait setup.
  *
@@ -1062,6 +1089,13 @@ static inline void base_jd_fence_wait_setup_v2(struct base_jd_atom_v2 *atom, str
 	LOCAL_ASSERT(fence->basep.fd >= 0);
 	atom->jc = (uintptr_t) fence;
 	atom->core_req = BASE_JD_REQ_SOFT_FENCE_WAIT;
+}
+
+static inline void base_jd_fence_wait_setup_v3(struct base_jd_atom_v3 * atom, base_fence * fence)
+{
+	LOCAL_ASSERT(atom);
+	LOCAL_ASSERT(fence);
+	base_jd_fence_wait_setup_v2((base_jd_atom_v2*)(&(atom->jc)), fence);
 }
 
 /**
