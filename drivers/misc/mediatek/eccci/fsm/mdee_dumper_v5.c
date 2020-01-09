@@ -804,7 +804,7 @@ static void mdee_dumper_v5_emimpu_callback(
 
 	if (ctl) {
 		s = snprintf(&ctl->ee_ctl.ex_mpu_string[0],
-				MD_EX_MPU_STR_LEN, "emimpu.c\n");
+				MD_EX_MPU_STR_LEN, "<emimpu.c>\n");
 		if (s <= 0)
 			return;
 
