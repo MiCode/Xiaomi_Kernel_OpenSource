@@ -370,15 +370,21 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 {
 	struct mtk_plane_state *state = to_mtk_plane_state(plane->state);
 	struct drm_crtc *crtc = plane->state->crtc;
-	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = plane->state->fb;
 	int src_w, src_h, dst_x, dst_y, dst_w, dst_h, i;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_crtc *mtk_crtc;
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
 	static int cnt;
 	bool skip_update = 0;
 
-	if ((!crtc) || (!fb) || (mtk_crtc->ddp_mode == DDP_NO_USE))
+	if (!crtc)
+		return;
+
+	crtc_state = to_mtk_crtc_state(crtc->state);
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	if ((!fb) || (mtk_crtc->ddp_mode == DDP_NO_USE))
 		return;
 
 	src_w = drm_rect_width(&plane->state->src) >> 16;

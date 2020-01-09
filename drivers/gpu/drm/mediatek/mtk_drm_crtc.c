@@ -337,7 +337,8 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 		return NULL;
 	}
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base);
+	if (crtc->state)
+		__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base);
 
 	if (state->base.crtc != crtc)
 		DDPAEE("%s:%d, invalid crtc:(%p,%p)\n",
@@ -524,6 +525,14 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	if (!(mtk_crtc->enabled)) {
 		DDPINFO("Sleep State set backlight stop --crtc not ebable\n");
+		mutex_unlock(&mtk_crtc->lock);
+		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
+
+		return -EINVAL;
+	}
+
+	if (!comp) {
+		DDPINFO("%s no output comp\n", __func__);
 		mutex_unlock(&mtk_crtc->lock);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
 
@@ -1514,6 +1523,9 @@ bool mtk_crtc_is_mem_mode(struct drm_crtc *crtc)
 	/* for find memory session */
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (!comp)
+		return false;
 
 	if (comp->id == DDP_COMPONENT_WDMA0 ||
 		comp->id == DDP_COMPONENT_WDMA1)

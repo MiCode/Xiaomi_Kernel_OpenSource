@@ -2592,8 +2592,8 @@ static int mtk_ddp_sel_in_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_OVL0_2L_VIRTUAL0) {
 		*addr = MT6885_DISP_TOVL0_OUT0_SEL_IN;
 		value = DISP_TOVL0_OUT0_SEL_IN_FROM_DISP_OVL0_2L_BLENDOUT_SOUT;
-	} else if (cur == DDP_COMPONENT_OVL0_2L &&
-		next == DDP_COMPONENT_OVL0_2L_VIRTUAL0) {
+	} else if (cur == DDP_COMPONENT_OVL1_2L &&
+		next == DDP_COMPONENT_OVL1_2L_VIRTUAL0) {
 		*addr = MT6885_DISP_TOVL1_OUT0_SEL_IN;
 		value = DISP_TOVL1_OUT0_SEL_IN_FROM_DISP_OVL1_2L_BLENDOUT_SOUT;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
