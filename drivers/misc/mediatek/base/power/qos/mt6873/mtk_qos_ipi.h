@@ -80,14 +80,17 @@ struct qos_ipi_data {
 			unsigned int enable;
 		} qos_bound_stress_enable;
 		struct {
-			unsigned int ena;
-			unsigned int enc[4];
+			uint16_t ena;
+			uint16_t enc[4];
 		} smi_met_mon;
 		struct {
 			unsigned int addr;
 			unsigned int addr_hi;
 			unsigned int size;
 		} gpu_info;
+		struct {
+			unsigned int arg[5];
+		} max;
 	} u;
 };
 
