@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 
+
 #define QSEECOM_ALIGN_SIZE	0x40
 #define QSEECOM_ALIGN_MASK	(QSEECOM_ALIGN_SIZE - 1)
 #define QSEECOM_ALIGN(x)	\
@@ -31,6 +32,7 @@ int qseecom_shutdown_app(struct qseecom_handle **handle);
 int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 			uint32_t sbuf_len, void *resp_buf, uint32_t rbuf_len);
 int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high);
-int qseecom_process_listener_from_smcinvoke(struct scm_desc *desc);
+int qseecom_process_listener_from_smcinvoke(uint32_t *result,
+					u64 *response_type, unsigned int *data);
 
 #endif /* __QSEECOM_KERNEL_H_ */
