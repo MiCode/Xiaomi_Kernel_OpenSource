@@ -544,7 +544,7 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 	 * No need check again, let ufstw_flush_h8_work_fn finish is enough.
 	 * Only return need_flush to break runtime/system suspend.
 	 */
-	if (delayed_work_pending(&tw->tw_flush_h8_work)) {
+	if (work_busy(&tw->tw_flush_h8_work.work)) {
 		need_flush = true;
 		goto out_put;
 	}
