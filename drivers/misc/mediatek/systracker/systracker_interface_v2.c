@@ -170,8 +170,15 @@ int systracker_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int systracker_resume_default(struct platform_device *pdev)
 {
-	if (track_config.state || track_config.enable_wp)
+	/*
+	 * due to watchpoint address is locate in nao domain, we need to
+	 * setup address and enable again after system resume
+	 */
+	if (track_config.state || track_config.enable_wp) {
+		systracker_watchpoint_disable();
+		systracker_watchpoint_enable();
 		systracker_enable();
+	}
 
 	return 0;
 }
