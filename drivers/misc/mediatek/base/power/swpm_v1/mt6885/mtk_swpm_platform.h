@@ -20,7 +20,7 @@
 #define SWPM_TEST (0)
 
 #define MAX_RECORD_CNT				(64)
-#define MAX_APHY_PWR				(10)
+#define MAX_APHY_PWR				(11)
 #define DEFAULT_LOG_INTERVAL_MS			(1000)
 /* VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
 #define DEFAULT_LOG_MASK			(0x1F)
@@ -198,9 +198,13 @@ struct share_wrap {
 	unsigned int share_ctrl_addr;
 };
 
-struct aphy_pwr {
+struct aphy_bw_data {
 	unsigned short bw[MAX_APHY_PWR];
-	unsigned short coef[MAX_APHY_PWR];
+};
+
+struct aphy_pwr {
+	unsigned short read_coef[MAX_APHY_PWR];
+	unsigned short write_coef[MAX_APHY_PWR];
 };
 
 /* unit: uW / V^2 */
@@ -236,7 +240,10 @@ struct swpm_rec_data {
 	unsigned long long max_latency[NR_PROFILE_POINT];
 	unsigned long long prof_cnt[NR_PROFILE_POINT];
 
-	/* 2(short) * 5(pwr_type) * 147 = 1470 bytes */
+	/* 2(short) * 11(sample point) * 7(opp_num) = 154 bytes */
+	struct aphy_bw_data aphy_bw_tbl[NR_DDR_FREQ];
+
+	/* 2(short) * 5(pwr_type) * 161(r/w_coef + idle) = 1610 bytes */
 	struct aphy_pwr_data aphy_pwr_tbl[NR_APHY_PWR_TYPE];
 
 	/* 4(int) * 3(pwr_type) * 7 = 84 bytes */
@@ -251,7 +258,7 @@ struct swpm_rec_data {
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 868 bytes */
+	/* remaining size = 588 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;
