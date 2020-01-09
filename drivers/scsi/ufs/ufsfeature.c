@@ -294,7 +294,7 @@ void ufsf_device_check(struct ufs_hba *hba)
 	struct ufsf_feature *ufsf = &hba->ufsf;
 	int ret, lun;
 	u32 status = 0;
-	u8 selector;
+	u8 selector = 0;
 
 	ufsf->slave_conf_cnt = 0;
 
@@ -303,7 +303,7 @@ void ufsf_device_check(struct ufs_hba *hba)
 	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
 		selector = UFSFEATURE_SELECTOR;
 	else
-		selector = 0;
+		goto skip_vendor;
 
 	ret = ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			  QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS, 0, 0, &status);
@@ -313,6 +313,7 @@ void ufsf_device_check(struct ufs_hba *hba)
 	INIT_INFO("UFS FEATURE SELECTOR Dev %d - D/D %d", status,
 		  selector);
 
+skip_vendor:
 	ret = ufsf_read_dev_desc(ufsf, selector);
 	if (ret)
 		return;
