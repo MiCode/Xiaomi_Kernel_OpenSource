@@ -244,7 +244,7 @@ extern int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
 extern int __qcom_scm_ice_restore_cfg(struct device *dev);
 
 #define QCOM_SCM_SVC_SMCINVOKE		0x06
-#define QCOM_SCM_SMCINVOKE_INVOKE	0x00
+#define QCOM_SCM_SMCINVOKE_INVOKE	0x02
 #define QCOM_SCM_SMCINVOKE_CB_RSP	0x01
 extern int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
 		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,

@@ -690,4 +690,11 @@ config QCOM_EUD
           Embedded USB Debugger (EUD).
           If unsure, say N.
 
+config QCOM_SMCINVOKE
+	tristate "Secure QSEE Support"
+	help
+	 Enable SMCInvoke driver which supports capability based secure
+	 communication between QTI Secure Execution Environment (QSEE)
+	 and high level operating system. It exposes APIs for both
+	 userspace and kernel clients.
 endmenu
