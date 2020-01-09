@@ -1353,6 +1353,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 		}
 
 		mutex_lock(&client->lock);
+		client->dbg_hnd_cnt = 0;
 		for (m = rb_first(&client->handles); m; m = rb_next(m)) {
 			struct ion_handle
 			*handle = rb_entry(m, struct ion_handle, node);
@@ -1364,14 +1365,16 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			    handle->buffer->heap->id !=
 				ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA)
 				continue;
-
+			client->dbg_hnd_cnt++;
 			ION_DUMP(s,
-				 "\thandle=0x%p, buffer=0x%p, heap=%u, fd=%4d, ts: %lldms\n",
+				 "\thandle=0x%p, buffer=0x%p, heap=%u, fd=%4d, ts: %lldms (%d)\n",
 				 handle, handle->buffer,
 				 handle->buffer->heap->id,
 				 handle->dbg.fd,
-				 handle->dbg.user_ts);
+				 handle->dbg.user_ts,
+				 client->dbg_hnd_cnt);
 		}
+		client->dbg_hnd_cnt = 0;
 		mutex_unlock(&client->lock);
 	}
 	current_ts = sched_clock();

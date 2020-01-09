@@ -50,6 +50,109 @@
 
 atomic64_t page_sz_cnt = ATOMIC64_INIT(0);
 
+void ion_client_buf_add(struct ion_heap *heap, struct ion_client *client,
+			size_t size)
+{
+#ifdef ION_RECORD_TOTAL_SIZE_SUPPORT
+	u64 total_size;
+
+	client->hnd_cnt++;
+	if (heap->type == ION_HEAP_TYPE_MULTIMEDIA_SEC)
+		total_size =
+		atomic64_add_return(size, &client->total_size[SECURE_HEAP]);
+	else if (heap->type == ION_HEAP_TYPE_SYSTEM)
+		total_size =
+		atomic64_add_return(size, &client->total_size[SYSTEM_HEAP]);
+	else
+		total_size =
+		atomic64_add_return(size, &client->total_size[NORMAL_HEAP]);
+
+	if (total_size >= client->threshold_size) {
+		if (client->task) {
+			char task_comm[TASK_COMM_LEN];
+
+			get_task_comm(task_comm, client->task);
+			IONMSG(
+			       "warn: client:%s(%s) memory exceed threshold:%llu, heap:%u, pid:%d\n",
+				task_comm, (*client->dbg_name) ?
+				client->dbg_name : client->name,
+				client->threshold_size,
+				heap->id, client->pid);
+		} else {
+			IONMSG(
+			       "warn: client:%s(%s) memory exceed threshold:%llu, heap:%u, pid:%d\n",
+				client->name, "from_kernel",
+				client->threshold_size,
+				heap->id, client->pid);
+		}
+		client->threshold_size += CLIENT_THRESHOLD_SIZE_INC;
+	}
+#endif
+}
+
+void ion_client_buf_sub(struct ion_heap *heap, struct ion_client *client,
+			size_t size)
+{
+#ifdef ION_RECORD_TOTAL_SIZE_SUPPORT
+	long long total_size;
+
+	client->hnd_cnt--;
+	if (heap->type == ION_HEAP_TYPE_MULTIMEDIA_SEC) {
+		total_size =
+		atomic64_sub_return(size, &client->total_size[SECURE_HEAP]);
+		if (total_size < 0) {
+			IONMSG(
+			       "heap_id:%u underflow!, total_now[%lld--%ld]\n",
+			heap->id, total_size,
+			atomic64_read(&client->total_size[SECURE_HEAP]));
+			atomic64_set(&client->total_size[SECURE_HEAP], 0);
+		}
+	} else if (heap->type == ION_HEAP_TYPE_SYSTEM) {
+		total_size =
+		atomic64_sub_return(size, &client->total_size[SYSTEM_HEAP]);
+		if (total_size < 0) {
+			IONMSG(
+			       "heap_id:%u underflow!, total_now[%lld--%ld]\n",
+			heap->id, total_size,
+			atomic64_read(&client->total_size[SYSTEM_HEAP]));
+			atomic64_set(&client->total_size[SYSTEM_HEAP], 0);
+		}
+	} else {
+		total_size =
+		atomic64_sub_return(size, &client->total_size[NORMAL_HEAP]);
+		if (total_size < 0) {
+			IONMSG(
+			       "heap_id:%u underflow!, total_now[%lld--%ld]\n",
+			heap->id, total_size,
+			atomic64_read(&client->total_size[NORMAL_HEAP]));
+			atomic64_set(&client->total_size[NORMAL_HEAP], 0);
+		}
+	}
+
+	if (client->threshold_size > CLIENT_THRESHOLD_SIZE &&
+	    (total_size <=
+	    (client->threshold_size - CLIENT_THRESHOLD_SIZE_DEC))) {
+		client->threshold_size -= CLIENT_THRESHOLD_SIZE_INC;
+		if (client->threshold_size < CLIENT_THRESHOLD_SIZE)
+			client->threshold_size = CLIENT_THRESHOLD_SIZE;
+	}
+#endif
+}
+
+u64 ion_client_buf_dump(struct ion_heap *heap, struct ion_client *client)
+{
+#ifdef ION_RECORD_TOTAL_SIZE_SUPPORT
+	if (heap->type == ION_HEAP_TYPE_MULTIMEDIA_SEC)
+		return (u64)(atomic64_read(&client->total_size[SECURE_HEAP]));
+	else if (heap->type == ION_HEAP_TYPE_SYSTEM)
+		return (u64)(atomic64_read(&client->total_size[SYSTEM_HEAP]));
+	else
+		return (u64)(atomic64_read(&client->total_size[NORMAL_HEAP]));
+#else
+	return 0;
+#endif
+}
+
 bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer)
 {
 	return (buffer->flags & ION_FLAG_CACHED) &&
@@ -349,6 +452,7 @@ static void ion_handle_destroy(struct kref *kref)
 	if (!RB_EMPTY_NODE(&handle->node))
 		rb_erase(&handle->node, &client->handles);
 
+	ion_client_buf_sub(buffer->heap, client, buffer->size);
 	ion_buffer_remove_from_handle(buffer);
 	ion_buffer_put(buffer);
 
@@ -547,6 +651,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	mutex_lock(&client->lock);
 	ret = ion_handle_add(client, handle);
+	ion_client_buf_add(heap, client, len);
 	mutex_unlock(&client->lock);
 	if (ret) {
 		ion_handle_put(handle);
@@ -871,6 +976,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	if (!client)
 		goto err_put_task_struct;
 
+	client->threshold_size = CLIENT_THRESHOLD_SIZE;
 	client->dev = dev;
 	client->handles = RB_ROOT;
 	idr_init(&client->idr);
@@ -1637,6 +1743,7 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client,
 	}
 
 	ret = ion_handle_add(client, handle);
+	ion_client_buf_add(buffer->heap, client, buffer->size);
 	mutex_unlock(&client->lock);
 	if (ret) {
 		ion_handle_put(handle);
@@ -1832,8 +1939,10 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 		if (heapid == id ||
 		    (id == ION_HEAP_TYPE_MULTIMEDIA &&
 		     (heapid == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA ||
-		      heapid == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA)))
+		      heapid == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA))) {
+			client->dbg_hnd_cnt++;
 			size += handle->buffer->size;
+		}
 	}
 	mutex_unlock(&client->lock);
 	return size;
@@ -1856,8 +1965,9 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 
 	seq_printf(s, "total sz[%llu]\n",
 		   (unsigned long long)(4096 * atomic64_read(&page_sz_cnt)));
-	seq_printf(s, "%16.s(%16.s) %16.s %16.s %s\n",
-		   "client", "dbg_name", "pid", "size", "address");
+	seq_printf(s, "%16.s(%16.s) %16.s %16.s %16.s %16.s\n",
+		   "client", "dbg_name", "pid",
+		   "size(cnt)--size(cnt)", "address", "threshold");
 	seq_puts(s, "----------------------------------------------------\n");
 
 	down_read(&dev->lock);
@@ -1870,6 +1980,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		struct ion_client *client = rb_entry(n, struct ion_client,
 						     node);
 		size_t size = ion_debug_heap_total(client, heap->id);
+		u64 total = ion_client_buf_dump(heap, client);
 
 		if (!size)
 			continue;
@@ -1877,17 +1988,22 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			char task_comm[TASK_COMM_LEN];
 
 			get_task_comm(task_comm, client->task);
-			seq_printf(s, "%16.s(%16.s) %16u %16zu 0x%p\n",
+			seq_printf(s, "%16.s(%16.s) %16u %16zu(%d)--%llu(%d) 0x%p %llu\n",
 				   task_comm,
 				   (*client->dbg_name) ?
 				   client->dbg_name :
 				   client->name,
-				   client->pid, size, client);
+				   client->pid, size, client->dbg_hnd_cnt,
+				   total, client->hnd_cnt, client,
+				   client->threshold_size);
 		} else {
-			seq_printf(s, "%16.s(%16.s) %16u %16zu 0x%p\n",
+			seq_printf(s, "%16.s(%16.s) %16u %16zu(%d)--%llu(%d) 0x%p %llu\n",
 				   client->name, "from_kernel",
-				   client->pid, size, client);
+				   client->pid, size, client->dbg_hnd_cnt,
+				   total, client->hnd_cnt, client,
+				   client->threshold_size);
 		}
+		client->dbg_hnd_cnt = 0;
 	}
 	up_read(&dev->lock);
 

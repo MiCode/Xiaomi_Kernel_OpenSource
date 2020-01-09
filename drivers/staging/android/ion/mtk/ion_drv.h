@@ -19,6 +19,16 @@
 
 #define BACKTRACE_SIZE 10
 
+#if !defined(CONFIG_MACH_MT6885)
+#define ION_RECORD_TOTAL_SIZE_SUPPORT
+#endif
+
+#define CLIENT_THRESHOLD_SIZE		(1024 * 1024 * 1024)
+#define CLIENT_THRESHOLD_SIZE_INC	(200 * 1024 * 1024)
+#define CLIENT_DEC_NUM			(3)
+#define CLIENT_THRESHOLD_SIZE_DEC	\
+	(CLIENT_DEC_NUM * CLIENT_THRESHOLD_SIZE_INC)
+
 /* Structure definitions */
 
 enum ION_CMDS {
@@ -64,6 +74,13 @@ enum ION_CACHE_SYNC_TYPE {
 enum ION_ERRORE {
 	ION_ERROR_CONFIG_LOCKED = 0x10000,
 	ION_ERROR_CONFIG_CONFLICT = 0x10001
+};
+
+enum ION_HEAP_NUM {
+	NORMAL_HEAP,
+	SECURE_HEAP,
+	SYSTEM_HEAP,
+	HEAP_NUM
 };
 
 /* mm or mm_sec heap flag which is do not conflist */

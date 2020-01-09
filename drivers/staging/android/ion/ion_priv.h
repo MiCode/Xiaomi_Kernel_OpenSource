@@ -146,6 +146,10 @@ struct ion_client {
 	pid_t pid;
 	struct dentry *debug_root;
 	char dbg_name[ION_MM_DBG_NAME_LEN]; /* add by K for debug! */
+	atomic64_t total_size[HEAP_NUM];
+	int hnd_cnt;
+	int dbg_hnd_cnt;
+	unsigned long long threshold_size;
 };
 
 struct ion_handle_debug {
