@@ -1871,7 +1871,7 @@ void lvts_tscpu_reset_thermal(void)
 	temp2 = readl(INFRA_GLOBALCON_RST_4_SET);
 
 	/* 1: Enables thermal control software reset */
-	temp2 |= 0x00000400;
+	temp2 |= 0x00001000;
 	mt_reg_sync_writel_print(temp2, INFRA_GLOBALCON_RST_4_SET);
 
 	/* TODO: How long to set the reset bit? */
@@ -1881,7 +1881,7 @@ void lvts_tscpu_reset_thermal(void)
 	temp2 = readl(INFRA_GLOBALCON_RST_4_CLR);
 
 	/* 1: Enable reset Disables thermal control software reset */
-	temp2 |= 0x00000400;
+	temp2 |= 0x00001000;
 
 	mt_reg_sync_writel_print(temp2, INFRA_GLOBALCON_RST_4_CLR);
 }
