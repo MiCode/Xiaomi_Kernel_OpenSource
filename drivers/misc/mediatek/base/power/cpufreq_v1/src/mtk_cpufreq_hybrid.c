@@ -170,16 +170,20 @@ int Ripi_cpu_dvfs_thread(void *data)
 
 		/* tag_pr_info("Info: CPU DVFS thread received i=%d\n", i); */
 		spin_lock_irqsave(&cpudvfs_lock, flags);
-		if ((cpufreq_buf[0] < (OFFS_LOG_E - OFFS_LOG_S)) &&
-		    (cpufreq_buf[1] < (OFFS_LOG_E - OFFS_LOG_S)))
+		if (((cpufreq_buf[0] >= OFFS_LOG_S) &&
+			(cpufreq_buf[0] < OFFS_LOG_E)) &&
+		    ((cpufreq_buf[1] >= OFFS_LOG_S) &&
+			(cpufreq_buf[1] < OFFS_LOG_E)))
 			memcpy(pwdata, cpufreq_buf, sizeof(pwdata));
 		spin_unlock_irqrestore(&cpudvfs_lock, flags);
 
 		bk_log_offs = pwdata[0];
 		num_log = 0;
 
-		while ((pwdata[0] < (OFFS_LOG_E - OFFS_LOG_S)) &&
-			(pwdata[1] < (OFFS_LOG_E - OFFS_LOG_S)) &&
+		while (((cpufreq_buf[0] >= OFFS_LOG_S) &&
+				(cpufreq_buf[0] < OFFS_LOG_E)) &&
+			((cpufreq_buf[1] >= OFFS_LOG_S) &&
+				(cpufreq_buf[1] < OFFS_LOG_E)) &&
 			(bk_log_offs != pwdata[1]) &&
 			(num_log < MAX_LOG_FETCH)) {
 			buf[0] = csram_read(bk_log_offs);
