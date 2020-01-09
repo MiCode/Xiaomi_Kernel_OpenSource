@@ -145,6 +145,7 @@ static inline void __raw_spin_lock(raw_spinlock_t *lock)
 
 #endif /* !CONFIG_GENERIC_LOCKBREAK || CONFIG_DEBUG_LOCK_ALLOC */
 
+#ifndef CONFIG_UBSAN
 static inline void __raw_spin_unlock(raw_spinlock_t *lock)
 {
 	spin_release(&lock->dep_map, 1, _RET_IP_);
@@ -175,6 +176,81 @@ static inline void __raw_spin_unlock_bh(raw_spinlock_t *lock)
 	do_raw_spin_unlock(lock);
 	__local_bh_enable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
 }
+#else
+#include <linux/sched/clock.h>
+static inline void __raw_spin_unlock(raw_spinlock_t *lock)
+{
+	unsigned long long t1, t2, t3, t4;
+
+	t1 = sched_clock();
+	spin_release(&lock->dep_map, 1, _RET_IP_);
+	t2 = sched_clock();
+	do_raw_spin_unlock(lock);
+	t3 = sched_clock();
+	preempt_enable();
+	t4 = sched_clock();
+
+	if (t4 - t1 > 1000000000)
+		pr_info("%s: spin_release[%llu] do_raw_spin_unlock[%llu] preempt_enable[%llu]\n",
+			__func__, t2 - t1, t3 - t2, t4 - t3);
+}
+
+static inline void __raw_spin_unlock_irqrestore(raw_spinlock_t *lock,
+					    unsigned long flags)
+{
+	unsigned long long t1, t2, t3, t4, t5;
+
+	t1 = sched_clock();
+	spin_release(&lock->dep_map, 1, _RET_IP_);
+	t2 = sched_clock();
+	do_raw_spin_unlock(lock);
+	t3 = sched_clock();
+	local_irq_restore(flags);
+	t4 = sched_clock();
+	preempt_enable();
+	t5 = sched_clock();
+
+	if (t5 - t1 > 1000000000)
+		pr_info("%s: spin_release[%llu] do_raw_spin_unlock[%llu] local_irq_restore[%llu] preempt_enable[%llu]\n",
+			__func__, t2 - t1, t3 - t2, t4 - t3, t5 - t4);
+}
+
+static inline void __raw_spin_unlock_irq(raw_spinlock_t *lock)
+{
+	unsigned long long t1, t2, t3, t4, t5;
+
+	t1 = sched_clock();
+	spin_release(&lock->dep_map, 1, _RET_IP_);
+	t2 = sched_clock();
+	do_raw_spin_unlock(lock);
+	t3 = sched_clock();
+	local_irq_enable();
+	t4 = sched_clock();
+	preempt_enable();
+	t5 = sched_clock();
+
+	if (t5 - t1 > 1000000000)
+		pr_info("%s: spin_release[%llu] do_raw_spin_unlock[%llu] local_irq_enable[%llu] preempt_enable[%llu]\n",
+			__func__, t2 - t1, t3 - t2, t4 - t3, t5 - t4);
+}
+
+static inline void __raw_spin_unlock_bh(raw_spinlock_t *lock)
+{
+	unsigned long long t1, t2, t3, t4;
+
+	t1 = sched_clock();
+	spin_release(&lock->dep_map, 1, _RET_IP_);
+	t2 = sched_clock();
+	do_raw_spin_unlock(lock);
+	t3 = sched_clock();
+	__local_bh_enable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
+	t4 = sched_clock();
+
+	if (t4 - t1 > 1000000000)
+		pr_info("%s: spin_release[%llu] do_raw_spin_unlock[%llu] __local_bh_enable_ip[%llu]\n",
+			__func__, t2 - t1, t3 - t2, t4 - t3);
+}
+#endif
 
 static inline int __raw_spin_trylock_bh(raw_spinlock_t *lock)
 {

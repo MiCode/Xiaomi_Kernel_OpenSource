@@ -270,6 +270,13 @@ static void ftrace_events_enable(int enable)
 #endif
 			trace_set_clr_event("met_bio", NULL, 1);
 			trace_set_clr_event("met_fuse", NULL, 1);
+			trace_set_clr_event(NULL, "rcu_batch_start", 1);
+			trace_set_clr_event(NULL, "rcu_batch_end", 1);
+			trace_set_clr_event(NULL, "rcu_invoke_callback", 1);
+			trace_set_clr_event(NULL, "rcu_kfree_callback", 1);
+			trace_set_clr_event(NULL, "rcu_callback", 1);
+			trace_set_clr_event(NULL, "rcu_invoke_kfree_callback",
+					    1);
 		}
 
 		tracing_on();
