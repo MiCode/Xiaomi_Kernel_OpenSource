@@ -435,11 +435,8 @@ void mtk_venc_dvfs_begin(struct temp_job **job_list)
 		idx = 0;
 	}
 
-	if (job->operation_rate > 240 ||
-		(area >= 1920 * 1080 && job->operation_rate == 240))
+	if (job->operation_rate >= 120)
 		idx = 2;
-	else if (job->operation_rate >= 120)
-		idx = 0;
 
 	venc_freq = venc_freq_map[idx];
 
