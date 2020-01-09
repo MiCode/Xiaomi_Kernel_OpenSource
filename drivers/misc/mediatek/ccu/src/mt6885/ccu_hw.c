@@ -553,7 +553,7 @@ int ccu_power(struct ccu_power_s *power)
 
 		/*1. Enable CCU CAMSYS_CG_CON bit12 CCU_CGPDN=0*/
 		ccu_clock_enable();
-		ccu_irq_enable();
+
 		LOG_DBG("CCU CG released\n");
 
 		#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
@@ -741,7 +741,7 @@ int ccu_run(void)
 	uint32_t status;
 
 	LOG_DBG("+:%s\n", __func__);
-
+	ccu_irq_enable();
 	/*smp_inner_dcache_flush_all();*/
 	/*LOG_DBG("cache flushed 2\n");*/
 	/*3. Set CCU_A_RESET. CCU_HW_RST=0*/
@@ -960,6 +960,9 @@ int ccu_irq_enable(void)
 	int ret = 0;
 
 	LOG_DBG_MUST("%s+.\n", __func__);
+
+	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
+	ccu_read_reg(ccu_base, EINTC_ST);
 	if (request_irq(ccu_dev->irq_num, ccu_isr_handler,
 		IRQF_TRIGGER_NONE, "ccu", NULL)) {
 		LOG_ERR("fail to request ccu irq!\n");
@@ -972,6 +975,10 @@ int ccu_irq_enable(void)
 int ccu_irq_disable(void)
 {
 	LOG_DBG_MUST("%s+.\n", __func__);
+
 	free_irq(ccu_dev->irq_num, NULL);
+	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
+	ccu_read_reg(ccu_base, EINTC_ST);
+
 	return 0;
 }
