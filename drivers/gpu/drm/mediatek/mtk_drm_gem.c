@@ -53,7 +53,9 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 	return mtk_gem_obj;
 }
 
-static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
+/* Following function is not used in mtk_drm_fb_gem_insert() so far,*/
+/* Need verify before use it. */
+static struct sg_table *mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 			    struct device *dev, unsigned long *fb_pa)
 {
 	phys_addr_t pa_align;
@@ -70,7 +72,7 @@ static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 
 	pages = kmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
 	if (!pages)
-		return;
+		return NULL;
 
 	pgprot = cached ? PAGE_KERNEL : pgprot_writecombine(PAGE_KERNEL);
 	for (i = 0; i < npages; i++)
@@ -81,13 +83,15 @@ static void mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt) {
 		DDPPR_ERR("sgt creation failed\n");
-		return;
+		return NULL;
 	}
 
 	sg_alloc_table_from_pages(sgt, pages, npages, 0, size, GFP_KERNEL);
 	attrs = DMA_ATTR_SKIP_CPU_SYNC;
 	dma_map_sg_attrs(dev, sgt->sgl, sgt->nents, 0, attrs);
 	*fb_pa = sg_dma_address(sgt->sgl);
+
+	return sgt;
 }
 
 static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
@@ -169,6 +173,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_gem_object *obj;
+	struct sg_table *sgt;
 	unsigned long fb_pa;
 
 	DDPINFO("%s+\n", __func__);
@@ -186,7 +191,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 		mtk_gem_vmap_pa_legacy(fb_base, vramsize, mtk_gem);
 	} else {
 		mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
-		mtk_gem_vmap_pa(fb_base, vramsize, 0, dev->dev, &fb_pa);
+		sgt = mtk_gem_vmap_pa(fb_base, vramsize, 0, dev->dev, &fb_pa);
 
 		mtk_gem->dma_addr = (dma_addr_t)fb_pa;
 		mtk_gem->size = size;
@@ -196,6 +201,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 					mtk_gem->dma_attrs, __func__,
 					__LINE__);
 		mtk_gem->kvaddr = mtk_gem->cookie;
+		mtk_gem->sg = sgt;
 	}
 
 	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,

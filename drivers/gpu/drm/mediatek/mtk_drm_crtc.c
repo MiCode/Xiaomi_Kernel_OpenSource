@@ -334,6 +334,7 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 		return NULL;
 	if (!crtc) {
 		DDPPR_ERR("NULL crtc\n");
+		kfree(state);
 		return NULL;
 	}
 
