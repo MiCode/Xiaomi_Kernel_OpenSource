@@ -63,20 +63,15 @@ out:
 void dma_buf_ref_mod(struct msm_dma_buf *msm_dma_buf, int nr)
 {
 	unsigned long entries[DMA_BUF_STACK_DEPTH];
-	struct stack_trace trace = {
-		.nr_entries = 0,
-		.entries = entries,
-		.max_entries = DMA_BUF_STACK_DEPTH,
-		.skip = 1
-	};
+	int nr_entries;
 	depot_stack_handle_t handle;
 
-	save_stack_trace(&trace);
-	if (trace.nr_entries != 0 &&
-	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
-		trace.nr_entries--;
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(entries), 1);
 
-	handle = depot_save_stack(&trace, GFP_KERNEL);
+	if (nr_entries != 0 && entries[nr_entries - 1] == ULONG_MAX)
+		nr_entries--;
+
+	handle = stack_depot_save(entries, nr_entries, GFP_KERNEL);
 	if (!handle)
 		return;
 
@@ -91,18 +86,21 @@ int dma_buf_ref_show(struct seq_file *s, struct msm_dma_buf *msm_dma_buf)
 	char *buf;
 	struct dma_buf_ref *ref;
 	int count = 0;
-	struct stack_trace trace;
 
 	buf = (void *)__get_free_page(GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
 	list_for_each_entry(ref, &msm_dma_buf->refs, list) {
+		unsigned long *entries;
+		int nr_entries;
+
 		count += ref->count;
 
 		seq_printf(s, "References: %d\n", ref->count);
-		depot_fetch_stack(ref->handle, &trace);
-		snprint_stack_trace(buf, PAGE_SIZE, &trace, 0);
+		nr_entries = stack_depot_fetch(ref->handle, &entries);
+
+		stack_trace_snprint(buf, PAGE_SIZE, entries, nr_entries, 0);
 		seq_puts(s, buf);
 		seq_putc(s, '\n');
 	}
