@@ -841,25 +841,9 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	struct list_head removes;
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-		u32 irq_status_after;
-
 		cmdq_msg("%s cmdq:%#lx suspend:%s",
 			__func__, (unsigned long)cmdq->base_pa,
 			cmdq->suspended ? "true" : "false");
-
-		irq_status = clk_prepare_enable(cmdq->clock);
-		if (irq_status)
-			return IRQ_HANDLED;
-		irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) &
-			CMDQ_IRQ_MASK;
-
-		for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK))
-			writel(0, cmdq->thread[bit].base + CMDQ_THR_IRQ_STATUS);
-		irq_status_after = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
-		cmdq_msg("cmdq not enable status:%#x to %#x",
-			irq_status, irq_status_after);
-
-		clk_disable_unprepare(cmdq->clock);
 		return IRQ_HANDLED;
 	}
 
