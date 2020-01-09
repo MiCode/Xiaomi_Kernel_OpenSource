@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,7 @@ struct mhi_netdev {
 
 	/* debug stats */
 	u32 abuffers, kbuffers, rbuffers;
+	bool napi_scheduled;
 };
 
 struct mhi_netdev_priv {
@@ -458,6 +459,7 @@ static int mhi_netdev_alloc_thread(void *data)
 
 		/* replenish the ring */
 		napi_schedule(mhi_netdev->napi);
+		mhi_netdev->napi_scheduled = true;
 
 		/* wait for buffers to run low or thread to stop */
 		wait_event_interruptible(mhi_netdev->alloc_event,
@@ -497,6 +499,7 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 	if (rx_work < 0) {
 		MSG_ERR("Error polling ret:%d\n", rx_work);
 		napi_complete(napi);
+		mhi_netdev->napi_scheduled = false;
 		return 0;
 	}
 
@@ -507,8 +510,10 @@ static int mhi_netdev_poll(struct napi_struct *napi, int budget)
 		mhi_netdev_queue(mhi_netdev, rsc_dev->mhi_dev);
 
 	/* complete work if # of packet processed less than allocated budget */
-	if (rx_work < budget)
+	if (rx_work < budget) {
 		napi_complete(napi);
+		mhi_netdev->napi_scheduled = false;
+	}
 
 	MSG_VERB("polled %d pkts\n", rx_work);
 
@@ -844,6 +849,7 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 		return;
 
 	napi_schedule(mhi_netdev->napi);
+	mhi_netdev->napi_scheduled = true;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -1104,6 +1110,7 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 	 * by triggering a napi_poll
 	 */
 	napi_schedule(mhi_netdev->napi);
+	mhi_netdev->napi_scheduled = true;
 
 	return 0;
 }
