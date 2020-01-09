@@ -427,8 +427,6 @@ struct msdc_host {
 	struct clk              *clk_ctl;
 	struct clk              *aes_clk_ctl;
 	struct clk              *hclk_ctl;
-	/* msdc clk power,need enable firstly */
-	struct clk              *msdc_clk_power_ctl;
 	/* pclk for msdc register access */
 	struct clk              *pclk_ctl;
 	struct clk              *axi_clk_ctl; /* axi bus clk */

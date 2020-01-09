@@ -83,8 +83,6 @@ void msdc_dump_clock_sts(char **buff, unsigned long *size,
 #ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
 #define msdc_clk_enable(host) \
 	do { \
-		if (host->msdc_clk_power_ctl) \
-			(void)clk_enable(host->msdc_clk_power_ctl); \
 		if (host->pclk_ctl) \
 			(void)clk_enable(host->pclk_ctl); \
 		if (host->axi_clk_ctl) \
@@ -110,8 +108,6 @@ void msdc_dump_clock_sts(char **buff, unsigned long *size,
 			clk_disable(host->ahb2axi_brg_clk_ctl); \
 		if (host->pclk_ctl) \
 			clk_disable(host->pclk_ctl); \
-		if (host->msdc_clk_power_ctl) \
-			clk_disable(host->msdc_clk_power_ctl); \
 	} while (0)
 #else
 #define msdc_clk_enable(host)

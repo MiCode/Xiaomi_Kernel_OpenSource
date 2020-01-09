@@ -5449,8 +5449,6 @@ static int msdc_drv_remove(struct platform_device *pdev)
 		clk_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
 		clk_unprepare(host->pclk_ctl);
-	if (host->msdc_clk_power_ctl)
-		clk_unprepare(host->msdc_clk_power_ctl);
 #endif
 	pm_qos_remove_request(&host->msdc_pm_qos_req);
 	pm_runtime_disable(&pdev->dev);
@@ -5492,10 +5490,7 @@ static int msdc_runtime_suspend(struct device *dev)
 		clk_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
 		clk_unprepare(host->pclk_ctl);
-	/* disable msdc_clk_power_ctl unprepare for workaround */
-/*	if (host->msdc_clk_power_ctl)
-		clk_unprepare(host->msdc_clk_power_ctl);
-*/
+
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
 
@@ -5508,8 +5503,6 @@ static int msdc_runtime_resume(struct device *dev)
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
-	if (host->msdc_clk_power_ctl)
-		(void)clk_prepare(host->msdc_clk_power_ctl);
 	if (host->pclk_ctl)
 		(void)clk_prepare(host->pclk_ctl);
 	if (host->axi_clk_ctl)

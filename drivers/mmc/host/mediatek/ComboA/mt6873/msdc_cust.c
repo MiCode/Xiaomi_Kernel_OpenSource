@@ -531,24 +531,8 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	};
 
 	/* clk enable flow:
-	 * msdc clk power->pclk->bus clk->src clk ->host clk->aes clk
+	 * pclk->bus clk->src clk ->host clk->aes clk
 	 */
-	host->msdc_clk_power_ctl = devm_clk_get(&pdev->dev,
-			MSDC_CLK_POWER_NAME);
-	if (IS_ERR(host->msdc_clk_power_ctl)) {
-		pr_notice("[msdc%d] can not get msdc clock power control\n",
-			pdev->id);
-		WARN_ON(1);
-		return 1;
-	}
-	if (clk_prepare(host->msdc_clk_power_ctl)) {
-		pr_notice(
-			"[msdc%d] can not prepare msdc clock power control\n",
-			pdev->id);
-		WARN_ON(1);
-		return 1;
-	}
-
 	if (pclk_names[pdev->id]) {
 		host->pclk_ctl = devm_clk_get(&pdev->dev,
 			clk_names[pdev->id]);

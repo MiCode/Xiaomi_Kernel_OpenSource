@@ -38,7 +38,6 @@
 #define MSDC1_CLK_NAME          "msdc1-clock"
 #define MSDC1_HCLK_NAME         "msdc1-hclock"
 #define MSDC1_PCLK_NAME         "msdc1-pclock"
-#define MSDC_CLK_POWER_NAME     "msdc-clk-power"
 #define MSDC_AXI_CLK_NAME       "msdc-axi-clock"
 #define MSDC_AHB2AXI_BRG_NAME   "msdc-ahb2axi_brg-clock"
 #define MSDC0_IOCFG_NAME        "mediatek,iocfg_tl"
