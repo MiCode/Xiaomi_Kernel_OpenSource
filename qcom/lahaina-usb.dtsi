@@ -63,7 +63,7 @@
 			usb-core-id = <0>;
 			tx-fifo-resize;
 			maximum-speed = "super-speed-plus";
-			dr_mode = "drd";
+			dr_mode = "peripheral";
 		};
 
 		qcom,usbbam@a704000 {
