@@ -27,6 +27,7 @@ static struct mutex scp_ipi_tx_mutex;
 static struct work_struct scp_ipi_rx_work;
 static wait_queue_head_t scp_ipi_rx_wq;
 static struct ccci_skb_queue scp_ipi_rx_skb_list;
+static unsigned int init_work_done;
 #if (MD_GENERATION >= 6297)
 static struct ccci_ipi_msg scp_ipi_rx_msg;
 #endif
@@ -284,7 +285,10 @@ void fsm_scp_init0(void)
 		"AP CCCI") != SCP_IPI_DONE)
 		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
 #endif
-	INIT_WORK(&scp_ipi_rx_work, ccci_scp_ipi_rx_work);
+	if (!init_work_done) {
+		INIT_WORK(&scp_ipi_rx_work, ccci_scp_ipi_rx_work);
+		init_work_done = 1;
+	}
 	init_waitqueue_head(&scp_ipi_rx_wq);
 	ccci_skb_queue_init(&scp_ipi_rx_skb_list, 16, 16, 0);
 	atomic_set(&scp_state, SCP_CCCI_STATE_BOOTING);
