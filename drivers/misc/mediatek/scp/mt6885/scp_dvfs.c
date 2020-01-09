@@ -104,44 +104,12 @@ static void __iomem *gpio_base;
 static struct pm_qos_request dvfsrc_scp_vcore_req;
 #endif
 
-static uint32_t _mt_scp_dvfs_get_sum(void)
+static uint32_t _mt_scp_dvfs_set_test_freq(uint32_t sum)
 {
-	uint32_t sum_core0 = 0;
-	uint32_t sum_core1 = 0;
 	uint32_t added_freq = 0;
-	uint32_t sum = 0;
-	uint32_t i;
-
-	/*
-	 * calculate scp frequence
-	 */
-	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (i != VCORE_TEST_FEATURE_ID &&
-				feature_table[i].enable == 1) {
-			if (feature_table[i].sys_id == SCPSYS_CORE0)
-				sum_core0 += feature_table[i].freq;
-			else
-				sum_core1 += feature_table[i].freq;
-		}
-	}
-
-	/*
-	 * calculate scp sensor frequence
-	 */
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].enable == 1)
-			sum += sensor_type_table[i].freq;
-	}
-
-	sum += sum_core0;
-	feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE0;
-	if (sum_core1 > sum) {
-		sum = sum_core1;
-		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
-	}
 
 	if (scp_dvfs_debug_flag == -1)
-		return sum;
+		return 0;
 
 	pr_info("manually set opp = %d\n", scp_dvfs_debug_flag);
 
@@ -166,7 +134,7 @@ static uint32_t _mt_scp_dvfs_get_sum(void)
 			added_freq,
 			sum + added_freq);
 
-	return sum;
+	return added_freq;
 }
 
 int scp_resource_req(unsigned int req_type)
@@ -256,12 +224,42 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 uint32_t scp_get_freq(void)
 {
 	uint32_t return_freq = 0;
+	uint32_t sum_core0 = 0;
+	uint32_t sum_core1 = 0;
 	uint32_t sum = 0;
+	uint32_t i;
 
 	/*
-	 * calculate scp sum of frequence
+	 * calculate scp frequence
 	 */
-	sum = _mt_scp_dvfs_get_sum();
+	for (i = 0; i < NUM_FEATURE_ID; i++) {
+		if (i != VCORE_TEST_FEATURE_ID &&
+				feature_table[i].enable == 1) {
+			if (feature_table[i].sys_id == SCPSYS_CORE0)
+				sum_core0 += feature_table[i].freq;
+			else
+				sum_core1 += feature_table[i].freq;
+		}
+	}
+
+	/*
+	 * calculate scp sensor frequence
+	 */
+	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
+		if (sensor_type_table[i].enable == 1)
+			sum += sensor_type_table[i].freq;
+	}
+
+	sum += sum_core0;
+	feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE0;
+	if (sum_core1 > sum) {
+		sum = sum_core1;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
+	}
+	/*
+	 * added up scp test cmd frequence
+	 */
+	sum += _mt_scp_dvfs_set_test_freq(sum);
 
 	/*pr_debug("[SCP] needed freq sum:%d\n",sum);*/
 	if (sum <= CLK_OPP0)
