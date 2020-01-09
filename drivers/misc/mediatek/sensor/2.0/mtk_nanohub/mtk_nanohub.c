@@ -84,6 +84,8 @@ struct mtk_nanohub_device {
 	atomic_t cfg_data_after_reboot;
 	atomic_t start_timesync_first_boot;
 	atomic_t create_manager_first_boot;
+	atomic_t mtk_nanohub_ready;
+	atomic64_t mtk_nanohub_ready_time;
 
 	int32_t acc_config_data[6];
 	int32_t gyro_config_data[12];
@@ -2342,10 +2344,13 @@ static int mtk_nanohub_create_manager(void)
 		pr_err("%s hf_manager_create fail\n", __func__);
 		return err;
 	}
+
+	atomic64_set(&device->mtk_nanohub_ready_time, ktime_get_boot_ns());
+	atomic_set(&device->mtk_nanohub_ready, 1);
 	return err;
 }
 
-static ssize_t mtk_nanohub_trace_show(struct device_driver *ddri,
+static ssize_t trace_show(struct device_driver *ddri,
 		char *buf)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
@@ -2358,7 +2363,7 @@ static ssize_t mtk_nanohub_trace_show(struct device_driver *ddri,
 	return res;
 }
 
-static ssize_t mtk_nanohub_trace_store(struct device_driver *ddri,
+static ssize_t trace_store(struct device_driver *ddri,
 		const char *buf, size_t count)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
@@ -2394,10 +2399,24 @@ err_out:
 	return count;
 }
 
-static DRIVER_ATTR_RW(mtk_nanohub_trace);
+static ssize_t state_show(struct device_driver *ddri, char *buf)
+{
+	struct mtk_nanohub_device *device = mtk_nanohub_dev;
+	const char *status =
+		atomic_read(&device->mtk_nanohub_ready) ? "ready" : "unready";
+	int64_t ready_time = atomic64_read(&device->mtk_nanohub_ready_time);
+	int64_t now_time = ktime_get_boot_ns();
+
+	return snprintf(buf, PAGE_SIZE, "%s,%lld,%lld\n",
+		status, ready_time, now_time);
+}
+
+static DRIVER_ATTR_RW(trace);
+static DRIVER_ATTR_RO(state);
 
 static struct driver_attribute *mtk_nanohub_attrs[] = {
-	&driver_attr_mtk_nanohub_trace,
+	&driver_attr_trace,
+	&driver_attr_state,
 };
 
 static int mtk_nanohub_create_attr(struct device_driver *driver)
@@ -2465,6 +2484,8 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 	atomic_set(&device->cfg_data_after_reboot, 0);
 	atomic_set(&device->start_timesync_first_boot, 0);
 	atomic_set(&device->create_manager_first_boot, 0);
+	atomic_set(&device->mtk_nanohub_ready, 0);
+	atomic64_set(&device->mtk_nanohub_ready_time, 0);
 	/* init timestamp sync worker */
 	INIT_WORK(&device->sync_time_worker, mtk_nanohub_sync_time_work);
 	device->sync_time_timer.expires =
