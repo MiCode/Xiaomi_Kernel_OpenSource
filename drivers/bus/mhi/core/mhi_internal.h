@@ -665,6 +665,8 @@ struct mhi_event {
 			     struct mhi_event *mhi_event,
 			     u32 event_quota);
 	struct mhi_controller *mhi_cntrl;
+	struct mhi_tre last_cached_tre;
+	u64 last_dev_rp;
 };
 
 struct mhi_chan {
