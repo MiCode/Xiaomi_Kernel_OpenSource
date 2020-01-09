@@ -2653,19 +2653,75 @@ uint32_t cmdq_mdp_wdma_get_reg_offset_dst_addr(void)
 	return 0xF00;
 }
 
-const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
+const char *cmdq_mdp_parse_handle_error_module(
+	const struct cmdqRecStruct *handle)
 {
 	const char *module = NULL;
-	const u64 ISP_ONLY[2] = {
-		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O)),
-		((1LL << CMDQ_ENG_ISP_IMGI2) | (1LL << CMDQ_ENG_ISP_IMG2O2))
-	};
 
 	/* common part for both normal and secure path */
 	/* for JPEG scenario, use HW flag is sufficient */
-	if ((ISP_ONLY[0] == task->engineFlag) ||
-		(ISP_ONLY[1] == task->engineFlag))
+	if ((handle->engineFlag & CMDQ_ENG_ISP_GROUP_BITS)
+		== handle->engineFlag)
 		module = "DIP_ONLY";
+	else if ((handle->engineFlag & CMDQ_ENG_WPE_GROUP_BITS)
+		== handle->engineFlag)
+		module = "WPE_ONLY";
+
+	/* for secure path, use HW flag is sufficient */
+	do {
+		if (module != NULL)
+			break;
+
+		if (!handle->secData.is_secure) {
+			/* normal path,
+			 * need parse current running instruciton
+			 * for more detail
+			 */
+			break;
+		} else if (CMDQ_ENG_MDP_GROUP_FLAG(handle->engineFlag)) {
+			module = "MDP";
+			break;
+		} else if (CMDQ_ENG_DPE_GROUP_FLAG(handle->engineFlag)) {
+			module = "DPE";
+			break;
+		} else if (CMDQ_ENG_RSC_GROUP_FLAG(handle->engineFlag)) {
+			module = "RSC";
+			break;
+		} else if (CMDQ_ENG_GEPF_GROUP_FLAG(handle->engineFlag)) {
+			module = "GEPF";
+			break;
+		} else if (CMDQ_ENG_EAF_GROUP_FLAG(handle->engineFlag)) {
+			module = "EAF";
+			break;
+		} else if (CMDQ_ENG_OWE_GROUP_FLAG(handle->engineFlag)) {
+			module = "OWE";
+			break;
+		} else if (CMDQ_ENG_MFB_GROUP_FLAG(handle->engineFlag)) {
+			module = "MFB";
+			break;
+		} else if (CMDQ_ENG_FDVT_GROUP_FLAG(handle->engineFlag)) {
+			module = "FDVT";
+			break;
+		}
+
+		module = "CMDQ";
+	} while (0);
+
+	return module;
+}
+
+const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
+{
+	const char *module = NULL;
+
+	/* common part for both normal and secure path */
+	/* for JPEG scenario, use HW flag is sufficient */
+	if ((task->engineFlag & CMDQ_ENG_ISP_GROUP_BITS)
+		== task->engineFlag)
+		module = "DIP_ONLY";
+	else if ((task->engineFlag & CMDQ_ENG_WPE_GROUP_BITS)
+		== task->engineFlag)
+		module = "WPE_ONLY";
 
 	/* for secure path, use HW flag is sufficient */
 	do {
@@ -2919,6 +2975,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->wrotGetRegOffsetDstAddr = cmdq_mdp_wrot_get_reg_offset_dst_addr;
 	pFunc->wdmaGetRegOffsetDstAddr = cmdq_mdp_wdma_get_reg_offset_dst_addr;
 	pFunc->parseErrModByEngFlag = cmdq_mdp_parse_error_module;
+	pFunc->parseHandleErrModByEngFlag = cmdq_mdp_parse_handle_error_module;
 	pFunc->getEngineGroupBits = cmdq_mdp_get_engine_group_bits;
 #if 0
 	pFunc->testcaseClkmgrMdp = testcase_clkmgr_mdp;
