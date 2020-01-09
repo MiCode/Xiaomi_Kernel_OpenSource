@@ -606,7 +606,7 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 static unsigned int apu_get_dds(enum DVFS_FREQ freq,
 	enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	int opp;
+	int opp = 0;
 
 	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 		if (apusys_opps.opps[opp][domain].freq == freq)
@@ -621,7 +621,7 @@ static unsigned int apu_get_dds(enum DVFS_FREQ freq,
 static enum DVFS_FREQ_POSTDIV apu_get_posdiv_power(enum DVFS_FREQ freq,
 	enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	int opp;
+	int opp = 0;
 
 	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 		if (apusys_opps.opps[opp][domain].freq == freq)
@@ -636,8 +636,8 @@ static enum DVFS_FREQ_POSTDIV apu_get_posdiv_power(enum DVFS_FREQ freq,
 static enum DVFS_FREQ_POSTDIV apu_get_curr_posdiv_power(
 	enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	unsigned long pll;
-	enum DVFS_FREQ_POSTDIV real_posdiv_power;
+	unsigned long pll  = 0;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
 
 	if (domain == V_VPU0 || domain == V_VPU1)
 		pll = DRV_Reg32(NPUPLL_CON1);
@@ -659,10 +659,10 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 #if CCF_SET_RATE
 	int scaled_freq = freq * 1000;
 #endif
-	enum DVFS_FREQ ckmux_freq;
-	enum DVFS_FREQ_POSTDIV posdiv_power;
-	enum DVFS_FREQ_POSTDIV real_posdiv_power;
-	unsigned int dds, pll;
+	enum DVFS_FREQ ckmux_freq = 0;
+	enum DVFS_FREQ_POSTDIV posdiv_power = 0;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
+	unsigned int dds, pll = 0;
 	bool parking = false;
 
 	real_posdiv_power = apu_get_curr_posdiv_power(domain);
@@ -738,10 +738,10 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 #if CCF_SET_RATE
 		int scaled_freq = freq * 1000;
 #endif
-	enum DVFS_FREQ ckmux_freq;
-	enum DVFS_FREQ_POSTDIV posdiv_power;
-	enum DVFS_FREQ_POSTDIV real_posdiv_power;
-	unsigned int dds, pll;
+	enum DVFS_FREQ ckmux_freq = 0;
+	enum DVFS_FREQ_POSTDIV posdiv_power = 0;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
+	unsigned int dds, pll = 0;
 	bool parking = false;
 
 	real_posdiv_power = apu_get_curr_posdiv_power(domain);

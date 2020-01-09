@@ -57,7 +57,9 @@ void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (apusys_get_power_on_status(VPU1) == true && info->dsp2_freq != 0) {
+	if (apusys_get_power_on_status(VPU0) == false &&
+		(apusys_get_power_on_status(VPU1) == true &&
+			info->dsp2_freq != 0)) {
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
 		if (((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE) &&
