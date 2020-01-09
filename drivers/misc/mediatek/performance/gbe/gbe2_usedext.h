@@ -20,7 +20,6 @@
 
 extern int gbe2xgf_get_dep_list_num(int pid);
 extern int gbe2xgf_get_dep_list(int pid, int count, struct gbe_runtime *arr);
-extern struct dentry *gbe_debugfs_dir;
 
 #endif
 

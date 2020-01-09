@@ -42,9 +42,5 @@ struct GBE_FSTB_TID_LIST {
 static HLIST_HEAD(gbe_boost_list);
 static HLIST_HEAD(gbe_fstb_tid_list);
 
-extern void gbe2_exit(void);
-
-extern int gbe2_init(void);
-
 #endif
 

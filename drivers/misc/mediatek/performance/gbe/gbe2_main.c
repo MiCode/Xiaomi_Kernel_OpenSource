@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include "gbe2_usedext.h"
+#include "gbe_common.h"
 #include <linux/pm_qos.h>
 
 #define MAX_DEP_NUM 30
@@ -41,15 +42,10 @@
 #define DEFAULT_MAX_BOOST_CNT 5
 #define DEFAULT_LOADING_TH 20
 
-#define SYSTEMUI_STR "ndroid.systemui"
-#define MTK_LTR_STR  "om.mediatek.pfm"
-
 static HLIST_HEAD(gbe_boost_units);
 static DEFINE_MUTEX(gbe_lock);
 static int gbe_enable;
 static int fg_pid;
-static int cluster_num;
-static struct pm_qos_request dram_req;
 static int TIMER1_MS = DEFAULT_TIMER1_MS;
 static int TIMER2_MS = DEFAULT_TIMER2_MS;
 static int MAX_BOOST_CNT = DEFAULT_MAX_BOOST_CNT;
@@ -79,53 +75,10 @@ struct gbe_boost_unit {
 	struct hlist_node hlist;
 };
 
-static unsigned long __read_mostly tracing_mark_write_addr;
-static inline void __mt_update_tracing_mark_write_addr(void)
-{
-	if (unlikely(tracing_mark_write_addr == 0))
-		tracing_mark_write_addr =
-			kallsyms_lookup_name("tracing_mark_write");
-}
-static void gbe_trace_printk(int pid, char *module, char *string)
-{
-	__mt_update_tracing_mark_write_addr();
-	preempt_disable();
-	event_trace_printk(tracing_mark_write_addr, "%d [%s] %s\n",
-			pid, module, string);
-	preempt_enable();
-}
-
-static void gbe_trace_count(int tid, int val, const char *fmt, ...)
-{
-	char log[32];
-	va_list args;
-
-
-	memset(log, ' ', sizeof(log));
-	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
-	va_end(args);
-
-	__mt_update_tracing_mark_write_addr();
-	preempt_disable();
-
-	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
-		event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
-				tid, log, val);
-	} else {
-		event_trace_printk(tracing_mark_write_addr, "C|%s|%d\n",
-				log, val);
-	}
-
-	preempt_enable();
-}
 
 static void gbe_boost_cpu(void)
 {
-	struct ppm_limit_data *pld;
 	struct gbe_boost_unit *iter;
-	int uclamp_pct, pm_req;
-	int i;
 	int boost = 0;
 
 	hlist_for_each_entry(iter, &gbe_boost_units, hlist) {
@@ -135,38 +88,8 @@ static void gbe_boost_cpu(void)
 		}
 	}
 
-	pld =
-		kcalloc(cluster_num, sizeof(struct ppm_limit_data),
-				GFP_KERNEL);
+	gbe_boost(KIR_GBE2, boost);
 
-	if (!pld)
-		return;
-
-	if (!pm_qos_request_active(&dram_req))
-		pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
-
-	if (boost) {
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = 3000000;
-			pld[i].min = 3000000;
-		}
-		uclamp_pct = 100;
-		pm_req = 0;
-	} else {
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = -1;
-			pld[i].min = -1;
-		}
-		uclamp_pct = 0;
-		pm_req = PM_QOS_DDR_OPP_DEFAULT_VALUE;
-	}
-
-	update_userlimit_cpu_freq(CPU_KIR_GBE2, cluster_num, pld);
-	update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, uclamp_pct);
-	pm_qos_update_request(&dram_req, pm_req);
-
-	kfree(pld);
 }
 
 static void update_runtime(struct gbe_boost_unit *iter)
@@ -713,6 +636,7 @@ void gbe2_exit(void)
 
 int gbe2_init(void)
 {
+
 	if (!gbe_debugfs_dir)
 		return -ENODEV;
 
@@ -758,7 +682,6 @@ int gbe2_init(void)
 			NULL,
 			&gbe_loading_th_fops);
 
-	cluster_num = arch_get_nr_clusters();
 
 	return 0;
 }

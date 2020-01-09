@@ -13,19 +13,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef GBE1_H
+#define GBE1_H
 
-#ifndef GBE2_H
-#define GBE2_H
 
-#if defined(CONFIG_MTK_GBE)
-void fpsgo_comp2gbe_frame_update(int pid);
-#else
-static inline void fpsgo_comp2gbe_frame_update(int pid)
-{ }
-#endif
-extern void gbe2_exit(void);
+extern void gbe1_exit(void);
 
-extern int gbe2_init(void);
+extern int gbe1_init(void);
 
 #endif
 

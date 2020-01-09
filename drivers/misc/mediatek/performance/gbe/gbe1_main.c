@@ -32,6 +32,7 @@
 #include <linux/slab.h>
 #include "gbe1_usedext.h"
 #include "fstb_usedext.h"
+#include "gbe_common.h"
 
 enum GBE_NOTIFIER_PUSH_TYPE {
 	GBE_NOTIFIER_SWITCH_GBE			= 0x00,
@@ -50,39 +51,6 @@ struct GBE_NOTIFIER_PUSH_TAG {
 static struct mutex gbe_list_lock;
 static struct workqueue_struct *g_psNotifyWorkQueue;
 static int gbe_enable;
-static int cluster_num;
-
-static unsigned long __read_mostly tracing_mark_write_addr;
-static inline void __mt_update_tracing_mark_write_addr(void)
-{
-	if (unlikely(tracing_mark_write_addr == 0))
-		tracing_mark_write_addr =
-			kallsyms_lookup_name("tracing_mark_write");
-}
-static void gbe_trace_count(int tid, int val, const char *fmt, ...)
-{
-	char log[32];
-	va_list args;
-
-
-	memset(log, ' ', sizeof(log));
-	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
-	va_end(args);
-
-	__mt_update_tracing_mark_write_addr();
-	preempt_disable();
-
-	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
-		event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
-				tid, log, val);
-	} else {
-		event_trace_printk(tracing_mark_write_addr, "C|%s|%d\n",
-				log, val);
-	}
-
-	preempt_enable();
-}
 
 /* TODO: event register & dispatch */
 int gbe_is_enable(void)
@@ -116,34 +84,6 @@ static unsigned long long gbe_get_time(void)
 
 /***********************************************************/
 /*main logic*/
-static void gbe_boost_cpu(int boost)
-{
-	struct ppm_limit_data *pld;
-	int i;
-
-	pld =
-		kcalloc(cluster_num, sizeof(struct ppm_limit_data),
-				GFP_KERNEL);
-
-	if (!pld)
-		return;
-
-	if (boost) {
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = 3000000;
-			pld[i].min = 3000000;
-		}
-	} else {
-		for (i = 0; i < cluster_num; i++) {
-			pld[i].max = -1;
-			pld[i].min = -1;
-		}
-	}
-
-	update_userlimit_cpu_freq(CPU_KIR_GBE1, cluster_num, pld);
-	kfree(pld);
-}
-
 static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 {
 	struct GBE_FSTB_TID_LIST *iter;
@@ -155,7 +95,7 @@ static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 	int boost = 0;
 
 	if (!gbe_is_enable()) {
-		gbe_boost_cpu(0);
+		gbe_boost(KIR_GBE1, 0);
 		return;
 	}
 
@@ -247,7 +187,7 @@ static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 		kfree(iter);
 	}
 
-	gbe_boost_cpu(boost);
+	gbe_boost(KIR_GBE1, boost);
 
 	mutex_unlock(&gbe_list_lock);
 }
@@ -257,7 +197,7 @@ static void gbe_notifier_wq_cb_rtid(struct hlist_head *list)
 {
 
 	if (!gbe_is_enable()) {
-		gbe_boost_cpu(0);
+		gbe_boost(KIR_GBE1, 0);
 		return;
 	}
 
@@ -397,7 +337,7 @@ out:
 	return retval;
 }
 
-#define FPSGO_DEBUGFS_ENTRY(name) \
+#define GBE_DEBUGFS_ENTRY(name) \
 	static int gbe_##name##_open(struct inode *i, struct file *file) \
 { \
 	return single_open(file, gbe_##name##_show, i->i_private); \
@@ -442,7 +382,7 @@ static ssize_t gbe_enable_write(struct file *flip,
 	return cnt;
 }
 
-FPSGO_DEBUGFS_ENTRY(enable);
+GBE_DEBUGFS_ENTRY(enable);
 
 static int gbe_boost_list_show(struct seq_file *m, void *unused)
 {
@@ -511,12 +451,10 @@ err:
 	return ret;
 }
 
-FPSGO_DEBUGFS_ENTRY(boost_list);
+GBE_DEBUGFS_ENTRY(boost_list);
 
-struct dentry *gbe_debugfs_dir;
 int init_gbe_common(void)
 {
-	gbe_debugfs_dir = debugfs_create_dir("gbe", NULL);
 	if (!gbe_debugfs_dir)
 		return -ENODEV;
 
@@ -536,25 +474,20 @@ int init_gbe_common(void)
 	return 0;
 }
 
-static void __exit gbe_exit(void)
+void gbe1_exit(void)
 {
 }
 
-static int __init gbe_init(void)
+int gbe1_init(void)
 {
 	gbe_fstb2gbe_poll_fp = gbe_notify_fstb_poll;
 	g_psNotifyWorkQueue =
 		create_singlethread_workqueue("gbe_notifier_wq");
-	cluster_num = 2;
 
 	init_gbe_common();
-	gbe2_init();
 
 	return 0;
 }
-
-module_init(gbe_init);
-module_exit(gbe_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek GBE");
