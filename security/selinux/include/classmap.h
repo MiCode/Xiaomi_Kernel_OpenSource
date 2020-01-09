@@ -241,8 +241,6 @@ struct security_class_mapping secclass_map[] = {
 	  { "manage_subnet", NULL } },
 	{ "bpf",
 	  {"map_create", "map_read", "map_write", "prog_load", "prog_run"} },
-	{ "perf_event",
-	  {"open", "cpu", "kernel", "tracepoint", "read", "write"} },
 	{ NULL }
   };
 
