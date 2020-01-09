@@ -129,7 +129,7 @@ void playback_open_dump_file(void)
 
 	/* only enable when debug pcm dump on */
 	aud_wake_lock(&playback_pcm_dump_wake_lock);
-
+	memset(&curr_tm, 0, sizeof(struct timespec));
 	getnstimeofday(&curr_tm);
 
 	memset(string_time, '\0', 16);
