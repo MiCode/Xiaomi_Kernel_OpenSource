@@ -48,6 +48,7 @@ void *g_APU_VPU0_BASE;
 void *g_APU_VPU1_BASE;
 void *g_APU_MDLA0_BASE;
 void *g_APU_SPM_BASE;
+void *g_APU_APMIXED_BASE;
 
 /************************************
  * platform related power APIs
@@ -290,6 +291,7 @@ static int init_power_resource(void *param)
 	g_APU_INFRACFG_AO_BASE = init_data->infracfg_ao_base_addr;
 	g_APU_INFRA_BCRM_BASE = init_data->infra_bcrm_base_addr;
 	g_APU_SPM_BASE = init_data->spm_base_addr;
+	g_APU_APMIXED_BASE = init_data->apmixed_base_addr;
 
 	g_APU_CONN_BASE = init_data->conn_base_addr;
 	g_APU_VPU0_BASE = init_data->vpu0_base_addr;

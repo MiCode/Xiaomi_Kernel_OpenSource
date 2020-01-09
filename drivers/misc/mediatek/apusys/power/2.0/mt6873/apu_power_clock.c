@@ -19,8 +19,9 @@
 #include "power_clock.h"
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
-
-
+#ifdef CONFIG_MTK_FREQ_HOPPING
+#include "mtk_freqhopping_drv.h"
+#endif
 
 /************** IMPORTANT !! *******************
  * The following name of each clock struct
@@ -602,76 +603,97 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 }
 
-enum DVFS_FREQ findNearestFreq(enum DVFS_FREQ freq,
+static unsigned int apu_get_dds(enum DVFS_FREQ freq,
 	enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	int opp = 0;
-	enum DVFS_FREQ used_freq = DVFS_FREQ_00_026000_F;
+	int opp;
 
 	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-		if (apusys_opps.opps[opp][domain].freq == freq) {
-			if (domain == V_VPU0 || domain == V_VPU1) {
-				switch (apusys_opps.opps[opp][domain].voltage) {
-				case DVFS_VOLT_00_575000_V:
-				case DVFS_VOLT_00_650000_V:
-					used_freq = DVFS_FREQ_00_273000_F;
-					break;
-				case DVFS_VOLT_00_700000_V:
-					used_freq = DVFS_FREQ_00_499200_F;
-					break;
-				case DVFS_VOLT_00_750000_V:
-				case DVFS_VOLT_00_775000_V:
-					used_freq = DVFS_FREQ_00_624000_F;
-					break;
-				default:
-					LOG_ERR("%s illegal freq: %d\n",
-						__func__, freq);
-				}
-			} else if (domain == V_MDLA0)  {
-				switch (apusys_opps.opps[opp][domain].voltage) {
-				case DVFS_VOLT_00_575000_V:
-				case DVFS_VOLT_00_650000_V:
-					used_freq = DVFS_FREQ_00_312000_F;
-					break;
-				case DVFS_VOLT_00_700000_V:
-					used_freq = DVFS_FREQ_00_624000_F;
-					break;
-				case DVFS_VOLT_00_750000_V:
-				case DVFS_VOLT_00_800000_V:
-					used_freq = DVFS_FREQ_00_687500_F;
-					break;
-				default:
-					LOG_ERR("%s illegal freq: %d\n",
-						__func__, freq);
-				}
-			}
-			break;
-		}
+		if (apusys_opps.opps[opp][domain].freq == freq)
+			return apusys_opps.opps[opp][domain].dds;
 	}
 
-	return used_freq;
+	LOG_DBG("%s freq %d find no dds\n",
+		__func__, freq);
+	return 0;
 }
 
+static enum DVFS_FREQ_POSTDIV apu_get_posdiv_power(enum DVFS_FREQ freq,
+	enum DVFS_VOLTAGE_DOMAIN domain)
+{
+	int opp;
+
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+		if (apusys_opps.opps[opp][domain].freq == freq)
+			return apusys_opps.opps[opp][domain].post_divider;
+	}
+
+	LOG_DBG("%s freq %d find no post divider\n",
+		__func__, freq);
+	return POSDIV_4;
+}
+
+static enum DVFS_FREQ_POSTDIV apu_get_curr_posdiv_power(
+	enum DVFS_VOLTAGE_DOMAIN domain)
+{
+	unsigned long pll;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power;
+
+	if (domain == V_VPU0 || domain == V_VPU1)
+		pll = DRV_Reg32(NPUPLL_CON1);
+	else if (domain == V_MDLA0)
+		pll = DRV_Reg32(APUPLL_CON1);
+
+	real_posdiv_power = (pll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+
+	LOG_DBG("%s real_posdiv_power %d\n",
+		__func__, real_posdiv_power);
+
+	return real_posdiv_power;
+}
 
 int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int ret = 0;
 	struct clk *clk_target = NULL;
-	int scaled_freq = freq * 1000;
 	enum DVFS_FREQ ckmux_freq;
+	enum DVFS_FREQ_POSTDIV posdiv_power;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power;
+	unsigned int dds, pll;
+	bool parking = false;
 
-	clk_target = find_clk_by_domain(domain);
+	real_posdiv_power = apu_get_curr_posdiv_power(domain);
+	posdiv_power = apu_get_posdiv_power(freq, domain);
+	dds = apu_get_dds(freq, domain);
+	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
 
-	if (clk_target != NULL) {
-
-#if 0	// switch to ckmux first
-		ckmux_freq = findNearestFreq(freq, domain);
+#ifndef CONFIG_MTK_FREQ_HOPPING
+	/* force parking if FHCTL not ready */
+	parking = true;
 #else
-		ckmux_freq = DVFS_FREQ_00_312000_F;
+	if (posdiv_power != real_posdiv_power)
+		parking = true;
+	else
+		parking = false;
 #endif
-		ret |= set_apu_clock_source(ckmux_freq, domain);
 
-		ret |= clk_set_rate(clk_top_apupll_ck, scaled_freq);
+	LOG_DBG(
+		"posdiv: %d, real_posdiv: %d, dds: 0x%x, pll: 0x%08x, parking: %d\n",
+		(1 << posdiv_power), (1 << real_posdiv_power),
+		dds, pll, parking);
+
+	if (parking) {
+		clk_target = find_clk_by_domain(domain);
+
+		if (clk_target != NULL) {
+			ckmux_freq = DVFS_FREQ_00_312000_F;
+			ret |= set_apu_clock_source(ckmux_freq, domain);
+		} else {
+			LOG_ERR("%s config domain %d to freq %d failed\n",
+				__func__, domain, freq);
+			return -1;
+		}
+		DRV_WriteReg32(APUPLL_CON1, pll);
 
 		/* PLL spec */
 		udelay(20);
@@ -679,18 +701,24 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		ret |= clk_set_parent(clk_top_dsp5_apupll_sel,
 			clk_top_apupll_ck);
 
+		if (ret)
+			LOG_ERR("%s fail, ret = %d\n", __func__, ret);
+		else
+			LOG_DBG("%s pass, ret = %d\n", __func__, ret);
+	} else {
+#ifdef CONFIG_MTK_FREQ_HOPPING
+		mt_dfs_general_pll(APUPLL_FH_PLL, dds);
+#endif
+	}
+
 #if APUSYS_SETTLE_TIME_TEST
 		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
 								domain, freq);
 #else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
+		LOG_DBG("%s config domain %d to freq %d,  APUPLL_CON1 0x%x\n",
+			__func__, domain, freq, DRV_Reg32(APUPLL_CON1));
 #endif
-	} else {
-		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
-								domain, freq);
-		return -1;
-	}
+
 	return ret;
 }
 
@@ -698,42 +726,72 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int ret = 0;
 	struct clk *clk_target = NULL;
-	int scaled_freq = freq * 1000;
 	enum DVFS_FREQ ckmux_freq;
+	enum DVFS_FREQ_POSTDIV posdiv_power;
+	enum DVFS_FREQ_POSTDIV real_posdiv_power;
+	unsigned int dds, pll;
+	bool parking = false;
 
-	// parking to ckmux first
-	for (domain = V_VPU0; domain < V_VPU0 + APUSYS_VPU_NUM; domain++) {
-		clk_target = find_clk_by_domain(domain);
-		if (clk_target != NULL) {
-#if 0
-			ckmux_freq = findNearestFreq(freq, domain);
+	real_posdiv_power = apu_get_curr_posdiv_power(domain);
+	posdiv_power = apu_get_posdiv_power(freq, domain);
+	dds = apu_get_dds(freq, domain);
+	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
+
+#ifndef CONFIG_MTK_FREQ_HOPPING
+	parking = true;
 #else
-			ckmux_freq = DVFS_FREQ_00_273000_F;
+	if (posdiv_power != real_posdiv_power)
+		parking = true;
+	else
+		parking = false;
 #endif
-			ret |= set_apu_clock_source(ckmux_freq, domain);
-		} else {
-			LOG_ERR("%s config domain %d to freq %d failed\n",
-				__func__, domain, freq);
-			return -1;
+
+	LOG_DBG(
+		"%s posdiv: %d, real_posdiv: %d, dds: 0x%x, pll: 0x%08x, parking: %d\n",
+		__func__, (1 << posdiv_power), (1 << real_posdiv_power),
+		dds, pll, parking);
+
+	if (parking) {
+		for (domain = V_VPU0; domain < V_VPU0 + APUSYS_VPU_NUM;
+			domain++) {
+			clk_target = find_clk_by_domain(domain);
+
+			if (clk_target != NULL) {
+				ckmux_freq = DVFS_FREQ_00_273000_F;
+				ret |= set_apu_clock_source(ckmux_freq, domain);
+			} else {
+				LOG_ERR(
+					"%s config domain %d to freq %d failed\n",
+					__func__, domain, freq);
+				return -1;
+			}
 		}
+		DRV_WriteReg32(NPUPLL_CON1, pll);
+
+		/* PLL spec */
+		udelay(20);
+
+		ret |= clk_set_parent(clk_top_dsp1_npupll_sel,
+			clk_top_npupll_ck);
+		ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
+			clk_top_npupll_ck);
+
+		if (ret)
+			LOG_ERR("%s fail, ret = %d\n", __func__, ret);
+		else
+			LOG_DBG("%s pass, ret = %d\n", __func__, ret);
+	} else {
+#ifdef CONFIG_MTK_FREQ_HOPPING
+		mt_dfs_general_pll(NPUPLL_FH_PLL, dds);
+#endif
 	}
-
-	ret |= clk_set_rate(clk_apmixed_npupll_rate, scaled_freq);
-
-	/* PLL spec */
-	udelay(20);
-
-	ret |= clk_set_parent(clk_top_dsp1_npupll_sel,
-		clk_top_npupll_ck);
-	ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
-		clk_top_npupll_ck);
 
 #if APUSYS_SETTLE_TIME_TEST
 	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-							domain, freq);
+							V_VPU0, freq);
 #else
-	LOG_DBG("%s config domain %d to freq %d\n", __func__,
-							domain, freq);
+	LOG_DBG("%s config domain %d to freq %d, NPUPLL_CON1 0x%x\n",
+		__func__, V_VPU0, freq, DRV_Reg32(NPUPLL_CON1));
 #endif
 
 	return ret;
@@ -759,7 +817,7 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp_freq = mt_get_ckgen_freq(13);
 	}
-#if 0
+#if 1  //TOP_MUX_DSP1/2/5
 	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp1_freq = mt_get_ckgen_freq(14);
 	if (dsp1_freq == 0) {
@@ -780,7 +838,7 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp5_freq = mt_get_ckgen_freq(16);
 	}
-#else // unit: HZ
+#else // unit: HZ for clk_set_rate use case
 	dsp1_freq = clk_get_rate(clk_top_dsp1_npupll_sel);
 	dsp2_freq = clk_get_rate(clk_top_dsp2_npupll_sel);
 	dsp5_freq = clk_get_rate(clk_top_dsp5_apupll_sel);
@@ -814,9 +872,15 @@ void dump_frequency(struct apu_power_info *info)
 		dump_div = info->dump_div;
 
 	info->dsp_freq = dsp_freq / dump_div;
+#if 1 //[Fix me] It's true after clk_set_parent to npupll/apupll
+	info->dsp1_freq = npupll_freq / dump_div;
+	info->dsp2_freq = npupll_freq / dump_div;
+	info->dsp5_freq = apupll_freq / (dump_div * 2);
+#else // unit: HZ for clk_set_rate use case
 	info->dsp1_freq = dsp1_freq / (dump_div * 1000);
 	info->dsp2_freq = dsp2_freq / (dump_div * 1000);
 	info->dsp5_freq = dsp5_freq / (dump_div * 1000);
+#endif
 	info->apupll_freq = apupll_freq / dump_div;
 	info->npupll_freq = npupll_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;

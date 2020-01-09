@@ -70,7 +70,8 @@ void apu_power_assert_check(struct apu_power_info *info)
 		info->dsp2_freq != 0)) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
-		if (((abs(dsp1_freq - info->dsp1_freq) * 100) >
+		if ((dsp1_freq == dsp2_freq) &&
+			((abs(dsp1_freq - info->dsp1_freq) * 100) >
 			dsp1_freq * ASSERTION_PERCENTAGE)  &&
 		    ((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE)) {

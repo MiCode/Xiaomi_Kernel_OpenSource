@@ -32,6 +32,7 @@ struct hal_param_init_power *init_power_data)
 	struct device_node *infra_ao_node = NULL;
 	struct device_node *infra_bcrm_node = NULL;
 	struct device_node *spm_node = NULL;
+	struct device_node *apmixed_node = NULL;
 
 	// debug related resources
 	struct device_node *apusys_conn_node = NULL;
@@ -77,6 +78,19 @@ struct hal_param_init_power *init_power_data)
 
 		if (IS_ERR((void *)init_power_data->infra_bcrm_base_addr)) {
 			LOG_ERR("Unable to iomap infra_bcrm_base_addr\n");
+			goto err_exit;
+		}
+	}
+
+	/* APUPLL is from APMIXED and its parent clock is from XTAL(26MHz); */
+	apmixed_node = of_find_compatible_node(NULL, NULL,
+						"mediatek,apmixed");
+	if (apmixed_node) {
+		init_power_data->apmixed_base_addr = of_iomap(
+							apmixed_node, 0);
+
+		if (IS_ERR((void *)init_power_data->apmixed_base_addr)) {
+			LOG_ERR("Unable to iomap apmixed\n");
 			goto err_exit;
 		}
 	}

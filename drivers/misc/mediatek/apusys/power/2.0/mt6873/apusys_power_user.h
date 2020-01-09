@@ -129,4 +129,13 @@ enum DVFS_FREQ {
 	DVFS_FREQ_MAX,
 };
 
+enum DVFS_FREQ_POSTDIV {
+	POSDIV_NO = 0,
+	POSDIV_1 = 0,
+	POSDIV_2,
+	POSDIV_4,
+	POSDIV_8,
+	POSDIV_16,
+};
+
 #endif

@@ -51,6 +51,7 @@ extern void *g_APU_VPU0_BASE;
 extern void *g_APU_VPU1_BASE;
 extern void *g_APU_MDLA0_BASE;
 extern void *g_APU_SPM_BASE;
+extern void *g_APU_APMIXED_BASE;
 
 #define REG_POLLING_TIMEOUT_ROUNDS	(50) // 50 * 10us = 500us
 
@@ -132,4 +133,23 @@ extern void *g_APU_SPM_BASE;
 
 #define	APU_MDLA0_BASE			(g_APU_MDLA0_BASE)
 #define APU_MDLA0_APU_MDLA_CG_CON	(void *)(APU_MDLA0_BASE+0x000)
+
+/**************************************************
+ * Clock Setting
+ **************************************************/
+#define APU_APMIXED_BASE		(g_APU_APMIXED_BASE)
+#define POSDIV_4_MAX_FREQ               (950000)        /* KHz */
+#define POSDIV_4_MIN_FREQ               (375000)        /* KHz */
+#define POSDIV_8_MAX_FREQ               (475000)        /* KHz */
+#define POSDIV_8_MIN_FREQ               (187500)        /* KHz */
+#define POSDIV_SHIFT                    (24)            /* bit */
+#define DDS_SHIFT                       (14)            /* bit */
+#define TO_MHZ_HEAD                     (100)
+#define TO_MHZ_TAIL                     (10)
+#define ROUNDING_VALUE                  (5)
+#define PLL_FIN                      (26)            /* MHz */
+#define APUPLL_FH_PLL                   FH_PLL13
+#define NPUPLL_FH_PLL                   FH_PLL4
+#define APUPLL_CON1                     (void *)(APU_APMIXED_BASE + 0x03A4)
+#define NPUPLL_CON1                     (void *)(APU_APMIXED_BASE + 0x03B8)
 

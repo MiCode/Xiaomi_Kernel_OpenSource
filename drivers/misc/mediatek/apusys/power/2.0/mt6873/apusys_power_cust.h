@@ -100,6 +100,8 @@ enum DVFS_MDLA0_PWR_PATH {
 struct apusys_dvfs_steps {
 	enum DVFS_FREQ freq;
 	enum DVFS_VOLTAGE voltage;
+	enum DVFS_FREQ_POSTDIV post_divider;
+	unsigned int dds;
 };
 
 struct apusys_dvfs_constraint {
