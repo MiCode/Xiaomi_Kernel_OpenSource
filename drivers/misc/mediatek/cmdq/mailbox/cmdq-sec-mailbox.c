@@ -246,6 +246,34 @@ void cmdq_sec_dump_secure_thread_cookie(struct mbox_chan *chan)
 		thread->task_cnt);
 }
 
+void cmdq_sec_dump_thread_all(void *mbox_cmdq)
+{
+	struct cmdq_sec *cmdq = mbox_cmdq;
+	u32 i;
+	s32 usage = atomic_read(&cmdq->usage);
+
+	cmdq_util_msg("cmdq:%#x usage:%d", (u32)cmdq->base_pa, usage);
+	if (usage <= 0)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+		struct cmdq_sec_thread *thread = &cmdq->thread[i];
+		const s32 offset = CMDQ_SEC_SHARED_THR_CNT_OFFSET +
+			thread->idx * sizeof(s32);
+
+		if (!thread->occupied || list_empty(&thread->task_list))
+			continue;
+
+		cmdq_util_msg(
+			"thd idx:%u secure shared cookie:%u wait:%u next:%u count:%u",
+			thread->idx,
+			*(u32 *)(cmdq->shared_mem->va + offset),
+			thread->wait_cookie,
+			thread->next_cookie,
+			thread->task_cnt);
+	}
+}
+
 static void cmdq_sec_task_done(struct cmdq_sec_task *task, s32 err)
 {
 	cmdq_log("%s done task:%p pkt:%p err:%d",
@@ -1211,7 +1239,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cmdq);
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 
-	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa);
+	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, true);
 
 	cmdq_msg("cmdq:%p(%u) va:%p pa:%pa",
 		cmdq, cmdq->hwid, cmdq->base, &cmdq->base_pa);

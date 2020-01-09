@@ -13,6 +13,10 @@
 
 #include "cmdq-util.h"
 
+#ifdef CMDQ_SECURE_SUPPORT
+#include "cmdq-sec-mailbox.h"
+#endif
+
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
@@ -20,7 +24,7 @@
 #include <devapc_public.h>
 #endif
 
-#define CMDQ_MBOX_NUM			4
+#define CMDQ_MBOX_NUM			2
 #define CMDQ_HW_MAX			2
 #define CMDQ_RECORD_NUM			512
 #define CMDQ_FIRST_ERR_SIZE		524288	/* 512k */
@@ -89,7 +93,9 @@ struct cmdq_util {
 	struct cmdq_record record[CMDQ_RECORD_NUM];
 	u16 record_idx;
 	void *cmdq_mbox[CMDQ_MBOX_NUM];
+	void *cmdq_sec_mbox[CMDQ_MBOX_NUM];
 	u32 mbox_cnt;
+	u32 mbox_sec_cnt;
 	const char *first_err_mod[CMDQ_HW_MAX];
 };
 static struct cmdq_util	util;
@@ -177,19 +183,25 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 	u64		sec = util.err.nsec;
 	unsigned long	nsec = do_div(sec, 1000000000);
 	struct tm	nowtm;
+	u32		i;
 
-	if (!util.err.length)
-		return 0;
+	if (util.err.length) {
+		time_to_tm(util.err.errtm.tv_sec, sys_tz.tz_minuteswest * 60,
+			&nowtm);
 
-	time_to_tm(util.err.errtm.tv_sec, sys_tz.tz_minuteswest * 60, &nowtm);
+		seq_printf(seq,
+			"[cmdq] first error kernel time:[%5llu.%06lu] UTC time:[%04ld-%02d-%02d %02d:%02d:%02d.%06ld]\n",
+			sec, nsec,
+			nowtm.tm_year + 1900, nowtm.tm_mon + 1,
+			nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min,
+			nowtm.tm_sec, util.err.errtm.tv_usec);
+		seq_printf(seq, "%s", util.err.buffer);
+	}
 
-	seq_printf(seq,
-		"[cmdq] first error kernel time:[%5llu.%06lu] UTC time:[%04ld-%02d-%02d %02d:%02d:%02d.%06ld]\n",
-		sec, nsec,
-		nowtm.tm_year + 1900, nowtm.tm_mon + 1,
-		nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min,
-		nowtm.tm_sec, util.err.errtm.tv_usec);
-	seq_printf(seq, "%s", util.err.buffer);
+	seq_puts(seq, "[cmdq] dump all thread current status\n");
+	for (i = 0; i < util.mbox_cnt; i++)
+		cmdq_thread_dump_all_seq(util.cmdq_mbox[i], seq);
+
 	return 0;
 }
 
@@ -433,9 +445,15 @@ static void cmdq_util_handle_devapc_vio(void)
 {
 	u32 i;
 
-	cmdq_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
+	cmdq_util_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
 	for (i = 0; i < util.mbox_cnt; i++)
 		cmdq_thread_dump_all(util.cmdq_mbox[i]);
+
+#ifdef CMDQ_SECURE_SUPPORT
+	cmdq_util_msg("%s mbox sec cnt:%u", __func__, util.mbox_sec_cnt);
+	for (i = 0; i < util.mbox_sec_cnt; i++)
+		cmdq_sec_dump_thread_all(util.cmdq_sec_mbox[i]);
+#endif
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -444,10 +462,13 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 };
 #endif
 
-u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base)
+u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base, bool sec)
 {
-	cmdq_msg("%s cmdq:%p", __func__, cmdq);
-	util.cmdq_mbox[util.mbox_cnt++] = cmdq;
+	cmdq_msg("%s cmdq:%p sec:%s", __func__, cmdq, sec ? "true" : "false");
+	if (sec)
+		util.cmdq_sec_mbox[util.mbox_sec_cnt++] = cmdq;
+	else
+		util.cmdq_mbox[util.mbox_cnt++] = cmdq;
 
 	return (u8)cmdq_util_hw_id((u32)base);
 }

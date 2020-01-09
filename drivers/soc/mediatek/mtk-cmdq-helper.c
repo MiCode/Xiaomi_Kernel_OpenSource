@@ -188,6 +188,7 @@ struct cmdq_client *cmdq_mbox_create(struct device *dev, int index)
 	client->client.tx_block = false;
 	client->chan = mbox_request_channel(&client->client, index);
 	if (IS_ERR(client->chan)) {
+		cmdq_err("channel request fail:%d", PTR_ERR(client->chan));
 		kfree(client);
 		return NULL;
 	}

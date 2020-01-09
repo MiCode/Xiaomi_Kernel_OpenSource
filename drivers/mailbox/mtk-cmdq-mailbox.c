@@ -49,6 +49,7 @@
 #define CMDQ_THR_SLOT_CYCLES		0x30
 #define CMDQ_THR_EXEC_CYCLES		0x34
 #define CMDQ_THR_TIMEOUT_TIMER		0x38
+#define GCE_GCTL_VALUE			0x48
 #define CMDQ_SYNC_TOKEN_ID		0x60
 #define CMDQ_SYNC_TOKEN_VAL		0x64
 #define CMDQ_SYNC_TOKEN_UPD		0x68
@@ -291,6 +292,7 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
+		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
 
 		/* now allow pm suspend */
 		cmdq_lock_wake_lock(cmdq, false);
@@ -1209,7 +1211,7 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 	u32 en, curr_pa, end_pa;
 	s32 usage = atomic_read(&cmdq->usage);
 
-	cmdq_msg("cmdq:%p usage:%d", cmdq, usage);
+	cmdq_util_msg("cmdq:%#x usage:%d", (u32)cmdq->base_pa, usage);
 	if (usage <= 0)
 		return;
 
@@ -1226,12 +1228,44 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 		curr_pa = cmdq_thread_get_pc(thread);
 		end_pa = cmdq_thread_get_end(thread);
 
-		cmdq_util_err("thd idx:%u pc:%#x end:%#x",
+		cmdq_util_msg("thd idx:%u pc:%#x end:%#x",
 			thread->idx, curr_pa, end_pa);
 	}
 
 }
 EXPORT_SYMBOL(cmdq_thread_dump_all);
+
+void cmdq_thread_dump_all_seq(void *mbox_cmdq, struct seq_file *seq)
+{
+	struct cmdq *cmdq = mbox_cmdq;
+	u32 i;
+	u32 en, curr_pa, end_pa;
+	s32 usage = atomic_read(&cmdq->usage);
+
+	seq_printf(seq, "[cmdq] cmdq:%#x usage:%d\n",
+		(u32)cmdq->base_pa, usage);
+	if (usage <= 0)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+		struct cmdq_thread *thread = &cmdq->thread[i];
+
+		if (!thread->occupied || list_empty(&thread->task_busy_list))
+			continue;
+
+		en = readl(thread->base + CMDQ_THR_ENABLE_TASK);
+		if (!en)
+			continue;
+
+		curr_pa = cmdq_thread_get_pc(thread);
+		end_pa = cmdq_thread_get_end(thread);
+
+		seq_printf(seq, "[cmdq] thd idx:%u pc:%#x end:%#x\n",
+			thread->idx, curr_pa, end_pa);
+	}
+
+}
+EXPORT_SYMBOL(cmdq_thread_dump_all_seq);
 
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt)
@@ -1671,7 +1705,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq_mmp_init();
 
 #ifdef CONFIG_MTK_CMDQ_MBOX_EXT
-	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa);
+	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
 	return 0;
 }

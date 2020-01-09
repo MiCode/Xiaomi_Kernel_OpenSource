@@ -226,6 +226,7 @@ void cmdq_dump_core(struct mbox_chan *chan);
 void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out);
 void cmdq_thread_dump_all(void *mbox_cmdq);
+void cmdq_thread_dump_all_seq(void *mbox_cmdq, struct seq_file *seq);
 void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	struct cmdq_pkt *pkt);
 void cmdq_mbox_enable(void *chan);
