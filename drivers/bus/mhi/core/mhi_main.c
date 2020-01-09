@@ -1367,6 +1367,11 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 		MHI_VERB("Processing Event:0x%llx 0x%08x 0x%08x\n",
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
+		mhi_event->last_cached_tre.ptr = local_rp->ptr;
+		mhi_event->last_cached_tre.dword[0] = local_rp->dword[0];
+		mhi_event->last_cached_tre.dword[1] = local_rp->dword[1];
+		mhi_event->last_dev_rp = (u64)dev_rp;
+
 		chan = MHI_TRE_GET_EV_CHID(local_rp);
 		if (chan >= mhi_cntrl->max_chan) {
 			MHI_ERR("invalid channel id %u\n", chan);
