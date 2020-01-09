@@ -71,6 +71,7 @@
 #include <smi_public.h>
 #include <linux/dma-mapping.h>
 #include "mach/pseudo_m4u.h"
+#include <cmdq-sec.h>
 
 /* Measure the kernel performance
  * #define __FDVT_KERNEL_PERFORMANCE_MEASURE__
@@ -239,6 +240,7 @@ pr_debug(FDTAG "[%s] " format, __func__, ##args)
 static irqreturn_t isp_irq_fdvt(signed int irq, void *device_id);
 static bool config_fdvt(void);
 static signed int config_fdvt_hw(struct fdvt_config *basic_config);
+static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config);
 static void fdvt_schedule_work(struct work_struct *data);
 static signed int fdvt_dump_reg(void);
 
@@ -377,6 +379,7 @@ static struct FDVT_REQUEST_RING_STRUCT fdvt_req_ring;
 static struct FDVT_CONFIG_STRUCT fdvt_enq_req;
 static struct FDVT_CONFIG_STRUCT fdvt_deq_req;
 static struct cmdq_client *fdvt_clt;
+static struct cmdq_client *fdvt_secure_clt;
 static s32 fdvt_event_id;
 
 /*****************************************************************************
@@ -1112,7 +1115,10 @@ static bool config_fdvt_request(signed int req_idx)
 				request->fdvt_frame_status[j] =
 					FDVT_FRAME_STATUS_RUNNING;
 				spin_unlock_irqrestore(spinlock_lrq_ptr, flags);
-				config_fdvt_hw(&request->frame_config[j]);
+				if (request->frame_config[j].FDVT_IS_SECURE)
+					config_secure_fdvt_hw(&request->frame_config[j]);
+				else
+					config_fdvt_hw(&request->frame_config[j]);
 				spin_lock_irqsave(spinlock_lrq_ptr, flags);
 			}
 		}
@@ -1159,8 +1165,13 @@ static bool config_fdvt(void)
 						FDVT_FRAME_STATUS_RUNNING;
 					spin_unlock_irqrestore(spinlock_lrq_ptr,
 							       flags);
-					config_fdvt_hw(
-						&request->frame_config[j]);
+					if (request->frame_config[j].FDVT_IS_SECURE) {
+						config_secure_fdvt_hw(
+							&request->frame_config[j]);
+					} else {
+						config_fdvt_hw(
+							&request->frame_config[j]);
+					}
 					spin_lock_irqsave(spinlock_lrq_ptr,
 							  flags);
 				}
@@ -1225,7 +1236,10 @@ static bool config_fdvt(void)
 			if (j != MAX_FDVT_FRAME_REQUEST) {
 				request->fdvt_frame_status[j] =
 					FDVT_FRAME_STATUS_RUNNING;
-				config_fdvt_hw(&request->frame_config[j]);
+				if (request->frame_config[j].FDVT_IS_SECURE)
+					config_secure_fdvt_hw(&request->frame_config[j]);
+				else
+					config_fdvt_hw(&request->frame_config[j]);
 				return MTRUE;
 			}
 			log_err("FDVT Config state is wrong! hw_process_idx(%d), state(%d)\n",
@@ -1603,6 +1617,222 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 #endif
 
 #endif
+	return 0;
+}
+#else
+{
+	return 0;
+}
+#endif
+
+static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
+#if !BYPASS_REG
+{
+#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+
+#ifdef FDVT_USE_GCE
+	struct cmdq_pkt *pkt;
+#endif /* FDVT_USE_GCE */
+	if (FDVT_DBG_DBGLOG == (FDVT_DBG_DBGLOG & fdvt_info.debug_mask)) {
+		log_dbg("config_secure_fdvt_hw Start!\n");
+		log_dbg("FDVT_YUV2RGB:0x%x!\n",
+			(unsigned int)basic_config->FDVT_YUV2RGB);
+		log_dbg("FDVT_YUV_SRC_WD_HT:0x%x!\n",
+			(unsigned int)basic_config->FDVT_YUV_SRC_WD_HT);
+		log_dbg("FDVT_RSCON_BASE_ADR:0x%x!\n",
+			(unsigned int)basic_config->FDVT_RSCON_BASE_ADR);
+		log_dbg("FDVT_FD_CON_BASE_ADR:0x%x!\n",
+			(unsigned int)basic_config->FDVT_FD_CON_BASE_ADR);
+		log_dbg("FDVT_YUV2RGBCON_BASE_ADR:0x%x!\n",
+			(unsigned int)basic_config->FDVT_YUV2RGBCON_BASE_ADR);
+		log_dbg("FD_MODE:0x%x!\n",
+			(unsigned int)basic_config->FD_MODE);
+	}
+
+#ifdef FDVT_USE_GCE
+#ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
+	mt_kernel_trace_begin("config_secure_fdvt_hw");
+#endif
+	pkt = cmdq_pkt_create(fdvt_secure_clt);
+
+
+#if 0
+	if (basic_config->FDVT_IS_SECURE != 0)
+		cmdq_sec_pkt_set_data(pkt, 1LL << CMDQ_SEC_FDVT, 1LL << CMDQ_SEC_FDVT, CMDQ_SEC_ISP_FDVT, CMDQ_METAEX_FD);
+#else
+	if (basic_config->FDVT_IS_SECURE != 0)
+		cmdq_sec_pkt_set_data(pkt, 1LL << CMDQ_SEC_FDVT, 1LL << CMDQ_SEC_FDVT, CMDQ_SEC_KERNEL_CONFIG_GENERAL, CMDQ_METAEX_FD);
+#endif
+
+#if 0
+	cmdqRecWrite(handle, FDVT_WRA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_WRA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+
+	cmdqRecWrite(handle, FDVT_WRB_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_WRB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDB_0_CON3_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_RDB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
+#endif
+
+	log_dbg("fdvt use cmdq mail box api\n");
+
+	log_dbg("MetaData->FDMode: %d\n", basic_config->FDVT_METADATA_TO_GCE.FDMode);
+	log_dbg("MetaData->srcImgFmt: %d\n", basic_config->FDVT_METADATA_TO_GCE.srcImgFmt);
+	log_dbg("MetaData->srcImgWidth: %d\n", basic_config->FDVT_METADATA_TO_GCE.srcImgWidth);
+	log_dbg("MetaData->srcImgHeight: %d\n", basic_config->FDVT_METADATA_TO_GCE.srcImgHeight);
+	log_dbg("MetaData->rotateDegree: %d\n", basic_config->FDVT_METADATA_TO_GCE.rotateDegree);
+	log_dbg("MetaData->featureTH: %d\n", basic_config->FDVT_METADATA_TO_GCE.featureTH);
+	log_dbg("MetaData->ImgSrcY_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.ImgSrcY_Handler);
+	log_dbg("MetaData->ImgSrcUV_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.ImgSrcUV_Handler);
+	log_dbg("MetaData->YUVConfig_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.YUVConfig_Handler);
+	log_dbg("MetaData->RSConfig_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.RSConfig_Handler);
+	log_dbg("MetaData->RSOutBuf_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.RSOutBuf_Handler);
+	log_dbg("MetaData->FDConfig_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.FDConfig_Handler);
+	log_dbg("MetaData->FD_POSE_Config_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.FD_POSE_Config_Handler);
+	log_dbg("MetaData->FDOutBuf_Handler: %x\n", basic_config->FDVT_METADATA_TO_GCE.FDOutBuf_Handler);
+	log_dbg("MetaData->FDResultBuf_MVA: %x\n", basic_config->FDVT_METADATA_TO_GCE.FDResultBuf_MVA);
+	log_dbg("MetaData->YUVConfigSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.YUVConfigSize);
+	log_dbg("MetaData->YUVOutBufSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.YUVOutBufSize);
+	log_dbg("MetaData->RSConfigSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.RSConfigSize);
+	log_dbg("MetaData->RSOutBufSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.RSOutBufSize);
+	log_dbg("MetaData->FDConfigSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.FDConfigSize);
+	log_dbg("MetaData->FDOutBufSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.FDOutBufSize);
+	log_dbg("MetaData->FDResultBufSize: %x\n", basic_config->FDVT_METADATA_TO_GCE.FDResultBufSize);
+	log_dbg("MetaData->SecMemType: %d\n", basic_config->FDVT_METADATA_TO_GCE.SecMemType);
+	if (basic_config->FD_MODE == 0) {
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00006002,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x0, CMDQ_REG_MASK);
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_RS_CON_BASE_ADR_HW,
+			basic_config->FDVT_RSCON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_RSCON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_FD_CON_BASE_ADR_HW,
+			basic_config->FDVT_FD_CON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_FD_CON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_YUV2RGB_CON_BASE_ADR_HW,
+			basic_config->FDVT_YUV2RGBCON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_YUV2RGBCON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+		cmdq_sec_pkt_set_payload(pkt, 1, sizeof(basic_config->FDVT_METADATA_TO_GCE), (unsigned int *)&basic_config->FDVT_METADATA_TO_GCE);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000100,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00000300,
+			       CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_FD_CON_BASE_ADR_HW,
+			basic_config->FDVT_FD_POSE_CON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_FD_POSE_CON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+	} else if (basic_config->FD_MODE == 1) {
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000101,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001A00,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_RS_CON_BASE_ADR_HW,
+			basic_config->FDVT_RSCON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_RSCON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_FD_CON_BASE_ADR_HW,
+			basic_config->FDVT_FD_CON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_FD_CON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+		cmdq_sec_pkt_write_reg(pkt,
+			FDVT_YUV2RGB_CON_BASE_ADR_HW,
+			basic_config->FDVT_YUV2RGBCON_BASE_ADR,
+			CMDQ_IWC_H_2_MVA,
+			0,
+			basic_config->FDVT_YUV2RGBCON_BUFSIZE,
+			M4U_PORT_L20_IPE_FDVT_RDA_DISP);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+	}
+
+	/* non-blocking API, Please use cmdqRecFlushAsync() */
+	log_dbg("FDVT CMDQ Task flush\n");
+
+	cmdq_pkt_flush(pkt);
+	cmdq_dump_pkt(pkt, 0, true);
+	/* release resource */
+	cmdq_pkt_destroy(pkt);
+
+#ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
+	mt_kernel_trace_end();
+#endif
+
+#else
+
+#ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
+	mt_kernel_trace_begin("config_secure_fdvt_hw");
+#endif
+#if 0
+	/* FDVT Interrupt enabled in read-clear mode */
+	FDVT_WR32(FDVT_INT_EN_REG, 0x1);
+	FDVT_WR32(FDVT_ENABLE_REG, 0x00000111);
+	FDVT_WR32(FDVT_RS_REG, 0x00000409);
+	FDVT_WR32(FDVT_YUV2RGB_REG, basic_config->FDVT_YUV2RGB);
+	FDVT_WR32(FDVT_FD_REG, 0x04000042);
+	FDVT_WR32(FDVT_YUV_SRC_WD_HT_REG, basic_config->FDVT_YUV_SRC_WD_HT);
+	FDVT_WR32(FDVT_RSCON_BASE_ADR_REG, basic_config->FDVT_RSCON_BASE_ADR);
+	FDVT_WR32(FDVT_FD_CON_BASE_ADR_REG, basic_config->FDVT_FD_CON_BASE_ADR);
+	FDVT_WR32(FDVT_YUV2RGBCON_BASE_ADR_REG,
+		  basic_config->FDVT_YUV2RGBCON_BASE_ADR);
+	FDVT_WR32(FDVT_FD_RLT_BASE_ADR_REG, NULL);
+
+	FDVT_WR32(FDVT_START_REG, 0x1);	/* FDVT Interrupt read-clear mode */
+#endif
+#ifdef __FDVT_KERNEL_PERFORMANCE_MEASURE__
+	mt_kernel_trace_end();
+#endif /* __FDVT_KERNEL_PERFORMANCE_MEASURE__ */
+
+#endif
+#endif /* IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT) */
 	return 0;
 }
 #else
@@ -2215,6 +2445,11 @@ static signed int fdvt_wait_irq(FDVT_WAIT_IRQ_STRUCT *wait_irq)
 		ret = -ERESTARTSYS;
 		goto EXIT;
 	}
+#if 0
+	if (wait_irq->isSecure != 0) {
+		FDVT_switchPortToNonSecure();
+	}
+#endif
 	/* timeout */
 	if (timeout == 0) {
 		/* Store irqinfo status in here
@@ -3454,6 +3689,12 @@ static signed int FDVT_probe(struct platform_device *pDev)
 
 	fdvt_clt = cmdq_mbox_create(FDVT_dev->dev, 0);
 	if (!fdvt_clt)
+		log_err("cmdq mbox create fail\n");
+	else
+		log_inf("cmdq mbox create done\n");
+
+	fdvt_secure_clt = cmdq_mbox_create(FDVT_dev->dev, 1);
+	if (!fdvt_secure_clt)
 		log_err("cmdq mbox create fail\n");
 	else
 		log_inf("cmdq mbox create done\n");
