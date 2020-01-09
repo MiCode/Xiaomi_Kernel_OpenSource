@@ -1394,7 +1394,13 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		clmutt_data.cur_limit = 0;
 	} else {
 		clmutt_data.cooler_param[type].target_tx_pwr_level = target_lv;
-		mtk_cooler_mutt_dprintk_always("[%s] %s:reduce tx %d dBm\n",
+		if (target_lv < 0)
+			mtk_cooler_mutt_dprintk_always(
+			"[%s] %s:cancel reduce tx pwr!\n",
+			__func__, clmutt_data.cooler_param[type].name);
+		else
+			mtk_cooler_mutt_dprintk_always(
+			"[%s] %s:reduce tx %d dBm\n",
 			__func__, clmutt_data.cooler_param[type].name,
 			clmutt_data.cooler_param[type].tx_pwr_db[target_lv]);
 	}
@@ -1642,7 +1648,7 @@ static int clmutt_tm_pid_proc_read(struct seq_file *m, void *v)
 static ssize_t clmutt_tm_pid_proc_write(
 struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 {
-	char desc[PROC_BUFFER_LEN];
+	char desc[PROC_BUFFER_LEN] = {0};
 	int ret = 0, len = 0;
 
 	len = copy_proc_data(buffer, count, desc);
@@ -1670,7 +1676,7 @@ static int clmutt_tmd_pid_proc_read(struct seq_file *m, void *v)
 static ssize_t clmutt_tmd_pid_proc_write(
 struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 {
-	char desc[PROC_BUFFER_LEN];
+	char desc[PROC_BUFFER_LEN] = {0};
 	int ret = 0, len = 0;
 
 	len = copy_proc_data(buffer, count, desc);
@@ -1696,7 +1702,7 @@ static int clmutt_klog_on_proc_read(struct seq_file *m, void *v)
 static ssize_t clmutt_klog_on_proc_write(struct file *filp,
 	const char __user *buffer, size_t count, loff_t *data)
 {
-	char desc[PROC_BUFFER_LEN];
+	char desc[PROC_BUFFER_LEN] = {0};
 	int len = 0, klog_on;
 
 	len = copy_proc_data(buffer, count, desc);
@@ -1797,7 +1803,7 @@ static int clmutt_ca_ctrl_proc_read(struct seq_file *m, void *v)
 static ssize_t clmutt_ca_ctrl_proc_write(struct file *filp,
 	const char __user *buffer, size_t count, loff_t *data)
 {
-	char desc[PROC_BUFFER_LEN];
+	char desc[PROC_BUFFER_LEN] = {0};
 	int ret = 0, len = 0, ca_ctrl;
 	unsigned int limit;
 
@@ -1850,7 +1856,7 @@ static int clmutt_pa_ctrl_proc_read(struct seq_file *m, void *v)
 static ssize_t clmutt_pa_ctrl_proc_write(struct file *filp,
 	const char __user *buffer, size_t count, loff_t *data)
 {
-	char desc[PROC_BUFFER_LEN];
+	char desc[PROC_BUFFER_LEN] = {0};
 	int ret = 0, len = 0, pa_ctrl;
 	unsigned int limit;
 
@@ -1973,7 +1979,7 @@ static int clmutt_scg_off_proc_read(struct seq_file *m, void *v)
 static ssize_t clmutt_scg_off_proc_write(struct file *filp,
 	const char __user *buffer, size_t count, loff_t *data)
 {
-	char desc[PROC_BUFFER_LEN];
+	char desc[PROC_BUFFER_LEN] = {0};
 	int ret = 0, len = 0, off;
 
 	len = copy_proc_data(buffer, count, desc);
