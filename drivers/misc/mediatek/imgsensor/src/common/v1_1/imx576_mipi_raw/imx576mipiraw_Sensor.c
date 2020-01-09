@@ -3154,6 +3154,9 @@ imgsensor.current_fps = (UINT16)*feature_data_32;
 			break;
 		}
 		break;
+	case SENSOR_FEATURE_GET_AWB_REQ_BY_SCENARIO:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1;
+		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		/* modify to separate 3hdr and remosaic */
 		if (imgsensor.sensor_mode == IMGSENSOR_MODE_CAPTURE) {
