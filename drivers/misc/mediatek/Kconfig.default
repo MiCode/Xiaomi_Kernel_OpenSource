@@ -230,7 +230,7 @@ config MTK_ANDROID_DEFAULT_SETTING
 	bool "Select MTK android common setting by default"
 	select MEDIATEK_MC if MEMORY
 	select MTK_AEE_AED
-	select MTK_AEE_IPANIC
+	select MTK_AEE_IPANIC if MTK_RAM_CONSOLE
 	select PGTABLE_MAPPING if ZSMALLOC && (ARM || ARM64)
 	select PSI
 	select MTK_MIX_DEVICES
