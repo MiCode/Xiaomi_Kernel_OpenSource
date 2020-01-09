@@ -19,6 +19,4 @@ ccflags-y += \
 	-I$(srctree)/include/memory/mediatek
 
 obj-$(CONFIG_MTK_DEVMPU) += devmpu.o
-obj-$(CONFIG_MTK_DEVMPU_SUB) += devmpu_sub.o
-obj-$(CONFIG_MTK_DEVMPU_ACP) += devmpu_acp.o
 obj-$(CONFIG_MTK_DEVMPU_EMI) += devmpu_emi.o

@@ -19,7 +19,13 @@
 #include <devmpu_emi.h>
 
 #define LOG_TAG "[DEVMPU]"
-#define DUMP_TAG "dump_devmpu"
+
+#define DEVMPU_MAX_TAG_LEN 15
+#define DUMP_TAG  "dump_devmpu"
+#define CHECK_TAG "violate_devmpu"
+
+#define DEVMPU_MAX_CTX 3
+#define DEVMPU_DEFAULT_CTX 0
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -45,7 +51,10 @@ struct devmpu_context {
 
 	/* virtual irq number */
 	uint32_t virq;
-} devmpu_ctx[1];
+
+	/* max ctx */
+	uint32_t max_ctx;
+} devmpu_ctx_ary[DEVMPU_MAX_CTX];
 
 struct devmpu_vio_stat {
 
@@ -119,6 +128,9 @@ void devmpu_vio_clear(unsigned int emi_id)
 static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
 {
 	struct arm_smccc_res res;
+	struct devmpu_context *devmpu_ctx;
+
+	devmpu_ctx = &devmpu_ctx_ary[DEVMPU_DEFAULT_CTX];
 
 	if (unlikely(
 			pa < devmpu_ctx->prot_base
@@ -152,6 +164,7 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		uint32_t vio_domain, uint32_t vio_rw, bool from_emimpu)
 {
 	size_t ret;
+	struct devmpu_context *devmpu_ctx;
 	struct devmpu_vio_stat vio = {
 		.id = 0,
 		.domain = 0,
@@ -165,6 +178,8 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 	uint32_t page;
 	size_t rd_perm;
 	size_t wr_perm;
+
+	devmpu_ctx = &devmpu_ctx_ary[DEVMPU_DEFAULT_CTX];
 
 	/* overwrite violation info. with the DeviceMPU native one */
 	if (!from_emimpu) {
@@ -228,18 +243,14 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 EXPORT_SYMBOL(devmpu_print_violation);
 
 /* sysfs */
-static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
+static int devmpu_dump_perm(void)
 {
-	return 0;
-}
+	struct devmpu_context *devmpu_ctx;
 
-static ssize_t devmpu_config_store(struct device_driver *driver,
-	const char *buf, size_t count)
-{
 	uint32_t i;
 
-	uint64_t pa = devmpu_ctx->prot_base, pa_dump;
-	uint32_t pages = devmpu_ctx->prot_size / devmpu_ctx->page_size;
+	uint64_t pa, pa_dump;
+	uint32_t pages;
 
 	size_t rd_perm;
 	size_t wr_perm;
@@ -247,10 +258,10 @@ static ssize_t devmpu_config_store(struct device_driver *driver,
 	uint8_t rd_perm_bmp[16];
 	uint8_t wr_perm_bmp[16];
 
-	if (strncmp(buf, DUMP_TAG, strlen(DUMP_TAG))) {
-		pr_notice("%s Invalid argument!!\n", __func__);
-		return -EINVAL;
-	}
+	devmpu_ctx = &devmpu_ctx_ary[DEVMPU_DEFAULT_CTX];
+
+	pa = devmpu_ctx->prot_base;
+	pages = devmpu_ctx->prot_size / devmpu_ctx->page_size;
 
 	pr_info("Page# (bus-addr)  :  RD/WR permissions\n");
 
@@ -275,13 +286,105 @@ static ssize_t devmpu_config_store(struct device_driver *driver,
 		if (devmpu_rw_perm_get(pa, &rd_perm, &wr_perm)) {
 			pr_err("%s:%d failed to get permission\n",
 					__func__, __LINE__);
-			return -1;
+			return -EINVAL;
 		}
 
 		rd_perm_bmp[i % 16] = (uint8_t)rd_perm;
 		wr_perm_bmp[i % 16] = (uint8_t)wr_perm;
 
 		pa += devmpu_ctx->page_size;
+	}
+
+	return 0;
+}
+
+static int devmpu_check_violation(void)
+{
+	struct devmpu_context *devmpu_ctx;
+	struct device_node *dn;
+	void __iomem *reg_base;
+	uint32_t prop_ary[4];
+	uint32_t prop_addr;
+	uint32_t prop_size;
+	uint64_t prop_value;
+
+	devmpu_ctx = &devmpu_ctx_ary[DEVMPU_DEFAULT_CTX];
+
+	/* Get property from dts */
+	dn = of_find_compatible_node(NULL, NULL, "mediatek,atf-reserved");
+	if (!dn) {
+		pr_err("%s:%d failed to get device node\n",
+				__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32_array(dn, "reg", prop_ary, 4)) {
+		pr_err("%s:%d failed to get property\n",
+				__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	prop_addr = prop_ary[1];
+	prop_size = prop_ary[3];
+
+	pr_info("Address 0x%x Size 0x%x\n", prop_addr, prop_size);
+
+	/* Check if 2MB addr/size alignment */
+	if (prop_addr % devmpu_ctx->page_size) {
+		pr_err("%s:%d address is not 2MB alignment 0x%x\n",
+				__func__, __LINE__, prop_addr);
+		return -EINVAL;
+	}
+
+	if (prop_size % devmpu_ctx->page_size) {
+		pr_err("%s:%d size is not 2MB alignment 0x%x\n",
+				__func__, __LINE__, prop_size);
+		return -EINVAL;
+	}
+
+	pr_info("Check 2MB address/size alignment correctly\n");
+
+	/* Trigger DevMPU violation */
+	if (prop_addr && prop_size) {
+		pr_info("Check if DevMPU violation is at 0x%x\n", prop_addr);
+		reg_base = ioremap((phys_addr_t)prop_addr, prop_size);
+		pr_info("Read from %p\n", reg_base);
+		prop_value = *(uint64_t *)reg_base;
+		pr_info("value 0x%llx\n", prop_value);
+		pr_info("Write to %p\n", reg_base);
+		*(uint64_t *)reg_base = prop_value;
+	}
+
+	return 0;
+}
+
+static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
+{
+	return 0;
+}
+
+static ssize_t devmpu_config_store(struct device_driver *driver,
+	const char *buf, size_t count)
+{
+	int ret = 0;
+
+	if (strlen(buf) > DEVMPU_MAX_TAG_LEN) {
+		pr_notice("%s: command overflow\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!strncmp(buf, DUMP_TAG, strlen(DUMP_TAG))) {
+		ret = devmpu_dump_perm();
+	}	else if (!strncmp(buf, CHECK_TAG, strlen(CHECK_TAG))) {
+		ret = devmpu_check_violation();
+	} else {
+		pr_notice("%s Invalid argument!!\n", __func__);
+		return -EINVAL;
+	}
+
+	if (ret) {
+		pr_notice("%s verificaiton fail!!\n", __func__);
+		return -EINVAL;
 	}
 
 	return count;
@@ -300,6 +403,8 @@ static int devmpu_probe(struct platform_device *pdev)
 	int rc;
 
 	void __iomem *reg_base;
+	static uint32_t probe_cnt;
+	struct devmpu_context *devmpu_ctx;
 	uint64_t prot_base;
 	uint64_t prot_size;
 	uint32_t page_size;
@@ -308,7 +413,7 @@ static int devmpu_probe(struct platform_device *pdev)
 	struct device_node *dn = pdev->dev.of_node;
 	struct resource *res;
 
-	pr_info("Device MPU probe\n");
+	pr_info("Device MPU probe: %s\n", pdev->name);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -351,17 +456,29 @@ static int devmpu_probe(struct platform_device *pdev)
 		return -EPERM;
 	}
 
+	if ((probe_cnt + 1) > DEVMPU_MAX_CTX) {
+		pr_err("%s:%d failed to create context\n",
+				__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	devmpu_ctx = &devmpu_ctx_ary[probe_cnt];
+
 	devmpu_ctx->reg_base = reg_base;
 	devmpu_ctx->prot_base = prot_base;
 	devmpu_ctx->prot_size = prot_size;
 	devmpu_ctx->page_size = page_size;
 	devmpu_ctx->virq = virq;
+	devmpu_ctx->max_ctx = (probe_cnt + 1);
 
+	pr_info("Create context [%d]\n", probe_cnt);
 	pr_info("reg_base=0x%pK\n", devmpu_ctx->reg_base);
 	pr_info("prot_base=0x%llx\n", devmpu_ctx->prot_base);
 	pr_info("prot_size=0x%llx\n", devmpu_ctx->prot_size);
 	pr_info("page_size=0x%x\n", devmpu_ctx->page_size);
 	pr_info("virq=0x%x\n", devmpu_ctx->virq);
+
+	probe_cnt++;
 
 #ifdef CONFIG_MTK_DEVMPU_EMI
 	rc = devmpu_regist_emi();
@@ -377,6 +494,8 @@ static int devmpu_probe(struct platform_device *pdev)
 
 static const struct of_device_id devmpu_of_match[] = {
 	{ .compatible = "mediatek,device_mpu_low" },
+	{ .compatible = "mediatek,device_mpu_sub" },
+	{ .compatible = "mediatek,device_mpu_acp" },
 	{},
 };
 
@@ -413,7 +532,17 @@ static int __init devmpu_init(void)
 
 static void __exit devmpu_exit(void)
 {
+#if !defined(USER_BUILD_KERNEL)
+	driver_remove_file(&devmpu_drv.driver,
+			&driver_attr_devmpu_config);
+#endif
+
+	platform_driver_unregister(&devmpu_drv);
 }
 
 postcore_initcall(devmpu_init);
 module_exit(devmpu_exit);
+
+MODULE_DESCRIPTION("Mediatek Device MPU Driver");
+MODULE_AUTHOR("Calvin Liao <calvin.liao@mediatek.com>");
+MODULE_LICENSE("GPL");

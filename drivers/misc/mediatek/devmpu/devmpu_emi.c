@@ -92,3 +92,7 @@ int devmpu_regist_emi(void)
 
 	return ret;
 }
+
+MODULE_DESCRIPTION("Mediatek Device MPU Driver with EMI");
+MODULE_AUTHOR("Calvin Liao <calvin.liao@mediatek.com>");
+MODULE_LICENSE("GPL");
