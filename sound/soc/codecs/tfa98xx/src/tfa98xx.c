@@ -768,8 +768,13 @@ static ssize_t tfa98xx_dbgfs_rpc_read(struct file *file,
 	if (tfa98xx->tfa->is_probus_device) {
 		uint32_t DataLength = 0;
 
-		error = tfa98xx_receive_data_from_dsp(
-			buffer, count, &DataLength);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
+			error = tfa98xx_receive_data_from_dsp(
+				buffer, count, &DataLength);
+		} else {
+			error = -ENODEV;
+			pr_info("receive data fail as DSP NOT work\n");
+		}
 	} else {
 		error = dsp_msg_read(tfa98xx->tfa, count, buffer);
 	}
@@ -819,8 +824,12 @@ static ssize_t tfa98xx_dbgfs_rpc_send(struct file *file,
 
 	if (tfa98xx->tfa->is_probus_device) {
 		mutex_lock(&tfa98xx->dsp_lock);
-		error = tfa98xx_send_data_to_dsp(msg_file->data,
-			msg_file->size);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
+			error = tfa98xx_send_data_to_dsp(msg_file->data,
+				msg_file->size);
+		} else {
+			error = -ENODEV;
+		}
 		if (error != Tfa98xx_Error_Ok) {
 			pr_debug("[0x%x] dsp_msg error: %d\n",
 				tfa98xx->i2c->addr, error);
@@ -2576,7 +2585,13 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(void)
 		bytes[1] = 0x00;
 		bytes[2] = 0x81;
 		bytes[3] = 0x05;
-		ret = tfa98xx_send_data_to_dsp(&bytes[1], sizeof(bytes) - 1);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE)
+			ret = tfa98xx_send_data_to_dsp(&bytes[1],
+			      sizeof(bytes) - 1);
+		else {
+			ret = -1;
+			pr_info(" send data fail as DSP NOT work\n");
+		}
 		usleep_range(10000, 10500);
 
 		/* for mono case, we should clear flag here. */
@@ -2636,8 +2651,12 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute)
 
 		mutex_lock(&tfa98xx->dsp_lock);
 #ifdef TFA_NON_DSP_SOLUTION
-		tfa98xx_send_mute_cmd();
-		msleep(60);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
+			tfa98xx_send_mute_cmd();
+			msleep(60);
+		} else {
+			pr_info(" Mute Fail as DSP NOT work\n");
+		}
 #endif
 		pr_info(" will execute tfa_dev_stop()\n");
 		tfa_dev_stop(tfa98xx->tfa);
