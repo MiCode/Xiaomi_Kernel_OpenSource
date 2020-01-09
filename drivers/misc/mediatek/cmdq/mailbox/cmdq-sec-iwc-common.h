@@ -42,7 +42,7 @@
 #define CMDQ_SEC_ISP_BPCI_SIZE	(64)		/* 64 byte */
 #define CMDQ_SEC_ISP_LSCI_SIZE	(24576)		/* 24576 byte */
 #define CMDQ_SEC_ISP_LCEI_SIZE	(520200)	/* MAX: 510x510x2 byte */
-#define CMDQ_SEC_ISP_DEPI_SIZE	(520200)	/* MAX: 510x510x2 byte */
+#define CMDQ_SEC_ISP_DEPI_SIZE	(924800)	/* MAX: 680x680x2 byte */
 #define CMDQ_SEC_ISP_DMGI_SIZE	(130560)	/* MAX: 480x272 byte */
 #define CMDQ_IWC_ISP_META_CNT	8
 #define CMDQ_SEC_ISP_META_MAX	(0x1000)	/* 4k */
