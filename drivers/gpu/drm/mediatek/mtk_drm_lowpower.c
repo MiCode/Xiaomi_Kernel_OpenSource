@@ -24,6 +24,8 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_mmp.h"
 
+#define MAX_ENTER_IDLE_RSZ_RATIO 250
+
 static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc);
 static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc);
 
@@ -238,6 +240,23 @@ mtk_drm_get_idle_check_interval(struct drm_crtc *crtc)
 	return mtk_crtc->idlemgr->idlemgr_ctx->idle_check_interval;
 }
 
+static int mtk_drm_idlemgr_get_rsz_ratio(struct mtk_crtc_state *state)
+{
+	int src_w = state->rsz_src_roi.width;
+	int src_h = state->rsz_src_roi.height;
+	int dst_w = state->rsz_dst_roi.width;
+	int dst_h = state->rsz_dst_roi.height;
+	int ratio_w, ratio_h;
+
+	if (src_w == 0 || src_h == 0)
+		return 100;
+
+	ratio_w = dst_w * 100 / src_w;
+	ratio_h = dst_h * 100 / src_h;
+
+	return ((ratio_w > ratio_h) ? ratio_w : ratio_h);
+}
+
 static int mtk_drm_idlemgr_monitor_thread(void *data)
 {
 	int ret = 0;
@@ -279,6 +298,14 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		if (crtc->state) {
 			mtk_state = to_mtk_crtc_state(crtc->state);
 			if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__,
+						__LINE__);
+				continue;
+			}
+			/* do not enter VDO idle when rsz ratio >= 2.5 */
+			if (mtk_crtc_is_frame_trigger_mode(crtc) == 0 &&
+				mtk_drm_idlemgr_get_rsz_ratio(mtk_state) >=
+				MAX_ENTER_IDLE_RSZ_RATIO) {
 				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__,
 						__LINE__);
 				continue;
