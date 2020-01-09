@@ -1153,17 +1153,30 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			pitch, ~0);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, addr;
+			u32 size, meta_type, regs_addr;
 
 			size = buf_size;
-			addr = comp->regs_pa +
-				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
-			if (state->pending.is_sec)
+			regs_addr = comp->regs_pa +
+				DISP_REG_OVL_EL_ADDR(id);
+			if (state->pending.is_sec) {
 				meta_type = CMDQ_IWC_H_2_MVA;
-			else
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type,
+					offset, size, 0);
+				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+					__func__, __LINE__,
+					pending->addr,
+					offset,
+					size);
+			} else {
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
-			cmdq_sec_pkt_write_reg(handle, addr,
-				pending->addr, meta_type, 0, size, 0);
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					addr, meta_type, 0, size, 0);
+				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+					__func__, __LINE__,
+					addr,
+					size);
+			}
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1184,17 +1197,30 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			pitch, ~0);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, addr;
+			u32 size, meta_type, regs_addr;
 
 			size = buf_size;
-			addr = comp->regs_pa +
+			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec)
+			if (state->pending.is_sec) {
 				meta_type = CMDQ_IWC_H_2_MVA;
-			else
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type,
+					offset, size, 0);
+				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+					__func__, __LINE__,
+					pending->addr,
+					offset,
+					size);
+			} else {
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
-			cmdq_sec_pkt_write_reg(handle, addr,
-				pending->addr, meta_type, 0, size, 0);
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					addr, meta_type, 0, size, 0);
+				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+					__func__, __LINE__,
+					addr,
+					size);
+			}
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1498,19 +1524,32 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, addr;
+			u32 size, meta_type, regs_addr;
 
-			addr = comp->regs_pa +
+			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
 			if (state->pending.is_sec) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+					__func__, __LINE__,
+					pending->addr,
+					size);
 			} else {
 				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					regs_addr,
+					lx_addr, ~0);
+				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+					__func__, __LINE__,
+					pending->addr, lx_addr,
+					size);
 			}
-			cmdq_sec_pkt_write_reg(handle, addr,
-				pending->addr, meta_type, 0, size, 0);
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1538,19 +1577,32 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	} else {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, addr;
+			u32 size, meta_type, regs_addr;
 
-			addr = comp->regs_pa +
+			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
 			if (state->pending.is_sec) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+					__func__, __LINE__,
+					pending->addr,
+					size);
 			} else {
 				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					regs_addr,
+					lx_addr, ~0);
+				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+					__func__, __LINE__,
+					pending->addr, lx_addr,
+					size);
 			}
-			cmdq_sec_pkt_write_reg(handle, addr,
-				pending->addr, meta_type, 0, size, 0);
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1756,19 +1808,32 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, addr;
+			u32 size, meta_type, regs_addr;
 
-			addr = comp->regs_pa +
+			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
 			if (state->pending.is_sec) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+					__func__, __LINE__,
+					pending->addr,
+					size);
 			} else {
 				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					regs_addr,
+					lx_addr, ~0);
+				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+					__func__, __LINE__,
+					pending->addr, lx_addr,
+					size);
 			}
-			cmdq_sec_pkt_write_reg(handle, addr,
-				pending->addr, meta_type, 0, size, 0);
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1802,19 +1867,32 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	} else {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		if (comp->mtk_crtc->sec_on) {
-			u32 size, meta_type, addr;
+			u32 size, meta_type, regs_addr;
 
-			addr = comp->regs_pa +
+			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
 			if (state->pending.is_sec) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+					__func__, __LINE__,
+					pending->addr,
+					size);
 			} else {
 				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+				cmdq_sec_pkt_write_reg(handle, regs_addr,
+					pending->addr, meta_type, 0, size, 0);
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					regs_addr,
+					lx_addr, ~0);
+				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+					__func__, __LINE__,
+					pending->addr, lx_addr,
+					size);
 			}
-			cmdq_sec_pkt_write_reg(handle, addr,
-				pending->addr, meta_type, 0, size, 0);
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
