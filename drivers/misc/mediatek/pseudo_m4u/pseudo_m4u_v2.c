@@ -2401,7 +2401,7 @@ void pseudo_m4u_bank_irq_debug(unsigned int domain)
 {
 	int i, j, ret = 0;
 	unsigned int count = 0;
-	u32 reg;
+	u32 reg = 0;
 
 	for (i = 0; i < SMI_LARB_NR; i++) {
 		ret = larb_clock_on(i, 1);
