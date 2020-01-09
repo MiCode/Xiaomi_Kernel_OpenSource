@@ -754,43 +754,6 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	writel(DSI_WMEM_CONTI, dsi->regs + DSI_MEM_CONTI);
 }
 
-static void mtk_dsi_ps_control(struct mtk_dsi *dsi)
-{
-	u32 dsi_tmp_buf_bpp;
-	u32 tmp_reg;
-	u32 value = 0, mask = 0;
-
-	switch (dsi->format) {
-	case MIPI_DSI_FMT_RGB888:
-		SET_VAL_MASK(value, mask, 3, DSI_PS_SEL);
-		dsi_tmp_buf_bpp = 3;
-		break;
-	case MIPI_DSI_FMT_RGB666:
-		SET_VAL_MASK(value, mask, 2, DSI_PS_SEL);
-		dsi_tmp_buf_bpp = 3;
-		break;
-	case MIPI_DSI_FMT_RGB666_PACKED:
-		SET_VAL_MASK(value, mask, 1, DSI_PS_SEL);
-		dsi_tmp_buf_bpp = 3;
-		break;
-	case MIPI_DSI_FMT_RGB565:
-		SET_VAL_MASK(value, mask, 0, DSI_PS_SEL);
-		dsi_tmp_buf_bpp = 2;
-		break;
-	default:
-		SET_VAL_MASK(value, mask, 8, DSI_PS_SEL);
-		dsi_tmp_buf_bpp = 3;
-		break;
-	}
-
-	SET_VAL_MASK(value, mask, dsi->vm.hactive * dsi_tmp_buf_bpp,
-		DSI_PS_SEL);
-
-	tmp_reg = readl(dsi->regs + DSI_PSCTRL);
-	tmp_reg = (tmp_reg & ~mask) | (value & mask);
-	writel(tmp_reg, dsi->regs + DSI_PSCTRL);
-}
-
 static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 {
 	u32 horizontal_sync_active_byte;
@@ -875,8 +838,6 @@ static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
 	writel(dsi->hsa_byte, dsi->regs + DSI_HSA_WC);
 	writel(dsi->hbp_byte, dsi->regs + DSI_HBP_WC);
 	writel(dsi->hfp_byte, dsi->regs + DSI_HFP_WC);
-
-	mtk_dsi_ps_control(dsi);
 }
 
 static void mtk_dsi_start(struct mtk_dsi *dsi)
