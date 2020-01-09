@@ -25,7 +25,17 @@
  *    resume: SSPM resume => kernel resume
  */
 
+/* THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY means notify tinysys
+ *   to start/stop reading temperature when kernel suspend/resume/shutdown
+ */
 #define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY
+
+/* THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY_ONLY_AT_SHUTDOWN means
+ * notify tinysys to stop reading temperature only when kernel shutodown
+ */
+#ifdef THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY
+#define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY_ONLY_AT_SHUTDOWN
+#endif
 
 #define THERMAL_CPUEB_USE_PLATFORM_IPI
 #else

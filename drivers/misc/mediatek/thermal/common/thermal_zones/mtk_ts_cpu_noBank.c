@@ -1620,7 +1620,8 @@ static int tscpu_thermal_suspend
 	if (talking_flag == false) {
 		tscpu_dprintk("%s no talking\n", __func__);
 
-#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY)
+#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY) && \
+	!defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY_ONLY_AT_SHUTDOWN)
 	lvts_ipi_send_sspm_thermal_suspend_resume(1);
 #endif
 
@@ -1821,7 +1822,8 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		tscpu_config_all_tc_hw_protect(trip_temp[0], tc_mid_trip);
 #endif
 
-#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY)
+#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY) && \
+	!defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY_ONLY_AT_SHUTDOWN)
 	lvts_ipi_send_sspm_thermal_suspend_resume(0);
 #endif
 	}

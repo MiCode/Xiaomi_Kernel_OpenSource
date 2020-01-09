@@ -76,7 +76,7 @@ unsigned int thermal_to_mcupm(
 	case THERMAL_IPI_INIT_GRP6:
 		thermal_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
 		if (ret != 0)
 			tscpu_printk("send init cmd(%d) error ret:%d\n",
 				cmd, ret);
@@ -95,7 +95,7 @@ unsigned int thermal_to_mcupm(
 		ackData = ack_data;
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
 
 
 		if (ret != 0)
@@ -109,7 +109,7 @@ unsigned int thermal_to_mcupm(
 	case THERMAL_IPI_GET_TEMP:
 		thermal_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
 		if (ret != 0)
 			tscpu_printk("send get_temp cmd(%d) error ret:%d\n",
 				cmd, ret);
@@ -125,7 +125,7 @@ unsigned int thermal_to_mcupm(
 		thermal_data->cmd = cmd;
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
 
 		if (ret != 0)
 			tscpu_printk("mtk_ipi_send_compl error ret:%d - %d\n",
@@ -143,7 +143,7 @@ unsigned int thermal_to_mcupm(
 		ackData = ack_data;
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
 
 		if (ret != 0)
 			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
@@ -160,7 +160,7 @@ unsigned int thermal_to_mcupm(
 		ackData = ack_data;
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, THERMAL_SLOT_NUM, 2000);
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
 
 		if (ret != 0)
 			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
@@ -222,7 +222,7 @@ struct thermal_ipi_data *thermal_data, int *ackData)
 	case THERMAL_IPI_GET_ATM_GPU_LIMIT:
 		thermal_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-			IPI_SEND_POLLING, thermal_data, (data_len+1), 2000);
+			IPI_SEND_WAIT, thermal_data, (data_len+1), 2000);
 		if ((ret != 0) || (ack_data < 0))
 			tscpu_printk("%s cmd %d ret %d ack %d\n",
 				__func__, cmd, ret, ack_data);
