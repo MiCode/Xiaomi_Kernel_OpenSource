@@ -317,14 +317,11 @@ static void kbase_pm_invoke(struct kbase_device *kbdev,
 			}
 	}
 
-	if (action == ACTION_PWRON && core_type == KBASE_PM_CORE_SHADER) {
-		kbase_wa_execute(kbdev, cores);
-	} else {
-		if (lo != 0)
-			kbase_reg_write(kbdev, GPU_CONTROL_REG(reg), lo);
-		if (hi != 0)
-			kbase_reg_write(kbdev, GPU_CONTROL_REG(reg + 4), hi);
-	}
+	if (lo != 0)
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(reg), lo);
+
+	if (hi != 0)
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(reg + 4), hi);
 }
 
 /**
