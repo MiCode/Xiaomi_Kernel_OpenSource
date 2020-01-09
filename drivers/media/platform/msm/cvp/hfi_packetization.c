@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "hfi_packetization.h"
@@ -303,35 +303,17 @@ int cvp_create_pkt_cmd_session_set_buffers(
 		struct cvp_buffer_addr_info *buffer_info)
 {
 	int rc = 0;
-	unsigned int ver;
-
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+	struct cvp_hfi_cmd_session_set_buffers_packet *pkt;
 
 	if (!cmd || !session)
 		return -EINVAL;
 
-	if (ver < 1) {
-		struct cvp_hfi_cmd_session_set_buffers_packet_d *pkt;
-
-		pkt = (struct cvp_hfi_cmd_session_set_buffers_packet_d *)cmd;
-		pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
-		pkt->session_id = hash32_ptr(session);
-		pkt->buffer_addr = buffer_info->align_device_addr;
-		pkt->buffer_size = buffer_info->buffer_size;
-		pkt->size =
-			sizeof(struct cvp_hfi_cmd_session_set_buffers_packet_d);
-	} else {
-		struct cvp_hfi_cmd_session_set_buffers_packet *pkt;
-
-		pkt = (struct cvp_hfi_cmd_session_set_buffers_packet *)cmd;
-		pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
-		pkt->session_id = hash32_ptr(session);
-		pkt->buf_type.fd = buffer_info->align_device_addr;
-		pkt->buf_type.size = buffer_info->buffer_size;
-		pkt->size =
-			sizeof(struct cvp_hfi_cmd_session_set_buffers_packet);
-	}
+	pkt = (struct cvp_hfi_cmd_session_set_buffers_packet *)cmd;
+	pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
+	pkt->session_id = hash32_ptr(session);
+	pkt->buf_type.fd = buffer_info->align_device_addr;
+	pkt->buf_type.size = buffer_info->buffer_size;
+	pkt->size = sizeof(struct cvp_hfi_cmd_session_set_buffers_packet);
 
 	return rc;
 }
@@ -341,37 +323,18 @@ int cvp_create_pkt_cmd_session_release_buffers(
 		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
-	unsigned int ver;
-
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+	struct cvp_session_release_buffers_packet *pkt;
 
 	if (!cmd || !session)
 		return -EINVAL;
 
-	if (ver < 1) {
-		struct cvp_session_release_buffers_packet_d *pkt;
-
-		pkt = (struct cvp_session_release_buffers_packet_d *)cmd;
-		pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
-		pkt->session_id = hash32_ptr(session);
-		pkt->num_buffers = buffer_info->num_buffers;
-		pkt->buffer_type = buffer_info->buffer_type;
-		pkt->size =
-			sizeof(struct cvp_session_release_buffers_packet_d) +
+	pkt = (struct cvp_session_release_buffers_packet *)cmd;
+	pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
+	pkt->session_id = hash32_ptr(session);
+	pkt->num_buffers = buffer_info->num_buffers;
+	pkt->buffer_type = buffer_info->buffer_type;
+	pkt->size = sizeof(struct cvp_session_release_buffers_packet) +
 			((buffer_info->num_buffers - 1) * sizeof(u32));
-	} else {
-		struct cvp_session_release_buffers_packet *pkt;
-
-		pkt = (struct cvp_session_release_buffers_packet *)cmd;
-		pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
-		pkt->session_id = hash32_ptr(session);
-		pkt->num_buffers = buffer_info->num_buffers;
-		pkt->buffer_type = buffer_info->buffer_type;
-		pkt->size =
-			sizeof(struct cvp_session_release_buffers_packet) +
-			((buffer_info->num_buffers - 1) * sizeof(u32));
-	}
 
 	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
 		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {

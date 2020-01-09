@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_CVP_INTERNAL_H_
@@ -147,12 +147,6 @@ struct msm_cvp_ubwc_config_data {
 	u32 bank_spreading;
 };
 
-#define IS_VPU_4(ver) \
-	(ver == VPU_VERSION_4)
-
-#define IS_VPU_5(ver) \
-	(ver == VPU_VERSION_5)
-
 struct msm_cvp_platform_data {
 	struct msm_cvp_common_data *common_data;
 	unsigned int common_data_length;
@@ -183,20 +177,6 @@ enum profiling_points {
 	FRAME_PROCESSING,
 	FW_IDLE,
 	MAX_PROFILING_POINTS,
-};
-
-struct cvp_buf_type {
-	s32 fd;
-	u32 size;
-	u32 offset;
-	u32 flags;
-	union {
-		struct dma_buf *dbuf;
-		struct {
-			u32 reserved1;
-			u32 reserved2;
-		};
-	};
 };
 
 struct cvp_clock_data {
