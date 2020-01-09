@@ -125,112 +125,110 @@ struct mm_qos_request *cmdq_mdp_get_request(uint32_t thread_id, uint32_t port)
 		return &mdp_wrot0_request[thread_id];
 	case M4U_PORT_L2_MDP_WROT1:
 		return &mdp_wrot1_request[thread_id];
-#if 0
-	case M4U_PORT_L9_IMG_IMGI_D1_MDP:
+	case M4U_PORT_L9_IMG_IMGI_D1:
 		return &imgi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_IMGBI_D1_MDP:
+	case M4U_PORT_L9_IMG_IMGBI_D1:
 		return &imgbi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_DMGI_D1_MDP:
+	case M4U_PORT_L9_IMG_DMGI_D1:
 		return &dmgi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_DEPI_D1_MDP:
+	case M4U_PORT_L9_IMG_DEPI_D1:
 		return &depi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_ICE_D1_MDP:
+	case M4U_PORT_L9_IMG_ICE_D1:
 		return &ice_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D1_MDP:
+	case M4U_PORT_L9_IMG_SMTI_D1:
 		return &smti_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D2_MDP:
+	case M4U_PORT_L9_IMG_SMTO_D2:
 		return &smto_d2_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D1_MDP:
+	case M4U_PORT_L9_IMG_SMTO_D1:
 		return &smto_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_CRZO_D1_MDP:
+	case M4U_PORT_L9_IMG_CRZO_D1:
 		return &crzo_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_IMG3O_D1_MDP:
+	case M4U_PORT_L9_IMG_IMG3O_D1:
 		return &img3o_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_VIPI_D1_MDP:
+	case M4U_PORT_L9_IMG_VIPI_D1:
 		return &vipi_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D5_MDP:
+	case M4U_PORT_L9_IMG_SMTI_D5:
 		return &smti_d5_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_TIMGO_D1_MDP:
+	case M4U_PORT_L9_IMG_TIMGO_D1:
 		return &timgo_d1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_W0_MDP:
+	case M4U_PORT_L9_IMG_UFBC_W0:
 		return &ufbc_w0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_R0_MDP:
+	case M4U_PORT_L9_IMG_UFBC_R0:
 		return &ufbc_r0_mdp_request[thread_id];
-	case M4U_PORT_L11_IMG_IMGI_D1_DISP:
+	case M4U_PORT_L11_IMG_IMGI_D1:
 		return &imgi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_IMGBI_D1_DISP:
+	case M4U_PORT_L11_IMG_IMGBI_D1:
 		return &imgbi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_DMGI_D1_DISP:
+	case M4U_PORT_L11_IMG_DMGI_D1:
 		return &dmgi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_DEPI_D1_DISP:
+	case M4U_PORT_L11_IMG_DEPI_D1:
 		return &depi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_ICE_D1_DISP:
+	case M4U_PORT_L11_IMG_ICE_D1:
 		return &ice_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D1_DISP:
+	case M4U_PORT_L11_IMG_SMTI_D1:
 		return &smti_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D2_DISP:
+	case M4U_PORT_L11_IMG_SMTO_D2:
 		return &smto_d2_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D1_DISP:
+	case M4U_PORT_L11_IMG_SMTO_D1:
 		return &smto_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_CRZO_D1_DISP:
+	case M4U_PORT_L11_IMG_CRZO_D1:
 		return &crzo_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_IMG3O_D1_DISP:
+	case M4U_PORT_L11_IMG_IMG3O_D1:
 		return &img3o_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_VIPI_D1_DISP:
+	case M4U_PORT_L11_IMG_VIPI_D1:
 		return &vipi_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D5_DISP:
+	case M4U_PORT_L11_IMG_SMTI_D5:
 		return &smti_d5_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_TIMGO_D1_DISP:
+	case M4U_PORT_L11_IMG_TIMGO_D1:
 		return &timgo_d1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_W0_DISP:
+	case M4U_PORT_L11_IMG_UFBC_W0:
 		return &ufbc_w0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_R0_DISP:
+	case M4U_PORT_L11_IMG_UFBC_R0:
 		return &ufbc_r0_disp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA0_MDP:
+	case M4U_PORT_L9_IMG_MFB_RDMA0:
 		return &mfb_rdma0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA1_MDP:
+	case M4U_PORT_L9_IMG_MFB_RDMA1:
 		return &mfb_rdma1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA2_MDP:
+	case M4U_PORT_L9_IMG_MFB_RDMA2:
 		return &mfb_rdma2_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA3_MDP:
+	case M4U_PORT_L9_IMG_MFB_RDMA3:
 		return &mfb_rdma3_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA4_MDP:
+	case M4U_PORT_L9_IMG_MFB_RDMA4:
 		return &mfb_rdma4_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_RDMA5_MDP:
+	case M4U_PORT_L9_IMG_MFB_RDMA5:
 		return &mfb_rdma5_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_WDMA0_MDP:
+	case M4U_PORT_L9_IMG_MFB_WDMA0:
 		return &mfb_wdma0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_MFB_WDMA1_MDP:
+	case M4U_PORT_L9_IMG_MFB_WDMA1:
 		return &mfb_wdma1_mdp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA0_DISP:
+	case M4U_PORT_L11_IMG_MFB_RDMA0:
 		return &mfb_rdma0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA1_DISP:
+	case M4U_PORT_L11_IMG_MFB_RDMA1:
 		return &mfb_rdma1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA2_DISP:
+	case M4U_PORT_L11_IMG_MFB_RDMA2:
 		return &mfb_rdma2_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA3_DISP:
+	case M4U_PORT_L11_IMG_MFB_RDMA3:
 		return &mfb_rdma3_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA4_DISP:
+	case M4U_PORT_L11_IMG_MFB_RDMA4:
 		return &mfb_rdma4_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA5_DISP:
+	case M4U_PORT_L11_IMG_MFB_RDMA5:
 		return &mfb_rdma5_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA0_DISP:
+	case M4U_PORT_L11_IMG_MFB_WDMA0:
 		return &mfb_wdma0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA1_DISP:
+	case M4U_PORT_L11_IMG_MFB_WDMA1:
 		return &mfb_wdma1_disp_request[thread_id];
-	case M4U_PORT_L9_IMG_WPE_RDMA1_MDP:
+	case M4U_PORT_L9_IMG_WPE_RDMA1:
 		return &wpe_rdma1_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_WPE_RDMA0_MDP:
+	case M4U_PORT_L9_IMG_WPE_RDMA0:
 		return &wpe_rdma0_mdp_request[thread_id];
-	case M4U_PORT_L9_IMG_WPE_WDMA_MDP:
+	case M4U_PORT_L9_IMG_WPE_WDMA:
 		return &wpe_wdma_mdp_request[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA1_DISP:
+	case M4U_PORT_L11_IMG_WPE_RDMA1:
 		return &wpe_rdma1_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA0_DISP:
+	case M4U_PORT_L11_IMG_WPE_RDMA0:
 		return &wpe_rdma0_disp_request[thread_id];
-	case M4U_PORT_L11_IMG_WPE_WDMA_DISP:
+	case M4U_PORT_L11_IMG_WPE_WDMA:
 		return &wpe_wdma_disp_request[thread_id];
-#endif
 	}
 
 	CMDQ_ERR("pmqos invalid port%d\n", port);
@@ -251,164 +249,162 @@ void cmdq_mdp_init_pmqos_mdp(s32 index, struct plist_head *owner_list)
 
 void cmdq_mdp_init_pmqos_isp(s32 index, struct plist_head *owner_list)
 {
-#if 0
 	mm_qos_add_request(&owner_list[index],
 		&imgi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_IMGI_D1_MDP);
+		M4U_PORT_L9_IMG_IMGI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&imgbi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_IMGBI_D1_MDP);
+		M4U_PORT_L9_IMG_IMGBI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&dmgi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_DMGI_D1_MDP);
+		M4U_PORT_L9_IMG_DMGI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&depi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_DEPI_D1_MDP);
+		M4U_PORT_L9_IMG_DEPI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&ice_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_ICE_D1_MDP);
+		M4U_PORT_L9_IMG_ICE_D1);
 	mm_qos_add_request(&owner_list[index],
 		&smti_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTI_D1_MDP);
+		M4U_PORT_L9_IMG_SMTI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&smto_d2_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTO_D2_MDP);
+		M4U_PORT_L9_IMG_SMTO_D2);
 	mm_qos_add_request(&owner_list[index],
 		&smto_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTO_D1_MDP);
+		M4U_PORT_L9_IMG_SMTO_D1);
 	mm_qos_add_request(&owner_list[index],
 		&crzo_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_CRZO_D1_MDP);
+		M4U_PORT_L9_IMG_CRZO_D1);
 	mm_qos_add_request(&owner_list[index],
 		&img3o_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_IMG3O_D1_MDP);
+		M4U_PORT_L9_IMG_IMG3O_D1);
 	mm_qos_add_request(&owner_list[index],
 		&vipi_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_VIPI_D1_MDP);
+		M4U_PORT_L9_IMG_VIPI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&smti_d5_mdp_request[index],
-		M4U_PORT_L9_IMG_SMTI_D5_MDP);
+		M4U_PORT_L9_IMG_SMTI_D5);
 	mm_qos_add_request(&owner_list[index],
 		&timgo_d1_mdp_request[index],
-		M4U_PORT_L9_IMG_TIMGO_D1_MDP);
+		M4U_PORT_L9_IMG_TIMGO_D1);
 	mm_qos_add_request(&owner_list[index],
 		&ufbc_w0_mdp_request[index],
-		M4U_PORT_L9_IMG_UFBC_W0_MDP);
+		M4U_PORT_L9_IMG_UFBC_W0);
 	mm_qos_add_request(&owner_list[index],
 		&ufbc_r0_mdp_request[index],
-		M4U_PORT_L9_IMG_UFBC_R0_MDP);
+		M4U_PORT_L9_IMG_UFBC_R0);
 	mm_qos_add_request(&owner_list[index],
 		&imgi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_IMGI_D1_DISP);
+		M4U_PORT_L11_IMG_IMGI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&imgbi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_IMGBI_D1_DISP);
+		M4U_PORT_L11_IMG_IMGBI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&dmgi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_DMGI_D1_DISP);
+		M4U_PORT_L11_IMG_DMGI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&depi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_DEPI_D1_DISP);
+		M4U_PORT_L11_IMG_DEPI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&ice_d1_disp_request[index],
-		M4U_PORT_L11_IMG_ICE_D1_DISP);
+		M4U_PORT_L11_IMG_ICE_D1);
 	mm_qos_add_request(&owner_list[index],
 		&smti_d1_disp_request[index],
-		M4U_PORT_L11_IMG_SMTI_D1_DISP);
+		M4U_PORT_L11_IMG_SMTI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&smto_d2_disp_request[index],
-		M4U_PORT_L11_IMG_SMTO_D2_DISP);
+		M4U_PORT_L11_IMG_SMTO_D2);
 	mm_qos_add_request(&owner_list[index],
 		&smto_d1_disp_request[index],
-		M4U_PORT_L11_IMG_SMTO_D1_DISP);
+		M4U_PORT_L11_IMG_SMTO_D1);
 	mm_qos_add_request(&owner_list[index],
 		&crzo_d1_disp_request[index],
-		M4U_PORT_L11_IMG_CRZO_D1_DISP);
+		M4U_PORT_L11_IMG_CRZO_D1);
 	mm_qos_add_request(&owner_list[index],
 		&img3o_d1_disp_request[index],
-		M4U_PORT_L11_IMG_IMG3O_D1_DISP);
+		M4U_PORT_L11_IMG_IMG3O_D1);
 	mm_qos_add_request(&owner_list[index],
 		&vipi_d1_disp_request[index],
-		M4U_PORT_L11_IMG_VIPI_D1_DISP);
+		M4U_PORT_L11_IMG_VIPI_D1);
 	mm_qos_add_request(&owner_list[index],
 		&smti_d5_disp_request[index],
-		M4U_PORT_L11_IMG_SMTI_D5_DISP);
+		M4U_PORT_L11_IMG_SMTI_D5);
 	mm_qos_add_request(&owner_list[index],
 		&timgo_d1_disp_request[index],
-		M4U_PORT_L11_IMG_TIMGO_D1_DISP);
+		M4U_PORT_L11_IMG_TIMGO_D1);
 	mm_qos_add_request(&owner_list[index],
 		&ufbc_w0_disp_request[index],
-		M4U_PORT_L11_IMG_UFBC_W0_DISP);
+		M4U_PORT_L11_IMG_UFBC_W0);
 	mm_qos_add_request(&owner_list[index],
 		&ufbc_r0_disp_request[index],
-		M4U_PORT_L11_IMG_UFBC_R0_DISP);
+		M4U_PORT_L11_IMG_UFBC_R0);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma0_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA0_MDP);
+		M4U_PORT_L9_IMG_MFB_RDMA0);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma1_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA1_MDP);
+		M4U_PORT_L9_IMG_MFB_RDMA1);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma2_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA2_MDP);
+		M4U_PORT_L9_IMG_MFB_RDMA2);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma3_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA3_MDP);
+		M4U_PORT_L9_IMG_MFB_RDMA3);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma4_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA4_MDP);
+		M4U_PORT_L9_IMG_MFB_RDMA4);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma5_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_RDMA5_MDP);
+		M4U_PORT_L9_IMG_MFB_RDMA5);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_wdma0_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_WDMA0_MDP);
+		M4U_PORT_L9_IMG_MFB_WDMA0);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_wdma1_mdp_request[index],
-		M4U_PORT_L9_IMG_MFB_WDMA1_MDP);
+		M4U_PORT_L9_IMG_MFB_WDMA1);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma0_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA0_DISP);
+		M4U_PORT_L11_IMG_MFB_RDMA0);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma1_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA1_DISP);
+		M4U_PORT_L11_IMG_MFB_RDMA1);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma2_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA2_DISP);
+		M4U_PORT_L11_IMG_MFB_RDMA2);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma3_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA3_DISP);
+		M4U_PORT_L11_IMG_MFB_RDMA3);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma4_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA4_DISP);
+		M4U_PORT_L11_IMG_MFB_RDMA4);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_rdma5_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_RDMA5_DISP);
+		M4U_PORT_L11_IMG_MFB_RDMA5);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_wdma0_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_WDMA0_DISP);
+		M4U_PORT_L11_IMG_MFB_WDMA0);
 	mm_qos_add_request(&owner_list[index],
 		&mfb_wdma1_disp_request[index],
-		M4U_PORT_L11_IMG_MFB_WDMA1_DISP);
+		M4U_PORT_L11_IMG_MFB_WDMA1);
 	mm_qos_add_request(&owner_list[index],
 		&wpe_rdma1_mdp_request[index],
-		M4U_PORT_L9_IMG_WPE_RDMA1_MDP);
+		M4U_PORT_L9_IMG_WPE_RDMA1);
 	mm_qos_add_request(&owner_list[index],
 		&wpe_rdma0_mdp_request[index],
-		M4U_PORT_L9_IMG_WPE_RDMA0_MDP);
+		M4U_PORT_L9_IMG_WPE_RDMA0);
 	mm_qos_add_request(&owner_list[index],
 		&wpe_wdma_mdp_request[index],
-		M4U_PORT_L9_IMG_WPE_WDMA_MDP);
+		M4U_PORT_L9_IMG_WPE_WDMA);
 	mm_qos_add_request(&owner_list[index],
 		&wpe_rdma1_disp_request[index],
-		M4U_PORT_L11_IMG_WPE_RDMA1_DISP);
+		M4U_PORT_L11_IMG_WPE_RDMA1);
 	mm_qos_add_request(&owner_list[index],
 		&wpe_rdma0_disp_request[index],
-		M4U_PORT_L11_IMG_WPE_RDMA0_DISP);
+		M4U_PORT_L11_IMG_WPE_RDMA0);
 	mm_qos_add_request(&owner_list[index],
 		&wpe_wdma_disp_request[index],
-		M4U_PORT_L11_IMG_WPE_WDMA_DISP);
-#endif
+		M4U_PORT_L11_IMG_WPE_WDMA);
 }
 #endif	/* CONFIG_MTK_SMI_EXT */
 
