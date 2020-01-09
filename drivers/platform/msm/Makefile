@@ -3,6 +3,8 @@
 #
 # Makefile for the MSM specific device drivers.
 #
+
+obj-$(CONFIG_MSM_EXT_DISPLAY) += msm_ext_display.o
 obj-$(CONFIG_GSI) += gsi/
 obj-$(CONFIG_IPA3) += ipa/
 obj-$(CONFIG_MSM_GENI_SE) += msm-geni-se.o
