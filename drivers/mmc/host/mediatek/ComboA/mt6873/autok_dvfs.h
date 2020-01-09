@@ -17,7 +17,7 @@
 
 #include "autok.h"
 
-//#define VCOREFS_READY
+#define VCOREFS_READY
 #if defined(VCOREFS_READY)
 #include <linux/pm_qos.h>
 #include "helio-dvfsrc-opp.h"

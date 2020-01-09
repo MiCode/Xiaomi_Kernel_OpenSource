@@ -847,11 +847,11 @@ void sdio_execute_dvfs_autok(struct msdc_host *host)
 }
 
 #if defined(VCOREFS_READY)
+/* remove 0.575v,or it will affect 90HZ LCM */
 static int autok_opp[AUTOK_VCORE_NUM] = {
-	VCORE_DVFS_OPP_2, /* 0.825V, OPP_0 is invalid */
-
-	VCORE_DVFS_OPP_6, /* 0.725V */
-	VCORE_DVFS_OPP_9, /* 0.65V */
+	VCORE_DVFS_OPP_3, /* 0.725V */
+	VCORE_DVFS_OPP_4, /* 0.650V */
+	VCORE_DVFS_OPP_5, /* 0.600V */
 };
 #endif
 
