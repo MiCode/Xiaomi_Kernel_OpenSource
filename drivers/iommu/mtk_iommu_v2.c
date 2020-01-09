@@ -3561,9 +3561,10 @@ int __mau_dump_status(int m4u_id, int slave, int mau)
 int iommu_perf_get_counter(int m4u_id,
 		int slave, struct IOMMU_PERF_COUNT *p_perf_count)
 {
-	const struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 	void __iomem *base;
 	int ret = 0;
+	unsigned long flags;
 
 	if (!data ||
 	    slave >= MTK_MMU_NUM_OF_IOMMU(m4u_id)) {
@@ -3572,14 +3573,20 @@ int iommu_perf_get_counter(int m4u_id,
 		return -1;
 	}
 
+	spin_lock_irqsave(&data->reg_lock, flags);
 #ifdef IOMMU_POWER_CLK_SUPPORT
-	if (!data->poweron)
-		return 0;
+	if (!data->poweron) {
+		spin_unlock_irqrestore(&data->reg_lock, flags);
+		pr_notice("%s: iommu:%d power off\n",
+			  __func__, m4u_id);
+		return -2;
+	}
 #endif
 	base = data->base;
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 1);
 	if (ret) {
+		spin_unlock_irqrestore(&data->reg_lock, flags);
 		pr_notice("%s, %d, failed to enable secure debug signal\n",
 			  __func__, __LINE__);
 		return ret;
@@ -3606,6 +3613,7 @@ int iommu_perf_get_counter(int m4u_id,
 	p_perf_count->rs_perf_cnt =
 		readl_relaxed(base + REG_MMU_RS_PERF_CNT(slave));
 
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);
 	if (ret)
 		pr_notice("%s, %d, failed to disable secure debug signal\n",
@@ -3649,6 +3657,8 @@ int iommu_perf_monitor_start(int m4u_id)
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
 		spin_unlock_irqrestore(&data->reg_lock, flags);
+		pr_notice("%s: iommu:%d power off\n",
+			  __func__, m4u_id);
 		return 0;
 	}
 #endif
@@ -3689,6 +3699,8 @@ int iommu_perf_monitor_stop(int m4u_id)
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
 		spin_unlock_irqrestore(&data->reg_lock, flags);
+		pr_notice("%s: iommu:%d power off\n",
+			  __func__, m4u_id);
 		return 0;
 	}
 #endif
@@ -3700,10 +3712,10 @@ int iommu_perf_monitor_stop(int m4u_id)
 				F_MMU_CTRL_MONITOR_EN(1),
 				F_MMU_CTRL_MONITOR_EN(0));
 
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 	for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
 		iommu_perf_print_counter(m4u_id, i, __func__);
 
-	spin_unlock_irqrestore(&data->reg_lock, flags);
 	return 0;
 }
 
