@@ -6,3 +6,12 @@ config MTK_DRAMC
 	  incude the following API
 	  PASR
 	  DVFS
+
+config MTK_DRAMC_WA
+	tristate "MediaTek DRAMC WA driver"
+	---help---
+	  This selects the MediaTek(R) DRAMC WA driver.
+	  Use apxgpt3 to wakeup
+	  system when dram data
+	  rate 4266 to enter S0_S1
+	  after 1 second
