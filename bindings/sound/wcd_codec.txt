@@ -409,3 +409,32 @@ Example:
 		reg = <0x045>;
 	};
 };
+
+WSA883x Soundwire slave device as child of Soundwire master in Bolero codec
+
+Required properties:
+ - compatible = "qcom,wsa883x";
+ - reg: Specifies the WSA883x soundwire slave unique device address
+ - qcom,spkr-sd-n-gpio: speaker reset gpio
+
+Optional properties:
+ - bolero-handle: phandle to bolero codec
+ - cdc-vdd-1p8-supply: phandle of VDD 1.8V supply's regulator device tree node.
+ - qcom,cdc-vdd-1p8-voltage: VDD 1.8V supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-1p8-current: VDD 1.8V supply's max current in mA.
+ - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
+			     hardware probe.  Supplies in this list will be
+			     stay enabled.
+
+Example:
+wsa883x_0221: wsa883x@02170221 {
+	compatible = "qcom,wsa883x";
+	reg = <0x02 0x02170221>;
+	qcom,spkr-sd-n-gpio = <&tlmm 80 0>;
+	bolero-handle = <&bolero>;
+
+	cdc-vdd-1p8-supply = <&S10B>;
+	qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-1p8-current = <20000>;
+	qcom,cdc-static-supplies = "cdc-vdd-1p8";
+};
