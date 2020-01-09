@@ -441,7 +441,7 @@ int mtk_ses_volt_ratio_eb(unsigned int HiRatio,
 	cdvfs_d.u.set_fv.arg[2] = LoRatio;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef MTK_TINYSYS_MCUPM_SUPPORT
+#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 	ret = mtk_ipi_send_compl(&mcupm_ipidev,
 		CH_S_CPU_DVFS,
 		IPI_SEND_POLLING,
