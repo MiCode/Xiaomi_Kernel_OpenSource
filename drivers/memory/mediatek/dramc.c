@@ -112,9 +112,28 @@ static ssize_t dram_data_rate_show(struct device_driver *driver, char *buf)
 		mtk_dramc_get_data_rate());
 }
 
+__weak int mtk_dramc_binning_test(void)
+{
+	return 0;
+}
+
+static ssize_t binning_test_show(struct device_driver *driver, char *buf)
+{
+	int ret;
+
+	ret = mtk_dramc_binning_test();
+	if (!ret)
+		return snprintf(buf, PAGE_SIZE, "unsupport mem test\n");
+	else if (ret > 0)
+		return snprintf(buf, PAGE_SIZE, "mem test all pass\n");
+	else
+		return snprintf(buf, PAGE_SIZE, "mem test failed %d\n", ret);
+}
+
 static DRIVER_ATTR_RO(mr);
 static DRIVER_ATTR_RO(mr4);
 static DRIVER_ATTR_RO(dram_data_rate);
+static DRIVER_ATTR_RO(binning_test);
 
 static int dramc_probe(struct platform_device *pdev)
 {
@@ -329,6 +348,13 @@ static int dramc_probe(struct platform_device *pdev)
 		}
 	} else
 		dramc_dev_ptr->fmeter_dev_ptr = NULL;
+
+	ret = driver_create_file(
+		pdev->dev.driver, &driver_attr_binning_test);
+	if (ret) {
+		pr_info("%s: fail to create binning_test sysfs\n", __func__);
+		return ret;
+	}
 
 	ret = driver_create_file(
 		pdev->dev.driver, &driver_attr_dram_data_rate);
@@ -611,5 +637,6 @@ unsigned int mtk_dramc_get_ddr_type(void)
 	return dramc_dev_ptr->dram_type;
 }
 EXPORT_SYMBOL(mtk_dramc_get_ddr_type);
+
 MODULE_DESCRIPTION("MediaTek DRAMC Driver v0.1");
 
