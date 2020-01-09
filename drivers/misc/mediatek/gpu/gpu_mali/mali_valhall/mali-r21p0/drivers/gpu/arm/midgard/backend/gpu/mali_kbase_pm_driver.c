@@ -1874,7 +1874,7 @@ static int kbase_pm_do_reset(struct kbase_device *kbdev)
 	struct kbasep_reset_timeout_data rtdata;
 	int ret;
 
-#ifdef CONFIG_MACH_MT6873
+#if 0 //def CONFIG_MACH_MT6873
 	u32 val;
 #endif
 
@@ -1935,19 +1935,6 @@ static int kbase_pm_do_reset(struct kbase_device *kbdev)
 								RESET_TIMEOUT);
 	KBASE_TRACE_ADD(kbdev, CORE_GPU_HARD_RESET, NULL, NULL, 0u, 0);
 
-#ifdef CONFIG_MACH_MT6873
-	dump_stack();
-	mt_gpufreq_wdt_reset();
-
-	val = kbase_reg_read(kbdev,	0x60);
-	dev_info(kbdev->dev, "before: 0x%x:0x%08x\n", 0x13000060, val);
-
-	kbase_reg_write(kbdev, 0x60, 0x12345678);
-
-	val = kbase_reg_read(kbdev,	0x60);
-	dev_info(kbdev->dev, "after: 0x%x:0x%08x\n", 0x13000060, val);
-#endif
-
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
 						GPU_COMMAND_HARD_RESET);
 
@@ -1971,6 +1958,20 @@ static int kbase_pm_do_reset(struct kbase_device *kbdev)
 
 	dev_err(kbdev->dev, "Failed to hard-reset the GPU (timed out after %d ms)\n",
 								RESET_TIMEOUT);
+
+/* Reset through rgu as a final method */
+#if 0 //def CONFIG_MACH_MT6873
+	dump_stack();
+	mt_gpufreq_wdt_reset();
+
+	val = kbase_reg_read(kbdev,	0x60);
+	dev_info(kbdev->dev, "before: 0x%x:0x%08x\n", 0x13000060, val);
+
+	kbase_reg_write(kbdev, 0x60, 0x12345678);
+
+	val = kbase_reg_read(kbdev,	0x60);
+	dev_info(kbdev->dev, "after: 0x%x:0x%08x\n", 0x13000060, val);
+#endif
 
 	return -EINVAL;
 }
