@@ -266,7 +266,8 @@ static void get_picachu_efuse(void)
 
 			/* check efuse data */
 			for (i = 1; i < cnt; i++) {
-				if ((i == 5) || (i == 6) ||
+				if ((i == 1) || (i == 2) ||
+					(i == 5) || (i == 6) ||
 					(i == 11) || (i == 12) || (i == 15))
 					continue;
 				else if (eem_read(addr_ptr + i * 4) == 0) {
@@ -409,7 +410,8 @@ static int get_devinfo(void)
 #endif
 
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
-		if ((i == 5) || (i == 6) ||
+		if ((i == 1) || (i == 2) ||
+			(i == 5) || (i == 6) ||
 			(i == 11) || (i == 12) || (i == 15))
 			continue;
 		else if (val[i] == 0) {
