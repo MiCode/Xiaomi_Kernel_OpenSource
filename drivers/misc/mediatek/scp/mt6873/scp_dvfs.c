@@ -74,7 +74,7 @@
 #define SCP_VCORE_REQ_TO_DVFSRC		1
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
-int scp_dvfs_flag = -1;
+int scp_dvfs_flag = 1;
 
 /*
  * -1: SCP Debug CMD: off,
@@ -116,9 +116,43 @@ void scp_slp_ipi_init(void)
 	slp_ipi_init_done = 1;
 }
 
+static uint32_t _mt_scp_dvfs_set_test_freq(uint32_t sum)
+{
+	uint32_t added_freq = 0;
+
+	if (scp_dvfs_debug_flag == -1)
+		return 0;
+
+	pr_info("manually set opp = %d\n", scp_dvfs_debug_flag);
+
+	/*
+	 * calculate test feature freq to meet fixed opp level.
+	 */
+	if (scp_dvfs_debug_flag == 0 && sum < CLK_OPP0)
+		added_freq = CLK_OPP0 - sum;
+	else if (scp_dvfs_debug_flag == 1 && sum < CLK_OPP1)
+		added_freq = CLK_OPP1 - sum;
+	else if (scp_dvfs_debug_flag == 2 && sum < CLK_OPP2)
+		added_freq = CLK_OPP2 - sum;
+	else if (scp_dvfs_debug_flag == 3 && sum < CLK_OPP3)
+		added_freq = CLK_OPP3 - sum;
+	else if (scp_dvfs_debug_flag == 4 && sum < CLK_OPP4)
+		added_freq = CLK_OPP4 - sum;
+
+	feature_table[VCORE_TEST_FEATURE_ID].freq =
+		added_freq;
+	pr_info("request freq: %d + %d = %d (MHz)\n",
+			sum,
+			added_freq,
+			sum + added_freq);
+
+	return added_freq;
+}
+
 int scp_resource_req(unsigned int req_type)
 {
 	unsigned long ret = 0;
+
 #if SCP_ATF_RESOURCE_REQUEST
 	ret = mt_secure_call(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
 			req_type,
@@ -201,7 +235,8 @@ uint32_t scp_get_freq(void)
 	 * calculate scp frequence
 	 */
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].enable == 1) {
+		if (i != VCORE_TEST_FEATURE_ID &&
+				feature_table[i].enable == 1) {
 			if (feature_table[i].sys_id == SCPSYS_CORE0)
 				sum_core0 += feature_table[i].freq;
 			else
@@ -218,8 +253,16 @@ uint32_t scp_get_freq(void)
 	}
 
 	sum += sum_core0;
-	if (sum_core1 > sum_core0)
+	feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE0;
+	if (sum_core1 > sum) {
 		sum = sum_core1;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
+	}
+	/*
+	 * added up scp test cmd frequence
+	 */
+	sum += _mt_scp_dvfs_set_test_freq(sum);
+
 	/*pr_debug("[SCP] needed freq sum:%d\n",sum);*/
 	if (sum <= CLK_OPP0)
 		return_freq = CLK_OPP0;
@@ -235,25 +278,6 @@ uint32_t scp_get_freq(void)
 		return_freq = CLK_OPP4;
 		pr_debug("warning: request freq %d > max opp %d\n",
 				sum, CLK_OPP4);
-	}
-
-	/*
-	 * return fix opp if it meets following two cond.
-	 * 1. in debug mode
-	 * 2. fix opp > request opp.
-	 */
-	if (scp_dvfs_debug_flag != -1) {
-		pr_info("warning: SCP DVFS is in debug mode, fix opp%d\n",
-				scp_dvfs_debug_flag);
-
-		if (scp_dvfs_debug_flag == 1 && return_freq < CLK_OPP1)
-			return_freq = CLK_OPP1;
-		else if (scp_dvfs_debug_flag == 2 && return_freq < CLK_OPP2)
-			return_freq = CLK_OPP2;
-		else if (scp_dvfs_debug_flag == 3 && return_freq < CLK_OPP3)
-			return_freq = CLK_OPP3;
-		else if (scp_dvfs_debug_flag == 4 && return_freq < CLK_OPP4)
-			return_freq = CLK_OPP4;
 	}
 
 	return return_freq;
@@ -355,9 +379,7 @@ int scp_request_freq(void)
 			if (timeout <= 0) {
 				pr_err("set freq fail, current(%d) != expect(%d)\n",
 					scp_current_freq, scp_expected_freq);
-				__pm_relax(&scp_suspend_lock);
-				WARN_ON(1);
-				return -1;
+				goto fail;
 			}
 
 			/* read scp_current_freq again */
@@ -388,6 +410,17 @@ int scp_request_freq(void)
 	pr_debug("[SCP] succeed to set freq, expect=%d, cur=%d\n",
 			scp_expected_freq, scp_current_freq);
 	return 0;
+
+fail:
+	/* release scp to sleep after ap freq drop request */
+	scp_awake_unlock((void *)SCP_A_ID);
+
+	/* relax AP to allow entering suspend after ap freq drop request */
+	__pm_relax(&scp_suspend_lock);
+
+	WARN_ON(1);
+
+	return -1;
 }
 
 void wait_scp_dvfs_init_done(void)
@@ -552,62 +585,6 @@ static int mt_scp_dvfs_ctrl_proc_show(struct seq_file *m, void *v)
 /**********************************
  * write scp dvfs ctrl
  ***********************************/
-static void _mt_scp_dvfs_set_test_opp(int dvfs_opp)
-{
-	uint32_t sum_core0 = 0;
-	uint32_t sum_core1 = 0;
-	uint32_t added_freq = 0;
-	uint32_t sum = 0;
-	uint32_t i;
-
-	pr_info("manually set opp = %d\n", dvfs_opp);
-
-	/*
-	 * calculate scp frequence
-	 */
-	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (i != VCORE_TEST_FEATURE_ID &&
-				feature_table[i].enable == 1) {
-			if (feature_table[i].sys_id == SCPSYS_CORE0)
-				sum_core0 += feature_table[i].freq;
-			else
-				sum_core1 += feature_table[i].freq;
-		}
-	}
-
-	/*
-	 * calculate scp sensor frequence
-	 */
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].enable == 1)
-			sum += sensor_type_table[i].freq;
-	}
-
-	sum += sum_core0;
-	if (sum_core1 > sum_core0) {
-		sum = sum_core1;
-		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
-	}
-
-	if (dvfs_opp == 0 && sum < CLK_OPP0)
-		added_freq = CLK_OPP0 - sum;
-	else if (dvfs_opp == 1 && sum < CLK_OPP1)
-		added_freq = CLK_OPP1 - sum;
-	else if (dvfs_opp == 2 && sum < CLK_OPP2)
-		added_freq = CLK_OPP2 - sum;
-	else if (dvfs_opp == 3 && sum < CLK_OPP3)
-		added_freq = CLK_OPP3 - sum;
-	else if (dvfs_opp == 4 && sum < CLK_OPP4)
-		added_freq = CLK_OPP4 - sum;
-
-	feature_table[VCORE_TEST_FEATURE_ID].freq =
-		added_freq;
-	pr_debug("request freq: %d + %d = %d (MHz)\n",
-			sum,
-			added_freq,
-			sum + added_freq);
-}
-
 static ssize_t mt_scp_dvfs_ctrl_proc_write(
 					struct file *file,
 					const char __user *buffer,
@@ -643,8 +620,6 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 				scp_dvfs_debug_flag = dvfs_opp;
 			} else if (dvfs_opp >= 0 && dvfs_opp <= 4) {
 				scp_dvfs_debug_flag = dvfs_opp;
-
-				_mt_scp_dvfs_set_test_opp(dvfs_opp);
 
 				scp_register_feature(VCORE_TEST_FEATURE_ID);
 			} else {
