@@ -157,7 +157,7 @@ out:
 	return 0;
 }
 
-static void mrdump_key_shutdown(struct platform_device *pdev)
+void mrdump_key_shutdown(struct platform_device *pdev)
 {
 
 #ifdef CONFIG_MTK_WATCHDOG_COMMON
