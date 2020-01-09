@@ -188,8 +188,10 @@ bool is_adsp_load(void)
 
 static int adsp_after_bootup(struct adsp_priv *pdata)
 {
-	/* temp for bringup*/
+#ifdef BRINGUP_ADSP
+	/* disable adsp suspend by registering feature */
 	_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0);
+#endif
 	return adsp_awake_unlock(pdata->id);
 }
 
