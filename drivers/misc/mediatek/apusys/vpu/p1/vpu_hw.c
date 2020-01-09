@@ -469,20 +469,24 @@ err_remove:
  */
 bool vpu_is_disabled(struct vpu_device *vd)
 {
+	bool ret;
 	unsigned int efuse;
+	unsigned int seg;
 	unsigned int mask;
 
 	mask = 1 << vd->id;
 
+	seg = get_devinfo_with_index(EFUSE_SEG_OFFSET);
 	efuse = get_devinfo_with_index(EFUSE_VPU_OFFSET);
 	efuse = (efuse >> EFUSE_VPU_SHIFT) & EFUSE_VPU_MASK;
+	ret = (efuse & mask) || ((seg == 0x1) && (vd->id >= 2));
 
 	/* show efuse info to let user know */
-	pr_info("%s: efuse_data: 0x%x, core%d is %s\n",
-		__func__, efuse, vd->id,
-		(efuse & mask) ? "disabled" : "enabled");
+	pr_info("%s: seg: 0x%x, efuse: 0x%x, core%d is %s\n",
+		__func__, seg, efuse, vd->id,
+		ret ? "disabled" : "enabled");
 
-	return (efuse & mask);
+	return ret;
 }
 
 /* driver hw init */
