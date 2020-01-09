@@ -861,7 +861,8 @@ struct ipahal_imm_cmd_pyld *ipahal_construct_nop_imm_cmd(
 
 #define IPA_PKT_STATUS_SET_MSK(__hw_bit_msk, __shft) \
 	(status->status_mask |= \
-		((hw_status->status_mask & (__hw_bit_msk) ? 1 : 0) << (__shft)))
+		((hw_status->ipa_pkt.status_mask & (__hw_bit_msk) ? 1 : 0) \
+					<< (__shft)))
 
 static enum ipahal_pkt_status_exception pkt_status_parse_exception(
 	bool is_ipv6, u64 exception)
@@ -905,46 +906,81 @@ static enum ipahal_pkt_status_exception pkt_status_parse_exception(
 	return exception_type;
 }
 
+static void __ipa_parse_gen_pkt(struct ipahal_pkt_status *status,
+				const void *unparsed_status)
+{
+	bool is_ipv6;
+	union ipa_pkt_status_hw *hw_status =
+		(union ipa_pkt_status_hw *)unparsed_status;
+
+	is_ipv6 = (hw_status->ipa_pkt.status_mask & 0x80) ? false : true;
+	status->pkt_len = hw_status->ipa_pkt.pkt_len;
+	status->endp_src_idx = hw_status->ipa_pkt.endp_src_idx;
+	status->endp_dest_idx = hw_status->ipa_pkt.endp_dest_idx;
+	status->metadata = hw_status->ipa_pkt.metadata;
+	status->flt_local = hw_status->ipa_pkt.flt_local;
+	status->flt_hash = hw_status->ipa_pkt.flt_hash;
+	status->flt_global = hw_status->ipa_pkt.flt_hash;
+	status->flt_ret_hdr = hw_status->ipa_pkt.flt_ret_hdr;
+	status->flt_miss = (hw_status->ipa_pkt.rt_rule_id ==
+			IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID);
+	status->flt_rule_id = hw_status->ipa_pkt.flt_rule_id;
+	status->rt_local = hw_status->ipa_pkt.rt_local;
+	status->rt_hash = hw_status->ipa_pkt.rt_hash;
+	status->ucp = hw_status->ipa_pkt.ucp;
+	status->rt_tbl_idx = hw_status->ipa_pkt.rt_tbl_idx;
+	status->rt_miss = (hw_status->ipa_pkt.rt_rule_id ==
+			IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID);
+	status->rt_rule_id = hw_status->ipa_pkt.rt_rule_id;
+	status->nat_hit = hw_status->ipa_pkt.nat_hit;
+	status->nat_entry_idx = hw_status->ipa_pkt.nat_entry_idx;
+	status->tag_info = hw_status->ipa_pkt.tag_info;
+	status->seq_num = hw_status->ipa_pkt.seq_num;
+	status->time_of_day_ctr = hw_status->ipa_pkt.time_of_day_ctr;
+	status->hdr_local = hw_status->ipa_pkt.hdr_local;
+	status->hdr_offset = hw_status->ipa_pkt.hdr_offset;
+	status->frag_hit = hw_status->ipa_pkt.frag_hit;
+	status->frag_rule = hw_status->ipa_pkt.frag_rule;
+	status->nat_type = hw_status->ipa_pkt.nat_type;
+
+	status->exception = pkt_status_parse_exception(is_ipv6,
+			hw_status->ipa_pkt.exception);
+}
+
+static void __ipa_parse_frag_pkt(struct ipahal_pkt_status *status,
+				const void *unparsed_status)
+{
+	union ipa_pkt_status_hw *hw_status =
+		(union ipa_pkt_status_hw *)unparsed_status;
+
+	status->frag_rule_idx = hw_status->frag_pkt.frag_rule_idx;
+	status->tbl_idx = hw_status->frag_pkt.tbl_idx;
+	status->src_ip_addr = hw_status->frag_pkt.src_ip_addr;
+	status->dest_ip_addr = hw_status->frag_pkt.dest_ip_addr;
+	status->protocol = hw_status->frag_pkt.protocol;
+	status->ip_id = hw_status->frag_pkt.ip_id;
+	status->tlated_ip_addr = hw_status->frag_pkt.tlated_ip_addr;
+	status->ip_cksum_diff = hw_status->frag_pkt.ip_cksum_diff;
+	status->endp_src_idx = hw_status->frag_pkt.endp_src_idx;
+	status->endp_dest_idx = hw_status->frag_pkt.endp_dest_idx;
+	status->metadata = hw_status->frag_pkt.metadata;
+	status->seq_num = hw_status->frag_pkt.seq_num;
+	status->hdr_local = hw_status->frag_pkt.hdr_local;
+	status->hdr_offset = hw_status->frag_pkt.hdr_offset;
+	status->exception = hw_status->frag_pkt.exception;
+	status->nat_type = hw_status->frag_pkt.nat_type;
+}
+
 static void ipa_pkt_status_parse(
 	const void *unparsed_status, struct ipahal_pkt_status *status)
 {
 	enum ipahal_pkt_status_opcode opcode = 0;
-	bool is_ipv6;
 
-	struct ipa_pkt_status_hw *hw_status =
-		(struct ipa_pkt_status_hw *)unparsed_status;
+	union ipa_pkt_status_hw *hw_status =
+		(union ipa_pkt_status_hw *)unparsed_status;
 
-	is_ipv6 = (hw_status->status_mask & 0x80) ? false : true;
 
-	status->pkt_len = hw_status->pkt_len;
-	status->endp_src_idx = hw_status->endp_src_idx;
-	status->endp_dest_idx = hw_status->endp_dest_idx;
-	status->metadata = hw_status->metadata;
-	status->flt_local = hw_status->flt_local;
-	status->flt_hash = hw_status->flt_hash;
-	status->flt_global = hw_status->flt_hash;
-	status->flt_ret_hdr = hw_status->flt_ret_hdr;
-	status->flt_miss = (hw_status->rt_rule_id ==
-		IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID);
-	status->flt_rule_id = hw_status->flt_rule_id;
-	status->rt_local = hw_status->rt_local;
-	status->rt_hash = hw_status->rt_hash;
-	status->ucp = hw_status->ucp;
-	status->rt_tbl_idx = hw_status->rt_tbl_idx;
-	status->rt_miss = (hw_status->rt_rule_id ==
-		IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID);
-	status->rt_rule_id = hw_status->rt_rule_id;
-	status->nat_hit = hw_status->nat_hit;
-	status->nat_entry_idx = hw_status->nat_entry_idx;
-	status->tag_info = hw_status->tag_info;
-	status->seq_num = hw_status->seq_num;
-	status->time_of_day_ctr = hw_status->time_of_day_ctr;
-	status->hdr_local = hw_status->hdr_local;
-	status->hdr_offset = hw_status->hdr_offset;
-	status->frag_hit = hw_status->frag_hit;
-	status->frag_rule = hw_status->frag_rule;
-
-	switch (hw_status->status_opcode) {
+	switch (hw_status->ipa_pkt.status_opcode) {
 	case 0x1:
 		opcode = IPAHAL_PKT_STATUS_OPCODE_PACKET;
 		break;
@@ -968,11 +1004,17 @@ static void ipa_pkt_status_parse(
 		break;
 	default:
 		IPAHAL_ERR_RL("unsupported Status Opcode 0x%x\n",
-			hw_status->status_opcode);
+			hw_status->ipa_pkt.status_opcode);
 	}
+
 	status->status_opcode = opcode;
 
-	switch (hw_status->nat_type) {
+	if (status->status_opcode == IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE)
+		__ipa_parse_frag_pkt(status, unparsed_status);
+	else
+		__ipa_parse_gen_pkt(status, unparsed_status);
+
+	switch (status->nat_type) {
 	case 0:
 		status->nat_type = IPAHAL_PKT_STATUS_NAT_NONE;
 		break;
@@ -984,11 +1026,8 @@ static void ipa_pkt_status_parse(
 		break;
 	default:
 		IPAHAL_ERR_RL("unsupported Status NAT type 0x%x\n",
-			hw_status->nat_type);
+			status->nat_type);
 	}
-
-	status->exception = pkt_status_parse_exception(is_ipv6,
-				hw_status->exception);
 
 	IPA_PKT_STATUS_SET_MSK(0x1, IPAHAL_PKT_STATUS_MASK_FRAG_PROCESS_SHFT);
 	IPA_PKT_STATUS_SET_MSK(0x2, IPAHAL_PKT_STATUS_MASK_FILT_PROCESS_SHFT);
@@ -1023,11 +1062,11 @@ static void ipa_pkt_status_parse(
 static void ipa_pkt_status_parse_thin(const void *unparsed_status,
 	struct ipahal_pkt_status_thin *status)
 {
-	struct ipa_pkt_status_hw *hw_status =
-		(struct ipa_pkt_status_hw *)unparsed_status;
+	union ipa_pkt_status_hw *hw_status =
+		(union ipa_pkt_status_hw *)unparsed_status;
 	bool is_ipv6;
 
-	is_ipv6 = (hw_status->status_mask & 0x80) ? false : true;
+	is_ipv6 = (hw_status->ipa_pkt.status_mask & 0x80) ? false : true;
 	if (!unparsed_status || !status) {
 		IPAHAL_ERR("Input Error: unparsed_status=%pK status=%pK\n",
 			unparsed_status, status);
@@ -1035,11 +1074,11 @@ static void ipa_pkt_status_parse_thin(const void *unparsed_status,
 	}
 
 	IPAHAL_DBG_LOW("Parse Thin Status Packet\n");
-	status->metadata = hw_status->metadata;
-	status->endp_src_idx = hw_status->endp_src_idx;
-	status->ucp = hw_status->ucp;
+	status->metadata = hw_status->ipa_pkt.metadata;
+	status->endp_src_idx = hw_status->ipa_pkt.endp_src_idx;
+	status->ucp = hw_status->ipa_pkt.ucp;
 	status->exception = pkt_status_parse_exception(is_ipv6,
-				hw_status->exception);
+						hw_status->ipa_pkt.exception);
 }
 
 /*
@@ -1102,7 +1141,7 @@ static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
 	 * add a compile time validty check for it like below (as well as
 	 * the new defines and/or the new strucutre in the internal header).
 	 */
-	BUILD_BUG_ON(sizeof(struct ipa_pkt_status_hw) !=
+	BUILD_BUG_ON(sizeof(union ipa_pkt_status_hw) !=
 		IPA3_0_PKT_STATUS_SIZE);
 
 	memset(&zero_obj, 0, sizeof(zero_obj));
