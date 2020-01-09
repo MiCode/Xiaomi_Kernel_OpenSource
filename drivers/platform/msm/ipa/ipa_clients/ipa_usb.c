@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/mutex.h>
@@ -1590,6 +1590,17 @@ static int ipa3_usb_xdci_connect_internal(
 		return result;
 	}
 
+	/* Start MHIP UL channel before starting USB UL channel
+	 * DL channel will be started when voting for PCIe -> LPM Exit.
+	 */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to enable MHIP UL channel\n");
+			goto connect_fail;
+		}
+	}
+
 	if (params->teth_prot != IPA_USB_DIAG) {
 		/* Start UL channel */
 		result = ipa3_xdci_start(params->usb_to_ipa_clnt_hdl,
@@ -1610,20 +1621,11 @@ static int ipa3_usb_xdci_connect_internal(
 		goto connect_dl_fail;
 	}
 
-	/* MHIP pipe enablement */
-	if (ipa3_is_mhip_offload_enabled()) {
-		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
-		if (result) {
-			IPA_USB_ERR("failed to enable MHIP channel\n");
-			goto connect_teth_prot_fail;
-		}
-	}
-
 	/* Connect tethering protocol */
 	result = ipa3_usb_connect_teth_prot(params->teth_prot);
 	if (result) {
 		IPA_USB_ERR("failed to connect teth protocol\n");
-		goto connect_mhip_prot_fail;
+		goto connect_teth_prot_fail;
 	}
 
 	if (!ipa3_usb_set_state(IPA_USB_CONNECTED, false, ttype)) {
@@ -1637,9 +1639,6 @@ static int ipa3_usb_xdci_connect_internal(
 
 state_change_connected_fail:
 	ipa3_usb_disconnect_teth_prot(params->teth_prot);
-connect_mhip_prot_fail:
-	if (ipa3_is_mhip_offload_enabled())
-		ipa_mpm_mhip_xdci_pipe_disable(params->teth_prot);
 connect_teth_prot_fail:
 	ipa3_xdci_disconnect(params->ipa_to_usb_clnt_hdl, false, -1);
 	ipa3_reset_gsi_channel(params->ipa_to_usb_clnt_hdl);
@@ -1651,8 +1650,12 @@ connect_dl_fail:
 		ipa3_reset_gsi_event_ring(params->usb_to_ipa_clnt_hdl);
 	}
 connect_ul_fail:
-		ipa_pm_deactivate_sync(
+	if (ipa3_is_mhip_offload_enabled())
+		ipa_mpm_mhip_xdci_pipe_disable(params->teth_prot);
+connect_fail:
+	ipa_pm_deactivate_sync(
 			ipa3_usb_ctx->ttype_ctx[ttype].pm_ctx.hdl);
+
 	return result;
 }
 
