@@ -280,8 +280,8 @@
 #define M4U_PORT_GPU				MTK_M4U_ID(31, 31)
 #define M4U_PORT_UNKNOWN			(M4U_PORT_L23_CCU1 + 1)
 
-/* include fake port, exclude "M4U_PORT_UNKNOWN" */
-#define M4U_PORT_NR				(223)
+/* include fake port.... to M4U_PORT_L23_CCU1 */
+#define M4U_PORT_NR				(222)
 
 /*********************************************************/
 /* for pusedo fake device */

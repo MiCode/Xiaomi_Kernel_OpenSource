@@ -111,7 +111,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L0, 0, TF_LARB_L0, 4),
 	MTK_IOMMU_PORT_INIT("L0_DISP_FAKE0", 0,
 		SLAVE_L0, 0, TF_LARB_L0, 5),
-	/* Larb1 -- 8 */
+	/* Larb1 -- 8(14) */
 	MTK_IOMMU_PORT_INIT("L1_OVL_2L_RDMA0_HDR", 0,
 		SLAVE_L1, 1, TF_LARB_L1, 0),
 	MTK_IOMMU_PORT_INIT("L1_OVL_2L_RDMA2_HDR", 0,
@@ -128,7 +128,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L1, 1, TF_LARB_L1, 6),
 	MTK_IOMMU_PORT_INIT("L1_DISP_FAKE1", 0,
 		SLAVE_L1, 1, TF_LARB_L1, 7),
-	/* Larb2 --5 */
+	/* Larb2 --5(19) */
 	MTK_IOMMU_PORT_INIT("L2_MDP_RDMA0", 0,
 		SLAVE_L2, 2, TF_LARB_L2, 0),
 	MTK_IOMMU_PORT_INIT("L2_MDP_RDMA1", 0,
@@ -139,7 +139,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L2, 2, TF_LARB_L2, 3),
 	MTK_IOMMU_PORT_INIT("L2_MDP_FAKE0", 0,
 		SLAVE_L2, 2, TF_LARB_L2, 4),
-	/* Larb4 -- 11*/
+	/* Larb4 -- 11(30) */
 	MTK_IOMMU_PORT_INIT("L4_VDEC_MC_EXT", 0,
 		SLAVE_L4, 4, TF_LARB_L4, 0),
 	MTK_IOMMU_PORT_INIT("L4_VDEC_UFO_EXT", 0,
@@ -162,7 +162,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L4, 4, TF_LARB_L4, 9),
 	MTK_IOMMU_PORT_INIT("L4_VDEC_RG_CTRL_DMA_EXT", 0,
 		SLAVE_L4, 4, TF_LARB_L4, 10),
-	/* Larb5 -- 8 */
+	/* Larb5 -- 8(38) */
 	MTK_IOMMU_PORT_INIT("L5_VDEC_LAT0_VLD_EXT", 0,
 		SLAVE_L5, 5, TF_LARB_L5, 0),
 	MTK_IOMMU_PORT_INIT("L5_VDEC_LAT0_VLD2_EXT", 0,
@@ -179,7 +179,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L5, 5, TF_LARB_L5, 6),
 	MTK_IOMMU_PORT_INIT("L5_VDEC_UFO_ENC_EXT", 0,
 		SLAVE_L5, 5, TF_LARB_L5, 7),
-	/* Larb7 --15 */
+	/* Larb7 --15(53) */
 	MTK_IOMMU_PORT_INIT("L7_VENC_RCPU", 0,
 		SLAVE_L7, 7, TF_LARB_L7, 0),
 	MTK_IOMMU_PORT_INIT("L7_VENC_REC", 0,
@@ -210,7 +210,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L7, 7, TF_LARB_L7, 13),
 	MTK_IOMMU_PORT_INIT("L7_VENC_SUB_W_LUMA", 0,
 		SLAVE_L7, 7, TF_LARB_L7, 14),
-	/* Larb8 -- 27 no use */
+	/* Larb8 -- 27(80) no use */
 	MTK_IOMMU_PORT_INIT("L8_VENC_RCPU", 0,
 		SLAVE_L8, 8, TF_LARB_L8, 0),
 	MTK_IOMMU_PORT_INIT("L8_VENC_REC", 0,
@@ -265,7 +265,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L8, 8, TF_LARB_L8, 25),
 	MTK_IOMMU_PORT_INIT("L8_VENC_REF_CHROMA", 0,
 		SLAVE_L8, 8, TF_LARB_L8, 26),
-	/*Larb9 -- 29 */
+	/*Larb9 -- 29(109) */
 	MTK_IOMMU_PORT_INIT("L9_IMG_IMGI_D1", 0,
 		SLAVE_L9, 9, TF_LARB_L9, 0),
 	MTK_IOMMU_PORT_INIT("L9_IMG_IMGBI_D1", 0,
@@ -324,7 +324,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L9, 9, TF_LARB_L9, 27),
 	MTK_IOMMU_PORT_INIT("L9_IMG_RESERVE8", 0,
 		SLAVE_L9, 9, TF_LARB_L9, 28),
-	/*Larb11 -- 29 */
+	/*Larb11 -- 29(138) */
 	MTK_IOMMU_PORT_INIT("L11_IMG_IMGI_D1", 0,
 		SLAVE_L11, 11, TF_LARB_L11, 0),
 	MTK_IOMMU_PORT_INIT("L11_IMG_IMGBI_D1", 0,
@@ -383,7 +383,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L11, 11, TF_LARB_L11, 27),
 	MTK_IOMMU_PORT_INIT("L11_IMG_RESERVE8", 0,
 		SLAVE_L11, 11, TF_LARB_L11, 28),
-	/*Larb13 -- 12 */
+	/*Larb13 -- 12(150) */
 	MTK_IOMMU_PORT_INIT("L13_CAM_MRAWI", 0,
 		SLAVE_L13, 13, TF_LARB_L13, 0),
 	MTK_IOMMU_PORT_INIT("L13_CAM_MRAWO0", 0,
@@ -408,7 +408,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L13, 13, TF_LARB_L13, 10),
 	MTK_IOMMU_PORT_INIT("L13_CAM_FAKE", 0,
 		SLAVE_L13, 13, TF_LARB_L13, 11),
-	/*Larb14 -- 6 */
+	/*Larb14 -- 6(156) */
 	MTK_IOMMU_PORT_INIT("L14_CAM_RESERVE1", 0,
 		SLAVE_L14, 14, TF_LARB_L14, 0),
 	MTK_IOMMU_PORT_INIT("L14_CAM_RESERVE2", 0,
@@ -421,7 +421,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L14, 14, TF_LARB_L14, 4),
 	MTK_IOMMU_PORT_INIT("L14_CAM_CCUO", 0,
 		SLAVE_L14, 14, TF_LARB_L14, 5),
-	/*Larb16 -- 17 */
+	/*Larb16 -- 17(173) */
 	MTK_IOMMU_PORT_INIT("L16_CAM_IMGO_R1_A", 0,
 		SLAVE_L16, 16, TF_LARB_L16, 0),
 	MTK_IOMMU_PORT_INIT("L16_CAM_RRZO_R1_A", 0,
@@ -456,7 +456,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L16, 16, TF_LARB_L16, 15),
 	MTK_IOMMU_PORT_INIT("L16_CAM_LSCI_R1_A", 0,
 		SLAVE_L16, 16, TF_LARB_L16, 16),
-	/*Larb17 -- 17 */
+	/*Larb17 -- 17(190) */
 	MTK_IOMMU_PORT_INIT("L17_CAM_IMGO_R1_B", 0,
 		SLAVE_L17, 17, TF_LARB_L17, 0),
 	MTK_IOMMU_PORT_INIT("L17_CAM_RRZO_R1_B", 0,
@@ -491,7 +491,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L17, 17, TF_LARB_L17, 15),
 	MTK_IOMMU_PORT_INIT("L17_CAM_LSCI_R1_B", 0,
 		SLAVE_L17, 17, TF_LARB_L17, 16),
-	/*Larb18 -- 17 */
+	/*Larb18 -- 17(207) */
 	MTK_IOMMU_PORT_INIT("L18_CAM_IMGO_R1_C", 0,
 		SLAVE_L18, 18, TF_LARB_L18, 0),
 	MTK_IOMMU_PORT_INIT("L18_CAM_RRZO_R1_C", 0,
@@ -526,7 +526,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L18, 18, TF_LARB_L18, 15),
 	MTK_IOMMU_PORT_INIT("L18_CAM_LSCI_R1_C", 0,
 		SLAVE_L18, 18, TF_LARB_L18, 16),
-	/*Larb19 -- 4 */
+	/*Larb19 -- 4(211) */
 	MTK_IOMMU_PORT_INIT("L19_IPE_DVS_RDMA", 0,
 		SLAVE_L19, 19, TF_LARB_L19, 0),
 	MTK_IOMMU_PORT_INIT("L19_IPE_DVS_WDMA", 0,
@@ -535,7 +535,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L19, 19, TF_LARB_L19, 2),
 	MTK_IOMMU_PORT_INIT("L19_IPE_DVP_WDMA", 0,
 		SLAVE_L19, 19, TF_LARB_L19, 3),
-	/*Larb20 -- 6 */
+	/*Larb20 -- 6(217) */
 	MTK_IOMMU_PORT_INIT("L20_IPE_FDVT_RDA", 0,
 		SLAVE_L20, 20, TF_LARB_L20, 0),
 	MTK_IOMMU_PORT_INIT("L20_IPE_FDVT_RDB", 0,
@@ -551,20 +551,21 @@ struct mtk_iommu_port iommu_port[] = {
 	/* only atf maybe need it, but kernel can't delete it,
 	 *  otherwise it affect index.
 	 */
-	/*Larb21 -- 3 */
+	/*Larb21 -- 3(220) */
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_CODE", 1,
 		SLAVE_APU, 21, TF_APU, 0),
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_DATA", 1,
 		SLAVE_APU, 21, TF_APU, 1),
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_VLM", 1,
 		SLAVE_APU, 21, TF_APU, 2),
-	/*Larb22 -- 1 */
+	/*Larb22 -- 1(221) */
 	MTK_IOMMU_PORT_INIT("L22_CCU0", 0,
 		SLAVE_CCU0, 22, TF_CCU0, 0),
-	/*Larb23  -- 1*/
+	/*Larb23  -- 1(222) */
 	MTK_IOMMU_PORT_INIT("L23_CCU1", 0,
 		SLAVE_CCU1, 23, TF_CCU1, 0),
 
+	/*Larb23  -- 1(223: 0~222) */
 	MTK_IOMMU_PORT_INIT("UNKNOWN", 0, 0, 0, 0, 0)
 };
 
@@ -622,6 +623,6 @@ static char *vpu_axi_bus_name[IOMMU_APU_AXI_PORT_NR] = {
 	"APU_EDMA2", "APU_EXTERNAL"};
 
 #ifndef M4U_PORT_NR
-#define M4U_PORT_NR (223)
+#define M4U_PORT_NR (222)
 #endif
 #endif

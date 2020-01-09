@@ -175,7 +175,7 @@ static inline int mtk_iommu_larb_port_idx(int id)
 		(iommu_port[index].larb_port == port))
 		return index;
 
-	pr_info("[MTK_IOMMU] do not find index for id %d", id);
+	pr_info("[MTK_IOMMU] do not find index for id %d\n", id);
 	return ERROR_LARB_PORT_ID;
 }
 
