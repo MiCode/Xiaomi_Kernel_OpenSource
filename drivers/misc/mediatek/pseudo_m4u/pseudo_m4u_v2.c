@@ -3008,11 +3008,18 @@ static int m4u_fb_notifier_callback(
 
 	return 0;
 }
-#if 0
+
 int m4u_map_nonsec_buf(int port, unsigned long mva, unsigned long size)
 {
 	int ret;
 	struct m4u_sec_context *ctx;
+
+	if ((mva > DMA_BIT_MASK(32)) ||
+	    (mva + size > DMA_BIT_MASK(32))) {
+		M4U_MSG("%s invalid mva:0x%lx, size:0x%lx\n",
+			__func__, mva, size);
+		return -EFAULT;
+	}
 
 	ctx = m4u_sec_ctx_get(CMD_M4U_MAP_NONSEC_BUFFER);
 	if (!ctx)
@@ -3042,6 +3049,13 @@ int m4u_unmap_nonsec_buffer(unsigned long mva, unsigned long size)
 	int ret;
 	struct m4u_sec_context *ctx;
 
+	if ((mva > DMA_BIT_MASK(32)) ||
+	    (mva + size > DMA_BIT_MASK(32))) {
+		M4U_MSG("%s invalid mva:0x%lx, size:0x%lx\n",
+			__func__, mva, size);
+		return -EFAULT;
+	}
+
 	ctx = m4u_sec_ctx_get(CMD_M4U_UNMAP_NONSEC_BUFFER);
 	if (!ctx)
 		return -EFAULT;
@@ -3062,7 +3076,6 @@ out:
 	m4u_sec_ctx_put(ctx);
 	return ret;
 }
-#endif
 #endif
 
 /*
