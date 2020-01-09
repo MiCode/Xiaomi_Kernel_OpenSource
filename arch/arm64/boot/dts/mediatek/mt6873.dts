@@ -1544,12 +1544,12 @@
 		reg = <0 0x1023f000 0 0x1000>;
 	};
 
-	apdma: dma-controller@11000a80 {
+	apdma: dma-controller@10217a80 {
 		compatible = "mediatek,mt6577-uart-dma";
-		reg = <0 0x11000a80 0 0x80>,
-		      <0 0x11000b00 0 0x80>,
-		      <0 0x11000b80 0 0x80>,
-		      <0 0x11000c00 0 0x80>;
+		reg = <0 0x10217a80 0 0x80>,
+		      <0 0x10217b00 0 0x80>,
+		      <0 0x10217b80 0 0x80>,
+		      <0 0x10217c00 0 0x80>;
 		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
