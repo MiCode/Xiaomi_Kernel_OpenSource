@@ -27,6 +27,8 @@ static int emimpu_probe(struct platform_device *pdev);
 static irqreturn_t (*pre_handling_cb)(
 	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 static void (*post_clear_cb)(unsigned int emi_id);
+static void (*md_handling_cb)(
+	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 
 static unsigned int emimpu_read_protection(
 	unsigned int reg_type, unsigned int region, unsigned int dgroup)
@@ -337,6 +339,11 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				mtk_clear_md_violation();
 				continue;
 			}
+
+		if (md_handling_cb) {
+			md_handling_cb(emi_id,
+				dump_reg, emimpu_dev_ptr->dump_cnt);
+		}
 
 		pr_info("%s: violation at emi%d\n", __func__, emi_id);
 		aee_kernel_exception("EMIMPU", aee_msg);
@@ -886,6 +893,26 @@ int mtk_emimpu_postclear_register(void (*clear_func)(unsigned int emi_id))
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emimpu_postclear_register);
+
+/*
+ * mtk_emimpu_md_handling_register - register callback for md handling
+ * @md_handling_func:	function point for md handling
+ *
+ * Return 0 for success, -EINVAL for fail
+ */
+int mtk_emimpu_md_handling_register(
+	void (*md_handling_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng))
+{
+	if (!md_handling_func) {
+		pr_info("%s: md_handling_func is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	md_handling_cb = md_handling_func;
+	return 0;
+}
+EXPORT_SYMBOL(mtk_emimpu_md_handling_register);
 
 /*
  * mtk_clear_md_violation - clear irq for md violation
