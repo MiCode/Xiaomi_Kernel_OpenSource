@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/rtc.h>
 #include <linux/timer.h>
+#include <memory/mediatek/emi.h>
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -784,10 +785,61 @@ static struct md_ee_ops mdee_ops_v5 = {
 	.dump_ee_info = &mdee_dumper_v5_dump_ee_info,
 	.set_ee_pkg = &mdee_dumper_v5_set_ee_pkg,
 };
+
+static void mdee_dumper_v5_emimpu_callback(
+		unsigned int emi_id,
+		struct reg_info_t *dump,
+		unsigned int leng)
+{
+	int i, s;
+	int c = 0;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(0);
+
+	if (!dump) {
+		CCCI_ERROR_LOG(0, FSM,
+			"%s: warning: dump is NULL.\n",
+			__func__);
+		return;
+	}
+
+	if (ctl) {
+		s = snprintf(&ctl->ee_ctl.ex_mpu_string[0],
+				MD_EX_MPU_STR_LEN, "emimpu.c\n");
+		if (s <= 0)
+			return;
+
+		c += s;
+		for (i = 0; i < leng; i++) {
+			if ((MD_EX_MPU_STR_LEN - c) <= 1) {
+				CCCI_ERROR_LOG(0, FSM,
+					"%s: ex_mpu_string is not enough.\n",
+					__func__);
+				return;
+			}
+
+			s = snprintf(&ctl->ee_ctl.ex_mpu_string[c],
+					MD_EX_MPU_STR_LEN - c,
+					"emi(%d),off(%x),val(%x);\n",
+					emi_id, dump->offset, dump->value);
+			if (s <= 0)
+				return;
+
+			c += s;
+			dump++;
+		}
+	}
+}
+
 int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 {
 	struct mdee_dumper_v5 *dumper;
 	int md_id = mdee->md_id;
+
+	if (mtk_emimpu_md_handling_register(
+			&mdee_dumper_v5_emimpu_callback))
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s: mtk_emimpu_md_handling_register fail\n",
+			__func__);
 
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v5), GFP_KERNEL);
