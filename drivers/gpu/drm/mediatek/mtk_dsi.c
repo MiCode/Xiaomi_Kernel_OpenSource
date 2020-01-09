@@ -16,6 +16,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
+#include <drm/drm_crtc_helper.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/irq.h>
@@ -199,6 +200,10 @@
 #define DSI_STATE_DBG6 0x160
 #define STATE_DBG6_FLD_REG_CMCTL_STATE REG_FLD_MSB_LSB(14, 0)
 
+#define DSI_SHADOW_DEBUG 0x190
+#define DSI_BYPASS_SHADOW BIT(1)
+#define DSI_READ_WORKING BIT(2)
+
 #define DSI_CMDQ0 0x200
 #define DSI_CMDQ1 0x204
 
@@ -277,6 +282,7 @@ struct mtk_dsi_driver_data {
 	s32 (*poll_for_idle)(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
 	char *esd_eint_compat;
+	bool support_shadow;
 };
 
 struct t_condition_wq {
@@ -584,6 +590,24 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		dev_err(dev, "Failed to enable digital clock: %d\n", ret);
 		goto err_disable_engine_clk;
 	}
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (dsi->driver_data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
+			DSI_BYPASS_SHADOW, 0x0);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
+			DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
+		DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
+#endif
+#endif
 
 	DDPDBG("%s-\n", __func__);
 
@@ -3294,6 +3318,7 @@ static const struct component_ops mtk_dsi_component_ops = {
 
 static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x200, .irq_handler = mtk_dsi_irq,
+	.support_shadow = false,
 };
 
 static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
@@ -3301,6 +3326,7 @@ static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
 	.poll_for_idle = mtk_dsi_poll_for_idle,
 	.irq_handler = mtk_dsi_irq_status,
 	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
 };
 
 static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
@@ -3308,6 +3334,7 @@ static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
 	.poll_for_idle = mtk_dsi_poll_for_idle,
 	.irq_handler = mtk_dsi_irq_status,
 	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
 };
 
 static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
@@ -3315,10 +3342,12 @@ static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
 	.poll_for_idle = mtk_dsi_poll_for_idle,
 	.irq_handler = mtk_dsi_irq_status,
 	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
 };
 
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x180, .irq_handler = mtk_dsi_irq,
+	.support_shadow = false,
 };
 
 static const struct of_device_id mtk_dsi_of_match[] = {

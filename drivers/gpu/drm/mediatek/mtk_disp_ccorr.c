@@ -37,6 +37,10 @@
 #define DISP_REG_CCORR_COLOR_OFFSET_2	(0x108)
 #define CCORR_COLOR_OFFSET_MASK	(0x3FFFFFF)
 
+#define DISP_REG_CCORR_SHADOW (0x0A0)
+#define CCORR_READ_WORKING		BIT(0)
+#define CCORR_BYPASS_SHADOW		BIT(2)
+
 #define CCORR_12BIT_MASK				0x0fff
 #define CCORR_13BIT_MASK				0x1fff
 
@@ -95,10 +99,20 @@ enum CCORR_IOCTL_CMD {
 	SET_INTERRUPT,
 };
 
+struct mtk_disp_ccorr_data {
+	bool support_shadow;
+};
+
 struct mtk_disp_ccorr {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
+	const struct mtk_disp_ccorr_data *data;
 };
+
+static inline struct mtk_disp_ccorr *comp_to_ccorr(struct mtk_ddp_comp *comp)
+{
+	return container_of(comp, struct mtk_disp_ccorr, ddp_comp);
+}
 
 static void disp_ccorr_multiply_3x3(unsigned int ccorrCoef[3][3],
 	int color_matrix[3][3], unsigned int resultCoef[3][3])
@@ -848,9 +862,32 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 
 static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
+#endif
+
 	DDPINFO("%s\n", __func__);
+
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_ccorr_is_clock_on[index_of_ccorr(comp->id)], 1);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (ccorr->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, CCORR_BYPASS_SHADOW,
+			DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, CCORR_BYPASS_SHADOW,
+		DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
@@ -983,10 +1020,25 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_ccorr_data mt6779_ccorr_driver_data = {
+	.support_shadow = false,
+};
+
+static const struct mtk_disp_ccorr_data mt6885_ccorr_driver_data = {
+	.support_shadow = false,
+};
+
+static const struct mtk_disp_ccorr_data mt6873_ccorr_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
-	{.compatible = "mediatek,mt6779-disp-ccorr",},
-	{.compatible = "mediatek,mt6885-disp-ccorr",},
-	{.compatible = "mediatek,mt6873-disp-ccorr",},
+	{ .compatible = "mediatek,mt6779-disp-ccorr",
+	  .data = &mt6779_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6885-disp-ccorr",
+	  .data = &mt6885_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6873-disp-ccorr",
+	  .data = &mt6873_ccorr_driver_data},
 	{},
 };
 

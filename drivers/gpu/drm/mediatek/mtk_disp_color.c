@@ -83,6 +83,7 @@ struct mtk_disp_color_data {
 	bool support_color30;
 	unsigned long reg_table[TUNING_REG_MAX];
 	unsigned int color_window;
+	bool support_shadow;
 };
 
 static struct MDP_COLOR_CAP mdp_color_cap;
@@ -2964,8 +2965,30 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 
 static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_color *color = comp_to_color(comp);
+#endif
+
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_color_is_clock_on[index_of_color(comp->id)], 1);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (color->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, COLOR_BYPASS_SHADOW,
+			DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, COLOR_BYPASS_SHADOW,
+		DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
@@ -3085,6 +3108,7 @@ static const struct mtk_disp_color_data mt2701_color_driver_data = {
 	.support_color21 = false,
 	.support_color30 = false,
 	.color_window = 0x40106051,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_color_data mt6779_color_driver_data = {
@@ -3094,6 +3118,7 @@ static const struct mtk_disp_color_data mt6779_color_driver_data = {
 	.reg_table = {0x1400E000, 0x1400F000, 0x14001000,
 			0x14011000, 0x14012000},
 	.color_window = 0x40185E57,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_color_data mt8173_color_driver_data = {
@@ -3101,6 +3126,7 @@ static const struct mtk_disp_color_data mt8173_color_driver_data = {
 	.support_color21 = false,
 	.support_color30 = false,
 	.color_window = 0x40106051,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_color_data mt6885_color_driver_data = {
@@ -3110,6 +3136,7 @@ static const struct mtk_disp_color_data mt6885_color_driver_data = {
 	.reg_table = {0x14007000, 0x14008000, 0x14009000,
 			0x1400A000, 0x1400B000},
 	.color_window = 0x40185E57,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_color_data mt6873_color_driver_data = {
@@ -3119,6 +3146,7 @@ static const struct mtk_disp_color_data mt6873_color_driver_data = {
 	.reg_table = {0x14007000, 0x14008000, 0x14009000,
 			0x1400A000, 0x1400B000},
 	.color_window = 0x40185E57,
+	.support_shadow = false,
 };
 
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {

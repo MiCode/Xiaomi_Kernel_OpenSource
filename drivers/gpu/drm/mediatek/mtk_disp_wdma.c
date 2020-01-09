@@ -54,6 +54,9 @@
 #define DISP_REG_WDMA_SRC_SIZE 0x0018
 #define DISP_REG_WDMA_CLIP_SIZE 0x001c
 #define DISP_REG_WDMA_CLIP_COORD 0x0020
+#define DISP_REG_WDMA_SHADOW_CTRL 0x0024
+#define WDMA_BYPASS_SHADOW BIT(1)
+#define WDMA_READ_WRK_REG BIT(2)
 #define DISP_REG_WDMA_DST_WIN_BYTE 0x0028
 #define DISP_REG_WDMA_ALPHA 0x002C
 #define DISP_REG_WDMA_DST_UV_PITCH 0x0078
@@ -180,6 +183,7 @@ enum GS_WDMA_FLD {
 struct mtk_disp_wdma_data {
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+	bool support_shadow;
 };
 
 struct mtk_wdma_cfg_info {
@@ -291,7 +295,29 @@ static int mtk_wdma_is_busy(struct mtk_ddp_comp *comp)
 
 static void mtk_wdma_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+#endif
+
 	mtk_ddp_comp_clk_prepare(comp);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (wdma->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, WDMA_BYPASS_SHADOW,
+			DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, WDMA_BYPASS_SHADOW,
+		DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_wdma_unprepare(struct mtk_ddp_comp *comp)
@@ -1011,8 +1037,9 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_WDMA_SRC_SIZE + baddr),
 			readl(DISP_REG_WDMA_CLIP_SIZE + baddr));
 
-		DDPDUMP("0x020:0x%08x 0x028:0x%08x 0x%08x\n",
+		DDPDUMP("0x020:0x%08x 0x%08x 0x%08x 0x%08x\n",
 			readl(DISP_REG_WDMA_CLIP_COORD + baddr),
+			readl(DISP_REG_WDMA_SHADOW_CTRL + baddr),
 			readl(DISP_REG_WDMA_DST_WIN_BYTE + baddr),
 			readl(DISP_REG_WDMA_ALPHA + baddr));
 
@@ -1230,14 +1257,17 @@ static int mtk_disp_wdma_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_wdma_data mt6779_wdma_driver_data = {
 	.sodi_config = mt6779_mtk_sodi_config,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_wdma_data mt6885_wdma_driver_data = {
 	.sodi_config = mt6885_mtk_sodi_config,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_wdma_data mt6873_wdma_driver_data = {
 	.sodi_config = mt6873_mtk_sodi_config,
+	.support_shadow = false,
 };
 
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {

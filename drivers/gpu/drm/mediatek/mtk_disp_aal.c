@@ -129,12 +129,17 @@ struct dre3_node {
 	struct clk *clk;
 };
 
+struct mtk_disp_aal_data {
+	bool support_shadow;
+};
+
 struct mtk_disp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
 	struct dre3_node dre3_hw;
 	atomic_t dirty_frame_retrieved;
 	atomic_t is_clock_on;
+	const struct mtk_disp_aal_data *data;
 };
 static struct mtk_disp_aal *g_aal_data;
 
@@ -1912,6 +1917,24 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 	if (!first_restore && !debug_skip_first_br)
 		return;
 
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (aal_data->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
+			DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
+		DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
+#endif
+#endif
+
 	ddp_aal_restore(comp);
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
@@ -2173,9 +2196,19 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_aal_data mt6885_aal_driver_data = {
+	.support_shadow = false,
+};
+
+static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6885-disp-aal",},
-	{ .compatible = "mediatek,mt6873-disp-aal",},
+	{ .compatible = "mediatek,mt6885-disp-aal",
+	  .data = &mt6885_aal_driver_data},
+	{ .compatible = "mediatek,mt6873-disp-aal",
+	  .data = &mt6873_aal_driver_data},
 	{},
 };
 

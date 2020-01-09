@@ -490,6 +490,9 @@ void mtk_ddp_write_relaxed(struct mtk_ddp_comp *comp, unsigned int value,
 			   unsigned int offset, void *handle);
 void mtk_ddp_write_mask(struct mtk_ddp_comp *comp, unsigned int value,
 			unsigned int offset, unsigned int mask, void *handle);
+void mtk_ddp_write_mask_cpu(struct mtk_ddp_comp *comp,
+			unsigned int value, unsigned int offset,
+			unsigned int mask);
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,

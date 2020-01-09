@@ -157,6 +157,15 @@ void mtk_ddp_write_mask(struct mtk_ddp_comp *comp, unsigned int value,
 #endif
 }
 
+void mtk_ddp_write_mask_cpu(struct mtk_ddp_comp *comp,
+	unsigned int value, unsigned int offset, unsigned int mask)
+{
+	unsigned int tmp = readl(comp->regs + offset);
+
+	tmp = (tmp & ~mask) | (value & mask);
+	writel(tmp, comp->regs + offset);
+}
+
 void mtk_dither_set(struct mtk_ddp_comp *comp, unsigned int bpc,
 		    unsigned int CFG, struct cmdq_pkt *handle)
 {

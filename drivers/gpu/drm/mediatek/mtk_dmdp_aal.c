@@ -31,6 +31,9 @@
 #define DMDP_AAL_CFG_MAIN	0x0200
 #define DMDP_AAL_SIZE		0x0030
 #define DMDP_AAL_OUTPUT_SIZE	0x0034
+#define DMDP_AAL_SHADOW_CTRL    0x0F0
+#define AAL_BYPASS_SHADOW	BIT(0)
+#define AAL_READ_WRK_REG	BIT(2)
 #define DMDP_AAL_DRE_BITPLUS_00 0x048C
 #define DMDP_AAL_DRE_BILATERAL	0x053C
 #define DMDP_AAL_Y2R_00		0x04BC
@@ -38,10 +41,20 @@
 
 #define AAL_EN BIT(0)
 
+struct mtk_dmdp_aal_data {
+	bool support_shadow;
+};
+
 struct mtk_dmdp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
+	const struct mtk_dmdp_aal_data *data;
 };
+
+static inline struct mtk_dmdp_aal *comp_to_dmdp_aal(struct mtk_ddp_comp *comp)
+{
+	return container_of(comp, struct mtk_dmdp_aal, ddp_comp);
+}
 
 static void mtk_aal_write_mask(void __iomem *address, u32 data, u32 mask)
 {
@@ -264,8 +277,31 @@ static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)
 
 static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_dmdp_aal *dmdp_aal = comp_to_dmdp_aal(comp);
+#endif
+
 	pr_notice("%s\n", __func__);
 	mtk_ddp_comp_clk_prepare(comp);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (dmdp_aal->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
+			DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
+		DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
+#endif
+#endif
+
 	mtk_dmdp_aal_restore(comp);
 }
 
@@ -376,9 +412,19 @@ static int mtk_dmdp_aal_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_dmdp_aal_data mt6885_dmdp_aal_driver_data = {
+	.support_shadow = false,
+};
+
+static const struct mtk_dmdp_aal_data mt6873_dmdp_aal_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_dmdp_aal_driver_dt_match[] = {
-	{.compatible = "mediatek,mt6885-dmdp-aal",},
-	{.compatible = "mediatek,mt6873-dmdp-aal",},
+	{ .compatible = "mediatek,mt6885-dmdp-aal",
+	  .data = &mt6885_dmdp_aal_driver_data},
+	{ .compatible = "mediatek,mt6873-dmdp-aal",
+	  .data = &mt6873_dmdp_aal_driver_data},
 	{},
 };
 

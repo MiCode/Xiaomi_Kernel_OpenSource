@@ -36,6 +36,9 @@
 
 #define DITHER_REG(idx) (0x100 + (idx)*4)
 
+#define DITHER_BYPASS_SHADOW	BIT(0)
+#define DITHER_READ_WRK_REG		BIT(2)
+
 #define DISP_DITHERING BIT(2)
 #define DITHER_LSB_ERR_SHIFT_R(x) (((x)&0x7) << 28)
 #define DITHER_OVFLW_BIT_R(x) (((x)&0x7) << 24)
@@ -61,11 +64,16 @@ enum COLOR_IOCTL_CMD {
 	DITHER_SELECT = 0,
 };
 
+struct mtk_disp_dither_data {
+	bool support_shadow;
+};
+
 struct mtk_disp_dither {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
 	int pwr_sta;
 	unsigned int cfg_reg;
+	const struct mtk_disp_dither_data *data;
 };
 
 static void mtk_dither_config(struct mtk_ddp_comp *comp,
@@ -205,8 +213,30 @@ static void mtk_dither_bypass(struct mtk_ddp_comp *comp,
 
 static void mtk_dither_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_dither *priv = dev_get_drvdata(comp->dev);
+#endif
+
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_dither_is_clock_on, 1);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (priv->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DITHER_REG(0), DITHER_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, DITHER_BYPASS_SHADOW,
+			DITHER_REG(0), DITHER_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, DITHER_BYPASS_SHADOW,
+		DITHER_REG(0), DITHER_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_dither_unprepare(struct mtk_ddp_comp *comp)
@@ -424,10 +454,25 @@ static int mtk_disp_dither_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_dither_data mt6779_dither_driver_data = {
+	.support_shadow = false,
+};
+
+static const struct mtk_disp_dither_data mt6885_dither_driver_data = {
+	.support_shadow = false,
+};
+
+static const struct mtk_disp_dither_data mt6873_dither_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_dither_driver_dt_match[] = {
-	{.compatible = "mediatek,mt6779-disp-dither",},
-	{.compatible = "mediatek,mt6885-disp-dither",},
-	{.compatible = "mediatek,mt6873-disp-dither",},
+	{ .compatible = "mediatek,mt6779-disp-dither",
+	  .data = &mt6779_dither_driver_data},
+	{ .compatible = "mediatek,mt6885-disp-dither",
+	  .data = &mt6885_dither_driver_data},
+	{ .compatible = "mediatek,mt6873-disp-dither",
+	  .data = &mt6873_dither_driver_data},
 	{},
 };
 

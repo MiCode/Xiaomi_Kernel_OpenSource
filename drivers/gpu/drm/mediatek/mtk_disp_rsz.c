@@ -64,6 +64,10 @@
 #define FLD_RSZ_READ_WRK_REG REG_FLD_MSB_LSB(2, 2)
 #define FLD_RSZ_FORCE_COMMIT REG_FLD_MSB_LSB(1, 1)
 #define FLD_RSZ_BYPASS_SHADOW REG_FLD_MSB_LSB(0, 0)
+#define RSZ_READ_WRK_REG	BIT(2)
+#define RSZ_FORCE_COMMIT	BIT(1)
+#define RSZ_BYPASS_SHADOW	BIT(0)
+
 
 #define UNIT 32768
 #define TILE_LOSS 4
@@ -74,6 +78,7 @@ struct mtk_disp_rsz_data {
 	unsigned int tile_length;
 	unsigned int alignment_margin;
 	unsigned int in_max_height;
+	bool support_shadow;
 };
 
 enum mtk_rsz_color_format {
@@ -457,7 +462,29 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_rsz_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_rsz *rsz = comp_to_rsz(comp);
+#endif
+
 	mtk_ddp_comp_clk_prepare(comp);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (rsz->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DISP_REG_RSZ_SHADOW_CTRL, RSZ_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, RSZ_BYPASS_SHADOW,
+			DISP_REG_RSZ_SHADOW_CTRL, RSZ_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, RSZ_BYPASS_SHADOW,
+		DISP_REG_RSZ_SHADOW_CTRL, RSZ_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_rsz_unprepare(struct mtk_ddp_comp *comp)
@@ -560,14 +587,17 @@ static int mtk_disp_rsz_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_rsz_data mt6779_rsz_driver_data = {
 	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6885_rsz_driver_data = {
 	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6873_rsz_driver_data = {
 	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+	.support_shadow = false,
 };
 
 static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {

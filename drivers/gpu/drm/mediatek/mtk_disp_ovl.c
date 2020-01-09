@@ -75,6 +75,8 @@
 #define DISP_REG_OVL_EN (0x000CUL)
 #define EN_FLD_BLOCK_EXT_ULTRA			REG_FLD_MSB_LSB(18, 18)
 #define EN_FLD_BLOCK_EXT_PREULTRA		REG_FLD_MSB_LSB(19, 19)
+#define DISP_OVL_READ_WRK_REG			BIT(20)
+#define DISP_OVL_BYPASS_SHADOW			BIT(22)
 #define DISP_REG_OVL_TRIG (0x010UL)
 
 #define DISP_REG_OVL_RST 0x0014
@@ -383,6 +385,7 @@ struct mtk_disp_ovl_data {
 	unsigned int fmt_uyvy;
 	unsigned int fmt_yuyv;
 	const struct compress_info *compr_info;
+	bool support_shadow;
 };
 
 #define MAX_LAYER_NUM 4
@@ -2940,6 +2943,9 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_ovl *priv = dev_get_drvdata(comp->dev);
 	int ret;
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+#endif
 
 	mtk_ddp_comp_clk_prepare(comp);
 
@@ -2949,6 +2955,24 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 			DDPPR_ERR("clk prepare enable failed:%s\n",
 				mtk_dump_comp_str(comp));
 	}
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (ovl->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0, DISP_REG_OVL_EN,
+			DISP_OVL_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
+			DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
+		DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_ovl_unprepare(struct mtk_ddp_comp *comp)
@@ -3121,6 +3145,7 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.fmt_rgb565_is_0 = false,
 	.fmt_uyvy = 9U << 12,
 	.fmt_yuyv = 8U << 12,
+	.support_shadow = false,
 };
 
 static const struct compress_info compr_info_mt6779  = {
@@ -3134,6 +3159,7 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6779,
+	.support_shadow = false,
 };
 
 static const struct compress_info compr_info_mt6885  = {
@@ -3147,6 +3173,7 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6885,
+	.support_shadow = false,
 };
 
 static const struct compress_info compr_info_mt6873  = {
@@ -3160,6 +3187,7 @@ static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6873,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
@@ -3167,6 +3195,7 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
+	.support_shadow = false,
 };
 
 static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {

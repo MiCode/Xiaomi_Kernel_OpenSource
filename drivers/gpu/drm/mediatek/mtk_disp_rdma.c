@@ -93,7 +93,14 @@
 #define RDMA_THRESHOLD_FOR_DVFS_FLD_HIGH REG_FLD_MSB_LSB(29, 16)
 #define DISP_REG_RDMA_SRAM_SEL 0x00b0
 #define DISP_REG_RDMA_STALL_CG_CON 0x00b4
+#ifdef CONFIG_MACH_MT6885
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00b8
+#endif
+#ifdef CONFIG_MACH_MT6873
+#define DISP_REG_RDMA_SHADOW_UPDATE 0x00bc
+#define RDMA_BYPASS_SHADOW BIT(1)
+#define RDMA_READ_WORK_REG BIT(2)
+#endif
 #define DISP_RDMA_SRAM_CASCADE 0x00c8
 #define RG_DISP_RDMA_FIFO_SIZE REG_FLD_MSB_LSB(13, 0)
 #define RG_DISP_RDMA_RSZ_FIFO_SIZE REG_FLD_MSB_LSB(29, 16)
@@ -210,6 +217,7 @@ struct mtk_disp_rdma_data {
 	unsigned int fifo_size;
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+	bool support_shadow;
 };
 
 struct mtk_rdma_backup_info {
@@ -976,8 +984,13 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_SRAM_SEL + baddr));
 		DDPDUMP("(0x0b4)DISP_REG_RDMA_STALL_CG_CON=0x%x\n",
 			readl(DISP_REG_RDMA_STALL_CG_CON + baddr));
+#if defined(CONFIG_MACH_MT6885)
 		DDPDUMP("(0x0b8)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
 			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
+#else
+		DDPDUMP("(0x0bc)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
+			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
+#endif
 		DDPDUMP("(0x0c8)DISP_RDMA_SRAM_CASCADE=0x%x\n",
 			readl(DISP_RDMA_SRAM_CASCADE + baddr));
 		DDPDUMP("(0x0d0)DISP_REG_RDMA_DVFS_SETTING_PRE=0x%x\n",
@@ -1067,7 +1080,29 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_rdma_prepare(struct mtk_ddp_comp *comp)
 {
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+#endif
+
 	mtk_ddp_comp_clk_prepare(comp);
+
+#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
+	if (rdma->data->support_shadow) {
+		/* Enable shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, 0x0,
+			DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
+	} else {
+		/* Bypass shadow register and read shadow register */
+		mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
+			DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
+	}
+#else
+#if defined(CONFIG_MACH_MT6873)
+	/* Bypass shadow register and read shadow register */
+	mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
+		DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
+#endif
+#endif
 }
 
 static void mtk_rdma_unprepare(struct mtk_ddp_comp *comp)
@@ -1298,25 +1333,30 @@ static int mtk_disp_rdma_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_rdma_data mt2701_rdma_driver_data = {
 	.fifo_size = SZ_4K,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt6779_rdma_driver_data = {
 	.fifo_size = SZ_8K + SZ_16K,
 	.sodi_config = mt6779_mtk_sodi_config,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
 	.fifo_size = SZ_8K,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
 	.sodi_config = mt6885_mtk_sodi_config,
+	.support_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
 	.sodi_config = mt6873_mtk_sodi_config,
+	.support_shadow = false,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
