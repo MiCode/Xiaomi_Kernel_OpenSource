@@ -3127,7 +3127,7 @@ const char *cmdq_mdp_get_rsz_state(const u32 state)
 
 void cmdq_mdp_dump_rot(const unsigned long base, const char *label)
 {
-	u32 value[47] = { 0 };
+	u32 value[50] = { 0 };
 
 	value[0] = CMDQ_REG_GET32(base + 0x000);
 	value[1] = CMDQ_REG_GET32(base + 0x008);
@@ -3210,6 +3210,9 @@ void cmdq_mdp_dump_rot(const unsigned long base, const char *label)
 	value[44] = CMDQ_REG_GET32(base + 0x07C);
 	value[45] = CMDQ_REG_GET32(base + 0x010);
 	value[46] = CMDQ_REG_GET32(base + 0x014);
+	value[47] = CMDQ_REG_GET32(base + 0x0D8);
+	value[48] = CMDQ_REG_GET32(base + 0x0E0);
+	value[49] = CMDQ_REG_GET32(base + 0x028);
 
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
@@ -3256,11 +3259,14 @@ void cmdq_mdp_dump_rot(const unsigned long base, const char *label)
 	CMDQ_ERR(
 		"ROT_DEBUG_1E: 0x%08x, ROT_DBUGG_1F: 0x%08x, ROT_DBUGG_20: 0x%08x\n",
 		value[39], value[40], value[41]);
-	CMDQ_ERR("ROT_DEBUG_21: 0x%08x\n", value[42]);
-	CMDQ_ERR("VIDO_INT: 0x%08x, VIDO_ROT_EN: 0x%08x\n",
-		value[43], value[44]);
+	CMDQ_ERR(
+		"ROT_DEBUG_21: 0x%08x, VIDO_INT: 0x%08x, VIDO_ROT_EN: 0x%08x\n",
+		value[42], value[43], value[44]);
 	CMDQ_ERR("VIDO_SOFT_RST: 0x%08x, VIDO_SOFT_RST_STAT: 0x%08x\n",
 		value[45], value[46]);
+	CMDQ_ERR(
+		"VIDO_PVRIC: 0x%08x, VIDO_PENDING_ZERO: 0x%08x, VIDO_FRAME_SIZE: 0x%08x\n",
+		value[47], value[48], value[49]);
 }
 
 void cmdq_mdp_dump_color(const unsigned long base, const char *label)
