@@ -55,6 +55,7 @@ enum cpu_dvfs_ipi_type {
 	IPI_TURBO_MODE,
 	IPI_TIME_PROFILE,
 	IPI_SES_SET_VOLTAGE_DROP_RATIO,
+	IPI_INIT_VOLT_SETTING,
 
 	NR_DVFS_IPI,
 };
@@ -77,6 +78,7 @@ int cpuhvfs_read_ack(void);
 
 int cpuhvfs_module_init(void);
 int cpuhvfs_set_init_sta(void);
+int cpuhvfs_set_init_volt(void);
 int cpuhvfs_set_turbo_scale(unsigned int turbo_f, unsigned int turbo_v);
 int cpuhvfs_set_min_max(int cluster_id, int base, int limit);
 void cpuhvfs_write_advise_freq(int cluster_id, unsigned int has_advise_freq);

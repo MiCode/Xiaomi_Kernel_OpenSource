@@ -539,6 +539,29 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		}
 		break;
 
+	case IPI_INIT_VOLT_SETTING:
+		cdvfs_d->cmd = cmd;
+
+		cpufreq_ver
+		("init MCUPM voltage, cluster = %d, vproc = %d, vsram = %d\n",
+			cdvfs_d->u.set_fv.arg[0],
+			cdvfs_d->u.set_fv.arg[1],
+			cdvfs_d->u.set_fv.arg[2]);
+
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+				IPI_SEND_POLLING, cdvfs_d,
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
+
+		if (ret != 0) {
+			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
+			__func__, __LINE__, ret);
+		} else if (ack_data < 0) {
+			ret = ack_data;
+			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
+			__func__, __LINE__, cmd, ret);
+		}
+		break;
+
 	default:
 		cpufreq_ver("#@# %s(%d) cmd(%d) wrong!!!\n",
 		__func__, __LINE__, cmd);
@@ -790,6 +813,31 @@ int cpuhvfs_set_init_sta(void)
 
 	return 0;
 }
+
+#ifdef INIT_MCUPM_VOLTAGE_SETTING
+int cpuhvfs_set_init_volt(void)
+{
+	struct cdvfs_data cdvfs_d;
+	struct mt_cpu_dvfs *p;
+	struct buck_ctrl_t *vproc_p;
+	struct buck_ctrl_t *vsram_p;
+	int j;
+
+	for_each_cpu_dvfs(j, p) {
+		vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
+		vsram_p = id_to_buck_ctrl(p->Vsram_buck_id);
+		cdvfs_d.u.set_fv.arg[0] = j;
+		cdvfs_d.u.set_fv.arg[1] = (p->dvfs_disable_by_suspend) ?
+				vproc_p->cur_volt :
+				vproc_p->buck_ops->get_cur_volt(vproc_p);
+		cdvfs_d.u.set_fv.arg[2] = (p->dvfs_disable_by_suspend) ?
+				vsram_p->cur_volt :
+				vsram_p->buck_ops->get_cur_volt(vsram_p);
+		dvfs_to_mcupm_command(IPI_INIT_VOLT_SETTING, &cdvfs_d);
+	}
+	return 0;
+}
+#endif
 
 int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 {
