@@ -492,6 +492,7 @@ config MACH_MT6873
 	select MTK_GIC_TARGET_ALL
 	select MTK_GIC_V3_EXT
 	select MTK_DBGTOP
+	select MTK_SYSTRACKER_V2
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture

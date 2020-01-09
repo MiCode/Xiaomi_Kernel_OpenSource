@@ -29,8 +29,6 @@
 #include <mt-plat/sync_write.h>
 #include "systracker_v2.h"
 
-#define TRACKER_DEBUG 1
-
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
@@ -246,11 +244,11 @@ static void tracker_print(void)
 	for (i = 0; i < BUS_DBG_NUM_TRACKER; i++) {
 		entry_address       = track_entry.ar_track_l[i];
 		reg_value           = track_entry.ar_track_h[i];
-		entry_valid         = extract_n2mbits(reg_value, 22, 22);
-		entry_secure        = extract_n2mbits(reg_value, 21, 21);
-		entry_id            = extract_n2mbits(reg_value, 8, 20);
-		entry_data_size     = extract_n2mbits(reg_value, 4, 6);
-		entry_burst_length  = extract_n2mbits(reg_value, 0, 3);
+		entry_valid         = extract_n2mbits(reg_value, 24, 24);
+		entry_secure        = extract_n2mbits(reg_value, 23, 23);
+		entry_id            = extract_n2mbits(reg_value, 10, 22);
+		entry_data_size     = extract_n2mbits(reg_value, 6, 8);
+		entry_burst_length  = extract_n2mbits(reg_value, 2, 5);
 		entry_tid           = track_entry.ar_trans_tid[i];
 
 

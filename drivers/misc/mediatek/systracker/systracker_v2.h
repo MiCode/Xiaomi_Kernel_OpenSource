@@ -29,11 +29,11 @@
 #define BUS_DBG_AR_TRACK_L(__n)		(BUS_DBG_BASE + 0x0100 + 8 * (__n))
 #define BUS_DBG_AR_TRACK_H(__n)		(BUS_DBG_BASE + 0x0104 + 8 * (__n))
 #define BUS_DBG_AR_TRANS_TID(__n)	(BUS_DBG_BASE + 0x0180 + 4 * (__n))
-#define BUS_DBG_AW_TRACK_L(__n)		(BUS_DBG_BASE + 0x0200 + 8 * (__n))
-#define BUS_DBG_AW_TRACK_H(__n)		(BUS_DBG_BASE + 0x0204 + 8 * (__n))
-#define BUS_DBG_AW_TRANS_TID(__n)	(BUS_DBG_BASE + 0x0280 + 4 * (__n))
-#define BUS_DBG_W_TRACK_DATA6		(BUS_DBG_BASE + 0x02D8)
-#define BUS_DBG_W_TRACK_DATA7		(BUS_DBG_BASE + 0x02DC)
+#define BUS_DBG_AW_TRACK_L(__n)		(BUS_DBG_BASE + 0x0300 + 8 * (__n))
+#define BUS_DBG_AW_TRACK_H(__n)		(BUS_DBG_BASE + 0x0304 + 8 * (__n))
+#define BUS_DBG_AW_TRANS_TID(__n)	(BUS_DBG_BASE + 0x0380 + 4 * (__n))
+#define BUS_DBG_W_TRACK_DATA6		(BUS_DBG_BASE + 0x05D8)
+#define BUS_DBG_W_TRACK_DATA7		(BUS_DBG_BASE + 0x05DC)
 
 #if defined(CONFIG_MACH_MT6758)
 	#define BUS_DBG_BUS_MHZ             (135)
@@ -46,7 +46,7 @@
 #else
 	#define BUS_DBG_BUS_MHZ             (266)
 #endif
-#define BUS_DBG_NUM_TRACKER         (8)
+#define BUS_DBG_NUM_TRACKER         (64)
 
 #define BUS_DBG_CON_BUS_DBG_EN      (0x00000001)
 #define BUS_DBG_CON_TIMEOUT_EN      (0x00000002)
