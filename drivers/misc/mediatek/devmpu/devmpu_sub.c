@@ -14,9 +14,6 @@
 #include <linux/platform_device.h>
 #include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
-#include <mt_emi.h>
-#include <mpu_v1.h>
-#include <mpu_platform.h>
 #include <devmpu.h>
 
 #define LOG_TAG "[DEVMPU_SUB]"

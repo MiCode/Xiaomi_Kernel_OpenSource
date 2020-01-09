@@ -15,9 +15,6 @@
 #include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
 #include <emi.h>
-#include <mt_emi.h>
-#include <mpu_v1.h>
-#include <mpu_platform.h>
 #include <devmpu.h>
 #include <devmpu_emi.h>
 
@@ -56,8 +53,7 @@ static irqreturn_t devmpu_irq_handler_emi(unsigned int emi_id,
 		return IRQ_NONE;
 	}
 
-	vio_addr = ((((unsigned long long)(mput_2nd & 0xF)) << 32) + mput +
-		DRAM_OFFSET);
+	vio_addr = ((((unsigned long long)(mput_2nd & 0xF)) << 32) + mput);
 	hp_wr_vio = (mput_2nd >> 21) & 0x3;
 
 	master_id = mpus & 0xFFFF;

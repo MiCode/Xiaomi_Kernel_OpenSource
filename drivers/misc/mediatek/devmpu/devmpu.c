@@ -14,9 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
-#include <mt_emi.h>
-#include <mpu_v1.h>
-#include <mpu_platform.h>
+#include <memory/mediatek/emi.h>
 #include <devmpu.h>
 #include <devmpu_emi.h>
 
@@ -69,28 +67,6 @@ struct devmpu_vio_stat {
 	/* physical address */
 	uint64_t addr;
 };
-
-static const char *UNKNOWN_MASTER = "unknown";
-
-static unsigned int match_id(
-	unsigned int axi_id, unsigned int tbl_idx, unsigned int port_id)
-{
-	if ((axi_id & mst_tbl[tbl_idx].id_mask) == mst_tbl[tbl_idx].id_val) {
-		if (port_id == mst_tbl[tbl_idx].port)
-			return 1;
-	}
-	return 0;
-}
-
-static const char *id2name(unsigned int axi_id, unsigned int port_id)
-{
-	int i;
-	for (i = 0; i < ARRAY_SIZE(mst_tbl); i++) {
-		if (match_id(axi_id, i, port_id))
-			return mst_tbl[i].name;
-	}
-	return (char *)UNKNOWN_MASTER;
-}
 
 static int devmpu_vio_get(struct devmpu_vio_stat *vio, bool do_clear)
 {
@@ -210,6 +186,8 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		vio_rw = (vio.is_write) ? 1 : 2;
 	}
 
+	vio_addr += devmpu_ctx->prot_base;
+
 	vio_axi_id = (vio_id >> 3) & 0x1FFF;
 	vio_port_id = vio_id & 0x7;
 
@@ -220,8 +198,8 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 			vio_addr);
 	pr_info("master ID: 0x%x, AXI ID: 0x%x, port ID: 0x%x\n",
 			vio_id, vio_axi_id, vio_port_id);
-	pr_info("violation master is %s, from domain 0x%x\n",
-			id2name(vio_axi_id, vio_port_id), vio_domain);
+	pr_info("violation domain 0x%x\n",
+			vio_domain);
 
 	if (vio_rw == 1)
 		pr_info("write violation\n");
@@ -231,8 +209,7 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		pr_info("strange read/write violation (%u)\n", vio_rw);
 
 	if (!devmpu_rw_perm_get(vio_addr, &rd_perm, &wr_perm)) {
-		page = (vio_addr > devmpu_ctx->prot_base ?
-			(vio_addr - devmpu_ctx->prot_base) : vio_addr);
+		page = vio_addr - devmpu_ctx->prot_base;
 		page /= devmpu_ctx->page_size;
 		pr_info("Page#%x RD/WR : %08zx/%08zx (%lld)\n",
 			page,
