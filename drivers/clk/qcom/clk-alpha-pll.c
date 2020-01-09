@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015, 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1328,6 +1328,16 @@ const struct clk_ops clk_alpha_pll_postdiv_ro_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_ro_ops);
 
+static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
+		struct regmap *regmap, const struct alpha_pll_config *config)
+{
+	int i;
+
+	for (i = 0; i < config->num_custom_reg; i++)
+		regmap_write(regmap, pll->offset + config->custom_reg_offset[i],
+				config->custom_reg_val[i]);
+}
+
 int clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config)
 {
@@ -1378,6 +1388,8 @@ int clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		val = config->post_div_val;
 		regmap_update_bits(regmap, PLL_USER_CTL(pll), mask, val);
 	}
+
+	clk_alpha_pll_custom_configure(pll, regmap, config);
 
 	regmap_update_bits(regmap, PLL_MODE(pll), PLL_UPDATE_BYPASS,
 							PLL_UPDATE_BYPASS);
@@ -1784,16 +1796,6 @@ static int lucid_pll_is_enabled(struct clk_alpha_pll *pll,
 
 	return ((opmode_regval & PLL_OPMODE_RUN) &&
 		(mode_regval & PLL_OUTCTRL));
-}
-
-static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
-		struct regmap *regmap, const struct alpha_pll_config *config)
-{
-	int i;
-
-	for (i = 0; i < config->num_custom_reg; i++)
-		regmap_write(regmap, pll->offset + config->custom_reg_offset[i],
-				config->custom_reg_val[i]);
 }
 
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
