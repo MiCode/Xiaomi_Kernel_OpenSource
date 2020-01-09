@@ -30,6 +30,7 @@
 | ido-l-oss | Redmi 2, Redmi 3 | Android L | LA.BR.1.2.4-04410-8x16.0 | [ido-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ido-l-oss) |
 | jasmine-o-oss| Mi A2 | Android O | LA.UM.6.2.r1-06100-sdm660.0-1.151426.0.156675.1 | [jasmine-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-o-oss) |
 | jasmine-p-oss| Mi A2 | Android P | LA.UM.7.2.r1-04900-sdm660.0 | [jasmine-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-p-oss) |
+| jasmine-q-oss| Mi A2 | Android Q | LA.UM.8.2.r1-04300-sdm660.0 | [jasmine-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-q-oss) |
 | jason-n-oss | Mi Note 3 | Android N | LA.UM.6.1.r1-08100-sdm660.0 | [jason-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jason-n-oss) |
 | jason-p-oss | Mi Note 3 | Android P | LA.UM.7.2.r1-05200-sdm660.0 | [jason-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jason-p-oss) |
 | kenzo-l-oss | Redmi Note 3 Full Netcom | Android L | LA.BR.1.3.2-04330-8976.0 | [kenzo-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/kenzo-l-oss) |
