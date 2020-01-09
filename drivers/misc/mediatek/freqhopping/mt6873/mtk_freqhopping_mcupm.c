@@ -86,7 +86,7 @@ static const char *g_pll_name[FH_PLL_NUM] = {
 	"ARMPLL_BL0",
 	"ARMPLL_BL1",
 	"ARMPLL_BL2",
-	"ARMPLL_BL3", /*tell EM MEMPLL cannot do hopping*/
+	"NPUPLL", /*tell EM MEMPLL cannot do hopping*/
 	"CCIPLL",
 	"MFGPLL",
 	"MEMPLL",
@@ -152,7 +152,7 @@ static const struct freqhopping_ssc g_pll_ssc_setting_tbl[FH_PLL_NUM][4] = {
 		{PLL_SETTING_IDX__DEF, 0, 9, 0, 0, UNINIT_DDS},	/* 0% ~ -0% */
 	},
 
-	/* FH PLL4 ARMPLL_BL3*/
+	/* FH PLL4 NPUPLL*/
 	{
 		{0, 0, 0, 0, 0, 0},
 		{PLL_SETTING_IDX__DEF, 0, 9, 0, 0, UNINIT_DDS},	/* 0% ~ -0% */

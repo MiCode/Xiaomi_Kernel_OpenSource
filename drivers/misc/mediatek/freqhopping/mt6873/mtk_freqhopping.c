@@ -85,7 +85,7 @@ static const char *g_pll_name[FH_PLL_NUM] = {
 	"ARMPLL_BL0",
 	"ARMPLL_BL1",
 	"ARMPLL_BL2",
-	"ARMPLL_BL3",
+	"NPUPLL",
 	"CCIPLL",
 	"MFGPLL",
 	"MEMPLL", /*tell EM MEMPLL cannot do hopping*/
