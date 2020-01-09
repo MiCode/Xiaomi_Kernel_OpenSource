@@ -3791,9 +3791,6 @@ static ssize_t mt6873_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe_priv->topckgen, CLK_AUDDIV_0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_0 = 0x%x\n", value);
-	regmap_read(afe_priv->topckgen, CLK_AUDDIV_1, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_1 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_AUDDIV_2, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_2 = 0x%x\n", value);

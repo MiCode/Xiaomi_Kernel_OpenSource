@@ -503,15 +503,9 @@ struct mt6873_mck_div {
 	int div_mask_sft;
 	int div_mask;
 	int div_sft;
-	int div_msb_reg;
-	int div_msb_mask_sft;
-	int div_msb_mask;
-	int div_msb_sft;
 	int div_apll_sel_reg;
 	int div_apll_sel_mask_sft;
 	int div_apll_sel_sft;
-	int div_inv_reg;
-	int div_inv_mask_sft;
 };
 
 static const struct mt6873_mck_div mck_div[MT6873_MCK_NUM] = {
@@ -520,75 +514,65 @@ static const struct mt6873_mck_div mck_div[MT6873_MCK_NUM] = {
 		.div_clk_id = CLK_TOP_APLL12_DIV0,
 		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV0_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_1,
+		.div_reg = CLK_AUDDIV_2,
 		.div_mask_sft = APLL12_CK_DIV0_MASK_SFT,
 		.div_mask = APLL12_CK_DIV0_MASK,
 		.div_sft = APLL12_CK_DIV0_SFT,
 		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S0_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S0_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_0,
-		.div_inv_mask_sft = APLL12_DIV0_INV_MASK_SFT,
 	},
 	[MT6873_I2S1_MCK] = {
 		.m_sel_id = CLK_TOP_I2S1_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV1,
 		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV1_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_1,
+		.div_reg = CLK_AUDDIV_2,
 		.div_mask_sft = APLL12_CK_DIV1_MASK_SFT,
 		.div_mask = APLL12_CK_DIV1_MASK,
 		.div_sft = APLL12_CK_DIV1_SFT,
 		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S1_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S1_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_0,
-		.div_inv_mask_sft = APLL12_DIV1_INV_MASK_SFT,
 	},
 	[MT6873_I2S2_MCK] = {
 		.m_sel_id = CLK_TOP_I2S2_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV2,
 		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV2_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_1,
+		.div_reg = CLK_AUDDIV_2,
 		.div_mask_sft = APLL12_CK_DIV2_MASK_SFT,
 		.div_mask = APLL12_CK_DIV2_MASK,
 		.div_sft = APLL12_CK_DIV2_SFT,
 		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S2_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S2_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_0,
-		.div_inv_mask_sft = APLL12_DIV2_INV_MASK_SFT,
 	},
 	[MT6873_I2S3_MCK] = {
 		.m_sel_id = CLK_TOP_I2S3_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV3,
 		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV3_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_1,
+		.div_reg = CLK_AUDDIV_2,
 		.div_mask_sft = APLL12_CK_DIV3_MASK_SFT,
 		.div_mask = APLL12_CK_DIV3_MASK,
 		.div_sft = APLL12_CK_DIV3_SFT,
 		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S3_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S3_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_0,
-		.div_inv_mask_sft = APLL12_DIV3_INV_MASK_SFT,
 	},
 	[MT6873_I2S4_MCK] = {
 		.m_sel_id = CLK_TOP_I2S4_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV4,
 		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV4_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
+		.div_reg = CLK_AUDDIV_3,
 		.div_mask_sft = APLL12_CK_DIV4_MASK_SFT,
 		.div_mask = APLL12_CK_DIV4_MASK,
 		.div_sft = APLL12_CK_DIV4_SFT,
 		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S4_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S4_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_0,
-		.div_inv_mask_sft = APLL12_DIV4_INV_MASK_SFT,
 	},
 	[MT6873_I2S4_BCK] = {
 		.m_sel_id = -1,
@@ -599,102 +583,82 @@ static const struct mt6873_mck_div mck_div[MT6873_MCK_NUM] = {
 		.div_mask_sft = APLL12_CK_DIVB_MASK_SFT,
 		.div_mask = APLL12_CK_DIVB_MASK,
 		.div_sft = APLL12_CK_DIVB_SFT,
-		.div_inv_reg = CLK_AUDDIV_0,
-		.div_inv_mask_sft = APLL12_DIVB_INV_MASK_SFT,
 	},
 	[MT6873_I2S5_MCK] = {
 		.m_sel_id = CLK_TOP_I2S5_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV5,
-		.div_pdn_reg = CLK_AUDDIV_2,
+		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV5_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_2,
-		.div_mask_sft = APLL12_CK_DIV5_LSB_MASK_SFT,
-		.div_mask = APLL12_CK_DIV5_LSB_MASK,
-		.div_sft = APLL12_CK_DIV5_LSB_SFT,
-		.div_msb_reg = CLK_AUDDIV_3,
-		.div_msb_mask_sft = APLL12_CK_DIV5_MSB_MASK_SFT,
-		.div_msb_mask = APLL12_CK_DIV5_MSB_MASK,
-		.div_msb_sft = APLL12_CK_DIV5_MSB_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_2,
+		.div_reg = CLK_AUDDIV_3,
+		.div_mask_sft = APLL12_CK_DIV5_MASK_SFT,
+		.div_mask = APLL12_CK_DIV5_MASK,
+		.div_sft = APLL12_CK_DIV5_SFT,
+		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S5_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S5_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_2,
-		.div_inv_mask_sft = APLL12_DIV5_INV_MASK_SFT,
 	},
 	[MT6873_I2S6_MCK] = {
 		.m_sel_id = CLK_TOP_I2S6_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV6,
-		.div_pdn_reg = CLK_AUDDIV_3,
+		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV6_PDN_MASK_SFT,
-		.div_reg = CLK_AUDDIV_4,
+		.div_reg = CLK_AUDDIV_3,
 		.div_mask_sft = APLL12_CK_DIV6_MASK_SFT,
 		.div_mask = APLL12_CK_DIV6_MASK,
 		.div_sft = APLL12_CK_DIV6_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_3,
+		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S6_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S6_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_3,
-		.div_inv_mask_sft = APLL12_DIV6_INV_MASK_SFT,
 	},
 	[MT6873_I2S7_MCK] = {
 		.m_sel_id = CLK_TOP_I2S7_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV7,
-		.div_pdn_reg = CLK_AUDDIV_3,
+		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV7_PDN_MASK_SFT,
 		.div_reg = CLK_AUDDIV_4,
 		.div_mask_sft = APLL12_CK_DIV7_MASK_SFT,
 		.div_mask = APLL12_CK_DIV7_MASK,
 		.div_sft = APLL12_CK_DIV7_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_3,
+		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S7_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S7_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_3,
-		.div_inv_mask_sft = APLL12_DIV7_INV_MASK_SFT,
 	},
 	[MT6873_I2S8_MCK] = {
 		.m_sel_id = CLK_TOP_I2S8_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV8,
-		.div_pdn_reg = CLK_AUDDIV_3,
+		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV8_PDN_MASK_SFT,
 		.div_reg = CLK_AUDDIV_4,
 		.div_mask_sft = APLL12_CK_DIV8_MASK_SFT,
 		.div_mask = APLL12_CK_DIV8_MASK,
 		.div_sft = APLL12_CK_DIV8_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_3,
+		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S8_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S8_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_3,
-		.div_inv_mask_sft = APLL12_DIV8_INV_MASK_SFT,
 	},
 	[MT6873_I2S9_MCK] = {
 		.m_sel_id = CLK_TOP_I2S9_M_SEL,
 		.div_clk_id = CLK_TOP_APLL12_DIV9,
-		.div_pdn_reg = CLK_AUDDIV_3,
+		.div_pdn_reg = CLK_AUDDIV_0,
 		.div_pdn_mask_sft = APLL12_DIV9_PDN_MASK_SFT,
 		.div_reg = CLK_AUDDIV_4,
 		.div_mask_sft = APLL12_CK_DIV9_MASK_SFT,
 		.div_mask = APLL12_CK_DIV9_MASK,
 		.div_sft = APLL12_CK_DIV9_SFT,
-		.div_apll_sel_reg = CLK_AUDDIV_3,
+		.div_apll_sel_reg = CLK_AUDDIV_0,
 		.div_apll_sel_mask_sft = APLL_I2S9_MCK_SEL_MASK_SFT,
 		.div_apll_sel_sft = APLL_I2S9_MCK_SEL_SFT,
-		.div_inv_reg = CLK_AUDDIV_3,
-		.div_inv_mask_sft = APLL12_DIV9_INV_MASK_SFT,
 	},
 };
 
 int mt6873_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 {
 	struct mt6873_afe_private *afe_priv = afe->platform_priv;
-	int div_mask;
-	int msb_sft = 0;
 	int apll = mt6873_get_apll_by_rate(afe, rate);
-	int apll_rate = mt6873_get_apll_rate(afe, apll);
 	int apll_clk_id = apll == MT6873_APLL1 ?
 			  CLK_TOP_MUX_AUD_1 : CLK_TOP_MUX_AUD_2;
 	int m_sel_id = mck_div[mck_id].m_sel_id;
 	int div_clk_id = mck_div[mck_id].div_clk_id;
-	int div;
 	int ret;
 
 	/* select apll */
@@ -729,52 +693,6 @@ int mt6873_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
 			rate, ret);
 		return ret;
 	}
-
-	/* below will be deprecated, i2s5 not full support by ccf now */
-	if (mck_id != MT6873_I2S5_MCK)
-		return 0;
-
-	afe_priv->mck_rate[mck_id] = rate;
-
-	div = apll_rate / rate - 1;
-
-	/* set ck div */
-	div_mask = mck_div[mck_id].div_mask;
-
-	if (mck_div[mck_id].div_msb_mask) {
-		msb_sft = fls(mck_div[mck_id].div_mask);
-		div_mask |= mck_div[mck_id].div_msb_mask << msb_sft;
-	}
-
-	if (div > div_mask) {
-		AUDIO_AEE("mclk_div not valid");
-		return -EINVAL;
-	}
-	regmap_update_bits(afe_priv->topckgen, mck_div[mck_id].div_reg,
-			   mck_div[mck_id].div_mask_sft,
-			   div << mck_div[mck_id].div_sft);
-
-	if (mck_div[mck_id].div_msb_mask)
-		regmap_update_bits(afe_priv->topckgen,
-				   mck_div[mck_id].div_msb_reg,
-				   mck_div[mck_id].div_msb_mask_sft,
-				   (div >> msb_sft) <<
-				   mck_div[mck_id].div_msb_sft);
-	/* select apll */
-	if (mck_div[mck_id].div_apll_sel_mask_sft)
-		regmap_update_bits(afe_priv->topckgen,
-				   mck_div[mck_id].div_apll_sel_reg,
-				   mck_div[mck_id].div_apll_sel_mask_sft,
-				   apll <<
-				   mck_div[mck_id].div_apll_sel_sft);
-	/* reset inverse */
-	regmap_update_bits(afe_priv->topckgen,
-			   mck_div[mck_id].div_inv_reg,
-			   mck_div[mck_id].div_inv_mask_sft, 0);
-	/* enable div */
-	regmap_update_bits(afe_priv->topckgen,
-			   mck_div[mck_id].div_pdn_reg,
-			   mck_div[mck_id].div_pdn_mask_sft, 0);
 
 	return 0;
 }
