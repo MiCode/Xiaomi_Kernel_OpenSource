@@ -2250,8 +2250,8 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			(devinfo->CPU_L_HI_SPEC == 2)) {
 			det->MDES	= devinfo->CPU_L_HI_MDES;
 			det->BDES	= devinfo->CPU_L_HI_BDES;
-			det->DCMDET = devinfo->CPU_L_HI_DCMDET;
-			det->DCBDET = devinfo->CPU_L_HI_DCBDET;
+			det->DCMDET = devinfo->CPU_B_HI_DCMDET;
+			det->DCBDET = devinfo->CPU_B_HI_DCBDET;
 			det->EEMINITEN	= devinfo->CPU_L_HI_INITEN;
 			det->EEMMONEN	= devinfo->CPU_L_HI_MONEN;
 			det->MTDES	= devinfo->CPU_L_HI_MTDES;
@@ -2267,6 +2267,10 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->MTDES	= devinfo->CPU_B_HI_MTDES;
 			det->SPEC	= devinfo->CPU_B_HI_SPEC;
 		}
+
+		if (segCode == 0x10)
+			det->VMAX = VMAX_VAL_B_T;
+
 		det->VMAX += det->DVTFIXED;
 		if (!big_2line) {
 			det->features = 0;
