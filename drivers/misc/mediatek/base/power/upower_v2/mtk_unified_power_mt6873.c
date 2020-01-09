@@ -93,7 +93,7 @@ struct upower_tbl_info
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_6873),
 	},
-	/* 6873 (Turbo Mode) */
+	/* 6873T (Turbo Mode) */
 	[1] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_6873T),
@@ -119,18 +119,18 @@ struct upower_tbl_info
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_6873T),
 	},
-	/* 6883 */
+	/* 6873 */
 	[3] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_6883),
+				upower_tbl_l_6873),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_6883),
+				upower_tbl_b_6873),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_6883),
+				upower_tbl_cluster_l_6873),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_6883),
+				upower_tbl_cluster_b_6873),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_6883),
+				upower_tbl_cci_6873),
 	},
 };
 /* Upower will know how to apply voltage that comes from EEM */
