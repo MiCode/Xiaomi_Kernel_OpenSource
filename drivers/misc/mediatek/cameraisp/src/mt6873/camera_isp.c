@@ -5811,7 +5811,7 @@ EXIT:
  ******************************************************************************/
 static inline void ISP_StopHW(int module)
 {
-	unsigned int regTGSt, loopCnt;
+	unsigned int regTGSt = 0, loopCnt = 3;
 	int ret = 0;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
 	ktime_t time;
@@ -5822,7 +5822,6 @@ static inline void ISP_StopHW(int module)
 	char moduleName[128];
 
 	/* wait TG idle */
-	loopCnt = 3;
 	switch (module) {
 	case ISP_CAM_A_IDX:
 		strncpy(moduleName, "CAMA", 5);
