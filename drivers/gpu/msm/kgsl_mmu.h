@@ -83,6 +83,7 @@ struct kgsl_mmu_pt_ops {
 	void (*mmu_destroy_pagetable)(struct kgsl_pagetable *pt);
 	u64 (*get_ttbr0)(struct kgsl_pagetable *pt);
 	u32 (*get_contextidr)(struct kgsl_pagetable *pt);
+	int (*get_context_bank)(struct kgsl_pagetable *pt);
 	int (*get_gpuaddr)(struct kgsl_pagetable *pt,
 				struct kgsl_memdesc *memdesc);
 	void (*put_gpuaddr)(struct kgsl_memdesc *memdesc);
@@ -346,4 +347,14 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
 void kgsl_mmu_map_global(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc);
 
+/**
+ * kgsl_mmu_pagetable_get_context_bank - Return the context bank number
+ * @pagetable: A handle to a given pagetable
+ *
+ * This function will find the context number of the given pagetable
+
+ * Return: The context bank number the pagetable is attached to or
+ * negative error on failure.
+ */
+int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable);
 #endif /* __KGSL_MMU_H */

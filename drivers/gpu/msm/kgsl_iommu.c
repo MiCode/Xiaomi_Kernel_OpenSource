@@ -833,6 +833,25 @@ static u32 kgsl_iommu_get_contextidr(struct kgsl_pagetable *pt)
 	return iommu_pt->contextidr;
 }
 
+static int kgsl_iommu_get_context_bank(struct kgsl_pagetable *pt)
+{
+	struct kgsl_iommu_pt *iommu_pt;
+	u32 cb_num;
+	int ret;
+
+	if (!pt)
+		return -EINVAL;
+
+	iommu_pt = pt->priv;
+
+	ret = iommu_domain_get_attr(iommu_pt->domain,
+				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
+	if (ret)
+		return ret;
+
+	return (int) cb_num;
+}
+
 /*
  * kgsl_iommu_destroy_pagetable - Free up reaources help by a pagetable
  * @mmu_specific_pt - Pointer to pagetable which is to be freed
@@ -2622,6 +2641,7 @@ static struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_ttbr0 = kgsl_iommu_get_ttbr0,
 	.get_contextidr = kgsl_iommu_get_contextidr,
+	.get_context_bank = kgsl_iommu_get_context_bank,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.set_svm_region = kgsl_iommu_set_svm_region,
