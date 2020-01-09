@@ -218,7 +218,7 @@ static ssize_t gbe_policy_mask_write(struct file *flip,
 		const char *ubuf, size_t cnt, loff_t *data)
 {
 	char buf[64];
-	unsigned long val;
+	unsigned long val = 0;
 	int ret, i;
 	char u_io_string[8];
 
