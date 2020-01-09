@@ -2318,6 +2318,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		roll_gpu_for_idle = 1;
 		rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
+		layering_info.hrt_weight = 2;
 	}
 
 	lyeblob_ids = kzalloc(sizeof(struct mtk_drm_lyeblob_ids), GFP_KERNEL);

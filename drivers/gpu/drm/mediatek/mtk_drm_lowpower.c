@@ -460,6 +460,8 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(crtc);
 	bool mode = mtk_crtc_is_dc_mode(crtc);
+	struct mtk_ddp_comp *comp;
+	unsigned int i, j;
 
 	DDPINFO("crtc%d do %s+\n", crtc_id, __func__);
 
@@ -494,15 +496,19 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	/* 7. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc);
 
-	/* 8. restore HRT BW */
+	/* 8. Set QOS BW */
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+
+	/* 9. restore HRT BW */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_disp_set_hrt_bw(mtk_crtc, mtk_crtc->qos_ctx->last_hrt_req);
 #endif
 
-	/* 9. set vblank */
+	/* 10. set vblank */
 	drm_crtc_vblank_on(crtc);
 
-	/* 10. enable fake vsync if need */
+	/* 11. enable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, true);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);

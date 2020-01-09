@@ -2417,7 +2417,6 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
 					DISP_BW_FBDC_MODE);
 
-		DDPDBG("update ovl qos bw to %u\n", comp->qos_bw);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       cmdq_buf->pa_base + DISP_SLOT_PMQOS_BW(slot_num),
 			       comp->fbdc_bw, ~0);
@@ -2429,6 +2428,9 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       cmdq_buf->pa_base + DISP_SLOT_PMQOS_BW(slot_num),
 			       comp->qos_bw, ~0);
+
+		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u\n",
+			comp->fbdc_bw, comp->qos_bw);
 		break;
 	}
 #endif

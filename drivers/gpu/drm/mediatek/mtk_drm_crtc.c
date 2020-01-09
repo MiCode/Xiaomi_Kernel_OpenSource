@@ -2410,9 +2410,10 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 /* restore ovl layer config and set dal layer if any */
 void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 {
-	unsigned int i;
+	unsigned int i, j;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct cmdq_pkt *cmdq_handle;
+	struct mtk_ddp_comp *comp;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -2421,7 +2422,6 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		struct mtk_drm_private *priv = crtc->dev->dev_private;
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
 		struct mtk_plane_state *plane_state;
-		struct mtk_ddp_comp *comp;
 
 		plane_state = to_mtk_plane_state(plane->state);
 		if (i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id)
@@ -2445,6 +2445,11 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
+
+	/* Update QOS BW*/
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			PMQOS_UPDATE_BW, NULL);
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -2709,14 +2714,24 @@ skip:
 	/* 2. stop all modules in this CRTC */
 	mtk_crtc_stop_ddp(mtk_crtc, cmdq_handle);
 
+	/* 3. Reset QOS BW after CRTC stop */
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			PMQOS_UPDATE_BW, NULL);
+
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
-	/* 3.Reset QOS BW after CRTC stop */
+	/* 4. Set QOS BW to 0 */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
-	/* 4. stop trig loop  */
+	/* 5. Set HRT BW to 0 */
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	mtk_disp_set_hrt_bw(mtk_crtc, 0);
+#endif
+
+	/* 6. stop trig loop  */
 	if (mtk_crtc_with_trigger_loop(crtc))
 		mtk_crtc_stop_trig_loop(crtc);
 
@@ -2765,6 +2780,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int crtc_id = drm_crtc_index(crtc);
 	struct cmdq_client *client;
+	struct mtk_ddp_comp *comp;
+	int i, j;
 
 	CRTC_MMP_EVENT_START(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -2833,24 +2850,28 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 8. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc);
 
-	/* 9. set dirty for cmd mode */
+	/* 9. Set QOS BW */
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
+
+	/* 10. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
 		mtk_crtc_set_dirty(mtk_crtc);
 
-	/* 10. set vblank*/
+	/* 11. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
 #ifdef MTK_DRM_ESD_SUPPORT
-	/* 11. enable ESD check */
+	/* 12. enable ESD check */
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, true);
 #endif
 
-	/* 12. enable fake vsync if need*/
+	/* 13. enable fake vsync if need*/
 	mtk_drm_fake_vsync_switch(crtc, true);
 
-	/* 13. set CRTC SW status */
+	/* 14. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
 
 end:
