@@ -158,7 +158,6 @@ int goodix_register_ext_module(struct goodix_ext_module *module)
 
 	ts_info("%s OUT", __func__);
 
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(goodix_register_ext_module);
@@ -393,14 +392,37 @@ static ssize_t goodix_ts_chip_info_show(struct device  *dev,
 static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 {
 	u8 write_data, read_data;
-	u8 enter_200Hz[] = {0x38, 0x00, 0xC8};
-	u8 exit_200Hz[] = {0x38, 0x01, 0xC7};
+	u8 write_cmd[3] = {0};
 	int ret = 0, i = 0;
 	int flag_read_success = 0;
 	u32 retry_time = 3;
 
 	if (ts_dev == NULL)
 		return -EINVAL;
+
+	/* write cmd */
+	switch (en) {
+	case 0:
+		/* en=0. exit: write CMD 38 01 C7 */
+		write_cmd[0] = 0x38;
+		write_cmd[1] = 0x01;
+		write_cmd[2] = 0xC7;
+		break;
+	case 1:
+		/* en=1. enter: write CMD 38 00 C8 */
+		write_cmd[0] = 0x38;
+		write_cmd[1] = 0x00;
+		write_cmd[2] = 0xC8;
+		break;
+	case 2:
+		/* en=2. disable doze mode:write CMD 38 04 C4 */
+		write_cmd[0] = 0x38;
+		write_cmd[1] = 0x04;
+		write_cmd[2] = 0xC4;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	while (retry_time) {
 		/* 1. write 0xAA to 0x30F0 */
@@ -436,14 +458,8 @@ static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 	if (flag_read_success == 0)
 		return -EINVAL;
 
-	if (en == 1)
-		/* en=1. enter: write change CMD 38 00 C8 */
-		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
-						enter_200Hz, 3);
-	else if (en == 0)
-		/* en=0. exit: write change CMD 38 01 C7 */
-		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
-						exit_200Hz, 3);
+	ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
+					write_cmd, 3);
 	if (ret) {
 		ts_err("goodix_i2c_write error!\n");
 		return -EINVAL;
@@ -485,15 +501,13 @@ static ssize_t goodix_ts_report_rate_change_store(
 	if (ret)
 		return -EINVAL;
 
-	if (en == 1 || en == 0) {
-		ret = goodix_ts_enable(ts_dev, en);
-		if (ret)
-			return -EAGAIN;
-	} else
-		return -EINVAL;
+	ret = goodix_ts_enable(ts_dev, en);
+	if (ret)
+		return -EAGAIN;
 
 	return count;
 }
+
 
 static ssize_t goodix_ts_report_mode_change_store(
 		struct device *dev,
