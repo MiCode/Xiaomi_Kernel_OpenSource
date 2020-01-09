@@ -115,7 +115,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[0] = {/*(MCU)*/
 		.ts = {L_TS_LVTS1_0, L_TS_LVTS1_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 1,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 1,
 		.tc_offset = 0x26D000,
 		.tc_speed = {
 			0x001,
@@ -127,7 +127,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[1] = {/*(MCU)*/
 		.ts = {L_TS_LVTS2_0, L_TS_LVTS2_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 0,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x26D100,
 		.tc_speed = {
 			0x001,
@@ -139,7 +139,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[2] = {/*(MCU)*/
 		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_3},
 		.ts_number = 4,
-		.dominator_ts_idx = 0,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x26D200,
 		.tc_speed = {
 			0x001,
@@ -151,7 +151,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[3] = {/*(AP)*/
 		.ts = {L_TS_LVTS4_0, L_TS_LVTS4_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 0,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x0,
 		.tc_speed = {
 			0x001,
@@ -163,7 +163,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[4] = {/*(AP)*/
 		.ts = {L_TS_LVTS5_0, L_TS_LVTS5_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 1,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 1,
 		.tc_offset = 0x100,
 		.tc_speed = {
 			0x001,
@@ -175,7 +175,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[5] = {/*(AP)*/
 		.ts = {L_TS_LVTS6_0, L_TS_LVTS6_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 1,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 1,
 		.tc_offset = 0x200,
 		.tc_speed = {
 			0x001,
@@ -187,7 +187,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[6] = {/*(AP)*/
 		.ts = {L_TS_LVTS7_0, L_TS_LVTS7_1, L_TS_LVTS7_2},
 		.ts_number = 3,
-		.dominator_ts_idx = 2,/*TODO: need confirm dominator sensor*/
+		.dominator_ts_idx = 2,
 		.tc_offset = 0x300,
 		.tc_speed = {
 			0x001,
