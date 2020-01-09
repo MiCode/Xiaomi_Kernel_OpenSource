@@ -294,23 +294,28 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			    ion_phys_addr_t *addr, size_t *len);
 
 static int ion_mm_heap_init_domain(struct ion_mm_buffer_info *buffer_info,
-				   struct sg_table *table)
+				   unsigned int domain)
 {
-	int i = 0;
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	int i;
+	unsigned int start = 0, end = 0;
+	struct sg_table *table = buffer_info->table_orig;
 	int ret = 0;
 
-	buffer_info->table_orig = table;
-#endif
-	for (i = 0; i < DOMAIN_NUM; i++) {
-		buffer_info->MVA[i] = 0;
-		buffer_info->FIXED_MVA[i] = 0;
-		buffer_info->iova_start[i] = 0;
-		buffer_info->iova_end[i] = 0;
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		buffer_info->port[i] = -1;
+	if (domain == DOMAIN_NUM) {
+		start = 0;
+		end = DOMAIN_NUM;
+	} else if (domain < DOMAIN_NUM) {
+		start = domain;
+		end = domain + 1;
+	} else {
+		IONMSG("%s invalid domain:%u.\n",
+		       __func__, domain);
+		return -3;
+	}
+
+	for (i = start; i < end; i++) {
 		ret = sg_alloc_table(&buffer_info->table[i],
 				     table->nents, GFP_KERNEL);
 		if (ret) {
@@ -329,8 +334,8 @@ static int ion_mm_heap_init_domain(struct ion_mm_buffer_info *buffer_info,
 			sg_free_table(&buffer_info->table[i]);
 			return -2;
 		}
-#endif
 	}
+#endif
 
 	return 0;
 }
@@ -477,10 +482,21 @@ map_mva_exit:
 	}
 
 	buffer->sg_table = table;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	buffer_info->table_orig = table;
+#endif
 	buffer_info->VA = (void *)user_va;
-	ret = ion_mm_heap_init_domain(buffer_info, table);
-	if (ret)
-		goto err2;
+	for (i = 0; i < DOMAIN_NUM; i++) {
+		buffer_info->MVA[i] = 0;
+		buffer_info->FIXED_MVA[i] = 0;
+		buffer_info->iova_start[i] = 0;
+		buffer_info->iova_end[i] = 0;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		buffer_info->port[i] = -1;
+#endif
+	}
 
 	buffer_info->module_id = -1;
 	buffer_info->fix_module_id = -1;
@@ -598,6 +614,7 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 			buffer_info->mva_cnt--;
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+			sg_free_table(&buffer_info->table[domain_idx]);
 			buffer_info->port[domain_idx] = -1;
 #endif
 		} else {
@@ -621,19 +638,11 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 	}
 
 out:
-	if (buffer_info->mva_cnt == 0) {
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		for (domain_idx = 0;
-			domain_idx < DOMAIN_NUM; domain_idx++) {
-			sg_free_table(&buffer_info->table[domain_idx]);
-		}
-#endif
+	if (buffer_info->mva_cnt == 0)
 		kfree(buffer_info);
-	} else {
+	else
 		IONMSG("there are %d MVA not mapped, check MVA leakage\n",
 		       buffer_info->mva_cnt);
-	}
 }
 
 void ion_mm_heap_free(struct ion_buffer *buffer)
@@ -870,14 +879,17 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		}
 	}
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-	buffer->sg_table = &buffer_info->table[domain_idx];
-#endif
-
 	if ((buffer_info->MVA[domain_idx] == 0 && port_info.flags == 0) ||
 	    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
 	    port_info.flags > 0)) {
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		ret = ion_mm_heap_init_domain(buffer_info, domain_idx);
+		if (ret)
+			goto out;
+		buffer->sg_table = &buffer_info->table[domain_idx];
+#endif
+
 		if (port_info.flags == 0 && buffer_info->module_id == -1) {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
