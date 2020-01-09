@@ -718,14 +718,7 @@ static inline void smi_larb_port_set(const struct mtk_smi_dev *smi)
 {
 	s32 i;
 
-	if (!smi || !smi->dev)
-		return;
-#if IS_ENABLED(CONFIG_MACH_MT6873)
-	if (smi->id == SMI_LARB_NUM)
-		cmdq_pkt_flush_threaded(
-			smi_cmdq.pkt, smi_common_assert_cb, NULL);
-#endif
-	if (smi->id >= SMI_LARB_NUM)
+	if (!smi || !smi->dev || smi->id >= SMI_LARB_NUM)
 		return;
 
 	for (i = smi_larb_cmd_gp_en_port[smi->id][0];
@@ -966,6 +959,11 @@ static void smi_subsys_after_on(enum subsys_id sys)
 			mtk_smi_clk_enable(smi_dev[i]);
 			mtk_smi_conf_set(smi_dev[i], smi_scen);
 			smi_larb_port_set(smi_dev[i]);
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+			if (i == SMI_LARB_NUM)
+				cmdq_pkt_flush_threaded(smi_cmdq.pkt,
+					smi_common_assert_cb, NULL);
+#endif
 		}
 	smi_subsys_sspm_ipi(true, subsys);
 }
@@ -988,7 +986,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
 #elif IS_ENABLED(CONFIG_MACH_MT6873)
-			if (i == SMI_LARB_NUM)
+			if (i == SMI_LARB_NUM && !(smi_mm_first & subsys))
 				cmdq_mbox_stop(smi_cmdq.clt);
 #endif
 			mtk_smi_clk_disable(smi_dev[i]);
