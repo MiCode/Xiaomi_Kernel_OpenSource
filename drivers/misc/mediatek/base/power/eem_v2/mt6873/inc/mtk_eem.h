@@ -20,21 +20,13 @@
 
 #define EN_EEM (1) /* enable/disable EEM (SW) */
 
-/* have 5 banks */
-enum eem_ctrl_id {
-	EEM_CTRL_L,
-	EEM_CTRL_B,
-	EEM_CTRL_CCI,
 
-	NR_EEM_CTRL,
-};
+enum eemsn_det_id {
+	EEMSN_DET_L,
+	EEMSN_DET_B,
+	EEMSN_DET_CCI,
 
-enum eem_det_id {
-	EEM_DET_L	=	EEM_CTRL_L,
-	EEM_DET_B	=	EEM_CTRL_B,
-	EEM_DET_CCI	=	EEM_CTRL_CCI,
-
-	NR_EEM_DET,
+	NR_EEMSN_DET,
 };
 
 enum eemsn_id_sw {
@@ -48,7 +40,6 @@ enum eemsn_id_sw {
 enum sn_det_id {
 	SN_DET_L = 0,
 	SN_DET_B,
-
 	NR_SN_DET,
 };
 
@@ -78,7 +69,7 @@ enum eem_phase {
 	EEM_PHASE_INIT01,
 	EEM_PHASE_INIT02,
 	EEM_PHASE_MON,
-	EEM_PHASE_CORN,
+	EEM_PHASE_SEN,
 
 	NR_EEM_PHASE,
 };
@@ -87,7 +78,7 @@ enum eem_features {
 	FEA_INIT01	= BIT(EEM_PHASE_INIT01),
 	FEA_INIT02	= BIT(EEM_PHASE_INIT02),
 	FEA_MON		= BIT(EEM_PHASE_MON),
-	FEA_CORN	= BIT(EEM_PHASE_CORN),
+	FEA_SEN	= BIT(EEM_PHASE_SEN),
 };
 
 enum {
@@ -99,11 +90,10 @@ enum {
 enum {
 	EEM_NORMAL_T	= 0,
 	EEM_LOW_T,
-	EEM_EXTRALOW_T,
 	EEM_HIGH_T
 };
 
-#if ENABLE_LOO
+
 enum eem_loo_role {
 	NO_LOO_BANK	=	0,
 	LOW_BANK	=	1,
@@ -111,7 +101,7 @@ enum eem_loo_role {
 
 	NR_EEM_LOO_BANK,
 };
-#endif
+
 
 extern u32 get_devinfo_with_index(u32 index);
 extern unsigned int eem_corn_flag;
@@ -219,16 +209,7 @@ extern u8 aee_rr_curr_ptp_status(void);
 #endif
 
 /* EEM Extern Function */
-extern int mt_eem_status(enum eem_det_id id);
+extern int mt_eem_status(enum eemsn_det_id id);
 extern unsigned int get_efuse_status(void);
 extern unsigned int mt_eem_is_enabled(void);
-
-extern void eem_set_pi_efuse(enum eem_det_id id,
-		unsigned int pi_efuse,
-		unsigned int loo_enabled);
-extern void eem_set_pi_dvtfixed(enum eem_det_id id,
-		unsigned int pi_dvtfixed);
-
-/* DRCC */
-extern unsigned int drcc_offset_done;
 #endif

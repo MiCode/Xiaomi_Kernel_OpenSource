@@ -44,7 +44,7 @@
 #define PIN_S_MSG_SIZE_SUSPEND		3	//uint 4 byts
 #define PIN_S_MSG_SIZE_SMET         1   //unit 4 bytes
 #define PIN_S_MSG_SIZE_RMET         4   //unit 4 bytes
-#define PIN_S_MSG_SIZE_EEMSN     1 //unit 4 bytes
+#define PIN_S_MSG_SIZE_EEMSN     4 //unit 4 bytes
 
 /* definition of slot size for send PINs */
 #define PIN_S_SIZE_PLATFORM	PIN_S_SIZE

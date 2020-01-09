@@ -136,43 +136,18 @@
  * @det:	the detector * to use as a loop cursor.
  */
 #define for_each_det(det) \
-		for (det = eem_detectors; \
-		det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
+		for (det = eemsn_detectors; \
+		det < (eemsn_detectors + ARRAY_SIZE(eemsn_detectors)); \
 		det++)
 
-/**
- * iterate over list of detectors and its controller
- * @det:	the detector * to use as a loop cursor.
- * @ctrl:	the eem_ctrl * to use as ctrl pointer of current det.
- */
-#if 0
-#define for_each_det_ctrl(det, ctrl)				\
-		for (det = eem_detectors,				\
-		ctrl = id_to_eem_ctrl(det->ctrl_id);		\
-		det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
-		det++,						\
-		ctrl = id_to_eem_ctrl(det->ctrl_id))
-#endif
-/**
- * iterate over list of controllers
- * @pos:	the eem_ctrl * to use as a loop cursor.
- */
-#define for_each_ctrl(ctrl) \
-		for (ctrl = eem_ctrls; \
-		ctrl < (eem_ctrls + ARRAY_SIZE(eem_ctrls)); \
-		ctrl++)
+
 
 /**
- * Given a eem_det * in eem_detectors. Return the id.
- * @det:	pointer to a eem_det in eem_detectors
+ * Given a eem_det * in eemsn_detectors. Return the id.
+ * @det:	pointer to a eem_det in eemsn_detectors
  */
-#define det_to_id(det)	((det) - &eem_detectors[0])
+#define det_to_id(det)	((det) - &eemsn_detectors[0])
 
-/**
- * Given a eem_ctrl * in eem_ctrls. Return the id.
- * @det:	pointer to a eem_ctrl in eem_ctrls
- */
-#define ctrl_to_id(ctrl)	((ctrl) - &eem_ctrls[0])
 
 /**
  * Check if a detector has a feature
@@ -184,29 +159,20 @@
 #define PERCENT(numerator, denominator)	\
 	(unsigned char)(((numerator) * 100 + (denominator) - 1) / (denominator))
 
-struct eem_ctrl {
-	const char *name;
-	enum eem_det_id det_id;
-	/* struct completion init_done; */
-	/* atomic_t in_init; */
-
-	/* for voltage setting thread */
-	wait_queue_head_t wq;
-
-	int volt_update;
-	struct task_struct *thread;
-};
 
 /* define main structures in mtk_eem_internal.c */
-extern struct eem_ctrl eem_ctrls[NR_EEM_CTRL];
-extern struct eem_det eem_detectors[NR_EEM_DET];
-extern struct eem_det_ops eem_det_base_ops;
+
+extern struct eemsn_det eemsn_detectors[NR_EEMSN_DET];
+extern struct eemsn_det_ops eem_det_base_ops;
+extern unsigned int sn_mcysys_reg_base[NUM_SN_CPU];
+extern unsigned short sn_mcysys_reg_dump_off[SIZE_SN_MCUSYS_REG];
+
 
 /* define common operations in mtk_eem_internal.c */
-extern int base_ops_volt_2_pmic(struct eem_det *det, int volt);
-extern int base_ops_volt_2_eem(struct eem_det *det, int volt);
-extern int base_ops_pmic_2_volt(struct eem_det *det, int pmic_val);
-extern int base_ops_eem_2_pmic(struct eem_det *det, int eev_val);
-extern unsigned int detid_to_dvfsid(struct eem_det *det);
+extern int base_ops_volt_2_pmic(struct eemsn_det *det, int volt);
+extern int base_ops_volt_2_eem(struct eemsn_det *det, int volt);
+extern int base_ops_pmic_2_volt(struct eemsn_det *det, int pmic_val);
+extern int base_ops_eem_2_pmic(struct eemsn_det *det, int eev_val);
+extern unsigned int detid_to_dvfsid(struct eemsn_det *det);
 
 #endif

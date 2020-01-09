@@ -72,6 +72,16 @@ static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
 		.size = 0x100 + MCUPM_PLT_LOGGER_BUF_LEN,
 		/* logger header + 1M log buffer */
 	},
+	{
+		.num = MCUPM_MET_MEM_ID,
+		.size = MCUPM_PLT_MET_BUF_LEN,
+		/* 4M for MET */
+	},
+	{
+		.num = MCUPM_EEMSN_MEM_ID,
+		.size = MCUPM_PLT_EEMSN_BUF_LEN,
+		/* 4K for sensor network */
+	},
 };
 
 /* MCUPM RESERVED MEM */
