@@ -540,6 +540,15 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 
 	ufstw_lu_get(tw);
 
+	/*
+	 * No need check again, let ufstw_flush_h8_work_fn finish is enough.
+	 * Only return need_flush to break runtime/system suspend.
+	 */
+	if (delayed_work_pending(&tw->tw_flush_h8_work)) {
+		need_flush = true;
+		goto out_put;
+	}
+
 	if (ufsf_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 				  QUERY_ATTR_IDN_TW_BUF_SIZE,
 				  (u8)tw->lun,
