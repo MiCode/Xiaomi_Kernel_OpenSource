@@ -42,10 +42,10 @@ obj-y += mmdvfs_profile_adaptor.o
 obj-y += mmdvfs_mgr_util.o
 endif
 
-ccflags-$(CONFIG_MACH_MT6885) += -DPMQOS_USE_IOMMU_PORT
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
 ccflags-y += -DSMI_5G
 ccflags-y += -DSMI_SSPM
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
 obj-y += smi_drv.o
 endif

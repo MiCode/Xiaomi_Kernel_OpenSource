@@ -57,6 +57,12 @@ ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873"))
 BUILD_MMDVFS := true
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
+SUPPORT_MMP := true
+SKIP_SMI_CONFIG := false
+QOS_BOUND_DETECT := true
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)

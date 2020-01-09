@@ -14,6 +14,8 @@
 #ifndef __SMI_PORT_H__
 #define __SMI_PORT_H__
 
+#include <dt-bindings/memory/mt6873-larb-port.h>
+
 #define SMI_OSTD_MAX		(0x3f)
 
 #define SMI_COMM_MASTER_NUM	(8)
