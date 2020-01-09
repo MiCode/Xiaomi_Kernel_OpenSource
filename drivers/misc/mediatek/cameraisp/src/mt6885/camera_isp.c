@@ -10657,6 +10657,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 {
 	unsigned int module = irq_module;
 	unsigned int reg_module = ISP_CAM_A_IDX;
+	unsigned int inner_reg_module = ISP_CAM_A_INNER_IDX;
 	unsigned int i, cardinalNum = 0, IrqStatus, ErrStatus, WarnStatus;
 	unsigned int DmaStatus, WarnStatus_2 = 0, cur_v_cnt = 0;
 	unsigned int cqDoneIndex = 0;
@@ -10689,14 +10690,17 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	switch (irq_module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 		reg_module = ISP_CAM_A_IDX;
+		inner_reg_module = ISP_CAM_A_INNER_IDX;
 		cardinalNum = 0;
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 		reg_module = ISP_CAM_B_IDX;
+		inner_reg_module = ISP_CAM_B_INNER_IDX;
 		cardinalNum = 1;
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		reg_module = ISP_CAM_C_IDX;
+		inner_reg_module = ISP_CAM_C_INNER_IDX;
 		cardinalNum = 2;
 		break;
 	default:
@@ -11300,7 +11304,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 #if 1
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x,AF/FLK(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x)\n",
+				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x, DMA 0x%x,0x%x, LTMS/FLK/AA/AAH/TSFS(0x%x, 0x%x, 0x%x, 0x%x, 0x%x) pa(0x%x,0x%x,0x%x,0x%x,0x%x),0x%x,0x%x,0x%x)\n",
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
 				(unsigned int)(ISP_RD32(
 					CAM_REG_FBC_IMGO_CTL1(reg_module))),
@@ -11318,42 +11322,45 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_CTL_DMA_EN(ISP_CAM_A_IDX)),
+					CAM_REG_CTL_DMA_EN(reg_module)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_DMA_EN(
-						ISP_CAM_A_INNER_IDX)),
+						inner_reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_FLKO_CTL2(ISP_CAM_A_IDX)),
+					CAM_REG_FBC_LTMSO_CTL2(reg_module)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_FBC_FLKO_CTL2(
-						ISP_CAM_A_INNER_IDX)),
+						reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_AFO_CTL2(ISP_CAM_A_IDX)),
+					CAM_REG_FBC_AAO_CTL2(reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_AFO_CTL2(
-						ISP_CAM_A_INNER_IDX)),
+					CAM_REG_FBC_AAHO_CTL2(
+						reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(ISP_CAM_A_IDX)),
+					CAM_REG_FBC_TSFSO_CTL2(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_LTMSO_BASE_ADDR(reg_module)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_FLKO_BASE_ADDR(
-						ISP_CAM_A_INNER_IDX)),
+						reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_AFO_BASE_ADDR(ISP_CAM_A_IDX)),
+					CAM_REG_AAO_BASE_ADDR(reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_AFO_BASE_ADDR(
-						ISP_CAM_A_INNER_IDX)),
+					CAM_REG_AAHO_BASE_ADDR(
+						reg_module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_TSFSO_BASE_ADDR(
+						reg_module)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_A_IDX)),
+						reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						ISP_CAM_A_INNER_IDX)),
+					CAM_REG_AAO_FH_BASE_ADDR(
+						reg_module)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_AFO_FH_BASE_ADDR(
-						ISP_CAM_A_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_AFO_FH_BASE_ADDR(
-						ISP_CAM_A_INNER_IDX)));
+					CAM_REG_AAHO_FH_BASE_ADDR(
+						reg_module)));
 #else
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,

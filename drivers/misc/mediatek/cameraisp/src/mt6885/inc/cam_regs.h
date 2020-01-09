@@ -465,6 +465,7 @@ enum{
 #define CAM_REG_PDO_BASE_ADDR(module)          (isp_devs[module].regs + 0x4260)
 #define CAM_REG_FLKO_BASE_ADDR(module)         (isp_devs[module].regs + 0x4580)
 #define CAM_REG_LTMSO_BASE_ADDR(module)        (isp_devs[module].regs + 0x45F0)
+#define CAM_REG_TSFSO_BASE_ADDR(module)        (isp_devs[module].regs + 0x43C0)
 
 #define CAM_REG_IMGO_DRS(module)                (isp_devs[module].regs + 0x4828)
 #define CAM_REG_IMGO_CON(module)                (isp_devs[module].regs + 0x4838)
@@ -693,6 +694,15 @@ enum{
 #define CAM_REG_FLKO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x45AC)
 
 #define CAM_REG_AFO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x453C)
+
+#define CAM_REG_AAHO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x445C)
+
+#define CAM_REG_AAO_FH_BASE_ADDR(module)        (isp_devs[module].regs + 0x44CC)
+
+#define CAM_REG_AAO_XSIZE(module)               (isp_devs[module].regs + 0x44AC)
+#define CAM_REG_AAO_YSIZE(module)               (isp_devs[module].regs + 0x44B0)
+#define CAM_REG_AAHO_XSIZE(module)              (isp_devs[module].regs + 0x443C)
+#define CAM_REG_AAHO_YSIZE(module)              (isp_devs[module].regs + 0x4440)
 
 
 /* MRAW */
