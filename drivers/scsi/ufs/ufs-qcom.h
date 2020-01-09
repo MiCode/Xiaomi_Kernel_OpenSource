@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -30,28 +30,27 @@
 #define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
 
 /* vendor specific pre-defined parameters */
+#define UFS_HS_G4	4		/* HS Gear 4 */
+
 #define SLOW 1
 #define FAST 2
 
+#define UFS_QCOM_PHY_SUBMODE_NON_G4	0
+#define UFS_QCOM_PHY_SUBMODE_G4		1
+
 #define UFS_QCOM_LIMIT_NUM_LANES_RX	2
 #define UFS_QCOM_LIMIT_NUM_LANES_TX	2
-#ifdef CONFIG_SCSI_UFSHCD_QTI
 #define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G4
 #define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G4
 #define UFS_QCOM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
 #define UFS_QCOM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
-#else
-#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G3
-#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G3
-#define UFS_QCOM_LIMIT_PWMGEAR_RX	UFS_PWM_G3
-#define UFS_QCOM_LIMIT_PWMGEAR_TX	UFS_PWM_G3
-#endif
 #define UFS_QCOM_LIMIT_RX_PWR_PWM	SLOW_MODE
 #define UFS_QCOM_LIMIT_TX_PWR_PWM	SLOW_MODE
 #define UFS_QCOM_LIMIT_RX_PWR_HS	FAST_MODE
 #define UFS_QCOM_LIMIT_TX_PWR_HS	FAST_MODE
 #define UFS_QCOM_LIMIT_HS_RATE		PA_HS_MODE_B
 #define UFS_QCOM_LIMIT_DESIRED_MODE	FAST
+#define UFS_QCOM_LIMIT_PHY_SUBMODE	UFS_QCOM_PHY_SUBMODE_G4
 
 /* QCOM UFS host controller vendor specific registers */
 enum {
@@ -324,6 +323,7 @@ struct ufs_qcom_host {
 	int limit_tx_pwm_gear;
 	int limit_rx_pwm_gear;
 	int limit_rate;
+	int limit_phy_submode;
 
 	bool disable_lpm;
 	struct qcom_bus_scale_data *qbsd;

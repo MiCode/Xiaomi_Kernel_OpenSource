@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, Linux Foundation. All rights reserved.
  */
 
 #include <linux/acpi.h>
@@ -69,7 +69,7 @@ static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 						       u32 clk_1us_cycles,
 						       u32 clk_40ns_cycles);
-static void ufs_qcom_parse_gear_limits(struct ufs_qcom_host *host);
+static void ufs_qcom_parse_limits(struct ufs_qcom_host *host);
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(struct ufs_hba *hba);
 
@@ -456,8 +456,9 @@ static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	int ret = 0;
-	bool is_rate_B = (UFS_QCOM_LIMIT_HS_RATE == PA_HS_MODE_B)
-							? true : false;
+	enum phy_mode mode = (host->limit_rate == PA_HS_MODE_B) ?
+					PHY_MODE_UFS_HS_B : PHY_MODE_UFS_HS_A;
+	int submode = host->limit_phy_submode;
 
 	/* Reset UFS Host Controller and PHY */
 	ret = ufs_qcom_host_reset(hba);
@@ -465,23 +466,10 @@ static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 		dev_warn(hba->dev, "%s: host reset returned %d\n",
 				  __func__, ret);
 
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-	/* Use Rate-A for Gear4 on non-simulation platforms */
-	if (hba->phy_init_g4) {
-		if (!host->limit_rate)
-			is_rate_B = false;
-		else
-			is_rate_B = true;
-	}
+	if (host->hw_ver.major < 0x4)
+		submode = UFS_QCOM_PHY_SUBMODE_NON_G4;
+	phy_set_mode_ext(phy, mode, submode);
 
-	phy_set_mode_ext(phy,
-			 is_rate_B ? PHY_MODE_UFS_HS_B : PHY_MODE_UFS_HS_A,
-			 hba->phy_init_g4);
-#else
-	if (is_rate_B)
-		phy_set_mode(phy, PHY_MODE_UFS_HS_B);
-
-#endif
 	/* phy initialization - calibrate the phy */
 	ret = phy_init(phy);
 	if (ret) {
@@ -1329,25 +1317,6 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 	}
 }
 
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-static inline void ufs_qcom_set_hs_rate(struct ufs_hba *hba,
-					struct ufs_qcom_dev_params *params)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	params->hs_rate = PA_HS_MODE_B;
-	if (hba->phy_init_g4) {
-		if (!host->limit_rate)
-			params->hs_rate = PA_HS_MODE_A;
-	}
-}
-#else
-static inline void ufs_qcom_set_hs_rate(struct ufs_hba *hba,
-					struct ufs_qcom_dev_params *params)
-{
-
-}
-#endif
 static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				enum ufs_notify_change_status status,
 				struct ufs_pa_layer_attr *dev_max_params,
@@ -1380,8 +1349,8 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		ufs_qcom_cap.rx_pwr_hs = UFS_QCOM_LIMIT_RX_PWR_HS;
 		ufs_qcom_cap.tx_pwr_hs = UFS_QCOM_LIMIT_TX_PWR_HS;
 
-		ufs_qcom_cap.hs_rate = UFS_QCOM_LIMIT_HS_RATE;
-		ufs_qcom_set_hs_rate(hba, &ufs_qcom_cap);
+		ufs_qcom_cap.hs_rate = host->limit_rate;
+
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
 
@@ -1397,6 +1366,11 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				ufs_qcom_cap.hs_tx_gear = UFS_HS_G2;
 			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G2)
 				ufs_qcom_cap.hs_rx_gear = UFS_HS_G2;
+		} else if (host->hw_ver.major < 0x4) {
+			if (ufs_qcom_cap.hs_tx_gear > UFS_HS_G3)
+				ufs_qcom_cap.hs_tx_gear = UFS_HS_G3;
+			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G3)
+				ufs_qcom_cap.hs_rx_gear = UFS_HS_G3;
 		}
 
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
@@ -2166,7 +2140,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (err)
 		goto out_set_load_vccq_parent;
 
-	ufs_qcom_parse_gear_limits(host);
+	ufs_qcom_parse_limits(host);
 	ufs_qcom_parse_lpm(host);
 	if (host->disable_lpm)
 		pm_runtime_forbid(host->hba->dev);
@@ -2674,12 +2648,11 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 }
 
 /*
- * ufs_qcom_parse_gear_limits - read from DTS if gears should be limited
+ * ufs_qcom_parse_limits - read limits from DTS
  */
-static void ufs_qcom_parse_gear_limits(struct ufs_qcom_host *host)
+static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 {
 	struct device_node *np = host->hba->dev->of_node;
-	int ret;
 
 	if (!np)
 		return;
@@ -2688,14 +2661,15 @@ static void ufs_qcom_parse_gear_limits(struct ufs_qcom_host *host)
 	host->limit_rx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_RX;
 	host->limit_tx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_TX;
 	host->limit_rx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_RX;
+	host->limit_rate = UFS_QCOM_LIMIT_HS_RATE;
+	host->limit_phy_submode = UFS_QCOM_LIMIT_PHY_SUBMODE;
 
 	of_property_read_u32(np, "limit-tx-hs-gear", &host->limit_tx_hs_gear);
 	of_property_read_u32(np, "limit-rx-hs-gear", &host->limit_rx_hs_gear);
 	of_property_read_u32(np, "limit-tx-pwm-gear", &host->limit_tx_pwm_gear);
 	of_property_read_u32(np, "limit-rx-pwm-gear", &host->limit_rx_pwm_gear);
-	ret = of_property_read_u32(np, "limit-rate", &host->limit_rate);
-	if (ret)
-		host->limit_rate = 0;
+	of_property_read_u32(np, "limit-rate", &host->limit_rate);
+	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
 }
 
 /*
