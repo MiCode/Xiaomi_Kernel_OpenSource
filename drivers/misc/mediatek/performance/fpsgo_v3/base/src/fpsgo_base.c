@@ -342,6 +342,24 @@ static void fpsgo_check_BQid_status(void)
 	}
 }
 
+void fpsgo_clear_llf_cpu_policy(int policy)
+{
+	struct rb_node *n;
+	struct render_info *iter;
+
+	fpsgo_render_tree_lock(__func__);
+
+	for (n = rb_first(&render_pid_tree); n; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, pid_node);
+
+		fpsgo_thread_lock(&iter->thr_mlock);
+		fpsgo_base2fbt_clear_llf_policy(iter, policy);
+		fpsgo_thread_unlock(&iter->thr_mlock);
+	}
+
+	fpsgo_render_tree_unlock(__func__);
+}
+
 static void fpsgo_clear_uclamp_boost_locked(int check)
 {
 	struct rb_node *n;
@@ -353,7 +371,7 @@ static void fpsgo_clear_uclamp_boost_locked(int check)
 		iter = rb_entry(n, struct render_info, pid_node);
 
 		fpsgo_thread_lock(&iter->thr_mlock);
-		fpsgo_fbt_set_min_cap(iter, 0, check);
+		fpsgo_base2fbt_set_min_cap(iter, 0, check);
 		fpsgo_thread_unlock(&iter->thr_mlock);
 	}
 }

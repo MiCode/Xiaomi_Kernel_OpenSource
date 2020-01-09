@@ -180,6 +180,7 @@ int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
 		unsigned long long *buffer_id, int *queue_SF, int enqueue);
 void fpsgo_main_trace(const char *fmt, ...);
 void fpsgo_clear_uclamp_boost(int check);
+void fpsgo_clear_llf_cpu_policy(int orig_llf);
 
 int init_fpsgo_common(void);
 
@@ -213,12 +214,6 @@ enum FPSGO_FORCE {
 	FPSGO_FORCE_OFF = 0,
 	FPSGO_FORCE_ON = 1,
 	FPSGO_FREE = 2,
-};
-
-enum FPSGO_BLACK_LIST {
-	NOT_ASKED = 0,
-	ASKED_IN = 1,
-	ASKED_OUT = 2,
 };
 
 enum FPSGO_BQID_ACT {
