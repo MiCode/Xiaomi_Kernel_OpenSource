@@ -321,7 +321,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[9] = {
 
 };
  /*VC1 for HDR(DT=0X35), VC2 for PDAF(DT=0X36), unit : 10bit */
-static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
+static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[7] = {
 	/* Preview mode setting */
 	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x0FA0, 0x0BB8, 0x00, 0x00, 0x00, 0x00,
@@ -337,7 +337,19 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
 	/* Slim_Video mode setting */
 	{0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	 0x00, 0x2b, 0x0FA0, 0x08d0, 0x00, 0x00, 0x0000, 0x0000,
-	 0x00, 0x34, 0x04D8, 0x0460, 0x00, 0x00, 0x0000, 0x0000}
+	 0x00, 0x34, 0x04D8, 0x0460, 0x00, 0x00, 0x0000, 0x0000},
+	 /*custom1 setting*/
+	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x0780, 0x0438, 0x00, 0x00, 0x00, 0x00,
+	 0x00, 0x34, 0x04D8, 0x05D0, 0x00, 0x00, 0x0000, 0x0000},
+	 /*custom3 setting*/
+	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x1770, 0x1f40, 0x00, 0x00, 0x00, 0x00,
+	 0x00, 0x34, 0x04D8, 0x05D0, 0x00, 0x00, 0x0000, 0x0000},
+	 /*custom4 setting*/
+	 {0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x0500, 0x02d0, 0x00, 0x00, 0x00, 0x00,
+	 0x00, 0x34, 0x0500, 0x05D0, 0x00, 0x00, 0x0000, 0x0000},
 };
 
 
@@ -4425,9 +4437,13 @@ break;
 #if DPHY_2LANE
 			/* no vc */
 			break;
+#else
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
 #endif
 		case MSDK_SCENARIO_ID_CUSTOM1:
-			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[4],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
@@ -4442,11 +4458,17 @@ break;
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[2],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
-		default:
-			#if 0
-			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
+		case MSDK_SCENARIO_ID_CUSTOM3:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[5],
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
-			#endif
+			break;
+		case MSDK_SCENARIO_ID_CUSTOM4:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[6],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		default:
+			pr_info("error: get wrong vc_INFO id = %d",
+			*feature_data_32);
 			break;
 		}
 	break;
