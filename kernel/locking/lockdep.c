@@ -180,7 +180,8 @@ static const char * const held_lock_white_list[] = {
 	"&f->f_pos_lock",
 	"&p->lock",
 	"&of->mutex",
-	"&epfile->mutex"
+	"&epfile->mutex",
+	"&session->notif_wait_lock"
 };
 
 #define lock_mon_enabled()	lock_mon_enable
