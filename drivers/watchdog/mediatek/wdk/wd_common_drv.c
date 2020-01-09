@@ -913,11 +913,11 @@ static void wdk_work_callback(struct work_struct *work)
 		}
 	}
 	mtk_wdt_restart(WD_TYPE_NORMAL);	/* for KICK external wdt */
-	cpu_hotplug_enable();
 
 #ifdef __ENABLE_WDT_AT_INIT__
 	start_kicker_thread_with_default_setting();
 #endif
+	cpu_hotplug_enable();
 
 	pr_info("[wdk]init_wk done late_initcall cpus_kick_bit=0x%x -----\n",
 		cpus_kick_bit);
