@@ -255,10 +255,12 @@ int Ripi_cpu_dvfs_thread(void *data)
 
 				previous_limit = p->idx_opp_ppm_limit;
 				previous_base = p->idx_opp_ppm_base;
-				p->idx_opp_ppm_limit =
+				if (num_log > 0) {
+					p->idx_opp_ppm_limit =
 	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].limit_idx);
-				p->idx_opp_ppm_base =
+					p->idx_opp_ppm_base =
 	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].base_idx);
+				}
 
 				if (p->idx_opp_ppm_base > 15 ||
 					p->idx_opp_ppm_base < 0)
