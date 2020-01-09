@@ -614,9 +614,12 @@ int tmc_read_prepare_etb(struct tmc_drvdata *drvdata)
 	}
 
 	/* Disable the TMC if need be */
-	if (drvdata->mode == CS_MODE_SYSFS)
+	if (drvdata->mode == CS_MODE_SYSFS) {
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		coresight_disable_all_source_link();
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 		__tmc_etb_disable_hw(drvdata);
-
+	}
 	drvdata->reading = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -646,6 +649,7 @@ int tmc_read_unprepare_etb(struct tmc_drvdata *drvdata)
 		}
 	}
 
+	drvdata->reading = false;
 	/* Re-enable the TMC if need be */
 	if (drvdata->mode == CS_MODE_SYSFS) {
 		/*
@@ -658,6 +662,9 @@ int tmc_read_unprepare_etb(struct tmc_drvdata *drvdata)
 		 */
 		memset(drvdata->buf, 0, drvdata->size);
 		__tmc_etb_enable_hw(drvdata);
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		coresight_enable_all_source_link();
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 	} else {
 		/*
 		 * The ETB/ETF is not tracing and the buffer was just read.
@@ -667,7 +674,6 @@ int tmc_read_unprepare_etb(struct tmc_drvdata *drvdata)
 		drvdata->buf = NULL;
 	}
 
-	drvdata->reading = false;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	/*

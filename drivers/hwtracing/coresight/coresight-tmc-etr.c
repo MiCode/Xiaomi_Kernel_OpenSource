@@ -2015,12 +2015,14 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		return 0;
 	}
 
+	coresight_disable_all_source_link();
 	tmc_disable_etr_sink(drvdata->csdev);
 	old_mode = drvdata->out_mode;
 	drvdata->out_mode = new_mode;
 	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
 		drvdata->out_mode = old_mode;
 		tmc_enable_etr_sink_sysfs(drvdata->csdev);
+		coresight_enable_all_source_link();
 		dev_err(&drvdata->csdev->dev,
 			"Switch to %s failed. Fall back to %s.\n",
 			str_tmc_etr_out_mode[new_mode],
@@ -2028,7 +2030,7 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		mutex_unlock(&drvdata->mem_lock);
 		return -EINVAL;
 	}
-
+	coresight_enable_all_source_link();
 	mutex_unlock(&drvdata->mem_lock);
 	return 0;
 }
@@ -2081,9 +2083,12 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	}
 
 	/* Disable the TMC if we are trying to read from a running session. */
-	if (drvdata->mode == CS_MODE_SYSFS)
+	if (drvdata->mode == CS_MODE_SYSFS) {
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		coresight_disable_all_source_link();
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 		__tmc_etr_disable_hw(drvdata);
-
+	}
 	drvdata->reading = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -2103,6 +2108,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
+	drvdata->reading = false;
 	/* RE-enable the TMC if need be */
 	if (drvdata->mode == CS_MODE_SYSFS) {
 		/*
@@ -2111,6 +2117,10 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 		 * be NULL.
 		 */
 		__tmc_etr_enable_hw(drvdata);
+
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		coresight_enable_all_source_link();
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 	} else {
 		/*
 		 * The ETR is not tracing and the buffer was just read.
@@ -2120,13 +2130,11 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 		drvdata->sysfs_buf = NULL;
 	}
 
-	drvdata->reading = false;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	/* Free allocated memory out side of the spinlock */
 	if (sysfs_buf)
 		tmc_etr_free_sysfs_buf(sysfs_buf);
-
 
 	mutex_unlock(&drvdata->mem_lock);
 	return 0;
