@@ -656,6 +656,9 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int ret = 0;
 	struct clk *clk_target = NULL;
+#if CCF_SET_RATE
+	int scaled_freq = freq * 1000;
+#endif
 	enum DVFS_FREQ ckmux_freq;
 	enum DVFS_FREQ_POSTDIV posdiv_power;
 	enum DVFS_FREQ_POSTDIV real_posdiv_power;
@@ -676,6 +679,9 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	else
 		parking = false;
 #endif
+#if CCF_SET_RATE
+	parking = true;
+#endif
 
 	LOG_DBG(
 		"posdiv: %d, real_posdiv: %d, dds: 0x%x, pll: 0x%08x, parking: %d\n",
@@ -693,8 +699,11 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 				__func__, domain, freq);
 			return -1;
 		}
+#if CCF_SET_RATE
+		ret |= clk_set_rate(clk_top_apupll_ck, scaled_freq);
+#else
 		DRV_WriteReg32(APUPLL_CON1, pll);
-
+#endif
 		/* PLL spec */
 		udelay(20);
 
@@ -726,6 +735,9 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	int ret = 0;
 	struct clk *clk_target = NULL;
+#if CCF_SET_RATE
+		int scaled_freq = freq * 1000;
+#endif
 	enum DVFS_FREQ ckmux_freq;
 	enum DVFS_FREQ_POSTDIV posdiv_power;
 	enum DVFS_FREQ_POSTDIV real_posdiv_power;
@@ -744,6 +756,9 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		parking = true;
 	else
 		parking = false;
+#endif
+#if CCF_SET_RATE
+	parking = true;
 #endif
 
 	LOG_DBG(
@@ -766,7 +781,11 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 				return -1;
 			}
 		}
+#if CCF_SET_RATE
+		ret |= clk_set_rate(clk_apmixed_npupll_rate, scaled_freq);
+#else
 		DRV_WriteReg32(NPUPLL_CON1, pll);
+#endif
 
 		/* PLL spec */
 		udelay(20);
@@ -817,7 +836,12 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp_freq = mt_get_ckgen_freq(13);
 	}
-#if 1  //TOP_MUX_DSP1/2/5
+
+#if CCF_SET_RATE // unit: HZ for clk_set_rate use case
+	dsp1_freq = clk_get_rate(clk_top_dsp1_npupll_sel);
+	dsp2_freq = clk_get_rate(clk_top_dsp2_npupll_sel);
+	dsp5_freq = clk_get_rate(clk_top_dsp5_apupll_sel);
+#else //TOP_MUX_DSP1/2/5
 	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp1_freq = mt_get_ckgen_freq(14);
 	if (dsp1_freq == 0) {
@@ -838,10 +862,6 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp5_freq = mt_get_ckgen_freq(16);
 	}
-#else // unit: HZ for clk_set_rate use case
-	dsp1_freq = clk_get_rate(clk_top_dsp1_npupll_sel);
-	dsp2_freq = clk_get_rate(clk_top_dsp2_npupll_sel);
-	dsp5_freq = clk_get_rate(clk_top_dsp5_apupll_sel);
 #endif
 
 #if 1
@@ -872,14 +892,14 @@ void dump_frequency(struct apu_power_info *info)
 		dump_div = info->dump_div;
 
 	info->dsp_freq = dsp_freq / dump_div;
-#if 1 //[Fix me] It's true after clk_set_parent to npupll/apupll
-	info->dsp1_freq = npupll_freq / dump_div;
-	info->dsp2_freq = npupll_freq / dump_div;
-	info->dsp5_freq = apupll_freq / (dump_div * 2);
-#else // unit: HZ for clk_set_rate use case
+#if CCF_SET_RATE // unit: HZ for clk_set_rate use case
 	info->dsp1_freq = dsp1_freq / (dump_div * 1000);
 	info->dsp2_freq = dsp2_freq / (dump_div * 1000);
 	info->dsp5_freq = dsp5_freq / (dump_div * 1000);
+#else //[Fix me] It's true after clk_set_parent to npupll/apupll
+	info->dsp1_freq = npupll_freq / dump_div;
+	info->dsp2_freq = npupll_freq / dump_div;
+	info->dsp5_freq = apupll_freq / (dump_div * 2);
 #endif
 	info->apupll_freq = apupll_freq / dump_div;
 	info->npupll_freq = npupll_freq / dump_div;

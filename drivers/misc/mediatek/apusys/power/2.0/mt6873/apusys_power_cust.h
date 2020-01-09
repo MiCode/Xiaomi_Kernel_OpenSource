@@ -46,6 +46,7 @@
 #define APUSYS_DEFAULT_OPP					(5)
 
 #define VOLTAGE_CHECKER		(0)
+#define CCF_SET_RATE		(0)
 
 // FIXME: check default value with APUSYS_DEFAULT_OPP
 #define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V

@@ -45,11 +45,13 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int vmdla = info->vmdla * info->dump_div;
 	int vsram = info->vsram * info->dump_div;
 
-#if 0
+#if 1
 	if (apusys_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
-		if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
-			dsp1_freq * ASSERTION_PERCENTAGE) {
+		if (((abs(dsp1_freq - info->dsp1_freq) * 100) >
+			dsp1_freq * ASSERTION_PERCENTAGE)  &&
+		    (dsp1_freq != BUCK_VVPU_DOMAIN_DEFAULT_FREQ/
+		    info->dump_div)) {
 			LOG_WRN("ASSERT dsp1_freq=%d, info->dsp1_freq=%d\n",
 						dsp1_freq, info->dsp1_freq);
 		}
@@ -57,8 +59,10 @@ void apu_power_assert_check(struct apu_power_info *info)
 
 	if (apusys_get_power_on_status(VPU1) == true && info->dsp2_freq != 0) {
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
-		if ((abs(dsp2_freq - info->dsp2_freq) * 100) >
-			dsp2_freq * ASSERTION_PERCENTAGE) {
+		if (((abs(dsp2_freq - info->dsp2_freq) * 100) >
+			dsp2_freq * ASSERTION_PERCENTAGE) &&
+			(dsp2_freq != BUCK_VVPU_DOMAIN_DEFAULT_FREQ/
+			info->dump_div)) {
 			LOG_WRN("ASSERT dsp2_freq=%d, info->dsp2_freq=%d\n",
 						dsp2_freq, info->dsp2_freq);
 		}
@@ -70,8 +74,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 		info->dsp2_freq != 0)) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
-		if ((dsp1_freq == dsp2_freq) &&
-			((abs(dsp1_freq - info->dsp1_freq) * 100) >
+		if (((abs(dsp1_freq - info->dsp1_freq) * 100) >
 			dsp1_freq * ASSERTION_PERCENTAGE)  &&
 		    ((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE)) {
@@ -86,7 +89,9 @@ void apu_power_assert_check(struct apu_power_info *info)
 	if (apusys_get_power_on_status(MDLA0) == true && info->dsp5_freq != 0) {
 		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
 		if ((abs(dsp5_freq - info->dsp5_freq) * 100) >
-			dsp5_freq * ASSERTION_PERCENTAGE) {
+			dsp5_freq * ASSERTION_PERCENTAGE &&
+			(dsp5_freq != BUCK_VMDLA_DOMAIN_DEFAULT_FREQ/
+			info->dump_div)) {
 			LOG_WRN("ASSERT dsp5=%d, info->dsp5_freq=%d\n",
 					dsp5_freq, info->dsp5_freq);
 		}
