@@ -230,9 +230,6 @@ int dcm_mcusys(int on)
 	dcm_cpccfg_reg_emi_wfifo(on);
 	dcm_mp_cpusys_top_last_cor_idle_dcm(on);
 
-	dcm_dramc_ch0_top0_ddrphy(on);
-	dcm_dramc_ch1_top0_ddrphy(on);
-
 	return 0;
 }
 
