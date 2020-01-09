@@ -40,18 +40,15 @@ enum spmi_regs {
 
 /* pmif debug API declaration */
 extern void spmi_dump_wdt_reg(void);
-extern void spmi_dump_spmimst_all_reg(void);
 extern void spmi_dump_pmif_acc_vio_reg(void);
 extern void spmi_dump_pmic_acc_vio_reg(void);
-extern void spmi_dump_pmif_reg(void);
-extern void spmi_dump_pmif_record_reg(void);
-extern void spmi_dump_pmif_swinf_reg(void);
 extern void spmi_dump_pmif_busy_reg(void);
+extern void spmi_dump_pmif_swinf_reg(void);
+extern void spmi_dump_pmif_all_reg(void);
+extern void spmi_dump_pmif_record_reg(void);
 /* spmi debug API declaration */
-extern void spmi_dump_spmimst_reg(void);
-extern void spmi_dump_spmimst_record_reg(struct pmif *arb);
+extern void spmi_dump_spmimst_all_reg(void);
 /* pmic debug API declaration */
-extern void spmi_dump_slv_record_reg(u8 sid);
 extern int spmi_pmif_create_attr(struct device_driver *driver);
 extern int spmi_pmif_dbg_init(struct spmi_controller *ctrl);
 #endif /*__SPMI_SW_H__*/
