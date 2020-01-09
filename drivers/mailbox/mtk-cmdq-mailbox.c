@@ -1488,6 +1488,21 @@ static const struct mbox_chan_ops cmdq_mbox_chan_ops = {
 	.last_tx_done = cmdq_mbox_last_tx_done,
 };
 
+u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms)
+{
+	u32 backup = thread->timeout_ms;
+
+	thread->timeout_ms = ms;
+	return backup;
+}
+EXPORT_SYMBOL(cmdq_thread_timeout_backup);
+
+void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms)
+{
+	thread->timeout_ms = ms;
+}
+EXPORT_SYMBOL(cmdq_thread_timeout_restore);
+
 static struct mbox_chan *cmdq_xlate(struct mbox_controller *mbox,
 		const struct of_phandle_args *sp)
 {

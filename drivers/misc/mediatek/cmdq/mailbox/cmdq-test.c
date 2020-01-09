@@ -18,6 +18,7 @@
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
+#include "../../mdp/cmdq_helper_ext.h"
 
 #define CMDQ_THR_SPR3(base, id)		((base) + (0x80 * (id)) + 0x16c)
 #define CMDQ_GPR_R32(base, id)		((base) + (0x4 * (id)) + 0x80)
@@ -829,13 +830,16 @@ static void cmdq_test_mbox_stop(struct cmdq_test *test)
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
+	struct cmdq_thread	*thread =
+		(struct cmdq_thread *)test->loop->chan->con_priv;
+	s32 backup = cmdq_thread_timeout_backup(thread, CMDQ_NO_TIMEOUT);
+
 #ifndef CMDQ_SECURE_SUPPORT
 	if (sec) {
 		cmdq_err("CMDQ_SECURE not support");
 		return;
 	}
 #endif
-
 	switch (id) {
 	case 0:
 		cmdq_test_mbox_write(test, sec, false);
@@ -843,7 +847,6 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_flush(test, sec, false);
 		cmdq_test_mbox_flush(test, sec, true);
 		cmdq_test_mbox_polling(test, sec, false, false);
-		cmdq_test_mbox_polling(test, sec, true, false);
 		cmdq_test_mbox_dma_access(test, sec);
 		cmdq_test_mbox_gpr_sleep(test, false);
 		cmdq_test_mbox_gpr_sleep(test, true);
@@ -903,6 +906,7 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	default:
 		break;
 	}
+	cmdq_thread_timeout_restore(thread, backup);
 }
 
 #define MAX_SCAN 30
@@ -936,6 +940,18 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 static const struct file_operations cmdq_test_fops = {
 	.write = cmdq_test_write,
 };
+
+static s32 cmdq_test_client_get(struct cmdq_client **clt, const u32 end_idx)
+{
+	struct cmdq_client *mdp = NULL;
+	s32 i;
+
+	for (i = end_idx; i >= 0 && !mdp; i--)
+		mdp = cmdq_helper_mbox_client(i);
+	if (mdp)
+		*clt = mdp;
+	return i;
+}
 
 static int cmdq_test_probe(struct platform_device *pdev)
 {
@@ -1024,22 +1040,26 @@ static int cmdq_test_probe(struct platform_device *pdev)
 
 	// clt
 	test->clt = cmdq_mbox_create(&pdev->dev, 0);
-	if (IS_ERR(test->clt)) {
-		cmdq_err("cmdq_mbox_create failed:%ld", PTR_ERR(test->clt));
-		return PTR_ERR(test->clt);
+	if (IS_ERR(test->clt) || !test->clt) {
+		ret = cmdq_test_client_get(
+			&test->clt, CMDQ_MAX_THREAD_COUNT - 1);
+		if (!test->clt)
+			return -ENXIO;
 	}
 
 	test->loop = cmdq_mbox_create(&pdev->dev, 1);
-	if (IS_ERR(test->loop)) {
-		cmdq_err("cmdq_mbox_create failed:%ld", PTR_ERR(test->loop));
-		return PTR_ERR(test->loop);
+	if (IS_ERR(test->loop) || !test->loop) {
+		ret = cmdq_test_client_get(&test->loop, ret);
+		if (!test->loop)
+			return -ENXIO;
 	}
 
 #ifdef CMDQ_SECURE_SUPPORT
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
-	if (IS_ERR(test->sec)) {
-		cmdq_err("cmdq_mbox_create failed:%ld", PTR_ERR(test->sec));
-		return PTR_ERR(test->sec);
+	if (IS_ERR(test->sec) || !test->sec) {
+		ret = cmdq_test_client_get(&test->sec, 10);
+		if (!test->sec)
+			return -ENXIO;
 	}
 #endif
 	cmdq_msg("%s test:%p dev:%p clt:%p loop:%p sec:%p",
