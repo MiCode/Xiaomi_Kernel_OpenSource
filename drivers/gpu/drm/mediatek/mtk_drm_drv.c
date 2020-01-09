@@ -1652,8 +1652,8 @@ int mtk_drm_primary_get_info(struct drm_device *dev,
 			     struct drm_mtk_session_info *info)
 {
 	int ret = 0;
-	unsigned int vramsize, fps;
-	phys_addr_t fb_base;
+	unsigned int vramsize = 0, fps = 0;
+	phys_addr_t fb_base = 0;
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_panel_params *params =
 		mtk_drm_get_lcm_ext_params(private->crtc[0]);

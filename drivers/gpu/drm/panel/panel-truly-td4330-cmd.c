@@ -579,13 +579,15 @@ static int panel_ata_check(struct drm_panel *panel)
 {
 	struct lcm *ctx = panel_to_lcm(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	unsigned char data[3];
+	unsigned char data[3] = {0x00, 0x00, 0x00};
 	unsigned char id[3] = {0x00, 0x00, 0x00};
 	ssize_t ret;
 
 	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("%s error\n", __func__);
+		return 0;
+	}
 
 	DDPINFO("ATA read data %x %x %x\n", data[0], data[1], data[2]);
 

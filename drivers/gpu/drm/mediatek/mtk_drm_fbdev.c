@@ -243,10 +243,10 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct fb_info *info;
 	struct drm_framebuffer *fb;
-	unsigned int bytes_per_pixel, vramsize, fps;
+	unsigned int bytes_per_pixel, vramsize = 0, fps = 0;
 	size_t size;
 	int err;
-	phys_addr_t fb_base;
+	phys_addr_t fb_base = 0;
 
 	DDPMSG("%s+\n", __func__);
 	bytes_per_pixel = DIV_ROUND_UP(sizes->surface_bpp, 8);
