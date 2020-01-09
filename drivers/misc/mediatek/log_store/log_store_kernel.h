@@ -104,6 +104,9 @@ struct log_emmc_header {
 void log_store_bootup(void);
 void store_log_to_emmc_enable(bool value);
 void disable_early_log(void);
+#ifdef CONFIG_LONG_POWERKEY_LOG_STORE
+void log_store_to_emmc(void);
+#endif
 int set_emmc_config(int type, int value);
 int read_emmc_config(struct log_emmc_header *log_header);
 #else
@@ -119,6 +122,10 @@ static inline void store_log_to_emmc_enable(bool value)
 }
 
 static inline void disable_early_log(void)
+{
+}
+
+static inline void log_store_to_emmc(void)
 {
 }
 

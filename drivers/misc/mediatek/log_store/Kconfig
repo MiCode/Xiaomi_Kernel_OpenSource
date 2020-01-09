@@ -26,3 +26,12 @@ config MTK_DRAM_LOG_STORE_SIZE
 	  the default value is 1K.
 	  should equal with preloader and lk setting.
 	  need discussion with ramconsole owner.
+
+config LONG_POWERKEY_LOG_STORE
+	bool "long power key log store"
+	default n
+	help
+	  In some case, device will hang and can't respond to
+	  any key, we will long press power key(more than 10 second)
+	  to reboot device. In this case, we will store the log.
+	  The default value is disable.

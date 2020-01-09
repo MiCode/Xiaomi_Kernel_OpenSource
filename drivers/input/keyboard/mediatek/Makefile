@@ -19,6 +19,7 @@ endif
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_KPD_PLATFORM)/include/
 subdir-ccflags-y += -I$(srctree)/drivers/input/keyboard/mediatek/$(MTK_KPD_PLATFORM)/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/log_store/
 obj-$(CONFIG_KEYBOARD_MTK) := kpd.o
 obj-y += $(subst ",,$(MTK_KPD_PLATFORM))/
 

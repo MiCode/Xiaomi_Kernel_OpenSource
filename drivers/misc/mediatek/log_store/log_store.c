@@ -27,6 +27,7 @@
 #include <linux/syscalls.h>
 #include <asm/memory.h>
 #include <linux/of_fdt.h>
+#include <linux/kmsg_dump.h>
 
 #include "log_store_kernel.h"
 
@@ -41,6 +42,7 @@ static bool early_log_disable;
 #define EXPDB_PATH "/dev/block/platform/bootdevice/by-name/expdb"
 
 #define LOG_BLOCK_SIZE (512)
+#define EXPDB_LOG_SIZE (2*1024*1024)
 
 #ifdef CONFIG_MTK_DRAM_LOG_STORE
 /* set the flag whether store log to emmc in next boot phase in pl */
@@ -71,6 +73,58 @@ void log_store_bootup(void)
 	/* Boot up finish, don't save log to emmc in next boot.*/
 	store_log_to_emmc_enable(false);
 }
+
+#ifdef CONFIG_LONG_POWERKEY_LOG_STORE
+void log_store_to_emmc(void)
+{
+	int fd;
+	mm_segment_t fs;
+	char buff[LOG_BLOCK_SIZE];
+	struct log_emmc_header pEmmc;
+	struct kmsg_dumper dumper = { .active = true };
+	size_t len = 0;
+	int file_size, size = 0;
+
+	fs = get_fs();
+	set_fs(get_ds());
+
+	fd = sys_open(EXPDB_PATH, O_RDWR, 0);
+	if (fd < 0) {
+		pr_notice("log_store can't open expdb file: %d.\n", fd);
+		set_fs(fs);
+		return;
+	}
+
+	file_size  = sys_lseek(fd, 0, SEEK_END);
+	sys_lseek(fd, file_size - LOG_BLOCK_SIZE, 0);
+	sys_read(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
+	if (pEmmc.sig != LOG_EMMC_SIG) {
+		pr_notice("log_store emmc header error, format it.\n");
+		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
+	}
+
+	kmsg_dump_rewind_nolock(&dumper);
+	memset(buff, 0, LOG_BLOCK_SIZE);
+	while (kmsg_dump_get_line_nolock(&dumper, true, buff,
+					 LOG_BLOCK_SIZE, &len)) {
+		if (pEmmc.offset + len + LOG_BLOCK_SIZE > EXPDB_LOG_SIZE)
+			pEmmc.offset = 0;
+		sys_lseek(fd, file_size - EXPDB_LOG_SIZE + pEmmc.offset, 0);
+		size = sys_write(fd, buff, len);
+		if (size < 0)
+			pr_notice_once("write expdb failed:%d.\n", size);
+		else
+			pEmmc.offset += size;
+		memset(buff, 0, LOG_BLOCK_SIZE);
+	}
+
+	sys_lseek(fd, file_size - LOG_BLOCK_SIZE, 0);
+	sys_write(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
+	sys_close(fd);
+	set_fs(fs);
+	pr_notice("log_store write expdb done!\n");
+}
+#endif
 
 int set_emmc_config(int type, int value)
 {
