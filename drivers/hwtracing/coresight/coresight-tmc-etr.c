@@ -1194,6 +1194,7 @@ static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
 
 	CS_LOCK(drvdata->base);
 
+	msm_qdss_csr_enable_flush(drvdata->csr);
 	drvdata->enable_to_bam = true;
 }
 
