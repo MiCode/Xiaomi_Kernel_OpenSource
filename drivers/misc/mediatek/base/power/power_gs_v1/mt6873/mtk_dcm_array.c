@@ -315,7 +315,7 @@ const unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_data[] = {
 const unsigned int *AP_DCM_Golden_Setting_tcl_gs_suspend =
 		AP_DCM_Golden_Setting_tcl_gs_suspend_data;
 
-unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_len = 318;
+unsigned int AP_DCM_Golden_Setting_tcl_gs_suspend_len = 309;
 
 const unsigned int AP_DCM_Golden_Setting_tcl_gs_sodi_data[] = {
 /*	Address		Mask		Golden Setting Value */
