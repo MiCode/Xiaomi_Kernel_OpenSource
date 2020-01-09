@@ -729,7 +729,7 @@ static void start_devapc(void)
 				i = index - 1;
 			}
 
-			mask_module_irq(slave_type, i, false);
+			mask_module_irq(slave_type, vio_idx, false);
 		}
 	}
 
