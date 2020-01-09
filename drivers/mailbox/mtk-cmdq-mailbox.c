@@ -956,18 +956,15 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	cmdq_thread_irq_handler(cmdq, thread, &removes);
 
 	if (list_empty(&thread->task_busy_list)) {
-		cmdq_thread_resume(thread);
-		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		cmdq_err("thread:%u empty after irq handle in timeout",
 			thread->idx);
-		return;
+		goto unlock_free_done;
 	}
 
 	/* After IRQ, first task may change. */
 	if (!cmdq_thread_timeout_excceed(thread)) {
 		cmdq_thread_resume(thread);
-		spin_unlock_irqrestore(&thread->chan->lock, flags);
-		return;
+		goto unlock_free_done;
 	}
 
 	cmdq_err("timeout for thread:0x%p idx:%u usage:%d",
@@ -1033,6 +1030,8 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 		cmdq_thread_disable(cmdq, thread);
 		cmdq_clk_disable(cmdq);
 	}
+
+unlock_free_done:
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
