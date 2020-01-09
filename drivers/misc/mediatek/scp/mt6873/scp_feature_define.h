@@ -20,7 +20,7 @@
 #define SCP_RESERVED_MEM                 (1)
 #define SCP_LOGGER_ENABLE                (1)
 #define SCP_DVFS_INIT_ENABLE             (1)
-#define SCP_VOW_LOW_POWER_MODE           (0)
+#define SCP_VOW_LOW_POWER_MODE           (1)
 
 
 /* scp rescovery feature option*/
@@ -55,6 +55,9 @@ enum feature_id {
 	VCORE_TEST_FEATURE_ID,
 	VOW_BARGEIN_FEATURE_ID,
 	VOW_DUMP_FEATURE_ID,
+	VOW_VENDOR_M_FEATURE_ID,
+	VOW_VENDOR_A_FEATURE_ID,
+	VOW_VENDOR_G_FEATURE_ID,
 	NUM_FEATURE_ID,
 };
 
