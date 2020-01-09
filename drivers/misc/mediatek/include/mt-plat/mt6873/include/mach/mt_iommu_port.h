@@ -570,57 +570,40 @@ struct mtk_iommu_port iommu_port[] = {
 };
 
 /* APU_IOMMU AXI_ID */
-#define TF_MDLA0_AXI0		(0x0)
-#define TF_MDLA0_AXI1		(0x1)
-#define TF_MDLA1_AXI0		(0x2)
-#define TF_MDLA1_AXI1		(0x3)
-#define TF_MDLA2_AXI0		(0x4)
-#define TF_MDLA2_AXI1		(0x5)
-#define TF_VP6_0		(0x6)
-#define TF_VP6_1		(0x7)
-#define TF_VP6_2		(0x8)
-#define TF_UP			(0x9)
-#define TF_EDMA0		(0xA)
-#define TF_EDMA1		(0xB)
-#define TF_EDMA2		(0xC)
-#define TF_EXTERNAL		(0xD)
+#define TF_VP6_0		(0x0)
+#define TF_VP6_1		(0x1)
+#define TF_UP			(0x2)
+#define TF_RESERVED		(0x3)
+#define TF_XPU			(0x4)
+#define TF_EDMA			(0x5)
+#define TF_MDLA0		(0x6)
+#define TF_MDLA1		(0x7)
 
-#define MSK_MDLA0_AXI0		F_MSK(10, 7)
-#define MSK_MDLA0_AXI1		F_MSK(10, 7)
-#define MSK_MDLA1_AXI0		F_MSK(10, 7)
-#define MSK_MDLA1_AXI1		F_MSK(10, 7)
-#define MSK_MDLA2_AXI0		F_MSK(10, 7)
-#define MSK_MDLA2_AXI1		F_MSK(10, 7)
 #define MSK_VP6_0		F_MSK(10, 7)
 #define MSK_VP6_1		F_MSK(10, 7)
-#define MSK_VP6_2		F_MSK(10, 7)
 #define MSK_UP			F_MSK(10, 7)
-#define MSK_EDMA0		F_MSK(10, 7)
-#define MSK_EDMA1		F_MSK(10, 7)
-#define MSK_EDMA2		F_MSK(10, 7)
-#define MSK_EXTERNAL		F_MSK(10, 7)
+#define MSK_RESERVED		F_MSK(10, 7)
+#define MSK_XPU			F_MSK(10, 7)
+#define MSK_EDMA		F_MSK(10, 7)
+#define MSK_MDLA0		F_MSK(10, 7)
+#define MSK_MDLA1		F_MSK(10, 7)
 
-#define IOMMU_APU_AXI_PORT_NR	(14)
+
+#define IOMMU_APU_AXI_PORT_NR	(8)
 
 static uint32_t vpu_axi_bus_id[IOMMU_APU_AXI_PORT_NR] = {
-	TF_MDLA0_AXI0, TF_MDLA0_AXI1, TF_MDLA1_AXI0, TF_MDLA1_AXI1,
-	TF_MDLA2_AXI0, TF_MDLA2_AXI1, TF_VP6_0, TF_VP6_1,
-	TF_VP6_2, TF_UP, TF_EDMA0, TF_EDMA1,
-	TF_EDMA2, TF_EXTERNAL};
+	TF_VP6_0, TF_VP6_1, TF_UP, TF_RESERVED,
+	TF_XPU, TF_EDMA, TF_MDLA0, TF_MDLA1};
 
 static uint32_t vpu_axi_bus_mask[IOMMU_APU_AXI_PORT_NR] = {
-	MSK_MDLA0_AXI0, MSK_MDLA0_AXI1, MSK_MDLA1_AXI0,
-	MSK_MDLA1_AXI1, MSK_MDLA2_AXI0, MSK_MDLA2_AXI1,
-	MSK_VP6_0, MSK_VP6_1, MSK_VP6_2,
-	MSK_UP, MSK_EDMA0, MSK_EDMA1,
-	MSK_EDMA2, MSK_EXTERNAL};
+	MSK_VP6_0, MSK_VP6_1, MSK_UP,
+	MSK_RESERVED, MSK_XPU, MSK_EDMA,
+	MSK_MDLA0, MSK_MDLA1};
 
 static char *vpu_axi_bus_name[IOMMU_APU_AXI_PORT_NR] = {
-	"APU_MDLA0_AXI0", "APU_MDLA0_AXI1", "APU_MDLA1_AXI0",
-	"MDLA1_AXI1", "APU_MDLA2_AXI0", "APU_MDLA2_AXI1",
-	"APU_VP6_0", "APU_VP6_1", "APU_VP6_2",
-	"APU_UP", "APU_EDMA0", "APU_EDMA1",
-	"APU_EDMA2", "APU_EXTERNAL"};
+	"APU_VP6_0", "APU_VP6_1", "APU_UP",
+	"APU_RESERVED", "APU_XPU", "APU_EDMA",
+	"APU_MDLA0", "APU_MDLA1"};
 
 #ifndef M4U_PORT_NR
 #define M4U_PORT_NR (222)
