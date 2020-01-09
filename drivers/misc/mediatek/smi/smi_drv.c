@@ -119,7 +119,7 @@ struct smi_dram_t {
 	s32		ackdata;
 };
 
-#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 struct smi_cmdq_t {
 	struct device		*dev;
 	void __iomem		*base;
@@ -698,7 +698,7 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 }
 EXPORT_SYMBOL_GPL(smi_debug_bus_hang_detect);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 static void smi_common_assert_cb(struct cmdq_cb_data data)
 {
 	unsigned long nsec;
@@ -720,7 +720,7 @@ static inline void smi_larb_port_set(const struct mtk_smi_dev *smi)
 
 	if (!smi || !smi->dev)
 		return;
-#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 	if (smi->id == SMI_LARB_NUM)
 		cmdq_pkt_flush_threaded(
 			smi_cmdq.pkt, smi_common_assert_cb, NULL);
@@ -987,7 +987,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
-#elif IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
+#elif IS_ENABLED(CONFIG_MACH_MT6873)
 			if (i == SMI_LARB_NUM)
 				cmdq_mbox_stop(smi_cmdq.clt);
 #endif
@@ -1092,7 +1092,7 @@ s32 smi_register(void)
 	SMIWRN(0, "MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
 	of_node_put(of_node);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 	smi_cmdq.dev = smi_dev[SMI_LARB_NUM]->dev;
 	smi_cmdq.base = smi_dev[SMI_LARB_NUM]->base;
 	if (of_address_to_resource(smi_cmdq.dev->of_node, 0, &res))
