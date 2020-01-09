@@ -93,10 +93,12 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 	unsigned int val = (cfg->w << 16) | (cfg->h);
 
 	DDPINFO("%s: 0x%08x\n", __func__, val);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
+			0, 1);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_SIZE,
-		       val, ~0);
+			val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DMDP_AAL_OUTPUT_SIZE, val, ~0);
+			comp->regs_pa + DMDP_AAL_OUTPUT_SIZE, val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -105,6 +107,16 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 			comp->regs_pa + DMDP_AAL_Y2R_00, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_R2Y_00, 0, ~0);
+}
+
+void mtk_dmdp_aal_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	DDPINFO("%s\n", __func__);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
+			0x00400022, ~0);
+	mtk_dmdp_aal_config(comp, cfg, handle);
+	mtk_dmdp_aal_start(comp, handle);
 }
 
 static atomic_t g_aal_initialed = ATOMIC_INIT(0);
@@ -252,20 +264,21 @@ static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)
 
 static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 {
-	DDPINFO("%s\n", __func__);
+	pr_notice("%s\n", __func__);
 	mtk_ddp_comp_clk_prepare(comp);
 	mtk_dmdp_aal_restore(comp);
 }
 
 static void mtk_dmdp_aal_unprepare(struct mtk_ddp_comp *comp)
 {
-	DDPINFO("%s\n", __func__);
+	pr_notice("%s\n", __func__);
 	mtk_dmdp_aal_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
 static const struct mtk_ddp_comp_funcs mtk_dmdp_aal_funcs = {
 	.config = mtk_dmdp_aal_config,
+	.first_cfg = mtk_dmdp_aal_first_cfg,
 	.start = mtk_dmdp_aal_start,
 	.stop = mtk_dmdp_aal_stop,
 	.bypass = mtk_dmdp_aal_bypass,
@@ -311,7 +324,9 @@ void mtk_dmdp_aal_dump(struct mtk_ddp_comp *comp)
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x30, 0x4D8);
-	mtk_cust_dump_reg(baddr, 0x24, 0x28, -1, -1);
+	mtk_cust_dump_reg(baddr, 0x200, 0xf4, 0xf8, 0x468);
+	mtk_cust_dump_reg(baddr, 0x46c, 0x470, 0x474, 0x478);
+	mtk_cust_dump_reg(baddr, 0x4ec, 0x4f0, 0x528, 0x52c);
 }
 
 static int mtk_dmdp_aal_probe(struct platform_device *pdev)
