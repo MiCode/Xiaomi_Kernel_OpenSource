@@ -518,6 +518,7 @@ static int detect_count =
 	CONFIG_LOG_TOO_MUCH_DETECT_COUNT;
 static bool detect_count_change; /* detect_count change flag*/
 #define DETECT_COUNT_MIN 100
+#define DETECT_COUNT_MAX 350
 
 #define DETECT_TIME 1000000000ULL /* 1s = 1000000000ns */
 #define DELAY_TIME	(CONFIG_LOG_TOO_MUCH_DETECT_GAP*DETECT_TIME*60)
@@ -539,15 +540,14 @@ static void log_much_do_check_and_delay(struct printk_log *msg);
 void set_detect_count(int count)
 {
 #if defined(CONFIG_MTK_ENG_BUILD) && defined(CONFIG_LOG_TOO_MUCH_WARNING)
-	if (count >= detect_count)
-		detect_count = count;
-	else {
-		if (count < DETECT_COUNT_MIN)
-			detect_count = DETECT_COUNT_MIN;
-		else
-			detect_count = count;
+	if (count < detect_count)
 		detect_count_change = true;
-	}
+	if (count < DETECT_COUNT_MIN)
+		detect_count = DETECT_COUNT_MIN;
+	else if (count > DETECT_COUNT_MAX)
+		detect_count = DETECT_COUNT_MAX;
+	else
+		detect_count = count;
 	pr_info("Printk too much criteria: %d  delay_flag: %d\n",
 		detect_count, detect_count_change);
 #endif
