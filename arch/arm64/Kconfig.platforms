@@ -493,6 +493,9 @@ config MACH_MT6873
 	select MTK_GIC_V3_EXT
 	select MTK_DBGTOP
 	select MTK_SYSTRACKER_V2
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
