@@ -1787,7 +1787,7 @@ static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
 	g_aal_backup.DRE_MAPPING =
 		readl(comp->regs + DISP_AAL_DRE_MAPPING_00);
 
-	for (i = 0; i < DRE_FLT_NUM; i++)
+	for (i = 0; i <= DRE_FLT_NUM; i++)
 		g_aal_backup.DRE_FLT_FORCE[i] =
 			readl(comp->regs + DISP_AAL_DRE_FLT_FORCE(i));
 
@@ -1865,7 +1865,7 @@ static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
 	writel(g_aal_backup.DRE_MAPPING,
 		comp->regs + DISP_AAL_DRE_MAPPING_00);
 
-	for (i = 0; i < DRE_FLT_NUM; i++)
+	for (i = 0; i <= DRE_FLT_NUM; i++)
 		writel(g_aal_backup.DRE_FLT_FORCE[i],
 			comp->regs + DISP_AAL_DRE_FLT_FORCE(i));
 }
