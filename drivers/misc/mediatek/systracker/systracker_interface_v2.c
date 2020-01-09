@@ -334,7 +334,7 @@ static int systracker_watchpoint_enable_default(void)
 	track_config.enable_wp = 1;
 
 	writel(track_config.wp_phy_address, IOMEM(BUS_DBG_WP));
-	writel(0x00000000, IOMEM(BUS_DBG_WP_MASK));
+	writel(track_config.wp_phy_mask, IOMEM(BUS_DBG_WP_MASK));
 
 	con = readl(IOMEM(BUS_DBG_CON_INFRA)) | BUS_DBG_CON_WP_EN;
 	writel(con, IOMEM(BUS_DBG_CON_INFRA));
@@ -474,7 +474,7 @@ void systracker_enable_default(void)
 		con |= BUS_DBG_CON_TIMEOUT_EN;
 
 	if (track_config.enable_slave_err)
-		con |= BUS_DBG_CON_SLV_ERR_EN;
+		con |= (BUS_DBG_CON_SLV_ERR_EN | BUS_DBG_CON_WSLV_ERR_EN);
 
 	if (track_config.enable_irq) {
 		con |= BUS_DBG_CON_IRQ_EN;
@@ -773,6 +773,13 @@ int systracker_set_watchpoint_addr(unsigned int addr)
 	return 0;
 }
 
+int systracker_set_watchpoint_mask(unsigned int mask)
+{
+	track_config.wp_phy_mask = mask;
+
+	return 0;
+}
+
 static ssize_t set_wp_address_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
@@ -782,6 +789,7 @@ static ssize_t set_wp_address_store
 	ret = kstrtou32(buf, 16, &value);
 	pr_debug("watch address:0x%x, ret = %d\n", value, ret);
 	systracker_set_watchpoint_addr(value);
+	systracker_set_watchpoint_mask(0);
 
 	return count;
 }

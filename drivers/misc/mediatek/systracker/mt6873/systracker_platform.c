@@ -197,11 +197,11 @@ void __iomem *wp_ptr;
 
 static int systracker_platform_test_init(void)
 {
-	p1_set = ioremap(0x100012A0, 0x4);
-	p1_clr = ioremap(0x100012A4, 0x4);
+	p1_set = ioremap(0x10001250, 0x4);
+	p1_clr = ioremap(0x10001e98, 0x4);
 
 	/* use mmsys reg base for our test */
-	mm_area1 = ioremap(0x14000000, 0x4);
+	mm_area1 = ioremap(0x13000000, 0x4);
 
 	/* use EMI CONA for our test */
 	wp_ptr = ioremap(0x10219000, 0x4);
@@ -221,6 +221,7 @@ static void systracker_platform_wp_test(void)
 	pr_info("%s:%d: we use ptr = 0x%p\n", __func__, __LINE__, wp_ptr);
 
 	systracker_set_watchpoint_addr(0x10219000);
+	systracker_set_watchpoint_mask(0x7fff);
 	systracker_watchpoint_enable();
 
 	/* touch it */
@@ -236,14 +237,17 @@ static void systracker_platform_read_timeout_test(void)
 	 * systracker_enable();
 	 */
 
-	writel(0x1 << 6, p1_set);
-
+	writel(readl(p1_set) | (0x1 << 21), p1_set);
+	writel(readl(p1_clr) & ~(0x1 << 11), p1_clr);
 	readl(mm_area1);
-	writel(0x1 << 6, p1_clr);
 }
 
 static void systracker_platform_write_timeout_test(void)
 {
+	writel(readl(p1_set) | (0x1 << 21), p1_set);
+	writel(readl(p1_clr) & ~(0x1 << 11), p1_clr);
+	writel(0x1, mm_area1);
+
 	writel(0x1 << 6, p1_set);
 
 	writel(0x0, mm_area1);
