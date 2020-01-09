@@ -5437,7 +5437,6 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
 	struct mtk_panel_ext *ext = mtk_crtc->panel_ext;
-	struct cmdq_pkt *cmdq_handle;
 
 	if (mtk_crtc->mipi_hopping_sta == en)
 		return 0;
@@ -5452,8 +5451,6 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
 
 	mtk_crtc->mipi_hopping_sta = en;
 
-	if (!mtk_crtc->enabled)
-		goto done;
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (!comp) {
@@ -5462,16 +5459,9 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
 		return -EINVAL;
 	}
 
-	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
 	mtk_ddp_comp_io_cmd(comp,
-			cmdq_handle, MIPI_HOPPING, &en);
+			NULL, MIPI_HOPPING, &en);
 
-	cmdq_pkt_flush(cmdq_handle);
-	cmdq_pkt_destroy(cmdq_handle);
-
-done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
@@ -5483,7 +5473,6 @@ int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
 	struct mtk_panel_ext *ext = mtk_crtc->panel_ext;
-	struct cmdq_pkt *cmdq_handle;
 
 	if (mtk_crtc->panel_osc_hopping_sta == en)
 		return 0;
@@ -5507,18 +5496,12 @@ int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
 		return -EINVAL;
 	}
 
-	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
 	/* Following section is for customization */
 	/* Start */
 	/* e.g. lmtk_ddp_comp_io_cmd(comp,
-	 *	cmdq_handle, PANEL_OSC_HOPPING, &en);
+	 *	NULL, PANEL_OSC_HOPPING, &en);
 	 */
 	/* End */
-
-	cmdq_pkt_flush(cmdq_handle);
-	cmdq_pkt_destroy(cmdq_handle);
 
 done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);

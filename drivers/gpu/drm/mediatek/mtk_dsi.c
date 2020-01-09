@@ -510,31 +510,9 @@ static void mtk_dsi_clear_rxrd_irq(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_INTSTA, LPRX_RD_RDY_INT_FLAG, 0);
 }
 
-static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 {
-	struct device *dev = dsi->dev;
-	int ret;
-	u64 pixel_clock, total_bits;
-	u32 htotal, htotal_bits, bit_per_pixel, overhead_cycles, overhead_bits;
-	unsigned long mipi_tx_rate;
-
-	DDPDBG("%s+\n", __func__);
-	if (++dsi->clk_refcnt != 1)
-		return 0;
-
-	switch (dsi->format) {
-	case MIPI_DSI_FMT_RGB565:
-		bit_per_pixel = 16;
-		break;
-	case MIPI_DSI_FMT_RGB666_PACKED:
-		bit_per_pixel = 18;
-		break;
-	case MIPI_DSI_FMT_RGB666:
-	case MIPI_DSI_FMT_RGB888:
-	default:
-		bit_per_pixel = 24;
-		break;
-	}
+	u32 data_rate;
 
 	/**
 	 * vm.pixelclock is in kHz, pixel_clock unit is Hz, so multiply by 1000
@@ -544,11 +522,29 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	 * data_rate = pixel_clock * bit_per_pixel * mipi_ratio / num_lanes;
 	 */
 
-	if (dsi->ext && dsi->ext->params->data_rate)
-		dsi->data_rate = dsi->ext->params->data_rate * 1000000;
-	else if (dsi->ext && dsi->ext->params->pll_clk)
-		dsi->data_rate = dsi->ext->params->pll_clk * 2000000;
-	else {
+	if (dsi->ext && dsi->ext->params->data_rate) {
+		data_rate = dsi->ext->params->data_rate;
+	} else if (dsi->ext && dsi->ext->params->pll_clk) {
+		data_rate = dsi->ext->params->pll_clk * 2;
+	} else {
+		u64 pixel_clock, total_bits;
+		u32 htotal, htotal_bits, bit_per_pixel;
+		u32 overhead_cycles, overhead_bits;
+
+		switch (dsi->format) {
+		case MIPI_DSI_FMT_RGB565:
+			bit_per_pixel = 16;
+			break;
+		case MIPI_DSI_FMT_RGB666_PACKED:
+			bit_per_pixel = 18;
+			break;
+		case MIPI_DSI_FMT_RGB666:
+		case MIPI_DSI_FMT_RGB888:
+		default:
+			bit_per_pixel = 24;
+			break;
+		}
+
 		pixel_clock = dsi->vm.pixelclock * 1000;
 		htotal = dsi->vm.hactive + dsi->vm.hback_porch +
 			dsi->vm.hfront_porch + dsi->vm.hsync_len;
@@ -559,14 +555,30 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		overhead_bits = overhead_cycles * dsi->lanes * 8;
 		total_bits = htotal_bits + overhead_bits;
 
-		dsi->data_rate = DIV_ROUND_UP_ULL(pixel_clock * total_bits,
+		data_rate = DIV_ROUND_UP_ULL(pixel_clock * total_bits,
 						  htotal * dsi->lanes);
+		data_rate /= 1000000;
 	}
 
-	mipi_tx_rate = dsi->data_rate;
+	return data_rate;
+}
+
+static int mtk_dsi_poweron(struct mtk_dsi *dsi)
+{
+	struct device *dev = dsi->dev;
+	int ret;
+	unsigned int data_rate;
+	unsigned long mipi_tx_rate;
+
+	DDPDBG("%s+\n", __func__);
+	if (++dsi->clk_refcnt != 1)
+		return 0;
+
+	data_rate = mtk_dsi_default_rate(dsi);
+	mipi_tx_rate = data_rate * 1000000;
 
 	/* Store DSI data rate in MHz */
-	dsi->data_rate /= 1000000;
+	dsi->data_rate = data_rate;
 
 	DDPDBG("set mipitx's data rate: %lu Hz\n", mipi_tx_rate);
 	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
@@ -2248,8 +2260,7 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	mtk_dsi_clk_hs_mode(dsi, 1);
 }
 
-static void mtk_dsi_clk_change(struct mtk_dsi *dsi,
-		struct cmdq_pkt *handle, int en)
+static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
@@ -2257,6 +2268,7 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi,
 	bool mod_vfp, mod_vbp, mod_vsa;
 	bool mod_hfp, mod_hbp, mod_hsa;
 	unsigned int data_rate;
+	struct cmdq_pkt *cmdq_handle;
 
 	dsi->mipi_hopping_sta = en;
 
@@ -2275,46 +2287,57 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi,
 		data_rate = !!ext->params->dyn.data_rate ?
 				ext->params->dyn.data_rate :
 				ext->params->dyn.pll_clk * 2;
-	} else
-		data_rate = dsi->data_rate;
+	} else {
+		data_rate = mtk_dsi_default_rate(dsi);
+	}
 
+	dsi->data_rate = data_rate;
 	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
 		mtk_dsi_calc_vdo_timing(dsi);
 
+	/* implicit way for display power state */
 	if (dsi->clk_refcnt == 0)
 		return;
 
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		if (mod_vfp)
-			mtk_dsi_porch_setting(comp, handle, DSI_VFP, dsi->vfp);
+			mtk_dsi_porch_setting(comp, cmdq_handle,
+				DSI_VFP, dsi->vfp);
 
 		if (mod_vbp)
-			mtk_dsi_porch_setting(comp, handle, DSI_VBP, dsi->vbp);
+			mtk_dsi_porch_setting(comp, cmdq_handle,
+				DSI_VBP, dsi->vbp);
 
 		if (mod_vsa)
-			mtk_dsi_porch_setting(comp, handle, DSI_VSA, dsi->vsa);
+			mtk_dsi_porch_setting(comp, cmdq_handle,
+				DSI_VSA, dsi->vsa);
 
 		if (mod_hbp || mod_hfp || mod_hsa)
-			cmdq_pkt_wait_no_clear(handle,
+			cmdq_pkt_wait_no_clear(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 
 		if (mod_hfp)
-			mtk_dsi_porch_setting(comp, handle, DSI_HFP,
+			mtk_dsi_porch_setting(comp, cmdq_handle, DSI_HFP,
 				dsi->hfp_byte);
 
 		if (mod_hbp)
-			mtk_dsi_porch_setting(comp, handle, DSI_HBP,
+			mtk_dsi_porch_setting(comp, cmdq_handle, DSI_HBP,
 				dsi->hbp_byte);
 
 		if (mod_hsa)
-			mtk_dsi_porch_setting(comp, handle, DSI_HSA,
+			mtk_dsi_porch_setting(comp, cmdq_handle, DSI_HSA,
 				dsi->hsa_byte);
 	}
 
-	mtk_mipi_tx_pll_rate_switch_gce(dsi->phy, handle, data_rate);
+	mtk_mipi_tx_pll_rate_switch_gce(dsi->phy, cmdq_handle, data_rate);
 
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
 }
 
 static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
@@ -3215,7 +3238,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			container_of(comp, struct mtk_dsi, ddp_comp);
 		int *en = (int *)params;
 
-		mtk_dsi_clk_change(dsi, handle, *en);
+		mtk_dsi_clk_change(dsi, *en);
 	}
 		break;
 	default:
