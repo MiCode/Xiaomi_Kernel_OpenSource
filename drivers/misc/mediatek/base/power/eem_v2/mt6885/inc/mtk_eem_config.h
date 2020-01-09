@@ -339,7 +339,9 @@ enum mt_cpu_dvfs_id {
 #define VBOOT_PMIC_CLR	(0)
 #define VBOOT_VAL		(0x38) /* volt domain: 0.75v */
 #define VMAX_VAL		(0x60) /* volt domain: 1v*/
-#define VMIN_VAL		(0x20) /* volt domain: 0.55v*/
+#define VMIN_VAL		(0x20) /* volt domain: 0.6v*/
+#define VMIN_VAL_D4		(0x28) /* volt domain: 0.65v*/
+#define VMIN_VAL_D5		(0x24) /* volt domain: 0.625v*/
 #define VCO_VAL			(0x18)
 #define DVTFIXED_VAL	(0x6)
 
@@ -354,6 +356,8 @@ enum mt_cpu_dvfs_id {
 
 #define VMAX_VAL_B		(0x60) /* volt domain: 1v */
 #define VMIN_VAL_B		(0x20) /* volt domain: 0.6v*/
+#define VMIN_VAL_B_D4	(0x28) /* volt domain: 0.65v*/
+#define VMIN_VAL_B_D5	(0x24) /* volt domain: 0.625v*/
 #define VCO_VAL_B		(0x18) /* volt domain: 0.55v*/
 #define DVTFIXED_VAL_B	(0x6)
 

@@ -2121,6 +2121,10 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		det->MTDES	= devinfo->CPU_L_MTDES;
 		det->SPEC	= devinfo->CPU_L_SPEC;
 		det->VMAX += det->DVTFIXED;
+		if (devinfo->CPU_L_DVFS_LOW == 4)
+			det->VMIN = VMIN_VAL_D4;
+		else if (devinfo->CPU_L_DVFS_LOW == 5)
+			det->VMIN = VMIN_VAL_D5;
 		break;
 	case EEM_DET_B:
 #if ENABLE_LOO_B
@@ -2138,6 +2142,10 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->DVTFIXED = DVTFIXED_VAL_BL;
 			det->max_freq_khz = B_M_FREQ_BASE;
 			det->loo_role	= LOW_BANK;
+			if (devinfo->CPU_B_LO_DVFS_LOW == 4)
+				det->VMIN = VMIN_VAL_B_D4;
+			else if (devinfo->CPU_B_LO_DVFS_LOW == 5)
+				det->VMIN = VMIN_VAL_B_D5;
 		} else {
 #endif
 			det->MDES	= devinfo->CPU_B_MDES;
@@ -2149,6 +2157,10 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->MTDES	= devinfo->CPU_B_MTDES;
 			det->SPEC	= devinfo->CPU_B_SPEC;
 			det->max_freq_khz = B_FREQ_BASE;
+			if (devinfo->CPU_B_DVFS_LOW == 4)
+				det->VMIN = VMIN_VAL_B_D4;
+			else if (devinfo->CPU_B_DVFS_LOW == 5)
+				det->VMIN = VMIN_VAL_B_D5;
 #if ENABLE_LOO_B
 			det->loo_role = NO_LOO_BANK;
 		}
@@ -2168,6 +2180,10 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		det->MTDES	= devinfo->CCI_MTDES;
 		det->SPEC       = devinfo->CCI_SPEC;
 		det->VMAX += det->DVTFIXED;
+		if (devinfo->CCI_DVFS_LOW == 4)
+			det->VMIN = VMIN_VAL_D4;
+		else if (devinfo->CCI_DVFS_LOW == 5)
+			det->VMIN = VMIN_VAL_D5;
 		break;
 #if ENABLE_GPU
 	case EEM_DET_GPU:
