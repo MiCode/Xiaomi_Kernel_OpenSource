@@ -591,6 +591,9 @@ static int apusys_power_task(void *arg)
 			#if DVFS_ASSERTION_CHECK
 			apu_power_assert_check(&info);
 			#endif
+			#ifdef APUPWR_TASK_DEBOUNCE
+			task_debounce();
+			#endif
 		} else {
 			LOG_DBG("%s enter sleep\n", __func__);
 			set_current_state(TASK_INTERRUPTIBLE);

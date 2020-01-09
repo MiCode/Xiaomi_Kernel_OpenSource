@@ -446,7 +446,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		while ((DRV_Reg32(APU_PCU_PMIC_STATUS) & 0x1) == 0) {
 			udelay(50);
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_ERR("%s wait APU_PCU_PMIC_STATUS timeout !\n",
+			LOG_DBG("%s wait APU_PCU_PMIC_STATUS timeout !\n",
 								__func__);
 			break;
 			}
