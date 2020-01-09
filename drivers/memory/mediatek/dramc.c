@@ -66,7 +66,7 @@ static int fmeter_v1_init(struct platform_device *pdev,
 	ret |= of_property_read_u32_array(dramc_node,
 		"fbksel", (unsigned int *)(fmeter_dev_ptr->fbksel), 6);
 	ret |= of_property_read_u32_array(dramc_node,
-		"sopendq", (unsigned int *)(fmeter_dev_ptr->sopendq), 6);
+		"dqopen", (unsigned int *)(fmeter_dev_ptr->dqopen), 6);
 
 	return ret;
 }
@@ -426,6 +426,24 @@ int mtk_dramc_get_steps_freq(unsigned int step)
 }
 EXPORT_SYMBOL(mtk_dramc_get_steps_freq);
 
+static unsigned int decode_freq(unsigned int vco_freq)
+{
+	switch (vco_freq) {
+	case 4264:
+		return 4266;
+	case 3718:
+		return 3733;
+	case 1859:
+		return 1866;
+	case 1144:
+		return 1200;
+	case 754:
+		return 800;
+	}
+
+	return vco_freq;
+}
+
 static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 {
 	struct fmeter_dev_t *fmeter_dev_ptr =
@@ -441,7 +459,7 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	unsigned int offset;
 	unsigned int vco_freq;
 	unsigned int fbksel;
-	unsigned int sopendq;
+	unsigned int dqopen;
 
 	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
 		fmeter_dev_ptr->shu_lv.offset) &
@@ -495,26 +513,17 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		fmeter_dev_ptr->fbksel[pll_id_val].mask) >>
 		fmeter_dev_ptr->fbksel[pll_id_val].shift;
 
-	offset = fmeter_dev_ptr->sopendq[pll_id_val].offset +
+	offset = fmeter_dev_ptr->dqopen[pll_id_val].offset +
 		fmeter_dev_ptr->shu_of * shu_lv_val;
-	sopendq = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
-		fmeter_dev_ptr->sopendq[pll_id_val].mask) >>
-		fmeter_dev_ptr->sopendq[pll_id_val].shift;
+	dqopen = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->dqopen[pll_id_val].mask) >>
+		fmeter_dev_ptr->dqopen[pll_id_val].shift;
 
 	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) *
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
-		pll_md_val >> cldiv2_val << fbksel;
+		pll_md_val >> cldiv2_val << fbksel >> (dqopen << 1);
 
-	if (vco_freq == 3718)
-		vco_freq = 3733;
-	else if (vco_freq == 1859)
-		vco_freq = 1866;
-	else if (vco_freq == 1144)
-		vco_freq = 1200;
-	else if (vco_freq == 3016)
-		vco_freq = 800;
-
-	return vco_freq;
+	return decode_freq(vco_freq);
 }
 
 /*
