@@ -934,8 +934,38 @@ void cmdq_mdp_dump_mmsys_config(void)
 	}
 
 	/*DISP_MUTEX MOD*/
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x030);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX0_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x034);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX0_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x050);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX1_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x054);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX1_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x070);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX2_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x074);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX2_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x090);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX3_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x094);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX3_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0B0);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX4_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0B4);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX4_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0D0);
-	CMDQ_ERR("%s: 0x%08x\n", "DISP_MUTEX5_MOD0", value);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX5_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0D4);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX5_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0F0);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX6_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0F4);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX6_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x110);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x114);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD1", value);
 }
 
 int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
