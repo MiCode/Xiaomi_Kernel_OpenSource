@@ -733,10 +733,14 @@
 
 	dvfsrc: dvfsrc@10012000 {
 		compatible = "mediatek,dvfsrc";
-		status = "disabled";
 		reg = <0 0x10012000 0 0x1000>,
 			<0 0x10006000 0 0x1000>;
 		interrupts = <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	boot_dramboost: boot_dramboost {
+		compatible = "mediatek,dvfsrc-boost";
+		boost_opp = <0>;
 	};
 
 	mbist_ao@10013000 {
