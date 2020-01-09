@@ -113,3 +113,4 @@ ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 endif
 obj-$(CONFIG_MACH_MT6885) += dvfsrc/
+obj-$(CONFIG_MACH_MT6873) += dvfsrc/

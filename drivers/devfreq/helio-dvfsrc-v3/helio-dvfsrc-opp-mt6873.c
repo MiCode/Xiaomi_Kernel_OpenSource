@@ -108,10 +108,6 @@ void dvfsrc_opp_table_init(void)
 	int i;
 	int vcore_opp, ddr_opp;
 
-	for (i = 0; i < DDR_OPP_NUM; i++) {
-		set_opp_ddr_freq(i,
-			mtk_dramc_get_steps_freq(i) * 1000);
-	}
 	for (i = 0; i < VCORE_DVFS_OPP_NUM; i++) {
 		vcore_opp = get_vcore_opp(i);
 		ddr_opp = get_ddr_opp(i);
@@ -269,3 +265,16 @@ static int __init dvfsrc_opp_init(void)
 
 fs_initcall_sync(dvfsrc_opp_init)
 
+static int __init dvfsrc_dram_opp_init(void)
+{
+	int i;
+
+	for (i = 0; i < DDR_OPP_NUM; i++) {
+		set_opp_ddr_freq(i,
+			mtk_dramc_get_steps_freq(i) * 1000);
+	}
+
+	return 0;
+}
+
+device_initcall_sync(dvfsrc_dram_opp_init)

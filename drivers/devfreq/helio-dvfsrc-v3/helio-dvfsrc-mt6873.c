@@ -34,7 +34,7 @@
 #include <dbgtop.h>
 
 /* #define DVFSRC_FB_MD_TABLE_SWITCH*/
-/* #define AUTOK_ENABLE */
+#define AUTOK_ENABLE
 #define dvfsrc_rmw(offset, val, mask, shift) \
 	dvfsrc_write(offset, (dvfsrc_read(offset) & ~(mask << shift)) \
 			| (val << shift))
@@ -499,6 +499,22 @@ void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 				res->start, resource_size(res));
 	if (IS_ERR(dvfsrc->spm_regs))
 		pr_info("not get spm register\n");
+
+}
+
+void dvfsrc_suspend_cb(struct helio_dvfsrc *dvfsrc)
+{
+	pr_info("[DVFSRC] V:%d, F_OPP:%d, RG:%08x, %08x, %08x, %08x\n",
+		get_cur_vcore_uv(),
+		pm_qos_request(PM_QOS_VCORE_DVFS_FORCE_OPP),
+		dvfsrc_read(DVFSRC_CURRENT_LEVEL),
+		dvfsrc_read(DVFSRC_SW_REQ2),
+		dvfsrc_read(DVFSRC_SW_REQ3),
+		dvfsrc_read(DVFSRC_DEBUG_STA_0));
+}
+
+void dvfsrc_resume_cb(struct helio_dvfsrc *dvfsrc)
+{
 
 }
 

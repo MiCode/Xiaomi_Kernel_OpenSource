@@ -450,6 +450,17 @@ static irqreturn_t helio_dvfsrc_interrupt(int irq, void *dev_id)
 static int dvfsrc_resume(struct helio_dvfsrc *dvfsrc)
 {
 	dvfsrc_get_sys_stamp(sys_stamp);
+#ifdef DVFSRC_SUSPEND_SUPPORT
+	dvfsrc_suspend_cb(dvfsrc);
+#endif
+	return 0;
+}
+
+static int dvfsrc_suspend(struct helio_dvfsrc *dvfsrc)
+{
+#ifdef DVFSRC_SUSPEND_SUPPORT
+	dvfsrc_resume_cb(dvfsrc);
+#endif
 	return 0;
 }
 
@@ -515,6 +526,7 @@ int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc)
 		pr_info("dvfsrc interrupt no use\n");
 
 	dvfsrc->resume = dvfsrc_resume;
+	dvfsrc->suspend = dvfsrc_suspend;
 
 	return 0;
 }
