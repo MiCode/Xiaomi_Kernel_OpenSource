@@ -25,6 +25,7 @@
 #include "clk-mt6873-pg.h"
 
 #include <dt-bindings/clock/mt6873-clk.h>
+#include <mt-plat/aee.h>
 
 #define MT_CCF_DEBUG	0
 #define MT_CCF_BRINGUP  0
@@ -4092,6 +4093,12 @@ static int disable_subsys(enum subsys_id id)
 	}
 #endif				/* CHECK_PWR_ST */
 
+	/*
+	 * Check if subsys CGs are still on before the mtcmos  is going
+	 * to be off. (Could do nothing here for early porting)
+	 */
+	mtk_check_subsys_swcg(id);
+
 	r = sys->ops->disable(sys);
 	WARN_ON(r);
 
@@ -4756,12 +4763,12 @@ void subsys_if_on(void)
 
 	if ((sta & MD1_PWR_STA_MASK) && (sta_s & MD1_PWR_STA_MASK)) {
 		pr_notice("suspend warning: MD1 is on!!\n");
-		ret++;
+		/* ret++; */
 	}
 
 	if ((sta & CONN_PWR_STA_MASK) && (sta_s & CONN_PWR_STA_MASK)) {
 		pr_notice("suspend warning: CONN is on!!\n");
-		ret++;
+		/* ret++; */
 	}
 
 	if ((sta & MFG0_PWR_STA_MASK) && (sta_s & MFG0_PWR_STA_MASK)) {
@@ -4852,12 +4859,12 @@ void subsys_if_on(void)
 
 	if ((sta & AUDIO_PWR_STA_MASK) && (sta_s & AUDIO_PWR_STA_MASK)) {
 		pr_notice("suspend warning: AUDIO is on!!\n");
-		ret++;
+		/* ret++; */
 	}
 
 	if ((sta & ADSP_PWR_STA_MASK) && (sta_s & ADSP_PWR_STA_MASK)) {
 		pr_notice("suspend warning: ADSP is on!!\n");
-		ret++;
+		/* ret++; */
 	}
 
 	if ((sta & CAM_PWR_STA_MASK) && (sta_s & CAM_PWR_STA_MASK)) {
@@ -4879,15 +4886,15 @@ void subsys_if_on(void)
 		pr_notice("suspend warning: CAM_RAWCis on!!\n");
 		ret++;
 	}
-
+#if 0
 	if ((sta & DP_TX_PWR_STA_MASK) && (sta_s & DP_TX_PWR_STA_MASK)) {
 		pr_notice("suspend warning: DP_TX is on!!\n");
 		ret++;
 	}
-
+#endif
 	if ((sta & MSDC_PWR_STA_MASK) && (sta_s & MSDC_PWR_STA_MASK)) {
 		pr_notice("suspend warning: MSDC is on!!\n");
-		ret++;
+		/* ret++; */
 	}
 #if 1
 	if (other_sta & (0x1 << 5)) {
@@ -4895,10 +4902,19 @@ void subsys_if_on(void)
 		ret++;
 	}
 #endif
-#if 0
-	if (ret > 0)
-		WARN_ON(1); /* BUG_ON(1); */
+
+	if (ret > 0) {
+#ifdef CONFIG_MTK_ENG_BUILD
+		print_enabled_clks_once();
+		BUG_ON(1);
+#else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, MTCMOS are not off\n", __func__, __LINE__);
+		print_enabled_clks_once();
+		WARN_ON(1);
+
 #endif
+	}
 #if 0
 	for (i = 0; i < num; i++)
 		dump_cg_state(clks[i]);
