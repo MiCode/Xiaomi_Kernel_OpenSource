@@ -76,7 +76,13 @@ static atomic_t g_aal_initialed = ATOMIC_INIT(0);
 static atomic_t g_aal_allowPartial = ATOMIC_INIT(0);
 static atomic_t g_aal_force_enable_irq = ATOMIC_INIT(0);
 static atomic_t g_led_mode = ATOMIC_INIT(MT65XX_LED_MODE_NONE);
+#if defined(CONFIG_MACH_MT6885)
 static atomic_t g_aal_force_relay = ATOMIC_INIT(0);
+#endif
+
+#if defined(CONFIG_MACH_MT6873)
+static atomic_t g_aal_force_relay = ATOMIC_INIT(1);
+#endif
 
 enum AAL_UPDATE_HIST {
 	UPDATE_NONE = 0,
