@@ -541,6 +541,112 @@ struct mt_systracker_driver *get_mt_systracker_drv(void)
 	return &mt_systracker_drv;
 }
 
+static ssize_t tracker_run_show(struct device_driver *driver, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE,
+		"BUS_DBG_CON=0x%x, BUS_DBG_CON_INFRA=0x%x\n",
+			readl(IOMEM(BUS_DBG_CON)),
+			readl(IOMEM(BUS_DBG_CON_INFRA)));
+}
+
+static ssize_t tracker_run_store(struct device_driver *driver,
+		const char *buf, size_t count)
+{
+	unsigned int value = 0xdead;
+
+	if (kstrtou32(buf, 10, &value))
+		return -EINVAL;
+
+	if (value == 1)
+		systracker_enable();
+	else if (value == 0)
+		systracker_disable();
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+DRIVER_ATTR_RW(tracker_run);
+
+static ssize_t enable_wp_show(struct device_driver *driver, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%x\n", track_config.enable_wp);
+}
+
+static ssize_t enable_wp_store(struct device_driver *driver,
+		const char *buf, size_t count)
+{
+	unsigned int value = 0xdead;
+
+	if (kstrtou32(buf, 10, &value))
+		return -EINVAL;
+
+	if (value == 1)
+		systracker_watchpoint_enable();
+	else if (value == 0)
+		systracker_watchpoint_disable();
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static DRIVER_ATTR_RW(enable_wp);
+
+static ssize_t set_wp_address_show(struct device_driver *driver, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%x\n", track_config.wp_phy_address);
+}
+
+int systracker_set_watchpoint_addr(unsigned int addr)
+{
+	if (mt_systracker_drv.set_watchpoint_address)
+		return mt_systracker_drv.set_watchpoint_address(addr);
+
+	track_config.wp_phy_address = addr;
+
+	return 0;
+}
+
+int systracker_set_watchpoint_mask(unsigned int mask)
+{
+	track_config.wp_phy_mask = mask;
+
+	return 0;
+}
+
+static ssize_t set_wp_address_store
+	(struct device_driver *driver, const char *buf, size_t count)
+{
+	unsigned int value = 0xdead;
+	int ret;
+
+	ret = kstrtou32(buf, 16, &value);
+	pr_debug("watch address:0x%x, ret = %d\n", value, ret);
+	systracker_set_watchpoint_addr(value);
+	systracker_set_watchpoint_mask(0);
+
+	return count;
+}
+
+static DRIVER_ATTR_RW(set_wp_address);
+
+static ssize_t tracker_swtrst_show(struct device_driver *driver, char *buf)
+{
+	return 0;
+}
+
+static ssize_t tracker_swtrst_store
+	(struct device_driver *driver, const char *buf, size_t count)
+{
+	writel(readl(IOMEM(BUS_DBG_CON)) |
+		BUS_DBG_CON_SW_RST, IOMEM(BUS_DBG_CON));
+	return count;
+}
+
+static DRIVER_ATTR_RW(tracker_swtrst);
+#ifdef SYSTRACKER_TEST_SUIT
 int tracker_dump(char *buf)
 {
 
@@ -705,97 +811,6 @@ int tracker_dump(char *buf)
 	return -1;
 }
 
-static ssize_t tracker_run_show(struct device_driver *driver, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE,
-		"BUS_DBG_CON=0x%x, BUS_DBG_CON_INFRA=0x%x\n",
-			readl(IOMEM(BUS_DBG_CON)),
-			readl(IOMEM(BUS_DBG_CON_INFRA)));
-}
-
-static ssize_t tracker_run_store(struct device_driver *driver,
-		const char *buf, size_t count)
-{
-	unsigned int value = 0xdead;
-
-	if (kstrtou32(buf, 10, &value))
-		return -EINVAL;
-
-	if (value == 1)
-		systracker_enable();
-	else if (value == 0)
-		systracker_disable();
-	else
-		return -EINVAL;
-
-	return count;
-}
-
-DRIVER_ATTR_RW(tracker_run);
-
-static ssize_t enable_wp_show(struct device_driver *driver, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%x\n", track_config.enable_wp);
-}
-
-static ssize_t enable_wp_store(struct device_driver *driver,
-		const char *buf, size_t count)
-{
-	unsigned int value = 0xdead;
-
-	if (kstrtou32(buf, 10, &value))
-		return -EINVAL;
-
-	if (value == 1)
-		systracker_watchpoint_enable();
-	else if (value == 0)
-		systracker_watchpoint_disable();
-	else
-		return -EINVAL;
-
-	return count;
-}
-
-static DRIVER_ATTR_RW(enable_wp);
-
-static ssize_t set_wp_address_show(struct device_driver *driver, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%x\n", track_config.wp_phy_address);
-}
-
-int systracker_set_watchpoint_addr(unsigned int addr)
-{
-	if (mt_systracker_drv.set_watchpoint_address)
-		return mt_systracker_drv.set_watchpoint_address(addr);
-
-	track_config.wp_phy_address = addr;
-
-	return 0;
-}
-
-int systracker_set_watchpoint_mask(unsigned int mask)
-{
-	track_config.wp_phy_mask = mask;
-
-	return 0;
-}
-
-static ssize_t set_wp_address_store
-	(struct device_driver *driver, const char *buf, size_t count)
-{
-	unsigned int value = 0xdead;
-	int ret;
-
-	ret = kstrtou32(buf, 16, &value);
-	pr_debug("watch address:0x%x, ret = %d\n", value, ret);
-	systracker_set_watchpoint_addr(value);
-	systracker_set_watchpoint_mask(0);
-
-	return count;
-}
-
-static DRIVER_ATTR_RW(set_wp_address);
-
 static ssize_t tracker_entry_dump_show
 	(struct device_driver *driver, char *buf)
 {
@@ -807,22 +822,6 @@ static ssize_t tracker_entry_dump_show
 	return strlen(buf);
 }
 
-
-static ssize_t tracker_swtrst_show(struct device_driver *driver, char *buf)
-{
-	return 0;
-}
-
-static ssize_t tracker_swtrst_store
-	(struct device_driver *driver, const char *buf, size_t count)
-{
-	writel(readl(IOMEM(BUS_DBG_CON)) |
-		BUS_DBG_CON_SW_RST, IOMEM(BUS_DBG_CON));
-	return count;
-}
-
-static DRIVER_ATTR_RW(tracker_swtrst);
-#ifdef SYSTRACKER_TEST_SUIT
 void systracker_wp_test(void)
 {
 	if (mt_systracker_drv.systracker_wp_test)
@@ -932,14 +931,6 @@ static ssize_t test_suit_store
 static DRIVER_ATTR_RW(test_suit);
 #endif
 
-static ssize_t tracker_entry_dump_store
-	(struct device_driver *driver, const char *buf, size_t count)
-{
-	return count;
-}
-
-static DRIVER_ATTR_RW(tracker_entry_dump);
-
 static ssize_t tracker_last_status_show
 	(struct device_driver *driver, char *buf)
 {
@@ -976,8 +967,6 @@ static int __init systracker_init(void)
 		return err;
 
 	/* Create sysfs entry */
-	ret  = driver_create_file(&mt_systracker_drv.driver.driver,
-		&driver_attr_tracker_entry_dump);
 	ret |= driver_create_file(&mt_systracker_drv.driver.driver,
 		&driver_attr_tracker_run);
 	ret |= driver_create_file(&mt_systracker_drv.driver.driver,
