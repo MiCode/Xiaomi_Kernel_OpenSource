@@ -717,20 +717,21 @@ static int m4u_debug_set(void *data, u64 val)
 	case 18:
 	{
 		int i, j;
-		unsigned int wr = 1; /*0:read, 1:write*/
-		unsigned int vir = 1; /*0:pa, 1:iova*/
-		unsigned int io = 0; /*0:RS input, 1:RS output*/
-		unsigned int bit32 = 0; /*boundary id: 0, 1, 2, 3*/
-		unsigned int start = 0x1000; /*start addr*/
-		unsigned int end = 0xffffffff; /*end addr*/
-		unsigned int port_mask = 0xffffffff; /*port list*/
-		unsigned int larb_mask = 0xffffffff; /*larb list*/
+		struct mau_config_info mau_cfg = {
+			.start = 0x1000,
+			.end = 0xffffffff,
+			.port_mask = 0xffffffff,
+			.larb_mask = 0xffffffff,
+			.wr = 0x1,
+			.virt = 0x1,
+			.io = 0x0,
+			.start_bit32 = 0x0,
+			.end_bit32 = 0x0
+			};
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mau_start_monitor(i, j, 0, wr, vir,
-					io, bit32, start, end,
-					port_mask, larb_mask);
+				mau_start_monitor(i, j, 0, &mau_cfg);
 		}
 	}
 	break;
@@ -950,6 +951,53 @@ static int m4u_debug_set(void *data, u64 val)
 		pseudo_m4u_bank_irq_debug(0);
 	}
 	break;
+	case 37: /* dump mau register */
+	{
+		int i, j, ret;
+
+		for (i = 0; i < APU_IOMMU_INDEX; i++) {
+			ret = mtk_iommu_power_switch_by_id(i, true, "dump_mau");
+			if (ret) {
+				pr_notice("%s, m4u%d open clk failed\n",
+					      __func__, i);
+				continue;
+			}
+			ret = mtk_switch_secure_debug_func(i, 1);
+			if (ret) {
+				pr_notice("%s, m4u%d failed to enable secure debug signal\n",
+					      __func__, i);
+				mtk_iommu_power_switch_by_id(i,
+						false, "dump_mau");
+				continue;
+			}
+			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++) {
+				struct mau_config_info cfg;
+
+				cfg.m4u_id = i;
+				cfg.slave = j;
+				cfg.mau = 0;
+				mau_get_config_info(&cfg);
+				pr_notice("%s, m4u:%d,slave:%d,mau:%d,s:0x%x(0x%x),e:0x%x(0x%x),io:0x%x,wr:0x%x,virt:0x%x,larb:0x%x,port:0x%x\n",
+					__func__,
+					i, j, cfg.mau,
+					cfg.start, cfg.start_bit32,
+					cfg.end, cfg.end_bit32,
+					cfg.io, cfg.wr, cfg.virt,
+					cfg.larb_mask, cfg.port_mask);
+			}
+			ret = mtk_iommu_power_switch_by_id(i,
+						false, "dump_mau");
+			if (ret) {
+				pr_notice("%s, m4u%d close clk failed\n",
+					      __func__, i);
+			}
+			ret = mtk_switch_secure_debug_func(i, 0);
+			if (ret)
+				pr_notice("%s, m4u%d failed to disable secure debug signal\n",
+					      __func__, i);
+		}
+	}
+	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
@@ -1115,6 +1163,8 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 35 > /d/m4u/debug:	enable iommu bank irq test\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 36 > /d/m4u/debug:	disable iommu bank irq test\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 37 > /d/m4u/debug:	dump iommu mau info\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,

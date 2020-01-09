@@ -194,20 +194,19 @@ struct mau_config_info {
 	unsigned int end;
 	unsigned int port_mask;
 	unsigned int larb_mask;
-	unsigned int write_monitor;	/* :1; */
-	unsigned int virt;	/* :1; */
-	unsigned int io;	/* :1; */
+	unsigned int wr;/* 1:w, 0:R */
+	unsigned int virt;	/* 1:mva, 0:pa */
+	unsigned int io;	/* 1:output, 0:input  */
 	unsigned int start_bit32;	/* :1; */
 	unsigned int end_bit32;	/* :1; */
 };
 
 int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
-		      unsigned int mau,
-		      int wr, int vir, int io, int bit32,
-		      unsigned int start, unsigned int end,
-		      unsigned int port_mask, unsigned int larb_mask);
+			  unsigned int mau,
+			  struct mau_config_info *mau_info);
 void mau_stop_monitor(unsigned int m4u_id, unsigned int slave,
 		      unsigned int mau, bool force);
+int mau_get_config_info(struct mau_config_info *cfg);
 int iommu_perf_monitor_start(int m4u_id);
 int iommu_perf_monitor_stop(int m4u_id);
 void iommu_perf_print_counter(int m4u_index,
@@ -236,6 +235,7 @@ int mtk_iommu_set_sec_larb(int larb, int port,
 		int sec_en, int dom);
 int mtk_iommu_dump_sec_larb(int larb, int port);
 #endif
+int mtk_switch_secure_debug_func(unsigned int m4u_id, bool enable);
 void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd);
 bool mtk_dev_is_size_alignment(struct device *dev);
 char *mtk_iommu_get_port_name(unsigned int m4u_id,

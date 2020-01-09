@@ -740,4 +740,61 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #define MTK_M4U_SECURE_IRQ_SUPPORT
 #endif
 
+#define IOMMU_SECURITY_DBG_SUPPORT
+
+struct mau_config_info mt6885_mau_info[MTK_IOMMU_M4U_COUNT] = {
+	{
+		.start = 0x0,
+		.end = SZ_4K - 1,
+		.port_mask = 0xffffffff,
+		.larb_mask = 0xffffffff,
+		.wr = 0x1,
+		.virt = 0x1,
+		.io = 0x0,
+		.start_bit32 = 0x0,
+		.end_bit32 = 0x0,
+	},
+	{
+		.start = 0x0,
+		.end = SZ_4K - 1,
+		.port_mask = 0xffffffff,
+		.larb_mask = 0xffffffff,
+		.wr = 0x1,
+		.virt = 0x1,
+		.io = 0x0,
+		.start_bit32 = 0x0,
+		.end_bit32 = 0x0,
+	},
+	{
+		.start = 0x0,
+		.end = SZ_4K - 1,
+		.port_mask = 0xffffffff,
+		.larb_mask = 0xffffffff,
+		.wr = 0x1,
+		.virt = 0x1,
+		.io = 0x0,
+		.start_bit32 = 0x0,
+		.end_bit32 = 0x0,
+	},
+	{
+		.start = 0x0,
+		.end = SZ_4K - 1,
+		.port_mask = 0xffffffff,
+		.larb_mask = 0xffffffff,
+		.wr = 0x1,
+		.virt = 0x1,
+		.io = 0x0,
+		.start_bit32 = 0x0,
+		.end_bit32 = 0x0,
+	},
+};
+
+struct mau_config_info *get_mau_info(int m4u_id)
+{
+	if (m4u_id < MTK_IOMMU_M4U_COUNT)
+		return &mt6885_mau_info[m4u_id];
+	else
+		return NULL;
+}
+
 #endif

@@ -14,11 +14,14 @@
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
+#include "mt_iommu.h"
+
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
 #define IOMMU_POWER_CLK_SUPPORT
 //#define MTK_APU_TFRP_SUPPORT no need for mt6873
 
 #define MTK_IOMMU_SIZE_NOT_ALIGNMENT
+#define IOMMU_SECURITY_DBG_SUPPORT
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #define MTK_IOMMU_BANK_IRQ_SUPPORT
@@ -742,4 +745,39 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 };
 #endif
+
+/* check 17GB~32GB-1 PA for out of range */
+struct mau_config_info mt6873_mau_info[MTK_IOMMU_M4U_COUNT] = {
+	{
+		.start = 0x40000000,
+		.end = 0xffffffff,
+		.port_mask = 0xffffffff,
+		.larb_mask = 0xffffffff,
+		.wr = 0x1,
+		.virt = 0x0,
+		.io = 0x1,
+		.start_bit32 = 0x4,
+		.end_bit32 = 0x7,
+	},
+	{
+		.start = 0x40000000,
+		.end = 0xffffffff,
+		.port_mask = 0xffffffff,
+		.larb_mask = 0xffffffff,
+		.wr = 0x1,
+		.virt = 0x0,
+		.io = 0x1,
+		.start_bit32 = 0x4,
+		.end_bit32 = 0x7,
+	}
+};
+
+struct mau_config_info *get_mau_info(int m4u_id)
+{
+	if (m4u_id < MTK_IOMMU_M4U_COUNT)
+		return &mt6873_mau_info[m4u_id];
+	else
+		return NULL;
+}
+
 #endif
