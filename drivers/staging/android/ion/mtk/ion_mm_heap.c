@@ -517,8 +517,6 @@ map_mva_exit:
 
 	return 0;
 
-err2:
-	kfree(buffer_info);
 err1:
 	sg_free_table(table);
 	kfree(table);
