@@ -1,0 +1,73 @@
+
+qcom,l8866sun_3000mah {
+	qcom, = <24>;
+	/* #3797504_LC_D2S_Sunwoda_3000mAH_FG_averaged_MasterSlave_Jan11th2019*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2900>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-full-design = <3010>;
+	qcom,battery-type = "3797504_lc_d2s_sunwoda_3000mah_fg_averaged_masterslave_jan11th2019";
+	qcom,checksum = <0x011F>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 4F 1F E4 05
+		 46 0A FD FC
+		 DE 1C FC 01
+		 B3 0D A9 0A
+		 BB 17 FA 23
+		 22 44 93 5A
+		 72 00 00 00
+		 10 00 00 00
+		 00 00 57 C4
+		 0F BC 58 CA
+		 26 00 08 00
+		 12 E2 6A ED
+		 0D FC 38 01
+		 DA 0D FC 02
+		 81 DC 42 23
+		 36 06 09 20
+		 27 00 14 00
+		 DB 1F 64 05
+		 AF 0A 0E 06
+		 C1 1C 08 03
+		 EC 15 48 12
+		 84 18 D4 23
+		 E8 4D 2C 5B
+		 69 00 00 00
+		 0E 00 00 00
+		 00 00 E9 D5
+		 B7 BA 93 CA
+		 1C 00 00 00
+		 13 F2 6A ED
+		 F8 06 AB EB
+		 77 DC 19 03
+		 2E F2 6D 1B
+		 AD 33 CC FF
+		 07 10 00 00
+		 85 0B 66 46
+		 1C 00 40 00
+		 AC 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

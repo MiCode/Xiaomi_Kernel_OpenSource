@@ -35,6 +35,8 @@
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
 
+#include <linux/wakeup_reason.h> /*Add-HMI_M6100_A01-60*/
+
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
 
@@ -944,6 +946,15 @@ static void msm_pinctrl_resume(void)
 				name = desc->action->name;
 
 			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+
+			/*Add-begin-HMI_M6100_A01-60
+			**Comment:Logging kernel wakeup reson
+			*/
+
+			log_wakeup_reason(irq);
+
+			/*Add-end HMI_M6100_A01-60*/
+
 		}
 	}
 	spin_unlock_irqrestore(&pctrl->lock, flags);

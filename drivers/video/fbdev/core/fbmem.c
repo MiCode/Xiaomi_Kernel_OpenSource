@@ -2,6 +2,7 @@
  *  linux/drivers/video/fbmem.c
  *
  *  Copyright (C) 1994 Martin Schaller
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  *	2001 - Documented with DocBook
  *	- Brad Douglas <brad@neruo.com>
@@ -1068,6 +1069,14 @@ fb_blank(struct fb_info *info, int blank)
  	if (blank > FB_BLANK_POWERDOWN)
  		blank = FB_BLANK_POWERDOWN;
 
+	if (info->blank==blank){
+	  if (info->fbops->fb_blank){
+		printk("fb_mem 01\n");
+		ret=info->fbops->fb_blank(blank,info);
+	   }
+		printk("fb_mem 02 ret\n");
+	   return ret;
+	}
 	event.info = info;
 	event.data = &blank;
 
@@ -1086,7 +1095,9 @@ fb_blank(struct fb_info *info, int blank)
 		if (!early_ret)
 			fb_notifier_call_chain(FB_R_EARLY_EVENT_BLANK, &event);
 	}
-
+	if (!ret){
+	info->blank=blank;
+	}
  	return ret;
 }
 EXPORT_SYMBOL(fb_blank);

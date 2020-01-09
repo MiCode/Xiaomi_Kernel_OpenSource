@@ -1,0 +1,193 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_td4310_tianma_fhd_video: qcom,mdss_dsi_td4310_tianma_fhd_video {
+		qcom,mdss-dsi-panel-name = "tianma td4310 fhd video mode dsi panel";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1080>;
+		qcom,mdss-dsi-panel-height = <2160>;
+		qcom,mdss-pan-physical-width-dimension = <68>;
+		qcom,mdss-pan-physical-height-dimension = <136>;
+		qcom,mdss-dsi-h-front-porch = <108>;
+		qcom,mdss-dsi-h-back-porch = <60>;
+		qcom,mdss-dsi-h-pulse-width = <12>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <33>;
+		qcom,mdss-dsi-v-front-porch = <6>;
+		qcom,mdss-dsi-v-pulse-width = <4>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [e6 38 26 00 68 6e 2a
+				3c 44 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x0e>;
+		qcom,mdss-dsi-t-clk-pre = <0x35>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-on-command = [
+				39 01 00 00 46 00 02 11 00
+				29 01 00 00 00 00 02 B0 04
+				29 01 00 00 00 00 02 D6 01
+				29 01 00 00 00 00 02 ea 0a
+
+				39 01 00 00 00 00 02 51 ff
+				39 01 00 00 00 00 02 53 2c
+				29 01 00 00 00 00 1A CE 55 40 56 6E 87 95 a0 b0 c0 c2 c9 ce df e3 e4 ec FF 04 00 00 04 46 04 69 5A
+				39 01 00 00 00 00 02 55 00
+				39 01 00 00 00 00 02 35 00
+				39 01 00 00 14 00 02 29 00
+		];
+		qcom,mdss-dsi-off-command = [
+				05 01 00 00 14 00 02 28 00
+				05 01 00 00 78 00 02 10 00
+		];
+		qcom,mdss-dsi-ce-on-command = [
+				29 01 00 00 00 00 2C CA 1D FC FC FC 00 C1 D3 37 00 3D 0E 13 00 1D FF 00 19 11 00 00 00 3F D5 A1 89 D8 9E 87 40 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		];
+		qcom,mdss-dsi-ce-off-command = [
+				29 01 00 00 00 00 2C CA 1C FC FC FC 00 C1 D3 37 00 3D 0E 13 00 1D FF 00 19 11 00 00 00 3F D5 A1 89 D8 9E 87 40 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		];
+		qcom,mdss-dsi-srgb-on-command = [
+				29 01 00 00 00 00 2C CA 1D FC FC BC 1F 09 F1 D9 05 D5 EF DC DD 03 F7 E2 F8 05 E9 01 00 2C FF 00 00 FF 00 22 FF 00 FF 00 45 FD 45 FF 00 00 FF 01 2D F6 FF
+		];
+		qcom,mdss-dsi-srgb-off-command = [
+				29 01 00 00 00 00 2C CA 1D FC FC FC 61 FD D4 FA 7F E6 D9 D0 F3 BC A8 94 1D 0E F8 E0 E0 16 FF 00 00 E4 01 23 FF 00 FF 00 50 E3 43 FF 00 00 FF 01 32 E0 FF
+		];
+		qcom,mdss-dsi-cabc-on-command = [
+				15 00 00 00 00 00 02 55 01
+				29 00 00 00 00 00 08 B8 89 51 0d 00 02 00 00
+				29 00 00 00 00 00 1A CE 55 40 4d 6a 75 97 a7 b6 c9 d0 d4 e7 e8 e9 f2 fb ff 04 00 00 04 46 04 69 5a
+				29 01 00 00 00 00 0A F9 64 FF E0 BE 00 8D BF 80 00
+		];
+		qcom,mdss-dsi-cabc-off-command = [
+				15 01 00 00 00 00 02 55 00
+		];
+		qcom,mdss-dsi-gamma0-command = [
+				29 01 00 00 00 00 14 C8 01 00 04 01 fe fc 00 00 03 ff fe fc 00 00 04 fb f8 fc 00
+		];
+		qcom,mdss-dsi-gamma1-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 CC 00 00 02 FE 01 FC 00 00 01 FF FF B7 00
+		];
+		qcom,mdss-dsi-gamma2-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE 01 F3 00 00 02 FE 01 FC 00 00 01 FE FE E0 00
+		];
+		qcom,mdss-dsi-gamma3-command = [
+				29 01 00 00 00 00 14 C8 03 00 01 FD 01 FE 00 00 02 FE FF F0 00 00 01 FE FD FE 00
+		];
+		qcom,mdss-dsi-gamma4-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE 01 B6 00 00 01 FE FD FC 00
+		];
+		qcom,mdss-dsi-gamma5-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE FF D9 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma6-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE FF D9 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma7-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 CC 00 00 02 FE 01 FC 00 00 01 FE FD FC 00
+		];
+		qcom,mdss-dsi-gamma8-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 84 00 00 02 FE 01 FC 00 00 01 FE FD FC 00
+		];
+		qcom,mdss-dsi-gamma9-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE FE E7 00 00 01 FE 01 8F 00
+		];
+		qcom,mdss-dsi-gamma10-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE 01 FC 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma11-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FF 01 AE 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma12-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FF 01 AE 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma13-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE 01 FC 00 00 01 FF FF B8 00
+		];
+		qcom,mdss-dsi-gamma14-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FE 01 FC 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma15-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FF 01 AE 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma16-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 FC 00 00 02 FF 01 AE 00 00 01 FF 01 CB 00
+		];
+		qcom,mdss-dsi-gamma17-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE 01 85 00 00 02 FE 01 FC 00 00 01 FF 01 B6 00
+		];
+		qcom,mdss-dsi-gamma18-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE 01 AB 00 00 02 FE 01 FC 00 00 01 FE FE DD 00
+		];
+		qcom,mdss-dsi-gamma19-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 CE 00 00 02 FE FE E3 00 00 01 FE FD FC 00
+		];
+		qcom,mdss-dsi-gamma20-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FD 01 CE 00 00 02 FE FE E3 00 00 01 FE FD FC 00
+		];
+		qcom,mdss-dsi-gamma21-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE 01 3D 00 00 02 FE 01 FC 00 00 01 FF FF B5 00
+		];
+		qcom,mdss-dsi-gamma22-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE FF 63 00 00 02 FE 01 FC 00 00 01 FE 01 DA 00
+		];
+		qcom,mdss-dsi-gamma23-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE 01 86 00 00 02 FE 01 E6 00 00 01 FE FD FC 00
+		];
+		qcom,mdss-dsi-gamma24-command = [
+				29 01 00 00 00 00 14 C8 01 00 01 FE 01 86 00 00 02 FE 01 E6 00 00 01 FE FD FC 00
+		];
+
+
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-ce-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-ce-off-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-srgb-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-srgb-off-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-cabc-on-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-cabc-off-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-gamma-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-reset-sequence = <1 1>, <0 5>, <1 35>;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-post-init-delay = <1>;
+
+		qcom,esd-check-enabled;
+		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 01 0A];
+		qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+		qcom,mdss-dsi-panel-status-read-length = <1>;
+		qcom,mdss-dsi-panel-status-value = <0x1c>;
+		qcom,mdss-dsi-panel-max-error-count = <3>;
+	};
+};

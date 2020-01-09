@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,8 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 #include <linux/syscore_ops.h>
+
+#include <linux/wakeup_reason.h> /*Add-HMI_M6100_A01-60*/
 
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
@@ -565,6 +568,15 @@ static void periph_interrupt(struct spmi_pmic_arb *pa, u16 apid, bool show)
 
 			pr_warn("spmi_show_resume_irq: %d triggered [0x%01x, 0x%02x, 0x%01x] %s\n",
 				irq, sid, per, id, name);
+
+			/*Add-begin-HMI_M6100_A01-60
+			**Comment:Logging kernel wakeup reson
+			*/
+
+			log_wakeup_reason(irq);
+
+			/*Add-end HMI_M6100_A01-60*/
+
 		} else {
 			generic_handle_irq(irq);
 		}

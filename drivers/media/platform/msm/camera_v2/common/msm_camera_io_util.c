@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, 2017, 2019 The Linux Foundataion.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -580,7 +581,10 @@ disable_vreg:
 				continue;
 		} else
 			j = i;
+
+		if (reg_ptr[j] != NULL) {
 		regulator_disable(reg_ptr[j]);
+		}
 		if (cam_vreg[j].delay > 20)
 			msleep(cam_vreg[j].delay);
 		else if (cam_vreg[j].delay)

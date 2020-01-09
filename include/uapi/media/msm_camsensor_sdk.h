@@ -301,6 +301,39 @@ struct msm_sensor_id_info_t {
 	unsigned short sensor_id_mask;
 };
 
+enum msm_cci_i2c_master_t {
+	MSM_MASTER_0,
+	MSM_MASTER_1,
+	MSM_MASTER_MAX,
+};
+
+struct msm_vendor_id_info_t {
+	unsigned short eeprom_slave_addr;
+	unsigned short vendor_id_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	unsigned short vendor_id;
+	enum msm_camera_i2c_data_type data_type;
+	enum msm_cci_i2c_master_t cci_i2c_master;
+};
+
+struct msm_vcm_id_info_t {
+	unsigned short eeprom_slave_addr;
+	unsigned short vcm_id_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	unsigned short vcm_id;
+	enum msm_camera_i2c_data_type data_type;
+	enum msm_cci_i2c_master_t cci_i2c_master;
+};
+
+struct msm_lens_id_info_t {
+	unsigned short eeprom_slave_addr;
+	unsigned short lens_id_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	unsigned short lens_id;
+	enum msm_camera_i2c_data_type data_type;
+	enum msm_cci_i2c_master_t cci_i2c_master;
+};
+
 struct msm_camera_sensor_slave_info {
 	char sensor_name[32];
 	char eeprom_name[32];
@@ -317,6 +350,10 @@ struct msm_camera_sensor_slave_info {
 	struct msm_sensor_init_params sensor_init_params;
 	enum msm_sensor_output_format_t output_format;
 	uint8_t bypass_video_node_creation;
+        struct msm_vendor_id_info_t vendor_id_info;
+        struct msm_vcm_id_info_t vcm_id_info;
+        struct msm_lens_id_info_t lens_id_info;
+
 };
 
 struct msm_camera_i2c_reg_array {

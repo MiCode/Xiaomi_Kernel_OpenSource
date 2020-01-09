@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,7 +34,6 @@
 #include <linux/ktime.h>
 #include <linux/power_supply.h>
 #include <linux/of_batterydata.h>
-#include <linux/spinlock.h>
 #include <linux/string_helpers.h>
 #include <linux/alarmtimer.h>
 #include <linux/qpnp/qpnp-revid.h>
@@ -73,7 +73,6 @@
 
 #define QPNP_FG_DEV_NAME "qcom,qpnp-fg"
 #define MEM_IF_TIMEOUT_MS	5000
-#define FG_CYCLE_MS		1500
 #define BUCKET_COUNT		8
 #define BUCKET_SOC_PCT		(256 / BUCKET_COUNT)
 
@@ -110,7 +109,6 @@ enum pmic_subtype {
 	PMI8950		= 17,
 	PMI8996		= 19,
 	PMI8937		= 55,
-	PMI8940		= 64,
 };
 
 enum wa_flags {
@@ -153,8 +151,6 @@ struct fg_learning_data {
 	int			min_temp;
 	int			max_temp;
 	int			vbat_est_thr_uv;
-	int			max_cap_limit;
-	int			min_cap_limit;
 };
 
 struct fg_rslow_data {
@@ -280,75 +276,32 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	DATA(BATT_ID_INFO,    0x594,   3,      1,     -EINVAL),
 };
 
-enum fg_mem_backup_index {
-	FG_BACKUP_SOC = 0,
-	FG_BACKUP_CYCLE_COUNT,
-	FG_BACKUP_CC_SOC_COEFF,
-	FG_BACKUP_IGAIN,
-	FG_BACKUP_VCOR,
-	FG_BACKUP_TEMP_COUNTER,
-	FG_BACKUP_AGING_STORAGE,
-	FG_BACKUP_MAH_TO_SOC,
-	FG_BACKUP_MAX,
-};
-
-#define BACKUP(_idx, _address, _offset, _length,  _value)	\
-	[FG_BACKUP_##_idx] = {				\
-		.address = _address,			\
-		.offset = _offset,			\
-		.len = _length,			\
-		.value = _value,			\
-	}						\
-
-static struct fg_mem_data fg_backup_regs[FG_BACKUP_MAX] = {
-	/*       ID           Address, Offset, Length, Value*/
-	BACKUP(SOC,		0x564,   0,      24,     -EINVAL),
-	BACKUP(CYCLE_COUNT,	0x5E8,   0,      16,     -EINVAL),
-	BACKUP(CC_SOC_COEFF,	0x5BC,   0,      8,     -EINVAL),
-	BACKUP(IGAIN,		0x424,   0,      4,     -EINVAL),
-	BACKUP(VCOR,		0x484,   0,      4,     -EINVAL),
-	BACKUP(TEMP_COUNTER,	0x580,   0,      4,     -EINVAL),
-	BACKUP(AGING_STORAGE,	0x5E4,   0,      4,     -EINVAL),
-	BACKUP(MAH_TO_SOC,	0x4A0,   0,      4,     -EINVAL),
-};
-
 static int fg_debug_mask;
 module_param_named(
-	debug_mask, fg_debug_mask, int, 00600
+	debug_mask, fg_debug_mask, int, S_IRUSR | S_IWUSR
 );
-
-static int fg_reset_on_lockup;
 
 static int fg_sense_type = -EINVAL;
 static int fg_restart;
 
 static int fg_est_dump;
 module_param_named(
-	first_est_dump, fg_est_dump, int, 00600
+	first_est_dump, fg_est_dump, int, S_IRUSR | S_IWUSR
 );
 
 static char *fg_batt_type;
 module_param_named(
-	battery_type, fg_batt_type, charp, 00600
+	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
 );
 
 static int fg_sram_update_period_ms = 30000;
 module_param_named(
-	sram_update_period_ms, fg_sram_update_period_ms, int, 00600
-);
-
-static bool fg_batt_valid_ocv;
-module_param_named(batt_valid_ocv, fg_batt_valid_ocv, bool, 0600
-);
-
-static int fg_batt_range_pct;
-module_param_named(batt_range_pct, fg_batt_range_pct, int, 0600
+	sram_update_period_ms, fg_sram_update_period_ms, int, S_IRUSR | S_IWUSR
 );
 
 struct fg_irq {
 	int			irq;
-	bool			disabled;
-	bool			wakeup;
+	unsigned long		disabled;
 };
 
 enum fg_soc_irq {
@@ -394,16 +347,6 @@ enum register_type {
 	MEM_INTF_RD_DATA0,
 	MEM_INTF_WR_DATA0,
 	MAX_ADDRESS,
-};
-
-enum batt_info_params {
-	BATT_INFO_NOTIFY = 0,
-	BATT_INFO_SOC,
-	BATT_INFO_RES_ID,
-	BATT_INFO_VOLTAGE,
-	BATT_INFO_TEMP,
-	BATT_INFO_FCC,
-	BATT_INFO_MAX,
 };
 
 struct register_offset {
@@ -453,22 +396,6 @@ static void fg_relax(struct fg_wakeup_source *source)
 	}
 }
 
-enum slope_limit_status {
-	LOW_TEMP_CHARGE,
-	HIGH_TEMP_CHARGE,
-	LOW_TEMP_DISCHARGE,
-	HIGH_TEMP_DISCHARGE,
-	SLOPE_LIMIT_MAX,
-};
-
-#define VOLT_GAIN_MAX		3
-struct dischg_gain_soc {
-	bool			enable;
-	u32			soc[VOLT_GAIN_MAX];
-	u32			medc_gain[VOLT_GAIN_MAX];
-	u32			highc_gain[VOLT_GAIN_MAX];
-};
-
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
@@ -494,7 +421,6 @@ struct fg_chip {
 	struct completion	first_soc_done;
 	struct power_supply	*bms_psy;
 	struct power_supply_desc	bms_psy_d;
-	spinlock_t		sec_access_lock;
 	struct mutex		rw_lock;
 	struct mutex		sysfs_restart_lock;
 	struct delayed_work	batt_profile_init;
@@ -524,7 +450,6 @@ struct fg_chip {
 	struct fg_wakeup_source	update_sram_wakeup_source;
 	bool			fg_restarting;
 	bool			profile_loaded;
-	bool			soc_reporting_ready;
 	bool			use_otp_profile;
 	bool			battery_missing;
 	bool			power_supply_registered;
@@ -535,7 +460,6 @@ struct fg_chip {
 	bool			charge_done;
 	bool			resume_soc_lowered;
 	bool			vbat_low_irq_enabled;
-	bool			full_soc_irq_enabled;
 	bool			charge_full;
 	bool			hold_soc_while_full;
 	bool			input_present;
@@ -544,10 +468,6 @@ struct fg_chip {
 	bool			bad_batt_detection_en;
 	bool			bcl_lpm_disabled;
 	bool			charging_disabled;
-	bool			use_vbat_low_empty_soc;
-	bool			fg_shutdown;
-	bool			use_soft_jeita_irq;
-	bool			allow_false_negative_isense;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -572,7 +492,6 @@ struct fg_chip {
 	int			prev_status;
 	int			health;
 	enum fg_batt_aging_mode	batt_aging_mode;
-	struct alarm		hard_jeita_alarm;
 	/* capacity learning */
 	struct fg_learning_data	learning_data;
 	struct alarm		fg_cap_learning_alarm;
@@ -580,7 +499,6 @@ struct fg_chip {
 	struct fg_cc_soc_data	sw_cc_soc_data;
 	/* rslow compensation */
 	struct fg_rslow_data	rslow_comp;
-	int			rconn_mohm;
 	/* cycle counter */
 	struct fg_cyc_ctr_data	cyc_ctr;
 	/* iadc compensation */
@@ -593,8 +511,6 @@ struct fg_chip {
 	bool			jeita_hysteresis_support;
 	bool			batt_hot;
 	bool			batt_cold;
-	bool			batt_warm;
-	bool			batt_cool;
 	int			cold_hysteresis;
 	int			hot_hysteresis;
 	/* ESR pulse tuning */
@@ -603,47 +519,6 @@ struct fg_chip {
 	bool			esr_extract_disabled;
 	bool			imptr_pulse_slow_en;
 	bool			esr_pulse_tune_en;
-	/* Slope limiter */
-	struct work_struct	slope_limiter_work;
-	struct fg_wakeup_source	slope_limit_wakeup_source;
-	bool			soc_slope_limiter_en;
-	enum slope_limit_status	slope_limit_sts;
-	u32			slope_limit_temp;
-	u32			slope_limit_coeffs[SLOPE_LIMIT_MAX];
-	/* Discharge soc gain */
-	struct work_struct	dischg_gain_work;
-	struct fg_wakeup_source	dischg_gain_wakeup_source;
-	struct dischg_gain_soc	dischg_gain;
-	/* IMA error recovery */
-	struct completion	fg_reset_done;
-	struct work_struct	ima_error_recovery_work;
-	struct fg_wakeup_source	fg_reset_wakeup_source;
-	struct mutex		ima_recovery_lock;
-	bool			ima_error_handling;
-	bool			block_sram_access;
-	bool			irqs_enabled;
-	bool			use_last_soc;
-	int			last_soc;
-	/* Validating temperature */
-	int			last_good_temp;
-	int			batt_temp_low_limit;
-	int			batt_temp_high_limit;
-	/* Validating CC_SOC */
-	struct work_struct	cc_soc_store_work;
-	struct fg_wakeup_source	cc_soc_wakeup_source;
-	int			cc_soc_limit_pct;
-	bool			use_last_cc_soc;
-	int64_t			last_cc_soc;
-	/* Sanity check */
-	struct delayed_work	check_sanity_work;
-	struct fg_wakeup_source	sanity_wakeup_source;
-	u8			last_beat_count;
-	/* Batt_info restore */
-	int			batt_info[BATT_INFO_MAX];
-	int			batt_info_id;
-	bool			batt_info_restore;
-	bool			*batt_range_ocv;
-	int			*batt_range_pct;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -654,7 +529,7 @@ struct fg_chip {
 #define MAX_REG_PER_TRANSACTION	(8)
 
 static const char *DFS_ROOT_NAME	= "fg_memif";
-static const mode_t DFS_MODE		= 00600;
+static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
 static const char *default_batt_type	= "Unknown Battery";
 static const char *loading_batt_type	= "Loading Battery Data";
 static const char *missing_batt_type	= "Disconnected Battery";
@@ -787,56 +662,17 @@ static int fg_read(struct fg_chip *chip, u8 *val, u16 addr, int len)
 	return rc;
 }
 
-static int fg_masked_write_raw(struct fg_chip *chip, u16 addr,
+static int fg_masked_write(struct fg_chip *chip, u16 addr,
 		u8 mask, u8 val, int len)
 {
 	int rc;
 
 	rc = regmap_update_bits(chip->regmap, addr, mask, val);
-	if (rc)
-		pr_err("spmi write failed: addr=%03X, rc=%d\n", addr, rc);
-
-	return rc;
-}
-
-static int fg_masked_write(struct fg_chip *chip, u16 addr,
-		u8 mask, u8 val, int len)
-{
-	int rc;
-	unsigned long flags;
-
-	spin_lock_irqsave(&chip->sec_access_lock, flags);
-	rc = fg_masked_write_raw(chip, addr, mask, val, len);
-	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
-
-	return rc;
-}
-
-#define SEC_ACCESS_OFFSET	0xD0
-#define SEC_ACCESS_VALUE	0xA5
-#define PERIPHERAL_MASK		0xFF
-static int fg_sec_masked_write(struct fg_chip *chip, u16 addr, u8 mask, u8 val,
-		int len)
-{
-	int rc;
-	unsigned long flags;
-	u8 temp;
-	u16 base = addr & (~PERIPHERAL_MASK);
-
-	spin_lock_irqsave(&chip->sec_access_lock, flags);
-	temp = SEC_ACCESS_VALUE;
-	rc = fg_write(chip, &temp, base + SEC_ACCESS_OFFSET, 1);
 	if (rc) {
-		pr_err("Unable to unlock sec_access: %d\n", rc);
-		goto out;
+		pr_err("spmi write failed: addr=%03X, rc=%d\n", addr, rc);
+		return rc;
 	}
 
-	rc = fg_masked_write_raw(chip, addr, mask, val, len);
-	if (rc)
-		pr_err("Unable to write securely to address 0x%x: %d", addr,
-			rc);
-out:
-	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
 	return rc;
 }
 
@@ -975,8 +811,9 @@ static int fg_release_access(struct fg_chip *chip)
 static void fg_release_access_if_necessary(struct fg_chip *chip)
 {
 	mutex_lock(&chip->rw_lock);
-	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0)
+	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0) {
 		fg_release_access(chip);
+	}
 	mutex_unlock(&chip->rw_lock);
 }
 
@@ -1043,7 +880,7 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 				MEM_INTF_RD_DATA0(chip) + offset,
 				min(len, BUF_LEN - offset));
 
-			/* manually set address to allow continuous reads */
+			/* manually set address to allow continous reads */
 			address += BUF_LEN;
 
 			rc = fg_set_ram_addr(chip, &address);
@@ -1117,7 +954,6 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	int rc = 0, user_cnt = 0, sublen;
 	bool access_configured = false;
 	u8 *wr_data = val, word[4];
-	u16 orig_address = address;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if (address < RAM_OFFSET)
@@ -1126,8 +962,8 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	if (offset > 3)
 		return -EINVAL;
 
-	address = ((orig_address + offset) / 4) * 4;
-	offset = (orig_address + offset) % 4;
+	address = ((address + offset) / 4) * 4;
+	offset = (address + offset) % 4;
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
@@ -1227,253 +1063,50 @@ out:
 #define MEM_INTF_IMA_EXP_STS		0x55
 #define MEM_INTF_IMA_HW_STS		0x56
 #define MEM_INTF_IMA_BYTE_EN		0x60
+#define IMA_ADDR_STBL_ERR		BIT(7)
+#define IMA_WR_ACS_ERR			BIT(6)
+#define IMA_RD_ACS_ERR			BIT(5)
 #define IMA_IACS_CLR			BIT(2)
 #define IMA_IACS_RDY			BIT(1)
-static int fg_run_iacs_clear_sequence(struct fg_chip *chip)
-{
-	int rc = 0;
-	u8 temp;
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Running IACS clear sequence\n");
-
-	/* clear the error */
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-				IMA_IACS_CLR, IMA_IACS_CLR, 1);
-	if (rc) {
-		pr_err("Error writing to IMA_CFG, rc=%d\n", rc);
-		return rc;
-	}
-
-	temp = 0x4;
-	rc = fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
-	if (rc) {
-		pr_err("Error writing to MEM_INTF_ADDR_MSB, rc=%d\n", rc);
-		return rc;
-	}
-
-	temp = 0x0;
-	rc = fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
-	if (rc) {
-		pr_err("Error writing to WR_DATA3, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
-	if (rc) {
-		pr_err("Error writing to RD_DATA3, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-				IMA_IACS_CLR, 0, 1);
-	if (rc) {
-		pr_err("Error writing to IMA_CFG, rc=%d\n", rc);
-		return rc;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("IACS clear sequence complete!\n");
-	return rc;
-}
-
-#define IACS_ERR_BIT		BIT(0)
-#define XCT_ERR_BIT		BIT(1)
-#define DATA_RD_ERR_BIT		BIT(3)
-#define DATA_WR_ERR_BIT		BIT(4)
-#define ADDR_BURST_WRAP_BIT	BIT(5)
-#define ADDR_RNG_ERR_BIT	BIT(6)
-#define ADDR_SRC_ERR_BIT	BIT(7)
-static int fg_check_ima_exception(struct fg_chip *chip, bool check_hw_sts)
+static int fg_check_ima_exception(struct fg_chip *chip)
 {
 	int rc = 0, ret = 0;
-	u8 err_sts = 0, exp_sts = 0, hw_sts = 0;
-	bool run_err_clr_seq = false;
+	u8 err_sts, exp_sts = 0, hw_sts = 0;
 
 	rc = fg_read(chip, &err_sts,
 			chip->mem_base + MEM_INTF_IMA_ERR_STS, 1);
 	if (rc) {
-		pr_err("failed to read IMA_ERR_STS, rc=%d\n", rc);
+		pr_err("failed to read beat count rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = fg_read(chip, &exp_sts,
+	if (err_sts & (IMA_ADDR_STBL_ERR | IMA_WR_ACS_ERR | IMA_RD_ACS_ERR)) {
+		u8 temp;
+
+		fg_read(chip, &exp_sts,
 			chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
-	if (rc) {
-		pr_err("Error in reading IMA_EXP_STS, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_read(chip, &hw_sts,
+		fg_read(chip, &hw_sts,
 			chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
-	if (rc) {
-		pr_err("Error in reading IMA_HW_STS, rc=%d\n", rc);
-		return rc;
-	}
+		pr_err("IMA access failed ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
+				err_sts, exp_sts, hw_sts);
+		rc = err_sts;
 
-	pr_info_once("Initial ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
-		err_sts, exp_sts, hw_sts);
-
-	if (fg_debug_mask & (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
-		pr_info("ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
-			err_sts, exp_sts, hw_sts);
-
-	if (check_hw_sts) {
-		/*
-		 * Lower nibble should be equal to upper nibble before SRAM
-		 * transactions begins from SW side. If they are unequal, then
-		 * the error clear sequence should be run irrespective of IMA
-		 * exception errors.
-		 */
-		if ((hw_sts & 0x0F) != hw_sts >> 4) {
-			pr_err("IMA HW not in correct state, hw_sts=%x\n",
-				hw_sts);
-			run_err_clr_seq = true;
-		}
-	}
-
-	if (exp_sts & (IACS_ERR_BIT | XCT_ERR_BIT | DATA_RD_ERR_BIT |
-		DATA_WR_ERR_BIT | ADDR_BURST_WRAP_BIT | ADDR_RNG_ERR_BIT |
-		ADDR_SRC_ERR_BIT)) {
-		pr_err("IMA exception bit set, exp_sts=%x\n", exp_sts);
-		run_err_clr_seq = true;
-	}
-
-	if (run_err_clr_seq) {
-		ret = fg_run_iacs_clear_sequence(chip);
+		/* clear the error */
+		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+					IMA_IACS_CLR, IMA_IACS_CLR, 1);
+		temp = 0x4;
+		ret |= fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
+		temp = 0x0;
+		ret |= fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
+		ret |= fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
+		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+					IMA_IACS_CLR, 0, 1);
 		if (!ret)
 			return -EAGAIN;
 		else
 			pr_err("Error clearing IMA exception ret=%d\n", ret);
 	}
 
-	return rc;
-}
-
-static void fg_enable_irqs(struct fg_chip *chip, bool enable)
-{
-	if (!(enable ^ chip->irqs_enabled))
-		return;
-
-	if (enable) {
-		enable_irq(chip->soc_irq[DELTA_SOC].irq);
-		enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
-		if (!chip->full_soc_irq_enabled) {
-			enable_irq(chip->soc_irq[FULL_SOC].irq);
-			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			chip->full_soc_irq_enabled = true;
-		}
-		enable_irq(chip->batt_irq[BATT_MISSING].irq);
-		if (!chip->vbat_low_irq_enabled) {
-			enable_irq(chip->batt_irq[VBATT_LOW].irq);
-			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
-			chip->vbat_low_irq_enabled = true;
-		}
-		if (!chip->use_vbat_low_empty_soc) {
-			enable_irq(chip->soc_irq[EMPTY_SOC].irq);
-			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
-		}
-		chip->irqs_enabled = true;
-	} else {
-		disable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
-		disable_irq_nosync(chip->soc_irq[DELTA_SOC].irq);
-		if (chip->full_soc_irq_enabled) {
-			disable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			disable_irq_nosync(chip->soc_irq[FULL_SOC].irq);
-			chip->full_soc_irq_enabled = false;
-		}
-		disable_irq(chip->batt_irq[BATT_MISSING].irq);
-		if (chip->vbat_low_irq_enabled) {
-			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
-			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
-			chip->vbat_low_irq_enabled = false;
-		}
-		if (!chip->use_vbat_low_empty_soc) {
-			disable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
-			disable_irq_nosync(chip->soc_irq[EMPTY_SOC].irq);
-		}
-		chip->irqs_enabled = false;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("FG interrupts are %sabled\n", enable ? "en" : "dis");
-}
-
-static void fg_check_ima_error_handling(struct fg_chip *chip)
-{
-	if (chip->ima_error_handling) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("IMA error is handled already!\n");
-		return;
-	}
-	mutex_lock(&chip->ima_recovery_lock);
-	fg_enable_irqs(chip, false);
-	chip->use_last_cc_soc = true;
-	chip->ima_error_handling = true;
-	if (!work_pending(&chip->ima_error_recovery_work))
-		schedule_work(&chip->ima_error_recovery_work);
-	mutex_unlock(&chip->ima_recovery_lock);
-}
-
-#define SOC_ALG_ST		0xCF
-#define FGXCT_PRD		BIT(7)
-#define ALG_ST_CHECK_COUNT	20
-static int fg_check_alg_status(struct fg_chip *chip)
-{
-	int rc = 0, timeout = ALG_ST_CHECK_COUNT, count = 0;
-	u8 ima_opr_sts, alg_sts = 0, temp = 0;
-
-	if (!fg_reset_on_lockup)  {
-		pr_info("FG lockup detection cannot be run\n");
-		return 0;
-	}
-
-	rc = fg_read(chip, &alg_sts, chip->soc_base + SOC_ALG_ST, 1);
-	if (rc) {
-		pr_err("Error in reading SOC_ALG_ST, rc=%d\n", rc);
-		return rc;
-	}
-
-	while (1) {
-		rc = fg_read(chip, &ima_opr_sts,
-			chip->mem_base + MEM_INTF_IMA_OPR_STS, 1);
-		if (!rc && !(ima_opr_sts & FGXCT_PRD))
-			break;
-
-		if (rc) {
-			pr_err("Error in reading IMA_OPR_STS, rc=%d\n",
-				rc);
-			break;
-		}
-
-		rc = fg_read(chip, &temp, chip->soc_base + SOC_ALG_ST,
-			1);
-		if (rc) {
-			pr_err("Error in reading SOC_ALG_ST, rc=%d\n",
-				rc);
-			break;
-		}
-
-		if ((ima_opr_sts & FGXCT_PRD) && (temp == alg_sts))
-			count++;
-
-		/* Wait for ~10ms while polling ALG_ST & IMA_OPR_STS */
-		usleep_range(9000, 11000);
-
-		if (!(--timeout))
-			break;
-	}
-
-	if (fg_debug_mask & (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
-		pr_info("ima_opr_sts: %x  alg_sts: %x count=%d\n", ima_opr_sts,
-			alg_sts, count);
-
-	if (count == ALG_ST_CHECK_COUNT) {
-		/* If we are here, that means FG ALG is stuck */
-		pr_err("ALG is stuck\n");
-		fg_check_ima_error_handling(chip);
-		rc = -EBUSY;
-	}
 	return rc;
 }
 
@@ -1496,20 +1129,15 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 		} else {
 			if (!(--timeout) || rc)
 				break;
-
 			/* delay for iacs_ready to be asserted */
 			usleep_range(5000, 7000);
 		}
 	}
 
 	if (!timeout || rc) {
-		pr_err("IACS_RDY not set, ima_opr_sts: %x\n", ima_opr_sts);
-		rc = fg_check_alg_status(chip);
-		if (rc && rc != -EBUSY)
-			pr_err("Couldn't check FG ALG status, rc=%d\n",
-				rc);
+		pr_err("IACS_RDY not set\n");
 		/* perform IACS_CLR sequence */
-		fg_check_ima_exception(chip, false);
+		fg_check_ima_exception(chip);
 		return -EBUSY;
 	}
 
@@ -1528,19 +1156,19 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 					len, address, offset);
 
 	while (len > 0) {
-		num_bytes = (offset + len) > BUF_LEN ?
+			num_bytes = (offset + len) > BUF_LEN ?
 				(BUF_LEN - offset) : len;
-		/* write to byte_enable */
-		for (i = offset; i < (offset + num_bytes); i++)
-			byte_enable |= BIT(i);
+			/* write to byte_enable */
+			for (i = offset; i < (offset + num_bytes); i++)
+				byte_enable |= BIT(i);
 
-		rc = fg_write(chip, &byte_enable,
+			rc = fg_write(chip, &byte_enable,
 				chip->mem_base + MEM_INTF_IMA_BYTE_EN, 1);
-		if (rc) {
-			pr_err("Unable to write to byte_en_reg rc=%d\n",
-							rc);
-			return rc;
-		}
+			if (rc) {
+				pr_err("Unable to write to byte_en_reg rc=%d\n",
+								rc);
+				return rc;
+			}
 			/* write data */
 		rc = fg_write(chip, word, MEM_INTF_WR_DATA0(chip) + offset,
 				num_bytes);
@@ -1557,7 +1185,6 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 		 */
 		if (!(byte_enable & BIT(3))) {
 			u8 dummy_byte = 0x0;
-
 			rc = fg_write(chip, &dummy_byte,
 				MEM_INTF_WR_DATA0(chip) + 3, 1);
 			if (rc) {
@@ -1569,13 +1196,12 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 
 		rc = fg_check_iacs_ready(chip);
 		if (rc) {
-			pr_err("IACS_RDY failed post write to address %x offset %d rc=%d\n",
-				address, offset, rc);
+			pr_debug("IACS_RDY failed rc=%d\n", rc);
 			return rc;
 		}
 
 		/* check for error condition */
-		rc = fg_check_ima_exception(chip, false);
+		rc = fg_check_ima_exception(chip);
 		if (rc) {
 			pr_err("IMA transaction failed rc=%d", rc);
 			return rc;
@@ -1616,13 +1242,12 @@ static int __fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 
 		rc = fg_check_iacs_ready(chip);
 		if (rc) {
-			pr_err("IACS_RDY failed post read for address %x offset %d rc=%d\n",
-				address, offset, rc);
+			pr_debug("IACS_RDY failed rc=%d\n", rc);
 			return rc;
 		}
 
 		/* check for error condition */
-		rc = fg_check_ima_exception(chip, false);
+		rc = fg_check_ima_exception(chip);
 		if (rc) {
 			pr_err("IMA transaction failed rc=%d", rc);
 			return rc;
@@ -1674,7 +1299,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 		 * clear, then return an error instead of waiting for it again.
 		 */
 		if  (time_count > 4) {
-			pr_err("Waited for ~16ms polling RIF_MEM_ACCESS_REQ\n");
+			pr_err("Waited for 1.5 seconds polling RIF_MEM_ACCESS_REQ\n");
 			return -ETIMEDOUT;
 		}
 
@@ -1700,8 +1325,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 
 	rc = fg_check_iacs_ready(chip);
 	if (rc) {
-		pr_err("IACS_RDY failed before setting address: %x offset: %d rc=%d\n",
-			address, offset, rc);
+		pr_debug("IACS_RDY failed rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1714,8 +1338,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 
 	rc = fg_check_iacs_ready(chip);
 	if (rc)
-		pr_err("IACS_RDY failed after setting address: %x offset: %d rc=%d\n",
-			address, offset, rc);
+		pr_debug("IACS_RDY failed rc=%d\n", rc);
 
 	return rc;
 }
@@ -1726,12 +1349,9 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 						int len, int offset)
 {
-	int rc = 0, ret, orig_address = address;
+	int rc = 0, orig_address = address;
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry = false;
-
-	if (chip->fg_shutdown)
-		return -EINVAL;
 
 	if (offset > 3) {
 		pr_err("offset too large %d\n", offset);
@@ -1755,22 +1375,11 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	}
 
 	mutex_lock(&chip->rw_lock);
-	if (fg_debug_mask & FG_MEM_DEBUG_READS)
-		pr_info("Read for %d bytes is attempted @ 0x%x[%d]\n",
-			len, address, offset);
 
 retry:
-	if (count >= RETRY_COUNT) {
-		pr_err("Retried reading 3 times\n");
-		retry = false;
-		goto out;
-	}
-
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 0);
 	if (rc) {
 		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
-		retry = true;
-		count++;
 		goto out;
 	}
 
@@ -1779,21 +1388,18 @@ retry:
 			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
 	if (rc) {
 		pr_err("failed to read beat count rc=%d\n", rc);
-		retry = true;
-		count++;
 		goto out;
 	}
 
 	/* read data */
 	rc = __fg_interleaved_mem_read(chip, val, address, offset, len);
 	if (rc) {
-		count++;
 		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
+			count++;
 			pr_err("IMA access failed retry_count = %d\n", count);
 			goto retry;
 		} else {
 			pr_err("failed to read SRAM address rc = %d\n", rc);
-			retry = true;
 			goto out;
 		}
 	}
@@ -1803,8 +1409,6 @@ retry:
 			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
 	if (rc) {
 		pr_err("failed to read beat count rc=%d\n", rc);
-		retry = true;
-		count++;
 		goto out;
 	}
 
@@ -1817,13 +1421,12 @@ retry:
 		if (fg_debug_mask & FG_MEM_DEBUG_READS)
 			pr_info("Beat count do not match - retry transaction\n");
 		retry = true;
-		count++;
 	}
 out:
 	/* Release IMA access */
-	ret = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
-	if (ret)
-		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
+	if (rc)
+		pr_err("failed to reset IMA access bit rc = %d\n", rc);
 
 	if (retry) {
 		retry = false;
@@ -1839,12 +1442,8 @@ exit:
 static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 							int len, int offset)
 {
-	int rc = 0, ret, orig_address = address;
+	int rc = 0, orig_address = address;
 	u8 count = 0;
-	bool retry = false;
-
-	if (chip->fg_shutdown)
-		return -EINVAL;
 
 	if (address < RAM_OFFSET)
 		return -EINVAL;
@@ -1859,49 +1458,32 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	offset = (orig_address + offset) % 4;
 
 	mutex_lock(&chip->rw_lock);
-	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
-		pr_info("Write for %d bytes is attempted @ 0x%x[%d]\n",
-			len, address, offset);
 
 retry:
-	if (count >= RETRY_COUNT) {
-		pr_err("Retried writing 3 times\n");
-		retry = false;
-		goto out;
-	}
-
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 1);
 	if (rc) {
-		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
-		retry = true;
-		count++;
+		pr_err("failed to xonfigure SRAM for IMA rc = %d\n", rc);
 		goto out;
 	}
 
 	/* write data */
 	rc = __fg_interleaved_mem_write(chip, val, address, offset, len);
 	if (rc) {
-		count++;
 		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
+			count++;
 			pr_err("IMA access failed retry_count = %d\n", count);
 			goto retry;
 		} else {
 			pr_err("failed to write SRAM address rc = %d\n", rc);
-			retry = true;
 			goto out;
 		}
 	}
 
 out:
 	/* Release IMA access */
-	ret = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
-	if (ret)
-		pr_err("failed to reset IMA access bit ret = %d\n", ret);
-
-	if (retry) {
-		retry = false;
-		goto retry;
-	}
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
+	if (rc)
+		pr_err("failed to reset IMA access bit rc = %d\n", rc);
 
 	mutex_unlock(&chip->rw_lock);
 	fg_relax(&chip->memif_wakeup_source);
@@ -1911,9 +1493,6 @@ out:
 static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 			int len, int offset, bool keep_access)
 {
-	if (chip->block_sram_access)
-		return -EBUSY;
-
 	if (chip->ima_supported)
 		return fg_interleaved_mem_read(chip, val, address,
 						len, offset);
@@ -1925,9 +1504,6 @@ static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		int len, int offset, bool keep_access)
 {
-	if (chip->block_sram_access)
-		return -EBUSY;
-
 	if (chip->ima_supported)
 		return fg_interleaved_mem_write(chip, val, address,
 						len, offset);
@@ -1964,62 +1540,6 @@ static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
 
 	return rc;
 }
-
-static u8 sram_backup_buffer[100];
-static int fg_backup_sram_registers(struct fg_chip *chip, bool save)
-{
-	int rc, i, len, offset;
-	u16 address;
-	u8 *ptr;
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("%sing SRAM registers\n", save ? "Back" : "Restor");
-
-	ptr = sram_backup_buffer;
-	for (i = 0; i < FG_BACKUP_MAX; i++) {
-		address = fg_backup_regs[i].address;
-		offset = fg_backup_regs[i].offset;
-		len = fg_backup_regs[i].len;
-		if (save)
-			rc = fg_interleaved_mem_read(chip, ptr, address,
-					len, offset);
-		else
-			rc = fg_interleaved_mem_write(chip, ptr, address,
-					len, offset);
-		if (rc) {
-			pr_err("Error in reading %d bytes from %x[%d], rc=%d\n",
-				len, address, offset, rc);
-			break;
-		}
-		ptr += len;
-	}
-
-	return rc;
-}
-
-#define SOC_FG_RESET	0xF3
-#define RESET_MASK	(BIT(7) | BIT(5))
-static int fg_reset(struct fg_chip *chip, bool reset)
-{
-	int rc;
-
-	rc = fg_sec_masked_write(chip, chip->soc_base + SOC_FG_RESET,
-		0xFF, reset ? RESET_MASK : 0, 1);
-	if (rc)
-		pr_err("Error in writing to 0x%x, rc=%d\n", SOC_FG_RESET, rc);
-
-	return rc;
-}
-
-static void fg_handle_battery_insertion(struct fg_chip *chip)
-{
-	reinit_completion(&chip->batt_id_avail);
-	reinit_completion(&chip->fg_reset_done);
-	schedule_delayed_work(&chip->batt_profile_init, 0);
-	cancel_delayed_work(&chip->update_sram_data);
-	schedule_delayed_work(&chip->update_sram_data, msecs_to_jiffies(0));
-}
-
 
 static int soc_to_setpoint(int soc)
 {
@@ -2162,37 +1682,14 @@ out:
 	return rc;
 }
 
-#define VBATT_LOW_STS_BIT BIT(2)
-static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
-{
-	int rc = 0;
-	u8 fg_batt_sts;
-
-	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
-	if (rc)
-		pr_err("spmi read failed: addr=%03X, rc=%d\n",
-				INT_RT_STS(chip->batt_base), rc);
-	else
-		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
-
-	return rc;
-}
-
 #define SOC_EMPTY	BIT(3)
 static bool fg_is_batt_empty(struct fg_chip *chip)
 {
 	u8 fg_soc_sts;
 	int rc;
-	bool vbatt_low_sts;
 
-	if (chip->use_vbat_low_empty_soc) {
-		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
-			return false;
-
-		return vbatt_low_sts;
-	}
-
-	rc = fg_read(chip, &fg_soc_sts, INT_RT_STS(chip->soc_base), 1);
+	rc = fg_read(chip, &fg_soc_sts,
+				 INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
 				INT_RT_STS(chip->soc_base), rc);
@@ -2239,16 +1736,7 @@ static int get_monotonic_soc_raw(struct fg_chip *chip)
 #define FULL_SOC_RAW		0xFF
 static int get_prop_capacity(struct fg_chip *chip)
 {
-	int msoc, rc;
-	bool vbatt_low_sts;
-
-	if (chip->use_last_soc && chip->last_soc) {
-		if (chip->last_soc == FULL_SOC_RAW)
-			return FULL_CAPACITY;
-		return DIV_ROUND_CLOSEST((chip->last_soc - 1) *
-				(FULL_CAPACITY - 2),
-				FULL_SOC_RAW - 2) + 1;
-	}
+	int msoc;
 
 	if (chip->battery_missing)
 		return MISSING_CAPACITY;
@@ -2263,28 +1751,10 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return EMPTY_CAPACITY;
 	}
 	msoc = get_monotonic_soc_raw(chip);
-	if (msoc == 0) {
-		if (fg_reset_on_lockup && chip->use_vbat_low_empty_soc) {
-			rc = fg_get_vbatt_status(chip, &vbatt_low_sts);
-			if (rc) {
-				pr_err("Error in reading vbatt_status, rc=%d\n",
-					rc);
-				return EMPTY_CAPACITY;
-			}
-
-			if (!vbatt_low_sts)
-				return DIV_ROUND_CLOSEST((chip->last_soc - 1) *
-						(FULL_CAPACITY - 2),
-						FULL_SOC_RAW - 2) + 1;
-			else
-				return EMPTY_CAPACITY;
-		} else {
-			return EMPTY_CAPACITY;
-		}
-	} else if (msoc == FULL_SOC_RAW) {
+	if (msoc == 0)
+		return EMPTY_CAPACITY;
+	else if (msoc == FULL_SOC_RAW)
 		return FULL_CAPACITY;
-	}
-
 	return DIV_ROUND_CLOSEST((msoc - 1) * (FULL_CAPACITY - 2),
 			FULL_SOC_RAW - 2) + 1;
 }
@@ -2371,25 +1841,6 @@ static int set_prop_sense_type(struct fg_chip *chip, int ext_sense_type)
 			EXTERNAL_SENSE_OFFSET);
 	if (rc) {
 		pr_err("failed to write profile rc=%d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-#define IGNORE_FALSE_NEGATIVE_ISENSE_BIT	BIT(3)
-static int set_prop_ignore_false_negative_isense(struct fg_chip *chip,
-							bool ignore)
-{
-	int rc;
-
-	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
-			IGNORE_FALSE_NEGATIVE_ISENSE_BIT,
-			ignore ? IGNORE_FALSE_NEGATIVE_ISENSE_BIT : 0,
-			EXTERNAL_SENSE_OFFSET);
-	if (rc) {
-		pr_err("failed to %s isense false negative ignore rc=%d\n",
-				ignore ? "enable" : "disable", rc);
 		return rc;
 	}
 
@@ -2506,7 +1957,8 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 		return rc;
 	}
 
-	pr_debug("fg batt sts 0x%x\n", fg_batt_sts);
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("fg batt sts 0x%x\n", fg_batt_sts);
 
 	return (fg_batt_sts & BATT_IDED) ? 1 : 0;
 }
@@ -2536,7 +1988,7 @@ static int64_t twos_compliment_extend(int64_t val, int nbytes)
 #define DECIKELVIN	2730
 #define SRAM_PERIOD_NO_ID_UPDATE_MS	100
 #define FULL_PERCENT_28BIT		0xFFFFFFF
-static int update_sram_data(struct fg_chip *chip, int *resched_ms)
+static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 {
 	int i, j, rc = 0;
 	u8 reg[4];
@@ -2612,31 +2064,6 @@ static int update_sram_data(struct fg_chip *chip, int *resched_ms)
 	}
 	fg_mem_release(chip);
 
-	/* Backup the registers whenever no error happens during update */
-	if (fg_reset_on_lockup && !chip->ima_error_handling) {
-		if (!rc) {
-			if (fg_debug_mask & FG_STATUS)
-				pr_info("backing up SRAM registers\n");
-			rc = fg_backup_sram_registers(chip, true);
-			if (rc) {
-				pr_err("Couldn't save sram registers\n");
-				goto out;
-			}
-			if (!chip->use_last_soc) {
-				chip->last_soc = get_monotonic_soc_raw(chip);
-				chip->last_cc_soc = div64_s64(
-					(int64_t)chip->last_soc *
-					FULL_PERCENT_28BIT, FULL_SOC_RAW);
-			}
-			if (fg_debug_mask & FG_STATUS)
-				pr_info("last_soc: %d last_cc_soc: %lld\n",
-					chip->last_soc, chip->last_cc_soc);
-		} else {
-			pr_err("update_sram failed\n");
-			goto out;
-		}
-	}
-
 	if (!rc)
 		get_current_time(&chip->last_sram_update_time);
 
@@ -2647,55 +2074,7 @@ resched:
 	} else {
 		*resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 	}
-out:
 	fg_relax(&chip->update_sram_wakeup_source);
-	return rc;
-}
-
-#define SANITY_CHECK_PERIOD_MS	5000
-static void check_sanity_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				check_sanity_work.work);
-	int rc = 0;
-	u8 beat_count;
-	bool tried_once = false;
-
-	fg_stay_awake(&chip->sanity_wakeup_source);
-
-try_again:
-	rc = fg_read(chip, &beat_count,
-			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
-	if (rc) {
-		pr_err("failed to read beat count rc=%d\n", rc);
-		goto resched;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("current: %d, prev: %d\n", beat_count,
-			chip->last_beat_count);
-
-	if (chip->last_beat_count == beat_count) {
-		if (!tried_once) {
-			/* Wait for 1 FG cycle and read it once again */
-			msleep(1500);
-			tried_once = true;
-			goto try_again;
-		} else {
-			pr_err("Beat count not updating\n");
-			fg_check_ima_error_handling(chip);
-			goto out;
-		}
-	} else {
-		chip->last_beat_count = beat_count;
-	}
-resched:
-	schedule_delayed_work(
-		&chip->check_sanity_work,
-		msecs_to_jiffies(SANITY_CHECK_PERIOD_MS));
-out:
-	fg_relax(&chip->sanity_wakeup_source);
 }
 
 #define SRAM_TIMEOUT_MS			3000
@@ -2704,9 +2083,8 @@ static void update_sram_data_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				update_sram_data.work);
-	int resched_ms, ret;
+	int resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS, ret;
 	bool tried_again = false;
-	int rc = 0;
 
 wait:
 	/* Wait for MEMIF access revoked */
@@ -2720,19 +2098,14 @@ wait:
 		goto wait;
 	} else if (ret <= 0) {
 		pr_err("transaction timed out ret=%d\n", ret);
-		if (fg_is_batt_id_valid(chip))
-			resched_ms = fg_sram_update_period_ms;
-		else
-			resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 		goto out;
 	}
-	rc = update_sram_data(chip, &resched_ms);
+	update_sram_data(chip, &resched_ms);
 
 out:
-	if (!rc)
-		schedule_delayed_work(
-			&chip->update_sram_data,
-			msecs_to_jiffies(resched_ms));
+	schedule_delayed_work(
+		&chip->update_sram_data,
+		msecs_to_jiffies(resched_ms));
 }
 
 #define BATT_TEMP_OFFSET	3
@@ -2746,8 +2119,6 @@ out:
 				TEMP_SENSE_CHARGE_BIT)
 #define TEMP_PERIOD_UPDATE_MS		10000
 #define TEMP_PERIOD_TIMEOUT_MS		3000
-#define BATT_TEMP_LOW_LIMIT		-600
-#define BATT_TEMP_HIGH_LIMIT		1500
 static void update_temp_data(struct work_struct *work)
 {
 	s16 temp;
@@ -2799,43 +2170,13 @@ wait:
 	}
 
 	temp = reg[0] | (reg[1] << 8);
-	temp = (temp * TEMP_LSB_16B / 1000) - DECIKELVIN;
-
-	/*
-	 * If temperature is within the specified range (e.g. -60C and 150C),
-	 * update it to the userspace. Otherwise, use the last read good
-	 * temperature.
-	 */
-	if (temp > chip->batt_temp_low_limit &&
-			temp < chip->batt_temp_high_limit) {
-		chip->last_good_temp = temp;
-		fg_data[0].value = temp;
-	} else {
-		fg_data[0].value = chip->last_good_temp;
-
-		/*
-		 * If the temperature is read before and seems to be in valid
-		 * range, then a bad temperature reading could be because of
-		 * FG lockup. Trigger the FG reset sequence in such cases.
-		 */
-		if (chip->last_temp_update_time && fg_reset_on_lockup &&
-			(chip->last_good_temp > chip->batt_temp_low_limit &&
-			chip->last_good_temp < chip->batt_temp_high_limit)) {
-			pr_err("Batt_temp is %d !, triggering FG reset\n",
-				temp);
-			fg_check_ima_error_handling(chip);
-		}
-	}
+	fg_data[0].value = (temp * TEMP_LSB_16B / 1000)
+		- DECIKELVIN;
 
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
 		pr_info("BATT_TEMP %d %d\n", temp, fg_data[0].value);
 
 	get_current_time(&chip->last_temp_update_time);
-
-	if (chip->soc_slope_limiter_en) {
-		fg_stay_awake(&chip->slope_limit_wakeup_source);
-		schedule_work(&chip->slope_limiter_work);
-	}
 
 out:
 	if (chip->sw_rbias_ctrl) {
@@ -2886,6 +2227,18 @@ static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
 	else
 		pr_debug("setting resume-soc to %x\n", threshold);
 
+	return rc;
+}
+
+#define VBATT_LOW_STS_BIT BIT(2)
+static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
+{
+	int rc = 0;
+	u8 fg_batt_sts;
+
+	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
+	if (!rc)
+		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
 	return rc;
 }
 
@@ -2952,9 +2305,6 @@ static int fg_inc_store_cycle_ctr(struct fg_chip *chip, int bucket)
 			bucket, rc);
 	else
 		chip->cyc_ctr.count[bucket] = cyc_count;
-
-	if (fg_debug_mask & FG_POWER_SUPPLY)
-		pr_info("Stored bucket %d cyc_count: %d\n", bucket, cyc_count);
 	return rc;
 }
 
@@ -3070,62 +2420,6 @@ static int bcap_uah_2b(u8 *buffer)
 	return ((int)val) * 1000;
 }
 
-#define SLOPE_LIMITER_COEFF_REG		0x430
-#define SLOPE_LIMITER_COEFF_OFFSET	3
-#define SLOPE_LIMIT_TEMP_THRESHOLD	100
-#define SLOPE_LIMIT_LOW_TEMP_CHG	45
-#define SLOPE_LIMIT_HIGH_TEMP_CHG	2
-#define SLOPE_LIMIT_LOW_TEMP_DISCHG	45
-#define SLOPE_LIMIT_HIGH_TEMP_DISCHG	2
-static void slope_limiter_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work, struct fg_chip,
-				slope_limiter_work);
-	enum slope_limit_status status;
-	int batt_temp, rc;
-	u8 buf[2];
-	int64_t val;
-
-	batt_temp = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
-
-	if (chip->status == POWER_SUPPLY_STATUS_CHARGING ||
-			chip->status == POWER_SUPPLY_STATUS_FULL) {
-		if (batt_temp < chip->slope_limit_temp)
-			status = LOW_TEMP_CHARGE;
-		else
-			status = HIGH_TEMP_CHARGE;
-	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
-		if (batt_temp < chip->slope_limit_temp)
-			status = LOW_TEMP_DISCHARGE;
-		else
-			status = HIGH_TEMP_DISCHARGE;
-	} else {
-		goto out;
-	}
-
-	if (status == chip->slope_limit_sts)
-		goto out;
-
-	val = chip->slope_limit_coeffs[status];
-	val *= MICRO_UNIT;
-	half_float_to_buffer(val, buf);
-	rc = fg_mem_write(chip, buf,
-			SLOPE_LIMITER_COEFF_REG, 2,
-			SLOPE_LIMITER_COEFF_OFFSET, 0);
-	if (rc) {
-		pr_err("Couldn't write to slope_limiter_coeff_reg, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	chip->slope_limit_sts = status;
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Slope limit sts: %d val: %lld buf[%x %x] written\n",
-			status, val, buf[0], buf[1]);
-out:
-	fg_relax(&chip->slope_limit_wakeup_source);
-}
-
 static int lookup_ocv_for_soc(struct fg_chip *chip, int soc)
 {
 	int64_t *coeffs;
@@ -3191,7 +2485,6 @@ static int lookup_soc_for_ocv(struct fg_chip *chip, int ocv)
 #define ESR_ACTUAL_REG		0x554
 #define BATTERY_ESR_REG		0x4F4
 #define TEMP_RS_TO_RSLOW_REG	0x514
-#define ESR_OFFSET		2
 static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 {
 	int64_t ocv_cutoff_new, ocv_cutoff_aged, temp_rs_to_rslow;
@@ -3230,7 +2523,7 @@ static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 
 	rc = fg_mem_read(chip, buffer, ESR_ACTUAL_REG, 2, 2, 0);
 	esr_actual = half_float(buffer);
-	rc |= fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, ESR_OFFSET, 0);
+	rc |= fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, 2, 0);
 	battery_esr = half_float(buffer);
 
 	if (rc) {
@@ -3259,13 +2552,13 @@ static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 
 	/* calculate soc_cutoff_new */
 	val = (1000000LL + temp_rs_to_rslow) * battery_esr;
-	val = div64_s64(val, 1000000);
+	do_div(val, 1000000);
 	ocv_cutoff_new = div64_s64(chip->evaluation_current * val, 1000)
 		+ chip->cutoff_voltage;
 
 	/* calculate soc_cutoff_aged */
 	val = (1000000LL + temp_rs_to_rslow) * esr_actual;
-	val = div64_s64(val, 1000000);
+	do_div(val, 1000000);
 	ocv_cutoff_aged = div64_s64(chip->evaluation_current * val, 1000)
 		+ chip->cutoff_voltage;
 
@@ -3303,6 +2596,124 @@ static void battery_age_work(struct work_struct *work)
 				battery_age_work);
 
 	estimate_battery_age(chip, &chip->actual_cap_uah);
+}
+
+static enum power_supply_property fg_power_props[] = {
+	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_OCV,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
+	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
+	POWER_SUPPLY_PROP_CHARGE_NOW_ERROR,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_COOL_TEMP,
+	POWER_SUPPLY_PROP_WARM_TEMP,
+	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_UPDATE_NOW,
+	POWER_SUPPLY_PROP_ESR_COUNT,
+	POWER_SUPPLY_PROP_VOLTAGE_MIN,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
+	POWER_SUPPLY_PROP_HI_POWER,
+};
+
+static int fg_power_get_property(struct power_supply *psy,
+				       enum power_supply_property psp,
+				       union power_supply_propval *val)
+{
+	struct fg_chip *chip = power_supply_get_drvdata(psy);
+	bool vbatt_low_sts;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_BATTERY_TYPE:
+		if (chip->battery_missing)
+			val->strval = missing_batt_type;
+		else if (chip->fg_restarting)
+			val->strval = loading_batt_type;
+		else
+			val->strval = chip->batt_type;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		val->intval = get_prop_capacity(chip);
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_SOC);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW_ERROR:
+		val->intval = get_sram_prop_now(chip, FG_DATA_VINT_ERR);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		val->intval = get_sram_prop_now(chip, FG_DATA_CURRENT);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = get_sram_prop_now(chip, FG_DATA_VOLTAGE);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
+		val->intval = get_sram_prop_now(chip, FG_DATA_OCV);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+		val->intval = chip->batt_max_voltage_uv;
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+		break;
+	case POWER_SUPPLY_PROP_COOL_TEMP:
+		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
+		break;
+	case POWER_SUPPLY_PROP_WARM_TEMP:
+		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_HOT);
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR);
+		break;
+	case POWER_SUPPLY_PROP_ESR_COUNT:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR_COUNT);
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		val->intval = fg_get_cycle_count(chip);
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
+		val->intval = chip->cyc_ctr.id;
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_ID:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
+		break;
+	case POWER_SUPPLY_PROP_UPDATE_NOW:
+		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
+		if (!fg_get_vbatt_status(chip, &vbatt_low_sts))
+			val->intval = (int)vbatt_low_sts;
+		else
+			val->intval = 1;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = chip->nom_cap_uah;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = chip->learning_data.learned_cc_uah;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		val->intval = chip->learning_data.cc_uah;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
+		val->intval = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
+		break;
+	case POWER_SUPPLY_PROP_HI_POWER:
+		val->intval = !!chip->bcl_lpm_disabled;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int correction_times[] = {
@@ -3446,8 +2857,11 @@ static void fg_cap_learning_work(struct work_struct *work)
 		goto fail;
 	}
 
-	if (chip->wa_flag & USE_CC_SOC_REG)
-		goto fail;
+	if (chip->wa_flag & USE_CC_SOC_REG) {
+		mutex_unlock(&chip->learning_data.learning_lock);
+		fg_relax(&chip->capacity_learning_wakeup_source);
+		return;
+	}
 
 	fg_mem_lock(chip);
 
@@ -3478,8 +2892,6 @@ static void fg_cap_learning_work(struct work_struct *work)
 		pr_info("total_cc_uah = %lld\n", chip->learning_data.cc_uah);
 
 fail:
-	if (chip->wa_flag & USE_CC_SOC_REG)
-		fg_relax(&chip->capacity_learning_wakeup_source);
 	mutex_unlock(&chip->learning_data.learning_lock);
 	return;
 
@@ -3493,7 +2905,7 @@ static int fg_get_cc_soc(struct fg_chip *chip, int *cc_soc)
 {
 	int rc;
 	u8 reg[4];
-	int temp;
+	unsigned int temp, magnitude;
 
 	rc = fg_mem_read(chip, reg, CC_SOC_BASE_REG, 4, CC_SOC_OFFSET, 0);
 	if (rc) {
@@ -3502,47 +2914,13 @@ static int fg_get_cc_soc(struct fg_chip *chip, int *cc_soc)
 	}
 
 	temp = reg[3] << 24 | reg[2] << 16 | reg[1] << 8 | reg[0];
-	*cc_soc = sign_extend32(temp, 29);
+	magnitude = temp & CC_SOC_MAGNITUDE_MASK;
+	if (temp & CC_SOC_NEGATIVE_BIT)
+		*cc_soc = -1 * (~magnitude + 1);
+	else
+		*cc_soc = magnitude;
+
 	return 0;
-}
-
-static int fg_get_current_cc(struct fg_chip *chip)
-{
-	int cc_soc, rc;
-	int64_t current_capacity;
-
-	if (!(chip->wa_flag & USE_CC_SOC_REG))
-		return chip->learning_data.cc_uah;
-
-	if (!chip->learning_data.learned_cc_uah)
-		return -EINVAL;
-
-	rc = fg_get_cc_soc(chip, &cc_soc);
-	if (rc < 0) {
-		pr_err("Failed to get cc_soc, rc=%d\n", rc);
-		return rc;
-	}
-
-	current_capacity = cc_soc * chip->learning_data.learned_cc_uah;
-	current_capacity = div64_u64(current_capacity, FULL_PERCENT_28BIT);
-	return current_capacity;
-}
-
-#define BATT_MISSING_STS BIT(6)
-static bool is_battery_missing(struct fg_chip *chip)
-{
-	int rc;
-	u8 fg_batt_sts;
-
-	rc = fg_read(chip, &fg_batt_sts,
-				 INT_RT_STS(chip->batt_base), 1);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03X, rc=%d\n",
-				INT_RT_STS(chip->batt_base), rc);
-		return false;
-	}
-
-	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
 }
 
 static int fg_cap_learning_process_full_data(struct fg_chip *chip)
@@ -3550,13 +2928,6 @@ static int fg_cap_learning_process_full_data(struct fg_chip *chip)
 	int cc_pc_val, rc = -EINVAL;
 	unsigned int cc_soc_delta_pc;
 	int64_t delta_cc_uah;
-	uint64_t temp;
-	bool batt_missing = is_battery_missing(chip);
-
-	if (batt_missing) {
-		pr_err("Battery is missing!\n");
-		goto fail;
-	}
 
 	if (!chip->learning_data.active)
 		goto fail;
@@ -3573,8 +2944,9 @@ static int fg_cap_learning_process_full_data(struct fg_chip *chip)
 		goto fail;
 	}
 
-	temp = abs(cc_pc_val - chip->learning_data.init_cc_pc_val);
-	cc_soc_delta_pc = DIV_ROUND_CLOSEST_ULL(temp * 100, FULL_PERCENT_28BIT);
+	cc_soc_delta_pc = DIV_ROUND_CLOSEST(
+			abs(cc_pc_val - chip->learning_data.init_cc_pc_val)
+			* 100, FULL_PERCENT_28BIT);
 
 	delta_cc_uah = div64_s64(
 			chip->learning_data.learned_cc_uah * cc_soc_delta_pc,
@@ -3582,11 +2954,8 @@ static int fg_cap_learning_process_full_data(struct fg_chip *chip)
 	chip->learning_data.cc_uah = delta_cc_uah + chip->learning_data.cc_uah;
 
 	if (fg_debug_mask & FG_AGING)
-		pr_info("current cc_soc=%d cc_soc_pc=%d init_cc_pc_val=%d delta_cc_uah=%lld learned_cc_uah=%lld total_cc_uah = %lld\n",
+		pr_info("current cc_soc=%d cc_soc_pc=%d total_cc_uah = %lld\n",
 				cc_pc_val, cc_soc_delta_pc,
-				chip->learning_data.init_cc_pc_val,
-				delta_cc_uah,
-				chip->learning_data.learned_cc_uah,
 				chip->learning_data.cc_uah);
 
 	return 0;
@@ -3679,12 +3048,6 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 {
 	int16_t cc_mah;
 	int rc;
-	bool batt_missing = is_battery_missing(chip);
-
-	if (batt_missing) {
-		pr_err("Battery is missing!\n");
-		return;
-	}
 
 	cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
 
@@ -3706,20 +3069,14 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 static void fg_cap_learning_post_process(struct fg_chip *chip)
 {
 	int64_t max_inc_val, min_dec_val, old_cap;
-	bool batt_missing = is_battery_missing(chip);
-
-	if (batt_missing) {
-		pr_err("Battery is missing!\n");
-		return;
-	}
 
 	max_inc_val = chip->learning_data.learned_cc_uah
 			* (1000 + chip->learning_data.max_increment);
-	max_inc_val = div_s64(max_inc_val, 1000);
+	do_div(max_inc_val, 1000);
 
 	min_dec_val = chip->learning_data.learned_cc_uah
 			* (1000 - chip->learning_data.max_decrement);
-	min_dec_val = div_s64(min_dec_val, 1000);
+	do_div(min_dec_val, 1000);
 
 	old_cap = chip->learning_data.learned_cc_uah;
 	if (chip->learning_data.cc_uah > max_inc_val)
@@ -3729,32 +3086,6 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 	else
 		chip->learning_data.learned_cc_uah =
 			chip->learning_data.cc_uah;
-
-	if (chip->learning_data.max_cap_limit) {
-		max_inc_val = (int64_t)chip->nom_cap_uah * (1000 +
-				chip->learning_data.max_cap_limit);
-		max_inc_val = div64_u64(max_inc_val, 1000);
-		if (chip->learning_data.cc_uah > max_inc_val) {
-			if (fg_debug_mask & FG_AGING)
-				pr_info("learning capacity %lld goes above max limit %lld\n",
-					chip->learning_data.cc_uah,
-					max_inc_val);
-			chip->learning_data.learned_cc_uah = max_inc_val;
-		}
-	}
-
-	if (chip->learning_data.min_cap_limit) {
-		min_dec_val = (int64_t)chip->nom_cap_uah * (1000 -
-				chip->learning_data.min_cap_limit);
-		min_dec_val = div64_u64(min_dec_val, 1000);
-		if (chip->learning_data.cc_uah < min_dec_val) {
-			if (fg_debug_mask & FG_AGING)
-				pr_info("learning capacity %lld goes below min limit %lld\n",
-					chip->learning_data.cc_uah,
-					min_dec_val);
-			chip->learning_data.learned_cc_uah = min_dec_val;
-		}
-	}
 
 	fg_cap_learning_save_data(chip);
 	if (fg_debug_mask & FG_AGING)
@@ -3815,7 +3146,7 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 		if (battery_soc * 100 / FULL_PERCENT_3B
 				> chip->learning_data.max_start_soc) {
 			if (fg_debug_mask & FG_AGING)
-				pr_info("battery soc too high (%d > %d), aborting\n",
+				pr_info("battery soc too low (%d < %d), aborting\n",
 					battery_soc * 100 / FULL_PERCENT_3B,
 					chip->learning_data.max_start_soc);
 			fg_mem_release(chip);
@@ -3899,17 +3230,6 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 		}
 
 		fg_cap_learning_stop(chip);
-	} else if (chip->status == POWER_SUPPLY_STATUS_FULL) {
-		if (chip->wa_flag & USE_CC_SOC_REG) {
-			/* reset SW_CC_SOC register to 100% upon charge_full */
-			rc = fg_mem_write(chip, (u8 *)&cc_pc_100,
-				CC_SOC_BASE_REG, 4, CC_SOC_OFFSET, 0);
-			if (rc)
-				pr_err("Failed to reset CC_SOC_REG rc=%d\n",
-								rc);
-			else if (fg_debug_mask & FG_STATUS)
-				pr_info("Reset SW_CC_SOC to full value\n");
-		}
 	}
 
 fail:
@@ -3920,7 +3240,6 @@ fail:
 static bool is_usb_present(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0,};
-
 	if (!chip->usb_psy)
 		chip->usb_psy = power_supply_get_by_name("usb");
 
@@ -3933,7 +3252,6 @@ static bool is_usb_present(struct fg_chip *chip)
 static bool is_dc_present(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0,};
-
 	if (!chip->dc_psy)
 		chip->dc_psy = power_supply_get_by_name("dc");
 
@@ -4007,14 +3325,7 @@ static void status_change_work(struct work_struct *work)
 				struct fg_chip,
 				status_change_work);
 	unsigned long current_time = 0;
-	int cc_soc, batt_soc, rc, capacity = get_prop_capacity(chip);
-	bool batt_missing = is_battery_missing(chip);
-
-	if (batt_missing) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("Battery is missing\n");
-		return;
-	}
+	int cc_soc, rc, capacity = get_prop_capacity(chip);
 
 	if (chip->esr_pulse_tune_en) {
 		fg_stay_awake(&chip->esr_extract_wakeup_source);
@@ -4034,33 +3345,18 @@ static void status_change_work(struct work_struct *work)
 	}
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
-		if (!chip->vbat_low_irq_enabled &&
-				!chip->use_vbat_low_empty_soc) {
+		if (!chip->vbat_low_irq_enabled) {
 			enable_irq(chip->batt_irq[VBATT_LOW].irq);
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
 		}
-
-		if (!chip->full_soc_irq_enabled) {
-			enable_irq(chip->soc_irq[FULL_SOC].irq);
-			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			chip->full_soc_irq_enabled = true;
-		}
-
 		if (!!(chip->wa_flag & PULSE_REQUEST_WA) && capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
-		if (chip->vbat_low_irq_enabled &&
-				!chip->use_vbat_low_empty_soc) {
+		if (chip->vbat_low_irq_enabled) {
 			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = false;
-		}
-
-		if (chip->full_soc_irq_enabled) {
-			disable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			disable_irq_nosync(chip->soc_irq[FULL_SOC].irq);
-			chip->full_soc_irq_enabled = false;
 		}
 	}
 	fg_cap_learning_check(chip);
@@ -4074,42 +3370,6 @@ static void status_change_work(struct work_struct *work)
 	}
 
 	if (chip->prev_status != chip->status && chip->last_sram_update_time) {
-		/*
-		 * Reset SW_CC_SOC to a value based off battery SOC when
-		 * the device is discharging.
-		 */
-		if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
-			batt_soc = get_battery_soc_raw(chip);
-			if (!batt_soc)
-				return;
-
-			batt_soc = div64_s64((int64_t)batt_soc *
-					FULL_PERCENT_28BIT, FULL_PERCENT_3B);
-			rc = fg_mem_write(chip, (u8 *)&batt_soc,
-				CC_SOC_BASE_REG, 4, CC_SOC_OFFSET, 0);
-			if (rc)
-				pr_err("Failed to reset CC_SOC_REG rc=%d\n",
-									rc);
-			else if (fg_debug_mask & FG_STATUS)
-				pr_info("Reset SW_CC_SOC to %x\n", batt_soc);
-		}
-
-		/*
-		 * Schedule the update_temp_work whenever there is a status
-		 * change. This is essential for applying the slope limiter
-		 * coefficients when that feature is enabled.
-		 */
-		if (chip->last_temp_update_time && chip->soc_slope_limiter_en) {
-			cancel_delayed_work_sync(&chip->update_temp_work);
-			schedule_delayed_work(&chip->update_temp_work,
-				msecs_to_jiffies(0));
-		}
-
-		if (chip->dischg_gain.enable) {
-			fg_stay_awake(&chip->dischg_gain_wakeup_source);
-			schedule_work(&chip->dischg_gain_work);
-		}
-
 		get_current_time(&current_time);
 		/*
 		 * When charging status changes, update SRAM parameters if it
@@ -4135,10 +3395,10 @@ static void status_change_work(struct work_struct *work)
 	}
 	if ((chip->wa_flag & USE_CC_SOC_REG) && chip->bad_batt_detection_en
 			&& chip->safety_timer_expired) {
-		uint64_t delta_cc_soc = abs(cc_soc -
-					chip->sw_cc_soc_data.init_cc_soc);
-		chip->sw_cc_soc_data.delta_soc = DIV_ROUND_CLOSEST_ULL(
-				delta_cc_soc * 100, FULL_PERCENT_28BIT);
+		chip->sw_cc_soc_data.delta_soc =
+			DIV_ROUND_CLOSEST(abs(cc_soc -
+					chip->sw_cc_soc_data.init_cc_soc)
+					* 100, FULL_PERCENT_28BIT);
 		chip->sw_cc_soc_data.full_capacity =
 			chip->sw_cc_soc_data.delta_soc +
 			chip->sw_cc_soc_data.init_sys_soc;
@@ -4281,395 +3541,6 @@ static int fg_init_batt_temp_state(struct fg_chip *chip)
 	return rc;
 }
 
-static int fg_restore_cc_soc(struct fg_chip *chip)
-{
-	int rc;
-
-	if (!chip->use_last_cc_soc || !chip->last_cc_soc)
-		return 0;
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Restoring cc_soc: %lld\n", chip->last_cc_soc);
-
-	rc = fg_mem_write(chip, (u8 *)&chip->last_cc_soc,
-			fg_data[FG_DATA_CC_CHARGE].address, 4,
-			fg_data[FG_DATA_CC_CHARGE].offset, 0);
-	if (rc)
-		pr_err("failed to update CC_SOC rc=%d\n", rc);
-	else
-		chip->use_last_cc_soc = false;
-
-	return rc;
-}
-
-#define SRAM_MONOTONIC_SOC_REG		0x574
-#define SRAM_MONOTONIC_SOC_OFFSET	2
-static int fg_restore_soc(struct fg_chip *chip)
-{
-	int rc;
-	u16 msoc;
-
-	if (chip->use_last_soc && chip->last_soc)
-		msoc = DIV_ROUND_CLOSEST(chip->last_soc * 0xFFFF,
-				FULL_SOC_RAW);
-	else
-		return 0;
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Restored soc: %d\n", msoc);
-
-	rc = fg_mem_write(chip, (u8 *)&msoc, SRAM_MONOTONIC_SOC_REG, 2,
-			SRAM_MONOTONIC_SOC_OFFSET, 0);
-	if (rc)
-		pr_err("failed to write M_SOC_REG rc=%d\n", rc);
-
-	return rc;
-}
-
-#define NOM_CAP_REG			0x4F4
-#define CAPACITY_DELTA_DECIPCT		500
-static int load_battery_aging_data(struct fg_chip *chip)
-{
-	int rc = 0;
-	u8 buffer[2];
-	int16_t cc_mah;
-	int64_t delta_cc_uah, pct_nom_cap_uah;
-
-	rc = fg_mem_read(chip, buffer, NOM_CAP_REG, 2, 0, 0);
-	if (rc) {
-		pr_err("Failed to read nominal capacitance: %d\n", rc);
-		goto out;
-	}
-
-	chip->nom_cap_uah = bcap_uah_2b(buffer);
-	chip->actual_cap_uah = chip->nom_cap_uah;
-
-	if (chip->learning_data.learned_cc_uah == 0) {
-		chip->learning_data.learned_cc_uah = chip->nom_cap_uah;
-		fg_cap_learning_save_data(chip);
-	} else if (chip->learning_data.feedback_on) {
-		delta_cc_uah = abs(chip->learning_data.learned_cc_uah -
-					chip->nom_cap_uah);
-		pct_nom_cap_uah = div64_s64((int64_t)chip->nom_cap_uah *
-				CAPACITY_DELTA_DECIPCT, 1000);
-		/*
-		 * If the learned capacity is out of range, say by 50%
-		 * from the nominal capacity, then overwrite the learned
-		 * capacity with the nominal capacity.
-		 */
-		if (chip->nom_cap_uah && delta_cc_uah > pct_nom_cap_uah) {
-			if (fg_debug_mask & FG_AGING) {
-				pr_info("learned_cc_uah: %lld is higher than expected\n",
-					chip->learning_data.learned_cc_uah);
-				pr_info("Capping it to nominal:%d\n",
-					chip->nom_cap_uah);
-			}
-			chip->learning_data.learned_cc_uah = chip->nom_cap_uah;
-			fg_cap_learning_save_data(chip);
-		} else {
-			cc_mah = div64_s64(chip->learning_data.learned_cc_uah,
-					1000);
-			rc = fg_calc_and_store_cc_soc_coeff(chip, cc_mah);
-			if (rc)
-				pr_err("Error in restoring cc_soc_coeff, rc:%d\n",
-					rc);
-		}
-	}
-out:
-	return rc;
-}
-
-static void fg_restore_battery_info(struct fg_chip *chip)
-{
-	int rc;
-	char buf[4] = {0, 0, 0, 0};
-
-	chip->last_soc = DIV_ROUND_CLOSEST(chip->batt_info[BATT_INFO_SOC] *
-				FULL_SOC_RAW, FULL_CAPACITY);
-	chip->last_cc_soc = div64_s64((int64_t)chip->last_soc *
-				FULL_PERCENT_28BIT, FULL_SOC_RAW);
-	chip->use_last_soc = true;
-	chip->use_last_cc_soc = true;
-	rc = fg_restore_soc(chip);
-	if (rc) {
-		pr_err("Error in restoring soc, rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_restore_cc_soc(chip);
-	if (rc) {
-		pr_err("Error in restoring cc_soc, rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_mem_write(chip, buf,
-			fg_data[FG_DATA_VINT_ERR].address,
-			fg_data[FG_DATA_VINT_ERR].len,
-			fg_data[FG_DATA_VINT_ERR].offset, 0);
-	if (rc) {
-		pr_err("Failed to write to VINT_ERR, rc=%d\n", rc);
-		goto out;
-	}
-
-	chip->learning_data.learned_cc_uah = chip->batt_info[BATT_INFO_FCC];
-	rc = load_battery_aging_data(chip);
-	if (rc) {
-		pr_err("Failed to load battery aging data, rc:%d\n", rc);
-		goto out;
-	}
-
-	if (chip->power_supply_registered)
-		power_supply_changed(chip->bms_psy);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Restored battery info!\n");
-
-out:
-	return;
-}
-
-#define DELTA_BATT_TEMP		30
-static bool fg_validate_battery_info(struct fg_chip *chip)
-{
-	int i, delta_pct, batt_id_kohm, batt_temp, batt_volt_mv, batt_soc;
-
-	for (i = 1; i < BATT_INFO_MAX; i++) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("batt_info[%d]: %d\n", i, chip->batt_info[i]);
-
-		if ((chip->batt_info[i] == 0 && i != BATT_INFO_TEMP) ||
-			chip->batt_info[i] == INT_MAX) {
-			if (fg_debug_mask & FG_STATUS)
-				pr_info("batt_info[%d]:%d is invalid\n", i,
-					chip->batt_info[i]);
-			return false;
-		}
-	}
-
-	batt_id_kohm = get_sram_prop_now(chip, FG_DATA_BATT_ID) / 1000;
-	if (batt_id_kohm != chip->batt_info[BATT_INFO_RES_ID]) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("batt_id(%dK) does not match the stored batt_id(%dK)\n",
-				batt_id_kohm,
-				chip->batt_info[BATT_INFO_RES_ID]);
-		return false;
-	}
-
-	batt_temp = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
-	if (abs(chip->batt_info[BATT_INFO_TEMP] - batt_temp) >
-			DELTA_BATT_TEMP) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("batt_temp(%d) is higher/lower than stored batt_temp(%d)\n",
-				batt_temp, chip->batt_info[BATT_INFO_TEMP]);
-		return false;
-	}
-
-	if (chip->batt_info[BATT_INFO_FCC] < 0) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("batt_fcc cannot be %d\n",
-				chip->batt_info[BATT_INFO_FCC]);
-		return false;
-	}
-
-	batt_volt_mv = get_sram_prop_now(chip, FG_DATA_VOLTAGE) / 1000;
-	batt_soc = get_monotonic_soc_raw(chip);
-	if (batt_soc != 0 && batt_soc != FULL_SOC_RAW)
-		batt_soc = DIV_ROUND_CLOSEST((batt_soc - 1) *
-				(FULL_CAPACITY - 2), FULL_SOC_RAW - 2) + 1;
-
-	if (*chip->batt_range_ocv && chip->batt_max_voltage_uv > 1000)
-		delta_pct =  DIV_ROUND_CLOSEST(abs(batt_volt_mv -
-				chip->batt_info[BATT_INFO_VOLTAGE]) * 100,
-				chip->batt_max_voltage_uv / 1000);
-	else
-		delta_pct = abs(batt_soc - chip->batt_info[BATT_INFO_SOC]);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Validating by %s batt_voltage:%d capacity:%d delta_pct:%d\n",
-			*chip->batt_range_ocv ? "OCV" : "SOC", batt_volt_mv,
-			batt_soc, delta_pct);
-
-	if (*chip->batt_range_pct && delta_pct > *chip->batt_range_pct) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("delta_pct(%d) is higher than batt_range_pct(%d)\n",
-				delta_pct, *chip->batt_range_pct);
-		return false;
-	}
-
-	return true;
-}
-
-static int fg_set_battery_info(struct fg_chip *chip, int val)
-{
-	if (chip->batt_info_id < 0 ||
-			chip->batt_info_id >= BATT_INFO_MAX) {
-		pr_err("Invalid batt_info_id %d\n", chip->batt_info_id);
-		chip->batt_info_id = 0;
-		return -EINVAL;
-	}
-
-	if (chip->batt_info_id == BATT_INFO_NOTIFY && val == INT_MAX - 1) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("Notified from userspace\n");
-		if (chip->batt_info_restore && !chip->ima_error_handling) {
-			if (!fg_validate_battery_info(chip)) {
-				if (fg_debug_mask & FG_STATUS)
-					pr_info("Validating battery info failed\n");
-			} else {
-				fg_restore_battery_info(chip);
-			}
-		}
-	}
-
-	chip->batt_info[chip->batt_info_id] = val;
-	return 0;
-}
-
-static enum power_supply_property fg_power_props[] = {
-	POWER_SUPPLY_PROP_CAPACITY,
-	POWER_SUPPLY_PROP_CAPACITY_RAW,
-	POWER_SUPPLY_PROP_CURRENT_NOW,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_VOLTAGE_OCV,
-	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
-	POWER_SUPPLY_PROP_CHARGE_COUNTER,
-	POWER_SUPPLY_PROP_CHARGE_NOW,
-	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
-	POWER_SUPPLY_PROP_CHARGE_NOW_ERROR,
-	POWER_SUPPLY_PROP_CHARGE_FULL,
-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-	POWER_SUPPLY_PROP_TEMP,
-	POWER_SUPPLY_PROP_COOL_TEMP,
-	POWER_SUPPLY_PROP_WARM_TEMP,
-	POWER_SUPPLY_PROP_RESISTANCE,
-	POWER_SUPPLY_PROP_RESISTANCE_ID,
-	POWER_SUPPLY_PROP_BATTERY_TYPE,
-	POWER_SUPPLY_PROP_UPDATE_NOW,
-	POWER_SUPPLY_PROP_ESR_COUNT,
-	POWER_SUPPLY_PROP_VOLTAGE_MIN,
-	POWER_SUPPLY_PROP_CYCLE_COUNT,
-	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
-	POWER_SUPPLY_PROP_HI_POWER,
-	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
-	POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE,
-	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
-	POWER_SUPPLY_PROP_BATTERY_INFO,
-	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
-};
-
-static int fg_power_get_property(struct power_supply *psy,
-				       enum power_supply_property psp,
-				       union power_supply_propval *val)
-{
-	struct fg_chip *chip =  power_supply_get_drvdata(psy);
-	bool vbatt_low_sts;
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_BATTERY_TYPE:
-		if (chip->battery_missing)
-			val->strval = missing_batt_type;
-		else if (chip->fg_restarting)
-			val->strval = loading_batt_type;
-		else
-			val->strval = chip->batt_type;
-		break;
-	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = get_prop_capacity(chip);
-		break;
-	case POWER_SUPPLY_PROP_CAPACITY_RAW:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_SOC);
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_NOW_ERROR:
-		val->intval = get_sram_prop_now(chip, FG_DATA_VINT_ERR);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = get_sram_prop_now(chip, FG_DATA_CURRENT);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = get_sram_prop_now(chip, FG_DATA_VOLTAGE);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
-		val->intval = get_sram_prop_now(chip, FG_DATA_OCV);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
-		val->intval = chip->batt_max_voltage_uv;
-		break;
-	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
-		break;
-	case POWER_SUPPLY_PROP_COOL_TEMP:
-		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
-		break;
-	case POWER_SUPPLY_PROP_WARM_TEMP:
-		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_HOT);
-		break;
-	case POWER_SUPPLY_PROP_RESISTANCE:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR);
-		break;
-	case POWER_SUPPLY_PROP_ESR_COUNT:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR_COUNT);
-		break;
-	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		val->intval = fg_get_cycle_count(chip);
-		break;
-	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
-		val->intval = chip->cyc_ctr.id;
-		break;
-	case POWER_SUPPLY_PROP_RESISTANCE_ID:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
-		break;
-	case POWER_SUPPLY_PROP_UPDATE_NOW:
-		val->intval = 0;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
-		if (!fg_get_vbatt_status(chip, &vbatt_low_sts))
-			val->intval = (int)vbatt_low_sts;
-		else
-			val->intval = 1;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = chip->nom_cap_uah;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval = chip->learning_data.learned_cc_uah;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		val->intval = chip->learning_data.cc_uah;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
-		val->intval = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		val->intval = fg_get_current_cc(chip);
-		break;
-	case POWER_SUPPLY_PROP_HI_POWER:
-		val->intval = !!chip->bcl_lpm_disabled;
-		break;
-	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
-		val->intval = !!chip->soc_reporting_ready;
-		break;
-	case POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE:
-		val->intval = !chip->allow_false_negative_isense;
-		break;
-	case POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION:
-		val->intval = chip->use_soft_jeita_irq;
-		break;
-	case POWER_SUPPLY_PROP_BATTERY_INFO:
-		if (chip->batt_info_id < 0 ||
-				chip->batt_info_id >= BATT_INFO_MAX)
-			return -EINVAL;
-		val->intval = chip->batt_info[chip->batt_info_id];
-		break;
-	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
-		val->intval = chip->batt_info_id;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int fg_power_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
@@ -4687,67 +3558,6 @@ static int fg_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_UPDATE_NOW:
 		if (val->intval)
 			update_sram_data(chip, &unused);
-		break;
-	case POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE:
-		rc = set_prop_ignore_false_negative_isense(chip, !!val->intval);
-		if (rc)
-			pr_err("set_prop_ignore_false_negative_isense failed, rc=%d\n",
-							rc);
-		else
-			chip->allow_false_negative_isense = !val->intval;
-		break;
-	case POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION:
-		if (chip->use_soft_jeita_irq == !!val->intval) {
-			pr_debug("JEITA irq %s, ignore!\n",
-				chip->use_soft_jeita_irq ?
-				"enabled" : "disabled");
-			break;
-		}
-		chip->use_soft_jeita_irq = !!val->intval;
-		if (chip->use_soft_jeita_irq) {
-			if (chip->batt_irq[JEITA_SOFT_COLD].disabled) {
-				enable_irq(
-					chip->batt_irq[JEITA_SOFT_COLD].irq);
-				chip->batt_irq[JEITA_SOFT_COLD].disabled =
-								false;
-			}
-			if (!chip->batt_irq[JEITA_SOFT_COLD].wakeup) {
-				enable_irq_wake(
-					chip->batt_irq[JEITA_SOFT_COLD].irq);
-				chip->batt_irq[JEITA_SOFT_COLD].wakeup = true;
-			}
-			if (chip->batt_irq[JEITA_SOFT_HOT].disabled) {
-				enable_irq(
-					chip->batt_irq[JEITA_SOFT_HOT].irq);
-				chip->batt_irq[JEITA_SOFT_HOT].disabled = false;
-			}
-			if (!chip->batt_irq[JEITA_SOFT_HOT].wakeup) {
-				enable_irq_wake(
-					chip->batt_irq[JEITA_SOFT_HOT].irq);
-				chip->batt_irq[JEITA_SOFT_HOT].wakeup = true;
-			}
-		} else {
-			if (chip->batt_irq[JEITA_SOFT_COLD].wakeup) {
-				disable_irq_wake(
-					chip->batt_irq[JEITA_SOFT_COLD].irq);
-				chip->batt_irq[JEITA_SOFT_COLD].wakeup = false;
-			}
-			if (!chip->batt_irq[JEITA_SOFT_COLD].disabled) {
-				disable_irq_nosync(
-					chip->batt_irq[JEITA_SOFT_COLD].irq);
-				chip->batt_irq[JEITA_SOFT_COLD].disabled = true;
-			}
-			if (chip->batt_irq[JEITA_SOFT_HOT].wakeup) {
-				disable_irq_wake(
-					chip->batt_irq[JEITA_SOFT_HOT].irq);
-				chip->batt_irq[JEITA_SOFT_HOT].wakeup = false;
-			}
-			if (!chip->batt_irq[JEITA_SOFT_HOT].disabled) {
-				disable_irq_nosync(
-					chip->batt_irq[JEITA_SOFT_HOT].irq);
-				chip->batt_irq[JEITA_SOFT_HOT].disabled = true;
-			}
-		}
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->prev_status = chip->status;
@@ -4791,12 +3601,6 @@ static int fg_power_set_property(struct power_supply *psy,
 			schedule_work(&chip->bcl_hi_power_work);
 		}
 		break;
-	case POWER_SUPPLY_PROP_BATTERY_INFO:
-		rc = fg_set_battery_info(chip, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
-		chip->batt_info_id = val->intval;
-		break;
 	default:
 		return -EINVAL;
 	};
@@ -4811,8 +3615,6 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 	case POWER_SUPPLY_PROP_WARM_TEMP:
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
-	case POWER_SUPPLY_PROP_BATTERY_INFO:
-	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
 		return 1;
 	default:
 		break;
@@ -4833,8 +3635,10 @@ static void dump_sram(struct work_struct *work)
 				dump_sram);
 
 	buffer = devm_kzalloc(chip->dev, SRAM_DUMP_LEN, GFP_KERNEL);
-	if (buffer == NULL)
+	if (buffer == NULL) {
+		pr_err("Can't allocate buffer\n");
 		return;
+	}
 
 	rc = fg_read(chip, &rt_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc)
@@ -5007,197 +3811,21 @@ done:
 	fg_relax(&chip->gain_comp_wakeup_source);
 }
 
-static void cc_soc_store_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work, struct fg_chip,
-					cc_soc_store_work);
-	int cc_soc_pct;
-
-	if (!chip->nom_cap_uah) {
-		pr_err("nom_cap_uah zero!\n");
-		fg_relax(&chip->cc_soc_wakeup_source);
-		return;
-	}
-
-	cc_soc_pct = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
-	cc_soc_pct = div64_s64(cc_soc_pct * 100,
-				chip->nom_cap_uah);
-	chip->last_cc_soc = div64_s64((int64_t)chip->last_soc *
-				FULL_PERCENT_28BIT, FULL_SOC_RAW);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("cc_soc_pct: %d last_cc_soc: %lld\n", cc_soc_pct,
-			chip->last_cc_soc);
-
-	if (fg_reset_on_lockup && (chip->cc_soc_limit_pct > 0 &&
-			cc_soc_pct >= chip->cc_soc_limit_pct)) {
-		pr_err("CC_SOC out of range\n");
-		fg_check_ima_error_handling(chip);
-	}
-
-	fg_relax(&chip->cc_soc_wakeup_source);
-}
-
-#define HARD_JEITA_ALARM_CHECK_NS	10000000000ULL
-static enum alarmtimer_restart fg_hard_jeita_alarm_cb(struct alarm *alarm,
-						ktime_t now)
-{
-	struct fg_chip *chip = container_of(alarm,
-			struct fg_chip, hard_jeita_alarm);
-	int rc, health = POWER_SUPPLY_HEALTH_UNKNOWN;
-	u8 regval;
-	bool batt_hot, batt_cold;
-	union power_supply_propval val = {0, };
-
-	if (!is_usb_present(chip)) {
-		pr_debug("USB plugged out, stop the timer!\n");
-		return ALARMTIMER_NORESTART;
-	}
-
-	rc = fg_read(chip, &regval, BATT_INFO_STS(chip->batt_base), 1);
-	if (rc) {
-		pr_err("read batt_sts failed, rc=%d\n", rc);
-		goto recheck;
-	}
-
-	batt_hot = !!(regval & JEITA_HARD_HOT_RT_STS);
-	batt_cold = !!(regval & JEITA_HARD_COLD_RT_STS);
-	if (batt_hot && batt_cold) {
-		pr_debug("Hot && cold can't co-exist\n");
-		goto recheck;
-	}
-
-	if ((batt_hot == chip->batt_hot) && (batt_cold == chip->batt_cold)) {
-		pr_debug("battery JEITA state not changed, ignore\n");
-		goto recheck;
-	}
-
-	if (batt_cold != chip->batt_cold) {
-		/* cool --> cold */
-		if (chip->batt_cool) {
-			chip->batt_cool = false;
-			chip->batt_cold = true;
-			health = POWER_SUPPLY_HEALTH_COLD;
-		} else if (chip->batt_cold) { /* cold --> cool */
-			chip->batt_cool = true;
-			chip->batt_cold = false;
-			health = POWER_SUPPLY_HEALTH_COOL;
-		}
-	}
-
-	if (batt_hot != chip->batt_hot) {
-		/* warm --> hot */
-		if (chip->batt_warm) {
-			chip->batt_warm = false;
-			chip->batt_hot = true;
-			health = POWER_SUPPLY_HEALTH_OVERHEAT;
-		} else if (chip->batt_hot) { /* hot --> warm */
-			chip->batt_hot = false;
-			chip->batt_warm = true;
-			health = POWER_SUPPLY_HEALTH_WARM;
-		}
-	}
-
-	if (health != POWER_SUPPLY_HEALTH_UNKNOWN) {
-		pr_debug("FG report battery health: %d\n", health);
-		val.intval = health;
-		rc = power_supply_set_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_HEALTH, &val);
-		if (rc)
-			pr_err("Set batt_psy health: %d failed\n", health);
-	}
-
-recheck:
-	alarm_forward_now(alarm, ns_to_ktime(HARD_JEITA_ALARM_CHECK_NS));
-	return ALARMTIMER_RESTART;
-}
-
-#define BATT_SOFT_COLD_STS	BIT(0)
-#define BATT_SOFT_HOT_STS	BIT(1)
-static irqreturn_t fg_jeita_soft_hot_irq_handler(int irq, void *_chip)
+#define BATT_MISSING_STS BIT(6)
+static bool is_battery_missing(struct fg_chip *chip)
 {
 	int rc;
-	struct fg_chip *chip = _chip;
-	u8 regval;
-	bool batt_warm;
-	union power_supply_propval val = {0, };
+	u8 fg_batt_sts;
 
-	if (!is_charger_available(chip))
-		return IRQ_HANDLED;
-
-	rc = fg_read(chip, &regval, INT_RT_STS(chip->batt_base), 1);
+	rc = fg_read(chip, &fg_batt_sts,
+				 INT_RT_STS(chip->batt_base), 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
 				INT_RT_STS(chip->batt_base), rc);
-		return IRQ_HANDLED;
+		return false;
 	}
 
-	batt_warm = !!(regval & BATT_SOFT_HOT_STS);
-	if (chip->batt_warm == batt_warm) {
-		pr_debug("warm state not change, ignore!\n");
-		return IRQ_HANDLED;
-	}
-
-	chip->batt_warm = batt_warm;
-	if (batt_warm) {
-		val.intval = POWER_SUPPLY_HEALTH_WARM;
-		power_supply_set_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_HEALTH, &val);
-		/* kick the alarm timer for hard hot polling */
-		alarm_start_relative(&chip->hard_jeita_alarm,
-				ns_to_ktime(HARD_JEITA_ALARM_CHECK_NS));
-	} else {
-		val.intval = POWER_SUPPLY_HEALTH_GOOD;
-		 power_supply_set_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_HEALTH, &val);
-		/* cancel the alarm timer */
-		alarm_try_to_cancel(&chip->hard_jeita_alarm);
-	}
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t fg_jeita_soft_cold_irq_handler(int irq, void *_chip)
-{
-	int rc;
-	struct fg_chip *chip = _chip;
-	u8 regval;
-	bool batt_cool;
-	union power_supply_propval val = {0, };
-
-	if (!is_charger_available(chip))
-		return IRQ_HANDLED;
-
-	rc = fg_read(chip, &regval, INT_RT_STS(chip->batt_base), 1);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03X, rc=%d\n",
-				INT_RT_STS(chip->batt_base), rc);
-		return IRQ_HANDLED;
-	}
-
-	batt_cool = !!(regval & BATT_SOFT_COLD_STS);
-	if (chip->batt_cool == batt_cool) {
-		pr_debug("cool state not change, ignore\n");
-		return IRQ_HANDLED;
-	}
-
-	chip->batt_cool = batt_cool;
-	if (batt_cool) {
-		val.intval = POWER_SUPPLY_HEALTH_COOL;
-		power_supply_set_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_HEALTH, &val);
-		/* kick the alarm timer for hard cold polling */
-		alarm_start_relative(&chip->hard_jeita_alarm,
-				ns_to_ktime(HARD_JEITA_ALARM_CHECK_NS));
-	} else {
-		val.intval = POWER_SUPPLY_HEALTH_GOOD;
-		power_supply_set_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_HEALTH, &val);
-		/* cancel the alarm timer */
-		alarm_try_to_cancel(&chip->hard_jeita_alarm);
-	}
-
-	return IRQ_HANDLED;
+	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
 }
 
 #define SOC_FIRST_EST_DONE	BIT(5)
@@ -5217,40 +3845,21 @@ static bool is_first_est_done(struct fg_chip *chip)
 	return (fg_soc_sts & SOC_FIRST_EST_DONE) ? true : false;
 }
 
-#define FG_EMPTY_DEBOUNCE_MS	1500
 static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
+	int rc;
 	bool vbatt_low_sts;
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("vbatt-low triggered\n");
 
-	/* handle empty soc based on vbatt-low interrupt */
-	if (chip->use_vbat_low_empty_soc) {
-		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
-			goto out;
-
-		if (vbatt_low_sts) {
-			if (fg_debug_mask & FG_IRQS)
-				pr_info("Vbatt is low\n");
-			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
-			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
-			chip->vbat_low_irq_enabled = false;
-			fg_stay_awake(&chip->empty_check_wakeup_source);
-			schedule_delayed_work(&chip->check_empty_work,
-				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
-		} else {
-			if (fg_debug_mask & FG_IRQS)
-				pr_info("Vbatt is high\n");
-			chip->soc_empty = false;
-		}
-		goto out;
-	}
-
 	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
-		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+		rc = fg_get_vbatt_status(chip, &vbatt_low_sts);
+		if (rc) {
+			pr_err("error in reading vbatt_status, rc:%d\n", rc);
 			goto out;
+		}
 		if (!vbatt_low_sts && chip->vbat_low_irq_enabled) {
 			if (fg_debug_mask & FG_IRQS)
 				pr_info("disabling vbatt_low irq\n");
@@ -5271,10 +3880,8 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 	bool batt_missing = is_battery_missing(chip);
 
 	if (batt_missing) {
-		fg_cap_learning_stop(chip);
 		chip->battery_missing = true;
 		chip->profile_loaded = false;
-		chip->soc_reporting_ready = false;
 		chip->batt_type = default_batt_type;
 		mutex_lock(&chip->cyc_ctr.lock);
 		if (fg_debug_mask & FG_IRQS)
@@ -5282,10 +3889,17 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 		clear_cycle_counter(chip);
 		mutex_unlock(&chip->cyc_ctr.lock);
 	} else {
-		if (!chip->use_otp_profile)
-			fg_handle_battery_insertion(chip);
-		else
+		if (!chip->use_otp_profile) {
+			reinit_completion(&chip->batt_id_avail);
+			reinit_completion(&chip->first_soc_done);
+			schedule_delayed_work(&chip->batt_profile_init, 0);
+			cancel_delayed_work(&chip->update_sram_data);
+			schedule_delayed_work(
+				&chip->update_sram_data,
+				msecs_to_jiffies(0));
+		} else {
 			chip->battery_missing = false;
+		}
 	}
 
 	if (fg_debug_mask & FG_IRQS)
@@ -5333,7 +3947,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
 	u8 soc_rt_sts;
-	int rc, msoc;
+	int rc;
 
 	rc = fg_read(chip, &soc_rt_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
@@ -5343,37 +3957,6 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
-
-	if (chip->dischg_gain.enable) {
-		fg_stay_awake(&chip->dischg_gain_wakeup_source);
-		schedule_work(&chip->dischg_gain_work);
-	}
-
-	if (chip->soc_slope_limiter_en) {
-		fg_stay_awake(&chip->slope_limit_wakeup_source);
-		schedule_work(&chip->slope_limiter_work);
-	}
-
-	/* Backup last soc every delta soc interrupt */
-	chip->use_last_soc = false;
-	if (fg_reset_on_lockup) {
-		if (!chip->ima_error_handling)
-			chip->last_soc = get_monotonic_soc_raw(chip);
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("last_soc: %d\n", chip->last_soc);
-
-		fg_stay_awake(&chip->cc_soc_wakeup_source);
-		schedule_work(&chip->cc_soc_store_work);
-	}
-
-	if (chip->use_vbat_low_empty_soc) {
-		msoc = get_monotonic_soc_raw(chip);
-		if (msoc == 0 || chip->soc_empty) {
-			fg_stay_awake(&chip->empty_check_wakeup_source);
-			schedule_delayed_work(&chip->check_empty_work,
-				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
-		}
-	}
 
 	schedule_work(&chip->battery_age_work);
 
@@ -5409,6 +3992,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+#define FG_EMPTY_DEBOUNCE_MS	1500
 static irqreturn_t fg_empty_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
@@ -5520,15 +4104,16 @@ done:
 	fg_relax(&chip->resume_soc_wakeup_source);
 }
 
+
 #define OCV_COEFFS_START_REG		0x4C0
 #define OCV_JUNCTION_REG		0x4D8
+#define NOM_CAP_REG			0x4F4
 #define CUTOFF_VOLTAGE_REG		0x40C
 #define RSLOW_CFG_REG			0x538
 #define RSLOW_CFG_OFFSET		2
 #define RSLOW_THRESH_REG		0x52C
 #define RSLOW_THRESH_OFFSET		0
-#define RS_TO_RSLOW_CHG_OFFSET		2
-#define RS_TO_RSLOW_DISCHG_OFFSET	0
+#define TEMP_RS_TO_RSLOW_OFFSET		2
 #define RSLOW_COMP_REG			0x528
 #define RSLOW_COMP_C1_OFFSET		0
 #define RSLOW_COMP_C2_OFFSET		2
@@ -5536,6 +4121,7 @@ static int populate_system_data(struct fg_chip *chip)
 {
 	u8 buffer[24];
 	int rc, i;
+	int16_t cc_mah;
 
 	fg_mem_lock(chip);
 	rc = fg_mem_read(chip, buffer, OCV_COEFFS_START_REG, 24, 0, 0);
@@ -5556,21 +4142,30 @@ static int populate_system_data(struct fg_chip *chip)
 				chip->ocv_coeffs[8], chip->ocv_coeffs[9],
 				chip->ocv_coeffs[10], chip->ocv_coeffs[11]);
 	}
-	rc = fg_mem_read(chip, buffer, OCV_JUNCTION_REG, 2, 0, 0);
+	rc = fg_mem_read(chip, buffer, OCV_JUNCTION_REG, 1, 0, 0);
+	chip->ocv_junction_p1p2 = buffer[0] * 100 / 255;
+	rc |= fg_mem_read(chip, buffer, OCV_JUNCTION_REG, 1, 1, 0);
+	chip->ocv_junction_p2p3 = buffer[0] * 100 / 255;
 	if (rc) {
 		pr_err("Failed to read ocv junctions: %d\n", rc);
 		goto done;
 	}
-
-	chip->ocv_junction_p1p2 = buffer[0] * 100 / 255;
-	chip->ocv_junction_p2p3 = buffer[1] * 100 / 255;
-
-	rc = load_battery_aging_data(chip);
+	rc = fg_mem_read(chip, buffer, NOM_CAP_REG, 2, 0, 0);
 	if (rc) {
-		pr_err("Failed to load battery aging data, rc:%d\n", rc);
+		pr_err("Failed to read nominal capacitance: %d\n", rc);
 		goto done;
 	}
-
+	chip->nom_cap_uah = bcap_uah_2b(buffer);
+	chip->actual_cap_uah = chip->nom_cap_uah;
+	if (chip->learning_data.learned_cc_uah == 0) {
+		chip->learning_data.learned_cc_uah = chip->nom_cap_uah;
+		fg_cap_learning_save_data(chip);
+	} else if (chip->learning_data.feedback_on) {
+		cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
+		rc = fg_calc_and_store_cc_soc_coeff(chip, cc_mah);
+		if (rc)
+			pr_err("Error in restoring cc_soc_coeff, rc:%d\n", rc);
+	}
 	rc = fg_mem_read(chip, buffer, CUTOFF_VOLTAGE_REG, 2, 0, 0);
 	if (rc) {
 		pr_err("Failed to read cutoff voltage: %d\n", rc);
@@ -5597,9 +4192,9 @@ static int populate_system_data(struct fg_chip *chip)
 	}
 	chip->rslow_comp.rslow_thr = buffer[0];
 	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RS_TO_RSLOW_CHG_OFFSET, 0);
+			RSLOW_THRESH_OFFSET, 0);
 	if (rc) {
-		pr_err("unable to read rs to rslow_chg: %d\n", rc);
+		pr_err("unable to read rs to rslow: %d\n", rc);
 		goto done;
 	}
 	memcpy(chip->rslow_comp.rs_to_rslow, buffer, 2);
@@ -5613,68 +4208,6 @@ static int populate_system_data(struct fg_chip *chip)
 
 done:
 	fg_mem_release(chip);
-	return rc;
-}
-
-static int fg_update_batt_rslow_settings(struct fg_chip *chip)
-{
-	int64_t rs_to_rslow_chg, rs_to_rslow_dischg, batt_esr, rconn_uohm;
-	u8 buffer[2];
-	int rc;
-
-	rc = fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, ESR_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read battery_esr: %d\n", rc);
-		goto done;
-	}
-	batt_esr = half_float(buffer);
-
-	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RS_TO_RSLOW_DISCHG_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read rs to rslow dischg: %d\n", rc);
-		goto done;
-	}
-	rs_to_rslow_dischg = half_float(buffer);
-
-	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RS_TO_RSLOW_CHG_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read rs to rslow chg: %d\n", rc);
-		goto done;
-	}
-	rs_to_rslow_chg = half_float(buffer);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("rs_rslow_chg: %lld, rs_rslow_dischg: %lld, esr: %lld\n",
-			rs_to_rslow_chg, rs_to_rslow_dischg, batt_esr);
-
-	rconn_uohm = chip->rconn_mohm * 1000;
-	rs_to_rslow_dischg = div64_s64(rs_to_rslow_dischg * batt_esr,
-					batt_esr + rconn_uohm);
-	rs_to_rslow_chg = div64_s64(rs_to_rslow_chg * batt_esr,
-					batt_esr + rconn_uohm);
-
-	half_float_to_buffer(rs_to_rslow_chg, buffer);
-	rc = fg_mem_write(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RS_TO_RSLOW_CHG_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to write rs_to_rslow_chg: %d\n", rc);
-		goto done;
-	}
-
-	half_float_to_buffer(rs_to_rslow_dischg, buffer);
-	rc = fg_mem_write(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RS_TO_RSLOW_DISCHG_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to write rs_to_rslow_dischg: %d\n", rc);
-		goto done;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Modified rs_rslow_chg: %lld, rs_rslow_dischg: %lld\n",
-			rs_to_rslow_chg, rs_to_rslow_dischg);
-done:
 	return rc;
 }
 
@@ -5704,7 +4237,7 @@ static int fg_rslow_charge_comp_set(struct fg_chip *chip)
 
 	half_float_to_buffer(chip->rslow_comp.chg_rs_to_rslow, buffer);
 	rc = fg_mem_write(chip, buffer,
-			TEMP_RS_TO_RSLOW_REG, 2, RS_TO_RSLOW_CHG_OFFSET, 0);
+			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
 	if (rc) {
 		pr_err("unable to write rs to rslow: %d\n", rc);
 		goto done;
@@ -5757,7 +4290,7 @@ static int fg_rslow_charge_comp_clear(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_write(chip, chip->rslow_comp.rs_to_rslow,
-			TEMP_RS_TO_RSLOW_REG, 2, RS_TO_RSLOW_CHG_OFFSET, 0);
+			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
 	if (rc) {
 		pr_err("unable to write rs to rslow: %d\n", rc);
 		goto done;
@@ -5981,58 +4514,6 @@ static void esr_extract_config_work(struct work_struct *work)
 	fg_relax(&chip->esr_extract_wakeup_source);
 }
 
-#define KI_COEFF_MEDC_REG		0x400
-#define KI_COEFF_MEDC_OFFSET		0
-#define KI_COEFF_HIGHC_REG		0x404
-#define KI_COEFF_HIGHC_OFFSET		0
-#define DEFAULT_MEDC_VOLTAGE_GAIN	3
-#define DEFAULT_HIGHC_VOLTAGE_GAIN	2
-static void discharge_gain_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work, struct fg_chip,
-						dischg_gain_work);
-	u8 buf[2];
-	int capacity, rc, i;
-	int64_t medc_val = DEFAULT_MEDC_VOLTAGE_GAIN;
-	int64_t highc_val = DEFAULT_HIGHC_VOLTAGE_GAIN;
-
-	capacity = get_prop_capacity(chip);
-	if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
-		for (i = VOLT_GAIN_MAX - 1; i >= 0; i--) {
-			if (capacity <= chip->dischg_gain.soc[i]) {
-				medc_val = chip->dischg_gain.medc_gain[i];
-				highc_val = chip->dischg_gain.highc_gain[i];
-			}
-		}
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Capacity: %d, medc_gain: %lld highc_gain: %lld\n",
-			capacity, medc_val, highc_val);
-
-	medc_val *= MICRO_UNIT;
-	half_float_to_buffer(medc_val, buf);
-	rc = fg_mem_write(chip, buf, KI_COEFF_MEDC_REG, 2,
-				KI_COEFF_MEDC_OFFSET, 0);
-	if (rc)
-		pr_err("Couldn't write to ki_coeff_medc_reg, rc=%d\n", rc);
-	else if (fg_debug_mask & FG_STATUS)
-		pr_info("Value [%x %x] written to ki_coeff_medc\n", buf[0],
-			buf[1]);
-
-	highc_val *= MICRO_UNIT;
-	half_float_to_buffer(highc_val, buf);
-	rc = fg_mem_write(chip, buf, KI_COEFF_HIGHC_REG, 2,
-				KI_COEFF_HIGHC_OFFSET, 0);
-	if (rc)
-		pr_err("Couldn't write to ki_coeff_highc_reg, rc=%d\n", rc);
-	else if (fg_debug_mask & FG_STATUS)
-		pr_info("Value [%x %x] written to ki_coeff_highc\n", buf[0],
-			buf[1]);
-
-	fg_relax(&chip->dischg_gain_wakeup_source);
-}
-
 #define LOW_LATENCY			BIT(6)
 #define BATT_PROFILE_OFFSET		0x4C0
 #define PROFILE_INTEGRITY_REG		0x53C
@@ -6052,7 +4533,7 @@ static int fg_do_restart(struct fg_chip *chip, bool write_profile)
 		pr_info("restarting fuel gauge...\n");
 
 try_again:
-	if (write_profile && !chip->ima_error_handling) {
+	if (write_profile) {
 		if (!chip->charging_disabled) {
 			pr_err("Charging not yet disabled!\n");
 			return -EINVAL;
@@ -6293,8 +4774,7 @@ fail:
 #define BATTERY_PSY_WAIT_MS		2000
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
-	int rc = 0, ret;
-	int len, batt_id;
+	int rc = 0, ret, len, batt_id;
 	struct device_node *node = chip->pdev->dev.of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data, *batt_type_str;
@@ -6316,19 +4796,6 @@ wait:
 		goto no_profile;
 	}
 
-	/* Check whether the charger is ready */
-	if (!is_charger_available(chip))
-		goto reschedule;
-
-	/* Disable charging for a FG cycle before calculating vbat_in_range */
-	if (!chip->charging_disabled) {
-		rc = set_prop_enable_charging(chip, false);
-		if (rc)
-			pr_err("Failed to disable charging, rc=%d\n", rc);
-
-		goto update;
-	}
-
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_warn("No available batterydata, using OTP defaults\n");
@@ -6345,12 +4812,8 @@ wait:
 							fg_batt_type);
 	if (IS_ERR_OR_NULL(profile_node)) {
 		rc = PTR_ERR(profile_node);
-		if (rc == -EPROBE_DEFER) {
-			goto reschedule;
-		} else {
-			pr_err("couldn't find profile handle rc=%d\n", rc);
-			goto no_profile;
-		}
+		pr_err("couldn't find profile handle %d\n", rc);
+		goto no_profile;
 	}
 
 	/* read rslow compensation values if they're available */
@@ -6444,6 +4907,18 @@ wait:
 		goto no_profile;
 	}
 
+	/* Check whether the charger is ready */
+	if (!is_charger_available(chip))
+		goto reschedule;
+
+	/* Disable charging for a FG cycle before calculating vbat_in_range */
+	if (!chip->charging_disabled) {
+		rc = set_prop_enable_charging(chip, false);
+		if (rc)
+			pr_err("Failed to disable charging, rc=%d\n", rc);
+
+		goto reschedule;
+	}
 
 	vbat_in_range = get_vbat_est_diff(chip)
 			< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
@@ -6485,7 +4960,11 @@ wait:
 				chip->batt_profile, len, false);
 	}
 
+	if (chip->power_supply_registered)
+		power_supply_changed(chip->bms_psy);
+
 	memcpy(chip->batt_profile, data, len);
+
 	chip->batt_profile_len = len;
 
 	if (fg_debug_mask & FG_STATUS)
@@ -6520,11 +4999,6 @@ wait:
 		}
 	}
 
-	if (chip->rconn_mohm > 0) {
-		rc = fg_update_batt_rslow_settings(chip);
-		if (rc)
-			pr_err("Error in updating ESR, rc=%d\n", rc);
-	}
 done:
 	if (chip->charging_disabled) {
 		rc = set_prop_enable_charging(chip, true);
@@ -6538,22 +5012,8 @@ done:
 		chip->batt_type = fg_batt_type;
 	else
 		chip->batt_type = batt_type_str;
-
-	if (chip->first_profile_loaded && fg_reset_on_lockup) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("restoring SRAM registers\n");
-		rc = fg_backup_sram_registers(chip, false);
-		if (rc)
-			pr_err("Couldn't restore sram registers\n");
-
-		/* Read the cycle counter back from FG SRAM */
-		if (chip->cyc_ctr.en)
-			restore_cycle_counter(chip);
-	}
-
 	chip->first_profile_loaded = true;
 	chip->profile_loaded = true;
-	chip->soc_reporting_ready = true;
 	chip->battery_missing = is_battery_missing(chip);
 	update_chg_iterm(chip);
 	update_cc_cv_setpoint(chip);
@@ -6569,10 +5029,8 @@ done:
 	fg_relax(&chip->profile_wakeup_source);
 	pr_info("Battery SOC: %d, V: %duV\n", get_prop_capacity(chip),
 		fg_data[FG_DATA_VOLTAGE].value);
-	complete_all(&chip->fg_reset_done);
 	return rc;
 no_profile:
-	chip->soc_reporting_ready = true;
 	if (chip->charging_disabled) {
 		rc = set_prop_enable_charging(chip, true);
 		if (rc)
@@ -6585,15 +5043,14 @@ no_profile:
 		power_supply_changed(chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
 	return rc;
-update:
-	cancel_delayed_work(&chip->update_sram_data);
-	schedule_delayed_work(
-		&chip->update_sram_data,
-		msecs_to_jiffies(0));
 reschedule:
 	schedule_delayed_work(
 		&chip->batt_profile_init,
 		msecs_to_jiffies(BATTERY_PSY_WAIT_MS));
+	cancel_delayed_work(&chip->update_sram_data);
+	schedule_delayed_work(
+		&chip->update_sram_data,
+		msecs_to_jiffies(0));
 	fg_relax(&chip->profile_wakeup_source);
 	return 0;
 }
@@ -6603,41 +5060,14 @@ static void check_empty_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				check_empty_work.work);
-	bool vbatt_low_sts;
-	int msoc;
 
-	/* handle empty soc based on vbatt-low interrupt */
-	if (chip->use_vbat_low_empty_soc) {
-		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
-			goto out;
-
-		msoc = get_monotonic_soc_raw(chip);
-
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("Vbatt_low: %d, msoc: %d\n", vbatt_low_sts,
-				msoc);
-		if (vbatt_low_sts || (msoc == 0))
-			chip->soc_empty = true;
-		else
-			chip->soc_empty = false;
-
-		if (chip->power_supply_registered)
-			power_supply_changed(chip->bms_psy);
-
-		if (!chip->vbat_low_irq_enabled) {
-			enable_irq(chip->batt_irq[VBATT_LOW].irq);
-			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
-			chip->vbat_low_irq_enabled = true;
-		}
-	} else if (fg_is_batt_empty(chip)) {
+	if (fg_is_batt_empty(chip)) {
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("EMPTY SOC high\n");
 		chip->soc_empty = true;
 		if (chip->power_supply_registered)
 			power_supply_changed(chip->bms_psy);
 	}
-
-out:
 	fg_relax(&chip->empty_check_wakeup_source);
 }
 
@@ -6677,7 +5107,7 @@ static void charge_full_work(struct work_struct *work)
 	int rc;
 	u8 buffer[3];
 	int bsoc;
-	int resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
+	int resume_soc_raw = FULL_SOC_RAW - settings[FG_MEM_RESUME_SOC].value;
 	bool disable = false;
 	u8 reg;
 
@@ -6892,98 +5322,6 @@ do {									\
 	}								\
 } while (0)
 
-static int fg_dischg_gain_dt_init(struct fg_chip *chip)
-{
-	struct device_node *node = chip->pdev->dev.of_node;
-	struct property *prop;
-	int i, rc = 0;
-	size_t size;
-
-	prop = of_find_property(node, "qcom,fg-dischg-voltage-gain-soc",
-			NULL);
-	if (!prop) {
-		pr_err("qcom-fg-dischg-voltage-gain-soc not specified\n");
-		goto out;
-	}
-
-	size = prop->length / sizeof(u32);
-	if (size != VOLT_GAIN_MAX) {
-		pr_err("Voltage gain SOC specified is of incorrect size\n");
-		goto out;
-	}
-
-	rc = of_property_read_u32_array(node,
-		"qcom,fg-dischg-voltage-gain-soc", chip->dischg_gain.soc, size);
-	if (rc < 0) {
-		pr_err("Reading qcom-fg-dischg-voltage-gain-soc failed, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	for (i = 0; i < VOLT_GAIN_MAX; i++) {
-		if (chip->dischg_gain.soc[i] > 100) {
-			pr_err("Incorrect dischg-voltage-gain-soc\n");
-			goto out;
-		}
-	}
-
-	prop = of_find_property(node, "qcom,fg-dischg-med-voltage-gain",
-			NULL);
-	if (!prop) {
-		pr_err("qcom-fg-dischg-med-voltage-gain not specified\n");
-		goto out;
-	}
-
-	size = prop->length / sizeof(u32);
-	if (size != VOLT_GAIN_MAX) {
-		pr_err("med-voltage-gain specified is of incorrect size\n");
-		goto out;
-	}
-
-	rc = of_property_read_u32_array(node,
-		"qcom,fg-dischg-med-voltage-gain", chip->dischg_gain.medc_gain,
-		size);
-	if (rc < 0) {
-		pr_err("Reading qcom-fg-dischg-med-voltage-gain failed, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	prop = of_find_property(node, "qcom,fg-dischg-high-voltage-gain",
-			NULL);
-	if (!prop) {
-		pr_err("qcom-fg-dischg-high-voltage-gain not specified\n");
-		goto out;
-	}
-
-	size = prop->length / sizeof(u32);
-	if (size != VOLT_GAIN_MAX) {
-		pr_err("high-voltage-gain specified is of incorrect size\n");
-		goto out;
-	}
-
-	rc = of_property_read_u32_array(node,
-		"qcom,fg-dischg-high-voltage-gain",
-		chip->dischg_gain.highc_gain, size);
-	if (rc < 0) {
-		pr_err("Reading qcom-fg-dischg-high-voltage-gain failed, rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	if (fg_debug_mask & FG_STATUS) {
-		for (i = 0; i < VOLT_GAIN_MAX; i++)
-			pr_info("SOC:%d MedC_Gain:%d HighC_Gain: %d\n",
-				chip->dischg_gain.soc[i],
-				chip->dischg_gain.medc_gain[i],
-				chip->dischg_gain.highc_gain[i]);
-	}
-	return 0;
-out:
-	chip->dischg_gain.enable = false;
-	return rc;
-}
-
 #define DEFAULT_EVALUATION_CURRENT_MA	1000
 static int fg_of_init(struct fg_chip *chip)
 {
@@ -7061,10 +5399,6 @@ static int fg_of_init(struct fg_chip *chip)
 			"cl-max-start-capacity", rc, 15);
 	OF_READ_PROPERTY(chip->learning_data.vbat_est_thr_uv,
 			"cl-vbat-est-thr-uv", rc, 40000);
-	OF_READ_PROPERTY(chip->learning_data.max_cap_limit,
-			"cl-max-limit-deciperc", rc, 0);
-	OF_READ_PROPERTY(chip->learning_data.min_cap_limit,
-			"cl-min-limit-deciperc", rc, 0);
 	OF_READ_PROPERTY(chip->evaluation_current,
 			"aging-eval-current-ma", rc,
 			DEFAULT_EVALUATION_CURRENT_MA);
@@ -7124,77 +5458,6 @@ static int fg_of_init(struct fg_chip *chip)
 
 	chip->esr_pulse_tune_en = of_property_read_bool(node,
 					"qcom,esr-pulse-tuning-en");
-
-	chip->soc_slope_limiter_en = of_property_read_bool(node,
-					"qcom,fg-control-slope-limiter");
-	if (chip->soc_slope_limiter_en) {
-		OF_READ_PROPERTY(chip->slope_limit_temp,
-			"fg-slope-limit-temp-threshold", rc,
-			SLOPE_LIMIT_TEMP_THRESHOLD);
-
-		OF_READ_PROPERTY(chip->slope_limit_coeffs[LOW_TEMP_CHARGE],
-			"fg-slope-limit-low-temp-chg", rc,
-			SLOPE_LIMIT_LOW_TEMP_CHG);
-
-		OF_READ_PROPERTY(chip->slope_limit_coeffs[HIGH_TEMP_CHARGE],
-			"fg-slope-limit-high-temp-chg", rc,
-			SLOPE_LIMIT_HIGH_TEMP_CHG);
-
-		OF_READ_PROPERTY(chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
-			"fg-slope-limit-low-temp-dischg", rc,
-			SLOPE_LIMIT_LOW_TEMP_DISCHG);
-
-		OF_READ_PROPERTY(chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE],
-			"fg-slope-limit-high-temp-dischg", rc,
-			SLOPE_LIMIT_HIGH_TEMP_DISCHG);
-
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("slope-limiter, temp: %d coeffs: [%d %d %d %d]\n",
-				chip->slope_limit_temp,
-				chip->slope_limit_coeffs[LOW_TEMP_CHARGE],
-				chip->slope_limit_coeffs[HIGH_TEMP_CHARGE],
-				chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
-				chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE]);
-	}
-
-	OF_READ_PROPERTY(chip->rconn_mohm, "fg-rconn-mohm", rc, 0);
-
-	chip->dischg_gain.enable = of_property_read_bool(node,
-					"qcom,fg-dischg-voltage-gain-ctrl");
-	if (chip->dischg_gain.enable) {
-		rc = fg_dischg_gain_dt_init(chip);
-		if (rc) {
-			pr_err("Error in reading dischg_gain parameters, rc=%d\n",
-				rc);
-			rc = 0;
-		}
-	}
-
-	chip->use_vbat_low_empty_soc = of_property_read_bool(node,
-					"qcom,fg-use-vbat-low-empty-soc");
-
-	OF_READ_PROPERTY(chip->batt_temp_low_limit,
-			"fg-batt-temp-low-limit", rc, BATT_TEMP_LOW_LIMIT);
-
-	OF_READ_PROPERTY(chip->batt_temp_high_limit,
-			"fg-batt-temp-high-limit", rc, BATT_TEMP_HIGH_LIMIT);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("batt-temp-low_limit: %d batt-temp-high_limit: %d\n",
-			chip->batt_temp_low_limit, chip->batt_temp_high_limit);
-
-	OF_READ_PROPERTY(chip->cc_soc_limit_pct, "fg-cc-soc-limit-pct", rc, 0);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("cc-soc-limit-pct: %d\n", chip->cc_soc_limit_pct);
-
-	chip->batt_info_restore = of_property_read_bool(node,
-					"qcom,fg-restore-batt-info");
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("restore: %d validate_by_ocv: %d range_pct: %d\n",
-			chip->batt_info_restore, fg_batt_valid_ocv,
-			fg_batt_range_pct);
 
 	return rc;
 }
@@ -7269,22 +5532,15 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[FULL_SOC].irq, rc);
 				return rc;
 			}
-			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			chip->full_soc_irq_enabled = true;
-
-			if (!chip->use_vbat_low_empty_soc) {
-				rc = devm_request_irq(chip->dev,
-					chip->soc_irq[EMPTY_SOC].irq,
-					fg_empty_soc_irq_handler,
-					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING,
-					"empty-soc", chip);
-				if (rc < 0) {
-					pr_err("Can't request %d empty-soc: %d\n",
-						chip->soc_irq[EMPTY_SOC].irq,
-						rc);
-					return rc;
-				}
+			rc = devm_request_irq(chip->dev,
+				chip->soc_irq[EMPTY_SOC].irq,
+				fg_empty_soc_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"empty-soc", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d empty-soc: %d\n",
+					chip->soc_irq[EMPTY_SOC].irq, rc);
+				return rc;
 			}
 			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[DELTA_SOC].irq,
@@ -7306,8 +5562,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 
 			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
-			if (!chip->use_vbat_low_empty_soc)
-				enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
+			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
+			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
 			break;
 		case FG_MEMIF:
 			chip->mem_irq[FG_MEM_AVAIL].irq
@@ -7329,53 +5585,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 			break;
 		case FG_BATT:
-			chip->batt_irq[JEITA_SOFT_COLD].irq =
-				of_irq_get_byname(child, "soft-cold");
-			if (chip->batt_irq[JEITA_SOFT_COLD].irq < 0) {
-				pr_err("Unable to get soft-cold irq\n");
-				rc = -EINVAL;
-				return rc;
-			}
-			rc = devm_request_threaded_irq(chip->dev,
-					chip->batt_irq[JEITA_SOFT_COLD].irq,
-					NULL,
-					fg_jeita_soft_cold_irq_handler,
-					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING |
-					IRQF_ONESHOT,
-					"soft-cold", chip);
-			if (rc < 0) {
-				pr_err("Can't request %d soft-cold: %d\n",
-					chip->batt_irq[JEITA_SOFT_COLD].irq,
-								rc);
-				return rc;
-			}
-			disable_irq(chip->batt_irq[JEITA_SOFT_COLD].irq);
-			chip->batt_irq[JEITA_SOFT_COLD].disabled = true;
-			chip->batt_irq[JEITA_SOFT_HOT].irq =
-				of_irq_get_byname(child, "soft-hot");
-			if (chip->batt_irq[JEITA_SOFT_HOT].irq < 0) {
-				pr_err("Unable to get soft-hot irq\n");
-				rc = -EINVAL;
-				return rc;
-			}
-			rc = devm_request_threaded_irq(chip->dev,
-					chip->batt_irq[JEITA_SOFT_HOT].irq,
-					NULL,
-					fg_jeita_soft_hot_irq_handler,
-					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING |
-					IRQF_ONESHOT,
-					"soft-hot", chip);
-			if (rc < 0) {
-				pr_err("Can't request %d soft-hot: %d\n",
-					chip->batt_irq[JEITA_SOFT_HOT].irq, rc);
-				return rc;
-			}
-			disable_irq(chip->batt_irq[JEITA_SOFT_HOT].irq);
-			chip->batt_irq[JEITA_SOFT_HOT].disabled = true;
-			chip->batt_irq[BATT_MISSING].irq =
-				of_irq_get_byname(child, "batt-missing");
+			chip->batt_irq[BATT_MISSING].irq
+				= of_irq_get_byname(child, "batt-missing");
 			if (chip->batt_irq[BATT_MISSING].irq < 0) {
 				pr_err("Unable to get batt-missing irq\n");
 				rc = -EINVAL;
@@ -7412,14 +5623,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->batt_irq[VBATT_LOW].irq, rc);
 				return rc;
 			}
-			if (chip->use_vbat_low_empty_soc) {
-				enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
-				chip->vbat_low_irq_enabled = true;
-			} else {
-				disable_irq_nosync(
-					chip->batt_irq[VBATT_LOW].irq);
-				chip->vbat_low_irq_enabled = false;
-			}
+			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = false;
 			break;
 		case FG_ADC:
 			break;
@@ -7429,22 +5634,17 @@ static int fg_init_irqs(struct fg_chip *chip)
 		}
 	}
 
-	chip->irqs_enabled = true;
 	return rc;
 }
 
-static void fg_cancel_all_works(struct fg_chip *chip)
+static void fg_cleanup(struct fg_chip *chip)
 {
-	cancel_delayed_work_sync(&chip->check_sanity_work);
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_delayed_work_sync(&chip->check_empty_work);
 	cancel_delayed_work_sync(&chip->batt_profile_init);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
-	alarm_try_to_cancel(&chip->hard_jeita_alarm);
-	if (!chip->ima_error_handling)
-		cancel_work_sync(&chip->ima_error_recovery_work);
 	cancel_work_sync(&chip->rslow_comp_work);
 	cancel_work_sync(&chip->set_resume_soc_work);
 	cancel_work_sync(&chip->fg_cap_learning_work);
@@ -7456,23 +5656,12 @@ static void fg_cancel_all_works(struct fg_chip *chip)
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
-	cancel_work_sync(&chip->bcl_hi_power_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
-	cancel_work_sync(&chip->slope_limiter_work);
-	cancel_work_sync(&chip->dischg_gain_work);
-	cancel_work_sync(&chip->cc_soc_store_work);
-}
-
-static void fg_cleanup(struct fg_chip *chip)
-{
-	fg_cancel_all_works(chip);
-	power_supply_unregister(chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr.lock);
 	mutex_destroy(&chip->learning_data.learning_lock);
 	mutex_destroy(&chip->sysfs_restart_lock);
-	mutex_destroy(&chip->ima_recovery_lock);
 	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -7482,11 +5671,6 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
-	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
-	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
-	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
-	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
-	wakeup_source_trash(&chip->sanity_wakeup_source.source);
 }
 
 static int fg_remove(struct platform_device *pdev)
@@ -7514,8 +5698,10 @@ static int fg_memif_data_open(struct inode *inode, struct file *file)
 
 	/* Per file "transaction" data */
 	trans = kzalloc(sizeof(*trans), GFP_KERNEL);
-	if (!trans)
+	if (!trans) {
+		pr_err("Unable to allocate memory for transaction data\n");
 		return -ENOMEM;
+	}
 
 	/* Allocate log buffer */
 	log = kzalloc(logbufsize, GFP_KERNEL);
@@ -7858,7 +6044,7 @@ static struct dentry *fg_dfs_create_fs(void)
 
 	dbgfs_data.help_msg.size = strlen(dbgfs_data.help_msg.data);
 
-	file = debugfs_create_blob("help", 0444, root, &dbgfs_data.help_msg);
+	file = debugfs_create_blob("help", S_IRUGO, root, &dbgfs_data.help_msg);
 	if (!file) {
 		pr_err("error creating help entry\n");
 		goto err_remove_fs;
@@ -7975,13 +6161,12 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 	return 0;
 }
 
-#define FG_ALG_SYSCTL_1			0x4B0
-#define SOC_CNFG			0x450
-#define SOC_DELTA_OFFSET		3
-#define DELTA_SOC_PERCENT		1
-#define ALERT_CFG_OFFSET		3
-#define I_TERM_QUAL_BIT			BIT(1)
-#define PATCH_NEG_CURRENT_BIT		BIT(3)
+#define FG_ALG_SYSCTL_1	0x4B0
+#define SOC_CNFG	0x450
+#define SOC_DELTA_OFFSET	3
+#define DELTA_SOC_PERCENT	1
+#define I_TERM_QUAL_BIT		BIT(1)
+#define PATCH_NEG_CURRENT_BIT	BIT(3)
 #define KI_COEFF_PRED_FULL_ADDR		0x408
 #define KI_COEFF_PRED_FULL_4_0_MSB	0x88
 #define KI_COEFF_PRED_FULL_4_0_LSB	0x00
@@ -7989,12 +6174,6 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 #define FG_ADC_CONFIG_REG		0x4B8
 #define FG_BCL_CONFIG_OFFSET		0x3
 #define BCL_FORCED_HPM_IN_CHARGE	BIT(2)
-#define IRQ_USE_VOLTAGE_HYST_BIT	BIT(0)
-#define EMPTY_FROM_VOLTAGE_BIT		BIT(1)
-#define EMPTY_FROM_SOC_BIT		BIT(2)
-#define EMPTY_SOC_IRQ_MASK		(IRQ_USE_VOLTAGE_HYST_BIT | \
-					EMPTY_FROM_SOC_BIT | \
-					EMPTY_FROM_VOLTAGE_BIT)
 static int fg_common_hw_init(struct fg_chip *chip)
 {
 	int rc;
@@ -8003,9 +6182,8 @@ static int fg_common_hw_init(struct fg_chip *chip)
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
+	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
-	if (!chip->use_vbat_low_empty_soc)
-		update_irq_volt_empty(chip);
 
 	resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
 	if (resume_soc_raw > 0) {
@@ -8034,11 +6212,6 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		pr_err("failed to write delta soc rc=%d\n", rc);
 		return rc;
 	}
-
-	/* Override the voltage threshold for vbatt_low with empty_volt */
-	if (chip->use_vbat_low_empty_soc)
-		settings[FG_MEM_BATT_LOW].value =
-			settings[FG_MEM_IRQ_VOLT_EMPTY].value;
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_BATT_LOW].address, 0xFF,
 			batt_to_setpoint_8b(settings[FG_MEM_BATT_LOW].value),
@@ -8107,41 +6280,20 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("imptr_pulse_slow is %sabled\n",
 				chip->imptr_pulse_slow_en ? "en" : "dis");
-	}
 
-	rc = fg_mem_read(chip, &val, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET,
-			0);
-	if (rc) {
-		pr_err("unable to read rslow cfg: %d\n", rc);
-		return rc;
-	}
+		rc = fg_mem_read(chip, &val, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET,
+				0);
+		if (rc) {
+			pr_err("unable to read rslow cfg: %d\n", rc);
+			return rc;
+		}
 
-	if (val & RSLOW_CFG_ON_VAL)
-		chip->rslow_comp.active = true;
+		if (val & RSLOW_CFG_ON_VAL)
+			chip->rslow_comp.active = true;
 
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("rslow_comp active is %sabled\n",
-			chip->rslow_comp.active ? "en" : "dis");
-
-	/*
-	 * Clear bits 0-2 in 0x4B3 and set them again to make empty_soc irq
-	 * trigger again.
-	 */
-	rc = fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, EMPTY_SOC_IRQ_MASK,
-			0, ALERT_CFG_OFFSET);
-	if (rc) {
-		pr_err("failed to write to 0x4B3 rc=%d\n", rc);
-		return rc;
-	}
-
-	/* Wait for a FG cycle before enabling empty soc irq configuration */
-	msleep(FG_CYCLE_MS);
-
-	rc = fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, EMPTY_SOC_IRQ_MASK,
-			EMPTY_SOC_IRQ_MASK, ALERT_CFG_OFFSET);
-	if (rc) {
-		pr_err("failed to write to 0x4B3 rc=%d\n", rc);
-		return rc;
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("rslow_comp active is %sabled\n",
+				chip->rslow_comp.active ? "en" : "dis");
 	}
 
 	return 0;
@@ -8268,13 +6420,12 @@ static int fg_hw_init(struct fg_chip *chip)
 		/* Setup workaround flag based on PMIC type */
 		if (fg_sense_type == INTERNAL_CURRENT_SENSE)
 			chip->wa_flag |= IADC_GAIN_COMP_WA;
-		if (chip->pmic_revision[REVID_DIG_MAJOR] >= 1)
+		if (chip->pmic_revision[REVID_DIG_MAJOR] > 1)
 			chip->wa_flag |= USE_CC_SOC_REG;
 
 		break;
 	case PMI8950:
 	case PMI8937:
-	case PMI8940:
 		rc = fg_8950_hw_init(chip);
 		/* Setup workaround flag based on PMIC type */
 		chip->wa_flag |= BCL_HI_POWER_FOR_CHGLED_WA;
@@ -8293,223 +6444,12 @@ static int fg_hw_init(struct fg_chip *chip)
 	return rc;
 }
 
-static int fg_init_iadc_config(struct fg_chip *chip)
-{
-	u8 reg[2];
-	int rc;
-
-	/* read default gain config */
-	rc = fg_mem_read(chip, reg, K_VCOR_REG, 2, DEF_GAIN_OFFSET, 0);
-	if (rc) {
-		pr_err("Failed to read default gain rc=%d\n", rc);
-		return rc;
-	}
-
-	if (reg[1] || reg[0]) {
-		/*
-		 * Default gain register has valid value:
-		 * - write to gain register.
-		 */
-		rc = fg_mem_write(chip, reg, GAIN_REG, 2,
-						GAIN_OFFSET, 0);
-		if (rc) {
-			pr_err("Failed to write gain rc=%d\n", rc);
-			return rc;
-		}
-	} else {
-		/*
-		 * Default gain register is invalid:
-		 * - read gain register for default gain value
-		 * - write to default gain register.
-		 */
-		rc = fg_mem_read(chip, reg, GAIN_REG, 2,
-						GAIN_OFFSET, 0);
-		if (rc) {
-			pr_err("Failed to read gain rc=%d\n", rc);
-			return rc;
-		}
-		rc = fg_mem_write(chip, reg, K_VCOR_REG, 2,
-						DEF_GAIN_OFFSET, 0);
-		if (rc) {
-			pr_err("Failed to write default gain rc=%d\n",
-								rc);
-			return rc;
-		}
-	}
-
-	chip->iadc_comp_data.dfl_gain_reg[0] = reg[0];
-	chip->iadc_comp_data.dfl_gain_reg[1] = reg[1];
-	chip->iadc_comp_data.dfl_gain = half_float(reg);
-
-	pr_debug("IADC gain initial config reg_val 0x%x%x gain %lld\n",
-		       reg[1], reg[0], chip->iadc_comp_data.dfl_gain);
-	return 0;
-}
-
-#define EN_WR_FGXCT_PRD		BIT(6)
-#define EN_RD_FGXCT_PRD		BIT(5)
-#define FG_RESTART_TIMEOUT_MS	12000
-static void ima_error_recovery_work(struct work_struct *work)
-{
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				ima_error_recovery_work);
-	bool tried_again = false;
-	int rc;
-	u8 buf[4] = {0, 0, 0, 0};
-
-	fg_stay_awake(&chip->fg_reset_wakeup_source);
-	mutex_lock(&chip->ima_recovery_lock);
-	if (!chip->ima_error_handling) {
-		pr_err("Scheduled by mistake?\n");
-		mutex_unlock(&chip->ima_recovery_lock);
-		fg_relax(&chip->fg_reset_wakeup_source);
-		return;
-	}
-
-	/*
-	 * SOC should be read and used until the error recovery completes.
-	 * Without this, there could be a fluctuation in SOC values notified
-	 * to the userspace.
-	 */
-	chip->use_last_soc = true;
-
-	/* Block SRAM access till FG reset is complete */
-	chip->block_sram_access = true;
-
-	/* Release the mutex to avoid deadlock while cancelling the works */
-	mutex_unlock(&chip->ima_recovery_lock);
-
-	/* Cancel all the works */
-	fg_cancel_all_works(chip);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("last_soc: %d\n", chip->last_soc);
-
-	mutex_lock(&chip->ima_recovery_lock);
-	/* Acquire IMA access forcibly from FG ALG */
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-			EN_WR_FGXCT_PRD | EN_RD_FGXCT_PRD,
-			EN_WR_FGXCT_PRD | EN_RD_FGXCT_PRD, 1);
-	if (rc) {
-		pr_err("Error in writing to IMA_CFG, rc=%d\n", rc);
-		goto out;
-	}
-
-	/* Release the IMA access now so that FG reset can go through */
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-			EN_WR_FGXCT_PRD | EN_RD_FGXCT_PRD, 0, 1);
-	if (rc) {
-		pr_err("Error in writing to IMA_CFG, rc=%d\n", rc);
-		goto out;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("resetting FG\n");
-
-	/* Assert FG reset */
-	rc = fg_reset(chip, true);
-	if (rc) {
-		pr_err("Couldn't reset FG\n");
-		goto out;
-	}
-
-	/* Wait for a small time before deasserting FG reset */
-	msleep(100);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("clearing FG from reset\n");
-
-	/* Deassert FG reset */
-	rc = fg_reset(chip, false);
-	if (rc) {
-		pr_err("Couldn't clear FG reset\n");
-		goto out;
-	}
-
-	/* Wait for at least a FG cycle before doing SRAM access */
-	msleep(2000);
-
-	chip->block_sram_access = false;
-
-	if (!chip->init_done) {
-		schedule_work(&chip->init_work);
-		goto wait;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("Calling hw_init\n");
-
-	/*
-	 * Once FG is reset, everything in SRAM will be wiped out. Redo
-	 * hw_init, update jeita settings etc., again to make sure all
-	 * the settings got restored again.
-	 */
-	rc = fg_hw_init(chip);
-	if (rc) {
-		pr_err("Error in hw_init, rc=%d\n", rc);
-		goto out;
-	}
-
-	update_jeita_setting(&chip->update_jeita_setting.work);
-
-	if (chip->wa_flag & IADC_GAIN_COMP_WA) {
-		rc = fg_init_iadc_config(chip);
-		if (rc)
-			goto out;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("loading battery profile\n");
-	if (!chip->use_otp_profile) {
-		chip->battery_missing = true;
-		chip->profile_loaded = false;
-		chip->soc_reporting_ready = false;
-		chip->batt_type = default_batt_type;
-		fg_handle_battery_insertion(chip);
-	}
-
-wait:
-	rc = wait_for_completion_interruptible_timeout(&chip->fg_reset_done,
-			msecs_to_jiffies(FG_RESTART_TIMEOUT_MS));
-
-	/* If we were interrupted wait again one more time. */
-	if (rc == -ERESTARTSYS && !tried_again) {
-		tried_again = true;
-		pr_debug("interrupted, waiting again\n");
-		goto wait;
-	} else if (rc <= 0) {
-		pr_err("fg_restart taking long time rc=%d\n", rc);
-		goto out;
-	}
-
-	rc = fg_mem_write(chip, buf, fg_data[FG_DATA_VINT_ERR].address,
-			fg_data[FG_DATA_VINT_ERR].len,
-			fg_data[FG_DATA_VINT_ERR].offset, 0);
-	if (rc < 0)
-		pr_err("Error in clearing VACT_INT_ERR, rc=%d\n", rc);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("IMA error recovery done...\n");
-out:
-	fg_restore_soc(chip);
-	fg_restore_cc_soc(chip);
-	fg_enable_irqs(chip, true);
-	update_sram_data_work(&chip->update_sram_data.work);
-	update_temp_data(&chip->update_temp_work.work);
-	schedule_delayed_work(&chip->check_sanity_work,
-		msecs_to_jiffies(1000));
-	chip->ima_error_handling = false;
-	mutex_unlock(&chip->ima_recovery_lock);
-	fg_relax(&chip->fg_reset_wakeup_source);
-}
-
 #define DIG_MINOR		0x0
 #define DIG_MAJOR		0x1
 #define ANA_MINOR		0x2
 #define ANA_MAJOR		0x3
 #define IACS_INTR_SRC_SLCT	BIT(3)
-static int fg_memif_init(struct fg_chip *chip)
+static int fg_setup_memif_offset(struct fg_chip *chip)
 {
 	int rc;
 
@@ -8530,7 +6470,7 @@ static int fg_memif_init(struct fg_chip *chip)
 		break;
 	default:
 		pr_err("Digital Major rev=%d not supported\n",
-					chip->revision[DIG_MAJOR]);
+				chip->revision[DIG_MAJOR]);
 		return -EINVAL;
 	}
 
@@ -8545,13 +6485,6 @@ static int fg_memif_init(struct fg_chip *chip)
 			IACS_INTR_SRC_SLCT, 1);
 		if (rc) {
 			pr_err("failed to configure interrupt source %d\n", rc);
-			return rc;
-		}
-
-		/* check for error condition */
-		rc = fg_check_ima_exception(chip, true);
-		if (rc) {
-			pr_err("Error in clearing IMA exception rc=%d", rc);
 			return rc;
 		}
 	}
@@ -8588,7 +6521,6 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 	case PMI8950:
 	case PMI8937:
 	case PMI8996:
-	case PMI8940:
 		chip->pmic_subtype = pmic_rev_id->pmic_subtype;
 		chip->pmic_revision[REVID_RESERVED]	= pmic_rev_id->rev1;
 		chip->pmic_revision[REVID_VARIANT]	= pmic_rev_id->rev2;
@@ -8605,8 +6537,10 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 }
 
 #define INIT_JEITA_DELAY_MS 1000
+
 static void delayed_init_work(struct work_struct *work)
 {
+	u8 reg[2];
 	int rc;
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
@@ -8618,14 +6552,6 @@ static void delayed_init_work(struct work_struct *work)
 	rc = fg_hw_init(chip);
 	if (rc) {
 		pr_err("failed to hw init rc = %d\n", rc);
-		if (!chip->init_done && chip->ima_supported) {
-			rc = fg_check_alg_status(chip);
-			if (rc && rc != -EBUSY)
-				pr_err("Couldn't check FG ALG status, rc=%d\n",
-					rc);
-			fg_mem_release(chip);
-			return;
-		}
 		fg_mem_release(chip);
 		fg_cleanup(chip);
 		return;
@@ -8646,19 +6572,57 @@ static void delayed_init_work(struct work_struct *work)
 	if (!chip->use_otp_profile)
 		schedule_delayed_work(&chip->batt_profile_init, 0);
 
-	if (chip->ima_supported && fg_reset_on_lockup)
-		schedule_delayed_work(&chip->check_sanity_work,
-			msecs_to_jiffies(1000));
-
 	if (chip->wa_flag & IADC_GAIN_COMP_WA) {
-		rc = fg_init_iadc_config(chip);
-		if (rc)
+		/* read default gain config */
+		rc = fg_mem_read(chip, reg, K_VCOR_REG, 2, DEF_GAIN_OFFSET, 0);
+		if (rc) {
+			pr_err("Failed to read default gain rc=%d\n", rc);
 			goto done;
+		}
+
+		if (reg[1] || reg[0]) {
+			/*
+			 * Default gain register has valid value:
+			 * - write to gain register.
+			 */
+			rc = fg_mem_write(chip, reg, GAIN_REG, 2,
+							GAIN_OFFSET, 0);
+			if (rc) {
+				pr_err("Failed to write gain rc=%d\n", rc);
+				goto done;
+			}
+		} else {
+			/*
+			 * Default gain register is invalid:
+			 * - read gain register for default gain value
+			 * - write to default gain register.
+			 */
+			rc = fg_mem_read(chip, reg, GAIN_REG, 2,
+							GAIN_OFFSET, 0);
+			if (rc) {
+				pr_err("Failed to read gain rc=%d\n", rc);
+				goto done;
+			}
+			rc = fg_mem_write(chip, reg, K_VCOR_REG, 2,
+							DEF_GAIN_OFFSET, 0);
+			if (rc) {
+				pr_err("Failed to write default gain rc=%d\n",
+									rc);
+				goto done;
+			}
+		}
+
+		chip->iadc_comp_data.dfl_gain_reg[0] = reg[0];
+		chip->iadc_comp_data.dfl_gain_reg[1] = reg[1];
+		chip->iadc_comp_data.dfl_gain = half_float(reg);
+		chip->input_present = is_input_present(chip);
+		chip->otg_present = is_otg_present(chip);
+		chip->init_done = true;
+
+		pr_debug("IADC gain initial config reg_val 0x%x%x gain %lld\n",
+			       reg[1], reg[0], chip->iadc_comp_data.dfl_gain);
 	}
 
-	chip->input_present = is_input_present(chip);
-	chip->otg_present = is_otg_present(chip);
-	chip->init_done = true;
 	pr_debug("FG: HW_init success\n");
 
 	return;
@@ -8687,9 +6651,10 @@ static int fg_probe(struct platform_device *pdev)
 	}
 
 	chip = devm_kzalloc(dev, sizeof(struct fg_chip), GFP_KERNEL);
-	if (chip == NULL)
+	if (chip == NULL) {
+		pr_err("Can't allocate fg_chip\n");
 		return -ENOMEM;
-
+	}
 	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!chip->regmap) {
 		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
@@ -8717,30 +6682,16 @@ static int fg_probe(struct platform_device *pdev)
 			"qpnp_fg_cap_learning");
 	wakeup_source_init(&chip->esr_extract_wakeup_source.source,
 			"qpnp_fg_esr_extract");
-	wakeup_source_init(&chip->slope_limit_wakeup_source.source,
-			"qpnp_fg_slope_limit");
-	wakeup_source_init(&chip->dischg_gain_wakeup_source.source,
-			"qpnp_fg_dischg_gain");
-	wakeup_source_init(&chip->fg_reset_wakeup_source.source,
-			"qpnp_fg_reset");
-	wakeup_source_init(&chip->cc_soc_wakeup_source.source,
-			"qpnp_fg_cc_soc");
-	wakeup_source_init(&chip->sanity_wakeup_source.source,
-			"qpnp_fg_sanity_check");
-	spin_lock_init(&chip->sec_access_lock);
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->learning_data.learning_lock);
 	mutex_init(&chip->rslow_comp.lock);
 	mutex_init(&chip->sysfs_restart_lock);
-	mutex_init(&chip->ima_recovery_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_DELAYED_WORK(&chip->check_empty_work, check_empty_work);
 	INIT_DELAYED_WORK(&chip->batt_profile_init, batt_profile_init);
-	INIT_DELAYED_WORK(&chip->check_sanity_work, check_sanity_work);
-	INIT_WORK(&chip->ima_error_recovery_work, ima_error_recovery_work);
 	INIT_WORK(&chip->rslow_comp_work, rslow_comp_work);
 	INIT_WORK(&chip->fg_cap_learning_work, fg_cap_learning_work);
 	INIT_WORK(&chip->dump_sram, dump_sram);
@@ -8755,19 +6706,13 @@ static int fg_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->gain_comp_work, iadc_gain_comp_work);
 	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
 	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
-	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
-	INIT_WORK(&chip->dischg_gain_work, discharge_gain_work);
-	INIT_WORK(&chip->cc_soc_store_work, cc_soc_store_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
-	alarm_init(&chip->hard_jeita_alarm, ALARM_BOOTTIME,
-			fg_hard_jeita_alarm_cb);
 	init_completion(&chip->sram_access_granted);
 	init_completion(&chip->sram_access_revoked);
 	complete_all(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
 	init_completion(&chip->first_soc_done);
-	init_completion(&chip->fg_reset_done);
 	dev_set_drvdata(&pdev->dev, chip);
 
 	if (of_get_available_child_count(pdev->dev.of_node) == 0) {
@@ -8825,7 +6770,7 @@ static int fg_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = fg_memif_init(chip);
+	rc = fg_setup_memif_offset(chip);
 	if (rc) {
 		pr_err("Unable to setup mem_if offsets rc=%d\n", rc);
 		goto of_init_fail;
@@ -8896,17 +6841,9 @@ static int fg_probe(struct platform_device *pdev)
 		rc = fg_dfs_create(chip);
 		if (rc < 0) {
 			pr_err("failed to create debugfs rc = %d\n", rc);
-			goto power_supply_unregister;
+			goto cancel_work;
 		}
 	}
-
-	/* Fake temperature till the actual temperature is read */
-	chip->last_good_temp = 250;
-
-	/* Initialize batt_info variables */
-	chip->batt_range_ocv = &fg_batt_valid_ocv;
-	chip->batt_range_pct = &fg_batt_range_pct;
-	memset(chip->batt_info, INT_MAX, sizeof(chip->batt_info));
 
 	schedule_work(&chip->init_work);
 
@@ -8917,17 +6854,32 @@ static int fg_probe(struct platform_device *pdev)
 
 	return rc;
 
-power_supply_unregister:
-	power_supply_unregister(chip->bms_psy);
 cancel_work:
-	fg_cancel_all_works(chip);
+	cancel_delayed_work_sync(&chip->update_jeita_setting);
+	cancel_delayed_work_sync(&chip->update_sram_data);
+	cancel_delayed_work_sync(&chip->update_temp_work);
+	cancel_delayed_work_sync(&chip->check_empty_work);
+	cancel_delayed_work_sync(&chip->batt_profile_init);
+	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
+	cancel_work_sync(&chip->set_resume_soc_work);
+	cancel_work_sync(&chip->fg_cap_learning_work);
+	cancel_work_sync(&chip->dump_sram);
+	cancel_work_sync(&chip->status_change_work);
+	cancel_work_sync(&chip->cycle_count_work);
+	cancel_work_sync(&chip->update_esr_work);
+	cancel_work_sync(&chip->rslow_comp_work);
+	cancel_work_sync(&chip->sysfs_restart_work);
+	cancel_work_sync(&chip->gain_comp_work);
+	cancel_work_sync(&chip->init_work);
+	cancel_work_sync(&chip->charge_full_work);
+	cancel_work_sync(&chip->bcl_hi_power_work);
+	cancel_work_sync(&chip->esr_extract_config_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr.lock);
 	mutex_destroy(&chip->learning_data.learning_lock);
 	mutex_destroy(&chip->sysfs_restart_lock);
-	mutex_destroy(&chip->ima_recovery_lock);
 	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -8937,11 +6889,6 @@ of_init_fail:
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
-	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
-	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
-	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
-	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
-	wakeup_source_trash(&chip->sanity_wakeup_source.source);
 	return rc;
 }
 
@@ -8998,102 +6945,10 @@ static int fg_resume(struct device *dev)
 	return 0;
 }
 
-static void fg_check_ima_idle(struct fg_chip *chip)
-{
-	bool rif_mem_sts = true;
-	int rc, time_count = 0;
-
-	mutex_lock(&chip->rw_lock);
-	/* Make sure IMA is idle */
-	while (1) {
-		rc = fg_check_rif_mem_access(chip, &rif_mem_sts);
-		if (rc)
-			break;
-
-		if (!rif_mem_sts)
-			break;
-
-		if  (time_count > 4) {
-			pr_err("Waited for ~16ms polling RIF_MEM_ACCESS_REQ\n");
-			fg_run_iacs_clear_sequence(chip);
-			break;
-		}
-
-		/* Wait for 4ms before reading RIF_MEM_ACCESS_REQ again */
-		usleep_range(4000, 4100);
-		time_count++;
-	}
-	mutex_unlock(&chip->rw_lock);
-}
-
-static void fg_shutdown(struct platform_device *pdev)
-{
-	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_emerg("FG shutdown started\n");
-	fg_cancel_all_works(chip);
-	fg_check_ima_idle(chip);
-	chip->fg_shutdown = true;
-	if (fg_debug_mask & FG_STATUS)
-		pr_emerg("FG shutdown complete\n");
-}
-
 static const struct dev_pm_ops qpnp_fg_pm_ops = {
 	.suspend	= fg_suspend,
 	.resume		= fg_resume,
 };
-
-static int fg_reset_lockup_set(const char *val, const struct kernel_param *kp)
-{
-	int rc;
-	struct power_supply *bms_psy;
-	struct fg_chip *chip;
-	int old_val = fg_reset_on_lockup;
-
-	rc = param_set_int(val, kp);
-	if (rc) {
-		pr_err("Unable to set fg_reset_on_lockup: %d\n", rc);
-		return rc;
-	}
-
-	if (fg_reset_on_lockup != 0 && fg_reset_on_lockup != 1) {
-		pr_err("Bad value %d\n", fg_reset_on_lockup);
-		fg_reset_on_lockup = old_val;
-		return -EINVAL;
-	}
-
-	bms_psy = power_supply_get_by_name("bms");
-	if (!bms_psy) {
-		pr_err("bms psy not found\n");
-		return 0;
-	}
-
-	chip = power_supply_get_drvdata(bms_psy);
-	if (!chip->ima_supported) {
-		pr_err("Cannot set this for non-IMA supported FG\n");
-		fg_reset_on_lockup = old_val;
-		return -EINVAL;
-	}
-
-	if (fg_debug_mask & FG_STATUS)
-		pr_info("fg_reset_on_lockup set to %d\n", fg_reset_on_lockup);
-
-	if (fg_reset_on_lockup)
-		schedule_delayed_work(&chip->check_sanity_work,
-			msecs_to_jiffies(1000));
-	else
-		cancel_delayed_work_sync(&chip->check_sanity_work);
-
-	return rc;
-}
-
-static struct kernel_param_ops fg_reset_ops = {
-	.set = fg_reset_lockup_set,
-	.get = param_get_int,
-};
-
-module_param_cb(reset_on_lockup, &fg_reset_ops, &fg_reset_on_lockup, 0644);
 
 static int fg_sense_type_set(const char *val, const struct kernel_param *kp)
 {
@@ -9177,7 +7032,6 @@ static struct platform_driver fg_driver = {
 	},
 	.probe		= fg_probe,
 	.remove		= fg_remove,
-	.shutdown	= fg_shutdown,
 };
 
 static int __init fg_init(void)
