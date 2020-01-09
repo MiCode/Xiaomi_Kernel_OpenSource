@@ -4771,7 +4771,7 @@ static int disable_subsys(enum subsys_id id)
 	 * Check if subsys CGs are still on before the mtcmos  is going
 	 * to be off. (Could do nothing here for early porting)
 	 */
-	mtk_check_subsys_swcg(id);
+	//mtk_check_subsys_swcg(id);
 
 	r = sys->ops->disable(sys);
 	WARN_ON(r);

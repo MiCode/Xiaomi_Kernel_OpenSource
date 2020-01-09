@@ -1073,10 +1073,10 @@ static int __init pg_check_swcg_init_mt6885(void)
 {
 	/* fill the 'struct clk *' ptr of every CGs*/
 	int i;
-
+#if 0
 	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++)
 		pg_check_swcg_init_common(mtk_subsys_check[i].swcgs);
-
+#endif
 	return 0;
 }
 late_initcall(pg_check_swcg_init_mt6885);
