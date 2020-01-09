@@ -1737,6 +1737,13 @@ struct kbase_device {
 	/* See KBASE_JS_*_PRIORITY_MODE for details. */
 	u32 js_ctx_scheduling_mode;
 
+	struct {
+		struct kbase_context *ctx;
+		u64 jc;
+		int slot;
+		u64 flags;
+	} wa;
+
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct ion_client *client;
 #endif
@@ -1746,6 +1753,14 @@ struct kbase_device {
         struct v1_data* v1;
 #endif
 };
+
+#define KBASE_WA_FLAG_SERIALIZE (1ull << 0)
+#define KBASE_WA_FLAG_WAIT_POWERUP (1ull << 1)
+#define KBASE_WA_FLAG_LOGICAL_SHADER_POWER (1ull << 2)
+#define KBASE_WA_FLAGS (KBASE_WA_FLAG_SERIALIZE | KBASE_WA_FLAG_WAIT_POWERUP | \
+                       KBASE_WA_FLAG_LOGICAL_SHADER_POWER)
+
+int kbase_wa_execute(struct kbase_device *kbdev, u64 cores);
 
 /**
  * struct jsctx_queue - JS context atom queue
