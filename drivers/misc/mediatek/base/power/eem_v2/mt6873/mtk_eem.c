@@ -2491,8 +2491,8 @@ static int eem_sn_sram_proc_show(struct seq_file *m, void *v)
 		for (addr_ptr = (void __iomem *)(sn_mem_base_virt);
 			addr_ptr < ((void __iomem *)(sn_mem_base_virt) +
 				sn_mem_size); (addr_ptr += 4))
-			seq_printf(m, "0x%08X = 0x%08X\n",
-				addr_ptr, eem_read(addr_ptr));
+			seq_printf(m, "0x%08X\n",
+				(unsigned int)eem_read(addr_ptr));
 	}
 	FUNC_EXIT(FUNC_LV_HELP);
 	return 0;
