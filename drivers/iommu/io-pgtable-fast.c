@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"io-pgtable-fast: " fmt
@@ -223,7 +223,7 @@ void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, bool skip_sync)
 		if (!(*pmdp & AV8L_FAST_PTE_VALID)) {
 			*pmdp = 0;
 			if (!skip_sync)
-				__av8l_clean_range(pmdp, pmdp + 1);
+				av8l_clean_range(ops, pmdp, pmdp + 1);
 		}
 		pmdp++;
 	}
@@ -648,22 +648,23 @@ static void dummy_tlb_flush_all(void *cookie)
 	WARN_ON(cookie != cfg_cookie);
 }
 
-static void dummy_tlb_add_flush(unsigned long iova, size_t size, size_t granule,
-				bool leaf, void *cookie)
-{
-	WARN_ON(cookie != cfg_cookie);
-	WARN_ON(!(size & cfg_cookie->pgsize_bitmap));
-}
-
-static void dummy_tlb_sync(void *cookie)
+static void dummy_tlb_flush(unsigned long iova, size_t size, size_t granule,
+			    void *cookie)
 {
 	WARN_ON(cookie != cfg_cookie);
 }
 
-static struct iommu_gather_ops dummy_tlb_ops __initdata = {
+static void dummy_tlb_add_page(struct iommu_iotlb_gather *gather,
+			       unsigned long iova, size_t granule, void *cookie)
+{
+	dummy_tlb_flush(iova, granule, granule, cookie);
+}
+
+static struct iommu_flush_ops dummy_tlb_ops __initdata = {
 	.tlb_flush_all	= dummy_tlb_flush_all,
-	.tlb_add_flush	= dummy_tlb_add_flush,
-	.tlb_sync	= dummy_tlb_sync,
+	.tlb_flush_walk	= dummy_tlb_flush,
+	.tlb_flush_leaf	= dummy_tlb_flush,
+	.tlb_add_page	= dummy_tlb_add_page,
 };
 
 /*
@@ -728,7 +729,7 @@ static int __init av8l_fast_positive_testing(void)
 
 	/* unmap it all */
 	for (iova = 0; iova < max; iova += SZ_4K) {
-		if (WARN_ON(ops->unmap(ops, iova, SZ_4K) != SZ_4K))
+		if (WARN_ON(ops->unmap(ops, iova, SZ_4K, NULL) != SZ_4K))
 			failed++;
 	}
 
@@ -749,7 +750,7 @@ static int __init av8l_fast_positive_testing(void)
 
 	/* unmap it all with 8K unmap calls */
 	for (iova = 0; iova < max; iova += SZ_8K) {
-		if (WARN_ON(ops->unmap(ops, iova, SZ_8K) != SZ_8K))
+		if (WARN_ON(ops->unmap(ops, iova, SZ_8K, NULL) != SZ_8K))
 			failed++;
 	}
 
@@ -770,7 +771,7 @@ static int __init av8l_fast_positive_testing(void)
 
 	/* unmap it all */
 	for (iova = 0; iova < max; iova += SZ_16K) {
-		if (WARN_ON(ops->unmap(ops, iova, SZ_16K) != SZ_16K))
+		if (WARN_ON(ops->unmap(ops, iova, SZ_16K, NULL) != SZ_16K))
 			failed++;
 	}
 
@@ -790,7 +791,7 @@ static int __init av8l_fast_positive_testing(void)
 		failed++;
 
 	/* unmap it all at once */
-	if (WARN_ON(ops->unmap(ops, 0, max) != max))
+	if (WARN_ON(ops->unmap(ops, 0, max, NULL) != max))
 		failed++;
 
 	free_io_pgtable_ops(ops);

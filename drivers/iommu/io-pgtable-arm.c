@@ -1581,8 +1581,8 @@ static int __init arm_lpae_run_map_sg_tests(struct io_pgtable_cfg *cfg,
 		for_each_sg(table.sgl, sg, table.nents, k)
 			sg_set_page(sg, page, chunk_size, 0);
 
-		mapped = ops->map_sg(ops, iova, table.sgl, table.nents,
-				     IOMMU_READ | IOMMU_WRITE, &unused);
+		mapped = arm_lpae_map_sg(ops, iova, table.sgl, table.nents,
+				 IOMMU_READ | IOMMU_WRITE, &unused);
 
 		if (mapped != total_size)
 			return __FAIL(ops, fmt);
@@ -1602,7 +1602,7 @@ static int __init arm_lpae_run_map_sg_tests(struct io_pgtable_cfg *cfg,
 			iova += chunk_size;
 		}
 
-		if (ops->unmap(ops, 0, total_size) != total_size)
+		if (ops->unmap(ops, 0, total_size, NULL) != total_size)
 			return __FAIL(ops, fmt);
 
 		if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
@@ -1705,7 +1705,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 			if (ops->iova_to_phys(ops, iova + 42) != (iova + 42))
 				return __FAIL(ops, i);
 
-			if (ops->unmap(ops, iova, size) != size)
+			if (ops->unmap(ops, iova, size, NULL) != size)
 				return __FAIL(ops, i);
 
 			iova += SZ_1G;
@@ -1733,7 +1733,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 				return __FAIL(ops, i);
 
 			/* unmap both mappings at once */
-			if (ops->unmap(ops, iova, SZ_2M + SZ_4K) !=
+			if (ops->unmap(ops, iova, SZ_2M + SZ_4K, NULL) !=
 			    (SZ_2M + SZ_4K))
 				return __FAIL(ops, i);
 
