@@ -1007,7 +1007,6 @@ static struct snd_soc_dai_link mt6873_mt6359_dai_links[] = {
 	},
 #endif
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#if defined(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT)
 	{
 		.name = "Offload_Playback",
 		.stream_name = "Offload_Playback",
@@ -1016,7 +1015,6 @@ static struct snd_soc_dai_link mt6873_mt6359_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
-#endif
 	{
 		.name = "DSP_Playback_Voip",
 		.stream_name = "DSP_Playback_Voip",

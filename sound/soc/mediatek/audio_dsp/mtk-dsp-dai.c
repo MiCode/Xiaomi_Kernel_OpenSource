@@ -22,7 +22,6 @@ static const struct snd_soc_component_driver mtk_dai_dsp_component = {
 	.name = "mtk_audio_dsp",
 };
 
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 
 static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 {
@@ -31,7 +30,7 @@ static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 #endif
 	return 0;
 }
-#endif
+
 
 static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 	{
@@ -56,7 +55,6 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 				.formats = MTK_I2S_FORMATS,
 			},
 	},
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	{
 		.name = "audio_task_offload_dai",
 		.id = AUDIO_TASK_OFFLOAD_ID,
@@ -69,7 +67,6 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 		},
 		.compress_new = mtk_dai_stub_compress_new,
 	},
-#endif
 	{
 		.name = "audio_task_deepbuf_dai",
 		.id = AUDIO_TASK_DEEPBUFFER_ID,

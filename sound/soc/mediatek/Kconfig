@@ -249,15 +249,6 @@ config MTK_SND_SOC_NEW_ARCH
 	  If new chip after mt6757, we will enable this config.
 	  Audio driver refactor to common folder and platform folder.
 
-config MTK_AUDIO_TUNNELING_SUPPORT
-	bool "Audio playback through dsp"
-	select SND_SOC_COMPRESS
-	help
-	  Only enable this when we have DSP.
-	  This makes audio output pass bitstream without any post processing.
-	  The decoding process is done in DSP.
-	  Select Y to enable MTK_AUDIO_TUNNELING_SUPPORT for DSP playback.
-
 config MTK_VOW_BARGE_IN_SUPPORT
 	bool "Support VOW barge-in"
 	help
@@ -271,6 +262,7 @@ config SND_SOC_MTK_AUDIO_DSP
 	bool "ASoC support for Mediatek audiodsp chip"
 	depends on MTK_AUDIODSP_SUPPORT
 	default n
+	select SND_SOC_COMPRESS
 	help
 	  This adds dsp driver for Mediatek boards
 	  that can be used with other platforms

@@ -12,7 +12,7 @@
 #
 
 
-ifeq ($(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT),y)
+ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
 
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/audio_ipi/common/utility \

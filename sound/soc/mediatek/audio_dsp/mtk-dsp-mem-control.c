@@ -355,7 +355,6 @@ int dsp_daiid_to_scp_reservedid(int task_dai_id)
 	switch (task_dai_id) {
 #ifndef FPGA_EARLY_DEVELOPMENT
 	case AUDIO_TASK_OFFLOAD_ID:
-		return ADSP_OFFLOAD_MEM_ID;
 	case AUDIO_TASK_VOIP_ID:
 	case AUDIO_TASK_PRIMARY_ID:
 	case AUDIO_TASK_DEEPBUFFER_ID:

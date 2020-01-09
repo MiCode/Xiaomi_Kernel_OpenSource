@@ -92,8 +92,6 @@ static struct audio_dsp_dram
 			.phy_addr = 0,
 		},
 };
-
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 static struct audio_dsp_dram
 	adsp_sharemem_offload_mblock[ADSP_TASK_SHAREMEM_NUM] = {
 		{
@@ -105,8 +103,6 @@ static struct audio_dsp_dram
 			.phy_addr = 0,
 		},
 };
-#endif
-
 static struct audio_dsp_dram
 	adsp_sharemem_deepbuffer_mblock[ADSP_TASK_SHAREMEM_NUM] = {
 		{
@@ -213,10 +209,8 @@ struct audio_dsp_dram *mtk_get_adsp_sharemem_block(int audio_task_id)
 		return adsp_sharemem_voip_mblock;
 	case AUDIO_TASK_PRIMARY_ID:
 		return adsp_sharemem_primary_mblock;
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	case AUDIO_TASK_OFFLOAD_ID:
 		return adsp_sharemem_offload_mblock;
-#endif
 	case AUDIO_TASK_DEEPBUFFER_ID:
 		return adsp_sharemem_deepbuffer_mblock;
 	case AUDIO_TASK_PLAYBACK_ID:
