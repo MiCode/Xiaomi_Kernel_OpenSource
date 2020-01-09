@@ -1213,6 +1213,12 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	/* 3. record to skb for user: wapper, enqueue */
 	 /* get skb which data contained pkt data */
 	new_skb = cur_skb_info->skb;
+	if (new_skb == NULL) {
+		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+			"get null skb(0x%x) from skb table",
+			pkt_inf_t->buffer_id);
+		return DATA_CHECK_FAIL;
+	}
 	new_skb->len = 0;
 	skb_reset_tail_pointer(new_skb);
 
