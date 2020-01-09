@@ -3581,15 +3581,10 @@ void dpmaif_hw_reset(unsigned char md_id)
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST0_REG_AO);
-	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
-	reg_value |= (DPMAIF_AO_RST_MASK);/* so only this bit effective */
+	reg_value = DPMAIF_AO_RST_MASK;/* so only this bit effective */
 	ccci_write32(infra_ao_base, INFRA_RST0_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST1_REG_AO);
-	reg_value &= ~(DPMAIF_AO_RST_MASK);/* read no use, maybe a time delay */
-	reg_value |= (DPMAIF_AO_RST_MASK);
 	ccci_write32(infra_ao_base, INFRA_RST1_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
