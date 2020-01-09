@@ -91,6 +91,7 @@ obj-y  += common/dw9718af/
 obj-y  += common/dw9718saf/
 obj-y  += common/dw9719taf/
 obj-y  += common/dw9839af/
+obj-y  += common/gt9764af/
 obj-y  += common/lc898212af/
 obj-y  += common/lc898212xdaf/
 obj-y  += common/lc898214af/

@@ -90,6 +90,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_LC898212XDAF_F, LC898212XDAF_F_SetI2Cclient,
 	 LC898212XDAF_F_Ioctl, LC898212XDAF_F_Release,
 	 LC898212XDAF_F_GetFileName, NULL},
+	{1, AFDRV_GT9772AF, GT9772AF_SetI2Cclient, GT9772AF_Ioctl,
+	 GT9772AF_Release, GT9772AF_GetFileName, NULL},
 	{1, AFDRV_LC898217AF, LC898217AF_SetI2Cclient, LC898217AF_Ioctl,
 	 LC898217AF_Release, LC898217AF_GetFileName, NULL},
 	{1, AFDRV_LC898217AFA, LC898217AFA_SetI2Cclient, LC898217AFA_Ioctl,
@@ -161,7 +163,6 @@ static long AF_SetMotorName(__user struct stAF_MotorName *pstMotorName)
 	long i4RetValue = -1;
 	int i;
 	struct stAF_MotorName stMotorName;
-
 	if (copy_from_user(&stMotorName, pstMotorName,
 			   sizeof(struct stAF_MotorName)))
 		LOG_INF("copy to user failed when getting motor information\n");
@@ -287,7 +288,6 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		     unsigned long a_u4Param)
 {
 	long i4RetValue = 0;
-
 	switch (a_u4Command) {
 	case AFIOC_S_SETDRVNAME:
 		i4RetValue = AF_SetMotorName(
