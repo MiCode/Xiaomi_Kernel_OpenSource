@@ -1830,6 +1830,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
 
+	/* Assert the isStatic bit before triggering snapshot */
+	if (adreno_is_a660(adreno_dev))
+		kgsl_regwrite(device, A6XX_RBBM_SNAPSHOT_STATUS, 0x1);
+
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
@@ -1896,6 +1900,18 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 		/* registers dumped through DBG AHB */
 		a6xx_snapshot_dbgahb_regs(device, snapshot);
+	}
+
+	if (adreno_is_a660(adreno_dev)) {
+		u32 val;
+
+		kgsl_regread(device, A6XX_RBBM_SNAPSHOT_STATUS, &val);
+
+		if (!val)
+			dev_err(device->dev,
+				"Interface signals may have changed during snapshot\n");
+
+		kgsl_regwrite(device, A6XX_RBBM_SNAPSHOT_STATUS, 0x0);
 	}
 
 	/* Preemption record */
