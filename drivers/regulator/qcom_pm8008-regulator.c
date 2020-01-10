@@ -98,15 +98,15 @@ struct pm8008_regulator {
 	bool			enable_ocp_broadcast;
 };
 
-static struct regulator_data reg_data[] = {
+static struct regulator_data reg_data[PM8008_MAX_LDO] = {
 			/* name,        parent,  min load, headroom */
-			{"pm8008_l1", "vdd_l1_l2", 10000, 225000},
-			{"pm8008_l2", "vdd_l1_l2", 10000, 225000},
-			{"pm8008_l3", "vdd_l3_l4", 10000, 200000},
-			{"pm8008_l4", "vdd_l3_l4", 10000, 200000},
-			{"pm8008_l5", "vdd_l5", 10000, 300000},
-			{"pm8008_l6", "vdd_l6", 10000, 300000},
-			{"pm8008_l7", "vdd_l7", 10000, 300000},
+			{"l1", "vdd_l1_l2", 10000, 225000},
+			{"l2", "vdd_l1_l2", 10000, 225000},
+			{"l3", "vdd_l3_l4", 10000, 200000},
+			{"l4", "vdd_l3_l4", 10000, 200000},
+			{"l5", "vdd_l5", 10000, 300000},
+			{"l6", "vdd_l6", 10000, 300000},
+			{"l7", "vdd_l7", 10000, 300000},
 };
 
 /* common functions */
@@ -511,7 +511,7 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 
 	/* get regulator data */
 	for (i = 0; i < PM8008_MAX_LDO; i++)
-		if (!strcmp(reg_data[i].name, name))
+		if (strstr(name, reg_data[i].name))
 			break;
 
 	if (i == PM8008_MAX_LDO) {
