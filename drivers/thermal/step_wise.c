@@ -177,7 +177,10 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 		instance->target = get_target_state(instance, trend, throttle);
 		dev_dbg(&instance->cdev->device, "old_target=%d, target=%d\n",
 					old_target, (int)instance->target);
-
+        /*Bug 446279 zhangzhiqiang modify add thermal-core log for step_wise of thermal*/
+		if(old_target != -1 && (old_target != (int)instance->target))
+			printk("Thermal-core: type=%s, temp=%d,old_target=%d, target=%d\n",
+					instance->cdev->type,tz->temperature,old_target, (int)instance->target);
 		if (instance->initialized && old_target == instance->target)
 			continue;
 

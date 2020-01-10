@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <wt_sys/wt_boot_reason.h>
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
@@ -31,6 +33,8 @@
 
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #include "peripheral-loader.h"
 
@@ -45,6 +49,8 @@
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
+
+extern void kernel_restart(char *cmd);
 
 /**
  * struct reg_info - regulator info
@@ -797,6 +803,7 @@ static struct pil_reset_ops pil_ops_trusted = {
 	.deinit_image = pil_deinit_image_trusted,
 };
 
+char subsys_restart_reason[WT_MAX_SSR_REASON_LEN];
 static void log_failure_reason(const struct pil_tz_data *d)
 {
 	size_t size;
@@ -819,6 +826,7 @@ static void log_failure_reason(const struct pil_tz_data *d)
 
 	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
+	strlcpy(subsys_restart_reason, smem_reason, min(size, (size_t)WT_MAX_SSR_REASON_LEN));
 }
 
 static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
@@ -887,6 +895,7 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 	}
 }
 
+
 static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 {
 	struct pil_tz_data *d = subsys_to_data(dev_id);
@@ -899,8 +908,10 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	}
 	subsys_set_crash_status(d->subsys, CRASH_STATUS_ERR_FATAL);
 	log_failure_reason(d);
-	subsystem_restart_dev(d->subsys);
 
+	{
+		subsystem_restart_dev(d->subsys);
+	}
 	return IRQ_HANDLED;
 }
 

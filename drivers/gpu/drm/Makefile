@@ -3,6 +3,11 @@
 # Makefile for the drm device driver.  This driver provides support for the
 # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
 
+ccflags-y += -Idrivers/gpu/drm/msm/sde
+ccflags-y += -Idrivers/gpu/drm/msm
+ccflags-y += -Idrivers/gpu/drm/msm/dsi-staging
+ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
+
 drm-y       :=	drm_auth.o drm_bufs.o drm_cache.o \
 		drm_context.o drm_dma.o \
 		drm_file.o drm_gem.o drm_ioctl.o drm_irq.o \

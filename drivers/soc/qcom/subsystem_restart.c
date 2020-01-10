@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +41,7 @@
 #include <linux/of.h>
 #include <asm/current.h>
 #include <linux/timer.h>
+#include <wt_sys/wt_boot_reason.h>
 
 #include "peripheral-loader.h"
 
@@ -1244,6 +1246,32 @@ int subsystem_restart_dev(struct subsys_device *dev)
 
 	name = dev->desc->name;
 
+#ifdef CONFIG_WT_BOOT_REASON
+	if (dev->restart_level == RESET_SOC) {
+		if (!strcmp(name,"wcnss"))
+			set_reset_magic(RESET_MAGIC_WCNSS);
+		else if (!strcmp(name,"modem"))
+			set_reset_magic(RESET_MAGIC_MODEM);
+		else if (!strcmp(name,"adsp"))
+			set_reset_magic(RESET_MAGIC_ADSP);
+		else if (!strcmp(name,"venus"))
+			set_reset_magic(RESET_MAGIC_VENUS);
+		else if (!strcmp(name,"cdsp"))
+			set_reset_magic(RESET_MAGIC_CDSP);
+		else if (!strcmp(name,"a610_zap"))
+			set_reset_magic(RESET_MAGIC_AXXX_ZAP);
+		else if (!strcmp(name,"ipa_fws"))
+			set_reset_magic(RESET_MAGIC_IPA_FWS);
+		else if (!strcmp(name,"spss"))
+			set_reset_magic(RESET_MAGIC_SPSS);
+		else if (!strcmp(name,"slpi"))
+			set_reset_magic(RESET_MAGIC_SLPI);
+		else
+			set_reset_magic(RESET_MAGIC_SUBSYSTEM);
+		save_panic_key_log("%s subsystem failure reason: %s.\n", name, subsys_restart_reason);
+	}
+#endif
+
 	send_early_notifications(dev->early_notify);
 
 	/*
@@ -1826,6 +1854,8 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->desc->state = NULL;
 	strlcpy(subsys->desc->fw_name, desc->name,
 			sizeof(subsys->desc->fw_name));
+
+	subsys->restart_level = RESET_SOC;
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->early_notify = subsys_get_early_notif_info(desc->name);

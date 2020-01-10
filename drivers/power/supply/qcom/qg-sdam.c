@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,10 +119,14 @@ int qg_sdam_write(u8 param, u32 data)
 	if (rc < 0)
 		pr_err("Failed to write offset=%0x4 param=%d value=%d\n",
 					offset, param, data);
-	else
-		pr_debug("QG SDAM write param=%s value=%d\n",
+	else{
+		if(param == SDAM_SOC)
+			pr_err("QG SDAM write param=%s value=%d\n",
 					sdam_info[param].name, data);
-
+		else
+			pr_debug("QG SDAM write param=%s value=%d\n",
+					sdam_info[param].name, data);
+	}
 	return rc;
 }
 

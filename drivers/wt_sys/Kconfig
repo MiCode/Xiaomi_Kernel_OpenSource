@@ -1,0 +1,11 @@
+config WT_SYSTEM
+	tristate "CONFIG_WT_SYSTEM"
+	default n
+
+config WT_BOOTLOADER_LOG
+	tristate "CONFIG_WT_BOOTLOADER_LOG"
+	default n
+
+config WT_BOOT_REASON
+	tristate "CONFIG_WT_BOOT_REASON"
+	default n

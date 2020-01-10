@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -510,8 +511,8 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 	if (suspend) { /* Bus suspend */
-		if (phy->cable_connected) {
-			/* Enable auto-resume functionality by pulsing signal */
+		if (phy->cable_connected || (phy->phy.flags & PHY_HOST_MODE)) {
+			/* Enable auto-resume functionality by pulsing signal 
 			if (phy->phy.flags & PHY_HOST_MODE) {
 				msm_usb_write_readback(phy->base,
 					USB2_PHY_USB_PHY_HS_PHY_CTRL2,
@@ -520,7 +521,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 				msm_usb_write_readback(phy->base,
 					USB2_PHY_USB_PHY_HS_PHY_CTRL2,
 					USB2_AUTO_RESUME, 0);
-			}
+			}*/
 
 			msm_hsphy_enable_clocks(phy, false);
 		} else {/* Cable disconnect */

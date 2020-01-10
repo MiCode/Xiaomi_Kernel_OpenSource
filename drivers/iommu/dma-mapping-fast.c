@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,6 +202,7 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 		bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
 
 		iommu_tlbiall(mapping->domain);
+        iommu_tlb_sync(mapping->domain);
 		mapping->have_stale_tlbs = false;
 		av8l_fast_clear_stale_ptes(mapping->pgtbl_pmds, skip_sync);
 	}

@@ -185,6 +185,9 @@ struct drm_device {
 	struct drm_vma_offset_manager *vma_offset_manager;
 	/*@} */
 	int switch_power_state;
+
+	int sde_power_mode;
+	int pre_sde_power_mode;
 };
 
 #endif
