@@ -107,6 +107,10 @@
 	};
 };
 
+&qupv3_se13_i2c {
+	status = "disabled";
+};
+
 &gpu_cc_cx_gdsc {
 	qcom,gds-timeout = <5000>;
 };
