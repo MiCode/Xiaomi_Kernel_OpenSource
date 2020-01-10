@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/of_address.h>
 
+#include <asm/cacheflush.h>
 #include <asm/system_misc.h>
 #include <soc/qcom/watchdog.h>
 
@@ -40,6 +41,13 @@ static struct notifier_block panic_blk = {
 static void do_vm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
 	pr_notice("Going down for vm restart now\n");
+
+	flush_cache_all();
+
+	/*outer_flush_all is not supported by 64bit kernel*/
+#ifndef CONFIG_ARM64
+	outer_flush_all();
+#endif
 
 	if (in_panic)
 		msm_trigger_wdog_bite();
