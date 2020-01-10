@@ -215,6 +215,7 @@ enum rpm_msg_fmts {
 
 static struct rb_root tr_root = RB_ROOT;
 static int msm_rpm_send_smd_buffer(char *buf, uint32_t size);
+static int msm_rpm_trysend_smd_buffer(char *buf, uint32_t size);
 static uint32_t msm_rpm_get_next_msg_id(void);
 
 static inline uint32_t get_offset_value(uint32_t val, uint32_t offset,
@@ -727,7 +728,7 @@ static int msm_rpm_flush_requests(bool print)
 
 		set_msg_id(s->buf, msm_rpm_get_next_msg_id());
 
-		ret = msm_rpm_send_smd_buffer(s->buf,
+		ret = msm_rpm_trysend_smd_buffer(s->buf,
 					get_buf_len(s->buf));
 		WARN_ON(ret != 0);
 		trace_rpm_smd_send_sleep_set(get_msg_id(s->buf), type, id);
@@ -1198,6 +1199,30 @@ static int msm_rpm_send_smd_buffer(char *buf, uint32_t size)
 	spin_lock_irqsave(&msm_rpm_data.smd_lock_write, flags);
 	ret = rpmsg_send(rpm->rpm_channel, buf, size);
 	spin_unlock_irqrestore(&msm_rpm_data.smd_lock_write, flags);
+	return ret;
+}
+
+static int trysend_count = 12;
+module_param(trysend_count, int, 0664);
+
+static int msm_rpm_trysend_smd_buffer(char *buf, uint32_t size)
+{
+	unsigned long flags;
+	int ret;
+	int count = 0;
+
+	do {
+		spin_lock_irqsave(&msm_rpm_data.smd_lock_write, flags);
+		ret = rpmsg_trysend(rpm->rpm_channel, buf, size);
+		spin_unlock_irqrestore(&msm_rpm_data.smd_lock_write, flags);
+
+		if (!ret)
+			break;
+
+		udelay(10);
+		count++;
+
+	} while (count < trysend_count);
 	return ret;
 }
 
