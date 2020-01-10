@@ -15,6 +15,7 @@ Required properties :
 			"qcom,rpmcc-apq8064", "qcom,rpmcc"
 			"qcom,rpmcc-qcs405", "qcom,rpmcc"
 			"qcom,rpmcc-trinket", "qcom,rpmcc"
+			"qcom,rpmcc-sdm660", "qcom,rpmcc"
 
 - #clock-cells : shall contain 1
 
