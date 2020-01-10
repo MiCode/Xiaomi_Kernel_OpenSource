@@ -553,6 +553,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	a6xx_llc_configure_gpuhtw_scid(adreno_dev);
 
 	a6xx_llc_enable_overrides(adreno_dev);
+
+	if (adreno_is_a660(adreno_dev))
+		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 }
 
 /*
