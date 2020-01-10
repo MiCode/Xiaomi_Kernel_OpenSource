@@ -702,6 +702,7 @@
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <32764>;
+			clock-output-names = "sleep_clk";
 		};
 	};
 
