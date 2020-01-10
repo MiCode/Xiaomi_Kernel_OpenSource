@@ -45,6 +45,10 @@
  * IPA_CPU_2_HW_CMD_GSI_CH_EMPTY : Command to check for GSI channel emptiness.
  * IPA_CPU_2_HW_CMD_REMOTE_IPA_INFO: Command to store remote IPA Info
  * IPA_CPU_2_HW_CMD_SETUP_EVENT_RING:  Command to setup the event ring
+ * IPA_CPU_2_HW_CMD_ENABLE_FLOW_CTL_MONITOR: Command to enable pipe monitoring.
+ * IPA_CPU_2_HW_CMD_UPDATE_FLOW_CTL_MONITOR: Command to update pipes to monitor.
+ * IPA_CPU_2_HW_CMD_DISABLE_FLOW_CTL_MONITOR: Command to disable pipe
+					monitoring, no parameter required.
  */
 enum ipa3_cpu_2_hw_commands {
 	IPA_CPU_2_HW_CMD_NO_OP                     =
@@ -73,6 +77,13 @@ enum ipa3_cpu_2_hw_commands {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 11),
 	IPA_CPU_2_HW_CMD_SETUP_EVENT_RING          =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 12),
+	IPA_CPU_2_HW_CMD_ENABLE_FLOW_CTL_MONITOR   =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 13),
+	IPA_CPU_2_HW_CMD_UPDATE_FLOW_CTL_MONITOR   =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 14),
+	IPA_CPU_2_HW_CMD_DISABLE_FLOW_CTL_MONITOR  =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 15),
+
 };
 
 /**
@@ -197,6 +208,36 @@ struct IpaHwDbAddrInfo_t {
 	u32 remoteIPAAddr;
 	uint32_t mboxN;
 } __packed;
+
+
+/**
+ * Structure holding the parameters for IPA_CPU_2_HW_CMD_ENABLE_PIPE_MONITOR
+ * command.
+ * @ipaProdGsiChid       IPA prod GSI chid to monitor
+ * @redMarkerThreshold   red marker threshold in elements for the GSI channel
+ */
+union IpaEnablePipeMonitorCmdData_t {
+	struct IpaEnablePipeMonitorCmdParams_t {
+		u32 ipaProdGsiChid:16;
+		u32 redMarkerThreshold:16;
+	} __packed params;
+	u32 raw32b;
+} __packed;
+
+/**
+ * Structure holding the parameters for IPA_CPU_2_HW_CMD_UPDATE_PIPE_MONITOR
+ * command.
+ *
+ * @bitmask      The parameter of bitmask to add/delete channels/pipes from
+ *                global monitoring pipemask
+ *                IPA pipe# bitmask or GSI chid bitmask
+ * add_delete   1: add pipes to monitor
+ *              0: delete pipes to monitor
+ */
+struct IpaUpdateFlowCtlMonitorData_t {
+	u32 bitmask;
+	u8 add_delete;
+};
 
 static DEFINE_MUTEX(uc_loaded_nb_lock);
 static BLOCKING_NOTIFIER_HEAD(uc_loaded_notifier);
@@ -1483,4 +1524,66 @@ int ipa3_set_wlan_tx_info(struct ipa_wdi_tx_info *info)
 	}
 
 	return 0;
+}
+
+int ipa3_uc_send_enable_flow_control(uint16_t gsi_chid,
+		uint16_t redMarkerThreshold)
+{
+
+	int res;
+	union IpaEnablePipeMonitorCmdData_t cmd;
+
+	cmd.params.ipaProdGsiChid = gsi_chid;
+	cmd.params.redMarkerThreshold = redMarkerThreshold;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	res = ipa3_uc_send_cmd((cmd.raw32b),
+		IPA_CPU_2_HW_CMD_ENABLE_FLOW_CTL_MONITOR, 0,
+		false, 10 * HZ);
+
+	if (res)
+		IPAERR("fail to enable flow ctrl for 0x%x\n",
+			cmd.params.ipaProdGsiChid);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	return res;
+}
+
+int ipa3_uc_send_disable_flow_control(void)
+{
+	int res;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	res = ipa3_uc_send_cmd(0,
+		IPA_CPU_2_HW_CMD_DISABLE_FLOW_CTL_MONITOR, 0,
+		false, 10 * HZ);
+
+	if (res)
+		IPAERR("fail to disable flow control\n");
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	return res;
+}
+
+int ipa3_uc_send_update_flow_control(uint32_t bitmask,
+		 uint8_t  add_delete)
+{
+	int res;
+
+	if (bitmask == 0) {
+		IPAERR("Err update flow control, mask = 0\n");
+		return 0;
+	}
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	res = ipa3_uc_send_cmd_64b_param(bitmask, add_delete,
+		IPA_CPU_2_HW_CMD_UPDATE_FLOW_CTL_MONITOR, 0,
+		false, 10 * HZ);
+
+	if (res)
+		IPAERR("fail flowCtrl update mask = 0x%x add_del = 0x%x\n",
+			bitmask, add_delete);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	return res;
 }

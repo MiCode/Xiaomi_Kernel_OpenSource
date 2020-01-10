@@ -3260,4 +3260,10 @@ static inline void *alloc_and_init(u32 size, u32 init_val)
 bool ipa3_is_apq(void);
 /* check if odl is connected */
 bool ipa3_is_odl_connected(void);
+
+int ipa3_uc_send_enable_flow_control(uint16_t gsi_chid,
+	uint16_t redMarkerThreshold);
+int ipa3_uc_send_disable_flow_control(void);
+int ipa3_uc_send_update_flow_control(uint32_t bitmask,
+	uint8_t  add_delete);
 #endif /* _IPA3_I_H_ */
