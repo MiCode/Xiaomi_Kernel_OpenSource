@@ -36,6 +36,7 @@
 | kenzo-l-oss | Redmi Note 3 Full Netcom | Android L | LA.BR.1.3.2-04330-8976.0 | [kenzo-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/kenzo-l-oss) |
 | land-m-oss | Redmi 3S, Redmi 3X | Android M | LA.UM.5.1-03810-8x37.0 | [land-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/land-m-oss) |
 | latte-l-oss | Mi Pad 2 | Android L | imin.cht_rvp.a51.20150519-2015_ww20_b | [latte-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/latte-l-oss) |
+| laurel-q-oss| Mi A3 | Android Q | LA.UM.8.11.r1-01200-NICOBAR.0 | [laurel-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/laurel-q-oss) |
 | laurus-p-oss| MI CC 9e, Mi A3 | Android P | LA.UM.7.11.r1-02100-NICOBAR.0 | [laurus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/laurus-p-oss) |
 | lavender-p-oss| Redmi Note 7 | Android P | LA.UM.7.2.r1-04900-sdm660.0 | [lavender-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lavender-p-oss) |
 | libra-l-oss | Mi 4S, Mi 4C, Mi Note Pro | Android L | LA.BF64.1.2.1.c1-05310-8x92.0 | [libra-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/libra-l-oss) |
