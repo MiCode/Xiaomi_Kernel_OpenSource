@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@ static void ghs_irq_handler(void *cookie)
 		(struct ghs_vdev *) (pchan ? pchan->hyp_data : NULL);
 
 	if (dev)
-		tasklet_schedule(&dev->os_data->task);
+		tasklet_hi_schedule(&dev->os_data->task);
 }
 
 int hab_gipc_ep_attach(int is_be, char *name, int vmid_remote,
