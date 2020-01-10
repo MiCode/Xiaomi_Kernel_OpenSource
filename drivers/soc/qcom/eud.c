@@ -693,7 +693,6 @@ static int msm_eud_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 				"TCSR qcom_scm_io_writel failed with rc:%d\n",
 				ret);
-				goto error;
 			}
 		} else {
 			dev_err(chip->dev,
