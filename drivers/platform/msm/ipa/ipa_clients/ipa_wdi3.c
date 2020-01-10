@@ -558,6 +558,10 @@ int ipa_wdi_conn_pipes(struct ipa_wdi_conn_in_params *in,
 				in->u_rx.rx.event_ring_doorbell_pa;
 			in_rx.u.ul.rdy_comp_ring_size =
 				in->u_rx.rx.event_ring_size;
+			in_rx.u.ul.is_txr_rn_db_pcie_addr =
+				in->u_rx.rx.is_txr_rn_db_pcie_addr;
+			in_rx.u.ul.is_evt_rn_db_pcie_addr =
+				in->u_rx.rx.is_evt_rn_db_pcie_addr;
 			if (ipa_connect_wdi_pipe(&in_rx, &out_rx)) {
 				IPA_WDI_ERR("fail to setup rx pipe\n");
 				ret = -EFAULT;
@@ -583,6 +587,10 @@ int ipa_wdi_conn_pipes(struct ipa_wdi_conn_in_params *in,
 				in->u_tx.tx.event_ring_size;
 			in_tx.u.dl.num_tx_buffers =
 				in->u_tx.tx.num_pkt_buffers;
+			in_tx.u.dl.is_txr_rn_db_pcie_addr =
+				in->u_tx.tx.is_txr_rn_db_pcie_addr;
+			in_tx.u.dl.is_evt_rn_db_pcie_addr =
+				in->u_tx.tx.is_evt_rn_db_pcie_addr;
 			if (ipa_connect_wdi_pipe(&in_tx, &out_tx)) {
 				IPA_WDI_ERR("fail to setup tx pipe\n");
 				ret = -EFAULT;
@@ -610,6 +618,10 @@ int ipa_wdi_conn_pipes(struct ipa_wdi_conn_in_params *in,
 				in->u_rx.rx_smmu.event_ring_doorbell_pa;
 			in_rx.u.ul_smmu.rdy_comp_ring_size =
 				in->u_rx.rx_smmu.event_ring_size;
+			in_rx.u.ul_smmu.is_txr_rn_db_pcie_addr =
+				in->u_rx.rx_smmu.is_txr_rn_db_pcie_addr;
+			in_rx.u.ul_smmu.is_evt_rn_db_pcie_addr =
+				in->u_rx.rx_smmu.is_evt_rn_db_pcie_addr;
 			if (ipa_connect_wdi_pipe(&in_rx, &out_rx)) {
 				IPA_WDI_ERR("fail to setup rx pipe\n");
 				ret = -EFAULT;
@@ -635,6 +647,10 @@ int ipa_wdi_conn_pipes(struct ipa_wdi_conn_in_params *in,
 				in->u_tx.tx_smmu.event_ring_size;
 			in_tx.u.dl_smmu.num_tx_buffers =
 				in->u_tx.tx_smmu.num_pkt_buffers;
+			in_tx.u.dl_smmu.is_txr_rn_db_pcie_addr =
+				in->u_tx.tx_smmu.is_txr_rn_db_pcie_addr;
+			in_tx.u.dl_smmu.is_evt_rn_db_pcie_addr =
+				in->u_tx.tx_smmu.is_evt_rn_db_pcie_addr;
 			if (ipa_connect_wdi_pipe(&in_tx, &out_tx)) {
 				IPA_WDI_ERR("fail to setup tx pipe\n");
 				ret = -EFAULT;
