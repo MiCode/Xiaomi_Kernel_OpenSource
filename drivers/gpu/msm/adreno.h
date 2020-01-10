@@ -198,6 +198,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
 	ADRENO_REV_A650 = 650,
+	ADRENO_REV_A660 = 660,
 	ADRENO_REV_A680 = 680,
 };
 
@@ -1040,6 +1041,7 @@ ADRENO_TARGET(a620, ADRENO_REV_A620)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
 ADRENO_TARGET(a650, ADRENO_REV_A650)
+ADRENO_TARGET(a660, ADRENO_REV_A660)
 ADRENO_TARGET(a680, ADRENO_REV_A680)
 
 /*
@@ -1076,7 +1078,8 @@ static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
 {
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
-	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620);
+	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620 ||
+		rev == ADRENO_REV_A660);
 }
 
 static inline int adreno_is_a620v1(struct adreno_device *adreno_dev)
