@@ -30,7 +30,6 @@ static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
 
 enum {
 	P_BI_TCXO,
-	P_CHIP_SLEEP_CLK,
 	P_CORE_BI_PLL_TEST_SE,
 	P_DISP_CC_PLL0_OUT_MAIN,
 	P_DISP_CC_PLL1_OUT_EVEN,
@@ -47,6 +46,7 @@ enum {
 	P_DSI1_PHY_PLL_OUT_DSICLK,
 	P_EDP_PHY_PLL_LINK_CLK,
 	P_EDP_PHY_PLL_VCO_DIV_CLK,
+	P_SLEEP_CLK,
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
@@ -251,12 +251,12 @@ static const struct clk_parent_data disp_cc_parent_data_6[] = {
 };
 
 static const struct parent_map disp_cc_parent_map_7[] = {
-	{ P_CHIP_SLEEP_CLK, 0 },
+	{ P_SLEEP_CLK, 0 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
 static const struct clk_parent_data disp_cc_parent_data_7[] = {
-	{ .fw_name = "chip_sleep_clk", .name = "chip_sleep_clk" },
+	{ .fw_name = "sleep_clk", .name = "sleep_clk" },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
 };
 
@@ -755,7 +755,7 @@ static struct clk_rcg2 disp_cc_mdss_vsync_clk_src = {
 };
 
 static const struct freq_tbl ftbl_disp_cc_sleep_clk_src[] = {
-	F(32000, P_CHIP_SLEEP_CLK, 1, 0, 0),
+	F(32000, P_SLEEP_CLK, 1, 0, 0),
 	{ }
 };
 
