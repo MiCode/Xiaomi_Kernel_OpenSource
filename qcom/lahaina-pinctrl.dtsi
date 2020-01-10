@@ -1466,6 +1466,61 @@
 			};
 		};
 	};
+	pmx_sde: pmx_sde {
+		sde_dsi_active: sde_dsi_active {
+			mux {
+				pins = "gpio25";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio25";
+				drive-strength = <8>;   /* 8 mA */
+				bias-disable = <0>;   /* no pull */
+			};
+		};
+
+		sde_dsi_suspend: sde_dsi_suspend {
+			mux {
+				pins = "gpio25";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio25";
+				drive-strength = <2>;   /* 2 mA */
+				bias-pull-down;         /* PULL DOWN */
+			};
+		};
+	};
+
+	pmx_sde_te: pmx_sde_te {
+		sde_te_active: sde_te_active {
+			mux {
+				pins = "gpio82";
+				function = "mdp_vsync";
+			};
+
+			config {
+				pins = "gpio82";
+				drive-strength = <2>;   /* 2 mA */
+				bias-pull-down;         /* PULL DOWN */
+			};
+		};
+
+		sde_te_suspend: sde_te_suspend {
+			mux {
+				pins = "gpio82";
+				function = "mdp_vsync";
+			};
+
+			config {
+				pins = "gpio82";
+				drive-strength = <2>;   /* 2 mA */
+				bias-pull-down;         /* PULL DOWN */
+			};
+		};
+	};
 
 	cam_sensor_mclk0_active: cam_sensor_mclk0_active {
 		/* MCLK0 */
