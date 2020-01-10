@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/dma-buf.h>
 #include <linux/ion_kernel.h>
+#include <linux/pm.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
@@ -1130,7 +1131,6 @@ err:
 	return -ENXIO;
 }
 
-
 static int tz_log_remove(struct platform_device *pdev)
 {
 	kzfree(tzdbg.diag_buf);
@@ -1140,6 +1140,38 @@ static int tz_log_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+#ifdef CONFIG_PM
+static int tz_log_freeze(struct device *dev)
+{
+	dma_free_coherent(dev, QSEE_LOG_BUF_SIZE, (void *)g_qsee_log,
+				coh_pmem);
+
+	return 0;
+}
+
+static int tz_log_restore(struct device *dev)
+{
+	/* Register the log bugger at TZ during hibernation resume.
+	 * After hibernation the log buffer is with HLOS as TZ encountered
+	 * a coldboot sequence.
+	 */
+	tzdbg_register_qsee_log_buf(to_platform_device(dev));
+
+	return 0;
+}
+
+static const struct dev_pm_ops tz_log_pmops = {
+	.freeze = tz_log_freeze,
+	.restore = tz_log_restore,
+	.thaw = tz_log_restore,
+};
+
+#define TZ_LOG_PMOPS (&tz_log_pmops)
+
+#else
+#define TZ_LOG_PMOPS NULL
+#endif
 
 static const struct of_device_id tzlog_match[] = {
 	{	.compatible = "qcom,tz-log",
@@ -1155,6 +1187,7 @@ static struct platform_driver tz_log_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = tzlog_match,
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+		.pm = TZ_LOG_PMOPS,
 	},
 };
 
