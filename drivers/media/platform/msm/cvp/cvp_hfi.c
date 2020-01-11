@@ -360,69 +360,31 @@ int get_hfi_version(void)
 
 unsigned int get_msg_size(void)
 {
-	unsigned int ver;
-
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
-
-	if (ver < 1)
-		return sizeof(struct cvp_hfi_msg_session_hdr_d);
-
 	return sizeof(struct cvp_hfi_msg_session_hdr);
 }
 
 unsigned int get_msg_session_id(void *msg)
 {
-	unsigned int ver;
 	struct cvp_hfi_msg_session_hdr *hdr =
 		(struct cvp_hfi_msg_session_hdr *)msg;
 
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
-
-	if (ver < 1) {
-		struct cvp_hfi_msg_session_hdr_d *old_hdr =
-			(struct cvp_hfi_msg_session_hdr_d *)msg;
-		return old_hdr->session_id;
-	}
 	return hdr->session_id;
 }
 
 unsigned int get_msg_errorcode(void *msg)
 {
-	unsigned int ver;
 	struct cvp_hfi_msg_session_hdr *hdr =
 		(struct cvp_hfi_msg_session_hdr *)msg;
 
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
-
-	if (ver < 1) {
-		struct cvp_hfi_msg_session_hdr_d *old_hdr =
-			(struct cvp_hfi_msg_session_hdr_d *)msg;
-		return old_hdr->error_type;
-	}
 	return hdr->error_type;
 }
 
 int get_msg_opconfigs(void *msg, unsigned int *session_id,
 		unsigned int *error_type, unsigned int *config_id)
 {
-	unsigned int ver;
 	struct cvp_hfi_msg_session_op_cfg_packet *cfg =
 		(struct cvp_hfi_msg_session_op_cfg_packet *)msg;
 
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
-
-	if (ver < 1) {
-		struct cvp_hfi_msg_session_op_cfg_packet_d *old_cfg
-			= (struct cvp_hfi_msg_session_op_cfg_packet_d *)msg;
-		*session_id = old_cfg->session_id;
-		*error_type = old_cfg->error_type;
-		*config_id = old_cfg->op_conf_id;
-		return 0;
-	}
 	*session_id = cfg->session_id;
 	*error_type = cfg->error_type;
 	*config_id = cfg->op_conf_id;
@@ -3002,13 +2964,7 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 
 static void print_msg_hdr(void *hdr)
 {
-	unsigned int ver;
-
-	ver = get_hfi_version();
-	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
-
-	if (ver >= 1) {
-		struct cvp_hfi_msg_session_hdr *new_hdr =
+	struct cvp_hfi_msg_session_hdr *new_hdr =
 			(struct cvp_hfi_msg_session_hdr *)hdr;
 	dprintk(CVP_DBG, "HFI MSG received: %x %x %x %x %x %x %x\n",
 			new_hdr->size, new_hdr->packet_type,
@@ -3017,17 +2973,6 @@ static void print_msg_hdr(void *hdr)
 			new_hdr->client_data.data1,
 			new_hdr->client_data.data2,
 			new_hdr->error_type);
-	} else {
-		struct cvp_hfi_msg_session_hdr_d *old_hdr =
-			(struct cvp_hfi_msg_session_hdr_d *)hdr;
-		dprintk(CVP_DBG, "HFI MSG received: %x %x %x %x %x %x %x\n",
-			old_hdr->size, old_hdr->packet_type,
-			old_hdr->session_id,
-			old_hdr->client_data.transaction_id,
-			old_hdr->client_data.data1,
-			old_hdr->client_data.data2,
-			old_hdr->error_type);
-	}
 }
 
 static int __response_handler(struct iris_hfi_device *device)
