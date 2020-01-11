@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 /* soc/qcom/cmd-db.h needs types.h */
@@ -408,7 +408,12 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	if (!test_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags))
 		return 0;
 
-	gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
+	 /* A660 has a replacement register */
+	if (adreno_is_a660(ADRENO_DEVICE(device)))
+		gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC3, &val);
+	else
+		gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
+
 	if (!(val & 0x1))
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"GMEM CLAMP IO not set while GFX rail off\n");
