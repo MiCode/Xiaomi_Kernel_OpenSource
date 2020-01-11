@@ -679,6 +679,13 @@ int cnss_idle_restart(struct device *dev)
 	timeout = cnss_get_boot_timeout(dev);
 
 	reinit_completion(&plat_priv->power_up_complete);
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore idle restart\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
 					  msecs_to_jiffies(timeout) << 2);
 	if (!ret) {
@@ -1949,6 +1956,23 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 		msm_bus_scale_unregister_client(bus_bw_info->bus_client);
 }
 
+static ssize_t shutdown_store(struct kobject *kobj,
+			      struct kobj_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = cnss_get_plat_priv(NULL);
+
+	if (plat_priv) {
+		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+		del_timer(&plat_priv->fw_boot_timer);
+		complete_all(&plat_priv->power_up_complete);
+	}
+
+	cnss_pr_dbg("Received shutdown notification\n");
+
+	return count;
+}
+
 static ssize_t fs_ready_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -1992,7 +2016,41 @@ static ssize_t fs_ready_store(struct device *dev,
 	return count;
 }
 
+static struct kobj_attribute shutdown_attribute = __ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(fs_ready);
+
+static int cnss_create_shutdown_sysfs(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	plat_priv->shutdown_kobj = kobject_create_and_add("shutdown_wlan",
+							  kernel_kobj);
+	if (!plat_priv->shutdown_kobj) {
+		cnss_pr_err("Failed to create shutdown_wlan kernel object\n");
+		return -ENOMEM;
+	}
+
+	ret = sysfs_create_file(plat_priv->shutdown_kobj,
+				&shutdown_attribute.attr);
+	if (ret) {
+		cnss_pr_err("Failed to create sysfs shutdown file, err = %d\n",
+			    ret);
+		kobject_put(plat_priv->shutdown_kobj);
+		plat_priv->shutdown_kobj = NULL;
+	}
+
+	return ret;
+}
+
+static void cnss_remove_shutdown_sysfs(struct cnss_plat_data *plat_priv)
+{
+	if (plat_priv->shutdown_kobj) {
+		sysfs_remove_file(plat_priv->shutdown_kobj,
+				  &shutdown_attribute.attr);
+		kobject_put(plat_priv->shutdown_kobj);
+		plat_priv->shutdown_kobj = NULL;
+	}
+}
 
 static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 {
@@ -2000,9 +2058,12 @@ static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 
 	ret = device_create_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
 	if (ret) {
-		cnss_pr_err("Failed to create device file, err = %d\n", ret);
+		cnss_pr_err("Failed to create device fs_ready file, err = %d\n",
+			    ret);
 		goto out;
 	}
+
+	cnss_create_shutdown_sysfs(plat_priv);
 
 	return 0;
 out:
@@ -2011,6 +2072,7 @@ out:
 
 static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
 {
+	cnss_remove_shutdown_sysfs(plat_priv);
 	device_remove_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
 }
 
