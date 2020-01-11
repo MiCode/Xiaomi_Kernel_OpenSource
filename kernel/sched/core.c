@@ -7216,6 +7216,11 @@ void ia64_set_curr_task(int cpu, struct task_struct *p)
 /* task_group_lock serializes the addition/removal of task groups */
 static DEFINE_SPINLOCK(task_group_lock);
 
+static inline struct task_group *css_tg(struct cgroup_subsys_state *css)
+{
+	return css ? container_of(css, struct task_group, css) : NULL;
+}
+
 #if defined(CONFIG_SCHED_WALT) && defined(CONFIG_UCLAMP_TASK_GROUP)
 static inline void walt_init_sched_boost(struct task_group *tg)
 {
@@ -7254,6 +7259,7 @@ static void walt_schedgp_attach(struct cgroup_taskset *tset)
 	struct task_struct *task;
 	struct cgroup_subsys_state *css;
 	bool colocate;
+	struct task_group *tg;
 
 	cgroup_taskset_first(tset, &css);
 	tg = css_tg(css);
@@ -7452,11 +7458,6 @@ void sched_move_task(struct task_struct *tsk)
 		set_next_task(rq, tsk);
 
 	task_rq_unlock(rq, tsk, &rf);
-}
-
-static inline struct task_group *css_tg(struct cgroup_subsys_state *css)
-{
-	return css ? container_of(css, struct task_group, css) : NULL;
 }
 
 static struct cgroup_subsys_state *
