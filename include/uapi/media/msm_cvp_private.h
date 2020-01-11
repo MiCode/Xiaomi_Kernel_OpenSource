@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __MSM_CVP_PRIVATE_H__
 #define __MSM_CVP_PRIVATE_H__
-
-#define MAX_DFS_HFI_PARAMS 20
-#define HFI_MAX_PLANES 4
 
 /* Commands type */
 #define CVP_KMD_CMD_BASE		0x10000000
@@ -131,16 +128,6 @@ struct cvp_kmd_send_cmd {
 };
 
 /**
- * struct cvp_kmd_color_plane_info - color plane info
- * @stride:      stride of plane
- * @buf_size:    size of plane
- */
-struct cvp_kmd_color_plane_info {
-	int stride[HFI_MAX_PLANES];
-	unsigned int buf_size[HFI_MAX_PLANES];
-};
-
-/**
  * struct cvp_kmd_client_data - store generic client
  *                              data
  * @transactionid:  transaction id
@@ -153,41 +140,6 @@ struct cvp_kmd_client_data {
 	unsigned int client_data2;
 };
 
-#define CVP_COLOR_PLANE_INFO_SIZE \
-	sizeof(struct cvp_kmd_color_plane_info)
-#define CVP_CLIENT_DATA_SIZE	sizeof(struct cvp_kmd_client_data)
-#define CVP_DFS_CONFIG_CMD_SIZE   38
-#define CVP_DFS_FRAME_CMD_SIZE 16
-#define CVP_DFS_FRAME_BUFFERS_OFFSET 8
-
-#define CVP_DME_CONFIG_CMD_SIZE   194
-#define CVP_DME_FRAME_CMD_SIZE 28
-#define CVP_DME_FRAME_BUFFERS_OFFSET 12
-#define CVP_DME_BUF_NUM	8
-
-#define CVP_PERSIST_CMD_SIZE 11
-#define CVP_PERSIST_BUFFERS_OFFSET 7
-#define CVP_PERSIST_BUF_NUM	2
-
-struct cvp_kmd_dfs_config {
-	unsigned int cvp_dfs_config[CVP_DFS_CONFIG_CMD_SIZE];
-};
-
-struct cvp_kmd_dfs_frame {
-	unsigned int frame_data[CVP_DFS_FRAME_CMD_SIZE];
-};
-
-struct cvp_kmd_dme_config {
-	unsigned int cvp_dme_config[CVP_DME_CONFIG_CMD_SIZE];
-};
-
-struct cvp_kmd_dme_frame {
-	unsigned int frame_data[CVP_DME_FRAME_CMD_SIZE];
-};
-
-struct cvp_kmd_persist_buf {
-	unsigned int persist_data[CVP_PERSIST_CMD_SIZE];
-};
 
 #define	MAX_HFI_PKT_SIZE	470
 
@@ -240,11 +192,12 @@ struct cvp_kmd_session_control {
 	unsigned int ctrl_data[8];
 };
 
-#define MAX_HFI_FENCE_SIZE        16
-#define	MAX_HFI_FENCE_OFFSET	(MAX_HFI_PKT_SIZE-MAX_HFI_FENCE_SIZE)
+#define MAX_HFI_FENCE_SIZE	16
+#define MAX_HFI_FENCE_OFFSET	(MAX_HFI_PKT_SIZE-MAX_HFI_FENCE_SIZE)
 struct cvp_kmd_hfi_fence_packet {
 	unsigned int pkt_data[MAX_HFI_FENCE_OFFSET];
 	unsigned int fence_data[MAX_HFI_FENCE_SIZE];
+	unsigned int frame_id;
 };
 
 
@@ -259,8 +212,7 @@ struct cvp_kmd_hfi_fence_packet {
  * @regbuf:        buffer to be registered
  * @unregbuf:      buffer to be unregistered
  * @send_cmd:      sending generic HFI command
- * @dfs_config:    sending DFS config command
- * @dfs_frame:     sending DFS frame command
+
  * @hfi_pkt:       HFI packet created by user library
  * @sys_properties System properties read or set by user library
  * @hfi_fence_pkt: HFI fence packet created by user library
@@ -275,15 +227,11 @@ struct cvp_kmd_arg {
 		struct cvp_kmd_buffer regbuf;
 		struct cvp_kmd_buffer unregbuf;
 		struct cvp_kmd_send_cmd send_cmd;
-		struct cvp_kmd_dfs_config dfs_config;
-		struct cvp_kmd_dfs_frame dfs_frame;
-		struct cvp_kmd_dme_config dme_config;
-		struct cvp_kmd_dme_frame dme_frame;
-		struct cvp_kmd_persist_buf pbuf_cmd;
 		struct cvp_kmd_hfi_packet hfi_pkt;
 		struct cvp_kmd_sys_properties sys_properties;
 		struct cvp_kmd_hfi_fence_packet hfi_fence_pkt;
 		struct cvp_kmd_session_control session_ctrl;
+		unsigned int frame_id;
 	} data;
 };
 #endif
