@@ -30,7 +30,7 @@
 	model = "Qualcomm Technologies, Inc. SDM 660";
 	compatible = "qcom,sdm660";
 	qcom,msm-id = <317 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	aliases {
 		serial0 = &uartblsp1dm1;
@@ -469,6 +469,7 @@
 		#size-cells = <1>;
 		ranges;
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
 		interrupts = <1 9 4>;
@@ -642,6 +643,26 @@
 	qcom,sps {
 		compatible = "qcom,msm-sps-4k";
 		qcom,pipe-attr-ee;
+	};
+
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic-sdm660", "qcom,mpm-gic";
+		interrupts-extended = <&wakegic GIC_SPI 171
+			IRQ_TYPE_EDGE_RISING>;
+		reg = <0x7781b8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+			<0x17911008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <96>;
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <3>;
+	};
+
+	wakegpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-sdm660", "qcom,mpm-gpio";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
 	};
 
 	qcom,memshare {
