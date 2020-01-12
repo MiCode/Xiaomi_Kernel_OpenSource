@@ -830,6 +830,17 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 	}
 
 	/*
+	 * Some GPUs needs UCHE GMEM base address to be minimum 0x100000
+	 * and 1MB aligned. Configure UCHE GMEM base based on GMEM size
+	 * and align it one 1MB. This needs to be done based on GMEM size
+	 * because setting it to minimum value 0x100000 will result in RB
+	 * and UCHE GMEM range overlap for GPUs with GMEM size >1MB.
+	 */
+	if (!adreno_is_a650_family(adreno_dev))
+		adreno_dev->uche_gmem_base =
+			ALIGN(adreno_dev->gpucore->gmem_size, SZ_1M);
+
+	/*
 	 * Initialize uninitialzed gpu registers, only needs to be done once
 	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
 	 */
@@ -2478,7 +2489,7 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 		.device_id = device->id + 1,
 		.chip_id = adreno_dev->chipid,
 		.mmu_enabled = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED),
-		.gmem_gpubaseaddr = adreno_dev->gpucore->gmem_base,
+		.gmem_gpubaseaddr = 0,
 		.gmem_sizebytes = adreno_dev->gpucore->gmem_size,
 	};
 
@@ -2552,9 +2563,9 @@ static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	u64 vaddr = adreno_dev->gpucore->gmem_base;
 
-	return copy_prop(param, &vaddr, sizeof(vaddr));
+	return copy_prop(param, &adreno_dev->uche_gmem_base,
+		sizeof(adreno_dev->uche_gmem_base));
 }
 
 static int adreno_prop_ucode_version(struct kgsl_device *device,

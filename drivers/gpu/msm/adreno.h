@@ -352,7 +352,6 @@ struct adreno_reglist {
  * @patchid: Match for the patch revision of the GPU
  * @features: Common adreno features supported by this core
  * @gpudev: Pointer to the GPU family specific functions for this core
- * @gmem_base: Base address of binning memory (GMEM/OCMEM)
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
  * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
  * @bus_width: Bytes transferred in 1 cycle
@@ -362,7 +361,6 @@ struct adreno_gpu_core {
 	unsigned int core, major, minor, patchid;
 	unsigned long features;
 	struct adreno_gpudev *gpudev;
-	unsigned long gmem_base;
 	size_t gmem_size;
 	unsigned int busy_mask;
 	u32 bus_width;
@@ -379,6 +377,7 @@ enum gpu_coresight_sources {
  * @dev: Reference to struct kgsl_device
  * @priv: Holds the private flags specific to the adreno_device
  * @chipid: Chip ID specific to the GPU
+ * @uche_gmem_base: Base address of GMEM for UCHE access
  * @cx_misc_len: Length of the CX MISC register block
  * @cx_misc_virt: Pointer where the CX MISC block is mapped
  * @rscc_base: Base physical address of the RSCC
@@ -463,6 +462,7 @@ struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned long priv;
 	unsigned int chipid;
+	u64 uche_gmem_base;
 	unsigned long cx_dbgc_base;
 	unsigned int cx_dbgc_len;
 	void __iomem *cx_dbgc_virt;
