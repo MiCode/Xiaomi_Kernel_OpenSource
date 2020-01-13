@@ -2592,6 +2592,7 @@
 		qcom,use-64-bit-dma-mask;
 		qcom,ipa-endp-delay-wa;
 		qcom,lan-rx-napi;
+		qcom,tx-wrapper-cache-max-size = <400>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpmh RPMH_IPA_CLK>;
 		qcom,interconnect,num-cases = <5>;
