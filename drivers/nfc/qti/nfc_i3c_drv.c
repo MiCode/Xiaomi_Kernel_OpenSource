@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "nfc_common.h"
@@ -154,7 +154,7 @@ static ssize_t i3c_kbuf_store(struct i3c_dev *i3c_dev, const char *buf,
  *
  *  @return number of bytes copied , error code for failures .
  */
-static ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
+ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
 				     size_t count)
 {
 	size_t requested_size = count;
@@ -204,7 +204,7 @@ static ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
 		if (ret != 0) {
 			pr_err("didn't get completion, interrupted!! ret %d\n",
 			       ret);
-			return -EINVAL;
+			return ret;
 		}
 	} while (available_size < requested_size);
 
@@ -245,6 +245,7 @@ static ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
 	pr_debug("%s , count = %zx exit\n", __func__, count);
 	return count;
 }
+EXPORT_SYMBOL(i3c_nci_kbuf_retrieve);
 
 /** @brief   This API can be used to read data from I3C device from HAL layer.
  *
@@ -275,7 +276,7 @@ ssize_t nfc_i3c_dev_read(struct file *filp, char __user *buf,
 	tmp = nfc_dev->kbuf;
 	ret = i3c_nci_kbuf_retrieve(i3c_dev, tmp, count);
 	if (ret != count) {
-		pr_err("%s: buf read from I3C device returned error (%d)\n",
+		pr_err("%s: kbuf read err ret (%d)\n",
 		       __func__, ret);
 		ret = -EIO;
 	} else if (copy_to_user(buf, tmp, ret)) {
@@ -322,7 +323,7 @@ ssize_t nfc_i3c_dev_write(struct file *filp, const char __user *buf,
 
 	ret = i3c_write(i3c_dev, tmp, count, NO_RETRY);
 	if (ret != count) {
-		pr_err("%s: failed to write %d\n", __func__, ret);
+		pr_err("%s: i3c_write err ret %d\n", __func__, ret);
 		ret = -EIO;
 		goto out_free;
 	}
@@ -364,7 +365,7 @@ static void i3c_workqueue_handler(struct work_struct *work)
 		pr_err("%s: No memory to copy read data\n", __func__);
 		return;
 	}
-	pr_info("%s: hdr_len = %d\n", __func__, hdr_len);
+	pr_debug("%s: hdr_len = %d\n", __func__, hdr_len);
 	memset(tmp, 0x00, i3c_dev->read_kbuf_len);
 
 	ret = i3c_read(i3c_dev, tmp, hdr_len);
@@ -419,7 +420,7 @@ static void i3c_ibi_handler(struct i3c_device *device,
 	struct nfc_dev *nfc_dev = i3cdev_get_drvdata(device);
 	struct i3c_dev *i3c_dev = &nfc_dev->i3c_dev;
 
-	pr_debug("%s: Received read IBI request from slave\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (device_may_wakeup(&device->dev))
 		pm_wakeup_event(&device->dev, WAKEUP_SRC_TIMEOUT);
 
@@ -665,15 +666,21 @@ int nfc_i3c_dev_probe(struct i3c_device *device)
 		goto err_nfc_misc_remove;
 	}
 
-	atomic_set(&nfc_dev->i3c_dev.pm_state, PM_STATE_NORMAL);
+	ret = nfcc_hw_check(nfc_dev);
+	if (ret) {
+		pr_err("nfc hw check failed ret %d\n", ret);
+		goto err_nfcc_hw_check;
+	}
 
+	atomic_set(&nfc_dev->i3c_dev.pm_state, PM_STATE_NORMAL);
 	device_init_wakeup(&device->dev, true);
-	device_set_wakeup_capable(&device->dev, true);
 
 	pr_info("%s success\n", __func__);
 
 	return 0;
 
+err_nfcc_hw_check:
+	i3c_device_free_ibi(device);
 err_nfc_misc_remove:
 	nfc_misc_remove(nfc_dev, DEV_COUNT);
 err_wq_destroy:
@@ -825,9 +832,9 @@ static int __init nfc_dev_i3c_init(void)
 {
 	int ret = 0;
 
-	pr_info("Loading NFC I3C driver\n");
 	ret = i3c_driver_register_with_owner(&nfc_i3c_dev_driver, THIS_MODULE);
-	pr_debug("NFC i3c driver register ret = %d\n", ret);
+	if (ret != 0)
+		pr_err("NFC I3C driver register error ret = %d\n", ret);
 	return ret;
 }
 
@@ -835,7 +842,7 @@ module_init(nfc_dev_i3c_init);
 
 static void __exit nfc_i3c_dev_exit(void)
 {
-	pr_info("Unloading NFC I3C driver\n");
+	pr_debug("Unloading NFC I3C driver\n");
 	i3c_driver_unregister(&nfc_i3c_dev_driver);
 }
 

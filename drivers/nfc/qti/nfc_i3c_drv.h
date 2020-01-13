@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _NFC_I3C_DRV_H_
@@ -96,6 +96,8 @@ int i3c_disable_ibi(struct i3c_dev *i3c_dev);
 ssize_t i3c_write(struct i3c_dev *i3c_dev, const char *buf, const size_t count,
 		  int max_retry_cnt);
 ssize_t i3c_read(struct i3c_dev *i3c_dev, char *buf, size_t count);
+ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
+				     size_t count);
 
 #else
 
@@ -116,7 +118,13 @@ static inline ssize_t i3c_write(struct i3c_dev *i3c_dev,
 }
 
 static inline ssize_t i3c_read(struct i3c_dev *i3c_dev,
-				char *buf, size_t count);
+				char *buf, size_t count)
+{
+	return -ENXIO;
+}
+
+ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
+				     size_t count)
 {
 	return -ENXIO;
 }
