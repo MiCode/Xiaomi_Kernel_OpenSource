@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -720,12 +720,14 @@ void hab_send_close_msg(struct virtual_channel *vchan)
 	}
 }
 
-void hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
+int hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
 {
-	struct virtual_channel *vchan, *tmp;
+	struct virtual_channel *vchan = NULL, *tmp = NULL;
+	int vchan_found = 0;
+	int ret = 0;
 
 	if (!ctx)
-		return;
+		return -EINVAL;
 
 	write_lock(&ctx->ctx_lock);
 	list_for_each_entry_safe(vchan, tmp, &ctx->vchannels, node) {
@@ -746,10 +748,16 @@ void hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
 			hab_vchan_stop_notify(vchan);
 			hab_vchan_put(vchan); /* there is a lock inside */
 			write_lock(&ctx->ctx_lock);
+			vchan_found = 1;
 			break;
 		}
 	}
 	write_unlock(&ctx->ctx_lock);
+
+	if (!vchan_found)
+		ret = -ENODEV;
+
+	return ret;
 }
 
 /*

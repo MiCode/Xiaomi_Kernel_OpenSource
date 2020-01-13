@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,7 +117,7 @@ static long hab_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		break;
 	case IOCTL_HAB_VC_CLOSE:
 		close_param = (struct hab_close *)data;
-		hab_vchan_close(ctx, close_param->vcid);
+		ret = hab_vchan_close(ctx, close_param->vcid);
 		break;
 	case IOCTL_HAB_SEND:
 		send_param = (struct hab_send *)data;

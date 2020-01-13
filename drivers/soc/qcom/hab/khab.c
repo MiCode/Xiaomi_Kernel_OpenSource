@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,8 +23,7 @@ EXPORT_SYMBOL(habmm_socket_open);
 
 int32_t habmm_socket_close(int32_t handle)
 {
-	hab_vchan_close(hab_driver.kctx, handle);
-	return 0;
+	return hab_vchan_close(hab_driver.kctx, handle);
 }
 EXPORT_SYMBOL(habmm_socket_close);
 
