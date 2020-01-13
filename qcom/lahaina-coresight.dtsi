@@ -701,11 +701,11 @@
 		};
 	};
 
-	funnel_mq6_dup: funnel_1@680c000 {
+	funnel_mq6_dup: funnel@680d000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb908>;
 
-		reg = <0x680b000 0x1000>,
+		reg = <0x680d000 0x1000>,
 			<0x680c000 0x1000>;
 
 		reg-names = "funnel-base-dummy", "funnel-base-real";
@@ -2049,11 +2049,47 @@
 		};
 	};
 
-	funnel_turing: funnel@6983000 {
+	funnel_dup_turing: funnel@6986000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb908>;
 
-		reg = <0x6983000 0x1000>;
+		reg = <0x6986000 0x1000>,
+			<0x6985000 0x1000>;
+		reg-names = "funnel-base-dummy", "funnel-base-real";
+
+		coresight-name = "coresight-funnel-turing_dup";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+		qcom,duplicate-funnel;
+
+		out-ports {
+			port {
+				turing_dup_out_turing: endpoint {
+					retmoe-endpoint =
+					<&turing_in_turing_dup>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@3 {
+				reg = <3>;
+				funnel_dup_turing_in_turing_etm: endpoint {
+					remote-endpoint =
+					<&turing_etm_out_funnel_dup_turing>;
+				};
+			};
+		};
+	};
+
+	funnel_turing: funnel@6985000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb908>;
+
+		reg = <0x6985000 0x1000>;
 		reg-names = "funnel-base";
 
 		coresight-name = "coresight-funnel-turing";
@@ -2110,6 +2146,13 @@
 				};
 			};
 
+			port@4 {
+				reg = <4>;
+				turing_in_turing_dup: endpoint {
+					retmote-endpoint =
+					  <&turing_dup_out_turing>;
+				};
+			};
 		};
 	};
 
@@ -2460,12 +2503,27 @@
 		};
 	};
 
+	turing_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-turing-etm0";
+		qcom,inst-id = <13>;
+
+		out-ports {
+			port {
+				turing_etm_out_funnel_dup_turing: endpoint {
+					remote-endpoint =
+					<&funnel_dup_turing_in_turing_etm>;
+				};
+			};
+		};
+	};
+
 	audio_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
 		coresight-name = "coresight-audio-etm0";
 		qcom,inst-id = <5>;
-		status = "disabled";
 
 		out-ports {
 			port {
@@ -2482,7 +2540,6 @@
 
 		coresight-name = "coresight-ssc-etm0";
 		qcom,inst-id = <8>;
-		status = "disabled";
 
 		out-ports {
 			port {
