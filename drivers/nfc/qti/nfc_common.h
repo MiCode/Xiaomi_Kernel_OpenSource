@@ -197,6 +197,13 @@ struct nfc_dev {
 	u8 *kbuf;
 
 	union nqx_uinfo nqx_info;
+
+	int (*nfc_read)(struct nfc_dev *dev,
+					char *buf, size_t count);
+	int (*nfc_write)(struct nfc_dev *dev,
+			const char *buf, const size_t count, int max_retry_cnt);
+	int (*nfc_enable_intr)(struct nfc_dev *dev);
+	int (*nfc_disable_intr)(struct nfc_dev *dev);
 };
 
 int nfc_dev_open(struct inode *inode, struct file *filp);

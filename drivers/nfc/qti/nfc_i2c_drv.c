@@ -11,18 +11,20 @@
  * Check if interrupt is disabled or not
  * and disable interrupt
  *
- * Return: void
+ * Return: int
  */
-void i2c_disable_irq(struct i2c_dev *i2c_dev)
+int i2c_disable_irq(struct nfc_dev *dev)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&i2c_dev->irq_enabled_lock, flags);
-	if (i2c_dev->irq_enabled) {
-		disable_irq_nosync(i2c_dev->client->irq);
-		i2c_dev->irq_enabled = false;
+	spin_lock_irqsave(&dev->i2c_dev.irq_enabled_lock, flags);
+	if (dev->i2c_dev.irq_enabled) {
+		disable_irq_nosync(dev->i2c_dev.client->irq);
+		dev->i2c_dev.irq_enabled = false;
 	}
-	spin_unlock_irqrestore(&i2c_dev->irq_enabled_lock, flags);
+	spin_unlock_irqrestore(&dev->i2c_dev.irq_enabled_lock, flags);
+
+	return 0;
 }
 
 /**
@@ -31,18 +33,20 @@ void i2c_disable_irq(struct i2c_dev *i2c_dev)
  * Check if interrupt is enabled or not
  * and enable interrupt
  *
- * Return: void
+ * Return: int
  */
-void i2c_enable_irq(struct i2c_dev *i2c_dev)
+int i2c_enable_irq(struct nfc_dev *dev)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&i2c_dev->irq_enabled_lock, flags);
-	if (!i2c_dev->irq_enabled) {
-		i2c_dev->irq_enabled = true;
-		enable_irq(i2c_dev->client->irq);
+	spin_lock_irqsave(&dev->i2c_dev.irq_enabled_lock, flags);
+	if (!dev->i2c_dev.irq_enabled) {
+		dev->i2c_dev.irq_enabled = true;
+		enable_irq(dev->i2c_dev.client->irq);
 	}
-	spin_unlock_irqrestore(&i2c_dev->irq_enabled_lock, flags);
+	spin_unlock_irqrestore(&dev->i2c_dev.irq_enabled_lock, flags);
+
+	return 0;
 }
 
 static irqreturn_t i2c_irq_handler(int irq, void *dev_id)
@@ -53,19 +57,19 @@ static irqreturn_t i2c_irq_handler(int irq, void *dev_id)
 	if (device_may_wakeup(&i2c_dev->client->dev))
 		pm_wakeup_event(&i2c_dev->client->dev, WAKEUP_SRC_TIMEOUT);
 
-	i2c_disable_irq(i2c_dev);
+	i2c_disable_irq(nfc_dev);
 	wake_up(&nfc_dev->read_wq);
 
 	return IRQ_HANDLED;
 }
 
-int i2c_read(struct i2c_dev *i2c_dev, char *buf, size_t count)
+int i2c_read(struct nfc_dev *dev, char *buf, size_t count)
 {
 	int ret;
 
 	pr_debug("%s : reading %zu bytes.\n", __func__, count);
 	/* Read data */
-	ret = i2c_master_recv(i2c_dev->client, buf, count);
+	ret = i2c_master_recv(dev->i2c_dev.client, buf, count);
 	if (ret <= 0) {
 		pr_err("%s: i2c_master_recv returned %d\n", __func__, ret);
 		goto i2c_read_err;
@@ -80,9 +84,8 @@ int i2c_read(struct i2c_dev *i2c_dev, char *buf, size_t count)
 i2c_read_err:
 	return ret;
 }
-EXPORT_SYMBOL(i2c_read);
 
-int i2c_write(struct i2c_dev *i2c_dev, char *buf, size_t count,
+int i2c_write(struct nfc_dev *dev, const char *buf, size_t count,
 						int max_retry_cnt)
 {
 	int ret = -EINVAL;
@@ -91,7 +94,7 @@ int i2c_write(struct i2c_dev *i2c_dev, char *buf, size_t count,
 	pr_debug("%s : writing %zu bytes.\n", __func__, count);
 
 	for (retry_cnt = 1; retry_cnt <= max_retry_cnt; retry_cnt++) {
-		ret = i2c_master_send(i2c_dev->client, buf, count);
+		ret = i2c_master_send(dev->i2c_dev.client, buf, count);
 		if (ret <= 0) {
 			pr_warn("%s: write failed, Maybe in Standby Mode - Retry(%d)\n",
 				__func__, retry_cnt);
@@ -101,7 +104,6 @@ int i2c_write(struct i2c_dev *i2c_dev, char *buf, size_t count,
 	}
 	return ret;
 }
-EXPORT_SYMBOL(i2c_write);
 
 ssize_t nfc_i2c_dev_read(struct file *filp, char __user *buf,
 			 size_t count, loff_t *offset)
@@ -142,7 +144,7 @@ ssize_t nfc_i2c_dev_read(struct file *filp, char __user *buf,
 					goto err;
 				}
 			}
-			i2c_disable_irq(i2c_dev);
+			i2c_disable_irq(nfc_dev);
 
 			if (gpio_get_value(nfc_dev->gpio.irq))
 				break;
@@ -166,7 +168,7 @@ ssize_t nfc_i2c_dev_read(struct file *filp, char __user *buf,
 	memset(tmp, 0x00, count);
 
 	/* Read data */
-	ret = i2c_read(i2c_dev, tmp, count);
+	ret = i2c_read(nfc_dev, tmp, count);
 	if (ret <= 0) {
 		pr_err("%s: i2c_master_recv returned %d\n", __func__, ret);
 		goto err;
@@ -206,7 +208,6 @@ ssize_t nfc_i2c_dev_write(struct file *filp, const char __user *buf,
 	int ret;
 	char *tmp = NULL;
 	struct nfc_dev *nfc_dev = filp->private_data;
-	struct i2c_dev *i2c_dev = &nfc_dev->i2c_dev;
 
 	if (!nfc_dev) {
 		ret = -ENODEV;
@@ -226,7 +227,7 @@ ssize_t nfc_i2c_dev_write(struct file *filp, const char __user *buf,
 		goto out;
 	}
 
-	ret = i2c_write(i2c_dev, tmp, count, NO_RETRY);
+	ret = i2c_write(nfc_dev, tmp, count, NO_RETRY);
 	if (ret != count) {
 		pr_err("%s: failed to write %d\n", __func__, ret);
 		ret = -EIO;
@@ -279,6 +280,10 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	nfc_dev->interface = PLATFORM_IF_I2C;
 	nfc_dev->i2c_dev.client = client;
 	i2c_dev = &nfc_dev->i2c_dev;
+	nfc_dev->nfc_read = i2c_read;
+	nfc_dev->nfc_write = i2c_write;
+	nfc_dev->nfc_enable_intr = i2c_enable_irq;
+	nfc_dev->nfc_disable_intr = i2c_disable_irq;
 
 	ret = configure_gpio(nfc_gpio.ven, GPIO_OUTPUT);
 	if (ret) {
@@ -333,7 +338,7 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		pr_err("%s: request_irq failed\n", __func__);
 		goto err_nfc_misc_remove;
 	}
-	i2c_disable_irq(i2c_dev);
+	i2c_disable_irq(nfc_dev);
 	i2c_set_clientdata(client, nfc_dev);
 
 	ret = nfcc_hw_check(nfc_dev);

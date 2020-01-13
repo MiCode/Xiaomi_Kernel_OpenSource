@@ -14,7 +14,7 @@
  *
  *  @return ret  number of bytes written ,negative error core otherwise.
  */
-ssize_t i3c_write(struct i3c_dev *i3c_dev, const char *buf, const size_t count,
+int i3c_write(struct nfc_dev *dev, const char *buf, const size_t count,
 		  int max_retry_cnt)
 {
 	int ret = -EIO;
@@ -26,7 +26,7 @@ ssize_t i3c_write(struct i3c_dev *i3c_dev, const char *buf, const size_t count,
 	};
 
 	do {
-		ret = i3c_device_do_priv_xfers(i3c_dev->device, &write_buf,
+		ret = i3c_device_do_priv_xfers(dev->i3c_dev.device, &write_buf,
 			(sizeof(write_buf) / sizeof(struct i3c_priv_xfer)));
 
 		pr_debug("%s exit ret = %x\n", __func__, ret);
@@ -42,7 +42,6 @@ ssize_t i3c_write(struct i3c_dev *i3c_dev, const char *buf, const size_t count,
 
 	return ret;
 }
-EXPORT_SYMBOL(i3c_write);
 
 /** @brief   This API used to read data from I3C device.
  *
@@ -52,7 +51,7 @@ EXPORT_SYMBOL(i3c_write);
  *
  *  @return number of bytes read ,negative error code otherwise.
  */
-ssize_t i3c_read(struct i3c_dev *i3c_dev, char *buf, size_t count)
+int i3c_read(struct nfc_dev *dev, char *buf, size_t count)
 {
 	int ret = -EIO;
 	struct i3c_priv_xfer read_buf = {
@@ -61,7 +60,7 @@ ssize_t i3c_read(struct i3c_dev *i3c_dev, char *buf, size_t count)
 		.data.in = buf
 	};
 
-	ret = i3c_device_do_priv_xfers(i3c_dev->device, &read_buf,
+	ret = i3c_device_do_priv_xfers(dev->i3c_dev.device, &read_buf,
 			     (sizeof(read_buf) / sizeof(struct i3c_priv_xfer)));
 	pr_debug("%s exit ret = %x\n", __func__, ret);
 	if (!ret)
@@ -71,7 +70,6 @@ ssize_t i3c_read(struct i3c_dev *i3c_dev, char *buf, size_t count)
 
 	return ret;
 }
-EXPORT_SYMBOL(i3c_read);
 
 /** @brief   This API can be used to write data to nci buf.
  *           The API will overwrite the existing memory if
@@ -154,12 +152,13 @@ static ssize_t i3c_kbuf_store(struct i3c_dev *i3c_dev, const char *buf,
  *
  *  @return number of bytes copied , error code for failures .
  */
-ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
+int i3c_nci_kbuf_retrieve(struct nfc_dev *dev, char *buf,
 				     size_t count)
 {
 	size_t requested_size = count;
 	size_t available_size = 0;
 	size_t copied_size = 0;
+	struct i3c_dev *i3c_dev = &dev->i3c_dev;
 	int ret = 0;
 
 	if (i3c_dev == NULL)
@@ -245,7 +244,6 @@ ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
 	pr_debug("%s , count = %zx exit\n", __func__, count);
 	return count;
 }
-EXPORT_SYMBOL(i3c_nci_kbuf_retrieve);
 
 /** @brief   This API can be used to read data from I3C device from HAL layer.
  *
@@ -264,7 +262,6 @@ ssize_t nfc_i3c_dev_read(struct file *filp, char __user *buf,
 	int ret;
 	char *tmp = NULL;
 	struct nfc_dev *nfc_dev = filp->private_data;
-	struct i3c_dev *i3c_dev = &nfc_dev->i3c_dev;
 
 	if (count > nfc_dev->kbuflen)
 		count = nfc_dev->kbuflen;
@@ -274,7 +271,7 @@ ssize_t nfc_i3c_dev_read(struct file *filp, char __user *buf,
 	mutex_lock(&nfc_dev->read_mutex);
 
 	tmp = nfc_dev->kbuf;
-	ret = i3c_nci_kbuf_retrieve(i3c_dev, tmp, count);
+	ret = i3c_nci_kbuf_retrieve(nfc_dev, tmp, count);
 	if (ret != count) {
 		pr_err("%s: kbuf read err ret (%d)\n",
 		       __func__, ret);
@@ -303,7 +300,6 @@ ssize_t nfc_i3c_dev_write(struct file *filp, const char __user *buf,
 	int ret;
 	char *tmp = NULL;
 	struct nfc_dev *nfc_dev = filp->private_data;
-	struct i3c_dev *i3c_dev = &nfc_dev->i3c_dev;
 
 	if (!nfc_dev)
 		return -ENODEV;
@@ -321,7 +317,7 @@ ssize_t nfc_i3c_dev_write(struct file *filp, const char __user *buf,
 		goto out;
 	}
 
-	ret = i3c_write(i3c_dev, tmp, count, NO_RETRY);
+	ret = i3c_write(nfc_dev, tmp, count, NO_RETRY);
 	if (ret != count) {
 		pr_err("%s: i3c_write err ret %d\n", __func__, ret);
 		ret = -EIO;
@@ -368,7 +364,7 @@ static void i3c_workqueue_handler(struct work_struct *work)
 	pr_debug("%s: hdr_len = %d\n", __func__, hdr_len);
 	memset(tmp, 0x00, i3c_dev->read_kbuf_len);
 
-	ret = i3c_read(i3c_dev, tmp, hdr_len);
+	ret = i3c_read(nfc_dev, tmp, hdr_len);
 	if (ret < 0) {
 		pr_err("%s: i3c_read returned error %d\n", __func__, ret);
 		return;
@@ -396,7 +392,7 @@ static void i3c_workqueue_handler(struct work_struct *work)
 		return;
 	}
 
-	ret = i3c_read(i3c_dev, tmp + hdr_len, length_byte);
+	ret = i3c_read(nfc_dev, tmp + hdr_len, length_byte);
 	if (ret < 0) {
 		pr_err("%s: i3c_read returned error %d\n", __func__, ret);
 		i3c_kbuf_store(i3c_dev, tmp, hdr_len);
@@ -439,17 +435,17 @@ static void i3c_ibi_handler(struct i3c_device *device,
  *
  *  @return 0 on success, error code for failures.
  */
-int i3c_enable_ibi(struct i3c_dev *i3c_dev)
+int i3c_enable_ibi(struct nfc_dev *dev)
 {
 	int ret = 0;
 	int retry_count = 0;
 
-	if (!i3c_dev->ibi_enabled) {
+	if (!dev->i3c_dev.ibi_enabled) {
 
 		do {
-			ret = i3c_device_enable_ibi(i3c_dev->device);
+			ret = i3c_device_enable_ibi(dev->i3c_dev.device);
 			if (!ret) {
-				i3c_dev->ibi_enabled = true;
+				dev->i3c_dev.ibi_enabled = true;
 				break;
 			}
 
@@ -470,17 +466,17 @@ int i3c_enable_ibi(struct i3c_dev *i3c_dev)
  *
  *  @return 0 on success, error code for failures.
  */
-int i3c_disable_ibi(struct i3c_dev *i3c_dev)
+int i3c_disable_ibi(struct nfc_dev *dev)
 {
 	int ret = 0;
 	int retry_count = 0;
 
-	if (i3c_dev->ibi_enabled) {
+	if (dev->i3c_dev.ibi_enabled) {
 
 		do {
-			ret = i3c_device_disable_ibi(i3c_dev->device);
+			ret = i3c_device_disable_ibi(dev->i3c_dev.device);
 			if (!ret) {
-				i3c_dev->ibi_enabled = false;
+				dev->i3c_dev.ibi_enabled = false;
 				break;
 			}
 
@@ -615,6 +611,11 @@ int nfc_i3c_dev_probe(struct i3c_device *device)
 	nfc_dev->i3c_dev.buf.total_size = PAGE_SIZE;
 	i3c_reset_nci_buf(&nfc_dev->i3c_dev);
 	nfc_dev->interface = PLATFORM_IF_I3C;
+	nfc_dev->nfc_write = i3c_write;
+	nfc_dev->nfc_read = i3c_nci_kbuf_retrieve;
+	nfc_dev->i3c_dev.nfc_read_direct = i3c_read;
+	nfc_dev->nfc_enable_intr = i3c_enable_ibi;
+	nfc_dev->nfc_disable_intr = i3c_disable_ibi;
 	nfc_dev->i3c_dev.device = device;
 
 	ret = configure_gpio(nfc_gpio.ven, GPIO_OUTPUT_HIGH);

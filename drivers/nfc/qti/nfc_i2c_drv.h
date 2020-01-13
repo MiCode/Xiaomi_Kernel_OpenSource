@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _NFC_I2C_DRV_H_
@@ -9,6 +9,8 @@
 
 #define NFC_I2C_DRV_STR   "qcom,sn-nci"	/*kept same as dts */
 #define NFC_I2C_DEV_ID		"sn-i2c"
+
+struct nfc_dev;
 
 //Interface specific parameters
 struct i2c_dev {
@@ -26,31 +28,33 @@ int nfc_i2c_dev_remove(struct i2c_client *client);
 int nfc_i2c_dev_suspend(struct device *device);
 int nfc_i2c_dev_resume(struct device *device);
 
-#ifdef CONFIG_NFC_QTI_I2C
+#if IS_ENABLED(CONFIG_NFC_QTI_I2C)
 
-void i2c_enable_irq(struct i2c_dev *i2c_dev);
-void i2c_disable_irq(struct i2c_dev *i2c_dev);
-int i2c_write(struct i2c_dev *i2c_dev, char *buf, size_t count,
+int i2c_enable_irq(struct nfc_dev *dev);
+int i2c_disable_irq(struct nfc_dev *dev);
+int i2c_write(struct nfc_dev *dev, const char *buf, size_t count,
 						int max_retry_cnt);
-int i2c_read(struct i2c_dev *i2c_dev, char *buf, size_t count);
+int i2c_read(struct nfc_dev *dev, char *buf, size_t count);
 
 #else
 
-static inline void i2c_enable_irq(struct i2c_dev *i2c_dev)
-{
-}
-
-static inline void i2c_disable_irq(struct i2c_dev *i2c_dev)
-{
-}
-
-static inline int i2c_write(struct i2c_dev *i2c_dev, char *buf, size_t count,
-						int max_retry_cnt)
+static inline int i2c_enable_irq(struct nfc_dev *dev)
 {
 	return -ENXIO;
 }
 
-static inline int i2c_read(struct i2c_dev *i2c_dev, char *buf, size_t count)
+static inline int i2c_disable_irq(struct nfc_dev *dev)
+{
+	return -ENXIO;
+}
+
+static inline int i2c_write(struct nfc_dev *dev, const char *buf,
+					size_t count, int max_retry_cnt)
+{
+	return -ENXIO;
+}
+
+static inline int i2c_read(struct nfc_dev *dev, char *buf, size_t count)
 {
 	return -ENXIO;
 }

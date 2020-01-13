@@ -41,6 +41,8 @@
 // I3C WorkQueue name
 #define NFC_I3C_WORKQUEUE		"nfc_i3c_workq"
 
+struct nfc_dev;
+
 /**
  * struct nci_buf - NCI buffer used to store and retrieve read data from device.
  * @read_offset: The offset pointing to data available to read in nci buf.
@@ -69,6 +71,7 @@ struct nci_buf {
  * @read_hdr          Header size for reads.
  * @ibi_enabled:      IBI enabled or not.
  * @pm_state:         PM state of NFC I3C device.
+ * @nfc_read_direct   Do NFC read bypassing the read buffer.
  */
 struct i3c_dev {
 	struct i3c_device *device;
@@ -82,6 +85,8 @@ struct i3c_dev {
 	unsigned char read_hdr;
 	bool ibi_enabled;
 	atomic_t pm_state;
+	int (*nfc_read_direct)(struct nfc_dev *dev,
+					char *buf, size_t count);
 };
 
 int nfc_i3c_dev_probe(struct i3c_device *device);
@@ -89,42 +94,42 @@ int nfc_i3c_dev_remove(struct i3c_device *device);
 int nfc_i3c_dev_suspend(struct device *device);
 int nfc_i3c_dev_resume(struct device *device);
 
-#ifdef CONFIG_NFC_QTI_I3C
+#if IS_ENABLED(CONFIG_NFC_QTI_I3C)
 
-int i3c_enable_ibi(struct i3c_dev *i3c_dev);
-int i3c_disable_ibi(struct i3c_dev *i3c_dev);
-ssize_t i3c_write(struct i3c_dev *i3c_dev, const char *buf, const size_t count,
+int i3c_enable_ibi(struct nfc_dev *dev);
+int i3c_disable_ibi(struct nfc_dev *dev);
+int i3c_write(struct nfc_dev *dev, const char *buf, const size_t count,
 		  int max_retry_cnt);
-ssize_t i3c_read(struct i3c_dev *i3c_dev, char *buf, size_t count);
-ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
+int i3c_read(struct nfc_dev *dev, char *buf, size_t count);
+int i3c_nci_kbuf_retrieve(struct nfc_dev *dev, char *buf,
 				     size_t count);
 
 #else
 
-static inline int i3c_enable_ibi(struct i3c_dev *i3c_dev)
+static inline int i3c_enable_ibi(struct nfc_dev *dev)
 {
 	return -ENXIO;
 }
 
-static inline int i3c_disable_ibi(struct i3c_dev *i3c_dev)
+static inline int i3c_disable_ibi(struct nfc_dev *dev)
 {
 	return -ENXIO;
 }
 
-static inline ssize_t i3c_write(struct i3c_dev *i3c_dev,
+static inline int i3c_write(struct nfc_dev *dev,
 	const char *buf, const size_t count, int max_retry_cnt)
 {
 	return -ENXIO;
 }
 
-static inline ssize_t i3c_read(struct i3c_dev *i3c_dev,
+static inline int i3c_read(struct nfc_dev *dev,
 				char *buf, size_t count)
 {
 	return -ENXIO;
 }
 
-ssize_t i3c_nci_kbuf_retrieve(struct i3c_dev *i3c_dev, char *buf,
-				     size_t count)
+static inline int i3c_nci_kbuf_retrieve(struct nfc_dev *dev,
+				char *buf, size_t count)
 {
 	return -ENXIO;
 }
