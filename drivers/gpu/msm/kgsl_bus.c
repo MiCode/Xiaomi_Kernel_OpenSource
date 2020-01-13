@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/interconnect.h>
@@ -147,15 +147,28 @@ u32 *kgsl_bus_get_table(struct platform_device *pdev,
 int kgsl_bus_init(struct kgsl_device *device, struct platform_device *pdev)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret, count;
+	int count;
+	int ddr = of_fdt_get_ddrtype();
 
+	if (ddr >= 0) {
+		char str[32];
+
+		snprintf(str, sizeof(str), "qcom,bus-table-ddr%d", ddr);
+
+		pwr->ddr_table = kgsl_bus_get_table(pdev, str, &count);
+		if (!IS_ERR(pwr->ddr_table))
+			goto done;
+	}
+
+	/* Look if a generic table is present */
 	pwr->ddr_table = kgsl_bus_get_table(pdev, "qcom,bus-table-ddr", &count);
 	if (IS_ERR(pwr->ddr_table)) {
-		ret = PTR_ERR(pwr->ddr_table);
+		int ret = PTR_ERR(pwr->ddr_table);
+
 		pwr->ddr_table = NULL;
 		return ret;
 	}
-
+done:
 	pwr->ddr_table_count = count;
 
 	validate_pwrlevels(device, pwr->ddr_table, pwr->ddr_table_count);
