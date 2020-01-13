@@ -2060,7 +2060,7 @@
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
 		ufs-qcom-crypto = <&ufs_ice>;
-		qcom,disable-lpm;
+		spm-level = <5>;
 
 		lanes-per-direction = <2>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
