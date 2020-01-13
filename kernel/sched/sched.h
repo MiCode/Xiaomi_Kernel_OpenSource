@@ -108,11 +108,6 @@ struct walt_sched_stats {
 	u64 pred_demands_sum_scaled;
 };
 
-struct cpu_cycle {
-	u64 cycles;
-	u64 time;
-};
-
 struct group_cpu_time {
 	u64 curr_runnable_sum;
 	u64 prev_runnable_sum;
@@ -1078,7 +1073,7 @@ struct rq {
 	u64			irqload_ts;
 	bool			high_irqload;
 	struct task_struct	*ed_task;
-	struct cpu_cycle	cc;
+	u64			task_exec_scale;
 	u64			old_busy_time, old_busy_time_group;
 	u64			old_estimated_time;
 	u64			curr_runnable_sum;
