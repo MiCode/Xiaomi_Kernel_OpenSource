@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -581,7 +581,7 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 	return ret;
 }
 
-static int sde_rotator_secure_session_ctrl(bool enable)
+static int _sde_rotator_secure_session_ctrl(bool enable)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	uint32_t *sid_info = NULL;
@@ -672,6 +672,39 @@ end:
 	return resp;
 }
 
+static int sde_rotator_secure_session_ctrl(bool enable)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	int ret = -EINVAL;
+
+	/*
+	 * wait_for_transition and secure_session_control are filled by client
+	 * callback.
+	 */
+	if (mdata->wait_for_transition && mdata->secure_session_ctrl &&
+		mdata->callback_request) {
+		ret = mdata->wait_for_transition(mdata->sec_cam_en, enable);
+		if (ret) {
+			SDEROT_ERR("failed Secure wait for transition %d\n",
+				   ret);
+		} else {
+			if (mdata->sec_cam_en ^ enable) {
+				mdata->sec_cam_en = enable;
+				ret = mdata->secure_session_ctrl(enable);
+				if (ret)
+					mdata->sec_cam_en = 0;
+			}
+		}
+	} else if (!mdata->callback_request) {
+		ret = _sde_rotator_secure_session_ctrl(enable);
+	}
+
+	if (ret)
+		SDEROT_ERR("failed %d sde_rotator_secure_session %d\n",
+			   ret, mdata->callback_request);
+
+	return ret;
+}
 
 static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 {

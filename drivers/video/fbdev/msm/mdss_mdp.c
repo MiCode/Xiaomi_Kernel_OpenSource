@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2018,2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -99,6 +99,7 @@ static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
+static DEFINE_MUTEX(mdp_sec_ref_cnt_lock);
 
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
@@ -2119,6 +2120,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		//mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
@@ -2790,6 +2792,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdata->reg_bus_clist);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
+	init_waitqueue_head(&mdata->secure_waitq);
 
 	mdss_res->mdss_util = mdss_get_util_intf();
 	if (mdss_res->mdss_util == NULL) {
@@ -5026,6 +5029,27 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 	int ret = 0;
 	uint32_t sid_info;
 	struct scm_desc desc;
+	bool changed = false;
+
+	mutex_lock(&mdp_sec_ref_cnt_lock);
+
+	if (enable) {
+		if (mdata->sec_session_cnt == 0)
+			changed = true;
+		mdata->sec_session_cnt++;
+	} else {
+		if (mdata->sec_session_cnt != 0) {
+			mdata->sec_session_cnt--;
+			if (mdata->sec_session_cnt == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: ref_count is not balanced\n",
+				__func__);
+		}
+	}
+
+	if (!changed)
+		goto end;
 
 	if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map)) {
 		/*
@@ -5049,7 +5073,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 				desc.args[3] = VMID_CP_CAMERA_PREVIEW;
 				mdata->sec_cam_en = 1;
 			} else {
-				return 0;
+				ret = 0;
+				goto end;
 			}
 
 			/* detach smmu contexts */
@@ -5057,7 +5082,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error while detaching smmu contexts ret = %d\n",
 					ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			/* let the driver think smmu is still attached */
@@ -5069,7 +5095,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error scm_call MEM_PROTECT_SD_CTRL(%u) ret=%dm resp=%x\n",
 						enable, ret, resp);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 			resp = desc.ret[0];
 
@@ -5102,7 +5129,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error while attaching smmu contexts ret = %d\n",
 					ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 		}
 		MDSS_XLOG(enable);
@@ -5117,11 +5145,12 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 		pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
 				enable, ret, resp);
 	}
-	if (ret)
-		return ret;
 
 	mdss_update_sd_client(mdata, enable);
-	return resp;
+end:
+	mutex_unlock(&mdp_sec_ref_cnt_lock);
+	return ret;
+
 }
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
