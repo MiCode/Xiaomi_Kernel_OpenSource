@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_REG_H
 #define _CNSS_REG_H
@@ -204,6 +204,8 @@
 #define QCA6390_WLAON_WL_CLK_CNTL_KDF_REG 0x1F80314
 #define QCA6390_WLAON_WL_CLK_CNTL_PMU_HFRC_REG 0x1F80318
 #define QCA6390_WLAON_QFPROM_PWR_CTRL_REG 0x1F8031C
+#define QFPROM_PWR_CTRL_VDD4BLOW_SW_EN_MASK 0x4
+#define QFPROM_PWR_CTRL_SHUTDOWN_EN_MASK 0x1
 #define QCA6390_WLAON_DLY_CONFIG 0x1F80400
 #define QCA6390_WLAON_WLAON_Q6_IRQ_REG 0x1F80404
 #define QCA6390_WLAON_PCIE_INTF_SW_CFG_REG 0x1F80408
