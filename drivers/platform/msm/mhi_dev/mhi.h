@@ -369,6 +369,11 @@ enum mhi_dev_transfer_type {
 	MHI_DEV_DMA_ASYNC,
 };
 
+struct msi_buf_cb_data {
+	u32 *buf;
+	dma_addr_t dma_addr;
+};
+
 struct mhi_dev_channel;
 
 struct mhi_dev_ring {
@@ -397,6 +402,7 @@ struct mhi_dev_ring {
 	union mhi_dev_ring_ctx			*ring_ctx;
 	/* ring_ctx_shadow -> tracking ring_ctx in the host */
 	union mhi_dev_ring_ctx			*ring_ctx_shadow;
+	struct msi_buf_cb_data		msi_buf;
 	void (*ring_cb)(struct mhi_dev *dev,
 			union mhi_dev_ring_element_type *el,
 			void *ctx);
@@ -495,6 +501,9 @@ struct mhi_dev {
 
 	uint32_t			*mmio_backup;
 	struct mhi_config		cfg;
+	u32				msi_data;
+	u32				msi_lower;
+	spinlock_t			msi_lock;
 	bool				mmio_initialized;
 
 	spinlock_t			lock;
