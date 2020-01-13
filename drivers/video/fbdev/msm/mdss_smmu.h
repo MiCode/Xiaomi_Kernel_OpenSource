@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,13 @@ struct mdss_smmu_domain {
 	int domain;
 	unsigned long start;
 	unsigned long size;
+};
+
+struct mdss_smmu_private {
+	struct device_node *pdev;
+	struct list_head smmu_device_list;
+	struct list_head user_list;
+	struct mutex smmu_reg_lock;
 };
 
 void mdss_smmu_register(struct device *dev);
@@ -131,13 +138,12 @@ static inline int mdss_smmu_get_domain_type(u64 flags, bool rotator)
 
 	if (flags & MDP_SECURE_OVERLAY_SESSION) {
 		type = (rotator &&
-			mdata->mdss_smmu[MDSS_IOMMU_DOMAIN_ROT_SECURE].dev) ?
-			MDSS_IOMMU_DOMAIN_ROT_SECURE : MDSS_IOMMU_DOMAIN_SECURE;
+		    mdata->mdss_smmu[MDSS_IOMMU_DOMAIN_ROT_SECURE].base.dev) ?
+		    MDSS_IOMMU_DOMAIN_ROT_SECURE : MDSS_IOMMU_DOMAIN_SECURE;
 	} else {
 		type = (rotator &&
-			mdata->mdss_smmu[MDSS_IOMMU_DOMAIN_ROT_UNSECURE].dev) ?
-			MDSS_IOMMU_DOMAIN_ROT_UNSECURE :
-			MDSS_IOMMU_DOMAIN_UNSECURE;
+		    mdata->mdss_smmu[MDSS_IOMMU_DOMAIN_ROT_UNSECURE].base.dev) ?
+		    MDSS_IOMMU_DOMAIN_ROT_UNSECURE : MDSS_IOMMU_DOMAIN_UNSECURE;
 	}
 	return type;
 }
