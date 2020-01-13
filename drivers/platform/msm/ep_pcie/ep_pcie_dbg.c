@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -405,6 +405,9 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 		break;
 	case 32: /* do not output core registers when D3 hot is set by host*/
 		dev->dump_conf = false;
+		break;
+	case 33: /* output edma registers */
+		edma_dump();
 		break;
 	default:
 		EP_PCIE_DBG_FS("PCIe: Invalid testcase: %d\n", testcase);
