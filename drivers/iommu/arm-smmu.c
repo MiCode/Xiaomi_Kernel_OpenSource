@@ -2939,6 +2939,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	const char *str;
 	int attr = 1;
 	u32 val;
+	const __be32 *ranges;
+	int naddr, nsize, len;
 
 	np = arm_iommu_get_of_node(dev);
 	if (!np)
@@ -3015,6 +3017,30 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (of_property_read_bool(np, "qcom,iommu-earlymap"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_EARLY_MAP, &attr);
+
+	ranges = of_get_property(np, "qcom,iommu-geometry", &len);
+	if (ranges) {
+		struct iommu_domain_geometry geometry;
+
+		len /= sizeof(u32);
+		naddr = of_n_addr_cells(np);
+		nsize = of_n_size_cells(np);
+		if (len < naddr + nsize) {
+			dev_err(dev, "Invalid length for qcom,iommu-geometry, expected %d cells\n",
+				naddr + nsize);
+			return -EINVAL;
+		}
+		if (naddr == 0 || nsize == 0) {
+			dev_err(dev, "Invalid #address-cells %d or #size-cells %d\n",
+				naddr, nsize);
+			return -EINVAL;
+		}
+
+		geometry.aperture_start = of_read_number(ranges, naddr);
+		geometry.aperture_end = of_read_number(ranges + naddr, nsize);
+		__arm_smmu_domain_set_attr(domain, DOMAIN_ATTR_GEOMETRY,
+					   &geometry);
+	}
 	return 0;
 }
 
@@ -4036,23 +4062,18 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 			ret = -EINVAL;
 			break;
 		}
-		if (smmu_domain->attributes
-			  & (1 << DOMAIN_ATTR_GEOMETRY)) {
-			if (geometry->aperture_start
-					< domain->geometry.aperture_start)
-				domain->geometry.aperture_start =
-					geometry->aperture_start;
 
-			if (geometry->aperture_end
-					> domain->geometry.aperture_end)
-				domain->geometry.aperture_end =
-					geometry->aperture_end;
-		} else {
-			smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
+		if (geometry->aperture_start
+		    < domain->geometry.aperture_start)
 			domain->geometry.aperture_start =
-						geometry->aperture_start;
-			domain->geometry.aperture_end = geometry->aperture_end;
-		}
+				geometry->aperture_start;
+
+		if (geometry->aperture_end
+		    > domain->geometry.aperture_end)
+			domain->geometry.aperture_end =
+				geometry->aperture_end;
+
+		smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
 		ret = 0;
 		break;
 	}
