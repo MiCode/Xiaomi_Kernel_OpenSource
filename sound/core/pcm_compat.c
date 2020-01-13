@@ -654,6 +654,15 @@ static int snd_compressed_ioctl32(struct snd_pcm_substream *substream,
 	pr_debug("%s called with cmd = %d\n", __func__, cmd);
 	return err;
 }
+
+static int snd_pcm_ioctl32_compat(struct snd_pcm_substream *substream,
+			unsigned int cmd, void __user *arg)
+{
+	if (_IOC_TYPE(cmd) == 'C' || _IOC_TYPE(cmd) == 'U')
+		return snd_compressed_ioctl32(substream, cmd, arg);
+
+	return 0;
+}
 #endif
 
 static long snd_pcm_ioctl_compat(struct file *file, unsigned int cmd, unsigned long arg)
@@ -735,8 +744,7 @@ static long snd_pcm_ioctl_compat(struct file *file, unsigned int cmd, unsigned l
 #endif /* CONFIG_X86_X32 */
 #ifdef CONFIG_AUDIO_QGKI
 	default:
-		if (_IOC_TYPE(cmd) == 'C')
-			return snd_compressed_ioctl32(substream, cmd, argp);
+		return snd_pcm_ioctl32_compat(substream, cmd, argp);
 #endif
 	}
 
