@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -5039,7 +5039,7 @@ static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
 	dev->ws = wakeup_source_register(pdev, dev_name(pdev));
-	if (dev->ws) {
+	if (!dev->ws) {
 		PCIE_ERR(dev,
 			"PCIe: RC%d: failed to register wakeup source\n",
 			dev->rc_idx);
