@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -561,6 +561,11 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg)) {
+		dev_err(qphy->phy.dev, "eud is enabled\n");
+		return;
+	}
+
 	qusb_phy_enable_clocks(qphy, true);
 
 	/* Disable the PHY */
@@ -647,15 +652,20 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
-			/* Disable PHY */
-			writel_relaxed(POWER_DOWN | readl_relaxed(qphy->base +
+			if (!qphy->eud_enable_reg ||
+					!readl_relaxed(qphy->eud_enable_reg)) {
+				/* Disable PHY */
+				writel_relaxed(POWER_DOWN |
+					readl_relaxed(qphy->base +
 					QUSB2PHY_PORT_POWERDOWN),
 					qphy->base + QUSB2PHY_PORT_POWERDOWN);
-			/* Make sure that above write is completed */
-			wmb();
+				/* Make sure that above write is completed */
+				wmb();
 
-			if (qphy->tcsr_clamp_dig_n)
-				writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+				if (qphy->tcsr_clamp_dig_n)
+					writel_relaxed(0x0,
+						qphy->tcsr_clamp_dig_n);
+			}
 
 			qusb_phy_enable_clocks(qphy, false);
 			qusb_phy_enable_power(qphy, false);
