@@ -520,9 +520,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-	/* setup support for additional features (SFR, timesync, etc.) */
+	/* setup support for additional features */
 	mhi_init_sfr(mhi_cntrl);
-	mhi_init_timesync(mhi_cntrl);
 
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		mhi_timesync_log(mhi_cntrl);
@@ -656,9 +655,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 				  sfr_info->dma_addr);
 		sfr_info->buf_addr = NULL;
 	}
-
-	/* remove support for time sync */
-	mhi_destroy_timesync(mhi_cntrl);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
