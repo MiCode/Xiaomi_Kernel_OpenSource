@@ -3447,6 +3447,7 @@ static inline void preempt_latency_stop(int val)
 			trace_sched_preempt_disable(delta, ps->irqs_disabled,
 						ps->caddr[0], ps->caddr[1],
 						ps->caddr[2], ps->caddr[3]);
+		ps->ts = 0;
 		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
 	}
 }
