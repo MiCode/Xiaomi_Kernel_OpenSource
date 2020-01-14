@@ -1,0 +1,81 @@
+/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,ascent_3450mah {
+	/* Ascent_wConn_Aging_3450mAh_averaged_MasterSlave_Jul11th2017 */
+	qcom,max-voltage-uv = <4350000>;
+	qcom,fg-cc-cv-threshold-mv = <4340>;
+	qcom,fastchg-current-ma = <3450>;
+	qcom,batt-id-kohm = <60>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "ascent_3450mah_averaged_masterslave_jul11th2017";
+	qcom,checksum = <0x7C33>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+		8F 1F 94 05
+		73 0A 4A 06
+		27 1D 21 EA
+		16 0A 3B 0C
+		07 18 97 22
+		A5 3C EC 4A
+		5C 00 00 00
+		10 00 00 00
+		00 00 92 BC
+		CD BD 02 B4
+		11 00 08 00
+		69 DA AD 07
+		4B FD 19 FA
+		1D 0C B0 0C
+		EB F3 78 3B
+		24 06 09 20
+		27 00 14 00
+		7E 1F F2 05
+		19 0A 55 FD
+		6C 1D C6 ED
+		1A 12 FF 1D
+		6F 18 EB 22
+		B9 45 6F 52
+		55 00 00 00
+		0E 00 00 00
+		00 00 A1 D5
+		34 BA A0 CA
+		0F 00 00 00
+		93 00 AD 07
+		8D FD F6 00
+		BA 0D 5C 04
+		B3 FC F4 1B
+		C3 33 CC FF
+		07 10 00 00
+		A4 0D 99 45
+		0F 00 40 00
+		A4 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+	];
+};

@@ -238,6 +238,123 @@ pahu_codec {
 	};
 };
 
+Tombak audio CODEC in SPMI mode
+
+ - compatible = "qcom,msm-codec-core",
+ - compatible = "qcom,pmic-codec-digital"
+ - compatible = "qcom,pmic-codec-analog"
+ - reg: represents the slave base address provided to the peripheral.
+ - interrupt-parent : The parent interrupt controller.
+ - interrupts: List of interrupts in given SPMI peripheral.
+ - interrupt-names: Names specificed to above list of interrupts in same
+		    order.
+
+Optional properties:
+
+ - cdc-vdda-cp-supply: phandle of cp supply's regulator device tree node.
+ - qcom,cdc-vdda-cp-voltage: cp supply's voltage level min and max in mV.
+ - qcom,cdc-vdda-cp-current: cp supply's max current in mA.
+
+ - cdc-vdda-rx-h-supply: phandle of vdda-rx-h supply's regulator device tree node.
+ - qcom,cdc-vdda-rx-h-voltage: vdda-rx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdda-rx-h-current: vdda-rx-h supply's max current in mA.
+
+ - cdc-vdda-tx-h-supply: phandle of vdda-tx-h supply's regulator device tree node.
+ - qcom,cdc-vdda-tx-h-voltage: vdda-tx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdda-tx-h-current: vdda-tx-h supply's max current in mA.
+
+ - cdc-vdd-px-supply: phandle of vdd-px supply's regulator device tree node.
+ - qcom,cdc-vdd-px-voltage: vdd-px supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-px-current: vdd-px supply's max current in mA.
+
+ - cdc-vdd-pa-supply: phandle of vdd-pa supply's regulator device tree node.
+ - qcom,cdc-vdd-pa-voltage: vdd-pa supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-pa-current: vdd-pa supply's max current in mA.
+
+ - cdc-vdd-mic-bias-supply: phandle of mic-bias supply's regulator device tree
+			    node.
+ - qcom,cdc-vdd-mic-bias-voltage: mic-bias supply's voltage level min and max
+				  in mV.
+ - qcom,cdc-vdd-mic-bias-current: mic-bias supply's max current in mA.
+
+ - qcom,cdc-mclk-clk-rate: Specifies the master clock rate in Hz required for
+			    codec.
+
+ - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
+			     hardware probe.  Supplies in this list will be
+			     stay enabled.
+
+ - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
+				dynamically.
+				Supplies in this list are off by default.
+ - qcom,cdc-micbias-cfilt-mv : MICBIAS voltage value
+ - qcom,cdc-boost-voltage: Specifies the analog boost output voltage value.
+				Value from 4000 to 5550 in mV in steps of 50 mV can be given.
+ - qcom,dig-cdc-base-addr: Specifies the digital codec base address for MSM digital
+				core register writes.
+
+Example:
+
+msm_digital_codec: msm-dig-codec@c0f0000 {
+	compatible = "qcom,msm-digital-codec";
+	reg = <0xc0f0000 0x0>;
+};
+
+pmic_analog_codec: analog-codec@f000 {
+	compatible = "qcom,pmic-analog-codec";
+	reg = <0xf000 0x200>;
+	interrupt-parent = <&spmi_bus>;
+	interrupts = <0x1 0xf0 0x0>,
+		     <0x1 0xf0 0x1>,
+		     <0x1 0xf0 0x2>,
+		     <0x1 0xf0 0x3>,
+		     <0x1 0xf0 0x4>,
+		     <0x1 0xf0 0x5>,
+		     <0x1 0xf0 0x6>,
+		     <0x1 0xf0 0x7>;
+	interrupt-names = "spk_cnp_int",
+			  "spk_clip_int",
+			  "spk_ocp_int",
+			  "ins_rem_det1",
+			  "but_rel_det",
+			  "but_press_det",
+			  "ins_rem_det",
+			  "mbhc_int";
+
+	cdc-vdda-cp-supply = <&pm8916_s4>;
+	qcom,cdc-vdda-cp-voltage = <1800000 2200000>;
+	qcom,cdc-vdda-cp-current = <770000>;
+
+	cdc-vdda-rx-h-supply = <&pm8916_l5>;
+	qcom,cdc-vdda-rx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdda-rx-h-current = <20000>;
+
+	cdc-vdda-tx-h-supply = <&pm8916_l5>;
+	qcom,cdc-vdda-tx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdda-tx-h-current = <20000>;
+
+	cdc-vdd-px-supply = <&pm8916_s4>;
+	qcom,cdc-vdd-px-voltage = <1800000 2200000>;
+	qcom,cdc-vdd-px-current = <770000>;
+
+	cdc-vdd-pa-supply = <&pm8916_l5>;
+	qcom,cdc-vdd-pa-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-pa-current = <5000>;
+
+	cdc-vdd-mic-bias-supply = <&pm8916_l13>;
+	qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
+	qcom,cdc-vdd-mic-bias-current = <25000>;
+
+	qcom,cdc-mclk-clk-rate = <9600000>;
+
+	qcom,cdc-static-supplies = "cdc-vdda-h",
+				   "cdc-vdd-px",
+				   "cdc-vdd-pa",
+				   "cdc-vdda-cp";
+
+	qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+};
+
 Wcd9xxx audio CODEC in I2C mode
 
  - compatible = "qcom,wcd9xxx-i2c-device";
