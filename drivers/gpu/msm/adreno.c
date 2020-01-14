@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2811,6 +2811,32 @@ static int adreno_getproperty(struct kgsl_device *device,
 
 		if (copy_to_user(value, &gaming_bin,
 					sizeof(unsigned int))) {
+			status = -EFAULT;
+			break;
+		}
+		status = 0;
+	}
+	break;
+
+	case KGSL_PROP_MACROTILING_CHANNELS:
+	{
+		unsigned int channel;
+
+		if (sizebytes < sizeof(unsigned int)) {
+			status = -EINVAL;
+			break;
+		}
+
+		if (of_property_read_u32(device->pdev->dev.of_node,
+			"qcom,macrotiling-channels", &channel)) {
+			/* return error when not set in device tree
+			 * and let user decide.
+			 */
+			status = -EINVAL;
+			break;
+		}
+
+		if (copy_to_user(value, &channel, sizeof(channel))) {
 			status = -EFAULT;
 			break;
 		}

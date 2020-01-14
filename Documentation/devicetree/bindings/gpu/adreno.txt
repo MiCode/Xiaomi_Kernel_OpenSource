@@ -190,6 +190,10 @@ Optional Properties:
 				Based on the ubwc mode, program the appropriate bit into
 				certain protected registers and also pass to the user as
 				a property.
+- qcom,macrotiling-channels:
+				Specify the number of macrotiling channels for this chip.
+				This is programmed into certain registers and also pass to
+				the user as a property.
 - qcom,l2pc-cpu-mask:
 				Disables L2PC on masked CPUs when any of Graphics
 				rendering thread is running on masked CPUs.
