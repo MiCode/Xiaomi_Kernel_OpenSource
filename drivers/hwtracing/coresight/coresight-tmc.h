@@ -278,6 +278,7 @@ extern void tmc_etr_free_mem(struct tmc_drvdata *drvdata);
 extern int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata);
 
 extern const struct coresight_ops tmc_etr_cs_ops;
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode);
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\
