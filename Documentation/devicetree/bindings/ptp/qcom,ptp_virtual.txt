@@ -1,0 +1,17 @@
+* Qcom virtual gPTP Data based shared memory IPC
+
+Required properties:
+- compatible: should contain the core compatibility string
+              and the SoC compatibility string. The SoC
+              compatibility string is to handle SoC specific
+              hardware differences.
+              Core compatibility string:
+                 "qcom,ptp_virtual"
+- reg: address and length of the shared memory for gPTP data
+
+Example:
+
+ptp_virtual {
+	compatible = "qcom,ptp_virtual";
+	reg = <0xeb600000 0x1000>;
+};
