@@ -618,6 +618,7 @@
 		qcom,phy-index = <0>;
 
 		qcom,bond-dual-ctrl = <1 0>;
+		qcom,bond-tri-ctrl = <2 0 1>;
 
 		reg = <0xae90000 0x0dc>,
 			<0xae90200 0x0c0>,
@@ -653,13 +654,15 @@
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK_SRC>,
 			 <&mdss_dp0_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
-			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>;
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>,
+			 <&mdss_dp2_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ref_clk", "core_usb_pipe_clk",
 			"link_clk", "link_iface_clk",
 			"crypto_clk", "pixel_clk_rcg", "pixel_parent",
 			"pixel1_clk_rcg", "pixel1_parent",
-			"strm0_pixel_clk", "strm1_pixel_clk";
+			"strm0_pixel_clk", "strm1_pixel_clk",
+			"bond_pixel_parent";
 
 		qcom,phy-version = <0x420>;
 		qcom,phy-mode = "dp";
@@ -766,13 +769,15 @@
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK_SRC>,
 			 <&mdss_dp1_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL2_CLK>,
-			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>;
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>,
+			 <&mdss_dp2_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ref_clk", "core_usb_pipe_clk",
 			"link_clk", "link_iface_clk",
 			"crypto_clk", "pixel_clk_rcg", "pixel_parent",
 			"pixel1_clk_rcg", "pixel1_parent",
-			"strm0_pixel_clk", "strm1_pixel_clk";
+			"strm0_pixel_clk", "strm1_pixel_clk",
+			"bond_pixel_parent";
 
 		qcom,phy-version = <0x420>;
 		qcom,phy-mode = "dp";
@@ -872,11 +877,13 @@
 			 <&clock_dispcc DISP_CC_MDSS_EDP_LINK_INTF_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_EDP_PIXEL_CLK_SRC>,
 			 <&mdss_edp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
-			 <&clock_dispcc DISP_CC_MDSS_EDP_PIXEL_CLK>;
+			 <&clock_dispcc DISP_CC_MDSS_EDP_PIXEL_CLK>,
+			 <&mdss_dp2_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
 		clock-names = "core_aux_clk", "core_ref_clk",
 			"link_clk", "link_iface_clk",
 			"pixel_clk_rcg", "pixel_parent",
-			"strm0_pixel_clk";
+			"strm0_pixel_clk",
+			"bond_pixel_parent";
 
 		qcom,phy-version = <0x500>;
 		qcom,phy-mode = "edp";
@@ -895,6 +902,7 @@
 
 		qcom,dsc-feature-enable;
 		qcom,fec-feature-enable;
+		qcom,widebus-enable;
 		qcom,max-dp-dsc-blks = <2>;
 		qcom,max-dp-dsc-input-width-pixs = <2048>;
 
