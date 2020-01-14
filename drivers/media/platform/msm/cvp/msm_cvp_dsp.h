@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef MSM_CVP_DSP_H
@@ -13,18 +13,48 @@
 #define CVP_APPS_DSP_GLINK_GUID "cvp-glink-apps-dsp"
 #define CVP_APPS_DSP_SMD_GUID "cvp-smd-apps-dsp"
 
-/*
- * API for CVP driver to send physical address to dsp driver
- * @param phys_addr
- * Physical address of command message queue
- * that needs to be mapped to CDSP.
- * It should be allocated from CMA adsp_mem region.
- *
- * @param size_in_bytes
- * Size in bytes of command message queue
- */
-int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
-	uint32_t size_in_bytes, struct iris_hfi_device *device);
+#define VMID_CDSP_Q6 (30)
+#define HLOS_VM_NUM 1
+#define DSP_VM_NUM 2
+#define CVP_DSP_MAX_RESERVED 5
+#define CVP_DSP_RESPONSE_TIMEOUT 1000
+
+int cvp_dsp_device_init(void);
+void cvp_dsp_device_exit(void);
+void cvp_dsp_send_hfi_queue(void);
+
+enum DSP_COMMAND {
+	CVP_DSP_SEND_HFI_QUEUE = 0,
+	CVP_DSP_SUSPEND = 1,
+	CVP_DSP_RESUME = 2,
+	CVP_DSP_SHUTDOWN = 3,
+	CVP_DSP_REGISTER_BUFFER = 4,
+	CVP_DSP_DEREGISTER_BUFFER = 5,
+	CVP_DSP_MAX_CMD
+};
+
+struct cvp_dsp_cmd_msg {
+	uint32_t type;
+	int32_t ret;
+	uint64_t msg_ptr;
+	uint32_t msg_ptr_len;
+	uint32_t buff_fd_iova;
+	uint32_t buff_index;
+	uint32_t buff_size;
+	uint32_t session_id;
+	int32_t ddr_type;
+	uint32_t buff_fd;
+	uint32_t buff_offset;
+	uint32_t buff_fd_size;
+	uint32_t reserved1;
+	uint32_t reserved2;
+};
+
+struct cvp_dsp_rsp_msg {
+	uint32_t type;
+	int32_t ret;
+	uint32_t reserved[CVP_DSP_MAX_RESERVED];
+};
 
 /*
  * API for CVP driver to suspend CVP session during
@@ -52,13 +82,6 @@ int cvp_dsp_resume(uint32_t session_flag);
  * Flag to share details of session.
  */
 int cvp_dsp_shutdown(uint32_t session_flag);
-
-/*
- * API for CVP driver to set CVP status during
- * cvp subsystem error.
- *
- */
-void cvp_dsp_set_cvp_ssr(void);
 
 /*
  * API to register iova buffer address with CDSP
@@ -91,16 +114,6 @@ int cvp_dsp_deregister_buffer(uint32_t session_id, uint32_t buff_fd,
 			uint32_t buff_fd_size, uint32_t buff_size,
 			uint32_t buff_offset, uint32_t buff_index,
 			uint32_t buff_fd_iova);
-
-/*
- * API to initialize CPU and DSP driver interface
- */
-int cvp_dsp_device_init(void);
-
-/*
- * API to deinitilized CPU and DSP driver interface
- */
-void cvp_dsp_device_exit(void);
 
 #endif // MSM_CVP_DSP_H
 

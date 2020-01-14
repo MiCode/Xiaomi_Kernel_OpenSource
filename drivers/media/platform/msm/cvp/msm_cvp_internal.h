@@ -44,10 +44,6 @@
 #define SYS_MSG_INDEX(__msg) (__msg - SYS_MSG_START)
 #define SESSION_MSG_INDEX(__msg) (__msg - SESSION_MSG_START)
 
-#define call_core_op(c, op, args...)			\
-	(((c) && (c)->core_ops && (c)->core_ops->op) ? \
-	((c)->core_ops->op(args)) : 0)
-
 #define ARP_BUF_SIZE 0x100000
 
 #define CVP_RT_PRIO_THRESHOLD 1
@@ -74,6 +70,14 @@ enum instance_state {
 	MSM_CVP_CLOSE_DONE,
 	MSM_CVP_CORE_UNINIT,
 	MSM_CVP_CORE_INVALID
+};
+
+enum dsp_state {
+	DSP_INVALID,
+	DSP_UNINIT,
+	DSP_PROBED,
+	DSP_READY,
+	DSP_SUSPEND,
 };
 
 struct msm_cvp_list {
@@ -314,9 +318,7 @@ struct msm_cvp_core {
 	bool smmu_fault_handled;
 	u32 last_fault_addr;
 	bool trigger_ssr;
-	unsigned long min_freq;
 	unsigned long curr_freq;
-	struct msm_cvp_core_ops *core_ops;
 	atomic64_t kernel_trans_id;
 };
 

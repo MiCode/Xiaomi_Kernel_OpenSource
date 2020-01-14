@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -26,7 +26,6 @@
 #include "msm_cvp_clocks.h"
 #include "msm_cvp_dsp.h"
 
-#define BASE_DEVICE_NUMBER 32
 #define CLASS_NAME              "cvp"
 #define DRIVER_NAME             "cvp"
 
@@ -34,18 +33,15 @@ struct msm_cvp_drv *cvp_driver;
 
 static int cvp_open(struct inode *inode, struct file *filp)
 {
-	int rc;
 	struct msm_cvp_core *core = container_of(inode->i_cdev,
 		struct msm_cvp_core, cdev);
 	struct msm_cvp_inst *inst;
 
 	dprintk(CVP_DBG, "%s: Enter\n", __func__);
 
-	rc = cvp_dsp_device_init();
 	inst = msm_cvp_open(core->id, MSM_CVP_USER);
-	if (!inst || rc) {
-		dprintk(CVP_ERR,
-		"Failed to create cvp instance rc=%d\n", rc);
+	if (!inst) {
+		dprintk(CVP_ERR, "Failed to create cvp instance\n");
 		return -ENOMEM;
 	}
 	filp->private_data = inst;
@@ -551,8 +547,7 @@ static int __init msm_cvp_init(void)
 {
 	int rc = 0;
 
-	cvp_driver = kzalloc(sizeof(*cvp_driver),
-						GFP_KERNEL);
+	cvp_driver = kzalloc(sizeof(*cvp_driver), GFP_KERNEL);
 	if (!cvp_driver) {
 		dprintk(CVP_ERR,
 			"Failed to allocate memroy for msm_cvp_drv\n");
@@ -581,6 +576,10 @@ static int __init msm_cvp_init(void)
 	cvp_driver->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
 	cvp_driver->frame_buf_cache = KMEM_CACHE(msm_cvp_frame_buf, 0);
 	cvp_driver->internal_buf_cache = KMEM_CACHE(msm_cvp_internal_buffer, 0);
+
+	rc = cvp_dsp_device_init();
+	if (rc)
+		dprintk(CVP_WARN, "Failed to initialize DSP driver\n");
 
 	return rc;
 }

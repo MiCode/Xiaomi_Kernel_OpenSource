@@ -264,7 +264,6 @@ const int cvp_max_packets = 32;
 
 static void iris_hfi_pm_handler(struct work_struct *work);
 static DECLARE_DELAYED_WORK(iris_hfi_pm_work, iris_hfi_pm_handler);
-static void dsp_init_work_handler(struct work_struct *work);
 static inline int __resume(struct iris_hfi_device *device);
 static inline int __suspend(struct iris_hfi_device *device);
 static int __disable_regulators(struct iris_hfi_device *device);
@@ -420,53 +419,12 @@ static void __dump_packet(u8 *packet, enum cvp_msg_prio log_level)
 	}
 }
 
-static int __dsp_send_hfi_queue(struct iris_hfi_device *device)
-{
-	int rc;
-
-	if (msm_cvp_dsp_disable) {
-		dprintk(CVP_WARN, "%s: DSP support is disabled\n", __func__);
-		return 0;
-	}
-
-	if (!device->dsp_iface_q_table.mem_data.dma_handle) {
-		dprintk(CVP_ERR, "%s: invalid dsm_handle\n", __func__);
-		return -EINVAL;
-	}
-
-	if (device->dsp_flags & DSP_INIT) {
-		dprintk(CVP_DBG, "%s: dsp already inited\n", __func__);
-		return 0;
-	}
-
-	dprintk(CVP_DBG, "%s: hfi queue %#llx size %d\n",
-		__func__, device->dsp_iface_q_table.mem_data.dma_handle,
-		device->dsp_iface_q_table.mem_data.size);
-	rc = cvp_dsp_send_cmd_hfi_queue(
-		(phys_addr_t *)device->dsp_iface_q_table.mem_data.dma_handle,
-		device->dsp_iface_q_table.mem_data.size, device);
-	if (rc) {
-		dprintk(CVP_ERR, "%s: dsp hfi queue init failed\n", __func__);
-		return rc;
-	}
-
-	device->dsp_flags |= DSP_INIT;
-	dprintk(CVP_DBG, "%s: dsp inited\n", __func__);
-	return rc;
-}
-
 static int __dsp_suspend(struct iris_hfi_device *device, bool force, u32 flags)
 {
 	int rc;
 	struct cvp_hal_session *temp;
 
 	if (msm_cvp_dsp_disable)
-		return 0;
-
-	if (!(device->dsp_flags & DSP_INIT))
-		return 0;
-
-	if (device->dsp_flags & DSP_SUSPEND)
 		return 0;
 
 	list_for_each_entry(temp, &device->sess_head, list) {
@@ -491,7 +449,6 @@ static int __dsp_suspend(struct iris_hfi_device *device, bool force, u32 flags)
 		return -EINVAL;
 	}
 
-	device->dsp_flags |= DSP_SUSPEND;
 	dprintk(CVP_DBG, "%s: dsp suspended\n", __func__);
 	return 0;
 }
@@ -503,11 +460,6 @@ static int __dsp_resume(struct iris_hfi_device *device, u32 flags)
 	if (msm_cvp_dsp_disable)
 		return 0;
 
-	if (!(device->dsp_flags & DSP_SUSPEND)) {
-		dprintk(CVP_DBG, "%s: dsp not suspended\n", __func__);
-		return 0;
-	}
-
 	dprintk(CVP_DBG, "%s: resume dsp\n", __func__);
 	rc = cvp_dsp_resume(flags);
 	if (rc) {
@@ -517,7 +469,6 @@ static int __dsp_resume(struct iris_hfi_device *device, u32 flags)
 		return rc;
 	}
 
-	device->dsp_flags &= ~DSP_SUSPEND;
 	dprintk(CVP_DBG, "%s: dsp resumed\n", __func__);
 	return rc;
 }
@@ -529,13 +480,6 @@ static int __dsp_shutdown(struct iris_hfi_device *device, u32 flags)
 	if (msm_cvp_dsp_disable)
 		return 0;
 
-	cvp_dsp_set_cvp_ssr();
-
-	if (!(device->dsp_flags & DSP_INIT)) {
-		dprintk(CVP_WARN, "%s: dsp not inited\n", __func__);
-		return 0;
-	}
-
 	dprintk(CVP_DBG, "%s: shutdown dsp\n", __func__);
 	rc = cvp_dsp_shutdown(flags);
 	if (rc) {
@@ -545,7 +489,6 @@ static int __dsp_shutdown(struct iris_hfi_device *device, u32 flags)
 		WARN_ON(1);
 	}
 
-	device->dsp_flags &= ~DSP_INIT;
 	dprintk(CVP_DBG, "%s: dsp shutdown successful\n", __func__);
 	return rc;
 }
@@ -1992,43 +1935,6 @@ static int __sys_set_power_control(struct iris_hfi_device *device,
 	return 0;
 }
 
-static void dsp_init_work_handler(struct work_struct *work)
-{
-	int rc = 0;
-	static int retry_count;
-	struct iris_hfi_device *device;
-
-	if (!work) {
-		dprintk(CVP_ERR, "%s: NULL device\n", __func__);
-		return;
-	}
-
-	device = container_of(work, struct iris_hfi_device, dsp_init_work.work);
-	if (!device) {
-		dprintk(CVP_ERR, "%s: NULL device\n", __func__);
-		return;
-	}
-
-	dprintk(CVP_PROF, "Entering %s\n", __func__);
-
-	mutex_lock(&device->lock);
-	rc = __dsp_send_hfi_queue(device);
-	mutex_unlock(&device->lock);
-
-	if (rc) {
-		if (retry_count > MAX_DSP_INIT_ATTEMPTS) {
-			dprintk(CVP_ERR, "%s: max trials exceeded\n", __func__);
-			return;
-		}
-		dprintk(CVP_PROF, "%s: Attempt to init DSP %d\n",
-			__func__, retry_count);
-
-		schedule_delayed_work(&device->dsp_init_work,
-				msecs_to_jiffies(CVP_MAX_WAIT_TIME));
-		++retry_count;
-	}
-}
-
 static int iris_hfi_core_init(void *device)
 {
 	int rc = 0;
@@ -2115,13 +2021,12 @@ static int iris_hfi_core_init(void *device)
 		pm_qos_add_request(&dev->qos, PM_QOS_CPU_DMA_LATENCY,
 				dev->res->pm_qos_latency_us);
 
-	rc = __dsp_send_hfi_queue(device);
-	if (rc)
-		schedule_delayed_work(&dev->dsp_init_work,
-				msecs_to_jiffies(CVP_MAX_WAIT_TIME));
+	mutex_unlock(&dev->lock);
+
+	cvp_dsp_send_hfi_queue();
 
 	dprintk(CVP_DBG, "Core inited successfully\n");
-	mutex_unlock(&dev->lock);
+
 	return 0;
 err_core_init:
 	__set_state(dev, IRIS_STATE_DEINIT);
@@ -4573,8 +4478,6 @@ static struct iris_hfi_device *__add_device(u32 device_id,
 
 	mutex_init(&hdevice->lock);
 	INIT_LIST_HEAD(&hdevice->sess_head);
-
-	INIT_DELAYED_WORK(&hdevice->dsp_init_work, dsp_init_work_handler);
 
 	return hdevice;
 

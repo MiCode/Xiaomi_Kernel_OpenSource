@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __H_CVP_CORE_HFI_H__
@@ -201,11 +201,6 @@ struct iris_resources {
 	struct msm_cvp_fw fw;
 };
 
-enum dsp_flag {
-	DSP_INIT = BIT(0),
-	DSP_SUSPEND = BIT(1),
-};
-
 enum iris_hfi_state {
 	IRIS_STATE_DEINIT = 1,
 	IRIS_STATE_INIT,
@@ -229,7 +224,6 @@ struct iris_hfi_vpu_ops {
 };
 
 struct iris_hfi_device {
-	struct list_head list;
 	struct list_head sess_head;
 	u32 version;
 	u32 intr_status;
@@ -250,7 +244,6 @@ struct iris_hfi_device {
 	struct cvp_mem_addr mem_addr;
 	struct cvp_iface_q_info iface_queues[CVP_IFACEQ_NUMQ];
 	struct cvp_iface_q_info dsp_iface_queues[CVP_IFACEQ_NUMQ];
-	u32 dsp_flags;
 	struct cvp_hal_data *cvp_hal_data;
 	struct workqueue_struct *cvp_workq;
 	struct workqueue_struct *iris_pm_workq;
@@ -267,7 +260,6 @@ struct iris_hfi_device {
 	unsigned int skip_pc_count;
 	struct msm_cvp_capability *sys_init_capabilities;
 	struct iris_hfi_vpu_ops *vpu_ops;
-	struct delayed_work dsp_init_work;
 };
 
 void cvp_iris_hfi_delete_device(void *device);
