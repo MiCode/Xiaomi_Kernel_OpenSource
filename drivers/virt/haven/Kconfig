@@ -37,4 +37,14 @@ config HH_RM_DRV
 	  interface to other driver in order to obtain the services provided by
 	  the RM-VM.
 
+config HH_DBL
+	tristate "Haven Doorbell driver"
+	help
+	  Haven offers a simple inter VMs(Virtual Machines) communication
+	  through the use of doorbell interrupts. A single doorbell instance
+	  provides an unidirectional communication between two VMs and it acts
+	  like either a source(Tx) or generate(Rx). Individual VMs make use of
+	  these doorbells by calling send and/or a receive primitives exposed by
+	  driver and trigger an interrupt to each other and exchange the data.
+
 endif
