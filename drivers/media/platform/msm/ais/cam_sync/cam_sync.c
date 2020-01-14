@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -937,7 +937,7 @@ static int cam_sync_open(struct file *filep)
 
 	/* return if already initialized before */
 	if (sync_dev->open_cnt > 1) {
-		CAM_ERR(CAM_SYNC, "Already opened", rc);
+		CAM_WARN(CAM_SYNC, "Already opened", rc);
 		goto end;
 	}
 
