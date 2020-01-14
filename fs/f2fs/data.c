@@ -624,10 +624,8 @@ static struct bio *f2fs_grab_read_bio(struct inode *inode, block_t blkaddr,
 		return ERR_PTR(-ENOMEM);
 	f2fs_target_device(sbi, blkaddr, bio);
 	bio->bi_end_io = f2fs_read_end_io;
-	bio_set_op_attrs(bio, REQ_OP_READ,
-			 (IS_ENCRYPTED(inode) ?
-			  REQ_NOENCRYPT :
-			  0));
+	op_flag |= IS_ENCRYPTED(inode) ? REQ_NOENCRYPT : 0;
+	bio_set_op_attrs(bio, REQ_OP_READ, op_flag);
 
 	if (f2fs_encrypted_file(inode) &&
 		!fscrypt_using_hardware_encryption(inode))
