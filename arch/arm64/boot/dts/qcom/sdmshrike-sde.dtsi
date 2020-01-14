@@ -617,6 +617,8 @@
 		qcom,intf-index = <0>;
 		qcom,phy-index = <0>;
 
+		qcom,bond-dual-ctrl = <1 0>;
+
 		reg = <0xae90000 0x0dc>,
 			<0xae90200 0x0c0>,
 			<0xae90400 0x508>,
@@ -678,6 +680,7 @@
 		qcom,dp-aux-bridge-sim = <&sde_dp_mst_sim>;
 		qcom,dsc-feature-enable;
 		qcom,fec-feature-enable;
+		qcom,widebus-enable;
 		qcom,max-dp-dsc-blks = <2>;
 		qcom,max-dp-dsc-input-width-pixs = <2048>;
 
@@ -788,6 +791,7 @@
 
 		qcom,dsc-feature-enable;
 		qcom,fec-feature-enable;
+		qcom,widebus-enable;
 		qcom,max-dp-dsc-blks = <2>;
 		qcom,max-dp-dsc-input-width-pixs = <2048>;
 
