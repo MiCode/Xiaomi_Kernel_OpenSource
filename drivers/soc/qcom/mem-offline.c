@@ -19,7 +19,9 @@
 #include <linux/mailbox/qmp.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
+#include <soc/qcom/rpm-smd.h>
 
+#define RPM_DDR_REQ 0x726464
 #define AOP_MSG_ADDR_MASK		0xffffffff
 #define AOP_MSG_ADDR_HIGH_SHIFT		32
 #define MAX_LEN				96
@@ -27,6 +29,7 @@
 static unsigned long start_section_nr, end_section_nr;
 static struct kobject *kobj;
 static unsigned int offline_granule, sections_per_block;
+static bool is_rpm_controller;
 #define MODULE_CLASS_NAME	"mem-offline"
 #define BUF_LEN			100
 
@@ -52,6 +55,15 @@ static struct mem_offline_mailbox {
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
 } mailbox;
+
+struct memory_refresh_request {
+	u64 start;	/* Lower bit signifies action
+			 * 0 - disable self-refresh
+			 * 1 - enable self-refresh
+			 * upper bits are for base address
+			 */
+	u32 size;	/* size of memory region */
+};
 
 static struct section_stat *mem_info;
 
@@ -119,6 +131,25 @@ void record_stat(unsigned long sec, ktime_t delay, int mode)
 	mem_info[blk_nr].last_recorded_time = delay;
 }
 
+static int mem_region_refresh_control(unsigned long pfn,
+				      unsigned long nr_pages,
+				      bool enable)
+{
+	struct memory_refresh_request mem_req;
+	struct msm_rpm_kvp rpm_kvp;
+
+	mem_req.start = enable;
+	mem_req.start |= pfn << PAGE_SHIFT;
+	mem_req.size = nr_pages * PAGE_SIZE;
+
+	rpm_kvp.key = RPM_DDR_REQ;
+	rpm_kvp.data = (void *)&mem_req;
+	rpm_kvp.length = sizeof(mem_req);
+
+	return msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET, RPM_DDR_REQ, 0,
+				    &rpm_kvp, 1);
+}
+
 static int aop_send_msg(unsigned long addr, bool online)
 {
 	struct qmp_pkt pkt;
@@ -163,9 +194,16 @@ static int send_msg(struct memory_notify *mn, bool online, int count)
 	start = section_nr_to_pfn(base_sec_nr);
 
 	for (i = 0; i < count; ++i) {
-		ret = aop_send_msg(__pfn_to_phys(start), online);
+		if (is_rpm_controller)
+			ret = mem_region_refresh_control(start,
+						 segment_size >> PAGE_SHIFT,
+						 online);
+		else
+			ret = aop_send_msg(__pfn_to_phys(start), online);
+
 		if (ret) {
-			pr_err("PASR: AOP %s request addr:0x%llx failed\n",
+			pr_err("PASR: %s %s request addr:0x%llx failed\n",
+			       is_rpm_controller ? "RPM" : "AOP",
 			       online ? "online" : "offline",
 			       __pfn_to_phys(start));
 			goto undo;
@@ -180,7 +218,13 @@ undo:
 	while (i-- > 0) {
 		int ret;
 
-		ret = aop_send_msg(__pfn_to_phys(start), !online);
+		if (is_rpm_controller)
+			ret = mem_region_refresh_control(start,
+						 segment_size >> PAGE_SHIFT,
+						 !online);
+		else
+			ret = aop_send_msg(__pfn_to_phys(start), !online);
+
 		if (ret)
 			panic("Failed to completely online/offline a hotpluggable segment. A quasi state of memblock can cause randomn system failures.");
 		start = __phys_to_pfn(__pfn_to_phys(start) + segment_size);
@@ -528,6 +572,11 @@ static int mem_parse_dt(struct platform_device *pdev)
 	     (MIN_MEMORY_BLOCK_SIZE % (offline_granule * SZ_1M)))) {
 		pr_err("mem-offine: invalid granule property\n");
 		return -EINVAL;
+	}
+
+	if (!of_find_property(node, "mboxes", NULL)) {
+		is_rpm_controller = true;
+		return 0;
 	}
 
 	mailbox.cl.dev = &pdev->dev;
