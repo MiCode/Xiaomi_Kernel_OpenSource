@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -621,7 +621,7 @@ struct ipa_pkt_status_hw {
 #define IPA_HDR_UCP_ETHII_TO_ETHII		9
 #define IPA_HDR_UCP_L2TP_HEADER_ADD		10
 #define IPA_HDR_UCP_L2TP_HEADER_REMOVE		11
-#define IPA_HDR_UCP_L2TP_UDP_HEADER_ADD	12
+#define IPA_HDR_UCP_L2TP_UDP_HEADER_ADD		12
 #define IPA_HDR_UCP_L2TP_UDP_HEADER_REMOVE	13
 #define IPA_HDR_UCP_ETHII_TO_ETHII_EX		14
 
@@ -758,6 +758,17 @@ struct ipa_hw_hdr_proc_ctx_add_hdr_ex {
 struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex {
 	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
 	struct ipa_hw_hdr_proc_ctx_add_hdr_ex hdr_add_ex;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_remove_l2tp_udp_hdr_cmd_seq -
+ * IPA processing context header - process command sequence
+ * @l2tp_params: l2tp params for header removal
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_remove_l2tp_udp_hdr_cmd_seq {
+	struct ipa_hw_hdr_proc_ctx_l2tp_remove_hdr l2tp_params;
 	struct ipa_hw_hdr_proc_ctx_tlv end;
 };
 
