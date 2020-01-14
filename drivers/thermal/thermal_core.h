@@ -126,6 +126,8 @@ void of_thermal_handle_trip(struct device *dev,
 void of_thermal_handle_trip_temp(struct device *dev,
 				struct thermal_zone_device *tz,
 				int trip_temp);
+int thermal_debug_init(void);
+void thermal_debug_exit(void);
 #else
 static inline int of_thermal_aggregate_trip(struct device *dev,
 					    struct thermal_zone_device *tz,
@@ -140,6 +142,12 @@ void of_thermal_handle_trip(struct device *dev, struct thermal_zone_device *tz)
 static inline
 void of_thermal_handle_trip_temp(struct device *dev,
 				 struct thermal_zone_device *tz, int trip_temp)
+{ }
+static inline int thermal_debug_init(void)
+{
+	return -ENODEV;
+}
+static inline void thermal_debug_exit(void)
 { }
 #endif
 

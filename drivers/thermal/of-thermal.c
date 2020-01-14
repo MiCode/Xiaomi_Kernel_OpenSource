@@ -466,8 +466,19 @@ static int of_thermal_set_mode(struct thermal_zone_device *tz,
 	mutex_lock(&tz->lock);
 
 	if (mode == THERMAL_DEVICE_ENABLED) {
+#ifdef CONFIG_QTI_THERMAL
+		if (!tz->polling_delay)
+			tz->polling_delay = data->polling_delay;
+		else
+			data->polling_delay = tz->polling_delay;
+		if (!tz->passive_delay)
+			tz->passive_delay = data->passive_delay;
+		else
+			data->passive_delay = tz->passive_delay;
+#else
 		tz->polling_delay = data->polling_delay;
 		tz->passive_delay = data->passive_delay;
+#endif
 	} else {
 		tz->polling_delay = 0;
 		tz->passive_delay = 0;
