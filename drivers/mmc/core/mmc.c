@@ -2702,14 +2702,14 @@ static int mmc_suspend(struct mmc_host *host)
  */
 static int _mmc_resume(struct mmc_host *host)
 {
-	int err = -EINVAL;
+	int err = 0;
 	int retries = 3;
 
 	mmc_claim_host(host);
 
 	if (!mmc_card_suspended(host->card)) {
 		mmc_release_host(host);
-		goto out;
+		return err;
 	}
 
 	mmc_log_string(host, "Enter\n");
@@ -2724,7 +2724,7 @@ static int _mmc_resume(struct mmc_host *host)
 						mmc_hostname(host), __func__,
 						err);
 		}
-		if (err) {
+		if (!mmc_can_sleepawake(host) || err) {
 			err = mmc_init_card(host, host->card->ocr, host->card);
 			if (err) {
 				pr_err("%s: MMC card re-init failed rc = %d (retries = %d)\n",
@@ -2749,7 +2749,7 @@ static int _mmc_resume(struct mmc_host *host)
 	if (err)
 		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
 			mmc_hostname(host), __func__, err);
-out:
+
 	return err;
 }
 
