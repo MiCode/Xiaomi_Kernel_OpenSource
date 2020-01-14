@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,12 +186,12 @@ static inline int ipa_pm_exceptions_stat(char *buf, int size)
 	return -EPERM;
 }
 
-static inline int ipa_pm_add_dummy_clients(s8 power_plan);
+static inline int ipa_pm_add_dummy_clients(s8 power_plan)
 {
 	return -EPERM;
 }
 
-static inline int ipa_pm_remove_dummy_clients(void);
+static inline int ipa_pm_remove_dummy_clients(void)
 {
 	return -EPERM;
 }

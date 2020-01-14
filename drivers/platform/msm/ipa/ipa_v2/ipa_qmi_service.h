@@ -16,7 +16,7 @@
 #include <linux/ipa.h>
 #include <linux/ipa_qmi_service_v01.h>
 #include <uapi/linux/msm_rmnet.h>
-#include <soc/qcom/msm_qmi_interface.h>
+#include <linux/soc/qcom/qmi.h>
 #include "ipa_i.h"
 #include <linux/rmnet_ipa_fd_ioctl.h>
 
@@ -88,6 +88,8 @@ int num_ipa_fltr_installed_notif_req_msg;
 struct ipa_fltr_installed_notif_req_msg_v01
 		ipa_fltr_installed_notif_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
 bool modem_cfg_emb_pipe_flt;
+struct sockaddr_qrtr client_sq;
+struct sockaddr_qrtr server_sq;
 };
 
 struct rmnet_mux_val {
@@ -99,30 +101,34 @@ struct rmnet_mux_val {
 	uint32_t  hdr_hdl;
 };
 
-extern struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[];
-extern struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_indication_reg_req_msg_data_v01_ei[];
-extern struct elem_info ipa_indication_reg_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_master_driver_init_complt_ind_msg_data_v01_ei[];
-extern struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[];
-extern struct elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[];
-extern struct elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_enable_force_clear_datapath_req_msg_data_v01_ei[];
-extern struct elem_info ipa_enable_force_clear_datapath_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_disable_force_clear_datapath_req_msg_data_v01_ei[];
-extern struct elem_info ipa_disable_force_clear_datapath_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_config_req_msg_data_v01_ei[];
-extern struct elem_info ipa_config_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_get_data_stats_req_msg_data_v01_ei[];
-extern struct elem_info ipa_get_data_stats_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_get_apn_data_stats_req_msg_data_v01_ei[];
-extern struct elem_info ipa_get_apn_data_stats_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_set_data_usage_quota_req_msg_data_v01_ei[];
-extern struct elem_info ipa_set_data_usage_quota_resp_msg_data_v01_ei[];
-extern struct elem_info ipa_data_usage_quota_reached_ind_msg_data_v01_ei[];
-extern struct elem_info ipa_stop_data_usage_quota_req_msg_data_v01_ei[];
-extern struct elem_info ipa_stop_data_usage_quota_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_init_modem_driver_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_indication_reg_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_indication_reg_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_master_driver_init_complt_ind_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[];
+extern struct
+	qmi_elem_info ipa_enable_force_clear_datapath_req_msg_data_v01_ei[];
+extern struct
+	qmi_elem_info ipa_enable_force_clear_datapath_resp_msg_data_v01_ei[];
+extern struct
+	qmi_elem_info ipa_disable_force_clear_datapath_req_msg_data_v01_ei[];
+extern struct
+	qmi_elem_info ipa_disable_force_clear_datapath_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_config_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_config_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_get_data_stats_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_get_data_stats_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_get_apn_data_stats_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_get_apn_data_stats_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_set_data_usage_quota_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_set_data_usage_quota_resp_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_data_usage_quota_reached_ind_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_stop_data_usage_quota_req_msg_data_v01_ei[];
+extern struct qmi_elem_info ipa_stop_data_usage_quota_resp_msg_data_v01_ei[];
 
 /**
  * struct ipa_rmnet_context - IPA rmnet context

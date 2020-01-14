@@ -442,7 +442,7 @@ int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 
 int ipa2_wdi_init(void)
 {
-	struct ipa_uc_hdlrs uc_wdi_cbs = { 0 };
+	struct ipa_uc_hdlrs uc_wdi_cbs = { NULL};
 
 	uc_wdi_cbs.ipa_uc_event_hdlr = ipa_uc_wdi_event_handler;
 	uc_wdi_cbs.ipa_uc_event_log_info_hdlr =
