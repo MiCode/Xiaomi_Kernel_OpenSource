@@ -133,7 +133,7 @@
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			capacity-dmips-mhz = <1946>;
-			dynamic-power-coefficient = <454>;
+			dynamic-power-coefficient = <515>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_4>;
 			L2_4: l2-cache {
@@ -152,7 +152,7 @@
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			capacity-dmips-mhz = <1946>;
-			dynamic-power-coefficient = <454>;
+			dynamic-power-coefficient = <515>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_5>;
 			L2_5: l2-cache {
@@ -171,7 +171,7 @@
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			capacity-dmips-mhz = <1946>;
-			dynamic-power-coefficient = <454>;
+			dynamic-power-coefficient = <515>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_6>;
 			L2_6: l2-cache {
@@ -190,7 +190,7 @@
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			capacity-dmips-mhz = <2048>;
-			dynamic-power-coefficient = <704>;
+			dynamic-power-coefficient = <845>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_7>;
 			L2_7: l2-cache {
