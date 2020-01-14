@@ -3337,9 +3337,10 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 	}
 
 	desc = kcalloc(2, sizeof(struct ipa3_desc), GFP_KERNEL);
-	if (!desc)
+	if (!desc) {
 		retval = -ENOMEM;
 		goto free_empty_img;
+	}
 
 	cmd_pyld = kcalloc(2, sizeof(struct ipahal_imm_cmd_pyld *), GFP_KERNEL);
 	if (!cmd_pyld) {
