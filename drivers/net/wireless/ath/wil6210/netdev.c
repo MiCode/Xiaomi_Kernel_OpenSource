@@ -127,6 +127,9 @@ static u16 wil_select_queue(struct net_device *ndev,
 	else if (skb->priority == 0 || skb->priority > 7)
 		skb->priority = cfg80211_classify8021d(skb, NULL);
 
+	if (unlikely(skb->priority >= ARRAY_SIZE(wil_1d_to_queue)))
+		skb->priority = 0;
+
 	qid = wil_1d_to_queue[skb->priority];
 
 	wil_dbg_txrx(wil, "select queue for priority %d -> queue %d\n",

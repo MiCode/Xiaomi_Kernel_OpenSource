@@ -361,6 +361,7 @@ struct cnss_plat_data {
 	u64 dynamic_feature;
 	void *get_info_cb_ctx;
 	int (*get_info_cb)(void *ctx, void *event, int event_len);
+	u8 use_nv_mac;
 };
 
 #ifdef CONFIG_ARCH_QCOM

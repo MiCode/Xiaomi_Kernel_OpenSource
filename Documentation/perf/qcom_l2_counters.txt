@@ -1,0 +1,63 @@
+Qualcomm Technologies, Inc. l2 Cache counters
+=============================================
+
+This driver supports the L2 cache clusters counters found in
+Qualcomm Technologies, Inc.
+
+There are multiple physical L2 cache clusters, each with their
+own counters. Each cluster has one or more CPUs associated with it.
+
+There is one logical L2 PMU exposed, which aggregates the results from
+the physical PMUs(counters).
+
+The driver provides a description of its available events and configuration
+options in sysfs, see /sys/devices/l2cache_counters.
+
+The "format" directory describes the format of the events.
+
+And format is of the form 0xXXX
+Where,
+
+  1 bit(lsb) for group (group is either txn/tenure counter).
+  4 bits for serial number for counter starting from 0 to 8.
+  5 bits for bit position of counter enable bit in a register.
+
+The driver provides a "cpumask" sysfs attribute which contains a mask
+consisting of one CPU per cluster which will be used to handle all the PMU
+events on that cluster.
+
+Examples for use with perf:
+
+  perf stat -e l2cache_counters/ddr_read/,l2cache_counters/ddr_write/ -a sleep 1
+
+  perf stat -e l2cache_counters/cycles/ -C 2 sleep 1
+
+Limitation: The driver does not support sampling, therefore "perf record" will
+not work. Per-task perf sessions are not supported.
+
+For transaction counters we don't need to set any configuration
+before monitoring.
+
+For tenure counter use case, we need to set threshold value of low and mid
+range occurrence counter value of cluster(as these occurrence counter exist
+for each cluster) in sysfs.
+
+echo 1 > /sys/bus/eventsource/devices/l2cache_counters/which_cluster_tenure
+echo X > /sys/bus/event_source/devices/l2cache_counters/low_tenure_threshold
+echo Y > /sys/bus/event_source/devices/l2cache_counters/mid_tenure_threshold
+Here, X < Y
+
+e.g:
+
+  perf stat -e l2cache_counters/low_range_occur/ -e
+  l2cache_counters/mid_range_occur/ -e l2cache_counters/high_range
+  _occur/ -C 4 sleep 10
+
+ Performance counter stats for 'CPU(s) 4':
+
+                 7      l2cache_counters/low_range_occur/
+                 5      l2cache_counters/mid_range_occur/
+                 7      l2cache_counters/high_range_occur/
+
+      10.204140400 seconds time elapsed
+

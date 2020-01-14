@@ -129,6 +129,7 @@ struct synx_obj_node {
  *
  * @name              : Optional string representation of the synx object
  * @fence             : dma fence backing the synx object
+ * @spinlock          : Spinlock for the dma fence
  * @synx_obj_list     : List of synx integer handles mapped
  * @index             : Index of the spin lock table associated with synx obj
  * @num_bound_synxs   : Number of external bound synx objects
@@ -141,6 +142,7 @@ struct synx_obj_node {
 struct synx_table_row {
 	char name[SYNX_OBJ_NAME_LEN];
 	struct dma_fence *fence;
+	spinlock_t *spinlock;
 	struct list_head synx_obj_list;
 	s32 index;
 	u32 num_bound_synxs;
@@ -190,7 +192,7 @@ struct synx_import_data {
  * @dev           : Device type
  * @class         : Device class
  * @synx_table    : Table of all synx objects
- * @row_spinlocks : Spinlock array, one for each row in the table
+ * @row_locks     : Mutex lock array, one for each row in the table
  * @table_lock    : Mutex used to lock the table
  * @open_cnt      : Count of file open calls made on the synx driver
  * @work_queue    : Work queue used for dispatching kernel callbacks
@@ -211,7 +213,7 @@ struct synx_device {
 	dev_t dev;
 	struct class *class;
 	struct synx_table_row synx_table[SYNX_MAX_OBJS];
-	spinlock_t row_spinlocks[SYNX_MAX_OBJS];
+	struct mutex row_locks[SYNX_MAX_OBJS];
 	struct mutex table_lock;
 	int open_cnt;
 	struct workqueue_struct *work_queue;
@@ -233,14 +235,14 @@ struct synx_device {
  * specific details
  *
  * @device      : Pointer to synx device structure
- * @eventq_lock : Spinlock for the event queue
+ * @eventq_lock : Mutex for the event queue
  * @wq          : Queue for the polling process
  * @eventq      : All the user callback payloads
  * @list        : List member used to append this node to client_list
  */
 struct synx_client {
 	struct synx_device *device;
-	spinlock_t eventq_lock;
+	struct mutex eventq_lock;
 	wait_queue_head_t wq;
 	struct list_head eventq;
 	struct list_head list;

@@ -754,7 +754,6 @@ static struct clk_alpha_pll_postdiv gpll8_out_main = {
 		.name = "gpll8_out_main",
 		.parent_names = (const char *[]){ "gpll8" },
 		.num_parents = 1,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_alpha_pll_postdiv_ro_ops,
 	},
 };
@@ -1880,7 +1879,7 @@ static struct clk_rcg2 gcc_video_venus_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 133000000,
+			[VDD_LOWER] = 133333333,
 			[VDD_LOW] = 240000000,
 			[VDD_LOW_L1] = 300000000,
 			[VDD_NOMINAL] = 384000000},
