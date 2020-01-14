@@ -27,6 +27,11 @@ struct hh_rm_rpc_reply_hdr {
 	u32 err_code;
 } __packed;
 
+/* VM specific properties to be cached */
+struct hh_vm_property {
+	hh_vmid_t vmid;
+};
+
 /* RPC Header versions */
 #define HH_RM_RPC_HDR_VERSION_ONE	0x1
 
@@ -87,6 +92,26 @@ struct hh_rm_rpc_reply_hdr {
 /* End Call type Message IDs */
 /* End RPC Message IDs */
 
+/* Call: VM_ALLOCATE */
+struct hh_vm_allocate_req_payload {
+	u8 vmid:4;
+	u8 reserved:4;
+} __packed;
+
+struct hh_vm_allocate_resp_payload {
+	u32 vmid;
+} __packed;
+
+/* Call: VM_START */
+struct hh_vm_start_req_payload {
+	u8 vmid:4;
+	u8 reserved:4;
+} __packed;
+
+struct hh_vm_start_resp_payload {
+	u32 response;
+} __packed;
+
 /* Message ID headers */
 /* Call: VM_GET_HYP_RESOURCES */
 #define HH_RM_RES_TYPE_DB_TX	0
@@ -129,6 +154,8 @@ struct hh_vm_irq_accept_resp_payload {
 /* End Message ID headers */
 
 /* Common function declerations */
+int hh_update_vm_prop_table(enum hh_vm_names vm_name,
+			struct hh_vm_property *vm_prop);
 void *hh_rm_call(hh_rm_msgid_t message_id,
 			void *req_buff, size_t req_buff_size,
 			size_t *resp_buff_size, int *reply_err_code);
