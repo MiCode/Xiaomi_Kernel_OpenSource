@@ -126,7 +126,7 @@ static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 {
 	int i;
 
-	if (!clk || !mux || !(mux->init->flags & CLK_IS_MEASURE))
+	if (!clk || !mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
 		return -EINVAL;
 
 	if (!clk_set_parent(mux->clk, clk->clk))
@@ -146,17 +146,20 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 {
 	int i, num_parents = clk_hw_get_num_parents(hw);
 	struct clk_hw *hw_clk = clk_hw_get_parent(hw);
+	const char *parent;
 
 	if (!hw_clk)
 		return 0;
+
 	for (i = 0; i < num_parents; i++) {
-		if (!strcmp(hw->init->parent_names[i],
-					clk_hw_get_name(hw_clk))) {
+		parent = clk_hw_get_name(clk_hw_get_parent_by_index(hw, i));
+		if (!strcmp(parent, clk_hw_get_name(hw_clk))) {
 			pr_debug("%s: clock parent - %s, index %d\n", __func__,
-					hw->init->parent_names[i], i);
+				parent, i);
 			return i;
 		}
 	}
+
 	return 0;
 }
 
@@ -192,7 +195,7 @@ static void enable_debug_clks(struct clk_hw *mux)
 	struct clk_debug_mux *meas = to_clk_measure(mux);
 	struct clk_hw *parent;
 
-	if (!mux || !(mux->init->flags & CLK_IS_MEASURE))
+	if (!mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
 		return;
 
 	parent = clk_hw_get_parent(mux);
@@ -211,7 +214,7 @@ static void disable_debug_clks(struct clk_hw *mux)
 	struct clk_debug_mux *meas = to_clk_measure(mux);
 	struct clk_hw *parent;
 
-	if (!mux || !(mux->init->flags & CLK_IS_MEASURE))
+	if (!mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
 		return;
 
 	meas->en_mask = meas->en_mask ? meas->en_mask : CBCR_ENA;
@@ -230,7 +233,7 @@ static u32 get_mux_divs(struct clk_hw *mux)
 	struct clk_hw *parent;
 	u32 div_val;
 
-	if (!mux || !(mux->init->flags & CLK_IS_MEASURE))
+	if (!mux || !(clk_hw_get_flags(mux) & CLK_IS_MEASURE))
 		return 1;
 
 	WARN_ON(!meas->post_div_val);
@@ -335,7 +338,7 @@ void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 		return;
 	meas_parent = to_clk_measure(parent);
 
-	if (parent->init->flags & CLK_IS_MEASURE && !meas_parent->mux_sels)
+	if (clk_hw_get_flags(parent) & CLK_IS_MEASURE && !meas_parent->mux_sels)
 		debugfs_create_file("clk_measure", 0444, dentry, hw,
 					&clk_read_period_fops);
 	else
@@ -347,7 +350,7 @@ EXPORT_SYMBOL(clk_debug_measure_add);
 int clk_debug_measure_register(struct clk_hw *hw)
 {
 	if (IS_ERR_OR_NULL(measure)) {
-		if (hw->init->flags & CLK_IS_MEASURE) {
+		if (clk_hw_get_flags(hw) & CLK_IS_MEASURE) {
 			measure = hw;
 			return 0;
 		}
