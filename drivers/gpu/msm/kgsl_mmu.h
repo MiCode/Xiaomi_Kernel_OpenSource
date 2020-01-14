@@ -125,6 +125,8 @@ enum kgsl_mmu_feature {
 	 * "alternate" secure context name
 	 */
 	KGSL_MMU_SECURE_CB_ALT,
+	/** @KGSL_MMU_LLC_ENABLE: Set if LLC is activated for the target */
+	KGSL_MMU_LLCC_ENABLE,
 };
 
 /**

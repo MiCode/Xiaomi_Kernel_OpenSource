@@ -1388,6 +1388,26 @@ static int adreno_probe_efuse(struct platform_device *pdev,
 	return 0;
 }
 
+static void adreno_probe_llcc(struct adreno_device *adreno_dev,
+		struct platform_device *pdev)
+{
+	int ret;
+
+	/* Get the system cache slice descriptor for GPU */
+	adreno_dev->gpu_llc_slice = llcc_slice_getd(LLCC_GPU);
+	ret = PTR_ERR_OR_ZERO(adreno_dev->gpu_llc_slice);
+	if (ret && ret != -ENOENT)
+		dev_warn(&pdev->dev, "Unable to get the GPU LLC slice: %d\n",
+			ret);
+
+	/* Get the system cache slice descriptor for GPU pagetables */
+	adreno_dev->gpuhtw_llc_slice = llcc_slice_getd(LLCC_GPUHTW);
+	ret = PTR_ERR_OR_ZERO(adreno_dev->gpuhtw_llc_slice);
+	if (ret && ret != -ENOENT)
+		dev_warn(&pdev->dev, "Unable to get GPU HTW LLC slice: %d\n",
+			ret);
+}
+
 static const struct kgsl_functable adreno_functable;
 
 static void adreno_setup_device(struct adreno_device *adreno_dev)
@@ -1513,6 +1533,16 @@ static int adreno_bind(struct device *dev)
 	device->mmu.secured = (IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER) &&
 		ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION));
 
+	/* Probe the LLCC */
+	adreno_probe_llcc(adreno_dev, pdev);
+
+	/*
+	 * IF the GPU HTW slice was successsful set the MMU feature so the
+	 * domain can set the appropriate attributes
+	 */
+	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
+		kgsl_mmu_set_feature(device, KGSL_MMU_LLCC_ENABLE);
+
 	status = kgsl_device_platform_probe(device);
 	if (status)
 		goto err;
@@ -1566,22 +1596,6 @@ static int adreno_bind(struct device *dev)
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
-
-	/* Get the system cache slice descriptor for GPU */
-	adreno_dev->gpu_llc_slice = llcc_slice_getd(LLCC_GPU);
-	if (IS_ERR(adreno_dev->gpu_llc_slice) &&
-			PTR_ERR(adreno_dev->gpu_llc_slice) != -ENOENT)
-		dev_warn(device->dev,
-			"Failed to get GPU LLC slice descriptor %ld\n",
-			PTR_ERR(adreno_dev->gpu_llc_slice));
-
-	/* Get the system cache slice descriptor for GPU pagetables */
-	adreno_dev->gpuhtw_llc_slice = llcc_slice_getd(LLCC_GPUHTW);
-	if (IS_ERR(adreno_dev->gpuhtw_llc_slice) &&
-			PTR_ERR(adreno_dev->gpuhtw_llc_slice) != -ENOENT)
-		dev_warn(device->dev,
-			"Failed to get gpuhtw LLC slice descriptor %ld\n",
-			PTR_ERR(adreno_dev->gpuhtw_llc_slice));
 
 #ifdef CONFIG_INPUT
 	if (!device->pwrctrl.input_disable) {

@@ -1056,31 +1056,27 @@ static void _free_pt(struct kgsl_iommu_context *ctx, struct kgsl_pagetable *pt)
 }
 
 static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu,
-		struct kgsl_iommu_pt *iommu_pt)
+		struct iommu_domain *domain)
 {
-	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int gpuhtw_llc_enable = 1;
-	int ret;
+	int attr, ret;
+	u32 val = 1;
 
-	/* GPU pagetable walk LLC slice not enabled */
-	if (IS_ERR(adreno_dev->gpuhtw_llc_slice))
+	if (!test_bit(KGSL_MMU_LLCC_ENABLE, &mmu->features))
 		return;
 
-	/* Domain attribute to enable system cache for GPU pagetable walks */
 	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
-		ret = iommu_domain_set_attr(iommu_pt->domain,
-			DOMAIN_ATTR_USE_LLC_NWA, &gpuhtw_llc_enable);
+		attr = DOMAIN_ATTR_USE_LLC_NWA;
 	else
-		ret = iommu_domain_set_attr(iommu_pt->domain,
-			DOMAIN_ATTR_USE_UPSTREAM_HINT, &gpuhtw_llc_enable);
+		attr = DOMAIN_ATTR_USE_UPSTREAM_HINT;
+
+	ret = iommu_domain_set_attr(domain, attr, &val);
 
 	/*
-	 * Warn that the system cache will not be used for GPU
+	 * Warn once if the system cache will not be used for GPU
 	 * pagetable walks. This is not a fatal error.
 	 */
-	WARN_ONCE(ret,
-		"System cache not enabled for GPU pagetable walks: %d\n", ret);
+	WARN_ONCE(ret, "System cache not enabled for GPU pagetable walks: %d\n",
+		ret);
 }
 
 static int set_smmu_aperture(struct kgsl_device *device, int cb_num)
@@ -1124,7 +1120,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		}
 	}
 
-	_enable_gpuhtw_llc(mmu, iommu_pt);
+	_enable_gpuhtw_llc(mmu, iommu_pt->domain);
 
 	ret = _attach_pt(iommu_pt, ctx);
 	if (ret)
@@ -1189,7 +1185,7 @@ static int _init_global_lpac_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	if (IS_ERR(iommu_pt))
 		return PTR_ERR(iommu_pt);
 
-	_enable_gpuhtw_llc(mmu, iommu_pt);
+	_enable_gpuhtw_llc(mmu, iommu_pt->domain);
 
 	ret = _attach_pt(iommu_pt, ctx);
 	if (ret)
@@ -1255,7 +1251,7 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	_enable_gpuhtw_llc(mmu, iommu_pt);
+	_enable_gpuhtw_llc(mmu, iommu_pt->domain);
 
 	ret = _attach_pt(iommu_pt, ctx);
 
@@ -1325,7 +1321,7 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	_enable_gpuhtw_llc(mmu, iommu_pt);
+	_enable_gpuhtw_llc(mmu, iommu_pt->domain);
 
 	ret = _attach_pt(iommu_pt, ctx);
 	if (ret)
