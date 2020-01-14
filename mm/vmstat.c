@@ -1176,6 +1176,9 @@ const char * const vmstat_text[] = {
 	/* enum vm_event_item counters */
 	"pgpgin",
 	"pgpgout",
+#ifdef CONFIG_VM_EVENT_COUNT_CLEAN_PAGE_RECLAIM
+	"pgpgoutclean",
+#endif
 	"pswpin",
 	"pswpout",
 

@@ -1779,6 +1779,18 @@ config VM_EVENT_COUNTERS
 	  on EXPERT systems.  /proc/vmstat will only show page counts
 	  if VM event counters are disabled.
 
+config VM_EVENT_COUNT_CLEAN_PAGE_RECLAIM
+	bool "Track the number of clean pages reclaimed from the page cache"
+	depends on VM_EVENT_COUNTERS
+	help
+	  VM event counters currently maintain a count of the pages that
+	  get dropped from the page cache as a part of memory reclaim.
+	  However, this count only tracks the number of dirty pages that
+	  get dropped, and does not account for the clean pages that get
+	  dropped as well. Enable this to also account for the clean pages
+	  that get dropped as part of memory reclaim to get a more holistic
+	  view of what is happening during memory reclaim.
+
 config SLUB_DEBUG
 	default y
 	bool "Enable SLUB debugging support" if EXPERT
