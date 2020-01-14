@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RMNET_QMI_I_H
@@ -36,6 +36,8 @@ struct rmnet_bearer_map {
 	u8  ack_req;
 	u32 last_grant;
 	u16 last_seq;
+	u32 bytes_in_flight;
+	u32 last_adjusted_grant;
 	bool tcp_bidir;
 	bool rat_switch;
 	bool tx_off;
