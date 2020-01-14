@@ -418,15 +418,15 @@ static int mhi_force_suspend(struct mhi_controller *mhi_cntrl)
 		msleep(delayms);
 	}
 
-	if (ret)
+	if (ret) {
+		MHI_ERR("Force suspend ret with %d\n", ret);
 		goto exit_force_suspend;
+	}
 
 	mhi_dev->suspend_mode = MHI_DEFAULT_SUSPEND;
 	ret = mhi_arch_link_suspend(mhi_cntrl);
 
 exit_force_suspend:
-	MHI_LOG("Force suspend ret with %d\n", ret);
-
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	return ret;
@@ -634,8 +634,10 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		 */
 		pm_runtime_get(dev);
 		ret = mhi_force_suspend(mhi_cntrl);
-		if (!ret)
+		if (!ret) {
+			MHI_LOG("Attempt resume after forced suspend\n");
 			mhi_runtime_resume(dev);
+		}
 		pm_runtime_put(dev);
 		mhi_arch_mission_mode_enter(mhi_cntrl);
 		break;
