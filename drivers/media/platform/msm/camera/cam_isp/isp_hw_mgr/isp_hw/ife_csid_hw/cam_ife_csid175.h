@@ -1,4 +1,5 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +54,10 @@ static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ipp_reg_offset = {
 	/* configurations */
 	.pix_store_en_shift_val              = 7,
 	.early_eof_en_shift_val              = 29,
+#ifdef CONFIG_CSID_CAMERA
+	.binning_enable_shift_val			 = 2,
+	.binning_mode_shift_val 			 = 30,
+#endif
 };
 
 static struct cam_ife_csid_pxl_reg_offset  cam_ife_csid_175_ppp_reg_offset = {
@@ -334,10 +339,6 @@ static struct cam_ife_csid_common_reg_offset
 	.ppp_irq_mask_all                             = 0xFFFF,
 	.measure_en_hbi_vbi_cnt_mask                  = 0xC,
 	.format_measure_en_val                        = 1,
-	.format_measure_height_mask_val               = 0xFFFF,
-	.format_measure_height_shift_val              = 0x10,
-	.format_measure_width_mask_val                = 0xFFFF,
-	.format_measure_width_shift_val               = 0x0,
 };
 
 static struct cam_ife_csid_reg_offset cam_ife_csid_175_reg_offset = {

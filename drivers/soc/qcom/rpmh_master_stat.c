@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,6 +161,52 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 
 	return length;
 }
+
+void system_sleep_status_print_enabled_data(struct msm_rpmh_master_stats *record,
+				const char *name)
+{
+	uint64_t accumulated_duration = record->accumulated_duration;
+	/*
+	 * If a master is in sleep when reading the sleep stats from SMEM
+	 * adjust the accumulated sleep duration to show actual sleep time.
+	 * This ensures that the displayed stats are real when used for
+	 * the purpose of computing battery utilization.
+	 */
+	if (record->last_entered > record->last_exited)
+		accumulated_duration +=
+				(arch_counter_get_cntvct()
+				- record->last_entered);
+
+	pr_info("%s---Sleep count 0x%x\n", name, record->counts);
+	pr_info("       last entered 0x%llx\n", record->last_entered);
+	pr_info("       last exited 0x%llx\n", record->last_exited);
+	pr_info("       accumaulated duration 0x%llx\n", accumulated_duration);
+}
+
+void system_sleep_status_print_enabled(void)
+{
+	size_t size = 0;
+	int i = 0;
+	struct msm_rpmh_master_stats *record = NULL;
+
+	mutex_lock(&rpmh_stats_mutex);
+
+	system_sleep_status_print_enabled_data(&apss_master_stats, "APSS");
+
+        for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
+                record = (struct msm_rpmh_master_stats *) qcom_smem_get(
+                                        rpmh_masters[i].pid,
+                                        rpmh_masters[i].smem_id, &size);
+                if (!IS_ERR_OR_NULL(record)) {
+			system_sleep_status_print_enabled_data(record, rpmh_masters[i].master_name);
+		}
+	}
+
+	mutex_unlock(&rpmh_stats_mutex);
+}
+
+EXPORT_SYMBOL_GPL(system_sleep_status_print_enabled);
+
 
 static inline void msm_rpmh_apss_master_stats_update(
 				struct msm_rpmh_profile_unit *profile_unit)

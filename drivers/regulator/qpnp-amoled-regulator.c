@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +47,17 @@
 
 /* IBB */
 #define IBB_PD_CTL(chip)		(chip->ibb_base + 0x47)
+#define IBB_CURR_SENSE(chip)		(chip->ibb_base + 0x4C)
 #define IBB_PS_CTL(chip)		(chip->ibb_base + 0x50)
+#define IBB_PWM_CTL1(chip)		(chip->ibb_base + 0x51)
+#define IBB_PWM_CTL3(chip)		(chip->ibb_base + 0x53)
+#define IBB_SPARE_CTL(chip)		(chip->ibb_base + 0x60)
+
 #define IBB_NLIMIT_DAC(chip)		(chip->ibb_base + 0x61)
 #define IBB_SMART_PS_CTL(chip)		(chip->ibb_base + 0x65)
+#define IBB_ERR_AMP_THR2(chip)		(chip->ibb_base + 0x76)
+#define IBB_TRIM_CTL2(chip)		(chip->ibb_base + 0xF2)
+#define IBB_TRIM_CTL3(chip)		(chip->ibb_base + 0xF3)
 
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)
@@ -742,6 +751,48 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 	return 0;
 }
 
+static int qpnp_amoled_apply_2p2uh_settings(struct qpnp_amoled *chip)
+{
+	int rc;
+	u8 val;
+
+	/* apply the IBB settings for 2.2uh inductor */
+	val = 0x14;
+	rc = qpnp_amoled_write(chip, IBB_SPARE_CTL(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = 0x01;
+	rc = qpnp_amoled_write(chip, IBB_PWM_CTL1(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = 0x02;
+	rc = qpnp_amoled_write(chip, IBB_CURR_SENSE(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = 0xB7;
+	rc = qpnp_amoled_write(chip, IBB_PWM_CTL3(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_amoled_read(chip, IBB_TRIM_CTL3(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_amoled_write(chip, IBB_TRIM_CTL2(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	val = 0xA2;
+	rc = qpnp_amoled_write(chip, IBB_ERR_AMP_THR2(chip), &val, 1);
+	if (rc < 0)
+		return rc;
+
+	return rc;
+}
+
 static int qpnp_amoled_regulator_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -791,6 +842,13 @@ static int qpnp_amoled_regulator_probe(struct platform_device *pdev)
 	rc = qpnp_amoled_hw_init(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Failed to initialize HW rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = qpnp_amoled_apply_2p2uh_settings(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Failed to apply 2.2uH inductor settings rc=%d\n",
+			rc);
 		goto error;
 	}
 

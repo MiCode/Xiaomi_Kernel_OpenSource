@@ -40,6 +40,9 @@
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
+#include <soc/qcom/socinfo.h>
 #include <linux/suspend.h>
 #ifdef CONFIG_HIBERNATION
 #include <linux/notifier.h>
@@ -578,6 +581,15 @@ static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/seq_file.h>
+#define msm_gpio_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
 
 static void msm_gpio_dbg_show_one(struct seq_file *s,
 				  struct pinctrl_dev *pctldev,
@@ -592,7 +604,7 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	int is_out;
 	int drive;
 	int pull;
-	u32 ctl_reg;
+	u32 ctl_reg, io_reg, value;
 
 	static const char * const pulls[] = {
 		"no pull",
@@ -610,19 +622,39 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	drive = (ctl_reg >> g->drv_bit) & 7;
 	pull = (ctl_reg >> g->pull_bit) & 3;
 
-	seq_printf(s, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
-	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
-	seq_printf(s, " %s", pulls[pull]);
+	io_reg = readl(pctrl->regs + g->io_reg);
+	value = (is_out ? io_reg >> g->out_bit : io_reg >> g->in_bit) & 0x1;
+	msm_gpio_debug_output(s, 1, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
+	msm_gpio_debug_output(s, 1, " %dmA", msm_regval_to_drive(drive));
+	msm_gpio_debug_output(s, 1, " %s", pulls[pull]);
+	msm_gpio_debug_output(s, 1, " %s", value ? "high":"low");
 }
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 {
 	unsigned gpio = chip->base;
 	unsigned i;
+	uint32_t hw_type;
+
+	hw_type = get_hw_version_platform();
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		if (HARDWARE_PLATFORM_DAVINCI == hw_type) {
+			/* gpio 0~3 is FP spi, gpio 59~62 is NFC spi */
+			if (i < 4 || (i > 58 && i < 63))
+				continue;
+		} else if (HARDWARE_PLATFORM_PHOENIX == hw_type) {
+			/* gpio 0~3 is NFC spi, gpio 59~62 is FP spi */
+			if (i < 4 || (i > 58 && i < 63))
+				continue;
+
+		} else {
+			/* gpio 0~3 is FP spi, gpio 6~9 is NFC spi */
+			if (i < 4 || (i > 5 && i < 10))
+				continue;
+		}
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
-		seq_puts(s, "\n");
+		msm_gpio_debug_output(s, 1, "\n");
 	}
 }
 
@@ -1807,6 +1839,7 @@ static void msm_pinctrl_setup_pm_reset(struct msm_pinctrl *pctrl)
 }
 
 #ifdef CONFIG_PM
+extern int msm_show_resume_irq_mask;
 #ifdef CONFIG_HIBERNATION
 static bool hibernation;
 
@@ -1973,6 +2006,7 @@ static void msm_pinctrl_resume(void)
 		val = readl_relaxed(pctrl->regs + g->intr_status_reg);
 		if (val & BIT(g->intr_status_bit)) {
 			irq = irq_find_mapping(pctrl->chip.irqdomain, i);
+			log_wakeup_reason(irq);
 			desc = irq_to_desc(irq);
 			if (desc == NULL)
 				name = "stray irq";

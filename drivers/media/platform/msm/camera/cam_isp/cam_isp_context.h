@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,14 +36,9 @@
 #define CAM_ISP_CTX_CFG_MAX                     22
 
 /*
- * Defalut fps value set to 30
- */
-#define CAM_ISP_CTX_DEFAULT_FPS                 30
-
-/*
  * Maximum entries in state monitoring array for error logging
  */
-#define CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES   20
+#define CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES   40
 
 /* forward declaration */
 struct cam_isp_context;
@@ -64,6 +60,22 @@ enum cam_isp_ctx_activated_substate {
 	CAM_ISP_CTX_ACTIVATED_HW_ERROR,
 	CAM_ISP_CTX_ACTIVATED_HALT,
 	CAM_ISP_CTX_ACTIVATED_MAX,
+};
+
+/**
+ * enum cam_isp_state_change_trigger - Different types of ISP events
+ *
+ */
+enum cam_isp_state_change_trigger {
+	CAM_ISP_STATE_CHANGE_TRIGGER_ERROR,
+	CAM_ISP_STATE_CHANGE_TRIGGER_APPLIED,
+	CAM_ISP_STATE_CHANGE_TRIGGER_REG_UPDATE,
+	CAM_ISP_STATE_CHANGE_TRIGGER_SOF,
+	CAM_ISP_STATE_CHANGE_TRIGGER_EPOCH,
+	CAM_ISP_STATE_CHANGE_TRIGGER_DONE,
+	CAM_ISP_STATE_CHANGE_TRIGGER_EOF,
+	CAM_ISP_STATE_CHANGE_TRIGGER_FLUSH,
+	CAM_ISP_STATE_CHANGE_TRIGGER_MAX
 };
 
 /**
@@ -108,6 +120,7 @@ struct cam_isp_ctx_req {
 	int32_t                               bubble_report;
 	struct cam_isp_prepare_hw_update_data hw_update_data;
 	bool                                  bubble_detected;
+	bool                                  reapply;
 };
 
 /**
@@ -115,47 +128,21 @@ struct cam_isp_ctx_req {
  *                                        monitoring for
  *                                        debug purposes
  *
- *@curr_state:          Current sub state that received req
- *@next_state:          Next sub state that received req
- *@hw_event:            Hw Event type of incoming req
- *@last_reported_id:    Last_reported_id to userspace
- *@last_applied_req_id  Last applied request id to hardware
- *@frame_id:            Current Frame id
- *@evt_time_stamp       Current time stamp of this event logged
+ * @curr_state:          Current sub state that received req
+ * @trigger:             Event type of incoming req
+ * @req_id:              Request id
+ * @frame_id:            Frame id based on SOFs
+ * @evt_time_stamp       Current time stamp
  *
  */
 struct cam_isp_context_state_monitor {
 	enum cam_isp_ctx_activated_substate  curr_state;
-	enum cam_isp_ctx_activated_substate  next_state;
-	enum cam_isp_hw_event_type           hw_event;
-	int64_t                              last_reported_id;
-	int64_t                              last_applied_req_id;
+	enum cam_isp_state_change_trigger    trigger;
+	uint64_t                             req_id;
 	int64_t                              frame_id;
-	uint64_t                             evt_time_stamp;
+	unsigned int                         evt_time_stamp;
 };
 
-/**
- * struct cam_isp_context_req_id_info - ISP context request id
- *                     information for last applied, reported and bufdone.
- *
- *@last_applied_req_id:   Last applied request id
- *@last_bufdone_req_id:   Last bufdone request id
- *@reported_req_id:       Last reported request id to userspace
- *@last_applied_time_stamp: Last applied request time stamp information
- *@last_bufdone_time_stamp  Last bufdone request time stamp information
- *@last_reported_id_time_stamp: Last reported request time stamp information
- *
- */
-
-struct cam_isp_context_req_id_info {
-	int64_t                          last_applied_req_id;
-	int64_t                          last_bufdone_req_id;
-	int64_t                          reported_req_id;
-	int64_t                          last_applied_time_stamp;
-	int64_t                          last_bufdone_time_stamp;
-	int64_t                          last_reported_id_time_stamp;
-
-};
 /**
  * struct cam_isp_context   -  ISP context object
  *
@@ -170,24 +157,20 @@ struct cam_isp_context_req_id_info {
  * @req_isp:                   ISP private request object storage
  * @hw_ctx:                    HW object returned by the acquire device command
  * @sof_timestamp_val:         Captured time stamp value at sof hw event
- * @prev_sof_timestamp_val     Holds last notified sof time stamp
  * @boot_timestamp:            Boot time stamp for a given req_id
- * @prev_boot_timestamp        Holds last notified boot time stamp
  * @active_req_cnt:            Counter for the active request
+ * @reported_req_id:           Last reported request id
  * @subscribe_event:           The irq event mask that CRM subscribes to, IFE
  *                             will invoke CRM cb at those event.
+ * @last_applied_req_id:       Last applied request id
  * @state_monitor_head:        Write index to the state monitoring array
- * @req_info                   Request id information about last applied,
- *                             reported and buf done
  * @cam_isp_ctx_state_monitor: State monitoring array
  * @rdi_only_context:          Get context type information.
  *                             true, if context is rdi only context
  * @hw_acquired:               Indicate whether HW resources are acquired
  * @init_received:             Indicate whether init config packet is received
  * @split_acquire:             Indicate whether a separate acquire is expected
- * @irq_delay_detect:          Indicate whether a irq delay has detected or not
- * @irq_timestamps:            Timestamp from last handled IRQ
- * @fps:                       Current FPS for the activated state.
+ * @init_timestamp:            Timestamp at which this context is initialized
  *
  */
 struct cam_isp_context {
@@ -204,22 +187,19 @@ struct cam_isp_context {
 
 	void                            *hw_ctx;
 	uint64_t                         sof_timestamp_val;
-	uint64_t                         prev_sof_timestamp_val;
 	uint64_t                         boot_timestamp;
-	uint64_t                         prev_boot_timestamp;
 	int32_t                          active_req_cnt;
+	int64_t                          reported_req_id;
 	uint32_t                         subscribe_event;
+	int64_t                          last_applied_req_id;
 	atomic64_t                       state_monitor_head;
 	struct cam_isp_context_state_monitor cam_isp_ctx_state_monitor[
 		CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES];
-	struct cam_isp_context_req_id_info   req_info;
 	bool                             rdi_only_context;
 	bool                             hw_acquired;
 	bool                             init_received;
 	bool                             split_acquire;
-	bool                             irq_delay_detect;
-	uint64_t                         irq_timestamps;
-	uint32_t                         fps;
+	unsigned int                     init_timestamp;
 };
 
 /**

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,6 +202,10 @@ static const struct of_device_id cam_fd_hw_dt_match[] = {
 	{
 		.compatible = "qcom,fd41",
 		.data = &cam_fd_wrapper120_core410_info,
+	},
+	{
+		.compatible = "qcom,fd501",
+		.data = &cam_fd_wrapper200_core501_info,
 	},
 	{
 		.compatible = "qcom,fd501",

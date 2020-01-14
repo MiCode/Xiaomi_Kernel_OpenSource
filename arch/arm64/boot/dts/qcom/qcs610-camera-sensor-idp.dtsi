@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,28 +13,6 @@
  */
 
 &soc {
-	ir_led: camera-ir-led@0 {
-		cell-index = <0>;
-		reg = <0x00>;
-		compatible = "qcom,camera-ir-led";
-		pwms = <&pm6150l_pwm_1  0 0>;
-		enable-active-high;
-		pinctrl-names = "default", "cam_default", "cam_suspend";
-		pinctrl-0 = <&irled_pwm>;
-		pinctrl-1 = <&cam_sensor_ir_cut_on>;
-		pinctrl-2 = <&cam_sensor_ir_cut_off>;
-		gpios = <&tlmm 73 0>,
-			<&tlmm 74 0>;
-		qcom,gpio-ir-p = <0>;
-		qcom,gpio-ir-m =  <1>;
-		qcom,gpio-req-tbl-num = <0 1>;
-		qcom,gpio-req-tbl-flags = <0 0>;
-		qcom,gpio-req-tbl-label = "IR_CUT_FILTER_P",
-				"IR_CUT_FILTER_M";
-		gpio-no-mux = <0>;
-		status = "ok";
-	};
-
 	camera_ldo: gpio-regulator@0 {
 		compatible = "regulator-fixed";
 		reg = <0x00 0x00>;
@@ -67,7 +46,6 @@
 		cam_vana-supply = <&pm6150l_l4>;
 		cam_vdig-supply = <&camera_ldo>;
 		cam_clk-supply = <&titan_top_gdsc>;
-		ir-led-src = <&ir_led>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
 		rgltr-cntrl-support;

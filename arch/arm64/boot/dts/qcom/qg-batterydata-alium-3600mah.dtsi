@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,23 +14,27 @@
 
 qcom,alium_860_89032_0000_3600mAh {
 	/* Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Jun15th2018 */
-	qcom,max-voltage-uv = <4350000>;
-	qcom,fg-cc-cv-threshold-uv = <4340000>;
-	qcom,fastchg-current-ma = <5400>;
-	qcom,batt-id-kohm = <107>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fg-cc-cv-threshold-uv = <4400000>;
+	qcom,fastchg-current-ma = <3500>;
+	qcom,batt-id-kohm = <68>;
 	qcom,battery-beta = <4250>;
 	qcom,battery-therm-kohm = <100>;
 	qcom,battery-type = "Alium_860_89032_0000_3600mAh_Jun15th2018";
 	qcom,qg-batt-profile-ver = <100>;
 
-	qcom,jeita-fcc-ranges = <0  50   2500000
-				51  400  5400000
-				401 450  2500000>;
-	qcom,jeita-fv-ranges = <0   50   4250000
-				51  400  4350000
-				401 450  4250000>;
-	qcom,step-chg-ranges = <3600000  3800000  5400000
-				3801000  4300000  3600000
+	qcom,jeita-fcc-ranges = <0  50   340000
+				51  100  1020000
+				101 150  1700000
+				151 450  3000000
+				451 580  1700000>;
+	qcom,jeita-fv-ranges = <0   50   4400000
+				51  100  4400000
+				101 150  4400000
+				151 450  4400000
+				451 580  4100000>;
+	qcom,step-chg-ranges = <3600000  4200000  3000000
+				4201000  4300000  3000000
 				4301000  4350000  2500000>;
 	qcom,ocv-based-step-chg;
 

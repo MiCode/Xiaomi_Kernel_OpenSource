@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +29,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 
-static const char icp_dev_name[] = "cam-icp";
+static const char icp_dev_name[] = "icp";
 
 static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 	uint32_t buf_info)
@@ -43,14 +44,6 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 	if (!ctx) {
 		CAM_ERR(CAM_ICP, "Invalid ctx");
 		return -EINVAL;
-	}
-
-	mutex_lock(&ctx->ctx_mutex);
-
-	if (ctx->state < CAM_CTX_ACQUIRED || ctx->state > CAM_CTX_ACTIVATED) {
-		CAM_ERR(CAM_ICP, "Invalid state icp ctx %d state %d",
-			ctx->ctx_id, ctx->state);
-		goto end;
 	}
 
 	CAM_INFO(CAM_ICP, "iommu fault for icp ctx %d state %d",
@@ -71,8 +64,6 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 				req->request_id, rc);
 	}
 
-end:
-	mutex_unlock(&ctx->ctx_mutex);
 	return rc;
 }
 
@@ -145,12 +136,6 @@ static int __cam_icp_config_dev_in_ready(struct cam_context *ctx,
 			ctx->dev_name, ctx->ctx_id);
 		rc = -EINVAL;
 		return rc;
-	}
-
-	if ((len < sizeof(struct cam_packet)) ||
-		(cmd->offset >= (len - sizeof(struct cam_packet)))) {
-		CAM_ERR(CAM_CTXT, "Not enough buf");
-		return -EINVAL;
 	}
 
 	packet = (struct cam_packet *) ((uint8_t *)packet_addr +

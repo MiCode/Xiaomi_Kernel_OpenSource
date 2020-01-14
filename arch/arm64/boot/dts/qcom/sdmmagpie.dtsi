@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +39,7 @@
 	aliases {
 		spi0 = &qupv3_se0_spi;
 		spi1 = &qupv3_se4_spi;
+		spi2 = &qupv3_se8_spi;
 		i2c0 = &qupv3_se2_i2c;
 		i2c1 = &qupv3_se7_i2c;
 		i2c2 = &qupv3_se9_i2c;
@@ -486,7 +488,7 @@
 			compatible = "android,firmware";
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,boot,system,vendor,dtbo,recovery";
 			};
 			fstab {
 				compatible = "android,fstab";
@@ -495,14 +497,14 @@
 					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect,avb";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 			};
 		};
 	};
 
-	reserved-memory {
+	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -564,37 +566,37 @@
 		pil_adsp_mem: pil_adsp_region@95100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95100000 0 0x1e00000>;
+			reg = <0 0x95100000 0 0x2600000>;
 		};
 
-		wlan_msa_mem: wlan_msa_region@96f00000 {
+		wlan_msa_mem: wlan_msa_region@97700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x96f00000 0 0x180000>;
+			reg = <0 0x97700000 0 0x180000>;
 		};
 
-		npu_mem: npu_region@97080000 {
+		npu_mem: npu_region@97880000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97080000 0 0x80000>;
+			reg = <0 0x97880000 0 0x80000>;
 		};
 
-		pil_ipa_fw_mem: ips_fw_region@97100000 {
+		pil_ipa_fw_mem: ips_fw_region@97900000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97100000 0 0x10000>;
+			reg = <0 0x97900000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@97110000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@97910000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97110000 0 0x5000>;
+			reg = <0 0x97910000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@97115000 {
+		pil_gpu_mem: gpu_region@97915000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97115000 0 0x2000>;
+			reg = <0 0x97915000 0 0x2000>;
 		};
 
 		qseecom_mem: qseecom_region@9e400000 {
@@ -1203,8 +1205,8 @@
 		reg-names = "wdt-base";
 		interrupts = <GIC_SPI 0 IRQ_TYPE_NONE>,
 			     <GIC_SPI 1 IRQ_TYPE_NONE>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <9360>;
+		qcom,bark-time = <20000>;
+		qcom,pet-time = <15000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
@@ -2362,7 +2364,7 @@
 
 		lanes-per-direction = <1>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
-		spm-level = <5>;
+		spm-level = <3>;
 
 		clock-names =
 			"core_clk",
@@ -3336,133 +3338,6 @@
 	extcon = <&pm6150_pdphy>, <&pm6150_charger>, <&eud>;
 };
 
-&pm6150_vadc {
-	rf_pa0_therm {
-		reg = <ADC_AMUX_THM2_PU2>;
-		label = "rf_pa0_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
-	rf_pa1_therm {
-		reg = <ADC_AMUX_THM3_PU2>;
-		label = "rf_pa1_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
-	quiet_therm {
-		reg = <ADC_AMUX_THM4_PU2>;
-		label = "quiet_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-};
-
-&pm6150_adc_tm {
-	io-channels = <&pm6150_vadc ADC_XO_THERM_PU2>,
-			<&pm6150_vadc ADC_AMUX_THM2_PU2>,
-			<&pm6150_vadc ADC_AMUX_THM3_PU2>,
-			<&pm6150_vadc ADC_AMUX_THM4_PU2>;
-
-	/* Channel nodes */
-	xo_therm {
-		reg = <ADC_XO_THERM_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	rf_pa0_therm {
-		reg = <ADC_AMUX_THM2_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	rf_pa1_therm {
-		reg = <ADC_AMUX_THM3_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	quiet_therm {
-		reg = <ADC_AMUX_THM4_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-};
-
-&pm6150l_vadc {
-	pinctrl-names = "default";
-	pinctrl-0 = <&nvm_therm_default>;
-
-	conn_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		label = "conn_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
-	smb_therm {
-		reg = <ADC_AMUX_THM2>;
-		label = "smb_therm";
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
-	camera_ftherm {
-		reg = <ADC_AMUX_THM3_PU2>;
-		label = "camera_ftherm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-
-	nvm_therm {
-		reg = <ADC_GPIO4_PU2>;
-		label = "nvm_therm";
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-		qcom,pre-scaling = <1 1>;
-	};
-};
-
-&pm6150l_gpios {
-	nvm_therm {
-		nvm_therm_default: nvm_therm_default {
-			pins = "gpio10";
-			bias-high-impedance;
-		};
-	};
-};
-
-&pm6150l_adc_tm {
-	io-channels = <&pm6150l_vadc ADC_AMUX_THM1_PU2>,
-			<&pm6150l_vadc ADC_AMUX_THM3_PU2>,
-			<&pm6150l_vadc ADC_GPIO4_PU2>;
-
-	/* Channel nodes */
-	conn_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	camera_ftherm {
-		reg = <ADC_AMUX_THM3_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	nvm_therm {
-		reg = <ADC_GPIO4_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-};
 
 &msm_vidc0 {
 	qcom,cx-ipeak-data = <&cx_ipeak_lm 5>;

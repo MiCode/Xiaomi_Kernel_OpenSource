@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -87,6 +88,7 @@ enum bpf_cmd {
 	BPF_OBJ_GET,
 	BPF_PROG_ATTACH,
 	BPF_PROG_DETACH,
+	BPF_GET_COMM_HASH,
 	BPF_PROG_TEST_RUN,
 	BPF_PROG_GET_NEXT_ID,
 	BPF_MAP_GET_NEXT_ID,
@@ -256,6 +258,11 @@ union bpf_attr {
 		__u32		info_len;
 		__aligned_u64	info;
 	} info;
+
+	struct { /* anonymous struct used by BPF_GET_COMM_HASH/DETACH commands */
+		__aligned_u64	hash;	/* the hash of process comm */
+		__u32		pid;	/* the pid of the process */;
+	};
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:
@@ -552,6 +559,12 @@ union bpf_attr {
  *     @skb: pointer to skb
  *     Return: uid of the socket owner on success or overflowuid if failed.
  *
+ * u64 bpf_get_comm_hash_from_sk(skb)
+ *     Get the comm hash of the socket process stored inside sk_buff.
+ *     @skb: pointer to skb
+ *     Return: comm hash of the socket owner on success or 0 if the socket
+ *     pointer inside sk_buff is NULL
+ *
  * u32 bpf_set_hash(skb, hash)
  *     Set full skb->hash.
  *     @skb: pointer to skb
@@ -639,6 +652,7 @@ union bpf_attr {
 	FN(probe_read_str),		\
 	FN(get_socket_cookie),		\
 	FN(get_socket_uid),		\
+	FN(get_comm_hash_from_sk),	\
 	FN(set_hash),			\
 	FN(setsockopt),			\
 	FN(skb_adjust_room),		\

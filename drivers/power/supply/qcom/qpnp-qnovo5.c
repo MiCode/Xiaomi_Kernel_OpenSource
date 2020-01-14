@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,7 +136,7 @@ struct qnovo {
 	int			usb_present;
 };
 
-static int debug_mask;
+static int debug_mask = QG_DEBUG_STATUS | QG_DEBUG_IRQ;
 module_param_named(debug_mask, debug_mask, int, 0600);
 
 #define qnovo_dbg(chip, reason, fmt, ...)				\

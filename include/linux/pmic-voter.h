@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016,2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,8 @@ enum votable_type {
 bool is_client_vote_enabled(struct votable *votable, const char *client_str);
 bool is_client_vote_enabled_locked(struct votable *votable,
 							const char *client_str);
+bool is_override_vote_enabled(struct votable *votable);
+bool is_override_vote_enabled_locked(struct votable *votable);
 int get_client_vote(struct votable *votable, const char *client_str);
 int get_client_vote_locked(struct votable *votable, const char *client_str);
 int get_effective_result(struct votable *votable);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,7 +45,9 @@ struct cam_vfe_mux_camif_data {
 	bool                               enable_sof_irq_debug;
 	uint32_t                           irq_debug_cnt;
 	uint32_t                           camif_debug;
-	uint32_t                           fps;
+#ifdef CONFIG_CSID_CAMERA
+	uint32_t                           enable_binning;
+#endif
 };
 
 static int cam_vfe_camif_validate_pix_pattern(uint32_t pattern)
@@ -143,7 +146,9 @@ int cam_vfe_camif_ver2_acquire_resource(
 	camif_data->last_pixel  = acquire_data->vfe_in.in_port->left_stop;
 	camif_data->first_line  = acquire_data->vfe_in.in_port->line_start;
 	camif_data->last_line   = acquire_data->vfe_in.in_port->line_stop;
-
+#ifdef CONFIG_CSID_CAMERA
+	camif_data->enable_binning = acquire_data->vfe_in.in_port->enable_binning;
+#endif
 	CAM_DBG(CAM_ISP, "hw id:%d pix_pattern:%d dsp_mode=%d",
 		camif_res->hw_intf->hw_idx,
 		camif_data->pix_pattern, camif_data->dsp_mode);
@@ -270,15 +275,14 @@ static int cam_vfe_camif_resource_start(
 				rsrc_data->camif_reg->epoch_irq);
 		break;
 	default:
-		if (rsrc_data->fps == CAM_ISP_FPS_60) {
-			epoch0_irq_mask = ((rsrc_data->last_line -
+		epoch0_irq_mask = ((rsrc_data->last_line -
 				rsrc_data->first_line) / 2) +
 				rsrc_data->first_line;
-		} else {
-			epoch0_irq_mask = (((rsrc_data->last_line -
-				rsrc_data->first_line) * 2) / 3) +
-				rsrc_data->first_line;
-		}
+
+#ifdef CONFIG_CSID_CAMERA
+		if (rsrc_data->enable_binning)
+			epoch0_irq_mask >>= 1;
+#endif
 		epoch1_irq_mask = rsrc_data->reg_data->epoch_line_cfg &
 				0xFFFF;
 		computed_epoch_line_cfg = (epoch0_irq_mask << 16) |
@@ -429,40 +433,6 @@ static int cam_vfe_camif_reg_dump_bh(
 	return 0;
 }
 
-static int cam_vfe_camif_irq_reg_dump(
-	struct cam_isp_resource_node *camif_res)
-{
-	struct cam_vfe_mux_camif_data *camif_priv;
-	struct cam_vfe_soc_private *soc_private;
-	int rc = 0;
-
-	if (!camif_res) {
-		CAM_ERR(CAM_ISP, "Error! Invalid input arguments\n");
-		return -EINVAL;
-	}
-
-	if ((camif_res->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) ||
-		(camif_res->res_state == CAM_ISP_RESOURCE_STATE_AVAILABLE)) {
-		CAM_ERR(CAM_ISP, "Error! Invalid state\n");
-		return 0;
-	}
-
-	camif_priv = (struct cam_vfe_mux_camif_data *)camif_res->res_priv;
-	soc_private = camif_priv->soc_info->soc_private;
-
-	CAM_INFO(CAM_ISP,
-		"Core Id =%d Mask reg: offset 0x%x val 0x%x offset 0x%x val 0x%x",
-		camif_priv->hw_intf->hw_idx,
-		0x5c, cam_io_r_mb(camif_priv->mem_base + 0x5c),
-		0x60, cam_io_r_mb(camif_priv->mem_base + 0x60));
-	CAM_INFO(CAM_ISP,
-		"Core Id =%d Status reg: offset 0x%x val 0x%x offset 0x%x val 0x%x",
-		camif_priv->hw_intf->hw_idx,
-		0x6c, cam_io_r_mb(camif_priv->mem_base + 0x6c),
-		0x70, cam_io_r_mb(camif_priv->mem_base + 0x70));
-	return rc;
-}
-
 static int cam_vfe_camif_resource_stop(
 	struct cam_isp_resource_node        *camif_res)
 {
@@ -522,20 +492,6 @@ static int cam_vfe_camif_sof_irq_debug(
 
 	return 0;
 }
-static int cam_vfe_camif_set_fps_config(
-	struct cam_isp_resource_node *rsrc_node, void *cmd_args)
-{
-	struct cam_vfe_mux_camif_data *camif_priv = NULL;
-	struct cam_vfe_fps_config_args *fps_args = cmd_args;
-
-	camif_priv =
-		(struct cam_vfe_mux_camif_data *)rsrc_node->res_priv;
-
-	camif_priv->fps = fps_args->fps;
-
-	return 0;
-
-}
 
 static int cam_vfe_camif_process_cmd(struct cam_isp_resource_node *rsrc_node,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
@@ -563,12 +519,6 @@ static int cam_vfe_camif_process_cmd(struct cam_isp_resource_node *rsrc_node,
 		camif_priv =
 			(struct cam_vfe_mux_camif_data *)rsrc_node->res_priv;
 		camif_priv->camif_debug = *((uint32_t *)cmd_args);
-		break;
-	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
-		rc = cam_vfe_camif_irq_reg_dump(rsrc_node);
-		break;
-	case CAM_ISP_HW_CMD_FPS_CONFIG:
-		rc = cam_vfe_camif_set_fps_config(rsrc_node, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP,

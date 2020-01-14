@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,10 +28,12 @@
 #include <cam_mem_mgr.h>
 #include <cam_subdev.h>
 #include "cam_soc_util.h"
-#include "cam_context.h"
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
+
+#define ENABLE_OIS_EIS
+#define OIS_DATA_ADDR 0x8A
 
 enum cam_ois_state {
 	CAM_OIS_INIT,
@@ -88,10 +91,14 @@ struct cam_ois_intf_params {
 	struct cam_req_mgr_kmd_ops ops;
 	struct cam_req_mgr_crm_cb *crm_cb;
 };
-
+#ifdef ENABLE_OIS_EIS
+struct ois_data_eis_t {
+    uint64_t data_timestamp;
+    uint8_t  data[52];
+};
+#endif
 /**
  * struct cam_ois_ctrl_t - OIS ctrl private data
- * @device_name     :   ois device_name
  * @pdev            :   platform device
  * @ois_mutex       :   ois mutex
  * @soc_info        :   ois soc related info
@@ -104,14 +111,16 @@ struct cam_ois_intf_params {
  * @i2c_calib_data  :   ois i2c calib settings
  * @ois_device_type :   ois device type
  * @cam_ois_state   :   ois_device_state
+ * @ois_name        :   ois name
  * @ois_fw_flag     :   flag for firmware download
  * @is_ois_calib    :   flag for Calibration data
  * @opcode          :   ois opcode
  * @device_name     :   Device name
- *
+ * @i2c_pre_init_data:  ois i2c pre init settings
+ * @is_ois_pre_init :   flag for pre init settings
+ * @ois_data_eis_t  :   ois data for eis
  */
 struct cam_ois_ctrl_t {
-	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct platform_device *pdev;
 	struct mutex ois_mutex;
 	struct cam_hw_soc_info soc_info;
@@ -125,10 +134,16 @@ struct cam_ois_ctrl_t {
 	struct i2c_settings_array i2c_mode_data;
 	enum msm_camera_device_type_t ois_device_type;
 	enum cam_ois_state cam_ois_state;
+	char device_name[20];
 	char ois_name[32];
 	uint8_t ois_fw_flag;
 	uint8_t is_ois_calib;
 	struct cam_ois_opcode opcode;
+	struct i2c_settings_array i2c_pre_init_data;
+	uint8_t is_ois_pre_init;
+#ifdef ENABLE_OIS_EIS
+	struct ois_data_eis_t ois_data;
+#endif
 };
 
 #endif /*_CAM_OIS_DEV_H_ */

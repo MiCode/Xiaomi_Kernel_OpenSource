@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +35,7 @@ struct cam_vfe_top_ver2_priv {
 	struct cam_vfe_top_ver2_common_data common_data;
 	struct cam_isp_resource_node        mux_rsrc[CAM_VFE_TOP_VER2_MUX_MAX];
 	unsigned long                       hw_clk_rate;
-	struct cam_axi_vote             applied_axi_vote;
+	struct cam_axi_vote                 applied_axi_vote;
 	struct cam_axi_vote             req_axi_vote[CAM_VFE_TOP_VER2_MUX_MAX];
 	unsigned long                   req_clk_rate[CAM_VFE_TOP_VER2_MUX_MAX];
 	struct cam_axi_vote             last_vote[CAM_CPAS_HANDLE_MAX]
@@ -127,8 +128,8 @@ static int cam_vfe_top_set_axi_bw_vote(
 	struct cam_vfe_top_ver2_priv *top_priv,
 	bool start_stop)
 {
-	struct cam_axi_vote sum = {0, 0, 0};
-	struct cam_axi_vote to_be_applied_axi_vote = {0, 0, 0};
+	struct cam_axi_vote sum = {0, 0};
+	struct cam_axi_vote to_be_applied_axi_vote = {0, 0};
 	int i, rc = 0;
 	struct cam_hw_soc_info   *soc_info =
 		top_priv->common_data.soc_info;
@@ -137,7 +138,6 @@ static int cam_vfe_top_set_axi_bw_vote(
 	bool apply_bw_update = false;
 	enum cam_cpas_handle_id cpashdl_type;
 	struct cam_axi_vote *last_vote = NULL;
-	struct cam_axi_vote *applied_axi_vote = NULL;
 
 	if (!soc_private) {
 		CAM_ERR(CAM_ISP, "Error soc_private NULL");
@@ -152,10 +152,8 @@ static int cam_vfe_top_set_axi_bw_vote(
 			continue;
 
 		sum.uncompressed_bw = sum.compressed_bw = 0;
-		sum.compressed_bw_ab = 0;
 		to_be_applied_axi_vote.uncompressed_bw = 0;
 		to_be_applied_axi_vote.compressed_bw = 0;
-		to_be_applied_axi_vote.compressed_bw_ab = 0;
 		apply_bw_update = false;
 
 		for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
@@ -167,20 +165,14 @@ static int cam_vfe_top_set_axi_bw_vote(
 				top_priv->req_axi_vote[i].uncompressed_bw;
 				sum.compressed_bw +=
 				top_priv->req_axi_vote[i].compressed_bw;
-				sum.compressed_bw_ab +=
-				top_priv->req_axi_vote[i].compressed_bw_ab;
 			}
 		}
-		applied_axi_vote = &top_priv->applied_axi_vote;
 
-		CAM_DBG(CAM_ISP,
-			"Updating BW (ib, ib, ab) from (%llu %llu %llu) to (%llu %llu %llu)",
-			applied_axi_vote->uncompressed_bw,
-			applied_axi_vote->compressed_bw,
-			applied_axi_vote->compressed_bw_ab,
+		CAM_DBG(CAM_ISP, "Updating BW from (%llu %llu) to (%llu %llu)",
+			top_priv->applied_axi_vote.uncompressed_bw,
+			top_priv->applied_axi_vote.compressed_bw,
 			sum.uncompressed_bw,
-			sum.compressed_bw,
-			sum.compressed_bw_ab);
+			sum.compressed_bw);
 
 		last_vote = top_priv->last_vote[cpashdl_type];
 
@@ -190,16 +182,13 @@ static int cam_vfe_top_set_axi_bw_vote(
 			(CAM_VFE_TOP_VER2_MUX_MAX *
 			CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES);
 
-		if ((applied_axi_vote->uncompressed_bw ==
+		if ((top_priv->applied_axi_vote.uncompressed_bw ==
 			sum.uncompressed_bw) &&
-			(applied_axi_vote->compressed_bw ==
-			sum.compressed_bw) &&
-			(applied_axi_vote->compressed_bw_ab ==
-			sum.compressed_bw_ab)) {
-			CAM_DBG(CAM_ISP, "BW config unchanged %llu %llu %llu",
-				applied_axi_vote->uncompressed_bw,
-				applied_axi_vote->compressed_bw,
-				applied_axi_vote->compressed_bw_ab);
+			(top_priv->applied_axi_vote.compressed_bw ==
+			sum.compressed_bw)) {
+			CAM_DBG(CAM_ISP, "BW config unchanged %llu %llu",
+				top_priv->applied_axi_vote.uncompressed_bw,
+				top_priv->applied_axi_vote.compressed_bw);
 			return 0;
 		}
 
@@ -208,12 +197,10 @@ static int cam_vfe_top_set_axi_bw_vote(
 				soc_private->cpas_handle[cpashdl_type],
 				&to_be_applied_axi_vote);
 			if (!rc) {
-				applied_axi_vote->uncompressed_bw =
+				top_priv->applied_axi_vote.uncompressed_bw =
 					to_be_applied_axi_vote.uncompressed_bw;
-				applied_axi_vote->compressed_bw =
+				top_priv->applied_axi_vote.compressed_bw =
 					to_be_applied_axi_vote.compressed_bw;
-				applied_axi_vote->compressed_bw_ab =
-					to_be_applied_axi_vote.compressed_bw_ab;
 			}
 			return rc;
 		}
@@ -229,11 +216,6 @@ static int cam_vfe_top_set_axi_bw_vote(
 				to_be_applied_axi_vote.compressed_bw =
 					last_vote[i].compressed_bw;
 
-			if (to_be_applied_axi_vote.compressed_bw_ab <
-				last_vote[i].compressed_bw_ab)
-				to_be_applied_axi_vote.compressed_bw_ab =
-					last_vote[i].compressed_bw_ab;
-
 			if (to_be_applied_axi_vote.uncompressed_bw <
 					last_vote[i].uncompressed_bw)
 				to_be_applied_axi_vote.uncompressed_bw =
@@ -241,11 +223,9 @@ static int cam_vfe_top_set_axi_bw_vote(
 		}
 
 		if ((to_be_applied_axi_vote.uncompressed_bw !=
-			applied_axi_vote->uncompressed_bw) ||
+			top_priv->applied_axi_vote.uncompressed_bw) ||
 			(to_be_applied_axi_vote.compressed_bw !=
-			applied_axi_vote->compressed_bw) ||
-			(to_be_applied_axi_vote.compressed_bw_ab !=
-			applied_axi_vote->compressed_bw_ab))
+			top_priv->applied_axi_vote.compressed_bw))
 			apply_bw_update = true;
 
 		CAM_DBG(CAM_ISP, "apply_bw_update=%d", apply_bw_update);
@@ -255,12 +235,10 @@ static int cam_vfe_top_set_axi_bw_vote(
 				soc_private->cpas_handle[cpashdl_type],
 				&to_be_applied_axi_vote);
 			if (!rc) {
-				applied_axi_vote->uncompressed_bw =
-					to_be_applied_axi_vote.uncompressed_bw;
-				applied_axi_vote->compressed_bw =
+				top_priv->applied_axi_vote.uncompressed_bw =
+				to_be_applied_axi_vote.uncompressed_bw;
+				top_priv->applied_axi_vote.compressed_bw =
 					to_be_applied_axi_vote.compressed_bw;
-				applied_axi_vote->compressed_bw_ab =
-					to_be_applied_axi_vote.compressed_bw_ab;
 			} else {
 				CAM_ERR(CAM_ISP, "BW request failed, rc=%d",
 					rc);
@@ -279,22 +257,6 @@ static int cam_vfe_top_fs_update(
 	if (cmd_update->node_res->process_cmd)
 		return cmd_update->node_res->process_cmd(cmd_update->node_res,
 			CAM_ISP_HW_CMD_FE_UPDATE_IN_RD, cmd_args, arg_size);
-
-	return 0;
-}
-
-static int cam_vfe_top_fps_config(
-	struct cam_vfe_top_ver2_priv *top_priv,
-	void *cmd_args, uint32_t arg_size)
-{
-	struct cam_vfe_fps_config_args *cmd_update = NULL;
-
-	cmd_update =
-		(struct cam_vfe_fps_config_args *)cmd_args;
-
-	if (cmd_update->node_res->process_cmd)
-		return cmd_update->node_res->process_cmd(cmd_update->node_res,
-			CAM_ISP_HW_CMD_FPS_CONFIG, cmd_args, arg_size);
 
 	return 0;
 }
@@ -377,8 +339,6 @@ static int cam_vfe_top_bw_update(
 				bw_update->camnoc_bw_bytes;
 			top_priv->req_axi_vote[i].compressed_bw =
 				bw_update->external_bw_bytes;
-			top_priv->req_axi_vote[i].compressed_bw_ab =
-				bw_update->external_bw_bytes_ab;
 			top_priv->axi_vote_control[i] =
 				CAM_VFE_BW_CONTROL_INCLUDE;
 			break;
@@ -452,19 +412,6 @@ static int cam_vfe_top_mux_get_reg_update(
 			CAM_ISP_HW_CMD_GET_REG_UPDATE, cmd_args, arg_size);
 
 	return -EINVAL;
-}
-
-static int cam_vfe_get_irq_register_dump(
-	struct cam_vfe_top_ver2_priv *top_priv,
-	void *cmd_args, uint32_t arg_size)
-{
-	struct cam_isp_hw_get_cmd_update  *cmd_update = cmd_args;
-
-	if (cmd_update->res->process_cmd)
-		cmd_update->res->process_cmd(cmd_update->res,
-		CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP, cmd_args, arg_size);
-
-	return 0;
 }
 
 int cam_vfe_top_get_hw_caps(void *device_priv,
@@ -693,7 +640,6 @@ int cam_vfe_top_stop(void *device_priv,
 			if (top_priv->mux_rsrc[i].res_id == mux_res->res_id) {
 				top_priv->req_clk_rate[i] = 0;
 				top_priv->req_axi_vote[i].compressed_bw = 0;
-				top_priv->req_axi_vote[i].compressed_bw_ab = 0;
 				top_priv->req_axi_vote[i].uncompressed_bw = 0;
 				top_priv->axi_vote_control[i] =
 					CAM_VFE_BW_CONTROL_EXCLUDE;
@@ -752,14 +698,6 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_BW_CONTROL:
 		rc = cam_vfe_top_bw_control(top_priv, cmd_args, arg_size);
 		break;
-	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
-		rc = cam_vfe_get_irq_register_dump(top_priv,
-				cmd_args, arg_size);
-		break;
-	case CAM_ISP_HW_CMD_FPS_CONFIG:
-		rc = cam_vfe_top_fps_config(top_priv, cmd_args,
-			arg_size);
-		break;
 	default:
 		rc = -EINVAL;
 		CAM_ERR(CAM_ISP, "Error! Invalid cmd:%d", cmd_type);
@@ -805,7 +743,6 @@ int cam_vfe_top_ver2_init(
 	vfe_top->top_priv = top_priv;
 	top_priv->hw_clk_rate = 0;
 	top_priv->applied_axi_vote.compressed_bw = 0;
-	top_priv->applied_axi_vote.compressed_bw_ab = 0;
 	top_priv->applied_axi_vote.uncompressed_bw = 0;
 	memset(top_priv->last_vote, 0x0, sizeof(struct cam_axi_vote) *
 		(CAM_VFE_TOP_VER2_MUX_MAX * CAM_CPAS_HANDLE_MAX *
@@ -820,7 +757,6 @@ int cam_vfe_top_ver2_init(
 			CAM_ISP_RESOURCE_STATE_AVAILABLE;
 		top_priv->req_clk_rate[i] = 0;
 		top_priv->req_axi_vote[i].compressed_bw = 0;
-		top_priv->req_axi_vote[i].compressed_bw_ab = 0;
 		top_priv->req_axi_vote[i].uncompressed_bw = 0;
 		top_priv->axi_vote_control[i] = CAM_VFE_BW_CONTROL_EXCLUDE;
 

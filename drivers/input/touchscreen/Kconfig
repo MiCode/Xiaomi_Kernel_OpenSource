@@ -10,10 +10,25 @@ menuconfig INPUT_TOUCHSCREEN
 	  If unsure, say Y.
 
 if INPUT_TOUCHSCREEN
+source "drivers/input/touchscreen/nt36672c/Kconfig"
+source "drivers/input/touchscreen/goodix_driver_gt9886/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+
+config TOUCHSCREEN_TDDI_DBCLK
+	bool "TDDI IC enable double click"
+	help
+	  Say Y here if you have a tddi ic and want keep avdd,avee
+	  when suspend.
 
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
+
+config SECURE_TOUCH
+	bool "Secure Touch"
+
+config I2C_BY_DMA
+    bool "I2C BY DMA"
 
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"

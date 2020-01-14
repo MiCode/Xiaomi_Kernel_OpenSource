@@ -1,4 +1,5 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +51,6 @@ struct handle {
 	uint32_t hdl_value;
 	enum hdl_type type;
 	enum hdl_state state;
-	uint64_t dev_id;
 	void *ops;
 	void *priv;
 };
@@ -81,7 +81,6 @@ struct cam_create_dev_hdl {
 	int32_t v4l2_sub_dev_flag;
 	int32_t media_entity_flag;
 	int32_t reserved;
-	uint64_t dev_id;
 	void *ops;
 	void *priv;
 };

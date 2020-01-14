@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +37,12 @@
 #define DSI_CMD_PPS_SIZE 135
 
 #define DSI_MODE_MAX 5
+
+#define BUF_LEN_MAX    256
+
+#define DEMURA_LEVEL_02 256
+#define DEMURA_LEVEL_08 11
+#define DEMURA_LEVEL_0D 1
 
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
@@ -115,8 +122,14 @@ struct dsi_backlight_config {
 	u32 bl_level;
 	u32 bl_scale;
 	u32 bl_scale_ad;
+	bool dcs_type_ss_ea;
+	bool dcs_type_ss_eb;
+	bool xiaomi_f4_36_flag;
+	bool xiaomi_f4_41_flag;
 
 	int en_gpio;
+	bool bl_remap_flag;
+	bool samsung_prepare_hbm_flag;
 	/* PWM params */
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
@@ -162,6 +175,17 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+	int esd_err_irq_gpio;
+	int esd_err_irq;
+	int esd_err_irq_flags;
+};
+
+struct dsi_read_config {
+	bool enabled;
+	struct dsi_panel_cmd_set read_cmd;
+	u32 cmds_rlen;
+	u32 valid_bits;
+	u8 rbuf[64];
 };
 
 struct dsi_panel {
@@ -206,12 +230,57 @@ struct dsi_panel {
 	bool te_using_watchdog_timer;
 	u32 qsync_min_fps;
 
+	bool dispparam_enabled;
+	u32 skip_dimmingon;
+
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
 	enum dsi_dms_mode dms_mode;
 
 	bool sync_broadcast_en;
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
+
+	u32 panel_on_dimming_delay;
+	struct delayed_work cmds_work;
+	u32 last_bl_lvl;
+	s32 backlight_delta;
+	u32 backlight_demura_level; /* For the f4_41 panel */
+	u32 backlight_pulse_threshold;
+	/* DC bkl */
+	u32 dc_demura_threshold;
+	bool dc_enable;
+	bool backlight_pulse_flag; /* true = 4 pulse and false = 1 pulse */
+
+	bool hbm_enabled;
+	bool fod_hbm_enabled;
+	bool fod_dimlayer_enabled;
+	bool fod_dimlayer_hbm_enabled;
+	bool fod_ui_ready;
+	u32 doze_backlight_threshold;
+	u32 fod_off_dimming_delay;
+	ktime_t fod_backlight_off_time;
+	ktime_t fod_hbm_off_time;
+	bool f4_51_ctrl_flag; /* For the f4_36 panel */
+	u32 hbm_off_51_index;
+	u32 fod_off_51_index;
+
+	bool elvss_dimming_check_enable;
+	struct dsi_read_config elvss_dimming_cmds;
+	struct dsi_panel_cmd_set elvss_dimming_offset;
+	struct dsi_panel_cmd_set hbm_fod_on;
+	struct dsi_panel_cmd_set hbm_fod_off;
+
+	u8 panel_read_data[BUF_LEN_MAX];
+	struct dsi_read_config xy_coordinate_cmds;
+
+	bool fod_backlight_flag;
+	bool fod_flag;
+	u32 fod_target_backlight;
+	bool fod_skip_flag; /* optimize to skip nolp command */
+	bool in_aod; /* set  DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM only in AOD */
+	bool is_tddi_flag;
+	bool panel_dead_flag;
+	bool panel_max_frame_rate;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -297,6 +366,8 @@ int dsi_panel_unprepare(struct dsi_panel *panel);
 int dsi_panel_post_unprepare(struct dsi_panel *panel);
 
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
+
+int dsi_panel_enable_doze_backlight(struct dsi_panel *panel, u32 bl_lvl);
 
 int dsi_panel_update_pps(struct dsi_panel *panel);
 

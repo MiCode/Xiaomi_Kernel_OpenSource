@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -262,6 +263,7 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	const struct freq_tbl *f_curr;
 	u32 cfg, src, hid_div, m = 0, n = 0, mode = 0, mask;
+	unsigned long recalc_rate;
 
 	if (rcg->flags & DFS_ENABLE_RCG)
 		return rcg->current_freq;
@@ -305,7 +307,17 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		hid_div &= mask;
 	}
 
-	return clk_rcg2_calc_rate(parent_rate, m, n, mode, hid_div);
+	recalc_rate = clk_rcg2_calc_rate(parent_rate, m, n, mode, hid_div);
+
+	/*
+	* Check the case when the RCG has been initialized to a non-CXO
+	* frequency.
+	*/
+	if (rcg->enable_safe_config && !rcg->current_freq)
+		rcg->current_freq = recalc_rate;
+
+	return recalc_rate;
+
 }
 
 static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,

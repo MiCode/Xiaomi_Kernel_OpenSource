@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,17 +33,18 @@
 #define VBAT_LOW_HYST_UV			50000
 #define FULL_SOC				100
 
-static int qg_delta_soc_interval_ms = 20000;
+static int qg_delta_soc_interval_ms = 40000;
 module_param_named(
 	soc_interval_ms, qg_delta_soc_interval_ms, int, 0600
 );
+
+static int qg_delta_soc_cold_interval_ms = 25000;
 
 static int qg_fvss_delta_soc_interval_ms = 10000;
 module_param_named(
 	fvss_soc_interval_ms, qg_fvss_delta_soc_interval_ms, int, 0600
 );
 
-static int qg_delta_soc_cold_interval_ms = 4000;
 module_param_named(
 	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
 );
@@ -130,12 +132,122 @@ exit_soc_scale:
 	return sys_soc;
 }
 
+#define IBAT_HYST_PC		10
+#define TCSS_ENTRY_COUNT	2
+static int qg_process_tcss_soc(struct qpnp_qg *chip, int sys_soc)
+{
+	int rc, ibatt_diff = 0, ibat_inc_hyst = 0, qg_iterm_ua = 0, bat_health = 0;
+	int soc_ibat, wt_ibat, wt_sys;
+	union power_supply_propval prop = {0, };
+
+	if (!chip->dt.tcss_enable)
+		goto exit_soc_scale;
+
+	if (chip->sys_soc < (chip->dt.tcss_entry_soc * 100))
+		goto exit_soc_scale;
+
+	if (chip->sys_soc >= QG_MAX_SOC && chip->soc_tcss >= QG_MAX_SOC)
+		goto exit_soc_scale;
+
+	rc = power_supply_get_property(chip->qg_psy, POWER_SUPPLY_PROP_BATT_FULL_CURRENT, &prop);
+	if (rc < 0) {
+		pr_err("failed to get full_current, rc = %d\n", rc);
+		goto exit_soc_scale;
+	} else {
+		qg_iterm_ua = -1 * prop.intval;
+	}
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH, &prop);
+	if (rc < 0){
+		pr_err("failed to get bat_health, rc = %d\n", rc);
+		goto exit_soc_scale;
+	} else {
+		bat_health = prop.intval;
+	}
+	if (bat_health == POWER_SUPPLY_HEALTH_WARM || bat_health == POWER_SUPPLY_HEALTH_OVERHEAT) {
+		pr_err("bat_health not good, %d\n", bat_health);
+		goto exit_soc_scale;
+	}
+
+	if (chip->last_fifo_i_ua >= 0)
+		goto exit_soc_scale;
+	else if (++chip->tcss_entry_count < TCSS_ENTRY_COUNT)
+		goto skip_entry_count;
+
+	if (!chip->tcss_active) {
+		chip->soc_tcss = sys_soc;
+		chip->soc_tcss_entry = sys_soc;
+		chip->ibat_tcss_entry = min(chip->last_fifo_i_ua, qg_iterm_ua);
+		chip->prev_fifo_i_ua = chip->last_fifo_i_ua;
+		chip->tcss_active = true;
+	}
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED, &prop);
+	if (!rc && prop.intval) {
+		qg_dbg(chip, QG_DEBUG_SOC,
+			"Input limited sys_soc=%d soc_tcss=%d\n",
+					sys_soc, chip->soc_tcss);
+		if (chip->soc_tcss > sys_soc)
+			sys_soc = chip->soc_tcss;
+		goto exit_soc_scale;
+	}
+
+	ibatt_diff = chip->last_fifo_i_ua - chip->prev_fifo_i_ua;
+	if (ibatt_diff > 0) {
+		/*
+		 * if the battery charge current has suddendly dropped, allow it
+		 * to decrease only by a small fraction to avoid a SOC jump.
+		 */
+		ibat_inc_hyst = (chip->prev_fifo_i_ua * IBAT_HYST_PC) / 100;
+		if (ibatt_diff > abs(ibat_inc_hyst))
+			chip->prev_fifo_i_ua -= ibat_inc_hyst;
+		else
+			chip->prev_fifo_i_ua = chip->last_fifo_i_ua;
+	}
+
+	chip->prev_fifo_i_ua = min(chip->prev_fifo_i_ua, qg_iterm_ua);
+	soc_ibat = qg_linear_interpolate(chip->soc_tcss_entry, chip->ibat_tcss_entry,
+					QG_MAX_SOC, qg_iterm_ua,
+					chip->prev_fifo_i_ua);
+	soc_ibat = CAP(QG_MIN_SOC, QG_MAX_SOC, soc_ibat);
+
+	wt_ibat = qg_linear_interpolate(1, chip->soc_tcss_entry,
+					10000, 10000,
+					soc_ibat);
+	wt_ibat = CAP(QG_MIN_SOC, QG_MAX_SOC, wt_ibat);
+	wt_sys = 10000 - wt_ibat;
+
+	chip->soc_tcss = DIV_ROUND_CLOSEST((soc_ibat * wt_ibat) + (wt_sys * sys_soc), 10000);
+	chip->soc_tcss = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->soc_tcss);
+
+	qg_dbg(chip, QG_DEBUG_SOC,
+		"TCSS: fifo_i=%d prev_fifo_i=%d ibatt_tcss_entry=%d qg_term=%d soc_tcss_entry=%d sys_soc=%d soc_ibat=%d wt_ibat=%d wt_sys=%d soc_tcss=%d bat_health=%d\n",
+			chip->last_fifo_i_ua, chip->prev_fifo_i_ua,
+			chip->ibat_tcss_entry, qg_iterm_ua,
+			chip->soc_tcss_entry, sys_soc, soc_ibat,
+			wt_ibat, wt_sys, chip->soc_tcss, bat_health);
+
+	return chip->soc_tcss;
+
+exit_soc_scale:
+	chip->tcss_entry_count = 0;
+
+skip_entry_count:
+	chip->tcss_active = false;
+	qg_dbg(chip, QG_DEBUG_SOC, "TCSS: Quit - enabled=%d sys_soc=%d tcss_entry_count=%d fifo_i_ua=%d bat_health=%d\n",
+			chip->dt.tcss_enable, sys_soc, chip->tcss_entry_count, chip->last_fifo_i_ua, bat_health);
+
+	return sys_soc;
+}
+
 int qg_adjust_sys_soc(struct qpnp_qg *chip)
 {
 	int soc, vbat_uv, rc;
 	int vcutoff_uv = chip->dt.vbatt_cutoff_mv * 1000;
 
 	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
+
+	chip->sys_soc = qg_process_tcss_soc(chip, chip->sys_soc);
 
 	if (chip->sys_soc < 100) {
 		/* Hold SOC to 1% of VBAT has not dropped below cutoff */
@@ -146,14 +258,9 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 			soc = 0;
 	} else if (chip->sys_soc == QG_MAX_SOC) {
 		soc = FULL_SOC;
-	} else if (chip->sys_soc >= (QG_MAX_SOC - 100)) {
-		/* Hold SOC to 100% if we are dropping from 100 to 99 */
-		if (chip->last_adj_ssoc == FULL_SOC)
-			soc = FULL_SOC;
-		else /* Hold SOC at 99% until we hit 100% */
-			soc = FULL_SOC - 1;
 	} else {
 		soc = DIV_ROUND_CLOSEST(chip->sys_soc, 100);
+		pr_err ("cc_soc = %d, batt_soc = %d, sys_soc = %d, soc = %d", chip->cc_soc, chip->batt_soc, chip->sys_soc, soc);
 	}
 
 	qg_dbg(chip, QG_DEBUG_SOC, "sys_soc=%d adjusted sys_soc=%d\n",
@@ -265,16 +372,22 @@ static bool maint_soc_timeout(struct qpnp_qg *chip)
 
 static void update_msoc(struct qpnp_qg *chip)
 {
-	int rc = 0, sdam_soc, batt_temp = 0,  batt_soc_32bit = 0;
+	int rc = 0, sdam_soc, batt_temp = 0, batt_cur = 0, batt_soc_32bit = 0;
 	bool input_present = is_input_present(chip);
 
+	rc = qg_get_battery_current(chip, &batt_cur);
+	if (rc < 0) {
+		pr_err("Failed to read BATT_CUR rc=%d\n", rc);
+	}
 	if (chip->catch_up_soc > chip->msoc) {
 		/* SOC increased */
 		if (input_present) /* Increment if input is present */
 			chip->msoc += chip->dt.delta_soc;
 	} else if (chip->catch_up_soc < chip->msoc) {
 		/* SOC dropped */
-		chip->msoc -= chip->dt.delta_soc;
+		if (batt_cur > 0) {
+			chip->msoc -= chip->dt.delta_soc;
+		}
 	}
 	chip->msoc = CAP(0, 100, chip->msoc);
 

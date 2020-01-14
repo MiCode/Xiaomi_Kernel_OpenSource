@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +25,6 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <uapi/media/cam_req_mgr.h>
-#include <linux/debugfs.h>
 #include "cam_smmu_api.h"
 #include "cam_debug_util.h"
 
@@ -187,10 +187,6 @@ static const char *qdss_region_name = "qdss";
 
 static struct cam_iommu_cb_set iommu_cb_set;
 
-static struct dentry *smmu_dentry;
-
-static bool smmu_fatal_flag = true;
-
 static enum dma_data_direction cam_smmu_translate_dir(
 	enum cam_smmu_map_dir dir);
 
@@ -299,30 +295,6 @@ static void cam_smmu_page_fault_work(struct work_struct *work)
 		}
 	}
 	kfree(payload);
-}
-
-static int cam_smmu_create_debugfs_entry(void)
-{
-	int rc = 0;
-
-	smmu_dentry = debugfs_create_dir("camera_smmu", NULL);
-	if (!smmu_dentry)
-		return -ENOMEM;
-
-	if (!debugfs_create_bool("cam_smmu_fatal",
-		0644,
-		smmu_dentry,
-		&smmu_fatal_flag)) {
-		CAM_ERR(CAM_SMMU, "failed to create cam_smmu_fatal entry");
-		rc = -ENOMEM;
-		goto err;
-	}
-
-	return rc;
-err:
-	debugfs_remove_recursive(smmu_dentry);
-	smmu_dentry = NULL;
-	return rc;
 }
 
 static void cam_smmu_print_user_list(int idx)
@@ -710,6 +682,11 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 		if (!strcmp(iommu_cb_set.cb_info[i].name, name)) {
 			mutex_lock(&iommu_cb_set.cb_info[i].lock);
 			if (iommu_cb_set.cb_info[i].handle != HANDLE_INIT) {
+				CAM_ERR(CAM_SMMU,
+					"Error: %s already got handle 0x%x",
+					name,
+					iommu_cb_set.cb_info[i].handle);
+
 				if (iommu_cb_set.cb_info[i].is_secure)
 					iommu_cb_set.cb_info[i].secure_count++;
 
@@ -718,11 +695,6 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 					*hdl = iommu_cb_set.cb_info[i].handle;
 					return 0;
 				}
-
-				CAM_ERR(CAM_SMMU,
-					"Error: %s already got handle 0x%x",
-					name, iommu_cb_set.cb_info[i].handle);
-
 				return -EINVAL;
 			}
 
@@ -1403,42 +1375,6 @@ end:
 }
 EXPORT_SYMBOL(cam_smmu_dealloc_qdss);
 
-int cam_smmu_get_io_region_info(int32_t smmu_hdl,
-	dma_addr_t *iova, size_t *len)
-{
-	int32_t idx;
-
-	if (!iova || !len || (smmu_hdl == HANDLE_INIT)) {
-		CAM_ERR(CAM_SMMU, "Error: Input args are invalid");
-		return -EINVAL;
-	}
-
-	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
-	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
-		CAM_ERR(CAM_SMMU,
-			"Error: handle or index invalid. idx = %d hdl = %x",
-			idx, smmu_hdl);
-		return -EINVAL;
-	}
-
-	if (!iommu_cb_set.cb_info[idx].io_support) {
-		CAM_ERR(CAM_SMMU,
-			"I/O memory not supported for this SMMU handle");
-		return -EINVAL;
-	}
-
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	*iova = iommu_cb_set.cb_info[idx].io_info.iova_start;
-	*len = iommu_cb_set.cb_info[idx].io_info.iova_len;
-
-	CAM_DBG(CAM_SMMU,
-		"I/O area for hdl = %x start addr = %pK len = %zu",
-		smmu_hdl, *iova, *len);
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-
-	return 0;
-}
-
 int cam_smmu_get_region_info(int32_t smmu_hdl,
 	enum cam_smmu_region_id region_id,
 	struct cam_smmu_region_info *region_info)
@@ -1752,11 +1688,13 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		}
 	} else if (region_id == CAM_SMMU_REGION_IO) {
 		attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
+		attach->dma_map_attrs |= DMA_ATTR_NO_DELAYED_UNMAP;
 
 		table = dma_buf_map_attachment(attach, dma_dir);
 		if (IS_ERR_OR_NULL(table)) {
 			rc = PTR_ERR(table);
-			CAM_ERR(CAM_SMMU, "Error: dma map attachment failed");
+			CAM_ERR(CAM_SMMU, "Error: dma map attachment failed,idx=%d,sz=%zu",
+				idx, buf->size);
 			goto err_detach;
 		}
 
@@ -1936,6 +1874,7 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 
 	} else if (mapping_info->region_id == CAM_SMMU_REGION_IO) {
 		mapping_info->attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
+		mapping_info->attach->dma_map_attrs |= DMA_ATTR_NO_DELAYED_UNMAP;
 	}
 
 	dma_buf_unmap_attachment(mapping_info->attach,
@@ -3196,6 +3135,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	struct device *dev)
 {
 	int rc = 0;
+	int32_t stall_disable = 1;
 
 	if (!cb || !dev) {
 		CAM_ERR(CAM_SMMU, "Error: invalid input params");
@@ -3255,13 +3195,20 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 			goto end;
 		}
 
-		iommu_cb_set.non_fatal_fault = smmu_fatal_flag;
+		iommu_cb_set.non_fatal_fault = 1;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 			DOMAIN_ATTR_NON_FATAL_FAULTS,
 			&iommu_cb_set.non_fatal_fault) < 0) {
 			CAM_ERR(CAM_SMMU,
 				"Error: failed to set non fatal fault attribute");
 		}
+		if (iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_CB_STALL_DISABLE,
+			&stall_disable) < 0) {
+			CAM_ERR(CAM_SMMU,
+				"Error: failed to set cb stall disable");
+		}
+
 
 	} else {
 		CAM_ERR(CAM_SMMU, "Context bank does not have IO region");
@@ -3606,7 +3553,6 @@ static struct platform_driver cam_smmu_driver = {
 
 static int __init cam_smmu_init_module(void)
 {
-	cam_smmu_create_debugfs_entry();
 	return platform_driver_register(&cam_smmu_driver);
 }
 

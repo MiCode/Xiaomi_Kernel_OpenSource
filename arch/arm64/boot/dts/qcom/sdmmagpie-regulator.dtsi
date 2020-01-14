@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -480,9 +481,9 @@
 		L16A: pm6150_l16: regulator-pm6150-l16 {
 			regulator-name = "pm6150_l16";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2424000>;
+			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2976000>;
-			qcom,init-voltage = <2424000>;
+			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};

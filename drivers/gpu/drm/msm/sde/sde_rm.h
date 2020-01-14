@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,10 +77,13 @@ enum sde_rm_topology_control {
  *                              disable state.
  * @SDE_RM_QSYNC_CONTINUOUS_MODE: If set, Qsync is enabled in continuous
  *                              mode.
+ * @SDE_RM_QSYNC_ONE_SHOT_MODE: If set, Qsync is enabled in one shot mode.
+ *
  */
 enum sde_rm_qsync_modes {
 	SDE_RM_QSYNC_DISABLED,
 	SDE_RM_QSYNC_CONTINUOUS_MODE,
+	SDE_RM_QSYNC_ONE_SHOT_MODE
 };
 
 /**

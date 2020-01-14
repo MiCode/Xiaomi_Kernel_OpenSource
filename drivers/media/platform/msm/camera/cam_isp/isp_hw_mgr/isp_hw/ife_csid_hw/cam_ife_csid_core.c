@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,6 @@
 #include <uapi/media/cam_defs.h>
 
 #include "cam_ife_csid_core.h"
-#include "cam_csid_ppi_core.h"
 #include "cam_isp_hw.h"
 #include "cam_soc_util.h"
 #include "cam_io_util.h"
@@ -47,7 +47,7 @@
 #define CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX 12
 
 /* Max CSI Rx irq error count threshold value */
-#define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               5
+#define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               100
 
 static int cam_ife_csid_is_ipp_ppp_format_supported(
 	uint32_t in_format)
@@ -79,7 +79,7 @@ static int cam_ife_csid_is_ipp_ppp_format_supported(
 
 static int cam_ife_csid_get_format_rdi(
 	uint32_t in_format, uint32_t out_format,
-	uint32_t *decode_fmt, uint32_t *plain_fmt, uint32_t *in_bpp)
+	uint32_t *decode_fmt, uint32_t *plain_fmt)
 {
 	int rc = 0;
 
@@ -97,7 +97,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 6;
 		break;
 	case CAM_FORMAT_MIPI_RAW_8:
 		switch (out_format) {
@@ -113,7 +112,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 8;
 		break;
 	case CAM_FORMAT_MIPI_RAW_10:
 		switch (out_format) {
@@ -129,7 +127,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 10;
 		break;
 	case CAM_FORMAT_MIPI_RAW_12:
 		switch (out_format) {
@@ -144,7 +141,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 12;
 		break;
 	case CAM_FORMAT_MIPI_RAW_14:
 		switch (out_format) {
@@ -159,7 +155,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 14;
 		break;
 	case CAM_FORMAT_MIPI_RAW_16:
 		switch (out_format) {
@@ -174,7 +169,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 16;
 		break;
 	case CAM_FORMAT_MIPI_RAW_20:
 		switch (out_format) {
@@ -189,7 +183,6 @@ static int cam_ife_csid_get_format_rdi(
 			rc = -EINVAL;
 			break;
 		}
-		*in_bpp = 20;
 		break;
 	case CAM_FORMAT_DPCM_10_6_10:
 		*decode_fmt  = 0x7;
@@ -366,6 +359,7 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 	int rc = 0;
 	uint32_t val = 0, i;
 	uint32_t status;
+	unsigned long flags;
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -380,6 +374,7 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 	CAM_DBG(CAM_ISP, "CSID:%d Csid reset",
 		csid_hw->hw_intf->hw_idx);
 
+	spin_lock_irqsave(&csid_hw->hw_info->hw_lock, flags);
 	/* Mask all interrupts */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
@@ -421,6 +416,8 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_irq_cmd_addr);
+
+	spin_unlock_irqrestore(&csid_hw->hw_info->hw_lock, flags);
 
 	cam_io_w_mb(0x80, soc_info->reg_map[0].mem_base +
 		csid_hw->csid_info->csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
@@ -475,10 +472,6 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		CAM_ERR(CAM_ISP, "CSID:%d IRQ value after reset rc = %d",
 			csid_hw->hw_intf->hw_idx, val);
 	csid_hw->error_irq_count = 0;
-	csid_hw->first_sof_ts = 0;
-
-	for (i = 0 ; i < CAM_IFE_PIX_PATH_RES_MAX; i++)
-		csid_hw->res_sof_cnt[i] = 0;
 
 	return rc;
 }
@@ -574,6 +567,10 @@ static int cam_ife_csid_path_reset(struct cam_ife_csid_hw *csid_hw,
 	init_completion(complete);
 	reset_strb_val = csid_reg->cmn_reg->path_rst_stb_all;
 
+	/* Enable the Test gen before reset */
+	cam_io_w_mb(1,	csid_hw->hw_info->soc_info.reg_map[0].mem_base +
+		csid_reg->tpg_reg->csid_tpg_ctrl_addr);
+
 	/* Reset the corresponding ife csid path */
 	cam_io_w_mb(reset_strb_val, soc_info->reg_map[0].mem_base +
 				reset_strb_addr);
@@ -587,6 +584,10 @@ static int cam_ife_csid_path_reset(struct cam_ife_csid_hw *csid_hw,
 		if (rc == 0)
 			rc = -ETIMEDOUT;
 	}
+
+	/* Disable Test Gen after reset*/
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+		csid_reg->tpg_reg->csid_tpg_ctrl_addr);
 
 end:
 	return rc;
@@ -842,6 +843,7 @@ end:
 	return rc;
 }
 
+
 static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_hw_reserve_resource_args  *reserve)
 {
@@ -956,7 +958,7 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->height  = reserve->in_port->height;
 	path_data->start_line = reserve->in_port->line_start;
 	path_data->end_line = reserve->in_port->line_stop;
-	path_data->usage_type = reserve->in_port->usage_type;
+
 	/* Enable RDI crop for single ife use case only */
 	switch (reserve->res_id) {
 	case CAM_IFE_PIX_PATH_RES_RDI_0:
@@ -971,6 +973,10 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 		break;
 	case CAM_IFE_PIX_PATH_RES_IPP:
 		path_data->crop_enable = true;
+#ifdef CONFIG_CSID_CAMERA
+		path_data->enable_binning  = reserve->in_port->enable_binning;
+		path_data->binning_mode  = reserve->in_port->binning_mode;
+#endif
 		break;
 	case CAM_IFE_PIX_PATH_RES_PPP:
 		path_data->crop_enable = false;
@@ -1004,6 +1010,11 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 		CAM_DBG(CAM_ISP, "CSID:%d master:line start:0x%x line end:0x%x",
 			csid_hw->hw_intf->hw_idx, path_data->start_line,
 			path_data->end_line);
+#ifdef CONFIG_CSID_CAMERA
+		CAM_DBG(CAM_ISP, "CSID:%d master:enable_binning:%d binning_mode:%d",
+			csid_hw->hw_intf->hw_idx, path_data->enable_binning,
+			path_data->binning_mode);
+#endif
 	} else if (reserve->sync_mode == CAM_ISP_HW_SYNC_SLAVE) {
 		path_data->master_idx = reserve->master_idx;
 		CAM_DBG(CAM_ISP, "CSID:%d master_idx=%d",
@@ -1041,6 +1052,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	const struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info              *soc_info;
 	uint32_t i, val, clk_lvl;
+	unsigned long flags;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1062,7 +1074,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	CAM_DBG(CAM_ISP, "CSID:%d init CSID HW",
 		csid_hw->hw_intf->hw_idx);
 
-	clk_lvl = cam_soc_util_get_vote_level(soc_info, csid_hw->clk_rate);
+	clk_lvl = cam_ife_csid_get_vote_level(soc_info, csid_hw->clk_rate);
 	CAM_DBG(CAM_ISP, "CSID clock lvl %u", clk_lvl);
 
 	rc = cam_ife_csid_enable_soc_resources(soc_info, clk_lvl);
@@ -1078,6 +1090,8 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	if (rc) {
 		goto disable_soc;
 	}
+
+	spin_lock_irqsave(&csid_hw->hw_info->hw_lock, flags);
 
 	/* clear all interrupts */
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
@@ -1105,6 +1119,8 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_irq_cmd_addr);
 
+	spin_unlock_irqrestore(&csid_hw->hw_info->hw_lock, flags);
+
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csid_reg->cmn_reg->csid_hw_version_addr);
 	CAM_DBG(CAM_ISP, "CSID:%d CSID HW version: 0x%x",
@@ -1123,7 +1139,6 @@ err:
 static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 {
 	int rc = -EINVAL;
-	uint32_t i;
 	struct cam_hw_soc_info                   *soc_info;
 	const struct cam_ife_csid_reg_offset     *csid_reg;
 	unsigned long                             flags;
@@ -1164,101 +1179,12 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 	spin_lock_irqsave(&csid_hw->lock_state, flags);
 	csid_hw->device_enabled = 0;
 	spin_unlock_irqrestore(&csid_hw->lock_state, flags);
-	for (i = 0; i < CAM_IFE_PIX_PATH_RES_MAX; i++)
-		csid_hw->res_sof_cnt[i] = 0;
-
-	csid_hw->ipp_path_config.measure_enabled = 0;
-	csid_hw->ppp_path_config.measure_enabled = 0;
-	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++)
-		csid_hw->rdi_path_config[i].measure_enabled = 0;
-
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
 	csid_hw->error_irq_count = 0;
-	csid_hw->first_sof_ts = 0;
 
 	return rc;
 }
 
-static int cam_ife_csid_check_path_active(struct cam_ife_csid_hw   *csid_hw)
-{
-	struct cam_hw_soc_info          *soc_info;
-	const struct cam_ife_csid_reg_offset  *csid_reg;
-	uint32_t i, path_status = 1;
-
-	csid_reg = csid_hw->csid_info->csid_reg;
-	soc_info = &csid_hw->hw_info->soc_info;
-
-	/* check the IPP path status */
-	if (csid_reg->cmn_reg->num_pix) {
-		path_status = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-				csid_reg->ipp_reg->csid_pxl_status_addr);
-		CAM_DBG(CAM_ISP, "CSID:%d IPP path status:%d",
-			csid_hw->hw_intf->hw_idx, path_status);
-		/* if status is 0 then it is active */
-		if (!path_status)
-			goto end;
-	}
-
-	if (csid_reg->cmn_reg->num_ppp) {
-		path_status = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-				csid_reg->ppp_reg->csid_pxl_status_addr);
-		CAM_DBG(CAM_ISP, "CSID:%d PPP path status:%d",
-			csid_hw->hw_intf->hw_idx, path_status);
-		/* if status is 0 then it is active */
-		if (!path_status)
-			goto end;
-	}
-
-	/* Check the RDI path status */
-	for (i = 0; i < csid_reg->cmn_reg->num_rdis; i++) {
-		path_status = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-				csid_reg->rdi_reg[i]->csid_rdi_status_addr);
-		CAM_DBG(CAM_ISP, "CSID:%d RDI:%d path status:%d",
-			csid_hw->hw_intf->hw_idx, i,  path_status);
-		/* if status is 0 then it is active */
-		if (!path_status)
-			goto end;
-	}
-
-end:
-	return path_status;
-}
-
-static void cam_ife_csid_reset_init_frame_drop(
-	struct cam_ife_csid_hw   *csid_hw)
-{
-	const struct cam_ife_csid_reg_offset  *csid_reg;
-	uint32_t i = 0;
-
-	/*
-	 * Reset CSID init frame drop value only if all resources are
-	 * released
-	 */
-	csid_reg = csid_hw->csid_info->csid_reg;
-	if (csid_reg->cmn_reg->num_pix) {
-		if (csid_hw->ipp_res.res_state !=
-			CAM_ISP_RESOURCE_STATE_AVAILABLE)
-			goto end;
-	}
-
-	if (csid_reg->cmn_reg->num_ppp) {
-		if (csid_hw->ppp_res.res_state !=
-			CAM_ISP_RESOURCE_STATE_AVAILABLE)
-			goto end;
-	}
-
-	for (i = 0; i < csid_reg->cmn_reg->num_rdis; i++) {
-		if (csid_hw->rdi_res[i].res_state !=
-			CAM_ISP_RESOURCE_STATE_AVAILABLE)
-			goto end;
-	}
-
-	/* All CSID resources are available reset the init frame drop */
-	csid_hw->init_frame_drop = 0;
-end:
-	return;
-
-}
 
 static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 	struct cam_isp_resource_node       *res)
@@ -1428,12 +1354,10 @@ static int cam_ife_csid_enable_csi2(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0;
-	const struct cam_ife_csid_reg_offset   *csid_reg;
-	struct cam_hw_soc_info                 *soc_info;
-	struct cam_ife_csid_cid_data           *cid_data;
-	struct cam_csid_ppi_cfg                 ppi_lane_cfg;
+	const struct cam_ife_csid_reg_offset       *csid_reg;
+	struct cam_hw_soc_info                     *soc_info;
+	struct cam_ife_csid_cid_data               *cid_data;
 	uint32_t val = 0;
-	uint32_t ppi_index = 0;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1524,24 +1448,6 @@ static int cam_ife_csid_enable_csi2(
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
 
-	ppi_index = csid_hw->csi2_rx_cfg.phy_sel;
-	if (csid_hw->ppi_hw_intf[ppi_index] && csid_hw->ppi_enable) {
-		ppi_lane_cfg.lane_type = csid_hw->csi2_rx_cfg.lane_type;
-		ppi_lane_cfg.lane_num  = csid_hw->csi2_rx_cfg.lane_num;
-		ppi_lane_cfg.lane_cfg  = csid_hw->csi2_rx_cfg.lane_cfg;
-
-		CAM_DBG(CAM_ISP, "ppi_index to init %d", ppi_index);
-		rc = csid_hw->ppi_hw_intf[ppi_index]->hw_ops.init(
-				csid_hw->ppi_hw_intf[ppi_index]->hw_priv,
-				&ppi_lane_cfg,
-				sizeof(struct cam_csid_ppi_cfg));
-		if (rc < 0) {
-			CAM_ERR(CAM_ISP, "PPI:%d Init Failed",
-					ppi_index);
-			return rc;
-		}
-	}
-
 	return 0;
 }
 
@@ -1549,10 +1455,8 @@ static int cam_ife_csid_disable_csi2(
 	struct cam_ife_csid_hw          *csid_hw,
 	struct cam_isp_resource_node    *res)
 {
-	int rc = 0;
-	const struct cam_ife_csid_reg_offset *csid_reg;
-	struct cam_hw_soc_info               *soc_info;
-	uint32_t ppi_index = 0;
+	const struct cam_ife_csid_reg_offset      *csid_reg;
+	struct cam_hw_soc_info                    *soc_info;
 
 	if (res->res_id >= CAM_IFE_CSID_CID_MAX) {
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid res id :%d",
@@ -1583,19 +1487,6 @@ static int cam_ife_csid_disable_csi2(
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 
-	ppi_index = csid_hw->csi2_rx_cfg.phy_sel;
-	if (csid_hw->ppi_hw_intf[ppi_index] && csid_hw->ppi_enable) {
-		/* De-Initialize the PPI bridge */
-		CAM_DBG(CAM_ISP, "ppi_index to de-init %d\n", ppi_index);
-		rc = csid_hw->ppi_hw_intf[ppi_index]->hw_ops.deinit(
-				csid_hw->ppi_hw_intf[ppi_index]->hw_priv,
-				NULL, 0);
-		if (rc < 0) {
-			CAM_ERR(CAM_ISP, "PPI:%d De-Init Failed", ppi_index);
-			return rc;
-		}
-	}
-
 	return 0;
 }
 
@@ -1607,13 +1498,15 @@ static void cam_ife_csid_halt_csi2(
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
+	CAM_INFO(CAM_ISP, "CSID: %d cnt: %d Halt csi2 rx",
+		csid_hw->hw_intf->hw_idx, csid_hw->csi2_cfg_cnt);
 
 	/* Disable the CSI2 rx inerrupts */
-	cam_io_w(0, soc_info->reg_map[0].mem_base +
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
 
 	/* Reset the Rx CFG registers */
-	cam_io_w(0, soc_info->reg_map[0].mem_base +
+	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
@@ -1630,7 +1523,6 @@ static int cam_ife_csid_init_config_pxl_path(
 	const struct cam_ife_csid_pxl_reg_offset *pxl_reg = NULL;
 	bool                                      is_ipp;
 	uint32_t decode_format = 0, plain_format = 0, val = 0;
-	struct cam_isp_sensor_dimension  *path_config;
 
 	path_data = (struct cam_ife_csid_path_cfg  *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1639,11 +1531,9 @@ static int cam_ife_csid_init_config_pxl_path(
 	if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP) {
 		is_ipp = true;
 		pxl_reg = csid_reg->ipp_reg;
-		path_config = &(csid_hw->ipp_path_config);
 	} else {
 		is_ipp = false;
 		pxl_reg = csid_reg->ppp_reg;
-		path_config = &(csid_hw->ppp_path_config);
 	}
 
 	if (!pxl_reg) {
@@ -1672,6 +1562,18 @@ static int cam_ife_csid_init_config_pxl_path(
 		(path_data->crop_enable <<
 		csid_reg->cmn_reg->crop_v_en_shift_val) |
 		(1 << 1) | 1;
+
+#ifdef CONFIG_CSID_CAMERA
+	if (path_data->enable_binning) {
+		val |= (1 << pxl_reg->binning_enable_shift_val);
+		if (path_data->binning_mode)
+			val |= (1 << pxl_reg->binning_mode_shift_val);
+	}
+	CAM_ERR(CAM_ISP, "CSID:%d enable binning:%d,binningmode:%d,shift:%d,%d",
+		csid_hw->hw_intf->hw_idx, path_data->enable_binning, path_data->binning_mode,
+		pxl_reg->binning_enable_shift_val,
+		pxl_reg->binning_mode_shift_val);
+#endif
 
 	val |= (1 << pxl_reg->pix_store_en_shift_val);
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
@@ -1710,24 +1612,6 @@ static int cam_ife_csid_init_config_pxl_path(
 			cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 				pxl_reg->csid_pxl_cfg0_addr);
 		}
-	}
-
-	/* configure pixel format measure */
-	if (path_config->measure_enabled) {
-		val = (((path_config->height  &
-			csid_reg->cmn_reg->format_measure_height_mask_val) <<
-			csid_reg->cmn_reg->format_measure_height_shift_val) |
-			(path_config->width &
-			csid_reg->cmn_reg->format_measure_width_mask_val));
-		CAM_DBG(CAM_ISP, "CSID:%d format measure cfg1 value : 0x%x",
-			csid_hw->hw_intf->hw_idx, val);
-
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-			pxl_reg->csid_pxl_format_measure_cfg1_addr);
-
-		/* enable pixel and line counter */
-		cam_io_w_mb(3, soc_info->reg_map[0].mem_base +
-			pxl_reg->csid_pxl_format_measure_cfg0_addr);
 	}
 
 	/* set frame drop pattern to 0 and period to 1 */
@@ -1874,8 +1758,7 @@ static int cam_ife_csid_enable_pxl_path(
 	struct cam_ife_csid_path_cfg             *path_data;
 	const struct cam_ife_csid_pxl_reg_offset *pxl_reg = NULL;
 	bool                                      is_ipp;
-	uint32_t                                  val = 0, path_status;
-	struct cam_isp_sensor_dimension  *path_config;
+	uint32_t                                  val = 0;
 
 	path_data = (struct cam_ife_csid_path_cfg   *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1884,11 +1767,9 @@ static int cam_ife_csid_enable_pxl_path(
 	if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP) {
 		is_ipp = true;
 		pxl_reg = csid_reg->ipp_reg;
-		path_config = &(csid_hw->ipp_path_config);
 	} else {
 		is_ipp = false;
 		pxl_reg = csid_reg->ppp_reg;
-		path_config = &(csid_hw->ppp_path_config);
 	}
 
 	if (res->res_state != CAM_ISP_RESOURCE_STATE_INIT_HW) {
@@ -1920,15 +1801,14 @@ static int cam_ife_csid_enable_pxl_path(
 		/* Default is internal halt mode */
 		val = 0;
 
-	/* Resume at frame boundary */
-	path_status = cam_ife_csid_check_path_active(csid_hw);
-	if (!csid_hw->init_frame_drop ||
-		(csid_hw->init_frame_drop && !path_status)) {
-		CAM_DBG(CAM_ISP, "start pixel path");
-		if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
-			path_data->sync_mode == CAM_ISP_HW_SYNC_NONE)
-			val |= CAM_CSID_RESUME_AT_FRAME_BOUNDARY;
-	}
+	/*
+	 * Resume at frame boundary if Master or No Sync.
+	 * Slave will get resume command from Master.
+	 */
+	if (path_data->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
+		path_data->sync_mode == CAM_ISP_HW_SYNC_NONE)
+		val |= CAM_CSID_RESUME_AT_FRAME_BOUNDARY;
+
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_ctrl_addr);
 
@@ -1942,16 +1822,10 @@ static int cam_ife_csid_enable_pxl_path(
 	if (pxl_reg->ccif_violation_en)
 		val |= CSID_PATH_ERROR_CCIF_VIOLATION;
 
-	if ((csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ) ||
-		(csid_hw->init_frame_drop && path_status))
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_SOF;
-
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_EOF;
-
-	if (path_config->measure_enabled)
-		val |= (CSID_PATH_ERROR_PIX_COUNT |
-			CSID_PATH_ERROR_LINE_COUNT);
 
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_irq_mask_addr);
@@ -2053,7 +1927,7 @@ static int cam_ife_csid_init_config_rdi_path(
 	struct cam_ife_csid_path_cfg           *path_data;
 	const struct cam_ife_csid_reg_offset   *csid_reg;
 	struct cam_hw_soc_info                 *soc_info;
-	uint32_t path_format = 0, plain_fmt = 0, val = 0, id, in_bpp = 0;
+	uint32_t path_format = 0, plain_fmt = 0, val = 0, id;
 	uint32_t format_measure_addr;
 
 	path_data = (struct cam_ife_csid_path_cfg   *) res->res_priv;
@@ -2068,7 +1942,7 @@ static int cam_ife_csid_init_config_rdi_path(
 	}
 
 	rc = cam_ife_csid_get_format_rdi(path_data->in_format,
-		path_data->out_format, &path_format, &plain_fmt, &in_bpp);
+		path_data->out_format, &path_format, &plain_fmt);
 	if (rc)
 		return rc;
 
@@ -2117,32 +1991,6 @@ static int cam_ife_csid_init_config_rdi_path(
 		CAM_DBG(CAM_ISP, "CSID:%d Vertical Crop config val: 0x%x",
 			csid_hw->hw_intf->hw_idx, val);
 	}
-
-	/* configure pixel format measure */
-	if (csid_hw->rdi_path_config[id].measure_enabled) {
-		val = ((csid_hw->rdi_path_config[id].height &
-		csid_reg->cmn_reg->format_measure_height_mask_val) <<
-		csid_reg->cmn_reg->format_measure_height_shift_val);
-
-		if (path_format == 0xF)
-			val |= (((csid_hw->rdi_path_config[id].width *
-				in_bpp) / 8) &
-			csid_reg->cmn_reg->format_measure_width_mask_val);
-		else
-			val |= (csid_hw->rdi_path_config[id].width &
-			csid_reg->cmn_reg->format_measure_width_mask_val);
-
-		CAM_DBG(CAM_ISP, "CSID:%d format measure cfg1 value : 0x%x",
-			csid_hw->hw_intf->hw_idx, val);
-
-		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
-		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg1_addr);
-
-		/* enable pixel and line counter */
-		cam_io_w_mb(3, soc_info->reg_map[0].mem_base +
-		csid_reg->rdi_reg[id]->csid_rdi_format_measure_cfg0_addr);
-	}
-
 	/* set frame drop pattern to 0 and period to 1 */
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_frm_drop_period_addr);
@@ -2272,10 +2120,8 @@ static int cam_ife_csid_enable_rdi_path(
 {
 	const struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info                    *soc_info;
-	struct cam_ife_csid_path_cfg              *path_data;
-	uint32_t id, val, path_status;
+	uint32_t id, val;
 
-	path_data = (struct cam_ife_csid_path_cfg   *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
 	id = res->res_id;
@@ -2290,34 +2136,21 @@ static int cam_ife_csid_enable_rdi_path(
 		return -EINVAL;
 	}
 
-	if (path_data->usage_type)
-		path_data->init_frame_drop = csid_hw->init_frame_drop + 1;
-
 	/*resume at frame boundary */
-	path_status = cam_ife_csid_check_path_active(csid_hw);
-	if (!path_data->init_frame_drop ||
-		(path_data->init_frame_drop && !path_status)) {
-		CAM_DBG(CAM_ISP, "Start RDI:%d path", id);
-		cam_io_w_mb(CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
-				soc_info->reg_map[0].mem_base +
-				csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
-	}
+	cam_io_w_mb(CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
+			soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
+
 	/* Enable the required RDI interrupts */
 	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
 
 	if (csid_reg->rdi_reg[id]->ccif_violation_en)
 		val |= CSID_PATH_ERROR_CCIF_VIOLATION;
 
-	if ((csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ) ||
-		(path_data->init_frame_drop && path_status))
+	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_SOF;
-
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ)
 		val |= CSID_PATH_INFO_INPUT_EOF;
-
-	if (csid_hw->rdi_path_config[id].measure_enabled)
-		val |= (CSID_PATH_ERROR_PIX_COUNT |
-			CSID_PATH_ERROR_LINE_COUNT);
 
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
@@ -2500,7 +2333,7 @@ static int cam_ife_csid_get_time_stamp(
 	const struct cam_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info                     *soc_info;
 	const struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
-	struct timespec64 ts;
+	//struct timespec64 ts;
 	uint32_t  time_32, id;
 
 	time_stamp = (struct cam_csid_get_time_stamp_args  *)cmd_args;
@@ -2555,16 +2388,9 @@ static int cam_ife_csid_get_time_stamp(
 		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 
-	if (!csid_hw->first_sof_ts) {
-		get_monotonic_boottime64(&ts);
-		time_stamp->boot_timestamp =
-			(uint64_t)((ts.tv_sec * 1000000000) +
-			ts.tv_nsec);
-		CAM_DBG(CAM_ISP, "timestamp:%lld",
-			time_stamp->boot_timestamp);
-		csid_hw->first_sof_ts = 1;
-	} else
-		time_stamp->boot_timestamp = 0;
+	/*get_monotonic_boottime64(&ts);
+	time_stamp->boot_timestamp = (uint64_t)((ts.tv_sec * 1000000000) +
+		ts.tv_nsec);*/
 
 	return 0;
 }
@@ -2578,19 +2404,6 @@ static int cam_ife_csid_set_csid_debug(struct cam_ife_csid_hw   *csid_hw,
 	csid_hw->csid_debug = *csid_debug;
 	CAM_DBG(CAM_ISP, "CSID:%d set csid debug value:%d",
 		csid_hw->hw_intf->hw_idx, csid_hw->csid_debug);
-
-	return 0;
-}
-
-static int cam_ife_csid_set_init_frame_drop(struct cam_ife_csid_hw   *csid_hw,
-	void *cmd_args)
-{
-	struct cam_isp_init_frame_drop_config  *frame_drop_cfg;
-
-	frame_drop_cfg = (struct cam_isp_init_frame_drop_config  *) cmd_args;
-	csid_hw->init_frame_drop = frame_drop_cfg->init_frame_drop;
-	CAM_DBG(CAM_ISP, "CSID:%d set init frame drop:%d",
-		csid_hw->hw_intf->hw_idx, csid_hw->init_frame_drop);
 
 	return 0;
 }
@@ -2648,6 +2461,7 @@ static int cam_ife_csid_reset(void *hw_priv,
 	csid_hw = (struct cam_ife_csid_hw   *)csid_hw_info->core_info;
 	reset   = (struct cam_csid_reset_cfg_args  *)reset_args;
 
+	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	switch (reset->reset_type) {
 	case CAM_IFE_CSID_RESET_GLOBAL:
 		rc = cam_ife_csid_global_reset(csid_hw);
@@ -2661,6 +2475,7 @@ static int cam_ife_csid_reset(void *hw_priv,
 		rc = -EINVAL;
 		break;
 	}
+	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 
 	return rc;
 }
@@ -2771,14 +2586,6 @@ static int cam_ife_csid_release(void *hw_priv,
 		break;
 	case CAM_ISP_RESOURCE_PIX_PATH:
 		res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
-		cam_ife_csid_reset_init_frame_drop(csid_hw);
-		if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP)
-			csid_hw->ipp_path_config.measure_enabled = 0;
-		else if (res->res_id == CAM_IFE_PIX_PATH_RES_PPP)
-			csid_hw->ppp_path_config.measure_enabled = 0;
-		else
-			csid_hw->rdi_path_config[res->res_id].measure_enabled
-				= 0;
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid res type:%d res id%d",
@@ -2801,9 +2608,13 @@ static int cam_ife_csid_reset_retain_sw_reg(
 	const struct cam_ife_csid_reg_offset *csid_reg =
 		csid_hw->csid_info->csid_reg;
 	struct cam_hw_soc_info          *soc_info;
+	unsigned long flags;
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	/* clear the top interrupt first */
+
+	spin_lock_irqsave(&csid_hw->hw_info->hw_lock, flags);
+
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_top_irq_clear_addr);
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
@@ -2812,6 +2623,9 @@ static int cam_ife_csid_reset_retain_sw_reg(
 	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
 		soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_rst_strobes_addr);
+
+	spin_unlock_irqrestore(&csid_hw->hw_info->hw_lock, flags);
+
 	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_top_irq_status_addr,
 			status, (status & 0x1) == 0x1,
@@ -2825,10 +2639,15 @@ static int cam_ife_csid_reset_retain_sw_reg(
 			csid_hw->hw_intf->hw_idx, rc);
 		rc = 0;
 	}
+
+	spin_lock_irqsave(&csid_hw->hw_info->hw_lock, flags);
+
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_top_irq_clear_addr);
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_irq_cmd_addr);
+
+	spin_unlock_irqrestore(&csid_hw->hw_info->hw_lock, flags);
 
 	return rc;
 }
@@ -3210,57 +3029,6 @@ static int cam_ife_csid_set_csid_clock(
 	return 0;
 }
 
-static int cam_ife_csid_set_sensor_dimension(
-	struct cam_ife_csid_hw *csid_hw, void *cmd_args)
-{
-	struct cam_ife_sensor_dimension_update_args *dimension_update = NULL;
-	uint32_t i;
-
-	if (!csid_hw)
-		return -EINVAL;
-
-	dimension_update =
-		(struct cam_ife_sensor_dimension_update_args *)cmd_args;
-	csid_hw->ipp_path_config.measure_enabled =
-		dimension_update->ipp_path.measure_enabled;
-	if (dimension_update->ipp_path.measure_enabled) {
-		csid_hw->ipp_path_config.width  =
-			dimension_update->ipp_path.width;
-		csid_hw->ipp_path_config.height =
-			dimension_update->ipp_path.height;
-		CAM_DBG(CAM_ISP, "CSID ipp path width %d height %d",
-			csid_hw->ipp_path_config.width,
-			csid_hw->ipp_path_config.height);
-	}
-	csid_hw->ppp_path_config.measure_enabled =
-		dimension_update->ppp_path.measure_enabled;
-	if (dimension_update->ppp_path.measure_enabled) {
-		csid_hw->ppp_path_config.width  =
-			dimension_update->ppp_path.width;
-		csid_hw->ppp_path_config.height =
-			dimension_update->ppp_path.height;
-		CAM_DBG(CAM_ISP, "CSID ppp path width %d height %d",
-			csid_hw->ppp_path_config.width,
-			csid_hw->ppp_path_config.height);
-	}
-	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++) {
-		csid_hw->rdi_path_config[i].measure_enabled
-			= dimension_update->rdi_path[i].measure_enabled;
-		if (csid_hw->rdi_path_config[i].measure_enabled) {
-			csid_hw->rdi_path_config[i].width =
-				dimension_update->rdi_path[i].width;
-			csid_hw->rdi_path_config[i].height =
-				dimension_update->rdi_path[i].height;
-			CAM_DBG(CAM_ISP,
-				"CSID rdi path[%d] width %d height %d",
-				i, csid_hw->rdi_path_config[i].width,
-				csid_hw->rdi_path_config[i].height);
-		}
-	}
-
-	return 0;
-}
-
 static int cam_ife_csid_process_cmd(void *hw_priv,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
@@ -3295,12 +3063,6 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 	case CAM_ISP_HW_CMD_CSID_CLOCK_UPDATE:
 		rc = cam_ife_csid_set_csid_clock(csid_hw, cmd_args);
 		break;
-	case CAM_IFE_CSID_SET_INIT_FRAME_DROP:
-		rc = cam_ife_csid_set_init_frame_drop(csid_hw, cmd_args);
-		break;
-	case CAM_IFE_CSID_SET_SENSOR_DIMENSION_CFG:
-		rc = cam_ife_csid_set_sensor_dimension(csid_hw, cmd_args);
-		break;
 	default:
 		CAM_ERR(CAM_ISP, "CSID:%d unsupported cmd:%d",
 			csid_hw->hw_intf->hw_idx, cmd_type);
@@ -3318,23 +3080,21 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	struct cam_hw_soc_info                         *soc_info;
 	const struct cam_ife_csid_reg_offset           *csid_reg;
 	const struct cam_ife_csid_csi2_rx_reg_offset   *csi2_reg;
-	struct cam_ife_csid_path_cfg                   *path_data;
-	const struct cam_ife_csid_pxl_reg_offset       *pxl_reg;
-	const struct cam_ife_csid_rdi_reg_offset       *rdi_reg;
 	uint32_t i, irq_status_top, irq_status_rx, irq_status_ipp = 0;
 	uint32_t irq_status_rdi[4] = {0, 0, 0, 0};
-	uint32_t val, val2, irq_status_ppp = 0;
+	uint32_t val, irq_status_ppp = 0;
 	bool fatal_err_detected = false;
 	uint32_t sof_irq_debug_en = 0;
 	unsigned long flags;
+
+	csid_hw = (struct cam_ife_csid_hw *)data;
+
+	CAM_DBG(CAM_ISP, "CSID %d IRQ Handling", csid_hw->hw_intf->hw_idx);
 
 	if (!data) {
 		CAM_ERR(CAM_ISP, "CSID: Invalid arguments");
 		return IRQ_HANDLED;
 	}
-
-	csid_hw = (struct cam_ife_csid_hw *)data;
-	CAM_DBG(CAM_ISP, "CSID %d IRQ Handling", csid_hw->hw_intf->hw_idx);
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -3360,6 +3120,8 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		irq_status_rdi[i] = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[i]->csid_rdi_irq_status_addr);
 
+	spin_lock_irqsave(&csid_hw->hw_info->hw_lock, flags);
+
 	/* clear */
 	cam_io_w_mb(irq_status_rx, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_clear_addr);
@@ -3378,11 +3140,15 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->csid_irq_cmd_addr);
 
-	CAM_ERR_RATE_LIMIT(CAM_ISP,
-		"CSID %d irq status 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
-		csid_hw->hw_intf->hw_idx, irq_status_top,
-		irq_status_rx, irq_status_ipp, irq_status_ppp,
-		irq_status_rdi[0], irq_status_rdi[1], irq_status_rdi[2]);
+	spin_unlock_irqrestore(&csid_hw->hw_info->hw_lock, flags);
+
+	CAM_DBG(CAM_ISP, "irq_status_top = 0x%x", irq_status_top);
+	CAM_DBG(CAM_ISP, "irq_status_rx = 0x%x", irq_status_rx);
+	CAM_DBG(CAM_ISP, "irq_status_ipp = 0x%x", irq_status_ipp);
+	CAM_DBG(CAM_ISP, "irq_status_ppp = 0x%x", irq_status_ppp);
+	CAM_DBG(CAM_ISP, "irq_status_rdi0= 0x%x", irq_status_rdi[0]);
+	CAM_DBG(CAM_ISP, "irq_status_rdi1= 0x%x", irq_status_rdi[1]);
+	CAM_DBG(CAM_ISP, "irq_status_rdi2= 0x%x", irq_status_rdi[2]);
 
 	if (irq_status_rx & BIT(csid_reg->csi2_reg->csi2_rst_done_shift_val)) {
 		CAM_DBG(CAM_ISP, "csi rx reset complete");
@@ -3392,38 +3158,71 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	spin_lock_irqsave(&csid_hw->lock_state, flags);
 	if (csid_hw->device_enabled == 1) {
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE0_FIFO_OVERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 0 over flow",
+				 csid_hw->hw_intf->hw_idx);
 			fatal_err_detected = true;
-			goto handle_fatal_error;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE1_FIFO_OVERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 1 over flow",
+				 csid_hw->hw_intf->hw_idx);
 			fatal_err_detected = true;
-			goto handle_fatal_error;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE2_FIFO_OVERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 2 over flow",
+				 csid_hw->hw_intf->hw_idx);
 			fatal_err_detected = true;
-			goto handle_fatal_error;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d lane 3 over flow",
+				 csid_hw->hw_intf->hw_idx);
 			fatal_err_detected = true;
-			goto handle_fatal_error;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_TG_FIFO_OVERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d TG OVER FLOW",
+				 csid_hw->hw_intf->hw_idx);
 			fatal_err_detected = true;
-			goto handle_fatal_error;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_EOT_RECEPTION) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d CPHY_EOT_RECEPTION",
+				 csid_hw->hw_intf->hw_idx);
 			csid_hw->error_irq_count++;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_SOT_RECEPTION) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d CPHY_SOT_RECEPTION",
+				 csid_hw->hw_intf->hw_idx);
 			csid_hw->error_irq_count++;
 		}
+		if (irq_status_rx & CSID_CSI2_RX_ERROR_CPHY_PH_CRC) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d CPHY_PH_CRC",
+				 csid_hw->hw_intf->hw_idx);
+		}
+		if (irq_status_rx & CSID_CSI2_RX_ERROR_CRC) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_CRC",
+				 csid_hw->hw_intf->hw_idx);
+		}
+		if (irq_status_rx & CSID_CSI2_RX_ERROR_ECC) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d ERROR_ECC",
+				 csid_hw->hw_intf->hw_idx);
+		}
+		if (irq_status_rx & CSID_CSI2_RX_ERROR_MMAPPED_VC_DT) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d MMAPPED_VC_DT",
+				 csid_hw->hw_intf->hw_idx);
+		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d ERROR_STREAM_UNDERFLOW",
+				 csid_hw->hw_intf->hw_idx);
 			csid_hw->error_irq_count++;
 		}
 		if (irq_status_rx & CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID:%d UNBOUNDED_FRAME",
+				 csid_hw->hw_intf->hw_idx);
 			csid_hw->error_irq_count++;
 		}
 	}
+	spin_unlock_irqrestore(&csid_hw->lock_state, flags);
 
 	if (csid_hw->error_irq_count >
 		CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT) {
@@ -3431,15 +3230,8 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		csid_hw->error_irq_count = 0;
 	}
 
-handle_fatal_error:
-	spin_unlock_irqrestore(&csid_hw->lock_state, flags);
-	if (fatal_err_detected) {
-		CAM_INFO(CAM_ISP,
-			"CSID: %d cnt: %d Halt csi2 rx irq_status_rx:0x%x",
-			csid_hw->hw_intf->hw_idx, csid_hw->csi2_cfg_cnt,
-			irq_status_rx);
+	if (fatal_err_detected)
 		cam_ife_csid_halt_csi2(csid_hw);
-	}
 
 	if (csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOT_IRQ) {
 		if (irq_status_rx & CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED) {
@@ -3540,6 +3332,7 @@ handle_fatal_error:
 		/* IPP reset done bit */
 		if (irq_status_ipp &
 			BIT(csid_reg->cmn_reg->path_rst_done_shift_val)) {
+			CAM_DBG(CAM_ISP, "CSID IPP reset complete");
 			complete(&csid_hw->csid_ipp_complete);
 		}
 
@@ -3551,88 +3344,24 @@ handle_fatal_error:
 				csid_hw->irq_debug_cnt++;
 		}
 
-		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_SOF) &&
-			(csid_hw->init_frame_drop) &&
-			(csid_hw->ipp_res.res_state ==
-			CAM_ISP_RESOURCE_STATE_STREAMING)) {
-			csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_IPP]++;
-			CAM_DBG(CAM_ISP,
-				"CSID:%d IPP SOF cnt:%d init_frame_drop:%d",
-				csid_hw->hw_intf->hw_idx,
-				csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_IPP],
-				csid_hw->init_frame_drop);
-			if (csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_IPP] ==
-				csid_hw->init_frame_drop) {
-				pxl_reg = csid_reg->ipp_reg;
-				path_data = csid_hw->ipp_res.res_priv;
-				if (path_data->sync_mode ==
-					CAM_ISP_HW_SYNC_MASTER) {
-					val = cam_io_r_mb(
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_ctrl_addr);
-
-					val |=
-					CAM_CSID_RESUME_AT_FRAME_BOUNDARY;
-					cam_io_w_mb(val,
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_ctrl_addr);
-
-				} else if (path_data->sync_mode ==
-					CAM_ISP_HW_SYNC_NONE) {
-					cam_io_w_mb(
-					CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_ctrl_addr);
-				}
-
-				if (!(csid_hw->csid_debug &
-					CSID_DEBUG_ENABLE_SOF_IRQ)) {
-					val = cam_io_r_mb(
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_irq_mask_addr);
-					val &= ~(CSID_PATH_INFO_INPUT_SOF);
-					cam_io_w_mb(val,
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_irq_mask_addr);
-				}
-			}
-		}
-
 		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
 			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d IPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
-		if ((irq_status_ipp & CSID_PATH_ERROR_CCIF_VIOLATION) ||
-			(irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW)) {
+		if ((irq_status_ipp & CSID_PATH_ERROR_CCIF_VIOLATION))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID:%d IPP CCIF violation",
+				csid_hw->hw_intf->hw_idx);
+
+		if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
-				"CSID:%d irq_status_ipp:0x%x",
-				csid_hw->hw_intf->hw_idx, irq_status_ipp);
-			if (irq_status_ipp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
-				/* Stop IPP path immediately */
-				cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
-					soc_info->reg_map[0].mem_base +
-					csid_reg->ipp_reg->csid_pxl_ctrl_addr);
-			}
-		}
-
-		if ((irq_status_ipp & CSID_PATH_ERROR_PIX_COUNT) ||
-			(irq_status_ipp & CSID_PATH_ERROR_LINE_COUNT)) {
-			val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->ipp_reg->csid_pxl_format_measure0_addr);
-
-			CAM_ERR(CAM_ISP,
-				"CSID:%d irq_status_ipp:0x%x",
-				csid_hw->hw_intf->hw_idx, irq_status_ipp);
-			CAM_ERR(CAM_ISP,
-			"Expected sz 0x%x*0x%x actual sz 0x%x*0x%x",
-			csid_hw->ipp_path_config.height,
-			csid_hw->ipp_path_config.width,
-			((val >>
-			csid_reg->cmn_reg->format_measure_height_shift_val) &
-			csid_reg->cmn_reg->format_measure_height_mask_val),
-			val &
-			csid_reg->cmn_reg->format_measure_width_mask_val);
+				"CSID:%d IPP fifo over flow",
+				csid_hw->hw_intf->hw_idx);
+			/* Stop IPP path immediately */
+			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
+				soc_info->reg_map[0].mem_base +
+				csid_reg->ipp_reg->csid_pxl_ctrl_addr);
 		}
 	}
 
@@ -3641,6 +3370,7 @@ handle_fatal_error:
 		/* PPP reset done bit */
 		if (irq_status_ppp &
 			BIT(csid_reg->cmn_reg->path_rst_done_shift_val)) {
+			CAM_DBG(CAM_ISP, "CSID PPP reset complete");
 			complete(&csid_hw->csid_ppp_complete);
 		}
 
@@ -3652,96 +3382,31 @@ handle_fatal_error:
 				csid_hw->irq_debug_cnt++;
 		}
 
-		if ((irq_status_ppp & CSID_PATH_INFO_INPUT_SOF) &&
-			(csid_hw->init_frame_drop) &&
-			(csid_hw->ppp_res.res_state ==
-			CAM_ISP_RESOURCE_STATE_STREAMING)) {
-			csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_PPP]++;
-			CAM_DBG(CAM_ISP,
-				"CSID:%d PPP SOF cnt:%d init_frame_drop:%d",
-				csid_hw->hw_intf->hw_idx,
-				csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_PPP],
-				csid_hw->init_frame_drop);
-			if (csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_PPP] ==
-				csid_hw->init_frame_drop) {
-				path_data = csid_hw->ppp_res.res_priv;
-				pxl_reg = csid_reg->ppp_reg;
-				if (path_data->sync_mode ==
-					CAM_ISP_HW_SYNC_MASTER) {
-					val = cam_io_r_mb(
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_ctrl_addr);
-
-					val |=
-					CAM_CSID_RESUME_AT_FRAME_BOUNDARY;
-					cam_io_w_mb(val,
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_ctrl_addr);
-				} else if (path_data->sync_mode ==
-					CAM_ISP_HW_SYNC_NONE) {
-					cam_io_w_mb(
-					CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
-						soc_info->reg_map[0].mem_base +
-						pxl_reg->csid_pxl_ctrl_addr);
-				}
-
-				if (!(csid_hw->csid_debug &
-					CSID_DEBUG_ENABLE_SOF_IRQ)) {
-					val = cam_io_r_mb(
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_irq_mask_addr);
-					val &= ~(CSID_PATH_INFO_INPUT_SOF);
-					cam_io_w_mb(val,
-					soc_info->reg_map[0].mem_base +
-					pxl_reg->csid_pxl_irq_mask_addr);
-				}
-			}
-		}
-
 		if ((irq_status_ppp & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
 			CAM_INFO_RATE_LIMIT(CAM_ISP, "CSID:%d PPP EOF received",
 				csid_hw->hw_intf->hw_idx);
 
-		if ((irq_status_ppp & CSID_PATH_ERROR_CCIF_VIOLATION) ||
-			(irq_status_ppp & CSID_PATH_ERROR_FIFO_OVERFLOW)) {
+		if ((irq_status_ipp & CSID_PATH_ERROR_CCIF_VIOLATION))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+				"CSID:%d PPP CCIF violation",
+				csid_hw->hw_intf->hw_idx);
+
+		if (irq_status_ppp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
-				"CSID:%d irq_status_ppp:0x%x",
-				csid_hw->hw_intf->hw_idx, irq_status_ppp);
-			if (irq_status_ppp & CSID_PATH_ERROR_FIFO_OVERFLOW) {
-				/* Stop PPP path immediately */
-				cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
-					soc_info->reg_map[0].mem_base +
-					csid_reg->ppp_reg->csid_pxl_ctrl_addr);
-			}
-		}
-
-		if ((irq_status_ppp & CSID_PATH_ERROR_PIX_COUNT) ||
-			(irq_status_ppp & CSID_PATH_ERROR_LINE_COUNT)) {
-			val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->ppp_reg->csid_pxl_format_measure0_addr);
-
-			CAM_ERR(CAM_ISP,
-				"CSID:%d irq_status_ppp:0x%x",
-				csid_hw->hw_intf->hw_idx, irq_status_ppp);
-			CAM_ERR(CAM_ISP,
-			"Expected sz 0x%x*0x%x actual sz 0x%x*0x%x",
-			csid_hw->ppp_path_config.height,
-			csid_hw->ppp_path_config.width,
-			((val >>
-			csid_reg->cmn_reg->format_measure_height_shift_val) &
-			csid_reg->cmn_reg->format_measure_height_mask_val),
-			val &
-			csid_reg->cmn_reg->format_measure_width_mask_val);
+				"CSID:%d PPP fifo over flow",
+				csid_hw->hw_intf->hw_idx);
+			/* Stop PPP path immediately */
+			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
+				soc_info->reg_map[0].mem_base +
+				csid_reg->ppp_reg->csid_pxl_ctrl_addr);
 		}
 	}
 
 	for (i = 0; i < csid_reg->cmn_reg->num_rdis; i++) {
-		path_data = (struct cam_ife_csid_path_cfg *)
-			csid_hw->rdi_res[i].res_priv;
-		rdi_reg = csid_reg->rdi_reg[i];
 		if (irq_status_rdi[i] &
 			BIT(csid_reg->cmn_reg->path_rst_done_shift_val)) {
+			CAM_DBG(CAM_ISP, "CSID RDI%d reset complete", i);
 			complete(&csid_hw->csid_rdin_complete[i]);
 		}
 
@@ -3753,77 +3418,23 @@ handle_fatal_error:
 				csid_hw->irq_debug_cnt++;
 		}
 
-		if ((irq_status_rdi[i] & CSID_PATH_INFO_INPUT_SOF) &&
-			(path_data->init_frame_drop) &&
-			(csid_hw->rdi_res[i].res_state ==
-			CAM_ISP_RESOURCE_STATE_STREAMING)) {
-			csid_hw->res_sof_cnt[i]++;
-			CAM_DBG(CAM_ISP,
-				"CSID:%d RDI:%d SOF cnt:%d init_frame_drop:%d",
-				csid_hw->hw_intf->hw_idx, i,
-				csid_hw->res_sof_cnt[i],
-				path_data->init_frame_drop);
-			if (csid_hw->res_sof_cnt[i] ==
-				path_data->init_frame_drop) {
-				cam_io_w_mb(CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
-					soc_info->reg_map[0].mem_base +
-					rdi_reg->csid_rdi_ctrl_addr);
-
-				if (!(csid_hw->csid_debug &
-					CSID_DEBUG_ENABLE_SOF_IRQ)) {
-					val = cam_io_r_mb(
-					soc_info->reg_map[0].mem_base +
-					rdi_reg->csid_rdi_irq_mask_addr);
-					val &= ~(CSID_PATH_INFO_INPUT_SOF);
-					cam_io_w_mb(val,
-					soc_info->reg_map[0].mem_base +
-					rdi_reg->csid_rdi_irq_mask_addr);
-				}
-			}
-		}
-
 		if ((irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_EOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_EOF_IRQ))
 			CAM_INFO_RATE_LIMIT(CAM_ISP,
 				"CSID RDI:%d EOF received", i);
 
-		if ((irq_status_rdi[i] & CSID_PATH_ERROR_CCIF_VIOLATION) ||
-			(irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW)) {
-			CAM_ERR_RATE_LIMIT(CAM_ISP,
-				"CSID:%d irq_status_rdi[%d]:0x%x",
-				csid_hw->hw_intf->hw_idx, i,
-				irq_status_rdi[i]);
-		}
+		if ((irq_status_rdi[i] & CSID_PATH_ERROR_CCIF_VIOLATION))
+			CAM_INFO_RATE_LIMIT(CAM_ISP,
+			"CSIDi RDI :%d CCIF violation", i);
+
 		if (irq_status_rdi[i] & CSID_PATH_ERROR_FIFO_OVERFLOW) {
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+				"CSID:%d RDI fifo over flow",
+				csid_hw->hw_intf->hw_idx);
 			/* Stop RDI path immediately */
 			cam_io_w_mb(CAM_CSID_HALT_IMMEDIATELY,
 				soc_info->reg_map[0].mem_base +
 				csid_reg->rdi_reg[i]->csid_rdi_ctrl_addr);
-		}
-
-		if ((irq_status_rdi[i] & CSID_PATH_ERROR_PIX_COUNT) ||
-			(irq_status_rdi[i] & CSID_PATH_ERROR_LINE_COUNT)) {
-			val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[i]->csid_rdi_format_measure0_addr);
-			val2 = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[i]->csid_rdi_format_measure_cfg1_addr
-			);
-			CAM_ERR(CAM_ISP,
-				"CSID:%d irq_status_rdi[%d]:0x%x",
-				csid_hw->hw_intf->hw_idx, i,
-				irq_status_rdi[i]);
-			CAM_ERR(CAM_ISP,
-			"Expected sz 0x%x*0x%x actual sz 0x%x*0x%x",
-			((val2 >>
-			csid_reg->cmn_reg->format_measure_height_shift_val) &
-			csid_reg->cmn_reg->format_measure_height_mask_val),
-			val2 &
-			csid_reg->cmn_reg->format_measure_width_mask_val,
-			((val >>
-			csid_reg->cmn_reg->format_measure_height_shift_val) &
-			csid_reg->cmn_reg->format_measure_height_mask_val),
-			val &
-			csid_reg->cmn_reg->format_measure_width_mask_val);
 		}
 	}
 
@@ -3861,6 +3472,7 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	CAM_DBG(CAM_ISP, "type %d index %d",
 		ife_csid_hw->hw_intf->hw_type, csid_idx);
 
+
 	ife_csid_hw->device_enabled = 0;
 	ife_csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
 	mutex_init(&ife_csid_hw->hw_info->hw_mutex);
@@ -3874,6 +3486,7 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	init_completion(&ife_csid_hw->csid_ppp_complete);
 	for (i = 0; i < CAM_IFE_CSID_RDI_MAX; i++)
 		init_completion(&ife_csid_hw->csid_rdin_complete[i]);
+
 
 	rc = cam_ife_csid_init_soc_resources(&ife_csid_hw->hw_info->soc_info,
 			cam_ife_csid_irq, ife_csid_hw);
@@ -3967,28 +3580,8 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 
 	ife_csid_hw->csid_debug = 0;
 	ife_csid_hw->error_irq_count = 0;
-	ife_csid_hw->first_sof_ts = 0;
-	ife_csid_hw->ipp_path_config.measure_enabled = 0;
-	ife_csid_hw->ppp_path_config.measure_enabled = 0;
-	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++)
-		ife_csid_hw->rdi_path_config[i].measure_enabled = 0;
 
-	/* Check if ppi bridge is present or not? */
-	ife_csid_hw->ppi_enable = of_property_read_bool(
-		csid_hw_info->soc_info.pdev->dev.of_node,
-		"ppi-enable");
-
-	if (!ife_csid_hw->ppi_enable)
-		return 0;
-
-	/* Initialize the PPI bridge */
-	for (i = 0; i < CAM_CSID_PPI_HW_MAX; i++) {
-		rc = cam_csid_ppi_hw_init(&ife_csid_hw->ppi_hw_intf[i], i);
-		if (rc < 0) {
-			CAM_ERR(CAM_ISP, "PPI init failed for PPI %d", i);
-			break;
-		}
-	}
+	return 0;
 err:
 	if (rc) {
 		kfree(ife_csid_hw->ipp_res.res_priv);

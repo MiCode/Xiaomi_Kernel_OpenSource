@@ -25,6 +25,7 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_flip_work.h>
+#include <drm/drm_notifier.h>
 #include <linux/clk/qcom.h>
 #include <linux/sde_rsc.h>
 
@@ -42,9 +43,35 @@
 #include "sde_power_handle.h"
 #include "sde_core_perf.h"
 #include "sde_trace.h"
+#include "dsi_drm.h"
+
+#include <linux/err.h>
+#include <linux/list.h>
+#include <linux/of.h>
+#include <linux/err.h>
+#include "msm_drv.h"
+#include "sde_connector.h"
+#include "msm_mmu.h"
+#include "dsi_display.h"
+#include "dsi_panel.h"
+#include "dsi_ctrl.h"
+#include "dsi_ctrl_hw.h"
+#include "dsi_drm.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
+#include "sde_dbg.h"
+#include <linux/kobject.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <drm/drm_mipi_dsi.h>
 
 #define SDE_PSTATES_MAX (SDE_STAGE_MAX * 4)
 #define SDE_MULTIRECT_PLANE_MAX (SDE_STAGE_MAX * 2)
+
+#define to_drm_connector(d) dev_get_drvdata(d)
+#define to_dsi_bridge(x)  container_of((x), struct dsi_bridge, base)
 
 struct sde_crtc_custom_events {
 	u32 event;
@@ -52,12 +79,17 @@ struct sde_crtc_custom_events {
 			struct sde_irq_callback *irq);
 };
 
+struct drm_crtc *gcrtc;
+bool g_idleflag = true;
+
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *ad_irq);
 static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *idle_irq);
 static int sde_crtc_pm_event_handler(struct drm_crtc *crtc, bool en,
 		struct sde_irq_callback *noirq);
+static int sde_crtc_tp_event_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *irq);
 
 static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
@@ -65,6 +97,7 @@ static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_IDLE_NOTIFY, sde_crtc_idle_interrupt_handler},
 	{DRM_EVENT_HISTOGRAM, sde_cp_hist_interrupt},
 	{DRM_EVENT_SDE_POWER, sde_crtc_pm_event_handler},
+	{DRM_EVENT_TOUCH, sde_crtc_tp_event_handler},
 };
 
 /* default input fence timeout, in ms */
@@ -95,6 +128,10 @@ static struct sde_crtc_custom_events custom_events[] = {
 /* default line padding ratio limitation */
 #define MAX_VPADDING_RATIO_M		63
 #define MAX_VPADDING_RATIO_N		15
+
+#define IDLE_TIMEOUT_DEFAULT		200
+
+int dim_layer_alpha;
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -2134,6 +2171,12 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		for (i = 0; i < cstate->num_dim_layers; i++)
 			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
 					mixer, &cstate->dim_layer[i]);
+		if (cstate->fingerprint_dim_layer) {
+			SDE_ATRACE_BEGIN("dim layer blend setup mixer");
+			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
+					mixer, cstate->fingerprint_dim_layer);
+			SDE_ATRACE_END("dim layer blend setup mixer");
+		}
 	}
 
 	_sde_crtc_program_lm_output_roi(crtc);
@@ -3064,6 +3107,106 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	sde_core_perf_crtc_update(crtc, 0, false);
 }
 
+void set_fod_dimlayer_status(struct drm_connector *connector, bool enabled)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return;
+	}
+
+	dsi_display->panel->fod_dimlayer_enabled = enabled;
+
+	return;
+}
+EXPORT_SYMBOL(set_fod_dimlayer_status);
+
+bool get_fod_dimlayer_status(struct drm_connector *connector)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return false;
+	}
+
+	return dsi_display->panel->fod_dimlayer_enabled;
+}
+EXPORT_SYMBOL(get_fod_dimlayer_status);
+
+bool get_fod_ui_status(struct drm_connector *connector)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return false;
+	}
+
+	return dsi_display->panel->fod_ui_ready;
+}
+EXPORT_SYMBOL(get_fod_ui_status);
+
+void sde_crtc_fod_ui_ready(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *old_cstate;
+	struct sde_crtc_state *cstate;
+	struct drm_notify_data notify_data;
+	struct dsi_display *dsi_display = get_primary_display();
+	int finger_down;
+	static bool fod_status_changed;
+
+	if (!crtc || !crtc->state) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	if (dsi_display == NULL || dsi_display->panel == NULL) {
+		SDE_ERROR("dsi display panel is null\n");
+		return;
+	}
+
+	if (!dsi_display->panel->fod_dimlayer_enabled) {
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	SDE_EVT32_VERBOSE(DRMID(crtc));
+
+	if (!old_state) {
+		SDE_ERROR("failed to find old cstate");
+		return;
+	}
+
+	old_cstate = to_sde_crtc_state(old_state);
+	cstate = to_sde_crtc_state(crtc->state);
+
+	if (fod_status_changed) {
+		finger_down = cstate->finger_down;
+		notify_data.data = &finger_down;
+		notify_data.is_primary = true;
+		pr_err("fingerprint status: %s",
+			      finger_down ? "pressed" : "up");
+		dsi_display->panel->fod_ui_ready = finger_down;
+		SDE_ATRACE_BEGIN("fod_event_notify");
+		sysfs_notify(&dsi_display->drm_conn->kdev->kobj, NULL, "fod_ui_ready");
+		SDE_ATRACE_END("fod_event_notify");
+#if 0
+		SDE_ATRACE_BEGIN("fod_event_notify");
+		drm_notifier_call_chain(DRM_FOD_EVENT,
+				&notify_data);
+		SDE_ATRACE_END("fod_event_notify");
+#endif
+		fod_status_changed = false;
+	}
+	if (old_cstate->finger_down != cstate->finger_down) {
+		fod_status_changed = true;
+	}
+}
+
 /**
  * _sde_crtc_set_input_fence_timeout - update ns version of in fence timeout
  * @cstate: Pointer to sde crtc state
@@ -3163,6 +3306,66 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 				dim_layer[i].color_fill.color_2,
 				dim_layer[i].color_fill.color_3);
 	}
+}
+
+ssize_t xm_fod_dim_layer_alpha_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int rc;
+	unsigned long alpha;
+
+	rc = kstrtoul(buf, 0, &alpha);
+	dim_layer_alpha = alpha;
+	return rc ? rc : count;
+}
+
+static int sde_crtc_config_fingerprint_dim_layer(struct drm_crtc_state *crtc_state, int stage)
+{
+	struct sde_crtc_state *cstate;
+	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
+	struct sde_hw_dim_layer *fingerprint_dim_layer;
+	int alpha = dim_layer_alpha;
+	struct sde_kms *kms;
+
+	kms = _sde_crtc_get_kms(crtc_state->crtc);
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	cstate = to_sde_crtc_state(crtc_state);
+
+	if (cstate->num_dim_layers == SDE_MAX_DIM_LAYERS - 1) {
+		pr_err("failed to get available dim layer for custom\n");
+		return -EINVAL;
+	}
+
+	if (!alpha) {
+		cstate->fingerprint_dim_layer = NULL;
+		return 0;
+	}
+
+	if ((stage + SDE_STAGE_0) >= kms->catalog->mixer[0].sblk->maxblendstages) {
+		pr_debug("stage too large! stage + SDE_STAGE_0:%d maxblendstages:%d\n",
+			stage + SDE_STAGE_0, kms->catalog->mixer[0].sblk->maxblendstages);
+		return -EINVAL;
+	}
+
+	SDE_ATRACE_BEGIN("set_dim_layer");
+	fingerprint_dim_layer = &cstate->dim_layer[cstate->num_dim_layers];
+	fingerprint_dim_layer->flags = SDE_DRM_DIM_LAYER_INCLUSIVE;
+	fingerprint_dim_layer->stage = stage + SDE_STAGE_0;
+
+	fingerprint_dim_layer->rect.x = 0;
+	fingerprint_dim_layer->rect.y = 0;
+	fingerprint_dim_layer->rect.w = mode->hdisplay;
+	fingerprint_dim_layer->rect.h = mode->vdisplay;
+	fingerprint_dim_layer->color_fill = (struct sde_mdss_color) {0, 0, 0, alpha};
+	cstate->fingerprint_dim_layer = fingerprint_dim_layer;
+	SDE_ATRACE_END("set_dim_layer");
+
+	return 0;
 }
 
 /**
@@ -3807,6 +4010,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct sde_crtc_state *cstate;
 	struct sde_kms *sde_kms;
 	int idle_time = 0;
+	static int idle_time_enable = false;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
@@ -3844,7 +4048,13 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	event_thread = &priv->event_thread[crtc->index];
 	idle_time = sde_crtc_get_property(cstate, CRTC_PROP_IDLE_TIMEOUT);
-
+	if (!idle_time && idle_time_enable) {
+		idle_time = IDLE_TIMEOUT_DEFAULT;
+		idle_time_enable = false;
+	}
+	else {
+		idle_time_enable = true;
+	}
 	/*
 	 * If no mixers has been allocated in sde_crtc_atomic_check(),
 	 * it means we are trying to flush a CRTC whose state is disabled:
@@ -3869,7 +4079,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	_sde_crtc_wait_for_fences(crtc);
 
 	/* schedule the idle notify delayed work */
-	if (idle_time && sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
+	if (g_idleflag && idle_time && sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
 						MSM_DISPLAY_CAP_VID_MODE)) {
 		kthread_queue_delayed_work(&event_thread->worker,
 					&sde_crtc->idle_notify_work,
@@ -3901,6 +4111,8 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 			sde_plane_set_error(plane, true);
 		sde_plane_flush(plane);
 	}
+
+	gcrtc = crtc;
 
 	/* Kickoff will be scheduled by outer layer */
 	SDE_ATRACE_END("sde_crtc_atomic_flush");
@@ -5237,6 +5449,73 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	return 0;
 }
 
+bool sde_crtc_get_dim_layer_status(struct drm_crtc_state *crtc_state)
+{
+	struct sde_crtc_state *cstate;
+
+	if (!crtc_state)
+		return false;
+
+	cstate = to_sde_crtc_state(crtc_state);
+	return !!cstate->dim_layer_status;
+}
+
+static int sde_crtc_fod_atomic_check(struct sde_crtc_state *cstate,
+		struct plane_state *pstates, int cnt)
+{
+	int fod_property_value;
+	int fod_icon_plane_idx = -1;
+	int fod_press_plane_idx = -1;
+	int plane_idx = 0;
+	int rc = 0;
+	int dim_layer_zpos = INT_MAX;
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (dsi_display == NULL || dsi_display->panel == NULL) {
+		SDE_ERROR("dsi display panel is null\n");
+		return 0;
+	}
+
+	if (!dsi_display->panel->fod_dimlayer_enabled) {
+		return 0;
+	}
+
+	for (plane_idx = 0; plane_idx < cnt; plane_idx++) {
+		fod_property_value = sde_plane_check_fod_layer(pstates[plane_idx].drm_pstate);
+		if (fod_property_value == 1) {
+			fod_icon_plane_idx = plane_idx;
+		} else if (fod_property_value == 2) {
+			fod_press_plane_idx = plane_idx;
+		}
+	}
+
+	if (fod_icon_plane_idx >= 0 || fod_press_plane_idx >= 0) {
+		cstate->dim_layer_status = true;
+		if (dim_layer_zpos > pstates[fod_icon_plane_idx].stage + 2)
+			dim_layer_zpos = pstates[fod_icon_plane_idx].stage + 2;
+
+		for (plane_idx = 0; plane_idx < cnt; plane_idx++) {
+			if (pstates[plane_idx].stage >= dim_layer_zpos)
+				pstates[plane_idx].stage++;
+		}
+		rc = sde_crtc_config_fingerprint_dim_layer(&cstate->base, dim_layer_zpos);
+		if (rc) {
+			SDE_ERROR("Failed to config fod dim layer");
+			return -EINVAL;
+		}
+		if (fod_press_plane_idx >= 0)
+			cstate->finger_down = true;
+		else {
+			cstate->finger_down = false;
+		}
+	} else {
+		cstate->dim_layer_status = false;
+		cstate->fingerprint_dim_layer = NULL;
+		cstate->finger_down = false;
+	}
+	return 0;
+}
+
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -5422,6 +5701,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			sde_plane_clear_multirect(pipe_staged[i]);
 		}
 	}
+
+	rc = sde_crtc_fod_atomic_check(cstate, pstates, cnt);
+	if (rc)
+		goto end;
 
 	/* assign mixer stages based on sorted zpos property */
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
@@ -6741,6 +7024,37 @@ static void __sde_crtc_idle_notify_work(struct kthread_work *work)
 	}
 }
 
+void sde_crtc_touch_notify(void)
+{
+	int ret = 0;
+	struct drm_event event;
+	struct dsi_bridge *c_bridge = NULL;
+	struct dsi_display *dsi_display = NULL;
+	struct drm_encoder *encoder = NULL;
+
+	if (gcrtc) {
+		list_for_each_entry(encoder, &gcrtc->dev->mode_config.encoder_list, head) {
+			if (encoder->crtc != gcrtc)
+				continue;
+
+			c_bridge = container_of(encoder->bridge, struct dsi_bridge, base);
+			if (c_bridge)
+				dsi_display = c_bridge->display;
+			break;
+		}
+
+		if (dsi_display && dsi_display->is_prim_display && dsi_display->panel
+			&& !dsi_display->panel->panel_max_frame_rate) {
+			event.type = DRM_EVENT_TOUCH;
+			event.length = sizeof(u32);
+			msm_mode_object_event_notify(&gcrtc->base, gcrtc->dev,
+				&event, (u8 *)&ret);
+			gcrtc = NULL;
+		}
+	}
+}
+EXPORT_SYMBOL(sde_crtc_touch_notify);
+
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 {
@@ -7051,6 +7365,11 @@ static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
 	return 0;
 }
 
+static int sde_crtc_tp_event_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *irq)
+{
+	return 0;
+}
 /**
  * sde_crtc_update_cont_splash_settings - update mixer settings
  *	and initial clk during device bootup for cont_splash use case
