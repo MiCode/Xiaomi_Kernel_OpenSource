@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_USB_DWC3_MSM_H
@@ -115,6 +115,7 @@ struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
 int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op);
 int msm_ep_config(struct usb_ep *ep, struct usb_request *request, u32 bam_opts);
 int msm_ep_unconfig(struct usb_ep *ep);
+void msm_ep_set_endless(struct usb_ep *ep, bool set_clear);
 void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 	u8 dst_pipe_idx);
@@ -136,6 +137,8 @@ static inline int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 { return -ENODEV; }
 static inline int msm_ep_unconfig(struct usb_ep *ep)
 { return -ENODEV; }
+static inline void msm_ep_set_endless(struct usb_ep *ep, bool set_clear)
+{ }
 static inline void dwc3_tx_fifo_resize_request(struct usb_ep *ep,
 	bool qdss_enable)
 { }
