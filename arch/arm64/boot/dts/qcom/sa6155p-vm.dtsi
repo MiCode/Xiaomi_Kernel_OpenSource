@@ -652,6 +652,10 @@
 #include "sa6155p-vm-pcie.dtsi"
 #include "pm6155-vm.dtsi"
 
+&snd_x155 {
+	qcom,model = "sa6155-adp-star-snd-card";
+};
+
 &tlmm {
 	dirconn-list =  <100 216 1>,
 			<99 215 1>;
