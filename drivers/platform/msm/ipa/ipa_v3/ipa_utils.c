@@ -6457,11 +6457,20 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	u32 retry_cnt = 0;
 	struct ipahal_reg_valmask valmask;
 	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int req_num_tag_desc = REQUIRED_TAG_PROCESS_DESCRIPTORS;
+
+	/**
+	 * We use a descriptor for closing coalsceing endpoint
+	 * by immediate command. So, REQUIRED_TAG_PROCESS_DESCRIPTORS
+	 * should be incremented by 1 to overcome buffer overflow.
+	 */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1)
+		req_num_tag_desc += 1;
 
 	/* Not enough room for the required descriptors for the tag process */
-	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
+	if (IPA_TAG_MAX_DESC - descs_num < req_num_tag_desc) {
 		IPAERR("up to %d descriptors are allowed (received %d)\n",
-		       IPA_TAG_MAX_DESC - REQUIRED_TAG_PROCESS_DESCRIPTORS,
+		       IPA_TAG_MAX_DESC - req_num_tag_desc,
 		       descs_num);
 		return -ENOMEM;
 	}
@@ -6510,8 +6519,8 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 			goto fail_free_tag_desc;
 		}
 		ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
-		desc[desc_idx].callback = ipa3_tag_destroy_imm;
-		desc[desc_idx].user1 = cmd_pyld;
+		tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+		tag_desc[desc_idx].user1 = cmd_pyld;
 		++desc_idx;
 	}
 
@@ -6651,7 +6660,7 @@ fail_free_desc:
 	 * of the initial allocations above
 	 */
 	for (i = descs_num;
-		i < min(REQUIRED_TAG_PROCESS_DESCRIPTORS, desc_idx); i++)
+		i < min(req_num_tag_desc, desc_idx); i++)
 		if (tag_desc[i].callback)
 			tag_desc[i].callback(tag_desc[i].user1,
 				tag_desc[i].user2);
