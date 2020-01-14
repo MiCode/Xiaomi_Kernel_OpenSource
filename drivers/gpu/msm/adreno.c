@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/delay.h>
 #include <linux/input.h>
@@ -3315,12 +3315,15 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	unsigned int status, i;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg_offset = gpudev->reg_offsets->offsets[offset];
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u64 ts1, ts2;
 
 	adreno_writereg(adreno_dev, offset, val);
 
 	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
 		return 0;
 
+	ts1 = gmu_core_dev_read_ao_counter(device);
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
 		/*
 		 * Make sure the previous register write is posted before
@@ -3344,17 +3347,20 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		adreno_writereg(adreno_dev, offset, val);
 
 		if (i == GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
-			dev_err(adreno_dev->dev.dev,
-				"Waited %d usecs to write fenced register 0x%x. Continuing to wait...\n",
+			dev_err(device->dev,
+				"Waited %d usecs to write fenced register 0x%x, status 0x%x. Continuing to wait...\n",
 				(GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT *
 				GMU_CORE_WAKEUP_DELAY_US),
-				reg_offset);
+				reg_offset, status);
 	}
 
-	dev_err(adreno_dev->dev.dev,
-		"Timed out waiting %d usecs to write fenced register 0x%x\n",
+	ts2 = gmu_core_dev_read_ao_counter(device);
+	dev_err(device->dev,
+		"fenced write for 0x%x timed out in %dus. timestamps %llu %llu, status 0x%x\n",
+		reg_offset,
 		GMU_CORE_LONG_WAKEUP_RETRY_LIMIT * GMU_CORE_WAKEUP_DELAY_US,
-		reg_offset);
+		ts1, ts2, status);
+
 	return -ETIMEDOUT;
 }
 
