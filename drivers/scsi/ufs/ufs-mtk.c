@@ -964,6 +964,11 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	return ret;
 }
 
+static void ufs_mtk_set_caps(struct ufs_hba *hba)
+{
+	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -1017,6 +1022,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	ufs_mtk_pltfrm_parse_dt(hba);
 
+	ufs_mtk_set_caps(hba);
 	ufs_mtk_advertise_hci_quirks(hba);
 
 	ufs_mtk_parse_dt(hba);

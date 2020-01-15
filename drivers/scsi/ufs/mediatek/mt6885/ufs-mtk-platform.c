@@ -439,6 +439,8 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 		if (val == VENDOR_POWERSTATE_HIBERNATE) {
 			/* Host need turn off clock by itself */
 			ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+		} else if (val == VENDOR_POWERSTATE_DISABLED) {
+			/* hba stop after shoutdown, do nothing */
 		} else {
 			dev_info(hba->dev, "%s: power state (%d) clk not off\n",
 				__func__, val);
