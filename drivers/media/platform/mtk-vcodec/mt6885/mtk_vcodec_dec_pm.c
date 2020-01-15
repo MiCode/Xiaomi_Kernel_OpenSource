@@ -404,8 +404,10 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP8)
 		vdec_req_freq[hw_id] = 416;
 
-	if (ctx->dev->dec_cnt > 1)
+	if (ctx->dev->dec_cnt > 1 ||
+		ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_HEIF) {
 		vdec_req_freq[hw_id] = 546;
+	}
 
 	vdec_freq = vdec_req_freq[0] > vdec_req_freq[1] ?
 			vdec_req_freq[0] : vdec_req_freq[1];
@@ -511,6 +513,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_H265:
+		case V4L2_PIX_FMT_HEIF:
 			emi_bw_input = 35 * vdec_freq / STD_VDEC_FREQ;
 			break;
 		case V4L2_PIX_FMT_VP9:
@@ -527,8 +530,13 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 					BW_COMP_NONE);
 		mm_qos_set_request(&vdec_lat0_pred_rd, 10, 0, BW_COMP_NONE);
 		mm_qos_set_request(&vdec_lat0_tile, 0, 0, BW_COMP_NONE);
-		mm_qos_set_request(&vdec_lat0_wdma, 0, emi_bw_input * 2,
+		if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_HEIF) {
+			mm_qos_set_request(&vdec_lat0_wdma, 0, 0, BW_COMP_NONE);
+		} else {
+			mm_qos_set_request(&vdec_lat0_wdma, 0, emi_bw_input * 2,
 					BW_COMP_NONE);
+		}
 		mm_qos_set_request(&vdec_lat0_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
 		mm_qos_update_all_request(&vdec_rlist_lat);
 
@@ -545,6 +553,11 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 			break;
 		case V4L2_PIX_FMT_H265:
 			emi_bw_input = 70 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * h265_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		case V4L2_PIX_FMT_HEIF:
+			emi_bw_input = 0;
 			emi_bw = emi_bw * h265_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
