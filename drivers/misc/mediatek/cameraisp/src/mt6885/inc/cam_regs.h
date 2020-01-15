@@ -561,6 +561,9 @@ enum{
 #define CAM_REG_YUVCO_CON2(module)              (isp_devs[module].regs + 0x4ADC)
 #define CAM_REG_YUVCO_CON3(module)              (isp_devs[module].regs + 0x4AE0)
 
+#define CAM_REG_YUVO_BASE_ADDR(module)          (isp_devs[module].regs + 0x49E0)
+#define CAM_REG_YUVO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x4A0C)
+
 #define CAM_REG_CRZ_IN_IMG(module)              (isp_devs[module].regs + 0x28C4)
 #define CAM_REG_CRZO_DRS(module)                (isp_devs[module].regs + 0x4B38)
 #define CAM_REG_CRZO_CON(module)                (isp_devs[module].regs + 0x4B48)
