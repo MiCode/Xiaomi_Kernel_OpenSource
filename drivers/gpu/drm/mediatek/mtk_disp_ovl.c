@@ -36,6 +36,7 @@
 #include "mtk_iommu_ext.h"
 #endif
 #include "cmdq-sec.h"
+#include "mtk_layer_layout_trace.h"
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))
@@ -186,6 +187,7 @@
 #define FLD_OVL_RDMA_ULTRA_SMI_SRC		REG_FLD_MSB_LSB(11, 10)
 #define FLD_OVL_RDMA_ULTRA_ROI_END_SRC		REG_FLD_MSB_LSB(13, 12)
 #define FLD_OVL_RDMA_ULTRA_RDMA_SRC		REG_FLD_MSB_LSB(15, 14)
+#define DISP_OVL_REG_GDRDY_PRD (0x208UL)
 #define DISP_REG_OVL_RDMAn_BUF_LOW(layer) (0x210UL + ((layer) << 2))
 #define FLD_OVL_RDMA_BUF_LOW_ULTRA_TH		REG_FLD_MSB_LSB(11, 0)
 #define FLD_OVL_RDMA_BUF_LOW_PREULTRA_TH	REG_FLD_MSB_LSB(23, 12)
@@ -194,6 +196,7 @@
 #define FLD_OVL_RDMA_BUF_HIGH_PREULTRA_DIS REG_FLD_MSB_LSB(31, 31)
 #define DISP_REG_OVL_SMI_DBG (0x230UL)
 #define DISP_REG_OVL_GREQ_LAYER_CNT (0x234UL)
+#define DISP_REG_OVL_GDRDY_PRD_NUM (0x238UL)
 #define DISP_REG_OVL_FLOW_CTRL_DBG (0x240UL)
 #define DISP_REG_OVL_ADDCON_DBG (0x244UL)
 #define DISP_REG_OVL_FUNC_DCM0 (0x2a0UL)
@@ -436,6 +439,108 @@ int mtk_ovl_layer_num(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+static void dump_ovl_layer_trace(struct mtk_drm_crtc *mtk_crtc,
+				 struct mtk_ddp_comp *ovl)
+{
+	struct cmdq_pkt_buffer *cmdq_buf = NULL;
+	u32 offset = 0;
+	u32 idx = 0;
+	u32 gdrdy_num = 0, layer_en = 0, compress = 0;
+	u32 ext_layer_en = 0, ext_layer_compress = 0;
+
+	const int lnr = mtk_ovl_layer_num(ovl);
+	int i = 0;
+	u32 w = 0, h = 0, size = 0, con = 0, fmt = 0, src = 0;
+
+	struct mtk_drm_private *priv = NULL;
+	const int len = 1000;
+	char msg[len];
+	int n = 0;
+
+	if (!mtk_crtc)
+		return;
+	priv = mtk_crtc->base.dev->dev_private;
+	if (!(mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_LAYER_REC) &&
+	      mtk_crtc->layer_rec_en))
+		return;
+
+	if (ovl->id == DDP_COMPONENT_OVL0_2L)
+		offset = DISP_SLOT_LAYER_REC_OVL0_2L;
+	else if (ovl->id == DDP_COMPONENT_OVL0)
+		offset = DISP_SLOT_LAYER_REC_OVL0;
+	else
+		return;
+
+	cmdq_buf = &mtk_crtc->gce_obj.buf;
+
+	idx = *(u32 *)(cmdq_buf->va_base + DISP_SLOT_TRIG_CNT);
+
+	gdrdy_num = *(u32 *)(cmdq_buf->va_base + offset);
+	gdrdy_num <<= 4;
+	n = snprintf(msg, len, "idx:%u,ovl%s:bw:%u", idx,
+		     ovl->id == DDP_COMPONENT_OVL0 ? "0" : "0_2l", gdrdy_num);
+
+	offset += 4;
+	layer_en = *(u32 *)(cmdq_buf->va_base + offset);
+	layer_en &= 0xf;
+
+	offset += 4;
+	compress = *(u32 *)(cmdq_buf->va_base + offset);
+	compress = (compress >> 4) & 0xf;
+
+	offset += 4;
+	ext_layer_en = *(u32 *)(cmdq_buf->va_base + offset);
+	ext_layer_compress = (ext_layer_en >> 4) & 0x7;
+	ext_layer_en &= 0x7;
+
+	for (i = 0; i < lnr + 3; i++) {
+		if (i < lnr) {
+			if (!(layer_en & 0x1)) {
+				offset += (0x4 * 2);
+				goto next;
+			}
+		} else {
+			if (!(ext_layer_en & 0x1)) {
+				offset += (0x4 * 2);
+				goto next;
+			}
+		}
+
+		offset += 0x4;
+		con = *(u32 *)(cmdq_buf->va_base + offset);
+		fmt = (con >> 12) & 0xf;
+		src = (con >> 28) & 0x3;
+
+		offset += 0x4;
+		size = *(u32 *)(cmdq_buf->va_base + offset);
+		w = size & 0x1fff;
+		h = (size >> 16) & 0x1fff;
+
+		if (i < lnr) {
+			n += snprintf(msg + n, len - n,
+				      "|L%d:%dx%d,f:0x%x,c:%d,src:%d",
+				      i, w, h, fmt, compress & 0x1, src);
+		} else {
+			n += snprintf(msg + n, len - n,
+				      "|L%d:%dx%d,f:0x%x,c:%d,src:%d",
+				      i, w, h, fmt, ext_layer_compress & 0x1,
+				      src);
+		}
+
+next:
+		if (i < lnr) {
+			layer_en >>= 1;
+			compress >>= 1;
+		} else {
+			ext_layer_en >>= 1;
+			ext_layer_compress >>= 1;
+		}
+	}
+
+	n += snprintf(msg + n, len - n, "\n");
+	trace_layer_bw(msg);
+}
+
 static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_ovl *priv = dev_id;
@@ -468,8 +573,10 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 
 	if (val & (1 << 0))
 		DDPIRQ("[IRQ] %s: reg commit!\n", mtk_dump_comp_str(ovl));
-	if (val & (1 << 1))
+	if (val & (1 << 1)) {
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(ovl));
+		dump_ovl_layer_trace(mtk_crtc, ovl);
+	}
 	if (val & (1 << 2)) {
 		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
 			  mtk_dump_comp_str(ovl), priv->underflow_cnt);
@@ -2657,8 +2764,12 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 					  off + 0x10);
 		}
 
+		mtk_serial_dump_reg(baddr, 0x200, 4);
+		mtk_serial_dump_reg(baddr, 0x230, 4);
 		/* LC_CON */
 		mtk_serial_dump_reg(baddr, 0x280, 4);
+
+		mtk_serial_dump_reg(baddr, 0x2a0, 2);
 
 		/* WCG */
 		mtk_serial_dump_reg(baddr, 0x2D8, 2);
@@ -2948,6 +3059,7 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 #endif
+	struct mtk_drm_private *dev_priv = NULL;
 
 	mtk_ddp_comp_clk_prepare(comp);
 
@@ -2975,6 +3087,10 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 		DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
 #endif
 #endif
+
+	dev_priv = comp->mtk_crtc->base.dev->dev_private;
+	if (mtk_drm_helper_get_opt(dev_priv->helper_opt, MTK_DRM_OPT_LAYER_REC))
+		writel(0xffffffff, comp->regs + DISP_OVL_REG_GDRDY_PRD);
 }
 
 static void mtk_ovl_unprepare(struct mtk_ddp_comp *comp)
@@ -2985,6 +3101,98 @@ static void mtk_ovl_unprepare(struct mtk_ddp_comp *comp)
 		clk_disable_unprepare(priv->fbdc_clk);
 
 	mtk_ddp_comp_clk_unprepare(comp);
+}
+
+static void
+mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
+		       enum mtk_ddp_comp_trigger_flag flag)
+{
+	switch (flag) {
+	case MTK_TRIG_FLAG_LAYER_REC:
+	{
+		u32 offset = 0;
+		struct cmdq_pkt_buffer *qbuf;
+
+		int i = 0;
+		const int lnr = mtk_ovl_layer_num(comp);
+		u32 ln_con = 0, ln_size = 0;
+
+		struct mtk_drm_private *priv = NULL;
+
+		if (!comp->mtk_crtc)
+			return;
+
+		priv = comp->mtk_crtc->base.dev->dev_private;
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_LAYER_REC))
+			return;
+
+		if (comp->id == DDP_COMPONENT_OVL0_2L)
+			offset = DISP_SLOT_LAYER_REC_OVL0_2L;
+		else if (comp->id == DDP_COMPONENT_OVL0)
+			offset = DISP_SLOT_LAYER_REC_OVL0;
+		else
+			return;
+
+		qbuf = &comp->mtk_crtc->gce_obj.buf;
+
+		cmdq_pkt_mem_move(pkt, comp->cmdq_base,
+				  comp->regs_pa + DISP_REG_OVL_GDRDY_PRD_NUM,
+				  qbuf->pa_base + offset,
+				  CMDQ_THR_SPR_IDX3);
+
+		offset += 4;
+		cmdq_pkt_mem_move(pkt, comp->cmdq_base,
+				  comp->regs_pa + DISP_REG_OVL_SRC_CON,
+				  qbuf->pa_base + offset,
+				  CMDQ_THR_SPR_IDX3);
+		offset += 4;
+		cmdq_pkt_mem_move(pkt, comp->cmdq_base,
+				  comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+				  qbuf->pa_base + offset,
+				  CMDQ_THR_SPR_IDX3);
+		offset += 4;
+		cmdq_pkt_mem_move(pkt, comp->cmdq_base,
+				  comp->regs_pa + DISP_REG_OVL_DATAPATH_EXT_CON,
+				  qbuf->pa_base + offset,
+				  CMDQ_THR_SPR_IDX3);
+
+		for (i = 0; i < lnr + 3; i++) {
+			if (i < lnr) {
+				ln_con = DISP_REG_OVL_CON(i);
+				ln_size = DISP_REG_OVL_SRC_SIZE(i);
+			} else {
+				ln_con = DISP_REG_OVL_EL_CON(i - lnr);
+				ln_size = DISP_REG_OVL_EL_SRC_SIZE(i - lnr);
+			}
+
+			offset += 0x4;
+			cmdq_pkt_mem_move(pkt, comp->cmdq_base,
+					  comp->regs_pa + ln_con,
+					  qbuf->pa_base + offset,
+					  CMDQ_THR_SPR_IDX3);
+			offset += 0x4;
+			cmdq_pkt_mem_move(pkt, comp->cmdq_base,
+					  comp->regs_pa + ln_size,
+					  qbuf->pa_base + offset,
+					  CMDQ_THR_SPR_IDX3);
+		}
+
+		if (comp->id == DDP_COMPONENT_OVL0_2L) {
+			if (offset >= DISP_SLOT_LAYER_REC_OVL0)
+				DDPMSG("%s:error:ovl0_2l:offset overflow:%u\n",
+				       __func__, offset);
+		} else if (comp->id == DDP_COMPONENT_OVL0) {
+			if (offset >= DISP_SLOT_LAYER_REC_END)
+				DDPMSG("%s:error:ovl0:offset overflow:%u\n",
+				       __func__, offset);
+		}
+
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
@@ -3003,6 +3211,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.prepare = mtk_ovl_prepare,
 	.unprepare = mtk_ovl_unprepare,
 	.connect = mtk_ovl_connect,
+	.config_trigger = mtk_ovl_config_trigger,
 };
 
 /* TODO: to be refactored */

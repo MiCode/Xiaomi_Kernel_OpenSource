@@ -172,6 +172,7 @@ struct cmdq_pkt;
 enum mtk_ddp_comp_trigger_flag {
 	MTK_TRIG_FLAG_TRIGGER,
 	MTK_TRIG_FLAG_EOF,
+	MTK_TRIG_FLAG_LAYER_REC,
 };
 
 enum mtk_ddp_io_cmd {

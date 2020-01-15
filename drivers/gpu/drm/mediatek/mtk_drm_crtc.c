@@ -1582,7 +1582,18 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 		return;
 	if (gce_event == mtk_crtc->gce_obj.event[EVENT_STREAM_EOF] ||
 	    gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF]) {
+		struct mtk_drm_private *priv;
+
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
+
+		priv = mtk_crtc->base.dev->dev_private;
+		if (gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF] &&
+		    mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_LAYER_REC) &&
+		    mtk_crtc->layer_rec_en) {
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		}
 	} else if (gce_event == mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]) {
 		if (mtk_crtc_is_dc_mode(&mtk_crtc->base))
 			cmdq_pkt_wfe(cmdq_handle, gce_event);
@@ -2130,12 +2141,31 @@ void mtk_crtc_clear_wait_event(struct drm_crtc *crtc)
 
 }
 
+static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
+				  struct cmdq_pkt *cmdq_handle)
+{
+	struct cmdq_pkt_buffer *cmdq_buf = &mtk_crtc->gce_obj.buf;
+	struct cmdq_operand lop, rop;
+
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_DISP_CNT;
+	rop.reg = false;
+	rop.value = 1;
+
+	cmdq_pkt_logic_command(cmdq_handle, CMDQ_LOGIC_ADD, CMDQ_CPR_DISP_CNT,
+			       &lop, &rop);
+	cmdq_pkt_write_reg_addr(cmdq_handle,
+				cmdq_buf->pa_base + DISP_SLOT_TRIG_CNT,
+				CMDQ_CPR_DISP_CNT, U32_MAX);
+}
+
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 {
 	int ret = 0;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	if (crtc_id) {
 		DDPPR_ERR("%s:%d invalid crtc:%ld\n",
@@ -2182,11 +2212,44 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 		mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle, MTK_TRIG_FLAG_EOF);
 
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_LAYER_REC)) {
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+					      MTK_TRIG_FLAG_LAYER_REC);
+
+			mtk_crtc_rec_trig_cnt(mtk_crtc, cmdq_handle);
+
+			mtk_crtc->layer_rec_en = true;
+		} else {
+			mtk_crtc->layer_rec_en = false;
+		}
+
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	} else {
 		cmdq_pkt_wfe(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_LAYER_REC)) {
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_RDMA0_EOF]);
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+			cmdq_pkt_wfe(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_RDMA0_EOF]);
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+					      MTK_TRIG_FLAG_LAYER_REC);
+			mtk_crtc_rec_trig_cnt(mtk_crtc, cmdq_handle);
+
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+			mtk_crtc->layer_rec_en = true;
+		} else {
+			mtk_crtc->layer_rec_en = false;
+		}
 	}
 	cmdq_pkt_finalize_loop(cmdq_handle);
 	ret = cmdq_pkt_flush_async(cmdq_handle, trig_done_cb, (void *)crtc_id);
@@ -4169,6 +4232,10 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		break;
 	case EVENT_ESD_EOF:
 		len = snprintf(buf, buf_len, "disp_token_esd_eof%d",
+			       drm_crtc_index(&mtk_crtc->base));
+		break;
+	case EVENT_RDMA0_EOF:
+		len = snprintf(buf, buf_len, "disp_rdma0_eof%d",
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
 	case EVENT_WDMA0_EOF:

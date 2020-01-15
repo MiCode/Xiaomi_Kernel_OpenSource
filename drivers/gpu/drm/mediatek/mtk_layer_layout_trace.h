@@ -26,6 +26,21 @@ TRACE_EVENT(layer_layout,
 	TP_printk("%s", __get_str(msg))
 );
 
+TRACE_EVENT(layer_bw,
+	TP_PROTO(char *msg),
+
+	TP_ARGS(msg),
+
+	TP_STRUCT__entry(
+		__string(msg, msg);
+	),
+
+	TP_fast_assign(
+		__assign_str(msg, msg);
+	),
+
+	TP_printk("%s", __get_str(msg))
+);
 
 #endif /* _MTK_LAYER_LAYOUT_TRACE_H_ */
 

@@ -2144,6 +2144,8 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	case MTK_TRIG_FLAG_EOF:
 		mtk_dsi_poll_for_idle(dsi, handle);
 		break;
+	default:
+		break;
 	}
 }
 

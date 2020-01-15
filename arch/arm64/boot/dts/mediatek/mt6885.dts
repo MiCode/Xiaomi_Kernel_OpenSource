@@ -4088,6 +4088,7 @@ page_owner=on loop.max_part=7";
 			"disp_token_stream_eof0",
 			"disp_dsi0_eof",
 			"disp_token_esd_eof0",
+			"disp_rdma0_eof0",
 			"disp_wdma0_eof0",
 			"disp_token_stream_block0",
 			"disp_token_cabc_eof0",
@@ -4100,6 +4101,7 @@ page_owner=on loop.max_part=7";
 			<&gce_mbox CMDQ_SYNC_TOKEN_STREAM_EOF>,
 			<&gce_mbox CMDQ_EVENT_DSI0_FRAME_DONE>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_ESD_EOF>,
+			<&gce_mbox CMDQ_EVENT_DISP_RDMA0_FRAME_DONE>,
 			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_CABC_EOF>,
@@ -4139,7 +4141,8 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_VP_PQ",
 			"MTK_DRM_OPT_GAME_PQ",
 			"MTK_DRM_OPT_MMPATH",
-			"MTK_DRM_OPT_HBM";
+			"MTK_DRM_OPT_HBM",
+			"MTK_DRM_OPT_LAYER_REC";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -4175,7 +4178,8 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_VP_PQ*/
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
-			<0>; /*MTK_DRM_OPT_HBM*/
+			<0>, /*MTK_DRM_OPT_HBM*/
+			<0>; /*MTK_DRM_OPT_LAYER_REC*/
 	};
 
 	disp_mutex0: disp_mutex@14117000 {
