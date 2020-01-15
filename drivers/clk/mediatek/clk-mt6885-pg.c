@@ -5224,8 +5224,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 	iomap_mm();
 
 #if !MT_CCF_BRINGUP
-	/* subsys init: per modem owner request, disable modem power first */
-	disable_subsys(SYS_MD1);
+	/* subsys init: per modem owner request, remain modem power */
+	/* disable_subsys(SYS_MD1); */
 #else				/*power on all subsys for bring up */
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	pr_notice("MTCMOS AO begin\n");
