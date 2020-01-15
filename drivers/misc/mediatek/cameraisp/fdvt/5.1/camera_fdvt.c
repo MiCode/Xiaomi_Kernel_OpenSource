@@ -1870,6 +1870,7 @@ static bool check_fdvt_is_busy(void)
 static signed int fdvt_dump_reg(void)
 {
 	signed int ret = 0;
+	signed int i = 0;
 #if 0
 	unsigned int i = 0;
 	struct FDVT_REQUEST_STRUCT *request;
@@ -1949,6 +1950,100 @@ static signed int fdvt_dump_reg(void)
 #endif
 
 	log_inf("- X.\n");
+
+
+	log_inf("FDVT DMA Debug Info\n");
+
+	FDVT_WR32(FDVT_CTRL_REG,
+		  ((unsigned int)FDVT_RD32(FDVT_CTRL_REG)) & 0xFFFF1FFF);
+	log_inf("[FDVT_CTRL - %x]: 0x%08X %08X\n", i,
+		(unsigned int)(FDVT_CTRL_HW),
+		(unsigned int)FDVT_RD32(FDVT_CTRL_REG));
+
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+		   0xFFFFFF00) | 0x13);
+
+	for (i = 0; i <= 0x27; i++) {
+		if (i > 0x7 && i < 0x10)
+			continue;
+		FDVT_WR32(DMA_DEBUG_SEL_REG,
+			  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+			   0xFFFF00FF) | (i << 8));
+		log_inf("[FDVT_DEBUG_SEL - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(DMA_DEBUG_SEL_HW),
+			(unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG));
+
+		log_inf("[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(FDVT_DEBUG_INFO_2_HW),
+			(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_2_REG));
+	}
+
+	log_inf("FDVT SMI Debug Info\n");
+	log_inf("FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x1\n");
+	log_inf("FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x0\n");
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+		   0xFFFF00FF) | (1 << 8));
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  ((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) & 0xFF00FFFF);
+
+	for (i = 1; i <= 0xe; i++) {
+		FDVT_WR32(DMA_DEBUG_SEL_REG,
+			  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+			   0xFFFFFF00) | i);
+		log_inf("[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(DMA_DEBUG_SEL_HW),
+			(unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG));
+		log_inf("[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(FDVT_DEBUG_INFO_2_HW),
+			(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_2_REG));
+	}
+
+	log_inf("FDVT fifo_debug_data_case1\n");
+	log_inf("FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
+	log_inf("FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x1\n");
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+		   0xFFFF00FF) | (2 << 8));
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+		   0xFF00FFFF) | (1 << 16));
+
+	for (i = 1; i <= 0xe; i++) {
+		FDVT_WR32(DMA_DEBUG_SEL_REG,
+			  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+			   0xFFFFFF00) | i);
+		log_inf("[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(DMA_DEBUG_SEL_HW),
+			(unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG));
+		log_inf("[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(FDVT_DEBUG_INFO_2_HW),
+			(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_2_REG));
+	}
+
+	log_inf("FDVT fifo_debug_data_case3\n");
+	log_inf("FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
+	log_inf("FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x3\n");
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+		   0xFFFF00FF) | (2 << 8));
+	FDVT_WR32(DMA_DEBUG_SEL_REG,
+		  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+		   0xFF00FFFF) | (3 << 16));
+
+	for (i = 1; i <= 0xe; i++) {
+		FDVT_WR32(DMA_DEBUG_SEL_REG,
+			  (((unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG)) &
+			   0xFFFFFF00) | i);
+		log_inf("[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(DMA_DEBUG_SEL_HW),
+			(unsigned int)FDVT_RD32(DMA_DEBUG_SEL_REG));
+		log_inf("[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
+			(unsigned int)(FDVT_DEBUG_INFO_2_HW),
+			(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_2_REG));
+	}
+
 	/*  */
 	return ret;
 }
