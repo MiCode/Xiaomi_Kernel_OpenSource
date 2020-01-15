@@ -673,13 +673,6 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 #endif
 }
 
-/* TBD : fix relationship with gpufreq get leakage */
-unsigned int __attribute__((weak))
-mt_gpufreq_get_leakage_no_lock(void)
-{
-	return 0;
-}
-
 static void swpm_update_lkg_table(void)
 {
 	int temp, dev_id, volt, i, j;
