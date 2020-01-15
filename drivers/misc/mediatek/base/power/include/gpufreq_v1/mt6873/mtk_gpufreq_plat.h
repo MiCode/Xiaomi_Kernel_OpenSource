@@ -123,6 +123,7 @@ extern unsigned int mt_gpufreq_power_ctl_en(void);
 extern unsigned int mt_gpufreq_get_cust_init_en(void);
 extern unsigned int mt_gpufreq_get_cur_freq_index(void);
 extern unsigned int mt_gpufreq_get_cur_freq(void);
+extern unsigned int mt_gpufreq_get_limit_user(unsigned int limit_user);
 extern unsigned int mt_gpufreq_get_cur_volt(void);
 extern unsigned int mt_gpufreq_get_dvfs_table_num(void);
 extern unsigned int mt_gpufreq_get_real_dvfs_table_num(void);

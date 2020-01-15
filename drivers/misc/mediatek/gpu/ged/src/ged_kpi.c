@@ -139,8 +139,8 @@ struct GED_GPU_INFO {
 	unsigned long tb_dvfs_mode;
 	unsigned long tb_dvfs_margin;
 	unsigned long t_gpu_real;
-	unsigned long gpu_res4;
-	unsigned long gpu_res5;
+	unsigned long limit_upper;
+	unsigned long limit_lower;
 	unsigned int dvfs_loading_mode;
 	unsigned int gpu_util;
 	unsigned int gpu_power;
@@ -780,8 +780,8 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
 		psKPI->cpu_gpu_info.gpu.tb_dvfs_margin,
 		psKPI->cpu_gpu_info.gpu.t_gpu_real,
-		psKPI->cpu_gpu_info.gpu.gpu_res4,
-		psKPI->cpu_gpu_info.gpu.gpu_res5,
+		psKPI->cpu_gpu_info.gpu.limit_upper,
+		psKPI->cpu_gpu_info.gpu.limit_lower,
 		psKPI->cpu_gpu_info.gpu.dvfs_loading_mode,
 		psKPI->cpu_gpu_info.gpu.gpu_util,
 		psKPI->cpu_gpu_info.gpu.gpu_power
@@ -1496,6 +1496,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					psTimeStamp->pid
 					, psTimeStamp->i32FrameID, ulID);
 #ifdef GED_ENABLE_FB_DVFS
+				psKPI->cpu_gpu_info.gpu.limit_upper =
+					mt_gpufreq_get_limit_user(1);
+				psKPI->cpu_gpu_info.gpu.limit_lower =
+					mt_gpufreq_get_limit_user(0);
 				cur_3D_done = psKPI->ullTimeStamp2;
 				if (psTimeStamp->i32GPUloading) {
 					/* not fallback mode */

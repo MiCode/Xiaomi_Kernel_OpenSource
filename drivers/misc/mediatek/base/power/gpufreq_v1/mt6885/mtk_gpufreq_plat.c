@@ -203,6 +203,8 @@ static unsigned int g_fixed_freq;
 static unsigned int g_fixed_vgpu;
 static unsigned int g_max_upper_limited_idx;
 static unsigned int g_lkg_pwr;
+static unsigned int g_upper_kicker;
+static unsigned int g_lower_kicker;
 /* g_dfd_force_dump
  * 0: disable
  * 1: force dump + log
@@ -559,6 +561,10 @@ static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int target_idx)
 			}
 		}
 	}
+
+	g_upper_kicker = upper_kicker;
+	g_lower_kicker = lower_kicker;
+
 	mutex_unlock(&mt_gpufreq_limit_table_lock);
 
 	g_max_upper_limited_idx = upper_limit_idx;
@@ -1384,6 +1390,18 @@ unsigned int mt_gpufreq_get_cur_freq(void)
 	return g_cur_opp_freq;
 }
 EXPORT_SYMBOL(mt_gpufreq_get_cur_freq);
+
+unsigned int mt_gpufreq_get_limit_user(unsigned int limit_user)
+{
+	if (limit_user == 0)
+		return g_lower_kicker;
+
+	if (limit_user == 1)
+		return g_upper_kicker;
+
+	return NUM_OF_KIR;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_limit_user);
 
 /*
  * API : get current voltage
