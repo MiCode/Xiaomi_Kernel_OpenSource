@@ -13,7 +13,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
-#include <linux/proc_fs.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter_bridge.h>
@@ -132,7 +131,7 @@ static void mddp_f_init_table_buffer(void)
 
 	for (i = 0; i < MDDP_F_TABLE_BUFFER_NUM; i++) {
 		track_table = kmalloc(sizeof(struct mddp_f_track_table_t),
-								GFP_ATOMIC);
+								GFP_KERNEL);
 		if (!track_table) {
 			continue;
 		}
@@ -454,7 +453,6 @@ void del_all_track_table(void)
 #endif
 
 #ifdef MDDP_F_NETFILTER
-#define MDDP_F_DEVICE_DYNAMIC_REGISTERING_PROC_ENTRY "driver/mddp_f_dynamic_registered_device"
 #define MDDP_F_DEVICE_REGISTERING_HASH_SIZE (32)
 static spinlock_t device_registering_lock;
 static struct list_head *device_registering_hash;
@@ -462,41 +460,6 @@ struct device_registering {
 	struct list_head list;
 	struct net_device *dev;
 };
-static int mddp_f_dynamic_register_proc_show(
-	struct seq_file *m,
-	void *v)
-{
-	unsigned long flags;
-	struct device_registering *found_device;
-	int i;
-
-	spin_lock_irqsave(&device_registering_lock, flags);
-	for (i = 0; i < MDDP_F_DEVICE_REGISTERING_HASH_SIZE; i++) {
-		list_for_each_entry(found_device, &device_registering_hash[i],
-							list) {
-			seq_printf(m, "%s\n", found_device->dev->name);
-		}
-	}
-	spin_unlock_irqrestore(&device_registering_lock, flags);
-	return 0;
-}
-
-static int mddp_f_dynamic_register_proc_open(
-	struct inode *inode,
-	struct file *file)
-{
-	return single_open(file, mddp_f_dynamic_register_proc_show,
-						NULL);
-}
-
-static const struct file_operations mddp_f_dynamic_register_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = mddp_f_dynamic_register_proc_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 static inline unsigned int mddp_f_get_hash_by_device(struct net_device *dev)
 {
 	unsigned int ret;
@@ -518,7 +481,6 @@ static inline void mddp_f_release_device(struct device_registering *device)
 
 static int mddp_f_notifier_init(void)
 {
-	/* TODO: Peter DEBUG */
 	int ret = 0;
 
 #ifdef MDDP_F_NETFILTER
@@ -545,7 +507,6 @@ static void mddp_f_notifier_dest(void)
 #endif
 
 #ifdef MDDP_F_NETFILTER
-	remove_proc_entry(MDDP_F_DEVICE_DYNAMIC_REGISTERING_PROC_ENTRY, NULL);
 	/* release all registered devices */
 	spin_lock_irqsave(&device_registering_lock, flags);
 	for (i = 0; i < MDDP_F_DEVICE_REGISTERING_HASH_SIZE; i++) {
@@ -686,7 +647,7 @@ static int _mddp_f_e_tag_packet(
 	etag_len = mddp_f_e_tag_packet(is_uplink, skb, ip_ver, cb, hit_cnt);
 
 	if (etag_len < 0) {
-		pr_notice("%s: Add MDDP etag FAIL! Clean tag. etag_len[%d], is_uplink[%d], skb[%x], ip_ver[%d], skb_tag[%x]\n",
+		pr_notice("%s: Add MDDP etag FAIL! Clean tag. etag_len[%d], is_uplink[%d], skb[%p], ip_ver[%d], skb_tag[%p]\n",
 				__func__, etag_len, is_uplink,
 				skb, ip_ver, skb_tag);
 
@@ -805,7 +766,7 @@ static int mddp_f_tag_packet(
 				return -EFAULT;
 			}
 
-			fake_skb = skb_copy(skb, GFP_ATOMIC);
+			fake_skb = skb_copy(skb, GFP_KERNEL);
 			fake_skb->dev = cb->dev;
 			skb_tag = (struct mddp_f_tag_packet_t *)fake_skb->head;
 			skb_tag->guard_pattern = MDDP_TAG_PATTERN;
@@ -1112,6 +1073,7 @@ void mddp_f_out_nf_ipv4(
 	int ret;
 
 	struct ip4header *ip = (struct ip4header *) offset2;
+	memset(&t, 0, sizeof(struct tuple));
 
 	pr_debug("%s: IPv4 add rule, skb[%p], cb->proto[%d], ip->ip_p[%d], offset2[%p], ip_id[%x], checksum[%x].\n",
 				__func__, skb, cb->proto, ip->ip_p,
@@ -1264,7 +1226,7 @@ void mddp_f_out_nf_ipv4(
 			if (!found_nat_tuple) {
 				found_nat_tuple = kmem_cache_alloc(
 						mddp_f_nat_tuple_cache,
-						GFP_ATOMIC);
+						GFP_KERNEL);
 				found_nat_tuple->src_ip = cb->src[0];
 				found_nat_tuple->dst_ip = cb->dst[0];
 				found_nat_tuple->nat_src_ip = ip->ip_src;
@@ -1405,7 +1367,7 @@ void mddp_f_out_nf_ipv4(
 				/* Save tuple to avoid tag many packets */
 				found_nat_tuple = kmem_cache_alloc(
 							mddp_f_nat_tuple_cache,
-							GFP_ATOMIC);
+							GFP_KERNEL);
 				found_nat_tuple->src_ip = cb->src[0];
 				found_nat_tuple->dst_ip = cb->dst[0];
 				found_nat_tuple->nat_src_ip = ip->ip_src;
@@ -1469,6 +1431,7 @@ void mddp_f_out_nf_ipv6(
 	unsigned char mddp_md_version = mddp_get_md_version();
 	int ret;
 
+	memset(&t, 0, sizeof(struct router_tuple));
 	nexthdr = ip6->nexthdr;
 	l4_off = ipv6_skip_exthdr(skb, l3_off + sizeof(struct ip6header),
 							&nexthdr, &frag_off);
@@ -1630,7 +1593,7 @@ void mddp_f_out_nf_ipv6(
 
 			/* Save tuple to avoid tag many packets */
 			found_router_tuple = kmem_cache_alloc(
-					mddp_f_router_tuple_cache, GFP_ATOMIC);
+					mddp_f_router_tuple_cache, GFP_KERNEL);
 #ifndef MDDP_F_NETFILTER
 			found_router_tuple->iface_src = cb->iface;
 			found_router_tuple->iface_dst = iface;
@@ -1793,7 +1756,7 @@ void mddp_f_out_nf_ipv6(
 				/* Save tuple to avoid tag many packets */
 				found_router_tuple = kmem_cache_alloc(
 						mddp_f_router_tuple_cache,
-						GFP_ATOMIC);
+						GFP_KERNEL);
 #ifndef MDDP_F_NETFILTER
 				found_router_tuple->iface_src = cb->iface;
 				found_router_tuple->iface_dst = iface;

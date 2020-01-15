@@ -83,10 +83,12 @@ int32_t mddp_drv_attach(
 }
 EXPORT_SYMBOL_GPL(mddp_drv_attach);
 
-void mddp_drv_detach(struct mddp_drv_conf_t *conf)
+void mddp_drv_detach(
+	struct mddp_drv_conf_t *conf,
+	struct mddp_drv_handle_t *handle)
 {
 	if (MDDP_CHECK_APP_TYPE(conf->app_type))
-		mddp_sm_dereg_callback(conf);
+		mddp_sm_dereg_callback(conf, handle);
 }
 EXPORT_SYMBOL_GPL(mddp_drv_detach);
 
@@ -151,8 +153,8 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 	 */
 	memcpy(&app->ap_cfg.ul_dev_name, ul_dev_name, strlen(ul_dev_name));
 	memcpy(&app->ap_cfg.dl_dev_name, dl_dev_name, strlen(dl_dev_name));
-	pr_info("%s: %d, type(%d), app(%p), ul(%s), dl(%s).\n",
-			__func__, 3, type, app,
+	pr_info("%s: type(%d), app(%p), ul(%s), dl(%s).\n",
+			__func__, type, app,
 			app->ap_cfg.ul_dev_name, app->ap_cfg.dl_dev_name);
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_ACT);
 
@@ -231,7 +233,7 @@ int32_t mddp_send_msg_to_md_isr(enum mddp_app_type_e type,
 		return -EPERM;
 	}
 
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + data_len, GFP_ATOMIC);
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + data_len, GFP_KERNEL);
 	if (unlikely(!md_msg))
 		return -ENOMEM;
 

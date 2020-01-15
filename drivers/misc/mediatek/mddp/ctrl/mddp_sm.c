@@ -84,7 +84,7 @@ void _mddp_send_msg_to_md_wq(struct work_struct *in_work)
 	MDDP_SM_UNLOCK(md_queue->locker);
 }
 
-int32_t _mddp_sm_drv_notify(
+static int32_t _mddp_sm_drv_notify(
 	enum mddp_app_type_e app_type,
 	enum mddp_drv_notify_type_e notify_type)
 {
@@ -321,7 +321,7 @@ int32_t mddp_sm_msg_hdlr(
 		uint32_t buf_len)
 {
 	struct mddp_app_t      *app = NULL;
-	int32_t                 ret;
+	int32_t                 ret = -ENODEV;
 
 	switch (user_id) {
 #if defined CONFIG_MTK_MDDP_USB_SUPPORT
@@ -338,7 +338,8 @@ int32_t mddp_sm_msg_hdlr(
 
 #if defined MDDP_TETHERING_SUPPORT
 	case MDFPM_USER_ID_DPFM:
-		return mddp_u_msg_hdlr(msg_id, buf, buf_len);
+		ret = mddp_u_msg_hdlr(msg_id, buf, buf_len);
+		goto _done;
 #endif
 
 	default:
@@ -346,7 +347,8 @@ int32_t mddp_sm_msg_hdlr(
 		 * NG. Receive invalid ctrl_msg!
 		 */
 		pr_notice("%s: Unaccepted user_id(%d)!\n", __func__, user_id);
-		return -ENODEV;
+		ret = -EINVAL;
+		goto _done;
 	}
 
 	/*
@@ -354,7 +356,7 @@ int32_t mddp_sm_msg_hdlr(
 	 */
 	if (app && app->is_config) {
 		ret = app->md_recv_msg_hdlr(msg_id, buf, buf_len);
-		return ret;
+		goto _done;
 	}
 
 	/*
@@ -362,7 +364,9 @@ int32_t mddp_sm_msg_hdlr(
 	 */
 	pr_notice("%s: app is not configured, app(%p), user_id(%d), msg_id(%d)!\n",
 			__func__, app, user_id, msg_id);
-	return -ENODEV;
+
+_done:
+	return ret;
 }
 
 int32_t mddp_sm_reg_callback(
@@ -381,7 +385,7 @@ int32_t mddp_sm_reg_callback(
 		app->reg_drv_callback(handle);
 		memcpy(&app->drv_hdlr,
 			handle, sizeof(struct mddp_drv_handle_t));
-		mddp_sm_on_event(app, MDDP_EVT_FUNC_REGHDLR);
+		mddp_sm_on_event(app, MDDP_EVT_DRV_REGHDLR);
 		return 0;
 	}
 
@@ -393,6 +397,31 @@ int32_t mddp_sm_reg_callback(
 	return -EPERM;
 }
 
-void mddp_sm_dereg_callback(struct mddp_drv_conf_t *conf)
+void mddp_sm_dereg_callback(
+	struct mddp_drv_conf_t *conf,
+	struct mddp_drv_handle_t *handle)
 {
+	struct mddp_app_t      *app;
+
+	app = mddp_get_app_inst(conf->app_type);
+
+	/*
+	 * OK. This app_type is configured.
+	 */
+	if (app->is_config && app->dereg_drv_callback) {
+		handle->drv_notify = NULL;
+		app->dereg_drv_callback(handle);
+		memcpy(&app->drv_hdlr,
+			handle, sizeof(struct mddp_drv_handle_t));
+		mddp_sm_on_event(app, MDDP_EVT_DRV_DEREGHDLR);
+		return;
+	}
+
+	/*
+	 * NG. MDDP is not ready!
+	 */
+	pr_notice("%s: Failed to dereg callback, type(%d), config(%d)!\n",
+			__func__, conf->app_type, app->is_config);
+	return;
+
 }

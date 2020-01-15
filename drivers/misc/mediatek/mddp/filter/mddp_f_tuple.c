@@ -102,10 +102,8 @@ void mddp_f_del_nat_tuple(struct nat_tuple *t)
 }
 EXPORT_SYMBOL(mddp_f_del_nat_tuple);
 
-void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t)
+void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 {
-	unsigned long flag;
-
 	pr_info("%s: Del nat tuple[%p], next[%p], prev[%p].\n",
 		__func__, t, t->list.next, t->list.prev);
 
@@ -132,7 +130,7 @@ void mddp_f_timeout_nat_tuple(unsigned long data)
 
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
 	if (t->curr_cnt == t->last_cnt)
-		mddp_f_del_nat_tuple_w_unlock(t);
+		mddp_f_del_nat_tuple_w_unlock(t, flag);
 	else {
 		t->is_need_tag = true;
 		MDDP_F_TUPLE_UNLOCK(&mddp_f_tuple_lock, flag);
@@ -384,10 +382,9 @@ void mddp_f_del_router_tuple(struct router_tuple *t)
 }
 EXPORT_SYMBOL(mddp_f_del_router_tuple);
 
-void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t)
+void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
+		unsigned long flag)
 {
-	unsigned long flag;
-
 	pr_info("%s: Del router tuple[%p], next[%p], prev[%p].\n",
 			__func__, t, t->list.next, t->list.prev);
 
@@ -414,7 +411,7 @@ void mddp_f_timeout_router_tuple(unsigned long data)
 
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
 	if (t->curr_cnt == t->last_cnt)
-		mddp_f_del_router_tuple_w_unlock(t);
+		mddp_f_del_router_tuple_w_unlock(t, flag);
 	else {
 		t->is_need_tag = true;
 

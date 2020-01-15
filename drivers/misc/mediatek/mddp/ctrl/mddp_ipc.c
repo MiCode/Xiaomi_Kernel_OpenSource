@@ -32,11 +32,11 @@ static int32_t mddp_ipc_tty_port_s = -1;
 static struct task_struct *rx_task;
 static struct wfpm_smem_info_t smem_info_s[] = {
 	{MDDP_MD_SMEM_USER_RX_REORDER_TO_MD, WFPM_SM_E_ATTRI_WO,
-		0, 0, (80 * 1024)},
+		0, 0, 0},
 	{MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD, WFPM_SM_E_ATTRI_RO,
-		0, (80 * 1024), (80 * 1024)},
+		0, 0, 0},
 	{MDDP_MD_SMEM_USER_WIFI_STATISTICS, WFPM_SM_E_ATTRI_RO,
-		0, (80 * 1024) << 1, (sizeof(struct mddpw_net_stat_t))},
+		0, 0, (sizeof(struct mddpw_net_stat_t))},
 };
 
 static struct mddp_ipc_rx_msg_entry_t mddp_rx_msg_table_s[] = {
@@ -127,7 +127,7 @@ int32_t mddp_md_msg_hdlr(void *arg)
 		rx_count = mtk_ccci_read_data(mddp_ipc_tty_port_s,
 				(char *)&(ctrl_msg), sizeof(ctrl_msg));
 
-		if (rx_count > 0 && rx_count > MDFPM_CTRL_MSG_HEADER_SZ) {
+		if (rx_count > 0 && rx_count >= MDFPM_CTRL_MSG_HEADER_SZ) {
 			// OK. Forward to dest_user.
 			mddp_sm_msg_hdlr(ctrl_msg.dest_user_id, ctrl_msg.msg_id,
 					&(ctrl_msg.buf), ctrl_msg.buf_len);
@@ -166,7 +166,9 @@ int32_t mddp_ipc_send_md(
 
 	ctrl_msg.msg_id = msg->msg_id;
 	ctrl_msg.buf_len = msg->data_len;
-	memcpy(ctrl_msg.buf, msg->data, msg->data_len);
+
+	if (msg->data_len > 0)
+		memcpy(ctrl_msg.buf, msg->data, msg->data_len);
 
 	ret = mtk_ccci_send_data(mddp_ipc_tty_port_s, (char *)&ctrl_msg,
 			sizeof(struct mddp_md_msg_t) + msg->data_len);
@@ -214,8 +216,8 @@ int32_t mddp_ipc_init(void)
 	rx_task = kthread_run(mddp_md_msg_hdlr, NULL, "mddp_rx");
 
 	if (IS_ERR(rx_task)) {
-		//pr_notice("%s: kthread_run fail(%i)!\n",
-		//		__func__, PTR_ERR(rx_task));
+		pr_notice("%s: kthread_run fail(%li)!\n",
+				__func__, PTR_ERR(rx_task));
 
 		rx_task = NULL;
 		ret = -ECHILD;

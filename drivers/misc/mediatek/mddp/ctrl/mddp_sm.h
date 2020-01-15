@@ -32,8 +32,9 @@ enum mddp_event_e {
 	MDDP_EVT_FUNC_DISABLE,  /**< Disable MDDP. */
 	MDDP_EVT_FUNC_ACT,  /**< Activate MDDP. */
 	MDDP_EVT_FUNC_DEACT,  /**< Deactivate MDDP. */
-	MDDP_EVT_FUNC_REGHDLR, /**< WIFI reg handler. */
 
+	MDDP_EVT_DRV_REGHDLR, /**< Driver reg handler. */
+	MDDP_EVT_DRV_DEREGHDLR, /**< Driver dereg handler. */
 	MDDP_EVT_DRV_DISABLE, /**< Disable MDDP from driver. */
 
 	MDDP_EVT_MD_RSP_OK,  /**< MD Response OK. */
@@ -101,6 +102,7 @@ struct mddp_app_t {
 	struct mddp_md_queue_t      md_send_queue; /**< Send msg to MD queue. */
 
 	mddp_reg_drv_cbf_t          reg_drv_callback; /**< Register callback. */
+	mddp_reg_drv_cbf_t          dereg_drv_callback; /**< DeReg callback. */
 	struct mddp_drv_handle_t    drv_hdlr; /**< Driver handler. */
 
 	mddp_sysfs_cbf_t            sysfs_callback; /**< Sysfs callback. */
@@ -154,5 +156,7 @@ int32_t mddp_sm_msg_hdlr(uint32_t user_id,
 int32_t mddp_sm_reg_callback(
 	struct mddp_drv_conf_t *conf,
 	struct mddp_drv_handle_t *handle);
-void mddp_sm_dereg_callback(struct mddp_drv_conf_t *conf);
+void mddp_sm_dereg_callback(
+	struct mddp_drv_conf_t *conf,
+	struct mddp_drv_handle_t *handle);
 #endif /* __MDDP_SM_H */

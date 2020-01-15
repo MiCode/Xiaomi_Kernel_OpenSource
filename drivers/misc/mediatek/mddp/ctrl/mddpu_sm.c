@@ -99,7 +99,7 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 			__func__, enable_req.mpuInfo.memBank4Size);
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(enable_req),
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -171,7 +171,7 @@ void mddpu_sm_disable(struct mddp_app_t *app)
 	disable_req.mode = UFPM_FUNC_MODE_TETHER;
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(disable_req),
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -193,7 +193,7 @@ void mddpu_sm_drv_disable(struct mddp_app_t *app)
 	disable_req.mode = UFPM_FUNC_MODE_TETHER;
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(disable_req),
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -247,7 +247,7 @@ void mddpu_sm_act(struct mddp_app_t *app)
 
 	// 3. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + usb_buf_len,
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -318,7 +318,7 @@ void mddpu_sm_deact(struct mddp_app_t *app)
 
 	// 2. Send DEACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + usb_buf_len,
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -367,7 +367,7 @@ static struct mddp_sm_entry_t mddpu_uninit_state_machine_s[] = {
 
 static struct mddp_sm_entry_t mddpu_wait_drv_reg_state_machine_s[] = {
 /* event                new_state                action */
-{MDDP_EVT_FUNC_REGHDLR, MDDP_STATE_ENABLING,     mddpu_sm_enable},
+{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_ENABLING,     mddpu_sm_enable},
 {MDDP_EVT_DUMMY,        MDDP_STATE_WAIT_DRV_REG, NULL} /* End of SM. */
 };
 
@@ -556,14 +556,16 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		break;
 	}
 
-	// <TODO_2> MSG_ID_L4C_UFPM_DEACTIVATE_MD_FAST_PATH_REQ
-	// from ATCI for MD power off flight mode
-
 	return 0;
 
 }
 
 int32_t mddpu_drv_reg_callback(struct mddp_drv_handle_t *handle)
+{
+	return 0;
+}
+
+int32_t mddpu_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 {
 	return 0;
 }
@@ -578,6 +580,7 @@ int32_t mddpu_sm_init(struct mddp_app_t *app)
 
 	app->md_recv_msg_hdlr = mddpu_ufpm_msg_hdlr;
 	app->reg_drv_callback = mddpu_drv_reg_callback;
+	app->dereg_drv_callback = mddpu_drv_dereg_callback;
 	memcpy(&app->md_cfg, &mddpu_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 
 	app->is_config = 1;

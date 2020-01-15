@@ -84,7 +84,7 @@ void mddpwh_sm_enable(struct mddp_app_t *app)
 	// 2. Send ENABLE to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 			 sizeof(struct wfpm_enable_md_func_req_t) +
-			smem_num * sizeof(struct wfpm_smem_info_t), GFP_ATOMIC);
+			smem_num * sizeof(struct wfpm_smem_info_t), GFP_KERNEL);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -139,7 +139,7 @@ void mddpwh_sm_disable(struct mddp_app_t *app)
 	// 2. Send DISABLE to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 			sizeof(struct wfpm_md_fast_path_common_req_t),
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (unlikely(!md_msg)) {
 		pr_notice("%s: Failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
@@ -177,7 +177,7 @@ void mddpwh_sm_act(struct mddp_app_t *app)
 
 	// 3. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-		sizeof(struct wfpm_activate_md_func_req_t), GFP_ATOMIC);
+		sizeof(struct wfpm_activate_md_func_req_t), GFP_KERNEL);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -226,7 +226,7 @@ void mddpwh_sm_deact(struct mddp_app_t *app)
 
 	// 2. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-		sizeof(struct wfpm_activate_md_func_req_t), GFP_ATOMIC);
+		sizeof(struct wfpm_activate_md_func_req_t), GFP_KERNEL);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -263,19 +263,20 @@ void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 static struct mddp_sm_entry_t mddpwh_uninit_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_FUNC_ENABLE,  MDDP_STATE_WAIT_DRV_REG, NULL},
-{MDDP_EVT_FUNC_REGHDLR, MDDP_STATE_WAIT_ENABLE,  NULL},
+{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_WAIT_ENABLE,  NULL},
 {MDDP_EVT_DUMMY,        MDDP_STATE_UNINIT,       NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_wait_drv_reg_state_machine_s[] = {
 /* event                new_state                action */
-{MDDP_EVT_FUNC_REGHDLR, MDDP_STATE_ENABLING,     mddpwh_sm_enable},
+{MDDP_EVT_DRV_REGHDLR,  MDDP_STATE_ENABLING,     mddpwh_sm_enable},
 {MDDP_EVT_DUMMY,        MDDP_STATE_WAIT_DRV_REG, NULL} /* End of SM. */
 };
 
 static struct mddp_sm_entry_t mddpwh_wait_enable_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_FUNC_ENABLE,  MDDP_STATE_ENABLING,     mddpwh_sm_enable},
+{MDDP_EVT_DRV_DEREGHDLR, MDDP_STATE_UNINIT,      NULL},
 {MDDP_EVT_DUMMY,        MDDP_STATE_WAIT_ENABLE,  NULL} /* End of SM. */
 };
 
@@ -301,6 +302,7 @@ static struct mddp_sm_entry_t mddpwh_drv_disabling_state_machine_s[] = {
 static struct mddp_sm_entry_t mddpwh_deactivated_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_FUNC_ACT,     MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
+{MDDP_EVT_FUNC_DISABLE, MDDP_STATE_DISABLING,    mddpwh_sm_disable},
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
 };
 
@@ -364,7 +366,7 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 		return;
 	}
 
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_KERNEL);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -372,7 +374,7 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	}
 
 	md_msg->msg_id = IPC_MSG_ID_WFPM_RESET_IND;
-	md_msg->data_len = sizeof(struct mddpw_txd_t);
+	md_msg->data_len = 0;
 	if (unlikely(mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) >= 0)) {
 		pr_info("%s: send_success.\n", __func__);
 #ifdef CONFIG_MTK_MDDP_WH_SUPPORT
@@ -423,7 +425,7 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	switch (msg_id) {
 	case IPC_MSG_ID_WFPM_ENABLE_MD_FAST_PATH_RSP:
 		enable_rsp = (struct wfpm_enable_md_func_rsp_t *) buf;
-		pr_info("%s: set (%u), (%u),  MD version(%u), (%u).\n",
+		pr_info("%s: set (%u), (%u), MD version(%u), (%u).\n",
 		__func__, enable_rsp->mode, enable_rsp->result,
 		enable_rsp->version, enable_rsp->reserved);
 		mddp_set_md_version(enable_rsp->version);
@@ -457,7 +459,6 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, false);
 		}
-
 		break;
 
 	case IPC_MSG_ID_WFPM_ACTIVATE_MD_FAST_PATH_RSP:
@@ -498,8 +499,8 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 					buf,
 					sizeof(deact_rsp_metadata_s));
 		}
-
 		break;
+
 	case IPC_MSG_ID_WFPM_RESET_IND:
 		pr_notice("%s: Received WFPM RESET IND\n", __func__);
 		if (mddpw_reset_ongoing == 0) {
@@ -528,14 +529,12 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 						md_info);
 			}
 		break;
+
 	default:
 		pr_notice("%s: Unsupported RSP MSG_ID[%d] from WFPM.\n",
 					__func__, msg_id);
 		break;
 	}
-
-	// <TODO> MSG_ID_L4C_WFPM_DEACTIVATE_MD_FAST_PATH_REQ
-	// from ATCI for MD power off flight mode
 
 	return 0;
 }
@@ -555,7 +554,7 @@ int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
 	}
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-	sizeof(struct mddpw_txd_t) + txd->txd_length, GFP_ATOMIC);
+	sizeof(struct mddpw_txd_t) + txd->txd_length, GFP_KERNEL);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -649,7 +648,7 @@ int32_t mddpw_drv_notify_info(
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 		sizeof(struct mddpw_drv_notify_info_t) +
-		wifi_notify->buf_len, GFP_ATOMIC);
+		wifi_notify->buf_len, GFP_KERNEL);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -686,7 +685,28 @@ int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	return 0;
 }
 
-ssize_t mddpwh_switch_callback(
+int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
+{
+	struct mddpw_drv_handle_t         *wifi_handle;
+
+	if (handle->wifi_handle == NULL) {
+		pr_notice("%s: handle NULL\n",
+		__func__);
+		return -EINVAL;
+	}
+
+	wifi_handle = handle->wifi_handle;
+
+	wifi_handle->add_txd = NULL;
+	wifi_handle->get_net_stat = NULL;
+	wifi_handle->get_ap_rx_reorder_buf = NULL;
+	wifi_handle->get_md_rx_reorder_buf = NULL;
+	wifi_handle->notify_drv_info = NULL;
+
+	return 0;
+}
+
+ssize_t mddpwh_sysfs_callback(
 	struct mddp_app_t *app,
 	enum mddp_sysfs_cmd_e cmd,
 	char *buf,
@@ -753,7 +773,8 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 
 	app->md_recv_msg_hdlr = mddpw_wfpm_msg_hdlr;
 	app->reg_drv_callback = mddpw_drv_reg_callback;
-	app->sysfs_callback = mddpwh_switch_callback;
+	app->dereg_drv_callback = mddpw_drv_dereg_callback;
+	app->sysfs_callback = mddpwh_sysfs_callback;
 	memcpy(&app->md_cfg, &mddpw_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 	app->is_config = 1;
 

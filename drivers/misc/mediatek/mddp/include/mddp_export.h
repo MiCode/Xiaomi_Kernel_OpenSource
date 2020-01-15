@@ -96,6 +96,8 @@ int32_t mddp_md_msg_hdlr(void *arg);
 // -----------------------------------------------------------------------------
 int32_t mddp_drv_attach(
 	struct mddp_drv_conf_t *conf, struct mddp_drv_handle_t *handle);
+void mddp_drv_detach(
+	struct mddp_drv_conf_t *conf, struct mddp_drv_handle_t *handle);
 
 //------------------------------------------------------------------------------
 // Public function definition - For HIDL
