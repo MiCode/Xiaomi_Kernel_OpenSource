@@ -6,6 +6,8 @@
 #ifndef __LINUX_USB_CCID_DESC_H
 #define __LINUX_USB_CCID_DESC_H
 
+#include <linux/types.h>
+
 /*CCID specification version 1.10*/
 #define CCID1_10                               0x0110
 

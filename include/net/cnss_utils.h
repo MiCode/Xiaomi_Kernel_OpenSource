@@ -4,6 +4,10 @@
 #ifndef _CNSS_UTILS_H_
 #define _CNSS_UTILS_H_
 
+#include <linux/types.h>
+
+struct device;
+
 enum cnss_utils_cc_src {
 	CNSS_UTILS_SOURCE_CORE,
 	CNSS_UTILS_SOURCE_11D,

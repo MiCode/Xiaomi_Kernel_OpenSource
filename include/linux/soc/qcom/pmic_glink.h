@@ -6,7 +6,10 @@
 #ifndef _PMIC_GLINK_H
 #define _PMIC_GLINK_H
 
+#include <linux/types.h>
+
 struct pmic_glink_client;
+struct device;
 
 /**
  * struct pmic_glink_client_data - pmic_glink client data

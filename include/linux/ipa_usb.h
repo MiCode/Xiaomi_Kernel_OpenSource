@@ -6,6 +6,12 @@
 #ifndef _IPA_USB_H_
 #define _IPA_USB_H_
 
+#include <linux/if_ether.h>
+#include <linux/ipa.h>
+#include <linux/msm_gsi.h>
+#include <linux/msm_ipa.h>
+#include <linux/types.h>
+
 enum ipa_usb_teth_prot {
 	IPA_USB_RNDIS = 0,
 	IPA_USB_ECM = 1,

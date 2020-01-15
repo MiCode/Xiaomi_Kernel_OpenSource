@@ -9,6 +9,7 @@
 #if !defined(_TRACE_ION_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_ION_H
 
+#include <linux/dma-direction.h>
 #include <linux/types.h>
 #include <linux/tracepoint.h>
 

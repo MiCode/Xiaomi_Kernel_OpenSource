@@ -6,6 +6,8 @@
 #ifndef __QPNP_REVID
 #define __QPNP_REVID
 
+#include <linux/types.h>
+
 /* Common TYPE for all PMICs */
 #define PMIC_TYPE		0x51
 
@@ -329,6 +331,8 @@ struct pmic_revid_data {
 	int		fab_id;
 	int		tp_rev;
 };
+
+struct device_node;
 
 #if IS_ENABLED(CONFIG_QPNP_REVID)
 struct pmic_revid_data *get_revid_data(struct device_node *dev_node);

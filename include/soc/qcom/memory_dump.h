@@ -6,6 +6,7 @@
 #ifndef __MSM_MEMORY_DUMP_H
 #define __MSM_MEMORY_DUMP_H
 
+#include <linux/errno.h>
 #include <linux/types.h>
 
 enum dump_client_type {

@@ -10,6 +10,8 @@
 #ifndef _SERVICE_LOCATOR_H
 #define _SERVICE_LOCATOR_H
 
+#include <linux/types.h>
+
 #define QMI_SERVREG_LOC_NAME_LENGTH_V01 64
 #define QMI_SERVREG_LOC_LIST_LENGTH_V01 32
 
@@ -49,6 +51,8 @@ enum service_locator_state {
 	LOCATOR_DOWN = 0x0F,
 	LOCATOR_UP = 0x1F,
 };
+
+struct notifier_block;
 
 #if IS_ENABLED(CONFIG_MSM_SERVICE_LOCATOR)
 /*

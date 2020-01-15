@@ -6,6 +6,8 @@
 #ifndef __MSM_GPI_H_
 #define __MSM_GPI_H_
 
+#include <linux/types.h>
+
 struct __packed msm_gpi_tre {
 	u32 dword[4];
 };
@@ -195,6 +197,8 @@ struct msm_gpi_cb {
 	u64 count;
 	struct msm_gpi_error_log error_log;
 };
+
+struct dma_chan;
 
 struct gpi_client_info {
 	/*

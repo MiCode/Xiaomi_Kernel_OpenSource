@@ -6,6 +6,8 @@
 #ifndef __LINUX_BLUETOOTH_POWER_H
 #define __LINUX_BLUETOOTH_POWER_H
 
+#include <linux/types.h>
+
 /*
  * voltage regulator information required for configuring the
  * bluetooth chipset

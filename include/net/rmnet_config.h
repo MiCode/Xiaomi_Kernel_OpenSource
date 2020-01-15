@@ -7,6 +7,8 @@
 #ifndef _RMNET_CONFIG_H_
 #define _RMNET_CONFIG_H_
 
+#include <linux/types.h>
+
 struct rmnet_map_header_s {
 #ifndef RMNET_USE_BIG_ENDIAN_STRUCTS
 	uint8_t  pad_len:6;

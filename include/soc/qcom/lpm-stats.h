@@ -7,6 +7,9 @@
 #ifndef __ARCH_ARM_MACH_MSM_LPM_STATS_H
 #define __ARCH_ARM_MACH_MSM_LPM_STATS_H
 
+#include <linux/cpumask.h>
+#include <linux/types.h>
+
 struct lpm_stats;
 
 #define MAX_STR_LEN 256

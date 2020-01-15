@@ -6,6 +6,8 @@
 #ifndef __SPI_GENI_QCOM_HEADER___
 #define __SPI_GENI_QCOM_HEADER___
 
+#include <linux/types.h>
+
 struct spi_geni_qcom_ctrl_data {
 	u32 spi_cs_clk_delay;
 	u32 spi_inter_words_delay;
