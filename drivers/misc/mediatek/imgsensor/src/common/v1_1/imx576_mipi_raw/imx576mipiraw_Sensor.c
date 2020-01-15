@@ -201,7 +201,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.video_delay_frame = 2,
 	.hs_video_delay_frame = 2,
 	.slim_video_delay_frame = 2,
-	.isp_driving_current = ISP_DRIVING_6MA,
+	.isp_driving_current = ISP_DRIVING_8MA,
 	.sensor_interface_type = SENSOR_INTERFACE_TYPE_MIPI,
 	.mipi_sensor_type = MIPI_OPHY_NCSI2,
 	/* 0,MIPI_OPHY_NCSI2;  1,MIPI_OPHY_CSI2 */
@@ -348,9 +348,13 @@ static void set_dummy(void)
 {
 	LOG_INF("dummyline = %d, dummypixels = %d\n",
 		imgsensor.dummy_line, imgsensor.dummy_pixel);
-	/* return; //for test */
-	write_cmos_sensor(0x0340, imgsensor.frame_length);
-	write_cmos_sensor(0x0342, imgsensor.line_length);
+
+	write_cmos_sensor_8(0x0104, 0x01);
+	write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
+	write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
+	write_cmos_sensor_8(0x0342, imgsensor.line_length >> 8);
+	write_cmos_sensor_8(0x0343, imgsensor.line_length & 0xFF);
+	write_cmos_sensor_8(0x0104, 0x00);
 }	/*	set_dummy  */
 
 
@@ -399,7 +403,6 @@ static void write_shutter(kal_uint16 shutter)
 	if (shutter < imgsensor_info.min_shutter)
 		shutter = imgsensor_info.min_shutter;
 
-	write_cmos_sensor_8(0x0104, 0x01);
 	if (imgsensor.autoflicker_en) {
 		realtime_fps =
 	  imgsensor.pclk / imgsensor.line_length * 10 / imgsensor.frame_length;
@@ -409,18 +412,23 @@ static void write_shutter(kal_uint16 shutter)
 			set_max_framerate(146, 0);
 		else {
 			/* Extend frame length */
+			write_cmos_sensor_8(0x0104, 0x01);
 			write_cmos_sensor_8(0x0340,
 					    imgsensor.frame_length >> 8);
 			write_cmos_sensor_8(0x0341,
 					    imgsensor.frame_length & 0xFF);
+			write_cmos_sensor_8(0x0104, 0x00);
 		}
 	} else {
 		/* Extend frame length */
+		write_cmos_sensor_8(0x0104, 0x01);
 		write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
 		write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
+		write_cmos_sensor_8(0x0104, 0x00);
 	}
 
 	/* Update Shutter */
+	write_cmos_sensor_8(0x0104, 0x01);
 	write_cmos_sensor_8(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0203, shutter  & 0xFF);
 	write_cmos_sensor_8(0x0104, 0x00);
@@ -478,6 +486,8 @@ static void feedback_awbgain(kal_uint32 r_gain, kal_uint32 b_gain)
 	r_gain_int = r_gain / 512;
 	b_gain_int = b_gain / 512;
 
+	write_cmos_sensor_8(0x0104, 0x01);
+
 	/*write r_gain*/
 	write_cmos_sensor_8(0x0B90, r_gain_int);
 	write_cmos_sensor_8(0x0B91,
@@ -487,6 +497,8 @@ static void feedback_awbgain(kal_uint32 r_gain, kal_uint32 b_gain)
 	write_cmos_sensor_8(0x0B92, b_gain_int);
 	write_cmos_sensor_8(0x0B93,
 		(((b_gain * 100) / 512) - (b_gain_int * 100)) * 2);
+
+	write_cmos_sensor_8(0x0104, 0x00);
 }
 
 /*************************************************************************
@@ -1826,10 +1838,7 @@ static kal_uint32 open(void)
 	kal_uint16 sensor_id = 0;
 	kal_uint8 chip_id = 0;
 
-	LOG_INF("PLATFORM:MT6595,MIPI 2LANE\n");
-	LOG_INF(
-	"preview 1280*960@30fps,864Mbps/lane; video 1280*960@30fps,864Mbps/lane;\n");
-	LOG_INF("capture 5M@30fps,864Mbps/lane\n");
+	LOG_INF("preview 2880*2156@30fps; capture 5760*4312@24fps\n");
 
 	/* sensor have two i2c address 0x6c 0x6d & 0x21 0x20, */
 	/* we should detect the module used i2c address */
@@ -2735,6 +2744,9 @@ static void imx576_set_lsc_reg_setting(
 	mdelay(1);
 	LOG_INF("Addr 0xB870, 0x380D Value:0x%x %x\n",
 		read_cmos_sensor_8(0xB870), read_cmos_sensor_8(0x380D));
+
+	write_cmos_sensor_8(0x0104, 0x01);
+
 	/*define Knot point, 2'b01:u3.7*/
 	write_cmos_sensor_8(0x9750, 0x01);
 	write_cmos_sensor_8(0x9751, 0x01);
@@ -2743,6 +2755,8 @@ static void imx576_set_lsc_reg_setting(
 
 	for (i = 0; i < regNum; i++)
 		write_cmos_sensor(startAddr[index] + 2*i, regDa[i]);
+
+	write_cmos_sensor_8(0x0104, 0x00);
 
 	#if LSC_DEBUG
 	for (i = 0; i < regNum; i++) {
@@ -2800,6 +2814,8 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 		pSetSensorAWB->ABS_GAIN_B,
 		pSetSensorAWB->ABS_GAIN_GB);
 
+	write_cmos_sensor_8(0x0104, 0x01);
+
 	write_cmos_sensor_8(0x0b8e, (grgain_32 >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0b8f, grgain_32 & 0xFF);
 	write_cmos_sensor_8(0x0b90, (rgain_32 >> 8) & 0xFF);
@@ -2808,6 +2824,8 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 	write_cmos_sensor_8(0x0b93, bgain_32 & 0xFF);
 	write_cmos_sensor_8(0x0b94, (gbgain_32 >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0b95, gbgain_32 & 0xFF);
+
+	write_cmos_sensor_8(0x0104, 0x00);
 
 	return ERROR_NONE;
 }
