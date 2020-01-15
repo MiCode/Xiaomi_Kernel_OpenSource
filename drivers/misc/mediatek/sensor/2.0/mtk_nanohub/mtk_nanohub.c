@@ -93,6 +93,7 @@ struct mtk_nanohub_device {
 	int32_t light_config_data[1];
 	int32_t proximity_config_data[2];
 	int32_t sar_config_data[4];
+	int32_t ois_config_data[2];
 };
 
 static uint8_t rtc_compensation_suspend;
@@ -667,6 +668,13 @@ static void mtk_nanohub_init_sensor_info(void)
 	p->gain = 1;
 	strlcpy(p->name, "sar", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_OIS];
+	p->sensorType = SENSOR_TYPE_OIS;
+	p->gain = 1000000;
+	strlcpy(p->name, "ois", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1552,6 +1560,21 @@ int mtk_nanohub_set_cmd_to_hub(uint8_t sensor_id,
 			return -1;
 		}
 		break;
+	case ID_OIS:
+		req.set_cust_req.sensorType = ID_OIS;
+		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
+		switch (action) {
+		case CUST_ACTION_GET_SENSOR_INFO:
+			req.set_cust_req.getInfo.action =
+				CUST_ACTION_GET_SENSOR_INFO;
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.getInfo);
+			break;
+		default:
+			return -1;
+		}
+		break;
+
 	default:
 		req.set_cust_req.sensorType = sensor_id;
 		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
@@ -1719,6 +1742,14 @@ static void mtk_nanohub_restoring_config(void)
 	memcpy(data, device->sar_config_data, length);
 	spin_unlock(&config_data_lock);
 	mtk_nanohub_cfg_to_hub(ID_SAR, data, length);
+	vfree(data);
+
+	length = sizeof(device->ois_config_data);
+	data = vzalloc(length);
+	spin_lock(&config_data_lock);
+	memcpy(data, device->ois_config_data, length);
+	spin_unlock(&config_data_lock);
+	mtk_nanohub_cfg_to_hub(ID_OIS, data, length);
 	vfree(data);
 }
 
@@ -1909,6 +1940,12 @@ static int mtk_nanohub_config(struct hf_device *hfdev,
 		memcpy(device->sar_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
+	case ID_OIS:
+		length = sizeof(device->ois_config_data);
+		spin_lock(&config_data_lock);
+		memcpy(device->ois_config_data, data, length);
+		spin_unlock(&config_data_lock);
+		break;
 	}
 	if (!length) {
 		pr_err("%s type(%d) length fail\n", __func__, sensor_type);
@@ -1951,7 +1988,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 		switch (sensor_type) {
 		case SENSOR_TYPE_ACCELEROMETER:
 			if (sizeof(cust_cmd->data) <
-				sizeof(device->acc_config_data))
+					sizeof(device->acc_config_data))
 				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->acc_config_data,
@@ -1960,7 +1997,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			break;
 		case SENSOR_TYPE_GYROSCOPE:
 			if (sizeof(cust_cmd->data) <
-				sizeof(device->gyro_config_data))
+					sizeof(device->gyro_config_data))
 				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->gyro_config_data,
@@ -1969,7 +2006,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			break;
 		case SENSOR_TYPE_MAGNETIC_FIELD:
 			if (sizeof(cust_cmd->data) <
-				sizeof(device->mag_config_data))
+					sizeof(device->mag_config_data))
 				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->mag_config_data,
@@ -1978,7 +2015,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			break;
 		case SENSOR_TYPE_LIGHT:
 			if (sizeof(cust_cmd->data) <
-				sizeof(device->light_config_data))
+					sizeof(device->light_config_data))
 				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->light_config_data,
@@ -1987,7 +2024,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			break;
 		case SENSOR_TYPE_PROXIMITY:
 			if (sizeof(cust_cmd->data) <
-				sizeof(device->proximity_config_data))
+					sizeof(device->proximity_config_data))
 				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->proximity_config_data,
@@ -1996,11 +2033,20 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			break;
 		case SENSOR_TYPE_SAR:
 			if (sizeof(cust_cmd->data) <
-				sizeof(device->sar_config_data))
+					sizeof(device->sar_config_data))
 				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->sar_config_data,
 					sizeof(device->sar_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_OIS:
+			if (sizeof(cust_cmd->data) <
+					sizeof(device->ois_config_data))
+				return -EINVAL;
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->ois_config_data,
+					sizeof(device->ois_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		default:
@@ -2249,6 +2295,14 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.word[0] = data->sar_event.x_bias;
 			event.word[1] = data->sar_event.y_bias;
 			event.word[2] = data->sar_event.z_bias;
+			break;
+		case ID_OIS:
+			event.timestamp = data->time_stamp;
+			event.sensor_type = id_to_type(data->sensor_type);
+			event.action = data->flush_action;
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
 			break;
 		}
 	} else if (data->flush_action == TEMP_ACTION) {
