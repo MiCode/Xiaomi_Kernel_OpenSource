@@ -13,6 +13,7 @@
 
 enum hh_msgq_label {
 	HH_MSGQ_LABEL_RM,
+	HH_MSGQ_LABEL_MEMBUF,
 	HH_MSGQ_LABEL_MAX
 };
 
