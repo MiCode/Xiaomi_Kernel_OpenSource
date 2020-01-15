@@ -741,7 +741,8 @@ struct SV_LOG_STR {
 
 static void *pLog_kmalloc;
 static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
-
+static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
+#define STR_REG "Addr(0x%x) 0x%8x-0x%8x-0x%8x-0x%8x|0x%8x-0x%8x-0x%8x-0x%8x\n"
 /**
  *   for irq used,keep log until IRQ_LOG_PRINTER being involked,
  *   limited:
@@ -7460,6 +7461,106 @@ static const struct file_operations fcameraio_proc_fops = {
 	.read = CAMIO_DumpRegToProc, .write = CAMIO_RegDebug,
 };
 
+void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
+{
+	unsigned int i = 0;
+	unsigned int log_ba = 0;
+
+	if (g_is_dumping[module])
+		return;
+
+	switch (module) {
+	case ISP_CAM_A_INNER_IDX:
+		log_ba = CAM_A_BASE_HW;
+		break;
+	case ISP_CAM_B_INNER_IDX:
+		log_ba = CAM_B_BASE_HW;
+		break;
+	case ISP_CAM_C_INNER_IDX:
+		log_ba = CAM_C_BASE_HW;
+		break;
+	default:
+		break;
+	}
+
+	g_is_dumping[module] = MTRUE;
+	LOG_INF("----%s(module:%d)----\n", __func__, module);
+
+	for (i = 0 ; i < ISP_REG_RANGE; i += 0x0020) {
+		LOG_INF(STR_REG,
+			log_ba + i,
+			ISP_RD32(isp_devs[module].regs + i),
+			ISP_RD32(isp_devs[module].regs + i + 0x0004),
+			ISP_RD32(isp_devs[module].regs + i + 0x0008),
+			ISP_RD32(isp_devs[module].regs + i + 0x000C),
+			ISP_RD32(isp_devs[module].regs + i + 0x0010),
+			ISP_RD32(isp_devs[module].regs + i + 0x0014),
+			ISP_RD32(isp_devs[module].regs + i + 0x0018),
+			ISP_RD32(isp_devs[module].regs + i + 0x001C));
+	}
+	g_is_dumping[module] = MFALSE;
+}
+
+enum mtk_iommu_callback_ret_t isp_m4u_fault_callback(int port,
+		unsigned long mva, void *data)
+{
+	union CAMCTL_TWIN_STATUS_ twin_status;
+	enum ISP_DEV_NODE_ENUM module = ISP_CAM_A_INNER_IDX;
+	int i;
+
+	//mva use %lu type to avoid kasan project build problem
+	LOG_INF("[m4u cb] fault callback: port=%d, mva=%lu\n", port, mva);
+
+	twin_status.Raw =
+		ISP_RD32(CAM_REG_CTL_TWIN_STATUS(ISP_CAM_A_INNER_IDX));
+	LOG_INF("[m4u cb] twin status en:%d, master:%d\n",
+		twin_status.Bits.TWIN_EN, twin_status.Bits.MASTER_MODULE);
+
+	if (twin_status.Bits.TWIN_EN == MTRUE) {
+		switch (twin_status.Bits.MASTER_MODULE) {
+		case CAM_A:
+			module = ISP_CAM_A_INNER_IDX;
+			break;
+		case CAM_B:
+			module = ISP_CAM_B_INNER_IDX;
+			break;
+		default:
+			LOG_INF("[m4u cb] master err!");
+			return MTK_IOMMU_CALLBACK_HANDLED;
+		}
+	}
+
+	/* single/master case*/
+	dumpAllRegs(module);
+
+	/* twin case*/
+	if (twin_status.Bits.TWIN_EN == MTRUE) {
+		for (i = 0 ; i < twin_status.Bits.SLAVE_CAM_NUM ; i++) {
+			switch (i) {
+			case 0:
+				LOG_INF("[m4u cb]1st slave%d cam:%d\n",
+					i, twin_status.Bits.TWIN_MODULE);
+				if (twin_status.Bits.TWIN_MODULE == CAM_B)
+					module = ISP_CAM_B_INNER_IDX;
+				else if (twin_status.Bits.TWIN_MODULE == CAM_C)
+					module = ISP_CAM_C_INNER_IDX;
+				dumpAllRegs(module);
+				break;
+			case 1:
+				LOG_INF("[m4u cb]2nd slave%d cam:%d\n",
+					i, twin_status.Bits.TRIPLE_MODULE);
+				module = ISP_CAM_C_INNER_IDX;
+				dumpAllRegs(module);
+				break;
+			default:
+				LOG_INF("[m4u cb]unexpected slave cam\n");
+				break;
+			}
+		}
+	}
+	return MTK_IOMMU_CALLBACK_HANDLED;
+}
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -7666,6 +7767,17 @@ static int __init ISP_Init(void)
 		SV_SetPMQOS(E_BW_ADD, j, NULL);
 
 	SV_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAMSV_0_ST, NULL);
+
+	/* for CRZO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_CRZO_R1_A_MDP,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_CRZO_R1_B_DISP,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L18_CAM_CRZO_R1_C_MDP,
+			isp_m4u_fault_callback,
+			NULL);
 
 	LOG_DBG("- E. Ret: %d.", Ret);
 	return Ret;
