@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/msm_rtb.h>
 
@@ -919,22 +919,9 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev);
 irqreturn_t mhi_intvec_handlr(int irq_number, void *dev);
 void mhi_ev_task(unsigned long data);
 
-#ifdef CONFIG_MHI_DEBUG
-
-#define MHI_ASSERT(cond, msg) do { \
+#define MHI_ASSERT(cond, fmt, ...) do { \
 	if (cond) \
-		panic(msg); \
+		panic(fmt); \
 } while (0)
-
-#else
-
-#define MHI_ASSERT(cond, msg) do { \
-	if (cond) { \
-		MHI_ERR(msg); \
-		WARN_ON(cond); \
-	} \
-} while (0)
-
-#endif
 
 #endif /* _MHI_INT_H */
