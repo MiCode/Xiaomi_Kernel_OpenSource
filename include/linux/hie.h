@@ -68,6 +68,7 @@ int hie_register_fs(struct hie_fs *fs);
 int hie_register_device(struct hie_dev *dev);
 int hie_decrypt(struct hie_dev *dev, struct request *req, void *priv);
 int hie_encrypt(struct hie_dev *dev, struct request *req, void *priv);
+int hie_key_payload(struct bio_crypt_ctx *ctx, const unsigned char **key);
 bool hie_key_verify(struct bio *bio1, struct bio *bio2);
 int hie_set_bio_crypt_context(struct inode *inode, struct bio *bio);
 int hie_set_dio_crypt_context(struct inode *inode, struct bio *bio,
@@ -93,6 +94,12 @@ int hie_is_dummy(void)
 
 static inline
 int hie_is_nocrypt(void)
+{
+	return 0;
+}
+
+static inline
+int hie_key_payload(struct bio_crypt_ctx *ctx, const unsigned char **key)
 {
 	return 0;
 }

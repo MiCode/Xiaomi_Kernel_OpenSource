@@ -4863,7 +4863,6 @@ int ufshcd_check_hibern8_exit(struct ufs_hba *hba)
 {
 	int ret = 0;
 	u32 reg = 0;
-	unsigned long timeout;
 
 	/*
 	 * MTK PATCH

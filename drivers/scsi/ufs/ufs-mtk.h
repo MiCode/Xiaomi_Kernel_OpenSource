@@ -243,8 +243,6 @@ void ufs_mtk_device_resume(struct ufs_hba *hba);
 
 #ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
 void ufs_mtk_di_init(struct ufs_hba *hba);
-int ufs_mtk_di_clr(struct scsi_cmnd *cmd);
-int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 int ufs_mtk_di_inspect(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 #endif
 

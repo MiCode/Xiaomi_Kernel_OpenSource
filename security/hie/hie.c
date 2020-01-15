@@ -37,10 +37,6 @@ static DEFINE_SPINLOCK(hie_dev_list_lock);
 static LIST_HEAD(hie_dev_list);
 static DEFINE_SPINLOCK(hie_fs_list_lock);
 static LIST_HEAD(hie_fs_list);
-
-static int hie_key_payload(struct bio_crypt_ctx *ctx,
-	const unsigned char **key);
-
 static struct hie_dev *hie_default_dev;
 static struct hie_fs *hie_default_fs;
 
@@ -550,8 +546,7 @@ out:
 	return ret;
 }
 
-static int hie_key_payload(struct bio_crypt_ctx *ctx,
-	const unsigned char **key)
+int hie_key_payload(struct bio_crypt_ctx *ctx, const unsigned char **key)
 {
 	int ret = -EINVAL;
 	unsigned long flags;

@@ -68,13 +68,26 @@ static bool ufs_mtk_is_unmap_cmd(char cmd_op);
 /* Self init Encryption and No Encryption array */
 static u8 di_init;
 /* Logical block count */
-static u64 logblk_cnt;
-/* For Encryption */
-static u16 *LBA_CRC16_ARRAY;
-/* For No Encryption */
-static u16 *LBA_CRC16_ARRAY_NE;
-/* only do crc to first 32 byte of a 4K block to reduce cpu overhead */
-#define CRC16_CAL_SIZE (32)
+static u64 di_blkcnt;
+/* CRC value of each 4KB block */
+static u16 *di_crc;
+/* private data */
+static u8 *di_priv;
+/* only do crc to first 32 byte of a 4KB block to reduce cpu overhead */
+#define DI_CRC_DATA_SIZE (32)
+
+static u8 ufs_mtk_di_get_priv(struct scsi_cmnd *cmd)
+{
+	u8 priv;
+	const unsigned char *key = NULL;
+
+	hie_key_payload(&cmd->request->bio->bi_crypt_ctx, &key);
+	priv = key[0];
+	if (!priv)
+		priv++;
+
+	return priv;
+}
 
 /* Init Encryption and No Encryption array and others */
 void ufs_mtk_di_init(struct ufs_hba *hba)
@@ -90,7 +103,7 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 	ufshcd_query_descriptor_retry(hba, UPIU_QUERY_OPCODE_READ_DESC,
 		QUERY_DESC_IDN_UNIT, 0x2, 0, ud_buf, &len);
 
-	logblk_cnt = (
+	di_blkcnt = (
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT] << 56) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+1] << 48) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+2] << 40) |
@@ -100,22 +113,26 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+6] << 8) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+7]));
 
-	dev_info(hba->dev, "%s: need %llu MB memory for total lba %llu(0x%llx)\n",
-		__func__, logblk_cnt * sizeof(u16) * 2 / 1024 / 1024
-		, logblk_cnt, logblk_cnt);
+	di_crc = vzalloc(di_blkcnt * sizeof(u16));
+	if (!di_crc)
+		return;
 
-	LBA_CRC16_ARRAY = vzalloc(logblk_cnt * sizeof(u16) * 2);
-	if (LBA_CRC16_ARRAY)
-		LBA_CRC16_ARRAY_NE = LBA_CRC16_ARRAY + logblk_cnt;
-	else
-		dev_info(hba->dev, "%s: failed to allocate crc16 array of size 0x%llx bytes\n"
-			, __func__, logblk_cnt * sizeof(u16) * 2);
+	di_priv = vzalloc(di_blkcnt * sizeof(u8));
+	if (!di_priv) {
+		vfree(di_crc);
+		di_crc = NULL;
+		return;
+	}
+
+	dev_info(hba->dev, "%s: need %llu MB memory for total lba %llu(0x%llx)\n",
+		__func__, di_blkcnt * (sizeof(u16) + sizeof(u8)) / 1024 / 1024
+		, di_blkcnt, di_blkcnt);
 
 	di_init = 1;
 }
 
 /* Clear record for UNMAP command */
-int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
+static int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
 {
 	u32 lba, lba_cnt, i;
 
@@ -133,30 +150,31 @@ int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
 
 	/* clear both encrypted and non-encrypted records */
 	for (i = 0; i < lba_cnt; i++) {
-		LBA_CRC16_ARRAY[lba + i] =
-		LBA_CRC16_ARRAY_NE[lba + i] = 0;
+		di_crc[lba + i] =
+		di_priv[lba + i] = 0;
 	}
 
 	return 0;
 }
 
-int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
+static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 {
 	char *buffer;
 	int i, len;
 	struct scatterlist *sg;
 	u32 lba, blk_cnt, end_lba;
-	u16 crc_temp = 0;
+	u16 crc = 0;
+	u8 priv = 0;
 
 	sg = scsi_sglist(cmd);
 
 	lba = cmd->cmnd[5] | (cmd->cmnd[4] << 8) | (cmd->cmnd[3] << 16) |
 		(cmd->cmnd[2] << 24);
 
-	if ((u64)lba >= logblk_cnt) {
+	if ((u64)lba >= di_blkcnt) {
 		dev_info(hba->dev,
-			"%s: lba err! expected: logblk_cnt: 0x%llx, LBA: 0x%x\n",
-			__func__, logblk_cnt, lba);
+			"%s: lba err! expected: di_blkcnt: 0x%llx, LBA: 0x%x\n",
+			__func__, di_blkcnt, lba);
 		WARN_ON(1);
 		return -EIO;
 	}
@@ -193,23 +211,25 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 
 		/* For write, update CRC16[lba] */
 
-		crc_temp = crc16(0x0, &buffer[len], CRC16_CAL_SIZE);
-		if (crc_temp == 0)
-			crc_temp++;
+		crc = crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
+		if (crc == 0)
+			crc++;
 
 		#ifdef CONFIG_MTK_HW_FDE
 		if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
-			LBA_CRC16_ARRAY[lba] = crc_temp;
-			LBA_CRC16_ARRAY_NE[lba] = 0;
+			di_crc[lba] = crc;
+			di_priv[lba] = 1;
 		} else
 		#endif
 		{
+			di_crc[lba] = crc;
+
 			if (hie_request_crypted(cmd->request)) {
-				LBA_CRC16_ARRAY[lba] = crc_temp;
-				LBA_CRC16_ARRAY_NE[lba] = 0;
+				if (!priv)
+					priv = ufs_mtk_di_get_priv(cmd);
+				di_priv[lba] = priv;
 			} else {
-				LBA_CRC16_ARRAY[lba] = 0;
-				LBA_CRC16_ARRAY_NE[lba] = crc_temp;
+				di_priv[lba] = 0;
 			}
 		}
 	} else if (cmd->cmnd[0] == READ_10 || cmd->cmnd[0] == READ_16) {
@@ -223,56 +243,70 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 
 		#ifdef CONFIG_MTK_HW_FDE
 		if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
-			crc_temp = crc16(0x0, &buffer[len], CRC16_CAL_SIZE);
-			if (crc_temp == 0)
-				crc_temp++;
-			if (LBA_CRC16_ARRAY[lba] == 0) {
-				LBA_CRC16_ARRAY[lba] = crc_temp;
+			crc = crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
+			if (crc == 0)
+				crc++;
+			if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+				di_crc[lba] = crc;
+				di_priv[lba] = 1;
 			} else {
-				if (LBA_CRC16_ARRAY[lba] != crc_temp) {
+				if (di_crc[lba] != crc) {
 					dev_info(hba->dev,
-					"%s: crc err! expected: 0x%x, current: 0x%x, LBA: 0x%x (EN, FDE)\n",
-					__func__, LBA_CRC16_ARRAY[lba],
-					crc_temp, lba);
+					"%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
+					__func__, di_crc[lba],
+					crc, lba);
 					WARN_ON(1);
 					return -EIO;
 				}
 			}
-
 		} else
 		#endif
 		{
 			if (hie_request_crypted(cmd->request)) {
-				crc_temp = crc16(0x0, &buffer[len],
-					 CRC16_CAL_SIZE);
-				if (crc_temp == 0)
-					crc_temp++;
-				if (LBA_CRC16_ARRAY[lba] == 0)
-					LBA_CRC16_ARRAY[lba] = crc_temp;
-				else if (LBA_CRC16_ARRAY[lba] != crc_temp) {
-					dev_info(hba->dev,
-						 "%s: crc err! expected: 0x%x, current: 0x%x, LBA: 0x%x (EN, FBE)\n",
+				crc = crc16(0x0, &buffer[len],
+					 DI_CRC_DATA_SIZE);
+				if (crc == 0)
+					crc++;
+
+				if (!priv)
+					priv = ufs_mtk_di_get_priv(cmd);
+
+				if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+					di_crc[lba] = crc;
+					di_priv[lba] = priv;
+				} else {
+					if (priv != di_priv[lba]) {
+						dev_info(hba->dev,
+						"%s: key err! existed: 0x%x, read: 0x%x, lba: %u\n",
+						__func__,
+						di_priv[lba],
+						priv, lba);
+						return 0;
+					} else if (crc != di_crc[lba]) {
+						dev_info(hba->dev,
+						 "%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
 						 __func__,
-						 LBA_CRC16_ARRAY[lba],
-						 crc_temp, lba);
-					WARN_ON(1);
-					return 0;
+						 di_crc[lba],
+						 crc, lba);
+						return 0;
+					}
 				}
 			} else {
-				crc_temp =
-			crc16(0x0, &buffer[len], CRC16_CAL_SIZE);
-				if (crc_temp == 0)
-					crc_temp++;
-				if (LBA_CRC16_ARRAY_NE[lba] == 0) {
-					LBA_CRC16_ARRAY_NE[lba] = crc_temp;
+				crc =
+			crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
+				if (crc == 0)
+					crc++;
+				if (di_crc[lba] == 0 || di_priv[lba] != 0) {
+					di_crc[lba] = crc;
+					di_priv[lba] = 0;
 				} else {
-					if (LBA_CRC16_ARRAY_NE[lba]
-					    != crc_temp) {
+					if (di_crc[lba]
+					    != crc) {
 						dev_info(hba->dev,
-						"%s: crc err! expected: 0x%x, current: 0x%x, LBA: 0x%x (NE)\n",
+						"%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
 						__func__,
-						LBA_CRC16_ARRAY_NE[lba],
-						crc_temp, lba);
+						di_crc[lba],
+						crc, lba);
 						WARN_ON(1);
 						return -EIO;
 					}
@@ -301,7 +335,7 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 
 int ufs_mtk_di_inspect(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 {
-	if (!LBA_CRC16_ARRAY || !LBA_CRC16_ARRAY_NE)
+	if (!di_crc)
 		return 0;
 
 	/* do inspection in LU2 (user LU) only */
