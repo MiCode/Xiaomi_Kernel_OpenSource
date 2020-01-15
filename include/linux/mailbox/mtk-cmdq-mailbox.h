@@ -163,6 +163,7 @@ struct cmdq_thread {
 	u32			idx;
 	bool			occupied;
 	bool			dirty;
+	u64			timer_mod;
 };
 
 extern int mtk_cmdq_log;
