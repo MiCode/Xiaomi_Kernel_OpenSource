@@ -456,7 +456,9 @@ void msm_cvp_unmap_buf_cpu(struct msm_cvp_inst *inst, u64 ktid)
 		return;
 	}
 
+	ktid &= (FENCE_BIT - 1);
 	dprintk(CVP_DBG, "%s: unmap frame %llu\n", __func__, ktid);
+
 	found = false;
 	mutex_lock(&inst->frames.lock);
 	list_for_each_entry_safe(frame, dummy1, &inst->frames.list, list) {
@@ -886,10 +888,8 @@ static int cvp_fence_dme(struct msm_cvp_inst *inst, u32 *synx,
 		dprintk(CVP_ERR, "%s: Failed in call_hfi_op %d, %x\n", __func__,
 				pkt->size, pkt->packet_type);
 		synx_state = SYNX_STATE_SIGNALED_ERROR;
-	}
-
-	if (synx_state == SYNX_STATE_SIGNALED_ERROR)
 		goto exit;
+	}
 
 	timeout = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
 	rc = cvp_wait_process_message(inst, sq, &ktid, timeout, NULL);
@@ -911,6 +911,76 @@ exit:
 	if (rc)
 		dprintk(CVP_ERR, "%s: synx_signal %d failed\n",
 			__func__, FENCE_DME_OUTPUT_IDX);
+
+	return rc;
+}
+
+static int cvp_fence_proc(struct msm_cvp_inst *inst, u32 *synx,
+			struct cvp_hfi_cmd_session_hdr *pkt)
+{
+	int i;
+	int rc = 0;
+	unsigned long timeout;
+	int h_synx;
+	u64 ktid;
+	unsigned long timeout_ms = 1000;
+	int synx_state = SYNX_STATE_SIGNALED_SUCCESS;
+	struct cvp_hfi_device *hdev;
+	struct cvp_session_queue *sq;
+	struct synx_session ssid;
+	u32 in, out;
+
+	dprintk(CVP_DBG, "Enter %s\n", __func__);
+
+	hdev = inst->core->device;
+	sq = &inst->session_queue_fence;
+	ssid = inst->synx_session_id;
+	ktid = pkt->client_data.kdata;
+
+	in = synx[0] >> 16;
+	out = synx[0] & 0xFFFF;
+
+	i = 1;
+	while (i <= in) {
+		h_synx = synx[i];
+		if (h_synx) {
+			rc = synx_wait(ssid, h_synx, timeout_ms);
+			if (rc) {
+				dprintk(CVP_ERR, "%s: synx_wait %d failed\n",
+					__func__, i);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+				goto exit;
+			}
+		}
+		++i;
+	}
+
+	rc = call_hfi_op(hdev, session_send, (void *)inst->session,
+			(struct cvp_kmd_hfi_packet *)pkt);
+	if (rc) {
+		dprintk(CVP_ERR, "%s: Failed in call_hfi_op %d, %x\n", __func__,
+				pkt->size, pkt->packet_type);
+		synx_state = SYNX_STATE_SIGNALED_ERROR;
+		goto exit;
+	}
+
+	timeout = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
+	rc = cvp_wait_process_message(inst, sq, &ktid, timeout, NULL);
+
+exit:
+	i = in + 1;
+	while (i <= in + out) {
+		h_synx = synx[i];
+		if (h_synx) {
+			rc = synx_signal(ssid, h_synx, synx_state);
+			if (rc) {
+				dprintk(CVP_ERR, "%s: synx_signal %d failed\n",
+				__func__, i);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+			}
+		}
+		++i;
+	}
 
 	return rc;
 }
@@ -946,6 +1016,7 @@ static int cvp_import_synx(struct msm_cvp_inst *inst, u32 type, u32 *fence,
 {
 	int rc = 0;
 	int i;
+	int start = 0, end = 0;
 	struct cvp_fence_type *f;
 	struct synx_import_params params;
 	s32 h_synx;
@@ -956,26 +1027,50 @@ static int cvp_import_synx(struct msm_cvp_inst *inst, u32 type, u32 *fence,
 
 	switch (type) {
 	case HFI_CMD_SESSION_CVP_DME_FRAME:
-		for (i = 0; i < HFI_DME_BUF_NUM; ++i) {
-			h_synx = f[i].h_synx;
+	{
+		start = 0;
+		end = HFI_DME_BUF_NUM;
+		break;
+	}
+	case HFI_CMD_SESSION_CVP_FD_FRAME:
+	{
+		u32 in = fence[0];
+		u32 out = fence[1];
 
-			if (h_synx) {
-				params.h_synx = h_synx;
-				params.secure_key = f[i].secure_key;
-				params.new_h_synx = &synx[i];
+		if (in > MAX_HFI_FENCE_SIZE || out > MAX_HFI_FENCE_SIZE
+			|| in > MAX_HFI_FENCE_SIZE - out) {
+			dprintk(CVP_ERR, "%s: failed!\n", __func__);
+			rc = -EINVAL;
+			return rc;
+		}
 
-				rc = synx_import(ssid, &params);
-				if (rc) {
-					dprintk(CVP_ERR,
-						"%s: synx_import failed\n",
-						__func__);
-					return rc;
-				}
+		synx[0] = (in << 16) | out;
+		start = 1;
+		end = in + out + 1;
+		break;
+	}
+	default:
+		dprintk(CVP_ERR, "%s: unknown fence type\n", __func__);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	for (i = start; i < end; ++i) {
+		h_synx = f[i].h_synx;
+
+		if (h_synx) {
+			params.h_synx = h_synx;
+			params.secure_key = f[i].secure_key;
+			params.new_h_synx = &synx[i];
+
+			rc = synx_import(ssid, &params);
+			if (rc) {
+				dprintk(CVP_ERR,
+					"%s: synx_import failed\n",
+					__func__);
+				return rc;
 			}
 		}
-		break;
-	default:
-		break;
 	}
 
 	return rc;
@@ -987,24 +1082,43 @@ static int cvp_release_synx(struct msm_cvp_inst *inst, u32 type, u32 *synx)
 	int i;
 	s32 h_synx;
 	struct synx_session ssid;
+	int start = 0, end = 0;
 
 	ssid = inst->synx_session_id;
 
 	switch (type) {
 	case HFI_CMD_SESSION_CVP_DME_FRAME:
-		for (i = 0; i < HFI_DME_BUF_NUM; ++i) {
-			h_synx = synx[i];
-			if (h_synx) {
-				rc = synx_release(ssid, h_synx);
-				if (rc)
-					dprintk(CVP_ERR,
-					"%s: synx_release %d failed\n",
-					__func__, i);
-			}
-		}
+	{
+		start = 0;
+		end = HFI_DME_BUF_NUM;
+
 		break;
+	}
+	case HFI_CMD_SESSION_CVP_FD_FRAME:
+	{
+		u32 in = synx[0] >> 16;
+		u32 out = synx[0] & 0xFFFF;
+
+		start = 1;
+		end = in + out + 1;
+
+		break;
+	}
 	default:
-		break;
+		dprintk(CVP_ERR, "%s: unknown fence type\n", __func__);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	for (i = start; i < end; ++i) {
+		h_synx = synx[i];
+		if (h_synx) {
+			rc = synx_release(ssid, h_synx);
+			if (rc)
+				dprintk(CVP_ERR,
+				"%s: synx_release %d failed\n",
+				__func__, i);
+		}
 	}
 
 	return rc;
@@ -1050,6 +1164,9 @@ wait:
 	switch (fence_data->type) {
 	case HFI_CMD_SESSION_CVP_DME_FRAME:
 		rc = cvp_fence_dme(inst, synx, pkt);
+		break;
+	case HFI_CMD_SESSION_CVP_FD_FRAME:
+		rc = cvp_fence_proc(inst, synx, pkt);
 		break;
 	default:
 		dprintk(CVP_ERR, "%s: unknown hfi cmd type 0x%x\n",
@@ -1654,9 +1771,10 @@ static int cvp_fence_thread_start(struct msm_cvp_inst *inst)
 	spin_unlock(&q->lock);
 
 	for (i = 0; i < inst->prop.fthread_nr; ++i) {
-		if (!cvp_get_inst_validate(inst->core, inst))
+		if (!cvp_get_inst_validate(inst->core, inst)) {
 			rc = -ECONNRESET;
 			goto exit;
+		}
 
 		snprintf(tname, sizeof(tname), "fthread_%d", tnum++);
 		thread = kthread_run(cvp_fence_thread, inst, tname);
@@ -1725,9 +1843,7 @@ static int msm_cvp_session_start(struct msm_cvp_inst *inst,
 	sq->state = QUEUE_ACTIVE;
 	spin_unlock(&sq->lock);
 
-	cvp_fence_thread_start(inst);
-
-	return 0;
+	return cvp_fence_thread_start(inst);
 }
 
 static int msm_cvp_session_stop(struct msm_cvp_inst *inst,
@@ -1752,9 +1868,7 @@ static int msm_cvp_session_stop(struct msm_cvp_inst *inst,
 
 	wake_up_all(&inst->session_queue.wq);
 
-	cvp_fence_thread_stop(inst);
-
-	return 0;
+	return cvp_fence_thread_stop(inst);
 }
 
 static int msm_cvp_session_ctrl(struct msm_cvp_inst *inst,
