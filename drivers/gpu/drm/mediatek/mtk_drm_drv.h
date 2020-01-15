@@ -34,6 +34,7 @@
 #define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
 #define MTK_FB_MMDVFS_SUPPORT
+#define MTK_FILL_MIPI_IMPEDANCE
 
 
 struct device;
