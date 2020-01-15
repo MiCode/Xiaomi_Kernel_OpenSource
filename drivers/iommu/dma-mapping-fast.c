@@ -630,13 +630,18 @@ static void *__fast_smmu_alloc_contiguous(struct device *dev, size_t size,
 				 size, prot))
 		goto release_iova;
 
-	coherent_addr = dma_common_contiguous_remap(page, size, remap_prot,
+	if (!is_coherent || PageHighMem(page)) {
+		coherent_addr = dma_common_contiguous_remap(page, size,
+							    remap_prot,
 						__fast_smmu_alloc_contiguous);
-	if (!coherent_addr)
-		goto release_mapping;
+		if (!coherent_addr)
+			goto release_mapping;
 
-	if (!is_coherent)
-		__dma_flush_area(page_to_virt(page), size);
+		if (!is_coherent)
+			__dma_flush_area(page_to_virt(page), size);
+	} else {
+		coherent_addr = page_address(page);
+	}
 
 	*handle = iova;
 	return coherent_addr;
