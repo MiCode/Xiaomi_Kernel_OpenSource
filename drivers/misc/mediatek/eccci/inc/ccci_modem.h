@@ -176,6 +176,8 @@ enum{
 	UDC_RAW_SHARE_MEMORY = 34,
 	MD_WIFI_PROXY_SHARE_MEMORY = 35,
 	NVRAM_CACHE_SHARE_MEMORY = 36,
+	SECURITY_SHARE_MEMORY = 37,
+	MD_MEM_AP_VIEW_INF = 38,
 	MD_RUNTIME_FEATURE_ID_MAX,
 }; /* MD_CCCI_RUNTIME_FEATURE_ID; */
 
@@ -351,6 +353,13 @@ struct ccci_runtime_share_memory {
 
 struct ccci_misc_info_element {
 	u32 feature[4];
+};
+
+struct ccci_runtime_md_mem_ap_addr {
+	u32 md_view_phy;
+	u32 size;
+	u32 ap_view_phy_lo32;
+	u32 ap_view_phy_hi32;
 };
 
 enum {

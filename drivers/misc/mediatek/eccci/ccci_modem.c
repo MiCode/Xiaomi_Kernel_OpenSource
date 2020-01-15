@@ -1524,6 +1524,14 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
 
+	/* This item is reserved */
+	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_NOT_SUPPORT;
+
+#if (MD_GENERATION >= 6297)
+	md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
+		CCCI_FEATURE_OPTIONAL_SUPPORT;
+#endif
 }
 
 unsigned int align_to_2_power(unsigned int n)
@@ -1554,6 +1562,64 @@ static void ccci_sib_region_set_runtime(struct ccci_runtime_feature *rt_feature,
 		rt_shm->size = md_sib_mem_size;
 	else
 		rt_shm->size = 0;
+}
+
+static void ccci_md_mem_inf_prepare(int md_id,
+		struct ccci_runtime_feature *rt_ft,
+		struct ccci_runtime_md_mem_ap_addr tbl[], unsigned int num)
+{
+	unsigned int add_num = 0;
+	phys_addr_t ro_rw_base, ncrw_base, crw_base;
+	u32 ro_rw_size, ncrw_size, crw_size;
+	int ret;
+
+	ret = get_md_resv_mem_info(md_id, &ro_rw_base, &ro_rw_size,
+					&ncrw_base, &ncrw_size);
+	if (ret < 0) {
+		CCCI_REPEAT_LOG(md_id, TAG, "%s get mdrorw and srw fail\n",
+			__func__);
+		return;
+	}
+	ret = get_md_resv_csmem_info(md_id, &crw_base, &crw_size);
+	if (ret < 0) {
+		CCCI_REPEAT_LOG(md_id, TAG, "%s get cache smem info fail\n",
+			__func__);
+		return;
+	}
+
+	/* Add bank 0 and bank 1 */
+	if (add_num < num) {
+		tbl[add_num].md_view_phy = 0;
+		tbl[add_num].size = ro_rw_size;
+		tbl[add_num].ap_view_phy_lo32 = (u32)ro_rw_base;
+		tbl[add_num].ap_view_phy_hi32 = (u32)(ro_rw_base >> 32);
+		add_num++;
+	} else
+		CCCI_REPEAT_LOG(md_id, TAG, "%s add bank0/1 fail(%d)\n",
+			__func__, add_num);
+
+	if (add_num < num) {
+		tbl[add_num].md_view_phy = 0x40000000;
+		tbl[add_num].size = ncrw_size;
+		tbl[add_num].ap_view_phy_lo32 = (u32)ncrw_base;
+		tbl[add_num].ap_view_phy_hi32 = (u32)(ncrw_base >> 32);
+		add_num++;
+	} else
+		CCCI_REPEAT_LOG(md_id, TAG, "%s add bank4 nc fail(%d)\n",
+			__func__, add_num);
+
+	if (add_num < num) {
+		tbl[add_num].md_view_phy = 0x40000000 +
+				get_md_smem_cachable_offset(md_id);
+		tbl[add_num].size = crw_size;
+		tbl[add_num].ap_view_phy_lo32 = (u32)crw_base;
+		tbl[add_num].ap_view_phy_hi32 = (u32)(crw_base >> 32);
+		add_num++;
+	} else
+		CCCI_REPEAT_LOG(md_id, TAG, "%s add bank4 c fail(%d)\n",
+			__func__, add_num);
+	rt_ft->feature_id = MD_MEM_AP_VIEW_INF;
+	rt_ft->data_len = sizeof(struct ccci_runtime_md_mem_ap_addr) * add_num;
 }
 #endif
 
@@ -1594,6 +1660,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 	/*runtime feature type */
 	struct ccci_runtime_share_memory rt_shm;
 	struct ccci_misc_info_element rt_f_element;
+	struct ccci_runtime_md_mem_ap_addr rt_mem_view[4];
 
 	struct md_query_ap_feature *md_feature;
 	struct md_query_ap_feature md_feature_ap;
@@ -2032,6 +2099,12 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
 				&rt_shm);
+				break;
+			case MD_MEM_AP_VIEW_INF:
+				ccci_md_mem_inf_prepare(md_id, &rt_feature,
+					rt_mem_view, 4);
+				append_runtime_feature(&rt_data, &rt_feature,
+				rt_mem_view);
 				break;
 			default:
 				break;
