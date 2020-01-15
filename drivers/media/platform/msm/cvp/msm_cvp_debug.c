@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #define CREATE_TRACE_POINTS
@@ -22,7 +22,7 @@ bool msm_cvp_fw_coverage = !true;
 bool msm_cvp_thermal_mitigation_disabled = !true;
 int msm_cvp_clock_voting = !1;
 bool msm_cvp_syscache_disable = true;
-bool msm_cvp_dsp_disable = true;
+bool msm_cvp_dsp_disable = !true;
 
 #define MAX_DBG_BUF_SIZE 4096
 
