@@ -243,7 +243,6 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	struct mtk_vcodec_dev *dev;
 	struct video_device *vfd_enc;
 	struct resource *res;
-	struct mtk_vcodec_pm *pm;
 	int i, ret;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
@@ -265,43 +264,27 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	pm = &dev->pm;
-	pm->chip_node = of_find_compatible_node(NULL,
-		NULL, "mediatek,mt6885-vcodec-enc");
-	if (pm->chip_node) {
-		for (i = VENC_SYS; i < NUM_MAX_VENC_REG_BASE; i++) {
-			res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-			if (res == NULL) {
-				dev_err(&pdev->dev, "get memory resource failed.");
-				ret = -ENXIO;
-				goto err_res;
-			}
-			dev->enc_reg_base[i] =
-				devm_ioremap_resource(&pdev->dev, res);
-			if (IS_ERR((__force void *)dev->enc_reg_base[i])) {
-				ret = PTR_ERR(
-					(__force void *)dev->enc_reg_base[i]);
-				goto err_res;
-			}
-			mtk_v4l2_debug(2, "reg[%d] base=0x%px",
-				i, dev->enc_reg_base[i]);
-		}
-	} else {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (res == NULL) {
-			dev_err(&pdev->dev, "get memory resource failed.");
+	for (i = VENC_SYS; i < NUM_MAX_VENC_REG_BASE; i++) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+		if (i == VENC_SYS && res == NULL) {
+			dev_err(&pdev->dev,
+				"get memory resource failed. idx:%d", i);
 			ret = -ENXIO;
 			goto err_res;
+		} else if (res == NULL) {
+			mtk_v4l2_debug(0, "try next resource. idx:%d", i);
+			continue;
 		}
-		dev->enc_reg_base[VENC_SYS] =
+
+		dev->enc_reg_base[i] =
 			devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR((__force void *)dev->enc_reg_base[VENC_SYS])) {
+		if (IS_ERR((__force void *)dev->enc_reg_base[i])) {
 			ret = PTR_ERR(
-				(__force void *)dev->enc_reg_base[VENC_SYS]);
+				(__force void *)dev->enc_reg_base[i]);
 			goto err_res;
 		}
-		mtk_v4l2_debug(2, "reg[%d] base=0x%p",
-			VENC_SYS, dev->enc_reg_base[VENC_SYS]);
+		mtk_v4l2_debug(2, "reg[%d] base=0x%px",
+			i, dev->enc_reg_base[i]);
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
