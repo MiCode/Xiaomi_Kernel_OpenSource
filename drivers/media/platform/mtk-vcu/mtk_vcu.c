@@ -746,7 +746,9 @@ static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 		__func__, buff, vcu, buff->cmdq_buff.codec_type);
 
 	if (buff->cmdq_buff.codec_type == VCU_VENC)
-		mtk_vcodec_enc_timeout_dump(vcu->curr_ctx[VCU_VENC]);
+		mtk_vcodec_gce_timeout_dump(vcu->curr_ctx[VCU_VENC]);
+	else if (buff->cmdq_buff.codec_type == VCU_VDEC)
+		mtk_vcodec_gce_timeout_dump(vcu->curr_ctx[VCU_VDEC]);
 
 	list_for_each_safe(p, q, &vcu->pa_pages.list) {
 		tmp = list_entry(p, struct vcu_pa_pages, list);

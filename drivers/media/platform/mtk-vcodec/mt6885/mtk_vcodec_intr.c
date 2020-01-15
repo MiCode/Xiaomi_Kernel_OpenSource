@@ -272,6 +272,17 @@ int mtk_vcodec_enc_irq_setup(struct platform_device *pdev,
 EXPORT_SYMBOL(mtk_vcodec_enc_irq_setup);
 
 
+void mtk_vcodec_gce_timeout_dump(void *ctx)
+{
+	struct mtk_vcodec_ctx *curr_ctx = ctx;
+
+	if (curr_ctx->type == MTK_INST_ENCODER)
+		mtk_vcodec_enc_timeout_dump(ctx);
+	else if (curr_ctx->type == MTK_INST_DECODER)
+		mtk_vcodec_dec_timeout_dump(ctx);
+}
+EXPORT_SYMBOL(mtk_vcodec_gce_timeout_dump);
+
 void mtk_vcodec_enc_timeout_dump(void *ctx)
 {
 	unsigned long value;
@@ -316,4 +327,41 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 		}
 	}
 }
-EXPORT_SYMBOL(mtk_vcodec_enc_timeout_dump);
+
+void mtk_vcodec_dec_timeout_dump(void *ctx)
+{
+	unsigned long value;
+	int i = 0;
+
+	struct mtk_vcodec_ctx *curr_ctx = ctx;
+	struct mtk_vcodec_dev *dev = curr_ctx->dev;
+
+	#define LAT_REG_COUNT 11
+	#define CORE_MISC_REG_COUNT 13
+	#define CORE_VLD_REG_COUNT 4
+	unsigned int lat_reg[LAT_REG_COUNT] = {
+		0x5120, 0x512C, 0x50E0, 0x50E4, 0x50E8,
+		0x1120, 0x1124, 0x1128, 0x112C,
+		0x854, 0x878};
+	unsigned int core_misc_reg[CORE_MISC_REG_COUNT] = {
+		0x3120, 0x312C, 0x30E0, 0x30E4, 0x30E8,
+		0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24};
+	unsigned int core_vld_reg[CORE_VLD_REG_COUNT] = {
+		0x120, 0x124, 0x128, 0x12C};
+
+	for (i = 0; i < LAT_REG_COUNT; i++) {
+		value = readl(dev->dec_reg_base[VDEC_LAT_MISC] + lat_reg[i]);
+		mtk_v4l2_debug(0, "[LAT][MISC] 0x%x(%d) = 0x%lx",
+			lat_reg[i], ((lat_reg[i]&0x0FFF)%0x800)/4, value);
+	}
+	for (i = 0; i < CORE_MISC_REG_COUNT; i++) {
+		value = readl(dev->dec_reg_base[VDEC_MISC] + core_misc_reg[i]);
+		mtk_v4l2_debug(0, "[CORE][MISC] 0x%x(%d) = 0x%lx",
+			core_misc_reg[i], (core_misc_reg[i] & 0x0FFF)/4, value);
+	}
+	for (i = 0; i < CORE_VLD_REG_COUNT; i++) {
+		value = readl(dev->dec_reg_base[VDEC_VLD] + core_vld_reg[i]);
+		mtk_v4l2_debug(0, "[CORE][VLD] 0x%x(%d) = 0x%lx",
+			core_vld_reg[i], core_vld_reg[i]/4, value);
+	}
+}
