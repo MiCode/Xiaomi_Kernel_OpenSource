@@ -163,6 +163,16 @@ static u64 global_get_offset(struct kgsl_device *device, u64 size,
 	return bit << PAGE_SHIFT;
 }
 
+static void kgsl_iommu_map_global_to_pt(struct kgsl_mmu *mmu,
+		struct kgsl_memdesc *memdesc, struct kgsl_pagetable *pt)
+{
+	/* If the pagetable hasn't been created yet, do nothing */
+	if (IS_ERR_OR_NULL(pt))
+		return;
+
+	kgsl_mmu_map(pt, memdesc);
+}
+
 static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 		struct kgsl_memdesc *memdesc)
 {
@@ -185,21 +195,14 @@ static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 	}
 
 	/*
-	 * If the global pagetable hasn't been created yet, do nothing. We'll
-	 * get them all in one big swoop at create time
-	 */
-	if (!mmu->defaultpagetable)
-		return;
-
-	/*
 	 * Warn if a global is added after first per-process pagetables have
 	 * been created since we do not go back and retroactively add the
 	 * globals to existing pages
 	 */
 	WARN_ON(iommu->ppt_active);
 
-	/* Map the buffer in the default pagetable */
-	kgsl_mmu_map(mmu->defaultpagetable, memdesc);
+	kgsl_iommu_map_global_to_pt(mmu, memdesc, mmu->defaultpagetable);
+	kgsl_iommu_map_global_to_pt(mmu, memdesc, mmu->lpac_pagetable);
 }
 
 static void _detach_pt(struct kgsl_iommu_pt *iommu_pt,
