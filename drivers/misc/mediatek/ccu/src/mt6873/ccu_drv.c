@@ -443,7 +443,6 @@ static int ccu_open(struct inode *inode, struct file *flip)
 	int ret = 0, i;
 
 	struct ccu_user_s *user;
-
 	_clk_count = 0;
 	ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {

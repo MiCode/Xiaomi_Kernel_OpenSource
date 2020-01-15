@@ -80,6 +80,8 @@ static unsigned int g_LogBufIdx = 1;
 static unsigned int AFg_LogBufIdx[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {1};
 
 static int _ccu_powerdown(bool need_check_ccu_stat);
+static int ccu_irq_enable(void);
+static int ccu_irq_disable(void);
 
 static inline unsigned int CCU_MsToJiffies(unsigned int Ms)
 {
@@ -551,6 +553,7 @@ int ccu_power(struct ccu_power_s *power)
 
 		/*1. Enable CCU CAMSYS_CG_CON bit12 CCU_CGPDN=0*/
 		ccu_clock_enable();
+
 		LOG_DBG("CCU CG released\n");
 
 		#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
@@ -624,6 +627,7 @@ int ccu_power(struct ccu_power_s *power)
 	} else if (power->bON == 4) {
 		/*CCU boot fail, just enable CG*/
 		if (ccuInfo.IsCcuPoweredOn == 1) {
+			ccu_irq_disable();
 			ccu_clock_disable();
 			ccuInfo.IsCcuPoweredOn = 0;
 		}
@@ -676,6 +680,8 @@ int ccu_force_powerdown(void)
 static int _ccu_powerdown(bool need_check_ccu_stat)
 {
 	int32_t timeout = 10;
+	int32_t ccu_halt = 0;
+	int32_t ccu_sleep = 0;
 
 	if (!need_check_ccu_stat)
 		goto  CCU_PWDN_SKIP_STAT_CHK;
@@ -683,32 +689,41 @@ static int _ccu_powerdown(bool need_check_ccu_stat)
 	if (ccu_read_reg_bit(ccu_base, RESET, CCU_HW_RST) == 1) {
 		LOG_INF_MUST("ccu reset is up, skip halt check\n");
 	} else {
-		while (
-			(ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN)
-				== MSG_TO_CCU_SHUTDOWN) && timeout > 0) {
-			mdelay(100);
+		while (timeout > 0 && !(ccu_halt | ccu_sleep)) {
+			udelay(100);
+			ccu_halt =
+			 ccu_read_reg_bit(ccu_base, CCU_ST, CCU_SYS_HALT);
+			ccu_sleep =
+			 ccu_read_reg_bit(ccu_base, CCU_ST, CCU_SYS_SLEEP);
 			LOG_DBG("wait ccu shutdown done\n");
 			LOG_DBG("ccu shutdown stat: %x\n",
-			ccu_read_reg_bit(ccu_base, CCU_ST, CCU_SYS_HALT));
+			ccu_halt,
+			ccu_sleep);
 			timeout = timeout - 1;
 		}
 
 		if (timeout <= 0) {
-			LOG_ERR("%s timeout(%d)\n", __func__,
-			ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN));
+			LOG_ERR("%s timeout(%d)(%x)(%x)\n", __func__,
+			ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN),
+			ccu_halt,
+			ccu_sleep);
+
+			ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 1);
 			/*Even timed-out, clock disable is still necessary,*/
 			/*DO NOT return here.*/
 		} else {
-			LOG_INF_MUST("Force shutdown success(%x)\n",
-			ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN));
+			LOG_INF_MUST("shutdown success(%x)(%x)(%x)\n",
+			ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN),
+			ccu_halt,
+			ccu_sleep);
 		}
 	}
 	/*Set CCU_A_RESET. CCU_HW_RST=1*/
-	ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 1);
 
 CCU_PWDN_SKIP_STAT_CHK:
-
+	udelay(100);
 	/*CCF & i2c uninit*/
+	ccu_irq_disable();
 	ccu_clock_disable();
 	ccu_i2c_controller_uninit_all();
 	ccu_i2c_free_dma_buf_mva_all();
@@ -726,7 +741,7 @@ int ccu_run(void)
 	uint32_t status;
 
 	LOG_DBG("+:%s\n", __func__);
-
+	ccu_irq_enable();
 	/*smp_inner_dcache_flush_all();*/
 	/*LOG_DBG("cache flushed 2\n");*/
 	/*3. Set CCU_A_RESET. CCU_HW_RST=0*/
@@ -810,7 +825,7 @@ int ccu_run(void)
 	LOG_DBG_MUST("ccu log test stat: %x\n",
 			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
 
-	LOG_DBG_MUST("-:%s\n", __func__);
+	LOG_DBG_MUST("-:%s(0102)\n", __func__);
 
 	return 0;
 }
@@ -938,4 +953,32 @@ int ccu_read_info_reg(int regNo)
 int ccu_query_power_status(void)
 {
 	return ccuInfo.IsCcuPoweredOn;
+}
+
+int ccu_irq_enable(void)
+{
+	int ret = 0;
+
+	LOG_DBG_MUST("%s+.\n", __func__);
+
+	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
+	ccu_read_reg(ccu_base, EINTC_ST);
+	if (request_irq(ccu_dev->irq_num, ccu_isr_handler,
+		IRQF_TRIGGER_NONE, "ccu", NULL)) {
+		LOG_ERR("fail to request ccu irq!\n");
+		ret = -ENODEV;
+	}
+
+	return 0;
+}
+
+int ccu_irq_disable(void)
+{
+	LOG_DBG_MUST("%s+.\n", __func__);
+
+	free_irq(ccu_dev->irq_num, NULL);
+	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
+	ccu_read_reg(ccu_base, EINTC_ST);
+
+	return 0;
 }
