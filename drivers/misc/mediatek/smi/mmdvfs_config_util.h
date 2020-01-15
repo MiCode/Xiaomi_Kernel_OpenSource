@@ -171,7 +171,7 @@ struct mmdvfs_adaptor {
 	int mmdvfs_clk_hw_maps_num;
 	struct mmdvfs_step_profile *step_profile_mappings;
 	int step_num;
-	int disable_auto_control_mask;
+	unsigned int disable_auto_control_mask;
 	void (*profile_dump_func)(struct mmdvfs_adaptor *self);
 	void (*single_hw_configuration_dump_func)(
 	struct mmdvfs_adaptor *self,

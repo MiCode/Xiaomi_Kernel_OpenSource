@@ -2119,17 +2119,18 @@ static int print_freq(char *buf, int length,
 	return length;
 }
 
+#define MAX_DUMP (PAGE_SIZE - 1)
 int dump_setting(char *buf, const struct kernel_param *kp)
 {
 	u32 i, l;
 	int length = 0;
 	struct mm_freq_config *mm_freq;
 
-	length += snprintf(buf + length, PAGE_SIZE - length,
+	length += snprintf(buf + length, MAX_DUMP  - length,
 		"force_step: %d\n", force_step);
 	for (i = 0; i < ARRAY_SIZE(all_freqs); i++) {
 		mm_freq = all_freqs[i];
-		length += snprintf(buf + length, PAGE_SIZE - length,
+		length += snprintf(buf + length, MAX_DUMP  - length,
 			"[%s] step_size: %u current_step:%d (%lluMhz)\n",
 			mm_freq->prop_name, step_size, mm_freq->current_step,
 			mmdvfs_qos_get_freq(PM_QOS_DISP_FREQ + i));
@@ -2137,7 +2138,7 @@ int dump_setting(char *buf, const struct kernel_param *kp)
 			mm_freq->step_config, mm_freq->current_step);
 		l = mm_freq->limit_config.limit_level;
 		if (l) {
-			length += snprintf(buf + length, PAGE_SIZE - length,
+			length += snprintf(buf + length, MAX_DUMP  - length,
 				"-[limit] level=%u value=0x%x\n",
 				mm_freq->limit_config.limit_level,
 				mm_freq->limit_config.limit_value);
@@ -2145,10 +2146,11 @@ int dump_setting(char *buf, const struct kernel_param *kp)
 				mm_freq->limit_config.limit_steps[l-1],
 				mm_freq->current_step);
 		}
-		if (length >= PAGE_SIZE)
+		if (length >= MAX_DUMP)
 			break;
 	}
-	buf[length] = '\0';
+	if (length >= MAX_DUMP)
+		length = MAX_DUMP - 1;
 
 	return length;
 }
