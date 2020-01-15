@@ -14,6 +14,24 @@
 #ifndef __MTK_GPUFREQ_INTERNAL_H__
 #define __MTK_GPUFREQ_INTERNAL_H__
 
+//#define GPU_DVFS_ASSERT
+#ifdef GPU_DVFS_ASSERT
+#define gpu_assert(cond)                        \
+	do {                                        \
+		if (unlikely(!(cond))) {               \
+			pr_info("GPU DVFS Assert: %s\n", #cond); \
+			WARN_ON(1);                          \
+		}                                       \
+	} while (0)
+#else
+#define gpu_assert(cond)                        \
+	do {                                        \
+		if (unlikely(!(cond))) {               \
+			pr_info("GPU DVFS error: %s\n", #cond); \
+		}                                       \
+	} while (0)
+#endif
+
 #if defined(CONFIG_MACH_MT6885)
 
 #include "mt6885/mtk_gpufreq_internal_plat.h"
