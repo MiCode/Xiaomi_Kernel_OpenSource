@@ -873,7 +873,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	if (!drvdata->vaddr) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+			drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE) {
 			/*
 			 * ETR DDR memory is not allocated until user enables
 			 * tmc at least once. If user specifies different ETR
@@ -882,10 +883,16 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			 * enabling tmc; the new selection will be honored from
 			 * next tmc enable session.
 			 */
-			if (drvdata->size != drvdata->mem_size) {
-				tmc_etr_free_mem(drvdata);
-				drvdata->size = drvdata->mem_size;
-				drvdata->memtype = drvdata->mem_type;
+			if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+				if (drvdata->size != drvdata->mem_size) {
+					tmc_etr_free_mem(drvdata);
+					drvdata->size = drvdata->mem_size;
+					drvdata->memtype = drvdata->mem_type;
+				}
+
+			} else {
+				drvdata->memtype = TMC_ETR_MEM_TYPE_CONTIG;
+				drvdata->size = TMC_ETR_PCIE_MEM_SIZE;
 			}
 
 			ret = tmc_etr_alloc_mem(drvdata);
@@ -933,7 +940,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	}
 
 	drvdata->mode = CS_MODE_SYSFS;
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+			drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE)
 		tmc_etr_enable_hw(drvdata);
 
 	drvdata->enable = true;
@@ -946,6 +954,10 @@ out:
 
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
+
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE)
+		etr_pcie_start(drvdata->byte_cntr);
+
 	mutex_unlock(&drvdata->mem_lock);
 
 	if (!ret)
@@ -1027,10 +1039,16 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+		drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE) {
+			etr_pcie_stop(drvdata->byte_cntr);
+			flush_workqueue(drvdata->byte_cntr->pcie_wq);
+		} else
+			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
 		tmc_etr_free_mem(drvdata);
 	}
 out:
@@ -1066,6 +1084,8 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		new_mode = TMC_ETR_OUT_MODE_MEM;
 	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
 		new_mode = TMC_ETR_OUT_MODE_USB;
+	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_PCIE]))
+		new_mode = TMC_ETR_OUT_MODE_PCIE;
 	else
 		return -EINVAL;
 
