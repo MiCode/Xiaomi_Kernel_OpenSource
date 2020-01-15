@@ -420,8 +420,8 @@ enum DPE_PROCESS_ID_ENUM {
  **************************************************************/
 struct DPE_IRQ_INFO_STRUCT {
 	unsigned int Status[DPE_IRQ_TYPE_AMOUNT];
-	signed int DpeIrqCnt;
-	pid_t ProcessID[DPE_PROCESS_ID_AMOUNT];
+	signed int DpeIrqCnt[IRQ_USER_NUM_MAX];
+	pid_t ProcessID[IRQ_USER_NUM_MAX];
 	unsigned int Mask[DPE_IRQ_TYPE_AMOUNT];
 };
 
@@ -1171,17 +1171,19 @@ DPE_GetIRQState(unsigned int type, unsigned int userNumber, unsigned int stus,
 		enum DPE_PROCESS_ID_ENUM whichReq, int ProcessID)
 {
 	unsigned int ret = 0;
+	unsigned int p;
 	unsigned long flags;
 
+	p = ProcessID % IRQ_USER_NUM_MAX;
 	/*  */
 	spin_lock_irqsave(&(DPEInfo.SpinLockIrq[type]), flags);
 
 	if (stus & DPE_INT_ST) {
-		ret = ((DPEInfo.IrqInfo.DpeIrqCnt > 0) &&
-		       (DPEInfo.IrqInfo.ProcessID[whichReq] == ProcessID));
+		ret = ((DPEInfo.IrqInfo.DpeIrqCnt[p] > 0) &&
+		       (DPEInfo.IrqInfo.ProcessID[p] == ProcessID));
 	} else {
 		LOG_ERR("EWIRQ,type:%d,u:%d,stat:%d,wReq:%d,PID:0x%x\n",
-			type, userNumber, stus, whichReq, ProcessID);
+			type, userNumber, stus, p, ProcessID);
 	}
 	spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[type]), flags);
 	/*  */
@@ -3194,6 +3196,7 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 	struct timeval time_getrequest;
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
+	unsigned int p;
 
 	/* do_gettimeofday(&time_getrequest); */
 	sec = cpu_clock(0);	/* ns */
@@ -3278,6 +3281,7 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 						   DPE_MsToJiffies(
 							WaitIrq->Timeout));
 
+	p = WaitIrq->ProcessID % IRQ_USER_NUM_MAX;
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&
 		(!DPE_GetIRQState(WaitIrq->Type, WaitIrq->UserKey,
@@ -3302,8 +3306,9 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 		     WaitIrq->Timeout, WaitIrq->Clear, WaitIrq->Type, irqStatus,
 			WaitIrq->Status, WaitIrq->UserKey);
 		LOG_ERR(
-		"WaitIrq Timeout:whichReq(%d),ProcID(%d) DpeIrqCnt(0x%08X) WriteReq(0x%08X) ReadReq(0x%08X)\n",
-		     whichReq, WaitIrq->ProcessID, DPEInfo.IrqInfo.DpeIrqCnt,
+		"WaitIrq Timeout:whichReq(%d),ProcID(%d) DpeIrqCnt[%d](0x%08X) WriteReq(0x%08X) ReadReq(0x%08X)\n",
+			whichReq, WaitIrq->ProcessID,
+			p, DPEInfo.IrqInfo.DpeIrqCnt[p],
 			DPEInfo.WriteReqIdx, DPEInfo.ReadReqIdx);
 
 		if (WaitIrq->bDumpReg) {
@@ -3328,8 +3333,8 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 									flags);
 
 			if (WaitIrq->Status & DPE_INT_ST) {
-				DPEInfo.IrqInfo.DpeIrqCnt--;
-				if (DPEInfo.IrqInfo.DpeIrqCnt == 0)
+				DPEInfo.IrqInfo.DpeIrqCnt[p]--;
+				if (DPEInfo.IrqInfo.DpeIrqCnt[p] == 0)
 					DPEInfo.IrqInfo.Status[WaitIrq->Type] &=
 							(~WaitIrq->Status);
 			} else {
@@ -4140,7 +4145,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		Ret = -ENOMEM;
 	} else {
 		pUserInfo = (struct DPE_USER_INFO_STRUCT *) pFile->private_data;
-		pUserInfo->Pid = current->pid;
+		pUserInfo->Pid = DPEInfo.UserCount;
 		pUserInfo->Tid = current->tgid;
 	}
 	/*  */
@@ -4185,7 +4190,9 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 
 		DPEInfo.WriteReqIdx = 0;
 		DPEInfo.ReadReqIdx = 0;
-		DPEInfo.IrqInfo.DpeIrqCnt = 0;
+		/* DPEInfo.IrqInfo.DpeIrqCnt = 0; */
+		for (i = 0; i < IRQ_USER_NUM_MAX; i++)
+			DPEInfo.IrqInfo.DpeIrqCnt[i] = 0;
 
 		/*  */
 		dpe_register_requests(&dpe_reqs, sizeof(struct DPE_Config));
@@ -4411,6 +4418,7 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	unsigned int buf_rdy;
 	unsigned long flags;
+	unsigned int p;
 
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
 	poll_wait(file, &DPEInfo.WaitQueueHead, wait);
@@ -4419,12 +4427,13 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 				DPE_INT_ST, DPE_PROCESS_ID_DPE,
 				pUserInfo->Pid);
 
+	p = pUserInfo->Pid % IRQ_USER_NUM_MAX;
 	LOG_INF("buf_rdy = %d\n", buf_rdy);
 	if (buf_rdy) {
 		spin_lock_irqsave
 		(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
-		DPEInfo.IrqInfo.DpeIrqCnt--;
-if (DPEInfo.IrqInfo.DpeIrqCnt == 0)
+		DPEInfo.IrqInfo.DpeIrqCnt[p]--;
+if (DPEInfo.IrqInfo.DpeIrqCnt[p] == 0)
 	DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVP_ST] &= (~DPE_INT_ST);
 spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
 
@@ -5581,6 +5590,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 	bool bResulst = MFALSE;
 	bool isDvpDone = MFALSE;
 	pid_t ProcessID;
+	unsigned int p = 0;
 
 	DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 	DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
@@ -5608,11 +5618,12 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 			/* schedule_work(&DPEInfo.ScheduleDpeWork); */
 			queue_work(DPEInfo.wkqueue, &DPEInfo.ScheduleDpeWork);
 			#endif
+			p = ProcessID % IRQ_USER_NUM_MAX;
 			DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVP_ST] |=
 				DPE_INT_ST;
-			DPEInfo.IrqInfo.ProcessID[DPE_PROCESS_ID_DPE] =
+			DPEInfo.IrqInfo.ProcessID[p] =
 				ProcessID;
-			DPEInfo.IrqInfo.DpeIrqCnt++;
+			DPEInfo.IrqInfo.DpeIrqCnt[p]++;
 			DPEInfo.ProcessID[DPEInfo.WriteReqIdx] = ProcessID;
 			DPEInfo.WriteReqIdx =
 				(DPEInfo.WriteReqIdx + 1) %
@@ -5644,8 +5655,8 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVP_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IrqCnt:0x%x,WReq:0x%x,RReq:0x%x\n",
-		DPEInfo.IrqInfo.DpeIrqCnt,
+		"IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
+		p, DPEInfo.IrqInfo.DpeIrqCnt[p],
 		DPEInfo.WriteReqIdx,
 		DPEInfo.ReadReqIdx);
 
@@ -5669,6 +5680,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 	bool bResulst = MFALSE;
 	bool isDvsDone = MFALSE;
 	pid_t ProcessID;
+	unsigned int p = 0;
 
 	DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 	DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
@@ -5696,11 +5708,12 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 			/* schedule_work(&DPEInfo.ScheduleDpeWork); */
 			queue_work(DPEInfo.wkqueue, &DPEInfo.ScheduleDpeWork);
 			#endif
+			p = ProcessID % IRQ_USER_NUM_MAX;
 			DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVP_ST] |=
 				DPE_INT_ST;
-			DPEInfo.IrqInfo.ProcessID[DPE_PROCESS_ID_DPE] =
+			DPEInfo.IrqInfo.ProcessID[p] =
 				ProcessID;
-			DPEInfo.IrqInfo.DpeIrqCnt++;
+			DPEInfo.IrqInfo.DpeIrqCnt[p]++;
 			DPEInfo.ProcessID[DPEInfo.WriteReqIdx] = ProcessID;
 			DPEInfo.WriteReqIdx =
 				(DPEInfo.WriteReqIdx + 1) %
@@ -5732,8 +5745,8 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVS_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IrqCnt:0x%x,WReq:0x%x,RReq:0x%x\n",
-		DPEInfo.IrqInfo.DpeIrqCnt,
+		"IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
+		p, DPEInfo.IrqInfo.DpeIrqCnt[p],
 		DPEInfo.WriteReqIdx,
 		DPEInfo.ReadReqIdx);
 
