@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1448,9 +1448,13 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 
 	memset(buf, 0, buf_len);
 
-	if (!test_virt_addr)
+	if (IS_ERR_OR_NULL(test_virt_addr))
+		test_virt_addr = kzalloc(SZ_1M, GFP_KERNEL);
+
+	if (!test_virt_addr) {
+		test_virt_addr = ERR_PTR(-ENOMEM);
 		strlcpy(buf, "FAIL\n", buf_len);
-	else
+	} else
 		snprintf(buf, buf_len, "0x%pK\n", test_virt_addr);
 
 	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
@@ -1780,6 +1784,12 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	if (kstrtouint(comma2 + 1, 0, &attr))
 		goto invalid_format;
 
+	if (IS_ERR(test_virt_addr))
+		goto allocation_failure;
+
+	if (!test_virt_addr)
+		goto missing_allocation;
+
 	if (v_addr < test_virt_addr || v_addr + size > test_virt_addr + SZ_1M)
 		goto invalid_addr;
 
@@ -1826,6 +1836,14 @@ invalid_format:
 
 invalid_addr:
 	pr_err_ratelimited("Invalid addr given! Address should be within 1MB size from start addr returned by doing 'cat test_virt_addr'.\n");
+	return retval;
+
+allocation_failure:
+	pr_err_ratelimited("Allocation of test_virt_addr failed.\n");
+	return -ENOMEM;
+
+missing_allocation:
+	pr_err_ratelimited("Please attempt to do 'cat test_virt_addr'.\n");
 	return retval;
 }
 
@@ -2335,11 +2353,6 @@ static int iommu_debug_init_tests(void)
 		pr_err_ratelimited("Couldn't create iommu/tests debugfs directory\n");
 		return -ENODEV;
 	}
-
-	test_virt_addr = kzalloc(SZ_1M, GFP_KERNEL);
-
-	if (!test_virt_addr)
-		return -ENOMEM;
 
 	return bus_for_each_dev(&platform_bus_type, NULL, NULL,
 				snarf_iommu_devices);
