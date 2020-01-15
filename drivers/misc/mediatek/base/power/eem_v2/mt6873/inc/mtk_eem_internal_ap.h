@@ -288,9 +288,7 @@ struct eemsn_det {
 	unsigned short eemsn_step;
 	unsigned short pmic_base;
 	unsigned short pmic_step;
-	short delta_vc;
 	short cpe_volt_total_mar;
-	short sn_aging;
 
 	/* dvfs */
 	unsigned char freq_tbl[NR_FREQ];
@@ -304,33 +302,26 @@ struct eemsn_det {
 	unsigned char cur_phase;
 	unsigned char cur_oppidx;
 
-	unsigned char freq_low_pct;
-
 	unsigned char SPEC;
-
-	unsigned char VMAX;
-	unsigned char VMIN;
-	unsigned char VBOOT;
-	unsigned char real_vboot;
 
 	const char *name;
 
 	unsigned char disabled; /* Disabled by error or sysfs */
 	unsigned char num_freq_tbl;
 
-	char volt_offset;
 	unsigned char loo_role;
 	unsigned char loo_couple;
 	unsigned char turn_pt;
 	unsigned char vmin_high;
 	unsigned char vmin_mid;
-	char volt_clamp;
+	int8_t delta_vc;
+	int8_t sn_aging;
+	int8_t volt_offset;
+	int8_t volt_clamp;
 	/* int volt_offset:8; */
 	unsigned int delta_ir:4;
 	unsigned int delta_vdppm:5;
-	unsigned int low_temp_off:8;
-	unsigned int high_temp_off:8;
-	unsigned int isTempInv:2;
+
 	unsigned int isSupLoo:1;
 
 #if UPDATE_TO_UPOWER
@@ -350,7 +341,7 @@ struct eemsn_log_det {
 	unsigned char lock;
 	unsigned char features;
 	unsigned char volt_clamp;
-	char volt_offset;
+	int8_t volt_offset;
 	unsigned char turn_pt;
 	enum eemsn_det_id det_id;
 };
@@ -366,10 +357,10 @@ struct sensing_stru {
 	/* unsigned int count_cur_volt_HT; */
 	int Sensor_Volt_HT;
 	int Sensor_Volt_RT;
-	int CPE_temp;
-	int SN_temp;
 	int ATE_Temp_decode;
-	char T_SVT_current;
+	int8_t CPE_temp;
+	int8_t SN_temp;
+	unsigned char T_SVT_current;
 #endif
 	unsigned short cur_temp;
 	unsigned char cur_oppidx;
@@ -388,13 +379,6 @@ struct sn_log_data {
 #endif
 };
 
-#if 0
-struct sn_log_mini {
-	unsigned int reg_dump_cpe[MIN_SIZE_SN_DUMP_CPE];
-	unsigned int reg_dump_sn_cpu[NUM_SN_CPU][SIZE_SN_MCUSYS_REG];
-};
-#endif
-
 struct sn_param {
 	/* for SN aging*/
 	int Param_A_Tused_SVT;
@@ -406,11 +390,11 @@ struct sn_param {
 	int Param_ATE_temp;
 	int Param_temp;
 	int Param_INTERCEPTION;
-	int A_GB;
-	int sn_temp_threshold;
-	short Default_Aging;
-	short threshold_H;
-	short threshold_L;
+	int8_t A_GB;
+	int8_t sn_temp_threshold;
+	int8_t Default_Aging;
+	int8_t threshold_H;
+	int8_t threshold_L;
 
 	unsigned char T_GB;
 
@@ -428,13 +412,13 @@ struct A_Tused_VT {
 };
 
 struct sn_log_cal_data {
-	struct sn_param sn_cpu_param;
+	/* struct sn_param sn_cpu_param; */
 	int64_t cpe_init_aging;
 	struct A_Tused_VT atvt;
 	int TEMP_CAL;
 	short CPE_Aging;
-	short sn_aging;
-	short delta_vc;
+	int8_t sn_aging;
+	int8_t delta_vc;
 };
 
 struct sn_ring_buf {
@@ -460,8 +444,8 @@ struct eemsn_log {
 #endif
 	struct eemsn_log_det det_log[NR_EEMSN_DET_LOG_ID];
 	struct sn_log_data sn_log;
-	struct sn_log_cal_data sn_cal_data[2];
-	struct sn_param sn_cpu_param[2];
+	struct sn_log_cal_data sn_cal_data[NR_SN_DET];
+	struct sn_param sn_cpu_param[NR_SN_DET];
 	struct eemsn_devinfo efuse_devinfo;
 	unsigned int efuse_sv;
 	unsigned char init2_v_ready;
@@ -471,6 +455,7 @@ struct eemsn_log {
 	unsigned char segCode;
 	unsigned char lock;
 };
+
 
 
 
@@ -488,8 +473,6 @@ extern struct mutex record_mutex;
 extern void mt_record_lock(unsigned long *flags);
 extern void mt_record_unlock(unsigned long *flags);
 
-/* table used to apply to dvfs at final */
-extern unsigned int record_tbl_locked[NR_FREQ];
 
 /**************************************************
  *extern variables and operations defined at mtk_eem_platform.c

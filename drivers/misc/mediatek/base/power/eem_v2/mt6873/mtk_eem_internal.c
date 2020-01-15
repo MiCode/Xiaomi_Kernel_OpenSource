@@ -63,15 +63,12 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.features	= FEA_INIT01 | FEA_INIT02 | FEA_MON | FEA_SEN,
 		.max_freq_khz = L_FREQ_BASE,
 		.volt_offset = 0,
-		.VBOOT        = VBOOT_VAL,
-		.VMAX        = VMAX_VAL,
-		.VMIN        = VMIN_VAL,
+
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
-		.low_temp_off	= LOW_TEMP_OFF,
-		.high_temp_off	= HIGH_TEMP_OFF,
+
 	},
 
 	[EEMSN_DET_B] = {
@@ -82,9 +79,7 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.max_freq_khz = B_FREQ_BASE,
 		.mid_freq_khz = B_M_FREQ_BASE,
 		.volt_offset = 0,
-		.VBOOT        = VBOOT_VAL,
-		.VMAX        = VMAX_VAL,
-		.VMIN        = VMIN_VAL,
+
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
@@ -94,8 +89,7 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.turn_pt	= BANK_B_TURN_PT,
 		.turn_freq = B_M_FREQ_BASE,
 		.isSupLoo	= 1,
-		.low_temp_off	= LOW_TEMP_OFF,
-		.high_temp_off	= HIGH_TEMP_OFF,
+
 	},
 
 	[EEMSN_DET_CCI] = {
@@ -105,15 +99,11 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.features	= FEA_INIT02 | FEA_MON,
 		.max_freq_khz = CCI_FREQ_BASE, /* 1248Mhz */
 		.volt_offset = 0,
-		.VBOOT        = VBOOT_VAL,
-		.VMAX        = VMAX_VAL,
-		.VMIN        = VMIN_VAL,
+
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
-		.low_temp_off	= LOW_TEMP_OFF,
-		.high_temp_off	= HIGH_TEMP_OFF,
 	},
 
 };

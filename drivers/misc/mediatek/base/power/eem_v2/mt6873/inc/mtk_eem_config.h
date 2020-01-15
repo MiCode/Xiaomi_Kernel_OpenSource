@@ -35,7 +35,7 @@
 #define ENABLE_CPU			(1)
 #define ENABLE_GPU			(0)
 #define EN_EEM_THERM_CLK	(0)
-#define SUPPORT_PICACHU		(0)
+#define SUPPORT_PICACHU		(1)
 
 
 #define ENABLE_INIT1_STRESS	(0)
@@ -45,7 +45,7 @@
 #define SET_PMIC_VOLT_TO_DVFS	(1)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
 #define DVT			(0)
-#define SUPPORT_DCONFIG		(0)
+#define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
 //#define EARLY_PORTING_VPU
 #define ENABLE_MINIHQA		(0)
@@ -264,19 +264,19 @@ enum mt_cpu_dvfs_id {
 /* Safe EFUSE */
 #define DEVINFO_0 0x0
 /* CPUB */
-#define DEVINFO_1 0x94132424
+#define DEVINFO_1 0x61152424
 /* CPUB_HI */
-#define DEVINFO_2 0xB1E92424
+#define DEVINFO_2 0x9FE92424
 /* CPUB_LO */
 #define DEVINFO_3 0x42122446
 /* CPUL */
-#define DEVINFO_4 0x63122424
+#define DEVINFO_4 0x71142451
 /* CPUL_HI */
 #define DEVINFO_5 0x0
 /* CPUL_LO */
 #define DEVINFO_6 0x0
 /* CCI */
-#define DEVINFO_7 0x62122424
+#define DEVINFO_7 0x71142451
 /* GPU */
 #define DEVINFO_8 0x51152498
 /* GPU_HI */

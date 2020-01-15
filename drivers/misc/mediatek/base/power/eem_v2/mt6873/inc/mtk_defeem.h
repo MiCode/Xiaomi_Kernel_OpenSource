@@ -17,6 +17,10 @@
 #include <linux/kernel.h>
 #define USE_EEMSN_PHYSICAL_ADDR	(0) /* set 0 for debug log */
 
+extern void __iomem *eem_base;
+#define EEM_BASEADDR eem_base
+#define EEM_TEMPSPARE0		(EEM_BASEADDR + 0x8F0)
+
 #define EEMSN_CSRAM_BASE	0x0011BC00  /* EB View:0x0011BC00 */
 #define OFFS_SN_VOLT_S_4B	(EEMSN_CSRAM_BASE + 0x0250) /* 148 */
 #define OFFS_SN_VOLT_E_4B	(EEMSN_CSRAM_BASE + 0x029C) /* 167 */

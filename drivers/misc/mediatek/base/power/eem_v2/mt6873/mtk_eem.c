@@ -123,6 +123,7 @@ static enum upower_bank transfer_ptp_to_upower_bank(unsigned int det_id);
 
 
 static struct eemsn_devinfo eem_devinfo;
+static unsigned int record_tbl_locked[NR_FREQ];
 
 
 #define WAIT_TIME	(2500000)
@@ -159,16 +160,11 @@ static char *cpu_name[3] = {
 	"CCI"
 };
 
-#if 0
+
 #ifdef CONFIG_OF
 void __iomem *eem_base;
-void __iomem *infra_base;
-static u32 eem_irq_number;
 #endif
-#define INFRA_AO_NODE		"mediatek,infracfg_ao"
-#define INFRA_EEM_RST		(infra_base + 0x730)
-#define INFRA_EEM_CLR		(infra_base + 0x734)
-#endif
+
 /*=============================================================
  * common functions for both ap and eem
  *=============================================================
@@ -401,13 +397,14 @@ static void get_picachu_efuse(void)
 
 		if (sig == PICACHU_SIG) {
 			cnt = eem_read(addr_ptr) & 0xff;
-			if (cnt > NR_HW_RES_FOR_BANK)
-				cnt = NR_HW_RES_FOR_BANK;
+			if (cnt > IDX_HW_RES_SN)
+				cnt = IDX_HW_RES_SN;
 			addr_ptr += 4;
 
 			/* check efuse data */
 			for (i = 1; i < cnt; i++) {
-				if ((i == 5) || (i == 6) ||
+				if ((i == 1) || (i == 2) ||
+					(i == 5) || (i == 6) ||
 					(i == 11) || (i == 12) || (i == 15))
 					continue;
 				else if (eem_read(addr_ptr + i * 4) == 0) {
@@ -1233,7 +1230,7 @@ static void eem_calculate_aging_margin(struct eemsn_det *det,
 }
 #endif
 #if UPDATE_TO_UPOWER
-static void eem_save_init2_volt_aee(struct eemsn_det *ndet)
+static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 {
 #ifdef CONFIG_EEM_AEE_RR_REC
 	int i;
@@ -1308,30 +1305,6 @@ static void eem_save_init2_volt_aee(struct eemsn_det *ndet)
 				);
 			}
 			break;
-#if ENABLE_GPU
-		case EEMSN_DET_GPU:
-			if (i < 8) {
-				aee_rr_rec_ptp_gpu_volt_2(
-					((unsigned long long)
-					(ndet->volt_tbl_pmic[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_gpu_volt_2() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_gpu_volt_3(
-				((unsigned long long)(ndet->volt_tbl_pmic[i]) <<
-				(8 * (i - 8))) |
-				(aee_rr_curr_ptp_gpu_volt_3() & ~
-				((unsigned long long)(0xFF) <<
-				(8 * (i - 8)))
-				)
-				);
-			}
-			break;
-#endif
 		default:
 			break;
 		}
@@ -1339,8 +1312,8 @@ static void eem_save_init2_volt_aee(struct eemsn_det *ndet)
 #endif
 }
 #endif
-#if 0
-static void eem_save_final_volt_aee(struct eemsn_det *ndet)
+
+static void eem_save_init2_volt_aee(struct eemsn_det *ndet)
 {
 #ifdef CONFIG_EEM_AEE_RR_REC
 	int i;
@@ -1353,14 +1326,14 @@ static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 		case EEMSN_DET_L:
 			if (i < 8) {
 				aee_rr_rec_ptp_cpu_little_volt(
-				((unsigned long long)(ndet->volt_tbl[i])
+				((unsigned long long)(ndet->volt_tbl_init2[i])
 				<< (8 * i)) |
 				(aee_rr_curr_ptp_cpu_little_volt() & ~
 				((unsigned long long)(0xFF) << (8 * i)))
 				);
 			} else {
 				aee_rr_rec_ptp_cpu_little_volt_1(
-				((unsigned long long)(ndet->volt_tbl[i])
+				((unsigned long long)(ndet->volt_tbl_init2[i])
 				 << (8 * (i - 8))) |
 				(aee_rr_curr_ptp_cpu_little_volt_1() & ~
 					((unsigned long long)(0xFF)
@@ -1372,7 +1345,7 @@ static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 		case EEMSN_DET_B:
 			if (i < 8) {
 				aee_rr_rec_ptp_cpu_big_volt(
-					((unsigned long long)(ndet->volt_tbl[i])
+				((unsigned long long)(ndet->volt_tbl_init2[i])
 					 << (8 * i)) |
 					(aee_rr_curr_ptp_cpu_big_volt() & ~
 						((unsigned long long)(0xFF)
@@ -1381,7 +1354,7 @@ static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 				);
 			} else {
 				aee_rr_rec_ptp_cpu_big_volt_1(
-					((unsigned long long)(ndet->volt_tbl[i])
+				((unsigned long long)(ndet->volt_tbl_init2[i])
 					 << (8 * (i - 8))) |
 					(aee_rr_curr_ptp_cpu_big_volt_1() & ~
 						((unsigned long long)(0xFF)
@@ -1393,7 +1366,7 @@ static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 		case EEMSN_DET_CCI:
 			if (i < 8) {
 				aee_rr_rec_ptp_cpu_cci_volt(
-					((unsigned long long)(ndet->volt_tbl[i])
+				((unsigned long long)(ndet->volt_tbl_init2[i])
 					 << (8 * i)) |
 					(aee_rr_curr_ptp_cpu_cci_volt() & ~
 						((unsigned long long)(0xFF)
@@ -1402,7 +1375,7 @@ static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 				);
 			} else {
 				aee_rr_rec_ptp_cpu_cci_volt_1(
-					((unsigned long long)(ndet->volt_tbl[i])
+				((unsigned long long)(ndet->volt_tbl_init2[i])
 					 << (8 * (i - 8))) |
 					(aee_rr_curr_ptp_cpu_cci_volt_1() & ~
 						((unsigned long long)(0xFF)
@@ -1411,37 +1384,73 @@ static void eem_save_final_volt_aee(struct eemsn_det *ndet)
 				);
 			}
 			break;
-#if ENABLE_GPU
-		case EEMSN_DET_GPU:
-			if (i < 8) {
-				aee_rr_rec_ptp_gpu_volt(
-					((unsigned long long)(ndet->volt_tbl[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_gpu_volt() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_gpu_volt_1(
-				((unsigned long long)(ndet->volt_tbl[i]) <<
-				(8 * (i - 8))) |
-				(aee_rr_curr_ptp_gpu_volt_1() & ~
-				((unsigned long long)(0xFF) <<
-				(8 * (i - 8)))
-				)
-				);
-			}
-			break;
-#endif
 		default:
 			break;
 		}
 	}
 #endif
 }
-#endif
 
+#if 0
+static void eem_save_sn_cal_aee(struct eemsn_det *ndet, unsigned int index)
+{
+#ifdef CONFIG_EEM_AEE_RR_REC
+	int i;
+
+	i = index;
+
+	if (ndet == NULL)
+		return;
+
+	switch (ndet->det_id) {
+	case EEMSN_DET_L:
+		if (i < 8) {
+			aee_rr_rec_ptp_cpu_2_little_volt(
+			((unsigned long long)(ndet->volt_tbl_init2[i])
+			<< (8 * i)) |
+			(aee_rr_rec_ptp_cpu_2_little_volt() & ~
+			((unsigned long long)(0xFF) << (8 * i)))
+			);
+		} else {
+			aee_rr_rec_ptp_cpu_2_little_volt_1(
+			((unsigned long long)(ndet->volt_tbl_init2[i])
+			 << (8 * (i - 8))) |
+			(aee_rr_rec_ptp_cpu_2_little_volt_1() & ~
+				((unsigned long long)(0xFF)
+				<< (8 * (i - 8))))
+			);
+		}
+		break;
+
+	case EEMSN_DET_B:
+		if (i < 8) {
+			aee_rr_rec_ptp_cpu_2_little_volt_2(
+				((unsigned long long)(ndet->volt_tbl_init2[i])
+				 << (8 * i)) |
+				(aee_rr_rec_ptp_cpu_2_little_volt_2() & ~
+					((unsigned long long)(0xFF)
+					 << (8 * i))
+				)
+			);
+		} else {
+			aee_rr_rec_ptp_cpu_2_little_volt_3(
+				((unsigned long long)(ndet->volt_tbl_init2[i])
+				 << (8 * (i - 8))) |
+				(aee_rr_rec_ptp_cpu_2_little_volt_3() & ~
+					((unsigned long long)(0xFF)
+					 << (8 * (i - 8)))
+				)
+			);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+#endif
+}
+#endif
 
 static void inherit_base_det(struct eemsn_det *det)
 {
@@ -1537,6 +1546,9 @@ static void eem_dconfig_set_det(struct eemsn_det *det, struct device_node *node)
 	int doe_initmon = 0xFF, doe_clamp = 0;
 	int doe_offset = 0xFF;
 	int rc1 = 0, rc2 = 0, rc3 = 0;
+#if UPDATE_TO_UPOWER
+	int i;
+#endif
 
 #if ENABLE_GPU
 	if (det_id > EEMSN_DET_GPU)
@@ -1588,7 +1600,7 @@ static void eem_dconfig_set_det(struct eemsn_det *det, struct device_node *node)
 	eem_error("[DCONFIG] doe_offset:%x, doe_clamp:%x\n",
 			doe_offset, doe_clamp);
 #endif
-	if ((!rc1) && (doe_offset != 0xFF)) {
+	if ((!rc1) && (doe_initmon != 0xFF)) {
 		if (det->features != doe_initmon) {
 			det->features = doe_initmon;
 			eemsn_log->det_log[det->det_id].features =
@@ -1596,26 +1608,17 @@ static void eem_dconfig_set_det(struct eemsn_det *det, struct device_node *node)
 			eem_error("[DCONFIG] feature modified by DT(0x%x)\n",
 				doe_initmon);
 
-			switch (det_id) {
-			case EEMSN_DET_L:
-			case EEMSN_DET_CCI:
-#if UPDATE_TO_UPOWER
-				if (HAS_FEATURE(det, FEA_INIT01) == 0)
-					eem_update_init2_volt_to_upower
-					(det, det->volt_tbl_orig);
-#endif
-				break;
-			case EEMSN_DET_B:
+			if (det_id < NR_EEMSN_DET) {
 #if UPDATE_TO_UPOWER
 				if (HAS_FEATURE(det, FEA_INIT01) == 0) {
+					for (i = 0; i < NR_FREQ; i++)
+						record_tbl_locked[i] =
+					(unsigned int)det->volt_tbl_orig[i];
+
 					eem_update_init2_volt_to_upower
-					(det, det->volt_tbl_orig);
+					(det, record_tbl_locked);
 				}
 #endif
-
-				break;
-			default:
-				break;
 			}
 		}
 	}
@@ -1630,7 +1633,7 @@ static void eem_dconfig_set_det(struct eemsn_det *det, struct device_node *node)
 			det->volt_offset = 0 -
 				(char)((doe_offset - 1000) & 0xff);
 
-		eemsn_log->det_log[det->det_id].features =
+		eemsn_log->det_log[det->det_id].volt_offset =
 			det->volt_offset;
 	}
 
@@ -1647,7 +1650,6 @@ static int eem_probe(struct platform_device *pdev)
 	struct eem_ipi_data eem_data;
 #ifdef CONFIG_OF
 	struct device_node *node = NULL;
-	//struct device_node *node_infra = NULL;
 #endif
 #if UPDATE_TO_UPOWER
 	unsigned int locklimit = 0;
@@ -1661,50 +1663,6 @@ static int eem_probe(struct platform_device *pdev)
 
 	FUNC_ENTER(FUNC_LV_MODULE);
 	seq = 0;
-
-#if 0
-	ret = mtk_ipi_register(&mcupm_ipidev, CH_S_EEMSN, NULL, NULL,
-		(void *)&ack_data);
-	if (ret != 0) {
-		eem_error("%s error ret:%d\n", __func__, ret);
-		return 0;
-	}
-
-
-	eem_log_phy_addr =
-		mcupm_reserve_mem_get_phys(MCUPM_SNWK_MEM_ID);
-	eem_log_virt_addr =
-		mcupm_reserve_mem_get_virt(MCUPM_SNWK_MEM_ID);
-	eem_log_size = sizeof(struct eemsn_log);
-	eemsn_log = (struct eemsn_log *)eem_log_virt_addr;
-
-	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
-	eem_data.u.data.arg[0] = eem_log_phy_addr;
-	eem_data.u.data.arg[1] = eem_log_size;
-	eem_debug("arg0(addr):0x%x, arg1(len):%d",
-		eem_data.u.data.arg[0], eem_data.u.data.arg[1]);
-	eemsn_log->segCode = get_devinfo_with_index(DEVINFO_SEG_IDX)
-			& 0xFF;
-
-	/* get original volt from cpu dvfs before init01*/
-	for_each_det(det) {
-
-		get_freq_table_cpu(det);
-		memcpy(eemsn_log->det_log[det->det_id].freq_tbl,
-			det->freq_tbl, sizeof(det->freq_tbl));
-		eemsn_log->det_log[det->det_id].turn_pt =
-			det->turn_pt;
-		eemsn_log->det_log[det->det_id].num_freq_tbl =
-			det->num_freq_tbl;
-
-		get_orig_volt_table_cpu(det);
-		memcpy(eemsn_log->det_log[det->det_id].volt_tbl_orig,
-			det->volt_tbl_orig, sizeof(det->volt_tbl_orig));
-	}
-
-	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);
-#endif
-
 
 #ifdef CONFIG_OF
 	node = pdev->dev.of_node;
@@ -1723,8 +1681,7 @@ static int eem_probe(struct platform_device *pdev)
 		if (((doe_status == 1) || (doe_status == 0)) &&
 			(ctrl_EEMSN_Enable != (unsigned char)doe_status)) {
 			ctrl_EEMSN_Enable = (unsigned char)doe_status;
-			eemsn_log->eemsn_enable = ctrl_EEMSN_Enable;
-			eem_debug("[DCONFIG] eem status modified by DT(0x%x).\n",
+			eem_error("[DCONFIG] eem sts modified by DT(0x%x).\n",
 				doe_status);
 		}
 	}
@@ -1737,8 +1694,7 @@ static int eem_probe(struct platform_device *pdev)
 		if (((sn_doe_status == 1) || (sn_doe_status == 0)) &&
 			(ctrl_SN_Enable != (unsigned char)sn_doe_status)) {
 			ctrl_SN_Enable = (unsigned char)sn_doe_status;
-			eemsn_log->sn_enable = (unsigned char)ctrl_SN_Enable;
-			eem_debug("[DCONFIG] sn status modified by DT(0x%x).\n",
+			eem_error("[DCONFIG] sn sts modified by DT(0x%x).\n",
 				sn_doe_status);
 		}
 	}
@@ -1750,17 +1706,17 @@ static int eem_probe(struct platform_device *pdev)
 		FUNC_EXIT(FUNC_LV_MODULE);
 		return 0;
 	}
-#if 0
+#if SUPPORT_PICACHU
 	/* Setup IO addresses */
 	eem_base = of_iomap(node, 0);
 	eem_debug("[EEM] eem_base = 0x%p\n", eem_base);
+#if 0
 	eem_irq_number = irq_of_parse_and_map(node, 0);
 	eem_debug("[THERM_CTRL] eem_irq_number=%d\n", eem_irq_number);
 	if (!eem_irq_number) {
 		eem_error("[EEM] get irqnr failed=0x%x\n", eem_irq_number);
 		return 0;
 	}
-
 	/* infra_ao */
 	node_infra = of_find_compatible_node(NULL, NULL, INFRA_AO_NODE);
 	if (!node_infra) {
@@ -1773,6 +1729,7 @@ static int eem_probe(struct platform_device *pdev)
 		eem_debug("infra_ao Map Failed\n");
 		return 0;
 	}
+#endif
 #endif
 #endif
 
@@ -1872,12 +1829,15 @@ static int eem_probe(struct platform_device *pdev)
 			eem_update_init2_volt_to_upower(det,
 				det->volt_tbl_pmic);
 		}
-		eem_save_init2_volt_aee(det);
+		eem_save_final_volt_aee(det);
 	}
 #endif
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	eem_data.u.data.arg[0] = 0;
 	ret = eem_to_cpueb(IPI_EEMSN_INIT02, &eem_data);
+
+	for_each_det(det)
+		eem_save_init2_volt_aee(det);
 
 	eem_debug("%s ok\n", __func__);
 	FUNC_EXIT(FUNC_LV_MODULE);
@@ -2254,7 +2214,7 @@ static void dump_sndata_to_de(struct seq_file *m)
 	for (i = 0; i < sizeof(struct eemsn_devinfo) / sizeof(unsigned int);
 		i++)
 		seq_printf(m, "[%d]M_HW_RES%d\t= 0x%08X\n",
-		seq++, ((i > 17) ? (i + 3) : i), val[i]);
+		seq++, ((i >= IDX_HW_RES_SN) ? (i + 3) : i), val[i]);
 
 	seq_printf(m, "[%d]Start dump_CPE:\n", seq++);
 	for (i = 0; i < MIN_SIZE_SN_DUMP_CPE; i++) {
@@ -2525,16 +2485,15 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 
 
 	/* Depend on EFUSE location */
-	for (i = 0; i < 17;
+	for (i = 0; i < IDX_HW_RES_SN;
 		i++)
 		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG, i,
 			val[i]);
 
-	for (i = 17; i < 25; i++)
-		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG, i,
-			get_devinfo_with_index(DEVINFO_IDX_0 + i));
-	seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, i,
-		get_devinfo_with_index(DEVINFO_IDX_25));
+	for (i = IDX_HW_RES_SN; i < NR_HW_RES_FOR_BANK; i++)
+		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG,
+			((i >= IDX_HW_RES_SN) ? (i + 3) : i),
+			val[i]);
 
 	FUNC_EXIT(FUNC_LV_HELP);
 	return 0;
@@ -2773,7 +2732,7 @@ static ssize_t eem_en_proc_write(struct file *file,
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	eemsn_log->eemsn_enable = ctrl_EEMSN_Enable;
 	eem_data.u.data.arg[0] = ctrl_EEMSN_Enable;
-	ipi_ret = eem_to_cpueb(IPI_EEMSN_EN_PROC_SHOW, &eem_data);
+	ipi_ret = eem_to_cpueb(IPI_EEMSN_EN_PROC_WRITE, &eem_data);
 
 
 out:
