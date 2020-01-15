@@ -427,10 +427,8 @@ union snd_codec_options {
 	struct snd_dec_ape ape;
 	struct snd_dec_wma wma_dec;
 	struct snd_dec_aptx aptx_dec;
-#ifdef CONFIG_AUDIO_QGKI
 	struct snd_dec_vorbis vorbis_dec;
 	struct snd_dec_amrwb_plus amrwbplus;
-#endif
 } __attribute__((packed, aligned(4)));
 
 /** struct snd_codec_desc - description of codec capabilities
