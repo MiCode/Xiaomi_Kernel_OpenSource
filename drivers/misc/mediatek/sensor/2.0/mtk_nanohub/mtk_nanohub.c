@@ -1712,6 +1712,14 @@ static void mtk_nanohub_restoring_config(void)
 	spin_unlock(&config_data_lock);
 	mtk_nanohub_cfg_to_hub(ID_PROXIMITY, data, length);
 	vfree(data);
+
+	length = sizeof(device->sar_config_data);
+	data = vzalloc(length);
+	spin_lock(&config_data_lock);
+	memcpy(data, device->sar_config_data, length);
+	spin_unlock(&config_data_lock);
+	mtk_nanohub_cfg_to_hub(ID_SAR, data, length);
+	vfree(data);
 }
 
 static void mtk_nanohub_start_timesync(void)
@@ -1895,6 +1903,12 @@ static int mtk_nanohub_config(struct hf_device *hfdev,
 		memcpy(device->proximity_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
+	case ID_SAR:
+		length = sizeof(device->sar_config_data);
+		spin_lock(&config_data_lock);
+		memcpy(device->sar_config_data, data, length);
+		spin_unlock(&config_data_lock);
+		break;
 	}
 	if (!length) {
 		pr_err("%s type(%d) length fail\n", __func__, sensor_type);
@@ -1936,36 +1950,54 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 	if (cust_action == CUST_CMD_CALI) {
 		switch (sensor_type) {
 		case SENSOR_TYPE_ACCELEROMETER:
+			if (sizeof(cust_cmd->data) <
+				sizeof(device->acc_config_data))
+				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->acc_config_data,
 					sizeof(device->acc_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_GYROSCOPE:
+			if (sizeof(cust_cmd->data) <
+				sizeof(device->gyro_config_data))
+				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->gyro_config_data,
 					sizeof(device->gyro_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_MAGNETIC_FIELD:
+			if (sizeof(cust_cmd->data) <
+				sizeof(device->mag_config_data))
+				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->mag_config_data,
 					sizeof(device->mag_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_LIGHT:
+			if (sizeof(cust_cmd->data) <
+				sizeof(device->light_config_data))
+				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->light_config_data,
 					sizeof(device->light_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_PROXIMITY:
+			if (sizeof(cust_cmd->data) <
+				sizeof(device->proximity_config_data))
+				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->proximity_config_data,
 					sizeof(device->proximity_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_SAR:
+			if (sizeof(cust_cmd->data) <
+				sizeof(device->sar_config_data))
+				return -EINVAL;
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->sar_config_data,
 					sizeof(device->sar_config_data));
