@@ -514,7 +514,7 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 			mod_timer(&mddpw_timer,
 					jiffies + msecs_to_jiffies(100));
 		} else
-			pr_notice("%s: WFPM RESET ongoing");
+			pr_notice("%s: WFPM RESET ongoing", __func__);
 		break;
 	case IPC_MSG_ID_WFPM_MD_NOTIFY:
 		pr_notice("%s: Received WFPM MD NOTIFY\n", __func__);

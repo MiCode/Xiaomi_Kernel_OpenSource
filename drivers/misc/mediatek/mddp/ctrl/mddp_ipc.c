@@ -214,8 +214,8 @@ int32_t mddp_ipc_init(void)
 	rx_task = kthread_run(mddp_md_msg_hdlr, NULL, "mddp_rx");
 
 	if (IS_ERR(rx_task)) {
-		pr_notice("%s: kthread_run fail(%i)!\n",
-				__func__, PTR_ERR(rx_task));
+		//pr_notice("%s: kthread_run fail(%i)!\n",
+		//		__func__, PTR_ERR(rx_task));
 
 		rx_task = NULL;
 		ret = -ECHILD;
