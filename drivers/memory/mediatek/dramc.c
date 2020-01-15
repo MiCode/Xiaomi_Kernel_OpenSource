@@ -459,8 +459,14 @@ static unsigned int decode_freq(unsigned int vco_freq)
 		return 4266;
 	case 3718:
 		return 3733;
+	case 3068:
+		return 3200;
+	case 2366:
+		return 2400;
 	case 1859:
 		return 1866;
+	case 1534:
+		return 1600;
 	case 1144:
 		return 1200;
 	case 754:
