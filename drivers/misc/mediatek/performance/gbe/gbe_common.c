@@ -54,6 +54,7 @@ enum GBE_BOOST_DEVICE {
 	GBE_BOOST_EAS,
 	GBE_BOOST_VCORE,
 	GBE_BOOST_IO,
+	GBE_BOOST_HE,
 	GBE_BOOST_NUM,
 };
 
@@ -133,7 +134,8 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 	int uclamp_pct, pm_req;
 	int i;
 	int boost_final = 0;
-	char u_io_string[8];
+	char u_io_string[11];
+	char u_boost_string[12];
 
 	if (!pld)
 		return;
@@ -163,7 +165,8 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		}
 		uclamp_pct = 100;
 		pm_req = 0;
-		strncpy(u_io_string, "BOOST=1", 8);
+		strncpy(u_io_string, "IO_BOOST=1", 11);
+		strncpy(u_boost_string, "GBE_BOOST=1", 12);
 	} else {
 		for (i = 0; i < cluster_num; i++) {
 			pld[i].max = -1;
@@ -171,7 +174,8 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		}
 		uclamp_pct = 0;
 		pm_req = PM_QOS_DDR_OPP_DEFAULT_VALUE;
-		strncpy(u_io_string, "BOOST=0", 8);
+		strncpy(u_io_string, "IO_BOOST=0", 11);
+		strncpy(u_boost_string, "GBE_BOOST=0", 12);
 	}
 
 	if (test_bit(GBE_BOOST_CPU, &policy_mask))
@@ -186,6 +190,9 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 
 	if (test_bit(GBE_BOOST_IO, &policy_mask))
 		sentuevent(u_io_string);
+
+	if (test_bit(GBE_BOOST_HE, &policy_mask))
+		sentuevent(u_boost_string);
 
 out:
 	mutex_unlock(&gbe_lock);
@@ -313,6 +320,7 @@ static int __init gbe_common_init(void)
 	set_bit(GBE_BOOST_CPU, &policy_mask);
 	set_bit(GBE_BOOST_EAS, &policy_mask);
 	set_bit(GBE_BOOST_VCORE, &policy_mask);
+	set_bit(GBE_BOOST_HE, &policy_mask);
 
 	ret = init_gbe_kobj();
 	if (ret) {
