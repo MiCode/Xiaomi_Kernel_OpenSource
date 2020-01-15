@@ -553,7 +553,7 @@ static void ufshcd_print_err_hist(struct ufs_hba *hba,
 	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
 		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
 
-		if (err_hist->reg[p] == 0)
+		if (err_hist->tstamp[p] == 0)
 			continue;
 		SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
 			"%s[%d] = 0x%x at %llu ns\n", err_name, p,
@@ -563,7 +563,7 @@ static void ufshcd_print_err_hist(struct ufs_hba *hba,
 
 	if (!found) {
 		SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
-			"No record of %s errors\n", err_name);
+			"No record of %s\n", err_name);
 	}
 }
 

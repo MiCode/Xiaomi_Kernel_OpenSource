@@ -1115,6 +1115,53 @@ int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
 
+/**
+ * MTK PATCH:
+ *
+ * API prototypes for MTK vendor-specific usage.
+ */
+int ufshcd_clock_scaling_prepare(struct ufs_hba *hba);
+void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba);
+void ufshcd_enable_intr(struct ufs_hba *hba, u32 intrs);
+void ufshcd_disable_intr(struct ufs_hba *hba, u32 intrs);
+int ufshcd_hba_enable(struct ufs_hba *hba);
+int ufshcd_make_hba_operational(struct ufs_hba *hba);
+void ufshcd_print_host_state(struct ufs_hba *hba,
+	u32 mphy_info, struct seq_file *m, char **buff, unsigned long *size);
+void ufshcd_print_all_err_hist(struct ufs_hba *hba,
+	struct seq_file *m, char **buff, unsigned long *size);
+int ufshcd_query_attr(struct ufs_hba *hba,
+	enum query_opcode opcode,
+	enum attr_idn idn,
+	u8 index,
+	u8 selector,
+	u32 *attr_val);
+int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
+	enum flag_idn idn, bool *flag_res);
+int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd);
+int ufshcd_check_hibern8_exit(struct ufs_hba *hba); /* MTK PATCH */
+int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
+int ufshcd_query_descriptor_retry(struct ufs_hba *hba,
+	enum query_opcode opcode, enum desc_idn idn, u8 index,
+	u8 selector, u8 *desc_buf, int *buf_len);
+int ufshcd_rpmb_security_out(struct scsi_device *sdev,
+			 struct rpmb_frame *frames, u32 cnt);
+int ufshcd_rpmb_security_in(struct scsi_device *sdev,
+			struct rpmb_frame *frames, u32 cnt);
+void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
+			u32 reg);
+
+/**
+ * ufshcd_upiu_wlun_to_scsi_wlun - maps UPIU W-LUN id to SCSI W-LUN ID
+ * @scsi_lun: UPIU W-LUN id
+ *
+ * Returns SCSI W-LUN id
+ */
+static inline u16 ufshcd_upiu_wlun_to_scsi_wlun(u8 upiu_wlun_id)
+{
+	return (upiu_wlun_id & ~UFS_UPIU_WLUN_ID) | SCSI_W_LUN_BASE;
+}
+
 /* Wrapper functions for safely calling variant operations */
 static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
 {
@@ -1251,54 +1298,9 @@ static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
 
 static inline void ufshcd_vops_device_reset(struct ufs_hba *hba)
 {
-	if (hba->vops && hba->vops->device_reset)
+	if (hba->vops && hba->vops->device_reset) {
 		hba->vops->device_reset(hba);
-}
-
-/**
- * MTK PATCH:
- *
- * API prototypes for MTK vendor-specific usage.
- */
-int ufshcd_clock_scaling_prepare(struct ufs_hba *hba);
-void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba);
-void ufshcd_enable_intr(struct ufs_hba *hba, u32 intrs);
-void ufshcd_disable_intr(struct ufs_hba *hba, u32 intrs);
-int ufshcd_hba_enable(struct ufs_hba *hba);
-int ufshcd_make_hba_operational(struct ufs_hba *hba);
-void ufshcd_print_host_state(struct ufs_hba *hba,
-	u32 mphy_info, struct seq_file *m, char **buff, unsigned long *size);
-void ufshcd_print_all_err_hist(struct ufs_hba *hba,
-	struct seq_file *m, char **buff, unsigned long *size);
-int ufshcd_query_attr(struct ufs_hba *hba,
-	enum query_opcode opcode,
-	enum attr_idn idn,
-	u8 index,
-	u8 selector,
-	u32 *attr_val);
-int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
-	enum flag_idn idn, bool *flag_res);
-int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd);
-int ufshcd_check_hibern8_exit(struct ufs_hba *hba); /* MTK PATCH */
-int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
-int ufshcd_query_descriptor_retry(struct ufs_hba *hba,
-	enum query_opcode opcode, enum desc_idn idn, u8 index,
-	u8 selector, u8 *desc_buf, int *buf_len);
-int ufshcd_rpmb_security_out(struct scsi_device *sdev,
-			 struct rpmb_frame *frames, u32 cnt);
-int ufshcd_rpmb_security_in(struct scsi_device *sdev,
-			struct rpmb_frame *frames, u32 cnt);
-void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
-			u32 reg);
-
-/**
- * ufshcd_upiu_wlun_to_scsi_wlun - maps UPIU W-LUN id to SCSI W-LUN ID
- * @scsi_lun: UPIU W-LUN id
- *
- * Returns SCSI W-LUN id
- */
-static inline u16 ufshcd_upiu_wlun_to_scsi_wlun(u8 upiu_wlun_id)
-{
-	return (upiu_wlun_id & ~UFS_UPIU_WLUN_ID) | SCSI_W_LUN_BASE;
+		ufshcd_update_reg_hist(&hba->ufs_stats.dev_reset, 0);
+	}
 }
 #endif /* End of Header */
