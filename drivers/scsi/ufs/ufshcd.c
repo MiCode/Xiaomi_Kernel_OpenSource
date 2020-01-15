@@ -6322,10 +6322,11 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 
 	if (hba->errors & UFSHCD_UIC_HIBERN8_MASK) {
 		dev_info(hba->dev,
-			"%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x\n",
+			"%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x, ahit: 0x%08x\n",
 			__func__, (hba->errors & UIC_HIBERNATE_ENTER) ?
 			"Enter" : "Exit",
-			hba->errors, ufshcd_get_upmcrs(hba));
+			hba->errors, ufshcd_get_upmcrs(hba),
+			ufshcd_readl(hba, REG_AUTO_HIBERNATE_IDLE_TIMER));
 		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
 				       hba->errors);
 		queue_eh_work = true;
