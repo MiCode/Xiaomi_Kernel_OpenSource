@@ -12,6 +12,7 @@ typedef u16 hh_vmid_t;
 typedef u32 hh_rm_msgid_t;
 typedef u32 hh_virq_handle_t;
 typedef u32 hh_label_t;
+typedef u32 hh_memparcel_handle_t;
 typedef u64 hh_capid_t;
 typedef u64 hh_dbl_flags_t;
 
