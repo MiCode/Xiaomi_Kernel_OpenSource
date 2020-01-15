@@ -1028,7 +1028,7 @@ int cmdq_pkt_timer_en(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_pkt_timer_en);
 
-s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
+s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 {
 	const u32 tpr_en = 1 << reg_gpr;
 	const u16 event = (u16)CMDQ_EVENT_GPR_TIMER + reg_gpr;
@@ -1057,12 +1057,22 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 	cmdq_pkt_read(pkt, NULL, timeout_en, CMDQ_SPR_FOR_TEMP);
 	cmdq_pkt_clear_event(pkt, event);
 
-	lop.reg = true;
-	lop.idx = CMDQ_TPR_ID;
-	rop.reg = false;
-	rop.value = tick;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_GPR_CNT_ID + reg_gpr,
-		&lop, &rop);
+	if (tick < U16_MAX) {
+		lop.reg = true;
+		lop.idx = CMDQ_TPR_ID;
+		rop.reg = false;
+		rop.value = tick;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD,
+			CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
+	} else {
+		cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP, tick);
+		lop.reg = true;
+		lop.idx = CMDQ_TPR_ID;
+		rop.reg = true;
+		rop.value = CMDQ_SPR_FOR_TEMP;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD,
+			CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
+	}
 	cmdq_pkt_wfe(pkt, event);
 
 	lop.reg = true;
@@ -1598,6 +1608,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_util_msg("skip since abort");
 		goto done;
 	}
+
 #else
 	cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 #endif

@@ -542,6 +542,8 @@ static int __init cmdq_util_init(void)
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
 
+	cmdq_msg("%s end", __func__);
+
 	return 0;
 }
 late_initcall(cmdq_util_init);

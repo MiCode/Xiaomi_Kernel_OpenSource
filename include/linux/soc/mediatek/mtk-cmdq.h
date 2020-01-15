@@ -324,7 +324,7 @@ int cmdq_pkt_timer_en(struct cmdq_pkt *pkt);
  *
  * Return 0 for success; else the error code is returned
  */
-s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr);
+s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr);
 
 s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr);

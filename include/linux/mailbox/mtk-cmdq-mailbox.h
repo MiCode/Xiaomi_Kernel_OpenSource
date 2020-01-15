@@ -217,6 +217,12 @@ extern int cmdq_trace;
 	} \
 } while (0)
 
+#define cmdq_trace_c(fmt, args...) do { \
+	preempt_disable(); \
+	event_trace_printk(cmdq_get_tracing_mark(), \
+		"C|"fmt, ##args); \
+	preempt_enable(); \
+} while (0)
 
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
 dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);

@@ -2358,6 +2358,13 @@ page_owner=on loop.max_part=7";
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
 
+	cmdq-bw-mon {
+		compatible = "mediatek,cmdq-bw-mon";
+		mboxes = <&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		smi_mon = <&smi_common>, <&mdp_smi_common>;
+		bw_mon_gpr = /bits/ 8 <GCE_GPR_R13>;
+	};
+
 	gce@10318000 {
 		compatible = "mediatek,gce";
 		reg = <0 0x10318000 0 0x4000>;
@@ -4199,7 +4206,7 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <1>;
 	};
 
-	smi_common@1411f000 {
+	smi_common: smi_common@1411f000 {
 		compatible = "mediatek,smi_common";
 		reg = <0 0x1411f000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_DIS>,
@@ -4230,7 +4237,7 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <25>;
 	};
 
-	mdp_smi_common@1f002000 {
+	mdp_smi_common: mdp_smi_common@1f002000 {
 		compatible = "mediatek,mdp_smi_common", "mediatek,smi_common";
 		reg = <0 0x1f002000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_MDP>,
