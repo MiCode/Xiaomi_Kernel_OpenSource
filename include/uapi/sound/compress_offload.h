@@ -241,10 +241,8 @@ struct snd_compr_metadata {
 #define SNDRV_COMPRESS_DRAIN		_IO('C', 0x34)
 #define SNDRV_COMPRESS_NEXT_TRACK	_IO('C', 0x35)
 #define SNDRV_COMPRESS_PARTIAL_DRAIN	_IO('C', 0x36)
-#ifdef CONFIG_AUDIO_QGKI
 #define SNDRV_COMPRESS_SET_NEXT_TRACK_PARAM\
 				_IOW('C', 0x80, union snd_codec_options)
-#endif
 /*
  * TODO
  * 1. add mmap support
