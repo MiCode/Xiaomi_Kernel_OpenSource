@@ -221,7 +221,6 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_VTS_TX, CCCI_VTS_RX, 3, 3, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 32, "ccci_vts",},
-
 	{CCCI_MD_DIRC_TX, CCCI_MD_DIRC_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 33, "ccci_0_200",},
@@ -231,7 +230,9 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_GARB_TX, CCCI_GARB_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 35, "ccci_0_204",},
-
+	{CCCI_IKERAW_TX, CCCI_IKERAW_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 36, "ccci_ikeraw",},
 /* IPC char port minor= minor idx + CCCI_IPC_MINOR_BASE(100) */
 	{CCCI_IPC_TX, CCCI_IPC_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
@@ -304,6 +305,7 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_SMEM_CH, CCCI_SMEM_CH, SMEM_Q, SMEM_Q, SMEM_Q, SMEM_Q,
 		CCIF_HIF_ID, PORT_F_WITH_CHAR_NODE,
 		&smem_port_ops, SMEM_USER_CCB_META, "ccci_ccb_meta",},
+
 };
 
 #ifdef CONFIG_MTK_ECCCI_C2K

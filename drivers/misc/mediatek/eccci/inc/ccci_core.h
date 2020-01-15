@@ -496,6 +496,8 @@ enum CCCI_CH {
 	CCCI_VTS_RX			= 189,
 	CCCI_VTS_TX			= 190,
 
+	CCCI_IKERAW_RX			= 191,
+	CCCI_IKERAW_TX			= 192,
 
 	CCCI_MD_DIRC_RX			= 200,
 	CCCI_MD_DIRC_TX			= 201,
@@ -503,7 +505,6 @@ enum CCCI_CH {
 	CCCI_TIME_TX			= 203,
 	CCCI_GARB_RX			= 204,
 	CCCI_GARB_TX			= 205,
-
 
 	CCCI_C2K_PPP_DATA, /* data ch for c2k */
 
