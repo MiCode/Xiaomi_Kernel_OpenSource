@@ -2994,3 +2994,4 @@
 #include "lahaina-vidc.dtsi"
 #include "lahaina-cvp.dtsi"
 #include "lahaina-pcie.dtsi"
+#include "lahaina-gpu.dtsi"
