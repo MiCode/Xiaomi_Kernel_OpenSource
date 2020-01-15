@@ -5265,10 +5265,17 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled) {
 		DDPINFO("CRTC%d skip path switch %u->%u, enable:%d\n",
-			drm_crtc_index(crtc), mtk_crtc->ddp_mode,
+			index, mtk_crtc->ddp_mode,
 			ddp_mode, crtc->enabled);
 		CRTC_MMP_MARK(index, path_switch, 0, 0);
 		goto done;
+	}
+	if ((index == 0) && !mtk_crtc->enabled) {
+		DDPINFO("CRTC%d skip path switch %u->%u, enable:%d\n",
+			index, mtk_crtc->ddp_mode,
+			ddp_mode, mtk_crtc->enabled);
+		CRTC_MMP_MARK(index, path_switch, 0, 1);
+		goto done2;
 	}
 
 	DDPINFO("%s crtc%d path switch(%d->%d)\n", __func__, index,
@@ -5281,7 +5288,7 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	 *     CRTC enable/disable function to create/destroy path.
 	 */
 	if (ddp_mode == DDP_NO_USE) {
-		CRTC_MMP_MARK(index, path_switch, 0, 1);
+		CRTC_MMP_MARK(index, path_switch, 0, 2);
 		if ((mtk_crtc->ddp_mode == DDP_MAJOR) && (index == 2))
 			need_wait = false;
 		else
@@ -5289,7 +5296,7 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 		mtk_drm_crtc_disable(crtc, need_wait);
 		goto done;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		CRTC_MMP_MARK(index, path_switch, 0, 2);
+		CRTC_MMP_MARK(index, path_switch, 0, 3);
 		mtk_crtc->ddp_mode = ddp_mode;
 		mtk_drm_crtc_enable(crtc);
 		goto done;
@@ -5318,6 +5325,16 @@ done:
 	if (crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)
 		mtk_crtc_update_ddp_sw_status(crtc, true);
 
+	if (need_lock)
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled,
+			need_lock);
+
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
+	return 0;
+
+done2:
 	if (need_lock)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
