@@ -5053,7 +5053,7 @@ static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	tcu_sync_pending = FIELD_GET(TCU_SYNC_IN_PRGSS, sync_inv_progress);
 
 	if (__ratelimit(&_rs)) {
-		unsigned long tbu_id, tbus_t = tbu_ids;
+		unsigned long tbu_id;
 
 		dev_err(smmu->dev,
 			"TBU ACK 0x%x TBU PWR 0x%x TCU sync_inv 0x%x\n",
@@ -5063,11 +5063,11 @@ static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu)
 			tcu_inv_pending?"pending":"completed",
 			tcu_sync_pending?"pending":"completed");
 
-		while (tbus_t) {
+		for_each_set_bit(tbu_id, (unsigned long *) &tbu_ids,
+				 sizeof(tbu_ids) * BITS_PER_BYTE) {
+
 			struct qsmmuv500_tbu_device *tbu;
 
-			tbu_id = __ffs(tbus_t);
-			tbus_t = tbus_t & ~(1 << tbu_id);
 			tbu = qsmmuv500_find_tbu(smmu,
 						 (u16)(tbu_id << TBUID_SHIFT));
 			if (tbu) {
