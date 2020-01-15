@@ -2786,22 +2786,22 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DIP_RD32(dipRegBasAddr + 0x7734));
 
 		/* IMGBI */
-		cmdq_util_err("imgci: 0x%x1300(0x%x)-0x%x1304(0x%x)",
+		cmdq_util_err("imgbi: 0x%x1300(0x%x)-0x%x1304(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x0300),
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x0304));
-		cmdq_util_err("imgci: 0x%x130C(0x%x)-0x%x1310(0x%x)",
+		cmdq_util_err("imgbi: 0x%x130C(0x%x)-0x%x1310(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x030C),
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x0310));
-		cmdq_util_err("imgci: 0x%x1314(0x%x)-0x%x1318(0x%x)",
+		cmdq_util_err("imgbi: 0x%x1314(0x%x)-0x%x1318(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x0314),
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x0318));
-		cmdq_util_err("imgci: 0x%x131C(0x%x)-0x%x1320(0x%x)",
+		cmdq_util_err("imgbi: 0x%x131C(0x%x)-0x%x1320(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x031C),
 			DipDumpTL[DIPNo].region,
