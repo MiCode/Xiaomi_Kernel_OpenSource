@@ -209,10 +209,10 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
  * @param data:  IPI data
  * @param len: IPI data length
  */
-static void ccci_scp_ipi_handler(int id, void *prdata, void *data,
+static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 			unsigned int len)
 #else
-static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
+static int ccci_scp_ipi_handler(unsigned int id, void *data, unsigned int len)
 #endif
 {
 	struct ccci_ipi_msg *ipi_msg_ptr = (struct ccci_ipi_msg *)data;
@@ -222,7 +222,7 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 		CCCI_ERROR_LOG(-1, CORE,
 		"IPI handler, data length wrong %d vs. %d\n",
 		len, (int)sizeof(struct ccci_ipi_msg));
-		return;
+		return -1;
 	}
 	CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, CORE,
 		"IPI handler %d/0x%x, %d\n",
@@ -231,11 +231,13 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 
 	skb = ccci_alloc_skb(len, 0, 0);
 	if (!skb)
-		return;
+		return -1;
 	memcpy(skb_put(skb, len), data, len);
 	ccci_skb_enqueue(&scp_ipi_rx_skb_list, skb);
 	/* ipi_send use mutex, can not be called from ISR context */
 	schedule_work(&scp_ipi_rx_work);
+
+	return 0;
 }
 #endif
 
