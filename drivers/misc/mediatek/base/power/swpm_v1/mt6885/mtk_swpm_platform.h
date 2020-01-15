@@ -97,6 +97,13 @@ enum dram_pwr_type {
 	NR_DRAM_PWR_TYPE
 };
 
+enum cpu_type {
+	CPU_TYPE_L,
+	CPU_TYPE_B,
+
+	NR_CPU_TYPE
+};
+
 enum cpu_lkg_type {
 	CPU_L_LKG,
 	CPU_B_LKG,
@@ -140,6 +147,7 @@ enum mcusys_power_state {
 
 /* TODO: cpu power index structure */
 struct cpu_swpm_index {
+	/* for calculation */
 	unsigned int core_state_ratio[NR_CPU_CORE_POWER_STATE][NR_CPU_CORE];
 	unsigned int cpu_stall_ratio[NR_CPU_CORE];
 	unsigned int cluster_state_ratio[NR_CPU_CLUSTER_POWER_STATE];
@@ -147,6 +155,14 @@ struct cpu_swpm_index {
 	unsigned int pmu_val[MAX_PMU_CNT][NR_CPU_CORE];
 	unsigned int l3_bw;
 	unsigned int cpu_emi_bw;
+
+	/* for recording */
+	unsigned int cpu_volt_mv[NR_CPU_TYPE];
+	unsigned int cpu_freq_mhz[NR_CPU_TYPE];
+	unsigned int cpu_opp[NR_CPU_TYPE];
+	unsigned int cci_volt_mv;
+	unsigned int cci_freq_mhz;
+	unsigned int cci_opp;
 };
 
 /* TODO: infra power state for core power */
@@ -163,13 +179,18 @@ enum infra_power_state {
 #define MAX_EMI_NUM (2)
 /* TODO: core power index structure */
 struct core_swpm_index {
+	/* for calculation */
 	unsigned int infra_state_ratio[NR_INFRA_POWER_STATE];
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
+
+	/* for recording */
+	unsigned int vcore_mv;
 };
 
 /* TODO: dram power index structure */
 struct mem_swpm_index {
+	/* for calculation */
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
 	unsigned int srr_pct;			/* self refresh rate */
@@ -177,6 +198,9 @@ struct mem_swpm_index {
 	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
 	unsigned int acc_util[MAX_EMI_NUM];	/* accumulate EMI utilization */
 	unsigned int mr4;
+
+	/* for recording */
+	unsigned int ddr_freq_mhz;
 };
 
 struct share_index {
