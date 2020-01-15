@@ -894,7 +894,7 @@ void msdc_dump_padctl_by_id(char **buff, unsigned long *size,
 			"MSDC0 MODE23 [0x%p] =0x%8x\tshould: 0x11111111\n",
 			MSDC0_GPIO_MODE23, MSDC_READ32(MSDC0_GPIO_MODE23));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC0 MODE24 [0x%p] =0x%8x\tshould: 0x?????111\n",
+			"MSDC0 MODE24 [0x%p] =0x%8x\tshould: 0x?????011\n",
 			MSDC0_GPIO_MODE24, MSDC_READ32(MSDC0_GPIO_MODE24));
 		SPREAD_PRINTF(buff, size, m,
 			"MSDC0 IES    [0x%p] =0x%8x\tshould: 0x?????FFF\n",
@@ -1037,7 +1037,7 @@ void msdc_set_pin_mode(struct msdc_host *host)
 	if (host->id == 0) {
 		MSDC_SET_FIELD(MSDC0_GPIO_MODE22, 0xF0000000, 0x1);
 		MSDC_SET_FIELD(MSDC0_GPIO_MODE23, 0xFFFFFFFF, 0x11111111);
-		MSDC_SET_FIELD(MSDC0_GPIO_MODE24, 0x00000FFF, 0x111);
+		MSDC_SET_FIELD(MSDC0_GPIO_MODE24, 0x00000FFF, 0x011);
 	} else if (host->id == 1) {
 #ifndef SD_GPIO_PAD_A_EN
 
