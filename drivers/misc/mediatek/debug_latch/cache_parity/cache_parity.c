@@ -157,12 +157,27 @@ static void handle_error(struct work_struct *w)
 			"status", wd->data.v1.status,
 			"CRDISPATCH_KEY:Cache Parity Issue");
 	} else if (wd->version == 2) {
+		char error_type[3];
+
+		if (cache_parity_wd.data.v2.status_el1 & ECC_UE_BIT)
+			strcpy(error_type, "UE");
+		else if (cache_parity_wd.data.v2.status_el1 & ECC_CE_BIT)
+			strcpy(error_type, "CE");
+		else if (cache_parity_wd.data.v2.status_el1 & ECC_DE_BIT)
+			strcpy(error_type, "DE");
+		else
+			strcpy(error_type, "NA");
+
 		aee_kernel_exception("cache parity",
-			"ecc error,%s:%d, %s:%llu, %s:%llu\n\n%s\n",
-			"irq_index", wd->data.v2.irq_index,
+			"ecc error(%s), %s:%d, %s:%016llx, %s:%016llx\n\n%s\n",
+			error_type, "irq_index", wd->data.v2.irq_index,
 			"misc0_el1", cache_parity_wd.data.v2.misc0_el1,
 			"status_el1", cache_parity_wd.data.v2.status_el1,
 			"CRDISPATCH_KEY:Cache Parity Issue");
+		aee_sram_printk("ecc error(%s): %s%d, %s:0x%016llx, %s:0x%016llx\n",
+			error_type, "irq", wd->data.v2.irq_index,
+			"misc0_el1", cache_parity_wd.data.v2.misc0_el1,
+			"status_el1", cache_parity_wd.data.v2.status_el1);
 	} else {
 		pr_debug("Unknown Cache Error Irq\n");
 	}
@@ -183,7 +198,7 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 	/* OK, can start a worker to generate error report */
 	schedule_work(&cache_parity_wd.work);
 
-	pr_debug("ecc error,%s:%d, %s:%llu, %s:%llu\n",
+	pr_warn("ecc error,%s:%d, %s%016llx, %s:%016llx\n",
 	       "irq_index", cache_parity_wd.data.v2.irq_index,
 	       "misc0_el1", cache_parity_wd.data.v2.misc0_el1,
 	       "status_el1", cache_parity_wd.data.v2.status_el1);
