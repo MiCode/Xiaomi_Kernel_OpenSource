@@ -45,7 +45,7 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 
 	ret = drm_gem_object_init(dev, &mtk_gem_obj->base, size);
 	if (ret < 0) {
-		DRM_ERROR("failed to initialize gem object\n");
+		DDPPR_ERR("failed to initialize gem object\n");
 		kfree(mtk_gem_obj);
 		return ERR_PTR(ret);
 	}
@@ -128,6 +128,7 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 				__func__, __LINE__);
 		return;
 	}
+	mtk_gem->sec = false;
 	mtk_gem->dma_addr = (unsigned int)mm_data.get_phys_param.phy_addr;
 	mtk_gem->size = mm_data.get_phys_param.len;
 #endif
@@ -193,6 +194,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 		mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
 		sgt = mtk_gem_vmap_pa(fb_base, vramsize, 0, dev->dev, &fb_pa);
 
+		mtk_gem->sec = false;
 		mtk_gem->dma_addr = (dma_addr_t)fb_pa;
 		mtk_gem->size = size;
 		mtk_gem->cookie =
@@ -233,7 +235,7 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
 				GFP_KERNEL, mtk_gem->dma_attrs, __func__,
 				__LINE__);
 	if (!mtk_gem->cookie) {
-		DRM_ERROR("failed to allocate %zx byte dma buffer", obj->size);
+		DDPPR_ERR("failed to allocate %zx byte dma buffer", obj->size);
 		ret = -ENOMEM;
 		goto err_gem_free;
 	}
@@ -320,7 +322,7 @@ int mtk_drm_gem_dumb_map_offset(struct drm_file *file_priv,
 
 	obj = drm_gem_object_lookup(file_priv, handle);
 	if (!obj) {
-		DRM_ERROR("failed to lookup gem object.\n");
+		DDPPR_ERR("failed to lookup gem object.\n");
 		return -EINVAL;
 	}
 
@@ -390,11 +392,20 @@ struct ion_handle *mtk_gem_ion_import_dma_buf(struct ion_client *client,
 {
 	struct ion_handle *handle;
 
+	DDPDBG("%s:%d client:0x%p, dma_buf=0x%p, name:%s, line:%d +\n",
+		   __func__, __LINE__,
+		   client,
+		   dmabuf,
+		   name,
+		   line);
 	DRM_MMP_EVENT_START(ion_import_dma, (unsigned long)client, line);
 	handle = ion_import_dma_buf(client, dmabuf);
 
 	DRM_MMP_EVENT_END(ion_import_dma, (unsigned long)handle,
 			(unsigned long)dmabuf);
+	DDPDBG("%s:%d handle:0x%p -\n",
+		   __func__, __LINE__,
+		   handle);
 
 	return handle;
 }
@@ -405,6 +416,12 @@ struct ion_handle *mtk_gem_ion_import_dma_fd(struct ion_client *client,
 	struct ion_handle *handle;
 	struct dma_buf *dmabuf;
 
+	DDPDBG("%s:%d client:0x%p, fd=%d, name:%s, line:%d +\n",
+		   __func__, __LINE__,
+		   client,
+		   fd,
+		   name,
+		   line);
 	DRM_MMP_EVENT_START(ion_import_fd, (unsigned long)client, line);
 	handle = ion_import_dma_buf_fd(client, fd);
 
@@ -419,6 +436,8 @@ struct ion_handle *mtk_gem_ion_import_dma_fd(struct ion_client *client,
 			(unsigned long)dmabuf);
 
 	dma_buf_put(dmabuf);
+	DDPDBG("%s:%d -\n",
+		   __func__, __LINE__);
 
 	return handle;
 }
@@ -484,6 +503,10 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 {
 	struct ion_handle *handle = NULL;
 
+	DDPDBG("%s:%d client:0x%p, fd=%d +\n",
+		   __func__, __LINE__,
+		   client,
+		   fd);
 	if (!client) {
 		DDPPR_ERR("invalid ion client!\n");
 		return handle;
@@ -495,6 +518,9 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 			fd);
 		return NULL;
 	}
+	DDPDBG("%s:%d handle:0x%p -\n",
+		   __func__, __LINE__,
+		   handle);
 
 	return handle;
 }
@@ -513,6 +539,11 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	struct ion_client *client;
 	struct ion_handle *handle;
 
+	DDPDBG("%s:%d dev:0x%p, dma_buf=0x%p +\n",
+		   __func__, __LINE__,
+		   dev,
+		   dma_buf);
+
 	client = priv->client;
 	handle = mtk_gem_ion_import_dma_buf(client, dma_buf,
 			__func__, __LINE__);
@@ -530,6 +561,13 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	mtk_gem = to_mtk_gem_obj(obj);
 	mtk_gem->handle = handle;
 
+	DDPDBG("%s:%d client:0x%p, handle=0x%p obj:0x%p, gem:0x%p -\n",
+		   __func__, __LINE__,
+		   client,
+		   handle,
+		   obj,
+		   mtk_gem);
+
 	return obj;
 }
 
@@ -546,18 +584,30 @@ struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj)
 	struct sg_table *sgt;
 	int ret;
 
+	DDPDBG("%s:%d obj:0x%p +\n",
+		   __func__, __LINE__,
+		   obj);
+
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
-	if (!sgt)
+	if (!sgt) {
+		DDPPR_ERR("%s:%d sgt alloc error\n",
+			   __func__, __LINE__);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	ret = dma_get_sgtable_attrs(priv->dma_dev, sgt, mtk_gem->cookie,
 				    mtk_gem->dma_addr, obj->size,
 				    mtk_gem->dma_attrs);
 	if (ret) {
-		DRM_ERROR("failed to allocate sgt, %d\n", ret);
+		DDPPR_ERR("failed to allocate sgt, %d\n", ret);
 		kfree(sgt);
 		return ERR_PTR(ret);
 	}
+
+	DDPDBG("%s:%d sgt:0x%p ret:%d -\n",
+		   __func__, __LINE__,
+		   sgt,
+		   ret);
 
 	return sgt;
 }
@@ -573,24 +623,41 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	unsigned int i;
 	dma_addr_t expected;
 
+	DDPDBG("%s:%d dev:0x%p, attach:0x%p, sg:0x%p +\n",
+			__func__, __LINE__,
+			dev,
+			attach,
+			sg);
 	mtk_gem = mtk_drm_gem_init(dev, attach->dmabuf->size);
 
-	if (IS_ERR(mtk_gem))
+	if (IS_ERR(mtk_gem)) {
+		DDPPR_ERR("%s:%d mtk_gem error:0x%p\n",
+				__func__, __LINE__,
+				mtk_gem);
 		return ERR_PTR(PTR_ERR(mtk_gem));
+	}
 
 	expected = sg_dma_address(sg->sgl);
 	for_each_sg(sg->sgl, s, sg->nents, i) {
 		if (sg_dma_address(s) != expected) {
-			DRM_ERROR("sg_table is not contiguous");
+			DDPPR_ERR("sg_table is not contiguous");
 			ret = -EINVAL;
 			goto err_gem_free;
 		}
 		expected = sg_dma_address(s) + sg_dma_len(s);
 	}
 
+	mtk_gem->sec = false;
 	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
 	mtk_gem->size = attach->dmabuf->size;
 	mtk_gem->sg = sg;
+
+	DDPDBG("%s:%d sec:%d, addr:0x%llx, size:%ld, sg:0x%p -\n",
+			__func__, __LINE__,
+			mtk_gem->sec,
+			mtk_gem->dma_addr,
+			mtk_gem->size,
+			mtk_gem->sg);
 
 	return &mtk_gem->base;
 
@@ -615,9 +682,9 @@ int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_gem_create *args = data;
 	int ret;
 
-	DRM_INFO("%s(), args->size %llu\n", __func__, args->size);
+	DDPDBG("%s(), args->size %llu\n", __func__, args->size);
 	if (args->size == 0) {
-		DRM_ERROR("%s(), invalid args->size %llu\n",
+		DDPPR_ERR("%s(), invalid args->size %llu\n",
 			  __func__, args->size);
 		return 0;
 	}
@@ -717,6 +784,12 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 	struct drm_mtk_sec_gem_hnd *args = data;
 	struct mtk_drm_gem_obj *mtk_gem_obj;
 
+	DDPDBG("%s:%d dev:0x%p, data:0x%p, priv:0x%p +\n",
+		  __func__, __LINE__,
+		  dev,
+		  data,
+		  file_priv);
+
 	if (!drm_core_check_feature(dev, DRIVER_PRIME))
 		return -EINVAL;
 
@@ -728,6 +801,12 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 	mtk_gem_obj->dma_addr = args->sec_hnd;
 	drm_gem_private_object_init(dev, &mtk_gem_obj->base, 0);
 	drm_gem_handle_create(file_priv, &mtk_gem_obj->base, &args->gem_hnd);
+
+	DDPDBG("%s:%d obj:0x%p, sec:%d, addr:0x%llx -\n",
+		  __func__, __LINE__,
+		  mtk_gem_obj,
+		  mtk_gem_obj->sec,
+		  mtk_gem_obj->dma_addr);
 
 	return 0;
 }

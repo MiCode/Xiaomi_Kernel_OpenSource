@@ -3373,7 +3373,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	/* Disable secure path */
 	cmdq_sec_pkt_set_data(cmdq_handle,
 		0,
-		(0 << CMDQ_SEC_DISP_OVL0) | (0 << CMDQ_SEC_DISP_2L_OVL0),
+		(1 << CMDQ_SEC_DISP_OVL0) | (1 << CMDQ_SEC_DISP_2L_OVL0),
 		CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH,
 		CMDQ_METAEX_NONE);
 
@@ -3398,17 +3398,10 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
 
-	if (mtk_crtc->sec_on) {
+	if (mtk_crtc->sec_on)
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		cmdq_sec_pkt_set_data(cmdq_handle, 0,
-			(1 << CMDQ_SEC_DISP_OVL0) |
-			(1 << CMDQ_SEC_DISP_2L_OVL0),
-			CMDQ_SEC_PRIMARY_DISP,
-			CMDQ_METAEX_NONE);
-#endif
-	} else if (mtk_crtc_is_dc_mode(crtc))
+	else if (mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
 	else
@@ -3416,6 +3409,20 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+
+	if (mtk_crtc->sec_on) {
+		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
+				__func__, __LINE__,
+				crtc,
+				mtk_crtc->sec_on);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		cmdq_sec_pkt_set_data(cmdq_handle, 0,
+			(1 << CMDQ_SEC_DISP_OVL0) |
+			(1 << CMDQ_SEC_DISP_2L_OVL0),
+			CMDQ_SEC_PRIMARY_DISP,
+			CMDQ_METAEX_NONE);
+#endif
+	}
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	/* update DAL layer in secure world */
