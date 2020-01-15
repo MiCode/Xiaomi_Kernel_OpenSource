@@ -16,6 +16,7 @@
 #include <linux/buffer_head.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
+#include <linux/regulator/consumer.h>
 
 #include "autok_dvfs.h"
 #include "mtk_sd.h"
@@ -942,6 +943,7 @@ int emmc_autok(void)
 	void __iomem *base;
 	int merge_result, merge_mode, merge_window;
 	int i, vcore_step1 = -1, vcore_step2 = 0;
+	struct regulator *reg_vcore;
 	/*
 	 * Static variable required by vcore dvfs module, otherwise deadlock
 	 * happens.
@@ -977,10 +979,10 @@ int emmc_autok(void)
 
 	for (i = 0; i < AUTOK_VCORE_NUM; i++) {
 		pm_qos_update_request(&autok_force, autok_opp[i]);
-		/* vcore = 0.51875V + 6.25mV * vcore_step2 */
-		vcore_step2 = pmic_get_register_value(PMIC_RG_BUCK_VCORE_VOSEL);
-		pr_notice("msdc fix vcore, PMIC_RG_BUCK_VCORE_VOSEL: %d\n",
-			vcore_step2);
+		reg_vcore = devm_regulator_get_optional(mmc_dev(host->mmc),
+							"vcore");
+		vcore_step2 = regulator_get_voltage(reg_vcore);
+		pr_notice("msdc fix vcore: %d\n", vcore_step2);
 
 		if (vcore_step2 == vcore_step1) {
 			pr_info("skip duplicated vcore autok\n");
