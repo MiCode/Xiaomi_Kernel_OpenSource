@@ -2690,7 +2690,16 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 		tscpu_warn("regulator_get vcore_reg_id failed\n");
 #endif
 #endif
-	return err;
+
+	err = tscpu_register_thermal();
+	if (err) {
+		tscpu_warn("tscpu_register_thermal fail\n");
+		return err;
+	}
+
+	tscpu_create_fs();
+
+	return 0;
 }
 
 static int __init tscpu_init(void)
@@ -2708,19 +2717,7 @@ static int __init tscpu_init(void)
 		return err;
 	}
 
-	err = tscpu_register_thermal();
-	if (err) {
-		tscpu_warn("tscpu_register_thermal fail\n");
-		goto err_unreg;
-	}
-
-	tscpu_create_fs();
-
-
 	return 0;
-
-err_unreg:
-	return err;
 }
 
 

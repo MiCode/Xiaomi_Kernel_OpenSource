@@ -1448,6 +1448,9 @@ static int lvts_read_tc_raw_and_temp(
 {
 	int temp = 0, raw = 0, raw1 = 0, raw2 = 0;
 
+	if (thermal_base == 0)
+		return 0;
+
 	if (tempmsr_name == 0)
 		return 0;
 
