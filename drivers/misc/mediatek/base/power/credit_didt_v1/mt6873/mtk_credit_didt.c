@@ -229,8 +229,6 @@ static void credit_didt_reserve_memory_init(unsigned int log_offset)
 {
 	char *buf;
 
-	return;
-
 	if (log_offset == 0) {
 		credit_didt_mem_base_virt = 0;
 		credit_didt_mem_size = 0x80000;
@@ -313,54 +311,95 @@ static void mtk_credit_didt(unsigned int cpu,
  ************************************************/
 static int credit_didt_proc_show(struct seq_file *m, void *v)
 {
-	int cpu, ls_vx, cfg, param, cpu_tmp;
-	unsigned char credit_didt_info[NR_CREDIT_DIDT_CPU]
+	int cpu, cpu_tmp;
+	unsigned int credit_didt_info[NR_CREDIT_DIDT_CPU]
 		[NR_CREDIT_DIDT_CHANNEL][NR_CREDIT_DIDT_CFG];
+	unsigned int credit_didt_bcpu_cfg[NR_CREDIT_DIDT_CPU];
+	unsigned int credit_didt_ao_cfg[NR_CREDIT_DIDT_CPU];
 
 	for (cpu = CREDIT_DIDT_CPU_START_ID;
 		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
 
-		for (ls_vx = 0; ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
-			for (cfg = 0; cfg < NR_CREDIT_DIDT_CFG; cfg++) {
-				param = ls_vx * NR_CREDIT_DIDT_CFG + cfg;
+		cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
 
-				cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
-				credit_didt_info[cpu_tmp][ls_vx][cfg] =
+		do {
+			credit_didt_bcpu_cfg[cpu_tmp] =
 				mt_secure_call_credit_didt(
 					MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
-					CREDIT_DIDT_RW_READ,
-					cpu,
-					param,
+					CREDIT_DIDT_RW_REG_READ,
+					CREDIT_DIDT_CPU_BASE[cpu_tmp]+
+					CREDIT_DIDT_DIDT_CONTROL,
+					0,
 					0);
+		} while (credit_didt_bcpu_cfg[cpu_tmp] == 0xdeadbeef);
 
-				credit_didt_msg(
-					"Get cpu=%d ls_vx=%d cfg=%d value=%d\n",
-					cpu, ls_vx, cfg,
-					credit_didt_info[cpu_tmp][ls_vx][cfg]);
-			}
-		}
-	}
+		do {
+			credit_didt_ao_cfg[cpu_tmp] =
+				mt_secure_call_credit_didt(
+					MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
+					CREDIT_DIDT_RW_REG_READ,
+					CREDIT_DIDT_CPU_AO_BASE[cpu_tmp],
+					0,
+					0);
+		} while (credit_didt_ao_cfg[cpu_tmp] == 0xdeadbeef);
 
-	for (cpu = CREDIT_DIDT_CPU_START_ID;
-		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
-		for (ls_vx = 0; ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
+		credit_didt_msg(
+			"[CPU%d] bcpu_value=0x%08x, ao_value=0x%08x\n",
+			cpu,
+			credit_didt_bcpu_cfg[cpu_tmp],
+			credit_didt_ao_cfg[cpu_tmp]);
 
-			cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
-			seq_printf(m,
-			"cpu%d %s period=%d credit=%d low_period=%d low_freq_en=%d enable=%d\n",
-			cpu, (ls_vx == 0 ? "LS" : "VX"),
-			credit_didt_info[cpu_tmp][ls_vx]
+		/* LS */
+		credit_didt_info[cpu_tmp][0][CREDIT_DIDT_CFG_PERIOD] =
+			GET_BITS_VAL(7:5, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][0][CREDIT_DIDT_CFG_CREDIT] =
+			GET_BITS_VAL(4:0, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][0][CREDIT_DIDT_CFG_LOW_PWR_PERIOD] =
+			GET_BITS_VAL(10:8, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][0][CREDIT_DIDT_CFG_LOW_PWR_ENABLE] =
+			GET_BITS_VAL(11:11, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][0][CREDIT_DIDT_CFG_ENABLE] =
+			GET_BITS_VAL(15:15, credit_didt_ao_cfg[cpu_tmp]);
+
+		/* VX */
+		credit_didt_info[cpu_tmp][1][CREDIT_DIDT_CFG_PERIOD] =
+			GET_BITS_VAL(23:21, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][1][CREDIT_DIDT_CFG_CREDIT] =
+			GET_BITS_VAL(20:16, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][1][CREDIT_DIDT_CFG_LOW_PWR_PERIOD] =
+			GET_BITS_VAL(26:24, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][1][CREDIT_DIDT_CFG_LOW_PWR_ENABLE] =
+			GET_BITS_VAL(27:27, credit_didt_bcpu_cfg[cpu_tmp]);
+		credit_didt_info[cpu_tmp][1][CREDIT_DIDT_CFG_ENABLE] =
+			GET_BITS_VAL(18:18, credit_didt_ao_cfg[cpu_tmp]);
+
+		seq_printf(m,
+			"cpu%d LS period=%d credit=%d low_period=%d low_freq_en=%d enable=%d\n",
+			cpu,
+			credit_didt_info[cpu_tmp][0]
 				[CREDIT_DIDT_CFG_PERIOD],
-			credit_didt_info[cpu_tmp][ls_vx]
+			credit_didt_info[cpu_tmp][0]
 				[CREDIT_DIDT_CFG_CREDIT],
-			credit_didt_info[cpu_tmp][ls_vx]
+			credit_didt_info[cpu_tmp][0]
 				[CREDIT_DIDT_CFG_LOW_PWR_PERIOD],
-			credit_didt_info[cpu_tmp][ls_vx]
+			credit_didt_info[cpu_tmp][0]
 				[CREDIT_DIDT_CFG_LOW_PWR_ENABLE],
-			credit_didt_info[cpu_tmp][ls_vx]
-				[CREDIT_DIDT_CFG_ENABLE]
-				);
-		}
+			credit_didt_info[cpu_tmp][0]
+				[CREDIT_DIDT_CFG_ENABLE]);
+
+		seq_printf(m,
+			"cpu%d VX period=%d credit=%d low_period=%d low_freq_en=%d enable=%d\n",
+			cpu,
+			credit_didt_info[cpu_tmp][1]
+				[CREDIT_DIDT_CFG_PERIOD],
+			credit_didt_info[cpu_tmp][1]
+				[CREDIT_DIDT_CFG_CREDIT],
+			credit_didt_info[cpu_tmp][1]
+				[CREDIT_DIDT_CFG_LOW_PWR_PERIOD],
+			credit_didt_info[cpu_tmp][1]
+				[CREDIT_DIDT_CFG_LOW_PWR_ENABLE],
+			credit_didt_info[cpu_tmp][1]
+				[CREDIT_DIDT_CFG_ENABLE]);
 	}
 
 	return 0;
@@ -519,32 +558,37 @@ out:
 static int credit_didt_const_mode_proc_show(struct seq_file *m, void *v)
 {
 	int cpu, cpu_tmp;
-
 	unsigned char credit_didt_const_mode[NR_CREDIT_DIDT_CPU];
+	unsigned int credit_didt_bcpu_cfg[NR_CREDIT_DIDT_CPU];
 
 	for (cpu = CREDIT_DIDT_CPU_START_ID;
 		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
 
 		cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+
+		do {
+			credit_didt_bcpu_cfg[cpu_tmp] =
+				mt_secure_call_credit_didt(
+					MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
+					CREDIT_DIDT_RW_REG_READ,
+					CREDIT_DIDT_CPU_BASE[cpu_tmp]+
+					CREDIT_DIDT_DIDT_CONTROL,
+					0,
+					0);
+		} while (credit_didt_bcpu_cfg[cpu_tmp] == 0xdeadbeef);
+
+		credit_didt_msg(
+			"[CPU%d] bcpu_value=0x%08x\n",
+			cpu,
+			credit_didt_bcpu_cfg[cpu_tmp]);
+
 		credit_didt_const_mode[cpu_tmp] =
-			mt_secure_call_credit_didt(
-				MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
-				CREDIT_DIDT_RW_READ,
-				cpu,
-				CREDIT_DIDT_PARAM_CONST_MODE,
-				0);
-
-		credit_didt_msg("Get cpu=%d const_mode=%d\n",
-			cpu, credit_didt_const_mode[cpu_tmp]);
-	}
-
-	for (cpu = CREDIT_DIDT_CPU_START_ID;
-		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
-		cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+			GET_BITS_VAL(31:31, credit_didt_bcpu_cfg[cpu_tmp]);
 
 		seq_printf(m,
-		"cpu%d const_mode=%d\n",
-		cpu, credit_didt_const_mode[cpu_tmp]);
+			"cpu%d const_mode=%d\n",
+			cpu,
+			credit_didt_const_mode[cpu_tmp]);
 	}
 
 	return 0;
@@ -574,7 +618,7 @@ static ssize_t credit_didt_const_mode_proc_write(struct file *file,
 
 	for (cpu = CREDIT_DIDT_CPU_START_ID;
 		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
-		mtk_credit_didt_const_mode(cpu, value);
+		mtk_credit_didt_const_mode(cpu, (value >> cpu) & 1);
 	}
 
 out:
@@ -801,9 +845,10 @@ static int credit_didt_probe(struct platform_device *pdev)
 		for (cpu = CREDIT_DIDT_CPU_START_ID;
 			cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
 
-			if (credit_didt_doe_const_mode < 2)
-				mtk_credit_didt_const_mode(cpu,
-					credit_didt_doe_const_mode);
+			if (credit_didt_doe_const_mode < 256)
+				mtk_credit_didt_const_mode(
+				cpu,
+				(credit_didt_doe_const_mode >> cpu) & 1);
 		}
 	}
 

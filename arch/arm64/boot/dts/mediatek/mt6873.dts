@@ -6093,7 +6093,7 @@
 		compatible = "mediatek,credit_didt";
 		credit_didt_doe_ptp = <256>;
 		credit_didt_doe_enable = <65536>;
-		credit_didt_doe_const_mode = <2>;
+		credit_didt_doe_const_mode = <256>;
 		credit_didt_doe_ls_period = <8>;
 		credit_didt_doe_ls_credit = <32>;
 		credit_didt_doe_ls_low_freq_period = <8>;

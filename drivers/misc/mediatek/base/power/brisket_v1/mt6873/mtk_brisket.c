@@ -223,8 +223,6 @@ static void brisket_reserve_memory_init(unsigned int log_offset)
 {
 	char *buf;
 
-	return;
-
 	if (log_offset == 0) {
 		brisket_mem_base_virt = 0;
 		brisket_mem_size = 0x80000;
@@ -294,6 +292,31 @@ void mtk_brisket_bren(unsigned int brisket_bren)
 	}
 }
 
+void mtk_brisket_kpki(unsigned int cpu, unsigned int brisket_kp_online,
+		unsigned int brisket_ki_online,
+		unsigned int brisket_kp_offline,
+		unsigned int brisket_ki_offline)
+{
+	unsigned int brisket_kpki;
+	const unsigned int brisket_group = BRISKET_GROUP_05;
+	const unsigned int bits = 20;
+	const unsigned int shift = 0;
+	unsigned int brisket_group_bits_shift =
+		(brisket_group << 16) | (bits << 8) | shift;
+
+	brisket_kpki =
+		(brisket_kp_online << 16) |
+		(brisket_ki_online << 10) |
+		(brisket_kp_offline << 6) |
+		(brisket_ki_offline << 0);
+
+	mt_secure_call_brisket(MTK_SIP_KERNEL_BRISKET_CONTROL,
+		BRISKET_RW_WRITE,
+		cpu,
+		brisket_group_bits_shift,
+		brisket_kpki);
+}
+
 static void mtk_brisket(unsigned int cpu, unsigned int brisket_group,
 	unsigned int bits, unsigned int shift, unsigned int value)
 {
@@ -347,9 +370,9 @@ out:
 
 static int brisket_pllclken_proc_show(struct seq_file *m, void *v)
 {
-	int cpu, brisket_pllclken;
+	int cpu, brisket_pllclken, brisket_control;
 	const unsigned int brisket_group = BRISKET_GROUP_CONTROL;
-	const unsigned int bits = 1;
+	const unsigned int bits = 31;
 	const unsigned int shift = 0;
 	unsigned int brisket_group_bits_shift;
 
@@ -361,14 +384,22 @@ static int brisket_pllclken_proc_show(struct seq_file *m, void *v)
 		brisket_msg("cpu(%d) brisket_group(%d) bits(%d) shift(%d)\n",
 			cpu, brisket_group, bits, shift);
 
-		brisket_pllclken =
-			mt_secure_call_brisket(
-			MTK_SIP_KERNEL_BRISKET_CONTROL,
-			BRISKET_RW_READ,
-			cpu,
-			brisket_group_bits_shift,
-			0);
+		do {
+			brisket_control =
+				mt_secure_call_brisket(
+				MTK_SIP_KERNEL_BRISKET_CONTROL,
+				BRISKET_RW_READ,
+				cpu,
+				brisket_group_bits_shift,
+				0);
+		} while (brisket_control == 0xdeadbeef);
 
+		brisket_msg(
+			"[CPU%d] brisket_control=0x%08x\n",
+			cpu,
+			brisket_control);
+
+		brisket_pllclken = GET_BITS_VAL(0:0, brisket_control);
 		seq_printf(m, "CPU%d: BRISKET_CONTROL_Pllclken = %d\n",
 			cpu,
 			brisket_pllclken);
@@ -414,10 +445,10 @@ out:
 
 static int brisket_bren_proc_show(struct seq_file *m, void *v)
 {
-	int cpu, brisket_bren;
+	int cpu, brisket_bren, brisket_05;
 	const unsigned int brisket_group = BRISKET_GROUP_05;
-	const unsigned int bits = 1;
-	const unsigned int shift = 20;
+	const unsigned int bits = 31;
+	const unsigned int shift = 0;
 	unsigned int brisket_group_bits_shift;
 
 	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
@@ -428,13 +459,22 @@ static int brisket_bren_proc_show(struct seq_file *m, void *v)
 		brisket_msg("cpu(%d) brisket_group(%d) bits(%d) shift(%d)\n",
 			cpu, brisket_group, bits, shift);
 
-		brisket_bren =
-			mt_secure_call_brisket(
-			MTK_SIP_KERNEL_BRISKET_CONTROL,
-			BRISKET_RW_READ,
+		do {
+			brisket_05 =
+				mt_secure_call_brisket(
+				MTK_SIP_KERNEL_BRISKET_CONTROL,
+				BRISKET_RW_READ,
+				cpu,
+				brisket_group_bits_shift,
+				0);
+		} while (brisket_05 == 0xdeadbeef);
+
+		brisket_msg(
+			"[CPU%d] brisket_05=0x%08x\n",
 			cpu,
-			brisket_group_bits_shift,
-			0);
+			brisket_05);
+
+		brisket_bren = GET_BITS_VAL(20:20, brisket_05);
 
 		seq_printf(m, "CPU%d: BRISKET05_Bren = %d\n",
 			cpu,
@@ -443,6 +483,97 @@ static int brisket_bren_proc_show(struct seq_file *m, void *v)
 
 	return 0;
 }
+
+static ssize_t brisket_kpki_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	int cpu, brisket_kp_online, brisket_kp_offline,
+		brisket_ki_online, brisket_ki_offline;
+
+	/* proc template for check */
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	/* parameter check */
+	if (sscanf(buf, "%u %u %u %u %u",
+		&cpu, &brisket_kp_online, &brisket_ki_online,
+		&brisket_kp_offline, &brisket_ki_offline) != 5) {
+
+		brisket_err("bad argument!! Should input 5 arguments.\n");
+		goto out;
+	}
+
+	/* sync parameter with trust-zoon */
+	mtk_brisket_kpki(cpu, (unsigned int)brisket_kp_online,
+		(unsigned int)brisket_ki_online,
+		(unsigned int)brisket_kp_offline,
+		(unsigned int)brisket_ki_offline);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
+}
+
+static int brisket_kpki_proc_show(struct seq_file *m, void *v)
+{
+	int cpu, brisket_kp_online, brisket_kp_offline,
+		brisket_ki_online, brisket_ki_offline, brisket_05;
+	const unsigned int brisket_group = BRISKET_GROUP_05;
+	const unsigned int bits = 31;
+	const unsigned int shift = 0;
+	unsigned int brisket_group_bits_shift;
+
+	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
+
+		brisket_group_bits_shift =
+			(brisket_group << 16) | (bits << 8) | shift;
+
+		brisket_msg("cpu(%d) brisket_group(%d) bits(%d) shift(%d)\n",
+			cpu, brisket_group, bits, shift);
+
+		do {
+			brisket_05 =
+				mt_secure_call_brisket(
+				MTK_SIP_KERNEL_BRISKET_CONTROL,
+				BRISKET_RW_READ,
+				cpu,
+				brisket_group_bits_shift,
+				0);
+		} while (brisket_05 == 0xdeadbeef);
+
+		brisket_msg(
+			"[CPU%d] brisket_05=0x%08x\n",
+			cpu,
+			brisket_05);
+
+		brisket_kp_online = GET_BITS_VAL(19:16, brisket_05);
+		brisket_ki_online = GET_BITS_VAL(15:10, brisket_05);
+		brisket_kp_offline = GET_BITS_VAL(9:6, brisket_05);
+		brisket_ki_offline = GET_BITS_VAL(5:0, brisket_05);
+
+		seq_printf(m, "CPU%d: (kp_online,ki_online,kp_offline,ki_offline) = (%d,%d,%d,%d)\n",
+			cpu,
+			brisket_kp_online,
+			brisket_ki_online,
+			brisket_kp_offline,
+			brisket_ki_offline);
+	}
+
+	return 0;
+}
+
 
 static ssize_t brisket_reg_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
@@ -560,6 +691,7 @@ static int brisket_reg_proc_show(struct seq_file *m, void *v)
 PROC_FOPS_RW(brisket_pllclken);
 PROC_FOPS_RW(brisket_bren);
 PROC_FOPS_RW(brisket_reg);
+PROC_FOPS_RW(brisket_kpki);
 
 static int create_procfs(void)
 {
@@ -575,6 +707,7 @@ static int create_procfs(void)
 		PROC_ENTRY(brisket_pllclken),
 		PROC_ENTRY(brisket_bren),
 		PROC_ENTRY(brisket_reg),
+		PROC_ENTRY(brisket_kpki),
 	};
 
 	brisket_dir = proc_mkdir("brisket", NULL);
