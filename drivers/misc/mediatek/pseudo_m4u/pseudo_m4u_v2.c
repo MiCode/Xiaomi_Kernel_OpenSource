@@ -550,12 +550,6 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 		return -3;
 	}
 
-	ret = larb_clock_on(larb, 1);
-	if (ret < 0) {
-		M4U_MSG("enable larb%d fail\n", larb);
-		return ret;
-	}
-
 	old_value = pseudo_readreg32(larb_base,
 					  SMI_LARB_NON_SEC_CONx(larb_port));
 	if (pM4uPort->Virtuality) {
@@ -593,8 +587,6 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 		 larb, larb_port, is_user, old_value, value, bit32);
 
 out:
-	larb_clock_off(larb, 1);
-
 	return ret;
 }
 
