@@ -266,7 +266,7 @@ enum mt_cpu_dvfs_id {
 /* CPUB */
 #define DEVINFO_1 0x61152424
 /* CPUB_HI */
-#define DEVINFO_2 0x9FE92424
+#define DEVINFO_2 0x87EA243C
 /* CPUB_LO */
 #define DEVINFO_3 0x42122446
 /* CPUL */

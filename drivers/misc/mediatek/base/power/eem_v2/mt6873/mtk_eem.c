@@ -139,8 +139,7 @@ static unsigned int record_tbl_locked[NR_FREQ];
 static int eem_log_en;
 static unsigned int eem_checkEfuse = 1;
 static unsigned int informEEMisReady;
-//static int time_val = 1;
-static int ack_data;
+int ipi_ackdata;
 
 
 phys_addr_t eem_log_phy_addr, eem_log_virt_addr;
@@ -201,9 +200,9 @@ static unsigned int eem_to_cpueb(unsigned int cmd,
 #endif
 	if (ret != 0)
 		eem_error("IPI error(cmd:%d) ret:%d\n", cmd, ret);
-	else if (ack_data < 0)
+	else if (ipi_ackdata < 0)
 		eem_error("cmd(%d) return error ack(%d)\n",
-			cmd, ack_data);
+			cmd, ipi_ackdata);
 #else
 	switch (cmd) {
 	case IPI_EEMSN_SHARERAM_INIT:
@@ -545,7 +544,8 @@ static int get_devinfo(void)
 #endif
 
 	for (i = 1; i < IDX_HW_RES_SN; i++) {
-		if ((i == 5) || (i == 6) ||
+		if ((i == 1) || (i == 2) ||
+			(i == 5) || (i == 6) ||
 			(i == 11) || (i == 12) || (i == 15))
 			continue;
 		else if (val[i] == 0) {
@@ -1392,7 +1392,7 @@ static void eem_save_init2_volt_aee(struct eemsn_det *ndet)
 }
 
 #if 0
-static void eem_save_sn_cal_aee(struct eemsn_det *ndet, unsigned int index)
+static void eem_save_sn_cal_aee(void)
 {
 #ifdef CONFIG_EEM_AEE_RR_REC
 	int i;
@@ -2431,7 +2431,8 @@ static int eem_sn_sram_proc_show(struct seq_file *m, void *v)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
-	sn_mem_size = NR_FREQ * 2;
+	/* sn_mem_size = NR_FREQ * 2; */
+	sn_mem_size = OFFS_SN_VOLT_E_4B - OFFS_SN_VOLT_S_4B;
 
 	sn_mem_base_phys = OFFS_SN_VOLT_S_4B;
 	if ((void __iomem *)sn_mem_base_phys != NULL)
@@ -2450,7 +2451,8 @@ static int eem_sn_sram_proc_show(struct seq_file *m, void *v)
 	if ((void __iomem *)(sn_mem_base_virt) != NULL) {
 		for (addr_ptr = (void __iomem *)(sn_mem_base_virt);
 			addr_ptr < ((void __iomem *)(sn_mem_base_virt) +
-				sn_mem_size); (addr_ptr += 4))
+			OFFS_SN_VOLT_E_4B - OFFS_SN_VOLT_S_4B);
+			(addr_ptr += 4))
 			seq_printf(m, "0x%08X\n",
 				(unsigned int)eem_read(addr_ptr));
 	}
@@ -3085,7 +3087,7 @@ struct eemsn_det *det;
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 
 	err = mtk_ipi_register(&mcupm_ipidev, CH_S_EEMSN, NULL, NULL,
-		(void *)&ack_data);
+		(void *)&ipi_ackdata);
 	if (err != 0) {
 		eem_error("%s error ret:%d\n", __func__, err);
 		return 0;
