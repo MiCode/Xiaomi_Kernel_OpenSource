@@ -1341,7 +1341,10 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	fps_dst = mode->vrefresh;
 
 	copy_drm_disp_mode(mode, &crtc->state->mode);
+	drm_mode_set_crtcinfo(&crtc->state->mode, 0);
+
 	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
+	drm_mode_set_crtcinfo(&crtc->state->adjusted_mode, 0);
 
 	/* Update RDMA golden_setting */
 	cfg.w = crtc->state->adjusted_mode.hdisplay;
@@ -1368,6 +1371,9 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
 
 	drm_invoke_fps_chg_callbacks(crtc->state->adjusted_mode.vrefresh);
+
+	/* update framedur_ns for VSYNC report */
+	drm_calc_timestamping_constants(crtc, &crtc->state->mode);
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 }
