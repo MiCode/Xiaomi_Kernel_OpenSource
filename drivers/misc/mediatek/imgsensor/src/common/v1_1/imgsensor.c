@@ -205,6 +205,7 @@ MINT32 imgsensor_sensor_open(struct IMGSENSOR_SENSOR *psensor)
 #endif
 
 		if (ret != ERROR_NONE) {
+			imgsensor_hw_dump(&pimgsensor->hw);
 			imgsensor_hw_power(&pimgsensor->hw,
 				psensor,
 				IMGSENSOR_HW_POWER_STATUS_OFF);
