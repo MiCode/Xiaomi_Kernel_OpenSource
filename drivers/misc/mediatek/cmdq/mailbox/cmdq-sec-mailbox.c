@@ -103,6 +103,8 @@ struct cmdq_sec {
 	struct cmdq_pkt		*clt_pkt;
 	struct work_struct	irq_notify_work;
 	bool			notify_run;
+	u64			sec_invoke;
+	u64			sec_done;
 
 	struct mutex		exec_lock;
 	struct cmdq_sec_thread	thread[CMDQ_THR_MAX_COUNT];
@@ -199,7 +201,7 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 	cmdq_log("%s pkt:%p thread:%u gce:%#lx",
 		__func__, pkt, thread->idx, (unsigned long)cmdq->base_pa);
 
-	err = cmdq_pkt_read(pkt, cmdq->clt_base,
+	err = cmdq_pkt_read(pkt, NULL,
 		(u32)(thread->gce_pa + CMDQ_THR_BASE +
 		CMDQ_THR_SIZE * thread->idx + CMDQ_THR_EXEC_CNT_PA),
 		CMDQ_THR_SPR_IDX1);
@@ -213,7 +215,7 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 	cmdq_pkt_logic_command(
 		pkt, CMDQ_LOGIC_ADD, CMDQ_THR_SPR_IDX1, &left, &right);
 
-	err = cmdq_pkt_write_indriect(pkt, cmdq->clt_base,
+	err = cmdq_pkt_write_indriect(pkt, NULL,
 		cmdq->shared_mem->pa + CMDQ_SEC_SHARED_THR_CNT_OFFSET +
 		thread->idx * sizeof(u32), CMDQ_THR_SPR_IDX1, ~0);
 	if (err)
@@ -222,20 +224,25 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_sec_insert_backup_cookie);
 
+static u32 cmdq_sec_get_cookie(struct cmdq_sec *cmdq, u32 idx)
+{
+	return *(u32 *)(cmdq->shared_mem->va +
+		CMDQ_SEC_SHARED_THR_CNT_OFFSET + idx * sizeof(u32));
+}
+
 s32 cmdq_sec_get_secure_thread_exec_counter(struct mbox_chan *chan)
 {
 	struct cmdq_sec *cmdq =
 		container_of(chan->mbox, struct cmdq_sec, mbox);
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)chan->con_priv;
-	const s32 offset = CMDQ_SEC_SHARED_THR_CNT_OFFSET + thread->idx *
-		sizeof(s32);
 
-	return *((s32 *)(cmdq->shared_mem->va + offset));
+	return cmdq_sec_get_cookie(cmdq, thread->idx);
 }
 
 void cmdq_sec_dump_secure_thread_cookie(struct mbox_chan *chan)
 {
+	struct cmdq_sec *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)chan->con_priv;
 
@@ -258,8 +265,6 @@ void cmdq_sec_dump_thread_all(void *mbox_cmdq)
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		struct cmdq_sec_thread *thread = &cmdq->thread[i];
-		const s32 offset = CMDQ_SEC_SHARED_THR_CNT_OFFSET +
-			thread->idx * sizeof(s32);
 
 		if (!thread->occupied || list_empty(&thread->task_list))
 			continue;
@@ -267,7 +272,7 @@ void cmdq_sec_dump_thread_all(void *mbox_cmdq)
 		cmdq_util_msg(
 			"thd idx:%u secure shared cookie:%u wait:%u next:%u count:%u",
 			thread->idx,
-			*(u32 *)(cmdq->shared_mem->va + offset),
+			cmdq_sec_get_cookie(cmdq, thread->idx),
 			thread->wait_cookie,
 			thread->next_cookie,
 			thread->task_cnt);
@@ -428,9 +433,7 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 	for (i = 0; i < CMDQ_MAX_SECURE_THREAD_COUNT; i++) {
 		struct cmdq_sec_thread *thread =
 			&cmdq->thread[CMDQ_MIN_SECURE_THREAD_ID + i];
-		u32 cookie = *(u32 *)(cmdq->shared_mem->va +
-			CMDQ_SEC_SHARED_THR_CNT_OFFSET +
-			thread->idx * sizeof(s32));
+		u32 cookie = cmdq_sec_get_cookie(cmdq, thread->idx);
 
 		cmdq_log(
 			"%s gce:%#lx thread:%u cookie:%u wait cookie:%u task count:%u",
@@ -635,7 +638,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 	iwc_msg->command.metadata.enginesNeedDAPC = data->enginesNeedDAPC;
 	iwc_msg->command.metadata.enginesNeedPortSecurity =
 		data->enginesNeedPortSecurity;
-	iwc_msg->command.hNormalTask = (unsigned long)task;
+	iwc_msg->command.hNormalTask = (unsigned long)task->pkt;
 
 	iwc_msg->metaex_type = data->client_meta_type;
 	iwc_msg->iwcex_available = 0;
@@ -707,13 +710,14 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	mem_ex1 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG1);
 	mem_ex2 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG2);
 
-	cost = sched_clock();
+	cmdq->sec_invoke = sched_clock();
 	cmdq_log("%s execute cmdq:%p task:%lx command:%u thread:%u cookie:%d",
 		__func__, cmdq, (unsigned long)task, iwc_cmd, thrd_idx,
 		task ? task->waitCookie : -1);
 	err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
 		mem_ex1, mem_ex2);
-	cost = div_u64(sched_clock() - cost, 1000000);
+	cmdq->sec_done = sched_clock();
+	cost = div_u64(cmdq->sec_done - cmdq->sec_invoke, 1000000);
 	if (cost >= 1000)
 		cmdq_msg("%s execute done cmdq:%p task:%lx cost:%lluus",
 			__func__, cmdq, (unsigned long)task, cost);
@@ -754,10 +758,12 @@ void cmdq_sec_dump_operation(void *chan)
 	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 
-	cmdq_util_msg("secure tdrv op:%x thread suspend:%u reset:%u",
+	cmdq_util_msg(
+		"secure tdrv op:%x thread suspend:%u reset:%u invoke:%llu/%llu",
 		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_OP_OFFSET),
 		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_SUSPEND_CNT),
-		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_RESET_CNT));
+		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_RESET_CNT),
+		cmdq->sec_invoke, cmdq->sec_done);
 }
 
 void cmdq_sec_dump_response(void *chan, struct cmdq_pkt *pkt,
@@ -1101,8 +1107,7 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 		goto done;
 	}
 
-	cookie = *(u32 *)(cmdq->shared_mem->va +
-		CMDQ_SEC_SHARED_THR_CNT_OFFSET + thread->idx * sizeof(s32));
+	cookie = cmdq_sec_get_cookie(cmdq, thread->idx);
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 	cmdq_err("%s duration:%llu cookie:%u thread:%u",

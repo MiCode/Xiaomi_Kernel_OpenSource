@@ -770,6 +770,10 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		cmdq_log("task loop %p", &task->pkt);
 		cmdq_task_callback(task->pkt, err);
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		task->pkt->rec_irq = sched_clock();
+#endif
+
 #if IS_ENABLED(CONFIG_MMPROFILE)
 		mmprofile_log_ex(cmdq_mmp.loop_irq, MMPROFILE_FLAG_PULSE,
 			MMP_THD(thread, cmdq), (unsigned long)task->pkt);

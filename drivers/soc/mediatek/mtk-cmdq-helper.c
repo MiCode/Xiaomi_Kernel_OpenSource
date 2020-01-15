@@ -2268,9 +2268,10 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 		return -EINVAL;
 
 	cmdq_util_msg(
-		"pkt:0x%p size:%zu/%zu avail size:%zu priority:%u loop:%s",
-		pkt, pkt->cmd_buf_size, pkt->buf_size, pkt->avail_buf_size,
-		pkt->priority, pkt->loop ? "true" : "false");
+		"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
+		pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
+		pkt->buf_size, pkt->avail_buf_size,
+		pkt->priority, pkt->loop ? " loop" : "");
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_util_msg(
 		"submit:%llu trigger:%llu wait:%llu irq:%llu",
