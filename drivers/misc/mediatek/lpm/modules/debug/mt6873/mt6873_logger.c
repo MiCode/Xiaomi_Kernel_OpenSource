@@ -657,7 +657,6 @@ static ssize_t mt6873_logger_debugfs_read(char *ToUserBuf,
 		len = scnprintf(p, sz, "%lu\n",
 			mtk_lpm_timer_interval(&mt6873_log_timer.tm));
 		p += len;
-		sz -= len;
 	}
 
 	return (p - ToUserBuf);
@@ -667,7 +666,7 @@ static ssize_t mt6873_logger_debugfs_write(char *FromUserBuf,
 				   size_t sz, void *priv)
 {
 	if (priv == ((void *)&mt6873_log_timer)) {
-		unsigned int val;
+		unsigned int val = 0;
 
 		if (!kstrtouint(FromUserBuf, 10, &val)) {
 			if (val == 0)
