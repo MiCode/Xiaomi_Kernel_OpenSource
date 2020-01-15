@@ -455,6 +455,7 @@ config MACH_MT6873
 	select MTK_LPM
 	select MTK_LOW_POWER_MODULE
 	select MTK_LPM_MT6873
+	select MTK_SWPM
 	select MTK_PID_MAP
 	select GENERIC_SCHED_CLOCK
 	select ARMV7_COMPAT
