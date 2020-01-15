@@ -220,11 +220,11 @@ extern void aee_rr_rec_last_sync_func(unsigned long val);
 extern void aee_rr_rec_last_async_func(unsigned long val);
 extern void aee_rr_rec_set_bit_pmic_ext_buck(int bit, int loc);
 extern void aee_rr_init_thermal_temp(int num);
-extern void aee_rr_rec_thermal_temp(int index, s8 val);
+extern void aee_rr_rec_thermal_temp(int index, s16 val);
 extern void aee_rr_rec_thermal_status(u8 val);
 extern void aee_rr_rec_thermal_ATM_status(u8 val);
 extern void aee_rr_rec_thermal_ktime(u64 val);
-extern s8 aee_rr_curr_thermal_temp(int index);
+extern s16 aee_rr_curr_thermal_temp(int index);
 extern u8 aee_rr_curr_thermal_status(void);
 extern u8 aee_rr_curr_thermal_ATM_status(void);
 extern u64 aee_rr_curr_thermal_ktime(void);
@@ -940,7 +940,7 @@ static inline void aee_rr_init_thermal_temp(int num)
 {
 }
 
-static inline void aee_rr_rec_thermal_temp(int index, s8 val)
+static inline void aee_rr_rec_thermal_temp(int index, s16 val)
 {
 }
 
@@ -956,7 +956,7 @@ static inline void aee_rr_rec_thermal_ktime(u64 val)
 {
 }
 
-static inline s8 aee_rr_curr_thermal_temp(int index)
+static inline s16 aee_rr_curr_thermal_temp(int index)
 {
 	return 0;
 }

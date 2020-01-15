@@ -25,6 +25,9 @@
 #include <tscpu_settings.h> /* needed by tscpu_warn */
 #include <ap_thermal_limit.h>
 #include <mt-plat/aee.h>
+#if (CONFIG_THERMAL_AEE_RR_REC == 1)
+#include <mtk_ram_console.h>
+#endif
 
 #if defined(ATM_USES_PPM)
 #include "mtk_ppm_api.h"

@@ -53,6 +53,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
+
+#if (CONFIG_THERMAL_AEE_RR_REC == 1)
+#include <mtk_ram_console.h>
+#endif
+
 #define __MT_MTK_TS_CPU_C__
 
 #if MTK_TS_CPU_RT
@@ -219,15 +224,11 @@ struct regulator *vcore_reg_id;
 static void _mt_thermal_aee_init(void)
 {
 	int i;
-#if defined(THERMAL_AEE_SELECTED_TS)
-	aee_rr_init_thermal_temp(THERMAL_AEE_MAX_SELECTED_TS);
-	for (i = 0; i < THERMAL_AEE_MAX_SELECTED_TS; i++)
-		aee_rr_rec_thermal_temp(i, 0xFF);
-#else
+
 	aee_rr_init_thermal_temp(TS_ENUM_MAX);
 	for (i = 0; i < TS_ENUM_MAX; i++)
-		aee_rr_rec_thermal_temp(i, 0xFF);
-#endif
+		aee_rr_rec_thermal_temp(i, 0xFFFF);
+
 	aee_rr_rec_thermal_status(0xFF);
 	aee_rr_rec_thermal_ATM_status(0xFF);
 	aee_rr_rec_thermal_ktime(0xFFFFFFFFFFFFFFFF);
@@ -2276,13 +2277,8 @@ void tscpu_update_tempinfo(void)
 		g_tc_resume = 0;
 
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
-#if defined(THERMAL_AEE_SELECTED_TS)
-	for (i = 0; i < THERMAL_AEE_MAX_SELECTED_TS; i++)
-		aee_rr_rec_thermal_temp(i, get_aee_selected_tsX[i]() / 1000);
-#else
 	for (i = 0; i < TS_ENUM_MAX; i++)
 		aee_rr_rec_thermal_temp(i, get_immediate_tsX[i]() / 1000);
-#endif
 	aee_rr_rec_thermal_status(TSCPU_NORMAL);
 	aee_rr_rec_thermal_ktime(ktime_to_us(now));
 #endif

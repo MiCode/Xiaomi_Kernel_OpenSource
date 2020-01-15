@@ -33,6 +33,9 @@
 #include <mt-plat/aee.h>
 #include <linux/uidgid.h>
 #include <ap_thermal_limit.h>
+#if (CONFIG_THERMAL_AEE_RR_REC == 1)
+#include <mtk_ram_console.h>
+#endif
 #ifdef ATM_USES_PPM
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"

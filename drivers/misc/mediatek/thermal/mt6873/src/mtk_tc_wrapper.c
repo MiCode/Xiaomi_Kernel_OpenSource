@@ -1024,16 +1024,3 @@ int tscpu_thermal_clock_off(void)
 	return ret;
 }
 
-#if defined(THERMAL_AEE_SELECTED_TS)
-int (*get_aee_selected_tsX[THERMAL_AEE_MAX_SELECTED_TS])(void) = {
-	get_immediate_tslvts1_0_wrap,
-	get_immediate_tslvts1_1_wrap,
-	get_immediate_tslvts2_0_wrap,
-	get_immediate_tslvts2_1_wrap,
-	get_immediate_tslvts3_0_wrap,
-	get_immediate_tslvts4_0_wrap,
-	get_immediate_tslvts5_1_wrap,
-	get_immediate_tslvts6_1_wrap,
-	get_immediate_tslvts7_2_wrap
-};
-#endif
