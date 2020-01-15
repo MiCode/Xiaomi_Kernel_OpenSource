@@ -1784,9 +1784,13 @@ static int gt9896s_ts_suspend(struct gt9896s_ts_core *core_data)
 			}
 		}
 	}
+	gt9896s_ts_power_off(core_data);
 	mutex_unlock(&gt9896s_modules.mutex);
 
 out:
+	core_data->ts_event.touch_data.touch_num = 0;
+	gt9896s_ts_report_finger(core_data->input_dev,
+		&core_data->ts_event.touch_data);
 	ts_info("Suspend end");
 	return 0;
 }
@@ -1803,7 +1807,11 @@ static int gt9896s_ts_resume(struct gt9896s_ts_core *core_data)
 	int r;
 
 	ts_info("Resume start");
-	gt9896s_ts_release_connects(core_data);
+	r = gt9896s_ts_power_on(core_data);
+	if (r < 0) {
+		ts_err("Failed to enable analog power: %d", r);
+		goto out;
+	}
 
 	mutex_lock(&gt9896s_modules.mutex);
 	if (!list_empty(&gt9896s_modules.head)) {
