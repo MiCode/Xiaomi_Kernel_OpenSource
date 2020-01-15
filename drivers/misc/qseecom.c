@@ -444,7 +444,7 @@ static int qseecom_query_ce_info(struct qseecom_dev_handle *data,
 static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 				uint32_t app_id);
 
-static int get_qseecom_keymaster_status(char *str)
+static int __maybe_unused get_qseecom_keymaster_status(char *str)
 {
 	get_option(&str, &qseecom.is_apps_region_protected);
 	return 1;
