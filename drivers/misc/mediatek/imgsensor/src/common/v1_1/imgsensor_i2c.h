@@ -81,7 +81,7 @@ void imgsensor_i2c_filter_msg(struct IMGSENSOR_I2C_CFG *pi2c_cfg, bool en);
 
 #ifdef IMGSENSOR_LEGACY_COMPAT
 void imgsensor_i2c_set_device(struct IMGSENSOR_I2C_CFG *pi2c_cfg);
-extern struct IMGSENSOR_I2C_CFG *pgi2c_cfg_legacy;
+struct IMGSENSOR_I2C_CFG *imgsensor_i2c_get_device(void);
 #endif
 
 #endif

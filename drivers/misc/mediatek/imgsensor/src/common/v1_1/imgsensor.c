@@ -120,7 +120,11 @@ static void imgsensor_mutex_lock(struct IMGSENSOR_SENSOR_INST *psensor_inst)
 	if (psensor_inst->status.arch) {
 		mutex_lock(&psensor_inst->sensor_mutex);
 	} else {
+#ifdef SENSOR_PARALLEISM
+		mutex_lock(&psensor_inst->sensor_mutex);
+#else
 		mutex_lock(&gimgsensor_mutex);
+#endif
 		imgsensor_i2c_set_device(&psensor_inst->i2c_cfg);
 	}
 #else
@@ -133,8 +137,14 @@ static void imgsensor_mutex_unlock(struct IMGSENSOR_SENSOR_INST *psensor_inst)
 #ifdef IMGSENSOR_LEGACY_COMPAT
 	if (psensor_inst->status.arch)
 		mutex_unlock(&psensor_inst->sensor_mutex);
-	else
+	else {
+#ifdef SENSOR_PARALLEISM
+		imgsensor_i2c_set_device(NULL);
+		mutex_unlock(&psensor_inst->sensor_mutex);
+#else
 		mutex_unlock(&gimgsensor_mutex);
+#endif
+	}
 #else
 	mutex_lock(&psensor_inst->sensor_mutex);
 #endif
