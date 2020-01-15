@@ -264,19 +264,7 @@
 
 struct snd_enc_wma {
 	__u32 super_block_align; /* WMA Type-specific data */
-#ifdef CONFIG_AUDIO_QGKI
-	__u32 bits_per_sample;
-	__u32 channelmask;
-	__u32 encodeopt;
-	__u32 encodeopt1;
-	__u32 encodeopt2;
-	__u32 avg_bit_rate;
-#endif
 };
-
-#ifdef CONFIG_AUDIO_QGKI
-#define SND_ENC_WMA_EXTENTED_SUPPORT
-#endif
 
 /**
  * struct snd_enc_vorbis
@@ -402,6 +390,8 @@ struct snd_dec_wma {
 	__u32 encodeopt2;
 	__u32 avg_bit_rate;
 } __attribute__((packed, aligned(4)));
+
+#define SND_DEC_WMA_EXTENTED_SUPPORT
 
 struct snd_dec_aptx {
 	__u32 lap;
