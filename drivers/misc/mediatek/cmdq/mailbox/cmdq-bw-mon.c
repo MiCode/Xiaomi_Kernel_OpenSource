@@ -86,7 +86,7 @@ static int cmdq_bwmon_enable_monitor(struct cmdq_pkt *pkt, u8 id)
 		return 0;
 	}
 #else
-	cmdq_msg("[bwmon] not support for base:%llx", (unsigned long)base);
+	cmdq_msg("[bwmon] not support for base:%lx", (unsigned long)base);
 #endif
 	return -EINVAL;
 }
