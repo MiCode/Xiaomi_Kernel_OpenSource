@@ -126,7 +126,6 @@ struct snd_compr_codec_caps {
 	struct snd_codec_desc descriptor[MAX_NUM_CODEC_DESCRIPTORS];
 } __attribute__((packed, aligned(4)));
 
-#ifdef CONFIG_AUDIO_QGKI
 /**
  * struct snd_compr_audio_info: compressed input audio information
  * @frame_size: legth of the encoded frame with valid data
@@ -150,7 +149,6 @@ enum sndrv_compress_latency_mode {
 	SNDRV_COMPRESS_LOW_LATENCY_MODE = 1,
 };
 
-#endif
 /**
  * enum sndrv_compress_encoder
  * @SNDRV_COMPRESS_ENCODER_PADDING: no of samples appended by the encoder at the
@@ -180,7 +178,6 @@ enum sndrv_compress_encoder {
 #endif
 };
 
-#ifdef CONFIG_AUDIO_QGKI
 #define SNDRV_COMPRESS_PATH_DELAY SNDRV_COMPRESS_PATH_DELAY
 #define SNDRV_COMPRESS_RENDER_MODE SNDRV_COMPRESS_RENDER_MODE
 #define SNDRV_COMPRESS_CLK_REC_MODE SNDRV_COMPRESS_CLK_REC_MODE
@@ -190,7 +187,6 @@ enum sndrv_compress_encoder {
 		SNDRV_COMPRESS_ENABLE_ADJUST_SESSION_CLOCK
 #define SNDRV_COMPRESS_ADJUST_SESSION_CLOCK SNDRV_COMPRESS_ADJUST_SESSION_CLOCK
 #define SNDRV_COMPRESS_LATENCY_MODE SNDRV_COMPRESS_LATENCY_MODE
-#endif
 
 /**
  * struct snd_compr_metadata - compressed stream metadata
@@ -253,7 +249,5 @@ struct snd_compr_metadata {
 #define SND_COMPR_TRIGGER_DRAIN 7 /*FIXME move this to pcm.h */
 #define SND_COMPR_TRIGGER_NEXT_TRACK 8
 #define SND_COMPR_TRIGGER_PARTIAL_DRAIN 9
-#ifdef CONFIG_AUDIO_QGKI
 #define SNDRV_COMPRESS_DSP_POSITION 10
-#endif
 #endif
