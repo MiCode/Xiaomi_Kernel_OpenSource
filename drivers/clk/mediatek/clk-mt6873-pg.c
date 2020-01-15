@@ -4593,7 +4593,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	pr_notice("MTCMOS AO begin\n");
 
-	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
+	//spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
 
 	pr_notice("MTCMOS MM AO begin\n");
