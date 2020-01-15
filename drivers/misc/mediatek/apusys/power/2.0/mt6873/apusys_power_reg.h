@@ -14,6 +14,18 @@
 #include <linux/io.h>
 #include <sync_write.h>
 
+/*
+ * BIT Operation
+ */
+#undef  BIT
+#define BIT(_bit_) (unsigned int)(1 << (_bit_))
+#define BITS(_bits_, _val_) ((((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+& ~((1U << ((0) ? _bits_)) - 1)) & ((_val_)<<((0) ? _bits_)))
+#define BITMASK(_bits_) (((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+& ~((1U << ((0) ? _bits_)) - 1))
+#define GET_BITS_VAL(_bits_, _val_) (((_val_) & \
+(BITMASK(_bits_))) >> ((0) ? _bits_))
+
 static inline void DRV_WriteReg32(void *addr, uint32_t value)
 {
 	mt_reg_sync_writel(value, addr);

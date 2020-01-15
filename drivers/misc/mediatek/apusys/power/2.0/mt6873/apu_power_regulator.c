@@ -23,7 +23,7 @@
 #include "mtk_devinfo.h"
 
 
-#define EFUSE_INDEX 72	// 0x11C105D8
+#define EFUSE_INDEX 209  //0x11c1_05E8 (PTPOD26)
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;
@@ -383,24 +383,33 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
 
-	vpu_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
-	mdla_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
-	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_800000_V
-		&& (vpu_efuse_val == 2 || vpu_efuse_val == 3)) {
+	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
+	mdla_efuse_val = GET_BITS_VAL(13:11,
+		get_devinfo_with_index(EFUSE_INDEX));
+	LOG_DBG("Vol bin: vpu_efuse=%d, vpu_efuse=%d, efuse: 0x%x\n",
+		vpu_efuse_val, mdla_efuse_val,
+		get_devinfo_with_index(EFUSE_INDEX));
+
+	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_775000_V
+		&& (vpu_efuse_val >= 2 && vpu_efuse_val <= 4)) {
 		if (vpu_efuse_val == 2)
-			voltage_mV = DVFS_VOLT_00_775000_V;
-		else if (vpu_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_750000_V;
+		else if (vpu_efuse_val == 3)
+			voltage_mV = DVFS_VOLT_00_737500_V;
+		else if (vpu_efuse_val == 4)
+			voltage_mV = DVFS_VOLT_00_725000_V;
 
 		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, vpu_efuse=%d, vol=%d\n",
 			vpu_efuse_val, voltage_mV);
-	} else if (buck == MDLA_BUCK && voltage_mV == DVFS_VOLT_00_825000_V
-		&& (mdla_efuse_val == 2 || mdla_efuse_val == 3)) {
+	} else if (buck == MDLA_BUCK && voltage_mV == DVFS_VOLT_00_800000_V
+		&& (mdla_efuse_val >= 2 && mdla_efuse_val <= 4)) {
 		if (mdla_efuse_val == 2)
-			voltage_mV = DVFS_VOLT_00_800000_V;
-		else if (mdla_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_775000_V;
+		else if (mdla_efuse_val == 3)
+			voltage_mV = DVFS_VOLT_00_762500_V;
+		else if (mdla_efuse_val == 4)
+			voltage_mV = DVFS_VOLT_00_750000_V;
 
 		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
