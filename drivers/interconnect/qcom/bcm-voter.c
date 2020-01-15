@@ -26,6 +26,7 @@ static LIST_HEAD(bcm_voters);
  * @commit_list: list containing bcms to be committed to hardware
  * @ws_list: list containing bcms that have different wake/sleep votes
  * @voter_node: list of bcm voters
+ * @init: flag to determine when init has completed.
  */
 struct bcm_voter {
 	struct device *dev;
@@ -34,6 +35,7 @@ struct bcm_voter {
 	struct list_head commit_list;
 	struct list_head ws_list;
 	struct list_head voter_node;
+	bool init;
 };
 
 static int cmp_vcd(void *priv, struct list_head *a, struct list_head *b)
@@ -51,7 +53,7 @@ static int cmp_vcd(void *priv, struct list_head *a, struct list_head *b)
 		return 1;
 }
 
-static void bcm_aggregate(struct qcom_icc_bcm *bcm)
+static void bcm_aggregate(struct qcom_icc_bcm *bcm, bool init)
 {
 	size_t i, bucket;
 	u64 agg_avg[QCOM_ICC_NUM_BUCKETS] = {0};
@@ -82,10 +84,18 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm)
 	}
 
 	if (bcm->keepalive) {
-		bcm->vote_x[QCOM_ICC_BUCKET_AMC] = 16000;
-		bcm->vote_x[QCOM_ICC_BUCKET_WAKE] = 16000;
-		bcm->vote_y[QCOM_ICC_BUCKET_AMC] = 16000;
-		bcm->vote_y[QCOM_ICC_BUCKET_WAKE] = 16000;
+		if (init) {
+			bcm->vote_x[QCOM_ICC_BUCKET_AMC] = 16000;
+			bcm->vote_x[QCOM_ICC_BUCKET_WAKE] = 16000;
+			bcm->vote_y[QCOM_ICC_BUCKET_AMC] = 16000;
+			bcm->vote_y[QCOM_ICC_BUCKET_WAKE] = 16000;
+		} else if (bcm->vote_x[QCOM_ICC_BUCKET_AMC] == 0 &&
+			   bcm->vote_y[QCOM_ICC_BUCKET_AMC] == 0) {
+			bcm->vote_x[QCOM_ICC_BUCKET_AMC] = 1;
+			bcm->vote_x[QCOM_ICC_BUCKET_WAKE] = 1;
+			bcm->vote_y[QCOM_ICC_BUCKET_AMC] = 1;
+			bcm->vote_y[QCOM_ICC_BUCKET_WAKE] = 1;
+		}
 	}
 }
 
@@ -245,7 +255,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 
 	mutex_lock(&voter->lock);
 	list_for_each_entry(bcm, &voter->commit_list, list)
-		bcm_aggregate(bcm);
+		bcm_aggregate(bcm, voter->init);
 
 	/*
 	 * Pre sort the BCMs based on VCD for ease of generating a command list
@@ -334,6 +344,21 @@ out:
 }
 EXPORT_SYMBOL(qcom_icc_bcm_voter_commit);
 
+/**
+ * qcom_icc_bcm_voter_clear_init - clear init flag used during boot up
+ * @voter: voter that we need to clear the init flag for
+ */
+void qcom_icc_bcm_voter_clear_init(struct bcm_voter *voter)
+{
+	if (!voter)
+		return;
+
+	mutex_lock(&voter->lock);
+	voter->init = false;
+	mutex_unlock(&voter->lock);
+}
+EXPORT_SYMBOL(qcom_icc_bcm_voter_clear_init);
+
 static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 {
 	struct bcm_voter *voter;
@@ -344,6 +369,7 @@ static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 
 	voter->dev = &pdev->dev;
 	voter->np = pdev->dev.of_node;
+	voter->init = true;
 	mutex_init(&voter->lock);
 	INIT_LIST_HEAD(&voter->commit_list);
 	INIT_LIST_HEAD(&voter->ws_list);

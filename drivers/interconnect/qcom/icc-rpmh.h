@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -23,6 +23,7 @@ struct qcom_icc_provider {
 	struct qcom_icc_bcm **bcms;
 	size_t num_bcms;
 	struct bcm_voter *voter;
+	struct list_head probe_list;
 };
 
 /**
