@@ -38,7 +38,7 @@
 #define ASSERTION_PERCENTAGE	(1)	// 1%
 #define BINNING_VOLTAGE_SUPPORT (0) //[Fix me]
 #define SUPPORT_HW_CONTROL_PMIC	(1)
-
+#define TIME_PROFILING		(0)
 
 #define APUSYS_MAX_NUM_OPPS                (6)
 #define APUSYS_PATH_USER_NUM               (3)   // num of DVFS_XXX_PATH
