@@ -17,6 +17,7 @@
 #include <linux/wait.h>
 #include <linux/module.h>
 #include <linux/poll.h>
+#include <linux/kmemleak.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -27,7 +28,6 @@
 #define TAG SMEM
 
 static struct buffer_header *s_ccb_ctl_head_tbl;
-static struct cdev port_smem_dev;
 static unsigned int *s_dl_last_w;
 static unsigned int s_dl_active_bitmap;
 
@@ -753,6 +753,7 @@ static const struct file_operations smem_dev_fops = {
 
 int port_smem_init(struct port_t *port)
 {
+	struct cdev *dev;
 	int ret = 0;
 	int md_id = port->md_id;
 	struct ccci_smem_port *smem_port;
@@ -769,9 +770,16 @@ int port_smem_init(struct port_t *port)
 	/*Set SMEM MINOR base*/
 	port->minor += CCCI_SMEM_MINOR_BASE;
 	if (port->flags & PORT_F_WITH_CHAR_NODE) {
-		cdev_init(&port_smem_dev, &smem_dev_fops);
-		port_smem_dev.owner = THIS_MODULE;
-		ret = cdev_add(&port_smem_dev,
+		dev = kmalloc(sizeof(struct cdev), GFP_KERNEL);
+		kmemleak_ignore(dev);
+		if (unlikely(!dev)) {
+			CCCI_ERROR_LOG(port->md_id, CHAR,
+				"alloc smem char dev fail!!\n");
+			return -1;
+		}
+		cdev_init(dev, &smem_dev_fops);
+		dev->owner = THIS_MODULE;
+		ret = cdev_add(dev,
 			MKDEV(port->major, port->minor_base + port->minor), 1);
 		ret = ccci_register_dev_node(port->name, port->major,
 				port->minor_base + port->minor);
