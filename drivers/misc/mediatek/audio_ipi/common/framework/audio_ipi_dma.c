@@ -1717,7 +1717,6 @@ size_t audio_ipi_dma_msg_read(void __user *buf, size_t count)
 
 	if (buf == NULL || count == 0 || msg_queue == NULL) {
 		pr_info("arg!! %p %zu %p, return", buf, count, msg_queue);
-		msleep(500);
 		return 0;
 	}
 
@@ -1726,7 +1725,6 @@ size_t audio_ipi_dma_msg_read(void __user *buf, size_t count)
 	retval = hal_dma_get_queue_msg(msg_queue, &p_ipi_msg, &idx_msg);
 	if (retval != 0) {
 		pr_info("hal_dma_get_queue_msg retval %d", retval);
-		msleep(100);
 		return 0;
 	}
 	p_ipi_msg = &msg_queue->msg[idx_msg];
