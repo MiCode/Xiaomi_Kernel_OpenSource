@@ -23,6 +23,13 @@
 #include <linux/miscdevice.h>   /* needed by miscdevice* */
 #include <linux/delay.h>
 #include <linux/kthread.h>
+
+#ifdef CONFIG_MEDIATEK_EMI
+#include <mt-plat/sync_write.h>
+#include <memory/mediatek/emi.h>
+#include "mcupm_emi_mpu.h"
+#endif
+
 #include "mcupm_ipi_id.h"
 #include "mcupm_ipi_table.h"
 #include "mcupm_driver.h"
@@ -35,6 +42,11 @@
 static phys_addr_t mcupm_mem_base_phys;
 static phys_addr_t mcupm_mem_base_virt;
 static phys_addr_t mcupm_mem_size;
+
+#ifdef CONFIG_MEDIATEK_EMI
+static unsigned long long mcupm_start;
+static unsigned long long mcupm_end;
+#endif
 
 /* MCUPM PLT */
 #if MCUPM_PLT_SERV_SUPPORT
@@ -73,14 +85,16 @@ static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
 		/* logger header + 1M log buffer */
 	},
 	{
-		.num = MCUPM_MET_MEM_ID,
-		.size = MCUPM_PLT_MET_BUF_LEN,
-		/* 4M for MET */
+		.num = MCUPM_MET_ID,
+		.size = MCUPM_MET_LOGGER_BUF_LEN,
 	},
 	{
 		.num = MCUPM_EEMSN_MEM_ID,
 		.size = MCUPM_PLT_EEMSN_BUF_LEN,
-		/* 4K for sensor network */
+	},
+	{
+		.num = MCUPM_BRISKET_ID,
+		.size = MCUPM_BRISKET_BUF_LEN,
 	},
 };
 
@@ -127,6 +141,7 @@ phys_addr_t mcupm_reserve_mem_get_phys(unsigned int id)
 	} else
 		return mcupm_reserve_mblock[id].start_phys;
 }
+EXPORT_SYMBOL_GPL(mcupm_reserve_mem_get_phys);
 
 phys_addr_t mcupm_reserve_mem_get_virt(unsigned int id)
 {
@@ -136,6 +151,7 @@ phys_addr_t mcupm_reserve_mem_get_virt(unsigned int id)
 	} else
 		return mcupm_reserve_mblock[id].start_virt;
 }
+EXPORT_SYMBOL_GPL(mcupm_reserve_mem_get_virt);
 
 phys_addr_t mcupm_reserve_mem_get_size(unsigned int id)
 {
@@ -145,6 +161,7 @@ phys_addr_t mcupm_reserve_mem_get_size(unsigned int id)
 	} else
 		return mcupm_reserve_mblock[id].size;
 }
+EXPORT_SYMBOL_GPL(mcupm_reserve_mem_get_size);
 
 int mcupm_reserve_memory_init(void)
 {
@@ -801,6 +818,20 @@ error:
 	return -1;
 }
 
+#ifdef CONFIG_MEDIATEK_EMI
+static void mcupm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
+{
+	mcupm_start = base;
+	mcupm_end = base + size - 1;
+}
+
+static void mcupm_lock_emi_mpu(void)
+{
+	if (mcupm_mem_size > 0)
+		mcupm_set_emi_mpu(mcupm_mem_base_phys, mcupm_mem_size);
+}
+#endif
+
 static int __init mcupm_module_init(void)
 {
 	if (mcupm_sysfs_init()) {
@@ -816,8 +847,39 @@ static int __init mcupm_module_init(void)
 	pr_info("MCUPM platform service is ready\n");
 #endif
 
+#ifdef CONFIG_MEDIATEK_EMI
+	mcupm_lock_emi_mpu();
+#endif
 	return 0;
 }
 
+
+#ifdef CONFIG_MEDIATEK_EMI
+static int __init post_mcupm_set_emi_mpu(void)
+{
+	struct emimpu_region_t rg_info;
+
+	mtk_emimpu_init_region(&rg_info, MUCPM_MPU_REGION_ID);
+
+	mtk_emimpu_set_addr(&rg_info, mcupm_start, mcupm_end);
+
+	mtk_emimpu_set_apc(&rg_info, 0, MTK_EMIMPU_NO_PROTECTION);
+
+	mtk_emimpu_set_apc(&rg_info, MUCPM_MPU_DOMAIN_ID,
+						MTK_EMIMPU_NO_PROTECTION);
+
+	mtk_emimpu_set_protection(&rg_info);
+
+	mtk_emimpu_free_region(&rg_info);
+
+	return 0;
+}
+#endif
+
 arch_initcall(mcupm_init);
 module_init(mcupm_module_init);
+
+#ifdef CONFIG_MEDIATEK_EMI
+late_initcall(post_mcupm_set_emi_mpu);
+#endif
+

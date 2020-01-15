@@ -42,7 +42,7 @@
 #define PIN_S_MSG_SIZE_FHCTL		9	//uint 4 byts
 #define PIN_S_MSG_SIZE_MCDI		3	//uint 4 byts
 #define PIN_S_MSG_SIZE_SUSPEND		3	//uint 4 byts
-#define PIN_S_MSG_SIZE_SMET         1   //unit 4 bytes
+#define PIN_S_MSG_SIZE_SMET         4   //unit 4 bytes
 #define PIN_S_MSG_SIZE_RMET         4   //unit 4 bytes
 #define PIN_S_MSG_SIZE_EEMSN     4 //unit 4 bytes
 
@@ -62,8 +62,8 @@
 #define PIN_R_MSG_SIZE_MCDI	1	//uint 4 byts
 #define PIN_R_MSG_SIZE_SUSPEND	1	//uint 4 byts
 #define PIN_R_MSG_SIZE_SMET     4   //uint 4 byts
-#define PIN_R_MSG_SIZE_RMET     1   //uint 4 byts
-#define PIN_R_MSG_SIZE_EEMSN     1 //unit 4 bytes
+#define PIN_R_MSG_SIZE_RMET     4   //uint 4 byts
+#define PIN_R_MSG_SIZE_EEMSN     4 //unit 4 bytes
 
 /* definition of slot size for received PINs */
 #define PIN_R_SIZE_PLATFORM	PIN_R_SIZE
@@ -152,11 +152,11 @@ struct mtk_mbox_pin_send mcupm_mbox_pin_send[] = {
 	{4, PIN_S_OFFSET_SUSPEND, 1, 0, PIN_S_MSG_SIZE_SUSPEND,
 		4, CH_S_SUSPEND,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
-	{5, PIN_S_OFFSET_SMET, 1, 0, PIN_S_MSG_SIZE_SMET,
-		5, IPIS_C_MET,
+	{5, PIN_S_OFFSET_RMET, 1, 0, PIN_S_MSG_SIZE_RMET,
+		5, IPIR_C_MET,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
-	{6, PIN_S_OFFSET_RMET, 1, 0, PIN_S_MSG_SIZE_RMET,
-		6, IPIR_C_MET,
+	{6, PIN_S_OFFSET_SMET, 1, 0, PIN_S_MSG_SIZE_SMET,
+		6, IPIS_C_MET,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
 	{7, PIN_S_OFFSET_EEMSN, 1, 0, PIN_S_MSG_SIZE_EEMSN,
 		7, CH_S_EEMSN,
@@ -203,12 +203,12 @@ struct mtk_mbox_pin_recv mcupm_mbox_pin_recv[] = {
 		CH_S_SUSPEND, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
 	{5, PIN_R_OFFSET_SMET, 0, 0, 1, 0,
-		PIN_R_MSG_SIZE_SMET, 5,
-		IPIS_C_MET, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		PIN_R_MSG_SIZE_RMET, 5,
+		IPIR_C_MET, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
 	{6, PIN_R_OFFSET_RMET, 0, 0, 1, 0,
-		PIN_R_MSG_SIZE_RMET, 6,
-		IPIR_C_MET, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		PIN_R_MSG_SIZE_SMET, 6,
+		IPIS_C_MET, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
 	{7, PIN_R_OFFSET_EEMSN, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_EEMSN, 7,
@@ -237,6 +237,6 @@ struct mtk_ipi_device mcupm_ipidev = {
 	.mbdev = &mcupm_mboxdev,
 };
 
-//EXPORT_SYMBOL(mcupm_ipidev);
+//EXPORT_SYMBOL_GPL(mcupm_ipidev);
 
 #endif

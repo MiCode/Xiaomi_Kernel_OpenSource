@@ -40,12 +40,15 @@
 /* MCUPM RESERVED MEM */
 #define MCUPM_RESERVED_DEBUG		(1)
 #define MCUPM_PLT_LOGGER_BUF_LEN	0x100000
-#define MCUPM_PLT_MET_BUF_LEN		0x400000
+#define MCUPM_MET_LOGGER_BUF_LEN	0x400000
 #define MCUPM_PLT_EEMSN_BUF_LEN		0x1000
+#define MCUPM_BRISKET_BUF_LEN		0x1000
+
 enum {
 	MCUPM_MEM_ID = 0,
-	MCUPM_MET_MEM_ID = 1,
+	MCUPM_MET_ID = 1,
 	MCUPM_EEMSN_MEM_ID = 2,
+	MCUPM_BRISKET_ID = 3,
 	NUMS_MCUPM_MEM_ID,
 };
 
@@ -109,5 +112,5 @@ extern int mcupm_mbox_read(unsigned int mbox, unsigned int slot, void *buf,
 			unsigned int len);
 extern phys_addr_t mcupm_reserve_mem_get_phys(unsigned int id);
 extern phys_addr_t mcupm_reserve_mem_get_virt(unsigned int id);
-
+extern phys_addr_t mcupm_reserve_mem_get_size(unsigned int id);
 #endif
