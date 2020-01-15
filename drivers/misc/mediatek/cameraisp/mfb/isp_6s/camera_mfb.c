@@ -72,13 +72,10 @@
 #include <cmdq-util.h>
 #endif
 
-#if (MTK_MFB_REG_VERSION == 2)
-#else
 #define MFB_PMQOS
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
-#endif
 #endif
 
 #define USE_SW_TOKEN
@@ -805,8 +802,8 @@ void MFBQOS_Init(void)
 	/* Call mm_qos_add_request */
 	/* when initialize module or driver prob */
 #if (MTK_MFB_REG_VERSION == 2)
-	/*mm_qos_add_request(&module_request_list,*/
-		/*&mfb_mmqos_request, M4U_PORT_L11_IMG_MFB_RDMA0);*/
+	mm_qos_add_request(&module_request_list,
+		&mfb_mmqos_request, M4U_PORT_L11_IMG_MFB_RDMA0);
 #else
 	mm_qos_add_request(&module_request_list,
 		&mfb_mmqos_request, M4U_PORT_L9_IMG_MFB_RDMA0_MDP);
