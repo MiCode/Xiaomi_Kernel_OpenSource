@@ -561,6 +561,7 @@ struct mtk_drm_crtc {
 	atomic_t already_config;
 
 	bool layer_rec_en;
+	unsigned int fps_change_index;
 };
 
 struct mtk_crtc_state {

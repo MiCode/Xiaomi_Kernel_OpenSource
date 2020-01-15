@@ -428,6 +428,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned long long width = gsc->dst_width, height = gsc->dst_height;
 	unsigned int Bpp;
 	bool is_dc = gsc->is_dc;
+	unsigned int default_vrefresh = gsc->vrefresh;
 
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
@@ -435,7 +436,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	if (if_fps == 0) {
 		DDPPR_ERR("%s invalid vrefresh %u\n",
 			__func__, if_fps);
-		if_fps = 60;
+		if_fps = default_vrefresh;
 	}
 
 	switch (cfg->bpc) {
@@ -786,7 +787,7 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			struct drm_display_mode *mode =
 				&crtc->state->adjusted_mode;
 
-			bw_val = _layering_get_frame_bw(mode);
+			bw_val = _layering_get_frame_bw(crtc, mode);
 			ret = RDMA_REQ_HRT;
 		}
 		__mtk_disp_set_module_hrt(&comp->hrt_qos_req, bw_val);

@@ -290,7 +290,8 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 				  enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				  int param);
-static int layering_get_valid_hrt(struct drm_display_mode *mode);
+static int layering_get_valid_hrt(struct drm_crtc *crtc,
+					struct drm_display_mode *mode);
 
 static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 			int is_larb, int *hrt_table, struct drm_device *dev)
@@ -314,7 +315,7 @@ static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 
 	/* update table if hrt bw is enabled */
 	spin_lock_irqsave(&hrt_table_lock, flags);
-	valid_num = layering_get_valid_hrt(mode);
+	valid_num = layering_get_valid_hrt(crtc, mode);
 	ovl_bound = mtk_get_phy_layer_limit(
 		get_mapping_table(dev, 0, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT));
 	valid_num = min(valid_num, ovl_bound * 100);
@@ -427,16 +428,32 @@ static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
 	return true;
 }
 
-unsigned long long _layering_get_frame_bw(struct drm_display_mode *mode)
+unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
+						struct drm_display_mode *mode)
 {
 	static unsigned long long bw_base;
 	static int fps;
+	unsigned int vact_fps;
 	int width = mode->hdisplay, height = mode->vdisplay;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (fps == mode->vrefresh)
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+		struct mtk_panel_params *params;
+
+		params = mtk_crtc->panel_ext->params;
+		if (params->dyn_fps.switch_en == 1 &&
+			params->dyn_fps.vact_timing_fps != 0)
+			vact_fps = params->dyn_fps.vact_timing_fps;
+		else
+			vact_fps = mode->vrefresh;
+	} else
+		vact_fps = mode->vrefresh;
+	DDPINFO("%s,vrefresh = %d", __func__, vact_fps);
+
+	if (fps == vact_fps)
 		return bw_base;
 
-	fps = mode->vrefresh;
+	fps = vact_fps;
 
 	bw_base = (unsigned long long)width * height * fps * 125 * 4;
 
@@ -445,7 +462,8 @@ unsigned long long _layering_get_frame_bw(struct drm_display_mode *mode)
 	return bw_base;
 }
 
-static int layering_get_valid_hrt(struct drm_display_mode *mode)
+static int layering_get_valid_hrt(struct drm_crtc *crtc,
+					struct drm_display_mode *mode)
 {
 	unsigned long long dvfs_bw = 0;
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -459,7 +477,7 @@ static int layering_get_valid_hrt(struct drm_display_mode *mode)
 
 	dvfs_bw *= 10000;
 
-	tmp = _layering_get_frame_bw(mode);
+	tmp = _layering_get_frame_bw(crtc, mode);
 	dvfs_bw /= tmp * 100;
 
 	/* error handling when requested BW is less than 2 layers */

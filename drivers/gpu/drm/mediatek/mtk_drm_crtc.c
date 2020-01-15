@@ -1198,7 +1198,7 @@ unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)
 	}
 
 	mode = &crtc->state->adjusted_mode;
-	bw = _layering_get_frame_bw(mode);
+	bw = _layering_get_frame_bw(crtc, mode);
 
 	return (unsigned int)bw;
 }
@@ -1278,6 +1278,20 @@ __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 				mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
 		gs_ctx[idx].dst_width = crtc->state->adjusted_mode.hdisplay;
 		gs_ctx[idx].dst_height = crtc->state->adjusted_mode.vdisplay;
+		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+			struct mtk_panel_params *params;
+
+			params = mtk_crtc->panel_ext->params;
+			if (params->dyn_fps.switch_en == 1 &&
+				params->dyn_fps.vact_timing_fps != 0)
+				gs_ctx[idx].vrefresh =
+					params->dyn_fps.vact_timing_fps;
+			else
+				gs_ctx[idx].vrefresh =
+					crtc->state->adjusted_mode.vrefresh;
+		} else
+			gs_ctx[idx].vrefresh =
+				crtc->state->adjusted_mode.vrefresh;
 		break;
 	case 1:
 		/* TO DO: need more smart judge */
@@ -1310,6 +1324,21 @@ static void mtk_crtc_set_mmclk_for_fps(struct drm_crtc *crtc,
 		mtk_drm_set_mmclk(crtc, -1, __func__);
 }
 
+unsigned int mtk_crtc_get_idle_interval(struct drm_crtc *crtc, unsigned int fps)
+{
+
+	unsigned int idle_interval = mtk_drm_get_idle_check_interval(crtc);
+	/*calculate the timeout to enter idle in ms*/
+	if (idle_interval > 50)
+		return 0;
+	idle_interval = (3 * 1000) / fps + 1;
+
+	DDPMSG("[fps]:%s,[fps->idle interval][%d fps->%d ms]\n",
+		__func__, fps, idle_interval);
+
+	return idle_interval;
+}
+
 static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	struct drm_crtc_state *old_state, struct mtk_crtc_state *mtk_state,
 	struct cmdq_pkt *cmdq_handle)
@@ -1321,6 +1350,8 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp;
 	unsigned int fps_src, fps_dst;
 	unsigned int i, j;
+	unsigned int fps_chg_index = 0;
+	unsigned int _idle_timeout = 50;/*ms*/
 
 	struct mtk_ddp_comp *output_comp;
 
@@ -1346,34 +1377,50 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
 	drm_mode_set_crtcinfo(&crtc->state->adjusted_mode, 0);
 
-	/* Update RDMA golden_setting */
-	cfg.w = crtc->state->adjusted_mode.hdisplay;
-	cfg.h = crtc->state->adjusted_mode.vdisplay;
-	cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
-	cfg.bpc = mtk_crtc->bpc;
-	cfg.p_golden_setting_context =
-	    __get_golden_setting_context(mtk_crtc);
-	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, DYN_FPS_INDEX,
+				old_state);
+	fps_chg_index = output_comp->mtk_crtc->fps_change_index;
 
-	/* pull up mm clk if dst fps is higher than src fps */
-	if (fps_dst >= fps_src)
-		mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
+	//to do fps change index adjust
+	if (fps_chg_index &
+		(DYNFPS_DSI_HFP | DYNFPS_DSI_MIPI_CLK)) {
+		/*ToDo HFP/MIPI CLOCK solution*/
+		DDPMSG("%s,H timing changed\n", __func__);
+
+	/* Update RDMA golden_setting */
+		cfg.w = crtc->state->adjusted_mode.hdisplay;
+		cfg.h = crtc->state->adjusted_mode.vdisplay;
+		cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+		cfg.bpc = mtk_crtc->bpc;
+		cfg.p_golden_setting_context =
+			__get_golden_setting_context(mtk_crtc);
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+		/* pull up mm clk if dst fps is higher than src fps */
+		if (fps_dst >= fps_src)
+			mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
+	}
 
 	/* Change DSI mipi clk & send LCM cmd */
-	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_TIMING_CHANGE,
 				old_state);
 
-	if (fps_dst < fps_src)
+	if (fps_chg_index &
+		(DYNFPS_DSI_HFP | DYNFPS_DSI_MIPI_CLK) & (fps_dst < fps_src))
 		mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
-
 	drm_invoke_fps_chg_callbacks(crtc->state->adjusted_mode.vrefresh);
 
 	/* update framedur_ns for VSYNC report */
 	drm_calc_timestamping_constants(crtc, &crtc->state->mode);
+
+	/* update idle timeout*/
+	_idle_timeout = mtk_crtc_get_idle_interval(crtc, fps_dst);
+	if (_idle_timeout > 0)
+		mtk_drm_set_idle_check_interval(crtc, _idle_timeout);
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 }
@@ -2039,7 +2086,18 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 	if ((state->pending_config) == true) {
 		cfg.w = state->pending_width;
 		cfg.h = state->pending_height;
-		cfg.vrefresh = state->pending_vrefresh;
+		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+			struct mtk_panel_params *params;
+
+			params = mtk_crtc->panel_ext->params;
+			if (params->dyn_fps.switch_en == 1 &&
+				params->dyn_fps.vact_timing_fps != 0)
+				cfg.vrefresh =
+					params->dyn_fps.vact_timing_fps;
+			else
+				cfg.vrefresh = state->pending_vrefresh;
+		} else
+			cfg.vrefresh = state->pending_vrefresh;
 		cfg.bpc = 0;
 		mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
 
@@ -2394,7 +2452,19 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
 		cfg.h = crtc->state->adjusted_mode.vdisplay;
-		cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+			struct mtk_panel_params *params;
+
+			params = mtk_crtc->panel_ext->params;
+			if (params->dyn_fps.switch_en == 1 &&
+				params->dyn_fps.vact_timing_fps != 0)
+				cfg.vrefresh =
+					params->dyn_fps.vact_timing_fps;
+			else
+				cfg.vrefresh =
+					crtc->state->adjusted_mode.vrefresh;
+		} else
+			cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
 		cfg.bpc = mtk_crtc->bpc;
 		cfg.p_golden_setting_context =
 				__get_golden_setting_context(mtk_crtc);
@@ -2683,7 +2753,13 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 
 	cfg.w = crtc->state->adjusted_mode.hdisplay;
 	cfg.h = crtc->state->adjusted_mode.vdisplay;
-	cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+		mtk_crtc->panel_ext->params->dyn_fps.switch_en == 1
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps != 0)
+		cfg.vrefresh =
+			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+	else
+		cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
 	cfg.bpc = mtk_crtc->bpc;
 	cfg.p_golden_setting_context = __get_golden_setting_context(mtk_crtc);
 
@@ -2851,6 +2927,16 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	struct cmdq_client *client;
 	struct mtk_ddp_comp *comp;
 	int i, j;
+
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+		mtk_crtc->panel_ext->params->dyn_fps.switch_en
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps) {
+		unsigned int fps_default = 0;
+
+		fps_default =
+			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+		mtk_crtc_set_mmclk_for_fps(crtc, fps_default);
+	}
 
 	CRTC_MMP_EVENT_START(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -3178,6 +3264,16 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+		mtk_crtc->panel_ext->params->dyn_fps.switch_en
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps) {
+		unsigned int fps_default = 0;
+
+		fps_default =
+			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+		mtk_crtc_set_mmclk_for_fps(crtc, fps_default);
+	}
+
 	mtk_drm_crtc_init_para(crtc);
 
 	if (mtk_crtc->enabled) {
@@ -3228,6 +3324,14 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 
 	CRTC_MMP_EVENT_START(crtc_id, disable,
 			mtk_crtc->enabled, 0);
+
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+		mtk_crtc->panel_ext->params->dyn_fps.switch_en
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps) {
+		unsigned int fps_default = 0;
+
+		mtk_crtc_set_mmclk_for_fps(crtc, fps_default);
+	}
 
 	if (!mtk_crtc->enabled) {
 		CRTC_MMP_MARK(crtc_id, disable, 0, 0);
@@ -3579,7 +3683,19 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 		cfg.h = state->prop_val[CRTC_PROP_OUTPUT_HEIGHT];
 		cfg.x = state->prop_val[CRTC_PROP_OUTPUT_X];
 		cfg.y = state->prop_val[CRTC_PROP_OUTPUT_Y];
-		cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+			struct mtk_panel_params *params;
+
+			params = mtk_crtc->panel_ext->params;
+			if (params->dyn_fps.switch_en == 1 &&
+				params->dyn_fps.vact_timing_fps != 0)
+				cfg.vrefresh =
+					params->dyn_fps.vact_timing_fps;
+			else
+				cfg.vrefresh =
+					crtc->state->adjusted_mode.vrefresh;
+		} else
+			cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
 		cfg.bpc = mtk_crtc->bpc;
 		cfg.p_golden_setting_context =
 				__get_golden_setting_context(mtk_crtc);
@@ -3595,7 +3711,19 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 			mtk_crtc_get_dc_fb_size(crtc) * ddp_ctx->dc_fb_idx;
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
 		cfg.h = crtc->state->adjusted_mode.vdisplay;
-		cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+			struct mtk_panel_params *params;
+
+			params = mtk_crtc->panel_ext->params;
+			if (params->dyn_fps.switch_en == 1 &&
+				params->dyn_fps.vact_timing_fps != 0)
+				cfg.vrefresh =
+					params->dyn_fps.vact_timing_fps;
+			else
+				cfg.vrefresh =
+					crtc->state->adjusted_mode.vrefresh;
+		} else
+			cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
 		cfg.bpc = mtk_crtc->bpc;
 		cfg.p_golden_setting_context =
 				__get_golden_setting_context(mtk_crtc);
@@ -5234,7 +5362,13 @@ void mtk_crtc_path_switch_prepare(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	cfg->w = crtc->state->adjusted_mode.hdisplay;
 	cfg->h = crtc->state->adjusted_mode.vdisplay;
-	cfg->vrefresh = crtc->state->adjusted_mode.vrefresh;
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+		mtk_crtc->panel_ext->params->dyn_fps.switch_en == 1
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps != 0)
+		cfg->vrefresh =
+			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+	else
+		cfg->vrefresh = crtc->state->adjusted_mode.vrefresh;
 	cfg->bpc = mtk_crtc->bpc;
 	cfg->x = 0;
 	cfg->y = 0;

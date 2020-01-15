@@ -51,66 +51,6 @@ enum MTK_PANEL_MODE_SWITCH_STAGE {
 	AFTER_DSI_POWERON,
 };
 
-struct mtk_panel_funcs {
-	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
-		void *handle, unsigned int level);
-	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
-		void *handle, unsigned int level);
-	int (*reset)(struct drm_panel *panel, int on);
-	int (*ata_check)(struct drm_panel *panel);
-	int (*ext_param_set)(struct drm_panel *panel, unsigned int mode);
-	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
-		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
-	/**
-	 * @doze_enable:
-	 *
-	 * Call the @doze_enable before starting AOD mode. The LCM off may add
-	 * at the beginning of this function to avoid panel show unexpected
-	 * content when switching to specific panel low power mode.
-	 */
-	int (*doze_enable)(struct drm_panel *panel);
-
-	/**
-	 * @doze_enable:
-	 *
-	 * Call the @doze_enable before starting AOD mode. The LCM off may add
-	 * at the beginning of this function to avoid panel show unexpected
-	 * content when switching back to normal mode.
-	 */
-	int (*doze_disable)(struct drm_panel *panel);
-
-	/**
-	 * @doze_post_disp_on:
-	 *
-	 * In some situation, the LCM off may set in @doze_enable & @disable.
-	 * After LCM switch to the new mode stable, system call
-	 * @doze_post_disp_on to turn on panel.
-	 */
-	int (*doze_post_disp_on)(struct drm_panel *panel);
-
-	/**
-	 * @doze_area:
-	 *
-	 * Send the panel area in command here.
-	 */
-	int (*doze_area)(struct drm_panel *panel);
-
-	/**
-	 * @doze_get_mode_flags:
-	 *
-	 * If CV switch is needed for doze mode, fill the mode_flags in this
-	 * function for both CMD and VDO mode.
-	 */
-	unsigned long (*doze_get_mode_flags)(
-		struct drm_panel *panel, int aod_en);
-
-	int (*hbm_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
-			    dcs_write_gce cb, void *handle, bool en);
-	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
-	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
-	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
-};
-
 enum MIPITX_PHY_PORT {
 	MIPITX_PHY_PORT_0 = 0,
 	MIPITX_PHY_PORT_1,
@@ -125,6 +65,13 @@ enum MIPITX_PHY_LANE_SWAP {
 	MIPITX_PHY_LANE_CK,
 	MIPITX_PHY_LANE_RX,
 	MIPITX_PHY_LANE_NUM
+};
+
+enum FPS_CHANGE_INDEX {
+	DYNFPS_NOT_DEFINED = 0,
+	DYNFPS_DSI_VFP = 1,
+	DYNFPS_DSI_HFP = 2,
+	DYNFPS_DSI_MIPI_CLK = 4,
 };
 
 struct mtk_panel_dsc_params {
@@ -188,10 +135,16 @@ struct dynamic_mipi_params {
 	unsigned int vsa;
 	unsigned int vbp;
 	unsigned int vfp;
+	unsigned int vfp_lp_dyn;
 
 	unsigned int hsa;
 	unsigned int hbp;
 	unsigned int hfp;
+};
+
+struct dynamic_fps_params {
+	unsigned int switch_en;
+	unsigned int vact_timing_fps;
 };
 
 struct mtk_panel_params {
@@ -200,6 +153,7 @@ struct mtk_panel_params {
 	struct mtk_dsi_phy_timcon phy_timcon;
 	unsigned int vfp_low_power;
 	struct dynamic_mipi_params dyn;
+	struct dynamic_fps_params dyn_fps;
 	unsigned int cust_esd_check;
 	unsigned int esd_check_enable;
 	struct esd_check_item lcm_esd_check_table[ESD_CHECK_NUM];
@@ -217,6 +171,7 @@ struct mtk_panel_params {
 	unsigned int physical_width_um;
 	unsigned int physical_height_um;
 	unsigned int lane_swap_en;
+	unsigned int is_cphy;
 	enum MIPITX_PHY_LANE_SWAP
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
@@ -235,6 +190,68 @@ struct mtk_panel_ctx {
 	struct mtk_panel_ext *ext;
 
 	struct list_head list;
+};
+
+struct mtk_panel_funcs {
+	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
+		void *handle, unsigned int level);
+	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
+		void *handle, unsigned int level);
+	int (*reset)(struct drm_panel *panel, int on);
+	int (*ata_check)(struct drm_panel *panel);
+	int (*ext_param_set)(struct drm_panel *panel, unsigned int mode);
+	int (*ext_param_get)(struct mtk_panel_params *ext_para,
+		unsigned int mode);
+	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
+		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
+	/**
+	 * @doze_enable:
+	 *
+	 * Call the @doze_enable before starting AOD mode. The LCM off may add
+	 * at the beginning of this function to avoid panel show unexpected
+	 * content when switching to specific panel low power mode.
+	 */
+	int (*doze_enable)(struct drm_panel *panel);
+
+	/**
+	 * @doze_enable:
+	 *
+	 * Call the @doze_enable before starting AOD mode. The LCM off may add
+	 * at the beginning of this function to avoid panel show unexpected
+	 * content when switching back to normal mode.
+	 */
+	int (*doze_disable)(struct drm_panel *panel);
+
+	/**
+	 * @doze_post_disp_on:
+	 *
+	 * In some situation, the LCM off may set in @doze_enable & @disable.
+	 * After LCM switch to the new mode stable, system call
+	 * @doze_post_disp_on to turn on panel.
+	 */
+	int (*doze_post_disp_on)(struct drm_panel *panel);
+
+	/**
+	 * @doze_area:
+	 *
+	 * Send the panel area in command here.
+	 */
+	int (*doze_area)(struct drm_panel *panel);
+
+	/**
+	 * @doze_get_mode_flags:
+	 *
+	 * If CV switch is needed for doze mode, fill the mode_flags in this
+	 * function for both CMD and VDO mode.
+	 */
+	unsigned long (*doze_get_mode_flags)(
+		struct drm_panel *panel, int aod_en);
+
+	int (*hbm_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
+			    dcs_write_gce cb, void *handle, bool en);
+	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
+	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
+	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

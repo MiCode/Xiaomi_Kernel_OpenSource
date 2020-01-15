@@ -1466,7 +1466,18 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
-		vrefresh = crtc->state->adjusted_mode.vrefresh;
+		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+			struct mtk_panel_params *params;
+
+			params = mtk_crtc->panel_ext->params;
+			if (params->dyn_fps.switch_en == 1 &&
+				params->dyn_fps.vact_timing_fps != 0)
+				vrefresh = params->dyn_fps.vact_timing_fps;
+			else
+				vrefresh = crtc->state->adjusted_mode.vrefresh;
+		} else
+			vrefresh = crtc->state->adjusted_mode.vrefresh;
+		DDPINFO("%s,vrefresh = %d", __func__, vrefresh);
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/* TODO: consider FBDC */

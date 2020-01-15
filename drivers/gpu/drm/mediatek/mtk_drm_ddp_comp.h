@@ -219,6 +219,7 @@ enum mtk_ddp_io_cmd {
 	BACKUP_OVL_STATUS,
 	MIPI_HOPPING,
 	PANEL_OSC_HOPPING,
+	DYN_FPS_INDEX,
 	FRAME_DIRTY,
 };
 
@@ -227,6 +228,8 @@ struct golden_setting_context {
 	unsigned int is_dc;
 	unsigned int dst_width;
 	unsigned int dst_height;
+	// add for rdma default goden setting
+	unsigned int vrefresh;
 };
 
 struct mtk_ddp_config {
