@@ -778,6 +778,7 @@ struct dwc3_ep {
 	unsigned		direction:1;
 	unsigned		stream_capable:1;
 	unsigned		gsi:1;
+	unsigned int		endless:1;
 
 	/* For isochronous START TRANSFER workaround only */
 	u8			combo_num;

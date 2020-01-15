@@ -2,7 +2,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -11,6 +11,7 @@
 #include <linux/device.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/usb/cdc.h>
+#include <linux/usb/dwc3-msm.h>
 
 #include "f_qdss.h"
 
@@ -374,8 +375,10 @@ static void clear_eps(struct usb_function *f)
 		qdss->port.ctrl_in->driver_data = NULL;
 	if (qdss->port.ctrl_out)
 		qdss->port.ctrl_out->driver_data = NULL;
-	if (qdss->port.data)
+	if (qdss->port.data) {
+		msm_ep_set_endless(qdss->port.data, false);
 		qdss->port.data->driver_data = NULL;
+	}
 }
 
 static void clear_desc(struct usb_gadget *gadget, struct usb_function *f)
@@ -442,6 +445,9 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 	qdss->port.data = ep;
 	ep->driver_data = qdss;
+
+	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MSM))
+		msm_ep_set_endless(qdss->port.data, true);
 
 	if (qdss->debug_inface_enabled) {
 		ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_in_desc,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -2060,6 +2060,15 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
+
+void msm_ep_set_endless(struct usb_ep *ep, bool set_clear)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+
+	dep->endless = !!set_clear;
+}
+EXPORT_SYMBOL(msm_ep_set_endless);
+
 #endif /* (CONFIG_USB_DWC3_GADGET) || (CONFIG_USB_DWC3_DUAL_ROLE) */
 
 static void dwc3_resume_work(struct work_struct *w);
