@@ -639,7 +639,7 @@ static int mtk_jpeg_try_fmt_mplane(struct v4l2_format *f,
 		if (fmt->fourcc == V4L2_PIX_FMT_JPEG) {
 			pix_mp->plane_fmt[0].sizeimage =
 				mtk_jpeg_align(pix_mp->plane_fmt[0].sizeimage,
-					       128) + 128;
+					       128);
 			pix_mp->plane_fmt[0].bytesperline = 0;
 		}
 	} else {
