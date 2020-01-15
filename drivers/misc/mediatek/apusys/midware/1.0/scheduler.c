@@ -510,10 +510,16 @@ static int multicore_get_cmd_idx(struct apusys_subcmd *sc, int dev_idx)
 static int multicore_get_devnum(struct apusys_subcmd *sc)
 {
 	int dev_num = -1, queue_empty = -1, codebuf_valid = -1;
+	int total_core = 0, multicore_num = 2;
 
 	/* check supported device */
 	if (sc->type != APUSYS_DEVICE_MDLA)
 		return 1;
+
+	/* get type device support num */
+	total_core = res_get_device_num(sc->type);
+	if (total_core <= 0)
+		return 0;
 
 	/* check codebuf contain multicore info */
 	codebuf_valid = check_multimdla_support(sc);
@@ -524,16 +530,23 @@ static int multicore_get_devnum(struct apusys_subcmd *sc)
 		queue_empty = normal_task_empty(APUSYS_DEVICE_MDLA);
 		/* check normal queue empty and codebuf valid */
 		if (queue_empty && codebuf_valid)
-			dev_num = 2;
+			dev_num = total_core < multicore_num ?
+				total_core : multicore_num;
 		else
 			dev_num = 1;
 		break;
 	case CMD_SCHED_FORCE_MULTI:
 		/* CMD_SCHED_FORCE_MULTI: force multicore if codebuf is valid */
-		if (codebuf_valid)
-			dev_num = 2;
-		else
+		if (codebuf_valid) {
+			if (dev_num > total_core)
+				LOG_WARN("force multi: dev(%d) core(%d/%d)\n",
+				sc->type, multicore_num, total_core);
+
+			dev_num = total_core < multicore_num ?
+				total_core : multicore_num;
+		} else {
 			dev_num = 1;
+		}
 		break;
 	case CMD_SCHED_FORCE_SINGLE:
 	default:
