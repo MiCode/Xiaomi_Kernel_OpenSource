@@ -5186,9 +5186,9 @@ static void vmsf_do_work(struct work_struct *data)
 static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId)
 {
 #if 1
-	unsigned int MssStatus;
+	/*unsigned int MssStatus;*/
 
-	MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_REG);	/* MSS Status */
+	/*MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_REG);*//* MSS Status */
 	/*MFB_WR32(MFB_MSS_INT_STATUS_REG, MssStatus);*//* MSS Status */
 	LOG_DBG("%s:0x%x = 0x%x ", __func__,
 			MFB_MSS_INT_STATUS_HW, MssStatus);
@@ -5252,9 +5252,9 @@ static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId)
 static irqreturn_t ISP_Irq_MSF(signed int Irq, void *DeviceId)
 {
 #if 1
-	unsigned int MsfStatus;
+	/*unsigned int MsfStatus;*/
 
-	MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_REG);	/* MSF Status */
+	/*MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_REG);*//* MSF Status */
 	/*MFB_WR32(MFB_MSF_INT_STATUS_REG, MsfStatus);*//* MSF Status */
 	LOG_DBG("%s:0x%x = 0x%x ", __func__,
 			MFB_MSF_INT_STATUS_HW, MsfStatus);
