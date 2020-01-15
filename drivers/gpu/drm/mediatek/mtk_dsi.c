@@ -2162,8 +2162,8 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
 	struct drm_display_mode *old_mode;
 	struct drm_display_mode *adjust_mode;
+	struct mtk_panel_params *cur_panel_params = panel_ext->params;
 	struct mtk_panel_params *adjust_panel_params = NULL;
-	struct mtk_panel_params *cur_panel_params = NULL;
 	unsigned int fps_chg_index = 0;
 	unsigned int old_get_sta = 0, new_get_sta = 0;
 
@@ -2180,20 +2180,32 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	adjust_mode = &(mtk_crtc->avail_modes[dst_mode_idx]);
 
 	if (panel_ext && panel_ext->funcs &&
-		panel_ext->funcs->ext_param_get) {
-		DDPINFO("ext_param_get\n");
-		old_get_sta = panel_ext->funcs->ext_param_get(
-			cur_panel_params, src_mode_idx);
-		new_get_sta = panel_ext->funcs->ext_param_get(
-			adjust_panel_params, dst_mode_idx);
+		panel_ext->funcs->ext_param_set) {
+		DDPINFO("old ext_param_set\n");
+		old_get_sta = panel_ext->funcs->ext_param_set(
+			dsi->panel, src_mode_idx);
 	}
-	if (old_get_sta || new_get_sta)
-		DDPMSG("%s,error not support MODE:(%d,%d)\n", __func__,
-			src_mode_idx, dst_mode_idx);
+	if (old_get_sta)
+		DDPINFO("%s,error:not support src MODE:(%d)\n", __func__,
+			src_mode_idx);
+
+	cur_panel_params = find_panel_ext(dsi->panel)->params;
+
+	if (panel_ext && panel_ext->funcs &&
+		panel_ext->funcs->ext_param_set) {
+		DDPINFO("new ext_param_set\n");
+		new_get_sta = panel_ext->funcs->ext_param_set(
+			dsi->panel, dst_mode_idx);
+	}
+	if (new_get_sta)
+		DDPINFO("%s,error:not support dst MODE:(%d)\n", __func__,
+			dst_mode_idx);
+
+	adjust_panel_params = find_panel_ext(dsi->panel)->params;
 
 	if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
-		adjust_panel_params->dyn.switch_en &&
-		cur_panel_params->dyn.switch_en == 1)) {
+		cur_panel_params->dyn.switch_en &&
+		adjust_panel_params->dyn.switch_en == 1)) {
 		if (adjust_mode->vtotal !=
 			old_mode->vtotal) {
 			fps_chg_index |= DYNFPS_DSI_VFP;
@@ -2202,12 +2214,17 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 			old_mode->htotal) {
 			fps_chg_index |= DYNFPS_DSI_HFP;
 		}
-		if (cur_panel_params->data_rate !=
+		if (panel_ext->params->data_rate !=
 			adjust_panel_params->data_rate) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
 		}
-		if (cur_panel_params->pll_clk !=
+		if (!fps_chg_index &&
+			cur_panel_params->pll_clk !=
 			adjust_panel_params->pll_clk) {
+			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
+		}
+		if (!fps_chg_index &&
+			adjust_mode->clock != old_mode->clock) {
 			fps_chg_index |= DYNFPS_DSI_MIPI_CLK;
 		}
 	} else {
@@ -2232,10 +2249,10 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	mtk_crtc->fps_change_index = fps_chg_index;
 	DDPINFO("%s,chg %d->%d\n", __func__, old_mode->vrefresh,
 		adjust_mode->vrefresh);
-	DDPINFO("%s,chg solution:0x%x\n", __func__, fps_chg_index);
+	DDPINFO("%s,mipi_hopping_sta %d,chg solution:0x%x\n", __func__,
+		dsi->mipi_hopping_sta, fps_chg_index);
 	return 0;
 }
-
 
 static const char *mtk_dsi_mode_spy(enum DSI_MODE_CON mode)
 {

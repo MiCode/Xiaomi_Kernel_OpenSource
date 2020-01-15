@@ -1387,7 +1387,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	if (fps_chg_index &
 		(DYNFPS_DSI_HFP | DYNFPS_DSI_MIPI_CLK)) {
 		/*ToDo HFP/MIPI CLOCK solution*/
-		DDPMSG("%s,H timing changed\n", __func__);
+		DDPMSG("%s,Update RDMA golden_setting\n", __func__);
 
 	/* Update RDMA golden_setting */
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
