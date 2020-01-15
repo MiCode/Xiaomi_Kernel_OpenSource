@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,10 +13,15 @@
 #define	_DWMAC_QCOM_ETHQOS_H
 
 #include <linux/ipc_logging.h>
+#include <linux/msm-bus.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
+#include <linux/mailbox_controller.h>
 
 extern void *ipc_emac_log_ctxt;
 
 #define IPCLOG_STATE_PAGES 50
+#define MAX_QMP_MSG_SIZE 96
 #define __FILENAME__ (strrchr(__FILE__, '/') ? \
 		strrchr(__FILE__, '/') + 1 : __FILE__)
 
@@ -153,11 +158,15 @@ do {\
 #define MICREL_PHY_ID PHY_ID_KSZ9031
 #define DWC_ETH_QOS_MICREL_PHY_INTCS 0x1b
 #define DWC_ETH_QOS_MICREL_PHY_CTL 0x1f
-#define DWC_ETH_QOS_MICREL_INTR_LEVEL 0x4000
 #define DWC_ETH_QOS_BASIC_STATUS     0x0001
 #define LINK_STATE_MASK 0x4
 #define AUTONEG_STATE_MASK 0x20
 #define MICREL_LINK_UP_INTR_STATUS BIT(0)
+
+#define VOTE_IDX_0MBPS 0
+#define VOTE_IDX_10MBPS 1
+#define VOTE_IDX_100MBPS 2
+#define VOTE_IDX_1000MBPS 3
 
 #define TLMM_BASE_ADDRESS (tlmm_central_base_addr)
 
@@ -235,7 +244,6 @@ do {\
 
 #define TLMM_RGMII_RX_HV_MODE_CTL_RGRD(data)\
 	((data) = ioread32((void __iomem *)TLMM_RGMII_RX_HV_MODE_CTL_ADDRESS))
-
 static inline u32 PPSCMDX(u32 x, u32 val)
 {
 	return (GENMASK(PPS_MINIDX(x) + 3, PPS_MINIDX(x)) &
@@ -252,6 +260,12 @@ static inline u32 PPSX_MASK(u32 x)
 {
 	return GENMASK(PPS_MAXIDX(x), PPS_MINIDX(x));
 }
+
+enum IO_MACRO_PHY_MODE {
+		RGMII_MODE,
+		RMII_MODE,
+		MII_MODE
+};
 
 struct ethqos_emac_por {
 	unsigned int offset;
@@ -280,9 +294,12 @@ struct qcom_ethqos {
 	struct platform_device *pdev;
 	void __iomem *rgmii_base;
 
+	struct msm_bus_scale_pdata *bus_scale_vec;
+	u32 bus_hdl;
 	unsigned int rgmii_clk_rate;
 	struct clk *rgmii_clk;
 	unsigned int speed;
+	unsigned int vote_idx;
 
 	int gpio_phy_intr_redirect;
 	u32 phy_intr;
@@ -317,7 +334,24 @@ struct qcom_ethqos {
 	unsigned long avb_class_b_intr_cnt;
 	struct dentry *debugfs_dir;
 
+	int oldlink;
+	/* saving state for Wake-on-LAN */
+	int wolopts;
+	/* state of enabled wol options in PHY*/
+	u32 phy_wol_wolopts;
+	/* state of supported wol options in PHY*/
+	u32 phy_wol_supported;
+	/* Boolean to check if clock is suspended*/
+	int clks_suspended;
+	/* Structure which holds done and wait members */
+	struct completion clk_enable_done;
+
 	int always_on_phy;
+	/* QMP message for disabling ctile power collapse while XO shutdown */
+	struct mbox_chan *qmp_mbox_chan;
+	struct mbox_client *qmp_mbox_client;
+	struct work_struct qmp_mailbox_work;
+	int disable_ctile_pc;
 };
 
 struct pps_cfg {
@@ -353,4 +387,6 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 				     struct cdev **pps_cdev,
 				     struct class **pps_class,
 				     char *pps_dev_node_name);
+void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
+
 #endif

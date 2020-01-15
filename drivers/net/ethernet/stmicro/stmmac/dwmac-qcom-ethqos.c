@@ -31,6 +31,8 @@ struct qcom_ethqos *pethqos;
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 
 void *ipc_emac_log_ctxt;
+static struct qmp_pkt pkt;
+static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -82,8 +84,11 @@ static void rgmii_dump(struct qcom_ethqos *ethqos)
 #define RGMII_ID_MODE_10_LOW_SVS_CLK_FREQ	  (5 * 1000 * 1000UL)
 
 static void
-ethqos_update_rgmii_clk(struct qcom_ethqos *ethqos, unsigned int speed)
+ethqos_update_rgmii_clk_and_bus_cfg(struct qcom_ethqos *ethqos,
+				    unsigned int speed)
 {
+	int ret;
+
 	switch (speed) {
 	case SPEED_1000:
 		ethqos->rgmii_clk_rate =  RGMII_1000_NOM_CLK_FREQ;
@@ -98,7 +103,97 @@ ethqos_update_rgmii_clk(struct qcom_ethqos *ethqos, unsigned int speed)
 		break;
 	}
 
+	switch (speed) {
+	case SPEED_1000:
+		ethqos->vote_idx = VOTE_IDX_1000MBPS;
+		break;
+	case SPEED_100:
+		ethqos->vote_idx = VOTE_IDX_100MBPS;
+		break;
+	case SPEED_10:
+		ethqos->vote_idx = VOTE_IDX_10MBPS;
+		break;
+	case 0:
+		ethqos->vote_idx = VOTE_IDX_0MBPS;
+		ethqos->rgmii_clk_rate = 0;
+		break;
+	}
+
+	if (ethqos->bus_hdl) {
+		ret = msm_bus_scale_client_update_request(ethqos->bus_hdl,
+							  ethqos->vote_idx);
+		WARN_ON(ret);
+	}
+
 	clk_set_rate(ethqos->rgmii_clk, ethqos->rgmii_clk_rate);
+}
+
+static int qcom_ethqos_qmp_mailbox_init(struct qcom_ethqos *ethqos)
+{
+	ethqos->qmp_mbox_client = devm_kzalloc(
+	&ethqos->pdev->dev, sizeof(*ethqos->qmp_mbox_client), GFP_KERNEL);
+
+	if (IS_ERR(ethqos->qmp_mbox_client)) {
+		ETHQOSERR("qmp alloc client failed\n");
+		return -EINVAL;
+	}
+
+	ethqos->qmp_mbox_client->dev = &ethqos->pdev->dev;
+	ethqos->qmp_mbox_client->tx_block = true;
+	ethqos->qmp_mbox_client->tx_tout = 1000;
+	ethqos->qmp_mbox_client->knows_txdone = false;
+
+	ethqos->qmp_mbox_chan = mbox_request_channel(ethqos->qmp_mbox_client,
+						     0);
+
+	if (IS_ERR(ethqos->qmp_mbox_chan)) {
+		ETHQOSERR("qmp request channel failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int qcom_ethqos_qmp_mailbox_send_message(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	memset(&qmp_buf[0], 0, MAX_QMP_MSG_SIZE + 1);
+
+	snprintf(qmp_buf, MAX_QMP_MSG_SIZE, "{class:ctile, pc:0}");
+
+	pkt.size = ((size_t)strlen(qmp_buf) + 0x3) & ~0x3;
+	pkt.data = qmp_buf;
+
+	ret = mbox_send_message(ethqos->qmp_mbox_chan, (void *)&pkt);
+
+	ETHQOSDBG("qmp mbox_send_message ret = %d\n", ret);
+
+	if (ret < 0) {
+		ETHQOSERR("Disabling c-tile power collapse failed\n");
+		return ret;
+	}
+
+	ETHQOSDBG("Disabling c-tile power collapse succeded");
+
+	return 0;
+}
+
+/**
+ *  DWC_ETH_QOS_qmp_mailbox_work - Scheduled from probe
+ *  @work: work_struct
+ */
+static void qcom_ethqos_qmp_mailbox_work(struct work_struct *work)
+{
+	struct qcom_ethqos *ethqos =
+		container_of(work, struct qcom_ethqos, qmp_mailbox_work);
+
+	ETHQOSDBG("Enter\n");
+
+	/* Send QMP message to disable c-tile power collapse */
+	qcom_ethqos_qmp_mailbox_send_message(ethqos);
+
+	ETHQOSDBG("Exit\n");
 }
 
 static void ethqos_set_func_clk_en(struct qcom_ethqos *ethqos)
@@ -411,7 +506,7 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 	struct qcom_ethqos *ethqos = priv;
 
 	ethqos->speed = speed;
-	ethqos_update_rgmii_clk(ethqos, speed);
+	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, speed);
 	ethqos_configure(ethqos);
 }
 
@@ -519,12 +614,17 @@ static void ethqos_defer_phy_isr_work(struct work_struct *work)
 	struct qcom_ethqos *ethqos =
 		container_of(work, struct qcom_ethqos, emac_phy_work);
 
+	if (ethqos->clks_suspended)
+		wait_for_completion(&ethqos->clk_enable_done);
+
 	ethqos_handle_phy_interrupt(ethqos);
 }
 
 static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 {
 	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
+
+	pm_wakeup_event(&ethqos->pdev->dev, 5000);
 
 	queue_work(system_wq, &ethqos->emac_phy_work);
 
@@ -536,6 +636,8 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 	int ret = 0;
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
+	init_completion(&ethqos->clk_enable_done);
+
 	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
 			  IRQF_SHARED, "stmmac", ethqos);
 	if (ret) {
@@ -936,6 +1038,108 @@ err_out:
 	return ret;
 }
 
+static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
+{
+	ETHQOSINFO("Enter\n");
+
+	if (phy_intr_en)
+		reinit_completion(&ethqos->clk_enable_done);
+
+	ethqos->clks_suspended = 1;
+
+	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
+
+	ETHQOSINFO("Exit\n");
+}
+
+static bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos,
+				       struct net_device *ndev)
+{
+	if (!ethqos) {
+		ETHQOSINFO("ethqos addr is NULL");
+		return 0;
+	}
+
+	if (!ndev) {
+		ETHQOSINFO("dev addr is NULL");
+		return 0;
+	}
+
+	/* PHY driver initializes phydev->link=1.
+	 * So, phydev->link is 1 even on booup with no PHY connected.
+	 * phydev->link is valid only after adjust_link is called once.
+	 * Use (pdata->oldlink != -1) to indicate phy link is not up
+	 */
+	return ethqos->always_on_phy ? 1 :
+		((ethqos->oldlink != -1) && ndev->phydev && ndev->phydev->link);
+		return 0;
+}
+
+static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos,
+					struct net_device *ndev)
+{
+	ETHQOSINFO("Enter\n");
+
+	if (qcom_ethqos_is_phy_link_up(ethqos, ndev))
+		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, ethqos->speed);
+	else
+		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
+
+	ethqos->clks_suspended = 0;
+
+	if (phy_intr_en)
+		complete_all(&ethqos->clk_enable_done);
+
+	ETHQOSINFO("Exit\n");
+}
+
+void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
+{
+	struct qcom_ethqos *ethqos = plat->bsp_priv;
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *ndev = platform_get_drvdata(pdev);
+
+	ethqos->phy_wol_supported = 0;
+	ethqos->phy_wol_wolopts = 0;
+	/* Check if phydev is valid*/
+	/* Check and enable Wake-on-LAN functionality in PHY*/
+
+	if (ndev->phydev) {
+		struct ethtool_wolinfo wol = {.cmd = ETHTOOL_GWOL};
+
+		wol.supported = 0;
+		wol.wolopts = 0;
+		ETHQOSINFO("phydev addr: 0x%pK\n", ndev->phydev);
+		phy_ethtool_get_wol(ndev->phydev, &wol);
+		ethqos->phy_wol_supported = wol.supported;
+		ETHQOSINFO("Get WoL[0x%x] in %s\n", wol.supported,
+			   ndev->phydev->drv->name);
+
+	/* Try to enable supported Wake-on-LAN features in PHY*/
+		if (wol.supported) {
+			device_set_wakeup_capable(&ethqos->pdev->dev, 1);
+
+			wol.cmd = ETHTOOL_SWOL;
+			wol.wolopts = wol.supported;
+
+			if (!phy_ethtool_set_wol(ndev->phydev, &wol)) {
+				ethqos->phy_wol_wolopts = wol.wolopts;
+
+				enable_irq_wake(ethqos->phy_intr);
+				device_set_wakeup_enable(&ethqos->pdev->dev, 1);
+
+				ETHQOSINFO("Enabled WoL[0x%x] in %s\n",
+					   wol.wolopts,
+					   ndev->phydev->drv->name);
+			} else {
+				ETHQOSINFO("Disabled WoL[0x%x] in %s\n",
+					   wol.wolopts,
+					   ndev->phydev->drv->name);
+			}
+		}
+	}
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -963,8 +1167,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_mem;
 	}
-	ethqos->pdev = pdev;
 
+	ethqos->pdev = pdev;
+	ethqos->oldlink = -1;
 	ethqos_init_reqgulators(ethqos);
 	ethqos_init_gpio(ethqos);
 
@@ -995,9 +1200,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_mem;
 
-	ethqos->speed = SPEED_1000;
-	ethqos_update_rgmii_clk(ethqos, SPEED_1000);
+	ethqos->speed = SPEED_10;
+	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
 	ethqos_set_func_clk_en(ethqos);
+	if (ethqos->emac_ver == EMAC_HW_v2_0_0)
+		ethqos->disable_ctile_pc = 1;
 
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
@@ -1047,6 +1254,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 						 AVB_CLASS_B_POLL_DEV_NODE);
 	}
 
+	if (ethqos->disable_ctile_pc && !qcom_ethqos_qmp_mailbox_init(ethqos)) {
+		INIT_WORK(&ethqos->qmp_mailbox_work,
+			  qcom_ethqos_qmp_mailbox_work);
+		queue_work(system_wq, &ethqos->qmp_mailbox_work);
+	}
 	pethqos = ethqos;
 	ethqos_create_debugfs(ethqos);
 	return ret;
@@ -1074,20 +1286,86 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	if (phy_intr_en)
 		free_irq(ethqos->phy_intr, ethqos);
+
+	if (phy_intr_en)
+		cancel_work_sync(&ethqos->emac_phy_work);
+
 	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
 
 	return ret;
 }
 
+static int qcom_ethqos_suspend(struct device *dev)
+{
+	struct qcom_ethqos *ethqos;
+	struct net_device *ndev = NULL;
+	int ret;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,emac-smmu-embedded")) {
+		ETHQOSDBG("smmu return\n");
+		return 0;
+	}
+
+	ethqos = get_stmmac_bsp_priv(dev);
+	if (!ethqos)
+		return -ENODEV;
+
+	ndev = dev_get_drvdata(dev);
+
+	if (!ndev || !netif_running(ndev))
+		return -EINVAL;
+
+	ret = stmmac_suspend(dev);
+	qcom_ethqos_phy_suspend_clks(ethqos);
+
+	ETHQOSDBG(" ret = %d\n", ret);
+	return ret;
+}
+
+static int qcom_ethqos_resume(struct device *dev)
+{
+	struct net_device *ndev = NULL;
+	struct qcom_ethqos *ethqos;
+	int ret;
+
+	ETHQOSDBG("Resume Enter\n");
+	if (of_device_is_compatible(dev->of_node, "qcom,emac-smmu-embedded"))
+		return 0;
+
+	ethqos = get_stmmac_bsp_priv(dev);
+
+	if (!ethqos)
+		return -ENODEV;
+
+	ndev = dev_get_drvdata(dev);
+
+	if (!ndev || !netif_running(ndev)) {
+		ETHQOSERR(" Resume not possible\n");
+		return -EINVAL;
+	}
+
+	qcom_ethqos_phy_resume_clks(ethqos, ndev);
+
+	ret = stmmac_resume(dev);
+
+	ETHQOSDBG("<--Resume Exit\n");
+	return ret;
+}
+
 MODULE_DEVICE_TABLE(of, qcom_ethqos_match);
+
+static const struct dev_pm_ops qcom_ethqos_pm_ops = {
+	.suspend = qcom_ethqos_suspend,
+	.resume = qcom_ethqos_resume,
+};
 
 static struct platform_driver qcom_ethqos_driver = {
 	.probe  = qcom_ethqos_probe,
 	.remove = qcom_ethqos_remove,
 	.driver = {
 		.name           = "qcom-ethqos",
-		.pm		= &stmmac_pltfr_pm_ops,
+		.pm = &qcom_ethqos_pm_ops,
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
 };
