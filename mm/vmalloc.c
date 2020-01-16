@@ -2500,8 +2500,13 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 			    gfp_t gfp_mask, pgprot_t prot,
 			    int node, const void *caller)
 {
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	return __vmalloc_node_range(size, align, PAGE_OFFSET, VMALLOC_END,
+				gfp_mask, prot, 0, node, caller);
+#else
 	return __vmalloc_node_range(size, align, VMALLOC_START, VMALLOC_END,
 				gfp_mask, prot, 0, node, caller);
+#endif
 }
 
 void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)
