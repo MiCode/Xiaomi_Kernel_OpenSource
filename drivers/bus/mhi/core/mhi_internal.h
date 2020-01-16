@@ -716,6 +716,7 @@ struct mhi_chan {
 struct tsync_node {
 	struct list_head node;
 	u32 sequence;
+	u32 int_sequence;
 	u64 local_time;
 	u64 remote_time;
 	struct mhi_device *mhi_dev;
@@ -725,6 +726,7 @@ struct tsync_node {
 
 struct mhi_timesync {
 	void __iomem *time_reg;
+	u32 int_sequence;
 	spinlock_t lock; /* list protection */
 	struct list_head head;
 };
