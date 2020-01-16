@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -331,6 +331,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Bengalp ID */
 	[445] = {MSM_CPU_BENGALP, "BENGALP"},
+	[420] = {MSM_CPU_BENGALP, "BENGALP"},
 
 	/* Scuba ID */
 	[441] = {MSM_CPU_SCUBA, "SCUBA"},
