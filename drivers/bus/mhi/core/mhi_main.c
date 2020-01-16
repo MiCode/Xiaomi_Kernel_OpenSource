@@ -1409,7 +1409,7 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
 	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
 	int count = 0;
-	u32 sequence, unit;
+	u32 int_sequence, unit;
 	u64 remote_time;
 
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
@@ -1431,7 +1431,7 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 
 		MHI_ASSERT(type != MHI_PKT_TYPE_TSYNC_EVENT, "!TSYNC event");
 
-		sequence = MHI_TRE_GET_EV_TSYNC_SEQ(local_rp);
+		int_sequence = MHI_TRE_GET_EV_TSYNC_SEQ(local_rp);
 		unit = MHI_TRE_GET_EV_TSYNC_UNIT(local_rp);
 		remote_time = MHI_TRE_GET_EV_TIME(local_rp);
 
@@ -1451,9 +1451,9 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 			 * device may not able to process all time sync commands
 			 * host issue and only process last command it receive
 			 */
-			if (tsync_node->sequence == sequence) {
+			if (tsync_node->int_sequence == int_sequence) {
 				tsync_node->cb_func(tsync_node->mhi_dev,
-						    sequence,
+						    tsync_node->sequence,
 						    tsync_node->local_time,
 						    remote_time);
 				kfree(tsync_node);
@@ -2618,7 +2618,12 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 		goto error_no_mem;
 	}
 
+	mhi_tsync->int_sequence++;
+	if (mhi_tsync->int_sequence == 0xFFFFFFFF)
+		mhi_tsync->int_sequence = 0;
+
 	tsync_node->sequence = sequence;
+	tsync_node->int_sequence = mhi_tsync->int_sequence;
 	tsync_node->cb_func = cb_func;
 	tsync_node->mhi_dev = mhi_dev;
 
@@ -2643,7 +2648,7 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 
 	tsync_node->local_time =
 		mhi_cntrl->time_get(mhi_cntrl, mhi_cntrl->priv_data);
-	writel_relaxed_no_log(tsync_node->sequence, mhi_cntrl->tsync_db);
+	writel_relaxed_no_log(tsync_node->int_sequence, mhi_cntrl->tsync_db);
 	/* write must go thru immediately */
 	wmb();
 
