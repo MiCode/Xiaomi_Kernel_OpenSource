@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,6 +221,7 @@
 &qupv3_se7_i2c {
 	status = "ok";
 
+	qcom,i2c-touch-active = "synaptics,tcm-i2c";
 	synaptics_tcm@20 {
 		compatible = "synaptics,tcm-i2c";
 		reg = <0x20>;
@@ -243,6 +244,25 @@
 		synaptics,reset-delay-ms = <200>;
 		synaptics,power-delay-ms = <200>;
 		synaptics,ubl-i2c-addr = <0x20>;
+	};
+
+	atmel_mxt_ts@4a {
+		compatible = "atmel,maxtouch";
+		reg = <0x4a>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x2008>;
+		avdd-supply = <&pm6150l_l7>;
+		vdd-supply = <&pm6150_l10>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+
+		reset-gpios = <&tlmm 8 0x00>;
+		irq-gpios = <&tlmm 9 0x2008>;
+
+		atmel,xy_switch;
+		atmel,panel-coords = <0 0 479 799>;
+		atmel,display-coords = <0 0 339 769>;
 	};
 };
 
