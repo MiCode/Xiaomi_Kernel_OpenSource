@@ -150,6 +150,9 @@
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
 #define DWC3_GEVENT_TYPE_GSI			0x3
 
+/* BAM pipe mask */
+#define MSM_PIPE_ID_MASK	(0x1F)
+
 enum dbm_reg {
 	DBM_EP_CFG,
 	DBM_DATA_FIFO,
@@ -3737,6 +3740,63 @@ static void dwc3_init_dbm(struct dwc3_msm *mdwc)
 	mdwc->dbm_reset_ep_after_lpm = of_property_read_bool(mdwc->dev->of_node,
 			"qcom,reset-ep-after-lpm-resume");
 }
+
+static void dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
+{
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (start) {
+		dbg_log_string("start host mode");
+		mdwc->id_state = DWC3_ID_GROUND;
+		mdwc->vbus_active = false;
+	} else {
+		dbg_log_string("stop_host_mode started");
+		mdwc->id_state = DWC3_ID_FLOAT;
+		mdwc->vbus_active = false;
+	}
+
+	dwc3_ext_event_notify(mdwc);
+	dbg_event(0xFF, "flush_work", 0);
+	flush_work(&mdwc->resume_work);
+	drain_workqueue(mdwc->sm_usb_wq);
+	if (start)
+		dbg_log_string("host mode started");
+	else
+		dbg_log_string("stop_host_mode completed");
+}
+
+int dwc3_msm_release_ss_lane(struct device *dev)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = NULL;
+
+	if (mdwc == NULL) {
+		dev_err(dev, "dwc3-msm is not initialized yet.\n");
+		return -EAGAIN;
+	}
+
+	dwc = platform_get_drvdata(mdwc->dwc3);
+	if (dwc == NULL) {
+		dev_err(dev, "dwc3 controller is not initialized yet.\n");
+		return -EAGAIN;
+	}
+
+	dbg_event(0xFF, "ss_lane_release", 0);
+	if (mdwc->id_state != DWC3_ID_GROUND) {
+		dbg_log_string("USB host mode is not active");
+		return 0;
+	}
+
+	/* stop USB host mode */
+	dwc3_start_stop_host(mdwc, false);
+
+	/* restart USB host mode into high speed */
+	dwc->maximum_speed = USB_SPEED_HIGH;
+	dwc3_start_stop_host(mdwc, true);
+
+	return 0;
+}
+EXPORT_SYMBOL(dwc3_msm_release_ss_lane);
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
