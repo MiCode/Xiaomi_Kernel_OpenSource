@@ -612,6 +612,7 @@ int hab_vchan_recv(struct uhab_context *ctx,
 	vchan = hab_get_vchan_fromvcid(vcid, ctx, 1);
 	if (!vchan) {
 		pr_err("vcid %X vchan 0x%pK ctx %pK\n", vcid, vchan, ctx);
+		*message = NULL;
 		return -ENODEV;
 	}
 

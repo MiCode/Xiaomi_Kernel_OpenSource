@@ -46,7 +46,7 @@ int32_t habmm_socket_recv(int32_t handle, void *dst_buff, uint32_t *size_bytes,
 		uint32_t timeout, uint32_t flags)
 {
 	int ret = 0;
-	struct hab_message *msg;
+	struct hab_message *msg = NULL;
 
 	if (!size_bytes || !dst_buff)
 		return -EINVAL;
