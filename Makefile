@@ -423,8 +423,11 @@ LINUXINCLUDE    := \
 KBUILD_AFLAGS   := -D__ASSEMBLY__
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar \
+		   -Wno-gnu-variable-sized-type-not-at-end \
 		   -Werror-implicit-function-declaration \
+		   -Wno-vectorizer-no-neon \
 		   -Wno-format-security \
+		   -Wno-pointer-sign \
 		   -std=gnu89
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
