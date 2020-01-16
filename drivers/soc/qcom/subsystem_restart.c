@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "subsys-restart: %s(): " fmt, __func__
@@ -682,8 +682,6 @@ static void disable_all_irqs(struct subsys_device *dev)
 
 static int wait_for_err_ready(struct subsys_device *subsys)
 {
-	int ret;
-
 	/*
 	 * If subsys is using generic_irq in which case err_ready_irq will be 0,
 	 * don't return.
@@ -692,14 +690,7 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 				enable_debug == 1)
 		return 0;
 
-	ret = wait_for_completion_timeout(&subsys->err_ready,
-					  msecs_to_jiffies(10000));
-	if (!ret) {
-		pr_err("[%s]: Error ready timed out\n", subsys->desc->name);
-		return -ETIMEDOUT;
-	}
-
-	return 0;
+	return wait_for_completion_interruptible(&subsys->err_ready);
 }
 
 static int subsystem_shutdown(struct subsys_device *dev, void *data)
