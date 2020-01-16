@@ -4,8 +4,7 @@
 #
 
 config TOUCHSCREEN_ST
-	bool "STMicroelectronics Touchscreen Driver"
-	default n
+	tristate "STMicroelectronics Touchscreen Driver"
 	depends on I2C
 	help
 	  Say Y here if you have a STMicroelectronics Touchscreen.
@@ -14,9 +13,6 @@ config TOUCHSCREEN_ST
 	  To compile this driver as a module, choose M here: the
 	  module will be called st.
 
-
-#if TOUCHSCREEN_ST
-
 config TOUCHSCREEN_ST_I2C
 	#tristate "STMicroelectronics i2c touchscreen"
 	string "STMicroelectronics ts directory name"
@@ -24,6 +20,3 @@ config TOUCHSCREEN_ST_I2C
 	depends on TOUCHSCREEN_ST
 	help
 	 This enables support for ST touch panel over I2C based touchscreens.
-
-#endif
-

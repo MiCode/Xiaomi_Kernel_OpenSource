@@ -5052,7 +5052,7 @@ static void __exit fts_driver_exit(void)
 	i2c_del_driver(&fts_i2c_driver);
 }
 
-late_initcall(fts_driver_init);
+module_init(fts_driver_init);
 module_exit(fts_driver_exit);
 
 MODULE_DESCRIPTION("STMicroelectronics MultiTouch IC Driver");
