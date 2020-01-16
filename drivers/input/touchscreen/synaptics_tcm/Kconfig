@@ -89,7 +89,7 @@ config TOUCHSCREEN_SYNAPTICS_TCM_TESTING
 config TOUCHSCREEN_SYNAPTICS_TCM_REFLASH
 	tristate "Synaptics TCM reflash module"
 	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
-	default y
+	default N
 	help
 	  Say Y here to enable support for reflash functionality.
 
@@ -101,7 +101,7 @@ config TOUCHSCREEN_SYNAPTICS_TCM_REFLASH
 config TOUCHSCREEN_SYNAPTICS_TCM_RECOVERY
 	tristate "Synaptics TCM recovery module"
 	depends on TOUCHSCREEN_SYNAPTICS_TCM_CORE
-	default y
+	default N
 	help
 	  Say Y here to enable support for recovery functionality.
 
