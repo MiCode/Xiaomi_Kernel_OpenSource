@@ -8,24 +8,6 @@
 #include <linux/delay.h>
 #include "nfc_common.h"
 
-int nfc_read(struct nfc_dev *nfc_dev, char *buf, size_t count)
-{
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
-		return i2c_read(&nfc_dev->i2c_dev, buf, count);
-	else
-		return i3c_nci_kbuf_retrieve(&nfc_dev->i3c_dev, buf, count);
-}
-EXPORT_SYMBOL(nfc_read);
-
-int nfc_write(struct nfc_dev *nfc_dev, char *buf, size_t count,
-					uint8_t retry_cnt)
-{
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
-		return i2c_write(&nfc_dev->i2c_dev, buf, count, retry_cnt);
-	else
-		return i3c_write(&nfc_dev->i3c_dev, buf, count, retry_cnt);
-}
-EXPORT_SYMBOL(nfc_write);
 
 int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 		 uint8_t interface)
@@ -69,7 +51,6 @@ int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfc_parse_dt);
 
 void gpio_set_ven(struct nfc_dev *nfc_dev, int value)
 {
@@ -126,7 +107,6 @@ int configure_gpio(unsigned int gpio, int flag)
 	}
 	return ret;
 }
-EXPORT_SYMBOL(configure_gpio);
 
 void nfc_misc_remove(struct nfc_dev *nfc_dev, int count)
 {
@@ -138,7 +118,6 @@ void nfc_misc_remove(struct nfc_dev *nfc_dev, int count)
 	class_destroy(nfc_dev->nfc_class);
 	unregister_chrdev_region(nfc_dev->devno, count);
 }
-EXPORT_SYMBOL(nfc_misc_remove);
 
 int nfc_misc_probe(struct nfc_dev *nfc_dev,
 		      const struct file_operations *nfc_fops, int count,
@@ -191,23 +170,7 @@ int nfc_misc_probe(struct nfc_dev *nfc_dev,
 
 	return 0;
 }
-EXPORT_SYMBOL(nfc_misc_probe);
 
-static void enable_interrupt(struct nfc_dev *nfc_dev)
-{
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
-		i2c_enable_irq(&nfc_dev->i2c_dev);
-	else
-		i3c_enable_ibi(&nfc_dev->i3c_dev);
-}
-
-static void disable_interrupt(struct nfc_dev *nfc_dev)
-{
-	if (nfc_dev->interface == PLATFORM_IF_I2C)
-		i2c_disable_irq(&nfc_dev->i2c_dev);
-	else
-		i3c_disable_ibi(&nfc_dev->i3c_dev);
-}
 
 static int send_cold_reset_cmd(struct nfc_dev *nfc_dev)
 {
@@ -233,7 +196,7 @@ static int send_cold_reset_cmd(struct nfc_dev *nfc_dev)
 	cold_reset_cmd[1] = COLD_RESET_OID;
 	cold_reset_cmd[2] = COLD_RESET_CMD_PAYLOAD_LEN;
 
-	ret = nfc_write(nfc_dev, cold_reset_cmd,
+	ret = nfc_dev->nfc_write(nfc_dev, cold_reset_cmd,
 					COLD_RESET_CMD_LEN, MAX_RETRY_COUNT);
 	if (ret <= 0)
 		pr_err("%s: write failed after max retry, ret %d\n",
@@ -261,7 +224,7 @@ void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	if ((!cold_reset->is_nfc_enabled) &&
 		(nfc_dev->interface == PLATFORM_IF_I2C)) {
 
-		ret = i2c_read(&nfc_dev->i2c_dev, cold_reset_rsp,
+		ret = nfc_dev->nfc_read(nfc_dev, cold_reset_rsp,
 						NCI_HDR_LEN);
 		if (ret <= 0) {
 			pr_err("%s: failure to read cold reset rsp header\n",
@@ -288,11 +251,11 @@ void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	}
 
 	if (nfc_dev->interface == PLATFORM_IF_I2C)
-		ret = i2c_read(&nfc_dev->i2c_dev,
+		ret = nfc_dev->nfc_read(nfc_dev,
 			     &cold_reset_rsp[NCI_PAYLOAD_IDX],
 			     cold_reset_rsp[2]);
 	else
-		ret = i3c_read(&nfc_dev->i3c_dev,
+		ret = nfc_dev->i3c_dev.nfc_read_direct(nfc_dev,
 			     &cold_reset_rsp[NCI_PAYLOAD_IDX],
 			     cold_reset_rsp[2]);
 
@@ -306,7 +269,6 @@ void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 error:
 	kfree(cold_reset_rsp);
 }
-EXPORT_SYMBOL(read_cold_reset_rsp);
 
 /*
  * Power management of the eSE
@@ -367,7 +329,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 
 			// Read data as NFC thread is not active
 
-			enable_interrupt(nfc_dev);
+			nfc_dev->nfc_enable_intr(nfc_dev);
 
 			if (nfc_dev->interface == PLATFORM_IF_I2C) {
 				ret = wait_event_interruptible_timeout(
@@ -375,7 +337,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 					!nfc_dev->i2c_dev.irq_enabled,
 					msecs_to_jiffies(MAX_IRQ_WAIT_TIME));
 				if (ret <= 0) {
-					disable_interrupt(nfc_dev);
+					nfc_dev->nfc_disable_intr(nfc_dev);
 					nfc_dev->cold_reset.rsp_pending = false;
 					return nfc_dev->cold_reset.status;
 				}
@@ -385,7 +347,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 				wait_event_interruptible(
 					nfc_dev->cold_reset.read_wq,
 					!nfc_dev->cold_reset.rsp_pending);
-				disable_interrupt(nfc_dev);
+				nfc_dev->nfc_disable_intr(nfc_dev);
 			}
 		}
 
@@ -400,7 +362,6 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 	}
 	return ret;
 }
-EXPORT_SYMBOL(nfc_ese_pwr);
 
 /*
  * nfc_ioctl_power_states() - power control
@@ -422,7 +383,7 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		 * interrupts to avoid spurious notifications to upper
 		 * layers.
 		 */
-		disable_interrupt(nfc_dev);
+		nfc_dev->nfc_disable_intr(nfc_dev);
 		pr_debug("gpio firm disable\n");
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
@@ -435,7 +396,7 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		nfc_dev->nfc_ven_enabled = false;
 
 	} else if (arg == NFC_POWER_ON) {
-		enable_interrupt(nfc_dev);
+		nfc_dev->nfc_enable_intr(nfc_dev);
 		pr_debug("gpio_set_value enable: %s:\n", __func__);
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
@@ -575,7 +536,6 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 	}
 	return ret;
 }
-EXPORT_SYMBOL(nfc_dev_ioctl);
 
 int nfc_dev_open(struct inode *inode, struct file *filp)
 {
@@ -596,7 +556,7 @@ int nfc_dev_open(struct inode *inode, struct file *filp)
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
 			usleep_range(10000, 10100);
 		}
-		enable_interrupt(nfc_dev);
+		nfc_dev->nfc_enable_intr(nfc_dev);
 	}
 	nfc_dev->dev_ref_count = nfc_dev->dev_ref_count + 1;
 
@@ -604,7 +564,6 @@ int nfc_dev_open(struct inode *inode, struct file *filp)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfc_dev_open);
 
 int nfc_dev_close(struct inode *inode, struct file *filp)
 {
@@ -620,7 +579,7 @@ int nfc_dev_close(struct inode *inode, struct file *filp)
 
 	if (nfc_dev->dev_ref_count == 1) {
 
-		disable_interrupt(nfc_dev);
+		nfc_dev->nfc_disable_intr(nfc_dev);
 
 		if (gpio_is_valid(nfc_dev->gpio.dwl_req)) {
 			gpio_set_value(nfc_dev->gpio.dwl_req, 0);
@@ -637,13 +596,12 @@ int nfc_dev_close(struct inode *inode, struct file *filp)
 
 	return 0;
 }
-EXPORT_SYMBOL(nfc_dev_close);
 
 int is_data_available_for_read(struct nfc_dev *nfc_dev)
 {
 	int ret;
 
-	enable_interrupt(nfc_dev);
+	nfc_dev->nfc_enable_intr(nfc_dev);
 
 	ret = wait_event_interruptible_timeout(nfc_dev->read_wq,
 			!nfc_dev->i2c_dev.irq_enabled,
@@ -693,7 +651,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	}
 
 	if (nfc_dev->interface == PLATFORM_IF_I3C)
-		enable_interrupt(nfc_dev);
+		nfc_dev->nfc_enable_intr(nfc_dev);
 	else {
 		/* making sure that the NFCC starts in a clean state. */
 		gpio_set_ven(nfc_dev, 1);/* HPD : Enable*/
@@ -707,7 +665,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	nci_reset_cmd[3] = 0x00;
 
 	/* send NCI CORE RESET CMD with Keep Config parameters */
-	ret = nfc_write(nfc_dev, nci_reset_cmd, NCI_RESET_CMD_LEN,
+	ret = nfc_dev->nfc_write(nfc_dev, nci_reset_cmd, NCI_RESET_CMD_LEN,
 				MAX_RETRY_COUNT);
 	if (ret <= 0) {
 		pr_err("%s: - nfc core reset error\n", __func__);
@@ -731,7 +689,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		nci_get_version_cmd[6] = 0x6E;
 		nci_get_version_cmd[7] = 0xEF;
 
-		ret = nfc_write(nfc_dev, nci_get_version_cmd,
+		ret = nfc_dev->nfc_write(nfc_dev, nci_get_version_cmd,
 				NCI_GET_VERSION_CMD_LEN, MAX_RETRY_COUNT);
 		if (ret <= 0) {
 			pr_err("%s: - nfc get version cmd error ret %d\n",
@@ -742,14 +700,14 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		if (nfc_dev->interface == PLATFORM_IF_I2C) {
 			ret = is_data_available_for_read(nfc_dev);
 			if (ret <= 0) {
-				disable_interrupt(nfc_dev);
+				nfc_dev->nfc_disable_intr(nfc_dev);
 				pr_err("%s: - error waiting for get version rsp ret %d\n",
 					__func__, ret);
 				goto err_nfcc_hw_check;
 			}
 		}
 
-		ret = nfc_read(nfc_dev, nci_get_version_rsp,
+		ret = nfc_dev->nfc_read(nfc_dev, nci_get_version_rsp,
 					NCI_GET_VERSION_RSP_LEN);
 		if (ret <= 0) {
 			pr_err("%s: - nfc get version rsp error ret %d\n",
@@ -774,7 +732,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	if (nfc_dev->interface == PLATFORM_IF_I2C) {
 		ret = is_data_available_for_read(nfc_dev);
 		if (ret <= 0) {
-			disable_interrupt(nfc_dev);
+			nfc_dev->nfc_disable_intr(nfc_dev);
 			pr_err("%s: - error waiting for core reset rsp ret %d\n",
 					__func__, ret);
 
@@ -783,7 +741,7 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 	}
 
 	/* Read Response of RESET command */
-	ret = nfc_read(nfc_dev, nci_reset_rsp, NCI_RESET_RSP_LEN);
+	ret = nfc_dev->nfc_read(nfc_dev, nci_reset_rsp, NCI_RESET_RSP_LEN);
 	if (ret <= 0) {
 		pr_err("%s: - nfc rst rsp read err %d\n", __func__,
 					ret);
@@ -795,13 +753,13 @@ int nfcc_hw_check(struct nfc_dev *nfc_dev)
 		if (ret <= 0) {
 			pr_err("%s: - error waiting for core reset ntf ret %d\n",
 					__func__, ret);
-			disable_interrupt(nfc_dev);
+			nfc_dev->nfc_disable_intr(nfc_dev);
 			goto err_nfcc_hw_check;
 		}
 	}
 
 	/* Read Notification of RESET command */
-	ret = nfc_read(nfc_dev, nci_reset_ntf, NCI_RESET_NTF_LEN);
+	ret = nfc_dev->nfc_read(nfc_dev, nci_reset_ntf, NCI_RESET_NTF_LEN);
 	if (ret <= 0) {
 		pr_err("%s: nfc nfc read error %d\n", __func__, ret);
 		goto err_nfcc_hw_check;
@@ -856,7 +814,7 @@ err_nfcc_hw_check:
 
 disable_i3c_intr:
 	if (nfc_dev->interface == PLATFORM_IF_I3C)
-		disable_interrupt(nfc_dev);
+		nfc_dev->nfc_disable_intr(nfc_dev);
 done:
 	kfree(nci_reset_rsp);
 	kfree(nci_reset_ntf);
@@ -866,4 +824,3 @@ done:
 
 	return ret;
 }
-EXPORT_SYMBOL(nfcc_hw_check);
