@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -211,6 +211,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gpu_cc_debug_mux",
 	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
+	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
 };
 
@@ -313,8 +314,9 @@ static int gcc_debug_mux_sels[] = {
 	0x13D,		/* gcc_video_venus_ctl_clk */
 	0x3E,		/* gcc_video_xo_clk */
 	0xE7,		/* gpu_cc_debug_mux */
-	0x9E,           /* mc_cc_debug_mux */
+	0x9E,		/* mc_cc_debug_mux */
 	0x1A,		/* measure_only_cnoc_clk */
+	0xC6,		/* measure_only_ipa_2x_clk */
 	0x7,		/* measure_only_snoc_clk */
 };
 
@@ -423,6 +425,14 @@ static struct clk_dummy measure_only_cnoc_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_ipa_2x_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_ipa_2x_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_snoc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -449,6 +459,7 @@ static struct clk_dummy pwrcl_clk = {
 
 struct clk_hw *debugcc_bengal_hws[] = {
 	&measure_only_cnoc_clk.hw,
+	&measure_only_ipa_2x_clk.hw,
 	&measure_only_mccc_clk.hw,
 	&measure_only_snoc_clk.hw,
 	&perfcl_clk.hw,
