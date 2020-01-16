@@ -1,7 +1,7 @@
 /*
  * SMC Invoke driver
  *
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/dma-buf.h>
 #include <linux/kref.h>
+#include <linux/signal.h>
 
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
@@ -1449,6 +1450,7 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 						unsigned long arg)
 {
 	int ret = -1;
+	sigset_t pending_sig;
 	struct smcinvoke_file_data *server_obj = filp->private_data;
 	struct smcinvoke_accept user_args = {0};
 	struct smcinvoke_cb_txn *cb_txn = NULL;
@@ -1520,6 +1522,21 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		if (ret) {
 			pr_debug("%s wait_event interrupted: ret = %d\n",
 							__func__, ret);
+			/*
+			 * Ideally, we should destroy server if accept threads
+			 * are returning due to client being killed or device
+			 * going down (Shutdown/Reboot) but that would make
+			 * server_info invalid. Other accept/invoke threads are
+			 * using server_info and would crash. So dont do that.
+			 */
+			pending_sig = (&current->pending)->signal;
+			if (sigismember(&pending_sig, SIGKILL)) {
+				mutex_lock(&g_smcinvoke_lock);
+				server_info->state =
+					SMCINVOKE_SERVER_STATE_DEFUNCT;
+				wake_up_interruptible(&server_info->rsp_wait_q);
+				mutex_unlock(&g_smcinvoke_lock);
+			}
 			goto out;
 		}
 
