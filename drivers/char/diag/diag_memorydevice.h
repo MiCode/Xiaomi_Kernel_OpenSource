@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ void diag_md_open_all(void);
 void diag_md_close_all(void);
 void diag_md_open_device(int id);
 void diag_md_close_device(int id);
+void diag_md_clear_tbl_entries(int id);
 int diag_md_register(int id, int ctx, struct diag_mux_ops *ops);
 int diag_md_close_peripheral(int id, uint8_t peripheral);
 int diag_md_write(int id, unsigned char *buf, int len, int ctx);
