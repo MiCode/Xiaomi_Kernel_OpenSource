@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _GOVERNOR_MEMLAT_H
@@ -68,7 +68,7 @@ struct memlat_hwmon {
 	bool			should_ignore_df_monitor;
 };
 
-#ifdef CONFIG_DEVFREQ_GOV_MEMLAT
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_MEMLAT)
 int register_memlat(struct device *dev, struct memlat_hwmon *hw);
 int register_compute(struct device *dev, struct memlat_hwmon *hw);
 int update_memlat(struct memlat_hwmon *hw);

@@ -77,6 +77,7 @@ void dma_buf_ref_mod(struct msm_dma_buf *msm_dma_buf, int nr)
 
 	dma_buf_ref_insert_handle(msm_dma_buf, handle, nr);
 }
+EXPORT_SYMBOL(dma_buf_ref_mod);
 
 /**
  * Called with dmabuf->lock held

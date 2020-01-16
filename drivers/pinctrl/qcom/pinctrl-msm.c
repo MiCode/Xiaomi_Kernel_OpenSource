@@ -1266,6 +1266,7 @@ int msm_qup_write(u32 mode, u32 val)
 
 	return -ENOENT;
 }
+EXPORT_SYMBOL(msm_qup_write);
 
 int msm_qup_read(unsigned int mode)
 {
