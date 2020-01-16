@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,6 +252,8 @@ enum {
 # define __cpuc_flush_dcache_area __flush_dcache_area
 #endif
 
+#define IPA_APP_VOTE_MAX 500
+
 #define IPA_SMP2P_OUT_CLK_RSP_CMPLT_IDX 0
 #define IPA_SMP2P_OUT_CLK_VOTE_IDX 1
 #define IPA_SMP2P_SMEM_STATE_MASK 3
@@ -442,6 +444,9 @@ enum {
 				compat_uptr_t)
 #define IPA_IOC_GET_NAT_IN_SRAM_INFO32 _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_NAT_IN_SRAM_INFO, \
+				compat_uptr_t)
+#define IPA_IOC_APP_CLOCK_VOTE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_APP_CLOCK_VOTE, \
 				compat_uptr_t)
 #endif /* #ifdef CONFIG_COMPAT */
 
@@ -1724,6 +1729,11 @@ struct ipa3_pc_mbox_data {
 	struct mbox_chan *mbox;
 };
 
+struct ipa3_app_clock_vote {
+	struct mutex mutex;
+	u32 cnt;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @cdev: cdev context
@@ -1815,6 +1825,7 @@ struct ipa3_pc_mbox_data {
  * @flt_rt_counters: the counters usage info for flt rt stats
  * @wdi3_ctx: IPA wdi3 context
  * @gsi_info: channel/protocol info for GSI offloading uC stats
+ * @app_vote: holds userspace application clock vote count
  * IPA context - holds all relevant info about IPA driver and its state
  * @coal_cmd_pyld: holds the coslescing close frame command payload
  */
@@ -1989,6 +2000,7 @@ struct ipa3_context {
 	bool ipa_mhi_proxy;
 	bool ipa_wan_skb_page;
 	struct ipahal_imm_cmd_pyld *coal_cmd_pyld;
+	struct ipa3_app_clock_vote app_clock_vote;
 };
 
 struct ipa3_plat_drv_res {
@@ -2491,6 +2503,7 @@ int ipa3_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
 
 int ipa3_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 int ipa3_nat_get_sram_info(struct ipa_nat_in_sram_info *info_ptr);
+int ipa3_app_clk_vote(enum ipa_app_clock_vote_type vote_type);
 
 /*
  * Messaging

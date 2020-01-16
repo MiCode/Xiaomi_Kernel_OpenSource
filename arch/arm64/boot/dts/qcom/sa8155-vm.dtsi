@@ -27,8 +27,15 @@
 			reg = <0x0 0xa0000000 0x0 0x20000000>;
 			label = "pmem_shared_mem";
 		};
+
+		secure_display_memory: secure_display_region { /* Secure UI */
+			compatible = "shared-dma-pool";
+			reusable;
+			reg = <0x0 0xc0000000 0x0 0x14400000>;
+		};
 	};
 };
+
 
 &soc {
 	hsi2s: qcom,hsi2s {
@@ -690,4 +697,12 @@
 
 &tlmm {
 	dirconn-list = <37 216 1>;
+};
+
+&msm_ion {
+	qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */
+		reg = <10>;
+		memory-region = <&secure_display_memory>;
+		qcom,ion-heap-type = "HYP_CMA";
+	};
 };

@@ -260,8 +260,8 @@ struct fastrpc_static_pd {
 	struct notifier_block pdrnb;
 	struct notifier_block get_service_nb;
 	void *pdrhandle;
-	int pdrcount;
-	int prevpdrcount;
+	uint64_t pdrcount;
+	uint64_t prevpdrcount;
 	int ispdup;
 	int cid;
 };
@@ -278,10 +278,10 @@ struct fastrpc_channel_ctx {
 	struct notifier_block nb;
 	struct mutex smd_mutex;
 	struct mutex rpmsg_mutex;
-	int sesscount;
-	int ssrcount;
+	uint64_t sesscount;
+	uint64_t ssrcount;
 	void *handle;
-	int prevssrcount;
+	uint64_t prevssrcount;
 	int issubsystemup;
 	int vmid;
 	struct secure_vm rhvm;
@@ -374,7 +374,7 @@ struct fastrpc_file {
 	int sessionid;
 	int tgid;
 	int cid;
-	int ssrcount;
+	uint64_t ssrcount;
 	int pd;
 	char *spdname;
 	int file_close;
@@ -2749,7 +2749,8 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 			int secure, struct fastrpc_session_ctx **session)
 {
 	struct fastrpc_apps *me = &gfa;
-	int idx = 0, err = 0;
+	uint64_t idx = 0;
+	int err = 0;
 
 	if (chan->sesscount) {
 		for (idx = 0; idx < chan->sesscount; ++idx) {
@@ -3020,13 +3021,13 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			len += scnprintf(fileinfo + len,
 				DEBUGFS_SIZE - len, "%-7s", chan->subsys);
 			len += scnprintf(fileinfo + len,
-				DEBUGFS_SIZE - len, "|%-10d",
+				DEBUGFS_SIZE - len, "|%-10u",
 				chan->sesscount);
 			len += scnprintf(fileinfo + len,
 				DEBUGFS_SIZE - len, "|%-14d",
 				chan->issubsystemup);
 			len += scnprintf(fileinfo + len,
-				DEBUGFS_SIZE - len, "|%-9d",
+				DEBUGFS_SIZE - len, "|%-9u",
 				chan->ssrcount);
 			for (j = 0; j < chan->sesscount; j++) {
 				sess_used += chan->session[j].used;
@@ -3082,7 +3083,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %7s %d\n", "sessionid", ":", fl->sessionid);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %8s %d\n", "ssrcount", ":", fl->ssrcount);
+			"%s %8s %u\n", "ssrcount", ":", fl->ssrcount);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %14s %d\n", "pd", ":", fl->pd);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -3787,8 +3788,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct of_phandle_args iommuspec;
 	const char *name;
 	dma_addr_t start = 0x80000000;
-	int err = 0;
-	unsigned int sharedcb_count = 0, cid, i, j;
+	int err = 0, cid = -1, i = 0;
+	u32 sharedcb_count = 0, j = 0;
 	unsigned int index, num_indices = 0;
 	int secure_vmid = VMID_CP_PIXEL, cache_flush = 1;
 

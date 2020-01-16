@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,6 +228,9 @@ struct tsens_device {
 	const struct tsens_data		*ctrl_data;
 	struct tsens_mtc_sysfs  mtcsys;
 	int				trdy_fail_ctr;
+	struct workqueue_struct		*tsens_reinit_work;
+	struct work_struct		therm_fwk_notify;
+	bool				tsens_reinit_wa;
 	struct tsens_sensor		sensor[0];
 };
 

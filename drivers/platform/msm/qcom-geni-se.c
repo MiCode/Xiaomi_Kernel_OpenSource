@@ -46,7 +46,9 @@
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
 				100000000, 150000000, 200000000, 236000000};
 /* SCM Call Id */
-#define SSR_SCM_CMD	0x1
+#define TZ_SCM_CALL_FROM_HLOS	0x7E7E7E7E
+#define TZ_PIL_AUTH_GSI_QUP_PROC	0x13
+#define SSR_SCM_CMD	0x2
 
 struct bus_vectors {
 	int src;
@@ -385,11 +387,11 @@ static void geni_se_ssc_qup_up(struct geni_se_device *dev)
 	struct scm_desc desc;
 	struct se_geni_rsc *rsc = NULL;
 
-	/* Passing dummy argument as it is scm call requirement */
-	desc.args[0] = 0x0;
-	desc.arginfo = SCM_ARGS(1, SCM_VAL);
+	desc.args[0] = TZ_PIL_AUTH_GSI_QUP_PROC;
+	desc.args[1] = TZ_SCM_CALL_FROM_HLOS;
+	desc.arginfo = SCM_ARGS(2, SCM_VAL);
 
-	ret = scm_call2(SCM_SIP_FNID(TZ_SVC_QUP_FW_LOAD, SSR_SCM_CMD), &desc);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP, SSR_SCM_CMD), &desc);
 	if (ret) {
 		dev_err(dev->dev, "Unable to load firmware after SSR\n");
 		return;
@@ -913,8 +915,7 @@ int se_geni_clks_off(struct se_geni_rsc *rsc)
 		return -EINVAL;
 
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
-	if (unlikely(!geni_se_dev || !(geni_se_dev->bus_bw ||
-					geni_se_dev->bus_bw_noc)))
+	if (unlikely(!geni_se_dev))
 		return -ENODEV;
 
 	clk_disable_unprepare(rsc->se_clk);
@@ -946,9 +947,7 @@ int se_geni_resources_off(struct se_geni_rsc *rsc)
 		return -EINVAL;
 
 	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
-	if (unlikely(!geni_se_dev ||
-			!(geni_se_dev->bus_bw ||
-					geni_se_dev->bus_bw_noc)))
+	if (unlikely(!geni_se_dev))
 		return -ENODEV;
 
 	ret = se_geni_clks_off(rsc);

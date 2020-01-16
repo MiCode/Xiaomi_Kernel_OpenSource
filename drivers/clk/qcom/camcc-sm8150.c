@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,7 +77,6 @@ static struct msm_bus_scale_pdata clk_debugfs_scale_table = {
 
 enum {
 	P_BI_TCXO,
-	P_BI_TCXO_MX,
 	P_CAM_CC_PLL0_OUT_EVEN,
 	P_CAM_CC_PLL0_OUT_MAIN,
 	P_CAM_CC_PLL0_OUT_ODD,
@@ -108,7 +107,7 @@ static const char * const cam_cc_parent_names_0[] = {
 };
 
 static const struct parent_map cam_cc_parent_map_1[] = {
-	{ P_BI_TCXO_MX, 0 },
+	{ P_BI_TCXO, 0 },
 	{ P_CAM_CC_PLL2_OUT_EARLY, 5 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
@@ -1172,7 +1171,7 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
 	F(12000000, P_CAM_CC_PLL2_OUT_EARLY, 10, 1, 8),
-	F(19200000, P_BI_TCXO_MX, 1, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_CAM_CC_PLL2_OUT_EARLY, 10, 1, 4),
 	F(68571429, P_CAM_CC_PLL2_OUT_EARLY, 14, 0, 0),
 	{ }

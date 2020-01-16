@@ -217,7 +217,7 @@
 		compatible = "st,asm330lhh";
 		reg = <0x6b>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&sensor_int1_default>;
+		pinctrl-0 = <&sensor_int1_default>,<&sensor_enable_default>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <84 IRQ_TYPE_EDGE_RISING>;
 		st,drdy-int-pin= <2>;

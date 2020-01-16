@@ -441,6 +441,14 @@ First Level Node - QGAUGE device
 		    value is 90%. This property is valid only if
 		    qcom,tcss-enable is defined.
 
+- qcom,bass-enable
+	Usage:      optional
+	Value type: bool
+	Definition: Enable Battery SOC based SOC scaling. This logic
+		    allows monotonic-SOC scaling at low-temperatures
+		    when there is variation in system-SOC due to
+		    changes in the load.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

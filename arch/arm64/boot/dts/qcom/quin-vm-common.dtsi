@@ -99,7 +99,7 @@
 		#clock-cells = <1>;
 	};
 
-	qcom,ion {
+	msm_ion: qcom,ion {
 		compatible = "qcom,msm-ion";
 		#address-cells = <1>;
 		#size-cells = <0>;

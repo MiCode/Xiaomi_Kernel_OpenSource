@@ -52,6 +52,7 @@
 #define SDE_MDP_HW_REV_530	SDE_MDP_REV(5, 3, 0)	/* sm6150 v1.0 */
 #define SDE_MDP_HW_REV_540	SDE_MDP_REV(5, 4, 0)	/* sdmtrinket v1.0 */
 #define SDE_MDP_HW_REV_620	SDE_MDP_REV(6, 2, 0)	/* atoll */
+#define SDE_MDP_HW_REV_320	SDE_MDP_REV(3, 2, 0)	/* sdm660 */
 
 #define SDE_MDP_VBIF_4_LEVEL_REMAPPER	4
 #define SDE_MDP_VBIF_8_LEVEL_REMAPPER	8

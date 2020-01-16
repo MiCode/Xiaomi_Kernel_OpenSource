@@ -114,6 +114,7 @@ TRACE_EVENT(net_dev_xmit,
 		__field(unsigned int, len)
 		__field(int, rc)
 		__string(name, dev->name)
+		__field(ktime_t, utctime)
 	),
 
 	TP_fast_assign(
@@ -121,10 +122,12 @@ TRACE_EVENT(net_dev_xmit,
 		__entry->len = skb_len;
 		__entry->rc = rc;
 		__assign_str(name, dev->name);
+		__entry->utctime = ktime_get_tai_ns();
 	),
 
-	TP_printk("dev=%s skbaddr=%pK len=%u rc=%d",
-		  __get_str(name), __entry->skbaddr, __entry->len, __entry->rc)
+	TP_printk("dev=%s skbaddr=%pK len=%u rc=%d UTC: %ld",
+		  __get_str(name), __entry->skbaddr, __entry->len, __entry->rc,
+		  __entry->utctime)
 );
 
 DECLARE_EVENT_CLASS(net_dev_template,
@@ -137,16 +140,19 @@ DECLARE_EVENT_CLASS(net_dev_template,
 		__field(void *,	skbaddr)
 		__field(unsigned int, len)
 		__string(name, skb->dev->name)
+		__field(ktime_t, utctime)
 	),
 
 	TP_fast_assign(
 		__entry->skbaddr = skb;
 		__entry->len = skb->len;
 		__assign_str(name, skb->dev->name);
+		__entry->utctime = ktime_get_tai_ns();
 	),
 
-	TP_printk("dev=%s skbaddr=%pK len=%u",
-		__get_str(name), __entry->skbaddr, __entry->len)
+	TP_printk("dev=%s skbaddr=%pK len=%u UTC: %ld",
+		__get_str(name), __entry->skbaddr, __entry->len,
+		__entry->utctime)
 )
 
 DEFINE_EVENT(net_dev_template, net_dev_queue,

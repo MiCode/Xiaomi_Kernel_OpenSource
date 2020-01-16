@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8846,3 +8846,48 @@ int ipa3_get_prot_id(enum ipa_client_type client)
 	return prot_id;
 }
 
+int ipa3_app_clk_vote(
+	enum ipa_app_clock_vote_type vote_type)
+{
+	const char *str_ptr = "APP_VOTE";
+	int ret = 0;
+
+	IPADBG("In\n");
+
+	mutex_lock(&ipa3_ctx->app_clock_vote.mutex);
+
+	switch (vote_type) {
+	case IPA_APP_CLK_VOTE:
+		if ((ipa3_ctx->app_clock_vote.cnt + 1) <= IPA_APP_VOTE_MAX) {
+			ipa3_ctx->app_clock_vote.cnt++;
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL(str_ptr);
+		} else {
+			IPAERR_RL("App vote count max hit\n");
+			ret = -EPERM;
+			break;
+		}
+		break;
+	case IPA_APP_CLK_DEVOTE:
+		if (ipa3_ctx->app_clock_vote.cnt) {
+			ipa3_ctx->app_clock_vote.cnt--;
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(str_ptr);
+		}
+		break;
+	case IPA_APP_CLK_RESET_VOTE:
+		while (ipa3_ctx->app_clock_vote.cnt > 0) {
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(str_ptr);
+			ipa3_ctx->app_clock_vote.cnt--;
+		}
+		break;
+	default:
+		IPAERR_RL("Unknown vote_type(%u)\n", vote_type);
+		ret = -EPERM;
+		break;
+	}
+
+	mutex_unlock(&ipa3_ctx->app_clock_vote.mutex);
+
+	IPADBG("Out\n");
+
+	return ret;
+}

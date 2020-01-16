@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2897,6 +2897,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
+	case IPA_IOC_APP_CLOCK_VOTE:
+		retval = ipa3_app_clk_vote(
+			(enum ipa_app_clock_vote_type) arg);
 		break;
 
 	default:
@@ -3802,9 +3806,14 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	if (!ipa3_ctx->ipa_endp_delay_wa)
 		ipa3_q6_pipe_delay(true);
 	ipa3_q6_avoid_holb();
-	if (ipa3_ctx->ipa_config_is_mhi)
+	if (ipa3_ctx->ipa_config_is_mhi) {
 		ipa3_set_reset_client_cons_pipe_sus_holb(true,
 		IPA_CLIENT_MHI_CONS);
+		if (ipa3_ctx->ipa_config_is_auto)
+			ipa3_set_reset_client_cons_pipe_sus_holb(true,
+				IPA_CLIENT_MHI2_CONS);
+	}
+
 	if (ipa3_q6_clean_q6_tables()) {
 		IPAERR("Failed to clean Q6 tables\n");
 		/*
@@ -3914,9 +3923,15 @@ void ipa3_q6_pre_powerup_cleanup(void)
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	if (ipa3_ctx->ipa_config_is_mhi)
-		ipa3_set_reset_client_prod_pipe_delay(true,
-			IPA_CLIENT_MHI_PROD);
+	if (ipa3_ctx->ipa_config_is_mhi) {
+		if (!ipa3_ctx->ipa_endp_delay_wa) {
+			ipa3_set_reset_client_prod_pipe_delay(true,
+				IPA_CLIENT_MHI_PROD);
+			if (ipa3_ctx->ipa_config_is_auto)
+				ipa3_set_reset_client_prod_pipe_delay(true,
+					IPA_CLIENT_MHI2_PROD);
+		}
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -4822,6 +4837,9 @@ long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case IPA_IOC_GET_NAT_IN_SRAM_INFO32:
 		cmd = IPA_IOC_GET_NAT_IN_SRAM_INFO;
+		break;
+	case IPA_IOC_APP_CLOCK_VOTE32:
+		cmd = IPA_IOC_APP_CLOCK_VOTE;
 		break;
 	case IPA_IOC_COMMIT_HDR:
 	case IPA_IOC_RESET_HDR:
@@ -7148,7 +7166,11 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/* proxy vote for modem is added in ipa3_post_init() phase */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_unvote();
+
+	mutex_init(&ipa3_ctx->app_clock_vote.mutex);
+
 	return 0;
+
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
 	ipa_eth_exit();

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,8 +30,8 @@
 #define SCM_SVC_SMMU_PROGRAM		0x15
 #define SCM_SVC_QDSS			0x16
 #define SCM_SVC_RTIC			0x19
+#define SCM_SVC_TSENS			0x1E
 #define SCM_SVC_TZSCHEDULER		0xFC
-#define TZ_SVC_QUP_FW_LOAD		0x1F
 
 #define SCM_FUSE_READ			0x7
 #define SCM_CMD_HDCP			0x01

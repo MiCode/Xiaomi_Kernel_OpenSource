@@ -1660,6 +1660,20 @@
 			     };
 		     };
 
+		sensor_enable_default: sensor_enable_default {
+			mux {
+				pins = "gpio87";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio87";
+				drive-strength = <16>; /* 16 mA */
+				bias-pull-up; /* pull up */
+				output-high;
+			};
+		};
+
 		pinctrl_pps: ppsgrp {
 			mux {
 				pins = "gpio32";

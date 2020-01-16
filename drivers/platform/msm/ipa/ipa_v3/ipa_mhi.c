@@ -388,6 +388,7 @@ int ipa3_mhi_init_engine(struct ipa_mhi_init_engine *params)
 	int res;
 	struct gsi_device_scratch gsi_scratch;
 	const struct ipa_gsi_ep_config *gsi_ep_info;
+	u32 ipa_mhi_max_ul_channels, ipa_mhi_max_dl_channels;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -396,7 +397,16 @@ int ipa3_mhi_init_engine(struct ipa_mhi_init_engine *params)
 		return -EINVAL;
 	}
 
-	if ((IPA_MHI_MAX_UL_CHANNELS + IPA_MHI_MAX_DL_CHANNELS) >
+	ipa_mhi_max_ul_channels = IPA_MHI_MAX_UL_CHANNELS;
+	ipa_mhi_max_dl_channels = IPA_MHI_MAX_DL_CHANNELS;
+
+	/* In case of Auto-pcie config, MHI2_PROD and MHI2_CONS is used */
+	if (ipa3_ctx->ipa_config_is_auto == true) {
+		ipa_mhi_max_ul_channels++;
+		ipa_mhi_max_dl_channels++;
+	}
+
+	if ((ipa_mhi_max_ul_channels + ipa_mhi_max_dl_channels) >
 		((ipa3_ctx->mhi_evid_limits[1] -
 		ipa3_ctx->mhi_evid_limits[0]) + 1)) {
 		IPAERR("Not enough event rings for MHI\n");
