@@ -63,7 +63,8 @@ int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 	*agg_peak = max_t(u32, *agg_peak, peak_bw);
 
 	for (i = 0; i < qn->num_bcms; i++)
-		qcom_icc_bcm_voter_add(qp->voter, qn->bcms[i]);
+		qcom_icc_bcm_voter_add(qp->voters[qn->bcms[i]->voter_idx],
+				       qn->bcms[i]);
 
 	return 0;
 }
@@ -81,6 +82,7 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 	struct qcom_icc_provider *qp;
 	struct qcom_icc_node *qn;
 	struct icc_node *node;
+	int i;
 
 	if (!src)
 		node = dst;
@@ -95,7 +97,8 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 	qn->max_peak[QCOM_ICC_BUCKET_AMC] = max_t(u64, qn->max_peak[QCOM_ICC_BUCKET_AMC],
 						  node->peak_bw);
 
-	qcom_icc_bcm_voter_commit(qp->voter);
+	for (i = 0; i < qp->num_voters; i++)
+		qcom_icc_bcm_voter_commit(qp->voters[i]);
 
 	return 0;
 }
