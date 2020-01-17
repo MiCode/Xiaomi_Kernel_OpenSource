@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #define ANY_ID (~0)
@@ -733,7 +733,7 @@ static const struct adreno_reglist a630_vbif_regs[] = {
 };
 
 
-/* For a615, a616, a618, a630, a640 and a680 */
+/* For a615, a616, a618, A619, a630, a640 and a680 */
 static const struct a6xx_protected_regs a630_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 0, 0x00000, 0x004ff, 0 },
 	{ A6XX_CP_PROTECT_REG + 1, 0x00501, 0x00506, 0 },
@@ -797,7 +797,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a630v2 = {
 	.protected_regs = a630_protected_regs,
 };
 
-/* For a615, a616 and a618 */
+/* For a615, a616, a618 and a619 */
 static const struct adreno_reglist a615_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL_SP0,  0x02222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
@@ -864,7 +864,7 @@ static const struct adreno_reglist a615_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555}
 };
 
-/* For a615, a616 and a618 */
+/* For a615, a616, a618 and a619 */
 static const struct adreno_reglist a615_gbif_regs[] = {
 	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
 };
@@ -922,6 +922,34 @@ static const struct adreno_a6xx_core adreno_gpu_core_a618 = {
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a630_protected_regs,
 };
+
+static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_A619, 6, 1, 9, ANY_ID),
+		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_PREEMPTION |
+			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
+			ADRENO_IOCOHERENT,
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_base = 0x100000,
+		.gmem_size = SZ_512K,
+		.busy_mask = 0xfffffffe,
+		.bus_width = 32,
+	},
+	.prim_fifo_threshold = 0x0018000,
+	.pdc_address_offset = 0x00030090,
+	.gmu_major = 1,
+	.gmu_minor = 9,
+	.sqefw_name = "a630_sqe.fw",
+	.gmufw_name = "a619_gmu.bin",
+	.zap_name = "a615_zap",
+	.hwcg = a615_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a615_hwcg_regs),
+	.vbif = a615_gbif_regs,
+	.vbif_count = ARRAY_SIZE(a615_gbif_regs),
+	.hang_detect_cycles = 0x3fffff,
+	.protected_regs = a630_protected_regs,
+};
+
 
 static const struct adreno_reglist a620_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
@@ -1426,6 +1454,7 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a630v2.base,
 	&adreno_gpu_core_a615.base,
 	&adreno_gpu_core_a618.base,
+	&adreno_gpu_core_a619.base,
 	&adreno_gpu_core_a620.base,
 	&adreno_gpu_core_a640.base,
 	&adreno_gpu_core_a650.base,
