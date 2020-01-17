@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/i2c.h>
 #include <linux/mutex.h>
+#include <linux/usb/typec.h>
+#include <linux/usb/ucsi_glink.h>
 #include <linux/soc/qcom/fsa4480-i2c.h>
 
 #define FSA4480_I2C_NAME	"fsa4480-driver"
@@ -29,8 +30,7 @@
 struct fsa4480_priv {
 	struct regmap *regmap;
 	struct device *dev;
-	struct power_supply *usb_psy;
-	struct notifier_block psy_nb;
+	struct notifier_block ucsi_nb;
 	atomic_t usbc_mode;
 	struct work_struct usbc_analog_work;
 	struct blocking_notifier_head fsa4480_notifier;
@@ -79,11 +79,10 @@ static void fsa4480_usbc_update_settings(struct fsa4480_priv *fsa_priv,
 static int fsa4480_usbc_event_changed(struct notifier_block *nb,
 				      unsigned long evt, void *ptr)
 {
-	int ret;
-	union power_supply_propval mode;
 	struct fsa4480_priv *fsa_priv =
-			container_of(nb, struct fsa4480_priv, psy_nb);
+			container_of(nb, struct fsa4480_priv, ucsi_nb);
 	struct device *dev;
+	enum typec_accessory acc = ((struct ucsi_glink_constat_info *)ptr)->acc;
 
 	if (!fsa_priv)
 		return -EINVAL;
@@ -92,28 +91,16 @@ static int fsa4480_usbc_event_changed(struct notifier_block *nb,
 	if (!dev)
 		return -EINVAL;
 
-	if ((struct power_supply *)ptr != fsa_priv->usb_psy ||
-				evt != PSY_EVENT_PROP_CHANGED)
-		return 0;
+	dev_dbg(dev, "%s: USB change event received, supply mode %d, usbc mode %ld, expected %d\n",
+			__func__, acc, fsa_priv->usbc_mode.counter,
+			TYPEC_ACCESSORY_AUDIO);
 
-	ret = power_supply_get_property(fsa_priv->usb_psy,
-			POWER_SUPPLY_PROP_TYPEC_MODE, &mode);
-	if (ret) {
-		dev_err(dev, "%s: Unable to read USB TYPEC_MODE: %d\n",
-			__func__, ret);
-		return ret;
-	}
-
-	dev_dbg(dev, "%s: USB change event received, supply mode %d, usbc mode %d, expected %d\n",
-		__func__, mode.intval, fsa_priv->usbc_mode.counter,
-		POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER);
-
-	switch (mode.intval) {
-	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
-	case POWER_SUPPLY_TYPEC_NONE:
-		if (atomic_read(&(fsa_priv->usbc_mode)) == mode.intval)
+	switch (acc) {
+	case TYPEC_ACCESSORY_AUDIO:
+	case TYPEC_ACCESSORY_NONE:
+		if (atomic_read(&(fsa_priv->usbc_mode)) == acc)
 			break; /* filter notifications received before */
-		atomic_set(&(fsa_priv->usbc_mode), mode.intval);
+		atomic_set(&(fsa_priv->usbc_mode), acc);
 
 		dev_dbg(dev, "%s: queueing usbc_analog_work\n",
 			__func__);
@@ -123,13 +110,14 @@ static int fsa4480_usbc_event_changed(struct notifier_block *nb,
 	default:
 		break;
 	}
-	return ret;
+
+	return 0;
 }
 
 static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 {
 	int rc = 0;
-	union power_supply_propval mode;
+	int mode;
 	struct device *dev;
 
 	if (!fsa_priv)
@@ -140,30 +128,25 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 
 	mutex_lock(&fsa_priv->notification_lock);
 	/* get latest mode again within locked context */
-	rc = power_supply_get_property(fsa_priv->usb_psy,
-			POWER_SUPPLY_PROP_TYPEC_MODE, &mode);
-	if (rc) {
-		dev_err(dev, "%s: Unable to read USB TYPEC_MODE: %d\n",
-			__func__, rc);
-		goto done;
-	}
-	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
-		__func__, mode.intval != POWER_SUPPLY_TYPEC_NONE);
+	mode = atomic_read(&(fsa_priv->usbc_mode));
 
-	switch (mode.intval) {
+	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
+		__func__, mode != TYPEC_ACCESSORY_NONE);
+
+	switch (mode) {
 	/* add all modes FSA should notify for in here */
-	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
+	case TYPEC_ACCESSORY_AUDIO:
 		/* activate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
 
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
-		mode.intval, NULL);
+					     mode, NULL);
 		break;
-	case POWER_SUPPLY_TYPEC_NONE:
+	case TYPEC_ACCESSORY_NONE:
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
-				POWER_SUPPLY_TYPEC_NONE, NULL);
+				TYPEC_ACCESSORY_NONE, NULL);
 
 		/* deactivate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
@@ -173,7 +156,6 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 		break;
 	}
 
-done:
 	mutex_unlock(&fsa_priv->notification_lock);
 	return rc;
 }
@@ -344,36 +326,27 @@ static int fsa4480_probe(struct i2c_client *i2c,
 
 	fsa_priv->dev = &i2c->dev;
 
-	fsa_priv->usb_psy = power_supply_get_by_name("usb");
-	if (!fsa_priv->usb_psy) {
-		rc = -EPROBE_DEFER;
-		dev_dbg(fsa_priv->dev,
-			"%s: could not get USB psy info: %d\n",
-			__func__, rc);
-		goto err_data;
-	}
-
 	fsa_priv->regmap = devm_regmap_init_i2c(i2c, &fsa4480_regmap_config);
 	if (IS_ERR_OR_NULL(fsa_priv->regmap)) {
 		dev_err(fsa_priv->dev, "%s: Failed to initialize regmap: %d\n",
 			__func__, rc);
 		if (!fsa_priv->regmap) {
 			rc = -EINVAL;
-			goto err_supply;
+			goto err_data;
 		}
 		rc = PTR_ERR(fsa_priv->regmap);
-		goto err_supply;
+		goto err_data;
 	}
 
 	fsa4480_update_reg_defaults(fsa_priv->regmap);
 
-	fsa_priv->psy_nb.notifier_call = fsa4480_usbc_event_changed;
-	fsa_priv->psy_nb.priority = 0;
-	rc = power_supply_reg_notifier(&fsa_priv->psy_nb);
+	fsa_priv->ucsi_nb.notifier_call = fsa4480_usbc_event_changed;
+	fsa_priv->ucsi_nb.priority = 0;
+	rc = register_ucsi_glink_notifier(&fsa_priv->ucsi_nb);
 	if (rc) {
-		dev_err(fsa_priv->dev, "%s: power supply reg failed: %d\n",
+		dev_err(fsa_priv->dev, "%s: ucsi glink notifier registration failed: %d\n",
 			__func__, rc);
-		goto err_supply;
+		goto err_data;
 	}
 
 	mutex_init(&fsa_priv->notification_lock);
@@ -389,8 +362,6 @@ static int fsa4480_probe(struct i2c_client *i2c,
 
 	return 0;
 
-err_supply:
-	power_supply_put(fsa_priv->usb_psy);
 err_data:
 	devm_kfree(&i2c->dev, fsa_priv);
 	return rc;
@@ -404,12 +375,10 @@ static int fsa4480_remove(struct i2c_client *i2c)
 	if (!fsa_priv)
 		return -EINVAL;
 
+	unregister_ucsi_glink_notifier(&fsa_priv->ucsi_nb);
 	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 	cancel_work_sync(&fsa_priv->usbc_analog_work);
 	pm_relax(fsa_priv->dev);
-	/* deregister from PMI */
-	power_supply_unreg_notifier(&fsa_priv->psy_nb);
-	power_supply_put(fsa_priv->usb_psy);
 	mutex_destroy(&fsa_priv->notification_lock);
 	dev_set_drvdata(&i2c->dev, NULL);
 
