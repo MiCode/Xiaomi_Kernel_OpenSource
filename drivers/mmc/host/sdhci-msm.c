@@ -1210,6 +1210,78 @@ static void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
 			drv_type);
 }
 
+#define IPCAT_MINOR_MASK(val) ((val & 0x0fff0000) >> 0x10)
+
+/* Enter sdcc debug mode */
+void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct platform_device *pdev = msm_host->pdev;
+	u32 enable_dbg_feature = 0;
+	u32 minor;
+
+	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
+				SDCC_IP_CATALOG));
+	if (minor < 2 || msm_host->debug_mode_enabled)
+		return;
+
+	/* Enable debug mode */
+	writel_relaxed(ENABLE_DBG,
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+	writel_relaxed(DUMMY,
+			host->ioaddr + SDCC_DEBUG_EN_DIS_REG);
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			SDCC_TESTBUS_CONFIG) | TESTBUS_EN),
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+
+	if (minor >= 2)
+		enable_dbg_feature |= FSM_HISTORY |
+			AUTO_RECOVERY_DISABLE |
+			MM_TRIGGER_DISABLE |
+			IIB_EN;
+
+	/* Enable particular feature */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_FEATURE_CFG_REG) | enable_dbg_feature),
+			host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
+
+	/* Read back to ensure write went through */
+	readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_FEATURE_CFG_REG);
+	msm_host->debug_mode_enabled = true;
+
+	dev_info(&pdev->dev, "Debug feature enabled 0x%08x\n",
+			readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_FEATURE_CFG_REG));
+}
+
+/* Exit sdcc debug mode */
+void sdhci_msm_exit_dbg_mode(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct platform_device *pdev = msm_host->pdev;
+	u32 minor;
+
+	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
+				SDCC_IP_CATALOG));
+	if (minor < 2 || !msm_host->debug_mode_enabled)
+		return;
+
+	/* Exit debug mode */
+	writel_relaxed(DISABLE_DBG,
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+	writel_relaxed(DUMMY,
+			host->ioaddr + SDCC_DEBUG_EN_DIS_REG);
+
+	msm_host->debug_mode_enabled = false;
+
+	dev_dbg(&pdev->dev, "Debug feature disabled 0x%08x\n",
+			readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_FEATURE_CFG_REG));
+}
+
 int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	unsigned long flags;
@@ -1244,6 +1316,7 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	 */
 	if (msm_host->tuning_in_progress)
 		return 0;
+	sdhci_msm_exit_dbg_mode(host);
 	msm_host->tuning_in_progress = true;
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
 
@@ -1437,6 +1510,7 @@ retry:
 kfree:
 	kfree(data_buf);
 out:
+	sdhci_msm_enter_dbg_mode(host);
 	spin_lock_irqsave(&host->lock, flags);
 	if (!rc)
 		msm_host->tuning_done = true;
@@ -3995,6 +4069,73 @@ static void sdhci_msm_cqe_dump_debug_ram(struct sdhci_host *host)
 	pr_err("-------------------------\n");
 }
 
+#define DUMP_FSM readl_relaxed(host->ioaddr + SDCC_DEBUG_FSM_TRACE_RD_REG)
+#define MAX_FSM 16
+
+void sdhci_msm_dump_fsm_history(struct sdhci_host *host)
+{
+	u32 sel_fsm;
+
+	pr_err("----------- FSM REGISTER DUMP -----------\n");
+	/* select fsm to dump */
+	for (sel_fsm = 0; sel_fsm <= MAX_FSM; sel_fsm++) {
+		writel_relaxed(sel_fsm, host->ioaddr +
+				SDCC_DEBUG_FSM_TRACE_CFG_REG);
+		pr_err(": selected fsm is 0x%08x\n",
+				readl_relaxed(host->ioaddr +
+				SDCC_DEBUG_FSM_TRACE_CFG_REG));
+		/* dump selected fsm history */
+		pr_err("0x%08x 0x%08x 0x%08x 0x%08x\n",
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG),
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG),
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG),
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG));
+		pr_err("0x%08x 0x%08x 0x%08x\n",
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG),
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG),
+				readl_relaxed(host->ioaddr +
+					SDCC_DEBUG_FSM_TRACE_RD_REG));
+	}
+	/* Flush all fsm history */
+	writel_relaxed(DUMMY, host->ioaddr +
+			SDCC_DEBUG_FSM_TRACE_FIFO_FLUSH_REG);
+
+	/* Exit from Auto recovery disable to move FSMs to idle state */
+	writel_relaxed(DUMMY, host->ioaddr +
+			SDCC_DEBUG_ERROR_STATE_EXIT_REG);
+
+}
+
+void sdhci_msm_dump_desc_history(struct sdhci_host *host)
+{
+	pr_err("----------- DESC HISTORY DUMP -----------\n");
+	pr_err("Current Desc Addr: 0x%08x | Info: 0x%08x\n",
+			readl_relaxed(host->ioaddr + SDCC_CURR_DESC_ADDR),
+			readl_relaxed(host->ioaddr + SDCC_CURR_DESC_INFO));
+	pr_err("Processed Desc1 Addr: 0x%08x | Info: 0x%08x\n",
+			readl_relaxed(host->ioaddr + SDCC_PROC_DESC0_ADDR),
+			readl_relaxed(host->ioaddr + SDCC_PROC_DESC0_INFO));
+	pr_err("Processed Desc2 Addr: 0x%08x | Info: 0x%08x\n",
+			readl_relaxed(host->ioaddr + SDCC_PROC_DESC1_ADDR),
+			readl_relaxed(host->ioaddr + SDCC_PROC_DESC1_INFO));
+}
+
+void sdhci_msm_dump_iib(struct sdhci_host *host)
+{
+	u32 iter;
+
+	pr_err("----------- IIB HISTORY DUMP -----------\n");
+	for (iter = 0; iter < 8; iter++)
+		pr_err("0x%08x\n", readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_IIB_REG + (iter * 4)));
+}
+
 void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -4052,6 +4193,14 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 			msm_host_offset->CORE_VENDOR_SPEC_FUNC2),
 		readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_VENDOR_SPEC3));
+
+	if (msm_host->debug_mode_enabled) {
+		sdhci_msm_dump_fsm_history(host);
+		sdhci_msm_dump_desc_history(host);
+	}
+	/* Debug feature enable not must for iib */
+	sdhci_msm_dump_iib(host);
+
 	/*
 	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
 	 * of CORE_TESTBUS_CONFIG register.
@@ -4768,6 +4917,8 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.get_current_limit = sdhci_msm_get_current_limit,
 	.notify_load = sdhci_msm_notify_load,
 	.irq = sdhci_msm_cqe_irq,
+	.enter_dbg_mode = sdhci_msm_enter_dbg_mode,
+	.exit_dbg_mode = sdhci_msm_exit_dbg_mode,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,

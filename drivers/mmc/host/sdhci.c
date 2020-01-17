@@ -2418,6 +2418,22 @@ static void sdhci_hw_reset(struct mmc_host *mmc)
 		host->ops->hw_reset(host);
 }
 
+static void sdhci_enter_dbg_mode(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->enter_dbg_mode)
+		host->ops->enter_dbg_mode(host);
+}
+
+static void sdhci_exit_dbg_mode(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->exit_dbg_mode)
+		host->ops->exit_dbg_mode(host);
+}
+
 static void sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable)
 {
 	u16 ctrl = 0;
@@ -2968,6 +2984,8 @@ static const struct mmc_host_ops sdhci_ops = {
 	.get_cd		= sdhci_get_cd,
 	.get_ro		= sdhci_get_ro,
 	.hw_reset	= sdhci_hw_reset,
+	.enter_dbg_mode = sdhci_enter_dbg_mode,
+	.exit_dbg_mode = sdhci_exit_dbg_mode,
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.prepare_hs400_tuning		= sdhci_prepare_hs400_tuning,
