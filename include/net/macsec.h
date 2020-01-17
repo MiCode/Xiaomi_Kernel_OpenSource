@@ -200,4 +200,6 @@ struct macsec_context {
 	u8 is_phy:1;
 };
 
+void macsec_pn_wrapped(struct macsec_secy *secy, struct macsec_tx_sa *tx_sa);
+
 #endif /* _NET_MACSEC_H_ */
