@@ -20,7 +20,7 @@
 /* Size with u32 units. */
 #define CABAC_INIT_BUFFER_SIZE		(460 * 2)
 #define POC_BUFFER_SIZE			34
-#define SCALING_LIST_SIZE		(6 * 16 + 6 * 64)
+#define SCALING_LIST_SIZE		(6 * 16 + 2 * 64)
 
 #define POC_CMP(p0, p1) ((p0) < (p1) ? -1 : 1)
 
@@ -194,23 +194,6 @@ static const u32 h264_cabac_table[] = {
 	0x1f0c2517, 0x1f261440
 };
 
-/*
- * NOTE: The scaling lists are in zig-zag order, apply inverse scanning process
- * to get the values in matrix order. In addition, the hardware requires bytes
- * swapped within each subsequent 4 bytes. Both arrays below include both
- * transformations.
- */
-static const u32 zig_zag_4x4[] = {
-	3, 2, 7, 11, 6, 1, 0, 5, 10, 15, 14, 9, 4, 8, 13, 12
-};
-
-static const u32 zig_zag_8x8[] = {
-	3, 2, 11, 19, 10, 1, 0, 9, 18, 27, 35, 26, 17, 8, 7, 6,
-	15, 16, 25, 34, 43, 51, 42, 33, 24, 23, 14, 5, 4, 13, 22, 31,
-	32, 41, 50, 59, 58, 49, 40, 39, 30, 21, 12, 20, 29, 38, 47, 48,
-	57, 56, 55, 46, 37, 28, 36, 45, 54, 63, 62, 53, 44, 52, 61, 60
-};
-
 static void
 reorder_scaling_list(struct hantro_ctx *ctx)
 {
@@ -218,33 +201,23 @@ reorder_scaling_list(struct hantro_ctx *ctx)
 	const struct v4l2_ctrl_h264_scaling_matrix *scaling = ctrls->scaling;
 	const size_t num_list_4x4 = ARRAY_SIZE(scaling->scaling_list_4x4);
 	const size_t list_len_4x4 = ARRAY_SIZE(scaling->scaling_list_4x4[0]);
-	const size_t num_list_8x8 = ARRAY_SIZE(scaling->scaling_list_8x8);
 	const size_t list_len_8x8 = ARRAY_SIZE(scaling->scaling_list_8x8[0]);
 	struct hantro_h264_dec_priv_tbl *tbl = ctx->h264_dec.priv.cpu;
-	u8 *dst = tbl->scaling_list;
-	const u8 *src;
+	u32 *dst = (u32 *)tbl->scaling_list;
+	const u32 *src;
 	int i, j;
 
-	BUILD_BUG_ON(ARRAY_SIZE(zig_zag_4x4) != list_len_4x4);
-	BUILD_BUG_ON(ARRAY_SIZE(zig_zag_8x8) != list_len_8x8);
-	BUILD_BUG_ON(ARRAY_SIZE(tbl->scaling_list) !=
-		     num_list_4x4 * list_len_4x4 +
-		     num_list_8x8 * list_len_8x8);
-
-	src = &scaling->scaling_list_4x4[0][0];
-	for (i = 0; i < num_list_4x4; ++i) {
-		for (j = 0; j < list_len_4x4; ++j)
-			dst[zig_zag_4x4[j]] = src[j];
-		src += list_len_4x4;
-		dst += list_len_4x4;
+	for (i = 0; i < num_list_4x4; i++) {
+		src = (u32 *)&scaling->scaling_list_4x4[i];
+		for (j = 0; j < list_len_4x4 / 4; j++)
+			*dst++ = swab32(src[j]);
 	}
 
-	src = &scaling->scaling_list_8x8[0][0];
-	for (i = 0; i < num_list_8x8; ++i) {
-		for (j = 0; j < list_len_8x8; ++j)
-			dst[zig_zag_8x8[j]] = src[j];
-		src += list_len_8x8;
-		dst += list_len_8x8;
+	/* Only Intra/Inter Y lists */
+	for (i = 0; i < 2; i++) {
+		src = (u32 *)&scaling->scaling_list_8x8[i];
+		for (j = 0; j < list_len_8x8 / 4; j++)
+			*dst++ = swab32(src[j]);
 	}
 }
 
@@ -271,6 +244,7 @@ struct hantro_h264_reflist_builder {
 	const struct v4l2_h264_dpb_entry *dpb;
 	s32 pocs[HANTRO_H264_DPB_SIZE];
 	u8 unordered_reflist[HANTRO_H264_DPB_SIZE];
+	int frame_nums[HANTRO_H264_DPB_SIZE];
 	s32 curpoc;
 	u8 num_valid;
 };
@@ -294,13 +268,20 @@ static void
 init_reflist_builder(struct hantro_ctx *ctx,
 		     struct hantro_h264_reflist_builder *b)
 {
+	const struct v4l2_ctrl_h264_slice_params *slice_params;
 	const struct v4l2_ctrl_h264_decode_params *dec_param;
+	const struct v4l2_ctrl_h264_sps *sps;
 	struct vb2_v4l2_buffer *buf = hantro_get_dst_buf(ctx);
 	const struct v4l2_h264_dpb_entry *dpb = ctx->h264_dec.dpb;
 	struct vb2_queue *cap_q = &ctx->fh.m2m_ctx->cap_q_ctx.q;
+	int cur_frame_num, max_frame_num;
 	unsigned int i;
 
 	dec_param = ctx->h264_dec.ctrls.decode;
+	slice_params = &ctx->h264_dec.ctrls.slices[0];
+	sps = ctx->h264_dec.ctrls.sps;
+	max_frame_num = 1 << (sps->log2_max_frame_num_minus4 + 4);
+	cur_frame_num = slice_params->frame_num;
 
 	memset(b, 0, sizeof(*b));
 	b->dpb = dpb;
@@ -318,6 +299,18 @@ init_reflist_builder(struct hantro_ctx *ctx,
 			continue;
 
 		buf = to_vb2_v4l2_buffer(vb2_get_buffer(cap_q, buf_idx));
+
+		/*
+		 * Handle frame_num wraparound as described in section
+		 * '8.2.4.1 Decoding process for picture numbers' of the spec.
+		 * TODO: This logic will have to be adjusted when we start
+		 * supporting interlaced content.
+		 */
+		if (dpb[i].frame_num > cur_frame_num)
+			b->frame_nums[i] = (int)dpb[i].frame_num - max_frame_num;
+		else
+			b->frame_nums[i] = dpb[i].frame_num;
+
 		b->pocs[i] = get_poc(buf->field, dpb[i].top_field_order_cnt,
 				     dpb[i].bottom_field_order_cnt);
 		b->unordered_reflist[b->num_valid] = i;
@@ -353,7 +346,7 @@ static int p_ref_list_cmp(const void *ptra, const void *ptrb, const void *data)
 	 * ascending order.
 	 */
 	if (!(a->flags & V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM))
-		return b->frame_num - a->frame_num;
+		return builder->frame_nums[idxb] - builder->frame_nums[idxa];
 
 	return a->pic_num - b->pic_num;
 }

@@ -2451,50 +2451,46 @@ static int qeth_mpc_initialize(struct qeth_card *card)
 	rc = qeth_cm_enable(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "2err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_cm_setup(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "3err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_ulp_enable(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "4err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_ulp_setup(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "5err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_alloc_qdio_queues(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "5err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_qdio_establish(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "6err%d", rc);
 		qeth_free_qdio_queues(card);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_qdio_activate(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "7err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 	rc = qeth_dm_act(card);
 	if (rc) {
 		QETH_CARD_TEXT_(card, 2, "8err%d", rc);
-		goto out_qdio;
+		return rc;
 	}
 
 	return 0;
-out_qdio:
-	qeth_qdio_clear_card(card, !IS_IQD(card));
-	qdio_free(CARD_DDEV(card));
-	return rc;
 }
 
 void qeth_print_status_message(struct qeth_card *card)
@@ -3379,11 +3375,6 @@ int qeth_configure_cq(struct qeth_card *card, enum qeth_cq cq)
 	} else {
 		if (card->options.cq == cq) {
 			rc = 0;
-			goto out;
-		}
-
-		if (card->state != CARD_STATE_DOWN) {
-			rc = -1;
 			goto out;
 		}
 
@@ -4972,10 +4963,8 @@ retriable:
 	}
 	if (qeth_adp_supported(card, IPA_SETADP_SET_DIAG_ASSIST)) {
 		rc = qeth_query_setdiagass(card);
-		if (rc < 0) {
+		if (rc)
 			QETH_CARD_TEXT_(card, 2, "8err%d", rc);
-			goto out;
-		}
 	}
 	return 0;
 out:
