@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 /* -------------------------------------------------------------------------
@@ -424,7 +424,7 @@ static int disable_fw_nolock(struct npu_device *npu_dev)
 		msleep(500);
 	}
 
-	if (!host_ctx->auto_pil_disable) {
+	if (!ret && !host_ctx->auto_pil_disable) {
 		ret = wait_for_completion_timeout(
 			&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
 		if (!ret) {
