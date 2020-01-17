@@ -2916,6 +2916,11 @@ static int _mmc_hw_reset(struct mmc_host *host)
 		/* If the card accept RST_n signal, send it. */
 		mmc_set_clock(host, host->f_init);
 		host->ops->hw_reset(host);
+		/*
+		 * Do a brute force power cycle as some controller do not
+		 * have gpio support to power cycle card
+		 */
+		mmc_power_cycle(host, card->ocr);
 		/* Set initial state and call mmc_set_ios */
 		mmc_set_initial_state(host);
 	} else {

@@ -2094,6 +2094,23 @@ out:
 	return -EINVAL;
 }
 
+int sdhci_msm_parse_reset_data(struct device *dev,
+			struct sdhci_msm_host *msm_host)
+{
+	int ret = 0;
+
+	msm_host->core_reset = devm_reset_control_get(dev,
+					"core_reset");
+	if (IS_ERR(msm_host->core_reset)) {
+		ret = PTR_ERR(msm_host->core_reset);
+		dev_err(dev, "core_reset unavailable,err = %d\n",
+				ret);
+		msm_host->core_reset = NULL;
+	}
+
+	return ret;
+}
+
 /* Parse platform data */
 static
 struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
@@ -2111,6 +2128,7 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
 	int bus_clk_table_len;
 	u32 *bus_clk_table = NULL;
+	int ret = 0;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -2247,6 +2265,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
+	ret = sdhci_msm_parse_reset_data(dev, msm_host);
+	if (ret)
+		dev_err(dev, "Reset data parsing error\n");
 
 	return pdata;
 out:
@@ -3347,7 +3368,8 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 	const struct sdhci_msm_offset *msm_host_offset =
 					msm_host->offset;
 
-	if (!msm_host->regs_restore.is_supported)
+	if (!msm_host->regs_restore.is_supported &&
+			!msm_host->reg_store)
 		return;
 
 	msm_host->regs_restore.vendor_func = readl_relaxed(host->ioaddr +
@@ -3411,8 +3433,9 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 					msm_host->offset;
 	struct mmc_ios ios = host->mmc->ios;
 
-	if (!msm_host->regs_restore.is_supported ||
-		!msm_host->regs_restore.is_valid)
+	if ((!msm_host->regs_restore.is_supported ||
+		!msm_host->regs_restore.is_valid) &&
+		!msm_host->reg_store)
 		return;
 
 	writel_relaxed(0, host->ioaddr + msm_host_offset->CORE_PWRCTL_MASK);
@@ -4890,6 +4913,54 @@ static int sdhci_msm_notify_load(struct sdhci_host *host, enum mmc_load state)
 	return 0;
 }
 
+static void sdhci_msm_hw_reset(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct platform_device *pdev = msm_host->pdev;
+	int ret = -ENOTSUPP;
+
+	if (!msm_host->core_reset) {
+		dev_err(&pdev->dev, "%s: failed, err = %d\n", __func__,
+				ret);
+		return;
+	}
+
+	if (!msm_host->debug_mode_enabled)
+		return;
+	msm_host->reg_store = true;
+	sdhci_msm_exit_dbg_mode(host);
+	sdhci_msm_registers_save(host);
+	if (host->mmc->caps2 & MMC_CAP2_CQE) {
+		host->mmc->cqe_ops->cqe_disable(host->mmc);
+		host->mmc->cqe_enabled = false;
+	}
+
+	ret = reset_control_assert(msm_host->core_reset);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: core_reset assert failed, err = %d\n",
+				__func__, ret);
+		goto out;
+	}
+
+	/*
+	 * The hardware requirement for delay between assert/deassert
+	 * is at least 3-4 sleep clock (32.7KHz) cycles, which comes to
+	 * ~125us (4/32768). To be on the safe side add 200us delay.
+	 */
+	usleep_range(200, 210);
+
+	ret = reset_control_deassert(msm_host->core_reset);
+	if (ret)
+		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
+				__func__, ret);
+
+	sdhci_msm_registers_restore(host);
+	msm_host->reg_store = false;
+out:
+	return;
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.crypto_engine_cfg = sdhci_msm_ice_cfg,
 	.crypto_engine_cfg_end = sdhci_msm_ice_cfg_end,
@@ -4919,6 +4990,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.irq = sdhci_msm_cqe_irq,
 	.enter_dbg_mode = sdhci_msm_enter_dbg_mode,
 	.exit_dbg_mode = sdhci_msm_exit_dbg_mode,
+	.hw_reset = sdhci_msm_hw_reset,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
@@ -5560,6 +5632,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_MAX_DISCARD_SIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_SLEEP_AWAKE;
 	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ;
+	if (msm_host->core_reset)
+		msm_host->mmc->caps |= MMC_CAP_HW_RESET;
 
 	if (msm_host->pdata->nonremovable)
 		msm_host->mmc->caps |= MMC_CAP_NONREMOVABLE;

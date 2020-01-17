@@ -9,6 +9,7 @@
 
 #include <linux/mmc/mmc.h>
 #include <linux/pm_qos.h>
+#include <linux/reset.h>
 #include "sdhci-pltfm.h"
 
 /* check IP CATALOG version */
@@ -329,6 +330,8 @@ struct sdhci_msm_host {
 	struct sdhci_msm_ice_data ice;
 	u32 ice_clk_rate;
 	bool debug_mode_enabled;
+	bool reg_store;
+	struct reset_control *core_reset;
 };
 
 extern char *saved_command_line;
