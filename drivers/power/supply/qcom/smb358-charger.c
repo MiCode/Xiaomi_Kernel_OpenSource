@@ -2020,9 +2020,7 @@ static int smb_parse_dt(struct smb358_charger *chip)
 {
 	int rc;
 	enum of_gpio_flags gpio_flags;
-	struct iio_channel **chan;
 	struct device_node *node = chip->dev->of_node;
-	int batt_present_degree_negative;
 
 	if (!node) {
 		dev_err(chip->dev, "device tree info. missing\n");
