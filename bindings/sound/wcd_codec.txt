@@ -447,6 +447,7 @@ Required properties:
  - qcom,swr-dmic-prefix: Prefix to use for alsa widgets and routes
  - qcom,codec-name: Name for the corresponding swr mic codec
  - qcom,mic-bias-num: Mic bias number that turns on this device's power supply
+ - qcom,wcd-handle: pHandle to wcd node that can enable this device's supply
 
 Example:
 swr_dmic_01: dmic_swr@58350220 {
@@ -455,5 +456,5 @@ swr_dmic_01: dmic_swr@58350220 {
 	qcom,swr-dmic-prefix = "SWR_MIC0";
 	qcom,codec-name = "swr-dmic-01";
 	qcom,mic-bias-num = <1>;
-	wcd-handle = <&wcd938x_codec>;
+	qcom,wcd-handle = <&wcd938x_codec>;
 };
