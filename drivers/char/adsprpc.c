@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -1859,10 +1859,37 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (rpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
 			if (map && map->buf) {
-				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+				if ((buf_page_size(ctx->overps[oix]->mend -
+				ctx->overps[oix]->mstart)) == map->size) {
+					dma_buf_begin_cpu_access(map->buf,
+						DMA_TO_DEVICE);
+					dma_buf_end_cpu_access(map->buf,
+						DMA_TO_DEVICE);
+				} else {
+					uintptr_t offset;
+					struct vm_area_struct *vma;
+
+					down_read(&current->mm->mmap_sem);
+					VERIFY(err, NULL != (vma = find_vma(
+						current->mm,
+						ctx->overps[oix]->mstart)));
+					if (err) {
+						up_read(&current->mm->mmap_sem);
+						goto bail;
+					}
+					offset = buf_page_start(
+						rpra[i].buf.pv) -
+						vma->vm_start;
+					up_read(&current->mm->mmap_sem);
+					dma_buf_begin_cpu_access_partial(
+						map->buf, DMA_TO_DEVICE, offset,
+						ctx->overps[oix]->mend -
+						ctx->overps[oix]->mstart);
+					dma_buf_end_cpu_access_partial(
+						map->buf, DMA_TO_DEVICE, offset,
+						ctx->overps[oix]->mend -
+						ctx->overps[oix]->mstart);
+				}
 			} else
 				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 					uint64_to_ptr(rpra[i].buf.pv
