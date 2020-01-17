@@ -507,13 +507,8 @@ struct snd_codec {
 	__u32 format;
 	__u32 align;
 	union snd_codec_options options;
-#ifdef CONFIG_AUDIO_QGKI
-	__u32 flags;
-	__u32 compr_passthr;
-	__u32 reserved[1];
-#else
+	/* reserved[0] is compr_passthr and reserved[1] is flags */
 	__u32 reserved[3];
-#endif
 } __attribute__((packed, aligned(4)));
 
 /** struct snd_codec_metadata
@@ -530,8 +525,5 @@ struct snd_codec_metadata {
 	__u64 timestamp;
 	__u32 reserved[4];
 };
-
-#define SND_CODEC_COMPRESS_PASSTHROUGH
-
 
 #endif
