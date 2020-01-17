@@ -841,6 +841,7 @@ static bool unmap_kernel_at_el0(const struct arm64_cpu_capabilities *entry,
 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A57),
 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A72),
 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A73),
+		{ /* sentinel */ }
 	};
 	char const *str = "kpti command line option";
 	bool meltdown_safe;
@@ -1282,9 +1283,9 @@ static void __update_cpu_capabilities(const struct arm64_cpu_capabilities *caps,
 
 static void update_cpu_capabilities(u16 scope_mask)
 {
-	__update_cpu_capabilities(arm64_features, scope_mask, "detected:");
 	__update_cpu_capabilities(arm64_errata, scope_mask,
 				  "enabling workaround for");
+	__update_cpu_capabilities(arm64_features, scope_mask, "detected:");
 }
 
 static int __enable_cpu_capability(void *arg)
@@ -1339,8 +1340,8 @@ __enable_cpu_capabilities(const struct arm64_cpu_capabilities *caps,
 
 static void __init enable_cpu_capabilities(u16 scope_mask)
 {
-	__enable_cpu_capabilities(arm64_features, scope_mask);
 	__enable_cpu_capabilities(arm64_errata, scope_mask);
+	__enable_cpu_capabilities(arm64_features, scope_mask);
 }
 
 /*
