@@ -1966,77 +1966,25 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	return err;
 }
 
-static void inv_args_pre(struct smq_invoke_ctx *ctx)
-{
-	int i, inbufs, outbufs;
-	uint32_t sc = ctx->sc;
-	remote_arg64_t *rpra = ctx->rpra;
-	uintptr_t end;
-
-	inbufs = REMOTE_SCALARS_INBUFS(sc);
-	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
-	for (i = inbufs; i < inbufs + outbufs; ++i) {
-		struct fastrpc_mmap *map = ctx->maps[i];
-
-		if (map && map->uncached)
-			continue;
-		if (!rpra[i].buf.len)
-			continue;
-		if (ctx->fl->sctx->smmu.coherent &&
-			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
-			continue;
-		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
-			continue;
-		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
-			continue;
-
-		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
-				buf_page_start(rpra[i].buf.pv))
-			continue;
-		if (!IS_CACHE_ALIGNED((uintptr_t)
-				uint64_to_ptr(rpra[i].buf.pv))) {
-			if (map && map->buf) {
-				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
-				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
-			} else {
-				dmac_flush_range(
-					uint64_to_ptr(rpra[i].buf.pv), (char *)
-					uint64_to_ptr(rpra[i].buf.pv + 1));
-			}
-		}
-
-		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
-							rpra[i].buf.len);
-		if (!IS_CACHE_ALIGNED(end)) {
-			if (map && map->buf) {
-				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
-				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
-			} else {
-				dmac_flush_range((char *)end,
-					(char *)end + 1);
-			}
-		}
-	}
-}
-
 static void inv_args(struct smq_invoke_ctx *ctx)
 {
 	int i, inbufs, outbufs;
 	uint32_t sc = ctx->sc;
 	remote_arg64_t *rpra = ctx->lrpra;
+	int err = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
-	for (i = inbufs; i < inbufs + outbufs; ++i) {
-		struct fastrpc_mmap *map = ctx->maps[i];
+	for (i = 0; i < inbufs + outbufs; ++i) {
+		int over = ctx->overps[i]->raix;
+		struct fastrpc_mmap *map = ctx->maps[over];
+
+		if ((over + 1 <= inbufs))
+			continue;
 
 		if (map && map->uncached)
 			continue;
-		if (!rpra[i].buf.len)
+		if (!rpra[over].buf.len)
 			continue;
 		if (ctx->fl->sctx->smmu.coherent &&
 			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
@@ -2047,20 +1995,50 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
-				buf_page_start(rpra[i].buf.pv)) {
+				buf_page_start(rpra[over].buf.pv)) {
 			continue;
 		}
-		if (map && map->buf) {
-			dma_buf_begin_cpu_access(map->buf,
-				DMA_FROM_DEVICE);
-			dma_buf_end_cpu_access(map->buf,
-				DMA_FROM_DEVICE);
-		} else
-			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
-				(char *)uint64_to_ptr(rpra[i].buf.pv
-						 + rpra[i].buf.len));
-	}
+		if (ctx->overps[i]->mstart) {
+			if (map && map->buf) {
+				if ((buf_page_size(ctx->overps[i]->mend -
+				ctx->overps[i]->mstart)) == map->size) {
+					dma_buf_begin_cpu_access(map->buf,
+						DMA_TO_DEVICE);
+					dma_buf_end_cpu_access(map->buf,
+						DMA_FROM_DEVICE);
+				} else {
+					uintptr_t offset;
+					struct vm_area_struct *vma;
 
+					down_read(&current->mm->mmap_sem);
+					VERIFY(err, NULL != (vma = find_vma(
+						current->mm,
+						ctx->overps[i]->mstart)));
+					if (err) {
+						up_read(&current->mm->mmap_sem);
+						goto bail;
+					}
+					offset = buf_page_start(
+						rpra[over].buf.pv) -
+						vma->vm_start;
+					up_read(&current->mm->mmap_sem);
+					dma_buf_begin_cpu_access_partial(
+						map->buf, DMA_TO_DEVICE, offset,
+						ctx->overps[i]->mend -
+						ctx->overps[i]->mstart);
+					dma_buf_end_cpu_access_partial(map->buf,
+						DMA_FROM_DEVICE, offset,
+						ctx->overps[i]->mend -
+						ctx->overps[i]->mstart);
+			}
+		} else
+			dmac_inv_range((char *)uint64_to_ptr(rpra[over].buf.pv),
+				(char *)uint64_to_ptr(rpra[over].buf.pv
+						 + rpra[over].buf.len));
+		}
+	}
+bail:
+	return;
 }
 
 static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
@@ -2316,10 +2294,6 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (err)
 			goto bail;
 	}
-
-	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-	inv_args_pre(ctx);
-	PERF_END);
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	inv_args(ctx);
