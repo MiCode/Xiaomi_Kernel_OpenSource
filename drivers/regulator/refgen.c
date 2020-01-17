@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2017, 2019-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/bitops.h>
 #include <linux/err.h>
@@ -14,6 +14,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/proxy-consumer.h>
 
 #define REFGEN_REG_BIAS_EN		0x08
 #define REFGEN_BIAS_EN_MASK		GENMASK(2, 0)
@@ -204,6 +205,10 @@ static int refgen_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = devm_regulator_proxy_consumer_register(dev, dev->of_node);
+	if (rc)
+		dev_err(dev, "failed to register proxy consumer, rc=%d\n", rc);
+
 	return 0;
 }
 
@@ -212,6 +217,7 @@ static struct platform_driver refgen_driver = {
 	.driver = {
 		.name = "qcom,refgen-regulator",
 		.of_match_table = refgen_match_table,
+		.sync_state = regulator_proxy_consumer_sync_state,
 	},
 };
 
