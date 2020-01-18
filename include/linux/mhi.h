@@ -20,6 +20,7 @@ struct image_info;
 struct bhi_vec_entry;
 struct mhi_timesync;
 struct mhi_buf_info;
+struct mhi_sfr_info;
 
 #define REG_WRITE_QUEUE_LEN 1024
 
@@ -342,6 +343,10 @@ struct mhi_controller {
 	struct mhi_device *tsync_dev;
 	u64 local_timer_freq;
 	u64 remote_timer_freq;
+
+	/* subsytem failure reason retrieval feature */
+	struct mhi_sfr_info *mhi_sfr;
+	size_t sfr_len;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;
@@ -755,6 +760,12 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_restart_reason - retrieve the subsystem failure reason
+ * @name: controller name
+ */
+char *mhi_get_restart_reason(const char *name);
 
 #ifndef CONFIG_ARCH_QCOM
 

@@ -27,6 +27,7 @@
 		/* mhi bus specific settings */
 		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
+		mhi,name = "esoc0";
 
 		mhi_channels {
 			#address-cells = <1>;
