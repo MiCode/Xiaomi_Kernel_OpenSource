@@ -729,6 +729,8 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 		}
 	}
 
+out:
+	spin_unlock_irqrestore(&spon_list_slock, flags);
 	/* Set ship mode here if it has been requested */
 	if (!!pon_ship_mode_en) {
 		batt_psy = power_supply_get_by_name("battery");
@@ -741,8 +743,6 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 				dev_err(sys_reset_dev->dev, "Failed to set ship mode\n");
 		}
 	}
-out:
-	spin_unlock_irqrestore(&spon_list_slock, flags);
 
 	return rc;
 }
