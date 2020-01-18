@@ -471,6 +471,14 @@
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
 		qcom,iommu-dma = "fastmap";
 		status = "ok";
+
+		/* Slimbus Slave DT for QCA6490 */
+		btfmslim_codec: qca6490 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 21 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 21 02 17 02];
+		};
 	};
 
 	intc: interrupt-controller@17a00000 {
@@ -2985,6 +2993,21 @@
 		qcom,iommu-dma = "atomic";
 	};
 
+	bluetooth: bt_qca6490 {
+		compatible = "qcom,qca6490";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpio = <&tlmm 65 0>; /* BT_EN */
+		qcom,bt-vdd-aon-supply = <&S11B>;
+		qcom,bt-vdd-dig-supply = <&S11B>;
+		qcom,bt-vdd-rfa1-supply = <&S1C>;
+		qcom,bt-vdd-rfa2-supply = <&S12B>;
+
+		qcom,bt-vdd-aon-voltage-level = <950000 950000>;
+		qcom,bt-vdd-dig-voltage-level = <950000 950000>;
+		qcom,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
+		qcom,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
+	};
 };
 
 #include "lahaina-regulators.dtsi"
