@@ -1446,6 +1446,13 @@ static int ipahal_get_proc_ctx_needed_len_v3(enum ipa_hdr_proc_type type)
 		ret =
 		sizeof(struct ipa_hw_hdr_proc_ctx_remove_l2tp_hdr_cmd_seq);
 		break;
+	case IPA_HDR_PROC_L2TP_UDP_HEADER_ADD:
+		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq);
+		break;
+	case IPA_HDR_PROC_L2TP_UDP_HEADER_REMOVE:
+		ret =
+		sizeof(struct ipa_hw_hdr_proc_ctx_remove_l2tp_udp_hdr_cmd_seq);
+		break;
 	case IPA_HDR_PROC_ETHII_TO_ETHII_EX:
 		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex);
 		break;

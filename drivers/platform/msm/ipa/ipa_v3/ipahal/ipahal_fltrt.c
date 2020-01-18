@@ -1662,6 +1662,41 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip6(u16 *en_rule,
 		ihl_ofst_meq32 += 2;
 	}
 
+	if (attrib->ext_attrib_mask & IPA_FLT_EXT_L2TP_UDP_INNER_NEXT_HDR) {
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
+			ihl_ofst_meq32)) {
+			IPAHAL_ERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+
+		/* Populate next header */
+		if (attrib->ether_type == 0x0800) {
+			/* 46 => offset of inner next hdr type in
+			 * L2TP over UDP (IPv4).
+			 * 46 = UDP (8) + L2TP (16) + ETH (14) + 8 bytes
+			 * in Ipv4 header.
+			 */
+			extra = ipa_write_8(46, extra);
+			rest = ipa_write_32(0xFF0000, rest);
+			rest = ipa_write_32((attrib->l2tp_udp_next_hdr << 16),
+				rest);
+		} else {
+			/* 42 => offset of inner next hdr type in
+			 * L2TP over UDP (Ipv6).
+			 * 42 = UDP (8) + L2TP (16) + ETH (14) + 4 bytes
+			 * in Ipv6 header.
+			 */
+			extra = ipa_write_8(42, extra);
+			rest = ipa_write_32(0xFF00, rest);
+			rest = ipa_write_32((attrib->l2tp_udp_next_hdr << 8),
+				rest);
+		}
+
+		ihl_ofst_meq32++;
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_TCP_SYN) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
