@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013,2015,2019, Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013,2015,2019-2020,Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,6 @@
 			interrupt-names = "cblpwr";
 			qcom,pon-dbc-delay = <15625>;
 			qcom,system-reset;
-			qcom,store-hard-reset-reason;
 
 			qcom,pon_1 {
 				qcom,pon-type = <2>;
