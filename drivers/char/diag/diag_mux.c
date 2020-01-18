@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -33,6 +33,7 @@ static struct diag_logger_ops usb_log_ops = {
 	.queue_read = diag_usb_queue_read,
 	.open_device = diag_usb_connect_device,
 	.close_device = diag_usb_disconnect_device,
+	.clear_tbl_entries = NULL,
 	.write = diag_usb_write,
 	.close_peripheral = NULL
 };
@@ -42,6 +43,7 @@ static struct diag_logger_ops md_log_ops = {
 	.close = diag_md_close_all,
 	.open_device = diag_md_open_device,
 	.close_device = diag_md_close_device,
+	.clear_tbl_entries = diag_md_clear_tbl_entries,
 	.queue_read = NULL,
 	.write = diag_md_write,
 	.close_peripheral = diag_md_close_peripheral,
@@ -213,6 +215,20 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral)
 	if (logger && logger->log_ops && logger->log_ops->close_peripheral)
 		return logger->log_ops->close_peripheral(proc, peripheral);
 	return 0;
+}
+
+void diag_mux_close_device(int proc)
+{
+	struct diag_logger_t *logger = NULL;
+
+	if (!diag_mux)
+		return;
+
+	logger = diag_mux->logger[proc];
+
+	if (logger && logger->log_ops && logger->log_ops->clear_tbl_entries)
+		logger->log_ops->clear_tbl_entries(proc);
+
 }
 
 int diag_mux_switch_logging(int proc, int *req_mode, int *peripheral_mask)

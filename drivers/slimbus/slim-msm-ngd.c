@@ -167,6 +167,8 @@ static int ngd_slim_qmi_new_server(struct qmi_handle *hdl,
 		container_of(qmi, struct msm_slim_ctrl, qmi);
 
 	SLIM_INFO(dev, "Slimbus QMI new server event received\n");
+	/* Hold wake lock until notify slaves thread is done */
+	pm_stay_awake(dev->dev);
 	qmi->svc_info.sq_family = AF_QIPCRTR;
 	qmi->svc_info.sq_node = service->node;
 	qmi->svc_info.sq_port = service->port;
@@ -1622,6 +1624,7 @@ static int ngd_notify_slaves(void *data)
 	ret = ngd_slim_qmi_svc_event_init(&dev->qmi);
 	if (ret) {
 		pr_err("Slimbus QMI service registration failed:%d\n", ret);
+		pm_relax(dev->dev);
 		return ret;
 	}
 
@@ -1662,6 +1665,7 @@ static int ngd_notify_slaves(void *data)
 		}
 		mutex_unlock(&ctrl->m_ctrl);
 	}
+	pm_relax(dev->dev);
 	return 0;
 }
 
