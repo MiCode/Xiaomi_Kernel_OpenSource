@@ -34,6 +34,7 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		serial0 = &qupv3_se3_2uart;
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */
@@ -1421,6 +1422,46 @@
 
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "rst";
+
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@8804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x8804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		qcom,restore-after-cx-collapse;
+
+		qcom,clk-rates = <400000 20000000 25000000
+					50000000 100000000 201500000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+
+		qcom,devfreq,freq-table = <50000000 201500000>;
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface", "core";
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <44 44>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0xA800 0x10
+					0x2C010800 0x80040868>;
+
+		iommus = <&apps_smmu 0x4a0 0x0>;
+		qcom,iommu-dma = "bypass";
 
 		status = "disabled";
 	};
