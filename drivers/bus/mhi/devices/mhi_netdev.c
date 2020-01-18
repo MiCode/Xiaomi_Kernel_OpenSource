@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -411,6 +411,8 @@ static void mhi_netdev_free_pool(struct mhi_netdev *mhi_netdev)
 		__free_pages(mhi_buf->page, mhi_netdev->order);
 		mhi_netdev->bg_pool_size--;
 	}
+
+	kfree(mhi_netdev->bg_pool);
 }
 
 static int mhi_netdev_alloc_thread(void *data)
@@ -943,6 +945,7 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 	unregister_netdev(mhi_netdev->ndev);
 	netif_napi_del(mhi_netdev->napi);
 	free_netdev(mhi_netdev->ndev);
+	mhi_netdev->ndev = NULL;
 
 	if (!IS_ERR_OR_NULL(mhi_netdev->dentry))
 		debugfs_remove_recursive(mhi_netdev->dentry);
