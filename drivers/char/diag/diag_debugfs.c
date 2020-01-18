@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifdef CONFIG_DEBUG_FS
@@ -480,7 +480,6 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 	int i = 0;
 	int j = 0;
 	unsigned int buf_size;
-	unsigned int bytes_remaining = 0;
 	unsigned int bytes_written = 0;
 	unsigned int bytes_in_buffer = 0;
 	struct diag_socket_info *info = NULL;
@@ -499,78 +498,75 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 	}
 
 	buf_size = ksize(buf);
-	bytes_remaining = buf_size;
-	for (i = 0; i < NUM_TYPES; i++) {
-		for (j = 0; j < NUM_PERIPHERALS; j++) {
-			switch (i) {
-			case TYPE_DATA:
-				info = &socket_data[j];
-				break;
-			case TYPE_CNTL:
-				info = &socket_cntl[j];
-				break;
-			case TYPE_DCI:
-				info = &socket_dci[j];
-				break;
-			case TYPE_CMD:
-				info = &socket_cmd[j];
-				break;
-			case TYPE_DCI_CMD:
-				info = &socket_dci_cmd[j];
-				break;
-			default:
-				return -EINVAL;
-			}
 
-			fwd_ctxt = (struct diagfwd_info *)(info->fwd_ctxt);
-
-			bytes_written = scnprintf(buf+bytes_in_buffer,
-				bytes_remaining,
-				"name\t\t:\t%s\n"
-				"hdl\t\t:\t%pK\n"
-				"inited\t\t:\t%d\n"
-				"opened\t\t:\t%d\n"
-				"diag_state\t:\t%d\n"
-				"buf_1 busy\t:\t%d\n"
-				"buf_2 busy\t:\t%d\n"
-				"flow ctrl count\t:\t%d\n"
-				"data_ready\t:\t%d\n"
-				"init pending\t:\t%d\n"
-				"read pending\t:\t%d\n"
-				"bytes read\t:\t%lu\n"
-				"bytes written\t:\t%lu\n"
-				"fwd inited\t:\t%d\n"
-				"fwd opened\t:\t%d\n"
-				"fwd ch_open\t:\t%d\n\n",
-				info->name,
-				info->hdl,
-				info->inited,
-				atomic_read(&info->opened),
-				atomic_read(&info->diag_state),
-				(fwd_ctxt && fwd_ctxt->buf_1) ?
-				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
-				(fwd_ctxt && fwd_ctxt->buf_2) ?
-				atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
-				atomic_read(&info->flow_cnt),
-				info->data_ready,
-				work_pending(&info->init_work),
-				work_pending(&info->read_work),
-				(fwd_ctxt) ? fwd_ctxt->read_bytes : 0,
-				(fwd_ctxt) ? fwd_ctxt->write_bytes : 0,
-				(fwd_ctxt) ? fwd_ctxt->inited : -1,
-				(fwd_ctxt) ?
-				atomic_read(&fwd_ctxt->opened) : -1,
-				(fwd_ctxt) ? fwd_ctxt->ch_open : -1);
-			bytes_in_buffer += bytes_written;
-
-			/* Check if there is room to add another table entry */
-			bytes_remaining = buf_size - bytes_in_buffer;
-
-			if (bytes_remaining < bytes_written)
-				break;
+	i = diag_dbgfs_socketinfo_index;
+	for (j = 0; j < NUM_PERIPHERALS; j++) {
+		switch (i) {
+		case TYPE_DATA:
+			info = &socket_data[j];
+			break;
+		case TYPE_CNTL:
+			info = &socket_cntl[j];
+			break;
+		case TYPE_DCI:
+			info = &socket_dci[j];
+			break;
+		case TYPE_CMD:
+			info = &socket_cmd[j];
+			break;
+		case TYPE_DCI_CMD:
+			info = &socket_dci_cmd[j];
+			break;
+		default:
+			kfree(buf);
+			return -EINVAL;
 		}
+		fwd_ctxt = (struct diagfwd_info *)(info->fwd_ctxt);
+
+		bytes_written = scnprintf(buf+bytes_in_buffer,
+			buf_size,
+			"name\t\t:\t%s\n"
+			"hdl\t\t:\t%pK\n"
+			"inited\t\t:\t%d\n"
+			"opened\t\t:\t%d\n"
+			"diag_state\t:\t%d\n"
+			"buf_1 busy\t:\t%d\n"
+			"buf_2 busy\t:\t%d\n"
+			"flow ctrl count\t:\t%d\n"
+			"data_ready\t:\t%d\n"
+			"init pending\t:\t%d\n"
+			"read pending\t:\t%d\n"
+			"bytes read\t:\t%lu\n"
+			"bytes written\t:\t%lu\n"
+			"fwd inited\t:\t%d\n"
+			"fwd opened\t:\t%d\n"
+			"fwd ch_open\t:\t%d\n\n",
+			info->name,
+			info->hdl,
+			info->inited,
+			atomic_read(&info->opened),
+			atomic_read(&info->diag_state),
+			(fwd_ctxt && fwd_ctxt->buf_1) ?
+			atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
+			(fwd_ctxt && fwd_ctxt->buf_2) ?
+			atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
+			atomic_read(&info->flow_cnt),
+			info->data_ready,
+			work_pending(&info->init_work),
+			work_pending(&info->read_work),
+			(fwd_ctxt) ? fwd_ctxt->read_bytes : 0,
+			(fwd_ctxt) ? fwd_ctxt->write_bytes : 0,
+			(fwd_ctxt) ? fwd_ctxt->inited : -1,
+			(fwd_ctxt) ?
+			atomic_read(&fwd_ctxt->opened) : -1,
+			(fwd_ctxt) ? fwd_ctxt->ch_open : -1);
+
+		bytes_in_buffer += bytes_written;
+
 	}
-	diag_dbgfs_socketinfo_index = i+1;
+
+	diag_dbgfs_socketinfo_index += 1;
+
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 
@@ -586,7 +582,6 @@ static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 	int i = 0;
 	int j = 0;
 	unsigned int buf_size;
-	unsigned int bytes_remaining = 0;
 	unsigned int bytes_written = 0;
 	unsigned int bytes_in_buffer = 0;
 	struct diag_rpmsg_info *info = NULL;
@@ -603,77 +598,71 @@ static ssize_t diag_dbgfs_read_rpmsginfo(struct file *file, char __user *ubuf,
 		return -ENOMEM;
 
 	buf_size = ksize(buf);
-	bytes_remaining = buf_size;
-	for (i = 0; i < NUM_TYPES; i++) {
-		for (j = 0; j < NUM_PERIPHERALS; j++) {
-			switch (i) {
-			case TYPE_DATA:
-				info = &rpmsg_data[j];
-				break;
-			case TYPE_CNTL:
-				info = &rpmsg_cntl[j];
-				break;
-			case TYPE_DCI:
-				info = &rpmsg_dci[j];
-				break;
-			case TYPE_CMD:
-				info = &rpmsg_cmd[j];
-				break;
-			case TYPE_DCI_CMD:
-				info = &rpmsg_dci_cmd[j];
-				break;
-			default:
-				return -EINVAL;
-			}
-
-			fwd_ctxt = (struct diagfwd_info *)(info->fwd_ctxt);
-
-			bytes_written = scnprintf(buf+bytes_in_buffer,
-				bytes_remaining,
-				"name\t\t:\t%s:\t%s\n"
-				"hdl\t\t:\t%pK\n"
-				"inited\t\t:\t%d\n"
-				"opened\t\t:\t%d\n"
-				"diag_state\t:\t%d\n"
-				"buf_1 busy\t:\t%d\n"
-				"buf_2 busy\t:\t%d\n"
-				"open pending\t:\t%d\n"
-				"close pending\t:\t%d\n"
-				"read pending\t:\t%d\n"
-				"bytes read\t:\t%lu\n"
-				"bytes written\t:\t%lu\n"
-				"fwd inited\t:\t%d\n"
-				"fwd opened\t:\t%d\n"
-				"fwd ch_open\t:\t%d\n\n",
-				info->edge,
-				info->name,
-				info->hdl,
-				info->inited,
-				atomic_read(&info->opened),
-				atomic_read(&info->diag_state),
-				(fwd_ctxt && fwd_ctxt->buf_1) ?
-				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
-				(fwd_ctxt && fwd_ctxt->buf_2) ?
-				atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
-				work_pending(&info->open_work),
-				work_pending(&info->close_work),
-				work_pending(&info->read_work),
-				(fwd_ctxt) ? fwd_ctxt->read_bytes : 0,
-				(fwd_ctxt) ? fwd_ctxt->write_bytes : 0,
-				(fwd_ctxt) ? fwd_ctxt->inited : -1,
-				(fwd_ctxt) ?
-				atomic_read(&fwd_ctxt->opened) : -1,
-				(fwd_ctxt) ? fwd_ctxt->ch_open : -1);
-			bytes_in_buffer += bytes_written;
-
-			/* Check if there is room to add another table entry */
-			bytes_remaining = buf_size - bytes_in_buffer;
-
-			if (bytes_remaining < bytes_written)
-				break;
+	i = diag_dbgfs_rpmsginfo_index;
+	for (j = 0; j < NUM_PERIPHERALS; j++) {
+		switch (i) {
+		case TYPE_DATA:
+			info = &rpmsg_data[j];
+			break;
+		case TYPE_CNTL:
+			info = &rpmsg_cntl[j];
+			break;
+		case TYPE_DCI:
+			info = &rpmsg_dci[j];
+			break;
+		case TYPE_CMD:
+			info = &rpmsg_cmd[j];
+			break;
+		case TYPE_DCI_CMD:
+			info = &rpmsg_dci_cmd[j];
+			break;
+		default:
+			kfree(buf);
+			return -EINVAL;
 		}
+
+		fwd_ctxt = (struct diagfwd_info *)(info->fwd_ctxt);
+		bytes_written = scnprintf(buf+bytes_in_buffer,
+			buf_size,
+			"name\t\t:\t%s:\t%s\n"
+			"hdl\t\t:\t%pK\n"
+			"inited\t\t:\t%d\n"
+			"opened\t\t:\t%d\n"
+			"diag_state\t:\t%d\n"
+			"buf_1 busy\t:\t%d\n"
+			"buf_2 busy\t:\t%d\n"
+			"open pending\t:\t%d\n"
+			"close pending\t:\t%d\n"
+			"read pending\t:\t%d\n"
+			"bytes read\t:\t%lu\n"
+			"bytes written\t:\t%lu\n"
+			"fwd inited\t:\t%d\n"
+			"fwd opened\t:\t%d\n"
+			"fwd ch_open\t:\t%d\n\n",
+			info->edge,
+			info->name,
+			info->hdl,
+			info->inited,
+			atomic_read(&info->opened),
+			atomic_read(&info->diag_state),
+			(fwd_ctxt && fwd_ctxt->buf_1) ?
+			atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
+			(fwd_ctxt && fwd_ctxt->buf_2) ?
+			atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
+			work_pending(&info->open_work),
+			work_pending(&info->close_work),
+			work_pending(&info->read_work),
+			(fwd_ctxt) ? fwd_ctxt->read_bytes : 0,
+			(fwd_ctxt) ? fwd_ctxt->write_bytes : 0,
+			(fwd_ctxt) ? fwd_ctxt->inited : -1,
+			(fwd_ctxt) ?
+			atomic_read(&fwd_ctxt->opened) : -1,
+			(fwd_ctxt) ? fwd_ctxt->ch_open : -1);
+
+		bytes_in_buffer += bytes_written;
 	}
-	diag_dbgfs_rpmsginfo_index = i+1;
+	diag_dbgfs_rpmsginfo_index += 1;
+
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 
