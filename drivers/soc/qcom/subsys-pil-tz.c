@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -82,6 +82,7 @@ struct reg_info {
  * @subsys: subsystem device pointer
  * @subsys_desc: subsystem descriptor
  * @u32 bits_arr[2]: array of bit positions in SCSR registers
+ * @boot_enabled: true if subsystem is brough of reset during the bootloader.
  */
 struct pil_tz_data {
 	struct device *dev;
@@ -98,6 +99,7 @@ struct pil_tz_data {
 	void *minidump_dev;
 	u32 pas_id;
 	struct icc_path *bus_client;
+	bool boot_enabled;
 	bool enable_bus_scaling;
 	bool keep_proxy_regs_on;
 	struct completion err_ready;
@@ -144,6 +146,7 @@ static DEFINE_MUTEX(scm_pas_bw_mutex);
 
 static void subsys_disable_all_irqs(struct pil_tz_data *d);
 static void subsys_enable_all_irqs(struct pil_tz_data *d);
+static bool generic_read_status(struct pil_tz_data *d);
 
 static int enable_debug;
 module_param(enable_debug, int, 0644);
@@ -800,6 +803,34 @@ static int subsys_powerup(const struct subsys_desc *subsys)
 	return ret;
 }
 
+static int subsys_powerup_boot_enabled(const struct subsys_desc *subsys)
+{
+	struct pil_tz_data *d = subsys_to_data(subsys);
+	int ret = 0;
+
+	if (generic_read_status(d)) {
+		pr_info("%s: subsystem %s is alive at during device bootup\n",
+			 __func__, d->subsys_desc.name);
+		subsys_enable_all_irqs(d);
+		ret = wait_for_err_ready(d);
+		if (ret) {
+			pr_err("%s failed to get error ready for %s\n",
+				__func__, d->subsys_desc.name);
+			pil_shutdown(&d->desc);
+			subsys_disable_all_irqs(d);
+		}
+	} else {
+		pil_shutdown(&d->desc);
+		ret = -EAGAIN;
+		pr_err("%s: subsystem %s is crashed while device booting\n",
+			 __func__, d->subsys_desc.name);
+	}
+
+	/* Update the .powerup call back to regular subsys powerup function.*/
+	d->subsys_desc.powerup = subsys_powerup;
+	return ret;
+}
+
 static int subsys_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	struct pil_tz_data *d = subsys_to_data(subsys);
@@ -983,6 +1014,24 @@ static void clear_wdog(struct pil_tz_data *d)
 	}
 }
 
+static bool generic_read_status(struct pil_tz_data *d)
+{
+	uint32_t status_val, err_value;
+
+	err_value =  __raw_readl(d->err_status_spare);
+	status_val = __raw_readl(d->irq_status);
+
+	if (status_val & BIT(d->bits_arr[ERR_READY])) {
+		if (err_value == 0x44554d50) {
+			pr_err("wdog bite is pending\n");
+			__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static irqreturn_t subsys_generic_handler(int irq, void *drv_data)
 {
 	struct pil_tz_data *d = drv_data;
@@ -1009,7 +1058,17 @@ static irqreturn_t subsys_generic_handler(int irq, void *drv_data)
 static void mask_scsr_irqs(struct pil_tz_data *d)
 {
 	uint32_t mask_val;
-	/* Masking all interrupts not handled by HLOS */
+
+	/* Masking all interrupts from subsystem */
+	mask_val = ~0;
+	__raw_writel(mask_val, d->irq_mask);
+}
+
+static void unmask_scsr_irqs(struct pil_tz_data *d)
+{
+	uint32_t mask_val;
+
+	/* Un masking interrupts from subsystem to be handled by HLOS */
 	mask_val = ~0;
 	__raw_writel(mask_val & ~BIT(d->bits_arr[ERR_READY]) &
 			~BIT(d->bits_arr[PBL_DONE]), d->irq_mask);
@@ -1032,6 +1091,7 @@ static void subsys_enable_all_irqs(struct pil_tz_data *d)
 	if (d->ramdump_disable_irq)
 		enable_irq(d->ramdump_disable_irq);
 	if (d->generic_irq) {
+		unmask_scsr_irqs(d);
 		enable_irq(d->generic_irq);
 		irq_set_irq_wake(d->generic_irq, 1);
 	}
@@ -1052,8 +1112,9 @@ static void subsys_disable_all_irqs(struct pil_tz_data *d)
 	if (d->shutdown_ack_irq)
 		disable_irq(d->shutdown_ack_irq);
 	if (d->generic_irq) {
-		disable_irq(d->generic_irq);
+		mask_scsr_irqs(d);
 		irq_set_irq_wake(d->generic_irq, 0);
+		disable_irq(d->generic_irq);
 	}
 }
 
@@ -1258,10 +1319,14 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, d);
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,pil-no-auth"))
 		d->subsys_desc.no_auth = true;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,boot-enabled"))
+		d->boot_enabled = true;
 
 	d->keep_proxy_regs_on = of_property_read_bool(pdev->dev.of_node,
 						"qcom,keep-proxy-regs-on");
@@ -1327,11 +1392,21 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	d->subsys_desc.dev = &pdev->dev;
 	d->subsys_desc.shutdown = subsys_shutdown;
 	d->subsys_desc.powerup = subsys_powerup;
+
+	/*
+	 * If subsystem is already bought out reset during the bootloader stage,
+	 * instead of doing regular power need to check subsystem status.
+	 * So override power up function to check subsystem crash status.
+	 */
+	if (d->boot_enabled)
+		d->subsys_desc.powerup = subsys_powerup_boot_enabled;
+
 	d->subsys_desc.ramdump = subsys_ramdump;
 	d->subsys_desc.free_memory = subsys_free_memory;
 	d->subsys_desc.crash_shutdown = subsys_crash_shutdown;
 	if (of_property_read_bool(pdev->dev.of_node,
 					"qcom,pil-generic-irq-handler")) {
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_status");
 		d->irq_status = devm_ioremap_resource(&pdev->dev, res);
