@@ -2,7 +2,7 @@
  *
  * SiRF GNSS Driver
  *
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,7 @@ static dev_t gnssDev;
 static struct cdev c_dev;
 static struct class *devClass;
 
+static int configurePins(struct platform_device *pdev);
 static int gnss_sirf_driver_open(struct inode *inode, struct file *filp);
 static ssize_t gnss_sirf_driver_read(struct file *filp, char *buf,
 						size_t count, loff_t *f_pos);
@@ -60,7 +61,8 @@ static long gnss_sirf_driver_ioctl(struct file *file, unsigned int cmd,
 
 static int gnss_sirf_probe(struct platform_device *pdev);
 static int gnss_sirf_remove(struct platform_device *pdev);
-
+static int gnss_sirf_suspend(struct platform_device *pdev, pm_message_t state);
+static int gnss_sirf_resume(struct platform_device *pdev);
 
 static const struct of_device_id gnss_sirf_match_table[] = {
 	{ .compatible = "gnss_sirf" },
@@ -82,8 +84,10 @@ static struct platform_driver gnss_sirf_drv = {
 		.of_match_table = gnss_sirf_match_table,
 		.owner          = THIS_MODULE,
 	},
-	.probe  = gnss_sirf_probe,
-	.remove = gnss_sirf_remove,
+	.probe   = gnss_sirf_probe,
+	.remove  = gnss_sirf_remove,
+	.suspend = gnss_sirf_suspend,
+	.resume  = gnss_sirf_resume,
 };
 
 static int gnss_sirf_driver_open(struct inode *inode, struct file *filp)
@@ -139,8 +143,8 @@ static long gnss_sirf_driver_ioctl(struct file *file,
 
 static int gnss_sirf_init_ports(void)
 {
-	gpio_direction_output(resetPin, 1);
-	gpio_direction_output(onOffPin, 1);
+	gpio_direction_output(resetPin, 0);
+	gpio_direction_output(onOffPin, 0);
 	return 0;
 }
 
@@ -186,6 +190,39 @@ static int gnss_sirf_delete_device(void)
 	return 0;
 }
 
+static int configurePins(struct platform_device *pdev)
+{
+	int ret = -ENODEV;
+	struct device *dev;
+
+	dev = &pdev->dev;
+	dev_info(dev, "%s Reset and InputOutput", __func__);
+
+	if (gpio_is_valid(resetPin)) {
+		ret = gpio_request(resetPin, "ssVreset-gpio");
+		if (ret < 0) {
+			pr_err("failed to request gpio %d: error:%d\n",
+					 resetPin, ret);
+			return ret;
+		}
+	}
+	if (gpio_is_valid(onOffPin)) {
+		ret = gpio_request(onOffPin, "ssVonoff-gpio");
+		if (ret < 0) {
+			pr_err("failed to request gpio %d: error:%d\n",
+					 onOffPin, ret);
+			return ret;
+		}
+	}
+	gpio_direction_output(resetPin, 1);
+	gpio_direction_output(onOffPin, 1);
+	if (gnss_sirf_init_ports() < 0)
+		pr_err("gnss_sirf_init_ports failed\n");
+	else
+		ret = 0;
+	return ret;
+}
+
 static int gnss_sirf_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -200,28 +237,8 @@ static int gnss_sirf_probe(struct platform_device *pdev)
 					 "ssVreset-gpio", 0);
 			onOffPin = of_get_named_gpio(pdev->dev.of_node,
 					 "ssVonoff-gpio", 0);
-			if (gpio_is_valid(resetPin)) {
-				ret = gpio_request(resetPin, "ssVreset-gpio");
-				if (ret < 0) {
-					pr_err("failed to request gpio %d: error:%d\n",
-							 resetPin, ret);
-					return ret;
-				}
-			}
-			if (gpio_is_valid(onOffPin)) {
-				ret = gpio_request(onOffPin, "ssVonoff-gpio");
-				if (ret < 0) {
-					pr_err("failed to request gpio %d: error:%d\n",
-							 onOffPin, ret);
-					return ret;
-				}
-			}
-			gpio_direction_output(resetPin, 1);
-			gpio_direction_output(onOffPin, 1);
-			if (gnss_sirf_init_ports() < 0)
-				pr_err("gnss_sirf_init_ports failed\n");
-			else {
-				ret = 0;
+			ret = configurePins(pdev);
+			if (ret == 0) {
 				snprintf(boot_marker, sizeof(boot_marker),
 						"M - DRIVER GNSS Ready");
 				place_marker(boot_marker);
@@ -234,6 +251,10 @@ static int gnss_sirf_probe(struct platform_device *pdev)
 
 static int gnss_sirf_remove(struct platform_device *pdev)
 {
+	struct device *dev;
+
+	dev = &pdev->dev;
+	dev_info(&pdev->dev, "%s", __func__);
 	gnss_sirf_delete_device();
 
 	if (gnss_sirf_deInit_sirf_ports() < 0) {
@@ -243,6 +264,45 @@ static int gnss_sirf_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int gnss_sirf_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct device *dev;
+	int ret = -ENODEV;
+
+	dev = &pdev->dev;
+	dev_info(dev, "%s Initial Freeing of resetPin & onOffPin", __func__);
+	gpio_free(resetPin);
+	ret = gpio_request_one(resetPin, 1, "ssVreset-gpio");
+	if (ret < 0) {
+		pr_err("failed to request gpio %d: error:%d\n",
+				 resetPin, ret);
+		return ret;
+	}
+	gpio_direction_input(resetPin);
+	gpio_free(resetPin);
+
+	gpio_free(onOffPin);
+	ret = gpio_request(onOffPin, "ssVonoff-gpio");
+	if (ret < 0) {
+		pr_err("failed to request gpio %d: error:%d\n",
+				 onOffPin, ret);
+		return ret;
+	}
+	gpio_direction_input(onOffPin);
+	gpio_free(onOffPin);
+	dev_info(dev, "%s Final Free of resetPin & onOffPin", __func__);
+
+	return 0;
+}
+static int gnss_sirf_resume(struct platform_device *pdev)
+{
+	struct device *dev;
+
+	dev = &pdev->dev;
+	dev_info(dev, "%s", __func__);
+	configurePins(pdev);
+	return 0;
+}
 
 static int __init gnss_sirf_init(void)
 {
@@ -250,7 +310,7 @@ static int __init gnss_sirf_init(void)
 
 	retVal = platform_driver_register(&gnss_sirf_drv);
 	if (retVal) {
-		pr_err("GNSS platform driver registation Failed !!!!\n");
+		pr_err("GNSS platform driver registration Failed !!!!\n");
 		return retVal;
 	}
 
@@ -269,4 +329,4 @@ module_init(gnss_sirf_init);
 module_exit(gnss_sirf_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("SIRF GNSS reciver control driver");
+MODULE_DESCRIPTION("SIRF GNSS receiver control driver");
