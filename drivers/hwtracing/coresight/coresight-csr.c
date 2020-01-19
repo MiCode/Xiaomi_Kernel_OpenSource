@@ -60,9 +60,9 @@ do {									\
 #define CSR_QDSSSPARE		(0x064)
 #define CSR_IPCAT		(0x068)
 #define CSR_BYTECNTVAL		(0x06C)
-#define CSR_MSR_START		(0x0F8)
-#define CSR_MSR_END		(0x144)
-#define MSR_NUM			(((CSR_MSR_END - CSR_MSR_START) >> 2) + 1)
+#define MSR_NUM			((drvdata->msr_end - drvdata->msr_start + 1) \
+				/ sizeof(uint32_t))
+#define MSR_MAX_NUM		128
 
 #define BLKSIZE_256		0
 #define BLKSIZE_512		1
@@ -74,6 +74,8 @@ do {									\
 struct csr_drvdata {
 	void __iomem		*base;
 	phys_addr_t		pbase;
+	phys_addr_t		msr_start;
+	phys_addr_t		msr_end;
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	uint32_t		*msr;
@@ -371,8 +373,8 @@ static ssize_t msr_show(struct device *dev,
 			IS_ERR_OR_NULL(drvdata->msr))
 		return -EINVAL;
 	for (i = 0; i < MSR_NUM; i++)
-		len += scnprintf(buf + len, PAGE_SIZE - len, "0x%x 0x%x\n",
-			i * sizeof(uint32_t) + CSR_MSR_START, drvdata->msr[i]);
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%d 0x%x\n",
+			i, drvdata->msr[i]);
 	return len;
 }
 
@@ -393,7 +395,7 @@ static ssize_t msr_store(struct device *dev,
 	nval = sscanf(buf, "%x %x", &offset, &val);
 	if (nval != 2)
 		return -EINVAL;
-	if (offset < CSR_MSR_START || offset > CSR_MSR_END || offset % 4 != 0)
+	if (offset >= MSR_NUM)
 		return -EINVAL;
 
 	ret = clk_prepare_enable(drvdata->clk);
@@ -402,9 +404,9 @@ static ssize_t msr_store(struct device *dev,
 
 	spin_lock_irqsave(&drvdata->spin_lock, flags);
 	CSR_UNLOCK(drvdata);
-	csr_writel(drvdata, val, offset);
-	rval = csr_readl(drvdata, offset);
-	drvdata->msr[(offset - CSR_MSR_START) / 4] = rval;
+	csr_writel(drvdata, val, drvdata->msr_start + offset * 4);
+	rval = csr_readl(drvdata, drvdata->msr_start + offset * 4);
+	drvdata->msr[offset] = rval;
 	CSR_LOCK(drvdata);
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
 	clk_disable_unprepare(drvdata->clk);
@@ -436,7 +438,7 @@ static ssize_t msr_reset_store(struct device *dev,
 	spin_lock_irqsave(&drvdata->spin_lock, flags);
 	CSR_UNLOCK(drvdata);
 	for (i = 0; i < MSR_NUM; i++) {
-		csr_writel(drvdata, 0, CSR_MSR_START + i * 4);
+		csr_writel(drvdata, 0, drvdata->msr_start + i * 4);
 		drvdata->msr[i] = 0;
 	}
 	CSR_LOCK(drvdata);
@@ -520,7 +522,7 @@ static int csr_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct coresight_platform_data *pdata;
 	struct csr_drvdata *drvdata;
-	struct resource *res;
+	struct resource *res, *msr_res;
 	struct coresight_desc desc = { 0 };
 
 	desc.name = coresight_alloc_device_name(&csr_devs, dev);
@@ -590,6 +592,13 @@ static int csr_probe(struct platform_device *pdev)
 	if (!drvdata->msr_support) {
 		dev_dbg(dev, "msr_support handled by other subsystem\n");
 	} else {
+		msr_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"msr-base");
+		if (!msr_res || msr_res->start < res->start || msr_res->end
+		> res->end)
+			return -ENODEV;
+		drvdata->msr_start = msr_res->start - res->start;
+		drvdata->msr_end = msr_res->end - res->start;
 		drvdata->msr = devm_kzalloc(dev, MSR_NUM * sizeof(uint32_t),
 						GFP_KERNEL);
 		if (!drvdata->msr)
