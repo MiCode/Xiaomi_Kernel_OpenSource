@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  * Copyright(C) 2016 Linaro Limited. All rights reserved.
  * Author: Mathieu Poirier <mathieu.poirier@linaro.org>
  *
@@ -900,9 +900,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 								usb_notifier);
 			if (IS_ERR_OR_NULL(drvdata->usbch)) {
 				dev_err(drvdata->dev, "usb_qdss_open failed\n");
-				ret = PTR_ERR(drvdata->usbch);
 				mutex_unlock(&drvdata->mem_lock);
-				return ret;
+				return -ENODEV;
 			}
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -1057,6 +1056,40 @@ out0:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	dev_info(drvdata->dev, "TMC aborted\n");
+}
+
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
+{
+	enum tmc_etr_out_mode new_mode, old_mode;
+
+	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
+		new_mode = TMC_ETR_OUT_MODE_MEM;
+	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB]))
+		new_mode = TMC_ETR_OUT_MODE_USB;
+	else
+		return -EINVAL;
+
+	if (new_mode == drvdata->out_mode)
+		return 0;
+
+	if (drvdata->mode == CS_MODE_DISABLED) {
+		drvdata->out_mode = new_mode;
+		return 0;
+	}
+
+	tmc_disable_etr_sink(drvdata->csdev);
+	old_mode = drvdata->out_mode;
+	drvdata->out_mode = new_mode;
+	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
+		drvdata->out_mode = old_mode;
+		tmc_enable_etr_sink_sysfs(drvdata->csdev);
+		dev_err(drvdata->dev, "Switch to %s failed. Fall back to %s.\n",
+			str_tmc_etr_out_mode[new_mode],
+			str_tmc_etr_out_mode[old_mode]);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static const struct coresight_ops_sink tmc_etr_sink_ops = {
