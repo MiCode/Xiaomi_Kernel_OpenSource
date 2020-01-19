@@ -864,7 +864,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	int i;
 	u32 usr_pyld_sz;
 	u32 pyld_sz;
-	u8 header[128] = { 0 };
+	u8 header[256] = { 0 };
 	u8 *param = NULL;
 	u8 *kptr = NULL;
 	unsigned long uptr = 0;
@@ -1935,7 +1935,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		pre_entry =
-			((struct ipa_ioc_del_hdr_proc_ctx *)header)->num_hdls;
+		((struct ipa_ioc_del_hdr_proc_ctx *)header)->num_hdls;
 		pyld_sz =
 		   sizeof(struct ipa_ioc_del_hdr_proc_ctx) +
 		   pre_entry * sizeof(struct ipa_hdr_proc_ctx_del);
