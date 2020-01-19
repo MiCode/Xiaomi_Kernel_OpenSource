@@ -52,6 +52,7 @@ obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
 obj-$(CONFIG_SDM_CAMCC_LAGOON) += camcc-lagoon.o
 obj-$(CONFIG_SDM_DEBUGCC_LAGOON) += debugcc-lagoon.o
 obj-$(CONFIG_SDM_DISPCC_845) += dispcc-sdm845.o
+obj-$(CONFIG_SDM_DISPCC_LAGOON) += dispcc-lagoon.o
 obj-$(CONFIG_SDM_GCC_845) += gcc-sdm845.o
 obj-$(CONFIG_SDM_GCC_LAGOON) += gcc-lagoon.o
 obj-$(CONFIG_SDM_GPUCC_LAGOON) += gpucc-lagoon.o

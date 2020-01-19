@@ -460,6 +460,15 @@ config SDM_DEBUGCC_LAGOON
 	  Say Y if you want to support the clock measurement functionality
 	  of the clocks.
 
+config SDM_DISPCC_LAGOON
+	tristate "LAGOON Display Clock Controller"
+	select SDM_GCC_LAGOON
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc.
+	  LAGOON devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 config SDM_GCC_LAGOON
 	tristate "LAGOON Global Clock Controller"
 	depends on COMMON_CLK_QCOM
