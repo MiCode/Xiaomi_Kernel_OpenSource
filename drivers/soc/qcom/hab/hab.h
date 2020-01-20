@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -384,7 +384,7 @@ struct export_desc_super {
 int hab_vchan_open(struct uhab_context *ctx,
 		unsigned int mmid, int32_t *vcid,
 		int32_t timeout, uint32_t flags);
-void hab_vchan_close(struct uhab_context *ctx,
+int hab_vchan_close(struct uhab_context *ctx,
 		int32_t vcid);
 long hab_vchan_send(struct uhab_context *ctx,
 		int vcid,
