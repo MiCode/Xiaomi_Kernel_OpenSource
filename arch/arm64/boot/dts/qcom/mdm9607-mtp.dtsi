@@ -20,6 +20,8 @@
 	bluetooth: bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pm8019_gpios 2 0>; /* BT_EN */
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_default>;
 		qca,bt-vdd-pa-supply = <&rome_vreg>;
 		qca,bt-vdd-io-supply = <&mdm9607_l11>;
 		qca,bt-vdd-xtal-supply = <&mdm9607_l2>;
@@ -76,58 +78,68 @@
 			pins = "mpp2";
 			function = "digital";
 			input-enable;
+			power-source = <3>;
 		};
 	};
 
-	mpp@a300 { /* MPP 4 */
-		pins = "mpp4";
-		function = "digital";
-		output-high;
+	emac_vreg {
+		emac_vreg_default: emac_vreg_default { /* MPP 4 for emac_vreg*/
+			pins = "mpp4";
+			function = "digital";
+			output-high;
+			input-disable;
+			power-source = <2>;
+		};
 	};
 };
 
 &pm8019_gpios {
-		/* PMIC GPIO 1 for wlan power supply */
-	wlan_en {
-		wlan_en_default_wlan_en_default {
-			pins = "gpio1";
-			function = "normal";
-			output-high;
-			bias-pull-up;
-			qcom,drive-strength = <1>;
-			power-source = <1>;
-		};
-	};
 
 	bt_en {
 		bt_en_default: bt_en_default {  /* BT_EN GPIO 2*/
 			pins = "gpio2";
 			function = "normal";
 			output-low;
+			input-disable;
 			bias-pull-down;
-			qcom,drive-strength = <2>;
-			power-source = <1>;
+			power-source = <2>;
 		};
 	};
 
-	gpio@c300 { /* GPIO 4 */
-		pins = "gpio4";
-		function = "normal";
-		output-high;
-		bias-pull-up;
-		qcom,drive-strength = <1>;
-		power-source = <1>;
+	/* PMIC GPIO 3 for rome_vreg */
+	 rome_vreg {
+		rome_vreg_default: rome_vreg_default {
+			pins = "gpio3";
+			function = "normal";
+			output-high;
+			input-disable;
+			qcom,drive-strength = <1>;
+			power-source = <3>;
+		};
+	};
+
+	/* sdcard_ext_vreg GPIO 4 */
+	sdcard_vreg {
+		sdcard_vreg_default: sdcard_vreg_default {
+			pins = "gpio4";
+			function = "normal";
+			output-high;
+			input-disable;
+			qcom,drive-strength = <1>;
+			power-source = <0>;
+		};
 	};
 
 	/* ROME 32k GPIO 6 Sleep Clock */
 	gpio@c500 {
 		pins = "gpio6";
-		function = "normal";
+		function = "func2";
 		output-low;
+		input-disable;
 		bias-pull-down;
 		qcom,drive-strength = <2>;
-		power-source = <1>;
-	};
+		power-source = <0>;
+		};
 };
 
 &sdhc_1 {
