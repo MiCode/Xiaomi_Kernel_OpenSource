@@ -854,47 +854,11 @@ unsigned long pll_vco_recalc_rate_14nm(struct clk_hw *hw,
 {
 	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
-	u64 vco_rate, multiplier = BIT(20);
-	s32 div_frac_start;
-	u32 dec_start;
-	u64 ref_clk = vco->ref_clk_rate;
-	int rc;
 
 	if (pll->vco_current_rate)
 		return (unsigned long)pll->vco_current_rate;
 
-	if (is_gdsc_disabled(pll))
-		return 0;
-
-	rc = mdss_pll_resource_enable(pll, true);
-	if (rc) {
-		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
-		return rc;
-	}
-
-	dec_start = MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DEC_START);
-	dec_start &= 0x0ff;
-	pr_debug("dec_start = 0x%x\n", dec_start);
-
-	div_frac_start = (MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START3) & 0x0f) << 16;
-	div_frac_start |= (MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START2) & 0x0ff) << 8;
-	div_frac_start |= MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START1) & 0x0ff;
-	pr_debug("div_frac_start = 0x%x\n", div_frac_start);
-
-	vco_rate = ref_clk * dec_start;
-	vco_rate += ((ref_clk * div_frac_start) / multiplier);
-
-	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
-
-	mdss_pll_resource_enable(pll, false);
-
-	pr_debug("%s: returning vco rate as %lu\n",
-			__func__, (unsigned long)vco_rate);
-	return (unsigned long)vco_rate;
+	return 0;
 }
 
 int pll_vco_set_rate_14nm(struct clk_hw *hw, unsigned long rate,

@@ -5427,7 +5427,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			SDE_ERROR("plane w/h:%x*%x > mixer w/h:%x*%x\n",
 				pstate->crtc_w, pstate->crtc_h,
 				mixer_width, mixer_height);
-			return -E2BIG;
+			rc = -E2BIG;
 			goto end;
 		}
 	}

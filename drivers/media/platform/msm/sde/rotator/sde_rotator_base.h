@@ -45,6 +45,7 @@
 #define SDE_MDP_HW_REV_107	SDE_MDP_REV(1, 0, 7)	/* 8996 v1.0 */
 #define SDE_MDP_HW_REV_300	SDE_MDP_REV(3, 0, 0)	/* 8998 v1.0 */
 #define SDE_MDP_HW_REV_301	SDE_MDP_REV(3, 0, 1)	/* 8998 v1.1 */
+#define SDE_MDP_HW_REV_320	SDE_MDP_REV(3, 2, 0)    /* sdm660 */
 #define SDE_MDP_HW_REV_400	SDE_MDP_REV(4, 0, 0)	/* sdm845 v1.0 */
 #define SDE_MDP_HW_REV_410	SDE_MDP_REV(4, 1, 0)	/* sdm670 v1.0 */
 #define SDE_MDP_HW_REV_500	SDE_MDP_REV(5, 0, 0)	/* sm8150 v1.0 */

@@ -281,7 +281,7 @@ int get_sde_rsc_primary_crtc(int rsc_index)
 	}
 
 	rsc = rsc_prv_list[rsc_index];
-	return rsc->primary_client->crtc_id;
+	return rsc->primary_client ? rsc->primary_client->crtc_id : 0;
 }
 EXPORT_SYMBOL(get_sde_rsc_primary_crtc);
 
