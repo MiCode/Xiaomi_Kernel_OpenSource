@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -809,11 +809,17 @@ rmnet_frag_segment_coal_data(struct rmnet_frag_descriptor *coal_desc,
 
 		th = (struct tcphdr *)((u8 *)iph + coal_desc->ip_len);
 		coal_desc->trans_len = th->doff * 4;
+		priv->stats.coal.coal_tcp++;
+		priv->stats.coal.coal_tcp_bytes +=
+			skb_frag_size(&coal_desc->frag);
 	} else if (coal_desc->trans_proto == IPPROTO_UDP) {
 		struct udphdr *uh;
 
 		uh = (struct udphdr *)((u8 *)iph + coal_desc->ip_len);
 		coal_desc->trans_len = sizeof(*uh);
+		priv->stats.coal.coal_udp++;
+		priv->stats.coal.coal_udp_bytes +=
+			skb_frag_size(&coal_desc->frag);
 		if (coal_desc->ip_proto == 4 && !uh->check)
 			zero_csum = true;
 	} else {

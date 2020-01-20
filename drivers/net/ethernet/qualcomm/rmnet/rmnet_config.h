@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,6 +139,10 @@ struct rmnet_coal_stats {
 	u64 coal_trans_invalid;
 	struct rmnet_coal_close_stats close;
 	u64 coal_veid[RMNET_MAX_VEID];
+	u64 coal_tcp;
+	u64 coal_tcp_bytes;
+	u64 coal_udp;
+	u64 coal_udp_bytes;
 };
 
 struct rmnet_priv_stats {

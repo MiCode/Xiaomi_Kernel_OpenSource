@@ -504,7 +504,23 @@ static int adc_configure(struct adc_chip *adc,
 	if (!adc->poll_eoc)
 		reinit_completion(&adc->complete);
 
-	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, ADC5_MULTI_TRANSFER);
+	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_FAST_AVG_CTL, &buf[1], 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_CH_SEL_CTL, &buf[2], 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_DELAY_CTL, &buf[3], 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_EN_CTL1, &buf[4], 1);
 	if (ret)
 		return ret;
 
@@ -547,14 +563,19 @@ static int adc_do_conversion(struct adc_chip *adc,
 	if (ret < 0)
 		goto unlock;
 
-	if ((chan->type == IIO_VOLTAGE) || (chan->type == IIO_TEMP))
+	if ((chan->type == IIO_VOLTAGE) || (chan->type == IIO_TEMP)) {
 		ret = adc_read_voltage_data(adc, data_volt);
+		if (ret)
+			goto unlock;
+	}
 	else if (chan->type == IIO_POWER) {
 		ret = adc_read_voltage_data(adc, data_volt);
 		if (ret)
 			goto unlock;
 
 		ret = adc_read_current_data(adc, data_cur);
+		if (ret)
+			goto unlock;
 	}
 
 	ret = adc_post_configure_usb_in_read(adc, prop);
@@ -856,6 +877,11 @@ static int adc_get_dt_channel_data(struct device *dev,
 		prop->avg_samples = VADC_DEF_AVG_SAMPLES;
 	}
 
+	prop->scale_fn_type = -EINVAL;
+	ret = of_property_read_u32(node, "qcom,scale-fn-type", &value);
+	if (!ret && value < SCALE_HW_CALIB_MAX)
+		prop->scale_fn_type = value;
+
 	prop->lut_index = VADC_DEF_LUT_INDEX;
 
 	ret = of_property_read_u32(node, "qcom,lut-index", &value);
@@ -949,8 +975,10 @@ static int adc_get_dt_data(struct adc_chip *adc, struct device_node *node)
 			return ret;
 		}
 
-		prop.scale_fn_type =
-			data->adc_chans[prop.channel].scale_fn_type;
+		if (prop.scale_fn_type == -EINVAL)
+			prop.scale_fn_type =
+				data->adc_chans[prop.channel].scale_fn_type;
+
 		adc->chan_props[index] = prop;
 
 		adc_chan = &data->adc_chans[prop.channel];
