@@ -1,1 +1,1 @@
-obj-$(CONFIG_TOUCHSCREEN_FTS) += focaltech_upgrade_ft3518.o
+obj-y += focaltech_upgrade_ft3518.o
