@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -18,6 +18,11 @@
 
 #include "icc-rpmh.h"
 #include "bcm-voter.h"
+
+static LIST_HEAD(qnoc_probe_list);
+static DEFINE_MUTEX(probe_list_lock);
+
+static int probe_count;
 
 DEFINE_QNODE(qhm_qspi, MASTER_QSPI_0, 1, 4, 1,
 		SLAVE_A1NOC_SNOC);
@@ -775,6 +780,10 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "Registered LAHAINA ICC\n");
 
+	mutex_lock(&probe_list_lock);
+	list_add_tail(&qp->probe_list, &qnoc_probe_list);
+	mutex_unlock(&probe_list_lock);
+
 	return ret;
 err:
 	list_for_each_entry(node, &provider->nodes, node_list) {
@@ -829,12 +838,37 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
+static void qnoc_sync_state(struct device *dev)
+{
+	struct qcom_icc_provider *qp;
+
+	mutex_lock(&probe_list_lock);
+	probe_count++;
+
+	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
+		mutex_unlock(&probe_list_lock);
+		return;
+	}
+
+	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
+		int i;
+
+		for (i = 0; i < qp->num_bcms; i++)
+			qcom_icc_bcm_voter_add(qp->voter, qp->bcms[i]);
+
+		qcom_icc_bcm_voter_clear_init(qp->voter);
+		qcom_icc_bcm_voter_commit(qp->voter);
+	}
+	mutex_unlock(&probe_list_lock);
+}
+
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
 	.remove = qnoc_remove,
 	.driver = {
 		.name = "qnoc-lahaina",
 		.of_match_table = qnoc_of_match,
+		.sync_state = qnoc_sync_state,
 	},
 };
 
