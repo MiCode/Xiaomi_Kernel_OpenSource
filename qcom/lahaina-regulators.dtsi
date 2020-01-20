@@ -12,7 +12,7 @@
 			regulator-name = "pm8350_s9_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -21,7 +21,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_MXC_LEVEL_AO: S9B_LEVEL_AO:
@@ -60,7 +59,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			pm8350_s5_level-parent-supply = <&VDD_MXC_LEVEL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -70,7 +69,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_MXA_LEVEL_AO: S5B_LEVEL_AO:
@@ -384,7 +382,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			pm8350c_s6_level-parent-supply = <&VDD_MXA_LEVEL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -394,7 +392,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_CX_LEVEL_AO: S6C_LEVEL_AO:
@@ -435,7 +432,7 @@
 			pm8350c_s8_level-parent-supply =
 				<&VDD_MXA_MMCX_SUPPLY_LEVEL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_LOW_SVS>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -445,7 +442,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_MMCX_LEVEL_AO: S8C_LEVEL_AO: VDD_MM_LEVEL_AO:
