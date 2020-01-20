@@ -146,6 +146,7 @@
 #define ADC_GPIO7				0x18
 #define ADC_SBUx				0x99
 #define ADC_MID_CHG_DIV6			0x1e
+#define ANA_IN					0x1d
 #define ADC_OFF					0xff
 
 /* 30k pull-up1 */
