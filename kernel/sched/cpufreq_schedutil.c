@@ -390,17 +390,17 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
 	unsigned long max = arch_scale_cpu_capacity(sg_cpu->cpu);
+	unsigned long util;
+
+	sg_cpu->max = max;
+	sg_cpu->bw_dl = cpu_bw_dl(rq);
+
 #ifdef CONFIG_SCHED_WALT
+	util = cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
 
-	sg_cpu->max = max;
-	sg_cpu->bw_dl = cpu_bw_dl(rq);
-
-	return cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
+	return uclamp_util(rq, util);
 #else
-	unsigned long util = cpu_util_freq(sg_cpu->cpu, NULL) + cpu_util_rt(rq);
-
-	sg_cpu->max = max;
-	sg_cpu->bw_dl = cpu_bw_dl(rq);
+	util = cpu_util_freq(sg_cpu->cpu, NULL) + cpu_util_rt(rq);
 
 	return schedutil_cpu_util(sg_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
 #endif
