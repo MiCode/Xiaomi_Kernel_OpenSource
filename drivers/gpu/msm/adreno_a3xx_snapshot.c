@@ -355,6 +355,16 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 	/* Disable Clock gating temporarily for the debug bus to work */
 	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x0);
 
+	/* Save some CP information that the generic snapshot uses */
+	kgsl_regread(device, A3XX_CP_IB1_BASE, &reg);
+	snapshot->ib1base = (u64) reg;
+
+	kgsl_regread(device, A3XX_CP_IB2_BASE, &reg);
+	snapshot->ib2base = (u64) reg;
+
+	kgsl_regread(device, A3XX_CP_IB1_BUFSZ, &snapshot->ib1size);
+	kgsl_regread(device, A3XX_CP_IB2_BUFSZ, &snapshot->ib2size);
+
 	SNAPSHOT_REGISTERS(device, snapshot, a3xx_registers);
 
 	_snapshot_hlsq_regs(device, snapshot);
