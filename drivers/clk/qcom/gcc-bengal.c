@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -3766,6 +3766,7 @@ static struct clk_regmap *gcc_bengal_clocks[] = {
 static const struct qcom_reset_map gcc_bengal_resets[] = {
 	[GCC_QUSB2PHY_PRIM_BCR] = { 0x1c000 },
 	[GCC_QUSB2PHY_SEC_BCR] = { 0x1c004 },
+	[GCC_SDCC1_BCR] = { 0x38000 },
 	[GCC_UFS_PHY_BCR] = { 0x45000 },
 	[GCC_USB30_PRIM_BCR] = { 0x1a000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x1d000 },
