@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_PCI_H
 #define _CNSS_PCI_H
@@ -71,8 +71,6 @@ struct cnss_pci_data {
 	struct pci_saved_state *saved_state;
 	struct pci_saved_state *default_state;
 	struct msm_pcie_register_event msm_pci_event;
-	struct notifier_block pm_qos_nb;
-	u8 runtime_pm_prevented;
 	atomic_t auto_suspended;
 	atomic_t drv_connected;
 	u8 drv_connected_last;
