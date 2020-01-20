@@ -141,6 +141,8 @@ static DEFINE_SPINLOCK(pci_reg_window_lock);
 #define POWER_ON_RETRY_MAX_TIMES		3
 #define POWER_ON_RETRY_DELAY_MS			200
 
+#define LINK_TRAINING_RETRY_MAX_TIMES		3
+
 static struct cnss_pci_reg ce_src[] = {
 	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
 	{ "SRC_RING_BASE_MSB", QCA6390_CE_SRC_RING_BASE_MSB_OFFSET },
@@ -373,7 +375,9 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 {
 	int ret = 0;
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
+	int retry = 0;
 
+retry:
 	ret = msm_pcie_pm_control(link_up ? MSM_PCIE_RESUME :
 				  MSM_PCIE_SUSPEND,
 				  pci_dev->bus->number,
@@ -382,6 +386,12 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 	if (ret) {
 		cnss_pr_err("Failed to %s PCI link with default option, err = %d\n",
 			    link_up ? "resume" : "suspend", ret);
+
+		if (link_up && retry++ < LINK_TRAINING_RETRY_MAX_TIMES) {
+			cnss_pr_dbg("Retry PCI link training #%d\n", retry);
+			goto retry;
+		}
+
 		return ret;
 	}
 
@@ -3485,6 +3495,7 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 	int ret = 0;
 	struct device *dev = &plat_priv->plat_dev->dev;
 	u32 rc_num;
+	int retry = 0;
 
 	ret = of_property_read_u32(dev->of_node, "qcom,wlan-rc-num", &rc_num);
 	if (ret) {
@@ -3492,11 +3503,17 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+retry:
 	ret = msm_pcie_enumerate(rc_num);
 	if (ret) {
 		cnss_pr_err("Failed to enable PCIe RC%x, err = %d\n",
 			    rc_num, ret);
-		goto out;
+		if (retry++ < LINK_TRAINING_RETRY_MAX_TIMES) {
+			cnss_pr_dbg("Retry PCI link training #%d\n", retry);
+			goto retry;
+		} else {
+			goto out;
+		}
 	}
 
 	ret = pci_register_driver(&cnss_pci_driver);
