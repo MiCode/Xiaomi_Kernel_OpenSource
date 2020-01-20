@@ -495,26 +495,14 @@ menuconfig IOMMU_DEBUG
 
 if IOMMU_DEBUG
 
-config IOMMU_DEBUG_TRACKING
-	bool "Track key IOMMU events"
-	select IOMMU_API
-	help
-	  Enables additional debug tracking in the IOMMU framework code.
-	  Tracking information and tests can be accessed through various
-	  debugfs files.
-
-	  Say Y here if you need to debug IOMMU issues and are okay with
-	  the performance penalty of the tracking.
-
 config IOMMU_TESTS
 	bool "Interactive IOMMU performance/functional tests"
 	select IOMMU_API
 	select ARM64_PTDUMP_CORE
 	help
 	  Enables a suite of IOMMU unit tests.  The tests are runnable
-	  through debugfs.  Unlike the IOMMU_DEBUG_TRACKING option, the
-	  impact of enabling this option to overal system performance
-	  should be minimal.
+	  through debugfs. The impact of enabling this option to overall
+	  system performance should be minimal.
 
 endif # IOMMU_DEBUG
 
