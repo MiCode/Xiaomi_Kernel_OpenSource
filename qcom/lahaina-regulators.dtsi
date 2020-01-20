@@ -35,19 +35,30 @@
 			qcom,init-voltage-level =
 				<RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
+
+		VDD_MXC_MMCX_SUPPLY_LEVEL: regulator-pm8350-s9-mmcx-sup-level {
+			regulator-name = "pm8350_s9_mmcx_sup_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			vin-supply = <&VDD_CX_MMCX_SUPPLY_LEVEL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
 	};
 
 	rpmh-regulator-mxlvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "mx.lvl";
-		pm8350_s5_level-parent-supply = <&VDD_MXC_LEVEL>;
-		pm8350_s5_level_ao-parent-supply = <&VDD_MXC_LEVEL_AO>;
 		proxy-supply = <&VDD_MXA_LEVEL>;
 
 		VDD_MXA_LEVEL: S5B_LEVEL:
 		pm8350_s5_level: regulator-pm8350-s5-level {
 			regulator-name = "pm8350_s5_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			pm8350_s5_level-parent-supply = <&VDD_MXC_LEVEL>;
 			regulator-min-microvolt =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
 			regulator-max-microvolt =
@@ -64,8 +75,22 @@
 
 		VDD_MXA_LEVEL_AO: S5B_LEVEL_AO:
 		pm8350_s5_level_ao: regulator-pm8350-s5-level-ao {
-			regulator-name = "pm8350_s5_level_ao";
+			regulator-name = "pm8350_s5_lvl_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			pm8350_s5_lvl_ao-parent-supply = <&VDD_MXC_LEVEL_AO>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			qcom,min-dropout-voltage-level = <(-1)>;
+		};
+
+		VDD_MXA_MMCX_SUPPLY_LEVEL: regulator-pm8350-s5-mmcx-sup-level {
+			regulator-name = "pm8350_s5_mmcx_sup_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			vin-supply = <&VDD_MXC_MMCX_SUPPLY_LEVEL>;
 			regulator-min-microvolt =
 				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
@@ -351,14 +376,13 @@
 	rpmh-regulator-cxlvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "cx.lvl";
-		pm8350c_s6_level-parent-supply = <&VDD_MXA_LEVEL>;
-		pm8350c_s6_level_ao-parent-supply = <&VDD_MXA_LEVEL_AO>;
 		proxy-supply = <&VDD_CX_LEVEL>;
 
 		VDD_CX_LEVEL: S6C_LEVEL:
 		pm8350c_s6_level: regulator-pm8350c-s6-level {
 			regulator-name = "pm8350c_s6_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			pm8350c_s6_level-parent-supply = <&VDD_MXA_LEVEL>;
 			regulator-min-microvolt =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
 			regulator-max-microvolt =
@@ -377,6 +401,7 @@
 		pm8350c_s6_level_ao: regulator-pm8350c-s6-level-ao {
 			regulator-name = "pm8350c_s6_level_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			vin-supply = <&VDD_MXA_LEVEL_AO>;
 			regulator-min-microvolt =
 				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
@@ -385,19 +410,30 @@
 				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			qcom,min-dropout-voltage-level = <(-1)>;
 		};
+
+		VDD_CX_MMCX_SUPPLY_LEVEL: regulator-pm8350c-s6-mmcx-sup-level {
+			regulator-name = "pm8350c_s6_mmcx_sup_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+		};
 	};
 
 	rpmh-regulator-mmcxlvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "mmcx.lvl";
-		pm8350c_s8_level-parent-supply = <&VDD_MXA_LEVEL>;
-		pm8350c_s8_level_ao-parent-supply = <&VDD_MXA_LEVEL_AO>;
 		proxy-supply = <&VDD_MMCX_LEVEL>;
 
 		VDD_MMCX_LEVEL: S8C_LEVEL: VDD_MM_LEVEL:
 		pm8350c_s8_level: regulator-pm8350c-s8-level {
 			regulator-name = "pm8350c_s8_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			pm8350c_s8_level-parent-supply =
+				<&VDD_MXA_MMCX_SUPPLY_LEVEL>;
 			regulator-min-microvolt =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
 			regulator-max-microvolt =
@@ -416,6 +452,7 @@
 		pm8350c_s8_level_ao: regulator-pm8350c-s8-level-ao {
 			regulator-name = "pm8350c_s8_level_ao";
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			vin-supply = <&VDD_MXA_LEVEL_AO>;
 			regulator-min-microvolt =
 				<RPMH_REGULATOR_LEVEL_LOW_SVS>;
 			regulator-max-microvolt =
