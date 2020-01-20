@@ -5,6 +5,7 @@
 	rpmh-regulator-mxclvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "mxc.lvl";
+		proxy-supply = <&VDD_MXC_LEVEL>;
 
 		VDD_MXC_LEVEL: S9B_LEVEL:
 		pm8350_s9_level: regulator-pm8350-s9-level {
@@ -16,6 +17,10 @@
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage =
+				<RPMH_REGULATOR_LEVEL_TURBO
+				 RPMH_REGULATOR_LEVEL_MAX>;
 			regulator-always-on;
 		};
 
@@ -37,6 +42,7 @@
 		qcom,resource-name = "mx.lvl";
 		pm8350_s5_level-parent-supply = <&VDD_MXC_LEVEL>;
 		pm8350_s5_level_ao-parent-supply = <&VDD_MXC_LEVEL_AO>;
+		proxy-supply = <&VDD_MXA_LEVEL>;
 
 		VDD_MXA_LEVEL: S5B_LEVEL:
 		pm8350_s5_level: regulator-pm8350-s5-level {
@@ -49,6 +55,10 @@
 			qcom,init-voltage-level =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
 			qcom,min-dropout-voltage-level = <(-1)>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage =
+				<RPMH_REGULATOR_LEVEL_TURBO
+				 RPMH_REGULATOR_LEVEL_MAX>;
 			regulator-always-on;
 		};
 
@@ -343,6 +353,7 @@
 		qcom,resource-name = "cx.lvl";
 		pm8350c_s6_level-parent-supply = <&VDD_MXA_LEVEL>;
 		pm8350c_s6_level_ao-parent-supply = <&VDD_MXA_LEVEL_AO>;
+		proxy-supply = <&VDD_CX_LEVEL>;
 
 		VDD_CX_LEVEL: S6C_LEVEL:
 		pm8350c_s6_level: regulator-pm8350c-s6-level {
@@ -355,6 +366,10 @@
 			qcom,init-voltage-level =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
 			qcom,min-dropout-voltage-level = <(-1)>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage =
+				<RPMH_REGULATOR_LEVEL_TURBO
+				 RPMH_REGULATOR_LEVEL_MAX>;
 			regulator-always-on;
 		};
 
@@ -377,6 +392,7 @@
 		qcom,resource-name = "mmcx.lvl";
 		pm8350c_s8_level-parent-supply = <&VDD_MXA_LEVEL>;
 		pm8350c_s8_level_ao-parent-supply = <&VDD_MXA_LEVEL_AO>;
+		proxy-supply = <&VDD_MMCX_LEVEL>;
 
 		VDD_MMCX_LEVEL: S8C_LEVEL: VDD_MM_LEVEL:
 		pm8350c_s8_level: regulator-pm8350c-s8-level {
@@ -389,6 +405,10 @@
 			qcom,init-voltage-level =
 				<RPMH_REGULATOR_LEVEL_TURBO>;
 			qcom,min-dropout-voltage-level = <(-1)>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage =
+				<RPMH_REGULATOR_LEVEL_TURBO
+				 RPMH_REGULATOR_LEVEL_MAX>;
 			regulator-always-on;
 		};
 
