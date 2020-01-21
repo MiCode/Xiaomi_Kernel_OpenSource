@@ -367,6 +367,14 @@ config SPAPR_TCE_IOMMU
 	  Enables bits of IOMMU API required by VFIO. The iommu_ops
 	  is not implemented as it is not necessary for VFIO.
 
+config QTI_IOMMU_SUPPORT
+	tristate "Support for QTI iommu drivers"
+	help
+	  The QTI GPU device may switch between multiple iommu domains,
+	  depending on usecase. This introduces a need to track all such
+	  domains in a non-driver specific manner.
+	  If in doubt say N.
+
 # ARM IOMMU support
 config ARM_SMMU
 	bool "ARM Ltd. System MMU (SMMU) Support"
@@ -375,6 +383,7 @@ config ARM_SMMU
 	select IOMMU_IO_PGTABLE_LPAE
 	select ARM_DMA_USE_IOMMU if ARM
 	select ARM64_DMA_USE_IOMMU if ARM64
+	select QTI_IOMMU_SUPPORT
 	help
 	  Support for implementations of the ARM System MMU architecture
 	  versions 1 and 2.
