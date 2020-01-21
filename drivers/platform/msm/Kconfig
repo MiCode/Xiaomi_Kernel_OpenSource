@@ -128,6 +128,28 @@ config IPA3
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
 
+config IPA
+	tristate "IPA support"
+	depends on SPS && NET
+	help
+          This driver supports the Internet Packet Accelerator (IPA3) core.
+          IPA is a programmable protocol processor HW block.
+          It is designed to support generic HW processing of UL/DL IP packets
+          for various use cases independent of radio technology.
+          The driver support client connection and configuration
+          for the IPA core.
+          Kernel and user-space processes can call the IPA driver
+          to configure IPA core.
+
+config RMNET_IPA
+	tristate "IPA RMNET WWAN Network Device"
+	depends on IPA && QCOM_QMI_HELPERS
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
 config IPA_DEBUG
 	bool "IPA DEBUG for non-perf build"
 	depends on IPA3
@@ -188,7 +210,7 @@ config RMNET_IPA3
 
 config ECM_IPA
 	tristate "STD ECM LAN Driver support"
-	depends on IPA3
+	depends on IPA || IPA3
 	help
 	  Enables LAN between applications processor and a tethered
 	  host using the STD ECM protocol.
@@ -197,7 +219,7 @@ config ECM_IPA
 
 config RNDIS_IPA
 	tristate "RNDIS_IPA Network Interface Driver support"
-	depends on IPA3
+	depends on IPA || IPA3
 	help
 	  Enables LAN between applications processor and a tethered
 	  host using the RNDIS protocol.
