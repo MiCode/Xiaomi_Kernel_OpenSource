@@ -35,19 +35,17 @@ irqreturn_t rgmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
-	adreno_read_gmureg(adreno_dev,
-			ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS, &status);
+	gmu_core_regread(device, A6XX_GMU_AO_HOST_INTERRUPT_STATUS, &status);
 
 	if (status & RGMU_AO_IRQ_FENCE_ERR) {
 		unsigned int fence_status;
 
-		adreno_read_gmureg(adreno_dev,
-				ADRENO_REG_GMU_AHB_FENCE_STATUS, &fence_status);
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR, status);
+		gmu_core_regread(device, A6XX_GMU_AHB_FENCE_STATUS,
+			&fence_status);
+		gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_CLR,
+			status);
 
 		dev_err_ratelimited(&rgmu->pdev->dev,
 			"FENCE error interrupt received %x\n", fence_status);
@@ -68,12 +66,10 @@ irqreturn_t oob_irq_handler(int irq, void *data)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
-	adreno_read_gmureg(adreno_dev,
-			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
+	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
 
 	if (status & RGMU_OOB_IRQ_ERR_MSG) {
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
+		gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, status);
 
 		dev_err_ratelimited(&rgmu->pdev->dev,
 				"RGMU oob irq error\n");

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2017,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017,2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -353,7 +353,7 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 	unsigned int reg, val;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_CLOCK_CTL, 0x00);
+	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x0);
 
 	SNAPSHOT_REGISTERS(device, snapshot, a3xx_registers);
 
@@ -393,9 +393,9 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 	 * care about the contents of the CP anymore.
 	 */
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
+	kgsl_regread(device, A3XX_CP_ME_CNTL, &reg);
 	reg |= (1 << 27) | (1 << 28);
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, reg);
+	kgsl_regwrite(device, A3XX_CP_ME_CNTL, reg);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, a3xx_snapshot_cp_pfp_ram, NULL);

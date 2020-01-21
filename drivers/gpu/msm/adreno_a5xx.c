@@ -1814,14 +1814,14 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
 static int a5xx_rb_start(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	uint64_t addr;
 	int ret;
 
 	addr = SCRATCH_RPTR_GPU_ADDR(device, rb->id);
 
-	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_RPTR_ADDR_LO,
-			ADRENO_REG_CP_RB_RPTR_ADDR_HI, addr);
+	kgsl_regwrite(device, A5XX_CP_RB_RPTR_ADDR_LO, lower_32_bits(addr));
+	kgsl_regwrite(device, A5XX_CP_RB_RPTR_ADDR_HI, upper_32_bits(addr));
 
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
@@ -1830,18 +1830,21 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 	 * in certain circumstances.
 	 */
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
+	kgsl_regwrite(device, A5XX_CP_RB_CNTL,
 		A5XX_CP_RB_CNTL_DEFAULT);
 
-	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc->gpuaddr);
+	kgsl_regwrite(device, A5XX_CP_RB_BASE,
+		lower_32_bits(rb->buffer_desc->gpuaddr));
+	kgsl_regwrite(device, A5XX_CP_RB_BASE_HI,
+		upper_32_bits(rb->buffer_desc->gpuaddr));
 
 	ret = a5xx_microcode_load(adreno_dev);
 	if (ret)
 		return ret;
 
 	/* clear ME_HALT to start micro engine */
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
+
+	kgsl_regwrite(device, A5XX_CP_ME_CNTL, 0);
 
 	ret = a5xx_send_me_init(adreno_dev, rb);
 	if (ret)
