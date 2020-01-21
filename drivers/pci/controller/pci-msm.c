@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -4752,7 +4752,7 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 
 		notify->event = event;
 		notify->user = dev->event_reg->user;
-		PCIE_DBG(dev, "PCIe: callback RC%d for event %d\n",
+		PCIE_DUMP(dev, "PCIe: callback RC%d for event %d\n",
 			dev->rc_idx, event);
 		dev->event_reg->callback(notify);
 
