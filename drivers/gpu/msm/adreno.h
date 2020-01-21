@@ -645,10 +645,6 @@ enum adreno_regs {
 	ADRENO_REG_CP_TIMESTAMP,
 	ADRENO_REG_CP_SCRATCH_REG6,
 	ADRENO_REG_CP_SCRATCH_REG7,
-	ADRENO_REG_CP_ROQ_ADDR,
-	ADRENO_REG_CP_ROQ_DATA,
-	ADRENO_REG_CP_MEQ_ADDR,
-	ADRENO_REG_CP_MEQ_DATA,
 	ADRENO_REG_CP_PROTECT_STATUS,
 	ADRENO_REG_CP_PREEMPT,
 	ADRENO_REG_CP_PREEMPT_DEBUG,
@@ -681,7 +677,6 @@ enum adreno_regs {
 	ADRENO_REG_TP0_CHICKEN,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
-	ADRENO_REG_VBIF_VERSION,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 	ADRENO_REG_GMU_AHB_FENCE_STATUS,
 	ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
@@ -692,21 +687,6 @@ enum adreno_regs {
 #define ADRENO_REG_UNUSED	0xFFFFFFFF
 #define ADRENO_REG_SKIP	0xFFFFFFFE
 #define ADRENO_REG_DEFINE(_offset, _reg)[_offset] = _reg
-
-/*
- * struct adreno_vbif_snapshot_registers - Holds an array of vbif registers
- * listed for snapshot dump for a particular core
- * @version: vbif version
- * @mask: vbif revision mask
- * @registers: vbif registers listed for snapshot dump
- * @count: count of vbif registers listed for snapshot
- */
-struct adreno_vbif_snapshot_registers {
-	const unsigned int version;
-	const unsigned int mask;
-	const unsigned int *registers;
-	const int count;
-};
 
 struct adreno_irq_funcs {
 	void (*func)(struct adreno_device *adreno_dev, int mask);

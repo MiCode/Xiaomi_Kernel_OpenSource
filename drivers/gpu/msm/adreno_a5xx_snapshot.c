@@ -319,7 +319,7 @@ static void a5xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
-static const unsigned int a5xx_vbif_ver_20xxxxxx_registers[] = {
+static const unsigned int a5xx_vbif_registers[] = {
 	0x3000, 0x3007, 0x300C, 0x3014, 0x3018, 0x302C, 0x3030, 0x3030,
 	0x3034, 0x3036, 0x3038, 0x3038, 0x303C, 0x303D, 0x3040, 0x3040,
 	0x3042, 0x3042, 0x3049, 0x3049, 0x3058, 0x3058, 0x305A, 0x3061,
@@ -329,12 +329,6 @@ static const unsigned int a5xx_vbif_ver_20xxxxxx_registers[] = {
 	0x3100, 0x3100, 0x3108, 0x3108, 0x3110, 0x3110, 0x3118, 0x3118,
 	0x3120, 0x3120, 0x3124, 0x3125, 0x3129, 0x3129, 0x3131, 0x3131,
 	0x340C, 0x340C, 0x3410, 0x3410, 0x3800, 0x3801,
-};
-
-static const struct adreno_vbif_snapshot_registers
-a5xx_vbif_snapshot_registers[] = {
-	{ 0x20000000, 0xFF000000, a5xx_vbif_ver_20xxxxxx_registers,
-				ARRAY_SIZE(a5xx_vbif_ver_20xxxxxx_registers)/2},
 };
 
 /*
@@ -879,6 +873,64 @@ static size_t a5xx_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
 	return DEBUG_SECTION_SZ(size);
 }
 
+static size_t a5xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
+	u32 size, *data = (u32 *) (buf + sizeof(*header));
+	int i;
+
+	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev) ||
+		adreno_is_a510(adreno_dev))
+		size = 256;
+	else
+		size = 512;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_ROQ;
+	header->size = size;
+
+	kgsl_regwrite(device, A5XX_CP_ROQ_DBG_ADDR, 0x0);
+	for (i = 0; i < size; i++)
+		kgsl_regread(device, A5XX_CP_ROQ_DBG_DATA, &data[i]);
+
+	return DEBUG_SECTION_SZ(size);
+}
+
+static size_t a5xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *) buf;
+	u32 size, *data = (u32 *) (buf + sizeof(*header));
+	int i;
+
+	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev) ||
+		adreno_is_a510(adreno_dev))
+		size = 32;
+	else
+		size = 64;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP MEQ DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_MEQ;
+	header->size = size;
+
+	kgsl_regwrite(device, A5XX_CP_MEQ_DBG_ADDR, 0x0);
+	for (i = 0; i < size; i++)
+		kgsl_regread(device, A5XX_CP_MEQ_DBG_DATA, &data[i]);
+
+	return DEBUG_SECTION_SZ(size);
+}
+
 /*
  * a5xx_snapshot() - A5XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -892,7 +944,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int i;
-	u32 roq, meq, hi, lo;
+	u32 hi, lo;
 	struct adreno_ringbuffer *rb;
 	struct registers regs;
 
@@ -918,9 +970,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 		snapshot, a5xx_snapshot_pre_crashdump_regs, NULL);
 
 	/* Dump vbif registers as well which get affected by crash dumper */
-	adreno_snapshot_vbif_registers(device, snapshot,
-		a5xx_vbif_snapshot_registers,
-		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
+	SNAPSHOT_REGISTERS(device, snapshot, a5xx_vbif_registers);
 
 	/* Try to run the crash dumper */
 	_a5xx_do_crashdump(device);
@@ -967,26 +1017,14 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 		A5XX_CP_PFP_UCODE_DBG_ADDR, A5XX_CP_PFP_UCODE_DBG_DATA,
 		0, 0x53F);
 
-	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev) ||
-		adreno_is_a510(adreno_dev))
-		meq = 32;
-	else
-		meq = 64;
-
 	/* CP MEQ */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, adreno_snapshot_cp_meq, &meq);
+		snapshot, a5xx_snapshot_cp_meq, NULL);
 
 	/* CP ROQ */
 
-	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev) ||
-		adreno_is_a510(adreno_dev))
-		roq = 256;
-	else
-		roq = 512;
-
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, adreno_snapshot_cp_roq, &roq);
+		snapshot, a5xx_snapshot_cp_roq, NULL);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, a5xx_snapshot_cp_merciu, NULL);
