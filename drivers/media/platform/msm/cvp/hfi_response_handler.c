@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -385,6 +385,10 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
 		signal = get_signal_from_pkt_type(
 				HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS);
+	else if (pkt->packet_type ==
+			HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS)
+		signal = get_signal_from_pkt_type(
+			HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS);
 	else if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS)
 		signal = get_signal_from_pkt_type(
 				HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS);
@@ -608,6 +612,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
 	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
+	case HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS:
 	case HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS:
 		pkt_func =
 			(pkt_func_def)hfi_process_session_cvp_operation_config;

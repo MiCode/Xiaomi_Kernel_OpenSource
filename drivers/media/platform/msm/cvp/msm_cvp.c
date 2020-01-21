@@ -595,6 +595,104 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	return rc;
 }
 
+static int msm_cvp_unmap_user_persist(struct msm_cvp_inst *inst,
+	struct cvp_kmd_hfi_packet *in_pkt,
+	unsigned int offset, unsigned int buf_num)
+{
+	struct cvp_buf_type *buf;
+	struct cvp_hfi_cmd_session_hdr *cmd_hdr;
+	struct cvp_internal_buf *cbuf, *dummy;
+	u64 ktid;
+	int i, rc = 0;
+
+	if (!offset || !buf_num)
+		return 0;
+
+	cmd_hdr = (struct cvp_hfi_cmd_session_hdr *)in_pkt;
+	ktid = cmd_hdr->client_data.kdata;
+
+	for (i = 0; i < buf_num; i++) {
+		buf = (struct cvp_buf_type *)&in_pkt->pkt_data[offset];
+		offset += sizeof(*buf) >> 2;
+		mutex_lock(&inst->persistbufs.lock);
+		list_for_each_entry_safe(cbuf, dummy, &inst->persistbufs.list,
+				list) {
+			if (cbuf->ktid == ktid) {
+				list_del(&cbuf->list);
+				dprintk(CVP_DBG,
+					"unmap persist: %x %d %d %#x",
+					hash32_ptr(inst->session),
+					cbuf->smem.fd,
+					cbuf->smem.size,
+					cbuf->smem.device_addr);
+				msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+				kfree(cbuf);
+				rc = 1;
+				break;
+			}
+		}
+		mutex_unlock(&inst->persistbufs.lock);
+		if (!rc) {
+			dprintk(CVP_ERR, "%s, failed unmapi %llx\n",
+				__func__, ktid);
+			rc = -EFAULT;
+			break;
+		}
+		rc = 0;
+	}
+	return rc;
+}
+
+static int msm_cvp_mark_user_persist(struct msm_cvp_inst *inst,
+	struct cvp_kmd_hfi_packet *in_pkt,
+	unsigned int offset, unsigned int buf_num)
+{
+	struct cvp_hfi_cmd_session_hdr *cmd_hdr;
+	struct cvp_internal_buf *cbuf, *dummy;
+	u64 ktid;
+	struct cvp_buf_type *buf;
+	int i, rc = 0;
+
+	if (!offset || !buf_num)
+		return 0;
+
+	cmd_hdr = (struct cvp_hfi_cmd_session_hdr *)in_pkt;
+	ktid = atomic64_inc_return(&inst->core->kernel_trans_id);
+	ktid &= (FENCE_BIT - 1);
+	cmd_hdr->client_data.kdata = ktid;
+
+	for (i = 0; i < buf_num; i++) {
+		buf = (struct cvp_buf_type *)&in_pkt->pkt_data[offset];
+		offset += sizeof(*buf) >> 2;
+
+		/* Validate buffer descriptor */
+		if (buf->fd  <= 0 || !buf->size)
+			continue;
+
+		mutex_lock(&inst->persistbufs.lock);
+		list_for_each_entry_safe(cbuf, dummy, &inst->persistbufs.list,
+				list) {
+			if (cbuf->smem.fd == buf->fd &&
+					cbuf->smem.size == buf->size &&
+					cbuf->buffer_ownership == CLIENT) {
+				rc = 1;
+				break;
+			}
+		}
+		mutex_unlock(&inst->persistbufs.lock);
+		if (!rc) {
+			dprintk(CVP_ERR, "%s No persist buf %d found\n",
+				__func__, buf->fd);
+			rc = -EFAULT;
+			break;
+		}
+		buf->fd = cbuf->smem.device_addr;
+		cbuf->ktid = ktid;
+		rc = 0;
+	}
+	return rc;
+}
+
 static int msm_cvp_map_user_persist(struct msm_cvp_inst *inst,
 	struct cvp_kmd_hfi_packet *in_pkt,
 	unsigned int offset, unsigned int buf_num)
@@ -728,7 +826,7 @@ static int msm_cvp_session_process_hfi(
 	unsigned int in_offset,
 	unsigned int in_buf_num)
 {
-	int pkt_idx, rc = 0;
+	int pkt_idx, pkt_type, rc = 0;
 	struct cvp_hfi_device *hdev;
 	unsigned int offset, buf_num, signal;
 	struct cvp_session_queue *sq;
@@ -777,8 +875,11 @@ static int msm_cvp_session_process_hfi(
 		buf_num = in_buf_num;
 	}
 
-	if (in_pkt->pkt_data[1] == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS)
+	pkt_type = in_pkt->pkt_data[1];
+	if (pkt_type == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS)
 		rc = msm_cvp_map_user_persist(inst, in_pkt, offset, buf_num);
+	else if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS)
+		rc = msm_cvp_mark_user_persist(inst, in_pkt, offset, buf_num);
 	else
 		rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
 
@@ -796,13 +897,18 @@ static int msm_cvp_session_process_hfi(
 
 	if (signal != HAL_NO_RESP) {
 		rc = wait_for_sess_signal_receipt(inst, signal);
-		if (rc)
+		if (rc) {
 			dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d %d, %x %d\n",
 				__func__, rc,
 				in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1],
 				signal);
+			goto exit;
+		}
+		if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS)
+			rc = msm_cvp_unmap_user_persist(inst, in_pkt,
+					offset, buf_num);
 
 	}
 exit:

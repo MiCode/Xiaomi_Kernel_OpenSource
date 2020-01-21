@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __CVP_HFI_API_H__
@@ -248,7 +248,8 @@ enum hal_command_response {
 	HAL_SESSION_DCM_CONFIG_CMD_DONE,
 	HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE,
 	HAL_SESSION_FD_CONFIG_CMD_DONE,
-	HAL_SESSION_PERSIST_CMD_DONE,
+	HAL_SESSION_PERSIST_SET_DONE,
+	HAL_SESSION_PERSIST_REL_DONE,
 	HAL_SESSION_MODEL_BUF_CMD_DONE,
 	HAL_SESSION_ICA_FRAME_CMD_DONE,
 	HAL_SESSION_FD_FRAME_CMD_DONE,
