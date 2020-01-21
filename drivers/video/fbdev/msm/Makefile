@@ -65,6 +65,10 @@ obj-$(CONFIG_FB_MSM_MDSS_HDMI_MHL_SII8334) += mhl_sii8334.o mhl_msc.o
 ccflags-y += -DTARGET_HW_MDSS_HDMI
 endif
 
+obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp.o mdss_dp_util.o
+obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp_aux.o
+obj-$(CONFIG_FB_MSM_MDSS_DP_PANEL) += mdss_dp_hdcp2p2.o
+
 obj-$(CONFIG_FB_MSM_MDSS_SPI_PANEL) += mdss_spi_display.o
 obj-$(CONFIG_FB_MSM_MDSS_SPI_PANEL) += mdss_spi_client.o
 obj-$(CONFIG_FB_MSM_MDSS_SPI_PANEL) += mdss_spi_panel.o
