@@ -43,6 +43,7 @@
 #include <linux/pm_qos.h>
 #include <linux/stat.h>
 #include <linux/preempt.h>
+#include <linux/of_reserved_mem.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -4798,7 +4799,12 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-adsprpc-mem-region")) {
 		me->dev = dev;
-		return 0;
+		ret = of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+		if (ret) {
+			pr_warn("adsprpc: Error: %s: initialization of memory region adsp_mem failed with %d\n",
+				__func__, ret);
+		}
+		goto bail;
 	}
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-legacy-remote-heap");
@@ -5064,6 +5070,7 @@ static void __exit fastrpc_device_exit(void)
 	device_destroy(me->class, MKDEV(MAJOR(me->dev_no),
 					 MINOR_NUM_SECURE_DEV));
 
+	of_reserved_mem_device_release(me->dev);
 	class_destroy(me->class);
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
