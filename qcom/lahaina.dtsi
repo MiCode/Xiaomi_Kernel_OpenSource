@@ -1062,6 +1062,7 @@
 		compatible = "qcom,lahaina-aggre1_noc";
 		reg = <0x016E0000 0x1f180>;
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 		clocks = <&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
@@ -1072,6 +1073,7 @@
 		reg = <0x1700000 0x3d180>;
 		compatible = "qcom,lahaina-aggre2_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 		clocks = <&clock_gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>;
@@ -1080,6 +1082,7 @@
 	clk_virt: interconnect {
 		compatible = "qcom,lahaina-clk_virt";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
@@ -1087,6 +1090,7 @@
 		reg = <0x1500000 0x28000>;
 		compatible = "qcom,lahaina-config_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
@@ -1094,6 +1098,7 @@
 		reg = <0x90C0000 0x4200>;
 		compatible = "qcom,lahaina-dc_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
@@ -1101,33 +1106,39 @@
 		reg = <0x9100000 0xae200>;
 		compatible = "qcom,lahaina-gem_noc";
 		#interconnect-cells = <1>;
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	lpass_ag_noc: interconnect@3c40000 {
 		reg = <0x03c40000 0xf080>;
 		compatible = "qcom,lahaina-lpass_ag_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	mc_virt: interconnect@1580000 {
+		reg = <0x1580000 0x4>;
 		compatible = "qcom,lahaina-mc_virt";
 		#interconnect-cells = <1>;
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	mmss_noc: interconnect@1740000 {
 		reg = <0x1740000 0x1f080>;
 		compatible = "qcom,lahaina-mmss_noc";
 		#interconnect-cells = <1>;
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	nsp_noc: interconnect@a0c0000 {
 		reg = <0x0a0c0000 0x10000>;
 		compatible = "qcom,lahaina-nsp_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
@@ -1135,6 +1146,7 @@
 		reg = <0x1680000 0x1EE00>;
 		compatible = "qcom,lahaina-system_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
@@ -1482,7 +1494,6 @@
 	};
 
 	disp_rsc: rsc@af20000 {
-		status = "disabled";
 		label = "disp_rsc";
 		compatible = "qcom,rpmh-rsc";
 		reg = <0xaf20000 0x10000>;
@@ -1494,6 +1505,11 @@
 				  <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
+
+		disp_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
+
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
