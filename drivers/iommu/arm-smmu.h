@@ -433,6 +433,7 @@ struct arm_smmu_domain {
 	struct list_head		secure_pool_list;
 	/* nonsecure pool protected by pgtbl_lock */
 	struct list_head		nonsecure_pool;
+	struct iommu_debug_attachment	*logger;
 	struct msm_iommu_domain		domain;
 };
 

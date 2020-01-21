@@ -51,6 +51,7 @@
 
 #include <linux/qcom_scm.h>
 #include "arm-smmu.h"
+#include "iommu-logger.h"
 
 #define CREATE_TRACE_POINTS
 #include "arm-smmu-trace.h"
@@ -1872,9 +1873,16 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	unsigned long quirks = 0;
+	struct iommu_group *group;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	if (smmu_domain->smmu)
+		goto out_unlock;
+
+	group = iommu_group_get(dev);
+	ret = iommu_logger_register(&smmu_domain->logger, domain, group);
+	iommu_group_put(group);
+	if (ret)
 		goto out_unlock;
 
 	if (domain->type == IOMMU_DOMAIN_DMA) {
@@ -1882,7 +1890,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		if (ret) {
 			dev_err(dev, "%s: default domain setup failed\n",
 				__func__);
-			goto out_unlock;
+			goto out_logger;
 		}
 	}
 
@@ -1939,7 +1947,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_NONE) {
 		ret = -EINVAL;
-		goto out_unlock;
+		goto out_logger;
 	}
 
 	switch (smmu_domain->stage) {
@@ -1987,7 +1995,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		break;
 	default:
 		ret = -EINVAL;
-		goto out_unlock;
+		goto out_logger;
 	}
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
@@ -2001,7 +2009,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
-		goto out_unlock;
+		goto out_logger;
 
 	cfg->cbndx = ret;
 
@@ -2071,6 +2079,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 out_clear_smmu:
 	arm_smmu_destroy_domain_context(domain);
 	smmu_domain->smmu = NULL;
+out_logger:
+	iommu_logger_unregister(smmu_domain->logger);
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
@@ -2186,6 +2196,7 @@ static void arm_smmu_domain_free(struct iommu_domain *domain)
 	 */
 	arm_smmu_put_dma_cookie(domain);
 	arm_smmu_destroy_domain_context(domain);
+	iommu_logger_unregister(smmu_domain->logger);
 	kfree(smmu_domain);
 }
 
