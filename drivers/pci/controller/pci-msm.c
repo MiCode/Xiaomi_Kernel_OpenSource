@@ -4704,7 +4704,7 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 
 		notify->event = event;
 		notify->user = dev->event_reg->user;
-		PCIE_DBG(dev, "PCIe: callback RC%d for event %d\n",
+		PCIE_DUMP(dev, "PCIe: callback RC%d for event %d\n",
 			dev->rc_idx, event);
 		dev->event_reg->callback(notify);
 
