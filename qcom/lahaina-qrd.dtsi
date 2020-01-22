@@ -1,1 +1,2 @@
 #include "lahaina-qrd-common.dtsi"
+#include "display/lahaina-sde-display-qrd.dtsi"
