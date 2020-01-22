@@ -301,7 +301,7 @@ config USB_CONFIGFS_OBEX
 	  since the kernel itself doesn't implement the OBEX protocol.
 
 config USB_CONFIGFS_NCM
-	bool "Network Control Model (CDC NCM)"
+	tristate "Network Control Model (CDC NCM)"
 	depends on USB_CONFIGFS
 	depends on NET
 	select USB_U_ETHER
