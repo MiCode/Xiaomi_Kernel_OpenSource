@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -760,6 +760,7 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	md_entry.virt_addr = (uintptr_t)wdog_dd;
 	md_entry.phys_addr = virt_to_phys(wdog_dd);
 	md_entry.size = sizeof(*wdog_dd);
+	md_entry.id = MINIDUMP_DEFAULT_ID;
 	if (msm_minidump_add_region(&md_entry))
 		pr_info("Failed to add Watchdog data in Minidump\n");
 
