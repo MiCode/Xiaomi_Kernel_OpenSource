@@ -2314,13 +2314,6 @@ static struct adreno_perfcounters a5xx_perfcounters = {
 	ARRAY_SIZE(a5xx_perfcounter_groups),
 };
 
-static struct adreno_ft_perf_counters a5xx_ft_perf_counters[] = {
-	{KGSL_PERFCOUNTER_GROUP_SP, A5XX_SP_ALU_ACTIVE_CYCLES},
-	{KGSL_PERFCOUNTER_GROUP_SP, A5XX_SP0_ICL1_MISSES},
-	{KGSL_PERFCOUNTER_GROUP_SP, A5XX_SP_FS_CFLOW_INSTRUCTIONS},
-	{KGSL_PERFCOUNTER_GROUP_TSE, A5XX_TSE_INPUT_PRIM_NUM},
-};
-
 /* Register offset defines for A5XX, in order of enum adreno_regs */
 static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE, A5XX_CP_RB_BASE),
@@ -2958,8 +2951,6 @@ static struct adreno_coresight a5xx_coresight = {
 
 struct adreno_gpudev adreno_a5xx_gpudev = {
 	.reg_offsets = a5xx_register_offsets,
-	.ft_perf_counters = a5xx_ft_perf_counters,
-	.ft_perf_counters_count = ARRAY_SIZE(a5xx_ft_perf_counters),
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a5xx_coresight},
 #endif
