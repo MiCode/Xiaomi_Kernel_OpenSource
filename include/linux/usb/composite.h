@@ -249,6 +249,15 @@ int usb_function_activate(struct usb_function *);
 
 int usb_interface_id(struct usb_configuration *, struct usb_function *);
 
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+int usb_func_wakeup(struct usb_function *func);
+#else
+static inline int usb_func_wakeup(struct usb_function *func)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+
 int config_ep_by_speed(struct usb_gadget *g, struct usb_function *f,
 			struct usb_ep *_ep);
 

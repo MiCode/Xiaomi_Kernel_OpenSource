@@ -323,6 +323,9 @@ struct usb_gadget_ops {
 	struct usb_ep *(*match_ep)(struct usb_gadget *,
 			struct usb_endpoint_descriptor *,
 			struct usb_ss_ep_comp_descriptor *);
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+	int     (*func_wakeup)(struct usb_gadget *, int interface_id);
+#endif
 };
 
 /**
@@ -594,6 +597,15 @@ static inline int usb_gadget_deactivate(struct usb_gadget *gadget)
 static inline int usb_gadget_activate(struct usb_gadget *gadget)
 { return 0; }
 #endif /* CONFIG_USB_GADGET */
+
+#if IS_ENABLED(CONFIG_USB_GADGET) && \
+	IS_BUILTIN(CONFIG_USB_FUNC_WAKEUP_SUPPORTED)
+int usb_gadget_func_wakeup(struct usb_gadget *gadget, int interface_id);
+#else
+static inline int usb_gadget_func_wakeup(struct usb_gadget *gadget,
+		int interface_id)
+{ return 0; }
+#endif
 
 /*-------------------------------------------------------------------------*/
 

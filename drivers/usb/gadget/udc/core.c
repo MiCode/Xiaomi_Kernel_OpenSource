@@ -807,6 +807,19 @@ out:
 }
 EXPORT_SYMBOL_GPL(usb_gadget_activate);
 
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+int usb_gadget_func_wakeup(struct usb_gadget *gadget, int interface_id)
+{
+	if (gadget->speed < USB_SPEED_SUPER)
+		return -EOPNOTSUPP;
+
+	if (!gadget->ops->func_wakeup)
+		return -EOPNOTSUPP;
+
+	return gadget->ops->func_wakeup(gadget, interface_id);
+}
+#endif
+
 /* ------------------------------------------------------------------------- */
 
 #ifdef	CONFIG_HAS_DMA
