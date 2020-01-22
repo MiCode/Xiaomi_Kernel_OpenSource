@@ -202,6 +202,22 @@ struct hh_vm_irq_notify_resp_payload {
 	hh_virq_handle_t virq;
 } __packed;
 
+/* Call: MEM_QCOM_LOOKUP_SGL */
+/*
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct hh_mem_qcom_lookup_sgl_req_payload_hdr {
+	u32 mem_type:8;
+	u32 reserved:24;
+	hh_label_t label;
+} __packed;
+
+struct hh_mem_qcom_lookup_sgl_resp_payload {
+	hh_memparcel_handle_t memparcel_handle;
+} __packed;
+
 /* End Message ID headers */
 
 /* Common function declerations */

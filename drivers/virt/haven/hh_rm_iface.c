@@ -566,3 +566,187 @@ out:
 	return err;
 }
 EXPORT_SYMBOL(hh_rm_console_flush);
+
+static void hh_rm_populate_acl_desc(struct hh_acl_desc *dst_desc,
+				    struct hh_acl_desc *src_desc)
+{
+	u32 n_acl_entries = src_desc ? src_desc->n_acl_entries : 0;
+	unsigned int i;
+
+	dst_desc->n_acl_entries = n_acl_entries;
+	for (i = 0; i < n_acl_entries; i++) {
+		dst_desc->acl_entries[i].vmid = src_desc->acl_entries[i].vmid;
+		dst_desc->acl_entries[i].perms = src_desc->acl_entries[i].perms;
+	}
+}
+
+static void hh_rm_populate_sgl_desc(struct hh_sgl_desc *dst_desc,
+				    struct hh_sgl_desc *src_desc,
+				    u16 reserved_param)
+{
+	u32 n_sgl_entries = src_desc ? src_desc->n_sgl_entries : 0;
+
+	dst_desc->n_sgl_entries = n_sgl_entries;
+	dst_desc->reserved = reserved_param;
+	if (n_sgl_entries)
+		memcpy(dst_desc->sgl_entries, src_desc->sgl_entries,
+		       sizeof(*dst_desc->sgl_entries) * n_sgl_entries);
+}
+
+static void hh_rm_populate_mem_attr_desc(struct hh_mem_attr_desc *dst_desc,
+					 struct hh_mem_attr_desc *src_desc)
+{
+	u32 n_mem_attr_entries = src_desc ? src_desc->n_mem_attr_entries : 0;
+
+	dst_desc->n_mem_attr_entries = src_desc->n_mem_attr_entries;
+	if (n_mem_attr_entries)
+		memcpy(dst_desc->attr_entries, src_desc->attr_entries,
+		       sizeof(*dst_desc->attr_entries) * n_mem_attr_entries);
+}
+
+static void hh_rm_populate_mem_request(void *req_buf, u32 fn_id,
+				       struct hh_acl_desc *src_acl_desc,
+				       struct hh_sgl_desc *src_sgl_desc,
+				       u16 reserved_param,
+				       struct hh_mem_attr_desc *src_mem_attrs)
+{
+	struct hh_acl_desc *dst_acl_desc;
+	struct hh_sgl_desc *dst_sgl_desc;
+	struct hh_mem_attr_desc *dst_mem_attrs;
+	size_t req_hdr_size, req_acl_size, req_sgl_size;
+	u32 n_acl_entries = src_acl_desc ? src_acl_desc->n_acl_entries : 0;
+	u32 n_sgl_entries = src_sgl_desc ? src_sgl_desc->n_sgl_entries : 0;
+
+	switch (fn_id) {
+	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
+		req_hdr_size =
+			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
+		break;
+	default:
+		return;
+	}
+
+	req_acl_size = offsetof(struct hh_acl_desc, acl_entries[n_acl_entries]);
+	req_sgl_size = offsetof(struct hh_sgl_desc, sgl_entries[n_sgl_entries]);
+
+	dst_acl_desc = req_buf + req_hdr_size;
+	dst_sgl_desc = req_buf + req_hdr_size + req_acl_size;
+	dst_mem_attrs = req_buf + req_hdr_size + req_acl_size + req_sgl_size;
+
+	hh_rm_populate_acl_desc(dst_acl_desc, src_acl_desc);
+	hh_rm_populate_sgl_desc(dst_sgl_desc, src_sgl_desc, reserved_param);
+	hh_rm_populate_mem_attr_desc(dst_mem_attrs, src_mem_attrs);
+}
+
+static void *hh_rm_alloc_mem_request_buf(u32 fn_id, size_t n_acl_entries,
+					 size_t n_sgl_entries,
+					 size_t n_mem_attr_entries,
+					 size_t *req_payload_size_ptr)
+{
+	size_t req_acl_size, req_sgl_size, req_mem_attr_size, req_payload_size;
+	void *req_buf;
+
+
+	switch (fn_id) {
+	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
+		req_payload_size =
+			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
+		break;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+
+	req_acl_size = offsetof(struct hh_acl_desc, acl_entries[n_acl_entries]);
+	req_sgl_size = offsetof(struct hh_sgl_desc, sgl_entries[n_sgl_entries]);
+	req_mem_attr_size = offsetof(struct hh_mem_attr_desc,
+				     attr_entries[n_mem_attr_entries]);
+	req_payload_size += req_acl_size + req_sgl_size + req_mem_attr_size;
+
+	req_buf = kzalloc(req_payload_size, GFP_KERNEL);
+	if (!req_buf)
+		return ERR_PTR(-ENOMEM);
+
+	*req_payload_size_ptr = req_payload_size;
+	return req_buf;
+}
+
+/**
+ * hh_rm_mem_qcom_lookup_sgl: Look up the handle for a memparcel by its sg-list
+ * @mem_type: The type of memory associated with the memparcel (i.e. normal or
+ *            I/O)
+ * @label: The label to assign to the memparcel
+ * @acl_desc: Describes the number of ACL entries and VMID and permission pairs
+ *            for the memparcel
+ * @sgl_desc: Describes the number of SG-List entries and the SG-List for the
+ *            memory associated with the memparcel
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs for the memparcel. This
+ *                 parameter is currently optional, as this function is meant
+ *                 to be used in conjunction with hyp_assign_[phys/table], which
+ *                 does not provide memory attributes
+ * @handle: Pointer to where the memparcel handle should be stored
+ *
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
+			      struct hh_acl_desc *acl_desc,
+			      struct hh_sgl_desc *sgl_desc,
+			      struct hh_mem_attr_desc *mem_attr_desc,
+			      hh_memparcel_handle_t *handle)
+{
+	struct hh_mem_qcom_lookup_sgl_req_payload_hdr *req_payload_hdr;
+	struct hh_mem_qcom_lookup_sgl_resp_payload *resp_payload;
+	size_t req_payload_size, resp_size;
+	void *req_buf;
+	unsigned int n_mem_attr_entries = 0;
+	u32 fn_id = HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL;
+	int ret = 0, hh_ret;
+
+	if ((mem_type != HH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != HH_RM_MEM_TYPE_IO) || !acl_desc ||
+	    !acl_desc->n_acl_entries || !sgl_desc ||
+	    !sgl_desc->n_sgl_entries || !handle || (mem_attr_desc &&
+	    !mem_attr_desc->n_mem_attr_entries))
+		return -EINVAL;
+
+	if (mem_attr_desc)
+		n_mem_attr_entries = mem_attr_desc->n_mem_attr_entries;
+
+	req_buf = hh_rm_alloc_mem_request_buf(fn_id, acl_desc->n_acl_entries,
+					      sgl_desc->n_sgl_entries,
+					      n_mem_attr_entries,
+					      &req_payload_size);
+	if (IS_ERR(req_buf))
+		return PTR_ERR(req_buf);
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->label = label;
+	hh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, 0,
+				   mem_attr_desc);
+
+	resp_payload = hh_rm_call(fn_id, req_buf, req_payload_size, &resp_size,
+				  &hh_ret);
+	if (hh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with err: %d\n",  __func__, ret);
+		goto err_rm_call;
+	}
+
+	if (resp_size != sizeof(*resp_payload)) {
+		ret = -EINVAL;
+		pr_err("%s invalid size received %u\n", __func__, resp_size);
+		goto err_resp_size;
+	}
+
+	*handle = resp_payload->memparcel_handle;
+
+err_resp_size:
+	kfree(resp_payload);
+err_rm_call:
+	kfree(req_buf);
+	return ret;
+}
+EXPORT_SYMBOL(hh_rm_mem_qcom_lookup_sgl);

@@ -65,6 +65,39 @@ struct hh_rm_notif_mem_released_payload {
 	u16 reserved;
 } __packed;
 
+struct hh_acl_entry {
+	u16 vmid;
+	u8 perms;
+	u8 reserved;
+} __packed;
+
+struct hh_sgl_entry {
+	u64 ipa_base;
+	u64 size;
+} __packed;
+
+struct hh_mem_attr_entry {
+	u16 attr;
+	u16 vmid;
+} __packed;
+
+struct hh_acl_desc {
+	u32 n_acl_entries;
+	struct hh_acl_entry acl_entries[];
+} __packed;
+
+struct hh_sgl_desc {
+	u16 n_sgl_entries;
+	u16 reserved;
+	struct hh_sgl_entry sgl_entries[];
+} __packed;
+
+struct hh_mem_attr_desc {
+	u16 n_mem_attr_entries;
+	u16 reserved;
+	struct hh_mem_attr_entry attr_entries[];
+} __packed;
+
 /* VM APIs */
 #define HH_RM_NOTIF_VM_STATUS		0x56100008
 #define HH_RM_NOTIF_VM_IRQ_LENT		0x56100011
@@ -130,5 +163,10 @@ int hh_rm_console_open(hh_vmid_t vmid);
 int hh_rm_console_close(hh_vmid_t vmid);
 int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size);
 int hh_rm_console_flush(hh_vmid_t vmid);
+int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
+			      struct hh_acl_desc *acl_desc,
+			      struct hh_sgl_desc *sgl_desc,
+			      struct hh_mem_attr_desc *mem_attr_desc,
+			      hh_memparcel_handle_t *handle);
 
 #endif
