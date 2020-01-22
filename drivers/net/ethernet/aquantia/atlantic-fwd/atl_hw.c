@@ -331,6 +331,9 @@ void atl_refresh_link(struct atl_nic *nic)
 			atl_nic_info("Link up: %s\n", link->name);
 			netif_carrier_on(nic->ndev);
 			pm_runtime_get_sync(&nic->hw.pdev->dev);
+#ifdef NETIF_F_HW_MACSEC
+			atl_init_macsec(hw);
+#endif
 		}
 	} else {
 		if (link != prev_link) {
@@ -357,9 +360,13 @@ static irqreturn_t atl_legacy_irq(int irq, void *priv)
 {
 	struct atl_nic *nic = priv;
 	struct atl_hw *hw = &nic->hw;
-	uint32_t mask = hw->non_ring_intr_mask | BIT(atl_qvec_intr(nic->qvecs));
+	uint32_t mask = hw->non_ring_intr_mask;
 	uint32_t stat;
+	int cpu;
+	int i;
 
+	for (i = 0; i != nic->nvecs; i++)
+		mask |= BIT(atl_qvec_intr(&nic->qvecs[i]));
 
 	stat = atl_read(hw, ATL_INTR_STS);
 
@@ -372,11 +379,22 @@ static irqreturn_t atl_legacy_irq(int irq, void *priv)
 		 * masked above, so no need to unmask anything. */
 		return IRQ_NONE;
 
-	if (likely(stat & BIT(ATL_NUM_NON_RING_IRQS)))
-		/* Only one qvec when using legacy interrupts */
-		atl_ring_irq(irq, &nic->qvecs[0].napi);
+	for (i = 0; i != nic->nvecs; i++) {
+		if (likely(stat & BIT(atl_qvec_intr(&nic->qvecs[i])))) {
+			if (nic->nvecs == 1 || !atl_wq_non_msi) {
+				atl_ring_irq(irq, &nic->qvecs[i].napi);
+				continue;
+			}
 
-	if (unlikely(stat & BIT(0)))
+			cpu = cpumask_any(&nic->qvecs[i].affinity_hint);
+			WARN_ON_ONCE(cpu >= nr_cpu_ids);
+			if (cpu >= nr_cpu_ids)
+				cpu = 0;
+			schedule_work_on(cpu, nic->qvecs[i].work);
+		}
+	}
+
+	if (unlikely(stat & hw->non_ring_intr_mask))
 		atl_link_irq(irq, nic);
 	return IRQ_HANDLED;
 }
@@ -585,9 +603,15 @@ void atl_start_hw_global(struct atl_nic *nic)
 		atl_set_bits(hw, ATL_INTR_AUTO_MASK, BIT(0));
 		/* Enable status auto-clear on link intr generation */
 		atl_set_bits(hw, ATL_INTR_AUTO_CLEAR, BIT(0));
-	} else
+	} else {
 		/* Enable legacy INTx mode and status clear-on-read */
 		atl_write(hw, ATL_INTR_CTRL, BIT(7));
+		/* Clear the registers, which might have been set on previous
+		 * driver load and might interfere with legacy IRQ handling
+		 */
+		atl_write(hw, ATL_INTR_AUTO_MASK, 0);
+		atl_write(hw, ATL_INTR_AUTO_CLEAR, 0);
+	}
 
 	/* Map link interrupt to cause 0 */
 	atl_write(hw, ATL_INTR_GEN_INTR_MAP4, BIT(7) | (0 << 0));
@@ -605,18 +629,26 @@ void atl_start_hw_global(struct atl_nic *nic)
 static void atl_set_all_multi(struct atl_hw *hw, bool all_multi)
 {
 	atl_write_bit(hw, ATL_RX_MC_FLT_MSK, 14, all_multi);
-	atl_write(hw, ATL_RX_MC_FLT(0), all_multi ? 0x80010000 : 0);
+	atl_write(hw, ATL_RX_MC_FLT(0), all_multi ? 0x80010FFF : 0x00010FFF);
 }
 
 void atl_set_rx_mode(struct net_device *ndev)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
-	int uc_count = netdev_uc_count(ndev), mc_count = netdev_mc_count(ndev);
-	int promisc_needed = !!(ndev->flags & IFF_PROMISC);
+	bool is_multicast_enabled = !!(ndev->flags & IFF_MULTICAST);
 	int all_multi_needed = !!(ndev->flags & IFF_ALLMULTI);
+	int promisc_needed = !!(ndev->flags & IFF_PROMISC);
+	int uc_count = netdev_uc_count(ndev);
+	int mc_count = 0;
 	int i = 1; /* UC filter 0 reserved for MAC address */
 	struct netdev_hw_addr *hwaddr;
+
+	if (!pm_runtime_active(&nic->hw.pdev->dev))
+		return;
+
+	if (is_multicast_enabled)
+		mc_count = netdev_mc_count(ndev);
 
 	if (uc_count > ATL_UC_FLT_NUM - 1)
 		promisc_needed |= 1;
@@ -624,11 +656,12 @@ void atl_set_rx_mode(struct net_device *ndev)
 		all_multi_needed |= 1;
 
 
-	/* Enable promisc VLAN mode iff IFF_PROMISC explicitly
+	/* Enable promisc VLAN mode if IFF_PROMISC explicitly
 	 * requested or too many VIDs registered
 	 */
 	atl_set_vlan_promisc(hw,
-		ndev->flags & IFF_PROMISC || nic->rxf_vlan.promisc_count);
+		ndev->flags & IFF_PROMISC || nic->rxf_vlan.promisc_count ||
+		!nic->rxf_vlan.vlans_active);
 
 	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, promisc_needed);
 	if (promisc_needed)
@@ -637,9 +670,9 @@ void atl_set_rx_mode(struct net_device *ndev)
 	netdev_for_each_uc_addr(hwaddr, ndev)
 		atl_set_uc_flt(hw, i++, hwaddr->addr);
 
-	atl_set_all_multi(hw, all_multi_needed);
+	atl_set_all_multi(hw, is_multicast_enabled && all_multi_needed);
 
-	if (!all_multi_needed)
+	if (is_multicast_enabled && !all_multi_needed)
 		netdev_for_each_mc_addr(hwaddr, ndev)
 			atl_set_uc_flt(hw, i++, hwaddr->addr);
 

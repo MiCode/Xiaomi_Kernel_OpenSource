@@ -220,6 +220,49 @@ TRACE_EVENT(atl_tx_descr,
 		  __entry->rsvd1, __entry->des_typ)
 );
 
+
+TRACE_EVENT(atl_tx_context_descr,
+	TP_PROTO(int ring_idx, unsigned int pointer, u64 *descr),
+	TP_ARGS(ring_idx, pointer, descr),
+	TP_STRUCT__entry(
+		__field(unsigned int, ring_idx)
+		__field(unsigned int, pointer)
+		/* Tx Context Descriptor */
+		__field(u16, out_len)
+		__field(u8, tun_len)
+		__field(u64, resvd3)
+		__field(u16, mss_len)
+		__field(u8, l4_len)
+		__field(u8, l3_len)
+		__field(u8, l2_len)
+		__field(u8, ct_cmd)
+		__field(u16, vlan_tag)
+		__field(u8, ct_idx)
+		__field(u8, des_typ)
+	),
+	TP_fast_assign(
+		__entry->ring_idx = ring_idx;
+		__entry->pointer = pointer;
+		__entry->out_len = DESCR_FIELD(descr[0], 63, 48);
+		__entry->tun_len = DESCR_FIELD(descr[0], 47, 40);
+		__entry->resvd3 = DESCR_FIELD(descr[0], 39, 0);
+		__entry->mss_len = DESCR_FIELD(descr[1], 63, 48);
+		__entry->l4_len = DESCR_FIELD(descr[1], 47, 40);
+		__entry->l3_len = DESCR_FIELD(descr[1], 39, 31);
+		__entry->l2_len = DESCR_FIELD(descr[1], 30, 24);
+		__entry->ct_cmd = DESCR_FIELD(descr[1], 23, 20);
+		__entry->vlan_tag = DESCR_FIELD(descr[1], 19, 4);
+		__entry->ct_idx = DESCR_FIELD(descr[1], 3, 3);
+		__entry->des_typ = DESCR_FIELD(descr[1], 2, 0);
+	),
+	TP_printk("ring=%d descr=%u out_len=%u tun_len=%u resvd3=%llu mss_len=%u l4_len=%u l3_len=%u l2_len=0x%x ct_cmd=%u vlan_tag=%u ct_idx=%u des_typ=0x%x",
+		  __entry->ring_idx, __entry->pointer, __entry->out_len,
+		  __entry->tun_len, __entry->resvd3, __entry->mss_len,
+		  __entry->l4_len, __entry->l3_len, __entry->l2_len,
+		  __entry->ct_cmd, __entry->vlan_tag, __entry->ct_idx,
+		  __entry->des_typ)
+);
+
 #endif /* _ATL_TRACE_H */
 
 #undef TRACE_INCLUDE_PATH
