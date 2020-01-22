@@ -900,7 +900,6 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	ret = subsystem_restart_dev(host_ctx->subsystem_handle);
 	if (ret) {
 		NPU_ERR("npu subsystem restart failed\n");
-		host_ctx->fw_state = FW_UNLOADED;
 		goto fw_start_done;
 	}
 	NPU_INFO("npu subsystem is restarted\n");
@@ -930,10 +929,50 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	host_ctx->fw_state = FW_ENABLED;
 
 	ret = npu_enable_irq(npu_dev);
-	if (ret)
+	if (ret) {
 		NPU_ERR("Enable irq failed\n");
+		goto fw_start_done;
+	}
+
+	reinit_completion(&host_ctx->fw_shutdown_done);
+	ret = npu_notify_fw_pwr_state(npu_dev, NPU_PWRLEVEL_OFF, false);
+	if (ret) {
+		NPU_ERR("notify fw pwr off failed\n");
+		goto fw_start_done;
+	}
+
+	ret = wait_for_completion_timeout(
+		&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
+	if (!ret) {
+		NPU_ERR("Wait for fw shutdown timedout\n");
+		goto fw_start_done;
+	} else {
+		ret = wait_npu_cpc_power_off(npu_dev);
+	}
 
 fw_start_done:
+	npu_disable_irq(npu_dev);
+	npu_disable_sys_cache(npu_dev);
+	npu_disable_core_power(npu_dev);
+	npu_notify_aop(npu_dev, false);
+	if (!ret) {
+		host_ctx->fw_state = FW_LOADED;
+	} else {
+		subsystem_put_local(host_ctx->subsystem_handle);
+		host_ctx->fw_state = FW_UNLOADED;
+		host_ctx->wdg_irq_sts = 0;
+		host_ctx->err_irq_sts = 0;
+	}
+
+	/*
+	 * if npu is enabled by mbox, change it to false and
+	 * reduce the ref_cnt accordingly since npu is restarted.
+	 */
+	if (host_ctx->bridge_mbox_pwr_on) {
+		host_ctx->bridge_mbox_pwr_on = false;
+		host_ctx->fw_ref_cnt--;
+	}
+
 	/* mark all existing network to error state */
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		network = &host_ctx->networks[i];
