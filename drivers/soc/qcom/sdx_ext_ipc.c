@@ -232,7 +232,7 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 
 	mutex_init(&mdm->policy_lock);
 	mutex_init(&mdm->e911_lock);
-	mdm->policy = SUBSYS_PANIC;
+	mdm->policy = SUBSYS_NOP;
 
 	ret = device_create_file(mdm->dev, &dev_attr_policy);
 	if (ret) {
