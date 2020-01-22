@@ -26,6 +26,15 @@ endif
 
 dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_SHIMA) += \
+	shima-rumi-overlay.dtbo
+
+shima-rumi-overlay.dtbo-base := shima.dtb
+else
+dtb-$(CONFIG_ARCH_SHIMA) += shima-rumi.dtb
+endif
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo

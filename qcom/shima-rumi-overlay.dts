@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+
+#include "shima-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima RUMI";
+	compatible = "qcom,shima-rumi", "qcom,shima", "qcom,rumi";
+	qcom,board-id = <0x1000F 0>;
+};
