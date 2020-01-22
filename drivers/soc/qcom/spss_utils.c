@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -974,30 +974,10 @@ static int spss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct device_node *np = NULL;
-	struct device *dev = NULL;
-
-	if (!pdev) {
-		pr_err("invalid pdev.\n");
-		return -ENODEV;
-	}
+	struct device *dev = &pdev->dev;
 
 	np = pdev->dev.of_node;
-	if (!np) {
-		pr_err("invalid DT node.\n");
-		return -EINVAL;
-	}
-
-	spss_utils_dev = kzalloc(sizeof(*spss_utils_dev), GFP_KERNEL);
-	if (spss_utils_dev == NULL)
-		return -ENOMEM;
-
-	dev = &pdev->dev;
 	spss_dev = dev;
-
-	if (dev == NULL) {
-		pr_err("invalid dev.\n");
-		return -EINVAL;
-	}
 
 	platform_set_drvdata(pdev, dev);
 
@@ -1026,9 +1006,14 @@ static int spss_probe(struct platform_device *pdev)
 
 	ret = subsystem_set_fwname("spss", firmware_name);
 	if (ret < 0) {
-		pr_err("fail to set firmware name for PIL (%d)\n", ret);
-		return ret;
+		if (ret != -EINVAL)
+			pr_err("fail to set firmware name for PIL (%d)\n", ret);
+		return -EPROBE_DEFER;
 	}
+
+	spss_utils_dev = kzalloc(sizeof(*spss_utils_dev), GFP_KERNEL);
+	if (spss_utils_dev == NULL)
+		return -ENOMEM;
 
 	ret = spss_utils_create_chardev(dev);
 	if (ret < 0)
@@ -1110,6 +1095,6 @@ static void __exit spss_exit(void)
 }
 module_exit(spss_exit)
 
-MODULE_SOFTDEP("post: subsys-pil-tz");
+MODULE_SOFTDEP("pre: subsys-pil-tz");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");
