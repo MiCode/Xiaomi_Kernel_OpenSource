@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _F_GSI_H
@@ -268,6 +268,10 @@ struct f_gsi {
 	atomic_t connected;
 	bool data_interface_up;
 	enum rndis_class_id rndis_id;
+
+	/* function suspend status */
+	bool func_is_suspended;
+	bool func_wakeup_allowed;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
