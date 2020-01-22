@@ -7278,3 +7278,6 @@ int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_shadow_control);
+
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. PCIe RC driver");
+MODULE_LICENSE("GPL v2");
