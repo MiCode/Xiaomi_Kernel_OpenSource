@@ -39,6 +39,14 @@ struct qvm_channel {
 
 	/* os-specific part */
 	struct qvm_channel_os *os_data;
+
+	/* debug only */
+	struct workqueue_struct *wq;
+	struct work_data {
+		struct work_struct work;
+		int data; /* free to modify */
+	} wdata;
+	char *side_buf; /* to store the contents from hab-pipe */
 };
 
 /* This is common but only for guest in HQX */

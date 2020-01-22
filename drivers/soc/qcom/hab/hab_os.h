@@ -47,6 +47,7 @@
 #include <linux/sysfs.h>
 #include <linux/delay.h>
 #include <linux/version.h>
+#include <linux/devcoredump.h>
 #include <soc/qcom/boot_stats.h>
 
 #endif /*__HAB_OS_H*/

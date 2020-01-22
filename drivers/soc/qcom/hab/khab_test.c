@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #if !defined CONFIG_GHS_VMM && defined(CONFIG_QTI_GVM_QUIN)
 #include <asm/cacheflush.h>
 #include <linux/list.h>
+#include <linux/rtc.h>
 #include "hab_pipe.h"
 #include "hab_qvm.h"
 #include "khab_test.h"
@@ -69,7 +70,7 @@ static int hab_shmm_throughput_test(void)
 		ret = -ENOMEM;
 		return ret;
 	}
-	shmm_adr = sh_buf->data;
+	shmm_adr = (unsigned char *)sh_buf->data;
 
 	test_data = kzalloc(size, GFP_ATOMIC);
 	if (!test_data) {
@@ -319,13 +320,25 @@ static ssize_t expimp_store(struct kobject *kobj, struct kobj_attribute *attr,
 						const char *buf, size_t count)
 {
 	int ret;
+	char str[36] = {0};
+
+	ret = sscanf(buf, "%35s", str);
+	if (ret < 1)
+		pr_err("failed to read anything from input %d", ret);
+
+	if (strnlen(str, strlen("dump_pipe")) == strlen("dump_pipe") &&
+		strcmp(str, "dump_pipe") == 0) {
+		/* string terminator is ignored */
+		dump_hab();
+		return strlen("dump_pipe");
+	}
 
 	ret = sscanf(buf, "%du", &pid_stat);
-	if (ret < 1) {
+	if (ret < 1)
 		pr_err("failed to read anything from input %d", ret);
-		return 0;
-	} else
-		return pid_stat;
+	else
+		return pid_stat; /* good result stored */
+	return -EEXIST;
 }
 
 static struct kobj_attribute vchan_attribute = __ATTR(vchan_stat, 0660,
@@ -372,3 +385,21 @@ int hab_stat_deinit_sub(struct hab_driver *driver)
 
 	return 0;
 }
+
+int dump_hab_get_file_name(char *file_time, int ft_size)
+{
+	struct timeval time;
+	unsigned long local_time;
+	struct rtc_time tm;
+
+	do_gettimeofday(&time);
+	local_time = (unsigned int)(time.tv_sec - (sys_tz.tz_minuteswest * 60));
+	rtc_time_to_tm(local_time, &tm);
+
+	snprintf(file_time, ft_size, "%04d_%02d_%02d-%02d_%02d_%02d",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
+		tm.tm_min, tm.tm_sec);
+
+	return 0;
+}
+

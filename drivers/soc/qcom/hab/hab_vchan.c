@@ -146,7 +146,7 @@ hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 				payload_type, sizebytes);
 			vchan = NULL;
 		} else if (vchan->otherend_closed || vchan->closed) {
-			pr_err("closed already remote %d local %d vcid %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
+			pr_debug("closed already remote %d local %d vcid %x remote %x session %d refcnt %d header %x session %d type %d sz %zd\n",
 				vchan->otherend_closed, vchan->closed,
 				vchan->id, vchan->otherend_id,
 				vchan->session_id, get_refcnt(vchan->refcount),
