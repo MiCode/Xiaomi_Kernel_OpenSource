@@ -1842,6 +1842,7 @@ static int lpm_probe(struct platform_device *pdev)
 	md_entry.virt_addr = (uintptr_t)lpm_debug;
 	md_entry.phys_addr = lpm_debug_phys;
 	md_entry.size = size;
+	md_entry.id = MINIDUMP_DEFAULT_ID;
 	if (msm_minidump_add_region(&md_entry))
 		pr_info("Failed to add lpm_debug in Minidump\n");
 
