@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,12 +212,6 @@
 			virtual-addr-pool = <0x79000000 0x60000000>;
 		};
 
-		firmware_cb {
-			compatible = "qcom,msm-vidc,context-bank";
-			qcom,fw-context-bank;
-			iommus = <&mmss_bimc_smmu 0x580>,
-				<&mmss_bimc_smmu 0x586>;
-		};
 		secure_bitstream_cb {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_sec_bitstream";
