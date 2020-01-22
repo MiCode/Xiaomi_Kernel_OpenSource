@@ -46,6 +46,7 @@
 			0x144 /* GSI_RING_BASE_ADDR_H */
 			0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+		usb-role-switch;
 
 		interconnect-names = "usb-ddr", "usb-ipa", "ddr-usb";
 		interconnects = <&aggre1_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
@@ -97,6 +98,12 @@
 				qcom,data-fifo-size = <0x1800>;
 				qcom,descriptor-fifo-offset = <0x1800>;
 				qcom,descriptor-fifo-size = <0x800>;
+			};
+		};
+
+		port {
+			usb_port0: endpoint {
+				remote-endpoint = <&usb_port0_connector>;
 			};
 		};
 	};
