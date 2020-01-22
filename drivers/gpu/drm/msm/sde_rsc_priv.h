@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,10 +31,6 @@
 #define ALL_MODES_ENABLED	0x7
 
 #define MAX_COUNT_SIZE_SUPPORTED	128
-
-#define SDE_RSC_REV_1			0x1
-#define SDE_RSC_REV_2			0x2
-#define SDE_RSC_REV_3			0x3
 
 struct sde_rsc_priv;
 
@@ -130,6 +126,23 @@ struct sde_rsc_timer_config {
 	u32 bwi_threshold_time_ns;
 };
 
+struct sde_rsc_state_switch_ops {
+	int (*switch_to_idle)(struct sde_rsc_priv *rsc,
+		struct sde_rsc_cmd_config *config,
+		struct sde_rsc_client *caller_client,
+		int *wait_vblank_crtc_id);
+	int (*switch_to_vid)(struct sde_rsc_priv *rsc,
+		struct sde_rsc_cmd_config *config,
+		struct sde_rsc_client *caller_client,
+		int *wait_vblank_crtc_id);
+	int (*switch_to_cmd)(struct sde_rsc_priv *rsc,
+		struct sde_rsc_cmd_config *config,
+		struct sde_rsc_client *caller_client,
+		int *wait_vblank_crtc_id);
+	int (*switch_to_clk)(struct sde_rsc_priv *rsc,
+		int *wait_vblank_crtc_id);
+};
+
 /**
  * struct sde_rsc_bw_config: bandwidth configuration
  *
@@ -209,6 +222,7 @@ struct sde_rsc_priv {
 	struct sde_rsc_cmd_config cmd_config;
 	u32	current_state;
 	u32	vsync_source;
+	struct sde_rsc_state_switch_ops state_ops;
 
 	u32 debug_mode;
 	struct dentry *debugfs_root;
