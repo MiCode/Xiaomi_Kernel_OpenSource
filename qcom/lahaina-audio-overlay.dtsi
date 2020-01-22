@@ -67,7 +67,7 @@
 				reg = <0x08 0x58350220>;
 				qcom,swr-dmic-prefix = "SWR_MIC0";
 				qcom,codec-name = "swr-dmic-01";
-				qcom,mic-bias-num = <3>;
+				qcom,swr-dmic-supply = "MIC BIAS3 Standalone";
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -76,7 +76,7 @@
 				reg = <0x08 0x58350221>;
 				qcom,swr-dmic-prefix = "SWR_MIC1";
 				qcom,codec-name = "swr-dmic-02";
-				qcom,mic-bias-num = <1>;
+				qcom,swr-dmic-supply = "MIC BIAS1 Standalone";
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -85,7 +85,7 @@
 				reg = <0x08 0x58350222>;
 				qcom,swr-dmic-prefix = "SWR_MIC2";
 				qcom,codec-name = "swr-dmic-03";
-				qcom,mic-bias-num = <1>;
+				qcom,swr-dmic-supply = "MIC BIAS1 Standalone";
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -94,7 +94,7 @@
 				reg = <0x08 0x58350223>;
 				qcom,swr-dmic-prefix = "SWR_MIC3";
 				qcom,codec-name = "swr-dmic-04";
-				qcom,mic-bias-num = <3>;
+				qcom,swr-dmic-supply = "MIC BIAS3 Standalone";
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 		};
