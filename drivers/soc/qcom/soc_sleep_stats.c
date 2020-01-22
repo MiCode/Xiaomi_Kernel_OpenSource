@@ -103,7 +103,7 @@ static ssize_t stats_show(struct kobject *obj, struct kobj_attribute *attr,
 		offset = offsetof(struct entry, last_exited_at);
 		e->last_exited_at = le64_to_cpu(readq_relaxed(reg + offset));
 
-		offset = offsetof(struct entry, last_exited_at);
+		offset = offsetof(struct entry, accumulated);
 		e->accumulated = le64_to_cpu(readq_relaxed(reg + offset));
 
 		e->last_entered_at = get_time_in_sec(e->last_entered_at);
