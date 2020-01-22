@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2018,2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -48,6 +48,8 @@
 #include <linux/msm-bus-board.h>
 #include <soc/qcom/scm.h>
 #include <linux/soc/qcom/smd-rpm.h>
+#include "soc/qcom/secure_buffer.h"
+#include <asm/cacheflush.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
@@ -64,6 +66,8 @@
 #define DEFAULT_MDP_PIPE_WIDTH	2048
 #define RES_1080p		(1088*1920)
 #define RES_UHD			(3840*2160)
+
+#define MDP_DEVICE_ID		0x1A
 
 struct mdss_data_type *mdss_res;
 static u32 mem_protect_sd_ctrl_id;
@@ -88,12 +92,14 @@ struct msm_mdp_interface mdp5 = {
 
 #define MEM_PROTECT_SD_CTRL 0xF
 #define MEM_PROTECT_SD_CTRL_FLAT 0x14
+#define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
+static DEFINE_MUTEX(mdp_sec_ref_cnt_lock);
 
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
@@ -2050,6 +2056,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->pixel_ram_size = 50 * 1024;
 		mdata->rects_per_sspp[MDSS_MDP_PIPE_TYPE_DMA] = 2;
 
+		mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
@@ -2113,9 +2120,11 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		//mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
-		//set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
+
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -2783,6 +2792,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdata->reg_bus_clist);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
+	init_waitqueue_head(&mdata->secure_waitq);
 
 	mdss_res->mdss_util = mdss_get_util_intf();
 	if (mdss_res->mdss_util == NULL) {
@@ -5009,37 +5019,138 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	}
 }
 
-int mdss_mdp_secure_display_ctrl(struct mdss_data_type *mdata,
-	unsigned int enable)
+int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct sd_ctrl_req {
 		unsigned int enable;
 	} __attribute__ ((__packed__)) request;
 	unsigned int resp = -1;
 	int ret = 0;
+	uint32_t sid_info;
 	struct scm_desc desc;
+	bool changed = false;
 
-	if ((enable && (mdss_get_sd_client_cnt() > 0)) ||
-		(!enable && (mdss_get_sd_client_cnt() > 1))) {
-		mdss_update_sd_client(mdata, enable);
-		return ret;
+	mutex_lock(&mdp_sec_ref_cnt_lock);
+
+	if (enable) {
+		if (mdata->sec_session_cnt == 0)
+			changed = true;
+		mdata->sec_session_cnt++;
+	} else {
+		if (mdata->sec_session_cnt != 0) {
+			mdata->sec_session_cnt--;
+			if (mdata->sec_session_cnt == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: ref_count is not balanced\n",
+				__func__);
+		}
 	}
 
-	desc.args[0] = request.enable = enable;
-	desc.arginfo = SCM_ARGS(1);
+	if (!changed)
+		goto end;
 
-	/* Fix this as per latest scm calls */
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-			mem_protect_sd_ctrl_id), &desc);
-	resp = desc.ret[0];
+	if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map)) {
+		/*
+		 * Prepare syscall to hypervisor to switch the secure_vmid
+		 * between secure and non-secure contexts
+		 */
+		/* MDP secure SID */
+		sid_info = 0x1;
+		desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
+		desc.args[0] = MDP_DEVICE_ID;
+		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
+		desc.args[2] = sizeof(uint32_t);
 
-	pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x",
+
+		pr_debug("Enable/Disable: %d, Flags %llx\n", enable, flags);
+		if (enable) {
+			if (flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+				desc.args[3] = VMID_CP_SEC_DISPLAY;
+				mdata->sec_disp_en = 1;
+			} else if (flags & MDP_SECURE_CAMERA_OVERLAY_SESSION) {
+				desc.args[3] = VMID_CP_CAMERA_PREVIEW;
+				mdata->sec_cam_en = 1;
+			} else {
+				ret = 0;
+				goto end;
+			}
+
+			/* detach smmu contexts */
+			ret = mdss_smmu_detach(mdata);
+			if (ret) {
+				pr_err("Error while detaching smmu contexts ret = %d\n",
+					ret);
+				ret = -EINVAL;
+				goto end;
+			}
+
+			/* let the driver think smmu is still attached */
+			mdata->iommu_attached = true;
+
+			dmac_flush_range(&sid_info, &sid_info + 1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				mem_protect_sd_ctrl_id), &desc);
+			if (ret) {
+				pr_err("Error scm_call MEM_PROTECT_SD_CTRL(%u) ret=%dm resp=%x\n",
+						enable, ret, resp);
+				ret = -EINVAL;
+				goto end;
+			}
+			resp = desc.ret[0];
+
+			pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
+					enable, ret, resp);
+		} else {
+			desc.args[3] = VMID_CP_PIXEL;
+			if (flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
+				mdata->sec_disp_en = 0;
+			else if (flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)
+				mdata->sec_cam_en = 0;
+
+			dmac_flush_range(&sid_info, &sid_info + 1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				mem_protect_sd_ctrl_id), &desc);
+			if (ret)
+				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+						"dsi0_phy", "dsi1_ctrl",
+						"dsi1_phy", "vbif", "vbif_nrt",
+						"dbg_bus", "vbif_dbg_bus",
+						"panic");
+			resp = desc.ret[0];
+
+			pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
+					enable, ret, resp);
+
+			/* re-attach smmu contexts */
+			mdata->iommu_attached = false;
+			ret = mdss_smmu_attach(mdata);
+			if (ret) {
+				pr_err("Error while attaching smmu contexts ret = %d\n",
+					ret);
+				ret = -EINVAL;
+				goto end;
+			}
+		}
+		MDSS_XLOG(enable);
+	} else {
+		desc.args[0] = request.enable = enable;
+		desc.arginfo = SCM_ARGS(1);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				mem_protect_sd_ctrl_id), &desc);
+		resp = desc.ret[0];
+
+		pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
 				enable, ret, resp);
-	if (ret)
-		return ret;
+	}
 
 	mdss_update_sd_client(mdata, enable);
-	return resp;
+end:
+	mutex_unlock(&mdp_sec_ref_cnt_lock);
+	return ret;
+
 }
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)

@@ -1703,7 +1703,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata;
 	char __iomem *offset, *lut_offset;
 	struct mdss_mdp_format_params *fmt;
-	uint32_t op_mode;
+	uint32_t op_mode = 0;
 	uint32_t phase_init, preload, src_y_rgb, src_uv, dst;
 
 	mdata = mdss_mdp_get_mdata();
@@ -1732,9 +1732,12 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 		return -EINVAL;
 	}
 
+	if (!scaler) {
+		pr_debug("scaler pointer is NULL\n");
+		return 0;
+	}
+
 	pr_debug("scaler->enable=%d", scaler->enable);
-	op_mode = readl_relaxed(MDSS_MDP_REG_SCALER_OP_MODE +
-			offset);
 
 	if (scaler->enable) {
 		op_mode |= SCALER_EN;
@@ -1763,7 +1766,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 			SCALER_BLEND_CFG;
 
 		op_mode |= (scaler->enable & ENABLE_DIRECTION_DETECTION) ?
-			 (1 << SCALER_DIR_EN) : 0;
+			SCALER_DIR_EN : 0;
 		phase_init =
 			((scaler->init_phase_x[0] & PHASE_BITS)
 			 << Y_PHASE_INIT_H) |
@@ -1849,17 +1852,21 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 	return rc;
 }
 
-static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
+static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe,
+		enum pp_config_block pp_blk)
 {
 	struct mdss_data_type *mdata;
 	int rc = 0;
 
 	mdata = mdss_mdp_get_mdata();
 	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
-		rc = mdss_mdp_qseed3_setup(pipe, SSPP_VIG, 0);
+		rc = mdss_mdp_qseed3_setup(pipe, pp_blk, 0);
 	else
 		rc = mdss_mdp_qseed2_setup(pipe);
 
+	if (rc)
+		pr_err("scale setup on pipe %d type %d failed ret %d\n",
+			pipe->num, pipe->type, rc);
 	return rc;
 }
 
@@ -1870,18 +1877,17 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	if (!pipe)
 		return -ENODEV;
 
-	ret = mdss_mdp_scale_setup(pipe);
-	if (ret) {
-		pr_err("scale setup on pipe %d type %d failed ret %d\n",
-			pipe->num, pipe->type, ret);
-		return -EINVAL;
-	}
-
 	switch (pipe->type) {
 	case MDSS_MDP_PIPE_TYPE_VIG:
+		ret = mdss_mdp_scale_setup(pipe, SSPP_VIG);
+		if (ret)
+			return -EINVAL;
 		ret = pp_vig_pipe_setup(pipe, op);
 		break;
 	case MDSS_MDP_PIPE_TYPE_RGB:
+		ret = mdss_mdp_scale_setup(pipe, SSPP_RGB);
+		if (ret)
+			return -EINVAL;
 		ret = pp_rgb_pipe_setup(pipe, op);
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
