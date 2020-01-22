@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2574,6 +2574,7 @@
 
 		lanes-per-direction = <1>;
 		spm-level = <5>;
+		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 
 		non-removable;
 		qcom,msm-bus,name = "ufs1";
