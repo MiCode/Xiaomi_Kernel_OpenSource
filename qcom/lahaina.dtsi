@@ -625,6 +625,19 @@
 		#mbox-cells = <2>;
 	};
 
+	qcom,qsee_ipc_irq_bridge {
+		compatible = "qcom,qsee-ipc-irq-bridge";
+
+		qcom,qsee-ipc-irq-spss {
+			qcom,dev-name = "qsee_ipc_irq_spss";
+			interrupt-parent = <&ipcc_mproc>;
+			interrupts = <IPCC_CLIENT_SPSS
+				      IPCC_MPROC_SIGNAL_SMP2P
+				      IRQ_TYPE_EDGE_RISING>;
+			label = "spss";
+		};
+	};
+
 	jtag_mm0: jtagmm@7040000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x7040000 0x1000>;
