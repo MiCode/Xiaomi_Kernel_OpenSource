@@ -218,6 +218,13 @@ struct hh_mem_qcom_lookup_sgl_resp_payload {
 	hh_memparcel_handle_t memparcel_handle;
 } __packed;
 
+/* Call: MEM_RELEASE/MEM_RECLAIM */
+struct hh_mem_release_req_payload {
+	hh_memparcel_handle_t memparcel_handle;
+	u32 flags:8;
+	u32 reserved:24;
+} __packed;
+
 /* End Message ID headers */
 
 /* Common function declerations */

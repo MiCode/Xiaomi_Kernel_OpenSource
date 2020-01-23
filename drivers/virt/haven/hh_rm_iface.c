@@ -13,6 +13,9 @@
 
 #include "hh_rm_drv_private.h"
 
+#define HH_RM_MEM_RELEASE_VALID_FLAGS HH_RM_MEM_RELEASE_CLEAR
+#define HH_RM_MEM_RECLAIM_VALID_FLAGS HH_RM_MEM_RECLAIM_CLEAR
+
 static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 
 int hh_update_vm_prop_table(enum hh_vm_names vm_name,
@@ -750,3 +753,68 @@ err_rm_call:
 	return ret;
 }
 EXPORT_SYMBOL(hh_rm_mem_qcom_lookup_sgl);
+
+static int hh_rm_mem_release_helper(u32 fn_id, hh_memparcel_handle_t handle,
+				    u8 flags)
+{
+	struct hh_mem_release_req_payload req_payload = {};
+	void *resp;
+	size_t resp_size;
+	int ret, hh_ret;
+
+	if ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_RELEASE) &&
+	    (flags & ~HH_RM_MEM_RELEASE_VALID_FLAGS))
+		return -EINVAL;
+	else if ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM) &&
+		 (flags & ~HH_RM_MEM_RECLAIM_VALID_FLAGS))
+		return -EINVAL;
+
+	req_payload.memparcel_handle = handle;
+	req_payload.flags = flags;
+
+	resp = hh_rm_call(fn_id, &req_payload, sizeof(req_payload), &resp_size,
+			  &hh_ret);
+	if (hh_ret) {
+		ret = PTR_ERR(resp);
+		pr_err("%s failed with err: %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * hh_rm_mem_release: Release a handle representing memory. This results in
+ *                    the RM unmapping the associated memory from the stage-2
+ *                    page-tables of the current VM
+ * @handle: The memparcel handle associated with the memory
+ * @flags: Bitmask of values to influence the behavior of the RM when it unmaps
+ *         the memory.
+ *
+ * On success, the function will return 0. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_release(hh_memparcel_handle_t handle, u8 flags)
+{
+	return hh_rm_mem_release_helper(HH_RM_RPC_MSG_ID_CALL_MEM_RELEASE,
+					handle, flags);
+}
+EXPORT_SYMBOL(hh_rm_mem_release);
+
+/**
+ * hh_rm_mem_reclaim: Reclaim a memory represented by a handle. This results in
+ *                    the RM mapping the associated memory into the stage-2
+ *                    page-tables of the owner VM
+ * @handle: The memparcel handle associated with the memory
+ * @flags: Bitmask of values to influence the behavior of the RM when it unmaps
+ *         the memory.
+ *
+ * On success, the function will return 0. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags)
+{
+	return hh_rm_mem_release_helper(HH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM,
+					handle, flags);
+}
+EXPORT_SYMBOL(hh_rm_mem_reclaim);

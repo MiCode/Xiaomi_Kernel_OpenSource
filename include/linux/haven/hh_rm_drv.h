@@ -27,6 +27,9 @@
 #define HH_RM_ACL_W		BIT(1)
 #define HH_RM_ACL_R		BIT(2)
 
+#define HH_RM_MEM_RELEASE_CLEAR BIT(0)
+#define HH_RM_MEM_RECLAIM_CLEAR BIT(0)
+
 struct hh_rm_mem_shared_acl_entry;
 struct hh_rm_mem_shared_sgl_entry;
 struct hh_rm_mem_shared_attr_entry;
@@ -168,5 +171,7 @@ int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
 			      struct hh_sgl_desc *sgl_desc,
 			      struct hh_mem_attr_desc *mem_attr_desc,
 			      hh_memparcel_handle_t *handle);
+int hh_rm_mem_release(hh_memparcel_handle_t handle, u8 flags);
+int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags);
 
 #endif
