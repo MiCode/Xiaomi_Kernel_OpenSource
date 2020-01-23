@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SLIM_MSM_H
@@ -324,6 +324,7 @@ struct msm_slim_ctrl {
 	u32			current_rx_buf[10];
 	int			current_count;
 	atomic_t		ssr_in_progress;
+	struct completion	qmi_up;
 };
 
 struct msm_sat_chan {
