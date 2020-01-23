@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/devfreq_cooling.h>
@@ -685,6 +685,7 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	dev->parent = &pdev->dev;
 
 	dev_set_name(dev, "kgsl-busmon");
+	dev_set_drvdata(dev, device);
 	if (device_register(dev))
 		return;
 
