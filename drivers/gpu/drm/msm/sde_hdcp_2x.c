@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -562,6 +562,11 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 	struct hdcp_transport_wakeup_data cdata = {
 						HDCP_TRANSPORT_CMD_INVALID };
 	cdata.context = hdcp->client_data;
+
+	if (atomic_read(&hdcp->hdcp_off)) {
+		pr_debug("invalid state, hdcp off\n");
+		return;
+	}
 
 	switch (hdcp->app_data.response.data[0]) {
 	case SKE_SEND_TYPE_ID:
