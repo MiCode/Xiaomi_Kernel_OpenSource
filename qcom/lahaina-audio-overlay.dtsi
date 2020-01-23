@@ -54,12 +54,48 @@
 				<2 SWRM_TX2_CH3 0x4>, <2 SWRM_TX2_CH4 0x8>,
 				<3 SWRM_TX3_CH1 0x1>, <3 SWRM_TX3_CH2 0x2>,
 				<3 SWRM_TX3_CH3 0x4>, <3 SWRM_TX3_CH4 0x8>;
-			qcom,swr-num-dev = <1>;
+			qcom,swr-num-dev = <5>;
 			qcom,swr-clock-stop-mode0 = <1>;
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
 			wcd938x_tx_slave: wcd938x-tx-slave {
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170223>;
+			};
+
+			swr_dmic_01: dmic_swr@58350220 {
+				compatible = "qcom,swr-dmic";
+				reg = <0x08 0x58350220>;
+				qcom,swr-dmic-prefix = "SWR_MIC0";
+				qcom,codec-name = "swr-dmic-01";
+				qcom,mic-bias-num = <3>;
+				qcom,wcd-handle = <&wcd938x_codec>;
+			};
+
+			swr_dmic_02: dmic_swr@58350221 {
+				compatible = "qcom,swr-dmic";
+				reg = <0x08 0x58350221>;
+				qcom,swr-dmic-prefix = "SWR_MIC1";
+				qcom,codec-name = "swr-dmic-02";
+				qcom,mic-bias-num = <1>;
+				qcom,wcd-handle = <&wcd938x_codec>;
+			};
+
+			swr_dmic_03: dmic_swr@58350222 {
+				compatible = "qcom,swr-dmic";
+				reg = <0x08 0x58350222>;
+				qcom,swr-dmic-prefix = "SWR_MIC2";
+				qcom,codec-name = "swr-dmic-03";
+				qcom,mic-bias-num = <1>;
+				qcom,wcd-handle = <&wcd938x_codec>;
+			};
+
+			swr_dmic_04: dmic_swr@58350223 {
+				compatible = "qcom,swr-dmic";
+				reg = <0x08 0x58350223>;
+				qcom,swr-dmic-prefix = "SWR_MIC3";
+				qcom,codec-name = "swr-dmic-04";
+				qcom,mic-bias-num = <3>;
+				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 		};
 	};
@@ -246,6 +282,18 @@
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
 		"WSA SRC0_INP", "SRC0",
+		"SWR_MIC0 SWR_DMIC", "Analog Mic3",
+		"Analog Mic3", "MIC BIAS3",
+		"SWR_MIC1 SWR_DMIC", "Analog Mic1",
+		"Analog Mic1", "MIC BIAS1",
+		"SWR_MIC2 SWR_DMIC", "Analog Mic1",
+		"Analog Mic1", "MIC BIAS1",
+		"SWR_MIC3 SWR_DMIC", "Analog Mic3",
+		"Analog Mic3", "MIC BIAS3",
+		"TX SWR_INPUT", "SWR_MIC0 SWR_DMIC_OUTPUT",
+		"TX SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
+		"TX SWR_INPUT", "SWR_MIC2 SWR_DMIC_OUTPUT",
+		"TX SWR_INPUT", "SWR_MIC3 SWR_DMIC_OUTPUT",
 		"WSA_TX DEC0_INP", "TX DEC0 MUX",
 		"WSA_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
@@ -274,9 +322,13 @@
 		"Digital Mic5", "VA MIC BIAS4";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>,
+		      <&swr_dmic_01>, <&swr_dmic_02>,
+		      <&swr_dmic_03>, <&swr_dmic_04>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-			   "msm-ext-disp-audio-codec-rx";
+			   "msm-ext-disp-audio-codec-rx",
+			   "swr-dmic-01", "swr-dmic-02",
+			   "swr-dmic-03", "swr-dmic-04";
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 			<&wsa881x_0213>, <&wsa881x_0214>;
