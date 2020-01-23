@@ -336,7 +336,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
-#if defined(CONFIG_PREEMPT_TRACER) || defined(CONFIG_DEBUG_PREEMPT)
+#if defined(CONFIG_PREEMPT_TRACER) && defined(CONFIG_PREEMPTIRQ_EVENTS)
 	{
 		.procname       = "preemptoff_tracing_threshold_ns",
 		.data           = &sysctl_preemptoff_tracing_threshold_ns,

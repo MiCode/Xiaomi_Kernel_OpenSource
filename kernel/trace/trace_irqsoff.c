@@ -620,7 +620,7 @@ struct irqsoff_store {
 	unsigned long caddr[4];
 };
 
-DEFINE_PER_CPU(struct irqsoff_store, the_irqsoff);
+static DEFINE_PER_CPU(struct irqsoff_store, the_irqsoff);
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 /*
@@ -703,9 +703,57 @@ static struct tracer irqsoff_tracer __read_mostly =
 #endif /*  CONFIG_IRQSOFF_TRACER */
 
 #ifdef CONFIG_PREEMPT_TRACER
+#ifdef CONFIG_PREEMPTIRQ_EVENTS
+/*
+ * preemptoff stack tracing threshold in ns.
+ * default: 1ms
+ */
+unsigned int sysctl_preemptoff_tracing_threshold_ns = 1000000UL;
+
+struct preempt_store {
+	u64 ts;
+	unsigned long caddr[4];
+	bool irqs_disabled;
+	int pid;
+	unsigned long ncsw;
+};
+
+static DEFINE_PER_CPU(struct preempt_store, the_ps);
+#endif /* CONFIG_PREEMPTIRQ_EVENTS */
+
 void tracer_preempt_on(unsigned long a0, unsigned long a1)
 {
 	int pc = preempt_count();
+#ifdef CONFIG_PREEMPTIRQ_EVENTS
+	struct preempt_store *ps;
+	u64 delta = 0;
+
+	lockdep_off();
+	ps = &per_cpu(the_ps, raw_smp_processor_id());
+
+	/*
+	 * schedule() calls __schedule() with preemption disabled.
+	 * if we had entered idle and exiting idle now, we think
+	 * preemption is disabled the whole time. Detect this by
+	 * checking if the preemption is disabled across the same
+	 * task. There is a possiblity that the same task is scheduled
+	 * after idle. To rule out this possibility, compare the
+	 * context switch count also.
+	 */
+	if (ps->ts && ps->pid == current->pid && (ps->ncsw ==
+			current->nvcsw + current->nivcsw))
+		delta = sched_clock() - ps->ts;
+	/*
+	 * Trace preempt disable stack if preemption
+	 * is disabled for more than the threshold.
+	 */
+	if (delta > sysctl_preemptoff_tracing_threshold_ns)
+		trace_sched_preempt_disable(delta, ps->irqs_disabled,
+				ps->caddr[0], ps->caddr[1],
+				ps->caddr[2], ps->caddr[3]);
+	ps->ts = 0;
+	lockdep_on();
+#endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 	if (preempt_trace(pc) && !irq_trace())
 		stop_critical_timing(a0, a1, pc);
@@ -714,6 +762,21 @@ void tracer_preempt_on(unsigned long a0, unsigned long a1)
 void tracer_preempt_off(unsigned long a0, unsigned long a1)
 {
 	int pc = preempt_count();
+#ifdef CONFIG_PREEMPTIRQ_EVENTS
+	struct preempt_store *ps;
+
+	lockdep_off();
+	ps = &per_cpu(the_ps, raw_smp_processor_id());
+	ps->ts = sched_clock();
+	ps->caddr[0] = CALLER_ADDR0;
+	ps->caddr[1] = CALLER_ADDR1;
+	ps->caddr[2] = CALLER_ADDR2;
+	ps->caddr[3] = CALLER_ADDR3;
+	ps->irqs_disabled = irqs_disabled();
+	ps->pid = current->pid;
+	ps->ncsw = current->nvcsw + current->nivcsw;
+	lockdep_on();
+#endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
 	if (preempt_trace(pc) && !irq_trace())
 		start_critical_timing(a0, a1, pc);
