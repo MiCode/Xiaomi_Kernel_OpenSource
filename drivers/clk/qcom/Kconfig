@@ -451,14 +451,23 @@ config SDM_CAMCC_LAGOON
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
-config SM_DEBUGCC_LAGOON
+config SDM_DEBUGCC_LAGOON
 	tristate "LAGOON Debug Clock Controller"
-	depends on COMMON_CLK_QCOM
+	select SDM_GCC_LAGOON
 	help
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  LAGOON devices.
 	  Say Y if you want to support the clock measurement functionality
 	  of the clocks.
+
+config SDM_DISPCC_LAGOON
+	tristate "LAGOON Display Clock Controller"
+	select SDM_GCC_LAGOON
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc.
+	  LAGOON devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
 
 config SDM_GCC_LAGOON
 	tristate "LAGOON Global Clock Controller"
