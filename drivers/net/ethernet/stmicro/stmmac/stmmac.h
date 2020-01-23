@@ -58,6 +58,7 @@ struct stmmac_tx_queue {
 	unsigned int dirty_tx;
 	dma_addr_t dma_tx_phy;
 	u32 tx_tail_addr;
+	bool skip_sw;
 };
 
 struct stmmac_rx_queue {
@@ -73,6 +74,7 @@ struct stmmac_rx_queue {
 	dma_addr_t dma_rx_phy;
 	u32 rx_tail_addr;
 	struct napi_struct napi ____cacheline_aligned_in_smp;
+	bool skip_sw;
 };
 
 struct stmmac_priv {
