@@ -106,7 +106,9 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
-	if (adreno_is_a650(adreno_dev) && of_fdt_get_ddrtype() == 0x7)
+	/* If the memory type is DDR 4, override the existing configuration */
+	if ((adreno_is_a650(adreno_dev) || adreno_is_a660(adreno_dev)) &&
+		of_fdt_get_ddrtype() == 0x7)
 		adreno_dev->highest_bank_bit = 15;
 
 	a6xx_crashdump_init(adreno_dev);
