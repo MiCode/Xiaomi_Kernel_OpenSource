@@ -346,6 +346,13 @@ static inline int inet_is_local_reserved_port(struct net *net, int port)
 	return test_bit(port, net->ipv4.sysctl_local_reserved_ports);
 }
 
+static inline bool inet_is_local_unbindable_port(struct net *net, unsigned short port)
+{
+	if (!net->ipv4.sysctl_local_unbindable_ports)
+		return false;
+	return test_bit(port, net->ipv4.sysctl_local_unbindable_ports);
+}
+
 static inline bool sysctl_dev_name_is_allowed(const char *name)
 {
 	return strcmp(name, "default") != 0  && strcmp(name, "all") != 0;
@@ -360,6 +367,11 @@ static inline int inet_prot_sock(struct net *net)
 static inline int inet_is_local_reserved_port(struct net *net, int port)
 {
 	return 0;
+}
+
+static inline bool inet_is_local_unbindable_port(struct net *net, unsigned short port)
+{
+	return false;
 }
 
 static inline int inet_prot_sock(struct net *net)
@@ -759,5 +771,10 @@ int ip_misc_proc_init(void);
 
 int rtm_getroute_parse_ip_proto(struct nlattr *attr, u8 *ip_proto, u8 family,
 				struct netlink_ext_ack *extack);
+
+static inline bool inetdev_valid_mtu(unsigned int mtu)
+{
+	return likely(mtu >= IPV4_MIN_MTU);
+}
 
 #endif	/* _IP_H */

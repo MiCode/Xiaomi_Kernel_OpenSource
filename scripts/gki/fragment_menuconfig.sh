@@ -25,6 +25,15 @@ PLATFORM_NAME=`echo $PLATFORM_NAME | sed "s/vendor\///g"`
 # We should be in the kernel root after the envsetup
 source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME
 
+KERN_MAKE_ARGS="ARCH=$ARCH \
+		CROSS_COMPILE=$CROSS_COMPILE \
+		REAL_CC=$REAL_CC \
+		CLANG_TRIPLE=$CLANG_TRIPLE \
+		HOSTCC=$HOSTCC \
+		HOSTLD=$HOSTLD \
+		HOSTAR=$HOSTAR \
+		"
+
 # Allyes fragment temporarily created on GKI config fragment
 QCOM_GKI_ALLYES_FRAG=${CONFIGS_DIR}/${PLATFORM_NAME}_ALLYES_GKI.config
 
@@ -59,9 +68,9 @@ FINAL_DEFCONFIG_BLEND=`echo "${FINAL_DEFCONFIG_BLEND}" | awk '{ for (i=NF; i>1; 
 
 echo "defconfig blend for $REQUIRED_DEFCONFIG: $FINAL_DEFCONFIG_BLEND"
 
-${KERN_SRC}/scripts/kconfig/merge_config.sh $FINAL_DEFCONFIG_BLEND
-
-make savedefconfig
+MAKE_ARGS=$KERN_MAKE_ARGS \
+        ${KERN_SRC}/scripts/kconfig/merge_config.sh $FINAL_DEFCONFIG_BLEND
+make $KERN_MAKE_ARGS savedefconfig
 mv defconfig defconfig_base
 mv .config .config_base
 
@@ -76,8 +85,8 @@ for config_file in $FINAL_DEFCONFIG_BLEND; do
 done
 
 # Start the menuconfig
-make ${MENUCONFIG_BLEND} menuconfig
-make savedefconfig
+make $KERN_MAKE_ARGS ${MENUCONFIG_BLEND} menuconfig
+make $KERN_MAKE_ARGS savedefconfig
 
 # The fragment file that we are targeting to edit
 FRAG_CONFIG=`echo ${MENUCONFIG_BLEND} | awk 'NF>1{print $NF}' | sed 's/vendor\///'`

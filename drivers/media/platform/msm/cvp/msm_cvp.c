@@ -1654,9 +1654,10 @@ static int cvp_fence_thread_start(struct msm_cvp_inst *inst)
 	spin_unlock(&q->lock);
 
 	for (i = 0; i < inst->prop.fthread_nr; ++i) {
-		if (!cvp_get_inst_validate(inst->core, inst))
+		if (!cvp_get_inst_validate(inst->core, inst)) {
 			rc = -ECONNRESET;
 			goto exit;
+		}
 
 		snprintf(tname, sizeof(tname), "fthread_%d", tnum++);
 		thread = kthread_run(cvp_fence_thread, inst, tname);

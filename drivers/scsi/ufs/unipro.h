@@ -173,7 +173,6 @@
 /* PHY Adapter Protocol Constants */
 #define PA_MAXDATALANES	4
 
-#ifdef CONFIG_SCSI_UFSHCD_QTI
 #define DL_FC0ProtectionTimeOutVal_Default	8191
 #define DL_TC0ReplayTimeOutVal_Default		65535
 #define DL_AFC0ReqTimeOutVal_Default		32767
@@ -184,7 +183,7 @@
 #define DME_LocalFC0ProtectionTimeOutVal	0xD041
 #define DME_LocalTC0ReplayTimeOutVal		0xD042
 #define DME_LocalAFC0ReqTimeOutVal		0xD043
-#endif
+
 /* PA power modes */
 enum {
 	FAST_MODE	= 1,

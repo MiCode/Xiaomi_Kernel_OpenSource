@@ -487,6 +487,7 @@ struct snd_pcm_substream {
 #ifdef CONFIG_AUDIO_QGKI
 	spinlock_t runtime_lock;
 #endif
+	unsigned int hw_no_buffer: 1; /* substream may not have a buffer */
 };
 
 #define SUBSTREAM_BUSY(substream) ((substream)->ref_count > 0)
