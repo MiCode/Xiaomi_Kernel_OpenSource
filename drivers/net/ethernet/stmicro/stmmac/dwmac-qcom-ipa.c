@@ -918,13 +918,12 @@ static int enable_rx_dma_interrupts(unsigned int QINX,
 	/* AIE - Abnormal Interrupt Summary Enable */
 	/* FBE - Fatal Bus Error Enable */
 	/* RIE - Receive Interrupt Enable */
-	/* RBUE - Receive Buffer Unavailable Enable  */
 	/* RSE - Receive Stopped Enable */
 	DMA_IER_RGRD(QINX, VARDMA_IER);
 	/* Reset all Rx interrupt bits */
 	VARDMA_IER = VARDMA_IER & (unsigned long)(DMA_RX_INT_RESET_MASK);
 
-	VARDMA_IER = VARDMA_IER | ((0x1) << 7) | ((0x1) << 14) | ((0x1) << 12) |
+	VARDMA_IER = VARDMA_IER | ((0x1) << 14) | ((0x1) << 12) |
 	    ((0x1) << 15);
 
 	DMA_IER_RGWR(QINX, VARDMA_IER);
@@ -951,6 +950,8 @@ static void ethqos_configure_ipa_tx_dma_channel(unsigned int QINX,
 	ETHQOSDBG("\n");
 
 	enable_tx_dma_interrupts(QINX, ethqos);
+	/* Enable Operate on Second Packet for better tputs */
+	DMA_TCR_OSP_UDFWR(QINX, 0x1);
 
 	/* start TX DMA */
 	priv->hw->dma->start_tx(priv->ioaddr, IPA_DMA_TX_CH);
@@ -968,7 +969,7 @@ static void ethqos_configure_ipa_rx_dma_channel(unsigned int QINX,
 	ETHQOSDBG("\n");
 	/*Select Rx Buffer size = 2048bytes */
 
-	DMA_RCR_RBSZ_UDFWR(QINX, priv->dma_buf_sz);
+	DMA_RCR_RBSZ_UDFWR(QINX, ETHQOS_ETH_FRAME_LEN_IPA);
 
 	enable_rx_dma_interrupts(QINX, ethqos);
 
