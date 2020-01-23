@@ -67,11 +67,7 @@ struct bam_ops_if {
 	struct qcom_smem_state *(*smsm_get_state_ptr)(struct device *dev,
 		const char *con_id, unsigned int *bit);
 
-	struct qcom_smem_state *(*smsm_state_cb_register_ptr)(
-		struct device_node *of_node,
-		const struct qcom_smem_state_ops *ops, void *priv);
-
-	void (*smsm_state_cb_deregister_ptr)(struct qcom_smem_state *state);
+	void (*smsm_put_state_ptr)(struct qcom_smem_state *state);
 
 	/* sps */
 	int (*sps_connect_ptr)(struct sps_pipe *h, struct sps_connect *connect);
@@ -113,10 +109,7 @@ struct bam_ops_if {
 
 	enum dma_data_direction dma_from;
 
-
-	struct device_node *node;
-
-	u32 *smem_state;
+	u32 a2_pwr_state;
 
 	void *pwr_state;
 

@@ -1,7 +1,7 @@
 * msm-qpnp-pin
 
 msm-qpnp-pin is a GPIO chip driver for the MSM SPMI implementation.
-It creates a spmi_device for every spmi-dev-container block of device_nodes.
+It creates a platform_device for every block of device_nodes.
 These device_nodes contained within specify the PMIC pin number associated
 with each gpio chip. The driver will map these to Linux GPIO numbers.
 
@@ -10,8 +10,6 @@ with each gpio chip. The driver will map these to Linux GPIO numbers.
 -Root Node-
 
 Required properties :
- - spmi-dev-container : Used to specify the following child nodes as part of the
-   same SPMI device.
  - gpio-controller : Specify as gpio-controller. All child nodes will belong to
    this gpio_chip.
  - #gpio-cells: We encode a PMIC pin number and a 32-bit flag field to
@@ -188,13 +186,11 @@ qpnp: qcom,spmi@fc4c0000 {
 		#interrupt-cells = <3>;
 
 		qcom,pm8941@0 {
-			spmi-slave-container;
 			reg = <0x0>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 
 			pm8941_gpios: gpios {
-				spmi-dev-container;
 				compatible = "qcom,qpnp-pin";
 				gpio-controller;
 				#gpio-cells = <2>;

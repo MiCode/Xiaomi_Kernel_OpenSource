@@ -1425,6 +1425,92 @@ const struct clk_ops clk_gfx3d_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_gfx3d_ops);
 
+
+static int clk_gfx3d_src_set_rate_and_parent(struct clk_hw *hw,
+		unsigned long rate, unsigned long parent_rate, u8 index)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	const struct freq_tbl *f;
+	u32 cfg, old_cfg;
+	int ret;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
+
+	cfg = rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
+
+	f = qcom_find_freq(rcg->freq_tbl, rate);
+	if (!f)
+		return -EINVAL;
+
+	/* Update the RCG-DIV */
+	cfg |= f->pre_div << CFG_SRC_DIV_SHIFT;
+
+	ret = regmap_write(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, cfg);
+	if (ret)
+		return ret;
+
+	return update_config(rcg, old_cfg);
+}
+
+static int clk_gfx3d_src_determine_rate(struct clk_hw *hw,
+			struct clk_rate_request *req)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_rate_request parent_req = { };
+	struct clk_hw *p1, *p3, *xo, *curr_p;
+	const struct freq_tbl *f;
+	int ret;
+
+	xo = clk_hw_get_parent_by_index(hw, 0);
+	if (req->rate == clk_hw_get_rate(xo)) {
+		req->best_parent_hw = xo;
+		req->best_parent_rate = req->rate;
+		return 0;
+	}
+
+	f = qcom_find_freq(rcg->freq_tbl, req->rate);
+	if (!f || (req->rate != f->freq))
+		return -EINVAL;
+
+	/* Indexes of source from the parent map */
+	p1 = clk_hw_get_parent_by_index(hw, 1);
+	p3 = clk_hw_get_parent_by_index(hw, 2);
+
+	curr_p = clk_hw_get_parent(hw);
+	parent_req.rate = f->src_freq;
+
+	if (curr_p == xo || curr_p == p3)
+		req->best_parent_hw = p1;
+	else if (curr_p == p1)
+		req->best_parent_hw = p3;
+
+	parent_req.best_parent_hw = req->best_parent_hw;
+
+	ret = __clk_determine_rate(req->best_parent_hw, &parent_req);
+	if (ret)
+		return ret;
+
+	req->best_parent_rate = parent_req.rate;
+
+	return 0;
+}
+
+const struct clk_ops clk_gfx3d_src_ops = {
+	.enable = clk_rcg2_enable,
+	.disable = clk_rcg2_disable,
+	.is_enabled = clk_rcg2_is_enabled,
+	.get_parent = clk_rcg2_get_parent,
+	.set_parent = clk_rcg2_set_parent,
+	.recalc_rate = clk_rcg2_recalc_rate,
+	.set_rate = clk_gfx3d_set_rate,
+	.set_rate_and_parent = clk_gfx3d_src_set_rate_and_parent,
+	.determine_rate = clk_gfx3d_src_determine_rate,
+	.list_rate = clk_rcg2_list_rate,
+	.list_registers = clk_rcg2_list_registers,
+};
+EXPORT_SYMBOL(clk_gfx3d_src_ops);
+
 /* Common APIs to be used for DFS based RCGR */
 static u8 clk_parent_index_pre_div_and_mode(struct clk_hw *hw, u32 offset,
 		u32 *mode, u32 *pre_div)
@@ -1592,3 +1678,73 @@ done:
 err:
 	return ret;
 }
+
+static int clk_esc_determine_rate(struct clk_hw *hw,
+	struct clk_rate_request *req)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	unsigned long parent_rate, div;
+	u32 mask = BIT(rcg->hid_width) - 1;
+	struct clk_hw *p;
+	unsigned long rate = req->rate;
+
+	if (rate == 0)
+		return -EINVAL;
+
+	p = req->best_parent_hw;
+	req->best_parent_rate = parent_rate = clk_hw_round_rate(p, rate);
+
+	div = ((2 * parent_rate) / rate) - 1;
+	div = min_t(u32, div, mask);
+
+	req->rate = clk_rcg2_calc_rate(parent_rate, 0, 0, 0, div);
+
+	return 0;
+}
+
+static int clk_esc_set_rate(struct clk_hw *hw, unsigned long rate,
+	unsigned long parent_rate)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct freq_tbl f = { 0 };
+	unsigned long div;
+	int i, num_parents = clk_hw_get_num_parents(hw);
+	u32 mask = BIT(rcg->hid_width) - 1;
+	u32 cfg;
+
+	div = ((2 * parent_rate) / rate) - 1;
+	div = min_t(u32, div, mask);
+
+	f.pre_div = div;
+
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+	cfg &= CFG_SRC_SEL_MASK;
+	cfg >>= CFG_SRC_SEL_SHIFT;
+
+	for (i = 0; i < num_parents; i++) {
+		if (cfg == rcg->parent_map[i].cfg) {
+			f.src = rcg->parent_map[i].src;
+				return clk_rcg2_configure(rcg, &f);
+		}
+	}
+
+	return -EINVAL;
+}
+
+static int clk_esc_set_rate_and_parent(struct clk_hw *hw,
+		unsigned long rate, unsigned long parent_rate, u8 index)
+{
+	return clk_esc_set_rate(hw, rate, parent_rate);
+}
+
+const struct clk_ops clk_esc_ops = {
+	.is_enabled = clk_rcg2_is_enabled,
+	.get_parent = clk_rcg2_get_parent,
+	.set_parent = clk_rcg2_set_parent,
+	.recalc_rate = clk_rcg2_recalc_rate,
+	.determine_rate = clk_esc_determine_rate,
+	.set_rate = clk_esc_set_rate,
+	.set_rate_and_parent = clk_esc_set_rate_and_parent,
+	.list_registers = clk_rcg2_list_registers,
+};
+EXPORT_SYMBOL(clk_esc_ops);

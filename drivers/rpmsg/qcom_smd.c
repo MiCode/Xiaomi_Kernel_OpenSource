@@ -23,6 +23,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/termios.h>
 #include <linux/wait.h>
 #include <linux/rpmsg.h>
 #include <linux/rpmsg/qcom_smd.h>
@@ -220,6 +221,7 @@ struct qcom_smd_channel {
 	void *drvdata;
 
 	struct list_head list;
+	u32 rsigs;
 };
 
 /*
@@ -280,6 +282,14 @@ struct smd_channel_info_word_pair {
 		le32_to_cpu(channel->info_word ?			      \
 			channel->info_word->rx.param :			      \
 			channel->info->rx.param);			      \
+	})
+
+#define GET_RX_CHANNEL_SIGNAL(channel)					      \
+	({								      \
+		(GET_RX_CHANNEL_FLAG(channel, fDSR) ? TIOCM_DSR : 0) |	      \
+		(GET_RX_CHANNEL_FLAG(channel, fCTS) ? TIOCM_CTS : 0) |	      \
+		(GET_RX_CHANNEL_FLAG(channel, fCD) ? TIOCM_CD : 0) |	      \
+		(GET_RX_CHANNEL_FLAG(channel, fRI) ? TIOCM_RI : 0);	      \
 	})
 
 #define SET_RX_CHANNEL_FLAG(channel, param, value)			     \
@@ -559,9 +569,11 @@ static int qcom_smd_channel_recv_single(struct qcom_smd_channel *channel)
  */
 static bool qcom_smd_channel_intr(struct qcom_smd_channel *channel)
 {
+	struct rpmsg_endpoint *ept = &channel->qsept->ept;
 	bool need_state_scan = false;
 	int remote_state;
 	__le32 pktlen;
+	u32 rsig = 0;
 	int avail;
 	int ret;
 
@@ -581,6 +593,14 @@ static bool qcom_smd_channel_intr(struct qcom_smd_channel *channel)
 	/* Don't consume any data until we've opened the channel */
 	if (channel->state != SMD_CHANNEL_OPENED)
 		goto out;
+
+	/* Check if any signal updated */
+	rsig = GET_RX_CHANNEL_SIGNAL(channel);
+
+	if ((ept->sig_cb) && (channel->rsigs != rsig)) {
+		ept->sig_cb(ept->rpdev, channel->rsigs, rsig);
+		channel->rsigs = rsig;
+	}
 
 	/* Indicate that we've seen the new data */
 	SET_RX_CHANNEL_FLAG(channel, fHEAD, 0);
@@ -934,6 +954,39 @@ static unsigned int qcom_smd_poll(struct rpmsg_endpoint *ept,
 	return mask;
 }
 
+static int qcom_smd_get_sigs(struct rpmsg_endpoint *ept,
+				u32 *lsigs, u32 *rsigs)
+{
+	struct qcom_smd_endpoint *qsept = to_smd_endpoint(ept);
+	struct qcom_smd_channel *channel = qsept->qsch;
+
+	*lsigs = 0;
+	*rsigs = 0;
+	*rsigs = GET_RX_CHANNEL_SIGNAL(channel);
+	return 0;
+}
+
+static int qcom_smd_set_sigs(struct rpmsg_endpoint *ept, u32 sigs)
+{
+	struct qcom_smd_endpoint *qsept = to_smd_endpoint(ept);
+	struct qcom_smd_channel *channel = qsept->qsch;
+
+	if (sigs & TIOCM_DTR)
+		SET_TX_CHANNEL_FLAG(channel, fDSR, 1);
+	else
+		SET_TX_CHANNEL_FLAG(channel, fDSR, 0);
+
+	if (sigs & TIOCM_RTS)
+		SET_TX_CHANNEL_FLAG(channel, fCTS, 1);
+	else
+		SET_TX_CHANNEL_FLAG(channel, fDSR, 0);
+
+	SET_TX_CHANNEL_FLAG(channel, fSTATE, 1);
+	qcom_smd_signal_channel(channel);
+
+	return 0;
+}
+
 /*
  * Finds the device_node for the smd child interested in this channel.
  */
@@ -967,6 +1020,8 @@ static const struct rpmsg_endpoint_ops qcom_smd_endpoint_ops = {
 	.send = qcom_smd_send,
 	.trysend = qcom_smd_trysend,
 	.poll = qcom_smd_poll,
+	.get_sigs = qcom_smd_get_sigs,
+	.set_sigs = qcom_smd_set_sigs,
 };
 
 static void qcom_smd_release_device(struct device *dev)

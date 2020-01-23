@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,7 +114,7 @@ static int cam_req_mgr_open(struct file *filep)
 
 	/* return if already initialized before */
 	if (g_dev.open_cnt > 1) {
-		CAM_ERR(CAM_CRM, "Already opened", rc);
+		CAM_WARN(CAM_CRM, "Already opened", rc);
 		goto end;
 	}
 

@@ -221,9 +221,8 @@ struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 	*plane = 0;
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 		for (i = 0; i < min(temp->num_planes, VIDEO_MAX_PLANES); i++) {
-			bool ion_hndl_matches = temp->handle[i] ?
-				msm_smem_compare_buffers(inst->mem_client, fd,
-				temp->handle[i]->smem_priv) : false;
+			bool dma_matches = msm_smem_compare_buffers(fd,
+						temp->smem[i].dma_buf);
 			bool device_addr_matches = device_addr ==
 						temp->device_addr[i];
 			bool contains_within = CONTAINS(temp->buff_off[i],
@@ -233,7 +232,7 @@ struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 					temp->buff_off[i], temp->size[i]);
 
 			if (!temp->inactive &&
-				(ion_hndl_matches || device_addr_matches) &&
+				(dma_matches || device_addr_matches) &&
 				(contains_within || overlaps)) {
 				dprintk(VIDC_DBG,
 						"This memory region is already mapped\n");
@@ -254,7 +253,6 @@ static struct msm_smem *get_same_fd_buffer(struct msm_vidc_inst *inst, int fd)
 {
 	struct buffer_info *temp;
 	struct msm_smem *same_fd_handle = NULL;
-
 	int i;
 
 	if (!fd)
@@ -268,14 +266,13 @@ static struct msm_smem *get_same_fd_buffer(struct msm_vidc_inst *inst, int fd)
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 		for (i = 0; i < min(temp->num_planes, VIDEO_MAX_PLANES); i++) {
-			bool ion_hndl_matches = temp->handle[i] ?
-				msm_smem_compare_buffers(inst->mem_client, fd,
-				temp->handle[i]->smem_priv) : false;
-			if (ion_hndl_matches && temp->mapped[i])  {
+			bool dma_matches = msm_smem_compare_buffers(fd,
+						temp->smem[i].dma_buf);
+			if (dma_matches && temp->mapped[i])  {
 				temp->same_fd_ref[i]++;
 				dprintk(VIDC_INFO,
 				"Found same fd buffer\n");
-				same_fd_handle = temp->handle[i];
+				same_fd_handle = &temp->smem[i];
 				break;
 			}
 		}
@@ -365,23 +362,6 @@ static inline void repopulate_v4l2_buffer(struct v4l2_buffer *b,
 				binfo->buff_off[i], binfo->size[i],
 				&binfo->device_addr[i]);
 	}
-}
-
-static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
-		struct v4l2_plane *p, enum hal_buffer buffer_type)
-{
-	struct msm_smem *handle = NULL;
-
-	handle = msm_comm_smem_user_to_kernel(inst,
-				p->reserved[0],
-				p->reserved[1],
-				buffer_type);
-	if (!handle) {
-		dprintk(VIDC_ERR,
-			"%s: Failed to get device buffer address\n", __func__);
-		return NULL;
-	}
-	return handle;
 }
 
 static inline enum hal_buffer get_hal_buffer_type(
@@ -518,17 +498,27 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			same_fd_handle->device_addr + binfo->buff_off[i];
 			b->m.planes[i].m.userptr = binfo->device_addr[i];
 			binfo->mapped[i] = false;
-			binfo->handle[i] = same_fd_handle;
+			binfo->smem[i] = *same_fd_handle;
 		} else {
-			binfo->handle[i] = map_buffer(inst, &b->m.planes[i],
-					get_hal_buffer_type(inst, b));
-			if (!binfo->handle[i]) {
-				rc = -EINVAL;
+			binfo->smem[i].buffer_type = binfo->type;
+			binfo->smem[i].fd = binfo->fd[i];
+			binfo->smem[i].offset = binfo->buff_off[i];
+			binfo->smem[i].size = binfo->size[i];
+			rc = msm_smem_map_dma_buf(inst, &binfo->smem[i]);
+			if (rc) {
+				dprintk(VIDC_ERR, "%s: map failed.\n",
+						 __func__);
 				goto exit;
 			}
-
+			/* increase refcount as we get both fbd and rbr */
+			rc = msm_smem_map_dma_buf(inst, &binfo->smem[i]);
+			if (rc) {
+				dprintk(VIDC_ERR, "%s: map failed..\n",
+						 __func__);
+				goto exit;
+			}
 			binfo->mapped[i] = true;
-			binfo->device_addr[i] = binfo->handle[i]->device_addr +
+			binfo->device_addr[i] = binfo->smem[i].device_addr +
 				binfo->buff_off[i];
 			b->m.planes[i].m.userptr = binfo->device_addr[i];
 		}
@@ -541,7 +531,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		}
 		dprintk(VIDC_DBG,
 			"%s: [MAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
-			__func__, binfo, i, binfo->handle[i],
+			__func__, binfo, i, binfo->smem[i],
 			&binfo->device_addr[i], binfo->fd[i],
 			binfo->buff_off[i], binfo->mapped[i]);
 	}
@@ -594,7 +584,7 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 	for (i = 0; i < temp->num_planes; i++) {
 		dprintk(VIDC_DBG,
 			"%s: [UNMAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
-			__func__, temp, i, temp->handle[i],
+			__func__, temp, i, temp->smem[i],
 			&temp->device_addr[i], temp->fd[i],
 			temp->buff_off[i], temp->mapped[i]);
 		/*
@@ -606,17 +596,19 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 		 * For buffers which share the same fd, do not unmap and keep
 		 * the buffer info in registered list.
 		 */
-		if (temp->handle[i] && temp->mapped[i] &&
-			!temp->same_fd_ref[i]) {
+		if (temp->mapped[i] && !temp->same_fd_ref[i]) {
+			if (msm_smem_unmap_dma_buf(inst, &temp->smem[i]))
+				dprintk(VIDC_DBG, "unmap failed..\n");
+
 			msm_comm_smem_free(inst,
-				temp->handle[i]);
+				&temp->smem[i]);
 		}
 
 		if (temp->same_fd_ref[i])
 			keep_node = true;
 		else {
 			temp->fd[i] = 0;
-			temp->handle[i] = 0;
+			//temp->smem[i] = 0;
 			temp->device_addr[i] = 0;
 			temp->uvaddr[i] = 0;
 		}
@@ -679,18 +671,14 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 
 
 	for (i = 0; i < binfo->num_planes; i++) {
-		if (binfo->handle[i]) {
-			rc = msm_comm_smem_cache_operations(inst,
-				binfo->handle[i], SMEM_CACHE_INVALIDATE);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s: Failed to clean caches: %d\n",
-					__func__, rc);
-				return -EINVAL;
-			}
-		} else
-			dprintk(VIDC_DBG, "%s: NULL handle for plane %d\n",
-					__func__, i);
+		rc = msm_comm_smem_cache_operations(inst,
+			&binfo->smem[i], SMEM_CACHE_INVALIDATE);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: Failed to clean caches: %d\n",
+				__func__, rc);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
@@ -812,14 +800,14 @@ free_and_unmap:
 		if (bi->type == buffer_type) {
 			list_del(&bi->list);
 			for (i = 0; i < bi->num_planes; i++) {
-				if (bi->handle[i] && bi->mapped[i]) {
+				if (bi->mapped[i]) {
 					dprintk(VIDC_DBG,
 						"%s: [UNMAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
-						__func__, bi, i, bi->handle[i],
+						__func__, bi, i, bi->smem[i],
 						&bi->device_addr[i], bi->fd[i],
 						bi->buff_off[i], bi->mapped[i]);
 					msm_comm_smem_free(inst,
-							bi->handle[i]);
+							&bi->smem[i]);
 				}
 			}
 			kfree(bi);
@@ -881,10 +869,10 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 				&binfo->device_addr[i]);
 
 		if (inst->fmts[OUTPUT_PORT].fourcc ==
-			V4L2_PIX_FMT_HEVC_HYBRID && binfo->handle[i] &&
+			V4L2_PIX_FMT_HEVC_HYBRID &&
 			b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			rc = msm_comm_smem_cache_operations(inst,
-				binfo->handle[i], SMEM_CACHE_INVALIDATE);
+				&binfo->smem[i], SMEM_CACHE_INVALIDATE);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed to inv caches: %d\n", rc);
@@ -892,10 +880,9 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 			}
 		}
 
-		if (binfo->handle[i] &&
-			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			rc = msm_comm_smem_cache_operations(inst,
-					binfo->handle[i], SMEM_CACHE_CLEAN);
+					&binfo->smem[i], SMEM_CACHE_CLEAN);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed to clean caches: %d\n", rc);
@@ -1223,12 +1210,6 @@ void *msm_vidc_open(int core_id, int session_type)
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
 		init_completion(&inst->completions[i]);
 	}
-	inst->mem_client = msm_smem_new_client(SMEM_DMA,
-					&inst->core->resources, session_type);
-	if (!inst->mem_client) {
-		dprintk(VIDC_ERR, "Failed to create memory client\n");
-		goto fail_mem_client;
-	}
 
 	if (session_type == MSM_VIDC_DECODER) {
 		msm_vdec_inst_init(inst);
@@ -1292,8 +1273,6 @@ fail_bufq_output:
 	vb2_queue_release(&inst->bufq[CAPTURE_PORT].vb2_bufq);
 fail_bufq_capture:
 	msm_comm_ctrl_deinit(inst);
-	msm_smem_delete_client(inst->mem_client);
-fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 	kfree(inst);
 	inst = NULL;
@@ -1407,8 +1386,8 @@ int msm_vidc_close(void *instance)
 
 			for (i = 0; i < min(bi->num_planes, VIDEO_MAX_PLANES);
 					i++) {
-				if (bi->handle[i] && bi->mapped[i])
-					msm_comm_smem_free(inst, bi->handle[i]);
+				if (bi->mapped[i])
+					msm_comm_smem_free(inst, &bi->smem[i]);
 			}
 
 			kfree(bi);
@@ -1427,7 +1406,6 @@ int msm_vidc_close(void *instance)
 			"Failed to move video instance to uninit state\n");
 
 	msm_comm_session_clean(inst);
-	msm_smem_delete_client(inst->mem_client);
 
 	kref_put(&inst->kref, close_helper);
 	return 0;

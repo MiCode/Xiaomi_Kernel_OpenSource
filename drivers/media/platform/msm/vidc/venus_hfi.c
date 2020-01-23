@@ -3381,6 +3381,11 @@ static void print_sfr_message(struct venus_hfi_device *device)
 
 	vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
 	if (vsfr) {
+		if (vsfr->bufSize != device->sfr.mem_size) {
+			dprintk(VIDC_ERR, "Invalid SFR buf size %d actual %d\n",
+					vsfr->bufSize, device->sfr.mem_size);
+			return;
+		}
 		vsfr_size = vsfr->bufSize - sizeof(u32);
 		p = memchr(vsfr->rg_data, '\0', vsfr_size);
 		/* SFR isn't guaranteed to be NULL terminated */

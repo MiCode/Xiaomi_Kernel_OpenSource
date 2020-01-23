@@ -253,6 +253,9 @@ config USB_F_IPC
 config USB_F_MDM_DATA
 	tristate
 
+config USB_F_RMNET_BAM
+        tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -345,6 +348,18 @@ config USB_CONFIGFS_RNDIS
 	   as the "driver info file".  For versions of MS-Windows older than
 	   XP, you'll need to download drivers from Microsoft's website; a URL
 	   is given in comments found in that info file.
+
+config USB_CONFIGFS_RMNET_BAM
+        bool "RMNET_BAM"
+        depends on USB_CONFIGFS
+        select USB_F_RMNET_BAM
+	help
+	   RmNet interface is a new logical device in QMI framework for data
+	   services. RmNet in accordance with QMI architecture uses Data I/O
+	   channel for IP data transfer and control I/O channel for QMI
+	   messaging (functionality similar to AT commands).
+	   RmNet interface is an alternative to standard CDC-ECM and windows
+	   RNDIS.
 
 config USB_CONFIGFS_EEM
 	bool "Ethernet Emulation Model (EEM)"

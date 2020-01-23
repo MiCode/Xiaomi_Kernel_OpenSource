@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -453,7 +453,7 @@
 };
 
 &q6core {
-	sound-adp-star {
+	snd_x155: sound-adp-star {
 		compatible = "qcom,sa8155-asoc-snd-adp-star";
 		qcom,model = "sa8155-adp-star-snd-card";
 		qcom,mi2s-audio-intf;

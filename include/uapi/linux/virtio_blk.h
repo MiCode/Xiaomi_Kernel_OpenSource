@@ -38,6 +38,7 @@
 #define VIRTIO_BLK_F_BLK_SIZE	6	/* Block size of disk is available*/
 #define VIRTIO_BLK_F_TOPOLOGY	10	/* Topology information is available */
 #define VIRTIO_BLK_F_MQ		12	/* support more than one vq */
+#define VIRTIO_BLK_F_ICE		23	/* support ice virtualization */
 
 /* Legacy feature bits */
 #ifndef VIRTIO_BLK_NO_LEGACY

@@ -117,6 +117,8 @@
 #define TMC_ETR_BAM_PIPE_INDEX	0
 #define TMC_ETR_BAM_NR_PIPES	2
 
+#define TMC_ETR_PCIE_MEM_SIZE	0x400000
+
 enum tmc_config_type {
 	TMC_CONFIG_TYPE_ETB,
 	TMC_CONFIG_TYPE_ETR,
@@ -167,12 +169,14 @@ enum tmc_etr_out_mode {
 	TMC_ETR_OUT_MODE_NONE,
 	TMC_ETR_OUT_MODE_MEM,
 	TMC_ETR_OUT_MODE_USB,
+	TMC_ETR_OUT_MODE_PCIE,
 };
 
 static const char * const str_tmc_etr_out_mode[] = {
 	[TMC_ETR_OUT_MODE_NONE]		= "none",
 	[TMC_ETR_OUT_MODE_MEM]		= "mem",
 	[TMC_ETR_OUT_MODE_USB]		= "usb",
+	[TMC_ETR_OUT_MODE_PCIE]		= "pcie",
 };
 
 struct tmc_etr_bam_data {
@@ -278,6 +282,7 @@ extern void tmc_etr_free_mem(struct tmc_drvdata *drvdata);
 extern int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata);
 
 extern const struct coresight_ops tmc_etr_cs_ops;
+int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode);
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\

@@ -1,0 +1,120 @@
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_dsi0_pll: qcom,mdss_dsi_pll@c994400 {
+		compatible = "qcom,mdss_dsi_pll_14nm";
+		status = "ok";
+		label = "MDSS DSI 0 PLL";
+		cell-index = <0>;
+		#clock-cells = <1>;
+
+		reg = <0xc994400 0x588>,
+		      <0xc8c2300 0x8>,
+		      <0xc994200 0x98>;
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+
+		clocks = <&clock_mmss MMSS_MDSS_AHB_CLK>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+		memory-region = <&dfps_data_mem>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+		};
+	};
+
+	mdss_dsi1_pll: qcom,mdss_dsi_pll@c996400 {
+		compatible = "qcom,mdss_dsi_pll_14nm";
+		status = "ok";
+		label = "MDSS DSI 1 PLL";
+		cell-index = <1>;
+		#clock-cells = <1>;
+
+		reg = <0xc996400 0x588>,
+		      <0xc8c2300 0x8>,
+		      <0xc996200 0x98>;
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+
+		clocks = <&clock_mmss MMSS_MDSS_AHB_CLK>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+
+	mdss_dp_pll: qcom,mdss_dp_pll@c011000 {
+		compatible = "qcom,mdss_dp_pll_sdm660";
+		status = "ok";
+		label = "MDSS DP PLL";
+		cell-index = <0>;
+		#clock-cells = <1>;
+
+		reg = <0xc011c00 0x190>,
+		      <0xc011000 0x910>,
+		      <0x0c8c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+
+		clocks = <&clock_mmss MMSS_MDSS_AHB_CLK>,
+			 <&clock_rpmcc RPM_SMD_LN_BB_CLK1>,
+			 <&clock_gcc GCC_USB3_CLKREF_CLK>;
+		clock-names = "iface_clk", "ref_clk_src", "ref_clk";
+		clock-rate = <0>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+};

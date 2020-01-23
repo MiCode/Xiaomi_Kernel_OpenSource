@@ -410,6 +410,9 @@ int proc_sip_segment(struct ctl_table *ctl, int write,
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 	if (nf_ct_enable_sip_segmentation) {
+		pr_debug("de-registering queue handler before register for sip\n");
+		nf_unregister_queue_handler(&init_net);
+
 		pr_debug("registering queue handler\n");
 		nf_register_queue_handler(&init_net, &nf_sip_qh);
 	} else {

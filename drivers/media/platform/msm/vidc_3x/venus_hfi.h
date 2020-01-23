@@ -125,7 +125,7 @@ struct vidc_mem_addr {
 	phys_addr_t align_device_addr;
 	u8 *align_virtual_addr;
 	u32 mem_size;
-	struct msm_smem *mem_data;
+	struct msm_smem mem_data;
 };
 
 struct vidc_iface_q_info {
@@ -235,7 +235,6 @@ struct venus_hfi_device {
 	struct vidc_mem_addr sfr;
 	struct vidc_mem_addr mem_addr;
 	struct vidc_iface_q_info iface_queues[VIDC_IFACEQ_NUMQ];
-	struct smem_client *hal_client;
 	struct hal_data *hal_data;
 	struct workqueue_struct *vidc_workq;
 	struct workqueue_struct *venus_pm_workq;

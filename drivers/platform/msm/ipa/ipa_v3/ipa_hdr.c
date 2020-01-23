@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 #include "ipa_i.h"
 #include "ipahal/ipahal.h"
 
-static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 64};
+static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 64, 128};
 static const u32 ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN_MAX] = { 32, 64};
 
 #define HDR_TYPE_IS_VALID(type) \
@@ -545,6 +545,10 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr, bool user)
 		bin = IPA_HDR_BIN3;
 	else if (hdr->hdr_len <= ipa_hdr_bin_sz[IPA_HDR_BIN4])
 		bin = IPA_HDR_BIN4;
+	/* Starting from IPA4.5, HW supports larger headers. */
+	else if ((hdr->hdr_len <= ipa_hdr_bin_sz[IPA_HDR_BIN5]) &&
+		(ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5))
+		bin = IPA_HDR_BIN5;
 	else {
 		IPAERR_RL("unexpected hdr len %d\n", hdr->hdr_len);
 		goto bad_hdr_len;

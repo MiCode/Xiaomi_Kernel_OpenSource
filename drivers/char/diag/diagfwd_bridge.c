@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,12 @@
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
 #include "diag_ipc_logging.h"
+#include <linux/of.h>
 
 #define BRIDGE_TO_MUX(x)	(x + DIAG_MUX_BRIDGE_BASE)
+
+/* variable to identify which interface is selected to bridging with mdm */
+static bool hsic_interface_active;
 
 struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV] = {
 	{
@@ -175,6 +179,11 @@ int diag_remote_dev_open(int id)
 void diag_remote_dev_close(int id)
 {
 
+	if (id < 0 || id >= NUM_REMOTE_DEV)
+		return;
+
+	diag_mux_close_device(BRIDGE_TO_MUX(id));
+
 }
 
 int diag_remote_dev_read_done(int id, unsigned char *buf, int len)
@@ -271,15 +280,30 @@ uint16_t diag_get_remote_device_mask(void)
 
 void diag_register_with_bridge(void)
 {
-	if (IS_ENABLED(CONFIG_USB_QTI_DIAG_BRIDGE))
+	struct device_node *dev_node;
+
+	if (IS_ENABLED(CONFIG_USB_QTI_DIAG_BRIDGE) &&
+	    IS_ENABLED(CONFIG_MHI_BUS)) {
+		dev_node = of_find_node_by_name(NULL, "qcom,diag");
+		if (dev_node) {
+			hsic_interface_active = of_property_read_bool(dev_node,
+				"qcom,usb-enabled");
+			if (hsic_interface_active) {
+				diag_register_with_hsic();
+				return;
+			}
+		}
+		diag_register_with_mhi();
+	} else if (IS_ENABLED(CONFIG_USB_QTI_DIAG_BRIDGE)) {
+		hsic_interface_active = true;
 		diag_register_with_hsic();
-	else if (IS_ENABLED(CONFIG_MHI_BUS))
+	} else if (IS_ENABLED(CONFIG_MHI_BUS))
 		diag_register_with_mhi();
 }
 
 void diag_unregister_bridge(void)
 {
-	if (IS_ENABLED(CONFIG_USB_QTI_DIAG_BRIDGE))
+	if (hsic_interface_active)
 		diag_unregister_hsic();
 	else if (IS_ENABLED(CONFIG_MHI_BUS))
 		diag_unregister_mhi();

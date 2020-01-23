@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include <linux/io.h>
 #include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
-
+#include "vidc_hfi_helper.h"
 
 #define CODEC_ENTRY(n, p, vsp, vpp, lp) \
 {	\
@@ -36,18 +36,19 @@
 	.low_power_cycles = lp	\
 }
 
-#define UBWC_CONFIG(mco, mlo, hbbo, rs1, mc, ml, hbb, rs2) \
+#define UBWC_CONFIG(sz, type, mco, mlo, hbbo, rs1, mc, ml, hbb, rs2) \
 {	\
-	.sOverrideBitInfo.bMaxChannelsOverride = mc,	\
-	.sOverrideBitInfo.bMalLengthOverride = mlo,	\
-	.sOverrideBitInfo.bHBBOverride = hbbo,	\
-	.sOverrideBitInfo.reserved1 = rs1,	\
-	.nMaxChannels = mc,	\
-	.nMalLength = ml,	\
-	.nHighestBankBit = hbb,	\
-	.reserved2 = {rs2}	\
+	.nSize = sz, \
+	.ePacketType = type, \
+	.v1.sOverrideBitInfo.bMaxChannelsOverride = mco,	\
+	.v1.sOverrideBitInfo.bMalLengthOverride = mlo,	\
+	.v1.sOverrideBitInfo.bHBBOverride = hbbo,	\
+	.v1.sOverrideBitInfo.reserved1 = rs1,	\
+	.v1.nMaxChannels = mc,	\
+	.v1.nMalLength = ml,	\
+	.v1.nHighestBankBit = hbb,	\
+	.v1.reserved2 = {rs2}	\
 }
-
 
 #define EFUSE_ENTRY(sa, s, m, sh, p) \
 {	\
@@ -743,7 +744,13 @@ static struct msm_vidc_efuse_data sdmmagpie_efuse_data[] = {
 };
 
 static struct msm_vidc_ubwc_config trinket_ubwc_data[] = {
-	UBWC_CONFIG(0, 1, 0, 0, 0, 64, 0, 0),
+	UBWC_CONFIG(sizeof(struct msm_vidc_ubwc_config_v1),
+		HFI_PROPERTY_SYS_UBWC_CONFIG, 0, 1, 0, 0, 0, 64, 0, 0),
+};
+
+static struct msm_vidc_ubwc_config sdmshrike_ubwc_data[] = {
+	UBWC_CONFIG(sizeof(struct msm_vidc_ubwc_config),
+		HFI_PROPERTY_SYS_UBWC_CONFIG, 1, 0, 1, 0, 8, 0, 16, 0),
 };
 
 static struct msm_vidc_platform_data default_data = {
@@ -826,6 +833,22 @@ static struct msm_vidc_platform_data sm8150_data = {
 	.vpu_ver = VPU_VERSION_5,
 };
 
+static struct msm_vidc_platform_data sdmshrike_data = {
+	.codec_data = sm8150_codec_data,
+	.codec_data_length =  ARRAY_SIZE(sm8150_codec_data),
+	.common_data = sm8150_common_data,
+	.common_data_length =  ARRAY_SIZE(sm8150_common_data),
+	.ubwc_config = sdmshrike_ubwc_data,
+	.ubwc_config_length = ARRAY_SIZE(sdmshrike_ubwc_data),
+	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
+	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
+	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
+	.efuse_data = NULL,
+	.efuse_data_length = 0,
+	.sku_version = 0,
+	.vpu_ver = VPU_VERSION_5,
+};
+
 static struct msm_vidc_platform_data sdmmagpie_data = {
 	.codec_data = sdmmagpie_codec_data,
 	.codec_data_length =  ARRAY_SIZE(sdmmagpie_codec_data),
@@ -890,6 +913,10 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{
 		.compatible = "qcom,sm8150-vidc",
 		.data = &sm8150_data,
+	},
+	{
+		.compatible = "qcom,sdmshrike-vidc",
+		.data = &sdmshrike_data,
 	},
 	{
 		.compatible = "qcom,sdmmagpie-vidc",

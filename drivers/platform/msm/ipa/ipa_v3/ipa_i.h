@@ -183,7 +183,8 @@
 #define IPA_HDR_BIN2 2
 #define IPA_HDR_BIN3 3
 #define IPA_HDR_BIN4 4
-#define IPA_HDR_BIN_MAX 5
+#define IPA_HDR_BIN5 5
+#define IPA_HDR_BIN_MAX 6
 
 #define IPA_HDR_PROC_CTX_BIN0 0
 #define IPA_HDR_PROC_CTX_BIN1 1
@@ -1798,6 +1799,7 @@ struct ipa3_app_clock_vote {
  * @ipa_wdi2: using wdi-2.0
  * @ipa_config_is_auto: is this AUTO use case
  * @ipa_fltrt_not_hashable: filter/route rules not hashable
+ * @use_xbl_boot: use xbl loading for IPA FW
  * @use_64_bit_dma_mask: using 64bits dma mask
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
@@ -1911,6 +1913,7 @@ struct ipa3_context {
 	bool ipa_wdi3_over_gsi;
 	bool ipa_endp_delay_wa;
 	bool ipa_fltrt_not_hashable;
+	bool use_xbl_boot;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
@@ -2026,6 +2029,7 @@ struct ipa3_plat_drv_res {
 	bool ipa_wdi2_over_gsi;
 	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
+	bool use_xbl_boot;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
 	u32 wan_rx_ring_size;
@@ -2242,8 +2246,10 @@ struct ipa3_mem_partition {
 	u32 uc_descriptor_ram_size;
 	u32 pdn_config_ofst;
 	u32 pdn_config_size;
-	u32 stats_quota_ofst;
-	u32 stats_quota_size;
+	u32 stats_quota_q6_ofst;
+	u32 stats_quota_q6_size;
+	u32 stats_quota_ap_ofst;
+	u32 stats_quota_ap_size;
 	u32 stats_tethering_ofst;
 	u32 stats_tethering_size;
 	u32 stats_fnr_ofst;

@@ -140,7 +140,7 @@ struct eos_buf {
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
-	struct msm_smem *handle;
+	struct msm_smem smem;
 	enum buffer_owner buffer_ownership;
 };
 
@@ -282,7 +282,6 @@ struct msm_vidc_inst {
 	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
 	struct buffer_requirements buff_req;
-	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
 	struct v4l2_ctrl **cluster;
@@ -357,7 +356,7 @@ struct buffer_info {
 	int size[VIDEO_MAX_PLANES];
 	unsigned long uvaddr[VIDEO_MAX_PLANES];
 	phys_addr_t device_addr[VIDEO_MAX_PLANES];
-	struct msm_smem *handle[VIDEO_MAX_PLANES];
+	struct msm_smem smem[VIDEO_MAX_PLANES];
 	enum v4l2_memory memory;
 	u32 v4l2_index;
 	bool pending_deletion;
@@ -382,20 +381,25 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo);
 
 void msm_comm_handle_thermal_event(void);
-void *msm_smem_new_client(enum smem_type mtype,
-		void *platform_resources, enum session_type stype);
-struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
-		enum hal_buffer buffer_type, int map_kernel);
-void msm_smem_free(void *clt, struct msm_smem *mem);
-void msm_smem_delete_client(void *clt);
-int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
-		enum smem_cache_ops);
-struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
-				enum hal_buffer buffer_type);
-struct context_bank_info *msm_smem_get_context_bank(void *clt,
-		bool is_secure, enum hal_buffer buffer_type);
+int msm_smem_alloc(size_t size, u32 align, u32 flags,
+		enum hal_buffer buffer_type, int map_kernel,
+		void  *res, u32 session_type, struct msm_smem *smem);
+int msm_smem_free(struct msm_smem *mem);
+int msm_smem_cache_operations(struct dma_buf *dbuf,
+		enum smem_cache_ops, unsigned long offset, unsigned long size);
+struct context_bank_info *msm_smem_get_context_bank(u32 session_type,
+	bool is_secure, struct msm_vidc_platform_resources *res,
+	enum hal_buffer buffer_type);
+int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
+int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem);
+struct dma_buf *msm_smem_get_dma_buf(int fd);
+void msm_smem_put_dma_buf(void *dma_buf);
+bool msm_smem_compare_buffers(int fd, void *dma_buf);
+struct msm_smem *msm_smem_user_to_kernel(struct msm_vidc_inst *inst,
+		int fd, u32 offset,
+		u32 size, enum hal_buffer buffer_type);
+
 void msm_vidc_fw_unload_handler(struct work_struct *work);
-bool msm_smem_compare_buffers(void *clt, int fd, void *priv);
 /* XXX: normally should be in msm_vidc.h, but that's meant for public APIs,
  * whereas this is private
  */

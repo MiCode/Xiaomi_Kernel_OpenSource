@@ -342,9 +342,11 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
 	vbr->out_hdr.ioprio = cpu_to_virtio32(vblk->vdev, req_get_ioprio(req));
 
 	retval = virtblk_handle_ice(vblk, req);
-	if (retval != BLK_STS_OK)
+	if (retval != BLK_STS_OK) {
+		if (retval == BLK_STS_RESOURCE)
+			blk_mq_run_hw_queue(hctx, true);
 		return retval;
-
+	}
 	blk_mq_start_request(req);
 
 	num = blk_rq_map_sg(hctx->queue, req, vbr->sg);
@@ -794,6 +796,8 @@ static int virtblk_probe(struct virtio_device *vdev)
 	INIT_WORK(&vblk->config_work, virtblk_config_changed_work);
 
 #ifdef CONFIG_PFK_VIRTUALIZED
+	if (!virtio_has_feature(vblk->vdev, VIRTIO_BLK_F_ICE))
+		return -ENOTTY;
 	INIT_WORK(&vblk->ice_cfg_work, virtblk_ice_work);
 	vblk->work_pending = false;
 #endif
@@ -1038,6 +1042,9 @@ static unsigned int features[] = {
 	VIRTIO_BLK_F_RO, VIRTIO_BLK_F_BLK_SIZE,
 	VIRTIO_BLK_F_FLUSH, VIRTIO_BLK_F_TOPOLOGY, VIRTIO_BLK_F_CONFIG_WCE,
 	VIRTIO_BLK_F_MQ,
+#ifdef CONFIG_PFK_VIRTUALIZED
+	VIRTIO_BLK_F_ICE,
+#endif
 };
 
 static struct virtio_driver virtio_blk = {

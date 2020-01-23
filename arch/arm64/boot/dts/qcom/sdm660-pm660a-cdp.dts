@@ -1,0 +1,56 @@
+/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sdm660.dtsi"
+#include "sdm660-cdp.dtsi"
+#include "msm-pm660a.dtsi"
+#include "sdm660-external-codec.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660A CDP";
+	compatible = "qcom,sdm660-cdp", "qcom,sdm660", "qcom,cdp";
+	qcom,board-id = <1 0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>,
+			<0x0001001b 0x0002001a 0x0 0x0>,
+			<0x0001001b 0x0202001a 0x0 0x0>;
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_rm67195_amoled_fhd_cmd>;
+	oledb-supply = <&pm660a_oledb>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+	oledb-supply = <&pm660a_oledb>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&tavil_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};
+
+&tasha_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};

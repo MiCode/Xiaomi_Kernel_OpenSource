@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -872,7 +872,8 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 			soc_info, hw_intf, vfe_hw_info->bus_rd_hw_info,
 			core_info->vfe_irq_controller, &core_info->vfe_rd_bus);
 		if (rc) {
-			CAM_ERR(CAM_ISP, "Error! RD cam_vfe_bus_init failed");
+			/* failure expected as read bus is not used for now */
+			CAM_INFO(CAM_ISP, "RD cam_vfe_bus_init failed");
 			rc = 0;
 		}
 		CAM_DBG(CAM_ISP, "vfe_bus_rd %pK hw_idx %d",

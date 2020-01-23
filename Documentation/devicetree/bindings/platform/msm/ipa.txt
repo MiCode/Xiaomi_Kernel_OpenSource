@@ -114,6 +114,7 @@ memory allocation over a PCIe bridge
 				0 (use scm call),
 				1 (override scm call as though it returned true), and
 				2 (override scm call as though it returned false)
+- qcom,use-xbl-boot: Boolean to indicate XBL boot loading for IPA FW
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

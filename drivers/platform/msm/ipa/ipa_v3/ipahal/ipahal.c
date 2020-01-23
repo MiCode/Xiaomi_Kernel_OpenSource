@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1239,7 +1239,8 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
 		ctx->end.value = 0;
-	} else if (type == IPA_HDR_PROC_L2TP_HEADER_ADD) {
+	} else if ((type == IPA_HDR_PROC_L2TP_HEADER_ADD) ||
+		(type == IPA_HDR_PROC_L2TP_UDP_HEADER_ADD)) {
 		struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq *ctx;
 
 		ctx = (struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq *)
@@ -1257,8 +1258,14 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 			ctx->hdr_add.hdr_addr_hi = 0;
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
-		ctx->l2tp_params.tlv.value =
-				IPA_HDR_UCP_L2TP_HEADER_ADD;
+		if (type == IPA_HDR_PROC_L2TP_HEADER_ADD)
+			ctx->l2tp_params.tlv.value =
+					IPA_HDR_UCP_L2TP_HEADER_ADD;
+		else
+			ctx->l2tp_params.tlv.value =
+					IPA_HDR_UCP_L2TP_UDP_HEADER_ADD;
+		ctx->l2tp_params.l2tp_params.second_pass =
+			l2tp_params->hdr_add_param.second_pass;
 		ctx->l2tp_params.l2tp_params.eth_hdr_retained =
 			l2tp_params->hdr_add_param.eth_hdr_retained;
 		ctx->l2tp_params.l2tp_params.input_ip_version =
@@ -1289,7 +1296,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
 		ctx->l2tp_params.tlv.value =
-				IPA_HDR_UCP_L2TP_HEADER_REMOVE;
+					IPA_HDR_UCP_L2TP_HEADER_REMOVE;
 		ctx->l2tp_params.l2tp_params.hdr_len_remove =
 			l2tp_params->hdr_remove_param.hdr_len_remove;
 		ctx->l2tp_params.l2tp_params.eth_hdr_retained =
@@ -1310,7 +1317,36 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
 		ctx->end.value = 0;
-	}  else if (type == IPA_HDR_PROC_ETHII_TO_ETHII_EX) {
+	} else if (type == IPA_HDR_PROC_L2TP_UDP_HEADER_REMOVE) {
+		struct ipa_hw_hdr_proc_ctx_remove_l2tp_udp_hdr_cmd_seq *ctx;
+
+		ctx = (struct ipa_hw_hdr_proc_ctx_remove_l2tp_udp_hdr_cmd_seq *)
+			(base + offset);
+		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
+		ctx->l2tp_params.tlv.length = 1;
+		ctx->l2tp_params.tlv.value =
+				IPA_HDR_UCP_L2TP_UDP_HEADER_REMOVE;
+		ctx->l2tp_params.l2tp_params.hdr_len_remove =
+			l2tp_params->hdr_remove_param.hdr_len_remove;
+		ctx->l2tp_params.l2tp_params.eth_hdr_retained =
+			l2tp_params->hdr_remove_param.eth_hdr_retained;
+		ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size_valid =
+			l2tp_params->hdr_remove_param.hdr_ofst_pkt_size_valid;
+		ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size =
+			l2tp_params->hdr_remove_param.hdr_ofst_pkt_size;
+		ctx->l2tp_params.l2tp_params.hdr_endianness =
+			l2tp_params->hdr_remove_param.hdr_endianness;
+		IPAHAL_DBG("hdr ofst valid: %d, hdr ofst pkt size: %d\n",
+			ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size_valid,
+			ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size);
+		IPAHAL_DBG("endianness: %d\n",
+			ctx->l2tp_params.l2tp_params.hdr_endianness);
+
+		IPAHAL_DBG("command id %d\n", ctx->l2tp_params.tlv.value);
+		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
+		ctx->end.length = 0;
+		ctx->end.value = 0;
+	} else if (type == IPA_HDR_PROC_ETHII_TO_ETHII_EX) {
 		struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex *ctx;
 
 		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex *)
@@ -1337,7 +1373,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
 		ctx->end.value = 0;
-	} else {
+	}  else {
 		struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq *ctx;
 
 		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq *)

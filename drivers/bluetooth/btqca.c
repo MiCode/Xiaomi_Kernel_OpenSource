@@ -240,7 +240,6 @@ static void qca_tlv_check_data(struct rome_config *config,
 static int qca_tlv_send_segment_optimised(struct hci_dev *hdev,
 			int idx, int seg_size, const u8 *data)
 {
-	struct hci_uart *hu = hci_get_drvdata(hdev);
 	struct sk_buff *skb;
 	u8 param[MAX_SIZE_PER_TLV_SEGMENT + 2];
 	int len = HCI_COMMAND_HDR_SIZE + seg_size + 2;
@@ -327,7 +326,6 @@ static int hst_tlv_send_segment_sync(struct hci_dev *hdev, int idx,
 		err = -EIO;
 	}
 
-out:
 	kfree_skb(skb);
 	return err;
 }
@@ -633,7 +631,6 @@ static void qca_get_bda(struct hci_dev *hdev, const char *str, bdaddr_t *bda)
 int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 				qca_enque_send_callback callback)
 {
-	u32 rome_ver = 0;
 	struct rome_config config;
 	u32 qca_ver = 0;
 	int err;

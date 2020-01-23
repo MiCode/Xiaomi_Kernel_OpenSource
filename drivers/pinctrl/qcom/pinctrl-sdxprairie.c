@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1250,7 +1250,7 @@ static struct msm_gpio_mux_input sdxprairie_mux_in[] = {
 	{29, 54},
 	{30, 55},
 	{31, 56},
-	{32, 57},
+	{32, 57, 1},
 	{33, 60},
 	{34, 61},
 	{35, 64, 1},

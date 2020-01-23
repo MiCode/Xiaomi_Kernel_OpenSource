@@ -1,0 +1,44 @@
+Qualcomm Technologies, Inc. QPNP Coincell - coincell battery charger devices
+
+Required properties:
+- compatible:      Must be "qcom,qpnp-coincell".
+- reg:             Specifies the SPMI address and size for this coincell device.
+
+Required structure:
+- A qcom,qpnp-coincell node must be a child of an SPMI node that has specified
+	the spmi-slave-container property.
+
+Optional properties:
+- qcom,rset-ohms:	Specifies the resistance of the current limiting
+			resistor in ohms.  Four values are supported:
+			800, 1200, 1700, and 2100.
+- qcom,vset-millivolts:	Specifies the coincell charging voltage in millivolts.
+			Four values are supported: 2500, 3000, 3100, and 3200.
+- qcom,charge-enable:	Specifies if coincell charging should be enabled or not.
+			0 = disable charging, 1 = enabled charging
+
+If any of the optional properties are not specified, then the hardware default
+values for the unspecified properties will be used instead.
+
+Example:
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8941@1 {
+			spmi-slave-container;
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,coincell@2800 {
+				compatible = "qcom,qpnp-coincell";
+				reg = <0x2800 0x100>;
+				qcom,rset-ohms = <800>;
+				qcom,vset-millivolts = <3100>;
+				qcom,charge-enable = <1>;
+			};
+		};
+	};
