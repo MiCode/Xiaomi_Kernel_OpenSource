@@ -353,7 +353,6 @@ struct mhi_controller {
 
 	/* worker for different state transitions */
 	struct work_struct st_worker;
-	struct work_struct fw_worker;
 	struct work_struct special_work;
 	struct workqueue_struct *special_wq;
 
