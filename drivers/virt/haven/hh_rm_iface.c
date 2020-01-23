@@ -15,6 +15,10 @@
 
 #define HH_RM_MEM_RELEASE_VALID_FLAGS HH_RM_MEM_RELEASE_CLEAR
 #define HH_RM_MEM_RECLAIM_VALID_FLAGS HH_RM_MEM_RECLAIM_CLEAR
+#define HH_RM_MEM_ACCEPT_VALID_FLAGS\
+	(HH_RM_MEM_ACCEPT_VALIDATE_SANITIZED |\
+	 HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |\
+	 HH_RM_MEM_ACCEPT_VALIDATE_LABEL | HH_RM_MEM_ACCEPT_DONE)
 
 static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 
@@ -625,6 +629,10 @@ static void hh_rm_populate_mem_request(void *req_buf, u32 fn_id,
 		req_hdr_size =
 			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
 		break;
+	case HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT:
+		req_hdr_size =
+			sizeof(struct hh_mem_accept_req_payload_hdr);
+		break;
 	default:
 		return;
 	}
@@ -654,6 +662,10 @@ static void *hh_rm_alloc_mem_request_buf(u32 fn_id, size_t n_acl_entries,
 	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
 		req_payload_size =
 			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
+		break;
+	case HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT:
+		req_payload_size =
+			sizeof(struct hh_mem_accept_req_payload_hdr);
 		break;
 	default:
 		return ERR_PTR(-EINVAL);
@@ -818,3 +830,118 @@ int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags)
 					handle, flags);
 }
 EXPORT_SYMBOL(hh_rm_mem_reclaim);
+
+/**
+ * hh_rm_mem_accept: Accept a handle representing memory. This results in
+ *                   the RM mapping the associated memory from the stage-2
+ *                   page-tables of a VM
+ * @handle: The memparcel handle associated with the memory
+ * @mem_type: The type of memory associated with the memparcel (i.e. normal or
+ *            I/O)
+ * @trans_type: The type of memory transfer
+ * @flags: Bitmask of values to influence the behavior of the RM when it maps
+ *         the memory
+ * @label: The label to validate against the label maintained by the RM
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should validate against for AC
+ *            regarding the memparcel
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            where the memory should be mapped in the IPA space of the VM
+ *            denoted by @map_vmid. If this parameter is left NULL, then the
+ *            RM will map the memory at an arbitrary location
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should validate
+ *                 against regarding the memparcel.
+ * @map_vmid: The VMID which RM will map the memory for. VMID 0 corresponds
+ *            to mapping the memory for the current VM
+ *
+ *
+ * On success, the function will return a pointer to an sg-list to convey where
+ * the memory has been mapped. After the SG-List is no longer needed, the
+ * caller must free the table. On a failure, a negative number will be returned.
+ */
+struct hh_sgl_desc *hh_rm_mem_accept(hh_memparcel_handle_t handle, u8 mem_type,
+				     u8 trans_type, u8 flags, hh_label_t label,
+				     struct hh_acl_desc *acl_desc,
+				     struct hh_sgl_desc *sgl_desc,
+				     struct hh_mem_attr_desc *mem_attr_desc,
+				     u16 map_vmid)
+{
+
+	struct hh_mem_accept_req_payload_hdr *req_payload_hdr;
+	struct hh_sgl_desc *ret_sgl;
+	struct hh_mem_accept_resp_payload *resp_payload;
+	void *req_buf;
+	size_t req_payload_size, resp_payload_size;
+	u16 req_sgl_entries = 0, req_mem_attr_entries = 0;
+	u32 req_acl_entries = 0;
+	int hh_ret;
+	u32 fn_id = HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT;
+
+	if ((mem_type != HH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != HH_RM_MEM_TYPE_IO) ||
+	    (trans_type != HH_RM_TRANS_TYPE_DONATE &&
+	     trans_type != HH_RM_TRANS_TYPE_LEND &&
+	     trans_type != HH_RM_TRANS_TYPE_SHARE) ||
+	    (flags & ~HH_RM_MEM_ACCEPT_VALID_FLAGS))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS &&
+	    (!acl_desc || !acl_desc->n_acl_entries) &&
+	    (!mem_attr_desc || !mem_attr_desc->n_mem_attr_entries))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS) {
+		if (acl_desc)
+			req_acl_entries = acl_desc->n_acl_entries;
+		if (mem_attr_desc)
+			req_mem_attr_entries =
+				mem_attr_desc->n_mem_attr_entries;
+	}
+
+	if (sgl_desc)
+		req_sgl_entries = sgl_desc->n_sgl_entries;
+
+	req_buf = hh_rm_alloc_mem_request_buf(fn_id, req_acl_entries,
+					      req_sgl_entries,
+					      req_mem_attr_entries,
+					      &req_payload_size);
+	if (IS_ERR(req_buf))
+		return req_buf;
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->memparcel_handle = handle;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->trans_type = trans_type;
+	req_payload_hdr->flags = flags;
+	if (flags & HH_RM_MEM_ACCEPT_VALIDATE_LABEL)
+		req_payload_hdr->validate_label = label;
+	hh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, map_vmid,
+				   mem_attr_desc);
+
+	resp_payload = hh_rm_call(fn_id, req_buf, req_payload_size,
+				  &resp_payload_size, &hh_ret);
+	if (hh_ret || IS_ERR(resp_payload)) {
+		ret_sgl = ERR_CAST(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
+		goto err_rm_call;
+	}
+
+	/*
+	 * TODO: Shouldn't we have an input for the number of SG entries
+	 * associated with the memparcel, so we can validate that the size of
+	 * the response buffer is what we expect?
+	 */
+	ret_sgl = kmemdup(resp_payload, offsetof(struct hh_sgl_desc,
+			  sgl_entries[resp_payload->n_sgl_entries]),
+			  GFP_KERNEL);
+	if (!ret_sgl)
+		ret_sgl = ERR_PTR(-ENOMEM);
+
+	kfree(resp_payload);
+err_rm_call:
+	kfree(req_buf);
+	return ret_sgl;
+}
+EXPORT_SYMBOL(hh_rm_mem_accept);

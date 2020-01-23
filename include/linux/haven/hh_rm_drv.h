@@ -30,6 +30,11 @@
 #define HH_RM_MEM_RELEASE_CLEAR BIT(0)
 #define HH_RM_MEM_RECLAIM_CLEAR BIT(0)
 
+#define HH_RM_MEM_ACCEPT_VALIDATE_SANITIZED	BIT(0)
+#define HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS	BIT(1)
+#define HH_RM_MEM_ACCEPT_VALIDATE_LABEL		BIT(2)
+#define HH_RM_MEM_ACCEPT_DONE			BIT(7)
+
 struct hh_rm_mem_shared_acl_entry;
 struct hh_rm_mem_shared_sgl_entry;
 struct hh_rm_mem_shared_attr_entry;
@@ -173,5 +178,11 @@ int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
 			      hh_memparcel_handle_t *handle);
 int hh_rm_mem_release(hh_memparcel_handle_t handle, u8 flags);
 int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags);
+struct hh_sgl_desc *hh_rm_mem_accept(hh_memparcel_handle_t handle, u8 mem_type,
+				     u8 trans_type, u8 flags, hh_label_t label,
+				     struct hh_acl_desc *acl_desc,
+				     struct hh_sgl_desc *sgl_desc,
+				     struct hh_mem_attr_desc *mem_attr_desc,
+				     u16 map_vmid);
 
 #endif

@@ -225,6 +225,27 @@ struct hh_mem_release_req_payload {
 	u32 reserved:24;
 } __packed;
 
+/*
+ * Call: MEM_ACCEPT
+ *
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct hh_mem_accept_req_payload_hdr {
+	hh_memparcel_handle_t memparcel_handle;
+	u8 mem_type;
+	u8 trans_type;
+	u8 flags;
+	u8 reserved1;
+	u32 validate_label;
+} __packed;
+
+struct hh_mem_accept_resp_payload {
+	u16 n_sgl_entries;
+	u16 reserved;
+} __packed;
+
 /* End Message ID headers */
 
 /* Common function declerations */
