@@ -773,6 +773,41 @@ void get_timer_count_hook_init(void)
 }
 EXPORT_SYMBOL(get_timer_count_hook_init);
 
+static int get_freq_trap(struct pt_regs *regs, unsigned int instr)
+{
+	u32 fval;
+	unsigned int res;
+	int rd = (instr >> 12) & 0xF;
+
+	res = arm_check_condition(instr, regs->ARM_cpsr);
+	if (res == ARM_OPCODE_CONDTEST_FAIL) {
+		regs->ARM_pc += 4;
+		return 0;
+	}
+
+	if (rd == 15)
+		return 1;
+
+	fval = arch_timer_get_cntfrq();
+	regs->uregs[rd] = fval;
+	regs->ARM_pc += 4;
+	return 0;
+}
+
+static struct undef_hook get_freq_hook = {
+	.instr_mask	= 0x0fff0fff,
+	.instr_val	= 0x0e1e0f10,
+	.cpsr_mask	= MODE_MASK,
+	.cpsr_val	= USR_MODE,
+	.fn		= get_freq_trap,
+};
+
+void get_timer_freq_hook_init(void)
+{
+	register_undef_hook(&get_freq_hook);
+}
+EXPORT_SYMBOL(get_timer_freq_hook_init);
+
 /*
  * A data abort trap was taken, but we did not handle the instruction.
  * Try to abort the user program, or panic if it was the kernel.
