@@ -34,9 +34,11 @@ static void set_params(struct hantro_ctx *ctx)
 	reg = G1_REG_DEC_CTRL0_DEC_AXI_WR_ID(0x0);
 	if (sps->flags & V4L2_H264_SPS_FLAG_MB_ADAPTIVE_FRAME_FIELD)
 		reg |= G1_REG_DEC_CTRL0_SEQ_MBAFF_E;
-	reg |= G1_REG_DEC_CTRL0_PICORD_COUNT_E;
-	if (dec_param->nal_ref_idc)
-		reg |= G1_REG_DEC_CTRL0_WRITE_MVS_E;
+	if (sps->profile_idc > 66) {
+		reg |= G1_REG_DEC_CTRL0_PICORD_COUNT_E;
+		if (dec_param->nal_ref_idc)
+			reg |= G1_REG_DEC_CTRL0_WRITE_MVS_E;
+	}
 
 	if (!(sps->flags & V4L2_H264_SPS_FLAG_FRAME_MBS_ONLY) &&
 	    (sps->flags & V4L2_H264_SPS_FLAG_MB_ADAPTIVE_FRAME_FIELD ||
@@ -246,7 +248,7 @@ static void set_buffers(struct hantro_ctx *ctx)
 	vdpu_write_relaxed(vpu, dst_dma, G1_REG_ADDR_DST);
 
 	/* Higher profiles require DMV buffer appended to reference frames. */
-	if (ctrls->sps->profile_idc > 66) {
+	if (ctrls->sps->profile_idc > 66 && ctrls->decode->nal_ref_idc) {
 		size_t pic_size = ctx->h264_dec.pic_size;
 		size_t mv_offset = round_up(pic_size, 8);
 

@@ -173,7 +173,7 @@ enum attr_idn {
 	QUERY_ATTR_IDN_FFU_STATUS		= 0x14,
 	QUERY_ATTR_IDN_PSA_STATE		= 0x15,
 	QUERY_ATTR_IDN_PSA_DATA_SIZE		= 0x16,
-	QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME = 0x17,
+	QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME	= 0x17,
 };
 
 /* Descriptor idn for Query requests */
@@ -508,9 +508,9 @@ struct ufs_query_res {
 #define UFS_VREG_VCC_MAX_UV	   3600000 /* uV */
 #define UFS_VREG_VCC_1P8_MIN_UV    1700000 /* uV */
 #define UFS_VREG_VCC_1P8_MAX_UV    1950000 /* uV */
-#define UFS_VREG_VCCQ_MIN_UV	   1100000 /* uV */
-#define UFS_VREG_VCCQ_MAX_UV	   1300000 /* uV */
-#define UFS_VREG_VCCQ2_MIN_UV	   1650000 /* uV */
+#define UFS_VREG_VCCQ_MIN_UV	   1140000 /* uV */
+#define UFS_VREG_VCCQ_MAX_UV	   1260000 /* uV */
+#define UFS_VREG_VCCQ2_MIN_UV	   1700000 /* uV */
 #define UFS_VREG_VCCQ2_MAX_UV	   1950000 /* uV */
 
 /*
@@ -563,6 +563,8 @@ struct ufs_dev_info {
 	/* is Unit Attention Condition cleared on UFS Device LUN? */
 	unsigned is_ufs_dev_wlun_ua_cleared:1;
 #endif
+	u16 spec_version;
+	u32 clk_gating_wait_us;
 };
 
 #define MAX_MODEL_LEN 16

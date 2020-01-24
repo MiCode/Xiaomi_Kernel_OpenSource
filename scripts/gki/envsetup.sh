@@ -9,6 +9,7 @@ KERN_SRC=`pwd`
 
 : ${ARCH:=arm64}
 : ${CROSS_COMPILE:=aarch64-linux-gnu-}
+: ${CLANG_TRIPLE:=aarch64-linux-gnu-}
 : ${REAL_CC:=clang}
 : ${HOSTCC:=gcc}
 : ${HOSTLD:ld}
