@@ -121,16 +121,6 @@ enum msm_usb_phy_type {
 #define IDEV_HVDCP_CHG_MAX	1800
 
 /**
- * Used different VDDCX voltage values
- */
-enum usb_vdd_value {
-	VDD_NONE = 0,
-	VDD_MIN,
-	VDD_MAX,
-	VDD_VAL_MAX,
-};
-
-/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence values. Value of -1 is reserved as

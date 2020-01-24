@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -30,6 +30,17 @@
 #include <linux/usb_bam.h>
 #include <linux/extcon.h>
 #include <linux/regulator/driver.h>
+
+/**
+ * Used different VDDCX voltage values
+ */
+enum usb_vdd_value {
+	VDD_NONE = 0,
+	VDD_MIN,
+	VDD_MAX,
+	VDD_VAL_MAX,
+};
+
 /**
  * Requested USB votes for NOC frequency
  *
@@ -323,6 +334,8 @@ struct msm_otg {
 
 struct ci13xxx_platform_data {
 	u8 usb_core_id;
+	int *tlmm_init_seq;
+	int tlmm_seq_count;
 	/*
 	 * value of 2^(log2_itc-1) will be used as the interrupt threshold
 	 * (ITC), when log2_itc is between 1 to 7.
@@ -332,6 +345,52 @@ struct ci13xxx_platform_data {
 	bool enable_ahb2ahb_bypass;
 	bool enable_streaming;
 	bool enable_axi_prefetch;
+};
+
+/**
+ * struct msm_hsic_host_platform_data - platform device data
+ *              for msm_hsic_host driver.
+ * @phy_sof_workaround: Enable ALL PHY SOF bug related workarounds for
+ *               SUSPEND, RESET and RESUME.
+ * @phy_susp_sof_workaround: Enable PHY SOF workaround for
+ *      SUSPEND.
+ * @phy_reset_sof_workaround: Enable PHY SOF workaround for
+ *      RESET.
+ * @dis_internal_clk_gating: If set, internal clock gating in controller
+ *              is disabled.
+ *
+ */
+struct msm_hsic_host_platform_data {
+	unsigned int strobe;
+	unsigned int data;
+	bool ignore_cal_pad_config;
+	bool phy_sof_workaround;
+	bool dis_internal_clk_gating;
+	bool phy_susp_sof_workaround;
+	bool phy_reset_sof_workaround;
+	u32 reset_delay;
+	int strobe_pad_offset;
+	int data_pad_offset;
+
+	struct msm_bus_scale_pdata *bus_scale_table;
+	unsigned int log2_irq_thresh;
+
+	/* gpio used to resume peripheral */
+	unsigned int resume_gpio;
+	int *tlmm_init_seq;
+	int tlmm_seq_count;
+
+	/*swfi latency is required while driving resume on to the bus */
+	u32 swfi_latency;
+
+	/*standalone latency is required when HSCI is active*/
+	u32 standalone_latency;
+	bool pool_64_bit_align;
+	bool enable_hbm;
+	bool disable_park_mode;
+	bool consider_ipa_handshake;
+	bool ahb_async_bridge_bypass;
+	bool disable_cerr;
 };
 
 #ifdef CONFIG_USB_BAM

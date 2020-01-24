@@ -1308,6 +1308,11 @@ MODULE_LICENSE ("GPL");
 #define        PLATFORM_DRIVER         ehci_mv_driver
 #endif
 
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+#include "ehci-msm-hsic.c"
+#define PLATFORM_DRIVER                ehci_msm_hsic_driver
+#endif
+
 static int __init ehci_hcd_init(void)
 {
 	int retval = 0;

@@ -411,6 +411,10 @@ struct hc_driver {
 	int (*get_core_id)(struct usb_hcd *hcd);
 	int (*stop_endpoint)(struct usb_hcd *hcd, struct usb_device *udev,
 			struct usb_host_endpoint *ep);
+	void    (*log_urb)(struct urb *urb, char *event, unsigned int extra);
+	void    (*dump_regs)(struct usb_hcd *);
+	void    (*set_autosuspend_delay)(struct usb_device *);
+	void    (*reset_sof_bug_handler)(struct usb_hcd *hcd, u32 val);
 };
 
 static inline int hcd_giveback_urb_in_bh(struct usb_hcd *hcd)
