@@ -99,7 +99,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *sys_heap,
 		 */
 		*from_pool = false;
 
-		if (pool_auto_refill_en &&
+		if (pool_auto_refill_en && pool->order &&
 		    pool_count_below_lowmark(pool)) {
 			worker = sys_heap->kworker[ION_KTHREAD_UNCACHED];
 			wake_up_process(worker);
@@ -114,10 +114,9 @@ static struct page *alloc_buffer_page(struct ion_system_heap *sys_heap,
 normal_alloc:
 	page = ion_page_pool_alloc(pool, from_pool);
 
-	if (pool_auto_refill_en &&
-	    pool_count_below_lowmark(pool) && vmid <= 0) {
+	if (pool_auto_refill_en && pool->order &&
+	    pool_count_below_lowmark(pool) && vmid <= 0)
 		wake_up_process(sys_heap->kworker[cached]);
-	}
 
 	if (IS_ERR(page))
 		return page;
