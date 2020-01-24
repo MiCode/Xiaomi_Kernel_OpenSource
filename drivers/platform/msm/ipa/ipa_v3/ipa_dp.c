@@ -1329,11 +1329,9 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		return result;
 	}
 
-	if (ep->sys->napi_obj) {
-		do {
-			usleep_range(95, 105);
-		} while (atomic_read(&ep->sys->curr_polling_state));
-	}
+	do {
+		usleep_range(95, 105);
+	} while (atomic_read(&ep->sys->curr_polling_state));
 
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
