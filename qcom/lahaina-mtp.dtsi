@@ -80,3 +80,19 @@
 &pm8350b_haptics {
 	status = "ok";
 };
+
+&pm8350c_switch0 {
+	qcom,led-mask = <9>; /* Channels 1 & 4 */
+};
+
+&pm8350c_switch1 {
+	qcom,led-mask = <6>; /* Channels 2 & 3 */
+};
+
+&pm8350c_switch2 {
+	qcom,led-mask = <15>; /* All Channels */
+};
+
+&pm8350c_flash {
+	status = "ok";
+};
