@@ -706,6 +706,7 @@
   rtnl_unlock
   rtnl_unregister
   rtnl_unregister_all
+  scatterwalk_map_and_copy
   sched_clock
   sched_setscheduler
   schedule
