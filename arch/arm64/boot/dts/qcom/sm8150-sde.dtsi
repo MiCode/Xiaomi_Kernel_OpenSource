@@ -577,6 +577,10 @@
 		};
 	};
 
+	sde_dp_mst_sim: qcom,dp-mst-sim {
+		compatible = "qcom,dp-mst-sim";
+	};
+
 	sde_dp: qcom,dp_display@0{
 		cell-index = <0>;
 		compatible = "qcom,dp-display";
@@ -641,6 +645,7 @@
 		qcom,max-pclk-frequency-khz = <675000>;
 
 		qcom,mst-enable;
+		qcom,dp-aux-bridge-sim = <&sde_dp_mst_sim>;
 		qcom,dsc-feature-enable;
 		qcom,fec-feature-enable;
 		qcom,max-dp-dsc-blks = <2>;

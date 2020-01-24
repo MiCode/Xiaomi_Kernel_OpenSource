@@ -1070,7 +1070,7 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe,
 	int i;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
-	seq_printf(s, "\nSSPP #%d type=%s ndx=%x flags=0x%08x play_cnt=%u xin_id=%d\n",
+	seq_printf(s, "\nSSPP #%d type=%s ndx=%x flags=0x%16llx play_cnt=%u xin_id=%d\n",
 			pipe->num, mdss_mdp_pipetype2str(pipe->type),
 			pipe->ndx, pipe->flags, pipe->play_cnt, pipe->xin_id);
 	seq_printf(s, "\tstage=%d alpha=0x%x transp=0x%x blend_op=%d\n",
