@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -401,9 +401,10 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S1_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&qupv3_se4_2uart_active>;
-		pinctrl-1 = <&qupv3_se4_2uart_sleep>;
+		pinctrl-names = "default","active", "sleep";
+		pinctrl-0 = <&qupv3_se4_2uart_default>;
+		pinctrl-1 = <&qupv3_se4_2uart_active>;
+		pinctrl-2 = <&qupv3_se4_2uart_sleep>;
 		interrupts = <GIC_SPI 354 0>;
 		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
