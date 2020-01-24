@@ -692,7 +692,7 @@ static int pm8008_regulator_probe(struct platform_device *pdev)
 /* PM8008 chip enable regulator callbacks */
 static int pm8008_enable_regulator_enable(struct regulator_dev *rdev)
 {
-	struct pm8008_regulator *chip = rdev_get_drvdata(rdev);
+	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
 	rc = pm8008_masked_write(chip->regmap, MISC_CHIP_ENABLE_REG,
@@ -708,7 +708,7 @@ static int pm8008_enable_regulator_enable(struct regulator_dev *rdev)
 
 static int pm8008_enable_regulator_disable(struct regulator_dev *rdev)
 {
-	struct pm8008_regulator *chip = rdev_get_drvdata(rdev);
+	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
 	rc = pm8008_masked_write(chip->regmap, MISC_CHIP_ENABLE_REG,
@@ -724,7 +724,7 @@ static int pm8008_enable_regulator_disable(struct regulator_dev *rdev)
 
 static int pm8008_enable_regulator_is_enabled(struct regulator_dev *rdev)
 {
-	struct pm8008_regulator *chip = rdev_get_drvdata(rdev);
+	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 	u8 reg;
 
