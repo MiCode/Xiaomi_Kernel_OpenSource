@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_ION_H
@@ -35,6 +35,8 @@ int msm_ion_heap_prefetch(int heap_id, struct ion_prefetch_region *regions,
 int msm_ion_heap_drain(int heap_id, struct ion_prefetch_region *regions,
 		       int nr_regions);
 
+int get_ion_flags(u32 vmid);
+
 #else
 
 static inline struct device *msm_ion_heap_device_by_id(int heap_id)
@@ -65,6 +67,11 @@ static inline int msm_ion_heap_drain(int heap_id,
 				     int nr_regions)
 {
 	return -ENODEV;
+}
+
+static inline int get_ion_flags(u32 vmid)
+{
+	return -EINVAL;
 }
 
 #endif /* CONFIG_ION_MSM_HEAPS */

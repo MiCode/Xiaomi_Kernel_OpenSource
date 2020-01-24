@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -52,6 +52,36 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_CDSP;
 	return -EINVAL;
 }
+
+int get_ion_flags(u32 vmid)
+{
+	if (vmid == VMID_CP_TOUCH)
+		return ION_FLAG_CP_TOUCH;
+	if (vmid == VMID_CP_BITSTREAM)
+		return ION_FLAG_CP_BITSTREAM;
+	if (vmid == VMID_CP_PIXEL)
+		return ION_FLAG_CP_PIXEL;
+	if (vmid == VMID_CP_NON_PIXEL)
+		return ION_FLAG_CP_NON_PIXEL;
+	if (vmid == VMID_CP_CAMERA)
+		return ION_FLAG_CP_CAMERA;
+	if (vmid == VMID_CP_SEC_DISPLAY)
+		return ION_FLAG_CP_SEC_DISPLAY;
+	if (vmid == VMID_CP_APP)
+		return ION_FLAG_CP_APP;
+	if (vmid == VMID_CP_CAMERA_PREVIEW)
+		return ION_FLAG_CP_CAMERA_PREVIEW;
+	if (vmid == VMID_CP_SPSS_SP)
+		return ION_FLAG_CP_SPSS_SP;
+	if (vmid == VMID_CP_SPSS_SP_SHARED)
+		return ION_FLAG_CP_SPSS_SP_SHARED;
+	if (vmid == VMID_CP_SPSS_HLOS_SHARED)
+		return ION_FLAG_CP_SPSS_HLOS_SHARED;
+	if (vmid == VMID_CP_CDSP)
+		return ION_FLAG_CP_CDSP;
+	return -EINVAL;
+}
+EXPORT_SYMBOL(get_ion_flags);
 
 static unsigned int count_set_bits(unsigned long val)
 {
