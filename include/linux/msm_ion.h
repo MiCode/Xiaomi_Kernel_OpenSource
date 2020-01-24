@@ -37,6 +37,8 @@ int msm_ion_heap_drain(int heap_id, struct ion_prefetch_region *regions,
 
 int get_ion_flags(u32 vmid);
 
+bool msm_ion_heap_is_secure(int heap_id);
+
 #else
 
 static inline struct device *msm_ion_heap_device_by_id(int heap_id)
@@ -72,6 +74,11 @@ static inline int msm_ion_heap_drain(int heap_id,
 static inline int get_ion_flags(u32 vmid)
 {
 	return -EINVAL;
+}
+
+static inline bool msm_ion_heap_is_secure(int heap_id)
+{
+	return false;
 }
 
 #endif /* CONFIG_ION_MSM_HEAPS */
