@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,36 +22,35 @@
 		compatible = "qcom,kgsl-busmon";
 	};
 
+	gpu_bw_tbl: gpu-bw-tbl {
+		compatible = "operating-points-v2";
+		opp-0    { opp-hz = /bits/ 64 < 0 >;     }; /*  OFF */
+		opp-100  { opp-hz = /bits/ 64 < 381 >;   }; /*  1.100 MHz */
+		opp-150  { opp-hz = /bits/ 64 < 572 >;   }; /*  2.150 MHz */
+		opp-200  { opp-hz = /bits/ 64 < 762 >;   }; /*  3.200 MHz */
+		opp-300  { opp-hz = /bits/ 64 < 1144 >;  }; /*  4.300 MHz */
+		opp-412  { opp-hz = /bits/ 64 < 1571 >;  }; /*  5.412 MHz */
+		opp-547  { opp-hz = /bits/ 64 < 2086 >;  }; /*  6.547 MHz */
+		opp-681  { opp-hz = /bits/ 64 < 2597 >;  }; /*  7.681 MHz */
+		opp-768  { opp-hz = /bits/ 64 < 2929 >;  }; /*  8.768 MHz */
+		opp-1017 { opp-hz = /bits/ 64 < 3879 >;  }; /*  9.1017 MHz */
+		opp-1296 { opp-hz = /bits/ 64 < 4943 >;  }; /* 10.1296 MHz */
+		opp-1353 { opp-hz = /bits/ 64 < 5161 >;  }; /* 11.1353 MHz */
+		opp-1555 { opp-hz = /bits/ 64 < 5931 >;  }; /* 12.1555 MHz */
+		opp-1804 { opp-hz = /bits/ 64 < 6881 >;  }; /* 13.1804 MHz */
+	};
+
 	gpubw: qcom,gpubw {
 		compatible = "qcom,devbw";
 		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
+		operating-points-v2 = <&gpu_bw_tbl>;
 		/*
 		 * active-only flag is used while registering the bus
 		 * governor. It helps release the bus vote when the CPU
 		 * subsystem is inactive
 		 */
 		qcom,active-only;
-		/*
-		 * IB votes in MBPS, derived using below formula
-		 * IB = (DDR frequency * DDR bus width in Bytes * Dual rate)
-		 * Note: IB vote is per DDR channel vote
-		 */
-		qcom,bw-tbl =
-			<     0 /*  off     */ >,
-			<   381 /*  100 MHz */ >,
-			<   572 /*  150 MHz */ >,
-			<   762 /*  200 MHz */ >,
-			<  1144 /*  300 MHz */ >,
-			<  1571 /*  412 MHz */ >,
-			<  2086 /*  547 MHz */ >,
-			<  2597 /*  681 MHz */ >,
-			<  2929 /*  768 MHz */ >,
-			<  3879 /*  1017 MHz */ >,
-			<  4943 /*  1296 MHz */ >,
-			<  5161 /*  1353 MHz */ >,
-			<  5931 /*  1555 MHz */ >,
-			<  6881 /*  1804 MHz */ >;
 	};
 
 	msm_gpu: qcom,kgsl-3d0@5000000 {
