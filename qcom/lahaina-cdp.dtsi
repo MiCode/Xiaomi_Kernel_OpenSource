@@ -76,3 +76,7 @@
 
 	status = "ok";
 };
+
+&pm8350b_haptics {
+	status = "ok";
+};
