@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahainap.dtsi"
+#include "lahainap-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. LahainaP MTP";
+	compatible = "qcom,lahainap-mtp", "qcom,lahainap", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+};
