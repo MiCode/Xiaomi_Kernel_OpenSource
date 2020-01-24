@@ -2358,11 +2358,21 @@ static u32 sdhci_msm_cqe_irq(struct sdhci_host *host, u32 intmask)
 {
 	int cmd_error = 0;
 	int data_error = 0;
+	u32 mask;
 
 	if (!sdhci_cqe_irq(host, intmask, &cmd_error, &data_error))
 		return intmask;
 
 	cqhci_irq(host->mmc, intmask, cmd_error, data_error);
+
+	/*
+	 * Clear selected interrupts in err case.
+	 * as earlier driver skipped
+	 */
+	if (data_error || cmd_error) {
+		mask = intmask & host->cqe_ier;
+		sdhci_writel(host, mask, SDHCI_INT_STATUS);
+	}
 	return 0;
 }
 

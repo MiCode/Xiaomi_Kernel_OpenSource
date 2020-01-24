@@ -3987,9 +3987,12 @@ bool sdhci_cqe_irq(struct sdhci_host *host, u32 intmask, int *cmd_error,
 		*data_error = 0;
 
 	/* Clear selected interrupts. */
+	if (*data_error || *cmd_error)
+		goto skip_intr_clear;
 	mask = intmask & host->cqe_ier;
 	sdhci_writel(host, mask, SDHCI_INT_STATUS);
 
+skip_intr_clear:
 	if (intmask & SDHCI_INT_BUS_POWER)
 		pr_err("%s: Card is consuming too much power!\n",
 		       mmc_hostname(host->mmc));
