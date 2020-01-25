@@ -1390,8 +1390,6 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels + 1;
 
-	gmu->icc_path = of_icc_get(&gmu->pdev->dev, NULL);
-
 	/* Populates RPMh configurations */
 	ret = gmu_rpmh_init(device, gmu);
 	if (ret)
@@ -1572,7 +1570,7 @@ static int gmu_start(struct kgsl_device *device)
 
 		/* Vote for minimal DDR BW for GMU to init */
 		level = pwr->pwrlevels[pwr->default_pwrlevel].bus_min;
-		icc_set_bw(gmu->icc_path, 0,
+		icc_set_bw(pwr->icc_path, 0,
 			MBps_to_icc(pwr->ddr_table[level]));
 
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(device, GMU_FW_START,
@@ -1650,6 +1648,7 @@ static void gmu_stop(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
 
 	if (!test_bit(GMU_CLK_ON, &device->gmu_core.flags))
@@ -1676,7 +1675,7 @@ static void gmu_stop(struct kgsl_device *device)
 	gmu_disable_clks(device);
 	gmu_disable_gdsc(gmu);
 
-	icc_set_bw(gmu->icc_path, 0, 0);
+	icc_set_bw(pwr->icc_path, 0, 0);
 	return;
 
 error:
@@ -1709,8 +1708,6 @@ static void gmu_remove(struct kgsl_device *device)
 		mbox_free_channel(gmu->mailbox.channel);
 
 	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-
-	icc_put(gmu->icc_path);
 
 	if (gmu->fw_image) {
 		release_firmware(gmu->fw_image);

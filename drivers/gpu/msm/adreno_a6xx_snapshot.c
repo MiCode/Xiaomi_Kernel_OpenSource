@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -805,6 +805,22 @@ static void a6xx_snapshot_shader(struct kgsl_device *device,
 	}
 }
 
+static void a650_snapshot_mempool(struct kgsl_device *device,
+				struct kgsl_snapshot *snapshot)
+{
+	u32 val;
+
+	/* set CP_CHICKEN_DBG[StabilizeMVC] to stabilize it while dumping */
+	kgsl_regread(device, A6XX_CP_CHICKEN_DBG, &val);
+	kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, val | BIT(2));
+
+	kgsl_snapshot_indexed_registers(device, snapshot,
+		A6XX_CP_MEM_POOL_DBG_ADDR, A6XX_CP_MEM_POOL_DBG_DATA,
+		0, 0x2100);
+
+	kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, val);
+}
+
 static void a6xx_snapshot_mempool(struct kgsl_device *device,
 				struct kgsl_snapshot *snapshot)
 {
@@ -817,7 +833,7 @@ static void a6xx_snapshot_mempool(struct kgsl_device *device,
 
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A6XX_CP_MEM_POOL_DBG_ADDR, A6XX_CP_MEM_POOL_DBG_DATA,
-		0, 0x2060);
+		0, 0x2100);
 
 	/*
 	 * Data at offset 0x2000 in the mempool section is the mempool size.
@@ -1765,7 +1781,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	bool sptprac_on;
-	unsigned int i, roq_size, ucode_dbg_size;
+	unsigned int i, roq_size;
 
 	/* GMU TCM data dumped through AHB */
 	gmu_core_dev_snapshot(device, snapshot);
@@ -1814,6 +1830,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
 
+	/* Assert the isStatic bit before triggering snapshot */
+	if (adreno_is_a660(adreno_dev))
+		kgsl_regwrite(device, A6XX_RBBM_SNAPSHOT_STATUS, 0x1);
+
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
@@ -1846,13 +1866,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		A6XX_CP_DRAW_STATE_ADDR, A6XX_CP_DRAW_STATE_DATA,
 		0, 0x100);
 
-	ucode_dbg_size = adreno_is_a650_family(adreno_dev)
-			? 0x7000 : 0x6000;
-
 	 /* SQE_UCODE Cache */
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A6XX_CP_SQE_UCODE_DBG_ADDR, A6XX_CP_SQE_UCODE_DBG_DATA,
-		0, ucode_dbg_size);
+		0, 0x8000);
 
 	/*
 	 * CP ROQ dump units is 4dwords. The number of units is stored
@@ -1869,7 +1886,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		snapshot, a6xx_snapshot_sqe, NULL);
 
 	/* Mempool debug data */
-	a6xx_snapshot_mempool(device, snapshot);
+	if (adreno_is_a650_family(adreno_dev))
+		a650_snapshot_mempool(device, snapshot);
+	else
+		a6xx_snapshot_mempool(device, snapshot);
 
 	if (sptprac_on) {
 		/* Shader memory */
@@ -1880,6 +1900,18 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 		/* registers dumped through DBG AHB */
 		a6xx_snapshot_dbgahb_regs(device, snapshot);
+	}
+
+	if (adreno_is_a660(adreno_dev)) {
+		u32 val;
+
+		kgsl_regread(device, A6XX_RBBM_SNAPSHOT_STATUS, &val);
+
+		if (!val)
+			dev_err(device->dev,
+				"Interface signals may have changed during snapshot\n");
+
+		kgsl_regwrite(device, A6XX_RBBM_SNAPSHOT_STATUS, 0x0);
 	}
 
 	/* Preemption record */

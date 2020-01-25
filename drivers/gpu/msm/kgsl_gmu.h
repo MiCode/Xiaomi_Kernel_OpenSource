@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
@@ -210,8 +210,6 @@ struct gmu_device {
 	unsigned long kmem_bitmap;
 	const struct gmu_vma_entry *vma;
 	unsigned int log_wptr_retention;
-	/** @icc_path: Interconnect path for the GMU */
-	struct icc_path *icc_path;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,

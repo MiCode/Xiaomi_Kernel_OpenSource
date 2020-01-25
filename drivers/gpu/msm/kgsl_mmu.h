@@ -16,6 +16,7 @@
  */
 #define KGSL_MMU_GLOBAL_PT 0
 #define KGSL_MMU_SECURE_PT 1
+#define KGSL_MMU_GLOBAL_LPAC_PT 2
 
 #define MMU_DEFAULT_TTBR0(_d) \
 	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
@@ -144,6 +145,8 @@ struct kgsl_mmu {
 	enum kgsl_mmutype type;
 	u32 subtype;
 	struct kgsl_pagetable *defaultpagetable;
+	/** @lpac_pagetable: Default lpac pagetable object for the MMU */
+	struct kgsl_pagetable *lpac_pagetable;
 	struct kgsl_pagetable *securepagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	bool secured;
