@@ -23,6 +23,7 @@ obj-$(CONFIG_QCOM_QMI_POWER_COLLAPSE) += wda_qmi.o
 obj-$(CONFIG_MSM_APM)          += apm.o
 obj-$(CONFIG_QCOM_SMD_RPM)	+= smd-rpm.o
 obj-$(CONFIG_QCOM_SMEM) +=	smem.o
+obj-$(CONFIG_MSM_PM_LEGACY) += pm-boot.o msm-pm.o
 obj-$(CONFIG_MSM_SPM) += msm-spm.o spm_devices.o
 obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
 obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
