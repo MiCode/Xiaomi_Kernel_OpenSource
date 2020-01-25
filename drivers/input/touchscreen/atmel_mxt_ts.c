@@ -3381,6 +3381,9 @@ static int mxt_parse_device_properties(struct mxt_data *data)
 
 #ifdef CONFIG_OF
 
+static bool mxt_enable;
+module_param_named(enable, mxt_enable, bool, 0664);
+
 static int mxt_check_dedicated_touch(struct device_node *dt, const char *prop,
 		const char *active_prop)
 {
@@ -3388,6 +3391,9 @@ static int mxt_check_dedicated_touch(struct device_node *dt, const char *prop,
 	const char *compatible;
 	char *temp;
 	int ret = 0;
+
+	if (mxt_enable)
+		return 0;
 
 	ret = of_property_read_string(dt->parent, active_prop, &active_touch);
 	if (ret < 0) {

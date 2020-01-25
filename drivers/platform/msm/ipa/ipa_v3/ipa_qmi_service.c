@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -601,10 +601,10 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	}
 	req.hw_stats_quota_base_addr_valid = true;
 	req.hw_stats_quota_base_addr =
-		IPA_MEM_PART(stats_quota_ofst) + smem_restr_bytes;
+		IPA_MEM_PART(stats_quota_q6_ofst) + smem_restr_bytes;
 
 	req.hw_stats_quota_size_valid = true;
-	req.hw_stats_quota_size = IPA_MEM_PART(stats_quota_size);
+	req.hw_stats_quota_size = IPA_MEM_PART(stats_quota_q6_size);
 
 	req.hw_drop_stats_base_addr_valid = true;
 	req.hw_drop_stats_base_addr =

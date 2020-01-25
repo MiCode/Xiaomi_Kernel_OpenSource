@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -259,6 +259,36 @@ TRACE_EVENT(dfc_qmap,
 	TP_printk("%s [%s]",
 		__entry->in ? "<--" : "-->",
 		__print_hex(__get_dynamic_array(data), __entry->len))
+);
+
+TRACE_EVENT(dfc_adjust_grant,
+
+	TP_PROTO(u8 mux_id, u8 bearer_id, u32 grant, u32 rx_bytes,
+		 u32 inflight, u32 a_grant),
+
+	TP_ARGS(mux_id, bearer_id, grant, rx_bytes, inflight, a_grant),
+
+	TP_STRUCT__entry(
+		__field(u8, mux_id)
+		__field(u8, bearer_id)
+		__field(u32, grant)
+		__field(u32, rx_bytes)
+		__field(u32, inflight)
+		__field(u32, a_grant)
+	),
+
+	TP_fast_assign(
+		__entry->mux_id = mux_id;
+		__entry->bearer_id = bearer_id;
+		__entry->grant = grant;
+		__entry->rx_bytes = rx_bytes;
+		__entry->inflight = inflight;
+		__entry->a_grant = a_grant;
+	),
+
+	TP_printk("mid=%u bid=%u grant=%u rx=%u inflight=%u adjusted_grant=%u",
+		__entry->mux_id, __entry->bearer_id, __entry->grant,
+		__entry->rx_bytes, __entry->inflight, __entry->a_grant)
 );
 
 #endif /* _TRACE_DFC_H */

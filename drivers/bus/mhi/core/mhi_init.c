@@ -48,6 +48,7 @@ const char * const mhi_state_tran_str[MHI_ST_TRANSITION_MAX] = {
 	[MHI_ST_TRANSITION_READY] = "READY",
 	[MHI_ST_TRANSITION_SBL] = "SBL",
 	[MHI_ST_TRANSITION_MISSION_MODE] = "MISSION MODE",
+	[MHI_ST_TRANSITION_DISABLE] = "DISABLE",
 };
 
 const char * const mhi_state_str[MHI_STATE_MAX] = {
@@ -75,6 +76,7 @@ static const char * const mhi_pm_state_str[] = {
 	[MHI_PM_BIT_SYS_ERR_PROCESS] = "SYS_ERR Process",
 	[MHI_PM_BIT_SHUTDOWN_PROCESS] = "SHUTDOWN Process",
 	[MHI_PM_BIT_LD_ERR_FATAL_DETECT] = "LD or Error Fatal Detect",
+	[MHI_PM_BIT_SHUTDOWN_NO_ACCESS] = "SHUTDOWN No Access",
 };
 
 struct mhi_bus mhi_bus;
