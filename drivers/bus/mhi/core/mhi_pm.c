@@ -164,6 +164,7 @@ void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 	if (state == MHI_STATE_RESET) {
 		mhi_write_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
 				    MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, 1);
+		mhi_cntrl->initiate_mhi_reset = true;
 	} else {
 		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
 			 (state << MHICTRL_MHISTATE_SHIFT));
@@ -597,20 +598,18 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	/* trigger MHI RESET so device will not access host ddr */
 	if (MHI_REG_ACCESS_VALID(prev_state)) {
-		u32 in_reset = -1;
 		unsigned long timeout = msecs_to_jiffies(mhi_cntrl->timeout_ms);
 
 		MHI_LOG("Trigger device into MHI_RESET\n");
+
+		write_lock_irq(&mhi_cntrl->pm_lock);
 		mhi_set_mhi_state(mhi_cntrl, MHI_STATE_RESET);
+		write_unlock_irq(&mhi_cntrl->pm_lock);
 
 		/* wait for reset to be cleared */
 		ret = wait_event_timeout(mhi_cntrl->state_event,
-					 mhi_read_reg_field(mhi_cntrl,
-						mhi_cntrl->regs, MHICTRL,
-						MHICTRL_RESET_MASK,
-						MHICTRL_RESET_SHIFT, &in_reset)
-					 || !in_reset, timeout);
-		if ((!ret || in_reset) && cur_state == MHI_PM_SYS_ERR_PROCESS) {
+				!mhi_cntrl->initiate_mhi_reset, timeout);
+		if (!ret && cur_state == MHI_PM_SYS_ERR_PROCESS) {
 			MHI_CRITICAL("Device failed to exit RESET state\n");
 			mutex_unlock(&mhi_cntrl->pm_mutex);
 			return;
@@ -620,7 +619,11 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		 * device cleares INTVEC as part of RESET processing,
 		 * re-program it
 		 */
-		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
+		if (!mhi_cntrl->initiate_mhi_reset)
+			mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi,
+				BHI_INTVEC, 0);
+
+		mhi_cntrl->initiate_mhi_reset = false;
 	}
 
 	MHI_LOG("Waiting for all pending event ring processing to complete\n");
