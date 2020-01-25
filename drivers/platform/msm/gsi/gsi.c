@@ -50,6 +50,9 @@ static bool running_emulation;
 
 struct gsi_ctx *gsi_ctx;
 
+static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
+	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr);
+
 static void __gsi_config_type_irq(int ee, uint32_t mask, uint32_t val)
 {
 	uint32_t curr;
@@ -2664,66 +2667,6 @@ static void __gsi_read_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
 
 }
 
-
-static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
-	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
-{
-	union __packed gsi_channel_scratch scr;
-
-	/* below sequence is not atomic. assumption is sequencer specific fields
-	 * will remain unchanged across this sequence
-	 */
-
-	/* READ */
-	scr.data.word1 = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	scr.data.word2 = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	scr.data.word3 = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	scr.data.word4 = gsi_readl(gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	/* UPDATE */
-	scr.mhi.mhi_host_wp_addr = mscr.mhi_host_wp_addr;
-	scr.mhi.assert_bit40 = mscr.assert_bit40;
-	scr.mhi.polling_configuration = mscr.polling_configuration;
-	scr.mhi.burst_mode_enabled = mscr.burst_mode_enabled;
-	scr.mhi.polling_mode = mscr.polling_mode;
-	scr.mhi.oob_mod_threshold = mscr.oob_mod_threshold;
-
-	if (gsi_ctx->per.ver < GSI_VER_2_5) {
-		scr.mhi.max_outstanding_tre = mscr.max_outstanding_tre;
-		scr.mhi.outstanding_threshold = mscr.outstanding_threshold;
-	}
-
-	/* WRITE */
-	gsi_writel(scr.data.word1, gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	gsi_writel(scr.data.word2, gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	gsi_writel(scr.data.word3, gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	gsi_writel(scr.data.word4, gsi_ctx->base +
-		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
-			gsi_ctx->per.ee));
-
-	return scr;
-}
-
 int gsi_write_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch val)
 {
@@ -4520,6 +4463,66 @@ void gsi_wdi3_dump_register(unsigned long chan_hdl)
 	GSIDBG("GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS 0x%x\n", val);
 }
 EXPORT_SYMBOL(gsi_wdi3_dump_register);
+
+static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
+	unsigned long chan_hdl, struct __packed gsi_mhi_channel_scratch mscr)
+{
+	union __packed gsi_channel_scratch scr;
+
+	/* below sequence is not atomic. assumption is sequencer specific fields
+	 * will remain unchanged across this sequence
+	 */
+
+	/* READ */
+	scr.data.word1 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word2 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word3 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	scr.data.word4 = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	/* UPDATE */
+	scr.mhi.mhi_host_wp_addr = mscr.mhi_host_wp_addr;
+	scr.mhi.assert_bit40 = mscr.assert_bit40;
+	scr.mhi.polling_configuration = mscr.polling_configuration;
+	scr.mhi.burst_mode_enabled = mscr.burst_mode_enabled;
+	scr.mhi.polling_mode = mscr.polling_mode;
+	scr.mhi.oob_mod_threshold = mscr.oob_mod_threshold;
+
+	if (gsi_ctx->per.ver < GSI_VER_2_5) {
+		scr.mhi.max_outstanding_tre = mscr.max_outstanding_tre;
+		scr.mhi.outstanding_threshold = mscr.outstanding_threshold;
+	}
+
+	/* WRITE */
+	gsi_writel(scr.data.word1, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_0_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word2, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_1_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word3, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	gsi_writel(scr.data.word4, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_3_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+
+	return scr;
+}
+
 
 static int msm_gsi_probe(struct platform_device *pdev)
 {
