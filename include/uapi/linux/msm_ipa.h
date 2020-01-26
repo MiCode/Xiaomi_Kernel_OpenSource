@@ -222,7 +222,7 @@
 #define IPA_FLT_EXT_L2TP_UDP_TCP_SYN        (1ul << 0)
 #define IPA_FLT_EXT_L2TP_UDP_INNER_ETHER_TYPE       (1ul << 1)
 #define IPA_FLT_EXT_MTU     (1ul << 2)
-
+#define IPA_FLT_EXT_L2TP_UDP_INNER_NEXT_HDR		(1ul << 3)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -841,6 +841,7 @@ enum ipa_hw_type {
  * @vlan_id: vlan id value
  * @payload_length: Payload length.
  * @ext_attrib_mask: Extended attributes.
+ * @l2tp_udp_next_hdr: next header in L2TP tunneling
  */
 struct ipa_rule_attrib {
 	uint32_t attrib_mask;
@@ -884,6 +885,7 @@ struct ipa_rule_attrib {
 	uint16_t vlan_id;
 	uint16_t payload_length;
 	uint32_t ext_attrib_mask;
+	uint8_t l2tp_udp_next_hdr;
 };
 
 /*! @brief The maximum number of Mask Equal 32 Eqns */
