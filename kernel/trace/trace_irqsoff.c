@@ -641,6 +641,7 @@ void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 			delta > sysctl_irqsoff_tracing_threshold_ns)
 		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
 						is->caddr[2], is->caddr[3]);
+	is->ts = 0;
 	lockdep_on();
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
