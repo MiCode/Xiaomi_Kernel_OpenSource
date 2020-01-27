@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -442,11 +442,21 @@ int atl_ipa_moderate_event(struct ipa_eth_channel *ch, unsigned long event,
 	return atl_fwd_set_ring_intr_mod(CH_RING(ch), min_usecs, max_usecs);
 }
 
+#if IPA_ETH_API_VER >= 7
+static int atl_ipa_receive_skb(struct ipa_eth_device *eth_dev,
+			       struct sk_buff *skb, bool in_napi)
+{
+	return in_napi ?
+		atl_fwd_napi_receive_skb(eth_dev->net_dev, skb) :
+		atl_fwd_receive_skb(eth_dev->net_dev, skb);
+}
+#else
 static int atl_ipa_receive_skb(struct ipa_eth_device *eth_dev,
 			       struct sk_buff *skb)
 {
 	return atl_fwd_receive_skb(eth_dev->net_dev, skb);
 }
+#endif
 
 static int atl_ipa_transmit_skb(struct ipa_eth_device *eth_dev,
 				struct sk_buff *skb)
