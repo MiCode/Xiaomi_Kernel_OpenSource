@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011, 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2020, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -106,6 +106,10 @@ struct f_cdev {
 	size_t			pending_rx_bytes;
 	/* current USB RX buffer */
 	u8			*current_rx_buf;
+
+	/* function suspend status */
+	bool			func_is_suspended;
+	bool			func_wakeup_allowed;
 
 	struct cserial		port_usb;
 
@@ -514,28 +518,25 @@ static int usb_cser_set_alt(struct usb_function *f, unsigned int intf,
 
 static int usb_cser_func_suspend(struct usb_function *f, u8 options)
 {
-	bool func_wakeup_allowed;
+	struct f_cdev	*port = func_to_port(f);
 
-	func_wakeup_allowed =
-		((options & FUNC_SUSPEND_OPT_RW_EN_MASK) != 0);
+	port->func_wakeup_allowed =
+		!!(options & (USB_INTRF_FUNC_SUSPEND_RW >> 8));
+	port->func_is_suspended = options & (USB_INTRF_FUNC_SUSPEND_LP >> 8);
 
-	f->func_wakeup_allowed = func_wakeup_allowed;
-	if (options & FUNC_SUSPEND_OPT_SUSP_MASK) {
-		if (!f->func_is_suspended)
-			f->func_is_suspended = true;
-	} else {
-		if (f->func_is_suspended)
-			f->func_is_suspended = false;
-	}
 	return 0;
 }
 
 static int usb_cser_get_status(struct usb_function *f)
 {
-	bool remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+	struct f_cdev	*port = func_to_port(f);
 
-	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
-		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
+	return (port->func_wakeup_allowed ? USB_INTRF_STAT_FUNC_RW : 0) |
+		USB_INTRF_STAT_FUNC_RW_CAP;
+#else
+	return 0;
+#endif
 }
 
 static void usb_cser_disable(struct usb_function *f)
@@ -1584,8 +1585,8 @@ static ssize_t cser_rw_write(struct file *file, const char __user *ubuf,
 	port->debugfs_rw_enable = !!input;
 	if (port->debugfs_rw_enable) {
 		gadget = cser->func.config->cdev->gadget;
-		if (gadget->speed == USB_SPEED_SUPER &&
-			func->func_is_suspended) {
+		if (gadget->speed >= USB_SPEED_SUPER &&
+			port->func_is_suspended) {
 			pr_debug("Calling usb_func_wakeup\n");
 			ret = usb_func_wakeup(func);
 		} else {

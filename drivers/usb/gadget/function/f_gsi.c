@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -34,13 +34,11 @@ static void gsi_ctrl_pkt_free(struct gsi_ctrl_pkt *pkt);
 
 static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 {
-	bool remote_wakeup_allowed;
+	bool remote_wakeup_allowed = true;
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
-		remote_wakeup_allowed = f->func_wakeup_allowed;
-	else
-		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
+		remote_wakeup_allowed = gsi->func_wakeup_allowed;
 
 	log_event_dbg("%s: remote_wakeup_allowed:%s", __func__,
 			(remote_wakeup_allowed ? "true" : "false"));
@@ -156,7 +154,7 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	 * allowed to do so by the host. This is done in order to support non
 	 * fully USB 3.0 compatible hosts.
 	 */
-	if ((gadget->speed >= USB_SPEED_SUPER) && (func->func_is_suspended)) {
+	if ((gadget->speed >= USB_SPEED_SUPER) && (gsi->func_is_suspended)) {
 		log_event_dbg("%s: Calling usb_func_wakeup", __func__);
 		ret = usb_func_wakeup(func);
 	} else {
@@ -730,7 +728,7 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
 	struct usb_function *f = &gsi->function;
 
-	f_suspend = f->func_wakeup_allowed;
+	f_suspend = gsi->func_wakeup_allowed;
 	log_event_dbg("%s: f_suspend:%d", __func__, f_suspend);
 
 	if (!usb_gsi_ep_op(gsi->d_port.in_ep, (void *) &f_suspend,
@@ -1377,8 +1375,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 		return -ECONNRESET;
 	}
 
-	if (gsi->function.func_is_suspended &&
-			!gsi->function.func_wakeup_allowed) {
+	if (gsi->func_is_suspended && !gsi->func_wakeup_allowed) {
 		c_port->cpkt_drop_cnt++;
 		log_event_err("drop ctrl pkt of len %zu", count);
 		return -ENOTSUPP;
@@ -1792,9 +1789,17 @@ static int queue_notification_request(struct f_gsi *gsi)
 	int ret;
 	unsigned long flags;
 
-	ret = usb_func_ep_queue(&gsi->function, gsi->c_port.notify,
-			   gsi->c_port.notify_req, GFP_ATOMIC);
-	if (ret < 0) {
+	if (!gsi->func_is_suspended) {
+		ret = usb_ep_queue(gsi->c_port.notify,
+				   gsi->c_port.notify_req, GFP_ATOMIC);
+	} else {
+		if (gsi->func_wakeup_allowed)
+			ret = usb_func_wakeup(&gsi->function);
+		else
+			ret = -EOPNOTSUPP;
+	}
+
+	if (ret < 0 || gsi->func_is_suspended) {
 		spin_lock_irqsave(&gsi->c_port.lock, flags);
 		gsi->c_port.notify_req_queued = false;
 		spin_unlock_irqrestore(&gsi->c_port.lock, flags);
@@ -2435,7 +2440,7 @@ static void gsi_suspend(struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	/* Check if function is already suspended in gsi_func_suspend() */
-	if (f->func_is_suspended) {
+	if (gsi->func_is_suspended) {
 		log_event_dbg("%s: func already suspended, return\n", __func__);
 		return;
 	}
@@ -2460,7 +2465,7 @@ static void gsi_resume(struct usb_function *f)
 	 * canceled. In this case resume is done by a Function Resume request.
 	 */
 	if ((cdev->gadget->speed >= USB_SPEED_SUPER) &&
-		f->func_is_suspended)
+		gsi->func_is_suspended)
 		return;
 
 	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
@@ -2488,10 +2493,14 @@ static void gsi_resume(struct usb_function *f)
 
 static int gsi_get_status(struct usb_function *f)
 {
-	unsigned int remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+	struct f_gsi *gsi = func_to_gsi(f);
 
-	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
-		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
+	return (gsi->func_wakeup_allowed ? USB_INTRF_STAT_FUNC_RW : 0) |
+		USB_INTRF_STAT_FUNC_RW_CAP;
+#else
+	return 0;
+#endif
 }
 
 static int gsi_func_suspend(struct usb_function *f, u8 options)
@@ -2502,21 +2511,20 @@ static int gsi_func_suspend(struct usb_function *f, u8 options)
 	log_event_dbg("func susp %u cmd for %s",
 		options, f->name ? f->name : "");
 
-	func_wakeup_allowed =
-		((options & FUNC_SUSPEND_OPT_RW_EN_MASK) != 0);
+	func_wakeup_allowed = !!(options & (USB_INTRF_FUNC_SUSPEND_RW >> 8));
 
-	if (options & FUNC_SUSPEND_OPT_SUSP_MASK) {
-		f->func_wakeup_allowed = func_wakeup_allowed;
-		if (!f->func_is_suspended) {
+	if (options & (USB_INTRF_FUNC_SUSPEND_LP >> 8)) {
+		gsi->func_wakeup_allowed = func_wakeup_allowed;
+		if (!gsi->func_is_suspended) {
 			gsi_suspend(f);
-			f->func_is_suspended = true;
+			gsi->func_is_suspended = true;
 		}
 	} else {
-		if (f->func_is_suspended) {
-			f->func_is_suspended = false;
+		if (gsi->func_is_suspended) {
+			gsi->func_is_suspended = false;
 			gsi_resume(f);
 		}
-		f->func_wakeup_allowed = func_wakeup_allowed;
+		gsi->func_wakeup_allowed = func_wakeup_allowed;
 	}
 
 	return 0;

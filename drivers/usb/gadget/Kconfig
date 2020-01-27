@@ -595,6 +595,17 @@ config USB_CONFIGFS_F_GSI
 	  related functionalities using GSI hardware accelerated data
 	  path and control path.
 
+config USB_FUNC_WAKEUP_SUPPORTED
+	bool "USB Function Remote Wakeup support"
+	depends on QGKI
+	help
+	  USB 3.x allows functions to be independently suspended for better
+	  power management on a per-interface basis. Additionally a function
+	  can also be a remote wake source. Enable this option to add
+	  support for allowing a function to issue a remote wakeup to the
+	  composite driver, which in turn will issue a device notification
+	  packet request to the device controller driver.
+
 choice
 	tristate "USB Gadget precomposed configurations"
 	default USB_ETH
