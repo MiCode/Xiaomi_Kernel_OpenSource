@@ -35,6 +35,14 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_HOLI) +=  holi-rumi-overlay.dtbo
+
+holi-rumi-overlay.dtbo-base := holi.dtb
+else
+dtb-$(CONFIG_ARCH_HOLI) += holi-rumi.dtb
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_SHIMA) += \
 	shima-rumi-overlay.dtbo
 

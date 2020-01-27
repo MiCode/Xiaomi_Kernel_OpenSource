@@ -80,6 +80,9 @@ SoCs:
 - SDMMAGPIE
   compatible = "qcom,sdmmagpie"
 
+- HOLI
+  compatible = "qcom,holi"
+
 Generic board variants:
 
 - CDP device:
@@ -216,3 +219,4 @@ compatible = "qcom,sdxprairie-cdp"
 compatible = "qcom,sdmmagpie-rumi"
 compatible = "qcom,sdmmagpie-idp"
 compatible = "qcom,sdmmagpie-qrd"
+compatible = "qcom,holi-rumi"
