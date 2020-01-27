@@ -6171,9 +6171,19 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 
 	if (target_link_speed == current_link_speed)
 		set_link_speed = false;
+	else
+		PCIE_DBG(pcie_dev,
+			"PCIe: RC%d: switching from Gen%d to Gen%d\n",
+			pcie_dev->rc_idx, current_link_speed,
+			target_link_speed);
 
 	if (target_link_width == current_link_width)
 		set_link_width = false;
+	else
+		PCIE_DBG(pcie_dev,
+			"PCIe: RC%d: switching from x%d to x%d\n",
+			pcie_dev->rc_idx, current_link_width,
+			target_link_width);
 
 	if (!set_link_speed && !set_link_width)
 		return 0;
@@ -6216,6 +6226,9 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 
 	if (target_link_speed < current_link_speed)
 		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: successfully switched link bandwidth\n",
+		pcie_dev->rc_idx);
 out:
 	msm_pcie_allow_l1(root_pci_dev);
 
