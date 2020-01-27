@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -948,7 +948,7 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 		debugfs_remove_recursive(mhi_netdev->dentry);
 }
 
-static int mhi_netdev_match(struct device *dev, void *data)
+static int mhi_netdev_match(struct device *dev, const void *data)
 {
 	/* if phandle dt == device dt, we found a match */
 	return (dev->of_node == data);
@@ -1131,13 +1131,13 @@ static int __init mhi_netdev_init(void)
 }
 module_init(mhi_netdev_init);
 
-static int __exit mhi_netdev_exit(void)
+static void __exit mhi_netdev_exit(void)
 {
 	debugfs_remove_recursive(dentry);
 
 	mhi_driver_unregister(&mhi_netdev_driver);
 }
-module_init(mhi_netdev_exit);
+module_exit(mhi_netdev_exit);
 
 MODULE_DESCRIPTION("MHI NETDEV Network Interface");
 MODULE_LICENSE("GPL v2");
