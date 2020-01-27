@@ -181,6 +181,9 @@ static inline void timer_setup(struct timer_list *timer,
 	setup_timer(timer, (void (*)(unsigned long))callback,
 			(unsigned long)timer);
 }
+
+#define from_timer(var, callback_timer, timer_fieldname) \
+	container_of(callback_timer, typeof(*var), timer_fieldname)
 #endif	/* 4.14.0 && RHEL < 7.6 */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0) && RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(7,5)
