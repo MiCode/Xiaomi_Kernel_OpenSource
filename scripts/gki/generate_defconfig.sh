@@ -32,6 +32,7 @@ KERN_MAKE_ARGS="ARCH=$ARCH \
 		HOSTCC=$HOSTCC \
 		HOSTLD=$HOSTLD \
 		HOSTAR=$HOSTAR \
+		LD=$LD \
 		"
 
 # Allyes fragment temporarily created on GKI config fragment
