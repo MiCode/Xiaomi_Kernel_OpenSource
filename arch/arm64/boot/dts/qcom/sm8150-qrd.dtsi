@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,6 +295,8 @@
 
 	qcom,vddp-ref-clk-supply = <&pm8150_l9>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vccq-parent-supply = <&pm8150l_s8>;
+	qcom,vccq-parent-max-microamp = <210000>;
 
 	status = "ok";
 };
