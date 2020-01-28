@@ -5,6 +5,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/limits.h>
 #include <linux/module.h>
 
 #include <linux/haven/hh_msgq.h>
@@ -407,3 +408,161 @@ int hh_rm_vm_start(int vmid)
 	return resp_payload->response;
 }
 EXPORT_SYMBOL(hh_rm_vm_start);
+
+/**
+ * hh_rm_console_open: Open a console with a VM
+ * @vmid: The vmid of the vm to be started.
+ */
+int hh_rm_console_open(hh_vmid_t vmid)
+{
+	struct hh_vm_console_common_resp_payload *resp_payload;
+	struct hh_vm_console_common_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	int err = 0, reply_err_code = 0;
+
+	req_payload.vmid = vmid;
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_OPEN,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: CONSOLE_OPEN failed with err: %d\n",
+			__func__, err);
+		goto out;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for CONSOLE_OPEN: %u\n",
+			__func__, resp_payload_size);
+		err = -EINVAL;
+	}
+
+	err = err ? : resp_payload->response;
+	kfree(resp_payload);
+out:
+	return err;
+}
+EXPORT_SYMBOL(hh_rm_console_open);
+
+/**
+ * hh_rm_console_close: Close a console with a VM
+ * @vmid: The vmid of the vm whose console to close.
+ */
+int hh_rm_console_close(hh_vmid_t vmid)
+{
+	struct hh_vm_console_common_resp_payload *resp_payload;
+	struct hh_vm_console_common_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	int err = 0, reply_err_code = 0;
+
+	req_payload.vmid = vmid;
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_CLOSE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: CONSOLE_CLOSE failed with err: %d\n",
+			__func__, err);
+		goto out;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for CONSOLE_CLOSE: %u\n",
+			__func__, resp_payload_size);
+		err = -EINVAL;
+	}
+
+	err = err ? : resp_payload->response;
+	kfree(resp_payload);
+out:
+	return err;
+}
+EXPORT_SYMBOL(hh_rm_console_close);
+
+/**
+ * hh_rm_console_write: Write to a VM's console
+ * @vmid: The vmid of the vm whose console to write to.
+ * @buf: Buffer to write to the VM's console
+ * @size: Size of the buffer
+ */
+int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size)
+{
+	struct hh_vm_console_write_resp_payload *resp_payload;
+	struct hh_vm_console_write_req_payload *req_payload;
+	size_t resp_payload_size;
+	int err = 0, reply_err_code = 0;
+	size_t req_payload_size = sizeof(*req_payload) + size;
+
+	if (size < 1 || size > U32_MAX)
+		return -EINVAL;
+
+	req_payload = kzalloc(req_payload_size, GFP_KERNEL);
+
+	if (!req_payload)
+		return -ENOMEM;
+
+	req_payload->vmid = vmid;
+	req_payload->num_bytes = size;
+	memcpy(req_payload->data, buf, size);
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE,
+				req_payload, req_payload_size,
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: CONSOLE_WRITE failed with err: %d\n",
+			__func__, err);
+		goto out;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for CONSOLE_WRITE: %u\n",
+			__func__, resp_payload_size);
+		err = -EINVAL;
+	}
+
+	err = err ? : resp_payload->response;
+	kfree(resp_payload);
+out:
+	kfree(req_payload);
+	return err;
+}
+EXPORT_SYMBOL(hh_rm_console_write);
+
+/**
+ * hh_rm_console_flush: Flush a console with a VM
+ * @vmid: The vmid of the vm whose console to flush
+ */
+int hh_rm_console_flush(hh_vmid_t vmid)
+{
+	struct hh_vm_console_common_resp_payload *resp_payload;
+	struct hh_vm_console_common_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	int err = 0, reply_err_code = 0;
+
+	req_payload.vmid = vmid;
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
+		pr_err("%s: CONSOLE_FLUSH failed with err: %d\n",
+			__func__, err);
+		goto out;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for CONSOLE_FLUSH: %u\n",
+			__func__, resp_payload_size);
+		err = -EINVAL;
+	}
+
+	err = err ? : resp_payload->response;
+	kfree(resp_payload);
+out:
+	return err;
+}
+EXPORT_SYMBOL(hh_rm_console_flush);

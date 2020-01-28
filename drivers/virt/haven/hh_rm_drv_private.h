@@ -112,6 +112,27 @@ struct hh_vm_start_resp_payload {
 	u32 response;
 } __packed;
 
+/* Call: CONSOLE_OPEN, CONSOLE_CLOSE, CONSOLE_FLUSH */
+struct hh_vm_console_common_req_payload {
+	u32 vmid;
+	u32 reserved0;
+} __packed;
+
+struct hh_vm_console_common_resp_payload {
+	u32 response;
+} __packed;
+
+/* Call: CONSOLE_WRITE */
+struct hh_vm_console_write_req_payload {
+	u32 vmid;
+	u32 num_bytes;
+	u8 data[0];
+} __packed;
+
+struct hh_vm_console_write_resp_payload {
+	u32 response;
+} __packed;
+
 /* Message ID headers */
 /* Call: VM_GET_HYP_RESOURCES */
 #define HH_RM_RES_TYPE_DB_TX	0

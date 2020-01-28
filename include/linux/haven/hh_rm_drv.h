@@ -125,4 +125,10 @@ int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid);
 int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name);
 int hh_rm_vm_start(int vmid);
 
+/* Client APIs for VM Services */
+int hh_rm_console_open(hh_vmid_t vmid);
+int hh_rm_console_close(hh_vmid_t vmid);
+int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size);
+int hh_rm_console_flush(hh_vmid_t vmid);
+
 #endif
