@@ -168,6 +168,10 @@ enabled and functional in the driver:
 - qcom,vddp-ref-clk-supply	 : reference clock to ufs device. Controlled by the host driver.
 - qcom,vddp-ref-clk-max-microamp : specifies max. load that can be drawn for
 				   ref-clk supply.
+- qcom,vccq-parent-supply         : phandle to VCCQ's parent supply regulator.
+- qcom,vccq-parent-max-microamp : specifies max. load that can be drawn for
+			           VCCQ's parent supply regulator
+
 
 Example:
 	ufshc@0xfc598000 {
