@@ -3,7 +3,7 @@
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
-#define pr_fmt(fmt) "icnss_qmi: " fmt
+#define pr_fmt(fmt) "icnss2_qmi: " fmt
 
 #include <linux/export.h>
 #include <linux/err.h>
