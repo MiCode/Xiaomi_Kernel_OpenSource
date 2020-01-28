@@ -962,7 +962,7 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 	}
 
 	if (!ret)
-		dev_info(dev, "BW HWmon governor registered.\n");
+		dev_dbg(dev, "BW HWmon governor registered.\n");
 	else
 		dev_err(dev, "BW HWmon governor registration failed!\n");
 

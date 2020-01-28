@@ -529,7 +529,7 @@ int register_compute(struct device *dev, struct memlat_hwmon *hw)
 
 out:
 	if (!ret)
-		dev_info(dev, "Compute governor registered.\n");
+		dev_dbg(dev, "Compute governor registered.\n");
 	else
 		dev_err(dev, "Compute governor registration failed!\n");
 
@@ -560,7 +560,7 @@ int register_memlat(struct device *dev, struct memlat_hwmon *hw)
 
 out:
 	if (!ret)
-		dev_info(dev, "Memory Latency governor registered.\n");
+		dev_dbg(dev, "Memory Latency governor registered.\n");
 	else
 		dev_err(dev, "Memory Latency governor registration failed!\n");
 
