@@ -87,6 +87,25 @@ config HVC_DCC
 	 driver. This console is used through a JTAG only on ARM. If you don't have
 	 a JTAG then you probably don't want this option.
 
+config HVC_HAVEN
+	tristate "Haven tty support"
+	depends on HH_RM_DRV
+	select HVC_DRIVER
+	help
+	  This console exposes communication with other
+	  virtual machines in the Haven hypervisor. This
+	  option may also be used as an early console
+	  to another VM.
+
+config HVC_HAVEN_CONSOLE
+	bool "Haven console support"
+	depends on HVC_HAVEN
+	help
+	  Select this option to allow Haven tty
+	  as an boot console communicating with
+	  the primary VM. Still need to specify
+	  earlycon and console parameters.
+
 config HVC_RISCV_SBI
 	bool "RISC-V SBI console support"
 	depends on RISCV
