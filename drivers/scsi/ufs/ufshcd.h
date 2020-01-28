@@ -919,7 +919,6 @@ struct ufs_hba {
 	/* Allow standalone Hibern8 enter on idle */
 #define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 5)
 	struct rw_semaphore lock;
-	struct pinctrl *pctrl;
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
 	/* If set, don't gate device ref_clk during clock gating */

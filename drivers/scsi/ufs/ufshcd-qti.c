@@ -463,63 +463,6 @@ void ufshcd_scsi_block_requests(struct ufs_hba *hba)
 }
 EXPORT_SYMBOL(ufshcd_scsi_block_requests);
 
-static int ufshcd_device_reset_ctrl(struct ufs_hba *hba, bool ctrl)
-{
-	int ret = 0;
-
-	if (!hba->pctrl)
-		return 0;
-
-	/* Assert reset if ctrl == true */
-	if (ctrl)
-		ret = pinctrl_select_state(hba->pctrl,
-			pinctrl_lookup_state(hba->pctrl, "dev-reset-assert"));
-	else
-		ret = pinctrl_select_state(hba->pctrl,
-			pinctrl_lookup_state(hba->pctrl, "dev-reset-deassert"));
-
-	if (ret < 0)
-		dev_err(hba->dev, "%s: %s failed with err %d\n",
-			__func__, ctrl ? "Assert" : "Deassert", ret);
-
-	return ret;
-}
-
-static inline int ufshcd_assert_device_reset(struct ufs_hba *hba)
-{
-	return ufshcd_device_reset_ctrl(hba, true);
-}
-
-static inline int ufshcd_deassert_device_reset(struct ufs_hba *hba)
-{
-	return ufshcd_device_reset_ctrl(hba, false);
-}
-
-static int ufshcd_reset_device(struct ufs_hba *hba)
-{
-	int ret;
-
-	/* reset the connected UFS device */
-	ret = ufshcd_assert_device_reset(hba);
-	if (ret)
-		goto out;
-	/*
-	 * The reset signal is active low.
-	 * The UFS device shall detect more than or equal to 1us of positive
-	 * or negative RST_n pulse width.
-	 * To be on safe side, keep the reset low for atleast 10us.
-	 */
-	usleep_range(10, 15);
-
-	ret = ufshcd_deassert_device_reset(hba);
-	if (ret)
-		goto out;
-	/* same as assert, wait for atleast 10us after deassert */
-	usleep_range(10, 15);
-out:
-	return ret;
-}
-
 static void ufshcd_add_cmd_upiu_trace(struct ufs_hba *hba, unsigned int tag,
 		const char *str)
 {
@@ -7466,12 +7409,7 @@ out:
 
 static int ufshcd_detect_device(struct ufs_hba *hba)
 {
-	int err = 0;
-
-	err = ufshcd_reset_device(hba);
-	if (err)
-		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-			 __func__, err);
+	ufshcd_vops_device_reset(hba);
 
 	return ufshcd_host_reset_and_restore(hba);
 }
@@ -9987,10 +9925,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	}
 
 	/* reset connected UFS device */
-	err = ufshcd_reset_device(hba);
-	if (err)
-		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-			 __func__, err);
+	ufshcd_vops_device_reset(hba);
 
 	/* Init crypto */
 	err = ufshcd_hba_init_crypto(hba);
