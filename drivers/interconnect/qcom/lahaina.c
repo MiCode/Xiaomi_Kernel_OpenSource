@@ -6,6 +6,7 @@
 
 #include <asm/div64.h>
 #include <dt-bindings/interconnect/qcom,lahaina.h>
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
@@ -18,55 +19,94 @@
 
 #include "icc-rpmh.h"
 #include "bcm-voter.h"
+#include "qnoc-qos.h"
 
 static LIST_HEAD(qnoc_probe_list);
 static DEFINE_MUTEX(probe_list_lock);
 
 static int probe_count;
 
-DEFINE_QNODE(qhm_qspi, MASTER_QSPI_0, 1, 4, 1,
+DEFINE_QNODE_QOS(qhm_qspi, 2, 0, 0, 65536);
+DEFINE_QNODE_QOS(qhm_qup1, 2, 0, 0, 69632);
+DEFINE_QNODE_QOS(xm_sdc4, 2, 0, 0, 73728);
+DEFINE_QNODE_QOS(xm_ufs_mem, 2, 0, 0, 77824);
+DEFINE_QNODE_QOS(xm_usb3_0, 2, 0, 0, 81920);
+DEFINE_QNODE_QOS(xm_usb3_1, 2, 0, 0, 86016);
+DEFINE_QNODE_QOS(qhm_qdss_bam, 2, 0, 0, 98304);
+DEFINE_QNODE_QOS(qhm_qup0, 2, 0, 0, 102400);
+DEFINE_QNODE_QOS(qhm_qup2, 2, 0, 0, 106496);
+DEFINE_QNODE_QOS(qxm_crypto, 2, 1, 0, 118784);
+DEFINE_QNODE_QOS(qxm_ipa, 2, 1, 0, 65536);
+DEFINE_QNODE_QOS(xm_pcie3_0, 2, 0, 0, 77824);
+DEFINE_QNODE_QOS(xm_pcie3_1, 2, 0, 0, 81920);
+DEFINE_QNODE_QOS(xm_qdss_etr, 2, 0, 0, 86016);
+DEFINE_QNODE_QOS(xm_sdc2, 2, 0, 0, 90112);
+DEFINE_QNODE_QOS(xm_ufs_card, 2, 0, 0, 94208);
+DEFINE_QNODE_QOS(alm_gpu_tcu, 1, 0, 0, 655360);
+DEFINE_QNODE_QOS(alm_sys_tcu, 6, 0, 0, 659456);
+DEFINE_QNODE_QOS(qnm_cmpnoc, 0, 1, 0, 135168, 397312);
+DEFINE_QNODE_QOS(qnm_gpu, 0, 0, 0, 139264, 401408);
+DEFINE_QNODE_QOS(qnm_mnoc_hf, 0, 1, 0, 143360, 405504);
+DEFINE_QNODE_QOS(qnm_mnoc_sf, 0, 1, 0, 147456, 409600);
+DEFINE_QNODE_QOS(qnm_pcie, 2, 1, 0, 663552);
+DEFINE_QNODE_QOS(qnm_snoc_gc, 0, 1, 0, 667648);
+DEFINE_QNODE_QOS(qnm_snoc_sf, 0, 1, 0, 671744);
+DEFINE_QNODE_QOS(qnm_camnoc_hf, 0, 1, 0, 65536, 65920);
+DEFINE_QNODE_QOS(qnm_camnoc_icp, 5, 1, 0, 69632);
+DEFINE_QNODE_QOS(qnm_camnoc_sf, 0, 1, 0, 73728, 73856);
+DEFINE_QNODE_QOS(qnm_video0, 0, 1, 0, 81920);
+DEFINE_QNODE_QOS(qnm_video1, 0, 1, 0, 82048);
+DEFINE_QNODE_QOS(qnm_video_cvp, 0, 1, 0, 86016);
+DEFINE_QNODE_QOS(qxm_mdp0, 0, 1, 0, 90112);
+DEFINE_QNODE_QOS(qxm_mdp1, 0, 1, 0, 90240);
+DEFINE_QNODE_QOS(qxm_rot, 0, 1, 0, 94208);
+DEFINE_QNODE_QOS(qxm_nsp, 0, 0, 0, 49152, 53248);
+DEFINE_QNODE_QOS(qxm_pimem, 2, 1, 0, 45056);
+DEFINE_QNODE_QOS(xm_gic, 2, 0, 0, 53248);
+
+DEFINE_QNODE(qhm_qspi, MASTER_QSPI_0, 1, 4, &qhm_qspi_qos, 1,
 		SLAVE_A1NOC_SNOC);
-DEFINE_QNODE(qhm_qup1, MASTER_QUP_1, 1, 4, 1,
+DEFINE_QNODE(qhm_qup1, MASTER_QUP_1, 1, 4, &qhm_qup1_qos, 1,
 		SLAVE_A1NOC_SNOC);
-DEFINE_QNODE(qnm_a1noc_cfg, MASTER_A1NOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qnm_a1noc_cfg, MASTER_A1NOC_CFG, 1, 4, NULL, 1,
 		SLAVE_SERVICE_A1NOC);
-DEFINE_QNODE(xm_sdc4, MASTER_SDCC_4, 1, 8, 1,
+DEFINE_QNODE(xm_sdc4, MASTER_SDCC_4, 1, 8, &xm_sdc4_qos, 1,
 		SLAVE_A1NOC_SNOC);
-DEFINE_QNODE(xm_ufs_mem, MASTER_UFS_MEM, 1, 8, 1,
+DEFINE_QNODE(xm_ufs_mem, MASTER_UFS_MEM, 1, 8, &xm_ufs_mem_qos, 1,
 		SLAVE_A1NOC_SNOC);
-DEFINE_QNODE(xm_usb3_0, MASTER_USB3_0, 1, 8, 1,
+DEFINE_QNODE(xm_usb3_0, MASTER_USB3_0, 1, 8, &xm_usb3_0_qos, 1,
 		SLAVE_A1NOC_SNOC);
-DEFINE_QNODE(xm_usb3_1, MASTER_USB3_1, 1, 8, 1,
+DEFINE_QNODE(xm_usb3_1, MASTER_USB3_1, 1, 8, &xm_usb3_1_qos, 1,
 		SLAVE_A1NOC_SNOC);
-DEFINE_QNODE(qhm_qdss_bam, MASTER_QDSS_BAM, 1, 4, 1,
+DEFINE_QNODE(qhm_qdss_bam, MASTER_QDSS_BAM, 1, 4, &qhm_qdss_bam_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(qhm_qup0, MASTER_QUP_0, 1, 4, 1,
+DEFINE_QNODE(qhm_qup0, MASTER_QUP_0, 1, 4, &qhm_qup0_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(qhm_qup2, MASTER_QUP_2, 1, 4, 1,
+DEFINE_QNODE(qhm_qup2, MASTER_QUP_2, 1, 4, &qhm_qup2_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(qnm_a2noc_cfg, MASTER_A2NOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qnm_a2noc_cfg, MASTER_A2NOC_CFG, 1, 4, NULL, 1,
 		SLAVE_SERVICE_A2NOC);
-DEFINE_QNODE(qxm_crypto, MASTER_CRYPTO, 1, 8, 1,
+DEFINE_QNODE(qxm_crypto, MASTER_CRYPTO, 1, 8, &qxm_crypto_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(qxm_ipa, MASTER_IPA, 1, 8, 1,
+DEFINE_QNODE(qxm_ipa, MASTER_IPA, 1, 8, &qxm_ipa_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(xm_pcie3_0, MASTER_PCIE_0, 1, 8, 1,
+DEFINE_QNODE(xm_pcie3_0, MASTER_PCIE_0, 1, 8, &xm_pcie3_0_qos, 1,
 		SLAVE_ANOC_PCIE_GEM_NOC);
-DEFINE_QNODE(xm_pcie3_1, MASTER_PCIE_1, 1, 8, 1,
+DEFINE_QNODE(xm_pcie3_1, MASTER_PCIE_1, 1, 8, &xm_pcie3_1_qos, 1,
 		SLAVE_ANOC_PCIE_GEM_NOC);
-DEFINE_QNODE(xm_qdss_etr, MASTER_QDSS_ETR, 1, 8, 1,
+DEFINE_QNODE(xm_qdss_etr, MASTER_QDSS_ETR, 1, 8, &xm_qdss_etr_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(xm_sdc2, MASTER_SDCC_2, 1, 8, 1,
+DEFINE_QNODE(xm_sdc2, MASTER_SDCC_2, 1, 8, &xm_sdc2_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(xm_ufs_card, MASTER_UFS_CARD, 1, 8, 1,
+DEFINE_QNODE(xm_ufs_card, MASTER_UFS_CARD, 1, 8, &xm_ufs_card_qos, 1,
 		SLAVE_A2NOC_SNOC);
-DEFINE_QNODE(qup0_core_master, MASTER_QUP_CORE_0, 1, 4, 1,
+DEFINE_QNODE(qup0_core_master, MASTER_QUP_CORE_0, 1, 4, NULL, 1,
 		SLAVE_QUP_CORE_0);
-DEFINE_QNODE(qup1_core_master, MASTER_QUP_CORE_1, 1, 4, 1,
+DEFINE_QNODE(qup1_core_master, MASTER_QUP_CORE_1, 1, 4, NULL, 1,
 		SLAVE_QUP_CORE_1);
-DEFINE_QNODE(qup2_core_master, MASTER_QUP_CORE_2, 1, 4, 1,
+DEFINE_QNODE(qup2_core_master, MASTER_QUP_CORE_2, 1, 4, NULL, 1,
 		SLAVE_QUP_CORE_2);
-DEFINE_QNODE(qnm_gemnoc_cnoc, MASTER_GEM_NOC_CNOC, 1, 16, 56,
+DEFINE_QNODE(qnm_gemnoc_cnoc, MASTER_GEM_NOC_CNOC, 1, 16, NULL, 56,
 		SLAVE_AHB2PHY_SOUTH, SLAVE_AHB2PHY_NORTH,
 		SLAVE_AOSS, SLAVE_APPSS,
 		SLAVE_CAMERA_CFG, SLAVE_CLK_CTL,
@@ -95,9 +135,9 @@ DEFINE_QNODE(qnm_gemnoc_cnoc, MASTER_GEM_NOC_CNOC, 1, 16, 56,
 		SLAVE_BOOT_IMEM, SLAVE_IMEM,
 		SLAVE_PIMEM, SLAVE_SERVICE_CNOC,
 		SLAVE_QDSS_STM, SLAVE_TCU);
-DEFINE_QNODE(qnm_gemnoc_pcie, MASTER_GEM_NOC_PCIE_SNOC, 1, 8, 2,
+DEFINE_QNODE(qnm_gemnoc_pcie, MASTER_GEM_NOC_PCIE_SNOC, 1, 8, NULL, 2,
 		SLAVE_PCIE_0, SLAVE_PCIE_1);
-DEFINE_QNODE(xm_qdss_dap, MASTER_QDSS_DAP, 1, 8, 56,
+DEFINE_QNODE(xm_qdss_dap, MASTER_QDSS_DAP, 1, 8, NULL, 56,
 		SLAVE_AHB2PHY_SOUTH, SLAVE_AHB2PHY_NORTH,
 		SLAVE_AOSS, SLAVE_APPSS,
 		SLAVE_CAMERA_CFG, SLAVE_CLK_CTL,
@@ -126,185 +166,184 @@ DEFINE_QNODE(xm_qdss_dap, MASTER_QDSS_DAP, 1, 8, 56,
 		SLAVE_BOOT_IMEM, SLAVE_IMEM,
 		SLAVE_PIMEM, SLAVE_SERVICE_CNOC,
 		SLAVE_QDSS_STM, SLAVE_TCU);
-DEFINE_QNODE(qnm_cnoc_dc_noc, MASTER_CNOC_DC_NOC, 1, 4, 2,
+DEFINE_QNODE(qnm_cnoc_dc_noc, MASTER_CNOC_DC_NOC, 1, 4, NULL, 2,
 		SLAVE_LLCC_CFG, SLAVE_GEM_NOC_CFG);
-DEFINE_QNODE(alm_gpu_tcu, MASTER_GPU_TCU, 1, 8, 2,
+DEFINE_QNODE(alm_gpu_tcu, MASTER_GPU_TCU, 1, 8, &alm_gpu_tcu_qos, 2,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC);
-DEFINE_QNODE(alm_sys_tcu, MASTER_SYS_TCU, 1, 8, 2,
+DEFINE_QNODE(alm_sys_tcu, MASTER_SYS_TCU, 1, 8, &alm_sys_tcu_qos, 2,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC);
-DEFINE_QNODE(chm_apps, MASTER_APPSS_PROC, 2, 32, 3,
+DEFINE_QNODE(chm_apps, MASTER_APPSS_PROC, 2, 32, NULL, 3,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC,
 		SLAVE_MEM_NOC_PCIE_SNOC);
-DEFINE_QNODE(qnm_cmpnoc, MASTER_COMPUTE_NOC, 2, 32, 2,
+DEFINE_QNODE(qnm_cmpnoc, MASTER_COMPUTE_NOC, 2, 32, &qnm_cmpnoc_qos, 2,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC);
-DEFINE_QNODE(qnm_gemnoc_cfg, MASTER_GEM_NOC_CFG, 1, 4, 5,
+DEFINE_QNODE(qnm_gemnoc_cfg, MASTER_GEM_NOC_CFG, 1, 4, NULL, 5,
 		SLAVE_MSS_PROC_MS_MPU_CFG, SLAVE_MCDMA_MS_MPU_CFG,
 		SLAVE_SERVICE_GEM_NOC_1, SLAVE_SERVICE_GEM_NOC_2,
 		SLAVE_SERVICE_GEM_NOC);
-DEFINE_QNODE(qnm_gpu, MASTER_GFX3D, 2, 32, 2,
+DEFINE_QNODE(qnm_gpu, MASTER_GFX3D, 2, 32, &qnm_gpu_qos, 2,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC);
-DEFINE_QNODE(qnm_mnoc_hf, MASTER_MNOC_HF_MEM_NOC, 2, 32, 1,
+DEFINE_QNODE(qnm_mnoc_hf, MASTER_MNOC_HF_MEM_NOC, 2, 32, &qnm_mnoc_hf_qos, 1,
 		SLAVE_LLCC);
-DEFINE_QNODE(qnm_mnoc_sf, MASTER_MNOC_SF_MEM_NOC, 2, 32, 2,
+DEFINE_QNODE(qnm_mnoc_sf, MASTER_MNOC_SF_MEM_NOC, 2, 32, &qnm_mnoc_sf_qos, 2,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC);
-DEFINE_QNODE(qnm_pcie, MASTER_ANOC_PCIE_GEM_NOC, 1, 16, 2,
+DEFINE_QNODE(qnm_pcie, MASTER_ANOC_PCIE_GEM_NOC, 1, 16, &qnm_pcie_qos, 2,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC);
-DEFINE_QNODE(qnm_snoc_gc, MASTER_SNOC_GC_MEM_NOC, 1, 8, 1,
+DEFINE_QNODE(qnm_snoc_gc, MASTER_SNOC_GC_MEM_NOC, 1, 8, &qnm_snoc_gc_qos, 1,
 		SLAVE_LLCC);
-DEFINE_QNODE(qnm_snoc_sf, MASTER_SNOC_SF_MEM_NOC, 1, 16, 3,
+DEFINE_QNODE(qnm_snoc_sf, MASTER_SNOC_SF_MEM_NOC, 1, 16, &qnm_snoc_sf_qos, 3,
 		SLAVE_GEM_NOC_CNOC, SLAVE_LLCC,
 		SLAVE_MEM_NOC_PCIE_SNOC);
-DEFINE_QNODE(qhm_config_noc, MASTER_CNOC_LPASS_AG_NOC, 1, 4, 6,
+DEFINE_QNODE(qhm_config_noc, MASTER_CNOC_LPASS_AG_NOC, 1, 4, NULL, 6,
 		SLAVE_LPASS_CORE_CFG, SLAVE_LPASS_LPI_CFG,
 		SLAVE_LPASS_MPU_CFG, SLAVE_LPASS_TOP_CFG,
 		SLAVE_SERVICES_LPASS_AML_NOC, SLAVE_SERVICE_LPASS_AG_NOC);
-DEFINE_QNODE(llcc_mc, MASTER_LLCC, 4, 4, 1,
+DEFINE_QNODE(llcc_mc, MASTER_LLCC, 4, 4, NULL, 1,
 		SLAVE_EBI1);
-DEFINE_QNODE(qnm_camnoc_hf, MASTER_CAMNOC_HF, 2, 32, 1,
+DEFINE_QNODE(qnm_camnoc_hf, MASTER_CAMNOC_HF, 2, 32, &qnm_camnoc_hf_qos, 1,
 		SLAVE_MNOC_HF_MEM_NOC);
-DEFINE_QNODE(qnm_camnoc_icp, MASTER_CAMNOC_ICP, 1, 8, 1,
+DEFINE_QNODE(qnm_camnoc_icp, MASTER_CAMNOC_ICP, 1, 8, &qnm_camnoc_icp_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(qnm_camnoc_sf, MASTER_CAMNOC_SF, 2, 32, 1,
+DEFINE_QNODE(qnm_camnoc_sf, MASTER_CAMNOC_SF, 2, 32, &qnm_camnoc_sf_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(qnm_mnoc_cfg, MASTER_CNOC_MNOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qnm_mnoc_cfg, MASTER_CNOC_MNOC_CFG, 1, 4, NULL, 1,
 		SLAVE_SERVICE_MNOC);
-DEFINE_QNODE(qnm_video0, MASTER_VIDEO_P0, 1, 32, 1,
+DEFINE_QNODE(qnm_video0, MASTER_VIDEO_P0, 1, 32, &qnm_video0_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(qnm_video1, MASTER_VIDEO_P1, 1, 32, 1,
+DEFINE_QNODE(qnm_video1, MASTER_VIDEO_P1, 1, 32, &qnm_video1_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(qnm_video_cvp, MASTER_VIDEO_PROC, 1, 32, 1,
+DEFINE_QNODE(qnm_video_cvp, MASTER_VIDEO_PROC, 1, 32, &qnm_video_cvp_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(qxm_mdp0, MASTER_MDP0, 1, 32, 1,
+DEFINE_QNODE(qxm_mdp0, MASTER_MDP0, 1, 32, &qxm_mdp0_qos, 1,
 		SLAVE_MNOC_HF_MEM_NOC);
-DEFINE_QNODE(qxm_mdp1, MASTER_MDP1, 1, 32, 1,
+DEFINE_QNODE(qxm_mdp1, MASTER_MDP1, 1, 32, &qxm_mdp1_qos, 1,
 		SLAVE_MNOC_HF_MEM_NOC);
-DEFINE_QNODE(qxm_rot, MASTER_ROTATOR, 1, 32, 1,
+DEFINE_QNODE(qxm_rot, MASTER_ROTATOR, 1, 32, &qxm_rot_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(qhm_nsp_noc_config, MASTER_CDSP_NOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qhm_nsp_noc_config, MASTER_CDSP_NOC_CFG, 1, 4, NULL, 1,
 		SLAVE_SERVICE_NSP_NOC);
-DEFINE_QNODE(qxm_nsp, MASTER_CDSP_PROC, 2, 32, 1,
+DEFINE_QNODE(qxm_nsp, MASTER_CDSP_PROC, 2, 32, &qxm_nsp_qos, 1,
 		SLAVE_CDSP_MEM_NOC);
-DEFINE_QNODE(qnm_aggre1_noc, MASTER_A1NOC_SNOC, 1, 16, 1,
+DEFINE_QNODE(qnm_aggre1_noc, MASTER_A1NOC_SNOC, 1, 16, NULL, 1,
 		SLAVE_SNOC_GEM_NOC_SF);
-DEFINE_QNODE(qnm_aggre2_noc, MASTER_A2NOC_SNOC, 1, 16, 1,
+DEFINE_QNODE(qnm_aggre2_noc, MASTER_A2NOC_SNOC, 1, 16, NULL, 1,
 		SLAVE_SNOC_GEM_NOC_SF);
-DEFINE_QNODE(qnm_snoc_cfg, MASTER_SNOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qnm_snoc_cfg, MASTER_SNOC_CFG, 1, 4, NULL, 1,
 		SLAVE_SERVICE_SNOC);
-DEFINE_QNODE(qxm_pimem, MASTER_PIMEM, 1, 8, 1,
+DEFINE_QNODE(qxm_pimem, MASTER_PIMEM, 1, 8, &qxm_pimem_qos, 1,
 		SLAVE_SNOC_GEM_NOC_GC);
-DEFINE_QNODE(xm_gic, MASTER_GIC, 1, 8, 1,
+DEFINE_QNODE(xm_gic, MASTER_GIC, 1, 8, &xm_gic_qos, 1,
 		SLAVE_SNOC_GEM_NOC_GC);
-
-DEFINE_QNODE(qns_a1noc_snoc, SLAVE_A1NOC_SNOC, 1, 16, 1,
+DEFINE_QNODE(qns_a1noc_snoc, SLAVE_A1NOC_SNOC, 1, 16, NULL, 1,
 		MASTER_A1NOC_SNOC);
-DEFINE_QNODE(srvc_aggre1_noc, SLAVE_SERVICE_A1NOC, 1, 4, 0);
-DEFINE_QNODE(qns_a2noc_snoc, SLAVE_A2NOC_SNOC, 1, 16, 1,
+DEFINE_QNODE(srvc_aggre1_noc, SLAVE_SERVICE_A1NOC, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_a2noc_snoc, SLAVE_A2NOC_SNOC, 1, 16, NULL, 1,
 		MASTER_A2NOC_SNOC);
-DEFINE_QNODE(qns_pcie_mem_noc, SLAVE_ANOC_PCIE_GEM_NOC, 1, 16, 1,
+DEFINE_QNODE(qns_pcie_mem_noc, SLAVE_ANOC_PCIE_GEM_NOC, 1, 16, NULL, 1,
 		MASTER_ANOC_PCIE_GEM_NOC);
-DEFINE_QNODE(srvc_aggre2_noc, SLAVE_SERVICE_A2NOC, 1, 4, 0);
-DEFINE_QNODE(qup0_core_slave, SLAVE_QUP_CORE_0, 1, 4, 0);
-DEFINE_QNODE(qup1_core_slave, SLAVE_QUP_CORE_1, 1, 4, 0);
-DEFINE_QNODE(qup2_core_slave, SLAVE_QUP_CORE_2, 1, 4, 0);
-DEFINE_QNODE(qhs_ahb2phy0, SLAVE_AHB2PHY_SOUTH, 1, 4, 0);
-DEFINE_QNODE(qhs_ahb2phy1, SLAVE_AHB2PHY_NORTH, 1, 4, 0);
-DEFINE_QNODE(qhs_aoss, SLAVE_AOSS, 1, 4, 0);
-DEFINE_QNODE(qhs_apss, SLAVE_APPSS, 1, 8, 0);
-DEFINE_QNODE(qhs_camera_cfg, SLAVE_CAMERA_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_clk_ctl, SLAVE_CLK_CTL, 1, 4, 0);
-DEFINE_QNODE(qhs_compute_cfg, SLAVE_CDSP_CFG, 1, 4, 1,
+DEFINE_QNODE(srvc_aggre2_noc, SLAVE_SERVICE_A2NOC, 1, 4, NULL, 0);
+DEFINE_QNODE(qup0_core_slave, SLAVE_QUP_CORE_0, 1, 4, NULL, 0);
+DEFINE_QNODE(qup1_core_slave, SLAVE_QUP_CORE_1, 1, 4, NULL, 0);
+DEFINE_QNODE(qup2_core_slave, SLAVE_QUP_CORE_2, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_ahb2phy0, SLAVE_AHB2PHY_SOUTH, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_ahb2phy1, SLAVE_AHB2PHY_NORTH, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_aoss, SLAVE_AOSS, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_apss, SLAVE_APPSS, 1, 8, NULL, 0);
+DEFINE_QNODE(qhs_camera_cfg, SLAVE_CAMERA_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_clk_ctl, SLAVE_CLK_CTL, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_compute_cfg, SLAVE_CDSP_CFG, 1, 4, NULL, 1,
 		MASTER_CDSP_NOC_CFG);
-DEFINE_QNODE(qhs_cpr_cx, SLAVE_RBCPR_CX_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_cpr_mmcx, SLAVE_RBCPR_MMCX_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_cpr_mx, SLAVE_RBCPR_MX_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_crypto0_cfg, SLAVE_CRYPTO_0_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_cx_rdpm, SLAVE_CX_RDPM, 1, 4, 0);
-DEFINE_QNODE(qhs_dcc_cfg, SLAVE_DCC_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_display_cfg, SLAVE_DISPLAY_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_gpuss_cfg, SLAVE_GFX3D_CFG, 1, 8, 0);
-DEFINE_QNODE(qhs_hwkm, SLAVE_HWKM, 1, 4, 0);
-DEFINE_QNODE(qhs_imem_cfg, SLAVE_IMEM_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_ipa, SLAVE_IPA_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_ipc_router, SLAVE_IPC_ROUTER_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_lpass_cfg, SLAVE_LPASS, 1, 4, 1,
+DEFINE_QNODE(qhs_cpr_cx, SLAVE_RBCPR_CX_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_cpr_mmcx, SLAVE_RBCPR_MMCX_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_cpr_mx, SLAVE_RBCPR_MX_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_crypto0_cfg, SLAVE_CRYPTO_0_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_cx_rdpm, SLAVE_CX_RDPM, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_dcc_cfg, SLAVE_DCC_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_display_cfg, SLAVE_DISPLAY_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_gpuss_cfg, SLAVE_GFX3D_CFG, 1, 8, NULL, 0);
+DEFINE_QNODE(qhs_hwkm, SLAVE_HWKM, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_imem_cfg, SLAVE_IMEM_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_ipa, SLAVE_IPA_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_ipc_router, SLAVE_IPC_ROUTER_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_lpass_cfg, SLAVE_LPASS, 1, 4, NULL, 1,
 		MASTER_CNOC_LPASS_AG_NOC);
-DEFINE_QNODE(qhs_mss_cfg, SLAVE_CNOC_MSS, 1, 4, 0);
-DEFINE_QNODE(qhs_mx_rdpm, SLAVE_MX_RDPM, 1, 4, 0);
-DEFINE_QNODE(qhs_pcie0_cfg, SLAVE_PCIE_0_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_pcie1_cfg, SLAVE_PCIE_1_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_pdm, SLAVE_PDM, 1, 4, 0);
-DEFINE_QNODE(qhs_pimem_cfg, SLAVE_PIMEM_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_pka_wrapper_cfg, SLAVE_PKA_WRAPPER_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_pmu_wrapper_cfg, SLAVE_PMU_WRAPPER_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_qdss_cfg, SLAVE_QDSS_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_qspi, SLAVE_QSPI_0, 1, 4, 0);
-DEFINE_QNODE(qhs_qup0, SLAVE_QUP_0, 1, 4, 0);
-DEFINE_QNODE(qhs_qup1, SLAVE_QUP_1, 1, 4, 0);
-DEFINE_QNODE(qhs_qup2, SLAVE_QUP_2, 1, 4, 0);
-DEFINE_QNODE(qhs_sdc2, SLAVE_SDCC_2, 1, 4, 0);
-DEFINE_QNODE(qhs_sdc4, SLAVE_SDCC_4, 1, 4, 0);
-DEFINE_QNODE(qhs_security, SLAVE_SECURITY, 1, 4, 0);
-DEFINE_QNODE(qhs_spss_cfg, SLAVE_SPSS_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_tcsr, SLAVE_TCSR, 1, 4, 0);
-DEFINE_QNODE(qhs_tlmm, SLAVE_TLMM, 1, 4, 0);
-DEFINE_QNODE(qhs_ufs_card_cfg, SLAVE_UFS_CARD_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_ufs_mem_cfg, SLAVE_UFS_MEM_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_usb3_0, SLAVE_USB3_0, 1, 4, 0);
-DEFINE_QNODE(qhs_usb3_1, SLAVE_USB3_1, 1, 4, 0);
-DEFINE_QNODE(qhs_venus_cfg, SLAVE_VENUS_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_vsense_ctrl_cfg, SLAVE_VSENSE_CTRL_CFG, 1, 4, 0);
-DEFINE_QNODE(qns_a1_noc_cfg, SLAVE_A1NOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qhs_mss_cfg, SLAVE_CNOC_MSS, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_mx_rdpm, SLAVE_MX_RDPM, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_pcie0_cfg, SLAVE_PCIE_0_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_pcie1_cfg, SLAVE_PCIE_1_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_pdm, SLAVE_PDM, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_pimem_cfg, SLAVE_PIMEM_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_pka_wrapper_cfg, SLAVE_PKA_WRAPPER_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_pmu_wrapper_cfg, SLAVE_PMU_WRAPPER_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_qdss_cfg, SLAVE_QDSS_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_qspi, SLAVE_QSPI_0, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_qup0, SLAVE_QUP_0, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_qup1, SLAVE_QUP_1, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_qup2, SLAVE_QUP_2, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_sdc2, SLAVE_SDCC_2, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_sdc4, SLAVE_SDCC_4, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_security, SLAVE_SECURITY, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_spss_cfg, SLAVE_SPSS_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_tcsr, SLAVE_TCSR, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_tlmm, SLAVE_TLMM, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_ufs_card_cfg, SLAVE_UFS_CARD_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_ufs_mem_cfg, SLAVE_UFS_MEM_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_usb3_0, SLAVE_USB3_0, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_usb3_1, SLAVE_USB3_1, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_venus_cfg, SLAVE_VENUS_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_vsense_ctrl_cfg, SLAVE_VSENSE_CTRL_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_a1_noc_cfg, SLAVE_A1NOC_CFG, 1, 4, NULL, 1,
 		MASTER_A1NOC_CFG);
-DEFINE_QNODE(qns_a2_noc_cfg, SLAVE_A2NOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qns_a2_noc_cfg, SLAVE_A2NOC_CFG, 1, 4, NULL, 1,
 		MASTER_A2NOC_CFG);
-DEFINE_QNODE(qns_ddrss_cfg, SLAVE_DDRSS_CFG, 1, 4, 1,
+DEFINE_QNODE(qns_ddrss_cfg, SLAVE_DDRSS_CFG, 1, 4, NULL, 1,
 		MASTER_CNOC_DC_NOC);
-DEFINE_QNODE(qns_mnoc_cfg, SLAVE_CNOC_MNOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qns_mnoc_cfg, SLAVE_CNOC_MNOC_CFG, 1, 4, NULL, 1,
 		MASTER_CNOC_MNOC_CFG);
-DEFINE_QNODE(qns_snoc_cfg, SLAVE_SNOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qns_snoc_cfg, SLAVE_SNOC_CFG, 1, 4, NULL, 1,
 		MASTER_SNOC_CFG);
-DEFINE_QNODE(qxs_boot_imem, SLAVE_BOOT_IMEM, 1, 8, 0);
-DEFINE_QNODE(qxs_imem, SLAVE_IMEM, 1, 8, 0);
-DEFINE_QNODE(qxs_pimem, SLAVE_PIMEM, 1, 8, 0);
-DEFINE_QNODE(srvc_cnoc, SLAVE_SERVICE_CNOC, 1, 4, 0);
-DEFINE_QNODE(xs_pcie_0, SLAVE_PCIE_0, 1, 8, 0);
-DEFINE_QNODE(xs_pcie_1, SLAVE_PCIE_1, 1, 8, 0);
-DEFINE_QNODE(xs_qdss_stm, SLAVE_QDSS_STM, 1, 4, 0);
-DEFINE_QNODE(xs_sys_tcu_cfg, SLAVE_TCU, 1, 8, 0);
-DEFINE_QNODE(qhs_llcc, SLAVE_LLCC_CFG, 1, 4, 0);
-DEFINE_QNODE(qns_gemnoc, SLAVE_GEM_NOC_CFG, 1, 4, 1,
+DEFINE_QNODE(qxs_boot_imem, SLAVE_BOOT_IMEM, 1, 8, NULL, 0);
+DEFINE_QNODE(qxs_imem, SLAVE_IMEM, 1, 8, NULL, 0);
+DEFINE_QNODE(qxs_pimem, SLAVE_PIMEM, 1, 8, NULL, 0);
+DEFINE_QNODE(srvc_cnoc, SLAVE_SERVICE_CNOC, 1, 4, NULL, 0);
+DEFINE_QNODE(xs_pcie_0, SLAVE_PCIE_0, 1, 8, NULL, 0);
+DEFINE_QNODE(xs_pcie_1, SLAVE_PCIE_1, 1, 8, NULL, 0);
+DEFINE_QNODE(xs_qdss_stm, SLAVE_QDSS_STM, 1, 4, NULL, 0);
+DEFINE_QNODE(xs_sys_tcu_cfg, SLAVE_TCU, 1, 8, NULL, 0);
+DEFINE_QNODE(qhs_llcc, SLAVE_LLCC_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_gemnoc, SLAVE_GEM_NOC_CFG, 1, 4, NULL, 1,
 		MASTER_GEM_NOC_CFG);
-DEFINE_QNODE(qhs_mdsp_ms_mpu_cfg, SLAVE_MSS_PROC_MS_MPU_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_modem_ms_mpu_cfg, SLAVE_MCDMA_MS_MPU_CFG, 1, 4, 0);
-DEFINE_QNODE(qns_gem_noc_cnoc, SLAVE_GEM_NOC_CNOC, 1, 16, 1,
+DEFINE_QNODE(qhs_mdsp_ms_mpu_cfg, SLAVE_MSS_PROC_MS_MPU_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_modem_ms_mpu_cfg, SLAVE_MCDMA_MS_MPU_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_gem_noc_cnoc, SLAVE_GEM_NOC_CNOC, 1, 16, NULL, 1,
 		MASTER_GEM_NOC_CNOC);
-DEFINE_QNODE(qns_llcc, SLAVE_LLCC, 4, 16, 1,
+DEFINE_QNODE(qns_llcc, SLAVE_LLCC, 4, 16, NULL, 1,
 		MASTER_LLCC);
-DEFINE_QNODE(qns_pcie, SLAVE_MEM_NOC_PCIE_SNOC, 1, 8, 1,
+DEFINE_QNODE(qns_pcie, SLAVE_MEM_NOC_PCIE_SNOC, 1, 8, NULL, 1,
 		MASTER_GEM_NOC_PCIE_SNOC);
-DEFINE_QNODE(srvc_even_gemnoc, SLAVE_SERVICE_GEM_NOC_1, 1, 4, 0);
-DEFINE_QNODE(srvc_odd_gemnoc, SLAVE_SERVICE_GEM_NOC_2, 1, 4, 0);
-DEFINE_QNODE(srvc_sys_gemnoc, SLAVE_SERVICE_GEM_NOC, 1, 4, 0);
-DEFINE_QNODE(qhs_lpass_core, SLAVE_LPASS_CORE_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_lpass_lpi, SLAVE_LPASS_LPI_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_lpass_mpu, SLAVE_LPASS_MPU_CFG, 1, 4, 0);
-DEFINE_QNODE(qhs_lpass_top, SLAVE_LPASS_TOP_CFG, 1, 4, 0);
-DEFINE_QNODE(srvc_niu_aml_noc, SLAVE_SERVICES_LPASS_AML_NOC, 1, 4, 0);
-DEFINE_QNODE(srvc_niu_lpass_agnoc, SLAVE_SERVICE_LPASS_AG_NOC, 1, 4, 0);
-DEFINE_QNODE(ebi, SLAVE_EBI1, 4, 4, 0);
-DEFINE_QNODE(qns_mem_noc_hf, SLAVE_MNOC_HF_MEM_NOC, 2, 32, 1,
+DEFINE_QNODE(srvc_even_gemnoc, SLAVE_SERVICE_GEM_NOC_1, 1, 4, NULL, 0);
+DEFINE_QNODE(srvc_odd_gemnoc, SLAVE_SERVICE_GEM_NOC_2, 1, 4, NULL, 0);
+DEFINE_QNODE(srvc_sys_gemnoc, SLAVE_SERVICE_GEM_NOC, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_lpass_core, SLAVE_LPASS_CORE_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_lpass_lpi, SLAVE_LPASS_LPI_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_lpass_mpu, SLAVE_LPASS_MPU_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(qhs_lpass_top, SLAVE_LPASS_TOP_CFG, 1, 4, NULL, 0);
+DEFINE_QNODE(srvc_niu_aml_noc, SLAVE_SERVICES_LPASS_AML_NOC, 1, 4, NULL, 0);
+DEFINE_QNODE(srvc_niu_lpass_agnoc, SLAVE_SERVICE_LPASS_AG_NOC, 1, 4, NULL, 0);
+DEFINE_QNODE(ebi, SLAVE_EBI1, 4, 4, NULL, 0);
+DEFINE_QNODE(qns_mem_noc_hf, SLAVE_MNOC_HF_MEM_NOC, 2, 32, NULL, 1,
 		MASTER_MNOC_HF_MEM_NOC);
-DEFINE_QNODE(qns_mem_noc_sf, SLAVE_MNOC_SF_MEM_NOC, 2, 32, 1,
+DEFINE_QNODE(qns_mem_noc_sf, SLAVE_MNOC_SF_MEM_NOC, 2, 32, NULL, 1,
 		MASTER_MNOC_SF_MEM_NOC);
-DEFINE_QNODE(srvc_mnoc, SLAVE_SERVICE_MNOC, 1, 4, 0);
-DEFINE_QNODE(qns_nsp_gemnoc, SLAVE_CDSP_MEM_NOC, 2, 32, 1,
+DEFINE_QNODE(srvc_mnoc, SLAVE_SERVICE_MNOC, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_nsp_gemnoc, SLAVE_CDSP_MEM_NOC, 2, 32, NULL, 1,
 		MASTER_COMPUTE_NOC);
-DEFINE_QNODE(service_nsp_noc, SLAVE_SERVICE_NSP_NOC, 1, 4, 0);
-DEFINE_QNODE(qns_gemnoc_gc, SLAVE_SNOC_GEM_NOC_GC, 1, 8, 1,
+DEFINE_QNODE(service_nsp_noc, SLAVE_SERVICE_NSP_NOC, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_gemnoc_gc, SLAVE_SNOC_GEM_NOC_GC, 1, 8, NULL, 1,
 		MASTER_SNOC_GC_MEM_NOC);
-DEFINE_QNODE(qns_gemnoc_sf, SLAVE_SNOC_GEM_NOC_SF, 1, 16, 1,
+DEFINE_QNODE(qns_gemnoc_sf, SLAVE_SNOC_GEM_NOC_SF, 1, 16, NULL, 1,
 		MASTER_SNOC_SF_MEM_NOC);
-DEFINE_QNODE(srvc_snoc, SLAVE_SERVICE_SNOC, 1, 4, 0);
+DEFINE_QNODE(srvc_snoc, SLAVE_SERVICE_SNOC, 1, 4, NULL, 0);
 
 DEFINE_QBCM(bcm_acv, "ACV", false, 1,
 		&ebi);
@@ -338,7 +377,7 @@ DEFINE_QBCM(bcm_co3, "CO3", false, 1,
 		&qxm_nsp);
 DEFINE_QBCM(bcm_mc0, "MC0", true, 1,
 		&ebi);
-DEFINE_QBCM(bcm_mm0, "MM0", false, 1,
+DEFINE_QBCM(bcm_mm0, "MM0", true, 1,
 		&qns_mem_noc_hf);
 DEFINE_QBCM(bcm_mm1, "MM1", false, 3,
 		&qnm_camnoc_hf, &qxm_mdp0, &qxm_mdp1);
@@ -697,6 +736,32 @@ static struct qcom_icc_desc lahaina_system_noc = {
 	.num_bcms = ARRAY_SIZE(system_noc_bcms),
 };
 
+static const struct regmap_config icc_sdm845_regmap_config = {
+	.reg_bits       = 32,
+	.reg_stride     = 4,
+	.val_bits       = 32,
+};
+
+static struct regmap *
+qcom_icc_map(struct platform_device *pdev, const struct qcom_icc_desc *desc)
+{
+	void __iomem *base;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return NULL;
+
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base))
+		return ERR_CAST(base);
+
+	return devm_regmap_init_mmio(dev, base, &icc_sdm845_regmap_config);
+}
+
+
+
 static int qnoc_probe(struct platform_device *pdev)
 {
 	const struct qcom_icc_desc *desc;
@@ -740,17 +805,31 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (IS_ERR(qp->voter))
 		return PTR_ERR(qp->voter);
 
+	qp->regmap = qcom_icc_map(pdev, desc);
+	if (IS_ERR(qp->regmap))
+		return PTR_ERR(qp->regmap);
+
 	ret = icc_provider_add(provider);
 	if (ret) {
 		dev_err(&pdev->dev, "error adding interconnect provider\n");
 		return ret;
 	}
 
+	qp->num_clks = devm_clk_bulk_get_all(qp->dev, &qp->clks);
+	if (qp->num_clks < 0)
+		return qp->num_clks;
+
+	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+	if (ret)
+		return ret;
+
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
 		if (!qnodes[i])
 			continue;
+
+		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
 
 		node = icc_node_create(qnodes[i]->id);
 		if (IS_ERR(node)) {
@@ -770,8 +849,13 @@ static int qnoc_probe(struct platform_device *pdev)
 			icc_link_create(node, qnodes[i]->links[j]);
 
 		data->nodes[i] = node;
+		if (qnodes[i]->noc_ops)
+			qnodes[i]->noc_ops->set_qos(qnodes[i]);
 	}
 	data->num_nodes = num_nodes;
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
+	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
@@ -786,6 +870,8 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	return ret;
 err:
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
+	clk_bulk_put_all(qp->num_clks, qp->clks);
 	list_for_each_entry(node, &provider->nodes, node_list) {
 		icc_node_del(node);
 		icc_node_destroy(node->id);
