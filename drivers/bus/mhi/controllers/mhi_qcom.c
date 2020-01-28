@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <asm/arch_timer.h>
 #include <linux/debugfs.h>
@@ -637,6 +637,7 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		if (!ret)
 			mhi_runtime_resume(dev);
 		pm_runtime_put(dev);
+		mhi_arch_mission_mode_enter(mhi_cntrl);
 		break;
 	default:
 		MHI_ERR("Unhandled cb:0x%x\n", reason);

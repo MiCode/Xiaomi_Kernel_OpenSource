@@ -339,7 +339,8 @@ static void __qrtr_node_release(struct kref *kref)
 	if (node->nid != QRTR_EP_NID_AUTO) {
 		radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
 			if (node == *slot)
-				radix_tree_delete(&qrtr_nodes, iter.index);
+				radix_tree_iter_delete(&qrtr_nodes, &iter,
+						       slot);
 		}
 	}
 
@@ -355,7 +356,7 @@ static void __qrtr_node_release(struct kref *kref)
 			sock_put(waiter->sk);
 			kfree(waiter);
 		}
-		radix_tree_delete(&node->qrtr_tx_flow, iter.index);
+		radix_tree_iter_delete(&node->qrtr_tx_flow, &iter, slot);
 		kfree(flow);
 	}
 	mutex_unlock(&node->qrtr_tx_lock);
@@ -696,15 +697,20 @@ EXPORT_SYMBOL(qrtr_peek_pkt_size);
 static void qrtr_alloc_backup(struct work_struct *work)
 {
 	struct sk_buff *skb;
+	int errcode;
 
 	while (skb_queue_len(&qrtr_backup_lo) < QRTR_BACKUP_LO_NUM) {
-		skb = alloc_skb(QRTR_BACKUP_LO_SIZE, GFP_KERNEL);
+		skb = alloc_skb_with_frags(sizeof(struct qrtr_hdr_v1),
+					   QRTR_BACKUP_LO_SIZE, 0, &errcode,
+					   GFP_KERNEL);
 		if (!skb)
 			break;
 		skb_queue_tail(&qrtr_backup_lo, skb);
 	}
 	while (skb_queue_len(&qrtr_backup_hi) < QRTR_BACKUP_HI_NUM) {
-		skb = alloc_skb(QRTR_BACKUP_HI_SIZE, GFP_KERNEL);
+		skb = alloc_skb_with_frags(sizeof(struct qrtr_hdr_v1),
+					   QRTR_BACKUP_HI_SIZE, 0, &errcode,
+					   GFP_KERNEL);
 		if (!skb)
 			break;
 		skb_queue_tail(&qrtr_backup_hi, skb);
