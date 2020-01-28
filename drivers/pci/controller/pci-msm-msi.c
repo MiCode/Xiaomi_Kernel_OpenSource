@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <linux/interrupt.h>
 #include <linux/iommu.h>
@@ -321,6 +321,7 @@ int msm_msi_init(struct device *dev)
 	struct msm_msi *msi;
 	struct device_node *of_node;
 	const __be32 *prop_val;
+	struct of_phandle_args irq;
 
 	if (!dev->of_node) {
 		dev_err(dev, "MSI: missing DT node\n");
@@ -369,7 +370,9 @@ int msm_msi_init(struct device *dev)
 		goto err;
 	}
 
-	msi->nr_irqs = of_irq_count(msi->of_node);
+	while (of_irq_parse_one(msi->of_node, msi->nr_irqs, &irq) == 0)
+		msi->nr_irqs++;
+
 	if (!msi->nr_irqs) {
 		dev_err(msi->dev, "MSI: found no MSI interrupts\n");
 		ret = -ENODEV;
