@@ -151,6 +151,36 @@ struct hh_vm_irq_accept_resp_payload {
 	s32 virq;
 } __packed;
 
+/* Call: VM_IRQ_LEND */
+struct hh_vm_irq_lend_req_payload {
+	hh_vmid_t vmid;
+	s32 virq;
+	s32 label;
+} __packed;
+
+struct hh_vm_irq_lend_resp_payload {
+	hh_virq_handle_t virq;
+} __packed;
+
+/* Call: VM_IRQ_NOTIFY */
+#define HH_VM_IRQ_NOTIFY_FLAGS_LENT	BIT(0)
+#define HH_VM_IRQ_NOTIFY_FLAGS_RELEASED	BIT(1)
+
+struct hh_vm_irq_notify_req_payload {
+	hh_virq_handle_t virq;
+	u16 flags;
+	u16 reserved0;
+	u32 reserved1;
+	struct {
+		u32 num_vmids;
+		u64 vmids[0];
+	} optional[0];
+} __packed;
+
+struct hh_vm_irq_notify_resp_payload {
+	hh_virq_handle_t virq;
+} __packed;
+
 /* End Message ID headers */
 
 /* Common function declerations */

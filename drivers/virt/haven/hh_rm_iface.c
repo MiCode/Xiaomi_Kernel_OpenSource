@@ -186,6 +186,135 @@ out:
 }
 
 /**
+ * hh_rm_vm_irq_lend: Lend an IRQ to another VM
+ * @vmid: VM to lend the interrupt to
+ * @virq: Virtual IRQ number to lend
+ * @label: Label to give to VM so it may know how to associate the interrupt
+ * @virq_handle: Response handle which RM will accept from the other VM to take
+ *		 the lent interrupt
+ */
+static int hh_rm_vm_irq_lend(hh_vmid_t vmid, int virq, int label,
+			     hh_virq_handle_t *virq_handle)
+{
+	struct hh_vm_irq_lend_resp_payload *resp_payload;
+	struct hh_vm_irq_lend_req_payload req_payload;
+	size_t resp_payload_size;
+	int ret = 0, reply_err_code;
+
+	req_payload.vmid = vmid;
+	req_payload.virq = virq;
+	req_payload.label = label;
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_LEND,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s: VM_IRQ_LEND failed with err: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for VM_IRQ_LEND: %u\n",
+			__func__, resp_payload_size);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (virq_handle)
+		*virq_handle = resp_payload->virq;
+out:
+	kfree(resp_payload);
+	return ret;
+}
+
+/**
+ * hh_rm_vm_irq_notify: Notify an IRQ to another VM
+ * @vmids: VMs to notify the handle about
+ * @num_vmids: number of VMs to notify the handle about
+ * @flags: notification reason
+ * @virq_handle: Response handle which RM will accept from the other VM to take
+ *		 the lent interrupt
+ */
+static int hh_rm_vm_irq_notify(const hh_vmid_t *vmids, unsigned int num_vmids,
+			       u16 flags, hh_virq_handle_t virq_handle)
+{
+	struct hh_vm_irq_notify_resp_payload *resp_payload;
+	struct hh_vm_irq_notify_req_payload *req_payload;
+	size_t resp_payload_size, req_payload_size;
+	int ret = 0, reply_err_code;
+	unsigned int i;
+
+
+	if (!(flags & HH_VM_IRQ_NOTIFY_FLAGS_LENT) && num_vmids)
+		return -EINVAL;
+
+	if (num_vmids > U32_MAX)
+		return -EINVAL;
+
+	req_payload_size = sizeof(*req_payload);
+	if (flags & HH_VM_IRQ_NOTIFY_FLAGS_LENT)
+		req_payload_size += sizeof(req_payload->optional) +
+			(sizeof(req_payload->optional->vmids[0]) * num_vmids);
+	req_payload = kzalloc(req_payload_size, GFP_KERNEL);
+
+	if (!req_payload)
+		return -ENOMEM;
+
+	req_payload->virq = virq_handle;
+	req_payload->flags = flags;
+	if (flags & HH_VM_IRQ_NOTIFY_FLAGS_LENT) {
+		req_payload->optional[0].num_vmids = num_vmids;
+		for (i = 0; i < num_vmids; i++)
+			req_payload->optional[0].vmids[i] = vmids[i];
+	}
+
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	kfree(req_payload);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s: VM_IRQ_NOTIFY failed with err: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		pr_err("%s: Invalid size received for VM_IRQ_NOTIFY: %u\n",
+			__func__, resp_payload_size);
+		ret = -EINVAL;
+	}
+
+	kfree(resp_payload);
+	return ret;
+}
+
+/**
+ * hh_rm_vm_irq_lend_notify: Lend an IRQ to a VM and notify the VM about it
+ * @vmid: VM to lend interrupt to
+ * @virq: Virtual IRQ number to lend
+ * @label: Label to give to VM so it may know how to associate the interrupt
+ *
+ * This function performs interrupt sharing flow for "HLOS" described in
+ * Resource Manager High Level Design Sec. 3.3.3.
+ */
+int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label)
+{
+	hh_virq_handle_t virq_handle;
+	int ret;
+
+	ret = hh_rm_vm_irq_lend(vmid, virq, label, &virq_handle);
+	if (ret)
+		return ret;
+
+	return hh_rm_vm_irq_notify(&vmid, 1, HH_VM_IRQ_NOTIFY_FLAGS_LENT,
+				   virq_handle);
+}
+
+/**
  * hh_rm_vm_alloc_vmid: Return a vmid associated with the vm loaded into
  *			memory. This call should be called only during
 			initialization.

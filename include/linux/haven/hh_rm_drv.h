@@ -114,7 +114,10 @@ struct hh_rm_notif_vm_console_chars {
 
 int hh_rm_register_notifier(struct notifier_block *nb);
 int hh_rm_unregister_notifier(struct notifier_block *nb);
+
+/* Client APIs for IRQ management */
 int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq);
+int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label);
 
 /* Client APIs for VM management */
 int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
