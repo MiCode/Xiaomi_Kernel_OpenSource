@@ -1401,6 +1401,7 @@
 			"ref_aux_clk";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
+		resets = <&ufshc_mem 0>;
 		status = "disabled";
 	};
 
@@ -1410,9 +1411,11 @@
 		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
+		#reset-cells = <1>;
+
 		lanes-per-direction = <2>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
-
+		qcom,disable-lpm;
 		clock-names =
 			"core_clk",
 			"bus_aggr_clk",
