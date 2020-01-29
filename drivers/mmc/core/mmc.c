@@ -2306,6 +2306,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	if (!oldcard)
 		host->card = card;
+	if (host->ops->enter_dbg_mode)
+		host->ops->enter_dbg_mode(host);
 
 	return 0;
 
