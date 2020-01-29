@@ -2926,6 +2926,19 @@
 				};
 			};
 		};
+
+		usb3phy_portselect_default: usb3phy_portselect_default {
+			mux {
+				pins = "gpio81";
+				function = "usb_phy";
+			};
+
+			config {
+				pins = "gpio81";
+				bias-disable;
+				drive-strength = <2>;
+			};
+		};
 	};
 
 	pmx_sde: pmx_sde {
