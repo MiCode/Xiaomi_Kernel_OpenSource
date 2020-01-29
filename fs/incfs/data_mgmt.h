@@ -21,14 +21,40 @@
 #define SEGMENTS_PER_FILE 3
 
 struct read_log_record {
-	u32 block_index : 31;
-
-	u32 timed_out : 1;
+	u32 bitfield;
 
 	u64 timestamp_us;
 
 	incfs_uuid_t file_id;
 } __packed;
+
+#define RLR_BLOCK_INDEX_MASK 0x7fff
+#define RLR_TIMED_OUT_MASK 0x8000
+
+static inline u32 get_block_index(const struct read_log_record *rlr)
+{
+	return rlr->bitfield & RLR_BLOCK_INDEX_MASK;
+}
+
+static inline void set_block_index(struct read_log_record *rlr,
+				  u32 block_index)
+{
+	rlr->bitfield = (rlr->bitfield & ~RLR_BLOCK_INDEX_MASK)
+			| (block_index & RLR_BLOCK_INDEX_MASK);
+}
+
+static inline bool get_timed_out(const struct read_log_record *rlr)
+{
+	return (rlr->bitfield & RLR_TIMED_OUT_MASK) == RLR_TIMED_OUT_MASK;
+}
+
+static inline void set_timed_out(struct read_log_record *rlr, bool timed_out)
+{
+	if (timed_out)
+		rlr->bitfield |= RLR_TIMED_OUT_MASK;
+	else
+		rlr->bitfield &= ~RLR_TIMED_OUT_MASK;
+}
 
 struct read_log_state {
 	/* Next slot in rl_ring_buf to write to. */
@@ -271,7 +297,7 @@ static inline struct inode_info *get_incfs_node(struct inode *inode)
 
 static inline struct data_file *get_incfs_data_file(struct file *f)
 {
-	struct inode_info *node = NULL;
+	struct inode_info *node;
 
 	if (!f)
 		return NULL;

@@ -85,11 +85,11 @@ static void data_file_segment_destroy(struct data_file_segment *segment)
 
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 {
-	struct data_file *df = NULL;
-	struct backing_file_context *bfc = NULL;
+	struct data_file *df;
+	struct backing_file_context *bfc;
 	int md_records;
 	u64 size;
-	int error = 0;
+	int error;
 	int i;
 
 	if (!bf || !mi)
@@ -160,7 +160,7 @@ int make_inode_ready_for_data_ops(struct mount_info *mi,
 				struct file *backing_file)
 {
 	struct inode_info *node = get_incfs_node(inode);
-	struct data_file *df = NULL;
+	struct data_file *df;
 	int err = 0;
 
 	inode_lock(inode);
@@ -181,7 +181,7 @@ int make_inode_ready_for_data_ops(struct mount_info *mi,
 
 struct dir_file *incfs_open_dir_file(struct mount_info *mi, struct file *bf)
 {
-	struct dir_file *dir = NULL;
+	struct dir_file *dir;
 
 	if (!S_ISDIR(bf->f_inode->i_mode))
 		return ERR_PTR(-EBADF);
@@ -222,10 +222,11 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 	s64 now_us = ktime_to_us(ktime_get());
 	struct read_log_record record = {
 		.file_id = *id,
-		.block_index = block_index,
-		.timed_out = timed_out,
 		.timestamp_us = now_us
 	};
+
+	set_block_index(&record, block_index);
+	set_timed_out(&record, timed_out);
 
 	if (log->rl_size == 0)
 		return;
@@ -1062,7 +1063,7 @@ static void fill_pending_read_from_log_record(
 	struct read_log_state *state, u64 log_size)
 {
 	dest->file_id = src->file_id;
-	dest->block_index = src->block_index;
+	dest->block_index = get_block_index(src);
 	dest->serial_number =
 		state->current_pass_no * log_size + state->next_index;
 	dest->timestamp_us = src->timestamp_us;
