@@ -32,7 +32,7 @@
 			<&clock_videocc VIDEO_CC_MVS0C_CLK_ARES>;
 		reset-names = "video_axi_reset", "video_core_reset";
 
-		qcom,reg-presets = <0xB0088 0x0>;
+		qcom,reg-presets = <0xB0088 0x0 0x11>;
 
 		/* Bus Interconnects */
 		interconnect-names = "venus-cnoc", "venus-ddr", "venus-llcc";
