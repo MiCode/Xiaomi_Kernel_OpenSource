@@ -59,6 +59,9 @@
 };
 
 &soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
 	usb_emu_phy_0: usb_emu_phy@a720000 {
 		compatible = "qcom,usb-emu-phy";
 		reg = <0x0a720000 0x9500>;
