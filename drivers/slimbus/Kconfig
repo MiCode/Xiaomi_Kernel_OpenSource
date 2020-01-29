@@ -3,7 +3,7 @@
 # SLIMbus driver configuration
 #
 menuconfig SLIMBUS
-	bool "SLIMbus support"
+	tristate "SLIMbus support"
 	depends on HAS_IOMEM
 	help
 	  Slimbus is standard interface between baseband and
@@ -50,4 +50,5 @@ config SLIMBUS_MSM_NGD
 	  the bus using messaging interface, and communicating with master
 	  component residing on ADSP for bandwidth and data-channel
 	  management.
+
 endif

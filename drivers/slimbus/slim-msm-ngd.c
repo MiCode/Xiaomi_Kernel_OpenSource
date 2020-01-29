@@ -19,7 +19,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
-#include <linux/of_slimbus.h>
 #include <linux/timer.h>
 #include <linux/msm-sps.h>
 #include <soc/qcom/service-locator.h>

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_SLIMBUS_H
@@ -9,6 +9,7 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/mod_devicetable.h>
+#include <linux/of_irq.h>
 
 /* Interfaces between SLIMbus manager drivers and SLIMbus infrastructure. */
 
@@ -1168,6 +1169,7 @@ extern void slim_ctrl_add_boarddevs(struct slim_controller *ctrl);
 extern const
 struct slim_device_id *slim_get_device_id(const struct slim_device *sdev);
 
+#if IS_ENABLED(CONFIG_SLIMBUS)
 /*
  * slim_register_board_info: Board-initialization routine.
  * @info: List of all devices on all controllers present on the board.
@@ -1175,16 +1177,36 @@ struct slim_device_id *slim_get_device_id(const struct slim_device *sdev);
  * API enumerates respective devices on corresponding controller.
  * Called from board-init function.
  */
-#ifdef CONFIG_SLIMBUS
 extern int slim_register_board_info(struct slim_boardinfo const *info,
 					unsigned int n);
+
+/*
+ * of_slim_register_devices() - Register devices in the SLIMbus Device Tree
+ * @ctrl: slim_controller which devices should be registered to.
+ *
+ * This routine scans the SLIMbus Device Tree, allocating resources and
+ * creating slim_devices according to the SLIMbus Device Tree
+ * hierarchy. Details of this hierarchy can be found in
+ * Documentation/devicetree/bindings/slimbus. This routine is normally
+ * called from the probe routine of the driver registering as a
+ * slim_controller.
+ */
+extern int of_register_slim_devices(struct slim_controller *ctrl);
+
 #else
+
 static inline int slim_register_board_info(struct slim_boardinfo const *info,
 					unsigned int n)
 {
 	return 0;
 }
-#endif
+
+static int of_register_slim_devices(struct slim_controller *ctrl)
+{
+	return 0;
+}
+
+#endif /* CONFIG_OF_SLIMBUS */
 
 static inline void *slim_get_ctrldata(const struct slim_controller *dev)
 {
@@ -1205,4 +1227,5 @@ static inline void slim_set_clientdata(struct slim_device *dev, void *data)
 {
 	dev_set_drvdata(&dev->dev, data);
 }
+
 #endif /* _LINUX_SLIMBUS_H */
