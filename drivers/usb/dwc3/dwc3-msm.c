@@ -2737,7 +2737,7 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 	else if (bv == BUS_VOTE_NONE)
 		bv_index = BUS_VOTE_NONE;
 
-	for (i = 0; mdwc->icc_paths[i]; i++) {
+	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++) {
 		ret = icc_set_bw(mdwc->icc_paths[i],
 				bus_vote_values[bv_index][i].avg,
 				bus_vote_values[bv_index][i].peak);
