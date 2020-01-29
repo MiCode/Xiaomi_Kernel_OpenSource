@@ -294,3 +294,5 @@
 		};
 	};
 };
+
+#include "shima-pinctrl.dtsi"
