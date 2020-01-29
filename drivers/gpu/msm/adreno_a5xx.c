@@ -1813,11 +1813,24 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
  */
 static int a5xx_rb_start(struct adreno_device *adreno_dev)
 {
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
 	uint64_t addr;
-	int ret;
+	int ret, i;
 
+	/* Clear all the ringbuffers */
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		memset(rb->buffer_desc->hostptr, 0xaa, KGSL_RB_SIZE);
+		kgsl_sharedmem_writel(device->scratch,
+			SCRATCH_RPTR_OFFSET(rb->id), 0);
+
+		rb->wptr = 0;
+		rb->_wptr = 0;
+		rb->wptr_preempt_end = ~0;
+	}
+
+	/* Set up the current ringbuffer */
+	rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	addr = SCRATCH_RPTR_GPU_ADDR(device, rb->id);
 
 	kgsl_regwrite(device, A5XX_CP_RB_RPTR_ADDR_LO, lower_32_bits(addr));

@@ -2118,7 +2118,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Clear FSR here in case it is set from a previous pagefault */
 	kgsl_mmu_clear_fsr(&device->mmu);
 
-	status = adreno_ringbuffer_start(adreno_dev);
+	status = gpudev->rb_start(adreno_dev);
 	if (status)
 		goto error_oob_clear;
 
@@ -2780,12 +2780,9 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* stop all ringbuffers to cancel RB events */
 	adreno_ringbuffer_stop(adreno_dev);
-	/*
-	 * If we have offsets for the jump tables we can try to do a warm start,
-	 * otherwise do a full ringbuffer restart
-	 */
 
-	ret = adreno_ringbuffer_start(adreno_dev);
+	/* Start the ringbuffer(s) again */
+	ret = gpudev->rb_start(adreno_dev);
 	if (ret == 0) {
 		device->reset_counter++;
 		set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);

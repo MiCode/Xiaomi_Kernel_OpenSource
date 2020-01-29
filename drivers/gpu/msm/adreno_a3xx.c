@@ -605,6 +605,11 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 
+	memset(rb->buffer_desc->hostptr, 0xaa, KGSL_RB_SIZE);
+	rb->wptr = 0;
+	rb->_wptr = 0;
+	rb->wptr_preempt_end = ~0;
+
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
 	 * representation of the size in quadwords (sizedwords / 2).
