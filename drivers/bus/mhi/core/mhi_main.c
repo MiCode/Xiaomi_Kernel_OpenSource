@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -322,6 +322,29 @@ static void mhi_recycle_ev_ring_element(struct mhi_controller *mhi_cntrl,
 		ctxt_wp = ring->iommu_base;
 	}
 
+	*ring->ctxt_wp = ctxt_wp;
+
+	/* update the RP */
+	ring->rp += ring->el_size;
+	if (ring->rp >= (ring->base + ring->len))
+		ring->rp = ring->base;
+
+	/* visible to other cores */
+	smp_wmb();
+}
+
+static void mhi_recycle_fwd_ev_ring_element(struct mhi_controller *mhi_cntrl,
+					struct mhi_ring *ring)
+{
+	dma_addr_t ctxt_wp;
+
+	/* update the WP */
+	ring->wp += ring->el_size;
+	if (ring->wp >= (ring->base + ring->len))
+		ring->wp = ring->base;
+
+	/* update the context WP based on the RP to support fast forwarding */
+	ctxt_wp = ring->iommu_base + (ring->wp - ring->base);
 	*ring->ctxt_wp = ctxt_wp;
 
 	/* update the RP */
@@ -1542,7 +1565,7 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	ev_ring->wp = dev_rp - 1;
 	if (ev_ring->wp < ev_ring->base)
 		ev_ring->wp = ev_ring->base + ev_ring->len - ev_ring->el_size;
-	mhi_recycle_ev_ring_element(mhi_cntrl, ev_ring);
+	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
@@ -2161,6 +2184,9 @@ int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d)
 
 	int i;
 
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
+
 	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	er_ctxt = mhi_cntrl->mhi_ctxt->er_ctxt;
@@ -2193,6 +2219,9 @@ int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d)
 	struct mhi_chan *mhi_chan;
 	struct mhi_chan_ctxt *chan_ctxt;
 	int i;
+
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
 
 	seq_printf(m, "[%llu ns]:\n", sched_clock());
 

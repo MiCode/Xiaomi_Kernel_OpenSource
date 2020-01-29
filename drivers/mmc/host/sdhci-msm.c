@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * drivers/mmc/host/sdhci-msm.c - Qualcomm Technologies, Inc. MSM SDHCI Platform
  * driver source file
@@ -866,7 +866,8 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 			msm_host_offset->CORE_DLL_CONFIG);
 
 	/* For hs400es mode, no need to wait for core dll lock */
-	if (!(msm_host->enhanced_strobe &&
+	if (msm_host->mmc->card
+			&& !(msm_host->enhanced_strobe &&
 				mmc_card_strobe(msm_host->mmc->card))) {
 		wait_cnt = 50;
 		/* Wait until DLL_LOCK bit of DLL_STATUS register becomes '1' */

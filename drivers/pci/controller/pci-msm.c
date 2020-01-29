@@ -626,6 +626,7 @@ struct msm_pcie_drv_info {
 	u16 seq;
 	u16 reply_seq;
 	u32 timeout_ms; /* IPC command timeout */
+	u32 l1ss_timeout_us;
 	struct completion completion;
 };
 
@@ -5646,7 +5647,6 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 	struct msm_pcie_drv_msg *msg;
 	struct msm_pcie_drv_tre *pkt;
 	struct msm_pcie_drv_header *hdr;
-	u32 drv_l1ss_timeout_us = 0;
 	int ret;
 
 	drv_info = devm_kzalloc(&pcie_dev->pdev->dev, sizeof(*drv_info),
@@ -5655,12 +5655,12 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 		return -ENOMEM;
 
 	ret = of_property_read_u32(of_node, "qcom,drv-l1ss-timeout-us",
-					&drv_l1ss_timeout_us);
+					&drv_info->l1ss_timeout_us);
 	if (ret)
-		drv_l1ss_timeout_us = L1SS_TIMEOUT_US;
+		drv_info->l1ss_timeout_us = L1SS_TIMEOUT_US;
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: DRV L1ss timeout: %dus\n",
-		pcie_dev->rc_idx, drv_l1ss_timeout_us);
+		pcie_dev->rc_idx, drv_info->l1ss_timeout_us);
 
 	drv_info->dev_id = pcie_dev->rc_idx;
 
@@ -5676,7 +5676,7 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 
 	pkt->dword[0] = MSM_PCIE_DRV_CMD_ENABLE;
 	pkt->dword[1] = hdr->dev_id;
-	pkt->dword[2] = drv_l1ss_timeout_us / 1000;
+	pkt->dword[2] = drv_info->l1ss_timeout_us / 1000;
 
 	msg = &drv_info->drv_disable;
 	pkt = &msg->pkt;
@@ -6997,11 +6997,13 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	return 0;
 }
 
-static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev)
+static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
+				u32 options)
 {
 	struct rpmsg_device *rpdev = pcie_drv.rpdev;
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_drv_msg *drv_enable = &drv_info->drv_enable;
+	struct msm_pcie_drv_tre *pkt = &drv_enable->pkt;
 	struct msm_pcie_clk_info_t *clk_info;
 	int ret, i;
 
@@ -7023,6 +7025,11 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev)
 
 	/* disable global irq - no more linkdown/aer detection */
 	disable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
+
+	if (options & MSM_PCIE_CONFIG_NO_L1SS_TO)
+		pkt->dword[2] = 0;
+	else
+		pkt->dword[2] = drv_info->l1ss_timeout_us / 1000;
 
 	drv_info->reply_seq = drv_info->seq++;
 	drv_enable->hdr.seq = drv_info->reply_seq;
@@ -7134,7 +7141,7 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		PCIE_DBG(pcie_dev,
 			"PCIe: RC%d: DRV: user requests for DRV suspend\n",
 			rc_idx);
-		ret = msm_pcie_drv_suspend(pcie_dev);
+		ret = msm_pcie_drv_suspend(pcie_dev, options);
 		break;
 	case MSM_PCIE_SUSPEND:
 		PCIE_DBG(&msm_pcie_dev[rc_idx],

@@ -3976,6 +3976,62 @@ drm_parse_hdmi_vsdb_audio(struct drm_connector *connector, const u8 *db)
 		      connector->audio_latency[1]);
 }
 
+static void drm_parse_ycbcr420_deep_color_info(struct drm_connector *connector,
+					       const u8 *db)
+{
+	u8 dc_mask;
+	struct drm_hdmi_info *hdmi = &connector->display_info.hdmi;
+
+	dc_mask = db[7] & DRM_EDID_YCBCR420_DC_MASK;
+	hdmi->y420_dc_modes = dc_mask;
+}
+
+static void drm_parse_hdmi_forum_vsdb(struct drm_connector *connector,
+				 const u8 *hf_vsdb)
+{
+	struct drm_display_info *display = &connector->display_info;
+	struct drm_hdmi_info *hdmi = &display->hdmi;
+
+	display->has_hdmi_infoframe = true;
+
+	if (hf_vsdb[6] & 0x80) {
+		hdmi->scdc.supported = true;
+		if (hf_vsdb[6] & 0x40)
+			hdmi->scdc.read_request = true;
+	}
+
+	/*
+	 * All HDMI 2.0 monitors must support scrambling at rates > 340 MHz.
+	 * And as per the spec, three factors confirm this:
+	 * * Availability of a HF-VSDB block in EDID (check)
+	 * * Non zero Max_TMDS_Char_Rate filed in HF-VSDB (let's check)
+	 * * SCDC support available (let's check)
+	 * Lets check it out.
+	 */
+
+	if (hf_vsdb[5]) {
+		/* max clock is 5000 KHz times block value */
+		u32 max_tmds_clock = hf_vsdb[5] * 5000;
+		struct drm_scdc *scdc = &hdmi->scdc;
+
+		if (max_tmds_clock > 340000) {
+			display->max_tmds_clock = max_tmds_clock;
+			DRM_DEBUG_KMS("HF-VSDB: max TMDS clock %d kHz\n",
+				display->max_tmds_clock);
+		}
+
+		if (scdc->supported) {
+			scdc->scrambling.supported = true;
+
+			/* Few sinks support scrambling for cloks < 340M */
+			if ((hf_vsdb[6] & 0x8))
+				scdc->scrambling.low_rates = true;
+		}
+	}
+
+	drm_parse_ycbcr420_deep_color_info(connector, hf_vsdb);
+}
+
 /*
  * drm_extract_vcdb_info - Parse the HDMI Video Capability Data Block
  * @connector: connector corresponding to the HDMI sink
@@ -4175,33 +4231,6 @@ drm_hdmi_extract_extended_blk_info(struct drm_connector *connector,
 }
 
 static void
-parse_hdmi_hf_vsdb(struct drm_connector *connector, const u8 *db)
-{
-	u8 len = cea_db_payload_len(db);
-
-	if (len < 7)
-		return;
-
-	if (db[4] != 1)
-		return; /* invalid version */
-
-	connector->max_tmds_char = db[5] * 5;
-	connector->scdc_present = db[6] & (1 << 7);
-	connector->rr_capable = db[6] & (1 << 6);
-	connector->flags_3d = db[6] & 0x7;
-	connector->supports_scramble = connector->scdc_present &&
-			(db[6] & (1 << 3));
-
-	DRM_DEBUG_KMS(
-		"HDMI v2: max TMDS char %d, scdc %s, rr %s,3D flags 0x%x, scramble %s\n",
-		connector->max_tmds_char,
-		connector->scdc_present ? "available" : "not available",
-		connector->rr_capable ? "capable" : "not capable",
-		connector->flags_3d,
-		connector->supports_scramble ? "supported" : "not supported");
-}
-
-static void
 monitor_name(struct detailed_timing *t, void *data)
 {
 	if (t->data.other_data.type == EDID_DETAIL_MONITOR_NAME)
@@ -4335,7 +4364,8 @@ static void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
 					drm_parse_hdmi_vsdb_audio(connector, db);
 				/* HDMI Forum Vendor-Specific Data Block */
 				else if (cea_db_is_hdmi_forum_vsdb(db))
-					parse_hdmi_hf_vsdb(connector, db);
+					drm_parse_hdmi_forum_vsdb(connector,
+								  db);
 				break;
 			default:
 				break;
@@ -4649,62 +4679,6 @@ drm_default_rgb_quant_range(const struct drm_display_mode *mode)
 }
 EXPORT_SYMBOL(drm_default_rgb_quant_range);
 
-static void drm_parse_ycbcr420_deep_color_info(struct drm_connector *connector,
-					       const u8 *db)
-{
-	u8 dc_mask;
-	struct drm_hdmi_info *hdmi = &connector->display_info.hdmi;
-
-	dc_mask = db[7] & DRM_EDID_YCBCR420_DC_MASK;
-	hdmi->y420_dc_modes = dc_mask;
-}
-
-static void drm_parse_hdmi_forum_vsdb(struct drm_connector *connector,
-				 const u8 *hf_vsdb)
-{
-	struct drm_display_info *display = &connector->display_info;
-	struct drm_hdmi_info *hdmi = &display->hdmi;
-
-	display->has_hdmi_infoframe = true;
-
-	if (hf_vsdb[6] & 0x80) {
-		hdmi->scdc.supported = true;
-		if (hf_vsdb[6] & 0x40)
-			hdmi->scdc.read_request = true;
-	}
-
-	/*
-	 * All HDMI 2.0 monitors must support scrambling at rates > 340 MHz.
-	 * And as per the spec, three factors confirm this:
-	 * * Availability of a HF-VSDB block in EDID (check)
-	 * * Non zero Max_TMDS_Char_Rate filed in HF-VSDB (let's check)
-	 * * SCDC support available (let's check)
-	 * Lets check it out.
-	 */
-
-	if (hf_vsdb[5]) {
-		/* max clock is 5000 KHz times block value */
-		u32 max_tmds_clock = hf_vsdb[5] * 5000;
-		struct drm_scdc *scdc = &hdmi->scdc;
-
-		if (max_tmds_clock > 340000) {
-			display->max_tmds_clock = max_tmds_clock;
-			DRM_DEBUG_KMS("HF-VSDB: max TMDS clock %d kHz\n",
-				display->max_tmds_clock);
-		}
-
-		if (scdc->supported) {
-			scdc->scrambling.supported = true;
-
-			/* Few sinks support scrambling for cloks < 340M */
-			if ((hf_vsdb[6] & 0x8))
-				scdc->scrambling.low_rates = true;
-		}
-	}
-
-	drm_parse_ycbcr420_deep_color_info(connector, hf_vsdb);
-}
-
 static void drm_parse_hdmi_deep_color_info(struct drm_connector *connector,
 					   const u8 *hdmi)
 {
@@ -4874,7 +4848,8 @@ drm_hdmi_extract_vsdbs_info(struct drm_connector *connector,
 				}
 				/* HDMI Forum Vendor-Specific Data Block */
 				else if (cea_db_is_hdmi_forum_vsdb(db))
-					parse_hdmi_hf_vsdb(connector, db);
+					drm_parse_hdmi_forum_vsdb(connector,
+								  db);
 			}
 		}
 	}

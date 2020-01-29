@@ -1423,9 +1423,9 @@ static int iris_hfi_flush_debug_queue(void *dev)
 		return -EINVAL;
 	}
 
-	cvp_dump_csr(device);
 	mutex_lock(&device->lock);
 
+	cvp_dump_csr(device);
 	if (!device->power_enabled) {
 		dprintk(CVP_WARN, "%s: iris power off\n", __func__);
 		rc = -EINVAL;

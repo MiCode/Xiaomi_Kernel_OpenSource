@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_LAGOON_H
@@ -152,6 +152,7 @@
 #define GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK		142
 #define GCC_RX5_PCIE_CLKREF_CLK			143
 #define GCC_GPU_GPLL0_MAIN_DIV_CLK_SRC		144
+#define GCC_NPU_PLL0_MAIN_DIV_CLK_SRC		145
 
 /* GCC resets */
 #define GCC_QUSB2PHY_PRIM_BCR			0

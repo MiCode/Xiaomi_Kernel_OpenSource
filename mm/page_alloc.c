@@ -7426,6 +7426,11 @@ unsigned long free_reserved_area(void *start, void *end, int poison, char *s)
 		pr_info("Freeing %s memory: %ldK\n",
 			s, pages << (PAGE_SHIFT - 10));
 
+#ifdef CONFIG_HAVE_MEMBLOCK
+		memblock_dbg("memblock_free: [%#016llx-%#016llx] %pS\n",
+			__pa(start), __pa(end), (void *)_RET_IP_);
+#endif
+
 	return pages;
 }
 EXPORT_SYMBOL(free_reserved_area);

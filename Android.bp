@@ -6,12 +6,12 @@ cc_binary_host {
     },
 }
 
-gensrcs {
+genrule {
     name: "gen-headers_install.sh",
     srcs: ["scripts/headers_install.sh"],
     tools: ["unifdef"],
+    out: ["headers_install.sh"],
     cmd: "sed 's+scripts/unifdef+$(location unifdef)+g' $(in) > $(out)",
-    output_extension: "sh",
 }
 
 cc_prebuilt_binary {
@@ -21,38 +21,25 @@ cc_prebuilt_binary {
     srcs: [":gen-headers_install.sh"],
 }
 
-gensrcs {
-    name: "qcom-kernel-includes",
-    cmd: "$(location headers_install.sh) `dirname $(out)` `dirname $(in)` `basename $(in)`",
-    tools: ["headers_install.sh"],
-    export_include_dirs: ["include/uapi"],
-    srcs: [
-        "include/uapi/**/*.h",
-    ],
-    output_extension: "h",
-}
+// Use the following for verbose output from kernel_headers.py.
+// kernel_headers_verbose = "--verbose "
+// Use the following for minimal output from kernel_headers.py.
+kernel_headers_verbose = ""
 
-gensrcs {
-    name: "qseecom-kernel-includes",
-    cmd: "$(location headers_install.sh) `dirname $(out)` `dirname $(in)` `basename $(in)`",
-    tools: ["headers_install.sh"],
-    export_include_dirs: ["include/uapi"],
-    srcs: [
-        "include/uapi/linux/qseecom.h",
-    ],
-    output_extension: "h",
-}
+build = ["gen_headers_arm.bp", "gen_headers_arm64.bp"]
 
 cc_library_headers {
-    name: "qseecom-kernel-headers",
-    generated_headers: ["qseecom-kernel-includes"],
-    export_generated_headers: ["qseecom-kernel-includes"],
-}
-
-cc_library_headers {
-    name: "qcom_kernel_headers",
-    generated_headers: ["qcom-kernel-includes"],
-    export_generated_headers: ["qcom-kernel-includes"],
+    name: "qti_kernel_headers",
+    arch: {
+        arm: {
+            generated_headers: ["qti_generate_kernel_headers_arm"],
+            export_generated_headers: ["qti_generate_kernel_headers_arm"],
+        },
+        arm64: {
+            generated_headers: ["qti_generate_kernel_headers_arm64"],
+            export_generated_headers: ["qti_generate_kernel_headers_arm64"],
+        },
+    },
     vendor: true,
     recovery_available: true,
 }

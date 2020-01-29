@@ -133,6 +133,15 @@ config QCOM_LITO_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_LAGOON_LLCC
+	tristate "Qualcomm Technologies, Inc. LAGOON LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Qualcomm Technologies, Inc. platform specific LLCC driver for LAGOON.
+	  Say yes here to enable the LLCC driver for LAGOON. This provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
 config QCOM_SDM845_LLCC
 	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
 	depends on QCOM_LLCC
@@ -845,6 +854,8 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+
+source "drivers/soc/qcom/icnss2/Kconfig"
 
 config ICNSS
 	tristate "Platform driver for Q6 integrated connectivity"

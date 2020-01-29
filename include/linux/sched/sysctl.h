@@ -76,7 +76,7 @@ extern int sched_updown_migrate_handler(struct ctl_table *table,
 					size_t *lenp, loff_t *ppos);
 #endif
 
-#if defined(CONFIG_PREEMPT_TRACER) || defined(CONFIG_DEBUG_PREEMPT)
+#if defined(CONFIG_PREEMPTIRQ_EVENTS) || defined(CONFIG_PREEMPT_TRACER)
 extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
 #endif
 #if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER)

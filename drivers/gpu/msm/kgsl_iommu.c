@@ -1034,7 +1034,7 @@ static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 		pt->va_start = KGSL_IOMMU_SECURE_BASE(mmu);
 		pt->va_end = KGSL_IOMMU_SECURE_END(mmu);
 	} else {
-		pt->compat_va_start = KGSL_IOMMU_SVM_BASE32;
+		pt->compat_va_start = KGSL_IOMMU_SVM_BASE32(mmu);
 		pt->compat_va_end = KGSL_IOMMU_SECURE_BASE(mmu);
 		pt->va_start = KGSL_IOMMU_VA_BASE64;
 		pt->va_end = KGSL_IOMMU_VA_END64;
@@ -1043,7 +1043,7 @@ static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 	if (pagetable->name != KGSL_MMU_GLOBAL_PT &&
 		pagetable->name != KGSL_MMU_SECURE_PT) {
 		if (kgsl_is_compat_task()) {
-			pt->svm_start = KGSL_IOMMU_SVM_BASE32;
+			pt->svm_start = KGSL_IOMMU_SVM_BASE32(mmu);
 			pt->svm_end = KGSL_IOMMU_SECURE_BASE(mmu);
 		} else {
 			pt->svm_start = KGSL_IOMMU_SVM_BASE64;
@@ -1063,13 +1063,13 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 			pt->va_start = KGSL_IOMMU_SECURE_BASE(mmu);
 			pt->va_end = KGSL_IOMMU_SECURE_END(mmu);
 		} else {
-			pt->va_start = KGSL_IOMMU_SVM_BASE32;
+			pt->va_start = KGSL_IOMMU_SVM_BASE32(mmu);
 			pt->va_end = KGSL_IOMMU_SECURE_BASE(mmu);
 			pt->compat_va_start = pt->va_start;
 			pt->compat_va_end = pt->va_end;
 		}
 	} else {
-		pt->va_start = KGSL_IOMMU_SVM_BASE32;
+		pt->va_start = KGSL_IOMMU_SVM_BASE32(mmu);
 		pt->va_end = KGSL_IOMMU_GLOBAL_MEM_BASE(mmu);
 		pt->compat_va_start = pt->va_start;
 		pt->compat_va_end = pt->va_end;
@@ -1077,7 +1077,7 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 
 	if (pagetable->name != KGSL_MMU_GLOBAL_PT &&
 		pagetable->name != KGSL_MMU_SECURE_PT) {
-		pt->svm_start = KGSL_IOMMU_SVM_BASE32;
+		pt->svm_start = KGSL_IOMMU_SVM_BASE32(mmu);
 		pt->svm_end = KGSL_IOMMU_SVM_END32;
 	}
 }

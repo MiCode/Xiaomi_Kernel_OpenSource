@@ -21,6 +21,7 @@ config CNSS2_DEBUG
 
 config CNSS2_QMI
 	bool "CNSS2 Platform Driver QMI support"
+	select CNSS_QMI_SVC
 	depends on CNSS2
 	help
 	  CNSS2 platform driver uses QMI framework to communicate with WLAN

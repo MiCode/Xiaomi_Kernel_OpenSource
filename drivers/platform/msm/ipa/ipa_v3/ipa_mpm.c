@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
@@ -74,6 +74,7 @@
 #define IPA_MHIP_HOLB_TMO 31 /* value to match granularity on ipa HW 4.5 */
 #define IPA_MPM_FLOW_CTRL_ADD 1
 #define IPA_MPM_FLOW_CTRL_DELETE 0
+#define IPA_MPM_NUM_OF_INIT_CMD_DESC 2
 
 enum mhip_re_type {
 	MHIP_RE_XFER = 0x2,
@@ -479,11 +480,55 @@ static void ipa_mpm_gsi_chan_err_cb(struct gsi_chan_err_notify *err_data)
 static int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe, bool reset)
 {
-	int result = 0;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[IPA_MPM_NUM_OF_INIT_CMD_DESC];
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	struct ipahal_reg_valmask valmask;
+	struct ipa3_desc desc[IPA_MPM_NUM_OF_INIT_CMD_DESC];
+	int i, num_cmd = 0, result = 0;
 	struct ipa_ep_cfg ep_cfg = { { 0 } };
 
 	IPA_MPM_FUNC_ENTRY();
 	IPA_MPM_DBG("DMA from %d to %d reset=%d\n", src_pipe, dst_pipe, reset);
+
+	memset(desc, 0, sizeof(desc));
+	memset(cmd_pyld, 0, sizeof(cmd_pyld));
+
+	/* First step is to clear IPA Pipeline before changing DMA mode */
+	if (ipa3_get_ep_mapping(src_pipe) != IPA_EP_NOT_ALLOCATED) {
+		i = ipa3_get_ep_mapping(src_pipe);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+					IPA_IMM_CMD_REGISTER_WRITE,
+					&reg_write_coal_close, false);
+
+		if (!cmd_pyld[num_cmd]) {
+			IPA_MPM_ERR("failed to construct coal close IC\n");
+			result = -ENOMEM;
+			goto destroy_imm_cmd;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+	}
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
+	cmd_pyld[num_cmd] =
+		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPA_MPM_ERR("failed to construct NOP imm cmd\n");
+		result = -ENOMEM;
+		goto destroy_imm_cmd;
+	}
+
+	result = ipa3_send_cmd(num_cmd, desc);
+	if (result) {
+		IPAERR("fail to send Reset Pipeline immediate command\n");
+		goto destroy_imm_cmd;
+	}
 
 	/* Reset to basic if reset = 1, otherwise set to DMA */
 	if (reset)
@@ -495,6 +540,10 @@ static int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
 
 	result = ipa_cfg_ep(ipa_get_ep_mapping(src_pipe), &ep_cfg);
 	IPA_MPM_FUNC_EXIT();
+
+destroy_imm_cmd:
+	for (i = 0; i < num_cmd; ++i)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 
 	return result;
 }

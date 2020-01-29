@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -260,31 +260,34 @@ static int mem_share_do_ramdump(void)
 				dev_err(memsh_child->dev,
 					"memshare: %s: failed to map the memory region to APPS\n",
 					client_name);
+				continue;
 			} else {
 				memblock[i].hyp_mapping = 0;
 			}
 		}
 
-		ramdump_segments_tmp = kcalloc(1,
-			sizeof(struct ramdump_segment),
-			GFP_KERNEL);
-		if (!ramdump_segments_tmp)
-			return -ENOMEM;
+		if (!memblock[i].hyp_mapping) {
+			ramdump_segments_tmp = kcalloc(1,
+				sizeof(struct ramdump_segment),
+				GFP_KERNEL);
+			if (!ramdump_segments_tmp)
+				return -ENOMEM;
 
-		ramdump_segments_tmp[0].size = memblock[i].size;
-		ramdump_segments_tmp[0].address = memblock[i].phy_addr;
+			ramdump_segments_tmp[0].size = memblock[i].size;
+			ramdump_segments_tmp[0].address = memblock[i].phy_addr;
 
-		dev_dbg(memsh_child->dev, "memshare: %s: Begin elf dump for size = %d\n",
-			client_name, memblock[i].size);
+			dev_dbg(memsh_child->dev, "memshare: %s: Begin elf dump for size = %d\n",
+				client_name, memblock[i].size);
 
-		ret = do_elf_ramdump(memshare_ramdump_dev[i],
-					ramdump_segments_tmp, 1);
-		kfree(ramdump_segments_tmp);
-		if (ret < 0) {
-			dev_err(memsh_child->dev,
-				"memshare: %s: Unable to elf dump with failure: %d\n",
-				client_name, ret);
-			return ret;
+			ret = do_elf_ramdump(memshare_ramdump_dev[i],
+						ramdump_segments_tmp, 1);
+			kfree(ramdump_segments_tmp);
+			if (ret < 0) {
+				dev_err(memsh_child->dev,
+					"memshare: %s: Unable to elf dump with failure: %d\n",
+					client_name, ret);
+				return ret;
+			}
 		}
 	}
 	return 0;

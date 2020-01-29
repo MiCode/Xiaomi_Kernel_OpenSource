@@ -3036,10 +3036,12 @@ static struct iommu_group *of_get_device_group(struct device *dev)
 	if (ret > 0)
 		return data.group;
 
+#ifdef CONFIG_PCI
 	ret = bus_for_each_dev(&pci_bus_type, NULL, &data,
 				__bus_lookup_iommu_group);
 	if (ret > 0)
 		return data.group;
+#endif
 
 	group = generic_device_group(dev);
 	if (IS_ERR(group))

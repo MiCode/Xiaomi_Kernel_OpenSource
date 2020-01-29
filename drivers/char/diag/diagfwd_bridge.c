@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -205,6 +205,12 @@ int diag_remote_dev_open(int id)
 
 void diag_remote_dev_close(int id)
 {
+
+	if (id < 0 || id >= NUM_REMOTE_DEV)
+		return;
+
+	diag_mux_close_device(BRIDGE_TO_MUX(id));
+
 	if (bridge_info[id].type == DIAG_DATA_TYPE)
 		diag_notify_md_client(BRIDGE_TO_MUX(id), 0, DIAG_STATUS_CLOSED);
 

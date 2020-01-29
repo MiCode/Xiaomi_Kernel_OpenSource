@@ -330,6 +330,7 @@ static void __init update_memory_limit(void)
 	phys_addr_t end_addr, addr_aligned, offset;
 	int len;
 	const __be32 *prop;
+	char *status;
 	phys_addr_t min_ddr_sz = 0, offline_sz = 0;
 	int t_len = (2 * dt_root_size_cells) * sizeof(__be32);
 
@@ -346,6 +347,12 @@ static void __init update_memory_limit(void)
 	node = of_get_flat_dt_subnode_by_name(dt_root, "mem-offline");
 	if (node == -FDT_ERR_NOTFOUND) {
 		pr_err("mem-offine node not found in FDT\n");
+		return;
+	}
+
+	status = (char *)fdt_getprop(initial_boot_params, node, "status", NULL);
+	if (status && !strcmp(status, "disabled")) {
+		pr_info("mem-offline device is disabled\n");
 		return;
 	}
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -881,17 +881,52 @@ static bool is_cp_available(struct smb_charger *chg)
 	return !!chg->cp_psy;
 }
 
+static bool is_cp_topo_vbatt(struct smb_charger *chg)
+{
+	int rc;
+	bool is_vbatt;
+	union power_supply_propval pval;
+
+	if (!is_cp_available(chg))
+		return false;
+
+	rc = power_supply_get_property(chg->cp_psy,
+				POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE, &pval);
+	if (rc < 0)
+		return false;
+
+	is_vbatt = (pval.intval == POWER_SUPPLY_PL_OUTPUT_VBAT);
+
+	smblib_dbg(chg, PR_WLS, "%s\n", is_vbatt ? "true" : "false");
+
+	return is_vbatt;
+}
+
 #define CP_TO_MAIN_ICL_OFFSET_PC		10
 int smblib_get_qc3_main_icl_offset(struct smb_charger *chg, int *offset_ua)
 {
 	union power_supply_propval pval = {0, };
 	int rc;
 
-	if ((chg->real_charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3)
-		|| chg->hvdcp3_standalone_config || !is_cp_available(chg)) {
-		*offset_ua = 0;
-		return 0;
+	/*
+	 * Apply ILIM offset to main charger's FCC if all of the following
+	 * conditions are met:
+	 * - HVDCP3 adapter with CP as parallel charger
+	 * - Output connection topology is VBAT
+	 */
+	if (!is_cp_topo_vbatt(chg) || chg->hvdcp3_standalone_config
+		|| (chg->real_charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3))
+		return -EINVAL;
+
+	rc = power_supply_get_property(chg->cp_psy, POWER_SUPPLY_PROP_CP_ENABLE,
+					&pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get CP ENABLE rc=%d\n", rc);
+		return rc;
 	}
+
+	if (!pval.intval)
+		return -EINVAL;
 
 	rc = power_supply_get_property(chg->cp_psy, POWER_SUPPLY_PROP_CP_ILIM,
 					&pval);
@@ -1033,7 +1068,7 @@ static int smblib_request_dpdm(struct smb_charger *chg, bool enable)
 	return rc;
 }
 
-static void smblib_rerun_apsd(struct smb_charger *chg)
+void smblib_rerun_apsd(struct smb_charger *chg)
 {
 	int rc;
 
@@ -1207,6 +1242,9 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	chg->pulse_cnt = 0;
 	chg->uusb_apsd_rerun_done = false;
 	chg->chg_param.forced_main_fcc = 0;
+
+	del_timer_sync(&chg->apsd_timer);
+	chg->apsd_ext_timeout = false;
 
 	/* write back the default FLOAT charger configuration */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
@@ -3359,13 +3397,13 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 {
 	union power_supply_propval pval = {0, };
 	int rc, ret = 0;
-	u8 reg;
+	u8 reg, adc_ch_reg;
 
 	mutex_lock(&chg->adc_lock);
 
 	if (chg->wa_flags & USBIN_ADC_WA) {
 		/* Store ADC channel config in order to restore later */
-		rc = smblib_read(chg, BATIF_ADC_CHANNEL_EN_REG, &reg);
+		rc = smblib_read(chg, BATIF_ADC_CHANNEL_EN_REG, &adc_ch_reg);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't read ADC config rc=%d\n", rc);
 			ret = rc;
@@ -3422,7 +3460,7 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 restore_adc_config:
 	 /* Restore ADC channel config */
 	if (chg->wa_flags & USBIN_ADC_WA) {
-		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
+		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, adc_ch_reg);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't write ADC config rc=%d\n",
 						rc);
@@ -5444,6 +5482,7 @@ static void smblib_handle_sdp_enumeration_done(struct smb_charger *chg,
 		   rising ? "rising" : "falling");
 }
 
+#define APSD_EXTENDED_TIMEOUT_MS	400
 /* triggers when HVDCP 3.0 authentication has finished */
 static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 					      bool rising)
@@ -5460,13 +5499,29 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 	/* the APSD done handler will set the USB supply type */
 	apsd_result = smblib_get_apsd_result(chg);
 
-	/* for QC3, switch to CP if present */
-	if ((apsd_result->bit & QC_3P0_BIT) && chg->sec_cp_present) {
-		rc = smblib_select_sec_charger(chg, POWER_SUPPLY_CHARGER_SEC_CP,
-					POWER_SUPPLY_CP_HVDCP3, false);
-		if (rc < 0)
-			dev_err(chg->dev,
-			"Couldn't enable secondary chargers  rc=%d\n", rc);
+	if (apsd_result->bit & QC_3P0_BIT) {
+		/* for QC3, switch to CP if present */
+		if (chg->sec_cp_present) {
+			rc = smblib_select_sec_charger(chg,
+				POWER_SUPPLY_CHARGER_SEC_CP,
+				POWER_SUPPLY_CP_HVDCP3, false);
+			if (rc < 0)
+				dev_err(chg->dev,
+				"Couldn't enable secondary chargers  rc=%d\n",
+					rc);
+		}
+
+		/* QC3.5 detection timeout */
+		if (!chg->apsd_ext_timeout &&
+				!timer_pending(&chg->apsd_timer)) {
+			smblib_dbg(chg, PR_MISC,
+				"APSD Extented timer started at %lld\n",
+				jiffies_to_msecs(jiffies));
+
+			mod_timer(&chg->apsd_timer,
+				msecs_to_jiffies(APSD_EXTENDED_TIMEOUT_MS)
+				+ jiffies);
+		}
 	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
@@ -5968,6 +6023,9 @@ static void typec_src_removal(struct smb_charger *chg)
 		smblib_notify_device_mode(chg, false);
 
 	chg->typec_legacy = false;
+
+	del_timer_sync(&chg->apsd_timer);
+	chg->apsd_ext_timeout = false;
 }
 
 static void typec_mode_unattached(struct smb_charger *chg)
@@ -6345,27 +6403,6 @@ irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 	mutex_unlock(&chg->dcin_aicl_lock);
 
 	return IRQ_HANDLED;
-}
-
-static bool is_cp_topo_vbatt(struct smb_charger *chg)
-{
-	int rc;
-	bool is_vbatt;
-	union power_supply_propval pval;
-
-	if (!is_cp_available(chg))
-		return false;
-
-	rc = power_supply_get_property(chg->cp_psy,
-				POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE, &pval);
-	if (rc < 0)
-		return false;
-
-	is_vbatt = (pval.intval == POWER_SUPPLY_PL_OUTPUT_VBAT);
-
-	smblib_dbg(chg, PR_WLS, "%s\n", is_vbatt ? "true" : "false");
-
-	return is_vbatt;
 }
 
 irqreturn_t dc_plugin_irq_handler(int irq, void *data)
@@ -7159,6 +7196,17 @@ static enum alarmtimer_restart chg_termination_alarm_cb(struct alarm *alarm,
 	return ALARMTIMER_NORESTART;
 }
 
+static void apsd_timer_cb(struct timer_list *tm)
+{
+	struct smb_charger *chg = container_of(tm, struct smb_charger,
+							apsd_timer);
+
+	smblib_dbg(chg, PR_MISC, "APSD Extented timer timeout at %lld\n",
+			jiffies_to_msecs(jiffies));
+
+	chg->apsd_ext_timeout = true;
+}
+
 static void jeita_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -7610,6 +7658,7 @@ int smblib_init(struct smb_charger *chg)
 					smblib_pr_swap_detach_work);
 	INIT_DELAYED_WORK(&chg->pr_lock_clear_work,
 					smblib_pr_lock_clear_work);
+	timer_setup(&chg->apsd_timer, apsd_timer_cb, 0);
 
 	if (chg->wa_flags & CHG_TERMINATION_WA) {
 		INIT_WORK(&chg->chg_termination_work,
@@ -7747,6 +7796,7 @@ int smblib_deinit(struct smb_charger *chg)
 			alarm_cancel(&chg->chg_termination_alarm);
 			cancel_work_sync(&chg->chg_termination_work);
 		}
+		del_timer_sync(&chg->apsd_timer);
 		cancel_work_sync(&chg->bms_update_work);
 		cancel_work_sync(&chg->jeita_update_work);
 		cancel_work_sync(&chg->pl_update_work);
