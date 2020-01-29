@@ -1033,11 +1033,12 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 					geni_se_dev->vectors[0].src,
 					geni_se_dev->vectors[0].dst);
 		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
-			GENI_SE_ERR(geni_se_dev->log_ctx,
-				false, NULL,
-			"%s: Error creating bus client (Core2x)\n",
-								 __func__);
-			return -EFAULT;
+			GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+				"%s: Error Get Path: (Core2x), %ld\n",
+				__func__, PTR_ERR(geni_se_dev->bus_bw));
+
+				return geni_se_dev->bus_bw ?
+				PTR_ERR(geni_se_dev->bus_bw) : -ENOENT;
 		}
 	}
 	rsc->ab = ab;
@@ -1049,12 +1050,15 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 						geni_se_dev->vectors[1].src,
 						geni_se_dev->vectors[1].dst);
 			if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
-				GENI_SE_ERR(geni_se_dev->log_ctx,
-					false, NULL,
-				"%s: Error creating bus client (DDR)\n",
-								 __func__);
+				GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+					"%s: Error Get Path: (DDR), %ld\n",
+					 __func__,
+					PTR_ERR(geni_se_dev->bus_bw_noc));
 				icc_put(geni_se_dev->bus_bw);
-				return -EFAULT;
+				geni_se_dev->bus_bw = NULL;
+
+				return geni_se_dev->bus_bw_noc ?
+				PTR_ERR(geni_se_dev->bus_bw_noc) : -ENOENT;
 			}
 		}
 
