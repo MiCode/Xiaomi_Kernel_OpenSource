@@ -53,16 +53,14 @@ struct cvp_hfi_packetization_ops {
 	int (*session_set_buffers)(
 		void *pkt,
 		struct cvp_hal_session *session,
-		struct cvp_buffer_addr_info *buffer_info);
+		u32 iova,
+		u32 size);
 	int (*session_release_buffers)(
 		void *pkt,
-		struct cvp_hal_session *session,
-		struct cvp_buffer_addr_info *buffer_info);
+		struct cvp_hal_session *session);
 	int (*session_get_buf_req)(
 		struct cvp_hfi_cmd_session_get_property_packet *pkt,
 		struct cvp_hal_session *session);
-	int (*session_flush)(struct cvp_hfi_cmd_session_flush_packet *pkt,
-		struct cvp_hal_session *session, enum hal_flush flush_mode);
 	int (*session_sync_process)(
 		struct cvp_hfi_cmd_session_sync_process_packet *pkt,
 		struct cvp_hal_session *session);
