@@ -50,6 +50,9 @@ SoCs:
 - LAHAINA
   compatible = "qcom,lahaina"
 
+- LAHAINAP
+  compatible = "qcom,lahainap"
+
 - SHIMA
   compatible = "qcom,shima"
 
@@ -185,6 +188,9 @@ compatible = "qcom,lahaina-cdp"
 compatible = "qcom,lahaina-qrd"
 compatible = "qcom,lahaina-qrd-module"
 compatible = "qcom,shima-rumi"
+compatible = "qcom,lahainap-mtp"
+compatible = "qcom,lahainap-cdp"
+compatible = "qcom,lahainap-qrd"
 compatible = "qcom,lito-rumi"
 compatible = "qcom,lito-mtp"
 compatible = "qcom,lito-cdp"
