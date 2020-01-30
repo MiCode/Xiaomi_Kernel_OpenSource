@@ -72,3 +72,4 @@ obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
+obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o

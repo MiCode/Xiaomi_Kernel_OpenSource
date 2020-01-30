@@ -465,6 +465,7 @@ gen_headers_out_arm = [
     "linux/psp-sev.h",
     "linux/ptp_clock.h",
     "linux/ptrace.h",
+    "linux/qbt_handler.h",
     "linux/qcedev.h",
     "linux/qcota.h",
     "linux/qemu_fw_cfg.h",
