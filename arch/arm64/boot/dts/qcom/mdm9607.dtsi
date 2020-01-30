@@ -376,6 +376,12 @@
 				< 1305600 >;
 	};
 
+	cpu-pmu {
+		compatible = "arm,cortex-a7-pmu";
+		qcom,irq-is-percpu;
+		interrupts = <1 8 0x100>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm-sps-4k";
 		qcom,pipe-attr-ee;
