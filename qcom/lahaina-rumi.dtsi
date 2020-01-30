@@ -5,6 +5,10 @@
 	clock-frequency = <96000>;
 };
 
+&wdog {
+	status = "disabled";
+};
+
 &spmi_debug_bus {
 	status = "ok";
 };
