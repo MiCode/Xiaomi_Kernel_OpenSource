@@ -52,6 +52,7 @@ obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
 obj-$(CONFIG_QM_DISPCC_SCUBA) += dispcc-scuba.o
 obj-$(CONFIG_QM_GCC_SCUBA) += gcc-scuba.o
 obj-$(CONFIG_QM_GPUCC_SCUBA) += gpucc-scuba.o
+obj-$(CONFIG_QM_DEBUGCC_SCUBA) += debugcc-scuba.o
 obj-$(CONFIG_SDM_CAMCC_LAGOON) += camcc-lagoon.o
 obj-$(CONFIG_SDM_DEBUGCC_LAGOON) += debugcc-lagoon.o
 obj-$(CONFIG_SDM_DISPCC_845) += dispcc-sdm845.o

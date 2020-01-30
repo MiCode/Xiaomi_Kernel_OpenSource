@@ -533,3 +533,11 @@ config QM_GPUCC_SCUBA
 	  SCUBA devices.
 	  Say Y if you want to support graphics controller devices
 	  and it's functionalities.
+
+config QM_DEBUGCC_SCUBA
+	tristate "SCUBA Debug Clock Controller"
+	depends on QM_GCC_SCUBA
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SCUBA devices.
+	  Say Y if you want to support the clock measurement functionality.
