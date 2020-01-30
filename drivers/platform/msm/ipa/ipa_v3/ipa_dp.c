@@ -1781,6 +1781,7 @@ static void ipa3_wq_handle_rx(struct work_struct *work)
 	if (sys->napi_obj) {
 		ipa_pm_activate_sync(sys->pm_hdl);
 		napi_schedule(sys->napi_obj);
+		IPA_STATS_INC_CNT(sys->napi_sch_cnt);
 	} else
 		ipa3_handle_rx(sys);
 }
@@ -4364,6 +4365,7 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	clk_off = ipa_pm_activate(sys->pm_hdl);
 	if (!clk_off && sys->napi_obj) {
 		napi_schedule(sys->napi_obj);
+		IPA_STATS_INC_CNT(sys->napi_sch_cnt);
 		return;
 	}
 	queue_work(sys->wq, &sys->work);
@@ -5006,6 +5008,7 @@ start_poll:
 	 */
 	if (cnt < weight && ep->sys->len > IPA_DEFAULT_SYS_YELLOW_WM) {
 		napi_complete(ep->sys->napi_obj);
+		IPA_STATS_INC_CNT(ep->sys->napi_comp_cnt);
 		ret = ipa3_rx_switch_to_intr_mode(ep->sys);
 		if (ret == -GSI_STATUS_PENDING_IRQ &&
 				napi_reschedule(ep->sys->napi_obj))
