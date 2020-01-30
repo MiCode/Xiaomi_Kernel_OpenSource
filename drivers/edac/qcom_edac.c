@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/edac.h>
@@ -383,6 +383,9 @@ static int qcom_llcc_edac_probe(struct platform_device *pdev)
 		dev_info(dev, "No ECC IRQ; defaulting to polling mode\n");
 		edev_ctl->poll_msec = poll_msec;
 		edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
+#ifdef CONFIG_EDAC_QGKI
+		edev_ctl->defer_work = 1;
+#endif
 	}
 
 	rc = edac_device_add_device(edev_ctl);
