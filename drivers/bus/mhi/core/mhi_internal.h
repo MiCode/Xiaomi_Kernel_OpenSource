@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_INT_H
 #define _MHI_INT_H
@@ -749,6 +749,7 @@ extern struct mhi_bus mhi_bus;
 struct mhi_controller *find_mhi_controller_by_name(const char *name);
 
 /* debug fs related functions */
+int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d);
