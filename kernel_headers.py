@@ -683,6 +683,50 @@ def gen_blueprints(
 
     return 0
 
+def parse_bp_for_headers(file_name, headers):
+  parsing_headers = False
+  pattern = re.compile("gen_headers_[a-zA-Z0-9]+\s*=\s*\[\s*")
+  with open(file_name, 'r') as f:
+    for line in f:
+      line = line.strip()
+      if pattern.match(line):
+        parsing_headers = True
+        continue
+
+      if line.find("]") != -1 and parsing_headers:
+        break
+
+      if not parsing_headers:
+        continue
+
+      if line.find("//") == 0:
+        continue
+
+      headers.add(line[1:-2])
+
+def headers_diff(old_file, new_file):
+  old_headers = set()
+  new_headers = set()
+  diff_detected = False
+
+  parse_bp_for_headers(old_file, old_headers)
+  parse_bp_for_headers(new_file, new_headers)
+
+  diff = old_headers - new_headers
+  if len(diff):
+    diff_detected = True
+    print("Headers to remove:")
+    for x in diff:
+      print("\t{}".format(x))
+
+  diff = new_headers - old_headers
+  if len(diff):
+    diff_detected = True
+    print("Headers to add:")
+    for x in diff:
+      print("\t{}".format(x))
+
+  return diff_detected
 
 def gen_headers(
     verbose, header_arch, gen_dir, arch_asm_kbuild, asm_generic_kbuild, module_dir,
@@ -715,9 +759,9 @@ def gen_headers(
     The number of errors encountered.
   """
 
-  if not filecmp.cmp(old_gen_headers_bp, new_gen_headers_bp):
+  if headers_diff(old_gen_headers_bp, new_gen_headers_bp):
     print('error: gen_headers blueprints file is out of date, suggested fix:')
-    print('cp %s %s' % (new_gen_headers_bp, old_gen_headers_bp))
+    print('#######Please add or remove the above mentioned headers from %s' % (old_gen_headers_bp))
     print('then re-run the build')
     return 1
 
