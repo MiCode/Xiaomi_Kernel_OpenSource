@@ -5,6 +5,8 @@
 #ifndef __MSM_CVP_PRIVATE_H__
 #define __MSM_CVP_PRIVATE_H__
 
+#include <linux/types.h>
+
 /* Commands type */
 #define CVP_KMD_CMD_BASE		0x10000000
 #define CVP_KMD_CMD_START		(CVP_KMD_CMD_BASE + 0x1000)
@@ -76,8 +78,8 @@
  * @session_id:    current session id
  */
 struct cvp_kmd_session_info {
-	unsigned int session_id;
-	unsigned int reserved[10];
+	__u32 session_id;
+	__u32 reserved[10];
 };
 
 /**
@@ -88,11 +90,11 @@ struct cvp_kmd_session_info {
  * @sys_cache_bw:  bandwidth required for system cache in bps
  */
 struct cvp_kmd_request_power {
-	unsigned int clock_cycles_a;
-	unsigned int clock_cycles_b;
-	unsigned int ddr_bw;
-	unsigned int sys_cache_bw;
-	unsigned int reserved[8];
+	__u32 clock_cycles_a;
+	__u32 clock_cycles_b;
+	__u32 ddr_bw;
+	__u32 sys_cache_bw;
+	__u32 reserved[8];
 };
 
 /**
@@ -106,14 +108,14 @@ struct cvp_kmd_request_power {
  * @flags:         buffer flags
  */
 struct cvp_kmd_buffer {
-	unsigned int index;
-	unsigned int type;
-	unsigned int fd;
-	unsigned int size;
-	unsigned int offset;
-	unsigned int pixelformat;
-	unsigned int flags;
-	unsigned int reserved[5];
+	__u32 index;
+	__u32 type;
+	__u32 fd;
+	__u32 size;
+	__u32 offset;
+	__u32 pixelformat;
+	__u32 flags;
+	__u32 reserved[5];
 };
 
 /**
@@ -122,9 +124,9 @@ struct cvp_kmd_buffer {
  * @cmd_size:         allocated size of buffer
  */
 struct cvp_kmd_send_cmd {
-	unsigned int cmd_address_fd;
-	unsigned int cmd_size;
-	unsigned int reserved[10];
+	__u32 cmd_address_fd;
+	__u32 cmd_size;
+	__u32 reserved[10];
 };
 
 /**
@@ -135,16 +137,16 @@ struct cvp_kmd_send_cmd {
  * @client_data2:   client data to be used during callback
  */
 struct cvp_kmd_client_data {
-	unsigned int transactionid;
-	unsigned int client_data1;
-	unsigned int client_data2;
+	__u32 transactionid;
+	__u32 client_data1;
+	__u32 client_data2;
 };
 
 
 #define	MAX_HFI_PKT_SIZE	470
 
 struct cvp_kmd_hfi_packet {
-	unsigned int pkt_data[MAX_HFI_PKT_SIZE];
+	__u32 pkt_data[MAX_HFI_PKT_SIZE];
 };
 
 #define CVP_KMD_PROP_HFI_VERSION	1
@@ -172,12 +174,12 @@ struct cvp_kmd_hfi_packet {
 #define MAX_KMD_PROP_NUM	(CVP_KMD_PROP_PWR_SYSCACHE_OP + 1)
 
 struct cvp_kmd_sys_property {
-	unsigned int prop_type;
-	unsigned int data;
+	__u32 prop_type;
+	__u32 data;
 };
 
 struct cvp_kmd_sys_properties {
-	unsigned int prop_num;
+	__u32 prop_num;
 	struct cvp_kmd_sys_property prop_data;
 };
 
@@ -188,16 +190,16 @@ struct cvp_kmd_sys_properties {
 #define SESSION_INFO	5
 
 struct cvp_kmd_session_control {
-	unsigned int ctrl_type;
-	unsigned int ctrl_data[8];
+	__u32 ctrl_type;
+	__u32 ctrl_data[8];
 };
 
 #define MAX_HFI_FENCE_SIZE	16
 #define MAX_HFI_FENCE_OFFSET	(MAX_HFI_PKT_SIZE-MAX_HFI_FENCE_SIZE)
 struct cvp_kmd_hfi_fence_packet {
-	unsigned int pkt_data[MAX_HFI_FENCE_OFFSET];
-	unsigned int fence_data[MAX_HFI_FENCE_SIZE];
-	unsigned int frame_id;
+	__u32 pkt_data[MAX_HFI_FENCE_OFFSET];
+	__u32 fence_data[MAX_HFI_FENCE_SIZE];
+	__u64 frame_id;
 };
 
 
@@ -218,9 +220,9 @@ struct cvp_kmd_hfi_fence_packet {
  * @hfi_fence_pkt: HFI fence packet created by user library
  */
 struct cvp_kmd_arg {
-	unsigned int type;
-	unsigned int buf_offset;
-	unsigned int buf_num;
+	__u32 type;
+	__u32 buf_offset;
+	__u32 buf_num;
 	union cvp_data_t {
 		struct cvp_kmd_session_info session;
 		struct cvp_kmd_request_power req_power;
@@ -231,7 +233,7 @@ struct cvp_kmd_arg {
 		struct cvp_kmd_sys_properties sys_properties;
 		struct cvp_kmd_hfi_fence_packet hfi_fence_pkt;
 		struct cvp_kmd_session_control session_ctrl;
-		unsigned int frame_id;
+		__u64 frame_id;
 	} data;
 };
 #endif
