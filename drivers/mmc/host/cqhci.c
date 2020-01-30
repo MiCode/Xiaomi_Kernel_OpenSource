@@ -282,6 +282,11 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 	if (cqhci_host_is_crypto_supported(cq_host)) {
 		cqhci_crypto_enable(cq_host);
 		cqcfg |= CQHCI_ICE_ENABLE;
+		/* For SDHC v5.0 onwards, ICE 3.0 specific registers are added
+		 * in CQ register space, due to which few CQ registers are
+		 * shifted. Set offset_changed boolean to use updated address.
+		 */
+		 cq_host->offset_changed = true;
 	}
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
