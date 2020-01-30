@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_LAHAINA_H
@@ -23,16 +23,17 @@
 #define GPU_CC_GX_GMU_CLK					13
 #define GPU_CC_GX_QDSS_TSCTR_CLK				14
 #define GPU_CC_GX_VSENSE_CLK					15
-#define GPU_CC_HUB_AHB_DIV_CLK_SRC				16
-#define GPU_CC_HUB_AON_CLK					17
-#define GPU_CC_HUB_CLK_SRC					18
-#define GPU_CC_HUB_CX_INT_CLK					19
-#define GPU_CC_HUB_CX_INT_DIV_CLK_SRC				20
-#define GPU_CC_MND1X_0_GFX3D_CLK				21
-#define GPU_CC_MND1X_1_GFX3D_CLK				22
-#define GPU_CC_PLL0						23
-#define GPU_CC_PLL1						24
-#define GPU_CC_SLEEP_CLK					25
+#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK				16
+#define GPU_CC_HUB_AHB_DIV_CLK_SRC				17
+#define GPU_CC_HUB_AON_CLK					18
+#define GPU_CC_HUB_CLK_SRC					19
+#define GPU_CC_HUB_CX_INT_CLK					20
+#define GPU_CC_HUB_CX_INT_DIV_CLK_SRC				21
+#define GPU_CC_MND1X_0_GFX3D_CLK				22
+#define GPU_CC_MND1X_1_GFX3D_CLK				23
+#define GPU_CC_PLL0						24
+#define GPU_CC_PLL1						25
+#define GPU_CC_SLEEP_CLK					26
 
 /* GPU_CC resets */
 #define GPUCC_GPU_CC_ACD_BCR					0
