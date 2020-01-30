@@ -2900,6 +2900,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+		break;
 
 	case IPA_IOC_APP_CLOCK_VOTE:
 		retval = ipa3_app_clk_vote(
