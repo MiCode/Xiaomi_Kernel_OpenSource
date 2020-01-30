@@ -23,12 +23,14 @@ Optional properties :
 - reg: Additional registers
      "ahb2phy_base" : top-level register to configure read/write wait cycle with
      both QMP and QUSB PHY registers.
-- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
-  below optional properties:
-    - qcom,msm_bus,name
-    - qcom,msm_bus,num_cases
-    - qcom,msm_bus,num_paths
-    - qcom,msm_bus,vectors
+
+- interconnects: Pairs of phandles and interconnect provider specifiers. See
+    interconnect.txt for more details.
+- interconnect-names: List of interconnect path names strings corresponding to
+    each interconnect specifier pair in the interconnects property. Currently
+    the following paths are supported:
+	"usb-ddr", "usb-ipa", "ddr-usb"
+
 - qcom,default-bus-vote: To use default bus voting other than NOMINAL. Default is NOMINAL.
 - interrupt-names : Optional interrupt resource entries are:
     "ss_phy_irq"  : Interrupt from super speed phy for wake up notification.
@@ -118,12 +120,10 @@ Example MSM USB3.0 controller device node :
 		qcom,num-gsi-evt-buffs = <0x2>;
 		qcom,pm-qos-latency = <2>;
 
-		qcom,msm_bus,name = "usb3";
-		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,num_paths = <1>;
-		qcom,msm_bus,vectors =
-				<61 512 0 0>,
-				<61 512 240000000 960000000>;
+		interconnect-names = "usb-ddr", "usb-ipa", "ddr-usb";
+		interconnects = <&aggre1_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
+				<&aggre1_noc MASTER_USB3_0 &config_noc SLAVE_IPA_CFG>,
+				<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_USB3_0>;
 
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			<&clock_gcc clk_gcc_cfg_noc_usb3_axi_clk>,
