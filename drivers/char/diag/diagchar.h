@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGCHAR_H
@@ -224,6 +224,8 @@
 
 #define HDLC_CTXT		1
 #define NON_HDLC_CTXT	2
+
+#define PKT_PROCESS_TIMEOUT		200
 
 #define TYPE_DATA		0
 #define TYPE_CNTL		1
