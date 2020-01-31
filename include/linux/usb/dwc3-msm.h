@@ -22,7 +22,6 @@
  * These bit fields are set by function drivers that wish to queue
  * usb_requests with sps/bam parameters.
  */
-#define MSM_PIPE_ID_MASK		(0x1F)
 #define MSM_TX_PIPE_ID_OFS		(16)
 #define MSM_SPS_MODE			BIT(5)
 #define MSM_IS_FINITE_TRANSFER		BIT(6)
@@ -121,6 +120,7 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr, u32 size,
 	u8 dst_pipe_idx);
 bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
 int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
+int dwc3_msm_release_ss_lane(struct device *dev);
 #else
 static inline struct usb_ep *usb_ep_autoconfig_by_name(
 		struct usb_gadget *gadget, struct usb_endpoint_descriptor *desc,
@@ -145,6 +145,8 @@ static inline void dwc3_tx_fifo_resize_request(struct usb_ep *ep,
 static inline bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
 { return false; }
 static inline int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
+{ return -ENODEV; }
+static inline int dwc3_msm_release_ss_lane(struct device *dev)
 { return -ENODEV; }
 #endif
 
