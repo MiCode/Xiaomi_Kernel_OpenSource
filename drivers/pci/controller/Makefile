@@ -30,11 +30,11 @@ obj-$(CONFIG_PCIE_MEDIATEK) += pcie-mediatek.o
 obj-$(CONFIG_PCIE_MOBIVEIL) += pcie-mobiveil.o
 obj-$(CONFIG_PCIE_TANGO_SMP8759) += pcie-tango.o
 obj-$(CONFIG_VMD) += vmd.o
-obj-$(CONFIG_PCI_MSM) += pci-msm.o
-obj-$(CONFIG_PCI_MSM_MSI) += pci-msm-msi.o
 # pcie-hisi.o quirks are needed even without CONFIG_PCIE_DW
 obj-y				+= dwc/
 
+obj-$(CONFIG_PCI_MSM) += pci-msm-drv.o
+pci-msm-drv-y := pci-msm.o pci-msm-msi.o
 
 # The following drivers are for devices that use the generic ACPI
 # pci_root.c driver but don't support standard ECAM config access.
