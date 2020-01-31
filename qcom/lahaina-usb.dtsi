@@ -112,7 +112,7 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "ref_clk_src";
 
-		resets = <&clock_gcc GCC_USB3_PHY_PRIM_BCR>;
+		resets = <&clock_gcc GCC_QUSB2PHY_PRIM_BCR>;
 		reset-names = "phy_reset";
 	};
 
@@ -138,7 +138,7 @@
 				"com_aux_clk";
 
 		resets = <&clock_gcc GCC_USB3_DP_PHY_PRIM_BCR>,
-			<&clock_gcc GCC_USB3PHY_PHY_PRIM_BCR>;
+			<&clock_gcc GCC_USB3_PHY_PRIM_BCR>;
 		reset-names = "global_phy_reset", "phy_reset";
 		qcom,qmp-phy-reg-offset =
 			<USB3_DP_PCS_PCS_STATUS1
@@ -385,7 +385,7 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "ref_clk_src";
 
-		resets = <&clock_gcc GCC_USB3_PHY_SEC_BCR>;
+		resets = <&clock_gcc GCC_QUSB2PHY_SEC_BCR>;
 		reset-names = "phy_reset";
 	};
 
@@ -416,7 +416,7 @@
 				"pipe_clk_ext_src", "ref_clk_src",
 				"ref_clk", "com_aux_clk";
 
-		resets = <&clock_gcc GCC_USB3_DP_PHY_SEC_BCR>,
+		resets = <&clock_gcc GCC_USB3_PHY_SEC_BCR>,
 				<&clock_gcc GCC_USB3PHY_PHY_SEC_BCR>;
 		reset-names = "phy_reset", "phy_phy_reset";
 		qcom,qmp-phy-reg-offset =
