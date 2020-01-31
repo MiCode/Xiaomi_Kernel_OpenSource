@@ -1350,15 +1350,15 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 	}
 
 	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
 	if (!IS_ERR(buf)) {
 		memcpy(&adreno_dev->speed_bin, buf,
 				min(len, sizeof(adreno_dev->speed_bin)));
 		kfree(buf);
 	}
 
-	nvmem_cell_put(cell);
-
-	return 0;
+	return PTR_ERR_OR_ZERO(buf);
 }
 
 static int adreno_probe_efuse(struct platform_device *pdev,
