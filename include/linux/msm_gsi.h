@@ -1802,6 +1802,7 @@ static inline int gsi_read_channel_scratch(unsigned long chan_hdl,
 
 static inline int gsi_pending_irq_type(void)
 {
+	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
 static inline int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
