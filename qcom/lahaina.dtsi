@@ -322,6 +322,7 @@
 		};
 
 		cdsp_secure_heap: cdsp_secure_heap@80c00000 {
+			no-map;
 			reg = <0x0 0x80c00000 0x0 0x4600000>;
 		};
 
