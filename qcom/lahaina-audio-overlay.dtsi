@@ -3,10 +3,12 @@
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "lahaina-lpi.dtsi"
-#include "lahaina-va-bolero.dtsi"
 
 &bolero {
 	qcom,num-macros = <4>;
+	qcom,bolero-version = <4>;
+	#address-cells = <1>;
+	#size-cells = <1>;
 	bolero-clk-rsc-mngr {
 		compatible = "qcom,bolero-clk-rsc-mngr";
 		qcom,fs-gen-sequence = <0x3000 0x1>,
@@ -20,6 +22,20 @@
 		<&clock_audio_rx_1 0>, <&clock_audio_rx_2 0>,
 		<&clock_audio_wsa_1 0>, <&clock_audio_wsa_2 0>,
 		<&clock_audio_va_1 0>, <&clock_audio_va_2 0>;
+	};
+
+	va_macro: va-macro@3370000 {
+		compatible = "qcom,va-macro";
+		reg = <0x3370000 0x0>;
+		clock-names = "lpass_audio_hw_vote";
+		clocks = <&lpass_audio_hw_vote 0>;
+		qcom,va-vdd-micb-voltage = <1800000 1800000>;
+		qcom,va-vdd-micb-current = <11200>;
+		qcom,va-dmic-sample-rate = <600000>;
+		qcom,va-clk-mux-select = <1>;
+		qcom,va-island-mode-muxsel = <0x033A0000>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
+		qcom,is-used-swr-gpio = <0>;
 	};
 
 	tx_macro: tx-macro@3220000 {
@@ -169,7 +185,7 @@
 			qcom,swr-num-dev = <2>;
 			wsa883x_0221: wsa883x@02170221 {
 				compatible = "qcom,wsa883x";
-				reg = <0x02 0x02170221>;
+				reg = <0x2 0x2170221>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
 				qcom,bolero-handle = <&bolero>;
 
@@ -181,7 +197,7 @@
 
 			wsa883x_0222: wsa883x@02170222 {
 				compatible = "qcom,wsa883x";
-				reg = <0x02 0x02170222>;
+				reg = <0x2 0x2170222>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
 				qcom,bolero-handle = <&bolero>;
 
@@ -318,18 +334,15 @@
 		"Digital Mic5", "VA MIC BIAS4";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>,
+	asoc-codec  = <&stub_codec>, <&bolero>,
 		      <&swr_dmic_01>, <&swr_dmic_02>,
 		      <&swr_dmic_03>, <&swr_dmic_04>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-			   "msm-ext-disp-audio-codec-rx",
 			   "swr-dmic-01", "swr-dmic-02",
 			   "swr-dmic-03", "swr-dmic-04";
 	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
-				  "SpkrLeft", "SpkrRight";
+	qcom,wsa-devs = <&wsa883x_0221>, <&wsa883x_0222>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight";
 	qcom,codec-max-aux-devs = <1>;
 	qcom,codec-aux-devs = <&wcd938x_codec>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
@@ -365,6 +378,10 @@
 		qcom,lpi-gpios;
 		qcom,tlmm-gpio = <169>;
 	};
+};
+
+&va_cdc_dma_0_tx {
+	qcom,msm-dai-is-island-supported = <1>;
 };
 
 &soc {
