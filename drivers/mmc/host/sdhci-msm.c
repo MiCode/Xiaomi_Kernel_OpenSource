@@ -100,7 +100,12 @@
 
 #define CORE_PWRSAVE_DLL	BIT(3)
 
-#define DDR_CONFIG_POR_VAL	0x80040873
+#define DDR_CONFIG_POR_VAL		0x80040873
+#define DLL_USR_CTL_POR_VAL		0x10800
+#define ENABLE_DLL_LOCK_STATUS		BIT(26)
+#define FINE_TUNE_MODE_EN		BIT(27)
+#define BIAS_OK_SIGNAL			BIT(29)
+#define DLL_CONFIG_3_POR_VAL		0x10
 
 
 #define INVALID_TUNING_PHASE	-1
@@ -152,6 +157,7 @@ struct sdhci_msm_offset {
 	u32 core_dll_config_3;
 	u32 core_ddr_config_old; /* Applicable to sdcc minor ver < 0x49 */
 	u32 core_ddr_config;
+	u32 core_dll_usr_ctl; /* Present on SDCC5.1 onwards */
 };
 
 static const struct sdhci_msm_offset sdhci_msm_v5_offset = {
@@ -181,6 +187,7 @@ static const struct sdhci_msm_offset sdhci_msm_v5_offset = {
 	.core_dll_config_2 = 0x254,
 	.core_dll_config_3 = 0x258,
 	.core_ddr_config = 0x25c,
+	.core_dll_usr_ctl = 0x388,
 };
 
 static const struct sdhci_msm_offset sdhci_msm_mci_offset = {
@@ -209,6 +216,7 @@ static const struct sdhci_msm_offset sdhci_msm_mci_offset = {
 	.core_ddr_200_cfg = 0x184,
 	.core_vendor_spec3 = 0x1b0,
 	.core_dll_config_2 = 0x1b4,
+	.core_dll_config_3 = 0x1b8,
 	.core_ddr_config_old = 0x1b8,
 	.core_ddr_config = 0x1bc,
 };
@@ -254,6 +262,19 @@ struct sdhci_msm_bus_vote_data {
 	u32 curr_vote;
 };
 
+/*
+ * DLL registers which needs be programmed with HSR settings.
+ * Add any new register only at the end and don't change the
+ * sequence.
+ */
+struct sdhci_msm_dll_hsr {
+	u32 dll_config;
+	u32 dll_config_2;
+	u32 dll_config_3;
+	u32 dll_usr_ctl;
+	u32 ddr_config;
+};
+
 struct sdhci_msm_host {
 	struct platform_device *pdev;
 	void __iomem *core_mem;	/* MSM SDCC mapped address */
@@ -283,9 +304,14 @@ struct sdhci_msm_host {
 	bool skip_bus_bw_voting;
 	struct sdhci_msm_bus_vote_data *bus_vote_data;
 	struct delayed_work bus_vote_work;
+	bool use_7nm_dll;
+	struct sdhci_msm_dll_hsr *dll_hsr;
 };
 
 static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
+
+static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
+				u32 **bw_vecs, int *len, u32 size);
 
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
@@ -651,21 +677,31 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	config |= CORE_DLL_PDN;
 	writel_relaxed(config, host->ioaddr +
 			msm_offset->core_dll_config);
-	msm_cm_dll_set_freq(host);
 
 	if (msm_host->use_14lpp_dll_reset &&
 	    !IS_ERR_OR_NULL(msm_host->xo_clk)) {
 		u32 mclk_freq = 0;
 
+		switch (host->clock) {
+		case 208000000:
+		case 202000000:
+		case 201500000:
+		case 200000000:
+			mclk_freq = 42;
+			break;
+		case 192000000:
+			mclk_freq = 40;
+			break;
+		default:
+			pr_err("%s: %s: Error. Unsupported clk freq\n",
+				mmc_hostname(mmc), __func__);
+		}
+
 		config = readl_relaxed(host->ioaddr +
 				msm_offset->core_dll_config_2);
 		config &= CORE_FLL_CYCLE_CNT;
 		if (config)
-			mclk_freq = DIV_ROUND_CLOSEST_ULL((host->clock * 8),
-					xo_clk);
-		else
-			mclk_freq = DIV_ROUND_CLOSEST_ULL((host->clock * 4),
-					xo_clk);
+			mclk_freq *= 2;
 
 		config = readl_relaxed(host->ioaddr +
 				msm_offset->core_dll_config_2);
@@ -691,12 +727,42 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 			msm_offset->core_dll_config);
 
 	if (msm_host->use_14lpp_dll_reset) {
-		msm_cm_dll_set_freq(host);
 		config = readl_relaxed(host->ioaddr +
 				msm_offset->core_dll_config_2);
 		config &= ~CORE_DLL_CLOCK_DISABLE;
 		writel_relaxed(config, host->ioaddr +
 				msm_offset->core_dll_config_2);
+	}
+
+	/* Configure Tassadar DLL (Only applicable for 7FF projects) */
+	if (msm_host->use_7nm_dll) {
+		if (msm_host->dll_hsr) {
+			writel_relaxed(msm_host->dll_hsr->dll_usr_ctl,
+					host->ioaddr +
+					msm_offset->core_dll_usr_ctl);
+			writel_relaxed(msm_host->dll_hsr->dll_config_3,
+					host->ioaddr +
+					msm_offset->core_dll_config_3);
+		} else {
+			writel_relaxed(DLL_USR_CTL_POR_VAL | FINE_TUNE_MODE_EN |
+					ENABLE_DLL_LOCK_STATUS | BIAS_OK_SIGNAL,
+					host->ioaddr +
+					msm_offset->core_dll_usr_ctl);
+
+			writel_relaxed(DLL_CONFIG_3_POR_VAL, host->ioaddr +
+				msm_offset->core_dll_config_3);
+		}
+	}
+
+	/*
+	 * Update the lower two bytes of DLL_CONFIG only with HSR values.
+	 * Since these are the static settings.
+	 */
+	if (msm_host->dll_hsr) {
+		writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_dll_config) |
+			(msm_host->dll_hsr->dll_config & 0xffff)),
+			host->ioaddr + msm_offset->core_dll_config);
 	}
 
 	config = readl_relaxed(host->ioaddr +
@@ -1021,8 +1087,8 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	struct mmc_host *mmc = host->mmc;
 	int ret;
+	struct mmc_host *mmc = host->mmc;
 	u32 config;
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
@@ -1038,9 +1104,9 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 		goto out;
 
 	if (!mmc->ios.enhanced_strobe) {
-		/* Set the selected phase in delay line hw block */
+		/* set the selected phase in delay line hw block */
 		ret = msm_config_cm_dll_phase(host,
-					      msm_host->saved_tuning_phase);
+				      msm_host->saved_tuning_phase);
 		if (ret)
 			goto out;
 		config = readl_relaxed(host->ioaddr +
@@ -1306,6 +1372,32 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 
 	if (mmc->ios.timing == MMC_TIMING_MMC_HS400)
 		sdhci_msm_hs400(host, &mmc->ios);
+}
+
+static int sdhci_msm_dt_parse_hsr_info(struct device *dev,
+		struct sdhci_msm_host *msm_host)
+
+{
+	u32 *dll_hsr_table = NULL;
+	int dll_hsr_table_len, dll_hsr_reg_count;
+	int ret = 0;
+
+	if (sdhci_msm_dt_get_array(dev, "qcom,dll-hsr-list",
+			&dll_hsr_table, &dll_hsr_table_len, 0))
+		goto skip_hsr;
+
+	dll_hsr_reg_count = sizeof(struct sdhci_msm_dll_hsr) / sizeof(u32);
+	if (dll_hsr_table_len != dll_hsr_reg_count) {
+		dev_err(dev, "Number of HSR entries are not matching\n");
+		ret = -EINVAL;
+	} else {
+		msm_host->dll_hsr = (struct sdhci_msm_dll_hsr *)dll_hsr_table;
+	}
+
+skip_hsr:
+	if (!msm_host->dll_hsr)
+		dev_info(dev, "Failed to get dll hsr settings from dt\n");
+	return ret;
 }
 
 static inline void sdhci_msm_init_pwr_irq_wait(struct sdhci_msm_host *msm_host)
@@ -2127,6 +2219,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	msm_host->saved_tuning_phase = INVALID_TUNING_PHASE;
 
+	sdhci_msm_dt_parse_hsr_info(&pdev->dev, msm_host);
+
 	/* Setup SDCC bus voter clock. */
 	msm_host->bus_clk = devm_clk_get(&pdev->dev, "bus");
 	if (!IS_ERR(msm_host->bus_clk)) {
@@ -2258,6 +2352,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	if (core_major == 1 && core_minor >= 0x49)
 		msm_host->updated_ddr_cfg = true;
+
+	/* 7FF projects with 7nm DLL */
+	if ((core_major == 1) && ((core_minor == 0x6e) ||
+			(core_minor == 0x71) ||
+			(core_minor == 0x72)))
+		msm_host->use_7nm_dll = true;
 
 	/*
 	 * Power on reset state may trigger power irq if previous status of
