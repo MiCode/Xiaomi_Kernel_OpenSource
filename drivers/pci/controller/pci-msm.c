@@ -62,6 +62,7 @@
 #define PCIE20_PARF_INT_ALL_MASK (0x22c)
 #define PCIE20_PARF_DEVICE_TYPE (0x1000)
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N (0x2000)
+#define PCIE20_PARF_BDF_TO_SID_CFG (0x2C00)
 #define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER (0x180)
 #define PCIE20_PARF_DEBUG_INT_EN (0x190)
 
@@ -4481,6 +4482,9 @@ static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 
 	if (!dev->sid_info)
 		return;
+
+	/* clear BDF_TO_SID_BYPASS bit to enable BDF to SID translation */
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_BDF_TO_SID_CFG, BIT(0), 0);
 
 	/* Registers need to be zero out first */
 	memset_io(bdf_to_sid_base, 0, CRC8_TABLE_SIZE * sizeof(u32));
