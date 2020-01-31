@@ -1517,8 +1517,11 @@ static int adreno_probe(struct platform_device *pdev)
 		KGSL_MEMSTORE_SIZE, 0, priv, "memstore");
 
 	status = PTR_ERR_OR_ZERO(device->memstore);
-	if (status)
-		goto out;
+	if (status) {
+		kgsl_device_platform_remove(device);
+		device->pdev = NULL;
+		return status;
+	}
 
 	/* Initialize the snapshot engine */
 	size = adreno_dev->gpucore->snapshot_size;
@@ -1532,10 +1535,6 @@ static int adreno_probe(struct platform_device *pdev)
 		size = SZ_1M;
 
 	kgsl_device_snapshot_probe(device, size);
-
-	status = adreno_dispatcher_init(adreno_dev);
-	if (status)
-		goto out;
 
 	adreno_debugfs_init(adreno_dev);
 	adreno_profile_init(adreno_dev);
@@ -1577,13 +1576,8 @@ static int adreno_probe(struct platform_device *pdev)
 		}
 	}
 #endif
-out:
-	if (status) {
-		kgsl_device_platform_remove(device);
-		device->pdev = NULL;
-	}
 
-	return status;
+	return 0;
 }
 
 static void _adreno_free_memories(struct adreno_device *adreno_dev)
@@ -1816,6 +1810,10 @@ static int adreno_init(struct kgsl_device *device)
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
 
+	ret = adreno_dispatcher_init(adreno_dev);
+	if (ret)
+		return ret;
+
 	ret = adreno_ringbuffer_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -1898,28 +1896,6 @@ static bool regulators_left_on(struct kgsl_device *device)
 		return regulator_is_enabled(pwr->gx_gdsc);
 
 	return false;
-}
-
-static void _set_secvid(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	static bool set;
-
-	/* Program GPU contect protection init values */
-	if (device->mmu.secured && !set) {
-		adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
-
-		adreno_writereg64(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-			KGSL_IOMMU_SECURE_BASE(&device->mmu));
-		adreno_writereg(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-			KGSL_IOMMU_SECURE_SIZE);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_SECVID_SET_ONCE))
-			set = true;
-	}
 }
 
 int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
@@ -2078,8 +2054,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	status = gmu_core_dev_hfi_start_msg(device);
 	if (status)
 		goto error_oob_clear;
-
-	_set_secvid(device);
 
 	if (device->pwrctrl.bus_control) {
 		/* VBIF waiting for RAM */
@@ -2922,8 +2896,6 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-
-	_set_secvid(device);
 
 	/* Reinitialize the GPU */
 	gpudev->start(adreno_dev);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -2802,7 +2802,15 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret, i;
 
+	if (test_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv))
+		return 0;
+
 	memset(dispatcher, 0, sizeof(*dispatcher));
+
+	ret = kobject_init_and_add(&dispatcher->kobj, &ktype_dispatcher,
+		&device->dev->kobj, "dispatch");
+	if (ret)
+		return ret;
 
 	mutex_init(&dispatcher->mutex);
 
@@ -2820,10 +2828,9 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	for (i = 0; i < ARRAY_SIZE(dispatcher->jobs); i++)
 		init_llist_head(&dispatcher->jobs[i]);
 
-	ret = kobject_init_and_add(&dispatcher->kobj, &ktype_dispatcher,
-		&device->dev->kobj, "dispatch");
+	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
 
-	return ret;
+	return 0;
 }
 
 void adreno_dispatcher_halt(struct kgsl_device *device)
