@@ -1317,6 +1317,16 @@ int gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch *val);
 
 /**
+ * gsi_pending_irq_type - Peripheral should call this function to
+ * check if there is any pending irq
+ *
+ * This function can sleep
+ *
+ * @Return gsi_irq_type
+ */
+int gsi_pending_irq_type(void);
+
+/**
  * gsi_update_mhi_channel_scratch - MHI Peripheral should call this
  * function to update the scratch area of the channel context. Updating
  * will be by read-modify-write method, so non SWI fields will not be
@@ -1788,6 +1798,10 @@ static inline int gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch *val)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_pending_irq_type(void)
+{
 }
 
 static inline int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
