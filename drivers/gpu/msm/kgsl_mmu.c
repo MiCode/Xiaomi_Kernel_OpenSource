@@ -544,6 +544,14 @@ void kgsl_mmu_close(struct kgsl_device *device)
 		mmu->mmu_ops->mmu_close(mmu);
 }
 
+int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable)
+{
+	if (PT_OP_VALID(pagetable, get_context_bank))
+		return pagetable->pt_ops->get_context_bank(pagetable);
+
+	return -ENOENT;
+}
+
 enum kgsl_mmutype kgsl_mmu_get_mmutype(struct kgsl_device *device)
 {
 	return device ? device->mmu.type : KGSL_MMU_TYPE_NONE;

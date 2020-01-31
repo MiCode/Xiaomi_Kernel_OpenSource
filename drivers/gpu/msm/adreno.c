@@ -1368,6 +1368,8 @@ static const struct kgsl_functable adreno_functable;
 
 static void adreno_setup_device(struct adreno_device *adreno_dev)
 {
+	u32 i;
+
 	memset(adreno_dev, 0, sizeof(*adreno_dev));
 
 	adreno_dev->dev.name = "kgsl-3d0";
@@ -1403,6 +1405,12 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	/* Enable use of the LLC slices where applicable */
 	adreno_dev->gpu_llc_slice_enable = true;
 	adreno_dev->gpuhtw_llc_slice_enable = true;
+
+	for (i = 0; i < ARRAY_SIZE(adreno_dev->ringbuffers); i++) {
+		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[i];
+
+		INIT_LIST_HEAD(&rb->events.group);
+	}
 }
 
 static int adreno_probe(struct platform_device *pdev)
@@ -1525,10 +1533,6 @@ static int adreno_probe(struct platform_device *pdev)
 
 	kgsl_device_snapshot_probe(device, size);
 
-	status = adreno_ringbuffer_probe(adreno_dev);
-	if (status)
-		goto out;
-
 	status = adreno_dispatcher_init(adreno_dev);
 	if (status)
 		goto out;
@@ -1575,7 +1579,6 @@ static int adreno_probe(struct platform_device *pdev)
 #endif
 out:
 	if (status) {
-		adreno_ringbuffer_close(adreno_dev);
 		kgsl_device_platform_remove(device);
 		device->pdev = NULL;
 	}
@@ -1813,6 +1816,10 @@ static int adreno_init(struct kgsl_device *device)
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
 
+	ret = adreno_ringbuffer_init(adreno_dev);
+	if (ret)
+		return ret;
+
 	/*
 	 * Either the microcode read failed because the usermodehelper isn't
 	 * available or the microcode was corrupted. Fail the init and force
@@ -1951,6 +1958,60 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 			rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
 			0);
 	}
+}
+
+static int adreno_first_open(struct kgsl_device *device)
+{
+	int ret;
+
+	/*
+	 * active_cnt special case: we are starting up for the first
+	 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
+	 * which will be called by kgsl_active_count_get().
+	 */
+	atomic_inc(&device->active_cnt);
+
+	kgsl_sharedmem_set(device, device->memstore, 0, 0,
+		device->memstore->size);
+
+	ret = adreno_init(device);
+	if (ret)
+		goto err;
+
+	ret = adreno_start(device, 0);
+	if (ret)
+		goto err;
+
+	timer_setup(&device->idle_timer, kgsl_timer, 0);
+
+	complete_all(&device->hwaccess_gate);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+	kgsl_active_count_put(device);
+
+	return 0;
+err:
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+	atomic_dec(&device->active_cnt);
+
+	return ret;
+}
+
+static int adreno_last_close(struct kgsl_device *device)
+{
+	/*
+	 * Wait up to 1 second for the active count to go low
+	 * and then start complaining about it
+	 */
+	if (kgsl_active_count_wait(device, 0)) {
+		dev_err(device->dev,
+			"Waiting for the active count to become 0\n");
+
+		while (kgsl_active_count_wait(device, 0))
+			dev_err(device->dev,
+				"Still waiting for the active count\n");
+	}
+
+	return kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 }
 
 /**
@@ -3791,9 +3852,10 @@ static const struct kgsl_functable adreno_functable = {
 	.idle = adreno_idle,
 	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,
-	.init = adreno_init,
+	.first_open = adreno_first_open,
 	.start = adreno_start,
 	.stop = adreno_stop,
+	.last_close = adreno_last_close,
 	.getproperty = adreno_getproperty,
 	.getproperty_compat = adreno_getproperty_compat,
 	.waittimestamp = adreno_waittimestamp,

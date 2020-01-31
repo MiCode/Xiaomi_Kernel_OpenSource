@@ -99,7 +99,8 @@ struct kgsl_functable {
 	int (*idle)(struct kgsl_device *device);
 	bool (*isidle)(struct kgsl_device *device);
 	int (*suspend_context)(struct kgsl_device *device);
-	int (*init)(struct kgsl_device *device);
+	int (*first_open)(struct kgsl_device *device);
+	int (*last_close)(struct kgsl_device *device);
 	int (*start)(struct kgsl_device *device, int priority);
 	int (*stop)(struct kgsl_device *device);
 	int (*getproperty)(struct kgsl_device *device,
