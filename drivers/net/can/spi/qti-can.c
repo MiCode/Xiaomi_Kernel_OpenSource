@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,7 +147,8 @@ struct spi_miso { /* TLV for MISO line */
 #define IFR_DATA_OFFSET		0x100
 struct can_fw_resp {
 	u8 maj;
-	u8 min;
+	u8 min : 4;
+	u8 sub_min : 4;
 	u8 ver[48];
 } __packed;
 
@@ -259,7 +260,8 @@ struct qti_can_buffer {
 
 struct can_fw_br_resp {
 	u8 maj;
-	u8 min;
+	u8 min : 4;
+	u8 sub_min : 4;
 	u8 ver[32];
 	u8 br_maj;
 	u8 br_min;
@@ -428,16 +430,16 @@ static int qti_can_process_response(struct qti_can *priv_data,
 	} else if (resp->cmd  == CMD_GET_FW_VERSION) {
 		struct can_fw_resp *fw_resp = (struct can_fw_resp *)resp->data;
 
-		dev_info(&priv_data->spidev->dev, "fw %d.%d",
-			 fw_resp->maj, fw_resp->min);
+		dev_info(&priv_data->spidev->dev, "fw %d.%d.%d",
+			 fw_resp->maj, fw_resp->min, fw_resp->sub_min);
 		dev_info(&priv_data->spidev->dev, "fw string %s",
 			 fw_resp->ver);
 	} else if (resp->cmd  == CMD_GET_FW_BR_VERSION) {
 		struct can_fw_br_resp *fw_resp =
 				(struct can_fw_br_resp *)resp->data;
 
-		dev_info(&priv_data->spidev->dev, "fw_can %d.%d",
-			 fw_resp->maj, fw_resp->min);
+		dev_info(&priv_data->spidev->dev, "fw_can %d.%d.%d",
+			 fw_resp->maj, fw_resp->min, fw_resp->sub_min);
 		dev_info(&priv_data->spidev->dev, "fw string %s",
 			 fw_resp->ver);
 		dev_info(&priv_data->spidev->dev, "fw_br %d.%d exec_mode %d",
@@ -447,7 +449,8 @@ static int qti_can_process_response(struct qti_can *priv_data,
 		ret |= (fw_resp->br_maj & 0xF) << 24;
 		ret |= (fw_resp->br_min & 0xFF) << 16;
 		ret |= (fw_resp->maj & 0xF) << 8;
-		ret |= (fw_resp->min & 0xFF);
+		ret |= (fw_resp->min & 0xF) << 4;
+		ret |= (fw_resp->sub_min & 0xF);
 	} else if (resp->cmd == CMD_UPDATE_TIME_INFO) {
 		struct can_time_info *time_data =
 			(struct can_time_info *)resp->data;
