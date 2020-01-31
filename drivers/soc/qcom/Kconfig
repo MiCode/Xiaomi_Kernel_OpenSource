@@ -555,6 +555,15 @@ config ICNSS_QMI
 	and configurations. It also send WLAN on/off control message to FW
 	over QMI channel.
 
+config CNSS_TIMESYNC
+	bool "cnss TIME SYNC support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable cnss TIME SYNC support. TIME SYNC support
+	  primarily consists of reading the AUDIO TIMESYNC register for
+	  deriving WLAN mac time stamp relation when FTM based clock sync is
+	  used.
+
 config QCOM_EUD
 	tristate "QTI Embedded USB Debugger (EUD)"
 	depends on ARCH_QCOM
