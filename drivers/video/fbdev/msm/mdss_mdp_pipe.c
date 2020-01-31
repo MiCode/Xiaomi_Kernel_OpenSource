@@ -1884,7 +1884,8 @@ static void mdss_mdp_pipe_stride_update(struct mdss_mdp_pipe *pipe)
 	if (pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_NONE) {
 		memcpy(&ystride, &pipe->src_planes.ystride,
 		       sizeof(u32) * MAX_PLANES);
-		if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+		if (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
+					MDP_SECURE_CAMERA_OVERLAY_SESSION))
 			secure = 0xF;
 	} else {
 		if (pipe->multirect.num == MDSS_MDP_PIPE_RECT0) {
@@ -1897,12 +1898,14 @@ static void mdss_mdp_pipe_stride_update(struct mdss_mdp_pipe *pipe)
 
 		ystride[0] = rec0_pipe->src_planes.ystride[0];
 		ystride[2] = rec0_pipe->src_planes.ystride[2];
-		if (rec0_pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+		if (rec0_pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
+					MDP_SECURE_CAMERA_OVERLAY_SESSION))
 			secure |= 0x5;
 
 		ystride[1] = rec1_pipe->src_planes.ystride[0];
 		ystride[3] = rec1_pipe->src_planes.ystride[2];
-		if (rec1_pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+		if (rec1_pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
+				MDP_SECURE_CAMERA_OVERLAY_SESSION))
 			secure |= 0xA;
 	}
 
@@ -2312,7 +2315,9 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 	}
 
 	format = MDSS_MDP_FMT_SOLID_FILL;
-	secure = (pipe->flags & MDP_SECURE_OVERLAY_SESSION ? 0xF : 0x0);
+	secure = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
+				MDP_SECURE_CAMERA_OVERLAY_SESSION)
+			? 0xF : 0x0);
 
 	/* support ARGB color format only */
 	unpack = (C3_ALPHA << 24) | (C2_R_Cr << 16) |
