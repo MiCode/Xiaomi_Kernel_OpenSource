@@ -2019,6 +2019,7 @@ Optional properties:
 - qcom,wcn-btfm : Property to specify if WCN BT/FM chip is used for the target
 - qcom,mi2s-audio-intf: Property to specify if MI2S interface is used for the target
 - qcom,auxpcm-audio-intf: Property to specify if Aux PCM interface is used for the target
+- qcom,tdm-audio-intf: Property to specify if Aux PCM interface is used for the target
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
 - qcom,msm_audio_ssr_devs: List the snd event framework clients
 - qcom,afe-rxtx-lb: AFE RX to TX loopback.
@@ -2031,6 +2032,7 @@ Example:
 		qcom,wcn-btfm = <1>;
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
+		qcom,tdm-audio-intf = <1>;
 		qcom,afe-rxtx-lb = <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,

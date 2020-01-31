@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,8 +86,9 @@
 &q6core {
 	atoll_snd: sound {
 		compatible = "qcom,kona-asoc-snd";
-		qcom,mi2s-audio-intf = <1>;
-		qcom,auxpcm-audio-intf = <1>;
+		qcom,mi2s-audio-intf = <0>;
+		qcom,auxpcm-audio-intf = <0>;
+		qcom,tdm-audio-intf = <0>;
 		qcom,wcn-btfm = <1>;
 		qcom,ext-disp-audio-rx = <1>;
 		qcom,afe-rxtx-lb = <0>;
