@@ -832,9 +832,17 @@ static void process_kernel_obj(void *buf, size_t buf_len)
 {
 	struct smcinvoke_tzcb_req *cb_req = buf;
 
-	cb_req->result = (cb_req->hdr.op == OBJECT_OP_MAP_REGION) ?
-			smcinvoke_map_mem_region(buf, buf_len) :
-			OBJECT_ERROR_INVALID;
+	switch (cb_req->hdr.op) {
+	case OBJECT_OP_MAP_REGION:
+		cb_req->result = smcinvoke_map_mem_region(buf, buf_len);
+		break;
+	case OBJECT_OP_YIELD:
+		cb_req->result = OBJECT_OK;
+		break;
+	default:
+		cb_req->result = OBJECT_ERROR_INVALID;
+		break;
+	}
 }
 
 static void process_mem_obj(void *buf, size_t buf_len)
