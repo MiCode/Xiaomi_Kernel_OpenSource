@@ -4610,11 +4610,9 @@ int msm_pcie_enumerate(u32 rc_idx)
 		goto out;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_MSM_MSI)) {
-		ret = msm_msi_init(&dev->pdev->dev);
-		if (ret)
-			goto out;
-	}
+	ret = msm_msi_init(&dev->pdev->dev);
+	if (ret)
+		goto out;
 
 	list_splice_init(&res, &bridge->windows);
 	bridge->dev.parent = &dev->pdev->dev;
