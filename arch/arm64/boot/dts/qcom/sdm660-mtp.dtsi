@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,9 +10,9 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm660-pinctrl.dtsi"
 #include "sdm660-camera-sensor-mtp.dtsi"
-/ {
+
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
