@@ -497,6 +497,7 @@ Optional properties:
 - qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
 			   for any commands that we send.
 - qcom,mdss-dsi-force-clock-lane-hs:	Boolean to force dsi clock lanes to HS mode always.
+- qcom,panel-cphy-mode:			Boolean to specify whether panel is using cphy.
 
 - qcom,compression-mode:		Select compression mode for panel.
 					"fbc" - frame buffer compression
