@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,7 +106,10 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 		list_del(&p->lru);
 	}
 	spin_unlock(&pool->list_lock);
-	mod_node_page_state(page_pgdat(p), NR_INDIRECTLY_RECLAIMABLE_BYTES,
+
+	if (p != NULL)
+		mod_node_page_state(page_pgdat(p),
+				NR_INDIRECTLY_RECLAIMABLE_BYTES,
 				-(PAGE_SIZE << pool->pool_order));
 	return p;
 }
