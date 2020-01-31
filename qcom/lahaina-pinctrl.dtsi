@@ -1657,6 +1657,15 @@
 				};
 			};
 		};
+
+		usb2_id_det_default: usb2_id_det_default {
+			config {
+				pins = "gpio51";
+				function = "gpio";
+				input-enable;
+				bias-pull-up;
+			};
+		};
 	};
 	pmx_sde: pmx_sde {
 		sde_dsi_active: sde_dsi_active {

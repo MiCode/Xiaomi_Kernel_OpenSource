@@ -17,6 +17,25 @@
 			power-source = <1>;
 		};
 	};
+
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio8";
+			function = "normal";
+			output-low;
+			power-source = <0>;	/* 1.8V input supply */
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio9";
+			function = "normal";
+			input-enable;
+			bias-disable;
+			power-source = <0>;	/* 1.8V input supply */
+		};
+	};
 };
 
 &qupv3_se13_i2c {
