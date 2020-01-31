@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,15 +91,30 @@
 };
 
 &cam_csiphy0 {
-	/delete-property/ mipi-csi-vdd-supply;
+	mipi-csi-vdd-supply = <&pm6155_1_l11>;
+	regulator-names = "gdscr", "mipi-csi-vdd";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 1232000>;
+	rgltr-max-voltage = <0 1232000>;
+	rgltr-load-current = <0 21800>;
 };
 
 &cam_csiphy1 {
-	/delete-property/ mipi-csi-vdd-supply;
+	mipi-csi-vdd-supply = <&pm6155_1_l11>;
+	regulator-names = "gdscr", "mipi-csi-vdd";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 1232000>;
+	rgltr-max-voltage = <0 1232000>;
+	rgltr-load-current = <0 21800>;
 };
 
 &cam_csiphy2 {
-	/delete-property/ mipi-csi-vdd-supply;
+	mipi-csi-vdd-supply = <&pm6155_1_l11>;
+	regulator-names = "gdscr", "mipi-csi-vdd";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 1232000>;
+	rgltr-max-voltage = <0 1232000>;
+	rgltr-load-current = <0 21800>;
 };
 
 &bluetooth {
