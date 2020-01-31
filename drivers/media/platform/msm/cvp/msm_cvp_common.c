@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/jiffies.h>
@@ -231,6 +231,10 @@ static void cvp_handle_session_cmd_done(enum hal_command_response cmd,
 			__func__);
 		return;
 	}
+
+	if (response->status)
+		dprintk(CVP_ERR, "HFI MSG error %d cmd response %d\n",
+			response->status, cmd);
 
 	dprintk(CVP_DBG, "%s: inst=%pK\n", __func__, inst);
 
@@ -770,7 +774,8 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_DME_CONFIG_CMD_DONE:
 	case HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE:
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
-	case HAL_SESSION_PERSIST_CMD_DONE:
+	case HAL_SESSION_PERSIST_SET_DONE:
+	case HAL_SESSION_PERSIST_REL_DONE:
 	case HAL_SESSION_TME_CONFIG_CMD_DONE:
 	case HAL_SESSION_ODT_CONFIG_CMD_DONE:
 	case HAL_SESSION_OD_CONFIG_CMD_DONE:
@@ -1770,7 +1775,7 @@ int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
 			buf->smem.dma_buf->name, buf->smem.size);
 			msm_cvp_smem_free(handle);
 		} else if (buf->buffer_ownership == CLIENT) {
-			dprintk(CVP_DBG,
+			dprintk(CVP_ERR,
 			"%s: %x : fd %d %s size %d",
 			"unmap persist", hash32_ptr(inst->session),
 			buf->smem.fd, buf->smem.dma_buf->name, buf->smem.size);

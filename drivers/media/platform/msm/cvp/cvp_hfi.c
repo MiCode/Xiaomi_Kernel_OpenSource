@@ -77,7 +77,14 @@ const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 		.type = HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS,
 		.buf_offset = HFI_PERSIST_BUFFERS_OFFSET,
 		.buf_num = HFI_PERSIST_BUF_NUM,
-		.resp = HAL_SESSION_PERSIST_CMD_DONE,
+		.resp = HAL_SESSION_PERSIST_SET_DONE,
+	},
+	{
+		.size = 0xffffffff,
+		.type = HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_PERSIST_REL_DONE,
 	},
 	{
 		.size = HFI_DS_CMD_SIZE,
@@ -2847,7 +2854,8 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
 	case HAL_SESSION_ICA_FRAME_CMD_DONE:
 	case HAL_SESSION_FD_FRAME_CMD_DONE:
-	case HAL_SESSION_PERSIST_CMD_DONE:
+	case HAL_SESSION_PERSIST_SET_DONE:
+	case HAL_SESSION_PERSIST_REL_DONE:
 	case HAL_SESSION_FD_CONFIG_CMD_DONE:
 	case HAL_SESSION_MODEL_BUF_CMD_DONE:
 	case HAL_SESSION_PROPERTY_INFO:

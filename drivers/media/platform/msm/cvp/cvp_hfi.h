@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __H_CVP_HFI_H__
@@ -96,6 +96,8 @@
 	(HFI_CMD_SESSION_CVP_START + 0x053)
 #define HFI_CMD_SESSION_CVP_FD_FRAME\
 	(HFI_CMD_SESSION_CVP_START + 0x054)
+#define HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS\
+	(HFI_CMD_SESSION_CVP_START + 0x055)
 #define  HFI_CMD_SESSION_CVP_ICA_FRAME\
 	(HFI_CMD_SESSION_CVP_START + 0x100)
 #define  HFI_CMD_SESSION_CVP_ICA_CONFIG\
@@ -140,6 +142,8 @@
 	(HFI_MSG_SESSION_CVP_START + 0x036)
 #define  HFI_MSG_SESSION_CVP_FD\
 	(HFI_MSG_SESSION_CVP_START + 0x037)
+#define  HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS\
+	(HFI_MSG_SESSION_CVP_START + 0x038)
 
 #define CVP_IFACEQ_MAX_PKT_SIZE       1024
 #define CVP_IFACEQ_MED_PKT_SIZE       768

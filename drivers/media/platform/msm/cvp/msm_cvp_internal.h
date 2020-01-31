@@ -115,7 +115,7 @@ struct cvp_internal_buf {
 	u32 buffer_type;
 	struct msm_cvp_smem smem;
 	enum buffer_owner buffer_ownership;
-	bool mark_remove;
+	u64 ktid;
 };
 
 struct msm_cvp_common_data {
