@@ -1800,11 +1800,6 @@ static int rdtgroup_rmdir_ctrl(struct kernfs_node *kn, struct rdtgroup *rdtgrp,
 	closid_free(rdtgrp->closid);
 	free_rmid(rdtgrp->mon.rmid);
 
-	/*
-	 * Free all the child monitor group rmids.
-	 */
-	free_all_child_rdtgrp(rdtgrp);
-
 	list_del(&rdtgrp->rdtgroup_list);
 
 	/*
@@ -1813,6 +1808,11 @@ static int rdtgroup_rmdir_ctrl(struct kernfs_node *kn, struct rdtgroup *rdtgrp,
 	 */
 	kernfs_get(kn);
 	kernfs_remove(rdtgrp->kn);
+
+	/*
+	 * Free all the child monitor group rmids.
+	 */
+	free_all_child_rdtgrp(rdtgrp);
 
 	return 0;
 }
