@@ -108,6 +108,8 @@ Optional properties:
 				device node. Refer to pinctrl-bindings.txt
 - qcom,max-lclk-frequency-khz:	An integer specifying the max. link clock in KHz supported by Display Port.
 - qcom,mst-fixed-topology-ports: u32 values of which MST output port to reserve, start from one
+- qcom,dp-aux-bridge:		phandle for dp aux bridge module, for 3rd party dp bridge only.
+- qcom,dp-aux-bridge-sim:	phandle for dp aux bridge module, for internal mst debug simulation only.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then
