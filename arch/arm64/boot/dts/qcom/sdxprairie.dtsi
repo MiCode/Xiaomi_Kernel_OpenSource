@@ -1492,8 +1492,9 @@
 			<98 512 250000 0>, <1 781 0 40000>; /* 1000Mbps vote */
 		qcom,bus-vector-names = "0", "10", "100", "1000";
 		snps,tso;
+		snps,pbl = <32>;
 		rx-fifo-depth = <16384>;
-		tx-fifo-depth = <16384>;
+		tx-fifo-depth = <20480>;
 		snps,mtl-rx-config = <&mtl_rx_setup>;
 		snps,mtl-tx-config = <&mtl_tx_setup>;
 
