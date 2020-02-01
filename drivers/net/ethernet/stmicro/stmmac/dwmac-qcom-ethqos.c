@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018-19, Linaro Limited
+// Copyright (c) 2018-20, Linaro Limited
 
 #include <linux/module.h>
 #include <linux/of.h>
@@ -1287,6 +1287,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->ipa_enabled = true;
 	priv->rx_queue[IPA_DMA_RX_CH].skip_sw = true;
 	priv->tx_queue[IPA_DMA_TX_CH].skip_sw = true;
+	ethqos_ipa_offload_event_handler(ethqos, EV_PROBE_INIT);
 #endif
 	return ret;
 
@@ -1328,7 +1329,9 @@ static int qcom_ethqos_suspend(struct device *dev)
 	struct qcom_ethqos *ethqos;
 	struct net_device *ndev = NULL;
 	int ret;
+	int allow_suspend = 0;
 
+	ETHQOSDBG("Suspend Enter\n");
 	if (of_device_is_compatible(dev->of_node, "qcom,emac-smmu-embedded")) {
 		ETHQOSDBG("smmu return\n");
 		return 0;
@@ -1340,6 +1343,12 @@ static int qcom_ethqos_suspend(struct device *dev)
 
 	ndev = dev_get_drvdata(dev);
 
+	ethqos_ipa_offload_event_handler(&allow_suspend, EV_DPM_SUSPEND);
+	if (!allow_suspend) {
+		enable_irq_wake(ndev->irq);
+		ETHQOSDBG("Suspend Exit enable IRQ\n");
+		return 0;
+	}
 	if (!ndev || !netif_running(ndev))
 		return -EINVAL;
 
@@ -1372,9 +1381,17 @@ static int qcom_ethqos_resume(struct device *dev)
 		return -EINVAL;
 	}
 
+	if (!ethqos->clks_suspended) {
+		disable_irq_wake(ndev->irq);
+		ETHQOSDBG("Resume Exit disable IRQ\n");
+		return 0;
+	}
+
 	qcom_ethqos_phy_resume_clks(ethqos, ndev);
 
 	ret = stmmac_resume(dev);
+
+	ethqos_ipa_offload_event_handler(NULL, EV_DPM_RESUME);
 
 	ETHQOSDBG("<--Resume Exit\n");
 	return ret;
