@@ -105,13 +105,11 @@ static void glink_smem_rx_peak(struct qcom_glink_pipe *np,
 		tail -= pipe->native.length;
 
 	len = min_t(size_t, count, pipe->native.length - tail);
-	if (len) {
+	if (len)
 		memcpy_fromio(data, pipe->fifo + tail, len);
-	}
 
-	if (len != count) {
+	if (len != count)
 		memcpy_fromio(data + len, pipe->fifo, (count - len));
-	}
 }
 
 static void glink_smem_rx_advance(struct qcom_glink_pipe *np,
