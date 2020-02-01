@@ -125,7 +125,7 @@ static const struct alpha_pll_config disp_cc_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00004805,
 };
