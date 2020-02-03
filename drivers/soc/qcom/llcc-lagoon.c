@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -50,39 +50,34 @@
 		.activate_on_init = a,		\
 	}
 
-static struct llcc_slice_config lito_data[] =  {
-	SCT_ENTRY(LLCC_CPUSS,    1, 1536, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
-	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDM,      8, 512, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_GPUHTW,   11, 256, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_GPU,      12, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_DISP,     16, 1536, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDMPNG,   21, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_AUDHW,    22, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_NPU,      23, 512, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MODEMVPE, 29, 128, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_WRTCH,    31, 128, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 1),
+static struct llcc_slice_config lagoon_data[] =  {
+	SCT_ENTRY(LLCC_CPUSS,    1, 768, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
+	SCT_ENTRY(LLCC_MDM,      8, 256, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_GPUHTW,   11, 256, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_GPU,      12, 256, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMPNG,   21, 768, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_NPU,      23, 768, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 };
 
-static int lito_qcom_llcc_probe(struct platform_device *pdev)
+static int lagoon_qcom_llcc_probe(struct platform_device *pdev)
 {
-	return qcom_llcc_probe(pdev, lito_data,
-				 ARRAY_SIZE(lito_data));
+	return qcom_llcc_probe(pdev, lagoon_data,
+				 ARRAY_SIZE(lagoon_data));
 }
 
-static const struct of_device_id lito_qcom_llcc_of_match[] = {
-	{ .compatible = "qcom,llcc-v1", },
+static const struct of_device_id lagoon_qcom_llcc_of_match[] = {
+	{ .compatible = "lagoon-llcc-v1", },
 	{ },
 };
 
-static struct platform_driver lito_qcom_llcc_driver = {
+static struct platform_driver lagoon_qcom_llcc_driver = {
 	.driver = {
-		.name = "lito-llcc",
-		.of_match_table = lito_qcom_llcc_of_match,
+		.name = "lagoon-llcc",
+		.of_match_table = lagoon_qcom_llcc_of_match,
 	},
-	.probe = lito_qcom_llcc_probe,
+	.probe = lagoon_qcom_llcc_probe,
 };
-module_platform_driver(lito_qcom_llcc_driver);
+module_platform_driver(lagoon_qcom_llcc_driver);
 
-MODULE_DESCRIPTION("QCOM lito LLCC driver");
+MODULE_DESCRIPTION("QCOM lagoon LLCC driver");
 MODULE_LICENSE("GPL v2");

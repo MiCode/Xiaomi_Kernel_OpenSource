@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -1699,15 +1699,18 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	MHI_VERB("Enter\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
-	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
-		state = mhi_get_mhi_state(mhi_cntrl);
-		ee = mhi_cntrl->ee;
-		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("local ee: %s device ee:%s dev_state:%s\n",
-			TO_MHI_EXEC_STR(ee),
-			TO_MHI_EXEC_STR(mhi_cntrl->ee),
-			TO_MHI_STATE_STR(state));
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		goto exit_intvec;
 	}
+
+	state = mhi_get_mhi_state(mhi_cntrl);
+	ee = mhi_cntrl->ee;
+	mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
+	MHI_LOG("local ee: %s device ee:%s dev_state:%s\n",
+		TO_MHI_EXEC_STR(ee),
+		TO_MHI_EXEC_STR(mhi_cntrl->ee),
+		TO_MHI_STATE_STR(state));
 
 	if (state == MHI_STATE_SYS_ERR) {
 		MHI_ERR("MHI system error detected\n");
@@ -2184,6 +2187,9 @@ int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d)
 
 	int i;
 
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
+
 	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	er_ctxt = mhi_cntrl->mhi_ctxt->er_ctxt;
@@ -2216,6 +2222,9 @@ int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d)
 	struct mhi_chan *mhi_chan;
 	struct mhi_chan_ctxt *chan_ctxt;
 	int i;
+
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
 
 	seq_printf(m, "[%llu ns]:\n", sched_clock());
 

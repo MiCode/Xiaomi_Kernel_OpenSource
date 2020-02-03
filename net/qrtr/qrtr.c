@@ -339,7 +339,8 @@ static void __qrtr_node_release(struct kref *kref)
 	if (node->nid != QRTR_EP_NID_AUTO) {
 		radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
 			if (node == *slot)
-				radix_tree_delete(&qrtr_nodes, iter.index);
+				radix_tree_iter_delete(&qrtr_nodes, &iter,
+						       slot);
 		}
 	}
 
@@ -355,7 +356,7 @@ static void __qrtr_node_release(struct kref *kref)
 			sock_put(waiter->sk);
 			kfree(waiter);
 		}
-		radix_tree_delete(&node->qrtr_tx_flow, iter.index);
+		radix_tree_iter_delete(&node->qrtr_tx_flow, &iter, slot);
 		kfree(flow);
 	}
 	mutex_unlock(&node->qrtr_tx_lock);
