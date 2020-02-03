@@ -61,7 +61,7 @@ TRACE_EVENT(psi_event,
 		__entry->threshold = threshold;
 	),
 
-	TP_printk("State: %d Threshold: %#llx",
+	TP_printk("State: %d Threshold: %#llu ns",
 		__entry->state, __entry->threshold
 	)
 );
