@@ -338,6 +338,7 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_SPEED_BIN		0x25
 #define KGSL_PROP_GAMING_BIN		0x26
 #define KGSL_PROP_CONTEXT_PROPERTY	0x28
+#define KGSL_PROP_MACROTILING_CHANNELS	0x29
 
 
 struct kgsl_shadowprop {
