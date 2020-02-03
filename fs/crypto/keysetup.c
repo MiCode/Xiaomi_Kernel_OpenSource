@@ -48,9 +48,11 @@ struct fscrypt_mode fscrypt_modes[] = {
 		.blk_crypto_mode = BLK_ENCRYPTION_MODE_ADIANTUM,
 	},
 	[FSCRYPT_MODE_PRIVATE] = {
-		.friendly_name = "ICE",
-		.cipher_str = "bugon",
+		.friendly_name = "ice",
+		.cipher_str = "xts(aes)",
 		.keysize = 64,
+		.ivsize = 16,
+		.blk_crypto_mode = BLK_ENCRYPTION_MODE_AES_256_XTS,
 	},
 };
 

@@ -27,9 +27,8 @@
 #define FSCRYPT_MODE_AES_128_CBC		5
 #define FSCRYPT_MODE_AES_128_CTS		6
 #define FSCRYPT_MODE_ADIANTUM			9
-#define __FSCRYPT_MODE_MAX			9
 #define FSCRYPT_MODE_PRIVATE			127
-
+#define __FSCRYPT_MODE_MAX			127
 /*
  * Legacy policy version; ad-hoc KDF and no key verification.
  * For new encrypted directories, use fscrypt_policy_v2 instead.
