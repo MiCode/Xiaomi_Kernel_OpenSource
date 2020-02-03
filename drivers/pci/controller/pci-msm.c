@@ -167,7 +167,7 @@
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (4)
-#define MSM_PCIE_MAX_CLK (14)
+#define MSM_PCIE_MAX_CLK (18)
 #define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (3)
 #define MAX_DEVICE_NUM (20)
@@ -655,6 +655,10 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_bw_scale_info_t *bw_scale;
 	u32 bw_gen_max;
 
+	struct clk *pipe_clk_mux;
+	struct clk *pipe_clk_ext_src;
+	struct clk *ref_clk_src;
+
 	bool cfg_access;
 	spinlock_t cfg_lock;
 	unsigned long irqsave_flags;
@@ -858,8 +862,12 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_phy_refgen_clk", 0, false, true},
 	{NULL, "pcie_tbu_clk", 0, false, true},
 	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, true},
+	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
-	{NULL, "pcie_phy_aux_clk", 0, false, false}
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_pipe_clk_mux", 0, false, false},
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
 	},
 	{
 	{NULL, "pcie_1_ref_clk_src", 0, false, false},
@@ -873,9 +881,13 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_1_sleep_clk", 0, false, false},
 	{NULL, "pcie_phy_refgen_clk", 0, false, true},
 	{NULL, "pcie_tbu_clk", 0, false, true},
+	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
 	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, true},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
-	{NULL, "pcie_phy_aux_clk", 0, false, false}
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_pipe_clk_mux", 0, false, false},
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
 	},
 	{
 	{NULL, "pcie_2_ref_clk_src", 0, false, false},
@@ -889,9 +901,13 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_2_sleep_clk", 0, false, false},
 	{NULL, "pcie_phy_refgen_clk", 0, false, true},
 	{NULL, "pcie_tbu_clk", 0, false, true},
+	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
+	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
 	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, true},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
-	{NULL, "pcie_phy_aux_clk", 0, false, false}
+	{NULL, "pcie_phy_aux_clk", 0, false, false},
+	{NULL, "pcie_pipe_clk_mux", 0, false, false},
+	{NULL, "pcie_pipe_clk_ext_src", 0, false, false}
 	}
 };
 
@@ -3081,6 +3097,10 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		return rc;
 	}
 
+	/* switch pipe clock source after gdsc is turned on */
+	if (dev->pipe_clk_mux && dev->pipe_clk_ext_src)
+		clk_set_parent(dev->pipe_clk_mux, dev->pipe_clk_ext_src);
+
 	if (dev->icc_path) {
 		PCIE_DBG(dev, "PCIe: RC%d: setting ICC path vote\n",
 			dev->rc_idx);
@@ -3144,6 +3164,10 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		}
 
 		regulator_disable(dev->gdsc);
+
+		/* switch pipe clock mux after gdsc is turned off */
+		if (dev->pipe_clk_mux && dev->ref_clk_src)
+			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_RESET; i++) {
@@ -3217,6 +3241,10 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 	}
 
 	regulator_disable(dev->gdsc);
+
+	/* switch pipe clock mux after gdsc is turned off */
+	if (dev->pipe_clk_mux && dev->ref_clk_src)
+		clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
@@ -3467,6 +3495,7 @@ static int msm_pcie_get_clk(struct msm_pcie_dev_t *pcie_dev)
 	struct msm_pcie_clk_info_t *clk_info;
 	u32 *clkfreq = NULL;
 	struct platform_device *pdev = pcie_dev->pdev;
+	char ref_clk_src[MAX_PROP_SIZE];
 
 	cnt = of_property_count_elems_of_size((&pdev->dev)->of_node,
 			"max-clock-frequency-hz", sizeof(u32));
@@ -3512,6 +3541,21 @@ static int msm_pcie_get_clk(struct msm_pcie_dev_t *pcie_dev)
 				pcie_dev->rate_change_clk = clk_info;
 		}
 	}
+
+	pcie_dev->pipe_clk_mux = clk_get(&pdev->dev, "pcie_pipe_clk_mux");
+	if (IS_ERR(pcie_dev->pipe_clk_mux))
+		pcie_dev->pipe_clk_mux = NULL;
+
+	pcie_dev->pipe_clk_ext_src = clk_get(&pdev->dev,
+					"pcie_pipe_clk_ext_src");
+	if (IS_ERR(pcie_dev->pipe_clk_ext_src))
+		pcie_dev->pipe_clk_ext_src = NULL;
+
+	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_%d_ref_clk_src",
+		pcie_dev->rc_idx);
+	pcie_dev->ref_clk_src = clk_get(&pdev->dev, ref_clk_src);
+	if (IS_ERR(pcie_dev->ref_clk_src))
+		pcie_dev->ref_clk_src = NULL;
 
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++) {
 		clk_info = &pcie_dev->pipeclk[i];
@@ -4566,11 +4610,9 @@ int msm_pcie_enumerate(u32 rc_idx)
 		goto out;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_MSM_MSI)) {
-		ret = msm_msi_init(&dev->pdev->dev);
-		if (ret)
-			goto out;
-	}
+	ret = msm_msi_init(&dev->pdev->dev);
+	if (ret)
+		goto out;
 
 	list_splice_init(&res, &bridge->windows);
 	bridge->dev.parent = &dev->pdev->dev;
