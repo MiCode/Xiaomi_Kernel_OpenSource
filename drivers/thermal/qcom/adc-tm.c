@@ -51,6 +51,35 @@ static int adc_tm_init(struct adc_tm_chip *adc_tm, uint32_t dt_chans)
 	return 0;
 }
 
+int32_t adc_tm5_channel_measure(struct adc_tm_chip *adc_tm,
+					struct adc_tm_param *param)
+{
+	if (adc_tm->ops->channel_measure)
+		return adc_tm->ops->channel_measure(adc_tm, param);
+
+	return 0;
+}
+EXPORT_SYMBOL(adc_tm5_channel_measure);
+
+int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *adc_tm,
+					struct adc_tm_param *param)
+{
+	if (adc_tm->ops->disable_chan)
+		return adc_tm->ops->disable_chan(adc_tm, param);
+
+	return 0;
+}
+EXPORT_SYMBOL(adc_tm5_disable_chan_meas);
+
+static void notify_adc_tm_fn(struct work_struct *work)
+{
+	struct adc_tm_sensor *adc_tm = container_of(work,
+		struct adc_tm_sensor, work);
+
+	if (adc_tm->chip->ops->notify)
+		adc_tm->chip->ops->notify(adc_tm);
+}
+
 static struct thermal_zone_of_device_ops adc_tm_ops = {
 	.get_temp = adc_tm_get_temp,
 	.set_trips = adc_tm_set_trip_temp,
@@ -63,19 +92,24 @@ static struct thermal_zone_of_device_ops adc_tm_ops_iio = {
 static int adc_tm_register_tzd(struct adc_tm_chip *adc_tm, int dt_chan_num,
 					bool set_trips)
 {
-	unsigned int i;
+	unsigned int i, channel;
 	struct thermal_zone_device *tzd;
 
 	for (i = 0; i < dt_chan_num; i++) {
 		adc_tm->sensor[i].chip = adc_tm;
+		if (adc_tm->data == &data_adc_tm7)
+			channel = V_CHAN(adc_tm->sensor[i]);
+		else
+			channel = adc_tm->sensor[i].adc_ch;
+
 		if (!adc_tm->sensor[i].non_thermal) {
 			if (set_trips)
 				tzd = devm_thermal_zone_of_sensor_register(
-					adc_tm->dev, adc_tm->sensor[i].adc_ch,
-					&adc_tm->sensor[i],	&adc_tm_ops);
+					adc_tm->dev, channel,
+					&adc_tm->sensor[i], &adc_tm_ops);
 			else
 				tzd = devm_thermal_zone_of_sensor_register(
-					adc_tm->dev, adc_tm->sensor[i].adc_ch,
+					adc_tm->dev, channel,
 					&adc_tm->sensor[i], &adc_tm_ops_iio);
 
 			if (IS_ERR(tzd)) {
@@ -136,7 +170,6 @@ struct adc_tm_chip *get_adc_tm(struct device *dev, const char *name)
 	node = of_parse_phandle(dev->of_node, prop_name, 0);
 	if (node == NULL)
 		return ERR_PTR(-ENODEV);
-
 	list_for_each_entry(chip, &adc_tm_device_list, list) {
 		pdev = to_platform_device(chip->dev);
 		if (pdev->dev.of_node == node)
@@ -165,6 +198,9 @@ static const struct of_device_id adc_tm_match_table[] = {
 	{
 		.compatible = "qcom,adc-tm5-iio",
 		.data = &data_adc_tm5,
+
+		.compatible = "qcom,adc-tm7",
+		.data = &data_adc_tm7,
 	},
 	{}
 };
@@ -224,7 +260,9 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 	for_each_child_of_node(node, child) {
 		int channel_num, i = 0, adc_rscale_fn = 0;
 		int calib_type = 0, ret, hw_settle_time = 0;
+		int decimation, fast_avg_samples;
 		int prescal = 0;
+		u32 sid = 0;
 		struct iio_channel *chan_adc;
 		bool non_thermal = false;
 
@@ -232,6 +270,11 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 		if (ret) {
 			dev_err(dev, "Invalid channel num\n");
 			return -EINVAL;
+		}
+
+		if (data == &data_adc_tm7) {
+			sid = (channel_num >> ADC_CHANNEL_OFFSET);
+			channel_num &= ADC_CHANNEL_MASK;
 		}
 
 		ret = of_property_read_u32(child, "qcom,hw-settle-time",
@@ -244,9 +287,34 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 				return ret;
 			}
 			hw_settle_time = ret;
-		} else {
+		} else
 			hw_settle_time = ADC_TM_DEF_HW_SETTLE_TIME;
-		}
+
+		ret = of_property_read_u32(child, "qcom,decimation",
+							&decimation);
+		if (!ret) {
+			ret = adc_tm_decimation_from_dt(decimation,
+					data->decimation);
+			if (ret < 0) {
+				dev_err(dev, "Invalid decimation value\n");
+				return ret;
+			}
+			decimation = ret;
+		} else
+			decimation = ADC_TM_DECIMATION_DEFAULT;
+
+		ret = of_property_read_u32(child, "qcom,avg-samples",
+							&fast_avg_samples);
+		if (!ret) {
+			ret = adc_tm_avg_samples_from_dt(fast_avg_samples);
+			if (ret < 0) {
+				dev_err(dev, "Invalid fast average with %d\n",
+						ret);
+				return -EINVAL;
+			}
+			fast_avg_samples = ret;
+		} else
+			fast_avg_samples = ADC_TM_DEF_AVG_SAMPLES;
 
 		if (of_property_read_bool(child, "qcom,ratiometric"))
 			calib_type = ADC_RATIO_CAL;
@@ -271,6 +339,16 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 		/* Default to 1 second timer select */
 		adc_tm->sensor[idx].timer_select = ADC_TIMER_SEL_2;
 		adc_tm->sensor[idx].hw_settle_time = hw_settle_time;
+
+		if (data == &data_adc_tm7) {
+			/* Default to 1 second time select */
+			adc_tm->sensor[idx].meas_time = MEAS_INT_1S;
+			adc_tm->sensor[idx].fast_avg_samples = fast_avg_samples;
+			adc_tm->sensor[idx].decimation = decimation;
+			adc_tm->sensor[idx].sid = sid;
+			adc_tm->sensor[idx].btm_ch = idx;
+		}
+
 		adc_tm->sensor[idx].adc_rscale_fn = adc_rscale_fn;
 		adc_tm->sensor[idx].non_thermal = non_thermal;
 		adc_tm->sensor[idx].prescaling = prescal;
