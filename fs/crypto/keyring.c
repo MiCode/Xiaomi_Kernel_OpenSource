@@ -652,7 +652,7 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 			goto out_wipe_secret;
 
 		err = -EINVAL;
-		if (arg.__flags)
+		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
 			goto out_wipe_secret;
 		break;
 	case FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER:

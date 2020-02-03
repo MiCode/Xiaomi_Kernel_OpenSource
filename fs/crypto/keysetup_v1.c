@@ -284,6 +284,18 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 	u8 *derived_key;
 	int err;
 
+	/*Support legacy ice based content encryption mode*/
+	if ((fscrypt_policy_contents_mode(&ci->ci_policy) ==
+					  FSCRYPT_MODE_PRIVATE) &&
+					  fscrypt_using_inline_encryption(ci)) {
+
+		err = fscrypt_prepare_inline_crypt_key(&ci->ci_key,
+						       raw_master_key,
+						       ci->ci_mode->keysize,
+						       false,
+						       ci);
+		return err;
+	}
 	/*
 	 * This cannot be a stack buffer because it will be passed to the
 	 * scatterlist crypto API during derive_key_aes().

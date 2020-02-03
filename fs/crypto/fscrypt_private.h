@@ -245,6 +245,10 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 	    filenames_mode == FSCRYPT_MODE_ADIANTUM)
 		return true;
 
+	if (contents_mode == FSCRYPT_MODE_PRIVATE &&
+		filenames_mode == FSCRYPT_MODE_AES_256_CTS)
+		return true;
+
 	return false;
 }
 

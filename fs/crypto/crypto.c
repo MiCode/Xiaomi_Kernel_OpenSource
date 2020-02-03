@@ -74,9 +74,16 @@ void fscrypt_generate_iv(union fscrypt_iv *iv, u64 lblk_num,
 {
 	u8 flags = fscrypt_policy_flags(&ci->ci_policy);
 
+	bool inlinecrypt = false;
+
+#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+	inlinecrypt = ci->ci_inlinecrypt;
+#endif
 	memset(iv, 0, ci->ci_mode->ivsize);
 
-	if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64) {
+	if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64 ||
+		((fscrypt_policy_contents_mode(&ci->ci_policy) ==
+		  FSCRYPT_MODE_PRIVATE) && inlinecrypt)) {
 		WARN_ON_ONCE((u32)lblk_num != lblk_num);
 		lblk_num |= (u64)ci->ci_inode->i_ino << 32;
 	} else if (flags & FSCRYPT_POLICY_FLAG_DIRECT_KEY) {
