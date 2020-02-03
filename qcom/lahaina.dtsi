@@ -3102,6 +3102,7 @@
 	};
 };
 
+#include "lahaina-thermal.dtsi"
 #include "ipcc-test.dtsi"
 #include "lahaina-regulators.dtsi"
 #include "lahaina-pinctrl.dtsi"
