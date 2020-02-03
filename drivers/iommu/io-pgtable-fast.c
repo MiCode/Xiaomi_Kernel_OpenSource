@@ -177,13 +177,11 @@ static void __av8l_clean_range(struct device *dev, void *start, void *end)
 	}
 }
 
-static void av8l_clean_range(struct io_pgtable_ops *ops,
-			av8l_fast_iopte *start, av8l_fast_iopte *end)
+static void av8l_clean_range(struct io_pgtable_cfg *cfg, av8l_fast_iopte *start,
+			     av8l_fast_iopte *end)
 {
-	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
-
-	if (!iop->cfg.coherent_walk)
-		__av8l_clean_range(iop->cfg.iommu_dev, start, end);
+	if (!cfg->coherent_walk)
+		__av8l_clean_range(cfg->iommu_dev, start, end);
 }
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST_PROVE_TLB
@@ -217,13 +215,14 @@ void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, bool skip_sync)
 {
 	int i;
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
 	av8l_fast_iopte *pmdp = data->pmds;
 
 	for (i = 0; i < ((SZ_1G * 4UL) >> AV8L_FAST_PAGE_SHIFT); ++i) {
 		if (!(*pmdp & AV8L_FAST_PTE_VALID)) {
 			*pmdp = 0;
 			if (!skip_sync)
-				av8l_clean_range(ops, pmdp, pmdp + 1);
+				av8l_clean_range(&iop->cfg, pmdp, pmdp + 1);
 		}
 		pmdp++;
 	}
@@ -265,6 +264,7 @@ static int av8l_fast_map(struct io_pgtable_ops *ops, unsigned long iova,
 			 phys_addr_t paddr, size_t size, int prot)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
 	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, iova);
 	unsigned long i, nptes = size >> AV8L_FAST_PAGE_SHIFT;
 	av8l_fast_iopte pte;
@@ -275,7 +275,7 @@ static int av8l_fast_map(struct io_pgtable_ops *ops, unsigned long iova,
 		__av8l_check_for_stale_tlb(ptep + i);
 		*(ptep + i) = pte | paddr;
 	}
-	av8l_clean_range(ops, ptep, ptep + nptes);
+	av8l_clean_range(&iop->cfg, ptep, ptep + nptes);
 
 	return 0;
 }
@@ -291,6 +291,7 @@ __av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			size_t size, bool allow_stale_tlb)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
 	unsigned long nptes;
 	av8l_fast_iopte *ptep;
 	int val = allow_stale_tlb
@@ -301,7 +302,7 @@ __av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
 	memset(ptep, val, sizeof(*ptep) * nptes);
-	av8l_clean_range(ops, ptep, ptep + nptes);
+	av8l_clean_range(&iop->cfg, ptep, ptep + nptes);
 	if (!allow_stale_tlb)
 		io_pgtable_tlb_flush_all(&data->iop);
 
@@ -477,7 +478,7 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 		ptep = ((av8l_fast_iopte *)data->pgd) + i;
 		*ptep = pte;
 	}
-	__av8l_clean_range(cfg->iommu_dev, data->pgd, data->pgd + 4);
+	av8l_clean_range(cfg, data->pgd, data->pgd + 4);
 
 	/*
 	 * We have 4 puds, each of which can point to 512 pmds, so we'll
@@ -495,14 +496,13 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 			pages[pg++] = page;
 
 			addr = page_address(page);
-			__av8l_clean_range(cfg->iommu_dev, addr, addr + SZ_4K);
+			av8l_clean_range(cfg, addr, addr + SZ_4K);
 
 			pte = page_to_phys(page) | AV8L_FAST_PTE_TYPE_TABLE;
 			pudp = data->puds[i] + j;
 			*pudp = pte;
 		}
-		__av8l_clean_range(cfg->iommu_dev, data->puds[i],
-				   data->puds[i] + 512);
+		av8l_clean_range(cfg, data->puds[i], data->puds[i] + 512);
 	}
 
 	if (WARN_ON(pg != NUM_PGTBL_PAGES))
@@ -705,6 +705,7 @@ static int __init av8l_fast_positive_testing(void)
 		.ias = 32,
 		.oas = 32,
 		.pgsize_bitmap = SZ_4K,
+		.coherent_walk = true,
 	};
 
 	cfg_cookie = &cfg;
