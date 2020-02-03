@@ -46,6 +46,7 @@
 #include <linux/cma.h>
 #include <linux/of_platform.h>
 #include <linux/interconnect.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/qtee_shmbridge.h>
 
 #define QSEECOM_DEV			"qseecom"
@@ -9416,7 +9417,8 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 	phys_addr_t heap_pa = 0;
 	size_t heap_size = 0;
 	struct device *ion_dev = NULL;
-	struct cma *cma = NULL;
+	struct device_node *node = NULL;
+	struct reserved_mem *rmem = NULL;
 	uint32_t ns_vmids[] = {VMID_HLOS};
 	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
 	int ret = 0;
@@ -9429,15 +9431,21 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 		return ret;
 	}
 
-	cma = dev_get_cma_area(ion_dev);
-	if (!cma) {
-		pr_err("Failed to get Heap %d info\n", heapid);
-		return -ENODEV;
+	node = of_parse_phandle(ion_dev->of_node, "memory-region", 0);
+	if (!node) {
+		pr_err("unable to parse memory-region of heap %d\n", heapid);
+		return -EINVAL;
 	}
-	heap_pa = cma_get_base(cma);
-	heap_size = (size_t)cma_get_size(cma);
+	rmem = of_reserved_mem_lookup(node);
+	of_node_put(node);
+	if (!rmem) {
+		pr_err("unable to acquire memory-region of heap %d\n", heapid);
+		return -EINVAL;
+	}
+	heap_pa = rmem->base;
+	heap_size = (size_t)rmem->size;
 
-	pr_warn("get heap %d info: shmbridge created\n", heapid);
+	pr_debug("get heap %d info: shmbridge created\n", heapid);
 	return qtee_shmbridge_register(heap_pa,
 			heap_size, ns_vmids, ns_vm_perms, 1,
 			PERM_READ | PERM_WRITE, handle);
