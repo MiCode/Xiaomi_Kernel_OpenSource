@@ -1,6 +1,14 @@
 #include "lahaina-pmic-overlay.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
+&arch_timer {
+	clock-frequency = <96000>;
+};
+
+&wdog {
+	status = "disabled";
+};
+
 &spmi_debug_bus {
 	status = "ok";
 };
