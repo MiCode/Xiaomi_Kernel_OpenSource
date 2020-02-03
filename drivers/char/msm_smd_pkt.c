@@ -168,6 +168,9 @@ static int smd_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 	unsigned long flags;
 	struct sk_buff *skb;
 
+	if (!smd_pkt_devp)
+		return -EINVAL;
+
 	skb = alloc_skb(len, GFP_ATOMIC);
 
 	if (!skb)
