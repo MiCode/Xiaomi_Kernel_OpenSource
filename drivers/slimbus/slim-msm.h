@@ -324,6 +324,7 @@ struct msm_slim_ctrl {
 	u32			current_rx_buf[10];
 	int			current_count;
 	atomic_t		ssr_in_progress;
+	atomic_t		init_in_progress;
 	struct completion	qmi_up;
 };
 
