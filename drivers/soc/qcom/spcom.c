@@ -73,23 +73,23 @@
 	} while (0)
 
 #define spcom_pr_err(_fmt, ...) do {					\
-	pr_err(_fmt);							\
+	pr_err(_fmt, ##__VA_ARGS__);					\
 	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #define spcom_pr_warn(_fmt, ...) do {					\
-	pr_warn(_fmt);							\
+	pr_warn(_fmt, ##__VA_ARGS__);					\
 	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #define spcom_pr_info(_fmt, ...) do {					\
-	pr_info(_fmt);							\
+	pr_info(_fmt, ##__VA_ARGS__);					\
 	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #if defined(DEBUG)
 #define spcom_pr_dbg(_fmt, ...) do {					\
-	pr_debug(_fmt);							\
+	pr_debug(_fmt, ##__VA_ARGS__);					\
 	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 #else
