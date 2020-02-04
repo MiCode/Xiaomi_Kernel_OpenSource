@@ -86,9 +86,10 @@
 #define R_PU_100K			100000
 #define RATIO_MAX_ADC7		0x4000
 
-#define DIE_TEMP_ADC7_SCALE_1				-60
-#define DIE_TEMP_ADC7_SCALE_2				20
-#define DIE_TEMP_ADC7_MAX				160
+#define DIE_TEMP_ADC7_SCALE_1				-60000
+#define DIE_TEMP_ADC7_SCALE_2				20000
+#define DIE_TEMP_ADC7_SCALE_FACTOR			1000
+#define DIE_TEMP_ADC7_MAX				160000
 
 /**
  * struct vadc_map_pt - Map the graph representation for ADC channel
