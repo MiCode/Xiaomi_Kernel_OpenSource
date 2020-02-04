@@ -1,0 +1,89 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/haven/vm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Virtual Machine (VM) Configuration
+
+maintainers:
+  - Venkata Narendra Kumar Gutta <vgutta@quicinc.com>
+  - Murali Nalajala <mnalajal@quicinc.com>
+
+description: |+
+  Configuration properties for Virtual Machines. This configuration
+  is used by virtual machine manager and know about various
+  properties of VM before it launch the virtual machine
+
+properties:
+  compatible:
+    oneOf:
+      - const: qcom,vm-1.0
+
+  vm-type:
+    description: type of virtual machine e.g aarch64, x86 etc
+    oneOf:
+      - const: aarch64-guest
+
+  boot-config:
+    oneOf:
+      - const: fdt,unified
+
+  os-type:
+    description: Type of the operating system being used in virtual machine
+    oneOf:
+      - const: linux
+
+  kernel-entry-segment:
+    $ref: /schemas/types.yaml#/definitions/string-array
+
+  kernel-entry-offset:
+    $ref: '/schemas/types.yaml#/definitions/uint64'
+
+  vendor:
+    $ref: /schemas/types.yaml#/definitions/string-array
+
+  image-name:
+    $ref: /schemas/types.yaml#/definitions/string-array
+
+  qcom,pasid:
+    $ref: '/schemas/types.yaml#/definitions/uint64'
+
+  memory:
+    properties:
+      "#address-cells":
+        const: 2
+      "#size-cells":
+        const: 2
+      base-address:
+        description: Base address of the memory for virtual machine
+        maxItems: 2
+      size-min:
+        description: Size of the memory that is being used by the virtual machine
+        maxItems: 2
+
+  segments:
+    properties:
+      kernel:
+        maxItems: 4
+        description: Load location offset of the kernel
+      dt:
+        maxItems: 4
+        description: Load location offset of devicetree
+
+  vcpus:
+    properties:
+      config
+      affinity
+      affinity-map
+
+  interrupts:
+    properties:
+      config
+
+  vdevices:
+    properties:
+      peer-default
+
+required:
+  - compatible
+  - image_to_be_loaded
