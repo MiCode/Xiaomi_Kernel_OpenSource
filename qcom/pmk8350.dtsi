@@ -43,6 +43,13 @@
 		pmk8350_sdam_2: sdam@7100 {
 			compatible = "qcom,spmi-sdam";
 			reg = <0x7100>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			restart_reason: restart@48 {
+				reg = <0x48 0x1>;
+				bits = <1 7>;
+			};
 		};
 
 		pmk8350_gpios: pinctrl@b000 {
