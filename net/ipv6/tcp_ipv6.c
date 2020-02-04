@@ -1840,7 +1840,8 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
 		/* Because we don't lock the socket,
 		 * we might find a transient negative value.
 		 */
-		rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
+		rx_queue = max_t(int, READ_ONCE(tp->rcv_nxt) -
+				      tp->copied_seq, 0);
 
 	if (inet->transparent)
 		state_seq |= 0x80;
