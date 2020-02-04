@@ -164,7 +164,7 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150p-hdk.dtb
 endif
 
-dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
+dtb-$(CONFIG_QTI_GVM) += sa8155-vm-la.dtb \
 	sa8155-vm-lv.dtb \
 	sa8155-vm-lv-mt.dtb \
 	sa8155-vm-la-mt.dtb \
