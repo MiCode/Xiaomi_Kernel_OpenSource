@@ -41,6 +41,34 @@
 	};
 };
 
+&qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "st,fts";
+
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <23 0x2008>;
+		vdd-supply = <&L8C>;
+		avdd-supply = <&L3C>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 23 0x2008>;
+		st,reset-gpio = <&tlmm 22 0x00>;
+		st,x-flip = <1>;
+		st,y-flip = <1>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
+			 &dsi_sw43404_amoled_fhd_plus_cmd>;
+	};
+};
+
 &sdhc_2 {
 	vdd-supply = <&pm8350c_l9>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
