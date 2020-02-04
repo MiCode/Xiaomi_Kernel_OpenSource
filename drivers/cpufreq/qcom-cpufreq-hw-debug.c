@@ -443,6 +443,35 @@ static const struct file_operations cpufreq_debug_register_fops = {
 	.release = seq_release,
 };
 
+static int cpufreq_panic_callback(struct notifier_block *nfb,
+					unsigned long event, void *unused)
+{
+	int i, j;
+	u32 regval;
+
+	static struct cpufreq_register_data data[] = {
+		{"PERF_STATE_DESIRED", REG_PERF_STATE},
+		{"CYCLE_CNTR_VAL", REG_CYCLE_CNTR},
+		{"PSTATE_STATUS", REG_PSTATE_STATUS},
+	};
+
+	for (i = 0; i < hw_regs->domain_cnt; i++) {
+		pr_err("FREQUENCY DOMAIN %d\n", i);
+		for (j = 0; j < ARRAY_SIZE(data); j++) {
+			regval = readl_relaxed(hw_regs->base[i] +
+						offsets[data[j].offset]);
+			pr_err("%25s: 0x%.8x\n", data[j].name, regval);
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block cpufreq_panic_notifier = {
+	.notifier_call = cpufreq_panic_callback,
+	.priority = 1,
+};
+
 static int cpufreq_get_hwregs(struct platform_device *pdev)
 {
 	struct of_phandle_args args;
@@ -479,6 +508,10 @@ static int cpufreq_get_hwregs(struct platform_device *pdev)
 
 		hw_regs->base[i] = base;
 	}
+
+	atomic_notifier_chain_register(&panic_notifier_list,
+						&cpufreq_panic_notifier);
+
 	return 0;
 }
 
