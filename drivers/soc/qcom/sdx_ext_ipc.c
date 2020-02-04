@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@ struct gpio_cntrl {
 	int policy;
 	struct device *dev;
 	struct mutex policy_lock;
+	struct mutex e911_lock;
 	struct notifier_block panic_blk;
 };
 
@@ -86,6 +87,40 @@ static ssize_t policy_store(struct device *dev, struct device_attribute *attr,
 	return -EPERM;
 }
 static DEVICE_ATTR_RW(policy);
+
+static ssize_t e911_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	int ret, state;
+	struct gpio_cntrl *mdm = dev_get_drvdata(dev);
+
+	mutex_lock(&mdm->e911_lock);
+	state = gpio_get_value(mdm->gpios[MDM2AP_STATUS2]);
+	ret = scnprintf(buf, 2, "%d\n", state);
+	mutex_unlock(&mdm->e911_lock);
+
+	return ret;
+}
+
+static ssize_t e911_store(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct gpio_cntrl *mdm = dev_get_drvdata(dev);
+	int e911;
+
+	if (kstrtoint(buf, 0, &e911))
+		return -EINVAL;
+
+	mutex_lock(&mdm->e911_lock);
+	if (e911)
+		gpio_set_value(mdm->gpios[MDM2AP_STATUS2], 1);
+	else
+		gpio_set_value(mdm->gpios[MDM2AP_STATUS2], 0);
+	mutex_unlock(&mdm->e911_lock);
+
+	return count;
+}
+static DEVICE_ATTR_RW(e911);
 
 static irqreturn_t ap_status_change(int irq, void *dev_id)
 {
@@ -196,12 +231,19 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 	atomic_notifier_chain_register(&panic_notifier_list, &mdm->panic_blk);
 
 	mutex_init(&mdm->policy_lock);
-	mdm->policy = SUBSYS_PANIC;
+	mutex_init(&mdm->e911_lock);
+	mdm->policy = SUBSYS_NOP;
 
 	ret = device_create_file(mdm->dev, &dev_attr_policy);
 	if (ret) {
 		dev_err(mdm->dev, "cannot create sysfs attribute\n");
 		goto sys_fail;
+	}
+
+	ret = device_create_file(mdm->dev, &dev_attr_e911);
+	if (ret) {
+		dev_err(mdm->dev, "cannot create sysfs attribute\n");
+		goto sys_fail1;
 	}
 
 	platform_set_drvdata(pdev, mdm);
@@ -219,6 +261,8 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 
 irq_fail:
 	device_remove_file(mdm->dev, &dev_attr_policy);
+sys_fail1:
+	device_remove_file(mdm->dev, &dev_attr_e911);
 sys_fail:
 	atomic_notifier_chain_unregister(&panic_notifier_list, &mdm->panic_blk);
 	remove_ipc(mdm);
