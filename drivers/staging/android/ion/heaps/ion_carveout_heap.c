@@ -26,6 +26,7 @@
 
 struct ion_carveout_heap {
 	struct msm_ion_heap heap;
+	struct rw_semaphore mem_sem;
 	struct gen_pool *pool;
 	phys_addr_t base;
 };
@@ -34,11 +35,19 @@ static phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
 					 unsigned long size)
 {
 	struct ion_carveout_heap *carveout_heap = to_carveout_heap(heap);
-	unsigned long offset = gen_pool_alloc(carveout_heap->pool, size);
+	unsigned long offset = ION_CARVEOUT_ALLOCATE_FAIL;
 
-	if (!offset)
-		return ION_CARVEOUT_ALLOCATE_FAIL;
+	down_read(&carveout_heap->mem_sem);
+	if (carveout_heap->pool) {
+		offset = gen_pool_alloc(carveout_heap->pool, size);
+		if (!offset) {
+			offset = ION_CARVEOUT_ALLOCATE_FAIL;
+			goto unlock;
+		}
+	}
 
+unlock:
+	up_read(&carveout_heap->mem_sem);
 	return offset;
 }
 
@@ -50,7 +59,10 @@ static void ion_carveout_free(struct ion_heap *heap, phys_addr_t addr,
 	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
 		return;
 
-	gen_pool_free(carveout_heap->pool, addr, size);
+	down_read(&carveout_heap->mem_sem);
+	if (carveout_heap->pool)
+		gen_pool_free(carveout_heap->pool, addr, size);
+	up_read(&carveout_heap->mem_sem);
 }
 
 static int ion_carveout_heap_allocate(struct ion_heap *heap,
@@ -164,6 +176,100 @@ static int ion_carveout_pages_zero(struct page *page, size_t size,
 	return ion_heap_sglist_zero(&sg, 1, pgprot);
 }
 
+static int ion_carveout_init_heap_memory(struct ion_carveout_heap *co_heap,
+					 phys_addr_t base, ssize_t size,
+					 bool sync)
+{
+	struct page *page = pfn_to_page(PFN_DOWN(base));
+	struct device *dev = co_heap->heap.dev;
+	int ret;
+
+	if (sync) {
+		if (!pfn_valid(PFN_DOWN(base)))
+			return -EINVAL;
+		ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
+	}
+
+	ret = ion_carveout_pages_zero(page, size,
+				      pgprot_writecombine(PAGE_KERNEL));
+	if (ret)
+		return ret;
+
+	co_heap->pool = gen_pool_create(PAGE_SHIFT, -1);
+	if (!co_heap->pool)
+		return -ENOMEM;
+
+	co_heap->base = base;
+	gen_pool_add(co_heap->pool, co_heap->base, size, -1);
+	return ret;
+}
+
+static int ion_carveout_heap_add_memory(struct ion_heap *ion_heap,
+					struct sg_table *sgt)
+{
+	struct ion_carveout_heap *carveout_heap;
+	int ret;
+
+	if (!ion_heap || !sgt || sgt->nents != 1)
+		return -EINVAL;
+
+	carveout_heap = to_carveout_heap(ion_heap);
+	down_write(&carveout_heap->mem_sem);
+	if (carveout_heap->pool) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	ret = ion_carveout_init_heap_memory(carveout_heap,
+					    page_to_phys(sg_page(sgt->sgl)),
+					    sgt->sgl->length, true);
+
+unlock:
+	up_write(&carveout_heap->mem_sem);
+	return ret;
+}
+
+static int ion_carveout_heap_remove_memory(struct ion_heap *ion_heap,
+					   struct sg_table *sgt)
+{
+	struct ion_carveout_heap *carveout_heap;
+	phys_addr_t base;
+	int ret = 0;
+
+	if (!ion_heap || !sgt || sgt->nents != 1)
+		return -EINVAL;
+
+	carveout_heap = to_carveout_heap(ion_heap);
+	down_write(&carveout_heap->mem_sem);
+	if (!carveout_heap->pool) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	base = page_to_phys(sg_page(sgt->sgl));
+	if (carveout_heap->base != base) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	if (gen_pool_size(carveout_heap->pool) !=
+	    gen_pool_avail(carveout_heap->pool)) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	gen_pool_destroy(carveout_heap->pool);
+	carveout_heap->pool = NULL;
+unlock:
+	up_write(&carveout_heap->mem_sem);
+	return ret;
+}
+
+static struct msm_ion_heap_ops msm_carveout_heap_ops = {
+	.add_memory = ion_carveout_heap_add_memory,
+	.remove_memory = ion_carveout_heap_remove_memory,
+};
+
 static struct ion_heap *
 __ion_carveout_heap_create(struct ion_platform_heap *heap_data,
 			   bool sync)
@@ -171,36 +277,29 @@ __ion_carveout_heap_create(struct ion_platform_heap *heap_data,
 	struct ion_carveout_heap *carveout_heap;
 	int ret;
 
-	struct page *page;
-	size_t size;
 	struct device *dev = (struct device *)heap_data->priv;
-
-	page = pfn_to_page(PFN_DOWN(heap_data->base));
-	size = heap_data->size;
-
-	if (sync)
-		ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
-
-	ret = ion_carveout_pages_zero(page, size,
-				      pgprot_writecombine(PAGE_KERNEL));
-	if (ret)
-		return ERR_PTR(ret);
+	bool dynamic_heap = of_property_read_bool(dev->of_node,
+						  "qcom,dynamic-heap");
 
 	carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
 	if (!carveout_heap)
 		return ERR_PTR(-ENOMEM);
 
-	carveout_heap->pool = gen_pool_create(PAGE_SHIFT, -1);
-	if (!carveout_heap->pool) {
-		kfree(carveout_heap);
-		return ERR_PTR(-ENOMEM);
-	}
-	carveout_heap->base = heap_data->base;
 	carveout_heap->heap.dev = dev;
-	gen_pool_add(carveout_heap->pool, carveout_heap->base, heap_data->size,
-		     -1);
+	if (!dynamic_heap) {
+		ret = ion_carveout_init_heap_memory(carveout_heap,
+						    heap_data->base,
+						    heap_data->size, sync);
+		if (ret) {
+			kfree(carveout_heap);
+			return ERR_PTR(ret);
+		}
+	}
+
+	init_rwsem(&carveout_heap->mem_sem);
 	carveout_heap->heap.ion_heap.ops = &carveout_heap_ops;
 	carveout_heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
+	carveout_heap->heap.msm_heap_ops = &msm_carveout_heap_ops;
 	carveout_heap->heap.ion_heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->heap.ion_heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
@@ -216,7 +315,10 @@ static void ion_carveout_heap_destroy(struct ion_heap *heap)
 {
 	struct ion_carveout_heap *carveout_heap = to_carveout_heap(heap);
 
-	gen_pool_destroy(carveout_heap->pool);
+	down_write(&carveout_heap->mem_sem);
+	if (carveout_heap->pool)
+		gen_pool_destroy(carveout_heap->pool);
+	up_write(&carveout_heap->mem_sem);
 	kfree(carveout_heap);
 	carveout_heap = NULL;
 }
