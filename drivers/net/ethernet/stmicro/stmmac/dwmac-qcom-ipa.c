@@ -45,6 +45,15 @@ static struct ethqos_prv_ipa_data eth_ipa_ctx;
 
 static void __ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
 
+static inline void *ethqos_get_priv(struct qcom_ethqos *ethqos)
+{
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	return priv;
+}
+
 static int eth_ipa_send_msg(struct qcom_ethqos *ethqos,
 			    enum ipa_peripheral_event event)
 {
@@ -981,10 +990,12 @@ static void ethqos_configure_ipa_rx_dma_channel(unsigned int QINX,
 
 static int ethqos_init_offload(struct qcom_ethqos *ethqos)
 {
+	struct stmmac_priv *priv = ethqos_get_priv(ethqos);
+
 	ETHQOSDBG("\n");
 
 	ethqos_configure_ipa_tx_dma_channel(IPA_DMA_TX_CH, ethqos);
-	MTL_RQDCM0R_RGWR(0x3020100);
+	priv->hw->mac->map_mtl_to_dma(priv->hw, 0, 0);
 	ethqos_configure_ipa_rx_dma_channel(IPA_DMA_RX_CH, ethqos);
 
 	ETHQOSDBG("\n");

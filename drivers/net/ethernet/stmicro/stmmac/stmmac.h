@@ -29,6 +29,10 @@
 #include "common.h"
 #include <linux/ptp_clock_kernel.h>
 #include <linux/reset.h>
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#include <soc/qcom/boot_stats.h>
+#endif
+#include "dwmac-qcom-ipa-offload.h"
 
 struct stmmac_resources {
 	void __iomem *addr;
@@ -143,7 +147,8 @@ struct stmmac_priv {
 	void __iomem *mmcaddr;
 	void __iomem *ptpaddr;
 	u32 mss;
-
+	bool boot_kpi;
+	bool early_eth;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 	struct dentry *dbgfs_rings_status;

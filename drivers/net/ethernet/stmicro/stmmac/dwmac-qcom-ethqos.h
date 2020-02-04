@@ -18,7 +18,19 @@
 #include <linux/mailbox/qmp.h>
 #include <linux/mailbox_controller.h>
 
+#include <linux/inetdevice.h>
+#include <linux/inet.h>
+
+#include <net/addrconf.h>
+#include <net/ipv6.h>
+#include <net/inet_common.h>
+
+#include <linux/uaccess.h>
+
 extern void *ipc_emac_log_ctxt;
+
+#define QCOM_ETH_QOS_MAC_ADDR_LEN 6
+#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN 18
 
 #define IPCLOG_STATE_PAGES 50
 #define MAX_QMP_MSG_SIZE 96
@@ -397,12 +409,20 @@ struct qcom_ethqos {
 	struct mbox_chan *qmp_mbox_chan;
 	struct mbox_client *qmp_mbox_client;
 	struct work_struct qmp_mailbox_work;
+	/* early ethernet parameters */
+	struct work_struct early_eth;
+	struct delayed_work ipv4_addr_assign_wq;
+	struct delayed_work ipv6_addr_assign_wq;
+	bool early_eth_enabled;
+
 	int disable_ctile_pc;
 
 	u32 emac_mem_base;
 	u32 emac_mem_size;
 
 	bool ipa_enabled;
+	/* Key Performance Indicators */
+	bool print_kpi;
 };
 
 struct pps_cfg {
@@ -428,6 +448,19 @@ struct ifr_data_struct {
 
 struct pps_info {
 	int channel_no;
+};
+
+struct ip_params {
+	unsigned char mac_addr[QCOM_ETH_QOS_MAC_ADDR_LEN];
+	bool is_valid_mac_addr;
+	char link_speed[32];
+	bool is_valid_link_speed;
+	char ipv4_addr_str[32];
+	struct in_addr ipv4_addr;
+	bool is_valid_ipv4_addr;
+	char ipv6_addr_str[48];
+	struct in6_ifreq ipv6_addr;
+	bool is_valid_ipv6_addr;
 };
 
 int ethqos_init_reqgulators(struct qcom_ethqos *ethqos);
