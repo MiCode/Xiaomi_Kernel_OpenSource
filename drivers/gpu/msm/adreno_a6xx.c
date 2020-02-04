@@ -774,7 +774,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
-		kgsl_sharedmem_writel(device, device->scratch,
+		kgsl_sharedmem_writel(device->scratch,
 			SCRATCH_RPTR_OFFSET(rb->id), 0);
 		rb->wptr = 0;
 		rb->_wptr = 0;

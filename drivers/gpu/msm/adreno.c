@@ -1860,9 +1860,8 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
 
-		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
-			rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
-			0);
+		kgsl_sharedmem_writel(rb->pagetable_desc,
+			PT_INFO_OFFSET(current_rb_ptname), 0);
 	}
 }
 
@@ -1877,8 +1876,7 @@ static int adreno_first_open(struct kgsl_device *device)
 	 */
 	atomic_inc(&device->active_cnt);
 
-	kgsl_sharedmem_set(device, device->memstore, 0, 0,
-		device->memstore->size);
+	memset(device->memstore->hostptr, 0, device->memstore->size);
 
 	ret = adreno_init(device);
 	if (ret)

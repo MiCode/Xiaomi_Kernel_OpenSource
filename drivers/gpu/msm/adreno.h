@@ -1464,29 +1464,24 @@ static inline bool adreno_support_64bit(struct adreno_device *adreno_dev)
 static inline void adreno_ringbuffer_set_global(
 		struct adreno_device *adreno_dev, int name)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	kgsl_sharedmem_writel(device,
-		adreno_dev->ringbuffers[0].pagetable_desc,
+	kgsl_sharedmem_writel(adreno_dev->ringbuffers[0].pagetable_desc,
 		PT_INFO_OFFSET(current_global_ptname), name);
 }
 
 static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
 		struct kgsl_pagetable *pt)
 {
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned long flags;
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 
-	kgsl_sharedmem_writel(device, rb->pagetable_desc,
+	kgsl_sharedmem_writel(rb->pagetable_desc,
 		PT_INFO_OFFSET(current_rb_ptname), pt->name);
 
-	kgsl_sharedmem_writeq(device, rb->pagetable_desc,
+	kgsl_sharedmem_writeq(rb->pagetable_desc,
 		PT_INFO_OFFSET(ttbr0), kgsl_mmu_pagetable_get_ttbr0(pt));
 
-	kgsl_sharedmem_writel(device, rb->pagetable_desc,
+	kgsl_sharedmem_writel(rb->pagetable_desc,
 		PT_INFO_OFFSET(contextidr),
 		kgsl_mmu_pagetable_get_contextidr(pt));
 

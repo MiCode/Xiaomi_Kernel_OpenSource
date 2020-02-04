@@ -230,10 +230,9 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev)
 
 	/* Setup the ringbuffers state before we start */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		kgsl_sharedmem_set(device, rb->buffer_desc,
-				0, 0xAA, KGSL_RB_SIZE);
+		memset(rb->buffer_desc->hostptr, 0xaa, KGSL_RB_SIZE);
 		if (!adreno_is_a3xx(adreno_dev))
-			kgsl_sharedmem_writel(device, device->scratch,
+			kgsl_sharedmem_writel(device->scratch,
 					SCRATCH_RPTR_OFFSET(rb->id), 0);
 		rb->wptr = 0;
 		rb->_wptr = 0;
