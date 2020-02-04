@@ -234,6 +234,8 @@ struct gsi_ctx {
 	u32 intcntrlr_mem_size;
 	irq_handler_t intcntrlr_gsi_isr;
 	irq_handler_t intcntrlr_client_isr;
+
+	atomic_t num_unclock_irq;
 };
 
 enum gsi_re_type {
