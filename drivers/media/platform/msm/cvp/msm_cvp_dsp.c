@@ -389,7 +389,7 @@ void cvp_dsp_send_hfi_queue(void)
 	int rc;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
-	if (core)
+	if (core && core->device)
 		device = core->device->hfi_device_data;
 	else
 		return;
