@@ -1,3 +1,18 @@
+Version 1.0.30
+==============
+[ATLDRV-1217] - FWD driver refactoring for unit tests
+[ATLDRV-1102] - TCP/UDP checksum workaround for non-zero padded packets doesn't work
+[ATLDRV-1138] - vlan promiscuous mode is not enabled, when deleting the last vlan interface
+[ATLDRV-1139] - after ifconfig -multicast Unicast filters registers have valid values for multicast addresses
+[ATLDRV-1174] - FWD: deleting MacSec iface doesn't clear Ingress/Egress SA and SAKey records
+[ATLDRV-1193] - No link UP if driver was started in MSI mode before being started in legacy mode
+[ATLDRV-1208] - Driver crashes after link down up in D3 state
+[ATLDRV-1209] - FWD: Kernel panic after configuring macsec
+[ATLDRV-1218] - Kernel panic upon macsec0 deletion
+[ATLDRV-1220] - AQ069: atl_fwd_receive_skb() support NAPI
+[ATLDRV-1222] - atl_rotate_keys() produces unexpected results for 192-bit keys (24-bytes)
+[ATLDRV-1194] - Add trace of descriptors for normal traffic
+
 Version 1.0.29
 ==============
 [ATLDRV-1139] - after ifconfig -multicast Unicast filters registers have valid values for multicast addresses

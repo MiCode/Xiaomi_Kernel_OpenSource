@@ -603,9 +603,15 @@ void atl_start_hw_global(struct atl_nic *nic)
 		atl_set_bits(hw, ATL_INTR_AUTO_MASK, BIT(0));
 		/* Enable status auto-clear on link intr generation */
 		atl_set_bits(hw, ATL_INTR_AUTO_CLEAR, BIT(0));
-	} else
+	} else {
 		/* Enable legacy INTx mode and status clear-on-read */
 		atl_write(hw, ATL_INTR_CTRL, BIT(7));
+		/* Clear the registers, which might have been set on previous
+		 * driver load and might interfere with legacy IRQ handling
+		 */
+		atl_write(hw, ATL_INTR_AUTO_MASK, 0);
+		atl_write(hw, ATL_INTR_AUTO_CLEAR, 0);
+	}
 
 	/* Map link interrupt to cause 0 */
 	atl_write(hw, ATL_INTR_GEN_INTR_MAP4, BIT(7) | (0 << 0));
@@ -623,7 +629,7 @@ void atl_start_hw_global(struct atl_nic *nic)
 static void atl_set_all_multi(struct atl_hw *hw, bool all_multi)
 {
 	atl_write_bit(hw, ATL_RX_MC_FLT_MSK, 14, all_multi);
-	atl_write(hw, ATL_RX_MC_FLT(0), all_multi ? 0x80010000 : 0);
+	atl_write(hw, ATL_RX_MC_FLT(0), all_multi ? 0x80010FFF : 0x00010FFF);
 }
 
 void atl_set_rx_mode(struct net_device *ndev)
@@ -638,6 +644,9 @@ void atl_set_rx_mode(struct net_device *ndev)
 	int i = 1; /* UC filter 0 reserved for MAC address */
 	struct netdev_hw_addr *hwaddr;
 
+	if (!pm_runtime_active(&nic->hw.pdev->dev))
+		return;
+
 	if (is_multicast_enabled)
 		mc_count = netdev_mc_count(ndev);
 
@@ -647,11 +656,12 @@ void atl_set_rx_mode(struct net_device *ndev)
 		all_multi_needed |= 1;
 
 
-	/* Enable promisc VLAN mode iff IFF_PROMISC explicitly
+	/* Enable promisc VLAN mode if IFF_PROMISC explicitly
 	 * requested or too many VIDs registered
 	 */
 	atl_set_vlan_promisc(hw,
-		ndev->flags & IFF_PROMISC || nic->rxf_vlan.promisc_count);
+		ndev->flags & IFF_PROMISC || nic->rxf_vlan.promisc_count ||
+		!nic->rxf_vlan.vlans_active);
 
 	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, promisc_needed);
 	if (promisc_needed)
@@ -660,13 +670,11 @@ void atl_set_rx_mode(struct net_device *ndev)
 	netdev_for_each_uc_addr(hwaddr, ndev)
 		atl_set_uc_flt(hw, i++, hwaddr->addr);
 
-	if (is_multicast_enabled) {
-		atl_set_all_multi(hw, all_multi_needed);
+	atl_set_all_multi(hw, is_multicast_enabled && all_multi_needed);
 
-		if (!all_multi_needed)
-			netdev_for_each_mc_addr(hwaddr, ndev)
-				atl_set_uc_flt(hw, i++, hwaddr->addr);
-	}
+	if (is_multicast_enabled && !all_multi_needed)
+		netdev_for_each_mc_addr(hwaddr, ndev)
+			atl_set_uc_flt(hw, i++, hwaddr->addr);
 
 	while (i < ATL_UC_FLT_NUM)
 		atl_disable_uc_flt(hw, i++);
