@@ -1534,6 +1534,34 @@
 			};
 		};
 
+		pm8008i_active: pm8008i_active {
+			mux {
+				pins = "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio33";
+				bias-disable;
+				output-high;
+				drive-strength = <2>;
+			};
+		};
+
+		pm8008j_active: pm8008j_active {
+			mux {
+				pins = "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-disable;
+				output-high;
+				drive-strength = <2>;
+			};
+		};
+
 		pcie0 {
 			pcie0_perst_default: pcie0_perst_default {
 				mux {
