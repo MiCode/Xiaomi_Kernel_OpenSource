@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_INT_H
 #define _MHI_INT_H
@@ -550,10 +550,10 @@ enum MHI_ER_TYPE {
 enum mhi_er_priority {
 	MHI_ER_PRIORITY_HIGH,
 	MHI_ER_PRIORITY_MEDIUM,
-	MHI_ER_PRIORITY_LOW,
+	MHI_ER_PRIORITY_SPECIAL,
 };
 
-#define IS_MHI_ER_PRIORITY_LOW(ev) (ev->priority >= MHI_ER_PRIORITY_LOW)
+#define IS_MHI_ER_PRIORITY_SPECIAL(ev) (ev->priority >= MHI_ER_PRIORITY_SPECIAL)
 #define IS_MHI_ER_PRIORITY_HIGH(ev) (ev->priority == MHI_ER_PRIORITY_HIGH)
 
 enum mhi_er_data_type {
@@ -769,8 +769,8 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 			       enum MHI_ST_TRANSITION state);
 void mhi_pm_st_worker(struct work_struct *work);
 void mhi_fw_load_worker(struct work_struct *work);
+void mhi_special_purpose_work(struct work_struct *work);
 void mhi_process_sys_err(struct mhi_controller *mhi_cntrl);
-void mhi_low_priority_worker(struct work_struct *work);
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl);
 void mhi_ctrl_ev_task(unsigned long data);
 int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl);

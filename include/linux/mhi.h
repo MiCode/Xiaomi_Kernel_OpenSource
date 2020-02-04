@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
@@ -306,7 +306,7 @@ struct mhi_controller {
 	u32 msi_allocated;
 	int *irq; /* interrupt table */
 	struct mhi_event *mhi_event;
-	struct list_head lp_ev_rings; /* low priority event rings */
+	struct list_head sp_ev_rings; /* special purpose event rings */
 
 	/* cmd rings */
 	struct mhi_cmd *mhi_cmd;
@@ -347,7 +347,9 @@ struct mhi_controller {
 	/* worker for different state transitions */
 	struct work_struct st_worker;
 	struct work_struct fw_worker;
-	struct work_struct low_priority_worker;
+	struct work_struct special_work;
+	struct workqueue_struct *special_wq;
+
 	wait_queue_head_t state_event;
 
 	/* shadow functions */
