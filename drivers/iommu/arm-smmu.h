@@ -209,6 +209,9 @@ enum arm_smmu_cbar_type {
 
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define FSYNR0_WNR			BIT(4)
+#define FSYNR0_PNU			BIT(5)
+#define FSYNR0_IND			BIT(6)
+#define FSYNR0_NSATTR			BIT(8)
 
 #define ARM_SMMU_CB_FSYNR1		0x6c
 #define FSYNR1_BID			GENMASK(15, 13)
