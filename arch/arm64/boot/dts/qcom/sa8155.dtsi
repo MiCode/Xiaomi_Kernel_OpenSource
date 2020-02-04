@@ -719,10 +719,5 @@
 	status="disabled";
 };
 
-&qupv3_se2_i2c {
-	qcom,clk-freq-out = <400000>;
-	status = "ok";
-};
-
 #include "sa8155-audio.dtsi"
 #include "sa8155-camera-sensor.dtsi"
