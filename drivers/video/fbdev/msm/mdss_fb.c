@@ -2315,6 +2315,9 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 		return -EOVERFLOW;
 	}
 
+	mdss_fb_blank_blank(mfd, MDSS_PANEL_POWER_OFF);
+	mdss_fb_blank_unblank(mfd);
+
 	if (!mfd->fbi->screen_base) {
 		rc = mdss_fb_alloc_fb_ion_memory(mfd, fb_size);
 		if (rc < 0) {
