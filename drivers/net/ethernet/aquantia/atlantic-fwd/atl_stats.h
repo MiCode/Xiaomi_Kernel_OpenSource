@@ -10,6 +10,8 @@
 #ifndef _ATL_STATS_H_
 #define _ATL_STATS_H_
 
+#include <linux/types.h>
+
 struct atl_rx_ring_stats {
 	uint64_t packets;
 	uint64_t bytes;

@@ -119,6 +119,10 @@ struct msm_kms_funcs {
 	int (*cont_splash_config)(struct msm_kms *kms);
 	/* check for continuous splash status */
 	bool (*check_for_splash)(struct msm_kms *kms);
+	/* topology information */
+	int (*get_mixer_count)(const struct msm_kms *kms,
+			const struct drm_display_mode *mode,
+			u32 mode_max_width, u32 *num_lm);
 };
 
 struct msm_kms {

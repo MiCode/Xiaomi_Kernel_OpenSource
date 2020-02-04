@@ -672,6 +672,9 @@ static int dp_audio_notify(struct dp_audio_private *audio, u32 state)
 	if (atomic_read(&audio->acked))
 		goto end;
 
+	if (state == EXT_DISPLAY_CABLE_CONNECT)
+		goto end;
+
 	rc = wait_for_completion_timeout(&audio->hpd_comp, HZ * 4);
 	if (!rc) {
 		pr_err("timeout. state=%d err=%d\n", state, rc);

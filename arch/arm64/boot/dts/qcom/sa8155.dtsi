@@ -496,6 +496,7 @@
 &mdss_mdp {
 	qcom,sde-mixer-display-pref = "primary", "none", "none",
 				"none", "none", "none";
+	/delete-property/ qcom,sde-has-dest-scaler;
 };
 
 #include <dt-bindings/gpio/gpio.h>

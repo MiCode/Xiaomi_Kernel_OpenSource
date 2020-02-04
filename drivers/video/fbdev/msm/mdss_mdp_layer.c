@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2118,6 +2118,12 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 
 	i = 0;
 
+	ret = mdss_mdp_overlay_start(mfd);
+	if (ret) {
+		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
+		goto end;
+	}
+
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
 		if (pipe->flags & MDP_SOLID_FILL) {
@@ -2134,12 +2140,6 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 		}
 	}
 	mutex_unlock(&mdp5_data->list_lock);
-
-	ret = mdss_mdp_overlay_start(mfd);
-	if (ret) {
-		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
-		goto map_err;
-	}
 
 	if (commit->frc_info)
 		__parse_frc_info(mdp5_data, commit->frc_info);

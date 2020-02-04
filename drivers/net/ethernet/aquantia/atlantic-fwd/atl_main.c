@@ -13,7 +13,6 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
-#include "atl_fwdnl.h"
 
 #include "atl_qcom.h"
 
@@ -21,6 +20,8 @@ const char atl_driver_name[] = "atlantic-fwd";
 
 unsigned int atl_max_queues = ATL_MAX_QUEUES;
 module_param_named(max_queues, atl_max_queues, uint, 0444);
+unsigned int atl_max_queues_non_msi = 1;
+module_param_named(max_queues_non_msi, atl_max_queues_non_msi, uint, 0444);
 
 static unsigned int atl_rx_mod = 15, atl_tx_mod = 15;
 module_param_named(rx_mod, atl_rx_mod, uint, 0444);
@@ -150,6 +151,8 @@ static int atl_close(struct atl_nic *nic, bool drop_link)
 
 	atl_stop(nic, drop_link);
 	atl_free_rings(nic);
+	if (drop_link)
+		atl_reconfigure(nic);
 
 	pm_runtime_put_sync(&nic->hw.pdev->dev);
 
@@ -190,7 +193,7 @@ static int atl_set_mac_address(struct net_device *ndev, void *priv)
 	ether_addr_copy(hw->mac_addr, addr->sa_data);
 	ether_addr_copy(ndev->dev_addr, addr->sa_data);
 
-	if (netif_running(ndev))
+	if (netif_running(ndev) && pm_runtime_active(&nic->hw.pdev->dev))
 		atl_set_uc_flt(hw, 0, hw->mac_addr);
 
 	return 0;
@@ -351,7 +354,9 @@ static void atl_work(struct work_struct *work)
 	if (ret)
 		goto out;
 	atl_refresh_link(nic);
-
+#ifdef NETIF_F_HW_MACSEC
+	atl_macsec_work(nic);
+#endif
 out:
 	if (test_bit(ATL_ST_ENABLED, &hw->state))
 	    mod_timer(&nic->work_timer, jiffies + HZ);
@@ -519,6 +524,11 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (pci_64)
 		ndev->features |= NETIF_F_HIGHDMA;
 
+#ifdef NETIF_F_HW_MACSEC
+	if (hw->mcp.caps_low & atl_fw2_macsec)
+		ndev->features |= NETIF_F_HW_MACSEC;
+#endif
+
 	ndev->features |= NETIF_F_NTUPLE;
 
 	ndev->priv_flags |= IFF_UNICAST_FLT;
@@ -527,6 +537,10 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	hw->non_ring_intr_mask = BIT(ATL_NUM_NON_RING_IRQS) - 1;
 	ndev->netdev_ops = &atl_ndev_ops;
+#ifdef NETIF_F_HW_MACSEC
+	if (hw->mcp.caps_low & atl_fw2_macsec)
+		ndev->macsec_ops = &atl_macsec_ops,
+#endif
 	ndev->mtu = 1500;
 #ifdef ATL_HAVE_MINMAX_MTU
 	ndev->max_mtu = nic->max_mtu;
@@ -831,8 +845,17 @@ static int __init atl_module_init(void)
 		return ret;
 
 	if (atl_max_queues < 1 || atl_max_queues > ATL_MAX_QUEUES) {
-		atl_dev_init_err("Bad atl_max_queues value %d, must be between 1 and %d inclusive\n",
-			 atl_max_queues, ATL_MAX_QUEUES);
+		atl_dev_init_err(
+			"Bad atl_max_queues value %d, must be between 1 and %d inclusive\n",
+			atl_max_queues, ATL_MAX_QUEUES);
+		return -EINVAL;
+	}
+
+	if (atl_max_queues_non_msi < 1 ||
+	    atl_max_queues_non_msi > atl_max_queues) {
+		atl_dev_init_err(
+			"Bad atl_max_queues_non_msi value %d, must be between 1 and %d inclusive\n",
+			atl_max_queues_non_msi, atl_max_queues);
 		return -EINVAL;
 	}
 

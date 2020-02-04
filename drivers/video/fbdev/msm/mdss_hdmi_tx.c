@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,6 +207,31 @@ static int hdmi_tx_get_version(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 fail:
 	return rc;
+}
+
+static struct hdmi_tx_ctrl *hdmi_tx_get_data(struct platform_device *pdev)
+{
+	struct msm_ext_disp_data *ext_data;
+	void *audio_data;
+
+	if (!pdev) {
+		pr_err("invalid input\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	ext_data = platform_get_drvdata(pdev);
+	if (!ext_data) {
+		pr_err("invalid ext disp data\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	audio_data = ext_data->intf_data;
+	if (!audio_data) {
+		pr_err("invalid intf data\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	return container_of(audio_data, struct hdmi_tx_ctrl, audio_data);
 }
 
 int register_hdmi_cable_notification(struct ext_disp_cable_notify *handler)
@@ -426,11 +451,35 @@ static inline void hdmi_tx_cec_device_suspend(struct hdmi_tx_ctrl *hdmi_ctrl)
 static inline void hdmi_tx_audio_notify(
 		struct hdmi_tx_ctrl *hdmi_ctrl, u32 state)
 {
-	struct msm_ext_disp_init_data *ext = &hdmi_ctrl->ext_audio_data;
+	struct msm_ext_disp_init_data *ext;
 
-	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.audio_notify)
-		hdmi_ctrl->ext_audio_data.intf_ops.audio_notify(
-			hdmi_ctrl->ext_pdev, &ext->codec, state);
+	if (!hdmi_ctrl) {
+		pr_err("invalid hdmi_ctrl data\n");
+		return;
+	}
+
+	ext = &hdmi_ctrl->ext_audio_data;
+
+	if (!ext || !ext->intf_ops.audio_config ||
+			!ext->intf_ops.audio_notify) {
+		pr_err("invalid ext audio ops\n");
+		return;
+	}
+
+	if (state == EXT_DISPLAY_CABLE_CONNECT) {
+		ext->intf_ops.audio_config(hdmi_ctrl->ext_pdev,
+				&ext->codec, state);
+
+		ext->intf_ops.audio_notify(hdmi_ctrl->ext_pdev,
+				&ext->codec, state);
+
+	} else if (state == EXT_DISPLAY_CABLE_DISCONNECT) {
+		ext->intf_ops.audio_notify(hdmi_ctrl->ext_pdev,
+				&ext->codec, state);
+
+		ext->intf_ops.audio_config(hdmi_ctrl->ext_pdev,
+				&ext->codec, state);
+	}
 }
 
 static void hdmi_tx_send_cable_notification(
@@ -466,13 +515,9 @@ static void hdmi_tx_send_cable_notification(
 static inline void hdmi_tx_ack_state(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
-	struct msm_ext_disp_init_data *ext = &hdmi_ctrl->ext_audio_data;
-
-	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.audio_notify &&
-		!hdmi_tx_is_dvi_mode(hdmi_ctrl))
-		hdmi_ctrl->ext_audio_data.intf_ops.audio_notify(
-				hdmi_ctrl->ext_pdev,
-				&ext->codec, val);
+	if (hdmi_ctrl && !hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
+		hdmi_tx_audio_notify(hdmi_ctrl, val);
+	}
 }
 
 static struct hdmi_tx_ctrl *hdmi_tx_get_drvdata_from_panel_data(
@@ -1925,7 +1970,7 @@ static int hdmi_tx_init_audio(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static int hdmi_tx_get_intf_id(struct platform_device *pdev)
 {
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 
 	if (!hdmi_ctrl) {
 		pr_err("%s: invalid hdmi ctrl data\n", __func__);
@@ -1937,7 +1982,7 @@ static int hdmi_tx_get_intf_id(struct platform_device *pdev)
 
 static void hdmi_tx_audio_teardown_done(struct platform_device *pdev)
 {
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 
 	if (!hdmi_ctrl) {
 		pr_err("%s: invalid hdmi ctrl data\n", __func__);
@@ -1954,7 +1999,7 @@ static void hdmi_tx_audio_teardown_done(struct platform_device *pdev)
 static int hdmi_tx_audio_ack_done(struct platform_device *pdev, u32 ack)
 {
 	int rc = 0;
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 
 	if (!hdmi_ctrl) {
 		pr_err("%s: invalid hdmi ctrl data\n", __func__);
@@ -1969,7 +2014,7 @@ static int hdmi_tx_audio_ack_done(struct platform_device *pdev, u32 ack)
 static int hdmi_tx_audio_codec_ready(struct platform_device *pdev)
 {
 	int rc = 0;
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 
 	if (!hdmi_ctrl) {
 		pr_err("%s: invalid hdmi ctrl data\n", __func__);
@@ -1998,6 +2043,7 @@ static int hdmi_tx_init_ext_disp(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	ext->codec.type = EXT_DISPLAY_TYPE_HDMI;
 	ext->codec.ctrl_id = 0;
+	ext->codec.stream_id = 0;
 	ext->pdev = hdmi_ctrl->pdev;
 	ext->intf_data = &hdmi_ctrl->audio_data;
 
@@ -2901,7 +2947,7 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 	struct msm_ext_disp_audio_setup_params *params)
 {
 	int rc = 0;
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 	u32 is_mode_dvi;
 
 	if (!hdmi_ctrl) {
@@ -2934,7 +2980,7 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
 	struct msm_ext_disp_audio_edid_blk *blk)
 {
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid hdmi ctrl data\n", __func__);
@@ -3005,7 +3051,7 @@ int msm_hdmi_register_mhl(struct platform_device *pdev,
 
 static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 {
-	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	struct hdmi_tx_ctrl *hdmi_ctrl = hdmi_tx_get_data(pdev);
 	unsigned long flags;
 	u32 hpd;
 
@@ -3871,7 +3917,6 @@ static int hdmi_tx_pre_evt_handle_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 static int hdmi_tx_post_evt_handle_unblank(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	hdmi_tx_ack_state(hdmi_ctrl, true);
-	hdmi_tx_audio_notify(hdmi_ctrl, 1);
 	return 0;
 }
 

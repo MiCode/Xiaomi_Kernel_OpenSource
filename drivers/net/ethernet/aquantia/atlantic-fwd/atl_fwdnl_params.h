@@ -13,5 +13,7 @@
 extern unsigned int atlfwd_nl_tx_clean_threshold_msec;
 extern unsigned int atlfwd_nl_tx_clean_threshold_frac;
 extern bool atlfwd_nl_speculative_queue_stop;
+extern unsigned int altfwd_nl_rx_poll_interval_msec;
+extern int atlfwd_nl_rx_clean_budget;
 
 #endif
