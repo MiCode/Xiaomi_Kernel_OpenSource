@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -145,6 +145,18 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 	/* LP DDR4 highest bank bit is different and needs to be overridden */
 	if (adreno_is_a650(adreno_dev) && of_fdt_get_ddrtype() == 0x7)
 		adreno_dev->highest_bank_bit = 15;
+	else if (adreno_is_a610(adreno_dev) && of_fdt_get_ddrtype() == 0x5) {
+		/*
+		 * LPDDR3 has multiple different highest bank bit value
+		 * based on different DDR density. Query this value from
+		 * FDT, in case FDT returns error fallback to value in GPU
+		 * DT node.
+		 */
+		int hbb = of_fdt_get_ddrhbb(0, 0);
+
+		if (hbb > 0)
+			adreno_dev->highest_bank_bit = hbb;
+	}
 
 	a6xx_crashdump_init(adreno_dev);
 
