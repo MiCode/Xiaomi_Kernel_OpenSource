@@ -228,3 +228,8 @@
 		};
 	};
 };
+
+&restart {
+	nvmem-cells = <&restart_reason>;
+	nvmem-cell-names = "restart_reason";
+};
