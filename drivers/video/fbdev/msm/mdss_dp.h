@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016-2017, 2020,  The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -681,7 +681,8 @@ struct mdss_dp_drv_pdata {
 	u16 dpcd_version;
 	int fb_node;
 	int hdcp_status;
-
+	void *audio_data;
+	bool hpd_notify_state;
 	struct dpcd_test_request test_data;
 	struct dpcd_sink_count sink_count;
 	struct dpcd_sink_count prev_sink_count;

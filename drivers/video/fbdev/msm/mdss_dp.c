@@ -46,6 +46,7 @@
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
 #define DP_CRYPTO_CLK_RATE_KHZ 337500
+#define DP_STRING_SIZE		30
 
 struct mdss_dp_attention_node {
 	u32 vdo;
@@ -1089,8 +1090,11 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 
 static inline void mdss_dp_ack_state(struct mdss_dp_drv_pdata *dp, int val)
 {
-	if (dp && dp->ext_audio_data.intf_ops.notify)
-		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev, val);
+	struct msm_ext_disp_init_data *ext = &dp->ext_audio_data;
+
+	if (dp && dp->ext_audio_data.intf_ops.audio_notify)
+		dp->ext_audio_data.intf_ops.audio_notify(dp->ext_pdev,
+			&ext->codec, val);
 }
 
 static int mdss_dp_wait4video_ready(struct mdss_dp_drv_pdata *dp_drv)
@@ -1222,9 +1226,50 @@ static void dp_audio_teardown_done(struct platform_device *pdev)
 	pr_debug("audio engine disabled\n");
 } /* dp_audio_teardown_done */
 
+static int dp_get_intf_id(struct platform_device *pdev)
+{
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+
+	if (!dp) {
+		pr_err("%s: invalid DP data\n", __func__);
+		return -ENODEV;
+	}
+
+	return EXT_DISPLAY_TYPE_DP;
+}
+
+static int dp_audio_ack_done(struct platform_device *pdev, u32 ack)
+{
+	int rc = 0;
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+
+	if (!dp) {
+		pr_err("%s: invalid dp data\n", __func__);
+		return -ENODEV;
+	}
+	pr_debug("acknowledging audio (%d)\n", ack);
+
+	return rc;
+}
+
+static int dp_audio_codec_ready(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+
+	if (!dp) {
+		pr_err("%s: invalid dp data\n", __func__);
+		return -ENODEV;
+	}
+
+	return rc;
+}
+
 static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
+	struct msm_ext_disp_init_data *ext;
+	struct msm_ext_disp_audio_codec_ops *ops;
 	struct device_node *pd_np;
 	const char *phandle = "qcom,msm_ext_disp";
 
@@ -1234,17 +1279,21 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		goto end;
 	}
 
-	dp->ext_audio_data.type = EXT_DISPLAY_TYPE_DP;
-	dp->ext_audio_data.kobj = dp->kobj;
-	dp->ext_audio_data.pdev = dp->pdev;
-	dp->ext_audio_data.codec_ops.audio_info_setup =
-		dp_audio_info_setup;
-	dp->ext_audio_data.codec_ops.get_audio_edid_blk =
-		dp_get_audio_edid_blk;
-	dp->ext_audio_data.codec_ops.cable_status =
-		dp_get_cable_status;
-	dp->ext_audio_data.codec_ops.teardown_done =
-		dp_audio_teardown_done;
+	ext = &dp->ext_audio_data;
+	ops = &ext->codec_ops;
+
+	ext->codec.type = EXT_DISPLAY_TYPE_DP;
+	ext->codec.ctrl_id = 0;
+	ext->pdev = dp->pdev;
+	ext->intf_data = &dp->audio_data;
+
+	ops->audio_info_setup = dp_audio_info_setup;
+	ops->get_audio_edid_blk = dp_get_audio_edid_blk;
+	ops->cable_status = dp_get_cable_status;
+	ops->get_intf_id = dp_get_intf_id;
+	ops->teardown_done = dp_audio_teardown_done;
+	ops->acknowledge = dp_audio_ack_done;
+	ops->ready = dp_audio_codec_ready;
 
 	if (!dp->pdev->dev.of_node) {
 		pr_err("%s cannot find dp dev.of_node\n", __func__);
@@ -1266,8 +1315,7 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		goto end;
 	}
 
-	ret = msm_ext_disp_register_intf(dp->ext_pdev,
-			&dp->ext_audio_data);
+	ret = msm_ext_disp_register_intf(dp->ext_pdev, ext);
 	if (ret)
 		pr_err("%s: failed to register disp\n", __func__);
 
@@ -1936,6 +1984,7 @@ static int mdss_dp_send_audio_notification(
 {
 	int ret = 0;
 	u32 flags = 0;
+	struct msm_ext_disp_init_data *ext = &dp->ext_audio_data;
 
 	if (!dp) {
 		pr_err("invalid input\n");
@@ -1950,9 +1999,9 @@ static int mdss_dp_send_audio_notification(
 		pr_debug("sending audio notification = %d, flags = %d\n", val,
 				flags);
 
-		if (dp->ext_audio_data.intf_ops.hpd)
-			ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
-					dp->ext_audio_data.type, val, flags);
+		if (dp->ext_audio_data.intf_ops.audio_notify)
+			ret = dp->ext_audio_data.intf_ops.audio_notify(
+					dp->ext_pdev, &ext->codec, val);
 	} else {
 		pr_debug("sink does not support audio\n");
 	}
@@ -1964,23 +2013,33 @@ end:
 static int mdss_dp_send_video_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
-	int ret = 0;
-	u32 flags = 0;
+	char name[DP_STRING_SIZE], status[DP_STRING_SIZE];
+	char *envp[3];
+	int ret;
 
 	if (!dp) {
-		pr_err("invalid input\n");
-		ret = -EINVAL;
-		goto end;
+		DEV_ERR("%s: invalid dp data\n", __func__);
+		return -EINVAL;
 	}
 
-	flags |= MSM_EXT_DISP_HPD_ASYNC_VIDEO;
-	pr_debug("sending video notification = %d, flags = %d\n", val, flags);
+	if (dp->hpd_notify_state == !!val) {
+		pr_debug("%s: no change in HPD state\n", __func__);
+		return -EINVAL;
+	}
 
-	if (dp->ext_audio_data.intf_ops.hpd)
-		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
-				dp->ext_audio_data.type, val, flags);
+	dp->hpd_notify_state = !!val;
 
-end:
+	snprintf(name, DP_STRING_SIZE, "name=%s", "DP");
+	snprintf(status, DP_STRING_SIZE, "STATUS=%d",
+					val ? 1 : 0);
+
+	pr_debug("[%s]:[%s]\n", name, status);
+	pr_debug("sending video notification = %d\n", val);
+	envp[0] = name;
+	envp[1] = status;
+	envp[2] = NULL;
+
+	ret = kobject_uevent_env(dp->kobj, KOBJ_CHANGE, envp);
 	return ret;
 }
 
@@ -3961,6 +4020,8 @@ static int mdss_dp_process_phy_test_pattern_request(
  */
 static int mdss_dp_process_audio_pattern_request(struct mdss_dp_drv_pdata *dp)
 {
+	struct msm_ext_disp_init_data *ext = &dp->ext_audio_data;
+
 	if (!mdss_dp_is_audio_pattern_requested(dp))
 		return -EINVAL;
 
@@ -3988,9 +4049,9 @@ static int mdss_dp_process_audio_pattern_request(struct mdss_dp_drv_pdata *dp)
 		dp->test_data.test_audio_period_ch_7,
 		dp->test_data.test_audio_period_ch_8);
 
-	if (dp->ext_audio_data.intf_ops.hpd)
-		dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
-			dp->ext_audio_data.type, 1, MSM_EXT_DISP_HPD_AUDIO);
+	if (dp->ext_audio_data.intf_ops.audio_notify)
+		dp->ext_audio_data.intf_ops.audio_notify(dp->ext_pdev,
+			&ext->codec, 1);
 
 	dp->audio_test_req = true;
 
