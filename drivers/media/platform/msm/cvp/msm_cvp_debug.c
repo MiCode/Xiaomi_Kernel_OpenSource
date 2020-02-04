@@ -3,12 +3,14 @@
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
-#define CREATE_TRACE_POINTS
-#define MAX_SSR_STRING_LEN 10
+#include <linux/debugfs.h>
 #include "msm_cvp_debug.h"
 #include "msm_cvp_common.h"
 #include "cvp_core_hfi.h"
+#include "cvp_hfi_api.h"
 
+#define CREATE_TRACE_POINTS
+#define MAX_SSR_STRING_LEN 10
 int msm_cvp_debug = CVP_ERR | CVP_WARN | CVP_FW | CVP_DBG;
 EXPORT_SYMBOL(msm_cvp_debug);
 
@@ -160,6 +162,70 @@ static const struct file_operations ssr_fops = {
 	.write = trigger_ssr_write,
 };
 
+static int cvp_power_get(void *data, u64 *val)
+{
+	struct cvp_hfi_device *hfi_ops;
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *hfi_device;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (!core)
+		return 0;
+	hfi_ops = core->device;
+	if (!hfi_ops)
+		return 0;
+
+	hfi_device = hfi_ops->hfi_device_data;
+	if (!hfi_device)
+		return 0;
+
+	*val = hfi_device->power_enabled;
+	return 0;
+}
+
+#define MIN_PC_INTERVAL 1000
+#define MAX_PC_INTERVAL 1000000
+
+static int cvp_power_set(void *data, u64 val)
+{
+	struct cvp_hfi_device *hfi_ops;
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *hfi_device;
+	int rc = 0;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (!core)
+		return -EINVAL;
+
+	hfi_ops = core->device;
+	if (!hfi_ops)
+		return -EINVAL;
+
+	hfi_device = hfi_ops->hfi_device_data;
+	if (!hfi_device)
+		return -EINVAL;
+
+	if (val >= MAX_PC_INTERVAL) {
+		hfi_device->res->sw_power_collapsible = 0;
+	} else if (val > MIN_PC_INTERVAL) {
+		hfi_device->res->sw_power_collapsible = 1;
+		hfi_device->res->msm_cvp_pwr_collapse_delay =
+			(unsigned int)val;
+	}
+
+	if (core->state == CVP_CORE_UNINIT)
+		return -EINVAL;
+
+	if (val > 0) {
+		rc = call_hfi_op(hfi_ops, resume, hfi_ops->hfi_device_data);
+		if (rc)
+			dprintk(CVP_ERR, "debugfs fail to power on cvp\n");
+	}
+	return rc;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(cvp_pwr_fops, cvp_power_get, cvp_power_set, "%llu\n");
+
 struct dentry *msm_cvp_debugfs_init_drv(void)
 {
 	bool ok = false;
@@ -199,6 +265,8 @@ struct dentry *msm_cvp_debugfs_init_drv(void)
 
 	if (!ok)
 		goto failed_create_dir;
+
+	debugfs_create_file("cvp_power", 0644, dir, NULL, &cvp_pwr_fops);
 
 	return dir;
 

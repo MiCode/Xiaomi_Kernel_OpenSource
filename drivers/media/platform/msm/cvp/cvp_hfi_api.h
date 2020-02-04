@@ -406,6 +406,7 @@ struct cvp_hfi_device {
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
+	int (*resume)(void *dev);
 	int (*flush_debug_queue)(void *dev);
 	int (*noc_error_info)(void *dev);
 	int (*validate_session)(void *sess, const char *func);
