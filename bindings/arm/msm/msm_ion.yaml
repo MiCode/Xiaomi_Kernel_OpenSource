@@ -64,6 +64,13 @@ patternProperties:
           The heap type to use for this heap. Heaps of type SECURE_CARVEOUT
           are expected to contain multiple child nodes, as seen below.
 
+      qcom,dynamic-heap:
+      Usage: optional
+      Value type: <boolean>
+      Definition: Denotes whether a heap can have memory dynamically added and
+           subtracted from it. Heaps with this property are assumed to start off
+           with no memory, and must have memory added to them prior to any use.
+
       $nodename:
         properties:
           memory-region:
