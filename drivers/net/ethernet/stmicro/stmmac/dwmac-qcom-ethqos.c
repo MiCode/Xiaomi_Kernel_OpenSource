@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018-20, Linaro Limited
+// Copyright (c) 2018-19, Linaro Limited
+// Copyright (c) 2020, The Linux Foundation. All rights reserved.
 
 #include <linux/module.h>
 #include <linux/of.h>
