@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/etherdevice.h>
-#include <net/ieee80211_radiotap.h>
 #include <linux/if_arp.h>
 #include <linux/moduleparam.h>
 #include <linux/ip.h>
@@ -331,19 +330,6 @@ static int wil_vring_alloc_skb(struct wil6210_priv *wil, struct wil_ring *vring,
 static void wil_rx_add_radiotap_header(struct wil6210_priv *wil,
 				       struct sk_buff *skb)
 {
-	struct wil6210_rtap {
-		struct ieee80211_radiotap_header rthdr;
-		/* fields should be in the order of bits in rthdr.it_present */
-		/* flags */
-		u8 flags;
-		/* channel */
-		__le16 chnl_freq __aligned(2);
-		__le16 chnl_flags;
-		/* MCS */
-		u8 mcs_present;
-		u8 mcs_flags;
-		u8 mcs_index;
-	} __packed;
 	struct vring_rx_desc *d = wil_skb_rxdesc(skb);
 	struct wil6210_rtap *rtap;
 	int rtap_len = sizeof(struct wil6210_rtap);
