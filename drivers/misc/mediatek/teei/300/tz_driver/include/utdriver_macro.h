@@ -65,7 +65,7 @@
 #define NQ_BLOCK_SIZE			(64)
 #define BLOCK_MAX_COUNT			(NQ_BUFF_SIZE / NQ_BLOCK_SIZE - 1)
 
-#define FP_BUFF_SIZE			(0x8000)
+#define FP_BUFF_SIZE			(0x80000)
 
 #ifdef TUI_SUPPORT
 
