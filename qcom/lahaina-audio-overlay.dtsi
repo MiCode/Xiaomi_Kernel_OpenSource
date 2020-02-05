@@ -198,6 +198,7 @@
 				qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
 				qcom,cdc-vdd-1p8-current = <20000>;
 				qcom,cdc-static-supplies = "cdc-vdd-1p8";
+				qcom,wsa-prefix = "SpkrLeft";
 			};
 
 			wsa883x_0222: wsa883x@02170222 {
@@ -210,6 +211,7 @@
 				qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
 				qcom,cdc-vdd-1p8-current = <20000>;
 				qcom,cdc-static-supplies = "cdc-vdd-1p8";
+				qcom,wsa-prefix = "SpkrRight";
 			};
 		};
 	};
@@ -340,9 +342,11 @@
 	qcom,msm-mbhc-gnd-swh = <1>;
 	asoc-codec  = <&stub_codec>, <&bolero>,
 		      <&wcd938x_codec>,
+		      <&wsa883x_0221>, <&wsa883x_0222>,
 		      <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 			   "wcd938x_codec",
+			   "wsa-codec1", "wsa-codec2",
 			   "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa883x_0221>, <&wsa883x_0222>;
