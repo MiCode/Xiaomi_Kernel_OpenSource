@@ -190,6 +190,9 @@ static int of_thermal_set_trips(struct thermal_zone_device *tz,
 	if (!data->senps[0] || !data->senps[0]->ops->set_trips)
 		return -EINVAL;
 
+	if (data->mode == THERMAL_DEVICE_DISABLED)
+		return ret;
+
 	mutex_lock(&data->senps[0]->lock);
 	of_thermal_aggregate_trip_types(tz, data->senps[0],
 					GENMASK(THERMAL_TRIP_CRITICAL, 0),
