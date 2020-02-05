@@ -2430,6 +2430,16 @@
 				qcom,notify-edges = <&glink_slpi>,
 						    <&glink_modem>;
 			};
+
+			qcom,pmic_glink_rpmsg {
+				qcom,glink-channels = "PMIC_RTR_ADSP_APPS";
+			};
+
+			qcom,pmic_glink_log_rpmsg {
+				qcom,glink-channels = "PMIC_LOGS_ADSP_APPS";
+				qcom,intents = <0x800 5
+						0xc00 3>;
+			};
 		};
 
 		glink_slpi: dsps {
@@ -3095,6 +3105,28 @@
 		iommus = <&apps_smmu 0x0584 0x0011>,
 			 <&apps_smmu 0x0594 0x0011>;
 		qcom,iommu-dma = "atomic";
+	};
+
+	qcom,pmic_glink {
+		compatible = "qcom,pmic-glink";
+		qcom,pmic-glink-channel = "PMIC_RTR_ADSP_APPS";
+
+		qcom,battery_charger {
+			compatible = "qcom,battery-charger";
+		};
+
+		qcom,ucsi {
+			compatible = "qcom,ucsi-glink";
+		};
+	};
+
+	qcom,pmic_glink_log {
+		compatible = "qcom,pmic-glink";
+		qcom,pmic-glink-channel = "PMIC_LOGS_ADSP_APPS";
+
+		qcom,battery_debug {
+			compatible = "qcom,battery-debug";
+		};
 	};
 
 	bluetooth: bt_qca6490 {
