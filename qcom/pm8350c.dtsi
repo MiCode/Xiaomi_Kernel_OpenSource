@@ -28,6 +28,48 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
+
+		pm8350c_pwm_1: pwms@e800 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xe800>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <3>;
+		};
+
+		pm8350c_pwm_2: pwms@eb00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xeb00>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <1>;
+		};
+
+		pm8350c_rgb: qcom,leds@ef00 {
+			compatible = "qcom,tri-led";
+			reg = <0xef00>;
+
+			red {
+				label = "red";
+				pwms = <&pm8350c_pwm_1 0 1000000>;
+				led-sources = <0>;
+				linux,default-trigger = "timer";
+			};
+
+			green {
+				label = "green";
+				pwms = <&pm8350c_pwm_1 1 1000000>;
+				led-sources = <1>;
+				linux,default-trigger = "timer";
+			};
+
+			blue {
+				label = "blue";
+				pwms = <&pm8350c_pwm_1 2 1000000>;
+				led-sources = <2>;
+				linux,default-trigger = "timer";
+			};
+		};
 	};
 };
 
