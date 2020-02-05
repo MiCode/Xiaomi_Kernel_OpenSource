@@ -367,3 +367,5 @@
 		#mbox-cells = <2>;
 	};
 };
+
+#include "holi-pinctrl.dtsi"
