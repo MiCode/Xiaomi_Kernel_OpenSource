@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +111,10 @@
 	tcsr_i2s_dsd_quat = <0x195A000>;
 	asoc-codec = <&stub_codec>, <&bolero>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+	qcom,ext-disp-audio-rx = <1>;
+	asoc-codec = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+		"msm-ext-disp-audio-codec-rx";
 	qcom,csra-max-devs = <8>;
 	qcom,csra-devs = <&csra66x0_ampl_6B>, <&csra66x0_ampl_6A>,
 		<&csra66x0_ampl_69>, <&csra66x0_ampl_68>,
