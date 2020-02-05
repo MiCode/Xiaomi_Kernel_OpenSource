@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef _MSM_ION_IDS_H
 #define _MSM_ION_IDS_H
@@ -17,6 +17,7 @@
  */
 
 #define ION_SYSTEM_HEAP_ID		ION_BIT(0)
+#define ION_TUI_CARVEOUT_HEAP_ID	ION_BIT(2)
 #define ION_QSECOM_TA_HEAP_ID		ION_BIT(8)
 #define ION_CAMERA_HEAP_ID		ION_BIT(9)
 #define ION_ADSP_HEAP_ID		ION_BIT(11)

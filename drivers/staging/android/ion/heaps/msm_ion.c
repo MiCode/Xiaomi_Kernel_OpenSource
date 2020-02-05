@@ -78,7 +78,11 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SECURE_CARVEOUT_HEAP_ID,
 		.name	= ION_SECURE_CARVEOUT_HEAP_NAME,
-	}
+	},
+	{
+		.id	= ION_TUI_CARVEOUT_HEAP_ID,
+		.name	= ION_TUI_CARVEOUT_HEAP_NAME,
+	},
 };
 
 #define MAKE_HEAP_TYPE_MAPPING(h) { .name = #h, \
