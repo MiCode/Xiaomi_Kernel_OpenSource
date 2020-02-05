@@ -35,7 +35,10 @@ Optional properties:
 - vddp-ref-clk-max-microamp : specifies max. load that can be drawn from this supply
 - resets : specifies the PHY reset in the UFS controller
 - limit-rate : specifies if the rate has to be limited to A or B.
-	       1 = rate B, 0 = rate A.
+	       1 = rate A, 2 = rate B.
+- limit-phy-submode : specifies the PHY submode which is used for PHY calibration,
+		      0 = non-G4, 1 = G4.
+
 Example:
 
 	ufsphy1: ufsphy@fc597000 {

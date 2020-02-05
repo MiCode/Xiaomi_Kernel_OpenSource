@@ -1422,6 +1422,7 @@
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
 		lanes-per-direction = <2>;
+		limit-rate = <1>; /* HS Rate-A */
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 
 		clock-names =
