@@ -259,15 +259,17 @@ static void switch_fn(struct kthread_work *work)
 		break;
 	}
 
-	atomic_notifier_call_chain(&s->notifier, TZ_CALL_RETURNED, NULL);
-
-	kfree(switch_work);
+	if (call_type != SWITCH_CORE)
+		atomic_notifier_call_chain(&s->notifier,
+					TZ_CALL_RETURNED, NULL);
 
 	retVal = destroy_switch_call_struct(switch_ent);
 	if (retVal != 0) {
 		IMSG_ERROR("[%s][%d] destroy_switch_call_struct failed %d!\n",
 						__func__, __LINE__, retVal);
 	}
+
+	kfree(switch_work);
 
 	KATRACE_END("teei_switch_fn");
 }

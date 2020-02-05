@@ -262,14 +262,14 @@ void teei_handle_capi_call(struct NQ_entry *entry)
 	complete(bp);
 }
 
-static irqreturn_t nt_switch_irq_handler(void)
+static int nt_switch_irq_handler(void)
 {
 
 	if (boot_soter_flag == START_STATUS) {
 		INIT_WORK(&(load_ent.work), load_func);
 		queue_work(secure_wq, &(load_ent.work));
 
-		return IRQ_HANDLED;
+		return 0;
 
 	} else {
 		struct NQ_entry *entry = NULL;
@@ -278,7 +278,7 @@ static irqreturn_t nt_switch_irq_handler(void)
 		entry = get_nq_entry();
 		if (entry == NULL) {
 			IMSG_ERROR("Can NOT get entry from t_nt_buffer!\n");
-			return IRQ_NONE;
+			return 0;
 		}
 
 		cmd_id = entry->cmd_ID;
@@ -311,7 +311,7 @@ static irqreturn_t nt_switch_irq_handler(void)
 						__func__, __LINE__);
 		}
 
-		return IRQ_HANDLED;
+		return 0;
 	}
 }
 

@@ -108,36 +108,48 @@ int add_comp_to_link(struct completion *comp, int pid)
 int teei_forward_call(unsigned long long cmd, unsigned long long cmd_addr,
 			unsigned long long size)
 {
-	struct completion wait_completion;
+	struct completion *wait_completion = NULL;
 	int retVal = 0;
 
 	KATRACE_BEGIN("teei_forward_call");
 
-	init_completion(&wait_completion);
+	wait_completion = kmalloc(sizeof(struct completion), GFP_KERNEL);
+
+	init_completion(wait_completion);
 
 #ifdef TEEI_MUTIL_TA_DEBUG
 	mutex_lock(&g_comp_link_lock);
-	retVal = add_comp_to_link(&wait_completion, current->pid);
+	retVal = add_comp_to_link(wait_completion, current->pid);
 	mutex_unlock(&g_comp_link_lock);
 #endif
 
+	cpus_read_lock();
+
 	retVal = add_nq_entry(NEW_CAPI_CALL, cmd,
-				(unsigned long long)(&wait_completion),
+				(unsigned long long)(wait_completion),
 				cmd_addr, size, 0);
 	if (retVal != 0) {
 		IMSG_ERROR("TEEI: Failed to add one nq to n_t_buffer\n");
+		cpus_read_unlock();
+		kfree(wait_completion);
+		KATRACE_END("teei_forward_call");
 		return retVal;
 	}
 
 	retVal = add_work_entry(INVOKE_NQ_CALL, 0);
 	if (retVal != 0) {
 		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
+		cpus_read_unlock();
+		kfree(wait_completion);
 		KATRACE_END("teei_forward_call");
 		return retVal;
 	}
 
-	wait_for_completion(&wait_completion);
+	wait_for_completion(wait_completion);
 
+	cpus_read_unlock();
+
+	kfree(wait_completion);
 	KATRACE_END("teei_forward_call");
 
 	return 0;

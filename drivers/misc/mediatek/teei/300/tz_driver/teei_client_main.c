@@ -377,7 +377,7 @@ static int find_prefer_core(int excluded_cpu)
 
 		prefer_core = i;
 		/* break when next active cpu has been selected */
-		break;
+		/* break; */
 	}
 
 	return prefer_core;
@@ -687,8 +687,12 @@ static int init_teei_framework(void)
 
 	TEEI_BOOT_FOOTPRINT("TEEI VFS Buffer Created");
 
+	cpus_read_lock();
+
 	boot_stage1((unsigned long)virt_to_phys((void *)boot_vfs_addr),
 						(unsigned long)tz_log_buf_pa);
+
+	cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Stage1 Completed");
 
@@ -698,19 +702,34 @@ static int init_teei_framework(void)
 	if (soter_error_flag == 1)
 		return TEEI_BOOT_ERROR_LOAD_SOTER_FAILED;
 
+	cpus_read_lock();
+
 	retVal = create_nq_buffer();
+
+	cpus_read_unlock();
+
 	if (retVal < 0)
 		return TEEI_BOOT_ERROR_INIT_CMD_BUFF_FAILED;
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT CREATE NQ DONE");
 
+	cpus_read_lock();
+
 	retVal = teei_create_drv_shm();
+
+	cpus_read_unlock();
+
 	if (retVal == -1)
 		return TEEI_BOOT_ERROR_INIT_SERVICE1_FAILED;
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT CREATE DRV SHM DONE");
 
+	cpus_read_lock();
+
 	retVal = teei_new_capi_init();
+
+	cpus_read_unlock();
+
 	if (retVal < 0)
 		return TEEI_BOOT_ERROR_INIT_CAPI_FAILED;
 
@@ -726,12 +745,22 @@ static int init_teei_framework(void)
 	wait_for_completion(&boot_decryto_lock);
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Decrypt Unlocked");
 
+	cpus_read_lock();
+
 	retVal = teei_service_init_second();
+
+	cpus_read_unlock();
+
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Service2 Inited");
 	if (retVal == -1)
 		return TEEI_BOOT_ERROR_INIT_SERVICE2_FAILED;
 
+	cpus_read_lock();
+
 	t_os_load_image();
+
+	cpus_read_unlock();
+
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Load TEES Completed");
 	if (soter_error_flag == 1)
 		return TEEI_BOOT_ERROR_LOAD_TA_FAILED;
@@ -1262,7 +1291,7 @@ static int teei_client_init(void)
 #if KERNEL_VERSION(4, 14, 0) <= LINUX_VERSION_CODE
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 				"tee/teei:online",
-				nq_cpu_up_prep, nq_cpu_down_prep);
+				NULL, nq_cpu_down_prep);
 #elif KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE
 	register_cpu_notifier(&tz_driver_cpu_notifer);
 	IMSG_DEBUG("after  register cpu notify\n");

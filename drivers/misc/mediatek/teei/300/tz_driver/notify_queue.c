@@ -100,6 +100,7 @@ static unsigned long create_notify_queue(unsigned long size)
 	nq_param.phys_addr = virt_to_phys((void *)buff_addr);
 	nq_param.size = size;
 
+
 	/* Call the smc_fast_call */
 	retVal = add_work_entry(INIT_CMD_CALL, (unsigned long)&nq_param);
 	if (retVal != 0) {
@@ -163,11 +164,14 @@ int add_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 
 	check_index = (check_index + 1) % 10000;
 
-	/* Call the wmb() to make sure setting entry before setting head */
-	wmb();
+	/* Call the smp_mb() to make sure setting entry before setting head */
+	smp_mb();
 
 	temp_head->put_index = (temp_head->put_index + 1)
 					% temp_head->max_count;
+
+	/* Call the rmb() to make sure setting entry before setting head */
+	rmb();
 
 	teei_secure_call(N_ADD_TRIGGER_IRQ_COUNT, 0, 0, 0);
 
@@ -201,11 +205,14 @@ int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 
 	check_index = (check_index + 1) % 10000;
 
-	/* Call the wmb() to make sure setting entry before setting head */
-	wmb();
+	/* Call the smp_mb() to make sure setting entry before setting head */
+	smp_mb();
 
 	temp_head->put_index = (temp_head->put_index + 1)
 					% temp_head->max_count;
+
+	/* Call the rmb() to make sure setting entry before setting head */
+	rmb();
 
 	teei_secure_call(N_ADD_TRIGGER_IRQ_COUNT, 0, 0, 0);
 
