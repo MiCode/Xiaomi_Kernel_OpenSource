@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -487,6 +487,11 @@ struct ipa_api_controller {
 		struct ipa_uc_dbg_ring_stats *stats);
 
 	int (*ipa_get_prot_id)(enum ipa_client_type client);
+
+	int (*ipa_add_socksv5_conn)(struct ipa_socksv5_info *info);
+
+	int (*ipa_del_socksv5_conn)(uint32_t handle);
+
 };
 
 #ifdef CONFIG_IPA3

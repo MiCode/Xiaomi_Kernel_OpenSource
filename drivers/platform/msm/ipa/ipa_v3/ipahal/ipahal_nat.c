@@ -249,16 +249,16 @@ static int ipa_nat_ipv6ct_stringify_entry_v_4_5(const void *entry,
 	char *buff, size_t buff_size)
 {
 	int length;
-	const struct ipa_nat_hw_ipv4_entry *nat_entry =
-		(const struct ipa_nat_hw_ipv4_entry *)entry;
+	const struct ipa_nat_hw_ipv6ct_entry *ipv6ct_entry =
+		(const struct ipa_nat_hw_ipv6ct_entry *)entry;
 
 	length = ipa_nat_ipv6ct_stringify_entry_v_4_0(entry, buff, buff_size);
 
 	length += scnprintf(buff + length, buff_size - length,
 		"\t\tucp=%s address=%s uc_activation_index=%d\n",
-		(nat_entry->ucp) ? "Enabled" : "Disabled",
-		(nat_entry->s) ? "System" : "Local",
-		nat_entry->uc_activation_index);
+		(ipv6ct_entry->ucp) ? "Enabled" : "Disabled",
+		(ipv6ct_entry->s) ? "System" : "Local",
+		ipv6ct_entry->uc_activation_index);
 
 	return length;
 }

@@ -2670,12 +2670,12 @@ static inline bool ipa_get_lan_rx_napi(void)
 	return false;
 }
 
-static inline int ipa_add_socksv5_con(struct ipa_socksv5_info *info)
+static inline int ipa_add_socksv5_conn(struct ipa_socksv5_info *info)
 {
 	return -EPERM;
 }
 
-static inline int ipa_del_socksv5_con(uint32_t handle)
+static inline int ipa_del_socksv5_conn(uint32_t handle)
 {
 	return -EPERM;
 }
