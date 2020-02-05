@@ -6,7 +6,6 @@
 
 #include <linux/slab.h>
 #include <linux/wait.h>
-#include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
@@ -24,7 +23,7 @@ struct hh_msgq_desc {
 
 struct hh_msgq_cap_table {
 	struct hh_msgq_desc *client_desc;
-	struct mutex cap_entry_lock;
+	spinlock_t cap_entry_lock;
 
 	hh_capid_t tx_cap_id;
 	hh_capid_t rx_cap_id;
@@ -132,8 +131,7 @@ int hh_msgq_recv(void *msgq_client_desc,
 
 	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	if (cap_table_entry->client_desc != client_desc) {
 		pr_err("%s: Invalid client descriptor\n", __func__);
@@ -155,7 +153,7 @@ int hh_msgq_recv(void *msgq_client_desc,
 		goto err;
 	}
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	*buff = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
 	if (!(*buff))
@@ -185,7 +183,7 @@ buff_free:
 	return ret;
 
 err:
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ret;
 }
 EXPORT_SYMBOL(hh_msgq_recv);
@@ -254,8 +252,7 @@ int hh_msgq_send(void *msgq_client_desc,
 
 	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	if (cap_table_entry->client_desc != client_desc) {
 		pr_err("%s: Invalid client descriptor\n", __func__);
@@ -277,13 +274,11 @@ int hh_msgq_send(void *msgq_client_desc,
 		goto err;
 	}
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	do {
-		if (cap_table_entry->tx_full && (flags & HH_MSGQ_NONBLOCK)) {
-			ret = -EAGAIN;
-			goto err;
-		}
+		if (cap_table_entry->tx_full && (flags & HH_MSGQ_NONBLOCK))
+			return -EAGAIN;
 
 		if (wait_event_interruptible(cap_table_entry->tx_wq,
 					!cap_table_entry->tx_full))
@@ -300,7 +295,7 @@ int hh_msgq_send(void *msgq_client_desc,
 
 	return ret;
 err:
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ret;
 }
 EXPORT_SYMBOL(hh_msgq_send);
@@ -320,40 +315,35 @@ void *hh_msgq_register(enum hh_msgq_label label)
 {
 	struct hh_msgq_cap_table *cap_table_entry;
 	struct hh_msgq_desc *client_desc;
-	int ret;
 
 	if (label < 0 || label >= HH_MSGQ_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
 	cap_table_entry = &hh_msgq_cap_table[label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return ERR_PTR(-ERESTARTSYS);
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Multiple clients cannot register to the same label (msgq) */
 	if (cap_table_entry->client_desc) {
-		ret = -EBUSY;
-		goto err;
+		spin_unlock(&cap_table_entry->cap_entry_lock);
+		return ERR_PTR(-EBUSY);
 	}
 
+	spin_unlock(&cap_table_entry->cap_entry_lock);
+
 	client_desc = kzalloc(sizeof(*client_desc), GFP_KERNEL);
-	if (!client_desc) {
-		ret = ENOMEM;
-		goto err;
-	}
+	if (!client_desc)
+		return ERR_PTR(ENOMEM);
 
 	client_desc->label = label;
 
+	spin_lock(&cap_table_entry->cap_entry_lock);
 	cap_table_entry->client_desc = client_desc;
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	pr_info("hh_msgq: Registered client for label: %d\n", label);
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
 	return client_desc;
-
-err:
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
-	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(hh_msgq_register);
 
@@ -374,20 +364,19 @@ int hh_msgq_unregister(void *msgq_client_desc)
 
 	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	/* Is the client trying to free someone else's msgq? */
 	if (cap_table_entry->client_desc != client_desc) {
 		pr_err("%s: Trying to free invalid client descriptor!\n",
 			__func__);
-		mutex_unlock(&cap_table_entry->cap_entry_lock);
+		spin_unlock(&cap_table_entry->cap_entry_lock);
 		return -EINVAL;
 	}
 
 	cap_table_entry->client_desc = NULL;
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	pr_info("%s: Unregistered client for label: %d\n",
 		__func__, client_desc->label);
@@ -416,8 +405,7 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 
 	cap_table_entry = &hh_msgq_cap_table[label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
+	spin_lock(&cap_table_entry->cap_entry_lock);
 
 	if (direction == HH_MSGQ_DIRECTION_TX) {
 		ret = request_irq(irq, hh_msgq_tx_isr, 0,
@@ -441,7 +429,7 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 		goto err;
 	}
 
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 
 	pr_debug(
 		"%s: label: %d; cap_id: %llu; dir: %d; irq: %d\n",
@@ -450,7 +438,7 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 	return 0;
 
 err:
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
+	spin_unlock(&cap_table_entry->cap_entry_lock);
 	return ret;
 }
 EXPORT_SYMBOL(hh_msgq_populate_cap_info);
@@ -468,8 +456,6 @@ static void hh_msgq_cleanup(int begin_idx)
 
 		kfree(cap_table_entry->tx_irq_name);
 		kfree(cap_table_entry->rx_irq_name);
-
-		mutex_destroy(&cap_table_entry->cap_entry_lock);
 	}
 }
 
@@ -490,7 +476,7 @@ static int __init hh_msgq_init(void)
 		init_waitqueue_head(&cap_table_entry->rx_wq);
 		spin_lock_init(&cap_table_entry->tx_lock);
 		spin_lock_init(&cap_table_entry->rx_lock);
-		mutex_init(&cap_table_entry->cap_entry_lock);
+		spin_lock_init(&cap_table_entry->cap_entry_lock);
 
 		cap_table_entry->tx_irq_name = kasprintf(GFP_KERNEL,
 							"hh_msgq_tx_%d", i);
