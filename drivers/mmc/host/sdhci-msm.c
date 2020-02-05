@@ -275,6 +275,33 @@ struct sdhci_msm_dll_hsr {
 	u32 ddr_config;
 };
 
+struct sdhci_msm_regs_restore {
+	bool is_supported;
+	bool is_valid;
+	u32 vendor_pwrctl_mask;
+	u32 vendor_pwrctl_ctl;
+	u32 vendor_caps_0;
+	u32 vendor_func;
+	u32 vendor_func2;
+	u32 vendor_func3;
+	u32 hc_2c_2e;
+	u32 hc_28_2a;
+	u32 hc_34_36;
+	u32 hc_38_3a;
+	u32 hc_3c_3e;
+	u32 hc_caps_1;
+	u32 testbus_config;
+	u32 dll_config;
+	u32 dll_config2;
+	u32 dll_config3;
+	u32 dll_usr_ctl;
+};
+
+enum dll_init_context {
+	DLL_INIT_NORMAL = 0,
+	DLL_INIT_FROM_CX_COLLAPSE_EXIT,
+};
+
 struct sdhci_msm_host {
 	struct platform_device *pdev;
 	void __iomem *core_mem;	/* MSM SDCC mapped address */
@@ -306,6 +333,7 @@ struct sdhci_msm_host {
 	struct delayed_work bus_vote_work;
 	bool use_7nm_dll;
 	struct sdhci_msm_dll_hsr *dll_hsr;
+	struct sdhci_msm_regs_restore regs_restore;
 };
 
 static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
@@ -627,7 +655,8 @@ static inline void msm_cm_dll_set_freq(struct sdhci_host *host)
 }
 
 /* Initialize the DLL (Programmable Delay Line) */
-static int msm_init_cm_dll(struct sdhci_host *host)
+static int msm_init_cm_dll(struct sdhci_host *host,
+				enum dll_init_context init_context)
 {
 	struct mmc_host *mmc = host->mmc;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -682,34 +711,44 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	    !IS_ERR_OR_NULL(msm_host->xo_clk)) {
 		u32 mclk_freq = 0;
 
-		switch (host->clock) {
-		case 208000000:
-		case 202000000:
-		case 201500000:
-		case 200000000:
-			mclk_freq = 42;
-			break;
-		case 192000000:
-			mclk_freq = 40;
-			break;
-		default:
-			pr_err("%s: %s: Error. Unsupported clk freq\n",
-				mmc_hostname(mmc), __func__);
+		/*
+		 * Only configure the mclk_freq in normal DLL init
+		 * context. If the DLL init is coming from
+		 * CX Collapse Exit context, the host->clock may be zero.
+		 * The DLL_CONFIG_2 register has already been restored to
+		 * proper value prior to getting here.
+		 */
+		if (init_context == DLL_INIT_NORMAL) {
+			switch (host->clock) {
+			case 208000000:
+			case 202000000:
+			case 201500000:
+			case 200000000:
+				mclk_freq = 42;
+				break;
+			case 192000000:
+				mclk_freq = 40;
+				break;
+			default:
+				pr_err("%s: %s: Error. Unsupported clk freq\n",
+					mmc_hostname(mmc), __func__);
+
+			}
+
+			config = readl_relaxed(host->ioaddr +
+				msm_offset->core_dll_config_2);
+			config &= CORE_FLL_CYCLE_CNT;
+			if (config)
+				mclk_freq *= 2;
+
+			config = readl_relaxed(host->ioaddr +
+					msm_offset->core_dll_config_2);
+			config &= ~(0xFF << 10);
+			config |= mclk_freq << 10;
+
+			writel_relaxed(config, host->ioaddr +
+					msm_offset->core_dll_config_2);
 		}
-
-		config = readl_relaxed(host->ioaddr +
-				msm_offset->core_dll_config_2);
-		config &= CORE_FLL_CYCLE_CNT;
-		if (config)
-			mclk_freq *= 2;
-
-		config = readl_relaxed(host->ioaddr +
-				msm_offset->core_dll_config_2);
-		config &= ~(0xFF << 10);
-		config |= mclk_freq << 10;
-
-		writel_relaxed(config, host->ioaddr +
-				msm_offset->core_dll_config_2);
 		/* wait for 5us before enabling DLL clock */
 		udelay(5);
 	}
@@ -931,7 +970,7 @@ static int sdhci_msm_cdclp533_calibration(struct sdhci_host *host)
 	 * Retuning in HS400 (DDR mode) will fail, just reset the
 	 * tuning block and restore the saved tuning phase.
 	 */
-	ret = msm_init_cm_dll(host);
+	ret = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (ret)
 		goto out;
 
@@ -1099,7 +1138,7 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 	 * Retuning in HS400 (DDR mode) will fail, just reset the
 	 * tuning block and restore the saved tuning phase.
 	 */
-	ret = msm_init_cm_dll(host);
+	ret = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (ret)
 		goto out;
 
@@ -1158,7 +1197,7 @@ static int sdhci_msm_restore_sdr_dll_config(struct sdhci_host *host)
 		return 0;
 
 	/* Reset the tuning block */
-	ret = msm_init_cm_dll(host);
+	ret = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (ret)
 		return ret;
 
@@ -1221,7 +1260,7 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 retry:
 	/* First of all reset the tuning block */
-	rc = msm_init_cm_dll(host);
+	rc = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (rc)
 		return rc;
 
@@ -1499,6 +1538,52 @@ static void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host)
 		msm_host_readl(msm_host, host, msm_offset->core_pwrctl_ctl));
 }
 
+static int sdhci_msm_clear_pwrctl_status(struct sdhci_host *host, u32 value)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	int ret = 0, retry = 10;
+
+	/*
+	 * There is a rare HW scenario where the first clear pulse could be
+	 * lost when actual reset and clear/read of status register is
+	 * happening at a time. Hence, retry for at least 10 times to make
+	 * sure status register is cleared. Otherwise, this will result in
+	 * a spurious power IRQ resulting in system instability.
+	 */
+	do {
+		if (retry == 0) {
+			pr_err("%s: Timedout clearing (0x%x) pwrctl status register\n",
+				mmc_hostname(host->mmc), value);
+			sdhci_msm_dump_pwr_ctrl_regs(host);
+			WARN_ON(1);
+			ret = -EBUSY;
+			break;
+		}
+
+		/*
+		 * Clear the PWRCTL_STATUS interrupt bits by writing to the
+		 * corresponding bits in the PWRCTL_CLEAR register.
+		 */
+		msm_host_writel(msm_host, value, host,
+				msm_offset->core_pwrctl_clear);
+		/*
+		 * SDHC has core_mem and hc_mem device memory and these memory
+		 * addresses do not fall within 1KB region. Hence, any update to
+		 * core_mem address space would require an mb() to ensure this
+		 * gets completed before its next update to registers within
+		 * hc_mem.
+		 */
+		mb();
+		retry--;
+		udelay(10);
+	} while (value & msm_host_readl(msm_host, host,
+				msm_offset->core_pwrctl_status));
+
+	return ret;
+}
+
 static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1689,6 +1774,150 @@ out:
 	if (!msm_host->skip_bus_bw_voting)
 		sdhci_msm_bus_voting(host, !!clock);
 	__sdhci_msm_set_clock(host, clock);
+}
+
+static void sdhci_msm_registers_save(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+
+	if (!msm_host->regs_restore.is_supported)
+		return;
+
+	msm_host->regs_restore.vendor_func = readl_relaxed(host->ioaddr +
+		msm_offset->core_vendor_spec);
+	msm_host->regs_restore.vendor_pwrctl_mask =
+		readl_relaxed(host->ioaddr +
+		msm_offset->core_pwrctl_mask);
+	msm_host->regs_restore.vendor_func2 =
+		readl_relaxed(host->ioaddr +
+		msm_offset->core_vendor_spec_func2);
+	msm_host->regs_restore.vendor_func3 =
+		readl_relaxed(host->ioaddr +
+		msm_offset->core_vendor_spec3);
+	msm_host->regs_restore.hc_2c_2e =
+		sdhci_readl(host, SDHCI_CLOCK_CONTROL);
+	msm_host->regs_restore.hc_3c_3e =
+		sdhci_readl(host, SDHCI_AUTO_CMD_STATUS);
+	msm_host->regs_restore.vendor_pwrctl_ctl =
+		readl_relaxed(host->ioaddr +
+		msm_offset->core_pwrctl_ctl);
+	msm_host->regs_restore.hc_38_3a =
+		sdhci_readl(host, SDHCI_SIGNAL_ENABLE);
+	msm_host->regs_restore.hc_34_36 =
+		sdhci_readl(host, SDHCI_INT_ENABLE);
+	msm_host->regs_restore.hc_28_2a =
+		sdhci_readl(host, SDHCI_HOST_CONTROL);
+	msm_host->regs_restore.vendor_caps_0 =
+		readl_relaxed(host->ioaddr +
+		msm_offset->core_vendor_spec_capabilities0);
+	msm_host->regs_restore.hc_caps_1 =
+		sdhci_readl(host, SDHCI_CAPABILITIES_1);
+	msm_host->regs_restore.testbus_config = readl_relaxed(host->ioaddr +
+		msm_offset->core_testbus_config);
+	msm_host->regs_restore.dll_config = readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config);
+	msm_host->regs_restore.dll_config2 = readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config_2);
+	msm_host->regs_restore.dll_config = readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config);
+	msm_host->regs_restore.dll_config2 = readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config_2);
+	msm_host->regs_restore.dll_config3 = readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_config_3);
+	msm_host->regs_restore.dll_usr_ctl = readl_relaxed(host->ioaddr +
+		msm_offset->core_dll_usr_ctl);
+
+	msm_host->regs_restore.is_valid = true;
+
+	pr_debug("%s: %s: registers saved. PWRCTL_MASK = 0x%x\n",
+		mmc_hostname(host->mmc), __func__,
+		readl_relaxed(host->ioaddr +
+			msm_offset->core_pwrctl_mask));
+}
+
+static void sdhci_msm_registers_restore(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	u32 irq_status;
+	struct mmc_ios ios = host->mmc->ios;
+
+	if (!msm_host->regs_restore.is_supported ||
+		!msm_host->regs_restore.is_valid)
+		return;
+
+	writel_relaxed(0, host->ioaddr + msm_offset->core_pwrctl_mask);
+	writel_relaxed(msm_host->regs_restore.vendor_func, host->ioaddr +
+			msm_offset->core_vendor_spec);
+	writel_relaxed(msm_host->regs_restore.vendor_func2,
+			host->ioaddr +
+			msm_offset->core_vendor_spec_func2);
+	writel_relaxed(msm_host->regs_restore.vendor_func3,
+			host->ioaddr +
+			msm_offset->core_vendor_spec3);
+	sdhci_writel(host, msm_host->regs_restore.hc_2c_2e,
+			SDHCI_CLOCK_CONTROL);
+	sdhci_writel(host, msm_host->regs_restore.hc_3c_3e,
+			SDHCI_AUTO_CMD_STATUS);
+	sdhci_writel(host, msm_host->regs_restore.hc_38_3a,
+			SDHCI_SIGNAL_ENABLE);
+	sdhci_writel(host, msm_host->regs_restore.hc_34_36,
+			SDHCI_INT_ENABLE);
+	sdhci_writel(host, msm_host->regs_restore.hc_28_2a,
+			SDHCI_HOST_CONTROL);
+	writel_relaxed(msm_host->regs_restore.vendor_caps_0,
+			host->ioaddr +
+			msm_offset->core_vendor_spec_capabilities0);
+	sdhci_writel(host, msm_host->regs_restore.hc_caps_1,
+			SDHCI_CAPABILITIES_1);
+	writel_relaxed(msm_host->regs_restore.testbus_config, host->ioaddr +
+			msm_offset->core_testbus_config);
+	msm_host->regs_restore.is_valid = false;
+
+	/*
+	 * Clear the PWRCTL_STATUS register.
+	 * There is a rare HW scenario where the first clear pulse could be
+	 * lost when actual reset and clear/read of status register is
+	 * happening at a time. Hence, retry for at least 10 times to make
+	 * sure status register is cleared. Otherwise, this will result in
+	 * a spurious power IRQ resulting in system instability.
+	 */
+	irq_status = msm_host_readl(msm_host, host,
+			msm_offset->core_pwrctl_status);
+
+	irq_status &= INT_MASK;
+	sdhci_msm_clear_pwrctl_status(host, irq_status);
+
+	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_ctl,
+			host->ioaddr + msm_offset->core_pwrctl_ctl);
+	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
+			host->ioaddr + msm_offset->core_pwrctl_mask);
+
+	if (((ios.timing == MMC_TIMING_MMC_HS400) ||
+			(ios.timing == MMC_TIMING_MMC_HS200) ||
+			(ios.timing == MMC_TIMING_UHS_SDR104))
+			&& (ios.clock > CORE_FREQ_100MHZ)) {
+		writel_relaxed(msm_host->regs_restore.dll_config2,
+			host->ioaddr + msm_offset->core_dll_config_2);
+		writel_relaxed(msm_host->regs_restore.dll_config3,
+			host->ioaddr + msm_offset->core_dll_config_3);
+		writel_relaxed(msm_host->regs_restore.dll_usr_ctl,
+			host->ioaddr + msm_offset->core_dll_usr_ctl);
+		writel_relaxed(msm_host->regs_restore.dll_config &
+			~(CORE_DLL_RST | CORE_DLL_PDN),
+			host->ioaddr + msm_offset->core_dll_config);
+
+		msm_init_cm_dll(host, DLL_INIT_FROM_CX_COLLAPSE_EXIT);
+		msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
+	}
+
+	pr_debug("%s: %s: registers restored. PWRCTL_MASK = 0x%x\n",
+		mmc_hostname(host->mmc), __func__,
+		readl_relaxed(host->ioaddr +
+			msm_offset->core_pwrctl_mask));
 }
 
 /*
@@ -2187,6 +2416,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	u8 core_major;
 	const struct sdhci_msm_offset *msm_offset;
 	const struct sdhci_msm_variant_info *var_info;
+	struct device *dev = &pdev->dev;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_msm_pdata, sizeof(*msm_host));
 	if (IS_ERR(host))
@@ -2220,6 +2450,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->saved_tuning_phase = INVALID_TUNING_PHASE;
 
 	sdhci_msm_dt_parse_hsr_info(&pdev->dev, msm_host);
+
+	msm_host->regs_restore.is_supported =
+		of_property_read_bool(dev->of_node,
+			"qcom,restore-after-cx-collapse");
 
 	/* Setup SDCC bus voter clock. */
 	msm_host->bus_clk = devm_clk_get(&pdev->dev, "bus");
@@ -2464,6 +2698,7 @@ static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 
+	sdhci_msm_registers_save(host);
 	clk_bulk_disable_unprepare(ARRAY_SIZE(msm_host->bulk_clks),
 				   msm_host->bulk_clks);
 	sdhci_msm_bus_voting(host, false);
@@ -2481,6 +2716,8 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 				       msm_host->bulk_clks);
 	if (ret)
 		return ret;
+
+	sdhci_msm_registers_restore(host);
 	/*
 	 * Whenever core-clock is gated dynamically, it's needed to
 	 * restore the SDR DLL settings when the clock is ungated.
