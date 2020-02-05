@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,12 @@
  * GNU General Public License for more details.
  */
 #include "sm6150-lpi.dtsi"
+
+/ {
+	aliases {
+		i2c7 = &qupv3_se8_i2c;
+	};
+};
 
 &soc {
 	tdm_pri_rx: qcom,msm-dai-tdm-pri-rx {
@@ -597,3 +603,6 @@
 	};
 };
 
+&qupv3_se8_i2c {
+	status = "ok";
+};
