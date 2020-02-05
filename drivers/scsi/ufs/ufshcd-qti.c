@@ -420,7 +420,7 @@ static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
 	.upthreshold = 70,
-	.downdifferential = 65,
+	.downdifferential = 5,
 };
 
 static void *gov_data = &ufshcd_ondemand_data;
@@ -1614,13 +1614,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		ufshcd_custom_cmd_log(hba, "Gear-scaled-down");
 	}
 
-	/* Enter hibern8 before scaling clocks */
-	ret = ufshcd_uic_hibern8_enter(hba);
-	if (ret)
-		/* link will be bad state so no need to scale_up_gear */
-		goto clk_scaling_unprepare;
-	ufshcd_custom_cmd_log(hba, "Hibern8-entered");
-
 	ret = ufshcd_scale_clks(hba, scale_up);
 	if (ret) {
 		dev_err(hba->dev, "%s: scaling %s clks failed %d\n", __func__,
@@ -1628,13 +1621,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		goto scale_up_gear;
 	}
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
-
-	/* Exit hibern8 after scaling clocks */
-	ret = ufshcd_uic_hibern8_exit(hba);
-	if (ret)
-		/* link will be bad state so no need to scale_up_gear */
-		goto clk_scaling_unprepare;
-	ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
 
 	/* scale up the gear after scaling up clocks */
 	if (scale_up) {
@@ -1658,8 +1644,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	goto clk_scaling_unprepare;
 
 scale_up_gear:
-	if (ufshcd_uic_hibern8_exit(hba))
-		goto clk_scaling_unprepare;
 	if (!scale_up)
 		ufshcd_scale_gear(hba, true);
 clk_scaling_unprepare:
@@ -1718,6 +1702,9 @@ static int ufshcd_devfreq_target(struct device *dev,
 	if (!ufshcd_is_clkscaling_supported(hba))
 		return -EINVAL;
 
+	clki = list_first_entry(&hba->clk_list_head, struct ufs_clk_info, list);
+	*freq = (unsigned long) clk_round_rate(clki->clk, *freq);
+
 	spin_lock_irqsave(hba->host->host_lock, irq_flags);
 	if (ufshcd_eh_in_progress(hba)) {
 		spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
@@ -1732,8 +1719,11 @@ static int ufshcd_devfreq_target(struct device *dev,
 		goto out;
 	}
 
-	clki = list_first_entry(&hba->clk_list_head, struct ufs_clk_info, list);
 	scale_up = (*freq == clki->max_freq) ? true : false;
+	if (scale_up)
+		*freq = clki->max_freq;
+	else
+		*freq = clki->min_freq;
 	if (!ufshcd_is_devfreq_scaling_required(hba, scale_up)) {
 		spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
 		ret = 0;
@@ -1762,6 +1752,8 @@ static int ufshcd_devfreq_get_dev_status(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	struct ufs_clk_scaling *scaling = &hba->clk_scaling;
 	unsigned long flags;
+	struct list_head *clk_list = &hba->clk_list_head;
+	struct ufs_clk_info *clki;
 
 	if (!ufshcd_is_clkscaling_supported(hba))
 		return -EINVAL;
@@ -1771,6 +1763,9 @@ static int ufshcd_devfreq_get_dev_status(struct device *dev,
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	if (!scaling->window_start_t)
 		goto start_window;
+
+	clki = list_first_entry(clk_list, struct ufs_clk_info, list);
+	stat->current_frequency = clki->curr_freq;
 
 	if (scaling->is_busy_started)
 		scaling->tot_busy_t += ktime_to_us(ktime_sub(ktime_get(),
@@ -1795,7 +1790,7 @@ start_window:
 }
 
 static struct devfreq_dev_profile ufs_devfreq_profile = {
-	.polling_ms = 100,
+	.polling_ms = 60,
 	.target = ufshcd_devfreq_target,
 	.get_dev_status = ufshcd_devfreq_get_dev_status,
 };
