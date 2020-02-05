@@ -338,8 +338,11 @@
 		"Digital Mic5", "VA MIC BIAS4";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec  = <&stub_codec>, <&bolero>,
+		      <&wcd938x_codec>,
+		      <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+			   "wcd938x_codec",
 			   "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa883x_0221>, <&wsa883x_0222>;
