@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa_wdi3.h>
@@ -38,6 +38,9 @@
 		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
 			OFFLOAD_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
+
+#define IPA_TX_MAX_INTF_PROP 2
+#define IPA_RX_MAX_INTF_PROP 2
 
 struct ipa_wdi_intf_info {
 	char netdev_name[IPA_RESOURCE_NAME_MAX];
@@ -183,8 +186,8 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 	struct ipa_wdi_intf_info *entry;
 	struct ipa_tx_intf tx;
 	struct ipa_rx_intf rx;
-	struct ipa_ioc_tx_intf_prop tx_prop[2];
-	struct ipa_ioc_rx_intf_prop rx_prop[2];
+	struct ipa_ioc_tx_intf_prop *tx_prop =  NULL;
+	struct ipa_ioc_rx_intf_prop *rx_prop = NULL;
 	u32 len;
 	int ret = 0;
 
@@ -243,10 +246,17 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 		hdr->hdr[IPA_IP_v4].hdr_hdl, hdr->hdr[IPA_IP_v6].hdr_hdl);
 
 	/* populate tx prop */
+	tx_prop = kmalloc(
+		sizeof(*tx_prop) * IPA_TX_MAX_INTF_PROP, GFP_KERNEL);
+	if (!tx_prop) {
+		IPAERR("failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto fail_commit_hdr;
+	}
 	tx.num_props = 2;
+	memset(tx_prop, 0, sizeof(*tx_prop));
 	tx.prop = tx_prop;
 
-	memset(tx_prop, 0, sizeof(tx_prop));
 	tx_prop[0].ip = IPA_IP_v4;
 	if (!ipa3_ctx->ipa_wdi3_over_gsi)
 		tx_prop[0].dst_pipe = IPA_CLIENT_WLAN1_CONS;
@@ -268,9 +278,16 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 		sizeof(tx_prop[1].hdr_name));
 
 	/* populate rx prop */
+	rx_prop = kmalloc(
+		sizeof(*rx_prop) * IPA_RX_MAX_INTF_PROP, GFP_KERNEL);
+	if (!rx_prop) {
+		IPAERR("failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto fail_commit_hdr;
+	}
 	rx.num_props = 2;
+	memset(rx_prop, 0, sizeof(*rx_prop));
 	rx.prop = rx_prop;
-	memset(rx_prop, 0, sizeof(rx_prop));
 	rx_prop[0].ip = IPA_IP_v4;
 	if (!ipa3_ctx->ipa_wdi3_over_gsi)
 		rx_prop[0].src_pipe = IPA_CLIENT_WLAN1_PROD;
@@ -305,11 +322,16 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 	init_completion(&ipa_wdi_ctx->wdi_completion);
 
 	kfree(hdr);
+	kfree(tx_prop);
+	kfree(rx_prop);
+
 	mutex_unlock(&ipa_wdi_ctx->lock);
 	return 0;
 
 fail_commit_hdr:
 	kfree(hdr);
+	kfree(tx_prop);
+	kfree(rx_prop);
 fail_alloc_hdr:
 	kfree(new_intf);
 	mutex_unlock(&ipa_wdi_ctx->lock);
