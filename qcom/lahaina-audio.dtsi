@@ -9,7 +9,8 @@
 &audio_apr {
 	q6core: qcom,q6core-audio {
 		compatible = "qcom,q6core-audio";
-
+		#address-cells = <1>;
+		#size-cells = <1>;
 		lpass_core_hw_vote: vote_lpass_core_hw {
 			compatible = "qcom,audio-ref-clk";
 			qcom,codec-ext-clk-src = <AUDIO_LPASS_CORE_HW_VOTE>;
@@ -20,6 +21,34 @@
 			compatible = "qcom,audio-ref-clk";
 			qcom,codec-ext-clk-src = <AUDIO_LPASS_AUDIO_HW_VOTE>;
 			#clock-cells = <1>;
+		};
+
+		lpi_tlmm: lpi_pinctrl@33c0000 {
+			compatible = "qcom,lpi-pinctrl";
+			reg = <0x33c0000 0x0>;
+			qcom,slew-reg = <0x355a000 0x0>;
+			qcom,num-gpios = <15>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,
+					      <0x00002000>, <0x00003000>,
+					      <0x00004000>, <0x00005000>,
+					      <0x00006000>, <0x00007000>,
+					      <0x00008000>, <0x00009000>,
+					      <0x0000A000>, <0x0000B000>,
+					      <0x0000C000>, <0x0000D000>,
+					      <0x0000E000>;
+			qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
+						   <0x00000004>, <0x00000008>,
+						   <0x0000000A>, <0x0000000C>,
+						   <0x00000000>, <0x00000000>,
+						   <0x00000000>, <0x00000000>,
+						   <0x00000010>, <0x00000012>,
+						   <0x00000000>, <0x00000000>,
+						   <0x00000006>;
+
+			clock-names = "lpass_core_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>;
 		};
 
 		bolero: bolero-cdc {
@@ -152,7 +181,7 @@
 	};
 };
 
-&qupv3_se15_i2c {
+&qupv3_se13_i2c {
 	status = "ok";
 	fsa4480: fsa4480@43 {
 		compatible = "qcom,fsa4480-i2c";
