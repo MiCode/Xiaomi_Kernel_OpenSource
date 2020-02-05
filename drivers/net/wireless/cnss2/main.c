@@ -32,6 +32,7 @@
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
 #define COLD_BOOT_CAL_SHUTDOWN_DELAY_MS	50
+#define WLAN_WD_TIMEOUT_MS		60000
 
 #define CNSS_QUIRKS_DEFAULT		BIT(DISABLE_IO_COHERENCY)
 #ifdef CONFIG_CNSS_EMULATION
@@ -649,7 +650,8 @@ int cnss_idle_restart(struct device *dev)
 
 	timeout = cnss_get_boot_timeout(dev);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
-					  msecs_to_jiffies(timeout) << 2);
+					  msecs_to_jiffies((timeout << 1) +
+							   WLAN_WD_TIMEOUT_MS));
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for idle restart to complete\n");
 		ret = -ETIMEDOUT;
