@@ -583,7 +583,7 @@ static void update_step(u32 pm_qos_class, s32 src_mux_id)
 	s32 old_max_step;
 
 	if (!mmdvfs_enable || !mmdvfs_autok_enable) {
-		pr_notice("mmdvfs qos is disabled\n");
+		pr_notice("mmdvfs qos is disabled(%d)\n", pm_qos_class);
 		return;
 	}
 
@@ -2128,7 +2128,14 @@ MODULE_PARM_DESC(force_step, "force mmdvfs to specified step, -1 for unset");
 
 void mmdvfs_autok_qos_enable(bool enable)
 {
+	pr_notice("%s: step_size=%d current_max_step=%d\n",
+		__func__, step_size, current_max_step);
+	if (!enable && step_size > 0)
+		mmdvfs_qos_force_step(step_size - 1);
+
 	mmdvfs_autok_enable = enable;
+	if (enable && step_size > 0)
+		mmdvfs_qos_force_step(-1);
 	pr_notice("mmdvfs_autok enabled? %d\n", enable);
 }
 EXPORT_SYMBOL_GPL(mmdvfs_autok_qos_enable);
