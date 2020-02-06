@@ -16,6 +16,10 @@
 
 #include "apusys_power_user.h"
 
+struct profiling_timestamp {
+	u64 begin;
+	u64 end;
+};
 
 /******************************************************
  * for apusys power platform device API
@@ -46,6 +50,6 @@ extern void apu_power_reg_dump(void);
 extern int apu_power_power_stress(int type, int device, int opp);
 extern bool apusys_power_check(void);
 extern void apu_set_vcore_boost(bool enable);
-
+void apu_profiling(struct profiling_timestamp *profile, const char *tag);
 
 #endif

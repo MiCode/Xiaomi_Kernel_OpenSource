@@ -81,6 +81,5 @@ enum {
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 
-#endif
-
-#endif
+#endif /* BUILD_POLICY_TEST */
+#endif /* _APU_LOG_H_ */

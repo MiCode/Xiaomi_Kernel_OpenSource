@@ -16,8 +16,8 @@
 
 #include <linux/delay.h>
 #include <linux/types.h>
+#include <asm/div64.h>
 #include "apusys_power_user.h"
-
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
 #endif
@@ -39,6 +39,7 @@
 #define BINNING_VOLTAGE_SUPPORT (1)
 #define SUPPORT_HW_CONTROL_PMIC	(1)
 #define TIME_PROFILING		(0)
+#define APUSYS_SETTLE_TIME_TEST (0)
 
 #define APUSYS_MAX_NUM_OPPS                (6)
 #define APUSYS_PATH_USER_NUM               (3)   // num of DVFS_XXX_PATH
@@ -72,7 +73,6 @@
 #define VSRAM_TRANS_VOLT	DVFS_VOLT_00_750000_V
 #define VSRAM_LOW_VOLT		DVFS_VOLT_00_750000_V
 #define VSRAM_HIGH_VOLT		DVFS_VOLT_00_850000_V
-
 
 enum SEGMENT_INFO {
 	SEGMENT_0 = 0,	// 5G_A++(defalut)
@@ -169,4 +169,5 @@ static inline void task_debounce(void)
 	msleep_interruptible(20);
 }
 #endif
+
 #endif

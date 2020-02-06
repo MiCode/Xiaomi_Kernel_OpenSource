@@ -35,6 +35,7 @@
 #include "pmic_api_buck.h"
 #include "apusys_power_rule_check.h"
 #include "apusys_dbg.h"
+#include "apusys_power.h"
 
 int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
 int g_pm_procedure;
@@ -43,25 +44,6 @@ static int apu_power_counter;
 static int apusys_power_broken;
 static uint64_t power_info_id;
 static uint8_t power_info_force_print;
-
-#if TIME_PROFILING
-struct profiling_timestamp {
-	uint64_t begin;
-	uint64_t end;
-};
-
-static void time_profiling(uint64_t begin, uint64_t end, const char *tag)
-{
-	uint64_t time = 0;
-	uint32_t nanosec = 0;
-
-	time = end - begin;
-	nanosec = do_div(time, 1000000000);
-
-	LOG_ERR("%s: %s take %lu (us)\n", __func__, tag,
-				((unsigned long)nanosec / 1000));
-}
-#endif
 
 bool apusys_power_check(void)
 {
@@ -358,8 +340,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 	} else {
 #if TIME_PROFILING
 		power_profiling.end = sched_clock();
-		time_profiling(power_profiling.begin,
-				power_profiling.end, __func__);
+		apu_profiling(&power_profiling, __func__);
 #endif
 		return 0;
 	}
@@ -448,8 +429,7 @@ int apu_device_power_on(enum DVFS_USER user)
 	} else {
 #if TIME_PROFILING
 		power_profiling.end = sched_clock();
-		time_profiling(power_profiling.begin,
-				power_profiling.end, __func__);
+		apu_profiling(&power_profiling, __func__);
 #endif
 		return 0;
 	}
@@ -673,6 +653,27 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 #endif
 }
 EXPORT_SYMBOL(apu_device_set_opp);
+
+/**
+ * apu_profiling() - Brief description of apu_profiling.
+ * @profile: struct profiling_timestamp with begin/end timestamp.
+ * @tag: the string need to print prefix.
+ *
+ * Calcualte abs(end-begin) and show result in unit of us with "tag" prefix.
+ *
+ * Return: void
+ **/
+void apu_profiling(struct profiling_timestamp *profile, const char *tag)
+{
+	u64 nanosec = 0;
+	u64 time = 0;
+
+	time = abs(profile->end - profile->end),
+	nanosec = do_div(time, 1000000000);
+	pr_info("%s: %s take %lu (us)\n", __func__, tag,
+		((unsigned long)nanosec / 1000));
+}
+EXPORT_SYMBOL(apu_profiling);
 
 void event_trigger_dvfs_policy(void)
 {
