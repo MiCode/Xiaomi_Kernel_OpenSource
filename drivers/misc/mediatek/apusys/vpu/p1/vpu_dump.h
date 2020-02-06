@@ -14,21 +14,12 @@
 #ifndef __VPU_DUMP_H__
 #define __VPU_DUMP_H__
 
-#include "vpu_cmn.h"
+#include "vpu_cfg.h"
+#include "vpu_ioctl.h"
+#include "vpu_algo.h"
+#include "vpu_cmd.h"
 
-#define VPU_DMP_RESET_SZ  0x400
-#define VPU_DMP_MAIN_SZ   0x40000  // 256 KB
-#define VPU_DMP_KERNEL_SZ 0x20000  // 128 KB
-#define VPU_DMP_IRAM_SZ   0x10000  // 64 KB
-#define VPU_DMP_WORK_SZ   0x2000   // 8 KB
-#define VPU_DMP_REG_SZ    0x1000   // 4 KB
-#define VPU_DMP_IMEM_SZ   0x30000  // 192 KB
-#define VPU_DMP_DMEM_SZ   0x40000  // 256 KB
-
-#define VPU_DMP_REG_CNT_INFO 32
-#define VPU_DMP_REG_CNT_DBG 8
-
-#define VPU_DMP_INFO_SZ 128
+struct vpu_device;
 
 struct vpu_dmp {
 	// general info
@@ -38,15 +29,23 @@ struct vpu_dmp {
 
 	// device
 	int vd_state;
-	struct vpu_algo vd_algo_curr;
+	uint32_t vd_dev_state;
 
 	// registers
 	uint32_t r_info[VPU_DMP_REG_CNT_INFO];
 	uint32_t r_dbg[VPU_DMP_REG_CNT_DBG];
+	uint32_t r_mbox[VPU_DMP_REG_CNT_MBOX];
 	uint32_t r_CG_CON;
 	uint32_t r_SW_RST;
 	uint32_t r_DONE_ST;
 	uint32_t r_CTRL;
+
+	// command
+	struct vpu_cmd_ctl c_ctl[VPU_MAX_PRIORITY];
+	struct __vpu_algo c_alg[VPU_MAX_PRIORITY];
+	int c_prio;
+	int c_prio_max;
+	uint64_t c_timeout;
 
 	// memory
 	uint8_t m_reset[VPU_DMP_RESET_SZ];
@@ -57,6 +56,10 @@ struct vpu_dmp {
 	uint8_t m_reg[VPU_DMP_REG_SZ];
 	uint8_t m_imem[VPU_DMP_IMEM_SZ];
 	uint8_t m_dmem[VPU_DMP_DMEM_SZ];
+#if VPU_XOS
+	uint8_t m_pl_algo[VPU_MAX_PRIORITY][VPU_DMP_PRELOAD_SZ];
+	uint8_t m_pl_iram[VPU_MAX_PRIORITY][VPU_DMP_IRAM_SZ];
+#endif
 };
 
 #ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
@@ -71,25 +74,21 @@ void vpu_dmp_seq(struct seq_file *s);
 
 #define vpu_dmp_create(vd, req, fmt, args...) do { \
 		pr_info("%s: vpu_dmp_create\n", __func__); \
-		mutex_lock(&vd->lock); \
-		mutex_lock(&vd->cmd_lock); \
+		vpu_cmd_lock_all(vd); \
 		if (!vpu_pwr_get_locked_nb(vd)) { \
 			if (!vpu_dev_boot(vd)) { \
 				vpu_dmp_create_locked(vd, req, fmt, ##args); \
 			} \
 			vpu_pwr_put_locked(vd); \
 		} \
-		mutex_unlock(&vd->cmd_lock); \
-		mutex_unlock(&vd->lock); \
+		vpu_cmd_unlock_all(vd); \
 	} while (0)
 
 #define vpu_dmp_free(vd) do { \
 		pr_info("%s: vpu_dmp_free\n", __func__); \
-		mutex_lock(&vd->lock); \
-		mutex_lock(&vd->cmd_lock); \
+		vpu_cmd_lock_all(vd); \
 		vpu_dmp_free_locked(vd); \
-		mutex_unlock(&vd->cmd_lock); \
-		mutex_unlock(&vd->lock); \
+		vpu_cmd_unlock_all(vd); \
 	} while (0)
 
 #else

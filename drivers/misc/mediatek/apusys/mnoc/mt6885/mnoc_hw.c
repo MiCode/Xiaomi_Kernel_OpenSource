@@ -183,10 +183,12 @@ int apusys_dev_to_core_id(int dev_type, int dev_core)
 
 	switch (dev_type) {
 	case APUSYS_DEVICE_VPU:
+	case APUSYS_DEVICE_VPU_RT:
 		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_VPU)
 			ret = dev_core;
 		break;
 	case APUSYS_DEVICE_MDLA:
+	case APUSYS_DEVICE_MDLA_RT:
 		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_MDLA)
 			ret = NR_APU_ENGINE_VPU + dev_core;
 		break;
@@ -196,6 +198,7 @@ int apusys_dev_to_core_id(int dev_type, int dev_core)
 		break;
 	/* for midware UT */
 	case APUSYS_DEVICE_SAMPLE:
+	case APUSYS_DEVICE_SAMPLE_RT:
 		ret = NR_APU_QOS_ENGINE;
 		break;
 	default:

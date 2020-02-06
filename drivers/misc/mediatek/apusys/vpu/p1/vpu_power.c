@@ -17,7 +17,9 @@
 #include "vpu_power.h"
 #include "vpu_debug.h"
 #include "vpu_algo.h"
+#include "vpu_cmd.h"
 #include "vpu_met.h"
+#include "vpu_hw.h"
 #include "apusys_power.h"
 
 static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend);
@@ -76,7 +78,7 @@ static void vpu_pwr_param(struct vpu_device *vd, uint8_t boost)
  * @vd: vpu device
  * @boost: boost value: 0~100, given from vpu_request
  *
- * 1. vd->lock or vd->cmd_lock must be locked before calling this function
+ * 1. vd->lock and vpu_cmd_lock() must be locked before calling this function
  * 2. Must paired with vpu_pwr_put_locked()
  */
 int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
@@ -123,8 +125,11 @@ err:
  * vpu_pwr_put_locked() - decrease power reference
  * @vd: vpu device
  *
- * 1. vd->lock or vd->cmd_lock must be locked before calling this function
- * 2. Must paired with vpu_pwr_get_locked()
+ * 1. Must paired with vpu_pwr_get_locked()
+ * 2. There's no need to acquire vd->lock or vpu_cmd_lock()
+ *    since the power off is done asynchronously by
+ *    vpu_pwr_off() when vd->pw_ref reaches zero,
+ *    and kref_put() itself is atomic.
  */
 void vpu_pwr_put_locked(struct vpu_device *vd)
 {
@@ -144,7 +149,7 @@ void vpu_pwr_put_locked(struct vpu_device *vd)
  * @boost: boost value: 0~100, given from vpu_request
  * @off_timer: set power off timer (us), 0: always on
  *
- * vd->lock or vd->cmd_lock must be locked before calling this function
+ * vd->lock and vpu_cmd_lock() must be locked before calling this function
  */
 int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 {
@@ -170,7 +175,7 @@ int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
  * vpu_pwr_down_ext_locked() - unconditionally power down VPU
  * @vd: vpu device
  * @suspend: 0: normal power off flow, 1: suspend power off flow
- * vd->lock or vd->cmd_lock must be locked before calling this function
+ * vd->lock and vpu_cmd_lock() must be locked before calling this function
  */
 static void vpu_pwr_down_ext_locked(struct vpu_device *vd, int suspend)
 {
@@ -188,7 +193,7 @@ static void vpu_pwr_down_ext_locked(struct vpu_device *vd, int suspend)
  * vpu_pwr_down_locked() - unconditionally power down VPU
  * @vd: vpu device
  *
- * vd->lock or vd->cmd_lock must be locked before calling this function
+ * vd->lock and vpu_cmd_lock() must be locked before calling this function
  */
 void vpu_pwr_down_locked(struct vpu_device *vd)
 {
@@ -199,7 +204,7 @@ void vpu_pwr_down_locked(struct vpu_device *vd)
  * vpu_pwr_suspend_locked() - power down VPU when suspend
  * @vd: vpu device
  *
- * vd->lock or vd->cmd_lock must be locked before calling this function
+ * vd->lock and vpu_cmd_lock() must be locked before calling this function
  */
 void vpu_pwr_suspend_locked(struct vpu_device *vd)
 {
@@ -217,11 +222,9 @@ int vpu_pwr_up(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 {
 	int ret;
 
-	mutex_lock(&vd->lock);
-	mutex_lock(&vd->cmd_lock);
+	vpu_cmd_lock_all(vd);
 	ret = vpu_pwr_up_locked(vd, boost, off_timer);
-	mutex_unlock(&vd->cmd_lock);
-	mutex_unlock(&vd->lock);
+	vpu_cmd_unlock_all(vd);
 	return ret;
 }
 
@@ -232,11 +235,9 @@ int vpu_pwr_up(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
  */
 void vpu_pwr_down(struct vpu_device *vd)
 {
-	mutex_lock(&vd->lock);
-	mutex_lock(&vd->cmd_lock);
+	vpu_cmd_lock_all(vd);
 	vpu_pwr_down_locked(vd);
-	mutex_unlock(&vd->cmd_lock);
-	mutex_unlock(&vd->lock);
+	vpu_cmd_unlock_all(vd);
 }
 
 static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
@@ -244,7 +245,12 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 	int ret;
 	int adu_id = adu(vd->id);
 
-	vpu_alg_unload(vd);
+	if (vd->aln.ops && vd->aln.ops->unload_all)
+		vd->aln.ops->unload_all(&vd->aln);
+
+	if (vd->alp.ops && vd->alp.ops->unload_all)
+		vd->alp.ops->unload_all(&vd->alp);
+
 	vpu_met_pm_put(vd);
 
 	if (vd->state <= VS_DOWN) {
@@ -262,6 +268,11 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 			__func__, vd->id, adu_id, suspend, ret);
 
 	vd->state = VS_DOWN;
+
+	/* Unlock xos_lock, in case the the lock is still hold by us.
+	 * Other xos_lock requesters will get -EAGAIN at VS_DOWN state.
+	 */
+	vpu_xos_unlock(vd);
 }
 
 static void vpu_pwr_off(struct work_struct *work)
@@ -269,11 +280,9 @@ static void vpu_pwr_off(struct work_struct *work)
 	struct vpu_device *vd
 		= container_of(work, struct vpu_device, pw_off_work.work);
 
-	mutex_lock(&vd->lock);
-	mutex_lock(&vd->cmd_lock);
+	vpu_cmd_lock_all(vd);
 	vpu_pwr_off_locked(vd, /* suspend */ 0);
-	mutex_unlock(&vd->cmd_lock);
-	mutex_unlock(&vd->lock);
+	vpu_cmd_unlock_all(vd);
 	wake_up_interruptible(&vd->pw_wait);
 }
 

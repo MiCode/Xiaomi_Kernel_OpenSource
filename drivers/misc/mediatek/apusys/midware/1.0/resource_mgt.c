@@ -169,10 +169,8 @@ int res_get_device_num(int dev_type)
 	struct apusys_res_table *tab = NULL;
 
 	tab = res_get_table(dev_type);
-	if (tab == NULL) {
-		LOG_ERR("no device(%d) available\n", dev_type);
+	if (tab == NULL)
 		return 0;
-	}
 
 	return tab->dev_num;
 }
@@ -429,8 +427,15 @@ int put_device_lock(struct apusys_dev_info *dev_info)
 int acq_device_try(struct apusys_dev_aquire *acq)
 {
 	struct apusys_res_table *tab = NULL;
+	struct apusys_res_table *tmp_tab = NULL;
+
 	unsigned long bit_idx = 0, idx = 0;
+	unsigned long first_bit_idx = 0;
+	unsigned long next_bit_idx = 0;
+
 	int ret_num = 0, i = 0;
+	unsigned long dev_status[BITS_TO_LONGS(APUSYS_DEV_TABLE_MAX)];
+
 
 	/* check arguments */
 	if (acq == NULL || acq->target_num > APUSYS_DEV_TABLE_MAX) {
@@ -449,6 +454,30 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 		return -EINVAL;
 	}
 
+	ret_num = acq->target_num < tab->available_num
+		? acq->target_num : tab->available_num;
+
+
+	bitmap_copy(dev_status, tab->dev_status, APUSYS_DEVICE_MAX);
+
+	if (ret_num == 1) {
+		first_bit_idx = tab->dev_num;
+		if (acq->dev_type > APUSYS_DEVICE_RT)
+			tmp_tab =
+			  res_get_table(acq->dev_type - APUSYS_DEVICE_RT);
+		else
+			tmp_tab =
+			  res_get_table(acq->dev_type + APUSYS_DEVICE_RT);
+
+		if (tmp_tab)
+			bitmap_or(dev_status, tab->dev_status,
+			tmp_tab->dev_status, APUSYS_DEVICE_MAX);
+		first_bit_idx = find_first_zero_bit(dev_status, tab->dev_num);
+		if (first_bit_idx >= tab->dev_num)
+			bitmap_copy(dev_status,
+				tab->dev_status, APUSYS_DEVICE_MAX);
+	}
+
 	/* check dev num */
 	if (acq->target_num > tab->dev_num) {
 		LOG_ERR("alloc wrong num(%d/%d) device(%d)\n",
@@ -457,13 +486,23 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 	}
 
 	/* get idle device from bitmap */
-	ret_num = acq->target_num < tab->available_num
-		? acq->target_num : tab->available_num;
 	LOG_DEBUG("allocate device(%d) (%d/%d/%d)\n",
 		acq->dev_type, acq->target_num,
 		tab->available_num, tab->dev_num);
 	for (i = 0; i < ret_num; i++) {
-		bit_idx = find_first_zero_bit(tab->dev_status, tab->dev_num);
+		bit_idx = find_first_zero_bit(dev_status, tab->dev_num);
+
+		/* Avoid to preempt the same core */
+		if (tab->dev_type > APUSYS_DEVICE_RT) {
+			if (tab->last_idx == bit_idx) {
+				next_bit_idx = find_next_zero_bit(
+				dev_status, tab->dev_num, bit_idx + 1);
+				if (next_bit_idx < tab->dev_num)
+					bit_idx = next_bit_idx;
+			}
+			tab->last_idx = bit_idx;
+		}
+
 		LOG_DEBUG("dev(%d) idx(%lu/%u) available\n",
 			acq->dev_type, bit_idx, tab->dev_num);
 		if (bit_idx < tab->dev_num) {
@@ -471,6 +510,7 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 				&acq->dev_info_list);
 			tab->dev_list[bit_idx].cur_owner = acq->owner;
 			bitmap_set(tab->dev_status, bit_idx, 1);
+			bitmap_set(dev_status, bit_idx, 1);
 			tab->available_num--;
 
 			acq->acq_num++;
@@ -574,7 +614,9 @@ int acq_device_cancel(struct apusys_dev_aquire *acq)
 int acq_device_async(struct apusys_dev_aquire *acq)
 {
 	struct apusys_res_table *tab = NULL;
+	struct apusys_res_table *tmp_tab = NULL;
 	int i = 0, bit_idx = 0, num = 0;
+	unsigned long dev_status[BITS_TO_LONGS(APUSYS_DEV_TABLE_MAX)];
 
 	if (acq == NULL)
 		return -EINVAL;
@@ -589,6 +631,28 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 			acq->target_num,
 			acq->acq_num);
 		return -EINVAL;
+	}
+
+	num = tab->available_num < (acq->target_num-acq->acq_num)
+		? tab->available_num : (acq->target_num-acq->acq_num);
+
+	bitmap_copy(dev_status, tab->dev_status, APUSYS_DEVICE_MAX);
+
+	if (num == 1) {
+		if (acq->dev_type > APUSYS_DEVICE_RT)
+			tmp_tab =
+			res_get_table(acq->dev_type - APUSYS_DEVICE_RT);
+		else
+			tmp_tab =
+			res_get_table(acq->dev_type + APUSYS_DEVICE_RT);
+
+		if (tmp_tab)
+			bitmap_or(dev_status, tab->dev_status,
+				tmp_tab->dev_status, APUSYS_DEVICE_MAX);
+		bit_idx = find_first_zero_bit(dev_status, tab->dev_num);
+		if (bit_idx >= tab->dev_num)
+			bitmap_copy(dev_status,
+				tab->dev_status, APUSYS_DEVICE_MAX);
 	}
 
 	/* check dev num */
@@ -606,10 +670,8 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 	DEBUG_TAG;
 
 	/* device table's available device is more than acquire target num */
-	num = tab->available_num < (acq->target_num-acq->acq_num)
-		? tab->available_num : (acq->target_num-acq->acq_num);
 	for (i = 0; i < num; i++) {
-		bit_idx = find_first_zero_bit(tab->dev_status, tab->dev_num);
+		bit_idx = find_first_zero_bit(dev_status, tab->dev_num);
 		LOG_DEBUG("dev(%d-#%d/%u) available\n",
 			acq->dev_type, bit_idx, tab->dev_num);
 		if (bit_idx < tab->dev_num) {
@@ -617,6 +679,7 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 			list_add_tail(&tab->dev_list[bit_idx].acq_list,
 				&acq->dev_info_list);
 			bitmap_set(tab->dev_status, bit_idx, 1);
+			bitmap_set(dev_status, bit_idx, 1);
 			tab->dev_list[bit_idx].cur_owner = acq->owner;
 			tab->available_num--;
 

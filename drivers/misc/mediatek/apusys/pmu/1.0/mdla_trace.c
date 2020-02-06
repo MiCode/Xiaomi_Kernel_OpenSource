@@ -284,7 +284,9 @@ static int mdla_profile_timer_stop(u32 mdlaid, int wait)
 int mdla_profile_start(u32 mdlaid)
 {
 	mdla_trace_core_set(mdlaid);
+#ifndef __APUSYS_PREEMPTION__
 	pmu_reset(mdlaid);
+#endif
 	if (!cfg_timer_en)
 		return 0;
 	if (!mdla_devices[mdlaid].timer_started) {

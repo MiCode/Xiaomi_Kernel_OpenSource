@@ -22,7 +22,6 @@
 
 #define MAX_BOOST (100)
 
-static bool first_boot = true;
 struct dentry *apusys_dbg_deadline;
 static u64 exp_decay_interval = 100;/* ms */
 
@@ -83,8 +82,12 @@ static void deadline_load_tracing(struct work_struct *data)
 int deadline_queue_init(int type)
 {
 	struct dentry *tmp;
+	struct apusys_res_table *normal_tab;
 	struct apusys_res_table *tab = res_get_table(type);
 	struct deadline_root *root = &tab->deadline_q;
+
+	if (type < APUSYS_DEVICE_RT)
+		return 0;
 
 	root->root = RB_ROOT_CACHED;
 	root->total_period = 0;
@@ -99,25 +102,25 @@ int deadline_queue_init(int type)
 	mutex_init(&root->lock);
 	INIT_DELAYED_WORK(&root->work, deadline_load_tracing);
 
-	if (first_boot) {
-		apusys_dbg_deadline =
-			debugfs_create_dir("deadline", apusys_dbg_root);
-		debugfs_create_u64("exp_decay_interval",
-			0644, apusys_dbg_deadline, &exp_decay_interval);
-		debugfs_create_u64("exp_decay_factor_0",
-			0644, apusys_dbg_deadline, &exp_decay_factor[0]);
-		debugfs_create_u64("exp_decay_factor_1",
-			0644, apusys_dbg_deadline, &exp_decay_factor[1]);
-		debugfs_create_u64("exp_decay_factor_2",
-			0644, apusys_dbg_deadline, &exp_decay_factor[2]);
-		debugfs_create_u64("exp_decay_base",
-			0644, apusys_dbg_deadline, &exp_decay_base);
-		debugfs_create_u64("exp_boost_threshold",
-			0644, apusys_dbg_deadline, &exp_boost_threshold);
-		first_boot = false;
-	}
 
-	tmp = tab->dbg_dir;
+	apusys_dbg_deadline =
+		debugfs_create_dir("deadline", apusys_dbg_root);
+	debugfs_create_u64("exp_decay_interval",
+		0644, apusys_dbg_deadline, &exp_decay_interval);
+	debugfs_create_u64("exp_decay_factor_0",
+		0644, apusys_dbg_deadline, &exp_decay_factor[0]);
+	debugfs_create_u64("exp_decay_factor_1",
+		0644, apusys_dbg_deadline, &exp_decay_factor[1]);
+	debugfs_create_u64("exp_decay_factor_2",
+		0644, apusys_dbg_deadline, &exp_decay_factor[2]);
+	debugfs_create_u64("exp_decay_base",
+		0644, apusys_dbg_deadline, &exp_decay_base);
+	debugfs_create_u64("exp_boost_threshold",
+		0644, apusys_dbg_deadline, &exp_boost_threshold);
+
+
+	normal_tab = res_get_table(type - APUSYS_DEVICE_RT);
+	tmp = normal_tab->dbg_dir;
 
 	debugfs_create_bool("load_boost", 0444, tmp, &root->load_boost);
 	debugfs_create_bool("trace_boost", 0444, tmp, &root->trace_boost);
@@ -184,6 +187,9 @@ struct apusys_subcmd *deadline_task_pop(int type)
 	struct apusys_res_table *tab = res_get_table(type);
 	struct deadline_root *root = &tab->deadline_q;
 
+	if (type < APUSYS_DEVICE_RT)
+		return NULL;
+
 	mutex_lock(&root->lock);
 	node = rb_first_cached(&root->root);
 	if (node) {
@@ -225,8 +231,18 @@ int deadline_task_start(struct apusys_subcmd *sc)
 	tab = res_get_table(sc->type);
 	root = &tab->deadline_q;
 
-	if (sc->period == 0 || tab == NULL) /* Not a deadline task*/
+	if (sc->period == 0 || tab == NULL) {/* Not a deadline task*/
+		struct deadline_root *rt_root;
+		struct apusys_res_table *rt_tab;
+
+		if (sc->type < APUSYS_DEVICE_RT) {
+			rt_tab = res_get_table(sc->type + APUSYS_DEVICE_RT);
+			rt_root = &rt_tab->deadline_q;
+			if (rt_tab != NULL && rt_root->need_timer)
+				sc->cluster_size = INT_MAX;
+		}
 		return 0;
+	}
 
 
 	mutex_lock(&root->lock);

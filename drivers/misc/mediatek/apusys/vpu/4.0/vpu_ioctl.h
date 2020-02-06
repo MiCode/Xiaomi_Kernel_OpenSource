@@ -236,6 +236,11 @@ struct vpu_algo {
 
 	uint32_t len;     /* binary length */
 	uint64_t mva;     /* mapped mva address to the binary */
+
+	/* preload algo */
+	uint32_t entry_off;  /* algo entry offset */
+	uint32_t iram_len;   /* iram data length */
+	uint64_t iram_mva;   /* iram data iova */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -329,6 +334,8 @@ enum vpu_req_status {
 
 #define VPU_REQ_F_ALG_RELOAD 0x1LL  /* reload algo */
 #define VPU_REQ_F_ALG_CUSTOM 0x2LL  /* use the given algo at priv */
+#define VPU_REQ_F_ALG_PRELOAD 0x4LL  /* using preloaded algo */
+#define VPU_REQ_F_PREEMPT_TEST 0x8LL  /* preempt test mode */
 
 /* 3 prioritys of req */
 #define VPU_REQ_MAX_NUM_PRIORITY 21
@@ -348,6 +355,8 @@ struct vpu_request {
 	uint64_t buf_ion_infos[VPU_MAX_NUM_PORTS * 3];
 	struct vpu_power power_param;
 	uint64_t busy_time;      /* ns */
+	int prio;  /* exection priority assigned by driver */
+	uint32_t algo_ret;       /* algorithm return value */
 };
 
 struct vpu_status {
@@ -363,7 +372,7 @@ struct vpu_dev_debug_info {
 	pid_t open_tgid;
 };
 
-enum VPU_OPP_PRIORIYY {  // TODO: move to power headers
+enum VPU_OPP_PRIORIYY {
 	DEBUG = 0,
 	THERMAL = 1,
 	POWER_HAL = 2,

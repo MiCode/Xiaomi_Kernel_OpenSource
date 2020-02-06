@@ -747,6 +747,10 @@ void apusys_dvfs_info(void)
 		apusys_opps.st[div].begin = sched_clock();
 	}
 #endif
+	// debug ring buffer
+	LOG_DUMP("APUPWR DVFS %s\n", log_str);
+	LOG_DUMP("APUPWR DVFS %s\n", logv_str);
+	LOG_DUMP("APUPWR DVFS %s\n", logf_str);
 }
 
 

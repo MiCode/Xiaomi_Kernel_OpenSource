@@ -285,7 +285,6 @@ void mdla_reset(int core, int res)
 
 }
 
-
 irqreturn_t mdla_interrupt(u32 mdlaid)
 {
 	//FIXME: h/w reg need support MDLA 1.5 & dual core
@@ -297,7 +296,7 @@ irqreturn_t mdla_interrupt(u32 mdlaid)
 	/*Toggle for Latch Fin1 Tile ID*/
 	mdla_reg_read_with_mdlaid(mdlaid, MREG_TOP_G_FIN0);
 	id = mdla_reg_read_with_mdlaid(mdlaid, MREG_TOP_G_FIN3);
-	pmu_reg_save(mdlaid);//pmu need refine for multi core
+	pmu_reg_save(mdlaid, 0);//pmu need refine for multi core
 
 	mdla_devices[mdlaid].max_cmd_id = id;
 
@@ -393,6 +392,10 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	//TODO fix it for multicore
 	/* Issue command */
 	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
+	/* reset pmu */
+	pmu_reset(core_id);
+	/* set pmu register */
+	pmu_event_write_all(core_id, (u16)ce->cmd_batch_en);
 	ce->state = CE_RUN;
 	mdla_reg_write_with_mdlaid(core_id, addr, MREG_TOP_G_CDMA1);
 	mdla_reg_write_with_mdlaid(core_id, count, MREG_TOP_G_CDMA2);
@@ -404,7 +407,6 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	return ret;
 }
 #endif
-
 
 int mdla_run_command_codebuf_check(struct command_entry *ce)
 {
@@ -437,8 +439,136 @@ int mdla_run_command_codebuf_check(struct command_entry *ce)
 	return 0;
 }
 
-
 #ifdef __APUSYS_PREEMPTION__
+static inline u32 mdla_get_swcmd(void *base_kva, u32 offset)
+{
+	return (*(u32 *)(base_kva + offset));
+}
+
+static inline void mdla_set_swcmd(void *base_kva, u32 offset, u32 val)
+{
+	(*(u32 *)(base_kva + offset)) = val;
+}
+
+//cid, which cmd id layer end bit do you want to get
+static inline bool mdla_is_layer_end(void *base_kva, u32 cid)
+{
+	return (mdla_get_swcmd(base_kva + (cid - 1) * MREG_CMD_SIZE,
+			       MREG_CMD_GENERAL_CTRL_0)
+			       & MSK_MREG_CMD_LAYER_END);
+}
+
+//cid, which cmd id wait bit do you want to clear
+static inline void mdla_clear_swcmd_wait_bit(void *base_kva, u32 cid)
+{
+	void *cmd_kva = base_kva + (cid - 1) * MREG_CMD_SIZE;
+
+	mdla_set_swcmd(cmd_kva, MREG_CMD_GENERAL_CTRL_1,
+		       mdla_get_swcmd(cmd_kva, MREG_CMD_GENERAL_CTRL_1)
+			   & ~MSK_MREG_CMD_SWCMD_WAIT_SWCMDDONE);
+}
+
+//cid, which cmd id issue bit do you want to clear
+static inline void mdla_clear_swcmd_int_bit(void *base_kva, u32 cid)
+{
+	void *cmd_kva = base_kva + (cid - 1) * MREG_CMD_SIZE;
+
+	mdla_set_swcmd(cmd_kva, MREG_CMD_GENERAL_CTRL_1,
+		       mdla_get_swcmd(cmd_kva, MREG_CMD_GENERAL_CTRL_1)
+			   & ~MSK_MREG_CMD_SWCMD_INT_SWCMDDONE);
+}
+
+static inline void mdla_set_swcmd_done_int(void *base_kva, u32 cid)
+{
+	void *cmd_kva = base_kva + (cid - 1) * MREG_CMD_SIZE;
+
+	mdla_set_swcmd(cmd_kva, MREG_CMD_TILE_CNT_INT,
+		       mdla_get_swcmd(cmd_kva, MREG_CMD_TILE_CNT_INT)
+		       | MSK_MREG_CMD_SWCMD_FINISH_INT_EN);
+}
+
+void mdla_del_free_command_batch(struct command_entry *ce)
+{
+	struct command_batch *cb;
+	struct list_head *tmp, *next;
+
+	list_for_each_safe(tmp, next, ce->batch_list_head) {
+		cb = list_entry(tmp, struct command_batch, node);
+		list_del(&cb->node);
+		kfree(cb);
+	}
+	kfree(ce->batch_list_head);
+}
+
+void mdla_split_command_batch(struct command_entry *ce)
+{
+	size_t i, j;
+	u32 cur_batch_len = 0;
+	u32 batch_tail_id = 0;
+	u32 batch_size = ce->cmd_batch_size;
+	u32 cmd_count = ce->count;
+	struct command_batch *cb;
+	struct list_head *tmp, *next;
+
+	// if the command list is resumed, do nothing
+	if (!list_empty(ce->batch_list_head))
+		return;
+	if (ce->cmd_batch_size >= ce->count)
+		return;
+	if (unlikely(ce->cmdbuf == NULL))
+		return;
+	apusys_mem_invalidate(ce->cmdbuf);
+	// TODO: add default policy when batch_size is zero
+	for (i = 1; i <= cmd_count; cur_batch_len = 0) {
+		for (j = i; j <= cmd_count; ++j) {
+			cur_batch_len++;
+			if (cur_batch_len >= batch_size &&
+			    mdla_is_layer_end(ce->kva, j))
+				break;
+		}
+
+		// allocate one command batch
+		cb = kzalloc(sizeof(*cb), GFP_KERNEL);
+		if (!cb)
+			return;
+
+		cb->index = i;// first cmd id
+		cb->size = cur_batch_len;
+		batch_tail_id = i + cur_batch_len - 1;// Last cmd id
+		list_add_tail(&cb->node, ce->batch_list_head);
+		// encode SWCMD DONE
+		mdla_set_swcmd_done_int(ce->kva, batch_tail_id);
+
+		// handle first cmd wait bit and check fuse cmd
+		mdla_clear_swcmd_wait_bit(ce->kva, cb->index);
+		if (batch_tail_id > cb->index &&
+			!mdla_is_layer_end(ce->kva, cb->index)) {
+			mdla_clear_swcmd_wait_bit(ce->kva, cb->index + 1);
+		}
+		// encode the previous layer if that is fused with tail
+		mdla_clear_swcmd_int_bit(ce->kva, batch_tail_id);
+		if (batch_tail_id > 1 &&
+			!mdla_is_layer_end(ce->kva, batch_tail_id - 1)) {
+			mdla_set_swcmd_done_int(ce->kva, batch_tail_id - 1);
+			mdla_clear_swcmd_int_bit(ce->kva, batch_tail_id - 1);
+		}
+		i += cur_batch_len;
+	}
+
+	// buffer sync here
+	if (likely(ce->cmdbuf != NULL))
+		apusys_mem_flush(ce->cmdbuf);
+
+	if (likely(mdla_preemption_debug == 0))
+		return;
+	list_for_each_safe(tmp, next, ce->batch_list_head) {
+		cb = list_entry(tmp, struct command_batch, node);
+		mdla_cmd_debug("%s: id = %d, size = %d, tid = %d\n",
+			__func__, cb->index,
+			cb->size, cb->index + cb->size - 1);
+	}
+}
+
 static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)
 {
 	return (core_id > MTK_MDLA_MAX_NUM) ?
@@ -448,51 +578,40 @@ static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)
 /*
  * Enqueue one CE and start scheduler
  *
- * NOTE: scheduler->lock should be acquired by caller
+ *
  */
 void mdla_enqueue_ce(unsigned int core_id, struct command_entry *ce)
 {
 	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	unsigned long flags;
 
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	mdla_cmd_debug("%s: ce = 0x%p\n", __func__, ce);
-#endif
 	if (!scheduler || !ce)
 		return;
 
-	init_completion(&ce->done);
-	ce->queue_t = sched_clock();
-	list_add_tail(&ce->node, &scheduler->ce_queue);
-
+	spin_lock_irqsave(&scheduler->lock, flags);
+	list_add_tail(&ce->node, &scheduler->active_ce_queue);
+	ce->state = CE_QUEUE;
 	/* there are CEs under processing */
-	if (scheduler->processing_ce)
+	if (scheduler->processing_ce) {
+
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+		/* wait for processing_ce trigger it */
+		wait_for_completion(&ce->preempt_wait);
+		if (ce->state == CE_PREEMPTING)
+			mdla_cmd_debug("%s: ce preempting\n", __func__);
+		spin_lock_irqsave(&scheduler->lock, flags);
+		ce->deadline_t =
+			get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
+		scheduler->issue_ce(core_id);
+		spin_unlock_irqrestore(&scheduler->lock, flags);
 		return;
+	}
 
 	/* there is no CE under processing: dequeue and trigger engine */
 	scheduler->dequeue_ce(core_id);
+	ce->deadline_t = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
 	scheduler->issue_ce(core_id);
-}
-
-/*
- * Check the engine halt successfully or not,
- *
- * Return value:
- * 1. false if the halt_en is not set
- * 2. true if engine halt on command or tile
- * 3. false for other cases
- */
-static bool mdla_check_halt_success(u32 fin_cid, u32 fin_tid, u32 stream0,
-				    u32 stream1, struct command_entry *ce)
-{
-	if ((stream1 & MSK_MREG_TOP_G_STREAM1_HALT_EN) == 0)
-		return false;
-
-	/* command-based scheduling */
-	if (((fin_cid + 1) == (stream0 & MSK_MREG_TOP_G_STREAM0_PROD_CMD_ID))
-		&& (fin_tid >= (stream1 & MSK_MREG_TOP_G_STREAM1_PROD_TILE_ID)))
-		return true;
-
-	return false;
+	spin_unlock_irqrestore(&scheduler->lock, flags);
 }
 
 /*
@@ -510,66 +629,66 @@ static bool mdla_check_halt_success(u32 fin_cid, u32 fin_tid, u32 stream0,
 unsigned int mdla_process_ce(unsigned int core_id)
 {
 	unsigned long flags;
+	unsigned int ret = CE_NONE;
 	struct command_entry *ce;
+	struct command_batch *cb;
 	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
-	u32 fin_cid, fin_tid, stream0, stream1, irq_status;
+	u32 fin_cid, irq_status;
 
 	if (!scheduler)
-		return CE_NONE;
+		return ret;
 
 	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
 
 	irq_status = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0);
-	fin_cid = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0);
-	fin_tid = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1);
-	stream0 = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_STREAM0);
-	stream1 = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_STREAM1);
 
+	fin_cid = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3);
+
+#ifdef __APUSYS_MDLA_PMU_SUPPORT__
 	/* handle PMU */
-	pmu_reg_save();
-	if (irq_status & MDLA_IRQ_PMU_INTE)
+	pmu_reg_save(core_id, (u16)scheduler->processing_ce->cmd_batch_en);
+#endif
+
+	if (likely(irq_status & MDLA_IRQ_PMU_INTE)) {
 		mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_PMU_INTE,
 					   MREG_TOP_G_INTP0);
-
+	}
+	if (likely(irq_status & MDLA_IRQ_SWCMD_DONE)) {
+		mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_SWCMD_DONE,
+					   MREG_TOP_G_INTP0);
+	}
 	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
 
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	mdla_cmd_debug("%s: irq_status = 0x%x\n", __func__, irq_status);
-	mdla_cmd_debug("%s: fin_cid = %d, fin_tid = %d\n",
-		       __func__, fin_cid, fin_tid);
-	mdla_cmd_debug("%s: stream0 = 0x%x, stream1 = 0x%x\n",
-		       __func__, stream0, stream1);
-#endif
 	ce = scheduler->processing_ce;
 	if (!ce)
-		return CE_NONE;
-
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	mdla_cmd_debug("%s: ce = 0x%p, ce->fin_cid = %d\n",
-		       __func__, ce, ce->fin_cid);
-#endif
+		return ret;
 
 	/* all command done for command-based scheduling */
-	if (fin_cid == ce->count) {
+	if (fin_cid >= ce->count) {
+		ce->state = CE_DONE;
+		ret = CE_DONE;
+		/* complete one command batch */
 		ce->fin_cid = fin_cid;
-		return CE_DONE;
+		if (likely(!list_empty(ce->batch_list_head))) {
+			cb = list_first_entry(ce->batch_list_head,
+					      struct command_batch, node);
+			list_del(&cb->node);
+			kfree(cb);
+		}
+		return ret;
 	}
-
-	if (mdla_check_halt_success(fin_cid, fin_tid, stream0, stream1, ce)) {
-		ce->fin_cid = fin_cid;
-		return CE_RUN;
+	ret = CE_SCHED;
+	ce->state = CE_SCHED;
+	/* complete one command batch */
+	ce->fin_cid = fin_cid;
+	if (likely(!list_empty(ce->batch_list_head))) {
+		cb = list_first_entry(ce->batch_list_head,
+				      struct command_batch, node);
+		list_del(&cb->node);
+		kfree(cb);
 	}
-
-	return CE_NONE;
+	return ret;
 }
-
-#if 0
-static inline u32 mdla_get_tilecnt(void *base_kva, u32 cid)
-{
-	return (*(u32 *)(base_kva + cid * MREG_CMD_SIZE +
-		MREG_CMD_TILE_CNT_S) & MSK_MREG_TOP_G_STREAM1_PROD_TILE_ID);
-}
-#endif
 
 /*
  * Issue the processing_ce to HW engine
@@ -578,9 +697,10 @@ static inline u32 mdla_get_tilecnt(void *base_kva, u32 cid)
 void mdla_issue_ce(unsigned int core_id)
 {
 	dma_addr_t addr;
-	u32 nr_cmd_to_issue, halt_cid, halt_tid, cmd_batch_size;
+	u32 nr_cmd_to_issue;
 	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
 	struct command_entry *ce;
+	struct command_batch *cb;
 	unsigned long flags;
 
 	if (!scheduler)
@@ -590,9 +710,6 @@ void mdla_issue_ce(unsigned int core_id)
 	if (!ce)
 		return;
 
-	/* TODO: separate power on, dvfs, qos logic? */
-	mdla_power_on(ce);
-
 	if (ce->poweron_t == 0) {
 		ce->poweron_t = sched_clock();
 		ce->req_start_t = ce->poweron_t;
@@ -600,157 +717,90 @@ void mdla_issue_ce(unsigned int core_id)
 
 	addr = ce->mva + ce->fin_cid * MREG_CMD_SIZE;
 	nr_cmd_to_issue = ce->count - ce->fin_cid;
-	cmd_batch_size = min(ce->cmd_batch_size, nr_cmd_to_issue);
 
-	/* command-based scheduling */
-	halt_cid = ce->fin_cid + cmd_batch_size + 1;
-	halt_tid = 1;
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	mdla_cmd_debug("%s: nr_cmd_to_issue = %d, addr = 0x%lx\n",
-		       __func__, nr_cmd_to_issue, (unsigned long)addr);
-	mdla_cmd_debug("%s: fin_cid = %d, halt_cid = %d\n",
-		       __func__, ce->fin_cid, halt_cid);
-#endif
-	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
-
-	if (ce->preempted) {
-		ce->preempted = false;
-		/* set command address */
-		mdla_reg_write_with_mdlaid(core_id,
-			addr, MREG_TOP_G_CDMA1);
-		/* set command number */
-		mdla_reg_write_with_mdlaid(core_id,
-			nr_cmd_to_issue, MREG_TOP_G_CDMA2);
-
-		/* halt if this is not the last batch */
-		if (halt_cid <= ce->count) {
-			/* set command halt id */
-			mdla_reg_write_with_mdlaid(core_id,
-				halt_cid, MREG_TOP_G_STREAM0);
-			/* set tile halt id */
-			mdla_reg_write_with_mdlaid(core_id,
-				halt_tid | MSK_MREG_TOP_G_STREAM1_HALT_EN,
-						   MREG_TOP_G_STREAM1);
-		} else {
-			/* the last batch: clear halt_en */
-			mdla_reg_write_with_mdlaid(core_id,
-				0x0, MREG_TOP_G_STREAM0);
-			mdla_reg_write_with_mdlaid(core_id,
-					0x0, MREG_TOP_G_STREAM1);
-		}
-
-		/* trigger engine */
-		mdla_reg_write_with_mdlaid(core_id,
-			1, MREG_TOP_G_CDMA3);
-	} else {
-		if (halt_cid <= ce->count) {
-			/* update command/tile halt id to resume engine */
-			mdla_reg_write_with_mdlaid(core_id,
-				halt_cid, MREG_TOP_G_STREAM0);
-			mdla_reg_write_with_mdlaid(core_id,
-				halt_tid | MSK_MREG_TOP_G_STREAM1_HALT_EN,
-				MREG_TOP_G_STREAM1);
-		} else {
-			/* the last batch: resume engine by clearing halt_en */
-			mdla_reg_write_with_mdlaid(core_id,
-				0x0, MREG_TOP_G_STREAM0);
-			mdla_reg_write_with_mdlaid(core_id,
-				0x0, MREG_TOP_G_STREAM1);
-		}
+	if (!list_empty(ce->batch_list_head)) {
+		cb = list_first_entry(ce->batch_list_head,
+				      struct command_batch, node);
+		nr_cmd_to_issue = cb->size;
 	}
+
+	ce->state = CE_RUN;
+
+	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
+#ifdef __APUSYS_MDLA_PMU_SUPPORT__
+	/* reset pmu and set register */
+	pmu_set_reg(core_id, (u16)ce->cmd_batch_en);
+#endif
+	if (likely(ce->context_callback != NULL))
+		ce->context_callback(APUSYS_DEVICE_MDLA, core_id, ce->ctx_id);
+		/* set command address */
+	mdla_reg_write_with_mdlaid(core_id,
+		addr, MREG_TOP_G_CDMA1);
+		/* set command number */
+	mdla_reg_write_with_mdlaid(core_id,
+		nr_cmd_to_issue, MREG_TOP_G_CDMA2);
+
+	/* trigger engine */
+	mdla_reg_write_with_mdlaid(core_id,
+		nr_cmd_to_issue, MREG_TOP_G_CDMA3);
 
 	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
 }
 
 /*
- * Move the processing_ce to completed_ce_queue
+ * Set the status of completed CE as CE_FIN
  * NOTE: scheduler->lock should be acquired by caller
  */
 void mdla_complete_ce(unsigned int core_id)
 {
 	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
 
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	mdla_cmd_debug("%s: processing_ce = 0x%p\n", __func__,
-		       scheduler->processing_ce);
-#endif
 	if (!scheduler)
 		return;
 
 	scheduler->processing_ce->req_end_t = sched_clock();
-	complete(&scheduler->processing_ce->done);
+	scheduler->processing_ce->state = CE_FIN;
 
-	list_add_tail(&scheduler->processing_ce->node,
-		      &scheduler->completed_ce_queue);
+	complete(&scheduler->processing_ce->swcmd_done_wait);
 	scheduler->processing_ce = NULL;
 }
 
 /*
- * Procedure on preempting CE.
- * Because MDLA v1.0 does not support clearing CMDE on halting,
- * we reset the engine instead.
- *
- */
-void mdla_preempt_ce(unsigned int core_id)
-{
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
-	unsigned long flags;
-
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	u64 t1 = sched_clock(), t2;
-#endif
-	if (!scheduler)
-		return;
-
-	/* reset the mdla engine on preemption */
-	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
-	mdla_reset(core_id, REASON_PREEMPTION);
-	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
-
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	t2 = sched_clock();
-	mdla_cmd_debug("%s: reset mdla takes %ld ns\n", __func__, t2 - t1);
-#endif
-}
-
-/*
- * Dequeue a prioritized CE from queues, handle the context switch of
+ * Dequeue a prioritized CE from active CE queue, handle the context switch of
  * the original processing_ce, and set the prioritized CE as processing_ce.
  *
  * NOTE: scheduler->lock should be acquired by caller
  */
-void mdla_dequeue_ce(unsigned int core_id)
+unsigned int mdla_dequeue_ce(unsigned int core_id)
 {
 	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
 	struct command_entry *prioritized_ce = NULL;
+	unsigned int ret = REASON_QUEUE_NORMALEXE;
 
 	if (!scheduler)
-		return;
+		return REASON_QUEUE_NULLSCHEDULER;
 
-	/* get one CE from the CE queue */
-	prioritized_ce = list_first_entry_or_null(&scheduler->ce_queue,
+	/* get one CE from the active CE queue */
+	prioritized_ce = list_first_entry_or_null(&scheduler->active_ce_queue,
 						  struct command_entry, node);
 
 	/* return if we don't need to update the processing_ce */
 	if (!prioritized_ce)
-		return;
+		return REASON_QUEUE_NOCHANGE;
 
-#ifdef DBG_MDLA_SCHEDULER_LOG
-	mdla_cmd_debug("%s: prioritized_ce = 0x%p\n", __func__, prioritized_ce);
-#endif
-
-	/* remove prioritized CE from its queue */
+	/* remove prioritized CE from active CE queue */
 	list_del(&prioritized_ce->node);
-
+	prioritized_ce->state = CE_DEQUE;
 	if (scheduler->processing_ce) {
-		scheduler->processing_ce->preempted = true;
-		if (scheduler->preempt_ce)
-			scheduler->preempt_ce(core_id);
-		/* move the current CE to the head of CE queue */
-		list_add(&scheduler->processing_ce->node, &scheduler->ce_queue);
+		scheduler->processing_ce->req_end_t = sched_clock();
+		scheduler->processing_ce->state = CE_PREEMPTED;
+		complete(&scheduler->processing_ce->swcmd_done_wait);
+		ret = REASON_QUEUE_PREEMPTION;
+		prioritized_ce->state = CE_PREEMPTING;
 	}
 
 	scheduler->processing_ce = prioritized_ce;
+	return ret;
 }
 
 /*
@@ -762,12 +812,29 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
 	unsigned long flags;
 	unsigned int status;
+	u32 irq_status = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0);
 
-	if (!scheduler)
+	if (unlikely(!scheduler))
 		return IRQ_NONE;
-
+	if (unlikely(scheduler->processing_ce == NULL))
+		return IRQ_NONE;
 	spin_lock_irqsave(&scheduler->lock, flags);
 
+	if (unlikely(time_after64(
+		get_jiffies_64(),
+		scheduler->processing_ce->deadline_t)
+		)) {
+
+		scheduler->processing_ce->state = CE_TIMEOUT;
+		if (likely(irq_status & MDLA_IRQ_SWCMD_DONE)) {
+			mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_SWCMD_DONE,
+				MREG_TOP_G_INTP0);
+		}
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+		return IRQ_HANDLED;
+	}
+
+	scheduler->processing_ce->state = CE_SCHED;
 	/* process the current CE */
 	status = scheduler->process_ce(core_id);
 	if (status == CE_DONE) {
@@ -779,13 +846,23 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 	}
 
 	/* get the next CE to be processed */
-	scheduler->dequeue_ce(core_id);
+	status = scheduler->dequeue_ce(core_id);
 
-	if (scheduler->processing_ce)
-		scheduler->issue_ce(core_id);
-	else
-		// FIXME: scheduler->all_ce_done(core_id);
-		scheduler->all_ce_done();
+	if (scheduler->processing_ce) {
+		if (status == REASON_QUEUE_NOCHANGE) {
+			/* don't change ce, it can fire command */
+			scheduler->issue_ce(core_id);
+		} else if (status == REASON_QUEUE_PREEMPTION) {
+			/* wakeup waiting ce */
+			complete(&scheduler->processing_ce->preempt_wait);
+		} else if (status == REASON_QUEUE_NORMALEXE) {
+			/* wakeup waiting ce */
+			complete(&scheduler->processing_ce->preempt_wait);
+		} else {
+			spin_unlock_irqrestore(&scheduler->lock, flags);
+			return IRQ_NONE;
+		}
+	}
 
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 

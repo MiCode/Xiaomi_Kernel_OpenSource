@@ -144,7 +144,8 @@ int mdla_pwr_off(int core_id, int suspend)
 	if (timer_pending(&mdla_devices[core_id].power_timer))
 		del_timer(&mdla_devices[core_id].power_timer);
 
-	pmu_reg_save(core_id);
+	for (i = 0; i < PRIORITY_LEVEL; i++)
+		pmu_reg_save(core_id, (u16)i);
 
 	mdla_devices[core_id].mdla_sw_power_status = PWR_OFF;
 

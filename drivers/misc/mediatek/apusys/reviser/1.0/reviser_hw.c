@@ -767,9 +767,11 @@ int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type)
 	switch (type) {
 
 	case APUSYS_DEVICE_MDLA:
+	case APUSYS_DEVICE_MDLA_RT:
 		*reviser_type = REVISER_DEVICE_MDLA;
 		break;
 	case APUSYS_DEVICE_VPU:
+	case APUSYS_DEVICE_VPU_RT:
 		*reviser_type = REVISER_DEVICE_VPU;
 		break;
 	case APUSYS_DEVICE_EDMA:

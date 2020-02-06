@@ -200,7 +200,9 @@ static ssize_t mdla_debug_prof_write(struct file *flip,
 		const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
-	pmu_reset_saved_counter(0);
+	//pmu_reset_saved_counter(0);
+	pmu_reset_counter_variable(0, 0);
+	pmu_reset_counter(0);
 	return count;
 }
 
@@ -258,6 +260,11 @@ static const struct file_operations mdla_debug_prof_fops = {
 	DEFINE_MDLA_DEBUGFS(c13);
 	DEFINE_MDLA_DEBUGFS(c14);
 	DEFINE_MDLA_DEBUGFS(c15);
+#ifdef __APUSYS_PREEMPTION__
+	DEFINE_MDLA_DEBUGFS(batch_number);
+	DEFINE_MDLA_DEBUGFS(preemption_times);
+	DEFINE_MDLA_DEBUGFS(preemption_debug);
+#endif
 
 u32 mdla_klog;
 
@@ -268,7 +275,6 @@ void mdla_debugfs_init(void)
 	mdla_klog = 0x44; /* print timeout info by default */
 	mdla_dvfs_rand = 0;
 	mdla_timeout_dbg = 0;
-
 	mdla_droot = debugfs_create_dir("mdla", NULL);
 
 	ret = IS_ERR_OR_NULL(mdla_droot);
@@ -276,6 +282,21 @@ void mdla_debugfs_init(void)
 		LOG_ERR("failed to create debug dir.\n");
 		return;
 	}
+#ifdef __APUSYS_PREEMPTION__
+	mdla_batch_number = 0;
+	mdla_dbatch_number = debugfs_create_u32("batch_number",
+		0660, mdla_droot, &mdla_batch_number);
+
+	mdla_preemption_times = 0;
+	mdla_dpreemption_times = debugfs_create_u32("preemption_times",
+		0660, mdla_droot, &mdla_preemption_times);
+
+	mdla_preemption_debug = 0;
+	mdla_dpreemption_debug = debugfs_create_u32(
+		"mdla_preemption_debug", 0660, mdla_droot,
+		&mdla_preemption_debug);
+#endif
+
 
 	mdla_dtimeout = debugfs_create_u32("timeout", 0660, mdla_droot,
 		&mdla_timeout);
@@ -410,6 +431,11 @@ void mdla_debugfs_exit(void)
 	REMOVE_MDLA_DEBUGFS(c15);
 	REMOVE_MDLA_DEBUGFS(root);
 	REMOVE_MDLA_DEBUGFS(mdla_memory);
+#ifdef __APUSYS_PREEMPTION__
+	REMOVE_MDLA_DEBUGFS(batch_number);
+	REMOVE_MDLA_DEBUGFS(preemption_times);
+	REMOVE_MDLA_DEBUGFS(preemption_debug);
+#endif
 }
 
 void mdla_dump_buf(int mask, void *kva, int group, u32 size)

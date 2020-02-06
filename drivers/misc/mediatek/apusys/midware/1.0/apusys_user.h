@@ -79,6 +79,7 @@ int apusys_user_delete_secdev(struct apusys_user *user, void *idev_info);
 int apusys_user_delete_sectype(struct apusys_user *u, int dev_type);
 int apusys_user_insert_mem(struct apusys_user *user, struct apusys_kmem *mem);
 int apusys_user_delete_mem(struct apusys_user *user, struct apusys_kmem *mem);
+struct apusys_kmem *apusys_user_get_mem(struct apusys_user *u, int fd);
 int apusys_create_user(struct apusys_user **user);
 int apusys_delete_user(struct apusys_user *user);
 

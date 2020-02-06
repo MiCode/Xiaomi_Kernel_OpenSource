@@ -62,6 +62,7 @@ void _print_sc_info(const struct apusys_subcmd *sc)
 	CLOG_DEBUG("-------------------------------------\n");
 	CLOG_DEBUG(" type                 = %u\n", hdr->dev_type);
 	CLOG_DEBUG(" driver time          = %u\n", hdr->driver_time);
+	CLOG_DEBUG(" ip time              = %u\n", hdr->ip_time);
 	CLOG_DEBUG(" suggest time         = %u\n", hdr->suggest_time);
 	CLOG_DEBUG(" bandwidth            = %u\n", hdr->bandwidth);
 	CLOG_DEBUG(" tcm usage            = %d\n", hdr->tcm_usage);
@@ -493,9 +494,17 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	sc->idx = idx;
 	sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	sc->state = CMD_STATE_IDLE;
-	sc->period = cmd->hdr->soft_limit;
+	sc->period = cmd->hdr->soft_limit * 1000;
 	sc->deadline = jiffies + usecs_to_jiffies(sc->period);
 	sc->runtime = sc->c_hdr->cmn.driver_time;
+
+
+	if (sc->period) {
+		if (res_get_device_num(sc->type + APUSYS_DEVICE_RT) != 0)
+			sc->type += APUSYS_DEVICE_RT;
+		else
+			sc->period = 0; /* No RT device avail, disable period */
+	}
 
 	/* check codebuf type, fd or offset */
 	LOG_DEBUG("cb offset = 0x%x\n", sc->c_hdr->cmn.ofs_cb_info);
@@ -756,6 +765,10 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 		ret = -EINVAL;
 		goto alloc_sc_status_fail;
 	}
+	/* get cmdbuf(kmem) for */
+	cmd->cmdbuf = apusys_user_get_mem(u, mem.fd);
+	if (cmd->cmdbuf == NULL)
+		LOG_WARN("no cmdbuf\n");
 
 	/* assign value */
 	cmd->pid = u->open_pid;

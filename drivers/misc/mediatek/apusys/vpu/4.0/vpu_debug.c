@@ -14,11 +14,13 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 
+#include "vpu_cfg.h"
 #include "vpu_cmn.h"
 #include "vpu_algo.h"
 #include "vpu_debug.h"
 #include "vpu_hw.h"
 #include "vpu_power.h"
+#include "vpu_cmd.h"
 
 enum message_level {
 	VPU_DBG_MSG_LEVEL_NONE,
@@ -58,144 +60,150 @@ const char *g_vpu_port_dir_names[VPU_NUM_PORT_DIRS] = {
 	[VPU_PORT_DIR_IN_OUT]   = "in-out",
 };
 
-static void vpu_debug_algo_info(struct seq_file *s,
-	struct vpu_prop *p, struct vpu_prop_desc *d)
-{
-#if 0
-	int i;
-	unsigned long ptr = p->ptr + d->offset;
+struct name_tag {
+	uint32_t t;     /* tag */
+	const char *n;  /* name */
+};
 
-	for (i = 0; i < d->count; i++) {
-		seq_printf(s, "%s[%d] = ", d->name, i);
-		switch (d->type) {
-		case VPU_PROP_TYPE_CHAR:
-			seq_printf(s, "%c\n", *((char *)ptr));
-			break;
-		case VPU_PROP_TYPE_INT32:
-			seq_printf(s, "%d\n", *((int32_t *)ptr));
-			break;
-		case VPU_PROP_TYPE_FLOAT:
-			seq_printf(s, "%lf\n", *((float *)ptr));
-			break;
-		case VPU_PROP_TYPE_INT64:
-			seq_printf(s, "%lld\n", *((int64_t *)ptr));
-			break;
-		case VPU_PROP_TYPE_DOUBLE:
-			seq_printf(s, "%llf\n", *((double *)ptr));
-			break;
-		default:
-			break;
-		}
-		ptr += g_vpu_prop_type_size[d->type];
-	}
-#endif
-}
+/* driver state, defined at vpu_cmn.h */
+#define VS(a)  { VS_##a, #a }
+static const struct name_tag vs_str[] = {
+	VS(UNKNOWN),
+	VS(DISALBED),
+	VS(DOWN),
+	VS(UP),
+	VS(BOOT),
+	VS(IDLE),
+	VS(CMD_ALG),
+	VS(CMD_D2D),
+	VS(CMD_D2D_EXT),
+	VS(REMOVING),
+	{0, NULL}
+};
+#undef VS
 
-static void vpu_debug_algo_prop(struct seq_file *s,
-	struct vpu_prop *p, const char *prefix)
-{
-	struct vpu_prop_desc *d;
-	int i;
+/* device state, defined at vpu_reg.h */
+#define DS(a)  { DS_##a, #a }
+static const struct name_tag ds_str[] = {
+	DS(DSP_RDY),
+	DS(DBG_RDY),
+	DS(ALG_RDY),
+	DS(ALG_DONE),
+	DS(ALG_GOT),
+	DS(PREEMPT_RDY),
+	DS(PREEMPT_DONE),
+	DS(FTRACE_RDY),
+	{0, NULL}
+};
+#undef DS
 
-	if (!p->desc_cnt)
-		return;
+/* command code, defined at vpu_reg.h */
+#define VC(a)  { VPU_CMD_##a, #a }
+static const struct name_tag vc_str[] = {
+	VC(DO_EXIT),
+	VC(DO_LOADER),
+	VC(DO_D2D),
+	VC(DO_D2D_EXT),
+	VC(SET_DEBUG),
+	VC(SET_FTRACE_LOG),
+	VC(DO_D2D_EXT_TEST),
+	{0, NULL}
+};
 
-	seq_printf(s, "	|%-5s|%-15s|%-7s|%-7s|%-30s|\n",
-		prefix, "Name", "Type", "Count", "Value");
-
-	for (i = 0; i < p->desc_cnt; i++) {
-		d = &p->desc[i];
-
-		seq_printf(s, "	|%-5d|%-15s|%-7s|%-7d|%04XH ",
-			  d->id,
-			  d->name,
-			  g_vpu_prop_type_names[d->type],
-			  d->count,
-			  0);
-
-		vpu_debug_algo_info(s, p, d);
-	}
-
-
-}
+static int vpu_debug_info(struct seq_file *s);
 
 static int vpu_debug_algo_entry(struct seq_file *s,
-	struct vpu_device *vd, struct __vpu_algo *alg)
+	struct vpu_algo_list *al, struct __vpu_algo *alg)
 {
-	int i;
 	int ret = 0;
-	struct vpu_port *p;
 
-	seq_printf(s, "[%s: addr: 0x%llx, len: 0x%x ref: %d builtin: %d]\n",
-		   alg->a.name, alg->a.mva,
-		   alg->a.len, kref_read(&alg->ref), alg->builtin);
+	if (!al | !al->ops | !alg)
+		return -ENOENT;
 
-	vpu_alg_debug("%s: [%s: addr: 0x%llx, len: 0x%x ref: %d builtin: %d]\n",
-		      __func__, alg->a.name, alg->a.mva,
-		      alg->a.len, kref_read(&alg->ref), alg->builtin);
+	seq_printf(s, "[%s: prog: 0x%llx/0x%x, iram: 0x%llx/0x%x, entry: 0x%x, ref: %d, builtin: %d]\n",
+		alg->a.name, alg->a.mva, alg->a.len,
+		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
+		kref_read(&alg->ref), alg->builtin);
 
-	ret = vpu_alg_load(vd, NULL, alg);
-	if (ret)
-		return ret;
+	vpu_alg_debug("[%s: prog: 0x%llx/0x%x, iram: 0x%llx/0x%x, entry: 0x%x, ref: %d, builtin: %d]\n",
+		alg->a.name, alg->a.mva, alg->a.len,
+		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
+		kref_read(&alg->ref), alg->builtin);
 
-	vpu_alg_get(vd, NULL, alg);
-	if (!alg->a.port_count)
+	if (!al->ops->load || !al->ops->get || !al->ops->put)
 		goto out;
 
-	seq_printf(s, "	|%-5s|%-15s|%-7s|%-7s|\n",
-			"Port", "Name", "Dir", "Usage");
+	al->ops->load(al, NULL, alg, 0);
+	if (ret)
+		goto out;
 
-	for (i = 0; i < alg->a.port_count; i++) {
-		p = &alg->a.ports[i];
-		seq_printf(s, "	|%-5d|%-15s|%-7s|%-7s|\n",
-				  p->id, p->name,
-				  g_vpu_port_dir_names[p->dir],
-				  g_vpu_port_usage_names[p->usage]);
-	}
-	vpu_debug_algo_prop(s, &alg->a.sett, "Sett.");
-	vpu_debug_algo_prop(s, &alg->a.info, "Info.");
+	al->ops->get(al, NULL, alg);
+	al->ops->put(alg);
 out:
-	vpu_alg_put(alg);
+	return 0;
+}
+
+static int vpu_debug_algo_list(struct seq_file *s, struct vpu_algo_list *al)
+{
+	struct __vpu_algo *alg;
+	int ret;
+	struct list_head *ptr, *tmp;
+
+	if (!al)
+		return -ENOENT;
+
+	seq_printf(s, "\n<%s Algorithms>\n", al->name);
+	list_for_each_safe(ptr, tmp, &al->a) {
+		alg = list_entry(ptr, struct __vpu_algo, list);
+		ret = vpu_debug_algo_entry(s, al, alg);
+		if (ret)
+			break;
+	}
 	return ret;
 }
 
 static int vpu_debug_algo(struct seq_file *s)
 {
 	struct vpu_device *vd;
-	struct list_head *ptr, *tmp;
-	struct __vpu_algo *alg;
 	int ret;
+	int ret_pwr;
 
 	if (!s)
 		return -ENOENT;
 
 	vd = (struct vpu_device *) s->private;
 
-	mutex_lock(&vd->cmd_lock);
+	vpu_cmd_lock(vd, 0);
 
-	ret = vpu_pwr_get_locked_nb(vd);
-	if (ret)
+	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
+	ret_pwr = vpu_pwr_get_locked_nb(vd);
+	if (!ret_pwr)
+		ret = vpu_dev_boot(vd);
+	mutex_unlock(&vd->lock);
+
+	if (ret_pwr || (ret == -ETIMEDOUT))
 		goto err_pwr;
+	if (ret)
+		goto err_boot;
 
-	ret = vpu_dev_boot(vd);
+	ret = vpu_debug_algo_list(s, &vd->aln);
 	if (ret == -ETIMEDOUT)
 		goto err_pwr;
 	if (ret)
 		goto err_boot;
 
-	list_for_each_safe(ptr, tmp, &vd->algo) {
-		alg = list_entry(ptr, struct __vpu_algo, list);
-		ret = vpu_debug_algo_entry(s, vd, alg);
-		if (ret == -ETIMEDOUT)
-			goto err_pwr;
-		if (ret)
-			goto err_boot;
-	}
+#if VPU_IMG_PRELOAD
+	ret = vpu_debug_algo_list(s, &vd->alp);
+	if (ret == -ETIMEDOUT)
+		goto err_pwr;
+	if (ret)
+		goto err_boot;
+#endif
 
 err_boot:
 	vpu_pwr_put_locked(vd);
 err_pwr:
-	mutex_unlock(&vd->cmd_lock);
+	vpu_cmd_unlock(vd, 0);
 
 	return 0;
 }
@@ -214,32 +222,33 @@ static void *vpu_mesg_pa_to_va(struct vpu_mem *work_buf, unsigned int phys_addr)
 	return (void *)(ret);
 }
 
+static struct vpu_message_ctrl *vpu_mesg(struct vpu_device *vd)
+{
+	if (!vd || !vd->iova_work.m.va)
+		return NULL;
+
+	return (struct vpu_message_ctrl *)(vd->iova_work.m.va +
+		VPU_LOG_OFFSET + VPU_LOG_HEADER_SIZE);
+}
+
 static void vpu_mesg_init(struct vpu_device *vd)
 {
-	u64 log_buf = 0;
+	struct vpu_message_ctrl *msg = vpu_mesg(vd);
 
-	struct vpu_message_ctrl *msg = NULL;
-
-	if (!vd->iova_work.m.va)
+	if (!msg)
 		return;
-
-	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
-	msg = (struct vpu_message_ctrl *)log_buf;
-	memset(msg, 0, VPU_SIZE_LOG_DATA);
+	memset(msg, 0, vd->wb_log_data);
 	msg->level_mask = (1 << VPU_DBG_MSG_LEVEL_CTRL);
 }
 
 static void vpu_mesg_clr(struct vpu_device *vd)
 {
 	char *data = NULL;
-	u64 log_buf = 0;
-	struct vpu_message_ctrl *msg = NULL;
+	struct vpu_message_ctrl *msg = vpu_mesg(vd);
 
-	if (!vd->iova_work.m.va)
+	if (!msg)
 		return;
 
-	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
-	msg = (struct vpu_message_ctrl *)log_buf;
 	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
 
 	msg->head = 0;
@@ -247,12 +256,11 @@ static void vpu_mesg_clr(struct vpu_device *vd)
 
 	if (data)
 		memset(data, 0,
-		       VPU_SIZE_LOG_DATA - sizeof(struct vpu_message_ctrl));
+		       vd->wb_log_data - sizeof(struct vpu_message_ctrl));
 }
 
 static int vpu_mesg_level_set(void *data, u64 val)
 {
-	u64 log_buf = 0;
 	struct vpu_message_ctrl *msg = NULL;
 	struct vpu_device *vd = data;
 	int level = (int)val;
@@ -270,11 +278,9 @@ static int vpu_mesg_level_set(void *data, u64 val)
 		return -ENOENT;
 	}
 
-	if (!vd->iova_work.m.va)
-		return -EFAULT;
-
-	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
-	msg = (struct vpu_message_ctrl *)log_buf;
+	msg = vpu_mesg(vd);
+	if (!msg)
+		return -ENOENT;
 
 	if (level != -1)
 		msg->level_mask ^= (1 << level);
@@ -286,16 +292,10 @@ static int vpu_mesg_level_set(void *data, u64 val)
 static int vpu_mesg_level_get(void *data, u64 *val)
 {
 	u64 log_buf = 0;
-	struct vpu_message_ctrl *msg = NULL;
-	struct vpu_device *vd = data;
+	struct vpu_message_ctrl *msg = vpu_mesg(data);
 
-	if (!vd)
+	if (!msg)
 		return -ENOENT;
-
-	if (!vd->iova_work.m.va)
-		return -EFAULT;
-
-	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
 	msg = (struct vpu_message_ctrl *)log_buf;
 	*val = msg->level_mask;
 	return 0;
@@ -305,19 +305,12 @@ int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 {
 	int i, wrap = false;
 	char *data = NULL;
-	u64 log_buf = 0;
-	struct vpu_message_ctrl *msg = NULL;
+	struct vpu_message_ctrl *msg = vpu_mesg(vd);
 
-	if (!s)
-		return -ENOENT;
-
-	if (!vd->iova_work.m.va)
+	if (!s || !msg)
 		return -ENOENT;
 
 	vpu_iova_sync_for_cpu(vd->dev, &vd->iova_work);
-
-	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
-	msg = (struct vpu_message_ctrl *)log_buf;
 	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
 	i = msg->head;
 	do {
@@ -338,7 +331,6 @@ int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 	} while (0);
 
 	return 0;
-
 }
 
 static int vpu_debug_mesg(struct seq_file *s)
@@ -359,7 +351,7 @@ static int vpu_debug_reg(struct seq_file *s)
 
 	vd = (struct vpu_device *) s->private;
 
-	mutex_lock(&vd->lock);
+	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
 	ret = vpu_pwr_get_locked_nb(vd);
 	if (ret)
 		return ret;
@@ -410,6 +402,38 @@ static int vpu_debug_reg(struct seq_file *s)
 	seq_vpu_reg(XTENSA_INFO29);
 	seq_vpu_reg(XTENSA_INFO30);
 	seq_vpu_reg(XTENSA_INFO31);
+	seq_vpu_reg(MBOX_INBOX_0);
+	seq_vpu_reg(MBOX_INBOX_1);
+	seq_vpu_reg(MBOX_INBOX_2);
+	seq_vpu_reg(MBOX_INBOX_3);
+	seq_vpu_reg(MBOX_INBOX_4);
+	seq_vpu_reg(MBOX_INBOX_5);
+	seq_vpu_reg(MBOX_INBOX_6);
+	seq_vpu_reg(MBOX_INBOX_7);
+	seq_vpu_reg(MBOX_INBOX_8);
+	seq_vpu_reg(MBOX_INBOX_9);
+	seq_vpu_reg(MBOX_INBOX_10);
+	seq_vpu_reg(MBOX_INBOX_11);
+	seq_vpu_reg(MBOX_INBOX_12);
+	seq_vpu_reg(MBOX_INBOX_13);
+	seq_vpu_reg(MBOX_INBOX_14);
+	seq_vpu_reg(MBOX_INBOX_15);
+	seq_vpu_reg(MBOX_INBOX_16);
+	seq_vpu_reg(MBOX_INBOX_17);
+	seq_vpu_reg(MBOX_INBOX_18);
+	seq_vpu_reg(MBOX_INBOX_19);
+	seq_vpu_reg(MBOX_INBOX_20);
+	seq_vpu_reg(MBOX_INBOX_21);
+	seq_vpu_reg(MBOX_INBOX_22);
+	seq_vpu_reg(MBOX_INBOX_23);
+	seq_vpu_reg(MBOX_INBOX_24);
+	seq_vpu_reg(MBOX_INBOX_25);
+	seq_vpu_reg(MBOX_INBOX_26);
+	seq_vpu_reg(MBOX_INBOX_27);
+	seq_vpu_reg(MBOX_INBOX_28);
+	seq_vpu_reg(MBOX_INBOX_29);
+	seq_vpu_reg(MBOX_INBOX_30);
+	seq_vpu_reg(MBOX_INBOX_31);
 	seq_vpu_reg(DEBUG_INFO00);
 	seq_vpu_reg(DEBUG_INFO01);
 	seq_vpu_reg(DEBUG_INFO02);
@@ -496,6 +520,7 @@ out:
 
 static int vpu_debug_vpu_memory(struct seq_file *s)
 {
+	vpu_debug_info(s);
 	vpu_dmp_seq(s);
 	return 0;
 }
@@ -566,6 +591,213 @@ out:
 	return count;
 }
 
+/**
+ * vpu_debug_cmd_entry_seq -Show command control of given priority
+ *
+ * @s: pointer to seq_file
+ * @c: pointer to command control
+ * @prio: priority
+ *
+ * Returns the execution count of given priority.
+ */
+static uint64_t
+vpu_debug_cmd_entry_seq(struct seq_file *s, struct vpu_cmd_ctl *c, int prio)
+{
+	int i;
+
+	seq_printf(s, "priority %d: #%llu: ", prio, c->exe_cnt);
+	for (i = 0; vc_str[i].n; i++) {
+		if (c->cmd == vc_str[i].t) {
+			seq_printf(s, "%s: ", vc_str[i].n);
+			goto algo;
+		}
+	}
+	seq_printf(s, "(unknown cmd 0x%x): ", c->cmd);
+algo:
+	seq_printf(s, "algorithm: %s, done: %d, result: 0x%x\n",
+		c->alg ? c->alg->a.name : "(none)",
+		c->done, c->result);
+	return c->exe_cnt;
+}
+
+int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
+	int prio_max, struct vpu_cmd_ctl *c, uint64_t timeout)
+{
+	int i;
+	uint64_t exe_cnt;
+	uint64_t preempt_cnt = 0;
+
+	seq_printf(s, "priority: current: %d (highest: %d)\n",
+		prio, prio_max - 1);
+	seq_printf(s, "timeout setting: %llu ms\n",	timeout);
+
+	if (prio_max > VPU_MAX_PRIORITY)
+		prio_max = VPU_MAX_PRIORITY;
+
+	for (i = 0; i < prio_max; i++) {
+		exe_cnt = vpu_debug_cmd_entry_seq(s, &c[i], i);
+		preempt_cnt += (i) ? exe_cnt : 0;
+	}
+	seq_printf(s, "preemption count: %llu\n", preempt_cnt);
+
+	return 0;
+}
+
+const char *vpu_debug_cmd_str(int cmd)
+{
+	int i;
+
+	for (i = 0; vc_str[i].n; i++) {
+		if (cmd == vc_str[i].t)
+			return vc_str[i].n;
+	}
+	return "(unknown)";
+}
+
+static int vpu_debug_cmd(struct seq_file *s)
+{
+	struct vpu_device *vd;
+
+	if (!s || !s->private)
+		return -ENOENT;
+
+	vd = (struct vpu_device *) s->private;
+
+	return vpu_debug_cmd_seq(s, vd, atomic_read(&vd->cmd_prio),
+		vd->cmd_prio_max, vd->cmd, vd->cmd_timeout);
+}
+
+int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds)
+{
+	int i, j;
+
+	if (!s)
+		return -ENOENT;
+
+	for (i = 0; vs_str[i].n && (vs != vs_str[i].t); i++)
+		;
+	seq_printf(s, "driver state: %d (%s)\n", vs,
+		vs_str[i].n ? vs_str[i].n : "unknown");
+
+	seq_printf(s, "device state: %xh: ", ds);
+	for (i = 0, j = 0; ds_str[i].n; i++) {
+		if (ds & ds_str[i].t)
+			seq_printf(s, "%s%s", j++ ? "," : "", ds_str[i].n);
+	}
+	seq_puts(s, "\n");
+	return 0;
+}
+
+static int vpu_debug_state(struct seq_file *s)
+{
+	struct vpu_device *vd;
+
+	if (!s)
+		return -ENOENT;
+
+	vd = (struct vpu_device *) s->private;
+
+	return vpu_debug_state_seq(s, vd->state, vd->dev_state);
+}
+
+static int vpu_debug_iova_seq(struct seq_file *s,
+	struct vpu_iova *i, const char *prefix)
+{
+	if (i->bin == VPU_MEM_ALLOC) {
+		if (i->addr)
+			seq_printf(s, "<%s> iova: 0x%x, size: 0x%x (static alloc)\n",
+				prefix,	i->addr, i->size);
+		else {
+			seq_printf(s, "<%s> iova: 0x%x, size: 0x%x (dynamic alloc)\n",
+				prefix,	i->m.pa, i->size);
+		}
+	} else if (i->size) {
+		seq_printf(s, "<%s> iova: 0x%x, size: 0x%x, bin offset: 0x%x\n",
+			prefix, i->addr, i->size, i->bin);
+	}
+	return 0;
+}
+
+static int vpu_debug_iomem_seq(struct seq_file *s,
+	struct vpu_iomem *i, const char *prefix)
+{
+	struct resource *r;
+
+	if (!i || !i->res)
+		return -ENOENT;
+
+	r = i->res;
+	seq_printf(s, "<%s> start: 0x%lx, end: 0x%lx, size: 0x%lx\n",
+		prefix,	(unsigned long)r->start, (unsigned long)r->end,
+		(unsigned long)(r->end - r->start + 1));
+
+	return 0;
+}
+
+static int vpu_debug_info_dev(struct seq_file *s, struct vpu_device *vd)
+{
+	if (!s || !vd)
+		return -ENOENT;
+
+	if (vd->state >= VS_REMOVING || vd->state <= VS_DISALBED)
+		return 0;
+
+	seq_printf(s, "\n----- %s: settings -----\n", vd->name);
+	seq_printf(s, "mva_iram: 0x%llx\n", vd->mva_iram);
+	seq_printf(s, "cmd_prio_max: %d\n", vd->cmd_prio_max);
+	seq_printf(s, "cmd_timeout: %llu\n", vd->cmd_timeout);
+	seq_printf(s, "pw_off_latency: %llu\n", vd->pw_off_latency);
+	seq_printf(s, "wb_log_size: 0x%x\n", vd->wb_log_size);
+	seq_printf(s, "wb_log_data: 0x%x\n", vd->wb_log_data);
+	seq_puts(s, "iova:\n");
+	vpu_debug_iova_seq(s, &vd->iova_reset, "reset");
+	vpu_debug_iova_seq(s, &vd->iova_main, "main");
+	vpu_debug_iova_seq(s, &vd->iova_kernel, "kernel");
+	vpu_debug_iova_seq(s, &vd->iova_iram, "iram");
+	vpu_debug_iova_seq(s, &vd->iova_work, "work");
+	seq_puts(s, "iomem:\n");
+	vpu_debug_iomem_seq(s, &vd->reg, "reg");
+	vpu_debug_iomem_seq(s, &vd->dmem, "dmem");
+	vpu_debug_iomem_seq(s, &vd->imem, "imem");
+	vpu_debug_iomem_seq(s, &vd->dbg, "dbg");
+
+	return 0;
+}
+
+static int vpu_debug_info(struct seq_file *s)
+{
+	struct vpu_device *vd;
+	struct list_head *ptr, *tmp;
+
+	if (!s)
+		return -ENOENT;
+
+	mutex_lock(&vpu_drv->lock);
+
+	seq_puts(s, "======== Driver Info ========\n");
+	seq_printf(s, "%s%s%s\n",
+		VPU_XOS ? "XOS" : "Non-XOS",
+		VPU_IMG_LEGACY ? ",Legacy Image" : "",
+		VPU_IMG_PRELOAD ? ",Preload Image" : "");
+	seq_printf(s, "bin_pa: 0x%lx\n", vpu_drv->bin_pa);
+	seq_printf(s, "bin_size: 0x%x\n", vpu_drv->bin_size);
+	seq_printf(s, "bin_head_ofs: 0x%x\n", vpu_drv->bin_head_ofs);
+	seq_printf(s, "bin_preload_ofs: 0x%x\n", vpu_drv->bin_preload_ofs);
+	seq_printf(s, "mva_algo: 0x%llx\n", vpu_drv->mva_algo);
+	seq_printf(s, "mva_share: 0x%llx\n", vpu_drv->mva_share);
+	vpu_debug_iova_seq(s, &vpu_drv->iova_algo, "algo");
+	vpu_debug_iova_seq(s, &vpu_drv->iova_share, "share");
+
+	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
+		vd = list_entry(ptr, struct vpu_device, list);
+		vpu_debug_info_dev(s, vd);
+	}
+	mutex_unlock(&vpu_drv->lock);
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
 #define VPU_DEBUGFS_FOP_DEF(name) \
 static struct dentry *vpu_d##name; \
 static int vpu_debug_## name ##_show(struct seq_file *s, void *unused) \
@@ -603,6 +835,9 @@ VPU_DEBUGFS_RW_DEF(dump);
 VPU_DEBUGFS_DEF(mesg);
 VPU_DEBUGFS_DEF(reg);
 VPU_DEBUGFS_RW_DEF(vpu_memory);
+VPU_DEBUGFS_DEF(state);
+VPU_DEBUGFS_DEF(cmd);
+VPU_DEBUGFS_DEF(info);
 
 #undef VPU_DEBUGFS_DEF
 
@@ -649,8 +884,6 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 		&vd->pw_off_latency);
 	debugfs_create_u64("cmd_timeout", 0660, droot,
 		&vd->cmd_timeout);
-	debugfs_create_u32("state", 0440, droot,
-		&vd->state);
 
 	vpu_dmp_init(vd);
 	vpu_mesg_init(vd);
@@ -661,6 +894,9 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 	VPU_DEBUGFS_CREATE(reg);
 	VPU_DEBUGFS_CREATE(jtag);
 	VPU_DEBUGFS_CREATE(mesg_level);
+	VPU_DEBUGFS_CREATE(state);
+	VPU_DEBUGFS_CREATE(cmd);
+
 out:
 	return ret;
 }
@@ -696,7 +932,7 @@ int vpu_init_debug(void)
 	debugfs_create_u32("klog", 0660, droot, &vpu_klog);
 
 	VPU_DEBUGFS_CREATE(vpu_memory);
-
+	VPU_DEBUGFS_CREATE(info);
 out:
 	return ret;
 }

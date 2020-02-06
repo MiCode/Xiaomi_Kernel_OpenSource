@@ -26,8 +26,10 @@ int mdla_dts_map(struct platform_device *pdev);
 irqreturn_t mdla_interrupt(u32 mdlaid);
 void mdla_dump_reg(int core_id);
 
-
 #ifdef __APUSYS_PREEMPTION__
+void mdla_del_free_command_batch(struct command_entry *ce);
+void mdla_split_command_batch(struct command_entry *ce);
+void mdla_clear_swcmd_wait_bit(void *base_kva, u32 cid);
 irqreturn_t mdla_scheduler(unsigned int core_id);
 #endif
 #endif

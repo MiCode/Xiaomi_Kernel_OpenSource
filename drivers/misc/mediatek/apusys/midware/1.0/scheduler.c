@@ -608,6 +608,8 @@ static int setup_cmn_hnd(struct apusys_subcmd *sc,
 	hnd->subcmd_idx = sc->idx;
 	hnd->priority = sc->par_cmd->hdr->priority;
 	hnd->cmd_entry = (uint64_t)sc->par_cmd->u_hdr;
+	hnd->cmdbuf = sc->par_cmd->cmdbuf;
+	hnd->cluster_size = sc->cluster_size;
 	if (hnd->kva == 0 || hnd->size == 0) {
 		LOG_ERR("invalid sc(%d)(0x%llx/%d)\n",
 			sc->idx, hnd->kva, hnd->size);
@@ -681,15 +683,28 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	mutex_lock(&sc->par_cmd->mtx);
 	ret = alloc_ctx(sc, sc->par_cmd);
 	mutex_unlock(&sc->par_cmd->mtx);
+
 	if (ret) {
 		LOG_ERR("allocate memory ctx id(%d) fail\n", sc->ctx_id);
 		sc->par_cmd->cmd_ret = ret;
 		goto out;
 	}
 
-	/* execute reviser to switch VLM */
-	reviser_set_context(dev_info->dev->dev_type,
-			dev_info->dev->idx, sc->ctx_id);
+	/* Execute reviser to switch VLM:
+	 * Skip set context on preemptive command, context should be set by
+	 * engine driver itself. Give engine a callback to set context id.
+	 */
+
+	if (dev_info->dev->dev_type == APUSYS_DEVICE_MDLA ||
+		dev_info->dev->dev_type == APUSYS_DEVICE_MDLA_RT) {
+		cmd_hnd.ctx_id = sc->ctx_id;
+		cmd_hnd.context_callback = reviser_set_context;
+	} else {
+		reviser_set_context(dev_info->dev->dev_type,
+				dev_info->dev->idx, sc->ctx_id);
+	}
+
+
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 2. start count cmd qos */
@@ -869,9 +884,9 @@ int sched_routine(void *arg)
 
 		memset(&available, 0, sizeof(available));
 		bitmap_and(available, res_mgr->cmd_exist,
-			res_mgr->dev_exist, APUSYS_DEV_TABLE_MAX);
+			res_mgr->dev_exist, APUSYS_DEVICE_MAX);
 		/* if dev/cmd available or */
-		while (!bitmap_empty(available, APUSYS_DEV_TABLE_MAX)
+		while (!bitmap_empty(available, APUSYS_DEVICE_MAX)
 			|| acq_device_check(&acq_async) == 0) {
 
 			mutex_lock(&res_mgr->mtx);
@@ -888,12 +903,12 @@ int sched_routine(void *arg)
 			}
 
 			/* cmd/dev not same bit available, continue */
-			if (bitmap_empty(available, APUSYS_DEV_TABLE_MAX))
+			if (bitmap_empty(available, APUSYS_DEVICE_MAX))
 				goto sched_retrigger;
 
 			/* get type from available */
-			type = find_first_bit(available, APUSYS_DEV_TABLE_MAX);
-			if (type >= APUSYS_DEV_TABLE_MAX) {
+			type = find_first_bit(available, APUSYS_DEVICE_MAX);
+			if (type >= APUSYS_DEVICE_MAX) {
 				LOG_WARN("find first bit for type(%d) fail\n",
 					type);
 				goto sched_retrigger;
@@ -995,7 +1010,7 @@ int sched_routine(void *arg)
 			}
 sched_retrigger:
 			bitmap_and(available, res_mgr->cmd_exist,
-				res_mgr->dev_exist, APUSYS_DEV_TABLE_MAX);
+				res_mgr->dev_exist, APUSYS_DEVICE_MAX);
 			acq_async = NULL;
 			mutex_unlock(&res_mgr->mtx);
 		}
@@ -1077,15 +1092,20 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 	LOG_DEBUG("wait 0x%llx cmd done...\n",
 		cmd->cmd_id);
 
+	mutex_lock(&cmd->mtx);
 	/* final polling */
 	for (i = 0; i < times; i++) {
+
 		if (check_cmd_done(cmd) == 0) {
 			LOG_WARN("delete cmd safely\n");
 			break;
 		}
 		LOG_WARN("sleep 200ms to wait sc done\n");
+		mutex_unlock(&cmd->mtx);
 		msleep(wait_ms);
+		mutex_lock(&cmd->mtx);
 	}
+	mutex_unlock(&cmd->mtx);
 
 	if (i >= times) {
 		LOG_ERR("cmd busy\n");
@@ -1118,7 +1138,7 @@ start:
 	ret = wait_for_completion_interruptible_timeout(&cmd->comp, timeout);
 	if (ret == -ERESTARTSYS) {
 		if (retry) {
-			if (!(retry_time % 20))
+			if (!(retry % 20))
 				LOG_WARN("user int(%d) retry(0x%llx)(%d)...\n",
 					ret,
 					cmd->cmd_id,

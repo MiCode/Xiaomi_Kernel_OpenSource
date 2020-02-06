@@ -15,6 +15,7 @@
 #define __VPU_POWER_H__
 
 #include <linux/platform_device.h>
+#include "vpu_cfg.h"
 #include "vpu_cmn.h"
 
 #define VPU_PWR_NO_BOOST    0xff

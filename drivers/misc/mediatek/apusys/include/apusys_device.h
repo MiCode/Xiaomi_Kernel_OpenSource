@@ -23,6 +23,10 @@ enum {
 	APUSYS_DEVICE_VPU,
 	APUSYS_DEVICE_EDMA,
 	APUSYS_DEVICE_WAIT,// subgraph mean wait event
+	APUSYS_DEVICE_RT = 32,
+	APUSYS_DEVICE_SAMPLE_RT,
+	APUSYS_DEVICE_MDLA_RT,
+	APUSYS_DEVICE_VPU_RT,
 	APUSYS_DEVICE_LAST,
 
 	APUSYS_DEVICE_MAX = 64, //total support 64 different devices
@@ -105,6 +109,7 @@ struct apusys_cmd_hnd {
 
 	uint32_t ip_time;
 	int boost_val;
+	int cluster_size;
 
 	/* multicore info */
 	uint32_t multicore_total; // how many cores to exec this subcmd
@@ -114,6 +119,10 @@ struct apusys_cmd_hnd {
 	uint64_t pmu_kva;
 	uint64_t cmd_entry;
 
+	/* For preemption */
+
+	int (*context_callback)(int a, int b, uint8_t c);
+	int ctx_id;
 };
 
 struct apusys_firmware_hnd {
@@ -194,5 +203,9 @@ extern int apusys_unregister_device(struct apusys_device *dev);
 
 extern uint64_t apusys_mem_query_kva(uint32_t iova);
 extern uint32_t apusys_mem_query_iova(uint64_t kva);
+
+extern int apusys_mem_flush(struct apusys_kmem *mem);
+extern int apusys_mem_invalidate(struct apusys_kmem *mem);
+
 
 #endif

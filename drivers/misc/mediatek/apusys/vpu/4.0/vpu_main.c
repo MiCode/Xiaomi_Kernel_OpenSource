@@ -26,8 +26,9 @@
 /* internal headers */
 #include "vpu_cfg.h"
 #include "apusys_power.h"
-#include "vpu_drv.h"
+#include "vpu_cfg.h"
 #include "vpu_power.h"
+#include "vpu_cmd.h"
 #include "vpu_cmn.h"
 #include "vpu_mem.h"
 #include "vpu_algo.h"
@@ -60,26 +61,32 @@ static int vpu_ucmd_handle(struct vpu_device *vd,
 
 	/* Handling VPU_UCMD_GET_ALGO */
 	if (VPU_UCMD_CHECK(ucmd->kva, GET_ALGO)) {
-
 		/* casting user cmd as struct vpu_uget_algo */
 		palg_cmd = (struct vpu_uget_algo *)ucmd->kva;
 		mutex_lock(&vpu_drv->lock);
 		/* looping each vpu_device for this algo */
 		list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 			vd = list_entry(ptr, struct vpu_device, list);
-			mutex_lock(&vd->lock);
-			alg = vpu_alg_get(vd, palg_cmd->name, NULL);
-			if (alg)
-				vpu_alg_put(alg);
-			else
-				ret = -ENOENT;
-			mutex_unlock(&vd->lock);
-			/* algo not found in some vpu_device */
-			if (ret) {
-				vpu_cmd_debug("%s: vpu%d: not found algo \"%s\"\n",
-					      __func__, vd->id, palg_cmd->name);
-				break;
+			mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
+			/* Normal Algo */
+			alg = vd->aln.ops->get(&vd->aln, palg_cmd->name, NULL);
+			if (alg) {
+				vd->aln.ops->put(alg);
+				goto next;
 			}
+			/* Preload Algo */
+			alg = vd->alp.ops->get(&vd->alp, palg_cmd->name, NULL);
+			if (alg) {
+				vd->alp.ops->put(alg);
+				goto next;
+			}
+			vpu_cmd_debug("%s: vpu%d: algo \"%s\" was not found\n",
+				__func__, vd->id, palg_cmd->name);
+			ret = -ENOENT;
+next:
+			mutex_unlock(&vd->lock);
+			if (ret)
+				break;
 		}
 		mutex_unlock(&vpu_drv->lock);
 	} else {
@@ -91,6 +98,68 @@ static int vpu_ucmd_handle(struct vpu_device *vd,
 	return ret;
 }
 
+int vpu_send_cmd_rt(int op, void *hnd, struct apusys_device *adev)
+{
+	int ret = 0;
+	struct vpu_device *vd;
+	struct vpu_request *req;
+	struct apusys_cmd_hnd *cmd;
+	struct apusys_preempt_hnd *pmt;
+
+	vd = (struct vpu_device *)adev->private;
+
+	switch (op) {
+	case APUSYS_CMD_POWERON:
+	case APUSYS_CMD_POWERDOWN:
+	case APUSYS_CMD_FIRMWARE:
+	case APUSYS_CMD_USER:
+		vpu_cmd_debug("%s: vpu%d: operation not allowed: %d\n",
+			      __func__, vd->id, op);
+		return -EACCES;
+	case APUSYS_CMD_RESUME:
+	case APUSYS_CMD_SUSPEND:
+		return 0;
+	case APUSYS_CMD_EXECUTE:
+		cmd = (struct apusys_cmd_hnd *)hnd;
+		req = (struct vpu_request *)cmd->kva;
+
+		vpu_trace_begin("vpu-%d|%s|cmd execute cmd_id: 0x%08llx",
+			vd->id,	__func__, cmd->cmd_id);
+		vpu_cmd_debug("%s: vpu%d: EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
+			__func__, vd->id, (unsigned long)cmd->kva,
+			cmd->cmd_id, cmd->subcmd_idx);
+		/* overwrite vpu_req->boost from apusys_cmd */
+		req->power_param.boost_value = cmd->boost_val;
+		VPU_REQ_FLAG_SET(req, ALG_PRELOAD);
+		ret = vpu_preempt(vd, req);
+		vpu_trace_end("vpu-%d|%s|end", vd->id, __func__);
+		/* report vpu_req exe time to apusy_cmd */
+		cmd->ip_time = req->busy_time / 1000;
+		return ret;
+	case APUSYS_CMD_PREEMPT:
+		pmt = (struct apusys_preempt_hnd *)hnd;
+		req = (struct vpu_request *)pmt->new_cmd->kva;
+		vpu_trace_begin("vpu-%d|%s|cmd preempt cmd_id: 0x%08llx",
+			vd->id,	__func__, pmt->new_cmd->cmd_id);
+		vpu_cmd_debug("%s: vpu%d: PREEMPT, new cmd kva: %lx\n",
+			      __func__, vd->id, (unsigned long)req);
+		/* overwrite vpu_req->boost from apusys_cmd */
+		req->power_param.boost_value = pmt->new_cmd->boost_val;
+		VPU_REQ_FLAG_SET(req, ALG_PRELOAD);
+		ret = vpu_preempt(vd, req);
+		vpu_trace_end("vpu-%d|%s|end", vd->id, __func__);
+		pmt->new_cmd->ip_time = req->busy_time / 1000;
+		return ret;
+
+	default:
+		vpu_cmd_debug("%s: vpu%d: unknown command: %d\n",
+			      __func__, vd->id, op);
+		break;
+	}
+
+	return -EINVAL;
+}
+
 /* interface to APUSYS */
 int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 {
@@ -99,39 +168,30 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	struct vpu_request *req;
 	struct apusys_cmd_hnd *cmd;
 	struct apusys_power_hnd *pw;
-	struct apusys_preempt_hnd *pmt;
 	struct apusys_firmware_hnd *fw;
 	struct apusys_usercmd_hnd *ucmd;
 
-	// TODO: implement these sub-functions and remove UNUSED()
-#define UNUSED(x) ((void)x)
-	UNUSED(pw);
-	UNUSED(pmt);
-#undef UNUSED
-
 	vd = (struct vpu_device *)adev->private;
-
-	vpu_cmd_debug("%s: cmd: %d, hnd: %p\n", __func__, op, hnd);
 
 	switch (op) {
 	case APUSYS_CMD_POWERON:
 		pw = (struct apusys_power_hnd *)hnd;
-		vpu_cmd_debug("%s:vpu%d POWERON, boost: %d, opp: %d, timeout: %d\n",
+		vpu_cmd_debug("%s: vpu%d: POWERON, boost: %d, opp: %d, timeout: %d\n",
 			      __func__, vd->id,
 			      pw->boost_val, pw->opp, pw->timeout);
 		return vpu_pwr_up(vd, pw->boost_val,
 			(pw->timeout ? vd->pw_off_latency : 0));
 	case APUSYS_CMD_POWERDOWN:
-		vpu_cmd_debug("%s:vpu%d POWERDOWN\n",
+		vpu_cmd_debug("%s: vpu%d: POWERDOWN\n",
 			      __func__, vd->id);
 		vpu_pwr_down(vd);
 		return 0;
 	case APUSYS_CMD_RESUME:
-		vpu_cmd_debug("%s:vpu%d RESUME\n",
+		vpu_cmd_debug("%s: vpu%d: RESUME\n",
 			      __func__, vd->id);
 		return vpu_resume(vd);
 	case APUSYS_CMD_SUSPEND:
-		vpu_cmd_debug("%s:vpu%d SUSPEND\n",
+		vpu_cmd_debug("%s: vpu%d: SUSPEND\n",
 			      __func__, vd->id);
 		return vpu_suspend(vd);
 	case APUSYS_CMD_EXECUTE:
@@ -139,37 +199,39 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		req = (struct vpu_request *)cmd->kva;
 
 		vpu_trace_begin("vpu_%d|%s|cmd execute cmd_id: 0x%08llx",
-			vd->id, __func__, cmd->cmd_id);
-		vpu_cmd_debug("%s:vpu%d EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
+			vd->id,	__func__, cmd->cmd_id);
+		vpu_cmd_debug("%s: vpu%d: EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
 			__func__, vd->id, (unsigned long)cmd->kva,
 			cmd->cmd_id, cmd->subcmd_idx);
+		req->prio = 0;
 		/* overwrite vpu_req->boost from apusys_cmd */
 		req->power_param.boost_value = cmd->boost_val;
-		ret = vpu_execute(vd, req);
+		if (VPU_REQ_FLAG_TST(req, ALG_PRELOAD))
+			ret = vpu_preempt(vd, req);
+		else
+			ret = vpu_execute(vd, req);
 		vpu_trace_end("vpu_%d|%s|cmd execute cmd_id: 0x%08llx",
 			vd->id, __func__, cmd->cmd_id);
 		/* report vpu_req exe time to apusy_cmd */
 		cmd->ip_time = req->busy_time / 1000;
 		return ret;
 	case APUSYS_CMD_PREEMPT:
-		pmt = (struct apusys_preempt_hnd *)hnd;
-		vpu_cmd_debug("%s:vpu%d PREEMPT, new cmd kva: %lx\n",
-			      __func__, vd->id,
-			      (unsigned long)pmt->new_cmd->kva);
-		break;
+		vpu_cmd_debug("%s: vpu%d: operation not allowed: %d\n",
+			      __func__, vd->id, op);
+		return -EACCES;
 	case APUSYS_CMD_FIRMWARE:
 		fw = (struct apusys_firmware_hnd *)hnd;
-		vpu_cmd_debug("%s:vpu%d FIRMWARE, op: %d, name: %s\n",
+		vpu_cmd_debug("%s: vpu%d: FIRMWARE, op: %d, name: %s\n",
 			      __func__, vd->id, fw->op, fw->name);
 		return vpu_firmware(vd, fw);
 	case APUSYS_CMD_USER:
 		ucmd = (struct apusys_usercmd_hnd *)hnd;
-		vpu_cmd_debug("%s:vpu%d USER, op: 0x%x size %d\n",
+		vpu_cmd_debug("%s: vpu%d: USER, op: 0x%x size %d\n",
 			      __func__, vd->id,
 			      *(uint32_t *)ucmd->kva, ucmd->size);
 		return vpu_ucmd_handle(vd, ucmd);
 	default:
-		vpu_cmd_debug("%s:vpu%d unknown command: %d\n",
+		vpu_cmd_debug("%s: vpu%d: unknown command: %d\n",
 			      __func__, vd->id, op);
 		break;
 	}
@@ -334,6 +396,10 @@ static int vpu_init_bin(void)
 	struct device_node *node;
 	uint32_t phy_addr;
 	uint32_t phy_size;
+#if VPU_IMG_PRELOAD
+	uint32_t bin_head_ofs;
+	uint32_t bin_preload_ofs;
+#endif
 
 	/* skip, if vpu firmware had ready been mapped */
 	if (vpu_drv && vpu_drv->bin_va)
@@ -341,11 +407,23 @@ static int vpu_init_bin(void)
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,vpu_core0");
 
+#if VPU_IMG_LEGACY
 	if (of_property_read_u32(node, "bin-phy-addr", &phy_addr) ||
 		of_property_read_u32(node, "bin-size", &phy_size)) {
 		pr_info("%s: unable to get vpu firmware.\n", __func__);
 		return -ENODEV;
 	}
+#endif
+
+#if VPU_IMG_PRELOAD
+	if (of_property_read_u32(node, "bin-phy-addr", &phy_addr) ||
+		of_property_read_u32(node, "bin-size", &phy_size) ||
+		of_property_read_u32(node, "img-head", &bin_head_ofs) ||
+		of_property_read_u32(node, "pre-bin", &bin_preload_ofs)) {
+		pr_info("%s: unable to get vpu firmware.\n", __func__);
+		return -ENODEV;
+	}
+#endif
 
 	/* map vpu firmware to kernel virtual address */
 	vpu_drv->bin_va = ioremap_wc(phy_addr, phy_size);
@@ -355,6 +433,14 @@ static int vpu_init_bin(void)
 	pr_info("%s: mapped vpu firmware: pa: 0x%lx, size: 0x%x, kva: 0x%lx\n",
 		__func__, vpu_drv->bin_pa, vpu_drv->bin_size,
 		(unsigned long)vpu_drv->bin_va);
+
+#if VPU_IMG_PRELOAD
+	vpu_drv->bin_head_ofs = bin_head_ofs;
+	vpu_drv->bin_preload_ofs = bin_preload_ofs;
+
+	pr_info("%s: header: 0x%x, preload:0x%x\n",	__func__,
+		vpu_drv->bin_head_ofs, vpu_drv->bin_preload_ofs);
+#endif
 
 	return 0;
 }
@@ -454,7 +540,10 @@ static int vpu_iomem_dts(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	dev_info(&pdev->dev, "mapped %s: 0x%lx\n", name, (unsigned long)m->m);
+	dev_info(&pdev->dev, "mapped %s: 0x%lx: 0x%lx ~ 0x%lx\n", name,
+		(unsigned long)m->m,
+		(unsigned long)m->res->start,
+		(unsigned long)m->res->end);
 
 	return 0;
 }
@@ -485,29 +574,32 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 		goto error;
 	}
 
+	if (vd->iova_work.size < (VPU_LOG_OFFSET + VPU_LOG_HEADER_SIZE))
+		goto error;
+
+	vd->wb_log_size = vd->iova_work.size - VPU_LOG_OFFSET;
+	vd->wb_log_data = vd->wb_log_size - VPU_LOG_HEADER_SIZE;
+
 	ret = vpu_shared_get(pdev, vd);
 	if (ret)
 		goto error;
 	iova = vpu_iova_alloc(pdev, &vd->iova_reset);
 	if (!iova)
-		goto free;
+		goto error;
 	iova = vpu_iova_alloc(pdev, &vd->iova_main);
 	if (!iova)
-		goto free;
+		goto error;
 	iova = vpu_iova_alloc(pdev, &vd->iova_kernel);
 	if (!iova)
-		goto free;
+		goto error;
 	iova = vpu_iova_alloc(pdev, &vd->iova_work);
 	if (!iova)
-		goto free;
+		goto error;
 	iova = vpu_iova_alloc(pdev, &vd->iova_iram);
 	vd->mva_iram = iova;
 	vd->iova_iram.addr = iova;
 
 	return 0;
-
-free:
-	vpu_exit_dev_mem(pdev, vd);
 error:
 	return -ENOMEM;
 }
@@ -530,6 +622,27 @@ static int vpu_init_dev_irq(struct platform_device *pdev,
 	return 0;
 }
 
+typedef int (*cmd_handler_t)(int op, void *hnd, struct apusys_device *adev);
+
+static int vpu_init_adev(struct vpu_device *vd,
+	struct apusys_device *adev, int type, cmd_handler_t hndl)
+{
+	int ret;
+
+	adev->dev_type = type;
+	adev->preempt_type = APUSYS_PREEMPT_WAITCOMPLETED;
+	adev->private = vd;
+	adev->send_cmd = hndl;
+
+	ret = apusys_register_device(adev);
+
+	if (ret)
+		pr_info("%s: type: %d, ret: %d\n",
+			__func__, type, ret);
+
+	return ret;
+}
+
 static int vpu_probe(struct platform_device *pdev)
 {
 	struct vpu_device *vd;
@@ -545,7 +658,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (of_property_read_u32(pdev->dev.of_node, "id", &vd->id)) {
 		dev_info(&pdev->dev, "unable to get core id from dts\n");
 		ret = -ENODEV;
-		goto free;
+		goto out;
 	}
 
 	snprintf(vd->name, sizeof(vd->name), "vpu%d", vd->id);
@@ -554,7 +667,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (vpu_is_disabled(vd)) {
 		ret = -ENODEV;
 		vd->state = VS_DISALBED;
-		goto free;
+		goto out;
 	} else {
 		vd->state = VS_DOWN;
 	}
@@ -579,23 +692,21 @@ static int vpu_probe(struct platform_device *pdev)
 		goto free;
 
 	/* device algo initialization */
-	INIT_LIST_HEAD(&vd->algo);
 	ret = vpu_init_dev_algo(pdev, vd);
 	if (ret)
 		goto free;
 
 	/* register device to APUSYS */
-	vd->adev.dev_type = APUSYS_DEVICE_VPU;
-	vd->adev.preempt_type = APUSYS_PREEMPT_WAITCOMPLETED;
-	vd->adev.private = vd;
-	vd->adev.send_cmd = vpu_send_cmd;
-
-	ret = apusys_register_device(&vd->adev);
-	if (ret) {
-		dev_info(&pdev->dev, "apusys_register_device: %d\n",
-			ret);
+	ret = vpu_init_adev(vd, &vd->adev,
+		APUSYS_DEVICE_VPU, vpu_send_cmd);
+	if (ret)
 		goto free;
-	}
+#if VPU_XOS
+	ret = vpu_init_adev(vd, &vd->adev_rt,
+		APUSYS_DEVICE_VPU_RT, vpu_send_cmd_rt);
+	if (ret)
+		goto free;
+#endif
 
 	/* register debugfs nodes */
 	ret = vpu_init_dev_debug(pdev, vd);
@@ -618,8 +729,9 @@ static int vpu_probe(struct platform_device *pdev)
 	return 0;
 
 	// TODO: add error handling free algo
-
 free:
+	vpu_exit_dev_mem(pdev, vd);
+out:
 	vpu_free(pdev);
 	dev_info(&pdev->dev, "%s: failed\n", __func__);
 	return ret;
@@ -636,6 +748,9 @@ static int vpu_remove(struct platform_device *pdev)
 	vpu_exit_dev_mem(pdev, vd);
 	disable_irq(vd->irq_num);
 	apusys_unregister_device(&vd->adev);
+#if VPU_XOS
+	apusys_unregister_device(&vd->adev_rt);
+#endif
 	vpu_exit_dev_pwr(pdev, vd);
 	vpu_dev_del(pdev);
 	vpu_free(pdev);
@@ -646,8 +761,7 @@ static int vpu_remove(struct platform_device *pdev)
 
 static int vpu_suspend(struct vpu_device *vd)
 {
-	mutex_lock(&vd->lock);
-	mutex_lock(&vd->cmd_lock);
+	vpu_cmd_lock_all(vd);
 	vpu_pwr_debug("%s: pw_ref: %d, state: %d\n",
 		__func__, vpu_pwr_cnt(vd), vd->state);
 
@@ -655,8 +769,7 @@ static int vpu_suspend(struct vpu_device *vd)
 		vpu_pwr_suspend_locked(vd);
 		vpu_pwr_debug("%s: suspended\n", __func__);
 	}
-	mutex_unlock(&vd->cmd_lock);
-	mutex_unlock(&vd->lock);
+	vpu_cmd_unlock_all(vd);
 
 	return 0;
 }
@@ -742,9 +855,9 @@ static void __exit vpu_exit(void)
 	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 		vd = list_entry(ptr, struct vpu_device, list);
 		list_del(ptr);
-		mutex_lock(&vd->cmd_lock);
+		vpu_cmd_lock_all(vd);
 		vd->state = VS_REMOVING;
-		mutex_unlock(&vd->cmd_lock);
+		vpu_cmd_unlock_all(vd);
 	}
 	mutex_unlock(&vpu_drv->lock);
 
@@ -766,7 +879,6 @@ static void __exit vpu_exit(void)
 	platform_driver_unregister(&vpu_plat_drv);
 }
 
-// module_init(vpu_init);
 late_initcall(vpu_init);
 module_exit(vpu_exit);
 MODULE_DESCRIPTION("Mediatek VPU Driver");

@@ -198,6 +198,7 @@ static void dump_fail_state(void)
 		power_fail_record.time_sec, power_fail_record.time_nsec);
 
 	LOG_ERR("APUPWR err %s\n", log_str);
+	LOG_DUMP("APUPWR err %s\n", log_str); // debug ring buffer
 }
 
 // vcore voltage p to vcore opp
@@ -881,6 +882,8 @@ static void get_current_power_info(void *param, int force)
 		LOG_ERR("APUPWR %s\n", log_str);
 	else
 		LOG_PM("APUPWR %s\n", log_str);
+
+	LOG_DUMP("APUPWR %s\n", log_str); // debug ring buffer
 }
 
 static int uninit_power_resource(void)

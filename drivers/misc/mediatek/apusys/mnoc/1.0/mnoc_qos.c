@@ -783,6 +783,7 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 		apu_qos_timer_end();
 #endif
 
+#if 0
 	/* due to preemption,
 	 * there may be multiple cmds running on the same core,
 	 * need to subtract total_bw and total_count from all cmds
@@ -827,6 +828,7 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 			mutex_unlock(&cmd_qos->mtx);
 		}
 	}
+#endif
 
 	mutex_unlock(&counter->list_mtx);
 

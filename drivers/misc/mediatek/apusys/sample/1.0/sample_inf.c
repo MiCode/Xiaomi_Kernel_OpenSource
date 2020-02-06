@@ -262,6 +262,23 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 	}
 	info->run = 1;
 
+	/* memory api test */
+	if (hnd->cmdbuf != NULL) {
+		LOG_INFO("flush memory test\n");
+		if (apusys_mem_flush(hnd->cmdbuf))
+			LOG_ERR("flush memory fail");
+		else
+			LOG_INFO("flush memory done");
+
+		LOG_INFO("invalidate memory test\n");
+		if (apusys_mem_invalidate(hnd->cmdbuf))
+			LOG_ERR("invalidate memory fail");
+		else
+			LOG_INFO("invalidate memory done");
+	} else {
+		LOG_WARN("no cmdbuf\n");
+	}
+
 	LOG_DEBUG("|====================================================|\n");
 	LOG_DEBUG("| sample driver request (use #%-2d device)             |\n",
 		info->idx);

@@ -638,7 +638,7 @@ int apusys_user_insert_mem(struct apusys_user *u, struct apusys_kmem *mem)
 	list_add_tail(&user_mem->list, &u->mem_list);
 	mutex_unlock(&u->mem_mtx);
 
-	LOG_DEBUG("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
+	MLOG_DEBUG("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
 		user_mem, user_mem->mem.mem_type,
 		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
@@ -655,7 +655,7 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 	if (mem == NULL || u == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(0x%llx)\n",
+	MLOG_DEBUG("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(0x%llx)\n",
 		mem, mem->mem_type, mem->fd,
 		mem->kva, mem->iova, mem->size,
 		u->id);
@@ -681,6 +681,33 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 	mutex_unlock(&u->mem_mtx);
 
 	return -ENOMEM;
+}
+
+struct apusys_kmem *apusys_user_get_mem(struct apusys_user *u,
+	int fd)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_user_mem *u_mem = NULL;
+
+	if (u == NULL || fd <= 0)
+		return NULL;
+
+	MLOG_DEBUG("fd = %d, u(0x%llx)\n", fd, u->id);
+
+	mutex_lock(&u->mem_mtx);
+
+	/* query list to find cmd in apusys user */
+	list_for_each_safe(list_ptr, tmp, &u->mem_list) {
+		u_mem = list_entry(list_ptr, struct apusys_user_mem, list);
+		if (u_mem->mem.fd == fd) {
+			MLOG_DEBUG("get kmem from ulist\n");
+			mutex_unlock(&u->mem_mtx);
+			return &u_mem->mem;
+		}
+	}
+	mutex_unlock(&u->mem_mtx);
+
+	return NULL;
 }
 
 int apusys_create_user(struct apusys_user **iu)

@@ -97,6 +97,7 @@ struct apusys_res_table {
 
 	/* dbg */
 	struct dentry *dbg_dir;
+	int last_idx;
 };
 
 /* init link list head, which link all dev table */

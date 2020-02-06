@@ -14,7 +14,9 @@
 #ifndef __VPU_MET_H__
 #define __VPU_MET_H__
 
-#include "vpu_cmn.h"
+#include <linux/platform_device.h>
+
+struct vpu_device;
 
 /* met switch at /sys/kernel/debug/vpu/met */
 #define VPU_MET_DISABLED 0x0
@@ -71,6 +73,18 @@ void vpu_met_pm_put(struct vpu_device *vd)
 }
 #endif
 
+struct vpu_met_work {
+	struct list_head list;
+	spinlock_t lock;
+	int pid;
+	struct work_struct work;
+};
+
+#define VPU_MET_PM_MAX 8
+
+struct vpu_met_pm {
+	uint32_t val[VPU_MET_PM_MAX];
+};
 
 #define PERF_PMG_ENABLE                 0x00000001
 /* global enable bit */

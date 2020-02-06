@@ -18,6 +18,7 @@
 #include "test.h"
 #else
 #include <aee.h>
+#include "debug_driver.h"
 
 extern int g_pwr_log_level;
 extern int g_pm_procedure;
@@ -80,6 +81,9 @@ enum {
 		aee_kernel_warning("APU PWR", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
+
+#define LOG_DUMP(format, args...) \
+	apu_dbg_print(format, ##args)
 
 #endif /* BUILD_POLICY_TEST */
 #endif /* _APU_LOG_H_ */

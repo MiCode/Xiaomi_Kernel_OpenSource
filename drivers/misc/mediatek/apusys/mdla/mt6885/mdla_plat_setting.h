@@ -27,6 +27,19 @@
 #define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
 //#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 
-//#define __APUSYS_PREEMPTION__
+#define __APUSYS_MDLA_PMU_SUPPORT__
+#define __APUSYS_PREEMPTION__
+#ifdef __APUSYS_PREEMPTION__
+#include "apusys_device.h"
+#define PRIORITY_LEVEL 2
+#define CORE0_WORK_MASK 0x3
+#define CORE1_WORK_MASK 0xC
+
+extern u32 mdla_batch_number;
+extern u32 mdla_preemption_times;
+extern u32 mdla_preemption_debug;
+#else//__APUSYS_PREEMPTION__
+#define PRIORITY_LEVEL 1
+#endif//__APUSYS_PREEMPTION__
 
 #endif //__MDLA_PLAT_SETTING_H__

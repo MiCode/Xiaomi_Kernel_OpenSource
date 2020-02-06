@@ -11,12 +11,15 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
 #include <apusys_dbg.h>
+#include "vpu_cfg.h"
 #include "vpu_debug.h"
 #include "vpu_reg.h"
 #include "vpu_cmn.h"
+#include "vpu_cmd.h"
 #include "vpu_dump.h"
 
 static void vpu_dmp_seq_time(struct seq_file *s, uint64_t t)
@@ -47,7 +50,7 @@ out:
  * vpu_dmp_free_locked() - Free VPU register and memory dump
  * @vd: vpu device
  *
- * vd->lock or vd->cmd_lock must be locked before calling this function
+ * vd->lock must be locked before calling this function
  */
 void vpu_dmp_free_locked(struct vpu_device *vd)
 {
@@ -65,6 +68,8 @@ static void vpu_dmp_iova(void *dst, struct vpu_iova *i, size_t size)
 
 	if (!dst || !size)
 		return;
+
+	size = min_t(size_t, size, i->size);
 
 	if (i->bin == VPU_MEM_ALLOC) {
 		if (!i->m.va)
@@ -98,6 +103,7 @@ static void vpu_dmp_reg_file(struct vpu_device *vd)
 #undef dmp_reg
 	vpu_dmp_reg(vd, vd->dmp->r_info, XTENSA_INFO00, VPU_DMP_REG_CNT_INFO);
 	vpu_dmp_reg(vd, vd->dmp->r_dbg, DEBUG_INFO00, VPU_DMP_REG_CNT_DBG);
+	vpu_dmp_reg(vd, vd->dmp->r_mbox, MBOX_INBOX_0, VPU_DMP_REG_CNT_MBOX);
 }
 
 static void vpu_dmp_iomem(void *dst, void __iomem *src, size_t size)
@@ -135,13 +141,14 @@ static bool vpu_dmp_is_alive(struct vpu_device *vd)
  * @vd: vpu device
  * @req: on-going vpu request, set NULL if not available
  *
- * vd->lock or vd->cmd_lock must be locked before calling this function
+ * vd->lock must be locked before calling this function
  */
 int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	const char *fmt, ...)
 {
 	struct vpu_dmp *d;
 	int ret = 0;
+	int i;
 	va_list args;
 
 	if (!vd)
@@ -183,15 +190,35 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 #undef VPU_DMP_IOVA
 
 	d->vd_state = vd->state;
+	d->vd_dev_state = vd->dev_state;
+
+	memcpy(&d->c_ctl, vd->cmd,
+		sizeof(struct vpu_cmd_ctl) * VPU_MAX_PRIORITY);
+
+	for (i = 0; i < VPU_MAX_PRIORITY; i++) {
+		if (!vd->cmd[i].alg)
+			continue;
+		memcpy(&d->c_alg[i], vd->cmd[i].alg,
+			sizeof(struct __vpu_algo));
+		d->c_ctl[i].alg = &d->c_alg[i];
+#if VPU_XOS
+		if (d->c_alg[i].al == &vd->alp) {
+			vpu_dmp_iova(d->m_pl_algo[i],
+				&d->c_alg[i].prog,
+				VPU_DMP_PRELOAD_SZ);
+			vpu_dmp_iova(d->m_pl_iram[i],
+				&d->c_alg[i].iram,
+				VPU_DMP_IRAM_SZ);
+		}
+#endif
+	}
+
+	d->c_prio = atomic_read(&vd->cmd_prio);
+	d->c_prio_max = vd->cmd_prio_max;
+	d->c_timeout = vd->cmd_timeout;
 
 	if (req)
 		memcpy(&d->req, req, sizeof(struct vpu_request));
-
-	if (vd->algo_curr) {
-		memcpy(&d->vd_algo_curr, &vd->algo_curr->a,
-			sizeof(struct vpu_algo));
-	}
-
 out:
 	return ret;
 }
@@ -253,6 +280,47 @@ vpu_dmp_seq_reg(struct seq_file *s, struct vpu_device *vd)
 		seq_printf(s, "XTENSA_INFO%02d:\t0x%08x\n", i, d->r_info[i]);
 	for (i = 0; i < VPU_DMP_REG_CNT_DBG; i++)
 		seq_printf(s, "DEBUG_INFO%02d:\t0x%08x\n", i, d->r_dbg[i]);
+	for (i = 0; i < VPU_DMP_REG_CNT_MBOX; i++)
+		seq_printf(s, "MBOX_INBOX_%d:\t0x%08x\n", i, d->r_mbox[i]);
+}
+
+static void vpu_dmp_seq_pl_algo(struct seq_file *s, struct vpu_device *vd)
+{
+#if VPU_XOS
+	struct vpu_dmp *d = vd->dmp;
+	int prio_max = d->c_prio_max;
+	int i;
+
+	if (prio_max > VPU_MAX_PRIORITY)
+		prio_max = VPU_MAX_PRIORITY;
+
+	for (i = 0; i < prio_max; i++) {
+		char str[64];
+		char *a_name = NULL;
+		struct __vpu_algo *alg = &d->c_alg[i];
+
+		if (!alg->a.name[0])
+			continue;
+		if (alg->al != &vd->alp)
+			continue;
+
+		/* get algo short name, after last '_' */
+		a_name = strrchr(alg->a.name, '_');
+		a_name = (a_name) ? (a_name + 1) : alg->a.name;
+
+		snprintf(str, sizeof(str), "p%d/%s/prog ",
+			i, a_name);
+		vpu_dmp_seq_mem(s, vd, alg->a.mva, str,
+			d->m_pl_algo[i],
+			min(VPU_DMP_PRELOAD_SZ, alg->prog.size));
+
+		snprintf(str, sizeof(str), "p%d/%s/iram ",
+			i, a_name);
+		vpu_dmp_seq_mem(s, vd, alg->a.iram_mva, str,
+			d->m_pl_iram[i],
+			min(VPU_DMP_IRAM_SZ, alg->iram.size));
+	}
+#endif
 }
 
 void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
@@ -267,8 +335,12 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 	seq_puts(s, "exception time: [");
 	vpu_dmp_seq_time(s, d->time);
 	seq_puts(s, "]\n");
-	seq_printf(s, "state: %d\n", d->vd_state);
-	seq_printf(s, "loaded algo: %s\n", d->vd_algo_curr.name);
+
+	vpu_debug_state_seq(s, d->vd_state, d->vd_dev_state);
+
+	vpu_dmp_seq_bar(s, vd, "commands");
+	vpu_debug_cmd_seq(s, vd, d->c_prio,
+		d->c_prio_max, d->c_ctl, d->c_timeout);
 
 	vpu_dmp_seq_bar(s, vd, "message");
 	vpu_mesg_seq(s, vd);
@@ -295,6 +367,8 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 	VPU_SEQ_IOMEM(dmem, DMEM);
 	VPU_SEQ_IOMEM(imem, IMEM);
 #undef VPU_SEQ_IOMEM
+
+	vpu_dmp_seq_pl_algo(s, vd);
 }
 
 /**
@@ -311,7 +385,7 @@ void vpu_dmp_seq(struct seq_file *s)
 	mutex_lock(&vpu_drv->lock);
 	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 		vd = list_entry(ptr, struct vpu_device, list);
-		mutex_lock(&vd->lock);
+		mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
 		vpu_dmp_seq_core(s, vd);
 		mutex_unlock(&vd->lock);
 	}

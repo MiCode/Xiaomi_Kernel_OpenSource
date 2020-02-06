@@ -121,16 +121,20 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 	return 0;
 
 free_import:
-	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 	ion_free(mem_mgr->client, ion_hnd);
 	apusys_user_record_log();
 	apusys_aee_print("mem fail");
@@ -172,16 +176,20 @@ int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 	return 0;
 
 free_import:
-	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 	apusys_user_record_log();
 	apusys_aee_print("mem fail");
 	return ret;
@@ -220,16 +228,20 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 	return 0;
 
 free_import:
-	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 	ion_free(mem_mgr->client, ion_hnd);
 	apusys_user_record_log();
 	apusys_aee_print("mem fail");
@@ -273,15 +285,19 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 	return 0;
 
 free_import:
-	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 	apusys_user_record_log();
 	apusys_aee_print("mem fail");
 	return ret;
@@ -377,9 +393,11 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 	return 0;
 
@@ -429,9 +447,11 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	if (mem->khandle == 0)
 		mem->khandle = (uint64_t)ion_hnd;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 
 free_import:
@@ -457,9 +477,11 @@ int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_hnd = (struct ion_handle *) mem->khandle;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 	return ret;
 }
@@ -486,9 +508,11 @@ int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_free(mem_mgr->client, ion_hnd);
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova,
+			mem->iova + mem->iova_size - 1,
+			mem->size, mem->iova_size,
+			mem->khandle, mem->kva);
 
 	return ret;
 

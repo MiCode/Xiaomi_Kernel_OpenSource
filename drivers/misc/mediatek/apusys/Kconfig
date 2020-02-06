@@ -7,6 +7,14 @@ config MTK_APUSYS_SUPPORT
 	  if the APUSYS driver should be
 	  built in or not
 
+config MTK_APUSYS_RT_SUPPORT
+	bool "APUSYS Preemption"
+	help
+	  For Mediatek APUSYS preemption features.
+	  This config will enable MDLA/VPU preemption feature.
+	  It will increase performance for high priority task.
+	  MDLA/VPU should be enable/disable at the same time.
+
 config MTK_APUSYS_MDLA_SUPPORT
 	bool "MDLA driver"
 	help

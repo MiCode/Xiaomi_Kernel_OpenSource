@@ -50,6 +50,7 @@ struct apusys_cmd {
 	pid_t pid;
 	pid_t tgid;
 	int mem_fd;
+	struct apusys_kmem *cmdbuf;
 	uint64_t mem_hnd;
 	uint64_t cmd_id;     // cmd unique id
 	uint32_t cmdbuf_size;
@@ -130,6 +131,7 @@ struct apusys_subcmd {
 	uint64_t period;
 	uint64_t deadline;
 	uint64_t runtime;
+	int cluster_size; // cluster size of preemption
 };
 
 /* general functions */

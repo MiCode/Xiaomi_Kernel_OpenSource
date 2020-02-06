@@ -14,6 +14,7 @@
 #ifndef _APUSYS_POWER_CUST_H_
 #define _APUSYS_POWER_CUST_H_
 
+#include <linux/delay.h>
 #include <linux/types.h>
 #include "apusys_power_user.h"
 #include <linux/sched/clock.h>
@@ -24,6 +25,8 @@
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
 #endif
+
+#define APUPWR_TASK_DEBOUNCE
 
 #define BYPASS_POWER_OFF	(0)	// 1: bypass power off (return directly)
 #define BYPASS_POWER_CTL	(0)	// 1: bypass power on/off feature
@@ -180,4 +183,11 @@ extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
+
+#ifdef APUPWR_TASK_DEBOUNCE
+static inline void task_debounce(void)
+{
+	msleep_interruptible(20);
+}
+#endif
 #endif
