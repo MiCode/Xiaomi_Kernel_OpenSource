@@ -21,6 +21,7 @@
 #include <linux/wait.h>
 #include <linux/irqreturn.h>
 #include <asm/io.h>
+#include <linux/keyslot-manager.h>
 
 /* registers */
 /* version */
@@ -224,6 +225,34 @@ union cqhci_crypto_cfg_entry {
 		u8 vsb[2];
 		u8 reserved_3[56];
 	};
+};
+
+struct cqhci_host_crypto_variant_ops {
+	void (*setup_rq_keyslot_manager)(struct cqhci_host *host,
+					 struct request_queue *q);
+	void (*destroy_rq_keyslot_manager)(struct cqhci_host *host,
+					   struct request_queue *q);
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	int (*host_init_crypto)(struct cqhci_host *host,
+				const struct keyslot_mgmt_ll_ops *ksm_ops);
+#endif
+	void (*enable)(struct cqhci_host *host);
+	void (*disable)(struct cqhci_host *host);
+	int (*suspend)(struct cqhci_host *host);
+	int (*resume)(struct cqhci_host *host);
+	int (*debug)(struct cqhci_host *host);
+	int (*prepare_crypto_desc)(struct cqhci_host *host,
+				   struct mmc_request *mrq,
+				   u64 *ice_ctx);
+	int (*complete_crypto_desc)(struct cqhci_host *host,
+				    struct mmc_request *mrq,
+				    u64 *ice_ctx);
+	int (*reset)(struct cqhci_host *host);
+	int (*recovery_finish)(struct cqhci_host *host);
+	int (*program_key)(struct cqhci_host *host,
+			   const union cqhci_crypto_cfg_entry *cfg,
+			   int slot);
+	void *priv;
 };
 
 struct cqhci_host {
