@@ -1660,6 +1660,7 @@ static int eem_probe(struct platform_device *pdev)
 #if SUPPORT_DCONFIG
 	unsigned int doe_status, sn_doe_status;
 #endif
+	enum mt_cpu_dvfs_id cpudvfsindex;
 
 	FUNC_ENTER(FUNC_LV_MODULE);
 	seq = 0;
@@ -1836,8 +1837,12 @@ static int eem_probe(struct platform_device *pdev)
 	eem_data.u.data.arg[0] = 0;
 	ret = eem_to_cpueb(IPI_EEMSN_INIT02, &eem_data);
 
-	for_each_det(det)
-		eem_save_init2_volt_aee(det);
+	for_each_det(det) {
+		cpudvfsindex = detid_to_dvfsid(det);
+		mt_cpufreq_update_legacy_volt(cpudvfsindex,
+			det->volt_tbl_pmic, det->num_freq_tbl);
+			eem_save_init2_volt_aee(det);
+	}
 
 	eem_debug("%s ok\n", __func__);
 	FUNC_EXIT(FUNC_LV_MODULE);

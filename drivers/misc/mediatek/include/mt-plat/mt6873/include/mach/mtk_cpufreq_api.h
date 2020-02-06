@@ -89,4 +89,7 @@ extern void mt_cpufreq_set_governor_freq_registerCB(cpuFreqsampler_func pCB);
 /* CPUFREQ */
 extern void aee_record_cpufreq_cb(unsigned int step);
 
+extern int mt_cpufreq_update_legacy_volt(unsigned int cluster_id,
+			unsigned int *volt_tbl, int nr_volt_tbl);
+
 #endif	/* __MTK_CPUFREQ_API_H__ */

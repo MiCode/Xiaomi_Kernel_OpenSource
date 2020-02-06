@@ -1210,6 +1210,25 @@ int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 
 	return 0;
 }
+
+#ifdef READ_SRAM_VOLT
+unsigned int get_sram_table_volt(unsigned int cluster_id, int idx)
+{
+	unsigned int volt;
+	struct buck_ctrl_t *vproc_p;
+	struct mt_cpu_dvfs *p;
+
+
+	p = id_to_cpu_dvfs(cluster_id);
+	vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
+
+	volt = vproc_p->buck_ops->transfer2volt
+		((recordRef[idx + 36 * cluster_id] >> 16) & 0xFFF);
+
+	return volt;
+}
+#endif
+
 #ifdef ENABLE_DOE
 void update_pvt_tbl_by_doe(void)
 {

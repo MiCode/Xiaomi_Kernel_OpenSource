@@ -447,3 +447,22 @@ void dfd_workaround(void)
 }
 EXPORT_SYMBOL(dfd_workaround);
 #endif
+
+#ifdef READ_SRAM_VOLT
+int mt_cpufreq_update_legacy_volt(enum mt_cpu_dvfs_id id,
+		unsigned int *volt_tbl, int nr_volt_tbl)
+{
+	struct mt_cpu_dvfs *p = id_to_cpu_dvfs(id);
+
+	FUNC_ENTER(FUNC_LV_API);
+
+	_mt_cpufreq_dvfs_request_wrapper(p, p->idx_opp_tbl,
+		MT_CPU_DVFS_EEM_UPDATE,	(void *)&volt_tbl);
+
+	FUNC_EXIT(FUNC_LV_API);
+
+	return 0;
+}
+EXPORT_SYMBOL(mt_cpufreq_update_legacy_volt);
+#endif
+

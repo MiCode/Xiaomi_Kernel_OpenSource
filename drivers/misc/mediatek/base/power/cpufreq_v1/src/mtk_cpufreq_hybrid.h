@@ -96,6 +96,7 @@ int cpuhvfs_get_sched_dvfs_disable(void);
 int cpuhvfs_set_sched_dvfs_disable(unsigned int disable);
 int cpuhvfs_set_turbo_disable(unsigned int disable);
 int cpuhvfs_get_cur_dvfs_freq_idx(int cluster_id);
+unsigned int get_sram_table_volt(unsigned int cluster_id, int idx);
 #if 0
 int cpuhvfs_set_cpu_load_freq(unsigned int cpu,
 	enum cpu_dvfs_sched_type state, unsigned int freq);
