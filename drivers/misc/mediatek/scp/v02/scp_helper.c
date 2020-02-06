@@ -418,25 +418,27 @@ static void scp_A_notify_ws(struct work_struct *ws)
  * Note: The function should be called before disabling 26M & resetting scp.
  *
  * An example of function instance of sensor_params_to_scp:
- * int sensor_params_to_scp(phys_addr_t addr_vir, size_t size)
- * {
- *     int *params;
- *
- *     params = (int *)addr_vir;
- *     params[0] = 0xaaaa;
- *
- *     return 0;
- * }
+
+	int sensor_params_to_scp(phys_addr_t addr_vir, size_t size)
+	{
+		int *params;
+
+		params = (int *)addr_vir;
+		params[0] = 0xaaaa;
+
+		return 0;
+	}
  */
+
 static int params_to_scp(void)
 {
 #ifdef CFG_SENSOR_PARAMS_TO_SCP_SUPPORT
 	int ret = 0;
-	struct scp_region_info_st *region_info =
-		(struct scp_region_info_st *)(SCP_TCM + SCP_REGION_INFO_OFFSET);
+
+	scp_region_info = (SCP_TCM + SCP_REGION_INFO_OFFSET);
 
 	mt_reg_sync_writel(scp_get_reserve_mem_phys(SCP_DRV_PARAMS_MEM_ID),
-			&(region_info->ap_params_start));
+			&(scp_region_info->ap_params_start));
 
 	ret = sensor_params_to_scp(
 		scp_get_reserve_mem_virt(SCP_DRV_PARAMS_MEM_ID),
@@ -1488,6 +1490,14 @@ void scp_sys_reset_ws(struct work_struct *ws)
 
 	/* scp reset */
 	scp_sys_full_reset();
+
+#ifdef SCP_PARAMS_TO_SCP_SUPPORT
+	/* The function, sending parameters to scp must be anchored before
+	 * 1. disabling 26M, 2. resetting SCP
+	 */
+	if (params_to_scp() != 0)
+		return;
+#endif
 
 	spin_lock_irqsave(&scp_awake_spinlock, spin_flags);
 	scp_reset_awake_counts();

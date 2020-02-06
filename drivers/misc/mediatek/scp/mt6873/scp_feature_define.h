@@ -28,6 +28,8 @@
 /* scp recovery timeout value (ms)*/
 #define SCP_SYS_RESET_TIMEOUT            1000
 
+#define SCP_PARAMS_TO_SCP_SUPPORT
+
 /* scp aed definition*/
 #define SCP_AED_STR_LEN                  (512)
 
