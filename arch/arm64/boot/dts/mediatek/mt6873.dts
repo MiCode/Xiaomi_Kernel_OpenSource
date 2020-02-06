@@ -6143,6 +6143,12 @@
 		drcc6_Code = <255>;
 		drcc7_Code = <255>;
 	};
+
+	ssusb_ip_sleep: ssusb_ip_sleep {
+		compatible = "mediatek,usb_ipsleep";
+		interrupt-parent = <&pio>;
+		interrupts = <211 IRQ_TYPE_LEVEL_LOW 223 0>;
+	};
 };
 
 &spmi_bus {
