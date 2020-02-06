@@ -233,21 +233,7 @@ page_owner=on";
 			label = "lcd-backlight";
 			pwms = <&disp_pwm 0 39385>;
 			max-brightness = <255>;
-			led-bits = <8>;
-			trans-bits = <10>;
 			pwm-names = "lcd-backlight";
-		};
-	};
-
-	disp_leds {
-		compatible = "mediatek,disp-leds";
-
-		backlight {
-			label = "lcd-backligh";
-			max-brightness = <255>;
-			led-bits = <8>;
-			trans-bits = <10>;
-			default-state = "on";
 		};
 	};
 

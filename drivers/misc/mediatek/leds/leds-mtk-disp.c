@@ -214,11 +214,17 @@ EXPORT_SYMBOL(setMaxBrightness);
 static int led_level_set_disp(struct mtk_led_data *s_led,
 	enum led_brightness brightness)
 {
+	int mappingLevel;
 
 	if (s_led->level == brightness)
 		return 0;
+	mappingLevel = (
+		(((1 << s_led->trans_bits) - 1) * brightness
+		+ (((1 << s_led->led_bits) - 1) / 2))
+		/ ((1 << s_led->led_bits) - 1));
 
 	s_led->level = brightness;
+	led_debug_log(s_led, brightness, mappingLevel);
 
 #ifdef MET_USER_EVENT_SUPPORT
 	if (enable_met_backlight_tag())
@@ -258,8 +264,11 @@ int mt_leds_brightness_set(char *name, int level)
 		+ (((1 << led_dat->trans_bits) - 1) / 2))
 		/ ((1 << led_dat->trans_bits) - 1));
 
+//	pr_info("getLedData: %s, level: %d[%d]",
+//		led_dat->desp.name, level, led_Level);
+
 	schedule_work(&led_dat->work);
-	return 0;
+	return led_level_set_disp(led_dat, led_Level);
 }
 EXPORT_SYMBOL(mt_leds_brightness_set);
 
@@ -277,21 +286,19 @@ static int led_level_set(struct led_classdev *led_cdev,
 		((1 << led_dat->trans_bits) - 1) * brightness
 		+ (((1 << led_dat->led_bits) - 1) / 2))
 		/ ((1 << led_dat->led_bits) - 1);
-	led_debug_log(led_dat, brightness, trans_level);
+	pr_debug("set level: %d->%d,%d[%d]",
+		led_dat->level, brightness, led_cdev->brightness, trans_level);
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 #ifdef CONFIG_MTK_AAL_SUPPORT
-	disp_pq_notify_backlight_changed(trans_level);
-	call_notifier(1, led_dat);
+		disp_pq_notify_backlight_changed(trans_level);
+		return call_notifier(1, led_dat);
 #else
-	call_notifier(1, led_dat);
-	schedule_work(&led_dat->work);
+		call_notifier(1, led_dat);
 #endif
-#else
-	schedule_work(&led_dat->work);
-
 #endif
-return 0;
+	schedule_work(&led_dat->work);
+	return led_level_set_disp(led_dat, brightness);
 
 }
 
@@ -393,7 +400,7 @@ static int mtk_leds_parse_dt(struct device *dev,
 		ret = led_data_init(dev, s_led);
 		if (ret)
 			goto out_led_dt;
-		led_level_set_disp(s_led, s_led->level);
+		led_level_set(&s_led->cdev, s_led->level);
 		num++;
 	}
 	m_leds->nums = num;
@@ -446,6 +453,8 @@ static int mtk_leds_probe(struct platform_device *pdev)
 	m_leds->dev = dev;
 
 	pr_info("probe end ---");
+	//setMaxBrightness("lcd-backlight", 50, 1);
+	//mt_leds_brightness_set("lcd-backlight", 255);
 	return ret;
  err:
 	pr_notice("Failed to probe!");
@@ -500,7 +509,7 @@ MODULE_DEVICE_TABLE(of, of_mtk_disp_leds_match);
 
 static struct platform_driver mtk_disp_leds_driver = {
 	.driver = {
-		   .name = "leds-mtk-disp",
+		   .name = "mtk-disp-leds",
 		   .of_match_table = of_mtk_disp_leds_match,
 		   },
 	.probe = mtk_leds_probe,

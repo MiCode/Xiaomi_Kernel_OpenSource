@@ -210,6 +210,7 @@ static int led_pwm_set(struct mtk_led_data *led_dat,
 	return 0;
 }
 
+
 int mt_leds_brightness_set(char *name, int level)
 {
 	struct mtk_led_data *led_dat;
@@ -233,6 +234,7 @@ int mt_leds_brightness_set(char *name, int level)
 	return 0;
 }
 EXPORT_SYMBOL(mt_leds_brightness_set);
+
 
 void mtk_led_work(struct work_struct *work)
 {
@@ -272,6 +274,7 @@ static int led_level_set_pwm(struct mtk_led_data *s_led,
 #endif
 #else
 	schedule_work(&s_led->work);
+
 #endif
 return 0;
 
@@ -299,7 +302,7 @@ static int led_level_set(struct led_classdev *led_cdev,
 	struct mtk_led_data *led_dat =
 		container_of(led_cdev, struct mtk_led_data, cdev);
 
-	if (strcmp(led_dat->cdev.name, "lcd-backlight")) {
+	if (strcmp(led_dat->info.config.name, "lcd-backlight")) {
 		if (led_dat->limit.flag) {
 			if (led_dat->limit.limit_l < brightness)
 				brightness = led_dat->limit.limit_l;
@@ -330,6 +333,7 @@ int setMaxBrightness(char *name, int percent, bool enable)
 	}
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
+//	pr_info("getLedData: %s", led_dat->desp.name);
 
 	max_l = led_dat->max_brightness;
 	limit_l = (percent * max_l) / 100;
@@ -360,6 +364,7 @@ static int led_data_init(struct device *dev, struct mtk_led_data *s_led)
 {
 	int ret;
 
+	s_led->cdev.name = s_led->info.config.name;
 	s_led->cdev.default_trigger = s_led->info.config.default_trigger;
 	s_led->cdev.brightness = s_led->level;
 	s_led->cdev.max_brightness = s_led->info.config.max_brightness;
@@ -413,9 +418,11 @@ static int led_pwm_config_add(struct device *dev,
 	s_led->info.config.pwm_period_ns = pargs.period;
 	if (!s_led->info.config.pwm_period_ns && (pargs.period > 0))
 		s_led->info.config.pwm_period_ns = pargs.period;
-
-	pr_info("set led pwm OK! info.config.pwm_period_ns = %d!",
+	pr_info("info.config.pwm_period_ns = %d!",
 		s_led->info.config.pwm_period_ns);
+
+	led_level_set(&s_led->cdev, s_led->cdev.brightness);
+	pr_info("set led pwm OK!");
 	return ret;
 
  err:
@@ -442,15 +449,9 @@ static int mtk_leds_parse_dt(struct device *dev,
 
 		s_led = &(m_leds->leds[num]);
 		ret = of_property_read_string(child, "label",
-			&(s_led->cdev.name));
-		if (ret) {
-			pr_info("Fail to read label property");
-			goto out_led_dt;
-		}
-		ret = of_property_read_string(child, "pwm-names",
 			&(s_led->info.config.name));
 		if (ret) {
-			pr_info("Fail to read pwm-names property");
+			pr_info("Fail to read label property");
 			goto out_led_dt;
 		}
 		ret = of_property_read_string(child, "default-trigger",
@@ -468,12 +469,6 @@ static int mtk_leds_parse_dt(struct device *dev,
 		if (ret) {
 			pr_info("No led-bits, use default value 8");
 			s_led->led_bits = 8;
-		}
-		ret = of_property_read_u32(child,
-			"max-brightness", &(s_led->max_brightness));
-		if (ret) {
-			pr_info("No max-brightness, use default value 255");
-			s_led->max_brightness = 255;
 		}
 		s_led->info.config.max_brightness =
 			(1 << s_led->led_bits) - 1;
@@ -502,22 +497,22 @@ static int mtk_leds_parse_dt(struct device *dev,
 
 		} else
 			s_led->level = 102;
-		pr_info("parse %s(%d) leds dt: %s, %s, %d, %d, %d\n",
-			s_led->cdev.name, num, s_led->info.config.name,
+		pr_info("parse %d leds dt: %s, %s, %d, %d, %d\n",
+			num, s_led->info.config.name,
 			s_led->info.config.default_trigger,
 			s_led->info.config.active_low,
 			s_led->info.config.max_brightness,
 			s_led->led_bits);
 		s_led->desp.index = num;
-		strncpy(s_led->desp.name, s_led->cdev.name,
-			strlen(s_led->cdev.name));
+		strncpy(s_led->desp.name, s_led->info.config.name,
+			strlen(s_led->info.config.name));
 		s_led->desp.index = num;
 		leds_info->leds[num] = &s_led->desp;
 		ret = led_data_init(dev, s_led);
 		if (ret)
 			goto out_led_dt;
 		led_pwm_config_add(dev, s_led, child);
-		led_pwm_set(s_led, s_led->level);
+		led_level_set_pwm(s_led, s_led->level);
 		num++;
 	}
 	m_leds->nums = num;
