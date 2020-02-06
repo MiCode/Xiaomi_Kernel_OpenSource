@@ -417,10 +417,12 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 #if defined(CONFIG_MACH_MT6885)
 	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
 	unsigned int ultra_low_us = 230, ultra_high_us = 245;
+	unsigned int urgent_low_us = 113, urgent_high_us = 117;
 #endif
 #if defined(CONFIG_MACH_MT6873)
 	unsigned int pre_ultra_low_us = 250, pre_ultra_high_us = 260;
 	unsigned int ultra_low_us = 230, ultra_high_us = 250;
+	unsigned int urgent_low_us = 110, urgent_high_us = 120;
 #endif
 
 	/* input variable */
@@ -512,7 +514,9 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	 * dc mode under SODI CG mode
 	 */
 	gs[GS_RDMA_ISSUE_REQ_TH] =
-		gs[GS_RDMA_FIFO_SIZE] - gs[GS_RDMA_PRE_ULTRA_TH_LOW];
+		((gs[GS_RDMA_FIFO_SIZE] -
+		gs[GS_RDMA_PRE_ULTRA_TH_LOW]) >= 256) ? 256 :
+		(gs[GS_RDMA_FIFO_SIZE] - gs[GS_RDMA_PRE_ULTRA_TH_LOW]);
 
 	/* DISP_RDMA_THRESHOLD_FOR_SODI */
 	gs[GS_RDMA_TH_LOW_FOR_SODI] =
@@ -554,8 +558,10 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
 
 	/* DISP_RDMA_MEM_GMC_SETTING_3 */
-	gs[GS_RDMA_URGENT_TH_LOW] = DIV_ROUND_UP(consume_rate * 113, FP);
-	gs[GS_RDMA_URGENT_TH_HIGH] = DIV_ROUND_UP(consume_rate * 117, FP);
+	gs[GS_RDMA_URGENT_TH_LOW] = DIV_ROUND_UP(consume_rate *
+		urgent_low_us, FP);
+	gs[GS_RDMA_URGENT_TH_HIGH] = DIV_ROUND_UP(consume_rate *
+		urgent_high_us, FP);
 
 	/* DISP_RDMA_GREQ_URG_NUM_SEL */
 	gs[GS_RDMA_LAYER_SMI_ID_EN] = 1;

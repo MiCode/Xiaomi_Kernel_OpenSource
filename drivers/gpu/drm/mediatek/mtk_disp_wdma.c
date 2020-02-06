@@ -376,8 +376,14 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YUV420:
 		/* 3 plane */
+#if defined(CONFIG_MACH_MT6885)
 		fifo_size = 228;
 		fifo_size_uv = 50;
+#endif
+#if defined(CONFIG_MACH_MT6873)
+		fifo_size = 402;
+		fifo_size_uv = 99;
+#endif
 		fifo = fifo_size_uv;
 		factor1 = 4;
 		factor2 = 4;
@@ -387,8 +393,14 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 		/* 2 plane */
+#if defined(CONFIG_MACH_MT6885)
 		fifo_size = 228;
 		fifo_size_uv = 109;
+#endif
+#if defined(CONFIG_MACH_MT6873)
+		fifo_size = 402;
+		fifo_size_uv = 201;
+#endif
 		fifo = fifo_size_uv;
 		factor1 = 2;
 		factor2 = 4;
