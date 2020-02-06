@@ -1510,11 +1510,10 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		if (enable_custom_tf_report())
 			report_custom_iommu_fault(m4uid,
 						  base,
-						  int_state,
 						  fault_iova,
 						  fault_pa,
 						  F_MMU_INT_TF_VAL(int_id),
-						  is_vpu);
+						  is_vpu, false);
 
 		if (report_iommu_fault(domain, data->dev, fault_iova,
 					  write ? IOMMU_FAULT_WRITE :
@@ -1636,9 +1635,16 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 
 	ret = __mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
 			m4u_id, 4, &tf_port, &tf_iova, &tf_int);
-	pr_notice("iommu:%d secure bank irq:0x%x in normal world!\n",
-		  m4u_id, tf_int);
+	pr_notice("iommu:%d secure bank fault_id:0x%zx port:0x%zx in normal world!\n",
+		  m4u_id, tf_int, tf_port);
 	if (!ret && tf_port < M4U_PORT_UNKNOWN) {
+		bool is_vpu;
+
+		if (m4u_id >= APU_IOMMU_INDEX)
+			is_vpu = true;
+		else
+			is_vpu = false;
+
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		fault_iova = ((unsigned long)tf_iova &
 				F_MMU_FAULT_VA_BIT31_12) |
@@ -1648,9 +1654,13 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 		fault_iova = (unsigned long)(tf_iova);
 #endif
 		if (enable_custom_tf_report())
-			report_custom_iommu_fault_secure(m4u_id,
-						  data->base, tf_port,
-						  fault_iova);
+			report_custom_iommu_fault(m4u_id,
+						  data->base,
+						  fault_iova,
+						  0,
+						  F_MMU_INT_TF_VAL(tf_int),
+						  is_vpu,
+						  true);
 	}
 
 	ret = IRQ_HANDLED;

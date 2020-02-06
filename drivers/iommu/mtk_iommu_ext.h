@@ -108,16 +108,12 @@ bool enable_custom_tf_report(void);
 bool report_custom_iommu_fault(
 	unsigned int m4uid,
 	void __iomem	*base,
-	unsigned int	int_state,
 	unsigned long	fault_iova,
 	unsigned long	fault_pa,
-	unsigned int	fault_id, bool is_vpu);
+	unsigned int	fault_id,
+	bool is_vpu,
+	bool is_sec);
 
-bool report_custom_iommu_fault_secure(
-	unsigned int m4uid,
-	void __iomem	*base,
-	unsigned int	port,
-	unsigned long fault_iova);
 void report_custom_iommu_leakage(char *port_name,
 	unsigned int size);
 

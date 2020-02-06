@@ -190,10 +190,11 @@ char *iommu_get_port_name(int port)
 bool report_custom_iommu_fault(
 	unsigned int m4uid,
 	void __iomem	*base,
-	unsigned int	int_state,
 	unsigned long	fault_iova,
 	unsigned long	fault_pa,
-	unsigned int	fault_id, bool is_vpu)
+	unsigned int	fault_id,
+	bool is_vpu,
+	bool is_sec)
 {
 	int idx;
 	int port;
@@ -222,30 +223,14 @@ bool report_custom_iommu_fault(
 				fault_iova,
 				iommu_port[idx].fault_data);
 
-	mmu_aee_print(mmu_translation_log_format,
+	if (is_sec)
+		mmu_aee_print(mmu_translation_log_format_secure,
+		       name, name, fault_iova);
+	else
+		mmu_aee_print(mmu_translation_log_format,
 		       name, name,
 		       fault_iova, fault_pa);
-	return true;
-}
 
-bool report_custom_iommu_fault_secure(
-	unsigned int m4uid,
-	void __iomem	*base,
-	unsigned int	port,
-	unsigned long	fault_iova)
-{
-	int idx;
-	char *name;
-
-	idx = mtk_iommu_larb_port_idx(port);
-	name = iommu_port[idx].name;
-	if (iommu_port[idx].enable_tf && iommu_port[idx].fault_fn)
-		iommu_port[idx].fault_fn(port,
-				fault_iova,
-				iommu_port[idx].fault_data);
-
-	mmu_aee_print(mmu_translation_log_format_secure,
-		       name, name, fault_iova);
 	return true;
 }
 
