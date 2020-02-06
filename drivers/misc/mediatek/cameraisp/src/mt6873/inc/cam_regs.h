@@ -560,6 +560,9 @@ enum{
 #define CAM_REG_YUVCO_CON2(module)              (isp_devs[module].regs + 0x4ADC)
 #define CAM_REG_YUVCO_CON3(module)              (isp_devs[module].regs + 0x4AE0)
 
+#define CAM_REG_YUVO_BASE_ADDR(module)          (isp_devs[module].regs + 0x49E0)
+#define CAM_REG_YUVO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x4A0C)
+
 #define CAM_REG_CRZ_IN_IMG(module)              (isp_devs[module].regs + 0x28C4)
 #define CAM_REG_CRZO_DRS(module)                (isp_devs[module].regs + 0x4B38)
 #define CAM_REG_CRZO_CON(module)                (isp_devs[module].regs + 0x4B48)
@@ -681,6 +684,22 @@ enum{
 
 #define CAM_REG_RRZ_HORI_STEP(module)           (isp_devs[module].regs + 0x110C)
 #define CAM_REG_RRZ_VERT_STEP(module)           (isp_devs[module].regs + 0x1110)
+
+#define CAM_REG_CRZO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x4B5C)
+
+#define CAM_REG_FLKO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x45AC)
+
+#define CAM_REG_AFO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x453C)
+
+#define CAM_REG_AAHO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x445C)
+
+#define CAM_REG_AAO_FH_BASE_ADDR(module)        (isp_devs[module].regs + 0x44CC)
+
+#define CAM_REG_AAO_XSIZE(module)               (isp_devs[module].regs + 0x44AC)
+#define CAM_REG_AAO_YSIZE(module)               (isp_devs[module].regs + 0x44B0)
+#define CAM_REG_AAHO_XSIZE(module)              (isp_devs[module].regs + 0x443C)
+#define CAM_REG_AAHO_YSIZE(module)              (isp_devs[module].regs + 0x4440)
+
 
 /* MRAW */
 /* MRAW WDMA */
