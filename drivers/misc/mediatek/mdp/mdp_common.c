@@ -1267,6 +1267,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		handle->prop_size = 0;
 	}
 
+	CMDQ_SYSTRACE_BEGIN("%s copy command\n", __func__);
 	copy_size = desc->blockSize - 2 * CMDQ_INST_SIZE;
 	if (copy_size > 0) {
 		err = cmdq_mdp_copy_cmd_to_task(handle,
@@ -1275,6 +1276,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		if (err < 0)
 			goto flush_err_end;
 	}
+	CMDQ_SYSTRACE_END();
 
 	CMDQ_SYSTRACE_BEGIN("%s check valid %u\n", __func__, copy_size);
 	if (user_space && !cmdq_core_check_user_valid(
@@ -1449,6 +1451,7 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 	if (results && results->count &&
 		results->count <= CMDQ_MAX_DUMP_REG_COUNT) {
+		CMDQ_SYSTRACE_BEGIN("%s assign regs\n", __func__);
 		/* clear results */
 		memset(CMDQ_U32_PTR(results->regValues), 0,
 			results->count * sizeof(CMDQ_U32_PTR(
@@ -1459,6 +1462,7 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 			CMDQ_U32_PTR(results->regValues)[i] =
 				handle->reg_values[i];
 		mutex_unlock(&mdp_task_mutex);
+		CMDQ_SYSTRACE_END();
 	}
 
 	/* consume again since maybe more conflict task in waiting */
@@ -2189,11 +2193,13 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	uint32_t *addr1 = NULL;
 #endif	/* MDP_MMPATH */
 
+	CMDQ_SYSTRACE_BEGIN("%s %u\n", __func__, size);
+
 	/* check engine status */
 	cmdq_mdp_get_func()->CheckHwStatus(handle);
 
 	if (!handle->prop_addr)
-		return;
+		goto done;
 
 	pmqos_curr_record =
 		kzalloc(sizeof(struct mdp_pmqos_record), GFP_KERNEL);
@@ -2317,7 +2323,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	if (!target_pmqos) {
 		CMDQ_ERR("%s no target_pmqos\n", __func__);
-		return;
+		goto done;
 	}
 
 	if (max_throughput > g_freq_steps[0])
@@ -2403,7 +2409,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 #ifdef MDP_MMPATH
 	if (!handle->prop_addr)
-		return;
+		goto done;
 	mdp_curr_pmqos = (struct mdp_pmqos *)handle->prop_addr;
 
 	do {
@@ -2438,6 +2444,9 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 #endif
 #endif
 #endif	/* CONFIG_MTK_SMI_EXT */
+
+done:
+	CMDQ_SYSTRACE_END();
 }
 
 static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
@@ -2668,8 +2677,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			mm_qos_set_request(
 				request, isp_curr_bandwidth, 0, BW_COMP_NONE);
 		}
+		CMDQ_SYSTRACE_BEGIN("%s isp update all\n", __func__);
 		mm_qos_update_all_request(
 			&qos_isp_module_request_list[thread_id]);
+		CMDQ_SYSTRACE_END();
 #endif	/* PMQOS_VERSION2 */
 	} else {
 		/*update bandwidth*/
@@ -2678,8 +2689,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			pm_qos_update_request(
 				&isp_bw_qos_request[thread_id], 0);
 #else
+			CMDQ_SYSTRACE_BEGIN("%s isp update zero\n", __func__);
 			mm_qos_update_all_request_zero(
 				&qos_isp_module_request_list[thread_id]);
+			CMDQ_SYSTRACE_END();
 #endif	/* PMQOS_VERSION2 */
 	}
 	if (mdp_curr_pmqos->mdp_total_datasize)
@@ -2703,8 +2716,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			mm_qos_set_request(request, mdp_curr_bandwidth,
 				0, BW_COMP_NONE);
 		}
+		CMDQ_SYSTRACE_BEGIN("%s mdp update all\n", __func__);
 		mm_qos_update_all_request(
 			&qos_mdp_module_request_list[thread_id]);
+		CMDQ_SYSTRACE_END();
 	}
 #endif	/* PMQOS_VERSION2 */
 

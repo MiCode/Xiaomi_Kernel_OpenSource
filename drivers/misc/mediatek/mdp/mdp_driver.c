@@ -300,6 +300,8 @@ static void cmdq_driver_process_read_address_request(
 	void *dma_addr;
 	void *values_addr;
 
+	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
+
 	CMDQ_MSG("[READ_PA] %s\n", __func__);
 
 	do {
@@ -354,6 +356,8 @@ static void cmdq_driver_process_read_address_request(
 
 	kfree(addrs);
 	kfree(values);
+
+	CMDQ_SYSTRACE_END();
 }
 
 #define CMDQ_PTR_FREE_NULL(ptr) \
@@ -930,8 +934,10 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 		CMDQ_LOG("[warn]job wait and close cost:%lluus handle:0x%p\n",
 			exec_cost, handle);
 
+	CMDQ_SYSTRACE_BEGIN("%s destroy\n", __func__);
 	/* task now can release */
 	cmdq_task_destroy(handle);
+	CMDQ_SYSTRACE_END();
 
 	return 0;
 }

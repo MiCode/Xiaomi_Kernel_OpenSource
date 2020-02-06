@@ -838,7 +838,7 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	cmdq_log("task:%p iwc_cmd:%u cmdq:%p thrd-idx:%u tgid:%u",
 		task, iwc_cmd, cmdq, thrd_idx, current->tgid);
 
-	cmdq_trace_begin("%s_%u", iwc_cmd);
+	cmdq_trace_begin("%s_%u", __func__, iwc_cmd);
 
 	do {
 		if (!cmdq->context) {
