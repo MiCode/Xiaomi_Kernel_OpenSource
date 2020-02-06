@@ -138,7 +138,7 @@ static ssize_t idle_proc_stress_time_write(struct file *filp,
 		const char __user *userbuf, size_t count, loff_t *f_pos)
 {
 	ssize_t ret = count;
-	unsigned int interval_us;
+	unsigned int interval_us = 0;
 	char *buf;
 
 	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);

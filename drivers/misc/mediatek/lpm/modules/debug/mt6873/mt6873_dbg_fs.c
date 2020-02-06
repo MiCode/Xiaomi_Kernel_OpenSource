@@ -15,6 +15,7 @@ static void __exit mt6873_dbg_fs_exit(void)
 {
 	mt6873_dbg_lpm_fs_deinit();
 	mt6873_dbg_spm_fs_deinit();
+	mt6873_dbg_lpm_deinit();
 }
 
 static int __init mt6873_dbg_fs_init(void)

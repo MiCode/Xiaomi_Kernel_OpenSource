@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/rtc.h>
 #include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 #include <aee.h>
 #include <mtk_lpm.h>
@@ -247,12 +248,56 @@ int mt6873_get_wakeup_status(struct mt6873_log_helper *help)
 	/* get CLK SETTLE */
 	help->wakesrc->clk_settle = plat_mmio_read(SPM_CLK_SETTLE);
 	/* check abort */
-	help->wakesrc->is_abort = help->wakesrc->debug_flag & DEBUG_ABORT_MASK;
-	help->wakesrc->is_abort |= help->wakesrc->debug_flag1 &
-					DEBUG_ABORT_MASK_1;
+	help->wakesrc->is_abort =
+		help->wakesrc->debug_flag & DEBUG_ABORT_MASK;
+	help->wakesrc->is_abort |=
+		help->wakesrc->debug_flag1 & DEBUG_ABORT_MASK_1;
 
 	help->cur += 1;
 	return 0;
+}
+
+static void mt6873_save_sleep_info(void)
+{
+#define AVOID_OVERFLOW (0xFFFFFFFF00000000)
+	u32 off_26M_duration;
+	u32 slp_duration;
+
+	slp_duration = plat_mmio_read(SPM_BK_PCM_TIMER);
+	if (slp_duration == before_ap_slp_duration)
+		return;
+
+	/* Save ap off counter and duration */
+	if (ap_pd_count >= AVOID_OVERFLOW)
+		ap_pd_count = 0;
+	else
+		ap_pd_count++;
+
+	if (ap_slp_duration >= AVOID_OVERFLOW)
+		ap_slp_duration = 0;
+	else {
+		ap_slp_duration = ap_slp_duration + slp_duration;
+		before_ap_slp_duration = slp_duration;
+	}
+
+	/* Save 26M's off counter and duration */
+	if (spm_26M_off_duration >= AVOID_OVERFLOW)
+		spm_26M_off_duration = 0;
+	else {
+		off_26M_duration = plat_mmio_read(SPM_BK_VTCXO_DUR);
+		if (off_26M_duration == 0)
+			return;
+
+		spm_26M_off_duration = spm_26M_off_duration +
+			off_26M_duration;
+	}
+
+	if (spm_26M_off_count >= AVOID_OVERFLOW)
+		spm_26M_off_count = 0;
+	else
+		spm_26M_off_count = (plat_mmio_read(SPM_VTCXO_EVENT_COUNT_STA)
+					& 0xffff)
+			+ spm_26M_off_count;
 }
 
 static void mt6873_suspend_show_detailed_wakeup_reason
@@ -260,6 +305,7 @@ static void mt6873_suspend_show_detailed_wakeup_reason
 {
 	int i;
 	unsigned int irq_no;
+
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 #ifdef CONFIG_MTK_CCCI_DEVICES
@@ -289,9 +335,8 @@ static void mt6873_suspend_show_detailed_wakeup_reason
 			continue;
 		if (mt6873_spm_wakesrc_irqs[i].wakesrc == wakesta->r12) {
 			irq_no = mt6873_spm_wakesrc_irqs[i].irq_no;
-			//FIXME:
-			//if (mt_irq_get_pending(irq_no))
-			//	log_wakeup_reason(irq_no);
+			if (mt_irq_get_pending(irq_no))
+				log_wakeup_reason(irq_no);
 		}
 	}
 }
@@ -301,6 +346,7 @@ static void mt6873_suspend_spm_rsc_req_check
 {
 #define LOG_BUF_SIZE		        256
 #define IS_BLOCKED_OVER_TIMES		10
+#undef AVOID_OVERFLOW
 #define AVOID_OVERFLOW (0xF0000000)
 static u32 is_blocked_cnt;
 	char log_buf[LOG_BUF_SIZE] = { 0 };
@@ -541,9 +587,9 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 		log_size += scnprintf(log_buf + log_size,
 			  LOG_BUF_OUT_SZ - log_size,
 			  " req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, ",
-			  wakesrc->req_sta0, mt6873_wake.req_sta1,
-			  wakesrc->req_sta2, mt6873_wake.req_sta3,
-			  wakesrc->req_sta4, mt6873_wake.cg_check_sta,
+			  wakesrc->req_sta0, wakesrc->req_sta1,
+			  wakesrc->req_sta2, wakesrc->req_sta3,
+			  wakesrc->req_sta4, wakesrc->cg_check_sta,
 			  wakesrc->isr);
 
 		log_size += scnprintf(log_buf + log_size,
@@ -560,7 +606,7 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 				LOG_BUF_OUT_SZ - log_size,
 				" clk_settle = 0x%x, ", wakesrc->clk_settle);
 
-		if (!strcmp(scenario, "suspend")) {
+		if (type == MT_LPM_ISSUER_SUSPEND) {
 			/* calculate 26M off percentage in suspend period */
 			if (wakesrc->timer_out != 0) {
 				spm_26M_off_pct =
@@ -607,6 +653,29 @@ struct mtk_lpm_issuer mt6873_issuer = {
 	.log = mt6873_issuer_func,
 };
 
+static int mt6873_idle_save_sleep_info_nb_func(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
+
+	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT))
+		mt6873_save_sleep_info();
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block mt6873_idle_save_sleep_info_nb = {
+	.notifier_call = mt6873_idle_save_sleep_info_nb_func,
+};
+
+static void mt6873_suspend_save_sleep_info_func(void)
+{
+	mt6873_save_sleep_info();
+}
+
+static struct syscore_ops mt6873_suspend_save_sleep_info_syscore_ops = {
+	.resume = mt6873_suspend_save_sleep_info_func,
+};
 static int mt6873_log_timer_func(unsigned long long dur, void *priv)
 {
 	struct mt6873_logger_timer *timer =
@@ -747,6 +816,7 @@ int __init mt6873_logger_init(void)
 	}
 
 	mtk_lpm_notifier_register(&mt6873_logger_nb);
+	mtk_lpm_notifier_register(&mt6873_idle_save_sleep_info_nb);
 
 	mt6873_log_timer.tm.timeout = mt6873_log_timer_func;
 	mt6873_log_timer.tm.priv = &mt6873_log_timer;
@@ -754,6 +824,8 @@ int __init mt6873_logger_init(void)
 	mtk_lpm_timer_interval_update(&mt6873_log_timer.tm,
 					MT6873_LOG_DEFAULT_MS);
 	mtk_lpm_timer_start(&mt6873_log_timer.tm);
+
+	register_syscore_ops(&mt6873_suspend_save_sleep_info_syscore_ops);
 
 	return 0;
 }

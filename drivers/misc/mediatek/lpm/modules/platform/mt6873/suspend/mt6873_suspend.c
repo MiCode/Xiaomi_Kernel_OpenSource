@@ -93,7 +93,6 @@ static u64 get_md_sleep_time(void)
 
 static inline int mt6873_suspend_common_enter(unsigned int *susp_status)
 {
-#if 1
 	unsigned int status = PLAT_VCORE_LP_MODE
 				| PLAT_PMIC_VCORE_SRCLKEN0
 				| PLAT_SUSPEND;
@@ -103,8 +102,6 @@ static inline int mt6873_suspend_common_enter(unsigned int *susp_status)
 		*susp_status = status;
 
 	return 0;
-#endif
-	//return -1;
 }
 
 
