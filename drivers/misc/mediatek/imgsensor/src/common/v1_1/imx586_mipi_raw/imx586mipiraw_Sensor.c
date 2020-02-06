@@ -224,7 +224,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.margin = 48,		/* sensor framelength & shutter margin */
 	.min_shutter = 6,	/* min shutter */
-	.min_gain = 64,
+	.min_gain = 72,
 	.max_gain = 4096,
 	.min_gain_iso = 100,
 	.exp_step = 2,
