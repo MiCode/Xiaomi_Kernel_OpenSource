@@ -680,15 +680,23 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 /**
  * set_domain_to_default_clk() - Brief description of set_domain_to_default_clk
  * @domain_idx: here domain_idx is NOT the same as BUCK_DOMAIN
+ *
  *  0 --> EDMA or REVISER
  *  2 --> VPU0
  *  3 --> VPU1
  *  6 --> MDLA0
  *
- * set V_APU_CONN to 208Mhz and park to system clk
- * set V_MDLA0    to 312Mhz
- * set V_VPU0     to 273Mhz and part to system clk
- * set V_VPU1     to 273Mhz and part to system clk
+ * set V_APU_CONN(dsp_clk)
+ * --> 208Mhz and park to system clk
+ *
+ * set V_MDLA0(apupll)
+ * --> 312Mhz if MDLA0 tries to off
+ *
+ * set V_VPU0(npupll)
+ * --> default_freq if VPU0 tries to off and VPU1 is already off
+ *
+ * set V_VPU1(npupll)
+ * --> default_freq if VPU1 tries to off and VPU0 is already off
  *
  * Returns 0 on success, other value for error cases
  **/
@@ -696,17 +704,20 @@ static int set_domain_to_default_clk(int domain_idx)
 {
 	int ret = 0;
 
-	if (domain_idx == 2)
-		ret = set_apu_clock_source(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
-								V_VPU0);
-	else if (domain_idx == 3)
-		ret = set_apu_clock_source(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
-								V_VPU1);
-	else if (domain_idx == 6)
-		ret = config_apupll(BUCK_VMDLA_DOMAIN_DEFAULT_FREQ, V_MDLA0);
+	if (domain_idx == 2) {
+		if ((!apusys_get_power_on_status(VPU1)))
+			ret = config_npupll(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
+					    V_VPU0);
+	} else if (domain_idx == 3) {
+		if (!apusys_get_power_on_status(VPU0))
+			ret = config_npupll(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
+					    V_VPU1);
+	} else if (domain_idx == 6)
+		ret = config_apupll(BUCK_VMDLA_DOMAIN_DEFAULT_FREQ,
+				    V_MDLA0);
 	else {
 		ret = set_apu_clock_source(BUCK_VCONN_DOMAIN_DEFAULT_FREQ,
-								V_APU_CONN);
+					   V_APU_CONN);
 	}
 
 	return ret;
