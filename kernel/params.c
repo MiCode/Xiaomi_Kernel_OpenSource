@@ -867,7 +867,7 @@ static void __init version_sysfs_builtin(void)
 
 /* module-related sysfs stuff */
 
-static ssize_t __nocfi module_attr_show(struct kobject *kobj,
+static ssize_t module_attr_show(struct kobject *kobj,
 				struct attribute *attr,
 				char *buf)
 {
