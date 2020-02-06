@@ -8,6 +8,10 @@
 	status = "ok";
 };
 
+&spmi_glink_debug {
+	status = "ok";
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";

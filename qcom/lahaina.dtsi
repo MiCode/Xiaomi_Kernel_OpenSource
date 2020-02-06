@@ -3131,6 +3131,52 @@
 		qcom,battery_debug {
 			compatible = "qcom,battery-debug";
 		};
+
+		spmi_glink_debug: qcom,spmi_glink_debug {
+			compatible = "qcom,spmi-glink-debug";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			/* Primary SPMI bus */
+			spmi@0 {
+				reg = <0>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				qcom,pm8350b-debug@3 {
+					compatible = "qcom,spmi-pmic";
+					reg = <0x3 SPMI_USID>;
+					qcom,can-sleep;
+				};
+			};
+
+			/* Secondary (QUP) SPMI bus */
+			spmi@1 {
+				reg = <1>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				qcom,smb1396-debug@b {
+					compatible = "qcom,spmi-pmic";
+					reg = <0xb SPMI_USID>;
+					qcom,can-sleep;
+				};
+
+				qcom,smb1396-debug@c {
+					compatible = "qcom,spmi-pmic";
+					reg = <0xc SPMI_USID>;
+					qcom,can-sleep;
+				};
+
+				smb1398_debug: qcom,smb1398-debug@d {
+					compatible = "qcom,spmi-pmic";
+					reg = <0xd SPMI_USID>;
+					qcom,can-sleep;
+					status = "disabled";
+				};
+			};
+		};
 	};
 
 	bluetooth: bt_qca6490 {
