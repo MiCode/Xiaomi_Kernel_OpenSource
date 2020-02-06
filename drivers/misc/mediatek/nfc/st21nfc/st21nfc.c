@@ -1426,7 +1426,7 @@ module_init(st21nfc_dev_init);
 
 static void __exit st21nfc_dev_exit(void)
 {
-	r_info("Unloading st21nfc driver\n");
+	pr_info("Unloading st21nfc driver\n");
 	i2c_del_driver(&st21nfc_driver);
 }
 
