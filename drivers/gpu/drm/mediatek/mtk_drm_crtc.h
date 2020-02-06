@@ -667,9 +667,9 @@ bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 void mtk_crtc_clear_wait_event(struct drm_crtc *crtc);
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc);
 int mtk_crtc_lcm_ATA(struct drm_crtc *crtc);
-int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
+int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, unsigned int en,
 			unsigned int userdata);
-int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
+int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, unsigned int en,
 			unsigned int userdata);
 
 

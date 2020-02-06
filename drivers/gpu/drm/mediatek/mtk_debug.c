@@ -332,7 +332,7 @@ int mtkfb_set_backlight_level(unsigned int level)
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
-int mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
+void mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
 
@@ -341,15 +341,15 @@ int mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 
 	if (!crtc) {
 		DDPPR_ERR("find crtc fail\n");
-		return 0;
+		return;
 	}
 	mtk_crtc_mipi_freq_switch(crtc, en, usrdata);
 
-	return 0;
+	return;
 }
 EXPORT_SYMBOL(mtk_disp_mipi_ccci_callback);
 
-int mtk_disp_osc_ccci_callback(unsigned int en, unsigned int usrdata)
+void mtk_disp_osc_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
 
@@ -358,11 +358,11 @@ int mtk_disp_osc_ccci_callback(unsigned int en, unsigned int usrdata)
 
 	if (!crtc) {
 		DDPPR_ERR("find crtc fail\n");
-		return 0;
+		return;
 	}
 	mtk_crtc_osc_freq_switch(crtc, en, usrdata);
 
-	return 0;
+	return;
 }
 EXPORT_SYMBOL(mtk_disp_osc_ccci_callback);
 

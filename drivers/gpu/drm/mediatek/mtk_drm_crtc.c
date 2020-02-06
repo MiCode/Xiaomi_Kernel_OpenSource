@@ -5698,7 +5698,7 @@ int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 	return -1;
 }
 
-int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
+int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, unsigned int en,
 			unsigned int userdata)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -5734,7 +5734,7 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
 	return 0;
 }
 
-int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
+int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, unsigned int en,
 			unsigned int userdata)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
