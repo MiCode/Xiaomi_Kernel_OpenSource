@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -73,7 +73,8 @@ void wdt_pmic_full_reset(struct ufs_hba *hba)
 	 *
 	 * Press power key or plug in USB to power up again.
 	 */
-	pmic_set_register_value_nolock(PMIC_RG_LDO_VIO18_EN, 0);
+	/* mark the code since we do not use EXT LDO for VCCQ 1.2V */
+	/* pmic_set_register_value_nolock(PMIC_RG_LDO_VIO18_EN, 0); */
 
 	/* PMIC cold reset */
 	pmic_set_register_value_nolock(PMIC_RG_CRST, 1);
