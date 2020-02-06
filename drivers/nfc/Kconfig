@@ -63,10 +63,6 @@ config K6873V1_64_ALPHA_NFC
 
          If unsure, say N.
 
-if K6873V1_64_ALPHA_NFC
-source "drivers/nfc/k6873v1_64_alpha/Kconfig"
-endif
-
 source "drivers/nfc/fdp/Kconfig"
 source "drivers/nfc/pn544/Kconfig"
 source "drivers/nfc/pn533/Kconfig"
