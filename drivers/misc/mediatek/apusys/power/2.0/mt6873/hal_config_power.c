@@ -677,6 +677,21 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	return 0;
 }
 
+/**
+ * set_domain_to_default_clk() - Brief description of set_domain_to_default_clk
+ * @domain_idx: here domain_idx is NOT the same as BUCK_DOMAIN
+ *  0 --> EDMA or REVISER
+ *  2 --> VPU0
+ *  3 --> VPU1
+ *  6 --> MDLA0
+ *
+ * set V_APU_CONN to 208Mhz and park to system clk
+ * set V_MDLA0    to 312Mhz
+ * set V_VPU0     to 273Mhz and part to system clk
+ * set V_VPU1     to 273Mhz and part to system clk
+ *
+ * Returns 0 on success, other value for error cases
+ **/
 static int set_domain_to_default_clk(int domain_idx)
 {
 	int ret = 0;

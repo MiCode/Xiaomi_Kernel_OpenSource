@@ -51,6 +51,13 @@
 #define APUSYS_DEFAULT_OPP					(5)
 
 #define VOLTAGE_CHECKER		(0)
+/*
+ * CCF_SET_RATE == 1
+ * --> use CCF frame work to set (A/N)PUPLL but no hopping
+ *
+ * CCF_SET_RATE == 0
+ * --> program register directly to set (A/N)PUPLL with hopping
+ */
 #define CCF_SET_RATE		(0)
 
 // FIXME: check default value with APUSYS_DEFAULT_OPP

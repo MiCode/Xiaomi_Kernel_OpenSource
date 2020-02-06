@@ -12,6 +12,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 
 #include "apusys_power_reg.h"
@@ -712,18 +713,27 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		/* PLL spec */
 		udelay(20);
 
-		ret |= clk_set_parent(clk_top_dsp5_apupll_sel,
-			clk_top_apupll_ck);
-
-		if (ret)
-			LOG_ERR("%s fail, ret = %d\n", __func__, ret);
-		else
-			LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
 		mt_dfs_general_pll(APUPLL_FH_PLL, dds);
 #endif
 	}
+
+	/* If need, switch dsp5_apupll_sel's parent to APUPLL */
+	clk_target = clk_get_parent(clk_top_dsp5_apupll_sel);
+	if (!clk_is_match(clk_target, clk_top_apupll_ck)) {
+		LOG_DBG("%s change %s's parent from %s to %s\n", __func__,
+			__clk_get_name(clk_top_dsp5_apupll_sel),
+			__clk_get_name(clk_target),
+			__clk_get_name(clk_top_apupll_ck));
+		ret |= clk_set_parent(clk_top_dsp5_apupll_sel,
+				      clk_top_apupll_ck);
+	}
+
+	if (ret)
+		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
+	else
+		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 
 #if APUSYS_SETTLE_TIME_TEST
 	buck_id = apusys_buck_domain_to_buck[domain];
@@ -799,20 +809,38 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		/* PLL spec */
 		udelay(20);
 
-		ret |= clk_set_parent(clk_top_dsp1_npupll_sel,
-			clk_top_npupll_ck);
-		ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
-			clk_top_npupll_ck);
-
-		if (ret)
-			LOG_ERR("%s fail, ret = %d\n", __func__, ret);
-		else
-			LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
 		mt_dfs_general_pll(NPUPLL_FH_PLL, dds);
 #endif
 	}
+
+	/* If need, switch dsp1_npupll_sel's parent to NPUPLL */
+	clk_target = clk_get_parent(clk_top_dsp1_npupll_sel);
+	if (!clk_is_match(clk_target, clk_top_npupll_ck)) {
+		LOG_DBG("%s change %s's parent from %s to %s\n", __func__,
+			__clk_get_name(clk_top_dsp1_npupll_sel),
+			__clk_get_name(clk_target),
+			__clk_get_name(clk_top_npupll_ck));
+		ret |= clk_set_parent(clk_top_dsp1_npupll_sel,
+				      clk_top_npupll_ck);
+	}
+
+	/* If need, switch dsp2_npupll_sel's parent to NPUPLL */
+	clk_target = clk_get_parent(clk_top_dsp2_npupll_sel);
+	if (!clk_is_match(clk_target, clk_top_npupll_ck)) {
+		LOG_DBG("%s change %s's parent from %s to %s\n", __func__,
+			__clk_get_name(clk_top_dsp2_npupll_sel),
+			__clk_get_name(clk_target),
+			__clk_get_name(clk_top_npupll_ck));
+		ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
+				      clk_top_npupll_ck);
+	}
+
+	if (ret)
+		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
+	else
+		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 
 #if APUSYS_SETTLE_TIME_TEST
 	buck_id = apusys_buck_domain_to_buck[domain];
@@ -838,6 +866,7 @@ void dump_frequency(struct apu_power_info *info)
 	int dump_div = 1;
 	int temp_id = 1;
 	int temp_freq = 0;
+	struct clk *tmpclk = NULL;
 
 	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp_freq = mt_get_ckgen_freq(13);
@@ -846,11 +875,36 @@ void dump_frequency(struct apu_power_info *info)
 		dsp_freq = mt_get_ckgen_freq(13);
 	}
 
+	/*
+	 * Move reading (a/n)pupll ahead, since struct apu_power_info
+	 * may use (a/n)pupll freq according to different clock parents
+	 * of clk_top_dsp(1/2/5)_npupll_sel.
+	 */
+#if 1
+	temp_freq = mt_get_abist_freq(temp_id);
+	apupll_freq = mt_get_abist_freq(5);
+	if (apupll_freq == 0) {
+		temp_freq = mt_get_abist_freq(temp_id);
+		apupll_freq = mt_get_abist_freq(5);
+	}
+
+	temp_freq = mt_get_abist_freq(temp_id);
+	npupll_freq = mt_get_abist_freq(7);
+	if (npupll_freq == 0) {
+		temp_freq = mt_get_abist_freq(temp_id);
+		npupll_freq = mt_get_abist_freq(7);
+	}
+#endif
+
 #if CCF_SET_RATE // unit: HZ for clk_set_rate use case
 	dsp1_freq = clk_get_rate(clk_top_dsp1_npupll_sel);
 	dsp2_freq = clk_get_rate(clk_top_dsp2_npupll_sel);
 	dsp5_freq = clk_get_rate(clk_top_dsp5_apupll_sel);
-#else //TOP_MUX_DSP1/2/5
+#else
+	/*
+	 * Below dsp1/2/5 are read from TOP_MUX_DSP1/2/5 directly
+	 * with dummy flow if 1st time value read back is 0.
+	 */
 	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp1_freq = mt_get_ckgen_freq(14);
 	if (dsp1_freq == 0) {
@@ -873,21 +927,6 @@ void dump_frequency(struct apu_power_info *info)
 	}
 #endif
 
-#if 1
-	temp_freq = mt_get_abist_freq(temp_id);
-	apupll_freq = mt_get_abist_freq(5);
-	if (apupll_freq == 0) {
-		temp_freq = mt_get_abist_freq(temp_id);
-		apupll_freq = mt_get_abist_freq(5);
-	}
-
-	temp_freq = mt_get_abist_freq(temp_id);
-	npupll_freq = mt_get_abist_freq(7);
-	if (npupll_freq == 0) {
-		temp_freq = mt_get_abist_freq(temp_id);
-		npupll_freq = mt_get_abist_freq(7);
-	}
-#endif
 	temp_freq = mt_get_ckgen_freq(temp_id);
 	ipuif_freq = mt_get_ckgen_freq(18);
 	if (ipuif_freq == 0) {
@@ -901,15 +940,35 @@ void dump_frequency(struct apu_power_info *info)
 		dump_div = info->dump_div;
 
 	info->dsp_freq = dsp_freq / dump_div;
+
 #if CCF_SET_RATE // unit: HZ for clk_set_rate use case
 	info->dsp1_freq = dsp1_freq / (dump_div * 1000);
 	info->dsp2_freq = dsp2_freq / (dump_div * 1000);
 	info->dsp5_freq = dsp5_freq / (dump_div * 1000);
 #else //[Fix me] It's true after clk_set_parent to npupll/apupll
-	info->dsp1_freq = npupll_freq / dump_div;
-	info->dsp2_freq = npupll_freq / dump_div;
-	info->dsp5_freq = apupll_freq / (dump_div * 2);
+
+	/* fill info->dsp1 according to dsp1_pll_sel's parent */
+	tmpclk = clk_get_parent(clk_top_dsp1_npupll_sel);
+	if (!clk_is_match(tmpclk, clk_top_npupll_ck))
+		info->dsp1_freq = dsp1_freq / dump_div;
+	else
+		info->dsp1_freq = npupll_freq / dump_div;
+
+	/* fill info->dsp2 according to dsp2_pll_sel's parent */
+	tmpclk = clk_get_parent(clk_top_dsp2_npupll_sel);
+	if (!clk_is_match(tmpclk, clk_top_npupll_ck))
+		info->dsp2_freq = dsp2_freq / dump_div;
+	else
+		info->dsp2_freq = npupll_freq / dump_div;
+
+	/* fill info->dsp5 according to dsp5_pll_sel's parent */
+	tmpclk = clk_get_parent(clk_top_dsp5_apupll_sel);
+	if (!clk_is_match(tmpclk, clk_top_apupll_ck))
+		info->dsp5_freq = dsp5_freq / dump_div;
+	else
+		info->dsp5_freq = apupll_freq / (dump_div * 2);
 #endif
+
 	info->apupll_freq = apupll_freq / dump_div;
 	info->npupll_freq = npupll_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;
