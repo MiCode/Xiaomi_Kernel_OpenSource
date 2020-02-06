@@ -376,6 +376,11 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 			mdla_reg_read_with_mdlaid(core_id, 0xE3C));
 
 	if (unlikely(ce.state != CE_FIN)) {
+		spin_lock_irqsave(&mdla_info->hw_lock, flags);
+		mdla_timeout_debug("Interrupt error status: %x\n",
+			mdla_info->error_bit);
+		mdla_info->error_bit = 0;
+		spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
 		mdla_timeout_debug("%s: total cmd count: %u, ",
 				   __func__, ce.count);
 		mdla_timeout_debug("fin_cid: %u, deadline:%llu, ce state: %u\n",

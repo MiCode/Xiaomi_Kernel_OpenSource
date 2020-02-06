@@ -134,6 +134,7 @@ struct mdla_dev mdla_devices[] = {
 			__MUTEX_INITIALIZER(mdla_devices[0].cmd_buf_dmp_lock),
 		.cmd_buf_len = 0,
 #ifdef __APUSYS_PREEMPTION__
+		.error_bit = 0,
 		.cmd_list_cnt = 0,
 		.cmd_list_cnt_lock =
 			__MUTEX_INITIALIZER(mdla_devices[0].cmd_list_cnt_lock),
@@ -153,6 +154,7 @@ struct mdla_dev mdla_devices[] = {
 			__MUTEX_INITIALIZER(mdla_devices[1].cmd_buf_dmp_lock),
 		.cmd_buf_len = 0,
 #ifdef __APUSYS_PREEMPTION__
+		.error_bit = 0,
 		.cmd_list_cnt = 0,
 		.cmd_list_cnt_lock =
 			__MUTEX_INITIALIZER(mdla_devices[1].cmd_list_cnt_lock),
@@ -603,6 +605,8 @@ int apusys_mdla_handler(int type,
 
 	if (dev->dev_type == APUSYS_DEVICE_MDLA_RT) {
 		mdla_info = (struct mdla_dev *)dev->private;
+		if (mdla_info->mdlaid >= mdla_max_num_core)
+			return -EINVAL;
 		if (type != APUSYS_CMD_EXECUTE)
 			return 0;
 	} else if (dev->dev_type == APUSYS_DEVICE_MDLA) {

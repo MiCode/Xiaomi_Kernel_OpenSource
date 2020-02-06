@@ -106,6 +106,12 @@ enum command_entry_state {
 	CE_TIMEOUT    = 10,
 };
 
+enum interrupt_error {
+	IRQ_NO_SCHEDULER            = 0x1,
+	IRQ_NO_PROCESSING_CE        = 0x2,
+	IRQ_NO_WRONG_DEQUEUE_STATUS = 0x4,
+};
+
 struct wait_entry {
 	u32 async_id;
 	struct list_head list;
@@ -218,6 +224,7 @@ struct mdla_dev {
 	struct mdla_scheduler *scheduler;
 	u32 cmd_list_cnt;
 	struct mutex cmd_list_cnt_lock;
+	u32 error_bit;
 #endif
 	struct mdla_pmu_info pmu[PRIORITY_LEVEL];
 	void *cmd_buf_dmp;

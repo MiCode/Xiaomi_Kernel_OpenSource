@@ -811,11 +811,24 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 	unsigned long flags;
 	unsigned int status;
 	u32 irq_status = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0);
+	struct mdla_dev *mdla_info = &mdla_devices[core_id];
 
-	if (unlikely(!scheduler))
-		return IRQ_NONE;
-	if (unlikely(scheduler->processing_ce == NULL))
-		return IRQ_NONE;
+	if (unlikely(scheduler == NULL)) {
+		spin_lock_irqsave(&mdla_info->hw_lock, flags);
+		mdla_info->error_bit |= IRQ_NO_SCHEDULER;
+		mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_SWCMD_DONE,
+					   MREG_TOP_G_INTP0);
+		spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
+		return IRQ_HANDLED;
+	}
+	if (unlikely(scheduler->processing_ce == NULL)) {
+		spin_lock_irqsave(&mdla_info->hw_lock, flags);
+		mdla_info->error_bit |= IRQ_NO_PROCESSING_CE;
+		mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_SWCMD_DONE,
+					   MREG_TOP_G_INTP0);
+		spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
+		return IRQ_HANDLED;
+	}
 	spin_lock_irqsave(&scheduler->lock, flags);
 
 	if (unlikely(time_after64(
@@ -824,10 +837,12 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 		)) {
 
 		scheduler->processing_ce->state = CE_TIMEOUT;
+		spin_lock_irqsave(&mdla_info->hw_lock, flags);
 		if (likely(irq_status & MDLA_IRQ_SWCMD_DONE)) {
 			mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_SWCMD_DONE,
 				MREG_TOP_G_INTP0);
 		}
+		spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
 		spin_unlock_irqrestore(&scheduler->lock, flags);
 		return IRQ_HANDLED;
 	}
@@ -858,7 +873,12 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 			complete(&scheduler->processing_ce->preempt_wait);
 		} else {
 			spin_unlock_irqrestore(&scheduler->lock, flags);
-			return IRQ_NONE;
+			spin_lock_irqsave(&mdla_info->hw_lock, flags);
+			mdla_info->error_bit |= IRQ_NO_WRONG_DEQUEUE_STATUS;
+			mdla_reg_write_with_mdlaid(core_id, MDLA_IRQ_SWCMD_DONE,
+					   MREG_TOP_G_INTP0);
+			spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
+			return IRQ_HANDLED;
 		}
 	}
 
