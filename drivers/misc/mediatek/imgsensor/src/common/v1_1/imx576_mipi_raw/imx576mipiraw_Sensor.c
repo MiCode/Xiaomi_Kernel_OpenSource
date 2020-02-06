@@ -2808,11 +2808,13 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 	bgain_32 = (pSetSensorAWB->ABS_GAIN_B + 1) >> 1;
 	gbgain_32 = (pSetSensorAWB->ABS_GAIN_GB + 1) >> 1;
 
+#if 0
 	LOG_INF("ABS_GAIN_GR:%d,ABS_GAIN_R:%d,ABS_GAIN_B:%d,ABS_GAIN_GB:%d\n",
 		pSetSensorAWB->ABS_GAIN_GR,
 		pSetSensorAWB->ABS_GAIN_R,
 		pSetSensorAWB->ABS_GAIN_B,
 		pSetSensorAWB->ABS_GAIN_GB);
+#endif
 
 	write_cmos_sensor_8(0x0104, 0x01);
 
