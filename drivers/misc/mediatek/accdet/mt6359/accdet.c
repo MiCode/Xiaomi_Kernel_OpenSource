@@ -136,7 +136,7 @@ static struct workqueue_struct *eint_workqueue;
  */
 #define MICBIAS_DISABLE_TIMER   (6 * HZ)
 static struct timer_list micbias_timer;
-static void dis_micbias_timerhandler(struct timer_list *t);
+static void dis_micbias_timerhandler(unsigned long data);
 static bool dis_micbias_done;
 #ifdef CONFIG_ACCDET_EINT_IRQ
 static u32 gmoistureID;
@@ -150,7 +150,7 @@ static char accdet_log_buf[1536];
  */
 #define ACCDET_INIT_WAIT_TIMER   (10 * HZ)
 static struct timer_list  accdet_init_timer;
-static void delay_init_timerhandler(struct timer_list *t);
+static void delay_init_timerhandler(unsigned long data);
 static struct wakeup_source *accdet_irq_lock;
 static struct wakeup_source *accdet_timer_lock;
 static DEFINE_MUTEX(accdet_eint_irq_sync_mutex);
@@ -1739,7 +1739,7 @@ static inline void headset_plug_out(void)
 #endif
 }
 #if PMIC_ACCDET_KERNEL
-static void dis_micbias_timerhandler(struct timer_list *t)
+static void dis_micbias_timerhandler(unsigned long data)
 {
 	int ret = 0;
 
@@ -3201,7 +3201,7 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 #if PMIC_ACCDET_KERNEL
 EXPORT_SYMBOL(accdet_late_init);
 
-static void delay_init_timerhandler(struct timer_list *t)
+static void delay_init_timerhandler(unsigned long data)
 {
 	if (pmic_read(PMIC_SWCID_ADDR) == 0x5910) {
 		pr_info("accdet not supported\r");
@@ -3297,8 +3297,8 @@ int mt_accdet_probe(struct platform_device *dev)
 	}
 
 	/* modify timer api for kernel 4.19 */
-	timer_setup(&micbias_timer, dis_micbias_timerhandler, 0);
-	timer_setup(&accdet_init_timer, delay_init_timerhandler, 0);
+	setup_timer(&micbias_timer, dis_micbias_timerhandler, 0);
+	setup_timer(&accdet_init_timer, delay_init_timerhandler, 0);
 	micbias_timer.expires = jiffies + MICBIAS_DISABLE_TIMER;
 	accdet_init_timer.expires = jiffies + ACCDET_INIT_WAIT_TIMER;
 	/* the third argument may include TIMER_* flags */
