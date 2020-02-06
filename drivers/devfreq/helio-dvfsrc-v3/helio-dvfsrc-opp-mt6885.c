@@ -150,16 +150,21 @@ static int __init dvfsrc_opp_init(void)
 	int is_vcore_aging = is_aging_test();
 	int doe_ct = 0;
 	int dvfs_v_mode = 0;
+	int val = (get_devinfo_with_index(134) & 7);
 
 	set_pwrap_cmd(VCORE_OPP_0, 0);
 	set_pwrap_cmd(VCORE_OPP_1, 1);
 	set_pwrap_cmd(VCORE_OPP_2, 2);
 	set_pwrap_cmd(VCORE_OPP_3, 3);
+	if (val > 2)
+		val = 2;
+
+	val = val * 25000;
 
 	vcore_opp_0_uv = 725000;
-	vcore_opp_1_uv = 650000;
-	vcore_opp_2_uv = 600000;
-	vcore_opp_3_uv = 575000;
+	vcore_opp_1_uv = 650000 + val;
+	vcore_opp_2_uv = 600000 + val;
+	vcore_opp_3_uv = 575000 + val;
 
 	dvfsrc_node =
 		of_find_compatible_node(NULL, NULL, "mediatek,dvfsrc");
@@ -180,10 +185,20 @@ static int __init dvfsrc_opp_init(void)
 #if 1 /* TODO: fill when LV/HV setting*/
 	if (is_vcore_qea || (dvfs_v_mode == 3)) {
 		/* LV */
-		vcore_opp_0_uv = 693750;
-		vcore_opp_1_uv = 618750;
-		vcore_opp_2_uv = 575000;
-		vcore_opp_3_uv = 550000;
+		vcore_opp_0_uv = 687500;
+		if (val == 0) {
+			vcore_opp_1_uv = 612500;
+			vcore_opp_2_uv = 568750;
+			vcore_opp_3_uv = 543750;
+		} else if (val == 25000) {
+			vcore_opp_1_uv = 637500;
+			vcore_opp_2_uv = 593750;
+			vcore_opp_3_uv = 568750;
+		} else if (val == 50000) {
+			vcore_opp_1_uv = 662500;
+			vcore_opp_2_uv = 612500;
+			vcore_opp_3_uv = 593750;
+		}
 	} else if (dvfs_v_mode == 1) {
 		/* HV */
 		vcore_opp_0_uv = 761250;
@@ -198,12 +213,13 @@ static int __init dvfsrc_opp_init(void)
 	}
 #endif
 
-	pr_info("%s: CT=%d, AGING=%d, QEA=%d, VMODE=%d\n",
+	pr_info("%s: CT=%d, AGING=%d, QEA=%d, VMODE=%d val=%d\n",
 		__func__,
 		is_vcore_ct,
 		is_vcore_aging,
 		is_vcore_qea,
-		dvfs_v_mode);
+		dvfs_v_mode,
+		val);
 
 	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d %d\n",
 		__func__,
