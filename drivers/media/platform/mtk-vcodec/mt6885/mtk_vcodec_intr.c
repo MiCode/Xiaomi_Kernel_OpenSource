@@ -334,7 +334,7 @@ void mtk_vcodec_dec_timeout_dump(void *ctx)
 	int i = 0;
 
 	struct mtk_vcodec_ctx *curr_ctx = ctx;
-	struct mtk_vcodec_dev *dev = curr_ctx->dev;
+	struct mtk_vcodec_dev *dev = NULL;
 
 	#define LAT_REG_COUNT 26
 	#define CORE_MISC_REG_COUNT 30
@@ -355,6 +355,16 @@ void mtk_vcodec_dec_timeout_dump(void *ctx)
 		0x120, 0x124, 0x128, 0x12C, 0x130, 0x134, 0x138, 0x13C};
 	unsigned int core_vld_reg[CORE_VLD_REG_COUNT] = {
 		0x120, 0x124, 0x128, 0x12C, 0x96C}; // input, cycle
+
+	if (ctx == NULL) {
+		mtk_v4l2_debug(0, "can't dump vdec for NULL ctx");
+		return;
+	}
+
+	dev = curr_ctx->dev;
+
+	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
+	    ctx, dev->is_codec_suspending);
 
 	for (i = 0; i < LAT_REG_COUNT; i++) {
 		value = readl(dev->dec_reg_base[VDEC_LAT_MISC] + lat_reg[i]);
