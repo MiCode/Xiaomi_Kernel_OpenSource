@@ -24,6 +24,7 @@
  */
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
 
+static const char * const ext_spk_mode_str[] = {"Disable", "Enable"};
 static const char *const mt6873_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
@@ -41,6 +42,11 @@ static const char *const
 				     MTK_SPK_I2S_9_STR,
 				     MTK_SPK_TINYCONN_I2S_0_STR,
 				     };
+
+static const struct soc_enum ext_spk_mode_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_spk_mode_str),
+			    ext_spk_mode_str),
+};
 
 static const struct soc_enum mt6873_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6873_spk_type_str),
@@ -76,6 +82,29 @@ static int mt6873_spk_i2s_in_type_get(struct snd_kcontrol *kcontrol,
 
 	pr_debug("%s() = %d\n", __func__, idx);
 	ucontrol->value.integer.value[0] = idx;
+	return 0;
+}
+
+static int ext_spk_mode_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	int status = mtk_ext_spk_get_status();
+
+	pr_debug("%s(), status %d\n", __func__, status);
+	ucontrol->value.integer.value[0] = status;
+
+	return 0;
+}
+
+static int ext_spk_mode_set(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	int enable = ucontrol->value.integer.value[0];
+
+	pr_debug("%s() %d\n", __func__, enable);
+
+	mtk_ext_spk_enable(enable);
+
 	return 0;
 }
 
@@ -120,6 +149,8 @@ static const struct snd_kcontrol_new mt6873_mt6359_controls[] = {
 		     mt6873_spk_i2s_out_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_IN_TYPE_GET", mt6873_spk_type_enum[1],
 		     mt6873_spk_i2s_in_type_get, NULL),
+	SOC_ENUM_EXT("EXT_SPEAKER_MODE", ext_spk_mode_enum[0],
+		     ext_spk_mode_get, ext_spk_mode_set),
 };
 
 /*

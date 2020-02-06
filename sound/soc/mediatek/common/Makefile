@@ -27,3 +27,7 @@ subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
 ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/
 endif
+
+ifeq ($(CONFIG_SND_SOC_AW87339),y)
+subdir-ccflags-y += -I$(srctree)/sound/soc/codecs/aw87339/$(MTK_PROJECT)/
+endif

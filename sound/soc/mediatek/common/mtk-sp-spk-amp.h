@@ -66,6 +66,8 @@ enum mtk_spk_i2s_type {
 int mtk_spk_get_type(void);
 int mtk_spk_get_i2s_out_type(void);
 int mtk_spk_get_i2s_in_type(void);
+int mtk_ext_spk_get_status(void);
+void mtk_ext_spk_enable(int enable);
 int mtk_spk_update_dai_link(struct snd_soc_card *card,
 			    struct platform_device *pdev,
 			    const struct snd_soc_ops *i2s_ops);
