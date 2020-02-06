@@ -310,13 +310,66 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 			return ret;
 		break;
 	}
-#else
-#if IS_ENABLED(CONFIG_MACH_MT6873)
-	if (id == 3 || id == 6 || id == 10 || id == 12 || id == 15) {
+#elif IS_ENABLED(CONFIG_MACH_MT6873)
+	if (id == 3 || id == 6 || id == 8 || id == 10 || id == 12 || id == 15) {
 		SMIDBG("Invalid id:%u user:%s\n", id, user);
 		return -EINVAL;
 	}
-#endif
+
+	if (id < SMI_LARB_NUM) {
+		ret = smi_unit_prepare_enable(21); // disp
+		if (ret)
+			return ret;
+
+		ret = smi_unit_prepare_enable(22); // disp-subcom
+		if (ret)
+			return ret;
+
+		ret = smi_unit_prepare_enable(23); // disp-subcom1
+		if (ret)
+			return ret;
+	}
+
+	switch (id) {
+	case 9:
+	case 11:
+		ret = smi_unit_prepare_enable(25); // img-subcom1
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(24); // img-subcom
+		if (ret)
+			return ret;
+		break;
+	case 4:
+	case 5:
+		ret = smi_unit_prepare_enable(26); // vde-subcom
+		if (ret)
+			return ret;
+		break;
+	case 14:
+	case 16:
+		ret = smi_unit_prepare_enable(27); // cam-subcom1
+		if (ret)
+			return ret;
+		break;
+	case 13:
+	case 17:
+	case 18:
+		ret = smi_unit_prepare_enable(28); // cam-subcom
+		if (ret)
+			return ret;
+		break;
+	case 19:
+	case 20:
+		ret = smi_unit_prepare_enable(25); // img-subcom1
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(29); // ipe-subcom
+		if (ret)
+			return ret;
+		break;
+	}
+#else
 	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
 	if (ret)
 		return ret;
@@ -354,7 +407,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		return -EINVAL;
 	}
 #elif IS_ENABLED(CONFIG_MACH_MT6873)
-	if (id == 3 || id == 6 || id == 10 || id == 12 || id == 15) {
+	if (id == 3 || id == 6 || id == 8 || id == 10 || id == 12 || id == 15) {
 		SMIDBG("Invalid id:%u user:%s\n", id, user);
 		return -EINVAL;
 	}
@@ -435,6 +488,38 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_unit_disable_unprepare(24); // disp-subcom
 		smi_unit_disable_unprepare(21); // disp
 		break;
+	}
+#elif IS_ENABLED(CONFIG_MACH_MT6873)
+	switch (id) {
+	case 9:
+	case 11:
+		smi_unit_disable_unprepare(24); // img-subcom
+		smi_unit_disable_unprepare(25); // img-subcom1
+		break;
+	case 4:
+	case 5:
+		smi_unit_disable_unprepare(26); // vde-subcom
+		break;
+	case 14:
+	case 16:
+		smi_unit_disable_unprepare(27); // cam-subcom1
+		break;
+	case 13:
+	case 17:
+	case 18:
+		smi_unit_disable_unprepare(28); // cam-subcom
+		break;
+	case 19:
+	case 20:
+		smi_unit_disable_unprepare(29); // ipe-subcom
+		smi_unit_disable_unprepare(25); // img-subcom1
+		break;
+	}
+
+	if (id < SMI_LARB_NUM) {
+		smi_unit_disable_unprepare(23); // disp-subcom1
+		smi_unit_disable_unprepare(22); // disp-subcom
+		smi_unit_disable_unprepare(21); // disp
 	}
 #else
 	smi_unit_disable_unprepare(SMI_LARB_NUM);
