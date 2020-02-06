@@ -652,22 +652,17 @@
 	gpslna_pins_init: gpslna@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <0>;
-			bias-disable;
 			output-low;
 		};
 	};
 	gpslna_pins_oh: gpslna@1 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <1>;
-			output-high;
+			pinmux = <PINMUX_GPIO162__FUNC_GPS_L1_ELNA_EN>;
 		};
 	};
 	gpslna_pins_ol: gpslna@2 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
