@@ -1055,6 +1055,12 @@ void cmdq_dump_core(struct mbox_chan *chan)
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
 	u32 irq, loaded, cycle, thd_timer, tpr_mask, tpr_en;
 
+	if (!atomic_read(&cmdq->usage)) {
+		cmdq_util_msg("cmdq:%#x try dump core without enable",
+			(u32)(unsigned long)cmdq->base_pa);
+		return;
+	}
+
 	irq = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
 	loaded = readl(cmdq->base + CMDQ_CURR_LOADED_THR);
 	cycle = readl(cmdq->base + CMDQ_THR_EXEC_CYCLES);
