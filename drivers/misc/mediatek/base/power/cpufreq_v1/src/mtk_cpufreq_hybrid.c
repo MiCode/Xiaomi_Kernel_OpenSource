@@ -663,6 +663,15 @@ void srate_doe(void)
 	int ret;
 
 	node = of_find_compatible_node(NULL, NULL, DVFSP_DT_NODE);
+
+	ret = of_property_read_u32(node, "change_flag", &d->change_flag);
+
+	if (ret)
+		tag_pr_info("Cant find change_flag attr\n");
+
+	if (!d->change_flag)
+		return;
+
 	/* little up srate */
 	ret = of_property_read_u32(node,
 			"little-rise-time", &d->lt_rs_t);
