@@ -982,6 +982,10 @@ int emmc_autok(void)
 		reg_vcore = devm_regulator_get_optional(mmc_dev(host->mmc),
 							"vcore");
 		vcore_step2 = regulator_get_voltage(reg_vcore);
+		if (vcore_step2 == -1) {
+			pr_notice("WARN:%s:get voltage fail\n", __func__);
+			return -1;
+		}
 		pr_notice("msdc fix vcore: %d\n", vcore_step2);
 
 		if (vcore_step2 == vcore_step1) {
