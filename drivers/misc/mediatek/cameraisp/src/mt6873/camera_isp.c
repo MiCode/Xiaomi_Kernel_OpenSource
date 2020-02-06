@@ -5848,11 +5848,11 @@ static inline void ISP_StopHW(int module)
 	unsigned int regTGSt = 0, loopCnt = 3;
 	int ret = 0;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
-	ktime_t time;
 	unsigned long long sec = 0, m_sec = 0;
-	unsigned long long timeoutMs = 500000000; /*500ms */
+	unsigned long long usec = 0, m_usec = 0;
+	unsigned long long timeoutMs = 5000; /*5ms */
 	//3ms * (CAM_A~C + CAMSV0~7) = 33ms(if all timeout)
-	unsigned long long timeoutMsRst = 3000000; /*3ms */
+	unsigned long long timeoutMsRst = 3000; /*3ms */
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -5901,8 +5901,9 @@ static inline void ISP_StopHW(int module)
 			moduleName);
 
 		/* timer */
-		time = ktime_get();
-		m_sec = time;
+		m_sec = ktime_get(); /* ns */
+		do_div(m_sec, 1000); /* usec */
+		m_usec = do_div(m_sec, 1000000); /* sec and usec */
 
 		while (regTGSt != 1) {
 			regTGSt = (ISP_RD32(CAM_REG_TG_INTER_ST(module)) &
@@ -5910,10 +5911,11 @@ static inline void ISP_StopHW(int module)
 				  8;
 
 			/*timer */
-			time = ktime_get();
-			sec = time;
+			sec = ktime_get(); /* ns */
+			do_div(sec, 1000); /* sec */
+			usec = do_div(sec, 1000000); /* sec and usec */
 			/* wait time>timeoutMs, break */
-			if ((sec - m_sec) > timeoutMs)
+			if ((usec - m_usec) > timeoutMs)
 				break;
 			//add "regTGSt == 0" for workaround
 			if (regTGSt == 0)
@@ -5925,15 +5927,16 @@ static inline void ISP_StopHW(int module)
 			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n", moduleName,
-				(sec - m_sec));
+				(usec - m_usec));
 		}
 	}
 
 RESET:
 	LOG_INF("%s: reset\n", moduleName);
 	/* timer */
-	time = ktime_get();
-	m_sec = time;
+	m_sec = ktime_get(); /* ns */
+	do_div(m_sec, 1000); /* usec */
+	m_usec = do_div(m_sec, 1000000); /* sec and usec */
 
 	/* Reset */
 	ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x0);
@@ -5941,10 +5944,11 @@ RESET:
 	while ((ISP_RD32(CAM_REG_CTL_SW_CTL(module)) & 0x2) != 0x2) {
 		/*LOG_DBG("%s resetting...\n", moduleName); */
 		/*timer */
-		time = ktime_get();
-		sec = time;
+		sec = ktime_get(); /* ns */
+		do_div(sec, 1000); /* usec */
+		usec = do_div(sec, 1000000); /* sec and usec */
 		/* wait time>timeoutMs, break */
-		if ((sec - m_sec) > timeoutMsRst) {
+		if ((usec - m_usec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
 			LOG_INF(
 				"%d: wait SW idle timeout, reg(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
@@ -5998,10 +6002,10 @@ static inline void ISP_StopSVHW(int module)
 	unsigned int regTGSt = 0, loopCnt = 3;
 	int ret = 0;
 	struct ISP_WAIT_IRQ_STRUCT waitirq;
-	ktime_t time;
 	unsigned long long sec = 0, m_sec = 0;
-	unsigned long long timeoutMs = 500000000; /*500ms */
-	unsigned long long timeoutMsRst = 3000000; /*3ms */
+	unsigned long long usec = 0, m_usec = 0;
+	unsigned long long timeoutMs = 5000; /*5ms */
+	unsigned long long timeoutMsRst = 3000; /*3ms */
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -6072,8 +6076,9 @@ static inline void ISP_StopSVHW(int module)
 			moduleName);
 
 		/* timer */
-		time = ktime_get();
-		m_sec = time;
+		m_sec = ktime_get(); /* ns */
+		do_div(m_sec, 1000); /* usec */
+		m_usec = do_div(m_sec, 1000000); /* sec and usec */
 
 		while (regTGSt != 1) {
 			regTGSt = (ISP_RD32(CAMSV_REG_TG_INTER_ST(module)) &
@@ -6081,10 +6086,11 @@ static inline void ISP_StopSVHW(int module)
 				  8;
 
 			/*timer */
-			time = ktime_get();
-			sec = time;
+			sec = ktime_get(); /* ns */
+			do_div(sec, 1000); /* usec */
+			usec = do_div(sec, 1000000); /* sec and usec */
 			/* wait time>timeoutMs, break */
-			if ((sec - m_sec) > timeoutMs)
+			if ((usec - m_usec) > timeoutMs)
 				break;
 			//add "regTGSt == 0" for workaround
 			if (regTGSt == 0)
@@ -6096,14 +6102,15 @@ static inline void ISP_StopSVHW(int module)
 			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n", moduleName,
-				(sec - m_sec));
+				(usec - m_usec));
 		}
 	}
 	if ((module >= ISP_CAMSV0_IDX) && (module <= ISP_CAMSV3_IDX))
 		LOG_INF("%s: reset\n", moduleName);
 	/* timer */
-	time = ktime_get();
-	m_sec = time;
+	m_sec = ktime_get(); /* ns */
+	do_div(m_sec, 1000); /* usec */
+	m_usec = do_div(m_sec, 1000000); /* sec and usec */
 
 	/* Reset */
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x0);
@@ -6119,10 +6126,12 @@ static inline void ISP_StopSVHW(int module)
 		}
 		/*LOG_DBG("%s resetting...\n", moduleName); */
 		/*timer */
-		time = ktime_get();
-		sec = time;
+		sec = ktime_get(); /* ns */
+		do_div(sec, 1000); /* usec */
+		usec = do_div(sec, 1000000); /* sec and usec */
+
 		/* wait time>timeoutMs, break */
-		if ((sec - m_sec) > timeoutMsRst) {
+		if ((usec - m_usec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
 			break;
 		}
