@@ -379,6 +379,13 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	ap_addr_tx = (unsigned long)bt->bt_sram_bank2_base +
 		     (connsys_addr_tx & 0xFFFF);
 
+	if (connsys_addr_tx == 0xdeadfeed) {
+		/* bt return 0xdeadfeed if read register during bt sleep */
+		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed, readable %d\n",
+			 __func__, is_readable);
+		return -EIO;
+	}
+
 	dst = (void *)ap_addr_tx;
 
 	dev_info(bt->dev, "%s(), clean addr 0x%lx\n", __func__, ap_addr_tx);
