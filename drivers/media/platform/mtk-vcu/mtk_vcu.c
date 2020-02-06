@@ -52,6 +52,7 @@
 #include "mtk_vcodec_mem.h"
 #include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
+#include "smi_public.h"
 
 /*
  * #undef pr_debug
@@ -1156,6 +1157,13 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 	/* handle uninitialize message */
 	if (vcu->run.signaled == 1u && run->signaled == 0u) {
+		/* smi debug dump before wake up ack to worker
+		 * which will send error event to omx
+		 * to avoid omx release and disable larb
+		 * which may cause smi dump devapc
+		 */
+		smi_debug_bus_hang_detect(0, "VDEC");
+
 		if (vcu->fuse_bypass) {
 			int i;
 			/* wake up the threads in daemon
