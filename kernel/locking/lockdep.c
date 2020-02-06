@@ -245,7 +245,11 @@ static void lock_dbg(const char *msg, ...)
 	trace_lock_dbg(buf);
 }
 
+#if defined(CONFIG_KASAN) || defined(CONFIG_UBSAN)
+#define MAX_WARN_LOCKS 30
+#else
 #define MAX_WARN_LOCKS 100
+#endif
 static unsigned int warn_locks;
 
 static void lock_mon_msg(char *buf, int out)
@@ -255,6 +259,8 @@ static void lock_mon_msg(char *buf, int out)
 	/* check warn_locks to avoid printing too much log */
 	if (out & TO_KERNEL_LOG && warn_locks <= MAX_WARN_LOCKS)
 		pr_info("%s\n", buf);
+	if (out & TO_KERNEL_LOG && warn_locks == MAX_WARN_LOCKS)
+		pr_info("[STOP] warn_locks >= %d\n", MAX_WARN_LOCKS);
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	if (out & TO_SRAM)
 		aee_sram_fiq_log(buf);
@@ -5951,7 +5957,12 @@ static void task_show_stack(struct task_struct *task, int output)
 }
 
 static void lock_monitor_aee(void);
+#if defined(CONFIG_KASAN) || defined(CONFIG_UBSAN)
+/* do not trigger aee on bad performance loads */
+static bool lock_mon_aee;
+#else
 static bool lock_mon_aee = 1;
+#endif
 
 static void lockdep_check_held_locks(
 	struct task_struct *curr, bool en, bool aee)
