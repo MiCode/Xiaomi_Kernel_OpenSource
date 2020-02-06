@@ -5295,7 +5295,7 @@ page_owner=on";
 
 	mdp_color0: mdp_color0@1f00f000 {
 		compatible = "mediatek,mdp_color0";
-		reg = <0 0x1f00d000 0 0x1000>;
+		reg = <0 0x1f00f000 0 0x1000>;
 		clocks = <&mdpsys_config MDP_MDP_COLOR0>;
 		clock-names = "MDP_COLOR0";
 	};
