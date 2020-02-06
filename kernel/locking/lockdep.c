@@ -245,11 +245,15 @@ static void lock_dbg(const char *msg, ...)
 	trace_lock_dbg(buf);
 }
 
+#define MAX_WARN_LOCKS 100
+static unsigned int warn_locks;
+
 static void lock_mon_msg(char *buf, int out)
 {
 	if (out & TO_FTRACE)
 		trace_lock_monitor_msg(buf);
-	if (out & TO_KERNEL_LOG)
+	/* check warn_locks to avoid printing too much log */
+	if (out & TO_KERNEL_LOG && warn_locks <= MAX_WARN_LOCKS)
 		pr_info("%s\n", buf);
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	if (out & TO_SRAM)
@@ -5946,6 +5950,9 @@ static void task_show_stack(struct task_struct *task, int output)
 	mutex_unlock(&task->signal->cred_guard_mutex);
 }
 
+static void lock_monitor_aee(void);
+static bool lock_mon_aee = 1;
+
 static void lockdep_check_held_locks(
 	struct task_struct *curr, bool en, bool aee)
 {
@@ -6010,12 +6017,11 @@ static void lockdep_check_held_locks(
 			    hlock->timestamp != timestamp_bak)
 				continue;
 
+			warn_locks++;
 			snprintf(buf_lock, sizeof(buf_lock),
-				 "[%p] (%s) held/waited by %s/%d/[%ld] on CPU#%d/IRQ[%s] from [%lld.%06lu]%s",
-				 hlock->instance, name,
-				 curr->comm, curr->pid,
-				 curr->state, task_cpu(curr),
-				 hlock->hardirqs_off ? "off" : "on",
+				 "[%p] (%s) held/waited by %s/%d[%c] on CPU#%d from [%lld.%06lu]%s",
+				 hlock->instance, name, curr->comm, curr->pid,
+				 task_state_to_char(curr), task_cpu(curr),
 				 sec_high(hlock->timestamp),
 				 sec_low(hlock->timestamp),
 				 (output1 == TO_SRAM) ? "\n" : "");
@@ -6024,6 +6030,12 @@ static void lockdep_check_held_locks(
 			if (t_diff > lock_mon_2nd_th_ms && en)
 				output2 = TO_BOTH;
 			output2 = aee ? TO_SRAM : output2;
+
+			/* Catch the condition that too many locks are held */
+			if (lock_mon_aee && warn_locks > MAX_WARN_LOCKS) {
+				lock_mon_aee = 0;
+				lock_monitor_aee();
+			}
 
 			/* locks might be released in runtime */
 			if (hlock->timestamp == 0 ||
@@ -6115,6 +6127,7 @@ retry:
 		unlock = 0;
 	}
 
+	warn_locks = 0;
 	do_each_thread(g, p) {
 		if (p->lockdep_depth)
 			lockdep_check_held_locks(p, force, 0);
@@ -6411,6 +6424,21 @@ static void lockdep_aee(void)
 #endif
 	}
 }
+
+static void lock_monitor_aee(void)
+{
+	char aee_str[40];
+
+	if (!is_critical_lock_held()) {
+		snprintf(aee_str, 40, "[%s]held locks too much", current->comm);
+#ifdef CONFIG_MTK_AEE_FEATURE
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+			aee_str, "Lock Monitor Warning\n");
+#endif
+	}
+}
 #else
 static void lockdep_aee(void) {};
+static void lock_monitor_aee(void) {};
 #endif
