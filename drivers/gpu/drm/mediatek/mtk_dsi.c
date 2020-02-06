@@ -3152,6 +3152,15 @@ static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
 		return 0;
 }
 
+static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	DDPINFO("%s vdo mode fps change done\n", __func__);
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
 static ssize_t mtk_dsi_host_send_vm_cmd(struct mtk_dsi *dsi,
 				     const struct mipi_dsi_msg *msg, u8 flag)
 {
@@ -3322,11 +3331,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	unsigned int need_send_cmd = 0;
 	unsigned int vfp = 0;
 	struct cmdq_pkt *handle;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
 	struct mtk_ddp_comp *comp;
 	struct mtk_crtc_state *state =
 	    to_mtk_crtc_state(mtk_crtc->base.state);
 	unsigned int fps_chg_index = 0;
+	struct mtk_cmdq_cb_data *cb_data;
 
 	struct drm_display_mode adjusted_mode = state->base.adjusted_mode;
 
@@ -3349,6 +3359,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	} else if (fps_chg_index & DYNFPS_DSI_VFP) {
 		if (!need_send_cmd) {
 			DDPINFO("%s,V timing changed\n", __func__);
+			cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+			if (!cb_data) {
+				DDPINFO("%s:%d, cb data creation failed\n",
+					__func__, __LINE__);
+				return;
+			}
 			mtk_crtc_pkt_create(&handle, &(mtk_crtc->base), client);
 
 			comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -3362,8 +3378,9 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 			mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 
-			cmdq_pkt_flush(handle);
-			cmdq_pkt_destroy(handle);
+			cb_data->cmdq_handle = handle;
+			cmdq_pkt_flush_threaded(handle, mtk_dsi_dy_fps_cmdq_cb,
+				cb_data);
 		}
 	}
 }
