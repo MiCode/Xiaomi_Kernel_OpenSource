@@ -2989,28 +2989,6 @@ void exec_BAT_EC(int cmd, int param)
 				FG_KERNEL_CMD_AG_LOG_TEST, param);
 		}
 		break;
-	case 797:
-		{
-			gm.soc_decimal_rate = param;
-			bm_err(
-				"exe_BAT_EC cmd %d,soc_decimal_rate=%d\n",
-				cmd, param);
-
-		}
-		break;
-	case 798:
-		{
-			bm_err(
-				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_CHG_DECIMAL_RATE=%d\n",
-				cmd, param);
-
-			gm.soc_decimal_rate = param;
-
-			wakeup_fg_algo_cmd(
-				FG_INTR_KERNEL_CMD,
-				FG_KERNEL_CMD_CHG_DECIMAL_RATE, param);
-		}
-		break;
 
 
 	default:
