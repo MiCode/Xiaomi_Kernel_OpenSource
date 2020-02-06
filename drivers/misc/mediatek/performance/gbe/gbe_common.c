@@ -55,6 +55,7 @@ enum GBE_BOOST_DEVICE {
 	GBE_BOOST_VCORE,
 	GBE_BOOST_IO,
 	GBE_BOOST_HE,
+	GBE_BOOST_GPU,
 	GBE_BOOST_NUM,
 };
 
@@ -136,6 +137,7 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 	int boost_final = 0;
 	char u_io_string[11];
 	char u_boost_string[12];
+	char u_gpu_string[12];
 
 	if (!pld)
 		return;
@@ -166,6 +168,7 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		uclamp_pct = 100;
 		pm_req = 0;
 		strncpy(u_io_string, "IO_BOOST=1", 11);
+		strncpy(u_gpu_string, "GPU_BOOST=1", 12);
 		strncpy(u_boost_string, "GBE_BOOST=1", 12);
 	} else {
 		for (i = 0; i < cluster_num; i++) {
@@ -175,6 +178,7 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 		uclamp_pct = 0;
 		pm_req = PM_QOS_DDR_OPP_DEFAULT_VALUE;
 		strncpy(u_io_string, "IO_BOOST=0", 11);
+		strncpy(u_gpu_string, "GPU_BOOST=0", 12);
 		strncpy(u_boost_string, "GBE_BOOST=0", 12);
 	}
 
@@ -193,6 +197,9 @@ void gbe_boost(enum GBE_KICKER kicker, int boost)
 
 	if (test_bit(GBE_BOOST_HE, &policy_mask))
 		sentuevent(u_boost_string);
+
+	if (test_bit(GBE_BOOST_GPU, &policy_mask))
+		sentuevent(u_gpu_string);
 
 out:
 	mutex_unlock(&gbe_lock);
@@ -227,7 +234,9 @@ static ssize_t gbe_policy_mask_write(struct file *flip,
 	char buf[64];
 	unsigned long val = 0;
 	int ret, i;
-	char u_io_string[8];
+	char u_io_string[11];
+	char u_gpu_string[12];
+	char u_boost_string[12];
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -241,7 +250,9 @@ static ssize_t gbe_policy_mask_write(struct file *flip,
 	if (ret < 0)
 		return ret;
 
-	strncpy(u_io_string, "BOOST=0", 8);
+	strncpy(u_io_string, "IO_BOOST=0", 11);
+	strncpy(u_gpu_string, "GPU_BOOST=0", 12);
+	strncpy(u_boost_string, "GBE_BOOST=0", 12);
 	for (i = 0; i < cluster_num; i++) {
 		pld[i].max = -1;
 		pld[i].min = -1;
@@ -256,6 +267,8 @@ static ssize_t gbe_policy_mask_write(struct file *flip,
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, 0);
 	pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
 	sentuevent(u_io_string);
+	sentuevent(u_gpu_string);
+	sentuevent(u_boost_string);
 
 out:
 	mutex_unlock(&gbe_lock);
