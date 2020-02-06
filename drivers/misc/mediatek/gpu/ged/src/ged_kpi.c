@@ -246,6 +246,8 @@ static unsigned int is_GED_KPI_enabled = 1;
 static unsigned int ap_self_frc_detection_rate = 20;
 #ifdef GED_ENABLE_FB_DVFS
 static unsigned int g_force_gpu_dvfs_fallback;
+static int g_fb_dvfs_threshold = 80;
+module_param(g_fb_dvfs_threshold, int, 0644);
 #endif
 module_param(gx_dfps, uint, 0644);
 module_param(gx_frc_mode, uint, 0644);
@@ -1553,7 +1555,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				 * resource monopoly
 				 */
 				if (main_head && main_head->i32Count * 100
-					/ GED_KPI_TOTAL_ITEMS > 80)
+					/ GED_KPI_TOTAL_ITEMS
+					> g_fb_dvfs_threshold)
 					g_force_gpu_dvfs_fallback = 0;
 				else
 					g_force_gpu_dvfs_fallback = 1;
