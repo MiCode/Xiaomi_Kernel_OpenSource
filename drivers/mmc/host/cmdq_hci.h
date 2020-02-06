@@ -13,6 +13,7 @@
 #define LINUX_MMC_CQ_HCI_H
 #include <linux/mmc/core.h>
 #include <linux/platform_device.h>
+#include <linux/keyslot-manager.h>
 
 /* registers */
 /* version */
@@ -155,6 +156,8 @@
 #define CQ_VENDOR_CFG	0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
+struct cmdq_host;
+
 /* CCAP - Crypto Capability 100h */
 union cmdq_crypto_capabilities {
 	__le32 reg_val;
@@ -209,6 +212,31 @@ union cmdq_crypto_cfg_entry {
 		u8 vsb[2];
 		u8 reserved_3[56];
 	};
+};
+
+struct cmdq_host_crypto_variant_ops {
+	void (*setup_rq_keyslot_manager)(struct cmdq_host *host,
+	struct request_queue *q);
+	void (*destroy_rq_keyslot_manager)(struct cmdq_host *host,
+					   struct request_queue *q);
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	int (*host_init_crypto)(struct cmdq_host *host,
+				const struct keyslot_mgmt_ll_ops *ksm_ops);
+#endif
+	void (*enable)(struct cmdq_host *host);
+	void (*disable)(struct cmdq_host *host);
+	int (*suspend)(struct cmdq_host *host);
+	int (*resume)(struct cmdq_host *host);
+	int (*debug)(struct cmdq_host *host);
+	int (*prepare_crypto_desc)(struct cmdq_host *host,
+				   struct mmc_request *mrq, u64 *ice_ctx);
+	int (*complete_crypto_desc)(struct cmdq_host *host,
+				    struct mmc_request *mrq, u64 *ice_ctx);
+	int (*reset)(struct cmdq_host *host);
+	int (*recovery_finish)(struct cmdq_host *host);
+	int (*program_key)(struct cmdq_host *host,
+			   const union cmdq_crypto_cfg_entry *cfg, int slot);
+	void *priv;
 };
 
 struct task_history {
