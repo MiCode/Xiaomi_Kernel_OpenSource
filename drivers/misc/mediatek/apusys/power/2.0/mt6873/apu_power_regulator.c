@@ -421,8 +421,9 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 			mdla_efuse_val, voltage_mV);
 	}
 #endif
-	LOG_DBG("%s try to config buck : %s to %d(max:%d)\n",
-		__func__, buck_str[buck], voltage_mV, voltage_MAX);
+	if (buck >= 0) /* bypass the case of SRAM_BUCK = -1 */
+		LOG_DBG("%s try to config buck : %s to %d(max:%d)\n",
+			__func__, buck_str[buck], voltage_mV, voltage_MAX);
 
 	if (voltage_mV <= DVFS_VOLT_NOT_SUPPORT
 		|| voltage_mV >= DVFS_VOLT_MAX) {
