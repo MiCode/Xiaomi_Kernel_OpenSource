@@ -1308,6 +1308,33 @@ static const struct mtk_pin_field_calc mt6873_pin_eh_range[] = {
 	PIN_FIELD_BASE(205, 205, 8, 0x0010, 0x10, 6, 3),
 };
 
+static const struct mtk_eh_pin_pinmux mt6873_eh_pin_pinmux_list[] = {
+	/* pin number, pinmux number */
+	{89, 2},
+	{90, 2},
+	{118, 1},
+	{119, 1},
+	{120, 1},
+	{121, 1},
+	{122, 1},
+	{123, 1},
+	{124, 1},
+	{125, 1},
+	{139, 1},
+	{140, 1},
+	{141, 1},
+	{142, 1},
+	{160, 1},
+	{161, 1},
+	{200, 1},
+	{201, 1},
+	{202, 1},
+	{203, 1},
+	{204, 1},
+	{205, 1},
+	{0xffff, 0}, /* indicate end of array */
+};
+
 static const struct mtk_eint_hw mt6873_eint_hw = {
 	.port_mask = 7,
 	.ports     = 7,
@@ -1341,6 +1368,7 @@ static const struct mtk_pin_soc mt6873_data = {
 	.eint_hw = &mt6873_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
+	.eh_pin_pinmux = mt6873_eh_pin_pinmux_list,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
 	.drive_set = mtk_pinconf_drive_set_direct_val,
