@@ -24,6 +24,7 @@
 
 
 #define EFUSE_INDEX 72	// 0x11C105D8
+#define EFUSE_VOLTAGE_INDEX 134  // 0x11C107b0
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;
@@ -383,7 +384,9 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #if VOLTAGE_CHECKER
 	int check_volt = 0;
 #endif
-
+#if VOLTAGE_RAISE_UP
+	unsigned int raise_up_efuse_val = 0;
+#endif
 #if BINNING_VOLTAGE_SUPPORT
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
@@ -410,6 +413,22 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
 			mdla_efuse_val, voltage_mV);
+	}
+#endif
+
+#if VOLTAGE_RAISE_UP
+	raise_up_efuse_val =
+	(get_devinfo_with_index(EFUSE_VOLTAGE_INDEX) & 0x7);
+	if (raise_up_efuse_val == 2) {
+		if (voltage_mV == DVFS_VOLT_00_575000_V ||
+			voltage_mV == DVFS_VOLT_00_600000_V ||
+			voltage_mV == DVFS_VOLT_00_650000_V)
+			voltage_mV += 50000;	// +50mV
+		else if (voltage_mV == DVFS_VOLT_00_700000_V)
+			voltage_mV += 25000;	// +25mV
+
+		LOG_WRN("Raise up Voltage!!, raise_up_efuse_val=%d, vol=%d\n",
+			raise_up_efuse_val, voltage_mV);
 	}
 #endif
 	LOG_DBG("%s try to config buck : %d to %d(max:%d)\n", __func__,
