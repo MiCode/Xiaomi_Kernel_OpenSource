@@ -1779,7 +1779,8 @@ void lvts_sodi3_release_thermal_controller(void)
 			 */
 			if ((temp & 0x10E) != 0) {
 				lvts_paused = 1;
-				pr_notice("lvts_paused = %d\n", lvts_paused);
+				pr_notice_ratelimited(
+					"lvts_paused = %d\n", lvts_paused);
 				break;
 			}
 		}
