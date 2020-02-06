@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QPNP_REVID
@@ -291,6 +291,12 @@
 #define PM6125_V1P0_REV3	0x00
 #define PM6125_V1P0_REV4	0x01
 
+/* PM2250_REV_ID */
+#define PM2250_V1P0_REV1	0x00
+#define PM2250_V1P0_REV2	0x01
+#define PM2250_V1P0_REV3	0x01
+#define PM2250_V1P0_REV4	0x01
+
 /* PMI8998 FAB_ID */
 #define PMI8998_FAB_ID_SMIC	0x11
 #define PMI8998_FAB_ID_GF	0x30
@@ -306,8 +312,8 @@
 /* PM8937 */
 #define PM8937_SUBTYPE		0x19
 
-/* PMI8937 */
-#define PMI8937_SUBTYPE		0x37
+/* PM2250 */
+#define PM2250_SUBTYPE		0x37
 
 /* SMB1390 */
 #define SMB1390_SUBTYPE		0x23
