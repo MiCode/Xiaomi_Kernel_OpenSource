@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019,2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -448,18 +448,23 @@
 			};
 		};
 
-		bcl@4200 {
+		bcl_sensor:bcl@4200 {
 			compatible = "qcom,msm-bcl-lmh";
 			reg = <0x4200 0xff>,
 				<0x4300 0xff>;
 			reg-names = "fg_user_adc",
 					"fg_lmh";
 			interrupts = <0x0 0x42 0x0 IRQ_TYPE_NONE>,
-					<0x0 0x42 0x2 IRQ_TYPE_NONE>;
-			interrupt-names = "bcl-high-ibat-int",
-					"bcl-low-vbat-int";
-			qcom,vbat-polling-delay-ms = <100>;
-			qcom,ibat-polling-delay-ms = <100>;
+					<0x0 0x42 0x1 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x2 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x3 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x4 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-high-ibat",
+						"bcl-very-high-ibat",
+						"bcl-low-vbat",
+						"bcl-very-low-vbat",
+						"bcl-crit-low-vbat";
+			#thermal-sensor-cells = <1>;
 		};
 	};
 
@@ -557,7 +562,7 @@
 				hysteresis = <0>;
 				type = "passive";
 			};
-			trip2 {
+			pm660_trip2: trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
 				type = "passive";
