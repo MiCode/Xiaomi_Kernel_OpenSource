@@ -360,7 +360,20 @@ static int mtk_panel_ext_param_get(struct mtk_panel_params *ext_para,
 
 }
 
+static int panel_ext_reset(struct drm_panel *panel, int on)
+{
+	struct tianma *ctx = panel_to_tianma(panel);
+
+	ctx->reset_gpio =
+		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->reset_gpio, on);
+	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
+	return 0;
+}
+
 static struct mtk_panel_funcs ext_funcs = {
+	.reset = panel_ext_reset,
 	.set_backlight_cmdq = tianma_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.ext_param_get = mtk_panel_ext_param_get,
