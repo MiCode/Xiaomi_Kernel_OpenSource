@@ -487,7 +487,7 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 		spin_lock_irqsave(info->hba->host->host_lock, flags);
 
 		/* write configuration only to register */
-		for (i = 0; i < 32; i++) {
+		for (i = 0; i < 18; i++) {
 			ufshcd_writel(info->hba, cpt_cfg.cfgx_raw[i],
 				(addr + i * 4));
 			dev_dbg(info->hba->dev, "[%d] 0x%x=0x%x\n",
