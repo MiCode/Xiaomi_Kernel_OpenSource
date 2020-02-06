@@ -573,11 +573,11 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 	data->pe40_r_cable_2a_lower = pdata->pe40_r_cable_2a_lower;
 	data->pe40_r_cable_3a_lower = pdata->pe40_r_cable_3a_lower;
 
+	data->battery_cv = pdata->battery_cv;
 	if (info->enable_sw_jeita) {
 		if (info->sw_jeita.cv != 0)
 			data->battery_cv = info->sw_jeita.cv;
-	} else
-		data->battery_cv = pdata->battery_cv;
+	}
 
 	if (info->enable_hv_charging == false)
 		goto stop;
@@ -687,11 +687,11 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 	data->pd_vbus_low_bound = pdata->pd_vbus_low_bound;
 	data->pd_vbus_upper_bound = pdata->pd_vbus_upper_bound;
 
+	data->battery_cv = pdata->battery_cv;
 	if (info->enable_sw_jeita) {
 		if (info->sw_jeita.cv != 0)
 			data->battery_cv = info->sw_jeita.cv;
-	} else
-		data->battery_cv = pdata->battery_cv;
+	}
 
 	if (info->enable_hv_charging == false)
 		goto stop;
