@@ -472,7 +472,7 @@ EXPORT_SYMBOL_GPL(smi_bwl_update);
 void smi_ostd_update(const struct plist_head *head, const char *user)
 {
 	struct mm_qos_request *req;
-	u32 larb, port, ostd;
+	u32 larb, port, ostd, prev = SMI_LARB_NUM;
 
 	if (plist_head_empty(head))
 		return;
@@ -492,13 +492,19 @@ void smi_ostd_update(const struct plist_head *head, const char *user)
 		smi_scen_pair[larb][SMI_ESL_INIT][port].val = ostd;
 
 		if (ATOMR_CLK(larb)) {
-			smi_bus_prepare_enable(larb, user);
+			if (larb != prev) {
+				if (prev != SMI_LARB_NUM)
+					smi_bus_disable_unprepare(prev, user);
+				smi_bus_prepare_enable(larb, user);
+				prev = larb;
+			}
 			writel(ostd, smi_dev[larb]->base +
 				smi_scen_pair[larb][SMI_ESL_INIT][port].off);
-			smi_bus_disable_unprepare(larb, user);
 		}
 		req->updated = false;
 	}
+	if (prev != SMI_LARB_NUM)
+		smi_bus_disable_unprepare(prev, user);
 }
 EXPORT_SYMBOL_GPL(smi_ostd_update);
 
