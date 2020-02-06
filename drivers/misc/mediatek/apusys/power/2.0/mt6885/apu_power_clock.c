@@ -756,7 +756,7 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 
 	clk_target = find_clk_by_domain(domain);
-	if (!clk_target) {
+	if (clk_target != NULL) {
 #if APUSYS_SETTLE_TIME_TEST
 		buck_id = apusys_buck_domain_to_buck[domain];
 		apusys_opps.st[buck_id + 1].begin = sched_clock();
