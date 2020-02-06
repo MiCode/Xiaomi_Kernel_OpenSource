@@ -30,11 +30,8 @@
 #include "hal_config_power.h"
 #include "apu_log.h"
 
-
 static struct mutex power_dvfs_mtx;
 struct apusys_dvfs_opps apusys_opps;
-
-
 
 bool dvfs_user_support(enum DVFS_USER user)
 {
@@ -45,7 +42,6 @@ bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	return apusys_dvfs_buck_domain_support[domain];
 }
-
 
 int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 					enum APU_OPP_INDEX opp)
@@ -674,60 +670,95 @@ void apusys_buck_down_check(void)
 void apusys_dvfs_info(void)
 {
 	char logv_str[128], logf_str[128], log_str[128];
-		uint8_t domain;
-		uint8_t user;
-		int div = 1000;
-		uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
-		uint8_t next_opp_index[APUSYS_BUCK_DOMAIN_NUM];
+	uint8_t domain;
+	uint8_t user;
+	int div = 1000;
+	uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
+	uint8_t next_opp_index[APUSYS_BUCK_DOMAIN_NUM];
+	uint8_t c_opp_index;
+	uint8_t n_opp_index;
 
-		sprintf(log_str, "(u_op,T,min,max)");
-		sprintf(logv_str, "v[");
-		sprintf(logf_str, "f[");
+	sprintf(log_str, "(u_op,T,min,max)");
+	sprintf(logv_str, "v[");
+	sprintf(logf_str, "f[");
 
-		for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
-			if (dvfs_user_support(user) == false)
-				continue;
-			sprintf(log_str + strlen(log_str), ",(%d,%d,%d,%d)",
-				apusys_opps.driver_opp_index[user],
-				apusys_opps.thermal_opp[user],
-				apusys_opps.power_lock_min_opp[user],
-				apusys_opps.power_lock_max_opp[user]);
-		}
-
-		for (domain = 0; domain < APUSYS_BUCK_DOMAIN_NUM; domain++) {
-			if (dvfs_power_domain_support(domain) == false)
-				continue;
-
-			cur_opp_index[domain] =
-				apusys_opps.cur_opp_index[domain];
-			next_opp_index[domain] =
-				apusys_opps.next_opp_index[domain];
-
-	sprintf(logv_str + strlen(logv_str), ",(%d,%d)",
-		apusys_opps.opps[cur_opp_index[domain]][domain].voltage/div,
-		apusys_opps.opps[next_opp_index[domain]][domain].voltage/div);
-
-	sprintf(logf_str + strlen(logf_str), ",(%d,%d)",
-		apusys_opps.opps[cur_opp_index[domain]][domain].freq/div,
-		apusys_opps.opps[next_opp_index[domain]][domain].freq/div);
+	for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
+		if (dvfs_user_support(user) == false)
+			continue;
+		sprintf(log_str + strlen(log_str), ",(%d,%d,%d,%d)",
+			apusys_opps.driver_opp_index[user],
+			apusys_opps.thermal_opp[user],
+			apusys_opps.power_lock_min_opp[user],
+			apusys_opps.power_lock_max_opp[user]);
 	}
 
-		sprintf(log_str + strlen(log_str), "] %llu", apusys_opps.id);
-		sprintf(logv_str + strlen(logv_str), "] %llu", apusys_opps.id);
-		sprintf(logf_str + strlen(logf_str), "] %llu", apusys_opps.id);
-		PWR_LOG_PM("APUPWR DVFS %s\n", log_str);
-		PWR_LOG_PM("APUPWR DVFS %s\n", logv_str);
-		PWR_LOG_PM("APUPWR DVFS %s\n", logf_str);
+	for (domain = 0; domain < APUSYS_BUCK_DOMAIN_NUM; domain++) {
+		if (dvfs_power_domain_support(domain) == false)
+			continue;
 
+		cur_opp_index[domain] =
+			apusys_opps.cur_opp_index[domain];
+		c_opp_index = cur_opp_index[domain];
+
+		next_opp_index[domain] =
+			apusys_opps.next_opp_index[domain];
+		n_opp_index = next_opp_index[domain];
+
+		sprintf(logv_str + strlen(logv_str), ",(%d,%d)",
+			apusys_opps.opps[c_opp_index][domain].voltage / div,
+			apusys_opps.opps[n_opp_index][domain].voltage / div);
+
+		sprintf(logf_str + strlen(logf_str), ",(%d,%d)",
+			apusys_opps.opps[c_opp_index][domain].freq / div,
+			apusys_opps.opps[n_opp_index][domain].freq / div);
+	}
+
+	sprintf(log_str + strlen(log_str), "] %llu", apusys_opps.id);
+	sprintf(logv_str + strlen(logv_str), "] %llu", apusys_opps.id);
+	sprintf(logf_str + strlen(logf_str), "] %llu", apusys_opps.id);
+	PWR_LOG_PM("APUPWR DVFS %s\n", log_str);
+	PWR_LOG_PM("APUPWR DVFS %s\n", logv_str);
+	PWR_LOG_PM("APUPWR DVFS %s\n", logf_str);
+
+#if APUSYS_SETTLE_TIME_TEST
+	/*
+	 * upper bound (APUSYS_BUCK_NUM + 1)
+	 * is due to index of Vsram as -1.
+	 * And borrow div to be index of buck.
+	 */
+	for (div = 0; div < (APUSYS_BUCK_NUM + 1); div++) {
+		if (apusys_opps.st[div].end) {
+			snprintf(log_str, sizeof(log_str),
+				 "APUSYS_SETTLE_TIME_TEST buck_id:%d, total settle_time",
+				 div - 1);
+			apu_profiling(&apusys_opps.st[div], log_str);
+		}
+
+		/* clear voltage timestamp for next round */
+		memset(&apusys_opps.st[div].end, 0, sizeof(u64));
+
+		/*
+		 * set freq timestamp as right now,
+		 * since there will be case that
+		 * F --> no change
+		 * V --> change
+		 * such as Vsram.
+		 */
+		apusys_opps.st[div].begin = sched_clock();
+	}
+#endif
 }
 
 
 void apusys_dvfs_state_machine(void)
 {
+	/* check whether V needs to change before F changes*/
 	apusys_buck_up_check();
 
+	/* check whether F needs to change*/
 	apusys_frequency_check();
 
+	/* check whether V needs to change after F changes*/
 	apusys_buck_down_check();
 }
 

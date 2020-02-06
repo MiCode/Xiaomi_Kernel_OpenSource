@@ -14,11 +14,12 @@
 #include <linux/delay.h>
 #include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
+#include <linux/slab.h>
 
 #include "upmu_hw.h"
 #include "apusys_power_reg.h"
 #include "apu_power_api.h"
-#include "apusys_power_cust.h"
+#include "apusys_power_ctl.h"
 #include "apu_log.h"
 #include "mtk_devinfo.h"
 
@@ -349,6 +350,13 @@ static int settle_time_check
 	if (settle_time > 200)
 		settle_time = 200;
 
+#if APUSYS_SETTLE_TIME_TEST
+	/* Here (buck + 1) due to index of Vsram = -1.*/
+	apusys_opps.st[buck + 1].end = sched_clock();
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST bkid:%d,%s %d(uv),settletime:%d(us)\n",
+		buck, (volt_diff > 0) ? "up" : "down", volt_diff, settle_time);
+#endif
+
 	return settle_time;
 }
 
@@ -413,13 +421,13 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 			mdla_efuse_val, voltage_mV);
 	}
 #endif
-	LOG_DBG("%s try to config buck : %d to %d(max:%d)\n", __func__,
-						buck, voltage_mV, voltage_MAX);
+	LOG_DBG("%s try to config buck : %s to %d(max:%d)\n",
+		__func__, buck_str[buck], voltage_mV, voltage_MAX);
 
 	if (voltage_mV <= DVFS_VOLT_NOT_SUPPORT
 		|| voltage_mV >= DVFS_VOLT_MAX) {
 		LOG_ERR("%s voltage_mV over range : %d\n",
-					__func__, voltage_mV);
+			__func__, voltage_mV);
 		return -1;
 	}
 
@@ -479,11 +487,6 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #endif
 
 	settle_time = settle_time_check(buck, voltage_mV);
-
-#if APUSYS_SETTLE_TIME_TEST
-	LOG_WRN("APUSYS_SETTLE_TIME_TEST buck_id:%d, volt:%d, settle_time:%d\n",
-						buck, voltage_mV, settle_time);
-#endif
 	udelay(settle_time);
 
 #if VOLTAGE_CHECKER

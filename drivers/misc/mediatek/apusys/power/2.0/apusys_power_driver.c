@@ -668,7 +668,7 @@ void apu_profiling(struct profiling_timestamp *profile, const char *tag)
 	u64 nanosec = 0;
 	u64 time = 0;
 
-	time = abs(profile->end - profile->end),
+	time = abs(profile->end - profile->begin),
 	nanosec = do_div(time, 1000000000);
 	pr_info("%s: %s take %lu (us)\n", __func__, tag,
 		((unsigned long)nanosec / 1000));

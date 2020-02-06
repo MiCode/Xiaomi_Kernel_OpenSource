@@ -16,6 +16,10 @@
 
 #include <linux/types.h>
 #include "apusys_power_user.h"
+#include <linux/sched/clock.h>
+#include <linux/platform_device.h>
+
+#include "apusys_power.h"
 
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
@@ -34,6 +38,7 @@
 #define BINNING_VOLTAGE_SUPPORT (1)
 #define SUPPORT_HW_CONTROL_PMIC	(1)
 #define TIME_PROFILING		(0)
+#define APUSYS_SETTLE_TIME_TEST (0)
 
 #define APUSYS_MAX_NUM_OPPS                (10)
 #define APUSYS_PATH_USER_NUM               (4)   // num of DVFS_XXX_PATH
@@ -141,6 +146,11 @@ struct apusys_dvfs_opps {
 	uint32_t power_bit_mask;
 	uint64_t id;
 	enum DVFS_VOLTAGE vsram_volatge;
+#if APUSYS_SETTLE_TIME_TEST
+	/* Here +1 is due to profile Vsram settle time */
+	struct profiling_timestamp st[APUSYS_BUCK_NUM + 1];
+#endif
+
 };
 
 extern char *user_str[APUSYS_DVFS_USER_NUM];

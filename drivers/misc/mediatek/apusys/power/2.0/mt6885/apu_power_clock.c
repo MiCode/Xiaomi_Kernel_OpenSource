@@ -639,6 +639,9 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	struct clk *clk_src = NULL;
 	struct clk *clk_target = NULL;
+#if APUSYS_SETTLE_TIME_TEST
+	u8 buck_id;
+#endif
 
 	switch (freq) {
 	case DVFS_FREQ_00_026000_F:
@@ -753,19 +756,17 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 
 	clk_target = find_clk_by_domain(domain);
-
-	if (clk_target != NULL) {
+	if (!clk_target) {
 #if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
-#else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
+		buck_id = apusys_buck_domain_to_buck[domain];
+		apusys_opps.st[buck_id + 1].begin = sched_clock();
 #endif
+		LOG_DBG("%s config domain %s to freq %d\n",
+			__func__, buck_domain_str[domain], freq);
 		return clk_set_parent(clk_target, clk_src);
 	} else {
-		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
-								domain, freq);
+		LOG_ERR("%s config domain %s to freq %d failed\n",
+			__func__, buck_domain_str[domain], freq);
 		return -1;
 	}
 }
@@ -810,6 +811,9 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	struct clk *clk_target = NULL;
 	int scaled_freq = freq * 1000;
 	enum DVFS_FREQ ckmux_freq;
+#if APUSYS_SETTLE_TIME_TEST
+	u8 buck_id;
+#endif
 
 	clk_target = find_clk_by_domain(domain);
 
@@ -820,19 +824,19 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		ret |= set_apu_clock_source(ckmux_freq, domain);
 
 #if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
-#else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
+		buck_id = apusys_buck_domain_to_buck[domain];
+		apusys_opps.st[buck_id + 1].begin = sched_clock();
 #endif
+		LOG_DBG("%s config domain %s to freq %d\n",
+			__func__, buck_domain_str[domain], freq);
+
 		ret |= clk_set_rate(clk_top_apupll_ck, scaled_freq);
 
 		ret |= clk_set_parent(clk_target, clk_top_apupll_ck);
 
 	} else {
-		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
-								domain, freq);
+		LOG_ERR("%s config domain %s to freq %d failed\n",
+			__func__, buck_domain_str[domain], freq);
 		return -1;
 	}
 	return ret;

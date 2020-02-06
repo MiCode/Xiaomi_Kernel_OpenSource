@@ -524,6 +524,9 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	int ret = 0;
 	struct clk *clk_src = NULL;
 	struct clk *clk_target = NULL;
+#if APUSYS_SETTLE_TIME_TEST
+	u8 buck_id;
+#endif
 
 	switch (freq) {
 	case DVFS_FREQ_00_026000_F:
@@ -577,12 +580,12 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 	if (clk_target != NULL) {
 #if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
-#else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
+		buck_id = apusys_buck_domain_to_buck[domain];
+		apusys_opps.st[buck_id + 1].begin = sched_clock();
 #endif
+		LOG_DBG("%s config domain %s to freq %d\n",
+			__func__, buck_domain_str[domain], freq);
+
 		ret |= clk_set_parent(clk_target, clk_src);
 
 		if (domain == V_VPU0)
@@ -597,8 +600,8 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 		return ret;
 	} else {
-		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
-								domain, freq);
+		LOG_ERR("%s config domain %s to freq %d failed\n",
+			__func__, buck_domain_str[domain], freq);
 		return -1;
 	}
 }
@@ -664,7 +667,9 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
 	unsigned int dds, pll = 0;
 	bool parking = false;
-
+#if APUSYS_SETTLE_TIME_TEST
+	u8 buck_id;
+#endif
 	real_posdiv_power = apu_get_curr_posdiv_power(domain);
 	posdiv_power = apu_get_posdiv_power(freq, domain);
 	dds = apu_get_dds(freq, domain);
@@ -695,8 +700,8 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 			ckmux_freq = DVFS_FREQ_00_312000_F;
 			ret |= set_apu_clock_source(ckmux_freq, domain);
 		} else {
-			LOG_ERR("%s config domain %d to freq %d failed\n",
-				__func__, domain, freq);
+			LOG_ERR("%s config domain %s to freq %d failed\n",
+				__func__, buck_domain_str[domain], freq);
 			return -1;
 		}
 #if CCF_SET_RATE
@@ -721,12 +726,13 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 
 #if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
-#else
-		LOG_DBG("%s config domain %d to freq %d,  APUPLL_CON1 0x%x\n",
-			__func__, domain, freq, DRV_Reg32(APUPLL_CON1));
+	buck_id = apusys_buck_domain_to_buck[domain];
+	apusys_opps.st[buck_id + 1].begin = sched_clock();
 #endif
+	LOG_DBG("%s config domain %s to freq %d,  APUPLL_CON1 0x%x\n",
+		__func__, buck_domain_str[domain],
+		freq, DRV_Reg32(APUPLL_CON1));
+
 
 	return ret;
 }
@@ -736,13 +742,16 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	int ret = 0;
 	struct clk *clk_target = NULL;
 #if CCF_SET_RATE
-		int scaled_freq = freq * 1000;
+	int scaled_freq = freq * 1000;
 #endif
 	enum DVFS_FREQ ckmux_freq = 0;
 	enum DVFS_FREQ_POSTDIV posdiv_power = 0;
 	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
 	unsigned int dds, pll = 0;
 	bool parking = false;
+#if APUSYS_SETTLE_TIME_TEST
+	u8 buck_id;
+#endif
 
 	real_posdiv_power = apu_get_curr_posdiv_power(domain);
 	posdiv_power = apu_get_posdiv_power(freq, domain);
@@ -775,9 +784,10 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 				ckmux_freq = DVFS_FREQ_00_273000_F;
 				ret |= set_apu_clock_source(ckmux_freq, domain);
 			} else {
-				LOG_ERR(
-					"%s config domain %d to freq %d failed\n",
-					__func__, domain, freq);
+				LOG_ERR("%s config domain %s to freq %d fail\n",
+					__func__,
+					buck_domain_str[domain],
+					freq);
 				return -1;
 			}
 		}
@@ -786,7 +796,6 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 #else
 		DRV_WriteReg32(NPUPLL_CON1, pll);
 #endif
-
 		/* PLL spec */
 		udelay(20);
 
@@ -806,12 +815,12 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 
 #if APUSYS_SETTLE_TIME_TEST
-	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-							V_VPU0, freq);
-#else
-	LOG_DBG("%s config domain %d to freq %d, NPUPLL_CON1 0x%x\n",
-		__func__, V_VPU0, freq, DRV_Reg32(NPUPLL_CON1));
+	buck_id = apusys_buck_domain_to_buck[domain];
+	apusys_opps.st[buck_id + 1].begin = sched_clock();
 #endif
+	LOG_DBG("%s config domain %s to freq %d, NPUPLL_CON1 0x%x\n",
+		__func__, buck_domain_str[V_VPU0],
+		freq, DRV_Reg32(NPUPLL_CON1));
 
 	return ret;
 }

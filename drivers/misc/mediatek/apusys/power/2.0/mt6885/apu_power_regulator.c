@@ -18,7 +18,7 @@
 #include "upmu_hw.h"
 #include "apusys_power_reg.h"
 #include "apu_power_api.h"
-#include "apusys_power_cust.h"
+#include "apusys_power_ctl.h"
 #include "apu_log.h"
 #include "mtk_devinfo.h"
 
@@ -352,6 +352,12 @@ static int settle_time_check
 	if (settle_time > 200)
 		settle_time = 200;
 
+#if APUSYS_SETTLE_TIME_TEST
+	/* Here (buck + 1) due to index of Vsram = -1.*/
+	apusys_opps.st[buck + 1].end = sched_clock();
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST bkid:%d,%s %d(uv),settletime:%d(us)\n",
+		buck, (volt_diff > 0) ? "up" : "down", volt_diff, settle_time);
+#endif
 	return settle_time;
 }
 

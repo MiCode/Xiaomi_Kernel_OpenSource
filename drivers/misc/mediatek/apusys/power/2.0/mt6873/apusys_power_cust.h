@@ -16,8 +16,10 @@
 
 #include <linux/delay.h>
 #include <linux/types.h>
-#include <asm/div64.h>
-#include "apusys_power_user.h"
+#include <linux/sched/clock.h>
+#include <linux/platform_device.h>
+
+#include "apusys_power.h"
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
 #endif
@@ -133,6 +135,10 @@ struct apusys_dvfs_opps {
 	uint32_t power_bit_mask;
 	uint64_t id;
 	enum DVFS_VOLTAGE vsram_volatge;
+#if APUSYS_SETTLE_TIME_TEST
+	/* Here +1 is due to profile Vsram settle time */
+	struct profiling_timestamp st[APUSYS_BUCK_NUM + 1];
+#endif
 };
 
 extern char *user_str[APUSYS_DVFS_USER_NUM];
@@ -162,12 +168,10 @@ extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
-
 #ifdef APUPWR_TASK_DEBOUNCE
 static inline void task_debounce(void)
 {
 	msleep_interruptible(20);
 }
-#endif
-
-#endif
+#endif /* APUPWR_TASK_DEBOUNCE */
+#endif /* _APUSYS_POWER_CUST_H_ */
