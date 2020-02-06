@@ -665,6 +665,14 @@ int cnss_idle_restart(struct device *dev)
 
 	cnss_pr_dbg("Doing idle restart\n");
 
+	reinit_completion(&plat_priv->power_up_complete);
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore idle restart\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_IDLE_RESTART,
 				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
@@ -677,20 +685,18 @@ int cnss_idle_restart(struct device *dev)
 	}
 
 	timeout = cnss_get_boot_timeout(dev);
-
-	reinit_completion(&plat_priv->power_up_complete);
-
-	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Reboot or shutdown is in progress, ignore idle restart\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
 					  msecs_to_jiffies(timeout) << 2);
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for idle restart to complete\n");
-		ret = -EAGAIN;
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore idle restart\n");
+		del_timer(&plat_priv->fw_boot_timer);
+		ret = -EINVAL;
 		goto out;
 	}
 
