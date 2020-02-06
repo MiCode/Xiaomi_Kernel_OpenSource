@@ -4892,10 +4892,12 @@ void subsys_if_on(void)
 		ret++;
 	}
 #endif
+#if 0
 	if ((sta & MSDC_PWR_STA_MASK) && (sta_s & MSDC_PWR_STA_MASK)) {
 		pr_notice("suspend warning: MSDC is on!!\n");
 		/* ret++; */
 	}
+#endif
 #if 1
 	if (other_sta & (0x1 << 5)) {
 		pr_notice("suspend warning: VPU is on!!\n");
@@ -4908,7 +4910,7 @@ void subsys_if_on(void)
 		print_enabled_clks_once();
 		BUG_ON(1);
 #else
-		aee_kernel_warning("CCF MT6885",
+		aee_kernel_warning("CCF MT6873",
 			"@%s():%d, MTCMOS are not off\n", __func__, __LINE__);
 		print_enabled_clks_once();
 		WARN_ON(1);

@@ -4617,10 +4617,12 @@ void pll_if_on(void)
 {
 	int ret = 0;
 
+#if 0
 	if (clk_readl(ARMPLL_LL_CON0) & PLL_EN)
 		pr_notice("suspend warning : ARMPLL_LL is on !!!\n");
 	if (clk_readl(ARMPLL_BL0_CON0) & PLL_EN)
 		pr_notice("suspend warning : ARMPLL_BL0 is on !!!\n");
+#endif
 	if (clk_readl(UNIVPLL_CON0) & PLL_EN) {
 		pr_notice("suspend warning : UNIVPLL is on !!!\n");
 		ret++;
@@ -4663,7 +4665,7 @@ void pll_if_on(void)
 		print_enabled_clks_once();
 		BUG_ON(1);
 #else
-		aee_kernel_warning("CCF MT6885",
+		aee_kernel_warning("CCF MT6873",
 			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
 		print_enabled_clks_once();
 		WARN_ON(1);
