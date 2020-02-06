@@ -1053,6 +1053,8 @@ void mt_gpufreq_update_volt_interpolation(void)
 	int i, j, largeOppIndex, smallOppIndex, range, freq, vnew;
 	int large_vgpu, small_vgpu, large_freq, small_freq, slope;
 	unsigned int ptpod_opp_idx_num;
+	struct opp_table_info *opp_table = __mt_gpufreq_get_segment_table();
+	int lower_bound;
 
 	ptpod_opp_idx_num = ARRAY_SIZE(g_ptpod_opp_idx_table_segment);
 
@@ -1092,6 +1094,12 @@ void mt_gpufreq_update_volt_interpolation(void)
 				__mt_gpufreq_get_vsram_gpu_by_vgpu(vnew);
 		}
 	}
+
+	// check all voltage >= lower bound
+	lower_bound = opp_table[NUM_OF_OPP_IDX - 1].gpufreq_vgpu;
+	for (i = 0; i < NUM_OF_OPP_IDX; i++)
+		gpu_assert(g_opp_table[i].gpufreq_vgpu >= lower_bound);
+
 }
 
 void mt_gpufreq_apply_aging(bool apply)
@@ -1683,17 +1691,14 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 {
 	unsigned int efuse_id;
 
-	/* spare[20:18] */
-	efuse_id = ((get_devinfo_with_index(72) >> 18) & 0x3);
+	/* [FAB_INFO4 (0x11C107B0) 134] [2:0]*/
+	efuse_id = ((get_devinfo_with_index(134) >> 0) & 0x3);
 
 	switch (efuse_id) {
-	case 0x0:
-		return g_opp_table_segment_1;
-	case 0x1:
+	case 0x2:
 		return g_opp_table_segment_2;
 	default:
-		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
-		return g_opp_table_segment_2;
+		return g_opp_table_segment_1;
 	}
 }
 
