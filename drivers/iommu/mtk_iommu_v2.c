@@ -212,9 +212,20 @@ int mtk_iommu_get_port_id(struct device *dev)
 		return -1;
 
 	if (!dev->iommu_fwspec ||
-	    !dev->iommu_fwspec->iommu_priv)
-		return -2;
+	    !dev->iommu_fwspec->iommu_priv) {
+#if defined(MTK_IOMMU_DBG_FUNCTION)
+		const char *com_dev = dev_name(dev);
+		char gpu_name[] = "13000000.mali";
 
+		if (strcmp(gpu_name, com_dev)) {
+			mmu_aee_print("device is not GPU, dev:%s\n",
+					dev_name(dev));
+			pr_info("%s, device is not GPU, dev:%s\n",
+					__func__, dev_name(dev));
+		}
+#endif
+		return -2;
+	}
 	return dev->iommu_fwspec->ids[0];
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_get_port_id);
