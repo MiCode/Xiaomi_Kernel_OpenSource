@@ -332,7 +332,7 @@ int mtkfb_set_backlight_level(unsigned int level)
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
-int mtk_disp_mipi_ccci_callback(int en, unsigned int usrdata)
+static int mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
 
@@ -946,7 +946,7 @@ static void process_dbg_opt(const char *opt)
 
 		DDPINFO("fake_layer:0x%x enable\n", mask);
 	} else if (!strncmp(opt, "mipi_ccci:", 10)) {
-		int en, ret;
+		unsigned int en, ret;
 
 		ret = sscanf(opt, "mipi_ccci:%d\n", &en);
 		if (ret != 1) {
