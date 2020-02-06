@@ -1043,8 +1043,8 @@ void mt_gpufreq_restore_default_volt(void)
  */
 void mt_gpufreq_update_volt_interpolation(void)
 {
-	int i, j, largeOppIndex, smallOppIndex;
-	int step, large, small, range, vnew;
+	int i, j, largeOppIndex, smallOppIndex, range, freq, vnew;
+	int large_vgpu, small_vgpu, large_freq, small_freq, slope;
 	unsigned int ptpod_opp_idx_num;
 
 	ptpod_opp_idx_num = ARRAY_SIZE(g_ptpod_opp_idx_table_segment);
@@ -1052,15 +1052,34 @@ void mt_gpufreq_update_volt_interpolation(void)
 	for (i = 1; i < ptpod_opp_idx_num; i++) {
 		largeOppIndex = mt_gpufreq_get_ori_opp_idx(i - 1);
 		smallOppIndex = mt_gpufreq_get_ori_opp_idx(i);
-
-		large = g_opp_table[largeOppIndex].gpufreq_vgpu;
-		small = g_opp_table[smallOppIndex].gpufreq_vgpu;
 		range = smallOppIndex - largeOppIndex;
-		step = (large - small) / range;
-		step = VOLT_NORMALIZATION(step);
+
+		large_vgpu = g_opp_table[largeOppIndex].gpufreq_vgpu;
+		large_freq = g_opp_table[largeOppIndex].gpufreq_khz / 1000;
+
+		small_vgpu = g_opp_table[smallOppIndex].gpufreq_vgpu;
+		small_freq = g_opp_table[smallOppIndex].gpufreq_khz / 1000;
+
+		slope = (large_vgpu - small_vgpu) / (large_freq - small_freq);
+
+		if (slope < 0) {
+			gpufreq_pr_info("i %d, slope %d, largeOppIndex %d, smallOppIndex %d",
+				i, slope, largeOppIndex, smallOppIndex);
+			gpufreq_pr_info("large_vgpu %d, large_freq %d",
+				large_vgpu, large_freq);
+			gpufreq_pr_info("small_vgpu %d, small_freq %d",
+				small_vgpu, small_freq);
+			dump_stack();
+		}
+		gpu_assert(slope >= 0);
 
 		for (j = 1; j < range; j++) {
-			vnew = large - (step * j);
+			freq = g_opp_table[largeOppIndex + j].gpufreq_khz
+				/ 1000;
+			vnew = small_vgpu + slope * (freq - small_freq);
+			vnew = VOLT_NORMALIZATION(vnew);
+			gpu_assert(vnew >= small_vgpu && vnew <= large_vgpu);
+
 			g_opp_table[largeOppIndex + j].gpufreq_vgpu = vnew;
 			g_opp_table[largeOppIndex + j].gpufreq_vsram =
 				__mt_gpufreq_get_vsram_gpu_by_vgpu(vnew);
