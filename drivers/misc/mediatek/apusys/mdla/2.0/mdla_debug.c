@@ -579,8 +579,10 @@ int mdla_dump_register(struct seq_file *s)
 int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce)
 {
 	mdla_dump_reg(mdla_info->mdlaid);
-	mdla_dump_cmd_buf_free(mdla_info->mdlaid);
-	mdla_create_dmp_cmd_buf(ce, mdla_info);
+	if (mdla_info->mdlaid < mdla_max_num_core) {
+		mdla_dump_cmd_buf_free(mdla_info->mdlaid);
+		mdla_create_dmp_cmd_buf(ce, mdla_info);
+	}
 	apusys_reg_dump();
 	mdla_aee_warn("MDLA", "MDLA timeout");
 	return 0;
