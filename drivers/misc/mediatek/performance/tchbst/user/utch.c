@@ -188,10 +188,10 @@ static ssize_t device_write(struct file *filp, const char *ubuf,
 	} else if (strncmp(cmd, "duration", 8) == 0) {
 		switch_init_duration(arg);
 	} else if (strncmp(cmd, "active_time", 11) == 0) {
-		if (arg > 0)
+		if (arg >= 0)
 			switch_active_time(arg);
 	} else if (strncmp(cmd, "time_to_last_touch", 18) == 0) {
-		if (arg > 0)
+		if (arg >= 0)
 			switch_time_to_last_touch(arg);
 	}
 	return cnt;
