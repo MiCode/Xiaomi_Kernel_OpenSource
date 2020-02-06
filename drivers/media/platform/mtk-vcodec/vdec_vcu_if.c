@@ -85,7 +85,6 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 #ifndef CONFIG_MTK_IOMMU_V2
 	unsigned long rlim_cur;
 	unsigned long irqs;
-	unsigned long flags = 0;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
 	struct sighand_struct *sighand;
@@ -111,14 +110,14 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 		return -EMFILE;
 	}
 
-	spin_lock_irqsave(&f->file_lock, flags);
+	task_lock(task);
 	if (probe_kernel_address(files_fdtable(f), fdt)) {
-		spin_unlock_irqrestore(&f->file_lock, flags);
+		task_unlock(task);
 		unlock_task_sighand(task, &irqs);
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
-	spin_unlock_irqrestore(&f->file_lock, flags);
+	task_unlock(task);
 
 	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
 	unlock_task_sighand(task, &irqs);
