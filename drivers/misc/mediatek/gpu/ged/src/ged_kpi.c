@@ -398,6 +398,16 @@ int ged_kpi_check_if_fallback_mode(void)
 		return 1;
 }
 EXPORT_SYMBOL(ged_kpi_check_if_fallback_mode_fp);
+/* ------------------------------------------------------------------------- */
+unsigned int (*ged_kpi_get_limit_user_fp)(unsigned int limit_user);
+
+static unsigned int ged_kpi_get_limit_user(unsigned int limit_user)
+{
+	if (ged_kpi_get_limit_user_fp)
+		return ged_kpi_get_limit_user_fp(limit_user);
+	return -1;
+}
+EXPORT_SYMBOL(ged_kpi_get_limit_user_fp);
 #endif /* GED_ENABLE_FB_DVFS */
 /* ------------------------------------------------------------------------- */
 
@@ -1497,9 +1507,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					, psTimeStamp->i32FrameID, ulID);
 #ifdef GED_ENABLE_FB_DVFS
 				psKPI->cpu_gpu_info.gpu.limit_upper =
-					mt_gpufreq_get_limit_user(1);
+					ged_kpi_get_limit_user(1);
 				psKPI->cpu_gpu_info.gpu.limit_lower =
-					mt_gpufreq_get_limit_user(0);
+					ged_kpi_get_limit_user(0);
 				cur_3D_done = psKPI->ullTimeStamp2;
 				if (psTimeStamp->i32GPUloading) {
 					/* not fallback mode */

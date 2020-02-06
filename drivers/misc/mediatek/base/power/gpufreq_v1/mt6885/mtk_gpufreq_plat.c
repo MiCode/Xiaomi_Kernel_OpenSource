@@ -3362,6 +3362,8 @@ static int __init __mt_gpufreq_init(void)
 {
 	int ret = 0;
 
+	ged_kpi_get_limit_user_fp = mt_gpufreq_get_limit_user;
+
 	if (mt_gpufreq_bringup()) {
 		gpufreq_pr_info("skip driver init: clock ID: %d\n", hf_fmfg_ck);
 		return 0;
