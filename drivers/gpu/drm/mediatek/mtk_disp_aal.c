@@ -439,22 +439,33 @@ int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
 	void *v)
 {
 	int trans_level;
-	struct led_classdev *led_cdev;
+	struct led_conf_info *led_conf;
 
-	led_cdev = (struct led_classdev *)v;
+	led_conf = (struct led_conf_info *)v;
+
 	switch (event) {
 	case 1:
 		trans_level = (
-			(((1 << 10) - 1) * led_cdev->brightness
-			+ ((led_cdev->max_brightness) / 2))
-			/ (led_cdev->max_brightness));
+			(((1 << led_conf->trans_bits) - 1)
+			* led_conf->cdev.brightness
+			+ ((led_conf->cdev.max_brightness) / 2))
+			/ (led_conf->cdev.max_brightness));
 
 		disp_aal_notify_backlight_changed(trans_level);
-		AALAPI_LOG("brightness changed: %d, %d\n",
-			led_cdev->brightness, trans_level);
+		AALAPI_LOG("brightness changed: %d(%d)\n",
+			trans_level, led_conf->cdev.brightness);
 		break;
 	case 2:
 		disp_aal_notify_backlight_changed(0);
+		break;
+	case 3:
+		trans_level = (
+			(((1 << led_conf->trans_bits) - 1)
+			* led_conf->max_level
+			+ ((led_conf->cdev.max_brightness) / 2))
+			/ (led_conf->cdev.max_brightness));
+		AALAPI_LOG("set Maxbrightness %d(%d)\n",
+			trans_level, led_conf->max_level);
 		break;
 
 	default:

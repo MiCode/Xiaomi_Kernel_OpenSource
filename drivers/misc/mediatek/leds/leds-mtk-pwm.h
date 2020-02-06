@@ -14,6 +14,14 @@
 /****************************************************************************
  * LED DRV functions
  ***************************************************************************/
+extern struct led_conf_info {
+	int level;
+	int led_bits;
+	int trans_bits;
+	int max_level;
+	struct led_classdev cdev;
+} led_conf_info;
+
 
 int mtk_leds_register_notifier(struct notifier_block *nb);
 int mtk_leds_unregister_notifier(struct notifier_block *nb);
