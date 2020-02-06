@@ -493,8 +493,13 @@ static struct mt6315_regulator_info mt6315_6_regulators[] = {
 };
 
 static struct mt6315_regulator_info mt6315_7_regulators[] = {
+#if defined(CONFIG_MACH_MT6885)
+	MT_BUCK("7_vbuck1", 7_VBUCK1, 300000, 1193750, 6250,
+		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0xB),
+#elif defined(CONFIG_MACH_MT6873)
 	MT_BUCK("7_vbuck1", 7_VBUCK1, 300000, 1193750, 6250,
 		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0x3),
+#endif
 	MT_BUCK("7_vbuck3", 7_VBUCK3, 300000, 1193750, 6250,
 		mt_volt_range1, 3, MT_BUCK_VOL_EN, 0x4),
 };
