@@ -182,7 +182,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc_dev)
 			TCPC_ERR("RETRY_CRC_DISCARD\r\n");
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 		} else {
-			pd_put_hw_event(tcpc_dev, PD_HW_TX_FAILED);
+			pd_put_hw_event(tcpc_dev, PD_HW_TX_DISCARD);
 		}
 	}
 	return 0;
@@ -350,16 +350,17 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 
 #ifdef CONFIG_USB_PD_DBG_ALERT_STATUS
 	if (alert_status != 0)
-		TCPC_INFO("Alert:0x%04x\r\n", alert_status);
+		TCPC_INFO("Alert:0x%04x, Mask:0x%04x\r\n",
+			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
+
+	alert_status &= alert_mask;
 
 	tcpci_alert_status_clear(tcpc_dev,
 		alert_status & (~TCPC_REG_ALERT_RX_MASK));
 
 	if (tcpc_dev->typec_role == TYPEC_ROLE_UNKNOWN)
 		return 0;
-
-	alert_status &= alert_mask;
 
 	if (alert_status & TCPC_REG_ALERT_EXT_VBUS_80)
 		alert_status |= TCPC_REG_ALERT_POWER_STATUS;

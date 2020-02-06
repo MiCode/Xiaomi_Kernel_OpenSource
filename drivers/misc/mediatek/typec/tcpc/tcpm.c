@@ -1297,7 +1297,8 @@ int tcpm_put_tcp_dpm_event(
 		return ret;
 
 	if (imme) {
-		ret = pd_put_tcp_pd_event(pd_port, event->event_id);
+		ret = pd_put_tcp_pd_event(pd_port, event->event_id,
+					  PD_TCP_FROM_TCPM);
 
 #ifdef CONFIG_USB_PD_TCPM_CB_2ND
 		if (ret)
@@ -1809,6 +1810,8 @@ static const char * const bk_event_ret_name[] = {
 	"Recovery",
 	"BIST",
 	"PEBusy",
+	"Discard",
+	"Unexpected",
 
 	"Wait",
 	"Reject",
@@ -1947,11 +1950,14 @@ static int tcpm_put_tcp_dpm_event_bk(
 	while (1) {
 		ret = __tcpm_put_tcp_dpm_event_bk(
 			tcpc, event, tout_ms, data, size);
-
-		if ((ret != TCP_DPM_RET_TIMEOUT) || (retry == 0))
-			break;
-
-		retry--;
+		if (retry > 0 &&
+		    (ret == TCP_DPM_RET_TIMEOUT ||
+		    ret == TCP_DPM_RET_DROP_DISCARD ||
+		    ret == TCP_DPM_RET_DROP_UNEXPECTED)) {
+			retry--;
+			continue;
+		}
+		break;
 	}
 
 	mutex_unlock(&pd_port->tcpm_bk_lock);
