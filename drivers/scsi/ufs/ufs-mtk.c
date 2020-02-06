@@ -131,6 +131,18 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 	di_init = 1;
 }
 
+static void ufs_mtk_di_reset(struct ufs_hba *hba)
+{
+	if (di_crc)
+		memset(di_crc, 0, di_blkcnt * sizeof(u16));
+
+	if (di_priv)
+		memset(di_priv, 0, di_blkcnt * sizeof(u8));
+
+	dev_info(hba->dev, "%s: Reset di %llu MB memory done!",
+		di_blkcnt * (sizeof(u16) + sizeof(u8)) / 1024 / 1024);
+}
+
 /* Clear record for UNMAP command */
 static int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
 {
@@ -2257,6 +2269,11 @@ void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 static void ufs_mtk_device_reset(struct ufs_hba *hba)
 {
 	(void)ufs_mtk_pltfrm_ufs_device_reset(hba);
+
+#ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
+	/* Clear di memory to avoid false alarm */
+	ufs_mtk_di_reset(hba);
+#endif
 }
 
 static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)

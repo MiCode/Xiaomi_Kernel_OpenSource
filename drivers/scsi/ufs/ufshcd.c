@@ -5457,7 +5457,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
 #ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
-			if (!result) {
+			if (!result && !ufshcd_eh_in_progress(hba)) {
 				/*
 				 * Ensure we have trustable command
 				 * (result is good) before inspecting
