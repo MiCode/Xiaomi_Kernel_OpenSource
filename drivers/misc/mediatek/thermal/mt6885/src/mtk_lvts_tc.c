@@ -206,6 +206,11 @@ static int g_use_fake_efuse;
 int lvts_debug_log;
 int lvts_rawdata_debug_log;
 
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+static int hw_protect_setting_done;
+int lvts_hw_protect_enabled;
+#endif
+
 #if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
 #define NUM_LVTS_DEVICE_REG (5)
 static const unsigned int g_lvts_device_addrs[NUM_LVTS_DEVICE_REG] = {
@@ -505,6 +510,7 @@ void clear_lvts_register_value_array(void)
 		}
 	}
 }
+
 static void dump_lvts_register_value(void)
 {
 	int i, j, offset, tc_offset;
@@ -697,14 +703,21 @@ void lvts_device_read_count_RC_N(void)
 {
 	/* Resistor-Capacitor Calibration */
 	/* count_RC_N: count RC now */
-	int i, j, offset, num_ts, s_index;
+	int k, i, j, offset, num_ts, s_index;
 	unsigned int data;
 	char buffer[512];
-#if LVTS_GET_ZERO_RCK_DATA_ISSUE
-	unsigned int all_data = 0, avg_data = 0;
-	int zero_data_idx[4] = {0};
-	int non_zero_num = 0;
+
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
+	unsigned int  rc_data;
+	int refine_data_idx[4] = {0};
+	/*
+	 * comare count_rc_now with efuse.
+	 * > 6%, use efuse RC instead of count_rc_now
+	 * < 6%, keep count_rc_now value
+	 */
+	int count_rc_delta = 0;
 #endif
+
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		offset = lvts_tscpu_g_tc[i].tc_offset;
@@ -712,13 +725,17 @@ void lvts_device_read_count_RC_N(void)
 
 		/* Set LVTS Manual-RCK operation */
 		lvts_write_device(0x81030000, 0x0E, 0x00, i);
-#if LVTS_GET_ZERO_RCK_DATA_ISSUE
-		/*initial in each thermal controller*/
-		memset(zero_data_idx, 0, ARRAY_SIZE(zero_data_idx));
-		non_zero_num = 0;
-		all_data = 0;
-		avg_data = 0;
+
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
+		/*
+		 * set 0xff to clear refine_data_idx
+		 * in each thermal controller,
+		 * max sensor num = 4
+		 */
+		for (k = 0; k < 4; k++)
+			refine_data_idx[k] = 0xff;
 #endif
+
 		for (j = 0; j < num_ts; j++) {
 			s_index = lvts_tscpu_g_tc[i].ts[j];
 
@@ -726,6 +743,7 @@ void lvts_device_read_count_RC_N(void)
 			lvts_write_device(0x81030000, 0x0D, j, i);
 			/* Set Device Single mode */
 			lvts_write_device(0x81030000, 0x06, 0x78, i);
+			lvts_write_device(0x81030000, 0x07, 0xA6, i);
 			/* Enable TS_EN */
 			lvts_write_device(0x81030000, 0x08, 0xF5, i);
 
@@ -734,7 +752,7 @@ void lvts_device_read_count_RC_N(void)
 
 			/* Toggle TSDIV_EN & TSVCO_TG */
 			lvts_write_device(0x81030000, 0x08, 0xF5, i);
-			lvts_write_device(0x81030000, 0x07, 0xA6, i);
+//			lvts_write_device(0x81030000, 0x07, 0xA6, i);
 
 			/* Wait 8us for device settle + 2us buffer*/
 			udelay(10);
@@ -751,14 +769,47 @@ void lvts_device_read_count_RC_N(void)
 			data = lvts_read_device(0x81020000, 0x00, i);
 			/* wait 2us + 3us buffer*/
 			udelay(5);
-#if LVTS_GET_ZERO_RCK_DATA_ISSUE
-			if ((data & _BITMASK_(23:0)) != 0) {
-				all_data = (data & _BITMASK_(23:0)) + all_data;
-				non_zero_num++;
+
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
+			rc_data = (data & _BITMASK_(23:0));
+
+			/*
+			 * if count rc now = 0 , use efuse rck insead of
+			 * count_rc_now
+			 */
+			if (rc_data == 0) {
+				refine_data_idx[j] = s_index;
+				lvts_printk("rc_data %d, data_idx[%d]=%d\n",
+					rc_data, j, s_index);
 			} else {
-				zero_data_idx[j] = s_index;
+				if (g_count_rc[i] > rc_data)
+					count_rc_delta =
+					(g_count_rc[i] * 1000) / rc_data;
+				else
+					count_rc_delta =
+					(rc_data * 1000) / g_count_rc[i];
+
+				/*
+				 * if delta > 6%, use efuse rck insead of
+				 * count_rc_now
+				 */
+				if (count_rc_delta > 1061) {
+					refine_data_idx[j] = s_index;
+					lvts_printk(
+						"delta %d, data_idx[%d]=%d\n",
+						count_rc_delta, j, s_index);
+				}
 			}
+
+
+			//lvts_printk("i=%d, j=%d, s_index=%d, rc_data=%d\n",
+			//	i, j, s_index, rc_data);
+			//lvts_printk("(g_count_rc[i]*1000)=%d, rc_delta=%d\n",
+			//	(g_count_rc[i]*1000), count_rc_delta);
+
 #endif
+
+
 			//lvts_printk("i=%d,j=%d, data=%d, s_index=%d\n",
 			//        i, j, (data & _BITMASK_(23:0)), s_index);
 
@@ -771,18 +822,17 @@ void lvts_device_read_count_RC_N(void)
 			g_count_rc_now[s_index] = (data & _BITMASK_(23:0));
 		}
 
-#if LVTS_GET_ZERO_RCK_DATA_ISSUE
-		if (non_zero_num != 0)
-			avg_data = all_data / non_zero_num;
-
+#if LVTS_REFINE_MANUAL_RCK_WITH_EFUSE
 		for (j = 0; j < num_ts; j++) {
-			if (zero_data_idx[j] != 0) {
-				g_count_rc_now[zero_data_idx[j]] = avg_data;
-				lvts_printk("zero_data_idx[%d]=%d\n",
-					j, zero_data_idx[j]);
+			if (refine_data_idx[j] != 0xff) {
+				g_count_rc_now[refine_data_idx[j]] =
+					g_count_rc[i];
+				lvts_printk("refine_data_idx[%d]=%d\n",
+					j, refine_data_idx[j]);
 			}
 		}
 #endif
+
 		/* Recover Setting for Normal Access on
 		 * temperature fetch
 		 */
@@ -1429,24 +1479,30 @@ int temperature, int temperature2, int tc_num)
 	raw_high = lvts_temp_to_raw(temperature, 0);
 #endif
 
+#ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 	temp = readl(offset + LVTSMONINT_0);
 	/* disable trigger SPM interrupt */
 	mt_reg_sync_writel_print(temp & 0x00000000, offset + LVTSMONINT_0);
+#endif
 
+	temp = readl(offset + LVTSPROTCTL_0) & ~(0xF << 16);
 #if LVTS_USE_DOMINATOR_SENSING_POINT
 	/* Select protection sensor */
 	config = ((d_index << 2) + 0x2) << 16;
-	mt_reg_sync_writel_print(config, offset + LVTSPROTCTL_0);
+	mt_reg_sync_writel_print(temp | config, offset + LVTSPROTCTL_0);
 #else
 	/* Maximum of 4 sensing points */
 	config = (0x1 << 16);
-	mt_reg_sync_writel_print(config, offset + LVTSPROTCTL_0);
+	mt_reg_sync_writel_print(temp | config, offset + LVTSPROTCTL_0);
 #endif
+
 	/* set hot to HOT wakeup event */
 	mt_reg_sync_writel_print(raw_high, offset + LVTSPROTTC_0);
 
+#ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 	/* enable trigger Hot SPM interrupt */
 	mt_reg_sync_writel_print(temp | 0x80000000, offset + LVTSMONINT_0);
+#endif
 }
 
 static void dump_lvts_device(int tc_num, __u32 offset)
@@ -1883,22 +1939,11 @@ void lvts_tscpu_thermal_initial_all_tc(void)
 #endif
 }
 
-void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
+static void lvts_disable_rgu_reset(void)
 {
-	int i = 0;
-	int wd_api_ret;
 	struct wd_api *wd_api;
 
-	lvts_dbg_printk("%s, temperature=%d,temperature2=%d,\n",
-					__func__, temperature, temperature2);
-
-	/*spend 860~1463 us */
-	/*Thermal need to config to direct reset mode
-	 *this API provide by Weiqi Fu(RGU SW owner).
-	 */
-
-	wd_api_ret = get_wd_api(&wd_api);
-	if (wd_api_ret >= 0) {
+	if (get_wd_api(&wd_api) >= 0) {
 		/* reset mode */
 		wd_api->wd_thermal_direct_mode_config(
 				WD_REQ_DIS, WD_REQ_RST_MODE);
@@ -1907,7 +1952,34 @@ void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
 		lvts_warn("%d FAILED TO GET WD API\n", __LINE__);
 		WARN_ON_ONCE(1);
 	}
+}
 
+static void lvts_enable_rgu_reset(void)
+{
+	struct wd_api *wd_api;
+
+	if (get_wd_api(&wd_api) >= 0) {
+		/* reset mode */
+		wd_api->wd_thermal_direct_mode_config(
+				WD_REQ_EN, WD_REQ_RST_MODE);
+	} else {
+		lvts_warn("%d FAILED TO GET WD API\n", __LINE__);
+		WARN_ON_ONCE(1);
+	}
+}
+
+void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
+{
+	int i = 0;
+
+	lvts_dbg_printk("%s, temperature=%d,temperature2=%d,\n",
+					__func__, temperature, temperature2);
+
+	/*spend 860~1463 us */
+	/*Thermal need to config to direct reset mode
+	 *this API provide by Weiqi Fu(RGU SW owner).
+	 */
+	lvts_disable_rgu_reset();
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		if (lvts_tscpu_g_tc[i].ts_number == 0)
@@ -1916,17 +1988,14 @@ void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
 		lvts_set_tc_trigger_hw_protect(temperature, temperature2, i);
 	}
 
+#ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 	/* Thermal need to config to direct reset mode
 	 * this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	if (wd_api_ret >= 0) {
-		/* reset mode */
-		wd_api->wd_thermal_direct_mode_config(
-				WD_REQ_EN, WD_REQ_RST_MODE);
-	} else {
-		lvts_warn("%d FAILED TO GET WD API\n", __LINE__);
-		WARN_ON_ONCE(1);
-	}
+	lvts_enable_rgu_reset();
+#else
+	hw_protect_setting_done = 1;
+#endif
 }
 
 void lvts_tscpu_reset_thermal(void)
@@ -2023,4 +2092,82 @@ int lvts_tscpu_dump_cali_info(struct seq_file *m, void *v)
 
 	return 0;
 }
+
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+void lvts_enable_all_hw_protect(void)
+{
+	int i, offset;
+
+	if (!tscpu_is_temp_valid() || !hw_protect_setting_done
+		|| lvts_hw_protect_enabled) {
+		lvts_dbg_printk("%s: skip, valid=%d, done=%d, en=%d\n",
+			__func__, tscpu_is_temp_valid(),
+			hw_protect_setting_done, lvts_hw_protect_enabled);
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		if (lvts_tscpu_g_tc[i].ts_number == 0)
+			continue;
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		/* enable trigger Hot SPM interrupt */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSMONINT_0) | 0x80000000,
+			offset + LVTSMONINT_0);
+	}
+
+	lvts_enable_rgu_reset();
+
+	/* clear offset after all HW reset are configured. */
+	/* make sure LVTS controller uses latest sensor value to compare */
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		if (lvts_tscpu_g_tc[i].ts_number == 0)
+			continue;
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		/* clear offset */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSPROTCTL_0) & ~0xFFFF,
+			offset + LVTSPROTCTL_0);
+	}
+
+	lvts_hw_protect_enabled = 1;
+
+	lvts_printk("%s: done\n", __func__);
+}
+
+void lvts_disable_all_hw_protect(void)
+{
+	int i, offset;
+
+	if (!tscpu_is_temp_valid() || !lvts_hw_protect_enabled) {
+		lvts_dbg_printk("%s: skip, valid=%d, en=%d\n", __func__,
+			tscpu_is_temp_valid(), lvts_hw_protect_enabled);
+		return;
+	}
+
+	lvts_disable_rgu_reset();
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		if (lvts_tscpu_g_tc[i].ts_number == 0)
+			continue;
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		/* disable trigger SPM interrupt */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSMONINT_0) & 0x7FFFFFFF,
+			offset + LVTSMONINT_0);
+		/* set offset to 0x3FFF to avoid interrupt false triggered */
+		/* large offset can guarantee temp check is always false */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSPROTCTL_0) | 0x3FFF,
+			offset + LVTSPROTCTL_0);
+	}
+
+	lvts_hw_protect_enabled = 0;
+
+	lvts_printk("%s: done\n", __func__);
+}
+#endif
 

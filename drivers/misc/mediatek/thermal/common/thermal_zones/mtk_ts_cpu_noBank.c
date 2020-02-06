@@ -1567,8 +1567,19 @@ static void read_all_tc_temperature(void)
 		 * for notify TC dead.
 		 */
 		tscpu_printk("0 raw over 20*2 msec, LVTS status error\n");
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+		if (lvts_hw_protect_enabled) {
+			dump_lvts_error_info();
+			tscpu_printk("thermal_hw_protect_en\n");
+			BUG();
+		} else {
+			tscpu_printk("thermal_hw_protect_dis\n");
+		}
+#else
 		dump_lvts_error_info();
 		BUG();
+#endif
+
 	}
 
 

@@ -206,6 +206,11 @@ static int g_use_fake_efuse;
 int lvts_debug_log;
 int lvts_rawdata_debug_log;
 
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+static int hw_protect_setting_done;
+int lvts_hw_protect_enabled;
+#endif
+
 #if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
 #define NUM_LVTS_DEVICE_REG (5)
 static const unsigned int g_lvts_device_addrs[NUM_LVTS_DEVICE_REG] = {
@@ -1339,24 +1344,30 @@ int temperature, int temperature2, int tc_num)
 	raw_high = lvts_temp_to_raw(temperature, 0);
 #endif
 
+#ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 	temp = readl(offset + LVTSMONINT_0);
 	/* disable trigger SPM interrupt */
 	mt_reg_sync_writel_print(temp & 0x00000000, offset + LVTSMONINT_0);
+#endif
 
+	temp = readl(offset + LVTSPROTCTL_0) & ~(0xF << 16);
 #if LVTS_USE_DOMINATOR_SENSING_POINT
 	/* Select protection sensor */
 	config = ((d_index << 2) + 0x2) << 16;
-	mt_reg_sync_writel_print(config, offset + LVTSPROTCTL_0);
+	mt_reg_sync_writel_print(temp | config, offset + LVTSPROTCTL_0);
 #else
 	/* Maximum of 4 sensing points */
 	config = (0x1 << 16);
-	mt_reg_sync_writel_print(config, offset + LVTSPROTCTL_0);
+	mt_reg_sync_writel_print(temp | config, offset + LVTSPROTCTL_0);
 #endif
+
 	/* set hot to HOT wakeup event */
 	mt_reg_sync_writel_print(raw_high, offset + LVTSPROTTC_0);
 
+#ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 	/* enable trigger Hot SPM interrupt */
 	mt_reg_sync_writel_print(temp | 0x80000000, offset + LVTSMONINT_0);
+#endif
 }
 
 static void dump_lvts_device(int tc_num, __u32 offset)
@@ -1793,22 +1804,11 @@ void lvts_tscpu_thermal_initial_all_tc(void)
 #endif
 }
 
-void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
+static void lvts_disable_rgu_reset(void)
 {
-	int i = 0;
-	int wd_api_ret;
 	struct wd_api *wd_api;
 
-	lvts_dbg_printk("%s, temperature=%d,temperature2=%d,\n",
-					__func__, temperature, temperature2);
-
-	/*spend 860~1463 us */
-	/*Thermal need to config to direct reset mode
-	 *this API provide by Weiqi Fu(RGU SW owner).
-	 */
-
-	wd_api_ret = get_wd_api(&wd_api);
-	if (wd_api_ret >= 0) {
+	if (get_wd_api(&wd_api) >= 0) {
 		/* reset mode */
 		wd_api->wd_thermal_direct_mode_config(
 				WD_REQ_DIS, WD_REQ_RST_MODE);
@@ -1817,7 +1817,34 @@ void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
 		lvts_warn("%d FAILED TO GET WD API\n", __LINE__);
 		WARN_ON_ONCE(1);
 	}
+}
 
+static void lvts_enable_rgu_reset(void)
+{
+	struct wd_api *wd_api;
+
+	if (get_wd_api(&wd_api) >= 0) {
+		/* reset mode */
+		wd_api->wd_thermal_direct_mode_config(
+				WD_REQ_EN, WD_REQ_RST_MODE);
+	} else {
+		lvts_warn("%d FAILED TO GET WD API\n", __LINE__);
+		WARN_ON_ONCE(1);
+	}
+}
+
+void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
+{
+	int i = 0;
+
+	lvts_dbg_printk("%s, temperature=%d,temperature2=%d,\n",
+					__func__, temperature, temperature2);
+
+	/*spend 860~1463 us */
+	/*Thermal need to config to direct reset mode
+	 *this API provide by Weiqi Fu(RGU SW owner).
+	 */
+	lvts_disable_rgu_reset();
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		if (lvts_tscpu_g_tc[i].ts_number == 0)
@@ -1826,17 +1853,14 @@ void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
 		lvts_set_tc_trigger_hw_protect(temperature, temperature2, i);
 	}
 
+#ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 	/* Thermal need to config to direct reset mode
 	 * this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	if (wd_api_ret >= 0) {
-		/* reset mode */
-		wd_api->wd_thermal_direct_mode_config(
-				WD_REQ_EN, WD_REQ_RST_MODE);
-	} else {
-		lvts_warn("%d FAILED TO GET WD API\n", __LINE__);
-		WARN_ON_ONCE(1);
-	}
+	lvts_enable_rgu_reset();
+#else
+	hw_protect_setting_done = 1;
+#endif
 }
 
 void lvts_tscpu_reset_thermal(void)
@@ -1933,4 +1957,82 @@ int lvts_tscpu_dump_cali_info(struct seq_file *m, void *v)
 
 	return 0;
 }
+
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+void lvts_enable_all_hw_protect(void)
+{
+	int i, offset;
+
+	if (!tscpu_is_temp_valid() || !hw_protect_setting_done
+		|| lvts_hw_protect_enabled) {
+		lvts_dbg_printk("%s: skip, valid=%d, done=%d, en=%d\n",
+			__func__, tscpu_is_temp_valid(),
+			hw_protect_setting_done, lvts_hw_protect_enabled);
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		if (lvts_tscpu_g_tc[i].ts_number == 0)
+			continue;
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		/* enable trigger Hot SPM interrupt */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSMONINT_0) | 0x80000000,
+			offset + LVTSMONINT_0);
+	}
+
+	lvts_enable_rgu_reset();
+
+	/* clear offset after all HW reset are configured. */
+	/* make sure LVTS controller uses latest sensor value to compare */
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		if (lvts_tscpu_g_tc[i].ts_number == 0)
+			continue;
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		/* clear offset */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSPROTCTL_0) & ~0xFFFF,
+			offset + LVTSPROTCTL_0);
+	}
+
+	lvts_hw_protect_enabled = 1;
+
+	lvts_printk("%s: done\n", __func__);
+}
+
+void lvts_disable_all_hw_protect(void)
+{
+	int i, offset;
+
+	if (!tscpu_is_temp_valid() || !lvts_hw_protect_enabled) {
+		lvts_dbg_printk("%s: skip, valid=%d, en=%d\n", __func__,
+			tscpu_is_temp_valid(), lvts_hw_protect_enabled);
+		return;
+	}
+
+	lvts_disable_rgu_reset();
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		if (lvts_tscpu_g_tc[i].ts_number == 0)
+			continue;
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		/* disable trigger SPM interrupt */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSMONINT_0) & 0x7FFFFFFF,
+			offset + LVTSMONINT_0);
+		/* set offset to 0x3FFF to avoid interrupt false triggered */
+		/* large offset can guarantee temp check is always false */
+		mt_reg_sync_writel_print(
+			readl(offset + LVTSPROTCTL_0) | 0x3FFF,
+			offset + LVTSPROTCTL_0);
+	}
+
+	lvts_hw_protect_enabled = 0;
+
+	lvts_printk("%s: done\n", __func__);
+}
+#endif
 

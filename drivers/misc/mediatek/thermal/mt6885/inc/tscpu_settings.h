@@ -149,6 +149,9 @@
 
 #if CFG_THERM_LVTS
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
+#define CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT (1)
+#define DYNAMIC_REBOOT_TRIP_TEMP (35000)
+#define DYNAMIC_REBOOT_EXIT_TEMP (30000)
 #else
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
 #endif
@@ -159,7 +162,8 @@
  * need to get the same controller's other sensor's average RCK value
  * instead of zero data.
  */
-#define LVTS_GET_ZERO_RCK_DATA_ISSUE  (1)
+#define LVTS_GET_ZERO_RCK_DATA_ISSUE  (0)
+#define LVTS_REFINE_MANUAL_RCK_WITH_EFUSE  (1)
 
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 #define LVTS_FORCE_ERROR_TRIGGER (0)
@@ -406,6 +410,9 @@ extern int tscpu_polling_trip_temp1;
 extern int tscpu_polling_trip_temp2;
 extern int tscpu_polling_factor1;
 extern int tscpu_polling_factor2;
+
+extern int lvts_hw_protect_enabled;
+
 #if !defined(CFG_THERM_NO_AUXADC)
 /*
  * temperature array to store both tsmcu and lvts (if exist) and export them
@@ -596,6 +603,10 @@ extern irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(
 int irq, void *dev_id);
 extern int lvts_tscpu_dump_cali_info(struct seq_file *m, void *v);
 extern void lvts_sodi3_release_thermal_controller(void);
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+extern void lvts_enable_all_hw_protect(void);
+extern void lvts_disable_all_hw_protect(void);
+#endif
 #endif
 
 /*

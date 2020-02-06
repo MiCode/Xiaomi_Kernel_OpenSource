@@ -36,6 +36,7 @@
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 #include <linux/iio/consumer.h>
 #endif
+#include <tscpu_settings.h>
 /*=============================================================
  *Weak functions
  *=============================================================
@@ -737,6 +738,13 @@ static int mtkts_bts_get_temp(struct thermal_zone_device *thermal, int *t)
 
 	/* if ((int) *t > 52000) */
 	/* mtkts_bts_dprintk("T=%d\n", (int) *t); */
+
+#ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
+	if (*t > DYNAMIC_REBOOT_TRIP_TEMP)
+		lvts_enable_all_hw_protect();
+	else if (*t < DYNAMIC_REBOOT_EXIT_TEMP)
+		lvts_disable_all_hw_protect();
+#endif
 
 	if ((int)*t >= polling_trip_temp1)
 		thermal->polling_delay = interval * 1000;
