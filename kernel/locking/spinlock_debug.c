@@ -141,7 +141,8 @@ static void spin_lock_check_holding_time(raw_spinlock_t *lock)
 			raw_smp_processor_id());
 		dump_stack();
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if defined(CONFIG_MTK_AEE_FEATURE) && \
+	!defined(CONFIG_KASAN) && !defined(CONFIG_UBSAN)
 		snprintf(aee_str, sizeof(aee_str),
 			"Spinlock lockup: (%s) in %s\n",
 			lock_name, current->comm);
@@ -307,7 +308,8 @@ static void show_cpu_backtrace(void *info)
 	dump_stack();
 
 	if (info != LOCK_CSD_IN_USE) {
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if defined(CONFIG_MTK_AEE_FEATURE) && \
+	!defined(CONFIG_KASAN) && !defined(CONFIG_UBSAN)
 		char aee_str[128];
 
 		snprintf(aee_str, sizeof(aee_str),
