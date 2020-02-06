@@ -572,26 +572,11 @@ static void write_shutter(kal_uint32 shutter)
 				/ imgsensor.frame_length;
 		if (realtime_fps >= 297 && realtime_fps <= 305)
 			set_max_framerate(296, 0);
-		else if (realtime_fps >= 147 && realtime_fps <= 150)
+		if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(146, 0);
-		else {
-			/* Extend frame length*/
-			write_cmos_sensor_8(0x0104, 0x01);
-		write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
-		write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
-		write_cmos_sensor_8(0x0104, 0x00);
-		}
 	} else {
 		/* Extend frame length*/
-		write_cmos_sensor_8(0x0104, 0x01);
 		write_cmos_sensor_8(0x0350, 0x01); /* Enable auto extend */
-		write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
-		write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
-		write_cmos_sensor_8(0x0104, 0x00);
-
-		pr_debug("(else)imgsensor.frame_length = %d\n",
-			imgsensor.frame_length);
-
 	}
 	#ifdef LONG_EXP
 	while (shutter >= 65535) {
