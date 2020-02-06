@@ -6141,7 +6141,7 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 #ifdef CONFIG_MTK_UFS_DEBUG
 	if (reg) {
 		dev_err(hba->dev,
-			"Host UIC Error Code PHY Adpter Layer: %08x\n", reg);
+			"Host UIC Error Code PHY Adapter Layer: %08x\n", reg);
 		reg_ul = reg;
 		if (test_bit(0, &reg_ul))
 			dev_err(hba->dev, "PHY error on Lane 0\n");
@@ -6323,6 +6323,9 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 			ufshcd_readl(hba, REG_AUTO_HIBERNATE_IDLE_TIMER));
 		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
 				       hba->errors);
+
+		ufs_mtk_dbg_hang_detect_dump();
+
 		queue_eh_work = true;
 	}
 
@@ -9013,6 +9016,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int ret;
 	enum uic_link_state old_link_state;
+	int retry = 3;
 
 	/* MTK PATCH: Lock deepidle/SODI @enter UFS resume callback */
 	ufshcd_vops_deepidle_lock(hba, true);
@@ -9070,10 +9074,22 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			goto vendor_suspend;
 	}
 
-	if (!ufshcd_is_ufs_dev_active(hba)) {
+	while (1) {
+		if (ufshcd_is_ufs_dev_active(hba)) {
+			ret = 0;
+			break;
+		}
+
 		ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
-		if (ret)
-			goto set_old_link_state;
+		if (ret) {
+			retry--;
+
+			if (work_busy(&hba->eh_work))
+				flush_work(&hba->eh_work);
+
+			if (retry == 0)
+				goto set_old_link_state;
+		}
 	}
 
 	if (ufshcd_keep_autobkops_enabled_except_suspend(hba))
