@@ -158,8 +158,6 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 				   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
 				   reg_oc_dbg->name);
 	}
-	if (!strcmp(reg_oc_dbg->name, "vrf12"))
-		BUG_ON(1);
 	return NOTIFY_OK;
 }
 
