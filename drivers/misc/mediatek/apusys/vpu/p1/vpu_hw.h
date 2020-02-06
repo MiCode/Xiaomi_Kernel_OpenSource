@@ -203,4 +203,13 @@ int vpu_dev_set_debug(struct vpu_device *vd);
  */
 void vpu_xos_unlock(struct vpu_device *vd);
 
+/**
+ * vpu_xos_wait_idle - wait for xos idle when forced power down
+ * @vd: vpu device
+ *
+ * Retruns -EBUSY, if device is still busy after
+ * (WAIT_XOS_LATENCY_US * WAIT_XOS_RETRY) us
+ */
+int vpu_xos_wait_idle(struct vpu_device *vd);
+
 #endif

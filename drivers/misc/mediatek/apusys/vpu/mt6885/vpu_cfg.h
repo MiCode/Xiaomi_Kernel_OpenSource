@@ -48,7 +48,10 @@ bool vpu_is_disabled(struct vpu_device *vd);
 /* Time Constrains */
 #define VPU_CMD_TIMEOUT  (9000)
 #define VPU_PWR_OFF_LATENCY (3000)
-#define WAIT_COMMAND_RETRY  (5)
+#define WAIT_CMD_LATENCY_US (2000)
+#define WAIT_CMD_RETRY  (5)
+#define WAIT_XOS_LATENCY_US (500)
+#define WAIT_XOS_RETRY  (10)
 
 /* Remote Proc */
 #define VPU_REMOTE_PROC (0)
@@ -70,7 +73,6 @@ bool vpu_is_disabled(struct vpu_device *vd);
 
 /* VPU XOS */
 #define VPU_XOS (1)  /* XOS: 1, non-XOS: 0 */
-#define VPU_XOS_LOCK (1)
 #define XOS_TIMEOUT_US (1000000)
 
 #if VPU_XOS
@@ -224,6 +226,9 @@ bool vpu_is_disabled(struct vpu_device *vd);
 
 /* Register Config: CG_CLR */
 #define JTAG_CG_CLR (0x2)
+
+/* Register Mask: DONE_ST */
+#define PWAITMODE (1 << 7)
 
 #endif
 

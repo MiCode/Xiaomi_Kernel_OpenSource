@@ -48,6 +48,7 @@
 #define VPU_TS_US(a) \
 	(VPU_TS_NS(a) / 1000)
 
+static int wait_idle(struct vpu_device *vd, uint32_t latency, uint32_t retry);
 static int vpu_set_ftrace(struct vpu_device *vd);
 static void vpu_run(struct vpu_device *vd, int prio, uint32_t cmd)
 {
@@ -77,7 +78,7 @@ static void vpu_cmd(struct vpu_device *vd, int prio, uint32_t cmd)
 #define XOS_UNLOCKED 0
 #define XOS_LOCKED   1
 
-#if VPU_XOS_LOCK
+#if VPU_XOS
 /**
  * vpu_xos_lock() - lock vpu for control
  *
@@ -137,6 +138,11 @@ void vpu_xos_unlock(struct vpu_device *vd)
 	vpu_cmd_debug("%s: vpu%d\n", __func__, vd->id);
 	atomic_set(&vd->xos_state, XOS_UNLOCKED);
 }
+
+int vpu_xos_wait_idle(struct vpu_device *vd)
+{
+	return wait_idle(vd, WAIT_XOS_LATENCY_US, WAIT_XOS_RETRY);
+}
 #else
 static int vpu_xos_lock(struct vpu_device *vd)
 {
@@ -145,6 +151,11 @@ static int vpu_xos_lock(struct vpu_device *vd)
 
 void vpu_xos_unlock(struct vpu_device *vd)
 {
+}
+
+int vpu_xos_wait_idle(struct vpu_device *vd)
+{
+	return 0;
 }
 #endif
 
@@ -194,14 +205,33 @@ static inline void vpu_reg_unlock(struct vpu_device *vd, unsigned long *flags)
 	spin_unlock_irqrestore(&vd->reg_lock, (*flags));
 }
 
-static inline int wait_command(struct vpu_device *vd, int prio)
+static int wait_idle(struct vpu_device *vd, uint32_t latency, uint32_t retry)
 {
-	int ret = 0;
-	bool retry = true;
-
 	uint32_t done_st = 0;
 	uint32_t pwait = 0;
 	unsigned int count = 0;
+
+	do {
+		done_st = vpu_reg_read(vd, DONE_ST);
+		count++;
+		pwait = !!(done_st & PWAITMODE);
+		if (pwait)
+			return 0;
+		udelay(latency);
+	} while (count < retry);
+
+	pr_info("%s: vpu%d: %d us: done_st: 0x%x, pwaitmode: %d, info00: 0x%x, info25: 0x%x\n",
+		__func__, vd->id, done_st, pwait, (latency * retry),
+		vpu_reg_read(vd, XTENSA_INFO00),
+		vpu_reg_read(vd, XTENSA_INFO25));
+
+	return -EBUSY;
+}
+
+static int wait_command(struct vpu_device *vd, int prio)
+{
+	int ret = 0;
+	bool retry = true;
 
 start:
 	ret = wait_event_interruptible_timeout(
@@ -237,19 +267,8 @@ start:
 	/* timeout handling */
 	ret = -ETIMEDOUT;
 
-	/* check PWAITMODE, request by DE */
-	do {
-		done_st = vpu_reg_read(vd, DONE_ST);
-		count++;
-		pwait = (done_st >> 7) & 0x1;
-		pr_info("%s: vpu%d: done_st: 0x%x, pwaitmode: %d, info00: 0x%x, info25: 0x%x\n",
-			__func__, vd->id, done_st, pwait,
-			vpu_reg_read(vd, XTENSA_INFO00),
-			vpu_reg_read(vd, XTENSA_INFO25));
-		if (pwait)
-			break;
-		mdelay(2);
-	} while (count < WAIT_COMMAND_RETRY);
+	/* debug: check PWAITMODE */
+	wait_idle(vd, WAIT_CMD_LATENCY_US, WAIT_CMD_RETRY);
 
 out:
 	return ret;

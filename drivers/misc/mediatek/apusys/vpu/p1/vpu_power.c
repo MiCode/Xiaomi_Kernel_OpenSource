@@ -259,6 +259,9 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 		return;
 	}
 
+	if (vpu_xos_wait_idle(vd))
+		pr_info("%s: vpu%d: not in idle state\n", __func__, vd->id);
+
 	vpu_pwr_debug("%s: vpu%d: apu_device_power_suspend(%d, %d)\n",
 		__func__, vd->id, adu_id, suspend);
 
