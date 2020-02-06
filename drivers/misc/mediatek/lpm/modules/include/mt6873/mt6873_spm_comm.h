@@ -35,6 +35,12 @@ struct mt6873_spm_wake_status {
 	u32 src_req;	/* SPM_SRC_REQ */
 	u32 log_index;
 	u32 is_abort;
+	u32 rt_req_sta0; /* SPM_SW_RSV_2 */
+	u32 rt_req_sta1; /* SPM_SW_RSV_3 */
+	u32 rt_req_sta2; /* SPM_SW_RSV_4 */
+	u32 rt_req_sta3; /* SPM_SW_RSV_5 */
+	u32 rt_req_sta4; /* SPM_SW_RSV_6 */
+	u32 mcupm_req_sta;
 };
 
 struct spm_wakesrc_irq_list {

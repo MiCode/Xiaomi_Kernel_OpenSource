@@ -238,6 +238,11 @@ int mt6873_get_wakeup_status(struct mt6873_log_helper *help)
 	help->wakesrc->b_sw_flag0 = plat_mmio_read(SPM_SW_RSV_7);
 	help->wakesrc->b_sw_flag1 = plat_mmio_read(SPM_SW_RSV_8);
 
+	help->wakesrc->rt_req_sta0 = plat_mmio_read(SPM_SW_RSV_2);
+	help->wakesrc->rt_req_sta1 = plat_mmio_read(SPM_SW_RSV_3);
+	help->wakesrc->rt_req_sta2 = plat_mmio_read(SPM_SW_RSV_4);
+	help->wakesrc->rt_req_sta3 = plat_mmio_read(SPM_SW_RSV_5);
+	help->wakesrc->rt_req_sta4 = plat_mmio_read(SPM_SW_RSV_6);
 	/* get ISR status */
 	help->wakesrc->isr = plat_mmio_read(SPM_IRQ_STA);
 
@@ -586,11 +591,13 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 
 		log_size += scnprintf(log_buf + log_size,
 			  LOG_BUF_OUT_SZ - log_size,
-			  " req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, ",
+			  "req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, rt_req_sta0 = 0x%x rt_req_sta1 = 0x%x rt_req_sta2 = 0x%x rt_req_sta3 = 0x%x dram_sw_con_3 = 0x%x, ",
 			  wakesrc->req_sta0, wakesrc->req_sta1,
 			  wakesrc->req_sta2, wakesrc->req_sta3,
 			  wakesrc->req_sta4, wakesrc->cg_check_sta,
-			  wakesrc->isr);
+			  wakesrc->isr, wakesrc->rt_req_sta0,
+			  wakesrc->rt_req_sta1, wakesrc->rt_req_sta2,
+			  wakesrc->rt_req_sta3, wakesrc->rt_req_sta4);
 
 		log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
