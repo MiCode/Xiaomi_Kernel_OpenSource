@@ -19,6 +19,7 @@
 
 #define SWPM_TEST (0)
 
+#define GET_UW_LKG                              (1)
 #define MAX_RECORD_CNT				(64)
 #define MAX_APHY_CORE_PWR			(12)
 #define MAX_APHY_OTHERS_PWR			(16)

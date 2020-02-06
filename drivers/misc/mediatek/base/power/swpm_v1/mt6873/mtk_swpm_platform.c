@@ -64,6 +64,10 @@ static unsigned int idx_output_size;
 static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
+__weak int mt_spower_get_leakage_uW(int dev, int voltage, int deg)
+{
+	return 0;
+};
 
 static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
 static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
@@ -692,7 +696,11 @@ static void swpm_update_lkg_table(void)
 #endif
 #ifdef CONFIG_MTK_STATIC_POWER
 			dev_id = swpm_get_spower_devid((enum cpu_lkg_type)i);
+#ifdef GET_UW_LKG
+			lkg = mt_spower_get_leakage_uW(dev_id, volt, temp);
+#else
 			lkg = mt_spower_get_leakage(dev_id, volt, temp) * 1000;
+#endif
 #else
 			dev_id = 0;
 			lkg = 5000;
