@@ -289,7 +289,7 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 	int i = 0, j = 0;
 
 	struct mtk_vcodec_ctx *curr_ctx = ctx;
-	struct mtk_vcodec_dev *dev = curr_ctx->dev;
+	struct mtk_vcodec_dev *dev = NULL;
 
 	#define REG1_COUNT 13
 	#define REG2_COUNT 19
@@ -304,10 +304,17 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 		0x11C0, 0x11C4, 0x1030, 0x240,
 		0x248, 0x250, 0x130};
 
-	mtk_v4l2_debug(0, "is_codec_suspending: %d",
-	    dev->is_codec_suspending);
+	if (ctx == NULL) {
+		mtk_v4l2_debug(0, "can't dump venc for NULL ctx");
+		return;
+	}
 
-	for (j = 0; j < MTK_VENC_HW_NUM; j++) {
+	dev = curr_ctx->dev;
+
+	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
+	    ctx, dev->is_codec_suspending);
+
+	for (j = 0; j < MTK_VENC_CORE_0; j++) {
 		for (i = 0; i < REG1_COUNT; i++) {
 			value = readl(dev->enc_reg_base[j] + Reg_1[i]);
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
@@ -315,11 +322,9 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 		}
 	}
 	writel(1, dev->enc_reg_base[0] + 0xEC);
-	writel(1, dev->enc_reg_base[1] + 0xEC);
 	writel(0, dev->enc_reg_base[0] + 0xF4);
-	writel(0, dev->enc_reg_base[1] + 0xF4);
 
-	for (j = 0; j < MTK_VENC_HW_NUM; j++) {
+	for (j = 0; j < MTK_VENC_CORE_0; j++) {
 		for (i = 0; i < REG2_COUNT; i++) {
 			value = readl(dev->enc_reg_base[j] + Reg_2[i]);
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
@@ -334,7 +339,7 @@ void mtk_vcodec_dec_timeout_dump(void *ctx)
 	int i = 0;
 
 	struct mtk_vcodec_ctx *curr_ctx = ctx;
-	struct mtk_vcodec_dev *dev = curr_ctx->dev;
+	struct mtk_vcodec_dev *dev = NULL;
 
 	#define LAT_REG_COUNT 11
 	#define CORE_MISC_REG_COUNT 13
@@ -348,6 +353,16 @@ void mtk_vcodec_dec_timeout_dump(void *ctx)
 		0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24};
 	unsigned int core_vld_reg[CORE_VLD_REG_COUNT] = {
 		0x120, 0x124, 0x128, 0x12C};
+
+	if (ctx == NULL) {
+		mtk_v4l2_debug(0, "can't dump vdec for NULL ctx");
+		return;
+	}
+
+	dev = curr_ctx->dev;
+
+	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
+	    ctx, dev->is_codec_suspending);
 
 	for (i = 0; i < LAT_REG_COUNT; i++) {
 		value = readl(dev->dec_reg_base[VDEC_LAT_MISC] + lat_reg[i]);
