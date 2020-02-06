@@ -151,22 +151,6 @@ static const struct mmc_fixup mmc_ext_csd_fixups[] = {
 	END_FIXUP
 };
 
-static const struct mmc_fixup sdio_fixup_methods[] = {
-	SDIO_FIXUP(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271,
-		   add_quirk, MMC_QUIRK_NONSTD_FUNC_IF),
-
-	SDIO_FIXUP(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271,
-		   add_quirk, MMC_QUIRK_DISABLE_CD),
-
-	SDIO_FIXUP(SDIO_VENDOR_ID_STE, SDIO_DEVICE_ID_STE_CW1200,
-		   add_quirk, MMC_QUIRK_BROKEN_BYTE_MODE_512),
-
-	SDIO_FIXUP(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8797_F0,
-		   add_quirk, MMC_QUIRK_BROKEN_IRQ_POLLING),
-
-	END_FIXUP
-};
-
 #ifndef SDIO_VENDOR_ID_TI
 #define SDIO_VENDOR_ID_TI		0x0097
 #endif
@@ -240,7 +224,7 @@ static void add_quirk_for_sdio_devices(struct mmc_card *card, int data)
 		card->quirks |= data;
 }
 
-static const struct mmc_fixup mmc_fixup_methods[] = {
+static const struct mmc_fixup sdio_fixup_methods[] = {
 	/* by default sdio devices are considered CLK_GATING broken */
 	/* good cards will be whitelisted as they are tested */
 	SDIO_FIXUP(SDIO_ANY_ID, SDIO_ANY_ID,
@@ -290,10 +274,6 @@ static inline void mmc_fixup_device(struct mmc_card *card,
 {
 	const struct mmc_fixup *f;
 	u64 rev = cid_rev_card(card);
-
-	/* Non-core specific workarounds. */
-	if (!table)
-		table = mmc_fixup_methods;
 
 	for (f = table; f->vendor_fixup; f++) {
 		if ((f->manfid == CID_MANFID_ANY ||
