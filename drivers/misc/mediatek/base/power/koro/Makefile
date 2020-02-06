@@ -1,5 +1,5 @@
-#
-# Copyright (C) 2015 MediaTek Inc.
+
+# Copyright (C) 2016 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,9 +10,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+export KORO_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/koro
+obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
-ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/koro/$(CONFIG_MTK_PLATFORM)/inc
-obj-y += mtk_wdt_v2.o
