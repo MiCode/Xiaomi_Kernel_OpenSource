@@ -26,7 +26,7 @@ void mdp_mmp_init(void)
 	mmprofile_enable(1);
 	if (mdp_mmp_events.CMDQ == 0) {
 		mdp_mmp_events.CMDQ = mmprofile_register_event(
-			MMP_ROOT_EVENT, "CMDQ");
+			MMP_ROOT_EVENT, "MDP");
 		mdp_mmp_events.thread_en = mmprofile_register_event(
 			mdp_mmp_events.CMDQ, "thread_en");
 		mdp_mmp_events.CMDQ_IRQ = mmprofile_register_event(

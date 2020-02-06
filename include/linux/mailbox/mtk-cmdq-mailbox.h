@@ -266,6 +266,7 @@ void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
+void cmdq_mmp_wait_done(struct mbox_chan *chan, void *pkt);
 #endif
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \

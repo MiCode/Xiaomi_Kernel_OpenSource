@@ -125,6 +125,25 @@ struct cmdq_buf_dump {
 	u32			pa_offset; /* pa_curr - pa_base */
 };
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+#include "../misc/mediatek/mmp/mmprofile.h"
+
+struct cmdq_mmp_event {
+	mmp_event cmdq_root;
+	mmp_event cmdq;
+	mmp_event irq;
+	mmp_event irq_err;
+	mmp_event loop_irq;
+	mmp_event thread_en;
+	mmp_event thread_suspend;
+	mmp_event submit;
+	mmp_event wait;
+	mmp_event wait_done;
+	mmp_event warning;
+};
+
+#endif
+
 struct cmdq {
 	struct mbox_controller	mbox;
 	void __iomem		*base;
@@ -144,26 +163,9 @@ struct cmdq {
 	spinlock_t		lock;
 	u32			token_cnt;
 	u16			*tokens;
+
+	struct cmdq_mmp_event	mmp;
 };
-
-#if IS_ENABLED(CONFIG_MMPROFILE)
-#include "../misc/mediatek/mmp/mmprofile.h"
-
-struct cmdq_mmp_event {
-	mmp_event cmdq;
-	mmp_event cmdq_irq;
-	mmp_event loop_irq;
-	mmp_event thread_en;
-	mmp_event thread_suspend;
-	mmp_event submit;
-	mmp_event wait;
-	mmp_event warning;
-};
-
-struct cmdq_mmp_event	cmdq_mmp;
-
-#define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
-#endif
 
 static void cmdq_init(struct cmdq *cmdq)
 {
@@ -183,25 +185,37 @@ static void cmdq_init(struct cmdq *cmdq)
 	cmdq_trace_ex_end();
 }
 
-static inline void cmdq_mmp_init(void)
+static inline void cmdq_mmp_init(struct cmdq *cmdq)
 {
 #if IS_ENABLED(CONFIG_MMPROFILE)
+	char name[10];
+
 	mmprofile_enable(1);
-	if (cmdq_mmp.cmdq) {
+	if (cmdq->mmp.cmdq) {
 		mmprofile_start(1);
 		return;
 	}
 
-	cmdq_mmp.cmdq = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
-	cmdq_mmp.cmdq_irq = mmprofile_register_event(cmdq_mmp.cmdq, "cmdq_irq");
-	cmdq_mmp.loop_irq = mmprofile_register_event(cmdq_mmp.cmdq, "loop_irq");
-	cmdq_mmp.thread_en =
-		mmprofile_register_event(cmdq_mmp.cmdq, "thread_en");
-	cmdq_mmp.thread_suspend =
-		mmprofile_register_event(cmdq_mmp.cmdq, "thread_suspend");
-	cmdq_mmp.submit = mmprofile_register_event(cmdq_mmp.cmdq, "submit");
-	cmdq_mmp.wait = mmprofile_register_event(cmdq_mmp.cmdq, "wait");
-	cmdq_mmp.warning = mmprofile_register_event(cmdq_mmp.cmdq, "warning");
+	snprintf(name, sizeof(name), "cmdq_%hhu", cmdq->hwid);
+
+	cmdq->mmp.cmdq_root = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
+	cmdq->mmp.cmdq = mmprofile_register_event(cmdq->mmp.cmdq_root, name);
+	cmdq->mmp.irq = mmprofile_register_event(cmdq->mmp.cmdq, "irq");
+	cmdq->mmp.irq_err =
+		mmprofile_register_event(cmdq->mmp.cmdq, "irq_err");
+	cmdq->mmp.loop_irq =
+		mmprofile_register_event(cmdq->mmp.cmdq, "loop_irq");
+	cmdq->mmp.thread_en =
+		mmprofile_register_event(cmdq->mmp.cmdq, "thread_en");
+	cmdq->mmp.thread_suspend =
+		mmprofile_register_event(cmdq->mmp.cmdq, "thread_suspend");
+	cmdq->mmp.submit = mmprofile_register_event(cmdq->mmp.cmdq, "submit");
+	cmdq->mmp.wait = mmprofile_register_event(cmdq->mmp.cmdq, "wait");
+	cmdq->mmp.wait_done =
+		mmprofile_register_event(cmdq->mmp.cmdq, "wait_done");
+	cmdq->mmp.warning =
+		mmprofile_register_event(cmdq->mmp.cmdq, "warning");
+	mmprofile_enable_event_recursive(cmdq->mmp.cmdq, 1);
 	mmprofile_start(1);
 #endif
 }
@@ -345,8 +359,8 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 	u32 status;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), CMDQ_THR_SUSPEND);
+	mmprofile_log_ex(cmdq->mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_SUSPEND);
 #endif
 	writel(CMDQ_THR_SUSPEND, thread->base + CMDQ_THR_SUSPEND_TASK);
 
@@ -373,8 +387,8 @@ static void cmdq_thread_resume(struct cmdq_thread *thread)
 
 	writel(CMDQ_THR_RESUME, thread->base + CMDQ_THR_SUSPEND_TASK);
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), CMDQ_THR_RESUME);
+	mmprofile_log_ex(cmdq->mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_RESUME);
 #endif
 }
 
@@ -419,16 +433,16 @@ static void cmdq_thread_err_reset(struct cmdq *cmdq, struct cmdq_thread *thread,
 	writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 	writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
+	mmprofile_log_ex(cmdq->mmp.thread_en, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_ENABLED);
 #endif
 }
 
 static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), CMDQ_THR_DISABLED);
+	mmprofile_log_ex(cmdq->mmp.thread_en, MMPROFILE_FLAG_PULSE,
+		thread->idx, CMDQ_THR_DISABLED);
 #endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
@@ -582,8 +596,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		return;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.submit, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), (unsigned long)pkt);
+	mmprofile_log_ex(cmdq->mmp.submit, MMPROFILE_FLAG_PULSE,
+		thread->idx, (unsigned long)pkt);
 #endif
 
 	task->cmdq = cmdq;
@@ -610,8 +624,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 #if IS_ENABLED(CONFIG_MMPROFILE)
-		mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
-			MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
+		mmprofile_log_ex(cmdq->mmp.thread_en, MMPROFILE_FLAG_PULSE,
+			thread->idx, CMDQ_THR_ENABLED);
 #endif
 
 		cmdq_log("set pc:0x%08x end:0x%08x pkt:0x%p",
@@ -777,8 +791,8 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 #endif
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
-		mmprofile_log_ex(cmdq_mmp.loop_irq, MMPROFILE_FLAG_PULSE,
-			MMP_THD(thread, cmdq), (unsigned long)task->pkt);
+		mmprofile_log_ex(cmdq->mmp.loop_irq, MMPROFILE_FLAG_PULSE,
+			thread->idx, (unsigned long)task->pkt);
 #endif
 
 		return;
@@ -789,11 +803,6 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 			thread->idx, task ? task->pkt : NULL);
 		return;
 	}
-
-#if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.cmdq_irq, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), task ? (unsigned long)task->pkt : 0);
-#endif
 
 	list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
 				 list_entry) {
@@ -807,12 +816,26 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 					"remove task that not ending pkt:0x%p %pa to %pa",
 					curr_task->pkt, &curr_pa, &task_end_pa);
 			}
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+			mmprofile_log_ex(cmdq->mmp.irq, MMPROFILE_FLAG_PULSE,
+				thread->idx,
+				task ? (unsigned long)task->pkt : 0);
+#endif
+
 			cmdq_task_exec_done(task, 0);
 			list_add_tail(&task->list_entry, removes);
 		} else if (err) {
 			cmdq_err("pkt:0x%p thread:%u err:%d",
 				curr_task->pkt, thread->idx, err);
 			cmdq_buf_dump_schedule(task, false, curr_pa);
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+			mmprofile_log_ex(cmdq->mmp.irq_err,
+				MMPROFILE_FLAG_PULSE, thread->idx,
+				task ? (unsigned long)task->pkt : 0);
+#endif
+
 			cmdq_task_exec_done(task, err);
 			cmdq_task_handle_error(curr_task);
 			list_add_tail(&task->list_entry, removes);
@@ -982,8 +1005,8 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	}
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	mmprofile_log_ex(cmdq_mmp.warning, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq),
+	mmprofile_log_ex(cmdq->mmp.warning, MMPROFILE_FLAG_PULSE,
+		thread->idx,
 		timeout_task ? (unsigned long)timeout_task : 0);
 #endif
 
@@ -1713,11 +1736,12 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq_init(cmdq);
 	clk_disable(cmdq->clock);
 
-	cmdq_mmp_init();
-
 #ifdef CONFIG_MTK_CMDQ_MBOX_EXT
 	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
+
+	cmdq_mmp_init(cmdq);
+
 	return 0;
 }
 
@@ -2108,10 +2132,21 @@ void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt)
 	struct cmdq_thread *thread = chan->con_priv;
 	struct cmdq *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
 
-	mmprofile_log_ex(cmdq_mmp.wait, MMPROFILE_FLAG_PULSE,
-		MMP_THD(thread, cmdq), (unsigned long)pkt);
+	mmprofile_log_ex(cmdq->mmp.wait, MMPROFILE_FLAG_PULSE,
+		thread->idx, (unsigned long)pkt);
 }
 EXPORT_SYMBOL(cmdq_mmp_wait);
+
+void cmdq_mmp_wait_done(struct mbox_chan *chan, void *pkt)
+{
+	struct cmdq_thread *thread = chan->con_priv;
+	struct cmdq *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
+
+	mmprofile_log_ex(cmdq->mmp.wait_done, MMPROFILE_FLAG_PULSE,
+		thread->idx, (unsigned long)pkt);
+}
+EXPORT_SYMBOL(cmdq_mmp_wait_done);
+
 #endif
 
 arch_initcall(cmdq_drv_init);

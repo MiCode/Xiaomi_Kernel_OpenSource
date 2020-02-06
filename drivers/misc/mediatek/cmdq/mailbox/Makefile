@@ -5,7 +5,8 @@
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
-             -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM)
+             -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM) \
+             -I$(srctree)/drivers/misc/mediatek/mmp/
 
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 

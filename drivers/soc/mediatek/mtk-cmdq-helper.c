@@ -1778,6 +1778,10 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 
 	cmdq_mbox_disable(client->chan);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	cmdq_mmp_wait_done(client->chan, pkt);
+#endif
+
 	return item->err;
 }
 

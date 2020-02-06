@@ -16,6 +16,10 @@
 #include "cmdq-sec-tl-api.h"
 #include "cmdq-util.h"
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+#include <mmprofile.h>
+#endif
+
 #define CMDQ_SEC_DRV_NAME	"cmdq_sec_mbox"
 
 #define CMDQ_THR_BASE		(0x100)
@@ -91,6 +95,18 @@ struct cmdq_sec_shared_mem {
 	u32		size;
 };
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+struct cmdq_mmp_event {
+	mmp_event cmdq_root;
+	mmp_event cmdq;
+	mmp_event notify;
+	mmp_event queue_irq;
+	mmp_event irq;
+	mmp_event cancel;
+};
+
+#endif
+
 struct cmdq_sec {
 	/* mbox / base / base_pa must sync with struct cmdq */
 	struct mbox_controller	mbox;
@@ -118,11 +134,36 @@ struct cmdq_sec {
 	struct cmdq_sec_shared_mem	*shared_mem;
 	struct cmdq_sec_context		*context;
 	struct iwcCmdqCancelTask_t	cancel;
+	struct cmdq_mmp_event		mmp;
 };
 
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	const u32 iwc_cmd, const u32 thrd_idx, void *data);
+
+static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
+{
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	char name[12];
+
+	mmprofile_enable(1);
+	if (cmdq->mmp.cmdq) {
+		mmprofile_start(1);
+		return;
+	}
+
+	snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
+	cmdq->mmp.cmdq_root = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
+	cmdq->mmp.cmdq = mmprofile_register_event(cmdq->mmp.cmdq_root, name);
+	cmdq->mmp.queue_irq = mmprofile_register_event(cmdq->mmp.cmdq,
+		"queue_irq");
+	cmdq->mmp.irq = mmprofile_register_event(cmdq->mmp.cmdq, "irq");
+	cmdq->mmp.cancel = mmprofile_register_event(cmdq->mmp.cmdq,
+		"cancel_task");
+	mmprofile_enable_event_recursive(cmdq->mmp.cmdq, 1);
+	mmprofile_start(1);
+#endif
+}
 
 static s32 cmdq_sec_clk_enable(struct cmdq_sec *cmdq)
 {
@@ -328,6 +369,12 @@ static bool cmdq_sec_irq_handler(
 	list_for_each_entry_safe(task, temp, &thread->task_list, list_entry) {
 		if (!done)
 			break;
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+		mmprofile_log_ex(cmdq->mmp.irq, MMPROFILE_FLAG_PULSE,
+			thread->idx, (unsigned long)task->pkt);
+#endif
+
 		cmdq_sec_task_done(task, 0);
 
 		if (!thread->task_cnt)
@@ -343,6 +390,11 @@ static bool cmdq_sec_irq_handler(
 
 	if (err && cur_task) {
 		struct cmdq_cb_data cb_data;
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+		mmprofile_log_ex(cmdq->mmp.irq, MMPROFILE_FLAG_PULSE,
+			thread->idx, (unsigned long)cur_task->pkt);
+#endif
 
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 
@@ -430,6 +482,11 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 
 	mutex_lock(&cmdq->exec_lock);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq->mmp.notify, MMPROFILE_FLAG_START,
+		cmdq->hwid, cmdq->notify_run);
+#endif
+
 	for (i = 0; i < CMDQ_MAX_SECURE_THREAD_COUNT; i++) {
 		struct cmdq_sec_thread *thread =
 			&cmdq->thread[CMDQ_MIN_SECURE_THREAD_ID + i];
@@ -442,6 +499,7 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 
 		if (cookie < thread->wait_cookie || !thread->task_cnt)
 			continue;
+
 		stop |= cmdq_sec_irq_handler(thread, cookie, 0);
 	}
 
@@ -466,6 +524,11 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 			(unsigned long)cmdq->base_pa);
 	}
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq->mmp.notify, MMPROFILE_FLAG_END,
+		cmdq->hwid, cmdq->notify_run);
+#endif
+
 	mutex_unlock(&cmdq->exec_lock);
 }
 
@@ -473,10 +536,23 @@ static void cmdq_sec_irq_notify_callback(struct cmdq_cb_data cb_data)
 {
 	struct cmdq_sec *cmdq = (struct cmdq_sec *)cb_data.data;
 
-	if (!work_pending(&cmdq->irq_notify_work))
+	if (!work_pending(&cmdq->irq_notify_work)) {
 		queue_work(cmdq->notify_wq, &cmdq->irq_notify_work);
-	else
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+		mmprofile_log_ex(cmdq->mmp.queue_irq, MMPROFILE_FLAG_PULSE,
+			cmdq->hwid, 1);
+#endif
+
+	} else {
 		cmdq_msg("last notify callback working");
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+		mmprofile_log_ex(cmdq->mmp.queue_irq, MMPROFILE_FLAG_PULSE,
+			cmdq->hwid, 0);
+#endif
+
+	}
 }
 
 static s32 cmdq_sec_irq_notify_start(struct cmdq_sec *cmdq)
@@ -1245,6 +1321,8 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 
 	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, true);
+
+	cmdq_mmp_init(cmdq);
 
 	cmdq_msg("cmdq:%p(%u) va:%p pa:%pa",
 		cmdq, cmdq->hwid, cmdq->base, &cmdq->base_pa);
