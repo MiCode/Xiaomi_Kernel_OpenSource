@@ -1497,6 +1497,9 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
 	unsigned long long raw_runtime = 0;
 	int new_spid;
 
+	if (rpid <= 0 || ts == 0)
+		return XGF_PARAM_ERR;
+
 	xgf_lock(__func__);
 	if (!xgf_is_enable()) {
 		xgf_unlock(__func__);
