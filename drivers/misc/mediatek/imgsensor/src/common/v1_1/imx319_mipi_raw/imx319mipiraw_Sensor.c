@@ -191,6 +191,7 @@ static struct imgsensor_info_struct imgsensor_info = {
       .ihdr_support = 0,
       .ihdr_le_firstline = 0,
       .sensor_mode_num = 5,
+	.frame_time_delay_frame = 3,
       .cap_delay_frame = 2,
       .pre_delay_frame = 2,
       .video_delay_frame = 2,
@@ -2847,10 +2848,6 @@ static void set_shutter_frame_length(kal_uint32 shutter,
 	if (frame_length > 1)
 	    imgsensor.frame_length = frame_length;
 
-	if (shutter > imgsensor.frame_length - imgsensor_info.margin)
-		imgsensor.frame_length = shutter + imgsensor_info.margin;
-	else
-		imgsensor.frame_length = imgsensor.min_frame_length;
 	if (imgsensor.frame_length > imgsensor_info.max_frame_length)
 		imgsensor.frame_length = imgsensor_info.max_frame_length;
 	spin_unlock(&imgsensor_drv_lock);
@@ -3541,6 +3538,9 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	sensor_info->SensorWidthSampling = 0; /* 0 is default 1x */
 	sensor_info->SensorHightSampling = 0; /* 0 is default 1x */
 	sensor_info->SensorPacketECCOrder = 1;
+
+	sensor_info->FrameTimeDelayFrame =
+		imgsensor_info.frame_time_delay_frame;
 
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
