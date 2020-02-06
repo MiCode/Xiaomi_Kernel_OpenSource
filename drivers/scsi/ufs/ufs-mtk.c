@@ -157,13 +157,79 @@ static int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
 	return 0;
 }
 
+static int ufs_mtk_di_cmp_read(struct ufs_hba *hba,
+			       u32 lba, int mode,
+			       u16 crc, u8 priv)
+{
+	/*
+	 * For read, update CRC16 value
+	 * if corresponding CRC16[lba] is 0 (not set before),
+	 * Otherwise, compare current calculated crc16
+	 * value to CRC16[lba].
+	 */
+	if (mode == UFS_CRYPTO_HW_FDE) {
+		if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+			di_crc[lba] = crc;
+			di_priv[lba] = priv;
+		} else {
+			if (di_crc[lba] != crc) {
+				dev_info(hba->dev,
+				"%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
+				__func__, di_crc[lba],
+				crc, lba);
+				WARN_ON(1);
+				return -EIO;
+			}
+		}
+	} else if (mode == UFS_CRYPTO_HW_FBE) {
+		if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+			di_crc[lba] = crc;
+			di_priv[lba] = priv;
+		} else {
+			if (priv != di_priv[lba]) {
+				dev_info(hba->dev,
+				"%s: key err (fde)! existed: 0x%x, read: 0x%x, lba: %u\n",
+				__func__,
+				di_priv[lba],
+				priv, lba);
+				return 0;
+			} else if (crc != di_crc[lba]) {
+				dev_info(hba->dev,
+				 "%s: crc err (fbe)! existed: 0x%x, read: 0x%x, lba: %u\n",
+				 __func__,
+				 di_crc[lba],
+				 crc, lba);
+				return 0;
+			}
+		}
+	} else {
+		if (di_crc[lba] == 0 || di_priv[lba] != 0) {
+			di_crc[lba] = crc;
+			di_priv[lba] = priv;
+		} else {
+			if (di_crc[lba] != crc) {
+				dev_info(hba->dev,
+				"%s: crc err (ne)! existed: 0x%x, read: 0x%x, lba: %u\n",
+				__func__,
+				di_crc[lba],
+				crc, lba);
+				WARN_ON(1);
+				return -EIO;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 {
 	char *buffer;
-	int i, len;
+	int i, len, err = 0;
 	struct scatterlist *sg;
 	u32 lba, blk_cnt, end_lba;
 	u16 crc = 0;
+	int mode = 0;
 	u8 priv = 0;
 
 	sg = scsi_sglist(cmd);
@@ -194,140 +260,57 @@ static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	}
 	end_lba = lba + blk_cnt;
 
-	/* Only Read10, Write10 of LU2 need to cal crc16 */
-	if ((cmd->cmnd[0] == READ_10 || cmd->cmnd[0] == READ_16
-		|| cmd->cmnd[0] == WRITE_10 || cmd->cmnd[0] == WRITE_16)
-		&& (ufshcd_scsi_to_upiu_lun(cmd->device->lun) == 0x2)) {
-		if (scsi_sg_count(cmd)) {
-			for (i = 0; i < scsi_sg_count(cmd); i++) {
-				buffer = (char *)sg_virt(sg);
+	/* Only data commands in LU2 need to check crc */
+	if (ufshcd_scsi_to_upiu_lun(cmd->device->lun) != 0x2)
+		return 0;
 
-for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
-	/*
-	 * Use 0 as lba crc slot default,
-	 * if crc result = 0, need +1 to avoid conflict
-	 */
-	if (cmd->cmnd[0] == WRITE_10 || cmd->cmnd[0] == WRITE_16) {
+	if (!scsi_sg_count(cmd))
+		return 0;
 
-		/* For write, update CRC16[lba] */
+	if (hie_request_crypted(cmd->request)) {
+		mode = UFS_CRYPTO_HW_FBE;
+		priv = ufs_mtk_di_get_priv(cmd);
+#ifdef CONFIG_MTK_HW_FDE
+	} else if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
+		mode = UFS_CRYPTO_HW_FDE;
+		priv = 1;
+#endif
+	}
 
-		crc = crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
-		if (crc == 0)
-			crc++;
-
-		#ifdef CONFIG_MTK_HW_FDE
-		if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
-			di_crc[lba] = crc;
-			di_priv[lba] = 1;
-		} else
-		#endif
-		{
-			di_crc[lba] = crc;
-
-			if (hie_request_crypted(cmd->request)) {
-				if (!priv)
-					priv = ufs_mtk_di_get_priv(cmd);
-				di_priv[lba] = priv;
-			} else {
-				di_priv[lba] = 0;
-			}
-		}
-	} else if (cmd->cmnd[0] == READ_10 || cmd->cmnd[0] == READ_16) {
-
-		/*
-		 * For read, update CRC16 value
-		 * if corresponding CRC16[lba] is 0 (not set before),
-		 * Otherwise, compare current calculated crc16
-		 * value to CRC16[lba].
-		 */
-
-		#ifdef CONFIG_MTK_HW_FDE
-		if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
+	for (i = 0; i < scsi_sg_count(cmd); i++) {
+		buffer = (char *)sg_virt(sg);
+		for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
+			/*
+			 * Use value 0 as empty slot in crc array
+			 *
+			 * if calculated crc value is 0, use crc + 1
+			 * instead to avoid conflict
+			 */
 			crc = crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
 			if (crc == 0)
 				crc++;
-			if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+
+			if (ufs_mtk_is_data_write_cmd(cmd->cmnd[0])) {
+				/* For write, update crc value */
 				di_crc[lba] = crc;
-				di_priv[lba] = 1;
+				di_priv[lba] = priv;
 			} else {
-				if (di_crc[lba] != crc) {
-					dev_info(hba->dev,
-					"%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
-					__func__, di_crc[lba],
-					crc, lba);
-					WARN_ON(1);
-					return -EIO;
-				}
-			}
-		} else
-		#endif
-		{
-			if (hie_request_crypted(cmd->request)) {
-				crc = crc16(0x0, &buffer[len],
-					 DI_CRC_DATA_SIZE);
-				if (crc == 0)
-					crc++;
-
-				if (!priv)
-					priv = ufs_mtk_di_get_priv(cmd);
-
-				if (di_crc[lba] == 0 || di_priv[lba] == 0) {
-					di_crc[lba] = crc;
-					di_priv[lba] = priv;
-				} else {
-					if (priv != di_priv[lba]) {
-						dev_info(hba->dev,
-						"%s: key err! existed: 0x%x, read: 0x%x, lba: %u\n",
-						__func__,
-						di_priv[lba],
-						priv, lba);
-						return 0;
-					} else if (crc != di_crc[lba]) {
-						dev_info(hba->dev,
-						 "%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
-						 __func__,
-						 di_crc[lba],
-						 crc, lba);
-						return 0;
-					}
-				}
-			} else {
-				crc =
-			crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
-				if (crc == 0)
-					crc++;
-				if (di_crc[lba] == 0 || di_priv[lba] != 0) {
-					di_crc[lba] = crc;
-					di_priv[lba] = 0;
-				} else {
-					if (di_crc[lba]
-					    != crc) {
-						dev_info(hba->dev,
-						"%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
-						__func__,
-						di_crc[lba],
-						crc, lba);
-						WARN_ON(1);
-						return -EIO;
-					}
-				}
+				err = ufs_mtk_di_cmp_read(hba,
+					lba, mode, crc, priv);
+				if (err)
+					return err;
 			}
 		}
+		sg = sg_next(sg);
 	}
-
-}
-				sg = sg_next(sg);
-			}
-			/*
-			 * Check lba # traverse from
-			 * scatter is the same as end_lba
-			 */
-			if (end_lba != lba) {
-				dev_info(hba->dev,
-				"expect end_lba is 0x%x, but 0x%x, cmd=0x%x, blk_cnt=0x%x\n",
-				 end_lba, lba, cmd->cmnd[0], blk_cnt);
-			}
-		}
+	/*
+	 * Check lba # traverse from
+	 * scatter is the same as end_lba
+	 */
+	if (end_lba != lba) {
+		dev_info(hba->dev,
+		"expect end_lba is 0x%x, but 0x%x, cmd=0x%x, blk_cnt=0x%x\n",
+		 end_lba, lba, cmd->cmnd[0], blk_cnt);
 	}
 
 	return 0;
