@@ -125,11 +125,6 @@ static int vpu_debug_algo_entry(struct seq_file *s,
 		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
 		kref_read(&alg->ref), alg->builtin);
 
-	vpu_alg_debug("[%s: prog: 0x%llx/0x%x, iram: 0x%llx/0x%x, entry: 0x%x, ref: %d, builtin: %d]\n",
-		alg->a.name, alg->a.mva, alg->a.len,
-		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
-		kref_read(&alg->ref), alg->builtin);
-
 	if (!al->ops->load || !al->ops->get || !al->ops->put)
 		goto out;
 

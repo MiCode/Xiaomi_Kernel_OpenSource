@@ -799,7 +799,7 @@ err:
 		vpu_aee_excp(vd, req, "VPU Timeout",
 			"vpu%d: request (%s) timeout, priority: %d, algo: %s\n",
 			vd->id,
-			(req->prio) ? "D2D_EXT" : "D2D",
+			(cmd == VPU_CMD_DO_D2D_EXT) ? "D2D_EXT" : "D2D",
 			req->prio, req->algo);
 		goto err_cmd;
 	}
@@ -878,10 +878,12 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 {
 	int ret = 0;
 	int ret_pwr = 0;
+	uint64_t flags;
 	struct vpu_algo_list *al;
 
 	vpu_cmd_lock(vd, req->prio);
-
+	/* Backup/Restore request flags for elevate to preload algo */
+	flags = req->flags;
 	/* Bootup VPU */
 	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
 	ret_pwr = vpu_pwr_get_locked(vd, req->power_param.boost_value);
@@ -908,15 +910,18 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 retry:
 	ret = al->ops->load(al, req->algo, NULL, req->prio);
 
-	/* Try preloaded algo, if normal algo was not found */
+	/* Elevate to preloaded algo, if normal algo was not found */
 	if ((ret == -ENOENT) && (al == &vd->aln)) {
 		VPU_REQ_FLAG_SET(req, ALG_PRELOAD);
 		al = &vd->alp;
 		goto retry;
 	}
 
-	if (ret)
+	if (ret) {
+		pr_info("%s: vpu%d: \"%s\" was not found\n",
+			__func__, al->vd->id, req->algo);
 		goto err_alg;
+	}
 
 send_req:
 	/* Send Request (DO_D2D) */
@@ -931,6 +936,7 @@ err_boot:
 	vpu_pwr_put_locked(vd);
 
 err_remove:
+	req->flags = flags;
 	vpu_cmd_unlock(vd, req->prio);
 
 	return ret;

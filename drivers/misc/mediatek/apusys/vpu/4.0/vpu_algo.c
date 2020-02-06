@@ -89,12 +89,12 @@ unlock:
 	spin_unlock(&al->lock);
 out:
 	if (alg)
-		vpu_alg_debug("%s: vpu%d: %s: ref: %d builtin: %d\n",
-			__func__, al->vd->id, alg->a.name,
+		vpu_alg_debug("%s: vpu%d: %s: %s: ref: %d builtin: %d\n",
+			__func__, al->vd->id, al->name, alg->a.name,
 			kref_read(&alg->ref), alg->builtin);
 	else
-		vpu_alg_debug("%s: vpu%d: %s was not found\n",
-			__func__, al->vd->id, name);
+		vpu_alg_debug("%s: vpu%d: %s: %s was not found\n",
+			__func__, al->vd->id, al->name, name);
 
 	return alg;
 }
@@ -110,9 +110,9 @@ static void vpu_alg_release(struct kref *ref)
 	al->cnt--;
 	spin_unlock(&al->lock);
 
-	vpu_alg_debug("%s: vpu%d: %s, algo_cnt: %d builtin: %d\n",
-		      __func__, al->vd->id, alg->a.name,
-		      al->cnt, alg->builtin);
+	vpu_alg_debug("%s: vpu%d: %s: %s, algo_cnt: %d builtin: %d\n",
+		__func__, al->vd->id, al->name, alg->a.name,
+		al->cnt, alg->builtin);
 
 	/* free __vpu_algo memory */
 	vpu_alg_free(container_of(ref, struct __vpu_algo, ref));
@@ -120,9 +120,9 @@ static void vpu_alg_release(struct kref *ref)
 
 static void vpu_alg_put(struct __vpu_algo *alg)
 {
-	vpu_alg_debug("%s: vpu%d: %s: ref: %d builtin: %d\n",
-		      __func__, alg->al->vd->id, alg->a.name,
-		      kref_read(&alg->ref), alg->builtin);
+	vpu_alg_debug("%s: vpu%d: %s: %s: ref: %d builtin: %d\n",
+		__func__, alg->al->vd->id, alg->al->name, alg->a.name,
+		kref_read(&alg->ref), alg->builtin);
 	kref_put(&alg->ref, alg->al->ops->release);
 }
 
@@ -185,8 +185,8 @@ static int vpu_alg_load(struct vpu_algo_list *al, const char *name,
 
 	alg = al->ops->get(al, name, alg);
 	if (!alg) {
-		pr_info("%s: vpu%d: \"%s\" was not found\n",
-			__func__, al->vd->id, name);
+		vpu_alg_debug("%s: vpu%d: %s: \"%s\" was not found\n",
+			__func__, al->vd->id, al->name, name);
 		return -ENOENT;
 	}
 
@@ -195,8 +195,8 @@ static int vpu_alg_load(struct vpu_algo_list *al, const char *name,
 	if (al->ops->hw_init) {
 		ret = al->ops->hw_init(al, alg);
 		if (ret) {
-			pr_info("%s: vpu%d: hw_init: %d\n",
-				__func__, al->vd->id, ret);
+			pr_info("%s: vpu%d: %s: hw_init: %d\n",
+				__func__, al->vd->id, al->name, ret);
 			al->ops->put(alg);
 			goto out;
 		}
@@ -302,13 +302,13 @@ unlock:
 	spin_unlock(&al->lock);
 
 	if (!ret) {
-		vpu_alg_debug("%s: name %s, len %d, mva 0x%lx alg_cnt: %d builtin: %d\n",
-			      __func__, alg->a.name, alg->a.len,
-			      (unsigned long)alg->a.mva, al->cnt,
-			      alg->builtin);
+		vpu_alg_debug("%s: %s: name %s, len %d, mva 0x%lx alg_cnt: %d builtin: %d\n",
+			__func__, al->name, alg->a.name, alg->a.len,
+			(unsigned long)alg->a.mva, al->cnt,
+			alg->builtin);
 	} else if (ret == -EEXIST) {
-		vpu_alg_debug("%s: name %s already exist\n",
-			      __func__, fw->name);
+		vpu_alg_debug("%s: %s: name %s already exist\n",
+			__func__, al->name, fw->name);
 algo_free:
 		vpu_alg_free(alg);
 		ret = 0;
@@ -334,9 +334,9 @@ static int vpu_alg_del(struct vpu_algo_list *al, struct apusys_firmware_hnd *fw)
 	 */
 	list_for_each_entry_reverse(alg, &al->a, list) {
 		if (!strcmp(alg->a.name, fw->name)) {
-			vpu_alg_debug("%s: name %s len %d mva 0x%lx\n",
-				      __func__, alg->a.name,
-				      alg->a.len, (unsigned long)alg->a.mva);
+			vpu_alg_debug("%s: %s: name %s len %d mva 0x%lx\n",
+				__func__, al->name, alg->a.name,
+				alg->a.len, (unsigned long)alg->a.mva);
 			al->ops->put(alg);
 			return 0;
 		}
