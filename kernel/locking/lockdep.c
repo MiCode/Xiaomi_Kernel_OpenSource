@@ -181,7 +181,9 @@ static const char * const held_lock_white_list[] = {
 	"&p->lock",
 	"&of->mutex",
 	"&epfile->mutex",
-	"&session->notif_wait_lock"
+	"&session->notif_wait_lock",
+	"(&item_q->work)",
+	"\"%s\"\"cmdq_flushq\""
 };
 
 #define lock_mon_enabled()	lock_mon_enable
