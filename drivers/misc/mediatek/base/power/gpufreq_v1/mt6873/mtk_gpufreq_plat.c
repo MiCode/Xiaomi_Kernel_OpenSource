@@ -1416,6 +1416,7 @@ unsigned int mt_gpufreq_get_limit_user(unsigned int limit_user)
 
 	return NUM_OF_KIR;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_limit_user);
 
 /*
  * API : get current voltage
