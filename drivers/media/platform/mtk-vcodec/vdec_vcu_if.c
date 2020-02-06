@@ -105,18 +105,19 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 		return -EMFILE;
 	}
 
-	spin_lock(&f->file_lock);
-	if (probe_kernel_address(files_fdtable(f), fdt)) {
-		spin_unlock(&f->file_lock);
-		vcu_put_file_lock();
-		return -EMFILE;
-	}
-	spin_unlock(&f->file_lock);
-
 	if (!lock_task_sighand(task, &irqs)) {
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
+
+	spin_lock(&f->file_lock);
+	if (probe_kernel_address(files_fdtable(f), fdt)) {
+		spin_unlock(&f->file_lock);
+		unlock_task_sighand(task, &irqs);
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+	spin_unlock(&f->file_lock);
 
 	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
 	unlock_task_sighand(task, &irqs);

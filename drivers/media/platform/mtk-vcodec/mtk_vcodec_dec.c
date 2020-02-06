@@ -556,8 +556,12 @@ static void mtk_vdec_worker(struct work_struct *work)
 	unsigned int dpbsize = 0;
 	struct mtk_color_desc color_desc = {.is_hdr = 0};
 
-	mutex_lock(&ctx->worker_lock);
+	if (ctx == NULL) {
+		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
+		return;
+	}
 
+	mutex_lock(&ctx->worker_lock);
 	if (ctx->state != MTK_STATE_HEADER) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		mtk_v4l2_debug(1, " %d", ctx->state);
@@ -691,7 +695,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 		((src_chg & VDEC_NEED_MORE_OUTPUT_BUF) != 0U) ? true : false;
 	mtk_vcodec_unsupport = ((src_chg & VDEC_HW_NOT_SUPPORT) != 0) ?
 						   true : false;
-	if (src_chg & VDEC_CROP_CHANGED && !ctx->input_driven)
+	if ((src_chg & VDEC_CROP_CHANGED) &&
+		(!ctx->input_driven) && dst_buf_info != NULL)
 		dst_buf_info->flags |= CROP_CHANGED;
 
 	if (!ctx->input_driven) {
@@ -2390,7 +2395,6 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 
 		mtk_vdec_flush_decoder(ctx);
 	}
-	ctx->state = MTK_STATE_FLUSH;
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 		struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
