@@ -202,9 +202,10 @@ static unsigned int g_cur_opp_idx;
 static unsigned int g_fixed_freq;
 static unsigned int g_fixed_vgpu;
 static unsigned int g_max_upper_limited_idx;
-static unsigned int g_lkg_pwr;
+static unsigned int g_min_lower_limited_idx;
 static unsigned int g_upper_kicker;
 static unsigned int g_lower_kicker;
+static unsigned int g_lkg_pwr;
 /* g_dfd_force_dump
  * 0: disable
  * 1: force dump + log
@@ -456,6 +457,11 @@ static unsigned int mt_gpufreq_return_by_condition(
 static void mt_gpufreq_update_limit_idx(unsigned int kicker,
 		unsigned int t_upper_idx, unsigned int t_lower_idx)
 {
+	unsigned int i;
+	unsigned int upper_kicker, lower_kicker;
+	unsigned int upper_prio, lower_prio;
+	unsigned int upper_limit_idx, lower_limit_idx;
+
 	mutex_lock(&mt_gpufreq_limit_table_lock);
 
 	if (limit_table[kicker].upper_idx == t_upper_idx &&
@@ -470,39 +476,6 @@ static void mt_gpufreq_update_limit_idx(unsigned int kicker,
 	gpufreq_pr_debug("update_limited_idx limit_kicker: %d, t_upper_idx: %d, t_lower_idx = %d\n",
 		kicker, t_upper_idx, t_lower_idx);
 
-	mutex_unlock(&mt_gpufreq_limit_table_lock);
-}
-
-static void mt_gpufreq_update_limit_enable(unsigned int kicker,
-		unsigned int t_upper_enable, unsigned int t_lower_enable)
-{
-	mutex_lock(&mt_gpufreq_limit_table_lock);
-
-	if (limit_table[kicker].upper_enable == t_upper_enable &&
-	   limit_table[kicker].lower_enable == t_lower_enable) {
-		mutex_unlock(&mt_gpufreq_limit_table_lock);
-		return;
-	}
-
-	limit_table[kicker].upper_enable = t_upper_enable;
-	limit_table[kicker].lower_enable = t_lower_enable;
-
-	gpufreq_pr_debug("update_limited_enable limit_kicker: %d, t_upper_enable: %d, t_lower_enable = %d\n",
-		kicker, t_upper_enable, t_lower_enable);
-
-	mutex_unlock(&mt_gpufreq_limit_table_lock);
-}
-
-static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int target_idx)
-{
-	unsigned int i;
-	unsigned int limit_idx;
-	unsigned int upper_kicker, lower_kicker;
-	unsigned int upper_prio, lower_prio;
-	unsigned int upper_limit_idx, lower_limit_idx;
-
-	limit_idx = target_idx;
-
 	upper_kicker = NUM_OF_KIR;
 	lower_kicker = NUM_OF_KIR;
 
@@ -512,16 +485,6 @@ static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int target_idx)
 	upper_limit_idx = g_segment_max_opp_idx;
 	lower_limit_idx = g_segment_min_opp_idx;
 
-	/* generate random segment OPP index for stress test */
-	if (g_opp_stress_test_state == 1) {
-		get_random_bytes(&target_idx, sizeof(target_idx));
-		limit_idx = target_idx %
-			(g_segment_min_opp_idx - g_segment_max_opp_idx + 1) +
-			g_segment_max_opp_idx;
-		mt_gpufreq_update_limit_idx(KIR_STRESS, limit_idx, limit_idx);
-	}
-
-	mutex_lock(&mt_gpufreq_limit_table_lock);
 	for (i = 0; i < NUM_OF_KIR; i++) {
 		/* check upper limit */
 		/* choose limit idx not default and limit is enable */
@@ -562,12 +525,10 @@ static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int target_idx)
 		}
 	}
 
-	g_upper_kicker = upper_kicker;
-	g_lower_kicker = lower_kicker;
-
 	mutex_unlock(&mt_gpufreq_limit_table_lock);
 
-	g_max_upper_limited_idx = upper_limit_idx;
+	g_upper_kicker = upper_kicker;
+	g_lower_kicker = lower_kicker;
 
 	if (upper_limit_idx > lower_limit_idx) {
 		if (upper_prio >= lower_prio)
@@ -576,17 +537,56 @@ static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int target_idx)
 			upper_limit_idx = g_segment_max_opp_idx;
 	}
 
-	if (limit_idx < upper_limit_idx)
-		limit_idx = upper_limit_idx;
+	g_max_upper_limited_idx = upper_limit_idx;
+	g_min_lower_limited_idx = lower_limit_idx;
+}
 
-	if (limit_idx > lower_limit_idx)
-		limit_idx = lower_limit_idx;
+static void mt_gpufreq_update_limit_enable(unsigned int kicker,
+		unsigned int t_upper_enable, unsigned int t_lower_enable)
+{
+	mutex_lock(&mt_gpufreq_limit_table_lock);
+
+	if (limit_table[kicker].upper_enable == t_upper_enable &&
+	   limit_table[kicker].lower_enable == t_lower_enable) {
+		mutex_unlock(&mt_gpufreq_limit_table_lock);
+		return;
+	}
+
+	limit_table[kicker].upper_enable = t_upper_enable;
+	limit_table[kicker].lower_enable = t_lower_enable;
+
+	gpufreq_pr_debug("update_limited_enable limit_kicker: %d, t_upper_enable: %d, t_lower_enable = %d\n",
+		kicker, t_upper_enable, t_lower_enable);
+
+	mutex_unlock(&mt_gpufreq_limit_table_lock);
+}
+
+static unsigned int mt_gpufreq_limit_idx_by_condition(unsigned int target_idx)
+{
+	unsigned int limit_idx;
+
+	limit_idx = target_idx;
+
+	/* generate random segment OPP index for stress test */
+	if (g_opp_stress_test_state == 1) {
+		get_random_bytes(&target_idx, sizeof(target_idx));
+		limit_idx = target_idx %
+			(g_segment_min_opp_idx - g_segment_max_opp_idx + 1) +
+			g_segment_max_opp_idx;
+		mt_gpufreq_update_limit_idx(KIR_STRESS, limit_idx, limit_idx);
+	}
+
+	if (limit_idx < g_max_upper_limited_idx)
+		limit_idx = g_max_upper_limited_idx;
+
+	if (limit_idx > g_min_lower_limited_idx)
+		limit_idx = g_min_lower_limited_idx;
 
 	gpufreq_pr_logbuf(
-		"limit_idx: %d, upper_kicker: %d, upper_limit_idx: %d, lower_kicker: %d, lower_limit_idx: %d\n",
+		"limit_idx: %d, g_upper_kicker: %d, g_max_upper_limited_idx: %d, g_lower_kicker: %d, g_min_lower_limited_idx: %d\n",
 		limit_idx,
-		upper_kicker, upper_limit_idx,
-		lower_kicker, lower_limit_idx);
+		g_upper_kicker, g_max_upper_limited_idx,
+		g_lower_kicker, g_min_lower_limited_idx);
 
 	return limit_idx;
 }
@@ -1833,6 +1833,8 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_opp_stress_test_state);
 	seq_printf(m, "g_max_upper_limited_idx = %d\n",
 			g_max_upper_limited_idx - g_segment_max_opp_idx);
+	seq_printf(m, "g_min_lower_limited_idx = %d\n",
+			g_min_lower_limited_idx - g_segment_max_opp_idx);
 	seq_printf(m, "gpu_loading = %d\n",
 			gpu_loading);
 
@@ -2937,6 +2939,7 @@ static void __mt_gpufreq_init_table(void)
 
 	g_max_opp_idx_num = NUM_OF_OPP_IDX;
 	g_max_upper_limited_idx = g_segment_max_opp_idx;
+	g_min_lower_limited_idx = g_segment_min_opp_idx;
 
 	gpufreq_pr_debug("@%s: g_segment_max_opp_idx = %u, g_max_opp_idx_num = %u, g_segment_min_opp_idx = %u\n",
 			__func__,
