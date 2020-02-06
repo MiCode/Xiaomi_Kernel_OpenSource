@@ -34,6 +34,7 @@ struct charger_manager;
 #include "mtk_pe_intf.h"
 #include "mtk_pe20_intf.h"
 #include "mtk_pe40_intf.h"
+#include "mtk_pe50_intf.h"
 #include "mtk_pdc_intf.h"
 #include "adapter_class.h"
 
@@ -79,6 +80,9 @@ do {								\
 #define CHR_PE30	(0x000B)
 #define CHR_PE40	(0x000C)
 #define CHR_PDC		(0x000D)
+#define CHR_PE50_READY	(0x000E)
+#define CHR_PE50_RUNNING	(0x000F)
+#define CHR_PE50	(0x0010)
 
 /* charging abnormal status */
 #define CHG_VBUS_OV_STATUS	(1 << 0)
@@ -102,6 +106,13 @@ enum {
 	CHARGER_DEV_NOTIFY_EOC,
 	CHARGER_DEV_NOTIFY_RECHG,
 	CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT,
+	CHARGER_DEV_NOTIFY_VBATOVP_ALARM,
+	CHARGER_DEV_NOTIFY_VBUSOVP_ALARM,
+	CHARGER_DEV_NOTIFY_IBATOCP,
+	CHARGER_DEV_NOTIFY_IBUSOCP,
+	CHARGER_DEV_NOTIFY_IBUSUCP_FALL,
+	CHARGER_DEV_NOTIFY_VOUTOVP,
+	CHARGER_DEV_NOTIFY_VDROVP,
 };
 
 /*
@@ -293,6 +304,14 @@ struct charger_manager {
 	struct notifier_block chg2_nb;
 	struct charger_data chg2_data;
 
+	struct charger_device *dvchg1_dev;
+	struct notifier_block dvchg1_nb;
+	struct charger_data dvchg1_data;
+
+	struct charger_device *dvchg2_dev;
+	struct notifier_block dvchg2_nb;
+	struct charger_data dvchg2_data;
+
 	struct adapter_device *pd_adapter;
 
 
@@ -354,6 +373,11 @@ struct charger_manager {
 	bool enable_pe_4;
 	bool leave_pe4;
 	struct mtk_pe40 pe4;
+
+	/* pe 5.0 */
+	bool enable_pe_5;
+	bool leave_pe5;
+	struct mtk_pe50 pe5;
 
 	/* type-C*/
 	bool enable_type_c;

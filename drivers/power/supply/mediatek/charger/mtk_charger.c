@@ -79,6 +79,16 @@ static struct list_head consumer_head = LIST_HEAD_INIT(consumer_head);
 static DEFINE_MUTEX(consumer_mutex);
 
 
+bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo)
+{
+	if (pinfo->enable_pe_4 == false && pinfo->enable_pe_5 == false)
+		return false;
+
+	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		return true;
+	return false;
+}
+
 bool is_power_path_supported(void)
 {
 	if (pinfo == NULL)
@@ -294,6 +304,8 @@ int charger_manager_enable_high_voltage_charging(
 
 	pr_info("%s: user: %s, en = %d\n", __func__, dev_name(consumer->dev),
 		info->enable_hv_charging);
+	mtk_pe50_stop_algo(info, true);
+
 	_wake_up_charger(info);
 
 	return 0;
@@ -408,6 +420,10 @@ int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 				pdata = &info->chg1_data;
 			else if (idx == SLAVE_CHARGER)
 				pdata = &info->chg2_data;
+			else if (idx == MAIN_DIVIDER_CHARGER)
+				pdata = &info->dvchg1_data;
+			else if (idx == SLAVE_DIVIDER_CHARGER)
+				pdata = &info->dvchg2_data;
 			else
 				return -ENOTSUPP;
 			pdata->thermal_input_current_limit = input_current;
@@ -466,6 +482,10 @@ int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 			pdata = &info->chg1_data;
 		else if (idx == SLAVE_CHARGER)
 			pdata = &info->chg2_data;
+		else if (idx == MAIN_DIVIDER_CHARGER)
+			pdata = &info->dvchg1_data;
+		else if (idx == SLAVE_DIVIDER_CHARGER)
+			pdata = &info->dvchg2_data;
 		else
 			return -ENOTSUPP;
 
@@ -1533,6 +1553,32 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
 			pdata->junction_temp_max = tchg_max;
 		}
 	}
+
+	if (info->dvchg1_dev) {
+		pdata = &info->dvchg1_data;
+		ret = charger_dev_get_adc(info->dvchg1_dev, ADC_CHANNEL_TEMP_JC,
+					  &tchg_min, &tchg_max);
+		if (ret < 0) {
+			pdata->junction_temp_min = -127;
+			pdata->junction_temp_max = -127;
+		} else {
+			pdata->junction_temp_min = tchg_min;
+			pdata->junction_temp_max = tchg_max;
+		}
+	}
+
+	if (info->dvchg2_dev) {
+		pdata = &info->dvchg2_data;
+		ret = charger_dev_get_adc(info->dvchg2_dev, ADC_CHANNEL_TEMP_JC,
+					  &tchg_min, &tchg_max);
+		if (ret < 0) {
+			pdata->junction_temp_min = -127;
+			pdata->junction_temp_max = -127;
+		} else {
+			pdata->junction_temp_min = tchg_min;
+			pdata->junction_temp_max = tchg_max;
+		}
+	}
 }
 
 static void charger_check_status(struct charger_manager *info)
@@ -1842,6 +1888,7 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 	info->enable_pe_plus = of_property_read_bool(np, "enable_pe_plus");
 	info->enable_pe_2 = of_property_read_bool(np, "enable_pe_2");
 	info->enable_pe_4 = of_property_read_bool(np, "enable_pe_4");
+	info->enable_pe_5 = of_property_read_bool(np, "enable_pe_5");
 	info->enable_type_c = of_property_read_bool(np, "enable_type_c");
 	info->enable_dynamic_mivr =
 			of_property_read_bool(np, "enable_dynamic_mivr");
@@ -3020,6 +3067,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			break;
 		};
 	}
+	mtk_pe50_notifier_call(pinfo, MTK_PE50_NOTISRC_TCP, evt, val);
 }
 
 static int proc_dump_log_show(struct seq_file *m, void *v)
@@ -3095,7 +3143,6 @@ void charger_debug_init(void)
 		charger_dir, &charger_dump_log_proc_fops);
 }
 
-
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct charger_manager *info = NULL;
@@ -3133,6 +3180,8 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->chg1_data.input_current_limit_by_aicl = -1;
 	info->chg2_data.thermal_charging_current_limit = -1;
 	info->chg2_data.thermal_input_current_limit = -1;
+	info->dvchg1_data.thermal_input_current_limit = -1;
+	info->dvchg2_data.thermal_input_current_limit = -1;
 
 	info->sw_jeita.error_recovery_flag = true;
 
@@ -3171,6 +3220,9 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (mtk_pe40_init(info) == false)
 		info->enable_pe_4 = false;
 
+	if (mtk_pe50_init(info) < 0)
+		info->enable_pe_5 = false;
+
 	mtk_pdc_init(info);
 	charger_ftm_init();
 	mtk_charger_get_atm_mode(info);
@@ -3204,6 +3256,9 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 static int mtk_charger_remove(struct platform_device *dev)
 {
+	struct charger_manager *info = platform_get_drvdata(dev);
+
+	mtk_pe50_deinit(info);
 	return 0;
 }
 

@@ -210,7 +210,8 @@ int adapter_is_support_pd(void)
 		return true;
 
 	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO &&
-		pinfo->enable_pe_4 == false)
+		pinfo->enable_pe_4 == false &&
+		pinfo->enable_pe_5 == false)
 		return true;
 
 	return false;
@@ -227,6 +228,14 @@ int set_charger_manager(struct charger_manager *info)
 int enable_vbus_ovp(bool en)
 {
 	charger_enable_vbus_ovp(pinfo, en);
+
+	return 0;
+}
+
+int wake_up_charger(void)
+{
+	if (pinfo != NULL)
+		_wake_up_charger(pinfo);
 
 	return 0;
 }

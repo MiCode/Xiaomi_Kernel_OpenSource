@@ -90,6 +90,11 @@ static void _disable_all_charging(struct charger_manager *info)
 			mtk_pe_reset_ta_vchr(info);
 	}
 
+	if (mtk_pe50_get_is_enable(info)) {
+		if (mtk_pe50_get_is_connect(info))
+			mtk_pe50_stop_algo(info, true);
+	}
+
 	if (mtk_pe40_get_is_enable(info)) {
 		if (mtk_pe40_get_is_connect(info))
 			mtk_pe40_end(info, 3, true);
@@ -105,6 +110,11 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret = 0;
+
+	if (info->pe5.online) {
+		chr_err("In PE5.0\n");
+		return;
+	}
 
 	pdata = &info->chg1_data;
 	mutex_lock(&swchgalg->ichg_aicr_access_mutex);
@@ -437,6 +447,7 @@ static int mtk_switch_charging_plug_out(struct charger_manager *info)
 	mtk_pe_set_is_cable_out_occur(info, true);
 	mtk_pdc_plugout(info);
 	mtk_pe40_plugout_reset(info);
+	mtk_pe50_plugout_reset(info);
 
 	return 0;
 }
@@ -453,6 +464,7 @@ static int mtk_switch_charging_do_charging(struct charger_manager *info,
 		get_monotonic_boottime(&swchgalg->charging_begin_time);
 		charger_manager_notifier(info, CHARGER_NOTIFY_NORMAL);
 		mtk_pe40_set_is_enable(info, en);
+		mtk_pe50_set_is_enable(info, en);
 	} else {
 		/* disable charging might change state, so call it first */
 		_disable_all_charging(info);
@@ -474,6 +486,46 @@ static int mtk_switch_chr_pe40_cc(struct charger_manager *info)
 {
 	swchg_turn_on_charging(info);
 	return mtk_pe40_cc_state(info);
+}
+
+static int mtk_switch_chr_pe50_ready(struct charger_manager *info)
+{
+	int ret;
+	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
+
+	ret = mtk_pe50_start(info);
+	if (ret < 0) {
+		info->pe5.online = false;
+		swchgalg->state = CHR_CC;
+	} else
+		swchgalg->state = CHR_PE50_RUNNING;
+	return 0;
+}
+
+static int mtk_switch_chr_pe50_running(struct charger_manager *info)
+{
+	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
+	struct charger_data *dvchg_data = &info->dvchg1_data;
+
+	if (!mtk_pe50_is_running(info))
+		goto stop;
+	if (!info->enable_hv_charging) {
+		mtk_pe50_stop_algo(info, true);
+		goto stop;
+	}
+
+	mtk_pe50_thermal_throttling(info,
+				    dvchg_data->thermal_input_current_limit);
+	if (info->enable_sw_jeita)
+		mtk_pe50_set_jeita_vbat_cv(info, info->sw_jeita.cv);
+	return 0;
+
+stop:
+	chr_info("%s PE5 stops\n", __func__);
+	info->pe5.online = false;
+	swchgalg->state = CHR_CC;
+	/* Let charging algorithm run CHR_CC immediately */
+	return -EINVAL;
 }
 
 /* return false if total charging time exceeds max_charging_time */
@@ -520,6 +572,13 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 	charging_time = timespec_sub(time_now, swchgalg->charging_begin_time);
 
 	swchgalg->total_charging_time = charging_time.tv_sec;
+
+	if (mtk_pe50_is_ready(info)) {
+		chr_err("enter PE5.0\n");
+		swchgalg->state = CHR_PE50_READY;
+		info->pe5.online = true;
+		return 1;
+	}
 
 	if (mtk_pe40_is_ready(info)) {
 		chr_err("enter PE4.0!\n");
@@ -602,6 +661,7 @@ int mtk_switch_chr_full(struct charger_manager *info)
 		mtk_pe20_set_to_check_chr_type(info, true);
 		mtk_pe_set_to_check_chr_type(info, true);
 		mtk_pe40_set_is_enable(info, true);
+		mtk_pe50_set_is_enable(info, true);
 		info->enable_dynamic_cv = true;
 		get_monotonic_boottime(&swchgalg->charging_begin_time);
 		chr_err("battery recharging!\n");
@@ -627,7 +687,8 @@ static int mtk_switch_charging_run(struct charger_manager *info)
 		swchgalg->total_charging_time);
 
 	if (mtk_pdc_check_charger(info) == false &&
-	    mtk_is_TA_support_pd_pps(info) == false) {
+	    mtk_is_TA_support_pd_pps(info) == false &&
+	    !info->pe5.online) {
 		mtk_pe20_check_charger(info);
 		if (mtk_pe20_get_is_connect(info) == false)
 			mtk_pe_check_charger(info);
@@ -647,6 +708,14 @@ static int mtk_switch_charging_run(struct charger_manager *info)
 
 		case CHR_PE40_CC:
 			ret = mtk_switch_chr_pe40_cc(info);
+			break;
+
+		case CHR_PE50_READY:
+			ret = mtk_switch_chr_pe50_ready(info);
+			break;
+
+		case CHR_PE50_RUNNING:
+			ret = mtk_switch_chr_pe50_running(info);
 			break;
 
 		case CHR_BATFULL:
@@ -703,9 +772,31 @@ int charger_dev_event(struct notifier_block *nb, unsigned long event, void *v)
 	return NOTIFY_DONE;
 }
 
+static int dvchg1_dev_event(struct notifier_block *nb, unsigned long event,
+			    void *data)
+{
+	struct charger_manager *info =
+			container_of(nb, struct charger_manager, dvchg1_nb);
+
+	chr_info("%s %ld", __func__, event);
+
+	return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event, data);
+}
+
+static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
+			    void *data)
+{
+	struct charger_manager *info =
+			container_of(nb, struct charger_manager, dvchg2_nb);
+
+	chr_info("%s %ld", __func__, event);
+
+	return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event, data);
+}
 
 int mtk_switch_charging_init(struct charger_manager *info)
 {
+	int ret = 0;
 	struct switch_charging_alg_data *swch_alg;
 
 	swch_alg = devm_kzalloc(&info->pdev->dev,
@@ -720,6 +811,25 @@ int mtk_switch_charging_init(struct charger_manager *info)
 	else
 		chr_err("*** Error : can't find primary charger ***\n");
 
+	info->dvchg1_dev = get_charger_by_name("primary_divider_chg");
+	if (info->dvchg1_dev) {
+		chr_err("Found primary divider charger [%s]\n",
+			info->dvchg1_dev->props.alias_name);
+		info->dvchg1_nb.notifier_call = dvchg1_dev_event;
+		register_charger_device_notifier(info->dvchg1_dev,
+						 &info->dvchg1_nb);
+	} else
+		chr_err("*** Error : can't find primary divider charger ***\n");
+	info->dvchg2_dev = get_charger_by_name("secondary_divider_chg");
+	if (info->dvchg2_dev) {
+		chr_err("Found secondary divider charger [%s]\n",
+			info->dvchg2_dev->props.alias_name);
+		info->dvchg2_nb.notifier_call = dvchg2_dev_event;
+		register_charger_device_notifier(info->dvchg2_dev,
+						 &info->dvchg2_nb);
+	} else
+		chr_err("*** Error : can't find secondary divider charger ***\n");
+
 	mutex_init(&swch_alg->ichg_aicr_access_mutex);
 
 	info->algorithm_data = swch_alg;
@@ -730,9 +840,5 @@ int mtk_switch_charging_init(struct charger_manager *info)
 	info->do_event = charger_dev_event;
 	info->change_current_setting = mtk_switch_charging_current;
 
-	return 0;
+	return ret;
 }
-
-
-
-

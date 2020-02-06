@@ -62,7 +62,6 @@
 #include <linux/suspend.h>
 
 #include <mt-plat/mtk_boot.h>
-/* #include <musb_core.h> */ /* FIXME */
 #include "mtk_charger_intf.h"
 #include "mtk_switch_charging.h"
 #include "mtk_intf.h"
@@ -91,6 +90,9 @@ static void _disable_all_charging(struct charger_manager *info)
 			mtk_pe_reset_ta_vchr(info);
 	}
 
+	if (info->enable_pe_5)
+		pe50_stop();
+
 	if (info->enable_pe_4)
 		pe40_stop();
 
@@ -104,6 +106,11 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret = 0;
+
+	if (info->pe5.online) {
+		chr_err("In PE5.0\n");
+		return;
+	}
 
 	pdata = &info->chg1_data;
 	mutex_lock(&swchgalg->ichg_aicr_access_mutex);
@@ -396,9 +403,13 @@ static int mtk_switch_charging_plug_out(struct charger_manager *info)
 	mtk_pe_set_is_cable_out_occur(info, true);
 	mtk_pdc_plugout(info);
 
+	if (info->enable_pe_5)
+		pe50_stop();
+
 	if (info->enable_pe_4)
 		pe40_stop();
 
+	info->leave_pe5 = false;
 	info->leave_pe4 = false;
 	info->leave_pdc = false;
 
@@ -426,6 +437,56 @@ static int mtk_switch_charging_do_charging(struct charger_manager *info,
 
 	return 0;
 }
+
+static int mtk_switch_chr_pe50_init(struct charger_manager *info)
+{
+	int ret;
+
+	ret = pe50_init();
+
+	if (ret == 0)
+		set_charger_manager(info);
+	else
+		chr_err("pe50 init fail\n");
+
+	info->leave_pe5 = false;
+
+	return ret;
+}
+
+static int mtk_switch_chr_pe50_run(struct charger_manager *info)
+{
+	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
+	/* struct charger_custom_data *pdata = &info->data; */
+	/* struct pe50_data *data; */
+	int ret = 0;
+
+	if (info->enable_hv_charging == false)
+		goto stop;
+
+	ret = pe50_run();
+
+	if (ret == 1) {
+		pr_info("retry pe5\n");
+		goto retry;
+	}
+
+	if (ret == 2) {
+		chr_err("leave pe5\n");
+		info->leave_pe5 = true;
+		swchgalg->state = CHR_CC;
+	}
+
+	return 0;
+
+stop:
+	pe50_stop();
+retry:
+	swchgalg->state = CHR_CC;
+
+	return 0;
+}
+
 
 static int mtk_switch_chr_pe40_init(struct charger_manager *info)
 {
@@ -711,6 +772,15 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 		info->data.high_temp_to_enter_pe40,
 		info->data.low_temp_to_enter_pe40);
 
+	if (info->enable_pe_5 && pe50_is_ready() && !info->leave_pe5) {
+		if (info->enable_hv_charging == true) {
+			chr_err("enter PE5.0\n");
+			swchgalg->state = CHR_PE50;
+			info->pe5.online = true;
+			return 1;
+		}
+	}
+
 	if (info->enable_pe_4 &&
 		pe40_is_ready() &&
 		!info->leave_pe4) {
@@ -844,6 +914,10 @@ static int mtk_switch_charging_run(struct charger_manager *info)
 			ret = mtk_switch_chr_cc(info);
 			break;
 
+		case CHR_PE50:
+			ret = mtk_switch_chr_pe50_run(info);
+			break;
+
 		case CHR_PE40:
 			ret = mtk_switch_chr_pe40_run(info);
 			break;
@@ -907,6 +981,27 @@ static int charger_dev_event(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static int dvchg1_dev_event(struct notifier_block *nb, unsigned long event,
+			    void *data)
+{
+	struct charger_manager *info =
+			container_of(nb, struct charger_manager, dvchg1_nb);
+
+	chr_info("%s %ld", __func__, event);
+
+	return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event, data);
+}
+
+static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
+			    void *data)
+{
+	struct charger_manager *info =
+			container_of(nb, struct charger_manager, dvchg2_nb);
+
+	chr_info("%s %ld", __func__, event);
+
+	return mtk_pe50_notifier_call(info, MTK_PE50_NOTISRC_CHG, event, data);
+}
 
 int mtk_switch_charging_init2(struct charger_manager *info)
 {
@@ -924,6 +1019,25 @@ int mtk_switch_charging_init2(struct charger_manager *info)
 	else
 		chr_err("*** Error : can't find primary charger ***\n");
 
+	info->dvchg1_dev = get_charger_by_name("primary_divider_chg");
+	if (info->dvchg1_dev) {
+		chr_err("Found primary divider charger [%s]\n",
+			info->dvchg1_dev->props.alias_name);
+		info->dvchg1_nb.notifier_call = dvchg1_dev_event;
+		register_charger_device_notifier(info->dvchg1_dev,
+						 &info->dvchg1_nb);
+	} else
+		chr_err("Can't find primary divider charger\n");
+	info->dvchg2_dev = get_charger_by_name("secondary_divider_chg");
+	if (info->dvchg2_dev) {
+		chr_err("Found secondary divider charger [%s]\n",
+			info->dvchg2_dev->props.alias_name);
+		info->dvchg2_nb.notifier_call = dvchg2_dev_event;
+		register_charger_device_notifier(info->dvchg2_dev,
+						 &info->dvchg2_nb);
+	} else
+		chr_err("Can't find secondary divider charger\n");
+
 	mutex_init(&swch_alg->ichg_aicr_access_mutex);
 
 	info->algorithm_data = swch_alg;
@@ -934,6 +1048,7 @@ int mtk_switch_charging_init2(struct charger_manager *info)
 	info->do_event = charger_dev_event;
 	info->change_current_setting = mtk_switch_charging_current;
 
+	mtk_switch_chr_pe50_init(info);
 	mtk_switch_chr_pe40_init(info);
 	mtk_switch_chr_pdc_init(info);
 
