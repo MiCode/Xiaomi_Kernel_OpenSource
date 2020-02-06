@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -337,9 +337,6 @@ static int qcom_ipcc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get the IRQ\n");
 		return proto_data->irq;
 	}
-
-	/* Perform a SW reset on this client's protocol state */
-	writel_relaxed(0x1, proto_data->base + IPCC_REG_CLIENT_CLEAR);
 
 	proto_data->irq_domain = irq_domain_add_tree(pdev->dev.of_node,
 						&qcom_ipcc_irq_ops,
