@@ -754,6 +754,7 @@ static struct clk_alpha_pll_postdiv gpll8_out_main = {
 		.name = "gpll8_out_main",
 		.parent_names = (const char *[]){ "gpll8" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_alpha_pll_postdiv_ro_ops,
 	},
 };
