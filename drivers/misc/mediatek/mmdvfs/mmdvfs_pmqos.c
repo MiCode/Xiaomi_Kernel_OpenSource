@@ -1143,7 +1143,7 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 	hrt_port = hrt_value;
 	list_for_each_entry(enum_req, &(req->port_node), port_node) {
 		if (enum_req->hrt_value) {
-			bw += SHIFT_ROUND(enum_req->hrt_value * 3, 1);
+			bw += enum_req->hrt_value;
 			hrt_port = true;
 		} else
 			bw += get_comp_value(enum_req->bw_value,
@@ -1151,8 +1151,11 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 	}
 
 	req->ostd = bw ? SHIFT_ROUND(bw, larb_req[larb].ratio[port]) : 1;
-	if (hrt_port && larb_req[larb].is_max_ostd)
-		req->ostd = max_ostd;
+	if (hrt_port) {
+		req->ostd = SHIFT_ROUND(req->ostd * 3, 1);
+		if (larb_req[larb].is_max_ostd)
+			req->ostd = max_ostd;
+	}
 
 	list_for_each_entry(enum_req, &(req->port_node), port_node)
 		enum_req->ostd = req->ostd;
