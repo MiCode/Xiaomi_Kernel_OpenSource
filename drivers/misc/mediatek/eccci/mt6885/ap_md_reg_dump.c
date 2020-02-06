@@ -403,7 +403,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	CCCI_MEM_LOG_TAG(md_index, TAG,
 		"Dump MD RGU: [0]0x0D112100, [1]0x0D112300\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
-		(dump_reg0 + 0x00000000), 0xCC);
+		(dump_reg0 + 0x00000000), 0xDD);
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00000200), 0x5C);
 	iounmap(dump_reg0);

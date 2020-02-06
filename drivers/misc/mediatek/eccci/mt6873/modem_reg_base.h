@@ -25,7 +25,7 @@
 
 #define CCIF_SRAM_SIZE 512
 
-#define BASE_ADDR_MDRSTCTL   0x200f0000  /* From md, no use by AP directly */
+#define BASE_ADDR_MDRSTCTL   0x0D112000  /* From md, no use by AP directly */
 #define MD_RGU_BASE          (BASE_ADDR_MDRSTCTL + 0x100)  /* AP use */
 
 /*========== MD Exception dump register list start[ */
