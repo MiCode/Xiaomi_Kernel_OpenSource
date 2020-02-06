@@ -225,6 +225,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.min_gain = 64,
 	.max_gain = 4096,
 	.min_gain_iso = 100,
+	.exp_step = 2,
 	.gain_step = 1,
 	.gain_type = 0,
 	.max_frame_length = 0xffff,
@@ -3985,6 +3986,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_shutter;
+		*(feature_data + 2) = imgsensor_info.exp_step;
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
