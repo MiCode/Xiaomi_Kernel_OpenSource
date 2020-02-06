@@ -19,7 +19,6 @@
 	aliases {
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
-		i2c2 = &qupv3_se2_i2c; /* SDR card */
 	};
 };
 
@@ -817,9 +816,4 @@
 
 &tlmm {
 	dirconn-list = <37 216 1>;
-};
-
-&qupv3_se2_i2c {
-	qcom,clk-freq-out = <400000>;
-	status = "ok";
 };
