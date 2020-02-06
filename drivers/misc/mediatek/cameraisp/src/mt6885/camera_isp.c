@@ -2764,14 +2764,41 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 {
 	unsigned int i, ispRange = 0;
 	int Ret = 0;
-
 	void __iomem *regBase;
-
-	/*  */
+	struct ISP_REG_STRUCT *pReg = NULL;
 	struct ISP_REG_STRUCT reg;
-	struct ISP_REG_STRUCT *pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
 
-	switch (pData->module) {
+	if ((pRegIo->pData == NULL) ||
+			(pRegIo->Count == 0) ||
+			(pRegIo->Count > ISP_REG_RANGE)) {
+		LOG_NOTICE(
+			"pRegIo->pData is NULL, Count:%d!!\n",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
+
+	pReg = kmalloc((pRegIo->Count) *
+		sizeof(struct ISP_REG_STRUCT), GFP_ATOMIC);
+
+	if (pReg == NULL) {
+		LOG_NOTICE(
+			"ERROR: kmalloc failed,(process, pid, tgid)=(%s, %d, %d)\n",
+			current->comm,
+			current->pid,
+			current->tgid);
+			Ret = -ENOMEM;
+		goto EXIT;
+	}
+
+	if (copy_from_user(pReg, (void __user *)pRegIo->pData,
+			sizeof(struct ISP_REG_STRUCT) * pRegIo->Count) != 0) {
+		LOG_NOTICE("copy_from_user failed\n");
+		Ret = -EFAULT;
+		goto EXIT;
+	}
+
+	switch (pReg->module) {
 	case ISP_CAM_A_IDX:
 		regBase = ISP_CAM_A_BASE;
 		break;
@@ -2806,7 +2833,7 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		regBase = ISP_CAMSV7_BASE;
 		break;
 	default:
-		LOG_NOTICE("Unsupported module(%x) !!!\n", pData->module);
+		LOG_NOTICE("Unsupported module(%x) !!!\n", pReg->module);
 		Ret = -EFAULT;
 		goto EXIT;
 	}
@@ -2817,7 +2844,7 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		ispRange = PAGE_SIZE;
 
 	for (i = 0; i < pRegIo->Count; i++) {
-		if (get_user(reg.Addr, (unsigned int *)&pData->Addr) != 0) {
+		if (get_user(reg.Addr, (unsigned int *)&pReg->Addr) != 0) {
 			LOG_NOTICE("get_user failed\n");
 			Ret = -EFAULT;
 			goto EXIT;
@@ -2832,16 +2859,22 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 			reg.Val = 0;
 		}
 
-		if (put_user(reg.Val, (unsigned int *)&(pData->Val)) != 0) {
+		if (put_user(reg.Val,
+			(unsigned int *)&(pRegIo->pData->Val)) != 0) {
 			LOG_NOTICE("put_user failed\n");
 			Ret = -EFAULT;
 			goto EXIT;
 		}
-		pData++;
-		/*  */
+		pReg++;
+		/* */
 	}
-/*  */
+/* */
 EXIT:
+	if (pReg != NULL) {
+		kfree(pReg);
+		pReg = NULL;
+	}
+
 	return Ret;
 }
 
