@@ -50,6 +50,7 @@
 //#define EARLY_PORTING_VPU
 #define ENABLE_MINIHQA		(0)
 #define ENABLE_REMOVE_AGING	(0)
+#define EN_TEST_EQUATION	(0)
 
 #if DVT
 #define DUMP_LEN		410

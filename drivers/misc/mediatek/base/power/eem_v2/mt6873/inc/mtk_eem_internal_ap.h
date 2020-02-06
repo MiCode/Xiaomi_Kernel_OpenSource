@@ -351,13 +351,12 @@ struct sensing_stru {
 	uint64_t CPE_Vmin_HW;
 #endif
 	unsigned int SN_Vmin;
-	unsigned int CPE_Vmin;
+	int CPE_Vmin;
 	unsigned int cur_volt;
 #if !VMIN_PREDICT_ENABLE
 	/* unsigned int count_cur_volt_HT; */
 	int Sensor_Volt_HT;
 	int Sensor_Volt_RT;
-	int ATE_Temp_decode;
 	int8_t CPE_temp;
 	int8_t SN_temp;
 	unsigned char T_SVT_current;
@@ -374,6 +373,8 @@ struct sn_log_data {
 	unsigned int reg_dump_sndata[SIZE_SN_DUMP_SENSOR];
 	unsigned int reg_dump_sn_cpu[NUM_SN_CPU][SIZE_SN_MCUSYS_REG];
 	struct sensing_stru sd[NR_SN_DET];
+	unsigned int footprint[NR_SN_DET];
+	unsigned int allfp;
 #if VMIN_PREDICT_ENABLE
 	unsigned int sn_cpe_vop;
 #endif
@@ -416,9 +417,12 @@ struct sn_log_cal_data {
 	int64_t cpe_init_aging;
 	struct A_Tused_VT atvt;
 	int TEMP_CAL;
+	int volt_cross;
 	short CPE_Aging;
 	int8_t sn_aging;
 	int8_t delta_vc;
+	uint8_t T_SVT_HV_RT;
+	uint8_t T_SVT_LV_RT;
 };
 
 struct sn_ring_buf {

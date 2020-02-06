@@ -600,6 +600,21 @@ static int get_devinfo(void)
 		val[22] = DEVINFO_25;
 	}
 
+#if EN_TEST_EQUATION
+	eem_devinfo.ATE_TEMP = 3;
+#if 0
+	eem_devinfo.T_SVT_HV_BCPU = 108;
+	eem_devinfo.T_SVT_LV_BCPU = 60;
+	eem_devinfo.T_SVT_HV_BCPU_RT = 110;
+	eem_devinfo.T_SVT_LV_BCPU_RT = 59;
+	eem_devinfo.T_SVT_HV_LCPU = 108;
+	eem_devinfo.T_SVT_LV_LCPU = 60;
+	eem_devinfo.T_SVT_HV_LCPU_RT = 110;
+	eem_devinfo.T_SVT_LV_LCPU_RT = 59;
+#endif
+	val[22] = 0x3B6D3B6E;
+
+#endif
 
 
 	FUNC_EXIT(FUNC_LV_HELP);
@@ -1813,9 +1828,9 @@ static int eem_probe(struct platform_device *pdev)
 	}
 	for_each_det(det) {
 		if (eemsn_log->init2_v_ready == 0)
-			memcpy(det->volt_tbl_pmic,
-				det->volt_tbl_orig,
-				sizeof(det->volt_tbl_pmic));
+			for (i = 0; i < NR_FREQ; i++)
+				det->volt_tbl_pmic[i] = (unsigned int)
+					det->volt_tbl_orig[i];
 		else {
 			for (i = 0; i < NR_FREQ; i++) {
 				if (
@@ -1826,10 +1841,9 @@ static int eem_probe(struct platform_device *pdev)
 				eem_debug("pmic[%d], 0x%x",
 					i, det->volt_tbl_pmic[i]);
 			}
-
-			eem_update_init2_volt_to_upower(det,
-				det->volt_tbl_pmic);
 		}
+		eem_update_init2_volt_to_upower(det,
+			det->volt_tbl_pmic);
 		eem_save_final_volt_aee(det);
 	}
 #endif
@@ -2295,17 +2309,17 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 			seq_printf(m, "[%d]T_SVT_HV_BCPU:%d %d %d %d\n",
 				seq++, eem_devinfo.T_SVT_HV_LCPU,
 				eem_devinfo.T_SVT_LV_LCPU,
-				eem_devinfo.T_SVT_HV_LCPU_RT,
-				eem_devinfo.T_SVT_LV_LCPU_RT);
+				eemsn_log->sn_cal_data[i].T_SVT_HV_RT,
+				eemsn_log->sn_cal_data[i].T_SVT_LV_RT);
 		else
 			seq_printf(m, "[%d]T_SVT_HV_LCPU:%d %d %d %d\n",
 				seq, eem_devinfo.T_SVT_HV_LCPU,
 				eem_devinfo.T_SVT_LV_LCPU,
-				eem_devinfo.T_SVT_HV_LCPU_RT,
-				eem_devinfo.T_SVT_LV_LCPU_RT);
+				eemsn_log->sn_cal_data[i].T_SVT_HV_RT,
+				eemsn_log->sn_cal_data[i].T_SVT_LV_RT);
 
 		seq_printf(m, "[%d]id:%d, ATE_Temp_decode:%d, T_SVT_current:%d, ",
-			seq++, i, eemsn_log->sn_log.sd[i].ATE_Temp_decode,
+			seq++, i, (eem_devinfo.ATE_TEMP * 10 + 35),
 			eemsn_log->sn_log.sd[i].T_SVT_current);
 
 		seq_printf(m, "Sensor_Volt_HT:%d, Sensor_Volt_RT:%d\n",
@@ -2321,14 +2335,17 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 			eemsn_log->sn_log.sd[i].SN_temp,
 			eemsn_log->sn_log.sd[i].CPE_temp);
 
-		seq_printf(m, "cur_opp:%d, dst_volt_pmic:0x%x\n",
+		seq_printf(m, "cur_opp:%d, dst_volt_pmic:0x%x, footprint:0x%x\n",
 			eemsn_log->sn_log.sd[i].cur_oppidx,
-			eemsn_log->sn_log.sd[i].dst_volt_pmic);
+			eemsn_log->sn_log.sd[i].dst_volt_pmic,
+			eemsn_log->sn_log.footprint[i]);
 		seq_printf(m, "[%d]cur_volt:%d, new dst_volt_pmic:%d, cur temp:%d\n",
 			seq++, eemsn_log->sn_log.sd[i].cur_volt,
 			eemsn_log->sn_log.sd[i].dst_volt_pmic * CPU_PMIC_STEP,
 			eemsn_log->sn_log.sd[i].cur_temp);
 	}
+	seq_printf(m, "allfp:0x%x\n",
+		eemsn_log->sn_log.allfp);
 
 	dump_sndata_to_de(m);
 
@@ -2418,6 +2435,8 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 			eemsn_log->sn_cal_data[i].delta_vc,
 			eemsn_log->sn_cal_data[i].CPE_Aging,
 			eemsn_log->sn_cal_data[i].sn_aging);
+		seq_printf(m, "volt_cross:%d\n",
+			eemsn_log->sn_cal_data[i].volt_cross);
 	}
 
 	if (ipi_ret != 0)
@@ -2499,7 +2518,7 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 
 	for (i = IDX_HW_RES_SN; i < NR_HW_RES_FOR_BANK; i++)
 		seq_printf(m, "%s[PTP_DUMP] RES%d: 0x%08X\n", EEM_TAG,
-			((i >= IDX_HW_RES_SN) ? (i + 3) : i),
+			(i + 3),
 			val[i]);
 
 	FUNC_EXIT(FUNC_LV_HELP);
@@ -3106,7 +3125,7 @@ struct eemsn_det *det;
 	eem_log_size = sizeof(struct eemsn_log);
 	eemsn_log = (struct eemsn_log *)eem_log_virt_addr;
 
-
+	memset(eemsn_log, 0, sizeof(struct eemsn_log));
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	eem_data.u.data.arg[0] = eem_log_phy_addr;
 	eem_data.u.data.arg[1] = eem_log_size;
