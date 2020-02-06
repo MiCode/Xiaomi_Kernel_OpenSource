@@ -2942,8 +2942,15 @@ static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
+void mtk_color_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	mtk_color_config(comp, cfg, handle);
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_color_funcs = {
 	.config = mtk_color_config,
+	.first_cfg = mtk_color_first_cfg,
 	.start = mtk_color_start,
 	.stop = mtk_color_stop,
 	.bypass = mtk_color_bypass,
