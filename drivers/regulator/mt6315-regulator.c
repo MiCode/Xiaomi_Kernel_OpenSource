@@ -57,7 +57,6 @@ struct pmic_irq_data {
  * @qi: Mask for query enable signal status of regulators.
  * @modeset_reg: for operating AUTO/PWM mode register.
  * @modeset_mask: MASK for operating modeset register.
- * @modeset_shift: SHIFT for operating modeset register.
  */
 struct mt6315_regulator_info {
 	struct regulator_desc desc;
@@ -69,7 +68,6 @@ struct mt6315_regulator_info {
 	u32 qi;
 	u32 modeset_reg;
 	u32 modeset_mask;
-	u32 modeset_shift;
 	u32 lp_mode_reg;
 	u32 lp_mode_mask;
 	u32 lp_mode_shift;
@@ -282,7 +280,8 @@ static int mt6315_irq_init(struct mt6315_chip *chip)
 				 REGULATOR_CHANGE_VOLTAGE |	\
 				 REGULATOR_CHANGE_MODE)
 
-#define MT_BUCK(match, _name, min, max, step, volt_ranges, _bid, mode)	\
+#define MT_BUCK(match, _name, min, max, step, volt_ranges, _bid, mode,	\
+		_modeset_mask)						\
 [MT6315_ID_##_name] = {							\
 	.desc = {							\
 		.name = #_name,						\
@@ -320,8 +319,7 @@ static int mt6315_irq_init(struct mt6315_chip *chip)
 	.lp_mode_mask = BIT(MT6315_PMIC_RG_BUCK_VBUCK##_bid##_LP_SHIFT),\
 	.lp_mode_shift = MT6315_PMIC_RG_BUCK_VBUCK##_bid##_LP_SHIFT,	\
 	.modeset_reg = MT6315_PMIC_RG_VBUCK##_bid##_FCCM_ADDR,		\
-	.modeset_mask = BIT(MT6315_PMIC_RG_VBUCK##_bid##_FCCM_SHIFT),	\
-	.modeset_shift = MT6315_PMIC_RG_VBUCK##_bid##_FCCM_SHIFT,	\
+	.modeset_mask = _modeset_mask,					\
 }
 
 static const struct regulator_linear_range mt_volt_range1[] = {
@@ -373,10 +371,8 @@ static unsigned int mt6315_regulator_get_mode(struct regulator_dev *rdev)
 		return ret;
 	}
 
-	if ((regval & info->modeset_mask) >> info->modeset_shift ==
-		MT6315_BUCK_MODE_FORCE_PWM)
+	if ((regval & info->modeset_mask) == info->modeset_mask)
 		return REGULATOR_MODE_FAST;
-
 
 	ret = regmap_read(rdev->regmap, info->lp_mode_reg, &regval);
 	if (ret != 0) {
@@ -408,21 +404,17 @@ static int mt6315_regulator_set_mode(struct regulator_dev *rdev,
 				   rdev->desc->name);
 			return -EIO;
 		}
-		val = MT6315_BUCK_MODE_FORCE_PWM;
-		val <<= info->modeset_shift;
 		ret = regmap_update_bits(rdev->regmap,
 					 info->modeset_reg,
 					 info->modeset_mask,
-					 val);
+					 info->modeset_mask);
 		break;
 	case REGULATOR_MODE_NORMAL:
 		if (curr_mode == REGULATOR_MODE_FAST) {
-			val = MT6315_BUCK_MODE_AUTO;
-			val <<= info->modeset_shift;
 			ret = regmap_update_bits(rdev->regmap,
 						 info->modeset_reg,
 						 info->modeset_mask,
-						 val);
+						 0);
 		} else if (curr_mode == REGULATOR_MODE_IDLE) {
 			val = MT6315_BUCK_MODE_NORMAL;
 			val <<= info->lp_mode_shift;
@@ -495,25 +487,25 @@ static const struct regulator_ops mt6315_volt_range_ops = {
 /* The array is indexed by id(MT6315_ID_SID_XXX) */
 static struct mt6315_regulator_info mt6315_6_regulators[] = {
 	MT_BUCK("6_vbuck1", 6_VBUCK1, 300000, 1193750, 6250,
-		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE),
+		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0xB),
 	MT_BUCK("6_vbuck3", 6_VBUCK3, 300000, 1193750, 6250,
-		mt_volt_range1, 3, MT_BUCK_VOL_EN_MODE),
+		mt_volt_range1, 3, MT_BUCK_VOL_EN_MODE, 0x4),
 };
 
 static struct mt6315_regulator_info mt6315_7_regulators[] = {
 	MT_BUCK("7_vbuck1", 7_VBUCK1, 300000, 1193750, 6250,
-		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE),
+		mt_volt_range1, 1, MT_BUCK_VOL_EN_MODE, 0x3),
 	MT_BUCK("7_vbuck3", 7_VBUCK3, 300000, 1193750, 6250,
-		mt_volt_range1, 3, MT_BUCK_VOL_EN),
+		mt_volt_range1, 3, MT_BUCK_VOL_EN, 0x4),
 };
 
 static struct mt6315_regulator_info mt6315_3_regulators[] = {
 	MT_BUCK("3_vbuck1", 3_VBUCK1, 300000, 1193750, 6250,
-		mt_volt_range1, 1, MT_BUCK_VOL_EN),
+		mt_volt_range1, 1, MT_BUCK_VOL_EN, 0x3),
 	MT_BUCK("3_vbuck3", 3_VBUCK3, 300000, 1193750, 6250,
-		mt_volt_range1, 3, MT_BUCK_VOL_EN),
+		mt_volt_range1, 3, MT_BUCK_VOL_EN, 0x4),
 	MT_BUCK("3_vbuck4", 3_VBUCK4, 300000, 1193750, 6250,
-		mt_volt_range1, 4, MT_BUCK_VOL_EN),
+		mt_volt_range1, 4, MT_BUCK_VOL_EN, 0x8),
 };
 
 static const struct mt_regulator_init_data mt6315_6_regulator_init_data = {
