@@ -151,7 +151,8 @@ bool dcm_infra_is_on(void)
 
 	ret &= dcm_infracfg_ao_aximem_bus_dcm_is_on();
 	ret &= dcm_infracfg_ao_infra_bus_dcm_is_on();
-	ret &= dcm_infracfg_ao_infra_conn_bus_dcm_is_on();
+	/*avoid status check using set/clr reg.*/
+	/*ret &= dcm_infracfg_ao_infra_conn_bus_dcm_is_on();*/
 	ret &= dcm_infracfg_ao_infra_rx_p2p_dcm_is_on();
 	ret &= dcm_infracfg_ao_peri_bus_dcm_is_on();
 	ret &= dcm_infracfg_ao_peri_module_dcm_is_on();
