@@ -187,7 +187,8 @@ static int mtk_gamma_set_lut(struct mtk_ddp_comp *comp,
 				kfree(old_lut);
 
 			if (comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(comp->mtk_crtc, false);
+				mtk_crtc_check_trigger(comp->mtk_crtc, false,
+					false);
 		} else {
 			DDPPR_ERR("%s: invalid ID = %d\n", __func__, comp->id);
 			ret = -EFAULT;

@@ -487,7 +487,8 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 
 		if (default_comp != NULL &&
 				default_comp->mtk_crtc != NULL)
-			mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false,
+				true);
 
 		DDPINFO("%s: trigger refresh when backlight ON/Off", __func__);
 	}
@@ -529,7 +530,7 @@ static int disp_ccorr_set_coef(
 			if (old_ccorr != NULL)
 				kfree(old_ccorr);
 
-			mtk_crtc_check_trigger(comp->mtk_crtc, false);
+			mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
 		} else {
 			DDPPR_ERR("%s: invalid ID = %d\n", __func__, id);
 			ret = -EFAULT;
@@ -627,7 +628,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	mutex_unlock(&g_ccorr_global_lock);
 
 	if (need_refresh == true && comp->mtk_crtc != NULL)
-		mtk_crtc_check_trigger(comp->mtk_crtc, false);
+		mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
 
 	return ret;
 }
@@ -670,7 +671,7 @@ int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
 	int *enabled = data;
 
 	if (enabled)
-		mtk_crtc_check_trigger(comp->mtk_crtc, false);
+		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
 
 	//mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
 	disp_ccorr_set_interrupt(comp, *enabled);

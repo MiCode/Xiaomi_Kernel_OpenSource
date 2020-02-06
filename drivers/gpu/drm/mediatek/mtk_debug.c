@@ -899,7 +899,7 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		mtk_crtc = to_mtk_crtc(crtc);
-		mtk_crtc_check_trigger(mtk_crtc, 0);
+		mtk_crtc_check_trigger(mtk_crtc, false, true);
 	} else if (strncmp(opt, "checkd", 6) == 0) { /* check trigger delay */
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -913,7 +913,7 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		mtk_crtc = to_mtk_crtc(crtc);
-		mtk_crtc_check_trigger(mtk_crtc, 1);
+		mtk_crtc_check_trigger(mtk_crtc, true, true);
 	} else if (!strncmp(opt, "fake_layer:", 11)) {
 		unsigned int mask;
 		struct drm_crtc *crtc;

@@ -660,7 +660,8 @@ int mtk_crtc_find_next_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 		enum mtk_ddp_comp_id comp_id);
 void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable);
-void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
+void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
+		bool need_lock);
 
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 void mtk_crtc_clear_wait_event(struct drm_crtc *crtc);

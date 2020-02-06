@@ -390,7 +390,7 @@ void disp_aal_refresh_by_kernel(void)
 
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight or Kernel API latency should be smallest */
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 	}
 }
 
@@ -499,7 +499,7 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 
 	if (*enabled)
-		mtk_crtc_check_trigger(comp->mtk_crtc, true);
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
 
 	return ret;
 }
@@ -1167,7 +1167,7 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	AALFLOW_LOG("delay refresh: %d", g_aal_param.refreshLatency);
 	if (g_aal_param.refreshLatency == 33)
 		delay_refresh = true;
-	mtk_crtc_check_trigger(comp->mtk_crtc, delay_refresh);
+	mtk_crtc_check_trigger(comp->mtk_crtc, delay_refresh, true);
 	return ret;
 }
 
