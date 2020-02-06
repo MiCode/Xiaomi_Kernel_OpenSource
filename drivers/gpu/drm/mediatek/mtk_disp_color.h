@@ -294,17 +294,6 @@ int mtk_drm_ioctl_write_sw_reg(struct drm_device *dev, void *data,
 #define SW_VERSION_PQDS             (1)
 #endif
 
-#if defined(DISP_COLOR_ON)
-#define COLOR_MODE			(1)
-#elif defined(MDP_COLOR_ON)
-#define COLOR_MODE			(2)
-#elif defined(DISP_MDP_COLOR_ON)
-#define COLOR_MODE			(3)
-#else
-#define COLOR_MODE			(0)	/*color feature off */
-#endif
-
-
 #define DISP_COLOR_SWREG_START          (0xFFFF0000)
 #define DISP_COLOR_SWREG_COLOR_BASE     (DISP_COLOR_SWREG_START)
 #define DISP_COLOR_SWREG_TDSHP_BASE     (DISP_COLOR_SWREG_COLOR_BASE + 0x1000)

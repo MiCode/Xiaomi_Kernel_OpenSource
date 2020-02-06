@@ -2211,7 +2211,6 @@ static bool color_get_MDP_COLOR0_REG(struct resource *res)
 	return true;
 }
 
-#if defined(SUPPORT_MDP_AAL)
 static bool color_get_MDP_AAL0_REG(struct resource *res)
 {
 	int rc = 0;
@@ -2226,69 +2225,10 @@ static bool color_get_MDP_AAL0_REG(struct resource *res)
 		return false;
 	}
 
-	DDPDBG("MDP_AAL0 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+	DDPDBG("MDP_AAL0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
 
 	return true;
 }
-
-static bool color_get_MDP_AAL1_REG(struct resource *res)
-{
-	int rc = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal1");
-	rc = of_address_to_resource(node, 0, res);
-
-	// check if fail to get reg.
-	if (rc) {
-		DDPINFO("Fail to get MDP_AAL1 REG\n");
-		return false;
-	}
-
-	DDPDBG("MDP_AAL1 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
-
-	return true;
-}
-
-static bool color_get_MDP_AAL2_REG(struct resource *res)
-{
-	int rc = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal2");
-	rc = of_address_to_resource(node, 0, res);
-
-	// check if fail to get reg.
-	if (rc) {
-		DDPINFO("Fail to get MDP_AAL2 REG\n");
-		return false;
-	}
-
-	DDPDBG("MDP_AAL2 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
-
-	return true;
-}
-
-static bool color_get_MDP_AAL3_REG(struct resource *res)
-{
-	int rc = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal3");
-	rc = of_address_to_resource(node, 0, res);
-
-	// check if fail to get reg.
-	if (rc) {
-		DDPINFO("Fail to get MDP_AAL3 REG\n");
-		return false;
-	}
-
-	DDPDBG("MDP_AAL3 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
-
-	return true;
-}
-#endif
-
 
 static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	unsigned long addr)
@@ -2353,13 +2293,11 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	}
 
 	/*Check if MDP AAL base address*/
-#if defined(SUPPORT_MDP_AAL)
 	if (color_get_MDP_AAL0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
 		DDPDBG("addr=0x%lx, module=MDP_AAL0\n", addr);
 		return 2;
 	}
-#endif
 
 	if (color_get_TDSHP0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
@@ -2552,9 +2490,9 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 
 	case SWREG_MDP_AAL_BASE_ADDRESS:
 		{
-#if defined(SUPPORT_AAL)
-			ret = MDP_AAL0_PA_BASE;
-#endif
+			if (color_get_MDP_AAL0_REG(&res))
+				ret = res.start;
+
 			break;
 		}
 
