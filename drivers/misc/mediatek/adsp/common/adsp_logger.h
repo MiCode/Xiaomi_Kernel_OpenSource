@@ -17,7 +17,7 @@ struct log_ctrl_s {
 	unsigned int buff_size;
 	unsigned int inited;     /* ap used */
 	struct mutex lock;       /* ap used */
-	struct work_struct work; /* ap used */
+	struct delayed_work work; /* ap used */
 };
 
 struct buffer_info_s {

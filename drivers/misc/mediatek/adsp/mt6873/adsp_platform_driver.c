@@ -128,7 +128,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID);
-	INIT_WORK(&pdata->log_ctrl->work, adsp_logger_init0_cb);
+	INIT_DELAYED_WORK(&pdata->log_ctrl->work, adsp_logger_init0_cb);
 
 	/* mailbox */
 	mutex_init(&pdata->send_mbox->mutex_send);
@@ -165,7 +165,7 @@ int adsp_core1_init(struct adsp_priv *pdata)
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_B_LOGGER_MEM_ID);
-	INIT_WORK(&pdata->log_ctrl->work, adsp_logger_init1_cb);
+	INIT_DELAYED_WORK(&pdata->log_ctrl->work, adsp_logger_init1_cb);
 
 	/* mailbox */
 	mutex_init(&pdata->send_mbox->mutex_send);

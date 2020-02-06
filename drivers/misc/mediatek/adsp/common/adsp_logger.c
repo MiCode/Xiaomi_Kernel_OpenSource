@@ -133,11 +133,24 @@ error:
  */
 static void adsp_logger_init_handler(int id, void *data, unsigned int len)
 {
-	unsigned int cid = *(unsigned int *)data;
-	struct adsp_priv *pdata = get_adsp_core_by_id(cid);
+	unsigned int *ptr = (unsigned int *)data;
+	unsigned int delay = 0;
+
+	struct adsp_priv *pdata = get_adsp_core_by_id(*ptr);
+
+	if (len > sizeof(unsigned int)) {
+		/* sync error, show error message, add delay for re-sync */
+		delay = msecs_to_jiffies(100);
+		pr_info("%s, resync fail msg, id(%u), addr(0x%x), size(0x%x), check:[0x%x, 0x%x, 0x%x, 0x%x, 0x%x]\n",
+			__func__,
+			*(ptr + 0), *(ptr + 1),
+			*(ptr + 2), *(ptr + 3),
+			*(ptr + 4), *(ptr + 5),
+			*(ptr + 6), *(ptr + 7));
+	}
 
 	/* send work to initialize logger*/
-	schedule_work(&pdata->log_ctrl->work);
+	schedule_delayed_work(&pdata->log_ctrl->work, delay);
 }
 
 /*
