@@ -847,6 +847,8 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
 			b_requestType, b_request,
 			w_value, w_index, w_length);
 */
+	if (!dev)
+		goto err;
 
 	if (b_requestType == (USB_DIR_OUT | USB_TYPE_VENDOR)) {
 		if (b_request == ACCESSORY_START) {
