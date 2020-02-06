@@ -39,9 +39,10 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
-			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
-			firmware_class.path=/vendor/firmware \
-			page_owner=on";
+vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
+firmware_class.path=/vendor/firmware \
+page_owner=on";
+		kaslr-seed = <0 0>;
 	};
 
 	aliases {
