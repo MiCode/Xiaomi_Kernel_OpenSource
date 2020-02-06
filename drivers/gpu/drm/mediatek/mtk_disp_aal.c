@@ -131,6 +131,10 @@ struct dre3_node {
 
 struct mtk_disp_aal_data {
 	bool support_shadow;
+	int aal_dre_hist_start;
+	int aal_dre_hist_end;
+	int aal_dre_gain_start;
+	int aal_dre_gain_end;
 };
 
 struct mtk_disp_aal {
@@ -1317,6 +1321,8 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 	int dump_start = -1;
 	u32 dump_table[6] = {0};
 
+	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+
 	/* Read Global histogram for ESS */
 	if (disp_aal_read_single_hist(comp) != true)
 		return false;
@@ -1327,8 +1333,9 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 		dump_start = 6 * (dump_blk_x + dump_blk_y * 16);
 
 	/* Read Local histogram for DRE 3 */
-	for (hist_offset = AAL_DRE_HIST_START; hist_offset <= AAL_DRE_HIST_END;
-		hist_offset += 4) {
+	for (hist_offset = aal_data->data->aal_dre_hist_start;
+		hist_offset <= aal_data->data->aal_dre_hist_end;
+			hist_offset += 4) {
 		if (disp_aal_sram_read(comp, hist_offset, &read_value) != true)
 			return false;
 
@@ -1353,10 +1360,13 @@ static bool disp_aal_write_dre3(struct mtk_ddp_comp *comp)
 	int arry_offset = 0;
 	unsigned int write_value;
 
+	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+
 	/* Write Local Gain Curve for DRE 3 */
 	AALIRQ_LOG("start\n");
-	for (gain_offset = AAL_DRE_GAIN_START; gain_offset <= AAL_DRE_GAIN_END;
-		gain_offset += 4) {
+	for (gain_offset = aal_data->data->aal_dre_gain_start;
+		gain_offset <= aal_data->data->aal_dre_gain_end;
+			gain_offset += 4) {
 		if (arry_offset >= AAL_DRE30_GAIN_REGISTER_NUM)
 			return false;
 		write_value = g_aal_gain.dre30_gain[arry_offset++];
@@ -2117,6 +2127,8 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	if (!default_comp)
 		default_comp = &priv->ddp_comp;
 
+	priv->data = of_device_get_match_data(dev);
+
 	platform_set_drvdata(pdev, priv);
 
 	ret = devm_request_irq(dev, irq, mtk_disp_aal_irq_handler,
@@ -2198,10 +2210,18 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_aal_data mt6885_aal_driver_data = {
 	.support_shadow = false,
+	.aal_dre_hist_start = 1152,
+	.aal_dre_hist_end   = 4220,
+	.aal_dre_gain_start = 4224,
+	.aal_dre_gain_end   = 6396,
 };
 
 static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
 	.support_shadow = false,
+	.aal_dre_hist_start = 1536,
+	.aal_dre_hist_end   = 4604,
+	.aal_dre_gain_start = 4608,
+	.aal_dre_gain_end   = 6780,
 };
 
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
