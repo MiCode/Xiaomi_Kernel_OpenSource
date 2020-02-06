@@ -292,17 +292,28 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 	struct mtk_vcodec_dev *dev = NULL;
 
 	#define REG1_COUNT 13
-	#define REG2_COUNT 19
+	#define REG2_COUNT 46
+	#define REG3_COUNT 4
+
 	unsigned int Reg_1[REG1_COUNT] = {
 		0x14, 0xEC, 0x1C0, 0x1168, 0x11C0,
 		0x11C4, 0xF4, 0x5C, 0x60, 0x130,
 		0x24, 0x114C, 0x1164};
 	unsigned int Reg_2[REG2_COUNT] = {
-		0xEC, 0x200, 0x204, 0x208,
-		0x20C, 0x218, 0x21C, 0x228,
+		0xEC, 0x200, 0x204, 0x208, 0x20C,
+		0x210, 0x214, 0x218, 0x21C,
+		0x220, 0x224, 0x228, 0x22C,
+		0x230, 0x234, 0x238, 0x23C,
+		0x240, 0x244, 0x248, 0x24C,
+		0x250, 0x254, 0x258, 0x25C,
+		0x260, 0x264, 0x268, 0x26C,
+		0x270, 0x274, 0x278, 0x27C,
+		0x280,
 		0x22C, 0x230, 0xF4, 0x1168,
 		0x11C0, 0x11C4, 0x1030, 0x240,
-		0x248, 0x250, 0x130};
+		0x248, 0x250, 0x130, 0x140};
+	unsigned int Reg_3[REG3_COUNT] = {
+		0x00, 0xF4, 0x118, 0x120};
 
 	if (ctx == NULL) {
 		mtk_v4l2_debug(0, "can't dump venc for NULL ctx");
@@ -314,23 +325,32 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
 	    ctx, dev->is_codec_suspending);
 
-	for (j = 0; j < MTK_VENC_CORE_0; j++) {
+	for (j = 0; j < MTK_VENC_CORE_1; j++) {
 		for (i = 0; i < REG1_COUNT; i++) {
 			value = readl(dev->enc_reg_base[j] + Reg_1[i]);
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
 			    j, Reg_1[i], value);
 		}
 	}
+
+
 	writel(1, dev->enc_reg_base[0] + 0xEC);
 	writel(0, dev->enc_reg_base[0] + 0xF4);
 
-	for (j = 0; j < MTK_VENC_CORE_0; j++) {
+	for (j = 0; j < MTK_VENC_CORE_1; j++) {
 		for (i = 0; i < REG2_COUNT; i++) {
 			value = readl(dev->enc_reg_base[j] + Reg_2[i]);
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
 			    j, Reg_2[i], value);
 		}
 	}
+
+	for (i = 0; i < REG3_COUNT; i++) {
+		value = readl(dev->enc_reg_base[1] + Reg_3[i]);
+		mtk_v4l2_debug(0, "gcon 0x%x = 0x%lx",
+			   Reg_3[i], value);
+	}
+
 }
 
 void mtk_vcodec_dec_timeout_dump(void *ctx)
