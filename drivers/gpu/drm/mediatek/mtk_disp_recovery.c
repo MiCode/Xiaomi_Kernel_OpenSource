@@ -174,14 +174,15 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		return -EINVAL;
 	}
 
-	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 	cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
 	cmdq_handle->err_cb.data = crtc;
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-					 DDP_SECOND_PATH);
+					 DDP_SECOND_PATH, 1);
 	else
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+					 DDP_FIRST_PATH, 1);
 
 	if (mtk_dsi_is_cmd_mode(output_comp)) {
 		cmdq_pkt_clear_event(cmdq_handle,

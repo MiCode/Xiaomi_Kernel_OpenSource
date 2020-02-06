@@ -131,10 +131,10 @@ static int mtk_drm_fb_pan_display(struct fb_var_screeninfo *var,
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH);
+			DDP_SECOND_PATH, 0);
 	else
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH);
+			DDP_FIRST_PATH, 0);
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);

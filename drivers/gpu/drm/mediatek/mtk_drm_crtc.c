@@ -570,10 +570,10 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH);
+			DDP_SECOND_PATH, 0);
 	else
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH);
+			DDP_FIRST_PATH, 0);
 	/* set backlight */
 	if (comp->funcs && comp->funcs->io_cmd)
 		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL, &level);
@@ -633,10 +633,10 @@ int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level)
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH);
+			DDP_SECOND_PATH, 0);
 	else
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH);
+			DDP_FIRST_PATH, 0);
 
 	if (comp->funcs && comp->funcs->io_cmd)
 		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL_GRP, &level);
@@ -693,7 +693,7 @@ static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 	}
 
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 
 	comp->funcs->io_cmd(comp, cmdq_handle, DSI_HBM_SET, &en);
 
@@ -845,10 +845,10 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH);
+			DDP_SECOND_PATH, 0);
 	else
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH);
+			DDP_FIRST_PATH, 0);
 
 	/* set user command */
 	if (comp && comp->funcs && comp->funcs->user_cmd)
@@ -1607,7 +1607,8 @@ int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 
 void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 			      struct cmdq_pkt *cmdq_handle,
-			      enum CRTC_DDP_PATH ddp_path)
+			      enum CRTC_DDP_PATH ddp_path,
+			      int clear_event)
 {
 	int gce_event;
 
@@ -1618,7 +1619,10 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 	    gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF]) {
 		struct mtk_drm_private *priv;
 
-		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
+		if (clear_event)
+			cmdq_pkt_wfe(cmdq_handle, gce_event);
+		else
+			cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 
 		priv = mtk_crtc->base.dev->dev_private;
 		if (gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF] &&
@@ -1629,6 +1633,7 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 		}
 	} else if (gce_event == mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]) {
+		/* Must clear WDMA_EOF in decouple mode */
 		if (mtk_crtc_is_dc_mode(&mtk_crtc->base))
 			cmdq_pkt_wfe(cmdq_handle, gce_event);
 	} else
@@ -1816,7 +1821,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cmdq_pkt_wait_no_clear(cmdq_handle,
 			       get_path_wait_event(mtk_crtc, DDP_FIRST_PATH));
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_SECOND_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_SECOND_PATH, 0);
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
 
@@ -3142,7 +3147,7 @@ void mtk_crtc_config_round_corner(struct drm_crtc *crtc,
 			else
 				cur_path_idx = DDP_FIRST_PATH;
 			mtk_crtc_wait_frame_done(mtk_crtc,
-				handle, cur_path_idx);
+				handle, cur_path_idx, 0);
 			mtk_ddp_comp_config(comp, &cfg, handle);
 			break;
 		}
@@ -3259,7 +3264,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cmdq_pkt_clear_event(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 
 	/*1. Show LK logo only */
 	mtk_crtc_all_layer_off(mtk_crtc, cmdq_handle);
@@ -3487,7 +3492,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	/* Secure path only support DL mode, so we just wait
 	 * the first path frame done here
 	 */
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 
 	/* Disable secure path */
 	cmdq_sec_pkt_set_data(cmdq_handle,
@@ -3527,7 +3532,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 
 	if (mtk_crtc->sec_on) {
 		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
@@ -5153,7 +5158,7 @@ static int __mtk_crtc_composition_wb(
 
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 	mtk_crtc_create_wb_path_cmdq(crtc, cmdq_handle, mtk_crtc->ddp_mode, 0,
 				     cfg);
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
@@ -5202,7 +5207,7 @@ static void __mtk_crtc_prim_path_switch(struct drm_crtc *crtc,
 		cmdq_pkt_clear_event(
 			cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, cur_path_idx);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, cur_path_idx, 0);
 
 	/* 1. Disconnect current path and remove component mutexs */
 	if (!mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode)) {
@@ -5266,7 +5271,7 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 	_mtk_crtc_atmoic_addon_module_disconnect(crtc, mtk_crtc->ddp_mode,
 					&crtc_state->lye_state,
 					cmdq_handle);

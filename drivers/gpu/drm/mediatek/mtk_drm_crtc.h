@@ -609,7 +609,8 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc);
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc);
 void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 			      struct cmdq_pkt *cmdq_handle,
-			      enum CRTC_DDP_PATH ddp_path);
+			      enum CRTC_DDP_PATH ddp_path,
+			      int clear_event);
 
 struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc);
 

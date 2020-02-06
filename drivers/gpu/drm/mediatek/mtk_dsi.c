@@ -1909,11 +1909,26 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 	int need_create_hnd = 0;
 	struct cmdq_pkt *cmdq_handle;
 
-	/* add blocking flush for vm cmd */
-	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-	cmdq_pkt_flush(cmdq_handle);
-	cmdq_pkt_destroy(cmdq_handle);
+	/* Add blocking flush for waiting dsi idle in other gce client */
+	if (handle) {
+		struct cmdq_pkt *cmdq_handle1 = (struct cmdq_pkt *)handle;
+
+		if (cmdq_handle1->cl !=
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]) {
+			mtk_crtc_pkt_create(&cmdq_handle,
+				&mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		} else if (cmdq_handle1->cl !=
+				mtk_crtc->gce_obj.client[CLIENT_CFG]) {
+			mtk_crtc_pkt_create(&cmdq_handle,
+				&mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		}
+	}
 
 	if (!handle)
 		need_create_hnd = 1;
@@ -2580,7 +2595,7 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 		return;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		if (mod_vfp)
