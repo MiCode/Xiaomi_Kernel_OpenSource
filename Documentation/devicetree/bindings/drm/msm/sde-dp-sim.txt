@@ -1,0 +1,58 @@
+QTI Snapdragon Display Engine (SDE) DP-MST sideband message emulation driver
+
+Required properties:
+- compatible:		"qcom,dp-mst-sim"
+
+Each child node represents a port at root branch, with properties:
+- qcom,mode-h-active:      A u32 property defines the horizontal active size.
+- qcom,mode-h-front-porch: A u32 property defines the horizontal front porch.
+- qcom,mode-h-pulse-width: A u32 property defines the horizontal pulse.
+- qcom,mode-h-back-porch:  A u32 property defines the horizontal back porch.
+- qcom,mode-h-active-high: A boolean property if horizontal polarity is high.
+- qcom,mode-v-active:      A u32 property defines the vertical active size.
+- qcom,mode-v-front-porch: A u32 property defines the vertical front portch.
+- qcom,mode-v-pulse-width: A u32 property defines the vertical pulse width.
+- qcom,mode-v-back-porch:  A u32 property defines the vertical back porch.
+- qcom,mode-v-active-high: A boolean property if vertical polarity is high.
+- qcom,mode-refresh-rate:  A u32 property defines vertial refresh rate.
+- qcom,mode-clock-in-khz:  A u32 property defines clock in kHz.
+
+Example:
+
+/ {
+	...
+
+	sde_dp_mst_sim: qcom,dp-mst-sim {
+		compatible = "qcom,dp-mst-sim";
+
+		port@0 {
+			qcom,mode-h-active = <1920>;
+			qcom,mode-h-front-porch = <88>;
+			qcom,mode-h-pulse-width = <44>;
+			qcom,mode-h-back-porch = <148>;
+			qcom,mode-h-active-high;
+			qcom,mode-v-active = <1080>;
+			qcom,mode-v-front-porch = <4>;
+			qcom,mode-v-pulse-width = <5>;
+			qcom,mode-v-back-porch = <36>;
+			qcom,mode-v-active-high;
+			qcom,mode-refresh-rate = <60>;
+			qcom,mode-clock-in-khz = <148500>;
+		};
+
+		port@1 {
+			qcom,mode-h-active = <1920>;
+			qcom,mode-h-front-porch = <88>;
+			qcom,mode-h-pulse-width = <44>;
+			qcom,mode-h-back-porch = <148>;
+			qcom,mode-h-active-high;
+			qcom,mode-v-active = <1080>;
+			qcom,mode-v-front-porch = <4>;
+			qcom,mode-v-pulse-width = <5>;
+			qcom,mode-v-back-porch = <36>;
+			qcom,mode-v-active-high;
+			qcom,mode-refresh-rate = <60>;
+			qcom,mode-clock-in-khz = <148500>;
+		};
+	};
+};
