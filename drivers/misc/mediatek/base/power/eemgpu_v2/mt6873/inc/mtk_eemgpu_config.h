@@ -21,7 +21,7 @@
 #define EARLY_PORTING		(0)
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEMG_FAKE_EFUSE		(1)
+#define EEMG_FAKE_EFUSE		(0)
 
 /* FIX ME */
 #define EEMG_LOCKTIME_LIMIT	(3000)
