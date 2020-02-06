@@ -841,7 +841,9 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		goto err;
 	}
 
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 0);
 	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 1);
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
@@ -849,6 +851,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	else
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 			DDP_FIRST_PATH, 0);
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 2);
 
 	/* set user command */
 	if (comp && comp->funcs && comp->funcs->user_cmd)
@@ -859,6 +862,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		CRTC_MMP_MARK(index, user_cmd, 0, 4);
 		goto err2;
 	}
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 3);
 
 	/* add counter to check update frequency */
 	cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -866,7 +870,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 			   cmdq_buf->pa_base +
 				   DISP_SLOT_CUR_USER_CMD_IDX,
 			   user_cmd_cnt, ~0);
-	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 0);
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 4);
 	user_cmd_cnt++;
 
 	cb_data->crtc = crtc;
