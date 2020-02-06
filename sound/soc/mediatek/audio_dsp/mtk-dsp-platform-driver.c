@@ -1389,7 +1389,7 @@ static int mtk_dsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-irqreturn_t audio_irq_handler(int irq, void *data, int core_id)
+void audio_irq_handler(int irq, void *data, int core_id)
 {
 	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)data;
 	unsigned long task_value;
@@ -1440,21 +1440,21 @@ irqreturn_t audio_irq_handler(int irq, void *data, int core_id)
 		}
 	} while (*pdtoa && task_value);
 	release_adsp_semaphore(SEMA_3WAY_AUDIO);
-	return IRQ_HANDLED;
+	return;
 IRQ_ERROR:
 	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",
 		irq, data, core_id, dsp);
-	return IRQ_HANDLED;
+	return;
 }
 
-irqreturn_t audio_irq_a_handler(int irq, void *data)
+void audio_irq_a_handler(int irq, void *data)
 {
-	return audio_irq_handler(irq, data, ADSP_A_ID);
+	audio_irq_handler(irq, data, ADSP_A_ID);
 }
 
-irqreturn_t audio_irq_b_handler(int irq, void *data)
+void audio_irq_b_handler(int irq, void *data)
 {
-	return audio_irq_handler(irq, data, ADSP_B_ID);
+	audio_irq_handler(irq, data, ADSP_B_ID);
 }
 
 #ifdef CFG_RECOVERY_SUPPORT

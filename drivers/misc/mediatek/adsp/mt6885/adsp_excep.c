@@ -293,7 +293,7 @@ int init_adsp_exception_control(struct workqueue_struct *workq,
 	return 0;
 }
 
-irqreturn_t adsp_wdt_handler(int irq, void *data)
+void adsp_wdt_handler(int irq, void *data)
 {
 	struct adsp_priv *pdata = (struct adsp_priv *)data;
 
@@ -301,7 +301,7 @@ irqreturn_t adsp_wdt_handler(int irq, void *data)
 		pr_info("%s, already resetting, ignore core%d wdt",
 			__func__, pdata->id);
 
-	return IRQ_HANDLED;
+	return;
 }
 
 void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
