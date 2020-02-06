@@ -73,6 +73,7 @@ static int apu_pm_handler(void *param);
 static int segment_user_support_check(void *param);
 static void recording_power_fail_state(void);
 static void dump_fail_state(void);
+static int binning_support_check(void);
 
 /************************************
  * common power hal command
@@ -85,7 +86,7 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	LOG_DBG("%s power command : %d, by user : %d\n", __func__, cmd, user);
 
 	if (cmd != PWR_CMD_INIT_POWER && cmd != PWR_CMD_SEGMENT_CHECK &&
-		is_apu_power_initilized == 0) {
+		cmd != PWR_CMD_BINNING_CHECK && is_apu_power_initilized == 0) {
 		LOG_ERR("%s apu power state : %d, force return!\n",
 					__func__, is_apu_power_initilized);
 		return -1;
@@ -134,6 +135,9 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		break;
 	case PWR_CMD_DUMP_FAIL_STATE:
 		dump_fail_state();
+		break;
+	case PWR_CMD_BINNING_CHECK:
+		binning_support_check();
 		break;
 	default:
 		LOG_ERR("%s unknown power command : %d\n", __func__, cmd);
@@ -354,6 +358,68 @@ static int segment_user_support_check(void *param)
 	if (seg_info->support == false)
 		LOG_INF("%s user=%d, support=%d\n", __func__,
 		seg_info->user, seg_info->support);
+
+	return 0;
+}
+
+static int binning_support_check(void)
+{
+#if BINNING_VOLTAGE_SUPPORT
+	int opp = 0;
+	unsigned int vpu_efuse_val = 0;
+	unsigned int mdla_efuse_val = 0;
+
+	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
+	mdla_efuse_val = GET_BITS_VAL(13:11,
+		get_devinfo_with_index(EFUSE_INDEX));
+	LOG_DBG("Vol bin: vpu_efuse=%d, mdla_efuse=%d, efuse: 0x%x\n",
+		vpu_efuse_val, mdla_efuse_val,
+		get_devinfo_with_index(EFUSE_INDEX));
+
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+		if ((vpu_efuse_val >= 2 && vpu_efuse_val <= 4) &&
+				(apusys_opps.opps[opp][V_VPU0].voltage ==
+				DVFS_VOLT_00_775000_V)) {
+			if (vpu_efuse_val == 2) {
+				apusys_opps.opps[opp][V_VPU0].voltage =
+					DVFS_VOLT_00_750000_V;
+				apusys_opps.opps[opp][V_VPU1].voltage =
+					DVFS_VOLT_00_750000_V;
+			} else if (vpu_efuse_val == 3) {
+				apusys_opps.opps[opp][V_VPU0].voltage =
+					DVFS_VOLT_00_737500_V;
+				apusys_opps.opps[opp][V_VPU1].voltage =
+					DVFS_VOLT_00_737500_V;
+			} else if (vpu_efuse_val == 4) {
+				apusys_opps.opps[opp][V_VPU0].voltage =
+					DVFS_VOLT_00_725000_V;
+				apusys_opps.opps[opp][V_VPU1].voltage =
+					DVFS_VOLT_00_725000_V;
+			}
+			LOG_WRN("Binning Voltage!!, vpu_efuse=%d, vol=%d\n",
+				vpu_efuse_val,
+				apusys_opps.opps[opp][V_VPU0].voltage);
+		}
+
+		if ((mdla_efuse_val >= 2 && mdla_efuse_val <= 4) &&
+				(apusys_opps.opps[opp][V_MDLA0].voltage ==
+				DVFS_VOLT_00_800000_V)) {
+			if (mdla_efuse_val == 2)
+				apusys_opps.opps[opp][V_MDLA0].voltage =
+					DVFS_VOLT_00_775000_V;
+			else if (mdla_efuse_val == 3)
+				apusys_opps.opps[opp][V_MDLA0].voltage =
+					DVFS_VOLT_00_762500_V;
+			else if (mdla_efuse_val == 4)
+				apusys_opps.opps[opp][V_MDLA0].voltage =
+					DVFS_VOLT_00_750000_V;
+
+			LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
+				mdla_efuse_val,
+				apusys_opps.opps[opp][V_MDLA0].voltage);
+		}
+	}
+#endif
 
 	return 0;
 }

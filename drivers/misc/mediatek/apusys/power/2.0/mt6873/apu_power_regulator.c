@@ -22,9 +22,6 @@
 #include "apu_log.h"
 #include "mtk_devinfo.h"
 
-
-#define EFUSE_INDEX 209  //0x11c1_05E8 (PTPOD26)
-
 /* regulator id */
 static struct regulator *vvpu_reg_id;
 static struct regulator *vmdla_reg_id;
@@ -386,7 +383,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
 	mdla_efuse_val = GET_BITS_VAL(13:11,
 		get_devinfo_with_index(EFUSE_INDEX));
-	LOG_DBG("Vol bin: vpu_efuse=%d, vpu_efuse=%d, efuse: 0x%x\n",
+	LOG_DBG("Vol bin: vpu_efuse=%d, mdla_efuse=%d, efuse: 0x%x\n",
 		vpu_efuse_val, mdla_efuse_val,
 		get_devinfo_with_index(EFUSE_INDEX));
 

@@ -973,6 +973,8 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	else
 		apusys_opps.opps = dvfs_table_1;
 
+	hal_config_power(PWR_CMD_BINNING_CHECK, VPU0, NULL);
+
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
 		seg_data.user = i;
 		hal_config_power(PWR_CMD_SEGMENT_CHECK,

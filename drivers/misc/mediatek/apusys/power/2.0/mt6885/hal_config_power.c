@@ -73,6 +73,7 @@ static int apu_pm_handler(void *param);
 static int segment_user_support_check(void *param);
 static void recording_power_fail_state(void);
 static void dump_fail_state(void);
+static int binning_support_check(void);
 
 /************************************
  * common power hal command
@@ -85,7 +86,7 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	LOG_DBG("%s power command : %d, by user : %d\n", __func__, cmd, user);
 
 	if (cmd != PWR_CMD_INIT_POWER && cmd != PWR_CMD_SEGMENT_CHECK &&
-		is_apu_power_initilized == 0) {
+		cmd != PWR_CMD_BINNING_CHECK && is_apu_power_initilized == 0) {
 		LOG_ERR("%s apu power state : %d, force return!\n",
 					__func__, is_apu_power_initilized);
 		return -1;
@@ -134,6 +135,9 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		break;
 	case PWR_CMD_DUMP_FAIL_STATE:
 		dump_fail_state();
+		break;
+	case PWR_CMD_BINNING_CHECK:
+		binning_support_check();
 		break;
 	default:
 		LOG_ERR("%s unknown power command : %d\n", __func__, cmd);
@@ -364,6 +368,11 @@ static int segment_user_support_check(void *param)
 		LOG_INF("%s user=%d, support=%d\n", __func__,
 		seg_info->user, seg_info->support);
 
+	return 0;
+}
+
+static int binning_support_check(void)
+{
 	return 0;
 }
 
