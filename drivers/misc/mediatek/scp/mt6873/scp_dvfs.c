@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/suspend.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -1166,6 +1167,62 @@ void mt_pmic_sshub_init(void)
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 }
 
+#ifdef CONFIG_PM
+static int mt_scp_dump_sleep_count(void)
+{
+	int ret;
+	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE)
+		printk_deferred("[name:scp&][%s:%d] - scp ipi fail, ret = %d\\n",
+		__func__, __LINE__, ret);
+	else
+		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_0 = %d\n",
+		__func__, __LINE__, slp_ipi_ackdata0);
+
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
+	if (ret != IPI_ACTION_DONE)
+		printk_deferred("[name:scp&][%s:%d] - scp ipi fail, ret = %d\\n",
+		__func__, __LINE__, ret);
+	else
+		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_1 = %d\n",
+		__func__, __LINE__, slp_ipi_ackdata1);
+
+	return 0;
+}
+
+
+static int mt6873_scp_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+	case PM_POST_SUSPEND:
+		/* show scp sleep count */
+		mt_scp_dump_sleep_count();
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+
+static struct notifier_block mt6873_scp_pm_notifier_func = {
+	.notifier_call = mt6873_scp_pm_event,
+};
+#endif
+
 int __init scp_dvfs_init(void)
 {
 	int ret = 0;
@@ -1198,6 +1255,14 @@ int __init scp_dvfs_init(void)
 			PM_QOS_SCP_VCORE_REQUEST,
 			PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
 #endif
+
+#ifdef CONFIG_PM
+	ret = register_pm_notifier(&mt6873_scp_pm_notifier_func);
+	if (ret) {
+		pr_debug("[name:scp&][SCP] Failed to register PM notifier.\n");
+		return ret;
+	}
+#endif /* CONFIG_PM */
 
 	return ret;
 }
