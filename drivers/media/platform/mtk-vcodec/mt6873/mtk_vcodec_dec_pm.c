@@ -33,7 +33,7 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VDEC_FREQ 249
+#define STD_VDEC_FREQ 218
 static struct pm_qos_request vdec_qos_req_f;
 static u64 vdec_freq;
 static u32 vdec_freq_step_size;
@@ -511,14 +511,14 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_H265:
-			emi_bw_input = 35 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 31 * vdec_freq / STD_VDEC_FREQ;
 			break;
 		case V4L2_PIX_FMT_VP9:
 		case V4L2_PIX_FMT_AV1:
-			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
 			break;
 		default:
-			emi_bw_input = 35 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 31 * vdec_freq / STD_VDEC_FREQ;
 		}
 		mm_qos_set_request(&vdec_lat0_vld, emi_bw_input, 0,
 					BW_COMP_NONE);
@@ -533,33 +533,33 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		mm_qos_update_all_request(&vdec_rlist_lat);
 
 	} else if (hw_id == MTK_VDEC_CORE) {
-		emi_bw = 8L * 1920 * 1080 * 9 * 10 * 5 * vdec_freq / 2 / 3;
-		emi_bw_output = 1920L * 1088 * 9 * 30 * 10 * 5 * vdec_freq /
+		emi_bw = 8L * 1920 * 1080 * 9 * 9 * 5 * vdec_freq / 2 / 3;
+		emi_bw_output = 1920L * 1088 * 9 * 30 * 9 * 5 * vdec_freq /
 				4 / 3 / 3 / STD_VDEC_FREQ / 1024 / 1024;
 
 		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 		case V4L2_PIX_FMT_H264:
-			emi_bw_input = 70 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 62 * vdec_freq / STD_VDEC_FREQ;
 			emi_bw = emi_bw * h264_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_H265:
-			emi_bw_input = 70 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 62 * vdec_freq / STD_VDEC_FREQ;
 			emi_bw = emi_bw * h265_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_VP8:
-			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
 			emi_bw = emi_bw * vp8_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_VP9:
-			emi_bw_input = 30 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 26 * vdec_freq / STD_VDEC_FREQ;
 			emi_bw = emi_bw * vp9_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
 		case V4L2_PIX_FMT_AV1:
-			emi_bw_input = 30 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 26 * vdec_freq / STD_VDEC_FREQ;
 			emi_bw = emi_bw * vp9_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
@@ -573,7 +573,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		case V4L2_PIX_FMT_DIVX6:
 		case V4L2_PIX_FMT_MPEG1:
 		case V4L2_PIX_FMT_MPEG2:
-			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw_input = 13 * vdec_freq / STD_VDEC_FREQ;
 			emi_bw = emi_bw * mp24_frm_scale[f_type] /
 					(2 * STD_VDEC_FREQ);
 			break;
