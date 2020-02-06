@@ -910,8 +910,16 @@ void ufstw_suspend(struct ufsf_feature *ufsf)
 	int lun;
 	int ret;
 
+/*
+ * MTK: No ned flush work, else deadlock may happen.
+ * flush_work ->ufstw_reset_work_fn -> ufstw_reset -> ufstw_set_lu_flag ->
+ * pm_runtime_put_sync -> ufstw_suspend -> flush_work
+ * Beside, reset work only set tw flag, it can do later after suspend.
+ */
+#if 0
 	ret = flush_work(&ufsf->tw_reset_work);
 	TW_DEBUG(ufsf, "flush_work(tw_reset_work) = %d", ret);
+#endif
 
 	seq_scan_lu(lun) {
 		tw = ufsf->tw_lup[lun];
