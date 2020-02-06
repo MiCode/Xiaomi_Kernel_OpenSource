@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_ION_PRIV_H
@@ -87,6 +87,11 @@ struct ion_platform_heap {
  * @heap_drain:		called to asynchronously drain a certain amount of
  *			memory that was prefetched for the heap at an earlier
  *			point in time.
+ * @add_memory:		called to add memory to an ION heap. Subsequent
+ *			allocations may be satisfied utilizing newly added
+ *			memory.
+ * @remove_memory:	called to remove memory from an ION heap. Subsequent
+ *			allocations will fail if the heap no longer has memory.
  * @debug_show:		called when the heap debug file is read to add any heap
  *			specific debug info to output
  */
@@ -97,6 +102,8 @@ struct msm_ion_heap_ops {
 	int (*heap_drain)(struct ion_heap *heap,
 			  struct ion_prefetch_region *regions,
 			  int nr_regions);
+	int (*add_memory)(struct ion_heap *heap, struct sg_table *sgt);
+	int (*remove_memory)(struct ion_heap *heap, struct sg_table *sgt);
 	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
 			  void *unused);
 };

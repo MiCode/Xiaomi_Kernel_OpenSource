@@ -8,6 +8,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/device.h>
+#include <linux/scatterlist.h>
 #include <uapi/linux/msm_ion.h>
 
 struct ion_prefetch_region {
@@ -38,6 +39,10 @@ int msm_ion_heap_drain(int heap_id, struct ion_prefetch_region *regions,
 int get_ion_flags(u32 vmid);
 
 bool msm_ion_heap_is_secure(int heap_id);
+
+int msm_ion_heap_add_memory(int heap_id, struct sg_table *sgt);
+
+int msm_ion_heap_remove_memory(int heap_id, struct sg_table *sgt);
 
 #else
 
@@ -79,6 +84,16 @@ static inline int get_ion_flags(u32 vmid)
 static inline bool msm_ion_heap_is_secure(int heap_id)
 {
 	return false;
+}
+
+static inline int msm_ion_heap_add_memory(int heap_id, struct sg_table *sgt)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_heap_remove_memory(int heap_id, struct sg_table *sgt)
+{
+	return -ENODEV;
 }
 
 #endif /* CONFIG_ION_MSM_HEAPS */

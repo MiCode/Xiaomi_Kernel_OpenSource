@@ -280,6 +280,40 @@ int msm_ion_heap_drain(int heap_id, struct ion_prefetch_region *regions,
 }
 EXPORT_SYMBOL(msm_ion_heap_drain);
 
+int msm_ion_heap_add_memory(int heap_id, struct sg_table *sgt)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+	struct msm_ion_heap *msm_heap;
+
+	if (IS_ERR(heap))
+		return PTR_ERR(heap);
+
+	msm_heap = to_msm_ion_heap(heap);
+
+	if (msm_heap->msm_heap_ops && msm_heap->msm_heap_ops->add_memory)
+		return msm_heap->msm_heap_ops->add_memory(heap, sgt);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(msm_ion_heap_add_memory);
+
+int msm_ion_heap_remove_memory(int heap_id, struct sg_table *sgt)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+	struct msm_ion_heap *msm_heap;
+
+	if (IS_ERR(heap))
+		return PTR_ERR(heap);
+
+	msm_heap = to_msm_ion_heap(heap);
+
+	if (msm_heap->msm_heap_ops && msm_heap->msm_heap_ops->remove_memory)
+		return msm_heap->msm_heap_ops->remove_memory(heap, sgt);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(msm_ion_heap_remove_memory);
+
 static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
 					      int *heap_type)
 {
