@@ -18,4 +18,4 @@ obj-$(CONFIG_NFC_NXP_NCI)	+= nxp-nci/
 obj-$(CONFIG_NFC_S3FWRN5)	+= s3fwrn5/
 obj-$(CONFIG_NFC_ST95HF)	+= st95hf/
 obj-$(CONFIG_NFC_NXP_PN553)     += k6885v1_64_alpha/
-
+obj-$(CONFIG_K6873V1_64_ALPHA_NFC)     += k6873v1_64_alpha/

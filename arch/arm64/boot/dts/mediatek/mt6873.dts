@@ -4849,6 +4849,14 @@ page_owner=on";
 				"MFB_CG_IMG2_MFB";
 	};
 
+	irq_nfc: irq_nfc {
+		compatible = "mediatek,irq_nfc-eint";
+	};
+
+	nfc:nfc {
+		compatible = "mediatek,nfc";
+	};
+
 	imgsys_mfb_b@15820000 {
 		compatible = "mediatek,imgsys_mfb_b";
 		reg = <0 0x15820000 0 0x1000>;
