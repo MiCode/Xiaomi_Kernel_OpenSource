@@ -1636,8 +1636,8 @@ static int vow_pcm_dump_kthread(void *data)
 				size -= writedata;
 				pcm_dump++;
 			}
-		}
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+		}
 			break;
 		case DUMP_BARGEIN: {
 			/* Bargein dump echo data */
@@ -2734,6 +2734,7 @@ static ssize_t VowDrv_read(struct file *fp,
 	unsigned int time_diff_ipi_read = 0;
 	unsigned long long vow_read_cycle = 0;
 	int ret = 0;
+	unsigned int ret_data = 0;
 	int slot = 0;
 	bool dsp_inform_tx_flag = false;
 
@@ -2782,6 +2783,11 @@ static ssize_t VowDrv_read(struct file *fp,
 		}
 	}
 	slot = vow_service_SearchSpeakerModelWithUuid(vowserv.scp_command_uuid);
+	if (slot < 0) {
+		/* there is no pair id, so exit */
+		VOWDRV_DEBUG("%s(),search ID fail, exit\n");
+		goto exit;
+	}
 	vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	vowserv.vow_eint_data_struct.id = vowserv.scp_command_id;
 	vowserv.vow_eint_data_struct.eint_status = VowDrv_QueryVowEINTStatus();
@@ -2816,17 +2822,26 @@ static ssize_t VowDrv_read(struct file *fp,
 		       vowserv.extradata_ptr,
 		       vowserv.extradata_bytelen);
 		/* copy extra data into user space */
-		copy_to_user(
+		ret_data = copy_to_user(
 		    (void __user *)
 		    vowserv.vow_speaker_model[slot].rx_inform_size_addr,
 		    &vowserv.extradata_bytelen,
 		    sizeof(unsigned int));
-
-		copy_to_user(
+		if (ret_data != 0) {
+			/* fail, print the fail size */
+			VOWDRV_DEBUG("[vow dsp inform1]CopytoUser fail sz:%d\n",
+				     ret_data);
+		}
+		ret_data = copy_to_user(
 		    (void __user *)
 		    vowserv.vow_speaker_model[slot].rx_inform_addr,
 		    vowserv.extradata_mem_ptr,
 		    vowserv.extradata_bytelen);
+		if (ret_data != 0) {
+			/* fail, print the fail size */
+			VOWDRV_DEBUG("[vow dsp inform2]CopytoUser fail sz:%d\n",
+				     ret_data);
+		}
 	}
 
 exit:
