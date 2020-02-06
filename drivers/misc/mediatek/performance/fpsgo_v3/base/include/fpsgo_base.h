@@ -92,6 +92,7 @@ struct fbt_boost_info {
 struct render_info {
 	struct rb_node pid_node;
 	struct list_head bufferid_list;
+	struct rb_node linger_node;
 
 	/*render basic info pid bufferId..etc*/
 	int pid;
@@ -120,6 +121,7 @@ struct render_info {
 	struct fpsgo_loading *dep_arr;
 	int dep_valid_size;
 	unsigned long long dep_loading_ts;
+	unsigned long long linger_ts;
 
 	/*TODO: EARA mid list*/
 	unsigned long long mid;
@@ -181,6 +183,7 @@ int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
 void fpsgo_main_trace(const char *fmt, ...);
 void fpsgo_clear_uclamp_boost(int check);
 void fpsgo_clear_llf_cpu_policy(int orig_llf);
+void fpsgo_del_linger(struct render_info *thr);
 
 int init_fpsgo_common(void);
 

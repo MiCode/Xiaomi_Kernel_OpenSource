@@ -1190,6 +1190,9 @@ leave:
 		thr->linger > 0)
 		tofree = 1;
 
+	if (tofree)
+		fpsgo_del_linger(thr);
+
 	fpsgo_thread_unlock(&(thr->thr_mlock));
 
 	if (tofree)
@@ -2486,6 +2489,19 @@ void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr, int orig_policy)
 			continue;
 
 		fbt_set_llf_task(fl->pid, orig_policy, FPSGO_PREFER_NONE);
+	}
+}
+
+void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
+{
+	int i;
+
+	if (!thr)
+		return;
+
+	for (i = 0; i < RESCUE_TIMER_NUM; i++) {
+		if (thr->boost_info.proc.jerks[i].jerking)
+			hrtimer_cancel(&(thr->boost_info.proc.jerks[i].timer));
 	}
 }
 
