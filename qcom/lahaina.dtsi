@@ -1763,8 +1763,8 @@
 		qcom,msm_fastrpc_compute_cb2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x2142 0x04A0>,
-					 <&apps_smmu 0x1102 0x04A0>;
+			iommus = <&apps_smmu 0x2162 0x0400>,
+					 <&apps_smmu 0x1182 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1773,8 +1773,8 @@
 		qcom,msm_fastrpc_compute_cb3 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x2143 0x14A0>,
-					 <&apps_smmu 0x1103 0x04E0>;
+			iommus = <&apps_smmu 0x2163 0x0400>,
+					 <&apps_smmu 0x1183 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1783,8 +1783,8 @@
 		qcom,msm_fastrpc_compute_cb4 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x0144 0x2420>,
-					 <&apps_smmu 0x1184 0x0460>;
+			iommus = <&apps_smmu 0x2164 0x0400>,
+					 <&apps_smmu 0x1184 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1793,8 +1793,8 @@
 		qcom,msm_fastrpc_compute_cb5 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x2165 0x0480>,
-					 <&apps_smmu 0x1105 0x04E0>;
+			iommus = <&apps_smmu 0x2165 0x0400>,
+					 <&apps_smmu 0x1185 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1803,8 +1803,8 @@
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x0126 0x34C0>,
-					 <&apps_smmu 0x1186 0x2400>;
+			iommus = <&apps_smmu 0x2166 0x0400>,
+					 <&apps_smmu 0x1186 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1813,8 +1813,8 @@
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x2147 0x0420>,
-					 <&apps_smmu 0x1187 0x2420>;
+			iommus = <&apps_smmu 0x2167 0x0400>,
+					 <&apps_smmu 0x1187 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1823,8 +1823,8 @@
 		qcom,msm_fastrpc_compute_cb8 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x0148 0x3420>,
-					 <&apps_smmu 0x1108 0x24A0>;
+			iommus = <&apps_smmu 0x2168 0x0400>,
+					 <&apps_smmu 0x1188 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			dma-coherent;
@@ -1834,8 +1834,8 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
-			iommus = <&apps_smmu 0x0149 0x34A0>,
-					 <&apps_smmu 0x1109 0x04E0>;
+			iommus = <&apps_smmu 0x2169 0x0400>,
+					 <&apps_smmu 0x1189 0x0420>;
 			qcom,iommu-dma-addr-pool = <0x60000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable";
 			qcom,iommu-vmid = <0xA>;	/* VMID_CP_PIXEL */
