@@ -193,6 +193,9 @@ struct ufs_mtk_host {
 	struct clk *crypto_parent_clk_perf;
 	struct pm_qos_request *req_vcore;
 	struct pm_qos_request req_cpu_dma_latency;
+
+	/* passthrough keyhint if number of key slots is enough */
+	bool passthrough_keyhint;
 };
 
 enum {

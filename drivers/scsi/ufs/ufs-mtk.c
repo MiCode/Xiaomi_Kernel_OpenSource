@@ -389,6 +389,7 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 	struct ufs_crypt_info *info = (struct ufs_crypt_info *)priv;
 	struct ufshcd_lrb *lrbp;
 	struct ufs_hba *hba = info->hba;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	u32 i;
 	u32 *key_ptr;
 	unsigned long flags;
@@ -412,8 +413,17 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 		hba->crypto_feature |= UFS_CRYPTO_HW_FBE_ENCRYPTED;
 	}
 
-	/* get key index from key hint, or install new key to key hint */
-	key_idx = kh_get_hint(ufs_mtk_get_kh(), key, &need_update);
+	if (host->passthrough_keyhint) {
+		/* always use cfg slot with slot id the same as task tag */
+		key_idx = req->tag;
+		need_update = 1;
+	} else {
+		/*
+		 * get key index from key hint, or install new
+		 * key to key hint
+		 */
+		key_idx = kh_get_hint(ufs_mtk_get_kh(), key, &need_update);
+	}
 
 	/*
 	 * Return error if free key slots are unavailable (-ENOMEM).
@@ -452,6 +462,7 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 				"Key size is over %d bits\n", len * 32);
 			len = 16;
 		}
+
 		for (i = 0; i < len; i++)
 			cpt_cfg.cfgx.key[i] = key_ptr[i];
 
@@ -547,9 +558,10 @@ struct hie_dev *ufs_mtk_hie_get_dev(void)
 int ufs_mtk_hie_req_done(struct ufs_hba *hba,
 	struct ufshcd_lrb *lrbp)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int ret = 0;
 
-	if (lrbp->crypto_en) {
+	if (lrbp->crypto_en && !host->passthrough_keyhint) {
 		ret = kh_release_hint(
 			ufs_mtk_get_kh(), lrbp->crypto_cfgid);
 	}
@@ -1187,20 +1199,30 @@ static int ufs_mtk_probe_crypto(struct ufs_hba *hba)
 #ifdef CONFIG_HIE
 	int ret;
 	union ufs_cpt_cap cpt_cap;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	ret = hie_register_device(&ufs_hie_dev);
 	if (ret)
 		return ret;
-	/*
-	 * enable hie key hint feature
-	 *
-	 * key_bits = 512 bits for all possible FBE crypto algorithms
-	 * key_slot = crypto configuration slots
-	 */
+
 	cpt_cap.cap_raw = ufshcd_readl(hba, UFS_REG_CRYPTO_CAPABILITY);
-	ret = kh_register(ufs_mtk_get_kh(), 512, cpt_cap.cap.cfg_cnt + 1);
-	if (ret)
-		return ret;
+	if (hba->nutrs <= cpt_cap.cap.cfg_cnt + 1) {
+		host->passthrough_keyhint = true;
+	} else {
+		/*
+		 * enable hie key hint feature
+		 *
+		 * key_bits = 512 bits for all possible FBE crypto algorithms
+		 * key_slot = crypto configuration slots
+		 */
+		ret = kh_register(ufs_mtk_get_kh(), 512,
+			cpt_cap.cap.cfg_cnt + 1);
+		if (ret)
+			return ret;
+		host->passthrough_keyhint = false;
+	}
+	dev_info(hba->dev, "keyhint enabled: %d\n",
+		!host->passthrough_keyhint);
 
 	hba->crypto_feature |= UFS_CRYPTO_HW_FBE;
 #endif
@@ -1374,6 +1396,7 @@ static int ufs_mtk_link_startup_notify(struct ufs_hba *hba,
 
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int ret = 0;
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -1405,7 +1428,8 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 1),
 			0, 0, 0);
 #ifdef CONFIG_HIE
-		kh_suspend(ufs_mtk_get_kh());
+		if (!host->passthrough_keyhint)
+			kh_suspend(ufs_mtk_get_kh());
 #endif
 	}
 
