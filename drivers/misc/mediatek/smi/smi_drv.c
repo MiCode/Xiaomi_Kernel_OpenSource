@@ -119,7 +119,7 @@ struct smi_dram_t {
 	s32		ackdata;
 };
 
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 struct smi_cmdq_t {
 	struct device		*dev;
 	void __iomem		*base;
@@ -698,7 +698,7 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 }
 EXPORT_SYMBOL_GPL(smi_debug_bus_hang_detect);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 static void smi_common_assert_cb(struct cmdq_cb_data data)
 {
 	unsigned long nsec;
@@ -709,6 +709,7 @@ static void smi_common_assert_cb(struct cmdq_cb_data data)
 	smi_cmdq.tick = sched_clock();
 	nsec = do_div(smi_cmdq.tick, 1000000000);
 
+	/* TODO workqueue */
 	smi_debug_bus_hang_detect(false, DEV_NAME);
 	SMIWRN(1, "[%5llu.%06lu] assert condition failed\n",
 		smi_cmdq.tick, nsec);
@@ -960,9 +961,9 @@ static void smi_subsys_after_on(enum subsys_id sys)
 			mtk_smi_clk_enable(smi_dev[i]);
 			mtk_smi_conf_set(smi_dev[i], smi_scen);
 			smi_larb_port_set(smi_dev[i]);
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 			if (i == SMI_LARB_NUM)
-				cmdq_pkt_flush_threaded(smi_cmdq.pkt,
+				cmdq_pkt_flush_async(smi_cmdq.pkt,
 					smi_common_assert_cb, NULL);
 #endif
 		}
@@ -986,7 +987,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
-#elif IS_ENABLED(CONFIG_MACH_MT6873)
+#elif IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 			if (i == SMI_LARB_NUM && !(smi_mm_first & subsys))
 				cmdq_mbox_stop(smi_cmdq.clt);
 #endif
@@ -1091,7 +1092,7 @@ s32 smi_register(void)
 	SMIWRN(0, "MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
 	of_node_put(of_node);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 	smi_cmdq.dev = smi_dev[SMI_LARB_NUM]->dev;
 	smi_cmdq.base = smi_dev[SMI_LARB_NUM]->base;
 	if (of_address_to_resource(smi_cmdq.dev->of_node, 0, &res))

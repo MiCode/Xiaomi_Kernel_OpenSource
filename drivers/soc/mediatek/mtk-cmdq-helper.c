@@ -1444,6 +1444,7 @@ static struct cmdq_flush_item *cmdq_prepare_flush_tiem(struct cmdq_pkt *pkt)
 	struct cmdq_flush_item *item;
 
 	kfree(pkt->flush_item);
+	pkt->flush_item = NULL;
 
 	item = kzalloc(sizeof(*item), GFP_KERNEL);
 	if (!item)
