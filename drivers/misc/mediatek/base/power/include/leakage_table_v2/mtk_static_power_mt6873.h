@@ -18,6 +18,8 @@
 
 //#define WITHOUT_LKG_EFUSE
 
+#define PRECISE_NODE
+
 /* mv, "Leakage domain" */
 #define V_OF_FUSE_CPU 900 /* BCPU/LCPU/MCPU */
 #define V_OF_FUSE_GPU 800 /* GPU */
