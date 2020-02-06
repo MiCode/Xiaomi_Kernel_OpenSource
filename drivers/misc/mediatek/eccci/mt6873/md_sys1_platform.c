@@ -512,7 +512,7 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 
 	/* This function needs to be cancelled temporarily */
 	/* for margaux bringup */
-	/* internal_md_dump_debug_register(md->index); */
+	internal_md_dump_debug_register(md->index);
 
 	md_cd_lock_modem_clock_src(0);
 
