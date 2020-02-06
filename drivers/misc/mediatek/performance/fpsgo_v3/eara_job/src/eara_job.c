@@ -1151,8 +1151,10 @@ static void get_pwr_tbl(void)
 	memcpy(&eara_cpu_table, &(cpu_dvfs[cluster_num - 1]),
 		sizeof(eara_cpu_table));
 
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	if (!apusys_power_check())
 		return;
+#endif
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
 	for (opp = 0; opp < APU_OPP_NUM; opp++) {
