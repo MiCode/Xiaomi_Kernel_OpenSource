@@ -857,7 +857,7 @@ int wiphy_register(struct wiphy *wiphy)
 		WARN_ON(1);
 		return -EINVAL;
 	}
-
+#if 0
 	for (i = 0; i < rdev->wiphy.n_vendor_commands; i++) {
 		/*
 		 * Validate we have a policy (can be explicitly set to
@@ -870,7 +870,7 @@ int wiphy_register(struct wiphy *wiphy)
 			    !rdev->wiphy.vendor_commands[i].dumpit))
 			return -EINVAL;
 	}
-
+#endif
 #ifdef CONFIG_PM
 	if (WARN_ON(rdev->wiphy.wowlan && rdev->wiphy.wowlan->n_patterns &&
 		    (!rdev->wiphy.wowlan->pattern_min_len ||
