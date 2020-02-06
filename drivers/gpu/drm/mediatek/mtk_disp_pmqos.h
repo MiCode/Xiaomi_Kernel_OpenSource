@@ -56,5 +56,6 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode);
 int __mtk_disp_pmqos_port_look_up(int comp_id);
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc);
 void mtk_drm_mmdvfs_init(void);
-void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, const char *caller);
+void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc, unsigned int pixclk,
+			const char *caller);
 #endif

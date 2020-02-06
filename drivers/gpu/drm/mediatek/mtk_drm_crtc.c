@@ -1309,21 +1309,6 @@ done:
 	return &gs_ctx[idx];
 }
 
-/* TODO
- * 1. Need to handle for other platforms
- * 2. Un-request MMCLK when CRTC disable & restore when CRTC enable
- */
-static void mtk_crtc_set_mmclk_for_fps(struct drm_crtc *crtc,
-	unsigned int fps)
-{
-	if (fps >= 120) /* 416M */
-		mtk_drm_set_mmclk(crtc, 1, __func__);
-	else if (fps >= 90) /* 312M */
-		mtk_drm_set_mmclk(crtc, 2, __func__);
-	else /* un-request */
-		mtk_drm_set_mmclk(crtc, -1, __func__);
-}
-
 unsigned int mtk_crtc_get_idle_interval(struct drm_crtc *crtc, unsigned int fps)
 {
 
@@ -1352,6 +1337,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	unsigned int i, j;
 	unsigned int fps_chg_index = 0;
 	unsigned int _idle_timeout = 50;/*ms*/
+	int en = 1;
 
 	struct mtk_ddp_comp *output_comp;
 
@@ -1399,19 +1385,20 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
-		/* pull up mm clk if dst fps is higher than src fps */
-		if (fps_dst >= fps_src)
-			mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
 	}
+	/* pull up mm clk if dst fps is higher than src fps */
+	if (output_comp && fps_dst >= fps_src)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
+				&en);
 
 	/* Change DSI mipi clk & send LCM cmd */
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_TIMING_CHANGE,
 				old_state);
 
-	if (fps_chg_index &
-		(DYNFPS_DSI_HFP | DYNFPS_DSI_MIPI_CLK) & (fps_dst < fps_src))
-		mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
+	if (output_comp && fps_dst < fps_src)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
+				&en);
 	drm_invoke_fps_chg_callbacks(crtc->state->adjusted_mode.vrefresh);
 
 	/* update framedur_ns for VSYNC report */
@@ -2927,16 +2914,13 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	struct cmdq_client *client;
 	struct mtk_ddp_comp *comp;
 	int i, j;
+	struct mtk_ddp_comp *output_comp = NULL;
+	int en = 1;
 
-	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
-		mtk_crtc->panel_ext->params->dyn_fps.switch_en
-		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps) {
-		unsigned int fps_default = 0;
-
-		fps_default =
-			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
-		mtk_crtc_set_mmclk_for_fps(crtc, fps_default);
-	}
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
+				&en);
 
 	CRTC_MMP_EVENT_START(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -3187,6 +3171,7 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_ddp_comp *comp;
 	struct drm_display_mode *timing = NULL;
+	int en = 1;
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (comp == NULL)
@@ -3212,6 +3197,7 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	if (comp && drm_crtc_index(&mtk_crtc->base) == 0) {
 		mtk_ddp_comp_io_cmd(comp, NULL,
 			DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
+		mtk_ddp_comp_io_cmd(comp, NULL, SET_MMCLK_BY_DATARATE, &en);
 	} else {
 		mtk_crtc->avail_modes_num = 0;
 		mtk_crtc->avail_modes = NULL;
@@ -3264,16 +3250,6 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
-	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
-		mtk_crtc->panel_ext->params->dyn_fps.switch_en
-		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps) {
-		unsigned int fps_default = 0;
-
-		fps_default =
-			mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
-		mtk_crtc_set_mmclk_for_fps(crtc, fps_default);
-	}
-
 	mtk_drm_crtc_init_para(crtc);
 
 	if (mtk_crtc->enabled) {
@@ -3320,18 +3296,17 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_ddp_comp *comp = NULL;
+	struct mtk_ddp_comp *output_comp = NULL;
 	struct cmdq_client *client;
+	int en = 0;
 
 	CRTC_MMP_EVENT_START(crtc_id, disable,
 			mtk_crtc->enabled, 0);
 
-	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
-		mtk_crtc->panel_ext->params->dyn_fps.switch_en
-		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps) {
-		unsigned int fps_default = 0;
-
-		mtk_crtc_set_mmclk_for_fps(crtc, fps_default);
-	}
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
+				&en);
 
 	if (!mtk_crtc->enabled) {
 		CRTC_MMP_MARK(crtc_id, disable, 0, 0);

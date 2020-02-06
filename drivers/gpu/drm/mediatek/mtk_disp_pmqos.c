@@ -23,6 +23,7 @@ static struct drm_crtc *dev_crtc;
 static struct pm_qos_request mm_freq_request;
 static u64 g_freq_steps[MAX_FREQ_STEP];
 static int g_freq_level = -1;
+static int step_size = 1;
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
@@ -269,7 +270,6 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 
 void mtk_drm_mmdvfs_init(void)
 {
-	unsigned int step_size;
 
 	pm_qos_add_request(&mm_freq_request, PM_QOS_DISP_FREQ,
 			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
@@ -277,7 +277,8 @@ void mtk_drm_mmdvfs_init(void)
 	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, g_freq_steps, &step_size);
 }
 
-void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, const char *caller)
+static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
+			const char *caller)
 {
 	if (drm_crtc_index(crtc) != 0)
 		return;
@@ -297,4 +298,28 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, const char *caller)
 			g_freq_steps[g_freq_level]);
 	else
 		pm_qos_update_request(&mm_freq_request, 0);
+}
+
+void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
+	unsigned int pixclk, const char *caller)
+{
+	int i;
+
+	if (pixclk >= g_freq_steps[0]) {
+		DDPMSG("%s:error:pixleclk (%d) is to big for mmclk (%llu)\n",
+			caller, pixclk, g_freq_steps[0]);
+		return;
+	}
+	if (!pixclk) {
+		mtk_drm_set_mmclk(crtc, -1, caller);
+		return;
+	}
+	for (i = 1; i < step_size; i++) {
+		if (pixclk >= g_freq_steps[i]) {
+			mtk_drm_set_mmclk(crtc, i-1, caller);
+			break;
+		}
+		if (i == step_size - 1)
+			mtk_drm_set_mmclk(crtc, -1, caller);
+	}
 }
