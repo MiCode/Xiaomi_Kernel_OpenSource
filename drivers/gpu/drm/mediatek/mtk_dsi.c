@@ -1376,6 +1376,9 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
 
+static void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
+					  const void *data, size_t len);
+
 static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 {
 	bool doze_enabled = mtk_dsi_doze_state(dsi);
@@ -1396,10 +1399,12 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 	}
 
 	/* Change LCM Doze mode */
-	if (doze_enabled && panel_funcs->doze_enable)
-		panel_funcs->doze_enable(dsi->panel);
+	if (doze_enabled && panel_funcs->doze_enable_start)
+		panel_funcs->doze_enable_start(dsi->panel, dsi,
+			mipi_dsi_dcs_write_gce2, NULL);
 	else if (!doze_enabled && panel_funcs->doze_disable)
-		panel_funcs->doze_disable(dsi->panel);
+		panel_funcs->doze_disable(dsi->panel, dsi,
+			mipi_dsi_dcs_write_gce2, NULL);
 
 	/* Display mode switch */
 	if (panel_funcs->doze_get_mode_flags) {
@@ -1419,12 +1424,46 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 		mtk_dsi_set_mode(dsi);
 		mtk_dsi_clk_hs_mode(dsi, 1);
 
-		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		/* Update RDMA golden setting after switch */
+		{
+			struct drm_crtc *crtc = dsi->encoder.crtc;
+			struct mtk_drm_crtc *mtk_crtc =
+			    to_mtk_crtc(dsi->encoder.crtc);
+			unsigned int i, j;
+			struct cmdq_pkt *handle;
+			struct mtk_ddp_comp *comp;
+			struct mtk_ddp_config cfg;
+
+			mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			cfg.w = crtc->state->adjusted_mode.hdisplay;
+			cfg.h = crtc->state->adjusted_mode.vdisplay;
+			cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+			cfg.bpc = mtk_crtc->bpc;
+			cfg.p_golden_setting_context =
+				__get_golden_setting_context(mtk_crtc);
+			for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+				mtk_ddp_comp_io_cmd(comp, handle,
+					MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+			cmdq_pkt_flush(handle);
+			cmdq_pkt_destroy(handle);
+		}
+
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+			mtk_dsi_set_vm_cmd(dsi);
+			mtk_dsi_calc_vdo_timing(dsi);
+			mtk_dsi_config_vdo_timing(dsi);
 			mtk_dsi_start(dsi);
+		}
 	}
 
+	if (doze_enabled && panel_funcs->doze_enable)
+		panel_funcs->doze_enable(dsi->panel, dsi,
+			mipi_dsi_dcs_write_gce2, NULL);
+
 	if (doze_enabled && panel_funcs->doze_area)
-		panel_funcs->doze_area(dsi->panel);
+		panel_funcs->doze_area(dsi->panel, dsi,
+			mipi_dsi_dcs_write_gce2, NULL);
 
 	if (panel_funcs->doze_post_disp_on)
 		panel_funcs->doze_post_disp_on(dsi->panel);
@@ -1478,17 +1517,24 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			return;
 		}
 		if (new_doze_state && !dsi->doze_enabled) {
+			if (ext && ext->funcs &&
+				ext->funcs->doze_enable_start)
+				ext->funcs->doze_enable_start(dsi->panel, dsi,
+					mipi_dsi_dcs_write_gce2, NULL);
 			if (ext && ext->funcs
 				&& ext->funcs->doze_enable)
-				ext->funcs->doze_enable(dsi->panel);
+				ext->funcs->doze_enable(dsi->panel, dsi,
+					mipi_dsi_dcs_write_gce2, NULL);
 			if (ext && ext->funcs
 				&& ext->funcs->doze_area)
-				ext->funcs->doze_area(dsi->panel);
+				ext->funcs->doze_area(dsi->panel, dsi,
+					mipi_dsi_dcs_write_gce2, NULL);
 		}
 		if (!new_doze_state && dsi->doze_enabled) {
 			if (ext && ext->funcs
 				&& ext->funcs->doze_disable)
-				ext->funcs->doze_disable(dsi->panel);
+				ext->funcs->doze_disable(dsi->panel, dsi,
+					mipi_dsi_dcs_write_gce2, NULL);
 		}
 	}
 
@@ -2964,6 +3010,89 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 			dsi->ddp_comp.regs_pa + DSI_INTSTA,
 			VM_CMD_DONE_INT_EN, VM_CMD_DONE_INT_EN);
 	}
+}
+
+void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
+					  const void *data, size_t len)
+{
+
+	struct cmdq_pkt *handle;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	int dsi_mode = readl(dsi->regs + DSI_MODE_CTRL);
+
+	struct mipi_dsi_msg msg = {
+		.tx_buf = data,
+		.tx_len = len
+	};
+
+	switch (len) {
+	case 0:
+		return;
+
+	case 1:
+		msg.type = MIPI_DSI_DCS_SHORT_WRITE;
+		break;
+
+	case 2:
+		msg.type = MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+		break;
+
+	default:
+		msg.type = MIPI_DSI_DCS_LONG_WRITE;
+		break;
+	}
+
+	if (dsi_mode == 0) {
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+		mtk_dsi_poll_for_idle(dsi, handle);
+
+		mtk_dsi_cmdq_gce(dsi, handle, &msg);
+
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+
+		mtk_dsi_poll_for_idle(dsi, handle);
+	} else {
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+		/* build VM cmd */
+		mtk_dsi_vm_cmdq(dsi, &msg, handle);
+
+		/* clear VM_CMD_DONE */
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
+			VM_CMD_DONE_INT_EN);
+
+		/* start to send VM cmd */
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0,
+			VM_CMD_START);
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, VM_CMD_START,
+			VM_CMD_START);
+
+		/* poll VM cmd done */
+		mtk_dsi_cmdq_poll(&dsi->ddp_comp, handle,
+			dsi->ddp_comp.regs_pa + DSI_INTSTA,
+			VM_CMD_DONE_INT_EN, VM_CMD_DONE_INT_EN);
+
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0,
+			VM_CMD_START);
+
+		/* clear VM_CMD_DONE */
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
+			VM_CMD_DONE_INT_EN);
+	}
+
+	cmdq_pkt_flush(handle);
+	cmdq_pkt_destroy(handle);
 }
 
 void mipi_dsi_dcs_grp_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,

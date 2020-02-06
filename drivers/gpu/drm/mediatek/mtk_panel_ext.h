@@ -204,23 +204,32 @@ struct mtk_panel_funcs {
 		unsigned int mode);
 	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
+
 	/**
-	 * @doze_enable:
+	 * @doze_enable_start:
 	 *
-	 * Call the @doze_enable before starting AOD mode. The LCM off may add
-	 * at the beginning of this function to avoid panel show unexpected
+	 * Call the @doze_enable_start before starting AOD mode.
+	 * The LCM off may add here to avoid panel show unexpected
 	 * content when switching to specific panel low power mode.
 	 */
-	int (*doze_enable)(struct drm_panel *panel);
+	int (*doze_enable_start)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_enable:
 	 *
-	 * Call the @doze_enable before starting AOD mode. The LCM off may add
-	 * at the beginning of this function to avoid panel show unexpected
-	 * content when switching back to normal mode.
+	 * Call the @doze_enable starts AOD mode.
 	 */
-	int (*doze_disable)(struct drm_panel *panel);
+	int (*doze_enable)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
+
+	/**
+	 * @doze_disable:
+	 *
+	 * Call the @doze_disable before ending AOD mode.
+	 */
+	int (*doze_disable)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_post_disp_on:
@@ -236,7 +245,8 @@ struct mtk_panel_funcs {
 	 *
 	 * Send the panel area in command here.
 	 */
-	int (*doze_area)(struct drm_panel *panel);
+	int (*doze_area)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_get_mode_flags:

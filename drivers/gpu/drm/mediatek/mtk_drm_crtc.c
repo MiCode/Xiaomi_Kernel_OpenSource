@@ -1257,16 +1257,12 @@ static void copy_drm_disp_mode(struct drm_display_mode *src,
 	dst->vrefresh    = src->vrefresh;
 }
 
-static struct golden_setting_context *
+struct golden_setting_context *
 __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 {
-	static int is_inited[MAX_CRTC];
 	static struct golden_setting_context gs_ctx[MAX_CRTC];
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int idx = drm_crtc_index(&mtk_crtc->base);
-
-	if (is_inited[idx])
-		goto done;
 
 	/* default setting */
 	gs_ctx[idx].is_dc = 0;
@@ -1303,9 +1299,6 @@ __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 		break;
 	}
 
-	is_inited[idx] = 1;
-
-done:
 	return &gs_ctx[idx];
 }
 

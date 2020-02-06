@@ -694,5 +694,7 @@ unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);
 
 void mtk_crtc_disable_secure_state(struct drm_crtc *crtc);
+struct golden_setting_context *
+	__get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc);
 
 #endif /* MTK_DRM_CRTC_H */

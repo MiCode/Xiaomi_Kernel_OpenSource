@@ -371,6 +371,8 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 	struct drm_encoder *encoder;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_panel_funcs *panel_funcs;
+	struct cmdq_pkt *handle;
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 
 	/*
 	 * If CRTC doze_active state change but the active state
@@ -388,6 +390,19 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 
 	panel_funcs = mtk_drm_get_lcm_ext_funcs(crtc);
 	if (panel_funcs && panel_funcs->doze_get_mode_flags) {
+		/* blocking flush before stop trigger loop */
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		if (mtk_crtc_is_frame_trigger_mode(crtc))
+			cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		else
+			cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+
+		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
 		mtk_crtc_stop_trig_loop(crtc);
 		if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 			mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
@@ -426,12 +441,14 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 			mtk_disp_mutex_src_set(mtk_crtc, true);
 		}
 		mtk_crtc_start_trig_loop(crtc);
+		cmdq_mbox_disable(client->chan); /* GCE clk refcnt - 1 */
+
 		mtk_crtc_hw_block_ready(crtc);
 	}
 }
 
 static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
-					 struct drm_crtc *crtc)
+					 struct drm_crtc *crtc, bool prepare)
 {
 	struct mtk_crtc_state *mtk_state;
 
@@ -440,14 +457,18 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 		__func__, mtk_state->doze_changed,
 		drm_atomic_crtc_needs_modeset(crtc->state),
 		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
+
 	if (!mtk_state->doze_changed ||
 		!drm_atomic_crtc_needs_modeset(crtc->state))
 		return;
 
-	if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
-		mtk_crtc_is_frame_trigger_mode(crtc)) {
-		mtk_crtc_change_output_mode(crtc, 0);
-	}
+	/* consider suspend->doze, doze_suspend->resume when doze prepare
+	 * consider doze->suspend, resume->doze_supend when doze finish
+	 */
+	if ((crtc->state->active && prepare) ||
+		(!crtc->state->active && !prepare))
+		mtk_crtc_change_output_mode(crtc,
+			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 }
 
 static void mtk_atomic_doze_preparation(struct drm_device *dev,
@@ -467,9 +488,31 @@ static void mtk_atomic_doze_preparation(struct drm_device *dev,
 			continue;
 		}
 
-		mtk_atomic_doze_update_dsi_state(dev, crtc);
+		mtk_atomic_doze_update_dsi_state(dev, crtc, 1);
 
 		mtk_atomic_force_doze_switch(dev, old_state, connector, crtc);
+	}
+
+}
+
+static void mtk_atomic_doze_finish(struct drm_device *dev,
+					 struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc;
+	struct drm_connector *connector;
+	struct drm_connector_state *old_conn_state;
+	int i;
+
+	for_each_new_connector_in_state(old_state, connector,
+		old_conn_state, i) {
+
+		crtc = connector->state->crtc;
+		if (!crtc) {
+			DDPPR_ERR("%s connector has no crtc\n", __func__);
+			continue;
+		}
+
+		mtk_atomic_doze_update_dsi_state(dev, crtc, 0);
 	}
 
 }
@@ -622,6 +665,8 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 		drm_atomic_esd_chk_first_enable(drm, state);
 #endif
 	}
+
+	mtk_atomic_doze_finish(drm, state);
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
 				    MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK))
