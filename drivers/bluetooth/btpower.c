@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -38,20 +38,11 @@ static const struct of_device_id bt_power_match_table[] = {
 };
 
 static struct bt_power_vreg_data bt_power_vreg_info[] = {
-	{NULL, "qcom,bt-vdd-vl", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-vm", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-5c", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-vh", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-io", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-xtal", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-core", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-pa", 0, 0, 0, false, false},
-	{NULL, "qcom,bt-vdd-ldo", 0, 0, 0, false, false},
 	{NULL, "qcom,bt-vdd-aon", 950000, 950000, 0, false, true},
 	{NULL, "qcom,bt-vdd-dig", 950000, 952000, 0, false, true},
 	{NULL, "qcom,bt-vdd-rfa1", 1900000, 1900000, 0, false, true},
 	{NULL, "qcom,bt-vdd-rfa2", 1900000, 1900000, 0, false, true},
-	{NULL, "qcom,bt-vdd-asd", 3024000, 3304000, 10000, false, false},
+	{NULL, "qcom,bt-vdd-asd", 0, 0, 0, false, false},
 };
 
 #define BT_VREG_INFO_SIZE ARRAY_SIZE(bt_power_vreg_info)
@@ -476,7 +467,7 @@ static int bt_power_vreg_get(struct platform_device *pdev)
 
 	bt_power_pdata->vreg_info =
 		devm_kzalloc(&(pdev->dev),
-				sizeof(*bt_power_pdata->vreg_info),
+				sizeof(bt_power_vreg_info),
 				GFP_KERNEL);
 	if (!bt_power_pdata->vreg_info) {
 		ret = -ENOMEM;
