@@ -17,6 +17,7 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <memory/mediatek/emi.h>
 
+DEFINE_SPINLOCK(emidbg_lock);
 static struct platform_device *emicen_pdev;
 
 static int emicen_probe(struct platform_device *pdev)
@@ -198,10 +199,22 @@ EXPORT_SYMBOL(mtk_emicen_get_rk_size);
  */
 void mtk_emidbg_dump(void)
 {
+	unsigned long spinlock_save_flags;
 	struct arm_smccc_res smc_res;
+
+	spin_lock_irqsave(&emidbg_lock, spinlock_save_flags);
 
 	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIDBG_DUMP,
 		0, 0, 0, 0, 0, 0, &smc_res);
+	while (smc_res.a0 > 0) {
+		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIDBG_MSG,
+		0, 0, 0, 0, 0, 0, &smc_res);
+
+		pr_info("%s: %d, 0x%x, 0x%x, 0x%x\n", __func__,
+			smc_res.a0, smc_res.a1, smc_res.a2, smc_res.a3);
+	}
+
+	spin_unlock_irqrestore(&emidbg_lock, spinlock_save_flags);
 }
 EXPORT_SYMBOL(mtk_emidbg_dump);
 
