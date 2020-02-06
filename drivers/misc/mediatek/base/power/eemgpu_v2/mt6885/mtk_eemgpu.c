@@ -131,7 +131,7 @@ static DEFINE_SPINLOCK(eemg_spinlock);
 static int eemg_log_en;
 static unsigned int eemg_checkEfuse = 1;
 static unsigned int informEEMisReady;
-
+static unsigned int gpuSeg;
 
 #ifdef CONFIG_OF
 void __iomem *eemg_base;
@@ -232,6 +232,8 @@ static int get_devinfo(void)
 			break;
 		}
 	}
+
+	gpuSeg = (get_devinfo_with_index(DEVINFO_IDX_FAB4) & 0x7);
 
 #if (EEMG_FAKE_EFUSE)
 	eemg_checkEfuse = 1;
@@ -1467,6 +1469,8 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 		}
 #endif
 		det->VMAX += det->DVTFIXED;
+		if (gpuSeg == 2)
+			det->VMIN = VMIN_VAL_GPU_SEG2;
 		break;
 #if ENABLE_VPU
 	case EEMG_DET_VPU:
@@ -1505,6 +1509,8 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 			det->features = 0;
 			det->loo_role = NO_LOO_BANK;
 		}
+		if (gpuSeg == 2)
+			det->VMIN = VMIN_VAL_GPU_SEG2;
 		break;
 #endif
 	default:
