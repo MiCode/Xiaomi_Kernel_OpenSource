@@ -63,6 +63,8 @@
 #define DPHY_2LANE 0
 
 static kal_uint8 qsc_flag;
+static kal_uint8 otp_flag;
+
 #if USE_BURST_MODE
 static kal_uint16 imx586_table_write_cmos_sensor(
 		kal_uint16 * para, kal_uint32 len);
@@ -449,29 +451,69 @@ static void read_sensor_Cali(void)
 	kal_uint16 idx = 0, addr_qsc = 0xfaf, sensor_lrc = 0x7F00;
 	kal_uint16 eeprom_lrc_0 = 0x1620, eeprom_lrc_1 = 0x16E0;
 	kal_uint16 sensor_lrc_0 = 0x7510, sensor_lrc_1 = 0x7600;
+	kal_uint8 otp_data[9] = {0};
+	int i = 0;
 
-	for (idx = 0; idx < 2304; idx++) {
-		addr_qsc = 0xfaf + idx;
-		sensor_lrc = 0x7F00 + idx;
-		imx586_QSC_setting[2 * idx] = sensor_lrc;
-		imx586_QSC_setting[2 * idx + 1] = read_cmos_eeprom_8(addr_qsc);
-	}
+	/*read otp data to distinguish module*/
+	otp_flag = OTP_QSC_NONE;
 
-	for (idx = 0; idx < 192; idx++) {
-		imx586_LRC_setting[2 * idx] = sensor_lrc_0 + idx;
-		imx586_LRC_setting[2 * idx + 1] =
+	for (i = 0; i < 7; i++)
+		otp_data[i] = read_cmos_eeprom_8(0x0001 + i);
+
+
+	/*Internal Module Type*/
+	if ((otp_data[0] == 0xff) &&
+		(otp_data[1] == 0x00) &&
+		(otp_data[2] == 0x0b) &&
+		(otp_data[3] == 0x01)) {
+		pr_info("OTP type: Internal Only");
+		otp_flag = OTP_QSC_INTERNAL;
+
+		for (idx = 0; idx < 2304; idx++) {
+			addr_qsc = 0xfaf + idx;
+			sensor_lrc = 0x7F00 + idx;
+			imx586_QSC_setting[2 * idx] = sensor_lrc;
+			imx586_QSC_setting[2 * idx + 1] =
+				read_cmos_eeprom_8(addr_qsc);
+		}
+
+		for (idx = 0; idx < 192; idx++) {
+			imx586_LRC_setting[2 * idx] = sensor_lrc_0 + idx;
+				imx586_LRC_setting[2 * idx + 1] =
 			read_cmos_eeprom_8(eeprom_lrc_0 + idx);
-		imx586_LRC_setting[2 * idx + 192 * 2] =
-			sensor_lrc_1 + idx;
-		imx586_LRC_setting[2 * idx + 1 + 192 * 2] =
+			imx586_LRC_setting[2 * idx + 192 * 2] =
+				sensor_lrc_1 + idx;
+			imx586_LRC_setting[2 * idx + 1 + 192 * 2] =
 			read_cmos_eeprom_8(eeprom_lrc_1 + idx);
+		}
+
+	} else if ((otp_data[5] == 0x56) && (otp_data[6] == 0x00)) {
+		/*Internal Module Type*/
+		pr_info("OTP type: Custom Only");
+		otp_flag = OTP_QSC_CUSTOM;
+
+		for (idx = 0; idx < 2304; idx++) {
+			addr_qsc = 0xc90 + idx;
+			sensor_lrc = 0x7F00 + idx;
+			imx586_QSC_setting[2 * idx] = sensor_lrc;
+			imx586_QSC_setting[2 * idx + 1] =
+				read_cmos_eeprom_8(addr_qsc);
+		}
+
+	} else {
+		pr_info("OTP type: No Data, 0x0008 = %d, 0x0009 = %d",
+		read_cmos_eeprom_8(0x0008), read_cmos_eeprom_8(0x0009));
 	}
+
+
 }
 
 static void write_sensor_QSC(void)
 {
-	imx586_table_write_cmos_sensor(imx586_QSC_setting,
+	if ((otp_flag == OTP_QSC_CUSTOM) || (otp_flag == OTP_QSC_INTERNAL)) {
+		imx586_table_write_cmos_sensor(imx586_QSC_setting,
 		sizeof(imx586_QSC_setting) / sizeof(kal_uint16));
+	}
 }
 
 static void set_dummy(void)
@@ -2985,6 +3027,11 @@ static void custom3_setting(void)
 	/*************MIPI output setting************/
 	imx586_table_write_cmos_sensor(imx586_custom3_setting,
 		sizeof(imx586_custom3_setting)/sizeof(kal_uint16));
+
+	if (otp_flag == OTP_QSC_NONE) {
+		pr_info("OTP no QSC Data, close qsc register");
+		write_cmos_sensor_8(0x3621, 0x00);
+	}
 
 	pr_debug("%s 30 fpsX\n", __func__);
 }

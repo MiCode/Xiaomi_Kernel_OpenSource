@@ -43,6 +43,12 @@ enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_CUSTOM4,
 };
 
+enum {
+	OTP_QSC_NONE = 0x0,
+	OTP_QSC_INTERNAL,
+	OTP_QSC_CUSTOM,
+};
+
 struct imgsensor_mode_struct {
 	kal_uint32 pclk; /* record different mode's pclk */
 	kal_uint32 linelength; /* record different mode's linelength */
