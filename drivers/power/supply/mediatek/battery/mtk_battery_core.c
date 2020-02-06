@@ -2681,6 +2681,25 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 			gm.is_reset_aging_factor = 0;
 		}
 		break;
+	case FG_GET_SOC_DECIMAL_RATE:
+		{
+			int decimal_rate = gm.soc_decimal_rate;
+
+			memcpy(&pret->output,
+				&decimal_rate, sizeof(decimal_rate));
+			bm_debug("[FG_GET_SOC_DECIMAL_RATE]soc_decimal_rate:%d %d\n",
+				decimal_rate, gm.soc_decimal_rate);
+		}
+		break;
+	case FG_GET_DIFF_SOC_SET:
+		{
+			/* 1 = 0.01%, 50 = 0.5% */
+			int soc_setting = 1;
+
+			memcpy(&pret->output,
+				&soc_setting, sizeof(soc_setting));
+		}
+		break;
 	case FG_SET_SOC:
 		{
 			gm.soc = (prcv->input + 50) / 100;

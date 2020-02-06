@@ -228,6 +228,7 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_SAVE_DEBUG_PARAM,
 	FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
 	FG_KERNEL_CMD_AG_LOG_TEST,
+	FG_KERNEL_CMD_CHG_DECIMAL_RATE,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -306,6 +307,8 @@ enum daemon_cmd_int_data {
 	FG_GET_CURR_2 = 4,
 	FG_GET_REFRESH = 5,
 	FG_GET_IS_AGING_RESET = 6,
+	FG_GET_SOC_DECIMAL_RATE = 7,
+	FG_GET_DIFF_SOC_SET = 8,
 	FG_GET_MAX,
 	FG_SET_ANCHOR = 999,
 	FG_SET_SOC = FG_SET_ANCHOR + 1,
@@ -798,6 +801,7 @@ struct mtk_battery {
 
 	bool is_reset_aging_factor;
 	int aging_factor;
+	int soc_decimal_rate;
 
 	struct timespec uisoc_oldtime;
 
