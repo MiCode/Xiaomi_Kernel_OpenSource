@@ -38,19 +38,6 @@ obj-y:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
 		$(PDIR)/apu_power_table.o $(PDIR)/apu_platform_resource.o \
 		$(PDIR)/apu_platform_debug.o $(PDIR)/apusys_power_rule_check.o
 
-# AGING load
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885tv1_64_aging")
-subdir-ccflags-y += -DAGING_MARGIN
-else ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6889v1_64_aging")
-subdir-ccflags-y += -DAGING_MARGIN
-else ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_lv_aging")
-subdir-ccflags-y += -DAGING_MARGIN
-else ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_alpha_aging")
-subdir-ccflags-y += -DAGING_MARGIN
-else ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_alpha_lv_aging")
-subdir-ccflags-y += -DAGING_MARGIN
-endif
-
 ifneq (,$(findstring aging,$(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)))
 subdir-ccflags-y += -DAGING_MARGIN
 endif
