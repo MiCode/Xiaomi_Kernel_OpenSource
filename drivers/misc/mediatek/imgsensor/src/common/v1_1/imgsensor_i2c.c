@@ -314,19 +314,19 @@ enum IMGSENSOR_RETURN imgsensor_i2c_read(
 
 	mutex_lock(&pi2c_cfg->i2c_mutex);
 
-	pinst->msg[0].addr  = id >> 1;
-	pinst->msg[0].flags = 0;
-	pinst->msg[0].len   = write_length;
-	pinst->msg[0].buf   = pwrite_data;
+	pi2c_cfg->msg[0].addr  = id >> 1;
+	pi2c_cfg->msg[0].flags = 0;
+	pi2c_cfg->msg[0].len   = write_length;
+	pi2c_cfg->msg[0].buf   = pwrite_data;
 
-	pinst->msg[1].addr  = id >> 1;
-	pinst->msg[1].flags = I2C_M_RD;
-	pinst->msg[1].len   = read_length;
-	pinst->msg[1].buf   = pread_data;
+	pi2c_cfg->msg[1].addr  = id >> 1;
+	pi2c_cfg->msg[1].flags = I2C_M_RD;
+	pi2c_cfg->msg[1].len   = read_length;
+	pi2c_cfg->msg[1].buf   = pread_data;
 
 	if (mtk_i2c_transfer(
 			pinst->pi2c_client->adapter,
-			pinst->msg,
+			pi2c_cfg->msg,
 			IMGSENSOR_I2C_MSG_SIZE_READ,
 			(pi2c_cfg->pinst->status.filter_msg)
 				? I2C_A_FILTER_MSG : 0,
@@ -357,7 +357,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 {
 	struct IMGSENSOR_I2C_INST *pinst = pi2c_cfg->pinst;
 	enum   IMGSENSOR_RETURN    ret   = IMGSENSOR_RETURN_SUCCESS;
-	struct i2c_msg     *pmsg  = pinst->msg;
+	struct i2c_msg     *pmsg  = pi2c_cfg->msg;
 	u8                 *pdata = pwrite_data;
 	u8                 *pend  = pwrite_data + write_length;
 	int i   = 0;
@@ -382,7 +382,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 
 	if (mtk_i2c_transfer(
 			pinst->pi2c_client->adapter,
-			pinst->msg,
+			pi2c_cfg->msg,
 			i,
 			(pi2c_cfg->pinst->status.filter_msg)
 				? I2C_A_FILTER_MSG : 0,

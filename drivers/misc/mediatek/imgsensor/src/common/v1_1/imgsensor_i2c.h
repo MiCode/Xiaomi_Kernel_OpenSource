@@ -42,12 +42,12 @@ struct IMGSENSOR_I2C_STATUS {
 struct IMGSENSOR_I2C_INST {
 	struct IMGSENSOR_I2C_STATUS status;
 	struct i2c_client          *pi2c_client;
-	struct i2c_msg              msg[IMGSENSOR_I2C_CMD_LENGTH_MAX];
 };
 
 struct IMGSENSOR_I2C_CFG {
 	struct IMGSENSOR_I2C_INST *pinst;
 	struct i2c_driver         *pi2c_driver;
+	struct i2c_msg             msg[IMGSENSOR_I2C_CMD_LENGTH_MAX];
 	struct mutex               i2c_mutex;
 };
 
