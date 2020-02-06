@@ -737,8 +737,10 @@ struct v4l2_pix_format {
 
 	/* MTK 8-bit frame buffer compressed mode, single plane */
 #define V4L2_PIX_FMT_RGB32_AFBC         v4l2_fourcc('M', 'C', 'R', '8')
+#define V4L2_PIX_FMT_BGR32_AFBC         v4l2_fourcc('M', 'C', 'B', '8')
 	/* MTK 10-bit frame buffer compressed mode, single plane */
 #define V4L2_PIX_FMT_RGBA1010102_AFBC   v4l2_fourcc('M', 'C', 'R', 'X')
+#define V4L2_PIX_FMT_BGRA1010102_AFBC   v4l2_fourcc('M', 'C', 'B', 'X')
 	/* MTK 8-bit frame buffer compressed mode, two planes */
 #define V4L2_PIX_FMT_NV12_AFBC          v4l2_fourcc('M', 'C', 'N', '8')
 	/* MTK 10-bit frame buffer compressed mode, two planes */

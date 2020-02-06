@@ -691,19 +691,30 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 
 		// Compute AFBC stream data size
 		if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB32_AFBC ||
-		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGBA1010102_AFBC) {
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR32_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGBA1010102_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGRA1010102_AFBC) {
+			step_width_in_pixel = 1;
+			step_height_in_pixel = 1;
 			block_w = 32;
 			block_h = 8;
 			bitsPP = 32;
+			saligned = 4;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_NV12_AFBC) {
+			step_width_in_pixel = 1;
+			step_height_in_pixel = 1;
 			block_w = 16;
 			block_h = 16;
 			bitsPP = 12;
+			saligned = 4;
 		} else if (pix_fmt_mp->pixelformat ==
 				V4L2_PIX_FMT_NV12_10B_AFBC) {
+			step_width_in_pixel = 1;
+			step_height_in_pixel = 1;
 			block_w = 16;
 			block_h = 16;
 			bitsPP = 16;
+			saligned = 4;
 		}
 
 		/* find next closer width stride align 16, height align 16,
@@ -795,7 +806,9 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 			pix_fmt_mp->width * bitsPP / 8;
 			pix_fmt_mp->num_planes = 1U;
 		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB32_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGR32_AFBC ||
 		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGBA1010102_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_BGRA1010102_AFBC ||
 		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_NV12_AFBC ||
 		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_NV12_10B_AFBC) {
 			block_count =
@@ -926,8 +939,14 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	case V4L2_PIX_FMT_RGB32_AFBC:
 		param->input_yuv_fmt = VENC_YUV_FORMAT_32bitRGBA8888_AFBC;
 		break;
+	case V4L2_PIX_FMT_BGR32_AFBC:
+		param->input_yuv_fmt = VENC_YUV_FORMAT_32bitBGRA8888_AFBC;
+		break;
 	case V4L2_PIX_FMT_RGBA1010102_AFBC:
 		param->input_yuv_fmt = VENC_YUV_FORMAT_32bitRGBA1010102_AFBC;
+		break;
+	case V4L2_PIX_FMT_BGRA1010102_AFBC:
+		param->input_yuv_fmt = VENC_YUV_FORMAT_32bitBGRA1010102_AFBC;
 		break;
 	case V4L2_PIX_FMT_NV12_AFBC:
 		param->input_yuv_fmt = VENC_YUV_FORMAT_NV12_AFBC;
