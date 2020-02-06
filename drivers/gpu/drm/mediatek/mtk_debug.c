@@ -332,7 +332,7 @@ int mtkfb_set_backlight_level(unsigned int level)
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
-static int mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
+int mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
 
@@ -349,7 +349,7 @@ static int mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 }
 EXPORT_SYMBOL(mtk_disp_mipi_ccci_callback);
 
-int mtk_disp_osc_ccci_callback(int en, unsigned int usrdata)
+int mtk_disp_osc_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
 
