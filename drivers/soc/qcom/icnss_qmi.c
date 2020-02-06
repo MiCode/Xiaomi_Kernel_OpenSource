@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -490,9 +490,14 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 		icnss_qmi_fatal_err("Mode resp wait failed with ret %d\n", ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		ret = -resp->resp.result;
+		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED) {
+			icnss_pr_err("QMI Mode req rejected as CCPM init failed, result:%d error:%d\n",
+				     resp->resp.result, resp->resp.error);
+			goto out;
+		}
 		icnss_qmi_fatal_err("QMI Mode request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
-		ret = -resp->resp.result;
 		goto out;
 	}
 
