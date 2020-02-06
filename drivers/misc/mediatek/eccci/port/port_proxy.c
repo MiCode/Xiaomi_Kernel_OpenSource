@@ -88,13 +88,22 @@ int send_new_time_to_new_md(int md_id, int tz)
 
 int port_dev_kernel_read(struct port_t *port, char *buf, int size)
 {
-	int read_done = 0, ret = 0, read_len = 0;
+	int read_done = 0, ret = 0, read_len = 0, md_state;
 	struct sk_buff *skb = NULL;
 	unsigned long flags = 0;
 
+	CHECK_MD_ID(port->md_id);
+	md_state = ccci_fsm_get_md_state(port->md_id);
+	if (md_state != READY && port->tx_ch != CCCI_FS_TX &&
+		port->tx_ch != CCCI_RPC_TX) {
+		pr_info_ratelimited(
+			"port %s read data fail when md_state = %d\n",
+			port->name, md_state);
+		return -ENODEV;
+	}
+
 READ_START:
 	if (skb_queue_empty(&port->rx_skb_list)) {
-		CCCI_ERROR_LOG(-1, CHAR, "skb empty\n");
 		spin_lock_irq(&port->rx_wq.lock);
 		ret = wait_event_interruptible_locked_irq(port->rx_wq,
 			!skb_queue_empty(&port->rx_skb_list));
@@ -113,6 +122,7 @@ READ_START:
 	skb = skb_peek(&port->rx_skb_list);
 	if (skb == NULL) {
 		ret = -EFAULT;
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		goto exit;
 	}
 
@@ -160,6 +170,7 @@ READ_START:
 int mtk_ccci_send_data(int index, char *buf, int size)
 {
 	int ret, actual_count, header_len, alloc_size = 0;
+	int md_state;
 	struct sk_buff *skb;
 	struct ccci_header *ccci_h;
 	struct port_t *tx_port;
@@ -175,6 +186,16 @@ int mtk_ccci_send_data(int index, char *buf, int size)
 	if (!tx_port->name) {
 		CCCI_ERROR_LOG(-1, CHAR, "port name is null\n");
 		return -1;
+	}
+
+	CHECK_MD_ID(tx_port->md_id);
+	md_state = ccci_fsm_get_md_state(tx_port->md_id);
+	if (md_state != READY && tx_port->tx_ch != CCCI_FS_TX &&
+		tx_port->tx_ch != CCCI_RPC_TX) {
+		CCCI_ERROR_LOG(-1, CHAR,
+			"port %s send data fail when md_state = %d\n",
+			tx_port->name, md_state);
+		return -ENODEV;
 	}
 	header_len = sizeof(struct ccci_header) +
 		(tx_port->rx_ch == CCCI_FS_RX ? sizeof(unsigned int) : 0);
