@@ -884,7 +884,6 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 
 	usb_remove_hcd(shared_hcd);
-	xhci->shared_hcd = NULL;
 	xhci_mtk_phy_power_off(mtk);
 	xhci_mtk_phy_exit(mtk);
 	device_init_wakeup(&dev->dev, false);
@@ -892,6 +891,7 @@ static int xhci_mtk_remove(struct platform_device *dev)
 	mtk_xhci_wakelock_unlock(mtk);
 	xhci_mtk_dbg_exit(mtk);
 	usb_remove_hcd(hcd);
+	xhci->shared_hcd = NULL;
 	usb_put_hcd(shared_hcd);
 	usb_put_hcd(hcd);
 	xhci_mtk_sch_exit(mtk);
