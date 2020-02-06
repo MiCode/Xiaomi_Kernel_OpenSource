@@ -758,6 +758,7 @@ static const unsigned int mt6873_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_OVL2_2L] = MT6873_MUTEX_MOD_DISP_OVL2_2L,
 		[DDP_COMPONENT_RDMA4] = MT6873_MUTEX_MOD_DISP_RDMA4,
 		[DDP_COMPONENT_DPI0] = MT6873_MUTEX_MOD_DISP_DPI,
+		[DDP_COMPONENT_DMDP_AAL0] = MT6873_MUTEX_MOD_DISP_MDP_AAL4,
 };
 
 /* TODO-check : mutex sof */
@@ -2900,6 +2901,10 @@ static int mtk_ddp_sel_in_MT6873(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_AAL0) {
 		*addr = MT6873_DISP_REG_CONFIG_DISP_AAL0_SEL_IN;
 		value = SEL_IN_FROM_DISP_CCORR0;
+	} else if (cur == DDP_COMPONENT_DMDP_AAL0 &&
+		next == DDP_COMPONENT_AAL0) {
+		*addr = MT6873_DISP_REG_CONFIG_DISP_AAL0_SEL_IN;
+		value = SEL_IN_FROM_MDP_AAL4;
 	/*DISP_DSI0_SEL*/
 	} else if (cur == DDP_COMPONENT_RDMA0 &&
 		next == DDP_COMPONENT_DSI0) {
@@ -2964,6 +2969,11 @@ static int mtk_ddp_sel_in_MT6873(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RSZ0) {
 		*addr = MT6873_DISP_REG_CONFIG_DISP_RSZ0_SEL_IN;
 		value = SEL_IN_RSZ0_FROM_DISP_OVL0;
+	/*DISP_MDP_AAL4_SEL*/
+	} else if (cur == DDP_COMPONENT_CCORR0 &&
+		next == DDP_COMPONENT_DMDP_AAL0) {
+		*addr = MT6873_DISP_REG_CONFIG_DISP_MDP_AAL4_SEL_IN;
+		value = SEL_IN_PQ_AAL_FROM_DISP_CCORR0;
 	/*No cur or next component*/
 	} else {
 		value = -1;
@@ -2998,9 +3008,18 @@ static int mtk_ddp_sout_sel_MT6873(const struct mtk_mmsys_reg_data *data,
 		value = SOUT_TO_DISP_COLOR0;
 	/*DISP_CCORR0_SOUT*/
 	} else if (cur == DDP_COMPONENT_CCORR0 &&
+		next == DDP_COMPONENT_DMDP_AAL0) {
+		*addr = MT6873_DISP_REG_CONFIG_DISP_CCORR0_SOUT_SEL;
+		value = SOUT_TO_MDP_AAL4;
+	} else if (cur == DDP_COMPONENT_CCORR0 &&
 		next == DDP_COMPONENT_AAL0) {
 		*addr = MT6873_DISP_REG_CONFIG_DISP_CCORR0_SOUT_SEL;
 		value = SOUT_TO_DISP_AAL0;
+	/*DISP_MDP_AAL4_SOUT*/
+	} else if (cur == DDP_COMPONENT_DMDP_AAL0 &&
+		next == DDP_COMPONENT_AAL0) {
+		*addr = MT6873_DISP_REG_CONFIG_DISP_MDP_AAL4_SOUT_SEL;
+		value = SOUT_MDP_AAL4_TO_DISP_AAL0;
 	/*No cur or next component*/
 	} else {
 		value = -1;
