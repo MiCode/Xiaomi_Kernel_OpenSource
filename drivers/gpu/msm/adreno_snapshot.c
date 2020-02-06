@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/msm-bus.h>
@@ -908,17 +908,34 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * The problem is that IB size from the register is the unprocessed size
 	 * of the buffer not the original size, so if we didn't catch this
 	 * buffer being directly used in the RB, then we might not be able to
-	 * dump the whole thing. Print a warning message so we can try to
+	 * dump the whole thing. Try to dump the maximum possible size from the
+	 * IB1 base address till the end of memdesc size so that we dont miss
+	 * what we are interested in. Print a warning message so we can try to
 	 * figure how often this really happens.
 	 */
 
 	if (-ENOENT == find_object(snapshot->ib1base, snapshot->process) &&
 			snapshot->ib1size) {
-		kgsl_snapshot_push_object(device, snapshot->process,
-			snapshot->ib1base, snapshot->ib1size);
-		dev_err(device->dev,
-			"CP_IB1_BASE not found in the ringbuffer.Dumping %x dwords of the buffer\n",
-			snapshot->ib1size);
+		struct kgsl_mem_entry *entry;
+		u64 ibsize;
+
+		entry = kgsl_sharedmem_find(snapshot->process,
+				snapshot->ib1base);
+		if (entry == NULL) {
+			dev_err(device->dev,
+				"Can't find a memory entry containing IB1BASE %16llx\n",
+				snapshot->ib1base);
+		} else {
+			ibsize = entry->memdesc.size -
+				(snapshot->ib1base - entry->memdesc.gpuaddr);
+			kgsl_mem_entry_put(entry);
+
+			kgsl_snapshot_push_object(device, snapshot->process,
+				snapshot->ib1base, ibsize >> 2);
+			dev_err(device->dev,
+				"CP_IB1_BASE is not found in the ringbuffer. Dumping %llx dwords of the buffer\n",
+				ibsize >> 2);
+		}
 	}
 
 	/*
