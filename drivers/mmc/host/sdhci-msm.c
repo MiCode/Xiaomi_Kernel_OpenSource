@@ -1980,6 +1980,42 @@ skip_hsr:
 	return ret;
 }
 
+static int sdhci_msm_parse_regulator_info(struct device *dev,
+					struct sdhci_msm_pltfm_data *pdata)
+{
+	int ret = 0;
+
+	pdata->vreg_data = devm_kzalloc(dev, sizeof(struct
+						    sdhci_msm_slot_reg_data),
+					GFP_KERNEL);
+	if (!pdata->vreg_data) {
+		dev_err(dev, "failed to allocate memory for vreg data\n");
+		goto out;
+	}
+
+	if (sdhci_msm_dt_parse_vreg_info(dev, &pdata->vreg_data->vdd_data,
+					 "vdd")) {
+		dev_err(dev, "failed parsing vdd data\n");
+		goto out;
+	}
+	if (sdhci_msm_dt_parse_vreg_info(dev,
+					 &pdata->vreg_data->vdd_io_data,
+					 "vdd-io")) {
+		dev_err(dev, "failed parsing vdd-io data\n");
+		goto out;
+	}
+
+	if (sdhci_msm_dt_parse_vreg_info(dev,
+					 &pdata->vreg_data->vdd_io_bias_data,
+					 "vdd-io-bias")) {
+		dev_err(dev, "No vdd-io-bias regulator data\n");
+	}
+
+	return ret;
+out:
+	return -EINVAL;
+}
+
 /* Parse platform data */
 static
 struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
@@ -2080,25 +2116,8 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 					MMC_SCALING_LOWER_DDR52_MODE;
 	}
 
-	pdata->vreg_data = devm_kzalloc(dev, sizeof(struct
-						    sdhci_msm_slot_reg_data),
-					GFP_KERNEL);
-	if (!pdata->vreg_data) {
-		dev_err(dev, "failed to allocate memory for vreg data\n");
+	if (sdhci_msm_parse_regulator_info(dev, pdata))
 		goto out;
-	}
-
-	if (sdhci_msm_dt_parse_vreg_info(dev, &pdata->vreg_data->vdd_data,
-					 "vdd")) {
-		dev_err(dev, "failed parsing vdd data\n");
-		goto out;
-	}
-	if (sdhci_msm_dt_parse_vreg_info(dev,
-					 &pdata->vreg_data->vdd_io_data,
-					 "vdd-io")) {
-		dev_err(dev, "failed parsing vdd-io data\n");
-		goto out;
-	}
 
 	if (sdhci_msm_dt_parse_gpio_info(dev, pdata)) {
 		dev_err(dev, "failed parsing gpio data\n");
@@ -2652,7 +2671,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_pltfm_data *pdata,
 {
 	int ret = 0, i;
 	struct sdhci_msm_slot_reg_data *curr_slot;
-	struct sdhci_msm_reg_data *vreg_table[2];
+	struct sdhci_msm_reg_data *vreg_table[3];
 
 	curr_slot = pdata->vreg_data;
 	if (!curr_slot) {
@@ -2663,6 +2682,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_pltfm_data *pdata,
 
 	vreg_table[0] = curr_slot->vdd_data;
 	vreg_table[1] = curr_slot->vdd_io_data;
+	vreg_table[2] = curr_slot->vdd_io_bias_data;
 
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
@@ -2685,7 +2705,8 @@ static int sdhci_msm_vreg_init(struct device *dev,
 {
 	int ret = 0;
 	struct sdhci_msm_slot_reg_data *curr_slot;
-	struct sdhci_msm_reg_data *curr_vdd_reg, *curr_vdd_io_reg;
+	struct sdhci_msm_reg_data *curr_vdd_reg, *curr_vdd_io_reg,
+				  *curr_vdd_io_bias_reg;
 
 	curr_slot = pdata->vreg_data;
 	if (!curr_slot)
@@ -2693,10 +2714,11 @@ static int sdhci_msm_vreg_init(struct device *dev,
 
 	curr_vdd_reg = curr_slot->vdd_data;
 	curr_vdd_io_reg = curr_slot->vdd_io_data;
+	curr_vdd_io_bias_reg = curr_slot->vdd_io_bias_data;
 
 	if (!is_init)
 		/* Deregister all regulators from regulator framework */
-		goto vdd_io_reg_deinit;
+		goto vdd_io_bias_reg_deinit;
 
 	/*
 	 * Get the regulator handle from voltage regulator framework
@@ -2712,11 +2734,19 @@ static int sdhci_msm_vreg_init(struct device *dev,
 		if (ret)
 			goto vdd_reg_deinit;
 	}
+	if (curr_vdd_io_bias_reg) {
+		ret = sdhci_msm_vreg_init_reg(dev, curr_vdd_io_bias_reg);
+		if (ret)
+			goto vdd_io_reg_deinit;
+	}
 
 	if (ret)
 		dev_err(dev, "vreg reset failed (%d)\n", ret);
 	goto out;
 
+vdd_io_bias_reg_deinit:
+	if (curr_vdd_io_bias_reg)
+		sdhci_msm_vreg_deinit_reg(curr_vdd_io_bias_reg);
 vdd_io_reg_deinit:
 	if (curr_vdd_io_reg)
 		sdhci_msm_vreg_deinit_reg(curr_vdd_io_reg);
@@ -2890,6 +2920,8 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	int ret = 0;
 	int pwr_state = 0, io_level = 0;
 	unsigned long flags;
+	struct sdhci_msm_reg_data *vreg_io_bias =
+			msm_host->pdata->vreg_data->vdd_io_bias_data;
 
 	irq_status = sdhci_msm_readb_relaxed(host,
 		msm_host_offset->CORE_PWRCTL_STATUS);
@@ -2936,6 +2968,8 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	if (irq_status & CORE_PWRCTL_IO_LOW) {
 		/* Switch voltage Low */
 		ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_LOW, 0);
+		if (!ret && vreg_io_bias)
+			ret = sdhci_msm_vreg_disable(vreg_io_bias);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
 		else
