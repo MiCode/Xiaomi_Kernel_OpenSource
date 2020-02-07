@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -493,7 +493,7 @@ static int smb1398_get_die_temp(struct smb1398_chip *chip, int *temp)
 		dev_err(chip->dev, "Couldn't read die_temp_chan, rc=%d\n", rc);
 	} else {
 		*temp = die_temp_deciC / 100;
-		dev_dbg(chip->dev, "Couldn't get die temp %d\n", *temp);
+		dev_dbg(chip->dev, "die temp %d\n", *temp);
 	}
 
 	return rc;
@@ -1434,6 +1434,13 @@ static int smb1398_request_interrupt(struct smb1398_chip *chip,
 	}
 
 	if (!smb_irqs[irq_index].handler)
+		return 0;
+
+	/*
+	 * Do not register temp-shdwn interrupt as it may misfire on toggling
+	 * the SMB_EN input.
+	 */
+	if (irq_index == TEMP_SHDWN_IRQ)
 		return 0;
 
 	rc = devm_request_threaded_irq(chip->dev, irq, NULL,
