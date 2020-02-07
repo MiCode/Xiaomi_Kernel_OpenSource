@@ -375,7 +375,7 @@ config USB_CONFIGFS_PHONET
 	  The Phonet protocol implementation for USB device.
 
 config USB_CONFIGFS_MASS_STORAGE
-	bool "Mass storage"
+	tristate "Mass storage"
 	depends on USB_CONFIGFS
 	depends on BLOCK
 	select USB_F_MASS_STORAGE
