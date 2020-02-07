@@ -16,6 +16,11 @@
 #include "node.h"
 #include <trace/events/f2fs.h>
 
+/* Some architectures don't have PAGE_KERNEL_RO */
+#ifndef PAGE_KERNEL_RO
+#define PAGE_KERNEL_RO PAGE_KERNEL
+#endif
+
 struct f2fs_compress_ops {
 	int (*init_compress_ctx)(struct compress_ctx *cc);
 	void (*destroy_compress_ctx)(struct compress_ctx *cc);
