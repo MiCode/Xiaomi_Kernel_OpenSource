@@ -45,9 +45,17 @@ enum wlan_time_sync_trigger_type {
 	CNSS_NEGATIVE_EDGE_TRIGGER,
 };
 
+struct avtimer_cnss_fptr_t {
+	int (*fptr_avtimer_open)(void);
+	int (*fptr_avtimer_enable)(int enable);
+	int (*fptr_avtimer_get_time)(uint64_t *avtimer_tick);
+};
+
 extern int cnss_get_audio_wlan_timestamp(struct device *dev,
 					 enum wlan_time_sync_trigger_type type,
 					 u64 *lpass_ts);
+
+extern void cnss_utils_set_avtimer_fptr(struct avtimer_cnss_fptr_t avtimer);
 #endif
 
 #endif
