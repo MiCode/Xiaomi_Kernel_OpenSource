@@ -489,8 +489,9 @@
 
 	swao_csr: csr@6b0f000 {
 		compatible = "qcom,coresight-csr";
-		reg = <0x6b0f000 0x1000>;
-		reg-names = "csr-base";
+		reg = <0x6b0f000 0x1000>,
+		      <0x6b0f0f8 0x50>;
+		reg-names = "csr-base", "msr-base";
 
 		coresight-name = "coresight-swao-csr";
 		qcom,timestamp-support;
