@@ -38,6 +38,9 @@
 #define HH_RM_MEM_SHARE_SANITIZE		BIT(0)
 #define HH_RM_MEM_LEND_SANITIZE			BIT(0)
 
+#define HH_RM_MEM_NOTIFY_RECIPIENT		BIT(0)
+#define HH_RM_MEM_NOTIFY_OWNER			BIT(1)
+
 struct hh_rm_mem_shared_acl_entry;
 struct hh_rm_mem_shared_sgl_entry;
 struct hh_rm_mem_shared_attr_entry;
@@ -107,6 +110,17 @@ struct hh_mem_attr_desc {
 	u16 n_mem_attr_entries;
 	u16 reserved;
 	struct hh_mem_attr_entry attr_entries[];
+} __packed;
+
+struct hh_notify_vmid_entry {
+	u16 vmid;
+	u16 reserved;
+} __packed;
+
+struct hh_notify_vmid_desc {
+	u16 n_vmid_entries;
+	u16 reserved;
+	struct hh_notify_vmid_entry vmid_entries[];
 } __packed;
 
 /* VM APIs */
@@ -195,5 +209,7 @@ int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
 		   struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
 		   struct hh_mem_attr_desc *mem_attr_desc,
 		   hh_memparcel_handle_t *handle);
+int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     struct hh_notify_vmid_desc *vmid_desc);
 
 #endif

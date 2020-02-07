@@ -21,6 +21,8 @@
 	 HH_RM_MEM_ACCEPT_VALIDATE_LABEL | HH_RM_MEM_ACCEPT_DONE)
 #define HH_RM_MEM_SHARE_VALID_FLAGS HH_RM_MEM_SHARE_SANITIZE
 #define HH_RM_MEM_LEND_VALID_FLAGS HH_RM_MEM_LEND_SANITIZE
+#define HH_RM_MEM_NOTIFY_VALID_FLAGS\
+	(HH_RM_MEM_NOTIFY_RECIPIENT | HH_RM_MEM_NOTIFY_OWNER)
 
 static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 
@@ -1076,3 +1078,71 @@ int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
 					   sgl_desc, mem_attr_desc, handle);
 }
 EXPORT_SYMBOL(hh_rm_mem_lend);
+
+/**
+ * hh_rm_mem_notify: Notify VMs about a change in state with respect to a
+ *                   memparcel
+ * @handle: The handle of the memparcel for which a notification should be sent
+ * out
+ * @flags: Flags to determine if the notification is for notifying that memory
+ *         has been shared to another VM, or that a VM has released memory
+ * @vmid_desc: A list of VMIDs to notify that memory has been shared with them.
+ *             This parameter should only be non-NULL if other VMs are being
+ *             notified (i.e. it is invalid to specify this parameter when the
+ *             operation is a release notification)
+ *
+ * On success, the function will return 0. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     struct hh_notify_vmid_desc *vmid_desc)
+{
+	struct hh_mem_notify_req_payload *req_payload_hdr;
+	struct hh_notify_vmid_desc *dst_vmid_desc;
+	void *req_buf, *resp_payload;
+	size_t n_vmid_entries = 0, req_vmid_desc_size = 0, req_payload_size;
+	size_t resp_size;
+	unsigned int i;
+	int ret = 0, hh_ret;
+
+	if ((flags & ~HH_RM_MEM_NOTIFY_VALID_FLAGS) ||
+	    ((flags & HH_RM_MEM_NOTIFY_RECIPIENT) && (!vmid_desc ||
+						      (vmid_desc &&
+						!vmid_desc->n_vmid_entries))) ||
+	    ((flags & HH_RM_MEM_NOTIFY_OWNER) && vmid_desc))
+		return -EINVAL;
+
+	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
+		n_vmid_entries = vmid_desc->n_vmid_entries;
+		req_vmid_desc_size = offsetof(struct hh_notify_vmid_desc,
+					      vmid_entries[n_vmid_entries]);
+	}
+
+	req_payload_size = sizeof(*req_payload_hdr) + req_vmid_desc_size;
+	req_buf = kzalloc(req_payload_size, GFP_KERNEL);
+	if (!req_buf)
+		return -ENOMEM;
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->memparcel_handle = handle;
+	req_payload_hdr->flags = flags;
+
+	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
+		dst_vmid_desc = req_buf + sizeof(*req_payload_hdr);
+		dst_vmid_desc->n_vmid_entries = n_vmid_entries;
+		for (i = 0; i < n_vmid_entries; i++)
+			dst_vmid_desc->vmid_entries[i].vmid =
+				vmid_desc->vmid_entries[i].vmid;
+	}
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_MEM_NOTIFY, req_buf,
+				  req_payload_size, &resp_size, &hh_ret);
+	if (hh_ret) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with err: %d\n", __func__, ret);
+	}
+
+	kfree(req_buf);
+	return ret;
+}
+EXPORT_SYMBOL(hh_rm_mem_notify);
