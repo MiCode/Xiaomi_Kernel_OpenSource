@@ -1806,6 +1806,7 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 static int msm_cvp_session_create(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
+	struct synx_initialization_params params;
 
 	if (!inst || !inst->core)
 		return -EINVAL;
@@ -1835,6 +1836,12 @@ static int msm_cvp_session_create(struct msm_cvp_inst *inst)
 		goto fail_init;
 	}
 
+	params.name = "cvp-kernel-client";
+	if (synx_initialize(&inst->synx_session_id, &params)) {
+		dprintk(CVP_ERR, "%s synx_initialize failed\n", __func__);
+		rc = -EFAULT;
+	}
+
 fail_init:
 	return rc;
 }
@@ -1860,16 +1867,9 @@ static int cvp_fence_thread_start(struct msm_cvp_inst *inst)
 	struct task_struct *thread;
 	struct cvp_fence_queue *q;
 	struct cvp_session_queue *sq;
-	struct synx_initialization_params params;
 
 	if (!inst->prop.fthread_nr)
 		return 0;
-
-	params.name = "cvp-kernel-client";
-	if (synx_initialize(&inst->synx_session_id, &params)) {
-		dprintk(CVP_ERR, "%s synx_initialize failed\n", __func__);
-		return -EFAULT;
-	}
 
 	q = &inst->fence_cmd_queue;
 	spin_lock(&q->lock);
@@ -1927,8 +1927,6 @@ static int cvp_fence_thread_stop(struct msm_cvp_inst *inst)
 
 	wake_up_all(&q->wq);
 	wake_up_all(&sq->wq);
-
-	synx_uninitialize(inst->synx_session_id);
 
 	return 0;
 }
