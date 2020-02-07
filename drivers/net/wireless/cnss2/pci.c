@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,6 +430,22 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 out:
 	return ret;
 }
+
+int cnss_pci_prevent_l1(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	return msm_pcie_prevent_l1(pci_dev);
+}
+EXPORT_SYMBOL(cnss_pci_prevent_l1);
+
+void cnss_pci_allow_l1(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	msm_pcie_allow_l1(pci_dev);
+}
+EXPORT_SYMBOL(cnss_pci_allow_l1);
 
 int cnss_pci_link_down(struct device *dev)
 {
