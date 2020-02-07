@@ -330,10 +330,8 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 
 fail_commit_hdr:
 	kfree(hdr);
-	if (tx_prop)
-		kfree(tx_prop);
-	if (rx_prop)
-		kfree(rx_prop);
+	kfree(tx_prop);
+	kfree(rx_prop);
 fail_alloc_hdr:
 	kfree(new_intf);
 	mutex_unlock(&ipa_wdi_ctx->lock);
