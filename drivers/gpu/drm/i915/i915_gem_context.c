@@ -141,6 +141,8 @@ static void i915_gem_context_free(struct i915_gem_context *ctx)
 		__i915_gem_object_release_unless_active(ce->state->obj);
 	}
 
+	kfree(ctx->jump_whitelist);
+
 	kfree(ctx->name);
 	put_pid(ctx->pid);
 
@@ -320,6 +322,9 @@ __create_hw_context(struct drm_i915_private *dev_priv,
 		ctx->ggtt_offset_bias = GUC_WOPCM_TOP;
 	else
 		ctx->ggtt_offset_bias = I915_GTT_PAGE_SIZE;
+
+	ctx->jump_whitelist = NULL;
+	ctx->jump_whitelist_cmds = 0;
 
 	return ctx;
 
