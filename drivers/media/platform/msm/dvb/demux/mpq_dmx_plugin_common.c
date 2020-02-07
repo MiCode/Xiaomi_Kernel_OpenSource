@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -1150,8 +1150,8 @@ static int mpq_sdmx_create_shm_bridge(struct dma_buf *dmabuf,
 		return ret;
 	}
 
-	if (!(dma_buf_flags & ION_FLAG_SECURE) || (sgt->nents != 1)) {
-		MPQ_DVB_ERR_PRINT("Not a contiguous secure buffer\n");
+	if (!(dma_buf_flags & ION_FLAG_SECURE)) {
+		MPQ_DVB_ERR_PRINT("Not a secure buffer\n");
 		return 0;
 	}
 
