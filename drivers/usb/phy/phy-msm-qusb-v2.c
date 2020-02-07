@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 
 /* QUSB2PHY_PWR_CTRL1 register related bits */
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
+#define CLAMP_N_EN			BIT(1)
 
 /* QUSB2PHY_PLL_COMMON_STATUS_ONE register related bits */
 #define CORE_READY_STATUS		BIT(0)
@@ -77,6 +78,10 @@
 /* STAT5 register bits */
 #define VSTATUS_PLL_LOCK_STATUS_MASK	BIT(0)
 
+/* DEBUG_CTRL4 register bits  */
+#define FORCED_UTMI_DPPULLDOWN	BIT(2)
+#define FORCED_UTMI_DMPULLDOWN	BIT(3)
+
 enum qusb_phy_reg {
 	PORT_TUNE1,
 	PLL_COMMON_STATUS_ONE,
@@ -87,6 +92,8 @@ enum qusb_phy_reg {
 	BIAS_CTRL_2,
 	DEBUG_CTRL1,
 	DEBUG_CTRL2,
+	DEBUG_CTRL3,
+	DEBUG_CTRL4,
 	STAT5,
 	USB2_PHY_REG_MAX,
 };
@@ -402,6 +409,25 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 		if (delay)
 			usleep_range(delay, (delay + 2000));
 	}
+}
+
+static void msm_usb_write_readback(void __iomem *base, u32 offset,
+					const u32 mask, u32 val)
+{
+	u32 write_val, tmp = readl_relaxed(base + offset);
+
+	tmp &= ~mask;		/* retain other bits */
+	write_val = tmp | val;
+
+	writel_relaxed(write_val, base + offset);
+
+	/* Read back to see if val was written */
+	tmp = readl_relaxed(base + offset);
+	tmp &= mask;		/* clear other bits */
+
+	if (tmp != val)
+		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
+			__func__, val, offset);
 }
 
 static void qusb_phy_reset(struct qusb_phy *qphy)
@@ -742,6 +768,62 @@ static int qusb_phy_notify_disconnect(struct usb_phy *phy,
 
 	dev_dbg(phy->dev, "QUSB PHY: connect notification cable_connected=%d\n",
 							qphy->cable_connected);
+	return 0;
+}
+
+static int msm_qusb_phy_drive_dp_pulse(struct usb_phy *phy,
+					unsigned int interval_ms)
+{
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+	int ret;
+
+	ret = qusb_phy_enable_power(qphy);
+	if (ret < 0) {
+		dev_dbg(qphy->phy.dev,
+			"dpdm regulator enable failed:%d\n", ret);
+		return ret;
+	}
+	qusb_phy_enable_clocks(qphy, true);
+
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[PWR_CTRL1],
+				PWR_CTRL1_POWR_DOWN, 0x00);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[DEBUG_CTRL4],
+				FORCED_UTMI_DPPULLDOWN, 0x00);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[DEBUG_CTRL4],
+				FORCED_UTMI_DMPULLDOWN,
+				FORCED_UTMI_DMPULLDOWN);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[DEBUG_CTRL3],
+				0xd1, 0xd1);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[PWR_CTRL1],
+				CLAMP_N_EN, CLAMP_N_EN);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[INTR_CTRL],
+				DPSE_INTR_HIGH_SEL, 0x00);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[INTR_CTRL],
+				DPSE_INTR_EN, DPSE_INTR_EN);
+
+	msleep(interval_ms);
+
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[INTR_CTRL],
+				DPSE_INTR_HIGH_SEL |
+				DPSE_INTR_EN, 0x00);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[DEBUG_CTRL3],
+				0xd1, 0x00);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[DEBUG_CTRL4],
+				FORCED_UTMI_DPPULLDOWN |
+				FORCED_UTMI_DMPULLDOWN, 0x00);
+	msm_usb_write_readback(qphy->base, qphy->phy_reg[PWR_CTRL1],
+				PWR_CTRL1_POWR_DOWN |
+				CLAMP_N_EN, 0x00);
+
+	msleep(20);
+
+	qusb_phy_enable_clocks(qphy, false);
+	ret = qusb_phy_disable_power(qphy);
+		if (ret < 0) {
+			dev_dbg(qphy->phy.dev,
+				"dpdm regulator disable failed:%d\n", ret);
+		}
+
 	return 0;
 }
 
@@ -1144,6 +1226,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
 	qphy->phy.notify_connect        = qusb_phy_notify_connect;
 	qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
+	qphy->phy.drive_dp_pulse	= msm_qusb_phy_drive_dp_pulse;
 
 	ret = usb_add_phy_dev(&qphy->phy);
 	if (ret)
