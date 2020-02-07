@@ -1029,7 +1029,7 @@ int cnss_wlfw_athdiag_read_send_sync(struct cnss_plat_data *plat_priv,
 		return -ENODEV;
 
 	if (!data || data_len == 0 || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
-		cnss_pr_err("Invalid parameters for athdiag read: data %p, data_len %u\n",
+		cnss_pr_err("Invalid parameters for athdiag read: data %pK, data_len %u\n",
 			    data, data_len);
 		return -EINVAL;
 	}
@@ -1116,12 +1116,12 @@ int cnss_wlfw_athdiag_write_send_sync(struct cnss_plat_data *plat_priv,
 		return -ENODEV;
 
 	if (!data || data_len == 0 || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
-		cnss_pr_err("Invalid parameters for athdiag write: data %p, data_len %u\n",
+		cnss_pr_err("Invalid parameters for athdiag write: data %pK, data_len %u\n",
 			    data, data_len);
 		return -EINVAL;
 	}
 
-	cnss_pr_dbg("athdiag write: state 0x%lx, offset %x, mem_type %x, data_len %u, data %p\n",
+	cnss_pr_dbg("athdiag write: state 0x%lx, offset %x, mem_type %x, data_len %u, data %pK\n",
 		    plat_priv->driver_state, offset, mem_type, data_len, data);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
