@@ -35,6 +35,9 @@
 #define HH_RM_MEM_ACCEPT_VALIDATE_LABEL		BIT(2)
 #define HH_RM_MEM_ACCEPT_DONE			BIT(7)
 
+#define HH_RM_MEM_SHARE_SANITIZE		BIT(0)
+#define HH_RM_MEM_LEND_SANITIZE			BIT(0)
+
 struct hh_rm_mem_shared_acl_entry;
 struct hh_rm_mem_shared_sgl_entry;
 struct hh_rm_mem_shared_attr_entry;
@@ -184,5 +187,13 @@ struct hh_sgl_desc *hh_rm_mem_accept(hh_memparcel_handle_t handle, u8 mem_type,
 				     struct hh_sgl_desc *sgl_desc,
 				     struct hh_mem_attr_desc *mem_attr_desc,
 				     u16 map_vmid);
+int hh_rm_mem_share(u8 mem_type, u8 flags, hh_label_t label,
+		    struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		    struct hh_mem_attr_desc *mem_attr_desc,
+		    hh_memparcel_handle_t *handle);
+int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
+		   struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		   struct hh_mem_attr_desc *mem_attr_desc,
+		   hh_memparcel_handle_t *handle);
 
 #endif

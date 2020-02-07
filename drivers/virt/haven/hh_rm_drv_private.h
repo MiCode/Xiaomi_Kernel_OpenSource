@@ -246,6 +246,25 @@ struct hh_mem_accept_resp_payload {
 	u16 reserved;
 } __packed;
 
+/*
+ * Call: MEM_LEND/MEM_SHARE
+ *
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct hh_mem_share_req_payload_hdr {
+	u8 mem_type;
+	u8 reserved1;
+	u8 flags;
+	u8 reserved2;
+	u32 label;
+} __packed;
+
+struct hh_mem_share_resp_payload {
+	hh_memparcel_handle_t memparcel_handle;
+} __packed;
+
 /* End Message ID headers */
 
 /* Common function declerations */

@@ -19,6 +19,8 @@
 	(HH_RM_MEM_ACCEPT_VALIDATE_SANITIZED |\
 	 HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |\
 	 HH_RM_MEM_ACCEPT_VALIDATE_LABEL | HH_RM_MEM_ACCEPT_DONE)
+#define HH_RM_MEM_SHARE_VALID_FLAGS HH_RM_MEM_SHARE_SANITIZE
+#define HH_RM_MEM_LEND_VALID_FLAGS HH_RM_MEM_LEND_SANITIZE
 
 static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 
@@ -945,3 +947,132 @@ err_rm_call:
 	return ret_sgl;
 }
 EXPORT_SYMBOL(hh_rm_mem_accept);
+
+static int hh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
+				       hh_label_t label,
+				       struct hh_acl_desc *acl_desc,
+				       struct hh_sgl_desc *sgl_desc,
+				       struct hh_mem_attr_desc *mem_attr_desc,
+				       hh_memparcel_handle_t *handle)
+{
+	struct hh_mem_share_req_payload_hdr *req_payload_hdr;
+	struct hh_mem_share_resp_payload *resp_payload;
+	void *req_buf;
+	size_t req_payload_size, resp_payload_size;
+	u16 req_sgl_entries, req_acl_entries, req_mem_attr_entries = 0;
+	int hh_ret, ret = 0;
+
+	if ((mem_type != HH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != HH_RM_MEM_TYPE_IO) ||
+	    ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_SHARE) &&
+	     (flags & ~HH_RM_MEM_SHARE_VALID_FLAGS)) ||
+	    ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_LEND) &&
+	     (flags & ~HH_RM_MEM_LEND_VALID_FLAGS)) || !acl_desc ||
+	    (acl_desc && !acl_desc->n_acl_entries) || !sgl_desc ||
+	    (sgl_desc && !sgl_desc->n_sgl_entries) ||
+	    (mem_attr_desc && !mem_attr_desc->n_mem_attr_entries) || !handle)
+		return -EINVAL;
+
+	req_acl_entries = acl_desc->n_acl_entries;
+	req_sgl_entries = sgl_desc->n_sgl_entries;
+	if (mem_attr_desc)
+		req_mem_attr_entries = mem_attr_desc->n_mem_attr_entries;
+
+	req_buf = hh_rm_alloc_mem_request_buf(fn_id, req_acl_entries,
+					      req_sgl_entries,
+					      req_mem_attr_entries,
+					      &req_payload_size);
+	if (IS_ERR(req_buf))
+		return PTR_ERR(req_buf);
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->flags = flags;
+	req_payload_hdr->label = label;
+	hh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, 0,
+				   mem_attr_desc);
+
+	resp_payload = hh_rm_call(fn_id, req_buf, req_payload_size,
+				  &resp_payload_size, &hh_ret);
+	if (hh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
+		goto err_rm_call;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		ret = -EINVAL;
+		goto err_resp_size;
+	}
+
+	*handle = resp_payload->memparcel_handle;
+
+err_resp_size:
+	kfree(resp_payload);
+err_rm_call:
+	kfree(req_buf);
+	return ret;
+}
+
+/**
+ * hh_rm_mem_share: Share memory with other VM(s) without excluding the owner
+ * @mem_type: The type of memory being shared (i.e. normal or I/O)
+ * @flags: Bitmask of values to influence the behavior of the RM when it shares
+ *         the memory
+ * @label: The label to assign to the memparcel that the RM will create
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should consider when sharing the
+ *            memory
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            the location of the memory in the IPA space of the owner
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should consider
+ *                 when sharing the memory
+ * @handle: Pointer to where the memparcel handle should be stored
+
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_share(u8 mem_type, u8 flags, hh_label_t label,
+		    struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		    struct hh_mem_attr_desc *mem_attr_desc,
+		    hh_memparcel_handle_t *handle)
+{
+	return hh_rm_mem_share_lend_helper(HH_RM_RPC_MSG_ID_CALL_MEM_SHARE,
+					   mem_type, flags, label, acl_desc,
+					   sgl_desc, mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(hh_rm_mem_share);
+
+/**
+ * hh_rm_mem_lend: Lend memory to other VM(s)--excluding the owner
+ * @mem_type: The type of memory being lent (i.e. normal or I/O)
+ * @flags: Bitmask of values to influence the behavior of the RM when it lends
+ *         the memory
+ * @label: The label to assign to the memparcel that the RM will create
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should consider when lending the
+ *            memory
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            the location of the memory in the IPA space of the owner
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should consider
+ *                 when lending the memory
+ * @handle: Pointer to where the memparcel handle should be stored
+
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
+		   struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		   struct hh_mem_attr_desc *mem_attr_desc,
+		   hh_memparcel_handle_t *handle)
+{
+	return hh_rm_mem_share_lend_helper(HH_RM_RPC_MSG_ID_CALL_MEM_LEND,
+					   mem_type, flags, label, acl_desc,
+					   sgl_desc, mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(hh_rm_mem_lend);
