@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,mem-buf.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. Memory Buffer Sharing binding
+
+maintainers:
+  - Isaac J. Manjarres <isaacm@quicinc.com>
+
+description: |
+  The memory buffer sharing driver is used for lending memory
+  from one virtual machine to another.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,mem-buf
+
+required:
+  - compatible
+
+examples:
+  - |
+    qcom,mem-buf {
+        compatible = "qcom,mem-buf";
+    };
