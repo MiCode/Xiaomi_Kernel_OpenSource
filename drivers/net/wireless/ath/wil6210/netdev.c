@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/moduleparam.h>
@@ -94,6 +94,13 @@ static int wil_stop(struct net_device *ndev)
 	return rc;
 }
 
+static int wil_do_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+{
+	struct wil6210_priv *wil = ndev_to_wil(ndev);
+
+	return wil_ioctl(wil, ifr->ifr_data, cmd);
+}
+
 /**
  * AC to queue mapping
  *
@@ -134,6 +141,7 @@ static const struct net_device_ops wil_netdev_ops = {
 	.ndo_select_queue	= wil_select_queue,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_do_ioctl		= wil_do_ioctl,
 };
 
 static int wil6210_netdev_poll_rx(struct napi_struct *napi, int budget)
