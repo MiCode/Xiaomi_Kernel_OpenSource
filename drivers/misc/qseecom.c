@@ -48,6 +48,7 @@
 #include <linux/interconnect.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/qtee_shmbridge.h>
+#include "compat_qseecom.h"
 
 #define QSEECOM_DEV			"qseecom"
 #define QSEOS_VERSION_14		0x14
@@ -7495,7 +7496,7 @@ static void __qseecom_clean_data_sglistinfo(struct qseecom_dev_handle *data)
 	}
 }
 
-static long qseecom_ioctl(struct file *file,
+long qseecom_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -8331,6 +8332,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 static const struct file_operations qseecom_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = qseecom_ioctl,
+	.compat_ioctl = compat_qseecom_ioctl,
 	.open = qseecom_open,
 	.release = qseecom_release
 };
