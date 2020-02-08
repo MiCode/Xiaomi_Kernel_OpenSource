@@ -2067,7 +2067,7 @@
 		out-ports {
 			port {
 				turing_dup_out_turing: endpoint {
-					retmoe-endpoint =
+					remote-endpoint =
 					<&turing_in_turing_dup>;
 				};
 			};
