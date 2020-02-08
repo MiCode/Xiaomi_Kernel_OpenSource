@@ -1,5 +1,6 @@
 #include "lahaina-pmic-overlay.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include "display/lahaina-sde-display-rumi.dtsi"
 
 &arch_timer {
 	clock-frequency = <96000>;
