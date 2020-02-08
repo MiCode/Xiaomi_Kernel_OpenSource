@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -700,17 +700,17 @@ static int glink_pkt_create_device(struct device *parent,
 {
 	struct glink_pkt_device *gpdev;
 	struct device *dev;
-	int ret;
+	int ret, minor;
 
 	gpdev = kzalloc(sizeof(*gpdev), GFP_KERNEL);
 	if (!gpdev)
 		return -ENOMEM;
 
-	ret = ida_simple_get(&glink_pkt_minor_ida, 0, num_glink_pkt_devs,
+	minor = ida_simple_get(&glink_pkt_minor_ida, 0, num_glink_pkt_devs,
 			     GFP_KERNEL);
-	if (ret < 0) {
+	if (minor < 0) {
 		kfree(gpdev);
-		return ret;
+		return minor;
 	}
 
 	dev = &gpdev->dev;
@@ -744,8 +744,8 @@ static int glink_pkt_create_device(struct device *parent,
 	cdev_init(&gpdev->cdev, &glink_pkt_fops);
 	gpdev->cdev.owner = THIS_MODULE;
 
-	dev->devt = MKDEV(MAJOR(glink_pkt_major), ret);
-	dev_set_name(dev, gpdev->dev_name, ret);
+	dev->devt = MKDEV(MAJOR(glink_pkt_major), minor);
+	dev_set_name(dev, gpdev->dev_name, minor);
 
 	ret = cdev_add(&gpdev->cdev, dev->devt, 1);
 	if (ret) {
