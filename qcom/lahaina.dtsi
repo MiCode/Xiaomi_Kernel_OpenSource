@@ -951,6 +951,8 @@
 		vdd_parent-supply = <&VDD_MM_LEVEL>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
+		proxy-supply = <&disp_cc_mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
 	};
 
 	/* GCC GDSCs */

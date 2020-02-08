@@ -692,6 +692,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l12>;
 		L12C: pm8350c_l12: regulator-pm8350c-l12 {
 			regulator-name = "pm8350c_l12";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -699,6 +700,8 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <243000>;
 		};
 	};
 
@@ -710,6 +713,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l13>;
 		L13C: pm8350c_l13: regulator-pm8350c-l13 {
 			regulator-name = "pm8350c_l13";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -717,6 +721,8 @@
 			regulator-max-microvolt = <3000000>;
 			qcom,init-voltage = <3000000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
 		};
 	};
 
@@ -918,6 +924,8 @@
 		compatible = "qcom,refgen-kona-regulator";
 		reg = <0x88e7000 0x84>;
 		regulator-name = "refgen";
+		proxy-supply = <&refgen>;
+		qcom,proxy-consumer-enable;
 		regulator-enable-ramp-delay = <5>;
 	};
 };
