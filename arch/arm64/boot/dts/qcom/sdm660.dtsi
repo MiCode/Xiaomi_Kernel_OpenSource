@@ -21,6 +21,8 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/clock/qcom,cpu-osm.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -2676,13 +2678,14 @@
 
 &pm660l_gpios {
 	/* GPIO 7 for VOL_UP */
-	gpio@c600 {
-		status = "okay";
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,out-strength = <1>;
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
 	};
 };
 
@@ -2696,8 +2699,9 @@
 		status = "okay";
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
-		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend",
+						"default";
+		pinctrl-0 = <&gpio_key_active &key_vol_up_default>;
 		pinctrl-1 = <&gpio_key_suspend>;
 
 		camera_focus {
@@ -2721,6 +2725,7 @@
 			gpios = <&pm660l_gpios 7 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
+			linux,can-disable;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
