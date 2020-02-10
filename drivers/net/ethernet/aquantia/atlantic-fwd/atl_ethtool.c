@@ -425,7 +425,7 @@ static int atl_set_pauseparam(struct net_device *ndev,
 	struct atl_link_state *lstate = &hw->link_state;
 	struct atl_fc_state *fc = &lstate->fc;
 
-	if (atl_fw_major(hw) < 2)
+	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
 	if (pause->autoneg)
@@ -459,7 +459,8 @@ static int atl_get_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	eee->eee_enabled = eee->tx_lpi_enabled = lstate->eee_enabled;
 	eee->eee_active = lstate->eee;
 
-	ret = atl_get_lpi_timer(nic, &eee->tx_lpi_timer);
+	if (lstate->link)
+		ret = atl_get_lpi_timer(nic, &eee->tx_lpi_timer);
 
 	return ret;
 }
@@ -471,7 +472,7 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	struct atl_link_state *lstate = &hw->link_state;
 	uint32_t tmp = 0;
 
-	if (atl_fw_major(hw) < 2)
+	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
 	atl_get_lpi_timer(nic, &tmp);
@@ -2272,7 +2273,8 @@ void atl_update_ntuple_flt(struct atl_nic *nic, int idx)
 	if (!(cmd & ATL_NTC_EN)) {
 		atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
 
-		atl2_update_ntuple_flt(nic, idx);
+		if (nic->hw.new_rpf)
+			atl2_update_ntuple_flt(nic, idx);
 		return;
 	}
 

@@ -308,11 +308,11 @@ static void atl2_set_eee(struct atl_link_state *lstate,
 		return;
 	}
 
-	link_options->eee_100M = eee_advertized & BIT(atl_link_type_idx_100m);
-	link_options->eee_1G = eee_advertized & BIT(atl_link_type_idx_1g);
-	link_options->eee_2P5G = eee_advertized & BIT(atl_link_type_idx_2p5g);
-	link_options->eee_5G = eee_advertized & BIT(atl_link_type_idx_5g);
-	link_options->eee_10G = eee_advertized & BIT(atl_link_type_idx_10g);
+	link_options->eee_100M = !!(eee_advertized & BIT(atl_link_type_idx_100m));
+	link_options->eee_1G = !!(eee_advertized & BIT(atl_link_type_idx_1g));
+	link_options->eee_2P5G = !!(eee_advertized & BIT(atl_link_type_idx_2p5g));
+	link_options->eee_5G = !!(eee_advertized & BIT(atl_link_type_idx_5g));
+	link_options->eee_10G = !!(eee_advertized & BIT(atl_link_type_idx_10g));
 }
 
 /* fw lock must be held */
@@ -387,6 +387,8 @@ static u32 a2_fw_caps_to_mask(struct device_link_caps_s *link_caps)
 		supported |= BIT(atl_link_type_idx_2p5g) << ATL_EEE_BIT_OFFT;
 	if (link_caps->eee_1G)
 		supported |= BIT(atl_link_type_idx_1g) << ATL_EEE_BIT_OFFT;
+	if (link_caps->eee_100M)
+		supported |= BIT(atl_link_type_idx_100m) << ATL_EEE_BIT_OFFT;
 
 	return supported;
 }
@@ -422,6 +424,8 @@ static u32 a2_fw_lkp_to_mask(struct lkp_link_caps_s *lkp_link_caps)
 		rate |= BIT(atl_link_type_idx_2p5g) << ATL_EEE_BIT_OFFT;
 	if (lkp_link_caps->eee_1G)
 		rate |= BIT(atl_link_type_idx_1g) << ATL_EEE_BIT_OFFT;
+	if (lkp_link_caps->eee_100M)
+		rate |= BIT(atl_link_type_idx_100m) << ATL_EEE_BIT_OFFT;
 
 	return rate;
 }

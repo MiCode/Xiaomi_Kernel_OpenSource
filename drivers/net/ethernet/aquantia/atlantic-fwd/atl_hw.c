@@ -214,7 +214,8 @@ static int atl2_hw_reset(struct atl_hw *hw)
 
 	busy_wait(50, mdelay(1), rbl_status,
 		  atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
-		  !(rbl_status & ATL2_BOOT_STARTED));
+		  ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
+		  (rbl_status == 0xffffffff));
 	if (!(rbl_status & ATL2_BOOT_STARTED))
 		atl_dev_dbg("Boot code probably hanged, reboot anyway");
 
@@ -237,7 +238,8 @@ static int atl2_hw_reset(struct atl_hw *hw)
 	/* Wait for RBL boot */
 	busy_wait(200, mdelay(1), rbl_status,
 		  atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
-		  !(rbl_status & ATL2_BOOT_STARTED));
+		  ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
+		  (rbl_status == 0xffffffff));
 	if (!(rbl_status & ATL2_BOOT_STARTED)) {
 		err = -ETIME;
 		atl_dev_err("Boot code hanged");
@@ -1371,7 +1373,17 @@ static void atl2_rpf_act_rslvr_record_set(struct atl_hw *hw, u8 location,
 int atl2_act_rslvr_table_set(struct atl_hw *hw, u8 location,
 			     u32 tag, u32 mask, u32 action)
 {
+	static char action_str[][32] = {"Drop", "Host", "Management",
+					"Host & Management"};
+	static char valid_str[][32] = {"Not Valid", "Valid"};
+	static char rss_str[][32] = {"Queue", "TC"};
 	int err = 0;
+
+	dev_dbg(&hw->pdev->dev, "ACTRSLVR[%d] TAG %#x MASK %#x ACTION %#x (%s, %s %d, %s)",
+		location, tag, mask, action,
+		action_str[(action >> 8) & 3], rss_str[!!(action & BIT(7))],
+		(action >> 2) & 0x1f,
+		valid_str[action & 1]);
 
 	err = atl_hwsem_get(hw, ATL2_MCP_SEM_ACT_RSLVR);
 	if (err)
@@ -1400,6 +1412,7 @@ static void atl2_hw_init_new_rx_filters(struct atl_hw *hw)
 	atl_write(hw, ATL2_RPF_REC_TAB_EN, 0xFFFF);
 	atl_write_bits(hw, ATL_RX_UC_FLT_REG2(0), 22, 6, ATL2_RPF_TAG_BASE_UC);
 	atl_write_bits(hw, ATL2_RX_FLT_L2_BC_TAG, 0, 6, ATL2_RPF_TAG_BASE_UC);
+	atl_set_bits(hw, ATL2_RPF_L3_FLT(0), BIT(0x17));
 
 	atl2_act_rslvr_table_set(hw,
 				 ATL2_RPF_L2_PROMISC_OFF_INDEX,
