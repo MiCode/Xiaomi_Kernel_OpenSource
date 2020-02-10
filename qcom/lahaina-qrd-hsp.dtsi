@@ -11,3 +11,12 @@
 	clocks = <&clock_rpmh RPMH_RF_CLK3>;
 	clock-names = "rf_clk";
 };
+
+&bluetooth {
+	qcom,bt-vdd-aon-config = <950000 950000 0 0>;
+	qcom,bt-vdd-dig-config = <950000 950000 0 0>;
+	qcom,bt-vdd-rfa1-config = <1900000 1900000 0 0>;
+	qcom,bt-vdd-rfa2-config = <1256000 1256000 0 0>;
+	clocks = <&clock_rpmh RPMH_RF_CLK3>;
+	clock-names = "ref3_clk";
+};
