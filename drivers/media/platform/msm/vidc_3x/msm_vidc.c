@@ -500,7 +500,8 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			binfo->mapped[i] = false;
 			binfo->smem[i] = *same_fd_handle;
 		} else {
-			binfo->smem[i].buffer_type = binfo->type;
+			binfo->smem[i].buffer_type = get_hal_buffer_type(
+							inst, b);
 			binfo->smem[i].fd = binfo->fd[i];
 			binfo->smem[i].offset = binfo->buff_off[i];
 			binfo->smem[i].size = binfo->size[i];
