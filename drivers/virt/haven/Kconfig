@@ -24,4 +24,27 @@ config HH_MSGQ
 	  the services offered by the drivers is simply to send and receive
 	  messages in a blocking manner.
 
+config HH_RM_DRV
+	tristate "Haven Resource Manager driver"
+	help
+	  The Haven Resource Manager driver is used to communicate with the
+	  Resource Manager Virtual Machine (RM-VM). The RM-VM acts as a mediator
+	  and provides numerous services to the other VMs running in the system,
+	  such as notifying when a particular VM is up, resource (IRQ/device)
+	  sharing between VMs, information about the IPC mechanisms, and so on.
+
+	  The Resource Manager driver runs on the Virtual Machine and acts as an
+	  interface to other driver in order to obtain the services provided by
+	  the RM-VM.
+
+config HH_DBL
+	tristate "Haven Doorbell driver"
+	help
+	  Haven offers a simple inter VMs(Virtual Machines) communication
+	  through the use of doorbell interrupts. A single doorbell instance
+	  provides an unidirectional communication between two VMs and it acts
+	  like either a source(Tx) or generate(Rx). Individual VMs make use of
+	  these doorbells by calling send and/or a receive primitives exposed by
+	  driver and trigger an interrupt to each other and exchange the data.
+
 endif
