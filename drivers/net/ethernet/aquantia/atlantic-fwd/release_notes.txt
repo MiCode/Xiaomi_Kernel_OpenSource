@@ -1,3 +1,11 @@
+Version 1.1.1
+==============
+[ATLDRV-1315] - driver 1.1.0 crashes at start on A1
+[ATLDRV-1317] - A2: Incorrect ntuple L4 filter behavior
+[ATLDRV-1325] - A2: can not turn off flow control on Antigua
+[ATLDRV-1326] - A2: Cannot get EEE settings on Antigua
+[ATLDRV-1331] - A2: update reset sequence
+
 Version 1.1.0
 ==============
 [ATLDRV-1210] - A2: FWD: Basic functionality and bringup

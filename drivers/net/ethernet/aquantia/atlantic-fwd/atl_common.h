@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.1.0"
+#define ATL_VERSION "1.1.1"
 
 struct atl_nic;
 enum atl_fwd_notify;
@@ -106,14 +106,14 @@ struct atl2_rxf_l3 {
 		};
 	};
 	u16 proto;
-	u16 cmd;
+	u32 cmd;
 	u16 usage;
 };
 
 struct atl2_rxf_l4 {
 	__be16 dst_port;
 	__be16 src_port;
-	u16 cmd;
+	u32 cmd;
 	u16 usage;
 };
 
