@@ -3308,10 +3308,10 @@
 		qcom,bt-vdd-rfa1-supply = <&S1C>;
 		qcom,bt-vdd-rfa2-supply = <&S12B>;
 
-		qcom,bt-vdd-aon-voltage-level = <950000 950000>;
-		qcom,bt-vdd-dig-voltage-level = <950000 950000>;
-		qcom,bt-vdd-rfa1-voltage-level = <1900000 1900000>;
-		qcom,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
+		qcom,bt-vdd-aon-config = <950000 950000 0 1>;
+		qcom,bt-vdd-dig-config = <950000 950000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1900000 1900000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1256000 1256000 0 1>;
 	};
 };
 
@@ -3354,3 +3354,7 @@
 
 #include "lahaina-gpu.dtsi"
 #include "display/lahaina-sde.dtsi"
+
+&qupv3_se18_4uart {
+	status = "ok";
+};
