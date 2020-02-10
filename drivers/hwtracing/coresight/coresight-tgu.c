@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -15,9 +15,11 @@
 #include <linux/amba/bus.h>
 #include <linux/topology.h>
 #include <linux/of.h>
+#include <linux/string.h>
 #include <linux/coresight.h>
 
 #include "coresight-priv.h"
+#include "apss_tgu.h"
 
 #define tgu_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tgu_readl(drvdata, off)		__raw_readl(drvdata->base + off)
@@ -132,7 +134,7 @@ static ssize_t enable_tgu_store(struct device *dev,
 
 		/* program the TGU Group data for the desired use case*/
 
-		for (i = 0; i <= drvdata->grp_refcnt; i++)
+		for (i = 0; i < drvdata->grp_refcnt; i++)
 			tgu_writel(drvdata, drvdata->grp_data[i].value,
 						drvdata->grp_data[i].grpaddr);
 
@@ -143,21 +145,21 @@ static ssize_t enable_tgu_store(struct device *dev,
 						CONDITION_DECODE_STEP(i, j));
 		}
 		/* program the TGU Condition Decode for the desired use case*/
-		for (i = 0; i <= drvdata->cond_refcnt; i++)
+		for (i = 0; i < drvdata->cond_refcnt; i++)
 			tgu_writel(drvdata, drvdata->condition_data[i].value,
 					drvdata->condition_data[i].condaddr);
 
 		/* program the TGU Condition Select for the desired use case*/
-		for (i = 0; i <= drvdata->select_refcnt; i++)
+		for (i = 0; i < drvdata->select_refcnt; i++)
 			tgu_writel(drvdata, drvdata->select_data[i].value,
 					drvdata->select_data[i].selectaddr);
 
 		/*  Timer and Counter Check */
-		for (i = 0; i <= drvdata->timer_refcnt; i++)
+		for (i = 0; i < drvdata->timer_refcnt; i++)
 			tgu_writel(drvdata, drvdata->timer_data[i].value,
 					drvdata->timer_data[i].timeraddr);
 
-		for (i = 0; i <= drvdata->counter_refcnt; i++)
+		for (i = 0; i < drvdata->counter_refcnt; i++)
 			tgu_writel(drvdata, drvdata->counter_data[i].value,
 					drvdata->counter_data[i].counteraddr);
 
@@ -407,6 +409,7 @@ static int tgu_probe(struct amba_device *adev, const struct amba_id *id)
 	struct coresight_platform_data *pdata;
 	struct tgu_drvdata *drvdata;
 	struct coresight_desc *desc;
+	const char *name;
 
 	pdata = of_get_coresight_platform_data(dev, adev->dev.of_node);
 	if (IS_ERR(pdata))
@@ -494,6 +497,13 @@ static int tgu_probe(struct amba_device *adev, const struct amba_id *id)
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
 		goto err;
+	}
+
+	of_property_read_string(adev->dev.of_node, "coresight-name", &name);
+	if (!strcmp(name, "coresight-tgu-apss")) {
+		ret = register_interrupt_handler(adev->dev.of_node);
+		if (ret)
+			return ret;
 	}
 
 	pm_runtime_put(&adev->dev);

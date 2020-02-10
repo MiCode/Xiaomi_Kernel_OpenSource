@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <net/ip.h>
@@ -2068,6 +2068,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 12, 4, 4, 4, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY} },
+	[IPA_4_2][IPA_CLIENT_ODL_DPL_CONS]	= {
+			true, IPA_v4_2_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 13, 10, 6, 6, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY} },
 	[IPA_4_2][IPA_CLIENT_APPS_LAN_CONS]       = {
 			true, IPA_v4_2_GROUP_UL_DL,
 			false,
@@ -2092,12 +2098,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 10, 2, 6, 6, IPA_EE_Q6,  GSI_ESCAPE_BUF_ONLY} },
-	[IPA_4_2][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = {
-			true, IPA_v4_2_GROUP_UL_DL,
-			false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 13, 4, 6, 6, IPA_EE_Q6, GSI_ESCAPE_BUF_ONLY} },
 	[IPA_4_2][IPA_CLIENT_ETHERNET_CONS] = {
 			true, IPA_v4_2_GROUP_UL_DL,
 			false,
@@ -2956,8 +2956,10 @@ static struct ipa3_mem_partition ipa_4_1_mem_part = {
 	.uc_descriptor_ram_size		= 0x400,
 	.pdn_config_ofst		= 0xbd8,
 	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0xc30,
-	.stats_quota_size		= 0x60,
+	.stats_quota_q6_ofst		= 0xc30,
+	.stats_quota_q6_size		= 0x60,
+	.stats_quota_ap_ofst		= 0,
+	.stats_quota_ap_size		= 0,
 	.stats_tethering_ofst		= 0xc90,
 	.stats_tethering_size		= 0x140,
 	.stats_flt_v4_ofst		= 0xdd0,
@@ -3045,8 +3047,10 @@ static struct ipa3_mem_partition ipa_4_2_mem_part = {
 	.uc_descriptor_ram_size		= 0x0,
 	.pdn_config_ofst		= 0x9F8,
 	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0xa50,
-	.stats_quota_size		= 0x60,
+	.stats_quota_q6_ofst		= 0xa50,
+	.stats_quota_q6_size		= 0x60,
+	.stats_quota_ap_ofst		= 0,
+	.stats_quota_ap_size		= 0,
 	.stats_tethering_ofst		= 0xab0,
 	.stats_tethering_size		= 0x140,
 	.stats_flt_v4_ofst		= 0xbf0,
@@ -3110,13 +3114,11 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_hdr_proc_ctx_size		= 0x200,
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
 	.nat_tbl_ofst			= 0x1800,
-	.nat_tbl_size			= 0x800,
-	.nat_index_tbl_ofst		= 0x2000,
-	.nat_index_tbl_size		= 0x100,
-	.nat_exp_tbl_ofst		= 0x2100,
-	.nat_exp_tbl_size		= 0x400,
-	.stats_quota_ofst		= 0x2510,
-	.stats_quota_size		= 0x78,
+	.nat_tbl_size			= 0xd00,
+	.stats_quota_q6_ofst		= 0x2510,
+	.stats_quota_q6_size		= 0x30,
+	.stats_quota_ap_ofst		= 0x2540,
+	.stats_quota_ap_size		= 0x48,
 	.stats_tethering_ofst		= 0x2588,
 	.stats_tethering_size		= 0x238,
 	.stats_flt_v4_ofst		= 0,
@@ -3207,15 +3209,13 @@ static struct ipa3_mem_partition ipa_4_7_mem_part = {
 	.apps_hdr_proc_ctx_size		= 0x200,
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
 	.nat_tbl_ofst			= 0x17A0,
-	.nat_tbl_size			= 0x800,
-	.nat_index_tbl_ofst		= 0x1FA0,
-	.nat_index_tbl_size		= 0x100,
-	.nat_exp_tbl_ofst		= 0x20A0,
-	.nat_exp_tbl_size		= 0x400,
+	.nat_tbl_size			= 0xd00,
 	.pdn_config_ofst		= 0x24A8,
 	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0x2500,
-	.stats_quota_size		= 0x78,
+	.stats_quota_q6_ofst		= 0x2500,
+	.stats_quota_q6_size		= 0x30,
+	.stats_quota_ap_ofst		= 0x2530,
+	.stats_quota_ap_size		= 0x48,
 	.stats_tethering_ofst		= 0x2578,
 	.stats_tethering_size		= 0x238,
 	.stats_flt_v4_ofst		= 0,
@@ -5829,32 +5829,12 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 	}
 
 	IPADBG("NAT TBL OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(nat_tbl_ofst),
-		IPA_MEM_PART(nat_tbl_size));
+		   IPA_MEM_PART(nat_tbl_ofst),
+		   IPA_MEM_PART(nat_tbl_size));
 
 	if (IPA_MEM_PART(nat_tbl_ofst) & 31) {
-		IPAERR("NAT TBL OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(nat_tbl_ofst));
-		return -ENODEV;
-	}
-
-	IPADBG("NAT INDEX TBL OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(nat_index_tbl_ofst),
-		IPA_MEM_PART(nat_index_tbl_size));
-
-	if (IPA_MEM_PART(nat_index_tbl_ofst) & 3) {
-		IPAERR("NAT INDEX TBL OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(nat_index_tbl_ofst));
-		return -ENODEV;
-	}
-
-	IPADBG("NAT EXP TBL OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(nat_exp_tbl_ofst),
-		IPA_MEM_PART(nat_exp_tbl_size));
-
-	if (IPA_MEM_PART(nat_exp_tbl_ofst) & 31) {
-		IPAERR("NAT EXP TBL OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(nat_exp_tbl_ofst));
+		IPAERR("NAT TBL OFST 0x%x is not aligned properly\n",
+			   IPA_MEM_PART(nat_tbl_ofst));
 		return -ENODEV;
 	}
 
@@ -5868,13 +5848,23 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 		return -ENODEV;
 	}
 
-	IPADBG("QUOTA STATS OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(stats_quota_ofst),
-		IPA_MEM_PART(stats_quota_size));
+	IPADBG("Q6 QUOTA STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_quota_q6_ofst),
+		IPA_MEM_PART(stats_quota_q6_size));
 
-	if (IPA_MEM_PART(stats_quota_ofst) & 7) {
-		IPAERR("QUOTA STATS OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(stats_quota_ofst));
+	if (IPA_MEM_PART(stats_quota_q6_ofst) & 7) {
+		IPAERR("Q6 QUOTA STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_quota_q6_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("AP QUOTA STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_quota_ap_ofst),
+		IPA_MEM_PART(stats_quota_ap_size));
+
+	if (IPA_MEM_PART(stats_quota_ap_ofst) & 7) {
+		IPAERR("AP QUOTA STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_quota_ap_ofst));
 		return -ENODEV;
 	}
 
@@ -6346,11 +6336,20 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	u32 retry_cnt = 0;
 	struct ipahal_reg_valmask valmask;
 	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int req_num_tag_desc = REQUIRED_TAG_PROCESS_DESCRIPTORS;
+
+	/**
+	 * We use a descriptor for closing coalsceing endpoint
+	 * by immediate command. So, REQUIRED_TAG_PROCESS_DESCRIPTORS
+	 * should be incremented by 1 to overcome buffer overflow.
+	 */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1)
+		req_num_tag_desc += 1;
 
 	/* Not enough room for the required descriptors for the tag process */
-	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
+	if (IPA_TAG_MAX_DESC - descs_num < req_num_tag_desc) {
 		IPAERR("up to %d descriptors are allowed (received %d)\n",
-		       IPA_TAG_MAX_DESC - REQUIRED_TAG_PROCESS_DESCRIPTORS,
+		       IPA_TAG_MAX_DESC - req_num_tag_desc,
 		       descs_num);
 		return -ENOMEM;
 	}
@@ -6399,8 +6398,8 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 			goto fail_free_tag_desc;
 		}
 		ipa3_init_imm_cmd_desc(&tag_desc[desc_idx], cmd_pyld);
-		desc[desc_idx].callback = ipa3_tag_destroy_imm;
-		desc[desc_idx].user1 = cmd_pyld;
+		tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+		tag_desc[desc_idx].user1 = cmd_pyld;
 		++desc_idx;
 	}
 
@@ -6540,7 +6539,7 @@ fail_free_desc:
 	 * of the initial allocations above
 	 */
 	for (i = descs_num;
-		i < min(REQUIRED_TAG_PROCESS_DESCRIPTORS, desc_idx); i++)
+		i < min(req_num_tag_desc, desc_idx); i++)
 		if (tag_desc[i].callback)
 			tag_desc[i].callback(tag_desc[i].user1,
 				tag_desc[i].user2);
@@ -8694,3 +8693,48 @@ int ipa3_get_prot_id(enum ipa_client_type client)
 	return prot_id;
 }
 
+int ipa3_app_clk_vote(
+	enum ipa_app_clock_vote_type vote_type)
+{
+	const char *str_ptr = "APP_VOTE";
+	int ret = 0;
+
+	IPADBG("In\n");
+
+	mutex_lock(&ipa3_ctx->app_clock_vote.mutex);
+
+	switch (vote_type) {
+	case IPA_APP_CLK_VOTE:
+		if ((ipa3_ctx->app_clock_vote.cnt + 1) <= IPA_APP_VOTE_MAX) {
+			ipa3_ctx->app_clock_vote.cnt++;
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL(str_ptr);
+		} else {
+			IPAERR_RL("App vote count max hit\n");
+			ret = -EPERM;
+			break;
+		}
+		break;
+	case IPA_APP_CLK_DEVOTE:
+		if (ipa3_ctx->app_clock_vote.cnt) {
+			ipa3_ctx->app_clock_vote.cnt--;
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(str_ptr);
+		}
+		break;
+	case IPA_APP_CLK_RESET_VOTE:
+		while (ipa3_ctx->app_clock_vote.cnt > 0) {
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL(str_ptr);
+			ipa3_ctx->app_clock_vote.cnt--;
+		}
+		break;
+	default:
+		IPAERR_RL("Unknown vote_type(%u)\n", vote_type);
+		ret = -EPERM;
+		break;
+	}
+
+	mutex_unlock(&ipa3_ctx->app_clock_vote.mutex);
+
+	IPADBG("Out\n");
+
+	return ret;
+}

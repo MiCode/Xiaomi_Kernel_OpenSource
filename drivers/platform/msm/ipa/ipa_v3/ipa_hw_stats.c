@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -271,6 +271,27 @@ static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld **coal_cmd_pyld)
 		&reg_write_coal_close, false);
 }
 
+static bool ipa_validate_quota_stats_sram_size(u32 needed_len)
+{
+	u32 sram_size;
+
+	/* Starting IPA4.5 Quota stats is split between Q6 and AP */
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("Not supported ipa_ver=%d\n", ipa3_ctx->ipa_hw_type);
+		return false;
+	}
+
+	sram_size = IPA_MEM_PART(stats_quota_ap_size);
+	if (needed_len > sram_size) {
+		IPAERR("SRAM partition too small: %u needed %u\n",
+			sram_size, needed_len);
+		return false;
+	}
+
+	return true;
+}
+
 int ipa_init_quota_stats(u32 pipe_bitmask)
 {
 	struct ipahal_stats_init_pyld *pyld;
@@ -301,9 +322,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 		return -EPERM;
 	}
 
-	if (pyld->len > IPA_MEM_PART(stats_quota_size)) {
-		IPAERR("SRAM partition too small: %d needed %d\n",
-			IPA_MEM_PART(stats_quota_size), pyld->len);
+	if (!ipa_validate_quota_stats_sram_size(pyld->len)) {
 		ret = -EPERM;
 		goto destroy_init_pyld;
 	}
@@ -356,7 +375,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	quota_base.offset = ipahal_get_reg_n_ofst(IPA_STAT_QUOTA_BASE_n,
 		ipa3_ctx->ee);
 	quota_base.value = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(stats_quota_ofst);
+		IPA_MEM_PART(stats_quota_ap_ofst);
 	quota_base.value_mask = ~0;
 	quota_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
 		&quota_base, false);
@@ -377,7 +396,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	cmd.size = pyld->len;
 	cmd.system_addr = dma_address;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(stats_quota_ofst);
+		IPA_MEM_PART(stats_quota_ap_ofst);
 	cmd_pyld = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
 	if (!cmd_pyld) {
@@ -476,7 +495,7 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 	cmd.size = mem.size;
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(stats_quota_ofst) + offset.offset;
+		IPA_MEM_PART(stats_quota_ap_ofst) + offset.offset;
 	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
 	if (!cmd_pyld[num_cmd]) {

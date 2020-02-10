@@ -218,9 +218,14 @@ TRACE_EVENT(sched_switch,
 
 		(__entry->prev_state & (TASK_REPORT_MAX - 1)) ?
 		  __print_flags(__entry->prev_state & (TASK_REPORT_MAX - 1), "|",
-				{ 0x01, "S" }, { 0x02, "D" }, { 0x04, "T" },
-				{ 0x08, "t" }, { 0x10, "X" }, { 0x20, "Z" },
-				{ 0x40, "P" }, { 0x80, "I" }) :
+				{ TASK_INTERRUPTIBLE, "S" },
+				{ TASK_UNINTERRUPTIBLE, "D" },
+				{ __TASK_STOPPED, "T" },
+				{ __TASK_TRACED, "t" },
+				{ EXIT_DEAD, "X" },
+				{ EXIT_ZOMBIE, "Z" },
+				{ TASK_PARKED, "P" },
+				{ TASK_DEAD, "I" }) :
 		  "R",
 
 		__entry->prev_state & TASK_REPORT_MAX ? "+" : "",
@@ -1235,6 +1240,7 @@ TRACE_EVENT(sched_task_util,
 		__field(bool,		rtg_skip_min)
 		__field(int,		start_cpu)
 		__field(u32,		unfilter)
+		__field(unsigned long,  cpus_allowed)
 	),
 
 	TP_fast_assign(
@@ -1258,16 +1264,17 @@ TRACE_EVENT(sched_task_util,
 #else
 		__entry->unfilter		= 0;
 #endif
+		__entry->cpus_allowed           = cpumask_bits(&p->cpus_allowed)[0];
 	),
 
-	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u",
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affine=%#lx",
 		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
 		__entry->candidates, __entry->best_energy_cpu, __entry->sync,
 		__entry->need_idle, __entry->fastpath, __entry->placement_boost,
 		__entry->latency, __entry->stune_boosted,
 		__entry->is_rtg, __entry->rtg_skip_min, __entry->start_cpu,
-		__entry->unfilter)
-)
+		__entry->unfilter, __entry->cpus_allowed)
+);
 
 /*
  * Tracepoint for find_best_target
@@ -1647,38 +1654,6 @@ TRACE_EVENT(sched_isolate,
 	TP_printk("iso cpu=%u cpus=0x%x time=%u us isolated=%d",
 		__entry->requested_cpu, __entry->isolated_cpus,
 		__entry->time, __entry->isolate)
-);
-
-TRACE_EVENT(sched_preempt_disable,
-
-	TP_PROTO(u64 delta, bool irqs_disabled,
-			unsigned long caddr0, unsigned long caddr1,
-			unsigned long caddr2, unsigned long caddr3),
-
-	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3),
-
-	TP_STRUCT__entry(
-		__field(u64, delta)
-		__field(bool, irqs_disabled)
-		__field(void*, caddr0)
-		__field(void*, caddr1)
-		__field(void*, caddr2)
-		__field(void*, caddr3)
-	),
-
-	TP_fast_assign(
-		__entry->delta = delta;
-		__entry->irqs_disabled = irqs_disabled;
-		__entry->caddr0 = (void *)caddr0;
-		__entry->caddr1 = (void *)caddr1;
-		__entry->caddr2 = (void *)caddr2;
-		__entry->caddr3 = (void *)caddr3;
-	),
-
-	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%ps<-%ps<-%ps<-%ps)",
-				__entry->delta, __entry->irqs_disabled,
-				__entry->caddr0, __entry->caddr1,
-				__entry->caddr2, __entry->caddr3)
 );
 
 #include "walt.h"

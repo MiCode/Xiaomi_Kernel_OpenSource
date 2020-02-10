@@ -367,6 +367,14 @@ config SPAPR_TCE_IOMMU
 	  Enables bits of IOMMU API required by VFIO. The iommu_ops
 	  is not implemented as it is not necessary for VFIO.
 
+config QTI_IOMMU_SUPPORT
+	tristate "Support for QTI iommu drivers"
+	help
+	  The QTI GPU device may switch between multiple iommu domains,
+	  depending on usecase. This introduces a need to track all such
+	  domains in a non-driver specific manner.
+	  If in doubt say N.
+
 # ARM IOMMU support
 config ARM_SMMU
 	bool "ARM Ltd. System MMU (SMMU) Support"
@@ -375,6 +383,7 @@ config ARM_SMMU
 	select IOMMU_IO_PGTABLE_LPAE
 	select ARM_DMA_USE_IOMMU if ARM
 	select ARM64_DMA_USE_IOMMU if ARM64
+	select QTI_IOMMU_SUPPORT
 	help
 	  Support for implementations of the ARM System MMU architecture
 	  versions 1 and 2.
@@ -495,26 +504,14 @@ menuconfig IOMMU_DEBUG
 
 if IOMMU_DEBUG
 
-config IOMMU_DEBUG_TRACKING
-	bool "Track key IOMMU events"
-	select IOMMU_API
-	help
-	  Enables additional debug tracking in the IOMMU framework code.
-	  Tracking information and tests can be accessed through various
-	  debugfs files.
-
-	  Say Y here if you need to debug IOMMU issues and are okay with
-	  the performance penalty of the tracking.
-
 config IOMMU_TESTS
 	bool "Interactive IOMMU performance/functional tests"
 	select IOMMU_API
 	select ARM64_PTDUMP_CORE
 	help
 	  Enables a suite of IOMMU unit tests.  The tests are runnable
-	  through debugfs.  Unlike the IOMMU_DEBUG_TRACKING option, the
-	  impact of enabling this option to overal system performance
-	  should be minimal.
+	  through debugfs. The impact of enabling this option to overall
+	  system performance should be minimal.
 
 endif # IOMMU_DEBUG
 

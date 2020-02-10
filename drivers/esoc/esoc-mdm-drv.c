@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -516,7 +516,6 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 		} else if (mdm_drv->pon_state == PON_RETRY) {
 			esoc_mdm_log(
 			"Boot failed. Doing cleanup and attempting to retry\n");
-			pon_trial++;
 			mdm_subsys_retry_powerup_cleanup(esoc_clink, 0);
 		} else if (mdm_drv->pon_state == PON_SUCCESS) {
 			break;

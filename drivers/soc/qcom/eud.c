@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -621,7 +621,6 @@ static int msm_eud_probe(struct platform_device *pdev)
 			if (ret) {
 				dev_err(&pdev->dev,
 				"TCSR scm_io_write failed with rc:%d\n", ret);
-				goto error;
 			}
 		} else {
 			dev_err(chip->dev,

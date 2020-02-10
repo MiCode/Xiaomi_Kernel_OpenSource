@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DFC_DEFS_H
@@ -53,6 +53,8 @@ struct dfc_flow_status_info_type_v01 {
 	u16 seq_num;
 	u8 qos_ids_len;
 	struct dfc_qos_id_type_v01 qos_ids[DFC_MAX_QOS_ID_V01];
+	u8 rx_bytes_valid;
+	u32 rx_bytes;
 };
 
 struct dfc_ancillary_info_type_v01 {
@@ -88,7 +90,8 @@ struct dfc_tx_link_status_ind_msg_v01 {
 };
 
 void dfc_do_burst_flow_control(struct dfc_qmi_data *dfc,
-			       struct dfc_flow_status_ind_msg_v01 *ind);
+			       struct dfc_flow_status_ind_msg_v01 *ind,
+			       bool is_query);
 
 void dfc_handle_tx_link_status_ind(struct dfc_qmi_data *dfc,
 				   struct dfc_tx_link_status_ind_msg_v01 *ind);

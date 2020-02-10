@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <uapi/linux/sched/types.h>
@@ -3438,7 +3438,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	/* Cap the alignment bits to the highest number we can handle */
 	align = MEMFLAGS(flags, KGSL_MEMALIGN_MASK, KGSL_MEMALIGN_SHIFT);
 	if (align >= ilog2(KGSL_MAX_ALIGN)) {
-		dev_err(dev_priv->device->dev,
+		dev_info(dev_priv->device->dev,
 			"Alignment too large; restricting to %dK\n",
 			KGSL_MAX_ALIGN >> 10);
 

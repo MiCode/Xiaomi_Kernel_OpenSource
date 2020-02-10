@@ -171,6 +171,13 @@
 #define GEN1_U3_EXIT_RSP_RX_CLK_MASK	GEN1_U3_EXIT_RSP_RX_CLK(0xff)
 #define DWC31_LINK_GDBGLTSSM	0xd050
 
+/* DWC 3.1 Tx De-emphasis Registers */
+#define DWC31_LCSR_TX_DEEMPH(n)	(0xd060 + ((n) * 0x80))
+#define DWC31_LCSR_TX_DEEMPH_1(n)	(0xd064 + ((n) * 0x80))
+#define DWC31_LCSR_TX_DEEMPH_2(n)	(0xd068 + ((n) * 0x80))
+#define DWC31_LCSR_TX_DEEMPH_3(n)	(0xd06c + ((n) * 0x80))
+#define DWC31_TX_DEEMPH_MASK	0x3ffff
+
 /* Bit fields */
 
 /* Global SoC Bus Configuration Register 1 */
@@ -696,9 +703,9 @@ struct dwc3_ep_events {
 /**
  * struct dwc3_ep - device side endpoint representation
  * @endpoint: usb endpoint
+ * @cancelled_list: list of cancelled requests for this endpoint
  * @pending_list: list of pending requests for this endpoint
  * @started_list: list of started requests on this endpoint
- * @wait_end_transfer: wait_queue_head_t for waiting on End Transfer complete
  * @lock: spinlock for endpoint request queue traversal
  * @regs: pointer to first endpoint register
  * @trb_dma_pool: dma pool used to get aligned trb memory pool
@@ -726,10 +733,9 @@ struct dwc3_ep_events {
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
+	struct list_head	cancelled_list;
 	struct list_head	pending_list;
 	struct list_head	started_list;
-
-	wait_queue_head_t	wait_end_transfer;
 
 	spinlock_t		lock;
 	void __iomem		*regs;
@@ -920,11 +926,12 @@ struct dwc3_hwparams {
  * @epnum: endpoint number to which this request refers
  * @trb: pointer to struct dwc3_trb
  * @trb_dma: DMA address of @trb
- * @unaligned: true for OUT endpoints with length not divisible by maxp
+ * @num_trbs: number of TRBs used by this request
+ * @needs_extra_trb: true when request needs one extra TRB (either due to ZLP
+ *	or unaligned OUT)
  * @direction: IN or OUT direction flag
  * @mapped: true when request has been dma-mapped
  * @started: request is started
- * @zero: wants a ZLP
  */
 struct dwc3_request {
 	struct usb_request	request;
@@ -940,11 +947,12 @@ struct dwc3_request {
 	struct dwc3_trb		*trb;
 	dma_addr_t		trb_dma;
 
-	unsigned		unaligned:1;
+	unsigned		num_trbs;
+
+	unsigned		needs_extra_trb:1;
 	unsigned		direction:1;
 	unsigned		mapped:1;
 	unsigned		started:1;
-	unsigned		zero:1;
 };
 
 /*
@@ -1347,6 +1355,10 @@ struct dwc3 {
 	int			retries_on_error;
 	/*  If true, GDSC collapse will happen in HOST mode bus suspend */
 	bool			gdsc_collapse_in_host_suspend;
+	u32			gen2_tx_de_emph;
+	u32			gen2_tx_de_emph1;
+	u32			gen2_tx_de_emph2;
+	u32			gen2_tx_de_emph3;
 };
 
 #define INCRX_BURST_MODE 0

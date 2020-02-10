@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -123,6 +123,10 @@ static DECLARE_WORK(ipa3_fw_loading_work, ipa3_load_ipa_fw);
 static void ipa_dec_clients_disable_clks_on_wq(struct work_struct *work);
 static DECLARE_DELAYED_WORK(ipa_dec_clients_disable_clks_on_wq_work,
 	ipa_dec_clients_disable_clks_on_wq);
+
+static void ipa_inc_clients_enable_clks_on_wq(struct work_struct *work);
+static DECLARE_WORK(ipa_inc_clients_enable_clks_on_wq_work,
+	ipa_inc_clients_enable_clks_on_wq);
 
 static int ipa3_ioctl_add_rt_rule_v2(unsigned long arg);
 static int ipa3_ioctl_add_rt_rule_ext_v2(unsigned long arg);
@@ -1519,6 +1523,23 @@ static int ipa3_ioctl_fnr_counter_set(unsigned long arg)
 	return 0;
 }
 
+static int proc_sram_info_rqst(
+	unsigned long arg)
+{
+	struct ipa_nat_in_sram_info sram_info = { 0 };
+
+	if (ipa3_nat_get_sram_info(&sram_info))
+		return  -EFAULT;
+
+	if (copy_to_user(
+		(void __user *) arg,
+		&sram_info,
+		sizeof(struct ipa_nat_in_sram_info)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -1616,6 +1637,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
 		if (ipa3_nat_init_cmd(&nat_init)) {
 			retval = -EFAULT;
 			break;
@@ -1681,6 +1703,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
 		if (ipa3_del_nat_table(&table_del)) {
 			retval = -EFAULT;
 			break;
@@ -1693,6 +1716,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+
 		if (ipa3_del_ipv6ct_table(&table_del)) {
 			retval = -EFAULT;
 			break;
@@ -2732,6 +2756,16 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			IPA_CLIENT_MAX,
 			fst_switch.to_wigig);
 		break;
+
+	case IPA_IOC_GET_NAT_IN_SRAM_INFO:
+		retval = proc_sram_info_rqst(arg);
+		break;
+
+	case IPA_IOC_APP_CLOCK_VOTE:
+		retval = ipa3_app_clk_vote(
+			(enum ipa_app_clock_vote_type) arg);
+		break;
+
 	default:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
@@ -3839,22 +3873,23 @@ int _ipa_init_sram_v3(void)
 	if (ipa_get_hw_type() >= IPA_HW_v4_5) {
 		ipa3_sram_set_canary(ipa_sram_mmio,
 			IPA_MEM_PART(nat_tbl_ofst) - 12);
-		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(nat_tbl_ofst) - 8);
-		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(nat_tbl_ofst) - 4);
-		ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(nat_tbl_ofst));
 	}
 	if (ipa_get_hw_type() >= IPA_HW_v4_0) {
-		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(pdn_config_ofst) - 4);
-		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(pdn_config_ofst));
-		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(stats_quota_ofst) - 4);
-		ipa3_sram_set_canary(ipa_sram_mmio,
-			IPA_MEM_PART(stats_quota_ofst));
+		if (ipa_get_hw_type() < IPA_HW_v4_5) {
+			ipa3_sram_set_canary(ipa_sram_mmio,
+				IPA_MEM_PART(pdn_config_ofst) - 4);
+			ipa3_sram_set_canary(ipa_sram_mmio,
+				IPA_MEM_PART(pdn_config_ofst));
+			ipa3_sram_set_canary(ipa_sram_mmio,
+				IPA_MEM_PART(stats_quota_q6_ofst) - 4);
+			ipa3_sram_set_canary(ipa_sram_mmio,
+				IPA_MEM_PART(stats_quota_q6_ofst));
+		} else {
+			ipa3_sram_set_canary(ipa_sram_mmio,
+				IPA_MEM_PART(stats_quota_q6_ofst) - 12);
+		}
 	}
+
 	if (ipa_get_hw_type() <= IPA_HW_v3_5 ||
 		ipa_get_hw_type() >= IPA_HW_v4_5) {
 		ipa3_sram_set_canary(ipa_sram_mmio,
@@ -4652,6 +4687,12 @@ long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case IPA_IOC_MDFY_RT_RULE32:
 		cmd = IPA_IOC_MDFY_RT_RULE;
 		break;
+	case IPA_IOC_GET_NAT_IN_SRAM_INFO32:
+		cmd = IPA_IOC_GET_NAT_IN_SRAM_INFO;
+		break;
+	case IPA_IOC_APP_CLOCK_VOTE32:
+		cmd = IPA_IOC_APP_CLOCK_VOTE;
+		break;
 	case IPA_IOC_COMMIT_HDR:
 	case IPA_IOC_RESET_HDR:
 	case IPA_IOC_COMMIT_RT:
@@ -4790,6 +4831,8 @@ void _ipa_disable_clks_v3_0(void)
  */
 void ipa3_disable_clks(void)
 {
+	int type;
+
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL) {
 		IPAERR("not supported in this mode\n");
 		return;
@@ -4797,13 +4840,29 @@ void ipa3_disable_clks(void)
 
 	IPADBG("disabling IPA clocks and bus voting\n");
 
+	/*
+	 * We see a NoC error on GSI on this flag sequence.
+	 * Need to set this flag first before clock off.
+	 */
+	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
+
+	/*
+	 * If there is still pending gsi irq, this indicate
+	 * issue on GSI FW side. We need to capture before
+	 * turn off the ipa clock.
+	 */
+	type = gsi_pending_irq_type();
+	if (type) {
+		IPAERR("unexpected gsi irq type: %d\n", type);
+		ipa_assert();
+	}
+
 	ipa3_ctx->ctrl->ipa3_disable_clks();
 
 	ipa_pm_set_clock_index(0);
 
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
 		WARN(1, "bus scaling failed");
-	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
 }
 
 /**
@@ -4976,6 +5035,12 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 }
 
+void ipa3_handle_gsi_differ_irq(void)
+{
+	queue_work(ipa3_ctx->power_mgmt_wq,
+		&ipa_inc_clients_enable_clks_on_wq_work);
+}
+
 /**
  * ipa3_active_clks_status() - update the current msm bus clock vote
  * status
@@ -5090,6 +5155,13 @@ void ipa3_dec_client_disable_clks(struct ipa_active_client_logging_info *id)
 static void ipa_dec_clients_disable_clks_on_wq(struct work_struct *work)
 {
 	__ipa3_dec_client_disable_clks();
+}
+
+static void ipa_inc_clients_enable_clks_on_wq(struct work_struct *work)
+{
+	ipa3_enable_clks();
+	IPAERR("unexpected clk access, clock on IPA to save reg");
+	ipa_assert();
 }
 
 /**
@@ -5887,6 +5959,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	gsi_props.req_clk_cb = NULL;
 	gsi_props.rel_clk_cb = NULL;
 	gsi_props.clk_status_cb = ipa3_active_clks_status;
+	gsi_props.enable_clk_bug_on = ipa3_handle_gsi_differ_irq;
 
 	if (ipa3_ctx->ipa_config_is_mhi) {
 		gsi_props.mhi_er_id_limits_valid = true;
@@ -6902,7 +6975,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 			ipa3_lan_poll, NAPI_WEIGHT);
 	}
 
+	mutex_init(&ipa3_ctx->app_clock_vote.mutex);
+
 	return 0;
+
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
 	ipa3_dma_shutdown();

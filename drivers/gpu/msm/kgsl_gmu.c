@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -549,7 +549,8 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		 */
 		if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 			gmu_core_snapshot(device);
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT |
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_set_gpu_fault(adreno_dev,
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 			adreno_dispatcher_schedule(device);
 		}
@@ -1339,14 +1340,17 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	device->gmu_core.reg_len = gmu->reg_len;
 
 	/* Initialize HFI and GMU interrupts */
-	hfi->hfi_interrupt_num = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
-		hfi_irq_handler, device);
-
-	gmu->gmu_interrupt_num = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
-		gmu_irq_handler, device);
-
-	if (hfi->hfi_interrupt_num < 0 || gmu->gmu_interrupt_num < 0)
+	ret = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
+			hfi_irq_handler, device);
+	if (ret < 0)
 		goto error;
+	hfi->hfi_interrupt_num = ret;
+
+	ret = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
+			gmu_irq_handler, device);
+	if (ret < 0)
+		goto error;
+	gmu->gmu_interrupt_num = ret;
 
 	/* Don't enable GMU interrupts until GMU started */
 	/* We cannot use irq_disable because it writes registers */

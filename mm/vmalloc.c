@@ -1229,7 +1229,8 @@ static unsigned long lazy_max_pages(void)
 
 	log = fls(num_online_cpus());
 
-	return log * (32UL * 1024 * 1024 / PAGE_SIZE);
+	return log * (1UL * CONFIG_VMAP_LAZY_PURGING_FACTOR *
+					1024 * 1024 / PAGE_SIZE);
 }
 
 static atomic_long_t vmap_lazy_nr = ATOMIC_LONG_INIT(0);
@@ -2500,8 +2501,13 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 			    gfp_t gfp_mask, pgprot_t prot,
 			    int node, const void *caller)
 {
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	return __vmalloc_node_range(size, align, PAGE_OFFSET, VMALLOC_END,
+				gfp_mask, prot, 0, node, caller);
+#else
 	return __vmalloc_node_range(size, align, VMALLOC_START, VMALLOC_END,
 				gfp_mask, prot, 0, node, caller);
+#endif
 }
 
 void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)

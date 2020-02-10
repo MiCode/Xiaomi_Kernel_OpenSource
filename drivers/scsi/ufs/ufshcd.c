@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -2506,6 +2506,34 @@ static enum hrtimer_restart ufshcd_clkgate_hrtimer_handler(
 				&hba->clk_gating.gate_work);
 
 	return HRTIMER_NORESTART;
+}
+
+static void ufshcd_init_clk_scaling(struct ufs_hba *hba)
+{
+	char wq_name[sizeof("ufs_clkscaling_00")];
+
+	if (!ufshcd_is_clkscaling_supported(hba))
+		return;
+
+	INIT_WORK(&hba->clk_scaling.suspend_work,
+		  ufshcd_clk_scaling_suspend_work);
+	INIT_WORK(&hba->clk_scaling.resume_work,
+		  ufshcd_clk_scaling_resume_work);
+
+	snprintf(wq_name, sizeof(wq_name), "ufs_clkscaling_%d",
+		 hba->host->host_no);
+	hba->clk_scaling.workq = create_singlethread_workqueue(wq_name);
+
+	ufshcd_clkscaling_init_sysfs(hba);
+}
+
+static void ufshcd_exit_clk_scaling(struct ufs_hba *hba)
+{
+	if (!ufshcd_is_clkscaling_supported(hba))
+		return;
+
+	destroy_workqueue(hba->clk_scaling.workq);
+	ufshcd_devfreq_remove(hba);
 }
 
 static void ufshcd_init_clk_gating(struct ufs_hba *hba)
@@ -6058,6 +6086,37 @@ static int ufshcd_get_lu_wp(struct ufs_hba *hba,
 	return ret;
 }
 
+/*
+ * ufshcd_get_wb_alloc_units - returns "dLUNumWriteBoosterBufferAllocUnits"
+ * @hba: per-adapter instance
+ * @lun: UFS device lun id
+ * @d_lun_wbb_au: pointer to buffer to hold the LU's alloc units info
+ *
+ * Returns 0 in case of success and d_lun_wbb_au would be returned
+ * Returns -ENOTSUPP if reading d_lun_wbb_au is not supported.
+ * Returns -EINVAL in case of invalid parameters passed to this function.
+ */
+static int ufshcd_get_wb_alloc_units(struct ufs_hba *hba,
+			    u8 lun,
+			    u8 *d_lun_wbb_au)
+{
+	int ret;
+
+	if (!d_lun_wbb_au)
+		ret = -EINVAL;
+
+	/* WB can be supported only from LU0..LU7 */
+	else if (lun >= UFS_UPIU_MAX_GENERAL_LUN)
+		ret = -ENOTSUPP;
+	else
+		ret = ufshcd_read_unit_desc_param(hba,
+					  lun,
+					  UNIT_DESC_PARAM_WB_BUF_ALLOC_UNITS,
+					  d_lun_wbb_au,
+					  sizeof(*d_lun_wbb_au));
+	return ret;
+}
+
 /**
  * ufshcd_get_lu_power_on_wp_status - get LU's power on write protect
  * status
@@ -6847,8 +6906,10 @@ out:
 
 static bool ufshcd_wb_sup(struct ufs_hba *hba)
 {
-	return !!(hba->dev_info.d_ext_ufs_feature_sup &
-		  UFS_DEV_WRITE_BOOSTER_SUP);
+	return ((hba->dev_info.d_ext_ufs_feature_sup &
+		   UFS_DEV_WRITE_BOOSTER_SUP) &&
+		  (hba->dev_info.b_wb_buffer_type
+		   || hba->dev_info.wb_config_lun));
 }
 
 static int ufshcd_wb_ctrl(struct ufs_hba *hba, bool enable)
@@ -8435,7 +8496,8 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	int err;
 	size_t buff_len;
 	u8 model_index;
-	u8 *desc_buf;
+	u8 *desc_buf, wb_buf[4];
+	u32 lun, res;
 
 	buff_len = max_t(size_t, hba->desc_size.dev_desc,
 			 QUERY_DESC_MAX_SIZE + 1);
@@ -8467,7 +8529,7 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	if ((dev_desc->wspecversion >= 0x310) ||
 	    (dev_desc->wmanufacturerid == UFS_VENDOR_TOSHIBA &&
 	     dev_desc->wspecversion >= 0x300 &&
-	     hba->desc_size.dev_desc >= 0x59))
+	     hba->desc_size.dev_desc >= 0x59)) {
 		hba->dev_info.d_ext_ufs_feature_sup =
 			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP]
 								<< 24 |
@@ -8476,7 +8538,29 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP + 2]
 								<< 8 |
 			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP + 3];
+		hba->dev_info.b_wb_buffer_type =
+			desc_buf[DEVICE_DESC_PARAM_WB_TYPE];
 
+		if (hba->dev_info.b_wb_buffer_type)
+			goto skip_unit_desc;
+
+		hba->dev_info.wb_config_lun = false;
+		for (lun = 0; lun < UFS_UPIU_MAX_GENERAL_LUN; lun++) {
+			memset(wb_buf, 0, sizeof(wb_buf));
+			err = ufshcd_get_wb_alloc_units(hba, lun, wb_buf);
+			if (err)
+				break;
+
+			res = wb_buf[0] << 24 | wb_buf[1] << 16 |
+				wb_buf[2] << 8 | wb_buf[3];
+			if (res) {
+				hba->dev_info.wb_config_lun = true;
+				break;
+			}
+		}
+	}
+
+skip_unit_desc:
 	/* Zero-pad entire buffer for string termination. */
 	memset(desc_buf, 0, buff_len);
 
@@ -9049,6 +9133,12 @@ reinit:
 	ufshcd_wb_config(hba);
 
 	/*
+	 * Enable auto hibern8 if supported, after full host and
+	 * device initialization.
+	 */
+	ufshcd_set_auto_hibern8_timer(hba);
+
+	/*
 	 * If we are in error handling context or in power management callbacks
 	 * context, no need to scan the host
 	 */
@@ -9086,12 +9176,6 @@ reinit:
 		pm_runtime_put_sync(hba->dev);
 	}
 
-	/*
-	 * Enable auto hibern8 if supported, after full host and
-	 * device initialization.
-	 */
-	ufshcd_set_auto_hibern8_timer(hba);
-
 out:
 	if (ret) {
 		ufshcd_set_ufs_dev_poweroff(hba);
@@ -9102,8 +9186,11 @@ out:
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
 	 */
-	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress)
+	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
 		pm_runtime_put_sync(hba->dev);
+		ufshcd_exit_clk_scaling(hba);
+		ufshcd_hba_exit(hba);
+	}
 
 	trace_ufshcd_init(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
@@ -9937,13 +10024,9 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 	if (hba->is_powered) {
 		ufshcd_variant_hba_exit(hba);
 		ufshcd_setup_vreg(hba, false);
-		if (ufshcd_is_clkscaling_supported(hba)) {
+		if (ufshcd_is_clkscaling_supported(hba))
 			if (hba->devfreq)
 				ufshcd_suspend_clkscaling(hba);
-			if (hba->clk_scaling.workq)
-				destroy_workqueue(hba->clk_scaling.workq);
-			ufshcd_devfreq_remove(hba);
-		}
 
 		if (hba->recovery_wq)
 			destroy_workqueue(hba->recovery_wq);
@@ -10761,6 +10844,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	ufshcd_disable_intr(hba, hba->intr_mask);
 	ufshcd_hba_stop(hba, true);
 
+	ufshcd_exit_clk_scaling(hba);
 	ufshcd_exit_clk_gating(hba);
 	ufshcd_exit_hibern8_on_idle(hba);
 	if (ufshcd_is_clkscaling_supported(hba)) {
@@ -10956,6 +11040,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	ufshcd_init_clk_gating(hba);
 	ufshcd_init_hibern8(hba);
 
+	ufshcd_init_clk_scaling(hba);
+
 	/*
 	 * In order to avoid any spurious interrupt immediately after
 	 * registering UFS controller interrupt handler, clear any pending UFS
@@ -11007,21 +11093,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		goto out_remove_scsi_host;
 	}
 
-	if (ufshcd_is_clkscaling_supported(hba)) {
-		char wq_name[sizeof("ufs_clkscaling_00")];
-
-		INIT_WORK(&hba->clk_scaling.suspend_work,
-			  ufshcd_clk_scaling_suspend_work);
-		INIT_WORK(&hba->clk_scaling.resume_work,
-			  ufshcd_clk_scaling_resume_work);
-
-		snprintf(wq_name, sizeof(wq_name), "ufs_clkscaling_%d",
-			 host->host_no);
-		hba->clk_scaling.workq = create_singlethread_workqueue(wq_name);
-
-		ufshcd_clkscaling_init_sysfs(hba);
-	}
-
 	/*
 	 * If rpm_lvl and and spm_lvl are not already set to valid levels,
 	 * set the default power management level for UFS runtime and system
@@ -11062,6 +11133,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 out_remove_scsi_host:
 	scsi_remove_host(hba->host);
 exit_gating:
+	ufshcd_exit_clk_scaling(hba);
 	ufshcd_exit_clk_gating(hba);
 out_disable:
 	hba->is_irq_enabled = false;

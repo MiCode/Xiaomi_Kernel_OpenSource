@@ -1031,7 +1031,8 @@ static int nf_tables_deltable(struct net *net, struct sock *nlsk,
 
 static void nf_tables_table_destroy(struct nft_ctx *ctx)
 {
-	BUG_ON(ctx->table->use > 0);
+	if (WARN_ON(ctx->table->use > 0))
+		return;
 
 	rhltable_destroy(&ctx->table->chains_ht);
 	kfree(ctx->table->name);
@@ -1446,7 +1447,8 @@ static void nf_tables_chain_destroy(struct nft_ctx *ctx)
 {
 	struct nft_chain *chain = ctx->chain;
 
-	BUG_ON(chain->use > 0);
+	if (WARN_ON(chain->use > 0))
+		return;
 
 	/* no concurrent access possible anymore */
 	nf_tables_chain_free_chain_rules(chain);
@@ -2608,17 +2610,14 @@ static int nf_tables_newrule(struct net *net, struct sock *nlsk,
 
 		if (chain->use == UINT_MAX)
 			return -EOVERFLOW;
-	}
 
-	if (nla[NFTA_RULE_POSITION]) {
-		if (!(nlh->nlmsg_flags & NLM_F_CREATE))
-			return -EOPNOTSUPP;
-
-		pos_handle = be64_to_cpu(nla_get_be64(nla[NFTA_RULE_POSITION]));
-		old_rule = __nft_rule_lookup(chain, pos_handle);
-		if (IS_ERR(old_rule)) {
-			NL_SET_BAD_ATTR(extack, nla[NFTA_RULE_POSITION]);
-			return PTR_ERR(old_rule);
+		if (nla[NFTA_RULE_POSITION]) {
+			pos_handle = be64_to_cpu(nla_get_be64(nla[NFTA_RULE_POSITION]));
+			old_rule = __nft_rule_lookup(chain, pos_handle);
+			if (IS_ERR(old_rule)) {
+				NL_SET_BAD_ATTR(extack, nla[NFTA_RULE_POSITION]);
+				return PTR_ERR(old_rule);
+			}
 		}
 	}
 
@@ -5735,6 +5734,8 @@ static int nf_tables_fill_flowtable_info(struct sk_buff *skb, struct net *net,
 		goto nla_put_failure;
 
 	nest = nla_nest_start(skb, NFTA_FLOWTABLE_HOOK);
+	if (!nest)
+		goto nla_put_failure;
 	if (nla_put_be32(skb, NFTA_FLOWTABLE_HOOK_NUM, htonl(flowtable->hooknum)) ||
 	    nla_put_be32(skb, NFTA_FLOWTABLE_HOOK_PRIORITY, htonl(flowtable->priority)))
 		goto nla_put_failure;
@@ -7253,7 +7254,8 @@ int __nft_release_basechain(struct nft_ctx *ctx)
 {
 	struct nft_rule *rule, *nr;
 
-	BUG_ON(!nft_is_base_chain(ctx->chain));
+	if (WARN_ON(!nft_is_base_chain(ctx->chain)))
+		return 0;
 
 	nf_tables_unregister_hook(ctx->net, ctx->chain->table, ctx->chain);
 	list_for_each_entry_safe(rule, nr, &ctx->chain->rules, list) {

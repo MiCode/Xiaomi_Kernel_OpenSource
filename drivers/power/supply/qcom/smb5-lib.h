@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SMB5_CHARGER_H
@@ -8,11 +8,13 @@
 #include <linux/alarmtimer.h>
 #include <linux/ktime.h>
 #include <linux/types.h>
+#include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
 #include <linux/extcon-provider.h>
+#include <linux/usb/typec.h>
 #include "storm-watch.h"
 #include "battery.h"
 
@@ -78,6 +80,7 @@ enum print_reason {
 #define WLS_PL_CHARGING_VOTER		"WLS_PL_CHARGING_VOTER"
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 #define OVERHEAT_LIMIT_VOTER		"OVERHEAT_LIMIT_VOTER"
+#define TYPEC_SWAP_VOTER		"TYPEC_SWAP_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -99,6 +102,7 @@ enum print_reason {
 #define DCIN_ICL_MIN_UA			100000
 #define DCIN_ICL_MAX_UA			1500000
 #define DCIN_ICL_STEP_UA		100000
+#define ROLE_REVERSAL_DELAY_MS		500
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -391,6 +395,7 @@ struct smb_charger {
 	spinlock_t		typec_pr_lock;
 	struct mutex		adc_lock;
 	struct mutex		dpdm_lock;
+	struct mutex		typec_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -418,6 +423,12 @@ struct smb_charger {
 	struct smb_regulator	*vconn_vreg;
 	struct regulator	*dpdm_reg;
 
+	/* typec */
+	struct typec_port	*typec_port;
+	struct typec_capability	typec_caps;
+	struct typec_partner	*typec_partner;
+	struct typec_partner_desc typec_partner_desc;
+
 	/* votables */
 	struct votable		*dc_suspend_votable;
 	struct votable		*fcc_votable;
@@ -435,6 +446,7 @@ struct smb_charger {
 	struct votable		*limited_irq_disable_votable;
 	struct votable		*hdc_irq_disable_votable;
 	struct votable		*temp_change_irq_disable_votable;
+	struct votable		*qnovo_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -456,11 +468,14 @@ struct smb_charger {
 	struct delayed_work	usbov_dbc_work;
 	struct delayed_work	pr_swap_detach_work;
 	struct delayed_work	pr_lock_clear_work;
+	struct delayed_work	role_reversal_check;
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
 	struct alarm		chg_termination_alarm;
 	struct alarm		dcin_aicl_alarm;
+
+	struct timer_list	apsd_timer;
 
 	struct charger_param	chg_param;
 	/* secondary charger config */
@@ -506,6 +521,7 @@ struct smb_charger {
 	bool			typec_present;
 	int			fake_input_current_limited;
 	int			typec_mode;
+	int			dr_mode;
 	int			usb_icl_change_irq_enabled;
 	u32			jeita_status;
 	u8			float_cfg;
@@ -560,6 +576,8 @@ struct smb_charger {
 	bool			hvdcp3_standalone_config;
 	bool			dcin_icl_user_set;
 	bool			dpdm_enabled;
+	bool			apsd_ext_timeout;
+	bool			qc3p5_detected;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -776,6 +794,7 @@ int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
 				const union power_supply_propval *val);
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
+void smblib_rerun_apsd(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_thermal_threshold(struct smb_charger *chg, u16 addr, int *val);
@@ -789,6 +808,8 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_typec_port_type_set(const struct typec_capability *cap,
+					enum typec_port_type type);
 int smblib_get_prop_from_bms(struct smb_charger *chg,
 				enum power_supply_property psp,
 				union power_supply_propval *val);

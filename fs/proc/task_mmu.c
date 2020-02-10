@@ -864,6 +864,8 @@ static int show_smap(struct seq_file *m, void *v)
 
 	__show_smap(m, &mss);
 
+	seq_printf(m, "THPeligible:    %d\n", transparent_hugepage_enabled(vma));
+
 	if (arch_pkeys_enabled())
 		seq_printf(m, "ProtectionKey:  %8u\n", vma_pkey(vma));
 	show_smap_vma_flags(m, vma);
@@ -1693,7 +1695,7 @@ cont:
 		if (!page)
 			continue;
 
-		if (isolate_lru_page(page))
+		if (isolate_lru_page(compound_head(page)))
 			continue;
 
 		/* MADV_FREE clears pte dirty bit and then marks the page

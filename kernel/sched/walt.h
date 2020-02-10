@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WALT_H
@@ -12,6 +12,21 @@
 #include <linux/sched/core_ctl.h>
 
 #define MAX_NR_CLUSTERS			3
+
+#ifdef CONFIG_HZ_300
+/*
+ * Tick interval becomes to 3333333 due to
+ * rounding error when HZ=300.
+ */
+#define DEFAULT_SCHED_RAVG_WINDOW (3333333 * 6)
+#else
+/* Default window size (in ns) = 20ms */
+#define DEFAULT_SCHED_RAVG_WINDOW 20000000
+#endif
+
+/* Max window size (in ns) = 1s */
+#define MAX_SCHED_RAVG_WINDOW 1000000000
+#define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / DEFAULT_SCHED_RAVG_WINDOW)
 
 #define WINDOW_STATS_RECENT		0
 #define WINDOW_STATS_MAX		1
@@ -364,6 +379,15 @@ static inline void walt_rq_dump(int cpu)
 	struct task_struct *tsk = cpu_curr(cpu);
 	int i;
 
+	/*
+	 * Increment the task reference so that it can't be
+	 * freed on a remote CPU. Since we are going to
+	 * enter panic, there is no need to decrement the
+	 * task reference. Decrementing the task reference
+	 * can't be done in atomic context, especially with
+	 * rq locks held.
+	 */
+	get_task_struct(tsk);
 	printk_deferred("CPU:%d nr_running:%u current: %d (%s)\n",
 			cpu, rq->nr_running, tsk->pid, tsk->comm);
 
@@ -388,7 +412,8 @@ static inline void walt_rq_dump(int cpu)
 		printk_deferred("rq->load_subs[%d].new_subs=%llu)\n", i,
 				rq->load_subs[i].new_subs);
 	}
-	walt_task_dump(tsk);
+	if (!exiting_task(tsk))
+		walt_task_dump(tsk);
 	SCHED_PRINT(sched_capacity_margin_up[cpu]);
 	SCHED_PRINT(sched_capacity_margin_down[cpu]);
 }

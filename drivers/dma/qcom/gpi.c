@@ -1461,6 +1461,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		(ch_ring->el_size * imed_event->tre_index);
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	unsigned long flags;
+	u32 chid;
 
 	/*
 	 * If channel not active don't process event but let
@@ -1513,8 +1514,13 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	/* make sure rp updates are immediately visible to all cores */
 	smp_wmb();
 
-	if (imed_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set)
-		return;
+	chid = imed_event->chid;
+	if (imed_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set) {
+		if (chid == GPI_RX_CHAN)
+			goto gpi_free_desc;
+		else
+			return;
+	}
 
 	tx_cb_param = vd->tx.callback_param;
 	if (vd->tx.callback && tx_cb_param) {
@@ -1532,6 +1538,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		vd->tx.callback(tx_cb_param);
 	}
 
+gpi_free_desc:
 	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
 	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
@@ -1550,6 +1557,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	struct gpi_desc *gpi_desc;
 	unsigned long flags;
+	u32 chid;
 
 	/* only process events on active channel */
 	if (unlikely(gpii_chan->pm_state != ACTIVE_STATE)) {
@@ -1594,8 +1602,13 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	/* update must be visible to other cores */
 	smp_wmb();
 
-	if (compl_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set)
-		return;
+	chid = compl_event->chid;
+	if (compl_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set) {
+		if (chid == GPI_RX_CHAN)
+			goto gpi_free_desc;
+		else
+			return;
+	}
 
 	tx_cb_param = vd->tx.callback_param;
 	if (vd->tx.callback && tx_cb_param) {
@@ -1609,6 +1622,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 		vd->tx.callback(tx_cb_param);
 	}
 
+gpi_free_desc:
 	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
 	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);

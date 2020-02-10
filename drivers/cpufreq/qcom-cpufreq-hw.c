@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/cpufreq.h>
@@ -104,13 +104,25 @@ static ssize_t dcvsh_freq_limit_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%lu\n", c->dcvsh_freq_limit);
 }
 
-static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c)
+static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c,
+					bool limit)
 {
+	struct cpufreq_policy *policy;
+	u32 cpu;
 	unsigned long freq;
 
-	freq = readl_relaxed(c->reg_bases[REG_DOMAIN_STATE]) &
+	if (limit) {
+		freq = readl_relaxed(c->reg_bases[REG_DOMAIN_STATE]) &
 				GENMASK(7, 0);
-	freq = DIV_ROUND_CLOSEST_ULL(freq * c->xo_rate, 1000);
+		freq = DIV_ROUND_CLOSEST_ULL(freq * c->xo_rate, 1000);
+	} else {
+		cpu = cpumask_first(&c->related_cpus);
+		policy = cpufreq_cpu_get_raw(cpu);
+		if (!policy)
+			freq = U32_MAX;
+		else
+			freq = policy->cpuinfo.max_freq;
+	}
 
 	sched_update_cpu_freq_min_max(&c->related_cpus, 0, freq);
 	trace_dcvsh_freq(cpumask_first(&c->related_cpus), freq);
@@ -130,7 +142,7 @@ static void limits_dcvsh_poll(struct work_struct *work)
 
 	cpu = cpumask_first(&c->related_cpus);
 
-	freq_limit = limits_mitigation_notify(c);
+	freq_limit = limits_mitigation_notify(c, true);
 
 	dcvsh_freq = qcom_cpufreq_hw_get(cpu);
 
@@ -138,6 +150,9 @@ static void limits_dcvsh_poll(struct work_struct *work)
 		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
 				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
 	} else {
+		/* Update scheduler for throttle removal */
+		limits_mitigation_notify(c, false);
+
 		regval = readl_relaxed(c->reg_bases[REG_INTR_CLR]);
 		regval |= GT_IRQ_STATUS;
 		writel_relaxed(regval, c->reg_bases[REG_INTR_CLR]);
@@ -163,7 +178,7 @@ static irqreturn_t dcvsh_handle_isr(int irq, void *data)
 	if (c->is_irq_enabled) {
 		c->is_irq_enabled = false;
 		disable_irq_nosync(c->dcvsh_irq);
-		limits_mitigation_notify(c);
+		limits_mitigation_notify(c, true);
 		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
 				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
 
@@ -364,7 +379,7 @@ static struct cpufreq_driver cpufreq_qcom_hw_driver = {
 static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 				    struct cpufreq_qcom *c)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev = &pdev->dev, *cpu_dev;
 	void __iomem *base_freq, *base_volt;
 	u32 data, src, lval, i, core_count, prev_cc, prev_freq, cur_freq, volt;
 	u32 vc;
@@ -417,8 +432,12 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		prev_freq = cur_freq;
 
 		cur_freq *= 1000;
-		for_each_cpu(cpu, &c->related_cpus)
-			dev_pm_opp_add(get_cpu_device(cpu), cur_freq, volt);
+		for_each_cpu(cpu, &c->related_cpus) {
+			cpu_dev = get_cpu_device(cpu);
+			if (!cpu_dev)
+				continue;
+			dev_pm_opp_add(cpu_dev, cur_freq, volt);
+		}
 	}
 
 	c->table[i].frequency = CPUFREQ_TABLE_END;

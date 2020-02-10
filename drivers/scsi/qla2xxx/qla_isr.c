@@ -2837,6 +2837,7 @@ qla2x00_error_entry(scsi_qla_host_t *vha, struct rsp_que *rsp, sts_entry_t *pkt)
 	case ELS_IOCB_TYPE:
 	case ABORT_IOCB_TYPE:
 	case MBX_IOCB_TYPE:
+	default:
 		sp = qla2x00_get_sp_from_handle(vha, func, req, pkt);
 		if (sp) {
 			sp->done(sp, res);
@@ -2847,7 +2848,6 @@ qla2x00_error_entry(scsi_qla_host_t *vha, struct rsp_que *rsp, sts_entry_t *pkt)
 	case ABTS_RESP_24XX:
 	case CTIO_TYPE7:
 	case CTIO_CRC2:
-	default:
 		return 1;
 	}
 fatal:
@@ -3121,6 +3121,7 @@ qla24xx_intr_handler(int irq, void *dev_id)
 	uint16_t	mb[8];
 	struct rsp_que *rsp;
 	unsigned long	flags;
+	bool process_atio = false;
 
 	rsp = (struct rsp_que *) dev_id;
 	if (!rsp) {
@@ -3181,22 +3182,13 @@ qla24xx_intr_handler(int irq, void *dev_id)
 			qla24xx_process_response_queue(vha, rsp);
 			break;
 		case INTR_ATIO_QUE_UPDATE_27XX:
-		case INTR_ATIO_QUE_UPDATE:{
-			unsigned long flags2;
-			spin_lock_irqsave(&ha->tgt.atio_lock, flags2);
-			qlt_24xx_process_atio_queue(vha, 1);
-			spin_unlock_irqrestore(&ha->tgt.atio_lock, flags2);
+		case INTR_ATIO_QUE_UPDATE:
+			process_atio = true;
 			break;
-		}
-		case INTR_ATIO_RSP_QUE_UPDATE: {
-			unsigned long flags2;
-			spin_lock_irqsave(&ha->tgt.atio_lock, flags2);
-			qlt_24xx_process_atio_queue(vha, 1);
-			spin_unlock_irqrestore(&ha->tgt.atio_lock, flags2);
-
+		case INTR_ATIO_RSP_QUE_UPDATE:
+			process_atio = true;
 			qla24xx_process_response_queue(vha, rsp);
 			break;
-		}
 		default:
 			ql_dbg(ql_dbg_async, vha, 0x504f,
 			    "Unrecognized interrupt type (%d).\n", stat * 0xff);
@@ -3209,6 +3201,12 @@ qla24xx_intr_handler(int irq, void *dev_id)
 	}
 	qla2x00_handle_mbx_completion(ha, status);
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
+
+	if (process_atio) {
+		spin_lock_irqsave(&ha->tgt.atio_lock, flags);
+		qlt_24xx_process_atio_queue(vha, 0);
+		spin_unlock_irqrestore(&ha->tgt.atio_lock, flags);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -3256,6 +3254,7 @@ qla24xx_msix_default(int irq, void *dev_id)
 	uint32_t	hccr;
 	uint16_t	mb[8];
 	unsigned long flags;
+	bool process_atio = false;
 
 	rsp = (struct rsp_que *) dev_id;
 	if (!rsp) {
@@ -3312,22 +3311,13 @@ qla24xx_msix_default(int irq, void *dev_id)
 			qla24xx_process_response_queue(vha, rsp);
 			break;
 		case INTR_ATIO_QUE_UPDATE_27XX:
-		case INTR_ATIO_QUE_UPDATE:{
-			unsigned long flags2;
-			spin_lock_irqsave(&ha->tgt.atio_lock, flags2);
-			qlt_24xx_process_atio_queue(vha, 1);
-			spin_unlock_irqrestore(&ha->tgt.atio_lock, flags2);
+		case INTR_ATIO_QUE_UPDATE:
+			process_atio = true;
 			break;
-		}
-		case INTR_ATIO_RSP_QUE_UPDATE: {
-			unsigned long flags2;
-			spin_lock_irqsave(&ha->tgt.atio_lock, flags2);
-			qlt_24xx_process_atio_queue(vha, 1);
-			spin_unlock_irqrestore(&ha->tgt.atio_lock, flags2);
-
+		case INTR_ATIO_RSP_QUE_UPDATE:
+			process_atio = true;
 			qla24xx_process_response_queue(vha, rsp);
 			break;
-		}
 		default:
 			ql_dbg(ql_dbg_async, vha, 0x5051,
 			    "Unrecognized interrupt type (%d).\n", stat & 0xff);
@@ -3337,6 +3327,12 @@ qla24xx_msix_default(int irq, void *dev_id)
 	} while (0);
 	qla2x00_handle_mbx_completion(ha, status);
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
+
+	if (process_atio) {
+		spin_lock_irqsave(&ha->tgt.atio_lock, flags);
+		qlt_24xx_process_atio_queue(vha, 0);
+		spin_unlock_irqrestore(&ha->tgt.atio_lock, flags);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -3422,10 +3418,8 @@ qla24xx_enable_msix(struct qla_hw_data *ha, struct rsp_que *rsp)
 		    ha->msix_count, ret);
 		goto msix_out;
 	} else if (ret < ha->msix_count) {
-		ql_log(ql_log_warn, vha, 0x00c6,
-		    "MSI-X: Failed to enable support "
-		     "with %d vectors, using %d vectors.\n",
-		    ha->msix_count, ret);
+		ql_log(ql_log_info, vha, 0x00c6,
+		    "MSI-X: Using %d vectors\n", ret);
 		ha->msix_count = ret;
 		/* Recalculate queue values */
 		if (ha->mqiobase && (ql2xmqsupport || ql2xnvmeenable)) {

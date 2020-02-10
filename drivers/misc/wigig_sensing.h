@@ -41,6 +41,8 @@
 #define SPIS_CONFIG_REG_OPT_VAL         (0x44200800)
 #define SPIS_EXTENDED_RESET_COMMAND_LEN (225)
 
+#define MAX_SPI_READ_CHUNKS (10)
+#define SPI_MIN_TRANSACTION_SIZE (512)
 #define SPI_MAX_TRANSACTION_SIZE (8*1024)
 #define SPI_CMD_TRANSACTION_SIZE (512)
 #define SPI_BUFFER_SIZE (SPI_MAX_TRANSACTION_SIZE + OPCODE_WIDTH + \
@@ -51,6 +53,7 @@
 #define INT_FW_READY          BIT(24)
 #define INT_DATA_READY        BIT(25)
 #define INT_FIFO_READY        BIT(26)
+#define INT_DONT_DEASSERT     BIT(27)
 #define INT_SYSASSERT         BIT(29)
 #define INT_DEEP_SLEEP_EXIT   BIT(30)
 union user_rgf_spi_status {
@@ -67,7 +70,7 @@ union user_rgf_spi_status {
 		u8 int_fw_ready:1; /* FW MBOX ready */
 		u8 int_data_ready:1; /* data available on FIFO */
 		u8 int_fifo_ready:1; /* FIFO status update */
-		u8 reserved2:1;
+		u8 int_dont_deassert:1; /* Don't deassert DRI */
 		u8 reserved3:1;
 		u8 int_sysassert:1; /* SYSASSERT occurred */
 		u8 int_deep_sleep_exit:1;
@@ -145,6 +148,7 @@ struct wigig_sensing_stm {
 	bool auto_recovery;
 	bool fw_is_ready;
 	bool spi_malfunction;
+	bool spi_ready;
 	bool waiting_for_deep_sleep_exit;
 	bool waiting_for_deep_sleep_exit_first_pass;
 	bool burst_size_ready;
@@ -189,6 +193,7 @@ struct wigig_sensing_ctx {
 	struct wigig_sensing_stm stm;
 	u32 last_read_length;
 	union user_rgf_spi_mbox_inb inb_cmd;
+	u32 spi_transaction_size;
 
 	/* CIR buffer */
 	struct cir_data cir_data;

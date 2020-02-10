@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -232,15 +232,23 @@ static void usb_event_work_fn(struct work_struct *work)
 	struct diag_usb_info *ch = container_of(work, struct diag_usb_info,
 						event_work);
 	struct diag_usb_event_q *entry = NULL;
+	unsigned long flags;
 
 	if (!ch)
 		return;
+	spin_lock_irqsave(&ch->event_lock, flags);
 	entry = list_first_entry(&(ch->event_q), struct diag_usb_event_q, link);
-	if (!entry)
+	if (!entry) {
+		spin_unlock_irqrestore(&ch->event_lock, flags);
 		return;
+	}
 
 	switch (entry->data) {
 	case USB_DIAG_CONNECT:
+
+		diag_usb_event_remove(entry);
+		spin_unlock_irqrestore(&ch->event_lock, flags);
+
 		wait_event_interruptible(ch->wait_q, ch->enabled > 0);
 		ch->max_size = usb_diag_request_size(ch->hdl);
 		atomic_set(&ch->connected, 1);
@@ -252,10 +260,14 @@ static void usb_event_work_fn(struct work_struct *work)
 		usb_connect(ch);
 		break;
 	case USB_DIAG_DISCONNECT:
+
+		diag_usb_event_remove(entry);
+		spin_unlock_irqrestore(&ch->event_lock, flags);
+
 		atomic_set(&ch->connected, 0);
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-				 "diag: USB channel %s: Cleared connected(%d) status\n",
-				 ch->name, atomic_read(&ch->connected));
+		"diag: USB channel %s: Cleared connected(%d) status\n",
+		ch->name, atomic_read(&ch->connected));
 
 		if (!atomic_read(&ch->connected) &&
 			driver->usb_connected &&
@@ -264,8 +276,11 @@ static void usb_event_work_fn(struct work_struct *work)
 
 		usb_disconnect(ch);
 		break;
+	default:
+		spin_unlock_irqrestore(&ch->event_lock, flags);
+		break;
 	}
-	diag_usb_event_remove(entry);
+
 	if (!list_empty(&ch->event_q))
 		queue_work(ch->usb_wq, &(ch->event_work));
 
@@ -363,8 +378,7 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 		spin_unlock_irqrestore(&ch->write_lock, flags);
 		return;
 	}
-	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
-		 ctxt);
+	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done\n");
 	list_del(&entry->track);
 	ctxt = entry->ctxt;
 	buf = entry->buf;
@@ -398,7 +412,9 @@ static void diag_usb_notifier(void *priv, unsigned int event,
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"diag: USB channel %s: Received Connect event\n",
 			usb_info->name);
+		spin_lock_irqsave(&usb_info->event_lock, flags);
 		diag_usb_event_add(usb_info, USB_DIAG_CONNECT);
+		spin_unlock_irqrestore(&usb_info->event_lock, flags);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->event_work);
 		break;
@@ -406,7 +422,9 @@ static void diag_usb_notifier(void *priv, unsigned int event,
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"diag: USB channel %s: Received Disconnect event\n",
 			usb_info->name);
+		spin_lock_irqsave(&usb_info->event_lock, flags);
 		diag_usb_event_add(usb_info, USB_DIAG_DISCONNECT);
+		spin_unlock_irqrestore(&usb_info->event_lock, flags);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->event_work);
 		break;
@@ -680,6 +698,7 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	ch->ctxt = ctxt;
 	spin_lock_init(&ch->lock);
 	spin_lock_init(&ch->write_lock);
+	spin_lock_init(&ch->event_lock);
 	ch->read_buf = kzalloc(USB_MAX_OUT_BUF, GFP_KERNEL);
 	if (!ch->read_buf)
 		goto err;

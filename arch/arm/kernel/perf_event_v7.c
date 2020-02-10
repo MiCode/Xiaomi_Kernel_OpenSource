@@ -1072,8 +1072,6 @@ static int armv7pmu_set_event_filter(struct hw_perf_event *event,
 {
 	unsigned long config_base = 0;
 
-	if (attr->exclude_idle)
-		return -EPERM;
 	if (attr->exclude_user)
 		config_base |= ARMV7_EXCLUDE_USER;
 	if (attr->exclude_kernel)
@@ -1108,7 +1106,7 @@ static void armv7pmu_reset(void *info)
 	}
 
 	/* Initialize & Reset PMNC: C and P bits */
-	armv7_pmnc_write(ARMV7_PMNC_P | ARMV7_PMNC_C);
+	armv7_pmnc_write(armv7_pmnc_read() | ARMV7_PMNC_P | ARMV7_PMNC_C);
 }
 
 static int armv7_a8_map_event(struct perf_event *event)
@@ -1190,11 +1188,68 @@ static void armv7_read_num_pmnc_events(void *info)
 	*nb_cnt += 1;
 }
 
-static int armv7_probe_num_events(struct arm_pmu *arm_pmu)
+static void armv7_pmu_idle_update(struct arm_pmu *cpu_pmu)
 {
-	return smp_call_function_any(&arm_pmu->supported_cpus,
+	struct pmu_hw_events *hw_events;
+	struct perf_event *event;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = this_cpu_ptr(cpu_pmu->hw_events);
+	if (!hw_events)
+		return;
+
+	for (idx = 0; idx < cpu_pmu->num_events; ++idx) {
+		event = hw_events->events[idx];
+
+		if (!event || !event->attr.exclude_idle ||
+			event->state != PERF_EVENT_STATE_ACTIVE)
+			continue;
+
+		cpu_pmu->pmu.read(event);
+	}
+}
+
+struct armv7_pmu_idle_nb {
+	struct arm_pmu *cpu_pmu;
+	struct notifier_block perf_cpu_idle_nb;
+};
+
+static int armv7_pmu_idle_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	struct armv7_pmu_idle_nb *pmu_idle_nb = container_of(nb,
+				struct armv7_pmu_idle_nb, perf_cpu_idle_nb);
+
+	if (action == IDLE_START)
+		armv7_pmu_idle_update(pmu_idle_nb->cpu_pmu);
+
+	return NOTIFY_OK;
+}
+
+static int armv7_probe_pmu(struct arm_pmu *arm_pmu)
+{
+	int ret;
+	struct armv7_pmu_idle_nb *pmu_idle_nb;
+
+	pmu_idle_nb = devm_kzalloc(&arm_pmu->plat_device->dev,
+				sizeof(*pmu_idle_nb), GFP_KERNEL);
+	if (!pmu_idle_nb)
+		return -ENOMEM;
+
+	ret = smp_call_function_any(&arm_pmu->supported_cpus,
 				     armv7_read_num_pmnc_events,
 				     &arm_pmu->num_events, 1);
+	if (ret)
+		return ret;
+
+	pmu_idle_nb->cpu_pmu = arm_pmu;
+	pmu_idle_nb->perf_cpu_idle_nb.notifier_call = armv7_pmu_idle_notifier;
+	idle_notifier_register(&pmu_idle_nb->perf_cpu_idle_nb);
+
+	return 0;
 }
 
 static int armv7_a8_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1206,7 +1261,7 @@ static int armv7_a8_pmu_init(struct arm_pmu *cpu_pmu)
 		&armv7_pmuv1_events_attr_group;
 	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
 		&armv7_pmu_format_attr_group;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int armv7_a9_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1218,7 +1273,7 @@ static int armv7_a9_pmu_init(struct arm_pmu *cpu_pmu)
 		&armv7_pmuv1_events_attr_group;
 	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
 		&armv7_pmu_format_attr_group;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int armv7_a5_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1230,7 +1285,7 @@ static int armv7_a5_pmu_init(struct arm_pmu *cpu_pmu)
 		&armv7_pmuv1_events_attr_group;
 	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
 		&armv7_pmu_format_attr_group;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int armv7_a15_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1243,7 +1298,20 @@ static int armv7_a15_pmu_init(struct arm_pmu *cpu_pmu)
 		&armv7_pmuv2_events_attr_group;
 	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
 		&armv7_pmu_format_attr_group;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
+}
+
+static int armv8_pmuv3_pmu_init(struct arm_pmu *cpu_pmu)
+{
+	armv7pmu_init(cpu_pmu);
+	cpu_pmu->name		= "armv7_pmuv3";
+	cpu_pmu->map_event	= armv7_a7_map_event;
+	cpu_pmu->set_event_filter = armv7pmu_set_event_filter;
+	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_EVENTS] =
+		&armv7_pmuv2_events_attr_group;
+	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
+		&armv7_pmu_format_attr_group;
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int armv7_a7_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1256,7 +1324,7 @@ static int armv7_a7_pmu_init(struct arm_pmu *cpu_pmu)
 		&armv7_pmuv2_events_attr_group;
 	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
 		&armv7_pmu_format_attr_group;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int armv7_a12_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1269,7 +1337,7 @@ static int armv7_a12_pmu_init(struct arm_pmu *cpu_pmu)
 		&armv7_pmuv2_events_attr_group;
 	cpu_pmu->attr_groups[ARMPMU_ATTR_GROUP_FORMATS] =
 		&armv7_pmu_format_attr_group;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int armv7_a17_pmu_init(struct arm_pmu *cpu_pmu)
@@ -1667,7 +1735,7 @@ static int krait_pmu_init(struct arm_pmu *cpu_pmu)
 	cpu_pmu->disable	= krait_pmu_disable_event;
 	cpu_pmu->get_event_idx	= krait_pmu_get_event_idx;
 	cpu_pmu->clear_event_idx = krait_pmu_clear_event_idx;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 /*
@@ -1991,7 +2059,7 @@ static int scorpion_pmu_init(struct arm_pmu *cpu_pmu)
 	cpu_pmu->disable	= scorpion_pmu_disable_event;
 	cpu_pmu->get_event_idx	= scorpion_pmu_get_event_idx;
 	cpu_pmu->clear_event_idx = scorpion_pmu_clear_event_idx;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static int scorpion_mp_pmu_init(struct arm_pmu *cpu_pmu)
@@ -2004,7 +2072,7 @@ static int scorpion_mp_pmu_init(struct arm_pmu *cpu_pmu)
 	cpu_pmu->disable	= scorpion_pmu_disable_event;
 	cpu_pmu->get_event_idx	= scorpion_pmu_get_event_idx;
 	cpu_pmu->clear_event_idx = scorpion_pmu_clear_event_idx;
-	return armv7_probe_num_events(cpu_pmu);
+	return armv7_probe_pmu(cpu_pmu);
 }
 
 static const struct of_device_id armv7_pmu_of_device_ids[] = {
@@ -2018,6 +2086,7 @@ static const struct of_device_id armv7_pmu_of_device_ids[] = {
 	{.compatible = "qcom,krait-pmu",	.data = krait_pmu_init},
 	{.compatible = "qcom,scorpion-pmu",	.data = scorpion_pmu_init},
 	{.compatible = "qcom,scorpion-mp-pmu",	.data = scorpion_mp_pmu_init},
+	{.compatible = "arm,armv8-pmuv3",	.data = armv8_pmuv3_pmu_init},
 	{},
 };
 

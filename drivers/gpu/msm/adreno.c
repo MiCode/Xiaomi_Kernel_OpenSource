@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/delay.h>
 #include <linux/input.h>
@@ -830,6 +830,17 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 	}
 
 	/*
+	 * Some GPUs needs UCHE GMEM base address to be minimum 0x100000
+	 * and 1MB aligned. Configure UCHE GMEM base based on GMEM size
+	 * and align it one 1MB. This needs to be done based on GMEM size
+	 * because setting it to minimum value 0x100000 will result in RB
+	 * and UCHE GMEM range overlap for GPUs with GMEM size >1MB.
+	 */
+	if (!adreno_is_a650_family(adreno_dev))
+		adreno_dev->uche_gmem_base =
+			ALIGN(adreno_dev->gpucore->gmem_size, SZ_1M);
+
+	/*
 	 * Initialize uninitialzed gpu registers, only needs to be done once
 	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
 	 */
@@ -1339,15 +1350,15 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 	}
 
 	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
 	if (!IS_ERR(buf)) {
 		memcpy(&adreno_dev->speed_bin, buf,
 				min(len, sizeof(adreno_dev->speed_bin)));
 		kfree(buf);
 	}
 
-	nvmem_cell_put(cell);
-
-	return 0;
+	return PTR_ERR_OR_ZERO(buf);
 }
 
 static int adreno_probe_efuse(struct platform_device *pdev,
@@ -2478,7 +2489,7 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 		.device_id = device->id + 1,
 		.chip_id = adreno_dev->chipid,
 		.mmu_enabled = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED),
-		.gmem_gpubaseaddr = adreno_dev->gpucore->gmem_base,
+		.gmem_gpubaseaddr = 0,
 		.gmem_sizebytes = adreno_dev->gpucore->gmem_size,
 	};
 
@@ -2552,9 +2563,9 @@ static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	u64 vaddr = adreno_dev->gpucore->gmem_base;
 
-	return copy_prop(param, &vaddr, sizeof(vaddr));
+	return copy_prop(param, &adreno_dev->uche_gmem_base,
+		sizeof(adreno_dev->uche_gmem_base));
 }
 
 static int adreno_prop_ucode_version(struct kgsl_device *device,
@@ -3304,12 +3315,15 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	unsigned int status, i;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg_offset = gpudev->reg_offsets->offsets[offset];
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u64 ts1, ts2;
 
 	adreno_writereg(adreno_dev, offset, val);
 
 	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
 		return 0;
 
+	ts1 = gmu_core_dev_read_ao_counter(device);
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
 		/*
 		 * Make sure the previous register write is posted before
@@ -3333,17 +3347,20 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		adreno_writereg(adreno_dev, offset, val);
 
 		if (i == GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
-			dev_err(adreno_dev->dev.dev,
-				"Waited %d usecs to write fenced register 0x%x. Continuing to wait...\n",
+			dev_err(device->dev,
+				"Waited %d usecs to write fenced register 0x%x, status 0x%x. Continuing to wait...\n",
 				(GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT *
 				GMU_CORE_WAKEUP_DELAY_US),
-				reg_offset);
+				reg_offset, status);
 	}
 
-	dev_err(adreno_dev->dev.dev,
-		"Timed out waiting %d usecs to write fenced register 0x%x\n",
+	ts2 = gmu_core_dev_read_ao_counter(device);
+	dev_err(device->dev,
+		"fenced write for 0x%x timed out in %dus. timestamps %llu %llu, status 0x%x\n",
+		reg_offset,
 		GMU_CORE_LONG_WAKEUP_RETRY_LIMIT * GMU_CORE_WAKEUP_DELAY_US,
-		reg_offset);
+		ts1, ts2, status);
+
 	return -ETIMEDOUT;
 }
 

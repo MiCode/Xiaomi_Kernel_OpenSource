@@ -847,7 +847,12 @@ static void continue_process_echoes(struct work_struct *work)
 {
 	struct tty_struct *tty =
 		container_of(work, struct tty_struct, echo_delayed_work.work);
-	struct n_tty_data *ldata = tty->disc_data;
+	struct n_tty_data *ldata;
+
+	/* Possible for n_tty_close() is called here and free the disc_data */
+	ldata = tty->disc_data;
+	if (!ldata)
+		return;
 
 	mutex_lock(&ldata->output_lock);
 	tty->delayed_work = 0;
@@ -1730,7 +1735,7 @@ n_tty_receive_buf_common(struct tty_struct *tty, const unsigned char *cp,
 
 	down_read(&tty->termios_rwsem);
 
-	while (1) {
+	do {
 		/*
 		 * When PARMRK is set, each input char may take up to 3 chars
 		 * in the read buf; reduce the buffer space avail by 3x
@@ -1772,7 +1777,7 @@ n_tty_receive_buf_common(struct tty_struct *tty, const unsigned char *cp,
 			fp += n;
 		count -= n;
 		rcvd += n;
-	}
+	} while (!test_bit(TTY_LDISC_CHANGING, &tty->flags));
 
 	tty->receive_room = room;
 
@@ -1917,6 +1922,11 @@ static void n_tty_close(struct tty_struct *tty)
 
 	if (tty->link)
 		n_tty_packet_mode_flush(tty);
+
+#if defined(CONFIG_TTY_FLUSH_LOCAL_ECHO)
+	if (tty->echo_delayed_work.work.func)
+		cancel_delayed_work_sync(&tty->echo_delayed_work);
+#endif
 
 	vfree(ldata);
 	tty->disc_data = NULL;
@@ -2239,7 +2249,7 @@ static ssize_t n_tty_read(struct tty_struct *tty, struct file *file,
 					break;
 				if (!timeout)
 					break;
-				if (file->f_flags & O_NONBLOCK) {
+				if (tty_io_nonblock(tty, file)) {
 					retval = -EAGAIN;
 					break;
 				}
@@ -2393,7 +2403,7 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
 		}
 		if (!nr)
 			break;
-		if (file->f_flags & O_NONBLOCK) {
+		if (tty_io_nonblock(tty, file)) {
 			retval = -EAGAIN;
 			break;
 		}

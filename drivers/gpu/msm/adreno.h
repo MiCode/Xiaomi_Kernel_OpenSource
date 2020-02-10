@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_H
 #define __ADRENO_H
@@ -200,6 +200,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A616 = 616,
 	ADRENO_REV_A618 = 618,
+	ADRENO_REV_A619 = 619,
 	ADRENO_REV_A620 = 620,
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
@@ -352,7 +353,6 @@ struct adreno_reglist {
  * @patchid: Match for the patch revision of the GPU
  * @features: Common adreno features supported by this core
  * @gpudev: Pointer to the GPU family specific functions for this core
- * @gmem_base: Base address of binning memory (GMEM/OCMEM)
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
  * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
  * @bus_width: Bytes transferred in 1 cycle
@@ -362,7 +362,6 @@ struct adreno_gpu_core {
 	unsigned int core, major, minor, patchid;
 	unsigned long features;
 	struct adreno_gpudev *gpudev;
-	unsigned long gmem_base;
 	size_t gmem_size;
 	unsigned int busy_mask;
 	u32 bus_width;
@@ -379,6 +378,7 @@ enum gpu_coresight_sources {
  * @dev: Reference to struct kgsl_device
  * @priv: Holds the private flags specific to the adreno_device
  * @chipid: Chip ID specific to the GPU
+ * @uche_gmem_base: Base address of GMEM for UCHE access
  * @cx_misc_len: Length of the CX MISC register block
  * @cx_misc_virt: Pointer where the CX MISC block is mapped
  * @rscc_base: Base physical address of the RSCC
@@ -463,6 +463,7 @@ struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned long priv;
 	unsigned int chipid;
+	u64 uche_gmem_base;
 	unsigned long cx_dbgc_base;
 	unsigned int cx_dbgc_len;
 	void __iomem *cx_dbgc_virt;
@@ -1167,6 +1168,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 ADRENO_TARGET(a610, ADRENO_REV_A610)
 ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a618, ADRENO_REV_A618)
+ADRENO_TARGET(a619, ADRENO_REV_A619)
 ADRENO_TARGET(a620, ADRENO_REV_A620)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
@@ -1175,14 +1177,14 @@ ADRENO_TARGET(a680, ADRENO_REV_A680)
 
 /*
  * All the derived chipsets from A615 needs to be added to this
- * list such as A616, A618 etc.
+ * list such as A616, A618, A619 etc.
  */
 static inline int adreno_is_a615_family(struct adreno_device *adreno_dev)
 {
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
 	return (rev == ADRENO_REV_A615 || rev == ADRENO_REV_A616 ||
-			rev == ADRENO_REV_A618);
+			rev == ADRENO_REV_A618 || rev == ADRENO_REV_A619);
 }
 
 /*
@@ -1379,7 +1381,7 @@ static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	int state)
 {
 	/* only set the fault bit w/o overwriting other bits */
-	atomic_add(state, &adreno_dev->dispatcher.fault);
+	atomic_or(state, &adreno_dev->dispatcher.fault);
 
 	/* make sure other CPUs see the update */
 	smp_wmb();

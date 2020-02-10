@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QG_UTIL_H__
@@ -25,5 +25,6 @@ int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua);
 int qg_get_battery_voltage(struct qpnp_qg *chip, int *vbat_uv);
 int qg_get_vbat_avg(struct qpnp_qg *chip, int *vbat_uv);
 s64 qg_iraw_to_ua(struct qpnp_qg *chip, int iraw);
+int qg_get_ibat_avg(struct qpnp_qg *chip, int *ibat_ua);
 
 #endif

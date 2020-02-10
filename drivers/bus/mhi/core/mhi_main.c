@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -333,6 +333,29 @@ static void mhi_recycle_ev_ring_element(struct mhi_controller *mhi_cntrl,
 	smp_wmb();
 }
 
+static void mhi_recycle_fwd_ev_ring_element(struct mhi_controller *mhi_cntrl,
+					struct mhi_ring *ring)
+{
+	dma_addr_t ctxt_wp;
+
+	/* update the WP */
+	ring->wp += ring->el_size;
+	if (ring->wp >= (ring->base + ring->len))
+		ring->wp = ring->base;
+
+	/* update the context WP based on the RP to support fast forwarding */
+	ctxt_wp = ring->iommu_base + (ring->wp - ring->base);
+	*ring->ctxt_wp = ctxt_wp;
+
+	/* update the RP */
+	ring->rp += ring->el_size;
+	if (ring->rp >= (ring->base + ring->len))
+		ring->rp = ring->base;
+
+	/* visible to other cores */
+	smp_wmb();
+}
+
 static bool mhi_is_ring_full(struct mhi_controller *mhi_cntrl,
 			     struct mhi_ring *ring)
 {
@@ -537,9 +560,9 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 		mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, 1, 0, 0);
 	}
 
-	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
-		 (u64)mhi_to_physical(tre_ring, mhi_tre), mhi_tre->ptr,
-		 mhi_tre->dword[0], mhi_tre->dword[1]);
+	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x rDB %d\n",
+		mhi_chan->chan, (u64)mhi_to_physical(tre_ring, mhi_tre),
+		mhi_tre->ptr, mhi_tre->dword[0], mhi_tre->dword[1], ring_db);
 
 	/* increment WP */
 	mhi_add_ring_element(mhi_cntrl, tre_ring);
@@ -967,6 +990,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	unsigned long flags = 0;
 	bool ring_db = true;
 	int n_free_tre, n_queued_tre;
+	unsigned long rflags;
 
 	ev_code = MHI_TRE_GET_EV_CODE(event);
 	buf_ring = &mhi_chan->buf_ring;
@@ -1025,7 +1049,8 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 				mhi_cntrl->unmap_single(mhi_cntrl, buf_info);
 
 			result.buf_addr = buf_info->cb_buf;
-			result.bytes_xferd = xfer_len;
+			result.bytes_xferd = min_t(u16, xfer_len,
+					buf_info->len);
 			mhi_del_ring_element(mhi_cntrl, buf_ring);
 			mhi_del_ring_element(mhi_cntrl, tre_ring);
 			local_rp = tre_ring->rp;
@@ -1055,12 +1080,8 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		break;
 	} /* CC_EOT */
 	case MHI_EV_CC_OOB:
-	case MHI_EV_CC_DB_MODE:
-	{
-		unsigned long flags;
-
-		MHI_VERB("DB_MODE/OOB Detected chan %d.\n", mhi_chan->chan);
 		mhi_chan->db_cfg.db_mode = true;
+		mhi_chan->mode_change++;
 
 		/*
 		 * on RSC channel IPA HW has a minimum credit requirement before
@@ -1074,14 +1095,27 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 				ring_db = false;
 		}
 
-		read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
+		MHI_VERB("OOB_MODE chan %d ring_db %d\n", mhi_chan->chan,
+			ring_db);
+
+		read_lock_irqsave(&mhi_cntrl->pm_lock, rflags);
 		if (tre_ring->wp != tre_ring->rp &&
-		    MHI_DB_ACCESS_VALID(mhi_cntrl) && ring_db) {
+		    MHI_DB_ACCESS_VALID(mhi_cntrl) && ring_db)
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
-		}
-		read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
+		read_unlock_irqrestore(&mhi_cntrl->pm_lock, rflags);
 		break;
-	}
+	case MHI_EV_CC_DB_MODE:
+		MHI_VERB("DB_MODE chan %d.\n", mhi_chan->chan);
+		mhi_chan->db_cfg.db_mode = true;
+		mhi_chan->mode_change++;
+
+		read_lock_irqsave(&mhi_cntrl->pm_lock, rflags);
+		if (tre_ring->wp != tre_ring->rp &&
+		    MHI_DB_ACCESS_VALID(mhi_cntrl))
+			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
+
+		read_unlock_irqrestore(&mhi_cntrl->pm_lock, rflags);
+		break;
 	case MHI_EV_CC_BAD_TRE:
 		MHI_ASSERT(1, "Received BAD TRE event for ring");
 		break;
@@ -1200,6 +1234,10 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 		break;
 	default:
 		chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
+		if (chan >= mhi_cntrl->max_chan) {
+			MHI_ERR("invalid channel id %u\n", chan);
+			break;
+		}
 		mhi_chan = &mhi_cntrl->mhi_chan[chan];
 		write_lock_bh(&mhi_chan->lock);
 		mhi_chan->ccs = MHI_TRE_GET_EV_CODE(tre);
@@ -1542,7 +1580,7 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	ev_ring->wp = dev_rp - 1;
 	if (ev_ring->wp < ev_ring->base)
 		ev_ring->wp = ev_ring->base + ev_ring->len - ev_ring->el_size;
-	mhi_recycle_ev_ring_element(mhi_cntrl, ev_ring);
+	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
@@ -1734,7 +1772,7 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 	MHI_VERB("Exit\n");
 
 	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-		schedule_work(&mhi_cntrl->low_priority_worker);
+		queue_work(mhi_cntrl->special_wq, &mhi_cntrl->special_work);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -2161,6 +2199,9 @@ int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d)
 
 	int i;
 
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
+
 	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	er_ctxt = mhi_cntrl->mhi_ctxt->er_ctxt;
@@ -2194,6 +2235,9 @@ int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d)
 	struct mhi_chan_ctxt *chan_ctxt;
 	int i;
 
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
+
 	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	mhi_chan = mhi_cntrl->mhi_chan;
@@ -2212,12 +2256,14 @@ int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d)
 				   chan_ctxt->pollcfg, chan_ctxt->chtype,
 				   chan_ctxt->erindex);
 			seq_printf(m,
-				   " base:0x%llx len:0x%llx wp:0x%llx local_rp:0x%llx local_wp:0x%llx db:0x%llx\n",
+				   " base:0x%llx len:0x%llx wp:0x%llx local_rp:0x%llx local_wp:0x%llx db:0x%llx mode_change:0x%llx\n",
 				   chan_ctxt->rbase, chan_ctxt->rlen,
 				   chan_ctxt->wp,
 				   mhi_to_physical(ring, ring->rp),
 				   mhi_to_physical(ring, ring->wp),
-				   mhi_chan->db_cfg.db_val);
+				   mhi_chan->db_cfg.db_val,
+				   mhi_chan->mode_change);
+			mhi_chan->mode_change = 0;
 		}
 	}
 
