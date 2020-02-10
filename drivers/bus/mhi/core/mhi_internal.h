@@ -946,22 +946,9 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev);
 irqreturn_t mhi_intvec_handlr(int irq_number, void *dev);
 void mhi_ev_task(unsigned long data);
 
-#ifdef CONFIG_MHI_DEBUG
-
 #define MHI_ASSERT(cond, fmt, ...) do { \
 	if (cond) \
 		panic(fmt); \
 } while (0)
-
-#else
-
-#define MHI_ASSERT(cond, fmt, ...) do { \
-	if (cond) { \
-		MHI_ERR(fmt); \
-		WARN_ON(cond); \
-	} \
-} while (0)
-
-#endif
 
 #endif /* _MHI_INT_H */
