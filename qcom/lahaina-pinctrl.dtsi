@@ -255,12 +255,12 @@
 			qupv3_se8_i3c_active: qupv3_se8_i3c_active {
 				mux {
 					pins = "gpio36", "gpio37";
-					function = "qup8";
+					function = "ibi_i3c";
 				};
 
 				config {
 					pins = "gpio36", "gpio37";
-					drive-strength = <16>;
+					drive-strength = <2>;
 					bias-pull-up;
 				};
 			};
@@ -268,7 +268,7 @@
 			qupv3_se8_i3c_sleep: qupv3_se8_i3c_sleep {
 				mux {
 					pins = "gpio36", "gpio37";
-					function = "gpio";
+					function = "ibi_i3c";
 				};
 
 				config {
@@ -283,12 +283,12 @@
 			qupv3_se9_i3c_active: qupv3_se9_i3c_active {
 				mux {
 					pins = "gpio40", "gpio41";
-					function = "qup9";
+					function = "ibi_i3c";
 				};
 
 				config {
 					pins = "gpio40", "gpio41";
-					drive-strength = <16>;
+					drive-strength = <2>;
 					bias-pull-up;
 				};
 			};
@@ -296,7 +296,7 @@
 			qupv3_se9_i3c_sleep: qupv3_se9_i3c_sleep {
 				mux {
 					pins = "gpio40", "gpio41";
-					function = "gpio";
+					function = "ibi_i3c";
 				};
 
 				config {
@@ -311,7 +311,7 @@
 			qupv3_se14_i3c_active: qupv3_se14_i3c_active {
 				mux {
 					pins = "gpio56", "gpio57";
-					function = "qup14";
+					function = "ibi_i3c";
 				};
 
 				config {
@@ -324,7 +324,7 @@
 			qupv3_se14_i3c_sleep: qupv3_se14_i3c_sleep {
 				mux {
 					pins = "gpio56", "gpio57";
-					function = "gpio";
+					function = "ibi_i3c";
 				};
 
 				config {
@@ -339,7 +339,7 @@
 			qupv3_se15_i3c_active: qupv3_se15_i3c_active {
 				mux {
 					pins = "gpio60", "gpio61";
-					function = "qup15";
+					function = "ibi_i3c";
 				};
 
 				config {
@@ -352,7 +352,7 @@
 			qupv3_se15_i3c_sleep: qupv3_se15_i3c_sleep {
 				mux {
 					pins = "gpio60", "gpio61";
-					function = "gpio";
+					function = "ibi_i3c";
 				};
 
 				config {
