@@ -1546,6 +1546,8 @@
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "rst";
 		dma-coherent;
+		limit-tx-hs-gear = <3>;
+		limit-rx-hs-gear = <3>;
 
 		status = "disabled";
 	};
