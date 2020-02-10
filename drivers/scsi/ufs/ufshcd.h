@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -918,9 +918,7 @@ struct ufs_hba {
 #define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 7)
 	/* Allow standalone Hibern8 enter on idle */
 #define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 5)
-	bool phy_init_g4;
 	struct rw_semaphore lock;
-	struct pinctrl *pctrl;
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
 	/* If set, don't gate device ref_clk during clock gating */
@@ -939,7 +937,6 @@ struct ufs_hba {
 	bool auto_h8_err;
 	struct work_struct rls_work;
 	u32 dev_ref_clk_gating_wait;
-	bool force_g4;
 #endif
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;

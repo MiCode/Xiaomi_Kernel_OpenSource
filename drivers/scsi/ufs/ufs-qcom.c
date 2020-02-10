@@ -1562,10 +1562,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		return 0;
 
 	if (on && (status == POST_CHANGE)) {
-		if (!host->is_phy_pwr_on) {
-			phy_power_on(host->generic_phy);
-			host->is_phy_pwr_on = true;
-		}
 		/* enable the device ref clock for HS mode*/
 		if (ufshcd_is_hs_mode(&hba->pwr_info))
 			ufs_qcom_dev_ref_clk_ctrl(host, true);
@@ -1580,10 +1576,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			/* disable device ref_clk */
 			ufs_qcom_dev_ref_clk_ctrl(host, false);
 			/* powering off PHY during aggressive clk gating */
-			if (host->is_phy_pwr_on) {
-				phy_power_off(host->generic_phy);
-				host->is_phy_pwr_on = false;
-			}
 		}
 
 
