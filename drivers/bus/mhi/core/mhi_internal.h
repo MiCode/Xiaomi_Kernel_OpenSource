@@ -706,6 +706,9 @@ struct mhi_chan {
 	struct completion completion;
 	rwlock_t lock;
 	struct list_head node;
+
+	/* stats */
+	u64 mode_change;
 };
 
 struct tsync_node {
@@ -749,6 +752,7 @@ extern struct mhi_bus mhi_bus;
 struct mhi_controller *find_mhi_controller_by_name(const char *name);
 
 /* debug fs related functions */
+int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d);
