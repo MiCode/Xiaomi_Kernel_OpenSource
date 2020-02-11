@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
 		mhi,name = "esoc0";
+		mhi,buffer-len = <0x8000>;
 
 		mhi_channels {
 			#address-cells = <1>;
@@ -629,6 +630,7 @@
 		/* mhi bus specific settings */
 		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
+		mhi,buffer-len = <0x8000>;
 
 		mhi_channels {
 			#address-cells = <1>;
