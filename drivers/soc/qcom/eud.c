@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -286,6 +286,11 @@ static unsigned int eud_tx_empty(struct uart_port *port)
 		return 0;
 }
 
+static void eud_set_mctrl(struct uart_port *port, unsigned int mctrl)
+{
+	/* Nothing to set */
+}
+
 static void eud_stop_tx(struct uart_port *port)
 {
 	/* Disable Tx interrupt */
@@ -365,6 +370,7 @@ static int eud_verify_port(struct uart_port *port,
 /* serial functions supported */
 static const struct uart_ops eud_uart_ops = {
 	.tx_empty	= eud_tx_empty,
+	.set_mctrl	= eud_set_mctrl,
 	.stop_tx	= eud_stop_tx,
 	.start_tx	= eud_start_tx,
 	.stop_rx	= eud_stop_rx,
@@ -593,6 +599,7 @@ static int msm_eud_probe(struct platform_device *pdev)
 
 	INIT_WORK(&chip->eud_work, eud_event_notifier);
 
+	pdev->id = 0;
 	port = &chip->port;
 	port->line = pdev->id;
 	port->type = PORT_EUD_UART;

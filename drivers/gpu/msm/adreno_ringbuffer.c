@@ -359,7 +359,7 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 
 		if (IS_ERR_OR_NULL(device->scratch)) {
 			device->scratch = kgsl_allocate_global(device,
-				PAGE_SIZE, 0, KGSL_MEMDESC_RANDOM, "scratch");
+				PAGE_SIZE, 0, priv, "scratch");
 
 			if (IS_ERR(device->scratch))
 				return PTR_ERR(device->scratch);

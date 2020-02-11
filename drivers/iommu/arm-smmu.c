@@ -2645,16 +2645,19 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (ret)
 		str = "default";
 
-	if (!strcmp(str, "bypass"))
+	if (!strcmp(str, "bypass")) {
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_S1_BYPASS, &attr);
-	else if (!strcmp(str, "fastmap"))
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_FAST, &attr);
-	else if (!strcmp(str, "atomic"))
+	} else if (!strcmp(str, "fastmap")) {
+		/* Ensure DOMAIN_ATTR_ATOMIC is set for GKI */
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_ATOMIC, &attr);
-	else if (!strcmp(str, "disabled")) {
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAST, &attr);
+	} else if (!strcmp(str, "atomic")) {
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_ATOMIC, &attr);
+	} else if (!strcmp(str, "disabled")) {
 		/*
 		 * Don't touch hw, and don't allocate irqs or other resources.
 		 * Ensure the context bank is set to a valid value per dynamic

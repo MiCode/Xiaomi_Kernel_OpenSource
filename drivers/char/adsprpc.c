@@ -33,6 +33,7 @@
 #include <linux/cma.h>
 #include <linux/iommu.h>
 #include <linux/sort.h>
+#include <linux/cred.h>
 #include <linux/msm_dma_iommu_mapping.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
@@ -135,6 +136,9 @@
 #define INIT_MEMLEN_MAX  (8*1024*1024)
 #define MAX_CACHE_BUF_SIZE (8*1024*1024)
 
+/* Position of privilege bit in remote process attribute */
+#define FASTRPC_MODE_PRIVILEGED		(1 << 6)
+
 #define PERF_END (void)0
 
 #define PERF(enb, cnt, ff) \
@@ -211,6 +215,11 @@ struct secure_vm {
 	int vmcount;
 };
 
+struct gid_list {
+	unsigned int *gids;
+	unsigned int gidcount;
+};
+
 struct fastrpc_file;
 
 struct fastrpc_buf {
@@ -250,6 +259,7 @@ struct smq_invoke_ctx {
 	unsigned int *attrs;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
+	struct fastrpc_buf *copybuf;	/*used to copy non-ion buffers */
 	size_t used;
 	struct fastrpc_file *fl;
 	uint32_t handle;
@@ -359,6 +369,7 @@ struct fastrpc_apps {
 	struct wakeup_source *wake_source_secure;
 	/* Non-secure subsystem like CDSP will use regular client */
 	struct wakeup_source *wake_source;
+	struct gid_list gidlist;
 };
 
 struct fastrpc_mmap {
@@ -442,6 +453,7 @@ struct fastrpc_file {
 	char *debug_buf;
 	/* Flag to enable PM wake/relax voting for every remote invoke */
 	int wake_enable;
+	struct gid_list gidlist;
 };
 
 static struct fastrpc_apps gfa;
@@ -1192,7 +1204,32 @@ static int context_restore_interrupted(struct fastrpc_file *fl,
 	return err;
 }
 
+static unsigned int sorted_lists_intersection(unsigned int *listA,
+		unsigned int lenA, unsigned int *listB, unsigned int lenB)
+{
+	unsigned int i = 0, j = 0;
+
+	while (i < lenA && j < lenB) {
+		if (listA[i] < listB[j])
+			i++;
+		else if (listA[i] > listB[j])
+			j++;
+		else
+			return listA[i];
+	}
+	return 0;
+}
+
 #define CMP(aa, bb) ((aa) == (bb) ? 0 : (aa) < (bb) ? -1 : 1)
+
+static int uint_cmp_func(const void *p1, const void *p2)
+{
+	unsigned int a1 = *((unsigned int *)p1);
+	unsigned int a2 = *((unsigned int *)p2);
+
+	return CMP(a1, a2);
+}
+
 static int overlap_ptr_cmp(const void *a, const void *b)
 {
 	struct overlap *pa = *((struct overlap **)a);
@@ -1339,6 +1376,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->rsp_flags = NORMAL_RESPONSE;
 	ctx->is_work_done = false;
 	ctx->pm_awake_voted = false;
+	ctx->copybuf = NULL;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -1405,6 +1443,8 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	mutex_unlock(&ctx->fl->map_mutex);
 
 	fastrpc_buf_free(ctx->buf, 1);
+	if (!(ctx->copybuf == ctx->buf))
+		fastrpc_buf_free(ctx->copybuf, 1);
 	kfree(ctx->lrpra);
 	ctx->lrpra = NULL;
 	ctx->magic = 0;
@@ -1595,8 +1635,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	int handles, bufs = inbufs + outbufs;
-	uintptr_t args;
+	uintptr_t args = 0;
 	size_t rlen = 0, copylen = 0, metalen = 0, lrpralen = 0;
+	size_t totallen = 0; //header and non ion copy buf len
 	int i, oix;
 	int err = 0;
 	int mflags = 0;
@@ -1648,8 +1689,19 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	mutex_unlock(&ctx->fl->map_mutex);
 
 	/* metalen includes meta data, fds, crc and early wakeup hint */
-	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
+	metalen = totallen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
 			(sizeof(uint32_t) * M_CRCLIST) + sizeof(early_hint);
+
+	if (metalen) {
+		err = fastrpc_buf_alloc(ctx->fl, metalen, 0, 0, 0, &ctx->buf);
+		if (err)
+			goto bail;
+		VERIFY(err, !IS_ERR_OR_NULL(ctx->buf->virt));
+		if (err)
+			goto bail;
+		memset(ctx->buf->virt, 0, metalen);
+	}
+	ctx->used = metalen;
 
 	/* allocate new local rpra buffer */
 	lrpralen = (size_t)&list[0];
@@ -1680,16 +1732,25 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			goto bail;
 		copylen += mend - mstart;
 	}
-	ctx->used = copylen;
+	totallen = ALIGN(totallen, BALIGN) + copylen;
 
-	/* allocate new buffer */
-	if (copylen) {
-		err = fastrpc_buf_alloc(ctx->fl, copylen, 0, 0, 0, &ctx->buf);
+	/* allocate non -ion copy buffer */
+	/* Checking if copylen can be accomodated in metalen*/
+	/*if not allocating new buffer */
+	if (totallen <= (size_t)buf_page_size(metalen)) {
+		args = (uintptr_t)ctx->buf->virt + metalen;
+		ctx->copybuf = ctx->buf;
+		rlen = totallen - metalen;
+	} else if (copylen) {
+		err = fastrpc_buf_alloc(ctx->fl, copylen, 0, 0, 0,
+				&ctx->copybuf);
 		if (err)
 			goto bail;
+		memset(ctx->copybuf->virt, 0, copylen);
+		args = (uintptr_t)ctx->copybuf->virt;
+		rlen = copylen;
+		totallen = copylen;
 	}
-	if (ctx->buf->virt && metalen <= copylen)
-		memset(ctx->buf->virt, 0, metalen);
 
 	/* copy metadata */
 	rpra = ctx->buf->virt;
@@ -1697,7 +1758,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	list = smq_invoke_buf_start(rpra, sc);
 	pages = smq_phy_page_start(sc, list);
 	ipage = pages;
-	args = (uintptr_t)ctx->buf->virt + metalen;
 	for (i = 0; i < bufs + handles; ++i) {
 		if (lpra[i].buf.len)
 			list[i].num = 1;
@@ -1761,7 +1821,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
-	rlen = copylen - metalen;
 	for (oix = 0; rpra && oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
@@ -1783,9 +1842,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			goto bail;
 		rpra[i].buf.pv =
 			 (args - ctx->overps[oix]->offset);
-		pages[list[i].pgidx].addr = ctx->buf->phys -
+		pages[list[i].pgidx].addr = ctx->copybuf->phys -
 					    ctx->overps[oix]->offset +
-					    (copylen - rlen);
+					    (totallen - rlen);
 		pages[list[i].pgidx].addr =
 			buf_page_start(pages[list[i].pgidx].addr);
 		buf = rpra[i].buf.pv;
@@ -2333,6 +2392,22 @@ bail:
 static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl);
 static int fastrpc_channel_open(struct fastrpc_file *fl);
 static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl);
+
+static void fastrpc_check_privileged_process(struct fastrpc_file *fl,
+				struct fastrpc_ioctl_init_attrs *uproc)
+{
+	unsigned int gid = sorted_lists_intersection(fl->gidlist.gids,
+		fl->gidlist.gidcount, gfa.gidlist.gids, gfa.gidlist.gidcount);
+
+	/* disregard any privilege bits from userspace */
+	uproc->attrs &= (~FASTRPC_MODE_PRIVILEGED);
+	if (gid) {
+		pr_info("adsprpc: %s: %s (PID %d, GID %u) is a privileged process\n",
+				__func__, current->comm, fl->tgid, gid);
+		uproc->attrs |= FASTRPC_MODE_PRIVILEGED;
+	}
+}
+
 static int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -2410,6 +2485,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 				goto bail;
 		}
 		inbuf.pageslen = 1;
+
+		fastrpc_check_privileged_process(fl, uproc);
 
 		VERIFY(err, !init->mem);
 		if (err) {
@@ -3469,6 +3546,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
 	kfree(fl->debug_buf);
+	kfree(fl->gidlist.gids);
 
 	if (!fl->sctx) {
 		kfree(fl);
@@ -3873,6 +3951,34 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+static int fastrpc_get_process_gids(struct gid_list *gidlist)
+{
+	struct group_info *group_info = get_current_groups();
+	int i = 0, err = 0, num_gids = group_info->ngroups + 1;
+	unsigned int *gids = NULL;
+
+	gids = kcalloc(num_gids, sizeof(unsigned int), GFP_KERNEL);
+	if (!gids) {
+		err = -ENOMEM;
+		goto bail;
+	}
+
+	/* Get the real GID */
+	gids[0] = __kgid_val(current_gid());
+
+	/* Get the supplemental GIDs */
+	for (i = 1; i < num_gids; i++)
+		gids[i] = __kgid_val(group_info->gid[i - 1]);
+
+	sort(gids, num_gids, sizeof(*gids), uint_cmp_func, NULL);
+	gidlist->gids = gids;
+	gidlist->gidcount = num_gids;
+bail:
+	if (err)
+		kfree(gids);
+	return err;
+}
+
 static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
@@ -3881,6 +3987,7 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	VERIFY(err, fl != NULL);
 	if (err)
 		goto bail;
+	fastrpc_get_process_gids(&fl->gidlist);
 	if (fl->cid == -1) {
 		cid = *info;
 		VERIFY(err, cid < NUM_CHANNELS);
@@ -4555,6 +4662,41 @@ bail:
 	}
 }
 
+static void fastrpc_init_privileged_gids(struct device *dev, char *prop_name,
+						struct gid_list *gidlist)
+{
+	int err = 0;
+	u32 len = 0, i = 0;
+	u32 *gids = NULL;
+
+	if (!of_find_property(dev->of_node, prop_name, &len))
+		goto bail;
+	if (len == 0)
+		goto bail;
+	len /= sizeof(u32);
+	gids = kcalloc(len, sizeof(u32), GFP_KERNEL);
+	if (!gids) {
+		err = ENOMEM;
+		goto bail;
+	}
+	for (i = 0; i < len; i++) {
+		err = of_property_read_u32_index(dev->of_node, prop_name,
+								i, &gids[i]);
+		if (err) {
+			pr_err("Error: adsprpc: %s: failed to read GID %u\n",
+					__func__, i);
+			goto bail;
+		}
+		pr_info("adsprpc: %s: privileged GID: %u\n", __func__, gids[i]);
+	}
+	sort(gids, len, sizeof(*gids), uint_cmp_func, NULL);
+	gidlist->gids = gids;
+	gidlist->gidcount = len;
+bail:
+	if (err)
+		kfree(gids);
+}
+
 static void configure_secure_channels(uint32_t secure_domains)
 {
 	struct fastrpc_apps *me = &gfa;
@@ -4587,7 +4729,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 					"qcom,msm-fastrpc-compute")) {
 		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
 							&gcinfo[0].rhvm);
-
+		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
+					&me->gidlist);
 
 		of_property_read_u32(dev->of_node, "qcom,rpc-latency-us",
 			&me->latency);
@@ -4884,6 +5027,7 @@ static void __exit fastrpc_device_exit(void)
 		wakeup_source_unregister(me->wake_source);
 	if (me->wake_source_secure)
 		wakeup_source_unregister(me->wake_source_secure);
+	kfree(me->gidlist.gids);
 	debugfs_remove_recursive(debugfs_root);
 }
 

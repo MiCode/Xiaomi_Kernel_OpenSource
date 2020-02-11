@@ -1131,6 +1131,26 @@ static inline int __boot_firmware(struct iris_hfi_device *device)
 	return rc;
 }
 
+static int iris_hfi_resume(void *dev)
+{
+	int rc = 0;
+	struct iris_hfi_device *device = (struct iris_hfi_device *) dev;
+
+	if (!device) {
+		dprintk(CVP_ERR, "%s invalid device\n", __func__);
+		return -EINVAL;
+	}
+
+	dprintk(CVP_DBG, "Resuming Iris\n");
+
+	mutex_lock(&device->lock);
+	rc = __resume(device);
+	mutex_unlock(&device->lock);
+
+	return rc;
+}
+
+
 static int iris_hfi_suspend(void *dev)
 {
 	int rc = 0;
@@ -1231,7 +1251,6 @@ static int __set_clocks(struct iris_hfi_device *device, u32 freq)
 				return rc;
 			}
 
-			trace_msm_cvp_perf_clock_scale(cl->name, freq);
 			dprintk(CVP_DBG, "Scaling clock %s to %u\n",
 					cl->name, freq);
 		}
@@ -4213,7 +4232,6 @@ static int __load_fw(struct iris_hfi_device *device)
 		dprintk(CVP_ERR, "Failed to initialize packetization\n");
 		goto fail_init_pkt;
 	}
-	trace_msm_v4l2_cvp_fw_load_start("msm_cvp cvp fw load start");
 
 	rc = __iris_power_on(device);
 	if (rc) {
@@ -4243,7 +4261,6 @@ static int __load_fw(struct iris_hfi_device *device)
 			goto fail_protect_mem;
 		}
 	}
-	trace_msm_v4l2_cvp_fw_load_end("msm_cvp cvp fw load end");
 	return rc;
 fail_protect_mem:
 	if (device->resources.fw.cookie)
@@ -4255,7 +4272,6 @@ fail_iris_power_on:
 fail_init_pkt:
 	__deinit_resources(device);
 fail_init_res:
-	trace_msm_v4l2_cvp_fw_load_end("msm_cvp cvp fw load end");
 	return rc;
 }
 
@@ -4577,6 +4593,7 @@ static void iris_init_hfi_callbacks(struct cvp_hfi_device *hdev)
 	hdev->get_fw_info = iris_hfi_get_fw_info;
 	hdev->get_core_capabilities = iris_hfi_get_core_capabilities;
 	hdev->suspend = iris_hfi_suspend;
+	hdev->resume = iris_hfi_resume;
 	hdev->flush_debug_queue = iris_hfi_flush_debug_queue;
 	hdev->noc_error_info = iris_hfi_noc_error_info;
 	hdev->validate_session = iris_hfi_validate_session;

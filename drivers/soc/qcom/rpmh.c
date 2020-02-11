@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/atomic.h>
 #include <linux/bug.h>
@@ -63,7 +63,7 @@ struct cache_req {
 struct batch_cache_req {
 	struct list_head list;
 	int count;
-	struct rpmh_request rpm_msgs[];
+	struct rpmh_request *rpm_msgs;
 };
 
 static struct rpmh_ctrlr *get_rpmh_ctrlr(const struct device *dev)
@@ -175,20 +175,27 @@ static struct cache_req *cache_rpm_request(struct rpmh_ctrlr *ctrlr,
 existing:
 	switch (state) {
 	case RPMH_ACTIVE_ONLY_STATE:
-		if (req->sleep_val != UINT_MAX)
+		if (req->sleep_val != UINT_MAX) {
 			req->wake_val = cmd->data;
+			ctrlr->dirty = true;
+		}
 		break;
 	case RPMH_WAKE_ONLY_STATE:
-		req->wake_val = cmd->data;
+		if (req->wake_val != cmd->data) {
+			req->wake_val = cmd->data;
+			ctrlr->dirty = true;
+		}
 		break;
 	case RPMH_SLEEP_STATE:
-		req->sleep_val = cmd->data;
+		if (req->sleep_val != cmd->data) {
+			req->sleep_val = cmd->data;
+			ctrlr->dirty = true;
+		}
 		break;
 	default:
 		break;
 	}
 
-	ctrlr->dirty = true;
 unlock:
 	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
 
@@ -376,8 +383,10 @@ static void invalidate_batch(struct rpmh_ctrlr *ctrlr)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ctrlr->cache_lock, flags);
-	list_for_each_entry_safe(req, tmp, &ctrlr->batch_cache, list)
+	list_for_each_entry_safe(req, tmp, &ctrlr->batch_cache, list) {
+		list_del(&req->list);
 		kfree(req);
+	}
 	INIT_LIST_HEAD(&ctrlr->batch_cache);
 	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
 }
@@ -433,10 +442,11 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 		return -ENOMEM;
 
 	req = ptr;
+	rpm_msgs = ptr + sizeof(*req);
 	compls = ptr + sizeof(*req) + count * sizeof(*rpm_msgs);
 
 	req->count = count;
-	rpm_msgs = req->rpm_msgs;
+	req->rpm_msgs = rpm_msgs;
 
 	for (i = 0; i < count; i++) {
 		__fill_rpmh_msg(rpm_msgs + i, state, cmd, n[i]);

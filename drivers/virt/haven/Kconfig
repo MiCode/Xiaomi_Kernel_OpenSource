@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig HAVEN_DRIVERS
+	bool "Haven Virtualization drivers"
+	help
+	  The Haven drivers are the helper interfaces that runs on the
+	  virtual machines that provides support such as memory/device
+	  sharing, IRQ sharing, IPC/signalling mechanisms, and so on.
+
+	  Say Y here to enable the drivers needed to work on Haven
+	  virtualization environment.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
+
+if HAVEN_DRIVERS
+
+config HH_MSGQ
+	tristate "Haven Message Queue driver"
+	help
+	  Haven offers message-queues as one of the IPC mechanisms to
+	  communicate among the Virtual Machines. The message queue drivers
+	  runs on the Virtual machines to provide an interface to the clients
+	  who wish to communicate to other clients on a different VM. Currently,
+	  the services offered by the drivers is simply to send and receive
+	  messages in a blocking manner.
+
+endif

@@ -546,6 +546,16 @@ config QTI_PMIC_GLINK
 	  charging and gauging.
 	  This enables clients to read and write battery charging parameters.
 
+config QTI_BATTERY_GLINK_DEBUG
+	tristate "Enable support for QTI battery glink debug driver"
+	depends on QTI_PMIC_GLINK
+	depends on DEBUG_FS
+	help
+	  Qualcomm Technologies, Inc. battery glink debug driver helps to
+	  obtain debug information for battery charging and gauging over PMIC
+	  Glink from charger and gauging firmware running on a remote subsystem
+	  (e.g. DSP).
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help

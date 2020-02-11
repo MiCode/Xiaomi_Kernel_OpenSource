@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
@@ -109,9 +109,6 @@ struct kgsl_context *adreno_drawctxt_create(
 void adreno_drawctxt_detach(struct kgsl_context *context);
 
 void adreno_drawctxt_destroy(struct kgsl_context *context);
-
-void adreno_drawctxt_sched(struct kgsl_device *device,
-		struct kgsl_context *context);
 
 struct adreno_ringbuffer;
 int adreno_drawctxt_switch(struct adreno_device *adreno_dev,

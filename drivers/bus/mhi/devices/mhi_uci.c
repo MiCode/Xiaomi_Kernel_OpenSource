@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -693,10 +693,12 @@ static void mhi_status_cb(struct mhi_device *mhi_dev, enum MHI_CB reason)
 static const struct mhi_device_id mhi_uci_match_table[] = {
 	{ .chan = "LOOPBACK", .driver_data = 0x1000 },
 	{ .chan = "SAHARA", .driver_data = 0x8000 },
+	{ .chan = "DIAG", .driver_data = 0x1000 },
 	{ .chan = "EFS", .driver_data = 0x1000 },
 	{ .chan = "QMI0", .driver_data = 0x1000 },
 	{ .chan = "QMI1", .driver_data = 0x1000 },
 	{ .chan = "TF", .driver_data = 0x1000 },
+	{ .chan = "DCI", .driver_data = 0x1000 },
 	{ .chan = "DUN", .driver_data = 0x1000 },
 	{},
 };

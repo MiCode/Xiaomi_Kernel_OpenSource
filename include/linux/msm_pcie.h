@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
 
 #ifndef __MSM_PCIE_H
 #define __MSM_PCIE_H
@@ -54,14 +54,7 @@ struct msm_pcie_register_event {
 	u32 options;
 };
 
-#if IS_ENABLED(CONFIG_PCI_MSM_MSI)
 int msm_msi_init(struct device *dev);
-#else
-static inline int msm_msi_init(struct device *dev)
-{
-	return -EINVAL;
-}
-#endif
 
 #if IS_ENABLED(CONFIG_PCI_MSM)
 
