@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,6 @@
 	memory-region = <&mhi_mem>;
 	mhi,use-bb;
 	mhi,allow-m1; /* use legacy mode for suspends */
-	mhi,buffer-len = <0x8000>;
 	qcom,addr-win = <0x0 0xa0000000 0x0 0xa4bfffff>;
 
 	mhi_channels {
