@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_SECURE_BUFFER_H__
@@ -33,6 +33,7 @@ enum vmid {
 	VMID_CP_SPSS_SP_SHARED = 0x22,
 	VMID_CP_SPSS_HLOS_SHARED = 0x24,
 	VMID_CP_CDSP = 0x2A,
+	VMID_TRUSTED_UI = 0x31,
 	VMID_LAST,
 	VMID_INVAL = -1
 };
