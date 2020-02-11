@@ -20,6 +20,7 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -1007,8 +1008,7 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 					DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 		substream->dma_buffer.private_data = NULL;
 
-		arch_setup_dma_ops(substream->dma_buffer.dev.dev,
-				   0, 0, NULL, 0);
+		of_dma_configure(substream->dma_buffer.dev.dev, NULL, true);
 		ret = snd_pcm_lib_malloc_pages(substream, PAGE_SIZE);
 		if (ret < 0)
 			goto component_err;
