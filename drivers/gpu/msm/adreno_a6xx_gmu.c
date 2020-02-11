@@ -351,10 +351,6 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 		mask = 0xFFFFFFFF;
 	}
 
-	/* Set the log wptr index */
-	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_RESP,
-			gmu->log_wptr_retention);
-
 	/* Bring GMU out of reset */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
 
@@ -1068,6 +1064,18 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	 * straight in to NMI handler without executing __main code
 	 */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_CFG, 0x4052);
+
+	/**
+	 * We may have asserted gbif halt as part of reset sequence which may
+	 * not get cleared if the gdsc was not reset. So clear it before
+	 * attempting GMU boot.
+	 */
+	if (!adreno_is_a630(ADRENO_DEVICE(device)))
+		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+
+	/* Set the log wptr index */
+	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_RESP,
+			gmu->log_wptr_retention);
 
 	/* Pass chipid to GMU FW, must happen before starting GMU */
 
