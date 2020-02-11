@@ -100,7 +100,7 @@ static struct msm_cvp_common_data sm8250_common_data[] = {
 static struct msm_cvp_common_data sm8350_common_data[] = {
 	{
 		.key = "qcom,auto-pil",
-		.value = 0,
+		.value = 1,
 	},
 	{
 		.key = "qcom,never-unload-fw",
