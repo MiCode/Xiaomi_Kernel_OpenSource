@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -598,6 +598,11 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 					&chg->chg_param.hvdcp3_max_icl_ua);
 	if (chg->chg_param.hvdcp3_max_icl_ua <= 0)
 		chg->chg_param.hvdcp3_max_icl_ua = MICRO_3PA;
+
+	of_property_read_u32(node, "qcom,hvdcp2-max-icl-ua",
+					&chg->chg_param.hvdcp2_max_icl_ua);
+	if (chg->chg_param.hvdcp2_max_icl_ua <= 0)
+		chg->chg_param.hvdcp2_max_icl_ua = MICRO_3PA;
 
 	return 0;
 }
