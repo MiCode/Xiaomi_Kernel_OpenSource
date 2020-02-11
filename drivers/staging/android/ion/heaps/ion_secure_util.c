@@ -21,7 +21,8 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_SPSS_SP ||
 		vmid == VMID_CP_SPSS_SP_SHARED ||
 		vmid == VMID_CP_SPSS_HLOS_SHARED ||
-		vmid == VMID_CP_CDSP);
+		vmid == VMID_CP_CDSP ||
+		vmid == VMID_TRUSTED_UI);
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -50,6 +51,8 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_HLOS_SHARED;
 	if (flags & ION_FLAG_CP_CDSP)
 		return VMID_CP_CDSP;
+	if (flags & ION_FLAG_CP_TRUSTED_UI)
+		return VMID_TRUSTED_UI;
 	return -EINVAL;
 }
 
@@ -79,6 +82,8 @@ int get_ion_flags(u32 vmid)
 		return ION_FLAG_CP_SPSS_HLOS_SHARED;
 	if (vmid == VMID_CP_CDSP)
 		return ION_FLAG_CP_CDSP;
+	if (vmid == VMID_TRUSTED_UI)
+		return ION_FLAG_CP_TRUSTED_UI;
 	return -EINVAL;
 }
 EXPORT_SYMBOL(get_ion_flags);
