@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -13,6 +13,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/proxy-consumer.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/regmap.h>
@@ -689,15 +690,16 @@ static int gdsc_probe(struct platform_device *pdev)
 	static atomic_t gdsc_count = ATOMIC_INIT(-1);
 	struct regulator_config reg_config = {};
 	struct regulator_init_data *init_data = NULL;
+	struct device *dev = &pdev->dev;
 	struct gdsc *sc;
 	uint32_t regval, clk_dis_wait_val = 0;
 	int ret;
 
-	sc = devm_kzalloc(&pdev->dev, sizeof(*sc), GFP_KERNEL);
+	sc = devm_kzalloc(dev, sizeof(*sc), GFP_KERNEL);
 	if (sc == NULL)
 		return -ENOMEM;
 
-	ret = gdsc_parse_dt_data(sc, &pdev->dev, &init_data);
+	ret = gdsc_parse_dt_data(sc, dev, &init_data);
 	if (ret)
 		return ret;
 
@@ -729,7 +731,7 @@ static int gdsc_probe(struct platform_device *pdev)
 
 		ret = poll_gdsc_status(sc, ENABLED);
 		if (ret) {
-			dev_err(&pdev->dev, "%s enable timed out: 0x%x\n",
+			dev_err(dev, "%s enable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
 			return ret;
 		}
@@ -740,19 +742,24 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->rdesc.type = REGULATOR_VOLTAGE;
 	sc->rdesc.owner = THIS_MODULE;
 
-	reg_config.dev = &pdev->dev;
+	reg_config.dev = dev;
 	reg_config.init_data = init_data;
 	reg_config.driver_data = sc;
-	reg_config.of_node = pdev->dev.of_node;
+	reg_config.of_node = dev->of_node;
 	reg_config.regmap = sc->regmap;
 
-	sc->rdev = devm_regulator_register(&pdev->dev, &sc->rdesc, &reg_config);
+	sc->rdev = devm_regulator_register(dev, &sc->rdesc, &reg_config);
 	if (IS_ERR(sc->rdev)) {
 		ret = PTR_ERR(sc->rdev);
-		dev_err(&pdev->dev, "regulator_register(\"%s\") failed, ret=%d\n",
+		dev_err(dev, "regulator_register(\"%s\") failed, ret=%d\n",
 			sc->rdesc.name, ret);
 		return ret;
 	}
+
+	ret = devm_regulator_proxy_consumer_register(dev, dev->of_node);
+	if (ret)
+		dev_err(dev, "failed to register proxy consumer, ret=%d\n",
+			ret);
 
 	platform_set_drvdata(pdev, sc);
 
@@ -769,6 +776,7 @@ static struct platform_driver gdsc_driver = {
 	.driver = {
 		.name = "gdsc",
 		.of_match_table = gdsc_match_table,
+		.sync_state = regulator_proxy_consumer_sync_state,
 	},
 };
 
