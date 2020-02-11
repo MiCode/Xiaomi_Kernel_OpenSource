@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -422,6 +422,7 @@ static void usb_read_work_fn(struct work_struct *work)
 						sizeof(*usb_req), GFP_KERNEL);
 			if (!usb_req)
 				return;
+			init_completion(&usb_req->write_done);
 			usb_req->sg = devm_kzalloc(tmcdrvdata->dev,
 					sizeof(*(usb_req->sg)) * req_sg_num,
 					GFP_KERNEL);

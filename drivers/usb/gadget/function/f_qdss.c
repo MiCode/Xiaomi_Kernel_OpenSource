@@ -241,6 +241,7 @@ static void qdss_write_complete(struct usb_ep *ep,
 	if (!qdss->debug_inface_enabled)
 		list_del(&req->list);
 	list_add_tail(&req->list, list_pool);
+	complete(&d_req->write_done);
 	if (req->length != 0) {
 		d_req->actual = req->actual;
 		d_req->status = req->status;
@@ -950,10 +951,12 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->sg = d_req->sg;
 	req->num_sgs = d_req->num_sgs;
 	req->num_mapped_sgs = d_req->num_mapped_sgs;
+	reinit_completion(&d_req->write_done);
 	if (usb_ep_queue(qdss->port.data, req, GFP_ATOMIC)) {
 		spin_lock_irqsave(&qdss->lock, flags);
 		/* Remove from queued pool and add back to data pool */
 		list_move_tail(&req->list, &qdss->data_write_pool);
+		complete(&d_req->write_done);
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		pr_err("qdss usb_ep_queue failed\n");
 		return -EIO;
@@ -1018,6 +1021,7 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	unsigned long flags;
 	int status;
 	struct usb_request *req;
+	struct qdss_request *d_req;
 
 	pr_debug("%s\n", __func__);
 
@@ -1028,12 +1032,10 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	while (!list_empty(&qdss->queued_data_pool)) {
 		req = list_first_entry(&qdss->queued_data_pool,
 				struct usb_request, list);
+		d_req = req->context;
 		spin_unlock_irqrestore(&qdss_lock, flags);
-		if (usb_ep_dequeue(qdss->port.data, req)) {
-			spin_lock_irqsave(&qdss_lock, flags);
-			list_move_tail(&req->list, &qdss->data_write_pool);
-			spin_unlock_irqrestore(&qdss_lock, flags);
-		}
+		usb_ep_dequeue(qdss->port.data, req);
+		wait_for_completion(&d_req->write_done);
 		spin_lock_irqsave(&qdss_lock, flags);
 	}
 	usb_qdss_free_req(ch);
