@@ -1080,9 +1080,6 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	gsi_params.evt_scratch.mhip.rp_mod_timer_running = 0;
 	gsi_params.evt_scratch.mhip.fixed_buffer_sz = TRE_BUFF_SIZE;
 
-	if (IPA_CLIENT_IS_PROD(mhip_client))
-		gsi_params.evt_scratch.mhip.rp_mod_threshold = 4;
-
 	/* Channel Params */
 	gsi_params.chan_params.prot = GSI_CHAN_PROT_MHIP;
 	gsi_params.chan_params.dir = IPA_CLIENT_IS_PROD(mhip_client) ?
@@ -2193,7 +2190,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		ch->chan_props.ch_ctx.rlen = (IPA_MPM_RING_LEN) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		/* Store Event properties */
-		ch->evt_props.ev_ctx.update_rp_modc = 0;
+		ch->evt_props.ev_ctx.update_rp_modc = 1;
 		ch->evt_props.ev_ctx.update_rp_intmodt = 0;
 		ch->evt_props.ev_ctx.ertype = 1;
 		ch->evt_props.ev_ctx.rlen = (IPA_MPM_RING_LEN) *

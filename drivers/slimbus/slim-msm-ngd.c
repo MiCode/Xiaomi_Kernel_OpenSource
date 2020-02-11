@@ -167,17 +167,10 @@ static int ngd_slim_qmi_new_server(struct qmi_handle *hdl,
 		container_of(qmi, struct msm_slim_ctrl, qmi);
 
 	SLIM_INFO(dev, "Slimbus QMI new server event received\n");
-	/* Hold wake lock until notify slaves thread is done */
-	pm_stay_awake(dev->dev);
 	qmi->svc_info.sq_family = AF_QIPCRTR;
 	qmi->svc_info.sq_node = service->node;
 	qmi->svc_info.sq_port = service->port;
-	if (dev->lpass_mem_usage) {
-		dev->lpass_mem->start = dev->lpass_phy_base;
-		dev->lpass.base = dev->lpass_virt_base;
-	}
-	atomic_set(&dev->ssr_in_progress, 0);
-	schedule_work(&dev->dsp.dom_up);
+	complete(&dev->qmi_up);
 
 	return 0;
 }
@@ -187,7 +180,10 @@ static void ngd_slim_qmi_del_server(struct qmi_handle *hdl,
 {
 	struct msm_slim_qmi *qmi =
 		container_of(hdl, struct msm_slim_qmi, svc_event_hdl);
+	struct msm_slim_ctrl *dev =
+		container_of(qmi, struct msm_slim_ctrl, qmi);
 
+	reinit_completion(&dev->qmi_up);
 	qmi->svc_info.sq_node = 0;
 	qmi->svc_info.sq_port = 0;
 }
@@ -274,6 +270,19 @@ static int dsp_domr_notify_cb(struct notifier_block *n, unsigned long code,
 		msm_slim_sps_exit(dev, false);
 		ngd_dom_down(dev);
 		mutex_unlock(&dev->tx_lock);
+		break;
+	case SUBSYS_AFTER_POWERUP:
+	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
+		SLIM_INFO(dev, "SLIM DSP SSR notify cb:%lu\n", code);
+		/* Hold wake lock until notify slaves thread is done */
+		pm_stay_awake(dev->dev);
+		atomic_set(&dev->init_in_progress, 1);
+		if (dev->lpass_mem_usage) {
+			dev->lpass_mem->start = dev->lpass_phy_base;
+			dev->lpass.base = dev->lpass_virt_base;
+		}
+		atomic_set(&dev->ssr_in_progress, 0);
+		schedule_work(&dev->dsp.dom_up);
 		break;
 	case LOCATOR_UP:
 		reg = _cmd;
@@ -1562,6 +1571,7 @@ static int ngd_slim_rx_msgq_thread(void *data)
 	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)data;
 	struct completion *notify = &dev->rx_msgq_notify;
 	int ret = 0;
+	bool release_wake_lock = false;
 
 	while (!kthread_should_stop()) {
 		struct slim_msg_txn txn;
@@ -1599,17 +1609,36 @@ capability_retry:
 			/* ADSP SSR, send device_up notifications */
 			if (prev_state == MSM_CTRL_DOWN)
 				complete(&dev->qmi.slave_notify);
+			else
+				release_wake_lock = true;
 		} else if (ret == -EIO) {
 			SLIM_WARN(dev, "capability message NACKed, retrying\n");
 			if (retries < INIT_MX_RETRIES) {
 				msleep(DEF_RETRY_MS);
 				retries++;
 				goto capability_retry;
+			} else {
+				release_wake_lock = true;
 			}
 		} else {
 			SLIM_WARN(dev, "SLIM: capability TX failed:%d\n", ret);
+			release_wake_lock = true;
+		}
+
+		if (release_wake_lock) {
+			/*
+			 * As we are not going to reset the
+			 * init_in_progress flag and release wake
+			 * lock from notify slave thread, we are
+			 * doing it here.
+			 */
+			atomic_set(&dev->init_in_progress, 0);
+			pm_relax(dev->dev);
+			release_wake_lock = false;
 		}
 	}
+	atomic_set(&dev->init_in_progress, 0);
+	pm_relax(dev->dev);
 	return 0;
 }
 
@@ -1627,6 +1656,7 @@ static int ngd_notify_slaves(void *data)
 		pm_relax(dev->dev);
 		return ret;
 	}
+	ngd_dom_init(dev);
 
 	while (!kthread_should_stop()) {
 		wait_for_completion_interruptible(&dev->qmi.slave_notify);
@@ -1642,7 +1672,6 @@ static int ngd_notify_slaves(void *data)
 			 * controller is up
 			 */
 			slim_ctrl_add_boarddevs(&dev->ctrl);
-			ngd_dom_init(dev);
 		} else {
 			slim_framer_booted(ctrl);
 		}
@@ -1664,7 +1693,10 @@ static int ngd_notify_slaves(void *data)
 			mutex_lock(&ctrl->m_ctrl);
 		}
 		mutex_unlock(&ctrl->m_ctrl);
+		atomic_set(&dev->init_in_progress, 0);
+		pm_relax(dev->dev);
 	}
+	atomic_set(&dev->init_in_progress, 0);
 	pm_relax(dev->dev);
 	return 0;
 }
@@ -1689,8 +1721,15 @@ static void ngd_dom_up(struct work_struct *work)
 		container_of(work, struct msm_slim_ss, dom_up);
 	struct msm_slim_ctrl *dev =
 		container_of(dsp, struct msm_slim_ctrl, dsp);
+
+	/* Make sure qmi service is up before continuing */
+	wait_for_completion_interruptible(&dev->qmi_up);
+
 	mutex_lock(&dev->ssr_lock);
-	ngd_slim_enable(dev, true);
+	if (ngd_slim_enable(dev, true)) {
+		atomic_set(&dev->init_in_progress, 0);
+		pm_relax(dev->dev);
+	}
 	mutex_unlock(&dev->ssr_lock);
 }
 
@@ -1960,6 +1999,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 
 	init_completion(&dev->reconf);
 	init_completion(&dev->ctrl_up);
+	init_completion(&dev->qmi_up);
 	mutex_init(&dev->tx_lock);
 	mutex_init(&dev->ssr_lock);
 	spin_lock_init(&dev->tx_buf_lock);
@@ -2191,6 +2231,12 @@ static int ngd_slim_suspend(struct device *dev)
 		return 0;
 
 	cdev = platform_get_drvdata(pdev);
+
+	if (atomic_read(&cdev->init_in_progress)) {
+		ret = -EBUSY;
+		SLIM_INFO(cdev, "system suspend due to ssr: %d\n", ret);
+		return ret;
+	}
 
 	if (cdev->state == MSM_CTRL_AWAKE) {
 		ret = -EBUSY;

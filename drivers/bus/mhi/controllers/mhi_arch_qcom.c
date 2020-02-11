@@ -67,12 +67,15 @@ void mhi_reg_write_work(struct work_struct *w)
 	if (!info->valid)
 		return;
 
-	if (mhi_is_active(mhi_cntrl->mhi_dev) && msm_pcie_prevent_l1(pci_dev))
+	if (!mhi_is_active(mhi_cntrl->mhi_dev))
+		return;
+
+	if (msm_pcie_prevent_l1(pci_dev))
 		return;
 
 	while (info->valid) {
 		if (!mhi_is_active(mhi_cntrl->mhi_dev))
-			return;
+			break;
 
 		writel_relaxed(info->val, info->reg_addr);
 		info->valid = false;
@@ -611,7 +614,8 @@ static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
 
 	/* do a drv hand off */
 	ret = msm_pcie_pm_control(MSM_PCIE_DRV_SUSPEND, mhi_cntrl->bus,
-				  pci_dev, NULL, 0);
+				  pci_dev, NULL, mhi_cntrl->wake_set ?
+				  MSM_PCIE_CONFIG_NO_L1SS_TO : 0);
 
 	/*
 	 * we failed to suspend and scaled down pcie bw.. need to scale up again

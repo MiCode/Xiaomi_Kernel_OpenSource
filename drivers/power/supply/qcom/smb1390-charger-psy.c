@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "SMB1390: %s: " fmt, __func__
@@ -197,6 +197,12 @@ struct smb1390 {
 	int			irq_status;
 	int			taper_entry_fv;
 	bool			switcher_enabled;
+	int			cp_status1;
+	int			cp_status2;
+	int			cp_enable;
+	int			cp_isns_master;
+	int			cp_isns_slave;
+	int			cp_ilim;
 	int			die_temp;
 	bool			suspended;
 	bool			disabled;
@@ -1332,6 +1338,45 @@ static enum power_supply_property smb1390_charge_pump_props[] = {
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 };
 
+static int smb1390_get_prop_suspended(struct smb1390 *chip,
+				enum power_supply_property prop,
+				union power_supply_propval *val)
+{
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CP_STATUS1:
+		val->intval = chip->cp_status1;
+		break;
+	case POWER_SUPPLY_PROP_CP_STATUS2:
+		val->intval = chip->cp_status2;
+		break;
+	case POWER_SUPPLY_PROP_CP_ENABLE:
+		val->intval = chip->cp_enable;
+		break;
+	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
+		val->intval = chip->switcher_enabled;
+		break;
+	case POWER_SUPPLY_PROP_CP_DIE_TEMP:
+		val->intval = chip->die_temp;
+		break;
+	case POWER_SUPPLY_PROP_CP_ISNS:
+		val->intval = chip->cp_isns_master;
+		break;
+	case POWER_SUPPLY_PROP_CP_ISNS_SLAVE:
+		val->intval = chip->cp_isns_slave;
+		break;
+	case POWER_SUPPLY_PROP_CP_IRQ_STATUS:
+		val->intval = chip->irq_status;
+		break;
+	case POWER_SUPPLY_PROP_CP_ILIM:
+		val->intval = chip->cp_ilim;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int smb1390_get_prop(struct power_supply *psy,
 			enum power_supply_property prop,
 			union power_supply_propval *val)
@@ -1340,65 +1385,69 @@ static int smb1390_get_prop(struct power_supply *psy,
 	int rc = 0, status;
 	bool enable;
 
+	/*
+	 * Return the cached values when the system is in suspend state
+	 * instead of reading the registers to avoid read failures.
+	 */
+	if (chip->suspended) {
+		rc = smb1390_get_prop_suspended(chip, prop, val);
+		if (!rc)
+			return rc;
+	}
+
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CP_STATUS1:
 		rc = smb1390_read(chip, CORE_STATUS1_REG, &status);
 		if (!rc)
-			val->intval = status;
+			chip->cp_status1 = val->intval = status;
 		break;
 	case POWER_SUPPLY_PROP_CP_STATUS2:
 		rc = smb1390_read(chip, CORE_STATUS2_REG, &status);
 		if (!rc)
-			val->intval = status;
+			chip->cp_status2 = val->intval = status;
 		break;
 	case POWER_SUPPLY_PROP_CP_ENABLE:
-		rc = smb1390_get_cp_en_status(chip, SMB_PIN_EN, &enable);
+		rc = smb1390_get_cp_en_status(chip, SMB_PIN_EN,
+					      &enable);
 		if (!rc)
-			val->intval = enable &&
-				!get_effective_result(chip->disable_votable);
+			chip->cp_enable = val->intval = enable &&
+			!get_effective_result(chip->disable_votable);
 		break;
 	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
-		if (chip->suspended) {
-			val->intval = chip->switcher_enabled;
-		} else {
-			rc = smb1390_get_cp_en_status(chip, SWITCHER_EN,
-					&enable);
-			if (!rc)
-				val->intval = enable;
-		}
+		rc = smb1390_get_cp_en_status(chip, SWITCHER_EN,
+					      &enable);
+		if (!rc)
+			val->intval = enable;
 		break;
 	case POWER_SUPPLY_PROP_CP_DIE_TEMP:
-		if (chip->suspended) {
-			if (chip->die_temp != -ENODATA)
-				val->intval = chip->die_temp;
-			else
-				rc = -ENODATA;
-		} else {
-			/*
-			 * Add a filter to the die temp value read:
-			 * If temp > THERMAL_SUSPEND_DECIDEGC then
-			 *	- treat it as an error and report last valid
-			 *	  cached temperature.
-			 *	- return -ENODATA if the cached value is
-			 *	  invalid.
-			 */
+		/*
+		 * Add a filter to the die temp value read:
+		 * If temp > THERMAL_SUSPEND_DECIDEGC then
+		 *	- treat it as an error and report last valid
+		 *	  cached temperature.
+		 *	- return -ENODATA if the cached value is
+		 *	  invalid.
+		 */
 
-			rc = smb1390_get_die_temp(chip, val);
-			if (rc >= 0) {
-				if (val->intval <= THERMAL_SUSPEND_DECIDEGC)
-					chip->die_temp = val->intval;
-				else if (chip->die_temp == -ENODATA)
-					rc = -ENODATA;
-				else
-					val->intval = chip->die_temp;
-			}
+		rc = smb1390_get_die_temp(chip, val);
+		if (rc >= 0) {
+			if (val->intval <= THERMAL_SUSPEND_DECIDEGC)
+				chip->die_temp = val->intval;
+			else if (chip->die_temp == -ENODATA)
+				rc = -ENODATA;
+			else
+				val->intval = chip->die_temp;
 		}
 		break;
 	case POWER_SUPPLY_PROP_CP_ISNS:
 		rc = smb1390_get_isns_master(chip, val);
+		if (!rc)
+			chip->cp_isns_master = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CP_ISNS_SLAVE:
 		rc = smb1390_get_isns_slave(chip, val);
+		if (!rc)
+			chip->cp_isns_slave = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER:
 		val->intval = 0;
@@ -1415,6 +1464,8 @@ static int smb1390_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CP_ILIM:
 		rc = smb1390_get_cp_ilim(chip, val);
+		if (!rc)
+			chip->cp_ilim = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CHIP_VERSION:
 		val->intval = chip->pmic_rev_id->rev4;
@@ -1435,7 +1486,7 @@ static int smb1390_get_prop(struct power_supply *psy,
 	default:
 		smb1390_dbg(chip, PR_MISC, "charge pump power supply get prop %d not supported\n",
 			prop);
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
 	return rc;

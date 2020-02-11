@@ -90,6 +90,7 @@ int ion_populate_vm_list(unsigned long flags, unsigned int *vm_list,
 	}
 	return 0;
 }
+EXPORT_SYMBOL(ion_populate_vm_list);
 
 int ion_hyp_unassign_sg(struct sg_table *sgt, int *source_vm_list,
 			int source_nelems, bool clear_page_private,
