@@ -860,38 +860,6 @@ int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl)
 				  &mhi_tsync_group);
 }
 
-static void mhi_create_time_sync_dev(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_device *mhi_dev;
-	int ret;
-
-	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-		return;
-
-	mhi_dev = mhi_alloc_device(mhi_cntrl);
-	if (!mhi_dev)
-		return;
-
-	mhi_dev->dev_type = MHI_TIMESYNC_TYPE;
-	mhi_dev->chan_name = "TIME_SYNC";
-	dev_set_name(&mhi_dev->dev, "%04x_%02u.%02u.%02u_%s", mhi_dev->dev_id,
-		     mhi_dev->domain, mhi_dev->bus, mhi_dev->slot,
-		     mhi_dev->chan_name);
-
-	/* add if there is a matching DT node */
-	mhi_assign_of_node(mhi_cntrl, mhi_dev);
-
-	ret = device_add(&mhi_dev->dev);
-	if (ret) {
-		MHI_ERR("Failed to register dev for  chan:%s\n",
-			mhi_dev->chan_name);
-		mhi_dealloc_device(mhi_cntrl, mhi_dev);
-		return;
-	}
-
-	mhi_cntrl->tsync_dev = mhi_dev;
-}
-
 /* bind mhi channels into mhi devices */
 void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 {
@@ -899,13 +867,6 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_device *mhi_dev;
 	int ret;
-
-	/*
-	 * we need to create time sync device before creating other
-	 * devices, because client may try to capture time during
-	 * clint probe.
-	 */
-	mhi_create_time_sync_dev(mhi_cntrl);
 
 	mhi_chan = mhi_cntrl->mhi_chan;
 	for (i = 0; i < mhi_cntrl->max_chan; i++, mhi_chan++) {

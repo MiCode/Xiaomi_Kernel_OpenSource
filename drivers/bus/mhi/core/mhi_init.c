@@ -1859,10 +1859,6 @@ static int mhi_driver_remove(struct device *dev)
 		mutex_unlock(&mhi_chan->mutex);
 	}
 
-
-	if (mhi_cntrl->tsync_dev == mhi_dev)
-		mhi_cntrl->tsync_dev = NULL;
-
 	/* relinquish any pending votes for device */
 	while (atomic_read(&mhi_dev->dev_vote))
 		mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
