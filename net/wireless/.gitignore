@@ -1,2 +1,3 @@
+regdb.c
 shipped-certs.c
 extra-certs.c
