@@ -1254,8 +1254,8 @@
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
-	gem_noc: interconnect@1380000 {
-		reg = <0x9100000 0xae200>;
+	gem_noc: interconnect@9100000 {
+		reg = <0x9100000 0xb4000>;
 		compatible = "qcom,lahaina-gem_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voter-names = "hlos", "disp";
