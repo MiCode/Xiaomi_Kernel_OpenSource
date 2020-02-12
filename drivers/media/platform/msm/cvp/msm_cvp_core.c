@@ -417,6 +417,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 
 	msm_cvp_debugfs_deinit_inst(inst);
 	_deinit_session_queue(inst);
+	synx_uninitialize(inst->synx_session_id);
 
 	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK session_id = %d\n",
 		"info", inst, hash32_ptr(inst->session));
