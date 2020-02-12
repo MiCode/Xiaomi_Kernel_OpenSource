@@ -2184,16 +2184,10 @@
 	};
 
 	tpdm_llm_turing: tpdm@69810000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x000bb968>;
-		reg = <0x6981000 0x1000>;
-		reg-names = "tpdm-base";
+		compatible = "qcom,coresight-dummy";
 
-		status = "disabled";
 		coresight-name = "coresight-tpdm-turing-llm";
-
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
+		qcom,dummy-source;
 
 		out-ports {
 			port {
