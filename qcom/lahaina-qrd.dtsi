@@ -1,2 +1,14 @@
 #include "lahaina-qrd-common.dtsi"
 #include "display/lahaina-sde-display-qrd.dtsi"
+
+&usb1 {
+	status = "disabled";
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};
+
+&usb_qmp_phy {
+	status = "disabled";
+};
