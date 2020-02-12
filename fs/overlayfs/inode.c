@@ -567,7 +567,7 @@ unsigned int ovl_get_nlink(struct dentry *lowerdentry,
 	return nlink;
 
 fail:
-	pr_warn_ratelimited("overlayfs: failed to get index nlink (%pd2, err=%i)\n",
+	pr_warn_ratelimited("overlayfs: failed to get index nlink (%pd2, err=%zi)\n",
 			    upperdentry, err);
 	return fallback;
 }
