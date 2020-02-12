@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,7 +125,9 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 		goto out;
 
 	ret = ion_hyp_assign_sg(buffer.sg_table, &vmid, 1, true);
-	if (ret)
+	if (ret == -EADDRNOTAVAIL)
+		goto out1;
+	else if (ret < 0)
 		goto out;
 
 	/* Now free it to the secure heap */
@@ -134,6 +136,12 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 
 out:
 	sys_heap->ops->free(&buffer);
+out1:
+	/*
+	 * The security state of the pages is unknown after a failure;
+	 * They can neither be added back to the secure pool nor buddy system.
+	 */
+	return;
 }
 
 /*
