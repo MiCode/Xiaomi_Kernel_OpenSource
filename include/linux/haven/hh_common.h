@@ -15,4 +15,10 @@ typedef u32 hh_label_t;
 typedef u64 hh_capid_t;
 typedef u64 hh_dbl_flags_t;
 
+enum hh_vm_names {
+	HH_PRIMARY_VM,
+	HH_TRUSTED_VM,
+	HH_VM_MAX
+};
+
 #endif

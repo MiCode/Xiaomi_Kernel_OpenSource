@@ -116,4 +116,10 @@ int hh_rm_register_notifier(struct notifier_block *nb);
 int hh_rm_unregister_notifier(struct notifier_block *nb);
 int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq);
 
+/* Client APIs for VM management */
+int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
+int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid);
+int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name);
+int hh_rm_vm_start(int vmid);
+
 #endif
