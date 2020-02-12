@@ -417,6 +417,8 @@ static void atl_ipa_release_event(struct ipa_eth_channel *ch,
 	/* An atl ring can have only one associated event */
 	atl_fwd_release_event(event);
 
+	kfree(event);
+
 	dma_unmap_resource(eth_dev->dev,
 			   daddr, sizeof(u32), DMA_FROM_DEVICE, 0);
 }
