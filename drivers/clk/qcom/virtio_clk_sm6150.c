@@ -55,6 +55,13 @@ static const char * const sm6150_gcc_virtio_clocks[] = {
 	[GCC_SDCC2_AHB_CLK] = "gcc_sdcc2_ahb_clk",
 	[GCC_SDCC2_APPS_CLK] = "gcc_sdcc2_apps_clk",
 	[GCC_PRNG_AHB_CLK] = "gcc_prng_ahb_clk",
+	[GCC_SDR_CORE_CLK] = "gcc_sdr_core_clk",
+	[GCC_SDR_WR0_MEM_CLK] = "gcc_sdr_wr0_mem_clk",
+	[GCC_SDR_WR1_MEM_CLK] = "gcc_sdr_wr1_mem_clk",
+	[GCC_SDR_WR2_MEM_CLK] = "gcc_sdr_wr2_mem_clk",
+	[GCC_SDR_CSR_HCLK] = "gcc_sdr_csr_hclk",
+	[GCC_SDR_PRI_MI2S_CLK] = "gcc_sdr_pri_mi2s_clk",
+	[GCC_SDR_SEC_MI2S_CLK] = "gcc_sdr_sec_mi2s_clk",
 };
 
 static const char * const sm6150_gcc_virtio_resets[] = {
