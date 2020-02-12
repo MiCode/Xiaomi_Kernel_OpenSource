@@ -2830,7 +2830,7 @@ DECLARE_STATIC_KEY_FALSE(sched_energy_present);
 
 static inline bool sched_energy_enabled(void)
 {
-	return static_branch_unlikely(&sched_energy_present);
+	return static_branch_likely(&sched_energy_present);
 }
 
 #else /* ! (CONFIG_ENERGY_MODEL && CONFIG_CPU_FREQ_GOV_SCHEDUTIL) */
