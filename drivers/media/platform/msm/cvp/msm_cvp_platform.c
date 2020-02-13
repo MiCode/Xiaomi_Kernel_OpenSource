@@ -108,7 +108,7 @@ static struct msm_cvp_common_data sm8350_common_data[] = {
 	},
 	{
 		.key = "qcom,sw-power-collapse",
-		.value = 1,
+		.value = 0,
 	},
 	{
 		.key = "qcom,domain-attr-non-fatal-faults",
