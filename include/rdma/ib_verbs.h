@@ -306,7 +306,7 @@ enum ib_cq_creation_flags {
 
 struct ib_cq_init_attr {
 	unsigned int	cqe;
-	int		comp_vector;
+	u32		comp_vector;
 	u32		flags;
 };
 

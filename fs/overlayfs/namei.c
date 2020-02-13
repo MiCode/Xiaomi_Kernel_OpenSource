@@ -146,7 +146,7 @@ fail:
 	goto out;
 invalid:
 	pr_warn_ratelimited("overlayfs: invalid origin (%*phN)\n",
-				(int)res, fh);
+			    (int)res, fh);
 	goto out;
 }
 

@@ -539,12 +539,13 @@ unsigned int ovl_get_nlink(struct dentry *lowerdentry,
 	int nlink_diff;
 	int nlink;
 	char buf[13];
-	int err;
+	ssize_t err;
 
 	if (!lowerdentry || !upperdentry || d_inode(lowerdentry)->i_nlink == 1)
 		return fallback;
 
-	err = vfs_getxattr(upperdentry, OVL_XATTR_NLINK, &buf, sizeof(buf) - 1);
+	err = ovl_vfs_getxattr(upperdentry, OVL_XATTR_NLINK,
+			       &buf, sizeof(buf) - 1);
 	if (err < 0)
 		goto fail;
 
@@ -566,7 +567,7 @@ unsigned int ovl_get_nlink(struct dentry *lowerdentry,
 	return nlink;
 
 fail:
-	pr_warn_ratelimited("overlayfs: failed to get index nlink (%pd2, err=%i)\n",
+	pr_warn_ratelimited("overlayfs: failed to get index nlink (%pd2, err=%zi)\n",
 			    upperdentry, err);
 	return fallback;
 }
