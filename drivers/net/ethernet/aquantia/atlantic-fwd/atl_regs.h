@@ -107,6 +107,7 @@ enum mcp_scratchpad {
 #define ATL_VLAN_FLT_NUM 16
 #define ATL_RX_VLAN_FLT(idx) ATL_REG_STRIDE(0x5290, 4, idx)
 #define ATL_RX_ETYPE_FLT(idx) ATL_REG_STRIDE(0x5300, 4, idx)
+#define ATL2_RX_ETYPE_TAG(idx) ATL_REG_STRIDE(0x5340, 4, idx)
 #define ATL_ETYPE_FLT_NUM 15
 #define ATL_NTUPLE_CTRL(idx) ATL_REG_STRIDE(0x5380, 4, idx)
 #define ATL_NTUPLE_SADDR(idx) ATL_REG_STRIDE(0x53b0, 4, idx)

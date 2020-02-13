@@ -272,7 +272,7 @@ static inline void atl2_rpf_vlan_flr_tag_set(struct atl_hw *hw, u32 tag,
 static inline void atl2_rpf_etht_flr_tag_set(struct atl_hw *hw, u32 tag,
 					     u32 filter)
 {
-	atl_write_bits(hw, ATL_RX_ETYPE_FLT(filter), 0, 3, tag);
+	atl_write_bits(hw, ATL2_RX_ETYPE_TAG(filter), 0, 3, tag);
 }
 
 static inline void atl2_rpf_l3_v4_da_set(struct atl_hw *hw, u32 filter, u32 val)

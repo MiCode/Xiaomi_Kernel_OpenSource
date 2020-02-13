@@ -1,3 +1,7 @@
+Version 1.1.2
+==============
+[ATLDRV-1348] - FWD: IPv6 and L4 ntuple filters not work 
+
 Version 1.1.1
 ==============
 [ATLDRV-1315] - driver 1.1.0 crashes at start on A1
