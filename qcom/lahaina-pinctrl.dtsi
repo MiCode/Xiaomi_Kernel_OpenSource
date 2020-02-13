@@ -13,6 +13,19 @@
 		};
 	};
 
+	trigout_a: trigout_a {
+		mux {
+			pins = "gpio14";
+			function = "qdss_cti";
+		};
+
+		config {
+			pins = "gpio14";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
 	qupv3_se3_2uart_pins: qupv3_se3_2uart_pins {
 		qupv3_se3_2uart_active: qupv3_se3_2uart_active {
 			mux {
