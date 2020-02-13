@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -404,6 +404,18 @@ static int rgmu_suspend(struct kgsl_device *device)
 	return 0;
 }
 
+static int rgmu_init(struct kgsl_device *device)
+{
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+	int ret;
+
+	ret = ops->load_firmware(device);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 /* To be called to power on both GPU and RGMU */
 static int rgmu_start(struct kgsl_device *device)
 {
@@ -470,6 +482,7 @@ static bool rgmu_regulator_isenabled(struct kgsl_device *device)
 struct gmu_core_ops rgmu_ops = {
 	.probe = rgmu_probe,
 	.remove = rgmu_stop,
+	.init = rgmu_init,
 	.start = rgmu_start,
 	.stop = rgmu_stop,
 	.dcvs_set = rgmu_dcvs_set,
