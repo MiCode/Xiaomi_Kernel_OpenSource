@@ -450,6 +450,46 @@ out:
 	return ret;
 }
 
+static int ufs_qcom_phy_power_on(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	int ret = 0;
+
+	mutex_lock(&host->phy_mutex);
+	if (!host->is_phy_pwr_on) {
+		ret = phy_power_on(phy);
+		if (ret) {
+			mutex_unlock(&host->phy_mutex);
+			return ret;
+		}
+		host->is_phy_pwr_on = true;
+	}
+	mutex_unlock(&host->phy_mutex);
+
+	return ret;
+}
+
+static int ufs_qcom_phy_power_off(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	int ret = 0;
+
+	mutex_lock(&host->phy_mutex);
+	if (host->is_phy_pwr_on) {
+		ret = phy_power_off(phy);
+		if (ret) {
+			mutex_unlock(&host->phy_mutex);
+			return ret;
+		}
+		host->is_phy_pwr_on = false;
+	}
+	mutex_unlock(&host->phy_mutex);
+
+	return ret;
+}
+
 static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -469,28 +509,22 @@ static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 		submode = UFS_QCOM_PHY_SUBMODE_NON_G4;
 	phy_set_mode_ext(phy, mode, submode);
 
-	/* phy initialization - calibrate the phy */
-	ret = phy_init(phy);
+	ret = ufs_qcom_phy_power_on(hba);
 	if (ret) {
-		dev_err(hba->dev, "%s: phy init failed, ret = %d\n",
-			__func__, ret);
+		dev_err(hba->dev, "%s: phy power on failed, ret = %d\n",
+				 __func__, ret);
 		goto out;
 	}
 
-	/* power on phy - start serdes and phy's power and clocks */
-	ret = phy_power_on(phy);
+	ret = phy_calibrate(phy);
 	if (ret) {
-		dev_err(hba->dev, "%s: phy power on failed, ret = %d\n",
-			__func__, ret);
-		goto out_disable_phy;
+		dev_err(hba->dev, "%s: Failed to calibrate PHY %d\n",
+				  __func__, ret);
+		goto out;
 	}
 
 	ufs_qcom_select_unipro_mode(host);
 
-	return 0;
-
-out_disable_phy:
-	phy_exit(phy);
 out:
 	return ret;
 }
@@ -899,8 +933,7 @@ out:
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
-	int ret = 0;
+	int err = 0;
 
 	/*
 	 * If UniPro link is not active or OFF, PHY ref_clk, main PHY analog
@@ -909,37 +942,21 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 */
 	if (!ufs_qcom_is_link_active(hba)) {
 		ufs_qcom_disable_lane_clks(host);
-		if (host->is_phy_pwr_on) {
-			phy_power_off(phy);
-			host->is_phy_pwr_on = false;
-		}
 		if (host->vddp_ref_clk && ufs_qcom_is_link_off(hba))
-			ret = ufs_qcom_disable_vreg(hba->dev,
+			err = ufs_qcom_disable_vreg(hba->dev,
 					host->vddp_ref_clk);
 		if (host->vccq_parent && !hba->auto_bkops_enabled)
 			ufs_qcom_config_vreg(hba->dev,
 					host->vccq_parent, false);
-
 	}
 
-	return ret;
+	return err;
 }
 
 static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
 	int err;
-
-	if (!host->is_phy_pwr_on) {
-		err = phy_power_on(phy);
-		if (err) {
-			dev_err(hba->dev, "%s: failed enabling regs, err = %d\n",
-				__func__, err);
-			return 0;
-		}
-		host->is_phy_pwr_on = true;
-	}
 
 	if (host->vddp_ref_clk && (hba->rpm_lvl > UFS_PM_LVL_3 ||
 				   hba->spm_lvl > UFS_PM_LVL_3))
@@ -952,7 +969,6 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (err)
 		return err;
 
-	hba->is_sys_suspended = false;
 	return 0;
 }
 
@@ -1596,11 +1612,26 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			if (!ufs_qcom_is_link_active(hba)) {
 				/* disable device ref_clk */
 				ufs_qcom_dev_ref_clk_ctrl(host, false);
+
+				/* power off PHY during aggressive clk gating */
+				err = ufs_qcom_phy_power_off(hba);
+				if (err) {
+					dev_err(hba->dev, "%s: phy power off failed, ret = %d\n",
+							 __func__, err);
+					return err;
+				}
 			}
 		}
 		break;
 	case POST_CHANGE:
 		if (on) {
+			err = ufs_qcom_phy_power_on(hba);
+			if (err) {
+				dev_err(hba->dev, "%s: phy power on failed, ret = %d\n",
+						 __func__, err);
+				return err;
+			}
+
 			/* enable the device ref clock for HS mode*/
 			if (ufshcd_is_hs_mode(&hba->pwr_info))
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
@@ -2144,14 +2175,20 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	err = ufs_qcom_parse_reg_info(host, "qcom,vddp-ref-clk",
 				      &host->vddp_ref_clk);
 
-	phy_init(host->generic_phy);
+	err = phy_init(host->generic_phy);
+	if (err) {
+		dev_err(hba->dev, "%s: phy init failed, err %d\n",
+				__func__, err);
+		goto out_variant_clear;
+	}
+	mutex_init(&host->phy_mutex);
 
 	if (host->vddp_ref_clk) {
 		err = ufs_qcom_enable_vreg(dev, host->vddp_ref_clk);
 		if (err) {
 			dev_err(dev, "%s: failed enabling ref clk supply: %d\n",
 				__func__, err);
-			goto out_unregister_bus;
+			goto out_phy_exit;
 		}
 	}
 
@@ -2180,7 +2217,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_advertise_quirks(hba);
 
 	ufs_qcom_set_bus_vote(hba, true);
-	ufs_qcom_setup_clocks(hba, true, POST_CHANGE);
+	/* enable the device ref clock for HS mode*/
+	if (ufshcd_is_hs_mode(&hba->pwr_info))
+		ufs_qcom_dev_ref_clk_ctrl(host, true);
 
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;
@@ -2213,7 +2252,7 @@ out_set_load_vccq_parent:
 out_disable_vddp:
 	if (host->vddp_ref_clk)
 		ufs_qcom_disable_vreg(dev, host->vddp_ref_clk);
-out_unregister_bus:
+out_phy_exit:
 	phy_exit(host->generic_phy);
 out_variant_clear:
 	devm_kfree(dev, host);
@@ -2227,10 +2266,7 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	ufs_qcom_disable_lane_clks(host);
-	if (host->is_phy_pwr_on) {
-		phy_power_off(host->generic_phy);
-		host->is_phy_pwr_on = false;
-	}
+	ufs_qcom_phy_power_off(hba);
 	phy_exit(host->generic_phy);
 }
 

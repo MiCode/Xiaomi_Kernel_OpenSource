@@ -331,6 +331,8 @@ struct ufs_qcom_host {
 	struct ufs_vreg *vccq_parent;
 	bool work_pending;
 	bool is_phy_pwr_on;
+	/* Protect the usage of is_phy_pwr_on against racing */
+	struct mutex phy_mutex;
 };
 
 static inline u32
