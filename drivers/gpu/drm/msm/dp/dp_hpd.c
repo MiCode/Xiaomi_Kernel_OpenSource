@@ -22,6 +22,7 @@
 #include "dp_usbpd.h"
 #include "dp_gpio_hpd.h"
 #include "dp_lphw_hpd.h"
+#include "dp_bridge_hpd.h"
 
 static void dp_hpd_host_init(struct dp_hpd *dp_hpd,
 		struct dp_catalog_hpd *catalog)
@@ -49,11 +50,19 @@ static void dp_hpd_isr(struct dp_hpd *dp_hpd)
 
 struct dp_hpd *dp_hpd_get(struct device *dev, struct dp_parser *parser,
 		struct dp_catalog_hpd *catalog, struct usbpd *pd,
+		struct msm_dp_aux_bridge *aux_bridge,
 		struct dp_hpd_cb *cb)
 {
 	struct dp_hpd *dp_hpd;
 
-	if (parser->no_aux_switch && parser->lphw_hpd) {
+	if (aux_bridge && (aux_bridge->flag & MSM_DP_AUX_BRIDGE_HPD)) {
+		dp_hpd = dp_bridge_hpd_get(dev, cb, aux_bridge);
+		if (IS_ERR(dp_hpd)) {
+			pr_err("failed to get bridge hpd\n");
+			goto out;
+		}
+		dp_hpd->type = DP_HPD_BRIDGE;
+	} else if (parser->no_aux_switch && parser->lphw_hpd) {
 		dp_hpd = dp_lphw_hpd_get(dev, parser, catalog, cb);
 		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get lphw hpd\n");
@@ -101,6 +110,9 @@ void dp_hpd_put(struct dp_hpd *dp_hpd)
 		break;
 	case DP_HPD_LPHW:
 		dp_lphw_hpd_put(dp_hpd);
+		break;
+	case DP_HPD_BRIDGE:
+		dp_bridge_hpd_put(dp_hpd);
 		break;
 	default:
 		pr_err("unknown hpd type %d\n", dp_hpd->type);

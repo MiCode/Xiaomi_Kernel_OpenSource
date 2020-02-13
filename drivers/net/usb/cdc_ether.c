@@ -326,6 +326,9 @@ skip:
 		return -ENODEV;
 	}
 
+	if (dev->hard_mtu < 2048)
+		dev->hard_mtu = 2048;
+
 	return 0;
 
 bad_desc:

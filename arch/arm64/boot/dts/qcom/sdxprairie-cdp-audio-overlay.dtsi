@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,4 +19,9 @@
 		qcom,wsa-devs = <&wsa881x_0214>;
 		qcom,wsa-aux-dev-prefix = "SpkrRight";
 	};
+};
+
+&wsa_spkr_wcd_sd2 {
+	pinctrl-0 = <&spkr_1_wcd_en_active>;
+	pinctrl-1 = <&spkr_1_wcd_en_sleep>;
 };

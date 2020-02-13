@@ -80,6 +80,7 @@ struct dp_display_private {
 	struct platform_device *pdev;
 	struct usbpd *pd;
 	struct device_node *aux_switch_node;
+	struct msm_dp_aux_bridge *aux_bridge;
 	struct dentry *root;
 	struct completion notification_comp;
 
@@ -672,7 +673,6 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 						bool mst_probe)
 {
 	bool is_mst_receiver;
-	struct dp_mst_hpd_info info;
 	const int clear_mstm_ctrl_timeout = 100000;
 	u8 old_mstm_ctrl;
 	int ret;
@@ -715,12 +715,8 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 
 		dp_display_update_mst_state(dp, true);
 	} else if (dp->mst.mst_active && mst_probe) {
-		info.mst_protocol = dp->parser->has_mst_sideband;
-		info.mst_port_cnt = dp->debug->mst_port_cnt;
-		info.edid = dp->debug->get_edid(dp->debug);
-
 		if (dp->mst.cbs.hpd)
-			dp->mst.cbs.hpd(&dp->dp_display, true, &info);
+			dp->mst.cbs.hpd(&dp->dp_display, true);
 	}
 
 	DP_MST_DEBUG("mst_hpd_high. mst_active:%d\n", dp->mst.mst_active);
@@ -838,15 +834,12 @@ end:
 
 static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 {
-	struct dp_mst_hpd_info info = {0};
-
 	if (dp->mst.mst_active) {
 		DP_MST_DEBUG("mst_hpd_low work\n");
 
-		if (dp->mst.cbs.hpd) {
-			info.mst_protocol = dp->parser->has_mst_sideband;
-			dp->mst.cbs.hpd(&dp->dp_display, false, &info);
-		}
+		if (dp->mst.cbs.hpd)
+			dp->mst.cbs.hpd(&dp->dp_display, false);
+
 		dp_display_update_mst_state(dp, false);
 	}
 
@@ -1101,13 +1094,8 @@ static int dp_display_stream_enable(struct dp_display_private *dp,
 
 static void dp_display_mst_attention(struct dp_display_private *dp)
 {
-	struct dp_mst_hpd_info hpd_irq = {0};
-
-	if (dp->mst.mst_active && dp->mst.cbs.hpd_irq) {
-		hpd_irq.mst_hpd_sim = dp->debug->mst_hpd_sim;
-		dp->mst.cbs.hpd_irq(&dp->dp_display, &hpd_irq);
-		dp->debug->mst_hpd_sim = false;
-	}
+	if (dp->mst.mst_active && dp->mst.cbs.hpd_irq)
+		dp->mst.cbs.hpd_irq(&dp->dp_display);
 
 	DP_MST_DEBUG("mst_attention_work. mst_active:%d\n", dp->mst.mst_active);
 }
@@ -1341,7 +1329,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	}
 
 	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser,
-			dp->aux_switch_node);
+			dp->aux_switch_node, dp->aux_bridge);
 	if (IS_ERR(dp->aux)) {
 		rc = PTR_ERR(dp->aux);
 		pr_err("failed to initialize aux, rc = %d\n", rc);
@@ -1409,7 +1397,8 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	cb->disconnect = dp_display_usbpd_disconnect_cb;
 	cb->attention  = dp_display_usbpd_attention_cb;
 
-	dp->hpd = dp_hpd_get(dev, dp->parser, &dp->catalog->hpd, dp->pd, cb);
+	dp->hpd = dp_hpd_get(dev, dp->parser, &dp->catalog->hpd, dp->pd,
+			dp->aux_bridge, cb);
 	if (IS_ERR(dp->hpd)) {
 		rc = PTR_ERR(dp->hpd);
 		pr_err("failed to initialize hpd, rc = %d\n", rc);
@@ -2237,6 +2226,52 @@ end:
 	return rc;
 }
 
+static int dp_display_bridge_mst_attention(void *dev, bool hpd, bool hpd_irq)
+{
+	struct dp_display_private *dp = dev;
+
+	if (!hpd_irq)
+		return -EINVAL;
+
+	dp_display_mst_attention(dp);
+
+	return 0;
+}
+
+static int dp_display_init_aux_bridge(struct dp_display_private *dp)
+{
+	int rc = 0;
+	const char *phandle = "qcom,dp-aux-bridge";
+	struct device_node *bridge_node;
+
+	if (!dp->pdev->dev.of_node) {
+		pr_err("cannot find dev.of_node\n");
+		rc = -ENODEV;
+		goto end;
+	}
+
+	bridge_node = of_parse_phandle(dp->pdev->dev.of_node,
+			phandle, 0);
+	if (!bridge_node)
+		goto end;
+
+	dp->aux_bridge = of_msm_dp_aux_find_bridge(bridge_node);
+	if (!dp->aux_bridge) {
+		pr_err("failed to find dp aux bridge\n");
+		rc = -EPROBE_DEFER;
+		goto end;
+	}
+
+	if (dp->aux_bridge->register_hpd &&
+			(dp->aux_bridge->flag & MSM_DP_AUX_BRIDGE_MST) &&
+			!(dp->aux_bridge->flag & MSM_DP_AUX_BRIDGE_HPD))
+		dp->aux_bridge->register_hpd(dp->aux_bridge,
+				dp_display_bridge_mst_attention, dp);
+
+end:
+	return rc;
+}
+
 static int dp_display_mst_install(struct dp_display *dp_display,
 			struct dp_mst_drm_install_info *mst_install_info)
 {
@@ -2703,6 +2738,10 @@ static int dp_display_probe(struct platform_device *pdev)
 		rc = -EPROBE_DEFER;
 		goto error;
 	}
+
+	rc = dp_display_init_aux_bridge(dp);
+	if (rc)
+		goto error;
 
 	rc = dp_display_create_workqueue(dp);
 	if (rc) {

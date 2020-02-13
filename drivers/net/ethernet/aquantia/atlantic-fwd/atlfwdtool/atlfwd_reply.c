@@ -21,6 +21,7 @@ int atlnl_process_ack(struct nl_context *ctx, const ssize_t len)
 	if (len < NLMSG_HDRLEN + tlv_offset)
 		return -EFAULT;
 
+#ifdef NLM_F_ACK_TLVS
 	if (ctx->nlhdr->nlmsg_flags & NLM_F_ACK_TLVS) {
 		if (!(ctx->nlhdr->nlmsg_flags & NLM_F_CAPPED))
 			tlv_offset += MNL_ALIGN(
@@ -40,6 +41,7 @@ int atlnl_process_ack(struct nl_context *ctx, const ssize_t len)
 			}
 		}
 	}
+#endif
 
 	if (nlerr->error) {
 		errno = -nlerr->error;

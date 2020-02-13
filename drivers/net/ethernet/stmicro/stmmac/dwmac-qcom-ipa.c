@@ -918,13 +918,12 @@ static int enable_rx_dma_interrupts(unsigned int QINX,
 	/* AIE - Abnormal Interrupt Summary Enable */
 	/* FBE - Fatal Bus Error Enable */
 	/* RIE - Receive Interrupt Enable */
-	/* RBUE - Receive Buffer Unavailable Enable  */
 	/* RSE - Receive Stopped Enable */
 	DMA_IER_RGRD(QINX, VARDMA_IER);
 	/* Reset all Rx interrupt bits */
 	VARDMA_IER = VARDMA_IER & (unsigned long)(DMA_RX_INT_RESET_MASK);
 
-	VARDMA_IER = VARDMA_IER | ((0x1) << 7) | ((0x1) << 14) | ((0x1) << 12) |
+	VARDMA_IER = VARDMA_IER | ((0x1) << 14) | ((0x1) << 12) |
 	    ((0x1) << 15);
 
 	DMA_IER_RGWR(QINX, VARDMA_IER);
@@ -951,6 +950,8 @@ static void ethqos_configure_ipa_tx_dma_channel(unsigned int QINX,
 	ETHQOSDBG("\n");
 
 	enable_tx_dma_interrupts(QINX, ethqos);
+	/* Enable Operate on Second Packet for better tputs */
+	DMA_TCR_OSP_UDFWR(QINX, 0x1);
 
 	/* start TX DMA */
 	priv->hw->dma->start_tx(priv->ioaddr, IPA_DMA_TX_CH);
@@ -968,7 +969,7 @@ static void ethqos_configure_ipa_rx_dma_channel(unsigned int QINX,
 	ETHQOSDBG("\n");
 	/*Select Rx Buffer size = 2048bytes */
 
-	DMA_RCR_RBSZ_UDFWR(QINX, priv->dma_buf_sz);
+	DMA_RCR_RBSZ_UDFWR(QINX, ETHQOS_ETH_FRAME_LEN_IPA);
 
 	enable_rx_dma_interrupts(QINX, ethqos);
 
@@ -994,7 +995,7 @@ static void ntn_ipa_notify_cb(void *priv, enum ipa_dp_evt_type evt,
 			      unsigned long data)
 {
 	struct qcom_ethqos *ethqos = eth_ipa_ctx.ethqos;
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct iphdr *iph = NULL;
 	int stat = NET_RX_SUCCESS;
@@ -1006,14 +1007,14 @@ static void ntn_ipa_notify_cb(void *priv, enum ipa_dp_evt_type evt,
 		return;
 	}
 
-	if (!ntn_ipa) {
-		ETHQOSERR("Null Param ntn_ipa %pK\n", ntn_ipa);
+	if (!eth_ipa) {
+		ETHQOSERR("Null Param eth_ipa %pK\n", eth_ipa);
 		return;
 	}
 
-	if (!ntn_ipa->ipa_offload_conn) {
+	if (!eth_ipa->ipa_offload_conn) {
 		ETHQOSERR("ipa_cb before offload is ready %d\n",
-			  ntn_ipa->ipa_offload_conn);
+			  eth_ipa->ipa_offload_conn);
 		return;
 	}
 
@@ -1064,7 +1065,7 @@ static int ethqos_ipa_offload_init(struct qcom_ethqos *pdata)
 {
 	struct ipa_uc_offload_intf_params in;
 	struct ipa_uc_offload_out_params out;
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	struct ethhdr eth_l2_hdr_v4;
 	struct ethhdr eth_l2_hdr_v6;
 #ifdef ETHQOS_IPA_OFFLOAD_VLAN
@@ -1144,9 +1145,9 @@ static int ethqos_ipa_offload_init(struct qcom_ethqos *pdata)
 		ret = -1;
 		return ret;
 	}
-	ntn_ipa->ipa_client_hndl = out.clnt_hndl;
+	eth_ipa->ipa_client_hndl = out.clnt_hndl;
 	ETHQOSDBG("Recevied IPA Offload Client Handle %d",
-		  ntn_ipa->ipa_client_hndl);
+		  eth_ipa->ipa_client_hndl);
 
 	pdata->ipa_enabled = true;
 	return 0;
@@ -1154,7 +1155,7 @@ static int ethqos_ipa_offload_init(struct qcom_ethqos *pdata)
 
 static int ethqos_ipa_offload_cleanup(struct qcom_ethqos *ethqos)
 {
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	int ret = 0;
 
 	ETHQOSDBG("begin\n");
@@ -1164,12 +1165,12 @@ static int ethqos_ipa_offload_cleanup(struct qcom_ethqos *ethqos)
 		return -ENOMEM;
 	}
 
-	if (!ntn_ipa->ipa_client_hndl) {
+	if (!eth_ipa->ipa_client_hndl) {
 		ETHQOSERR("cleanup called with NULL IPA client handle\n");
 		return -ENOMEM;
 	}
 
-	ret = ipa_uc_offload_cleanup(ntn_ipa->ipa_client_hndl);
+	ret = ipa_uc_offload_cleanup(eth_ipa->ipa_client_hndl);
 	if (ret) {
 		ETHQOSERR("Could not cleanup IPA Offload ret %d\n", ret);
 		ret = -1;
@@ -1182,14 +1183,23 @@ static int ethqos_ipa_offload_cleanup(struct qcom_ethqos *ethqos)
 	return ret;
 }
 
-static bool ethqos_is_phy_link_up(struct stmmac_priv *priv)
+static inline void *ethqos_get_priv(struct qcom_ethqos *ethqos)
+{
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	return priv;
+}
+
+static bool ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
 {
 	/* PHY driver initializes phydev->link=1.
 	 * So, phydev->link is 1 even on booup with no PHY connected.
 	 * phydev->link is valid only after adjust_link is called once.
 	 * Use (pdata->oldlink != -1) to indicate phy link is not up
 	 */
-	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
+	struct stmmac_priv *priv = ethqos_get_priv(ethqos);
 
 	return ethqos->always_on_phy ? 1 :
 	((priv->oldlink != -1) && priv->dev->phydev && priv->dev->phydev->link);
@@ -1201,11 +1211,8 @@ static ssize_t read_ipa_offload_status(struct file *file,
 {
 	unsigned int len = 0, buf_len = NTN_IPA_DBG_MAX_MSG_LEN;
 	struct qcom_ethqos *ethqos = file->private_data;
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (ethqos_is_phy_link_up(priv)) {
+	if (ethqos_is_phy_link_up(ethqos)) {
 		if (eth_ipa_ctx.ipa_offload_susp)
 			len += scnprintf(buf + len, buf_len - len,
 					 "IPA Offload suspended\n");
@@ -1258,7 +1265,7 @@ static ssize_t suspend_resume_ipa_offload(struct file *file,
 	if (kstrtos8(in_buf, 0, &option))
 		return -EFAULT;
 
-	if (ethqos_is_phy_link_up(priv)) {
+	if (ethqos_is_phy_link_up(ethqos)) {
 		if (option == 1)
 			ethqos_ipa_offload_event_handler(priv, EV_USR_SUSPEND);
 		else if (option == 0)
@@ -1275,12 +1282,12 @@ static ssize_t read_ipa_stats(struct file *file,
 			      loff_t *ppos)
 {
 	struct qcom_ethqos *ethqos = file->private_data;
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	char *buf;
 	unsigned int len = 0, buf_len = 2000;
 	ssize_t ret_cnt;
 
-	if (!ethqos || !ntn_ipa) {
+	if (!ethqos || !eth_ipa) {
 		ETHQOSERR("NULL Pointer\n");
 		return -EINVAL;
 	}
@@ -1409,7 +1416,7 @@ static ssize_t read_ntn_dma_stats(struct file *file,
 				  loff_t *ppos)
 {
 	struct qcom_ethqos *ethqos = file->private_data;
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	struct ethqos_ipa_stats *dma_stats = &eth_ipa_ctx.ipa_stats;
 	char *buf;
 	unsigned int len = 0, buf_len = 3000;
@@ -1445,7 +1452,7 @@ static ssize_t read_ntn_dma_stats(struct file *file,
 			 "RX Tail Pointer Index: ",
 			 dma_stats->ipa_rx_tail_ptr_indx);
 	len += scnprintf(buf + len, buf_len - len, "%-50s 0x%x\n",
-			 "RX Doorbell Address: ", ntn_ipa->uc_db_rx_addr);
+			 "RX Doorbell Address: ", eth_ipa->uc_db_rx_addr);
 	len += scnprintf(buf + len, buf_len - len, "\n");
 
 	len += scnprintf(buf + len, buf_len - len, "%-50s 0x%x\n",
@@ -1500,7 +1507,7 @@ static ssize_t read_ntn_dma_stats(struct file *file,
 	len += scnprintf(buf + len, buf_len - len, "%-50s %10lu\n",
 		"TX Tail Pointer Index: ", dma_stats->ipa_tx_tail_ptr_indx);
 	len += scnprintf(buf + len, buf_len - len, "%-50s 0x%x\n",
-		"TX Doorbell Address: ", ntn_ipa->uc_db_tx_addr);
+		"TX Doorbell Address: ", eth_ipa->uc_db_tx_addr);
 	len += scnprintf(buf + len, buf_len - len, "\n");
 
 	len += scnprintf(buf + len, buf_len - len, "%-50s 0x%x\n",
@@ -1576,22 +1583,22 @@ static const struct file_operations fops_ntn_ipa_offload_en = {
 
 static int ethqos_ipa_cleanup_debugfs(struct qcom_ethqos *ethqos)
 {
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 
-	if (!ethqos || !ntn_ipa) {
+	if (!ethqos || !eth_ipa) {
 		ETHQOSERR("Null Param\n");
 		return -ENOMEM;
 	}
 
 	if (ethqos->debugfs_dir) {
-		debugfs_remove(ntn_ipa->debugfs_ipa_stats);
-		ntn_ipa->debugfs_ipa_stats = NULL;
+		debugfs_remove(eth_ipa->debugfs_ipa_stats);
+		eth_ipa->debugfs_ipa_stats = NULL;
 
-		debugfs_remove(ntn_ipa->debugfs_dma_stats);
-		ntn_ipa->debugfs_dma_stats = NULL;
+		debugfs_remove(eth_ipa->debugfs_dma_stats);
+		eth_ipa->debugfs_dma_stats = NULL;
 
-		debugfs_remove(ntn_ipa->debugfs_suspend_ipa_offload);
-		ntn_ipa->debugfs_suspend_ipa_offload = NULL;
+		debugfs_remove(eth_ipa->debugfs_suspend_ipa_offload);
+		eth_ipa->debugfs_suspend_ipa_offload = NULL;
 	}
 
 	ETHQOSDBG("IPA debugfs Deleted Successfully\n");
@@ -1607,38 +1614,38 @@ static int ethqos_ipa_cleanup_debugfs(struct qcom_ethqos *ethqos)
  */
 static int ethqos_ipa_create_debugfs(struct qcom_ethqos *ethqos)
 {
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 
-	ntn_ipa->debugfs_suspend_ipa_offload =
+	eth_ipa->debugfs_suspend_ipa_offload =
 		debugfs_create_file("suspend_ipa_offload", 0600,
 				    ethqos->debugfs_dir, ethqos,
 				    &fops_ntn_ipa_offload_en);
-	if (!ntn_ipa->debugfs_suspend_ipa_offload ||
-	    IS_ERR(ntn_ipa->debugfs_suspend_ipa_offload)) {
+	if (!eth_ipa->debugfs_suspend_ipa_offload ||
+	    IS_ERR(eth_ipa->debugfs_suspend_ipa_offload)) {
 		ETHQOSERR("Cannot create debugfs ipa_offload_en %d\n",
-			  (int)ntn_ipa->debugfs_suspend_ipa_offload);
+			  (int)eth_ipa->debugfs_suspend_ipa_offload);
 		goto fail;
 	}
 
-	ntn_ipa->debugfs_ipa_stats =
+	eth_ipa->debugfs_ipa_stats =
 		debugfs_create_file("ipa_stats", 0600,
 				    ethqos->debugfs_dir, ethqos,
 				    &fops_ipa_stats);
-	if (!ntn_ipa->debugfs_ipa_stats ||
-	    IS_ERR(ntn_ipa->debugfs_ipa_stats)) {
+	if (!eth_ipa->debugfs_ipa_stats ||
+	    IS_ERR(eth_ipa->debugfs_ipa_stats)) {
 		ETHQOSERR("Cannot create debugfs_ipa_stats %d\n",
-			  (int)ntn_ipa->debugfs_ipa_stats);
+			  (int)eth_ipa->debugfs_ipa_stats);
 		goto fail;
 	}
 
-	ntn_ipa->debugfs_dma_stats =
+	eth_ipa->debugfs_dma_stats =
 		debugfs_create_file("dma_stats", 0600,
 				    ethqos->debugfs_dir, ethqos,
 				    &fops_ntn_dma_stats);
-	if (!ntn_ipa->debugfs_suspend_ipa_offload ||
-	    IS_ERR(ntn_ipa->debugfs_suspend_ipa_offload)) {
+	if (!eth_ipa->debugfs_suspend_ipa_offload ||
+	    IS_ERR(eth_ipa->debugfs_suspend_ipa_offload)) {
 		ETHQOSERR("Cannot create debugfs_dma_stats %d\n",
-			  (int)ntn_ipa->debugfs_dma_stats);
+			  (int)eth_ipa->debugfs_dma_stats);
 		goto fail;
 	}
 
@@ -1651,7 +1658,7 @@ fail:
 
 static int ethqos_ipa_offload_connect(struct qcom_ethqos *ethqos)
 {
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	struct ipa_uc_offload_conn_in_params in;
 	struct ipa_uc_offload_conn_out_params out;
 	struct ipa_ntn_setup_info rx_setup_info = {0};
@@ -1677,7 +1684,7 @@ static int ethqos_ipa_offload_connect(struct qcom_ethqos *ethqos)
 	memset(&out, 0, sizeof(out));
 	memset(&profile, 0, sizeof(profile));
 
-	in.clnt_hndl = ntn_ipa->ipa_client_hndl;
+	in.clnt_hndl = eth_ipa->ipa_client_hndl;
 
 	/* Uplink Setup */
 	if (emac_emb_smmu_ctx.valid)
@@ -1797,8 +1804,8 @@ static int ethqos_ipa_offload_connect(struct qcom_ethqos *ethqos)
 		goto mem_free;
 	}
 
-	ntn_ipa->uc_db_rx_addr = out.u.ntn.ul_uc_db_pa;
-	ntn_ipa->uc_db_tx_addr = out.u.ntn.dl_uc_db_pa;
+	eth_ipa->uc_db_rx_addr = out.u.ntn.ul_uc_db_pa;
+	eth_ipa->uc_db_tx_addr = out.u.ntn.dl_uc_db_pa;
 
 	/* Set Perf Profile For PROD/CONS Pipes */
 	profile.max_supported_bw_mbps = ethqos->speed;
@@ -1856,7 +1863,7 @@ static int ethqos_ipa_offload_connect(struct qcom_ethqos *ethqos)
 
 static int ethqos_ipa_offload_disconnect(struct qcom_ethqos *ethqos)
 {
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 	int ret = 0;
 
 	ETHQOSDBG("- begin\n");
@@ -1866,7 +1873,7 @@ static int ethqos_ipa_offload_disconnect(struct qcom_ethqos *ethqos)
 		return -ENOMEM;
 	}
 
-	ret = ipa_uc_offload_disconn_pipes(ntn_ipa->ipa_client_hndl);
+	ret = ipa_uc_offload_disconn_pipes(eth_ipa->ipa_client_hndl);
 	if (ret) {
 		ETHQOSERR("Could not cleanup IPA Offload ret %d\n", ret);
 		return ret;
@@ -2128,7 +2135,7 @@ static void ethqos_ipaucrdy_wq(struct work_struct *work)
 static void ethqos_ipa_uc_ready_cb(void *user_data)
 {
 	struct qcom_ethqos *pdata = (struct qcom_ethqos *)user_data;
-	struct ethqos_prv_ipa_data *ntn_ipa = &eth_ipa_ctx;
+	struct ethqos_prv_ipa_data *eth_ipa = &eth_ipa_ctx;
 
 	if (!pdata) {
 		ETHQOSERR("Null Param pdata %pK\n", pdata);
@@ -2136,8 +2143,8 @@ static void ethqos_ipa_uc_ready_cb(void *user_data)
 	}
 
 	ETHQOSDBG("Received IPA UC ready callback\n");
-	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, ethqos_ipaucrdy_wq);
-	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+	INIT_WORK(&eth_ipa->ntn_ipa_rdy_work, ethqos_ipaucrdy_wq);
+	queue_work(system_unbound_wq, &eth_ipa->ntn_ipa_rdy_work);
 }
 
 static int ethqos_ipa_uc_ready(struct qcom_ethqos *pdata)
@@ -2164,10 +2171,14 @@ static int ethqos_ipa_uc_ready(struct qcom_ethqos *pdata)
 void ethqos_ipa_offload_event_handler(void *data,
 				      int ev)
 {
-	struct stmmac_priv *priv = data;
-	struct qcom_ethqos *pdata = priv->plat->bsp_priv;
-
 	ETHQOSDBG("Enter: event=%d\n", ev);
+
+	if (ev == EV_PROBE_INIT) {
+		eth_ipa_ctx.ethqos = data;
+		mutex_init(&eth_ipa_ctx.ipa_lock);
+		return;
+	}
+
 	IPA_LOCK();
 
 	switch (ev) {
@@ -2180,7 +2191,7 @@ void ethqos_ipa_offload_event_handler(void *data,
 			    !eth_ipa_ctx.ipa_offload_conn)
 				break;
 
-			if (!ethqos_ipa_offload_suspend(pdata))
+			if (!ethqos_ipa_offload_suspend(eth_ipa_ctx.ethqos))
 				eth_ipa_ctx.ipa_offload_link_down = true;
 		}
 		break;
@@ -2193,43 +2204,39 @@ void ethqos_ipa_offload_event_handler(void *data,
 
 			/* Link up event is expected only after link down */
 			if (eth_ipa_ctx.ipa_offload_link_down) {
-				ethqos_ipa_offload_resume(pdata);
+				ethqos_ipa_offload_resume(eth_ipa_ctx.ethqos);
 			} else if (eth_ipa_ctx.emac_dev_ready &&
 				eth_ipa_ctx.ipa_uc_ready) {
-				ethqos_enable_ipa_offload(pdata);
+				ethqos_enable_ipa_offload(eth_ipa_ctx.ethqos);
 			}
 
 			eth_ipa_ctx.ipa_offload_link_down = false;
 		}
 		break;
-
 	case EV_DEV_OPEN:
 		{
-			eth_ipa_ctx.ethqos = pdata;
-			ethqos_ipa_config_queues(pdata);
+			ethqos_ipa_config_queues(eth_ipa_ctx.ethqos);
 			eth_ipa_ctx.emac_dev_ready = true;
 
 			if (!eth_ipa_ctx.ipa_ready)
-				ethqos_ipa_ready(pdata);
+				ethqos_ipa_ready(eth_ipa_ctx.ethqos);
 
-				if (!eth_ipa_ctx.ipa_uc_ready)
-					ethqos_ipa_uc_ready(pdata);
-			}
-		break;
-
-	case EV_IPA_READY:
-		{
-				eth_ipa_ctx.ipa_ready = true;
-
-				if (!eth_ipa_ctx.ipa_uc_ready)
-					ethqos_ipa_uc_ready(pdata);
-
-				if (eth_ipa_ctx.ipa_uc_ready &&
-				    ethqos_is_phy_link_up(priv))
-					ethqos_enable_ipa_offload(pdata);
+			if (!eth_ipa_ctx.ipa_uc_ready)
+				ethqos_ipa_uc_ready(eth_ipa_ctx.ethqos);
 		}
 		break;
+	case EV_IPA_READY:
+		{
+			eth_ipa_ctx.ipa_ready = true;
 
+			if (!eth_ipa_ctx.ipa_uc_ready)
+				ethqos_ipa_uc_ready(eth_ipa_ctx.ethqos);
+
+			if (eth_ipa_ctx.ipa_uc_ready &&
+			    ethqos_is_phy_link_up(eth_ipa_ctx.ethqos))
+				ethqos_enable_ipa_offload(eth_ipa_ctx.ethqos);
+		}
+		break;
 	case EV_IPA_UC_READY:
 		{
 			eth_ipa_ctx.ipa_uc_ready = true;
@@ -2239,16 +2246,16 @@ void ethqos_ipa_offload_event_handler(void *data,
 				break;
 			if (eth_ipa_ctx.ipa_ready) {
 				if (!eth_ipa_ctx.ipa_offload_init) {
-					if (!ethqos_ipa_offload_init(pdata))
+					if (!ethqos_ipa_offload_init(
+							eth_ipa_ctx.ethqos))
 						eth_ipa_ctx.ipa_offload_init
 						= true;
 					}
 				}
-			if (ethqos_is_phy_link_up(priv))
-				ethqos_enable_ipa_offload(pdata);
+			if (ethqos_is_phy_link_up(eth_ipa_ctx.ethqos))
+				ethqos_enable_ipa_offload(eth_ipa_ctx.ethqos);
 		}
 		break;
-
 	case EV_DEV_CLOSE:
 		{
 			eth_ipa_ctx.emac_dev_ready = false;
@@ -2256,61 +2263,70 @@ void ethqos_ipa_offload_event_handler(void *data,
 			if (eth_ipa_ctx.ipa_uc_ready)
 				ipa_uc_offload_dereg_rdyCB(IPA_UC_NTN);
 
-			ethqos_disable_ipa_offload(pdata);
+			ethqos_disable_ipa_offload(eth_ipa_ctx.ethqos);
 
 			/* reset link down on dev close */
 			eth_ipa_ctx.ipa_offload_link_down = 0;
 		}
 		break;
 	case EV_DPM_SUSPEND:
+		{
+			if (eth_ipa_ctx.ipa_offload_conn)
+				*(int *)data = false;
+			else
+				*(int *)data = true;
+		}
 		break;
 	case EV_USR_SUSPEND:
 		{
 			if (!eth_ipa_ctx.ipa_offload_susp &&
-			    !eth_ipa_ctx.ipa_offload_link_down)
-				if (!ethqos_ipa_offload_suspend(pdata))
-					eth_ipa_ctx.ipa_offload_susp = true;
+				!eth_ipa_ctx.ipa_offload_link_down)
+				if (!ethqos_ipa_offload_suspend(
+						eth_ipa_ctx.ethqos))
+					eth_ipa_ctx.ipa_offload_susp
+					= true;
 		}
 		break;
 	case EV_DPM_RESUME:
 		{
-			if (eth_ipa_ctx.ipa_offload_susp) {
-				if (ethqos_is_phy_link_up(priv)) {
-					if (!ethqos_ipa_offload_resume(pdata))
-						eth_ipa_ctx.ipa_offload_susp
-						= false;
-				} else {
-					/* Reset flag here to allow connection
-					 * of pipes on next PHY link up
-					 */
+			if (ethqos_is_phy_link_up(eth_ipa_ctx.ethqos)) {
+				if (!ethqos_ipa_offload_resume(
+						eth_ipa_ctx.ethqos))
 					eth_ipa_ctx.ipa_offload_susp
 					= false;
-					/* PHY link is down at resume */
-					/* Reset flag here to allow connection
-					 * of pipes on next PHY link up
-					 */
-					eth_ipa_ctx.ipa_offload_link_down
-					= true;
-				}
+			} else {
+				/* Reset flag here to allow connection
+				 * of pipes on next PHY link up
+				 */
+				eth_ipa_ctx.ipa_offload_susp
+				= false;
+				/* PHY link is down at resume */
+				/* Reset flag here to allow connection
+				 * of pipes on next PHY link up
+				 */
+				eth_ipa_ctx.ipa_offload_link_down
+				= true;
 			}
-		}
+	}
 		break;
 	case EV_USR_RESUME:
 		{
 			if (eth_ipa_ctx.ipa_offload_susp) {
-				if (!ethqos_ipa_offload_resume(pdata))
-					eth_ipa_ctx.ipa_offload_susp = false;
+				if (!ethqos_ipa_offload_resume(
+					eth_ipa_ctx.ethqos))
+					eth_ipa_ctx.ipa_offload_susp
+					= false;
 			}
 		}
 		break;
 	case EV_IPA_OFFLOAD_REMOVE:
 		{
-			ethqos_rx_buf_free_mem(pdata, IPA_DMA_RX_CH);
-			ethqos_tx_buf_free_mem(pdata, IPA_DMA_TX_CH);
-			ethqos_rx_desc_free_mem(pdata, IPA_DMA_RX_CH);
-			ethqos_tx_desc_free_mem(pdata, IPA_DMA_TX_CH);
-			ethqos_free_ipa_rx_queue_struct(pdata);
-			ethqos_free_ipa_tx_queue_struct(pdata);
+		   ethqos_rx_buf_free_mem(eth_ipa_ctx.ethqos, IPA_DMA_RX_CH);
+		   ethqos_tx_buf_free_mem(eth_ipa_ctx.ethqos, IPA_DMA_TX_CH);
+		   ethqos_rx_desc_free_mem(eth_ipa_ctx.ethqos, IPA_DMA_RX_CH);
+		   ethqos_tx_desc_free_mem(eth_ipa_ctx.ethqos, IPA_DMA_TX_CH);
+		   ethqos_free_ipa_rx_queue_struct(eth_ipa_ctx.ethqos);
+		   ethqos_free_ipa_tx_queue_struct(eth_ipa_ctx.ethqos);
 		}
 		break;
 	case EV_INVALID:

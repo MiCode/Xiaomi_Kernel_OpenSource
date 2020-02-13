@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -452,19 +452,43 @@
 };
 
 &cam_csiphy0 {
-	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+	mipi-csi-vdd-supply = <&pm8195_3_l5>;
+	mipi-csi-vdd1p2-supply = <&pm8195_1_l9>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_csiphy1 {
-	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+	mipi-csi-vdd-supply = <&pm8195_3_l5>;
+	mipi-csi-vdd1p2-supply = <&pm8195_1_l9>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_csiphy2 {
-	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+	mipi-csi-vdd-supply = <&pm8195_3_l5>;
+	mipi-csi-vdd1p2-supply = <&pm8195_1_l9>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_csiphy3 {
-	mipi-csi-vdd-supply = <&pm8195_1_l9>;
+	mipi-csi-vdd-supply = <&pm8195_3_l5>;
+	mipi-csi-vdd1p2-supply = <&pm8195_1_l9>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_cci0 {

@@ -27,8 +27,21 @@
 #
 ################################################################################
 
-CFLAGS+=-Wall -Werror -Wfatal-errors $(shell pkg-config --cflags libmnl) -I..
-LDLIBS+=$(shell pkg-config --libs libmnl)
+PKGCONFIG?=$(shell which pkg-config)
+ifeq ($(PKGCONFIG),)
+$(info Do you have pkg-config installed? If not, install it, e.g. on Ubuntu)
+$(info $$ apt install pkg-config)
+$(error pkg-config not found)
+endif
+LIBMNL_EXISTS=$(shell $(PKGCONFIG) --exists libmnl && echo "yes" || echo "no")
+ifeq ($(LIBMNL_EXISTS),no)
+$(info Do you have libmnl-dev installed? If not, install it, e.g. on Ubuntu)
+$(info $$ apt install libmnl-dev)
+$(error libmnl not found)
+endif
+
+CFLAGS+=-Wall -Werror -Wfatal-errors $(shell $(PKGCONFIG) --cflags libmnl) -I..
+LDLIBS+=$(shell $(PKGCONFIG) --libs libmnl)
 
 .PHONY: all clean
 

@@ -35,6 +35,8 @@ Optional properties:
   this clock is used for programming the Timestamp Addend Register. If not
   passed then the system clock will be used and this is fine on some
   platforms.
+- snps,ptp-ref-clk-rate: PTP reference clock rate.
+- snps,ptp-req-clk-rate: PTP clock rate for required accuracy.
 - tx-fifo-depth: See ethernet.txt file in the same directory
 - rx-fifo-depth: See ethernet.txt file in the same directory
 - snps,pbl		Programmable Burst Length (tx and rx)

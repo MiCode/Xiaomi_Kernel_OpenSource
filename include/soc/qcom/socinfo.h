@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +111,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,atoll-ab")
 #define early_machine_is_sdm660()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
+#define early_machine_is_sda660()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda660")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -155,6 +157,7 @@
 #define early_machine_is_atoll()	0
 #define early_machine_is_atollp()	0
 #define early_machine_is_sdm660()	0
+#define early_machine_is_sda660()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -202,6 +205,7 @@ enum msm_cpu {
 	MSM_CPU_ATOLLP,
 	MSM_CPU_ATOLL_AB,
 	MSM_CPU_SDM660,
+	MSM_CPU_SDA660,
 };
 
 struct msm_soc_info {

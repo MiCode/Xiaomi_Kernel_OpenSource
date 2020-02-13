@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2475,7 +2475,6 @@ done:
 static enum alarmtimer_restart
 	fg_esr_sw_timer(struct alarm *alarm, ktime_t now)
 {
-	union power_supply_propval pval = {0, };
 	struct fg_dev *fg = container_of(alarm,
 			struct fg_dev, esr_sw_timer);
 

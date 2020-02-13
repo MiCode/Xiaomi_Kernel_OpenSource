@@ -17,6 +17,7 @@
 
 #include "dp_catalog.h"
 #include "drm_dp_helper.h"
+#include <soc/qcom/msm_dp_aux_bridge.h>
 
 #define DP_STATE_NOTIFICATION_SENT          BIT(0)
 #define DP_STATE_TRAIN_1_STARTED            BIT(1)
@@ -58,12 +59,14 @@ struct dp_aux {
 	void (*reconfig)(struct dp_aux *aux);
 	void (*abort)(struct dp_aux *aux, bool reset);
 	void (*dpcd_updated)(struct dp_aux *aux);
-	void (*set_sim_mode)(struct dp_aux *aux, bool en, u8 *edid, u8 *dpcd);
+	void (*set_sim_mode)(struct dp_aux *aux, bool en, u8 *edid, u8 *dpcd,
+		struct msm_dp_aux_bridge *sim_bridge);
 	int (*aux_switch)(struct dp_aux *aux, bool enable, int orientation);
 };
 
 struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
-		struct dp_parser *parser, struct device_node *aux_switch);
+		struct dp_parser *parser, struct device_node *aux_switch,
+		struct msm_dp_aux_bridge *aux_bridge);
 void dp_aux_put(struct dp_aux *aux);
 
 #endif /*__DP_AUX_H_*/

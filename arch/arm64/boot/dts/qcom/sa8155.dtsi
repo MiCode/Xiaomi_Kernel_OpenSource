@@ -10,12 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/ {
-	aliases {
-		i2c7 = &qupv3_se20_i2c;
-	};
-};
-
 /* Remove regulator nodes specific to SA8155 */
 &soc {
 	/delete-node/ regulator-pm8150-s4;
@@ -55,6 +49,7 @@
 	/delete-node/ rpmh-regulator-ldoc6;
 	/delete-node/ rpmh-regulator-ldoc7;
 	/delete-node/ rpmh-regulator-ldoc8;
+	/delete-node/ rpmh-regulator-ldoc18;
 	/delete-node/ rpmh-regulator-ldoc9;
 	/delete-node/ rpmh-regulator-ldoc10;
 	/delete-node/ rpmh-regulator-ldoc11;
@@ -77,19 +72,43 @@
 };
 
 &cam_csiphy0 {
-	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+	mipi-csi-vdd-supply = <&pm8150_2_l18>;
+	mipi-csi-vdd1p2-supply = <&pm8150_2_l8>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_csiphy1 {
-	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+	mipi-csi-vdd-supply = <&pm8150_2_l18>;
+	mipi-csi-vdd1p2-supply = <&pm8150_2_l8>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_csiphy2 {
-	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+	mipi-csi-vdd-supply = <&pm8150_2_l18>;
+	mipi-csi-vdd1p2-supply = <&pm8150_2_l8>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &cam_csiphy3 {
-	mipi-csi-vdd-supply = <&pm8150_2_l8>;
+	mipi-csi-vdd-supply = <&pm8150_2_l18>;
+	mipi-csi-vdd1p2-supply = <&pm8150_2_l8>;
+	regulator-names = "gdscr", "mipi-csi-vdd", "mipi-csi-vdd1p2";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 880000 1200000>;
+	rgltr-max-voltage = <0 880000 1200000>;
+	rgltr-load-current = <0 36000 21800>;
 };
 
 &pcie0 {
@@ -617,6 +636,7 @@
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
 		emac-core-version = <2>;
+		emac-phy-addr = <7>;
 		reg = <0x20000 0x10000>,
 			<0x36000 0x100>,
 			<0x3D00000 0x300000>;

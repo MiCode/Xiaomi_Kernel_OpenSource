@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3380,10 +3380,17 @@ static struct sk_buff *handle_page_completion(struct gsi_chan_xfer_notify
 		IPAERR("update_truesize not supported\n");
 
 	if (notify->veid >= GSI_VEID_MAX) {
-		rx_pkt->sys->free_rx_wrapper(rx_pkt);
-		if (!rx_page.is_tmp_alloc)
-			init_page_count(rx_page.page);
 		IPAERR("notify->veid > GSI_VEID_MAX\n");
+		if (!rx_page.is_tmp_alloc) {
+			init_page_count(rx_page.page);
+		} else {
+			dma_unmap_page(ipa3_ctx->pdev, rx_page.dma_addr,
+					rx_pkt->len, DMA_FROM_DEVICE);
+			__free_pages(rx_pkt->page_data.page,
+							IPA_WAN_PAGE_ORDER);
+		}
+		rx_pkt->sys->free_rx_wrapper(rx_pkt);
+		IPA_STATS_INC_CNT(ipa3_ctx->stats.rx_page_drop_cnt);
 		return NULL;
 	}
 
@@ -3397,10 +3404,18 @@ static struct sk_buff *handle_page_completion(struct gsi_chan_xfer_notify
 		sys->ep->client == IPA_CLIENT_APPS_LAN_CONS) {
 		rx_skb = alloc_skb(0, GFP_ATOMIC);
 		if (unlikely(!rx_skb)) {
-			rx_pkt->sys->free_rx_wrapper(rx_pkt);
-			if (!rx_page.is_tmp_alloc)
-				init_page_count(rx_page.page);
 			IPAERR("skb alloc failure\n");
+			list_del(&rx_pkt->link);
+			if (!rx_page.is_tmp_alloc) {
+				init_page_count(rx_page.page);
+			} else {
+				dma_unmap_page(ipa3_ctx->pdev, rx_page.dma_addr,
+					rx_pkt->len, DMA_FROM_DEVICE);
+				__free_pages(rx_pkt->page_data.page,
+							IPA_WAN_PAGE_ORDER);
+			}
+			rx_pkt->sys->free_rx_wrapper(rx_pkt);
+			IPA_STATS_INC_CNT(ipa3_ctx->stats.rx_page_drop_cnt);
 			return NULL;
 		}
 	/* go over the list backward to save computations on updating length */

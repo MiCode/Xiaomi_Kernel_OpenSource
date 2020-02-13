@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2296,9 +2296,7 @@ static bool _cpr3_adjust_target_quotients(struct cpr3_regulator *vreg,
 					prev_quot = vreg->corner[i].target_quot[j];
 					vreg->corner[i].target_quot[j]
 						+= quot_adjust;
-					cpr3_debug(vreg, "adjusted corner %d
-						RO%d target quot %s: %u -->
-						%u (%d uV)\n",
+					cpr3_debug(vreg, "adjusted corner %d RO%d target quot %s: %u --> %u (%d uV)\n",
 						i, j, label, prev_quot,
 						vreg->corner[i].target_quot[j],
 						volt_adjust[i]);

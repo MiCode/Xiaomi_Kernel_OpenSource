@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,6 @@ struct shd_stage_range {
 };
 
 struct shd_display_base {
-	struct mutex           base_mutex;
 	struct drm_display_mode mode;
 	struct drm_crtc       *crtc;
 	struct drm_encoder    *encoder;
@@ -48,8 +47,6 @@ struct shd_display_base {
 	int intf_idx;
 	int connector_type;
 	bool mst_port;
-	bool enabled;
-	bool enable_changed;
 };
 
 struct shd_display {
@@ -67,11 +64,8 @@ struct shd_display {
 	struct shd_stage_range stage_range;
 
 	struct platform_device *pdev;
-	struct completion vsync_comp;
 	struct list_head head;
-
-	bool enabled;
-	bool enable_changed;
+	struct drm_crtc *crtc;
 };
 
 /* drm internal header */

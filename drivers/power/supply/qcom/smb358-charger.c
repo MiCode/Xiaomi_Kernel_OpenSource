@@ -2539,7 +2539,7 @@ static int smb358_charger_probe(struct i2c_client *client,
 				irq, rc);
 			goto err_set_vtg_i2c;
 		}
-		enable_irq_wake(irq);
+		enable_irq_wake(client->irq);
 	} else {
 		goto err_set_vtg_i2c;
 	}

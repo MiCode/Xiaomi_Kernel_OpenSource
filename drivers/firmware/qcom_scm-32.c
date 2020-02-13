@@ -1,4 +1,4 @@
-/* Copyright (c) 2010,2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010,2015,2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -577,6 +577,13 @@ int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id)
 			    &req, sizeof(req), &scm_ret, sizeof(scm_ret));
 
 	return ret ? : le32_to_cpu(scm_ret);
+}
+
+int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
+			  size_t mem_sz, phys_addr_t src, size_t src_sz,
+			  phys_addr_t dest, size_t dest_sz)
+{
+	return -ENODEV;
 }
 
 int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,21 +35,6 @@
 		    buf1[QTAG_ETH_TYPE_OFFSET + 1]));\
 } while (0)
 
-enum  IPA_OFFLOAD_EVENT {
-	EV_INVALID = 0,
-	EV_DEV_OPEN = 1,
-	EV_DEV_CLOSE = 2,
-	EV_IPA_READY = 3,
-	EV_IPA_UC_READY = 4,
-	EV_PHY_LINK_UP = 5,
-	EV_PHY_LINK_DOWN = 6,
-	EV_DPM_SUSPEND = 7,
-	EV_DPM_RESUME = 8,
-	EV_USR_SUSPEND = 9,
-	EV_USR_RESUME = 10,
-	EV_IPA_OFFLOAD_MAX = 11,
-	EV_IPA_OFFLOAD_REMOVE = 12,
-};
 
 #ifdef CONFIG_ETH_IPA_OFFLOAD
 void ethqos_ipa_offload_event_handler(void *data, int ev);
@@ -58,5 +43,21 @@ static inline void ethqos_ipa_offload_event_handler(void *data, int ev)
 {
 }
 #endif
+
+#define EV_INVALID 0
+#define EV_PROBE_INIT (EV_INVALID + 1)
+#define EV_IPA_ENABLED (EV_PROBE_INIT + 1)
+#define EV_DEV_OPEN (EV_IPA_ENABLED + 1)
+#define EV_DEV_CLOSE (EV_DEV_OPEN + 1)
+#define EV_IPA_READY (EV_DEV_CLOSE + 1)
+#define EV_IPA_UC_READY (EV_IPA_READY + 1)
+#define EV_PHY_LINK_UP (EV_IPA_UC_READY + 1)
+#define EV_PHY_LINK_DOWN (EV_PHY_LINK_UP + 1)
+#define EV_DPM_SUSPEND (EV_PHY_LINK_DOWN + 1)
+#define EV_DPM_RESUME (EV_DPM_SUSPEND + 1)
+#define EV_USR_SUSPEND (EV_DPM_RESUME + 1)
+#define EV_USR_RESUME (EV_USR_SUSPEND + 1)
+#define EV_IPA_OFFLOAD_REMOVE (EV_USR_RESUME + 1)
+#define EV_IPA_OFFLOAD_MAX (EV_IPA_OFFLOAD_REMOVE + 1)
 
 #endif

@@ -115,7 +115,7 @@ static u32 pps_config_default_addend(void __iomem *ioaddr,
 		priv->default_addend = 0xFFFFFFFF;
 	} else {
 		temp = (u64)((u64)ptp_clock << 32);
-		priv->default_addend = div_u64(temp, 250000000);
+		priv->default_addend = div_u64(temp, priv->plat->clk_ptp_rate);
 	}
 	priv->hw->ptp->config_addend(ioaddr, priv->default_addend);
 
@@ -200,17 +200,21 @@ static void ethqos_unregister_pps_isr(struct stmmac_priv *priv, int ch)
 
 int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req)
 {
-	struct pps_cfg *eth_pps_cfg = (struct pps_cfg *)req->ptr;
 	int interval, width;
 	u32 sub_second_inc, value;
 	void __iomem *ioaddr = priv->ioaddr;
 	u32 val;
+	struct pps_cfg eth_pps_cfg;
 
-	if (!eth_pps_cfg->ppsout_start) {
-		ppsout_stop(priv, eth_pps_cfg);
-		if (eth_pps_cfg->ppsout_ch == DWC_ETH_QOS_PPS_CH_2 ||
-		    eth_pps_cfg->ppsout_ch == DWC_ETH_QOS_PPS_CH_3)
-			ethqos_unregister_pps_isr(priv, eth_pps_cfg->ppsout_ch);
+	if (copy_from_user(&eth_pps_cfg, (void __user *)req->ptr,
+			   sizeof(struct pps_cfg)))
+		return -EFAULT;
+
+	if (!eth_pps_cfg.ppsout_start) {
+		ppsout_stop(priv, &eth_pps_cfg);
+		if (eth_pps_cfg.ppsout_ch == DWC_ETH_QOS_PPS_CH_2 ||
+		    eth_pps_cfg.ppsout_ch == DWC_ETH_QOS_PPS_CH_3)
+			ethqos_unregister_pps_isr(priv, eth_pps_cfg.ppsout_ch);
 		return 0;
 	}
 
@@ -222,40 +226,40 @@ int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req)
 	val = readl_relaxed(ioaddr + MAC_PPS_CONTROL);
 
 	sub_second_inc = pps_config_sub_second_increment
-			 (priv->ptpaddr, eth_pps_cfg->ptpclk_freq,
+			 (priv->ptpaddr, eth_pps_cfg.ptpclk_freq,
 			  priv->plat->has_gmac4);
 	pps_config_default_addend(priv->ptpaddr, priv,
-				  eth_pps_cfg->ptpclk_freq);
+				  eth_pps_cfg.ptpclk_freq);
 
-	val &= ~PPSX_MASK(eth_pps_cfg->ppsout_ch);
+	val &= ~PPSX_MASK(eth_pps_cfg.ppsout_ch);
 
-	val |= PPSCMDX(eth_pps_cfg->ppsout_ch, 0x2);
-	val |= TRGTMODSELX(eth_pps_cfg->ppsout_ch, 0x2);
+	val |= PPSCMDX(eth_pps_cfg.ppsout_ch, 0x2);
+	val |= TRGTMODSELX(eth_pps_cfg.ppsout_ch, 0x2);
 	val |= PPSEN0;
 
-	if (eth_pps_cfg->ppsout_ch == DWC_ETH_QOS_PPS_CH_2 ||
-	    eth_pps_cfg->ppsout_ch == DWC_ETH_QOS_PPS_CH_3)
-		ethqos_register_pps_isr(priv, eth_pps_cfg->ppsout_ch);
+	if (eth_pps_cfg.ppsout_ch == DWC_ETH_QOS_PPS_CH_2 ||
+	    eth_pps_cfg.ppsout_ch == DWC_ETH_QOS_PPS_CH_3)
+		ethqos_register_pps_isr(priv, eth_pps_cfg.ppsout_ch);
 
 	writel_relaxed(0, ioaddr +
-		       MAC_PPSX_TARGET_TIME_SEC(eth_pps_cfg->ppsout_ch));
+		       MAC_PPSX_TARGET_TIME_SEC(eth_pps_cfg.ppsout_ch));
 
 	writel_relaxed(0, ioaddr +
-		       MAC_PPSX_TARGET_TIME_NSEC(eth_pps_cfg->ppsout_ch));
+		       MAC_PPSX_TARGET_TIME_NSEC(eth_pps_cfg.ppsout_ch));
 
-	interval = ((eth_pps_cfg->ptpclk_freq + eth_pps_cfg->ppsout_freq / 2)
-		   / eth_pps_cfg->ppsout_freq);
+	interval = ((eth_pps_cfg.ptpclk_freq + eth_pps_cfg.ppsout_freq / 2)
+		   / eth_pps_cfg.ppsout_freq);
 
-	width = ((interval * eth_pps_cfg->ppsout_duty) + 50) / 100 - 1;
+	width = ((interval * eth_pps_cfg.ppsout_duty) + 50) / 100 - 1;
 	if (width >= interval)
 		width = interval - 1;
 	if (width < 0)
 		width = 0;
 
 	writel_relaxed(interval, ioaddr +
-		       MAC_PPSX_INTERVAL(eth_pps_cfg->ppsout_ch));
+		       MAC_PPSX_INTERVAL(eth_pps_cfg.ppsout_ch));
 
-	writel_relaxed(width, ioaddr + MAC_PPSX_WIDTH(eth_pps_cfg->ppsout_ch));
+	writel_relaxed(width, ioaddr + MAC_PPSX_WIDTH(eth_pps_cfg.ppsout_ch));
 
 	writel_relaxed(val, ioaddr + MAC_PPS_CONTROL);
 
@@ -284,27 +288,6 @@ int ethqos_init_pps(struct stmmac_priv *priv)
 
 	ppsout_config(priv, &req);
 	return 0;
-}
-
-int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-{
-	struct stmmac_priv *pdata = netdev_priv(dev);
-	struct ifr_data_struct req;
-	struct pps_cfg eth_pps_cfg;
-	int ret = 0;
-
-	if (copy_from_user(&req, ifr->ifr_ifru.ifru_data,
-			   sizeof(struct ifr_data_struct)))
-		return -EFAULT;
-	if (copy_from_user(&eth_pps_cfg, req.ptr,
-			   sizeof(struct pps_cfg)))
-		return -EFAULT;
-	req.ptr = &eth_pps_cfg;
-	switch (req.cmd) {
-	case ETHQOS_CONFIG_PPSOUT_CMD:
-		ret = ppsout_config(pdata, &req);
-	}
-	return ret;
 }
 
 static ssize_t pps_fops_read(struct file *filp, char __user *buf,

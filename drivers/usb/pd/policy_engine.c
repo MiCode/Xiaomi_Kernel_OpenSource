@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -895,6 +895,7 @@ static void pd_send_hard_reset(struct usbpd *pd)
 	pd->hard_reset_count++;
 	pd_phy_signal(HARD_RESET_SIG);
 	pd->in_pr_swap = false;
+	pd->pd_connected = false;
 	power_supply_set_property(pd->usb_psy, POWER_SUPPLY_PROP_PR_SWAP, &val);
 }
 
@@ -2688,6 +2689,10 @@ static void usbpd_sm(struct work_struct *w)
 		ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES, default_src_caps,
 				ARRAY_SIZE(default_src_caps), SOP_MSG);
 		if (ret) {
+			if (pd->pd_connected) {
+				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+				return;
+			}
 			pd->caps_count++;
 			if (pd->caps_count >= PD_CAPS_COUNT) {
 				usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");

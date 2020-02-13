@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -418,10 +418,11 @@
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
-			snps,usb3_lpm_capable;
+			snps,ssp-u3-u0-quirk;
+			snps,usb3-u1u2-disable;
 			usb-core-id = <1>;
 			tx-fifo-resize;
-			maximum-speed = "super-speed";
+			maximum-speed = "super-speed-plus";
 			dr_mode = "otg";
 		};
 	};

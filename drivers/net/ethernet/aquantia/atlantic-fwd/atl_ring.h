@@ -14,6 +14,7 @@
 
 #include "atl_common.h"
 #include "atl_desc.h"
+#include "atl_ring_desc.h"
 
 //#define ATL_RINGS_IN_UC_MEM
 
@@ -35,7 +36,7 @@
 
 #define ring_space(ring)						\
 	({								\
-		typeof(ring) __ring = (ring);				\
+		struct atl_desc_ring *__ring = (ring);			\
 		uint32_t space = READ_ONCE(__ring->head) -		\
 			READ_ONCE(__ring->tail) - 1;			\
 		(int32_t)space < 0 ? space + __ring->hw.size : space;	\
@@ -43,7 +44,7 @@
 
 #define ring_occupied(ring)						\
 	({								\
-		typeof(ring) __ring = (ring);				\
+		struct atl_desc_ring *__ring = (ring);			\
 		uint32_t occupied = READ_ONCE(__ring->tail) -		\
 			READ_ONCE(__ring->head);			\
 		(int32_t)occupied < 0 ? occupied + __ring->hw.size	\
@@ -52,7 +53,8 @@
 
 #define bump_ptr(ptr, ring, amount)					\
 	({								\
-		uint32_t __res = offset_ptr(ptr, ring, amount);		\
+		struct atl_desc_ring *__ring = (ring);			\
+		uint32_t __res = offset_ptr(ptr, &__ring->hw, amount);	\
 		(ptr) = __res;						\
 		__res;							\
 	})
@@ -61,13 +63,15 @@
  * in ndo->start_xmit which is serialized by the stack and the rest are
  * only adjusted in NAPI poll which is serialized by NAPI */
 #define bump_tail(ring, amount) do {					\
-	uint32_t __ptr = READ_ONCE((ring)->tail);			\
-	WRITE_ONCE((ring)->tail, offset_ptr(__ptr, ring, amount));	\
+	struct atl_desc_ring *__ring = (ring);				\
+	uint32_t __ptr = READ_ONCE(__ring->tail);			\
+	WRITE_ONCE(__ring->tail, offset_ptr(__ptr, &__ring->hw, amount));\
 	} while (0)
 
 #define bump_head(ring, amount) do {					\
-	uint32_t __ptr = READ_ONCE((ring)->head);			\
-	WRITE_ONCE((ring)->head, offset_ptr(__ptr, ring, amount));	\
+	struct atl_desc_ring *__ring = (ring);				\
+	uint32_t __ptr = READ_ONCE(__ring->head);			\
+	WRITE_ONCE(__ring->head, offset_ptr(__ptr, &__ring->hw, amount));\
 	} while (0)
 
 struct atl_rxpage {
@@ -104,34 +108,25 @@ struct atl_txbuf {
 	DEFINE_DMA_UNMAP_LEN(len);
 };
 
-struct atl_desc_ring {
-	struct atl_hw_ring hw;
-	uint32_t head, tail;
-	union {
-		/* Rx ring only */
-		uint32_t next_to_recycle;
-		/* Tx ring only, template desc for atl_map_tx_skb() */
-		union atl_desc desc;
-	};
-	union {
-		struct atl_rxbuf *rxbufs;
-		struct atl_txbuf *txbufs;
-		void *bufs;
-	};
-	struct atl_queue_vec *qvec;
-	struct u64_stats_sync syncp;
-	struct atl_ring_stats stats;
+struct legacy_irq_work {
+	struct work_struct work;
+
+	struct napi_struct *napi;
+};
+static inline struct legacy_irq_work *to_irq_work(struct work_struct *work)
+{
+	return container_of(work, struct legacy_irq_work, work);
 };
 
 struct ____cacheline_aligned atl_queue_vec {
 	struct atl_desc_ring tx;
 	struct atl_desc_ring rx;
-	struct device *dev;	/* pdev->dev for DMA */
 	struct napi_struct napi;
 	struct atl_nic *nic;
 	unsigned idx;
 	char name[IFNAMSIZ + 10];
 	cpumask_t affinity_hint;
+	struct work_struct *work;
 };
 
 #define atl_for_each_qvec(nic, qvec)				\
@@ -140,7 +135,7 @@ struct ____cacheline_aligned atl_queue_vec {
 
 static inline struct atl_hw *ring_hw(struct atl_desc_ring *ring)
 {
-	return &ring->qvec->nic->hw;
+	return &ring->nic->hw;
 }
 
 static inline int atl_qvec_intr(struct atl_queue_vec *qvec)
@@ -160,6 +155,23 @@ static inline dma_addr_t atl_buf_daddr(struct atl_pgref *pgref)
 
 void atl_get_ring_stats(struct atl_desc_ring *ring,
 	struct atl_ring_stats *stats);
+#define atl_update_ring_stat(ring, stat, delta)			\
+do {								\
+	struct atl_desc_ring *_ring = (ring);			\
+								\
+	u64_stats_update_begin(&_ring->syncp);			\
+	_ring->stats.stat += (delta);				\
+	u64_stats_update_end(&_ring->syncp);			\
+} while (0)
+
+int atl_init_rx_ring(struct atl_desc_ring *rx);
+int atl_init_tx_ring(struct atl_desc_ring *tx);
+
+typedef int (*rx_skb_handler_t)(struct atl_desc_ring *ring,
+				struct sk_buff *skb);
+int atl_clean_rx(struct atl_desc_ring *ring, int budget,
+		 rx_skb_handler_t rx_skb_func);
+void atl_clear_rx_bufs(struct atl_desc_ring *ring);
 
 #ifdef ATL_RINGS_IN_UC_MEM
 

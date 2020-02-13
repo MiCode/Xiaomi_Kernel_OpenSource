@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,6 +165,9 @@ static int smd_pkt_rpdev_cb(struct rpmsg_device *rpdev, void *buf, int len,
 	struct smd_pkt_dev *smd_pkt_devp = dev_get_drvdata(&rpdev->dev);
 	unsigned long flags;
 	struct sk_buff *skb;
+
+	if (!smd_pkt_devp)
+		return -EINVAL;
 
 	skb = alloc_skb(len, GFP_ATOMIC);
 

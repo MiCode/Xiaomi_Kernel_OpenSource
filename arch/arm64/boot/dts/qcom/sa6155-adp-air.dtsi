@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,6 +141,7 @@
 		reg-names = "emac-base", "rgmii-base";
 		dma-bit-mask = <32>;
 		emac-core-version = <7>;
+		emac-phy-addr = <7>;
 		interrupts-extended = <&pdc 0 660 4>, <&pdc 0 661 4>,
 			<&tlmm 121 2>, <&pdc 0 651 4>,
 			<&pdc 0 652 4>, <&pdc 0 653 4>,

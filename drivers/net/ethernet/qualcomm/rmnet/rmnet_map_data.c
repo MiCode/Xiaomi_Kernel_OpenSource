@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -543,7 +543,6 @@ void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
 
 		check = rmnet_map_get_csum_field(proto, trans);
 		if (check) {
-			*check = 0;
 			skb->ip_summed = CHECKSUM_NONE;
 			/* Ask for checksum offloading */
 			ul_header->csum_valid_required = 1;
