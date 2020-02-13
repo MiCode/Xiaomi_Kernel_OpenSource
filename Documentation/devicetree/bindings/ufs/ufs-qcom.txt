@@ -43,6 +43,8 @@ Optional properties:
 - vddp-ref-clk-max-uV : specifies max voltage that can be set for reference clock supply
 - qcom,disable-lpm : disable various LPM mechanisms in UFS for platform compatibility
   (limit link to PWM Gear-1, 1-lane slow mode; disable hibernate, and avoid suspend/resume)
+- vccq-parent-supply   : phandle to UFS device's VCCQ parent power supply
+- vccq-parent-max-microamp : specifies max. load that can be drawn from the VCCQ's parent supply
 
 Example:
 
