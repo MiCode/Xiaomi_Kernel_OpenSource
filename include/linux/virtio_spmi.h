@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,12 +29,13 @@ struct virtio_spmi_config {
 } __packed;
 
 struct payload_cmd {
+	__virtio32 cmd;
 	__virtio32 data[2];
 };
 
 struct payload_irq {
-	__virtio32 ppid;
-	__virtio32 val;
+	__virtio16 ppid;
+	__virtio32 regval;
 };
 
 union payload_data {
@@ -44,19 +45,15 @@ union payload_data {
 
 struct virtio_spmi_msg {
 	__virtio32 type;
-	__virtio32 len;
 	__virtio32 res;
-	union {
-		__virtio32 cmd;
-		__virtio32 cnt;
-	} u;
-	union payload_data payload[];
+	union payload_data payload;
 };
 
 /* Virtio SPMI message type */
 enum vio_spmi_msg_type {
 	VIO_SPMI_BUS_WRITE = 0,
 	VIO_SPMI_BUS_READ = 1,
+	VIO_SPMI_BUS_CMDMAX  = 1,
 	VIO_ACC_ENABLE_WR = 2,
 	VIO_ACC_ENABLE_RD = 3,
 	VIO_IRQ_CLEAR = 4,
@@ -68,10 +65,4 @@ enum vio_spmi_msg_res {
 	VIO_SPMI_DONE = 0,
 	VIO_SPMI_ERR = 1,
 };
-
-/* payload fix size and one payload_data size */
-#define MSG_FIX_SZ (sizeof(struct virtio_spmi_msg))
-#define PER_PLD_SZ (sizeof(union payload_data))
-#define MSG_SZ(x)  (MSG_FIX_SZ + ((PER_PLD_SZ) * (x)))
-
 #endif /* _LINUX_VIRTIO_SPMI_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -253,25 +253,16 @@
 		status = "ok";
 	};
 
-	spmi_bus: qcom,spmi {
-		compatible = "qcom,viospmi-pmic-arb";
-		interrupt-names = "periph_irq";
-		interrupts = <GIC_SPI 481 IRQ_TYPE_NONE>;
-		qcom,ee = <0>;
-		qcom,channel = <0>;
-		#address-cells = <2>;
-		#size-cells = <0>;
-		interrupt-controller;
-		#interrupt-cells = <4>;
-		cell-index = <0>;
-	};
-
-	viospmi: virtio-spmi@1c800000 {
+	spmi_bus: virtio-spmi@1c800000 {
 		compatible = "virtio,mmio";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x1c800000 0x1100>;
+		interrupt-names = "periph_irq";
 		interrupts = <GIC_SPI 45 IRQ_TYPE_NONE>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
 		status = "okay";
 	};
 
