@@ -1,3 +1,7 @@
+#include <dt-bindings/clock/qcom,dispcc-holi.h>
+#include <dt-bindings/clock/qcom,gcc-holi.h>
+#include <dt-bindings/clock/qcom,gpucc-holi.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -366,7 +370,122 @@
 		#interrupt-cells = <3>;
 		#mbox-cells = <2>;
 	};
+
+	clocks {
+		xo_board: xo-board {
+			compatible = "fixed-clock";
+			clock-frequency = <38400000>;
+			clock-output-names = "xo_board";
+			#clock-cells = <0>;
+		};
+
+		sleep_clk: sleep-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32764>;
+			clock-output-names = "chip_sleep_clk";
+			#clock-cells = <0>;
+		};
+	};
+
+	bi_tcxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	bi_tcxo_ao: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	rpmcc: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	gcc: qcom,gcc@1400000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	dispcc: qcom,dispcc@5f00000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	gpucc: qcom,gpucc@5990000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
 };
 
 #include "holi-pinctrl.dtsi"
 #include "holi-stub-regulator.dtsi"
+#include "holi-gdsc.dtsi"
+
+&gcc_camss_top_gdsc {
+	status = "ok";
+};
+
+&gcc_ufs_phy_gdsc {
+	status = "ok";
+};
+
+&gcc_usb30_prim_gdsc {
+	status = "ok";
+};
+
+&gcc_vcodec0_gdsc {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gcc_venus_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mm_snoc_mmu_tbu_rt_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mm_snoc_mmu_tbu_nrt_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_turing_mmu_tbu1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_turing_mmu_tbu0_gdsc {
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	vdd_parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
