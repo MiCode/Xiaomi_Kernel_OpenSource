@@ -716,4 +716,13 @@ config QCOM_SMCINVOKE
 	 communication between QTI Secure Execution Environment (QSEE)
 	 and high level operating system. It exposes APIs for both
 	 userspace and kernel clients.
+
+config QCOM_GUESTVM
+	tristate "Enable Guest VM to be loaded by PIL"
+	help
+	   This driver invokes Peripheral Image Loader to load images of
+	   any guest Virtual Machine (VM). It also communicates with the
+	   Resource Manager driver to start the boot of VMs once it has
+	   successfully loaded the VM images in the designated memory.
+
 endmenu

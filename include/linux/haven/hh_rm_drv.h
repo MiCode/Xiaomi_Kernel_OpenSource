@@ -114,12 +114,21 @@ struct hh_rm_notif_vm_console_chars {
 
 int hh_rm_register_notifier(struct notifier_block *nb);
 int hh_rm_unregister_notifier(struct notifier_block *nb);
+
+/* Client APIs for IRQ management */
 int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq);
+int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label);
 
 /* Client APIs for VM management */
 int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
 int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid);
 int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name);
 int hh_rm_vm_start(int vmid);
+
+/* Client APIs for VM Services */
+int hh_rm_console_open(hh_vmid_t vmid);
+int hh_rm_console_close(hh_vmid_t vmid);
+int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size);
+int hh_rm_console_flush(hh_vmid_t vmid);
 
 #endif
