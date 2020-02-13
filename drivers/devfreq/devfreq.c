@@ -1075,10 +1075,6 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 	}
 
 	mutex_lock(&df->event_lock);
-	if (df->dev_suspended) {
-		ret = -EINVAL;
-		goto gov_stop_out;
-	}
 	if (df->governor) {
 		ret = df->governor->event_handler(df, DEVFREQ_GOV_STOP, NULL);
 		if (ret) {
