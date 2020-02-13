@@ -15,6 +15,8 @@
 #include <linux/property.h>
 #include <linux/usb/composite.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/kernel.h>
 
 struct qti_usb_function {
 	struct usb_function_instance *fi;
@@ -57,6 +59,10 @@ static char serialno_string[256] = "12345";
 module_param_string(serialno, serialno_string,
 		    sizeof(serialno_string), 0644);
 MODULE_PARM_DESC(quirks, "String representing name of manufacturer");
+
+static char usb_pid_string[256];
+module_param_string(usb_pid, usb_pid_string, sizeof(usb_pid_string), 0644);
+MODULE_PARM_DESC(quirks, "String representing product id");
 
 /* String Table */
 static struct usb_string strings_dev[] = {
@@ -457,20 +463,8 @@ static void qti_gadget_unregister(struct qti_usb_gadget *qg)
 static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 {
 	struct device *dev = gadget->dev;
-	int ret, val;
-
-	ret = device_property_read_string(dev, "qcom,composition",
-				    &gadget->composition_funcs);
-	if (ret) {
-		dev_err(dev, "USB gadget composition not specified\n");
-		return ret;
-	}
-
-	/* bail out if ffs is specified and let userspace handle it */
-	if (strstr(gadget->composition_funcs, "ffs.")) {
-		dev_err(dev, "user should enable ffs\n");
-		return -EINVAL;
-	}
+	struct device_node *child = NULL;
+	int ret = 0, val = 0, pid = 0;
 
 	ret = device_property_read_u32(dev, "qcom,vid", &val);
 	if (ret) {
@@ -478,13 +472,6 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 		return ret;
 	}
 	gadget->cdev.desc.idVendor = (u16)val;
-
-	ret = device_property_read_u32(dev, "qcom,pid", &val);
-	if (ret) {
-		dev_err(dev, "USB gadget idProduct not specified\n");
-		return ret;
-	}
-	gadget->cdev.desc.idProduct = (u16)val;
 
 	ret = device_property_read_u32(dev, "qcom,class", &val);
 	if (!ret)
@@ -497,6 +484,43 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 	ret = device_property_read_u32(dev, "qcom,protocol", &val);
 	if (!ret)
 		gadget->cdev.desc.bDeviceProtocol = (u8)val;
+
+	/* Check if pid passed via cmdline which takes precedence */
+	if (usb_pid_string != NULL) {
+		ret = kstrtoint(usb_pid_string, 16, &val);
+		if (ret)
+			return ret;
+	} else {
+		ret = device_property_read_u32(dev, "qcom,default-pid", &val);
+		if (ret) {
+			dev_dbg(dev, "USB gadget default-pid not specified\n");
+			return ret;
+		}
+	}
+
+	pid = val;
+
+	/* Go through all the child nodes and find matching pid */
+	while ((child = of_get_next_child(dev->of_node, child)) != NULL) {
+		of_property_read_u32(child, "qcom,pid", &val);
+		if (val == pid) {
+			of_property_read_string(child, "qcom,composition",
+					&gadget->composition_funcs);
+			break;
+		}
+	}
+
+	/* Check if couldn't find a matching composition */
+	if (gadget->composition_funcs == NULL)
+		return -EINVAL;
+
+	/* bail out if ffs is specified and let userspace handle it */
+	if (strstr(gadget->composition_funcs, "ffs.")) {
+		dev_err(dev, "user should enable ffs\n");
+		return -EINVAL;
+	}
+
+	gadget->cdev.desc.idProduct = (u16)pid;
 
 	return 0;
 }
