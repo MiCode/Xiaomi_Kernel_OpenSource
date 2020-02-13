@@ -544,6 +544,7 @@ int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
 			    u32 *val)
 {
 	int ret = 0;
+	bool do_force_wake_put = true;
 
 	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
 	if (ret)
@@ -553,7 +554,9 @@ int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
 	if (ret < 0)
 		goto runtime_pm_put;
 
-	cnss_pci_force_wake_get(pci_priv);
+	ret = cnss_pci_force_wake_get(pci_priv);
+	if (ret)
+		do_force_wake_put = false;
 
 	ret = cnss_pci_reg_read(pci_priv, offset, val);
 	if (ret) {
@@ -563,7 +566,8 @@ int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
 	}
 
 force_wake_put:
-	cnss_pci_force_wake_put(pci_priv);
+	if (do_force_wake_put)
+		cnss_pci_force_wake_put(pci_priv);
 runtime_pm_put:
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
 	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
@@ -575,6 +579,7 @@ int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 			     u32 val)
 {
 	int ret = 0;
+	bool do_force_wake_put = true;
 
 	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
 	if (ret)
@@ -584,7 +589,9 @@ int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 	if (ret < 0)
 		goto runtime_pm_put;
 
-	cnss_pci_force_wake_get(pci_priv);
+	ret = cnss_pci_force_wake_get(pci_priv);
+	if (ret)
+		do_force_wake_put = false;
 
 	ret = cnss_pci_reg_write(pci_priv, offset, val);
 	if (ret) {
@@ -594,7 +601,8 @@ int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 	}
 
 force_wake_put:
-	cnss_pci_force_wake_put(pci_priv);
+	if (do_force_wake_put)
+		cnss_pci_force_wake_put(pci_priv);
 runtime_pm_put:
 	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
 	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
@@ -1518,7 +1526,8 @@ static void cnss_pci_misc_reg_dump(struct cnss_pci_data *pci_priv,
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
 
-	cnss_pci_force_wake_get(pci_priv);
+	if (cnss_pci_force_wake_get(pci_priv))
+		return;
 
 	cnss_pr_dbg("start to dump %s registers\n", reg_name);
 
@@ -1574,6 +1583,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 {
 	int i, j = 0, array_size = SHADOW_REG_COUNT + SHADOW_REG_INTER_COUNT;
 	u32 reg_offset;
+	bool do_force_wake_put = true;
 
 	if (in_interrupt() || irqs_disabled())
 		return;
@@ -1590,7 +1600,7 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	}
 
 	if (cnss_pci_force_wake_get(pci_priv))
-		return;
+		do_force_wake_put = false;
 
 	cnss_pr_dbg("Start to dump shadow registers\n");
 
@@ -1611,7 +1621,8 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	}
 
 force_wake_put:
-	cnss_pci_force_wake_put(pci_priv);
+	if (do_force_wake_put)
+		cnss_pci_force_wake_put(pci_priv);
 }
 
 #ifdef CONFIG_CNSS2_DEBUG
