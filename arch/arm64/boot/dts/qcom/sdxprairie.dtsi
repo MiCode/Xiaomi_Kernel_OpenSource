@@ -548,7 +548,7 @@
 		qcom,wlan-ce-db-over-pcie;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
-		qcom,ipa-wdi3-over-gsi;
+		qcom,ipa-wdi2_over_gsi;
 		qcom,ipa-endp-delay-wa;
 		qcom,msm-bus,num-cases = <5>;
 		qcom,msm-bus,num-paths = <5>;
