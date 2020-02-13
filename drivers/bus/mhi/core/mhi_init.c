@@ -352,6 +352,11 @@ static int mhi_init_debugfs_mhi_chan_open(struct inode *inode, struct file *fp)
 	return single_open(fp, mhi_debugfs_mhi_chan_show, inode->i_private);
 }
 
+static int mhi_init_debugfs_mhi_vote_open(struct inode *inode, struct file *fp)
+{
+	return single_open(fp, mhi_debugfs_mhi_vote_show, inode->i_private);
+}
+
 static const struct file_operations debugfs_state_ops = {
 	.open = mhi_init_debugfs_mhi_states_open,
 	.release = single_release,
@@ -366,6 +371,12 @@ static const struct file_operations debugfs_ev_ops = {
 
 static const struct file_operations debugfs_chan_ops = {
 	.open = mhi_init_debugfs_mhi_chan_open,
+	.release = single_release,
+	.read = seq_read,
+};
+
+static const struct file_operations debugfs_vote_ops = {
+	.open = mhi_init_debugfs_mhi_vote_open,
 	.release = single_release,
 	.read = seq_read,
 };
@@ -395,6 +406,8 @@ void mhi_init_debugfs(struct mhi_controller *mhi_cntrl)
 				   &debugfs_ev_ops);
 	debugfs_create_file_unsafe("chan", 0444, dentry, mhi_cntrl,
 				   &debugfs_chan_ops);
+	debugfs_create_file_unsafe("vote", 0444, dentry, mhi_cntrl,
+				   &debugfs_vote_ops);
 	debugfs_create_file_unsafe("reset", 0444, dentry, mhi_cntrl,
 				   &debugfs_trigger_reset_fops);
 	mhi_cntrl->dentry = dentry;
@@ -1474,6 +1487,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	}
 
 	mhi_dev->dev_type = MHI_CONTROLLER_TYPE;
+	mhi_dev->chan_name = mhi_cntrl->name;
 	mhi_dev->mhi_cntrl = mhi_cntrl;
 	dev_set_name(&mhi_dev->dev, "%04x_%02u.%02u.%02u", mhi_dev->dev_id,
 		     mhi_dev->domain, mhi_dev->bus, mhi_dev->slot);
