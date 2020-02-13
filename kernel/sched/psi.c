@@ -619,8 +619,7 @@ void psi_emergency_trigger(void)
 
 		/* Generate an event */
 		if (cmpxchg(&t->event, 0, 1) == 0) {
-			mod_timer(&t->wdog_timer, jiffies +
-					  nsecs_to_jiffies(2 * t->win.size));
+			mod_timer(&t->wdog_timer, (unsigned long)t->win.size);
 			wake_up_interruptible(&t->event_wait);
 		}
 		t->last_event_time = now;
@@ -1248,7 +1247,14 @@ static void psi_trigger_destroy(struct kref *ref)
 	 * deadlock while waiting for psi_poll_work to acquire trigger_lock
 	 */
 	if (kworker_to_destroy) {
+		/*
+		* After the RCU grace period has expired, the worker
+		* can no longer be found through group->poll_kworker.
+		* But it might have been already scheduled before
+		* that - deschedule it cleanly before destroying it.
+		*/
 		kthread_cancel_delayed_work_sync(&group->poll_work);
+		atomic_set(&group->poll_scheduled, 0);
 		kthread_destroy_worker(kworker_to_destroy);
 	}
 	kfree(t);

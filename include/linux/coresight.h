@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2012,2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _LINUX_CORESIGHT_H
@@ -306,8 +307,6 @@ static inline bool coresight_link_late_disable(void)
 	else
 		return false;
 }
-extern void coresight_disable_all_source_link(void);
-extern void coresight_enable_all_source_link(void);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -321,8 +320,6 @@ static inline void coresight_abort(void) {}
 static inline void coresight_disable_reg_clk(struct coresight_device *csdev) {}
 static inline int coresight_enable_reg_clk(struct coresight_device *csdev)
 { return -EINVAL; }
-static void coresight_disable_all_source_link(void) {};
-static void coresight_enable_all_source_link(void) {};
 #endif
 
 #if defined(CONFIG_OF) && defined(CONFIG_CORESIGHT)

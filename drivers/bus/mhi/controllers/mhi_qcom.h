@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #ifndef _MHI_QCOM_
 #define _MHI_QCOM_
@@ -29,8 +30,6 @@
 				mhi_cntrl->remote_timer_freq))
 #define REMOTE_TIME_REMAINDER_US(x) (REMOTE_TICKS_TO_US((x)) % \
 					(REMOTE_TICKS_TO_SEC((x)) * 1000000ULL))
-
-#define MHI_MAX_SFR_LEN (256)
 
 extern const char * const mhi_ee_str[MHI_EE_MAX];
 #define TO_MHI_EXEC_STR(ee) (ee >= MHI_EE_MAX ? "INVALID_EE" : mhi_ee_str[ee])
@@ -70,6 +69,7 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 
 #ifdef CONFIG_ARCH_QCOM
 
+void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl);
 int mhi_arch_power_up(struct mhi_controller *mhi_cntrl);
 int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl);
@@ -100,6 +100,10 @@ static inline int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 static inline int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 {
 	return 0;
+}
+
+static inline void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+{
 }
 
 #endif

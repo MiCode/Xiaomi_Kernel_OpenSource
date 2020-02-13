@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -234,12 +235,13 @@ struct spcom_device {
 
 	int32_t nvm_ion_fd;
 	struct mutex ioctl_lock;
-	struct mutex create_channel_lock;
 };
 
 /* Device Driver State */
 static struct spcom_device *spcom_dev;
 
+/* error registers shared with SPU */
+static u32 spcom_rmb_error_reg_addr;
 /* Physical address of SP2SOC RMB shared register */
 /* SP_SCSR_RMB_SP2SOC_IRQ_SET_ADDR */
 static u32 spcom_sp2soc_rmb_reg_addr;
@@ -595,15 +597,29 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
  */
 static int spcom_local_powerup(const struct subsys_desc *subsys)
 {
-	void __iomem *regs;
+	void __iomem *regs, *err_regs;
+	u32 pbl_status_reg = 0;
 
-	regs = ioremap_nocache(spcom_sp2soc_rmb_reg_addr, sizeof(u32));
-	if (!regs)
+	err_regs = ioremap_nocache(spcom_rmb_error_reg_addr, sizeof(u32));
+	if (!err_regs)
 		return -ENOMEM;
 
-	writel_relaxed(spcom_sp2soc_pbldone_mask|spcom_sp2soc_initdone_mask,
-		regs);
-	iounmap(regs);
+	pbl_status_reg = readl_relaxed(err_regs);
+
+	if (pbl_status_reg == 0) {
+		regs = ioremap_nocache(spcom_sp2soc_rmb_reg_addr, sizeof(u32));
+		if (!regs) {
+			iounmap(err_regs);
+			return -ENOMEM;
+		}
+
+		writel_relaxed(
+			spcom_sp2soc_pbldone_mask|spcom_sp2soc_initdone_mask,
+			regs);
+		iounmap(regs);
+	}
+
+	iounmap(err_regs);
 	pr_debug("spcom local powerup - SPSS cold boot\n");
 	return 0;
 }
@@ -1964,26 +1980,22 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 	struct cdev *cdev;
 
 	pr_debug("Add channel [%s]\n", name);
-	mutex_lock(&spcom_dev->create_channel_lock);
 
 	ch = spcom_find_channel_by_name(name);
 	if (ch) {
 		pr_err("channel [%s] already exist\n", name);
-		mutex_unlock(&spcom_dev->create_channel_lock);
 		return -EBUSY;
 	}
 
 	ch = spcom_find_channel_by_name(""); /* find reserved channel */
 	if (!ch) {
 		pr_err("no free channel\n");
-		mutex_unlock(&spcom_dev->create_channel_lock);
 		return -ENODEV;
 	}
 
 	ret = spcom_init_channel(ch, is_sharable, name);
 	if (ret < 0) {
 		pr_err("can't init channel %d\n", ret);
-		mutex_unlock(&spcom_dev->create_channel_lock);
 		return ret;
 	}
 
@@ -2022,7 +2034,6 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 	ch->cdev = cdev;
 	ch->dev = dev;
 	mutex_unlock(&ch->lock);
-	mutex_unlock(&spcom_dev->create_channel_lock);
 
 	return 0;
 
@@ -2039,7 +2050,6 @@ exit_destroy_channel:
 	mutex_lock(&ch->lock);
 	memset(ch->name, 0, SPCOM_CHANNEL_NAME_SIZE);
 	mutex_unlock(&ch->lock);
-	mutex_unlock(&spcom_dev->create_channel_lock);
 	return -EFAULT;
 }
 
@@ -2120,6 +2130,13 @@ static int spcom_parse_dt(struct device_node *np)
 	u32 soc2sp_rmb_sp_ssr_bit = 0;
 
 	/* Read SP HLOS SCSR RMB IRQ register address */
+	ret = of_property_read_u32(np, "qcom,spcom-rmb-err-reg-addr",
+		&spcom_rmb_error_reg_addr);
+	if (ret < 0) {
+		pr_err("can't get rmb error reg addr\n");
+		return ret;
+	}
+
 	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-reg-addr",
 		&spcom_sp2soc_rmb_reg_addr);
 	if (ret < 0) {
@@ -2494,7 +2511,6 @@ static int spcom_probe(struct platform_device *pdev)
 	spin_lock_init(&spcom_dev->rx_lock);
 	spcom_dev->nvm_ion_fd = -1;
 	mutex_init(&spcom_dev->ioctl_lock);
-	mutex_init(&spcom_dev->create_channel_lock);
 
 	ret = spcom_register_chardev();
 	if (ret) {

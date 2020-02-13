@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GPU_CC_LAGOON_H
@@ -28,6 +29,5 @@
 #define GPU_CC_GX_GMU_CLK					18
 #define GPU_CC_GX_VSENSE_CLK					19
 #define GPU_CC_SLEEP_CLK					20
-#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK				21
 
 #endif

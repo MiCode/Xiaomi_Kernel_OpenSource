@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef DIAGCHAR_H
@@ -222,8 +223,8 @@
 #define DEFAULT_LOW_WM_VAL	15
 #define DEFAULT_HIGH_WM_VAL	85
 
-#define HDLC_CTXT		1
-#define NON_HDLC_CTXT	2
+#define HDLC_CTXT 1
+#define NON_HDLC_CTXT 2
 
 #define TYPE_DATA		0
 #define TYPE_CNTL		1

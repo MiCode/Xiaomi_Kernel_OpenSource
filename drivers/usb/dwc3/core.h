@@ -3,6 +3,7 @@
  * core.h - DesignWare USB3 DRD Core Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -1345,8 +1346,6 @@ struct dwc3 {
 	 */
 	bool			host_poweroff_in_pm_suspend;
 	int			retries_on_error;
-	/*  If true, GDSC collapse will happen in HOST mode bus suspend */
-	bool			gdsc_collapse_in_host_suspend;
 };
 
 #define INCRX_BURST_MODE 0

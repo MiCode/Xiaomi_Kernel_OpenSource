@@ -2,6 +2,7 @@
  *  linux/kernel/panic.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -280,7 +281,7 @@ void panic(const char *fmt, ...)
 		 */
 		if (panic_reboot_mode != REBOOT_UNDEFINED)
 			reboot_mode = panic_reboot_mode;
-		emergency_restart();
+		machine_emergency_restart();
 	}
 #ifdef __sparc__
 	{

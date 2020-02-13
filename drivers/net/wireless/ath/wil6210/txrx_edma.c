@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/etherdevice.h>
@@ -1011,8 +1012,8 @@ again:
 	}
 	stats = &wil->sta[cid].stats;
 
-	if (unlikely(dmalen < ETH_HLEN)) {
-		wil_dbg_txrx(wil, "Short frame, len = %d\n", dmalen);
+	if (unlikely(skb->len < ETH_HLEN)) {
+		wil_dbg_txrx(wil, "Short frame, len = %d\n", skb->len);
 		stats->rx_short_frame++;
 		rxdata->skipping = true;
 		goto skipping;
@@ -1316,10 +1317,6 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 					if (stats)
 						stats->tx_errors++;
 				}
-
-				if (skb->protocol == cpu_to_be16(ETH_P_PAE))
-					wil_tx_complete_handle_eapol(vif, skb);
-
 				wil_consume_skb(skb, msg.status == 0);
 			}
 			memset(ctx, 0, sizeof(*ctx));

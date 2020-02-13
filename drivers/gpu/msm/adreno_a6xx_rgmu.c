@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/firmware.h>
@@ -259,7 +260,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 	if (rgmu->idle_level != GPU_HW_IFPC)
 		return 0;
 
-	ts1 = a6xx_gmu_read_ao_counter(device);
+	ts1 = read_AO_counter(device);
 
 	t = jiffies + msecs_to_jiffies(RGMU_IDLE_TIMEOUT);
 	do {
@@ -273,7 +274,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
-	ts2 = a6xx_gmu_read_ao_counter(device);
+	ts2 = read_AO_counter(device);
 
 	/* Do one last read incase it succeeds */
 	gmu_core_regread(device,
@@ -282,7 +283,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 	if (reg[0] & GX_GDSC_POWER_OFF)
 		return 0;
 
-	ts3 = a6xx_gmu_read_ao_counter(device);
+	ts3 = read_AO_counter(device);
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &reg[1]);
@@ -573,7 +574,6 @@ struct gmu_dev_ops adreno_a6xx_rgmudev = {
 	.ifpc_show = a6xx_rgmu_ifpc_show,
 	.snapshot = a6xx_rgmu_snapshot,
 	.halt_execution = a6xx_rgmu_halt_execution,
-	.read_ao_counter = a6xx_gmu_read_ao_counter,
 	.gmu2host_intr_mask = RGMU_OOB_IRQ_MASK,
 	.gmu_ao_intr_mask = RGMU_AO_IRQ_MASK,
 };

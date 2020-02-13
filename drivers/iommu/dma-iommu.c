@@ -316,6 +316,47 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 }
 EXPORT_SYMBOL(iommu_dma_init_domain);
 
+/* Should be called from camera driver probe, before you call dma_map */
+void iommu_dma_reserve_iova(struct device *dev, unsigned long pfn_lo, unsigned long pfn_hi)
+{
+	struct iommu_domain *domain;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
+	struct iova *iova;
+	unsigned long lo, hi;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain || !domain->iova_cookie)
+		return;	
+
+	pr_err("CAMERADBG: %s: %s: reserveiova=%lx-%lx\n", __func__, dev_name(dev), pfn_lo, pfn_hi);
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
+
+	lo = iova_pfn(iovad, pfn_lo);
+	hi = iova_pfn(iovad, pfn_hi);
+
+	/* Memory leak it */
+	iova = reserve_iova(iovad, lo, hi);
+}
+
+/*
+ * Should be called prior to using dma-apis.
+ */
+int iommu_dma_enable_best_fit_algo(struct device *dev)
+{
+	struct iommu_domain *domain;
+	struct iova_domain *iovad;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain || !domain->iova_cookie)
+		return -EINVAL;
+
+	iovad = &((struct iommu_dma_cookie *)domain->iova_cookie)->iovad;
+	iovad->best_fit = true;
+	return 0;
+}
+
 /**
  * dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
  *                    page flags.

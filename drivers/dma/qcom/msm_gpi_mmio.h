@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /* Register offsets from gpi-top */
@@ -228,7 +229,3 @@ enum CNTXT_OFFS {
 #define GPI_DEBUG_QSB_LOG_1 (0x5068)
 #define GPI_DEBUG_QSB_LOG_2 (0x506C)
 #define GPI_DEBUG_QSB_LOG_LAST_MISC_ID(n) (0x5070 + (0x4*n))
-
-/* IEOB bit set */
-#define GPI_IEOB_BMSK (0x100)
-#define GPI_IEOB_BMSK_SHIFT (8)

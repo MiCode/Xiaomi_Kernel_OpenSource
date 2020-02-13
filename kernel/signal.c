@@ -2,6 +2,7 @@
  *  linux/kernel/signal.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2020 XiaoMi, Inc.
  *
  *  1997-11-02  Modified for POSIX.1b signals by Richard Henderson
  *
@@ -1372,7 +1373,8 @@ int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 		check_panic_on_foreground_kill(p);
 		ret = do_send_sig_info(sig, info, p, type);
 		if (capable(CAP_KILL) && sig == SIGKILL) {
-			add_to_oom_reaper(p);
+			if (!strcmp(current->comm, ULMK_MAGIC))
+				add_to_oom_reaper(p);
 			ulmk_update_last_kill();
 		}
 	}

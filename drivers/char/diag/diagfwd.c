@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -1915,6 +1916,7 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 				  int ctxt)
 {
 	unsigned long flags;
+
 	int peripheral = -1, type = -1;
 	int num = -1, hdlc_ctxt = -1;
 	struct diag_apps_data_t *temp = NULL;
@@ -1940,7 +1942,7 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 			if ((hdlc_ctxt == HDLC_CTXT) && hdlc_data.allocated)
 				temp = &hdlc_data;
 			else if ((hdlc_ctxt == NON_HDLC_CTXT) &&
-				non_hdlc_data.allocated)
+			non_hdlc_data.allocated)
 				temp = &non_hdlc_data;
 			else
 				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,

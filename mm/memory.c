@@ -2,6 +2,7 @@
  *  linux/mm/memory.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -1318,6 +1319,8 @@ again:
 		pte_t ptent = *pte;
 		if (pte_none(ptent))
 			continue;
+		if (need_resched())
+			break;
 
 		if (pte_present(ptent)) {
 			struct page *page;
@@ -1417,8 +1420,10 @@ again:
 	if (force_flush) {
 		force_flush = 0;
 		tlb_flush_mmu_free(tlb);
-		if (addr != end)
-			goto again;
+	}
+	if (addr != end) {
+		cond_resched();
+		goto again;
 	}
 
 	return addr;
@@ -3524,7 +3529,7 @@ static vm_fault_t pte_alloc_one_map(struct vm_fault *vmf)
 {
 	struct vm_area_struct *vma = vmf->vma;
 
-	if (!pmd_none(*vmf->pmd) || (vmf->flags & FAULT_FLAG_SPECULATIVE))
+	if (!pmd_none(*vmf->pmd))
 		goto map_pte;
 	if (vmf->prealloc_pte) {
 		vmf->ptl = pmd_lock(vma->vm_mm, vmf->pmd);

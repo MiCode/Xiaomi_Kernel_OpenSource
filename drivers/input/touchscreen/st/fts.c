@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
@@ -58,11 +59,6 @@
 #include "linux/moduleparam.h"
 
 #define LINK_KOBJ_NAME "tp"
-
-#define FTS_DVDD_VOL_MIN 1800000
-#define FTS_DVDD_VOL_MAX 1800000
-#define FTS_AVDD_VOL_MIN 3000000
-#define FTS_AVDD_VOL_MAX 3300000
 
 /*
  * Uncomment to use polling mode instead of interrupt mode.
@@ -4336,21 +4332,6 @@ static int fts_get_reg(struct fts_ts_info *info, bool get)
 			retval = PTR_ERR(info->pwr_reg);
 			goto regulator_put;
 		}
-
-		retval = regulator_set_load(info->pwr_reg, 62000);
-		if (retval < 0) {
-			logError(1, "%s %s: Failed to set power load\n",
-				tag, __func__);
-			goto regulator_put;
-		}
-
-		retval = regulator_set_voltage(info->pwr_reg,
-				FTS_DVDD_VOL_MIN, FTS_DVDD_VOL_MAX);
-		if (retval < 0) {
-			logError(1, "%s %s: Failed to set power voltage\n",
-				tag, __func__);
-			goto regulator_put;
-		}
 	}
 
 	if ((bdata->bus_reg_name != NULL) && (*bdata->bus_reg_name != 0)) {
@@ -4361,22 +4342,6 @@ static int fts_get_reg(struct fts_ts_info *info, bool get)
 				"%s %s:Failed to get bus pullup regulator\n",
 				tag, __func__);
 			retval = PTR_ERR(info->bus_reg);
-			goto regulator_put;
-		}
-
-		retval = regulator_set_load(info->bus_reg, 20000);
-		if (retval < 0) {
-			logError(1, "%s %s: Failed to set power load\n",
-				tag, __func__);
-			goto regulator_put;
-		}
-
-		retval = regulator_set_voltage(info->bus_reg,
-				FTS_AVDD_VOL_MIN, FTS_AVDD_VOL_MAX);
-
-		if (retval < 0) {
-			logError(1, "%s %s: Failed to set power voltage\n",
-				tag, __func__);
 			goto regulator_put;
 		}
 	}

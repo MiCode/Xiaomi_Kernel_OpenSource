@@ -1,0 +1,11 @@
+#
+# FPC sensors
+#
+
+config FINGERPRINT_FPC_FOD
+	tristate "FPC1020 fingerprint sensor IRQ support"
+	depends on INPUT_FINGERPRINT
+	help
+		If you say yes here you get IRQ support for the FPC1020 family
+		of fingerprint sensors from Fingerprint Cards (FPC).
+

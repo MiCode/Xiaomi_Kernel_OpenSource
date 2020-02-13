@@ -36,6 +36,8 @@ struct cpu_cooling_ops {
 	plat_mitig_t ceil_limit, floor_limit;
 };
 
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq);
+
 #ifdef CONFIG_CPU_THERMAL
 /**
  * cpufreq_cooling_register - function to create cpufreq cooling device.

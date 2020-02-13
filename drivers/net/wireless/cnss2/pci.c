@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/cma.h>
 #include <linux/firmware.h>
@@ -396,11 +397,9 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 {
 	int ret;
 
-	if (!in_interrupt() && !irqs_disabled()) {
-		ret = cnss_pci_check_link_status(pci_priv);
-		if (ret)
-			return ret;
-	}
+	ret = cnss_pci_check_link_status(pci_priv);
+	if (ret)
+		return ret;
 
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
 	    offset < MAX_UNWINDOWED_ADDRESS) {
@@ -423,11 +422,9 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 {
 	int ret;
 
-	if (!in_interrupt() && !irqs_disabled()) {
-		ret = cnss_pci_check_link_status(pci_priv);
-		if (ret)
-			return ret;
-	}
+	ret = cnss_pci_check_link_status(pci_priv);
+	if (ret)
+		return ret;
 
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
 	    offset < MAX_UNWINDOWED_ADDRESS) {
@@ -1651,6 +1648,44 @@ static int cnss_qca6174_ramdump(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
+static void cnss_pci_set_wlaon_pwr_ctrl(struct cnss_pci_data *pci_priv,
+					bool poweroff)
+{
+	int ret;
+	u32 val;
+
+	ret = cnss_pci_reg_read(pci_priv, QCA6390_WLAON_QFPROM_PWR_CTRL_REG,
+			        &val);
+	if (ret) {
+		cnss_pr_err("Failed to read register offset 0x%x err = %d\n",
+			    QCA6390_WLAON_QFPROM_PWR_CTRL_REG, ret);
+		return;
+	}
+
+	cnss_pr_dbg("Read register offset 0x%x val = 0x%x\n",
+		    QCA6390_WLAON_QFPROM_PWR_CTRL_REG, val);
+
+	/* clear BIT2 */
+	val &= ~0x4;
+
+	if (poweroff)
+		val |= 0x1;
+
+	ret = cnss_pci_reg_write(pci_priv, QCA6390_WLAON_QFPROM_PWR_CTRL_REG,
+			         val);
+	if (ret) {
+		cnss_pr_err("Failed to write register offset 0x%x err = %d\n",
+			    QCA6390_WLAON_QFPROM_PWR_CTRL_REG, ret);
+		return;
+	}
+
+	cnss_pr_dbg("Write val 0x%x to register offset 0x%x\n", val,
+		    QCA6390_WLAON_QFPROM_PWR_CTRL_REG);
+
+	if (poweroff)
+		msleep(1);
+}
+
 static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -1687,6 +1722,8 @@ retry:
 		}
 		goto power_off;
 	}
+
+	cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false);
 
 	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
 
@@ -1762,6 +1799,9 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	}
 
 	cnss_pci_power_off_mhi(pci_priv);
+
+	cnss_pci_set_wlaon_pwr_ctrl(pci_priv, true);
+
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
@@ -4115,6 +4155,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto dereg_pci_event;
 
+	cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false);
+
 	pci_save_state(pci_dev);
 	pci_priv->default_state = pci_store_saved_state(pci_dev);
 
@@ -4150,6 +4192,9 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 
 		if (EMULATION_HW)
 			break;
+
+		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, true);
+
 		ret = cnss_suspend_pci_link(pci_priv);
 		if (ret)
 			cnss_pr_err("Failed to suspend PCI link, err = %d\n",

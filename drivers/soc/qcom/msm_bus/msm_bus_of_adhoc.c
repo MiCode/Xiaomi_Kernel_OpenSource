@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "AXI: %s(): " fmt, __func__
@@ -182,12 +183,6 @@ static void get_qos_params(
 
 	of_property_read_u32(dev_node, "qcom,prio-wr",
 						&node_info->qos_params.prio_wr);
-
-	of_property_read_u32(dev_node, "qcom,prio",
-					&node_info->qos_params.prio_dflt);
-
-	node_info->qos_params.urg_fwd_en = of_property_read_bool(dev_node,
-						"qcom,forwarding");
 
 	of_property_read_u32(dev_node, "qcom,gp",
 						&node_info->qos_params.gp);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /* -------------------------------------------------------------------------
@@ -25,7 +26,6 @@
  */
 static int npu_debug_open(struct inode *inode, struct file *file);
 static int npu_debug_release(struct inode *inode, struct file *file);
-static int npu_debug_reg_open(struct inode *inode, struct file *file);
 static int npu_debug_reg_release(struct inode *inode, struct file *file);
 static ssize_t npu_debug_reg_read(struct file *file,
 		char __user *user_buf, size_t count, loff_t *ppos);
@@ -45,7 +45,7 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 static struct npu_device *g_npu_dev;
 
 static const struct file_operations npu_reg_fops = {
-	.open = npu_debug_reg_open,
+	.open = npu_debug_open,
 	.release = npu_debug_reg_release,
 	.read = npu_debug_reg_read,
 };
@@ -88,28 +88,16 @@ static int npu_debug_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int npu_debug_reg_open(struct inode *inode, struct file *file)
-{
-	struct npu_debugfs_reg_ctx *reg_ctx;
-
-	reg_ctx = kzalloc(sizeof(*reg_ctx), GFP_KERNEL);
-	if (!reg_ctx)
-		return -ENOMEM;
-
-	/* non-seekable */
-	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
-	reg_ctx->npu_dev = inode->i_private;
-	file->private_data = reg_ctx;
-	return 0;
-}
-
 static int npu_debug_reg_release(struct inode *inode, struct file *file)
 {
-	struct npu_debugfs_reg_ctx *reg_ctx = file->private_data;
+	struct npu_device *npu_dev = file->private_data;
+	struct npu_debugfs_ctx *debugfs;
 
-	kfree(reg_ctx->buf);
-	kfree(reg_ctx);
-	file->private_data = NULL;
+	debugfs = &npu_dev->debugfs_ctx;
+
+	kfree(debugfs->buf);
+	debugfs->buf_len = 0;
+	debugfs->buf = NULL;
 	return 0;
 }
 
@@ -120,8 +108,7 @@ static int npu_debug_reg_release(struct inode *inode, struct file *file)
 static ssize_t npu_debug_reg_read(struct file *file,
 			char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct npu_debugfs_reg_ctx *reg_ctx = file->private_data;
-	struct npu_device *npu_dev = reg_ctx->npu_dev;
+	struct npu_device *npu_dev = file->private_data;
 	struct npu_debugfs_ctx *debugfs;
 	size_t len;
 
@@ -130,16 +117,16 @@ static ssize_t npu_debug_reg_read(struct file *file,
 	if (debugfs->reg_cnt == 0)
 		return 0;
 
-	if (!reg_ctx->buf) {
+	if (!debugfs->buf) {
 		char dump_buf[64];
 		char *ptr;
 		int cnt, tot, off;
 
-		reg_ctx->buf_len = sizeof(dump_buf) *
+		debugfs->buf_len = sizeof(dump_buf) *
 			DIV_ROUND_UP(debugfs->reg_cnt, ROW_BYTES);
-		reg_ctx->buf = kzalloc(reg_ctx->buf_len, GFP_KERNEL);
+		debugfs->buf = kzalloc(debugfs->buf_len, GFP_KERNEL);
 
-		if (!reg_ctx->buf)
+		if (!debugfs->buf)
 			return -ENOMEM;
 
 		ptr = npu_dev->core_io.base + debugfs->reg_off;
@@ -153,28 +140,28 @@ static ssize_t npu_debug_reg_read(struct file *file,
 			hex_dump_to_buffer(ptr, min(cnt, ROW_BYTES),
 					   ROW_BYTES, GROUP_BYTES, dump_buf,
 					   sizeof(dump_buf), false);
-			len = scnprintf(reg_ctx->buf + tot,
-				reg_ctx->buf_len - tot, "0x%08x: %s\n",
+			len = scnprintf(debugfs->buf + tot,
+				debugfs->buf_len - tot, "0x%08x: %s\n",
 				((int) (unsigned long) ptr) -
 				((int) (unsigned long) npu_dev->core_io.base),
 				dump_buf);
 
 			ptr += ROW_BYTES;
 			tot += len;
-			if (tot >= reg_ctx->buf_len)
+			if (tot >= debugfs->buf_len)
 				break;
 		}
 		npu_disable_core_power(npu_dev);
 
-		reg_ctx->buf_len = tot;
+		debugfs->buf_len = tot;
 	}
 
-	if (*ppos >= reg_ctx->buf_len)
+	if (*ppos >= debugfs->buf_len)
 		return 0; /* done reading */
 
-	len = min(count, reg_ctx->buf_len - (size_t) *ppos);
-	NPU_DBG("read %zi %zi\n", count, reg_ctx->buf_len - (size_t) *ppos);
-	if (copy_to_user(user_buf, reg_ctx->buf + *ppos, len)) {
+	len = min(count, debugfs->buf_len - (size_t) *ppos);
+	NPU_DBG("read %zi %zi\n", count, debugfs->buf_len - (size_t) *ppos);
+	if (copy_to_user(user_buf, debugfs->buf + *ppos, len)) {
 		NPU_ERR("failed to copy to user\n");
 		return -EFAULT;
 	}

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #include <linux/module.h>
 #include <linux/thermal.h>
@@ -170,7 +171,7 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Request state should be less than max_level */
 	if (state > CPU_ISOLATE_LEVEL)
-		return -EINVAL;
+		state = CPU_ISOLATE_LEVEL;
 
 	state = !!state;
 	/* Check if the old cooling action is same as new cooling action */

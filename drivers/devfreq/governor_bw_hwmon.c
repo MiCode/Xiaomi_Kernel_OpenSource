@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "bw-hwmon: " fmt
@@ -705,7 +706,7 @@ static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 	struct hwmon_node *node = df->data;
 
 	/* Suspend/resume sequence */
-	if (node && !node->mon_started) {
+	if (!node->mon_started) {
 		*freq = node->resume_freq;
 		*node->dev_ab = node->resume_ab;
 		return 0;

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1347,7 +1348,7 @@ static inline void msm_bus_scale_unregister_client(uint32_t cl)
 {
 }
 #endif /* CONFIG_QCOM_BUS_SCALING */
-
+extern int in_panic;
 static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 {
 	if (host->dev_ref_clk_ctrl_mmio &&
@@ -1380,8 +1381,12 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		 */
 		if (enable) {
 			if (host->hba->dev_info.quirks &
-			    UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE)
-				usleep_range(50, 60);
+			    UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE) {
+				if (!in_panic)
+					usleep_range(50, 60);
+				else
+					udelay(50);
+			}
 			else
 				udelay(1);
 		}
@@ -1401,9 +1406,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
 	int res = 0;
-
-	hba->ufs_stats.clk_hold.ctx = PWR_CHG_NOTIFY;
-	ufshcd_hold(hba, false);
 
 	if (!dev_req_params) {
 		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
@@ -1495,8 +1497,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		break;
 	}
 out:
-	hba->ufs_stats.clk_rel.ctx = PWR_CHG_NOTIFY;
-	ufshcd_release(hba, false);
 	return ret;
 }
 
@@ -1724,7 +1724,7 @@ static void ufs_qcom_pm_qos_req_start(struct ufs_hba *hba, struct request *req)
 
 	group = &host->pm_qos.groups[ufs_qcom_cpu_to_group(host, req->cpu)];
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	if (!host->pm_qos.is_enabled)
 		goto out;
 
@@ -1735,7 +1735,7 @@ static void ufs_qcom_pm_qos_req_start(struct ufs_hba *hba, struct request *req)
 		queue_work(host->pm_qos.workq, &group->vote_work);
 	}
 out:
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
 /* hba->host->host_lock is assumed to be held by caller */
@@ -1763,10 +1763,10 @@ static void ufs_qcom_pm_qos_req_end(struct ufs_hba *hba, struct request *req,
 		return;
 
 	if (should_lock)
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	__ufs_qcom_pm_qos_req_end(ufshcd_get_variant(hba), req->cpu);
 	if (should_lock)
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
 static void ufs_qcom_pm_qos_vote_work(struct work_struct *work)
@@ -1776,15 +1776,15 @@ static void ufs_qcom_pm_qos_vote_work(struct work_struct *work)
 	struct ufs_qcom_host *host = group->host;
 	unsigned long flags;
 
-	spin_lock_irqsave(host->hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(host->hba->host->host_lock, flags);
 
 	if (!host->pm_qos.is_enabled || !group->active_reqs) {
-		spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 		return;
 	}
 
 	group->state = PM_QOS_VOTED;
-	spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 
 	pm_qos_update_request(&group->req, group->latency_us);
 }
@@ -1800,15 +1800,15 @@ static void ufs_qcom_pm_qos_unvote_work(struct work_struct *work)
 	 * Check if new requests were submitted in the meantime and do not
 	 * unvote if so.
 	 */
-	spin_lock_irqsave(host->hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(host->hba->host->host_lock, flags);
 
 	if (!host->pm_qos.is_enabled || group->active_reqs) {
-		spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 		return;
 	}
 
 	group->state = PM_QOS_UNVOTED;
-	spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 
 	pm_qos_update_request_timeout(&group->req,
 		group->latency_us, UFS_QCOM_PM_QOS_UNVOTE_TIMEOUT_US);
@@ -1842,22 +1842,22 @@ static ssize_t ufs_qcom_pm_qos_enable_store(struct device *dev,
 	 * Must take the spinlock and save irqs before changing the enabled
 	 * flag in order to keep correctness of PM QoS release.
 	 */
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	if (enable == host->pm_qos.is_enabled) {
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 		return count;
 	}
 	host->pm_qos.is_enabled = enable;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (!enable)
 		for (i = 0; i < host->pm_qos.num_groups; i++) {
 			cancel_work_sync(&host->pm_qos.groups[i].vote_work);
 			cancel_work_sync(&host->pm_qos.groups[i].unvote_work);
-			spin_lock_irqsave(hba->host->host_lock, flags);
+			ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 			host->pm_qos.groups[i].state = PM_QOS_UNVOTED;
 			host->pm_qos.groups[i].active_reqs = 0;
-			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 			pm_qos_update_request(&host->pm_qos.groups[i].req,
 				PM_QOS_DEFAULT_VALUE);
 		}
@@ -1917,9 +1917,9 @@ static ssize_t ufs_qcom_pm_qos_latency_store(struct device *dev,
 		if (ret)
 			break;
 
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 		host->pm_qos.groups[i].latency_us = value;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
 	kfree(strbuf_copy);
@@ -2102,9 +2102,12 @@ __setup("androidboot.bootdevice=", get_android_boot_dev);
  */
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 {
+#ifdef CONFIG_FACTORY_BUILD
 	struct device_node *node = host->hba->dev->of_node;
-
 	host->disable_lpm = of_property_read_bool(node, "qcom,disable-lpm");
+#else
+	host->disable_lpm = false;
+#endif
 	if (host->disable_lpm)
 		pr_info("%s: will disable all LPM modes\n", __func__);
 }
@@ -2674,7 +2677,7 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	if (!host)
 		return -EINVAL;
 	hba = host->hba;
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	switch (host->testbus.select_major) {
 	case TSTBUS_UAWM:
 		reg = UFS_TEST_BUS_CTRL_0;
@@ -2735,12 +2738,12 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	if (offset < 0) {
 		dev_err(hba->dev, "%s: Bad offset: %d\n", __func__, offset);
 		ret = -EINVAL;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 		goto out;
 	}
 	mask <<= offset;
 
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 	if (reg) {
 		ufshcd_rmwl(host->hba, TEST_BUS_SEL,
 		    (u32)host->testbus.select_major << testbus_sel_offset,
@@ -2823,15 +2826,30 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba, bool no_sleep)
 		return;
 
 	/* sleep a bit intermittently as we are dumping too much data */
-	usleep_range(1000, 1100);
+	if (!in_panic)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_testbus_read(hba);
-	usleep_range(1000, 1100);
+	if (!in_panic)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_print_unipro_testbus(hba);
-	usleep_range(1000, 1100);
+	if (!in_panic)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_print_utp_hci_testbus(hba);
-	usleep_range(1000, 1100);
+	if (!in_panic)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_phy_dbg_register_dump(phy);
-	usleep_range(1000, 1100);
+	if (!in_panic)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_ice_print_regs(host);
 }
 

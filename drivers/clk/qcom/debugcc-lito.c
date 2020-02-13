@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -280,6 +281,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_camera_ahb_clk",
 	"gcc_camera_hf_axi_clk",
 	"gcc_camera_sf_axi_clk",
+	"gcc_camera_throttle_hf_axi_clk",
+	"gcc_camera_throttle_sf_axi_clk",
 	"gcc_camera_xo_clk",
 	"gcc_cfg_noc_usb3_prim_axi_clk",
 	"gcc_cpuss_ahb_clk",
@@ -290,6 +293,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_disp_gpll0_clk_src",
 	"gcc_disp_hf_axi_clk",
 	"gcc_disp_sf_axi_clk",
+	"gcc_disp_throttle_hf_axi_clk",
+	"gcc_disp_throttle_sf_axi_clk",
 	"gcc_disp_xo_clk",
 	"gcc_gp1_clk",
 	"gcc_gp2_clk",
@@ -361,6 +366,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb3_prim_phy_pipe_clk",
 	"gcc_video_ahb_clk",
 	"gcc_video_axi_clk",
+	"gcc_video_throttle1_axi_clk",
+	"gcc_video_throttle_axi_clk",
 	"gcc_video_xo_clk",
 	"gpu_cc_debug_mux",
 	"mc_cc_debug_mux",
@@ -380,6 +387,8 @@ static int gcc_debug_mux_sels[] = {
 	0x3F,		/* gcc_camera_ahb_clk */
 	0x47,		/* gcc_camera_hf_axi_clk */
 	0x48,		/* gcc_camera_sf_axi_clk */
+	0x57,		/* gcc_camera_throttle_hf_axi_clk */
+	0x58,		/* gcc_camera_throttle_sf_axi_clk */
 	0x4C,		/* gcc_camera_xo_clk */
 	0x1C,		/* gcc_cfg_noc_usb3_prim_axi_clk */
 	0xD5,		/* gcc_cpuss_ahb_clk */
@@ -390,6 +399,8 @@ static int gcc_debug_mux_sels[] = {
 	0x5B,		/* gcc_disp_gpll0_clk_src */
 	0x49,		/* gcc_disp_hf_axi_clk */
 	0x4A,		/* gcc_disp_sf_axi_clk */
+	0x55,		/* gcc_disp_throttle_hf_axi_clk */
+	0x56,		/* gcc_disp_throttle_sf_axi_clk */
 	0x4D,		/* gcc_disp_xo_clk */
 	0xE4,		/* gcc_gp1_clk */
 	0xE5,		/* gcc_gp2_clk */
@@ -461,6 +472,8 @@ static int gcc_debug_mux_sels[] = {
 	0x75,		/* gcc_usb3_prim_phy_pipe_clk */
 	0x3E,		/* gcc_video_ahb_clk */
 	0x5A,		/* gcc_video_axi_clk */
+	0x5C,		/* gcc_video_throttle1_axi_clk */
+	0x46,		/* gcc_video_throttle_axi_clk */
 	0x4B,		/* gcc_video_xo_clk */
 	0x129,		/* gpu_cc_debug_mux */
 	0xC5,		/* mc_cc_debug_mux */
@@ -501,6 +514,7 @@ static const char *const gpu_cc_debug_mux_parent_names[] = {
 	"gpu_cc_cxo_clk",
 	"gpu_cc_gx_gmu_clk",
 	"gpu_cc_gx_vsense_clk",
+	"gpu_cc_rbcpr_clk",
 	"gpu_cc_sleep_clk",
 	"measure_only_gpu_cc_cx_gfx3d_clk",
 	"measure_only_gpu_cc_cx_gfx3d_slv_clk",
@@ -517,6 +531,7 @@ static int gpu_cc_debug_mux_sels[] = {
 	0x19,		/* gpu_cc_cxo_clk */
 	0xF,		/* gpu_cc_gx_gmu_clk */
 	0xC,		/* gpu_cc_gx_vsense_clk */
+	0x1C,		/* gpu_cc_rbcpr_clk */
 	0x16,		/* gpu_cc_sleep_clk */
 	0x1A,		/* measure_only_gpu_cc_cx_gfx3d_clk */
 	0x1B,		/* measure_only_gpu_cc_cx_gfx3d_slv_clk */
@@ -544,6 +559,8 @@ static struct clk_debug_mux gpu_cc_debug_mux = {
 };
 
 static const char *const npu_cc_debug_mux_parent_names[] = {
+	"npu_cc_aon_clk",
+	"npu_cc_atb_clk",
 	"npu_cc_bto_core_clk",
 	"npu_cc_bwmon_clk",
 	"npu_cc_cal_hm0_cdc_clk",
@@ -575,6 +592,8 @@ static const char *const npu_cc_debug_mux_parent_names[] = {
 };
 
 static int npu_cc_debug_mux_sels[] = {
+	0x5,		/* npu_cc_aon_clk */
+	0x17,		/* npu_cc_atb_clk */
 	0x19,		/* npu_cc_bto_core_clk */
 	0x18,		/* npu_cc_bwmon_clk */
 	0xB,		/* npu_cc_cal_hm0_cdc_clk */
@@ -627,6 +646,7 @@ static struct clk_debug_mux npu_cc_debug_mux = {
 
 static const char *const video_cc_debug_mux_parent_names[] = {
 	"video_cc_apb_clk",
+	"video_cc_at_clk",
 	"video_cc_mvs0_axi_clk",
 	"video_cc_mvs0_core_clk",
 	"video_cc_mvs1_axi_clk",
@@ -640,6 +660,7 @@ static const char *const video_cc_debug_mux_parent_names[] = {
 
 static int video_cc_debug_mux_sels[] = {
 	0xD,		/* video_cc_apb_clk */
+	0x10,		/* video_cc_at_clk */
 	0xA,		/* video_cc_mvs0_axi_clk */
 	0x3,		/* video_cc_mvs0_core_clk */
 	0xB,		/* video_cc_mvs1_axi_clk */
