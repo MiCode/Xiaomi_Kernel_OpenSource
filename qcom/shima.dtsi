@@ -296,3 +296,4 @@
 };
 
 #include "shima-pinctrl.dtsi"
+#include "shima-stub-regulator.dtsi"
