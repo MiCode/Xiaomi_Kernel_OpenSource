@@ -1339,6 +1339,10 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				TO_MHI_EXEC_STR(event));
 			switch (event) {
 			case MHI_EE_SBL:
+				write_lock_irq(&mhi_cntrl->pm_lock);
+				mhi_cntrl->ee = MHI_EE_SBL;
+				write_unlock_irq(&mhi_cntrl->pm_lock);
+				wake_up_all(&mhi_cntrl->state_event);
 				st = MHI_ST_TRANSITION_SBL;
 				break;
 			case MHI_EE_WFW:
@@ -1346,13 +1350,6 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				st = MHI_ST_TRANSITION_MISSION_MODE;
 				break;
 			case MHI_EE_RDDM:
-				mhi_cntrl->status_cb(mhi_cntrl,
-						     mhi_cntrl->priv_data,
-						     MHI_CB_EE_RDDM);
-				write_lock_irq(&mhi_cntrl->pm_lock);
-				mhi_cntrl->ee = event;
-				write_unlock_irq(&mhi_cntrl->pm_lock);
-				wake_up_all(&mhi_cntrl->state_event);
 				break;
 			default:
 				MHI_ERR("Unhandled EE event:%s\n",
@@ -1532,9 +1529,6 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 		ret = -EIO;
 		goto exit_no_lock;
 	}
-
-	if (mhi_cntrl->need_force_m3 && !mhi_cntrl->force_m3_done)
-		goto exit_no_lock;
 
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
@@ -1716,12 +1710,16 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	}
 
 	state = mhi_get_mhi_state(mhi_cntrl);
-	ee = mhi_cntrl->ee;
-	mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
-	MHI_LOG("local ee: %s device ee:%s dev_state:%s\n",
-		TO_MHI_EXEC_STR(ee),
+	ee = mhi_get_exec_env(mhi_cntrl);
+	MHI_LOG("local ee:%s device ee:%s dev_state:%s\n",
 		TO_MHI_EXEC_STR(mhi_cntrl->ee),
+		TO_MHI_EXEC_STR(ee),
 		TO_MHI_STATE_STR(state));
+
+	if (mhi_cntrl->power_down) {
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		goto exit_intvec;
+	}
 
 	if (state == MHI_STATE_SYS_ERR) {
 		MHI_ERR("MHI system error detected\n");
@@ -1730,20 +1728,28 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	}
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	/* if device in rddm don't bother processing sys error */
-	if (mhi_cntrl->ee == MHI_EE_RDDM && ee != MHI_EE_DISABLE_TRANSITION) {
-		if (mhi_cntrl->ee != ee) {
-			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
-					     MHI_CB_EE_RDDM);
-			wake_up_all(&mhi_cntrl->state_event);
-
-			/* notify critical clients with early notifications */
-			mhi_control_error(mhi_cntrl);
+	if (ee == MHI_EE_RDDM) {
+		write_lock_irq(&mhi_cntrl->pm_lock);
+		if (mhi_cntrl->ee == MHI_EE_RDDM) {
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			goto exit_intvec;
 		}
+		mhi_cntrl->ee = MHI_EE_RDDM;
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+
+		MHI_ERR("RDDM event occurred!\n");
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_EE_RDDM);
+		wake_up_all(&mhi_cntrl->state_event);
+
+		/* notify critical clients with early notifications */
+		mhi_control_error(mhi_cntrl);
+
 		goto exit_intvec;
 	}
 
-	if (pm_state == MHI_PM_SYS_ERR_DETECT) {
+	/* if device is in RDDM, don't bother processing SYS_ERR */
+	if (ee != MHI_EE_RDDM && pm_state == MHI_PM_SYS_ERR_DETECT) {
 		wake_up_all(&mhi_cntrl->state_event);
 
 		/* for fatal errors, we let controller decide next step */
