@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, Linux Foundation. All rights reserved.
  */
 
 #include "phy-qcom-ufs-i.h"
@@ -14,6 +14,9 @@
 #define VDDP_REF_CLK_MAX_UV        1200000
 
 #define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
+
+static int ufs_qcom_phy_start_serdes(struct ufs_qcom_phy *ufs_qcom_phy);
+static int ufs_qcom_phy_is_pcs_ready(struct ufs_qcom_phy *ufs_qcom_phy);
 
 void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
 			    struct ufs_qcom_phy_calibration *tbl,
@@ -33,10 +36,17 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_B,
 			   int tbl_size_B, bool is_rate_B)
 {
+	struct device *dev = ufs_qcom_phy->dev;
 	int ret = 0;
 
+	ret = reset_control_assert(ufs_qcom_phy->ufs_reset);
+	if (ret) {
+		dev_err(dev, "Failed to assert UFS PHY reset %d\n", ret);
+		goto out;
+	}
+
 	if (!tbl_A) {
-		dev_err(ufs_qcom_phy->dev, "%s: tbl_A is NULL", __func__);
+		dev_err(dev, "%s: tbl_A is NULL\n", __func__);
 		ret = EINVAL;
 		goto out;
 	}
@@ -51,7 +61,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	 */
 	if (is_rate_B) {
 		if (!tbl_B) {
-			dev_err(ufs_qcom_phy->dev, "%s: tbl_B is NULL",
+			dev_err(dev, "%s: tbl_B is NULL\n",
 				__func__);
 			ret = EINVAL;
 			goto out;
@@ -62,6 +72,16 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 
 	/* flush buffered writes */
 	mb();
+
+	ret = reset_control_deassert(ufs_qcom_phy->ufs_reset);
+	if (ret)
+		dev_err(dev, "Failed to deassert UFS PHY reset %d\n", ret);
+
+	ret = ufs_qcom_phy_start_serdes(ufs_qcom_phy);
+	if (ret)
+		goto out;
+
+	ret = ufs_qcom_phy_is_pcs_ready(ufs_qcom_phy);
 
 out:
 	return ret;
@@ -153,7 +173,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_generic_probe);
 
-static int ufs_qcom_phy_get_reset(struct ufs_qcom_phy *phy_common)
+int ufs_qcom_phy_get_reset(struct ufs_qcom_phy *phy_common)
 {
 	struct reset_control *reset;
 
@@ -167,6 +187,7 @@ static int ufs_qcom_phy_get_reset(struct ufs_qcom_phy *phy_common)
 	phy_common->ufs_reset = reset;
 	return 0;
 }
+EXPORT_SYMBOL(ufs_qcom_phy_get_reset);
 
 static int __ufs_qcom_phy_clk_get(struct device *dev,
 			 const char *name, struct clk **clk_out, bool err_print)
@@ -605,8 +626,6 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy *phy_common = get_ufs_qcom_phy(generic_phy);
 	struct device *dev = phy_common->dev;
-	bool is_rate_B = false;
-	bool is_gear4 = false;
 	int err;
 
 	err = ufs_qcom_phy_enable_vreg(dev, &phy_common->vdda_phy);
@@ -651,40 +670,6 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 		}
 	}
 
-	err = ufs_qcom_phy_get_reset(phy_common);
-	if (err)
-		goto out_disable_ref_clk;
-
-	err = reset_control_assert(phy_common->ufs_reset);
-	if (err) {
-		dev_err(dev, "Failed to assert UFS PHY reset\n");
-		goto out_disable_ref_clk;
-	}
-
-	if (phy_common->mode == PHY_MODE_UFS_HS_B)
-		is_rate_B = true;
-
-	is_gear4 = !!phy_common->submode;
-
-	err = phy_common->phy_spec_ops->calibrate(phy_common, is_rate_B,
-						  is_gear4);
-	if (err)
-		goto out_disable_ref_clk;
-
-	err = reset_control_deassert(phy_common->ufs_reset);
-	if (err) {
-		dev_err(dev, "Failed to deassert UFS PHY reset\n");
-		goto out_disable_ref_clk;
-	}
-
-	err = ufs_qcom_phy_start_serdes(phy_common);
-	if (err)
-		goto out_disable_ref_clk;
-
-	err = ufs_qcom_phy_is_pcs_ready(phy_common);
-	if (err)
-		goto out_disable_ref_clk;
-
 	goto out;
 
 out_disable_ref_clk:
@@ -714,7 +699,6 @@ int ufs_qcom_phy_power_off(struct phy *generic_phy)
 
 	ufs_qcom_phy_disable_vreg(phy_common->dev, &phy_common->vdda_pll);
 	ufs_qcom_phy_disable_vreg(phy_common->dev, &phy_common->vdda_phy);
-	reset_control_assert(phy_common->ufs_reset);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_power_off);
