@@ -40,6 +40,15 @@
  * For such calls PSCI_FN_NATIVE(version, name) will choose the appropriate
  * (native-width) function ID.
  */
+
+#ifdef CONFIG_THUMB2_KERNEL
+#define cpu_resume_secondary cpu_resume_arm
+extern void cpu_resume_arm(void);
+#else
+#define cpu_resume_secondary cpu_resume
+extern void cpu_resume(void);
+#endif
+
 #ifdef CONFIG_64BIT
 #define PSCI_FN_NATIVE(version, name)	PSCI_##version##_FN64_##name
 #else
@@ -405,7 +414,7 @@ int psci_cpu_init_idle(unsigned int cpu)
 static int psci_suspend_finisher(unsigned long state_id)
 {
 	return psci_ops.cpu_suspend(state_id,
-				    __pa_symbol(cpu_resume));
+				    __pa_symbol(cpu_resume_secondary));
 }
 int psci_cpu_suspend_enter(unsigned long state_id)
 {
@@ -440,7 +449,7 @@ CPUIDLE_METHOD_OF_DECLARE(psci, "psci", &psci_cpuidle_ops);
 static int psci_system_suspend(unsigned long unused)
 {
 	return invoke_psci_fn(PSCI_FN_NATIVE(1_0, SYSTEM_SUSPEND),
-			      __pa_symbol(cpu_resume), 0, 0);
+			      __pa_symbol(cpu_resume_secondary), 0, 0);
 }
 
 static int psci_system_suspend_enter(suspend_state_t state)
