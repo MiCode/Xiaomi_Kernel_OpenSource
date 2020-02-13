@@ -1505,6 +1505,7 @@ void mhi_device_get(struct mhi_device *mhi_dev, int vote)
 	if (vote & MHI_VOTE_DEVICE) {
 		read_lock_bh(&mhi_cntrl->pm_lock);
 		mhi_cntrl->wake_get(mhi_cntrl, true);
+		MHI_LOG("dev_wake %d\n", atomic_read(&mhi_cntrl->dev_wake));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 		atomic_inc(&mhi_dev->dev_vote);
 	}
@@ -1558,6 +1559,7 @@ void mhi_device_put(struct mhi_device *mhi_dev, int vote)
 			mhi_trigger_resume(mhi_cntrl);
 
 		mhi_cntrl->wake_put(mhi_cntrl, false);
+		MHI_LOG("dev_wake %d\n", atomic_read(&mhi_cntrl->dev_wake));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
 
