@@ -413,11 +413,13 @@ err_free_sg2:
 	buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	if (vmid > 0)
-		ion_hyp_unassign_sg(table, &vmid, 1, true, false);
+		if (ion_hyp_unassign_sg(table, &vmid, 1, true, false))
+			goto err_free_table_sync;
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
 				 get_order(sg->length));
+err_free_table_sync:
 	if (nents_sync)
 		sg_free_table(&table_sync);
 err_free_sg:
