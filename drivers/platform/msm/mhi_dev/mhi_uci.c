@@ -1,4 +1,4 @@
-/* Copyright (c) 2015,2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@
 #define MAX_NR_TRBS_PER_CHAN		9
 #define MHI_QTI_IFACE_ID		4
 #define MHI_ADPL_IFACE_ID		5
+#define MHI_CV2X_IFACE_ID		6
 #define DEVICE_NAME			"mhi"
 #define MAX_DEVICE_NAME_SIZE		80
 
@@ -1668,6 +1669,29 @@ static long mhi_uci_client_ioctl(struct file *file, unsigned int cmd,
 			epinfo.ph_ep_info.peripheral_iface_id);
 
 		uci_log(UCI_DBG_DBG, "DPL ipa_prod_idx:%d\n",
+			epinfo.ipa_ep_pair.prod_pipe_num);
+
+		rc = copy_to_user((void __user *)arg, &epinfo,
+			sizeof(epinfo));
+		if (rc)
+			uci_log(UCI_DBG_ERROR, "copying to user space failed");
+	} else if (cmd == MHI_UCI_CV2X_EP_LOOKUP) {
+		uci_log(UCI_DBG_DBG, "CV2X EP_LOOKUP for client:%d\n",
+						uci_handle->client_index);
+		epinfo.ph_ep_info.ep_type = DATA_EP_TYPE_PCIE;
+		epinfo.ph_ep_info.peripheral_iface_id = MHI_CV2X_IFACE_ID;
+		epinfo.ipa_ep_pair.cons_pipe_num =
+			ipa_get_ep_mapping(IPA_CLIENT_MHI2_PROD);
+		epinfo.ipa_ep_pair.prod_pipe_num =
+			ipa_get_ep_mapping(IPA_CLIENT_MHI2_CONS);
+
+		uci_log(UCI_DBG_DBG, "client:%d ep_type:%d intf:%d\n",
+			uci_handle->client_index,
+			epinfo.ph_ep_info.ep_type,
+			epinfo.ph_ep_info.peripheral_iface_id);
+
+		uci_log(UCI_DBG_DBG, "ipa_cons2_idx:%d ipa_prod2_idx:%d\n",
+			epinfo.ipa_ep_pair.cons_pipe_num,
 			epinfo.ipa_ep_pair.prod_pipe_num);
 
 		rc = copy_to_user((void __user *)arg, &epinfo,
