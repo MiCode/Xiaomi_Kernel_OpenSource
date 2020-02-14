@@ -852,38 +852,6 @@ int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl)
 				  &mhi_tsync_group);
 }
 
-static void mhi_create_time_sync_dev(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_device *mhi_dev;
-	int ret;
-
-	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-		return;
-
-	mhi_dev = mhi_alloc_device(mhi_cntrl);
-	if (!mhi_dev)
-		return;
-
-	mhi_dev->dev_type = MHI_TIMESYNC_TYPE;
-	mhi_dev->chan_name = "TIME_SYNC";
-	dev_set_name(&mhi_dev->dev, "%04x_%02u.%02u.%02u_%s", mhi_dev->dev_id,
-		     mhi_dev->domain, mhi_dev->bus, mhi_dev->slot,
-		     mhi_dev->chan_name);
-
-	/* add if there is a matching DT node */
-	mhi_assign_of_node(mhi_cntrl, mhi_dev);
-
-	ret = device_add(&mhi_dev->dev);
-	if (ret) {
-		MHI_ERR("Failed to register dev for  chan:%s\n",
-			mhi_dev->chan_name);
-		mhi_dealloc_device(mhi_cntrl, mhi_dev);
-		return;
-	}
-
-	mhi_cntrl->tsync_dev = mhi_dev;
-}
-
 /* bind mhi channels into mhi devices */
 void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 {
@@ -891,13 +859,6 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_device *mhi_dev;
 	int ret;
-
-	/*
-	 * we need to create time sync device before creating other
-	 * devices, because client may try to capture time during
-	 * clint probe.
-	 */
-	mhi_create_time_sync_dev(mhi_cntrl);
 
 	mhi_chan = mhi_cntrl->mhi_chan;
 	for (i = 0; i < mhi_cntrl->max_chan; i++, mhi_chan++) {
@@ -1209,7 +1170,6 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	struct mhi_ring *mhi_ring = &cmd_ring->ring;
 	struct mhi_tre *cmd_pkt;
 	struct mhi_chan *mhi_chan;
-	struct mhi_timesync *mhi_tsync;
 	struct mhi_sfr_info *sfr_info;
 	enum mhi_cmd_type type;
 	u32 chan;
@@ -1222,11 +1182,6 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	type = MHI_TRE_GET_CMD_TYPE(cmd_pkt);
 
 	switch (type) {
-	case MHI_CMD_TYPE_TSYNC:
-		mhi_tsync = mhi_cntrl->mhi_tsync;
-		mhi_tsync->ccs = MHI_TRE_GET_EV_CODE(tre);
-		complete(&mhi_tsync->completion);
-		break;
 	case MHI_CMD_TYPE_SFR_CFG:
 		sfr_info = mhi_cntrl->mhi_sfr;
 		sfr_info->ccs = MHI_TRE_GET_EV_CODE(tre);
@@ -1451,7 +1406,7 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 		&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
 	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
 	int count = 0;
-	u32 sequence;
+	u32 int_sequence, unit;
 	u64 remote_time;
 
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
@@ -1473,28 +1428,29 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 
 		MHI_ASSERT(type != MHI_PKT_TYPE_TSYNC_EVENT, "!TSYNC event");
 
-		sequence = MHI_TRE_GET_EV_TSYNC_SEQ(local_rp);
+		int_sequence = MHI_TRE_GET_EV_TSYNC_SEQ(local_rp);
+		unit = MHI_TRE_GET_EV_TSYNC_UNIT(local_rp);
 		remote_time = MHI_TRE_GET_EV_TIME(local_rp);
 
 		do {
-			spin_lock_irq(&mhi_tsync->lock);
+			spin_lock(&mhi_tsync->lock);
 			tsync_node = list_first_entry_or_null(&mhi_tsync->head,
 						      struct tsync_node, node);
-			MHI_ASSERT(!tsync_node, "Unexpected Event");
-
-			if (unlikely(!tsync_node))
+			if (!tsync_node) {
+				spin_unlock(&mhi_tsync->lock);
 				break;
+			}
 
 			list_del(&tsync_node->node);
-			spin_unlock_irq(&mhi_tsync->lock);
+			spin_unlock(&mhi_tsync->lock);
 
 			/*
 			 * device may not able to process all time sync commands
 			 * host issue and only process last command it receive
 			 */
-			if (tsync_node->sequence == sequence) {
+			if (tsync_node->int_sequence == int_sequence) {
 				tsync_node->cb_func(tsync_node->mhi_dev,
-						    sequence,
+						    tsync_node->sequence,
 						    tsync_node->local_time,
 						    remote_time);
 				kfree(tsync_node);
@@ -1819,12 +1775,6 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 		cmd_tre->ptr = MHI_TRE_CMD_STOP_PTR;
 		cmd_tre->dword[0] = MHI_TRE_CMD_STOP_DWORD0;
 		cmd_tre->dword[1] = MHI_TRE_CMD_STOP_DWORD1(chan);
-		break;
-	case MHI_CMD_TIMSYNC_CFG:
-		cmd_tre->ptr = MHI_TRE_CMD_TSYNC_CFG_PTR;
-		cmd_tre->dword[0] = MHI_TRE_CMD_TSYNC_CFG_DWORD0;
-		cmd_tre->dword[1] = MHI_TRE_CMD_TSYNC_CFG_DWORD1
-			(mhi_cntrl->mhi_tsync->er_index);
 		break;
 	case MHI_CMD_SFR_CFG:
 		sfr_info = mhi_cntrl->mhi_sfr;
@@ -2636,13 +2586,23 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	mutex_lock(&mhi_cntrl->tsync_mutex);
 	if (!mhi_tsync) {
 		ret = -EIO;
-		goto err_unlock;
+		goto error_unlock;
 	}
 
 	/* tsync db can only be rung in M0 state */
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
-		goto err_unlock;
+		goto error_unlock;
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
+		MHI_ERR("MHI is not in active state, pm_state:%s\n",
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		ret = -EIO;
+		read_unlock_bh(&mhi_cntrl->pm_lock);
+		goto error_no_mem;
+	}
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/*
 	 * technically we can use GFP_KERNEL, but wants to avoid
@@ -2654,24 +2614,26 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 		goto error_no_mem;
 	}
 
+	mhi_tsync->int_sequence++;
+	if (mhi_tsync->int_sequence == 0xFFFFFFFF)
+		mhi_tsync->int_sequence = 0;
+
 	tsync_node->sequence = sequence;
+	tsync_node->int_sequence = mhi_tsync->int_sequence;
 	tsync_node->cb_func = cb_func;
 	tsync_node->mhi_dev = mhi_dev;
 
 	/* disable link level low power modes */
-	mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
-
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
-		MHI_ERR("MHI is not in active state, pm_state:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		ret = -EIO;
+	ret = mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
+	if (ret) {
+		MHI_ERR("LPM disable request failed for %s!\n",
+			mhi_dev->chan_name);
 		goto error_invalid_state;
 	}
 
-	spin_lock_irq(&mhi_tsync->lock);
+	spin_lock(&mhi_tsync->lock);
 	list_add_tail(&tsync_node->node, &mhi_tsync->head);
-	spin_unlock_irq(&mhi_tsync->lock);
+	spin_unlock(&mhi_tsync->lock);
 
 	/*
 	 * time critical code, delay between these two steps should be
@@ -2682,26 +2644,25 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 
 	tsync_node->local_time =
 		mhi_cntrl->time_get(mhi_cntrl, mhi_cntrl->priv_data);
-	writel_relaxed_no_log(tsync_node->sequence, mhi_tsync->db);
+	writel_relaxed_no_log(tsync_node->int_sequence, mhi_cntrl->tsync_db);
 	/* write must go thru immediately */
 	wmb();
 
 	local_irq_enable();
 	preempt_enable();
 
+	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
+
 	ret = 0;
 
 error_invalid_state:
 	if (ret)
 		kfree(tsync_node);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
-
 error_no_mem:
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
-err_unlock:
+error_unlock:
 	mutex_unlock(&mhi_cntrl->tsync_mutex);
 	return ret;
 }
