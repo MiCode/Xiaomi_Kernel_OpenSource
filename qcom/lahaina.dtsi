@@ -668,6 +668,17 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,lahaina-pinctrl";
+		reg = <0x0F000000 0x1000000>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		wakeup-parent = <&pdc>;
+	};
+
 	ipcc_mproc: qcom,ipcc@408000 {
 		compatible = "qcom,ipcc";
 		reg = <0x408000 0x1000>;
