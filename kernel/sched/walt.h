@@ -133,8 +133,6 @@ static inline unsigned int max_task_load(void)
 	return sched_ravg_window;
 }
 
-extern void update_cluster_topology(void);
-
 extern void init_clusters(void);
 
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
@@ -226,7 +224,6 @@ static inline void sched_account_irqstart(int cpu, struct task_struct *curr,
 {
 }
 
-static inline void update_cluster_topology(void) { }
 static inline void init_clusters(void) {}
 static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock)
