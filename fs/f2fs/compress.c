@@ -562,7 +562,7 @@ static int f2fs_compressed_blocks(struct compress_ctx *cc)
 		for (i = 1; i < cc->cluster_size; i++) {
 			block_t blkaddr;
 
-			blkaddr = datablock_addr(dn.inode,
+			blkaddr = data_blkaddr(dn.inode,
 					dn.node_page, dn.ofs_in_node + i);
 			if (blkaddr != NULL_ADDR)
 				ret++;
@@ -802,7 +802,7 @@ static int f2fs_write_compressed_pages(struct compress_ctx *cc,
 		goto out_unlock_op;
 
 	for (i = 0; i < cc->cluster_size; i++) {
-		if (datablock_addr(dn.inode, dn.node_page,
+		if (data_blkaddr(dn.inode, dn.node_page,
 					dn.ofs_in_node + i) == NULL_ADDR)
 			goto out_put_dnode;
 	}
@@ -851,8 +851,7 @@ static int f2fs_write_compressed_pages(struct compress_ctx *cc,
 	for (i = 0; i < cc->cluster_size; i++, dn.ofs_in_node++) {
 		block_t blkaddr;
 
-		blkaddr = datablock_addr(dn.inode, dn.node_page,
-							dn.ofs_in_node);
+		blkaddr = f2fs_data_blkaddr(&dn);
 		fio.page = cc->rpages[i];
 		fio.old_blkaddr = blkaddr;
 
