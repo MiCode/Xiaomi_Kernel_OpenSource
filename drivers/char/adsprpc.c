@@ -3137,6 +3137,11 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 	VERIFY(err, cid == fl->cid);
 	if (err)
 		goto bail;
+	if (!me->channel[fl->cid].spd[session].ispdup &&
+		me->channel[fl->cid].spd[session].pdrhandle) {
+		err = -ENOTCONN;
+		goto bail;
+	}
 	if (me->channel[fl->cid].spd[session].pdrcount !=
 		me->channel[fl->cid].spd[session].prevpdrcount) {
 		err = fastrpc_mmap_remove_ssr(fl);
@@ -3145,11 +3150,6 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 					__func__, current->comm, err);
 		me->channel[fl->cid].spd[session].prevpdrcount =
 				me->channel[fl->cid].spd[session].pdrcount;
-	}
-	if (!me->channel[fl->cid].spd[session].ispdup &&
-		me->channel[fl->cid].spd[session].pdrhandle) {
-		err = -ENOTCONN;
-		goto bail;
 	}
 bail:
 	return err;
