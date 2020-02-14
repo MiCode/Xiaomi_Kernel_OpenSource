@@ -202,6 +202,76 @@ struct hh_vm_irq_notify_resp_payload {
 	hh_virq_handle_t virq;
 } __packed;
 
+/* Call: MEM_QCOM_LOOKUP_SGL */
+/*
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct hh_mem_qcom_lookup_sgl_req_payload_hdr {
+	u32 mem_type:8;
+	u32 reserved:24;
+	hh_label_t label;
+} __packed;
+
+struct hh_mem_qcom_lookup_sgl_resp_payload {
+	hh_memparcel_handle_t memparcel_handle;
+} __packed;
+
+/* Call: MEM_RELEASE/MEM_RECLAIM */
+struct hh_mem_release_req_payload {
+	hh_memparcel_handle_t memparcel_handle;
+	u32 flags:8;
+	u32 reserved:24;
+} __packed;
+
+/*
+ * Call: MEM_ACCEPT
+ *
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct hh_mem_accept_req_payload_hdr {
+	hh_memparcel_handle_t memparcel_handle;
+	u8 mem_type;
+	u8 trans_type;
+	u8 flags;
+	u8 reserved1;
+	u32 validate_label;
+} __packed;
+
+struct hh_mem_accept_resp_payload {
+	u16 n_sgl_entries;
+	u16 reserved;
+} __packed;
+
+/*
+ * Call: MEM_LEND/MEM_SHARE
+ *
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct hh_mem_share_req_payload_hdr {
+	u8 mem_type;
+	u8 reserved1;
+	u8 flags;
+	u8 reserved2;
+	u32 label;
+} __packed;
+
+struct hh_mem_share_resp_payload {
+	hh_memparcel_handle_t memparcel_handle;
+} __packed;
+
+/* Call: MEM_NOTIFY */
+struct hh_mem_notify_req_payload {
+	hh_memparcel_handle_t memparcel_handle;
+	u32 flags:8;
+	u32 reserved1:24;
+} __packed;
+
 /* End Message ID headers */
 
 /* Common function declerations */

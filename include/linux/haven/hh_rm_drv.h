@@ -27,6 +27,20 @@
 #define HH_RM_ACL_W		BIT(1)
 #define HH_RM_ACL_R		BIT(2)
 
+#define HH_RM_MEM_RELEASE_CLEAR BIT(0)
+#define HH_RM_MEM_RECLAIM_CLEAR BIT(0)
+
+#define HH_RM_MEM_ACCEPT_VALIDATE_SANITIZED	BIT(0)
+#define HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS	BIT(1)
+#define HH_RM_MEM_ACCEPT_VALIDATE_LABEL		BIT(2)
+#define HH_RM_MEM_ACCEPT_DONE			BIT(7)
+
+#define HH_RM_MEM_SHARE_SANITIZE		BIT(0)
+#define HH_RM_MEM_LEND_SANITIZE			BIT(0)
+
+#define HH_RM_MEM_NOTIFY_RECIPIENT		BIT(0)
+#define HH_RM_MEM_NOTIFY_OWNER			BIT(1)
+
 struct hh_rm_mem_shared_acl_entry;
 struct hh_rm_mem_shared_sgl_entry;
 struct hh_rm_mem_shared_attr_entry;
@@ -63,6 +77,50 @@ struct hh_rm_notif_mem_released_payload {
 	u32 mem_handle;
 	u16 participant_vmid;
 	u16 reserved;
+} __packed;
+
+struct hh_acl_entry {
+	u16 vmid;
+	u8 perms;
+	u8 reserved;
+} __packed;
+
+struct hh_sgl_entry {
+	u64 ipa_base;
+	u64 size;
+} __packed;
+
+struct hh_mem_attr_entry {
+	u16 attr;
+	u16 vmid;
+} __packed;
+
+struct hh_acl_desc {
+	u32 n_acl_entries;
+	struct hh_acl_entry acl_entries[];
+} __packed;
+
+struct hh_sgl_desc {
+	u16 n_sgl_entries;
+	u16 reserved;
+	struct hh_sgl_entry sgl_entries[];
+} __packed;
+
+struct hh_mem_attr_desc {
+	u16 n_mem_attr_entries;
+	u16 reserved;
+	struct hh_mem_attr_entry attr_entries[];
+} __packed;
+
+struct hh_notify_vmid_entry {
+	u16 vmid;
+	u16 reserved;
+} __packed;
+
+struct hh_notify_vmid_desc {
+	u16 n_vmid_entries;
+	u16 reserved;
+	struct hh_notify_vmid_entry vmid_entries[];
 } __packed;
 
 /* VM APIs */
@@ -130,5 +188,28 @@ int hh_rm_console_open(hh_vmid_t vmid);
 int hh_rm_console_close(hh_vmid_t vmid);
 int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size);
 int hh_rm_console_flush(hh_vmid_t vmid);
+int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
+			      struct hh_acl_desc *acl_desc,
+			      struct hh_sgl_desc *sgl_desc,
+			      struct hh_mem_attr_desc *mem_attr_desc,
+			      hh_memparcel_handle_t *handle);
+int hh_rm_mem_release(hh_memparcel_handle_t handle, u8 flags);
+int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags);
+struct hh_sgl_desc *hh_rm_mem_accept(hh_memparcel_handle_t handle, u8 mem_type,
+				     u8 trans_type, u8 flags, hh_label_t label,
+				     struct hh_acl_desc *acl_desc,
+				     struct hh_sgl_desc *sgl_desc,
+				     struct hh_mem_attr_desc *mem_attr_desc,
+				     u16 map_vmid);
+int hh_rm_mem_share(u8 mem_type, u8 flags, hh_label_t label,
+		    struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		    struct hh_mem_attr_desc *mem_attr_desc,
+		    hh_memparcel_handle_t *handle);
+int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
+		   struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		   struct hh_mem_attr_desc *mem_attr_desc,
+		   hh_memparcel_handle_t *handle);
+int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     struct hh_notify_vmid_desc *vmid_desc);
 
 #endif

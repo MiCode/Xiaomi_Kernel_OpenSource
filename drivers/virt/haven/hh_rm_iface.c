@@ -13,6 +13,17 @@
 
 #include "hh_rm_drv_private.h"
 
+#define HH_RM_MEM_RELEASE_VALID_FLAGS HH_RM_MEM_RELEASE_CLEAR
+#define HH_RM_MEM_RECLAIM_VALID_FLAGS HH_RM_MEM_RECLAIM_CLEAR
+#define HH_RM_MEM_ACCEPT_VALID_FLAGS\
+	(HH_RM_MEM_ACCEPT_VALIDATE_SANITIZED |\
+	 HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |\
+	 HH_RM_MEM_ACCEPT_VALIDATE_LABEL | HH_RM_MEM_ACCEPT_DONE)
+#define HH_RM_MEM_SHARE_VALID_FLAGS HH_RM_MEM_SHARE_SANITIZE
+#define HH_RM_MEM_LEND_VALID_FLAGS HH_RM_MEM_LEND_SANITIZE
+#define HH_RM_MEM_NOTIFY_VALID_FLAGS\
+	(HH_RM_MEM_NOTIFY_RECIPIENT | HH_RM_MEM_NOTIFY_OWNER)
+
 static struct hh_vm_property hh_vm_table[HH_VM_MAX];
 
 int hh_update_vm_prop_table(enum hh_vm_names vm_name,
@@ -566,3 +577,572 @@ out:
 	return err;
 }
 EXPORT_SYMBOL(hh_rm_console_flush);
+
+static void hh_rm_populate_acl_desc(struct hh_acl_desc *dst_desc,
+				    struct hh_acl_desc *src_desc)
+{
+	u32 n_acl_entries = src_desc ? src_desc->n_acl_entries : 0;
+	unsigned int i;
+
+	dst_desc->n_acl_entries = n_acl_entries;
+	for (i = 0; i < n_acl_entries; i++) {
+		dst_desc->acl_entries[i].vmid = src_desc->acl_entries[i].vmid;
+		dst_desc->acl_entries[i].perms = src_desc->acl_entries[i].perms;
+	}
+}
+
+static void hh_rm_populate_sgl_desc(struct hh_sgl_desc *dst_desc,
+				    struct hh_sgl_desc *src_desc,
+				    u16 reserved_param)
+{
+	u32 n_sgl_entries = src_desc ? src_desc->n_sgl_entries : 0;
+
+	dst_desc->n_sgl_entries = n_sgl_entries;
+	dst_desc->reserved = reserved_param;
+	if (n_sgl_entries)
+		memcpy(dst_desc->sgl_entries, src_desc->sgl_entries,
+		       sizeof(*dst_desc->sgl_entries) * n_sgl_entries);
+}
+
+static void hh_rm_populate_mem_attr_desc(struct hh_mem_attr_desc *dst_desc,
+					 struct hh_mem_attr_desc *src_desc)
+{
+	u32 n_mem_attr_entries = src_desc ? src_desc->n_mem_attr_entries : 0;
+
+	dst_desc->n_mem_attr_entries = src_desc->n_mem_attr_entries;
+	if (n_mem_attr_entries)
+		memcpy(dst_desc->attr_entries, src_desc->attr_entries,
+		       sizeof(*dst_desc->attr_entries) * n_mem_attr_entries);
+}
+
+static void hh_rm_populate_mem_request(void *req_buf, u32 fn_id,
+				       struct hh_acl_desc *src_acl_desc,
+				       struct hh_sgl_desc *src_sgl_desc,
+				       u16 reserved_param,
+				       struct hh_mem_attr_desc *src_mem_attrs)
+{
+	struct hh_acl_desc *dst_acl_desc;
+	struct hh_sgl_desc *dst_sgl_desc;
+	struct hh_mem_attr_desc *dst_mem_attrs;
+	size_t req_hdr_size, req_acl_size, req_sgl_size;
+	u32 n_acl_entries = src_acl_desc ? src_acl_desc->n_acl_entries : 0;
+	u32 n_sgl_entries = src_sgl_desc ? src_sgl_desc->n_sgl_entries : 0;
+
+	switch (fn_id) {
+	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
+		req_hdr_size =
+			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
+		break;
+	case HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT:
+		req_hdr_size =
+			sizeof(struct hh_mem_accept_req_payload_hdr);
+		break;
+	default:
+		return;
+	}
+
+	req_acl_size = offsetof(struct hh_acl_desc, acl_entries[n_acl_entries]);
+	req_sgl_size = offsetof(struct hh_sgl_desc, sgl_entries[n_sgl_entries]);
+
+	dst_acl_desc = req_buf + req_hdr_size;
+	dst_sgl_desc = req_buf + req_hdr_size + req_acl_size;
+	dst_mem_attrs = req_buf + req_hdr_size + req_acl_size + req_sgl_size;
+
+	hh_rm_populate_acl_desc(dst_acl_desc, src_acl_desc);
+	hh_rm_populate_sgl_desc(dst_sgl_desc, src_sgl_desc, reserved_param);
+	hh_rm_populate_mem_attr_desc(dst_mem_attrs, src_mem_attrs);
+}
+
+static void *hh_rm_alloc_mem_request_buf(u32 fn_id, size_t n_acl_entries,
+					 size_t n_sgl_entries,
+					 size_t n_mem_attr_entries,
+					 size_t *req_payload_size_ptr)
+{
+	size_t req_acl_size, req_sgl_size, req_mem_attr_size, req_payload_size;
+	void *req_buf;
+
+
+	switch (fn_id) {
+	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
+		req_payload_size =
+			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
+		break;
+	case HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT:
+		req_payload_size =
+			sizeof(struct hh_mem_accept_req_payload_hdr);
+		break;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+
+	req_acl_size = offsetof(struct hh_acl_desc, acl_entries[n_acl_entries]);
+	req_sgl_size = offsetof(struct hh_sgl_desc, sgl_entries[n_sgl_entries]);
+	req_mem_attr_size = offsetof(struct hh_mem_attr_desc,
+				     attr_entries[n_mem_attr_entries]);
+	req_payload_size += req_acl_size + req_sgl_size + req_mem_attr_size;
+
+	req_buf = kzalloc(req_payload_size, GFP_KERNEL);
+	if (!req_buf)
+		return ERR_PTR(-ENOMEM);
+
+	*req_payload_size_ptr = req_payload_size;
+	return req_buf;
+}
+
+/**
+ * hh_rm_mem_qcom_lookup_sgl: Look up the handle for a memparcel by its sg-list
+ * @mem_type: The type of memory associated with the memparcel (i.e. normal or
+ *            I/O)
+ * @label: The label to assign to the memparcel
+ * @acl_desc: Describes the number of ACL entries and VMID and permission pairs
+ *            for the memparcel
+ * @sgl_desc: Describes the number of SG-List entries and the SG-List for the
+ *            memory associated with the memparcel
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs for the memparcel. This
+ *                 parameter is currently optional, as this function is meant
+ *                 to be used in conjunction with hyp_assign_[phys/table], which
+ *                 does not provide memory attributes
+ * @handle: Pointer to where the memparcel handle should be stored
+ *
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
+			      struct hh_acl_desc *acl_desc,
+			      struct hh_sgl_desc *sgl_desc,
+			      struct hh_mem_attr_desc *mem_attr_desc,
+			      hh_memparcel_handle_t *handle)
+{
+	struct hh_mem_qcom_lookup_sgl_req_payload_hdr *req_payload_hdr;
+	struct hh_mem_qcom_lookup_sgl_resp_payload *resp_payload;
+	size_t req_payload_size, resp_size;
+	void *req_buf;
+	unsigned int n_mem_attr_entries = 0;
+	u32 fn_id = HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL;
+	int ret = 0, hh_ret;
+
+	if ((mem_type != HH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != HH_RM_MEM_TYPE_IO) || !acl_desc ||
+	    !acl_desc->n_acl_entries || !sgl_desc ||
+	    !sgl_desc->n_sgl_entries || !handle || (mem_attr_desc &&
+	    !mem_attr_desc->n_mem_attr_entries))
+		return -EINVAL;
+
+	if (mem_attr_desc)
+		n_mem_attr_entries = mem_attr_desc->n_mem_attr_entries;
+
+	req_buf = hh_rm_alloc_mem_request_buf(fn_id, acl_desc->n_acl_entries,
+					      sgl_desc->n_sgl_entries,
+					      n_mem_attr_entries,
+					      &req_payload_size);
+	if (IS_ERR(req_buf))
+		return PTR_ERR(req_buf);
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->label = label;
+	hh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, 0,
+				   mem_attr_desc);
+
+	resp_payload = hh_rm_call(fn_id, req_buf, req_payload_size, &resp_size,
+				  &hh_ret);
+	if (hh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with err: %d\n",  __func__, ret);
+		goto err_rm_call;
+	}
+
+	if (resp_size != sizeof(*resp_payload)) {
+		ret = -EINVAL;
+		pr_err("%s invalid size received %u\n", __func__, resp_size);
+		goto err_resp_size;
+	}
+
+	*handle = resp_payload->memparcel_handle;
+
+err_resp_size:
+	kfree(resp_payload);
+err_rm_call:
+	kfree(req_buf);
+	return ret;
+}
+EXPORT_SYMBOL(hh_rm_mem_qcom_lookup_sgl);
+
+static int hh_rm_mem_release_helper(u32 fn_id, hh_memparcel_handle_t handle,
+				    u8 flags)
+{
+	struct hh_mem_release_req_payload req_payload = {};
+	void *resp;
+	size_t resp_size;
+	int ret, hh_ret;
+
+	if ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_RELEASE) &&
+	    (flags & ~HH_RM_MEM_RELEASE_VALID_FLAGS))
+		return -EINVAL;
+	else if ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM) &&
+		 (flags & ~HH_RM_MEM_RECLAIM_VALID_FLAGS))
+		return -EINVAL;
+
+	req_payload.memparcel_handle = handle;
+	req_payload.flags = flags;
+
+	resp = hh_rm_call(fn_id, &req_payload, sizeof(req_payload), &resp_size,
+			  &hh_ret);
+	if (hh_ret) {
+		ret = PTR_ERR(resp);
+		pr_err("%s failed with err: %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * hh_rm_mem_release: Release a handle representing memory. This results in
+ *                    the RM unmapping the associated memory from the stage-2
+ *                    page-tables of the current VM
+ * @handle: The memparcel handle associated with the memory
+ * @flags: Bitmask of values to influence the behavior of the RM when it unmaps
+ *         the memory.
+ *
+ * On success, the function will return 0. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_release(hh_memparcel_handle_t handle, u8 flags)
+{
+	return hh_rm_mem_release_helper(HH_RM_RPC_MSG_ID_CALL_MEM_RELEASE,
+					handle, flags);
+}
+EXPORT_SYMBOL(hh_rm_mem_release);
+
+/**
+ * hh_rm_mem_reclaim: Reclaim a memory represented by a handle. This results in
+ *                    the RM mapping the associated memory into the stage-2
+ *                    page-tables of the owner VM
+ * @handle: The memparcel handle associated with the memory
+ * @flags: Bitmask of values to influence the behavior of the RM when it unmaps
+ *         the memory.
+ *
+ * On success, the function will return 0. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags)
+{
+	return hh_rm_mem_release_helper(HH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM,
+					handle, flags);
+}
+EXPORT_SYMBOL(hh_rm_mem_reclaim);
+
+/**
+ * hh_rm_mem_accept: Accept a handle representing memory. This results in
+ *                   the RM mapping the associated memory from the stage-2
+ *                   page-tables of a VM
+ * @handle: The memparcel handle associated with the memory
+ * @mem_type: The type of memory associated with the memparcel (i.e. normal or
+ *            I/O)
+ * @trans_type: The type of memory transfer
+ * @flags: Bitmask of values to influence the behavior of the RM when it maps
+ *         the memory
+ * @label: The label to validate against the label maintained by the RM
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should validate against for AC
+ *            regarding the memparcel
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            where the memory should be mapped in the IPA space of the VM
+ *            denoted by @map_vmid. If this parameter is left NULL, then the
+ *            RM will map the memory at an arbitrary location
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should validate
+ *                 against regarding the memparcel.
+ * @map_vmid: The VMID which RM will map the memory for. VMID 0 corresponds
+ *            to mapping the memory for the current VM
+ *
+ *
+ * On success, the function will return a pointer to an sg-list to convey where
+ * the memory has been mapped. After the SG-List is no longer needed, the
+ * caller must free the table. On a failure, a negative number will be returned.
+ */
+struct hh_sgl_desc *hh_rm_mem_accept(hh_memparcel_handle_t handle, u8 mem_type,
+				     u8 trans_type, u8 flags, hh_label_t label,
+				     struct hh_acl_desc *acl_desc,
+				     struct hh_sgl_desc *sgl_desc,
+				     struct hh_mem_attr_desc *mem_attr_desc,
+				     u16 map_vmid)
+{
+
+	struct hh_mem_accept_req_payload_hdr *req_payload_hdr;
+	struct hh_sgl_desc *ret_sgl;
+	struct hh_mem_accept_resp_payload *resp_payload;
+	void *req_buf;
+	size_t req_payload_size, resp_payload_size;
+	u16 req_sgl_entries = 0, req_mem_attr_entries = 0;
+	u32 req_acl_entries = 0;
+	int hh_ret;
+	u32 fn_id = HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT;
+
+	if ((mem_type != HH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != HH_RM_MEM_TYPE_IO) ||
+	    (trans_type != HH_RM_TRANS_TYPE_DONATE &&
+	     trans_type != HH_RM_TRANS_TYPE_LEND &&
+	     trans_type != HH_RM_TRANS_TYPE_SHARE) ||
+	    (flags & ~HH_RM_MEM_ACCEPT_VALID_FLAGS))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS &&
+	    (!acl_desc || !acl_desc->n_acl_entries) &&
+	    (!mem_attr_desc || !mem_attr_desc->n_mem_attr_entries))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS) {
+		if (acl_desc)
+			req_acl_entries = acl_desc->n_acl_entries;
+		if (mem_attr_desc)
+			req_mem_attr_entries =
+				mem_attr_desc->n_mem_attr_entries;
+	}
+
+	if (sgl_desc)
+		req_sgl_entries = sgl_desc->n_sgl_entries;
+
+	req_buf = hh_rm_alloc_mem_request_buf(fn_id, req_acl_entries,
+					      req_sgl_entries,
+					      req_mem_attr_entries,
+					      &req_payload_size);
+	if (IS_ERR(req_buf))
+		return req_buf;
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->memparcel_handle = handle;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->trans_type = trans_type;
+	req_payload_hdr->flags = flags;
+	if (flags & HH_RM_MEM_ACCEPT_VALIDATE_LABEL)
+		req_payload_hdr->validate_label = label;
+	hh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, map_vmid,
+				   mem_attr_desc);
+
+	resp_payload = hh_rm_call(fn_id, req_buf, req_payload_size,
+				  &resp_payload_size, &hh_ret);
+	if (hh_ret || IS_ERR(resp_payload)) {
+		ret_sgl = ERR_CAST(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
+		goto err_rm_call;
+	}
+
+	/*
+	 * TODO: Shouldn't we have an input for the number of SG entries
+	 * associated with the memparcel, so we can validate that the size of
+	 * the response buffer is what we expect?
+	 */
+	ret_sgl = kmemdup(resp_payload, offsetof(struct hh_sgl_desc,
+			  sgl_entries[resp_payload->n_sgl_entries]),
+			  GFP_KERNEL);
+	if (!ret_sgl)
+		ret_sgl = ERR_PTR(-ENOMEM);
+
+	kfree(resp_payload);
+err_rm_call:
+	kfree(req_buf);
+	return ret_sgl;
+}
+EXPORT_SYMBOL(hh_rm_mem_accept);
+
+static int hh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
+				       hh_label_t label,
+				       struct hh_acl_desc *acl_desc,
+				       struct hh_sgl_desc *sgl_desc,
+				       struct hh_mem_attr_desc *mem_attr_desc,
+				       hh_memparcel_handle_t *handle)
+{
+	struct hh_mem_share_req_payload_hdr *req_payload_hdr;
+	struct hh_mem_share_resp_payload *resp_payload;
+	void *req_buf;
+	size_t req_payload_size, resp_payload_size;
+	u16 req_sgl_entries, req_acl_entries, req_mem_attr_entries = 0;
+	int hh_ret, ret = 0;
+
+	if ((mem_type != HH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != HH_RM_MEM_TYPE_IO) ||
+	    ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_SHARE) &&
+	     (flags & ~HH_RM_MEM_SHARE_VALID_FLAGS)) ||
+	    ((fn_id == HH_RM_RPC_MSG_ID_CALL_MEM_LEND) &&
+	     (flags & ~HH_RM_MEM_LEND_VALID_FLAGS)) || !acl_desc ||
+	    (acl_desc && !acl_desc->n_acl_entries) || !sgl_desc ||
+	    (sgl_desc && !sgl_desc->n_sgl_entries) ||
+	    (mem_attr_desc && !mem_attr_desc->n_mem_attr_entries) || !handle)
+		return -EINVAL;
+
+	req_acl_entries = acl_desc->n_acl_entries;
+	req_sgl_entries = sgl_desc->n_sgl_entries;
+	if (mem_attr_desc)
+		req_mem_attr_entries = mem_attr_desc->n_mem_attr_entries;
+
+	req_buf = hh_rm_alloc_mem_request_buf(fn_id, req_acl_entries,
+					      req_sgl_entries,
+					      req_mem_attr_entries,
+					      &req_payload_size);
+	if (IS_ERR(req_buf))
+		return PTR_ERR(req_buf);
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->flags = flags;
+	req_payload_hdr->label = label;
+	hh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, 0,
+				   mem_attr_desc);
+
+	resp_payload = hh_rm_call(fn_id, req_buf, req_payload_size,
+				  &resp_payload_size, &hh_ret);
+	if (hh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
+		goto err_rm_call;
+	}
+
+	if (resp_payload_size != sizeof(*resp_payload)) {
+		ret = -EINVAL;
+		goto err_resp_size;
+	}
+
+	*handle = resp_payload->memparcel_handle;
+
+err_resp_size:
+	kfree(resp_payload);
+err_rm_call:
+	kfree(req_buf);
+	return ret;
+}
+
+/**
+ * hh_rm_mem_share: Share memory with other VM(s) without excluding the owner
+ * @mem_type: The type of memory being shared (i.e. normal or I/O)
+ * @flags: Bitmask of values to influence the behavior of the RM when it shares
+ *         the memory
+ * @label: The label to assign to the memparcel that the RM will create
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should consider when sharing the
+ *            memory
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            the location of the memory in the IPA space of the owner
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should consider
+ *                 when sharing the memory
+ * @handle: Pointer to where the memparcel handle should be stored
+
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_share(u8 mem_type, u8 flags, hh_label_t label,
+		    struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		    struct hh_mem_attr_desc *mem_attr_desc,
+		    hh_memparcel_handle_t *handle)
+{
+	return hh_rm_mem_share_lend_helper(HH_RM_RPC_MSG_ID_CALL_MEM_SHARE,
+					   mem_type, flags, label, acl_desc,
+					   sgl_desc, mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(hh_rm_mem_share);
+
+/**
+ * hh_rm_mem_lend: Lend memory to other VM(s)--excluding the owner
+ * @mem_type: The type of memory being lent (i.e. normal or I/O)
+ * @flags: Bitmask of values to influence the behavior of the RM when it lends
+ *         the memory
+ * @label: The label to assign to the memparcel that the RM will create
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should consider when lending the
+ *            memory
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            the location of the memory in the IPA space of the owner
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should consider
+ *                 when lending the memory
+ * @handle: Pointer to where the memparcel handle should be stored
+
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
+		   struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		   struct hh_mem_attr_desc *mem_attr_desc,
+		   hh_memparcel_handle_t *handle)
+{
+	return hh_rm_mem_share_lend_helper(HH_RM_RPC_MSG_ID_CALL_MEM_LEND,
+					   mem_type, flags, label, acl_desc,
+					   sgl_desc, mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(hh_rm_mem_lend);
+
+/**
+ * hh_rm_mem_notify: Notify VMs about a change in state with respect to a
+ *                   memparcel
+ * @handle: The handle of the memparcel for which a notification should be sent
+ * out
+ * @flags: Flags to determine if the notification is for notifying that memory
+ *         has been shared to another VM, or that a VM has released memory
+ * @vmid_desc: A list of VMIDs to notify that memory has been shared with them.
+ *             This parameter should only be non-NULL if other VMs are being
+ *             notified (i.e. it is invalid to specify this parameter when the
+ *             operation is a release notification)
+ *
+ * On success, the function will return 0. Otherwise, a negative number will be
+ * returned.
+ */
+int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     struct hh_notify_vmid_desc *vmid_desc)
+{
+	struct hh_mem_notify_req_payload *req_payload_hdr;
+	struct hh_notify_vmid_desc *dst_vmid_desc;
+	void *req_buf, *resp_payload;
+	size_t n_vmid_entries = 0, req_vmid_desc_size = 0, req_payload_size;
+	size_t resp_size;
+	unsigned int i;
+	int ret = 0, hh_ret;
+
+	if ((flags & ~HH_RM_MEM_NOTIFY_VALID_FLAGS) ||
+	    ((flags & HH_RM_MEM_NOTIFY_RECIPIENT) && (!vmid_desc ||
+						      (vmid_desc &&
+						!vmid_desc->n_vmid_entries))) ||
+	    ((flags & HH_RM_MEM_NOTIFY_OWNER) && vmid_desc))
+		return -EINVAL;
+
+	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
+		n_vmid_entries = vmid_desc->n_vmid_entries;
+		req_vmid_desc_size = offsetof(struct hh_notify_vmid_desc,
+					      vmid_entries[n_vmid_entries]);
+	}
+
+	req_payload_size = sizeof(*req_payload_hdr) + req_vmid_desc_size;
+	req_buf = kzalloc(req_payload_size, GFP_KERNEL);
+	if (!req_buf)
+		return -ENOMEM;
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->memparcel_handle = handle;
+	req_payload_hdr->flags = flags;
+
+	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
+		dst_vmid_desc = req_buf + sizeof(*req_payload_hdr);
+		dst_vmid_desc->n_vmid_entries = n_vmid_entries;
+		for (i = 0; i < n_vmid_entries; i++)
+			dst_vmid_desc->vmid_entries[i].vmid =
+				vmid_desc->vmid_entries[i].vmid;
+	}
+
+	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_MEM_NOTIFY, req_buf,
+				  req_payload_size, &resp_size, &hh_ret);
+	if (hh_ret) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with err: %d\n", __func__, ret);
+	}
+
+	kfree(req_buf);
+	return ret;
+}
+EXPORT_SYMBOL(hh_rm_mem_notify);
