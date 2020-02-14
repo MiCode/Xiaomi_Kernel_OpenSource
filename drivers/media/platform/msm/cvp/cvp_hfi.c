@@ -4051,7 +4051,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	u32 pc_ready, wfi_status, sbm_ln0_low;
 	u32 main_sbm_ln0_low, main_sbm_ln1_high;
 
-	if (!device->power_enabled)
+	if (!device->power_enabled || !device->res->sw_power_collapsible)
 		return;
 
 	if (!(device->intr_status & CVP_WRAPPER_INTR_STATUS_A2HWD_BMSK))
