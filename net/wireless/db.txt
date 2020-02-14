@@ -67,7 +67,7 @@ country AN: DFS-ETSI
 	(5735 - 5875 @ 80), (14)
 
 country AR:
-	(2402 - 2482 @ 40), (36)
+	(2402 - 2482 @ 40), (30)
 	(5170 - 5250 @ 80), (23), AUTO-BW
 	(5250 - 5330 @ 80), (36), AUTO-BW
 	(5490 - 5590 @ 80), (36)
@@ -594,7 +594,7 @@ country HU: DFS-ETSI
 country ID:
 	# ref: http://www.postel.go.id/content/ID/regulasi/standardisasi/kepdir/bwa%205,8%20ghz.pdf
 	(2402 - 2482 @ 40), (20)
-	(5735 - 5815 @ 80), (30)
+	(5735 - 5815 @ 80), (20)
 
 country IE: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
