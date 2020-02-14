@@ -2562,13 +2562,13 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	/* not all devices support time feature */
 	if (!mhi_tsync) {
 		ret = -EIO;
-		goto err_unlock;
+		goto error_unlock;
 	}
 
 	/* bring to M0 state */
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
-		goto err_unlock;
+		goto error_unlock;
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
@@ -2581,8 +2581,10 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 
 	/* disable link level low power modes */
 	ret = mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
-	if (ret)
+	if (ret) {
+		read_lock_bh(&mhi_cntrl->pm_lock);
 		goto error_invalid_state;
+	}
 
 	/*
 	 * time critical code to fetch device times,
@@ -2604,7 +2606,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 error_invalid_state:
 	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
-err_unlock:
+error_unlock:
 	mutex_unlock(&mhi_cntrl->tsync_mutex);
 	return ret;
 }
