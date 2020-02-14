@@ -9,6 +9,20 @@
 		#interrupt-cells = <2>;
 		wakeup-parent = <&pdc>;
 
+		bt_en_sleep: bt_en_sleep {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				drive-strength = <2>;
+				output-low;
+				bias-pull-down;
+			};
+		};
+
 		qupv3_se3_2uart_pins: qupv3_se3_2uart_pins {
 			qupv3_se3_2uart_active: qupv3_se3_2uart_active {
 				mux {
@@ -2185,17 +2199,4 @@
 		};
 	};
 
-	bt_en_sleep: bt_en_sleep {
-		mux {
-			pins = "gpio65";
-			function = "gpio";
-		};
-
-		config {
-			pins = "gpio65";
-			drive-strength = <2>;
-			output-low;
-			bias-pull-down;
-		};
-	};
 };
