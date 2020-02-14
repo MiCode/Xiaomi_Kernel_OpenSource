@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "PM8008: %s: " fmt, __func__
 
@@ -506,6 +506,7 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	struct device_node *reg_node = pm8008_reg->of_node;
 	char buff[MAX_REG_NAME];
 	int rc, i, init_voltage;
+	u32 base = 0;
 	u8 reg;
 
 	/* get regulator data */
@@ -518,11 +519,12 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u16(reg_node, "reg", &pm8008_reg->base);
+	rc = of_property_read_u32(reg_node, "reg", &base);
 	if (rc < 0) {
 		pr_err("%s: failed to get regulator base rc=%d\n", name, rc);
 		return rc;
 	}
+	pm8008_reg->base = base;
 
 	pm8008_reg->min_dropout_uv = reg_data[i].min_dropout_uv;
 	of_property_read_u32(reg_node, "qcom,min-dropout-voltage",
