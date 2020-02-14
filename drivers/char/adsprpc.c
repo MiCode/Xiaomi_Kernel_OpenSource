@@ -1877,6 +1877,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
+		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
+			continue;
 
 		if (rpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
@@ -1979,6 +1981,8 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
+		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
+			continue;
 
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv))
@@ -2025,6 +2029,8 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
 			continue;
 
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
