@@ -10,7 +10,6 @@ config MTK_CMDQ
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select MAILBOX
 	select MTK_CMDQ_MBOX
-	select MTK_INFRACFG
 	help
 	  Say yes here to add support for the MediaTek Command Queue (CMDQ)
 	  driver. The CMDQ is used to help read/write registers with critical
@@ -20,7 +19,6 @@ config MTK_CMDQ
 config MTK_DVFSRC
 	bool "MediaTek DVFSRC Support"
 	depends on ARCH_MEDIATEK
-	select MTK_INFRACFG
 	select PM_GENERIC_DOMAINS if PM
 	depends on MTK_SCPSYS
 	help
@@ -31,13 +29,6 @@ config MTK_DVFSRC
 	  system and turn into the decision of minimum Vcore voltage
 	  and minimum DRAM frequency to fulfill those requests.
 
-config MTK_INFRACFG
-	bool "MediaTek INFRACFG Support"
-	select REGMAP
-	help
-	  Say yes here to add support for the MediaTek INFRACFG controller. The
-	  INFRACFG controller contains various infrastructure registers not
-	  directly associated to any device.
 
 config MTK_PMIC_WRAP
 	tristate "MediaTek PMIC Wrapper Support"
@@ -52,7 +43,6 @@ config MTK_SCPSYS
 	bool "MediaTek SCPSYS Support"
 	default ARCH_MEDIATEK
 	select REGMAP
-	select MTK_INFRACFG
 	select PM_GENERIC_DOMAINS if PM
 	help
 	  Say yes here to add support for the MediaTek SCPSYS power domain
