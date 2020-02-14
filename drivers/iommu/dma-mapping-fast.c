@@ -643,6 +643,7 @@ static void *__fast_smmu_alloc_contiguous(struct device *dev, size_t size,
 		coherent_addr = page_address(page);
 	}
 
+	memset(coherent_addr, 0, size);
 	*handle = iova;
 	return coherent_addr;
 
@@ -680,6 +681,9 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		dev_err(dev, "count: %zx exceeds UNIT_MAX\n", count);
 		return NULL;
 	}
+
+	if (!(attrs & DMA_ATTR_SKIP_ZEROING))
+		gfp |= __GFP_ZERO;
 
 	*handle = DMA_ERROR_CODE;
 	size = ALIGN(size, SZ_4K);
