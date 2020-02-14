@@ -88,6 +88,75 @@ void verify_cpu_asid_bits(void)
 	}
 }
 
+
+/*
+ * When the CnP is active, the caller must have set the ttbr0 to reserved
+ * before calling this function.
+ * Upon completion, the caller must ensure to:
+ *   - restore the ttbr0
+ *   - execute isb() to synchronize the change.
+ */
+static void __arm64_workaround_1542418_asid_rollover(void)
+{
+	phys_addr_t ttbr1_baddr;
+	u64 idx, ttbr1;	/* ASID is in ttbr1 due to TCR_EL1.A1 */
+
+	if (!IS_ENABLED(CONFIG_ARM64_ERRATUM_1542418) ||
+	    !cpus_have_const_cap(ARM64_WORKAROUND_1542418) ||
+	    !this_cpu_has_cap(ARM64_WORKAROUND_1542418))
+		return;
+
+	/*
+	 * We're about to use an arbitrary set of ASIDs, which may have
+	 * live entries in the TLB (and on other CPUs with CnP). Ensure
+	 * that we can't allocate conflicting entries using this task's
+	 * TTBR0.
+	 */
+	if (!system_supports_cnp())
+		cpu_set_reserved_ttbr0();
+	/* else: the caller must have already set this */
+
+	ttbr1 = read_sysreg(ttbr1_el1);
+	ttbr1_baddr = ttbr1 & ~TTBR_ASID_MASK;
+
+	/*
+	 * Select 60 asids to invalidate the branch history for this generation.
+	 * If kpti is in use we avoid selecting a user asid as
+	 * __sdei_asm_entry_trampoline() uses USER_ASID_FLAG to determine if
+	 * the NMI interrupted the kpti trampoline. Avoid using the reserved
+	 * asid 0.
+	 */
+	for (idx = 1; idx <= 61; idx++) {
+		write_sysreg((idx2asid(idx) << 48) | ttbr1_baddr, ttbr1_el1);
+		isb();
+	}
+
+	/* restore the current ASID */
+	write_sysreg(ttbr1, ttbr1_el1);
+
+	/*
+	 * Rely on local_flush_tlb_all()'s isb to complete the ASID restore.
+	 * check_and_switch_context() will call cpu_switch_mm() to (re)set ttbr0_el1.
+	 */
+}
+
+void arm64_workaround_1542418_asid_rollover(void)
+{
+	u64 ttbr0 = read_sysreg(ttbr0_el1);
+
+	lockdep_assert_irqs_disabled();
+
+	/* Mirror check_and_switch_context() */
+	if (system_supports_cnp())
+		cpu_set_reserved_ttbr0();
+
+	__arm64_workaround_1542418_asid_rollover();
+	isb();
+
+	write_sysreg(ttbr0, ttbr0_el1);
+	isb();
+}
+
 static void flush_context(unsigned int cpu)
 {
 	int i;
@@ -227,8 +296,10 @@ void check_and_switch_context(struct mm_struct *mm, unsigned int cpu)
 		atomic64_set(&mm->context.id, asid);
 	}
 
-	if (cpumask_test_and_clear_cpu(cpu, &tlb_flush_pending))
+	if (cpumask_test_and_clear_cpu(cpu, &tlb_flush_pending)) {
+		__arm64_workaround_1542418_asid_rollover();
 		local_flush_tlb_all();
+	}
 
 	atomic64_set(&per_cpu(active_asids, cpu), asid);
 	raw_spin_unlock_irqrestore(&cpu_asid_lock, flags);
