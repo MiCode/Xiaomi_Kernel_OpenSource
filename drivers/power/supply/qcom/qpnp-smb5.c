@@ -600,6 +600,11 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	if (chg->chg_param.hvdcp3_max_icl_ua <= 0)
 		chg->chg_param.hvdcp3_max_icl_ua = MICRO_3PA;
 
+	of_property_read_u32(node, "qcom,hvdcp2-max-icl-ua",
+					&chg->chg_param.hvdcp2_max_icl_ua);
+	if (chg->chg_param.hvdcp2_max_icl_ua <= 0)
+		chg->chg_param.hvdcp2_max_icl_ua = MICRO_3PA;
+
 	return 0;
 }
 
