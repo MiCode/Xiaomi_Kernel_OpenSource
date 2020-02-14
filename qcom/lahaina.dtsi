@@ -1183,6 +1183,10 @@
 		compatible = "qcom,secure-buffer";
 	};
 
+	qcom-mem-buf {
+		compatible = "qcom,mem-buf";
+	};
+
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";
