@@ -282,8 +282,9 @@ DEFINE_TEST(user, struct test_user, STRUCT, none);
  */
 static int noinline __leaf_switch_none(int path, bool fill)
 {
+	uint64_t var;
+
 	switch (path) {
-		uint64_t var;
 
 	case 1:
 		target_start = &var;
