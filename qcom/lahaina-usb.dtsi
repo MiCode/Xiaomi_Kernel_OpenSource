@@ -360,6 +360,7 @@
 				<&aggre1_noc MASTER_USB3_1 &config_noc SLAVE_IPA_CFG>,
 				<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_USB3_1>;
 
+		status = "disabled";
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
 			reg = <0xa800000 0xcd00>;
