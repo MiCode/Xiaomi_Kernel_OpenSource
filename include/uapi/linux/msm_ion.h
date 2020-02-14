@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef _UAPI_LINUX_MSM_ION_H
 #define _UAPI_LINUX_MSM_ION_H
@@ -27,6 +27,8 @@ enum msm_ion_heap_types {
  * Flags to be used when allocating from the secure heap for
  * content protection
  */
+#define ION_FLAG_CP_TRUSTED_UI		ION_BIT(15)
+/* ION_FLAG_POOL_FORCE_ALLOC uses ION_BIT(16) */
 #define ION_FLAG_CP_TOUCH		ION_BIT(17)
 #define ION_FLAG_CP_BITSTREAM		ION_BIT(18)
 #define ION_FLAG_CP_PIXEL		ION_BIT(19)
@@ -42,7 +44,7 @@ enum msm_ion_heap_types {
 #define ION_FLAG_CP_CDSP		ION_BIT(29)
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
-#define ION_FLAGS_CP_MASK	0x6FFE0000
+#define ION_FLAGS_CP_MASK	0x6FFE8000
 
 /**
  * Flag to allow non continguous allocation of memory from secure
