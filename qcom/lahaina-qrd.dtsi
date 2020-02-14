@@ -1,5 +1,6 @@
 #include "lahaina-qrd-common.dtsi"
 #include "display/lahaina-sde-display-qrd.dtsi"
+#include "camera/lahaina-camera-sensor-mtp.dtsi"
 #include "lahaina-audio-overlay.dtsi"
 
 &ufsphy_mem {
