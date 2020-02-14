@@ -1393,6 +1393,7 @@ static int smb1390_get_prop(struct power_supply *psy,
 		rc = smb1390_get_prop_suspended(chip, prop, val);
 		if (!rc)
 			return rc;
+		rc = 0;
 	}
 
 	switch (prop) {
