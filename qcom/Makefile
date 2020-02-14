@@ -18,7 +18,7 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-qrd-module.dtb
 endif
 
-dtb-$(CONFIG_ARCH_QTI_VM) += lahaina-svm1.dtb
+dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
