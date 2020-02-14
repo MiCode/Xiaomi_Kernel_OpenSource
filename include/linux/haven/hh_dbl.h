@@ -9,7 +9,7 @@
 
 #include "hh_common.h"
 
-typedef void (*dbl_rx_cb_t)(void *priv_data);
+typedef void (*dbl_rx_cb_t)(int irq, void *priv_data);
 
 enum hh_dbl_label {
 	HH_DBL_TUI_LABEL,
