@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -476,7 +476,7 @@ static int gpu_cc_sm8150_fixup(struct platform_device *pdev)
 	if (!strcmp(compat, "qcom,gpucc-sdmshrike"))
 		gpu_cc_sm8150_fixup_sdmshrike();
 
-	if (!strcmp(compat, "qcom,gcc-sa8155"))
+	if (!strcmp(compat, "qcom,gpucc-sa8155"))
 		pdev->dev.driver->pm = &gpucc_sa8150_pm_ops;
 
 	return 0;
