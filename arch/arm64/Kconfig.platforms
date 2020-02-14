@@ -196,6 +196,7 @@ config ARCH_LAHAINA
 
 config ARCH_QTI_VM
 	bool "Enable Virtual Machines Support for Qualcomm Technologies, Inc."
+	depends on ARCH_QCOM
 	help
 	  This enables support for the Qualcomm Technologies, Inc.'s
 	  Virtual Machines. If you wish to build a kernel that doesn't
