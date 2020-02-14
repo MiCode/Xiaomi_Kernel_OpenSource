@@ -397,11 +397,16 @@ static int __init test_meminit_init(void)
 	num_tests += test_kmemcache(&failures);
 	num_tests += test_rcu_persistent(&failures);
 
-	if (failures == 0)
+	if (failures == 0) {
 		pr_info("all %d tests passed!\n", num_tests);
-	else
+	} else {
 		pr_info("failures: %d out of %d\n", failures, num_tests);
-
+		/*
+		 * Android 4.14 only: if this test is built as part of the
+		 * kernel, make the failure visible.
+		 */
+		panic("Test failed!\n");
+	}
 	return failures ? -EINVAL : 0;
 }
 module_init(test_meminit_init);

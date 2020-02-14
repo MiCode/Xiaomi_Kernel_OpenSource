@@ -371,10 +371,16 @@ static int __init test_stackinit_init(void)
 	/* STRUCTLEAK will only cover this. */
 	failures += test_user();
 
-	if (failures == 0)
+	if (failures == 0) {
 		pr_info("all tests passed!\n");
-	else
+	} else {
 		pr_err("failures: %u\n", failures);
+		/*
+		 * Android 4.14 only: if this test is built as part of the
+		 * kernel, make the failure visible.
+		 */
+		panic("Test failed!\n");
+	}
 
 	return failures ? -EINVAL : 0;
 }
