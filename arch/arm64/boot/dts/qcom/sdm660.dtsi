@@ -2180,7 +2180,6 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x15700000 0x00100>;
 		reg-names = "base_reg";
-		interrupts = <0 162 1>;
 
 		vdd_cx-supply = <&pm660l_l9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
@@ -2200,16 +2199,16 @@
 		memory-region = <&adsp_fw_mem>;
 
 		/* GPIO inputs from lpass */
-/*		 interrupts-extended = <&wakegic 0 396 1>, */
-		interrupts-extended = <&adsp_smp2p_in 0 0>,
+		interrupts-extended = <&wakegic 0 162 1>,
+					<&adsp_smp2p_in 0 0>,
 					<&adsp_smp2p_in 2 0>,
 					<&adsp_smp2p_in 1 0>,
 					<&adsp_smp2p_in 3 0>;
 
-/*		interrupt-names = "qcom,wdog", */
-		interrupt-names = "qcom,err-fatal",
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
 				"qcom,proxy-unvote",
-				 "qcom,err-ready",
+				"qcom,err-ready",
 				"qcom,stop-ack";
 
 		/* GPIO output to lpass */
@@ -2222,7 +2221,6 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x1a300000 0x00100>;
 		reg-names = "base_reg";
-		interrupts = <0 518 1>;
 
 		vdd_cx-supply = <&pm660l_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
@@ -2242,17 +2240,17 @@
 		memory-region = <&cdsp_fw_mem>;
 
 		/* Inputs from turing */
-		/*interrupts-extended = <&wakegic 0 265 1>,*/
-		interrupts-extended = <&cdsp_smp2p_in 0 0>,
-				      <&cdsp_smp2p_in 2 0>,
-				      <&cdsp_smp2p_in 1 0>,
-				      <&cdsp_smp2p_in 3 0>;
+		interrupts-extended = <&wakegic 0 518 1>,
+					<&cdsp_smp2p_in 0 0>,
+					<&cdsp_smp2p_in 2 0>,
+					<&cdsp_smp2p_in 1 0>,
+					<&cdsp_smp2p_in 3 0>;
 
-/*		interrupt-names = "qcom,wdog",*/
-		interrupt-names =  "qcom,err-fatal",
-				  "qcom,proxy-unvote",
-				  "qcom,err-ready",
-				  "qcom,stop-ack";
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack";
 
 		/* Outputs to turing */
 		qcom,smem-states = <&cdsp_smp2p_out 0>;
@@ -2289,7 +2287,6 @@
 					 "gpll0_mss_clk", "snoc_axi_clk",
 					 "mnoc_axi_clk";
 
-		interrupts = <0 448 1>;
 		qcom,sequential-fw-load;
 		vdd_cx-supply = <&pm660l_s3_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
@@ -2307,15 +2304,15 @@
 		qcom,cx-ipeak-vote;
 
 		/* Inputs from mss */
-		/*interrupts-extended = <&wakegic 0 307 1>,*/
-		interrupts-extended = <&modem_smp2p_in 0 0>,
+		interrupts-extended = <&wakegic 0 448 1>,
+				<&modem_smp2p_in 0 0>,
 				<&modem_smp2p_in 2 0>,
 				<&modem_smp2p_in 1 0>,
 				<&modem_smp2p_in 3 0>,
 				<&modem_smp2p_in 7 0>;
 
-		/*interrupt-names = "qcom,wdog",*/
-		interrupt-names = "qcom,err-fatal",
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
 				"qcom,proxy-unvote",
 				"qcom,err-ready",
 				"qcom,stop-ack",
