@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef GSI_H
@@ -198,6 +198,7 @@ struct ch_debug_stats {
 
 struct gsi_generic_ee_cmd_debug_stats {
 	unsigned long halt_channel;
+	unsigned long flow_ctrl_channel;
 };
 
 struct gsi_coal_chan_info {
@@ -236,6 +237,8 @@ struct gsi_ctx {
 	u32 intcntrlr_mem_size;
 	irq_handler_t intcntrlr_gsi_isr;
 	irq_handler_t intcntrlr_client_isr;
+
+	atomic_t num_unclock_irq;
 };
 
 enum gsi_re_type {
@@ -332,6 +335,8 @@ enum gsi_evt_ch_cmd_opcode {
 enum gsi_generic_ee_cmd_opcode {
 	GSI_GEN_EE_CMD_HALT_CHANNEL = 0x1,
 	GSI_GEN_EE_CMD_ALLOC_CHANNEL = 0x2,
+	GSI_GEN_EE_CMD_ENABLE_FLOW_CHANNEL = 0x3,
+	GSI_GEN_EE_CMD_DISABLE_FLOW_CHANNEL = 0x4,
 };
 
 enum gsi_generic_ee_cmd_return_code {

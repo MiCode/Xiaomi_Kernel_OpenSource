@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -570,8 +570,8 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 overstep:
 	ret = -EINVAL;
 	dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0, drvdata->ram_size);
-	dev_err(drvdata->dev, "DCC SRAM oversteps, 0x%x (0x%x)\n",
-		sram_offset, drvdata->ram_size);
+	dev_err(drvdata->dev, "list: %d, DCC SRAM oversteps, 0x%x (0x%x)\n",
+		curr_list, sram_offset, drvdata->ram_size);
 err:
 	return ret;
 }
@@ -636,6 +636,58 @@ static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
 	return dcc_enable;
 }
 
+static void __dcc_config_reset(struct dcc_drvdata *drvdata)
+{
+	struct dcc_config_entry *entry, *temp;
+	int curr_list;
+
+	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
+
+		list_for_each_entry_safe(entry, temp,
+					 &drvdata->cfg_head[curr_list], list) {
+			list_del(&entry->list);
+			devm_kfree(drvdata->dev, entry);
+			drvdata->nr_config[curr_list]--;
+		}
+	}
+	drvdata->ram_start = 0;
+	drvdata->ram_cfg = 0;
+}
+
+static void dcc_config_reset(struct dcc_drvdata *drvdata)
+{
+	mutex_lock(&drvdata->mutex);
+	__dcc_config_reset(drvdata);
+	mutex_unlock(&drvdata->mutex);
+}
+static void __dcc_disable(struct dcc_drvdata *drvdata)
+{
+	int curr_list;
+
+	if (!dcc_ready(drvdata))
+		dev_err(drvdata->dev, "DCC is not ready Disabling DCC...\n");
+
+	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
+		if (!drvdata->enable[curr_list])
+			continue;
+		dcc_writel(drvdata, 0, DCC_LL_CFG(curr_list));
+		dcc_writel(drvdata, 0, DCC_LL_BASE(curr_list));
+		dcc_writel(drvdata, 0, DCC_FD_BASE(curr_list));
+		dcc_writel(drvdata, 0, DCC_LL_LOCK(curr_list));
+		drvdata->enable[curr_list] = false;
+	}
+	dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0, drvdata->ram_size);
+	drvdata->ram_cfg = 0;
+	drvdata->ram_start = 0;
+}
+
+static void dcc_disable(struct dcc_drvdata *drvdata)
+{
+	mutex_lock(&drvdata->mutex);
+	__dcc_disable(drvdata);
+	mutex_unlock(&drvdata->mutex);
+}
+
 static int dcc_enable(struct dcc_drvdata *drvdata)
 {
 	int ret = 0;
@@ -662,7 +714,10 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		ret = __dcc_ll_cfg(drvdata, list);
 		if (ret) {
 			dcc_writel(drvdata, 0, DCC_LL_LOCK(list));
-			dev_info(drvdata->dev, "DCC ram programming failed\n");
+			dev_err(drvdata->dev, "DCC ram programming failed\n"
+					"Disable all links and reset all config\n");
+			__dcc_disable(drvdata);
+			__dcc_config_reset(drvdata);
 			goto err;
 		}
 
@@ -702,30 +757,6 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
-}
-
-static void dcc_disable(struct dcc_drvdata *drvdata)
-{
-	int curr_list;
-
-	mutex_lock(&drvdata->mutex);
-
-	if (!dcc_ready(drvdata))
-		dev_err(drvdata->dev, "DCC is not ready Disabling DCC...\n");
-
-	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
-		if (!drvdata->enable[curr_list])
-			continue;
-		dcc_writel(drvdata, 0, DCC_LL_CFG(curr_list));
-		dcc_writel(drvdata, 0, DCC_LL_BASE(curr_list));
-		dcc_writel(drvdata, 0, DCC_FD_BASE(curr_list));
-		dcc_writel(drvdata, 0, DCC_LL_LOCK(curr_list));
-		drvdata->enable[curr_list] = false;
-	}
-	dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0, drvdata->ram_size);
-	drvdata->ram_cfg = 0;
-	drvdata->ram_start = 0;
-	mutex_unlock(&drvdata->mutex);
 }
 
 static ssize_t curr_list_show(struct device *dev,
@@ -1150,27 +1181,6 @@ static ssize_t config_store(struct device *dev,
 
 }
 static DEVICE_ATTR_RW(config);
-
-static void dcc_config_reset(struct dcc_drvdata *drvdata)
-{
-	struct dcc_config_entry *entry, *temp;
-	int curr_list;
-
-	mutex_lock(&drvdata->mutex);
-
-	for (curr_list = 0; curr_list < DCC_MAX_LINK_LIST; curr_list++) {
-
-		list_for_each_entry_safe(entry, temp,
-					 &drvdata->cfg_head[curr_list], list) {
-			list_del(&entry->list);
-			devm_kfree(drvdata->dev, entry);
-			drvdata->nr_config[curr_list]--;
-		}
-	}
-	drvdata->ram_start = 0;
-	drvdata->ram_cfg = 0;
-	mutex_unlock(&drvdata->mutex);
-}
 
 static ssize_t config_reset_store(struct device *dev,
 				      struct device_attribute *attr,

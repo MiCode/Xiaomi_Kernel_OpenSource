@@ -614,7 +614,8 @@ static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
 
 	/* do a drv hand off */
 	ret = msm_pcie_pm_control(MSM_PCIE_DRV_SUSPEND, mhi_cntrl->bus,
-				  pci_dev, NULL, 0);
+				  pci_dev, NULL, mhi_cntrl->wake_set ?
+				  MSM_PCIE_CONFIG_NO_L1SS_TO : 0);
 
 	/*
 	 * we failed to suspend and scaled down pcie bw.. need to scale up again
@@ -764,6 +765,22 @@ int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->force_m3_done = true;
 
 	MHI_LOG("Exited\n");
+
+	return 0;
+}
+
+int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	return msm_pcie_prevent_l1(mhi_dev->pci_dev);
+}
+
+int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	msm_pcie_allow_l1(mhi_dev->pci_dev);
 
 	return 0;
 }

@@ -59,6 +59,7 @@ enum adc_tm_state_request {
 };
 
 struct adc_tm_param {
+	unsigned long		id;
 	int			low_thr;
 	int			high_thr;
 	uint32_t				channel;
@@ -75,10 +76,12 @@ int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
 					struct adc_tm_param *param);
 int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
 					struct adc_tm_param *param);
+
 #else
 static inline struct adc_tm_chip *get_adc_tm(
 	struct device *dev, const char *name)
 { return ERR_PTR(-ENXIO); }
+
 static inline int32_t adc_tm5_channel_measure(
 					struct adc_tm_chip *chip,
 					struct adc_tm_param *param)
@@ -87,6 +90,7 @@ static inline int32_t adc_tm5_disable_chan_meas(
 					struct adc_tm_chip *chip,
 					struct adc_tm_param *param)
 { return -ENXIO; }
+
 #endif
 
 #endif /* __QCOM_ADC_TM_H_CLIENTS__ */
