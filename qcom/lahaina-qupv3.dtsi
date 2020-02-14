@@ -465,10 +465,10 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se8_i3c_active>;
 		pinctrl-1 = <&qupv3_se8_i3c_sleep>;
-		interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended  = <&intc GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 31 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 30 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,ibi-ctrl-id = <0>;
+		qcom,ibi-ctrl-id = <8>;
 		#address-cells = <3>;
 		#size-cells = <0>;
 		qcom,wrapper-core = <&qupv3_1>;
@@ -486,7 +486,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se9_i3c_active>;
 		pinctrl-1 = <&qupv3_se9_i3c_sleep>;
-		interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended  = <&intc GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 33 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 32 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,ibi-ctrl-id = <1>;
@@ -794,7 +794,7 @@
 	/* I3C */
 	i3c2: i3c-master@880000 {
 		compatible = "qcom,geni-i3c";
-		reg = <0xa80000 0x4000>,
+		reg = <0x880000 0x4000>,
 			<0xecb0000 0x10000>;
 		clock-names = "se-clk", "m-ahb", "s-ahb";
 		clocks = <&clock_gcc GCC_QUPV3_WRAP2_S0_CLK>,
@@ -803,10 +803,10 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se14_i3c_active>;
 		pinctrl-1 = <&qupv3_se14_i3c_sleep>;
-		interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended  = <&intc GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 35 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 34 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,ibi-ctrl-id = <2>;
+		qcom,ibi-ctrl-id = <14>;
 		#address-cells = <3>;
 		#size-cells = <0>;
 		qcom,wrapper-core = <&qupv3_2>;
@@ -815,7 +815,7 @@
 
 	i3c3: i3c-master@884000 {
 		compatible = "qcom,geni-i3c";
-		reg = <0xa84000 0x4000>,
+		reg = <0x884000 0x4000>,
 			<0xecc0000 0x10000>;
 		clock-names = "se-clk", "m-ahb", "s-ahb";
 		clocks = <&clock_gcc GCC_QUPV3_WRAP2_S1_CLK>,
@@ -824,10 +824,10 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se15_i3c_active>;
 		pinctrl-1 = <&qupv3_se15_i3c_sleep>;
-		interrupts = <GIC_SPI 583 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended  = <&intc GIC_SPI 583 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 37 IRQ_TYPE_LEVEL_HIGH>,
 			<&pdc 36 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,ibi-ctrl-id = <3>;
+		qcom,ibi-ctrl-id = <15>;
 		#address-cells = <3>;
 		#size-cells = <0>;
 		qcom,wrapper-core = <&qupv3_2>;
