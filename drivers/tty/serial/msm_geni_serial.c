@@ -174,6 +174,7 @@ struct msm_geni_serial_port {
 	struct msm_geni_serial_ver_info ver_info;
 	u32 cur_tx_remaining;
 	bool startup_in_progress;
+	bool is_console;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -2554,7 +2555,13 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 	int hw_ver, ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
-	se_geni_clks_on(&msm_port->serial_rsc);
+	/*
+	 * At this time early console is still active and transfers are
+	 * in-coming. Make sure UART doesn't turn on/off clocks for
+	 * console usecase.
+	 */
+	if (!msm_port->is_console)
+		se_geni_clks_on(&msm_port->serial_rsc);
 	/* Basic HW and FW info */
 	if (unlikely(get_se_proto(uport->membase) != UART)) {
 		dev_err(uport->dev, "%s: Invalid FW %d loaded.\n",
@@ -2582,7 +2589,8 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 			msm_port->ver_info.hw_minor_ver,
 			msm_port->ver_info.hw_step_ver);
 exit_ver_info:
-	se_geni_clks_off(&msm_port->serial_rsc);
+	if (!msm_port->is_console)
+		se_geni_clks_off(&msm_port->serial_rsc);
 	return ret;
 }
 
@@ -2634,6 +2642,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 					line, ret);
 		goto exit_geni_serial_probe;
 	}
+	dev_port->is_console = is_console;
 
 	uport = &dev_port->uport;
 
