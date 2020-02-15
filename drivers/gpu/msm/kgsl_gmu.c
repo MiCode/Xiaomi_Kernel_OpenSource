@@ -1014,7 +1014,17 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 				ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				(mask | GMU_INT_WDOG_BITE));
 
-		adreno_gmu_send_nmi(adreno_dev);
+		/* make sure we're reading the latest cm3_fault */
+		smp_rmb();
+
+		/*
+		 * We should not send NMI if there was a CM3 fault reported
+		 * because we don't want to overwrite the critical CM3 state
+		 * captured by gmu before it sent the CM3 fault interrupt.
+		 */
+		if (!atomic_read(&gmu->cm3_fault))
+			adreno_gmu_send_nmi(adreno_dev);
+
 		/*
 		 * There is sufficient delay for the GMU to have finished
 		 * handling the NMI before snapshot is taken, as the fault
@@ -1532,9 +1542,21 @@ static void gmu_snapshot(struct kgsl_device *device)
 	if (test_and_set_bit(GMU_FAULT, &device->gmu_core.flags))
 		return;
 
-	adreno_gmu_send_nmi(adreno_dev);
-	/* Wait for the NMI to be handled */
-	udelay(100);
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported because we
+	 * don't want to overwrite the critical CM3 state captured by gmu before
+	 * it sent the CM3 fault interrupt.
+	 */
+	if (!atomic_read(&gmu->cm3_fault)) {
+		adreno_gmu_send_nmi(adreno_dev);
+
+		/* Wait for the NMI to be handled */
+		udelay(100);
+	}
+
 	kgsl_device_snapshot(device, NULL, true);
 
 	adreno_write_gmureg(adreno_dev,

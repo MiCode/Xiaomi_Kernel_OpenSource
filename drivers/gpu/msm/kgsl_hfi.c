@@ -852,9 +852,14 @@ irqreturn_t hfi_irq_handler(int irq, void *data)
 
 	if (status & HFI_IRQ_DBGQ_MASK)
 		tasklet_hi_schedule(&hfi->tasklet);
-	if (status & HFI_IRQ_CM3_FAULT_MASK)
+	if (status & HFI_IRQ_CM3_FAULT_MASK) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
+		atomic_set(&gmu->cm3_fault, 1);
+
+		/* make sure other CPUs see the update */
+		smp_wmb();
+	}
 	if (status & ~HFI_IRQ_MASK)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"Unhandled HFI interrupts 0x%lx\n",
