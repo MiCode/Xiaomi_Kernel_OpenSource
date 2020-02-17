@@ -1,3 +1,9 @@
+Version 1.1.4
+==============
+[ATLDRV-1371] - Add supported eee with 2.5G and 5G
+[ATLDRV-1376] - Send notification when macsec offload turned on/off
+[ATLDRV-1378] - check FW capability instead of FW version for MSM Apply Settings
+
 Version 1.1.3
 ==============
 [ATLDRV-1185] - Enable stripping of padding doesnt work on Felicity card

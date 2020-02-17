@@ -630,7 +630,7 @@ static int __atl_fw2x_apply_msm_settings(struct atl_hw *hw)
 	uint32_t high_status, high_req = 0;
 	int ret = 0;
 
-	if (hw->mcp.fw_rev < 0x0301006e)
+	if (!(hw->mcp.caps_ex & atl_fw2_ex_caps_msm_settings_apply))
 		return __atl_fw2_restart_aneg(hw);
 
 	ret = atl_write_mcp_mem(hw, 0, &msg_id, sizeof(msg_id),

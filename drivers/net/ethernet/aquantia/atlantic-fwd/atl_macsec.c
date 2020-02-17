@@ -454,6 +454,8 @@ static int atl_mdo_dev_open(struct macsec_context *ctx)
 	if (netif_carrier_ok(nic->ndev))
 		ret = atl_apply_secy_cfg(&nic->hw, ctx->secy);
 
+	atl_fwd_notify(nic, ATL_FWD_NOTIFY_MACSEC_ON, ctx->secy->netdev);
+
 	return ret;
 }
 
@@ -463,6 +465,8 @@ static int atl_mdo_dev_stop(struct macsec_context *ctx)
 
 	if (ctx->prepare)
 		return 0;
+
+	atl_fwd_notify(nic, ATL_FWD_NOTIFY_MACSEC_OFF, ctx->secy->netdev);
 
 	return atl_clear_secy(nic, ctx->secy, ATL_CLEAR_HW);
 }
