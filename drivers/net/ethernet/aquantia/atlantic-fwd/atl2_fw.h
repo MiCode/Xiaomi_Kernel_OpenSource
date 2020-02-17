@@ -66,14 +66,13 @@ struct link_control_s {
 };
 
 struct thermal_shutdown_s {
-	uint32_t enable:1;
-	uint32_t warning_enable:1;
+	uint32_t shutdown_enable :1;
+	uint32_t warning_enable :1;
 	uint32_t rsvd:6;
 
-
-	uint32_t cold_temperature:8;
-	uint32_t warning_temperature:8;
-	uint32_t shutdown_temperature:8;
+	uint32_t shutdown_temp_threshold :8;
+	uint32_t warning_cold_temp_threshold :8;
+	uint32_t warning_hot_tempThreshold :8;
 };
 
 struct mac_address_s {

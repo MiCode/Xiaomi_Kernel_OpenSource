@@ -1046,27 +1046,10 @@ static int atl_set_pad_stripping(struct atl_nic *nic, bool on)
 {
 	struct atl_hw *hw = &nic->hw;
 	int ret;
-	uint32_t msm_opts;
 
-	if (hw->mcp.fw_rev < 0x0300008e)
-		return -EOPNOTSUPP;
+	ret = hw->mcp.ops->set_pad_stripping(hw, on);
 
-	ret = atl_read_fwsettings_word(hw, atl_fw2_setings_msm_opts,
-		&msm_opts);
-	if (ret)
-		return ret;
-
-	msm_opts &= ~atl_fw2_settings_msm_opts_strip_pad;
-	msm_opts |= !!on << atl_fw2_settings_msm_opts_strip_pad_shift;
-
-	ret = atl_write_fwsettings_word(hw, atl_fw2_setings_msm_opts,
-		msm_opts);
-	if (ret)
-		return ret;
-
-	/* Restart aneg to make FW apply the new settings */
-	hw->mcp.ops->restart_aneg(hw);
-	return 0;
+	return ret;
 }
 
 int atl_set_media_detect(struct atl_nic *nic, bool on)

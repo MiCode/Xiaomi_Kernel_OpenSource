@@ -103,6 +103,9 @@ static int __atl_fw2_wait_fw_init(struct atl_hw *hw)
 	hw->mcp.req_high = atl_read(hw,
 				 ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH));
 
+	hw->mcp.fw_stat_addr = atl_read(hw, ATL_MCP_SCRATCH(FW_STAT_STRUCT));
+	hw->mcp.rpc_addr = atl_read(hw, ATL_MCP_SCRATCH(FW2_RPC_DATA));
+
 	ret = atl_read_fwstat_word(hw, atl_fw2_stat_settings_addr,
 		&hw->mcp.fw_settings_addr);
 	if (ret)
@@ -380,12 +383,18 @@ static int atl_fw1_unsupported(struct atl_hw *hw)
 	return -EOPNOTSUPP;
 }
 
-static int atl_fw2_restart_aneg(struct atl_hw *hw)
+static int __atl_fw2_restart_aneg(struct atl_hw *hw)
 {
-	atl_lock_fw(hw);
 	/* Autoneg restart is self-clearing, no need to track via
 	 * mcp->req_high */
 	atl_set_bits(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), BIT(31));
+	return 0;
+}
+
+static int atl_fw2_restart_aneg(struct atl_hw *hw)
+{
+	atl_lock_fw(hw);
+	__atl_fw2_restart_aneg(hw);
 	atl_unlock_fw(hw);
 	return 0;
 }
@@ -614,6 +623,70 @@ unlock:
 	return ret;
 }
 
+static int __atl_fw2x_apply_msm_settings(struct atl_hw *hw)
+{
+
+	uint32_t msg_id = atl_fw2_msm_settings_apply;
+	uint32_t high_status, high_req = 0;
+	int ret = 0;
+
+	if (hw->mcp.fw_rev < 0x0301006e)
+		return __atl_fw2_restart_aneg(hw);
+
+	ret = atl_write_mcp_mem(hw, 0, &msg_id, sizeof(msg_id),
+				MCP_AREA_CONFIG);
+	if (ret) {
+		atl_dev_err("Failed to upload macsec request: %d\n", ret);
+		atl_unlock_fw(hw);
+		return ret;
+	}
+
+	high_req = atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH));
+	high_req ^= atl_fw2_fw_request;
+	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), high_req);
+
+	busy_wait(1000, mdelay(1), high_status,
+		atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_RES_HIGH)),
+		((high_req ^ high_status) & atl_fw2_fw_request) != 0);
+	if (((high_req ^ high_status) & atl_fw2_fw_request) != 0) {
+		atl_dev_err("Timeout waiting for fw request\n");
+		atl_unlock_fw(hw);
+		return -EIO;
+	}
+
+	return ret;
+}
+
+static int atl_fw2_set_pad_stripping(struct atl_hw *hw, bool on)
+{
+	uint32_t msm_opts;
+	int ret = 0;
+
+	if (hw->mcp.fw_rev < 0x0300008e)
+		return -EOPNOTSUPP;
+
+	atl_lock_fw(hw);
+
+	ret = atl_read_fwsettings_word(hw, atl_fw2_setings_msm_opts,
+		&msm_opts);
+	if (ret)
+		goto unlock;
+
+	msm_opts &= ~atl_fw2_settings_msm_opts_strip_pad;
+	if (on)
+		msm_opts |= BIT(atl_fw2_settings_msm_opts_strip_pad_shift);
+
+	ret = atl_write_fwsettings_word(hw, atl_fw2_setings_msm_opts,
+		msm_opts);
+	if (ret)
+		goto unlock;
+
+	ret = __atl_fw2x_apply_msm_settings(hw);
+unlock:
+	atl_unlock_fw(hw);
+	return ret;
+}
+
 static int atl_fw2_send_macsec_request(struct atl_hw *hw,
 				struct macsec_msg_fw_request *req,
 				struct macsec_msg_fw_response *response)
@@ -627,11 +700,14 @@ static int atl_fw2_send_macsec_request(struct atl_hw *hw,
 	if ((hw->mcp.caps_low & atl_fw2_macsec) == 0)
 		return -EOPNOTSUPP;
 
+	atl_lock_fw(hw);
+
 	/* Write macsec request to cfg memory */
 	ret = atl_write_mcp_mem(hw, 0, req, (sizeof(*req) + 3) & ~3,
 				MCP_AREA_CONFIG);
 	if (ret) {
 		atl_dev_err("Failed to upload macsec request: %d\n", ret);
+		atl_unlock_fw(hw);
 		return ret;
 	}
 
@@ -645,6 +721,7 @@ static int atl_fw2_send_macsec_request(struct atl_hw *hw,
 		((low_req ^ low_status) & atl_fw2_macsec) != 0);
 	if (((low_req ^ low_status) & atl_fw2_macsec) != 0) {
 		atl_dev_err("Timeout waiting for macsec request\n");
+		atl_unlock_fw(hw);
 		return -EIO;
 	}
 
@@ -652,6 +729,7 @@ static int atl_fw2_send_macsec_request(struct atl_hw *hw,
 	ret = atl_read_rpc_mem(hw, sizeof(u32), (u32 *)(void *)response,
 			       sizeof(*response));
 
+	atl_unlock_fw(hw);
 	return ret;
 }
 
@@ -799,6 +877,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.set_phy_loopback = (void *)atl_fw1_unsupported,
 		.set_mediadetect =  (void *)atl_fw1_unsupported,
 		.send_macsec_req = (void *)atl_fw1_unsupported,
+		.set_pad_stripping = (void *)atl_fw1_unsupported,
 		.__get_hbeat = (void *)atl_fw1_unsupported,
 		.get_mac_addr = atl_fw1_get_mac_addr,
 		.update_thermal = atl_fw1_unsupported,
@@ -818,6 +897,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.set_phy_loopback = atl_fw2_set_phy_loopback,
 		.set_mediadetect = atl_fw2_set_mediadetect,
 		.send_macsec_req = atl_fw2_send_macsec_request,
+		.set_pad_stripping = atl_fw2_set_pad_stripping,
 		.__get_hbeat = __atl_fw2_get_hbeat,
 		.get_mac_addr = atl_fw2_get_mac_addr,
 		.update_thermal = atl_fw2_update_thermal,
@@ -980,9 +1060,6 @@ int atl_fw_init(struct atl_hw *hw)
 	ret = mcp->ops->__wait_fw_init(hw);
 	if (ret)
 		return ret;
-
-	mcp->fw_stat_addr = atl_read(hw, ATL_MCP_SCRATCH(FW_STAT_STRUCT));
-	mcp->rpc_addr = atl_read(hw, ATL_MCP_SCRATCH(FW2_RPC_DATA));
 
 	ret = mcp->ops->__get_hbeat(hw, &mcp->phy_hbeat);
 	if (ret)

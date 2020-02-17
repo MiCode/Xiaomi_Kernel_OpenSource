@@ -221,7 +221,7 @@ static int __atl2_fw_wait_init(struct atl_hw *hw)
 	atl2_shared_buffer_write(hw, link_control, link_control);
 
 	atl2_shared_buffer_get(hw, mtu, mtu);
-	mtu = ATL_MAX_MTU;
+	mtu = ATL_MAX_MTU + ETH_FCS_LEN + ETH_HLEN;
 	atl2_shared_buffer_write(hw, mtu, mtu);
 
 	return atl2_shared_buffer_finish_ack(hw);
@@ -683,10 +683,10 @@ static int atl2_fw_update_thermal(struct atl_hw *hw)
 	atl_lock_fw(hw);
 
 	atl2_shared_buffer_get(hw, thermal_shutdown, thermal_shutdown);
-	thermal_shutdown.enable = enable;
-	thermal_shutdown.shutdown_temperature = hw->thermal.crit;
-	thermal_shutdown.warning_temperature = hw->thermal.high;
-	thermal_shutdown.cold_temperature = hw->thermal.low;
+	thermal_shutdown.shutdown_enable = enable;
+	thermal_shutdown.shutdown_temp_threshold = hw->thermal.crit;
+	thermal_shutdown.warning_hot_tempThreshold = hw->thermal.high;
+	thermal_shutdown.warning_cold_temp_threshold = hw->thermal.low;
 	atl2_shared_buffer_write(hw, thermal_shutdown, thermal_shutdown);
 	ret = atl2_shared_buffer_finish_ack(hw);
 
@@ -698,6 +698,23 @@ static int atl2_fw_update_thermal(struct atl_hw *hw)
 	atl_thermal_check(hw, phy_health_monitor.phy_hot_warning);
 
 	return ret;
+}
+
+static int atl2_fw_set_pad_stripping(struct atl_hw *hw, bool on)
+{
+	struct link_control_s link_control;
+	int err = 0;
+
+	atl_lock_fw(hw);
+
+	atl2_shared_buffer_get(hw, link_control, link_control);
+	link_control.enable_frame_padding_removal_rx = on;
+	atl2_shared_buffer_write(hw, link_control, link_control);
+	err = atl2_shared_buffer_finish_ack(hw);
+
+	atl_unlock_fw(hw);
+
+	return err;
 }
 
 static int atl2_fw_unsupported(struct atl_hw *hw)
@@ -727,6 +744,7 @@ static struct atl_fw_ops atl2_fw_ops = {
 		.get_phy_temperature = atl2_fw_get_phy_temperature,
 		.set_mediadetect = (void *)atl2_fw_unsupported,
 		.send_macsec_req = (void *)atl2_fw_unsupported,
+		.set_pad_stripping = atl2_fw_set_pad_stripping,
 		.get_mac_addr = atl2_fw_get_mac_addr,
 		.__get_hbeat = __atl2_fw_get_hbeat,
 		.set_phy_loopback = atl2_fw_set_phy_loopback,
