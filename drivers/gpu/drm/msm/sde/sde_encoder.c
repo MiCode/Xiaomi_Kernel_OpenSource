@@ -4196,7 +4196,7 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 
 static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 {
-	void *dither_cfg;
+	void *dither_cfg = NULL;
 	int ret = 0, rc, i = 0;
 	size_t len = 0;
 	enum sde_rm_topology_name topology;
@@ -4231,7 +4231,8 @@ static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 	}
 
 	ret = sde_connector_get_dither_cfg(phys->connector,
-			phys->connector->state, &dither_cfg, &len);
+			phys->connector->state, &dither_cfg,
+			&len, sde_enc->idle_pc_restore);
 	if (ret)
 		return;
 
