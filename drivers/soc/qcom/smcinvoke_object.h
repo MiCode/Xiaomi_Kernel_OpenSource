@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __SMCINVOKE_OBJECT_H
 #define __SMCINVOKE_OBJECT_H
@@ -16,6 +16,7 @@
 #define OBJECT_OP_RELEASE       (OBJECT_OP_METHOD_MASK - 0)
 #define OBJECT_OP_RETAIN        (OBJECT_OP_METHOD_MASK - 1)
 #define OBJECT_OP_MAP_REGION    0
+#define OBJECT_OP_YIELD 1
 
 #define OBJECT_COUNTS_MAX_BI   0xF
 #define OBJECT_COUNTS_MAX_BO   0xF
