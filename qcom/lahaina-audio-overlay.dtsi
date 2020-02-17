@@ -84,7 +84,7 @@
 				reg = <0x08 0x58350220>;
 				qcom,swr-dmic-prefix = "SWR_MIC0";
 				qcom,codec-name = "swr-dmic-01";
-				qcom,swr-dmic-supply = "MIC BIAS3 Standalone";
+				qcom,swr-dmic-supply = <3>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -93,7 +93,7 @@
 				reg = <0x08 0x58350221>;
 				qcom,swr-dmic-prefix = "SWR_MIC1";
 				qcom,codec-name = "swr-dmic-02";
-				qcom,swr-dmic-supply = "MIC BIAS1 Standalone";
+				qcom,swr-dmic-supply = <1>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -102,7 +102,7 @@
 				reg = <0x08 0x58350222>;
 				qcom,swr-dmic-prefix = "SWR_MIC2";
 				qcom,codec-name = "swr-dmic-03";
-				qcom,swr-dmic-supply = "MIC BIAS1 Standalone";
+				qcom,swr-dmic-supply = <1>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -111,7 +111,7 @@
 				reg = <0x08 0x58350223>;
 				qcom,swr-dmic-prefix = "SWR_MIC3";
 				qcom,codec-name = "swr-dmic-04";
-				qcom,swr-dmic-supply = "MIC BIAS3 Standalone";
+				qcom,swr-dmic-supply = <3>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 		};
@@ -302,10 +302,6 @@
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
 		"WSA SRC0_INP", "SRC0",
-		"SWR_MIC0 SWR_DMIC", "MIC BIAS3 Standalone",
-		"SWR_MIC1 SWR_DMIC", "MIC BIAS1 Standalone",
-		"SWR_MIC2 SWR_DMIC", "MIC BIAS1 Standalone",
-		"SWR_MIC3 SWR_DMIC", "MIC BIAS3 Standalone",
 		"TX SWR_INPUT", "SWR_MIC0 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC2 SWR_DMIC_OUTPUT",
