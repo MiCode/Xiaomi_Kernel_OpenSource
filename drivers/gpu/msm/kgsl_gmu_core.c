@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/of.h>
@@ -302,7 +303,7 @@ int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device)
 	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->wait_for_lowest_idle)
-		return ops->wait_for_lowest_idle(device);
+		ops->wait_for_lowest_idle(device);
 
 	return 0;
 }
@@ -377,16 +378,6 @@ int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);
-
-	return 0;
-}
-
-u64 gmu_core_dev_read_ao_counter(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->read_ao_counter)
-		return ops->read_ao_counter(device);
 
 	return 0;
 }

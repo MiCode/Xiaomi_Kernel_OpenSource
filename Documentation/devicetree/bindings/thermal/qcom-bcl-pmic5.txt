@@ -1,0 +1,48 @@
+===============================================================================
+BCL Peripheral driver for PMIC5:
+===============================================================================
+Qualcomm Technologies, Inc's PMIC has battery current limiting peripheral,
+which can monitor for high battery current and low battery voltage in the
+hardware. The BCL peripheral driver interacts with the PMIC peripheral using
+the SPMI driver interface. The hardware can take threshold for notifying for
+high battery current or low battery voltage events. This driver works only
+with PMIC version 5, where the same BCL peripheral can be found in multiple
+PMIC's that are used in a device, with limited functionalities. For example,
+one PMIC can have only vbat monitoring, while the other PMIC can have both
+vbat and ibat monitoring. This is a common driver, that can interact
+with the multiple BCL peripherals.
+
+Required Parameters:
+- compatible: must be
+	'qcom,bcl-v5' for bcl peripheral in PMIC version 5.
+- reg: <a b> where 'a' is the starting register address of the PMIC
+	peripheral and 'b' is the size of the peripheral address space.
+- interrupts: <a b c d> Where,
+		'a' is the SLAVE ID of the PMIC,
+		'b' is the peripheral ID,
+		'c' is the interrupt number in PMIC and
+		'd' is the interrupt type.
+- interrupt-names: user defined names for the interrupts. These
+		interrupt names will be used by the drivers to identify the
+		interrupts, instead of specifying the ID's. bcl driver will
+		accept these standard interrupts.
+		"bcl-lvl0",
+		"bcl-lvl1",
+		"bcl-lvl2",
+
+Optional Parameters:
+- qcom,ibat-use-qg-adc-5a: This optional property is used to divide Ibat
+		scaling factor by two for PMIC QG_ADC with ibat range of 5A.
+		By default, this Ibat scaling factor will be 1 corresponding
+		to FG_ADC with 10A range.
+
+Example:
+		bcl@4200 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x4200 0x100>;
+			interrupts = <0x2 0x42 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x1 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1";
+			qcom,ibat-use-qg-adc-5a;
+		};

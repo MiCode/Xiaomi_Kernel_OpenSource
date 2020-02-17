@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * RMNET configuration engine
  *
@@ -163,11 +164,11 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 			 struct nlattr *tb[], struct nlattr *data[],
 			 struct netlink_ext_ack *extack)
 {
+	u32 data_format = RMNET_FLAGS_INGRESS_DEAGGREGATION;
 	struct net_device *real_dev;
 	int mode = RMNET_EPMODE_VND;
 	struct rmnet_endpoint *ep;
 	struct rmnet_port *port;
-	u32 data_format;
 	int err = 0;
 	u16 mux_id;
 
@@ -202,9 +203,10 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 
 		flags = nla_data(data[IFLA_RMNET_FLAGS]);
 		data_format = flags->flags & flags->mask;
-		netdev_dbg(dev, "data format [0x%08X]\n", data_format);
-		port->data_format = data_format;
 	}
+
+	netdev_dbg(dev, "data format [0x%08X]\n", data_format);
+	port->data_format = data_format;
 
 	if (data[IFLA_RMNET_UL_AGG_PARAMS]) {
 		void *agg_params;
@@ -722,17 +724,6 @@ struct net_device *rmnet_get_real_dev(void *port)
 	return NULL;
 }
 EXPORT_SYMBOL(rmnet_get_real_dev);
-
-int rmnet_get_dlmarker_info(void *port)
-{
-	if (!port)
-		return 0;
-
-	return ((struct rmnet_port *)port)->data_format &
-		(RMNET_INGRESS_FORMAT_DL_MARKER_V1 |
-		RMNET_INGRESS_FORMAT_DL_MARKER_V2);
-}
-EXPORT_SYMBOL(rmnet_get_dlmarker_info);
 
 #endif
 

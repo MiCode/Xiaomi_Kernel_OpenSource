@@ -1,5 +1,6 @@
 /*
  * Copyright © 2014 Red Hat
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -823,9 +824,8 @@ static int drm_dp_mst_wait_tx_reply(struct drm_dp_mst_branch *mstb,
 			list_del(&txmsg->next);
 		}
 
-		if ((txmsg->state == DRM_DP_SIDEBAND_TX_START_SEND ||
-			txmsg->state == DRM_DP_SIDEBAND_TX_SENT) &&
-			txmsg->seqno != -1) {
+		if (txmsg->state == DRM_DP_SIDEBAND_TX_START_SEND ||
+		    txmsg->state == DRM_DP_SIDEBAND_TX_SENT) {
 			mstb->tx_slots[txmsg->seqno] = NULL;
 		}
 	}
@@ -1639,8 +1639,7 @@ static void process_single_up_tx_qlock(struct drm_dp_mst_topology_mgr *mgr,
 	if (ret != 1)
 		DRM_DEBUG_KMS("failed to send msg in q %d\n", ret);
 
-	if (txmsg->seqno != -1)
-		txmsg->dst->tx_slots[txmsg->seqno] = NULL;
+	txmsg->dst->tx_slots[txmsg->seqno] = NULL;
 }
 
 static void drm_dp_queue_down_tx(struct drm_dp_mst_topology_mgr *mgr,
@@ -3521,6 +3520,7 @@ static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
 	aux->ddc.class = I2C_CLASS_DDC;
 	aux->ddc.owner = THIS_MODULE;
 	aux->ddc.dev.parent = aux->dev;
+	aux->ddc.dev.of_node = aux->dev->of_node;
 
 	strlcpy(aux->ddc.name, aux->name ? aux->name : dev_name(aux->dev),
 		sizeof(aux->ddc.name));

@@ -1,0 +1,411 @@
+Qualcomm Technologies, Inc. WCD audio CODEC
+
+WSA macro in Bolero codec
+
+Required properties:
+ - compatible = "qcom,wsa-macro";
+ - reg: Specifies the WSA macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for WSA macro
+ - clocks : clock handles defined for WSA  macro
+ - qcom,default-clk-id: Default clk ID used for WSA macro
+ - qcom,wsa-swr-gpios: phandle for SWR data and clock GPIOs of WSA macro
+ - qcom,wsa-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
+			 required to be configured to receive interrupts
+			 in BCL block of WSA macro
+
+WSA slave device as child of Bolero codec
+
+Required properties:
+ - compatible = "qcom,wsa881x";
+ - reg: Specifies the WSA slave device base address.
+ - qcom,spkr-sd-n-gpio: speaker reset gpio
+
+Optional properties:
+ - bolero-handle: phandle to bolero codec
+
+Example:
+
+&bolero {
+	wsa_macro: wsa-macro {
+		compatible = "qcom,wsa-macro";
+		reg = <0x0C2C0000 0x0>;
+		clock-names = "wsa_core_clk", "wsa_npl_clk";
+		clocks = <&clock_audio_wsa_1 0>,
+		<&clock_audio_wsa_2 0>;
+		qcom,wsa-swr-gpios = &wsa_swr_gpios;
+		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
+		swr_0: wsa_swr_master {
+			compatible = "qcom,swr-mstr";
+			wsa881x_1: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-gpio = <&tlmm 80 0>;
+				bolero-handle = <&bolero>;
+			};
+		};
+	};
+};
+
+VA macro in bolero codec
+
+Required properties:
+ - compatible = "qcom,va-macro";
+ - reg: Specifies the VA macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for VA macro
+ - clocks : clock handles defined for VA macro
+ - qcom,default-clk-id: Default clk ID used for VA macro
+ - va-vdd-micb-supply： phandle of mic bias supply's regulator device tree node
+ - qcom,va-vdd-micb-voltage： mic bias supply's voltage level min and max in mV
+ - qcom,va-vdd-micb-current： mic bias supply's max current in mA
+ - qcom,va-dmic-sample-rate： Sample rate defined for DMIC connected to VA macro
+
+Optional properties:
+ - qcom,va-clk-mux-select： VA macro MCLK MUX selection
+ - qcom,va-island-mode-muxsel： VA macro island mode MUX selection
+		This property is required if qcom,va-clk-mux-select is provided
+
+Example:
+
+&bolero {
+	va_macro: va-macro {
+		compatible = "qcom,va-macro";
+		reg = <0x0C490000 0x0>;
+		clock-names = "va_core_clk";
+		clocks = <&clock_audio_va 0>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
+		va-vdd-micb-supply = <&S4A>;
+		qcom,va-vdd-micb-voltage = <1800000 1800000>;
+		qcom,va-vdd-micb-current = <11200>;
+		qcom,va-dmic-sample-rate = <4800000>;
+		qcom,va-clk-mux-select = <1>;
+		qcom,va-island-mode-muxsel = <0x033A0000>;
+	};
+};
+
+RX macro in bolero codec
+
+Required properties:
+ - compatible = "qcom,rx-macro";
+ - reg: Specifies the Rx macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for RX macro
+ - clocks : clock handles defined for RX macro
+ - qcom,default-clk-id: Default clk ID used for RX macro
+ - qcom,rx-swr-gpios: phandle for SWR data and clock GPIOs of RX macro
+ - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
+ - qcom,rx-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
+			 required to be configured to receive interrupts
+			 in BCL block of WSA macro
+
+Example:
+
+&bolero {
+	rx_macro: rx-macro {
+		compatible = "qcom,rx-macro";
+		reg = <0x62EE0000 0x0>;
+		clock-names = "rx_core_clk", "rx_npl_clk";
+		clocks = <&clock_audio_rx_1 0>,
+			 <&clock_audio_rx_2 0>;
+		qcom,rx-swr-gpios = <&rx_swr_gpios>;
+		qcom,rx_mclk_mode_muxsel = <0x62C25020>;
+		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
+		swr_1: rx_swr_master {
+			compatible = "qcom,swr-mstr";
+			wcd938x_rx_slave: wcd938x-rx-slave {
+				compatible = "qcom,wcd938x-slave";
+			};
+		};
+	};
+};
+
+TX macro in bolero codec
+
+Required properties:
+ - compatible = "qcom,tx-macro";
+ - reg: Specifies the Tx macro base address for Bolero
+	soundwire core registers.
+ - clock-names : clock names defined for TX macro
+ - clocks : clock handles defined for TX macro
+ - qcom,tx-swr-gpios: phandle for SWR data and clock GPIOs of TX macro
+ - qcom,tx-dmic-sample-rate: Sample rate defined for DMICs connected to TX macro
+
+Optional properties:
+ - compatible = "qcom,swr-mstr";
+	- Child of TX macro represent TX SWR master.
+ - qcom,swrm-hctl-reg: HW_CTL and CLK_ENABLE bits of SWR module.
+                       Need Disable HW_CTL bit(to gate HW control)
+                       for particular Soundwire master version as SW workaround.
+
+Example:
+
+&bolero {
+	tx_macro: tx-macro {
+		compatible = "qcom,tx-macro";
+		reg = <0x62EC0000 0x0>;
+		clock-names = "tx_core_clk", "tx_npl_clk";
+		clocks = <&clock_audio_tx_1 0>
+			 <&clock_audio_tx_2 0>;
+		qcom,tx-swr-gpios = <&tx_swr_gpios>;
+		qcom,tx-dmic-sample-rate = <4800000>;
+		swr_2: tx_swr_master {
+			compatible = "qcom,swr-mstr";
+			qcom,swrm-hctl-reg = <0xa53a400>;
+			wcd938x_tx_slave: wcd938x-tx-slave {
+				compatible = "qcom,wcd938x-slave";
+			};
+		};
+	};
+};
+
+&bolero {
+	rx_macro: rx-macro {
+		compatible = "qcom,tx-macro";
+		reg = <0x62EC0000 0x0>;
+		clock-names = "rx_core_clk", "rx_npl_clk";
+		clocks = <&clock_audio_rx_1 0>
+			 <&clock_audio_rx_2 0>;
+		qcom,rx-swr-gpios = <&rx_swr_gpios>;
+		swr_2: rx_swr_master {
+			compatible = "qcom,swr-mstr";
+			wcd937x_rx_slave: wcd937x-rx-slave {
+				compatible = "qcom,wcd937x-slave";
+			};
+		};
+	};
+};
+
+Tanggu Codec
+
+Required properties:
+ - compatible: "qcom,wcd937x-codec";
+ - qcom,rx_swr_ch_map: mapping of swr rx slave port configuration to port_type and also
+		corresponding master port type it need to attach.
+		format: <port_id, slave_port_type, ch_mask, ch_rate, master_port_type>
+		same port_id configurations have to be grouped, and in ascending order.
+ - qcom,tx_swr_ch_map: mapping of swr tx slave port configuration to port_type and also
+		corresponding master port type it need to attach.
+		format: <port_id,slave_port_type, ch_mask, ch_rate, master_port_type>
+		same port_id configurations have to be grouped, and in ascending order.
+ - qcom,wcd-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
+                        configuration. If this property is not defined, it is
+                        expected to atleast define "qcom,cdc-reset-gpio" property.
+ - qcom,rx-slave: phandle reference of Soundwire Rx slave device.
+ - qcom,tx-slave: phandle reference of Soundwire Tx slave device.
+
+Optional properties:
+
+ - cdc-vdd-rxtx-supply: phandle of rxtx supply's regulator device tree node.
+ - qcom,cdc-vdd-rxtx-voltage: rxtx supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-rxtx-current: rxtx supply's max current in mA.
+
+ - cdc-vddio-supply: phandle of io supply's regulator device tree node.
+ - qcom,cdc-vddio-voltage: io supply's voltage level min and max in mV.
+ - qcom,cdc-vddio-current: io supply's max current in mA.
+
+ - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+ - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
+
+ - cdc-vdd-mic-bias-supply: phandle of mic bias supply's regulator device tree node.
+ - qcom,cdc-vdd-mic-bias-voltage: mic bias supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-mic-bias-current: mic bias supply's max current in mA.
+
+ - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
+			     hardware probe.  Supplies in this list will be
+			     stay enabled.
+
+ - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
+				dynamically.
+				Supplies in this list are off by default.
+
+Example:
+wcd937x_codec: wcd937x-codec {
+	compatible = "qcom,wcd937x-codec";
+	qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
+		<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x3 0 CLSH>,
+		<2 COMP_L 0x1 0 COMP_L>, <2 COMP_R 0x2 0 COMP_R>,
+		<3 LO 0x1 0 LO>, <4 DSD_L 0x1 0 DSD_L>,
+		<4 DSD_R 0x2 0 DSD_R>;
+	qcom,tx_swr_ch_map = <0 ADC1 0x1 0 ADC1>,
+		<1 ADC2 0x1 0 ADC3>, <1 ADC3 0x2 0 ADC4>,
+		<2 DMIC0 0x1 0 DMIC0>, <2 DMIC1 0x2 0 DMIC1>,
+		<2 MBHC 0x4 0 DMIC2>, <3 DMIC2 0x1 0 DMIC4>,
+		<3 DMIC3 0x2 0 DMIC5>, <3 DMIC4 0x4 0 DMIC6>,
+		<3 DMIC5 0x8 0 DMIC7>;
+
+	qcom,wcd-rst-gpio-node = <&wcd937x_rst_gpio>;
+	qcom,rx-slave = <&wcd937x_rx_slave>;
+	qcom,tx-slave = <&wcd937x_tx_slave>;
+
+	cdc-vdd-buck-supply = <&S4A>;
+	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-buck-current = <650000>;
+
+	cdc-vdd-rxtx-supply = <&S4A>;
+	qcom,cdc-vdd-rxtx-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-rxtx-current = <30000>;
+
+	cdc-vddio-supply = <&S4A>;
+	qcom,cdc-vddio-voltage = <1800000 1800000>;
+	qcom,cdc-vddio-current = <30000>;
+
+	cdc-vdd-mic-bias-supply = <&BOB>;
+	qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
+	qcom,cdc-vdd-mic-bias-current = <30000>;
+
+	qcom,cdc-static-supplies = "cdc-vdd-rxtx",
+				   "cdc-vddio";
+	qcom,cdc-on-demand-supplies = "cdc-vdd-buck",
+				      "cdc-vdd-mic-bias";
+};
+
+Traverso Codec
+
+Required properties:
+ - compatible: "qcom,wcd938x-codec";
+ - qcom,rx_swr_ch_map: mapping of swr rx slave port configuration to port_type and also
+		corresponding master port type it need to attach.
+		format: <port_id, slave_port_type, ch_mask, ch_rate, master_port_type>
+		same port_id configurations have to be grouped, and in ascending order.
+ - qcom,tx_swr_ch_map: mapping of swr tx slave port configuration to port_type and also
+		corresponding master port type it need to attach.
+		format: <port_id,slave_port_type, ch_mask, ch_rate, master_port_type>
+		same port_id configurations have to be grouped, and in ascending order.
+ - qcom,wcd-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
+                        configuration. If this property is not defined, it is
+                        expected to atleast define "qcom,cdc-reset-gpio" property.
+ - qcom,rx-slave: phandle reference of Soundwire Rx slave device.
+ - qcom,tx-slave: phandle reference of Soundwire Tx slave device.
+
+Optional properties:
+
+ - cdc-vdd-rxtx-supply: phandle of rxtx supply's regulator device tree node.
+ - qcom,cdc-vdd-rxtx-voltage: rxtx supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-rxtx-current: rxtx supply's max current in mA.
+
+ - cdc-vddio-supply: phandle of io supply's regulator device tree node.
+ - qcom,cdc-vddio-voltage: io supply's voltage level min and max in mV.
+ - qcom,cdc-vddio-current: io supply's max current in mA.
+
+ - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+ - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
+
+ - cdc-vdd-mic-bias-supply: phandle of mic bias supply's regulator device tree node.
+ - qcom,cdc-vdd-mic-bias-voltage: mic bias supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-mic-bias-current: mic bias supply's max current in mA.
+
+ - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
+			     hardware probe.  Supplies in this list will be
+			     stay enabled.
+
+ - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
+				dynamically.
+				Supplies in this list are off by default.
+
+Example:
+wcd938x_codec: wcd938x-codec {
+	compatible = "qcom,wcd938x-codec";
+	qcom,rx_swr_ch_map = <0 HPH_L 0x1 0 HPH_L>,
+		<0 HPH_R 0x2 0 HPH_R>, <1 CLSH 0x3 0 CLSH>,
+		<2 COMP_L 0x1 0 COMP_L>, <2 COMP_R 0x2 0 COMP_R>,
+		<3 LO 0x1 0 LO>, <4 DSD_L 0x1 0 DSD_L>,
+		<4 DSD_R 0x2 0 DSD_R>;
+	qcom,tx_swr_ch_map = <0 ADC1 0x1 0 ADC1>,
+		<1 ADC2 0x1 0 ADC3>, <1 ADC3 0x2 0 ADC4>,
+		<2 DMIC0 0x1 0 DMIC0>, <2 DMIC1 0x2 0 DMIC1>,
+		<2 MBHC 0x4 0 DMIC2>, <3 DMIC2 0x1 0 DMIC4>,
+		<3 DMIC3 0x2 0 DMIC5>, <3 DMIC4 0x4 0 DMIC6>,
+		<3 DMIC5 0x8 0 DMIC7>;
+
+	qcom,wcd-rst-gpio-node = <&wcd938x_rst_gpio>;
+	qcom,rx-slave = <&wcd938x_rx_slave>;
+	qcom,tx-slave = <&wcd938x_tx_slave>;
+
+	cdc-vdd-buck-supply = <&S4A>;
+	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-buck-current = <650000>;
+
+	cdc-vdd-rxtx-supply = <&S4A>;
+	qcom,cdc-vdd-rxtx-voltage = <1800000 1800000>;
+	qcom,cdc-vdd-rxtx-current = <30000>;
+
+	cdc-vddio-supply = <&S4A>;
+	qcom,cdc-vddio-voltage = <1800000 1800000>;
+	qcom,cdc-vddio-current = <30000>;
+
+	cdc-vdd-mic-bias-supply = <&BOB>;
+	qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
+	qcom,cdc-vdd-mic-bias-current = <30000>;
+
+	qcom,cdc-static-supplies = "cdc-vdd-rxtx",
+				   "cdc-vddio";
+	qcom,cdc-on-demand-supplies = "cdc-vdd-buck",
+				      "cdc-vdd-mic-bias";
+};
+
+Bolero Clock Resource Manager
+
+Required Properties:
+ - compatible = "qcom,bolero-clk-rsc-mngr";
+ - qcom,fs-gen-sequence: Register sequence for fs clock generation
+ - clock-names : clock names defined for WSA macro
+ - clocks : clock handles defined for WSA  macro
+
+Optional Properties:
+ - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
+ - qcom,wsa_mclk_mode_muxsel: register address for WSA macro MCLK mux select
+ - qcom,va_mclk_mode_muxsel: register address for VA macro MCLK mode mux select
+
+Example:
+&bolero {
+	bolero-clock-rsc-manager {
+		compatible = "qcom,bolero-clk-rsc-mngr";
+		qcom,fs-gen-sequence = <0x3000 0x1>,
+				<0x3004 0x1>, <0x3080 0x2>;
+		qcom,rx_mclk_mode_muxsel = <0x033240D8>;
+		qcom,wsa_mclk_mode_muxsel = <0x033220D8>;
+		qcom,va_mclk_mode_muxsel = <0x033A0000>;
+		clock-names = "tx_core_clk", "tx_npl_clk", "rx_core_clk",
+			"rx_npl_clk", "wsa_core_clk", "wsa_npl_clk",
+			"va_core_clk", "va_npl_clk";
+		clocks = <&clock_audio_tx_1 0>, <&clock_audio_tx_2 0>,
+			<&clock_audio_rx_1 0>, <&clock_audio_rx_2 0>,
+			<&clock_audio_wsa_1 0>, <&clock_audio_wsa_2 0>,
+			<&clock_audio_va_1 0>, <&clock_audio_va_2 0>;
+	};
+};
+
+WSA Analog Codec
+
+Required Properties:
+ - compatible = "qcom,wsa881x-i2c-codec";
+ - reg: Specifies the I2C chip address.
+ - clock-names : clock names defined for WSA master clock
+ - clocks : clock handles defined for WSA master clock
+ - qcom,wsa-analog-clk-gpio: Specificies WSA_MCLK GPIO handle
+ - qcom,wsa-analog-reset-gpio: Specifies WSA reset GPIO handle
+
+Optional Properties:
+ - qcom,wsa-analog-vi-gpio: Specifies WSA VI sense GPIO handle
+
+Example:
+&qupv3_se1_i2c {
+	wsa881x_i2c_f: wsa881x-i2c-codec@f {
+		compatible = "qcom,wsa881x-i2c-codec";
+		reg = <0x0f>;
+		clock-names = "wsa_mclk";
+		clocks = <&wsa881x_analog_clk 0>;
+		qcom,wsa-analog-clk-gpio = <&wsa881x_analog_clk_gpio>;
+		qcom,wsa-analog-reset-gpio = <&wsa881x_analog_reset_gpio>;
+	};
+
+	wsa881x_i2c_45: wsa881x-i2c-codec@45 {
+		compatible = "qcom,wsa881x-i2c-codec";
+		reg = <0x045>;
+	};
+};

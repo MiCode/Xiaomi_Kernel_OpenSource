@@ -15,6 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -5971,9 +5972,6 @@ static ssize_t arm_smmu_debug_tcu_testbus_sel_write(struct file *file,
 	if (kstrtou64(buf, 0, &sel))
 		goto invalid_format;
 
-	if (sel != 1 && sel != 2)
-		goto invalid_format;
-
 	if (kstrtou64(comma + 1, 0, &val))
 		goto invalid_format;
 
@@ -5985,6 +5983,8 @@ static ssize_t arm_smmu_debug_tcu_testbus_sel_write(struct file *file,
 	else if (sel == 2)
 		arm_smmu_debug_tcu_testbus_select(base,
 				tcu_base, PTW_AND_CACHE_TESTBUS, WRITE, val);
+	else
+		goto invalid_format;
 
 	arm_smmu_power_off(smmu->pwr);
 

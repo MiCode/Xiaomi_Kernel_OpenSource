@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,8 +41,6 @@ enum {
 	DRM_PANEL_BLANK_POWERDOWN,
 	/* panel: low power mode */
 	DRM_PANEL_BLANK_LP,
-	/* fps change */
-	DRM_PANEL_BLANK_FPS_CHANGE,
 };
 
 struct drm_panel_notifier {

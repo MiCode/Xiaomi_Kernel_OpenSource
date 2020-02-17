@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -49,7 +50,6 @@ int synx_init_object(struct synx_table_row *table,
 	dma_fence_init(fence, ops, &synx_dev->row_spinlocks[idx],
 		synx_dev->dma_context, 1);
 
-	spin_lock_bh(&synx_dev->row_spinlocks[idx]);
 	row->fence = fence;
 	obj_node->synx_obj = id;
 	row->index = idx;
@@ -60,7 +60,6 @@ int synx_init_object(struct synx_table_row *table,
 	list_add(&obj_node->list, &row->synx_obj_list);
 	if (name)
 		strlcpy(row->name, name, sizeof(row->name));
-	spin_unlock_bh(&synx_dev->row_spinlocks[idx]);
 
 	pr_debug("synx obj init: id:0x%x state:%u fence: 0x%pK\n",
 		synx_status_locked(row), fence);
@@ -87,7 +86,6 @@ int synx_init_group_object(struct synx_table_row *table,
 	if (!obj_node)
 		return -ENOMEM;
 
-	spin_lock_bh(&synx_dev->row_spinlocks[idx]);
 	row->fence = &array->base;
 	obj_node->synx_obj = id;
 	row->index = idx;
@@ -96,8 +94,6 @@ int synx_init_group_object(struct synx_table_row *table,
 	INIT_LIST_HEAD(&row->user_payload_list);
 
 	list_add(&obj_node->list, &row->synx_obj_list);
-	spin_unlock_bh(&synx_dev->row_spinlocks[idx]);
-
 	pr_debug("synx group obj init: id:%d state:%u fence: 0x%pK\n",
 		id, synx_status_locked(row), row->fence);
 

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /* -------------------------------------------------------------------------
  * Includes
  * -------------------------------------------------------------------------
  */
-#include <dt-bindings/msm/msm-bus-ids.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -107,8 +107,8 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 static int npu_pwrctrl_init(struct npu_device *npu_dev);
 static int npu_probe(struct platform_device *pdev);
 static int npu_remove(struct platform_device *pdev);
-static int npu_pm_suspend(struct device *dev);
-static int npu_pm_resume(struct device *dev);
+static int npu_suspend(struct platform_device *dev, pm_message_t state);
+static int npu_resume(struct platform_device *dev);
 static int __init npu_init(void);
 static void __exit npu_exit(void);
 
@@ -186,17 +186,17 @@ static const struct of_device_id npu_dt_match[] = {
 	{}
 };
 
-static const struct dev_pm_ops npu_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(npu_pm_suspend, npu_pm_resume)
-};
-
 static struct platform_driver npu_driver = {
 	.probe = npu_probe,
 	.remove = npu_remove,
+#if defined(CONFIG_PM)
+	.suspend = npu_suspend,
+	.resume = npu_resume,
+#endif
 	.driver = {
 		.name = "msm_npu",
 		.of_match_table = npu_dt_match,
-		.pm = &npu_pm_ops,
+		.pm = NULL,
 	},
 };
 
@@ -1647,15 +1647,15 @@ regulator_err:
 
 static int npu_parse_dt_bw(struct npu_device *npu_dev)
 {
-	int ret, len, num_paths, i;
-	uint32_t ports[MAX_PATHS * 2];
+	int ret, len;
+	uint32_t ports[2];
 	struct platform_device *pdev = npu_dev->pdev;
 	struct npu_bwctrl *bwctrl = &npu_dev->bwctrl;
 
 	if (of_find_property(pdev->dev.of_node, "qcom,src-dst-ports", &len)) {
 		len /= sizeof(ports[0]);
-		if (len % 2 || len > ARRAY_SIZE(ports)) {
-			NPU_ERR("Unexpected number of ports %d\n", len);
+		if (len != 2) {
+			NPU_ERR("Unexpected number of ports\n");
 			return -EINVAL;
 		}
 
@@ -1665,7 +1665,6 @@ static int npu_parse_dt_bw(struct npu_device *npu_dev)
 			NPU_ERR("Failed to read bw property\n");
 			return ret;
 		}
-		num_paths = len / 2;
 	} else {
 		NPU_ERR("can't find bw property\n");
 		return -EINVAL;
@@ -1678,15 +1677,13 @@ static int npu_parse_dt_bw(struct npu_device *npu_dev)
 	bwctrl->bw_data.name = dev_name(&pdev->dev);
 	bwctrl->bw_data.active_only = false;
 
-	for (i = 0; i < num_paths; i++) {
-		bwctrl->bw_levels[0].vectors[i].src = ports[2 * i];
-		bwctrl->bw_levels[0].vectors[i].dst = ports[2 * i + 1];
-		bwctrl->bw_levels[1].vectors[i].src = ports[2 * i];
-		bwctrl->bw_levels[1].vectors[i].dst = ports[2 * i + 1];
-	}
-	bwctrl->bw_levels[0].num_paths = num_paths;
-	bwctrl->bw_levels[1].num_paths = num_paths;
-	bwctrl->num_paths = num_paths;
+	bwctrl->bw_levels[0].vectors[0].src = ports[0];
+	bwctrl->bw_levels[0].vectors[0].dst = ports[1];
+	bwctrl->bw_levels[1].vectors[0].src = ports[0];
+	bwctrl->bw_levels[1].vectors[0].dst = ports[1];
+	bwctrl->bw_levels[0].num_paths = 1;
+	bwctrl->bw_levels[1].num_paths = 1;
+	bwctrl->num_paths = 1;
 
 	bwctrl->bus_client = msm_bus_scale_register_client(&bwctrl->bw_data);
 	if (!bwctrl->bus_client) {
@@ -1701,7 +1698,7 @@ static int npu_parse_dt_bw(struct npu_device *npu_dev)
 
 int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 {
-	int i, j, ret;
+	int i, ret;
 	struct npu_bwctrl *bwctrl = &npu_dev->bwctrl;
 
 	if (!bwctrl->bus_client) {
@@ -1714,17 +1711,10 @@ int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 
 	i = (bwctrl->cur_idx + 1) % DBL_BUF;
 
-	for (j = 0; j < bwctrl->num_paths; j++) {
-		if ((bwctrl->bw_levels[i].vectors[j].dst ==
-			MSM_BUS_SLAVE_CLK_CTL) && (new_ib > 0)) {
-			bwctrl->bw_levels[i].vectors[j].ib = 1;
-			bwctrl->bw_levels[i].vectors[j].ab = 1;
-		} else {
-			bwctrl->bw_levels[i].vectors[j].ib = new_ib * MBYTE;
-			bwctrl->bw_levels[i].vectors[j].ab =
-				new_ab * MBYTE / bwctrl->num_paths;
-		}
-	}
+	bwctrl->bw_levels[i].vectors[0].ib = new_ib * MBYTE;
+	bwctrl->bw_levels[i].vectors[0].ab = new_ab / bwctrl->num_paths * MBYTE;
+	bwctrl->bw_levels[i].vectors[1].ib = new_ib * MBYTE;
+	bwctrl->bw_levels[i].vectors[1].ab = new_ab / bwctrl->num_paths * MBYTE;
 
 	ret = msm_bus_scale_client_update_request(bwctrl->bus_client, i);
 	if (ret) {
@@ -2221,7 +2211,7 @@ static int npu_probe(struct platform_device *pdev)
 	npu_dev->pdev = pdev;
 	mutex_init(&npu_dev->dev_lock);
 
-	dev_set_drvdata(&pdev->dev, npu_dev);
+	platform_set_drvdata(pdev, npu_dev);
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "core");
 	if (!res) {
@@ -2446,7 +2436,6 @@ error_class_create:
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	npu_mbox_deinit(npu_dev);
 error_get_dev_num:
-	dev_set_drvdata(&pdev->dev, NULL);
 	return rc;
 }
 
@@ -2464,7 +2453,7 @@ static int npu_remove(struct platform_device *pdev)
 	device_destroy(npu_dev->class, npu_dev->dev_num);
 	class_destroy(npu_dev->class);
 	unregister_chrdev_region(npu_dev->dev_num, 1);
-	dev_set_drvdata(&pdev->dev, NULL);
+	platform_set_drvdata(pdev, NULL);
 	npu_mbox_deinit(npu_dev);
 	msm_bus_scale_unregister_client(npu_dev->bwctrl.bus_client);
 
@@ -2477,27 +2466,17 @@ static int npu_remove(struct platform_device *pdev)
  * Suspend/Resume
  * -------------------------------------------------------------------------
  */
-static int npu_pm_suspend(struct device *dev)
+#if defined(CONFIG_PM)
+static int npu_suspend(struct platform_device *dev, pm_message_t state)
 {
-	struct npu_device *npu_dev;
-
-	npu_dev = dev_get_drvdata(dev);
-	if (!npu_dev) {
-		NPU_ERR("invalid NPU dev\n");
-		return -EINVAL;
-	}
-
-	NPU_DBG("suspend npu\n");
-	npu_host_suspend(npu_dev);
-
 	return 0;
 }
 
-static int npu_pm_resume(struct device *dev)
+static int npu_resume(struct platform_device *dev)
 {
-	NPU_DBG("resume npu\n");
 	return 0;
 }
+#endif
 
 /* -------------------------------------------------------------------------
  * Module Entry Points

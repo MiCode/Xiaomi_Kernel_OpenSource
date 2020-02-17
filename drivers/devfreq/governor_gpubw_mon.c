@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/devfreq.h>
 #include <linux/module.h>
 #include <linux/msm_adreno_devfreq.h>
-#include <linux/of_platform.h>
 #include <linux/slab.h>
 
 #include "devfreq_trace.h"
@@ -209,14 +209,6 @@ static int devfreq_gpubw_event_handler(struct devfreq *devfreq,
 {
 	int result = 0;
 	unsigned long freq;
-	struct device_node *node = devfreq->dev.parent->of_node;
-
-	/*
-	 * We want to restrict this governor be set only for
-	 * gpu devfreq devices.
-	 */
-	if (!of_device_is_compatible(node, "qcom,kgsl-busmon"))
-		return -EINVAL;
 
 	mutex_lock(&devfreq->lock);
 	freq = devfreq->previous_freq;

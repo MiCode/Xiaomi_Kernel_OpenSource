@@ -2,6 +2,7 @@
  *  arch/arm/include/asm/cacheflush.h
  *
  *  Copyright (C) 1999-2002 Russell King
+ *  Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -178,26 +179,10 @@ extern void __cpuc_flush_dcache_area(void *, size_t);
  * is visible to DMA, or data written by DMA to system memory is
  * visible to the CPU.
  */
-extern void __dma_map_area(const void *addr, size_t size, int dir);
-extern void __dma_unmap_area(const void *addr, size_t size, int dir);
 extern void dmac_inv_range(const void *start, const void *end);
 extern void dmac_clean_range(const void *start, const void *end);
 extern void dmac_flush_range(const void *, const void *);
 
-static inline void __dma_inv_area(const void *start, size_t len)
-{
-	dmac_inv_range(start, start + len);
-}
-
-static inline void __dma_clean_area(const void *start, size_t len)
-{
-	dmac_clean_range(start, start + len);
-}
-
-static inline void __dma_flush_area(const void *start, size_t len)
-{
-	dmac_flush_range(start, start + len);
-}
 #endif
 
 /*

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -814,7 +815,6 @@ static void log_failure_reason(const struct pil_tz_data *d)
 		pr_err("%s SFR: (unknown, empty string found).\n", name);
 		return;
 	}
-
 	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
 }

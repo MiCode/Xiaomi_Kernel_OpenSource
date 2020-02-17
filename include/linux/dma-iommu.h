@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2015 ARM Ltd.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -81,6 +82,11 @@ int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr);
 /* The DMA API isn't _quite_ the whole story, though... */
 void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg);
 void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list);
+
+void iommu_dma_reserve_iova(struct device *dev, unsigned long pfn_lo, unsigned long pfn_hi);
+
+
+int iommu_dma_enable_best_fit_algo(struct device *dev);
 
 #else
 

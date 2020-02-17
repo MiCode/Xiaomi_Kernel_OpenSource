@@ -1,0 +1,422 @@
+QTI's LAB (LCD/AMOLED BOOST)/IBB (Inverting Buck-Boost) Regulator
+
+LAB can be used as a standalone positive boost power supply for general purpose
+applications. IBB can be used as a standalone negative power supply for general
+applications. Also, LAB and IBB can be used together to provide power supply for
+display panels, LCD or AMOLED.
+
+Main node required properties:
+
+- compatible:			Must be "qcom,qpnp-labibb-regulator"
+- qcom,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
+				regulators when bootloader does not turned on the
+				display panel. Could be "lcd" or "amoled".
+				"lcd" means using LAB and IBB regulators are
+				configured for LCD mode.
+				"amoled" means using LAB and IBB regulators are
+				configured for AMOLED mode.
+- qcom,pmic-revid:		Specifies the phandle of the PMIC revid module.
+				Used to identify the PMIC subtype.
+
+Main node optional properties:
+
+- qcom,qpnp-labibb-touch-to-wake-en:	A boolean property which upon set will
+					enable support for touch-to-wake mode
+					by configuring the required settings
+					in LAB and IBB modules. Make sure the
+					hardware has needed support before
+					enabling this property.
+- qcom,swire-control:			A boolean property which indicates if the LAB/IBB is
+					controlled by the SWIRE interface. Enable only
+					if qcom,qpnp-labibb-mode = "amoled".
+- qcom,labibb-ttw-force-lab-on:		A boolean property which forces LAB to be
+					always on during TTW mode.
+- qcom,skip-2nd-swire-cmd:		A boolean property which indicates if
+					the second SWIRE command needs to be skipped.
+- qcom,swire-2nd-cmd-delay:		An integer value which specifes the
+					delay in millisecs between the first and second
+					SWIRE command. If not specified this value
+					defaults to 20ms. This delay is applied only
+					if 'qcom,skip-2nd-swire-cmd' is defined.
+- qcom,swire-ibb-ps-enable-delay:	An integer value which specifes the delay
+					in millisecs to enable IBB pulse-skipping
+					after the skip-2nd-swire-cmd workaround is applied.
+					If not specified this value default to 200ms.
+					This property is applicable only if
+					'qcom,skip-2nd-swire-cmd' is specified.
+- qcom,labibb-standalone:		A boolean property which forces LAB and
+					IBB to operate in standalone mode. If
+					this is not specified, then LAB and IBB
+					are controlled together in dual mode.
+- parent-supply:			Parent supply that is needed for LAB
+					and IBB regulators. This will be mostly
+					needed when LAB and IBB are operating
+					in standalone mode to vote for MBG.
+
+Following properties are available only for PM660A:
+
+- qcom,pbs-control:			A boolean property which indicates if
+					the LAB/IBB is controlled by the PBS
+					sequencer. If this mode is enabled the
+					PBS sequencer does the SWIRE remapping
+					and program the voltages based on the
+					SWIRE count.
+
+LAB subnode required properties:
+
+- reg:				Specifies the SPMI address and size for this peripheral.
+- reg-names:			Register names. Must be "lab".
+- regulator-name:		A string used to describe the regulator.
+- regulator-min-microvolt:	Minimum voltage in microvolts supported by this regulator.
+- regulator-max-microvolt:	Maximum voltage in microvolts supported by this regulator.
+
+- qcom,qpnp-lab-min-voltage:	The minimum voltage in microvolts LAB regulator can support.
+- qcom,qpnp-lab-step-size:	The step size in microvolts of LAB regulator.
+- qcom,qpnp-lab-slew-rate:	The time in us taken by the regulator to change
+				voltage value in one step.
+
+- qcom,qpnp-lab-init-voltage:		The default initial voltage when the bootloader
+					does not turn on LAB regulator.
+- qcom,qpnp-lab-init-amoled-voltage:	The default output voltage when LAB regulator
+					is configured in amoled mode.
+- qcom,qpnp-lab-init-lcd-voltage: 	The default output voltage when LAB regulator
+					is configured in lcd mode.
+- qcom,qpnp-lab-ps-threshold:		The threshold in mA of Pulse Skip Mode for
+					LAB regulator. Supported values for
+					PMI8994/6 are 20, 30, 40 and 50.
+					Supported values for PMI8998/PM660A are
+					50, 60, 70 and 80.
+- interrupts:				Specify the interrupts as per the interrupt
+					encoding.
+					Currently "lab-vreg-ok" is required and "lab-sc_err"
+					is optional for LCD mode in pmi8998.
+					For AMOLED mode, "lab-vreg-ok" is required
+					only when SWIRE control is enabled and skipping
+					2nd SWIRE pulse is required in pmi8952/8996.
+- interrupt-names:			Interrupt names to match up 1-to-1 with
+					the interrupts specified in 'interrupts'
+					property.
+
+LAB subnode optional properties:
+
+- qcom,qpnp-lab-current-sense:		If this property is specified, the LAB current
+					sense gain will be programmed for LAB regulator.
+					Otherwise, LAB current sense gain will be
+					default to "1x". A string is used to specify the
+					LAB current sense gain. Could be "0.5x" or "1x"
+					or "1.5x" or "2x". For e.g. "0.5x" means current
+					sense gain is 0.5.
+- qcom,qpnp-lab-ps-enable:		A boolean proerty which upon set will enable
+					pulse skip mode for LAB regulator. Otherwise,
+					it is disabled.
+- qcom,qpnp-lab-full-pull-down:		A boolean property which upon set will enable
+					the pull down strength of LAB regulator to
+					full. Otherwise, the pull down strength is
+					configured to half.
+- qcom,qpnp-lab-pull-down-enable:	A boolean property which upon set will enable
+					the pull down for LAB regulator. Otherwise,
+					it is disabled.
+- qcom,qpnp-lab-max-precharge-enable:	A boolean property which upon set will
+					enable fast precharge. Otherwise, it is
+					disabled.
+- qcom,qpnp-lab-ring-suppression-enable:	A boolean property which upon set will
+						enable ring suppression for LAB
+						regulator. Otherwise, it is disabled.
+- qcom,qpnp-lab-limit-max-current-enable:	A boolean property which upon set will
+						enforce maximum inductor current constraint
+						for LAB regulator. Otherwise, there is no
+						maximum current constraint.
+- qcom,qpnp-lab-switching-clock-frequency:	The PWM switching clock frequency in
+						kHz of Lab regulator, Supported values
+						are: 3200, 2740, 2400, 2130, 1920,
+						1750, 1600, 1480, 1370, 1280, 1200,
+						1130, 1070, 1010, 960, 910.
+- qcom,qpnp-lab-limit-maximum-current:		The maximum inductor current limit in
+						mA of LAB regulator. Supported values
+						are 200, 400, 600, 800, 1000, 1200,
+						1400 and 1600.
+- qcom,qpnp-lab-pfet-size:		PFET size in percentage. Supported values
+					are 25, 50, 75 and 100.
+- qcom,qpnp-lab-nfet-size:		NFET size in percentage. Supported values
+					are 25, 50, 75 and 100.
+- qcom,qpnp-lab-max-precharge-time:	Precharge time in uS for LAB regulator.
+					Supported values are 200, 300, 400 and 500.
+					Suggested values for LCD and AMOLED mode
+					are 500 and 300uS respectively.
+- qcom,qpnp-lab-use-default-voltage:	A boolean property which upon set will
+					use the value specified in
+					qcom,qpnp-lab-init-voltage property.
+					This will be used only if the bootloader
+					doesn't configure the output voltage
+					already. If it it not specified, then
+					output voltage can be configured to
+					any value in the allowed limit.
+- qcom,notify-lab-vreg-ok-sts:		A boolean property which upon set will
+					poll and notify the lab_vreg_ok status.
+- qcom,qpnp-lab-sc-wait-time-ms:	This property is used to specify the time
+					(in ms) to poll for the short circuit
+					detection. If not specified the default time
+					is 5 sec.
+
+Following properties are available only for PM660A:
+
+- qcom,qpnp-lab-soft-start:		The soft start time in us of LAB regulator.
+					Supported value are 200, 400, 600 and 800.
+- qcom,qpnp-lab-ldo-pulldown-enable:	This property is used to enable/disable
+					the LDO	pull down.
+					1 - enable pulldown
+					0 - disable pulldown
+- qcom,qpnp-lab-enable-sw-high-psrr:	A boolean property to enable the
+					software high psrr
+					(Power Suppy Rejection Rate) mode.
+- qcom,qpnp-lab-high-psrr-src-select:	This property is used to select the LAB
+					HW high psrr source.
+					The supported values are:
+					0 = Either vph_high or high_psrr enable
+					1 = vph_high only
+					2 = high_psrr enable only
+					3 = Either vph_high or high_psrr enable
+					This property is not valid if the
+					qcom,qpnp-lab-enable-sw-high-psrr property
+					is specified.
+- qcom,qpnp-lab-vref-high-psrr-select:	This property is required if the
+					qcom,qpnp-lab-high-psrr-src-select is
+					specified. The supported values (in mV)
+					are 350, 400, 450 and 500. Once the
+					rejection rate crosses the selected
+					high-psrr voltage the LDO is enabled
+					based on the value specified under
+					qcom,qpnp-lab-high-psrr-src-select
+					property.
+					This property is not valid if the
+					qcom,qpnp-lab-enable-sw-high-psrr property
+					is specified.
+
+IBB subnode required properties:
+
+- reg:				Specifies the SPMI address and size for this peripheral.
+- reg-names:			Register names. Must be "ibb".
+- regulator-name:		A string used to describe the regulator.
+- regulator-min-microvolt:	Minimum voltage in microvolts supported by this regulator.
+- regulator-max-microvolt:	Maximum voltage in microvolts supported by this regulator.
+
+- qcom,qpnp-ibb-min-voltage:	The minimum voltage in microvolts IBB regulator can support.
+- qcom,qpnp-ibb-step-size:	The step size in microvolts of IBB regulator.
+- qcom,qpnp-ibb-soft-start:	The soft start time in us of IBB regulator.
+
+- qcom,qpnp-ibb-init-voltage:	The default initial voltage when the bootloader does
+				not turn on IBB regulator.
+- qcom,qpnp-ibb-init-amoled-voltage:	The default output voltage when IBB regulator
+					is configured in amoled mode.
+- qcom,qpnp-ibb-init-lcd-voltage: 	The default output voltage when IBB regulator
+					is configured in lcd mode.
+
+IBB subnode optional properties:
+
+- interrupts:				Specify the interrupts as per the interrupt
+					encoding.
+					Currently "ibb-sc-err" could be used for LCD mode
+					in pmi8998 to detect the short circuit fault.
+- interrupt-names:			Interrupt names to match up 1-to-1 with
+					the interrupts specified in 'interrupts'
+					property.
+
+- qcom,qpnp-ibb-discharge-resistor:	The discharge resistor in Kilo Ohms which
+					controls the soft start time. Supported values
+					are 300, 64, 32 and 16.
+
+- qcom,qpnp-ibb-slew-rate:	The time (in us) taken by the regulator to change
+				voltage value in one step. This property is not
+				applicable to PM660A.
+				The following properties can be used as an
+				alternate.
+					qcom,qpnp-ibb-slew-rate-config
+					qcom,qpnp-ibb-fast-slew-rate
+					qcom,qpnp-ibb-slow-slew-rate
+- qcom,qpnp-ibb-ps-enable:		A boolean property which upon set will enable
+					pulse skip mode for IBB regulator. Otherwise,
+					it is disabled.
+- qcom,qpnp-ibb-num-swire-trans:	The number of SWIRE transactions
+					after which the pulse skipping is
+					enabled. This property is required when
+					qpnp-ibb-smart-ps-enable property is
+					set.
+- qcom,qpnp-ibb-neg-curr-limit:		This property must be set when the
+					qpnp-ibb-smart-ps-enable is specified.
+					The supported values in mA are 1, 2, 3,
+					4, 5, 6 and 7. The recommended value is
+- qcom,qpnp-ibb-full-pull-down:		A boolean property which upon set will
+					enable the pull down strength of IBB
+					regulator to full. Otherwise, the pull
+					down strength is configured to half.
+- qcom,qpnp-ibb-pull-down-enable:	A boolean property which upon set will enable
+					the pull down for IBB regulator. Otherwise,
+					it is disabled.
+- qcom,qpnp-ibb-lab-pwrup-delay:	Power up delay (in us) for IBB regulator when
+					it is enabled or turned on. Supported values
+					are 1000, 2000, 4000 and 8000.
+- qcom,qpnp-ibb-lab-pwrdn-delay:	Power down delay (in us) for IBB regulator
+					when it is disabled or turned off. Supported
+					values are 1000, 2000, 4000 and 8000.
+- qcom,qpnp-ibb-switching-clock-frequency:	The PWM switching clock frequency in
+						kHz of IBB regulator. Supported values
+						are: 3200, 2740, 2400, 2130, 1920,
+						1750, 1600, 1480, 1370, 1280, 1200,
+						1130, 1070, 1010, 960, 910.
+- qcom,qpnp-ibb-limit-maximum-current:		The maximum inductor current limit in
+						mA of IBB regulator. Supported values
+						are: 0, 50, 100, 150, 200, 250, 300,
+						350, 400, 450, 500, 550, 600, 650, 700,
+						750, 800, 850, 900, 950, 1000, 1050,
+						1100, 1150, 1200, 1250, 1300, 1350,
+						1400, 1450, 1500 and 1550.
+- qcom,qpnp-ibb-debounce-cycle:			The debounce cycle of IBB regulator.
+						Supported values are 8, 16, 32 and 64.
+- qcom,qpnp-ibb-en-discharge:			A boolean property which upon set will
+						enable discharge for IBB regulator.
+						Otherwise, it is kept disabled.
+- qcom,qpnp-ibb-ring-suppression-enable:	A boolean property which upon set will
+						enable ring suppression for IBB
+						regulator. Otherwise, it is disabled.
+- qcom,qpnp-ibb-limit-max-current-enable:	A boolean property which upon set will
+						enforce maximum inductor current constraint
+						for IBB regulator. Otherwise, there is no
+						maximum current constraint.
+- qcom,qpnp-ibb-use-default-voltage:		A boolean property which upon set will
+						use the value specified in
+						qcom,qpnp-ibb-init-voltage property.
+						This will be used only if the bootloader
+						doesn't configure the output voltage
+						already. If it it not specified, then
+						output voltage can be configured to
+						any value in the allowed limit.
+- qcom,output-voltage-one-pulse:		The expected voltage (in mV) of VDISN signal
+						on the first SWIRE pulse. This property
+						can be specified only if 'qcom,swire-control'
+						is defined. The minimum and maximum values
+						are 1400mV and 7700mV.
+
+Following properties are available only for PM660A:
+
+- qcom,qpnp-ibb-smart-ps-enable:	A boolean property which upon set
+					enables smart pulse skip mode for IBB
+					regulator. Otherwise, it is disabled.
+					This property is only applicable to
+					PM660A.
+- qcom,qpnp-ibb-enable-pfm-mode:	A boolean property which enables the IBB to work
+					in pfm mode.
+- qcom,qpnp-ibb-pfm-peak-curr:		The PFM peak current limit settings in mA.
+					Supported values are 150, 200, 250, 300,
+					350, 400, 450 and 500. This property is
+					required if the qcom,qpnp-ibb-enable-pfm-mode
+					is true.
+- qcom,qpnp-ibb-pfm-hysteresis:		The PFM hysteresis voltage threshold in mV.
+					Supported values are 0, 25 and 50.
+					This property is required if the
+					qcom,qpnp-ibb-enable-pfm-mode is specified.
+- qcom,qpnp-ibb-overload-blank:		A boolean property which upon set enables
+					the IBB overload blanking.
+- qcom,qpnp-ibb-overload-debounce:	The expected overload debounce time (in ms)
+					values are 1, 2, 4 and 8.
+					This property is required only when the
+					qcom,qpnp-ibb-overload-blank is set.
+- qcom,qpnp-ibb-vreg-ok-debounce:	The expected vreg-ok-debounce time (us)
+					values are 4, 8, 16 and 32.
+					This property is required only when the
+					qcom,qpnp-ibb-overload-blank is set.
+- qcom,qpnp-ibb-slew-rate-config:	A boolean property to configure the
+					ibb fast/slow slew rate.
+					Either qcom,qpnp-ibb-fast-slew-rate or
+					qcom,qpnp-ibb-slow-slew-rate has to be
+					specified. Otherwise the
+					qcom,qpnp-ibb-slow-slew-rate takes precedence
+					over the qcom,qpnp-ibb-fast-slew-rate.
+- qcom,qpnp-ibb-fast-slew-rate:		This property is required if the qcom,
+					qpnp-ibb-slew-rate-config property is
+					specified. Supported values (in us) are
+					100, 200, 500, 1000, 2000, 10000, 12000
+					and 15000.
+- qcom,qpnp-ibb-slow-slew-rate:		This property is required if the qcom,
+					qpnp-ibb-slew-rate-config property is
+					specified. Supported values (in us) are
+					100, 200, 500, 1000, 2000, 10000, 12000
+					and 15000.
+
+Example:
+	qcom,pmi8994@3 {
+		qpnp-labibb-regulator {
+			compatible = "qcom,qpnp-labibb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-labibb-mode = "lcd";
+			qcom,pmic-revid = <&pmi8994_revid>;
+			qcom,skip-2nd-swire-cmd;
+
+			lab_regulator: qcom,lab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "lab";
+
+				interrupts = <0x3 0xde 0x0
+						IRQ_TYPE_EDGE_RISING>;
+                                interrupt-names = "lab-vreg-ok";
+
+				regulator-name = "lab_reg";
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6000000>;
+
+				qcom,qpnp-lab-min-voltage = <4600000>;
+				qcom,qpnp-lab-step-size = <100000>;
+				qcom,qpnp-lab-slew-rate = <5000>;
+				qcom,qpnp-lab-use-default-voltage;
+				qcom,qpnp-lab-init-voltage = <5500000>;
+				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
+				qcom,qpnp-lab-init-lcd-voltage = <5500000>;
+
+				qcom,qpnp-lab-soft-start = <400>;
+
+				qcom,qpnp-lab-full-pull-down;
+				qcom,qpnp-lab-pull-down-enable;
+				qcom,qpnp-lab-switching-clock-frequency = <1600>;
+				qcom,qpnp-lab-limit-maximum-current = <1600>;
+				qcom,qpnp-lab-limit-max-current-enable;
+				qcom,qpnp-lab-ps-threshold = <40>;
+				qcom,qpnp-lab-ps-enable;
+				qcom,qpnp-lab-nfet-size = <100>;
+				qcom,qpnp-lab-pfet-size = <100>;
+				qcom,qpnp-lab-max-precharge-time = <200>;
+			};
+
+			ibb_regulator: qcom,ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_reg";
+				regulator-name = "ibb_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6000000>;
+
+				qcom,qpnp-ibb-min-voltage = <1400000>;
+				qcom,qpnp-ibb-step-size = <100000>;
+				qcom,qpnp-ibb-slew-rate = <2000000>;
+				qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-voltage = <5500000>;
+				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
+				qcom,qpnp-ibb-init-lcd-voltage = <5500000>;
+
+				qcom,qpnp-ibb-soft-start = <400>;
+
+				qcom,qpnp-ibb-discharge-resistor = <300>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <8000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <8000>;
+				qcom,qpnp-ibb-en-discharge;
+
+				qcom,qpnp-ibb-full-pull-down;
+				qcom,qpnp-ibb-pull-down-enable;
+				qcom,qpnp-ibb-switching-clock-frequency = <1480>;
+				qcom,qpnp-ibb-limit-maximum-current = <1550>;
+				qcom,qpnp-ibb-debounce-cycle = <16>;
+				qcom,qpnp-ibb-limit-max-current-enable;
+				qcom,qpnp-ibb-ps-enable;
+			};
+
+		};
+	};

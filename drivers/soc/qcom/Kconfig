@@ -749,7 +749,7 @@ endif # MSM_PM
 
 config QTI_RPM_STATS_LOG
 	bool "Qualcomm Technologies RPM Stats Driver"
-	depends on QCOM_RPMH || MSM_RPM_SMD
+	depends on QCOM_RPMH
 	help
 	  This option enables a driver which reads RPM messages from a shared
 	  memory location. These messages provide statistical information about
@@ -819,14 +819,6 @@ config QCOM_QHEE_ENABLE_MEM_PROTECTION
 	  This is part of a security feature in QHEE and need to be enabled by
 	  default.
 
-config QCOM_CX_IPEAK
-	bool "Common driver to handle Cx iPeak limitation"
-	help
-	  Cx ipeak HW module is used to limit the current drawn by various
-	  subsystem blocks on Cx power rail. Each client needs to set their
-	  bit in tcsr register if it is going to cross its own threshold.
-	  If all clients are going to cross their thresholds then Cx ipeak
-	  hw module will raise an interrupt to cDSP block to throttle cDSP fmax.
 endmenu
 
 config QCOM_HYP_CORE_CTL
@@ -865,3 +857,9 @@ config ICNSS_QMI
 	  handshake messages to WLAN FW, which includes hardware capabilities
 	  and configurations. It also send WLAN on/off control message to FW
 	  over QMI channel.
+
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status"
+	default y
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface

@@ -1,0 +1,406 @@
+* Qualcomm Technologies, Inc. MSM Camera CPAS
+
+The MSM camera CPAS device provides dependency definitions for
+enabling Camera CPAS HW and provides the Client definitions
+for all HW blocks that use CPAS driver for BW voting. These
+definitions consist of various properties that define the list
+of clients supported, AHB, AXI master-slave IDs used for BW
+voting.
+
+=======================
+Required Node Structure
+=======================
+The camera CPAS device must be described in five levels. The first level has
+general description of cpas including compatibility, interrupts, power info
+etc.
+The second level deals with information related to CPAS clients and how
+the BW should be calculated. For simplicity in BW vote consolidation, the
+grouping of granular votes pertaining to CPAS clients is represented as nodes
+at four CAMNOC levels. The nodes at a particular level have some common
+properties such as traffic merge type which indicates whether the votes at a
+node have to be summed up, sum divided by two or taken max of all. CAMNOC Level
+zero node usually represents granular vote info for clients. CAMNOC Level one
+represents nodes which are clubbed together by arbiter in CAMNOC diagram. CAMNOC
+Level two represents consolidated read and write nodes for RT and NRT paths.
+CAMNOC Level three provides axi port information and these have nodes where all
+paths from clients eventually converge according to their properties. This
+includes master-slave IDs, ab, ib values for mnoc, camnoc bus interface
+
+==================================
+First Level Node - CAM CPAS device
+==================================
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Node instance number.
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,cam-cpas".
+
+- label
+  Usage: required
+  Value type: <string>
+  Definition: Should be "cpas".
+
+- arch-compat
+  Usage: required
+  Value type: <string>
+  Definition: Should be "cpas_top" or "camss_top".
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the register resources.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- reg-cam-base
+  Usage: required
+  Value type: <u32>
+  Definition: Offset of the register space compared to
+	to Camera base register space.
+
+- cam_hw_fuse
+  Usage: optional
+  Value type: <u32>
+  Definition: List of fuse based features and respective
+	fuse info.
+
+- interrupt-names
+  Usage: optional
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: optional
+  Value type: <u32>
+  Definition: Interrupt associated with CAMNOC HW.
+
+- qcom,cpas-hw-ver
+  Usage: required
+  Value type: <u32>
+  Definition: CAM HW Version information.
+
+- camnoc-axi-min-ib-bw
+  Usage: optional
+  Value type: <u64>
+  Definition: Min camnoc axi bw for the given target.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for CPAS HW.
+
+- camss-vdd-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed
+	in "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for CPAS HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for CPAS HW.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
+- control-camnoc-axi-clk
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property specifying whether to control camnoc axi
+              clock from cpas driver.
+
+- camnoc-bus-width
+  Usage: required if control-camnoc-axi-clk is enabled
+  Value type: <u32>
+  Definition: camnoc bus width.
+
+- camnoc-axi-clk-bw-margin-perc
+  Usage: optional
+  Value type: <u32>
+  Definition: Percentage value to be added to camnoc bw while calculating
+              camnoc axi clock frequency.
+
+- qcom,msm-bus,name
+- qcom,msm-bus,num-cases
+- qcom,msm-bus,num-paths
+- qcom,msm-bus,vectors-KBps
+  Please refer Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+  for the properties above.
+
+- vdd-corners
+  Usage: required
+  Value type: <u32>
+  Definition: List of vdd corners to map for ahb level.
+
+- vdd-corner-ahb-mapping
+  Usage: required
+  Value type: <string>
+  Definition: List of ahb level strings corresponds to vdd-corners.
+  Supported strings: suspend, svs, nominal, turbo
+
+- client-id-based
+  Usage: required
+  Value type: <empty>
+  Definition: Bool property specifying whether CPAS clients are ID based.
+
+- client-names
+  Usage: required
+  Value type: <string>
+  Definition: List of Clients supported by CPAS.
+
+- client-bus-camnoc-based
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property specifying whether Clients are connected
+	through CAMNOC for AXI access.
+
+===================================================================
+Third Level Node - CAMNOC Level nodes
+===================================================================
+- level-index
+  Usage: required
+  Value type: <u32>
+  Definition: Number representing level index for ndoes at current CAMNOC level
+
+- camnoc-max-needed
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property for all votes at current level to be taken maximum
+              for CAMNOC BW calculation.
+
+===================================================================
+Fourth Level Node - Generic CAMNOC node properties
+===================================================================
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Unique index of node to be used by CPAS driver.
+
+- node-name
+  Usage: required
+  Value type: <string>
+  Definition: Unique name representing this node.
+
+- path-data-type
+  Usage: required if a CAMNOC Level 0 Node
+  Value type: <u32>
+  Definition: Type of path data for a specific client.
+  Supported : CAM_CPAS_PATH_DATA_IFE_LINEAR, CAM_CPAS_PATH_DATA_ALL, etc.
+              Please refer dt-bindings/msm/msm-camera.h for all supported
+              definitions.
+
+- path-transaction-type
+  Usage: required if a CAMNOC Level 0 Node
+  Value type: <u32>
+  Definition: Type of path transaction for a specific client.
+  Supported : CAM_CPAS_TRANSACTION_READ, CAM_CPAS_TRANSACTION_WRITE
+
+- client-name
+  Usage: required if a CAMNOC Level 0 Node
+  Value type: <string>
+  Definition: Name of the client with above properties.
+  Supported : From "client-names" property in CPAS node
+
+- constituent-paths
+  Usage: optional, applicable only to CAMNOC Level 0 Nodes
+  Value type: <u32>
+  Definition: List of constituents of path data type of current node.
+  Supported : CAM_CPAS_PATH_DATA_IFE_VID, CAM_CPAS_PATH_DATA_IFE_DISP, etc.
+              Please refer dt-bindings/msm/msm-camera.h for all supported
+              definitions.
+
+- traffic-merge-type
+  Usage: required if NOT a CAMNOC Level 0 Node
+  Value type: <u32>
+  Definition: Type of traffic merge for that node.
+  Supported : CAM_CPAS_TRAFFIC_MERGE_SUM, CAM_CPAS_TRAFFIC_MERGE_SUM_INTERLEAVE.
+
+- parent-node
+  Usage: required for all except CAMNOC Level 3 Nodes
+  Value type: <phandle>
+  Definition: Parent node of this node. Parent node must be at least
+              one level above the current level.
+
+- bus-width-factor
+  Usage: optional
+  Value type: <u32>
+  Definition: For bus width factor consideration in CAMNOC BW calculation
+
+- qcom,axi-port-name
+  Usage: required at CAMNOC Level 3
+  Value type: <string>
+  Definition: Name of the AXI Port.
+
+- ib-bw-voting-needed
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property indicating axi port requires instantaneous bandwidth
+
+===================================================================
+Fifth Level Node - CAM AXI Bus Properties
+===================================================================
+- qcom,msm-bus,name
+- qcom,msm-bus,num-cases
+- qcom,msm-bus,num-paths
+- qcom,msm-bus,vectors-KBps
+  Please refer Documentation/devicetree/bindings/arm/msm/msm_bus.txt
+  for the properties above.
+
+- qcom,msm-bus-vector-dyn-vote
+  Usage: optional
+  Value type: <empty>
+  Definition: Bool property specifying whether this bus client
+              is dynamic vote based.
+
+Example:
+
+	qcom,cam-cpas@ac40000 {
+		cell-index = <0>;
+		compatible = "qcom,cam-cpas";
+		label = "cpas";
+		arch-compat = "cpas_top";
+		status = "ok";
+		reg-names = "cam_cpas_top", "cam_camnoc";
+		reg = <0xac40000 0x1000>,
+			<0xac42000 0x5000>;
+		reg-cam-base = <0x40000 0x42000>;
+		cam_hw_fuse = <CAM_CPAS_QCFA_BINNING_ENABLE 0x00780210 29>,
+			<CAM_CPAS_SECURE_CAMERA_ENABLE 0x00780210 18>;
+		interrupt-names = "cpas_camnoc";
+		interrupts = <0 459 0>;
+		qcom,cpas-hw-ver = <0x170100>; /* Titan v170 v1.0.0 */
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names = "gcc_ahb_clk",
+			"gcc_axi_clk",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"slow_ahb_clk_src",
+			"camnoc_axi_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
+		src-clock-name = "slow_ahb_clk_src";
+		clock-rates = <0 0 0 0 80000000 0>;
+		clock-cntl-level = "turbo";
+		control-camnoc-axi-clk;
+		camnoc-bus-width = <32>;
+		camnoc-axi-clk-bw-margin-perc = <10>;
+		qcom,msm-bus,name = "cam_ahb";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 300000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>;
+		client-id-based;
+		client-names =
+			"csiphy0", "csiphy1", "csiphy2", "csiphy3",
+			"csiphy4", "csiphy5", "cci0", "cci1",
+			"csid0", "csid1", "csid2", "csid3",
+			"csid4", "csid5", "csid6",
+			"ife0", "ife1", "ife2", "ife3", "custom0",
+			"ipe0", "cam-cdm-intf0", "cpas-cdm0", "cpas-cdm1",
+			"cpas-cdm2",
+			"bps0", "icp0", "jpeg-dma0", "jpeg-enc0",
+			"fd0";
+
+		camera-bus-nodes {
+			level3-nodes {
+				level-index = <3>;
+				level3_rt0_rd_wr_sum: level3-rt0-rd-wr-sum {
+					cell-index = <0>;
+					node-name = "level3-rt0-rd-wr-sum";
+					traffic-merge-type =
+					<CAM_CPAS_TRAFFIC_MERGE_SUM>;
+					qcom,axi-port-name = "cam_hf_0";
+					ib-bw-voting-needed;
+					qcom,axi-port-mnoc {
+						qcom,msm-bus,name =
+						"cam_hf_0_mnoc";
+						qcom,msm-bus-vector-dyn-vote;
+						qcom,msm-bus,num-cases = <2>;
+						qcom,msm-bus,num-paths = <1>;
+						qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					};
+				};
+			};
+			level2-nodes {
+				level-index = <2>;
+				camnoc-max-needed;
+				level2_rt0_wr: level2-rt0-wr {
+					cell-index = <3>;
+					node-name = "level2-rt0-wr";
+					parent-node = <&level3_rt0_rd_wr_sum>;
+					traffic-merge-type =
+					<CAM_CPAS_TRAFFIC_MERGE_SUM_INTERLEAVE>;
+				};
+			};
+			level1-nodes {
+				level-index = <1>;
+				camnoc-max-needed;
+				level1_rt0_wr0: level1-rt0-wr0 {
+					cell-index = <8>;
+					node-name = "level1-rt0-wr0";
+					parent-node = <&level2_rt0_wr>;
+					traffic-merge-type =
+					<CAM_CPAS_TRAFFIC_MERGE_SUM>;
+				};
+			};
+			level0-nodes {
+				level-index = <0>;
+				ife0_ubwc_stats_wr: ife0-ubwc-stats-wr {
+					cell-index = <16>;
+					node-name = "ife0-ubwc-stats-wr";
+					client-name = "ife0";
+					traffic-data =
+					<CAM_CPAS_PATH_DATA_IFE_UBWC_STATS>;
+					traffic-transaction-type =
+					<CAM_CPAS_TRANSACTION_WRITE>;
+					constituent-paths =
+					<CAM_CPAS_PATH_DATA_IFE_VID
+					CAM_CPAS_PATH_DATA_IFE_DISP
+					CAM_CPAS_PATH_DATA_IFE_STATS>;
+					parent-node = <&level1_rt0_wr0>;
+				};
+			};
+		};
+	};
+

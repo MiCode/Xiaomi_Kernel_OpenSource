@@ -4,6 +4,13 @@
 
 menu "Misc devices"
 
+config SPI_XIAOMI_TP
+        bool
+        depends on SPI
+        default y if TOUCHSCREEN_NT36xxx_HOSTDL_SPI
+        help
+        Say Y if want use xiaomi touch panel.
+
 config SENSORS_LIS3LV02D
 	tristate
 	depends on INPUT
@@ -585,6 +592,11 @@ config TEST_IRQ_REQUESTER
 
 	  If in doubt, say N.
 
+config SIMTRAY_STATUS
+	tristate "Xiaomi SIM tray status"
+	default n
+	help
+	  Say 'y' here to support SIM tray GPIO detection
 config WIGIG_SENSING_SPI
 	tristate "Sensing over 60GHz using wil6210 / SPI bus"
 	depends on SPI && WIL6210
@@ -610,6 +622,7 @@ source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
+source "drivers/misc/aw8624_haptic/Kconfig"
 endmenu
 
 config OKL4_USER_VIPC

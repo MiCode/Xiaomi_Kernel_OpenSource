@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/of.h>
@@ -16,7 +17,6 @@
 
 #define GLINK_PROBE_LOG_PAGE_CNT 4
 static void *glink_ilc;
-static DEFINE_MUTEX(ssr_lock);
 
 #define GLINK_INFO(x, ...)						       \
 do {									       \
@@ -118,15 +118,14 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 {
 	struct glink_ssr_nb *nb = container_of(this, struct glink_ssr_nb, nb);
 	struct glink_ssr *ssr = nb->ssr;
-	struct device *dev;
+	struct device *dev = ssr->dev;
 	struct do_cleanup_msg msg;
 	int ret;
 
-	kref_get(&ssr->refcount);
-	mutex_lock(&ssr_lock);
-	dev = ssr->dev;
 	if (!dev || !ssr->ept)
-		goto out;
+		return NOTIFY_DONE;
+
+	kref_get(&ssr->refcount);
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		ssr->seq_num++;
@@ -146,15 +145,14 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 		if (ret) {
 			GLINK_ERR(dev, "fail to send do cleanup to %s %d\n",
 				  nb->ssr_label, ret);
-			goto out;
+			kref_put(&ssr->refcount, glink_ssr_release);
+			return NOTIFY_DONE;
 		}
 
 		ret = wait_for_completion_timeout(&ssr->completion, HZ);
 		if (!ret)
 			GLINK_ERR(dev, "timeout waiting for cleanup resp\n");
 	}
-out:
-	mutex_unlock(&ssr_lock);
 	kref_put(&ssr->refcount, glink_ssr_release);
 	return NOTIFY_DONE;
 }
@@ -267,12 +265,10 @@ static void glink_ssr_remove(struct rpmsg_device *rpdev)
 {
 	struct glink_ssr *ssr = dev_get_drvdata(&rpdev->dev);
 
-	mutex_lock(&ssr_lock);
 	ssr->dev = NULL;
 	ssr->ept = NULL;
-	mutex_unlock(&ssr_lock);
-
 	dev_set_drvdata(&rpdev->dev, NULL);
+
 	schedule_work(&ssr->unreg_work);
 }
 

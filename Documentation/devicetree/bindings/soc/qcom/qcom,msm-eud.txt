@@ -1,0 +1,37 @@
+* Qualcomm Technologies Inc Embedded USB Debugger (EUD)
+
+The EUD (Embedded USB Debugger) is a mini-USB hub implemented
+on chip to support the USB-based debug and trace capabilities.
+
+Required properties:
+
+ - compatible:  Should be "qcom,msm-eud"
+ - interrupt-names:  Should be "eud_irq"
+ - interrupts:  Interrupt number
+ - reg: Should be address and size of EUD register space
+ - reg-names: Should be "eud_base"
+
+Optional properties:
+ - reg-names: Can be "eud_mode_mgr2" for secure eud
+ - qcom,secure-eud-en: To enable secure eud
+ - qcom,eud-clock-vote-req: To enable clock voting from eud
+
+Driver notifies clients via extcon for VBUS spoof attach/detach
+and charger enable/disable events. Clients registered for these
+notifications should have extcon property set to eud.
+
+An example for EUD device node:
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x88e0000 0x4000>;
+		reg-names = "eud_base";
+	};
+
+An example for EUD extcon client:
+
+	usb3 {
+		extcon = <&eud>;
+	};

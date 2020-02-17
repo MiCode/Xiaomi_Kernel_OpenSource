@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <net/ip.h>
@@ -7952,9 +7953,10 @@ int ipa3_allocate_coal_close_frame(void)
 
 void ipa3_free_coal_close_frame(void)
 {
-	if (ipa3_ctx->coal_cmd_pyld)
-		ipahal_destroy_imm_cmd(ipa3_ctx->coal_cmd_pyld);
+       if (ipa3_ctx->coal_cmd_pyld)
+               ipahal_destroy_imm_cmd(ipa3_ctx->coal_cmd_pyld);
 }
+
 /**
  * ipa3_inject_dma_task_for_gsi()- Send DMA_TASK to IPA for GSI stop channel
  *

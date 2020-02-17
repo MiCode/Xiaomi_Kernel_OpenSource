@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/debugfs.h>
@@ -226,7 +227,8 @@ struct smb5 {
 	struct smb_dt_props	dt;
 };
 
-static int __debug_mask;
+static struct smb_charger *__smbchg;
+static int __debug_mask = PR_INTERRUPT | PR_MISC | PR_PARALLEL | PR_OTG | PR_WLS | PR_OEM;
 
 static ssize_t pd_disabled_show(struct device *dev, struct device_attribute
 				*attr, char *buf)
@@ -432,6 +434,7 @@ static int smb5_configure_internal_pull(struct smb_charger *chg, int type,
 #define MICRO_P1A			100000
 #define MICRO_1PA			1000000
 #define MICRO_3PA			3000000
+#define MICRO_1P8A_FOR_DCP		1800000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define DEFAULT_WD_BARK_TIME		64
 #define DEFAULT_WD_SNARL_TIME_8S	0x07
@@ -441,6 +444,7 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 {
 	int rc = 0, byte_len;
 	struct smb_charger *chg = &chip->chg;
+	enum of_gpio_flags flags;
 
 	of_property_read_u32(node, "qcom,sec-charger-config",
 					&chip->dt.sec_charger_config);
@@ -461,10 +465,27 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chg->sw_jeita_enabled = of_property_read_bool(node,
 				"qcom,sw-jeita-enable");
 
+	chg->use_bq_pump = of_property_read_bool(node,
+				"mi,use-bq-pump");
+
 	chg->pd_not_supported = chg->pd_not_supported ||
 			of_property_read_bool(node, "qcom,usb-pd-disable");
 
 	chg->lpd_disabled = of_property_read_bool(node, "qcom,lpd-disable");
+
+	chg->reg_dump_enable = of_property_read_bool(node,
+				"qcom,reg-dump-enable");
+
+	chg->dynamic_fv_enabled = of_property_read_bool(node,
+				"qcom,dynamic-fv-enable");
+
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	chg->support_ffc = of_property_read_bool(node,
+				"mi,support-ffc");
+#endif
+
+	chg->qc_class_ab = of_property_read_bool(node,
+				"qcom,distinguish-qc-class-ab");
 
 	rc = of_property_read_u32(node, "qcom,wd-bark-time-secs",
 					&chip->dt.wd_bark_time);
@@ -479,6 +500,140 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
 
+#ifdef CONFIG_THERMAL
+	if (of_find_property(node, "qcom,thermal-mitigation-dcp", &byte_len)) {
+		chg->thermal_mitigation_dcp = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_mitigation_dcp == NULL)
+			return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-mitigation-dcp",
+				chg->thermal_mitigation_dcp,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(node, "qcom,thermal-mitigation-qc2", &byte_len)) {
+		chg->thermal_mitigation_qc2 = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_mitigation_qc2 == NULL)
+			return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-mitigation-qc2",
+				chg->thermal_mitigation_qc2,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(node, "qcom,thermal-mitigation-pd-base", &byte_len)) {
+		chg->thermal_mitigation_pd_base = devm_kzalloc(chg->dev, byte_len,
+				GFP_KERNEL);
+
+		if (chg->thermal_mitigation_pd_base == NULL)
+			return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-mitigation-pd-base",
+				chg->thermal_mitigation_pd_base,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(node, "qcom,thermal-fcc-qc3-normal", &byte_len)) {
+		chg->thermal_fcc_qc3_normal = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_fcc_qc3_normal == NULL)
+				return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-fcc-qc3-normal",
+				chg->thermal_fcc_qc3_normal,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(node, "qcom,thermal-fcc-qc3-cp", &byte_len)) {
+		chg->thermal_fcc_qc3_cp = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_fcc_qc3_cp == NULL)
+				return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-fcc-qc3-cp",
+				chg->thermal_fcc_qc3_cp,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(node, "qcom,thermal-fcc-pps-cp", &byte_len)) {
+		chg->thermal_fcc_pps_cp = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_fcc_pps_cp == NULL)
+				return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-fcc-pps-cp",
+				chg->thermal_fcc_pps_cp,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(node, "qcom,thermal-mitigation-icl", &byte_len)) {
+		chg->thermal_mitigation_icl = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->thermal_mitigation_icl == NULL)
+				return -ENOMEM;
+
+		chg->thermal_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,thermal-mitigation-icl",
+				chg->thermal_mitigation_icl,
+				chg->thermal_levels);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
+#else
 	if (of_find_property(node, "qcom,thermal-mitigation", &byte_len)) {
 		chg->thermal_mitigation = devm_kzalloc(chg->dev, byte_len,
 			GFP_KERNEL);
@@ -497,6 +652,7 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 			return rc;
 		}
 	}
+#endif
 
 	rc = of_property_read_u32(node, "qcom,charger-temp-max",
 			&chg->charger_temp_max);
@@ -576,6 +732,16 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chip->dt.adc_based_aicl = of_property_read_bool(node,
 					"qcom,adc-based-aicl");
 
+	chg->support_conn_therm = of_property_read_bool(node,
+				"qcom,support-conn-therm");
+
+	if (chg->support_conn_therm) {
+		chg->vbus_disable_gpio = of_get_named_gpio_flags(node,
+				"vbus-disable-gpio", 0, &flags);
+		if (chg->vbus_disable_gpio < 0) {
+			pr_err("failed to vbus disable gpio flags\n");
+		}
+	}
 	of_property_read_u32(node, "qcom,fcc-step-delay-ms",
 					&chg->chg_param.fcc_step_delay_ms);
 	if (chg->chg_param.fcc_step_delay_ms <= 0)
@@ -666,7 +832,7 @@ static int smb5_parse_dt_currents(struct smb5 *chip, struct device_node *node)
 				"qcom,usb-icl-ua", &chip->dt.usb_icl_ua);
 	if (rc < 0)
 		chip->dt.usb_icl_ua = -EINVAL;
-	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+	chg->dcp_icl_ua = MICRO_1P8A_FOR_DCP;
 
 	rc = of_property_read_u32(node,
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
@@ -686,6 +852,10 @@ static int smb5_parse_dt_currents(struct smb5 *chip, struct device_node *node)
 
 	rc = of_property_read_u32(node, "qcom,chg-term-current-ma",
 			&chip->dt.term_current_thresh_hi_ma);
+
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	chg->chg_term_current_thresh_hi_from_dts = chip->dt.term_current_thresh_hi_ma;
+#endif
 
 	chg->wls_icl_ua = DCIN_ICL_MAX_UA;
 	rc = of_property_read_u32(node, "qcom,wls-current-max-ua",
@@ -803,15 +973,20 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_HVDCP3_TYPE,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_PD_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
+	POWER_SUPPLY_PROP_CONNECTOR_TEMP,
+	POWER_SUPPLY_PROP_VBUS_DISABLE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT,
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
+	POWER_SUPPLY_PROP_TYPE_RECHECK,
 	POWER_SUPPLY_PROP_ADAPTER_CC_MODE,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
@@ -819,6 +994,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 	POWER_SUPPLY_PROP_THERM_ICL_LIMIT,
+	POWER_SUPPLY_PROP_PD_AUTHENTICATION,
 	POWER_SUPPLY_PROP_SKIN_HEALTH,
 };
 
@@ -864,6 +1040,21 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_REAL_TYPE:
 		val->intval = chg->real_charger_type;
+		break;
+	case POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE:
+		val->intval = smblib_get_quick_charge_type(chg);
+		break;
+	case POWER_SUPPLY_PROP_HVDCP3_TYPE:
+		if (chg->real_charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3)
+			val->intval = HVDCP3_NONE; /* 0: none hvdcp3 insert */
+		else {
+			if (chg->is_qc_class_a)
+				val->intval = HVDCP3_CLASSA_18W; /* 18W hvdcp3 insert */
+			else if (chg->is_qc_class_b)
+				val->intval = HVDCP3_CLASSB_27W; /* 27W hvdcp3 insert */
+			else
+				val->intval = HVDCP3_NONE;
+		}
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
 		rc = smblib_get_usb_prop_typec_mode(chg, val);
@@ -926,6 +1117,15 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		val->intval = smblib_get_prop_connector_health(chg);
 		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_TEMP:
+		if (chg->fake_conn_temp != 0)
+			val->intval = chg->fake_conn_temp;
+		else
+			val->intval = smblib_get_prop_connector_temp(chg);
+		break;
+	case POWER_SUPPLY_PROP_VBUS_DISABLE:
+		val->intval = chg->vbus_disable;
+		break;
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblib_get_prop_scope(chg, val);
 		break;
@@ -953,6 +1153,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_VPH:
 		rc = smblib_get_prop_vph_voltage_now(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_TYPE_RECHECK:
+		rc = smblib_get_prop_type_recheck(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 		val->intval = get_client_vote(chg->usb_icl_votable,
 					THERMAL_THROTTLE_VOTER);
@@ -960,6 +1163,17 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
 		val->intval = chg->adapter_cc_mode;
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
+		val->intval = chg->pd_verifed;
+		break;
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		val->intval = smblib_get_fastcharge_mode(chg);
+		break;
+	case POWER_SUPPLY_PROP_USB_IS_REMOVING:
+		val->intval = chg->usb_is_removing;
+		break;
+#endif
 	case POWER_SUPPLY_PROP_SKIN_HEALTH:
 		val->intval = smblib_get_skin_temp_status(chg);
 		break;
@@ -1028,6 +1242,15 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		chg->connector_health = val->intval;
 		power_supply_changed(chg->usb_psy);
 		break;
+	case POWER_SUPPLY_PROP_TYPE_RECHECK:
+		rc = smblib_set_prop_type_recheck(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_TEMP:
+		chg->fake_conn_temp = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_VBUS_DISABLE:
+		smblib_set_vbus_disable(chg, val->intval);
+		break;
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 		if (!is_client_vote_enabled(chg->usb_icl_votable,
 						THERMAL_THROTTLE_VOTER)) {
@@ -1052,6 +1275,19 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
 		chg->adapter_cc_mode = val->intval;
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
+		chg->pd_verifed = val->intval;
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		rc = smblib_set_fastcharge_mode(chg, val->intval);
+		power_supply_changed(chg->usb_psy);
+		schedule_delayed_work(&chg->charger_soc_decimal,
+				msecs_to_jiffies(CHARGER_SOC_DECIMAL_MS));
+		break;
+	case POWER_SUPPLY_PROP_USB_IS_REMOVING:
+		chg->usb_is_removing = val->intval;
+		break;
+#endif
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -1070,6 +1306,13 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
 	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_PD_AUTHENTICATION:
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+	case POWER_SUPPLY_PROP_USB_IS_REMOVING:
+#endif
+	case POWER_SUPPLY_PROP_CONNECTOR_TEMP:
+	case POWER_SUPPLY_PROP_VBUS_DISABLE:
 		return 1;
 	default:
 		break;
@@ -1093,10 +1336,11 @@ static int smb5_init_usb_psy(struct smb5 *chip)
 	struct power_supply_config usb_cfg = {};
 	struct smb_charger *chg = &chip->chg;
 
+	chg->usb_psy_desc = usb_psy_desc;
 	usb_cfg.drv_data = chip;
 	usb_cfg.of_node = chg->dev->of_node;
 	chg->usb_psy = devm_power_supply_register(chg->dev,
-						  &usb_psy_desc,
+						  &chg->usb_psy_desc,
 						  &usb_cfg);
 	if (IS_ERR(chg->usb_psy)) {
 		pr_err("Couldn't register USB power supply\n");
@@ -1225,7 +1469,6 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FORCE_MAIN_ICL,
 	POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL,
 	POWER_SUPPLY_PROP_HEALTH,
-	POWER_SUPPLY_PROP_HOT_TEMP,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -1289,10 +1532,6 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = smblib_get_prop_smb_health(chg);
 		break;
-	/* Use this property to report overheat status */
-	case POWER_SUPPLY_PROP_HOT_TEMP:
-		val->intval = chg->thermal_overheat;
-		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -1320,7 +1559,6 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		/* Adjust Main FCC for QC3.0 + SMB1390 */
 		rc = smblib_get_qc3_main_icl_offset(chg, &offset_ua);
 		if (rc < 0)
 			offset_ua = 0;
@@ -1372,15 +1610,6 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 		vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
 				(val->intval < 0) ? false : true, val->intval);
-		if (val->intval >= 0)
-			chg->chg_param.forced_main_fcc = val->intval;
-		/*
-		 * Remove low vote on FCC_MAIN, for WLS, to allow FCC_MAIN to
-		 * rise to its full value.
-		 */
-		if (val->intval < 0)
-			vote(chg->fcc_main_votable, WLS_PL_CHARGING_VOTER,
-								false, 0);
 		/* Main FCC updated re-calculate FCC */
 		rerun_election(chg->fcc_votable);
 		break;
@@ -1393,9 +1622,6 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		rc = smb5_set_prop_comp_clamp_level(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_HOT_TEMP:
-		rc = smblib_set_prop_thermal_overheat(chg, val->intval);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -1417,7 +1643,6 @@ static int smb5_usb_main_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
-	case POWER_SUPPLY_PROP_HOT_TEMP:
 		rc = 1;
 		break;
 	default:
@@ -1618,6 +1843,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_SW_JEITA_ENABLED,
+	POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED,
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
@@ -1632,9 +1858,10 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
+	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_DP_DM_BQ,
 };
 
-#define DEBUG_ACCESSORY_TEMP_DECIDEGC	250
 static int smb5_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -1682,13 +1909,15 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
 		val->intval = chg->sw_jeita_enabled;
 		break;
+	case POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED:
+		val->intval = chg->dynamic_fv_enabled;
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_VOLTAGE_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		val->intval = get_client_vote(chg->fv_votable,
-				BATT_PROFILE_VOTER);
+		val->intval = get_effective_result_locked(chg->fv_votable);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
 		val->intval = get_client_vote_locked(chg->fv_votable,
@@ -1712,14 +1941,10 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
-			val->intval = DEBUG_ACCESSORY_TEMP_DECIDEGC;
-		else
-			rc = smblib_get_prop_from_bms(chg,
-						POWER_SUPPLY_PROP_TEMP, val);
+		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LIPO;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		rc = smblib_get_prop_batt_charge_done(chg, val);
@@ -1765,6 +1990,23 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		val->intval = chg->fcc_stepper_enable;
 		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		rc = smblib_get_prop_battery_charging_enabled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_DP_DM_BQ:
+		val->intval = chg->pulse_cnt;
+		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_LIMITED:
+		rc = smblib_get_prop_battery_charging_limited(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_WARM_FAKE_CHARGING:
+		val->intval = chg->warm_fake_charging;
+		break;
+	case POWER_SUPPLY_PROP_BQ_INPUT_SUSPEND:
+		rc = smblib_get_prop_battery_bq_input_suspend(chg, val);
+		break;
+#endif
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1818,10 +2060,18 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 		chg->step_chg_enabled = !!val->intval;
 		break;
+	case POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED:
+		chg->dynamic_fv_enabled = !!val->intval;
+		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		chg->batt_profile_fcc_ua = val->intval;
 		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
+		smb5_config_iterm(chg, val->intval, 0);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
 			val->intval != -EINVAL && val->intval < 2000000, 0);
@@ -1872,6 +2122,41 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		chg->fcc_stepper_enable = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		if (val->intval == 0)
+			vote(chg->usb_icl_votable, MAIN_CHG_VOTER,
+						true, MAIN_CHARGER_STOP_ICL);
+		else
+			vote(chg->usb_icl_votable, MAIN_CHG_VOTER,
+						false, 0);
+		rerun_election(chg->usb_icl_votable);
+		break;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_LIMITED:
+		if (val->intval == 0) {
+			vote(chg->usb_icl_votable, MAIN_CHG_VOTER,
+						false, MAIN_CHARGER_ICL);
+		} else {
+			if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
+				vote(chg->usb_icl_votable, MAIN_CHG_VOTER,
+							true, QC3_CHARGER_ICL);
+			else
+				vote(chg->usb_icl_votable, MAIN_CHG_VOTER,
+							true, MAIN_CHARGER_ICL);
+		}
+		rerun_election(chg->usb_icl_votable);
+		break;
+	case POWER_SUPPLY_PROP_WARM_FAKE_CHARGING:
+		chg->warm_fake_charging = val->intval;
+	case POWER_SUPPLY_PROP_MAIN_FCC_LIMIT:
+		pr_err("main_fcc_limit = %d\n", val->intval);
+		smblib_sw_cv_dynamic_fcc_limit(chg, val->intval);
+		break;
+#endif
+	case POWER_SUPPLY_PROP_DP_DM_BQ:
+		if (chg->use_bq_pump)
+			rc = smblib_dp_dm_bq(chg, val->intval);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1893,6 +2178,15 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_DP_DM_BQ:
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_LIMITED:
+	case POWER_SUPPLY_PROP_WARM_FAKE_CHARGING:
+	case POWER_SUPPLY_PROP_MAIN_FCC_LIMIT:
+#endif
 		return 1;
 	default:
 		break;
@@ -2217,10 +2511,10 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 	else
 		max_limit_ma = ITERM_LIMITS_PM8150B_MA;
 
-	if (chip->dt.term_current_thresh_hi_ma < (-1 * max_limit_ma)
-		|| chip->dt.term_current_thresh_hi_ma > max_limit_ma
-		|| chip->dt.term_current_thresh_lo_ma < (-1 * max_limit_ma)
-		|| chip->dt.term_current_thresh_lo_ma > max_limit_ma) {
+	if (chip->dt.term_current_thresh_hi_ma < -30000
+		|| chip->dt.term_current_thresh_hi_ma > 10000
+		|| chip->dt.term_current_thresh_lo_ma < -30000
+		|| chip->dt.term_current_thresh_lo_ma > 10000) {
 		dev_err(chg->dev, "ITERM threshold out of range rc=%d\n", rc);
 		return -EINVAL;
 	}
@@ -2236,13 +2530,20 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 					max_limit_ma);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
 		buf = (u8 *)&raw_hi_thresh;
-		raw_hi_thresh = buf[1] | (buf[0] << 8);
 
-		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
-				(u8 *)&raw_hi_thresh, 2);
+		rc = smblib_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
+					buf[1]);
 		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure ITERM threshold HIGH rc=%d\n",
-					rc);
+			dev_err(chg->dev, "Couldn't set term MSB rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = smblib_write(chg, CHGR_ADC_ITERM_UP_THD_LSB_REG,
+					buf[0]);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't set term LSB rc=%d\n",
+				rc);
 			return rc;
 		}
 	}
@@ -2462,9 +2763,9 @@ static int smb5_configure_float_charger(struct smb5 *chip)
 	}
 
 	chg->float_cfg = val;
-	/* Update float charger setting and set DCD timeout 300ms */
+	/* Update float charger setting */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK | DCD_TIMEOUT_SEL_BIT, val);
+				FLOAT_OPTIONS_MASK, val);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't change float charger setting rc=%d\n",
 			rc);
@@ -2601,10 +2902,6 @@ static int smb5_init_hw(struct smb5 *chip)
 	/* Set HVDCP autonomous mode per DT option */
 	smblib_hvdcp_hw_inov_enable(chg, chip->dt.hvdcp_autonomous);
 
-	/* Enable HVDCP authentication algorithm for non-PD designs */
-	if (chg->pd_not_supported)
-		smblib_hvdcp_detect_enable(chg, true);
-
 	/* Disable HVDCP and authentication algorithm if specified in DT */
 	if (chg->hvdcp_disable)
 		smblib_hvdcp_detect_enable(chg, false);
@@ -2646,6 +2943,12 @@ static int smb5_init_hw(struct smb5 *chip)
 		BATT_PROFILE_VOTER, chg->batt_profile_fv_uv > 0,
 		chg->batt_profile_fv_uv);
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	if (chg->support_ffc)
+		vote(chg->fv_votable, NON_FFC_VFLOAT_VOTER,
+				true, NON_FFC_VFLOAT_UV);
+#endif
+
 	/* Some h/w limit maximum supported ICL */
 	vote(chg->usb_icl_votable, HW_LIMIT_VOTER,
 			chg->hw_max_icl_ua > 0, chg->hw_max_icl_ua);
@@ -2654,6 +2957,26 @@ static int smb5_init_hw(struct smb5 *chip)
 	rc = smb5_init_dc_peripheral(chg);
 	if (rc < 0)
 		return rc;
+
+	rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+				 PULSE_COUNT_QC2P0_12V | PULSE_COUNT_QC2P0_9V,
+				 PULSE_COUNT_QC2P0_9V);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure QC2.0 to 9V rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!chg->sec_pl_present) {
+		rc = smblib_masked_write(chg, HVDCP_PULSE_COUNT_MAX_REG,
+					 PULSE_COUNT_QC3P0_mask,
+					 0x8);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure QC3.0 to 6.6V rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	/*
 	 * AICL configuration: enable aicl and aicl rerun and based on DT
@@ -2816,6 +3139,13 @@ static int smb5_init_hw(struct smb5 *chip)
 				rc);
 			return rc;
 		}
+	}
+
+	rc = smblib_masked_write(chg, TYPE_C_DEBUG_ACC_SNK_CFG, 0x1F, 0x07);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure TYPE_C_DEBUG_ACC_SNK_CFG rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	return rc;
@@ -3081,7 +3411,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
 		.handler	= wdog_snarl_irq_handler,
-		.wake		= true,
+		.wake		= false,
 	},
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
@@ -3372,6 +3702,12 @@ static int smb5_show_charger_status(struct smb5 *chip)
 	return rc;
 }
 
+struct usbpd *smb_get_usbpd(void)
+{
+	return __smbchg->pd;
+}
+EXPORT_SYMBOL(smb_get_usbpd);
+
 static int smb5_probe(struct platform_device *pdev)
 {
 	struct smb5 *chip;
@@ -3414,11 +3750,20 @@ static int smb5_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	if (chg->use_bq_pump)
+		__smbchg = chg;
+	chg->usb_is_removing = false;
+	chg->warm_fake_charging = false;
+#endif
+
 	if (alarmtimer_get_rtcdev())
 		alarm_init(&chg->lpd_recheck_timer, ALARM_REALTIME,
 				smblib_lpd_recheck_timer);
 	else
 		return -EPROBE_DEFER;
+
+	device_init_wakeup(chg->dev, true);
 
 	rc = smblib_init(chg);
 	if (rc < 0) {
@@ -3561,7 +3906,9 @@ static int smb5_probe(struct platform_device *pdev)
 		goto free_irq;
 	}
 
-	device_init_wakeup(chg->dev, true);
+	if (chg->reg_dump_enable) {
+		schedule_delayed_work(&chg->reg_work, 30 * HZ);
+	}
 
 	pr_info("QPNP SMB5 probed successfully\n");
 
@@ -3605,6 +3952,10 @@ static void smb5_shutdown(struct platform_device *pdev)
 	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
 		smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 				TYPEC_POWER_ROLE_CMD_MASK, EN_SNK_ONLY_BIT);
+
+	/*fix PD bug.Set 0x1360 = 0x0c when shutdown*/
+	smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, USBIN_ADAPTER_ALLOW_5V_TO_12V);
+
 
 	/* force enable and rerun APSD */
 	smblib_apsd_enable(chg, true);

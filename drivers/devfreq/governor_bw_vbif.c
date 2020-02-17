@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/devfreq.h>
@@ -115,8 +116,6 @@ static int devfreq_vbif_ev_handler(struct devfreq *devfreq,
 
 static struct devfreq_governor devfreq_vbif = {
 	.name = "bw_vbif",
-	/* Restrict this governor to only gpu devfreq devices */
-	.immutable = 1,
 	.get_target_freq = devfreq_vbif_get_freq,
 	.event_handler = devfreq_vbif_ev_handler,
 };

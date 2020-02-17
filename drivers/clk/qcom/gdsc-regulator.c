@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -371,8 +372,7 @@ end:
 		msm_bus_scale_client_update_request(sc->bus_handle, 0);
 		sc->is_bus_enabled = false;
 	}
-
-	if (ret && sc->parent_regulator)
+	if (sc->parent_regulator)
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	return ret;
@@ -383,6 +383,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
+
+	if (sc->parent_regulator) {
+		ret = regulator_set_voltage(sc->parent_regulator,
+				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		if (ret)
+			return ret;
+	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);

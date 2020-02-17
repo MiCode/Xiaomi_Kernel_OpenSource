@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -3554,7 +3555,7 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 	/* Set the exception path to AP */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		ep_idx = ipa3_get_ep_mapping(client_idx);
-		if (ep_idx == -1 || (ep_idx >= IPA3_MAX_NUM_PIPES))
+		if (ep_idx == -1)
 			continue;
 
 		/* disable statuses for all modem controlled prod pipes */

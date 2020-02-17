@@ -9,6 +9,12 @@ menuconfig SPECTRA_CAMERA
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
 
+menuconfig MI7250_CAMERA
+    bool "SM7250 camera support"
+    default y
+    help
+      Say Y here to enable selecting the SM7250 camera support.
+
 source "drivers/media/platform/msm/cvp/Kconfig"
 source "drivers/media/platform/msm/npu/Kconfig"
 source "drivers/media/platform/msm/synx/Kconfig"

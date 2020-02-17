@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -35,7 +36,7 @@ static int cpu_cc_debug_mux_sels[] = {
 
 static int apss_cc_debug_mux_pre_divs[] = {
 	0x8,		/* perfcl_clk */
-	0x8,		/* pwrcl_clk */
+	0x4,		/* pwrcl_clk */
 };
 
 static struct clk_debug_mux cpu_cc_debug_mux = {

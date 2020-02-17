@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _IPAHAL_H_
@@ -555,14 +556,6 @@ enum ipahal_pkt_status_nat_type {
  * @rt_tbl_idx: Index of rt tbl that contains the rule on which was a match
  * @seq_num: Per source endp unique packet sequence number
  * @frag_rule: Frag rule index in H/W frag table in case of frag hit
- * @frag_rule_idx: Frag rule index value.
- * @tbl_idx: Table index valid or not.
- * @src_ip_addr: Source packet IP address.
- * @dest_ip_addr: Destination packet IP address.
- * @protocol: Protocal number.
- * @ip_id: IP packet IP ID number.
- * @tlated_ip_addr: IP address.
- * @ip_cksum_diff: IP packet checksum difference.
  */
 struct ipahal_pkt_status {
 	u64 tag_info;
@@ -594,15 +587,6 @@ struct ipahal_pkt_status {
 	u8 rt_tbl_idx;
 	u8 seq_num;
 	u8 frag_rule;
-	u8 frag_rule_idx;
-	bool tbl_idx;
-	u32 src_ip_addr;
-	u32 dest_ip_addr;
-	u8 protocol;
-	u16 ip_id;
-	u32 tlated_ip_addr;
-	u16 ip_cksum_diff;
-
 };
 
 /*

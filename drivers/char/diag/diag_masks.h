@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2013-2015, 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef DIAG_MASKS_H
@@ -163,7 +164,7 @@ extern struct diag_mask_info msg_bt_mask;
 extern struct diag_mask_info log_mask;
 extern struct diag_mask_info event_mask;
 
-#define MAX_SIM_NUM 2
+#define MAX_SIM_NUM 7
 #define INVALID_INDEX -1
 #define LEGACY_MASK_CMD 0
 #define SUBID_CMD 1

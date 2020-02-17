@@ -3040,18 +3040,21 @@ static int syna_tcm_fb_notifier_cb(struct notifier_block *nb,
 		unsigned long action, void *data)
 {
 	int retval = 0;
-	int transition;
-	struct drm_panel_notifier *evdata = data;
+	int *transition;
+	struct msm_drm_notifier *evdata = data;
 	struct syna_tcm_hcd *tcm_hcd =
 			container_of(nb, struct syna_tcm_hcd, fb_notifier);
 
-	if (!evdata)
+	if (!evdata || (evdata->id != 0))
 		return 0;
 
-	transition = *(int *)evdata->data;
+	if (!evdata->data || !tcm_hcd)
+		return 0;
+
+	transition = (int *) evdata->data;
 
 	if (atomic_read(&tcm_hcd->firmware_flashing)
-		&& transition == DRM_PANEL_BLANK_POWERDOWN) {
+		&& *transition == MSM_DRM_BLANK_POWERDOWN) {
 		retval = wait_event_interruptible_timeout(tcm_hcd->reflash_wq,
 				!atomic_read(&tcm_hcd->firmware_flashing),
 				msecs_to_jiffies(RESPONSE_TIMEOUT_MS));
@@ -3063,21 +3066,21 @@ static int syna_tcm_fb_notifier_cb(struct notifier_block *nb,
 		}
 	}
 
-	if (action == DRM_PANEL_EARLY_EVENT_BLANK &&
-			transition == DRM_PANEL_BLANK_POWERDOWN)
+	if (action == MSM_DRM_EARLY_EVENT_BLANK &&
+			*transition == MSM_DRM_BLANK_POWERDOWN)
 		retval = syna_tcm_early_suspend(&tcm_hcd->pdev->dev);
-	else if (action == DRM_PANEL_EVENT_BLANK) {
-		if (transition == DRM_PANEL_BLANK_POWERDOWN) {
+	else if (action == MSM_DRM_EVENT_BLANK) {
+		if (*transition == MSM_DRM_BLANK_POWERDOWN) {
 			retval = syna_tcm_suspend(&tcm_hcd->pdev->dev);
 			tcm_hcd->fb_ready = 0;
-		} else if (transition == DRM_PANEL_BLANK_UNBLANK) {
+		} else if (*transition == MSM_DRM_BLANK_UNBLANK) {
 #ifndef RESUME_EARLY_UNBLANK
 			retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
 			tcm_hcd->fb_ready++;
 #endif
 		}
-	} else if (action == DRM_PANEL_EARLY_EVENT_BLANK &&
-			transition == DRM_PANEL_BLANK_UNBLANK) {
+	} else if (action == MSM_DRM_EARLY_EVENT_BLANK &&
+			*transition == MSM_DRM_BLANK_UNBLANK) {
 #ifdef RESUME_EARLY_UNBLANK
 		retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
 		tcm_hcd->fb_ready++;
@@ -3246,7 +3249,6 @@ static int syna_tcm_probe(struct platform_device *pdev)
 	struct syna_tcm_hcd *tcm_hcd;
 	const struct syna_tcm_board_data *bdata;
 	const struct syna_tcm_hw_interface *hw_if;
-	struct drm_panel *active_panel = tcm_get_panel();
 
 	hw_if = pdev->dev.platform_data;
 	if (!hw_if) {
@@ -3354,30 +3356,10 @@ static int syna_tcm_probe(struct platform_device *pdev)
 		goto err_get_regulator;
 	}
 
-	retval = syna_tcm_enable_regulator(tcm_hcd, true);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to enable regulators\n");
-		goto err_enable_regulator;
-	}
-
-	retval = syna_tcm_config_gpio(tcm_hcd);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to configure GPIO's\n");
-		goto err_config_gpio;
-	}
-
 	retval = synaptics_tcm_pinctrl_init(tcm_hcd);
-	if (!retval && tcm_hcd->ts_pinctrl) {
-		retval = pinctrl_select_state(
-				tcm_hcd->ts_pinctrl,
-				tcm_hcd->pinctrl_state_active);
-		if (retval < 0) {
-			LOGE(tcm_hcd->pdev->dev.parent,
-					"%s: Failed to select %s pinstate %d\n",
-					__func__, PINCTRL_STATE_ACTIVE, retval);
-		}
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent, "Failed to init pinctrl\n");
+		goto err_pinctrl_init;
 	}
 
 	sysfs_dir = kobject_create_and_add(PLATFORM_DRIVER_NAME,
@@ -3423,17 +3405,11 @@ static int syna_tcm_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_DRM
 	tcm_hcd->fb_notifier.notifier_call = syna_tcm_fb_notifier_cb;
-	if (active_panel) {
-		retval = drm_panel_notifier_register(active_panel,
-				&tcm_hcd->fb_notifier);
-		if (retval < 0) {
-			dev_err(&pdev->dev,
-					"%s: Failed to register fb notifier client\n",
-					__func__);
-			goto err_drm_reg;
-		}
+	retval = msm_drm_register_client(&tcm_hcd->fb_notifier);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to register DRM notifier client\n");
 	}
-
 #elif CONFIG_FB
 	tcm_hcd->fb_notifier.notifier_call = syna_tcm_fb_notifier_cb;
 	retval = fb_register_client(&tcm_hcd->fb_notifier);
@@ -3476,9 +3452,7 @@ static int syna_tcm_probe(struct platform_device *pdev)
 
 err_create_run_kthread:
 #ifdef CONFIG_DRM
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel,
-				&tcm_hcd->fb_notifier);
+	msm_drm_unregister_client(&tcm_hcd->fb_notifier);
 #elif CONFIG_FB
 	fb_unregister_client(&tcm_hcd->fb_notifier);
 #endif
@@ -3501,21 +3475,7 @@ err_sysfs_create_file:
 	kobject_put(tcm_hcd->sysfs_dir);
 
 err_sysfs_create_dir:
-	if (bdata->irq_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->irq_gpio, false, 0, 0);
-
-	if (bdata->power_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->power_gpio, false, 0, 0);
-
-	if (bdata->reset_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
-
-err_config_gpio:
-	syna_tcm_enable_regulator(tcm_hcd, false);
-
-err_enable_regulator:
-	syna_tcm_get_regulator(tcm_hcd, false);
-
+err_pinctrl_init:
 err_get_regulator:
 	device_init_wakeup(&pdev->dev, 0);
 
@@ -3527,7 +3487,6 @@ err_alloc_mem:
 	RELEASE_BUFFER(tcm_hcd->out);
 	RELEASE_BUFFER(tcm_hcd->in);
 
-err_drm_reg:
 	kfree(tcm_hcd);
 
 	return retval;
@@ -3536,7 +3495,32 @@ err_drm_reg:
 static int syna_tcm_deferred_probe(struct device *dev)
 {
 	int retval;
+	const struct syna_tcm_board_data *bdata;
 	struct syna_tcm_hcd *tcm_hcd = dev_get_drvdata(dev);
+
+	retval = pinctrl_select_state(
+			tcm_hcd->ts_pinctrl,
+			tcm_hcd->pinctrl_state_active);
+
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to pinctrl_select_state\n");
+		goto err_pinctrl_select_state;
+	}
+
+	retval = syna_tcm_enable_regulator(tcm_hcd, true);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to enable regulators\n");
+		goto err_enable_regulator;
+	}
+
+	retval = syna_tcm_config_gpio(tcm_hcd);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to configure GPIO's\n");
+		goto err_config_gpio;
+	}
 
 	retval = tcm_hcd->enable_irq(tcm_hcd, true, NULL);
 	if (retval < 0) {
@@ -3568,6 +3552,27 @@ err_reset:
 #endif
 err_enable_irq:
 
+err_config_gpio:
+	syna_tcm_enable_regulator(tcm_hcd, false);
+
+err_enable_regulator:
+	syna_tcm_get_regulator(tcm_hcd, false);
+
+err_pinctrl_select_state:
+	if (!tcm_hcd->hw_if || !tcm_hcd->hw_if->bdata)
+		return -EINVAL;
+
+	bdata = tcm_hcd->hw_if->bdata;
+
+	if (bdata->irq_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->irq_gpio, false, 0, 0);
+
+	if (bdata->power_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->power_gpio, false, 0, 0);
+
+	if (bdata->reset_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
+
 	return retval;
 }
 
@@ -3579,7 +3584,6 @@ static int syna_tcm_remove(struct platform_device *pdev)
 	struct syna_tcm_module_handler *tmp_handler;
 	struct syna_tcm_hcd *tcm_hcd = platform_get_drvdata(pdev);
 	const struct syna_tcm_board_data *bdata = tcm_hcd->hw_if->bdata;
-	struct drm_panel *active_panel = tcm_get_panel();
 
 	mutex_lock(&mod_pool.mutex);
 
@@ -3620,9 +3624,7 @@ static int syna_tcm_remove(struct platform_device *pdev)
 	kthread_stop(tcm_hcd->notifier_thread);
 
 #ifdef CONFIG_DRM
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel,
-				&tcm_hcd->fb_notifier);
+	msm_drm_unregister_client(&tcm_hcd->fb_notifier);
 #elif CONFIG_FB
 	fb_unregister_client(&tcm_hcd->fb_notifier);
 #endif
@@ -3711,7 +3713,7 @@ static void __exit syna_tcm_module_exit(void)
 	syna_tcm_bus_exit();
 }
 
-late_initcall(syna_tcm_module_init);
+module_init(syna_tcm_module_init);
 module_exit(syna_tcm_module_exit);
 
 MODULE_AUTHOR("Synaptics, Inc.");

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef __H_CVP_HFI_HELPER_H__
@@ -479,9 +480,13 @@ struct cvp_hfi_msg_sys_debug_packet {
 	u8 rg_msg_data[1];
 };
 
-struct cvp_hfi_packet_header {
+struct cvp_hfi_msg_sys_coverage_packet {
 	u32 size;
 	u32 packet_type;
+	u32 msg_size;
+	u32 time_stamp_hi;
+	u32 time_stamp_lo;
+	u8 rg_msg_data[1];
 };
 
 struct cvp_hfi_sfr_struct {

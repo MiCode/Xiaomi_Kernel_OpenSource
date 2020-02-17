@@ -103,6 +103,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
 	int skip = 0;
+	long cur_state = 0;
+	unsigned long cur_sp = 0;
+	unsigned long cur_fp = 0;
 
 	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
 
@@ -114,6 +117,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 
 	if (!tsk)
 		tsk = current;
+
+	if (tsk->state == TASK_DEAD)
+		return;
 
 	if (!try_get_task_stack(tsk))
 		return;
@@ -127,6 +133,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		 */
 		frame.fp = thread_saved_fp(tsk);
 		frame.pc = thread_saved_pc(tsk);
+		cur_state = tsk->state;
+		cur_sp = thread_saved_sp(tsk);
+		cur_fp = frame.fp;
 	}
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	frame.graph = tsk->curr_ret_stack;
@@ -134,6 +143,27 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 
 	printk("Call trace:\n");
 	do {
+		if (tsk != current && (cur_state != tsk->state
+			|| cur_sp != thread_saved_sp(tsk)
+			|| cur_fp != thread_saved_fp(tsk))) {
+		/*
+		* We would not be printing backtrace for the task
+		* that has changed state from uninterruptible to
+		* running before hitting the do-while loop but after
+		* saving the current state. If task is in running
+		* state before saving the state, then we may print
+		* wrong call trace or end up in infinite while loop
+		* if *(fp) and *(fp+8) are same. While the situation
+		* will stop print when that task schedule out.
+		*/
+			printk("The task:%s had been rescheduled!\n", tsk->comm);
+			break;
+		}
+		/* do not dump_backtrace current task on other cpu, frame is the last info */
+		if (tsk != current && tsk->on_cpu == 1) {
+			printk("The task:%s is running on other cpu currently!\n", tsk->comm);
+			break;
+		}
 		/* skip until specified stack frame */
 		if (!skip) {
 			dump_backtrace_entry(frame.pc);

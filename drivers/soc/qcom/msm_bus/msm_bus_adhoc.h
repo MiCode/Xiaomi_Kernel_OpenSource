@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _ARCH_ARM_MACH_MSM_BUS_ADHOC_H
@@ -60,23 +61,6 @@ struct msm_bus_fab_device_type {
 	bool bypass_qos_prg;
 };
 
-struct msm_bus_noc_limiter {
-	uint32_t bw;
-	uint32_t sat;
-};
-
-struct msm_bus_noc_regulator {
-	uint32_t low_prio;
-	uint32_t hi_prio;
-	uint32_t bw;
-	uint32_t sat;
-};
-
-struct msm_bus_noc_regulator_mode {
-	uint32_t read;
-	uint32_t write;
-};
-
 struct qos_params_type {
 	int mode;
 	unsigned int prio_lvl;
@@ -89,12 +73,6 @@ struct qos_params_type {
 	unsigned int gp;
 	unsigned int thmp;
 	unsigned int ws;
-	unsigned int prio_dflt;
-	struct msm_bus_noc_limiter limiter;
-	bool limiter_en;
-	struct msm_bus_noc_regulator reg;
-	struct msm_bus_noc_regulator_mode reg_mode;
-	bool urg_fwd_en;
 	u64 bw_buffer;
 };
 
@@ -174,7 +152,6 @@ extern struct msm_bus_device_node_registration
 extern void msm_bus_arb_setops_adhoc(struct msm_bus_arb_ops *arb_ops);
 extern int msm_bus_bimc_set_ops(struct msm_bus_node_device_type *bus_dev);
 extern int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev);
-extern int msm_bus_qnoc_set_ops(struct msm_bus_node_device_type *bus_dev);
 extern int msm_bus_of_get_static_rules(struct platform_device *pdev,
 					struct bus_rule_type **static_rule);
 extern int msm_rules_update_path(struct list_head *input_list,

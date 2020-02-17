@@ -1,0 +1,72 @@
+Qualcomm Technologies, Inc. TRI_LED driver specific bindings
+
+This binding document describes the properties of TRI_LED module in
+Qualcomm Technologies, Inc. PMIC chips.
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Must be "qcom,tri-led".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: Register base of the TRI_LED module and length.
+
+- nvmem-names:
+	Usage: optional
+	Value type: <string>
+	Definition: Nvmem device name for SDAM to do PBS trigger. It must be
+		defined as "pbs_sdam". This is required only for HR_LEDs.
+
+- nvmem:
+	Usage: optional
+	Value type: <phandle>
+	Definition: Phandle of the nvmem device name to access SDAM to do PBS
+		trigger. This is required only for HR_LEDs.
+
+Properties for child nodes:
+- pwms:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: The PWM device (phandle) used for controlling LED.
+
+- led-sources:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: see Documentation/devicetree/bindings/leds/common.txt;
+		Device current output identifiers are: 0 - LED1_EN,
+		1 - LED2_EN, 2 - LED3_EN.
+
+- label:
+	Usage: optional
+	Value type: <string>
+	Definition: see Documentation/devicetree/bindings/leds/common.txt;
+
+- linux,default-trigger:
+	Usage: optional
+	Value_type: <string>
+	Definition: see Documentation/devicetree/bindings/leds/common.txt;
+
+Example:
+
+	pmi8998_rgb: tri-led@d000{
+		compatible = "qcom,tri-led";
+		reg = <0xd000 0x100>;
+
+		red {
+			label = "red";
+			pwms = <&pmi8998_lpg 4 1000000>;
+			led-sources = <0>;
+		};
+		green {
+			label = "green";
+			pwms = <&pmi8998_lpg 3 1000000>;
+			led-sources = <1>;
+		};
+		blue {
+			label = "blue";
+			pwms = <&pmi8998_lpg 2 1000000>;
+			led-sources = <2>;
+		};
+	};

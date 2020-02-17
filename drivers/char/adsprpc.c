@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -317,8 +318,8 @@ struct fastrpc_static_pd {
 	struct notifier_block pdrnb;
 	struct notifier_block get_service_nb;
 	void *pdrhandle;
-	uint64_t pdrcount;
-	uint64_t prevpdrcount;
+	int pdrcount;
+	int prevpdrcount;
 	int ispdup;
 	int cid;
 };
@@ -340,10 +341,10 @@ struct fastrpc_channel_ctx {
 	struct notifier_block nb;
 	struct mutex smd_mutex;
 	struct mutex rpmsg_mutex;
-	uint64_t sesscount;
-	uint64_t ssrcount;
+	int sesscount;
+	int ssrcount;
 	void *handle;
-	uint64_t prevssrcount;
+	int prevssrcount;
 	int issubsystemup;
 	int vmid;
 	struct secure_vm rhvm;
@@ -444,7 +445,7 @@ struct fastrpc_file {
 	int sessionid;
 	int tgid;
 	int cid;
-	uint64_t ssrcount;
+	int ssrcount;
 	int pd;
 	char *servloc_name;
 	int file_close;
@@ -1310,7 +1311,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ctx_lst *clst = &fl->clst;
 	struct fastrpc_ioctl_invoke *invoke = &invokefd->inv;
-	int cid;
+	unsigned int cid;
 
 	bufs = REMOTE_SCALARS_LENGTH(invoke->sc);
 	size = bufs * sizeof(*ctx->lpra) + bufs * sizeof(*ctx->maps) +
@@ -1840,8 +1841,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
-		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
-			continue;
 
 		if (rpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
@@ -1947,8 +1946,6 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
-		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
-			continue;
 
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv))
@@ -2002,8 +1999,6 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
-			continue;
-		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
 			continue;
 
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
@@ -3279,8 +3274,7 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 			int secure, struct fastrpc_session_ctx **session)
 {
 	struct fastrpc_apps *me = &gfa;
-	uint64_t idx = 0;
-	int err = 0;
+	int idx = 0, err = 0;
 
 	if (chan->sesscount) {
 		for (idx = 0; idx < chan->sesscount; ++idx) {
@@ -3600,13 +3594,13 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			len += scnprintf(fileinfo + len,
 				DEBUGFS_SIZE - len, "%-7s", chan->subsys);
 			len += scnprintf(fileinfo + len,
-				DEBUGFS_SIZE - len, "|%-10u",
+				DEBUGFS_SIZE - len, "|%-10d",
 				chan->sesscount);
 			len += scnprintf(fileinfo + len,
 				DEBUGFS_SIZE - len, "|%-14d",
 				chan->issubsystemup);
 			len += scnprintf(fileinfo + len,
-				DEBUGFS_SIZE - len, "|%-9u",
+				DEBUGFS_SIZE - len, "|%-9d",
 				chan->ssrcount);
 			for (j = 0; j < chan->sesscount; j++) {
 				sess_used += chan->session[j].used;
@@ -3662,7 +3656,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %7s %d\n", "sessionid", ":", fl->sessionid);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %8s %u\n", "ssrcount", ":", fl->ssrcount);
+			"%s %8s %d\n", "ssrcount", ":", fl->ssrcount);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %14s %d\n", "pd", ":", fl->pd);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -4105,9 +4099,8 @@ static int fastrpc_getperf(struct fastrpc_ioctl_perf *ioctl_perf,
 		mutex_unlock(&fl->perf_mutex);
 
 		if (fperf) {
-			K_COPY_TO_USER(err, 0,
-				(void *)ioctl_perf->data, fperf,
-				sizeof(*fperf) - sizeof(struct hlist_node));
+			K_COPY_TO_USER(err, 0, (void *)ioctl_perf->data,
+				fperf, sizeof(*fperf));
 		}
 	}
 	K_COPY_TO_USER(err, 0, param, ioctl_perf, sizeof(*ioctl_perf));
@@ -4503,8 +4496,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct fastrpc_session_ctx *sess;
 	struct of_phandle_args iommuspec;
 	const char *name;
-	int err = 0, cid = -1, i = 0;
-	u32 sharedcb_count = 0, j = 0;
+	int err = 0;
+	unsigned int sharedcb_count = 0, cid, i, j;
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
 					 "label", NULL)));

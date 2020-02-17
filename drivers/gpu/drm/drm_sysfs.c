@@ -21,6 +21,7 @@
 #include <drm/drm_sysfs.h>
 #include <drm/drmP.h>
 #include "drm_internal.h"
+#include "drm_internal_mi.h"
 
 #define to_drm_minor(d) dev_get_drvdata(d)
 #define to_drm_connector(d) dev_get_drvdata(d)
@@ -229,16 +230,72 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	int ret;
+
+	ret = dsi_display_disp_param_get(connector, buf);
+
+	return (ssize_t)ret;
+}
+
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	u32 param;
+
+	sscanf(buf, "0x%x", &param);
+
+	dsi_display_disp_param_set(connector, param);
+
+	return count;
+}
+
+static ssize_t mipi_reg_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_mipi_reg_read(connector, buf);
+}
+
+static ssize_t mipi_reg_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_mipi_reg_write(connector, (char *)buf, count);;
+}
+
+static ssize_t panel_info_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_panel_info_read(connector, buf);
+}
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RW(disp_param);
+static DEVICE_ATTR_RW(mipi_reg);
+static DEVICE_ATTR_RO(panel_info);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_mipi_reg.attr,
+	&dev_attr_panel_info.attr,
 	NULL
 };
 

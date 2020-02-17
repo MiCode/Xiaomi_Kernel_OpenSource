@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef __MACH_SCM_H
@@ -26,7 +27,6 @@
 #define SCM_SVC_SMMU_PROGRAM		0x15
 #define SCM_SVC_QDSS			0x16
 #define SCM_SVC_RTIC			0x19
-#define SCM_SVC_TSENS			0x1E
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #define SCM_FUSE_READ			0x7

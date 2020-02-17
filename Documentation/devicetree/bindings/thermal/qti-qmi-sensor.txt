@@ -1,0 +1,74 @@
+QMI thermal mitigation(TS) sensor.
+
+The QMI TS Sensor driver can list the sensors that are available in the
+remote subsystem. This driver can read the temperature, set threshold and
+get threshold notification.
+
+Each child node of the QMI TS devicetree node represents a remote
+subsystem and it can have more than one remote sensor names.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,qmi-sensors"
+
+- #thermal-sensor-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 1. See thermal.txt for description.
+
+Subsystem properties:
+- qcom,instance-id:
+	Usage: required
+	Value type: <integer>
+	Definition: Remote subsystem QMI server instance id to be used for
+			communicating with QMI.
+
+- qcom,qmi-sensor-names:
+	Usage: required
+	Value type: <array of string>
+	Definition: Remote sensor names. Below strings
+		are the only acceptable sensor names,
+		1. pa
+		2. pa_1
+		3. pa_2
+		4. qfe_pa0
+		5. qfe_wtr0
+		6. modem_tsens
+		7. qfe_mmw0
+		8. qfe_mmw1
+		9. qfe_mmw2
+		10. qfe_mmw3
+		11. xo_therm
+		12. qfe_pa_mdm
+		13. qfe_pa_wtr
+		14. qfe_mmw_streamer0
+		15. qfe_mmw0_mod
+		16. qfe_mmw1_mod
+		17. qfe_mmw2_mod
+		18. qfe_mmw3_mod
+		19. qfe_ret_pa0
+		20. qfe_wtr_pa0
+		21. qfe_wtr_pa1
+		22. qfe_wtr_pa2
+		23. qfe_wtr_pa3
+		24. sys_therm1
+		25. sys_therm2
+		26. modem_tsens1
+
+Example:
+
+qmi_sensor: qmi-ts-sensors {
+	compatible = "qcom,qmi-sensors";
+	#thermal-sensor-cells = <1>;
+
+	modem {
+		qcom,instance-id = <0x0>;
+		qcom,qmi-sensor-names = "pa",
+					"pa_1",
+					"qfe_pa0",
+					"qfe_wtr0";
+	};
+};

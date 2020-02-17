@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -1504,11 +1505,6 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 
 	switch (op) {
 	case GSI_EP_OP_PREPARE_TRBS:
-		if (!dwc->pullups_connected) {
-			dbg_log_string("No Pullup\n");
-			return -ESHUTDOWN;
-		}
-
 		request = (struct usb_gsi_request *)op_data;
 		ret = gsi_prepare_trbs(ep, request);
 		break;
@@ -1517,22 +1513,12 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		gsi_free_trbs(ep, request);
 		break;
 	case GSI_EP_OP_CONFIG:
-		if (!dwc->pullups_connected) {
-			dbg_log_string("No Pullup\n");
-			return -ESHUTDOWN;
-		}
-
 		request = (struct usb_gsi_request *)op_data;
 		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_configure_ep(ep, request);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_STARTXFER:
-		if (!dwc->pullups_connected) {
-			dbg_log_string("No Pullup\n");
-			return -ESHUTDOWN;
-		}
-
 		spin_lock_irqsave(&dwc->lock, flags);
 		ret = gsi_startxfer_for_ep(ep);
 		spin_unlock_irqrestore(&dwc->lock, flags);
@@ -1545,11 +1531,6 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		gsi_store_ringbase_dbl_info(ep, request);
 		break;
 	case GSI_EP_OP_ENABLE_GSI:
-		if (!dwc->pullups_connected) {
-			dbg_log_string("No Pullup\n");
-			return -ESHUTDOWN;
-		}
-
 		gsi_enable(ep);
 		break;
 	case GSI_EP_OP_GET_CH_INFO:
@@ -1557,11 +1538,6 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		gsi_get_channel_info(ep, ch_info);
 		break;
 	case GSI_EP_OP_RING_DB:
-		if (!dwc->pullups_connected) {
-			dbg_log_string("No Pullup\n");
-			return -ESHUTDOWN;
-		}
-
 		request = (struct usb_gsi_request *)op_data;
 		gsi_ring_db(ep, request);
 		break;
@@ -2572,16 +2548,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 
 	/* Perform controller power collapse */
 	if (!(mdwc->in_host_mode || mdwc->in_device_mode) ||
-	      mdwc->in_restart || force_power_collapse) {
+	      mdwc->in_restart || force_power_collapse ||
+	      (dwc->gdsc_collapse_in_host_suspend && mdwc->in_host_mode)) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
-	} else if (dwc->gdsc_collapse_in_host_suspend && mdwc->in_host_mode) {
-		dev_dbg(mdwc->dev, "Collapse GDSC in host mode bus suspend\n");
-		dwc3_msm_config_gdsc(mdwc, 0);
 	}
-
 
 	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
@@ -2680,11 +2653,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "%s:core_reset deassert failed\n",
 					__func__);
 		clk_prepare_enable(mdwc->sleep_clk);
-	} else if (dwc->gdsc_collapse_in_host_suspend && mdwc->in_host_mode) {
-		dev_dbg(mdwc->dev, "Turn on GDSC in host mode bus resume\n");
-		dwc3_msm_config_gdsc(mdwc, 1);
 	}
-
 
 	/*
 	 * Enable clocks
@@ -4414,8 +4383,10 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 		 * bail out if suspend happened with float cable
 		 * connected
 		 */
+		/* xiaomi charger driver need this current config float current, so remove this qcom default return feature.
 		if (mA == 2)
 			return 0;
+		*/
 
 		if (!mA)
 			pval.intval = -ETIMEDOUT;

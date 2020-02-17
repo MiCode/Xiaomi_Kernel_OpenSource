@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -234,7 +235,6 @@ struct spcom_device {
 
 	int32_t nvm_ion_fd;
 	struct mutex ioctl_lock;
-	struct mutex create_channel_lock;
 };
 
 /* Device Driver State */
@@ -1964,26 +1964,22 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 	struct cdev *cdev;
 
 	pr_debug("Add channel [%s]\n", name);
-	mutex_lock(&spcom_dev->create_channel_lock);
 
 	ch = spcom_find_channel_by_name(name);
 	if (ch) {
 		pr_err("channel [%s] already exist\n", name);
-		mutex_unlock(&spcom_dev->create_channel_lock);
 		return -EBUSY;
 	}
 
 	ch = spcom_find_channel_by_name(""); /* find reserved channel */
 	if (!ch) {
 		pr_err("no free channel\n");
-		mutex_unlock(&spcom_dev->create_channel_lock);
 		return -ENODEV;
 	}
 
 	ret = spcom_init_channel(ch, is_sharable, name);
 	if (ret < 0) {
 		pr_err("can't init channel %d\n", ret);
-		mutex_unlock(&spcom_dev->create_channel_lock);
 		return ret;
 	}
 
@@ -2022,7 +2018,6 @@ static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 	ch->cdev = cdev;
 	ch->dev = dev;
 	mutex_unlock(&ch->lock);
-	mutex_unlock(&spcom_dev->create_channel_lock);
 
 	return 0;
 
@@ -2039,7 +2034,6 @@ exit_destroy_channel:
 	mutex_lock(&ch->lock);
 	memset(ch->name, 0, SPCOM_CHANNEL_NAME_SIZE);
 	mutex_unlock(&ch->lock);
-	mutex_unlock(&spcom_dev->create_channel_lock);
 	return -EFAULT;
 }
 
@@ -2494,7 +2488,6 @@ static int spcom_probe(struct platform_device *pdev)
 	spin_lock_init(&spcom_dev->rx_lock);
 	spcom_dev->nvm_ion_fd = -1;
 	mutex_init(&spcom_dev->ioctl_lock);
-	mutex_init(&spcom_dev->create_channel_lock);
 
 	ret = spcom_register_chardev();
 	if (ret) {

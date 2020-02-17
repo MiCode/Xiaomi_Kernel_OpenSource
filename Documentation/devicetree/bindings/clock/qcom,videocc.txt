@@ -1,0 +1,43 @@
+Qualcomm Video Clock & Reset Controller Binding
+-----------------------------------------------
+
+Required properties :
+- compatible : shall contain "qcom,sdm845-videocc", "qcom,videocc-kona",
+		"qcom,videocc-kona-v2", "qcom,lito-videocc" or
+		"qcom,lagoon-videocc"
+- reg : shall contain base register location and length
+- clock-names : Shall contain "cfg_ahb_clk"
+- clocks : phandle + clock reference to the GCC AHB clock.
+
+- #clock-cells : from common clock binding, shall contain 1.
+- #power-domain-cells : from generic power domain binding, shall contain 1.
+
+Required properties (kona only):
+- vdd_mm-supply : phandle of the voltage regulator supplying the logic rail
+- vdd_mx-supply : phandle of the voltage regulator supplying the memory rail
+
+Optional properties :
+- #reset-cells : from common reset binding, shall contain 1.
+- nvmem-cells: list of phandle to the nvmem data cells.
+- nvmem-cell-names: names for the each nvmem-cells specified.
+
+Example:
+	videocc: clock-controller@ab00000 {
+		compatible = "qcom,sdm845-videocc";
+		reg = <0xab00000 0x10000>;
+		#clock-cells = <1>;
+		#power-domain-cells = <1>;
+		};
+
+Example with vdd mm/mx supply:
+	clock_videocc: qcom,videocc@abf0000 {
+		compatible = "qcom,videocc-kona";
+		reg = <0xabf0000 0x10000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&pm8150a_s5_level>;
+		vdd_mx-supply = <&pm8150a_s5_level>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/atomic.h>
@@ -447,8 +448,7 @@ struct gpi_dev {
 	struct dentry *dentry;
 };
 
-static struct gpi_dev *gpi_dev_dbg[5];
-static int arr_idx;
+static struct gpi_dev *gpi_dev_dbg;
 
 struct reg_info {
 	char *name;
@@ -582,7 +582,6 @@ struct gpii {
 	struct gpi_reg_table dbg_reg_table;
 	bool reg_table_dump;
 	u32 dbg_gpi_irq_cnt;
-	bool ieob_set;
 };
 
 struct gpi_desc {
@@ -1498,6 +1497,20 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		return;
 	}
 	gpi_desc = to_gpi_desc(vd);
+
+	/* Event TR RP gen. don't match descriptor TR */
+	if (gpi_desc->wp != tre) {
+		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
+		GPII_ERR(gpii, gpii_chan->chid,
+			 "EOT/EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
+			 to_physical(ch_ring, gpi_desc->wp),
+			 to_physical(ch_ring, tre));
+		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_EOT_DESC_MISMATCH,
+				      __LINE__);
+		return;
+	}
+
+	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
 
@@ -1512,9 +1525,6 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 
 	/* make sure rp updates are immediately visible to all cores */
 	smp_wmb();
-
-	if (imed_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set)
-		return;
 
 	tx_cb_param = vd->tx.callback_param;
 	if (vd->tx.callback && tx_cb_param) {
@@ -1531,12 +1541,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->status = imed_event->status;
 		vd->tx.callback(tx_cb_param);
 	}
-
-	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
-	list_del(&vd->node);
-	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 	kfree(gpi_desc);
-	gpi_desc = NULL;
 }
 
 /* processing transfer completion events */
@@ -1579,6 +1584,20 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	}
 
 	gpi_desc = to_gpi_desc(vd);
+
+	/* TRE Event generated didn't match descriptor's TRE */
+	if (gpi_desc->wp != ev_rp) {
+		spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
+		GPII_ERR(gpii, gpii_chan->chid,
+			 "EOT\EOB received for wrong TRE 0x%0llx != 0x%0llx\n",
+			 to_physical(ch_ring, gpi_desc->wp),
+			 to_physical(ch_ring, ev_rp));
+		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_EOT_DESC_MISMATCH,
+				      __LINE__);
+		return;
+	}
+
+	list_del(&vd->node);
 	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 
 
@@ -1594,9 +1613,6 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	/* update must be visible to other cores */
 	smp_wmb();
 
-	if (compl_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set)
-		return;
-
 	tx_cb_param = vd->tx.callback_param;
 	if (vd->tx.callback && tx_cb_param) {
 		GPII_VERB(gpii, gpii_chan->chid,
@@ -1608,13 +1624,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 		tx_cb_param->status = compl_event->status;
 		vd->tx.callback(tx_cb_param);
 	}
-
-	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
-	list_del(&vd->node);
-	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
 	kfree(gpi_desc);
-	gpi_desc = NULL;
-
 }
 
 /* process all events */
@@ -2290,7 +2300,6 @@ void gpi_desc_free(struct virt_dma_desc *vd)
 	struct gpi_desc *gpi_desc = to_gpi_desc(vd);
 
 	kfree(gpi_desc);
-	gpi_desc = NULL;
 }
 
 /* copy tre into transfer ring */
@@ -2311,7 +2320,6 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	void *tre, *wp = NULL;
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
-	gpii->ieob_set = false;
 
 	GPII_VERB(gpii, gpii_chan->chid, "enter\n");
 
@@ -2345,22 +2353,10 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	}
 
 	/* copy each tre into transfer ring */
-	for_each_sg(sgl, sg, sg_len, i) {
-		tre = sg_virt(sg);
-
-		/* Check if last tre has ieob set */
-		if (i == sg_len - 1) {
-			if ((((struct msm_gpi_tre *)tre)->dword[3] &
-					GPI_IEOB_BMSK) >> GPI_IEOB_BMSK_SHIFT)
-				gpii->ieob_set = true;
-			else
-				gpii->ieob_set = false;
-		}
-
-		for (j = 0; j < sg->length;
+	for_each_sg(sgl, sg, sg_len, i)
+		for (j = 0, tre = sg_virt(sg); j < sg->length;
 		     j += ch_ring->el_size, tre += ch_ring->el_size)
 			gpi_queue_xfer(gpii, gpii_chan, tre, &wp);
-	}
 
 	/* set up the descriptor */
 	gpi_desc->db = ch_ring->wp;
@@ -2812,8 +2808,7 @@ static int gpi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* debug purpose */
-	gpi_dev_dbg[arr_idx] = gpi_dev;
-	arr_idx++;
+	gpi_dev_dbg = gpi_dev;
 
 	gpi_dev->dev = &pdev->dev;
 	gpi_dev->klog_lvl = DEFAULT_KLOG_LVL;

@@ -1,0 +1,8 @@
+#
+# Mediatek AW8624 Driver
+#
+
+config AW8624_HAPTIC
+	tristate "Awinic AW8624 haptic driver"
+	depends on I2C
+	default n

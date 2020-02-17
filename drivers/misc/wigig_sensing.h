@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019, The Linux foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef __WIGIG_SENSING_H__
 #define __WIGIG_SENSING_H__
 #include <linux/cdev.h>
 #include <linux/circ_buf.h>
-#include <linux/kfifo.h>
 #include <linux/slab.h>
 #include <uapi/misc/wigig_sensing_uapi.h>
 
@@ -131,6 +131,7 @@ struct spi_fifo {
 enum wigig_sensing_stm_e {
 	WIGIG_SENSING_STATE_MIN = 0,
 	WIGIG_SENSING_STATE_INITIALIZED,
+	WIGIG_SENSING_STATE_SPI_READY,
 	WIGIG_SENSING_STATE_READY_STOPPED,
 	WIGIG_SENSING_STATE_SEARCH,
 	WIGIG_SENSING_STATE_FACIAL,
@@ -143,8 +144,10 @@ enum wigig_sensing_stm_e {
 
 struct wigig_sensing_stm {
 	bool auto_recovery;
+	bool enabled;
 	bool fw_is_ready;
 	bool spi_malfunction;
+	bool sys_assert;
 	bool waiting_for_deep_sleep_exit;
 	bool waiting_for_deep_sleep_exit_first_pass;
 	bool burst_size_ready;
@@ -152,10 +155,7 @@ struct wigig_sensing_stm {
 	enum wigig_sensing_stm_e state;
 	enum wigig_sensing_mode mode;
 	u32 burst_size;
-	u32 channel;
 	u32 channel_request;
-	enum wigig_sensing_stm_e state_request;
-	enum wigig_sensing_mode mode_request;
 };
 
 struct wigig_sensing_ctx {
@@ -194,7 +194,6 @@ struct wigig_sensing_ctx {
 	struct cir_data cir_data;
 	u8 *temp_buffer;
 	bool event_pending;
-	DECLARE_KFIFO(events_fifo, enum wigig_sensing_event, 8);
 	u32 dropped_bursts;
 };
 

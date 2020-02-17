@@ -1,0 +1,32 @@
+* Kryo EDAC node
+
+Kryo EDAC node is defined to describe on-chip error detection and correction
+for the Kryo core.
+
+Kryo will report all SBE and DBE found in L1/L2/L3/SCU caches in two registers:
+	ERRXSTATUS - Error Record Primary Status Register
+	ERRXMISC0 - Error Record Miscellaneous Register
+
+Current implementation of Kryo ECC mechanism is based on interrupts.
+
+The following section describes the DT node binding for kryo_cpu_erp.
+
+Required properties:
+- compatible		: Shall be "arm,arm64-kryo-cpu-erp".
+- interrupts		: Interrupt-specifier for L1/L2, L3/SCU error IRQ(s)
+- interrupt-names	: Descriptive names of the interrupts
+
+Example:
+
+	kryo-erp {
+		compatible = "arm,arm64-kryo-cpu-erp";
+		interrupts = <1 6 4>,
+			<1 7 4>,
+			<0 34 4>,
+			<0 35 4>;
+
+		interrupt-names = "l1-l2-faultirq",
+				"l1-l2-errirq",
+				"l3-scu-errirq",
+				"l3-scu-faultirq";
+	};

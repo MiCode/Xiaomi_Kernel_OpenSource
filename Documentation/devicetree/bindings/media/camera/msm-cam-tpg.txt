@@ -1,0 +1,113 @@
+* Qualcomm Technologies, Inc. MSM Camera TPG
+
+Camera TPG device provides the definitions for enabling
+the TPG hardware. It also provides the functions for the client
+to control the TPG hardware.
+
+=======================
+Required Node Structure
+=======================
+The TPG device is described in one level of the device node.
+
+======================================
+First Level Node - CAM TPG device
+======================================
+Required properties:
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the compatibility string for matching the
+	driver. e.g. "qcom,tpgv1"
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should specify the name of the register block.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with TFE HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for TFE HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+	"regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for TFE HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for TFE HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+- clock-control-debugfs
+  Usage: optional
+  Value type: <string>
+  Definition: Enable/Disable clk rate control.
+
+- scl-clk-names:
+  Usage: optional
+  Value type: <string>
+  Definition: Scalable clock names to identify which clocks needs to update
+	along with source clock.
+
+Example:
+	cam_tfe_tpg0: qcom,tpg0@5c66000 {
+		cell-index = <0>;
+		compatible = "qcom,tpgv1";
+		reg-names = "tpg0", "top";
+		reg = <0x5c66000 0x400>,
+				<0x5c11000 0x1000>;
+		reg-cam-base = <0x66000 0x11000>;
+		regulator-names = "camss";
+		camss-supply = <&gcc_camss_top_gdsc>;
+		clock-names =
+			"cphy_rx_clk_src",
+			"tfe_0_cphy_rx_clk";
+		clocks =
+			<&gcc GCC_CAMSS_TFE_CPHY_RX_CLK_SRC>,
+			<&gcc GCC_CAMSS_TFE_0_CPHY_RX_CLK>;
+		clock-rates =
+			<240000000 240000000>,
+			<341333333 341333333>,
+			<384000000 384000000>;
+		clock-cntl-level = "svs", "svs_l1", "turbo";
+		src-clock-name = "cphy_rx_clk_src";
+		clock-control-debugfs = "false";
+		status = "ok";
+	};

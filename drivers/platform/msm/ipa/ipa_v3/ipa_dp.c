@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -2809,14 +2810,8 @@ begin:
 		case IPAHAL_PKT_STATUS_OPCODE_PACKET:
 		case IPAHAL_PKT_STATUS_OPCODE_SUSPENDED_PACKET:
 		case IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS:
-			break;
 		case IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE:
-			IPAERR_RL("Frag packets received on lan consumer\n");
-			IPAERR_RL("STATUS opcode=%d src=%d dst=%d src ip=%x\n",
-				status.status_opcode, status.endp_src_idx,
-				status.endp_dest_idx, status.src_ip_addr);
-			skb_pull(skb, pkt_status_sz);
-			continue;
+			break;
 		default:
 			IPAERR_RL("unsupported opcode(%d)\n",
 				status.status_opcode);
@@ -3268,13 +3263,7 @@ static void ipa3_recycle_rx_wrapper(struct ipa3_rx_pkt_wrapper *rx_pkt)
 
 static void ipa3_recycle_rx_page_wrapper(struct ipa3_rx_pkt_wrapper *rx_pkt)
 {
-	struct ipa_rx_page_data rx_page;
-
-	rx_page = rx_pkt->page_data;
-
-	/* Free rx_wrapper only for tmp alloc pages*/
-	if (rx_page.is_tmp_alloc)
-		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
+	/* no-op */
 }
 
 /**
