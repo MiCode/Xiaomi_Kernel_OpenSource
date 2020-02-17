@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -66,13 +66,59 @@ static struct pll_vco lucid_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
+static const struct alpha_pll_config gpu_cc_pll0_config = {
+	.l = 0x13,
+	.cal_l = 0x44,
+	.alpha = 0xCAAA,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002261,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x00000000,
+};
+
+static const struct alpha_pll_config gpu_cc_pll0_config_sm8250_v2 = {
+	.l = 0x14,
+	.cal_l = 0x44,
+	.alpha = 0x5000,
+	.config_ctl_val = 0x20485699,
+	.config_ctl_hi_val = 0x00002261,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi1_val = 0x00000000,
+};
+
+static struct clk_alpha_pll gpu_cc_pll0 = {
+	.offset = 0x0,
+	.vco_table = lucid_vco,
+	.num_vco = ARRAY_SIZE(lucid_vco),
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gpu_cc_pll0",
+			.parent_names = (const char *[]){ "bi_tcxo" },
+			.num_parents = 1,
+			.ops = &clk_alpha_pll_lucid_ops,
+			.vdd_class = &vdd_mx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_MIN] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
+		},
+	},
+};
+
 static const struct alpha_pll_config gpu_cc_pll1_config = {
 	.l = 0x1A,
 	.cal_l = 0x44,
 	.alpha = 0xAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -398,9 +444,32 @@ static const struct qcom_cc_desc gpu_cc_kona_desc = {
 
 static const struct of_device_id gpu_cc_kona_match_table[] = {
 	{ .compatible = "qcom,gpucc-kona" },
+	{ .compatible = "qcom,gpucc-kona-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_kona_match_table);
+
+static void gpu_cc_kona_fixup_konav2(struct regmap *regmap)
+{
+	clk_lucid_pll_configure(&gpu_cc_pll0, regmap,
+		&gpu_cc_pll0_config_sm8250_v2);
+}
+
+static int gpu_cc_kona_fixup(struct platform_device *pdev,
+	struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,gpucc-kona-v2"))
+		gpu_cc_kona_fixup_konav2(regmap);
+
+	return 0;
+}
 
 static int gpu_cc_kona_probe(struct platform_device *pdev)
 {
@@ -435,6 +504,9 @@ static int gpu_cc_kona_probe(struct platform_device *pdev)
 	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
 	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
 							mask, value);
+	ret = gpu_cc_kona_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_kona_desc, regmap);
 	if (ret) {
