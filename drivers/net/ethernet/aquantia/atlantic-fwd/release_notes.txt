@@ -1,3 +1,11 @@
+Version 1.1.3
+==============
+[ATLDRV-1185] - Enable stripping of padding doesnt work on Felicity card
+[ATLDRV-1351] - Problem with setting mtu
+[ATLDRV-1352] - Implement stripping of padding
+[ATLDRV-1354] - Incorrect thermal thresholds
+[ATLDRV-1359] - Secure all packets when macsec service ON
+
 Version 1.1.2
 ==============
 [ATLDRV-1348] - FWD: IPv6 and L4 ntuple filters not work 

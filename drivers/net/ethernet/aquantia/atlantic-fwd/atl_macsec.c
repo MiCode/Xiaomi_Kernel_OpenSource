@@ -18,6 +18,9 @@
 #define ATL_MACSEC_KEY_LEN_192_BIT 24
 #define ATL_MACSEC_KEY_LEN_256_BIT 32
 
+static unsigned int atl_macsec_bridge = 1;
+module_param_named(macsec_bridge, atl_macsec_bridge, uint, 0644);
+
 enum atl_clear_type {
 	/* update HW configuration */
 	ATL_CLEAR_HW = BIT(0),
@@ -487,7 +490,8 @@ static int atl_set_txsc(struct atl_hw *hw, int txsc_idx)
 	memcpy(tx_class_rec.sci, &nsci, sizeof(nsci));
 	tx_class_rec.sci_mask = 0;
 
-	tx_class_rec.sa_mask = 0x3f;
+	if (!atl_macsec_bridge)
+		tx_class_rec.sa_mask = 0x3f;
 
 	tx_class_rec.action = 0; /* forward to SA/SC table */
 	tx_class_rec.valid = 1;
@@ -611,6 +615,9 @@ static int atl_mdo_add_secy(struct macsec_context *ctx)
 	sc_sa = sc_sa_from_num_an(MACSEC_NUM_AN);
 	if (sc_sa == atl_macsec_sa_sc_not_used)
 		return -EINVAL;
+
+	if (atl_macsec_bridge && hweight32(hw->macsec_cfg.txsc_idx_busy))
+		return -ENOSPC;
 
 	if (hweight32(hw->macsec_cfg.txsc_idx_busy) >= sc_idx_max(sc_sa))
 		return -ENOSPC;

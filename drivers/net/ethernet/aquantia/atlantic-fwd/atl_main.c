@@ -345,9 +345,17 @@ int atl_fw_configure(struct atl_hw *hw)
 	struct atl_nic *nic = container_of(hw, struct atl_nic, hw);
 	int ret;
 
-	ret = atl_set_media_detect(nic,
+	ret = hw->mcp.ops->set_mediadetect(hw,
 			!!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
+	if (ret && ret != -ENOTSUPP)
+		return ret;
+	ret = hw->mcp.ops->set_pad_stripping(hw,
+			!!(nic->priv_flags & ATL_PF_BIT(STRIP_PAD)));
+	if (ret && ret != -ENOTSUPP)
+		return ret;
 	ret = hw->mcp.ops->update_thermal(hw);
+	if (ret == -ENOTSUPP)
+		ret = 0;
 
 	return ret;
 }

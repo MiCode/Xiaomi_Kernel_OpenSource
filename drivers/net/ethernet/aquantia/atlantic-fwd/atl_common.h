@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.1.2"
+#define ATL_VERSION "1.1.3"
 
 struct atl_nic;
 enum atl_fwd_notify;
