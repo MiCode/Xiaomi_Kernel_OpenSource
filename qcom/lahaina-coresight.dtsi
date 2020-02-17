@@ -170,6 +170,57 @@
 		};
 	};
 
+	tpdm_lpass_lpi: tpdm@6b46000 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-tpdm-lpass-lpi";
+		qcom,dummy-source;
+
+		out-ports {
+			port {
+				tpdm_lpass_lpi_out_funnel_lpass_lpi: endpoint {
+					remote-endpoint =
+					<&funnel_lpass_lpi_in_tpdm_lpass_lpi>;
+				};
+			};
+		};
+	};
+
+	funnel_lpass_lpi: funnel@6b44000 {
+		compatible = "arm,coresight-static-funnel";
+		coresight-name = "coresight-funnel-lpass_lpi";
+
+		out-ports {
+			port {
+				funnel_lpass_lpi_out_funnel_swao: endpoint {
+					remote-endpoint =
+					<&funnel_swao_in_funnel_lpass_lpi>;
+				};
+			};
+		};
+
+		in-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_lpass_lpi_in_audio_etm0: endpoint {
+					remote-endpoint =
+					<&audio_etm0_out_funnel_lpass_lpi>;
+				};
+			};
+
+			port@5 {
+				reg = <5>;
+				funnel_lpass_lpi_in_tpdm_lpass_lpi: endpoint {
+					remote-endpoint =
+					<&tpdm_lpass_lpi_out_funnel_lpass_lpi>;
+				};
+			};
+		};
+	};
+
 	funnel_swao: funnel@6b04000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb908>;
@@ -188,23 +239,23 @@
 			port@3 {
 				reg = <3>;
 				funnel_swao_in_ssc_etm0: endpoint {
-					remote-endpoint=
+					remote-endpoint =
 						<&ssc_etm0_out_funnel_swao>;
 				};
 			};
 
 			port@5 {
 				reg = <5>;
-				funnel_swao_in_audio_etm0: endpoint {
-					remote-endpoint=
-						<&audio_etm0_out_funnel_swao>;
+				funnel_swao_in_funnel_lpass_lpi: endpoint {
+					remote-endpoint =
+					<&funnel_lpass_lpi_out_funnel_swao>;
 				};
 			};
 
 			port@6 {
 				reg = <6>;
 				funnel_swao_in_tpda_swao: endpoint {
-					remote-endpoint=
+					remote-endpoint =
 						<&tpda_swao_out_funnel_swao>;
 				};
 			};
@@ -212,7 +263,7 @@
 			port@7 {
 				reg = <7>;
 				funnel_swao_in_funnel_merg: endpoint {
-					remote-endpoint=
+					remote-endpoint =
 						<&funnel_merg_out_funnel_swao>;
 				};
 			};
@@ -2526,9 +2577,9 @@
 
 		out-ports {
 			port {
-				audio_etm0_out_funnel_swao: endpoint {
+				audio_etm0_out_funnel_lpass_lpi: endpoint {
 					remote-endpoint =
-						<&funnel_swao_in_audio_etm0>;
+					<&funnel_lpass_lpi_in_audio_etm0>;
 				};
 			};
 		};
