@@ -253,7 +253,7 @@ netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if (nic->priv_flags & ATL_PF_BIT(LPB_NET_DMA))
 		return NETDEV_TX_BUSY;
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	/* atl_max_queues is the number of standard queues.
 	 * Extra queue is allocated for FWD processing.
 	 */
@@ -1920,7 +1920,7 @@ void atl_update_global_stats(struct atl_nic *nic)
 		atl_add_stats(nic->stats.tx, stats.tx);
 	}
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
 		if (atlfwd_nl_is_tx_fwd_ring_created(nic->ndev, i)) {
 			atl_fwd_get_ring_stats(nic->fwd.rings[ATL_FWDIR_TX][i],

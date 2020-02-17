@@ -18,10 +18,9 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.1.3"
+#define ATL_VERSION "1.1.4"
 
 struct atl_nic;
-enum atl_fwd_notify;
 
 #include "atl_compat.h"
 #include "atl_hw.h"
@@ -210,7 +209,7 @@ struct atl_fwd {
 	struct blocking_notifier_head nh_clients;
 };
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 struct atl_fwdnl {
 	struct atl_desc_ring ring_desc[ATL_NUM_FWD_RINGS * 2];
 	/* State of forced redirections */
@@ -241,10 +240,10 @@ struct atl_nic {
 	spinlock_t stats_lock;
 	struct work_struct work;
 
-#ifdef CONFIG_ATLFWD_FWD
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
 	struct atl_fwd fwd;
 #endif
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	struct atl_fwdnl fwdnl;
 #endif
 
@@ -383,12 +382,16 @@ int atl_update_eth_stats(struct atl_nic *nic);
 void atl_adjust_eth_stats(struct atl_ether_stats *stats,
 	struct atl_ether_stats *base, bool add);
 void atl_fwd_release_rings(struct atl_nic *nic);
-#ifdef CONFIG_ATLFWD_FWD
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+enum atl_fwd_notify;
 int atl_fwd_suspend_rings(struct atl_nic *nic);
 int atl_fwd_resume_rings(struct atl_nic *nic);
+void atl_fwd_notify(struct atl_nic *nic, enum atl_fwd_notify notif, void *data);
 #else
 static inline int atl_fwd_suspend_rings(struct atl_nic *nic) { return 0; }
 static inline int atl_fwd_resume_rings(struct atl_nic *nic) { return 0; }
+static inline void atl_fwd_notify(struct atl_nic *nic,
+				  enum atl_fwd_notify notif, void *data) {}
 #endif
 int atl_get_lpi_timer(struct atl_nic *nic, uint32_t *lpi_delay);
 void atl_refresh_rxfs(struct atl_nic *nic);

@@ -190,9 +190,9 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed,
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-				   &tmp, true);
+				   &tmp, false);
 		/* advertize the supported links */
-		tmp = atl_kernel_to_link(&tmp, true);
+		tmp = atl_kernel_to_link(&tmp, false);
 		lstate->advertized |= tmp << ATL_EEE_BIT_OFFT;
 	}
 
@@ -470,31 +470,28 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
 	struct atl_link_state *lstate = &hw->link_state;
-	uint32_t tmp = 0;
+	uint32_t lpi_timer = 0;
+	unsigned long tmp = 0;
 
 	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
-	atl_get_lpi_timer(nic, &tmp);
-	if (eee->tx_lpi_timer != tmp)
+	atl_get_lpi_timer(nic, &lpi_timer);
+	if (eee->tx_lpi_timer != lpi_timer)
 		return -EOPNOTSUPP;
 
 	lstate->eee_enabled = eee->eee_enabled;
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-			(unsigned long *)&tmp, true);
+				   &tmp, false);
 		if (eee->advertised & ~tmp)
 			return -EINVAL;
 
 		/* advertize the requested link or all supported */
 		if (eee->advertised)
-			tmp = atl_kernel_to_link(
-					(unsigned long *)&eee->advertised,
-					true);
-		else
-			tmp = atl_kernel_to_link(
-					(unsigned long *)&tmp, true);
+			tmp = eee->advertised;
+		tmp = atl_kernel_to_link(&tmp, false);
 	}
 
 	lstate->advertized &= ~ATL_EEE_MASK;
@@ -736,7 +733,7 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 		return ARRAY_SIZE(tx_stat_descs) * (nic->nvecs + 1) +
 		       ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
 		       ARRAY_SIZE(eth_stat_descs)
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 		       + ARRAY_SIZE(tx_stat_descs) *
 				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_TX])
 		       + ARRAY_SIZE(rx_stat_descs) *
@@ -801,7 +798,7 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 			atl_copy_stats_string_set(&p, prefix);
 		}
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 		for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
 			snprintf(prefix, sizeof(prefix), "fwd_ring_%d_", i);
 
@@ -909,7 +906,7 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 		atl_write_stats(&tmp.rx, rx_stat_descs, data, uint64_t);
 	}
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
 		struct atl_ring_stats tmp;
 
@@ -1392,7 +1389,7 @@ static int atl_rxf_check_ring(struct atl_nic *nic, uint32_t ring)
 	if (ring < nic->nvecs || ring == ATL_RXF_RING_ANY)
 		return 0;
 
-#ifdef CONFIG_ATLFWD_FWD
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
 	if (test_bit(ring, &nic->fwd.ring_map[ATL_FWDIR_RX]))
 		return 0;
 #endif
