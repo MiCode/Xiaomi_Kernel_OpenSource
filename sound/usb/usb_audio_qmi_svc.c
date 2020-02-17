@@ -542,6 +542,8 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	}
 
 	if (protocol == UAC_VERSION_1) {
+		struct uac1_ac_header_descriptor *uac1_hdr = hdr_ptr;
+
 		as = find_csint_desc(alts->extra, alts->extralen,
 			UAC_AS_GENERAL);
 		if (!as) {
@@ -556,16 +558,16 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		resp->usb_audio_subslot_size = fmt_v1->bSubframeSize;
 		resp->usb_audio_subslot_size_valid = 1;
 
-		resp->usb_audio_spec_revision =
-			((struct uac1_ac_header_descriptor *)hdr_ptr)->bcdADC;
+		resp->usb_audio_spec_revision = le16_to_cpu(uac1_hdr->bcdADC);
 		resp->usb_audio_spec_revision_valid = 1;
 	} else if (protocol == UAC_VERSION_2) {
+		struct uac2_ac_header_descriptor *uac2_hdr = hdr_ptr;
+
 		fmt_v2 = (struct uac_format_type_i_ext_descriptor *)fmt;
 		resp->usb_audio_subslot_size = fmt_v2->bSubslotSize;
 		resp->usb_audio_subslot_size_valid = 1;
 
-		resp->usb_audio_spec_revision =
-			((struct uac2_ac_header_descriptor *)hdr_ptr)->bcdADC;
+		resp->usb_audio_spec_revision = le16_to_cpu(uac2_hdr->bcdADC);
 		resp->usb_audio_spec_revision_valid = 1;
 	} else if (protocol == UAC_VERSION_3) {
 		if (assoc->bFunctionSubClass ==
@@ -955,7 +957,7 @@ static void uaudio_dev_release(struct kref *kref)
 }
 
 /* maps audio format received over QMI to asound.h based pcm format */
-static int map_pcm_format(unsigned int fmt_received)
+static snd_pcm_format_t map_pcm_format(enum usb_qmi_audio_format fmt_received)
 {
 	switch (fmt_received) {
 	case USB_QMI_PCM_FORMAT_S8:
@@ -995,7 +997,13 @@ static int map_pcm_format(unsigned int fmt_received)
 	case USB_QMI_PCM_FORMAT_U32_BE:
 		return SNDRV_PCM_FORMAT_U32_BE;
 	default:
-		return -EINVAL;
+		/*
+		 * We expect the caller to do input validation so we should
+		 * never hit this. But we do have to return a proper
+		 * snd_pcm_format_t value due to the __bitwise attribute; so
+		 * just return the equivalent of 0 in case of bad input.
+		 */
+		return SNDRV_PCM_FORMAT_S8;
 	}
 }
 
@@ -1061,7 +1069,6 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	struct usb_host_endpoint *ep;
 	ktime_t t_request_recvd = ktime_get();
 
-	int pcm_format;
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int info_idx = -EINVAL, datainterval = -EINVAL, ret = 0;
 
@@ -1095,8 +1102,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 		goto response;
 	}
 
-	pcm_format = map_pcm_format(req_msg->audio_format);
-	if (pcm_format == -EINVAL) {
+	if (req_msg->audio_format > USB_QMI_PCM_FORMAT_U32_BE) {
 		uaudio_err("unsupported pcm format received %d\n",
 				req_msg->audio_format);
 		ret = -EINVAL;
@@ -1132,7 +1138,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 		}
 	}
 
-	subs->pcm_format = pcm_format;
+	subs->pcm_format = map_pcm_format(req_msg->audio_format);
 	subs->channels = req_msg->number_of_ch;
 	subs->cur_rate = req_msg->bit_rate;
 	if (req_msg->service_interval_valid) {
