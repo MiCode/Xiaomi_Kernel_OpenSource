@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,13 +72,13 @@
 		cdsp_fw_mem: cdsp_fw_mem@88f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x88800000 0x0 0x600000>;
+			reg = <0x0 0x88800000 0x0 0x800000>;
 		};
 
 		wlan_msa_mem: wlan_msa_region@89500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x88E00000 0x0 0x100000>;
+			reg = <0x0 0x89000000 0x0 0x100000>;
 		};
 
 		secure_mem: secure_region {
