@@ -1,0 +1,178 @@
+[abi_whitelist]
+# commonly used symbols
+  add_uevent_var
+  __cfi_slowpath
+  __class_create
+  class_destroy
+  class_find_device
+  delayed_work_timer_fn
+  _dev_err
+  dev_fwnode
+  dev_get_regmap
+  device_connection_find_match
+  device_match_fwnode
+  device_match_name
+  device_register
+  device_unregister
+  devm_kmalloc
+  devm_request_threaded_irq
+  dev_set_name
+  _dev_warn
+  driver_unregister
+  fwnode_property_present
+  init_timer_key
+  kfree
+  kmalloc_caches
+  kmem_cache_alloc_trace
+  kstrtobool
+  ktime_get
+  memcpy
+  module_put
+  __mutex_init
+  mutex_lock
+  mutex_unlock
+  nvmem_cell_get
+  nvmem_cell_put
+  nvmem_cell_read
+  of_device_get_match_data
+  of_find_property
+  of_property_read_u32_index
+  of_property_read_variable_u32_array
+  __platform_driver_register
+  platform_driver_unregister
+  platform_get_irq
+  put_device
+  regmap_read
+  regmap_update_bits_base
+  snprintf
+  sprintf
+  __stack_chk_fail
+  __stack_chk_guard
+  strcmp
+  strlen
+  syscon_regmap_lookup_by_phandle_args
+  __sysfs_match_string
+  try_module_get
+  usleep_range
+
+# required by pinctrl-sprd.ko
+  devm_pinctrl_get
+  devm_platform_ioremap_resource
+  of_get_next_child
+  of_property_read_string
+  of_property_read_string_helper
+  of_prop_next_string
+  pinconf_generic_parse_dt_config
+  pinctrl_dev_get_drvdata
+  pinctrl_lookup_state
+  pinctrl_register
+  pinctrl_select_state
+  pinctrl_unregister
+  pinctrl_utils_add_map_configs
+  pinctrl_utils_add_map_mux
+  pinctrl_utils_free_map
+  pinctrl_utils_reserve_map
+  pin_get_name
+  seq_printf
+  seq_putc
+
+# required by roles.ko
+  fwnode_connection_find_match
+  fwnode_get_parent
+
+# required by sc27xx_adc.ko
+  devm_add_action
+  devm_iio_device_alloc
+  __devm_iio_device_register
+  hwspin_lock_free
+  hwspin_lock_request_specific
+  __hwspin_lock_timeout
+  __hwspin_unlock
+  of_hwspin_lock_get_id
+
+# required by sc27xx_pd.ko
+  device_get_named_child_node
+  _dev_info
+  devm_extcon_register_notifier_all
+  devm_regulator_get
+  devm_regulator_get_optional
+  extcon_get_edev_by_phandle
+  extcon_get_state
+  queue_delayed_work_on
+  regmap_write
+  regulator_disable
+  regulator_enable
+  system_wq
+
+# required by sprd-sc27xx-spi.ko
+  devm_mfd_add_devices
+  devm_regmap_add_irq_chip
+  __devm_regmap_init
+  regmap_irq_get_domain
+  spi_bus_type
+  __spi_register_driver
+  spi_sync
+
+# required by sprd_7sreset.ko
+  kstrtoint
+  scnprintf
+  sysfs_create_groups
+  sysfs_remove_groups
+
+# required by sprd_apb_busmonitor.ko
+  _dev_emerg
+  devm_ioremap_resource
+  misc_deregister
+  misc_register
+  platform_get_resource
+  sscanf
+  strnlen
+  sysfs_create_group
+  sysfs_remove_group
+
+# required by tcpm.ko
+  alloc_workqueue
+  complete
+  destroy_workqueue
+  devm_power_supply_register
+  fwnode_property_read_string
+  fwnode_property_read_u32_array
+  __init_waitqueue_head
+  jiffies
+  jiffies_to_msecs
+  memset
+  mod_delayed_work_on
+  __msecs_to_jiffies
+  power_supply_changed
+  power_supply_get_drvdata
+  queue_work_on
+  _raw_spin_lock
+  _raw_spin_unlock
+  wait_for_completion_timeout
+  __warn_printk
+
+# required by typec.ko
+  blocking_notifier_call_chain
+  blocking_notifier_chain_register
+  blocking_notifier_chain_unregister
+  bus_register
+  bus_unregister
+  __class_register
+  class_unregister
+  device_add
+  device_find_child
+  device_initialize
+  driver_register
+  fwnode_property_read_u16_array
+  get_device
+  ida_alloc_range
+  ida_destroy
+  ida_free
+  __init_rwsem
+  __kmalloc
+  kobject_uevent
+  match_string
+  sysfs_create_link
+  sysfs_notify
+  sysfs_remove_link
+  sysfs_streq
