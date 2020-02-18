@@ -273,6 +273,7 @@ struct overlap {
 	uintptr_t mstart;
 	uintptr_t mend;
 	uintptr_t offset;
+	int do_cmo;		/*used for cache maintenance of inrout buffers*/
 };
 
 struct smq_invoke_ctx {
@@ -1318,6 +1319,9 @@ static int context_build_overlap(struct smq_invoke_ctx *ctx)
 			if (ctx->overps[i]->end > max.end) {
 				max.end = ctx->overps[i]->end;
 			} else {
+				if (max.raix + 1 <= inbufs &&
+				ctx->overps[i]->raix + 1 > inbufs)
+					ctx->overps[i]->do_cmo = 1;
 				ctx->overps[i]->mend = 0;
 				ctx->overps[i]->mstart = 0;
 			}
@@ -1966,11 +1970,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
 			continue;
 
-		if (rpra && rpra[i].buf.len &&
-			ctx->overps[oix]->mstart) {
+		if (rpra && rpra[i].buf.len && (ctx->overps[oix]->mstart ||
+		ctx->overps[oix]->do_cmo == 1)) {
 			if (map && map->buf) {
-				if ((buf_page_size(ctx->overps[oix]->mend -
-				ctx->overps[oix]->mstart)) == map->size) {
+				if (((buf_page_size(ctx->overps[oix]->mend -
+				ctx->overps[oix]->mstart)) == map->size) ||
+				ctx->overps[oix]->do_cmo) {
 					dma_buf_begin_cpu_access(map->buf,
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
@@ -2105,10 +2110,11 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 				buf_page_start(rpra[over].buf.pv)) {
 			continue;
 		}
-		if (ctx->overps[i]->mstart) {
+		if (ctx->overps[i]->mstart || ctx->overps[i]->do_cmo == 1) {
 			if (map && map->buf) {
-				if ((buf_page_size(ctx->overps[i]->mend -
-				ctx->overps[i]->mstart)) == map->size) {
+				if (((buf_page_size(ctx->overps[i]->mend -
+				ctx->overps[i]->mstart)) == map->size) ||
+				ctx->overps[i]->do_cmo) {
 					dma_buf_begin_cpu_access(map->buf,
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
