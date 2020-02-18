@@ -275,7 +275,7 @@ static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *rx_priv_data)
 	if (!cap_table_entry->rx_callback)
 		return IRQ_HANDLED;
 
-	cap_table_entry->rx_callback(rx_priv_data);
+	cap_table_entry->rx_callback(irq, rx_priv_data);
 	return IRQ_HANDLED;
 }
 
