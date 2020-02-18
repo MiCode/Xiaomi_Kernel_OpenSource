@@ -399,11 +399,12 @@ static const struct of_device_id isp_of_ids[] = {
 	{ .compatible = "mediatek,cam1", },
 	{ .compatible = "mediatek,cam2", },
 	{ .compatible = "mediatek,cam3", },
+        { .compatible = "mediatek,camsv0", },
 	{ .compatible = "mediatek,camsv1", },
 	{ .compatible = "mediatek,camsv2", },
 	{ .compatible = "mediatek,camsv3", },
 	{ .compatible = "mediatek,camsv4", },
-	/*{ .compatible = "mediatek,camsv5", },*/
+	{ .compatible = "mediatek,camsv5", },
 	/*{ .compatible = "mediatek,camsv6", },*/
 	{}
 };
@@ -4360,6 +4361,7 @@ static signed int ISP_WriteRegToHw(
 				(unsigned int)(pReg[i].Val));
 
 		if (((regBase + pReg[i].Addr) < (regBase + PAGE_SIZE))
+                        && (pReg [i] .Addr <= 0xeafddfff)
 			&& ((pReg[i].Addr & 0x3) == 0))
 			ISP_WR32(regBase + pReg[i].Addr, pReg[i].Val);
 		else
@@ -4401,7 +4403,7 @@ static signed int ISP_WriteReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	 */
 	pData = kmalloc((pRegIo->Count) * sizeof(struct ISP_REG_STRUCT),
 			GFP_ATOMIC);
-	if (pData == NULL) {
+	if (pData == NULL || (pRegIo->Count) == 0) {
 		/* //mark for checkpatch, unnecessart msg
 		 * pr_info(
 		 *"ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
