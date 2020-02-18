@@ -30,6 +30,7 @@
 #include "qcedevi.h"
 #include "qce.h"
 #include "qcedev_smmu.h"
+#include "compat_qcedev.h"
 
 #include <linux/compat.h>
 
@@ -185,12 +186,13 @@ static int qcedev_open(struct inode *inode, struct file *file);
 static int qcedev_release(struct inode *inode, struct file *file);
 static int start_cipher_req(struct qcedev_control *podev);
 static int start_sha_req(struct qcedev_control *podev);
-static inline long qcedev_ioctl(struct file *file,
-				unsigned int cmd, unsigned long arg);
 
 static const struct file_operations qcedev_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = qcedev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = compat_qcedev_ioctl,
+#endif
 	.open = qcedev_open,
 	.release = qcedev_release,
 };
@@ -1664,7 +1666,7 @@ sha_error:
 	return -EINVAL;
 }
 
-static inline long qcedev_ioctl(struct file *file,
+long qcedev_ioctl(struct file *file,
 				unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
