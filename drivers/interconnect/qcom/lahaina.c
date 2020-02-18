@@ -906,9 +906,7 @@ static const struct of_device_id qnoc_of_match[] = {
 	  .data = &lahaina_nsp_noc},
 	{ .compatible = "qcom,lahaina-system_noc",
 	  .data = &lahaina_system_noc},
-	{ .compatible = "qcom,lahaina-gem_noc",
-	  .data = &lahaina_gem_noc},
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
