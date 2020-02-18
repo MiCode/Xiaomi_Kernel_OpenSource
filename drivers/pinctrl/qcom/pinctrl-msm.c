@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -998,41 +998,6 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-static int msm_gpio_irq_reqres(struct irq_data *d)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
-	int ret;
-
-	if (!try_module_get(gc->owner))
-		return -ENODEV;
-
-	ret = msm_pinmux_request_gpio(pctrl->pctrl, NULL, d->hwirq);
-	if (ret)
-		goto out;
-	msm_gpio_direction_input(gc, d->hwirq);
-
-	if (gpiochip_lock_as_irq(gc, d->hwirq)) {
-		dev_err(gc->parent,
-			"unable to lock HW IRQ %lu for IRQ\n",
-			d->hwirq);
-		ret = -EINVAL;
-		goto out;
-	}
-	return 0;
-out:
-	module_put(gc->owner);
-	return ret;
-}
-
-static void msm_gpio_irq_relres(struct irq_data *d)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-
-	gpiochip_unlock_as_irq(gc, d->hwirq);
-	module_put(gc->owner);
-}
-
 static void msm_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
@@ -1129,8 +1094,6 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	pctrl->irq_chip.irq_eoi = irq_chip_eoi_parent;
 	pctrl->irq_chip.irq_set_type = msm_gpio_irq_set_type;
 	pctrl->irq_chip.irq_set_wake = msm_gpio_irq_set_wake;
-	pctrl->irq_chip.irq_request_resources = msm_gpio_irq_reqres;
-	pctrl->irq_chip.irq_release_resources = msm_gpio_irq_relres;
 
 	dn = of_parse_phandle(pctrl->dev->of_node, "wakeup-parent", 0);
 	if (dn) {
