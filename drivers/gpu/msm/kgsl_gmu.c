@@ -21,6 +21,7 @@
 #include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_gmu.h"
+#include "kgsl_trace.h"
 #include "kgsl_util.h"
 
 struct gmu_iommu_context {
@@ -1264,12 +1265,22 @@ static int gmu_bus_set(struct kgsl_device *device, int buslevel,
 	u32 ab)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret;
+	int ret = 0;
 
-	ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
+	if (buslevel != pwr->cur_buslevel) {
+		ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
+		if (ret)
+			return ret;
 
-	if (!ret)
+		pwr->cur_buslevel = buslevel;
+
+		trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
+	}
+
+	if (ab != pwr->cur_ab) {
 		icc_set_bw(pwr->icc_path, MBps_to_icc(ab), 0);
+		pwr->cur_ab = ab;
+	}
 
 	return ret;
 }
