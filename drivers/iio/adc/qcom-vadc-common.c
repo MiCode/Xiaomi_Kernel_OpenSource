@@ -1142,7 +1142,8 @@ static int qcom_vadc7_scale_hw_calib_die_temp(
 	} else {
 		vtemp0 = adcmap7_die_temp[i-1].x;
 		voltage = voltage - vtemp0;
-		temp = div64_s64(voltage, adcmap7_die_temp[i-1].y);
+		temp = div64_s64(voltage * DIE_TEMP_ADC7_SCALE_FACTOR,
+				adcmap7_die_temp[i-1].y);
 		temp += DIE_TEMP_ADC7_SCALE_1 + (DIE_TEMP_ADC7_SCALE_2 * (i-1));
 		*result_mdec = temp;
 	}
