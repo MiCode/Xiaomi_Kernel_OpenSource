@@ -284,6 +284,8 @@ config QCOM_QMI_HELPERS
 	depends on ARCH_QCOM || COMPILE_TEST
 	depends on NET
 
+source "drivers/soc/qcom/memshare/Kconfig"
+
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"
 	depends on ARCH_QCOM

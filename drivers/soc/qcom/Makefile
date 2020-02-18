@@ -16,6 +16,7 @@ obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
 obj-$(CONFIG_QCOM_QMI_HELPERS)	+= qmi_helpers.o
 qmi_helpers-y	+= qmi_encdec.o qmi_interface.o
+obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)	= memshare/
 obj-$(CONFIG_QCOM_RMTFS_MEM)	+= rmtfs_mem.o
 obj-$(CONFIG_QCOM_RPMH)		+= qcom_rpmh.o
 qcom_rpmh-y			+= rpmh-rsc.o
