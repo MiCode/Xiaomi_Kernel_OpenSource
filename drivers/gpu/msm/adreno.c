@@ -892,6 +892,7 @@ static void adreno_of_get_ca_aware_properties(struct adreno_device *adreno_dev,
 /* Dynamically build the OPP table for the GPU device */
 static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
 {
+	struct dev_pm_opp *opp;
 	unsigned long freq = 0;
 	int i;
 
@@ -902,10 +903,12 @@ static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
 	 */
 
 	for (;;) {
-		struct dev_pm_opp *opp = dev_pm_opp_find_freq_ceil(dev, &freq);
+		opp = dev_pm_opp_find_freq_ceil(dev, &freq);
 
 		if (IS_ERR(opp))
 			break;
+
+		dev_pm_opp_put(opp);
 
 		for (i = 0; i < pwr->num_pwrlevels; i++) {
 			if (freq == pwr->pwrlevels[i].gpu_freq)
@@ -919,8 +922,21 @@ static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
 	}
 
 	/* Now add all of our supported frequencies into the tree */
-	for (i = 0; i < pwr->num_pwrlevels; i++)
+	for (i = 0; i < pwr->num_pwrlevels; i++) {
+		/*
+		 * When we defer a probe the previous table will still be active
+		 * don't add again to avoid duplicate OPP spam
+		 */
+		opp = dev_pm_opp_find_freq_exact(dev,
+			pwr->pwrlevels[i].gpu_freq, true);
+
+		if (!IS_ERR(opp)) {
+			dev_pm_opp_put(opp);
+			continue;
+		}
+
 		dev_pm_opp_add(dev, pwr->pwrlevels[i].gpu_freq, 0);
+	}
 }
 
 static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
