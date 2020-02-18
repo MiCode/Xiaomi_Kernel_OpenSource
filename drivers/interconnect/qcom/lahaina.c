@@ -818,10 +818,6 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (qp->num_clks < 0)
 		return qp->num_clks;
 
-	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
-	if (ret)
-		return ret;
-
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
@@ -848,13 +844,8 @@ static int qnoc_probe(struct platform_device *pdev)
 			icc_link_create(node, qnodes[i]->links[j]);
 
 		data->nodes[i] = node;
-		if (qnodes[i]->noc_ops)
-			qnodes[i]->noc_ops->set_qos(qnodes[i]);
 	}
 	data->num_nodes = num_nodes;
-
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
@@ -869,8 +860,6 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	return ret;
 err:
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-	clk_bulk_put_all(qp->num_clks, qp->clks);
 	list_for_each_entry(node, &provider->nodes, node_list) {
 		icc_node_del(node);
 		icc_node_destroy(node->id);
@@ -925,10 +914,25 @@ MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
 static void qnoc_sync_state(struct device *dev)
 {
-	struct qcom_icc_provider *qp;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	struct icc_provider *provider = &qp->provider;
+	struct qcom_icc_node *qnode;
+	struct icc_node *node;
 
 	mutex_lock(&probe_list_lock);
 	probe_count++;
+
+	clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+
+	list_for_each_entry(node, &provider->nodes, node_list) {
+		qnode = node->data;
+		if (qnode && qnode->noc_ops)
+			qnode->noc_ops->set_qos(qnode);
+	}
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
+	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
 		mutex_unlock(&probe_list_lock);
