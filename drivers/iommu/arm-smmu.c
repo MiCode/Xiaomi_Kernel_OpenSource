@@ -2230,6 +2230,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	cfg->cbndx = ret;
 
+	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_GEOMETRY))) {
+		/* Geometry is not set use the default geometry */
+		domain->geometry.aperture_start = 0;
+		domain->geometry.aperture_end = (1UL << ias) - 1;
+		if (domain->geometry.aperture_end >= SZ_1G * 4ULL)
+			domain->geometry.aperture_end = (SZ_1G * 4ULL) - 1;
+	}
+
 	if (arm_smmu_is_slave_side_secure(smmu_domain)) {
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
 			.quirks         = quirks,
@@ -2240,6 +2248,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			},
 			.tlb		= smmu_domain->tlb_ops,
 			.iommu_dev      = smmu->dev,
+			.iova_base	= domain->geometry.aperture_start,
+			.iova_end	= domain->geometry.aperture_end,
 		};
 		fmt = ARM_MSM_SECURE;
 	} else  {
@@ -2250,6 +2260,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			.oas		= oas,
 			.tlb		= smmu_domain->tlb_ops,
 			.iommu_dev	= smmu->dev,
+			.iova_base	= domain->geometry.aperture_start,
+			.iova_end	= domain->geometry.aperture_end,
 		};
 	}
 
@@ -2336,6 +2348,7 @@ out_clear_smmu:
 	smmu_domain->smmu = NULL;
 out_logger:
 	iommu_logger_unregister(smmu_domain->logger);
+	smmu_domain->logger = NULL;
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
@@ -2927,6 +2940,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	const char *str;
 	int attr = 1;
 	u32 val;
+	const __be32 *ranges;
+	int naddr, nsize, len;
 
 	np = arm_iommu_get_of_node(dev);
 	if (!np)
@@ -3003,6 +3018,30 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (of_property_read_bool(np, "qcom,iommu-earlymap"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_EARLY_MAP, &attr);
+
+	ranges = of_get_property(np, "qcom,iommu-geometry", &len);
+	if (ranges) {
+		struct iommu_domain_geometry geometry;
+
+		len /= sizeof(u32);
+		naddr = of_n_addr_cells(np);
+		nsize = of_n_size_cells(np);
+		if (len < naddr + nsize) {
+			dev_err(dev, "Invalid length for qcom,iommu-geometry, expected %d cells\n",
+				naddr + nsize);
+			return -EINVAL;
+		}
+		if (naddr == 0 || nsize == 0) {
+			dev_err(dev, "Invalid #address-cells %d or #size-cells %d\n",
+				naddr, nsize);
+			return -EINVAL;
+		}
+
+		geometry.aperture_start = of_read_number(ranges, naddr);
+		geometry.aperture_end = of_read_number(ranges + naddr, nsize);
+		__arm_smmu_domain_set_attr(domain, DOMAIN_ATTR_GEOMETRY,
+					   &geometry);
+	}
 	return 0;
 }
 
@@ -4006,6 +4045,40 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+
+	case DOMAIN_ATTR_GEOMETRY: {
+		struct iommu_domain_geometry *geometry =
+				(struct iommu_domain_geometry *)data;
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot set geometry attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (geometry->aperture_start >= SZ_1G * 4ULL ||
+		    geometry->aperture_end >= SZ_1G * 4ULL) {
+			pr_err("fastmap does not support IOVAs >= 4GB\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		if (geometry->aperture_start
+		    < domain->geometry.aperture_start)
+			domain->geometry.aperture_start =
+				geometry->aperture_start;
+
+		if (geometry->aperture_end
+		    > domain->geometry.aperture_end)
+			domain->geometry.aperture_end =
+				geometry->aperture_end;
+
+		smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
+		ret = 0;
+		break;
+	}
+
 	default:
 		ret = -ENODEV;
 	}

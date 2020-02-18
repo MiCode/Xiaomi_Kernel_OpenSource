@@ -171,21 +171,25 @@ static void iommu_debug_destroy_phoney_sg_table(struct device *dev,
 struct iommu_debug_attr {
 	unsigned long dma_type;
 	int vmid;
+	struct iommu_domain_geometry geometry;
 };
 
 static struct iommu_debug_attr std_attr = {
 	.dma_type = 0,
 	.vmid = 0,
+	.geometry = {0, 0, 0},
 };
 
 static struct iommu_debug_attr fastmap_attr = {
 	.dma_type = DOMAIN_ATTR_FAST,
 	.vmid = 0,
+	.geometry = {0, (dma_addr_t)(SZ_1G * 4ULL - 1), 0},
 };
 
 static struct iommu_debug_attr secure_attr = {
 	.dma_type = 0,
 	.vmid = VMID_CP_PIXEL,
+	.geometry = {0, 0, 0},
 };
 
 static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
@@ -203,6 +207,10 @@ static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
 	if (attrs->vmid != 0)
 		iommu_domain_set_attr(domain,
 			DOMAIN_ATTR_SECURE_VMID, &attrs->vmid);
+
+	if (attrs->geometry.aperture_end || attrs->geometry.aperture_start)
+		iommu_domain_set_attr(domain,
+			DOMAIN_ATTR_GEOMETRY, &attrs->geometry);
 
 	return 0;
 }

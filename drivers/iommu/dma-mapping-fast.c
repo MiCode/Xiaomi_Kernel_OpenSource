@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-contiguous.h>
@@ -210,7 +210,11 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 
 		iommu_tlbiall(mapping->domain);
 		mapping->have_stale_tlbs = false;
-		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops, skip_sync);
+		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops,
+				mapping->domain->geometry.aperture_start,
+				mapping->base,
+				mapping->base + mapping->size - 1,
+				skip_sync);
 	}
 
 	return (bit << FAST_PAGE_SHIFT) + mapping->base;
@@ -1075,7 +1079,7 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
  *
  * Creates a mapping structure which holds information about used/unused IO
  * address ranges, which is required to perform mapping with IOMMU aware
- * functions.  The only VA range supported is [0, 4GB).
+ * functions. The only VA range supported is [0, 4GB].
  *
  * The client device need to be attached to the mapping with
  * fast_smmu_attach_device function.
@@ -1218,6 +1222,9 @@ int fast_smmu_init_mapping(struct device *dev,
 	fast->domain = domain;
 	fast->dev = dev;
 	domain->iova_cookie = fast;
+
+	domain->geometry.aperture_start = mapping->base;
+	domain->geometry.aperture_end = mapping->base + size - 1;
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PGTBL_INFO,
 				  &info)) {

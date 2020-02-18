@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -29,6 +29,7 @@
 
 struct devfreq_qcom_fw {
 	void __iomem *perf_base;
+	void __iomem *pstate_base;
 	struct devfreq_dev_profile dp;
 	struct list_head voters;
 	struct list_head voter;
@@ -37,6 +38,7 @@ struct devfreq_qcom_fw {
 
 static DEFINE_SPINLOCK(voter_lock);
 static unsigned int ftbl_row_size = FTBL_ROW_SIZE;
+static struct device *dev_node;
 
 static int devfreq_qcom_fw_target(struct device *dev, unsigned long *freq,
 				  u32 flags)
@@ -79,6 +81,26 @@ static int devfreq_qcom_fw_target(struct device *dev, unsigned long *freq,
 
 	return 0;
 }
+
+static int devfreq_panic_callback(struct notifier_block *nfb,
+					unsigned long event, void *unused)
+{
+	struct devfreq_qcom_fw *d = dev_get_drvdata(dev_node);
+	void __iomem *base;
+
+	pr_err("%s: L3-DOMAIN\n", __func__);
+	base = d->perf_base;
+	pr_err("%25s: 0x%.8x\n", "PERF_STATE_DESIRED", readl_relaxed(base));
+	base = d->pstate_base;
+	pr_err("%25s: 0x%.8x\n", "PSTATE_STATUS", readl_relaxed(base));
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block devfreq_panic_notifier = {
+	.notifier_call = devfreq_panic_callback,
+	.priority = 1,
+};
 
 static int devfreq_qcom_fw_get_cur_freq(struct device *dev,
 						 unsigned long *freq)
@@ -195,6 +217,29 @@ static int devfreq_qcom_init_hw(struct platform_device *pdev)
 		dev_err(dev, "Unable to map perf-base\n");
 		ret = -ENOMEM;
 		goto out;
+	}
+
+	if (of_property_read_bool(dev->of_node,
+					"qcom,support-panic-notifier")) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								"pstate-base");
+		if (!res) {
+			dev_err(dev, "Unable to find pstate-base!\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		d->pstate_base = devm_ioremap(dev, res->start,
+							resource_size(res));
+		if (!d->pstate_base) {
+			dev_err(dev, "Unable to map pstate-base\n");
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		atomic_notifier_chain_register(&panic_notifier_list,
+						&devfreq_panic_notifier);
+		dev_node = dev;
 	}
 
 	INIT_LIST_HEAD(&d->voters);

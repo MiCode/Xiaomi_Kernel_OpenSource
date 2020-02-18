@@ -3953,7 +3953,6 @@ int smblib_get_pe_start(struct smb_charger *chg,
 int smblib_get_prop_smb_health(struct smb_charger *chg)
 {
 	int rc;
-	u8 stat;
 	int input_present;
 	union power_supply_propval prop = {0, };
 
@@ -3961,50 +3960,21 @@ int smblib_get_prop_smb_health(struct smb_charger *chg)
 	if (rc < 0)
 		return rc;
 
-	if (input_present == INPUT_NOT_PRESENT)
+	if ((input_present == INPUT_NOT_PRESENT) || (!is_cp_available(chg)))
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
-	/*
-	 * SMB health is used only for CP, report UNKNOWN if
-	 * switcher is not enabled.
-	 */
-	if (is_cp_available(chg)) {
-		rc = power_supply_get_property(chg->cp_psy,
-			POWER_SUPPLY_PROP_CP_SWITCHER_EN, &prop);
-		if (!rc && !prop.intval)
-			return POWER_SUPPLY_HEALTH_UNKNOWN;
-	}
+	rc = power_supply_get_property(chg->cp_psy,
+				POWER_SUPPLY_PROP_CP_DIE_TEMP, &prop);
+	if (rc < 0)
+		return rc;
 
-	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
-		if (chg->smb_temp == -ENODATA)
-			return POWER_SUPPLY_HEALTH_UNKNOWN;
-
-		if (chg->smb_temp > SMB_TEMP_RST_THRESH)
-			return POWER_SUPPLY_HEALTH_OVERHEAT;
-
-		if (chg->smb_temp > SMB_TEMP_REG_H_THRESH)
-			return POWER_SUPPLY_HEALTH_HOT;
-
-		if (chg->smb_temp > SMB_TEMP_REG_L_THRESH)
-			return POWER_SUPPLY_HEALTH_WARM;
-
-		return POWER_SUPPLY_HEALTH_COOL;
-	}
-
-	rc = smblib_read(chg, SMB_TEMP_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read SMB_TEMP_STATUS_REG, rc=%d\n",
-				rc);
-		return POWER_SUPPLY_HEALTH_UNKNOWN;
-	}
-
-	if (stat & SMB_TEMP_RST_BIT)
+	if (prop.intval > SMB_TEMP_RST_THRESH)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 
-	if (stat & SMB_TEMP_UB_BIT)
+	if (prop.intval > SMB_TEMP_REG_H_THRESH)
 		return POWER_SUPPLY_HEALTH_HOT;
 
-	if (stat & SMB_TEMP_LB_BIT)
+	if (prop.intval > SMB_TEMP_REG_L_THRESH)
 		return POWER_SUPPLY_HEALTH_WARM;
 
 	return POWER_SUPPLY_HEALTH_COOL;
@@ -5552,16 +5522,23 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
+	u32 hvdcp_ua = 0;
+
 	if (rising) {
 
 		if (qc_charger) {
+			hvdcp_ua = (chg->real_charger_type ==
+					POWER_SUPPLY_TYPE_USB_HVDCP) ?
+					chg->chg_param.hvdcp2_max_icl_ua :
+					HVDCP_CURRENT_UA;
+
 			/* enable HDC and ICL irq for QC2/3 charger */
 			vote(chg->limited_irq_disable_votable,
 					CHARGER_TYPE_VOTER, false, 0);
 			vote(chg->hdc_irq_disable_votable,
 					CHARGER_TYPE_VOTER, false, 0);
 			vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-				HVDCP_CURRENT_UA);
+					hvdcp_ua);
 		} else {
 			/* A plain DCP, enforce DCP ICL if specified */
 			vote(chg->usb_icl_votable, DCP_VOTER,
