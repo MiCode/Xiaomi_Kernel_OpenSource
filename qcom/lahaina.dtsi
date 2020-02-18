@@ -51,6 +51,8 @@
 		swr0 = &swr0;
 		swr1 = &swr1;
 		swr2 = &swr2;
+		usb0 = &usb0;
+		usb1 = &usb1;
 	};
 
 	cpus {
