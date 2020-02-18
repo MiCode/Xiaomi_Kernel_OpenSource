@@ -37,6 +37,9 @@
 #define FENCE_DME_DS_IDX 1
 #define FENCE_DME_OUTPUT_IDX 7
 
+#define MAX_FRAME_BUFFER_NUMS 10
+#define MAX_DMABUF_NUMS 30
+
 #define SYS_MSG_START HAL_SYS_INIT_DONE
 #define SYS_MSG_END HAL_SYS_ERROR
 #define SESSION_MSG_START HAL_SESSION_EVENT_CHANGE
@@ -83,12 +86,15 @@ enum dsp_state {
 struct msm_cvp_list {
 	struct list_head list;
 	struct mutex lock;
+	u32 nr;
+	u32 maxnr;
 };
 
 static inline void INIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
 {
 	mutex_init(&mlist->lock);
 	INIT_LIST_HEAD(&mlist->list);
+	mlist->nr = 0;
 }
 
 static inline void DEINIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
@@ -103,19 +109,16 @@ enum buffer_owner {
 	MAX_OWNER
 };
 
-struct cvp_freq_data {
-	struct list_head list;
-	u32 device_addr;
-	unsigned long freq;
-	bool turbo;
-};
-
 struct cvp_internal_buf {
 	struct list_head list;
-	u32 buffer_type;
-	struct msm_cvp_smem smem;
-	enum buffer_owner buffer_ownership;
+	s32 fd;
+	u32 size;
+	u32 offset;
+	u32 type;
+	u32 index;
 	u64 ktid;
+	enum buffer_owner ownership;
+	struct msm_cvp_smem *smem;
 };
 
 struct msm_cvp_common_data {
@@ -167,10 +170,9 @@ struct msm_cvp_drv {
 	int thermal_level;
 	u32 sku_version;
 	struct kmem_cache *msg_cache;
-	struct kmem_cache *fence_data_cache;
 	struct kmem_cache *frame_cache;
-	struct kmem_cache *frame_buf_cache;
-	struct kmem_cache *internal_buf_cache;
+	struct kmem_cache *buf_cache;
+	struct kmem_cache *smem_cache;
 	char fw_version[CVP_VERSION_LENGTH];
 };
 
@@ -191,7 +193,6 @@ struct cvp_clock_data {
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	enum hal_buffer buffer_type;
 	unsigned long bitrate;
 	unsigned long min_freq;
 	unsigned long curr_freq;
@@ -334,7 +335,7 @@ struct msm_cvp_inst {
 	enum instance_state state;
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
-	struct msm_cvp_list cvpcpubufs;
+	struct msm_cvp_list cpusmems;
 	struct msm_cvp_list cvpdspbufs;
 	struct msm_cvp_list frames;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
@@ -351,13 +352,6 @@ struct msm_cvp_inst {
 	struct cvp_fence_queue fence_cmd_queue;
 };
 
-struct msm_cvp_fence_thread_data {
-	struct msm_cvp_inst *inst;
-	unsigned int device_id;
-	struct cvp_kmd_hfi_fence_packet in_fence_pkt;
-	unsigned int arg_type;
-};
-
 struct cvp_fence_type {
 	s32 h_synx;
 	u32 secure_key;
@@ -370,42 +364,29 @@ struct cvp_fence_command {
 	struct cvp_hfi_cmd_session_hdr *pkt;
 };
 
+struct msm_cvp_frame {
+	struct list_head list;
+	struct cvp_internal_buf bufs[MAX_FRAME_BUFFER_NUMS];
+	u32 nr;
+	u64 ktid;
+};
+
 extern struct msm_cvp_drv *cvp_driver;
 
 void cvp_handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_cvp_trigger_ssr(struct msm_cvp_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_cvp_noc_error_info(struct msm_cvp_core *core);
-
-struct msm_cvp_internal_buffer {
-	struct list_head list;
-	struct msm_cvp_smem smem;
-	struct cvp_kmd_buffer buf;
-};
-
-struct msm_cvp_frame_buf {
-	struct list_head list;
-	struct cvp_buf_type buf;
-};
-
-struct msm_cvp_frame {
-	struct list_head list;
-	struct msm_cvp_list bufs;
-	u64 ktid;
-};
-
 void msm_cvp_comm_handle_thermal_event(void);
 int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags, int map_kernel,
-	void  *res, u32 session_type, struct msm_cvp_smem *smem);
+	void  *res, struct msm_cvp_smem *smem);
 int msm_cvp_smem_free(struct msm_cvp_smem *smem);
 
-struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
-	bool is_secure, struct msm_cvp_platform_resources *res,
-	unsigned long ion_flags);
-int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
+struct context_bank_info *msm_cvp_smem_get_context_bank(bool is_secure,
+	struct msm_cvp_platform_resources *res, unsigned long ion_flags);
+int msm_cvp_map_smem(struct msm_cvp_inst *inst,
 				struct msm_cvp_smem *smem);
-int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst,
-	struct msm_cvp_smem *smem);
+int msm_cvp_unmap_smem(struct msm_cvp_smem *smem);
 struct dma_buf *msm_cvp_smem_get_dma_buf(int fd);
 void msm_cvp_smem_put_dma_buf(void *dma_buf);
 int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
