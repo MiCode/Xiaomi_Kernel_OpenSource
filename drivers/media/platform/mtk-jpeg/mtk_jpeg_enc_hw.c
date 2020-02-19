@@ -216,7 +216,8 @@ void mtk_jpeg_enc_set_config(void __iomem *base,
 		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
 			 config->mem_stride,
 			 fb->fb_addr[0].dma_addr,
-			 fb->fb_addr[0].dma_addr + config->enc_h*config->enc_w);
+			 fb->fb_addr[0].dma_addr +
+			 config->enc_h*config->img_stride);
 	} else {
 		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
 			 config->mem_stride,
