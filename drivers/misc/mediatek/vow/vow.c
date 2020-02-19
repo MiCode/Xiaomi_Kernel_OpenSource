@@ -271,7 +271,6 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 					ipi_ptr->mic_dump_size;
 			dump_work[idx].mic_offset_R = ipi_ptr->mic_offset_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
-
 			ret = queue_work(dump_workqueue[idx],
 					 &dump_work[idx].work);
 			//if (ret == 0)
@@ -309,7 +308,6 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 			dump_work[idx].recog_data_offset_R =
 				ipi_ptr->recog_dump_offset_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
-
 			ret = queue_work(dump_workqueue[idx],
 					 &dump_work[idx].work);
 			if (ret == 0)
@@ -508,9 +506,6 @@ static void vow_service_Init(void)
 		bargein_dump_info_flag = false;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 		vowserv.scp_vow_lch = true;
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
-		vowserv.interleave_pcmdata_ptr = NULL;
-#endif
 	} else {
 		/*Initialization*/
 		vowserv.voicddata_scp_ptr =
@@ -1026,7 +1021,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			/* VOW_ASSERT(0); */
 			vowserv.voicedata_idx = 0;
 		}
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+#if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
 		/* start interleaving L+R */
 		vow_interleaving(
 			&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
@@ -1035,10 +1030,10 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			    VOW_VOICEDATA_SIZE),
 			buf_length);
 		/* end interleaving*/
-#else  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+#else
 		memcpy(&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
 		       vowserv.voicddata_scp_ptr + buf_offset, buf_length);
-#endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+#endif
 
 		if (buf_length > VOW_VOICE_RECORD_BIG_THRESHOLD) {
 			/* means now is start to transfer */
@@ -1050,7 +1045,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			vowserv.tx_keyword_start = true;
 		}
 
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+#if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
 		/* 2 Channels */
 		vowserv.voicedata_idx += buf_length;
 #else
@@ -1610,7 +1605,6 @@ static int vow_pcm_dump_kthread(void *data)
 				size -= writedata;
 				pcm_dump++;
 			}
-
 #else  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 			/* Bargein dump Mic input data */
 			size = dump_package->mic_data_size;
