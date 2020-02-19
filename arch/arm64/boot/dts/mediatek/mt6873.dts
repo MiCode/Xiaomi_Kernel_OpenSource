@@ -3884,42 +3884,46 @@ page_owner=on loop.max_part=7";
 		max_ostd_larb = <0 1>;
 		max_ostd = <40>;
 		comm_freq = "disp_freq";
-		disp_step0 = <546 1 0 9>;
-		disp_step1 = <416 1 0 10>;
-		disp_step2 = <312 1 0 11>;
-		disp_step3 = <208 1 0 12>;
-		cam_step0 = <624 1 1 13>;
-		cam_step1 = <499 1 1 14>;
-		cam_step2 = <392 1 1 15>;
-		cam_step3 = <273 1 1 16>;
-		img_step0 = <624 1 2 13>;
-		img_step1 = <416 1 2 10>;
-		img_step2 = <343 1 2 17>;
-		img_step3 = <229 1 2 18>;
-		img2_step0 = <624 1 3 13>;
-		img2_step1 = <416 1 3 10>;
-		img2_step2 = <343 1 3 17>;
-		img2_step3 = <229 1 3 18>;
-		dpe_step0 = <546 1 4 9>;
-		dpe_step1 = <458 1 4 19>;
-		dpe_step2 = <364 1 4 20>;
-		dpe_step3 = <249 1 4 21>;
-		ipe_step0 = <546 1 5 9>;
-		ipe_step1 = <416 1 5 10>;
-		ipe_step2 = <312 1 5 11>;
-		ipe_step3 = <229 1 5 18>;
-		venc_step0 = <624 1 6 13>;
-		venc_step1 = <458 1 6 19>;
-		venc_step2 = <364 1 6 20>;
-		venc_step3 = <250 1 6 21>;
-		vdec_step0 = <546 1 7 9>;
-		vdec_step1 = <416 1 7 10>;
-		vdec_step2 = <312 1 7 11>;
-		vdec_step3 = <218 1 7 22>;
-		mdp_step0 = <594 1 8 23>;
-		mdp_step1 = <416 1 8 10>;
-		mdp_step2 = <343 1 8 17>;
-		mdp_step3 = <229 1 8 18>;
+		disp_step0 = <546 1 0 10>;
+		disp_step1 = <416 1 0 11>;
+		disp_step2 = <312 1 0 12>;
+		disp_step3 = <208 1 0 13>;
+		cam_step0 = <624 1 1 14>;
+		cam_step1 = <499 1 1 15>;
+		cam_step2 = <392 1 1 16>;
+		cam_step3 = <273 1 1 17>;
+		img_step0 = <624 1 2 14>;
+		img_step1 = <416 1 2 11>;
+		img_step2 = <343 1 2 18>;
+		img_step3 = <229 1 2 19>;
+		img2_step0 = <624 1 3 14>;
+		img2_step1 = <416 1 3 11>;
+		img2_step2 = <343 1 3 18>;
+		img2_step3 = <229 1 3 19>;
+		dpe_step0 = <546 1 4 10>;
+		dpe_step1 = <458 1 4 20>;
+		dpe_step2 = <364 1 4 21>;
+		dpe_step3 = <249 1 4 22>;
+		ipe_step0 = <546 1 5 10>;
+		ipe_step1 = <416 1 5 11>;
+		ipe_step2 = <312 1 5 12>;
+		ipe_step3 = <229 1 5 19>;
+		venc_step0 = <624 1 6 14>;
+		venc_step1 = <458 1 6 20>;
+		venc_step2 = <364 1 6 21>;
+		venc_step3 = <249 1 6 22>;
+		vdec_step0 = <546 1 7 10>;
+		vdec_step1 = <416 1 7 11>;
+		vdec_step2 = <312 1 7 12>;
+		vdec_step3 = <218 1 7 23>;
+		mdp_step0 = <594 1 8 24>;
+		mdp_step1 = <416 1 8 11>;
+		mdp_step2 = <343 1 8 18>;
+		mdp_step3 = <229 1 8 19>;
+		ccu_step0 = <499 1 9 15>;
+		ccu_step1 = <392 1 9 16>;
+		ccu_step2 = <364 1 9 21>;
+		ccu_step3 = <229 1 9 19>;
 
 		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 
@@ -3943,6 +3947,8 @@ page_owner=on loop.max_part=7";
 				"vdec_step2", "vdec_step3";
 		mdp_freq = "mdp_step0", "mdp_step1",
 				"mdp_step2", "mdp_step3";
+		ccu_freq = "ccu_step0", "ccu_step1",
+				"ccu_step2", "ccu_step3";
 
 		clocks = <&topckgen TOP_MUX_DISP>,	/* 0 */
 			<&topckgen TOP_MUX_CAM>,	/* 1 */
@@ -3953,21 +3959,22 @@ page_owner=on loop.max_part=7";
 			<&topckgen TOP_MUX_VENC>,	/* 6 */
 			<&topckgen TOP_MUX_VDEC>,	/* 7 */
 			<&topckgen TOP_MUX_MDP>,	/* 8 */
-			<&topckgen TOP_MAINPLL_D4>,	/* 9 */
-			<&topckgen TOP_UNIVPLL_D6>,	/* 10 */
-			<&topckgen TOP_UNIVPLL_D4_D2>,	/* 11 */
-			<&topckgen TOP_UNIVPLL_D6_D2>,	/* 12 */
-			<&topckgen TOP_UNIVPLL_D4>,	/* 13 */
-			<&topckgen TOP_UNIVPLL_D5>,	/* 14 */
-			<&topckgen TOP_MMPLL_D7>,	/* 15 */
-			<&topckgen TOP_MAINPLL_D4_D2>,	/* 16 */
-			<&topckgen TOP_MMPLL_D4_D2>,	/* 17 */
-			<&topckgen TOP_MMPLL_D6_D2>,	/* 18 */
-			<&topckgen TOP_MMPLL_D6>,	/* 19 */
-			<&topckgen TOP_MAINPLL_D6>,	/* 20 */
-			<&topckgen TOP_UNIVPLL_D5_D2>,	/* 21 */
-			<&topckgen TOP_MAINPLL_D5_D2>,	/* 22 */
-			<&topckgen TOP_TVDPLL_CK>;	/* 23 */
+			<&topckgen TOP_MUX_CCU>,	/* 9 */
+			<&topckgen TOP_MAINPLL_D4>,	/* 10 */
+			<&topckgen TOP_UNIVPLL_D6>,	/* 11 */
+			<&topckgen TOP_UNIVPLL_D4_D2>,	/* 12 */
+			<&topckgen TOP_UNIVPLL_D6_D2>,	/* 13 */
+			<&topckgen TOP_UNIVPLL_D4>,	/* 14 */
+			<&topckgen TOP_UNIVPLL_D5>,	/* 15 */
+			<&topckgen TOP_MMPLL_D7>,	/* 16 */
+			<&topckgen TOP_MAINPLL_D4_D2>,	/* 17 */
+			<&topckgen TOP_MMPLL_D4_D2>,	/* 18 */
+			<&topckgen TOP_MMPLL_D6_D2>,	/* 19 */
+			<&topckgen TOP_MMPLL_D6>,	/* 20 */
+			<&topckgen TOP_MAINPLL_D6>,	/* 21 */
+			<&topckgen TOP_UNIVPLL_D5_D2>,	/* 22 */
+			<&topckgen TOP_MAINPLL_D5_D2>,	/* 23 */
+			<&topckgen TOP_TVDPLL_CK>;	/* 24 */
 
 		clock-names = "TOP_MUX_DISP",	/* 0 */
 			"TOP_MUX_CAM",	/* 1 */
@@ -3978,21 +3985,22 @@ page_owner=on loop.max_part=7";
 			"TOP_MUX_VENC",	/* 6 */
 			"TOP_MUX_VDEC",	/* 7 */
 			"TOP_MUX_MDP",	/* 8 */
-			"TOP_MAINPLL_D4",	/* 9 */
-			"TOP_UNIVPLL_D6",	/* 10 */
-			"TOP_UNIVPLL_D4_D2",	/* 11 */
-			"TOP_UNIVPLL_D6_D2",	/* 12 */
-			"TOP_UNIVPLL_D4",	/* 13 */
-			"TOP_UNIVPLL_D5",	/* 14 */
-			"TOP_MMPLL_D7",	/* 15 */
-			"TOP_MAINPLL_D4_D2",	/* 16 */
-			"TOP_MMPLL_D4_D2",	/* 17 */
-			"TOP_MMPLL_D6_D2",	/* 18 */
-			"TOP_MMPLL_D6",	/* 19 */
-			"TOP_MAINPLL_D6",	/* 20 */
-			"TOP_UNIVPLL_D5_D2",	/* 21 */
-			"TOP_MAINPLL_D5_D2",	/* 22 */
-			"TOP_TVDPLL_CK";	/* 23 */
+			"TOP_MUX_CCU",	/* 9 */
+			"TOP_MAINPLL_D4",	/* 10 */
+			"TOP_UNIVPLL_D6",	/* 11 */
+			"TOP_UNIVPLL_D4_D2",	/* 12 */
+			"TOP_UNIVPLL_D6_D2",	/* 13 */
+			"TOP_UNIVPLL_D4",	/* 14 */
+			"TOP_UNIVPLL_D5",	/* 15 */
+			"TOP_MMPLL_D7",	/* 16 */
+			"TOP_MAINPLL_D4_D2",	/* 17 */
+			"TOP_MMPLL_D4_D2",	/* 18 */
+			"TOP_MMPLL_D6_D2",	/* 19 */
+			"TOP_MMPLL_D6",	/* 20 */
+			"TOP_MAINPLL_D6",	/* 21 */
+			"TOP_UNIVPLL_D5_D2",	/* 22 */
+			"TOP_MAINPLL_D5_D2",	/* 23 */
+			"TOP_TVDPLL_CK";	/* 24 */
 	};
 
 	disp_dsc_wrap: disp_dsc_wrap@1400f000 {
