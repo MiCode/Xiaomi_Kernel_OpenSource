@@ -575,7 +575,6 @@ __cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 
 		nl = div64_u64(nl * (100 + boost), walt_cpu_util_freq_divisor);
 
-		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
 		walt_load->pl = pl;
 		walt_load->ws = walt_load_reported_window;
@@ -610,7 +609,6 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		mpct = 100;
 
 	util = ADJUSTED_ASYM_CAP_CPU_UTIL(util, util_other, mpct);
-	walt_load->prev_window_util = util;
 
 	walt_load->nl = ADJUSTED_ASYM_CAP_CPU_UTIL(walt_load->nl, wl_other.nl,
 						   mpct);
