@@ -22,18 +22,12 @@
 #include <mt6873_pwr_ctrl.h>
 #include <mt6873_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
-#include <mtk_power_gs_api.h>
 #include <mt-plat/mtk_ccci_common.h>
 #include <mtk_lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
 
 #define MT6873_LOG_MONITOR_STATE_NAME	"mcusysoff"
 #define MT6873_LOG_DEFAULT_MS		5000
-unsigned int __attribute__((weak)) _golden_read_reg(unsigned int addr)
-{
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
-	return 0;
-}
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
@@ -146,8 +140,6 @@ struct spm_wakesrc_irq_list mt6873_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_AP2AP_PEER_WAKEUPEVENT_B, "mediatek,dpmaif", 0, 0},
 };
 
-#define WORLD_CLK_CNTCV_L        (0x10017008)
-#define WORLD_CLK_CNTCV_H        (0x1001700C)
 #define plat_mmio_read(offset)	__raw_readl(mt6873_spm_base + offset)
 u64 ap_pd_count;
 u64 ap_slp_duration;
@@ -623,8 +615,8 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 			log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
 				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
-				_golden_read_reg(WORLD_CLK_CNTCV_L),
-				_golden_read_reg(WORLD_CLK_CNTCV_H),
+				plat_mmio_read(SYS_TIMER_VALUE_L),
+				plat_mmio_read(SYS_TIMER_VALUE_H),
 				spm_26M_off_pct);
 		}
 	}

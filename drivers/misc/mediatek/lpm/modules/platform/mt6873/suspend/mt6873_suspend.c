@@ -22,7 +22,6 @@
 #include <mtk_lpm_type.h>
 #include <mtk_lpm_call_type.h>
 #include <mtk_dbg_common_v1.h>
-#include <mtk_power_gs_api.h>
 #include <mt-plat/mtk_ccci_common.h>
 
 #include "mt6873.h"
@@ -31,15 +30,6 @@
 unsigned int mt6873_suspend_status;
 u64 before_md_sleep_time;
 u64 after_md_sleep_time;
-
-#define WORLD_CLK_CNTCV_L        (0x10017008)
-#define WORLD_CLK_CNTCV_H        (0x1001700C)
-
-unsigned int __attribute__((weak)) _golden_read_reg(unsigned int addr)
-{
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
-	return 0;
-}
 
 void __attribute__((weak)) subsys_if_on(void)
 {
@@ -136,10 +126,6 @@ int mt6873_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 
 	printk_deferred("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
-
-	printk_deferred("[name:spm&] wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x\n",
-		_golden_read_reg(WORLD_CLK_CNTCV_L),
-		_golden_read_reg(WORLD_CLK_CNTCV_H));
 
 	/* Record md sleep time */
 	before_md_sleep_time = get_md_sleep_time();

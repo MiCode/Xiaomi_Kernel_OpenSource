@@ -7,7 +7,6 @@
 #include <mtk_lp_plat_apmcu.h>
 
 #include "mt6873.h"
-#include "mt6873_ipi_sspm.h"
 
 #include <idles/mt6873_mcusys.h>
 #include <suspend/mt6873_suspend.h>
@@ -21,7 +20,6 @@ static unsigned int mt6873_lp_pwr_state;
 int mt6873_do_mcusys_prepare_pdn(unsigned int status,
 					   unsigned int *resource_req)
 {
-	mt6873_sspm_notify_enter(status);
 	mt6873_lp_pwr_state |= (status | PLAT_GIC_MASKED
 				| PLAT_MCUSYSOFF_PREPARED);
 	return 0;
@@ -33,7 +31,6 @@ int mt6873_do_mcusys_prepare_pdn(unsigned int status,
  */
 static int __mt6873_do_mcusys_prepare_on(unsigned int clr_status)
 {
-	mt6873_sspm_notify_leave(clr_status);
 	mt6873_lp_pwr_state &= ~(clr_status | PLAT_GIC_MASKED
 				  | PLAT_MCUSYSOFF_PREPARED);
 
