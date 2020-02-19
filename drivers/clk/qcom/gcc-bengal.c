@@ -347,10 +347,11 @@ static struct pll_vco brammo_vco[] = {
 };
 
 static struct pll_vco default_vco[] = {
-	{ 1000000000, 2000000000, 0 },
-	{ 750000000, 1500000000, 1 },
 	{ 500000000, 1000000000, 2 },
-	{ 250000000, 500000000, 3 },
+};
+
+static struct pll_vco alpha_vco[] = {
+	{ 750000000, 1500000000, 1 },
 };
 
 static const u8 clk_alpha_pll_regs_offset[][PLL_OFF_MAX_REGS] = {
@@ -452,8 +453,8 @@ static const struct alpha_pll_config gpll10_config = {
 
 static struct clk_alpha_pll gpll10 = {
 	.offset = 0xa000,
-	.vco_table = default_vco,
-	.num_vco = ARRAY_SIZE(default_vco),
+	.vco_table = alpha_vco,
+	.num_vco = ARRAY_SIZE(alpha_vco),
 	.regs = clk_alpha_pll_regs_offset[CLK_ALPHA_PLL_TYPE_DEFAULT],
 	.clkr = {
 		.enable_reg = 0x79000,
