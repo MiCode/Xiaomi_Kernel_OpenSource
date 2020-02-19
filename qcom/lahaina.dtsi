@@ -3661,6 +3661,11 @@
 		qcom,ucsi {
 			compatible = "qcom,ucsi-glink";
 		};
+
+		qcom,altmode {
+			compatible = "qcom,altmode-glink";
+			qcom,altmode-name = "altmode_0";
+		};
 	};
 
 	qcom,pmic_glink_log {
