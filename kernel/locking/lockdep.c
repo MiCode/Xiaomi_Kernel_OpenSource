@@ -793,6 +793,7 @@ static void print_lock(struct held_lock *hlock)
 /* MTK_LOCK_DEBUG_HELD_LOCK */
 void held_lock_save_trace(struct stack_trace *trace, unsigned long *entries)
 {
+#if !defined(CONFIG_KASAN) && !defined(CONFIG_UBSAN)
 	trace->nr_entries = 0;
 	trace->max_entries = HELD_LOCK_STACK_TRACE_DEPTH;
 	trace->entries = entries;
@@ -803,10 +804,12 @@ void held_lock_save_trace(struct stack_trace *trace, unsigned long *entries)
 	if (trace->nr_entries != 0 &&
 	    trace->entries[trace->nr_entries - 1] == ULONG_MAX)
 		trace->nr_entries--;
+#endif
 }
 
 void held_lock_show_trace(struct stack_trace *trace, int output)
 {
+#if !defined(CONFIG_KASAN) && !defined(CONFIG_UBSAN)
 	int i;
 	char buf[256];
 
@@ -819,6 +822,7 @@ void held_lock_show_trace(struct stack_trace *trace, int output)
 			(output == TO_SRAM) ? "\n" : "");
 		lock_mon_msg(buf, output);
 	}
+#endif
 }
 
 static void lockdep_print_held_locks(struct task_struct *curr)
