@@ -90,31 +90,33 @@ enum gpu_dvfs_vgpu_step {
 
 static inline void gpu_dvfs_vgpu_footprint(enum gpu_dvfs_vgpu_step step)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_gpu_dvfs_vgpu(step |
 				(aee_rr_curr_gpu_dvfs_vgpu() & 0xF0));
-#endif
 }
 
 static inline void gpu_dvfs_vgpu_reset_footprint(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_gpu_dvfs_vgpu(0);
-#endif
 }
 
 static inline void gpu_dvfs_oppidx_footprint(unsigned int idx)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_gpu_dvfs_oppidx(idx);
-#endif
 }
 
 static inline void gpu_dvfs_oppidx_reset_footprint(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_gpu_dvfs_oppidx(0xFF);
-#endif
+}
+
+static inline void gpu_dvfs_power_count_footprint(int count)
+{
+	aee_rr_rec_gpu_dvfs_power_count(count);
+}
+
+static inline void gpu_dvfs_power_count_reset_footprint(void)
+{
+	aee_rr_rec_gpu_dvfs_power_count(0);
 }
 
 /**
@@ -190,6 +192,7 @@ static bool g_cg_on;
 static bool g_mtcmos_on;
 static bool g_buck_on;
 static bool g_fixed_freq_volt_state;
+static int g_power_count;
 static unsigned int g_opp_stress_test_state;
 static unsigned int g_max_opp_idx_num;
 static unsigned int g_segment_max_opp_idx;
@@ -783,30 +786,22 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 	gpufreq_pr_debug("@%s: power = %d", __func__, power);
 
 	if (power == POWER_ON) {
-		if (regulator_is_enabled(g_pmic->reg_vsram_gpu) == 0) {
-			if (regulator_enable(g_pmic->reg_vsram_gpu)) {
-				gpufreq_pr_info("enable VSRAM_GPU failed\n");
-				return;
-			}
+		if (regulator_enable(g_pmic->reg_vsram_gpu)) {
+			gpufreq_pr_info("enable VSRAM_GPU failed\n");
+			return;
 		}
-		if (regulator_is_enabled(g_pmic->reg_vgpu) == 0) {
-			if (regulator_enable(g_pmic->reg_vgpu)) {
-				gpufreq_pr_info("enable VGPU failed\n");
-				return;
-			}
+		if (regulator_enable(g_pmic->reg_vgpu)) {
+			gpufreq_pr_info("enable VGPU failed\n");
+			return;
 		}
 	} else {
-		if (regulator_is_enabled(g_pmic->reg_vgpu) > 0) {
-			if (regulator_disable(g_pmic->reg_vgpu)) {
-				gpufreq_pr_info("disable VGPU failed\n");
-				return;
-			}
+		if (regulator_disable(g_pmic->reg_vgpu)) {
+			gpufreq_pr_info("disable VGPU failed\n");
+			return;
 		}
-		if (regulator_is_enabled(g_pmic->reg_vsram_gpu) > 0) {
-			if (regulator_disable(g_pmic->reg_vsram_gpu)) {
-				gpufreq_pr_info("disable VSRAM_GPU failed\n");
-				return;
-			}
+		if (regulator_disable(g_pmic->reg_vsram_gpu)) {
+			gpufreq_pr_info("disable VSRAM_GPU failed\n");
+			return;
 		}
 	}
 
@@ -897,8 +892,16 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 {
 	mutex_lock(&mt_gpufreq_lock);
 
-	gpufreq_pr_debug("power = %d (todo cg: %d, mtcmos: %d, buck: %d)\n",
-		power, cg, mtcmos, buck);
+	gpufreq_pr_debug("power=%d g_power_count=%d (todo cg: %d, mtcmos: %d, buck: %d)\n",
+		power, g_power_count, cg, mtcmos, buck);
+
+	if (power == POWER_ON)
+		g_power_count++;
+	else {
+		g_power_count--;
+		gpu_assert(g_power_count >= 0);
+	}
+	gpu_dvfs_power_count_footprint(g_power_count);
 
 	if (power == POWER_ON) {
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_1);
@@ -959,10 +962,8 @@ void mt_gpufreq_enable_by_ptpod(void)
 {
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_NORMAL); /* NORMAL */
 
-	/* If SWCG(BG3D) is on, it means GPU is doing some jobs */
-	if (!g_cg_on)
-		mt_gpufreq_power_control(POWER_OFF, CG_KEEP,
-						MTCMOS_OFF, BUCK_OFF);
+	mt_gpufreq_power_control(POWER_OFF, CG_OFF,
+					MTCMOS_OFF, BUCK_OFF);
 
 	mt_gpufreq_update_limit_idx(KIR_PTPOD,
 		LIMIT_IDX_DEFAULT,
@@ -995,7 +996,7 @@ void mt_gpufreq_disable_by_ptpod(void)
 			__func__, g_DVFS_is_paused_by_ptpod, target_idx,
 			opp_table[target_idx].gpufreq_vgpu);
 
-	mt_gpufreq_power_control(POWER_ON, CG_KEEP, MTCMOS_ON, BUCK_ON);
+	mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
 
 	mt_gpufreq_target(target_idx, KIR_PTPOD);
 
@@ -1832,8 +1833,8 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
 	seq_printf(m, "segment_id = %d\n", __mt_gpufreq_get_segment_id());
-	seq_printf(m, "g_cg_on = %d, g_mtcmos_on = %d, g_buck_on = %d\n",
-			g_cg_on, g_mtcmos_on, g_buck_on);
+	seq_printf(m, "g_power_count = %d, g_cg_on = %d, g_mtcmos_on = %d, g_buck_on = %d\n",
+			g_power_count, g_cg_on, g_mtcmos_on, g_buck_on);
 	seq_printf(m, "g_opp_stress_test_state = %d\n",
 			g_opp_stress_test_state);
 	seq_printf(m, "g_max_upper_limited_idx = %d\n",
@@ -3389,6 +3390,7 @@ static int __init __mt_gpufreq_init(void)
 out:
 	gpu_dvfs_vgpu_reset_footprint();
 	gpu_dvfs_oppidx_reset_footprint();
+	gpu_dvfs_power_count_reset_footprint();
 
 	return ret;
 }

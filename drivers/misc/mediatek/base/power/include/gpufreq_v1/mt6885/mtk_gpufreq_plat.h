@@ -16,6 +16,7 @@
 
 #include <linux/module.h>
 #include <linux/clk.h>
+#include "mtk_ram_console.h"
 
 #define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             1
@@ -169,13 +170,6 @@ extern u64 mt_gpufreq_get_shader_present(void);
 extern void mt_gpufreq_dump_infra_status(void);
 extern int mt_gpufreq_is_dfd_force_dump(void);
 extern void mt_gpufreq_software_trigger_dfd(void);
-#ifdef CONFIG_MTK_RAM_CONSOLE
-extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);
-extern u8 aee_rr_curr_gpu_dvfs_vgpu(void);
-extern void aee_rr_rec_gpu_dvfs_oppidx(u8 val);
-extern void aee_rr_rec_gpu_dvfs_status(u8 val);
-extern u8 aee_rr_curr_gpu_dvfs_status(void);
-#endif
 
 /**
  * power limit notification
