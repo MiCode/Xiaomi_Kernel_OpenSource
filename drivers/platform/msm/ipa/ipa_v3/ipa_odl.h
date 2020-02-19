@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,7 @@ struct ipa_odl_context {
 	struct ipa3_odl_char_device_context odl_cdev[2];
 	struct list_head adpl_msg_list;
 	struct mutex adpl_msg_lock;
+	struct mutex pipe_lock;
 	struct ipa_sys_connect_params odl_sys_param;
 	u32 odl_client_hdl;
 	struct odl_state_bit_mask odl_state;
