@@ -429,7 +429,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 		goto out;
 
 	al->cnt++;
-	strncpy(alg->a.name, info->name, ALGO_NAMELEN);
+	strncpy(alg->a.name, info->name, (ALGO_NAMELEN - 1));
 
 	if (info->flag & 0x1 /* EXE_SEG */) {
 		vi = &alg->prog;

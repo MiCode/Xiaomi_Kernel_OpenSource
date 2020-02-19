@@ -89,7 +89,7 @@ vpu_algo_list_init(struct vpu_device *vd, struct vpu_algo_list *al,
 	struct vpu_algo_ops *ops, const char *name) {
 	if (!vd || !al)
 		return;
-	strncpy(al->name, name, ALGO_NAMELEN);
+	strncpy(al->name, name, (ALGO_NAMELEN - 1));
 	spin_lock_init(&al->lock);
 	INIT_LIST_HEAD(&al->a);
 	al->cnt = 0;

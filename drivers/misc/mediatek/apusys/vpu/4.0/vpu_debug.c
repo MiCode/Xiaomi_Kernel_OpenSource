@@ -109,6 +109,7 @@ static const struct name_tag vc_str[] = {
 	VC(DO_D2D_EXT_TEST),
 	{0, NULL}
 };
+#undef VC
 
 static int vpu_debug_info(struct seq_file *s);
 
@@ -117,7 +118,7 @@ static int vpu_debug_algo_entry(struct seq_file *s,
 {
 	int ret = 0;
 
-	if (!al | !al->ops | !alg)
+	if (!alg)
 		return -ENOENT;
 
 	seq_printf(s, "[%s: prog: 0x%llx/0x%x, iram: 0x%llx/0x%x, entry: 0x%x, ref: %d, builtin: %d]\n",
@@ -125,7 +126,8 @@ static int vpu_debug_algo_entry(struct seq_file *s,
 		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
 		kref_read(&alg->ref), alg->builtin);
 
-	if (!al->ops->load || !al->ops->get || !al->ops->put)
+	if (!al || !al->ops || !al->ops->load ||
+		!al->ops->get || !al->ops->put)
 		goto out;
 
 	al->ops->load(al, NULL, alg, 0);
