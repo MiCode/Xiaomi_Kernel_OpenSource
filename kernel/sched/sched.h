@@ -89,7 +89,6 @@ extern unsigned int sched_capacity_margin_up[NR_CPUS];
 extern unsigned int sched_capacity_margin_down[NR_CPUS];
 
 struct sched_walt_cpu_load {
-	unsigned long prev_window_util;
 	unsigned long nl;
 	unsigned long pl;
 	bool rtgb_active;
