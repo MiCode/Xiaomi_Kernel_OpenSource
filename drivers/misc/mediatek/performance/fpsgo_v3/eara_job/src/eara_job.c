@@ -147,7 +147,7 @@ static struct EARA_NN_JOB *eara_update_job_collect(int pid, int tid,
 		struct EARA_NN_JOB *new_nn_job;
 
 		new_nn_job = kmalloc(sizeof(struct EARA_NN_JOB), GFP_KERNEL);
-		if (!new_nn_job)
+		if (!new_nn_job || !arr_length)
 			goto out;
 
 		new_nn_job->pid = pid;
@@ -187,6 +187,41 @@ static struct EARA_NN_JOB *eara_update_job_collect(int pid, int tid,
 				arr_length * sizeof(__s32));
 			memcpy(iter->exec_time, exec_time,
 				arr_length * sizeof(__u64));
+		} else if (arr_length) {
+			kfree(iter->target_time);
+			kfree(iter->device);
+			kfree(iter->boost);
+			kfree(iter->exec_time);
+			iter->target_time =
+				kmalloc_array(
+					arr_length,
+					sizeof(__u64),
+					GFP_KERNEL);
+			iter->device =
+				kmalloc_array(
+					arr_length,
+					sizeof(__s32),
+					GFP_KERNEL);
+			iter->boost =
+				kmalloc_array(
+					arr_length,
+					sizeof(__s32),
+					GFP_KERNEL);
+			iter->exec_time =
+				kmalloc_array(
+					arr_length,
+					sizeof(__u64),
+					GFP_KERNEL);
+			memcpy(iter->device, device,
+				arr_length *sizeof(__s32));
+			memcpy(iter->boost, boost,
+				arr_length *sizeof(__s32));
+			memcpy(iter->exec_time, exec_time,
+				arr_length *sizeof(__u64));
+			memset(iter->target_time,
+				0, arr_length *sizeof(__u64));
+
+			iter->num_step = num_step;
 		}
 
 		iter->pid = pid;
@@ -481,7 +516,7 @@ void fpsgo_ctrl2eara_get_nn_ttime(unsigned int pid,
 	mutex_lock(&eara_lock);
 	nn_job = eara_find_entry(pid, mid);
 
-	if (!nn_job || ai_bench) {
+	if (!nn_job || ai_bench || nn_job->num_step != num_step) {
 		for (i = 0; i < num_step; i++)
 			for (j = 0; j < MAX_DEVICE; j++)
 				ttime[i * MAX_DEVICE + j] = 0;
