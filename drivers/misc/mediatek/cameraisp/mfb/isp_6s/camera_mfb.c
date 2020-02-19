@@ -1545,11 +1545,12 @@ static signed int MSS_DumpReg(void)
 	unsigned int i = 0;
 
 	cmdq_util_err("- E.");
-
 	cmdq_util_err("MSS Config Info\n");
+	if (g_u4EnableClockCount == 0)
+		return Ret;
 	for (i = 0; i < MSS_REG_RANGE; i = i + 0x10) {
 		cmdq_util_err(
-		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]\n",
+		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]",
 		ISP_MSS_BASE_HW + i + 0x0, MFB_RD32(ISP_MSS_BASE + i + 0x0),
 		ISP_MSS_BASE_HW + i + 0x4, MFB_RD32(ISP_MSS_BASE + i + 0x4),
 		ISP_MSS_BASE_HW + i + 0x8, MFB_RD32(ISP_MSS_BASE + i + 0x8),
@@ -1596,11 +1597,12 @@ static signed int MSF_DumpReg(void)
 	unsigned int i = 0;
 
 	cmdq_util_err("- E.");
-
 	cmdq_util_err("MSF Config Info\n");
+	if (g_u4EnableClockCount == 0)
+		return Ret;
 	for (i = 0; i < MSF_REG_RANGE; i = i + 0x10) {
 		cmdq_util_err(
-		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]\n",
+		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]",
 		ISP_MSF_BASE_HW + i + 0x0, MFB_RD32(ISP_MSF_BASE + i + 0x0),
 		ISP_MSF_BASE_HW + i + 0x4, MFB_RD32(ISP_MSF_BASE + i + 0x4),
 		ISP_MSF_BASE_HW + i + 0x8, MFB_RD32(ISP_MSF_BASE + i + 0x8),
