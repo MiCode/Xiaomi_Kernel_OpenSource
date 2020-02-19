@@ -5292,13 +5292,13 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				//lock_reg.CAM_REG_CTL_EN4[Dapc_Reg[0]] =
 				//	Dapc_Reg[5];
 				lock_reg.CAM_REG_CTL_DMA_EN[Dapc_Reg[0]] =
-					Dapc_Reg[6];
+					Dapc_Reg[5];
 				lock_reg.CAM_REG_CTL_DMA2_EN[Dapc_Reg[0]] =
-					Dapc_Reg[7];
+					Dapc_Reg[6];
 				lock_reg.CAM_REG_CTL_SEL[Dapc_Reg[0]] =
-					Dapc_Reg[8];
+					Dapc_Reg[7];
 				lock_reg.CAM_REG_CTL_SEL2[Dapc_Reg[0]] =
-					Dapc_Reg[9];
+					Dapc_Reg[8];
 				LOG_INF(
 				"[DAPC]EN:0x%x EN2:0x%x EN3:0x%x\n",
 					lock_reg.CAM_REG_CTL_EN[Dapc_Reg[0]],
