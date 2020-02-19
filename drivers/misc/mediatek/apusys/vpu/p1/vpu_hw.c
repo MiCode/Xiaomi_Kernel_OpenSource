@@ -679,11 +679,11 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 	}
 	vpu_reg_write(vd, XTENSA_INT, 1);
 
-	if (waitq && (waitqueue_active(waitq))) /* cmd wait */
-		wake_up_interruptible(waitq);
-
 	if (unlock)
 		vpu_xos_unlock(vd);
+
+	if (waitq && (waitqueue_active(waitq))) /* cmd wait */
+		wake_up_interruptible(waitq);
 
 	return IRQ_HANDLED;
 }
