@@ -38,6 +38,7 @@
 #include <linux/seq_file.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/sched/clock.h>
+#include <linux/suspend.h>
 
 /*************************************************************************
  * Feature configure region
@@ -109,6 +110,9 @@ static struct workqueue_struct *wdk_workqueue;
 static unsigned int lasthpg_act;
 static unsigned int lasthpg_cpu;
 static unsigned long long lasthpg_t;
+static unsigned long long lastsuspend_t;
+static unsigned long long lastresume_t;
+static struct notifier_block wdt_pm_nb;
 #ifdef KWDT_KICK_TIME_ALIGN
 static unsigned long g_nxtKickTime;
 #endif
@@ -505,9 +509,9 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 *  avoid bulk of delayed printk happens here
 	 */
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-		"[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,[%lld,%ld]\n",
-		cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
-		lasthpg_t, sched_clock(), curInterval);
+	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
+	 cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
+	 lasthpg_t, lastsuspend_t, lastresume_t, sched_clock(), curInterval);
 
 	if (local_bit == wk_check_kick_bit()) {
 		msg_buf[5] = 'k';
@@ -924,6 +928,26 @@ static void wdk_work_callback(struct work_struct *work)
 
 }
 
+static int wdt_pm_notify(struct notifier_block *notify_block,
+			unsigned long mode, void *unused)
+{
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
+		lastsuspend_t = sched_clock();
+		break;
+
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+		lastresume_t = sched_clock();
+		break;
+	}
+
+	return 0;
+}
+
 static int __init init_wk(void)
 {
 	int res = 0;
@@ -936,11 +960,15 @@ static int __init init_wk(void)
 	if (!res)
 		pr_info("[wdk]wdk_work start return:%d!\n", res);
 
+	wdt_pm_nb.notifier_call = wdt_pm_notify;
+	register_pm_notifier(&wdt_pm_nb);
+
 	return 0;
 }
 
 static void __exit exit_wk(void)
 {
+	unregister_pm_notifier(&wdt_pm_nb);
 	wk_proc_exit();
 	kthread_stop((struct task_struct *)wk_tsk);
 }
