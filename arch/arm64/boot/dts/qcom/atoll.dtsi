@@ -3015,6 +3015,7 @@
 			     <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH /* CE10 */ >,
 			     <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH /* CE11 */ >;
 		qcom,wlan-msa-fixed-region = <&wlan_fw_mem>;
+		qcom,hyp_disabled;
 		vdd-cx-mx-supply = <&L9A>;
 		vdd-1.8-xo-supply = <&L1C>;
 		vdd-1.3-rfa-supply = <&L2C>;
