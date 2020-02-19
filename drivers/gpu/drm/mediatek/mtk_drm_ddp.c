@@ -3887,12 +3887,20 @@ void mtk_disp_mutex_release(struct mtk_disp_mutex *mutex)
 static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_ddp *ddp = dev_id;
-	unsigned int val =
-		readl(ddp->regs + DISP_REG_MUTEX_INTSTA) & DISP_MUTEX_INT_MSK;
+	unsigned int val = 0;
 	unsigned int m_id = 0;
+	int ret = 0;
 
-	if (!val)
+	if (mtk_drm_top_clk_isr_get("mutex_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;
+	}
+
+	val = readl(ddp->regs + DISP_REG_MUTEX_INTSTA) & DISP_MUTEX_INT_MSK;
+	if (!val) {
+		ret = IRQ_NONE;
+		goto out;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, val);
 
@@ -3910,8 +3918,12 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 			DRM_MMP_MARK(mutex[m_id], val, 1);
 		}
 	}
+	ret = IRQ_HANDLED;
 
-	return IRQ_HANDLED;
+out:
+	mtk_drm_top_clk_isr_put("mutex_irq");
+
+	return ret;
 }
 
 void mutex_dump_reg_mt6885(struct mtk_disp_mutex *mutex)

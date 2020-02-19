@@ -144,7 +144,6 @@ struct mtk_drm_private {
 
 	atomic_t idle_need_repaint;
 
-	atomic_t top_clk_refcnt;
 	unsigned int top_clk_num;
 	struct clk **top_clk;
 	bool power_state;
@@ -212,5 +211,7 @@ struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc);
 struct mtk_panel_funcs *mtk_drm_get_lcm_ext_funcs(struct drm_crtc *crtc);
 bool mtk_drm_session_mode_is_decouple_mode(struct drm_device *dev);
 bool mtk_drm_session_mode_is_mirror_mode(struct drm_device *dev);
+bool mtk_drm_top_clk_isr_get(char *master);
+void mtk_drm_top_clk_isr_put(char *master);
 
 #endif /* MTK_DRM_DRV_H */

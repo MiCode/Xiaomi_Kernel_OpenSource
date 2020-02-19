@@ -65,6 +65,10 @@ atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
 atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
 wait_queue_head_t _mtk_fence_wq;
 
+static atomic_t top_isr_ref; /* irq power status protection */
+static spinlock_t top_clk_lock; /* power status protection*/
+static bool top_clk_status; /* power status maintain*/
+
 unsigned long long mutex_time_start;
 unsigned long long mutex_time_end;
 long long mutex_time_period;
@@ -1524,29 +1528,30 @@ static void mtk_drm_get_top_clk(struct drm_device *drm)
 		priv->top_clk[i] = clk;
 	}
 
-	atomic_set(&priv->top_clk_refcnt, 0);
+	spin_lock_init(&top_clk_lock);
+	atomic_set(&top_isr_ref, 0);
+	top_clk_status = false;
+	priv->power_state = false;
 }
 
 void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 {
 	struct mtk_drm_private *priv = drm->dev_private;
-	int i, cnt;
+	int i;
 	bool en = 1;
 	int ret;
+	unsigned long flags = 0;
 
 	if (priv->top_clk_num <= 0)
 		return;
 
-	cnt = atomic_inc_return(&priv->top_clk_refcnt);
-
-	if (cnt > 1)
-		return;
-	else if (cnt <= 0) {
-		DDPPR_ERR("%s invalid refcnt:%d\n", __func__, cnt);
+	spin_lock_irqsave(&top_clk_lock, flags);
+	if (top_clk_status == true) {
+		spin_unlock_irqrestore(&top_clk_lock, flags);
 		return;
 	}
+	spin_unlock_irqrestore(&top_clk_lock, flags);
 
-	priv->power_state = true;
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -1557,6 +1562,11 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 			DDPPR_ERR("top clk prepare enable failed:%d\n", i);
 	}
 
+	spin_lock_irqsave(&top_clk_lock, flags);
+	top_clk_status = true;
+	priv->power_state = true;
+	spin_unlock_irqrestore(&top_clk_lock, flags);
+
 	if (priv->data->sodi_config)
 		priv->data->sodi_config(drm, DDP_COMPONENT_ID_MAX, NULL, &en);
 }
@@ -1564,20 +1574,30 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 {
 	struct mtk_drm_private *priv = drm->dev_private;
-	int i, cnt;
+	int i = 0, cnt = 0;
+	unsigned long flags = 0;
 
 	if (priv->top_clk_num <= 0)
 		return;
 
-	cnt = atomic_dec_return(&priv->top_clk_refcnt);
-	if (cnt > 0)
-		return;
-	else if (cnt < 0) {
-		DDPPR_ERR("%s invalid refcnt:%d\n", __func__, cnt);
+	spin_lock_irqsave(&top_clk_lock, flags);
+	if (top_clk_status == false) {
+		spin_unlock_irqrestore(&top_clk_lock, flags);
 		return;
 	}
 
+	while (atomic_read(&top_isr_ref) > 0 &&
+	       cnt++ < 10) {
+		spin_unlock_irqrestore(&top_clk_lock, flags);
+		pr_notice("%s waiting for isr job, %d\n", __func__, cnt);
+		usleep_range(20, 40);
+		spin_lock_irqsave(&top_clk_lock, flags);
+	}
+
+	top_clk_status = false;
 	priv->power_state = false;
+	spin_unlock_irqrestore(&top_clk_lock, flags);
+
 	for (i = priv->top_clk_num - 1; i >= 0; i--) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -1585,6 +1605,38 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		}
 		clk_disable_unprepare(priv->top_clk[i]);
 	}
+}
+
+bool mtk_drm_top_clk_isr_get(char *master)
+{
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&top_clk_lock, flags);
+	if (top_clk_status == false) {
+		DDPPR_ERR("%s, top clk off at %s\n",
+			  __func__, master ? master : "NULL");
+		spin_unlock_irqrestore(&top_clk_lock, flags);
+		return false;
+	}
+	atomic_inc(&top_isr_ref);
+	spin_unlock_irqrestore(&top_clk_lock, flags);
+
+	return true;
+}
+
+void mtk_drm_top_clk_isr_put(char *master)
+{
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&top_clk_lock, flags);
+
+	/* when timeout of polling isr ref in unpreare top clk*/
+	if (top_clk_status == false)
+		DDPPR_ERR("%s, top clk off at %s\n",
+			  __func__, master ? master : "NULL");
+
+	atomic_dec(&top_isr_ref);
+	spin_unlock_irqrestore(&top_clk_lock, flags);
 }
 
 static void mtk_drm_first_enable(struct drm_device *drm)
