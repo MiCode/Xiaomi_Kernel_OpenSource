@@ -849,7 +849,7 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	apusys_opps.st[buck_id + 1].begin = sched_clock();
 #endif
 	LOG_DBG("%s config domain %s to freq %d, NPUPLL_CON1 0x%x\n",
-		__func__, buck_domain_str[V_VPU0],
+		__func__, buck_domain_str[domain],
 		freq, DRV_Reg32(NPUPLL_CON1));
 
 	return ret;

@@ -953,6 +953,7 @@ static void get_current_power_info(void *param, int force)
 	struct apu_power_info *info = ((struct apu_power_info *)param);
 	char log_str[128];
 	unsigned int mdla_0 = 0;
+	unsigned long rem_nsec;
 
 	info->dump_div = 1000;
 
@@ -963,6 +964,7 @@ static void get_current_power_info(void *param, int force)
 	dump_frequency(info);
 
 	mdla_0 = (apu_get_power_on_status(MDLA0)) ? info->dsp5_freq : 0;
+	rem_nsec = do_div(info->id, 1000000000);
 
 	if (info->type == 1) {
 		// including APUsys pwr related reg
@@ -972,20 +974,22 @@ static void get_current_power_info(void *param, int force)
 		check_spm_register(info, 0);
 
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x]%llu",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x][%5lu.%06lu]",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp5_freq, info->ipuif_freq,
 			info->spm_wakeup, info->rpc_intf_rdy,
 			info->vcore_cg_stat, info->conn_cg_stat,
 			info->vpu0_cg_stat, info->vpu1_cg_stat,
-			info->mdla0_cg_stat, info->id);
+			info->mdla0_cg_stat,
+			(unsigned long)info->id, rem_nsec / 1000);
 	} else {
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]%llu",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u][%5lu.%06lu]",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
-			info->dsp5_freq, info->ipuif_freq, info->id);
+			info->dsp5_freq, info->ipuif_freq,
+			(unsigned long)info->id, rem_nsec/1000);
 	}
 
 	trace_APUSYS_DFS(info, mdla_0);

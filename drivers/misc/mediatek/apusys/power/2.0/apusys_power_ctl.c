@@ -677,6 +677,7 @@ void apusys_dvfs_info(void)
 	uint8_t next_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t c_opp_index;
 	uint8_t n_opp_index;
+	unsigned long rem_nsec;
 
 	sprintf(log_str, "(u_op,T,min,max)");
 	sprintf(logv_str, "v[");
@@ -713,9 +714,13 @@ void apusys_dvfs_info(void)
 			apusys_opps.opps[n_opp_index][domain].freq / div);
 	}
 
-	sprintf(log_str + strlen(log_str), "] %llu", apusys_opps.id);
-	sprintf(logv_str + strlen(logv_str), "] %llu", apusys_opps.id);
-	sprintf(logf_str + strlen(logf_str), "] %llu", apusys_opps.id);
+	rem_nsec = do_div(apusys_opps.id, 1000000000);
+	sprintf(log_str + strlen(log_str), "] [%5lu.%06lu]",
+		(unsigned long)apusys_opps.id, rem_nsec / 1000);
+	sprintf(logv_str + strlen(logv_str), "] [%5lu.%06lu]",
+		(unsigned long)apusys_opps.id, rem_nsec / 1000);
+	sprintf(logf_str + strlen(logf_str), "] [%5lu.%06lu]",
+		(unsigned long)apusys_opps.id, rem_nsec / 1000);
 	PWR_LOG_PM("APUPWR DVFS %s\n", log_str);
 	PWR_LOG_PM("APUPWR DVFS %s\n", logv_str);
 	PWR_LOG_PM("APUPWR DVFS %s\n", logf_str);

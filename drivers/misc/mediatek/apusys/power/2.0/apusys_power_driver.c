@@ -131,24 +131,41 @@ static void apu_pwr_wake_init(void)
 #endif
 }
 
-uint64_t get_current_time_us(void)
+/**
+ * print_time() - Brief description of print_time.
+ * @ts: nanosecond
+ * @buf: buffer to put [%5lu.%06lu]
+ *
+ * Transfer nanoseconds to format as [second.micro_second].
+ *
+ * Return: length of valid string
+ **/
+static size_t print_time(u64 ts, char *buf)
 {
-	struct timeval t;
+	unsigned long rem_nsec;
 
-	do_gettimeofday(&t);
-	return ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
+	rem_nsec = do_div(ts, 1000000000);
+
+	if (!buf)
+		return snprintf(NULL, 0, "[%5lu.000000] ", (unsigned long)ts);
+
+	return sprintf(buf, "[%5lu.%06lu] ",
+		       (unsigned long)ts, rem_nsec / 1000);
 }
 
 uint64_t apu_get_power_info(int force)
 {
+	uint64_t ret = 0;
+
 	spin_lock(&power_info_lock);
-	power_info_id = get_current_time_us();
+	power_info_id = sched_clock();
+	ret = power_info_id;
 	power_info_force_print = force;
 	spin_unlock(&power_info_lock);
 
 	queue_work(wq, &d_work_power_info);
 
-	return power_info_id;
+	return ret;
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
@@ -255,6 +272,7 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 {
 	int ret = 0;
+	char time_stmp[32];
 #if !BYPASS_POWER_OFF
 	struct power_device *pwr_dev = NULL;
 #if TIME_PROFILING
@@ -321,10 +339,14 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 		apu_pwr_wake_unlock();
 
 	mutex_unlock(&power_ctl_mtx);
-	LOG_PM("%s for user:%d, ret:%d, cnt:%d, is_suspend:%d, info_id: %llu\n",
+
+	/* prepare time stamp format */
+	memset(time_stmp, 0, sizeof(time_stmp));
+	print_time(apu_get_power_info(0), time_stmp);
+	LOG_PM("%s for user:%d, ret:%d, cnt:%d, is_suspend:%d, info_id: %s\n",
 					__func__, user, ret,
 					power_callback_counter, is_suspend,
-					ret ? 0 : apu_get_power_info(0));
+					ret ? 0 : time_stmp);
 #else
 	LOG_WRN("%s by user:%d bypass\n", __func__, user);
 #endif // BYPASS_POWER_OFF
@@ -357,6 +379,7 @@ int apu_device_power_on(enum DVFS_USER user)
 {
 	struct power_device *pwr_dev = NULL;
 	int ret = 0;
+	char time_stmp[32];
 #if TIME_PROFILING
 	struct profiling_timestamp power_profiling;
 
@@ -415,9 +438,13 @@ int apu_device_power_on(enum DVFS_USER user)
 		apu_pwr_wake_unlock();
 
 	mutex_unlock(&power_ctl_mtx);
-	LOG_PM("%s for user:%d, ret:%d, cnt:%d, info_id: %llu\n",
+
+	/* prepare time stamp format */
+	memset(time_stmp, 0, sizeof(time_stmp));
+	print_time(apu_get_power_info(0), time_stmp);
+	LOG_PM("%s for user:%d, ret:%d, cnt:%d, info_id: %s\n",
 				__func__, user, ret, power_callback_counter,
-				ret ? 0 : apu_get_power_info(0));
+				ret ? 0 : time_stmp);
 
 	if (ret) {
 		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
@@ -581,6 +608,7 @@ static int apusys_power_task(void *arg)
 {
 	int keep_loop = 0;
 	struct apu_power_info info = {0};
+	unsigned long rem_nsec;
 
 	set_current_state(TASK_INTERRUPTIBLE);
 
@@ -600,13 +628,16 @@ static int apusys_power_task(void *arg)
 		mdelay(1000);
 #endif
 		if (keep_loop) {
-			timestamp = get_current_time_us();
-			LOG_INF("%s call DVFS handler, id:%llu\n",
-							__func__, timestamp);
-			// call dvfs API and bring timestamp to id
-			apusys_dvfs_policy(timestamp);
+			timestamp = sched_clock();
 			info.id = timestamp;
 			info.type = 0;
+			// call dvfs API and bring timestamp to id
+			rem_nsec = do_div(timestamp, 1000000000);
+			LOG_INF("%s call DVFS handler, id:[%5lu.%06lu]\n",
+				__func__,
+				(unsigned long)timestamp, rem_nsec / 1000);
+
+			apusys_dvfs_policy(info.id);
 			hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 			#if DVFS_ASSERTION_CHECK
 			apu_power_assert_check(&info);
