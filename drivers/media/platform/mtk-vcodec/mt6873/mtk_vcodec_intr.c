@@ -293,7 +293,6 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 
 	#define REG1_COUNT 13
 	#define REG2_COUNT 46
-	#define REG3_COUNT 4
 
 	unsigned int Reg_1[REG1_COUNT] = {
 		0x14, 0xEC, 0x1C0, 0x1168, 0x11C0,
@@ -312,8 +311,6 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 		0x22C, 0x230, 0xF4, 0x1168,
 		0x11C0, 0x11C4, 0x1030, 0x240,
 		0x248, 0x250, 0x130, 0x140};
-	unsigned int Reg_3[REG3_COUNT] = {
-		0x00, 0xF4, 0x118, 0x120};
 
 	if (ctx == NULL) {
 		mtk_v4l2_debug(0, "can't dump venc for NULL ctx");
@@ -343,12 +340,6 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
 			    j, Reg_2[i], value);
 		}
-	}
-
-	for (i = 0; i < REG3_COUNT; i++) {
-		value = readl(dev->enc_reg_base[1] + Reg_3[i]);
-		mtk_v4l2_debug(0, "gcon 0x%x = 0x%lx",
-			   Reg_3[i], value);
 	}
 
 }
