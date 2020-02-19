@@ -221,7 +221,7 @@ static int wait_idle(struct vpu_device *vd, uint32_t latency, uint32_t retry)
 	} while (count < retry);
 
 	pr_info("%s: vpu%d: %d us: done_st: 0x%x, pwaitmode: %d, info00: 0x%x, info25: 0x%x\n",
-		__func__, vd->id, done_st, pwait, (latency * retry),
+		__func__, vd->id, (latency * retry), done_st, pwait,
 		vpu_reg_read(vd, XTENSA_INFO00),
 		vpu_reg_read(vd, XTENSA_INFO25));
 

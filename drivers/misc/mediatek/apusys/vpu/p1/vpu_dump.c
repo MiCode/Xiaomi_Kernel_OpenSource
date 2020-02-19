@@ -323,6 +323,57 @@ static void vpu_dmp_seq_pl_algo(struct seq_file *s, struct vpu_device *vd)
 #endif
 }
 
+static void vpu_dmp_seq_req(struct seq_file *s, struct vpu_device *vd)
+{
+	struct vpu_dmp *d = vd->dmp;
+	struct vpu_request *req;
+	struct vpu_buffer *b;
+	struct vpu_plane *p;
+	int buf_cnt;
+	int plane_cnt;
+	int i, j;
+
+	if (!d)
+		return;
+
+	req = &d->req;
+
+	if (!req->algo[0]) {
+		seq_puts(s, "N/A\n");
+		return;
+	}
+
+	buf_cnt = min_t(int, VPU_MAX_NUM_PORTS, req->buffer_count);
+	seq_printf(s,
+		"algo: %s, sett_ptr: 0x%llx, sett_length: %d, buf_cnt: %d\n",
+		req->algo,
+		req->sett_ptr,
+		req->sett_length,
+		req->buffer_count);
+
+	for (i = 0; i < buf_cnt; i++) {
+		b = &req->buffers[i];
+		seq_printf(s,
+			"buf%d: port:%d, %dx%d, format:%d, plane_cnt: %d\n",
+			i,
+			b->port_id,
+			b->width, b->height,
+			b->format,
+			b->plane_count);
+
+		plane_cnt = min_t(int, 3,  b->plane_count);
+		for (j = 0; j < plane_cnt; j++) {
+			p = &b->planes[j];
+			seq_printf(s,
+				"buf%d.plane%d: ptr:0x%llx, length:%d, stride:%d\n",
+				i, j,
+				p->ptr,
+				p->length,
+				p->stride);
+		}
+	}
+}
+
 void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 {
 	struct vpu_dmp *d = vd->dmp;
@@ -341,6 +392,9 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 	vpu_dmp_seq_bar(s, vd, "commands");
 	vpu_debug_cmd_seq(s, vd, d->c_prio,
 		d->c_prio_max, d->c_ctl, d->c_timeout);
+
+	vpu_dmp_seq_bar(s, vd, "request info");
+	vpu_dmp_seq_req(s, vd);
 
 	vpu_dmp_seq_bar(s, vd, "message");
 	vpu_mesg_seq(s, vd);
