@@ -37,7 +37,7 @@
 
 #define MRDUMP_ENABLE_COOKIE 0x590d2ba3
 
-#define MRDUMP_GO_DUMP "MRDUMP08"
+#define MRDUMP_GO_DUMP "MRDUMP09"
 
 #define KSYM_32        1
 #define KSYM_64        2
@@ -128,6 +128,8 @@ struct mrdump_machdesc {
 	uint64_t master_page_table;
 
 	uint64_t memmap;
+	uint64_t pageflags;
+	uint32_t struct_page_size;
 
 	uint64_t dfdmem_pa;
 
