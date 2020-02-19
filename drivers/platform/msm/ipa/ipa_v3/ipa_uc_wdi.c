@@ -728,14 +728,14 @@ static void ipa_release_ap_smmu_mappings(enum ipa_client_type client)
 
 	if (IPA_CLIENT_IS_CONS(client)) {
 		start = IPA_WDI_TX_RING_RES;
-		if (ipa3_ctx->ipa_wdi3_over_gsi)
+		if (ipa3_get_wdi_version() == IPA_WDI_3)
 			end = IPA_WDI_TX_DB_RES;
 		else
 			end = IPA_WDI_CE_DB_RES;
 	} else {
 		start = IPA_WDI_RX_RING_RES;
 		if (ipa3_ctx->ipa_wdi2 ||
-			ipa3_ctx->ipa_wdi3_over_gsi)
+			(ipa3_get_wdi_version() == IPA_WDI_3))
 			end = IPA_WDI_RX_COMP_RING_WP_RES;
 		else
 			end = IPA_WDI_RX_RING_RP_RES;
@@ -1184,6 +1184,8 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 	unsigned long wifi_rx_ri_addr = 0;
 	u32 gsi_db_reg_phs_addr_lsb;
 	u32 gsi_db_reg_phs_addr_msb;
+	uint32_t addr_low, addr_high;
+	bool is_evt_rn_db_pcie_addr, is_txr_rn_db_pcie_addr;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(in->sys.client);
 	if (ipa_ep_idx == -1) {
@@ -1351,19 +1353,6 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 		gsi_channel_props.ring_base_addr = va;
 		gsi_channel_props.ring_base_vaddr =  NULL;
 		gsi_channel_props.ring_len = len;
-		pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
-			in->u.ul.rdy_ring_rp_pa;
-		if (ipa_create_gsi_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
-					in->smmu_enabled,
-					pa,
-					NULL,
-					4,
-					false,
-					&wifi_rx_ri_addr)) {
-			IPAERR("fail to create gsi RX rng RP\n");
-			result = -ENOMEM;
-			goto gsi_timeout;
-		}
 		len = in->smmu_enabled ?
 			in->u.ul_smmu.rdy_comp_ring_size :
 			in->u.ul.rdy_comp_ring_size;
@@ -1384,6 +1373,19 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 			goto gsi_timeout;
 		}
 		gsi_evt_ring_props.ring_base_addr = va;
+		pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
+			in->u.ul.rdy_ring_rp_pa;
+		if (ipa_create_gsi_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+					in->smmu_enabled,
+					pa,
+					NULL,
+					4,
+					false,
+					&wifi_rx_ri_addr)) {
+			IPAERR("fail to create gsi RX rng RP\n");
+			result = -ENOMEM;
+			goto gsi_timeout;
+		}
 		gsi_evt_ring_props.ring_base_vaddr = NULL;
 		gsi_evt_ring_props.ring_len = len;
 		pa = in->smmu_enabled ?
@@ -1439,6 +1441,99 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 				&ep->gsi_evt_ring_hdl);
 	if (result)
 		goto fail_alloc_evt_ring;
+
+	is_evt_rn_db_pcie_addr = IPA_CLIENT_IS_CONS(in->sys.client) ?
+				in->u.dl.is_evt_rn_db_pcie_addr :
+				in->u.ul.is_evt_rn_db_pcie_addr;
+
+	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
+		is_evt_rn_db_pcie_addr = in->smmu_enabled ?
+				in->u.dl_smmu.is_evt_rn_db_pcie_addr :
+				in->u.dl.is_evt_rn_db_pcie_addr;
+		gsi_evt_ring_props.rp_update_addr = in->smmu_enabled ?
+				in->u.dl_smmu.ce_door_bell_pa :
+				in->u.dl.ce_door_bell_pa;
+	} else {
+		is_evt_rn_db_pcie_addr = in->smmu_enabled ?
+				in->u.ul_smmu.is_evt_rn_db_pcie_addr :
+				in->u.ul.is_evt_rn_db_pcie_addr;
+		gsi_evt_ring_props.rp_update_addr = in->smmu_enabled ?
+				in->u.ul_smmu.rdy_comp_ring_wp_pa :
+				in->u.ul.rdy_comp_ring_wp_pa;
+	}
+	if (!in->smmu_enabled) {
+		IPADBG("smmu disabled\n");
+		if (is_evt_rn_db_pcie_addr == true)
+			IPADBG("is_evt_rn_db_pcie_addr is PCIE addr\n");
+		else
+			IPADBG("is_evt_rn_db_pcie_addr is DDR addr\n");
+
+		addr_low = (u32)gsi_evt_ring_props.rp_update_addr;
+		addr_high = (u32)((u64)gsi_evt_ring_props.rp_update_addr >> 32);
+	} else {
+		IPADBG("smmu enabled\n");
+		if (is_evt_rn_db_pcie_addr == true)
+			IPADBG("is_evt_rn_db_pcie_addr is PCIE addr\n");
+		else
+			IPADBG("is_evt_rn_db_pcie_addr is DDR addr\n");
+
+		if (IPA_CLIENT_IS_CONS(in->sys.client)) {
+			if (ipa_create_gsi_smmu_mapping(IPA_WDI_CE_DB_RES,
+				true, gsi_evt_ring_props.rp_update_addr,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				result = -EFAULT;
+				goto fail_alloc_evt_ring;
+			}
+		} else {
+			if (ipa_create_gsi_smmu_mapping(
+				IPA_WDI_RX_COMP_RING_WP_RES,
+				true, gsi_evt_ring_props.rp_update_addr,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				result = -EFAULT;
+				goto fail_alloc_evt_ring;
+			}
+		}
+		addr_low = (u32)va;
+		addr_high = (u32)((u64)va >> 32);
+
+	}
+
+	/*
+	 * Arch specific:
+	 * pcie addr which are not via smmu, use pa directly!
+	 * pcie and DDR via 2 different port
+	 * assert bit 40 to indicate it is pcie addr
+	 * WDI-3.0, MSM --> pcie via smmu
+	 * WDI-3.0, MDM --> pcie not via smmu + dual port
+	 * assert bit 40 in case
+	 */
+	if (!ipa3_is_msm_device() &&
+		in->smmu_enabled) {
+		/*
+		 * Ir-respective of smmu enabled don't use IOVA addr
+		 * since pcie not via smmu in MDM's
+		 */
+		if (is_evt_rn_db_pcie_addr == true) {
+			addr_low = (u32)gsi_evt_ring_props.rp_update_addr;
+			addr_high =
+				(u32)((u64)gsi_evt_ring_props.rp_update_addr
+				>> 32);
+		}
+	}
+
+	/*
+	 * GSI recomendation to set bit-40 for (mdm targets && pcie addr)
+	 * from wdi-3.0 interface document
+	 */
+	if (!ipa3_is_msm_device() && is_evt_rn_db_pcie_addr)
+		addr_high |= (1 << 8);
+
+	gsi_wdi3_write_evt_ring_db(ep->gsi_evt_ring_hdl, addr_low,
+			addr_high);
+
+
 	/*copy mem info */
 	ep->gsi_mem_info.evt_ring_len = gsi_evt_ring_props.ring_len;
 	ep->gsi_mem_info.evt_ring_base_addr = gsi_evt_ring_props.ring_base_addr;
@@ -1479,14 +1574,70 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 		gsi_scratch.wdi.wdi_rx_tre_proc_in_progress = 0;
 	} else {
 		if (IPA_CLIENT_IS_PROD(in->sys.client)) {
-			gsi_scratch.wdi2_new.wifi_rx_ri_addr_low =
-				wifi_rx_ri_addr & 0xFFFFFFFF;
-			gsi_scratch.wdi2_new.wifi_rx_ri_addr_high =
+			is_txr_rn_db_pcie_addr =
+			in->smmu_enabled ?
+				in->u.ul_smmu.is_txr_rn_db_pcie_addr :
+				in->u.ul.is_txr_rn_db_pcie_addr;
+			if (!in->smmu_enabled) {
+				IPADBG("smmu disabled\n");
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_low =
+					in->u.ul.rdy_ring_rp_pa & 0xFFFFFFFF;
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_high =
+					(in->u.ul.rdy_ring_rp_pa &
+						0xFFFFF00000000) >> 32;
+
+			} else {
+				IPADBG("smmu eabled\n");
+
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_low =
+					wifi_rx_ri_addr & 0xFFFFFFFF;
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_high =
 				(wifi_rx_ri_addr & 0xFFFFF00000000) >> 32;
+
+			}
+
+
+			/*
+			 * Arch specific:
+			 * pcie addr which are not via smmu, use pa directly!
+			 * pcie and DDR via 2 different port
+			 * assert bit 40 to indicate it is pcie addr
+			 * WDI-3.0, MSM --> pcie via smmu
+			 * WDI-3.0, MDM --> pcie not via smmu + dual port
+			 * assert bit 40 in case
+			 */
+			if (!ipa3_is_msm_device() &&
+					in->smmu_enabled) {
+				/*
+				 * Ir-respective of smmu enabled don't use IOVA
+				 * addr since pcie not via smmu in MDM's
+				 */
+				if (is_txr_rn_db_pcie_addr == true) {
+					gsi_scratch.wdi2_new.wifi_rx_ri_addr_low
+						= in->u.ul_smmu.rdy_ring_rp_pa
+							& 0xFFFFFFFF;
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_high =
+					(in->u.ul_smmu.rdy_ring_rp_pa &
+						0xFFFFF00000000) >> 32;
+				}
+			}
+
+			/*
+			 * GSI recomendation to set bit-40 for
+			 * (mdm targets && pcie addr) from wdi-3.0
+			 * interface document
+			 */
+
+			if (!ipa3_is_msm_device() && is_txr_rn_db_pcie_addr)
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_high =
+				(u32)((u32)
+				gsi_scratch.wdi2_new.wifi_rx_ri_addr_high |
+				(1 << 8));
+
 			gsi_scratch.wdi2_new.wdi_rx_vdev_id = 0xff;
 			gsi_scratch.wdi2_new.wdi_rx_fw_desc = 0xff;
 			gsi_scratch.wdi2_new.endp_metadatareg_offset =
-						ipahal_get_reg_mn_ofst(
+				ipahal_get_reg_mn_ofst(
 						IPA_ENDP_INIT_HDR_METADATA_n, 0,
 								ipa_ep_idx)/4;
 			gsi_scratch.wdi2_new.qmap_id = 0;
@@ -1600,7 +1751,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		}
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (IPA_WDI2_OVER_GSI())
 		return ipa3_connect_gsi_wdi_pipe(in, out);
 
 	result = ipa3_uc_state_check();
@@ -2119,10 +2270,11 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 		ipa3_ctx->uc_wdi_ctx.stats_notify = NULL;
 	else
 		IPADBG("uc_wdi_ctx.stats_notify already null\n");
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_5 ||
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ))
 		ipa3_uc_debug_stats_dealloc(IPA_HW_PROTOCOL_WDI);
+
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
 fail_dealloc_channel:
@@ -2149,7 +2301,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (IPA_WDI2_OVER_GSI())
 		return ipa3_disconnect_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2320,7 +2472,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (IPA_WDI2_OVER_GSI())
 		return ipa3_enable_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2385,7 +2537,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (IPA_WDI2_OVER_GSI())
 		return ipa3_disable_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2423,6 +2575,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 
 		cons_hdl = ipa3_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+
 		if (cons_hdl == IPA_EP_NOT_ALLOCATED) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_WLAN1_CONS);
@@ -2502,7 +2655,7 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 	}
 	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
 	/* start uC gsi dbg stats monitor */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_5 ||
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)) {
 		if (IPA_CLIENT_IS_PROD(ep->client)) {
@@ -2558,7 +2711,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (IPA_WDI2_OVER_GSI())
 		return ipa3_resume_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
@@ -2680,7 +2833,7 @@ retry_gsi_stop:
 	}
 	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
 	/* stop uC gsi dbg stats monitor */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_5 ||
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)) {
 		if (IPA_CLIENT_IS_PROD(ep->client)) {
@@ -2731,7 +2884,7 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (ipa3_ctx->ipa_wdi2_over_gsi)
+	if (IPA_WDI2_OVER_GSI())
 		return ipa3_suspend_gsi_wdi_pipe(clnt_hdl);
 
 	result = ipa3_uc_state_check();
