@@ -566,6 +566,15 @@ config QTI_BATTERY_GLINK_DEBUG
 	  Glink from charger and gauging firmware running on a remote subsystem
 	  (e.g. DSP).
 
+config QTI_ALTMODE_GLINK
+	tristate "Type-C alternate mode over GLINK"
+	depends on QTI_PMIC_GLINK
+	help
+	  The Qualcomm Technologies, Inc. Type-C alternate mode driver provides
+	  an interface for Type-C alternate mode clients to receive data such
+	  as Pin Assignment Notifications from the Type-C stack running on a
+	  remote subsystem (e.g. DSP) via the PMIC GLINK interface.
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
