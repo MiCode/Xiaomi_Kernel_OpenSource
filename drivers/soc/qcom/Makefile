@@ -37,6 +37,7 @@ obj-$(CONFIG_QCOM_SOC_INFO) += socinfo.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_MSM_BOOT_TIME_MARKER) += boot_marker.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
+obj-$(CONFIG_QCOM_DCC) += dcc.o
 obj-$(CONFIG_QCOM_DCC_V2) += dcc_v2.o
 obj-$(CONFIG_MSM_GLADIATOR_HANG_DETECT) += gladiator_hang_detect.o
 obj-$(CONFIG_MSM_GLADIATOR_ERP) += gladiator_erp.o
