@@ -2483,76 +2483,12 @@ static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
 	cmdq_mdp_begin_task_virtual(handle, handle_list, size);
 }
 
-static void cmdq_mdp_isp_end_task_update(u32 thread_id, u32 act_throughput,
-	u32 curr_pixel_size, u32 isp_curr_bandwidth,
-	struct mdp_pmqos *mdp_curr_pmqos, struct mdp_pmqos *target_pmqos,
-	bool update_isp_throughput, bool update_isp_bandwidth)
-{
-	u32 i;
-
-	if (update_isp_throughput) {
-		/*update clock*/
-		CMDQ_SYSTRACE_BEGIN("%s pm isp\n", __func__);
-		pm_qos_update_request(&isp_clk_qos_request[thread_id],
-			act_throughput);
-		CMDQ_SYSTRACE_END();
-	} else {
-		/*update clock*/
-		if (mdp_curr_pmqos->isp_total_pixel) {
-			CMDQ_SYSTRACE_BEGIN("%s pm isp off\n", __func__);
-			pm_qos_update_request(&isp_clk_qos_request[thread_id],
-				0);
-			CMDQ_SYSTRACE_END();
-		}
-	}
-
-	if (update_isp_bandwidth) {
-		/*update bandwidth*/
-#ifndef PMQOS_VERSION2
-		pm_qos_update_request(
-			&isp_bw_qos_request[thread_id], isp_curr_bandwidth);
-#else
-		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
-			target_pmqos->qos2_isp_count > i &&
-			target_pmqos->qos2_isp_port[i] != 0; i++) {
-			struct mm_qos_request *request =
-				cmdq_mdp_get_func()->getRequest(thread_id,
-				target_pmqos->qos2_isp_port[i]);
-
-			DP_BANDWIDTH(target_pmqos->qos2_isp_bandwidth[i],
-				curr_pixel_size,
-				act_throughput,
-				isp_curr_bandwidth);
-			mm_qos_set_request(
-				request, isp_curr_bandwidth, 0, BW_COMP_NONE);
-		}
-		CMDQ_SYSTRACE_BEGIN("%s mm isp\n", __func__);
-		mm_qos_update_all_request(
-			&qos_isp_module_request_list[thread_id]);
-		CMDQ_SYSTRACE_END();
-#endif	/* PMQOS_VERSION2 */
-	} else {
-		/*update bandwidth*/
-		if (mdp_curr_pmqos->isp_total_datasize) {
-#ifndef PMQOS_VERSION2
-			pm_qos_update_request(
-				&isp_bw_qos_request[thread_id], 0);
-#else
-			CMDQ_SYSTRACE_BEGIN("%s mm isp zero\n", __func__);
-			mm_qos_update_all_request_zero(
-				&qos_isp_module_request_list[thread_id]);
-			CMDQ_SYSTRACE_END();
-#endif	/* PMQOS_VERSION2 */
-		}
-	}
-}
-
 static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
 #ifdef CONFIG_MTK_SMI_EXT
 	struct mdp_pmqos *mdp_curr_pmqos;
-	struct mdp_pmqos *target_pmqos;
+	struct mdp_pmqos *target_pmqos = NULL;
 	struct mdp_pmqos *mdp_list_pmqos;
 	struct mdp_pmqos_record *pmqos_curr_record;
 	struct mdp_pmqos_record *pmqos_list_record;
@@ -2728,17 +2664,68 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	kfree(handle->user_private);
 	handle->user_private = NULL;
 
-	if (mdp_is_isp_camin(handle))
-		cmdq_mdp_isp_end_task_update(thread_id, act_throughput,
-			curr_pixel_size, isp_curr_bandwidth,
-			mdp_curr_pmqos, target_pmqos,
-			update_isp_throughput, update_isp_bandwidth);
+	if (update_isp_throughput) {
+		/*update clock*/
+		CMDQ_SYSTRACE_BEGIN("%s pm isp\n", __func__);
+		pm_qos_update_request(&isp_clk_qos_request[thread_id],
+			act_throughput);
+		CMDQ_SYSTRACE_END();
+	} else {
+		/*update clock*/
+		if (mdp_curr_pmqos->isp_total_pixel) {
+			CMDQ_SYSTRACE_BEGIN("%s pm isp off\n", __func__);
+			pm_qos_update_request(&isp_clk_qos_request[thread_id],
+				0);
+			CMDQ_SYSTRACE_END();
+		}
+	}
 
-	if (mdp_curr_pmqos->mdp_total_datasize)
+	if (update_isp_bandwidth) {
+		/*update bandwidth*/
 #ifndef PMQOS_VERSION2
+		pm_qos_update_request(
+			&isp_bw_qos_request[thread_id], isp_curr_bandwidth);
+#else
+		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
+			target_pmqos->qos2_isp_count > i &&
+			target_pmqos->qos2_isp_port[i] != 0; i++) {
+			struct mm_qos_request *request =
+				cmdq_mdp_get_func()->getRequest(thread_id,
+				target_pmqos->qos2_isp_port[i]);
+
+			DP_BANDWIDTH(target_pmqos->qos2_isp_bandwidth[i],
+				curr_pixel_size,
+				act_throughput,
+				isp_curr_bandwidth);
+			mm_qos_set_request(
+				request, isp_curr_bandwidth, 0, BW_COMP_NONE);
+		}
+		CMDQ_SYSTRACE_BEGIN("%s mm isp\n", __func__);
+		mm_qos_update_all_request(
+			&qos_isp_module_request_list[thread_id]);
+		CMDQ_SYSTRACE_END();
+#endif	/* PMQOS_VERSION2 */
+	} else {
+		/*update bandwidth*/
+		if (mdp_curr_pmqos->isp_total_datasize) {
+#ifndef PMQOS_VERSION2
+			pm_qos_update_request(
+				&isp_bw_qos_request[thread_id], 0);
+#else
+			CMDQ_SYSTRACE_BEGIN("%s mm isp zero\n", __func__);
+			mm_qos_update_all_request_zero(
+				&qos_isp_module_request_list[thread_id]);
+			CMDQ_SYSTRACE_END();
+#endif	/* PMQOS_VERSION2 */
+		}
+	}
+
+#ifndef PMQOS_VERSION2
+	if (mdp_curr_pmqos->mdp_total_datasize)
 		pm_qos_update_request(
 			&mdp_bw_qos_request[thread_id], mdp_curr_bandwidth);
 #else
+	if (mdp_curr_pmqos->mdp_total_datasize)
 	{
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& mdp_curr_pmqos->qos2_mdp_count > i
@@ -2750,6 +2737,26 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 			DP_BANDWIDTH(mdp_curr_pmqos->qos2_mdp_bandwidth[i],
 				mdp_curr_pmqos->mdp_total_pixel,
+				act_throughput,
+				mdp_curr_bandwidth);
+			mm_qos_set_request(request, mdp_curr_bandwidth,
+				0, BW_COMP_NONE);
+		}
+		CMDQ_SYSTRACE_BEGIN("%s mm mdp\n", __func__);
+		mm_qos_update_all_request(
+			&qos_mdp_module_request_list[thread_id]);
+		CMDQ_SYSTRACE_END();
+	} else if (target_pmqos && target_pmqos->mdp_total_datasize) {
+		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
+			target_pmqos->qos2_mdp_count > i &&
+			target_pmqos->qos2_mdp_port[i] != 0; i++) {
+			struct mm_qos_request *request =
+				cmdq_mdp_get_func()->getRequest(thread_id,
+				cmdq_mdp_get_func()->translatePort(
+				target_pmqos->qos2_mdp_port[i]));
+
+			DP_BANDWIDTH(target_pmqos->qos2_mdp_bandwidth[i],
+				target_pmqos->mdp_total_pixel,
 				act_throughput,
 				mdp_curr_bandwidth);
 			mm_qos_set_request(request, mdp_curr_bandwidth,
