@@ -3207,6 +3207,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
+#endif
 
 	g_infracfg_ao = __mt_gpufreq_of_ioremap("mediatek,infracfg_ao", 0);
 	if (!g_infracfg_ao) {
@@ -3215,6 +3216,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+#if 0
 	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop", 0);
 	if (!g_dbgtop) {
 		gpufreq_pr_info("@%s: ioremap failed at dbgtop",
@@ -3231,6 +3233,15 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 #endif
 
 	return 0;
+}
+
+static void __mt_gpufreq_init_acp(void)
+{
+	unsigned int val;
+
+	/* disable acp */
+	val = readl(g_infracfg_ao + 0x290) | (0x1 << 9);
+	writel(val, g_infracfg_ao + 0x290);
 }
 
 static void __mt_gpufreq_init_power(void)
@@ -3282,6 +3293,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	ret = __mt_gpufreq_init_clk(pdev);
 	if (ret)
 		return ret;
+
+	__mt_gpufreq_init_acp();
 
 	/* init opp table */
 	__mt_gpufreq_init_table();
