@@ -380,14 +380,19 @@ int mtk_dbgtop_mfg_pwr_on(int value)
 {
 	unsigned int tmp;
 
+	if (!DBGTOP_BASE)
+		return -1;
+
 	if (value == 1) {
 		/* set mfg pwr on */
 		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
 		tmp |= MTK_DBGTOP_MFG_PWR_ON;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
 		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
 	} else if (value == 0) {
 		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
 		tmp &= ~MTK_DBGTOP_MFG_PWR_ON;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
 		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
 	} else
 		return -1;
@@ -400,14 +405,19 @@ int mtk_dbgtop_mfg_pwr_en(int value)
 {
 	unsigned int tmp;
 
+	if (!DBGTOP_BASE)
+		return -1;
+
 	if (value == 1) {
 		/* set mfg pwr en */
 		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
 		tmp |= MTK_DBGTOP_MFG_PWR_EN;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
 		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
 	} else if (value == 0) {
 		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
 		tmp &= ~MTK_DBGTOP_MFG_PWR_EN;
+		tmp |= MTK_DBGTOP_MFG_REG_KEY;
 		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
 	} else
 		return -1;
