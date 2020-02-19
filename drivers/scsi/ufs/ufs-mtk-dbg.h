@@ -132,6 +132,8 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 	enum ufs_trace_event event, u32 tag,
 	u8 lun, u32 transfer_len, sector_t lba, u8 opcode,
 	unsigned long long ppn, u32 region, u32 subregion, u32 resv);
+void ufs_mtk_dbg_stop_trace(struct ufs_hba *hba);
+void ufs_mtk_dbg_start_trace(struct ufs_hba *hba);
 void ufs_mtk_dbg_hang_detect_dump(void);
 void ufs_mtk_dbg_proc_dump(struct seq_file *m);
 void ufs_mtk_dme_cmd_log(struct ufs_hba *hba, struct uic_command *ucmd,

@@ -70,6 +70,23 @@ static void ufs_mtk_dbg_dump_feature(struct ufs_hba *hba, struct seq_file *m)
 }
 #endif
 
+
+void ufs_mtk_dbg_stop_trace(struct ufs_hba *hba)
+{
+#ifdef CONFIG_MTK_UFS_DEBUG
+	atomic_set(&cmd_hist_enabled, 0);
+	pr_info("ufsdbg: cmd history off\n");
+#endif
+}
+
+void ufs_mtk_dbg_start_trace(struct ufs_hba *hba)
+{
+#ifdef CONFIG_MTK_UFS_DEBUG
+	atomic_set(&cmd_hist_enabled, 1);
+	pr_info("ufsdbg: cmd history on\n");
+#endif
+}
+
 void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 	enum ufs_trace_event event, u32 tag,
 	u8 lun, u32 transfer_len, sector_t lba, u8 opcode,

@@ -5473,6 +5473,14 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 					/* cmd->result = DID_IMM_RETRY << 16; */
 					ufshcd_cond_add_cmd_trace(hba, index,
 					UFS_TRACE_DI_FAIL);
+					ufs_mtk_dbg_stop_trace(hba);
+
+					#ifdef CONFIG_MTK_AEE_FEATURE
+					aee_kernel_warning_api(__FILE__,
+						__LINE__, DB_OPT_FS_IO_LOG,
+						"ufs_mtk_di", "crc16 fail");
+					#endif
+					ufs_mtk_dbg_start_trace(hba);
 				}
 			}
 #endif
