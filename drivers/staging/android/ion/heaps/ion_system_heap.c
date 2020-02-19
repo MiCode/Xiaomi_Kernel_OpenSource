@@ -3,7 +3,7 @@
  * ION Memory Allocator system heap exporter
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -82,7 +82,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *sys_heap,
 	page = ion_page_pool_alloc(pool, from_pool);
 
 	if (pool_auto_refill_en &&
-	    pool_count_below_lowmark(pool)) {
+	    pool_count_below_lowmark(pool) && vmid <= 0) {
 		wake_up_process(sys_heap->kworker[cached]);
 	}
 
