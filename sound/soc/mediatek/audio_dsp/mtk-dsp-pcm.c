@@ -14,6 +14,7 @@
 
 #include "mtk-dsp-common.h"
 #include "mtk-dsp-mem-control.h"
+#include "dsp-platform-mem-control.h"
 
 #define SND_DSP_DTS_SIZE (4)
 #define MTK_PCM_RATES (SNDRV_PCM_RATE_8000_48000 |\
@@ -182,6 +183,12 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 		pr_info("init_gen_pool fail\n");
 		goto err_platform;
 	}
+
+	/* set mpu with adsp common memory*/
+	if (get_mtk_enable_common_mem_mpu())
+		ret = set_mtk_adsp_mpu_sharedram(AUDIO_DSP_AFE_SHARE_MEM_ID);
+	if (ret)
+		pr_info("set_mtk_adsp_mpu_sharedram fail\n");
 
 	ret = mtk_init_adsp_audio_share_mem(dsp);
 	if (ret) {

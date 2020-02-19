@@ -30,4 +30,7 @@ bool mtk_adsp_dai_id_support_share_mem(int dai_id);
 /* base on dsp type get core_id */
 int mtk_get_core_id(int dsp_type);
 
+/* if this platform is commom memory and enable MPU */
+bool get_mtk_enable_common_mem_mpu(void);
+
 #endif

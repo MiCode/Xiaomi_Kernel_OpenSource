@@ -36,6 +36,9 @@ enum {
 /* first time to inint scp dram segment */
 int init_mtk_adsp_dram_segment(void);
 
+/* set audio share dram mpu write-through */
+int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment);
+
 /* dump dsp reserved dram stats */
 void dump_mtk_adsp_dram(struct audio_dsp_dram buffer);
 void dump_all_adsp_dram(void);

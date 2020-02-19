@@ -691,6 +691,36 @@ int init_mtk_adsp_dram_segment(void)
 	return mtk_adsp_gen_pool_create(MIN_DSP_SHIFT, -1);
 }
 
+/* set audio share dram mpu write-through */
+int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment)
+{
+	unsigned int phy_addr, size;
+	struct ipi_msg_t ipi_msg;
+	int ret;
+
+	if (dram_segment >= AUDIO_DSP_SHARE_MEM_NUM) {
+		pr_info("%s dram_segment= %u\n", __func__, dram_segment);
+		return -1;
+	}
+
+	adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
+
+	phy_addr = (unsigned int)dsp_dram_buffer[dram_segment].phy_addr;
+	size = (unsigned int)dsp_dram_buffer[dram_segment].size;
+
+	pr_info("%s phy_addr[0x%x] size[0x%x]\n", __func__, phy_addr, size);
+
+	ret = audio_send_ipi_msg(
+		&ipi_msg, TASK_SCENE_AUD_DAEMON_A,
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_MSG_ONLY,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_EINGBUFASHAREMEM,
+		phy_addr, size, 0);
+
+	adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
+
+	return ret;
+}
+
 int mtk_reinit_adsp(void)
 {
 	int ret = 0;

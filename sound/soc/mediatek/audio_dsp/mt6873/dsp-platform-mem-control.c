@@ -317,3 +317,9 @@ int mtk_get_core_id(int dsp_type)
 		ret = -1;
 	return ret;
 }
+
+bool get_mtk_enable_common_mem_mpu(void)
+{
+	return true;
+}
+
