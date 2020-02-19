@@ -130,6 +130,8 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 	if (reg_oc_dbg->times > NOTIFY_TIMES_MAX)
 		return NOTIFY_OK;
 
+	pr_notice("regulator:%s OC %d times\n",
+		  reg_oc_dbg->name, reg_oc_dbg->times);
 	if (!strcmp(reg_oc_dbg->name, "vio18")) {
 		PMIC_OC_DEBUG_DUMP(MT6359_PG_DEB_STS0);
 		PMIC_OC_DEBUG_DUMP(MT6359_STRUP_ANA_CON2);
@@ -144,10 +146,11 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 		PMIC_OC_DEBUG_DUMP(MT6359_LDO_VIO18_OP_CFG);
 		PMIC_OC_DEBUG_DUMP(MT6359_VIO18_ANA_CON0);
 		PMIC_OC_DEBUG_DUMP(MT6359_VIO18_ANA_CON1);
+	} else if (!strcmp(reg_oc_dbg->name, "vusb")) {
+		/* case results from mechanism design */
+		return NOTIFY_OK;
 	}
 	snprintf(oc_str, 30, "PMIC OC:%s", reg_oc_dbg->name);
-	pr_notice("regulator:%s OC %d times\n",
-		  reg_oc_dbg->name, reg_oc_dbg->times);
 	if (reg_oc_dbg->is_md_reg) {
 		aee_kernel_warning(oc_str,
 				   "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
