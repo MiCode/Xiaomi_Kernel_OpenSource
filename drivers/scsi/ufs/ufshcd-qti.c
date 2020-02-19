@@ -8703,11 +8703,9 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * this standard driver hence call the vendor specific setup_clocks
 	 * before disabling the clocks managed here.
 	 */
-	if (!on) {
-		ret = ufshcd_vops_setup_clocks(hba, on, PRE_CHANGE);
-		if (ret)
-			goto out_unlock;
-	}
+	ret = ufshcd_vops_setup_clocks(hba, on, PRE_CHANGE);
+	if (ret)
+		return ret;
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
@@ -8742,11 +8740,7 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * this standard driver hence call the vendor specific setup_clocks
 	 * after enabling the clocks managed here.
 	 */
-	if (on) {
-		ret = ufshcd_vops_setup_clocks(hba, on, POST_CHANGE);
-		if (ret)
-			goto out;
-	}
+	ret = ufshcd_vops_setup_clocks(hba, on, POST_CHANGE);
 
 out:
 	if (ret) {
@@ -8766,7 +8760,6 @@ out:
 		trace_ufshcd_profile_clk_gating(dev_name(hba->dev),
 			(on ? "on" : "off"),
 			ktime_to_us(ktime_sub(ktime_get(), start)), ret);
-out_unlock:
 	return ret;
 }
 
