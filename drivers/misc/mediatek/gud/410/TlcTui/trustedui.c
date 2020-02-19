@@ -14,7 +14,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/module.h>
-#include <linux/t-base-tui.h>
+#include <t-base-tui.h>
 
 static int trustedui_mode = TRUSTEDUI_MODE_OFF;
 static int trustedui_blank_counter;
