@@ -209,7 +209,7 @@ int mtk_iommu_get_port_id(struct device *dev)
 	unsigned int larbid, portid, domain_id = 0;
 
 	if (!dev)
-		return -1;
+		return -ENODEV;
 
 	if (!dev->iommu_fwspec ||
 	    !dev->iommu_fwspec->iommu_priv) {
@@ -224,7 +224,7 @@ int mtk_iommu_get_port_id(struct device *dev)
 					__func__, dev_name(dev));
 		}
 #endif
-		return -2;
+		return M4U_PORT_GPU;
 	}
 	return dev->iommu_fwspec->ids[0];
 }

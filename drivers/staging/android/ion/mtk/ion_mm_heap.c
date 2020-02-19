@@ -1087,6 +1087,16 @@ static int ion_mm_heap_dma_buf_config(
 
 	port_id = m4u_get_dma_buf_port(dev);
 
+#if defined(ION_NOT_SUPPORT_RETRY)
+	if (port_id == M4U_PORT_GPU)
+		return port_id;
+	else if (port_id < 0 ||
+		 port_id >= M4U_PORT_UNKNOWN)
+		return M4U_PORT_UNKNOWN;
+#else
+	/* M4U_PORT_GPU > M4U_PORT_UNKNOWN , so it will return 0
+	 * when device is GPU.
+	 */
 	if (port_id < 0 ||
 	    port_id >= M4U_PORT_UNKNOWN)
 		return 0;
@@ -1099,6 +1109,7 @@ static int ion_mm_heap_dma_buf_config(
 		       buffer_info->fix_module_id);
 		return -ION_ERROR_CONFIG_CONFLICT;
 	}
+#endif
 
 	buffer_info->module_id = port_id;
 	IONDBG("%s, dmabuf config buffer:0x%lx with port:%d\n",
@@ -1838,6 +1849,16 @@ static int mtk_ion_copy_param(unsigned int type,
 	buffer_info = buffer->priv_virt;
 	switch (type) {
 	case 1:
+#if defined(ION_NOT_SUPPORT_RETRY)
+		/* exculde GPU for ion_mm_heap */
+		if (domain_idx != MTK_GET_DOMAIN_IGNORE)
+			mmu_aee_print(
+				      "ion cmd:%d not support for 34bit iommu, port_id:0x%x, name %16.s\n",
+				mm_cmd, param.config_buffer_param.module_id,
+				(*client_name) ? client_name : "null");
+		return 0;
+#endif
+
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		if (mm_cmd == ION_MM_CONFIG_BUFFER &&

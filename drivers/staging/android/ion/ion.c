@@ -48,6 +48,10 @@
 #include "mtk/mtk_ion.h"
 #include "mtk/ion_drv_priv.h"
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/pseudo_m4u.h>
+#endif
+
 atomic64_t page_sz_cnt = ATOMIC64_INIT(0);
 
 void ion_client_buf_add(struct ion_heap *heap, struct ion_client *client,
@@ -1289,6 +1293,24 @@ retry:
 			ret = buffer->heap->ops->dma_buf_config(
 						      buffer, attachment->dev);
 			if (ret) {
+#if defined(ION_NOT_SUPPORT_RETRY)
+				if (ret == M4U_PORT_GPU) {
+					struct ion_heap *heap = buffer->heap;
+
+					if (heap->ops->get_table) {
+						heap->ops->get_table(buffer,
+								a->table);
+					} else {
+						mutex_unlock(&buffer->lock);
+						IONMSG(
+						       "error, heap:%u get_table not support!\n",
+						       heap->id);
+					}
+					mutex_unlock(&buffer->lock);
+					return a->table;
+				}
+				mutex_unlock(&buffer->lock);
+#else
 				mutex_unlock(&buffer->lock);
 				if (ret == -ION_ERROR_CONFIG_CONFLICT &&
 				    retry++ < 50) {
@@ -1297,6 +1319,7 @@ retry:
 					usleep_range(20, 40);
 					goto retry;
 				}
+#endif
 				IONMSG("%s, failed at dmabuf process, ret:%d\n",
 				       __func__, ret);
 				return ERR_PTR(ret);

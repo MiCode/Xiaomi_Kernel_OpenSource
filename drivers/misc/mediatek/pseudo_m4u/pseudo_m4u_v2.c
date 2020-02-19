@@ -506,9 +506,6 @@ int m4u_get_boundary(int port)
 
 int m4u_get_dma_buf_port(struct device *dev)
 {
-	if (!dev)
-		return -1;
-
 	return mtk_iommu_get_port_id(dev);
 }
 
