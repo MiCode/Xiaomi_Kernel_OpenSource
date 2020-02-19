@@ -93,18 +93,22 @@ enum command_entry_flags {
 };
 
 enum command_entry_state {
-	CE_NONE       = 0,
-	CE_QUEUE      = 1,
-	CE_DEQUE      = 2,
-	CE_RUN        = 3,
-	CE_PREEMPTING = 4,
-	CE_SCHED      = 5,
-	CE_PREEMPTED  = 6,
-	CE_RESUMED    = 7,
-	CE_DONE       = 8,
-	CE_FIN        = 9,
-	CE_TIMEOUT    = 10,
-	CE_FAIL       = 11,
+	CE_NONE         = 0,
+	CE_QUEUE        = 1,
+	CE_DEQUE        = 2,
+	CE_RUN          = 3,
+	CE_PREEMPTING   = 4,
+	CE_SCHED        = 5,
+	CE_PREEMPTED    = 6,
+	CE_RESUMED      = 7,
+	CE_DONE         = 8,
+	CE_FIN          = 9,
+	CE_TIMEOUT      = 10,
+	CE_FAIL         = 11,
+	CE_SKIP         = 12,
+	CE_ISSUE_ERROR1 = 13,
+	CE_ISSUE_ERROR2 = 14,
+	CE_ISSUE_ERROR3 = 15,
 };
 
 enum interrupt_error {
@@ -143,7 +147,7 @@ struct command_entry {
 	struct completion swcmd_done_wait;  /* the completion for CE finish */
 	struct completion preempt_wait;  /* the completion for normal CE */
 	int flags;
-	int state;
+	u32 state;
 	u32 irq_state;
 	int sync;
 
