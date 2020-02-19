@@ -186,7 +186,6 @@ static struct platform_driver g_gpufreq_pdrv = {
 };
 
 static bool g_DVFS_is_paused_by_ptpod;
-static bool g_power_off_after_ptpod = true;
 static bool g_cg_on;
 static bool g_mtcmos_on;
 static bool g_buck_on;
@@ -893,24 +892,13 @@ static int mt_gpufreq_set_dfd(bool enable)
 	return dfd_trigger;
 }
 
-/* before call __mt_gpufreq_power_control_nolock(),
- * you need get mt_gpufreq_lock first
- */
-static void __mt_gpufreq_power_control_nolock(enum mt_power_state power,
-	enum mt_cg_state cg, enum mt_mtcmos_state mtcmos,
-	enum mt_buck_state buck)
+void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
+			enum mt_mtcmos_state mtcmos, enum mt_buck_state buck)
 {
-	static enum mt_power_state _power_state = POWER_OFF;
+	mutex_lock(&mt_gpufreq_lock);
 
-	gpufreq_pr_debug("power=%d, _power_state=%d (todo cg: %d, mtcmos: %d, buck: %d)\n",
-		power, _power_state, cg, mtcmos, buck);
-
-	if (g_DVFS_is_paused_by_ptpod) {
-		g_power_off_after_ptpod = (power == POWER_OFF ? true : false);
-		return;
-	}
-	if (_power_state == power)
-		return;
+	gpufreq_pr_debug("power = %d (todo cg: %d, mtcmos: %d, buck: %d)\n",
+		power, cg, mtcmos, buck);
 
 	if (power == POWER_ON) {
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_1);
@@ -964,14 +952,6 @@ static void __mt_gpufreq_power_control_nolock(enum mt_power_state power,
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_8);
 	}
 
-	_power_state = power;
-}
-
-void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
-			enum mt_mtcmos_state mtcmos, enum mt_buck_state buck)
-{
-	mutex_lock(&mt_gpufreq_lock);
-	__mt_gpufreq_power_control_nolock(power, cg, mtcmos, buck);
 	mutex_unlock(&mt_gpufreq_lock);
 }
 
@@ -979,16 +959,16 @@ void mt_gpufreq_enable_by_ptpod(void)
 {
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_NORMAL); /* NORMAL */
 
+	/* If SWCG(BG3D) is on, it means GPU is doing some jobs */
+	if (!g_cg_on)
+		mt_gpufreq_power_control(POWER_OFF, CG_KEEP,
+						MTCMOS_OFF, BUCK_OFF);
+
 	mt_gpufreq_update_limit_idx(KIR_PTPOD,
 		LIMIT_IDX_DEFAULT,
 		LIMIT_IDX_DEFAULT);
 
-	mutex_lock(&mt_gpufreq_lock);
 	g_DVFS_is_paused_by_ptpod = false;
-	if (g_power_off_after_ptpod)
-		__mt_gpufreq_power_control_nolock(POWER_OFF, CG_OFF,
-						MTCMOS_OFF, BUCK_OFF);
-	mutex_unlock(&mt_gpufreq_lock);
 
 	gpufreq_pr_debug("@%s: PTPOD paused DVFS = %d,\n", __func__,
 			g_DVFS_is_paused_by_ptpod);
@@ -1009,14 +989,13 @@ void mt_gpufreq_disable_by_ptpod(void)
 
 	mt_gpufreq_update_limit_idx(KIR_PTPOD, target_idx, target_idx);
 
+	g_DVFS_is_paused_by_ptpod = true;
+
 	gpufreq_pr_debug("@%s: PTPOD paused DVFS = %d, target_idx = %d(%d)\n",
 			__func__, g_DVFS_is_paused_by_ptpod, target_idx,
 			opp_table[target_idx].gpufreq_vgpu);
 
-	mutex_lock(&mt_gpufreq_lock);
-	__mt_gpufreq_power_control_nolock(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
-	g_DVFS_is_paused_by_ptpod = true;
-	mutex_unlock(&mt_gpufreq_lock);
+	mt_gpufreq_power_control(POWER_ON, CG_KEEP, MTCMOS_ON, BUCK_ON);
 
 	mt_gpufreq_target(target_idx, KIR_PTPOD);
 
