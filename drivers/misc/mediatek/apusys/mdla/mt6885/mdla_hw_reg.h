@@ -17,6 +17,7 @@
 #define MDLA_IRQ_SWCMD_TILECNT_INT (1 << 1)
 #define MDLA_IRQ_TILECNT_DONE      (1 << 1)
 #define MDLA_IRQ_SWCMD_DONE        (1 << 2)
+#define MDLA_IRQ_CDMA_FIFO_EMPTY   (1 << 5)
 #define MDLA_IRQ_PMU_INTE  (1 << 9)
 #define MDLA_IRQ_MASK      (0x1FFFFF)
 #define MDLA_AXI_CTRL_MASK ((1 << 1) | (1 << 10))

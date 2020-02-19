@@ -104,12 +104,22 @@ enum command_entry_state {
 	CE_DONE       = 8,
 	CE_FIN        = 9,
 	CE_TIMEOUT    = 10,
+	CE_FAIL       = 11,
 };
 
 enum interrupt_error {
+	IRQ_SUCCESS                 = 0,
 	IRQ_NO_SCHEDULER            = 0x1,
 	IRQ_NO_PROCESSING_CE        = 0x2,
 	IRQ_NO_WRONG_DEQUEUE_STATUS = 0x4,
+	IRQ_TWICE                   = 0x8,
+	IRQ_NOT_EMPTY_IN_ISSUE      = 0x10,
+	IRQ_NOT_EMPTY_IN_SCHED      = 0x20,
+	IRQ_NE_ISSUE_FIRST          = 0x40,
+	IRQ_NE_SCHED_FIRST          = 0x80,
+	IRQ_IN_IRQ                  = 0x100,
+	IRQ_NOT_IN_IRQ              = 0x200,
+	IRQ_TIMEOUT                 = 0x400,
 };
 
 struct wait_entry {
@@ -134,6 +144,7 @@ struct command_entry {
 	struct completion preempt_wait;  /* the completion for normal CE */
 	int flags;
 	int state;
+	u32 irq_state;
 	int sync;
 
 	void *kva;    /* Virtual Address for Kernel */
@@ -155,6 +166,7 @@ struct command_entry {
 	__u64 deadline_t;
 
 	u32 fin_cid;         /* record the last finished command id */
+	u32 wish_fin_cid;
 	u32 cmd_batch_size;  /* command batch size */
 	bool cmd_batch_en;       /* enable command batch or not */
 	struct list_head *batch_list_head;/* list of command batch */
@@ -317,7 +329,10 @@ extern struct mdla_dev_worker mdla_dev_workers;
  */
 struct mdla_scheduler {
 	struct list_head active_ce_queue;
+	struct command_entry *pro_ce_normal;
+	struct command_entry *pro_ce_high;
 	struct command_entry *processing_ce;
+
 	spinlock_t lock;
 
 	void (*enqueue_ce)(unsigned int core_id, struct command_entry *ce);

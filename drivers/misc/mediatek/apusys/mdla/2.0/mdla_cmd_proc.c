@@ -138,49 +138,38 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 #ifdef __APUSYS_PREEMPTION__
 	// initialize/resume members for preemption supportce->issue_t = 0;
-	ce->deadline_t = 0;
-	/* Todo cmd_batch_en/cmd_batch_size will in apusys_hnd */
+	ce->deadline_t = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
 	/* It is new command list */
 	ce->fin_cid = 0;
+	ce->wish_fin_cid = ce->count;
+	ce->irq_state = IRQ_SUCCESS;
 	if (likely(apusys_hd != NULL)) {
 		ce->boost_val = apusys_hd->boost_val;
 		ce->ctx_id = apusys_hd->ctx_id;
 		ce->context_callback = apusys_hd->context_callback;
 		apusys_hd->ip_time = 0;
 		ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
-		if (apusys_hd->cmdbuf == NULL) {
-			ce->cmd_batch_en = false;
-			ce->cmd_batch_size = 0;
-			ce->cmdbuf = NULL;
-		} else {
-			ce->cmdbuf = apusys_hd->cmdbuf;
-			ce->cmd_batch_en = enable_preempt;
-			if (apusys_hd->multicore_total == 2)
-				ce->cmd_batch_size = cd->count + 1;
-			else
-				ce->cmd_batch_size = apusys_hd->cluster_size;
-		}
+		ce->cmdbuf = apusys_hd->cmdbuf;
+		ce->cmd_batch_en = enable_preempt;
+		if (apusys_hd->multicore_total == 2)
+			ce->cmd_batch_size = cd->count + 1;
+		else
+			ce->cmd_batch_size = apusys_hd->cluster_size;
 	} else {
 		ce->ctx_id = INT_MAX;
 		ce->context_callback = NULL;
 		ce->cmd_batch_en = false;
-		ce->cmd_batch_size = 0;
+		ce->cmd_batch_size = cd->count + 1;
 	}
-	ce->batch_list_head = kzalloc(sizeof(struct list_head), GFP_KERNEL);
-
-	if (unlikely(!ce->batch_list_head))
-		return;
-	if (unlikely(mdla_batch_number != 0)) {//use for debugfs
-		ce->cmd_batch_en = true;
-		ce->cmd_batch_size = mdla_batch_number;
-	}
-
-	mdla_cmd_debug("%s: cmd_batch_en=%d, cmd_batch_size =%d, size =%d\n",
-		__func__,
-		ce->cmd_batch_en,
-		ce->cmd_batch_size,
-		cd->size);
-	INIT_LIST_HEAD(ce->batch_list_head);
+	if (ce->cmd_batch_en == true && ce->cmd_batch_size < ce->count) {
+		ce->batch_list_head =
+			kzalloc(sizeof(struct list_head), GFP_KERNEL);
+		if (unlikely(!ce->batch_list_head))
+			return;
+		INIT_LIST_HEAD(ce->batch_list_head);
+	} else
+		ce->batch_list_head = NULL;
+	return;
 #else //__APUSYS_PREEMPTION__
 	if (apusys_hd != NULL) {
 		ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
@@ -202,13 +191,6 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 static void mdla_performance_index(struct mdla_wait_cmd *wt,
 		struct command_entry *ce)
 {
-// for preemtion enable
-//	/* busy time: real execution time on device */
-//	wt->busy_time = ce->req_end_t - ce->req_start_t;
-//	/* queue time: turnaround time - busy time */
-//	wt->queue_time = ce->wait_t - ce->receive_t - wt->busy_time;
-//	wt->bandwidth = ce->bandwidth;
-//
 	wt->queue_time = ce->poweron_t - ce->receive_t;
 	wt->busy_time = ce->wait_t - ce->poweron_t;
 	wt->bandwidth = ce->bandwidth;
@@ -217,16 +199,13 @@ static void mdla_performance_index(struct mdla_wait_cmd *wt,
 #endif
 
 #ifdef __APUSYS_PREEMPTION__
-
-//int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_wait_cmd *wt,
-//			  struct mdla_dev *mdla_info)
 int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 			  struct apusys_cmd_hnd *apusys_hd, bool enable_preempt)
 {
 	int ret = REASON_MDLA_SUCCESS;
-	struct command_entry ce;
+	struct command_entry *ce;
 	struct mdla_scheduler *scheduler;
-	unsigned long flags, timeout;
+	unsigned long flags;
 	long status;
 	int core_id;
 	/*forward compatibility temporary, This will be replaced by apusys*/
@@ -237,13 +216,40 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 
 	if (!cd || !wt || !mdla_info)
 		return -EINVAL;
-	memset(&ce, 0, sizeof(ce));
+	if (cd->count == 0)
+		return 0;
+	if (apusys_hd != NULL) {
+		if (apusys_hd->cmdbuf == NULL)
+			return -EINVAL;
+	}
 	core_id = mdla_info->mdlaid;
 	scheduler = mdla_info->scheduler;
-
 	/* need to define error code for scheduler is NULL */
 	if (!scheduler)
 		return -REASON_MDLA_NULLPOINT;
+	spin_lock_irqsave(&scheduler->lock, flags);
+	if (enable_preempt) {
+		if (scheduler->pro_ce_normal != NULL) {
+			spin_unlock_irqrestore(&scheduler->lock, flags);
+			return -EINVAL;
+		}
+		scheduler->pro_ce_normal =
+			kzalloc(sizeof(struct command_entry), GFP_ATOMIC);
+		ce = scheduler->pro_ce_normal;
+	} else {
+		if (scheduler->pro_ce_high != NULL) {
+			spin_unlock_irqrestore(&scheduler->lock, flags);
+			return -EINVAL;
+		}
+		scheduler->pro_ce_high =
+			kzalloc(sizeof(struct command_entry), GFP_ATOMIC);
+		ce = scheduler->pro_ce_high;
+	}
+	if (ce == NULL) {
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+		return -EINVAL;
+	}
+	spin_unlock_irqrestore(&scheduler->lock, flags);
 #ifdef CONFIG_PM_WAKELOCKS
 	/* TODO, Need to check PMU can work when preempt */
 	mutex_lock(&mdla_info->cmd_list_cnt_lock);
@@ -276,30 +282,34 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	/* prepare CE */
-	mdla_run_command_prepare(cd, apusys_hd, &ce, enable_preempt);
+	mdla_run_command_prepare(cd, apusys_hd, ce, enable_preempt);
 #ifdef __APUSYS_MDLA_PMU_SUPPORT__
-	if (likely(!pmu_apusys_pmu_addr_check(apusys_hd)))
-		pmu_command_prepare(mdla_info, apusys_hd, (u16)ce.cmd_batch_en);
+	if (likely(!pmu_apusys_pmu_addr_check(apusys_hd))) {
+		pmu_command_prepare(
+			mdla_info,
+			apusys_hd,
+			(u16)ce->cmd_batch_en);
+	}
 #endif//__APUSYS_MDLA_PMU_SUPPORT__
 #else//__APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	/*MDLA Pattern only*/
-	mdla_run_command_prepare(cd, &ce);
+	mdla_run_command_prepare(cd, ce);
 #endif//__APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (likely(apusys_hd != NULL)) {
 		spin_lock_irqsave(&scheduler->lock, flags);
 		if (scheduler->processing_ce != NULL)
 			boost_val = scheduler->processing_ce->boost_val;
 		spin_unlock_irqrestore(&scheduler->lock, flags);
-		if (ce.boost_val > boost_val)
-			mdla_set_opp(core_id, ce.boost_val);
+		if (ce->boost_val > boost_val)
+			mdla_set_opp(core_id, ce->boost_val);
 	} else if (mdla_dvfs_rand) {
 		opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
 		mdla_cmd_debug("core: %d, rand opp: %d\n",
 			core_id, opp_rand);
 		apu_device_set_opp(MDLA0+core_id, opp_rand);
 	}
-	if (ce.cmd_batch_en)
-		mdla_split_command_batch(&ce);
+	if (ce->cmd_batch_en && ce->batch_list_head != NULL)
+		mdla_split_command_batch(ce);
 #if 0
 	if (unlikely(mdla_timeout_dbg)) {
 		mdla_dump_cmd_buf_free(mdla_info->mdlaid);
@@ -307,117 +317,95 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 	}
 #endif
 	/* trace start */
-	mdla_trace_begin(core_id, &ce);
-
-	/* setup timeout and deadline */
-	timeout = (cfg_timer_en) ? usecs_to_jiffies(cfg_period) :
-		msecs_to_jiffies(mdla_e1_detect_timeout);
+	mdla_trace_begin(core_id, ce);
 
 #ifdef __APUSYS_MDLA_PMU_SUPPORT__
-	pmu_cmd_handle(mdla_info, apusys_hd, (u16)ce.cmd_batch_en);
+	pmu_cmd_handle(mdla_info, apusys_hd, (u16)ce->cmd_batch_en);
 #endif
 
 	/* enqueue CE */
-	init_completion(&ce.swcmd_done_wait);
-	init_completion(&ce.preempt_wait);
+	init_completion(&ce->swcmd_done_wait);
 
-	scheduler->enqueue_ce(core_id, &ce);
+	scheduler->enqueue_ce(core_id, ce);
 
 	wt->result = 0;
 
 	/* wait for deadline */
-	while (time_before64(get_jiffies_64(), ce.deadline_t)) {
-		/* wait for timeout */
+	while (ce->fin_cid < ce->count &&
+		time_before64(get_jiffies_64(), ce->deadline_t)) {
+		unsigned long wait_event_timeouts;
+
+		if (cfg_timer_en)
+			wait_event_timeouts =
+				usecs_to_jiffies(cfg_period);
+		else
+			wait_event_timeouts =
+				msecs_to_jiffies(mdla_e1_detect_timeout);
+
 		status =
-		wait_for_completion_interruptible_timeout(
-			&ce.swcmd_done_wait, timeout);
-		/*
-		 * check the status of CE:
-		 * case 1 (status >= 1): CE completed or preempted
-		 *	                     CE state: CE_PREEMPTED or CE_FIN
-		 * case 2 (status == 0): timeout, reason: preempted or SW bug
-		 *                       CE state: CE_TIMEOUT or <= 4
-		 */
-		if (status > 0) {
-			if (ce.state == CE_PREEMPTED) {
-				u64 start = ce.req_start_t;
-				u64 end = ce.req_end_t;
-
-				ce.state = CE_RESUMED;
-				if (likely(apusys_hd != NULL)) {
-					apusys_hd->ip_time +=
-						(uint32_t)(end - start)/1000;
-				}
-				mdla_preemption_times++;
-				/* enqueue CE */
-				scheduler->enqueue_ce(core_id, &ce);
-			} else {
-				break;
-			}
-		}
+			wait_for_completion_interruptible_timeout(
+				&ce->swcmd_done_wait, wait_event_timeouts);
+		if (ce->state == CE_FAIL)
+			goto error_handle;
 	}
-
 	mdla_trace_iter(core_id);
-	spin_lock_irqsave(&scheduler->lock, flags);
-	/* calculate all performance index */
-	//mdla_performance_index(wt, &ce);
-	/* free alloc buffer */
-	mdla_del_free_command_batch(&ce);
-	spin_unlock_irqrestore(&scheduler->lock, flags);
 
 	if (likely(apusys_hd != NULL)) {
 		apusys_hd->ip_time +=
-			(uint32_t)(ce.req_end_t - ce.req_start_t)/1000;
+			(uint32_t)(ce->req_end_t - ce->req_start_t)/1000;
 	}
 	/* trace stop */
-	mdla_trace_end(core_id, 0, &ce);
+	mdla_trace_end(core_id, 0, ce);
 	if (unlikely(mdla_timeout_dbg))
 		mdla_cmd_debug("STE dst addr:%.8x\n",
 			mdla_reg_read_with_mdlaid(core_id, 0xE3C));
 
-	if (unlikely(ce.state != CE_FIN)) {
-		spin_lock_irqsave(&mdla_info->hw_lock, flags);
+	if (unlikely(ce->fin_cid < ce->count)) {
 		mdla_timeout_debug("Interrupt error status: %x\n",
 			mdla_info->error_bit);
+		mdla_timeout_debug("ce IRQ status: %x\n",
+			ce->irq_state);
 		mdla_info->error_bit = 0;
-		spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
-		mdla_timeout_debug("%s: total cmd count: %u, ",
-				   __func__, ce.count);
+		mdla_timeout_debug("%s: total cmd count: %u, mva: %x",
+				   __func__, ce->count, ce->mva);
 		mdla_timeout_debug("fin_cid: %u, deadline:%llu, ce state: %u\n",
-			ce.fin_cid, ce.deadline_t, ce.state);
+			ce->fin_cid, ce->deadline_t, ce->state);
 		/* handle command timeout */
 		mdla_zero_skip_detect(core_id);
 		mt_irq_dump_status(mdla_irqdesc[core_id].irq);
-		mdla_dump_dbg(mdla_info, &ce);
+		mdla_dump_dbg(mdla_info, ce);
 		apu_device_power_off(MDLA0+core_id);
 		apu_device_power_on(MDLA0+core_id);
 		mdla_reset_lock(mdla_info->mdlaid, REASON_TIMEOUT);
 		wt->result = 1;
 		/* error handling for scheudler by removing processing CE */
 		spin_lock_irqsave(&scheduler->lock, flags);
-		if (likely(scheduler->processing_ce == &ce))
+		if (likely(scheduler->processing_ce == ce))
 			scheduler->processing_ce = NULL;
-		if (likely(ce.state == CE_QUEUE)) {
+		if (likely(ce->state == CE_QUEUE)) {
 			/* delete timeout ce from active queue */
-			list_del(&ce.node);
+			list_del(&ce->node);
 		}
-		status = scheduler->dequeue_ce(core_id);
-		if (likely(status == REASON_QUEUE_NORMALEXE)) {
-			/* wakeup ce which wait for issue */
-			complete(&scheduler->processing_ce->preempt_wait);
+		scheduler->processing_ce = NULL;
+		status = REASON_QUEUE_PREEMPTION;
+		while (status != REASON_QUEUE_NOCHANGE) {
+			status = scheduler->dequeue_ce(core_id);
+			scheduler->processing_ce = NULL;
+			ce->state = CE_FAIL;
+			complete(&ce->swcmd_done_wait);
 		}
 		spin_unlock_irqrestore(&scheduler->lock, flags);
 		ret = -REASON_MDLA_TIMEOUT;
 	}
 	/* update id to the last finished command id */
 	//wt->id = ce.fin_cid;
-	cd->id = ce.fin_cid;
-
+	cd->id = ce->fin_cid;
 #ifdef __APUSYS_MDLA_PMU_SUPPORT__
 	if (!pmu_apusys_pmu_addr_check(apusys_hd))
-		pmu_command_counter_prt(mdla_info, (u16)ce.cmd_batch_en);
+		pmu_command_counter_prt(mdla_info, (u16)ce->cmd_batch_en);
 #endif
 
+error_handle:
 	/* Protect cmd list count and mdla_command_done atomic exe. */
 	mutex_lock(&mdla_info->cmd_list_cnt_lock);
 	mdla_info->cmd_list_cnt--;
@@ -431,8 +419,17 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 #endif
 	mutex_unlock(&mdla_info->cmd_list_cnt_lock);
 
-	ce.wait_t = sched_clock();
-	mdla_cmd_debug("%s, ret val = %d\n", __func__, ret);
+	ce->wait_t = sched_clock();
+	mdla_del_free_command_batch(ce);
+	spin_lock_irqsave(&scheduler->lock, flags);
+	if (enable_preempt) {
+		kfree(scheduler->pro_ce_normal);
+		scheduler->pro_ce_normal = NULL;
+	} else {
+		kfree(scheduler->pro_ce_high);
+		scheduler->pro_ce_high = NULL;
+	}
+	spin_unlock_irqrestore(&scheduler->lock, flags);
 	return ret;
 }
 #else

@@ -32,8 +32,6 @@
 #ifdef __APUSYS_PREEMPTION__
 #include "apusys_device.h"
 #define PRIORITY_LEVEL 2
-#define CORE0_WORK_MASK 0x3
-#define CORE1_WORK_MASK 0xC
 
 extern u32 mdla_batch_number;
 extern u32 mdla_preemption_times;

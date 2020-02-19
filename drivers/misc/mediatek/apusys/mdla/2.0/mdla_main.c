@@ -331,6 +331,8 @@ static int mdla_scheduler_init(struct device *dev)
 		scheduler->process_ce = mdla_process_ce;
 		scheduler->issue_ce = mdla_issue_ce;
 		scheduler->complete_ce = mdla_complete_ce;
+		scheduler->pro_ce_normal = NULL;
+		scheduler->pro_ce_high = NULL;
 	}
 	return 0;
 }
@@ -637,40 +639,18 @@ int apusys_mdla_handler(int type,
 		mdla_start_power_off(mdla_info->mdlaid, 1);
 		break;
 	case APUSYS_CMD_EXECUTE:
-	{
+	{//cmd_hnd error check XXX
 		struct mdla_run_cmd_sync *cmd_data =
 			(struct mdla_run_cmd_sync *)cmd_hnd->kva;
 #ifdef __APUSYS_PREEMPTION__
-		u32 coreid = mdla_info->mdlaid;
 		bool enable_preempt =
 			(dev->dev_type == APUSYS_DEVICE_MDLA_RT) ? false : true;
-		u8 check_bit =
-			1 << (coreid*PRIORITY_LEVEL + (u8)enable_preempt);
 
-		mutex_lock(&mdla_dev_workers.worker_lock);
-		if (unlikely(mdla_dev_workers.worker&check_bit)) {
-			mutex_unlock(&mdla_dev_workers.worker_lock);
-			mdla_cmd_debug("More than 2 cmd in same MDLA core\n");
-			return -EINVAL;
-		}
-		/*
-		 * worker[0]: core id = 0, high priority
-		 * worker[1]: core id = 0, low priority
-		 * worker[2]: core id = 1, high priority
-		 * worker[3]: core id = 1, low priority
-		 */
-		mdla_dev_workers.worker =
-			mdla_dev_workers.worker | check_bit;
-		mutex_unlock(&mdla_dev_workers.worker_lock);
 		retval = mdla_run_command_sync(
 			&cmd_data->req,
 			mdla_info,
 			cmd_hnd,
 			enable_preempt);
-		mutex_lock(&mdla_dev_workers.worker_lock);
-		mdla_dev_workers.worker =
-			mdla_dev_workers.worker & (~check_bit);
-		mutex_unlock(&mdla_dev_workers.worker_lock);
 #else
 
 		retval = mdla_run_command_sync(
