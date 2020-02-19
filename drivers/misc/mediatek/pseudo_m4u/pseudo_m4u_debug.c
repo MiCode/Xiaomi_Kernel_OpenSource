@@ -917,12 +917,6 @@ static int m4u_debug_set(void *data, u64 val)
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 			mtk_iommu_power_switch_by_id(i, true, "pseudo_debug");
-	}
-	break;
-	case 32:
-	{
-		int i;
-
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 			mtk_iommu_power_switch_by_id(i, false, "pseudo_debug");
 	}
@@ -1152,9 +1146,7 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 	M4U_PRINT_SEQ(s,
 		      "echo 30 > /d/m4u/debug:	disable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 31 > /d/m4u/debug:	iommu power on\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 32 > /d/m4u/debug:	iommu power off\n");
+		      "echo 31 > /d/m4u/debug:	iommu power on/off test\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 33 > /d/m4u/debug:	disable mau monitor interrupt\n");
 	M4U_PRINT_SEQ(s,
