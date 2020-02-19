@@ -1274,7 +1274,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					pending->addr,
 					offset,
 					size);
-			} else {
+			} else if (state->pending.format != DRM_FORMAT_C8) {
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					addr, meta_type, 0, size, 0);
@@ -1318,7 +1318,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					pending->addr,
 					offset,
 					size);
-			} else {
+			} else if (state->pending.format != DRM_FORMAT_C8) {
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					addr, meta_type, 0, size, 0);
