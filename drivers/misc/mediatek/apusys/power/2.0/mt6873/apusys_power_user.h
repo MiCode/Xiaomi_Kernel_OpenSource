@@ -14,31 +14,10 @@
 #ifndef _APUSYS_POWER_USER_H_
 #define _APUSYS_POWER_USER_H_
 
-#ifdef AGING_MARGIN
-#if 0
-#define MARGIN_VOLT_0	(18750 + 41250)
-#define MARGIN_VOLT_1	(18750 + 40000)
-#define MARGIN_VOLT_2	(18750 + 38750)
-#define MARGIN_VOLT_3	(18750 + 37500)
-#define MARGIN_VOLT_4	(18750 + 36250)
-#define MARGIN_VOLT_5	(12500 + 35000)
-#define MARGIN_VOLT_6	(12500 + 32500)
-#define MARGIN_VOLT_7	(12500 + 30000)
-#define MARGIN_VOLT_8	(6250 + 28750)
-#define MARGIN_VOLT_9	(6250 + 27500)
-#else
-#define MARGIN_VOLT_0	(18750)
-#define MARGIN_VOLT_1	(18750)
-#define MARGIN_VOLT_2	(12500)
-#define MARGIN_VOLT_3	(12500)
-#define MARGIN_VOLT_4	(12500)
-#define MARGIN_VOLT_5	(12500)
-#define MARGIN_VOLT_6	(6250)
-#define MARGIN_VOLT_7	(6250)
-#define MARGIN_VOLT_8	(6250)
-#define MARGIN_VOLT_9	(6250)
-#endif
-#else
+/* Aging marging voltage */
+#define MG_VOLT_18750  (18750)
+#define MG_VOLT_12500  (12500)
+#define MG_VOLT_06250  (6250)
 #define MARGIN_VOLT_0	(0)
 #define MARGIN_VOLT_1	(0)
 #define MARGIN_VOLT_2	(0)
@@ -47,10 +26,26 @@
 #define MARGIN_VOLT_5	(0)
 #define MARGIN_VOLT_6	(0)
 #define MARGIN_VOLT_7	(0)
+/*
+ * While aging, default volt will minus MG_VOLT_06250
+ *
+ * Aging table focuss on freq, but every time DVFS policy
+ * will change apusys_opps.next_buck_volt as 575MV.
+ *
+ * Suppsely user takes opp 5, the smallest one, apusys_final_volt_check
+ * will use MAX(apusys_opps.next_buck_volt[buck_index],
+		apusys_opps.user_path_volt[user_index][path_index])
+ * and that will never let aging voltage working.
+ *
+ * That is why default 525mv minus MG_VOLT_06250 first.
+ * (the precondition is VPU/MDLA aging voltage on 525mv are the same)
+ */
+#ifdef AGING_MARGIN
+#define MARGIN_VOLT_8	(MG_VOLT_06250)
+#else
 #define MARGIN_VOLT_8	(0)
-#define MARGIN_VOLT_9	(0)
 #endif
-
+#define MARGIN_VOLT_9	(0)
 
 enum POWER_CALLBACK_USER {
 	IOMMU = 0,

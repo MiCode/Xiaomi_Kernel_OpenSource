@@ -123,6 +123,10 @@ struct apusys_dvfs_constraint {
 	enum DVFS_VOLTAGE voltage1;
 };
 
+struct apusys_aging_steps {
+	enum DVFS_FREQ freq;
+	int volt;
+};
 
 struct apusys_dvfs_opps {
 	// map to dvfs_table
@@ -175,6 +179,8 @@ extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
+extern struct apusys_aging_steps aging_tbl[APUSYS_MAX_NUM_OPPS]
+						[V_APU_CONN];
 #ifdef APUPWR_TASK_DEBOUNCE
 static inline void task_debounce(void)
 {

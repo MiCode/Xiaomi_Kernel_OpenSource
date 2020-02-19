@@ -75,6 +75,60 @@ static void recording_power_fail_state(void);
 static void dump_fail_state(void);
 static int binning_support_check(void);
 
+#ifndef AGING_MARGIN
+static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn) {}
+#else
+/*
+ * aging_support_check() - Brief description of aging_support_check.
+ * @opp: opp to check
+ * @bk_dmn: buck domain to check
+ *
+ * Comparing whether freq of opp on the buck domain matches aging freq.
+ * If yes, voltage of opp on the buck domain will minus aging voltage.
+ * (so far only support vpu/mdla buck domains)
+ *
+ * Return void.
+ */
+static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
+{
+	enum DVFS_FREQ ag_freq = 0;
+	enum DVFS_FREQ seg_freq = 0;
+	int seg_volt = 0;
+	int ag_volt = 0;
+	int ag_opp_idx = 0;
+
+	/* only support VPU/MDLA for aging */
+	if (bk_dmn > V_MDLA0)
+		LOG_ERR("%s %s opp %d not support aging volt\n",
+				__func__, buck_domain_str[bk_dmn], opp);
+
+	seg_freq = apusys_opps.opps[opp][bk_dmn].freq;
+	seg_volt = apusys_opps.opps[opp][bk_dmn].voltage;
+
+	/*
+	 * Brute-force searching whether seg_freq meet
+	 * any aging freq in aging_tbl array
+	 */
+	for (ag_opp_idx = 0; ag_opp_idx < APUSYS_MAX_NUM_OPPS; ag_opp_idx++) {
+		ag_freq = aging_tbl[ag_opp_idx][bk_dmn].freq;
+		ag_volt = aging_tbl[ag_opp_idx][bk_dmn].volt;
+
+		/*
+		 * if setment freqs matchs aging freq,
+		 * minus aging voltage and break
+		 */
+		if (ag_freq == seg_freq) {
+			apusys_opps.opps[opp][bk_dmn].voltage -= ag_volt;
+			LOG_DBG("%s %s opp%d(%d, %d) hit ag(%d,%d) end v %d\n",
+				__func__, buck_domain_str[bk_dmn], opp,
+				seg_freq, seg_volt, ag_freq, ag_volt,
+				apusys_opps.opps[opp][bk_dmn].voltage);
+			break;
+		}
+	}
+}
+#endif
+
 /************************************
  * common power hal command
  ************************************/
@@ -364,8 +418,8 @@ static int segment_user_support_check(void *param)
 
 static int binning_support_check(void)
 {
-#if BINNING_VOLTAGE_SUPPORT
 	int opp = 0;
+#if BINNING_VOLTAGE_SUPPORT
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
 
@@ -420,7 +474,12 @@ static int binning_support_check(void)
 		}
 	}
 #endif
-
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+		/* Minus VPU/MDLA aging voltage if need */
+		aging_support_check(opp, V_VPU0);
+		aging_support_check(opp, V_VPU1);
+		aging_support_check(opp, V_MDLA0);
+	}
 	return 0;
 }
 
