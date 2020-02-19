@@ -598,6 +598,8 @@ void ufshcd_print_all_err_hist(struct ufs_hba *hba,
 		m, buff, size);
 	ufshcd_print_err_hist(hba, &hba->ufs_stats.host_reset, "host_reset",
 		m, buff, size);
+	ufshcd_print_err_hist(hba, &hba->ufs_stats.sw_reset, "sw_reset",
+		m, buff, size);
 	ufshcd_print_err_hist(hba, &hba->ufs_stats.task_abort, "task_abort",
 		m, buff, size);
 	ufshcd_print_err_hist(hba, &hba->ufs_stats.perf_warn, "perf_warn",
@@ -4801,6 +4803,9 @@ int ufshcd_hba_enable(struct ufs_hba *hba)
 				"Controller enable failed\n");
 			/* dump ufs debug Info like XO_UFS/VEMC/VUFS18 */
 			ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
+			ufs_mtk_pltfrm_host_sw_rst(hba,
+				SW_RST_TARGET_UFSHCI |
+				SW_RST_TARGET_UFSCPT | SW_RST_TARGET_UNIPRO);
 			return -EIO;
 		}
 		msleep(5);

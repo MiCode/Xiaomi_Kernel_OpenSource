@@ -140,6 +140,7 @@ static void ufs_mtk_di_reset(struct ufs_hba *hba)
 		memset(di_priv, 0, di_blkcnt * sizeof(u8));
 
 	dev_info(hba->dev, "%s: Reset di %llu MB memory done!",
+		__func__,
 		di_blkcnt * (sizeof(u16) + sizeof(u8)) / 1024 / 1024);
 }
 

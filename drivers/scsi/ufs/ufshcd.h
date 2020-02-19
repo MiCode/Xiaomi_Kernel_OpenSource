@@ -526,6 +526,7 @@ struct ufs_stats {
 	/* abnormal events */
 	struct ufs_err_reg_hist dev_reset;
 	struct ufs_err_reg_hist host_reset;
+	struct ufs_err_reg_hist sw_reset;
 	struct ufs_err_reg_hist task_abort;
 
 	/* performance warning */

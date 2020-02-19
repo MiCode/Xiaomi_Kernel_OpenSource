@@ -510,7 +510,9 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 		return 1;
 	}
 
-	dev_dbg(hba->dev, "ufs_mtk_host_sw_rst: 0x%x\n", target);
+	dev_info(hba->dev, "ufs_mtk_host_sw_rst: 0x%x\n", target);
+
+	ufshcd_update_reg_hist(&hba->ufs_stats.sw_reset, (u32)target);
 
 	if (target & SW_RST_TARGET_UFSHCI) {
 		/* reset HCI */
@@ -550,22 +552,13 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 	udelay(100);
 
-	if (target & SW_RST_TARGET_UFSHCI) {
-		/* clear HCI reset */
+	if (target & SW_RST_TARGET_MPHY) {
+		/* clear Mphy reset */
 		reg = readl(ufs_mtk_mmio_base_infracfg_ao +
-			REG_UFSHCI_SW_RST_CLR);
-		reg = reg | (1 << REG_UFSHCI_SW_RST_CLR_BIT);
+			REG_UFSPHY_SW_RST_CLR);
+		reg = reg | (1 << REG_UFSPHY_SW_RST_CLR_BIT);
 		writel(reg,
-			ufs_mtk_mmio_base_infracfg_ao + REG_UFSHCI_SW_RST_CLR);
-	}
-
-	if (target & SW_RST_TARGET_UFSCPT) {
-		/* clear AES reset */
-		reg = readl(ufs_mtk_mmio_base_infracfg_ao +
-			REG_UFSCPT_SW_RST_CLR);
-		reg = reg | (1 << REG_UFSCPT_SW_RST_CLR_BIT);
-		writel(reg,
-			ufs_mtk_mmio_base_infracfg_ao + REG_UFSCPT_SW_RST_CLR);
+			ufs_mtk_mmio_base_infracfg_ao + REG_UFSPHY_SW_RST_CLR);
 	}
 
 	if (target & SW_RST_TARGET_UNIPRO) {
@@ -577,13 +570,22 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 			ufs_mtk_mmio_base_infracfg_ao + REG_UNIPRO_SW_RST_CLR);
 	}
 
-	if (target & SW_RST_TARGET_MPHY) {
-		/* clear Mphy reset */
+	if (target & SW_RST_TARGET_UFSCPT) {
+		/* clear AES reset */
 		reg = readl(ufs_mtk_mmio_base_infracfg_ao +
-			REG_UFSPHY_SW_RST_CLR);
-		reg = reg | (1 << REG_UFSPHY_SW_RST_CLR_BIT);
+			REG_UFSCPT_SW_RST_CLR);
+		reg = reg | (1 << REG_UFSCPT_SW_RST_CLR_BIT);
 		writel(reg,
-			ufs_mtk_mmio_base_infracfg_ao + REG_UFSPHY_SW_RST_CLR);
+			ufs_mtk_mmio_base_infracfg_ao + REG_UFSCPT_SW_RST_CLR);
+	}
+
+	if (target & SW_RST_TARGET_UFSHCI) {
+		/* clear HCI reset */
+		reg = readl(ufs_mtk_mmio_base_infracfg_ao +
+			REG_UFSHCI_SW_RST_CLR);
+		reg = reg | (1 << REG_UFSHCI_SW_RST_CLR_BIT);
+		writel(reg,
+			ufs_mtk_mmio_base_infracfg_ao + REG_UFSHCI_SW_RST_CLR);
 	}
 
 	udelay(100);
