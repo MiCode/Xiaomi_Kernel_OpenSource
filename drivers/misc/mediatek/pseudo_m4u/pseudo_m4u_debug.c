@@ -1020,15 +1020,7 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 #endif
-	case 51:
-	{
-		int i;
-
-		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_iommu_atf_test(i, 100);
-	}
-	break;
-	case 52:
+	case 51:/* must open iommu clk first */
 	{
 		int i, ret = 0;
 
@@ -1160,9 +1152,7 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 51 > /d/m4u/debug:	IOMMU ATF command list test\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 52 > /d/m4u/debug:	dump secure port configuration\n");
+		      "echo 51 > /d/m4u/debug:	IOMMU ATF (all) command test\n");
 	return 0;
 }
 

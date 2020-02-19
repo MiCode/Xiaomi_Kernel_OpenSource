@@ -462,9 +462,18 @@ static void mtk_iommu_atf_test_recovery(unsigned int m4u_id, unsigned int cmd)
 void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd)
 {
 	int ret = 0, i;
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 
-	if (m4u_id >= MTK_IOMMU_M4U_COUNT)
+	if (m4u_id >= MTK_IOMMU_M4U_COUNT || !data)
 		return;
+
+#ifdef IOMMU_POWER_CLK_SUPPORT
+	if (!data->poweron) {
+		pr_notice("%s: iommu:%d power off\n",
+			  __func__, m4u_id);
+		return;
+	}
+#endif
 
 	if (cmd < IOMMU_ATF_CMD_COUNT) {
 		pr_notice("======== IOMMU test ATF cmd %d: %s=========\n",
