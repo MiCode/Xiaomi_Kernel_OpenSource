@@ -1974,9 +1974,17 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		ovl_status = *(unsigned int *)(cmdq_buf->va_base +
 			DISP_SLOT_OVL_STATUS);
 
+#if defined(CONFIG_MACH_MT6885)
 		if (ovl_status & 1)
 			DDPPR_ERR("ovl status error\n");
-
+#endif
+#if defined(CONFIG_MACH_MT6873)
+		if (ovl_status & 1) {
+			DDPPR_ERR("ovl status error\n");
+			mtk_drm_crtc_analysis(crtc);
+			mtk_drm_crtc_dump(crtc);
+		}
+#endif
 	}
 	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
 
