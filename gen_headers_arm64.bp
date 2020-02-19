@@ -358,6 +358,7 @@ gen_headers_out_arm64 = [
     "linux/media-bus-format.h",
     "linux/media.h",
     "linux/mei.h",
+    "linux/mem-buf.h",
     "linux/membarrier.h",
     "linux/memfd.h",
     "linux/mempolicy.h",
