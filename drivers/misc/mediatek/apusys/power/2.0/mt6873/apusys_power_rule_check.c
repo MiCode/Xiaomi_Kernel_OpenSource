@@ -65,8 +65,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 	}
 
 	/* check whether VPU1 opp's value match info */
-	if (apusys_get_power_on_status(VPU0) == false &&
-	    (apusys_get_power_on_status(VPU1) == true &&
+	if ((apusys_get_power_on_status(VPU1) == true &&
 	     info->dsp2_freq != 0 &&
 	     info->dsp2_freq != default_freq)) {
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;

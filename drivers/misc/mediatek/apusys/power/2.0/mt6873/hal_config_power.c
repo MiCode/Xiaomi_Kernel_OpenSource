@@ -935,19 +935,7 @@ static int set_power_frequency(void *param)
 		if (domain == V_MDLA0)
 			ret = config_apupll(freq, domain);
 		else if ((domain == V_VPU0) || (domain == V_VPU1)) {
-			/*
-			 * Below 2 case will call in config_npupll:
-			 * 1) domain is VPU0
-			 * --> dsp1_npupll_sel select NPUPLL
-			 *
-			 * 2) domain is VPU1 and VPU0 is power off
-			 * --> dsp2_npupll_sel select NPUPLL
-			 */
-			// VPU share the NPUPLL
-			if ((domain == V_VPU0) ||
-				((domain == V_VPU1) &&
-					(!apusys_get_power_on_status(VPU0))))
-				ret = config_npupll(freq, domain);
+			ret = config_npupll(freq, domain);
 		} else
 			ret = set_apu_clock_source(freq, domain);
 	} else {
