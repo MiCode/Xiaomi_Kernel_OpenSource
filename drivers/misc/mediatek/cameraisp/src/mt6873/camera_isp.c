@@ -52,7 +52,6 @@
 #define ISP_MET_READY
 
 /* #define EP_STAGE */
-#define EP_STAGE
 #ifdef EP_STAGE
 #define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
@@ -2550,8 +2549,6 @@ static void ISP_EnableClock(bool En)
 #endif
 	}
 }
-extern void mtk_ccf_cam_debug(const char *str1, const char *str2,
-	const char *str3);
 
 /*******************************************************************************
  *
@@ -2613,7 +2610,6 @@ static inline void ISP_Reset(int module)
 					false, "camera_isp") != 0)
 					LOG_INF(
 					"ERR:smi_debug_bus_hang_detect");
-				mtk_ccf_cam_debug(NULL, NULL, NULL);
 				bDumped = MTRUE;
 				break;
 #endif
@@ -5974,7 +5970,6 @@ RESET:
 #ifndef EP_MARK_SMI
 			if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
 				LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
-			mtk_ccf_cam_debug(NULL, NULL, NULL);
 			break;
 #endif
 		}
