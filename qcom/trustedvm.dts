@@ -1,6 +1,6 @@
 /dts-v1/;
 
-#include "lahaina-svm1.dtsi"
+#include "trustedvm.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Secondary Virtual Machine";
