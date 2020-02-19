@@ -995,8 +995,8 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1002a000 0 0x1000>;
 	};
 
-	debug_ao_peri@1002b000 {
-		compatible = "mediatek,debug_ao_peri";
+	debug_ao_peri_ctl@1002b000 {
+		compatible = "mediatek,debug_ao_peri_ctl";
 		reg = <0 0x1002b000 0 0x1000>;
 	};
 

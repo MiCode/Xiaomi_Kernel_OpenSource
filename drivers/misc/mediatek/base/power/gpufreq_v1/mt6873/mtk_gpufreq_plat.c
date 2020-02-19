@@ -228,6 +228,7 @@ static void __iomem *g_infra_peri_debug1;
 static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
+static void __iomem *g_infra_peri_debug5;
 static void __iomem *g_infracfg_ao;
 static void __iomem *g_dbgtop;
 static void __iomem *g_sleep;
@@ -287,7 +288,14 @@ void mt_gpufreq_dump_infra_status(void)
 	unsigned int start, offset;
 
 	gpufreq_pr_info("====\n");
-	// 0x1020E
+	gpufreq_pr_info(
+		"clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+		mt_get_abist_freq(AD_MFGPLL_CK),
+		__mt_gpufreq_get_cur_freq(),
+		__mt_gpufreq_get_cur_vgpu(),
+		__mt_gpufreq_get_cur_vsram_gpu());
+
+	// 0x1020E000
 	if (g_infracfg_base) {
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
 			0x1020E810,
@@ -304,38 +312,78 @@ void mt_gpufreq_dump_infra_status(void)
 			0x10023000,
 			readl(g_infra_peri_debug1 + 0x000));
 
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x10023440,
-			readl(g_infra_peri_debug1 + 0x440));
-
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x10023444,
-			readl(g_infra_peri_debug1 + 0x444));
-	}
-
-	// 0x10025000
-	if (g_infra_peri_debug2) {
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x10025000,
-			readl(g_infra_peri_debug2 + 0x000));
-
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x1002542C,
-			readl(g_infra_peri_debug2 + 0x42C));
+		if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
+			start = 0x400;
+			for (offset = start; offset <= 0x434; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10023000 + offset,
+					readl(g_infra_peri_debug1 + offset));
+			}
+		}
 	}
 
 	// 0x1002B000
-	if (g_infra_peri_debug3) {
+	if (g_infra_peri_debug2) {
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
 			0x1002B000,
-			readl(g_infra_peri_debug3 + 0x000));
+			readl(g_infra_peri_debug2 + 0x000));
+
+		if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
+			start = 0x408;
+			for (offset = start; offset <= 0x438; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x1002B000 + offset,
+					readl(g_infra_peri_debug2 + offset));
+			}
+		}
 	}
 
 	// 0x1002E000
-	if (g_infra_peri_debug4) {
+	if (g_infra_peri_debug3) {
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
 			0x1002E000,
+			readl(g_infra_peri_debug3 + 0x000));
+
+		if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
+			start = 0x408;
+			for (offset = start; offset <= 0x418; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x1002E000 + offset,
+					readl(g_infra_peri_debug3 + offset));
+			}
+		}
+	}
+
+	// 0x10040000
+	if (g_infra_peri_debug4) {
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x10040000,
 			readl(g_infra_peri_debug4 + 0x000));
+
+		if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
+			start = 0x408;
+			for (offset = start; offset <= 0x420; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10040000 + offset,
+					readl(g_infra_peri_debug4 + offset));
+			}
+		}
+	}
+
+	// 0x10042000
+	if (g_infra_peri_debug5) {
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x10042000,
+			readl(g_infra_peri_debug5 + 0x000));
+
+		if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
+			start = 0x408;
+			for (offset = start; offset <= 0x44c; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10042000 + offset,
+					readl(g_infra_peri_debug5 + offset));
+			}
+		}
 	}
 
 	// 0x10006000
@@ -362,59 +410,14 @@ void mt_gpufreq_dump_infra_status(void)
 			readl(g_sleep + 0x170));
 	}
 
-	if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
-		gpufreq_pr_info("====\n");
-
-		if (g_cg_on) {
+	// 0x13FBF000
+	if (g_mfg_base && g_cg_on) {
+		if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
 			start = 0x000;
 			for (offset = start; offset <= 0xFFC; offset += 4) {
 				gpufreq_pr_info("mfg info 0x%x:0x%08x\n",
 					0x13FBF000 + offset,
 					readl(g_mfg_base + offset));
-			}
-		}
-
-		// 0x10023000
-		if (g_infra_peri_debug1) {
-			gpufreq_pr_info("====\n");
-			start = 0x408;
-			for (offset = start; offset <= 0x4E4; offset += 4) {
-				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-					0x10023000 + offset,
-					readl(g_infra_peri_debug1 + offset));
-			}
-		}
-
-		// 0x10025000
-		if (g_infra_peri_debug2) {
-			gpufreq_pr_info("====\n");
-			start = 0x408;
-			for (offset = start; offset <= 0x43C; offset += 4) {
-				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-					0x10025000 + offset,
-					readl(g_infra_peri_debug2 + offset));
-			}
-		}
-
-		// 0x1002B000
-		if (g_infra_peri_debug3) {
-			gpufreq_pr_info("====\n");
-			start = 0x408;
-			for (offset = start; offset <= 0x494; offset += 4) {
-				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-					0x10025000 + offset,
-					readl(g_infra_peri_debug2 + offset));
-			}
-		}
-
-		// 0x1002E000
-		if (g_infra_peri_debug4) {
-			gpufreq_pr_info("====\n");
-			start = 0x408;
-			for (offset = start; offset <= 0x434; offset += 4) {
-				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-					0x10025000 + offset,
-					readl(g_infra_peri_debug2 + offset));
 			}
 		}
 	}
@@ -3168,47 +3171,69 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return PTR_ERR(g_clk->mtcmos_mfg6);
 	}
 
-	g_infracfg_base = __mt_gpufreq_of_ioremap("mediatek,infracfg", 0);
+	// 0x1020E000
+	g_infracfg_base = __mt_gpufreq_of_ioremap(
+		"mediatek,infracfg", 0);
 	if (!g_infracfg_base) {
 		gpufreq_pr_info("@%s: ioremap failed at infracfg",
 			__func__);
 		return -ENOENT;
 	}
 
-#if 0
+	// 0x10023000
 	g_infra_peri_debug1 = __mt_gpufreq_of_ioremap(
-		"mediatek,devapc_ao_infra_peri_debug1", 0);
+		"mediatek,debug_ao_peri", 0);
 	if (!g_infra_peri_debug1) {
-		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug1",
+		gpufreq_pr_info("@%s: ioremap failed at debug_ao_peri",
 			__func__);
 		return -ENOENT;
 	}
 
+	// 0x1002B000
 	g_infra_peri_debug2 = __mt_gpufreq_of_ioremap(
-		"mediatek,devapc_ao_infra_peri_debug2", 0);
+		"mediatek,debug_ao_peri_ctl", 0);
 	if (!g_infra_peri_debug2) {
-		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug2",
+		gpufreq_pr_info("@%s: ioremap failed at debug_ao_peri_ctl",
 			__func__);
 		return -ENOENT;
 	}
 
+	// 0x1002E000
 	g_infra_peri_debug3 = __mt_gpufreq_of_ioremap(
-		"mediatek,devapc_ao_infra_peri_debug3", 0);
+		"mediatek,debug_ao_peri2", 0);
 	if (!g_infra_peri_debug3) {
-		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug3",
+		gpufreq_pr_info("@%s: ioremap failed at debug_ao_peri2",
 			__func__);
 		return -ENOENT;
 	}
 
+	// 0x10040000
 	g_infra_peri_debug4 = __mt_gpufreq_of_ioremap(
-		"mediatek,devapc_ao_infra_peri_debug4", 0);
+		"mediatek,debug_ao_peri_par", 0);
 	if (!g_infra_peri_debug4) {
-		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug4",
+		gpufreq_pr_info("@%s: ioremap failed at debug_ao_peri_par",
 			__func__);
 		return -ENOENT;
 	}
-#endif
 
+	// 0x10042000
+	g_infra_peri_debug5 = __mt_gpufreq_of_ioremap(
+		"mediatek,debug_ao_fmem", 0);
+	if (!g_infra_peri_debug5) {
+		gpufreq_pr_info("@%s: ioremap failed at debug_ao_fmem",
+			__func__);
+		return -ENOENT;
+	}
+
+	// 0x10006000
+	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
+	if (!g_sleep) {
+		gpufreq_pr_info("@%s: ioremap failed at sleep",
+			__func__);
+		return -ENOENT;
+	}
+
+	// 0x10001000
 	g_infracfg_ao = __mt_gpufreq_of_ioremap("mediatek,infracfg_ao", 0);
 	if (!g_infracfg_ao) {
 		gpufreq_pr_info("@%s: ioremap failed at infracfg_ao",
@@ -3217,16 +3242,10 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	}
 
 #if 0
+	// 0x1000d000
 	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop", 0);
 	if (!g_dbgtop) {
 		gpufreq_pr_info("@%s: ioremap failed at dbgtop",
-			__func__);
-		return -ENOENT;
-	}
-
-	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
-	if (!g_sleep) {
-		gpufreq_pr_info("@%s: ioremap failed at sleep",
 			__func__);
 		return -ENOENT;
 	}
