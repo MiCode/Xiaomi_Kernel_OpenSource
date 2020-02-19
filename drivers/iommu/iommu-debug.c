@@ -110,6 +110,7 @@ static LIST_HEAD(iommu_debug_devices);
 static struct dentry *debugfs_tests_dir;
 static u32 iters_per_op = 1;
 static void *test_virt_addr;
+static DEFINE_MUTEX(test_virt_addr_lock);
 
 struct iommu_debug_device {
 	struct device *dev;
@@ -1409,6 +1410,7 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 
 	memset(buf, 0, buf_len);
 
+	mutex_lock(&test_virt_addr_lock);
 	if (IS_ERR_OR_NULL(test_virt_addr))
 		test_virt_addr = kzalloc(SZ_1M, GFP_KERNEL);
 
@@ -1417,6 +1419,7 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 		strlcpy(buf, "FAIL\n", buf_len);
 	} else
 		snprintf(buf, buf_len, "0x%pK\n", test_virt_addr);
+	mutex_unlock(&test_virt_addr_lock);
 
 	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
@@ -1745,11 +1748,17 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 	if (kstrtouint(comma2 + 1, 0, &attr))
 		goto invalid_format;
 
-	if (IS_ERR(test_virt_addr))
+	mutex_lock(&test_virt_addr_lock);
+	if (IS_ERR(test_virt_addr)) {
+		mutex_unlock(&test_virt_addr_lock);
 		goto allocation_failure;
+	}
 
-	if (!test_virt_addr)
+	if (!test_virt_addr) {
+		mutex_unlock(&test_virt_addr_lock);
 		goto missing_allocation;
+	}
+	mutex_unlock(&test_virt_addr_lock);
 
 	if (v_addr < test_virt_addr || v_addr + size > test_virt_addr + SZ_1M)
 		goto invalid_addr;
