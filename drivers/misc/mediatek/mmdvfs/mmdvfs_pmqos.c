@@ -1200,6 +1200,10 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 	s32 smi_srt_clk = 0, smi_hrt_clk = 0;
 	s32 max_ch_srt_bw = 0, max_ch_hrt_bw = 0;
 	s32 final_chn_hrt_bw[MAX_COMM_NUM][MAX_CH_COUNT];
+#ifdef CHECK_OSTD_UPDATE
+	bool update_ostd;
+	struct mm_qos_request *enum_req = NULL;
+#endif
 
 	if (!owner_list || plist_head_empty(owner_list)) {
 		pr_notice("%s: owner_list is invalid\n", __func__);
@@ -1252,6 +1256,9 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 	}
 	mutex_unlock(&bw_mutex);
 
+	if (log_level & 1 << log_qos_validation)
+		trace_qos_validation();
+
 	plist_for_each_entry(req, owner_list, owner_node) {
 		if (!req->updated)
 			continue;
@@ -1280,9 +1287,23 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 			larb_port_id |= port_id << (8 * larb_count);
 			larb_count++;
 		}
+#ifdef CHECK_OSTD_UPDATE
+		mutex_lock(&bw_mutex);
+		if (!req->bw_value && !req->hrt_value) {
+			update_ostd = false;
+			list_for_each_entry(enum_req,
+					&(req->port_node), port_node) {
+				if (enum_req->bw_value ||
+					enum_req->hrt_value) {
+					update_ostd = true;
+					break;
+				}
+			}
+			req->updated = update_ostd;
+		}
+		mutex_unlock(&bw_mutex);
+#endif
 	}
-	if (log_level & 1 << log_qos_validation)
-		trace_qos_validation();
 #ifdef MMDVFS_MMP
 	if (larb_count)
 		mmprofile_log_ex(

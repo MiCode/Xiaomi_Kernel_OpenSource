@@ -65,6 +65,7 @@ QOS_BOUND_DETECT := true
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
+ccflags-y += -DCHECK_OSTD_UPDATE
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
