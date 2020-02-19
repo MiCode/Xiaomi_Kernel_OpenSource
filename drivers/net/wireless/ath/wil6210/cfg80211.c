@@ -1390,7 +1390,7 @@ static int wil_ft_connect(struct wiphy *wiphy,
 	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
 		if (wil->force_edmg_channel) {
 			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
-					     &auth_cmd.channel);
+					     &auth_cmd.edmg_channel);
 			if (rc)
 				wil_err(wil, "FT: wmi channel for channel %d not found",
 					wil->force_edmg_channel);
