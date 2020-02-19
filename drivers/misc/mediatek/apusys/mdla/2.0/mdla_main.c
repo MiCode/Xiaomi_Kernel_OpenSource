@@ -111,6 +111,7 @@ u32 mdla_timeout_dbg;
 u32 mdla_batch_number;
 u32 mdla_preemption_times;
 u32 mdla_preemption_debug;
+struct mutex wake_lock_mutex = __MUTEX_INITIALIZER(wake_lock_mutex);
 
 struct mdla_dev_worker mdla_dev_workers = {
 	.worker = 0,
@@ -133,11 +134,9 @@ struct mdla_dev mdla_devices[] = {
 		.cmd_buf_dmp_lock =
 			__MUTEX_INITIALIZER(mdla_devices[0].cmd_buf_dmp_lock),
 		.cmd_buf_len = 0,
+		.cmd_list_cnt = 0,
 #ifdef __APUSYS_PREEMPTION__
 		.error_bit = 0,
-		.cmd_list_cnt = 0,
-		.cmd_list_cnt_lock =
-			__MUTEX_INITIALIZER(mdla_devices[0].cmd_list_cnt_lock),
 #endif
 	},
 	{
@@ -153,11 +152,9 @@ struct mdla_dev mdla_devices[] = {
 		.cmd_buf_dmp_lock =
 			__MUTEX_INITIALIZER(mdla_devices[1].cmd_buf_dmp_lock),
 		.cmd_buf_len = 0,
+		.cmd_list_cnt = 0,
 #ifdef __APUSYS_PREEMPTION__
 		.error_bit = 0,
-		.cmd_list_cnt = 0,
-		.cmd_list_cnt_lock =
-			__MUTEX_INITIALIZER(mdla_devices[1].cmd_list_cnt_lock),
 #endif
 	},
 };
@@ -446,7 +443,7 @@ static int mdla_remove(struct platform_device *pdev)
 	mdla_drv_debug("%s start -\n", __func__);
 
 	for (i = 0; i < mdla_max_num_core; i++)
-		mdla_start_power_off(i, 0);
+		mdla_start_power_off(i, 0, true);
 
 	if (mdla_unregister_power(pdev)) {
 		dev_info(dev, "unregister mdla power fail\n");
@@ -491,7 +488,7 @@ static int mdla_suspend(struct platform_device *pdev, pm_message_t mesg)
 	int i;
 
 	for (i = 0; i < mdla_max_num_core; i++) {
-		mdla_start_power_off(i, 1);
+		mdla_start_power_off(i, 1, true);
 	}
 	mdla_cmd_debug("%s: suspend\n", __func__);
 	return 0;
@@ -628,15 +625,15 @@ int apusys_mdla_handler(int type,
 #endif
 	switch (type) {
 	case APUSYS_CMD_POWERON:
-		retval = mdla_pwr_on(mdla_info->mdlaid);
+		retval = mdla_pwr_on(mdla_info->mdlaid, true);
 		break;
 	case APUSYS_CMD_POWERDOWN:
-		mdla_start_power_off(mdla_info->mdlaid, 0);
+		mdla_start_power_off(mdla_info->mdlaid, 0, true);
 		break;
 	case APUSYS_CMD_RESUME:
 		break;
 	case APUSYS_CMD_SUSPEND:
-		mdla_start_power_off(mdla_info->mdlaid, 1);
+		mdla_start_power_off(mdla_info->mdlaid, 1, true);
 		break;
 	case APUSYS_CMD_EXECUTE:
 	{//cmd_hnd error check XXX

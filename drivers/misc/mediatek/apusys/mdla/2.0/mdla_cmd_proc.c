@@ -229,34 +229,16 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 		return -REASON_MDLA_NULLPOINT;
 
 #ifdef CONFIG_PM_WAKELOCKS
-	/* TODO, Need to check PMU can work when preempt */
-	mutex_lock(&mdla_info->cmd_list_cnt_lock);
-	mdla_info->cmd_list_cnt++;
+	mutex_lock(&wake_lock_mutex);
 	if (mdla_ws && !ws_count)
 		__pm_stay_awake(mdla_ws);
 	ws_count++;
-	ret = mdla_pwr_on(core_id);
-	if (ret) {
-		mdla_info->cmd_list_cnt--;
-		ws_count--;
-		if (mdla_ws && !ws_count)
-			__pm_relax(mdla_ws);
-		mutex_unlock(&mdla_info->cmd_list_cnt_lock);
-		return (ret<<2)|REASON_MDLA_POWERON;
-	}
-	mutex_unlock(&mdla_info->cmd_list_cnt_lock);
-#else//CONFIG_PM_WAKELOCKS
-	/* TODO, Need to check PMU can work when preempt */
-	mutex_lock(&mdla_info->cmd_list_cnt_lock);
-	mdla_info->cmd_list_cnt++;
-	ret = mdla_pwr_on(core_id);
-	if (ret) {
-		mdla_info->cmd_list_cnt--;
-		mutex_unlock(&mdla_info->cmd_list_cnt_lock);
-		return ret;
-	}
-	mutex_unlock(&mdla_info->cmd_list_cnt_lock);
-#endif//CONFIG_PM_WAKELOCKS
+	mutex_unlock(&wake_lock_mutex);
+#endif
+
+	ret = mdla_pwr_on(core_id, false);
+	if (ret)
+		goto mdla_cmd_done;
 
 	/* initial global variable */
 	spin_lock_irqsave(&scheduler->lock, flags);
@@ -426,19 +408,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 #endif
 
 error_handle:
-	/* Protect cmd list count and mdla_command_done atomic exe. */
-	mutex_lock(&mdla_info->cmd_list_cnt_lock);
-	mdla_info->cmd_list_cnt--;
-	/* If HW doesn't have cmd, system can setup timer for power down */
-	if (!mdla_info->cmd_list_cnt)
-		mdla_command_done(core_id);
-#ifdef CONFIG_PM_WAKELOCKS
-	ws_count--;
-	if (mdla_ws && !ws_count)
-		__pm_relax(mdla_ws);
-#endif
-	mutex_unlock(&mdla_info->cmd_list_cnt_lock);
-
 	ce->wait_t = sched_clock();
 
 	if (ce->cmd_batch_en && ce->batch_list_head != NULL)
@@ -453,6 +422,17 @@ error_handle:
 		scheduler->pro_ce_high = NULL;
 	}
 	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	/* Start power off timer */
+	mdla_command_done(core_id);
+mdla_cmd_done:
+#ifdef CONFIG_PM_WAKELOCKS
+	mutex_lock(&wake_lock_mutex);
+	ws_count--;
+	if (mdla_ws && !ws_count)
+		__pm_relax(mdla_ws);
+	mutex_unlock(&wake_lock_mutex);
+#endif
 	return ret;
 }
 #else
@@ -510,7 +490,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
 				__func__, core_id, mdla_info->max_cmd_id, id);
 
-	ret = mdla_pwr_on(core_id);
+	ret = mdla_pwr_on(core_id, false);
 	if (ret)
 		goto mdla_cmd_done;
 

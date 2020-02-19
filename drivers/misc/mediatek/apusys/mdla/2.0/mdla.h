@@ -237,10 +237,9 @@ struct mdla_dev {
 	void (*power_pdn_work)(struct work_struct *work);
 	int mdla_power_status;
 	int mdla_sw_power_status;
+	u32 cmd_list_cnt;
 #ifdef __APUSYS_PREEMPTION__
 	struct mdla_scheduler *scheduler;
-	u32 cmd_list_cnt;
-	struct mutex cmd_list_cnt_lock;
 	u32 error_bit;
 #endif
 	struct mdla_pmu_info pmu[PRIORITY_LEVEL];
@@ -266,6 +265,7 @@ extern struct mdla_dev mdla_devices[];
 extern struct mdla_irq_desc mdla_irqdesc[];
 
 #ifdef __APUSYS_PREEMPTION__
+extern struct mutex wake_lock_mutex;
 
 /*
  * @ worker: record All MDLA HW state
