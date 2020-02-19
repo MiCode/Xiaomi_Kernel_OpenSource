@@ -1979,6 +1979,21 @@ ufs_qcom_ioctl(struct scsi_device *dev, unsigned int cmd, void __user *buffer)
 	return err;
 }
 
+static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+
+	if (np) {
+		if (of_property_read_u32(np, "rpm-level",
+					 &hba->rpm_lvl))
+			hba->rpm_lvl = -1;
+		if (of_property_read_u32(np, "spm-level",
+					 &hba->spm_lvl))
+			hba->spm_lvl = -1;
+	}
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -2132,6 +2147,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (err)
 		goto out_set_load_vccq_parent;
 
+	ufs_qcom_parse_pm_level(hba);
 	ufs_qcom_parse_limits(host);
 	ufs_qcom_parse_lpm(host);
 	if (host->disable_lpm)
