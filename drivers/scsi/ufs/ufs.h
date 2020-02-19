@@ -363,6 +363,14 @@ enum {
 #endif
 };
 
+#if defined(CONFIG_UFSTW)
+/* TW buffer type */
+enum {
+	WB_LU_DEDICATED_BUFFER_TYPE	= 0x0,
+	WB_SINGLE_SHARE_BUFFER_TYPE	= 0x1
+};
+#endif
+
 /* Background operation status */
 enum bkops_status {
 	BKOPS_STATUS_NO_OP               = 0x0,

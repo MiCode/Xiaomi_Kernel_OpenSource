@@ -164,17 +164,33 @@ void ufstw_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp)
 	spin_unlock_bh(&tw->lifetime_lock);
 }
 
+static u8 ufstw_get_query_idx(struct ufstw_lu *tw)
+{
+	u8 idx;
+
+	/* Share buffer type only use idx 0 */
+	if (tw->ufsf->tw_dev_info.tw_buf_type == WB_SINGLE_SHARE_BUFFER_TYPE)
+		idx = 0;
+	else
+		idx = (u8)tw->lun;
+
+	return idx;
+}
+
 static int ufstw_read_lu_attr(struct ufstw_lu *tw, u8 idn, u32 *attr_val)
 {
 	struct ufs_hba *hba = tw->ufsf->hba;
 	int err;
 	u32 val;
+	u8 idx;
 
 	pm_runtime_get_sync(hba->dev);
 
 	ufstw_lu_get(tw);
+
+	idx = ufstw_get_query_idx(tw);
 	err = ufsf_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR, idn,
-				    (u8)tw->lun, &val);
+				    idx, &val);
 	if (err) {
 		ERR_MSG("read attr [0x%.2X] failed...err %d", idn, err);
 		ufstw_lu_put(tw);
@@ -204,12 +220,14 @@ static int ufstw_set_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res)
 {
 	struct ufs_hba *hba = tw->ufsf->hba;
 	int err;
+	u8 idx;
 
 	pm_runtime_get_sync(hba->dev);
 	ufstw_lu_get(tw);
 
+	idx = ufstw_get_query_idx(tw);
 	err = ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_SET_FLAG, idn,
-				    (u8)tw->lun, NULL);
+				    idx, NULL);
 	if (err) {
 		ERR_MSG("set flag [0x%.2X] failed...err %d", idn, err);
 		ufstw_lu_put(tw);
@@ -238,12 +256,14 @@ static int ufstw_clear_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res)
 {
 	struct ufs_hba *hba = tw->ufsf->hba;
 	int err;
+	u8 idx;
 
 	pm_runtime_get_sync(hba->dev);
 	ufstw_lu_get(tw);
 
+	idx = ufstw_get_query_idx(tw);
 	err = ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_CLEAR_FLAG, idn,
-				    (u8)tw->lun, NULL);
+				    idx, NULL);
 	if (err) {
 		ERR_MSG("clear flag [0x%.2X] failed...err%d", idn, err);
 		ufstw_lu_put(tw);
@@ -274,12 +294,14 @@ static inline int ufstw_read_lu_flag(struct ufstw_lu *tw, u8 idn,
 	struct ufs_hba *hba = tw->ufsf->hba;
 	int err;
 	bool val = 0;
+	u8 idx;
 
 	pm_runtime_get_sync(hba->dev);
 	ufstw_lu_get(tw);
 
+	idx = ufstw_get_query_idx(tw);
 	err = ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_READ_FLAG, idn,
-				    (u8)tw->lun, &val);
+				    idx, &val);
 	if (err) {
 		ERR_MSG("read flag [0x%.2X] failed...err%d", idn, err);
 		ufstw_lu_put(tw);
@@ -518,6 +540,7 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 	struct ufs_hba *hba = ufsf->hba;
 	struct ufstw_lu *tw;
 	bool need_flush = false;
+	u8 idx;
 
 	if (!ufsf->tw_lup[2])
 		goto out;
@@ -549,9 +572,10 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 		goto out_put;
 	}
 
+	idx = ufstw_get_query_idx(tw);
 	if (ufsf_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 				  QUERY_ATTR_IDN_TW_BUF_SIZE,
-				  (u8)tw->lun,
+				  idx,
 				  &tw->tw_available_buffer_size)) {
 		ERR_MSG("ERROR: get available tw buffer size error");
 		goto out_put;
@@ -563,6 +587,11 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 	}
 
 out_put:
+	if (need_flush) {
+		INFO_MSG("UFS TW available buffer size(%d) < %d0%%",
+			tw->tw_available_buffer_size, tw->flush_th_max);
+	}
+
 	ufstw_lu_put(tw);
 out:
 	return need_flush;
@@ -588,11 +617,7 @@ static inline void ufstw_cancel_lu_jobs(struct ufstw_lu *tw)
 	int ret;
 
 	ret = cancel_delayed_work_sync(&tw->tw_flush_work);
-	INIT_INFO("cancel_delayed_work_sync(tw_flush_work) ufstw_lu%d = %d",
-		  tw->lun, ret);
 	ret = cancel_work_sync(&tw->tw_lifetime_work);
-	INIT_INFO("cancel_work_sync(tw_lifetime_work) ufstw_lu%d = %d",
-		  tw->lun, ret);
 }
 
 static inline int ufstw_version_check(struct ufstw_dev_info *tw_dev_info)
@@ -676,7 +701,10 @@ int ufstw_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *lu_buf)
 
 	ufsf->tw_lup[lun] = NULL;
 
-	if (lu_desc.tw_lu_buf_size) {
+	/* MTK: tw_buf_type = 0(LU base), 1(Single share) */
+	if ((lu_desc.tw_lu_buf_size) ||
+		((ufsf->tw_dev_info.tw_buf_type == WB_SINGLE_SHARE_BUFFER_TYPE)
+		&& (lun == 2))) {
 		ufsf->tw_lup[lun] =
 			kzalloc(sizeof(struct ufstw_lu), GFP_KERNEL);
 		if (!ufsf->tw_lup[lun])
@@ -939,7 +967,6 @@ void ufstw_suspend(struct ufsf_feature *ufsf)
 			continue;
 
 		ufstw_lu_get(tw);
-		INFO_MSG("ufstw_lu%d goto suspend", lun);
 		ufstw_cancel_lu_jobs(tw);
 		ufstw_lu_put(tw);
 	}
