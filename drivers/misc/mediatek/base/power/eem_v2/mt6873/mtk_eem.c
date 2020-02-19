@@ -1719,11 +1719,6 @@ static int eem_probe(struct platform_device *pdev)
 
 #endif
 
-	if (ctrl_EEMSN_Enable == 0) {
-		eem_error("ctrl_EEMSN_Enable = 0\n");
-		FUNC_EXIT(FUNC_LV_MODULE);
-		return 0;
-	}
 #if SUPPORT_PICACHU
 	/* Setup IO addresses */
 	eem_base = of_iomap(node, 0);
@@ -1751,8 +1746,6 @@ static int eem_probe(struct platform_device *pdev)
 #endif
 #endif
 
-
-	create_procfs();
 	informEEMisReady = 1;
 #if 0
 	/* set EEM IRQ */
@@ -1769,7 +1762,7 @@ static int eem_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC
-		_mt_eem_aee_init();
+	_mt_eem_aee_init();
 #endif
 
 
@@ -1808,6 +1801,11 @@ static int eem_probe(struct platform_device *pdev)
 		eem_dconfig_set_det(det, node);
 #endif
 
+#ifdef EEM_NOT_READY
+	ctrl_EEMSN_Enable = 0;
+	ctrl_SN_Enable = 0;
+#endif
+
 	eemsn_log->eemsn_enable = ctrl_EEMSN_Enable;
 	eemsn_log->sn_enable = ctrl_SN_Enable;
 
@@ -1817,48 +1815,62 @@ static int eem_probe(struct platform_device *pdev)
 	ret = eem_to_cpueb(IPI_EEMSN_GET_EEM_VOLT, &eem_data);
 #endif
 	ptp_data[0] = 0;
+
+	if (ctrl_EEMSN_Enable != 0) {
 #if UPDATE_TO_UPOWER
-	while (1) {
-		if ((eemsn_log->init2_v_ready == 0) && (locklimit < 5)) {
-			locklimit++;
-			eem_error("wait init2_v_ready:%d, locklimit:%d\n",
+		while (1) {
+			if ((eemsn_log->init2_v_ready == 0) &&
+				(locklimit < 5)) {
+				locklimit++;
+				eem_error(
+		"wait init2_v_ready:%d, locklimit:%d\n",
 				eemsn_log->init2_v_ready, locklimit);
-			mdelay(5); /* wait 5 ms */
-			continue; /* if lock, read dram again */
-		} else
-			break;
-	}
-	for_each_det(det) {
-		if (eemsn_log->init2_v_ready == 0)
-			for (i = 0; i < NR_FREQ; i++)
-				det->volt_tbl_pmic[i] = (unsigned int)
-					det->volt_tbl_orig[i];
-		else {
-			for (i = 0; i < NR_FREQ; i++) {
-				if (
-				eemsn_log->det_log[det->det_id].volt_tbl_pmic[i]
-					!= 0)
-					det->volt_tbl_pmic[i] = (unsigned int)
-	eemsn_log->det_log[det->det_id].volt_tbl_pmic[i];
-				eem_debug("pmic[%d], 0x%x",
-					i, det->volt_tbl_pmic[i]);
-			}
+				mdelay(5); /* wait 5 ms */
+				continue; /* if lock, read dram again */
+			} else
+				break;
 		}
-		eem_update_init2_volt_to_upower(det,
-			det->volt_tbl_pmic);
-		eem_save_final_volt_aee(det);
-	}
+		for_each_det(det) {
+			if (eemsn_log->init2_v_ready == 0)
+				for (i = 0; i < NR_FREQ; i++)
+					det->volt_tbl_pmic[i] = (unsigned int)
+						det->volt_tbl_orig[i];
+			else {
+				for (i = 0; i < NR_FREQ; i++) {
+					if (
+					eemsn_log->det_log[
+	det->det_id].volt_tbl_pmic[i] != 0)
+						det->volt_tbl_pmic[i] =
+	(unsigned int) eemsn_log->det_log[det->det_id].volt_tbl_pmic[i];
+					eem_debug("pmic[%d], 0x%x",
+						i, det->volt_tbl_pmic[i]);
+				}
+			}
+			eem_update_init2_volt_to_upower(det,
+				det->volt_tbl_pmic);
+			eem_save_final_volt_aee(det);
+		}
 #endif
+	}
+
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	eem_data.u.data.arg[0] = 0;
 	ret = eem_to_cpueb(IPI_EEMSN_INIT02, &eem_data);
+
+	if (ctrl_EEMSN_Enable == 0)
+		return 0;
 
 	for_each_det(det) {
 		cpudvfsindex = detid_to_dvfsid(det);
 		mt_cpufreq_update_legacy_volt(cpudvfsindex,
 			det->volt_tbl_pmic, det->num_freq_tbl);
-			eem_save_init2_volt_aee(det);
+		memcpy(det->volt_tbl_init2,
+			eemsn_log->det_log[det->det_id].volt_tbl_init2,
+			sizeof(det->volt_tbl_init2));
+		eem_save_init2_volt_aee(det);
 	}
+
+	create_procfs();
 
 	eem_debug("%s ok\n", __func__);
 	FUNC_EXIT(FUNC_LV_MODULE);
@@ -3106,12 +3118,6 @@ struct eemsn_det *det;
 	void __iomem *spare1_phys;
 #endif
 
-
-
-#ifdef EEM_NOT_READY
-	return 0;
-#endif
-
 	eem_debug("[EEM] ctrl_EEMSN_Enable=%d\n", ctrl_EEMSN_Enable);
 	get_devinfo();
 
@@ -3123,7 +3129,6 @@ struct eemsn_det *det;
 		eem_error("%s error ret:%d\n", __func__, err);
 		return 0;
 	}
-
 
 	eem_log_phy_addr =
 		mcupm_reserve_mem_get_phys(MCUPM_EEMSN_MEM_ID);
@@ -3181,15 +3186,11 @@ struct eemsn_det *det;
 	sizeof(struct sn_param),
 	sizeof(struct eemsn_devinfo));
 
-	/* move to eem_probe */
-	/* create_procfs(); */
-
 	if (eem_checkEfuse == 0) {
 		eem_error("eem_checkEfuse = 0\n");
 		FUNC_EXIT(FUNC_LV_MODULE);
 		return 0;
 	}
-
 
 	/*
 	 * reg platform device driver
