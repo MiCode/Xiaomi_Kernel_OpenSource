@@ -1942,6 +1942,17 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	// Check if need to proceed cache operations
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (mtkbuf->general_buf_fd > -1)
+			mtkbuf->dma_general_buf =
+				dma_buf_get(mtkbuf->general_buf_fd);
+		else
+			mtkbuf->dma_general_buf = 0;
+		mtk_v4l2_debug(4,
+			"general_buf_fd = %d, dma_general_buf = %p",
+			mtkbuf->general_buf_fd,
+			mtkbuf->dma_general_buf);
+	}
 	if (!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
 		!(ctx->dec_params.svp_mode)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -1995,22 +2006,12 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 					ctx->picinfo.fb_sz[plane];
 				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
-				dst_mem.general_buf_fd = mtkbuf->general_buf_fd;
-				if (mtkbuf->general_buf_fd > -1)
-					dst_mem.dma_general_buf =
-					  dma_buf_get(mtkbuf->general_buf_fd);
-				else
-					dst_mem.dma_general_buf = 0;
-				mtkbuf->dma_general_buf =
-					dst_mem.dma_general_buf;
 				mtk_v4l2_debug(4,
-				  "[%d] Cache sync- TD for %p sz=%d dev %p, general_buf_fd = %d, dma_general_buf = %p",
+				  "[%d] Cache sync- TD for %p sz=%d dev %p",
 				  ctx->id,
 				  (void *)dst_mem.fb_base[plane].dma_addr,
 				  (unsigned int)dst_mem.fb_base[plane].size,
-				  &ctx->dev->plat_dev->dev,
-				  dst_mem.general_buf_fd,
-				  dst_mem.dma_general_buf);
+				  &ctx->dev->plat_dev->dev);
 			}
 		}
 	}
