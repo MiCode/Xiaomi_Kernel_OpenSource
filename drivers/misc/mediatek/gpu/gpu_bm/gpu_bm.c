@@ -148,12 +148,23 @@ static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 static void bw_v1_gpu_power_change_notify(int power_on)
 {
 	static int ctx;
+	unsigned int loading;
+
+	mtk_get_gpu_loading(&loading);
 
 	if (!power_on) {
 		ctx = gpu_info_buf->ctx;
 		gpu_info_buf->ctx = 0; // ctx
 	} else {
 		gpu_info_buf->ctx = ctx;
+
+		/*
+		 * if gpu loading < 15%, don't do GPU QoS prediction.
+		 */
+		if (loading < 15)
+			gpu_info_buf->freq = 5566;
+		else
+			gpu_info_buf->freq = 0;
 	}
 
 }
