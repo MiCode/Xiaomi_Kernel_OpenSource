@@ -131,6 +131,8 @@ static unsigned int record_tbl_locked[NR_FREQ];
 #if SUPPORT_PICACHU
 #define PICACHU_SIG					(0xA5)
 #define PICACHU_SIGNATURE_SHIFT_BIT	(24)
+#define EEM_PHY_TEMPSPARE1		0x112788F4
+
 #endif
 /******************************************
  * common variables for legacy ptp
@@ -3100,6 +3102,11 @@ static int __init eem_init(void)
 struct eemsn_det *det;
 #endif
 	int err = 0;
+#if defined(MC50_LOAD)
+	void __iomem *spare1_phys;
+#endif
+
+
 
 #ifdef EEM_NOT_READY
 	return 0;
@@ -3137,6 +3144,14 @@ struct eemsn_det *det;
 			& 0xFF;
 	/* eemsn_log->efuse_sv = eem_read(EEM_TEMPSPARE1); */
 
+#if defined(MC50_LOAD)
+	/* for MC50 */
+	spare1_phys = ioremap(EEM_PHY_TEMPSPARE1, 0);
+	if ((void __iomem *)spare1_phys != NULL)
+		eem_write(spare1_phys, SPARE1_VAL);
+	else
+		eem_error("incorrect spare1_phys:0x%x", spare1_phys);
+#endif
 	/* get original volt from cpu dvfs before init01 */
 	for_each_det(det) {
 
