@@ -1869,6 +1869,12 @@ static int mtk_ion_copy_param(unsigned int type,
 			     param.config_buffer_param.module_id,
 			     buffer->heap->type,
 			     (*client_name) ? client_name : "null");
+#if defined(ION_NOT_SUPPORT_RETRY)
+			mmu_aee_print(
+				      "ION_MM_CONFIG_BUFFER CONFLICT 0x%x -- 0x%x\n",
+				      buffer_info->module_id,
+				param.config_buffer_param.module_id);
+#endif
 			return -ION_ERROR_CONFIG_CONFLICT;
 		}
 
@@ -1880,6 +1886,12 @@ static int mtk_ion_copy_param(unsigned int type,
 			     param.config_buffer_param.module_id,
 			     buffer->heap->type,
 			     (*client_name) ? client_name : "null");
+#if defined(ION_NOT_SUPPORT_RETRY)
+			mmu_aee_print(
+				      "ION_MM_CONFIG_BUFFER_EXT CONFLICT 0x%x -- 0x%x\n",
+				      buffer_info->fix_module_id,
+				param.config_buffer_param.module_id);
+#endif
 			return -ION_ERROR_CONFIG_CONFLICT;
 		}
 #endif
@@ -1929,6 +1941,12 @@ static int mtk_ion_copy_param(unsigned int type,
 			     param.get_phys_param.module_id,
 			     buffer->heap->type,
 			     (*client_name) ? client_name : "null");
+#if defined(ION_NOT_SUPPORT_RETRY)
+			mmu_aee_print(
+				      "ION_MM_GET_IOVA CONFLICT 0x%x -- 0x%x\n",
+				      buffer_info->module_id,
+				param.config_buffer_param.module_id);
+#endif
 			return -ION_ERROR_CONFIG_CONFLICT;
 		} else if (mm_cmd == ION_MM_GET_IOVA_EXT &&
 		    buffer_info->fix_module_id != -1) {
@@ -1938,6 +1956,12 @@ static int mtk_ion_copy_param(unsigned int type,
 			     param.get_phys_param.module_id,
 			     buffer->heap->type,
 			     (*client_name) ? client_name : "null");
+#if defined(ION_NOT_SUPPORT_RETRY)
+			mmu_aee_print(
+				      "ION_MM_GET_IOVA_EXT CONFLICT 0x%x -- 0x%x\n",
+				      buffer_info->fix_module_id,
+				param.config_buffer_param.module_id);
+#endif
 			return -ION_ERROR_CONFIG_CONFLICT;
 		}
 #endif
