@@ -312,9 +312,26 @@ void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 	u32 val = 0, on = 0;
 
 	while (p->pin != 0xffff) {
-		if ((desc->number == p->pin) && (mode == p->pinmux)) {
-			on = 1;
-			break;
+		if (desc->number == p->pin) {
+			if (mode == p->pinmux) {
+				on = 1;
+				break;
+			} else if (desc->number != (p + 1)->pin) {
+				/*
+				 * If the target mode does not match
+				 * the mode in current entry.
+				 *
+				 * Check the next entry if the pin
+				 * number is the same.
+				 * Yes: target pin have more than one
+				 *    pinmux shall enable eh. Check the
+				 *    next entry.
+				 * No: target pin do not have other
+				 *    pinmux shall enable eh. Just disable
+				 *    the EH function.
+				 */
+				break;
+			}
 		}
 		/* It is possible that one pin may have more than one pinmux
 		 *   that shall enable eh.
@@ -324,9 +341,14 @@ void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		 *   found and we can leave.
 		 */
 		if (desc->number < p->pin)
-			break;
+			return;
+
 		p++;
 	}
+
+	/* If pin not found, just return */
+	if (p->pin == 0xffff)
+		return;
 
 	(void)mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, &val);
 	if (on)
