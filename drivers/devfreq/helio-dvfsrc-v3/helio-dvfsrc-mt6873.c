@@ -33,7 +33,7 @@
 #include <linux/sched/clock.h>
 #include <dbgtop.h>
 
-/* #define DVFSRC_FB_MD_TABLE_SWITCH*/
+#define DVFSRC_FB_MD_TABLE_SWITCH
 #define AUTOK_ENABLE
 #define dvfsrc_rmw(offset, val, mask, shift) \
 	dvfsrc_write(offset, (dvfsrc_read(offset) & ~(mask << shift)) \
@@ -93,15 +93,16 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT1_REQ_MD_BW_9,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00034800 },
 #ifdef DVFSRC_FB_MD_TABLE_SWITCH
-		{ DVFSRC_95MD_SCEN_BW0_T,    0x20222220 },
-		{ DVFSRC_95MD_SCEN_BW1_T,    0x22222222 },
+		{ DVFSRC_95MD_SCEN_BW0_T,    0x40444440 },
+		{ DVFSRC_95MD_SCEN_BW1_T,    0x44444444 },
 		{ DVFSRC_95MD_SCEN_BW2_T,    0x00400444 },
 		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
-		{ DVFSRC_95MD_SCEN_BW0,      0x00000000 },
-		{ DVFSRC_95MD_SCEN_BW1,      0x00000000 },
+		{ DVFSRC_95MD_SCEN_BW0,      0x20222220 },
+		{ DVFSRC_95MD_SCEN_BW1,      0x22222222 },
 		{ DVFSRC_95MD_SCEN_BW2,      0x00200222 },
 		{ DVFSRC_95MD_SCEN_BW3,      0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW4,      0x00000006 },
+		{ DVFSRC_RSRV_5,             0x00000001 },
 #else
 		{ DVFSRC_95MD_SCEN_BW0_T,    0x40444440 },
 		{ DVFSRC_95MD_SCEN_BW1_T,    0x44444444 },
@@ -203,13 +204,13 @@ static DEVICE_ATTR(dvfsrc_md_imp_gear, 0644,
 	dvfsrc_md_imp_gear_show, dvfsrc_md_imp_gear_store);
 
 static ssize_t dvfsrc_md_qos_performance_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+	struct device_attribute *attr, char *buf)
 {
 	int len = 0;
 
 	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
 		"%-12s: 0x%08x\n",
-		"PERFORMANCE",
+		"RSRV_5",
 		dvfsrc_read(DVFSRC_RSRV_5));
 
 	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
@@ -240,43 +241,8 @@ static ssize_t dvfsrc_md_qos_performance_show(struct device *dev,
 
 	return len;
 }
-static ssize_t dvfsrc_md_qos_performance_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	int on = 0;
-
-	if (kstrtoint(buf, 10, &on))
-		return -EINVAL;
-
-	if (on) {
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW0_T, 0x40444440);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW2_T, 0x00400444);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW3_T, 0x60000000);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW0, 0x20222220);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW1, 0x22222222);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW2, 0x00200222);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW3, 0x60000000);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW4, 0x00000006);
-		dvfsrc_write(DVFSRC_RSRV_5, 0x00000001);
-	} else {
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW0_T, 0x20222220);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x22222222);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW2_T, 0x00400444);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW3_T, 0x60000000);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW0, 0x00000000);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW1, 0x00000000);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW2, 0x00200222);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW3, 0x60000000);
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW4, 0x00000006);
-		dvfsrc_write(DVFSRC_RSRV_5, 0x00000000);
-	}
-
-	return count;
-}
-static DEVICE_ATTR(dvfsrc_md_qos_performance, 0644,
-	dvfsrc_md_qos_performance_show, dvfsrc_md_qos_performance_store);
-
+static DEVICE_ATTR(dvfsrc_md_qos_performance, 0444,
+	dvfsrc_md_qos_performance_show, NULL);
 
 static struct attribute *mt6873_helio_dvfsrc_attrs[] = {
 	&dev_attr_dvfsrc_level_mask.attr,
@@ -448,15 +414,15 @@ static void dvfsrc_autok_manager(void)
 }
 #endif
 
-static void dvfsrc_md_ddr_turbo(int is_turbo)
+static void dvfsrc_update_md_scenario(bool blank)
 {
-	if (dvfsrc_read(DVFSRC_RSRV_5))
-		return;
-
-	if (is_turbo)
-		dvfsrc_write(DVFSRC_MD_TURBO, 0x00000000);
-	else
-		dvfsrc_write(DVFSRC_MD_TURBO, 0x1FFF0000);
+#ifdef DVFSRC_FB_MD_TABLE_SWITCH
+	if (blank) {
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x22244444);
+	} else {
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
+	}
+#endif
 }
 
 static int dvfsrc_fb_notifier_call(struct notifier_block *self,
@@ -472,10 +438,10 @@ static int dvfsrc_fb_notifier_call(struct notifier_block *self,
 
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
-		dvfsrc_md_ddr_turbo(true);
+		dvfsrc_update_md_scenario(false);
 		break;
 	case FB_BLANK_POWERDOWN:
-		dvfsrc_md_ddr_turbo(false);
+		dvfsrc_update_md_scenario(true);
 		break;
 	default:
 		break;
