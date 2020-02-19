@@ -811,6 +811,17 @@ void ufstw_init(struct ufsf_feature *ufsf)
 #endif
 
 	kref_init(&ufsf->tw_kref);
+
+#ifdef UFS_MTK_TW_AWAYS_ON
+	/* MTK: TW only enable in LU2, skip scan */
+	lun = 2;
+	if (ufsf->tw_lup[lun]) {
+		ufstw_lu_init(ufsf, lun);
+		tw_lun = lun;
+		INIT_INFO("UFSTW LU %d working", lun);
+		tw_enabled_lun++;
+	}
+#else
 	seq_scan_lu(lun) {
 		if (!ufsf->tw_lup[lun])
 			continue;
@@ -823,13 +834,11 @@ void ufstw_init(struct ufsf_feature *ufsf)
 		ufstw_lu_init(ufsf, lun);
 
 		ufsf->sdev_ufs_lu[lun]->request_queue->turbo_write_dev = true;
-#ifdef UFS_MTK_TW_AWAYS_ON
-		tw_lun = lun;
-#endif
 
 		INIT_INFO("UFSTW LU %d working", lun);
 		tw_enabled_lun++;
 	}
+#endif
 
 	if (tw_enabled_lun == 0) {
 		ERR_MSG("ERROR: tw_enabled_lun == 0. So TW disabled.");
@@ -889,6 +898,8 @@ void ufstw_init_work_fn(struct work_struct *work)
 
 	ufsf = container_of(work, struct ufsf_feature, tw_init_work);
 
+#ifndef UFS_MTK_TW_AWAYS_ON
+	/* MTK: TW only enable in LU2, skip wait */
 	init_waitqueue_head(&ufsf->tw_wait);
 
 	ret = wait_event_timeout(ufsf->tw_wait,
@@ -898,6 +909,7 @@ void ufstw_init_work_fn(struct work_struct *work)
 		ERR_MSG("Probing LU is not fully completed.");
 		return;
 	}
+#endif
 
 	INIT_INFO("TW_INIT_START");
 
