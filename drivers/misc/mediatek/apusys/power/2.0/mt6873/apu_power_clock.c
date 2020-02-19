@@ -817,8 +817,9 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 	/* If need, switch dsp1_npupll_sel's parent to NPUPLL */
 	clk_target = clk_get_parent(clk_top_dsp1_npupll_sel);
-	if (!clk_is_match(clk_target, clk_top_npupll_ck)) {
-		LOG_DBG("%s change %s's parent from %s to %s\n", __func__,
+	if (apusys_get_power_on_status(VPU0) &&
+	    !clk_is_match(clk_target, clk_top_npupll_ck)) {
+		LOG_DBG("%s modify %s's parent from %s to %s\n", __func__,
 			__clk_get_name(clk_top_dsp1_npupll_sel),
 			__clk_get_name(clk_target),
 			__clk_get_name(clk_top_npupll_ck));
@@ -828,8 +829,9 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 	/* If need, switch dsp2_npupll_sel's parent to NPUPLL */
 	clk_target = clk_get_parent(clk_top_dsp2_npupll_sel);
-	if (!clk_is_match(clk_target, clk_top_npupll_ck)) {
-		LOG_DBG("%s change %s's parent from %s to %s\n", __func__,
+	if (apusys_get_power_on_status(VPU1) &&
+	    !clk_is_match(clk_target, clk_top_npupll_ck)) {
+		LOG_DBG("%s modify %s's parent from %s to %s\n", __func__,
 			__clk_get_name(clk_top_dsp2_npupll_sel),
 			__clk_get_name(clk_target),
 			__clk_get_name(clk_top_npupll_ck));
