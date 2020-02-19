@@ -170,6 +170,8 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	ctx->sram_data.type = TP_BUFFER;
 	ctx->sram_data.size = 0;
 	ctx->sram_data.flag = FG_POWER;
+
+	mtk_vcodec_enc_clock_on(ctx, 0);
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -226,7 +228,7 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 
 void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-
+	mtk_vcodec_enc_clock_off(ctx, 0);
 }
 
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
