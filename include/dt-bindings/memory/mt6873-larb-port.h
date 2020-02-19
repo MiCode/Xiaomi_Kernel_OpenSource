@@ -9,8 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef _DTS_IOMMU_PORT_MT6886_H_
-#define _DTS_IOMMU_PORT_MT6886_H_
+#ifndef _DTS_IOMMU_PORT_MT6873_H_
+#define _DTS_IOMMU_PORT_MT6873_H_
 
 #define MTK_M4U_ID(larb, port)			(((larb) << 5) | (port))
 
