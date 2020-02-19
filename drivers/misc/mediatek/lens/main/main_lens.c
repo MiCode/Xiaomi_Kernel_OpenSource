@@ -117,6 +117,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 DW9719TAF_Release, DW9719TAF_GetFileName, NULL},
 	{1, AFDRV_LC898212XDAF, LC898212XDAF_SetI2Cclient, LC898212XDAF_Ioctl,
 	 LC898212XDAF_Release, LC898212XDAF_GetFileName, NULL},
+	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient, DW9800WAF_Ioctl,
+	DW9800WAF_Release, DW9800WAF_GetFileName, NULL},
 	{1, AFDRV_DW9814AF, DW9814AF_SetI2Cclient, DW9814AF_Ioctl,
 	 DW9814AF_Release, DW9814AF_GetFileName, NULL},
 	{1, AFDRV_DW9839AF, DW9839AF_SetI2Cclient, DW9839AF_Ioctl,
@@ -263,8 +265,14 @@ void AFRegulatorCtrl(int Stage)
 				regVCAMAF =
 					regulator_get(lens_device, "vldo28");
 				#elif defined(CONFIG_MACH_MT6873)
-				regVCAMAF =
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6873v1_64_alpha", 16) == 0) {
+					regVCAMAF =
+					regulator_get_regVCAMAF();
+				} else {
+					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
+				}
 				#elif defined(CONFIG_MACH_MT6885)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
 					"k6885v1_64_alpha", 16) == 0) {

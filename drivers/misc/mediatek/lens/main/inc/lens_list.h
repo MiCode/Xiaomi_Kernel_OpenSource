@@ -138,6 +138,18 @@ extern long DW9814AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int DW9814AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9814AF_GetFileName(unsigned char *pFileName);
 
+#define DW9800WAF_SetI2Cclient DW9800WAF_SetI2Cclient_Main
+#define DW9800WAF_Ioctl DW9800WAF_Ioctl_Main
+#define DW9800WAF_Release DW9800WAF_Release_Main
+#define DW9800WAF_GetFileName DW9800WAF_GetFileName_Main
+extern int DW9800WAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+	spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DW9800WAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+	unsigned long a_u4Param);
+extern int DW9800WAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DW9800WAF_GetFileName(unsigned char *pFileName);
+extern struct regulator *regulator_get_regVCAMAF(void);
+
 #define DW9718AF_SetI2Cclient DW9718AF_SetI2Cclient_Main
 #define DW9718AF_Ioctl DW9718AF_Ioctl_Main
 #define DW9718AF_Release DW9718AF_Release_Main
