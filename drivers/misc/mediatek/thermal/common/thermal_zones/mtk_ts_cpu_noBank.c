@@ -266,6 +266,7 @@ EXPORT_SYMBOL(tscpu_met_unlock);
 static int g_is_temp_valid;
 static void temp_valid_lock(unsigned long *flags);
 static void temp_valid_unlock(unsigned long *flags);
+static int g_is_TempOutsideNormalRange;
 /*=============================================================
  *Weak functions
  *=============================================================
@@ -1538,6 +1539,36 @@ static void tscpu_clear_all_temp(void)
 }
 
 
+static void check_temp_range(void)
+{
+	int i, j, temp;
+
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		for (j = 0; j < lvts_tscpu_g_tc[i].ts_number; j++) {
+
+			temp = tscpu_ts_lvts_temp[lvts_tscpu_g_tc[i].ts[j]];
+
+			if (temp >= 130000) {
+				g_is_TempOutsideNormalRange |= 0x01;
+				/*Tag thermal controller*/
+				g_is_TempOutsideNormalRange |= (i << 16);
+				g_is_TempOutsideNormalRange |= (j << 8);
+				tscpu_printk(TSCPU_LOG_TAG"ONRT=%d,0x%x\n",
+					temp, g_is_TempOutsideNormalRange);
+			}
+
+			if (temp <= -30000) {
+				g_is_TempOutsideNormalRange |= 0x10;
+				g_is_TempOutsideNormalRange |= (i << 16);
+				g_is_TempOutsideNormalRange |= (j << 8);
+				tscpu_printk(TSCPU_LOG_TAG"ONRT=%d,0x%x\n",
+					temp, g_is_TempOutsideNormalRange);
+			}
+		}
+	}
+}
+
 static void read_all_tc_temperature(void)
 {
 #if CFG_THERM_LVTS
@@ -1551,6 +1582,7 @@ static void read_all_tc_temperature(void)
 
 	while (ret == 0 && cunt < 20) {
 		read_all_tc_lvts_temperature();
+		check_temp_range();
 
 		ret = tscpu_is_temp_valid();
 		if (ret)
@@ -2229,6 +2261,7 @@ static void temp_valid_unlock(unsigned long *flags)
 	spin_unlock_irqrestore(&temp_valid_spinlock, *flags);
 }
 
+
 static void check_all_temp_valid(void)
 {
 	int i, j, raw;
@@ -2253,6 +2286,11 @@ static void check_all_temp_valid(void)
 	}
 #endif
 	g_is_temp_valid = 1;
+}
+
+int tscpu_get_temperature_range(void)
+{
+	return g_is_TempOutsideNormalRange;
 }
 
 int tscpu_is_temp_valid(void)

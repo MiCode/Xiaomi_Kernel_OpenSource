@@ -79,7 +79,9 @@ struct thermal_cooling_device *cdev, unsigned long state)
 	cl_dev_sysrst_state = state;
 
 	if (cl_dev_sysrst_state == 1) {
-		tscpu_printk("%s = 1\n", __func__);
+		tscpu_printk("%s, CPU T=%d, BTS T=%d\n", __func__,
+			mtk_thermal_get_temp(MTK_THERMAL_SENSOR_CPU),
+			mtk_thermal_get_temp(MTK_THERMAL_SENSOR_AP));
 		tscpu_printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 		tscpu_printk("*****************************************\n");
 		tscpu_printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
