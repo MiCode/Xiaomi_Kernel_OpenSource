@@ -492,7 +492,9 @@ void mdla_del_free_command_batch(struct command_entry *ce)
 	struct command_batch *cb;
 	struct list_head *tmp, *next;
 
-	if (ce->batch_list_head == NULL)
+	if (unlikely(ce->batch_list_head == NULL))
+		return;
+	if (unlikely(ce->cmd_batch_size >= ce->count))
 		return;
 	list_for_each_safe(tmp, next, ce->batch_list_head) {
 		cb = list_entry(tmp, struct command_batch, node);
@@ -638,10 +640,6 @@ unsigned int mdla_process_ce(unsigned int core_id)
 	irq_status = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0);
 
 	cmda4 = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_CDMA4);
-	/* read after write make sure it will write back to register now */
-	mdla_reg_write_with_mdlaid(core_id, 1, MREG_TOP_G_CDMA4);
-
-	mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_CDMA4);
 
 	fin_cid = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3);
 
@@ -661,14 +659,20 @@ unsigned int mdla_process_ce(unsigned int core_id)
 		return ret;
 
 	if (cmda4 != (ce->cmd_batch_en + 1)) {
-		ce->irq_state |= IRQ_TWICE;
+		ce->irq_state |= IRQ_RECORD_ERROR;
 		return ret;
 	}
 
 	if (fin_cid < ce->wish_fin_cid) {
 		ce->irq_state |= IRQ_TWICE;
+		ce->fin_cid = fin_cid;
 		return ret;
 	}
+	/* read after write make sure it will write back to register now */
+	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
+	mdla_reg_write_with_mdlaid(core_id, 1, MREG_TOP_G_CDMA4);
+	mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_CDMA4);
+	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
 
 	ce->fin_cid = fin_cid;
 	if (ce->batch_list_head != NULL) {
@@ -717,7 +721,7 @@ void mdla_issue_ce(unsigned int core_id)
 		ce->req_start_t = ce->poweron_t;
 	}
 
-	addr = ce->mva + ce->fin_cid * MREG_CMD_SIZE;
+	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
 	nr_cmd_to_issue = ce->count - ce->fin_cid;
 	if (ce->batch_list_head != NULL) {
 		if (!list_empty(ce->batch_list_head)) {

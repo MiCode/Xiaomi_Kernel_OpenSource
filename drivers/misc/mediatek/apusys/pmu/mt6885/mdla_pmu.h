@@ -71,7 +71,6 @@ void pmu_reset_counter(u32 mdlaid);
 void pmu_reset_cycle_variable(u32 mdlaid, u16 priority);
 void pmu_reset_cycle(u32 mdlaid);
 
-void pmu_resume_local_variable(struct mdla_dev *mdla_info, u16 priority);
 void pmu_init(u32 mdlaid);
 void pmu_reset(u32 mdlaid);
 int pmu_set_reg(u32 mdlaid, u16 priority);

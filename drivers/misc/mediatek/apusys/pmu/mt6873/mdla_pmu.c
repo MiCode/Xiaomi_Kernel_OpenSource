@@ -388,66 +388,6 @@ void pmu_reset_cycle_variable(u32 mdlaid, u16 priority)
 	l_start_t[mdlaid][priority] = 0;
 }
 
-/* it execute when cmd is resume */
-void pmu_resume_local_variable(struct mdla_dev *mdla_info, u16 priority)
-{
-	void *base = NULL;
-	void *desc = NULL;
-	int i = 0;
-	struct mdla_pmu_result result;
-	u32 cid = mdla_info->mdlaid;
-
-	if (cid == 0) {
-		base = (void *)mdla_info->pmu[priority].PMU_res_buf_addr0;
-	} else if (mdla_info->mdlaid == 1) {
-		base = (void *)mdla_info->pmu[priority].PMU_res_buf_addr1;
-	} else {
-		mdla_pmu_debug("unknown mdlaid: %d\n", mdla_info->mdlaid);
-		return;
-	}
-
-	/* copy cmd_len */
-	desc = (void *)(&result);
-	memcpy(desc, base, sizeof(u16));
-
-	/* copy cmd_id and counter */
-	desc = (void *)&(result.cmd_id);
-	base = base + sizeof(u16) +
-		(result.cmd_len-1)*(sizeof(u16) +
-		number_of_event[priority]*sizeof(u32));
-	//copy cmd_id and counter
-	memcpy(
-		desc,
-		base,
-		sizeof(u16) + number_of_event[priority]*sizeof(u32));
-
-	l_cmd_id[cid][priority] = result.cmd_id;
-	l_cmd_cnt[cid][priority] = result.cmd_len;
-
-
-	if (mdla_info->pmu[priority].pmu_mode == PER_CMD) {
-		/* restore end time when it is percmd mode */
-		l_end_t[cid][priority] = result.pmu_val[0];
-		mdla_pmu_debug("PMU resume cmd_id: %d, cmd_len: %d, cycle: %d\n",
-			l_cmd_id[cid][priority],
-			l_cmd_cnt[cid][priority],
-			l_end_t[cid][priority]);
-	} else {
-		/* restore cycle time when it is normal mode */
-		l_cycle[cid][priority] = result.pmu_val[0];
-		mdla_pmu_debug("PMU resume cmd_id: %d, cmd_len: %d, cycle: %d\n",
-			l_cmd_id[cid][priority],
-			l_cmd_cnt[cid][priority],
-			l_cycle[cid][priority]);
-	}
-
-	for (i = 0; i < number_of_event[priority]; i++) {
-		l_counters[cid][priority][i] = result.pmu_val[i+1];
-		mdla_pmu_debug("PMU resume counter[%d]: %d\n", i,
-			l_counters[cid][priority][i]);
-	}
-}
-
 void pmu_init(u32 mdlaid)
 {
 	int i;

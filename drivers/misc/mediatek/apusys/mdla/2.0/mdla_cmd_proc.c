@@ -267,6 +267,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 		}
 		scheduler->pro_ce_normal =
 			kzalloc(sizeof(struct command_entry), GFP_ATOMIC);
+		if (scheduler->pro_ce_normal == NULL) {
+			spin_unlock_irqrestore(&scheduler->lock, flags);
+			return -ENOMEM;
+		}
 		ce = scheduler->pro_ce_normal;
 	} else {
 		if (scheduler->pro_ce_high != NULL) {
@@ -275,6 +279,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 		}
 		scheduler->pro_ce_high =
 			kzalloc(sizeof(struct command_entry), GFP_ATOMIC);
+		if (scheduler->pro_ce_high == NULL) {
+			spin_unlock_irqrestore(&scheduler->lock, flags);
+			return -ENOMEM;
+		}
 		ce = scheduler->pro_ce_high;
 	}
 	if (ce == NULL) {
@@ -313,12 +321,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 	}
 	if (ce->cmd_batch_en && ce->batch_list_head != NULL)
 		mdla_split_command_batch(ce);
-#if 0
-	if (unlikely(mdla_timeout_dbg)) {
-		mdla_dump_cmd_buf_free(mdla_info->mdlaid);
-		mdla_create_dmp_cmd_buf(&ce, mdla_info);
-	}
-#endif
+
 	/* trace start */
 	mdla_trace_begin(core_id, ce);
 
@@ -334,8 +337,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 	wt->result = 0;
 
 	/* wait for deadline */
-	while (ce->fin_cid < ce->count &&
-		time_before64(get_jiffies_64(), ce->deadline_t)) {
+	do {
 		unsigned long wait_event_timeouts;
 
 		if (cfg_timer_en)
@@ -350,13 +352,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 				&ce->swcmd_done_wait, wait_event_timeouts);
 		if (ce->state & (1 << CE_FAIL))
 			goto error_handle;
-	}
+	} while (ce->fin_cid < ce->count &&
+		time_before64(get_jiffies_64(), ce->deadline_t));
 	mdla_trace_iter(core_id);
 
-	if (likely(apusys_hd != NULL)) {
-		apusys_hd->ip_time +=
-			(uint32_t)(ce->req_end_t - ce->req_start_t)/1000;
-	}
 	/* trace stop */
 	mdla_trace_end(core_id, 0, ce);
 	if (unlikely(mdla_timeout_dbg))
@@ -369,10 +368,30 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 		mdla_timeout_debug("ce IRQ status: %x\n",
 			ce->irq_state);
 		mdla_info->error_bit = 0;
-		mdla_timeout_debug("%s: total cmd count: %u, mva: %x",
-				   __func__, ce->count, ce->mva);
-		mdla_timeout_debug("fin_cid: %u, deadline:%llu, ce state: %x\n",
+		mdla_timeout_debug("ce: total cmd count: %u, mva: %x",
+				   ce->count, ce->mva);
+		mdla_timeout_debug("ce: fin_cid: %u, deadline:%llu, ce state: %x\n",
 			ce->fin_cid, ce->deadline_t, ce->state);
+		mdla_timeout_debug("ce: wish fin_cid: %u\n",
+			ce->wish_fin_cid);
+		mdla_timeout_debug("ce: priority: %x, batch size = %u\n",
+			(u32)ce->cmd_batch_en,
+			ce->cmd_batch_size);
+		if (scheduler->processing_ce != NULL) {
+			mdla_timeout_debug("pro_ce IRQ status: %x\n",
+				scheduler->processing_ce->irq_state);
+			mdla_timeout_debug("pro_ce: total cmd count: %u, mva: %x",
+					scheduler->processing_ce->count,
+					scheduler->processing_ce->mva);
+			mdla_timeout_debug("pro_ce: fin_cid: %u, state: %x\n",
+				scheduler->processing_ce->fin_cid,
+				scheduler->processing_ce->state);
+			mdla_timeout_debug("pro_ce: wish fin_cid: %u\n",
+				scheduler->processing_ce->wish_fin_cid);
+			mdla_timeout_debug("pro_ce: priority: %x, batch size = %u\n",
+				(u32)scheduler->processing_ce->cmd_batch_en,
+				scheduler->processing_ce->cmd_batch_size);
+		}
 		/* handle command timeout */
 		mdla_zero_skip_detect(core_id);
 		mt_irq_dump_status(mdla_irqdesc[core_id].irq);
@@ -393,6 +412,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
 		}
 		spin_unlock_irqrestore(&scheduler->lock, flags);
 		ret = -REASON_MDLA_TIMEOUT;
+	}
+	if (likely(apusys_hd != NULL)) {
+		apusys_hd->ip_time +=
+			(uint32_t)(ce->req_end_t - ce->req_start_t)/1000;
 	}
 	/* update id to the last finished command id */
 	//wt->id = ce.fin_cid;
@@ -417,7 +440,10 @@ error_handle:
 	mutex_unlock(&mdla_info->cmd_list_cnt_lock);
 
 	ce->wait_t = sched_clock();
-	mdla_del_free_command_batch(ce);
+
+	if (ce->cmd_batch_en && ce->batch_list_head != NULL)
+		mdla_del_free_command_batch(ce);
+
 	spin_lock_irqsave(&scheduler->lock, flags);
 	if (enable_preempt) {
 		kfree(scheduler->pro_ce_normal);

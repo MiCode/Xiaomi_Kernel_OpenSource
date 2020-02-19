@@ -124,6 +124,7 @@ enum interrupt_error {
 	IRQ_IN_IRQ                  = 0x100,
 	IRQ_NOT_IN_IRQ              = 0x200,
 	IRQ_TIMEOUT                 = 0x400,
+	IRQ_RECORD_ERROR            = 0x800,
 };
 
 struct wait_entry {
@@ -265,6 +266,7 @@ extern struct mdla_dev mdla_devices[];
 extern struct mdla_irq_desc mdla_irqdesc[];
 
 #ifdef __APUSYS_PREEMPTION__
+
 /*
  * @ worker: record All MDLA HW state
  *           bit 0: MDLA0 has normal work
