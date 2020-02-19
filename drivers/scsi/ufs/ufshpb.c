@@ -630,6 +630,15 @@ static int ufshpb_check_pre_req_cond(struct ufshpb_lu *hpb,
 	    transfer_len > hpb->pre_req_max_tr_len)
 		return -EINVAL;
 
+	/*
+	 * When the request is from ioctrl, the address in rq will be -1.
+	 * At this case, the ufshpb_ppn_dirty_check() will check the address
+	 * with 0xFFFFFFFF_FFFFFFFF (64bit) or 0xFFFFFFFF(32bit). This will
+	 * cause unexpected behavier. So skip here.
+	 */
+	if ((long)blk_rq_pos(cmd->request) == -1)
+		return -EINVAL;
+
 	lpn = ufshpb_get_lpn(cmd->request);
 
 	spin_lock_irqsave(&hpb->hpb_lock, flags);
@@ -794,6 +803,15 @@ void ufshpb_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp)
 			     (unsigned int) blk_rq_sectors(rq));
 		goto put_hpb;
 	}
+
+	/*
+	 * When the request is from ioctrl, the address in rq will be -1.
+	 * At this case, the ufshpb_ppn_dirty_check() will check the address
+	 * with 0xFFFFFFFF_FFFFFFFF (64bit) or 0xFFFFFFFF(32bit). This will
+	 * cause unexpected behavier. So skip here.
+	 */
+	if ((long)blk_rq_pos(rq) == -1)
+		goto put_hpb;
 
 	lpn = ufshpb_get_lpn(rq);
 	ufshpb_get_pos_from_lpn(hpb, lpn, &rgn_idx, &srgn_idx, &srgn_offset);
