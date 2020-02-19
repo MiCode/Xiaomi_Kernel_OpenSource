@@ -827,6 +827,20 @@ static void cmdq_test_mbox_stop(struct cmdq_test *test)
 	cmdq_msg("%s end", __func__);
 }
 
+static void cmdq_test_show_events(struct cmdq_test *test)
+{
+	u32 i;
+
+	cmdq_msg("%s scan all active event ...", __func__);
+	cmdq_mbox_enable(test->clt->chan);
+
+	for (i = 0; i < CMDQ_EVENT_MAX; i++)
+		if (cmdq_get_event(test->clt->chan, i))
+			cmdq_msg("event set:%u", i);
+	cmdq_mbox_disable(test->clt->chan);
+	cmdq_msg("%s end", __func__);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
@@ -902,6 +916,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		break;
 	case 15:
 		cmdq_test_mbox_stop(test);
+		break;
+	case 16:
+		cmdq_test_show_events(test);
 		break;
 	default:
 		break;

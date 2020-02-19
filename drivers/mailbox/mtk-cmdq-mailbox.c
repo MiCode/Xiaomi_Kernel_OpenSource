@@ -95,6 +95,7 @@
 #define CMDQ_JUMP_BY_PA			0x10000001
 
 #define CMDQ_MIN_AGE_VALUE              (5)	/* currently disable age */
+#define CMDQ_INIT_BUF_SIZE		8484
 
 #define CMDQ_DRIVER_NAME		"mtk_cmdq_mbox"
 
@@ -165,9 +166,11 @@ struct cmdq {
 	u16			*tokens;
 
 	struct cmdq_mmp_event	mmp;
+	void			*init_cmds_base;
+	dma_addr_t		init_cmds;
 };
 
-static void cmdq_init(struct cmdq *cmdq)
+static void cmdq_init_cpu(struct cmdq *cmdq)
 {
 	int i;
 
@@ -183,6 +186,14 @@ static void cmdq_init(struct cmdq *cmdq)
 			cmdq->base + CMDQ_SYNC_TOKEN_UPD);
 
 	cmdq_trace_ex_end();
+}
+
+static void cmdq_init(struct cmdq *cmdq)
+{
+	if (cmdq->init_cmds_base)
+		cmdq_init_cmds(cmdq);
+	else
+		cmdq_init_cpu(cmdq);
 }
 
 static inline void cmdq_mmp_init(struct cmdq *cmdq)
@@ -392,7 +403,7 @@ static void cmdq_thread_resume(struct cmdq_thread *thread)
 #endif
 }
 
-static int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
+int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 warm_reset;
 
@@ -568,6 +579,35 @@ static void *cmdq_task_get_end_va(struct cmdq_pkt *pkt)
 	/* let previous task jump to this task */
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	return buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+}
+
+void cmdq_init_cmds(void *dev_cmdq)
+{
+	struct cmdq *cmdq = dev_cmdq;
+	struct cmdq_thread *thread = &cmdq->thread[0];
+	dma_addr_t pc, end;
+
+	cmdq_trace_ex_begin("%s", __func__);
+
+	pc = cmdq->init_cmds;
+	end = cmdq->init_cmds + CMDQ_EVENT_MAX * CMDQ_INST_SIZE;
+
+	cmdq_thread_reset(cmdq, thread);
+	cmdq_thread_set_end(thread, end);
+	cmdq_thread_set_pc(thread, pc);
+	writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+
+	end = CMDQ_REG_SHIFT_ADDR(end);
+	if (readl_poll_timeout_atomic(thread->base + CMDQ_THR_CURR_ADDR,
+		pc, pc == end, 0, 100)) {
+		cmdq_err("clear event instructions timeout pc:%#lx end:%#lx",
+			(unsigned long)pc,
+			(unsigned long)end);
+		cmdq_thread_reset(cmdq, thread);
+	}
+	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+
+	cmdq_trace_ex_end();
 }
 
 static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
@@ -1628,6 +1668,32 @@ static void cmdq_config_default_token(struct device *dev, struct cmdq *cmdq)
 	}
 }
 
+static void cmdq_config_init_buf(struct device *dev, struct cmdq *cmdq)
+{
+	u32 i, *va;
+
+	cmdq->init_cmds_base = dma_alloc_coherent(dev, CMDQ_INIT_BUF_SIZE,
+		&cmdq->init_cmds, GFP_KERNEL);
+	cmdq_msg("init cmd buffer:%#lx (%#lx)",
+		(unsigned long)cmdq->init_cmds_base,
+		(unsigned long)cmdq->init_cmds);
+
+	if (!cmdq->init_cmds_base) {
+		cmdq_err("fail to alloc init cmd buffer");
+		return;
+	}
+
+	va = (u32 *)cmdq->init_cmds_base;
+	for (i = 0; i < CMDQ_EVENT_MAX; i++) {
+		va[i * 2] = 0x80000000;
+		va[i * 2 + 1] = 0x20000000 | i;
+	}
+
+	/* some token default set to 1, config in dts */
+	for (i = 0; i < cmdq->token_cnt; i++)
+		va[cmdq->tokens[i] * 2] = 0x80010000;
+}
+
 static int cmdq_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1666,8 +1732,9 @@ static int cmdq_probe(struct platform_device *pdev)
 		dev, cmdq->base, cmdq->irq, (u32)CMDQ_IRQ_MASK);
 
 	cmdq_config_prefetch(dev->of_node, cmdq);
-	cmdq_config_dma_mask(dev);
 	cmdq_config_default_token(dev, cmdq);
+	cmdq_config_init_buf(dev, cmdq);
+	cmdq_config_dma_mask(dev);
 
 	cmdq->clock = devm_clk_get(dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
