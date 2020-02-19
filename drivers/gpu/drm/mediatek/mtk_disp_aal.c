@@ -135,6 +135,7 @@ struct mtk_disp_aal_data {
 	int aal_dre_hist_end;
 	int aal_dre_gain_start;
 	int aal_dre_gain_end;
+	int bitShift;
 };
 
 struct mtk_disp_aal {
@@ -713,21 +714,23 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle,
 	const struct DISP_AAL_INITREG *init_regs)
 {
+	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+
 	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
 	int dre_alg_mode = 1;
 
-	AALFLOW_LOG("start\n");
+	AALFLOW_LOG("start, bitShift: %d\n", aal_data->data->bitShift);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_DRE_BLOCK_INFO_00,
-		(g_aal_size.width - 1) << 13, ~0);
+		(g_aal_size.width - 1) << (aal_data->data->bitShift), ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_DRE_BLOCK_INFO_01,
 		(init_regs->dre_blk_y_num << 5) | init_regs->dre_blk_x_num,
 		~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_DRE_BLOCK_INFO_02,
-		(init_regs->dre_blk_height << 13) | init_regs->dre_blk_width,
-		~0);
+		(init_regs->dre_blk_height << (aal_data->data->bitShift)) |
+		init_regs->dre_blk_width, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_DRE_BLOCK_INFO_04,
 		(init_regs->dre_flat_length_slope << 13) |
@@ -741,7 +744,7 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		dre3_pa + DISP_AAL_DRE_CHROMA_HIST_01,
 		(init_regs->dre_h_slope << 24) |
 		(init_regs->dre_s_slope << 20) |
-		(init_regs->dre_s_slope << 16) |
+		(init_regs->dre_y_slope << 16) |
 		(init_regs->dre_h_upper << 8) | init_regs->dre_h_lower, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_DRE_ALPHA_BLEND_00,
@@ -757,7 +760,7 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		init_regs->dre_blk_area_min, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_DRE_BLOCK_INFO_07,
-		(g_aal_size.height - 1) << 13, ~0);
+		(g_aal_size.height - 1) << (aal_data->data->bitShift), ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_SRAM_CFG,
 		init_regs->hist_bin_type, 0x1);
@@ -779,11 +782,11 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		init_regs->blk_num_y_start, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + MDP_AAL_TILE_01,
-		(init_regs->blk_cnt_x_end << 13) |
+		(init_regs->blk_cnt_x_end << (aal_data->data->bitShift)) |
 		init_regs->blk_cnt_x_start, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + MDP_AAL_TILE_02,
-		(init_regs->blk_cnt_y_end << 13) |
+		(init_regs->blk_cnt_y_end << (aal_data->data->bitShift)) |
 		init_regs->blk_cnt_y_start, ~0);
 #endif
 	/* Change to Local DRE version */
@@ -2225,6 +2228,7 @@ static const struct mtk_disp_aal_data mt6885_aal_driver_data = {
 	.aal_dre_hist_end   = 4220,
 	.aal_dre_gain_start = 4224,
 	.aal_dre_gain_end   = 6396,
+	.bitShift = 13,
 };
 
 static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
@@ -2233,6 +2237,7 @@ static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
 	.aal_dre_hist_end   = 4604,
 	.aal_dre_gain_start = 4608,
 	.aal_dre_gain_end   = 6780,
+	.bitShift = 16,
 };
 
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {

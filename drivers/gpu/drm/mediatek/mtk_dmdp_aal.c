@@ -43,6 +43,7 @@
 
 struct mtk_dmdp_aal_data {
 	bool support_shadow;
+	u32 block_info_00_mask;
 };
 
 struct mtk_dmdp_aal {
@@ -225,8 +226,12 @@ static void mtk_dmdp_aal_backup(struct mtk_ddp_comp *comp)
 
 static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
 {
+	struct mtk_dmdp_aal *dmdp_aal = comp_to_dmdp_aal(comp);
+
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_00,
-		g_aal_backup.DRE_BLOCK_INFO_00 & (0x1FFF << 13), 0x1FFF << 13);
+		g_aal_backup.DRE_BLOCK_INFO_00 &
+		(dmdp_aal->data->block_info_00_mask),
+		dmdp_aal->data->block_info_00_mask);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_01,
 		g_aal_backup.DRE_BLOCK_INFO_01, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_02,
@@ -236,7 +241,7 @@ static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_CHROMA_HIST_00,
 		g_aal_backup.DRE_CHROMA_HIST_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_CHROMA_HIST_01,
-		g_aal_backup.DRE_CHROMA_HIST_01 & 0xFFFF, 0xFFFF);
+		g_aal_backup.DRE_CHROMA_HIST_01 & 0x1FFFFFFF, 0x1FFFFFFF);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_ALPHA_BLEND_00,
 		g_aal_backup.DRE_ALPHA_BLEND_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_05,
@@ -391,6 +396,7 @@ static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, priv);
 
 	pm_runtime_enable(dev);
@@ -414,10 +420,12 @@ static int mtk_dmdp_aal_remove(struct platform_device *pdev)
 
 static const struct mtk_dmdp_aal_data mt6885_dmdp_aal_driver_data = {
 	.support_shadow = false,
+	.block_info_00_mask = 0x3FFFFFF,
 };
 
 static const struct mtk_dmdp_aal_data mt6873_dmdp_aal_driver_data = {
 	.support_shadow = false,
+	.block_info_00_mask = 0x3FFF3FFF,
 };
 
 static const struct of_device_id mtk_dmdp_aal_driver_dt_match[] = {
