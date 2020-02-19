@@ -707,7 +707,7 @@ static void msm_geni_serial_poll_put_char(struct uart_port *uport,
 }
 #endif
 
-#if defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
 static void msm_geni_serial_wr_char(struct uart_port *uport, int ch)
 {
 	geni_write_reg_nolog(ch, uport->membase, SE_GENI_TX_FIFOn);
@@ -878,7 +878,7 @@ static int handle_rx_console(struct uart_port *uport,
 	return -EPERM;
 }
 
-#endif /* (CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)) */
+#endif /* (CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)) */
 
 static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 {
@@ -2213,7 +2213,7 @@ static ssize_t ver_info_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(ver_info);
 
-#if defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
 static int __init msm_geni_console_setup(struct console *co, char *options)
 {
 	struct uart_port *uport;
@@ -2396,7 +2396,7 @@ static int console_register(struct uart_driver *drv)
 static void console_unregister(struct uart_driver *drv)
 {
 }
-#endif /* defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL) */
+#endif /* (CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL) */
 
 static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 {
@@ -2509,7 +2509,7 @@ static const struct uart_ops msm_geni_serial_pops = {
 };
 
 static const struct of_device_id msm_geni_device_tbl[] = {
-#if defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
 	{ .compatible = "qcom,msm-geni-console",
 			.data = (void *)&msm_geni_console_driver},
 #endif
