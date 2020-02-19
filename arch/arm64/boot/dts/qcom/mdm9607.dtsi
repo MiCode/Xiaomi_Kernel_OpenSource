@@ -19,6 +19,9 @@
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+#define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
+
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9607";
 	compatible = "qcom,mdm9607";
@@ -326,30 +329,33 @@
 		#clock-cells = <1>;
 	};
 
-	cpubw: qcom,cpubw {
-		compatible = "qcom,devbw";
-		governor = "cpufreq";
-		qcom,src-dst-ports = <1 512>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			<  366 /*  48   MHz */>,
-			<  732 /*  96   MHz */>,
-			<  915 /* 120   MHz */>,
-			< 1145 /* 150.15 MHz */>,
-			< 1831 /* 240   MHz */>,
-			< 2291 /* 300.3 MHZ */>;
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		BW_OPP_ENTRY( 48, 4); /*  183 MB/s */
+		BW_OPP_ENTRY( 96, 4); /*  366 MB/s */
+		BW_OPP_ENTRY(120, 4); /*  458 MB/s */
+		BW_OPP_ENTRY(150, 4); /*  572 MB/s */
+		BW_OPP_ENTRY(240, 4); /*  915 MB/s */
+		BW_OPP_ENTRY(300, 4); /* 1144 MB/s */
 	};
 
-	devfreq-cpufreq {
-		cpubw-cpufreq {
-			target-dev = <&cpubw>;
-			cpu-to-dev-map =
-				 <  400000   732>,
-				 <  800000   915>,
-				 <  998400  1145>,
-				 < 1094400  1831>,
-				 < 1305600  2291>;
-		};
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		operating-points-v2 = <&ddr_bw_opp_table>;
+	};
+
+	devfreq_compute: qcom,devfreq-compute {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU0>;
+		qcom,target-dev = <&cpubw>;
+		qcom,core-dev-table =
+				<  400000 MHZ_TO_MBPS( 48, 4) >,
+				<  800000 MHZ_TO_MBPS( 96, 4) >,
+				<  998400 MHZ_TO_MBPS(120, 4) >,
+				< 1094400 MHZ_TO_MBPS(150, 4) >,
+				< 1305600 MHZ_TO_MBPS(300, 4) >;
 	};
 
 	qcom,cpu-bwmon {
