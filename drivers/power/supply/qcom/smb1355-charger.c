@@ -1197,6 +1197,16 @@ static int smb1355_init_hw(struct smb1355 *chip)
 		return rc;
 	}
 
+	/* disable charging when watchdog bites & set bite-timeout to 8secs */
+	val = BITE_WDOG_DISABLE_CHARGING_CFG_BIT | 0x3;
+	rc = smb1355_masked_write(chip, SNARL_BARK_BITE_WD_CFG_REG,
+				BITE_WDOG_DISABLE_CHARGING_CFG_BIT |
+				BITE_WDOG_TIMEOUT_MASK, val);
+	if (rc < 0) {
+		pr_err("Couldn't configure the watchdog bite rc=%d\n", rc);
+		return rc;
+	}
+
 	/* enable watchdog bark and bite interrupts, and disable the watchdog */
 	rc = smb1355_masked_write(chip, WD_CFG_REG, WDOG_TIMER_EN_BIT
 			| WDOG_TIMER_EN_ON_PLUGIN_BIT | BITE_WDOG_INT_EN_BIT
@@ -1204,15 +1214,6 @@ static int smb1355_init_hw(struct smb1355 *chip)
 			BITE_WDOG_INT_EN_BIT | BARK_WDOG_INT_EN_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't configure the watchdog rc=%d\n", rc);
-		return rc;
-	}
-
-	/* disable charging when watchdog bites */
-	rc = smb1355_masked_write(chip, SNARL_BARK_BITE_WD_CFG_REG,
-				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT,
-				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't configure the watchdog bite rc=%d\n", rc);
 		return rc;
 	}
 
