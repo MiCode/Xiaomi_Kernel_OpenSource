@@ -48,7 +48,7 @@ static u64 venc_freq_steps[MAX_FREQ_STEP];
  * static struct codec_job *venc_jobs;
  */
 /* 1080p60, 4k30, 4k60, 1 core 4k60*/
-static u64 venc_freq_map[] = {364, 364, 458, 624};
+static u64 venc_freq_map[] = {249, 364, 458, 624};
 
 #endif
 
@@ -407,9 +407,9 @@ void mtk_venc_dvfs_begin(struct temp_job **job_list)
 		if (job->operation_rate > 30)
 			idx = 2;
 		else
-			idx = 0;
+			idx = 1;
 	else
-		idx = 0;
+		idx = 1;
 
 	if (job->operation_rate >= 120)
 		idx = 2;
