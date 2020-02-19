@@ -156,7 +156,7 @@ struct mdp_context {
 static struct mdp_context mdp_ctx;
 static struct cmdq_buf_pool mdp_pool;
 atomic_t mdp_pool_cnt;
-static u32 mdp_pool_limit;
+static u32 mdp_pool_limit = 256;
 
 static DEFINE_MUTEX(mdp_clock_mutex);
 static DEFINE_MUTEX(mdp_task_mutex);
