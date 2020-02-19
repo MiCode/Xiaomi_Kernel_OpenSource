@@ -659,7 +659,7 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 			dbg_buff + nbytes,
 			IPA_MAX_MSG_LEN - nbytes,
 			"\n");
-	return 0;
+	return nbytes;
 }
 
 static int ipa3_attrib_dump_eq(struct ipa_ipfltri_rule_eq *attrib,
@@ -939,7 +939,8 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 					entry->rule.retain_hdr);
 			}
 
-			ipa3_attrib_dump(&entry->rule.attrib, ip, nbytes);
+			nbytes = ipa3_attrib_dump(&entry->rule.attrib,
+							ip, nbytes);
 			i++;
 		}
 	}
@@ -1241,7 +1242,7 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 					goto bail;
 				}
 			} else
-				ipa3_attrib_dump(
+				nbytes = ipa3_attrib_dump(
 					&entry->rule.attrib, ip, nbytes);
 			i++;
 			nbytes += scnprintf(
