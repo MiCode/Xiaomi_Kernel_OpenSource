@@ -194,6 +194,7 @@ static bool g_buck_on;
 static bool g_fixed_freq_volt_state;
 static int g_power_count;
 static unsigned int g_opp_stress_test_state;
+static unsigned int g_opp_power_test_state;
 static unsigned int g_max_opp_idx_num;
 static unsigned int g_segment_max_opp_idx;
 static unsigned int g_segment_min_opp_idx;
@@ -1895,6 +1896,56 @@ out:
 	return (ret < 0) ? ret : count;
 }
 
+static int mt_gpufreq_power_stress_test_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "g_opp_power_test_state: %d\n", g_opp_power_test_state);
+	return 0;
+}
+
+/*
+ * power stress test
+ * the times of power on/off
+ */
+static ssize_t mt_gpufreq_power_stress_test_proc_write(
+		struct file *file, const char __user *buffer,
+		size_t count, loff_t *data)
+{
+	char buf[64];
+	unsigned int len = 0;
+	unsigned int value = 0;
+	unsigned int delay = 0;
+	unsigned int rand;
+	int ret = -EFAULT;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, len))
+		goto out;
+
+	buf[len] = '\0';
+
+	if (!kstrtouint(buf, 10, &value)) {
+		ret = 0;
+		g_opp_power_test_state = value;
+	}
+
+	while (g_opp_power_test_state > 0) {
+		g_opp_power_test_state--;
+
+		mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
+		// delay 5 ~ 10ms
+		get_random_bytes(&rand, sizeof(rand));
+		delay = (rand % 6) + 5;
+		mdelay(delay);
+		mt_gpufreq_power_control(
+			POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF);
+	}
+
+	g_opp_power_test_state = 0;
+out:
+	return ret;
+}
+
 static int mt_gpufreq_aging_enable_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "g_aging_enable = %d\n", g_aging_enable);
@@ -2170,6 +2221,7 @@ out:
  * PROCFS : initialization
  */
 PROC_FOPS_RW(gpufreq_opp_stress_test);
+PROC_FOPS_RW(gpufreq_power_stress_test);
 PROC_FOPS_RO(gpufreq_opp_dump);
 PROC_FOPS_RW(gpufreq_opp_freq);
 PROC_FOPS_RO(gpufreq_var_dump);
@@ -2192,6 +2244,7 @@ static int __mt_gpufreq_create_procfs(void)
 
 	const struct pentry entries[] = {
 		PROC_ENTRY(gpufreq_opp_stress_test),
+		PROC_ENTRY(gpufreq_power_stress_test),
 		PROC_ENTRY(gpufreq_opp_dump),
 		PROC_ENTRY(gpufreq_opp_freq),
 		PROC_ENTRY(gpufreq_var_dump),
