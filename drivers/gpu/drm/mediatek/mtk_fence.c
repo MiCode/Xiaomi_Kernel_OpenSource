@@ -82,7 +82,6 @@ _get_session_sync_info(unsigned int session_id)
 	struct mtk_fence_session_sync_info *session_info = NULL;
 	struct mtk_fence_info *layer_info = NULL;
 	char name[32];
-	const char *prefix = "timeline";
 
 	if ((MTK_SESSION_TYPE(session_id) != MTK_SESSION_PRIMARY) &&
 	    (MTK_SESSION_TYPE(session_id) != MTK_SESSION_EXTERNAL) &&
@@ -149,12 +148,10 @@ _get_session_sync_info(unsigned int session_id)
 
 				if (MTK_SESSION_TYPE(session_id) ==
 				    MTK_SESSION_PRIMARY)
-					sprintf(name, "%s-primary-%d-%d",
-						prefix,
+					sprintf(name, "-pr_%d_%d-",
 						MTK_SESSION_DEV(session_id), j);
 				else
-					sprintf(name, "%s-unknown-%d-%d",
-						prefix,
+					sprintf(name, "-na_%d_%d-",
 						MTK_SESSION_DEV(session_id), j);
 
 				layer_info =
