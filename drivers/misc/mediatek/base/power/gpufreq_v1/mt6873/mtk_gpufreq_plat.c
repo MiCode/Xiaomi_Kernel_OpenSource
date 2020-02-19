@@ -247,7 +247,10 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	case MT6873_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_4;
 		break;
-	case MT6873T_SEGMENT:
+	case MT6873P_SEGMENT:
+		shader_present = MT_GPU_SHADER_PRESENT_5;
+		break;
+	case MT6873PT_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_5;
 		break;
 	default:
@@ -1663,10 +1666,13 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 		segment_id = MT6873_SEGMENT;    /* 5G-A */
 		break;
 	case 0x10:
-		segment_id = MT6873T_SEGMENT;   /* 5G-A+ */
+		segment_id = MT6873P_SEGMENT;   /* 5G-A+ */
+		break;
+	case 0x30:
+		segment_id = MT6873PT_SEGMENT;  /* 5G-A+ turbo */
 		break;
 	default:
-		segment_id = MT6873T_SEGMENT;
+		segment_id = MT6873PT_SEGMENT;
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
 	}
 
@@ -2878,10 +2884,12 @@ static void __mt_gpufreq_init_table(void)
 	/* determine max_opp/num/segment_table... by segment  */
 	if (segment_id == MT6873_SEGMENT)
 		g_segment_max_opp_idx = 17;
-	else if (segment_id == MT6873T_SEGMENT)
+	else if (segment_id == MT6873P_SEGMENT)
 		g_segment_max_opp_idx = 12;
+	else if (segment_id == MT6873PT_SEGMENT)
+		g_segment_max_opp_idx = 4;
 	else
-		g_segment_max_opp_idx = 12;
+		g_segment_max_opp_idx = 4;
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
 

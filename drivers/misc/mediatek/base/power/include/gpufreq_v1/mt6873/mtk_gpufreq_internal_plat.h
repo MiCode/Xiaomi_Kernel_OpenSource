@@ -205,7 +205,8 @@
  **************************************************/
 enum g_segment_id_enum {
 	MT6873_SEGMENT = 1,
-	MT6873T_SEGMENT,
+	MT6873P_SEGMENT,
+	MT6873PT_SEGMENT,
 };
 
 enum g_posdiv_power_enum  {
