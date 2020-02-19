@@ -81,9 +81,8 @@ int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff)
 		break;
 	case DFS_SUPPORTED_ISP_CLOCKS:
 	{
-#if 0 /* FIXME: Remove if ready */
 		int result = 0;
-		uint64_t freq_steps[ISP_CLK_LEVEL_CNT];
+		uint64_t freq_steps[ISP_CLK_LEVEL_CNT] = {0};
 		struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK *pIspclks;
 		unsigned int lv = 0;
 
@@ -117,18 +116,15 @@ int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff)
 			 *	lv, pIspclks->clklevel[lv]);
 			 */
 		}
-#endif
 	}
 		break;
 	case DFS_CUR_ISP_CLOCK:
 	{
-#if 0 /* FIXME: Remove if ready */
 		unsigned int *pGetIspclk;
 
 		pGetIspclk = (unsigned int *) pbuff;
 		*pGetIspclk = (u32)mmdvfs_qos_get_freq(PM_QOS_CAM_FREQ);
 		/*pr_debug("current isp clock:%d", *pGetIspclk);*/
-#endif
 	}
 		break;
 	default:
@@ -324,7 +320,10 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 			clk_get_rate(
 			pclk->mclk_sel[SENINF_CLK_IDX_SYS_TOP_MUX_SENINF]));
 	}
-	return mt_get_ckgen_freq(clk);
+	if (clk < 64)
+		return mt_get_ckgen_freq(clk);
+	else
+		return 0;
 #else
 	return 0;
 #endif
