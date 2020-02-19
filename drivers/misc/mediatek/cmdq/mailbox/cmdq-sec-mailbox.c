@@ -99,10 +99,15 @@ struct cmdq_sec_shared_mem {
 struct cmdq_mmp_event {
 	mmp_event cmdq_root;
 	mmp_event cmdq;
+	mmp_event queue;
+	mmp_event submit;
+	mmp_event invoke;
+	mmp_event queue_notify;
 	mmp_event notify;
-	mmp_event queue_irq;
 	mmp_event irq;
 	mmp_event cancel;
+	mmp_event wait;
+	mmp_event wait_done;
 };
 
 #endif
@@ -155,11 +160,18 @@ static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
 	snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
 	cmdq->mmp.cmdq_root = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
 	cmdq->mmp.cmdq = mmprofile_register_event(cmdq->mmp.cmdq_root, name);
-	cmdq->mmp.queue_irq = mmprofile_register_event(cmdq->mmp.cmdq,
-		"queue_irq");
+	cmdq->mmp.queue = mmprofile_register_event(cmdq->mmp.cmdq, "queue");
+	cmdq->mmp.submit = mmprofile_register_event(cmdq->mmp.cmdq, "submit");
+	cmdq->mmp.invoke = mmprofile_register_event(cmdq->mmp.cmdq, "invoke");
+	cmdq->mmp.queue_notify = mmprofile_register_event(cmdq->mmp.cmdq,
+		"queue_notify");
+	cmdq->mmp.notify = mmprofile_register_event(cmdq->mmp.cmdq, "notify");
 	cmdq->mmp.irq = mmprofile_register_event(cmdq->mmp.cmdq, "irq");
 	cmdq->mmp.cancel = mmprofile_register_event(cmdq->mmp.cmdq,
 		"cancel_task");
+	cmdq->mmp.wait = mmprofile_register_event(cmdq->mmp.cmdq, "wait");
+	cmdq->mmp.wait_done = mmprofile_register_event(cmdq->mmp.cmdq,
+		"wait_done");
 	mmprofile_enable_event_recursive(cmdq->mmp.cmdq, 1);
 	mmprofile_start(1);
 #endif
@@ -540,7 +552,7 @@ static void cmdq_sec_irq_notify_callback(struct cmdq_cb_data cb_data)
 		queue_work(cmdq->notify_wq, &cmdq->irq_notify_work);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
-		mmprofile_log_ex(cmdq->mmp.queue_irq, MMPROFILE_FLAG_PULSE,
+		mmprofile_log_ex(cmdq->mmp.queue_notify, MMPROFILE_FLAG_PULSE,
 			cmdq->hwid, 1);
 #endif
 
@@ -548,7 +560,7 @@ static void cmdq_sec_irq_notify_callback(struct cmdq_cb_data cb_data)
 		cmdq_msg("last notify callback working");
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
-		mmprofile_log_ex(cmdq->mmp.queue_irq, MMPROFILE_FLAG_PULSE,
+		mmprofile_log_ex(cmdq->mmp.queue_notify, MMPROFILE_FLAG_PULSE,
 			cmdq->hwid, 0);
 #endif
 
@@ -786,6 +798,11 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	mem_ex1 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG1);
 	mem_ex2 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG2);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq->mmp.invoke, MMPROFILE_FLAG_START,
+		thrd_idx, task ? (unsigned long)task->pkt : 0);
+#endif
+
 	cmdq->sec_invoke = sched_clock();
 	cmdq_log("%s execute cmdq:%p task:%lx command:%u thread:%u cookie:%d",
 		__func__, cmdq, (unsigned long)task, iwc_cmd, thrd_idx,
@@ -800,6 +817,12 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	else
 		cmdq_log("%s execute done cmdq:%p task:%lx cost:%lluus",
 			__func__, cmdq, (unsigned long)task, cost);
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq->mmp.invoke, MMPROFILE_FLAG_END,
+		thrd_idx, task ? (unsigned long)task->pkt : 0);
+#endif
+
 	if (err)
 		return err;
 	context->state = IWC_SES_ON_TRANSACTED;
@@ -914,6 +937,11 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	cmdq_log("task:%p iwc_cmd:%u cmdq:%p thrd-idx:%u tgid:%u",
 		task, iwc_cmd, cmdq, thrd_idx, current->tgid);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq->mmp.submit, MMPROFILE_FLAG_PULSE,
+		thrd_idx, (unsigned long)pkt);
+#endif
+
 	cmdq_trace_begin("%s_%u", __func__, iwc_cmd);
 
 	do {
@@ -1019,6 +1047,7 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	cmdq_log("%s gce:%#lx task:%p pkt:%p thread:%u",
 		__func__, (unsigned long)cmdq->base_pa, task, task->pkt,
 		task->thread->idx);
+
 	buf = list_first_entry(
 		&task->pkt->buf, struct cmdq_pkt_buffer, list_entry);
 
@@ -1118,11 +1147,18 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 		(struct cmdq_sec_data *)pkt->sec_data;
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)chan->con_priv;
+	struct cmdq_sec *cmdq =
+		container_of(thread->chan->mbox, struct cmdq_sec, mbox);
 	struct cmdq_sec_task *task;
 
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task)
 		return -ENOMEM;
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(cmdq->mmp.queue, MMPROFILE_FLAG_PULSE,
+		thread->idx, (unsigned long)pkt);
+#endif
 
 	task->pkt = pkt;
 	task->thread = thread;
@@ -1221,6 +1257,29 @@ static void cmdq_sec_mbox_shutdown(struct mbox_chan *chan)
 	cmdq_thread_stop(thread);
 #endif
 }
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+void cmdq_sec_mmp_wait(struct mbox_chan *chan, void *pkt)
+{
+	struct cmdq_sec_thread *thread = chan->con_priv;
+	struct cmdq_sec *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
+
+	mmprofile_log_ex(cmdq->mmp.wait, MMPROFILE_FLAG_PULSE,
+		thread->idx, (unsigned long)pkt);
+}
+EXPORT_SYMBOL(cmdq_sec_mmp_wait);
+
+void cmdq_sec_mmp_wait_done(struct mbox_chan *chan, void *pkt)
+{
+	struct cmdq_sec_thread *thread = chan->con_priv;
+	struct cmdq_sec *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
+
+	mmprofile_log_ex(cmdq->mmp.wait_done, MMPROFILE_FLAG_PULSE,
+		thread->idx, (unsigned long)pkt);
+}
+EXPORT_SYMBOL(cmdq_sec_mmp_wait_done);
+
+#endif
 
 static bool cmdq_sec_mbox_last_tx_done(struct mbox_chan *chan)
 {

@@ -55,5 +55,9 @@ void cmdq_sec_dump_operation(void *chan);
 void cmdq_sec_dump_response(void *chan, struct cmdq_pkt *pkt,
 	u64 **inst, const char **dispatch);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+void cmdq_sec_mmp_wait(struct mbox_chan *chan, void *pkt);
+void cmdq_sec_mmp_wait_done(struct mbox_chan *chan, void *pkt);
+#endif
 
 #endif

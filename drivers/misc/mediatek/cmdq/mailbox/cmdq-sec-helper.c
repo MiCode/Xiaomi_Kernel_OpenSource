@@ -270,6 +270,10 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	u8 cnt = 0;
 	s32 thread_id = cmdq_sec_mbox_chan_id(client->chan);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	cmdq_sec_mmp_wait(client->chan, pkt);
+#endif
+
 	cmdq_sec_mbox_enable(client->chan);
 
 	do {
@@ -295,6 +299,10 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	} while (1);
 
 	cmdq_sec_mbox_disable(client->chan);
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	cmdq_sec_mmp_wait_done(client->chan, pkt);
+#endif
 
 	return 0;
 }
