@@ -23,6 +23,25 @@
 #include "apu_log.h"
 #include "mtk_devinfo.h"
 
+/**
+ * ceil_div() - Brief description of ceil_div.
+ * @n: pointer to uint64_t dividend (will be updated)
+ * @base: uint32_t divisor
+ *
+ * Calcualte ceiling of n/base.
+ *
+ * Return: ceiling of n/base
+ **/
+static inline unsigned int ceil_div(unsigned int n, unsigned int base)
+{
+	unsigned int c;
+
+	c = do_div(n, base);
+	n += (c != 0);
+
+	return n;
+}
+
 /* regulator id */
 static struct regulator *vvpu_reg_id;
 static struct regulator *vmdla_reg_id;
@@ -317,6 +336,7 @@ static int settle_time_check
 {
 	int settle_time = 0;
 	int volt_diff = 0;
+	unsigned int volt_abs = 0;
 
 	if (buck == VPU_BUCK) {
 		volt_diff = voltage_mV - curr_vvpu_volt;
@@ -332,12 +352,14 @@ static int settle_time_check
 		return -1;
 	}
 
+	/* save the absolute value of volt_diff for ceil */
+	volt_abs = abs(volt_diff);
 	if (volt_diff > 0) {
-		// Rising spec : 10mV/us + 8us
-		settle_time = volt_diff / 10000 + 8;
+		/* Rising spec : (10mV/us) + 8us */
+		settle_time = ceil_div(volt_abs, 10000) + 8;
 	} else if (volt_diff < 0) {
-		// Falling spec : 5mV/us + 8us
-		settle_time = (0 - volt_diff) / 5000 + 8;
+		/* Falling spec : (5mV/us) + 8us */
+		settle_time = ceil_div(volt_abs, 5000) + 8;
 	} else {
 		LOG_DBG("%s buck:%d voltage no change (%d)\n",
 					__func__, buck, voltage_mV);
