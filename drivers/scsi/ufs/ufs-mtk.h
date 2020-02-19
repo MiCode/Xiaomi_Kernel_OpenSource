@@ -15,7 +15,9 @@
 
 #define CONFIG_MTK_UFS_DEBUG
 /* #define CONFIG_MTK_UFS_DEGUG_GPIO_TRIGGER */
+#ifdef CONFIG_MTK_ENG_BUILD
 #define CONFIG_MTK_UFS_LBA_CRC16_CHECK
+#endif
 
 #include <linux/of.h>
 #include <linux/rpmb.h>
