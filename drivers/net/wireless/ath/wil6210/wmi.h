@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: ISC */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2006-2012 Wilocity
  */
@@ -1032,6 +1032,26 @@ struct wmi_rx_status_ring_add_cmd {
 	u8 reserved[2];
 } __packed;
 
+enum wmi_sniffer_edma_cfg_phy_support {
+	WMI_SNIFFER_EDMA_NONE	= 0x00,
+	WMI_SNIFFER_EDMA_CP	= 0x01,
+	WMI_SNIFFER_EDMA_DP	= 0x02,
+	WMI_SNIFFER_EDMA_BOTH	= 0x03,
+};
+
+/* wmi_sniffer_edma_cfg */
+struct wmi_sniffer_edma_cfg {
+	/* wmi_sniffer_edma_cfg_phy_support */
+	u8 phy_support;
+	/* enum wmi_channel WMI_CHANNEL_1..WMI_CHANNEL_6; for EDMG this is
+	 * the primary channel number
+	 */
+	u8 channel;
+	/* enum wmi_channel WMI_CHANNEL_9..WMI_CHANNEL_12 */
+	u8 edmg_channel;
+	u8 reserved;
+} __packed;
+
 struct wmi_cfg_def_rx_offload_cmd {
 	__le16 max_msdu_size;
 	__le16 max_rx_pl_per_desc;
@@ -1041,7 +1061,8 @@ struct wmi_cfg_def_rx_offload_cmd {
 	u8 vlan_id;
 	u8 nwifi_ds_trans_type;
 	u8 l3_l4_ctrl;
-	u8 reserved[6];
+	u8 reserved[2];
+	struct wmi_sniffer_edma_cfg sniffer_cfg;
 } __packed;
 
 struct wmi_tx_desc_ring_add_cmd {
