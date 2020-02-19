@@ -34,7 +34,7 @@ DEFINE_MUTEX(g_flag_lock);
 int g_mtk_gpu_efuse_set_already;
 
 #ifdef ENABLE_MTK_MEMINFO
-int g_mtk_gpu_total_memory_usage_in_pages_debugfs;
+unsigned int g_mtk_gpu_total_memory_usage_in_pages_debugfs;
 static struct mtk_gpu_meminfo_type g_mtk_gpu_meminfo[MTK_MEMINFO_SIZE];
 
 void mtk_kbase_gpu_memory_debug_init(void)
