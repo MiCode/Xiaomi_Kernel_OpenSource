@@ -48,7 +48,7 @@ static u64 venc_freq_steps[MAX_FREQ_STEP];
  * static struct codec_job *venc_jobs;
  */
 /* 1080p60, 4k30, 4k60, 1 core 4k60*/
-static u64 venc_freq_map[] = {250, 364, 458, 624};
+static u64 venc_freq_map[] = {364, 364, 458, 624};
 
 #endif
 
