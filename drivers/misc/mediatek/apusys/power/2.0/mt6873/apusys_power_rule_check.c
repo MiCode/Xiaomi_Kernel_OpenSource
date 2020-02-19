@@ -39,6 +39,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int dsp1_freq;
 	int dsp2_freq;
 	int dsp5_freq;
+	int default_freq;
 	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
 
 	int vvpu = info->vvpu * info->dump_div;
@@ -46,7 +47,13 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int vsram = info->vsram * info->dump_div;
 
 #if 1
-	if (apusys_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
+	/* Get VPU0/1 default freq */
+	default_freq = BUCK_VVPU_DOMAIN_DEFAULT_FREQ / info->dump_div;
+
+	/* check whether VPU0 opp's value match info */
+	if (apusys_get_power_on_status(VPU0) == true &&
+	    info->dsp1_freq != 0 &&
+	    info->dsp1_freq != default_freq) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
 		if (((abs(dsp1_freq - info->dsp1_freq) * 100) >
 			dsp1_freq * ASSERTION_PERCENTAGE)  &&
@@ -57,9 +64,11 @@ void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
+	/* check whether VPU1 opp's value match info */
 	if (apusys_get_power_on_status(VPU0) == false &&
-		(apusys_get_power_on_status(VPU1) == true &&
-			info->dsp2_freq != 0)) {
+	    (apusys_get_power_on_status(VPU1) == true &&
+	     info->dsp2_freq != 0 &&
+	     info->dsp2_freq != default_freq)) {
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
 		if (((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE) &&
