@@ -1928,22 +1928,25 @@ static const struct file_operations ion_fops = {
 };
 
 static size_t ion_debug_heap_total(struct ion_client *client,
-				   unsigned int id)
+					unsigned int id)
 {
 	size_t size = 0;
 	struct rb_node *n;
 	unsigned int heapid;
+	enum ion_heap_type type;
 
 	mutex_lock(&client->lock);
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
-		struct ion_handle *handle = rb_entry(n,
-						     struct ion_handle,
-						     node);
+		struct ion_handle *handle =
+			rb_entry(n, struct ion_handle, node);
 		heapid = handle->buffer->heap->id;
+		type = handle->buffer->heap->type;
 		if (heapid == id ||
+			/* for exception dump ion_mm_heap info */
 		    (id == ION_HEAP_TYPE_MULTIMEDIA &&
-		     (heapid == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA ||
-		      heapid == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA))) {
+		     (type == ION_HEAP_TYPE_SYSTEM ||
+		      type == ION_HEAP_TYPE_MULTIMEDIA ||
+		      type == ION_HEAP_TYPE_MULTIMEDIA_SEC))) {
 			client->dbg_hnd_cnt++;
 			size += handle->buffer->size;
 		}

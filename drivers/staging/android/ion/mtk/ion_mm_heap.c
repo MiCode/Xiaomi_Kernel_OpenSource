@@ -722,9 +722,28 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 	struct ion_mm_buffer_info *bug_info;
 	struct ion_mm_buf_debug_info *pdbg;
 	int val;
+	#define NON_INFO		-1
 
 	if (!buffer)
 		return;
+	if (buffer->heap->type == ION_HEAP_TYPE_SYSTEM) {
+		ION_DUMP(s,
+			 "0x%p %8zu %4u %6d %3d %3d (%3d) %3d    (%d-%d) (%d-%d) (%d-%d) (%d-%d) 0x%x, 0x%x, %5d(%5d) %16s\n",
+			 buffer, buffer->size, buffer->heap->id,
+			 buffer->kmap_cnt,
+			 atomic_read(&buffer->ref.refcount.refs),
+			 buffer->handle_count,
+			 NON_INFO,
+			 NON_INFO,
+			 NON_INFO, NON_INFO,
+			 NON_INFO, NON_INFO,
+			 NON_INFO, NON_INFO,
+			 NON_INFO, NON_INFO,
+			 bug_info->security,
+			 buffer->flags, buffer->pid, NON_INFO,
+			 buffer->task_comm);
+		return;
+	}
 
 	bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
 
@@ -738,8 +757,9 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		val = bug_info->module_id;
 #if (DOMAIN_NUM == 1)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d %3d %3d %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
-		 buffer, buffer->size, buffer->kmap_cnt,
+		 "0x%p %8zu %4u %6d %3d %3d %3d %3d %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 buffer, buffer->size, buffer->heap->id,
+		 buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
 		 bug_info->mva_cnt,
@@ -751,8 +771,9 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 2)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d %3d %3d %lx(%lx) %lx(%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
-		 buffer, buffer->size, buffer->kmap_cnt,
+		 "0x%p %8zu %4u %6d %3d %3d %3d %3d %lx(%lx) %lx(%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 buffer, buffer->size, buffer->heap->id,
+		 buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
 		 bug_info->mva_cnt,
@@ -765,8 +786,9 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 4)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d (%3d) %3d (%d-%lx) (%d-%lx) (%d-%lx) (%d-%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
-		 buffer, buffer->size, buffer->kmap_cnt,
+		 "0x%p %8zu %4u %6d %3d %3d (%3d) %3d (%d-%lx) (%d-%lx) (%d-%lx) (%d-%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 buffer, buffer->size, buffer->heap->id,
+		 buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
 		 bug_info->mva_cnt,
@@ -1270,24 +1292,24 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 		 "----------------------------------------------------\n");
 #if (DOMAIN_NUM == 1)
 	ION_DUMP(s,
-		 "%18.s %8.s %4.s %3.s %3.s %3.s %3.s %s %3.s %4.s %s %s %4.s %4.s %4.s %4.s %s\n",
-		 "buffer", "size", "kmap", "ref", "hdl", "mod",
+		 "%18.s %8.s %7.s %4.s %3.s %3.s %3.s %3.s %s %3.s %4.s %s %s %4.s %4.s %4.s %4.s %s\n",
+		 "buffer", "size", "heap_id", "kmap", "ref", "hdl", "mod",
 		 "mva_cnt", "mva(dom0)", "sec", "flag",
 		 "pid(alloc_pid)",
 		 "comm(client)", "v1", "v2", "v3", "v4",
 		 "dbg_name");
 #elif (DOMAIN_NUM == 2)
 	ION_DUMP(s,
-		 "%18.s %8.s %4.s %3.s %3.s %3.s %3.s %s %s %3.s %4.s %s %s %4.s %4.s %4.s %4.s %s\n",
-		 "buffer", "size", "kmap", "ref", "hdl", "mod",
+		 "%18.s %8.s %7.s %4.s %3.s %3.s %3.s %3.s %s %s %3.s %4.s %s %s %4.s %4.s %4.s %4.s %s\n",
+		 "buffer", "size", "heap_id", "kmap", "ref", "hdl", "mod",
 		 "mva_cnt", "mva(dom0)", "mva(dom1)", "sec", "flag",
 		 "pid(alloc_pid)",
 		 "comm(client)", "v1", "v2", "v3", "v4",
 		 "dbg_name");
 #elif (DOMAIN_NUM == 4)
 	ION_DUMP(s,
-		 "%18.s %8.s %4.s %3.s %3.s %3.s %3.s %s %s %s %s %3.s %4.s %s %s %4.s %4.s %4.s %4.s %s\n",
-		 "buffer", "size", "kmap", "ref", "hdl", "mod",
+		 "%18.s %8.s %7.s %4.s %3.s %3.s %3.s %3.s %s %s %s %s %3.s %4.s %s %s %4.s %4.s %4.s %4.s %s\n",
+		 "buffer", "size", "heap_id", "kmap", "ref", "hdl", "mod",
 		 "mva_cnt", "mva(b0)", "mva(b1)", "mva(b2)", "mva(b3)",
 		 "sec", "flag", "pid(alloc_pid)",
 		 "comm(client)", "v1", "v2", "v3", "v4",
@@ -1303,8 +1325,8 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer
 		*buffer = rb_entry(n, struct ion_buffer, node);
-		if (buffer->heap->type != heap->type)
-			continue;
+
+		/* when exception occur, ion need to dump all the buffers */
 		bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
 		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA &&
 		    buffer->heap->id != ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA)
