@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,7 @@ enum fps_resolution {
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
 #define EDP_PANEL		12	/* LVDS */
+#define DP_PANEL		12	/* LVDS */
 #define SPI_PANEL               13	/* SPI */
 #define RGB_PANEL               14	/* RGB */
 
