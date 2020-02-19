@@ -163,8 +163,14 @@ int mtk_rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len, bool tile_mode,
 	if (tile_mode)
 		tile_loss = TILE_LOSS;
 
-	step = (UNIT * (frm_in_len - 1) + (frm_out_len - 2)) /
-	       (frm_out_len - 1);
+	if (frm_out_len > 1)
+		step = (UNIT * (frm_in_len - 1) + (frm_out_len - 2)) /
+			(frm_out_len - 1);
+	else {
+		DRM_ERROR("%s:%d Division by zero\n", __func__, __LINE__);
+		return -1;
+	}
+
 
 	/* left half */
 	offset[0] = (step * (frm_out_len - 1) - UNIT * (frm_in_len - 1)) / 2;
