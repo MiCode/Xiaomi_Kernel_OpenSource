@@ -77,6 +77,16 @@ config DMA_DIRECT_REMAP
 	bool
 	select DMA_REMAP
 
+config DMA_COHERENT_HINT_CACHED
+	bool "DMA coherent hint cached"
+	help
+	  Enabling this feature allows client to configure their device so
+	  that the memory framework will only try to DMA map buffers to the device
+	  as IO-coherent if the framework is confident that the buffers are mapped
+	  to the CPU as cached.
+
+	  If unsure, say "n".
+
 config DMA_CMA
 	bool "DMA Contiguous Memory Allocator"
 	depends on HAVE_DMA_CONTIGUOUS && CMA
