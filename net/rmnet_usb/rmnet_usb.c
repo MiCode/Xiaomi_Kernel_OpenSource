@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,13 +115,18 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 
 	switch (ext_cmd.extended_ioctl) {
 	case RMNET_IOCTL_SET_MRU:
-		if (test_bit(EVENT_DEV_OPEN, &unet->flags))
+		dev_info(&unet->intf->dev, "MRU change request to 0x%x\n",
+			 ext_cmd.u.data);
+		if (test_bit(EVENT_DEV_OPEN, &unet->flags)) {
+			dev_err(&unet->intf->dev,
+				"MRU change request failed, device already open\n");
 			return -EBUSY;
+		}
 		/* 16K max */
-		if ((size_t)ext_cmd.u.data > 0x4000)
+		if ((size_t)ext_cmd.u.data > 0x4000) {
+			dev_err(&unet->intf->dev, "MRU above 16k disallowed\n");
 			return -EINVAL;
-		dev_dbg(&unet->intf->dev, "MRU change request to 0x%x\n",
-			ext_cmd.u.data);
+		}
 		unet->rx_urb_size = (size_t)ext_cmd.u.data;
 		break;
 	case RMNET_IOCTL_GET_MRU:
