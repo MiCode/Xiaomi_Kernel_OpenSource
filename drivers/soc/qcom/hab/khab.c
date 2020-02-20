@@ -78,6 +78,7 @@ int32_t habmm_export(int32_t handle, void *buff_to_share, uint32_t size_bytes,
 	param.vcid = handle;
 	param.buffer = (uint64_t)(uintptr_t)buff_to_share;
 	param.sizebytes = size_bytes;
+	param.flags = flags;
 
 	ret = hab_mem_export(hab_driver.kctx, &param, 1);
 
