@@ -131,8 +131,13 @@ do {\
 #define EMAC_HW_NONE 0
 #define EMAC_HW_v2_0_0 0x20000000
 #define EMAC_HW_v2_1_0 0x20010000
+#define EMAC_HW_v2_1_1 0x20010001
+#define EMAC_HW_v2_1_2 0x20010002
 #define EMAC_HW_v2_2_0 0x20020000
+#define EMAC_HW_v2_3_0 0x20030000
+#define EMAC_HW_v2_3_1 0x20030001
 #define EMAC_HW_v2_3_2 0x20030002
+#define EMAC_HW_vMAX 9
 
 #define MII_BUSY 0x00000001
 #define MII_WRITE 0x00000002
