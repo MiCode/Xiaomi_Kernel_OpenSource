@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -305,68 +305,27 @@ fail:
 }
 EXPORT_SYMBOL(synx_signal);
 
-static int synx_match_payload(struct synx_client_cb *cb,
-	struct synx_kernel_payload *payload,
-	bool is_kernel_cb)
+static int synx_match_payload(struct synx_kernel_payload *cb_payload,
+	struct synx_kernel_payload *payload)
 {
 	int rc = 0;
 
-	if (!cb || !payload)
+	if (!cb_payload || !payload)
 		return -EINVAL;
 
-	if (is_kernel_cb) {
-		struct synx_kernel_payload *cb_payload = &cb->kernel_cb;
-
-		if ((cb_payload->cb_func == payload->cb_func) &&
-			(cb_payload->data == payload->data)) {
-			if (payload->cancel_cb_func) {
-				cb_payload->cb_func =
-					payload->cancel_cb_func;
-				rc = 1;
-			} else {
-				rc = 2;
-				pr_debug("kernel cb deregistration success\n");
-			}
-		}
-	} else {
-		struct synx_user_payload *cb_payload = &cb->user_cb;
-		struct synx_user_payload *user_payload = payload->data;
-
-		if ((cb_payload->data[0] == user_payload->data[0]) &&
-			(cb_payload->data[1] == user_payload->data[1])) {
-			if (user_payload->data[2]) {
-				memcpy(cb_payload->data,
-					user_payload->data,
-					SYNX_PAYLOAD_WORDS * sizeof(__u64));
-				rc = 1;
-			} else {
-				rc = 2;
-				pr_debug("user cb deregistration success\n");
-			}
+	if ((cb_payload->cb_func == payload->cb_func) &&
+		(cb_payload->data == payload->data)) {
+		if (payload->cancel_cb_func) {
+			cb_payload->cb_func =
+				payload->cancel_cb_func;
+			rc = 1;
+		} else {
+			rc = 2;
+			pr_debug("kernel cb de-registration success\n");
 		}
 	}
 
 	return rc;
-}
-
-void synx_default_user_callback(s32 h_synx,
-	int status, void *data)
-{
-	struct synx_user_payload *payload = data;
-	struct synx_client *client = payload->client;
-	struct synx_client_cb *cb =
-		container_of(payload, struct synx_client_cb, user_cb);
-
-	if (client) {
-		payload->status = status;
-		pr_debug("user cb queued for handle %d\n", h_synx);
-		mutex_lock(&client->event_q_lock);
-		list_add_tail(&cb->node, &client->event_q);
-		mutex_unlock(&client->event_q_lock);
-		wake_up_all(&client->event_wq);
-	} else {
-		pr_err("%s: invalid client session\n", __func__);
-	}
 }
 
 int synx_register_callback(struct synx_session session_id,
@@ -408,40 +367,16 @@ int synx_register_callback(struct synx_session session_id,
 		goto clear;
 	}
 
-	if (cb_func == synx_default_user_callback) {
-		/* userspace callback index allocated already */
-		idx = *((u32 *)userdata);
-		if (idx < SYNX_MAX_OBJS) {
-			/* data used in default callback func */
-			userdata = &client->cb_table[idx].user_cb;
-		} else {
-			pr_err("%s: [sess: %u] invalid cb index\n",
-				__func__, client->id);
-			kfree(synx_cb);
-			rc = -EINVAL;
-			goto clear;
-		}
-	} else {
-		/* obtain a free index from client cb table */
-		rc = synx_util_alloc_cb_entry(client, &idx);
-		if (rc) {
-			pr_err("[sess :%u] error allocating cb entry\n",
-				client->id);
-			kfree(synx_cb);
-			goto clear;
-		}
-	}
-
 	payload.h_synx = h_synx;
 	payload.cb_func = cb_func;
 	payload.data = userdata;
-	/* update the cb entry with kernel cb data */
-	rc = synx_util_update_cb_entry(client, &payload, idx);
+
+	/* allocate a free index from client cb table */
+	rc = synx_util_alloc_cb_entry(client, &payload, &idx);
 	if (rc) {
 		pr_err("[sess :%u] error allocating cb entry\n",
 			client->id);
 		kfree(synx_cb);
-		clear_bit(idx, client->cb_bitmap);
 		goto clear;
 	}
 
@@ -454,7 +389,7 @@ int synx_register_callback(struct synx_session session_id,
 	/* add callback if object still ACTIVE, dispatch if SIGNALED */
 	if (status == SYNX_STATE_ACTIVE) {
 		pr_debug("[sess: %u] callback added\n", client->id);
-		list_add_tail(&synx_cb->node, &synx_obj->reg_cbs_list);
+		list_add(&synx_cb->node, &synx_obj->reg_cbs_list);
 	} else {
 		synx_cb->status = status;
 		pr_debug("[sess: %u] callback queued\n", client->id);
@@ -481,7 +416,6 @@ int synx_deregister_callback(struct synx_session session_id,
 {
 	int rc = 0, ret = 0;
 	u32 status;
-	bool is_kernel_cb = true;
 	bool match_found = false;
 	struct synx_client *client;
 	struct synx_coredata *synx_obj;
@@ -509,9 +443,6 @@ int synx_deregister_callback(struct synx_session session_id,
 		goto clear;
 	}
 
-	if (cb_func == synx_default_user_callback)
-		is_kernel_cb = false;
-
 	payload.h_synx = h_synx;
 	payload.cb_func = cb_func;
 	payload.data = userdata;
@@ -533,7 +464,8 @@ int synx_deregister_callback(struct synx_session session_id,
 		&synx_obj->reg_cbs_list, node) {
 		if (synx_cb->session_id.client_id != client->id) {
 			continue;
-		} else if (synx_cb->idx >= SYNX_MAX_OBJS) {
+		} else if (synx_cb->idx == 0 ||
+			synx_cb->idx >= SYNX_MAX_OBJS) {
 			/*
 			 * this should not happen. Even if it does,
 			 * the allocated memory will be cleaned up
@@ -546,7 +478,7 @@ int synx_deregister_callback(struct synx_session session_id,
 		}
 
 		cb_payload = &client->cb_table[synx_cb->idx];
-		ret = synx_match_payload(cb_payload, &payload, is_kernel_cb);
+		ret = synx_match_payload(&cb_payload->kernel_cb, &payload);
 		switch (ret) {
 		case 1:
 			/* queue the cancel cb work */
@@ -558,6 +490,9 @@ int synx_deregister_callback(struct synx_session session_id,
 			break;
 		case 2:
 			/* no cancellation cb */
+			if (synx_util_clear_cb_entry(client, cb_payload))
+				pr_err("%s: [sess: %u] error clearing cb %d\n",
+				__func__, client->id, h_synx);
 			list_del_init(&synx_cb->node);
 			kfree(synx_cb);
 			match_found = true;
@@ -1206,10 +1141,7 @@ static int synx_handle_register_user_payload(
 	struct synx_session session_id)
 {
 	int rc = 0;
-	u32 idx;
 	struct synx_userpayload_info user_data;
-	struct synx_client *client;
-	struct synx_client_cb *cb_data;
 
 	if (k_ioctl->size != sizeof(user_data))
 		return -EINVAL;
@@ -1219,34 +1151,14 @@ static int synx_handle_register_user_payload(
 		k_ioctl->size))
 		return -EFAULT;
 
-	client = synx_get_client(session_id);
-	if (!client)
-		return -EINVAL;
-
-	/* obtain a free index from the cb table */
-	rc = synx_util_alloc_cb_entry(client, &idx);
-	if (rc) {
-		pr_err("%s: [sess :%u] error allocating cb entry\n",
-			__func__, client->id);
-		goto fail;
-	}
-
-	cb_data = &client->cb_table[idx];
-	cb_data->user_cb.client = client;
-	cb_data->user_cb.h_synx = user_data.synx_obj;
-	memcpy(&cb_data->user_cb.data, user_data.payload,
-		SYNX_USER_PAYLOAD_SIZE * sizeof(__u64));
-
+	pr_debug("user cb registration with payload %x\n",
+		user_data.payload[0]);
 	rc = synx_register_callback(session_id, user_data.synx_obj,
-		synx_default_user_callback, &idx);
-	if (rc) {
+		synx_util_default_user_callback, (void *)user_data.payload[0]);
+	if (rc)
 		pr_err("[sess: %u] user cb registration failed for handle %d\n",
 			session_id.client_id, user_data.synx_obj);
-		clear_bit(idx, client->cb_bitmap);
-	}
 
-fail:
-	synx_put_client(client);
 	return rc;
 }
 
@@ -1256,7 +1168,6 @@ static int synx_handle_deregister_user_payload(
 {
 	int rc = 0;
 	struct synx_userpayload_info user_data;
-	struct synx_user_payload payload;
 
 	if (k_ioctl->size != sizeof(user_data))
 		return -EINVAL;
@@ -1266,16 +1177,12 @@ static int synx_handle_deregister_user_payload(
 		k_ioctl->size))
 		return -EFAULT;
 
-	payload.h_synx = user_data.synx_obj;
-	memcpy(&payload.data, user_data.payload,
-		SYNX_USER_PAYLOAD_SIZE * sizeof(__u64));
-
 	rc = synx_deregister_callback(session_id,
-			payload.h_synx, synx_default_user_callback,
-			&payload, NULL);
+			user_data.synx_obj, synx_util_default_user_callback,
+			(void *)user_data.payload[0], NULL);
 	if (rc)
 		pr_err("[sess: %u] callback deregistration failed for handle %d\n",
-			session_id.client_id, payload.h_synx);
+			session_id.client_id, user_data.synx_obj);
 
 	return rc;
 }
@@ -1420,7 +1327,6 @@ static ssize_t synx_read(struct file *filep,
 	char __user *buf, size_t size, loff_t *f_pos)
 {
 	ssize_t rc = 0;
-	u32 idx;
 	struct synx_client *client = NULL;
 	struct synx_client_cb *cb;
 	struct synx_session *session = filep->private_data;
@@ -1443,17 +1349,24 @@ static ssize_t synx_read(struct file *filep,
 			struct synx_client_cb, node);
 	if (!cb) {
 		mutex_unlock(&client->event_q_lock);
+		rc = 0;
+		goto fail;
+	}
+
+	if (cb->idx == 0 || cb->idx >= SYNX_MAX_OBJS) {
+		pr_err("%s invalid index\n", __func__);
+		mutex_unlock(&client->event_q_lock);
 		rc = -EINVAL;
 		goto fail;
 	}
+
 	list_del_init(&cb->node);
 	mutex_unlock(&client->event_q_lock);
 
 	rc = size;
-	data.synx_obj = cb->user_cb.h_synx;
-	data.reserved = cb->user_cb.status;
-	memcpy(data.payload, &cb->user_cb.data,
-		SYNX_USER_PAYLOAD_SIZE * sizeof(__u64));
+	data.synx_obj = cb->kernel_cb.h_synx;
+	data.reserved = cb->kernel_cb.status;
+	data.payload[0] = (u64)cb->kernel_cb.data;
 	if (copy_to_user(buf,
 			&data,
 			sizeof(struct synx_userpayload_info))) {
@@ -1461,9 +1374,9 @@ static ssize_t synx_read(struct file *filep,
 		rc = -EFAULT;
 	}
 
-	idx = cb->idx;
-	memset(cb, 0, sizeof(*cb));
-	clear_bit(idx, client->cb_bitmap);
+	if (synx_util_clear_cb_entry(client, cb))
+		pr_err("%s: [sess: %u] error clearing cb for handle %d\n",
+			__func__, client->id, data.synx_obj);
 fail:
 	synx_put_client(client);
 	pr_debug("[sess: %u] exit with status %d\n",
@@ -1539,6 +1452,7 @@ int synx_initialize(struct synx_session *session_id,
 	init_waitqueue_head(&client->event_wq);
 	/* zero handle not allowed */
 	set_bit(0, client->bitmap);
+	set_bit(0, client->cb_bitmap);
 
 	mutex_lock(&synx_dev->dev_table_lock);
 	client_metadata = &synx_dev->client_table[idx];
@@ -1547,7 +1461,7 @@ int synx_initialize(struct synx_session *session_id,
 	mutex_unlock(&synx_dev->dev_table_lock);
 
 	session_id->client_id = idx;
-	pr_debug("index location %ld allocated for client %s\n",
+	pr_info("[sess: %u] session created %s\n",
 		idx, params->name);
 
 	return 0;

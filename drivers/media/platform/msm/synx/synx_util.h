@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SYNX_UTIL_H__
@@ -112,25 +112,25 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj);
  * @brief: Function to allocate synx_client_cb entry from cb table
  *
  * @param client : Pointer to client session info
+ * @param data   : Kernel payload data
  * @param cb_idx : Allocated index (filled by function)
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int synx_util_alloc_cb_entry(struct synx_client *client,
+	struct synx_kernel_payload *data,
 	u32 *cb_idx);
 
 /**
- * @brief: Function to allocate synx_client_cb entry from cb table
+ * @brief: Function to clean up synx_client_cb entry from cb table
  *
  * @param client : Pointer to client session info
- * @param data   : Opaque payload data
- * @param cb_idx : Callback table index
+ * @param cb     : Pointer to client cb entry
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int synx_util_update_cb_entry(struct synx_client *client,
-	void *data,
-	u32 cb_idx);
+int synx_util_clear_cb_entry(struct synx_client *client,
+	struct synx_client_cb *cb);
 
 /**
  * @brief: Function to initialize synx object handle for the client
@@ -154,6 +154,15 @@ int synx_util_init_handle(struct synx_client *client,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int synx_util_activate(struct synx_coredata *synx_obj);
+
+/**
+ * @brief: Default kernel callback function to handle userspace callbacks
+ *
+ * @param h_synx : Synx object handle
+ * @param status : Synx object state
+ * @param data   : Opaque pointer
+ */
+void synx_util_default_user_callback(s32 h_synx, int status, void *data);
 
 /**
  * @brief: Function to queue all the registered callbacks by clients for
