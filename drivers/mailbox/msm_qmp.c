@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,6 +376,7 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
 	void __iomem *addr;
 	unsigned long flags;
+	u32 size;
 	int i;
 
 	if (!mbox || !data || !completion_done(&mbox->ch_complete))
@@ -397,13 +398,15 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 
 	memcpy32_toio(addr + sizeof(pkt->size), pkt->data, pkt->size);
 	iowrite32(pkt->size, addr);
+	/* readback to ensure write reflects in msgram */
+	size = ioread32(addr);
 	mbox->tx_sent = true;
 	for (i = 0; i < mbox->ctrl.num_chans; i++) {
 		if (chan == &mbox->ctrl.chans[i])
 			mbox->idx_in_flight = i;
 	}
 	QMP_INFO(mdev->ilc, "Copied buffer to msgram sz:%d i:%d\n",
-		 pkt->size, mbox->idx_in_flight);
+		 size, mbox->idx_in_flight);
 	send_irq(mdev);
 	qmp_schedule_tx_timeout(mbox);
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
