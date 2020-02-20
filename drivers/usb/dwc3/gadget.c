@@ -2152,6 +2152,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 		dwc->err_evt_seen = false;
 		dwc->pullups_connected = false;
+		dwc->connected = false;
 
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
@@ -3261,8 +3262,6 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 
 	usb_phy_start_link_training(dwc->usb3_phy);
 
-	dwc->connected = true;
-
 	/*
 	 * WORKAROUND: DWC3 revisions <1.88a have an issue which
 	 * would cause a missing Disconnect Event if there's a
@@ -3449,6 +3448,8 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		reg &= ~DWC3_DCTL_HIRD_THRES_MASK;
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 	}
+
+	dwc->connected = true;
 
 	dep = dwc->eps[0];
 	ret = __dwc3_gadget_ep_enable(dep, true, false);
