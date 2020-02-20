@@ -18,10 +18,10 @@
 #include "sm8150-mtp.dtsi"
 
 #include "sdx5xm-external-soc.dtsi"
-#include "sm8150-sdxchitwan.dtsi"
+#include "sm8150-marmot.dtsi"
 
 / {
-	model = "SDXCHITWAN MTP";
+	model = "MARMOT MTP";
 	compatible = "qcom,sm8150-mtp", "qcom,sm8150", "qcom,mtp";
 	qcom,board-id = <0x05010008 0x5>;
 };
