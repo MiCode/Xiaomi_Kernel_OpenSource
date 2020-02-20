@@ -34,7 +34,7 @@
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; /* base addr, size */
 
 		interconnects = <&gem_noc MASTER_GFX3D &mc_virt SLAVE_EBI1>;
-		interconntect-names = "gpu_icc_path";
+		interconnect-names = "gpu_icc_path";
 
 		qcom,bus-table-ddr7 =
 			<MHZ_TO_KBPS(0, 4)>,    /* index=0  */
