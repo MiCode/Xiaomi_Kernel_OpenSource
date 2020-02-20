@@ -1747,28 +1747,47 @@ static int fts_ts_check_dt(struct device_node *np)
 
 static int fts_ts_check_default_tp(struct device_node *dt, const char *prop)
 {
-	const char *active_tp[3 + 1] = {NULL, NULL, NULL, NULL};
-	int count;
-	int ret;
+	const char **active_tp = NULL;
+	int count, tmp, score = 0;
+	const char *active;
+	int ret, i;
 
 	count = of_property_count_strings(dt->parent, prop);
 	if (count <= 0 || count > 3)
 		return -ENODEV;
 
+	active_tp = kcalloc(count, sizeof(char *),  GFP_KERNEL);
+	if (!active_tp) {
+		FTS_ERROR("FTS alloc failed\n");
+		return -ENOMEM;
+	}
+
 	ret = of_property_read_string_array(dt->parent, prop,
-			(const char **)&active_tp, count);
+			active_tp, count);
 	if (ret < 0) {
-		pr_err(" %s:fail to read %s %d\n", __func__, prop, ret);
-		return -ENODEV;
+		FTS_ERROR("fail to read %s %d\n", prop, ret);
+		ret = -ENODEV;
+		goto out;
 	}
 
-	if (!of_device_compatible_match(dt, active_tp)) {
-		pr_err(" %s:no match compatible: %s, %s %s\n",
-			__func__, active_tp[0]);
-		return -ENODEV;
+	for (i = 0; i < count; i++) {
+		active = active_tp[i];
+		if (active != NULL) {
+			tmp = of_device_is_compatible(dt, active);
+			if (tmp > 0)
+				score++;
+		}
 	}
 
-	return 0;
+	if (score <= 0) {
+		FTS_INFO("not match this driver\n");
+		ret = -ENODEV;
+		goto out;
+	}
+	ret = 0;
+out:
+	kfree(active_tp);
+	return ret;
 }
 
 static int fts_ts_probe(struct i2c_client *client,
