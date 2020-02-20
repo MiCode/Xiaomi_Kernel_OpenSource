@@ -1746,6 +1746,10 @@
 			compatible = "qcom,bcm-voter";
 		};
 
+		sde_rsc_rpmh {
+			compatible = "qcom,sde-rsc-rpmh";
+			cell-index = <0>;
+		};
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
