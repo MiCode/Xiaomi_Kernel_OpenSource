@@ -1813,7 +1813,6 @@ static void dp_panel_decode_dsc_dpcd(struct dp_panel *dp_panel)
 	}
 
 	dp_panel->fec_en = dp_panel->dsc_en;
-	dp_panel->widebus_en = dp_panel->dsc_en;
 
 	/* fec_overhead = 1.00 / 0.97582 */
 	if (dp_panel->fec_en)
