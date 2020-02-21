@@ -1872,6 +1872,23 @@ static struct pinctrl_qup shima_qup_regs[] = {
 	QUP_I3C(9, QUP_I3C_9_MODE_OFFSET),
 };
 
+static const struct msm_gpio_wakeirq_map shima_pdc_map[] = {
+	{ 2, 103 }, { 3, 104 }, { 7, 82 }, { 10, 163 }, { 11, 83 },
+	{ 15, 146 }, { 16, 155 }, { 17, 154 }, { 19, 121 }, { 23, 84 },
+	{ 26, 86 }, { 27, 75 }, { 31, 85 }, { 32, 95 }, { 34, 98 },
+	{ 36, 79 }, { 38, 99 }, { 39, 92 }, { 40, 101 }, { 43, 137 },
+	{ 45, 133 }, { 46, 96 }, { 47, 93 }, { 48, 127 }, { 50, 108 },
+	{ 56, 81 }, { 59, 112 }, { 60, 119 }, { 63, 73 }, { 66, 74 },
+	{ 80, 126 }, { 81, 139 }, { 82, 140 }, { 83, 141 }, { 84, 124 },
+	{ 87, 138 }, { 88, 122 }, { 89, 113 }, { 90, 114 }, { 91, 115 },
+	{ 93, 117 }, { 95, 147 }, { 96, 148 }, { 98, 149 }, { 99, 150 },
+	{ 105, 161 }, { 107, 160 }, { 110, 159 }, { 113, 158 }, { 114, 157 },
+	{ 116, 106 }, { 117, 105 }, { 118, 116 }, { 119, 123 }, { 130, 145 },
+	{ 136, 72 }, { 140, 100 }, { 151, 110 }, { 155, 107 }, { 156, 94 },
+	{ 159, 118 }, { 162, 77 }, { 169, 70 }, { 172, 132 }, { 174, 87 },
+	{ 177, 89 }, { 179, 120 }, { 180, 129 }, { 183, 90 }, { 185, 136 },
+};
+
 static const struct msm_pinctrl_soc_data shima_pinctrl = {
 	.pins = shima_pins,
 	.npins = ARRAY_SIZE(shima_pins),
@@ -1882,6 +1899,8 @@ static const struct msm_pinctrl_soc_data shima_pinctrl = {
 	.ngpios = 204,
 	.qup_regs = shima_qup_regs,
 	.nqup_regs = ARRAY_SIZE(shima_qup_regs),
+	.wakeirq_map = shima_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(shima_pdc_map),
 };
 
 static int shima_pinctrl_probe(struct platform_device *pdev)
