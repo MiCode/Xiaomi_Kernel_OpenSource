@@ -398,7 +398,6 @@ struct arm_smmu_device {
 	struct mutex			idr_mutex;
 	struct idr			asid_idr;
 
-	struct arm_smmu_arch_ops	*arch_ops;
 	unsigned long			sync_timed_out;
 };
 
@@ -509,6 +508,7 @@ struct arm_smmu_impl {
 					 unsigned long trans_flags);
 	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
 	void (*device_remove)(struct arm_smmu_device *smmu);
+	int (*device_group)(struct device *dev, struct iommu_group *group);
 };
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
@@ -572,14 +572,6 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 #define arm_smmu_cb_writeq(s, n, o, v)	\
 	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
 
-/*
- * device_group()
- * Hook for checking whether a device is compatible with a said group.
- */
-struct arm_smmu_arch_ops {
-	int (*device_group)(struct device *dev, struct iommu_group *group);
-};
-
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu);
@@ -589,8 +581,6 @@ int arm_mmu500_reset(struct arm_smmu_device *smmu);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
-
-extern struct arm_smmu_arch_ops qsmmuv500_arch_ops;
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10

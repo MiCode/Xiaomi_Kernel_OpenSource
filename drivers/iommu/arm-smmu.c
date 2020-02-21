@@ -350,19 +350,6 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 }
 #endif
 
-static int arm_smmu_arch_device_group(struct device *dev,
-					struct iommu_group *group)
-{
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
-
-	if (!smmu->arch_ops)
-		return 0;
-	if (!smmu->arch_ops->device_group)
-		return 0;
-	return smmu->arch_ops->device_group(dev, group);
-}
-
 static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu)
 {
 	u32 id;
@@ -3330,7 +3317,8 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 			return NULL;
 	}
 
-	if (arm_smmu_arch_device_group(dev, group)) {
+	if (smmu->impl && smmu->impl->device_group &&
+	    smmu->impl->device_group(dev, group)) {
 		iommu_group_put(group);
 		return ERR_PTR(-EINVAL);
 	}
@@ -4461,24 +4449,18 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 struct arm_smmu_match_data {
 	enum arm_smmu_arch_version version;
 	enum arm_smmu_implementation model;
-	struct arm_smmu_arch_ops *arch_ops;
 };
 
-#define ARM_SMMU_MATCH_DATA(name, ver, imp, ops)	\
-static struct arm_smmu_match_data name = {		\
-.version = ver,						\
-.model = imp,						\
-.arch_ops = ops,					\
-}							\
+#define ARM_SMMU_MATCH_DATA(name, ver, imp)	\
+static const struct arm_smmu_match_data name = { .version = ver, .model = imp }
 
-ARM_SMMU_MATCH_DATA(smmu_generic_v1, ARM_SMMU_V1, GENERIC_SMMU, NULL);
-ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU, NULL);
-ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU, NULL);
-ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500, NULL);
-ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2, NULL);
-ARM_SMMU_MATCH_DATA(qcom_smmuv500, ARM_SMMU_V2, QCOM_SMMUV500,
-		    &qsmmuv500_arch_ops);
-ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2, NULL);
+ARM_SMMU_MATCH_DATA(smmu_generic_v1, ARM_SMMU_V1, GENERIC_SMMU);
+ARM_SMMU_MATCH_DATA(smmu_generic_v2, ARM_SMMU_V2, GENERIC_SMMU);
+ARM_SMMU_MATCH_DATA(arm_mmu401, ARM_SMMU_V1_64K, GENERIC_SMMU);
+ARM_SMMU_MATCH_DATA(arm_mmu500, ARM_SMMU_V2, ARM_MMU500);
+ARM_SMMU_MATCH_DATA(cavium_smmuv2, ARM_SMMU_V2, CAVIUM_SMMUV2);
+ARM_SMMU_MATCH_DATA(qcom_smmuv500, ARM_SMMU_V2, QCOM_SMMUV500);
+ARM_SMMU_MATCH_DATA(qcom_smmuv2, ARM_SMMU_V2, QCOM_SMMUV2);
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "arm,smmu-v1", .data = &smmu_generic_v1 },
@@ -4637,7 +4619,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	data = of_device_get_match_data(dev);
 	smmu->version = data->version;
 	smmu->model = data->model;
-	smmu->arch_ops = data->arch_ops;
 
 	if (of_dma_is_coherent(dev->of_node))
 		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
