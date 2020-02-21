@@ -1582,6 +1582,7 @@ struct urb {
 	usb_complete_t complete;	/* (in) completion routine */
 	struct usb_iso_packet_descriptor iso_frame_desc[0];
 					/* (in) ISO ONLY */
+	void *priv_data;                /* (in) additional private data */
 };
 
 /* ----------------------------------------------------------------------- */
