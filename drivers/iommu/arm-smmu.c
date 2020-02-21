@@ -3526,11 +3526,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					  smmu_domain->attributes);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_DEBUG:
-		*((int *)data) = test_bit(DOMAIN_ATTR_DEBUG,
-					  smmu_domain->attributes);
-		ret = 0;
-		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3763,16 +3758,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		} else {
 			ret = -ENOTSUPP;
 		}
-		break;
-	}
-	case DOMAIN_ATTR_DEBUG: {
-		int is_debug_domain = *((int *)data);
-
-		if (is_debug_domain)
-			set_bit(DOMAIN_ATTR_DEBUG, smmu_domain->attributes);
-		else
-			clear_bit(DOMAIN_ATTR_DEBUG, smmu_domain->attributes);
-		ret = 0;
 		break;
 	}
 	default:
@@ -5595,19 +5580,17 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 {
 	u16 sid;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct msm_iommu_domain *msm_domain = to_msm_iommu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec;
 	u32 frsynra;
-	int is_debug_domain;
-
-	arm_smmu_domain_get_attr(domain, DOMAIN_ATTR_DEBUG, &is_debug_domain);
 
 	/* Check to see if the domain is associated with the test
 	 * device. If the domain belongs to the test device, then
 	 * pick the SID from fwspec.
 	 */
-	if (is_debug_domain) {
+	if (msm_domain->is_debug_domain) {
 		fwspec = dev_iommu_fwspec_get(smmu_domain->dev);
 		sid    = (u16)fwspec->ids[0];
 	} else {

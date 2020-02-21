@@ -117,6 +117,7 @@ struct iommu_domain {
 
 struct msm_iommu_domain {
 	char name[IOMMU_DOMAIN_NAME_LEN];
+	bool is_debug_domain;
 	struct iommu_domain iommu_domain;
 };
 
@@ -178,8 +179,7 @@ enum iommu_attr {
 #define DOMAIN_ATTR_CB_STALL_DISABLE		(EXTENDED_ATTR_BASE + 16)
 #define DOMAIN_ATTR_USE_LLC_NWA			(EXTENDED_ATTR_BASE + 17)
 #define DOMAIN_ATTR_NO_CFRE			(EXTENDED_ATTR_BASE + 18)
-#define DOMAIN_ATTR_DEBUG			(EXTENDED_ATTR_BASE + 19)
-#define DOMAIN_ATTR_EXTENDED_MAX		(EXTENDED_ATTR_BASE + 20)
+#define DOMAIN_ATTR_EXTENDED_MAX		(EXTENDED_ATTR_BASE + 19)
 
 /* These are the possible reserved region types */
 enum iommu_resv_type {
