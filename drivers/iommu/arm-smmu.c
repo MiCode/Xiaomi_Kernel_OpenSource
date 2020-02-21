@@ -363,15 +363,6 @@ static int arm_smmu_arch_device_group(struct device *dev,
 	return smmu->arch_ops->device_group(dev, group);
 }
 
-static void arm_smmu_arch_device_remove(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return;
-	if (!smmu->arch_ops->device_remove)
-		return;
-	return smmu->arch_ops->device_remove(smmu);
-}
-
 static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu)
 {
 	u32 id;
@@ -4815,7 +4806,8 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_bus_init(NULL);
 	iommu_device_unregister(&smmu->iommu);
 
-	arm_smmu_arch_device_remove(smmu);
+	if (smmu->impl && smmu->impl->device_remove)
+		smmu->impl->device_remove(smmu);
 
 	idr_destroy(&smmu->asid_idr);
 

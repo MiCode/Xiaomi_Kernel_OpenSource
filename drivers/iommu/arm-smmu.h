@@ -508,6 +508,7 @@ struct arm_smmu_impl {
 					 dma_addr_t iova,
 					 unsigned long trans_flags);
 	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
+	void (*device_remove)(struct arm_smmu_device *smmu);
 };
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
@@ -574,14 +575,9 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 /*
  * device_group()
  * Hook for checking whether a device is compatible with a said group.
- *
- * device_remove()
- * Hook for performing architecture-specific procedures prior to powering off
- * the SMMU.
  */
 struct arm_smmu_arch_ops {
 	int (*device_group)(struct device *dev, struct iommu_group *group);
-	void (*device_remove)(struct arm_smmu_device *smmu);
 };
 
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
