@@ -63,8 +63,13 @@
 	};
 };
 
-&usb3_extcon {
-	vbus-out-gpio = <&tlmm 37 GPIO_ACTIVE_HIGH>;
+&usb3 {
+	qcom,charging-disabled;
+	/delete-property/ extcon;
+};
+
+&usb2s {
+	qcom,charging-disabled;
 };
 
 &qcs405_snd {
