@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,11 +293,21 @@ static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	char *buf = mhi_result->buf_addr;
+	char *token, *delim = "\n";
 
 	/* force a null at last character */
 	buf[mhi_result->bytes_xferd - 1] = 0;
 
-	ipc_log_string(arch_info->boot_ipc_log, "%s %s", DLOG, buf);
+	if (mhi_result->bytes_xferd >= MAX_MSG_SIZE) {
+		do {
+			token = strsep((char **)&buf, delim);
+			if (token)
+				ipc_log_string(arch_info->boot_ipc_log, "%s %s",
+					       DLOG, token);
+		} while (token);
+	} else {
+		ipc_log_string(arch_info->boot_ipc_log, "%s %s", DLOG, buf);
+	}
 }
 
 static void mhi_bl_dummy_cb(struct mhi_device *mhi_dev,
