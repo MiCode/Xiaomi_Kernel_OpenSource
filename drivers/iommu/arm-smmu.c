@@ -363,15 +363,6 @@ static int arm_smmu_arch_device_group(struct device *dev,
 	return smmu->arch_ops->device_group(dev, group);
 }
 
-static void arm_smmu_arch_tlb_sync_timeout(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops || !smmu->arch_ops->tlb_sync_timeout)
-		return;
-
-	smmu->arch_ops->tlb_sync_timeout(smmu);
-}
-
-
 static void arm_smmu_arch_device_remove(struct arm_smmu_device *smmu)
 {
 	if (!smmu->arch_ops)
@@ -854,8 +845,8 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 		goto out;
 
 	trace_tlbsync_timeout(smmu->dev, 0);
-	arm_smmu_arch_tlb_sync_timeout(smmu);
-
+	if (smmu->impl && smmu->impl->tlb_sync_timeout)
+		smmu->impl->tlb_sync_timeout(smmu);
 out:
 	return -EINVAL;
 }
@@ -3150,10 +3141,9 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (arm_smmu_power_on(smmu_domain->smmu->pwr))
 		return 0;
 
-	if (smmu_domain->smmu->arch_ops &&
-	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
-		ret = smmu_domain->smmu->arch_ops->iova_to_phys_hard(
-						smmu_domain, iova, trans_flags);
+	if (smmu->impl && smmu->impl->iova_to_phys_hard) {
+		ret = smmu->impl->iova_to_phys_hard(smmu_domain, iova,
+						    trans_flags);
 		goto out;
 	}
 

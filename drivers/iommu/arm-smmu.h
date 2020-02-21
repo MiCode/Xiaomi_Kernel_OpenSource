@@ -504,6 +504,10 @@ struct arm_smmu_impl {
 	int (*init_context)(struct arm_smmu_domain *smmu_domain);
 	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
 				  struct device *dev);
+	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *smmu_domain,
+					 dma_addr_t iova,
+					 unsigned long trans_flags);
+	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
 };
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
@@ -568,28 +572,15 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
 
 /*
- * iova_to_phys_hard()
- * Provides debug information. May be called from the context fault irq handler.
- *
  * device_group()
  * Hook for checking whether a device is compatible with a said group.
- *
- * tlb_sync_timeout()
- * Hook for performing architecture-specific procedures to collect additional
- * debugging information on a TLB sync timeout.
  *
  * device_remove()
  * Hook for performing architecture-specific procedures prior to powering off
  * the SMMU.
  */
 struct arm_smmu_arch_ops {
-	int (*init)(struct arm_smmu_device *smmu);
-	void (*device_reset)(struct arm_smmu_device *smmu);
-	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *domain,
-					 dma_addr_t iova,
-					 unsigned long trans_flags);
 	int (*device_group)(struct device *dev, struct iommu_group *group);
-	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
 	void (*device_remove)(struct arm_smmu_device *smmu);
 };
 
