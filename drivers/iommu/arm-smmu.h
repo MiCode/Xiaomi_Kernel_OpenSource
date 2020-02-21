@@ -394,14 +394,11 @@ struct arm_smmu_device {
 
 	struct arm_smmu_power_resources *pwr;
 
-	spinlock_t			atos_lock;
-
 	/* protects idr */
 	struct mutex			idr_mutex;
 	struct idr			asid_idr;
 
 	struct arm_smmu_arch_ops	*arch_ops;
-	void				*archdata;
 	unsigned long			sync_timed_out;
 };
 
@@ -569,12 +566,6 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
 
 /*
- * init()
- * Hook for additional device tree parsing at probe time.
- *
- * device_reset()
- * Hook for one-time architecture-specific register settings.
- *
  * iova_to_phys_hard()
  * Provides debug information. May be called from the context fault irq handler.
  *
@@ -608,6 +599,7 @@ struct arm_smmu_arch_ops {
 
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu);
+struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu);
 
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 

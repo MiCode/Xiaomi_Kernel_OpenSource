@@ -161,6 +161,8 @@ struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu)
 		break;
 	case CAVIUM_SMMUV2:
 		return cavium_smmu_impl_init(smmu);
+	case QCOM_SMMUV500:
+		return qsmmuv500_impl_init(smmu);
 	default:
 		break;
 	}

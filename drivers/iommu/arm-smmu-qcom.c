@@ -134,10 +134,11 @@ struct qsmmuv500_archdata {
 	struct actlr_setting		*actlrs;
 	u32				actlr_tbl_size;
 	struct work_struct		outstanding_tnx_work;
-	struct arm_smmu_device		*smmu;
+	spinlock_t			atos_lock;
+	struct arm_smmu_device		smmu;
 };
-#define get_qsmmuv500_archdata(smmu)				\
-	((struct qsmmuv500_archdata *)(smmu->archdata))
+#define to_qsmmuv500_archdata(smmu)				\
+	container_of(smmu, struct qsmmuv500_archdata, smmu)
 
 struct qsmmuv500_group_iommudata {
 	bool has_actlr;
@@ -165,7 +166,7 @@ static void qsmmuv500_log_outstanding_transactions(struct work_struct *work)
 	struct qsmmuv500_archdata *data = container_of(work,
 						struct qsmmuv500_archdata,
 						outstanding_tnx_work);
-	struct arm_smmu_device *smmu = data->smmu;
+	struct arm_smmu_device *smmu = &data->smmu;
 	void __iomem *base;
 
 	if (!mutex_trylock(&capture_reg_lock)) {
@@ -243,7 +244,7 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	u32 tbu_inv_acked = 0, tbu_sync_acked = 0;
 	u32 tcu_inv_pending = 0, tcu_sync_pending = 0;
 	u32 tbu_ids = 0;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	int ret;
 
 	static DEFINE_RATELIMIT_STATE(_rs,
@@ -332,7 +333,7 @@ out:
 
 static void qsmmuv500_device_remove(struct arm_smmu_device *smmu)
 {
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 
 	cancel_work_sync(&data->outstanding_tnx_work);
 }
@@ -455,7 +456,7 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	struct arm_smmu_device *smmu, u32 sid)
 {
 	struct qsmmuv500_tbu_device *tbu = NULL;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 
 	list_for_each_entry(tbu, &data->tbus, list) {
 		if (tbu->sid_start <= sid &&
@@ -471,10 +472,10 @@ static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 	__acquires(&smmu->atos_lock)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	u32 val;
 
-	spin_lock_irqsave(&smmu->atos_lock, *flags);
+	spin_lock_irqsave(&data->atos_lock, *flags);
 	/* The status register is not accessible on version 1.0 */
 	if (data->version == 0x01000000)
 		return 0;
@@ -483,7 +484,7 @@ static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 					val, (val == 0x1), 0,
 					TBU_DBG_TIMEOUT_US)) {
 		dev_err(tbu->dev, "ECATS hw busy!\n");
-		spin_unlock_irqrestore(&smmu->atos_lock, *flags);
+		spin_unlock_irqrestore(&data->atos_lock, *flags);
 		return  -ETIMEDOUT;
 	}
 
@@ -496,12 +497,12 @@ static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
 	__releases(&smmu->atos_lock)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 
 	/* The status register is not accessible on version 1.0 */
 	if (data->version != 0x01000000)
 		writel_relaxed(0, tbu->status_reg);
-	spin_unlock_irqrestore(&smmu->atos_lock, *flags);
+	spin_unlock_irqrestore(&data->atos_lock, *flags);
 }
 
 /*
@@ -723,7 +724,7 @@ static int qsmmuv500_device_group(struct device *dev,
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_group_iommudata *iommudata;
 	u32 actlr, i;
 	struct arm_smmu_smr *smr;
@@ -781,9 +782,8 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 
 static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 {
-	struct arm_smmu_device *smmu = cookie;
 	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = cookie;
 
 	if (!dev->driver) {
 		dev_err(dev, "TBU failed probe, QSMMUV500 cannot continue!\n");
@@ -793,16 +793,15 @@ static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 	tbu = dev_get_drvdata(dev);
 
 	INIT_LIST_HEAD(&tbu->list);
-	tbu->smmu = smmu;
+	tbu->smmu = &data->smmu;
 	list_add(&tbu->list, &data->tbus);
 	return 0;
 }
 
-static int qsmmuv500_read_actlr_tbl(struct arm_smmu_device *smmu)
+static int qsmmuv500_read_actlr_tbl(struct qsmmuv500_archdata *data)
 {
 	int len, i;
-	struct device *dev = smmu->dev;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct device *dev = data->smmu.dev;
 	struct actlr_setting *actlrs;
 	const __be32 *cell;
 
@@ -830,38 +829,12 @@ static int qsmmuv500_read_actlr_tbl(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
+static int qsmmuv500_cfg_probe(struct arm_smmu_device *smmu)
 {
-	struct resource *res;
-	struct device *dev = smmu->dev;
-	struct qsmmuv500_archdata *data;
-	struct platform_device *pdev;
-	int ret;
+	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	u32 val;
 
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	INIT_LIST_HEAD(&data->tbus);
-
-	pdev = container_of(dev, struct platform_device, dev);
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
-	if (!res) {
-		dev_err(dev, "Unable to get the tcu-base\n");
-		return -EINVAL;
-	}
-	data->tcu_base = devm_ioremap(dev, res->start, resource_size(res));
-	if (IS_ERR(data->tcu_base))
-		return PTR_ERR(data->tcu_base);
-
 	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
-	smmu->archdata = data;
-	data->smmu = smmu;
-
-	ret = qsmmuv500_read_actlr_tbl(smmu);
-	if (ret)
-		return ret;
 
 	val = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sACR);
 	val &= ~ARM_MMU500_ACR_CACHE_LOCK;
@@ -874,29 +847,68 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	 */
 	WARN_ON(val & ARM_MMU500_ACR_CACHE_LOCK);
 
-	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
-	if (ret)
-		return ret;
-
-	INIT_WORK(&data->outstanding_tnx_work,
-		  qsmmuv500_log_outstanding_transactions);
-
-	/* Attempt to register child devices */
-	ret = device_for_each_child(dev, smmu, qsmmuv500_tbu_register);
-	if (ret)
-		return -EPROBE_DEFER;
-
 	return 0;
 }
 
 struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
-	.init = qsmmuv500_arch_init,
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
 	.init_context_bank = qsmmuv500_init_cb,
 	.device_group = qsmmuv500_device_group,
 	.tlb_sync_timeout = qsmmuv500_tlb_sync_timeout,
 	.device_remove = qsmmuv500_device_remove,
 };
+
+static const struct arm_smmu_impl qsmmuv500_impl = {
+	.cfg_probe = qsmmuv500_cfg_probe,
+};
+
+struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
+{
+	struct resource *res;
+	struct device *dev = smmu->dev;
+	struct qsmmuv500_archdata *data;
+	struct platform_device *pdev;
+	int ret;
+
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+
+	INIT_LIST_HEAD(&data->tbus);
+
+	pdev = to_platform_device(dev);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
+	if (!res) {
+		dev_err(dev, "Unable to get the tcu-base\n");
+		return ERR_PTR(-EINVAL);
+	}
+	data->tcu_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(data->tcu_base))
+		return ERR_CAST(data->tcu_base);
+
+	spin_lock_init(&data->atos_lock);
+	data->smmu = *smmu;
+	data->smmu.impl = &qsmmuv500_impl;
+
+	ret = qsmmuv500_read_actlr_tbl(data);
+	if (ret)
+		return ERR_PTR(ret);
+
+	INIT_WORK(&data->outstanding_tnx_work,
+		  qsmmuv500_log_outstanding_transactions);
+
+	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	if (ret)
+		return ERR_PTR(ret);
+
+	/* Attempt to register child devices */
+	ret = device_for_each_child(dev, data, qsmmuv500_tbu_register);
+	if (ret)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	devm_kfree(smmu->dev, smmu);
+	return &data->smmu;
+}
 
 struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu)
 {

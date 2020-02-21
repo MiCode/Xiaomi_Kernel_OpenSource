@@ -350,24 +350,6 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 }
 #endif
 
-static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return 0;
-	if (!smmu->arch_ops->init)
-		return 0;
-	return smmu->arch_ops->init(smmu);
-}
-
-static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu)
-{
-	if (!smmu->arch_ops)
-		return;
-	if (!smmu->arch_ops->device_reset)
-		return;
-	return smmu->arch_ops->device_reset(smmu);
-}
-
 static void arm_smmu_arch_init_context_bank(
 		struct arm_smmu_domain *smmu_domain, struct device *dev)
 {
@@ -4002,9 +3984,6 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	arm_smmu_tlb_sync_global(smmu);
 	wmb();
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sCR0, reg);
-
-	/* Manage any implementation defined features */
-	arm_smmu_arch_device_reset(smmu);
 }
 
 static int arm_smmu_id_size_to_bits(int size)
@@ -4684,9 +4663,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	smmu->dev = dev;
-	spin_lock_init(&smmu->atos_lock);
-	idr_init(&smmu->asid_idr);
-	mutex_init(&smmu->idr_mutex);
 
 	data = of_device_get_match_data(dev);
 	smmu->version = data->version;
@@ -4699,6 +4675,9 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	smmu = arm_smmu_impl_init(smmu);
 	if (IS_ERR(smmu))
 		return PTR_ERR(smmu);
+
+	idr_init(&smmu->asid_idr);
+	mutex_init(&smmu->idr_mutex);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
@@ -4795,10 +4774,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 			goto out_power_off;
 		}
 	}
-
-	err = arm_smmu_arch_init(smmu);
-	if (err)
-		goto out_power_off;
 
 	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops.iommu_ops);
 	iommu_device_set_fwnode(&smmu->iommu, dev->fwnode);
