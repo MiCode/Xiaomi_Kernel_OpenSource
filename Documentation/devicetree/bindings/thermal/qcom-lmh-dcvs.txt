@@ -63,6 +63,13 @@ Properties:
 	Definition: Should define this property if platform based cpu cooling
 			device is not required.
 
+- qcom,legacy-lmh-enable:
+	Usage: optional
+	Value type: <none>
+	Definition: Should define this property if legcay LMH hardware algo
+			enablement and default LMH profile enablement
+			is required
+
 Example:
 
 	lmh_dcvs0: qcom,limits-dcvs@18350800 {
@@ -76,6 +83,7 @@ Example:
 		reg =  <0x18350800 0x1000>, //LLM
 			<0x18323000 0x1000>; //OSM
 		qcom,plat-mitigation-disable;
+		qcom,legacy-lmh-enable;
 	};
 
 	CPU0: cpu@0 {
