@@ -105,7 +105,6 @@ static struct arm_smmu_device *cavium_smmu_impl_init(struct arm_smmu_device *smm
 
 #define ARM_MMU500_ACTLR_CPRE		(1 << 1)
 
-#define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 #define ARM_MMU500_ACR_S2CRB_TLBEN	(1 << 10)
 #define ARM_MMU500_ACR_SMTNMB_TLBEN	(1 << 8)
 

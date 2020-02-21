@@ -405,6 +405,35 @@ struct arm_smmu_device {
 	unsigned long			sync_timed_out;
 };
 
+struct qsmmuv500_tbu_device {
+	struct list_head		list;
+	struct device			*dev;
+	struct arm_smmu_device		*smmu;
+	void __iomem			*base;
+	void __iomem			*status_reg;
+
+	struct arm_smmu_power_resources *pwr;
+	u32				sid_start;
+	u32				num_sids;
+
+	/* Protects halt count */
+	spinlock_t			halt_lock;
+	u32				halt_count;
+};
+
+struct arm_smmu_master_cfg {
+	struct arm_smmu_device		*smmu;
+	s16				smendx[];
+};
+
+#define INVALID_SMENDX			-1
+#define __fwspec_cfg(fw) ((struct arm_smmu_master_cfg *)fw->iommu_priv)
+#define fwspec_smmu(fw)  (__fwspec_cfg(fw)->smmu)
+#define fwspec_smendx(fw, i) \
+	(i >= fw->num_ids ? INVALID_SMENDX : __fwspec_cfg(fw)->smendx[i])
+#define for_each_cfg_sme(fw, i, idx) \
+	for (i = 0; idx = fwspec_smendx(fw, i), i < fw->num_ids; ++i)
+
 enum arm_smmu_context_fmt {
 	ARM_SMMU_CTX_FMT_NONE,
 	ARM_SMMU_CTX_FMT_AARCH64,
@@ -465,6 +494,7 @@ struct arm_smmu_domain {
 
 
 /* Implementation details, yay! */
+
 struct arm_smmu_impl {
 	u32 (*read_reg)(struct arm_smmu_device *smmu, int page, int offset);
 	void (*write_reg)(struct arm_smmu_device *smmu, int page, int offset,
@@ -538,12 +568,57 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 #define arm_smmu_cb_writeq(s, n, o, v)	\
 	arm_smmu_writeq((s), ARM_SMMU_CB((s), (n)), (o), (v))
 
+/*
+ * init()
+ * Hook for additional device tree parsing at probe time.
+ *
+ * device_reset()
+ * Hook for one-time architecture-specific register settings.
+ *
+ * iova_to_phys_hard()
+ * Provides debug information. May be called from the context fault irq handler.
+ *
+ * init_context_bank()
+ * Hook for architecture-specific settings which require knowledge of the
+ * dynamically allocated context bank number.
+ *
+ * device_group()
+ * Hook for checking whether a device is compatible with a said group.
+ *
+ * tlb_sync_timeout()
+ * Hook for performing architecture-specific procedures to collect additional
+ * debugging information on a TLB sync timeout.
+ *
+ * device_remove()
+ * Hook for performing architecture-specific procedures prior to powering off
+ * the SMMU.
+ */
+struct arm_smmu_arch_ops {
+	int (*init)(struct arm_smmu_device *smmu);
+	void (*device_reset)(struct arm_smmu_device *smmu);
+	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *domain,
+					 dma_addr_t iova,
+					 unsigned long trans_flags);
+	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
+					struct device *dev);
+	int (*device_group)(struct device *dev, struct iommu_group *group);
+	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
+	void (*device_remove)(struct arm_smmu_device *smmu);
+};
+
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu);
 
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
+int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
+void arm_smmu_power_off(struct arm_smmu_device *smmu,
+			struct arm_smmu_power_resources *pwr);
+
+extern struct arm_smmu_arch_ops qsmmuv500_arch_ops;
+
 /* Misc. constants */
 #define TBUID_SHIFT                     10
+#define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 
 #endif /* _ARM_SMMU_H */
