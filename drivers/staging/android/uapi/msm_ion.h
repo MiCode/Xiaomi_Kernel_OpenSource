@@ -34,6 +34,7 @@ enum ion_heap_ids {
 	ION_CP_MM_HEAP_ID = 8,
 	ION_SECURE_HEAP_ID = 9,
 	ION_SECURE_DISPLAY_HEAP_ID = 10,
+	ION_VIDEO_HEAP_ID = 12,
 	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
 	ION_ADSP_HEAP_ID = 22,
 	ION_SYSTEM_HEAP_ID = 25,
