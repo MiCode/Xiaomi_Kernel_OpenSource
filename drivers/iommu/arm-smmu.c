@@ -350,18 +350,6 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 }
 #endif
 
-static void arm_smmu_arch_init_context_bank(
-		struct arm_smmu_domain *smmu_domain, struct device *dev)
-{
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-
-	if (!smmu->arch_ops)
-		return;
-	if (!smmu->arch_ops->init_context_bank)
-		return;
-	return smmu->arch_ops->init_context_bank(smmu_domain, dev);
-}
-
 static int arm_smmu_arch_device_group(struct device *dev,
 					struct iommu_group *group)
 {
@@ -1818,7 +1806,8 @@ static int arm_smmu_setup_context_bank(struct arm_smmu_domain *smmu_domain,
 		arm_smmu_write_context_bank(smmu, cfg->cbndx,
 					    smmu_domain->attributes);
 
-		arm_smmu_arch_init_context_bank(smmu_domain, dev);
+		if (smmu->impl && smmu->impl->init_context_bank)
+			smmu->impl->init_context_bank(smmu_domain, dev);
 
 		if (smmu->version < ARM_SMMU_V2) {
 			cfg->irptndx = atomic_inc_return(&smmu->irptndx);

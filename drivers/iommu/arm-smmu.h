@@ -502,6 +502,8 @@ struct arm_smmu_impl {
 	int (*cfg_probe)(struct arm_smmu_device *smmu);
 	int (*reset)(struct arm_smmu_device *smmu);
 	int (*init_context)(struct arm_smmu_domain *smmu_domain);
+	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
+				  struct device *dev);
 };
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
@@ -569,10 +571,6 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
  * iova_to_phys_hard()
  * Provides debug information. May be called from the context fault irq handler.
  *
- * init_context_bank()
- * Hook for architecture-specific settings which require knowledge of the
- * dynamically allocated context bank number.
- *
  * device_group()
  * Hook for checking whether a device is compatible with a said group.
  *
@@ -590,8 +588,6 @@ struct arm_smmu_arch_ops {
 	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *domain,
 					 dma_addr_t iova,
 					 unsigned long trans_flags);
-	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
-					struct device *dev);
 	int (*device_group)(struct device *dev, struct iommu_group *group);
 	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
 	void (*device_remove)(struct arm_smmu_device *smmu);
