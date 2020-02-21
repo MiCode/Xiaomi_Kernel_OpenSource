@@ -39,7 +39,7 @@
 #include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include <trace/events/power.h>
-#include "../clk/clk.h"
+#include <linux/clk.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
