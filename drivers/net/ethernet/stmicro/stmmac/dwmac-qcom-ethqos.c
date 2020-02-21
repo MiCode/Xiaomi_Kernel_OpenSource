@@ -1154,8 +1154,6 @@ static int ethqos_update_rgmii_tx_drv_strength(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
 	struct resource *resource = NULL;
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *dev = platform_get_drvdata(pdev);
 	unsigned long tlmm_central_base = 0;
 	unsigned long tlmm_central_size = 0;
 	unsigned long reg_rgmii_io_pads_voltage = 0;
@@ -1210,30 +1208,6 @@ static int ethqos_update_rgmii_tx_drv_strength(struct qcom_ethqos *ethqos)
 		}
 	}
 	break;
-	case 2500000:{
-		switch (ethqos->emac_ver) {
-		case EMAC_HW_v2_0_0:
-		case EMAC_HW_v2_2_0:{
-			if (ethqos->always_on_phy) {
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_WR(
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_16MA,
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_14MA,
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_14MA);
-			} else if ((dev->phydev) &&
-					(dev->phydev->phy_id ==
-					ATH8035_PHY_ID)) {
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_WR(
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_14MA,
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_14MA,
-				TLMM_RGMII_HDRV_PULL_CTL1_TX_HDRV_14MA);
-			}
-		}
-		break;
-		default:
-		break;
-		}
-	}
-	break;
 	default:
 	break;
 	}
@@ -1259,35 +1233,31 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 	ETHQOSINFO("Exit\n");
 }
 
-static bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos,
-				       struct net_device *ndev)
+inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 {
-	if (!ethqos) {
-		ETHQOSINFO("ethqos addr is NULL");
-		return 0;
-	}
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (!ndev) {
-		ETHQOSINFO("dev addr is NULL");
-		return 0;
-	}
-
-	/* PHY driver initializes phydev->link=1.
-	 * So, phydev->link is 1 even on booup with no PHY connected.
-	 * phydev->link is valid only after adjust_link is called once.
-	 * Use (pdata->oldlink != -1) to indicate phy link is not up
-	 */
-	return ethqos->always_on_phy ? 1 :
-		((ethqos->oldlink != -1) && ndev->phydev && ndev->phydev->link);
-		return 0;
+	return priv;
 }
 
-static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos,
-					struct net_device *ndev)
+inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
+{
+	/* PHY driver initializes phydev->link=1.
+	 * So, phydev->link is 1 even on bootup with no PHY connected.
+	 * phydev->link is valid only after adjust_link is called once.
+	 */
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
+	return (priv->dev->phydev && priv->dev->phydev->link);
+}
+
+static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 {
 	ETHQOSINFO("Enter\n");
 
-	if (qcom_ethqos_is_phy_link_up(ethqos, ndev))
+	if (qcom_ethqos_is_phy_link_up(ethqos))
 		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, ethqos->speed);
 	else
 		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
@@ -1378,7 +1348,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 
 	ethqos->pdev = pdev;
-	ethqos->oldlink = -1;
+
 	ethqos_init_reqgulators(ethqos);
 	ethqos_init_gpio(ethqos);
 
@@ -1594,7 +1564,7 @@ static int qcom_ethqos_resume(struct device *dev)
 		return 0;
 	}
 
-	qcom_ethqos_phy_resume_clks(ethqos, ndev);
+	qcom_ethqos_phy_resume_clks(ethqos);
 
 	ret = stmmac_resume(dev);
 

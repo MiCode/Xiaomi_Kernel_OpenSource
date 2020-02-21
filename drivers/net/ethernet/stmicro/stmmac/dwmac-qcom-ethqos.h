@@ -382,7 +382,6 @@ struct qcom_ethqos {
 	unsigned long avb_class_b_intr_cnt;
 	struct dentry *debugfs_dir;
 
-	int oldlink;
 	/* saving state for Wake-on-LAN */
 	int wolopts;
 	/* state of enabled wol options in PHY*/
@@ -394,7 +393,6 @@ struct qcom_ethqos {
 	/* Structure which holds done and wait members */
 	struct completion clk_enable_done;
 
-	int always_on_phy;
 	/* QMP message for disabling ctile power collapse while XO shutdown */
 	struct mbox_chan *qmp_mbox_chan;
 	struct mbox_client *qmp_mbox_client;
@@ -441,6 +439,8 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 				     struct class **pps_class,
 				     char *pps_dev_node_name);
 void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
+bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
+void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
 
 int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req);
 
