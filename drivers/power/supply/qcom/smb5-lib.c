@@ -5877,23 +5877,26 @@ static int typec_partner_register(struct smb_charger *chg)
 {
 	int typec_mode, rc = 0;
 
-	if (!chg->typec_port)
-		return 0;
+	mutex_lock(&chg->typec_lock);
 
-	if (chg->typec_partner && chg->pr_swap_in_progress)
-		return 0;
+	if (!chg->typec_port || chg->pr_swap_in_progress)
+		goto unlock;
 
-	if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
-		chg->typec_partner_desc.accessory = TYPEC_ACCESSORY_AUDIO;
-	else
-		chg->typec_partner_desc.accessory = TYPEC_ACCESSORY_NONE;
+	if (!chg->typec_partner) {
+		if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
+			chg->typec_partner_desc.accessory =
+					TYPEC_ACCESSORY_AUDIO;
+		else
+			chg->typec_partner_desc.accessory =
+					TYPEC_ACCESSORY_NONE;
 
-	chg->typec_partner = typec_register_partner(chg->typec_port,
-			&chg->typec_partner_desc);
-	if (IS_ERR(chg->typec_partner)) {
-		rc = PTR_ERR(chg->typec_partner);
-		pr_err("failed to register typec_partner rc=%d\n", rc);
-		return rc;
+		chg->typec_partner = typec_register_partner(chg->typec_port,
+				&chg->typec_partner_desc);
+		if (IS_ERR(chg->typec_partner)) {
+			rc = PTR_ERR(chg->typec_partner);
+			pr_err("failed to register typec_partner rc=%d\n", rc);
+			goto unlock;
+		}
 	}
 
 	typec_mode = smblib_get_prop_typec_mode(chg);
@@ -5907,16 +5910,22 @@ static int typec_partner_register(struct smb_charger *chg)
 		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
 	}
 
+unlock:
+	mutex_unlock(&chg->typec_lock);
 	return rc;
 }
 
 static void typec_partner_unregister(struct smb_charger *chg)
 {
+	mutex_lock(&chg->typec_lock);
+
 	if (chg->typec_partner && !chg->pr_swap_in_progress) {
 		smblib_dbg(chg, PR_MISC, "Un-registering typeC partner\n");
 		typec_unregister_partner(chg->typec_partner);
 		chg->typec_partner = NULL;
 	}
+
+	mutex_unlock(&chg->typec_lock);
 }
 
 static const char * const dr_mode_text[] = {
@@ -6455,9 +6464,12 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 		 * swap is not in progress, to ensure forced sink or src
 		 * mode configuration is reset properly.
 		 */
+		mutex_lock(&chg->typec_lock);
 
 		if (chg->typec_port && !chg->pr_swap_in_progress)
 			smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
+
+		mutex_unlock(&chg->typec_lock);
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
 			schedule_delayed_work(&chg->lpd_detach_work,
