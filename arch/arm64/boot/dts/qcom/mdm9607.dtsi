@@ -814,6 +814,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<85 512 0 0>,
 				<85 512 60000 800000>;
+		resets = <&clock_gcc GCC_USB_HS_HSIC_BCR>;
+		reset-names = "core_reset";
 		status = "disabled";
 	};
 
