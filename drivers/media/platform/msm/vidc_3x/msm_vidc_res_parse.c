@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1312,6 +1312,17 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 			__func__);
 		goto release_mapping;
 	}
+
+	/*
+	 * configure device segment size and segment boundary to ensure
+	 * iommu mapping returns one mapping (which is required for partial
+	 * cache operations)
+	 */
+	if (!dev->dma_parms)
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+	dma_set_seg_boundary(dev, (unsigned long)DMA_BIT_MASK(64));
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,
