@@ -82,8 +82,8 @@ static ssize_t guestvm_load_start(struct kobject *kobj,
 
 	priv = container_of(kobj, struct guestvm_loader_private,
 				vm_loader_kobj);
-	if (ret != 1 || priv->vm_loaded) {
-		dev_err(priv->dev, "invalid arguments for guestvm_loader.\n");
+	if (priv->vm_loaded) {
+		dev_err(priv->dev, "VM load has already been started\n");
 		return -EINVAL;
 	}
 
@@ -99,7 +99,7 @@ static ssize_t guestvm_load_start(struct kobject *kobj,
 		schedule_work(&priv->vm_loader_work);
 	}
 
-	return ret;
+	return count;
 }
 static struct kobj_attribute guestvm_loader_attribute =
 __ATTR(boot_guestvm, 0220, NULL, guestvm_load_start);
