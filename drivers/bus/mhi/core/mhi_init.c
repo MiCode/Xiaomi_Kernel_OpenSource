@@ -306,6 +306,21 @@ static int mhi_alloc_aligned_ring(struct mhi_controller *mhi_cntrl,
 	return 0;
 }
 
+/* MHI protocol require transfer ring to be aligned to ring length */
+static int mhi_alloc_aligned_ring_uncached(
+	struct mhi_controller *mhi_cntrl, struct mhi_ring *ring, u64 len)
+{
+	ring->alloc_size = len + (len - 1);
+	ring->pre_aligned = mhi_alloc_uncached(mhi_cntrl, ring->alloc_size,
+					       &ring->dma_handle, GFP_KERNEL);
+	if (!ring->pre_aligned)
+		return -ENOMEM;
+
+	ring->iommu_base = (ring->dma_handle + (len - 1)) & ~(len - 1);
+	ring->base = ring->pre_aligned + (ring->iommu_base - ring->dma_handle);
+	return 0;
+}
+
 void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl)
 {
 	int i;
@@ -390,7 +405,11 @@ void mhi_deinit_dev_ctxt(struct mhi_controller *mhi_cntrl)
 			continue;
 
 		ring = &mhi_event->ring;
-		mhi_free_coherent(mhi_cntrl, ring->alloc_size,
+		if (mhi_event->force_uncached)
+			mhi_free_uncached(mhi_cntrl, ring->alloc_size,
+					  ring->pre_aligned, ring->dma_handle);
+		else
+			mhi_free_coherent(mhi_cntrl, ring->alloc_size,
 				  ring->pre_aligned, ring->dma_handle);
 		ring->base = NULL;
 		ring->iommu_base = 0;
@@ -559,7 +578,12 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 
 		ring->el_size = sizeof(struct mhi_tre);
 		ring->len = ring->el_size * ring->elements;
-		ret = mhi_alloc_aligned_ring(mhi_cntrl, ring, ring->len);
+		if (mhi_event->force_uncached)
+			ret = mhi_alloc_aligned_ring_uncached(mhi_cntrl, ring,
+				ring->len);
+		else
+			ret = mhi_alloc_aligned_ring(mhi_cntrl, ring,
+				ring->len);
 		if (ret)
 			goto error_alloc_er;
 
@@ -620,7 +644,11 @@ error_alloc_er:
 		if (mhi_event->offload_ev)
 			continue;
 
-		mhi_free_coherent(mhi_cntrl, ring->alloc_size,
+		if (mhi_event->force_uncached)
+			mhi_free_uncached(mhi_cntrl, ring->alloc_size,
+				  ring->pre_aligned, ring->dma_handle);
+		else
+			mhi_free_coherent(mhi_cntrl, ring->alloc_size,
 				  ring->pre_aligned, ring->dma_handle);
 	}
 	mhi_free_coherent(mhi_cntrl, sizeof(*mhi_ctxt->er_ctxt) *
@@ -1064,6 +1092,10 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			continue;
 
 		mhi_event->er_index = i++;
+
+		mhi_event->force_uncached = of_property_read_bool(child,
+				"mhi,force-uncached");
+
 		ret = of_property_read_u32(child, "mhi,num-elements",
 					   (u32 *)&mhi_event->ring.elements);
 		if (ret)
