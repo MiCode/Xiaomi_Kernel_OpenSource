@@ -831,11 +831,11 @@ static int qmi_rmnet_get_queue_sa(struct qos_info *qos, struct sk_buff *skb)
 	int ip_type;
 	int txq = DEFAULT_MQ_NUM;
 
-	/* Put RS/NS in default mq */
+	/* Put NDP in default mq */
 	if (skb->protocol == htons(ETH_P_IPV6) &&
 	    ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6 &&
-	    (icmp6_hdr(skb)->icmp6_type == 133 ||
-	     icmp6_hdr(skb)->icmp6_type == 135)) {
+	    icmp6_hdr(skb)->icmp6_type >= 133 &&
+	    icmp6_hdr(skb)->icmp6_type <= 137) {
 		return DEFAULT_MQ_NUM;
 	}
 
