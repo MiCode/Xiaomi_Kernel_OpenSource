@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -269,37 +269,11 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	struct llcc_slice_desc desc;
 	bool cap_based_alloc_and_pwr_collapse =
 		drv_data->cap_based_alloc_and_pwr_collapse;
-	uint32_t mask = ~0;
 	int v2_ver = of_device_is_compatible(pdev->dev.of_node,
 							 "qcom,llcc-v2");
 
 	sz = drv_data->cfg_size;
 	llcc_table = drv_data->cfg;
-
-	/* Disable the Cache as Non-Cache override and enable
-	 * the Non-Cache as Cache override
-	 */
-	if (v2_ver) {
-		ret  = regmap_write(drv_data->bcast_regmap,
-						 LLCC_TRP_C_AS_NC, 0);
-		if (ret)
-			return ret;
-
-		ret = regmap_write(drv_data->bcast_regmap,
-						 LLCC_TRP_NC_AS_C, mask);
-		if (ret)
-			return ret;
-	} else {
-		ret  = regmap_write(drv_data->bcast_regmap,
-						 LLCC_FEAC_C_AS_NC, 0);
-		if (ret)
-			return ret;
-
-		ret = regmap_write(drv_data->bcast_regmap,
-						 LLCC_FEAC_NC_AS_C, mask);
-		if (ret)
-			return ret;
-	}
 
 	for (i = 0; i < sz; i++) {
 		attr1_cfg = LLCC_TRP_ATTR1_CFGn(llcc_table[i].slice_id);
