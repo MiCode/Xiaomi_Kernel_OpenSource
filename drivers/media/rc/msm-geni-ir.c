@@ -80,8 +80,11 @@
 #define TX_CLK_DIV_VALUE(X)		(((X) & 0xFFF) << 14)
 
 #define GENI_IR_RX_FIFO_WTRMRK_EN       0x400
+#define GENI_IR_RX_NEC_REPEAT_DETECT    0x40000
 
-#define GENI_IR_DEF_IRQ_EN              GENI_IR_RX_FIFO_WTRMRK_EN
+#define GENI_IR_DEF_IRQ_EN              (GENI_IR_RX_FIFO_WTRMRK_EN | \
+	GENI_IR_RX_NEC_REPEAT_DETECT)
+
 #define GENI_IR_DEF_WAKEUP_MASK         0x00FFFFFF
 #define GENI_IR_MAX_WAKEUP_CODES        10
 #define RX_CLK_DIV                      0x258
@@ -374,6 +377,7 @@ struct msm_geni_ir {
 	unsigned int             gpio_tx;
 #endif
 	u32                      wakeup_mask;
+	u32                      rx_data;
 	u32                      wakeup_codes[GENI_IR_MAX_WAKEUP_CODES];
 	u8                       num_wakeup_codes;
 };
@@ -700,7 +704,7 @@ static irqreturn_t geni_ir_wakeup_handler(int irq, void *data)
 static irqreturn_t geni_ir_interrupt(int irq, void *data)
 {
 	struct msm_geni_ir *ir = data;
-	u32 i, irq_sts, fifo_sts, rx_data, cnt;
+	u32 i, irq_sts, fifo_sts, cnt;
 
 	pr_debug("Received Interrupt\n");
 	/* read irq status */
@@ -716,35 +720,42 @@ static irqreturn_t geni_ir_interrupt(int irq, void *data)
 		u8 command, system, toggle = 0, address1, address2;
 		u32 scancode;
 
-		rx_data = readl_relaxed(ir->base + IR_GENI_RX_FIFO(i));
+		ir->rx_data = readl_relaxed(ir->base + IR_GENI_RX_FIFO(i));
 		if (ir->image_loaded == &rc5_geni_image) {
 			/* RC5 */
-			command  = (rx_data & 0x00003F);
-			system   = (rx_data & 0x0007C0) >> 6;
-			toggle   = (rx_data & 0x000800) ? 1 : 0;
-			command += (rx_data & 0x001000) ? 0 : 0x40;
+			command  = (ir->rx_data & 0x00003F);
+			system   = (ir->rx_data & 0x0007C0) >> 6;
+			toggle   = (ir->rx_data & 0x000800) ? 1 : 0;
+			command += (ir->rx_data & 0x001000) ? 0 : 0x40;
 			scancode = system << 8 | command;
 			rc_keydown(ir->rcdev, RC_PROTO_RC5, scancode, toggle);
 		} else if (ir->image_loaded == &rc6_geni_image) {
 			/* RC6 */
-			scancode = (rx_data & 0x00FFFF);
-			toggle   = (rx_data & 0x010000) ? 1 : 0;
+			scancode = (ir->rx_data & 0x00FFFF);
+			toggle   = (ir->rx_data & 0x010000) ? 1 : 0;
 			rc_keydown(ir->rcdev, RC_PROTO_RC6_0, scancode, toggle);
 		} else {
 			/*NEC*/
-			scancode = (rx_data & 0x0000FF);
+			scancode = (ir->rx_data & 0x0000FF);
 			scancode = ~scancode;
 			scancode = (scancode & 0x0000FF);
-			address2 = (rx_data & 0x00FF0000);
-			address1 = (rx_data & 0xFF000000);
+			address2 = (ir->rx_data & 0x00FF0000);
+			address1 = (ir->rx_data & 0xFF000000);
 			rc_keydown(ir->rcdev, RC_PROTO_NEC, scancode, 0);
 		}
 
 		pr_debug("rcvd code 0x%x scancode 0x%x toggle %d\n",
-			rx_data, scancode, toggle);
+			ir->rx_data, scancode, toggle);
 
 	}
-
+	if ((irq_sts & GENI_IR_RX_NEC_REPEAT_DETECT) &&
+		(ir->image_loaded == &nec_geni_image)) {
+		u32 nec_scancode;
+			nec_scancode = (ir->rx_data & 0x0000FF);
+			nec_scancode = ~nec_scancode;
+			nec_scancode = (nec_scancode & 0x0000FF);
+			rc_keydown(ir->rcdev, RC_PROTO_NEC, nec_scancode, 0);
+	}
 	/* ack irq */
 	writel_relaxed((irq_sts & ~M_CMD_DONE), ir->base + IR_GENI_IRQ_CLEAR);
 	/*write memory barrier*/

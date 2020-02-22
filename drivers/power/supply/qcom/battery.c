@@ -106,6 +106,7 @@ struct pl_data {
 	int			taper_entry_fv;
 	int			main_fcc_max;
 	u32			float_voltage_uv;
+	enum power_supply_type	charger_type;
 	/* debugfs directory */
 	struct dentry		*dfs_root;
 
@@ -199,13 +200,10 @@ static int cp_get_parallel_mode(struct pl_data *chip, int mode)
 
 static int get_hvdcp3_icl_limit(struct pl_data *chip)
 {
-	int rc, main_icl, target_icl = -EINVAL;
-	union power_supply_propval pval = {0, };
+	int main_icl, target_icl = -EINVAL;
 
-	rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_REAL_TYPE, &pval);
-	if ((rc < 0) || (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3
-			&& pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3P5))
+	if ((chip->charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3)
+		&& (chip->charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3P5))
 		return target_icl;
 
 	/*
@@ -278,6 +276,16 @@ static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 			vote(chip->cp_ilim_votable, voter, true, pval.intval);
 		else
 			vote(chip->cp_ilim_votable, voter, true, ilim);
+
+		/*
+		 * Rerun FCC votable to ensure offset for ILIM compensation is
+		 * recalculated based on new ILIM.
+		 */
+		if (!chip->fcc_main_votable)
+			chip->fcc_main_votable = find_votable("FCC_MAIN");
+		if ((chip->charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
+				&& chip->fcc_main_votable)
+			rerun_election(chip->fcc_main_votable);
 
 		pl_dbg(chip, PR_PARALLEL,
 			"ILIM: vote: %d voter:%s min_ilim=%d fcc = %d\n",
@@ -1823,6 +1831,12 @@ static void handle_usb_change(struct pl_data *chip)
 		chip->total_fcc_ua = 0;
 		chip->slave_fcc_ua = 0;
 		chip->main_fcc_ua = 0;
+		chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
+	} else {
+		rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+		if (!rc)
+			chip->charger_type = pval.intval;
 	}
 }
 
@@ -1934,6 +1948,11 @@ int qcom_batt_init(struct charger_param *chg_param)
 	if (!chip->pl_ws)
 		goto cleanup;
 
+	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
+	INIT_WORK(&chip->pl_taper_work, pl_taper_work);
+	INIT_WORK(&chip->pl_disable_forever_work, pl_disable_forever_work);
+	INIT_DELAYED_WORK(&chip->fcc_stepper_work, fcc_stepper_work);
+
 	chip->fcc_main_votable = create_votable("FCC_MAIN", VOTE_MIN,
 					pl_fcc_main_vote_callback,
 					chip);
@@ -2002,11 +2021,6 @@ int qcom_batt_init(struct charger_param *chg_param)
 	}
 
 	vote(chip->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
-
-	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
-	INIT_WORK(&chip->pl_taper_work, pl_taper_work);
-	INIT_WORK(&chip->pl_disable_forever_work, pl_disable_forever_work);
-	INIT_DELAYED_WORK(&chip->fcc_stepper_work, fcc_stepper_work);
 
 	rc = pl_register_notifier(chip);
 	if (rc < 0) {

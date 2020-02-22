@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -153,7 +153,7 @@ int sde_core_irq_enable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 
 	counts = atomic_read(&sde_kms->irq_obj.enable_counts[irq_idxs[0]]);
 	if (counts) {
-		SDE_ERROR("%pS: irq_idx=%d enable_count=%d\n",
+		SDE_DEBUG("%pS: irq_idx=%d enable_count=%d\n",
 			__builtin_return_address(0), irq_idxs[0], counts);
 		SDE_EVT32(irq_idxs[0], counts, SDE_EVTLOG_ERROR);
 	}
@@ -212,7 +212,7 @@ int sde_core_irq_disable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 
 	counts = atomic_read(&sde_kms->irq_obj.enable_counts[irq_idxs[0]]);
 	if (counts == 2) {
-		SDE_ERROR("%pS: irq_idx=%d enable_count=%d\n",
+		SDE_DEBUG("%pS: irq_idx=%d enable_count=%d\n",
 			__builtin_return_address(0), irq_idxs[0], counts);
 		SDE_EVT32(irq_idxs[0], counts, SDE_EVTLOG_ERROR);
 	}

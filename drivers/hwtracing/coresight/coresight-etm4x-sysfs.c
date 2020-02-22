@@ -398,7 +398,7 @@ static ssize_t mode_store(struct device *dev,
 
 	/* bit[12], Low-power state behavior override bit */
 	if ((config->mode & ETM_MODE_LPOVERRIDE) &&
-	    (drvdata->lpoverride == true))
+	    (drvdata->lpoverride == true) && !drvdata->tupwr_disable)
 		config->eventctrl1 |= BIT(12);
 	else
 		config->eventctrl1 &= ~BIT(12);

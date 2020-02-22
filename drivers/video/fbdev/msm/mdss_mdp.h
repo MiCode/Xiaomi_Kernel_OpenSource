@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018,2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,8 @@
 
 #define MAX_LAYER_COUNT		0xC
 
+/* Pipe flag to indicate this pipe contains secure camera buffer */
+#define MDP_SECURE_CAMERA_OVERLAY_SESSION 0x100000000
 /* hw cursor can only be setup in highest mixer stage */
 #define HW_CURSOR_STAGE(mdata) \
 	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
@@ -757,7 +759,7 @@ struct mdss_mdp_img_data {
 	dma_addr_t addr;
 	unsigned long len;
 	u32 offset;
-	u32 flags;
+	u64 flags;
 	u32 dir;
 	u32 domain;
 	bool mapped;
@@ -938,7 +940,7 @@ struct mdss_mdp_pipe {
 	struct file *file;
 	bool is_handed_off;
 
-	u32 flags;
+	u64 flags;
 	u32 bwc_mode;
 
 	/* valid only when pipe's output is crossing both layer mixers */
@@ -1043,6 +1045,7 @@ struct mdss_overlay_private {
 	u32 splash_mem_addr;
 	u32 splash_mem_size;
 	u32 sd_enabled;
+	u32 sc_enabled;
 
 	struct mdss_mdp_vsync_handler vsync_retire_handler;
 	int retire_cnt;
@@ -1365,10 +1368,22 @@ static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
 static inline void mdss_update_sd_client(struct mdss_data_type *mdata,
 							unsigned int status)
 {
-	if (status)
+	if (status) {
 		atomic_inc(&mdata->sd_client_count);
-	else
+	} else {
 		atomic_add_unless(&mdss_res->sd_client_count, -1, 0);
+		if (!atomic_read(&mdss_res->sd_client_count))
+			wake_up_all(&mdata->secure_waitq);
+	}
+}
+
+static inline void mdss_update_sc_client(struct mdss_data_type *mdata,
+							bool status)
+{
+	if (status)
+		atomic_inc(&mdata->sc_client_count);
+	else
+		atomic_add_unless(&mdss_res->sc_client_count, -1, 0);
 }
 
 static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
@@ -1603,11 +1618,16 @@ static inline bool mdss_mdp_is_map_needed(struct mdss_data_type *mdata,
 						struct mdss_mdp_img_data *data)
 {
 	u32 is_secure_ui = data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION;
+	u64 is_secure_camera = data->flags & MDP_SECURE_CAMERA_OVERLAY_SESSION;
 
      /*
       * For ULT Targets we need SMMU Map, to issue map call for secure Display.
       */
 	if (is_secure_ui && !mdss_has_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP))
+		return false;
+
+	if (is_secure_camera && test_bit(MDSS_CAPS_SEC_DETACH_SMMU,
+				mdata->mdss_caps_map))
 		return false;
 
 	return true;
@@ -1666,8 +1686,7 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked);
 int mdss_mdp_vsync_clk_enable(int enable, bool locked);
 void mdss_mdp_clk_ctrl(int enable);
 struct mdss_data_type *mdss_mdp_get_mdata(void);
-int mdss_mdp_secure_display_ctrl(struct mdss_data_type *mdata,
-	unsigned int enable);
+int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
@@ -1701,7 +1720,7 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd);
 void mdss_mdp_overlay_set_chroma_sample(
 	struct mdss_mdp_pipe *pipe);
 int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
-	u32 flags);
+	u64 flags);
 int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 	struct mdss_mdp_mixer *mixer, u32 ndx,
@@ -1921,7 +1940,7 @@ struct mult_factor *mdss_mdp_get_comp_factor(u32 format,
 int mdss_mdp_data_map(struct mdss_mdp_data *data, bool rotator, int dir);
 void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir);
 int mdss_mdp_data_get_and_validate_size(struct mdss_mdp_data *data,
-	struct msmfb_data *planes, int num_planes, u32 flags,
+	struct msmfb_data *planes, int num_planes, u64 flags,
 	struct device *dev, bool rotator, int dir,
 	struct mdp_layer_buffer *buffer);
 u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd);

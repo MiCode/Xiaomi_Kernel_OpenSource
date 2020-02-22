@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -413,19 +413,21 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
 						0x3, rsc->debug_mode);
 
-	reg = dss_reg_r(&rsc->wrapper_io,
+	if (rsc->version >= SDE_RSC_REV_3) {
+		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
-	reg &= ~(BIT(0) | BIT(8));
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+		reg &= ~(BIT(0) | BIT(8));
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 						reg, rsc->debug_mode);
-	wmb(); /* make sure to disable rsc solver state */
+		wmb(); /* make sure to disable rsc solver state */
 
-	reg = dss_reg_r(&rsc->wrapper_io,
+		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
-	reg |= (BIT(0) | BIT(8));
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+		reg |= (BIT(0) | BIT(8));
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 						reg, rsc->debug_mode);
-	wmb(); /* make sure to enable rsc solver state */
+		wmb(); /* make sure to enable rsc solver state */
+	}
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 

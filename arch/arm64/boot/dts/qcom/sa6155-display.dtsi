@@ -52,6 +52,7 @@
 	vdda-0p9-supply = <&pm6155_1_l5>;
 	/delete-property/ qcom,dp-aux-switch;
 	qcom,mst-enable;
+	qcom,dp-aux-bridge-sim = <&sde_dp_mst_sim>;
 
 	qcom,core-supply-entries {
 		#address-cells = <1>;
@@ -213,6 +214,11 @@
 			compatible = "qcom,msm-ext-disp-audio-codec-rx";
 		};
 	};
+
+	sde_dp_mst_sim: qcom,dp-mst-sim {
+		compatible = "qcom,dp-mst-sim";
+	};
+
 	qcom,rmnet-ipa {
 		status="disabled";
 	};

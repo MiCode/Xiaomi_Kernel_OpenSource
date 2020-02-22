@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1813,7 +1813,6 @@ static void dp_panel_decode_dsc_dpcd(struct dp_panel *dp_panel)
 	}
 
 	dp_panel->fec_en = dp_panel->dsc_en;
-	dp_panel->widebus_en = dp_panel->dsc_en;
 
 	/* fec_overhead = 1.00 / 0.97582 */
 	if (dp_panel->fec_en)
@@ -1911,12 +1910,17 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		}
 	}
 
+	/* There is no need to read EDID from MST branch */
+	if (panel->parser->has_mst && dp_panel->read_mst_cap(dp_panel))
+		goto skip_edid;
+
 	rc = dp_panel_read_edid(dp_panel, connector);
 	if (rc) {
 		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
 
+skip_edid:
 	dp_panel->widebus_en = panel->parser->has_widebus;
 	dp_panel->dsc_feature_enable = panel->parser->dsc_feature_enable;
 	dp_panel->fec_feature_enable = panel->parser->fec_feature_enable;

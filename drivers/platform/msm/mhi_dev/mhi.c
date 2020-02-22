@@ -3187,7 +3187,14 @@ static void mhi_dev_enable(struct work_struct *work)
 		enable_irq(mhi_ctx->mhi_irq);
 	}
 
-	mhi_update_state_info(MHI_STATE_CONFIGURED);
+	/*
+	 * ctrl_info might already be set to CONNECTED state in the
+	 * callback function mhi_hwc_cb triggered from IPA when mhi_hwc_init
+	 * is called above, so set to CONFIGURED state only when it
+	 * is not already set to CONNECTED
+	 */
+	if (mhi_ctx->ctrl_info != MHI_STATE_CONNECTED)
+		mhi_update_state_info(MHI_STATE_CONFIGURED);
 
 	/*Enable MHI dev network stack Interface*/
 	rc = mhi_dev_net_interface_init();

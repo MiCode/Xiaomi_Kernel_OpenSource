@@ -24,6 +24,7 @@
 #include "drm_connector.h"
 #include "sde_connector.h"
 #include "dp_display.h"
+#include <soc/qcom/msm_dp_mst_sim_helper.h>
 
 #define DEBUG_NAME "drm_dp"
 
@@ -53,7 +54,72 @@ struct dp_debug_private {
 	struct dp_ctrl *ctrl;
 	struct dp_power *power;
 	struct mutex lock;
+	struct msm_dp_aux_bridge *sim_bridge;
 };
+
+static int dp_debug_sim_hpd_cb(void *arg, bool hpd, bool hpd_irq)
+{
+	struct dp_debug_private *debug = arg;
+
+	if (hpd_irq)
+		return debug->hpd->simulate_attention(debug->hpd, 0);
+	else
+		return debug->hpd->simulate_connect(debug->hpd, hpd);
+}
+
+static int dp_debug_configure_mst_bridge(struct dp_debug_private *debug)
+{
+	struct device_node *bridge_node;
+	struct msm_dp_mst_sim_port *ports;
+	int i, ret;
+
+	static const struct msm_dp_mst_sim_port output_port = {
+		false, false, true, 3, false, 0x12,
+		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		0, 0, 2520, 2520, NULL, 0
+	};
+
+	if (!debug->sim_bridge) {
+		bridge_node = of_parse_phandle(debug->dev->of_node,
+			"qcom,dp-aux-bridge-sim", 0);
+		if (!bridge_node)
+			return 0;
+		debug->sim_bridge = of_msm_dp_aux_find_bridge(bridge_node);
+	}
+
+	if (!debug->sim_bridge)
+		return -EINVAL;
+
+	if (debug->sim_bridge->register_hpd) {
+		ret = debug->sim_bridge->register_hpd(debug->sim_bridge,
+			dp_debug_sim_hpd_cb, debug);
+		if (ret)
+			return ret;
+	}
+
+	if (!debug->dp_debug.mst_port_cnt || !debug->sim_bridge->mst_ctx)
+		return 0;
+
+	ports = kcalloc(debug->dp_debug.mst_port_cnt,
+		sizeof(*ports), GFP_KERNEL);
+	if (!ports)
+		return -ENOMEM;
+
+	for (i = 0; i < debug->dp_debug.mst_port_cnt; i++) {
+		memcpy(&ports[i], &output_port, sizeof(*ports));
+		ports[i].peer_guid[0] = i;
+		ports[i].edid = debug->edid;
+		ports[i].edid_size = debug->edid_size;
+	}
+
+	ret = msm_dp_mst_sim_update(debug->sim_bridge->mst_ctx,
+		debug->dp_debug.mst_port_cnt, ports);
+
+	kfree(ports);
+
+	return ret;
+}
 
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
 {
@@ -141,7 +207,8 @@ static ssize_t dp_debug_write_edid(struct file *file,
 
 			debug->aux->set_sim_mode(debug->aux,
 					debug->dp_debug.sim_mode,
-					debug->edid, debug->dpcd);
+					debug->edid, debug->dpcd,
+					debug->sim_bridge);
 		}
 	}
 
@@ -174,6 +241,9 @@ bail:
 	 * triggered by a tester or a script.
 	 */
 	pr_info("[%s]\n", edid ? "SET" : "CLEAR");
+
+	if (dp_debug_configure_mst_bridge(debug))
+		pr_err("failed to config mst bridge\n");
 
 	mutex_unlock(&debug->lock);
 	return rc;
@@ -699,10 +769,13 @@ static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 		return -EINVAL;
 	}
 
-	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
 	debug->dp_debug.mst_port_cnt = mst_port_cnt;
 	pr_debug("mst_sideband_mode: %d port_cnt:%d\n",
 			mst_sideband_mode, mst_port_cnt);
+
+	if (dp_debug_configure_mst_bridge(debug))
+		pr_err("failed to config mst bridge\n");
+
 	return count;
 }
 
@@ -1483,10 +1556,14 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 			return;
 		}
 
+		if (dp_debug_configure_mst_bridge(debug))
+			pr_err("failed to config mst bridge\n");
+
+		debug->dp_debug.mst_hpd_sim = true;
 		debug->dp_debug.sim_mode = true;
 		debug->power->sim_mode = true;
 		debug->aux->set_sim_mode(debug->aux, true,
-			debug->edid, debug->dpcd);
+			debug->edid, debug->dpcd, debug->sim_bridge);
 	} else {
 
 		if (debug->hotplug) {
@@ -1498,9 +1575,10 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 		debug->aux->abort(debug->aux, false);
 		debug->ctrl->abort(debug->ctrl, false);
 
-		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
+		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL, NULL);
 		debug->power->sim_mode = false;
 		debug->dp_debug.sim_mode = false;
+		debug->dp_debug.mst_hpd_sim = false;
 
 		debug->panel->set_edid(debug->panel, 0);
 		if (debug->edid) {
