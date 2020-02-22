@@ -4537,6 +4537,7 @@ enum nl80211_key_default_types {
  *	See &enum nl80211_key_default_types.
  * @NL80211_KEY_MODE: the mode from enum nl80211_key_mode.
  *	Defaults to @NL80211_KEY_RX_TX.
+ * @NL80211_KEY_DEFAULT_BEACON: flag indicating default Beacon frame key
  *
  * @__NL80211_KEY_AFTER_LAST: internal
  * @NL80211_KEY_MAX: highest key attribute
@@ -4552,6 +4553,7 @@ enum nl80211_key_attributes {
 	NL80211_KEY_TYPE,
 	NL80211_KEY_DEFAULT_TYPES,
 	NL80211_KEY_MODE,
+	NL80211_KEY_DEFAULT_BEACON,
 
 	/* keep last */
 	__NL80211_KEY_AFTER_LAST,
@@ -5522,6 +5524,9 @@ enum nl80211_feature_flags {
  *	with VLAN tagged frames and separate VLAN-specific netdevs added using
  *	vconfig similarly to the Ethernet case.
  *
+ * @NL80211_EXT_FEATURE_BEACON_PROTECTION: The driver supports Beacon protection
+ *	and can receive key configuration for BIGTK using key indexes 6 and 7.
+ *
  * @NUM_NL80211_EXT_FEATURES: number of extended features.
  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
  */
@@ -5568,6 +5573,8 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_STA_TX_PWR,
 	NL80211_EXT_FEATURE_SAE_OFFLOAD,
 	NL80211_EXT_FEATURE_VLAN_OFFLOAD,
+	NL80211_EXT_FEATURE_AQL,
+	NL80211_EXT_FEATURE_BEACON_PROTECTION,
 
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,
