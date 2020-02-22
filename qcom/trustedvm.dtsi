@@ -6,6 +6,10 @@
 	interrupt-parent = <&vgic>;
 
 	chosen {
+		bootargs = "root=/dev/ram rw init=/init console=hvc0 loglevel=8";
+		linux,initrd-start = <0x2a900000>;
+		linux,initrd-end = <0x2b42171a>; /* 11 MB */
+		kaslr-seed = <0xfeedbeef 0xc0def00d>;
 	};
 
 	cpus {
@@ -21,7 +25,7 @@
 		};
 	};
 
-	vgic: interrupt-controller {
+	vgic: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
 		interrupt-controller;
 		#interrupt-cells = <0x3>;
@@ -32,6 +36,11 @@
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
+	};
+
+	memory@28000000 {
+		device_type = "memory";
+		reg = <0x0 0x28000000 0x0 0x8000000>; /* Temp S2 mapping */
 	};
 
 	qcom,vm-config {
@@ -73,13 +82,12 @@
 		};
 	};
 
-	timer {
+	arch_timer: timer {
 		compatible = "arm,armv8-timer";
 		always-on;
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
-		interrupt-parent = <&vgic>;
 	};
 };
