@@ -4776,8 +4776,6 @@ static int _register_device(struct kgsl_device *device)
 
 	device->dev->dma_mask = &dma_mask;
 	set_dma_ops(device->dev, NULL);
-
-	dev_set_drvdata(&device->pdev->dev, device);
 	return 0;
 }
 

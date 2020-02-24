@@ -10,13 +10,10 @@
 #include "kgsl_gmu_core.h"
 #include "kgsl_trace.h"
 
-static const struct {
-	char *compat;
-	struct gmu_core_ops *core_ops;
-	enum gmu_coretype type;
-} gmu_subtypes[] = {
-		{"qcom,gpu-gmu", &gmu_ops, GMU_CORE_TYPE_CM3},
-		{"qcom,gpu-rgmu", &rgmu_ops, GMU_CORE_TYPE_PCC},
+static const struct of_device_id gmu_match_table[] = {
+	{ .compatible = "qcom,gpu-gmu", .data = &kgsl_gmu_driver },
+	{ .compatible = "qcom,gpu-rgmu", .data = &kgsl_rgmu_driver },
+	{},
 };
 
 struct oob_entry {
@@ -40,50 +37,32 @@ const char *gmu_core_oob_type_str(enum oob_request req)
 	return "UNKNOWN";
 }
 
-int gmu_core_probe(struct kgsl_device *device)
+void __init gmu_core_register(void)
 {
+	const struct of_device_id *match;
 	struct device_node *node;
-	struct gmu_core_ops *gmu_core_ops;
-	int i = 0, ret = -ENXIO;
 
-	device->gmu_core.flags = ADRENO_FEATURE(ADRENO_DEVICE(device),
-			ADRENO_GPMU) ? BIT(GMU_GPMU) : 0;
+	node = of_find_matching_node_and_match(NULL, gmu_match_table,
+		&match);
+	if (!node)
+		return;
 
-	for (i = 0; i < ARRAY_SIZE(gmu_subtypes); i++) {
-		node = of_find_compatible_node(device->pdev->dev.of_node,
-				NULL, gmu_subtypes[i].compat);
-
-		if (node != NULL) {
-			gmu_core_ops = gmu_subtypes[i].core_ops;
-			device->gmu_core.type = gmu_subtypes[i].type;
-			break;
-		}
-	}
-
-	/* No GMU in dt, no worries...hopefully */
-	if (node == NULL) {
-		/* If we are trying to use GPMU and no GMU, that's bad */
-		if (device->gmu_core.flags & BIT(GMU_GPMU))
-			return ret;
-		/* Otherwise it's ok and nothing to do */
-		return 0;
-	}
-
-	if (gmu_core_ops && gmu_core_ops->probe) {
-		ret = gmu_core_ops->probe(device, node);
-		if (ret == 0)
-			device->gmu_core.core_ops = gmu_core_ops;
-	}
-
-	return ret;
+	platform_driver_register((struct platform_driver *) match->data);
+	of_node_put(node);
 }
 
-void gmu_core_remove(struct kgsl_device *device)
+void __exit gmu_core_unregister(void)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+	const struct of_device_id *match;
+	struct device_node *node;
 
-	if (gmu_core_ops && gmu_core_ops->remove)
-		gmu_core_ops->remove(device);
+	node = of_find_matching_node_and_match(NULL, gmu_match_table,
+		&match);
+	if (!node)
+		return;
+
+	platform_driver_unregister((struct platform_driver *) match->data);
+	of_node_put(node);
 }
 
 bool gmu_core_isenabled(struct kgsl_device *device)
@@ -93,7 +72,7 @@ bool gmu_core_isenabled(struct kgsl_device *device)
 
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 {
-	return test_bit(GMU_GPMU, &device->gmu_core.flags);
+	return (device->gmu_core.core_ops != NULL);
 }
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)
