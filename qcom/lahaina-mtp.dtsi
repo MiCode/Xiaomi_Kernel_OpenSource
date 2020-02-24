@@ -71,6 +71,11 @@
 		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
 			 &dsi_sw43404_amoled_fhd_plus_cmd>;
 	};
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 38 0>;
+		qcom,finger-detect-gpio = <&tlmm 39 0>;
+	};
 };
 
 &sdhc_2 {

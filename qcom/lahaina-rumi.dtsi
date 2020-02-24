@@ -85,6 +85,11 @@
 				     0x10060 0x3c
 				     0x0 0x4>;
 	};
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 38 0>;
+		qcom,finger-detect-gpio = <&tlmm 39 0>;
+	};
 };
 
 &usb2_phy0 {
