@@ -1,5 +1,0 @@
-. ${ROOT_DIR}/common/build.config.common
-. ${ROOT_DIR}/common/build.config.aarch64
-
-DEFCONFIG=cuttlefish_defconfig
-POST_DEFCONFIG_CMDS="check_defconfig"
