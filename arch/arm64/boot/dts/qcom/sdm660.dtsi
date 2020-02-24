@@ -1452,7 +1452,7 @@
 	};
 
 	qcom,rmnet-ipa {
-		compatible = "qcom,rmnet-ipa3";
+		compatible = "qcom,rmnet-ipa";
 		qcom,rmnet-ipa-ssr;
 		qcom,ipa-platform-type-msm;
 		qcom,ipa-advertise-sg-support;
