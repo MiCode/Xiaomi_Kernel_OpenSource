@@ -378,6 +378,33 @@
 		qcom,lpi-gpios;
 		qcom,tlmm-gpio = <169>;
 	};
+
+	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
+		pinctrl-1 = <&cdc_dmic01_clk_sleep &cdc_dmic01_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-gpio = <174 175>;
+	};
+
+	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
+		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-gpio = <177>;
+	};
+
+	cdc_dmic45_gpios: cdc_dmic45_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic45_clk_active &cdc_dmic45_data_active>;
+		pinctrl-1 = <&cdc_dmic45_clk_sleep &cdc_dmic45_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-gpio = <180>;
+	};
 };
 
 &va_cdc_dma_0_tx {

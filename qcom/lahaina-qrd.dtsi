@@ -88,6 +88,10 @@
 		"Digital Mic4", "VA MIC BIAS4",
 		"Digital Mic5", "VA MIC BIAS4";
 
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
+
 	qcom,msm-mbhc-usbc-audio-supported = <1>;
 	qcom,msm-mbhc-hphl-swh = <0>;
 	qcom,msm-mbhc-gnd-swh = <0>;
