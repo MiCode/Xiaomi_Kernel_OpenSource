@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
@@ -144,6 +144,7 @@ struct gmu_dev_ops {
 	void (*cooperative_reset)(struct kgsl_device *device);
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct kgsl_device *device);
+	bool (*scales_bandwidth)(struct kgsl_device *device);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
 };
