@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -92,6 +92,8 @@ static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.alpha = 0x5AAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
+	.test_ctl_val = 0x40000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
 };
@@ -137,6 +139,8 @@ static const struct alpha_pll_config gpu_cc_pll1_config = {
 	.alpha = 0xC555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
+	.test_ctl_val = 0x40000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
 };
@@ -194,6 +198,7 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(565000000, P_CRC_DIV, 1, 0, 0),
 	F(650000000, P_CRC_DIV, 1, 0, 0),
 	F(800000000, P_CRC_DIV, 1, 0, 0),
+	F(825000000, P_CRC_DIV, 1, 0, 0),
 	F(850000000, P_CRC_DIV, 1, 0, 0),
 	{ }
 };

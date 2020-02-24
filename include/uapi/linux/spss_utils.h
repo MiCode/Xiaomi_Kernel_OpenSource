@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_SPSS_UTILS_H_
@@ -17,6 +17,8 @@
  */
 
 #define SPSS_IOC_MAGIC  'S'
+
+/* ---------- set fw cmac --------------------------------- */
 #define NUM_SPU_UEFI_APPS   3
 
 struct spss_ioc_set_fw_cmac {
@@ -26,5 +28,30 @@ struct spss_ioc_set_fw_cmac {
 
 #define SPSS_IOC_SET_FW_CMAC \
 	_IOWR(SPSS_IOC_MAGIC, 1, struct spss_ioc_set_fw_cmac)
+
+/* ---------- wait for event ------------------------------ */
+#define SPSS_NUM_EVENTS   8
+
+#define EVENT_STATUS_SIGNALED   0xAAAA
+#define EVENT_STATUS_TIMEOUT    0xEEE1
+#define EVENT_STATUS_ABORTED    0xEEE2
+
+struct spss_ioc_wait_for_event {
+	uint32_t event_id;      /* input */
+	uint32_t timeout_sec;   /* input */
+	uint32_t status;        /* output */
+} __packed;
+
+#define SPSS_IOC_WAIT_FOR_EVENT \
+	_IOWR(SPSS_IOC_MAGIC, 2, struct spss_ioc_wait_for_event)
+
+/* ---------- signal event ------------------------------ */
+struct spss_ioc_signal_event {
+	uint32_t event_id;      /* input */
+	uint32_t status;        /* output */
+} __packed;
+
+#define SPSS_IOC_SIGNAL_EVENT \
+	_IOWR(SPSS_IOC_MAGIC, 3, struct spss_ioc_signal_event)
 
 #endif /* _UAPI_SPSS_UTILS_H_ */

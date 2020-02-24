@@ -27,7 +27,6 @@ struct arch_info {
 	u32 bus_client;
 	struct msm_pcie_register_event pcie_reg_event;
 	struct pci_saved_state *pcie_state;
-	async_cookie_t cookie;
 	void *boot_ipc_log;
 	void *tsync_ipc_log;
 	struct mhi_device *boot_dev;
@@ -67,12 +66,15 @@ void mhi_reg_write_work(struct work_struct *w)
 	if (!info->valid)
 		return;
 
-	if (mhi_is_active(mhi_cntrl->mhi_dev) && msm_pcie_prevent_l1(pci_dev))
+	if (!mhi_is_active(mhi_cntrl->mhi_dev))
+		return;
+
+	if (msm_pcie_prevent_l1(pci_dev))
 		return;
 
 	while (info->valid) {
 		if (!mhi_is_active(mhi_cntrl->mhi_dev))
-			return;
+			break;
 
 		writel_relaxed(info->val, info->reg_addr);
 		info->valid = false;
@@ -200,7 +202,7 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 		return 0;
 	}
 
-	MHI_LOG("Enter\n");
+	MHI_LOG("Enter: mdm_crashed:%d\n", flags & ESOC_HOOK_MDM_CRASH);
 
 	/* reset rpm state */
 	pm_runtime_set_active(&pci_dev->dev);
@@ -221,7 +223,6 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 		return ret;
 	}
 
-	mhi_dev->mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 	return mhi_pci_probe(pci_dev, NULL);
 }
 
@@ -282,9 +283,6 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	mhi_deinit_pci_dev(mhi_cntrl);
 	mhi_arch_link_off(mhi_cntrl);
 
-	/* wait for boot monitor to exit */
-	async_synchronize_cookie(arch_info->cookie + 1);
-
 	mhi_arch_pcie_deinit(mhi_cntrl);
 	mhi_cntrl->dev = NULL;
 
@@ -333,50 +331,21 @@ static void mhi_bl_remove(struct mhi_device *mhi_device)
 		       HLOG "Received Remove notif.\n");
 }
 
-static void mhi_boot_monitor(void *data, async_cookie_t cookie)
-{
-	struct mhi_controller *mhi_cntrl = data;
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	struct arch_info *arch_info = mhi_dev->arch_info;
-	/* 15 sec timeout for booting device */
-	const u32 timeout = msecs_to_jiffies(15000);
-
-	/* wait for device to enter boot stage */
-	wait_event_timeout(mhi_cntrl->state_event, mhi_cntrl->ee == MHI_EE_AMSS
-			   || mhi_cntrl->ee == MHI_EE_DISABLE_TRANSITION
-			   || mhi_cntrl->power_down,
-			   timeout);
-
-	ipc_log_string(arch_info->boot_ipc_log, HLOG "Device current ee = %s\n",
-		       TO_MHI_EXEC_STR(mhi_cntrl->ee));
-
-	/* if we successfully booted to amss, enable runtime pm */
-	if (mhi_cntrl->ee == MHI_EE_AMSS)
-		if (!mhi_dev->drv_supported || arch_info->drv_connected)
-			pm_runtime_allow(&mhi_dev->pci_dev->dev);
-}
-
-int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	struct arch_info *arch_info = mhi_dev->arch_info;
-
-	/* start a boot monitor if not in crashed state */
-	if (!mhi_dev->mdm_state)
-		arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
-
-	return 0;
-}
-
 void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	struct mhi_device *boot_dev = arch_info->boot_dev;
 
+	ipc_log_string(arch_info->boot_ipc_log,
+		       HLOG "Device entered mission mode\n");
+
 	/* disable boot logger channel */
 	if (boot_dev)
 		mhi_unprepare_from_transfer(boot_dev);
+
+	if (!mhi_dev->drv_supported || arch_info->drv_connected)
+		pm_runtime_allow(&mhi_dev->pci_dev->dev);
 }
 
 static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
@@ -611,7 +580,8 @@ static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
 
 	/* do a drv hand off */
 	ret = msm_pcie_pm_control(MSM_PCIE_DRV_SUSPEND, mhi_cntrl->bus,
-				  pci_dev, NULL, 0);
+				  pci_dev, NULL, mhi_cntrl->wake_set ?
+				  MSM_PCIE_CONFIG_NO_L1SS_TO : 0);
 
 	/*
 	 * we failed to suspend and scaled down pcie bw.. need to scale up again
@@ -758,9 +728,24 @@ int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 	}
 
 	msm_pcie_l1ss_timeout_enable(pci_dev);
-	mhi_cntrl->force_m3_done = true;
 
 	MHI_LOG("Exited\n");
+
+	return 0;
+}
+
+int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	return msm_pcie_prevent_l1(mhi_dev->pci_dev);
+}
+
+int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	msm_pcie_allow_l1(mhi_dev->pci_dev);
 
 	return 0;
 }

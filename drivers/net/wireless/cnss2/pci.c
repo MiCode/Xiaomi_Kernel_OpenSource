@@ -764,6 +764,22 @@ out:
 	return ret;
 }
 
+int cnss_pci_prevent_l1(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	return msm_pcie_prevent_l1(pci_dev);
+}
+EXPORT_SYMBOL(cnss_pci_prevent_l1);
+
+void cnss_pci_allow_l1(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	msm_pcie_allow_l1(pci_dev);
+}
+EXPORT_SYMBOL(cnss_pci_allow_l1);
+
 int cnss_pci_link_down(struct device *dev)
 {
 	unsigned long flags;

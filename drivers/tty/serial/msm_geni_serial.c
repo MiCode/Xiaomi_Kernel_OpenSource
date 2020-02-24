@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -174,6 +174,8 @@ struct msm_geni_serial_port {
 	struct msm_geni_serial_ver_info ver_info;
 	u32 cur_tx_remaining;
 	bool startup_in_progress;
+	bool is_console;
+	bool rumi_platform;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1912,30 +1914,6 @@ exit_startup:
 	return ret;
 }
 
-static int get_clk_cfg(unsigned long clk_freq, unsigned long *ser_clk)
-{
-	unsigned long root_freq[] = {7372800, 14745600, 19200000, 29491200,
-		32000000, 48000000, 64000000, 80000000, 96000000, 100000000,
-		102400000, 112000000, 120000000, 128000000};
-	int i;
-	int match = -1;
-
-	for (i = 0; i < ARRAY_SIZE(root_freq); i++) {
-		if (clk_freq > root_freq[i])
-			continue;
-
-		if (!(root_freq[i] % clk_freq)) {
-			match = i;
-			break;
-		}
-	}
-	if (match != -1)
-		*ser_clk = root_freq[match];
-	else
-		pr_err("clk_freq %ld\n", clk_freq);
-	return match;
-}
-
 static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 		u32 tx_trans_cfg, u32 tx_parity_cfg, u32 rx_trans_cfg,
 		u32 rx_parity_cfg, u32 bits_per_char, u32 stop_bit_len,
@@ -1961,6 +1939,31 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 }
 
+#if defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+static int get_clk_cfg(unsigned long clk_freq, unsigned long *ser_clk)
+{
+	unsigned long root_freq[] = {7372800, 14745600, 19200000, 29491200,
+		32000000, 48000000, 64000000, 80000000, 96000000, 100000000,
+		102400000, 112000000, 120000000, 128000000};
+	int i;
+	int match = -1;
+
+	for (i = 0; i < ARRAY_SIZE(root_freq); i++) {
+		if (clk_freq > root_freq[i])
+			continue;
+
+		if (!(root_freq[i] % clk_freq)) {
+			match = i;
+			break;
+		}
+	}
+	if (match != -1)
+		*ser_clk = root_freq[match];
+	else
+		pr_err("clk_freq %ld\n", clk_freq);
+	return match;
+}
+
 static int get_clk_div_rate(unsigned int baud, unsigned long *desired_clk_rate)
 {
 	unsigned long ser_clk;
@@ -1981,6 +1984,7 @@ static int get_clk_div_rate(unsigned int baud, unsigned long *desired_clk_rate)
 exit_get_clk_div_rate:
 	return clk_div;
 }
+#endif
 
 static void msm_geni_serial_set_termios(struct uart_port *uport,
 				struct ktermios *termios, struct ktermios *old)
@@ -1992,11 +1996,22 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned int rx_trans_cfg;
 	unsigned int rx_parity_cfg;
 	unsigned int stop_bit_len;
-	int clk_div;
+	int clk_div, ret;
 	unsigned long ser_clk_cfg = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long clk_rate;
 	unsigned long flags;
+	unsigned long desired_rate;
+	unsigned int clk_idx;
+	int uart_sampling;
+	int clk_freq_diff;
+
+	/* QUP_2.5.0 and older RUMI has sampling rate as 32 */
+	if (port->rumi_platform && port->is_console) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
 
 	if (!uart_console(uport)) {
 		int ret = msm_geni_serial_power_on(uport);
@@ -2020,12 +2035,31 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	/* baud rate */
 	baud = uart_get_baud_rate(uport, termios, old, 300, 4000000);
 	port->cur_baud = baud;
-	clk_div = get_clk_div_rate(baud, &clk_rate);
+	uart_sampling = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING) ?
+				UART_OVERSAMPLING / 2 : UART_OVERSAMPLING;
+	desired_rate = baud * uart_sampling;
+
+	/*
+	 * Request for nearest possible required frequency instead of the exact
+	 * required frequency.
+	 */
+	ret = geni_se_clk_freq_match(&port->serial_rsc, desired_rate,
+			&clk_idx, &clk_rate, false);
+	if (ret) {
+		dev_err(uport->dev, "%s: Failed(%d) to find src clk for 0x%x\n",
+				__func__, ret, baud);
+		goto exit_set_termios;
+	}
+
+	clk_div = DIV_ROUND_UP(clk_rate, desired_rate);
 	if (clk_div <= 0)
 		goto exit_set_termios;
 
-	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING))
-		clk_div *= 2;
+	clk_freq_diff =  (desired_rate - (clk_rate / clk_div));
+	if (clk_freq_diff)
+		IPC_LOG_MSG(port->ipc_log_misc,
+			"src_clk freq_diff:%d baud:%d clk_rate:%d clk_div:%d\n",
+			clk_freq_diff, baud, clk_rate, clk_div);
 
 	uport->uartclk = clk_rate;
 	clk_set_rate(port->serial_rsc.se_clk, clk_rate);
@@ -2337,6 +2371,13 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
 
+	/* Only for earlyconsole */
+	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING)) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
+
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
 					(DEF_FIFO_DEPTH_WORDS - 2));
@@ -2529,7 +2570,13 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 	int hw_ver, ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
-	se_geni_clks_on(&msm_port->serial_rsc);
+	/*
+	 * At this time early console is still active and transfers are
+	 * in-coming. Make sure UART doesn't turn on/off clocks for
+	 * console usecase.
+	 */
+	if (!msm_port->is_console)
+		se_geni_clks_on(&msm_port->serial_rsc);
 	/* Basic HW and FW info */
 	if (unlikely(get_se_proto(uport->membase) != UART)) {
 		dev_err(uport->dev, "%s: Invalid FW %d loaded.\n",
@@ -2557,7 +2604,8 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 			msm_port->ver_info.hw_minor_ver,
 			msm_port->ver_info.hw_step_ver);
 exit_ver_info:
-	se_geni_clks_off(&msm_port->serial_rsc);
+	if (!msm_port->is_console)
+		se_geni_clks_off(&msm_port->serial_rsc);
 	return ret;
 }
 
@@ -2609,6 +2657,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 					line, ret);
 		goto exit_geni_serial_probe;
 	}
+	dev_port->is_console = is_console;
 
 	uport = &dev_port->uport;
 
@@ -2648,6 +2697,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		goto exit_geni_serial_probe;
 
 	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
+
+	/* RUMI specific */
+	dev_port->rumi_platform = of_property_read_bool(pdev->dev.of_node,
+					"qcom,rumi_platform");
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,wakeup-byte",
 					&wake_char)) {
@@ -2769,6 +2822,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
 		pm_runtime_use_autosuspend(&pdev->dev);
 		pm_runtime_enable(&pdev->dev);
+	}
+
+	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING) &&
+		dev_port->rumi_platform && dev_port->is_console) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 	}
 
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",

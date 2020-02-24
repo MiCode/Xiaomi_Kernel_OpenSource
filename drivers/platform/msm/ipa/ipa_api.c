@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa.h>
@@ -3738,7 +3738,7 @@ int ipa_get_prot_id(enum ipa_client_type client)
 EXPORT_SYMBOL(ipa_get_prot_id);
 
 static const struct dev_pm_ops ipa_pm_ops = {
-	.suspend_noirq = ipa_ap_suspend,
+	.suspend = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,
 };
 

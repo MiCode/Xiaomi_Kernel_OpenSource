@@ -50,7 +50,6 @@ struct mhi_dev {
 	int resn;
 	void *arch_info;
 	bool powered_on;
-	bool mdm_state;
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	enum mhi_suspend_mode suspend_mode;
@@ -58,10 +57,6 @@ struct mhi_dev {
 	/* hardware info */
 	u32 serial_num;
 	u32 oem_pk_hash[MHI_BHI_OEMPKHASH_SEG];
-
-	unsigned int lpm_disable_depth;
-	/* lock to toggle low power modes */
-	spinlock_t lpm_lock;
 };
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl);
@@ -71,8 +66,9 @@ void mhi_reg_write_work(struct work_struct *w);
 
 #ifdef CONFIG_ARCH_QCOM
 
+int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl);
+int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl);
 void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl);
-int mhi_arch_power_up(struct mhi_controller *mhi_cntrl);
 int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl);
 int mhi_arch_link_suspend(struct mhi_controller *mhi_cntrl);
@@ -99,13 +95,18 @@ static inline int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 	return 0;
 }
 
-static inline int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
+static inline void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+{
+}
+
+static inline int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
 {
 	return 0;
 }
 
-static inline void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+static inline int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
 {
+	return 0;
 }
 
 #endif

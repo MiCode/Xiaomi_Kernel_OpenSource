@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Limited
- * Copyright (c) 2014, 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -857,11 +857,109 @@ static const struct rpm_smd_clk_desc rpm_clk_bengal = {
 	.num_clks = ARRAY_SIZE(bengal_clks),
 };
 
+DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, ln_bb_clk2, ln_bb_clk2_a, 0x2);
+DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, rf_clk3, rf_clk3_a, 6);
+
+DEFINE_CLK_SMD_RPM(scuba, qpic_clk, qpic_a_clk, RPM_SMD_QPIC_CLK, 0);
+
+/* Scuba */
+static struct clk_hw *scuba_clks[] = {
+	[RPM_SMD_XO_CLK_SRC] = &bengal_bi_tcxo.hw,
+	[RPM_SMD_XO_A_CLK_SRC] = &bengal_bi_tcxo_ao.hw,
+	[RPM_SMD_SNOC_CLK] = &bengal_snoc_clk.hw,
+	[RPM_SMD_SNOC_A_CLK] = &bengal_snoc_a_clk.hw,
+	[RPM_SMD_BIMC_CLK] = &bengal_bimc_clk.hw,
+	[RPM_SMD_BIMC_A_CLK] = &bengal_bimc_a_clk.hw,
+	[RPM_SMD_QDSS_CLK] = &bengal_qdss_clk.hw,
+	[RPM_SMD_QDSS_A_CLK] = &bengal_qdss_a_clk.hw,
+	[RPM_SMD_LN_BB_CLK2] = &scuba_ln_bb_clk2.hw,
+	[RPM_SMD_LN_BB_CLK2_A] = &scuba_ln_bb_clk2_a.hw,
+	[RPM_SMD_RF_CLK3] = &scuba_rf_clk3.hw,
+	[RPM_SMD_RF_CLK3_A] = &scuba_rf_clk3_a.hw,
+	[RPM_SMD_CNOC_CLK] = &bengal_cnoc_clk.hw,
+	[RPM_SMD_CNOC_A_CLK] = &bengal_cnoc_a_clk.hw,
+	[RPM_SMD_IPA_CLK] = &bengal_ipa_clk.hw,
+	[RPM_SMD_IPA_A_CLK] = &bengal_ipa_a_clk.hw,
+	[RPM_SMD_QUP_CLK] = &bengal_qup_clk.hw,
+	[RPM_SMD_QUP_A_CLK] = &bengal_qup_a_clk.hw,
+	[RPM_SMD_MMRT_CLK] = &bengal_mmrt_clk.hw,
+	[RPM_SMD_MMRT_A_CLK] = &bengal_mmrt_a_clk.hw,
+	[RPM_SMD_MMNRT_CLK] = &bengal_mmnrt_clk.hw,
+	[RPM_SMD_MMNRT_A_CLK] = &bengal_mmnrt_a_clk.hw,
+	[RPM_SMD_SNOC_PERIPH_CLK] = &bengal_snoc_periph_clk.hw,
+	[RPM_SMD_SNOC_PERIPH_A_CLK] = &bengal_snoc_periph_a_clk.hw,
+	[RPM_SMD_SNOC_LPASS_CLK] = &bengal_snoc_lpass_clk.hw,
+	[RPM_SMD_SNOC_LPASS_A_CLK] = &bengal_snoc_lpass_a_clk.hw,
+	[RPM_SMD_CE1_CLK] = &bengal_ce1_clk.hw,
+	[RPM_SMD_CE1_A_CLK] = &bengal_ce1_a_clk.hw,
+	[RPM_SMD_QPIC_CLK] = &scuba_qpic_clk.hw,
+	[RPM_SMD_QPIC_A_CLK] = &scuba_qpic_a_clk.hw,
+	[CNOC_MSMBUS_CLK] = &cnoc_msmbus_clk.hw,
+	[CNOC_MSMBUS_A_CLK] = &cnoc_msmbus_a_clk.hw,
+	[SNOC_KEEPALIVE_A_CLK] = &snoc_keepalive_a_clk.hw,
+	[CNOC_KEEPALIVE_A_CLK] = &cnoc_keepalive_a_clk.hw,
+	[SNOC_MSMBUS_CLK] = &snoc_msmbus_clk.hw,
+	[SNOC_MSMBUS_A_CLK] = &snoc_msmbus_a_clk.hw,
+	[BIMC_MSMBUS_CLK] = &bimc_msmbus_clk.hw,
+	[BIMC_MSMBUS_A_CLK] = &bimc_msmbus_a_clk.hw,
+	[CPP_MMNRT_MSMBUS_CLK] = &cpp_mmnrt_msmbus_clk.hw,
+	[CPP_MMNRT_MSMBUS_A_CLK] = &cpp_mmnrt_msmbus_a_clk.hw,
+	[JPEG_MMNRT_MSMBUS_CLK] = &jpeg_mmnrt_msmbus_clk.hw,
+	[JPEG_MMNRT_MSMBUS_A_CLK] = &jpeg_mmnrt_msmbus_a_clk.hw,
+	[VENUS_MMNRT_MSMBUS_CLK] = &venus_mmnrt_msmbus_clk.hw,
+	[VENUS_MMNRT_MSMBUS_A_CLK] = &venus_mmnrt_msmbus_a_clk.hw,
+	[ARM9_MMNRT_MSMBUS_CLK] = &arm9_mmnrt_msmbus_clk.hw,
+	[ARM9_MMNRT_MSMBUS_A_CLK] = &arm9_mmnrt_msmbus_a_clk.hw,
+	[VFE_MMRT_MSMBUS_CLK] = &vfe_mmrt_msmbus_clk.hw,
+	[VFE_MMRT_MSMBUS_A_CLK] = &vfe_mmrt_msmbus_a_clk.hw,
+	[MDP_MMRT_MSMBUS_CLK] = &mdp_mmrt_msmbus_clk.hw,
+	[MDP_MMRT_MSMBUS_A_CLK] = &mdp_mmrt_msmbus_a_clk.hw,
+	[QUP0_MSMBUS_SNOC_PERIPH_CLK] = &qup0_msmbus_snoc_periph_clk.hw,
+	[QUP0_MSMBUS_SNOC_PERIPH_A_CLK] = &qup0_msmbus_snoc_periph_a_clk.hw,
+	[QUP1_MSMBUS_SNOC_PERIPH_CLK] = &qup1_msmbus_snoc_periph_clk.hw,
+	[QUP1_MSMBUS_SNOC_PERIPH_A_CLK] = &qup1_msmbus_snoc_periph_a_clk.hw,
+	[DAP_MSMBUS_SNOC_PERIPH_CLK] = &dap_msmbus_snoc_periph_clk.hw,
+	[DAP_MSMBUS_SNOC_PERIPH_A_CLK] = &dap_msmbus_snoc_periph_a_clk.hw,
+	[SDC1_MSMBUS_SNOC_PERIPH_CLK] = &sdc1_msmbus_snoc_periph_clk.hw,
+	[SDC1_MSMBUS_SNOC_PERIPH_A_CLK] = &sdc1_msmbus_snoc_periph_a_clk.hw,
+	[SDC2_MSMBUS_SNOC_PERIPH_CLK] = &sdc2_msmbus_snoc_periph_clk.hw,
+	[SDC2_MSMBUS_SNOC_PERIPH_A_CLK] = &sdc2_msmbus_snoc_periph_a_clk.hw,
+	[CRYPTO_MSMBUS_SNOC_PERIPH_CLK] = &crypto_msmbus_snoc_periph_clk.hw,
+	[CRYPTO_MSMBUS_SNOC_PERIPH_A_CLK] =
+				&crypto_msmbus_snoc_periph_a_clk.hw,
+	[SDC1_SLV_MSMBUS_SNOC_PERIPH_CLK] =
+				&sdc1_slv_msmbus_snoc_periph_clk.hw,
+	[SDC1_SLV_MSMBUS_SNOC_PERIPH_A_CLK] =
+				&sdc1_slv_msmbus_snoc_periph_a_clk.hw,
+	[SDC2_SLV_MSMBUS_SNOC_PERIPH_CLK] =
+				&sdc2_slv_msmbus_snoc_periph_clk.hw,
+	[SDC2_SLV_MSMBUS_SNOC_PERIPH_A_CLK] =
+				&sdc2_slv_msmbus_snoc_periph_a_clk.hw,
+	[MCD_CE1_CLK] = &mcd_ce1_clk.hw,
+	[QCEDEV_CE1_CLK] = &qcedev_ce1_clk.hw,
+	[QCRYPTO_CE1_CLK] = &qcrypto_ce1_clk.hw,
+	[QSEECOM_CE1_CLK] = &qseecom_ce1_clk.hw,
+	[SCM_CE1_CLK] = &scm_ce1_clk.hw,
+	[CXO_SMD_OTG_CLK] = &bi_tcxo_otg_clk.hw,
+	[CXO_SMD_PIL_PRONTO_CLK] = &bi_tcxo_pil_pronto_clk.hw,
+	[CXO_SMD_PIL_MSS_CLK] = &bi_tcxo_pil_mss_clk.hw,
+	[CXO_SMD_WLAN_CLK] = &bi_tcxo_wlan_clk.hw,
+	[CXO_SMD_PIL_LPASS_CLK] = &bi_tcxo_pil_lpass_clk.hw,
+	[CXO_SMD_PIL_CDSP_CLK] = &bi_tcxo_pil_cdsp_clk.hw,
+};
+
+static const struct rpm_smd_clk_desc rpm_clk_scuba = {
+	.clks = scuba_clks,
+	.num_rpm_clks = RPM_SMD_QPIC_A_CLK,
+	.num_clks = ARRAY_SIZE(scuba_clks),
+};
+
 static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ .compatible = "qcom,rpmcc-msm8916", .data = &rpm_clk_msm8916 },
 	{ .compatible = "qcom,rpmcc-msm8974", .data = &rpm_clk_msm8974 },
 	{ .compatible = "qcom,rpmcc-msm8996", .data = &rpm_clk_msm8996 },
 	{ .compatible = "qcom,rpmcc-bengal", .data = &rpm_clk_bengal},
+	{ .compatible = "qcom,rpmcc-scuba", .data = &rpm_clk_scuba},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, rpm_smd_clk_match_table);
@@ -872,15 +970,17 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	struct clk *clk;
 	struct rpm_cc *rcc;
 	struct clk_onecell_data *data;
-	int ret, is_bengal;
+	int ret, is_bengal, is_scuba;
 	size_t num_clks, i;
 	struct clk_hw **hw_clks;
 	const struct rpm_smd_clk_desc *desc;
 
-
 	is_bengal = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,rpmcc-bengal");
-	if (is_bengal) {
+
+	is_scuba = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,rpmcc-scuba");
+	if (is_bengal || is_scuba) {
 		ret = clk_vote_bimc(&bengal_bimc_clk.hw, INT_MAX);
 		if (ret < 0)
 			return ret;
@@ -949,7 +1049,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	if (is_bengal) {
+	if (is_bengal || is_scuba) {
 		/*
 		 * Keep an active vote on CXO in case no other driver
 		 * votes for it.

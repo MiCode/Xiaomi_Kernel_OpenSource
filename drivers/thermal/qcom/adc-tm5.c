@@ -418,16 +418,14 @@ static int32_t adc_tm5_manage_thresholds(struct adc_tm_sensor *sensor)
 	return 0;
 }
 
-void notify_adc_tm_fn(struct work_struct *work)
+/* Used to notify non-thermal clients of threshold crossing */
+void notify_adc_tm5_fn(struct adc_tm_sensor *adc_tm)
 {
 	struct adc_tm_client_info *client_info = NULL;
 	struct adc_tm_chip *chip;
 	struct list_head *thr_list;
 	uint32_t btm_chan_num = 0, btm_chan_idx = 0;
 	int ret = 0;
-
-	struct adc_tm_sensor *adc_tm = container_of(work,
-		struct adc_tm_sensor, work);
 
 	chip = adc_tm->chip;
 
@@ -510,7 +508,8 @@ void notify_adc_tm_fn(struct work_struct *work)
 	}
 }
 
-int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
+/* Used by non-thermal clients to configure an ADC_TM channel */
+static int32_t adc_tm_5_channel_measure(struct adc_tm_chip *chip,
 					struct adc_tm_param *param)
 
 {
@@ -612,9 +611,9 @@ fail_unlock:
 	mutex_unlock(&chip->adc_mutex_lock);
 	return ret;
 }
-EXPORT_SYMBOL(adc_tm5_channel_measure);
 
-int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
+/* Used by non-thermal clients to release an ADC_TM channel */
+static int32_t adc_tm_5_disable_chan_meas(struct adc_tm_chip *chip,
 					struct adc_tm_param *param)
 {
 	int ret = 0, i = 0;
@@ -672,7 +671,6 @@ fail:
 	spin_unlock_irqrestore(&chip->adc_tm_lock, flags);
 	return ret;
 }
-EXPORT_SYMBOL(adc_tm5_disable_chan_meas);
 
 static int adc_tm5_set_mode(struct adc_tm_sensor *sensor,
 			      enum thermal_device_mode mode)
@@ -1110,6 +1108,9 @@ static const struct adc_tm_ops ops_adc_tm5 = {
 	.set_trips	= adc_tm5_set_trip_temp,
 	.interrupts_reg = adc_tm5_register_interrupts,
 	.get_temp	= adc_tm5_get_temp,
+	.channel_measure = adc_tm_5_channel_measure,
+	.disable_chan = adc_tm_5_disable_chan_meas,
+	.notify = notify_adc_tm5_fn,
 };
 
 const struct adc_tm_data data_adc_tm5 = {

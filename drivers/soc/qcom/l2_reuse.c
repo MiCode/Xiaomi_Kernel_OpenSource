@@ -11,7 +11,7 @@
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
 
-#define L2_REUSE_SMC_ID 0x02001F01
+#define L2_REUSE_SMC_ID 0x00200090C
 
 static bool l2_reuse_enable = true;
 static struct kobject *l2_reuse_kobj;

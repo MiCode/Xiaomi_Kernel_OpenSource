@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -1329,7 +1329,7 @@ done:
 				snapshot->ib2base);
 
 gmu_only:
-	complete_all(&snapshot->dump_gate);
 	BUG_ON(!snapshot->device->skip_ib_capture &
 				snapshot->device->force_panic);
+	complete_all(&snapshot->dump_gate);
 }
