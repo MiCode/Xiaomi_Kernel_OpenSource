@@ -65,5 +65,28 @@ config ARCH_BENGAL
 	  This enables support for the BENGAL chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_SCUBA
+	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA"
+	select COMMON_CLK_QCOM
+	select ARCH_SUPPORT_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC_V3
+	select HAVE_ARM_ARCH_TIMER
+	select PINCTRL_MSM
+	select MSM_PM if PM
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select PCI
+	help
+	  This enables support for the SCUBA chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 endmenu
 endif
