@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,5 +39,23 @@ extern u8 *cnss_utils_get_wlan_derived_mac_address(struct device *dev,
 extern void cnss_utils_set_cc_source(struct device *dev,
 				     enum cnss_utils_cc_src cc_source);
 extern enum cnss_utils_cc_src cnss_utils_get_cc_source(struct device *dev);
+#ifdef CONFIG_CNSS_TIMESYNC
+enum wlan_time_sync_trigger_type {
+	CNSS_POSITIVE_EDGE_TRIGGER,
+	CNSS_NEGATIVE_EDGE_TRIGGER,
+};
+
+struct avtimer_cnss_fptr_t {
+	int (*fptr_avtimer_open)(void);
+	int (*fptr_avtimer_enable)(int enable);
+	int (*fptr_avtimer_get_time)(uint64_t *avtimer_tick);
+};
+
+extern int cnss_get_audio_wlan_timestamp(struct device *dev,
+					 enum wlan_time_sync_trigger_type type,
+					 u64 *lpass_ts);
+
+extern void cnss_utils_set_avtimer_fptr(struct avtimer_cnss_fptr_t avtimer);
+#endif
 
 #endif
