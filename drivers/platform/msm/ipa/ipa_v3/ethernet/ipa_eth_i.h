@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,8 @@
 
 #define IPA_ETH_PFDEV (ipa3_ctx ? ipa3_ctx->pdev : NULL)
 #define IPA_ETH_SUBSYS "ipa_eth"
+
+#define IPA_ETH_NET_DEVICE_MAX_EVENTS (NETDEV_CHANGE_TX_QUEUE_LEN + 1)
 
 enum ipa_eth_states {
 	IPA_ETH_ST_READY,
@@ -99,6 +101,26 @@ enum ipa_eth_dev_flags {
 	ipa_eth_log("(%s) " fmt, ((edev && edev->net_dev) ? \
 		edev->net_dev->name : "<unpaired>"), \
 		## args)
+
+struct ipa_eth_upper_device {
+	struct list_head upper_list;
+
+	struct net_device *net_dev;
+	struct ipa_eth_device *eth_dev;
+
+	bool linked; /* upper device is linked to real device */
+	bool watching; /* registered netdevice notifier */
+	bool registered; /* registered with IPA */
+
+	struct notifier_block netdevice_nb;
+
+	struct kref refcount;
+};
+
+struct ipa_eth_device_private {
+	struct mutex upper_mutex;
+	struct list_head upper_devices;
+};
 
 struct ipa_eth_bus {
 	struct list_head bus_list;
@@ -173,6 +195,8 @@ int ipa_eth_offload_complete_reset(struct ipa_eth_device *eth_dev, void *data);
 
 int ipa_eth_net_register_driver(struct ipa_eth_net_driver *nd);
 void ipa_eth_net_unregister_driver(struct ipa_eth_net_driver *nd);
+int ipa_eth_net_watch_upper(struct ipa_eth_device *eth_dev);
+int ipa_eth_net_unwatch_upper(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_net_open_device(struct ipa_eth_device *eth_dev);
 void ipa_eth_net_close_device(struct ipa_eth_device *eth_dev);
@@ -181,8 +205,15 @@ int ipa_eth_net_save_regs(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev);
 int ipa_eth_ep_deinit_headers(struct ipa_eth_device *eth_dev);
+
 int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev);
 int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_ep_register_upper_interface(
+	struct ipa_eth_upper_device *upper_eth_dev);
+int ipa_eth_ep_unregister_upper_interface(
+	struct ipa_eth_upper_device *upper_eth_dev);
+
 void ipa_eth_ep_init_ctx(struct ipa_eth_channel *ch, bool vlan_mode);
 void ipa_eth_ep_deinit_ctx(struct ipa_eth_channel *ch);
 
@@ -202,8 +233,10 @@ int ipa_eth_uc_stats_stop(struct ipa_eth_device *eth_dev);
 /* ipa_eth_utils.c APIs */
 
 const char *ipa_eth_device_event_name(enum ipa_eth_device_event event);
-int ipa_eth_send_msg_connect(struct ipa_eth_device *eth_dev);
-int ipa_eth_send_msg_disconnect(struct ipa_eth_device *eth_dev);
+const char *ipa_eth_net_device_event_name(unsigned long event);
+
+int ipa_eth_send_msg_connect(struct net_device *net_dev);
+int ipa_eth_send_msg_disconnect(struct net_device *net_dev);
 
 void *ipa_eth_get_ipc_logbuf(void);
 void *ipa_eth_get_ipc_logbuf_dbg(void);
