@@ -570,22 +570,6 @@ static void qti_flash_led_switch_brightness_set(
 		snode->enabled = state;
 }
 
-static struct led_classdev *trigger_to_lcdev(struct led_trigger *trig)
-{
-	struct led_classdev *led_cdev;
-
-	read_lock(&trig->leddev_list_lock);
-	list_for_each_entry(led_cdev, &trig->led_cdevs, trig_list) {
-		if (!strcmp(led_cdev->default_trigger, trig->name)) {
-			read_unlock(&trig->leddev_list_lock);
-			return led_cdev;
-		}
-	}
-
-	read_unlock(&trig->leddev_list_lock);
-	return NULL;
-}
-
 static ssize_t qti_flash_led_max_current_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
