@@ -483,15 +483,6 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba,
 	return 0;
 }
 
-static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba,
-				    struct ufs_dev_desc *card)
-{
-	if (card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 6);
-
-	return 0;
-}
-
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
