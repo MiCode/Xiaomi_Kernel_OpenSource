@@ -155,6 +155,14 @@ config CORESIGHT_TPDM_DEFAULT_ENABLE
 	  If unsure, say 'N' here to avoid potential power and performance
 	  penalty.
 
+config CORESIGHT_QPDI
+	bool "CoreSight PMIC debug interface support"
+	help
+	  This driver provides support for controlling the PMIC debug interface
+	  feature. When enabled via sysfs it allows disagnostic access to the
+	  PMIC. Similarly this debug feature can be disabled via sysfs which
+	  prevents debug dongle detection.
+
 config CORESIGHT_HWEVENT
 	bool "CoreSight Hardware Event driver"
 	depends on CORESIGHT_STM
