@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1079,7 +1079,6 @@ const struct adc_tm_data data_adc_tm5 = {
 	.hw_settle = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					1, 2, 4, 8, 16, 32, 64, 128},
 };
-EXPORT_SYMBOL(data_adc_tm5);
 
 MODULE_DESCRIPTION("Qualcomm Technologies Inc. ADC_TM5 driver");
 MODULE_LICENSE("GPL v2");
