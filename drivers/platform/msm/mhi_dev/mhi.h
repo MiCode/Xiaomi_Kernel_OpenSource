@@ -381,7 +381,11 @@ struct mhi_dev_ring {
 
 	enum mhi_dev_ring_type			type;
 	enum mhi_dev_ring_state			state;
-
+	/*
+	 * Lock to prevent race in updating event ring
+	 * which is shared by multiple channels
+	 */
+	struct mutex	event_lock;
 	/* device virtual address location of the cached host ring ctx data */
 	union mhi_dev_ring_element_type		*ring_cache;
 	/* Physical address of the cached ring copy on the device side */
