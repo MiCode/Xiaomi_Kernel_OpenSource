@@ -545,7 +545,10 @@
 	};
 };
 
-&restart {
-	nvmem-cells = <&restart_reason>;
-	nvmem-cell-names = "restart_reason";
+&soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
 };
