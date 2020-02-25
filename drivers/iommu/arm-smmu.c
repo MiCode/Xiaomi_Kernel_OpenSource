@@ -1256,18 +1256,18 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 	dev_err(smmu->dev,
 		"FSR    = 0x%08x [%s%s%s%s%s%s%s%s%s%s]\n",
 		fsr,
-		(fsr & 0x02) ?  (fsynr0 & 0x10 ?
+		(fsr & FSR_TF) ?  (fsynr0 & FSYNR0_WNR ?
 				 "TF W " : "TF R ") : "",
-		(fsr & 0x04) ? "AFF " : "",
-		(fsr & 0x08) ? (fsynr0 & 0x10 ?
+		(fsr & FSR_AFF) ? "AFF " : "",
+		(fsr & FSR_PF) ? (fsynr0 & FSYNR0_WNR ?
 				"PF W " : "PF R ") : "",
-		(fsr & 0x10) ? "EF " : "",
-		(fsr & 0x20) ? "TLBMCF " : "",
-		(fsr & 0x40) ? "TLBLKF " : "",
-		(fsr & 0x80) ? "MHF " : "",
-		(fsr & 0x100) ? "UUT " : "",
-		(fsr & 0x40000000) ? "SS " : "",
-		(fsr & 0x80000000) ? "MULTI " : "");
+		(fsr & FSR_EF) ? "EF " : "",
+		(fsr & FSR_TLBMCF) ? "TLBMCF " : "",
+		(fsr & FSR_TLBLKF) ? "TLBLKF " : "",
+		(fsr & FSR_ASF) ? "ASF " : "",
+		(fsr & FSR_UUT) ? "UUT " : "",
+		(fsr & FSR_SS) ? "SS " : "",
+		(fsr & FSR_MULTI) ? "MULTI " : "");
 
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
 		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
