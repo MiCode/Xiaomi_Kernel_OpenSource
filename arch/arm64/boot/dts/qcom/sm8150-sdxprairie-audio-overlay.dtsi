@@ -1,0 +1,40 @@
+/*
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	quat_mi2s_gpios: quat_mi2s_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&quat_mi2s_active
+		&quat_mi2s_sd0_active &quat_mi2s_sd1_active>;
+		pinctrl-1 = <&quat_mi2s_sleep
+		&quat_mi2s_sd0_sleep &quat_mi2s_sd1_sleep>;
+	};
+
+	audio_slimslave {
+		compatible = "qcom,audio-slimslave";
+		elemental-addr = [00 01 50 02 17 02];
+	};
+};
+
+&snd_934x {
+	compatible = "qcom,sm8150-asoc-snd-hana55";
+	qcom,model = "sm8150-hana55-snd-card";
+
+	qcom,quat-mi2s-gpios = <&quat_mi2s_gpios>;
+};
+
+&dai_mi2s3 {
+	qcom,msm-mi2s-rx-lines = <2>;
+	qcom,msm-mi2s-tx-lines = <1>;
+};

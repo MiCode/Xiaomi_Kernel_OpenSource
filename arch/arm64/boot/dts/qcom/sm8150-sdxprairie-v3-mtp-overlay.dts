@@ -23,6 +23,7 @@
 #include "sdx5xm-external-soc.dtsi"
 #include "sm8150-sdxprairie-v2.dtsi"
 #include "sm8150-mtp-audio-overlay.dtsi"
+#include "sm8150-sdxprairie-audio-overlay.dtsi"
 
 / {
 	model = "SDXPRAIRIE V3 MTP";
