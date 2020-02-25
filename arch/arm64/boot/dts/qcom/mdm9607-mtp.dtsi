@@ -68,7 +68,11 @@
 };
 
 &emac0 {
-	status = "ok";
+	status = "disabled";
+};
+
+&emac_lan_vreg {
+	status = "disabled";
 };
 
 &pm8019_mpps {
