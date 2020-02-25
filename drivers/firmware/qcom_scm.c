@@ -1097,6 +1097,12 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void qcom_scm_shutdown(struct platform_device *pdev)
+{
+	qcom_scm_disable_sdi();
+	qcom_scm_halt_spmi_pmic_arbiter();
+}
+
 static const struct of_device_id qcom_scm_dt_match[] = {
 	{ .compatible = "qcom,scm-apq8064",
 	  /* FIXME: This should have .data = (void *) SCM_HAS_CORE_CLK */
@@ -1127,6 +1133,7 @@ static struct platform_driver qcom_scm_driver = {
 		.of_match_table = qcom_scm_dt_match,
 	},
 	.probe = qcom_scm_probe,
+	.shutdown = qcom_scm_shutdown,
 };
 
 static int __init qcom_scm_init(void)
