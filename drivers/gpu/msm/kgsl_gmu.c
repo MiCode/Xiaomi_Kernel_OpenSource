@@ -945,7 +945,7 @@ static int gmu_bus_vote_init(struct kgsl_device *device)
 	if (count > 0)
 		cnoc = build_rpmh_bw_votes(a660_cnoc_bcms,
 			ARRAY_SIZE(a660_cnoc_bcms), cnoc_table, count);
-	kfree(cnoc_table);
+	devm_kfree(&device->pdev->dev, cnoc_table);
 
 	if (IS_ERR(cnoc)) {
 		free_rpmh_bw_votes(ddr);
@@ -1746,8 +1746,8 @@ static void gmu_remove(struct kgsl_device *device)
 		gmu->cx_gdsc = NULL;
 	}
 
-	device->gmu_core.flags = 0;
-	device->gmu_core.ptr = NULL;
+	memset(&device->gmu_core, 0, sizeof(device->gmu_core));
+
 	gmu->pdev = NULL;
 	kfree(gmu);
 }

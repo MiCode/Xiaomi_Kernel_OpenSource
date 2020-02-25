@@ -447,9 +447,16 @@ static bool rgmu_regulator_isenabled(struct kgsl_device *device)
 	return (rgmu->gx_gdsc && regulator_is_enabled(rgmu->gx_gdsc));
 }
 
+static void rgmu_remove(struct kgsl_device *device)
+{
+	rgmu_stop(device);
+
+	memset(&device->gmu_core, 0, sizeof(device->gmu_core));
+}
+
 struct gmu_core_ops rgmu_ops = {
 	.probe = rgmu_probe,
-	.remove = rgmu_stop,
+	.remove = rgmu_remove,
 	.init = rgmu_init,
 	.start = rgmu_start,
 	.stop = rgmu_stop,

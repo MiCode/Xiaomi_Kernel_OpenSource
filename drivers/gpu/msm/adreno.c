@@ -1462,10 +1462,8 @@ static int adreno_probe(struct platform_device *pdev)
 	}
 
 	status = kgsl_bus_init(device, pdev);
-	if (status) {
-		device->pdev = NULL;
-		return status;
-	}
+	if (status)
+		goto err;
 
 	/*
 	 * Probe/init GMU after initial gpu power probe
@@ -1473,10 +1471,8 @@ static int adreno_probe(struct platform_device *pdev)
 	 * needs GMU initialized.
 	 */
 	status = gmu_core_probe(device);
-	if (status) {
-		device->pdev = NULL;
-		return status;
-	}
+	if (status)
+		goto err;
 
 	/*
 	 * The SMMU APIs use unsigned long for virtual addresses which means
@@ -1492,10 +1488,8 @@ static int adreno_probe(struct platform_device *pdev)
 		ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION));
 
 	status = kgsl_device_platform_probe(device);
-	if (status) {
-		device->pdev = NULL;
-		return status;
-	}
+	if (status)
+		goto err;
 
 	/* Probe for the optional CX_DBGC block */
 	adreno_cx_dbgc_probe(device);
@@ -1521,8 +1515,7 @@ static int adreno_probe(struct platform_device *pdev)
 	status = PTR_ERR_OR_ZERO(device->memstore);
 	if (status) {
 		kgsl_device_platform_remove(device);
-		device->pdev = NULL;
-		return status;
+		goto err;
 	}
 
 	/* Initialize the snapshot engine */
@@ -1580,6 +1573,13 @@ static int adreno_probe(struct platform_device *pdev)
 #endif
 
 	return 0;
+err:
+	device->pdev = NULL;
+
+	gmu_core_remove(device);
+	kgsl_bus_close(device);
+
+	return status;
 }
 
 static void _adreno_free_memories(struct adreno_device *adreno_dev)

@@ -118,7 +118,7 @@ u32 *kgsl_bus_get_table(struct platform_device *pdev,
 	if (num <= 0)
 		return ERR_PTR(-EINVAL);
 
-	levels = kcalloc(num, sizeof(*levels), GFP_KERNEL);
+	levels = devm_kcalloc(&pdev->dev, num, sizeof(*levels), GFP_KERNEL);
 	if (!levels)
 		return ERR_PTR(-ENOMEM);
 
@@ -172,10 +172,5 @@ done:
 
 void kgsl_bus_close(struct kgsl_device *device)
 {
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	kfree(pwr->ddr_table);
-
-	/* FIXME: Make sure icc put can handle NULL or IS_ERR */
-	icc_put(pwr->icc_path);
+	icc_put(device->pwrctrl.icc_path);
 }
