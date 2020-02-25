@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -405,7 +405,7 @@ static void gi2c_gsi_tx_cb(void *ptr)
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb = ptr;
 	struct geni_i2c_dev *gi2c = tx_cb->userdata;
 
-	if (tx_cb->completion_code == MSM_GPI_TCE_EOB) {
+	if (tx_cb->completion_code == MSM_GPI_TCE_EOB && gi2c->is_shared) {
 		complete(&gi2c->xfer);
 	} else if (!(gi2c->cur->flags & I2C_M_RD)) {
 		gi2c_gsi_cb_err(tx_cb, "TX");
@@ -553,8 +553,12 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		if (msgs[i].flags & I2C_M_RD) {
 			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(msgs[i].len);
-			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1, 0, 0, 0,
-									0);
+			if (gi2c->is_shared)
+				go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1,
+							0, 0, 0, 0);
+			else
+				go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1,
+							0, 0, 1, 0);
 		} else {
 			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(0);
 			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 0,
