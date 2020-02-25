@@ -61,7 +61,7 @@
 #define ADC_TM_HIGH_THR0		0x4b
 #define ADC_TM_HIGH_THR1		0x4c
 #define ADC_TM_LOWER_MASK(n)			((n) & GENMASK(7, 0))
-#define ADC_TM_UPPER_MASK(n)			((n) & GENMASK(15, 8) >> 8)
+#define ADC_TM_UPPER_MASK(n)			(((n) & GENMASK(15, 8)) >> 8)
 
 #define ADC_TM_MEAS_IRQ_EN		0x4d
 #define ADC_TM_MEAS_EN			BIT(7)
@@ -166,7 +166,7 @@ static int adc_tm7_configure(struct adc_tm_sensor *sensor)
 	buf[11] = ADC_TM_LOWER_MASK(mask);
 	buf[12] = ADC_TM_UPPER_MASK(mask);
 
-	buf[13] |= (sensor->meas_en | sensor->high_thr_en << 1 |
+	buf[13] = (sensor->meas_en | sensor->high_thr_en << 1 |
 				sensor->low_thr_en);
 
 	ret = adc_tm_write_reg(chip, ADC_TM_SID, buf, 14);
