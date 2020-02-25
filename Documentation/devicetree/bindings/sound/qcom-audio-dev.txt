@@ -2263,3 +2263,17 @@ Example:
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 	};
+
+* HANA55 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,sm8150-asoc-snd-hana55".
+- qcom,model : The user-visible name of this sound card.
+
+Example:
+
+    snd_934x {
+           compatible = "qcom,sm8150-asoc-snd-hana55";
+           qcom,model = "sm8150-hana55-snd-card";
+           qcom,quat-mi2s-gpios = <&quat_mi2s_gpios>;
+    };
