@@ -415,7 +415,7 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 struct arm_smmu_arch_ops {
 	int (*init)(struct arm_smmu_device *smmu);
 	void (*device_reset)(struct arm_smmu_device *smmu);
-	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
+	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *smmu_domain,
 					 dma_addr_t iova);
 	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
 					struct device *dev);
@@ -3189,7 +3189,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (smmu_domain->smmu->arch_ops &&
 	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
 		ret = smmu_domain->smmu->arch_ops->iova_to_phys_hard(
-						domain, iova);
+						smmu_domain, iova);
 		goto out;
 	}
 
@@ -5414,9 +5414,8 @@ static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
  * Zero means failure.
  */
 static phys_addr_t qsmmuv500_iova_to_phys(
-		struct iommu_domain *domain, dma_addr_t iova, u32 sid)
+		struct arm_smmu_domain *smmu_domain, dma_addr_t iova, u32 sid)
 {
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct qsmmuv500_tbu_device *tbu;
@@ -5576,11 +5575,11 @@ out_power_off:
 }
 
 static phys_addr_t qsmmuv500_iova_to_phys_hard(
-		struct iommu_domain *domain, dma_addr_t iova)
+					struct arm_smmu_domain *smmu_domain,
+					dma_addr_t iova)
 {
 	u16 sid;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct msm_iommu_domain *msm_domain = to_msm_iommu_domain(domain);
+	struct msm_iommu_domain *msm_domain = &smmu_domain->domain;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec;
@@ -5603,7 +5602,7 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 		frsynra &= CBFRSYNRA_SID_MASK;
 		sid      = frsynra;
 	}
-	return qsmmuv500_iova_to_phys(domain, iova, sid);
+	return qsmmuv500_iova_to_phys(smmu_domain, iova, sid);
 }
 
 static void qsmmuv500_release_group_iommudata(void *data)
