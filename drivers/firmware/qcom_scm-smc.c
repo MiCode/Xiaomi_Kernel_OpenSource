@@ -1944,6 +1944,9 @@ int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
 	if (response_type)
 		*response_type = desc.res[0];
 
+	if (data)
+		*data = desc.res[2];
+
 	return ret;
 }
 
