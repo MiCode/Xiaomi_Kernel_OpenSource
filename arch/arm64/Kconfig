@@ -748,6 +748,13 @@ config ARM64_DMA_IOMMU_ALIGNMENT
 
 endif
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+
 config SECCOMP
 	bool "Enable seccomp to safely compute untrusted bytecode"
 	---help---

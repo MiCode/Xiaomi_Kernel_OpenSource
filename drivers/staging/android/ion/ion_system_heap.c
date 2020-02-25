@@ -39,7 +39,7 @@ static gfp_t low_order_gfp_flags  = (GFP_HIGHUSER | __GFP_NOWARN);
 #if defined(CONFIG_IOMMU_IO_PGTABLE_ARMV7S)
 static const unsigned int orders[] = {8, 4, 0};
 #else
-static const unsigned int orders[] = {9, 4, 0};
+static const unsigned int orders[] = {4, 0};
 #endif
 #else
 static const unsigned int orders[] = {0};

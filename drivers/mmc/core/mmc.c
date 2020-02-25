@@ -21,13 +21,12 @@
 #include <linux/mmc/mmc.h>
 #include <linux/reboot.h>
 #include <trace/events/mmc.h>
-
+#include <linux/mmc/ffu.h>
 #include "core.h"
 #include "host.h"
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
-
 #define DEFAULT_CMD6_TIMEOUT_MS	500
 
 static const unsigned int tran_exp[] = {
@@ -662,8 +661,17 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 */
 		card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
 		card->ext_csd.cmdq_support = ext_csd[EXT_CSD_CMDQ_SUPPORT];
-		card->ext_csd.fw_version = ext_csd[EXT_CSD_FIRMWARE_VERSION];
-		pr_info("%s: eMMC FW version: 0x%02x\n",
+		card->ext_csd.fw_version =
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 0] << 56	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 1] << 48	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 2] << 40	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 3] << 32	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 4] << 24	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 5] << 16	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 6] <<  8	|
+			(uint64_t)ext_csd[EXT_CSD_FIRMWARE_VERSION + 7];
+
+		pr_info("%s: eMMC FW version: %llx\n",
 			mmc_hostname(card->host),
 			card->ext_csd.fw_version);
 		if (card->ext_csd.cmdq_support) {
@@ -2977,8 +2985,11 @@ static int mmc_runtime_suspend(struct mmc_host *host)
  */
 static int mmc_runtime_resume(struct mmc_host *host)
 {
-	int err;
+	int err = 0;
 	ktime_t start = ktime_get();
+
+	if (!(host->caps & MMC_CAP_AGGRESSIVE_PM))
+		goto out;
 
 	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_resume(host);
@@ -2986,6 +2997,7 @@ static int mmc_runtime_resume(struct mmc_host *host)
 		pr_err("%s: error %d doing runtime resume\n",
 			mmc_hostname(host), err);
 
+out:
 	trace_mmc_runtime_resume(mmc_hostname(host), err,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 
@@ -3031,7 +3043,7 @@ static int mmc_reset(struct mmc_host *host)
 		return ret;
 	}
 
-	ret = mmc_init_card(host, host->card->ocr, host->card);
+	ret = mmc_init_card(host, host->card->ocr, NULL);
 	if (ret) {
 		pr_err("%s: %s: mmc_init_card failed (%d)\n",
 			mmc_hostname(host), __func__, ret);

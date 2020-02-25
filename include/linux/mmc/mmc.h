@@ -2,6 +2,7 @@
  * Header for MultiMediaCard (MMC)
  *
  * Copyright 2002 Hewlett-Packard Company
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Use consistent with the GNU GPL is permitted,
  * provided that this copyright notice is
@@ -116,7 +117,6 @@ static inline bool mmc_op_multi(u32 opcode)
 #define R2_SPI_ERASE_PARAM	(1 << 14)
 #define R2_SPI_OUT_OF_RANGE	(1 << 15)	/* or CSD overwrite */
 #define R2_SPI_CSD_OVERWRITE	R2_SPI_OUT_OF_RANGE
-
 /* These are unpacked versions of the actual responses */
 
 struct _mmc_csd {
@@ -216,6 +216,9 @@ struct _mmc_csd {
  */
 
 #define EXT_CSD_CMDQ			15	/* R/W */
+#define EXT_CSD_FFU_STATUS              26
+#define EXT_CSD_MODE_OPERATION_CODES    29
+#define EXT_CSD_MODE_CONFIG		30
 #define EXT_CSD_BARRIER_CTRL		31      /* R/W */
 #define EXT_CSD_FLUSH_CACHE		32      /* W */
 #define EXT_CSD_CACHE_CTRL		33      /* R/W */
@@ -225,6 +228,7 @@ struct _mmc_csd {
 #define EXT_CSD_EXP_EVENTS_STATUS	54	/* RO, 2 bytes */
 #define EXT_CSD_EXP_EVENTS_CTRL		56	/* R/W, 2 bytes */
 #define EXT_CSD_DATA_SECTOR_SIZE	61	/* R */
+#define EXT_CSD_VENDOR_EXT_FEATURES_ENABLE 102
 #define EXT_CSD_GP_SIZE_MULT		143	/* R/W */
 #define EXT_CSD_PARTITION_SETTING_COMPLETED 155	/* R/W */
 #define EXT_CSD_PARTITION_ATTRIBUTE	156	/* R/W */
@@ -280,9 +284,13 @@ struct _mmc_csd {
 #define EXT_CSD_PRE_EOL_INFO		267	/* RO */
 #define EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A	268	/* RO */
 #define EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_B	269	/* RO */
+#define EXT_CSD_NUM_OF_FW_SEC_PROG     302     /* RO */
 #define EXT_CSD_CMDQ_DEPTH		307	/* RO */
 #define EXT_CSD_CMDQ_SUPPORT		308	/* RO */
 #define EXT_CSD_BARRIER_SUPPORT		486	/* RO */
+#define EXT_CSD_FFU_ARG                        487     /* RO, 4 bytes */
+#define EXT_CSD_OPERATION_CODE_TIMEOUT 491     /* RO */
+#define EXT_CSD_FFU_FEATURES           492     /* RO */
 #define EXT_CSD_SUPPORTED_MODE		493	/* RO */
 #define EXT_CSD_TAG_UNIT_SIZE		498	/* RO */
 #define EXT_CSD_DATA_TAG_SUPPORT	499	/* RO */

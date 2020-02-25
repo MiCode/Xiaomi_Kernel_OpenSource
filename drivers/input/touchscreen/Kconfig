@@ -1313,4 +1313,67 @@ config TOUCHSCREEN_EKTF3XXX_CHIPSET
 
 		  If unusre, say N.
 
+config TOUCHSCREEN_FT5446
+       tristate "FocalTech touchscreens"
+       depends on I2C
+       help
+         Say Y here if you have a ft5446 touchscreen.
+         Ft5446 controllers are multi touch controllers which can
+         report 10 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called ft5446_ts.
+
+config VITURALSAR
+	bool "Vitural Sar series"
+	depends on I2C
+	help
+		Say Y here if you have a Goodix GT9xx touchscreen.
+		Gt9xx controllers are multi touch controllers which can
+		report 5 touches at a time.
+
+		If unsure, say N.
+
+source "drivers/input/touchscreen/ft5446/Kconfig"
+
+config TOUCHSCREEN_GOODIX_GT1X
+	bool "GOODIX GT1X Touchscreen"
+	default y
+	help
+	  Say Y here if you have GOODIX GT1X Touchscreen.
+
+	  If unsure, say N.
+
+source "drivers/input/touchscreen/gt1511q/Kconfig"
+
+config TOUCHSCREEN_ITK9881H
+	bool "ITK9881H Touchscreen"
+	default n
+	help
+	  Say Y here if you have ITK9881H Touchscreen.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_NT36525B
+	bool "NT36525B Touchscreen"
+	default n
+	help
+	  Say Y here if you have NT36525B Touchscreen.
+
+	  If unsure, say N.
+
+source "drivers/input/touchscreen/NT36525B/Kconfig"
+
+config TOUCHSCREEN_FT8006S
+	bool "FT8006S Touchscreen"
+	default n
+	help
+	  Say Y here if you have FT8006S Touchscreen.
+
+	  If unsure, say N.
+
+source "drivers/input/touchscreen/FT8006S/Kconfig"
+
 endif

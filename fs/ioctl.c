@@ -2,6 +2,7 @@
  *  linux/fs/ioctl.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/syscalls.h>
@@ -484,7 +485,10 @@ static int file_ioctl(struct file *filp, unsigned int cmd,
 	case FIBMAP:
 		return ioctl_fibmap(filp, p);
 	case FIONREAD:
-		return put_user(i_size_read(inode) - filp->f_pos, p);
+		if (vfs_ioctl(filp, cmd, arg))
+			return put_user(i_size_read(inode) - filp->f_pos, p);
+		else
+			return 0;
 	case FS_IOC_RESVSP:
 	case FS_IOC_RESVSP64:
 		return ioctl_preallocate(filp, p);
