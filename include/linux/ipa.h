@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_H_
@@ -1476,6 +1476,34 @@ int ipa_set_single_ndp_per_mbim(bool enable);
 
 /*
  * Data path
+ */
+
+/**
+ * ipa_tx_dp() - Data-path tx handler
+ * @dst:	[in] which IPA destination to route tx packets to
+ * @skb:	[in] the packet to send
+ * @metadata:	[in] TX packet meta-data
+ *
+ * Data-path tx handler, this is used for both SW data-path which by-passes most
+ * IPA HW blocks AND the regular HW data-path for WLAN AMPDU traffic only. If
+ * dst is a "valid" CONS type, then SW data-path is used. If dst is the
+ * WLAN_AMPDU PROD type, then HW data-path for WLAN AMPDU is used. Anything else
+ * is an error. For errors, client needs to free the skb as needed. For success,
+ * IPA driver will later invoke client callback if one was supplied. That
+ * callback should free the skb. If no callback supplied, IPA driver will free
+ * the skb internally
+ *
+ * The function will use two descriptors for this send command
+ * (for A5_WLAN_AMPDU_PROD only one desciprtor will be sent),
+ * the first descriptor will be used to inform the IPA hardware that
+ * apps need to push data into the IPA (IP_PACKET_INIT immediate command).
+ * Once this send was done from SPS point-of-view the IPA driver will
+ * get notified by the supplied callback - ipa_sps_irq_tx_comp()
+ *
+ * ipa_sps_irq_tx_comp will call to the user supplied
+ * callback (from ipa_connect)
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *metadata);
