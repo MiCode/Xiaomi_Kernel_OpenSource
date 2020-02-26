@@ -490,6 +490,14 @@ config QSEECOM
           Manager (SCM) interface. It exposes APIs for both userspace and
           kernel clients.
 
+config PROFILER
+       tristate "Qualcomm Technologies, Inc. trustzone Communicator driver"
+       help
+         Provides a communication interface between userspace and
+         trustzone using Secure Channel Manager (SCM) interface.
+         It exposes APIs for userspace to get system profiling
+         information.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
