@@ -205,6 +205,7 @@
 /* Need to define max ILIM for smb1398 */
 #define DIV2_MAX_ILIM_UA		3200000
 #define DIV2_MAX_ILIM_DUAL_CP_UA	6400000
+#define DIV2_ILIM_CFG_PCT		105
 
 #define TAPER_STEPPER_UA_DEFAULT	100000
 #define TAPER_STEPPER_UA_IN_CC_MODE	200000
@@ -953,7 +954,8 @@ static int div2_cp_master_get_prop(struct power_supply *psy,
 		} else {
 			rc = smb1398_get_iin_ma(chip, &ilim_ma);
 			if (!rc)
-				val->intval = ilim_ma * 1000;
+				val->intval = (ilim_ma * 1000 * 100)
+							/ DIV2_ILIM_CFG_PCT;
 		}
 		chip->cp_ilim = val->intval;
 		break;
@@ -1246,6 +1248,9 @@ static int smb1398_div2_cp_slave_disable_vote_cb(struct votable *votable,
 	if (disable && (chip->div2_cp_ilim_votable)) {
 		ilim_ua = get_effective_result_locked(
 				chip->div2_cp_ilim_votable);
+
+		ilim_ua = (ilim_ua * DIV2_ILIM_CFG_PCT) / 100;
+
 		if (ilim_ua > DIV2_MAX_ILIM_UA)
 			ilim_ua = DIV2_MAX_ILIM_UA;
 
@@ -1275,6 +1280,8 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 
 	if (!client)
 		return -EINVAL;
+
+	ilim_ua = (ilim_ua * DIV2_ILIM_CFG_PCT) / 100;
 
 	max_ilim_ua = is_cps_available(chip) ?
 		DIV2_MAX_ILIM_DUAL_CP_UA : DIV2_MAX_ILIM_UA;
