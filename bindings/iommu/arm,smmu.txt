@@ -162,6 +162,13 @@ conditions.
 		  interconnect path. For more information, please see
 		  bindings/interconnect/interconnect.txt
 
+- qcom,active-only:
+		  Boolean property which denotes that interconnect votes
+		  should be maintained while the CPUSS is awake
+		  (active context). The absence of this property makes it so
+		  that interconnect votes will be maintained irrespective of
+		  the CPUSS' state (awake or asleep).
+
 ** Deprecated properties:
 
 - mmu-masters (deprecated in favour of the generic "iommus" binding) :
