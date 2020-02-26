@@ -7530,6 +7530,8 @@ static u32 ufshcd_get_max_icc_level(int sup_curr_uA, u32 start_scan, char *buff)
 		len = start_scan;
 
 	pd = kmalloc_array(len, sizeof(*pd), GFP_KERNEL);
+	if (!pd)
+		return 0;
 	memcpy(pd, buff, len);
 
 	for (i = start_scan; i >= 0; i--) {
