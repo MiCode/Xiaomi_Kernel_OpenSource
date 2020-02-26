@@ -177,6 +177,7 @@
 
 		interconnects = <&gem_noc MASTER_APPSS_PROC
 				 &config_noc SLAVE_IMEM_CFG>;
+		qcom,active-only;
 
 		qcom,actlr =
 			/* For HF-0 TBU +3 deep PF */
@@ -221,6 +222,7 @@
 			qcom,stream-id-range = <0x0 0x400>;
 			interconnects = <&gem_noc MASTER_APPSS_PROC
 					 &config_noc SLAVE_IMEM_CFG>;
+			qcom,active-only;
 		};
 
 		anoc_2_tbu: anoc_2_tbu@15189000 {
@@ -231,6 +233,7 @@
 			qcom,stream-id-range = <0x400 0x400>;
 			interconnects = <&gem_noc MASTER_APPSS_PROC
 					 &config_noc SLAVE_IMEM_CFG>;
+			qcom,active-only;
 		};
 
 		mnoc_hf_0_tbu: mnoc_hf_0_tbu@1518d000 {
@@ -243,6 +246,7 @@
 			vdd-supply = <&gcc_hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
 			interconnects = <&mmss_noc MASTER_MDP0
 					 &mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		mnoc_hf_1_tbu: mnoc_hf_1_tbu@15191000 {
@@ -255,6 +259,7 @@
 			vdd-supply = <&gcc_hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc>;
 			interconnects = <&mmss_noc MASTER_MDP0
 					 &mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		compute_dsp_1_tbu: compute_dsp_1_tbu@15195000 {
@@ -265,6 +270,7 @@
 			qcom,stream-id-range = <0x1000 0x400>;
 			interconnects = <&nsp_noc MASTER_CDSP_PROC
 					 &mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		compute_dsp_0_tbu: compute_dsp_0_tbu@15199000 {
@@ -275,6 +281,7 @@
 			qcom,stream-id-range = <0x1400 0x400>;
 			interconnects = <&nsp_noc MASTER_CDSP_PROC
 					 &mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		adsp_tbu: adsp_tbu@1519d000 {
@@ -295,6 +302,7 @@
 			clock-names = "gcc_aggre_noc_pcie_tbu_clk";
 			interconnects = <&gem_noc MASTER_APPSS_PROC
 					 &config_noc SLAVE_IMEM_CFG>;
+			qcom,active-only;
 		};
 
 		mnoc_sf_0_tbu: mnoc_sf_0_tbu@151a5000 {
@@ -307,6 +315,7 @@
 			vdd-supply = <&gcc_hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc>;
 			interconnects = <&mmss_noc MASTER_CAMNOC_SF
 					 &mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		mnoc_sf_1_tbu: mnoc_sf_1_tbu@151a9000 {
@@ -319,6 +328,7 @@
 			vdd-supply = <&gcc_hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc>;
 			interconnects = <&mmss_noc MASTER_CAMNOC_SF
 					 &mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 	};
 
