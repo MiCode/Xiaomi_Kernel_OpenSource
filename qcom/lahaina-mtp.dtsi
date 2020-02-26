@@ -151,4 +151,8 @@
 	extcon = <&extcon_usb1>;
 };
 
+&battery_charger {
+	qcom,thermal-mitigation = <3000000 1500000 1000000 500000>;
+};
+
 #include "camera/lahaina-camera-sensor-mtp.dtsi"
