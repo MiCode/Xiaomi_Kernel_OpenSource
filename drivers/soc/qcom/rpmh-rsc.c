@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
 
@@ -708,7 +708,7 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 	}
 }
 
-void rpmh_rsc_debug(struct rsc_drv *drv)
+void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 {
 	struct irq_data *rsc_irq_data = irq_get_irq_data(drv->irq);
 	bool irq_sts;
@@ -734,6 +734,8 @@ void rpmh_rsc_debug(struct rsc_drv *drv)
 	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &irq_sts);
 	pr_warn("HW IRQ %lu is %s at GIC\n", rsc_irq_data->hwirq,
 		irq_sts ? "PENDING" : "NOT PENDING");
+	pr_warn("Completion is %s to finish\n",
+		completion_done(compl) ? "PENDING" : "NOT PENDING");
 
 	for_each_set_bit(i, &accl, ARRAY_SIZE(accl_str)) {
 		strlcat(str, accl_str[i], sizeof(str));
