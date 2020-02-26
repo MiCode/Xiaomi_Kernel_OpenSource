@@ -942,6 +942,7 @@ static int adc5_get_dt_data(struct adc5_chip *adc, struct device_node *node)
 		adc_chan = &data->adc_chans[prop.channel];
 
 		iio_chan->channel = prop.channel;
+		iio_chan->channel2 = prop.sid;
 		iio_chan->datasheet_name = prop.datasheet_name;
 		iio_chan->extend_name = prop.datasheet_name;
 		iio_chan->info_mask_separate = adc_chan->info_mask;
