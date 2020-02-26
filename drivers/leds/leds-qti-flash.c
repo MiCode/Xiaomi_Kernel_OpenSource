@@ -1205,6 +1205,12 @@ static int qti_flash_led_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = qpnp_flash_register_led_prepare(&pdev->dev, qti_flash_led_prepare);
+	if (rc < 0) {
+		pr_err("Failed to register flash_led_prepare, rc=%d\n", rc);
+		return rc;
+	}
+
 	dev_set_drvdata(&pdev->dev, led);
 
 	return 0;
