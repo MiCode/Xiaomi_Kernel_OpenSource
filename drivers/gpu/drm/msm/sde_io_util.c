@@ -465,8 +465,11 @@ int msm_dss_enable_clk(struct dss_clk *clk_arry, int num_clk, int enable)
 			}
 
 			if (rc) {
-				msm_dss_enable_clk(&clk_arry[i],
-					i, false);
+				/*
+				 * Upon failure start from index 0 in
+				 * the clk_array
+				 */
+				msm_dss_enable_clk(clk_arry, i, false);
 				break;
 			}
 		}
