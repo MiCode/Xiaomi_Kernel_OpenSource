@@ -10,7 +10,7 @@ ADC_TM node
     Usage: required
     Value type: <string>
     Definition: Should contain "qcom,adc-tm5" or "qcom,adc-tm5-iio" for PMIC5 ADC TM device.
-            Should contain "qcom,adc-tm7" or "qcom,adc-tm5-iio" for PMIC7 ADC TM device.
+            Should contain "qcom,adc-tm7" or "qcom,adc-tm7-iio" for PMIC7 ADC TM device.
 
 - reg:
     Usage: required
