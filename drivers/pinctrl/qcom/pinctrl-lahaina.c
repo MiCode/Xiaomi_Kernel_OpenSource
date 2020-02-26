@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -328,10 +328,10 @@ static const struct pinctrl_pin_desc lahaina_pins[] = {
 	PINCTRL_PIN(200, "GPIO_200"),
 	PINCTRL_PIN(201, "GPIO_201"),
 	PINCTRL_PIN(202, "GPIO_202"),
-	PINCTRL_PIN(203, "SDC2_CLK"),
-	PINCTRL_PIN(204, "SDC2_CMD"),
-	PINCTRL_PIN(205, "SDC2_DATA"),
-	PINCTRL_PIN(206, "UFS_RESET"),
+	PINCTRL_PIN(203, "UFS_RESET"),
+	PINCTRL_PIN(204, "SDC2_CLK"),
+	PINCTRL_PIN(205, "SDC2_CMD"),
+	PINCTRL_PIN(206, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
