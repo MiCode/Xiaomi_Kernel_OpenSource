@@ -301,7 +301,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name)
 
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
 {
-	if (pagetable)
+	if (!IS_ERR_OR_NULL(pagetable))
 		kref_put(&pagetable->refcount, kgsl_destroy_pagetable);
 }
 

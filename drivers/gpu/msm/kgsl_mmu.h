@@ -312,9 +312,9 @@ static inline bool kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 	return kgsl_mmu_is_perprocess(mmu);
 }
 
-static inline int kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
+static inline bool kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
 {
-	return mmu && (mmu->secured) && (mmu->securepagetable);
+	return mmu && (mmu->secured) && (!IS_ERR_OR_NULL(mmu->securepagetable));
 }
 
 static inline u64
