@@ -27,6 +27,14 @@
 	status = "ok";
 };
 
+&i2c_2 {
+	status = "disabled";
+};
+
+&smp2p_sleepstate {
+	status = "disabled";
+};
+
 &smb1351_otg_supply {
 	status = "disabled";
 };
