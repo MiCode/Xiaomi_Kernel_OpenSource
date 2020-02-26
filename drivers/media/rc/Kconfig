@@ -11,6 +11,13 @@ menuconfig RC_DECODERS
 	depends on RC_CORE
 	default y
 
+config SPI_PEELIR
+	tristate "PEELIR"
+	default y
+
+	---help---
+	   Enable this option if you use peelir
+
 if RC_DECODERS
 config LIRC
 	tristate "LIRC interface driver"

@@ -62,6 +62,15 @@
 #include <asm/psci.h>
 #include <asm/efi.h>
 #include <asm/system_misc.h>
+#include <asm/bootinfo.h>
+
+#ifdef CONFIG_OF_FLATTREE
+void __init early_init_dt_setup_pureason_arch(unsigned long pu_reason)
+{
+       set_powerup_reason(pu_reason);
+       pr_info("Powerup reason=0x%x\n", get_powerup_reason());
+}
+#endif
 
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);
@@ -316,7 +325,7 @@ void __init setup_arch(char **cmdline_p)
 
 	setup_machine_fdt(__fdt_pointer);
 
-	sprintf(init_utsname()->machine, ELF_PLATFORM);
+	snprintf(init_utsname()->machine, sizeof(init_utsname()->machine), ELF_PLATFORM);
 	init_mm.start_code = (unsigned long) _text;
 	init_mm.end_code   = (unsigned long) _etext;
 	init_mm.end_data   = (unsigned long) _edata;

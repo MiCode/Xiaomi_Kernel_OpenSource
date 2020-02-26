@@ -186,7 +186,7 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 	if (FWINV(ret != 0, ARPT_INV_VIA_IN)) {
 		dprintf("VIA in mismatch (%s vs %s).%s\n",
 			indev, arpinfo->iniface,
-			arpinfo->invflags&ARPT_INV_VIA_IN ?" (INV)":"");
+			arpinfo->invflags&ARPT_INV_VIA_IN ? " (INV)":"");
 		return 0;
 	}
 
@@ -195,7 +195,7 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 	if (FWINV(ret != 0, ARPT_INV_VIA_OUT)) {
 		dprintf("VIA out mismatch (%s vs %s).%s\n",
 			outdev, arpinfo->outiface,
-			arpinfo->invflags&ARPT_INV_VIA_OUT ?" (INV)":"");
+			arpinfo->invflags&ARPT_INV_VIA_OUT ? " (INV)":"");
 		return 0;
 	}
 
@@ -480,6 +480,28 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
 	return 1;
 }
 
+static inline int check_entry(const struct arpt_entry *e)
+{
+	long size_of_base_struct = e->elems - (const unsigned char *)e;
+	const struct xt_entry_target *t;
+
+	/* target start is within the ip/ip6/arpt_entry struct */
+	if (e->target_offset < size_of_base_struct)
+		return -EINVAL;
+
+	if (!arp_checkentry(&e->arp))
+		return -EINVAL;
+
+	if (e->target_offset + sizeof(struct xt_entry_target) > e->next_offset)
+		return -EINVAL;
+
+	t = arpt_get_target_c(e);
+	if (e->target_offset + t->u.target_size > e->next_offset)
+		return -EINVAL;
+
+	return 0;
+}
+
 static inline int check_target(struct arpt_entry *e, const char *name)
 {
 	struct xt_entry_target *t = arpt_get_target(e);
@@ -618,7 +640,7 @@ static inline void cleanup_entry(struct arpt_entry *e)
  * newinfo).
  */
 static int translate_table(struct xt_table_info *newinfo, void *entry0,
-                           const struct arpt_replace *repl)
+							const struct arpt_replace *repl)
 {
 	struct arpt_entry *iter;
 	unsigned int *offsets;
@@ -791,7 +813,7 @@ static int copy_entries_to_user(unsigned int total_size,
 
 	/* FIXME: use iterator macros --RR */
 	/* ... then go back and fix counters and names */
-	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++){
+	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++) {
 		const struct xt_entry_target *t;
 
 		e = (struct arpt_entry *)(loc_cpu_entry + off);
@@ -892,7 +914,7 @@ static int compat_table_info(const struct xt_table_info *info,
 #endif
 
 static int get_info(struct net *net, void __user *user,
-                    const int *len, int compat)
+					const int *len, int compat)
 {
 	char name[XT_TABLE_MAXNAMELEN];
 	struct xt_table *t;
@@ -934,7 +956,7 @@ static int get_info(struct net *net, void __user *user,
 		       sizeof(info.underflow));
 		info.num_entries = private->number;
 		info.size = private->size;
-		strcpy(info.name, name);
+		strlcpy(info.name, name, sizeof(info.name));
 
 		if (copy_to_user(user, &info, *len) != 0)
 			ret = -EFAULT;
@@ -1069,7 +1091,7 @@ static int __do_replace(struct net *net, const char *name,
 }
 
 static int do_replace(struct net *net, const void __user *user,
-                      unsigned int len)
+						unsigned int len)
 {
 	int ret;
 	struct arpt_replace tmp;

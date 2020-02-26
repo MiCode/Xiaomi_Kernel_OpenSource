@@ -172,7 +172,11 @@ struct flash_regulator_data {
 	const char		*reg_name;
 	u32			max_volt_uv;
 };
-
+#ifdef CONFIG_FLASHLIGHT_DAISY
+char flashlight[]={"flashlight"};
+char flashlight_switch[]={"led:switch"};
+struct led_trigger *flashlight_switch_trigger=NULL;
+#endif
 /*
  * Configurations for each individual LED
  */
@@ -1400,6 +1404,18 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		}
 	}
 
+	if (led->flash_node[led->num_leds - 1].id == FLASH_LED_SWITCH &&
+					flash_node->id != FLASH_LED_SWITCH) {
+		led->flash_node[led->num_leds - 1].trigger |=
+						(0x80 >> flash_node->id);
+		if (flash_node->id == FLASH_LED_0)
+			led->flash_node[led->num_leds - 1].prgm_current =
+						flash_node->prgm_current;
+		else if (flash_node->id == FLASH_LED_1)
+			led->flash_node[led->num_leds - 1].prgm_current2 =
+						flash_node->prgm_current;
+	}
+
 	if (flash_node->type == TORCH) {
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_UNLOCK_SECURE(led->base),
@@ -1811,6 +1827,10 @@ unlock_mutex:
 	return;
 
 turn_off:
+	if (led->flash_node[led->num_leds - 1].id == FLASH_LED_SWITCH &&
+					flash_node->id != FLASH_LED_SWITCH)
+		led->flash_node[led->num_leds - 1].trigger &=
+						~(0x80 >> flash_node->id);
 	if (flash_node->type == TORCH) {
 		/*
 		 * Checking LED fault status detects hardware open fault.
@@ -1922,6 +1942,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 
 			flash_node->prgm_current = value;
 			flash_node->flash_on = value ? true : false;
+#if 0
 			if (value)
 				led->flash_node[led->num_leds - 1].trigger |=
 						(0x80 >> flash_node->id);
@@ -1938,6 +1959,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 				flash_node->prgm_current;
 
 			return;
+#endif
 		} else if (flash_node->id == FLASH_LED_SWITCH) {
 			if (!value) {
 				flash_node->prgm_current = 0;
@@ -1954,7 +1976,17 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 
 	return;
 }
-
+#ifdef CONFIG_FLASHLIGHT_DAISY
+/* lancelot add for mi flashlight*/
+static void mido_flash_led_brightness_set(struct led_classdev *led_cdev,
+						enum led_brightness value)
+{
+	printk(KERN_ERR "lancelot sakura mido_flash_led_brightness_set value %d.\n", value);
+	qpnp_flash_led_brightness_set(led_cdev,value);
+	led_trigger_event(flashlight_switch_trigger,(value?1:0));
+}
+/* lancelot add end*/
+#endif
 static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 {
 	int rc;
@@ -2617,7 +2649,12 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 					"Unable to read flash name\n");
 			return rc;
 		}
-
+#ifdef CONFIG_FLASHLIGHT_DAISY
+		if( !strncmp(led->flash_node[i].cdev.name,flashlight,strlen(flashlight)) ) //flashlight
+		{
+			led->flash_node[i].cdev.brightness_set = mido_flash_led_brightness_set;
+		}
+#endif
 		rc = of_property_read_string(temp, "qcom,default-led-trigger",
 				&led->flash_node[i].cdev.default_trigger);
 		if (rc < 0) {
@@ -2643,7 +2680,12 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 			dev_err(&spmi->dev, "Unable to register led\n");
 			goto error_led_register;
 		}
-
+#ifdef CONFIG_FLASHLIGHT_DAISY
+		if( !strncmp(led->flash_node[i].cdev.name,flashlight_switch,strlen(flashlight_switch)) ) //flashlight
+		{
+			flashlight_switch_trigger=led->flash_node[i].cdev.trigger;
+		}
+#endif
 		led->flash_node[i].cdev.dev->of_node = temp;
 
 		rc = qpnp_flash_led_parse_each_led_dt(led, &led->flash_node[i]);

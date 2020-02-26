@@ -52,6 +52,9 @@ MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");
 MODULE_LICENSE("GPL v2");
 
+/*add by dongkai for HQ-31065 start on 20181212 */
+static int g_mtktsAP;
+/*add by dongkai for HQ-31065 end on 20181212 */
 static DEFINE_IDR(thermal_tz_idr);
 static DEFINE_IDR(thermal_cdev_idr);
 static DEFINE_MUTEX(thermal_idr_lock);
@@ -997,7 +1000,7 @@ type_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct thermal_zone_device *tz = to_thermal_zone(dev);
 
-	return sprintf(buf, "%s\n", tz->type);
+	return snprintf(buf, strlen(buf), "%s\n", tz->type);
 }
 
 static ssize_t
@@ -1012,7 +1015,7 @@ temp_show(struct device *dev, struct device_attribute *attr, char *buf)
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%ld\n", temperature);
+	return snprintf(buf, strlen(buf), "%ld\n", temperature);
 }
 
 static ssize_t
@@ -1029,7 +1032,7 @@ mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 	if (result)
 		return result;
 
-	return sprintf(buf, "%s\n", mode == THERMAL_DEVICE_ENABLED ? "enabled"
+	return snprintf(buf, strlen(buf), "%s\n", mode == THERMAL_DEVICE_ENABLED ? "enabled"
 		       : "disabled");
 }
 
@@ -1076,21 +1079,21 @@ trip_point_type_show(struct device *dev, struct device_attribute *attr,
 
 	switch (type) {
 	case THERMAL_TRIP_CRITICAL:
-		return sprintf(buf, "critical\n");
+		return snprintf(buf, strlen(buf), "critical\n");
 	case THERMAL_TRIP_HOT:
-		return sprintf(buf, "hot\n");
+		return snprintf(buf, strlen(buf), "hot\n");
 	case THERMAL_TRIP_CONFIGURABLE_HI:
-		return sprintf(buf, "configurable_hi\n");
+		return snprintf(buf, strlen(buf), "configurable_hi\n");
 	case THERMAL_TRIP_CONFIGURABLE_LOW:
-		return sprintf(buf, "configurable_low\n");
+		return snprintf(buf, strlen(buf), "configurable_low\n");
 	case THERMAL_TRIP_CRITICAL_LOW:
-		return sprintf(buf, "critical_low\n");
+		return snprintf(buf, strlen(buf), "critical_low\n");
 	case THERMAL_TRIP_PASSIVE:
-		return sprintf(buf, "passive\n");
+		return snprintf(buf, strlen(buf), "passive\n");
 	case THERMAL_TRIP_ACTIVE:
-		return sprintf(buf, "active\n");
+		return snprintf(buf, strlen(buf), "active\n");
 	default:
-		return sprintf(buf, "unknown\n");
+		return snprintf(buf, strlen(buf), "unknown\n");
 	}
 }
 
@@ -1179,7 +1182,7 @@ trip_point_temp_show(struct device *dev, struct device_attribute *attr,
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%ld\n", temperature);
+	return snprintf(buf, strlen(buf), "%ld\n", temperature);
 }
 
 static ssize_t
@@ -1225,7 +1228,7 @@ trip_point_hyst_show(struct device *dev, struct device_attribute *attr,
 
 	ret = tz->ops->get_trip_hyst(tz, trip, &temperature);
 
-	return ret ? ret : sprintf(buf, "%ld\n", temperature);
+	return ret ? ret : snprintf(buf, strlen(buf), "%ld\n", temperature);
 }
 
 static ssize_t
@@ -1285,7 +1288,7 @@ passive_show(struct device *dev, struct device_attribute *attr,
 {
 	struct thermal_zone_device *tz = to_thermal_zone(dev);
 
-	return sprintf(buf, "%d\n", tz->forced_passive);
+	return snprintf(buf, strlen(buf), "%d\n", tz->forced_passive);
 }
 
 static ssize_t
@@ -1321,7 +1324,7 @@ policy_show(struct device *dev, struct device_attribute *devattr, char *buf)
 {
 	struct thermal_zone_device *tz = to_thermal_zone(dev);
 
-	return sprintf(buf, "%s\n", tz->governor->name);
+	return snprintf(buf, strlen(buf), "%s\n", tz->governor->name);
 }
 
 #ifdef CONFIG_THERMAL_EMULATION
@@ -1359,7 +1362,7 @@ sustainable_power_show(struct device *dev, struct device_attribute *devattr,
 	struct thermal_zone_device *tz = to_thermal_zone(dev);
 
 	if (tz->tzp)
-		return sprintf(buf, "%u\n", tz->tzp->sustainable_power);
+		return snprintf(buf, strlen(buf), "%u\n", tz->tzp->sustainable_power);
 	else
 		return -EIO;
 }
@@ -1392,7 +1395,7 @@ static DEVICE_ATTR(sustainable_power, S_IWUSR | S_IRUGO, sustainable_power_show,
 	struct thermal_zone_device *tz = to_thermal_zone(dev);		\
 									\
 	if (tz->tzp)							\
-		return sprintf(buf, "%u\n", tz->tzp->name);		\
+		return snprintf(buf, strlen(buf), "%u\n", tz->tzp->name);		\
 	else								\
 		return -EIO;						\
 	}								\
@@ -1504,9 +1507,32 @@ int power_actor_set_power(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
+/*add by dongkai for HQ-31065 start on 20181212 */
+static ssize_t
+ccc_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, strlen(buf), "%d\n", g_mtktsAP);
+}
+
+static ssize_t
+ccc_store(struct device *dev, struct device_attribute *attr,
+	   const char *buf, size_t count)
+{
+	int index;
+
+	if (kstrtoint(buf, 10, &index))
+		return -EINVAL;
+
+	g_mtktsAP = index;
+	return count;
+}
+
+ /*add by dongkai for HQ-31065 end on 20181212 */
+
 static DEVICE_ATTR(type, 0444, type_show, NULL);
 static DEVICE_ATTR(temp, 0444, temp_show, NULL);
 static DEVICE_ATTR(mode, 0644, mode_show, mode_store);
+static DEVICE_ATTR(temp_state, 0664, ccc_show, ccc_store);
 static DEVICE_ATTR(passive, S_IRUGO | S_IWUSR, passive_show, passive_store);
 static DEVICE_ATTR(policy, S_IRUGO | S_IWUSR, policy_show, policy_store);
 
@@ -1520,7 +1546,7 @@ thermal_cooling_device_type_show(struct device *dev,
 {
 	struct thermal_cooling_device *cdev = to_cooling_device(dev);
 
-	return sprintf(buf, "%s\n", cdev->type);
+	return snprintf(buf, strlen(buf), "%s\n", cdev->type);
 }
 
 static ssize_t
@@ -1534,7 +1560,7 @@ thermal_cooling_device_max_state_show(struct device *dev,
 	ret = cdev->ops->get_max_state(cdev, &state);
 	if (ret)
 		return ret;
-	return sprintf(buf, "%ld\n", state);
+	return snprintf(buf, strlen(buf), "%ld\n", state);
 }
 
 static ssize_t
@@ -1548,7 +1574,7 @@ thermal_cooling_device_cur_state_show(struct device *dev,
 	ret = cdev->ops->get_cur_state(cdev, &state);
 	if (ret)
 		return ret;
-	return sprintf(buf, "%ld\n", state);
+	return snprintf(buf, strlen(buf), "%ld\n", state);
 }
 
 static ssize_t
@@ -1590,9 +1616,9 @@ thermal_cooling_device_trip_point_show(struct device *dev,
 	    container_of(attr, struct thermal_instance, attr);
 
 	if (instance->trip == THERMAL_TRIPS_NONE)
-		return sprintf(buf, "-1\n");
+		return snprintf(buf, strlen(buf), "-1\n");
 	else
-		return sprintf(buf, "%d\n", instance->trip);
+		return snprintf(buf, strlen(buf), "%d\n", instance->trip);
 }
 
 static struct attribute *cooling_device_attrs[] = {
@@ -1619,7 +1645,7 @@ thermal_cooling_device_weight_show(struct device *dev,
 
 	instance = container_of(attr, struct thermal_instance, weight_attr);
 
-	return sprintf(buf, "%d\n", instance->weight);
+	return snprintf(buf, strlen(buf), "%d\n", instance->weight);
 }
 
 static ssize_t
@@ -1716,13 +1742,13 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 	if (result)
 		goto free_mem;
 
-	sprintf(dev->name, "cdev%d", dev->id);
+	snprintf(dev->name, sizeof(dev->name), "cdev%d", dev->id);
 	result =
 	    sysfs_create_link(&tz->device.kobj, &cdev->device.kobj, dev->name);
 	if (result)
 		goto release_idr;
 
-	sprintf(dev->attr_name, "cdev%d_trip_point", dev->id);
+	snprintf(dev->attr_name, sizeof(dev->attr_name), "cdev%d_trip_point", dev->id);
 	sysfs_attr_init(&dev->attr.attr);
 	dev->attr.attr.name = dev->attr_name;
 	dev->attr.attr.mode = 0444;
@@ -1731,7 +1757,7 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 	if (result)
 		goto remove_symbol_link;
 
-	sprintf(dev->weight_attr_name, "cdev%d_weight", dev->id);
+	snprintf(dev->weight_attr_name, sizeof(dev->weight_attr_name), "cdev%d_weight", dev->id);
 	sysfs_attr_init(&dev->weight_attr.attr);
 	dev->weight_attr.attr.name = dev->weight_attr_name;
 	dev->weight_attr.attr.mode = S_IWUSR | S_IRUGO;
@@ -1826,8 +1852,8 @@ static void thermal_release(struct device *dev)
 		     sizeof("thermal_zone") - 1)) {
 		tz = to_thermal_zone(dev);
 		kfree(tz);
-	} else if(!strncmp(dev_name(dev), "cooling_device",
-			sizeof("cooling_device") - 1)){
+	} else if (!strncmp(dev_name(dev), "cooling_device",
+			sizeof("cooling_device") - 1)) {
 		cdev = to_cooling_device(dev);
 		kfree(cdev);
 	}
@@ -2595,7 +2621,74 @@ static void thermal_unregister_governors(void)
 	thermal_gov_user_space_unregister();
 	thermal_gov_power_allocator_unregister();
 }
+/*add for thermal switch by xujia start */
+/*#ifdef RAINBOW_FEATURE_THERMAL_SWITCH */
+unsigned int sconfig;
 
+#define to_backlight_device(obj) container_of(obj, struct backlight_device, dev)
+ static ssize_t sconfig_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	/*int result; */
+
+	/*if (!tz->ops->get_mode)*/
+	/*	return -EPERM;*/
+	pr_err("sconfig_show sconfig = %d\n", sconfig);
+
+	return snprintf(buf, strlen(buf), "%d\n", sconfig);
+}
+
+
+static ssize_t sconfig_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+
+	int ret;
+
+	/*kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, NULL);*/
+	sysfs_notify(&dev->kobj, NULL, "sconfig");
+
+	ret = kstrtoint(buf, 0, &sconfig);
+	if (ret)
+		return ret;
+
+	pr_err("sconfig_store sconfig = %d\n", sconfig);
+
+	return size;
+}
+
+
+static struct device_attribute dev_attr_thermal_config = {
+    .attr = {
+		.name = "sconfig",
+		.mode = 0666,
+    },
+    .show = sconfig_show,
+    .store = sconfig_store,
+};
+
+
+void thermalsconfig_init(void)
+{
+	   static struct device *dev;
+	   /*static dev_t thermalsconfig_device_no = NULL;*/
+	   int result;
+	   dev = device_create(&thermal_class, NULL, MKDEV(0, 0), NULL, "thermal_message");
+	   if (IS_ERR(dev)) {
+		   result = PTR_ERR(dev);
+		   printk(KERN_ALERT "Failed to create device.\n");
+	   }
+	   #if 1
+	   result = device_create_file(dev, &dev_attr_thermal_config);
+	   if (result < 0) {
+		   printk(KERN_ALERT"Failed to create attribute file.");
+	   }
+	   #endif
+       result = device_create_file(dev, &dev_attr_temp_state);
+       if (result < 0) {
+		   printk(KERN_ALERT"Failed to create attribute file.");
+	   }
+}
+/*#endif
+add for thermal switch by xujia end */
 static int __init thermal_init(void)
 {
 	int result;
@@ -2615,7 +2708,11 @@ static int __init thermal_init(void)
 	result = of_parse_thermal_zones();
 	if (result)
 		goto exit_netlink;
-
+/*add for thermal switch by xujia start
+ #ifdef RAINBOW_FEATURE_THERMAL_SWITCH  */
+	thermalsconfig_init();
+/*#endif
+add for thermal switch by xujia end */
 	return 0;
 
 exit_netlink:

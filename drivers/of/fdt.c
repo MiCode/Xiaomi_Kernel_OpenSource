@@ -112,7 +112,7 @@ int of_fdt_is_compatible(const void *blob,
  * of_fdt_match - Return true if node matches a list of compatible values
  */
 int of_fdt_match(const void *blob, unsigned long node,
-                 const char *const *compat)
+				const char *const *compat)
 {
 	unsigned int tmp, score = 0;
 
@@ -149,7 +149,7 @@ static void *unflatten_dt_alloc(void **mem, unsigned long size,
  * @dad: Parent struct device_node
  * @fpsize: Size of the node path up at the current depth.
  */
-static void * unflatten_dt_node(void *blob,
+static void *unflatten_dt_node(void *blob,
 				void *mem,
 				int *poffset,
 				struct device_node *dad,
@@ -162,7 +162,7 @@ static void * unflatten_dt_node(void *blob,
 	struct property *pp, **prev_pp = NULL;
 	const char *pathp;
 	unsigned int l, allocl;
-	static int depth = 0;
+	static int depth;
 	int old_depth;
 	int offset;
 	int has_name = 0;
@@ -209,7 +209,7 @@ static void * unflatten_dt_node(void *blob,
 		if (new_format) {
 			/* rebuild full path for new format */
 			if (dad && dad->parent) {
-				strcpy(fn, dad->full_name);
+				strlcpy(fn, dad->full_name, sizeof(fn));
 #ifdef DEBUG
 				if ((strlen(fn) + l + 1) != allocl) {
 					pr_debug("%s: p: %d, l: %d, a: %d\n",
@@ -236,8 +236,8 @@ static void * unflatten_dt_node(void *blob,
 	     (offset = fdt_next_property_offset(blob, offset))) {
 		const char *pname;
 		u32 sz;
-
-		if (!(p = fdt_getprop_by_offset(blob, offset, &pname, &sz))) {
+		p = fdt_getprop_by_offset(blob, offset, &pname, &sz);
+		if (!p) {
 			offset = -FDT_ERR_INTERNAL;
 			break;
 		}
@@ -729,6 +729,23 @@ const void * __init of_flat_dt_match_machine(const void *default_match,
 	return best_data;
 }
 
+void __init early_init_dt_check_for_powerup_reason(unsigned long node)
+{
+	unsigned long pu_reason;
+	int len;
+	const __be32 *prop;
+
+	pr_debug("Looking for powerup reason properties... \n");
+
+	prop = of_get_flat_dt_prop(node, "pureason", &len);
+	if (!prop)
+		return;
+	pu_reason = of_read_ulong(prop, len/4);
+	early_init_dt_setup_pureason_arch(pu_reason);
+
+	pr_debug("Powerup reason %d\n", (int)pu_reason);
+}
+
 #ifdef CONFIG_BLK_DEV_INITRD
 /**
  * early_init_dt_check_for_initrd - Decode initrd location from flat tree
@@ -959,14 +976,16 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 			cmdline_len = strlen(cmdline);
 			copy_len = COMMAND_LINE_SIZE - cmdline_len - 1;
 			copy_len = min((int)l, copy_len);
-			strncpy(cmdline + cmdline_len, p, copy_len);
+			strlcpy(cmdline + cmdline_len, p, copy_len);
 			cmdline[cmdline_len + copy_len] = '\0';
 		} else {
 			strlcpy(cmdline, p, min((int)l, COMMAND_LINE_SIZE));
 		}
 	}
 
-	pr_debug("Command line is: %s\n", (char*)data);
+	pr_debug("Command line is: %s\n", (char *)data);
+
+	early_init_dt_check_for_powerup_reason(node);
 
 	/* break now */
 	return 1;

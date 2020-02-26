@@ -467,7 +467,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		case (Q6_SUBSYS_AVS2_8):
 			ret = q6asm_open_read_v4(prtd->audio_client,
 					FORMAT_LINEAR_PCM,
-					bits_per_sample);
+					bits_per_sample,
+					false);
 
 			break;
 		case (Q6_SUBSYS_INVALID):
@@ -1962,8 +1963,7 @@ static int msm_pcm_probe(struct platform_device *pdev)
 				pdata->perf_mode =
 					ULL_POST_PROCESSING_PCM_MODE;
 		}
-	}
-	else
+	} else
 		pdata->perf_mode = LEGACY_PCM_MODE;
 
 	mutex_init(&pdata->lock);

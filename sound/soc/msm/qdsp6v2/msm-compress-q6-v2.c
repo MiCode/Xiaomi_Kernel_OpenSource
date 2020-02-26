@@ -356,8 +356,7 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 		param.paddr	= prtd->buffer_paddr + prtd->byte_offset;
 		WARN(prtd->byte_offset % 32 != 0, "offset %x not multiple of 32",
 		prtd->byte_offset);
-	}
-	else
+	} else
 		param.paddr	= prtd->buffer_paddr;
 
 	param.len	= buffer_length;
@@ -1299,8 +1298,13 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 	pr_debug("%s: stream_id %d bits_per_sample %d\n",
 			__func__, ac->stream_id, bits_per_sample);
 
-	ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
-		bits_per_sample);
+	if (prtd->codec_param.codec.flags & COMPRESSED_TIMESTAMP_FLAG) {
+		ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
+			bits_per_sample, true);
+	} else {
+		ret = q6asm_open_read_v4(prtd->audio_client, FORMAT_LINEAR_PCM,
+			bits_per_sample, false);
+	}
 	if (ret < 0) {
 		pr_err("%s: q6asm_open_read failed:%d\n", __func__, ret);
 		return ret;

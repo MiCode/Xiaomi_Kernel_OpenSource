@@ -123,7 +123,7 @@ struct fb_cursor_user {
  * Register/unregister for framebuffer events
  */
 
-/*	The resolution of the passed in fb_info about to change */ 
+/*	The resolution of the passed in fb_info about to change */
 #define FB_EVENT_MODE_CHANGE		0x01
 /*	The display on this fb_info is beeing suspended, no access to the
  *	framebuffer is allowed any more after that call returns
@@ -148,7 +148,7 @@ struct fb_cursor_user {
 /*      Private modelist is to be replaced */
 #define FB_EVENT_NEW_MODELIST           0x0A
 /*	The resolution of the passed in fb_info about to change and
-        all vc's should be changed         */
+		all vc's should be changed         */
 #define FB_EVENT_MODE_CHANGE_ALL	0x0B
 /*	A software display blank change occurred */
 #define FB_EVENT_CONBLANK               0x0C
@@ -201,8 +201,8 @@ struct fb_pixmap {
 	u32 flags;		/* see FB_PIXMAP_*			*/
 	u32 blit_x;             /* supported bit block dimensions (1-32)*/
 	u32 blit_y;             /* Format: blit_x = 1 << (width - 1)    */
-	                        /*         blit_y = 1 << (height - 1)   */
-	                        /* if 0, will be set to 0xffffffff (all)*/
+							/*         blit_y = 1 << (height - 1)   */
+							/* if 0, will be set to 0xffffffff (all)*/
 	/* access methods */
 	void (*writeio)(struct fb_info *info, void __iomem *dst, void *src, unsigned int size);
 	void (*readio) (struct fb_info *info, void *dst, void __iomem *src, unsigned int size);
@@ -483,8 +483,8 @@ struct fb_info {
 	struct fb_tile_ops *tileops;    /* Tile Blitting */
 #endif
 	char __iomem *screen_base;	/* Virtual address */
-	unsigned long screen_size;	/* Amount of ioremapped VRAM or 0 */ 
-	void *pseudo_palette;		/* Fake palette of 16 colors */ 
+	unsigned long screen_size;	/* Amount of ioremapped VRAM or 0 */
+	void *pseudo_palette;		/* Fake palette of 16 colors */
 #define FBINFO_STATE_RUNNING	0
 #define FBINFO_STATE_SUSPENDED	1
 	u32 state;			/* Hardware state i.e suspend */
@@ -503,9 +503,12 @@ struct fb_info {
 	} *apertures;
 
 	bool skip_vt_switch; /* no VT switch on suspend/resume required */
+
+	int blank; /* modified by zhongshengbin for fingerprint D1S-634 begin 2018-03-04 */
 };
 
-static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
+static inline struct apertures_struct *alloc_apertures(unsigned int max_num)
+{
 	struct apertures_struct *a = kzalloc(sizeof(struct apertures_struct)
 			+ max_num * sizeof(struct aperture), GFP_KERNEL);
 	if (!a)
@@ -520,7 +523,7 @@ static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
 #define FBINFO_DEFAULT	0
 #endif
 
-// This will go away
+/* This will go away */
 #define FBINFO_FLAG_MODULE	FBINFO_MODULE
 #define FBINFO_FLAG_DEFAULT	FBINFO_DEFAULT
 
@@ -532,14 +535,14 @@ static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
  */
 #define STUPID_ACCELF_TEXT_SHIT
 
-// This will go away
+/* This will go away */
 #if defined(__sparc__)
 
 /* We map all of our framebuffers such that big-endian accesses
  * are what we want, so the following is sufficient.
  */
 
-// This will go away
+/* This will go away */
 #define fb_readb sbus_readb
 #define fb_readw sbus_readw
 #define fb_readl sbus_readl
@@ -572,10 +575,10 @@ static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
 #define fb_readw(addr) (*(volatile u16 *) (addr))
 #define fb_readl(addr) (*(volatile u32 *) (addr))
 #define fb_readq(addr) (*(volatile u64 *) (addr))
-#define fb_writeb(b,addr) (*(volatile u8 *) (addr) = (b))
-#define fb_writew(b,addr) (*(volatile u16 *) (addr) = (b))
-#define fb_writel(b,addr) (*(volatile u32 *) (addr) = (b))
-#define fb_writeq(b,addr) (*(volatile u64 *) (addr) = (b))
+#define fb_writeb(b, addr) (*(volatile u8 *) (addr) = (b))
+#define fb_writew(b, addr) (*(volatile u16 *) (addr) = (b))
+#define fb_writel(b, addr) (*(volatile u32 *) (addr) = (b))
+#define fb_writeq(b, addr) (*(volatile u64 *) (addr) = (b))
 #define fb_memset memset
 #define fb_memcpy_fromfb memcpy
 #define fb_memcpy_tofb memcpy
@@ -592,11 +595,11 @@ static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
      *  `Generic' versions of the frame buffer device operations
      */
 
-extern int fb_set_var(struct fb_info *info, struct fb_var_screeninfo *var); 
-extern int fb_pan_display(struct fb_info *info, struct fb_var_screeninfo *var); 
+extern int fb_set_var(struct fb_info *info, struct fb_var_screeninfo *var);
+extern int fb_pan_display(struct fb_info *info, struct fb_var_screeninfo *var);
 extern int fb_blank(struct fb_info *info, int blank);
-extern void cfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect); 
-extern void cfb_copyarea(struct fb_info *info, const struct fb_copyarea *area); 
+extern void cfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect);
+extern void cfb_copyarea(struct fb_info *info, const struct fb_copyarea *area);
 extern void cfb_imageblit(struct fb_info *info, const struct fb_image *image);
 /*
  * Drawing operations where framebuffer is in system RAM
@@ -617,7 +620,7 @@ extern int remove_conflicting_framebuffers(struct apertures_struct *a,
 					   const char *name, bool primary);
 extern int fb_prepare_logo(struct fb_info *fb_info, int rotate);
 extern int fb_show_logo(struct fb_info *fb_info, int rotate);
-extern char* fb_get_buffer_offset(struct fb_info *info, struct fb_pixmap *buf, u32 size);
+extern char *fb_get_buffer_offset(struct fb_info *info, struct fb_pixmap *buf, u32 size);
 extern void fb_pad_unaligned_buffer(u8 *dst, u32 d_pitch, u8 *src, u32 idx,
 				u32 height, u32 shift_high, u32 shift_low, u32 mod);
 extern void fb_pad_aligned_buffer(u8 *dst, u32 d_pitch, u8 *src, u32 s_pitch, u32 height);

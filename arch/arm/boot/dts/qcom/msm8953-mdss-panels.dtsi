@@ -24,6 +24,8 @@
 #include "dsi-panel-lt8912-480p-video.dtsi"
 #include "dsi-panel-lt8912-1080p-video.dtsi"
 #include "dsi-panel-lgd-incell-sw49106-fhd-video.dtsi"
+#include "dsi-panel-otm1911-fhdplus-video.dtsi"
+#include "dsi-panel-ili7807-fhdplus-video.dtsi"
 #include "dsi-panel-hx83100a-800p-video.dtsi"
 
 &soc {
@@ -37,6 +39,7 @@
 			qcom,supply-min-voltage = <2850000>;
 			qcom,supply-max-voltage = <2850000>;
 			qcom,supply-enable-load = <100000>;
+			qcom,supply-post-on-sleep= <2>;
 			qcom,supply-disable-load = <100>;
 		};
 
@@ -46,6 +49,7 @@
 			qcom,supply-min-voltage = <1800000>;
 			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <100000>;
+			qcom,supply-post-on-sleep= <2>;
 			qcom,supply-disable-load = <100>;
 		};
 	};

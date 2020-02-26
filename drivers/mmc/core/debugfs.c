@@ -502,8 +502,8 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 		goto out_free;
 
 	for (i = 0; i < 512; i++)
-		n += sprintf(buf + n, "%02x", ext_csd[i]);
-	n += sprintf(buf + n, "\n");
+		n += snprintf(buf + n, strlen(buf + n), "%02x", ext_csd[i]);
+	n += snprintf(buf + n, strlen(buf + n), "\n");
 	BUG_ON(n != EXT_CSD_STR_LEN);
 
 	filp->private_data = buf;

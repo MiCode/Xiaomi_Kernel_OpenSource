@@ -310,19 +310,23 @@ static int64_t of_batterydata_convert_battery_id_kohm(int batt_id_uv,
 	return resistor_value_kohm;
 }
 
+#define	Desay_24Kohm	24				/* Desay limit + 1Kohm */
+#define	FMT_200_41Kohm		200				/*D1S Default Battery_ID*/
+#define	GY_50Kohm		50				/*E7  Default Battery_ID*/
 struct device_node *of_batterydata_get_best_profile(
 		const struct device_node *batterydata_container_node,
 		const char *psy_name,  const char  *batt_type)
 {
 	struct batt_ids batt_ids;
 	struct device_node *node, *best_node = NULL;
+	struct device_node *default_node = NULL;
 	struct power_supply *psy;
 	const char *battery_type = NULL;
 	union power_supply_propval ret = {0, };
 	int delta = 0, best_delta = 0, best_id_kohm = 0, id_range_pct,
 		batt_id_kohm = 0, i = 0, rc = 0, limit = 0;
 	bool in_range = false;
-
+	int checknum = 0, match = 0;
 	psy = power_supply_get_by_name(psy_name);
 	if (!psy) {
 		pr_err("%s supply not found. defer\n", psy_name);
@@ -371,12 +375,25 @@ struct device_node *of_batterydata_get_best_profile(
 			for (i = 0; i < batt_ids.num; i++) {
 				delta = abs(batt_ids.kohm[i] - batt_id_kohm);
 				limit = (batt_ids.kohm[i] * id_range_pct) / 100;
+				if (batt_ids.kohm[i] == Desay_24Kohm) {
+					limit++;
+					pr_err("Desay_limit=%dKohm.\n", limit);
+				}
 				in_range = (delta <= limit);
+				if (in_range != 0)
+					match = 1;
 				/*
 				 * Check if the delta is the lowest one
 				 * and also if the limits are in range
 				 * before selecting the best node.
 				 */
+				if (batt_ids.kohm[i] == FMT_200_41Kohm) {		/*D1S 一供飞毛腿:41Kohm(默认)  二供光宇:51Kohm*/
+					pr_err("Default_node:FMT_41Kohm.\n");
+					default_node = node;
+				} else if (batt_ids.kohm[i] == GY_50Kohm) {		/*E7 一供光宇:50Kohm(默认)  二供欣旺达:40Kohm  三供德赛:24Kohm*/
+					pr_err("Default_node:GY_50Kohm.\n");
+					default_node = node;
+				}
 				if ((delta < best_delta || !best_node)
 					&& in_range) {
 					best_node = node;
@@ -386,14 +403,18 @@ struct device_node *of_batterydata_get_best_profile(
 			}
 		}
 	}
-
+	checknum = abs(best_id_kohm - batt_id_kohm);
+	if (match == 0) {
+		best_node = default_node;
+		checknum = 0;
+	}
 	if (best_node == NULL) {
 		pr_err("No battery data found\n");
 		return best_node;
 	}
 
 	/* check that profile id is in range of the measured batt_id */
-	if (abs(best_id_kohm - batt_id_kohm) >
+	if (checknum >
 			((best_id_kohm * id_range_pct) / 100)) {
 		pr_err("out of range: profile id %d batt id %d pct %d",
 			best_id_kohm, batt_id_kohm, id_range_pct);

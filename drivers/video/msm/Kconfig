@@ -54,6 +54,11 @@ config FB_MSM_QPIC_PANEL_DETECT
 	---help---
 	  Support for Qpic panel auto detect
 
+config ENABLE_PM_TP_SUSPEND_RESUME
+	bool "ENABLE PM TP SUSPEND/RESUME"
+	---help---
+	  Say Y here if you want to know whether it is running in ffbm mode.
+
 if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"
 endif

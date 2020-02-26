@@ -578,6 +578,16 @@
 				qcom,current = <625>;
 			};
 
+			pmi8950_flashlight: qcom,flashlight {
+				label = "torch";
+				qcom,led-name = "flashlight";
+				qcom,default-led-trigger =
+						"torch0_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <0>;
+				qcom,current = <120>;
+			};
+
 			pmi8950_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";

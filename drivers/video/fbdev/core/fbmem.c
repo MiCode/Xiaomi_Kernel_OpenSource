@@ -155,7 +155,7 @@ EXPORT_SYMBOL(fb_pad_unaligned_buffer);
  * we need to lock this section since fb_cursor
  * may use fb_imageblit()
  */
-char* fb_get_buffer_offset(struct fb_info *info, struct fb_pixmap *buf, u32 size)
+char *fb_get_buffer_offset(struct fb_info *info, struct fb_pixmap *buf, u32 size)
 {
 	u32 align = buf->buf_align - 1, offset;
 	char *addr = buf->addr;
@@ -233,7 +233,7 @@ static void  fb_set_logo_truepalette(struct fb_info *info,
 					    const struct linux_logo *logo,
 					    u32 *palette)
 {
-	static const unsigned char mask[] = { 0,0x80,0xc0,0xe0,0xf0,0xf8,0xfc,0xfe,0xff };
+	static const unsigned char mask[] = { 0, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff };
 	unsigned char redmask, greenmask, bluemask;
 	int redshift, greenshift, blueshift;
 	int i;
@@ -251,7 +251,7 @@ static void  fb_set_logo_truepalette(struct fb_info *info,
 	greenshift = info->var.green.offset - (8 - info->var.green.length);
 	blueshift  = info->var.blue.offset  - (8 - info->var.blue.length);
 
-	for ( i = 0; i < logo->clutsize; i++) {
+	for (i = 0; i < logo->clutsize; i++) {
 		palette[i+32] = (safe_shift((clut[0] & redmask), redshift) |
 				 safe_shift((clut[1] & greenmask), greenshift) |
 				 safe_shift((clut[2] & bluemask), blueshift));
@@ -642,20 +642,20 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 		fb_logo.depth = 1;
 
 
- 	if (fb_logo.depth > 4 && depth > 4) {
- 		switch (info->fix.visual) {
- 		case FB_VISUAL_TRUECOLOR:
- 			fb_logo.needs_truepalette = 1;
- 			break;
- 		case FB_VISUAL_DIRECTCOLOR:
- 			fb_logo.needs_directpalette = 1;
- 			fb_logo.needs_cmapreset = 1;
- 			break;
- 		case FB_VISUAL_PSEUDOCOLOR:
- 			fb_logo.needs_cmapreset = 1;
- 			break;
- 		}
- 	}
+	if (fb_logo.depth > 4 && depth > 4) {
+		switch (info->fix.visual) {
+		case FB_VISUAL_TRUECOLOR:
+			fb_logo.needs_truepalette = 1;
+			break;
+		case FB_VISUAL_DIRECTCOLOR:
+			fb_logo.needs_directpalette = 1;
+			fb_logo.needs_cmapreset = 1;
+			break;
+		case FB_VISUAL_PSEUDOCOLOR:
+			fb_logo.needs_cmapreset = 1;
+			break;
+		}
+	}
 
 	return fb_prepare_extra_logos(info, fb_logo.logo->height, yres);
 }
@@ -753,7 +753,7 @@ fb_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	int c, cnt = 0, err = 0;
 	unsigned long total_size;
 
-	if (!info || ! info->screen_base)
+	if (!info || !info->screen_base)
 		return -ENODEV;
 
 	if (info->state != FBINFO_STATE_RUNNING)
@@ -761,7 +761,7 @@ fb_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 
 	if (info->fbops->fb_read)
 		return info->fbops->fb_read(info, buf, count, ppos);
-	
+
 	total_size = info->screen_size;
 
 	if (total_size == 0)
@@ -826,7 +826,7 @@ fb_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 
 	if (info->fbops->fb_write)
 		return info->fbops->fb_write(info, buf, count, ppos);
-	
+
 	total_size = info->screen_size;
 
 	if (total_size == 0)
@@ -906,7 +906,8 @@ fb_pan_display(struct fb_info *info, struct fb_var_screeninfo *var)
 	    var->xoffset > info->var.xres_virtual - info->var.xres)
 		return -EINVAL;
 
-	if ((err = info->fbops->fb_pan_display(var, info)))
+	err = info->fbops->fb_pan_display(var, info);
+	if (err)
 		return err;
 	info->var.xoffset = var->xoffset;
 	info->var.yoffset = var->yoffset;
@@ -1054,12 +1055,12 @@ EXPORT_SYMBOL(fb_set_var);
 
 int
 fb_blank(struct fb_info *info, int blank)
-{	
+{
 	struct fb_event event;
 	int ret = -EINVAL, early_ret;
 
- 	if (blank > FB_BLANK_POWERDOWN)
- 		blank = FB_BLANK_POWERDOWN;
+	if (blank > FB_BLANK_POWERDOWN)
+		blank = FB_BLANK_POWERDOWN;
 
 	event.info = info;
 	event.data = &blank;
@@ -1067,7 +1068,7 @@ fb_blank(struct fb_info *info, int blank)
 	early_ret = fb_notifier_call_chain(FB_EARLY_EVENT_BLANK, &event);
 
 	if (info->fbops->fb_blank)
- 		ret = info->fbops->fb_blank(blank, info);
+		ret = info->fbops->fb_blank(blank, info);
 
 	if (!ret)
 		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
@@ -1080,7 +1081,7 @@ fb_blank(struct fb_info *info, int blank)
 			fb_notifier_call_chain(FB_R_EARLY_EVENT_BLANK, &event);
 	}
 
- 	return ret;
+	return ret;
 }
 EXPORT_SYMBOL(fb_blank);
 
@@ -1365,7 +1366,7 @@ static long fb_compat_ioctl(struct file *file, unsigned int cmd,
 	if (!info)
 		return -ENODEV;
 	fb = info->fbops;
-	switch(cmd) {
+	switch (cmd) {
 	case FBIOGET_VSCREENINFO:
 	case FBIOPUT_VSCREENINFO:
 	case FBIOPAN_DISPLAY:
@@ -1397,7 +1398,7 @@ static long fb_compat_ioctl(struct file *file, unsigned int cmd,
 #endif
 
 static int
-fb_mmap(struct file *file, struct vm_area_struct * vma)
+fb_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct fb_info *info = file_fb_info(file);
 	struct fb_ops *fb;
@@ -1470,7 +1471,7 @@ __releases(&info->lock)
 	file->private_data = info;
 	info->file = file;
 	if (info->fbops->fb_open) {
-		res = info->fbops->fb_open(info,1);
+		res = info->fbops->fb_open(info, 1);
 		if (res)
 			module_put(info->fbops->owner);
 	}
@@ -1485,7 +1486,7 @@ out:
 	return res;
 }
 
-static int 
+static int
 fb_release(struct inode *inode, struct file *file)
 __acquires(&info->lock)
 __releases(&info->lock)
@@ -1495,7 +1496,7 @@ __releases(&info->lock)
 	mutex_lock(&info->lock);
 	info->file = file;
 	if (info->fbops->fb_release)
-		info->fbops->fb_release(info,1);
+		info->fbops->fb_release(info, 1);
 	module_put(info->fbops->owner);
 	mutex_unlock(&info->lock);
 	put_fb_info(info);
@@ -1641,6 +1642,7 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 		if (!registered_fb[i])
 			break;
 	fb_info->node = i;
+	fb_info->blank = -1;  /*modified by zhongshengbin for fingerprint D1S-634  2018-03-04 */
 	atomic_set(&fb_info->count, 1);
 	mutex_init(&fb_info->lock);
 	mutex_init(&fb_info->mm_lock);
@@ -1663,7 +1665,7 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 			fb_info->pixmap.access_align = 32;
 			fb_info->pixmap.flags = FB_PIXMAP_DEFAULT;
 		}
-	}	
+	}
 	fb_info->pixmap.offset = 0;
 
 	if (!fb_info->pixmap.blit_x)
@@ -1884,7 +1886,7 @@ fbmem_init(void)
 {
 	proc_create("fb", 0, NULL, &fb_proc_fops);
 
-	if (register_chrdev(FB_MAJOR,"fb",&fb_fops))
+	if (register_chrdev(FB_MAJOR, "fb", &fb_fops))
 		printk("unable to get major %d for fb devs\n", FB_MAJOR);
 
 	fb_class = class_create(THIS_MODULE, "graphics");

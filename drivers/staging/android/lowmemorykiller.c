@@ -478,6 +478,15 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		if (test_task_flag(tsk, TIF_MM_RELEASED))
 			continue;
 
+	/* Henly20191209 add for not killing MTBF Begin*/
+    if (tsk->comm) {
+       if (strnstr(tsk->comm, "com.phonetest.stresstest", strlen(tsk->comm)) != NULL) {
+			lowmem_print(1, "lmk_lowmemorykiller jump kill 'com.phonetest.stresstest' \n");
+			continue;
+       }
+    }
+	/* Henly20191209 add for not killing MTBF End*/
+
 		if (time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			if (test_task_flag(tsk, TIF_MEMDIE)) {
 				rcu_read_unlock();

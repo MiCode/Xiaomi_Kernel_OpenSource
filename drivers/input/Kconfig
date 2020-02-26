@@ -208,6 +208,7 @@ source "drivers/input/touchscreen/Kconfig"
 
 source "drivers/input/misc/Kconfig"
 
+source "drivers/input/fingerprint/Kconfig"
 source "drivers/input/sensors/smi130/Kconfig"
 
 endif
