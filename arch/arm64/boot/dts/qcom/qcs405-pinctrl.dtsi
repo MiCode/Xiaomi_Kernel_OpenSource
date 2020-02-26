@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2720,6 +2720,36 @@
 				};
 			};
 		};
+
+		ext_mclk_1 {
+			ext_mclk_1_sck_sleep: ext_mclk_1_sck_sleep {
+				mux {
+					pins = "gpio103";
+					function = "mclk_in2";
+				};
+
+				config {
+					pins = "gpio103";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			ext_mclk_1_sck_active: ext_mclk_1_sck_active {
+				mux {
+					pins = "gpio103";
+					function = "mclk_in2";
+				};
+
+				config {
+					pins = "gpio103";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					input-enable;
+				};
+			};
+		};
+
 
 		/* SPDIF optical input pin */
 		spdifrx_opt {
