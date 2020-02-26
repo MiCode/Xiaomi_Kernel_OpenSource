@@ -492,7 +492,7 @@ static int32_t cam_sensor_init_gpio_intr(
 	struct ais_sensor_gpio_intr_config *gpio_intr_info,
 	struct cam_sensor_ctrl_t *s_ctrl)
 {
-	int32_t rc = -1;
+	int32_t rc = 0;
 	int32_t gpio_num = 0;
 	int32_t gpio_cfg0 = 0;
 	int32_t idx = 0;
