@@ -476,6 +476,9 @@ static int __switchdev_handle_port_obj_add(struct net_device *dev,
 	 * necessary to go through this helper.
 	 */
 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+		if (netif_is_bridge_master(lower_dev))
+			continue;
+
 		err = __switchdev_handle_port_obj_add(lower_dev, port_obj_info,
 						      check_cb, add_cb);
 		if (err && err != -EOPNOTSUPP)
@@ -528,6 +531,9 @@ static int __switchdev_handle_port_obj_del(struct net_device *dev,
 	 * necessary to go through this helper.
 	 */
 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+		if (netif_is_bridge_master(lower_dev))
+			continue;
+
 		err = __switchdev_handle_port_obj_del(lower_dev, port_obj_info,
 						      check_cb, del_cb);
 		if (err && err != -EOPNOTSUPP)
@@ -579,6 +585,9 @@ static int __switchdev_handle_port_attr_set(struct net_device *dev,
 	 * necessary to go through this helper.
 	 */
 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+		if (netif_is_bridge_master(lower_dev))
+			continue;
+
 		err = __switchdev_handle_port_attr_set(lower_dev, port_attr_info,
 						       check_cb, set_cb);
 		if (err && err != -EOPNOTSUPP)
