@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config FPR_FPC
+	tristate "FPC fingerprint sensor support"
+	depends on SPI_MASTER
+	help
+	  support fpc1020 and fpc1028.
+	  This driver can also be built as a module.  If so, the module
+	  will be called fpc1020.
