@@ -103,6 +103,15 @@ static void sde_encoder_phys_shd_vblank_irq(void *arg, int irq_idx)
 	if (flush_register & shd_ctl->flush_mask)
 		goto not_flushed;
 
+	/*
+	 * When flush_mask is changed to 0, we need additional vsync
+	 * to make sure the detach flush is done
+	 */
+	if (flush_register && !shd_ctl->flush_mask && shd_ctl->old_mask) {
+		shd_ctl->old_mask = 0;
+		goto not_flushed;
+	}
+
 	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
 
 	if (atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0))

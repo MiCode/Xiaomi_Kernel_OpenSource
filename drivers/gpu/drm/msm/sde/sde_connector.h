@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -808,10 +808,12 @@ static inline bool sde_connector_needs_offset(struct drm_connector *connector)
  * @state: Pointer to drm_connector_state struct
  * @cfg: Pointer to pointer to dither cfg
  * @len: length of the dither data
+ * @idle_pc: flag to indicate idle_pc_restore happened
  * Returns: Zero on success
  */
 int sde_connector_get_dither_cfg(struct drm_connector *conn,
-		struct drm_connector_state *state, void **cfg, size_t *len);
+		struct drm_connector_state *state, void **cfg,
+		size_t *len, bool idle_pc);
 
 /**
  * sde_connector_set_blob_data - set connector blob property data
