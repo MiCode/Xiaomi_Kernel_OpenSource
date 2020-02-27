@@ -563,6 +563,19 @@ static int load_gmu_fw(struct kgsl_device *device)
 	return 0;
 }
 
+static const char *oob_to_str(enum oob_request req)
+{
+	if (req == oob_gpu)
+		return "oob_gpu";
+	else if (req == oob_perfcntr)
+		return "oob_perfcntr";
+	else if (req == oob_boot_slumber)
+		return "oob_boot_slumber";
+	else if (req == oob_dcvs)
+		return "oob_dcvs";
+	return "unknown";
+}
+
 /*
  * a6xx_gmu_oob_set() - Set OOB interrupt to GMU.
  * @device: Pointer to kgsl device
@@ -576,30 +589,31 @@ static int a6xx_gmu_oob_set(struct kgsl_device *device,
 	int ret = 0;
 	int set, check;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
-		set = BIT(30 - req * 2);
-		check = BIT(31 - req);
-
-		if (req >= 6) {
-			dev_err(&gmu->pdev->dev,
-					"OOB_set(0x%x) invalid\n", set);
-			return -EINVAL;
-		}
-	} else {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
 		set = BIT(req + 16);
 		check = BIT(req + 24);
+	} else {
+		/*
+		 * The legacy targets have special bits that aren't supported on
+		 * newer implementations
+		 */
+		if (req >= oob_boot_slumber) {
+			dev_err(&gmu->pdev->dev,
+				"Unsupported OOB request %s\n",
+				oob_to_str(req));
+			return -EINVAL;
+		}
+
+		set = BIT(30 - req * 2);
+		check = BIT(31 - req);
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
-	if (timed_poll_check(device,
-			A6XX_GMU_GMU2HOST_INTR_INFO,
-			check,
-			GPU_START_TIMEOUT,
-			check)) {
+	if (timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO, check,
+		GPU_START_TIMEOUT, check)) {
 		ret = -ETIMEDOUT;
-		dev_err(&gmu->pdev->dev,
-			"OOB_set(0x%x) timed out\n", set);
+		WARN(1, "OOB request %s timed out\n", oob_to_str(req));
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, check);
@@ -620,15 +634,16 @@ static void a6xx_gmu_oob_clear(struct kgsl_device *device,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int clear;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
+		clear = BIT(req + 24);
+	} else {
 		clear = BIT(31 - req * 2);
-		if (req >= 6) {
-			dev_err(&gmu->pdev->dev,
-					"OOB_clear(0x%x) invalid\n", clear);
+		if (req >= oob_boot_slumber) {
+			dev_err(&gmu->pdev->dev, "Unsupported OOB clear %s\n",
+				oob_to_str(req));
 			return;
 		}
-	} else
-		clear = BIT(req + 24);
+	}
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear);
 	trace_kgsl_gmu_oob_clear(clear);

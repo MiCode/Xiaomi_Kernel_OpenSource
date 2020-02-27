@@ -84,6 +84,15 @@ irqreturn_t oob_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static const char *oob_to_str(enum oob_request req)
+{
+	if (req == oob_gpu)
+		return "oob_gpu";
+	else if (req == oob_perfcntr)
+		return "oob_perfcntr";
+	return "unknown";
+}
+
 /*
  * a6xx_rgmu_oob_set() - Set OOB interrupt to RGMU
  * @adreno_dev: Pointer to adreno device
@@ -112,7 +121,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 		gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &status);
 		dev_err(&rgmu->pdev->dev,
 				"Timed out while setting OOB req:%s status:0x%x\n",
-				gmu_core_oob_type_str(req), status);
+				oob_to_str(req), status);
 		return ret;
 	}
 

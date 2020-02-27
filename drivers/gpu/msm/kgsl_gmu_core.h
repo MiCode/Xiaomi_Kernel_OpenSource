@@ -205,7 +205,6 @@ void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
 		const void *buffer, size_t size);
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
-const char *gmu_core_oob_type_str(enum oob_request req);
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req);
 void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req);
 int gmu_core_dev_hfi_start_msg(struct kgsl_device *device);
