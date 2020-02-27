@@ -12,7 +12,7 @@
 
 
 &mdm3 {
-	compatible = "qcom,ext-sdxchitwan";
+	compatible = "qcom,ext-marmot";
 	qcom,mdm-link-info = "0307_01.01.00";
 };
 
