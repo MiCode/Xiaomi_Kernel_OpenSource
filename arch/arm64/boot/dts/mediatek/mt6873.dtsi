@@ -325,6 +325,30 @@
 			#clock-cells = <1>;
 		};
 
+		ufshci: ufshci@11270000 {
+			compatible = "mediatek,mt8183-ufshci";
+			reg = <0 0x11270000 0 0x2300>;
+			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH 0>;
+			phys = <&ufsphy>;
+
+			clocks = <&infracfg CLK_INFRA_UFS>,
+				 <&infracfg CLK_INFRA_UFS_TICK>,
+				 <&infracfg CLK_INFRA_UFS_AXI>,
+				 <&infracfg CLK_INFRA_UNIPRO_TICK>,
+				 <&infracfg CLK_INFRA_UNIPRO_MBIST>;
+			clock-names = "ufs", "ufs_tick", "ufs_axi",
+				      "unipro_tick", "unipro_mbist";
+
+			freq-table-hz = <0 0>, <0 0>, <0 0>,
+					<0 0>, <0 0>;
+
+			vcc-supply = <&mt6359p_vemc_reg>;
+
+			/* Reference clock control mode */
+			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
+			mediatek,refclk_ctrl = <1>;
+		};
+
 		efuse: efuse@11c10000 {
 			compatible = "mediatek,devinfo";
 			reg = <0 0x11c10000 0 0x10000>;
@@ -376,6 +400,16 @@
 			compatible = "mediatek,mt8192-msdc", "syscon";
 			reg = <0 0x11f60000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		ufsphy: phy@11fa0000 {
+			compatible = "mediatek,mt8183-ufsphy";
+			reg = <0 0x11fa0000 0 0xc000>;
+			#phy-cells = <0>;
+
+			clocks = <&infracfg CLK_INFRA_UNIPRO_SYS>,
+				 <&infracfg CLK_INFRA_UFS_MP_SAP_B>;
+			clock-names = "unipro", "mp";
 		};
 
 		mfgcfg: mfgcfg@13fbf000 {
