@@ -536,7 +536,8 @@ struct adreno_device {
 	 * @critpkts: Memory descriptor for 5xx secure critical packets
 	 */
 	struct kgsl_memdesc *critpkts_secure;
-
+	/** @cp_init_cmds: A copy of the CP INIT commands */
+	const void *cp_init_cmds;
 };
 
 /**
@@ -776,7 +777,7 @@ struct adreno_gpudev {
 	void (*snapshot)(struct adreno_device *adreno_dev,
 				struct kgsl_snapshot *snapshot);
 	void (*platform_setup)(struct adreno_device *adreno_dev);
-	void (*init)(struct adreno_device *adreno_dev);
+	int (*init)(struct adreno_device *adreno_dev);
 	void (*remove)(struct adreno_device *adreno_dev);
 	int (*rb_start)(struct adreno_device *adreno_dev);
 	int (*microcode_read)(struct adreno_device *adreno_dev);
