@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_USB_H_
@@ -169,7 +169,7 @@ struct ipa_req_chan_out_params {
 	u32 db_reg_phs_addr_msb;
 };
 
-#if IS_ENABLED(CONFIG_IPA_USB)
+#if IS_ENABLED(CONFIG_IPA3)
 
 /**
  * ipa_usb_init_teth_prot - Peripheral should call this function to initialize
@@ -284,7 +284,7 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			enum ipa_usb_teth_prot teth_prot);
 
-#else /* IS_ENABLED(CONFIG_IPA_USB) */
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			   struct ipa_usb_teth_params *teth_params,
@@ -330,6 +330,6 @@ static inline int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 }
 
 
-#endif /* IS_ENABLED(CONFIG_IPA_USB) */
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 #endif /* _IPA_USB_H_ */
