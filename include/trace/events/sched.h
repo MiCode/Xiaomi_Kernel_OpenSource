@@ -903,6 +903,7 @@ DECLARE_TRACE(sched_overutilized_tp,
 	TP_PROTO(struct root_domain *rd, bool overutilized),
 	TP_ARGS(rd, overutilized));
 
+#ifdef CONFIG_SMP
 TRACE_EVENT(sched_cpu_util,
 
 	TP_PROTO(int cpu),
@@ -1108,6 +1109,7 @@ TRACE_EVENT(sched_find_best_target,
 		  __entry->most_spare_cap,
 		  __entry->target, __entry->backup)
 );
+#endif /* CONFIG_SMP */
 
 /*
  * Tracepoint for system overutilized flag
