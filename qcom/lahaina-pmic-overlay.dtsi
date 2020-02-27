@@ -318,6 +318,26 @@
 	};
 };
 
+&pm8350_tz {
+	io-channels = <&pmk8350_vadc PM8350_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&pm8350b_tz {
+	io-channels = <&pmk8350_vadc PM8350B_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&pmr735a_tz {
+	io-channels = <&pmk8350_vadc PMR735A_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&pmr735b_tz {
+	io-channels = <&pmk8350_vadc PMR735B_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
 &pmk8350_adc_tm {
 	io-channels = <&pmk8350_vadc PM8350_ADC7_AMUX_THM1_100K_PU>,
 			<&pmk8350_vadc PM8350_ADC7_AMUX_THM2_100K_PU>,
