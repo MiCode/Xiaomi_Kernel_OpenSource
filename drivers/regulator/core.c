@@ -49,6 +49,8 @@
 static DEFINE_WW_CLASS(regulator_ww_class);
 static DEFINE_MUTEX(regulator_nesting_mutex);
 static DEFINE_MUTEX(regulator_list_mutex);
+static struct task_struct *regulator_list_mutex_owner;
+static int regulator_list_mutex_ref_cnt;
 static LIST_HEAD(regulator_map_list);
 static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
@@ -180,6 +182,45 @@ static inline int regulator_lock_nested(struct regulator_dev *rdev,
 	mutex_unlock(&regulator_nesting_mutex);
 
 	return ret;
+}
+
+/**
+ * regulator_list_lock() - lock regulator_list_mutex
+ *
+ * This function can be called multiple times by a single task and the mutex
+ * will only be locked once.  This avoids deadlocking the system when a
+ * consumer API function (e.g. regulator_enable(), regulator_disable(),
+ * regulator_set_voltage()) is called inside of a regulator driver's
+ * regulator_ops callback functions.
+ */
+static void regulator_list_lock(void)
+{
+	if (!mutex_trylock(&regulator_list_mutex)) {
+		if (regulator_list_mutex_owner == current) {
+			regulator_list_mutex_ref_cnt++;
+			return;
+		}
+		mutex_lock(&regulator_list_mutex);
+	}
+	regulator_list_mutex_ref_cnt = 1;
+	regulator_list_mutex_owner = current;
+}
+
+/**
+ * regulator_list_unlock() - unlock regulator_list_mutex
+ *
+ * This function unlocks the mutex when the reference counter reaches 0.
+ */
+static void regulator_list_unlock(void)
+{
+	if (regulator_list_mutex_ref_cnt != 0) {
+		regulator_list_mutex_ref_cnt--;
+
+		if (regulator_list_mutex_ref_cnt == 0) {
+			regulator_list_mutex_owner = NULL;
+			mutex_unlock(&regulator_list_mutex);
+		}
+	}
 }
 
 /**
@@ -335,7 +376,7 @@ static void regulator_lock_dependent(struct regulator_dev *rdev,
 	struct regulator_dev *old_contended_rdev = NULL;
 	int err;
 
-	mutex_lock(&regulator_list_mutex);
+	regulator_list_lock();
 
 	ww_acquire_init(ww_ctx, &regulator_ww_class);
 
@@ -358,7 +399,7 @@ static void regulator_lock_dependent(struct regulator_dev *rdev,
 
 	ww_acquire_done(ww_ctx);
 
-	mutex_unlock(&regulator_list_mutex);
+	regulator_list_unlock();
 }
 
 /**
@@ -5989,7 +6030,7 @@ static void regulator_summary_lock(struct ww_acquire_ctx *ww_ctx)
 	struct regulator_dev *old_contended_rdev = NULL;
 	int err;
 
-	mutex_lock(&regulator_list_mutex);
+	regulator_list_lock();
 
 	ww_acquire_init(ww_ctx, &regulator_ww_class);
 
@@ -6018,7 +6059,7 @@ static void regulator_summary_unlock(struct ww_acquire_ctx *ww_ctx)
 			      regulator_summary_unlock_one);
 	ww_acquire_fini(ww_ctx);
 
-	mutex_unlock(&regulator_list_mutex);
+	regulator_list_unlock();
 }
 
 static int regulator_summary_show_roots(struct device *dev, void *data)
