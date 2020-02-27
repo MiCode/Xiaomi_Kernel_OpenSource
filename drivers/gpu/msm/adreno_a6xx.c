@@ -445,6 +445,14 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
+	if (adreno_is_a660(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_2,
+						0x00800060);
+		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_1,
+						0x40202016);
+		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000080);
+	}
+
 	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
 		/* For A612 and A610 Mem pool size is reduced to 48 */
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
