@@ -333,6 +333,7 @@ struct ufs_qcom_host {
 	bool is_phy_pwr_on;
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
+	bool err_occurred;
 };
 
 static inline u32
