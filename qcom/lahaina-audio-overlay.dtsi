@@ -187,6 +187,7 @@
 				<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
 				<8 SPKR_R_VI 0x3>;
 			qcom,swr-num-dev = <2>;
+			qcom,dynamic-port-map-supported = <0>;
 			wsa883x_0221: wsa883x@02170221 {
 				compatible = "qcom,wsa883x";
 				reg = <0x2 0x2170221>;
@@ -235,7 +236,6 @@
 			<3 DMIC5 0x2 0 SWRM_TX3_CH2>,
 			<3 DMIC6 0x4 0 SWRM_TX3_CH3>,
 			<3 DMIC7 0x8 0 SWRM_TX3_CH4>;
-		qcom,dynamic-port-map-supported = <1>;
 
 		qcom,wcd-rst-gpio-node = <&wcd938x_rst_gpio>;
 		qcom,rx-slave = <&wcd938x_rx_slave>;
