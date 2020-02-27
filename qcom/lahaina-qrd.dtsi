@@ -32,6 +32,22 @@
 	status = "ok";
 };
 
+&swr_dmic_01 {
+	status = "disabled";
+};
+
+&swr_dmic_02 {
+	status = "disabled";
+};
+
+&swr_dmic_03 {
+	status = "disabled";
+};
+
+&swr_dmic_04 {
+	status = "disabled";
+};
+
 &lahaina_snd {
 	qcom,model = "lahaina-qrd-snd-card";
 
@@ -88,6 +104,8 @@
 		"Digital Mic3", "VA MIC BIAS3",
 		"Digital Mic4", "VA MIC BIAS4",
 		"Digital Mic5", "VA MIC BIAS4";
+
+	qcom,swr-dmic-max-devs = <0>;
 
 	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
