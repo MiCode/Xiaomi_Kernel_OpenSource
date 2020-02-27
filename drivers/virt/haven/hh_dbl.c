@@ -117,9 +117,6 @@ int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags)
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
-
 	hh_ret = hh_hcall_dbl_recv(cap_table_entry->rx_cap_id,
 					*clear_flags, &recv_resp);
 
@@ -128,8 +125,6 @@ int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags)
 		pr_err("%s: Hypercall failed, ret = %d\n", __func__, hh_ret);
 	else
 		*clear_flags = recv_resp.old_flags;
-
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
 
 	return ret;
 }
@@ -162,9 +157,6 @@ int hh_dbl_set_mask(void *dbl_client_desc, hh_dbl_flags_t enable_mask,
 		return ret;
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
-
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
 
 	hh_ret = hh_hcall_dbl_mask(cap_table_entry->rx_cap_id,
 						enable_mask, ack_mask);
@@ -209,9 +201,6 @@ int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
-
 	hh_ret = hh_hcall_dbl_send(cap_table_entry->tx_cap_id, *newflags,
 								&send_resp);
 
@@ -220,8 +209,6 @@ int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
 		pr_err("%s: Hypercall failed ret = %d\n", hh_ret);
 	else
 		*newflags = send_resp.old_flags;
-
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
 
 	return ret;
 }
@@ -250,16 +237,11 @@ int hh_dbl_reset(void *dbl_client_desc)
 
 	cap_table_entry = &hh_dbl_cap_table[client_desc->label];
 
-	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
-		return -ERESTARTSYS;
-
 	hh_ret = hh_hcall_dbl_reset(cap_table_entry->rx_cap_id);
 
 	ret = hh_remap_error(hh_ret);
 	if (ret != 0)
 		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
-
-	mutex_unlock(&cap_table_entry->cap_entry_lock);
 
 	return ret;
 }
