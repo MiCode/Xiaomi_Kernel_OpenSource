@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "shima.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima SoC";
+	compatible = "qcom,shima";
+	qcom,board-id = <0 0>;
+};

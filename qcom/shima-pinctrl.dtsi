@@ -1,0 +1,12 @@
+&soc {
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,shima-pinctrl";
+		reg = <0x0f000000 0x1000000>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+};
+
