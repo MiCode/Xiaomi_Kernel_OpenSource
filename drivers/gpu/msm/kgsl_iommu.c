@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include <linux/qcom_scm.h>
 #include <linux/random.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include "adreno.h"
@@ -762,6 +763,9 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
 	for (j = (KGSL_IOMMU_MAX_CLKS - 1); j >= 0; j--)
 		if (iommu->clks[j])
 			clk_disable_unprepare(iommu->clks[j]);
+
+	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
+		regulator_disable(iommu->cx_gdsc);
 }
 
 /*
@@ -788,6 +792,9 @@ static void kgsl_iommu_enable_clk(struct kgsl_mmu *mmu)
 {
 	int j;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+
+	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
+		regulator_enable(iommu->cx_gdsc);
 
 	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
 		if (iommu->clks[j])
@@ -2571,6 +2578,9 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 
 		iommu->clks[index++] = c;
 	}
+
+	/* Get the CX regulator if it is available */
+	iommu->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
 
 	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_features); i++) {
 		if (of_property_read_bool(node, kgsl_iommu_features[i].feature))

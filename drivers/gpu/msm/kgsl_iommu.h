@@ -131,6 +131,8 @@ struct kgsl_iommu {
 	u32 cb0_offset;
 	/** @pagesize: Size of each context bank register space */
 	u32 pagesize;
+	/** @cx_gdsc: CX GDSC handle in case the IOMMU needs it */
+	struct regulator *cx_gdsc;
 };
 
 /*
