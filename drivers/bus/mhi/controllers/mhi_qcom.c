@@ -497,10 +497,6 @@ static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->ee = 0;
 	mhi_cntrl->power_down = false;
 
-	ret = mhi_arch_power_up(mhi_cntrl);
-	if (ret)
-		return ret;
-
 	ret = mhi_async_power_up(mhi_cntrl);
 
 	/* Update modem serial Info */
