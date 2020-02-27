@@ -148,6 +148,8 @@
 		compatible = "qcom,kgsl-smmu-v2";
 		reg = <0x03da0000 0x20000>;
 
+		vddcx-supply = <&gpu_cc_cx_gdsc>;
+
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			iommus = <&kgsl_smmu 0x0 0x400>;
