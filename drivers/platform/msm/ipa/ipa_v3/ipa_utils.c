@@ -65,7 +65,7 @@
 
 #define IPA_FILT_ROUT_HASH_REG_VAL_v4_2 (0x00000000)
 #define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
-#define IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC (500)
+#define IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC (20)
 
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
@@ -7791,7 +7791,8 @@ void ipa3_force_close_coal(void)
 	ipa3_init_imm_cmd_desc(&desc, ipa3_ctx->coal_cmd_pyld);
 
 	IPADBG("Sending 1 descriptor for coal force close\n");
-	if (ipa3_send_cmd(1, &desc))
+	if (ipa3_send_cmd_timeout(1, &desc,
+				IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC))
 		IPADBG("ipa3_send_cmd timedout\n");
 }
 
