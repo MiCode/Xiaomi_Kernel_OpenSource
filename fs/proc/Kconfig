@@ -103,9 +103,3 @@ config PROC_CHILDREN
 config PROC_PID_ARCH_STATUS
 	def_bool n
 	depends on PROC_FS
-
-config PROC_UID
-	bool "Include /proc/uid/ files"
-	depends on PROC_FS && RT_MUTEXES
-	help
-	Provides aggregated per-uid information under /proc/uid.
