@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -36,13 +36,13 @@ static struct bcl_device *bcl_perph;
 
 static int bcl_set_soc(void *data, int low, int high)
 {
-	if (low == bcl_perph->trip_temp)
+	if (high == bcl_perph->trip_temp)
 		return 0;
 
 	mutex_lock(&bcl_perph->state_trans_lock);
-	pr_debug("low soc threshold:%d\n", low);
-	bcl_perph->trip_temp = low;
-	if (low == INT_MIN) {
+	pr_debug("socd threshold:%d\n", high);
+	bcl_perph->trip_temp = high;
+	if (high == INT_MAX) {
 		bcl_perph->irq_enabled = false;
 		goto unlock_and_exit;
 	}
@@ -60,7 +60,7 @@ static int bcl_read_soc(void *data, int *val)
 	union power_supply_propval ret = {0,};
 	int err = 0;
 
-	*val = 100;
+	*val = 0;
 	if (!batt_psy)
 		batt_psy = power_supply_get_by_name("battery");
 	if (batt_psy) {
@@ -71,7 +71,7 @@ static int bcl_read_soc(void *data, int *val)
 				err);
 			return err;
 		}
-		*val = ret.intval;
+		*val = 100 - ret.intval;
 	}
 	pr_debug("soc:%d\n", *val);
 
@@ -80,21 +80,21 @@ static int bcl_read_soc(void *data, int *val)
 
 static void bcl_evaluate_soc(struct work_struct *work)
 {
-	int battery_percentage;
+	int battery_depletion;
 
 	if (!bcl_perph->tz_dev)
 		return;
 
-	if (bcl_read_soc(NULL, &battery_percentage))
+	if (bcl_read_soc(NULL, &battery_depletion))
 		return;
 
 	mutex_lock(&bcl_perph->state_trans_lock);
 	if (!bcl_perph->irq_enabled)
 		goto eval_exit;
-	if (battery_percentage > bcl_perph->trip_temp)
+	if (battery_depletion < bcl_perph->trip_temp)
 		goto eval_exit;
 
-	bcl_perph->trip_val = battery_percentage;
+	bcl_perph->trip_val = battery_depletion;
 	mutex_unlock(&bcl_perph->state_trans_lock);
 	of_thermal_handle_trip_temp(bcl_perph->dev,
 			bcl_perph->tz_dev, bcl_perph->trip_val);
