@@ -5582,6 +5582,7 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 	if (hba->scsi_cmd_timeout)
 		blk_queue_rq_timeout(q, hba->scsi_cmd_timeout * HZ);
 
+	sdev->rpm_autosuspend = 1;
 	ufshcd_crypto_setup_rq_keyslot_manager(hba, q);
 	return 0;
 }
@@ -8429,6 +8430,7 @@ static struct scsi_host_template ufshcd_driver_template = {
 	.track_queue_depth	= 1,
 	.max_segment_size	= PRDT_DATA_BYTE_COUNT_MAX,
 	.dma_boundary		= PAGE_SIZE - 1,
+	.rpm_autosuspend_delay	= UFSHCD_AUTO_SUSPEND_DELAY_MS,
 };
 
 static int ufshcd_config_vreg_load(struct device *dev, struct ufs_vreg *vreg,
