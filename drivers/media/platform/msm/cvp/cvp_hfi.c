@@ -3213,18 +3213,21 @@ err_clk_get:
 }
 
 static int __handle_reset_clk(struct msm_cvp_platform_resources *res,
-			int reset_index, enum reset_state state)
+			int reset_index, enum reset_state state,
+			enum power_state pwr_state)
 {
 	int rc = 0;
 	struct reset_control *rst;
+	struct reset_info rst_info;
 	struct reset_set *rst_set = &res->reset_set;
 
 	if (!rst_set->reset_tbl)
 		return 0;
 
-	rst = rst_set->reset_tbl[reset_index].rst;
-	dprintk(CVP_DBG, "reset_clk: name %s reset_state %d rst %pK\n",
-		rst_set->reset_tbl[reset_index].name, state, rst);
+	rst_info = rst_set->reset_tbl[reset_index];
+	rst = rst_info.rst;
+	dprintk(CVP_DBG, "reset_clk: name %s reset_state %d rst %pK ps=%d\n",
+		rst_set->reset_tbl[reset_index].name, state, rst, pwr_state);
 
 	switch (state) {
 	case INIT:
@@ -3244,6 +3247,9 @@ static int __handle_reset_clk(struct msm_cvp_platform_resources *res,
 			goto failed_to_reset;
 		}
 
+		if (pwr_state != rst_info.required_state)
+			break;
+
 		rc = reset_control_assert(rst);
 		break;
 	case DEASSERT:
@@ -3251,6 +3257,10 @@ static int __handle_reset_clk(struct msm_cvp_platform_resources *res,
 			rc = PTR_ERR(rst);
 			goto failed_to_reset;
 		}
+
+		if (pwr_state != rst_info.required_state)
+			break;
+
 		rc = reset_control_deassert(rst);
 		break;
 	default:
@@ -3285,6 +3295,7 @@ static inline void __disable_unprepare_clks(struct iris_hfi_device *device)
 static int reset_ahb2axi_bridge(struct iris_hfi_device *device)
 {
 	int rc, i;
+	enum power_state s;
 
 	if (!device) {
 		dprintk(CVP_ERR, "NULL device\n");
@@ -3292,8 +3303,13 @@ static int reset_ahb2axi_bridge(struct iris_hfi_device *device)
 		goto failed_to_reset;
 	}
 
+	if (device->power_enabled)
+		s = CVP_POWER_ON;
+	else
+		s = CVP_POWER_OFF;
+
 	for (i = 0; i < device->res->reset_set.count; i++) {
-		rc = __handle_reset_clk(device->res, i, ASSERT);
+		rc = __handle_reset_clk(device->res, i, ASSERT, s);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"failed to assert reset clocks\n");
@@ -3303,7 +3319,7 @@ static int reset_ahb2axi_bridge(struct iris_hfi_device *device)
 		/* wait for deassert */
 		usleep_range(150, 250);
 
-		rc = __handle_reset_clk(device->res, i, DEASSERT);
+		rc = __handle_reset_clk(device->res, i, DEASSERT, s);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"failed to deassert reset clocks\n");
@@ -3534,7 +3550,7 @@ static int __init_resources(struct iris_hfi_device *device,
 	}
 
 	for (i = 0; i < device->res->reset_set.count; i++) {
-		rc = __handle_reset_clk(res, i, INIT);
+		rc = __handle_reset_clk(res, i, INIT, 0);
 		if (rc) {
 			dprintk(CVP_ERR, "Failed to init reset clocks\n");
 			rc = -ENODEV;
@@ -3916,7 +3932,6 @@ static int __iris_power_on(struct iris_hfi_device *device)
 	if (device->power_enabled)
 		return 0;
 
-	device->power_enabled = true;
 	/* Vote for all hardware resources */
 	rc = __vote_buses(device, device->bus_vote.data,
 			device->bus_vote.data_count);
@@ -3949,6 +3964,9 @@ static int __iris_power_on(struct iris_hfi_device *device)
 			"Failed to scale clocks, perf may regress\n");
 		rc = 0;
 	}
+
+	/*Do not access registers before this point!*/
+	device->power_enabled = true;
 
 	dprintk(CVP_DBG, "Done with scaling\n");
 	/*
@@ -4083,23 +4101,8 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	/* HPG 6.1.2 Step 3, debug bridge to low power */
 	__write_register(device,
 		CVP_WRAPPER_DEBUG_BRIDGE_LPI_CONTROL, 0x7);
-	reg_status = 0;
-	count = 0;
-	while ((reg_status != 0x7) && count < max_count) {
-		lpi_status = __read_register(device,
-				 CVP_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
-		reg_status = lpi_status & 0x7;
-		/* Wait for debug bridge lpi status to be set */
-		usleep_range(50, 100);
-		count++;
-	}
-	dprintk(CVP_DBG,
-		"DBLP Set : lpi_status %d reg_status %d (count %d)\n",
-		lpi_status, reg_status, count);
-	if (count == max_count) {
-		dprintk(CVP_WARN,
-			"DBLP Set: status %x %x\n", reg_status, lpi_status);
-	}
+
+	usleep_range(50, 100);
 
 	/* HPG 6.1.2 Step 4, debug bridge to lpi release */
 	__write_register(device,
@@ -4119,6 +4122,10 @@ static void power_off_iris2(struct iris_hfi_device *device)
 		dprintk(CVP_WARN,
 			"DBLP Release: lpi_status %x\n", lpi_status);
 	}
+	/* HPG 6.1.2 Step 5 */
+	if (__disable_regulators(device))
+		dprintk(CVP_WARN, "Failed to disable regulators\n");
+
 
 	/* HPG 6.1.2 Step 6 */
 	__disable_unprepare_clks(device);
@@ -4127,12 +4134,10 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	if (call_iris_op(device, reset_ahb2axi_bridge, device))
 		dprintk(CVP_ERR, "Failed to reset ahb2axi\n");
 
-	/* HPG 6.1.2 Step 5 */
-	if (__disable_regulators(device))
-		dprintk(CVP_WARN, "Failed to disable regulators\n");
-
 	if (__unvote_buses(device))
 		dprintk(CVP_WARN, "Failed to unvote for buses\n");
+
+	/*Do not access registers after this point!*/
 	device->power_enabled = false;
 }
 
