@@ -83,6 +83,8 @@ extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
 #if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER)
 extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
 extern unsigned int sysctl_irqsoff_dmesg_output_enabled;
+extern unsigned int sysctl_irqsoff_crash_sentinel_value;
+extern unsigned int sysctl_irqsoff_crash_threshold_ns;
 #endif
 
 enum sched_tunable_scaling {
