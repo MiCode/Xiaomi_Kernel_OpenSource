@@ -360,6 +360,7 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	case MSM_GPI_QUP_MAX_EVENT:
 		/* fall through to stall impacted channel */
 	case MSM_GPI_QUP_CH_ERROR:
+	case MSM_GPI_QUP_FW_ERROR:
 	case MSM_GPI_QUP_PENDING_EVENT:
 	case MSM_GPI_QUP_EOT_DESC_MISMATCH:
 		break;
@@ -377,9 +378,9 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	}
 	if (cb_str->cb_event != MSM_GPI_QUP_NOTIFY)
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-			"GSI QN err:0x%x, status:0x%x, err:%d slv_addr: 0x%x R/W: %d\n",
+			"GSI QN err:0x%x, status:0x%x, err:%d\n",
 			cb_str->error_log.error_code, m_stat,
-			cb_str->cb_event, gi2c->cur->addr, gi2c->cur->flags);
+			cb_str->cb_event);
 }
 
 static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
@@ -512,6 +513,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		struct msm_gpi_tre *go_t = &gi2c->go_t;
 		struct device *rx_dev = gi2c->wrapper_dev;
 		struct device *tx_dev = gi2c->wrapper_dev;
+		reinit_completion(&gi2c->xfer);
 
 		gi2c->cur = &msgs[i];
 
@@ -731,7 +733,6 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 	int i, ret = 0, timeout = 0;
 
 	gi2c->err = 0;
-	reinit_completion(&gi2c->xfer);
 
 	/* Client to respect system suspend */
 	if (!pm_runtime_enabled(gi2c->dev)) {
@@ -873,6 +874,8 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				geni_abort_m_cmd(gi2c->base);
 			}
 		}
+		gi2c->cur_wr = 0;
+		gi2c->cur_rd = 0;
 
 		if (mode == SE_DMA) {
 			if (gi2c->err) {
@@ -905,8 +908,6 @@ geni_i2c_txn_ret:
 
 	pm_runtime_mark_last_busy(gi2c->dev);
 	pm_runtime_put_autosuspend(gi2c->dev);
-	gi2c->cur_wr = 0;
-	gi2c->cur_rd = 0;
 	gi2c->cur = NULL;
 	gi2c->err = 0;
 	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
