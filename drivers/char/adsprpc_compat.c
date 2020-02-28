@@ -37,6 +37,8 @@
 #define COMPAT_FASTRPC_IOCTL_GET_DSP_INFO \
 		_IOWR('R', 17, \
 			struct compat_fastrpc_ioctl_remote_dsp_capability)
+#define COMPAT_FASTRPC_IOCTL_INVOKE2 \
+			 _IOWR('R', 18, struct compat_fastrpc_ioctl_invoke2)
 
 struct compat_remote_buf {
 	compat_uptr_t pv;	/* buffer pointer */
@@ -70,6 +72,21 @@ struct compat_fastrpc_ioctl_invoke_crc {
 	compat_uptr_t fds;	/* fd list */
 	compat_uptr_t attrs;	/* attribute list */
 	compat_uptr_t crc;	/* crc list */
+};
+
+struct compat_fastrpc_ioctl_invoke_async {
+	struct compat_fastrpc_ioctl_invoke inv;
+	compat_uptr_t fds;	    /* fd list */
+	compat_uptr_t attrs;	/* attribute list */
+	compat_uptr_t crc;	    /* crc list */
+	compat_uptr_t job;	/* Async job */
+};
+
+struct compat_fastrpc_ioctl_invoke2 {
+	compat_uint_t req;       /* type of invocation request */
+	compat_uptr_t invparam;  /* invocation request param */
+	compat_uint_t size;      /* size of invocation param */
+	compat_int_t  err;       /* reserved */
 };
 
 struct compat_fastrpc_ioctl_mmap {
@@ -158,27 +175,22 @@ struct compat_fastrpc_ioctl_remote_dsp_capability {
 };
 
 static int compat_get_fastrpc_ioctl_invoke(
-			struct compat_fastrpc_ioctl_invoke_crc __user *inv32,
-			struct fastrpc_ioctl_invoke_crc __user **inva,
+			struct compat_fastrpc_ioctl_invoke_async __user *inv32,
+			struct fastrpc_ioctl_invoke_async __user *inv,
 			unsigned int cmd)
 {
-	compat_uint_t u, sc;
+	compat_uint_t u = 0, sc = 0;
 	compat_size_t s;
 	compat_uptr_t p;
-	struct fastrpc_ioctl_invoke_crc *inv;
 	union compat_remote_arg *pra32;
 	union remote_arg *pra;
-	int err, len, j;
+	int err = 0, len = 0, j = 0;
 
 	err = get_user(sc, &inv32->inv.sc);
 	if (err)
 		return err;
 
 	len = REMOTE_SCALARS_LENGTH(sc);
-	VERIFY(err, NULL != (inv = compat_alloc_user_space(
-				sizeof(*inv) + len * sizeof(*pra))));
-	if (err)
-		return -EFAULT;
 
 	pra = (union remote_arg *)(inv + 1);
 	err = put_user(pra, &inv->inv.pra);
@@ -188,7 +200,6 @@ static int compat_get_fastrpc_ioctl_invoke(
 	err |= get_user(p, &inv32->inv.pra);
 	if (err)
 		return err;
-
 	pra32 = compat_ptr(p);
 	pra = (union remote_arg *)(inv + 1);
 	for (j = 0; j < len; j++) {
@@ -205,7 +216,8 @@ static int compat_get_fastrpc_ioctl_invoke(
 	}
 	err |= put_user(NULL, &inv->attrs);
 	if ((cmd == COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS) ||
-		(cmd == COMPAT_FASTRPC_IOCTL_INVOKE_CRC)) {
+		(cmd == COMPAT_FASTRPC_IOCTL_INVOKE_CRC) ||
+		(cmd == FASTRPC_INVOKE2_ASYNC)) {
 		err |= get_user(p, &inv32->attrs);
 		err |= put_user(p, (compat_uptr_t *)&inv->attrs);
 	}
@@ -214,9 +226,140 @@ static int compat_get_fastrpc_ioctl_invoke(
 		err |= get_user(p, &inv32->crc);
 		err |= put_user(p, (compat_uptr_t __user *)&inv->crc);
 	}
+	err |= put_user(NULL, &inv->job);
+	if (cmd == FASTRPC_INVOKE2_ASYNC) {
+		err |= get_user(p, &inv32->job);
+		err |= put_user(p, (compat_uptr_t __user *)&inv->job);
+	}
 
-	*inva = inv;
 	return err;
+}
+
+static int compat_fastrpc_ioctl_invoke(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	struct compat_fastrpc_ioctl_invoke_async __user *inv32;
+	struct fastrpc_ioctl_invoke_async __user *inv;
+	compat_uint_t sc = 0;
+	int err = 0, len = 0;
+
+	inv32 = compat_ptr(arg);
+	err = get_user(sc, &inv32->inv.sc);
+	if (err)
+		return err;
+	len = REMOTE_SCALARS_LENGTH(sc);
+	VERIFY(err, NULL != (inv = compat_alloc_user_space(
+		sizeof(*inv) + len * sizeof(union remote_arg))));
+	if (err)
+		return -EFAULT;
+	VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(inv32,
+						inv, cmd));
+	if (err)
+		return err;
+	return filp->f_op->unlocked_ioctl(filp,
+			FASTRPC_IOCTL_INVOKE_CRC, (unsigned long)inv);
+}
+
+static int compat_get_fastrpc_ioctl_invoke2(
+			struct compat_fastrpc_ioctl_invoke2 __user *inv32,
+			struct fastrpc_ioctl_invoke2 __user **inva,
+			unsigned int cmd)
+{
+	int err = 0;
+	compat_uptr_t pparam;
+	compat_uint_t req, size;
+	struct fastrpc_ioctl_invoke2 __user *inv2_user = NULL;
+	struct fastrpc_ioctl_invoke_async __user *asyncinv_user;
+
+	err = get_user(req, &inv32->req);
+	err |= get_user(pparam, &inv32->invparam);
+	err |= get_user(size, &inv32->size);
+	if (err)
+		goto bail;
+
+	switch (req) {
+	case FASTRPC_INVOKE2_ASYNC:
+	{
+		struct compat_fastrpc_ioctl_invoke_async __user *lasync32;
+		compat_uint_t sc = 0;
+		int len = 0;
+
+		VERIFY(err, size == sizeof(*lasync32));
+		if (err) {
+			err = -EBADE;
+			goto bail;
+		}
+		lasync32 = compat_ptr(pparam);
+		err = get_user(sc, &lasync32->inv.sc);
+		if (err)
+			goto bail;
+		len = REMOTE_SCALARS_LENGTH(sc);
+		VERIFY(err, NULL != (inv2_user = compat_alloc_user_space(
+				sizeof(*inv2_user) + sizeof(*asyncinv_user) +
+					len * sizeof(union remote_arg))));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		asyncinv_user =
+		(struct fastrpc_ioctl_invoke_async __user *)(inv2_user + 1);
+		VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(lasync32,
+							asyncinv_user, req));
+		if (err)
+			goto bail;
+		err |= put_user(req, &inv2_user->req);
+		err |= put_user((uintptr_t __user)asyncinv_user,
+							&inv2_user->invparam);
+		err |= put_user(sizeof(*asyncinv_user), &inv2_user->size);
+		if (err)
+			goto bail;
+		break;
+	}
+	case FASTRPC_INVOKE2_ASYNC_RESPONSE:
+	{
+		VERIFY(err,
+			size == sizeof(struct fastrpc_ioctl_async_response));
+		if (err) {
+			err = -EBADE;
+			goto bail;
+		}
+		VERIFY(err, NULL != (inv2_user = compat_alloc_user_space(
+							sizeof(*inv2_user))));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		err |= put_user(req, &inv2_user->req);
+		err |=
+		put_user(pparam, &inv2_user->invparam);
+		err |= put_user(size, &inv2_user->size);
+		if (err)
+			goto bail;
+		break;
+	}
+	default:
+		err = -EBADRQC;
+		break;
+	}
+	*inva = inv2_user;
+bail:
+	return err;
+}
+
+static int compat_fastrpc_ioctl_invoke2(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	struct compat_fastrpc_ioctl_invoke2 __user *inv32;
+	struct fastrpc_ioctl_invoke2 __user *inv;
+	int err = 0;
+
+	inv32 = compat_ptr(arg);
+	VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke2(inv32,
+							&inv, cmd));
+	if (err)
+		return err;
+	return filp->f_op->unlocked_ioctl(filp,
+				FASTRPC_IOCTL_INVOKE2, (unsigned long)inv);
 }
 
 static int compat_get_fastrpc_ioctl_mmap(
@@ -516,16 +659,11 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS:
 	case COMPAT_FASTRPC_IOCTL_INVOKE_CRC:
 	{
-		struct compat_fastrpc_ioctl_invoke_crc __user *inv32;
-		struct fastrpc_ioctl_invoke_crc __user *inv;
-
-		inv32 = compat_ptr(arg);
-		VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(inv32,
-							&inv, cmd));
-		if (err)
-			return err;
-		return filp->f_op->unlocked_ioctl(filp,
-				FASTRPC_IOCTL_INVOKE_CRC, (unsigned long)inv);
+		return compat_fastrpc_ioctl_invoke(filp, cmd, arg);
+	}
+	case COMPAT_FASTRPC_IOCTL_INVOKE2:
+	{
+		return compat_fastrpc_ioctl_invoke2(filp, cmd, arg);
 	}
 	case COMPAT_FASTRPC_IOCTL_MMAP:
 	{
