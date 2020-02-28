@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -59,6 +59,9 @@ static const char *const pmic_names[] = {
 	[PM8150L_SUBTYPE] = "PM8150L",
 	[PM6150_SUBTYPE] = "PM6150",
 	[PM7250B_SUBTYPE] = "PM7250B",
+	[PM6350_SUBTYPE] = "PM6350",
+	[PMK8350_SUBTYPE] = "PMK8350",
+	[PMR735B_SUBTYPE] = "PMR735B",
 	[PM6125_SUBTYPE] = "PM6125",
 	[PM8008_SUBTYPE] = "PM8008",
 	[SMB1355_SUBTYPE] = "SMB1355",

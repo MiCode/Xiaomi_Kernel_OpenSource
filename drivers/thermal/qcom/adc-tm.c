@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -198,7 +198,8 @@ static const struct of_device_id adc_tm_match_table[] = {
 	{
 		.compatible = "qcom,adc-tm5-iio",
 		.data = &data_adc_tm5,
-
+	},
+	{
 		.compatible = "qcom,adc-tm7",
 		.data = &data_adc_tm7,
 	},

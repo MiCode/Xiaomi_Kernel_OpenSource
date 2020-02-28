@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -206,7 +206,7 @@ static int adc_tm7_configure(struct adc_tm_sensor *sensor)
 	buf[11] = ADC_TM_LOWER_MASK(mask);
 	buf[12] = ADC_TM_UPPER_MASK(mask);
 
-	buf[13] |= (sensor->meas_en | sensor->high_thr_en << 1 |
+	buf[13] = (sensor->meas_en | sensor->high_thr_en << 1 |
 				sensor->low_thr_en);
 
 	ret = adc_tm_write_reg(chip, ADC_TM_SID, buf, 14);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"FG: %s: " fmt, __func__
@@ -2745,14 +2745,14 @@ static int fg_gen4_update_maint_soc(struct fg_dev *fg)
 		goto out;
 	}
 
-	if (msoc > fg->maint_soc) {
+	if (msoc >= fg->maint_soc) {
 		/*
 		 * When the monotonic SOC goes above maintenance SOC, we should
 		 * stop showing the maintenance SOC.
 		 */
 		fg->delta_soc = 0;
 		fg->maint_soc = 0;
-	} else if (fg->maint_soc && msoc <= fg->last_msoc) {
+	} else if (fg->maint_soc && msoc < fg->last_msoc) {
 		/* MSOC is decreasing. Decrease maintenance SOC as well */
 		fg->maint_soc -= 1;
 		if (!(msoc % 10)) {

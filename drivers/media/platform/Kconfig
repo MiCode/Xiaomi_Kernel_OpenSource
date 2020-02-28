@@ -152,6 +152,18 @@ config VIDEO_TI_CAL
 	  In TI Technical Reference Manual this module is referred as
 	  Camera Interface Subsystem (CAMSS).
 
+config VIDEO_V4L2_VIDEOBUF2_CORE
+	tristate "V4L2 Videobuf2 Core"
+	depends on VIDEO_V4L2
+	select VIDEOBUF2_CORE
+	help
+	  This enables videobuf2_core and videobuf2_v4l2
+	  framework.
+
+	  V4L2 videobuf2 core is needed by default for video.
+	  So this will enable v4l2 module dependencies
+	  for video.
+
 endif # V4L_PLATFORM_DRIVERS
 
 menuconfig V4L_MEM2MEM_DRIVERS

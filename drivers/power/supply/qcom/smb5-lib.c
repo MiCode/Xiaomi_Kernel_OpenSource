@@ -3953,7 +3953,6 @@ int smblib_get_pe_start(struct smb_charger *chg,
 int smblib_get_prop_smb_health(struct smb_charger *chg)
 {
 	int rc;
-	u8 stat;
 	int input_present;
 	union power_supply_propval prop = {0, };
 
@@ -3961,50 +3960,21 @@ int smblib_get_prop_smb_health(struct smb_charger *chg)
 	if (rc < 0)
 		return rc;
 
-	if (input_present == INPUT_NOT_PRESENT)
+	if ((input_present == INPUT_NOT_PRESENT) || (!is_cp_available(chg)))
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
-	/*
-	 * SMB health is used only for CP, report UNKNOWN if
-	 * switcher is not enabled.
-	 */
-	if (is_cp_available(chg)) {
-		rc = power_supply_get_property(chg->cp_psy,
-			POWER_SUPPLY_PROP_CP_SWITCHER_EN, &prop);
-		if (!rc && !prop.intval)
-			return POWER_SUPPLY_HEALTH_UNKNOWN;
-	}
+	rc = power_supply_get_property(chg->cp_psy,
+				POWER_SUPPLY_PROP_CP_DIE_TEMP, &prop);
+	if (rc < 0)
+		return rc;
 
-	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
-		if (chg->smb_temp == -ENODATA)
-			return POWER_SUPPLY_HEALTH_UNKNOWN;
-
-		if (chg->smb_temp > SMB_TEMP_RST_THRESH)
-			return POWER_SUPPLY_HEALTH_OVERHEAT;
-
-		if (chg->smb_temp > SMB_TEMP_REG_H_THRESH)
-			return POWER_SUPPLY_HEALTH_HOT;
-
-		if (chg->smb_temp > SMB_TEMP_REG_L_THRESH)
-			return POWER_SUPPLY_HEALTH_WARM;
-
-		return POWER_SUPPLY_HEALTH_COOL;
-	}
-
-	rc = smblib_read(chg, SMB_TEMP_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read SMB_TEMP_STATUS_REG, rc=%d\n",
-				rc);
-		return POWER_SUPPLY_HEALTH_UNKNOWN;
-	}
-
-	if (stat & SMB_TEMP_RST_BIT)
+	if (prop.intval > SMB_TEMP_RST_THRESH)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 
-	if (stat & SMB_TEMP_UB_BIT)
+	if (prop.intval > SMB_TEMP_REG_H_THRESH)
 		return POWER_SUPPLY_HEALTH_HOT;
 
-	if (stat & SMB_TEMP_LB_BIT)
+	if (prop.intval > SMB_TEMP_REG_L_THRESH)
 		return POWER_SUPPLY_HEALTH_WARM;
 
 	return POWER_SUPPLY_HEALTH_COOL;
@@ -5056,6 +5026,7 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 	if ((batt_status == TERMINATE_CHARGE) && (pval.intval == 100)) {
 		chg->cc_soc_ref = 0;
 		chg->last_cc_soc = 0;
+		chg->term_vbat_uv = 0;
 		alarm_start_relative(&chg->chg_termination_alarm,
 				ms_to_ktime(CHG_TERM_WA_ENTRY_DELAY_MS));
 	} else if (pval.intval < 100) {
@@ -5065,6 +5036,7 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 		 */
 		chg->cc_soc_ref = 0;
 		chg->last_cc_soc = 0;
+		chg->term_vbat_uv = 0;
 	}
 }
 
@@ -7118,6 +7090,7 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						chg_termination_work);
 	int rc, input_present, delay = CHG_TERM_WA_ENTRY_DELAY_MS;
+	int vbat_now_uv, max_fv_uv;
 
 	/*
 	 * Hold awake votable to prevent pm_relax being called prior to
@@ -7137,6 +7110,14 @@ static void smblib_chg_termination_work(struct work_struct *work)
 		goto out;
 	}
 
+	/* Get the battery float voltage */
+	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_VOLTAGE_MAX,
+				&pval);
+	if (rc < 0)
+		goto out;
+
+	max_fv_uv = pval.intval;
+
 	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CHARGE_FULL,
 					&pval);
 	if (rc < 0)
@@ -7150,6 +7131,20 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	 */
 	if (pval.intval != chg->charge_full_cc || !chg->cc_soc_ref) {
 		chg->charge_full_cc = pval.intval;
+
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+		if (rc < 0)
+			goto out;
+
+		/*
+		 * Store the Vbat at the charge termination to compare with
+		 * the current voltage to see if the Vbat is increasing after
+		 * charge termination in BSM.
+		 */
+		chg->term_vbat_uv = pval.intval;
+		vbat_now_uv = pval.intval;
+
 		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CC_SOC,
 					&pval);
 		if (rc < 0)
@@ -7157,6 +7152,13 @@ static void smblib_chg_termination_work(struct work_struct *work)
 
 		chg->cc_soc_ref = pval.intval;
 	} else {
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+		if (rc < 0)
+			goto out;
+
+		vbat_now_uv = pval.intval;
+
 		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CC_SOC,
 					&pval);
 		if (rc < 0)
@@ -7177,15 +7179,18 @@ static void smblib_chg_termination_work(struct work_struct *work)
 
 	/*
 	 * Suspend/Unsuspend USB input to keep cc_soc within the 0.5% to 0.75%
-	 * overshoot range of the cc_soc value at termination, to prevent
-	 * overcharging.
+	 * overshoot range of the cc_soc value at termination and make sure that
+	 * vbat is indeed rising above vfloat.
 	 */
 	if (pval.intval < DIV_ROUND_CLOSEST(chg->cc_soc_ref * 10050, 10000)) {
 		vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
 		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
 		delay = CHG_TERM_WA_ENTRY_DELAY_MS;
-	} else if (pval.intval > DIV_ROUND_CLOSEST(chg->cc_soc_ref * 10075,
-								10000)) {
+	} else if ((pval.intval > DIV_ROUND_CLOSEST(chg->cc_soc_ref * 10075,
+								10000))
+		  && ((vbat_now_uv > chg->term_vbat_uv) &&
+		     (vbat_now_uv > max_fv_uv))) {
+
 		if (input_present & INPUT_PRESENT_USB)
 			vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER,
 					true, 0);
@@ -7195,8 +7200,9 @@ static void smblib_chg_termination_work(struct work_struct *work)
 		delay = CHG_TERM_WA_EXIT_DELAY_MS;
 	}
 
-	smblib_dbg(chg, PR_MISC, "Chg Term WA readings: cc_soc: %d, cc_soc_ref: %d, delay: %d\n",
-			pval.intval, chg->cc_soc_ref, delay);
+	smblib_dbg(chg, PR_MISC, "Chg Term WA readings: cc_soc: %d, cc_soc_ref: %d, delay: %d vbat_now %d term_vbat %d\n",
+			pval.intval, chg->cc_soc_ref, delay, vbat_now_uv,
+			chg->term_vbat_uv);
 	alarm_start_relative(&chg->chg_termination_alarm, ms_to_ktime(delay));
 out:
 	vote(chg->awake_votable, CHG_TERMINATION_VOTER, false, 0);

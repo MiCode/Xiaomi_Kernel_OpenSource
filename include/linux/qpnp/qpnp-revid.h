@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QPNP_REVID
@@ -190,6 +190,15 @@
 /* PMI632 */
 #define PMI632_SUBTYPE	0x25
 
+/* PM6350 */
+#define PM6350_SUBTYPE	0x36
+
+/* PMK8350 */
+#define PMK8350_SUBTYPE	0x2F
+
+/* PMR735B */
+#define PMR735B_SUBTYPE	0x34
+
 /* PM8008 SUBTYPE */
 #define PM8008_SUBTYPE	0x2C
 
@@ -290,6 +299,24 @@
 #define PM6125_V1P0_REV2	0x00
 #define PM6125_V1P0_REV3	0x00
 #define PM6125_V1P0_REV4	0x01
+
+/* PM6350_REV_ID */
+#define PM6350_V1P0_REV1	0x10
+#define PM6350_V1P0_REV2	0x00
+#define PM6350_V1P0_REV3	0x00
+#define PM6350_V1P0_REV4	0x01
+
+/* PM6350_REV_ID */
+#define PMK8350_V1P0_REV1	0x00
+#define PMK8350_V1P0_REV2	0x00
+#define PMK8350_V1P0_REV3	0x00
+#define PMK8350_V1P0_REV4	0x01
+
+/* PM6350_REV_ID */
+#define PMR735B_V1P0_REV1	0x11
+#define PMR735B_V1P0_REV2	0x00
+#define PMR735B_V1P0_REV3	0x01
+#define PMR735B_V1P0_REV4	0x01
 
 /* PMI8998 FAB_ID */
 #define PMI8998_FAB_ID_SMIC	0x11

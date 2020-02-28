@@ -263,6 +263,7 @@ struct mhi_controller {
 	void __iomem *bhi;
 	void __iomem *bhie;
 	void __iomem *wake_db;
+	void __iomem *tsync_db;
 	void __iomem *bw_scale_db;
 
 	/* device topology */
@@ -346,7 +347,6 @@ struct mhi_controller {
 
 	/* worker for different state transitions */
 	struct work_struct st_worker;
-	struct work_struct fw_worker;
 	struct work_struct special_work;
 	struct workqueue_struct *special_wq;
 
@@ -383,7 +383,6 @@ struct mhi_controller {
 
 	/* supports time sync feature */
 	struct mhi_timesync *mhi_tsync;
-	struct mhi_device *tsync_dev;
 	u64 local_timer_freq;
 	u64 remote_timer_freq;
 
@@ -400,8 +399,6 @@ struct mhi_controller {
 	/* controller specific data */
 	const char *name;
 	bool power_down;
-	bool need_force_m3;
-	bool force_m3_done;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
@@ -776,6 +773,23 @@ int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 void mhi_dump_sfr(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_remote_time - Get external modem time relative to host time
+ * Trigger event to capture modem time, also capture host time so client
+ * can do a relative drift comparision.
+ * Recommended only tsync device calls this method and do not call this
+ * from atomic context
+ * @mhi_dev: Device associated with the channels
+ * @sequence:unique sequence id track event
+ * @cb_func: callback function to call back
+ */
+int mhi_get_remote_time(struct mhi_device *mhi_dev,
+			u32 sequence,
+			void (*cb_func)(struct mhi_device *mhi_dev,
+					u32 sequence,
+					u64 local_time,
+					u64 remote_time));
 
 /**
  * mhi_get_remote_time_sync - Get external soc time relative to local soc time
