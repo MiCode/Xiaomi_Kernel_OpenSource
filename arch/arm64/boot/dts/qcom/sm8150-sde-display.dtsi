@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
 #include "dsi-panel-sw43404-amoled-dsc-fhd-plus-cmd.dtsi"
 #include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
+#include "dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &tlmm {
@@ -437,6 +438,17 @@
 		qcom,dsi-panel = <&dsi_sim_sec_hd_cmd>;
 	};
 
+	dsi_rm69299_visionox_amoled_vid_display: qcom,dsi-display@23 {
+		label = "dsi_rm69299_visionox_amoled_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_rm69299_visionox_amoled_video>;
+	};
+
 	sde_dsi: qcom,dsi-display-primary {
 		compatible = "qcom,dsi-display";
 		label = "primary";
@@ -489,6 +501,7 @@
 			&dsi_nt35695b_truly_fhd_video_display
 			&dsi_sw43404_amoled_video_display
 			&dsi_sw43404_amoled_fhd_plus_cmd_display
+			&dsi_rm69299_visionox_amoled_vid_display
 			&dsi_dual_nt36850_truly_cmd_display>;
 	};
 
@@ -599,6 +612,19 @@
 				07 05 02 04 00 18 17];
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_rm69299_visionox_amoled_video {
+	qcom,mdss-dsi-t-clk-post = <0x0E>;
+	qcom,mdss-dsi-t-clk-pre = <0x31>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 20 08 08 24 23 08
+				08 05 02 04 00 18 17];
+			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};
