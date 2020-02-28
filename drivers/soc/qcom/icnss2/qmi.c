@@ -40,6 +40,8 @@
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
+#define DEVICE_BAR_SIZE			0x200000
+
 #ifdef CONFIG_ICNSS2_DEBUG
 bool ignore_fw_timeout;
 #define ICNSS_QMI_ASSERT() ICNSS_ASSERT(ignore_fw_timeout)
@@ -311,6 +313,19 @@ int wlfw_device_info_send_msg(struct icnss_priv *priv)
 
 	if (resp->bar_size_valid)
 		priv->mem_base_size = resp->bar_size;
+
+	if (!priv->mem_base_pa) {
+		ret = -EINVAL;
+		icnss_qmi_fatal_err("Fail to get bar address\n");
+		goto out;
+	}
+
+	if (priv->mem_base_size <  DEVICE_BAR_SIZE) {
+		ret = -EINVAL;
+		icnss_qmi_fatal_err("Bar size is not proper 0x%x\n",
+				    priv->mem_base_size);
+		goto out;
+	}
 
 	kfree(resp);
 	kfree(req);
@@ -1644,14 +1659,14 @@ int icnss_send_wlan_enable_to_fw(struct icnss_priv *priv,
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		req.shadow_reg_v2_valid = 1;
-		if (config->num_shadow_reg_cfg >
+		if (config->num_shadow_reg_v2_cfg >
 			QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
 			req.shadow_reg_v2_len =
 				QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
 		else
-			req.shadow_reg_v2_len = config->num_shadow_reg_cfg;
+			req.shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
 
-		memcpy(req.shadow_reg_v2, config->shadow_reg_cfg,
+		memcpy(req.shadow_reg_v2, config->shadow_reg_v2_cfg,
 			 sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01) *
 			 req.shadow_reg_v2_len);
 	} else if (priv->device_id == ADRASTEA_DEVICE_ID) {
