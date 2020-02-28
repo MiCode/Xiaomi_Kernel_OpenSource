@@ -203,7 +203,7 @@ static int qfp_touch_event_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-struct notifier_block _input_event_notifier = {
+static struct notifier_block _input_event_notifier = {
 	.notifier_call = qfp_touch_event_notify,
 };
 
@@ -567,11 +567,11 @@ static ssize_t qbt_read(struct file *filp, char __user *ubuf,
 	return num_bytes;
 }
 
-static unsigned int qbt_poll(struct file *filp,
+static __poll_t qbt_poll(struct file *filp,
 	struct poll_table_struct *wait)
 {
 	struct qbt_drvdata *drvdata;
-	unsigned int mask = 0;
+	__poll_t mask = 0;
 	int minor_no = -1;
 
 	if (!filp || !filp->private_data) {
