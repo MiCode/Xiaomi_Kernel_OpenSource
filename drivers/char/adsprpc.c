@@ -1270,8 +1270,10 @@ static int context_build_overlap(struct smq_invoke_ctx *ctx)
 			if (ctx->overps[i]->end > max.end) {
 				max.end = ctx->overps[i]->end;
 			} else {
-				if (max.raix + 1 <= inbufs &&
-				ctx->overps[i]->raix + 1 > inbufs)
+				if ((max.raix < inbufs &&
+					ctx->overps[i]->raix + 1 > inbufs) ||
+					(ctx->overps[i]->raix < inbufs &&
+					max.raix + 1 > inbufs))
 					ctx->overps[i]->do_cmo = 1;
 				ctx->overps[i]->mend = 0;
 				ctx->overps[i]->mstart = 0;
@@ -1865,37 +1867,54 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (rpra && rpra[i].buf.len && (ctx->overps[oix]->mstart ||
 		ctx->overps[oix]->do_cmo == 1)) {
 			if (map && map->buf) {
-				if (((buf_page_size(ctx->overps[oix]->mend -
-				ctx->overps[oix]->mstart)) == map->size) ||
-				ctx->overps[oix]->do_cmo) {
+				if ((buf_page_size(ctx->overps[oix]->mend -
+				ctx->overps[oix]->mstart)) == map->size) {
 					dma_buf_begin_cpu_access(map->buf,
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
 						DMA_TO_DEVICE);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					rpra[i].buf.pv, ctx->overps[oix]->mend,
+					ctx->overps[oix]->mstart,
+					rpra[i].buf.len, map->size);
 				} else {
 					uintptr_t offset;
+					uint64_t flush_len;
 					struct vm_area_struct *vma;
 
 					down_read(&current->mm->mmap_sem);
 					VERIFY(err, NULL != (vma = find_vma(
-						current->mm,
-						ctx->overps[oix]->mstart)));
+						current->mm, rpra[i].buf.pv)));
 					if (err) {
 						up_read(&current->mm->mmap_sem);
 						goto bail;
 					}
-					offset = buf_page_start(
-						rpra[i].buf.pv) -
-						vma->vm_start;
+					if (ctx->overps[oix]->do_cmo) {
+						offset = rpra[i].buf.pv -
+								vma->vm_start;
+						flush_len = rpra[i].buf.len;
+					} else {
+						offset =
+						ctx->overps[oix]->mstart
+						- vma->vm_start;
+						flush_len =
+						ctx->overps[oix]->mend -
+						ctx->overps[oix]->mstart;
+					}
 					up_read(&current->mm->mmap_sem);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[oix]->mend -
-						ctx->overps[oix]->mstart);
+						flush_len);
 					dma_buf_end_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[oix]->mend -
-						ctx->overps[oix]->mstart);
+						flush_len);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x vm_start 0x%llx pv 0x%llx, offset 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					vma->vm_start, rpra[i].buf.pv, offset,
+					ctx->overps[oix]->mend,
+					ctx->overps[oix]->mstart,
+					rpra[i].buf.len, map->size);
 				}
 			} else
 				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
@@ -2007,37 +2026,55 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 		}
 		if (ctx->overps[i]->mstart || ctx->overps[i]->do_cmo == 1) {
 			if (map && map->buf) {
-				if (((buf_page_size(ctx->overps[i]->mend -
-				ctx->overps[i]->mstart)) == map->size) ||
-				ctx->overps[i]->do_cmo) {
+				if ((buf_page_size(ctx->overps[i]->mend -
+				ctx->overps[i]->mstart)) == map->size) {
 					dma_buf_begin_cpu_access(map->buf,
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
 						DMA_FROM_DEVICE);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					rpra[over].buf.pv, ctx->overps[i]->mend,
+					ctx->overps[i]->mstart,
+					rpra[over].buf.len, map->size);
 				} else {
 					uintptr_t offset;
+					uint64_t inv_len;
 					struct vm_area_struct *vma;
 
 					down_read(&current->mm->mmap_sem);
 					VERIFY(err, NULL != (vma = find_vma(
 						current->mm,
-						ctx->overps[i]->mstart)));
+						rpra[over].buf.pv)));
 					if (err) {
 						up_read(&current->mm->mmap_sem);
 						goto bail;
 					}
-					offset = buf_page_start(
-						rpra[over].buf.pv) -
-						vma->vm_start;
+					if (ctx->overps[i]->do_cmo) {
+						offset = rpra[over].buf.pv -
+								vma->vm_start;
+						inv_len = rpra[over].buf.len;
+					} else {
+						offset =
+							ctx->overps[i]->mstart -
+							vma->vm_start;
+						inv_len =
+							ctx->overps[i]->mend -
+							ctx->overps[i]->mstart;
+					}
 					up_read(&current->mm->mmap_sem);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[i]->mend -
-						ctx->overps[i]->mstart);
+						inv_len);
 					dma_buf_end_cpu_access_partial(map->buf,
 						DMA_FROM_DEVICE, offset,
-						ctx->overps[i]->mend -
-						ctx->overps[i]->mstart);
+						inv_len);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x vm_start 0x%llx pv 0x%llx, offset 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					vma->vm_start, rpra[over].buf.pv,
+					offset, ctx->overps[i]->mend,
+					ctx->overps[i]->mstart,
+					rpra[over].buf.len, map->size);
 			}
 		} else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[over].buf.pv),
