@@ -162,35 +162,12 @@ struct cvp_resource_hdr {
 	void *resource_handle;
 };
 
-struct cvp_buffer_addr_info {
-	enum hal_buffer buffer_type;
-	u32 buffer_size;
-	u32 num_buffers;
-	u32 align_device_addr;
-	u32 extradata_addr;
-	u32 extradata_size;
-	u32 response_required;
-};
-
-/* Needs to be exactly the same as hfi_buffer_info */
-struct cvp_hal_buffer_info {
-	u32 buffer_addr;
-	u32 extra_data_addr;
-};
-
 struct cvp_hal_fw_info {
 	char version[CVP_VERSION_LENGTH];
 	phys_addr_t base_addr;
 	int register_base;
 	int register_size;
 	int irq;
-};
-
-enum hal_flush {
-	HAL_FLUSH_INPUT,
-	HAL_FLUSH_OUTPUT,
-	HAL_FLUSH_ALL,
-	HAL_UNUSED_FLUSH = 0x10000000,
 };
 
 enum hal_event_type {
@@ -282,41 +259,10 @@ struct msm_cvp_cb_cmd_done {
 	union {
 		struct cvp_hfi_msg_session_hdr msg_hdr;
 		struct cvp_resource_hdr resource_hdr;
-		struct cvp_buffer_addr_info buffer_addr_info;
 		struct cvp_hal_sys_init_done sys_init_done;
 		struct cvp_hal_session_init_done session_init_done;
-		struct cvp_hal_buffer_info buffer_info;
-		enum hal_flush flush_type;
+		u32 buffer_addr;
 	} data;
-};
-
-struct cvp_hal_index_extradata_input_crop_payload {
-	u32 size;
-	u32 version;
-	u32 port_index;
-	u32 left;
-	u32 top;
-	u32 width;
-	u32 height;
-};
-
-struct msm_cvp_cb_event {
-	u32 device_id;
-	void *session_id;
-	enum cvp_status status;
-	u32 height;
-	u32 width;
-	int bit_depth;
-	u32 hal_event_type;
-	u32 packet_buffer;
-	u32 extra_data_buffer;
-	u32 pic_struct;
-	u32 colour_space;
-	u32 profile;
-	u32 level;
-	u32 entropy_mode;
-	u32 capture_buf_count;
-	struct cvp_hal_index_extradata_input_crop_payload crop_data;
 };
 
 struct msm_cvp_cb_data_done {
@@ -324,14 +270,13 @@ struct msm_cvp_cb_data_done {
 	void *session_id;
 	enum cvp_status status;
 	u32 size;
-	u32 clnt_data;
+	u32 client_data;
 };
 
 struct msm_cvp_cb_info {
 	enum hal_command_response response_type;
 	union {
 		struct msm_cvp_cb_cmd_done cmd;
-		struct msm_cvp_cb_event event;
 		struct msm_cvp_cb_data_done data;
 	} response;
 };
@@ -393,10 +338,8 @@ struct cvp_hfi_device {
 	int (*session_init)(void *device, void *session_id, void **new_session);
 	int (*session_end)(void *session);
 	int (*session_abort)(void *session);
-	int (*session_set_buffers)(void *sess,
-				struct cvp_buffer_addr_info *buffer_info);
-	int (*session_release_buffers)(void *sess,
-				struct cvp_buffer_addr_info *buffer_info);
+	int (*session_set_buffers)(void *sess, u32 iova, u32 size);
+	int (*session_release_buffers)(void *sess);
 	int (*session_send)(void *sess,
 		struct cvp_kmd_hfi_packet *in_pkt);
 	int (*scale_clocks)(void *dev, u32 freq);

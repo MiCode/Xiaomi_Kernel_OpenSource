@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -78,7 +78,11 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SECURE_CARVEOUT_HEAP_ID,
 		.name	= ION_SECURE_CARVEOUT_HEAP_NAME,
-	}
+	},
+	{
+		.id	= ION_TUI_CARVEOUT_HEAP_ID,
+		.name	= ION_TUI_CARVEOUT_HEAP_NAME,
+	},
 };
 
 #define MAKE_HEAP_TYPE_MAPPING(h) { .name = #h, \
@@ -229,6 +233,19 @@ struct device *msm_ion_heap_device_by_id(int heap_id)
 }
 EXPORT_SYMBOL(msm_ion_heap_device_by_id);
 
+bool msm_ion_heap_is_secure(int heap_id)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+
+	if (IS_ERR(heap) || !(heap->type == ION_HEAP_TYPE_SECURE_CARVEOUT ||
+			      heap->type == ION_HEAP_TYPE_SYSTEM_SECURE ||
+			      heap->type == ION_HEAP_TYPE_HYP_CMA))
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL(msm_ion_heap_is_secure);
+
 int msm_ion_heap_prefetch(int heap_id, struct ion_prefetch_region *regions,
 			  int nr_regions)
 {
@@ -266,6 +283,40 @@ int msm_ion_heap_drain(int heap_id, struct ion_prefetch_region *regions,
 	return -ENOTSUPP;
 }
 EXPORT_SYMBOL(msm_ion_heap_drain);
+
+int msm_ion_heap_add_memory(int heap_id, struct sg_table *sgt)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+	struct msm_ion_heap *msm_heap;
+
+	if (IS_ERR(heap))
+		return PTR_ERR(heap);
+
+	msm_heap = to_msm_ion_heap(heap);
+
+	if (msm_heap->msm_heap_ops && msm_heap->msm_heap_ops->add_memory)
+		return msm_heap->msm_heap_ops->add_memory(heap, sgt);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(msm_ion_heap_add_memory);
+
+int msm_ion_heap_remove_memory(int heap_id, struct sg_table *sgt)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+	struct msm_ion_heap *msm_heap;
+
+	if (IS_ERR(heap))
+		return PTR_ERR(heap);
+
+	msm_heap = to_msm_ion_heap(heap);
+
+	if (msm_heap->msm_heap_ops && msm_heap->msm_heap_ops->remove_memory)
+		return msm_heap->msm_heap_ops->remove_memory(heap, sgt);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(msm_ion_heap_remove_memory);
 
 static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
 					      int *heap_type)

@@ -26,8 +26,6 @@
 #include <linux/module.h>
 #include <trace/events/iommu.h>
 
-#include "iommu-debug.h"
-
 static struct kset *iommu_group_kset;
 static DEFINE_IDA(iommu_group_ida);
 
@@ -332,8 +330,8 @@ int iommu_insert_resv_region(struct iommu_resv_region *new,
 	list_for_each_entry_safe(iter, tmp, regions, list) {
 		phys_addr_t top_end, iter_end = iter->start + iter->length - 1;
 
-		/* no merge needed on elements of different types than @nr */
-		if (iter->type != nr->type) {
+		/* no merge needed on elements of different types than @new */
+		if (iter->type != new->type) {
 			list_move_tail(&iter->list, &stack);
 			continue;
 		}
@@ -1646,7 +1644,6 @@ EXPORT_SYMBOL_GPL(iommu_domain_alloc);
 
 void iommu_domain_free(struct iommu_domain *domain)
 {
-	iommu_debug_domain_remove(domain);
 	domain->ops->domain_free(domain);
 }
 EXPORT_SYMBOL_GPL(iommu_domain_free);
@@ -1663,10 +1660,8 @@ static int __iommu_attach_device(struct iommu_domain *domain,
 		return -ENODEV;
 
 	ret = domain->ops->attach_dev(domain, dev);
-	if (!ret) {
+	if (!ret)
 		trace_attach_device_to_domain(dev);
-		iommu_debug_attach_device(domain, dev);
-	}
 	return ret;
 }
 
@@ -2312,12 +2307,12 @@ request_default_domain_for_dev(struct device *dev, unsigned long type)
 		goto out;
 	}
 
-	iommu_group_create_direct_mappings(group, dev);
-
 	/* Make the domain the default for this group */
 	if (group->default_domain)
 		iommu_domain_free(group->default_domain);
 	group->default_domain = domain;
+
+	iommu_group_create_direct_mappings(group, dev);
 
 	dev_info(dev, "Using iommu %s mapping\n",
 		 type == IOMMU_DOMAIN_DMA ? "dma" : "direct");

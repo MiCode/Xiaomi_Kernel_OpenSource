@@ -136,6 +136,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	tmdev->ops = data->ops;
 	tmdev->ctrl_data = data;
 	tmdev->pdev = pdev;
+	tmdev->dev = &pdev->dev;
 
 	if (!tmdev->ops || !tmdev->ops->hw_init || !tmdev->ops->get_temp) {
 		pr_err("Invalid ops\n");

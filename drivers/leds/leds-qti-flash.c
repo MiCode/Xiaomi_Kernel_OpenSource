@@ -9,6 +9,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/led-class-flash.h>
+#include <linux/leds-qti-flash.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
@@ -65,6 +66,7 @@
 #define IRES_12P5_UA		12500
 #define IRES_5P0_UA		5000
 #define IRES_DEFAULT_UA		IRES_12P5_UA
+#define MAX_FLASH_CURRENT_MA		2000
 
 enum flash_led_type {
 	FLASH_LED_TYPE_UNKNOWN,
@@ -133,6 +135,7 @@ struct qti_flash_led {
 	int			all_ramp_up_done_irq;
 	int			all_ramp_down_done_irq;
 	int			led_fault_irq;
+	int			max_current;
 	u16			base;
 	u8		max_channels;
 	u8		ref_count;
@@ -223,54 +226,66 @@ static int qti_flash_led_masked_write(struct qti_flash_led *led,
 	return rc;
 }
 
-static int qti_flash_led_strobe(struct flash_node_data *fnode,
+static int qti_flash_led_module_control(struct qti_flash_led *led,
 				bool enable)
 {
-	struct qti_flash_led *led = fnode->led;
-	int rc;
+	int rc = 0;
 	u8 val;
-
-	if (fnode->enabled == enable)
-		return 0;
-
-	spin_lock(&led->lock);
 
 	if (enable) {
 		if (!led->ref_count) {
 			val = FLASH_MODULE_ENABLE;
 			rc = qti_flash_led_write(led, FLASH_ENABLE_CONTROL,
-					&val, 1);
+						&val, 1);
 			if (rc < 0)
-				goto error;
+				return rc;
 		}
+
 		led->ref_count++;
-
-		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
-			FLASH_LED_ENABLE(fnode->id),
-			FLASH_LED_ENABLE(fnode->id));
-		if (rc < 0)
-			goto error;
 	} else {
-		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
-			FLASH_LED_ENABLE(fnode->id),
-			FLASH_LED_DISABLE);
-		if (rc < 0)
-			goto error;
-
 		if (led->ref_count)
 			led->ref_count--;
 
 		if (!led->ref_count) {
 			val = FLASH_MODULE_DISABLE;
 			rc = qti_flash_led_write(led, FLASH_ENABLE_CONTROL,
-					&val, 1);
+						&val, 1);
 			if (rc < 0)
-				goto error;
+				return rc;
 		}
 	}
 
-	if (!rc)
-		fnode->enabled = enable;
+	return rc;
+}
+
+static int qti_flash_led_strobe(struct qti_flash_led *led,
+				u8 mask, u8 value)
+{
+	int rc;
+	bool enable = mask & value;
+
+	spin_lock(&led->lock);
+
+	if (enable) {
+		rc = qti_flash_led_module_control(led, enable);
+		if (rc < 0)
+			goto error;
+
+		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
+				mask, value);
+		if (rc < 0)
+			goto error;
+	} else {
+		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
+				mask, value);
+		if (rc < 0)
+			goto error;
+
+		rc = qti_flash_led_module_control(led, enable);
+		if (rc < 0)
+			goto error;
+	}
+
 error:
 	spin_unlock(&led->lock);
 
@@ -353,7 +368,7 @@ static int qti_flash_led_disable(struct flash_node_data *fnode)
 	if (rc < 0)
 		goto out;
 
-	fnode->configured = false;
+	fnode->current_ma = 0;
 
 out:
 	spin_unlock(&led->lock);
@@ -466,12 +481,73 @@ static int qti_flash_led_symmetry_config(
 	return 0;
 }
 
+static int qti_flash_switch_enable(struct flash_switch_data *snode)
+{
+	struct qti_flash_led *led = snode->led;
+	int rc = 0, i;
+	u8 led_en = 0;
+
+	/* If symmetry enabled switch, then turn ON all its LEDs */
+	if (snode->symmetry_en) {
+		rc = qti_flash_led_symmetry_config(snode);
+		if (rc < 0) {
+			pr_err("Failed to configure switch symmetrically, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		/*
+		 * Do not turn ON flash/torch device if
+		 * i. the device is not under this switch or
+		 * ii. brightness is not configured for device under this switch
+		 */
+		if (!(snode->led_mask & BIT(led->fnode[i].id)) ||
+			!led->fnode[i].configured)
+			continue;
+
+		led_en |= (1 << led->fnode[i].id);
+	}
+
+	return qti_flash_led_strobe(led, snode->led_mask, led_en);
+}
+
+static int qti_flash_switch_disable(struct flash_switch_data *snode)
+{
+	struct qti_flash_led *led = snode->led;
+	int rc = 0, i;
+	u8 led_dis = 0;
+
+	for (i = 0; i < led->num_fnodes; i++) {
+		/*
+		 * Do not turn OFF flash/torch device if
+		 * i. the device is not under this switch or
+		 * ii. brightness is not configured for device under this switch
+		 */
+		if (!(snode->led_mask & BIT(led->fnode[i].id)) ||
+			!led->fnode[i].configured)
+			continue;
+
+		rc = qti_flash_led_disable(&led->fnode[i]);
+		if (rc < 0) {
+			pr_err("Failed to disable LED%d\n",
+				&led->fnode[i].id);
+			break;
+		}
+
+		led_dis |= (1 << led->fnode[i].id);
+		led->fnode[i].configured = false;
+	}
+
+	return qti_flash_led_strobe(led, led_dis, ~led_dis);
+}
+
 static void qti_flash_led_switch_brightness_set(
 		struct led_classdev *led_cdev, enum led_brightness value)
 {
-	struct qti_flash_led *led = NULL;
 	struct flash_switch_data *snode = NULL;
-	int rc = 0, i;
+	int rc = 0;
 	bool state = value > 0;
 
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
@@ -482,44 +558,76 @@ static void qti_flash_led_switch_brightness_set(
 		return;
 	}
 
-	led = snode->led;
+	if (state)
+		rc = qti_flash_switch_enable(snode);
+	else
+		rc = qti_flash_switch_disable(snode);
 
-	/* If symmetry enabled switch, then turn ON all its LEDs */
-	if (state && snode->symmetry_en) {
-		rc = qti_flash_led_symmetry_config(snode);
-		if (rc < 0) {
-			pr_err("Failed to configure switch symmetrically, rc=%d\n",
-				rc);
-			return;
-		}
-	}
-
-	for (i = 0; i < led->num_fnodes; i++) {
-		if (!(snode->led_mask & BIT(led->fnode[i].id)) ||
-			!led->fnode[i].configured)
-			continue;
-
-		rc = qti_flash_led_strobe(&led->fnode[i], state);
-		if (rc < 0) {
-			pr_err("Failed to %s LED%d\n",
-				state ? "strobe" : "destrobe",
-				&led->fnode[i].id);
-			break;
-		}
-
-		if (!state) {
-			rc = qti_flash_led_disable(&led->fnode[i]);
-			if (rc < 0) {
-				pr_err("Failed to disable LED%d\n",
-					&led->fnode[i].id);
-				break;
-			}
-		}
-	}
-
-	if (!rc)
+	if (rc < 0)
+		pr_err("Failed to %s switch, rc=%d\n",
+			state ? "enable" : "disable", rc);
+	else
 		snode->enabled = state;
 }
+
+static struct led_classdev *trigger_to_lcdev(struct led_trigger *trig)
+{
+	struct led_classdev *led_cdev;
+
+	read_lock(&trig->leddev_list_lock);
+	list_for_each_entry(led_cdev, &trig->led_cdevs, trig_list) {
+		if (!strcmp(led_cdev->default_trigger, trig->name)) {
+			read_unlock(&trig->leddev_list_lock);
+			return led_cdev;
+		}
+	}
+
+	read_unlock(&trig->leddev_list_lock);
+	return NULL;
+}
+
+static ssize_t qti_flash_led_max_current_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct flash_switch_data *snode;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	snode = container_of(led_cdev, struct flash_switch_data, cdev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", snode->led->max_current);
+}
+
+int qti_flash_led_prepare(struct led_trigger *trig, int options,
+				int *max_current)
+{
+	struct led_classdev *led_cdev;
+	struct flash_switch_data *snode;
+
+	if (!trig) {
+		pr_err("Invalid led_trigger\n");
+		return -EINVAL;
+	}
+
+	led_cdev = trigger_to_lcdev(trig);
+	if (!led_cdev) {
+		pr_err("Invalid led_cdev in trigger %s\n", trig->name);
+		return -ENODEV;
+	}
+
+	snode = container_of(led_cdev, struct flash_switch_data, cdev);
+
+	if (options & QUERY_MAX_AVAIL_CURRENT) {
+		*max_current = snode->led->max_current;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(qti_flash_led_prepare);
+
+static struct device_attribute qti_flash_led_attrs[] = {
+	__ATTR(max_current, 0664, qti_flash_led_max_current_show, NULL),
+};
 
 static int qti_flash_brightness_set_blocking(
 		struct led_classdev *led_cdev, enum led_brightness value)
@@ -549,10 +657,25 @@ static int qti_flash_strobe_set(struct led_classdev_flash *fdev,
 				bool state)
 {
 	struct flash_node_data *fnode;
+	int rc;
+	u8 mask, value;
 
 	fnode = container_of(fdev, struct flash_node_data, fdev);
 
-	return qti_flash_led_strobe(fnode, state);
+	if (fnode->enabled == state)
+		return 0;
+
+	mask = FLASH_LED_ENABLE(fnode->id);
+	value = state ? FLASH_LED_ENABLE(fnode->id) : 0;
+
+	rc = qti_flash_led_strobe(fnode->led, mask, value);
+	if (!rc) {
+		fnode->enabled = state;
+		if (!state)
+			fnode->configured = false;
+	}
+
+	return rc;
 }
 
 static int qti_flash_strobe_get(struct led_classdev_flash *fdev,
@@ -624,6 +747,8 @@ static int qti_flash_led_setup(struct qti_flash_led *led)
 			return rc;
 	}
 
+	led->max_current = MAX_FLASH_CURRENT_MA;
+
 	return rc;
 }
 
@@ -675,7 +800,7 @@ static int qti_flash_led_register_interrupts(struct qti_flash_led *led)
 
 	rc = devm_request_threaded_irq(&led->pdev->dev,
 		led->all_ramp_up_done_irq, NULL, qti_flash_led_irq_handler,
-		IRQF_ONESHOT, "all_ramp_up_done", led);
+		IRQF_ONESHOT, "flash_all_ramp_up", led);
 	if (rc < 0) {
 		pr_err("Failed to request all_ramp_up_done(%d) IRQ(err:%d)\n",
 			led->all_ramp_up_done_irq, rc);
@@ -684,7 +809,7 @@ static int qti_flash_led_register_interrupts(struct qti_flash_led *led)
 
 	rc = devm_request_threaded_irq(&led->pdev->dev,
 		led->all_ramp_down_done_irq, NULL, qti_flash_led_irq_handler,
-		IRQF_ONESHOT, "all_ramp_down", led);
+		IRQF_ONESHOT, "flash_all_ramp_down", led);
 	if (rc < 0) {
 		pr_err("Failed to request all_ramp_down_done(%d) IRQ(err:%d)\n",
 			led->all_ramp_down_done_irq,
@@ -694,7 +819,7 @@ static int qti_flash_led_register_interrupts(struct qti_flash_led *led)
 
 	rc = devm_request_threaded_irq(&led->pdev->dev,
 		led->led_fault_irq, NULL, qti_flash_led_irq_handler,
-		IRQF_ONESHOT, "fault", led);
+		IRQF_ONESHOT, "flash_fault", led);
 	if (rc < 0) {
 		pr_err("Failed to request led_fault(%d) IRQ(err:%d)\n",
 			led->led_fault_irq, rc);
@@ -707,7 +832,7 @@ static int qti_flash_led_register_interrupts(struct qti_flash_led *led)
 static int register_switch_device(struct qti_flash_led *led,
 		struct flash_switch_data *snode, struct device_node *node)
 {
-	int rc;
+	int rc, i;
 
 	rc = of_property_read_string(node, "qcom,led-name",
 				&snode->cdev.name);
@@ -747,7 +872,22 @@ static int register_switch_device(struct qti_flash_led *led,
 		return rc;
 	}
 
+	for (i = 0; i < ARRAY_SIZE(qti_flash_led_attrs); i++) {
+		rc = sysfs_create_file(&snode->cdev.dev->kobj,
+				&qti_flash_led_attrs[i].attr);
+		if (rc < 0) {
+			pr_err("Failed to create sysfs attrs, rc=%d\n", rc);
+			goto sysfs_fail;
+		}
+	}
+
 	return 0;
+
+sysfs_fail:
+	while (i >= 0)
+		sysfs_remove_file(&snode->cdev.dev->kobj,
+			&qti_flash_led_attrs[i--].attr);
+	return rc;
 }
 
 static int register_flash_device(struct qti_flash_led *led,
@@ -1089,10 +1229,15 @@ static int qti_flash_led_probe(struct platform_device *pdev)
 static int qti_flash_led_remove(struct platform_device *pdev)
 {
 	struct qti_flash_led *led = dev_get_drvdata(&pdev->dev);
-	int i;
+	int i, j;
 
-	for (i = 0; (i < led->num_snodes); i++)
+	for (i = 0; (i < led->num_snodes); i++) {
+		for (j = 0; j < ARRAY_SIZE(qti_flash_led_attrs); j++)
+			sysfs_remove_file(&led->snode[i].cdev.dev->kobj,
+				&qti_flash_led_attrs[j].attr);
+
 		led_classdev_unregister(&led->snode[i].cdev);
+	}
 
 	for (i = 0; (i < led->num_fnodes); i++)
 		led_classdev_flash_unregister(&led->fnode[i].fdev);

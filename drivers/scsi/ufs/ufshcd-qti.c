@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, Linux Foundation. All rights reserved.
  */
 
 #include <linux/async.h>
@@ -420,7 +420,7 @@ static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
 	.upthreshold = 70,
-	.downdifferential = 65,
+	.downdifferential = 5,
 };
 
 static void *gov_data = &ufshcd_ondemand_data;
@@ -462,63 +462,6 @@ void ufshcd_scsi_block_requests(struct ufs_hba *hba)
 		scsi_block_requests(hba->host);
 }
 EXPORT_SYMBOL(ufshcd_scsi_block_requests);
-
-static int ufshcd_device_reset_ctrl(struct ufs_hba *hba, bool ctrl)
-{
-	int ret = 0;
-
-	if (!hba->pctrl)
-		return 0;
-
-	/* Assert reset if ctrl == true */
-	if (ctrl)
-		ret = pinctrl_select_state(hba->pctrl,
-			pinctrl_lookup_state(hba->pctrl, "dev-reset-assert"));
-	else
-		ret = pinctrl_select_state(hba->pctrl,
-			pinctrl_lookup_state(hba->pctrl, "dev-reset-deassert"));
-
-	if (ret < 0)
-		dev_err(hba->dev, "%s: %s failed with err %d\n",
-			__func__, ctrl ? "Assert" : "Deassert", ret);
-
-	return ret;
-}
-
-static inline int ufshcd_assert_device_reset(struct ufs_hba *hba)
-{
-	return ufshcd_device_reset_ctrl(hba, true);
-}
-
-static inline int ufshcd_deassert_device_reset(struct ufs_hba *hba)
-{
-	return ufshcd_device_reset_ctrl(hba, false);
-}
-
-static int ufshcd_reset_device(struct ufs_hba *hba)
-{
-	int ret;
-
-	/* reset the connected UFS device */
-	ret = ufshcd_assert_device_reset(hba);
-	if (ret)
-		goto out;
-	/*
-	 * The reset signal is active low.
-	 * The UFS device shall detect more than or equal to 1us of positive
-	 * or negative RST_n pulse width.
-	 * To be on safe side, keep the reset low for atleast 10us.
-	 */
-	usleep_range(10, 15);
-
-	ret = ufshcd_deassert_device_reset(hba);
-	if (ret)
-		goto out;
-	/* same as assert, wait for atleast 10us after deassert */
-	usleep_range(10, 15);
-out:
-	return ret;
-}
 
 static void ufshcd_add_cmd_upiu_trace(struct ufs_hba *hba, unsigned int tag,
 		const char *str)
@@ -1671,13 +1614,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		ufshcd_custom_cmd_log(hba, "Gear-scaled-down");
 	}
 
-	/* Enter hibern8 before scaling clocks */
-	ret = ufshcd_uic_hibern8_enter(hba);
-	if (ret)
-		/* link will be bad state so no need to scale_up_gear */
-		goto clk_scaling_unprepare;
-	ufshcd_custom_cmd_log(hba, "Hibern8-entered");
-
 	ret = ufshcd_scale_clks(hba, scale_up);
 	if (ret) {
 		dev_err(hba->dev, "%s: scaling %s clks failed %d\n", __func__,
@@ -1685,13 +1621,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		goto scale_up_gear;
 	}
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
-
-	/* Exit hibern8 after scaling clocks */
-	ret = ufshcd_uic_hibern8_exit(hba);
-	if (ret)
-		/* link will be bad state so no need to scale_up_gear */
-		goto clk_scaling_unprepare;
-	ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
 
 	/* scale up the gear after scaling up clocks */
 	if (scale_up) {
@@ -1715,8 +1644,6 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	goto clk_scaling_unprepare;
 
 scale_up_gear:
-	if (ufshcd_uic_hibern8_exit(hba))
-		goto clk_scaling_unprepare;
 	if (!scale_up)
 		ufshcd_scale_gear(hba, true);
 clk_scaling_unprepare:
@@ -1775,6 +1702,9 @@ static int ufshcd_devfreq_target(struct device *dev,
 	if (!ufshcd_is_clkscaling_supported(hba))
 		return -EINVAL;
 
+	clki = list_first_entry(&hba->clk_list_head, struct ufs_clk_info, list);
+	*freq = (unsigned long) clk_round_rate(clki->clk, *freq);
+
 	spin_lock_irqsave(hba->host->host_lock, irq_flags);
 	if (ufshcd_eh_in_progress(hba)) {
 		spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
@@ -1789,8 +1719,11 @@ static int ufshcd_devfreq_target(struct device *dev,
 		goto out;
 	}
 
-	clki = list_first_entry(&hba->clk_list_head, struct ufs_clk_info, list);
 	scale_up = (*freq == clki->max_freq) ? true : false;
+	if (scale_up)
+		*freq = clki->max_freq;
+	else
+		*freq = clki->min_freq;
 	if (!ufshcd_is_devfreq_scaling_required(hba, scale_up)) {
 		spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
 		ret = 0;
@@ -1819,6 +1752,8 @@ static int ufshcd_devfreq_get_dev_status(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	struct ufs_clk_scaling *scaling = &hba->clk_scaling;
 	unsigned long flags;
+	struct list_head *clk_list = &hba->clk_list_head;
+	struct ufs_clk_info *clki;
 
 	if (!ufshcd_is_clkscaling_supported(hba))
 		return -EINVAL;
@@ -1828,6 +1763,9 @@ static int ufshcd_devfreq_get_dev_status(struct device *dev,
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	if (!scaling->window_start_t)
 		goto start_window;
+
+	clki = list_first_entry(clk_list, struct ufs_clk_info, list);
+	stat->current_frequency = clki->curr_freq;
 
 	if (scaling->is_busy_started)
 		scaling->tot_busy_t += ktime_to_us(ktime_sub(ktime_get(),
@@ -1852,7 +1790,7 @@ start_window:
 }
 
 static struct devfreq_dev_profile ufs_devfreq_profile = {
-	.polling_ms = 100,
+	.polling_ms = 60,
 	.target = ufshcd_devfreq_target,
 	.get_dev_status = ufshcd_devfreq_get_dev_status,
 };
@@ -7466,12 +7404,7 @@ out:
 
 static int ufshcd_detect_device(struct ufs_hba *hba)
 {
-	int err = 0;
-
-	err = ufshcd_reset_device(hba);
-	if (err)
-		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-			 __func__, err);
+	ufshcd_vops_device_reset(hba);
 
 	return ufshcd_host_reset_and_restore(hba);
 }
@@ -8246,25 +8179,6 @@ out:
 	return err;
 }
 
-static inline bool ufshcd_needs_reinit(struct ufs_hba *hba)
-{
-	bool reinit = false;
-
-	if (hba->dev_info.w_spec_version < 0x300 && hba->phy_init_g4) {
-		dev_warn(hba->dev, "%s: Using force-g4 setting for a non-g4 device, re-init\n",
-				  __func__);
-		hba->phy_init_g4 = false;
-		reinit = true;
-	} else if (hba->dev_info.w_spec_version >= 0x300 && !hba->phy_init_g4) {
-		dev_warn(hba->dev, "%s: Re-init UFS host to use proper PHY settings for the UFS device. This can be avoided by setting the force-g4 in DT\n",
-				  __func__);
-		hba->phy_init_g4 = true;
-		reinit = true;
-	}
-
-	return reinit;
-}
-
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -8278,7 +8192,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ktime_t start = ktime_get();
 
 	dev_err(hba->dev, "*** This is %s ***\n", __FILE__);
-reinit:
+
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -8316,27 +8230,6 @@ reinit:
 		dev_err(hba->dev, "%s: Failed getting device info. err = %d\n",
 			__func__, ret);
 		goto out;
-	}
-
-	if (ufshcd_needs_reinit(hba)) {
-		unsigned long flags;
-		int err;
-
-		err = ufshcd_reset_device(hba);
-		if (err)
-			dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-				 __func__, err);
-
-		/* Reset the host controller */
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		ufshcd_hba_stop(hba, false);
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-		err = ufshcd_hba_enable(hba);
-		if (err)
-			goto out;
-
-		goto reinit;
 	}
 
 	ufs_fixup_device_setup(hba, &card);
@@ -10027,13 +9920,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	}
 
 	/* reset connected UFS device */
-	err = ufshcd_reset_device(hba);
-	if (err)
-		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-			 __func__, err);
-
-	if (hba->force_g4)
-		hba->phy_init_g4 = true;
+	ufshcd_vops_device_reset(hba);
 
 	/* Init crypto */
 	err = ufshcd_hba_init_crypto(hba);

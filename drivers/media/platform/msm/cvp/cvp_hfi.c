@@ -809,9 +809,7 @@ static int __smem_alloc(struct iris_hfi_device *dev, struct cvp_mem_addr *mem,
 	}
 
 	dprintk(CVP_INFO, "start to alloc size: %d, flags: %d\n", size, flags);
-	rc = msm_cvp_smem_alloc(
-		size, align, flags, 1, (void *)dev->res,
-		MSM_CVP_UNKNOWN, alloc);
+	rc = msm_cvp_smem_alloc(size, align, flags, 1, (void *)dev->res, alloc);
 	if (rc) {
 		dprintk(CVP_ERR, "Alloc failed\n");
 		rc = -ENOMEM;
@@ -1512,7 +1510,7 @@ static int __interface_dsp_queues_init(struct iris_hfi_device *dev)
 		dprintk(CVP_ERR, "%s: failed dma allocation\n", __func__);
 		goto fail_dma_alloc;
 	}
-	cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN, 0, dev->res, 0);
+	cb = msm_cvp_smem_get_context_bank(0, dev->res, 0);
 	if (!cb) {
 		dprintk(CVP_ERR,
 			"%s: failed to get context bank\n", __func__);
@@ -1533,7 +1531,7 @@ static int __interface_dsp_queues_init(struct iris_hfi_device *dev)
 	mem_data->device_addr = iova;
 	mem_data->dma_handle = dma_handle;
 	mem_data->size = q_size;
-	mem_data->buffer_type = 0;
+	mem_data->ion_flags = 0;
 	mem_data->mapping_info.cb_info = cb;
 
 	if (!is_iommu_present(dev->res))
@@ -1621,8 +1619,7 @@ static void __interface_queues_release(struct iris_hfi_device *device)
 		}
 
 		mem_map = (struct cvp_hfi_mem_map *)(qdss + 1);
-		cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN,
-			false, device->res, 0);
+		cb = msm_cvp_smem_get_context_bank(false, device->res, 0);
 
 		for (i = 0; cb && i < num_entries; i++) {
 			iommu_unmap(cb->domain,
@@ -1846,8 +1843,7 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 		qdss->mem_map_table_base_addr = mem_map_table_base_addr;
 
 		mem_map = (struct cvp_hfi_mem_map *)(qdss + 1);
-		cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN, false,
-			dev->res, 0);
+		cb = msm_cvp_smem_get_context_bank(false, dev->res, 0);
 		if (!cb) {
 			dprintk(CVP_ERR,
 				"%s: failed to get context bank\n", __func__);
@@ -2344,15 +2340,14 @@ static int iris_hfi_session_abort(void *sess)
 	return rc;
 }
 
-static int iris_hfi_session_set_buffers(void *sess,
-				struct cvp_buffer_addr_info *buffer_info)
+static int iris_hfi_session_set_buffers(void *sess, u32 iova, u32 size)
 {
 	struct cvp_hfi_cmd_session_set_buffers_packet pkt;
 	int rc = 0;
 	struct cvp_hal_session *session = sess;
 	struct iris_hfi_device *device;
 
-	if (!session || !session->device || !buffer_info) {
+	if (!session || !session->device || !iova || !size) {
 		dprintk(CVP_ERR, "Invalid Params\n");
 		return -EINVAL;
 	}
@@ -2366,13 +2361,12 @@ static int iris_hfi_session_set_buffers(void *sess,
 	}
 
 	rc = call_hfi_pkt_op(device, session_set_buffers,
-			&pkt, session, buffer_info);
+			&pkt, session, iova, size);
 	if (rc) {
 		dprintk(CVP_ERR, "set buffers: failed to create packet\n");
 		goto err_create_pkt;
 	}
 
-	dprintk(CVP_DBG, "set buffers: %#x\n", buffer_info->buffer_type);
 	if (__iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
 
@@ -2381,15 +2375,14 @@ err_create_pkt:
 	return rc;
 }
 
-static int iris_hfi_session_release_buffers(void *sess,
-				struct cvp_buffer_addr_info *buffer_info)
+static int iris_hfi_session_release_buffers(void *sess)
 {
 	struct cvp_session_release_buffers_packet pkt;
 	int rc = 0;
 	struct cvp_hal_session *session = sess;
 	struct iris_hfi_device *device;
 
-	if (!session || !session->device || !buffer_info) {
+	if (!session || !session->device) {
 		dprintk(CVP_ERR, "Invalid Params\n");
 		return -EINVAL;
 	}
@@ -2402,8 +2395,7 @@ static int iris_hfi_session_release_buffers(void *sess,
 		goto err_create_pkt;
 	}
 
-	rc = call_hfi_pkt_op(device, session_release_buffers,
-			&pkt, session, buffer_info);
+	rc = call_hfi_pkt_op(device, session_release_buffers, &pkt, session);
 	if (rc) {
 		dprintk(CVP_ERR, "release buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -2878,13 +2870,11 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_FD_CONFIG_CMD_DONE:
 	case HAL_SESSION_MODEL_BUF_CMD_DONE:
 	case HAL_SESSION_PROPERTY_INFO:
+	case HAL_SESSION_EVENT_CHANGE:
 		session_id = &info->response.cmd.session_id;
 		break;
 	case HAL_SESSION_ERROR:
 		session_id = &info->response.data.session_id;
-		break;
-	case HAL_SESSION_EVENT_CHANGE:
-		session_id = &info->response.event.session_id;
 		break;
 	case HAL_RESPONSE_UNUSED:
 	default:
@@ -4051,7 +4041,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	u32 pc_ready, wfi_status, sbm_ln0_low;
 	u32 main_sbm_ln0_low, main_sbm_ln1_high;
 
-	if (!device->power_enabled)
+	if (!device->power_enabled || !device->res->sw_power_collapsible)
 		return;
 
 	if (!(device->intr_status & CVP_WRAPPER_INTR_STATUS_A2HWD_BMSK))

@@ -300,7 +300,8 @@ int cvp_create_pkt_cmd_sys_power_control(
 int cvp_create_pkt_cmd_session_set_buffers(
 		void *cmd,
 		struct cvp_hal_session *session,
-		struct cvp_buffer_addr_info *buffer_info)
+		u32 iova,
+		u32 size)
 {
 	int rc = 0;
 	struct cvp_hfi_cmd_session_set_buffers_packet *pkt;
@@ -311,8 +312,8 @@ int cvp_create_pkt_cmd_session_set_buffers(
 	pkt = (struct cvp_hfi_cmd_session_set_buffers_packet *)cmd;
 	pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
 	pkt->session_id = hash32_ptr(session);
-	pkt->buf_type.fd = buffer_info->align_device_addr;
-	pkt->buf_type.size = buffer_info->buffer_size;
+	pkt->buf_type.iova = iova;
+	pkt->buf_type.size = size;
 	pkt->size = sizeof(struct cvp_hfi_cmd_session_set_buffers_packet);
 
 	return rc;
@@ -320,8 +321,7 @@ int cvp_create_pkt_cmd_session_set_buffers(
 
 int cvp_create_pkt_cmd_session_release_buffers(
 		void *cmd,
-		struct cvp_hal_session *session,
-		struct cvp_buffer_addr_info *buffer_info)
+		struct cvp_hal_session *session)
 {
 	struct cvp_session_release_buffers_packet *pkt;
 
@@ -331,16 +331,10 @@ int cvp_create_pkt_cmd_session_release_buffers(
 	pkt = (struct cvp_session_release_buffers_packet *)cmd;
 	pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
 	pkt->session_id = hash32_ptr(session);
-	pkt->num_buffers = buffer_info->num_buffers;
-	pkt->buffer_type = buffer_info->buffer_type;
+	pkt->num_buffers = 1;
+	pkt->buffer_type = 0;
 	pkt->size = sizeof(struct cvp_session_release_buffers_packet) +
-			((buffer_info->num_buffers - 1) * sizeof(u32));
-
-	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
-		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
-		dprintk(CVP_ERR, "%s: deprecated buffer_type\n", __func__);
-		return -EINVAL;
-	}
+			((pkt->num_buffers - 1) * sizeof(u32));
 
 	return 0;
 }

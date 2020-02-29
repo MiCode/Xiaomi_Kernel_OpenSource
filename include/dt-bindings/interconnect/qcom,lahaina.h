@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __DT_BINDINGS_INTERCONNECT_QCOM_LAHAINA_H
@@ -152,5 +152,15 @@
 #define SLAVE_PCIE_1				600
 #define SLAVE_QDSS_STM				601
 #define SLAVE_TCU				602
+#define MASTER_LLCC_DISP				1000
+#define MASTER_MNOC_HF_MEM_NOC_DISP				1001
+#define MASTER_MNOC_SF_MEM_NOC_DISP				1002
+#define MASTER_MDP0_DISP				1003
+#define MASTER_MDP1_DISP				1004
+#define MASTER_ROTATOR_DISP				1005
+#define SLAVE_EBI1_DISP				1512
+#define SLAVE_LLCC_DISP				1513
+#define SLAVE_MNOC_HF_MEM_NOC_DISP				1514
+#define SLAVE_MNOC_SF_MEM_NOC_DISP				1515
 
 #endif

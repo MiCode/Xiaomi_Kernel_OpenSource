@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MDSS_5NM_PLL_CLK_H
@@ -50,5 +50,5 @@
 #define DP_VCO_DIVIDED_TWO_CLK_SRC	2
 #define DP_VCO_DIVIDED_FOUR_CLK_SRC	3
 #define DP_VCO_DIVIDED_SIX_CLK_SRC	4
-#define DP_VCO_DIVIDED_CLK_SRC_MUX	5
+#define DP_PHY_PLL_VCO_DIV_CLK		5
 #endif

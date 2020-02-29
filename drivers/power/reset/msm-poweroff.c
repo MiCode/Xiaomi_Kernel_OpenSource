@@ -18,6 +18,7 @@
 #include <linux/input/qpnp-power-on.h>
 #include <linux/of_address.h>
 #include <linux/qcom_scm.h>
+#include <linux/nvmem-consumer.h>
 
 #include <asm/cacheflush.h>
 #include <asm/system_misc.h>
@@ -49,6 +50,7 @@ static void *restart_reason, *dload_type_addr;
 /* Download mode master kill-switch */
 static void __iomem *msm_ps_hold;
 static phys_addr_t tcsr_boot_misc_detect;
+static struct nvmem_cell *nvmem_cell;
 
 /*
  * Runtime could be only changed value once.
@@ -397,6 +399,7 @@ EXPORT_SYMBOL(msm_set_restart_mode);
 static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
+	u8 reason = PON_RESTART_REASON_UNKNOWN;
 	/* Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
 	 * Kill download mode if master-kill switch is set
@@ -430,28 +433,22 @@ static void msm_restart_prepare(const char *cmd)
 
 	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
-			qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_BOOTLOADER);
+			reason = PON_RESTART_REASON_BOOTLOADER;
 			__raw_writel(0x77665500, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
-			qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_RECOVERY);
+			reason = PON_RESTART_REASON_RECOVERY;
 			__raw_writel(0x77665502, restart_reason);
 		} else if (!strcmp(cmd, "rtc")) {
-			qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_RTC);
+			reason = PON_RESTART_REASON_RTC;
 			__raw_writel(0x77665503, restart_reason);
 		} else if (!strcmp(cmd, "dm-verity device corrupted")) {
-			qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_DMVERITY_CORRUPTED);
+			reason = PON_RESTART_REASON_DMVERITY_CORRUPTED;
 			__raw_writel(0x77665508, restart_reason);
 		} else if (!strcmp(cmd, "dm-verity enforcing")) {
-			qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_DMVERITY_ENFORCE);
+			reason = PON_RESTART_REASON_DMVERITY_ENFORCE;
 			__raw_writel(0x77665509, restart_reason);
 		} else if (!strcmp(cmd, "keys clear")) {
-			qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_KEYS_CLEAR);
+			reason = PON_RESTART_REASON_KEYS_CLEAR;
 			__raw_writel(0x7766550a, restart_reason);
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
@@ -466,6 +463,12 @@ static void msm_restart_prepare(const char *cmd)
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
+
+		if (reason && nvmem_cell)
+			nvmem_cell_write(nvmem_cell, &reason, sizeof(reason));
+		else
+			qpnp_pon_set_restart_reason(
+				(enum pon_restart_reason)reason);
 	}
 
 	flush_cache_all();
@@ -538,6 +541,12 @@ static int msm_restart_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct device_node *np;
 	int ret = 0;
+
+	nvmem_cell = devm_nvmem_cell_get(dev, "restart_reason");
+	if (PTR_ERR(nvmem_cell) == -EPROBE_DEFER)
+		return PTR_ERR(nvmem_cell);
+	else if (IS_ERR_VALUE(nvmem_cell))
+		nvmem_cell = NULL;
 
 	setup_dload_mode_support();
 

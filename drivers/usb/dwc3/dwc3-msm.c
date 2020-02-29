@@ -39,6 +39,7 @@
 #include <linux/extcon.h>
 #include <linux/reset.h>
 #include <linux/usb/dwc3-msm.h>
+#include <linux/usb/role.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -362,6 +363,12 @@ static const char * const gsi_op_strings[] = {
 	"FREE_TRBS", "SET_CLR_BLOCK_DBL", "CHECK_FOR_SUSP",
 	"EP_DISABLE" };
 
+static const char * const usb_role_strings[] = {
+	"NONE",
+	"HOST",
+	"DEVICE"
+};
+
 struct dwc3_msm;
 
 struct extcon_nb {
@@ -471,6 +478,8 @@ struct dwc3_msm {
 
 	u64			dummy_gsi_db;
 	dma_addr_t		dummy_gsi_db_dma;
+
+	struct usb_role_switch *role_switch;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3551,6 +3560,79 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static inline const char *usb_role_string(enum usb_role role)
+{
+	if (role < ARRAY_SIZE(usb_role_strings))
+		return usb_role_strings[role];
+
+	return "Invalid";
+}
+
+static enum usb_role dwc3_msm_usb_get_role(struct device *dev)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	enum usb_role role;
+
+	if (mdwc->vbus_active)
+		role = USB_ROLE_DEVICE;
+	else if (mdwc->id_state == DWC3_ID_GROUND)
+		role = USB_ROLE_HOST;
+	else
+		role = USB_ROLE_NONE;
+
+	dbg_log_string("get_role:%s\n", usb_role_string(role));
+	return role;
+}
+
+static int dwc3_msm_usb_set_role(struct device *dev, enum usb_role role)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	enum usb_role cur_role = USB_ROLE_NONE;
+
+	cur_role = dwc3_msm_usb_get_role(dev);
+
+	switch (role) {
+	case USB_ROLE_HOST:
+		mdwc->vbus_active = false;
+		mdwc->id_state = DWC3_ID_GROUND;
+		break;
+
+	case USB_ROLE_DEVICE:
+		mdwc->vbus_active = true;
+		mdwc->id_state = DWC3_ID_FLOAT;
+		break;
+
+	case USB_ROLE_NONE:
+		mdwc->vbus_active = false;
+		mdwc->id_state = DWC3_ID_FLOAT;
+		break;
+	}
+
+	dbg_log_string("cur_role:%s new_role:%s\n", usb_role_string(cur_role),
+						usb_role_string(role));
+
+	/*
+	 * For boot up without USB cable connected case, don't check
+	 * previous role value to allow resetting USB controller and
+	 * PHYs.
+	 */
+	if (mdwc->drd_state != DRD_STATE_UNDEFINED && cur_role == role) {
+		dbg_log_string("no USB role change");
+		return 0;
+	}
+
+	dwc3_ext_event_notify(mdwc);
+	return 0;
+}
+
+static struct usb_role_switch_desc role_desc = {
+	.set = dwc3_msm_usb_set_role,
+	.get = dwc3_msm_usb_get_role,
+	.allow_userspace_control = true,
+};
+
 static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
@@ -4112,7 +4194,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		} else {
 			queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 		}
-	} else {
+	}
+
+	if (of_property_read_bool(node, "usb-role-switch")) {
+		role_desc.fwnode = dev_fwnode(&pdev->dev);
+		mdwc->role_switch = usb_role_switch_register(mdwc->dev,
+								&role_desc);
+		if (IS_ERR(mdwc->role_switch))
+			return PTR_ERR(mdwc->role_switch);
+	}
+
+	if (!mdwc->role_switch && !mdwc->extcon) {
 		switch (dwc->dr_mode) {
 		case USB_DR_MODE_OTG:
 			if (of_property_read_bool(node,
@@ -4168,6 +4260,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int i, ret_pm;
 
+	usb_role_switch_unregister(mdwc->role_switch);
 	device_remove_file(&pdev->dev, &dev_attr_mode);
 	device_remove_file(&pdev->dev, &dev_attr_speed);
 	device_remove_file(&pdev->dev, &dev_attr_bus_vote);

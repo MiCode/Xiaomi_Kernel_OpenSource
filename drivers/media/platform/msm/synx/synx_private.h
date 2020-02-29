@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SYNX_PRIVATE_H__
@@ -82,31 +82,17 @@ struct error_node {
  * callback registered on a synx object
  *
  * @h_synx         : Synx object handle
+ * @status         : Synx obj status or callback failure
  * @data           : Callback data, passed by client driver
  * @cb_func        : Callback function, registered by client driver
  * @cancel_cb_func : Cancellation callback function
  */
 struct synx_kernel_payload {
 	s32 h_synx;
+	u32 status;
 	void *data;
 	synx_callback cb_func;
 	synx_callback cancel_cb_func;
-};
-
-/**
- * struct synx_user_payload - Single node of information about a callback
- * registered from user space on a synx object
- *
- * @client : Synx client structure
- * @h_synx : Synx object handle
- * @status : Synx obj status or callback failure
- * @data   : Payload data, opaque to kernel
- */
-struct synx_user_payload {
-	struct synx_client *client;
-	s32 h_synx;
-	u32 status;
-	u64 data[SYNX_PAYLOAD_WORDS];
 };
 
 /**
@@ -132,17 +118,16 @@ struct synx_cb_data {
  * registered by client
  *
  * @is_valid     : True if this is a valid entry
- * @is_kernel_cb : True for kernel callback, false for user callback
  * @idx          : Index of the client callback table
+ * @client       : Client session
  * @kernel_cb    : Kernel callback payload
- * @user_cb      : Userspace callback payload
  * @node         : List member used to append this node to event list
  */
 struct synx_client_cb {
 	bool is_valid;
 	u32 idx;
+	struct synx_client *client;
 	struct synx_kernel_payload kernel_cb;
-	struct synx_user_payload user_cb;
 	struct list_head node;
 };
 

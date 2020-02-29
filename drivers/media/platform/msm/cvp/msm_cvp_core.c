@@ -313,7 +313,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
-	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
+	INIT_MSM_CVP_LIST(&inst->cpusmems);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	INIT_MSM_CVP_LIST(&inst->frames);
 
@@ -330,6 +330,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = 0;
+	inst->cpusmems.maxnr = MAX_DMABUF_NUMS;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -368,7 +369,7 @@ fail_init:
 	mutex_destroy(&inst->lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
+	DEINIT_MSM_CVP_LIST(&inst->cpusmems);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
@@ -408,7 +409,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	mutex_unlock(&core->lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
+	DEINIT_MSM_CVP_LIST(&inst->cpusmems);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
@@ -417,6 +418,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 
 	msm_cvp_debugfs_deinit_inst(inst);
 	_deinit_session_queue(inst);
+	synx_uninitialize(inst->synx_session_id);
 
 	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK session_id = %d\n",
 		"info", inst, hash32_ptr(inst->session));

@@ -7,6 +7,7 @@
 #include <linux/device.h>
 #include <linux/types.h>
 #include <linux/usb/typec.h>
+#include <linux/usb/role.h>
 
 /* -------------------------------------------------------------------------- */
 
@@ -277,6 +278,8 @@ struct ucsi {
 #define EVENT_PENDING	0
 #define COMMAND_PENDING	1
 #define ACK_PENDING	2
+
+	struct usb_role_switch *usb_role_sw;
 };
 
 #define UCSI_MAX_SVID		5

@@ -3,7 +3,7 @@
 #
 
 config TOUCHSCREEN_FTS
-	bool "Focaltech Touchscreen"
+	tristate "Focaltech Touchscreen"
 	help
 	  Say Y here if you have Focaltech touch panel.
 	  If unsure, say N.

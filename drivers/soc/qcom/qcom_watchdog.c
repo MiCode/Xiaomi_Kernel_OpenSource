@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -491,6 +491,16 @@ void msm_trigger_wdog_bite(void)
 		__raw_readl(wdog_data->base + WDT0_EN),
 		__raw_readl(wdog_data->base + WDT0_BARK_TIME),
 		__raw_readl(wdog_data->base + WDT0_BITE_TIME));
+	/*
+	 * This function induces the non-secure bite and control
+	 * should not return to the calling function. Non-secure
+	 * bite interrupt is affined to all the cores and it may
+	 * not be handled by the same cores which configured
+	 * non-secure bite. So add forever loop here.
+	 */
+	while (1)
+		udelay(1);
+
 }
 EXPORT_SYMBOL(msm_trigger_wdog_bite);
 
@@ -510,7 +520,7 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	msm_trigger_wdog_bite();
-	panic("Failed to cause a watchdog bite! - Falling back to kernel panic!");
+
 	return IRQ_HANDLED;
 }
 

@@ -5,6 +5,8 @@ config GKI_HIDDEN_DRM_CONFIGS
 	select DRM_KMS_CMA_HELPER
 	select DRM_MIPI_DSI
 	select SND_PCM_ELD
+	select VIDEOMODE_HELPERS
+	select WANT_DEV_COREDUMP
 	help
 	  Dummy config option used to enable hidden DRM configs.
 	  These are normally selected implicitely when including a
@@ -49,10 +51,21 @@ config GKI_HIDDEN_GPIO_CONFIGS
 config GKI_HIDDEN_QCOM_CONFIGS
 	bool "Hidden QCOM configs needed for GKI"
 	select QCOM_SMEM_STATE
+	select QCOM_GDSC if (ARCH_QCOM)
+	select PINCTRL_MSM if (PINCTRL && ARCH_QCOM)
 	help
 	  Dummy config option used to enable hidden QCOM configs.
 	  These are normally selected implicitely when a module
 	  that relies on it is configured.
+
+config GKI_QCOM_CLKS_CONFIGS
+	bool "QCOM clk drivers needed for GKI due to powerdomain restrictions"
+	select QCOM_RPMHPD	if (ARCH_QCOM)
+	help
+	  This config option selects various QCOM clk drivers that
+	  cannot be built as a module currently due to power-domain
+	  deferred probing limitations.
+	  See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=e01afc32502555beb2057ddd74401be38475d851
 
 config GKI_HIDDEN_MEDIA_CONFIGS
 	bool "Hidden Media configs needed for GKI"
@@ -99,6 +112,7 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_QCOM_CONFIGS
 	select GKI_LEGACY_WEXT_ALLCONFIG
 	select GKI_HIDDEN_MEDIA_CONFIGS
+	select GKI_QCOM_CLKS_CONFIGS
 	help
 	  Dummy config option used to enable core functionality used by
 	  modules that may not be selectable in this config.

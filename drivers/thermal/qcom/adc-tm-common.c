@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -316,7 +316,6 @@ int adc_tm_get_temp_vadc(struct adc_tm_sensor *sensor, int *temp)
 
 	return iio_read_channel_processed(sensor->adc, temp);
 }
-EXPORT_SYMBOL(adc_tm_get_temp_vadc);
 
 int32_t adc_tm_read_reg(struct adc_tm_chip *chip,
 					int16_t reg, u8 *data, int len)
@@ -329,7 +328,6 @@ int32_t adc_tm_read_reg(struct adc_tm_chip *chip,
 
 	return ret;
 }
-EXPORT_SYMBOL(adc_tm_read_reg);
 
 int32_t adc_tm_write_reg(struct adc_tm_chip *chip,
 					int16_t reg, u8 *data, int len)
@@ -342,7 +340,6 @@ int32_t adc_tm_write_reg(struct adc_tm_chip *chip,
 
 	return ret;
 }
-EXPORT_SYMBOL(adc_tm_write_reg);
 
 int adc_tm_is_valid(struct adc_tm_chip *chip)
 {
@@ -354,7 +351,6 @@ int adc_tm_is_valid(struct adc_tm_chip *chip)
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(adc_tm_is_valid);
 
 int therm_fwd_scale(int64_t code, uint32_t adc_hc_vdd_ref_mv,
 			const struct adc_tm_data *data)
@@ -372,7 +368,6 @@ int therm_fwd_scale(int64_t code, uint32_t adc_hc_vdd_ref_mv,
 
 	return result;
 }
-EXPORT_SYMBOL(therm_fwd_scale);
 
 int therm_fwd_scale_adc7(int64_t code)
 {
@@ -391,7 +386,6 @@ int therm_fwd_scale_adc7(int64_t code)
 
 	return result;
 }
-EXPORT_SYMBOL(therm_fwd_scale_adc7);
 
 void adc_tm_scale_therm_voltage_100k(struct adc_tm_config *param,
 				const struct adc_tm_data *data)
@@ -431,7 +425,6 @@ void adc_tm_scale_therm_voltage_100k(struct adc_tm_config *param,
 		param->high_thr_voltage++;
 
 }
-EXPORT_SYMBOL(adc_tm_scale_therm_voltage_100k);
 
 void adc_tm_scale_therm_voltage_100k_adc7(struct adc_tm_config *param)
 {
@@ -472,7 +465,6 @@ void adc_tm_scale_therm_voltage_100k_adc7(struct adc_tm_config *param)
 	if (temp > param->low_thr_temp)
 		param->high_thr_voltage++;
 }
-EXPORT_SYMBOL(adc_tm_scale_therm_voltage_100k_adc7);
 
 int32_t adc_tm_absolute_rthr(const struct adc_tm_data *data,
 			struct adc_tm_config *tm_config)
@@ -493,7 +485,6 @@ int32_t adc_tm_absolute_rthr(const struct adc_tm_data *data,
 
 	return 0;
 }
-EXPORT_SYMBOL(adc_tm_absolute_rthr);
 
 int32_t adc_tm_absolute_rthr_adc7(struct adc_tm_config *tm_config)
 {
@@ -513,7 +504,6 @@ int32_t adc_tm_absolute_rthr_adc7(struct adc_tm_config *tm_config)
 
 	return 0;
 }
-EXPORT_SYMBOL(adc_tm_absolute_rthr_adc7);
 
 MODULE_DESCRIPTION("Qualcomm Technologies Inc. PMIC ADC_TM common driver");
 MODULE_LICENSE("GPL v2");

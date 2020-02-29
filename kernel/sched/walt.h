@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WALT_H
@@ -15,7 +15,7 @@
 
 extern unsigned int __weak walt_rotation_enabled;
 
-extern void __weak
+extern void
 walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
 
@@ -73,17 +73,17 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 		walt_fixup_cum_window_demand(rq, -(s64)p->ravg.demand_scaled);
 }
 
-extern void __weak
+extern void
 fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 					  u16 updated_demand_scaled,
 					  u16 updated_pred_demand_scaled);
-extern void __weak inc_rq_walt_stats(struct rq *rq, struct task_struct *p);
-extern void __weak dec_rq_walt_stats(struct rq *rq, struct task_struct *p);
-extern void __weak fixup_busy_time(struct task_struct *p, int new_cpu);
-extern void __weak init_new_task_load(struct task_struct *p);
-extern void __weak mark_task_starting(struct task_struct *p);
-extern void __weak set_window_start(struct rq *rq);
-extern bool __weak do_pl_notif(struct rq *rq);
+extern void inc_rq_walt_stats(struct rq *rq, struct task_struct *p);
+extern void dec_rq_walt_stats(struct rq *rq, struct task_struct *p);
+extern void fixup_busy_time(struct task_struct *p, int new_cpu);
+extern void init_new_task_load(struct task_struct *p);
+extern void mark_task_starting(struct task_struct *p);
+extern void set_window_start(struct rq *rq);
+extern bool do_pl_notif(struct rq *rq);
 
 /*
  * This is only for tracepoints to print the avg irq load. For
@@ -125,7 +125,7 @@ scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
 	return div64_u64(load * (u64)src_freq, (u64)dst_freq);
 }
 
-extern void __weak sched_account_irqstart(int cpu, struct task_struct *curr,
+extern void sched_account_irqstart(int cpu, struct task_struct *curr,
 				   u64 wallclock);
 
 static inline unsigned int max_task_load(void)
@@ -133,9 +133,9 @@ static inline unsigned int max_task_load(void)
 	return sched_ravg_window;
 }
 
-extern void __weak update_cluster_topology(void);
+extern void update_cluster_topology(void);
 
-extern void __weak init_clusters(void);
+extern void init_clusters(void);
 
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
@@ -145,7 +145,7 @@ static inline int same_cluster(int src_cpu, int dst_cpu)
 	return cpu_rq(src_cpu)->cluster == cpu_rq(dst_cpu)->cluster;
 }
 
-void __weak walt_sched_init_rq(struct rq *rq);
+void walt_sched_init_rq(struct rq *rq);
 
 static inline void walt_update_last_enqueue(struct task_struct *p)
 {

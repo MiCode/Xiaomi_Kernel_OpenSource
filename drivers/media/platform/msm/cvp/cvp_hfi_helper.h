@@ -291,7 +291,7 @@ struct cvp_hfi_client {
 } __packed;
 
 struct cvp_hfi_buf_type {
-	s32 fd;
+	u32 iova;
 	u32 size;
 	u32 offset;
 	u32 flags;
@@ -368,12 +368,6 @@ struct cvp_hfi_msg_session_op_cfg_packet {
 	u32 stream_idx;
 	u32 op_conf_id;
 } __packed;
-
-struct cvp_hfi_msg_release_buffer_ref_event_packet {
-	u32 packet_buffer;
-	u32 extra_data_buffer;
-	u32 output_tag;
-};
 
 struct cvp_hfi_msg_sys_init_done_packet {
 	u32 size;

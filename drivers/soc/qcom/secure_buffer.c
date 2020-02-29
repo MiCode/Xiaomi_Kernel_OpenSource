@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/highmem.h>
@@ -280,6 +280,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SPSS_SP_SHARED";
 	case VMID_CP_SPSS_HLOS_SHARED:
 		return "VMID_CP_SPSS_HLOS_SHARED";
+	case VMID_TRUSTED_UI:
+		return "VMID_TRUSTED_UI";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:

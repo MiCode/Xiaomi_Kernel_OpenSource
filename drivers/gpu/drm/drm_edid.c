@@ -3734,7 +3734,7 @@ cea_db_offsets(const u8 *cea, int *start, int *end)
 		if (*end < 4 || *end > 127)
 			return -ERANGE;
 	} else {
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	return 0;
@@ -4432,7 +4432,7 @@ int drm_edid_to_sad(struct edid *edid, struct cea_sad **sads)
 
 	if (cea_revision(cea) < 3) {
 		DRM_DEBUG_KMS("SAD: wrong CEA revision\n");
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	if (cea_db_offsets(cea, &start, &end)) {
@@ -4493,7 +4493,7 @@ int drm_edid_to_speaker_allocation(struct edid *edid, u8 **sadb)
 
 	if (cea_revision(cea) < 3) {
 		DRM_DEBUG_KMS("SAD: wrong CEA revision\n");
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	if (cea_db_offsets(cea, &start, &end)) {

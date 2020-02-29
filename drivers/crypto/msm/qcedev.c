@@ -30,6 +30,7 @@
 #include "qcedevi.h"
 #include "qce.h"
 #include "qcedev_smmu.h"
+#include "compat_qcedev.h"
 
 #include <linux/compat.h>
 
@@ -57,13 +58,13 @@ static dev_t qcedev_device_no;
 static struct class *driver_class;
 static struct device *class_dev;
 
-MODULE_DEVICE_TABLE(of, qcedev_match);
-
 static const struct of_device_id qcedev_match[] = {
 	{	.compatible = "qcom,qcedev"},
 	{	.compatible = "qcom,qcedev,context-bank"},
 	{}
 };
+
+MODULE_DEVICE_TABLE(of, qcedev_match);
 
 static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 {
@@ -185,12 +186,13 @@ static int qcedev_open(struct inode *inode, struct file *file);
 static int qcedev_release(struct inode *inode, struct file *file);
 static int start_cipher_req(struct qcedev_control *podev);
 static int start_sha_req(struct qcedev_control *podev);
-static inline long qcedev_ioctl(struct file *file,
-				unsigned int cmd, unsigned long arg);
 
 static const struct file_operations qcedev_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = qcedev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = compat_qcedev_ioctl,
+#endif
 	.open = qcedev_open,
 	.release = qcedev_release,
 };
@@ -1664,7 +1666,7 @@ sha_error:
 	return -EINVAL;
 }
 
-static inline long qcedev_ioctl(struct file *file,
+long qcedev_ioctl(struct file *file,
 				unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
@@ -1760,6 +1762,7 @@ static inline long qcedev_ioctl(struct file *file,
 			err = -ENOTTY;
 			goto exit_free_qcedev_areq;
 		}
+		/* Fall-through */
 	case QCEDEV_IOCTL_SHA_UPDATE_REQ:
 		{
 		struct scatterlist sg_src;
@@ -1810,9 +1813,10 @@ static inline long qcedev_ioctl(struct file *file,
 				handle->sha_ctxt.diglen);
 		mutex_unlock(&hash_access_lock);
 		if (copy_to_user((void __user *)arg, &qcedev_areq->sha_op_req,
-					sizeof(struct qcedev_sha_op_req)))
+					sizeof(struct qcedev_sha_op_req))) {
 			err = -EFAULT;
 			goto exit_free_qcedev_areq;
+		}
 		}
 		break;
 
@@ -1902,9 +1906,10 @@ static inline long qcedev_ioctl(struct file *file,
 				handle->sha_ctxt.diglen);
 		mutex_unlock(&hash_access_lock);
 		if (copy_to_user((void __user *)arg, &qcedev_areq->sha_op_req,
-					sizeof(struct qcedev_sha_op_req)))
+					sizeof(struct qcedev_sha_op_req))) {
 			err = -EFAULT;
 			goto exit_free_qcedev_areq;
+		}
 		}
 		break;
 

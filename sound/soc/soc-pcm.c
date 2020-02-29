@@ -20,6 +20,7 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -800,6 +801,11 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 
 	mutex_lock_nested(&rtd->card->pcm_mutex, rtd->card->pcm_subclass);
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_START);
+
 	if (rtd->dai_link->ops->prepare) {
 		ret = rtd->dai_link->ops->prepare(substream);
 		if (ret < 0) {
@@ -844,8 +850,15 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 		cancel_delayed_work(&rtd->delayed_work);
 	}
 
-	snd_soc_dapm_stream_event(rtd, substream->stream,
-			SND_SOC_DAPM_STREAM_START);
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		for (i = 0; i < rtd->num_codecs; i++) {
+			codec_dai = rtd->codec_dais[i];
+			if (codec_dai->capture_active == 1)
+				snd_soc_dapm_stream_event(rtd,
+				SNDRV_PCM_STREAM_CAPTURE,
+				SND_SOC_DAPM_STREAM_START);
+		}
+	}
 
 	for_each_rtd_codec_dai(rtd, i, codec_dai)
 		snd_soc_dai_digital_mute(codec_dai, 0,
@@ -853,7 +866,15 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 	snd_soc_dai_digital_mute(cpu_dai, 0, substream->stream);
 
 out:
+	if (ret < 0 && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_err("%s: Issue stop stream for codec_dai due to op failure %d = ret\n",
+		__func__, ret);
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_STOP);
+	}
 	mutex_unlock(&rtd->card->pcm_mutex);
+
 	return ret;
 }
 
@@ -904,6 +925,11 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 	int i, ret = 0;
 
 	mutex_lock_nested(&rtd->card->pcm_mutex, rtd->card->pcm_subclass);
+
+	ret = soc_pcm_params_symmetry(substream, params);
+	if (ret)
+		goto out;
+
 	/* perform any hw_params fixups */
 	if ((rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) &&
 				rtd->dai_link->be_hw_params_fixup) {
@@ -995,10 +1021,6 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 	component = NULL;
 
-	ret = soc_pcm_params_symmetry(substream, params);
-        if (ret)
-		goto component_err;
-
 	/* malloc a page for hostless IO */
 	if (rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) {
 		substream->dma_buffer.dev.type = SNDRV_DMA_TYPE_DEV;
@@ -1007,8 +1029,7 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 					DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 		substream->dma_buffer.private_data = NULL;
 
-		arch_setup_dma_ops(substream->dma_buffer.dev.dev,
-				   0, 0, NULL, 0);
+		of_dma_configure(substream->dma_buffer.dev.dev, NULL, true);
 		ret = snd_pcm_lib_malloc_pages(substream, PAGE_SIZE);
 		if (ret < 0)
 			goto component_err;
@@ -1476,6 +1497,7 @@ static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 	struct snd_soc_dapm_widget *widget;
 	struct snd_soc_dai *dai;
 	int prune = 0;
+	int do_prune;
 
 	/* Destroy any old FE <--> BE connections */
 	for_each_dpcm_be(fe, stream, dpcm) {
@@ -1489,13 +1511,16 @@ static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 			continue;
 
 		/* is there a valid CODEC DAI widget for this BE */
+		do_prune = 1;
 		for_each_rtd_codec_dai(dpcm->be, i, dai) {
 			widget = dai_get_widget(dai, stream);
 
 			/* prune the BE if it's no longer in our active list */
 			if (widget && widget_in_list(list, widget))
-				continue;
+				do_prune = 0;
 		}
+		if (!do_prune)
+			continue;
 
 		dev_dbg(fe->dev, "ASoC: pruning %s BE %s for %s\n",
 			stream ? "capture" : "playback",

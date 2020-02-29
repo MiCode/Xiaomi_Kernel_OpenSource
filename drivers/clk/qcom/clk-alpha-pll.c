@@ -986,13 +986,8 @@ int clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	int ret;
 
 	ret = __zonda_pll_is_enabled(pll, regmap);
-	if (ret < 0)
+	if (ret)
 		return ret;
-	else if (ret) {
-		pr_warn("%s PLL is already enabled\n",
-				clk_hw_get_name(&pll->clkr.hw));
-		return 0;
-	}
 
 	if (config->l)
 		ret |= regmap_write(regmap, PLL_L_VAL(pll), config->l);
@@ -1942,13 +1937,8 @@ void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	int ret;
 
 	ret = lucid_pll_is_enabled(pll, regmap);
-	if (ret < 0)
+	if (ret)
 		return;
-	else if (ret) {
-		pr_warn("%s PLL is already enabled\n",
-			clk_hw_get_name(&pll->clkr.hw));
-		return;
-	}
 
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
@@ -2222,13 +2212,8 @@ int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
 	int ret;
 
 	ret = lucid_pll_is_enabled(pll, regmap);
-	if (ret < 0)
+	if (ret)
 		return ret;
-	else if (ret) {
-		pr_warn("%s PLL is already enabled\n",
-				clk_hw_get_name(&pll->clkr.hw));
-		return 0;
-	}
 
 	if (config->l)
 		ret |= regmap_write(regmap, PLL_L_VAL(pll), config->l);

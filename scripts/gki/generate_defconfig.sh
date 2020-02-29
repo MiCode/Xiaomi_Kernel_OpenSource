@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (c) 2019, The Linux Foundation. All rights reserved.
+# Copyright (c) 2020, The Linux Foundation. All rights reserved.
 
 # Script to generate a defconfig variant based on the input
 
@@ -70,8 +70,9 @@ FINAL_DEFCONFIG_BLEND=`echo "${FINAL_DEFCONFIG_BLEND}" | awk '{ for (i=NF; i>1; 
 echo "defconfig blend for $REQUIRED_DEFCONFIG: $FINAL_DEFCONFIG_BLEND"
 
 MAKE_ARGS=$KERN_MAKE_ARGS \
+MAKE_PATH=${MAKE_PATH} \
 	${KERN_SRC}/scripts/kconfig/merge_config.sh $FINAL_DEFCONFIG_BLEND
-make $KERN_MAKE_ARGS savedefconfig
+${MAKE_PATH}make $KERN_MAKE_ARGS savedefconfig
 mv defconfig $CONFIGS_DIR/$REQUIRED_DEFCONFIG
 
 # Cleanup the allyes config fragment and other generated files

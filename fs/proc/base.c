@@ -1464,12 +1464,6 @@ static const struct file_operations proc_pid_sched_operations = {
  */
 
 #ifdef CONFIG_SCHED_WALT
-extern int __weak sched_wake_up_idle_show(struct seq_file *m, void *v);
-extern ssize_t __weak sched_wake_up_idle_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *offset);
-extern int __weak sched_wake_up_idle_open(struct inode *inode,
-						struct file *filp);
-
 static const struct file_operations proc_pid_sched_wake_up_idle_operations = {
 	.open		= sched_wake_up_idle_open,
 	.read		= seq_read,
@@ -1478,13 +1472,6 @@ static const struct file_operations proc_pid_sched_wake_up_idle_operations = {
 	.release	= single_release,
 };
 
-extern int __weak sched_init_task_load_show(struct seq_file *m, void *v);
-extern ssize_t __weak
-sched_init_task_load_write(struct file *file, const char __user *buf,
-					size_t count, loff_t *offset);
-extern int __weak
-sched_init_task_load_open(struct inode *inode, struct file *filp);
-
 static const struct file_operations proc_pid_sched_init_task_load_operations = {
 	.open		= sched_init_task_load_open,
 	.read		= seq_read,
@@ -1492,12 +1479,6 @@ static const struct file_operations proc_pid_sched_init_task_load_operations = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-
-extern int __weak sched_group_id_show(struct seq_file *m, void *v);
-extern ssize_t __weak
-sched_group_id_write(struct file *file, const char __user *buf,
-					size_t count, loff_t *offset);
-extern int __weak sched_group_id_open(struct inode *inode, struct file *filp);
 
 static const struct file_operations proc_pid_sched_group_id_operations = {
 	.open		= sched_group_id_open,

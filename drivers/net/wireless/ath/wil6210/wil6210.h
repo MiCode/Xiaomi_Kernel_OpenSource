@@ -1476,6 +1476,7 @@ void wil_set_crypto_rx(u8 key_index, enum wmi_key_usage key_usage,
 
 int wil_iftype_nl2wmi(enum nl80211_iftype type);
 
+int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd);
 int wil_request_firmware(struct wil6210_priv *wil, const char *name,
 			 bool load);
 int wil_request_board(struct wil6210_priv *wil, const char *name);

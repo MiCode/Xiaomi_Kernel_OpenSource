@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/irq.h>
@@ -166,6 +166,8 @@ static int ngd_slim_qmi_new_server(struct qmi_handle *hdl,
 		container_of(qmi, struct msm_slim_ctrl, qmi);
 
 	SLIM_INFO(dev, "Slimbus QMI new server event received\n");
+	/* Hold wake lock until notify slaves thread is done */
+	pm_stay_awake(dev->dev);
 	qmi->svc_info.sq_family = AF_QIPCRTR;
 	qmi->svc_info.sq_node = service->node;
 	qmi->svc_info.sq_port = service->port;
@@ -1622,6 +1624,7 @@ static int ngd_notify_slaves(void *data)
 	ret = ngd_slim_qmi_svc_event_init(&dev->qmi);
 	if (ret) {
 		pr_err("Slimbus QMI service registration failed:%d\n", ret);
+		pm_relax(dev->dev);
 		return ret;
 	}
 
@@ -1662,6 +1665,7 @@ static int ngd_notify_slaves(void *data)
 		}
 		mutex_unlock(&ctrl->m_ctrl);
 	}
+	pm_relax(dev->dev);
 	return 0;
 }
 
@@ -2117,6 +2121,17 @@ static int ngd_slim_runtime_resume(struct device *device)
 	int ret = 0;
 
 	mutex_lock(&dev->tx_lock);
+
+	if (dev->qmi.deferred_resp) {
+		SLIM_WARN(dev, "%s: RT resume called ahead of sys resume\n",
+								__func__);
+		ret = msm_slim_qmi_deferred_status_req(dev);
+		if (ret)
+			SLIM_WARN(dev, "%s: deferred resp failure\n",
+								__func__);
+		dev->qmi.deferred_resp = false;
+	}
+
 	if ((dev->state >= MSM_CTRL_ASLEEP) && (dev->qmi.handle != NULL))
 		ret = ngd_slim_power_up(dev, false);
 	if (ret || dev->qmi.handle == NULL) {
@@ -2219,6 +2234,7 @@ static int ngd_slim_resume(struct device *dev)
 	 * mark runtime-pm status as active to be consistent
 	 * with HW status
 	 */
+	mutex_lock(&cdev->tx_lock);
 	if (cdev->qmi.deferred_resp) {
 		ret = msm_slim_qmi_deferred_status_req(cdev);
 		if (ret) {
@@ -2234,6 +2250,7 @@ static int ngd_slim_resume(struct device *dev)
 	 * clock/power on
 	 */
 	SLIM_INFO(cdev, "system resume state: %d\n", cdev->state);
+	mutex_unlock(&cdev->tx_lock);
 	return ret;
 }
 #endif /* CONFIG_PM_SLEEP */
