@@ -596,6 +596,14 @@ config WIGIG_SENSING_SPI
 	  The output of the driver is CIRs (Channel Impulse Response) which
 	  must be processed in user space in order to get meaningful results.
 
+config QTI_XR_SMRTVWR_MISC
+	tristate "QTI XR Reference device Misc driver support"
+	help
+	  This driver supports the misc chips in XR Reference devices
+	  such as NDI controller chip, Power up Sensor rails etc. Note: This
+	  driver initializes gpios, enables/disables LDOs that are part of
+	  XR standalone reference device.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
