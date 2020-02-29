@@ -722,3 +722,4 @@
 };
 
 #include "sm8150-pinctrl.dtsi"
+#include "sm8150-regulator.dtsi"
