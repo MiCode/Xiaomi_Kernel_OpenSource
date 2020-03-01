@@ -98,3 +98,7 @@
 &qupv3_se13_2uart {
 	qcom,rumi_platform;
 };
+
+&gcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+};
