@@ -10,6 +10,7 @@
 #define WLFW_SERVICE_VERS_V01 0x01
 
 #define QMI_WLFW_WFC_CALL_STATUS_REQ_V01 0x0049
+#define QMI_WLFW_DEVICE_INFO_RESP_V01 0x004C
 #define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
 #define QMI_WLFW_FW_MEM_READY_IND_V01 0x0037
 #define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01 0x0044
@@ -73,6 +74,7 @@
 #define QMI_WLFW_SHUTDOWN_REQ_V01 0x0043
 #define QMI_WLFW_VBATT_REQ_V01 0x0032
 #define QMI_WLFW_ANTENNA_SWITCH_RESP_V01 0x0047
+#define QMI_WLFW_DEVICE_INFO_REQ_V01 0x004C
 #define QMI_WLFW_MAC_ADDR_REQ_V01 0x0033
 #define QMI_WLFW_RESPOND_MEM_RESP_V01 0x0036
 #define QMI_WLFW_VBATT_RESP_V01 0x0032
@@ -983,5 +985,23 @@ struct wlfw_respond_get_info_ind_msg_v01 {
 
 #define WLFW_RESPOND_GET_INFO_IND_MSG_V01_MAX_MSG_LEN 6164
 extern struct qmi_elem_info wlfw_respond_get_info_ind_msg_v01_ei[];
+
+struct wlfw_device_info_req_msg_v01 {
+	char placeholder;
+};
+
+#define WLFW_DEVICE_INFO_REQ_MSG_V01_MAX_MSG_LEN 0
+extern struct qmi_elem_info wlfw_device_info_req_msg_v01_ei[];
+
+struct wlfw_device_info_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+	u8 bar_addr_valid;
+	u64 bar_addr;
+	u8 bar_size_valid;
+	u32 bar_size;
+};
+
+#define WLFW_DEVICE_INFO_RESP_MSG_V01_MAX_MSG_LEN 25
+extern struct qmi_elem_info wlfw_device_info_resp_msg_v01_ei[];
 
 #endif
