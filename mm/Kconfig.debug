@@ -8,6 +8,15 @@ config PAGE_EXTENSION
 	  by not allocating this extra memory according to boottime
 	  configuration.
 
+config PAGE_EXTENSION_PAGE_FREE
+	bool "Add a flag in page_ext_flags to indicate if a page is free"
+	depends on PAGE_EXTENSION && QGKI
+	help
+	  Add the PAGE_FREE flag in page_ext_flags, in order to indicate
+	  whether a page from the buddy allocator is free or is in
+	  use.  This information can aid in debugging buddy allocator
+	  related issues.
+
 config DEBUG_PAGEALLOC
 	bool "Debug page memory allocations"
 	depends on DEBUG_KERNEL

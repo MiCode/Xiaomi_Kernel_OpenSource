@@ -759,6 +759,17 @@ config PERCPU_STATS
 	  information includes global and per chunk statistics, which can
 	  be used to help understand percpu memory usage.
 
+config HAVE_USERSPACE_LOW_MEMORY_KILLER
+	bool "Configure reclaim paths if there is a userspace LMK"
+	default n
+	help
+	  Configures parts of the reclaim paths in the kernel when Android
+	  has a userspace memory killer.  This configuration is done for
+	  functional (e.g. ensuring the OOM killer doesn't run at certain
+	  points) and performance purposes (e.g. preventing log-spew
+	  when the OOM killer and userspace memory killer both have the
+	  potential to run).
+
 config GUP_BENCHMARK
 	bool "Enable infrastructure for get_user_pages_fast() benchmarking"
 	help
