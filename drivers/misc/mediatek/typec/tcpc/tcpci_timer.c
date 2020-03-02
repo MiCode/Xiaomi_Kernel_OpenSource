@@ -1220,7 +1220,7 @@ static inline void tcpc_reset_timer_range(
 
 	mask = tcpc_get_timer_enable_mask(tcpc);
 
-	for (i = start; i <= end; i++) {
+	for (i = start; i < end; i++) {
 		if (mask & RT_MASK64(i)) {
 			hrtimer_try_to_cancel(&tcpc->tcpc_timer[i]);
 			tcpc_clear_timer_enable_mask(tcpc, i);
