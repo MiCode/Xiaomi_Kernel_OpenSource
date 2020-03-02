@@ -1741,6 +1741,13 @@ static int musb_gadget_queue
 	if (!req->buf)
 		return -ENODATA;
 
+	#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
+	if (musb_shutted) {
+		DBG(0, "%s, already shut down\n", __func__);
+		return -EINVAL;
+	}
+	#endif
+
 	musb_ep = to_musb_ep(ep);
 	musb = musb_ep->musb;
 
