@@ -206,7 +206,7 @@ unsigned int VENC_IRQ_ID, VDEC_IRQ_ID;
 /* extern int config_L2(int option); */
 #endif
 
-/*#define ENABLE_MMDVFS_VDEC */
+#define ENABLE_MMDVFS_VDEC
 #ifdef ENABLE_MMDVFS_VDEC
 /* <--- MM DVFS related */
 #include <mtk_smi.h>
