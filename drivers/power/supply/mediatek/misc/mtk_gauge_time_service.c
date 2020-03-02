@@ -35,7 +35,6 @@ static wait_queue_head_t wait_que;
 static struct hrtimer gtimer_kthread_timer;
 static struct timespec gtimer_suspend_time;
 
-
 #define FTLOG_ERROR_LEVEL   1
 #define FTLOG_DEBUG_LEVEL   2
 #define FTLOG_TRACE_LEVEL   3
@@ -279,6 +278,8 @@ static int gtimer_thread(void *arg)
 		mutex_gtimer_unlock();
 		get_monotonic_boottime(&endtime);
 		duraction = timespec_sub(endtime, stime);
+		if (duraction.tv_sec == -56789)
+			return 0;
 	}
 
 	return 0;

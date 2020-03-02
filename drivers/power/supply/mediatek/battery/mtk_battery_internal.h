@@ -667,6 +667,7 @@ struct simulator_log {
 
 struct mtk_battery {
 
+	int fix_coverity;
 	struct gauge_device *gdev;
 
 /*linux driver related*/
