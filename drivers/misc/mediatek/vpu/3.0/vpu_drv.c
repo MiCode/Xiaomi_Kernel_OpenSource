@@ -1718,7 +1718,7 @@ static int vpu_probe(struct platform_device *pdev)
 	int core = 0;
 	struct device *dev;
 	struct device_node *node;
-	unsigned int irq_info[3]; /* Record interrupts info from device tree */
+	unsigned int irq_info[3] = {0};
 	struct device_node *smi_node = NULL;
 	struct device_node *ipu_conn_node = NULL;
 	struct device_node *ipu_vcore_node = NULL;
