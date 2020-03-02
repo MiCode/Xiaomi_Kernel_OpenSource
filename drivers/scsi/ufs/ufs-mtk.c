@@ -29,9 +29,6 @@
 #include "ufs-mtk-block.h"
 #include "ufs-mtk-platform.h"
 #include "ufs-mtk-dbg.h"
-#ifdef SR_CLKEN_RC_READY
-#include "mtk_srclken_rc.h"
-#endif
 
 #ifdef CONFIG_HIE
 #include <mt-plat/keyhint.h>
@@ -886,11 +883,12 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 		 * After HCE enable, need disable xoufs_req_s in ufshci
 		 * when xoufs hw solution is not ready.
 		 */
-#ifdef SR_CLKEN_RC_READY
-		if (srclken_get_stage() != SRCLKEN_FULL_SET)
-
-			ufshcd_writel(hba, 0, REG_UFS_ADDR_XOUFS_ST);
-#else
+#ifndef UFS_REF_CLK_CTRL_BY_UFSHCI
+		/*
+		 * Old chip not use this, disable it always after HCE enable
+		 * to deactivate UFS_SRCCLKENA/UFS_INFRA_REQ/UFS_VRF18_REQ
+		 * after ufs_mtk_pltfrm_resume.
+		 */
 		ufshcd_writel(hba, 0, REG_UFS_ADDR_XOUFS_ST);
 #endif
 		break;
@@ -2173,12 +2171,19 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 		dev_err(dev, "ufs iomap failed\n");
 		return -ENODEV;
 	};
+#ifndef UFS_REF_CLK_CTRL_BY_UFSHCI
+	/* Old chip not use this, disable it always */
 	writel(0, ufs_base + REG_UFS_ADDR_XOUFS_ST);
-
-	// Add get_boot_type check and return ENODEV if not ufs boot
+#endif
+	/* Add get_boot_type check and return ENODEV if not ufs boot */
 	boot_type = get_boot_type();
-	if (boot_type != BOOTDEV_UFS)
+	if (boot_type != BOOTDEV_UFS) {
+#ifdef UFS_REF_CLK_CTRL_BY_UFSHCI
+		/* New chip disable it when eMMC boot */
+		writel(0, ufs_base + REG_UFS_ADDR_XOUFS_ST);
+#endif
 		return -ENODEV;
+	}
 
 	ufs_mtk_biolog_init();
 
