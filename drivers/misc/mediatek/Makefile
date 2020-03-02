@@ -53,6 +53,7 @@ obj-$(CONFIG_MTK_APUSYS) += apusys/
 obj-y += timer/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_DRAMC) += dramc/
+obj-$(CONFIG_MTK_DEBUG_LATCH) += debug_latch/
 obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
 obj-$(CONFIG_MTK_SYS_CIRQ) += cirq/
 obj-$(CONFIG_MTPROF)	+= mtprof/

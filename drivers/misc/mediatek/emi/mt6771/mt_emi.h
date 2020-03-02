@@ -22,7 +22,7 @@
 #define DECS_ON_SSPM
 #define MPU_BYPASS
 /* #define ENABLE_MPU_SLVERR */
-#define DBG_INFO_READY	0
+#define DBG_INFO_READY	1
 
 /* IRQ from device tree */
 #define MPU_IRQ_INDEX	0
