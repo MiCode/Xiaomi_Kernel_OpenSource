@@ -664,9 +664,7 @@ static int wmt_thz_get_temp(struct thermal_zone_device *thz_dev, int *pv)
 	if (sensor_select < 0 || sensor_select >= NR_TS_SENSORS) {
 		#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-					"%s ",
-					"sensor_select: %d\n",
-					__func__, sensor_select);
+					"%s ", __func__);
 		#endif
 		sensor_select = 0;
 	}
@@ -1363,9 +1361,7 @@ struct file *filp, const char __user *buf, size_t len, loff_t *data)
 	if (sensor_select < 0 || sensor_select >= NR_TS_SENSORS) {
 		#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-					"%s ",
-					"sensor_select: %d\n",
-					__func__, sensor_select);
+					"%s ",	__func__);
 		#endif
 		sensor_select = 0;
 	}
