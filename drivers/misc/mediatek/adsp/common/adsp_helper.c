@@ -415,22 +415,6 @@ static inline ssize_t adsp_A_status_show(struct device *kobj,
 }
 DEVICE_ATTR_RO(adsp_A_status);
 
-static inline ssize_t adsp_A_db_test_show(struct device *kobj,
-					  struct device_attribute *attr,
-					  char *buf)
-{
-#ifdef CFG_RECOVERY_SUPPORT
-	adsp_send_reset_wq(ADSP_RESET_TYPE_AWAKE, ADSP_A_ID);
-#else
-	adsp_aed(EXCEP_KERNEL, ADSP_A_ID);
-#endif
-	if (is_adsp_ready(ADSP_A_ID) == 1)
-		return scnprintf(buf, PAGE_SIZE, "dumping ADSP A db\n");
-	else
-		return scnprintf(buf, PAGE_SIZE, "not ready, try dump EE\n");
-}
-DEVICE_ATTR_RO(adsp_A_db_test);
-
 static inline ssize_t adsp_ipi_test_store(struct device *kobj,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -536,7 +520,6 @@ DEVICE_ATTR_RO(adsp_recovery_flag);
 
 static struct attribute *adsp_default_attrs[] = {
 	&dev_attr_adsp_A_status.attr,
-	&dev_attr_adsp_A_db_test.attr,
 	&dev_attr_adsp_ipi_test.attr,
 	&dev_attr_adsp_uart_switch.attr,
 	&dev_attr_adsp_suspend_cmd.attr,
