@@ -318,7 +318,7 @@ ENTRY(__inval_dcache_user_area)
 	b.eq    2f
 	dc      civac, x0                       // clean & invalidate D / U line
 	b       3f
-2:      dc      ivac, x0                        // invalidate D / U line
+2:      dc      civac, x0                        // invalidate D / U line
 3:      add     x0, x0, x2
 	cmp     x0, x1
 	b.lo    2b
