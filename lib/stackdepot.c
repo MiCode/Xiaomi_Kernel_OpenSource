@@ -69,6 +69,7 @@ struct stack_record {
 	struct stack_record *next;	/* Link in the hashtable */
 	u32 hash;			/* Hash in the hastable */
 	u32 size;			/* Number of frames in the stack */
+	u32 hit;
 	union handle_parts handle;
 	unsigned long entries[1];	/* Variable-sized array of entries. */
 };
@@ -79,6 +80,9 @@ static int depot_index;
 static int next_slab_inited;
 static size_t depot_offset;
 static DEFINE_SPINLOCK(depot_lock);
+static struct stack_record *max_found;
+static DEFINE_SPINLOCK(max_found_lock);
+
 
 static bool init_stack_slab(void **prealloc)
 {
@@ -137,6 +141,7 @@ static struct stack_record *depot_alloc_stack(unsigned long *entries, int size,
 
 	stack->hash = hash;
 	stack->size = size;
+	stack->hit = 0;
 	stack->handle.slabindex = depot_index;
 	stack->handle.offset = depot_offset >> STACK_ALLOC_ALIGN;
 	stack->handle.valid = 1;
@@ -193,6 +198,40 @@ void depot_fetch_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 	trace->skip = 0;
 }
 EXPORT_SYMBOL_GPL(depot_fetch_stack);
+
+void depot_hit_stack(depot_stack_handle_t handle, struct stack_trace *trace)
+{
+	union handle_parts parts = { .handle = handle };
+	void *slab = stack_slabs[parts.slabindex];
+	size_t offset = parts.offset << STACK_ALLOC_ALIGN;
+	struct stack_record *stack = slab + offset;
+	unsigned long flags;
+
+	stack->hit++;
+	spin_lock_irqsave(&max_found_lock, flags);
+	if ((!max_found) || (stack->hit > max_found->hit))
+		max_found = stack;
+	spin_unlock_irqrestore(&max_found_lock, flags);
+}
+EXPORT_SYMBOL_GPL(depot_hit_stack);
+
+void show_max_hit_page(void)
+{
+	unsigned long entries[16];
+	unsigned long flags;
+	struct stack_trace trace = {
+		.nr_entries = 0,
+		.entries = entries,
+		.max_entries = 16,
+		.skip = 0
+	};
+	spin_lock_irqsave(&max_found_lock, flags);
+	depot_fetch_stack(max_found->handle.handle, &trace);
+	pr_info("max found hit=%d\n", max_found->hit);
+	print_stack_trace(&trace, 2);
+	spin_unlock_irqrestore(&max_found_lock, flags);
+}
+EXPORT_SYMBOL_GPL(show_max_hit_page);
 
 /**
  * depot_save_stack - save stack in a stack depot.
