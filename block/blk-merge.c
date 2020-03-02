@@ -13,8 +13,6 @@
 
 #include "blk.h"
 
-#include <linux/hie.h>
-
 static struct bio *blk_bio_discard_split(struct request_queue *q,
 					 struct bio *bio,
 					 struct bio_set *bs,
@@ -667,124 +665,6 @@ static void blk_account_io_merge(struct request *req)
 	}
 }
 
-
-static int crypto_try_merge_bio(struct bio *bio, struct bio *nxt, int type)
-{
-	unsigned long iv_bio, iv_nxt;
-	struct bio_vec bv;
-	struct bvec_iter iter;
-	unsigned int count = 0;
-
-	iv_bio = bio_bc_iv_get(bio);
-	iv_nxt = bio_bc_iv_get(nxt);
-
-	if (iv_bio == BC_INVALID_IV || iv_nxt == BC_INVALID_IV)
-		return ELEVATOR_NO_MERGE;
-
-	bio_for_each_segment(bv, bio, iter)
-		count++;
-
-	if ((iv_bio + count) != iv_nxt)
-		return ELEVATOR_NO_MERGE;
-
-	return type;
-}
-
-static int crypto_try_merge(struct request *rq, struct bio *bio, int type)
-{
-	/* flag mismatch => don't merge */
-	if (rq->bio->bi_crypt_ctx.bc_flags != bio->bi_crypt_ctx.bc_flags)
-		return ELEVATOR_NO_MERGE;
-
-	/*
-	 * Check both sector and crypto iv here to make
-	 * sure blk_try_merge() allows merging only if crypto iv
-	 * is also allowed to fix below cases,
-	 *
-	 * rq and bio can do front-merge in sector view, but
-	 * not allowed by their crypto ivs.
-	 */
-	if (type == ELEVATOR_BACK_MERGE) {
-		if (blk_rq_pos(rq) + blk_rq_sectors(rq) !=
-		    bio->bi_iter.bi_sector)
-			return ELEVATOR_NO_MERGE;
-		return crypto_try_merge_bio(rq->biotail, bio, type);
-	} else if (type == ELEVATOR_FRONT_MERGE) {
-		if (bio->bi_iter.bi_sector + bio_sectors(bio) !=
-		    blk_rq_pos(rq))
-			return ELEVATOR_NO_MERGE;
-		return crypto_try_merge_bio(bio, rq->bio, type);
-	}
-
-	return ELEVATOR_NO_MERGE;
-}
-
-static bool crypto_not_mergeable(struct request *req, struct bio *nxt)
-{
-	struct bio *bio = req->bio;
-
-	/* If neither is encrypted, no veto from us. */
-	if (~(bio->bi_crypt_ctx.bc_flags | nxt->bi_crypt_ctx.bc_flags) &
-	    BC_CRYPT) {
-		return false;
-	}
-
-	/* If one's encrypted and the other isn't, don't merge. */
-	/* If one's using page index as iv, and the other isn't don't merge */
-	if ((bio->bi_crypt_ctx.bc_flags ^ nxt->bi_crypt_ctx.bc_flags)
-	    & (BC_CRYPT | BC_IV_PAGE_IDX))
-		return true;
-
-	/* If both using page index as iv */
-	if (bio->bi_crypt_ctx.bc_flags & nxt->bi_crypt_ctx.bc_flags &
-		BC_IV_PAGE_IDX) {
-		/*
-		 * Must be the same file on the same mount.
-		 *
-		 * If the same, keys shall be the same as well since
-		 * keys are bound to inodes.
-		 */
-		if ((bio_bc_inode(bio) != bio_bc_inode(nxt)) ||
-		    (bio_bc_sb(bio) != bio_bc_sb(nxt)))
-			return true;
-		/*
-		 * Page index must be contiguous.
-		 *
-		 * Check both back and front direction because
-		 * req and nxt here are not promised any orders.
-		 *
-		 * For example, merge attempt from blk_attempt_plug_merge().
-		 */
-		if ((crypto_try_merge(req, nxt, ELEVATOR_BACK_MERGE) ==
-		     ELEVATOR_NO_MERGE) &&
-		    (crypto_try_merge(req, nxt, ELEVATOR_FRONT_MERGE) ==
-		     ELEVATOR_NO_MERGE))
-			return true;
-	} else {
-		/*
-		 * Not using page index as iv: allow merge bios belong to
-		 * different inodes if their keys are exactly the same.
-		 *
-		 * Above case could happen in hw-crypto path because
-		 * key is not derived for different inodes.
-		 *
-		 * Checking keys only is sufficient here since iv or
-		 * dun shall be physical sector number which shall be taken
-		 * care by blk_try_merge().
-		 */
-
-		/* Keys shall be the same if inodes are the same */
-		if ((bio_bc_inode(bio) == bio_bc_inode(nxt)) &&
-		    (bio_bc_sb(bio) == bio_bc_sb(nxt)))
-			return false;
-
-		/* Check keys if inodes are different */
-		if (!hie_key_verify(bio, nxt))
-			return true;
-	}
-
-	return false;
-}
 /*
  * For non-mq, this has to be called with the request spinlock acquired.
  * For mq with scheduling, the appropriate queue wide lock should be held.
@@ -816,8 +696,6 @@ static struct request *attempt_merge(struct request_queue *q,
 	    !blk_write_same_mergeable(req->bio, next->bio))
 		return NULL;
 
-	if (crypto_not_mergeable(req, next->bio))
-		return NULL;
 	/*
 	 * Don't allow merge of different write hints, or for a hint with
 	 * non-hint IO.
@@ -949,8 +827,6 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 	    !blk_write_same_mergeable(rq->bio, bio))
 		return false;
 
-	if (crypto_not_mergeable(rq, bio))
-		return false;
 	/*
 	 * Don't allow merge of different write hints, or for a hint with
 	 * non-hint IO.

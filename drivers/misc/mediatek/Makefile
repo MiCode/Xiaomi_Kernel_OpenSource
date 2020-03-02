@@ -104,7 +104,6 @@ obj-$(CONFIG_MICROTRUST_TEE_SUPPORT) += teei/
 obj-$(CONFIG_TRUSTKERNEL_TEE_SUPPORT) += tkcore/
 obj-$(CONFIG_MTK_DEVMPU) += devmpu/
 obj-y += pidmap/
-obj-$(CONFIG_MTK_KEY_HINT) += keyhint/
 obj-$(CONFIG_MTK_RAM_CONSOLE) += ram_console/
 obj-$(CONFIG_MEDIATEK_SOLUTION)	+= aee/
 obj-$(CONFIG_MEDIATEK_SOLUTION) += sched/

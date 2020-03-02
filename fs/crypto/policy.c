@@ -12,7 +12,6 @@
 #include <linux/random.h>
 #include <linux/string.h>
 #include <linux/mount.h>
-#include <linux/hie.h>
 #include "fscrypt_private.h"
 
 /*
@@ -20,20 +19,13 @@
  */
 static bool is_encryption_context_consistent_with_policy(
 				const struct fscrypt_context *ctx,
-				const struct fscrypt_policy *policy,
-				const struct inode *inode)
+				const struct fscrypt_policy *policy)
 {
-
-	if ((ctx->contents_encryption_mode !=
-		 policy->contents_encryption_mode) &&
-		!(hie_is_capable(inode->i_sb) &&
-		 (ctx->contents_encryption_mode ==
-		 FS_ENCRYPTION_MODE_PRIVATE)))
-		return 0;
-
 	return memcmp(ctx->master_key_descriptor, policy->master_key_descriptor,
 		      FS_KEY_DESCRIPTOR_SIZE) == 0 &&
 		(ctx->flags == policy->flags) &&
+		(ctx->contents_encryption_mode ==
+		 policy->contents_encryption_mode) &&
 		(ctx->filenames_encryption_mode ==
 		 policy->filenames_encryption_mode);
 }
@@ -54,9 +46,7 @@ static int create_encryption_context_from_policy(struct inode *inode,
 	if (policy->flags & ~FS_POLICY_FLAGS_VALID)
 		return -EINVAL;
 
-	ctx.contents_encryption_mode =
-		fscrypt_data_crypt_mode(inode,
-		policy->contents_encryption_mode);
+	ctx.contents_encryption_mode = policy->contents_encryption_mode;
 	ctx.filenames_encryption_mode = policy->filenames_encryption_mode;
 	ctx.flags = policy->flags;
 	BUILD_BUG_ON(sizeof(ctx.nonce) != FS_KEY_DERIVATION_NONCE_SIZE);
@@ -100,8 +90,7 @@ int fscrypt_ioctl_set_policy(struct file *filp, const void __user *arg)
 								    &policy);
 	} else if (ret == sizeof(ctx) &&
 		   is_encryption_context_consistent_with_policy(&ctx,
-								&policy,
-								inode)) {
+								&policy)) {
 		/* The file already uses the same encryption policy. */
 		ret = 0;
 	} else if (ret >= 0 || ret == -ERANGE) {
@@ -138,13 +127,6 @@ int fscrypt_ioctl_get_policy(struct file *filp, void __user *arg)
 	policy.contents_encryption_mode = ctx.contents_encryption_mode;
 	policy.filenames_encryption_mode = ctx.filenames_encryption_mode;
 	policy.flags = ctx.flags;
-
-	/* in compliance with android */
-	if (S_ISDIR(inode->i_mode) &&
-		policy.contents_encryption_mode !=
-		FS_ENCRYPTION_MODE_INVALID)
-		policy.contents_encryption_mode =
-			FS_ENCRYPTION_MODE_AES_256_XTS;
 
 	memcpy(policy.master_key_descriptor, ctx.master_key_descriptor,
 				FS_KEY_DESCRIPTOR_SIZE);
@@ -237,13 +219,6 @@ int fscrypt_has_permitted_context(struct inode *parent, struct inode *child)
 	if (res != sizeof(child_ctx))
 		return 0;
 
-	parent_ctx.contents_encryption_mode =
-		fscrypt_data_crypt_mode(parent,
-		parent_ctx.contents_encryption_mode);
-	child_ctx.contents_encryption_mode =
-		fscrypt_data_crypt_mode(child,
-		child_ctx.contents_encryption_mode);
-
 	return memcmp(parent_ctx.master_key_descriptor,
 		      child_ctx.master_key_descriptor,
 		      FS_KEY_DESCRIPTOR_SIZE) == 0 &&
@@ -294,75 +269,3 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 	return preload ? fscrypt_get_encryption_info(child): 0;
 }
 EXPORT_SYMBOL(fscrypt_inherit_context);
-
-int fscrypt_set_bio_ctx(struct inode *inode, struct bio *bio)
-{
-	struct fscrypt_info *ci;
-	int ret = -ENOENT;
-
-	if (!inode || !bio)
-		return ret;
-
-	ci = inode->i_crypt_info;
-
-	if (S_ISREG(inode->i_mode) && ci &&
-	    (ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE)) {
-		WARN_ON(!hie_is_capable(inode->i_sb));
-		/* HIE: default use aes-256-xts */
-		bio_bcf_set(bio, BC_CRYPT | BC_AES_256_XTS);
-		bio->bi_crypt_ctx.bc_key_size = FS_AES_256_XTS_KEY_SIZE;
-		bio->bi_crypt_ctx.bc_ino = inode->i_ino;
-		bio->bi_crypt_ctx.bc_sb = inode->i_sb;
-
-		bio->bi_crypt_ctx.bc_info_act = &fscrypt_crypt_info_act;
-		bio->bi_crypt_ctx.bc_info =
-			fscrypt_crypt_info_act(
-			ci, BIO_BC_INFO_GET);
-		WARN_ON(!bio->bi_crypt_ctx.bc_info);
-
-#ifdef CONFIG_HIE_DEBUG
-		if (hie_debug(HIE_DBG_FS))
-			pr_info("HIE: %s: ino: %ld, bio: %p\n",
-				__func__, inode->i_ino, bio);
-#endif
-		ret = 0;
-	} else
-		bio_bcf_clear(bio, BC_CRYPT);
-
-	return ret;
-}
-
-int fscrypt_key_payload(struct bio_crypt_ctx *ctx,
-		const unsigned char **key)
-{
-	struct fscrypt_info *fi;
-
-	fi = (struct fscrypt_info *)ctx->bc_info;
-
-	if (!fi) {
-		pr_info("HIE: %s: missing crypto info\n", __func__);
-		return -ENOKEY;
-	}
-
-	if (key)
-		*key = &(fi->ci_raw_key[0]);
-
-	return ctx->bc_key_size;
-}
-
-int fscrypt_is_hw_encrypt(const struct inode *inode)
-{
-	struct fscrypt_info *ci = inode->i_crypt_info;
-
-	return S_ISREG(inode->i_mode) && ci &&
-		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
-}
-
-int fscrypt_is_sw_encrypt(const struct inode *inode)
-{
-	struct fscrypt_info *ci = inode->i_crypt_info;
-
-	return S_ISREG(inode->i_mode) && ci &&
-		ci->ci_data_mode != FS_ENCRYPTION_MODE_INVALID &&
-		ci->ci_data_mode != FS_ENCRYPTION_MODE_PRIVATE;
-}

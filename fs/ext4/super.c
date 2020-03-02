@@ -39,7 +39,6 @@
 #include <linux/crc16.h>
 #include <linux/dax.h>
 #include <linux/cleancache.h>
-#include <linux/hie.h>
 #include <linux/uaccess.h>
 
 #include <linux/kthread.h>
@@ -5919,44 +5918,6 @@ static struct file_system_type ext4_fs_type = {
 };
 MODULE_ALIAS_FS("ext4");
 
-#ifdef CONFIG_EXT4_ENCRYPTION
-int ext4_set_bio_ctx(struct inode *inode,
-	struct bio *bio)
-{
-	return fscrypt_set_bio_ctx(inode, bio);
-}
-
-static int __ext4_set_bio_ctx(struct inode *inode,
-	struct bio *bio)
-{
-	if (inode->i_sb->s_magic != EXT4_SUPER_MAGIC)
-		return -EINVAL;
-
-	return fscrypt_set_bio_ctx(inode, bio);
-}
-
-static int __ext4_key_payload(struct bio_crypt_ctx *ctx,
-	const unsigned char **key)
-{
-	if (ctx->bc_sb->s_magic != EXT4_SUPER_MAGIC)
-		return -EINVAL;
-
-	return fscrypt_key_payload(ctx, key);
-}
-
-struct hie_fs ext4_hie = {
-	.name = "ext4",
-	.key_payload = __ext4_key_payload,
-	.set_bio_context = __ext4_set_bio_ctx,
-	.priv = NULL,
-};
-#else
-int ext4_set_bio_ctx(struct inode *inode, struct bio *bio)
-{
-	return 0;
-}
-#endif
-
 /* Shared across all ext4 file systems */
 wait_queue_head_t ext4__ioend_wq[EXT4_WQ_HASH_SZ];
 
@@ -6001,10 +5962,6 @@ static int __init ext4_init_fs(void)
 	err = register_filesystem(&ext4_fs_type);
 	if (err)
 		goto out;
-
-#ifdef CONFIG_EXT4_ENCRYPTION
-	hie_register_fs(&ext4_hie);
-#endif
 
 	return 0;
 out:
