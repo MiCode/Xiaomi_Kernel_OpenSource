@@ -1204,6 +1204,7 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 		if (unlikely(larb >= SMI_LARB_NR)) {
 			M4UMSG("%s %d err port[%d]\n",
 				__func__, __LINE__, port);
+			spin_unlock(&gM4u_reg_lock);
 			return -1;
 		}
 		larb_base = gLarbBaseAddr[larb];
