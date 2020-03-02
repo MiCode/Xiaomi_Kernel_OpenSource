@@ -198,6 +198,7 @@ struct mt6885_afe_private {
 	int mtkaif_calibration_num_phase;
 	int mtkaif_dmic;
 	int mtkaif_dmic_ch34;
+	int mtkaif_adda6_only;
 
 	/* mck */
 	int mck_rate[MT6885_MCK_NUM];
