@@ -88,15 +88,15 @@ extern struct mtk_ipi_device mcupm_ipidev;
  */
 struct mtk_mbox_info mcupm_mbox_table[MCUPM_MBOX_TOTAL] = {
 	{0, 0, 0, MBOX_TABLE_SIZE, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-		{ { { { 0 } } } } },
+		{ { { { 0 } } } }, {0, 0, 0} },
 	{0, 0, 1, MBOX_TABLE_SIZE, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-		{ { { { 0 } } } } },
+		{ { { { 0 } } } }, {0, 0, 0} },
 	{0, 0, 2, MBOX_TABLE_SIZE, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-		{ { { { 0 } } } } },
+		{ { { { 0 } } } }, {0, 0, 0} },
 	{0, 0, 3, MBOX_TABLE_SIZE, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-		{ { { { 0 } } } } },
+		{ { { { 0 } } } }, {0, 0, 0} },
 	{0, 0, 4, MBOX_TABLE_SIZE, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-		{ { { { 0 } } } } },
+		{ { { { 0 } } } }, {0, 0, 0} },
 };
 
 /*
@@ -153,19 +153,24 @@ struct mtk_mbox_pin_send mcupm_mbox_pin_send[] = {
 struct mtk_mbox_pin_recv mcupm_mbox_pin_recv[] = {
 	{0, PIN_R_OFFSET_PLATFORM, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_PLATFORM, 0,
-		CH_S_PLATFORM, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+		CH_S_PLATFORM, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		{0, 0, 0, 0, 0, 0} },
 	{1, PIN_R_OFFSET_CPU_DVFS, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_CPU_DVFS, 1,
-		CH_S_CPU_DVFS, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+		CH_S_CPU_DVFS, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		{0, 0, 0, 0, 0, 0} },
 	{2, PIN_R_OFFSET_FHCTL, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_FHCTL, 2,
-		CH_S_FHCTL, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+		CH_S_FHCTL, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		{0, 0, 0, 0, 0, 0} },
 	{3, PIN_R_OFFSET_MCDI, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_MCDI, 3,
-		CH_S_MCDI, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+		CH_S_MCDI, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		{0, 0, 0, 0, 0, 0} },
 	{4, PIN_R_OFFSET_SUSPEND, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_SUSPEND, 4,
-		CH_S_SUSPEND, { 0 }, 0, 0, 0, { { { { 0 } } } } },
+		CH_S_SUSPEND, { 0 }, 0, 0, 0, { { { { 0 } } } },
+		{0, 0, 0, 0, 0, 0} },
 };
 
 #define MCUPM_TOTAL_SEND_PIN     (sizeof(mcupm_mbox_pin_send) \
