@@ -16,6 +16,7 @@
 
 #include <linux/hrtimer.h>
 #include <linux/interrupt.h>
+#include <linux/kthread.h>
 
 /* HIGH_FREQUENCY_SENSOR_GYRO udps report to hal */
 #define HIGH_FREQUENCY_SENSOR_GYRO 1
@@ -90,8 +91,10 @@ struct hf_manager_fifo {
 struct hf_manager {
 	struct list_head list;
 	struct tasklet_struct io_work_tasklet;
+	struct kthread_work io_kthread_work;
 	struct hrtimer io_poll_timer;
 	ktime_t io_poll_interval;
+	bool io_enabled;
 	unsigned long flags;
 	struct hf_device *hf_dev;
 	struct hf_manager_fifo *hf_fifo;

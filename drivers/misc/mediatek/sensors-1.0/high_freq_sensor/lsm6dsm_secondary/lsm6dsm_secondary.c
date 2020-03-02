@@ -173,8 +173,10 @@ static int lsm6dsm_probe(struct spi_device *spi_dev)
 	}
 
 	if (of_property_read_u32(spi_dev->dev.of_node,
-		"direction", &driver_dev->direction))
+		"direction", &driver_dev->direction)) {
+		pr_err("%s get direction dts fail\n", __func__);
 		goto driver_dev_fail;
+	}
 
 	driver_dev->hf_dev.dev_name = LSM6DSM_SECONDARY_NAME;
 	driver_dev->hf_dev.device_poll = HF_DEVICE_IO_POLLING;
@@ -186,7 +188,7 @@ static int lsm6dsm_probe(struct spi_device *spi_dev)
 
 	err = hf_manager_create(&driver_dev->hf_dev);
 	if (err < 0) {
-		pr_err("hf_manager_create fail\n");
+		pr_err("%s hf_manager_create fail\n", __func__);
 		err = -1;
 		goto driver_dev_fail;
 	}
@@ -194,8 +196,10 @@ static int lsm6dsm_probe(struct spi_device *spi_dev)
 	hf_device_set_private_data(&driver_dev->hf_dev, spi_dev);
 
 	err = lsm6dsm_init_device(driver_dev);
-	if (err < 0)
+	if (err < 0) {
+		pr_err("%s lsm6dsm_init_device fail\n", __func__);
 		goto hf_manager_fail;
+	}
 	return 0;
 
 hf_manager_fail:
