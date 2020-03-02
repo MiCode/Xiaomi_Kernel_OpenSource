@@ -229,8 +229,8 @@ static int get_driver_id(struct ut_drv_entry *ut_drv)
 	if (res != TEEC_SUCCESS) {
 		int ret = get_result(&op);
 
-		IMSG_ERROR("failed to get driver id, res 0x%x ret 0x%x\n",
-					res, ret);
+		IMSG_ERROR("failed to get id by UUID %08x res 0x%x ret 0x%x\n",
+					ut_drv->uuid.timeLow, res, ret);
 		return ret;
 	}
 
