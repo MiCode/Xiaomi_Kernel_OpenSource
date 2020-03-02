@@ -39,6 +39,7 @@ bool spm_is_enable_sleep(void);
 bool spm_get_is_cpu_pdn(void);
 bool spm_get_is_infra_pdn(void);
 unsigned int spm_go_to_sleep(void);
+unsigned int spm_go_to_sleep_ex(unsigned int ex_flag);
 
 bool spm_is_md_sleep(void);
 bool spm_is_md1_sleep(void);
