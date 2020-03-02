@@ -236,8 +236,6 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 	rt = sched_get_rt_rq_util(cpu);
 
 	*util = boosted_cpu_util(cpu, rt);
-	if (*util)
-		*util = uclamp_util(cpu_rq(cpu), *util);
 	*util = min(*util, max_cap);
 	*max = max_cap;
 }
