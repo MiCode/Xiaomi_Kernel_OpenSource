@@ -4528,7 +4528,10 @@ static int subsys_is_on(enum subsys_id id)
 	int r;
 	struct subsys *sys = id_to_sys(id);
 
-	WARN_ON(!sys);
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 	r = sys->ops->get_state(sys);
 
@@ -4574,7 +4577,10 @@ static int enable_subsys(enum subsys_id id)
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
-	WARN_ON(!sys);
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 #if MT_CCF_BRINGUP
 	/*pr_debug("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);*/
@@ -4635,7 +4641,10 @@ static int disable_subsys(enum subsys_id id)
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
-	WARN_ON(!sys);
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 #if MT_CCF_BRINGUP
 	/*pr_debug("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);*/
