@@ -432,7 +432,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	pio: pinctrl@1000b000 {
-		compatible = "mediatek,pinctrl-mt6739";
+		compatible = "mediatek,mt6739-pinctrl";
 		reg_bases = <&gpio>,
 			    <&io_cfg_lt>,
 			    <&io_cfg_lm>,
@@ -441,7 +441,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			    <&io_cfg_bm>,
 			    <&io_cfg_rb>,
 			    <&io_cfg_rt>;
-		eint_base = <&eint>;
+		reg_base_eint = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 168>;
