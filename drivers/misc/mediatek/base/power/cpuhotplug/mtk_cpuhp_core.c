@@ -81,7 +81,7 @@ static int cpuhp_cpu_dead(unsigned int cpu)
 
 	cluster = get_cpu_topology(cpu, &isalone);
 
-	pr_debug("cluster=%d, cpu=%d, isalone=%d\n",
+	pr_debug_ratelimited("cpu_off cluster=%d, cpu=%d, isalone=%d\n",
 		cluster, (int)cpu, isalone);
 
 	if (cpu_report_state(cpu) == CPU_DEAD_FROZEN)
@@ -90,7 +90,10 @@ static int cpuhp_cpu_dead(unsigned int cpu)
 	else
 		rc = cpuhp_platform_cpuoff(cluster, cpu, isalone, CPU_DEAD);
 
-	return notifier_from_errno(rc);
+	if (rc)
+		pr_debug_ratelimited("cpu off error! rc: %d\n", rc);
+
+	return rc;
 }
 
 static int cpuhp_cpu_up(unsigned int cpu)
@@ -101,12 +104,15 @@ static int cpuhp_cpu_up(unsigned int cpu)
 
 	cluster = get_cpu_topology(cpu, &isalone);
 
-	pr_debug("cluster=%d, cpu=%d, isalone=%d\n",
+	pr_debug_ratelimited("cpu_on cluster=%d, cpu=%d, isalone=%d\n",
 		cluster, (int)cpu, isalone);
 
 	rc = cpuhp_platform_cpuon(cluster, cpu, isalone, CPUHP_BRINGUP_CPU);
 
-	return notifier_from_errno(rc);
+	if (rc)
+		pr_debug_ratelimited("cpu on error! rc: %d\n", rc);
+
+	return rc;
 }
 
 #if 0 /* obsolete */
@@ -176,12 +182,11 @@ static int __init cpuhp_init(void)
 	hotcpu_notifier(cpuhp_callback, 0);
 #endif /* obsolete */
 
-	cpuhp_setup_state_nocalls(CPUHP_BRINGUP_CPU,
-				"hps/cpuhotplug:up", cpuhp_cpu_up,
-				NULL);
-	cpuhp_setup_state_nocalls(CPUHP_AP_IDLE_DEAD,
-				"hps/cpuhotplug:up", NULL,
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN + 5,
+				"hps/cpuhotplug",
+				cpuhp_cpu_up,
 				cpuhp_cpu_dead);
+
 	pm_notifier(cpuhp_pm_callback, 0);
 	ppm_notifier();
 	rc = cpuhp_platform_init();
