@@ -18,10 +18,10 @@
 #define DIFFERENCE_FULLOCV_ITH	200	/* mA */
 #define MTK_CHR_EXIST 1
 #define KEEP_100_PERCENT 1
-#define R_FG_VALUE	10				/* mOhm */
+#define R_FG_VALUE	5				/* mOhm */
 #define EMBEDDED_SEL 0
 #define PMIC_SHUTDOWN_CURRENT 20	/* 0.01 mA */
-#define FG_METER_RESISTANCE	75
+#define FG_METER_RESISTANCE	100
 #define CAR_TUNE_VALUE	100 /*1.00 */
 #define NO_BAT_TEMP_COMPENSATE 0
 /* NO_BAT_TEMP_COMPENSATE 1 = don't need bat_temper compensate, */
@@ -35,7 +35,7 @@
 /* define Xmins to shutdown*/
 #define SHUTDOWN_1_TIME	5
 
-#define SHUTDOWN_GAUGE1_VBAT_EN 1
+#define SHUTDOWN_GAUGE1_VBAT_EN 0
 #define SHUTDOWN_GAUGE1_VBAT 34000
 
 #define SHUTDOWN_GAUGE0_VOLTAGE 34000
@@ -58,6 +58,7 @@
 
 #define D0_SEL 0	/* not implement */
 #define AGING_SEL 0	/* not implement */
+#define DLPT_UI_REMAP_EN 0
 
 /* ADC resistor  */
 #define R_BAT_SENSE	4
@@ -84,7 +85,7 @@
 #define CHARGE_TRACKING_TIME 60
 #define DIFFERENCE_FULLOCV_VTH	1000	/* 0.1mV */
 #define CHARGE_PSEUDO_FULL_LEVEL 8000
-#define FULL_TRACKING_BAT_INT2_MULTIPLY 1
+#define FULL_TRACKING_BAT_INT2_MULTIPLY 6
 
 /* pre tracking */
 #define FG_PRE_TRACKING_EN 1
@@ -106,6 +107,8 @@
 #define AGING1_UPDATE_SOC 30
 #define AGING1_LOAD_SOC 70
 #define AGING_TEMP_DIFF 10
+#define AGING_TEMP_LOW_LIMIT 15
+#define AGING_TEMP_HIGH_LIMIT 50
 #define AGING_100_EN 1
 
 /* Aging Compensation 2*/
@@ -123,9 +126,9 @@
 #define SWOCV_OLDOCV_DIFF	300
 #define SWOCV_OLDOCV_DIFF_CHR	800
 #define VBAT_OLDOCV_DIFF	1000
-#define SWOCV_OLDOCV_DIFF_EMB		1000	/* 100mV */
+#define SWOCV_OLDOCV_DIFF_EMB	1000	/* 100mV */
 
-#define VIR_OLDOCV_DIFF_EMB		10000	/* 1000mV */
+#define VIR_OLDOCV_DIFF_EMB	10000	/* 1000mV */
 #define VIR_OLDOCV_DIFF_EMB_LT	10000	/* 1000mV */
 #define VIR_OLDOCV_DIFF_EMB_TMP	5
 
@@ -157,7 +160,7 @@
 #define DIFF_IAVG_TH 3000
 
 /* ZCV INTR */
-#define ZCV_SUSPEND_TIME 29
+#define ZCV_SUSPEND_TIME 3
 #define SLEEP_CURRENT_AVG 200 /*0.1mA*/
 #define ZCV_CAR_GAP_PERCENTAGE 5
 
@@ -229,7 +232,7 @@
 
 /* using voltage to limit uisoc in 1% case */
 /* UI_LOW_LIMIT_VTH0=36000 means 3.6v */
-#define UI_LOW_LIMIT_EN 1
+#define UI_LOW_LIMIT_EN 0
 
 #define UI_LOW_LIMIT_SOC0 200
 #define UI_LOW_LIMIT_VTH0 34500
@@ -247,6 +250,9 @@
 #define UI_LOW_LIMIT_VTH4 34500
 
 #define UI_LOW_LIMIT_TIME 99999
+
+#define MOVING_BATTEMP_EN 1
+#define MOVING_BATTEMP_THR 20
 
 
 #endif
