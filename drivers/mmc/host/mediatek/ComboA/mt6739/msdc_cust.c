@@ -77,8 +77,8 @@ u32 drv_mode[HOST_MAX_NUM] = {
 
 int dma_force[HOST_MAX_NUM]; /* used for sd ioctrol */
 
-unsigned int msdc_cg_lock_init, msdc_cg_cnt;
-spinlock_t msdc_cg_lock;
+static unsigned int msdc_cg_lock_init_t, msdc_cg_cnt_t;
+static spinlock_t msdc_cg_lock_t;
 
 /**************************************************************/
 /* Section 1: Device Tree Global Variables                    */
@@ -552,22 +552,22 @@ void msdc_clk_pre_enable(struct msdc_host *host)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&msdc_cg_lock, flags);
-	msdc_cg_cnt++;
-	if (msdc_cg_cnt > 0)
+	spin_lock_irqsave(&msdc_cg_lock_t, flags);
+	msdc_cg_cnt_t++;
+	if (msdc_cg_cnt_t > 0)
 		spm_resource_req(SPM_RESOURCE_USER_MSDC, SPM_RESOURCE_ALL);
-	spin_unlock_irqrestore(&msdc_cg_lock, flags);
+	spin_unlock_irqrestore(&msdc_cg_lock_t, flags);
 }
 
 void msdc_clk_post_disble(struct msdc_host *host)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&msdc_cg_lock, flags);
-	msdc_cg_cnt--;
-	if (msdc_cg_cnt == 0)
+	spin_lock_irqsave(&msdc_cg_lock_t, flags);
+	msdc_cg_cnt_t--;
+	if (msdc_cg_cnt_t == 0)
 		spm_resource_req(SPM_RESOURCE_USER_MSDC, SPM_RESOURCE_RELEASE);
-	spin_unlock_irqrestore(&msdc_cg_lock, flags);
+	spin_unlock_irqrestore(&msdc_cg_lock_t, flags);
 }
 
 #include <linux/seq_file.h>
@@ -1297,10 +1297,10 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	}
 #endif
 
-	if (msdc_cg_lock_init == 0) {
-		msdc_cg_lock_init = 1;
-		spin_lock_init(&msdc_cg_lock);
-		msdc_cg_cnt = 0;
+	if (msdc_cg_lock_init_t == 0) {
+		msdc_cg_lock_init_t = 1;
+		spin_lock_init(&msdc_cg_lock_t);
+		msdc_cg_cnt_t = 0;
 	}
 
 	if (host->id == 0)

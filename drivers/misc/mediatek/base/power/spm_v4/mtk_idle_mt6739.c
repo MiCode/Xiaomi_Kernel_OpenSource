@@ -232,7 +232,7 @@ bool mtk_idle_check_secure_cg(unsigned int block_mask[NR_TYPES][NF_CG_STA_RECORD
 	int ret = 0;
 	int i;
 
-	ret = mt_secure_call(MTK_SIP_KERNEL_CHECK_SECURE_CG, 0, 0, 0);
+	ret = mt_secure_call(MTK_SIP_KERNEL_CHECK_SECURE_CG, 0, 0, 0, 0);
 
 	if (ret)
 		for (i = 0; i < NR_TYPES; i++)

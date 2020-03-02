@@ -628,135 +628,178 @@ static const char * const aud_engen1_parents[] __initconst = {
 static const struct mtk_mux_clr_set_upd top_muxes[] __initconst = {
 #if 1
 	/* CLK_CFG_0 */
-	MUX_CLR_SET_UPD(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
 	CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 0, 2,
 	INVALID_MUX_GATE, INVALID_UPDATE_REG, INVALID_UPDATE_SHIFT),
-	MUX_CLR_SET_UPD(CLK_TOP_MM_SEL, "mm_sel", mm_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MM_SEL, "mm_sel", mm_parents,
 	CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 24, 3, 31, CLK_CFG_UPDATE, 3),
 	/* CLK_CFG_1 */
-	MUX_CLR_SET_UPD(CLK_TOP_MFG_SEL, "mfg_sel", mfg_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MFG_SEL, "mfg_sel", mfg_parents,
 	CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR, 24, 2, 31, CLK_CFG_UPDATE, 7),
 	/* CLK_CFG_2 */
-	MUX_CLR_SET_UPD(CLK_TOP_CAMTG_SEL, "camtg_sel", camtg_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_CAMTG_SEL, "camtg_sel", camtg_parents,
 	CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 0, 3, 7, CLK_CFG_UPDATE, 8),
-	MUX_CLR_SET_UPD(CLK_TOP_UART_SEL, "uart_sel", uart_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_UART_SEL, "uart_sel", uart_parents,
 	CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 8, 1, 15, CLK_CFG_UPDATE, 9),
-	MUX_CLR_SET_UPD(CLK_TOP_SPI_SEL, "spi_sel", spi_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SPI_SEL, "spi_sel", spi_parents,
 	CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 16, 2, 23, CLK_CFG_UPDATE, 10),
 	/* CLK_CFG_3 */
-	MUX_CLR_SET_UPD(CLK_TOP_MSDC50_0_HCLK_SEL, "msdc5hclk", msdc5hclk_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MSDC50_0_HCLK_SEL, "msdc5hclk",
+		msdc5hclk_parents,
 	CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 8, 2, 15, CLK_CFG_UPDATE, 12),
-	MUX_CLR_SET_UPD(CLK_TOP_MSDC50_0_SEL, "msdc50_0_sel", msdc50_0_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MSDC50_0_SEL, "msdc50_0_sel",
+		msdc50_0_parents,
 	CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 16, 3, 23, CLK_CFG_UPDATE, 13),
-	MUX_CLR_SET_UPD(CLK_TOP_MSDC30_1_SEL, "msdc30_1_sel", msdc30_1_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MSDC30_1_SEL, "msdc30_1_sel",
+		msdc30_1_parents,
 	CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 24, 3, 31, CLK_CFG_UPDATE, 14),
 	/* CLK_CFG_4 */
-	MUX_CLR_SET_UPD(CLK_TOP_AUDIO_SEL, "audio_sel", audio_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUDIO_SEL, "audio_sel", audio_parents,
 	CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR, 16, 2, 23, CLK_CFG_UPDATE, 17),
-	MUX_CLR_SET_UPD(CLK_TOP_AUD_INTBUS_SEL, "aud_intbus_sel", aud_intbus_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUD_INTBUS_SEL, "aud_intbus_sel",
+		aud_intbus_parents,
 	CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR, 24, 2, 31, CLK_CFG_UPDATE, 18),
 	/* CLK_CFG_6 */
-	MUX_CLR_SET_UPD(CLK_TOP_DBI0_SEL, "dbi0_sel", dbi0_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DBI0_SEL, "dbi0_sel", dbi0_parents,
 	CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 0, 3, 7, CLK_CFG_UPDATE, 23),
-	MUX_CLR_SET_UPD(CLK_TOP_SCAM_SEL, "scam_sel", scam_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SCAM_SEL, "scam_sel", scam_parents,
 	CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 8, 2, 15, CLK_CFG_UPDATE, 24),
-	MUX_CLR_SET_UPD(CLK_TOP_AUD_1_SEL, "aud_1_sel", aud_1_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUD_1_SEL, "aud_1_sel", aud_1_parents,
 	CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 16, 1, 23, CLK_CFG_UPDATE, 25),
 	/* CLK_CFG_7 */
-	MUX_CLR_SET_UPD(CLK_TOP_DISP_PWM_SEL, "disp_pwm_sel", disp_pwm_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DISP_PWM_SEL, "disp_pwm_sel",
+		disp_pwm_parents,
 	CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 0, 2, 7, CLK_CFG_UPDATE, 27),
-	MUX_CLR_SET_UPD(CLK_TOP_NFI2X_SEL, "nfi2x_sel", nfi2x_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_NFI2X_SEL, "nfi2x_sel", nfi2x_parents,
 	CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 8, 3, 15, CLK_CFG_UPDATE, 28),
-	MUX_CLR_SET_UPD(CLK_TOP_NFIECC_SEL, "nfiecc_sel", nfiecc_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_NFIECC_SEL, "nfiecc_sel", nfiecc_parents,
 	CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 16, 3, 23, CLK_CFG_UPDATE, 29),
-	MUX_CLR_SET_UPD(CLK_TOP_USB_TOP_SEL, "usb_top_sel", usb_top_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_USB_TOP_SEL, "usb_top_sel",
+		usb_top_parents,
 	CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 24, 1, 31, CLK_CFG_UPDATE, 30),
 	/* CLK_CFG_8 */
-	MUX_CLR_SET_UPD(CLK_TOP_SPM_SEL, "spm_sel", ddrphycfg_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SPM_SEL, "spm_sel", ddrphycfg_parents,
 	CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 0, 1, 7, CLK_CFG_UPDATE, 31),
-	MUX_CLR_SET_UPD(CLK_TOP_I2C_SEL, "i2c_sel", i2c_parents,
-	CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 16, 2, INVALID_MUX_GATE, CLK_CFG_UPDATE1, 1),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_I2C_SEL, "i2c_sel", i2c_parents,
+	CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 16, 2, INVALID_MUX_GATE,
+	CLK_CFG_UPDATE1, 1),
 	/* CLK_CFG_9 */
-	MUX_CLR_SET_UPD(CLK_TOP_SENIF_SEL, "senif_sel", senif_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SENIF_SEL, "senif_sel", senif_parents,
 	CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 8, 2, 15, CLK_CFG_UPDATE1, 3),
-	MUX_CLR_SET_UPD(CLK_TOP_DXCC_SEL, "dxcc_sel", dxcc_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DXCC_SEL, "dxcc_sel", dxcc_parents,
 	CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 16, 2, 23, CLK_CFG_UPDATE1, 4),
-	MUX_CLR_SET_UPD(CLK_TOP_CAMTG2_SEL, "camtg2_sel", camtg_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_CAMTG2_SEL, "camtg2_sel", camtg_parents,
 	CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 24, 3, 31, CLK_CFG_UPDATE1, 9),
 	/* CLK_CFG_10 */
-	MUX_CLR_SET_UPD(CLK_TOP_AUD_ENGEN1_SEL, "aud_engen1_sel", aud_engen1_parents,
-	CLK_CFG_10, CLK_CFG_10_SET, CLK_CFG_10_CLR, 0, 2, 7, CLK_CFG_UPDATE1, 5),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUD_ENGEN1_SEL, "aud_engen1_sel",
+		aud_engen1_parents,
+		CLK_CFG_10, CLK_CFG_10_SET, CLK_CFG_10_CLR, 0, 2, 7,
+		CLK_CFG_UPDATE1, 5),
 
 #else
 	/* CLK_CFG_0 */
-	MUX_CLR_SET_UPD(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
 		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 0, 2,
 		INVALID_MUX_GATE, INVALID_UPDATE_REG, INVALID_UPDATE_SHIFT),
-	MUX_CLR_SET_UPD(CLK_TOP_MEM_SEL, "mem_sel", mem_parents,
-		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 8, 2, 15, CLK_CFG_UPDATE, 1),
-	MUX_CLR_SET_UPD(CLK_TOP_DDRPHYCFG_SEL, "ddrphycfg_sel", ddrphycfg_parents,
-		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 16, 1, 23, CLK_CFG_UPDATE, 2),
-	MUX_CLR_SET_UPD(CLK_TOP_MM_SEL, "mm_sel", mm_parents,
-		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 24, 3, 31, CLK_CFG_UPDATE, 3),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MEM_SEL, "mem_sel", mem_parents,
+		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 8, 2, 15,
+		CLK_CFG_UPDATE, 1),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DDRPHYCFG_SEL, "ddrphycfg_sel",
+		ddrphycfg_parents,
+		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 16, 1, 23,
+		CLK_CFG_UPDATE, 2),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MM_SEL, "mm_sel", mm_parents,
+		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 24, 3, 31,
+		CLK_CFG_UPDATE, 3),
 	/* CLK_CFG_1 */
-	MUX_CLR_SET_UPD(CLK_TOP_MFG_SEL, "mfg_sel", mfg_parents,
-		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR, 24, 2, 31, CLK_CFG_UPDATE, 7),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MFG_SEL, "mfg_sel", mfg_parents,
+		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR, 24, 2, 31,
+		CLK_CFG_UPDATE, 7),
 	/* CLK_CFG_2 */
-	MUX_CLR_SET_UPD(CLK_TOP_CAMTG_SEL, "camtg_sel", camtg_parents,
-		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 0, 3, 7, CLK_CFG_UPDATE, 8),
-	MUX_CLR_SET_UPD(CLK_TOP_UART_SEL, "uart_sel", uart_parents,
-		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 8, 1, 15, CLK_CFG_UPDATE, 9),
-	MUX_CLR_SET_UPD(CLK_TOP_SPI_SEL, "spi_sel", spi_parents,
-		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 16, 2, 23, CLK_CFG_UPDATE, 10),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_CAMTG_SEL, "camtg_sel", camtg_parents,
+		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 0, 3, 7,
+		CLK_CFG_UPDATE, 8),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_UART_SEL, "uart_sel", uart_parents,
+		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 8, 1, 15,
+		CLK_CFG_UPDATE, 9),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SPI_SEL, "spi_sel", spi_parents,
+		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, 16, 2, 23,
+		CLK_CFG_UPDATE, 10),
 	/* CLK_CFG_3 */
-	MUX_CLR_SET_UPD(CLK_TOP_MSDC50_0_HCLK_SEL, "msdc5hclk", msdc5hclk_parents,
-		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 8, 2, 15, CLK_CFG_UPDATE, 12),
-	MUX_CLR_SET_UPD(CLK_TOP_MSDC50_0_SEL, "msdc50_0_sel", msdc50_0_parents,
-		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 16, 3, 23, CLK_CFG_UPDATE, 13),
-	MUX_CLR_SET_UPD(CLK_TOP_MSDC30_1_SEL, "msdc30_1_sel", msdc30_1_parents,
-		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 24, 3, 31, CLK_CFG_UPDATE, 14),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MSDC50_0_HCLK_SEL, "msdc5hclk",
+		msdc5hclk_parents,
+		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 8, 2, 15,
+		CLK_CFG_UPDATE, 12),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MSDC50_0_SEL, "msdc50_0_sel",
+		msdc50_0_parents,
+		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 16, 3, 23,
+		CLK_CFG_UPDATE, 13),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_MSDC30_1_SEL, "msdc30_1_sel",
+		msdc30_1_parents,
+		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR, 24, 3, 31,
+		CLK_CFG_UPDATE, 14),
 	/* CLK_CFG_4 */
-	MUX_CLR_SET_UPD(CLK_TOP_AUDIO_SEL, "audio_sel", audio_parents,
-		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR, 16, 2, 23, CLK_CFG_UPDATE, 17),
-	MUX_CLR_SET_UPD(CLK_TOP_AUD_INTBUS_SEL, "aud_intbus_sel", aud_intbus_parents,
-		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR, 24, 2, 31, CLK_CFG_UPDATE, 18),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUDIO_SEL, "audio_sel", audio_parents,
+		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR, 16, 2, 23,
+		CLK_CFG_UPDATE, 17),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUD_INTBUS_SEL, "aud_intbus_sel",
+		aud_intbus_parents,
+		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR, 24, 2, 31,
+		CLK_CFG_UPDATE, 18),
 	/* CLK_CFG_6 */
-	MUX_CLR_SET_UPD(CLK_TOP_DBI0_SEL, "dbi0_sel", dbi0_parents,
-		CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 0, 3, 7, CLK_CFG_UPDATE, 23),
-	MUX_CLR_SET_UPD(CLK_TOP_SCAM_SEL, "scam_sel", scam_parents,
-		CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 8, 2, 15, CLK_CFG_UPDATE, 24),
-	MUX_CLR_SET_UPD(CLK_TOP_AUD_1_SEL, "aud_1_sel", aud_1_parents,
-		CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 16, 1, 23, CLK_CFG_UPDATE, 25),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DBI0_SEL, "dbi0_sel", dbi0_parents,
+		CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 0, 3, 7,
+		CLK_CFG_UPDATE, 23),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SCAM_SEL, "scam_sel", scam_parents,
+		CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 8, 2, 15,
+		CLK_CFG_UPDATE, 24),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUD_1_SEL, "aud_1_sel", aud_1_parents,
+		CLK_CFG_6, CLK_CFG_6_SET, CLK_CFG_6_CLR, 16, 1, 23,
+		CLK_CFG_UPDATE, 25),
 	/* CLK_CFG_7 */
-	MUX_CLR_SET_UPD(CLK_TOP_DISP_PWM_SEL, "disp_pwm_sel", disp_pwm_parents,
-		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 0, 2, 7, CLK_CFG_UPDATE, 27),
-	MUX_CLR_SET_UPD(CLK_TOP_NFI2X_SEL, "nfi2x_sel", nfi2x_parents,
-		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 8, 3, 15, CLK_CFG_UPDATE, 28),
-	MUX_CLR_SET_UPD(CLK_TOP_NFIECC_SEL, "nfiecc_sel", nfiecc_parents,
-		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 16, 3, 23, CLK_CFG_UPDATE, 29),
-	MUX_CLR_SET_UPD(CLK_TOP_USB_TOP_SEL, "usb_top_sel", usb_top_parents,
-		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 24, 1, 31, CLK_CFG_UPDATE, 30),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DISP_PWM_SEL, "disp_pwm_sel",
+		disp_pwm_parents,
+		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 0, 2, 7,
+		CLK_CFG_UPDATE, 27),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_NFI2X_SEL, "nfi2x_sel", nfi2x_parents,
+		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 8, 3, 15,
+		CLK_CFG_UPDATE, 28),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_NFIECC_SEL, "nfiecc_sel",
+		nfiecc_parents,
+		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 16, 3, 23,
+		CLK_CFG_UPDATE, 29),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_USB_TOP_SEL, "usb_top_sel",
+		usb_top_parents,
+		CLK_CFG_7, CLK_CFG_7_SET, CLK_CFG_7_CLR, 24, 1, 31,
+		CLK_CFG_UPDATE, 30),
 	/* CLK_CFG_8 */
-	MUX_CLR_SET_UPD(CLK_TOP_SPM_SEL, "spm_sel", ddrphycfg_parents,
-		CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 0, 1, 7, CLK_CFG_UPDATE, 31),
-	MUX_CLR_SET_UPD(CLK_TOP_I2C_SEL, "i2c_sel", i2c_parents,
-		CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 16, 2, 23, CLK_CFG_UPDATE1, 1),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SPM_SEL, "spm_sel", ddrphycfg_parents,
+		CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 0, 1, 7,
+		CLK_CFG_UPDATE, 31),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_I2C_SEL, "i2c_sel", i2c_parents,
+		CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 16, 2, 23,
+		CLK_CFG_UPDATE1, 1),
 	/* CLK_CFG_9 */
-	MUX_CLR_SET_UPD(CLK_TOP_SENIF_SEL, "senif_sel", senif_parents,
-		CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 8, 2, 15, CLK_CFG_UPDATE1, 3),
-	MUX_CLR_SET_UPD(CLK_TOP_DXCC_SEL, "dxcc_sel", dxcc_parents,
-		CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 16, 2, 23, CLK_CFG_UPDATE1, 4),
-	MUX_CLR_SET_UPD(CLK_TOP_CAMTG2_SEL, "camtg2_sel", camtg_parents,
-		CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 24, 3, 31, CLK_CFG_UPDATE1, 9),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_SENIF_SEL, "senif_sel", senif_parents,
+		CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 8, 2, 15,
+		CLK_CFG_UPDATE1, 3),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_DXCC_SEL, "dxcc_sel", dxcc_parents,
+		CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 16, 2, 23,
+		CLK_CFG_UPDATE1, 4),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_CAMTG2_SEL, "camtg2_sel", camtg_parents,
+		CLK_CFG_9, CLK_CFG_9_SET, CLK_CFG_9_CLR, 24, 3, 31,
+		CLK_CFG_UPDATE1, 9),
 	/* CLK_CFG_10 */
-	MUX_CLR_SET_UPD(CLK_TOP_AUD_ENGEN1_SEL, "aud_engen1_sel", aud_engen1_parents,
-		CLK_CFG_10, CLK_CFG_10_SET, CLK_CFG_10_CLR, 0, 2, 7, CLK_CFG_UPDATE1, 5),
+	MUX_CLR_SET_UPD_MT6739(CLK_TOP_AUD_ENGEN1_SEL, "aud_engen1_sel",
+		aud_engen1_parents,
+		CLK_CFG_10, CLK_CFG_10_SET, CLK_CFG_10_CLR, 0, 2, 7,
+		CLK_CFG_UPDATE1, 5),
 #endif
 };
 static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
 {
 #if 1
-	struct mtk_clk_gate *cg = to_clk_gate(hw);
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
 
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
@@ -771,7 +814,7 @@ static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
 static int mtk_cg_bit_is_set(struct clk_hw *hw)
 {
 #if 1
-	struct mtk_clk_gate *cg = to_clk_gate(hw);
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
 
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
@@ -785,7 +828,7 @@ static int mtk_cg_bit_is_set(struct clk_hw *hw)
 #if 1
 static void mtk_cg_set_bit(struct clk_hw *hw)
 {
-	struct mtk_clk_gate *cg = to_clk_gate(hw);
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 
 	regmap_update_bits(cg->regmap, cg->sta_ofs, BIT(cg->bit), BIT(cg->bit));
 }
@@ -793,7 +836,7 @@ static void mtk_cg_set_bit(struct clk_hw *hw)
 static void mtk_cg_clr_bit(struct clk_hw *hw)
 {
 #if 1
-	struct mtk_clk_gate *cg = to_clk_gate(hw);
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 
 	regmap_update_bits(cg->regmap, cg->sta_ofs, BIT(cg->bit), 0);
 #endif
@@ -1156,7 +1199,7 @@ static const struct mtk_gate venc_clks[] __initconst = {
 		.fmax = MT6739_PLL_FMAX,				\
 		.fmin = MT6739_PLL_FMIN,			\
 		.pcwbits = _pcwbits,					\
-		.pcwintbits = _pcwintbits,			\
+		.pcwibits = _pcwintbits,			\
 		.pcwchgreg = _pcwchgreg,			\
 		.pd_reg = _pd_reg,					\
 		.pd_shift = _pd_shift,					\

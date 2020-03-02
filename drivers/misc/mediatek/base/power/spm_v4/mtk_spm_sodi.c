@@ -36,7 +36,7 @@
 
 #if defined(CONFIG_MACH_MT6739)
 #include <mtk_clkbuf_ctl.h>
-#include <mtk_pmic_api_buck.h>
+#include "pmic_api_buck.h"
 #include <mt-plat/mtk_rtc.h>
 #endif
 
