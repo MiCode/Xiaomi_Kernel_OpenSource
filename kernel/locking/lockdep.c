@@ -132,6 +132,52 @@ module_param(lock_stat, int, 0644);
 #define LOCK_DEPTH  2
 #endif
 
+#ifdef MTK_LOCK_MONITOR
+#define MAX_LOCK_NAME  128
+
+static char buf_lock[256];
+static unsigned int lock_mon_1st_th_ms = 2000; /* show name */
+static unsigned int lock_mon_2nd_th_ms = 5000; /* show backtrace */
+static unsigned int lock_mon_3rd_th_ms = 15000; /* trigger Kernel API dump */
+static unsigned int lock_mon_period_ms = 1000; /* check held locks */
+static unsigned int lock_mon_show_more_s = 8; /* show more information */
+static unsigned int lock_mon_door;
+static struct delayed_work lock_mon_work;
+
+static const char * const held_lock_white_list[] = {
+	"&tty->ldisc_sem",
+	"&ldata->atomic_read_lock",
+	"&f->f_pos_lock",
+	"&p->lock",
+	"&of->mutex",
+	"&epfile->mutex"
+};
+
+static unsigned long long sec_high(unsigned long long nsec)
+{
+	do_div(nsec, 1000000000);
+	return nsec;
+}
+
+static unsigned long sec_low(unsigned long long nsec)
+{
+	/* exclude part of nsec */
+	return do_div(nsec, 1000000000)/1000;
+}
+#endif
+
+#define TO_KERNEL_LOG  0x1
+#define TO_FTRACE      0x2
+#define TO_BOTH  (TO_KERNEL_LOG|TO_FTRACE)
+
+static void lock_mon_msg(char *buf, int out)
+{
+	if (out & TO_FTRACE)
+		trace_lock_monitor_msg(buf);
+	if (out & TO_KERNEL_LOG)
+		pr_info("%s\n", buf);
+}
+
 static void lockdep_aee(void)
 {
 #ifdef MTK_LOCK_DEBUG
@@ -685,34 +731,40 @@ void held_lock_save_trace(struct stack_trace *trace, unsigned long *entries)
 	save_stack_trace(trace);
 }
 
-void held_lock_show_trace(struct stack_trace *trace, int spaces)
+void held_lock_show_trace(struct stack_trace *trace, int output)
 {
 	int i;
+	char buf[256];
 
 	if (!trace || !trace->entries)
 		return;
 
-	for (i = 0; i < trace->nr_entries; i++)
-		pr_info("%*c%pS\n", 1 + spaces, ' ', (void *)trace->entries[i]);
+	for (i = 0; i < trace->nr_entries; i++) {
+		snprintf(buf, sizeof(buf), "%*c%pS", 6, ' ',
+			(void *)trace->entries[i]);
+		lock_mon_msg(buf, output);
+	}
 }
 
 static void lockdep_print_held_locks(struct task_struct *curr)
 {
 	int i, depth = curr->lockdep_depth;
+	struct held_lock *hlock;
 
 	if (!depth) {
 		printk("no locks held by %s/%d.\n", curr->comm, task_pid_nr(curr));
 		return;
 	}
-	pr_info("%d lock%s held by %s/%d/stat[%ld] on CPU#%d:\n",
+	pr_info("%d lock%s held by %s/%d/[%ld] on CPU#%d:\n",
 		depth, depth > 1 ? "s" : "", curr->comm,
 		curr->pid, curr->state, task_cpu(curr));
 
+	hlock = curr->held_locks;
 	for (i = 0; i < depth; i++) {
 		printk(" #%d: ", i);
-		print_lock(curr->held_locks + i);
+		print_lock(hlock + i);
 		/* MTK_LOCK_DEBUG_HELD_LOCK */
-		held_lock_show_trace(&(curr->held_locks + i)->trace, 5);
+		held_lock_show_trace(&(hlock + i)->trace, TO_KERNEL_LOG);
 	}
 }
 
@@ -3625,6 +3677,9 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 	/* MTK_LOCK_DEBUG_HELD_LOCK */
 	held_lock_save_trace(&hlock->trace, hlock->entries);
 
+	/* MTK_LOCK_MONITOR */
+	hlock->timestamp = sched_clock();
+
 	if (check && !mark_irqflags(curr, hlock))
 		return 0;
 
@@ -3949,6 +4004,9 @@ __lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 
 	if (hlock->instance == lock)
 		lock_release_holdtime(hlock);
+
+	/* MTK_LOCK_MONITOR */
+	hlock->timestamp = 0;
 
 	WARN(hlock->pin_count, "releasing a pinned lock\n");
 
@@ -4750,10 +4808,13 @@ retry:
 		/*
 		 * It's not reliable to print a task's held locks
 		 * if it's not sleeping (or if it's not the current
-		 * task):
+		 * task). But we still think the information from
+		 * non-sleeping tasks are valuable.
 		 */
+#if 0
 		if (p->state == TASK_RUNNING && p != current)
 			continue;
+#endif
 		if (p->lockdep_depth)
 			lockdep_print_held_locks(p);
 		if (!unlock)
@@ -4835,6 +4896,8 @@ void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 				? "RCU used illegally from idle CPU!\n"
 				: "",
 	       rcu_scheduler_active, debug_locks);
+	pr_info("cpu_id = %d, cpu_is_offline = %ld\n",
+		raw_smp_processor_id(), cpu_is_offline(raw_smp_processor_id()));
 
 	/*
 	 * If a CPU is in the RCU-free window in idle (ie: in the section
@@ -5346,5 +5409,290 @@ void lockdep_free_task(struct task_struct *task)
 		task->xhlocks = NULL;
 		kfree(tmp);
 	}
+}
+#endif
+
+#ifdef MTK_LOCK_MONITOR
+static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
+{
+	char str[KSYM_NAME_LEN];
+	const char *lock_name;
+	char name_version[8] = { 0 };
+	char subclass[8] = { 0 };
+
+	lock_name = class->name;
+	if (!lock_name) {
+		lock_name = __get_key_name(class->key, str);
+		snprintf(name, MAX_LOCK_NAME, "%s", lock_name);
+	} else {
+		if (class->name_version > 1)
+			snprintf(name_version, 8, "#%d", class->name_version);
+		if (class->subclass)
+			snprintf(subclass, 8, "/%d", class->subclass);
+		snprintf(name, MAX_LOCK_NAME, "%s%s%s",
+			lock_name, name_version, subclass);
+	}
+}
+
+static void lockdep_check_held_locks(struct task_struct *curr, bool en)
+{
+	int i;
+	struct held_lock *hlock;
+	unsigned long long timestamp_bak;
+
+	if (!curr->lockdep_depth)
+		return;
+
+	for (i = 0; i < curr->lockdep_depth; i++) {
+		unsigned long long t_diff;
+
+		hlock = curr->held_locks + i;
+		if (hlock->timestamp == 0)
+			continue;
+
+		timestamp_bak = hlock->timestamp;
+		t_diff = sched_clock() - hlock->timestamp;
+		do_div(t_diff, 1000000);
+
+		if (t_diff > lock_mon_1st_th_ms) {
+			struct lock_class *class;
+			char name[MAX_LOCK_NAME];
+			unsigned int class_idx = hlock->class_idx;
+			bool skip_this = 0;
+			int j, output = TO_FTRACE;
+			int list_num = ARRAY_SIZE(held_lock_white_list);
+
+			/* Don't re-read hlock->class_idx */
+			barrier();
+
+			if (!class_idx || (class_idx - 1) >= MAX_LOCKDEP_KEYS)
+				continue;
+
+			class = lock_classes + class_idx - 1;
+			get_lock_name(class, name);
+
+			/* check white list */
+			for (j = 0; j < list_num; j++) {
+				if (!strcmp(name, held_lock_white_list[j]))
+					skip_this = 1;
+				/* this is a special case */
+				if (!strncmp(name, "s_active", 8))
+					skip_this = 1;
+			}
+			/* locks might be unlocked in runtime */
+			if (skip_this || hlock->timestamp == 0 ||
+				timestamp_bak != hlock->timestamp)
+				continue;
+
+			snprintf(buf_lock, sizeof(buf_lock),
+				"(%s) held by %s/%d/[%ld] on CPU#%d/IRQ[%s] from [%lld.%06lu]",
+				name, curr->comm, curr->pid,
+				curr->state, task_cpu(curr),
+				hlock->hardirqs_off ? "off" : "on",
+				sec_high(hlock->timestamp),
+				sec_low(hlock->timestamp));
+			lock_mon_msg(buf_lock, TO_BOTH);
+
+			if (t_diff > lock_mon_2nd_th_ms && en)
+				output = TO_BOTH;
+
+			held_lock_show_trace(&hlock->trace, output);
+		}
+	}
+}
+
+static void check_held_locks(void)
+{
+	struct task_struct *g, *p;
+	int count = 10;
+	int unlock = 1;
+	unsigned long long time_sec = sec_high(sched_clock());
+	bool en = !(do_div(time_sec, lock_mon_show_more_s));
+
+	if (unlikely(!debug_locks))
+		return;
+
+	/*
+	 * Here we try to get the tasklist_lock as hard as possible,
+	 * if not successful after 2 seconds we ignore it (but keep
+	 * trying). This is to enable a debug printout even if a
+	 * tasklist_lock-holding task deadlocks or crashes.
+	 */
+retry:
+	if (!read_trylock(&tasklist_lock)) {
+		if (count) {
+			count--;
+			mdelay(200);
+			goto retry;
+		}
+		unlock = 0;
+	}
+
+	do_each_thread(g, p) {
+		if (p->lockdep_depth)
+			lockdep_check_held_locks(p, en);
+		if (!unlock)
+			if (read_trylock(&tasklist_lock))
+				unlock = 1;
+	} while_each_thread(g, p);
+
+	if (unlock)
+		read_unlock(&tasklist_lock);
+}
+
+static void check_debug_locks_stats(void)
+{
+	char str[256] = { 0 };
+	char buf[48];
+	unsigned long long time_sec;
+
+	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
+		snprintf(buf, sizeof(buf),
+			" lock-classes [%lu]", nr_lock_classes);
+		strlcat(str, buf, sizeof(str));
+	}
+	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES) {
+		snprintf(buf, sizeof(buf),
+			" direct dependencies [%lu]", nr_list_entries);
+		strlcat(str, buf, sizeof(str));
+	}
+	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS) {
+		snprintf(buf, sizeof(buf),
+			" dependency chains [%lu]", nr_lock_chains);
+		strlcat(str, buf, sizeof(str));
+	}
+	if (nr_chain_hlocks >= MAX_LOCKDEP_CHAIN_HLOCKS) {
+		snprintf(buf, sizeof(buf),
+			" dependency chain hlocks [%d]", nr_chain_hlocks);
+		strlcat(str, buf, sizeof(str));
+	}
+	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES) {
+		snprintf(buf, sizeof(buf),
+			" stack-trace entries [%lu]", nr_stack_trace_entries);
+		strlcat(str, buf, sizeof(str));
+	}
+	/* check debug_locks per 10 seconds */
+	time_sec = sec_high(sched_clock());
+	if (!debug_locks && !do_div(time_sec, 10))
+		pr_info("debug_locks is off:%s\n", str);
+}
+
+static void lock_monitor_work(struct work_struct *work)
+{
+	check_debug_locks_stats();
+	check_held_locks();
+	cancel_delayed_work(&lock_mon_work);
+	queue_delayed_work(system_unbound_wq, &lock_mon_work,
+		msecs_to_jiffies(lock_mon_period_ms));
+}
+
+#define DECLARE_LOCK_MONITOR_MATCH(name, param) \
+static ssize_t lock_mon_##name##_write(struct file *filp, \
+	const char *ubuf, size_t cnt, loff_t *data) \
+{ \
+	char buf[64]; \
+	int ret; \
+	\
+	if (!lock_mon_door) \
+		return cnt; \
+	\
+	if (cnt >= sizeof(buf)) \
+		return -EINVAL; \
+	\
+	if (copy_from_user(&buf, ubuf, cnt)) \
+		return -EFAULT; \
+	\
+	buf[cnt] = 0; \
+	\
+	ret = kstrtouint(buf, 10, &param); \
+	if (ret) \
+		return ret; \
+	\
+	return cnt; \
+} \
+\
+static ssize_t lock_mon_##name##_read(struct file *file, \
+	char __user *user_buf, size_t count, loff_t *ppos) \
+{ \
+	char buf[32]; \
+	int len; \
+	\
+	len = snprintf(buf, sizeof(buf), "%d\n", param); \
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len); \
+} \
+\
+static const struct file_operations lock_mon_##name##_fops = { \
+	.open = simple_open, \
+	.read = lock_mon_##name##_read, \
+	.write = lock_mon_##name##_write, \
+}
+
+DECLARE_LOCK_MONITOR_MATCH(period, lock_mon_period_ms);
+DECLARE_LOCK_MONITOR_MATCH(1st_th, lock_mon_1st_th_ms);
+DECLARE_LOCK_MONITOR_MATCH(2nd_th, lock_mon_2nd_th_ms);
+DECLARE_LOCK_MONITOR_MATCH(3rd_th, lock_mon_3rd_th_ms);
+DECLARE_LOCK_MONITOR_MATCH(show_more, lock_mon_show_more_s);
+
+static ssize_t lock_monitor_door_write(struct file *filp,
+	const char *ubuf, size_t cnt, loff_t *data)
+{
+	char buf[8];
+
+	if (cnt >= sizeof(buf) || cnt <= 1UL)
+		return cnt;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt-1UL] = 0;
+
+	if (strncmp("open", buf, 4) == 0)
+		lock_mon_door = 1;
+	if (strncmp("close", buf, 5) == 0)
+		lock_mon_door = 0;
+
+	return cnt;
+}
+
+static const struct file_operations lock_mon_door_fops = {
+	.open = simple_open,
+	.write = lock_monitor_door_write,
+};
+
+/*
+ * Lock monitor checks the hold time of all held locks periodly.
+ * Type of spinlock, mutex, rw_semaphore, and RCU are supported.
+ * Type of semaphore and rt_mutex are not supported.
+ */
+void lock_monitor_init(void)
+{
+	struct proc_dir_entry *root;
+	struct proc_dir_entry *pe;
+
+	root = proc_mkdir("lockmon", NULL);
+	if (!root)
+		return;
+	pe = proc_create("door", 0220, root, &lock_mon_door_fops);
+	if (!pe)
+		return;
+	pe = proc_create("period_ms", 0664, root, &lock_mon_period_fops);
+	if (!pe)
+		return;
+	pe = proc_create("1st_th_ms", 0664, root, &lock_mon_1st_th_fops);
+	if (!pe)
+		return;
+	pe = proc_create("2nd_th_ms", 0664, root, &lock_mon_2nd_th_fops);
+	if (!pe)
+		return;
+	pe = proc_create("3rd_th_ms", 0664, root, &lock_mon_3rd_th_fops);
+	if (!pe)
+		return;
+	pe = proc_create("show_more", 0664, root, &lock_mon_show_more_fops);
+	if (!pe)
+		return;
+
+	INIT_DELAYED_WORK(&lock_mon_work, lock_monitor_work);
+	queue_delayed_work(system_unbound_wq, &lock_mon_work,
+		msecs_to_jiffies(lock_mon_period_ms));
 }
 #endif
