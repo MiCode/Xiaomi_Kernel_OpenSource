@@ -35,6 +35,8 @@ int infra_set_timeout(const struct plt_cfg_bus_latch *self, const char *buf)
 
 	for (i = 0; i < 4; i++) {
 		arg = strsep(&p, " ");
+		if (arg == NULL)
+			return -EINVAL;
 		if (kstrtoul(arg, 16, &input) != 0) {
 			pr_info("%s:%d: kstrtoul fail for %s\n",
 				 __func__, __LINE__, p);
