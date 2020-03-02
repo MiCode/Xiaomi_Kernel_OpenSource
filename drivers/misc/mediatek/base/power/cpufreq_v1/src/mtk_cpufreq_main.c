@@ -1401,7 +1401,9 @@ int turbo_flag;
 static int _mt_cpufreq_cpu_CB(enum hp_action action,
 					unsigned int cpu)
 {
+#if 0
 	unsigned int online_cpus = num_online_cpus();
+#endif
 	struct device *dev;
 	enum mt_cpu_dvfs_id cluster_id;
 	/* CPU mask - Get on-line cpus per-cluster */
@@ -1423,8 +1425,10 @@ static int _mt_cpufreq_cpu_CB(enum hp_action action,
 		cpus[i] = cpumask_weight(&cpu_online_cpumask[i]);
 	}
 
+#if 0
 	cpufreq_ver("@%s():%d, cpu = %d, action = %lu, num_online_cpus = %d\n"
 	, __func__, __LINE__, cpu, action, online_cpus);
+#endif
 
 	dev = get_cpu_device(cpu);
 
@@ -1448,8 +1452,10 @@ static int _mt_cpufreq_cpu_CB(enum hp_action action,
 		}
 	}
 
+#if 0
 	cpufreq_ver("@%s():%d, cpu = %d, action = %lu, num_online_cpus = %d\n"
 	, __func__, __LINE__, cpu, action, online_cpus);
+#endif
 
 	return NOTIFY_OK;
 }
