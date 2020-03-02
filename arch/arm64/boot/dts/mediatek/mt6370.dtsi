@@ -132,7 +132,8 @@
 			db_vneg_20ms = <1>; /* 1 = DB VNEG discharge 20ms when shutdown; 0 = disable */
 			db_vneg_disc = <0>; /*  1 = Discharge VNEG when turn off; 0 = disable */
 			db_vpos_20ms = <1>; /* 1 = DB VPOS discharge 20ms when shutdown; 0 = disable */
-			db_vpos_disc = <0>; /*  1 = Discharge VPOS when turn off; 0 = disable */
+			/*  1 = Discharge VPOS when turn off; 0 = disable */
+			db_vpos_disc = <1>;
 			db_delay = <3>; /* 0 = no constraint; 1 = 0 ms; 2 = 1 ms; 3 = 4 ms */
 			db_vbst  = <5700>; /* mV */
 			db_vpos_slew = <1>; /* 0 : 8.46 V/ms; 1 : 5.79 V/ms; 2: 3.87 V/ms; 3: 2.97V/ms */
