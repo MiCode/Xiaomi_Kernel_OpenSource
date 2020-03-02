@@ -172,7 +172,7 @@ static struct fscrypt_mode available_modes[] = {
 };
 
 static struct fscrypt_mode *
-select_encryption_mode(const struct fscrypt_info *ci, const struct inode *inode)
+select_encryption_mode(struct fscrypt_info *ci, const struct inode *inode)
 {
 	if (!fscrypt_valid_enc_modes(ci->ci_data_mode, ci->ci_filename_mode)) {
 		fscrypt_warn(inode->i_sb,
@@ -183,14 +183,17 @@ select_encryption_mode(const struct fscrypt_info *ci, const struct inode *inode)
 	}
 
 	if (S_ISREG(inode->i_mode)) {
+		ci->ci_format = CI_DATA_MODE;
 		/* HIE: default use aes-256-xts */
 		if (ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE)
 			return &available_modes[FS_ENCRYPTION_MODE_AES_256_XTS];
 		return &available_modes[ci->ci_data_mode];
 	}
 
-	if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))
+	if (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)) {
+		ci->ci_format = CI_FNAME_MODE;
 		return &available_modes[ci->ci_filename_mode];
+	}
 
 	WARN_ONCE(1, "fscrypt: filesystem tried to load encryption info for inode %lu, which is not encryptable (file type %d)\n",
 		  inode->i_ino, (inode->i_mode & S_IFMT));
@@ -237,8 +240,10 @@ static int find_and_derive_key(struct fscrypt_info *crypt_info,
 			err = 0;
 		}
 	} else {
-		err = derive_key_aes(payload->raw, ctx, derived_key,
-				     mode->keysize);
+		if (!fscrypt_is_private_mode(crypt_info)) {
+			err = derive_key_aes(payload->raw, ctx, derived_key,
+					     mode->keysize);
+		}
 	}
 	up_read(&key->sem);
 	key_put(key);
@@ -657,9 +662,8 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	res = find_and_derive_key(crypt_info, inode, &ctx, raw_key, mode);
 	if (res)
 		goto out;
-	
-	if (S_ISREG(inode->i_mode) &&
-		crypt_info->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE)
+
+	if (fscrypt_is_private_mode(crypt_info))
 		goto hw_encrypt_out;
 
 	res = setup_crypto_transform(crypt_info, mode, raw_key, inode);
