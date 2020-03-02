@@ -245,20 +245,29 @@ static int ssmr_put(u32 feat)
 	return TZ_RESULT_SUCCESS;
 }
 
-void _get_MCM_from_SSMR(void)
+TZ_RESULT _get_MCM_from_SSMR(void)
 {
 	uint64_t pa = 0x0ULL;
 	uint32_t size = 0x0;
 	int i, test_mcm_num;
 
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+	test_mcm_num = 1;
+#else
+	test_mcm_num = 0;
+#endif
+
 #if ssmr_ready_for_mcm
 	test_mcm_num = countof(_ssmr_CM_ary);
-#else
-	test_mcm_num = 1;
 #endif
 
 	KREE_DEBUG("[%s][%d] test_mcm_num= %d\n", __func__, __LINE__,
 		   test_mcm_num);
+	if (test_mcm_num == 0) {
+		KREE_DEBUG("[%s][%d] invalid test chmem:test_mcm_num= %d\n",
+			__func__, __LINE__, test_mcm_num);
+		return TZ_RESULT_ERROR_BAD_PARAMETERS;
+	}
 
 	_available_mcm_num = 0;	//init
 	for (i = 0; i < test_mcm_num; i++) {
@@ -273,6 +282,8 @@ void _get_MCM_from_SSMR(void)
 			_available_mcm_num++;
 	}
 	_show_t_CM_ary();	/*print and verify */
+
+	return TZ_RESULT_SUCCESS;
 }
 
 void _free_MCM_to_SSMR(void)
@@ -777,7 +788,11 @@ int chunk_memory_ut(void *args)
 {
 	int ret;
 
-	_get_MCM_from_SSMR();
+	ret = _get_MCM_from_SSMR();
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_DEBUG("call _get_MCM_from_SSMR fail(ret=0x%x).\n", ret);
+		return TZ_RESULT_ERROR_BAD_PARAMETERS;
+	}
 
 #if enbFg
 	/*default test alloc_size is 2MB, you can update by the API */
