@@ -706,6 +706,7 @@ int do_ptim_gauge(bool isSuspend, unsigned int *bat,
 #endif
 
 #ifdef DLPT_FEATURE_SUPPORT
+#define DLPT_NOTIFY_FAST_UISOC 30
 
 static unsigned int ptim_bat_vol;
 static signed int ptim_R_curr;
@@ -1090,14 +1091,11 @@ int dlpt_notify_handler(void *unused)
 	cur_ui_soc = pre_ui_soc;
 
 	do {
-#if defined(CONFIG_MTK_BASE_POWER)
-		if (dpidle_active_status())
-			dlpt_notify_interval = HZ * 20; /* light-loading mode */
+		if (pre_ui_soc > DLPT_NOTIFY_FAST_UISOC)
+			dlpt_notify_interval = HZ * 20;
 		else
-			dlpt_notify_interval = HZ * 10; /* normal mode */
-#else
-		dlpt_notify_interval = HZ * 10; /* normal mode */
-#endif
+			dlpt_notify_interval = HZ * 10;
+
 		wait_event_interruptible(dlpt_notify_waiter,
 			(dlpt_notify_flag == true));
 
