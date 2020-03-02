@@ -158,18 +158,21 @@ static unsigned int __mtk_iommu_get_domain_id(
 static unsigned int mtk_iommu_get_domain_id(
 					struct device *dev)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
-	unsigned int larbid, portid, domain_id;
+	struct iommu_fwspec *fwspec;
+	unsigned int larbid, portid, domain_id = 0;
 
+	if (!dev)
+		return MTK_IOVA_DOMAIN_COUNT;
+
+	fwspec = dev->iommu_fwspec;
 	larbid = MTK_IOMMU_TO_LARB(fwspec->ids[0]);
 	portid = MTK_IOMMU_TO_PORT(fwspec->ids[0]);
 
 	domain_id = __mtk_iommu_get_domain_id(larbid, portid);
 	if (domain_id >= MTK_IOVA_DOMAIN_COUNT)
 		dev_notice(dev, "%s, %d, cannot find domain of port%d[%d-%d]\n",
-			    __func__, __LINE__, fwspec->ids[0],
-			    larbid, portid);
-
+			  __func__, __LINE__, fwspec->ids[0],
+			  larbid, portid);
 	return domain_id;
 }
 
@@ -195,10 +198,14 @@ static struct iommu_domain *__mtk_iommu_get_domain(
 static struct mtk_iommu_domain *__mtk_iommu_get_mtk_domain(
 					struct device *dev)
 {
-	struct mtk_iommu_data *data = dev->iommu_fwspec->iommu_priv;
+	struct mtk_iommu_data *data;
 	struct mtk_iommu_domain *dom;
 	unsigned int domain_id;
 
+	if (!dev)
+		return NULL;
+
+	data = dev->iommu_fwspec->iommu_priv;
 	domain_id = mtk_iommu_get_domain_id(dev);
 	if (domain_id == MTK_IOVA_DOMAIN_COUNT)
 		return NULL;
@@ -224,10 +231,14 @@ static struct iommu_group *mtk_iommu_get_group(
 
 bool mtk_dev_is_size_alignment(struct device *dev)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec;
 	unsigned int larbid, portid, port;
 	int i, count;
 
+	if (!dev)
+		return true;
+
+	fwspec = dev->iommu_fwspec;
 	larbid = MTK_IOMMU_TO_LARB(fwspec->ids[0]);
 	portid = MTK_IOMMU_TO_PORT(fwspec->ids[0]);
 	port = MTK_M4U_ID(larbid, portid);
@@ -283,14 +294,12 @@ int mtk_iommu_get_boundary_id(struct device *dev)
 }
 #endif
 
-int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id, unsigned int bank)
+int __mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
+		unsigned int bank, unsigned int *tf_port)
 {
 #ifdef IOMMU_DESIGN_OF_BANK
 	unsigned int atf_cmd = 0;
 	int ret = 0;
-#if 0
-	size_t tf_port = 0;
-#endif
 
 	if (cmd >= IOMMU_ATF_CMD_COUNT ||
 	    m4u_id >= MTK_IOMMU_M4U_COUNT ||
@@ -303,12 +312,20 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id, unsigned int bank)
 	pr_notice("%s, M4U CALL ATF CMD:%d\n", __func__, atf_cmd);
 #if 0
 	ret = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-				atf_cmd, 0, 0, 0, &tf_port);
+				atf_cmd, 0, 0, 0, tf_port);
 #endif
 	return ret;
 #else
 	return 0;
 #endif
+}
+
+int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
+		unsigned int bank)
+{
+	unsigned int tf_port = 0;
+
+	return __mtk_iommu_atf_call(cmd, m4u_id, bank, &tf_port);
 }
 
 void mtk_iommu_atf_test_recovery(unsigned int m4u_id, unsigned int cmd)
@@ -737,6 +754,11 @@ void mtk_iommu_dump_iova_space(void)
 	int i = 0;
 	struct mtk_iommu_pgtable *pgtable = mtk_iommu_get_pgtable(NULL, 0);
 
+	if (!pgtable) {
+		pr_notice("%s, invalid pgtable\n", __func__);
+		return;
+	}
+
 	pr_notice("========= %s++ total %d domain ============\n",
 		  __func__, pgtable->domain_count);
 	list_for_each_entry(dom, &pgtable->m4u_dom, list) {
@@ -1158,8 +1180,10 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
-	size_t tf_port = 0;
-	size_t m4u_id = 0;
+	unsigned int tf_port = 0;
+	unsigned int port_id, fault_larb, fault_port;
+	unsigned int m4u_id = 0;
+	int ret = 0;
 
 	if (!data->base_sec || IS_ERR(data->base_sec) ||
 	    !data->base || IS_ERR(data->base)) {
@@ -1169,21 +1193,24 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	}
 
 	if (irq == data->irq_sec) {
-		m4u_id = data->m4u_id;
+		m4u_id = data->m4uid;
 	} else {
-		M4UMSG("%s(), Invalid secure irq %d, iommu:%d\n",
-				__func__, irq, data->m4u_id);
+		pr_notice"%s(), Invalid secure irq %d, iommu:%d\n",
+				__func__, irq, data->m4uid);
 		return -1;
 	}
 
-	M4UMSG("iommu:%d secure bank irq in normal world!\n", m4u_id);
-	ret = mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
-			m4u_id, 4);
+	pr_notice("iommu:%d secure bank irq in normal world!\n", m4u_id);
+	ret = __mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
+			m4u_id, 4, &tf_port);
 	if (ret) {
-		m4u_aee_print(
-			"CRDISPATCH_KEY:M4U_%s translation fault(mm secure): port=%s\n",
-			 m4u_get_port_name(tf_port),
-			 m4u_get_port_name(tf_port));
+		port_id = mtk_iommu_get_larb_port(
+				tf_port, m4u_id, &fault_larb,
+				&fault_port);
+		mmu_aee_print(
+				"CRDISPATCH_KEY:M4U_%s translation fault(secure): port%u[%u-%u]\n",
+				 mtk_iommu_get_port_name(m4u_id, tf_port),
+				 port_id, fault_larb, fault_port);
 	}
 
 	return IRQ_HANDLED;
@@ -1561,6 +1588,12 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned int type)
 	unsigned int domain_type = IOMMU_DOMAIN_UNMANAGED;
 #endif
 
+	if (!pgtable) {
+		pr_notice("%s, %d, err pgtabe of iommu%d\n",
+			  __func__, __LINE__, init_data_id);
+		return NULL;
+	}
+
 	if (type != domain_type) {
 		pr_notice("%s, %d, err type%d\n",
 			  __func__, __LINE__, type);
@@ -1676,7 +1709,7 @@ static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
 
 	return pa;
 }
-#ifdef CONFIG_MTK_IOMMU_V2
+
 int mtk_iommu_switch_acp(struct device *dev,
 			  unsigned long iova, size_t size, bool is_acp)
 {
@@ -1696,7 +1729,7 @@ int mtk_iommu_switch_acp(struct device *dev,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_switch_acp);
-#endif
+
 static struct iommu_group *mtk_iommu_create_iova_space(
 			struct mtk_iommu_data *data, struct device *dev)
 {
@@ -1709,6 +1742,11 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 	unsigned int boundary;
 #endif
 
+	if (!pgtable) {
+		pr_notice("%s, %d, err pgtable of iommu%d\n",
+			  __func__, __LINE__, init_data_id);
+		return NULL;
+	}
 	group = mtk_iommu_get_group(dev);
 
 	if (group) {
@@ -1732,7 +1770,7 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 	dom->id = mtk_iommu_get_domain_id(dev);
 	if (dom->id >= MTK_IOVA_DOMAIN_COUNT) {
 		dev_notice(dev, "%s, %d, invalid iommu device, dom id = %d\n",
-			   __func__, __LINE__, dom->id);
+			  __func__, __LINE__, dom->id);
 		goto free_group;
 	}
 
@@ -1777,9 +1815,10 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 	dom->resv_status = 0;
 #endif
 #ifdef IOMMU_DEBUG_ENABLED
-	pr_notice("%s, %d, dev:%s allocated the %d group:%p, domain:%p start:0x%llx, end:0x%llx, ext=%d\n",
+	pr_notice("%s, %d, dev:%s allocated IOVA group%d:%p, domain%d:%p start:0x%llx, end:0x%llx, ext=%d\n",
 		  __func__, __LINE__, dev_name(dev),
-		  dom->id, group, &dom->domain,
+		  iommu_group_id(group),
+		  group, dom->id, &dom->domain,
 		  dom->domain.geometry.aperture_start,
 		  dom->domain.geometry.aperture_end,
 		  CONFIG_MTK_IOMMU_PGTABLE_EXT);
@@ -2795,14 +2834,7 @@ int __mau_dump_status(int m4u_id, int slave, int mau)
 			REG_MMU_MAU_ADDR_BIT32(slave, mau));
 		//larb = F_MMU_MAU_ASRT_ID_LARB(assert_id);
 		//port = F_MMU_MAU_ASRT_ID_PORT(assert_id);
-#ifdef APU_IOMMU_INDEX
-		if (m4u_id >= APU_IOMMU_INDEX)
-			name = mtk_iommu_get_vpu_port_name(assert_id);
-		else
-			name = mtk_iommu_get_mm_port_name(assert_id);
-#else
-		name = mtk_iommu_get_mm_port_name(assert_id);
-#endif
+		name = mtk_iommu_get_port_name(m4u_id, assert_id);
 		pr_notice("id=0x%x(%s),addr=0x%x,b32=0x%x\n", assert_id,
 			  name, assert_addr, assert_b32);
 
@@ -2943,6 +2975,10 @@ void iommu_perf_print_counter(int m4u_id, int slave, const char *msg)
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 {
 	u32 regval, i, wr_en;
+	unsigned int m4u_id = data->m4uid;
+#ifdef MTK_M4U_SECURE_IRQ_SUPPORT
+	struct device_node *node = NULL;
+#endif
 
 	if (!data->base || IS_ERR(data->base)) {
 		pr_notice("%s, %d, invalid base addr\n",
@@ -2958,7 +2994,7 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 	writel_relaxed(regval, data->base + REG_MMU_CTRL_REG);
 
 #ifdef APU_IOMMU_INDEX
-	if (data->m4uid < APU_IOMMU_INDEX)
+	if (m4u_id < APU_IOMMU_INDEX)
 		wr_en = 0;
 	else
 		wr_en = 1;
@@ -3002,29 +3038,33 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 	if (m4u_id == 0) {
 		node = of_find_compatible_node(NULL, NULL,
 							   "mediatek,sec_mm_m4u");
+#if 0
 	} else if (m4u_id == 1) {
 		node = of_find_compatible_node(NULL, NULL,
 							   "mediatek,sec_vpu_m4u");
 	} else {
-		M4UMSG("m4u_id is error, id:%d\n", m4u_id);
+		pr_notice("m4u_id is error, id:%d\n", m4u_id);
+#endif
 	}
 
-	if (node != NULL) {
-		data->base_sec = (unsigned long)of_iomap(node, 0);
-		data->irq_sec = irq_of_parse_and_map(node, 0);
+	if (!node) {
+		pr_notice(
+			  "%s, WARN: didn't find secure node of iommu:%d\n",
+			  __func__, m4u_id);
+		return 0;
+	}
 
-		M4UMSG("secure bank, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
-				data->base_sec, data->irq_sec, m4u_id);
+	data->base_sec = (unsigned long)of_iomap(node, 0);
+	data->irq_sec = irq_of_parse_and_map(node, 0);
 
-		if (request_irq(data->irq_sec, MTK_M4U_isr_sec,
-				IRQF_TRIGGER_NONE, "secure_m4u", NULL)) {
-			M4UERR("request secure m4u%d IRQ line failed\n",
-				m4u_id);
-			return -ENODEV;
-		}
-	} else {
-		M4UMSG(
-			"ERR, unable to find node, m4u_id:%d\n", m4u_id);
+	pr_notice("secure bank, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
+			data->base_sec, data->irq_sec, m4u_id);
+
+	if (request_irq(data->irq_sec, MTK_M4U_isr_sec,
+			IRQF_TRIGGER_NONE, "secure_m4u", NULL)) {
+		pr_notice("request secure m4u%d IRQ line failed\n",
+			  m4u_id);
+		return -ENODEV;
 	}
 #endif
 	pr_notice("%s, done\n", __func__);
