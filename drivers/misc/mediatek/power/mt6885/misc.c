@@ -10,6 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+#include <linux/module.h>
+
 
 signed int battery_get_bat_voltage(void)
 {
@@ -20,4 +22,3 @@ void wake_up_bat(void)
 {
 }
 EXPORT_SYMBOL(wake_up_bat);
-
