@@ -152,6 +152,7 @@ struct mtk_regulator {
 	PMU_FLAGS_LIST_ENUM qi_en_reg;
 	PMU_FLAGS_LIST_ENUM qi_vol_reg;
 	PMU_FLAGS_LIST_ENUM modeset_reg;
+	PMU_FLAGS_LIST_ENUM lp_mode_reg;
 	const int *pvoltages;
 	const int *idxs;
 	bool isUsedable;
