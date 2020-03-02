@@ -115,6 +115,7 @@ config MACH_MT6785
 	select EXT4_FS_SECURITY
 	select EXT4_ENCRYPTION
 	select SDCARD_FS
+	select OVERLAY_FS
 	select CPU_IDLE
 	select MTK_BASE_POWER
 	select PM_DEVFREQ
