@@ -194,14 +194,14 @@ struct mtk_smi_pair *smi_larb2_scen_pair[SMI_SCEN_NUM] = {
 	smi_larb2_init_pair, smi_larb2_icfp_pair,
 };
 
+struct mtk_smi_pair *smi_larb3_scen_pair[SMI_SCEN_NUM] = {
+	smi_larb3_init_pair, smi_larb3_icfp_pair,
+};
+
 u32 smi_scen_pair_num[SMI_LARB_NUM + 1] = {
 	SMI_LARB0_PORT_NUM, SMI_LARB1_PORT_NUM,
 	SMI_LARB2_PORT_NUM, SMI_LARB3_PORT_NUM,
 	SMI_LARB_NUM,
-};
-
-struct mtk_smi_pair *smi_larb3_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb3_init_pair, smi_larb3_icfp_pair
 };
 
 struct mtk_smi_pair **smi_scen_pair[SMI_LARB_NUM + 1] = {

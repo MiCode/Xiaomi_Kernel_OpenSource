@@ -14,10 +14,9 @@
 #ifndef __SMI_HW_H__
 #define __SMI_HW_H__
 
-#include <clk-mt6765-pg.h> // TODO
+#include <clk-mt6765-pg.h>
 #include <smi_port.h>
 
-#define SYS_VCODEC	((SYS_CAM) + 1)
 static const u32 smi_subsys_to_larbs[NR_SYSS] = {
 	[SYS_DIS] = ((1 << 0) | (1 << (SMI_LARB_NUM))),
 	[SYS_VCODEC] = (1 << 1),
