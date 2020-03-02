@@ -37,7 +37,7 @@
 #include "sync_write.h"
 #include "mtk_pmic_wrap.h"
 
-#include "mtk_thermal_typedefs.h"
+/* #include "mtk_thermal_typedefs.h" */
 #include "mtk_thermal.h"
 
 #include "mtk_freqhopping.h"

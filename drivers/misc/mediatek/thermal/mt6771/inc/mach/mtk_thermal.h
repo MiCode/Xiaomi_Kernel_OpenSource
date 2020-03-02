@@ -72,7 +72,8 @@ extern int mtktscpu_limited_dmips;
 /* Valid if it returns 1, invalid if it returns 0. */
 extern int tscpu_is_temp_valid(void);
 
-extern void get_thermal_slope_intercept(struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
+extern void get_thermal_slope_intercept
+(struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
 
 extern void set_taklking_flag(bool flag);
 
@@ -80,7 +81,8 @@ extern int tscpu_get_cpu_temp(void);
 
 extern int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank);
 
-#define THERMAL_WRAP_WR32(val, addr)        mt_reg_sync_writel((val), ((void *)addr))
+#define THERMAL_WRAP_WR32(val, addr)	\
+	mt_reg_sync_writel((val), ((void *)addr))
 
 extern int get_immediate_gpu_wrap(void);
 
@@ -144,15 +146,19 @@ extern int get_cpu_target_tj(void);
 
 extern int get_cpu_target_offset(void);
 
-extern int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num);
+extern int mtk_gpufreq_register
+(struct mt_gpufreq_power_table_info *freqs, int num);
 
 extern int get_target_tj(void);
 
 extern int mtk_thermal_get_tpcb_target(void);
 
-extern void thermal_set_big_core_speed(unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
+extern void thermal_set_big_core_speed
+(unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
 
-/* return value(1): cooler of abcct/abcct_lcmoff is deactive, and no thermal current limit. */
+/* return value(1): cooler of abcct/abcct_lcmoff is deactive,
+ * and no thermal current limit.
+ */
 extern int mtk_cooler_is_abcct_unlimit(void);
 
-#endif /* __MT6763_THERMAL_H__ */
+#endif /* __MT6771_THERMAL_H__ */
