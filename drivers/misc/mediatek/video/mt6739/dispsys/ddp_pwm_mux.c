@@ -157,12 +157,11 @@ static unsigned int disp_pwm_get_pwmmux(void)
 int disp_pwm_set_pwmmux(unsigned int clk_req)
 {
 	unsigned int reg_before, reg_after;
-	int ret = 0;
 	enum DDP_CLK_ID clkid = -1;
 
 	clkid = disp_pwm_get_clkid(clk_req);
 
-	ret = disp_pwm_get_muxbase();
+	disp_pwm_get_muxbase();
 	reg_before = disp_pwm_get_pwmmux();
 
 	PWM_NOTICE("clk_req=%d clkid=%d", clk_req, clkid);
