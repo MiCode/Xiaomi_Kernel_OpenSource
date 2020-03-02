@@ -376,7 +376,7 @@ void __iomem *venc_base;
 
 #define INFRA_CG0 0x9BBFFF20
 #define INFRA_CG1 0x1E8F7F56
-#define INFRA_CG2 0x0FFCC7DD
+#define INFRA_CG2 0x07FCC7DD
 #define INFRA_CG3 0x00000DFF
 /* AO */
 #define AUDIO_DISABLE_CG0	0xF0F7FEFB
