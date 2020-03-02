@@ -88,6 +88,9 @@ static struct SubsysStruct cmdq_adds_subsys = {
 	.grpName = "AddOn"
 };
 
+/* debug for alloc hw buffer count */
+static atomic_t cmdq_alloc_cnt[CMDQ_CLT_MAX + 1];
+
 /* CMDQ core feature functions */
 
 static bool cmdq_core_check_gpr_valid(const u32 gpr, const bool val)
@@ -1468,8 +1471,8 @@ s32 cmdq_core_dump_sram_mem(u32 sram_base, u32 command_size)
 		CMDQ_LOG(
 			"==Dump SRAM: size (%d) CPR OFFSET(0x%x), ADDR(0x%x)\n",
 			command_size, cpr_offset, sram_base);
-		p_va_dest = cmdq_core_alloc_hw_buffer(cmdq_dev_get(),
-			command_size, &pa_dest, GFP_KERNEL);
+		p_va_dest = cmdq_core_alloc_hw_buffer_clt(cmdq_dev_get(),
+			command_size, &pa_dest, GFP_KERNEL, CMDQ_CLT_CMDQ);
 		if (!p_va_dest)
 			break;
 		status = cmdq_task_copy_from_sram(pa_dest, cpr_offset,
@@ -1486,8 +1489,8 @@ s32 cmdq_core_dump_sram_mem(u32 sram_base, u32 command_size)
 	} while (0);
 
 	if (p_va_dest)
-		cmdq_core_free_hw_buffer(cmdq_dev_get(),
-			command_size, p_va_dest, pa_dest);
+		cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
+			command_size, p_va_dest, pa_dest, CMDQ_CLT_CMDQ);
 
 	return status;
 }
@@ -1657,6 +1660,28 @@ void cmdq_core_save_hex_first_dump(const char *prefix_str,
 	}
 }
 
+void *cmdq_core_alloc_hw_buffer_clt(struct device *dev, size_t size,
+	dma_addr_t *dma_handle, const gfp_t flag, enum CMDQ_CLT_ENUM clt)
+{
+	s32 alloc_cnt, alloc_max = 1 << 10;
+	void *ret = cmdq_core_alloc_hw_buffer(dev, size, dma_handle, flag);
+
+	if (!ret)
+		return NULL;
+
+	alloc_cnt = atomic_inc_return(&cmdq_alloc_cnt[CMDQ_CLT_MAX]);
+	alloc_cnt = atomic_inc_return(&cmdq_alloc_cnt[clt]);
+	if (alloc_cnt > alloc_max)
+		CMDQ_ERR(
+			"clt:%u MDP(1):%u CMDQ(2):%u GNRL(3):%u DISP(4):%u TTL:%u\n",
+			clt, atomic_read(&cmdq_alloc_cnt[1]),
+			atomic_read(&cmdq_alloc_cnt[2]),
+			atomic_read(&cmdq_alloc_cnt[3]),
+			atomic_read(&cmdq_alloc_cnt[4]),
+			atomic_read(&cmdq_alloc_cnt[5]));
+	return ret;
+}
+
 void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 	dma_addr_t *dma_handle, const gfp_t flag)
 {
@@ -1702,6 +1727,14 @@ void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 		__func__, pVA, &PA, &(*dma_handle));
 
 	return pVA;
+}
+
+void cmdq_core_free_hw_buffer_clt(struct device *dev, size_t size,
+	void *cpu_addr, dma_addr_t dma_handle, enum CMDQ_CLT_ENUM clt)
+{
+	atomic_dec(&cmdq_alloc_cnt[CMDQ_CLT_MAX]);
+	atomic_dec(&cmdq_alloc_cnt[clt]);
+	cmdq_core_free_hw_buffer(dev, size, cpu_addr, dma_handle);
 }
 
 void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
@@ -1833,7 +1866,8 @@ size_t cmdq_core_get_cpr_cnt(void)
 	return cmdq_dts.cpr_size;
 }
 
-int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart)
+int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
+	enum CMDQ_CLT_ENUM clt)
 {
 	unsigned long flags;
 	struct WriteAddrStruct *pWriteAddr = NULL;
@@ -1864,8 +1898,9 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart)
 		memset(pWriteAddr, 0, sizeof(struct WriteAddrStruct));
 
 		pWriteAddr->count = count;
-		pWriteAddr->va = cmdq_core_alloc_hw_buffer(cmdq_dev_get(),
-			count * sizeof(u32), &(pWriteAddr->pa), GFP_KERNEL);
+		pWriteAddr->va = cmdq_core_alloc_hw_buffer_clt(cmdq_dev_get(),
+			count * sizeof(u32), &(pWriteAddr->pa), GFP_KERNEL,
+			clt);
 		if (current)
 			pWriteAddr->user = current->pid;
 
@@ -1906,9 +1941,9 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart)
 	if (status != 0) {
 		/* release resources */
 		if (pWriteAddr && pWriteAddr->va) {
-			cmdq_core_free_hw_buffer(cmdq_dev_get(),
+			cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
 				sizeof(u32) * pWriteAddr->count,
-				pWriteAddr->va, pWriteAddr->pa);
+				pWriteAddr->va, pWriteAddr->pa, clt);
 			memset(pWriteAddr, 0, sizeof(struct WriteAddrStruct));
 		}
 
@@ -2043,7 +2078,7 @@ u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value)
 	return value;
 }
 
-int cmdqCoreFreeWriteAddress(dma_addr_t paStart)
+int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt)
 {
 	struct list_head *p, *n = NULL;
 	struct WriteAddrStruct *pWriteAddr = NULL;
@@ -2076,9 +2111,9 @@ int cmdqCoreFreeWriteAddress(dma_addr_t paStart)
 
 	/* release resources */
 	if (pWriteAddr->va) {
-		cmdq_core_free_hw_buffer(cmdq_dev_get(),
+		cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
 			sizeof(u32) * pWriteAddr->count,
-			pWriteAddr->va, pWriteAddr->pa);
+			pWriteAddr->va, pWriteAddr->pa, clt);
 		memset(pWriteAddr, 0xda, sizeof(struct WriteAddrStruct));
 	}
 

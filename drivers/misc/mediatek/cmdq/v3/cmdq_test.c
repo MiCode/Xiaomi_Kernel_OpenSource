@@ -1453,7 +1453,7 @@ static void testcase_write_address(void)
 
 	CMDQ_LOG("%s\n", __func__);
 
-	cmdqCoreAllocWriteAddress(3, &pa);
+	cmdqCoreAllocWriteAddress(3, &pa, CMDQ_CLT_UNKN);
 	CMDQ_LOG("ALLOC:%pa\n", &pa);
 	value = cmdqCoreReadWriteAddress(pa);
 	CMDQ_LOG("value 0:0x%08x\n", value);
@@ -1471,11 +1471,11 @@ static void testcase_write_address(void)
 
 	/* free invalid start address fist to verify error handle */
 	CMDQ_LOG("cmdqCoreFreeWriteAddress, pa:0, it's a error case\n");
-	cmdqCoreFreeWriteAddress(0);
+	cmdqCoreFreeWriteAddress(0, CMDQ_CLT_UNKN);
 
 	/* ok case */
 	CMDQ_LOG("cmdqCoreFreeWriteAddress, pa:%pa it's a ok case\n", &pa);
-	cmdqCoreFreeWriteAddress(pa);
+	cmdqCoreFreeWriteAddress(pa, CMDQ_CLT_UNKN);
 
 	CMDQ_LOG("%s END\n", __func__);
 }
