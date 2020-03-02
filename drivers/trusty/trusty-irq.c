@@ -37,9 +37,6 @@ struct trusty_irq {
 	unsigned int irq;
 	bool percpu;
 	bool enable;
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-	bool vmm_specific;
-#endif
 	struct trusty_irq __percpu *percpu_ptr;
 };
 
@@ -212,11 +209,7 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 	}
 	spin_unlock(&is->normal_irqs_lock);
 
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-	trusty_enqueue_nop(is->trusty_dev, NULL, trusty_irq->vmm_specific);
-#else
 	trusty_enqueue_nop(is->trusty_dev, NULL);
-#endif
 
 	dev_dbg(is->dev, "%s: irq %d done\n", __func__, irq);
 
@@ -347,12 +340,7 @@ static int trusty_irq_create_irq_mapping(struct trusty_irq_state *is, int irq)
 }
 #endif
 
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq,
-				      bool vmm_specific)
-#else
 static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq)
-#endif
 {
 	int ret;
 	int irq = tirq;
@@ -401,15 +389,10 @@ static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq)
 	trusty_irq->is = is;
 	trusty_irq->irq = irq;
 	trusty_irq->enable = true;
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-	trusty_irq->vmm_specific = vmm_specific;
-#endif
 
 	spin_lock_irqsave(&is->normal_irqs_lock, irq_flags);
 	hlist_add_head(&trusty_irq->node, &is->normal_irqs.inactive);
 	spin_unlock_irqrestore(&is->normal_irqs_lock, irq_flags);
-
-	dev_dbg(is->dev, "%s: tirq=%d, virq=%d\n", __func__, tirq, irq);
 
 	ret = request_irq(irq, trusty_irq_handler, IRQF_NO_THREAD,
 			  "trusty", trusty_irq);
@@ -427,12 +410,7 @@ err_request_irq:
 	return ret;
 }
 
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq,
-				       bool vmm_specific)
-#else
 static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
-#endif
 {
 	int ret;
 	int irq = tirq;
@@ -465,9 +443,6 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 		trusty_irq->irq = irq;
 		trusty_irq->percpu = true;
 		trusty_irq->percpu_ptr = trusty_irq_handler_data;
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-		trusty_irq->vmm_specific = vmm_specific;
-#endif
 	}
 
 #ifdef CONFIG_TRUSTY_INTERRUPT_MAP
@@ -503,8 +478,6 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 	}
 #endif
 
-	dev_dbg(is->dev, "%s: tirq=%d, virq=%d\n", __func__, tirq, irq);
-
 	ret = request_percpu_irq(irq, trusty_irq_handler, "trusty",
 				 trusty_irq_handler_data);
 	if (ret) {
@@ -526,38 +499,6 @@ err_request_percpu_irq:
 	return ret;
 }
 
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-static int trusty_smc_get_next_irq(struct trusty_irq_state *is,
-				   unsigned long min_irq, bool per_cpu,
-				   bool vmm_specific)
-{
-	return trusty_fast_call32(is->trusty_dev, SMC_FC_GET_NEXT_IRQ,
-				  min_irq, per_cpu, vmm_specific?1:0);
-}
-
-static int trusty_irq_init_one(struct trusty_irq_state *is,
-			       int irq, bool per_cpu, bool vmm_specific)
-{
-	int ret;
-
-	irq = trusty_smc_get_next_irq(is, irq, per_cpu, vmm_specific);
-	if (irq < 0)
-		return irq;
-
-	if (per_cpu)
-		ret = trusty_irq_init_per_cpu_irq(is, irq, vmm_specific);
-	else
-		ret = trusty_irq_init_normal_irq(is, irq, vmm_specific);
-
-	if (ret) {
-		dev_warn(is->dev,
-			 "failed to initialize irq %d, irq will be ignored\n",
-			 irq);
-	}
-
-	return irq + 1;
-}
-#else
 static int trusty_smc_get_next_irq(struct trusty_irq_state *is,
 				   unsigned long min_irq, bool per_cpu)
 {
@@ -587,7 +528,6 @@ static int trusty_irq_init_one(struct trusty_irq_state *is,
 
 	return irq + 1;
 }
-#endif
 
 static void trusty_irq_free_irqs(struct trusty_irq_state *is)
 {
@@ -682,21 +622,10 @@ static int trusty_irq_probe(struct platform_device *pdev)
 		goto err_trusty_call_notifier_register;
 	}
 
-#if defined(CONFIG_MTK_NEBULA_VM_SUPPORT) && defined(CONFIG_GZ_SMC_CALL_REMAP)
-	for (irq = 0; irq >= 0;)
-		irq = trusty_irq_init_one(is, irq, true, false);
-	for (irq = 0; irq >= 0;)
-		irq = trusty_irq_init_one(is, irq, false, false);
-	for (irq = 0; irq >= 0;)
-		irq = trusty_irq_init_one(is, irq, true, true);
-	for (irq = 0; irq >= 0;)
-		irq = trusty_irq_init_one(is, irq, false, true);
-#else
 	for (irq = 0; irq >= 0;)
 		irq = trusty_irq_init_one(is, irq, true);
 	for (irq = 0; irq >= 0;)
 		irq = trusty_irq_init_one(is, irq, false);
-#endif
 
 	ret = cpuhp_state_add_instance(trusty_irq_cpuhp_slot, &is->cpuhp_node);
 	if (ret < 0) {

@@ -14,17 +14,15 @@
 #
 GZ_SEC_STORAGE_UT := y
 
-obj-y += gz_main.o gz_ut.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include
 
-obj-y += mtee-kree/
+obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += gz_main.o gz_ut.o gz_sec_storage_ut.o \
+				      gz_chmem_ut.o gz_shmem_ut.o
 
-obj-y += gz_sec_storage_ut.o
-obj-y += gz_chmem_ut.o
-obj-y += gz_shmem_ut.o
+obj-$(CONFIG_MTK_GZ_KREE) += mtee-kree/
 
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += gz-trusty/

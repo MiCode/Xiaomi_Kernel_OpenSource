@@ -21,18 +21,15 @@
 
 
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
+#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 extern void handle_trusty_ipi(int ipinr);
-#endif
+#endif	/* CONFIG_GZ_TRUSTY_INTERRUPT_MAP */
 s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
 s32 trusty_fast_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
-#ifdef CONFIG_TRUSTY_WDT_FIQ_ARMV7_SUPPORT
-s32 trusty_fast_call32_nodev(u32 smcnr, u32 a0, u32 a1, u32 a2);
-#endif
 #ifdef CONFIG_64BIT
 s64 trusty_fast_call64(struct device *dev, u64 smcnr, u64 a0, u64 a1, u64 a2);
-#endif
-#else
+#endif	/* CONFIG_64BIT */
+#else /* CONFIG_MTK_ENABLE_GENIEZONE */
 static inline s32 trusty_std_call32(struct device *dev, u32 smcnr,
 				    u32 a0, u32 a1, u32 a2)
 {
@@ -51,8 +48,8 @@ static inline s64 trusty_fast_call64(struct device *dev,
 {
 	return SM_ERR_UNDEFINED_SMC;
 }
-#endif				/* CONFIG_TRUSTY_INTERRUPT_MAP */
-#endif				/* CONFIG_MTK_ENABLE_GENIEZONE */
+#endif	/* CONFIG_64BIT */
+#endif	/* CONFIG_MTK_ENABLE_GENIEZONE */
 
 struct notifier_block;
 enum {
@@ -103,8 +100,6 @@ void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop,
 
 void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
 
-
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #define is_trusty_tee(tee_id) ((tee_id) == TEE_ID_TRUSTY)
 
 #define is_nebula_tee(tee_id) ((tee_id) == TEE_ID_NEBULA)
@@ -122,7 +117,6 @@ void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
  * #define VIRTIO_ID_NEBULA_IPC   14
  */
 #define VIRTIO_ID_NEBULA_IPC   13	/* virtio trusty ipc */
-#endif
 
 struct trusty_work {
 	struct trusty_state *ts;
