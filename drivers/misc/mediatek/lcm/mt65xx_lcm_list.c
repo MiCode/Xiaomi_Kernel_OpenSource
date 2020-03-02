@@ -945,6 +945,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT35695_FHD_DSI_CMD_TRULY_NT50358_QHD)
 	&nt35695_fhd_dsi_cmd_truly_nt50358_qhd_lcm_drv,
 #endif
+#if defined(NT35695_FHD_DSI_CMD_TRULY_RT4801)
+	&nt35695_fhd_dsi_cmd_truly_rt4801_lcm_drv,
+#endif
 #if defined(NT35695_FHD_DSI_CMD_TRULY_RT5081)
 	&nt35695_fhd_dsi_cmd_truly_rt5081_lcm_drv,
 #endif
@@ -957,6 +960,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 
 #if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_HDP_19_9)
 	&nt35695_fhd_dsi_vdo_truly_rt5081_hdp_19_9_lcm_drv,
+#endif
+
+#if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_HDP_1560)
+	&nt35695_fhd_dsi_vdo_truly_rt5081_hdp_1560_lcm_drv,
 #endif
 
 #if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_720P)
@@ -1037,6 +1044,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT35695_FHD_DSI_VDO_AUO_NT50358_LANESWAP_MT6799)
 	&nt35695_fhd_dsi_vdo_auo_nt50358_laneswap_mt6799_lcm_drv,
 #endif
+#if defined(NT35695B_FHD_DSI_CMD_AUO_RT4801)
+	&nt35695B_fhd_dsi_cmd_auo_rt4801_lcm_drv,
+#endif
 #if defined(NT35695B_FHD_DSI_CMD_AUO_RT5081)
 	&nt35695B_fhd_dsi_cmd_auo_rt5081_lcm_drv,
 #endif
@@ -1071,6 +1081,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_19_9_lcm_drv,
 #endif
 
+#if defined(NT35695B_FHD_DSI_VDO_AUO_RT5081_HDP_1560)
+	&nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_1560_lcm_drv,
+#endif
 #if defined(CLAA101FP01_DSI_VDO)
 	&claa101fp01_dsi_vdo_lcm_drv,
 #endif
@@ -1128,8 +1141,73 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT35521_HD_DSI_VDO_TRULY_NT50358)
 	&nt35521_hd_dsi_vdo_truly_nt50358_lcm_drv,
 #endif
+#if defined(HX83112B_FHDP_DSI_CMD_AUO_RT5081)
+	&hx83112b_fhdp_dsi_cmd_auo_rt5081_lcm_drv,
+#endif
+
+#if defined(HX83112B_FHDP_DSI_VDO_AUO_RT5081)
+	&hx83112b_fhdp_dsi_vdo_auo_rt5081_lcm_drv,
+#endif
+
+#if defined(HX83112B_FHDP_DSI_CMD_AUO_RT5081_FHD)
+	&hx83112b_fhdp_dsi_cmd_auo_rt5081_fhd_lcm_drv,
+#endif
+
+#if defined(HX83112B_FHDP_DSI_CMD_AUO_RT5081_HDP)
+	&hx83112b_fhdp_dsi_cmd_auo_rt5081_hdp_lcm_drv,
+#endif
+
+#if defined(HX83112B_FHDP_DSI_VDO_AUO_RT5081_HDP)
+	&hx83112b_fhdp_dsi_vdo_auo_rt5081_hdp_lcm_drv,
+#endif
 #if defined(ILI9881C_HD_DSI_VDO_ILITEK_NT50358)
 	&ili9881c_hd_dsi_vdo_ilitek_nt50358_lcm_drv,
+#endif
+/*6785 HX CMD*/
+#if defined(HX83112B_FHDP_DSI_CMD_AUO_RT4801)
+	&hx83112b_fhdp_dsi_cmd_auo_rt4801_lcm_drv,
+#endif
+#if defined(HX83112B_FHDP_DSI_CMD_FHD_AUO_RT4801)
+	&hx83112b_fhdp_dsi_cmd_fhd_auo_rt4801_lcm_drv,
+#endif
+#if defined(HX83112B_FHDP_DSI_CMD_HDP_AUO_RT4801)
+	&hx83112b_fhdp_dsi_cmd_hdp_auo_rt4801_lcm_drv,
+#endif
+/*6785 HX VDO*/
+#if defined(HX83112B_FHDP_DSI_VDO_AUO_RT4801)
+	&hx83112b_fhdp_dsi_vdo_auo_rt4801_lcm_drv,
+#endif
+#if defined(HX83112B_FHDP_DSI_VDO_FHD_AUO_RT4801)
+	&hx83112b_fhdp_dsi_vdo_fhd_auo_rt4801_lcm_drv,
+#endif
+#if defined(HX83112B_FHDP_DSI_VDO_HDP_AUO_RT4801)
+	&hx83112b_fhdp_dsi_vdo_hdp_auo_rt4801_lcm_drv,
+#endif
+/*6785 OTM*/
+#if defined(OTM1911A_FHDP_DSI_VDO_TRULY_RT4801)
+	&otm1911a_fhdp_dsi_vdo_truly_rt4801_lcm_drv,
+#endif
+#if defined(OTM1911A_FHDP_DSI_VDO_FHD_TRULY_RT4801)
+	&otm1911a_fhdp_dsi_vdo_fhd_truly_rt4801_lcm_drv,
+#endif
+#if defined(OTM1911A_FHDP_DSI_VDO_HDP_TRULY_RT4801)
+	&otm1911a_fhdp_dsi_vdo_hdp_truly_rt4801_lcm_drv,
+#endif
+#if defined(TD4320_FHDP_DSI_VDO_AUO_RT4801)
+	&td4320_fhdp_dsi_vdo_auo_rt4801_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_AUO_LM36273)
+	&nt36672a_fhdp_dsi_vdo_auo_lm36273_lcm_drv,
+#endif
+#if defined(FT8719_FHDP_DSI_VDO_AUO_LM36273)
+	&ft8719_fhdp_dsi_vdo_auo_lm36273_lcm_drv,
+#endif
+#if defined(SOFEG01_FHDPLUS_DSI_CMD_SAMSUNG)
+	&sofeg01_fhdplus_dsi_cmd_samsung_lcm_drv,
+#endif
+
+#if defined(NT36672A_FHDP_DSI_VDO_AUO_CPHY)
+	&nt36672a_fhdp_dsi_vdo_auo_cphy_lcm_drv,
 #endif
 };
 
@@ -1195,6 +1273,13 @@ unsigned char lcm_name_list[][128] = {
 
 #if defined(NT35695B_FHD_DSI_VDO_AUO_RT5081_HDP)
 	"nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_drv",
+#endif
+#if defined(HX83112B_FHDP_DSI_CMD_FHD_AUO_RT4801)
+	"hx83112b_fhdp_dsi_cmd_fhd_auo_rt4801_drv",
+#endif
+
+#if defined(NT36672A_FHDP_DSI_VDO_AUO)
+	"nt36672a_fhdp_dsi_vdo_auo_lcm_drv",
 #endif
 };
 
