@@ -2996,14 +2996,15 @@ static int set_option(const char *val, const struct kernel_param *kp)
 
 	DBG(0, "option:%d, local_option:%d\n", option, local_option);
 
+	if (!usb_test_wakelock_inited) {
+		DBG(0, "%s wake_lock_init\n", __func__);
+		wakeup_source_init(&usb_test_wakelock, "usb.test.lock");
+		usb_test_wakelock_inited = 1;
+	}
+
 	switch (local_option) {
 	case 0:
 		DBG(0, "wake_lock usb_test_wakelock\n");
-		if (!usb_test_wakelock_inited) {
-			DBG(0, "%s wake_lock_init\n", __func__);
-			wakeup_source_init(&usb_test_wakelock, "usb.test.lock");
-			usb_test_wakelock_inited = 1;
-		}
 		__pm_stay_awake(&usb_test_wakelock);
 		break;
 	case 1:
