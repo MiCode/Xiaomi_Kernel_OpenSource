@@ -5233,7 +5233,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 #ifdef CONFIG_PWR_LOSS_MTK_TEST
 		msdc_proc_emmc_create();
 #endif
-		msdc_debug_proc_init();
+		msdc_debug_proc_init_bootdevice();
 	}
 
 	return 0;
@@ -5406,6 +5406,8 @@ static int __init mt_msdc_init(void)
 		pr_notice(DRV_NAME ": Can't register driver");
 		return ret;
 	}
+
+	msdc_debug_proc_init();
 
 	pr_debug(DRV_NAME ": MediaTek MSDC Driver\n");
 
