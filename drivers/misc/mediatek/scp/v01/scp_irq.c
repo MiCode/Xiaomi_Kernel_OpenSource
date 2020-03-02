@@ -41,6 +41,7 @@ static void scp_A_wdt_handler(void)
 irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 {
 	unsigned int reg = readl(SCP_A_TO_HOST_REG);
+
 #if SCP_RECOVERY_SUPPORT
 	/* if WDT and IPI triggered on the same time, ignore the IPI */
 	if (reg & SCP_IRQ_WDT) {
@@ -73,13 +74,11 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 		writel(SCP_IRQ_SCP2HOST, SCP_A_TO_HOST_REG);
 	}
 #else
-	scp_excep_id reset_type;
 	int reboot = 0;
 
 	if (reg & SCP_IRQ_WDT) {
 		scp_A_wdt_handler();
 		reboot = 1;
-		reset_type = EXCEP_RUNTIME;
 		reg &= SCP_IRQ_WDT;
 	}
 
@@ -93,8 +92,9 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 	writel(reg, SCP_A_TO_HOST_REG);
 
 	if (reboot)
-		scp_aed_reset(reset_type, SCP_A_ID);
-#endif
+		scp_aed_reset(EXCEP_RUNTIME, SCP_A_ID);
+#endif  // SCP_RECOVERY_SUPPORT
+
 	return IRQ_HANDLED;
 }
 
