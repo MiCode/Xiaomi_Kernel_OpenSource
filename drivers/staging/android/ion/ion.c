@@ -1233,10 +1233,14 @@ static int ion_vm_fault(struct vm_fault *vmf)
 	unsigned long pfn;
 	int ret;
 
+	if (!buffer || !buffer->pages) {
+		WARN_ON(1);
+		return VM_FAULT_ERROR;
+	}
+
 	mutex_lock(&buffer->lock);
 	ion_buffer_page_dirty(buffer->pages + vmf->pgoff);
-	if (!buffer->pages ||
-	    !buffer->pages[vmf->pgoff]) {
+	if (!buffer->pages[vmf->pgoff]) {
 		WARN_ON(1);
 		return VM_FAULT_ERROR;
 	}
@@ -1772,8 +1776,8 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	unsigned int cam_id = ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA;
 	unsigned int map_mva_id = ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA;
 
-	seq_printf(s, "total sz[%lu]\n",
-		   (unsigned long)(4096 * atomic64_read(&page_sz_cnt)));
+	seq_printf(s, "total sz[%llu]\n",
+		   4096 * atomic64_read(&page_sz_cnt));
 	seq_printf(s, "%16.s(%16.s) %16.s %16.s %s\n",
 		   "client", "dbg_name", "pid", "size", "address");
 	seq_puts(s, "----------------------------------------------------\n");

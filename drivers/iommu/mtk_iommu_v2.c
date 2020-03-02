@@ -946,7 +946,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	struct mtk_iommu_data *data = dev_id;
 	struct iommu_domain *domain;
 	u32 int_state, int_state_l2, regval, int_id;
-	u64 fault_iova, fault_pa;
+	unsigned long fault_iova, fault_pa;
 	unsigned int fault_larb, fault_port, port_id;
 	bool layer, write, is_vpu;
 	int slave_id = 0, i;
@@ -978,10 +978,11 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		regval = readl_relaxed(data->base +
 				REG_MMU_TBWALK_FAULT_VA);
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		fault_iova = (u64)(regval & F_MMU_FAULT_VA_BIT31_12) |
-				(u64)((regval & F_MMU_FAULT_VA_BIT32) << 23);
+		fault_iova = (unsigned long)(regval & F_MMU_FAULT_VA_BIT31_12) |
+				(unsigned long)((regval &
+					F_MMU_FAULT_VA_BIT32) << 23);
 #else
-		fault_iova = (u64)(regval);
+		fault_iova = (unsigned long)(regval);
 #endif
 		layer = regval & 1;
 		mmu_aee_print(
@@ -1052,20 +1053,21 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		layer = regval & F_MMU_FAULT_VA_LAYER_BIT;
 		write = regval & F_MMU_FAULT_VA_WRITE_BIT;
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		fault_iova = (u64)(regval & F_MMU_FAULT_VA_BIT31_12) |
-				(u64)((regval & F_MMU_FAULT_VA_BIT32) << 23);
+		fault_iova = (unsigned long)(regval & F_MMU_FAULT_VA_BIT31_12) |
+				(unsigned long)((regval &
+					F_MMU_FAULT_VA_BIT32) << 23);
 #else
-		fault_iova = (u64)(regval);
+		fault_iova = (unsigned long)(regval);
 #endif
 		pa = mtk_iommu_iova_to_phys(domain, fault_iova & PAGE_MASK);
-		pr_notice("fault_iova=%llx,mapping to pa=%x\n",
+		pr_notice("fault_iova=%lx,mapping to pa=%x\n",
 			  fault_iova, (unsigned int)pa);
 
 		fault_pa = readl_relaxed(data->base +
 					REG_MMU_INVLD_PA(slave_id));
-		fault_pa |= (u64)(regval &
+		fault_pa |= (unsigned long)(regval &
 					F_MMU_FAULT_PA_BIT32) << 26;
-		pr_notice("fault_pa=%llx\n", fault_pa);
+		pr_notice("fault_pa=%lx\n", fault_pa);
 #ifdef APU_IOMMU_INDEX
 		if (m4uid >= APU_IOMMU_INDEX) {
 			is_vpu = true;
@@ -1087,7 +1089,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 					  IOMMU_FAULT_READ)) {
 			dev_err_ratelimited(
 				data->dev,
-				"iommu fault type=0x%x iova=0x%llx pa=0x%llx larb=%d port=%d is_vpu=%d layer=%d %s\n",
+				"iommu fault type=0x%x iova=0x%lx pa=0x%lx larb=%d port=%d is_vpu=%d layer=%d %s\n",
 				int_state, fault_iova, fault_pa,
 				fault_larb, fault_port, is_vpu,
 				layer, write ? "write" : "read");
