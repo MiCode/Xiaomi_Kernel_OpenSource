@@ -9582,6 +9582,26 @@ skip_unlock: __attribute__ ((unused));
 	sdg->sgc->max_capacity = capacity;
 }
 
+int update_cpu_capacity_cpumask(struct cpumask *cpus)
+{
+	int cpu;
+	unsigned long capacity;
+
+	for_each_cpu(cpu, cpus) {
+		capacity = arch_scale_cpu_capacity(NULL, cpu);
+		capacity *= arch_scale_max_freq_capacity(NULL, cpu);
+		capacity >>= SCHED_CAPACITY_SHIFT;
+		capacity *= scale_rt_capacity(cpu);
+		capacity >>= SCHED_CAPACITY_SHIFT;
+
+		if (!capacity)
+			capacity = 1;
+
+		cpu_rq(cpu)->cpu_capacity = capacity;
+	}
+	return 0;
+}
+
 void update_group_capacity(struct sched_domain *sd, int cpu)
 {
 	struct sched_domain *child = sd->child;
