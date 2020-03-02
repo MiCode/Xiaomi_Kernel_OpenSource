@@ -174,6 +174,10 @@ struct t_dsi_context {
 	unsigned int hbp_byte;
 	unsigned int hfp_byte;
 	unsigned int hbllp_byte;
+
+	//high frame rate
+	unsigned int data_phy_cycle;
+	unsigned int HS_TRAIL;
 };
 
 struct t_dsi_context _dsi_context[DSI_INTERFACE_NUM];
@@ -869,7 +873,7 @@ enum DSI_STATUS DSI_BIST_Pattern_Test(enum DISP_MODULE_ENUM module,
 	return DSI_STATUS_OK;
 }
 
-void DSI_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
+void DSI_DPHY_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
 		struct LCM_DSI_PARAMS *dsi_params)
 {
 	int i;
@@ -947,6 +951,143 @@ void DSI_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
 		_dsi_context[i].hbllp_byte = t_hbllp;
 	}
 }
+
+void DSI_CPHY_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
+		struct LCM_DSI_PARAMS *dsi_params)
+{
+	int i;
+	unsigned int dsiTmpBufBpp;
+	unsigned int t_vfp, t_vbp, t_vsa;
+	unsigned int t_hfp, t_hbp, t_hsa;
+	unsigned int t_hbllp;
+	unsigned int lane_num;
+	unsigned int data_phy_cycle;
+
+	t_vfp = (mipi_clk_change_sta) ?
+		(dsi_params->vertical_frontporch_dyn == 0 ?
+		 dsi_params->vertical_frontporch :
+		 dsi_params->vertical_frontporch_dyn) :
+		dsi_params->vertical_frontporch;
+	t_vbp = (mipi_clk_change_sta) ?
+		(dsi_params->vertical_backporch_dyn == 0 ?
+		 dsi_params->vertical_backporch :
+		 dsi_params->vertical_backporch_dyn) :
+		dsi_params->vertical_backporch;
+	t_vsa = (mipi_clk_change_sta) ?
+		(dsi_params->vertical_sync_active_dyn == 0 ?
+		 dsi_params->vertical_sync_active :
+		 dsi_params->vertical_sync_active_dyn) :
+		dsi_params->vertical_sync_active;
+
+	t_hbp = (mipi_clk_change_sta) ?
+		(dsi_params->horizontal_backporch_dyn == 0 ?
+		 dsi_params->horizontal_backporch :
+		 dsi_params->horizontal_backporch_dyn) :
+		dsi_params->horizontal_backporch;
+	t_hfp = (mipi_clk_change_sta) ?
+		(dsi_params->horizontal_frontporch_dyn == 0 ?
+		 dsi_params->horizontal_frontporch :
+		 dsi_params->horizontal_frontporch_dyn) :
+		dsi_params->horizontal_frontporch;
+	t_hsa = (mipi_clk_change_sta) ?
+		(dsi_params->horizontal_sync_active_dyn == 0 ?
+		 dsi_params->horizontal_sync_active :
+		 dsi_params->horizontal_sync_active_dyn) :
+		dsi_params->horizontal_sync_active;
+
+	if (dsi_params->data_format.format == LCM_DSI_FORMAT_RGB565)
+		dsiTmpBufBpp = 2;
+	else
+		dsiTmpBufBpp = 3;
+
+	switch (dsi_params->LANE_NUM) {
+	case LCM_ONE_LANE:
+		lane_num = 1;
+		break;
+	case LCM_TWO_LANE:
+		lane_num = 2;
+		break;
+	case LCM_THREE_LANE:
+		lane_num = 3;
+		break;
+	case LCM_FOUR_LANE:
+		lane_num = 4;
+		break;
+	default:
+		break;
+	}
+
+	if (dsi_params->mode == SYNC_EVENT_VDO_MODE ||
+			dsi_params->mode == BURST_VDO_MODE ||
+			dsi_params->switch_mode == SYNC_EVENT_VDO_MODE ||
+			dsi_params->switch_mode == BURST_VDO_MODE) {
+		t_hsa = ALIGN_TO(t_hsa * dsiTmpBufBpp - 4, 4);
+		ASSERT((t_hbp +	t_hsa) * dsiTmpBufBpp > 9);
+
+		t_hbp = ALIGN_TO((t_hbp + t_hsa) * dsiTmpBufBpp - 10, 4);
+	} else {
+	// min:4
+		if (t_hsa * dsiTmpBufBpp < 10 * lane_num + 26 + 5)
+			t_hsa = 4;
+		else
+			t_hsa = ALIGN_TO(t_hsa * dsiTmpBufBpp -
+				10 * lane_num - 26, 2);
+
+		if (t_hbp * dsiTmpBufBpp < 12 * lane_num + 26 + 5)
+			t_hbp = 4;
+		else
+			t_hbp = ALIGN_TO(t_hbp * dsiTmpBufBpp -
+				12 * lane_num - 26, 2);
+	}
+
+	//data_phy_cycle = t_hs_zero data + t_hs_prep data +t_hs_exit dafa+5;
+
+	//t_hbllp = ALIGN_TO(dsi_params->horizontal_bllp * dsiTmpBufBpp, 4);
+	t_hbllp = ALIGN_TO(lane_num * 16, 4);
+
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		data_phy_cycle = _dsi_context[i].data_phy_cycle;
+
+		if (t_hfp * dsiTmpBufBpp < 8 * lane_num +
+			28 + 2 * data_phy_cycle * lane_num + 9)
+			t_hfp = 8;
+		else if ((t_hfp * dsiTmpBufBpp > 8 * lane_num + 28 +
+			2 * data_phy_cycle * lane_num + 8) &&
+			(t_hfp * dsiTmpBufBpp < 8 * lane_num +
+			28 + 2 * data_phy_cycle * lane_num +
+			ALIGN_TO(2 * (_dsi_context[i].HS_TRAIL + 1)*lane_num -
+			6 * lane_num - 12, 2)))
+			t_hfp = ALIGN_TO(2*(_dsi_context[i].HS_TRAIL + 1)*
+			lane_num - 6*lane_num - 12, 2);
+		else
+			t_hfp = ALIGN_TO(t_hfp * dsiTmpBufBpp - 8 * lane_num -
+				28 - 2 * data_phy_cycle * lane_num, 2);
+
+		_dsi_context[i].vsa = t_vsa;
+		_dsi_context[i].vbp = t_vbp;
+		_dsi_context[i].vfp = t_vfp;
+		_dsi_context[i].hsa_byte = t_hsa;
+		_dsi_context[i].hbp_byte = t_hbp;
+		_dsi_context[i].hfp_byte = t_hfp;
+		_dsi_context[i].hbllp_byte = t_hbllp;
+	}
+}
+
+void DSI_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
+		struct LCM_DSI_PARAMS *dsi_params)
+{
+	int i = 0;
+
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (_dsi_context[i].dsi_params.IsCphy)
+			DSI_CPHY_Calc_VDO_Timing(module, dsi_params);
+		else
+			DSI_DPHY_Calc_VDO_Timing(module, dsi_params);
+	}
+
+
+}
+
 
 int ddp_dsi_porch_setting(enum DISP_MODULE_ENUM module, void *handle,
 			  enum DSI_PORCH_TYPE type, unsigned int value)
@@ -1198,6 +1339,8 @@ enum DSI_STATUS DSI_TXRX_Control(enum DISP_MODULE_ENUM module,
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		unsigned int value = 0, mask = 0;
+		if (_dsi_context[i].dsi_params.IsCphy)
+			dis_eotp_en = TRUE;
 
 		SET_VAL_MASK(value, mask, vc_num, FLD_VC_NUM);
 		SET_VAL_MASK(value, mask, lane_num_bitvalue, FLD_LANE_NUM);
@@ -2377,8 +2520,7 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	unsigned int lane_no;
 	unsigned int cycle_time = 0;
 	unsigned int ui = 0;
-	unsigned int hs_trail_m, hs_trail_n;
-	unsigned char timcon_temp;
+	unsigned int hs_trail;
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	/* sync from cmm */
@@ -2397,16 +2539,6 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	return;
 #endif
 
-#if 0
-	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_TIMECON0, 0x140f0708);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_TIMECON1, 0x10280c20);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_TIMECON2, 0x14280000);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_TIMECON3, 0x00101a06);
-		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_PHY_TIMECON4, 0x00023000);
-	}
-	return;
-#endif
 	lane_no = dsi_params->LANE_NUM;
 	if (dsi_params->data_rate != 0) {
 		ui = 1000 / dsi_params->data_rate + 0x01;
@@ -2427,37 +2559,22 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 
 #define NS_TO_CYCLE(n, c)	((n) / (c))
 
-	hs_trail_m = 1;
-	hs_trail_n = (dsi_params->HS_TRAIL == 0) ?
-		(NS_TO_CYCLE(0x64 * ui, cycle_time) + 0x01) :
-		dsi_params->HS_TRAIL;
+	hs_trail = (dsi_params->HS_TRAIL == 0) ?
+		32 : dsi_params->HS_TRAIL;
 
 	/* +3 is recommended from designer becauase of HW latency */
-	timcon0.HS_TRAIL = (hs_trail_m > hs_trail_n) ?
-		hs_trail_m : hs_trail_n;
+	timcon0.HS_TRAIL = hs_trail;
 
 	timcon0.HS_PRPR = (dsi_params->HS_PRPR == 0) ?
-		(NS_TO_CYCLE((0x40 + 0x05 * ui), cycle_time) + 0x01) :
+		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 50.5, 7000) + 1) :
 		dsi_params->HS_PRPR;
 
-	/* HS_PRPR can't be 1. */
-	if (timcon0.HS_PRPR < 1)
-		timcon0.HS_PRPR = 1;
-
 	timcon0.HS_ZERO = (dsi_params->HS_ZERO == 0) ?
-		NS_TO_CYCLE((0xC8 + 0x0a * ui), cycle_time) :
-		dsi_params->HS_ZERO;
-
-	timcon_temp = timcon0.HS_PRPR;
-	if (timcon_temp < timcon0.HS_ZERO)
-		timcon0.HS_ZERO -= timcon0.HS_PRPR;
+		48 : dsi_params->HS_ZERO;
 
 	timcon0.LPX = (dsi_params->LPX == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 0x02 * 0x70, 0x1B58)
+		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 75, 7000)
 		+ 0x01) : dsi_params->LPX;
-
-	if (timcon0.LPX < 1)
-		timcon0.LPX = 1;
 
 	timcon1.TA_GET = (dsi_params->TA_GET == 0) ?
 		(0x5 * timcon0.LPX) : dsi_params->TA_GET;
@@ -2471,8 +2588,9 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	 * Clk_post = 60 ns + 128 UI.
 	 * --------------------------------------------------------------
 	 */
-	timcon1.DA_HS_EXIT = (dsi_params->DA_HS_EXIT == 0) ?
-		(0x2 * timcon0.LPX) : dsi_params->DA_HS_EXIT;
+	timcon1.DA_HS_EXIT  = (dsi_params->DA_HS_EXIT == 0) ?
+		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 112.5, 7000) + 1) :
+		dsi_params->DA_HS_EXIT;
 
 	timcon2.CLK_TRAIL = ((dsi_params->CLK_TRAIL == 0) ?
 		NS_TO_CYCLE(0x60, cycle_time) :
@@ -2500,7 +2618,7 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 		dsi_params->CLK_HS_POST;
 
 	DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI",
-		"[DISP] - kernel - %s, HS_TRAIL = %d, HS_ZERO = %d, HS_PRPR = %d, LPX = %d, TA_GET = %d, TA_SURE = %d, TA_GO = %d, CLK_TRAIL = %d, CLK_ZERO = %d, CLK_HS_PRPR = %d\n",
+		"[DISP] - kernel - %s, HS_TRAIL = %d, HS_ZERO = %d,HS_PRPR = %d, LPX = %d, TA_GET = %d, TA_SURE = %d, TA_GO = %d, CLK_TRAIL = %d, CLK_ZERO = %d, CLK_HS_PRPR = %d\n",
 		__func__, timcon0.HS_TRAIL, timcon0.HS_ZERO,
 		timcon0.HS_PRPR, timcon0.LPX,
 		timcon1.TA_GET, timcon1.TA_SURE,
@@ -2509,6 +2627,11 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		unsigned int value = 0;
+
+		_dsi_context[i].data_phy_cycle = timcon0.HS_PRPR +
+			timcon0.HS_ZERO + timcon1.DA_HS_EXIT +
+			timcon0.LPX + 5;
+		_dsi_context[i].HS_TRAIL = timcon0.HS_TRAIL;
 
 		value = REG_FLD_VAL(FLD_LPX, timcon0.LPX) +
 			REG_FLD_VAL(FLD_HS_PRPR, timcon0.HS_PRPR) +

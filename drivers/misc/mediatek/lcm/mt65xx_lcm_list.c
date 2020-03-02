@@ -1241,6 +1241,14 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt36672a_fhdp_dsi_vdo_auo_cphy_lcm_drv,
 #endif
 
+#if defined(NT36672C_FHDP_DSI_VDO_AUO_CPHY)
+	&nt36672c_fhdp_dsi_vdo_auo_cphy_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_AUO_CPHY_90HZ)
+	&nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_lcm_drv,
+#endif
+
 #if defined(OTM1287_WXGA_DSI_VDO_AUO_GUOXIAN)
 	&otm1287_wxga_dsi_vdo_auo_guoxian_lcm_drv,
 #endif
