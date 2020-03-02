@@ -36,7 +36,9 @@
 #elif IS_ENABLED(CONFIG_MTK_EMI_BWL)
 #include <emi_mbw.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_M4U)
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#include <mach/mt_iommu.h>
+#elif IS_ENABLED(CONFIG_MTK_M4U)
 #include <m4u.h>
 #endif
 #ifdef MMDVFS_HOOK
