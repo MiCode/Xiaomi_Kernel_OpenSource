@@ -249,7 +249,7 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_mm_data mm_data;
 	//struct ion_sys_data sys_data;
-	ion_phys_addr_t phy_addr;
+	ion_phys_addr_t phy_addr = 0;
 	size_t mva_size;
 	size_t len;
 
