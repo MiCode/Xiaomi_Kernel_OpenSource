@@ -132,6 +132,7 @@ static int PMIC_CLK_BUF1_DRIVING_CURR = CLK_BUF_DRIVING_CURR_1,
 
 static u8 clkbuf_drv_curr_auxout[CLKBUF_NUM];
 static u8 xo_en_stat[CLKBUF_NUM];
+static u8 xo_bb_lpm_en_stat;
 
 #ifndef CLKBUF_BRINGUP
 static enum CLK_BUF_SWCTRL_STATUS_T  pmic_clk_buf_swctrl[CLKBUF_NUM] = {
@@ -979,6 +980,19 @@ static void clk_buf_set_manual_drv_curr(u32 *drv_curr_vals)
 		     drv_curr_val, drv_curr_mask, drv_curr_shift);
 }
 
+static void clk_buf_get_bblpm_en(void)
+{
+	u32 rg_auxout = 0;
+
+	rg_auxout = dcxo_dbg_read_auxout(24);
+	pr_info("%s: sel ctrl_dbg7: rg_auxout=0x%x\n",
+		__func__, rg_auxout);
+
+	xo_bb_lpm_en_stat = (rg_auxout & (0x1 << 0)) >> 0;
+
+	pr_info("%s: bblpm %d\n", __func__, xo_bb_lpm_en_stat);
+}
+
 static void clk_buf_get_xo_en(void)
 {
 	u32 rg_auxout = 0;
@@ -1009,6 +1023,12 @@ static void clk_buf_get_xo_en(void)
 		xo_en_stat[XO_AUD],
 		xo_en_stat[XO_PD],
 		xo_en_stat[XO_EXT]);
+}
+
+void clk_buf_get_aux_out(void)
+{
+	clk_buf_get_xo_en();
+	clk_buf_get_bblpm_en();
 }
 
 #ifdef CONFIG_PM
