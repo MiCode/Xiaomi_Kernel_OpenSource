@@ -1522,7 +1522,7 @@
 		uart = <&apuart0>;
 		smi_larb0 = <&smi_larb0>;
 		sram_share_cnt = <1>;
-		sram_share_engine = <20>;
+		sram_share_engine = <24>;
 		sram_share_event = <710>;
 		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
 			<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
