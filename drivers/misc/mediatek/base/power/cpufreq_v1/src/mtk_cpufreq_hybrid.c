@@ -221,9 +221,13 @@ int Ripi_cpu_dvfs_thread(void *data)
 					log_box_parsed[j-1].time_stamp) *
 					(buf_freq/1000);
 				}
-				t_diff =
-				log_box_parsed[num_log - 1].time_stamp -
-				log_box_parsed[0].time_stamp;
+				if (!num_log)
+					t_diff = 1;
+				else {
+					t_diff =
+					log_box_parsed[num_log - 1].time_stamp -
+					log_box_parsed[0].time_stamp;
+				}
 #if defined(__LP64__) || defined(_LP64)
 				avg_f = tf_sum / t_diff;
 #else
