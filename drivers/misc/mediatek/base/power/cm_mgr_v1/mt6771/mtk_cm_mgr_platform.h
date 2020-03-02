@@ -44,6 +44,7 @@
 #define IS_UP 1
 #define IS_DOWN 0
 #define USE_TIMER_CHECK_TIME msecs_to_jiffies(100)
+#define CM_MGR_INIT_DELAY_MS 1
 
 enum {
 	CM_MGR_LP4X_2CH_3600 = 0,
