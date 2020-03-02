@@ -21,6 +21,6 @@ extern int selinux_enforcing;
 #endif
 
 #define AEE_FILTER_NUM 70
-#define AEE_FILTER_LEN  35
+#define AEE_FILTER_LEN  70
 
 #endif
