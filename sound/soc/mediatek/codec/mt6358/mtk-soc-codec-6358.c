@@ -66,9 +66,7 @@
 #include "accdet.h"
 #endif
 
-#ifdef CONFIG_MTK_AUXADC_INTF
 #include <mt-plat/mtk_auxadc_intf.h>
-#endif
 
 #include "mtk-auddrv-def.h"
 #include "mtk-auddrv-ana.h"
@@ -631,20 +629,12 @@ int set_codec_ops(struct mtk_codec_ops *ops)
 
 static int audio_get_auxadc_value(void)
 {
-#ifdef CONFIG_MTK_AUXADC_INTF
 	return pmic_get_auxadc_value(AUXADC_LIST_HPOFS_CAL);
-#else
-	return 0;
-#endif
 }
 
 static int get_accdet_auxadc(void)
 {
-#ifdef CONFIG_MTK_AUXADC_INTF
 	return pmic_get_auxadc_value(AUXADC_LIST_ACCDET);
-#else
-	return 0;
-#endif
 }
 
 #ifdef CONFIG_MTK_VOW_SUPPORT
@@ -706,7 +696,7 @@ void vow_irq_handler(void)
 #ifdef CONFIG_MTK_VOW_SUPPORT
 
 	pr_debug("vow_irq,audio irq event....\n");
-	/* TurnOnVOWADcPower(ANA_DEV_IN__ADC1, false); */
+	/* TurnOnVOWADcPower(ANA_DEV_IN_ADC1, false); */
 	/* TurnOnVOWDigitalHW(false); */
 #if defined(VOW_TONE_TEST)
 	EnableSineGen(Soc_Aud_InterConnectionOutput_O03,
@@ -2999,7 +2989,7 @@ static int mt63xx_codec_prepare(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *Daiport)
 {
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		mBlockSampleRate[ANA_DEV_IN__ADC] = substream->runtime->rate;
+		mBlockSampleRate[ANA_DEV_IN_ADC] = substream->runtime->rate;
 
 	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		mBlockSampleRate[ANA_DEV_OUT_DAC] = substream->runtime->rate;
@@ -4894,9 +4884,9 @@ static int Headset_PGAR_Set(struct snd_kcontrol *kcontrol,
 static int codec_adc_sample_rate_get(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s mBlockSampleRate[ANA_DEV_IN__ADC] = %d\n", __func__,
-		 mBlockSampleRate[ANA_DEV_IN__ADC]);
-	ucontrol->value.integer.value[0] = mBlockSampleRate[ANA_DEV_IN__ADC];
+	pr_debug("%s mBlockSampleRate[ANA_DEV_IN_ADC] = %d\n", __func__,
+		 mBlockSampleRate[ANA_DEV_IN_ADC]);
+	ucontrol->value.integer.value[0] = mBlockSampleRate[ANA_DEV_IN_ADC];
 	return 0;
 
 }
@@ -4904,9 +4894,9 @@ static int codec_adc_sample_rate_get(struct snd_kcontrol *kcontrol,
 static int codec_adc_sample_rate_set(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	mBlockSampleRate[ANA_DEV_IN__ADC] = ucontrol->value.integer.value[0];
-	pr_debug("%s mBlockSampleRate[ANA_DEV_IN__ADC] = %d\n", __func__,
-		 mBlockSampleRate[ANA_DEV_IN__ADC]);
+	mBlockSampleRate[ANA_DEV_IN_ADC] = ucontrol->value.integer.value[0];
+	pr_debug("%s mBlockSampleRate[ANA_DEV_IN_ADC] = %d\n", __func__,
+		 mBlockSampleRate[ANA_DEV_IN_ADC]);
 	return 0;
 }
 
@@ -5343,7 +5333,7 @@ static bool GetAdcStatus(void)
 {
 	int i = 0;
 
-	for (i = ANA_DEV_IN__ADC1; i < ANA_DEV_MAX; i++) {
+	for (i = ANA_DEV_IN_ADC1; i < ANA_DEV_MAX; i++) {
 		if ((mCodec_data->dev_power[i] == true)
 		    && (i != ANA_DEV_RECEIVER_SPEAKER_SWITCH))
 			return true;
@@ -5389,7 +5379,7 @@ static bool TurnOnADcPowerACC(int ADCType, bool enable)
 			SetMicPGAGain();
 		}
 
-		if (ADCType == ANA_DEV_IN__ADC1) {
+		if (ADCType == ANA_DEV_IN_ADC1) {
 			if (mCodec_data->ana_mux[MICSOURCE_MUX_IN_1] == 0) {
 				/* "ADC1", main_mic */
 				Ana_Set_Reg(AUDENC_ANA_CON0, 0x0041, 0xf0ff);
@@ -5400,7 +5390,7 @@ static bool TurnOnADcPowerACC(int ADCType, bool enable)
 				Ana_Set_Reg(AUDENC_ANA_CON0, 0x0081, 0xf0ff);
 				Ana_Set_Reg(AUDENC_ANA_CON0, 0x5081, 0xf000);
 			}
-		} else if (ADCType == ANA_DEV_IN__ADC2) {
+		} else if (ADCType == ANA_DEV_IN_ADC2) {
 			/* ref mic */
 			Ana_Set_Reg(AUDENC_ANA_CON1, 0x00c1, 0xf0ff);
 			/* Audio R ADC input sel : R PGA. Enable audio R ADC */
@@ -5457,12 +5447,12 @@ static bool TurnOnADcPowerACC(int ADCType, bool enable)
 			set_capture_gpio(false);
 		}
 
-		if (ADCType == ANA_DEV_IN__ADC1) {
+		if (ADCType == ANA_DEV_IN_ADC1) {
 			Ana_Set_Reg(AUDENC_ANA_CON0, 0x0000, 0xf000);
 			/* Audio L ADC input sel : off, disable audio L ADC */
 			Ana_Set_Reg(AUDENC_ANA_CON0, 0x0000, 0x0fff);
 			/* Disable audio L PGA */
-		} else if (ADCType == ANA_DEV_IN__ADC2) {
+		} else if (ADCType == ANA_DEV_IN_ADC2) {
 			Ana_Set_Reg(AUDENC_ANA_CON1, 0x0000, 0xf000);
 			/* Audio R ADC input sel : off, disable audio R ADC */
 			Ana_Set_Reg(AUDENC_ANA_CON1, 0x0000, 0x0fff);
@@ -5677,7 +5667,7 @@ static bool TurnOnADcPowerDCC(int ADCType, bool enable, int ECMmode)
 			SetMicPGAGain();
 		}
 
-		if (ADCType == ANA_DEV_IN__ADC1) {
+		if (ADCType == ANA_DEV_IN_ADC1) {
 			/* Audio L preamplifier DCC precharge */
 			Ana_Set_Reg(AUDENC_ANA_CON0, 0x0004, 0xf8ff);
 
@@ -5701,7 +5691,7 @@ static bool TurnOnADcPowerDCC(int ADCType, bool enable, int ECMmode)
 			usleep_range(100, 150);
 			/* Audio L preamplifier DCC precharge off */
 			Ana_Set_Reg(AUDENC_ANA_CON0, 0x0, 0x1 << 2);
-		} else if (ADCType == ANA_DEV_IN__ADC2) {
+		} else if (ADCType == ANA_DEV_IN_ADC2) {
 			/* Audio R preamplifier DCC precharge */
 			Ana_Set_Reg(AUDENC_ANA_CON1, 0x0004, 0xf8ff);
 
@@ -5769,7 +5759,7 @@ static bool TurnOnADcPowerDCC(int ADCType, bool enable, int ECMmode)
 			set_capture_gpio(false);
 		}
 
-		if (ADCType == ANA_DEV_IN__ADC1) {
+		if (ADCType == ANA_DEV_IN_ADC1) {
 			/* Audio L ADC input sel : off, disable audio L ADC */
 			Ana_Set_Reg(AUDENC_ANA_CON0, 0x0000, 0xf000);
 			/* Audio L preamplifier DCCEN */
@@ -5779,7 +5769,7 @@ static bool TurnOnADcPowerDCC(int ADCType, bool enable, int ECMmode)
 
 			/* disable Audio L preamplifier DCC precharge */
 			Ana_Set_Reg(AUDENC_ANA_CON0, 0x0, 0x1 << 2);
-		} else if (ADCType == ANA_DEV_IN__ADC2) {
+		} else if (ADCType == ANA_DEV_IN_ADC2) {
 			/* Audio R ADC input sel : off, disable audio R ADC */
 			Ana_Set_Reg(AUDENC_ANA_CON1, 0x0000, 0xf000);
 			/* Audio r preamplifier DCCEN */
@@ -6497,7 +6487,7 @@ static int Audio_ADC1_Get(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] =
-		mCodec_data->dev_power[ANA_DEV_IN__ADC1];
+		mCodec_data->dev_power[ANA_DEV_IN_ADC1];
 	return 0;
 }
 
@@ -6508,31 +6498,31 @@ static int Audio_ADC1_Set(struct snd_kcontrol *kcontrol,
 	mutex_lock(&Ana_Power_Mutex);
 	if (ucontrol->value.integer.value[0]) {
 		if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_ACC)
-			TurnOnADcPowerACC(ANA_DEV_IN__ADC1, true);
+			TurnOnADcPowerACC(ANA_DEV_IN_ADC1, true);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DCC)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC1, true, 0);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC1, true, 0);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DMIC)
-			TurnOnADcPowerDmic(ANA_DEV_IN__ADC1, true);
+			TurnOnADcPowerDmic(ANA_DEV_IN_ADC1, true);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DCCECMDIFF)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC1, true, 1);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC1, true, 1);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DCCECMSINGLE)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC1, true, 2);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC1, true, 2);
 
-		mCodec_data->dev_power[ANA_DEV_IN__ADC1] =
+		mCodec_data->dev_power[ANA_DEV_IN_ADC1] =
 			ucontrol->value.integer.value[0];
 	} else {
-		mCodec_data->dev_power[ANA_DEV_IN__ADC1] =
+		mCodec_data->dev_power[ANA_DEV_IN_ADC1] =
 			ucontrol->value.integer.value[0];
 		if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_ACC)
-			TurnOnADcPowerACC(ANA_DEV_IN__ADC1, false);
+			TurnOnADcPowerACC(ANA_DEV_IN_ADC1, false);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DCC)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC1, false, 0);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC1, false, 0);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DMIC)
-			TurnOnADcPowerDmic(ANA_DEV_IN__ADC1, false);
+			TurnOnADcPowerDmic(ANA_DEV_IN_ADC1, false);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DCCECMDIFF)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC1, false, 1);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC1, false, 1);
 		else if (mAudio_Analog_Mic1_mode == ANA_UL_MODE_DCCECMSINGLE)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC1, false, 2);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC1, false, 2);
 
 	}
 	mutex_unlock(&Ana_Power_Mutex);
@@ -6543,7 +6533,7 @@ static int Audio_ADC2_Get(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] =
-		mCodec_data->dev_power[ANA_DEV_IN__ADC2];
+		mCodec_data->dev_power[ANA_DEV_IN_ADC2];
 	return 0;
 }
 
@@ -6554,31 +6544,31 @@ static int Audio_ADC2_Set(struct snd_kcontrol *kcontrol,
 	mutex_lock(&Ana_Power_Mutex);
 	if (ucontrol->value.integer.value[0]) {
 		if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_ACC)
-			TurnOnADcPowerACC(ANA_DEV_IN__ADC2, true);
+			TurnOnADcPowerACC(ANA_DEV_IN_ADC2, true);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DCC)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC2, true, 0);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC2, true, 0);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DMIC)
-			TurnOnADcPowerDmic(ANA_DEV_IN__ADC2, true);
+			TurnOnADcPowerDmic(ANA_DEV_IN_ADC2, true);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DCCECMDIFF)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC2, true, 1);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC2, true, 1);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DCCECMSINGLE)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC2, true, 2);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC2, true, 2);
 
-		mCodec_data->dev_power[ANA_DEV_IN__ADC2] =
+		mCodec_data->dev_power[ANA_DEV_IN_ADC2] =
 			ucontrol->value.integer.value[0];
 	} else {
-		mCodec_data->dev_power[ANA_DEV_IN__ADC2] =
+		mCodec_data->dev_power[ANA_DEV_IN_ADC2] =
 			ucontrol->value.integer.value[0];
 		if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_ACC)
-			TurnOnADcPowerACC(ANA_DEV_IN__ADC2, false);
+			TurnOnADcPowerACC(ANA_DEV_IN_ADC2, false);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DCC)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC2, false, 0);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC2, false, 0);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DMIC)
-			TurnOnADcPowerDmic(ANA_DEV_IN__ADC2, false);
+			TurnOnADcPowerDmic(ANA_DEV_IN_ADC2, false);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DCCECMDIFF)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC2, false, 1);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC2, false, 1);
 		else if (mAudio_Analog_Mic2_mode == ANA_UL_MODE_DCCECMSINGLE)
-			TurnOnADcPowerDCC(ANA_DEV_IN__ADC2, false, 2);
+			TurnOnADcPowerDCC(ANA_DEV_IN_ADC2, false, 2);
 
 	}
 	mutex_unlock(&Ana_Power_Mutex);
@@ -7350,7 +7340,7 @@ static int Pmic_Loopback_Set(struct snd_kcontrol *kcontrol,
 	/* enable pmic lpbk */
 		pr_debug("set PMIC LPBK3, DLSR=%d, ULSR=%d\n",
 			 mBlockSampleRate[ANA_DEV_OUT_DAC],
-			 mBlockSampleRate[ANA_DEV_IN__ADC]);
+			 mBlockSampleRate[ANA_DEV_IN_ADC]);
 
 		/* set dl part */
 		TurnOnDacPower(ANA_DEV_OUT_HEADSETL);
@@ -7618,10 +7608,10 @@ static int read_efuse_hp_impedance_current_calibration(void)
 	Ana_Set_Reg(OTP_CON11, 0x0001, 0x0001);
 
 	/* 3. set EFUSE addr */
-	/* HPDET_COMP[6:0] @ efuse bit 1696 ~ 1702 */
-	/* HPDET_COMP_SIGN @ efuse bit 1703 */
-	/* 1696 / 8 = 212 --> 0xd4 */
-	Ana_Set_Reg(OTP_CON0, 0xd4, 0xff);
+	/* HPDET_COMP[6:0] @ efuse bit 1840 ~ 1846 */
+	/* HPDET_COMP_SIGN @ efuse bit 1847 */
+	/* 1840 / 8 = 230 --> 0xe6 */
+	Ana_Set_Reg(OTP_CON0, 0xe6, 0xff);
 
 	/* 4. Toggle RG_OTP_RD_TRIG */
 	ret = Ana_Get_Reg(OTP_CON8);
@@ -7691,7 +7681,7 @@ void InitCodecDefault(void)
 	mCodec_data->ana_gain[ANA_GAIN_MICAMP2] = 3;
 	mCodec_data->ana_gain[ANA_GAIN_MICAMP3] = 3;
 	mCodec_data->ana_gain[ANA_GAIN_MICAMP4] = 3;
-	mCodec_data->ana_gain[ANA_GAIN_HPOUTR] = 8;
+	mCodec_data->ana_gain[ANA_GAIN_HPOUTL] = 8;
 	mCodec_data->ana_gain[ANA_GAIN_HPOUTR] = 8;
 	mCodec_data->ana_gain[ANA_GAIN_HSOUTL] = 8;
 	mCodec_data->ana_gain[ANA_GAIN_HSOUTR] = 8;

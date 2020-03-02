@@ -85,7 +85,8 @@ static DEFINE_MUTEX(afe_connection_mutex);
 /**
  * connection of register
  */
-const unsigned int mConnectionReg[Soc_Aud_InterConnectionOutput_Num_Output] = {
+const unsigned int
+mConnectionReg[Soc_Aud_InterConnectionOutput_Num_Output] = {
 	AFE_CONN0, AFE_CONN1, AFE_CONN2, AFE_CONN3, AFE_CONN4,
 	AFE_CONN5, AFE_CONN6, AFE_CONN7, AFE_CONN8, AFE_CONN9,
 	AFE_CONN10, AFE_CONN11, AFE_CONN12, AFE_CONN13, AFE_CONN14,
@@ -93,10 +94,12 @@ const unsigned int mConnectionReg[Soc_Aud_InterConnectionOutput_Num_Output] = {
 	AFE_CONN20, AFE_CONN21, AFE_CONN22, AFE_CONN23, AFE_CONN24,
 	AFE_CONN25, AFE_CONN26, AFE_CONN27, AFE_CONN28, AFE_CONN29,
 	AFE_CONN30, AFE_CONN31, AFE_CONN32, AFE_CONN33, AFE_CONN34,
-	AFE_CONN35, AFE_CONN36, AFE_CONN37, AFE_CONN38, AFE_CONN39
+	AFE_CONN35, AFE_CONN36, AFE_CONN37, AFE_CONN38, AFE_CONN39,
+	AFE_CONN40, AFE_CONN41, AFE_CONN42, AFE_CONN43
 };
 
-const unsigned int mConnectReg_1[Soc_Aud_InterConnectionOutput_Num_Output] = {
+const unsigned int
+mConnectionReg_1[Soc_Aud_InterConnectionOutput_Num_Output] = {
 	AFE_CONN0_1, AFE_CONN1_1, AFE_CONN2_1, AFE_CONN3_1, AFE_CONN4_1,
 	AFE_CONN5_1, AFE_CONN6_1, AFE_CONN7_1, AFE_CONN8_1, AFE_CONN9_1,
 	AFE_CONN10_1, AFE_CONN11_1, AFE_CONN12_1, AFE_CONN13_1, AFE_CONN14_1,
@@ -104,7 +107,8 @@ const unsigned int mConnectReg_1[Soc_Aud_InterConnectionOutput_Num_Output] = {
 	AFE_CONN20_1, AFE_CONN21_1, AFE_CONN22_1, AFE_CONN23_1, AFE_CONN24_1,
 	AFE_CONN25_1, AFE_CONN26_1, AFE_CONN27_1, AFE_CONN28_1, AFE_CONN29_1,
 	AFE_CONN30_1, AFE_CONN31_1, AFE_CONN32_1, AFE_CONN33_1, AFE_CONN34_1,
-	AFE_CONN35_1, AFE_CONN36_1, AFE_CONN37_1, AFE_CONN38_1, AFE_CONN39_1
+	AFE_CONN35_1, AFE_CONN36_1, AFE_CONN37_1, AFE_CONN38_1, AFE_CONN39_1,
+	AFE_CONN40_1, AFE_CONN41_1, AFE_CONN42_1, AFE_CONN43_1
 };
 
 /**
@@ -678,6 +682,60 @@ bool SetDl3ToAwb(unsigned int ConnectionState)
 	return true;
 }
 
+bool SetI2s0ToGeneralSrc1(unsigned int ConnectionState)
+{
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I00,
+			Soc_Aud_InterConnectionOutput_O40);
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I01,
+			Soc_Aud_InterConnectionOutput_O41);
+	return true;
+}
+
+bool SetIDl1ToGeneralSrc1(unsigned int ConnectionState)
+{
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I05,
+			Soc_Aud_InterConnectionOutput_O40);
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I06,
+			Soc_Aud_InterConnectionOutput_O41);
+	return true;
+}
+
+bool SetIDl2ToGeneralSrc1(unsigned int ConnectionState)
+{
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I07,
+			Soc_Aud_InterConnectionOutput_O40);
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I08,
+			Soc_Aud_InterConnectionOutput_O41);
+	return true;
+}
+
+bool SetIDl3ToGeneralSrc1(unsigned int ConnectionState)
+{
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I23,
+			Soc_Aud_InterConnectionOutput_O40);
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I24,
+			Soc_Aud_InterConnectionOutput_O41);
+	return true;
+}
+
+bool SetGeneralSrc1ToAwb(unsigned int ConnectionState)
+{
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I36,
+			Soc_Aud_InterConnectionOutput_O05);
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I37,
+			Soc_Aud_InterConnectionOutput_O06);
+	return true;
+}
+
+bool SetI2s0ToVulData2(unsigned int ConnectionState)
+{
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I00,
+			Soc_Aud_InterConnectionOutput_O21);
+	SetConnectionState(ConnectionState, Soc_Aud_InterConnectionInput_I01,
+			Soc_Aud_InterConnectionOutput_O22);
+	return true;
+}
+
 struct connection_link_t {
 	unsigned int input;
 	unsigned int output;
@@ -818,8 +876,19 @@ static const struct connection_link_t mConnectionLink[] = {
 	{Soc_Aud_AFE_IO_Block_MEM_DL3,
 		Soc_Aud_AFE_IO_Block_I2S1_DAC_2, SetDl3ToI2s1Dac2},
 	{Soc_Aud_AFE_IO_Block_MEM_DL3,
-		Soc_Aud_AFE_IO_Block_MEM_AWB, SetDl3ToAwb}
-
+		Soc_Aud_AFE_IO_Block_MEM_AWB, SetDl3ToAwb},
+	{Soc_Aud_AFE_IO_Block_I2S0,
+		Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_OUT,	SetI2s0ToGeneralSrc1},
+	{Soc_Aud_AFE_IO_Block_MEM_DL1,
+		Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_OUT,	SetIDl1ToGeneralSrc1},
+	{Soc_Aud_AFE_IO_Block_MEM_DL2,
+		Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_OUT,	SetIDl2ToGeneralSrc1},
+	{Soc_Aud_AFE_IO_Block_MEM_DL3,
+		Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_OUT,	SetIDl3ToGeneralSrc1},
+	{Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_IN,
+		Soc_Aud_AFE_IO_Block_MEM_AWB, SetGeneralSrc1ToAwb},
+	{Soc_Aud_AFE_IO_Block_I2S0,
+		Soc_Aud_AFE_IO_Block_MEM_VUL_DATA2, SetI2s0ToVulData2}
 };
 
 static const int CONNECTION_LINK_NUM = ARRAY_SIZE(mConnectionLink);
@@ -827,7 +896,8 @@ static const int CONNECTION_LINK_NUM = ARRAY_SIZE(mConnectionLink);
 static bool CheckBitsandReg(short regaddr, char bits)
 {
 	if (regaddr <= 0 || bits < 0) {
-		pr_debug("regaddr = %x bits = %d\n", regaddr, bits);
+		pr_debug("%s(), regaddr = %x, bits = %d\n",
+			 __func__, regaddr, bits);
 		return false;
 	}
 	return true;
@@ -860,7 +930,7 @@ bool SetConnectionState(unsigned int ConnectionState, unsigned int Input,
 	int set_bit = 0;
 
 	connectReg = (Input < Soc_Aud_InterConnectionInput_I32 ?
-		mConnectionReg[Output] : mConnectReg_1[Output]);
+		mConnectionReg[Output] : mConnectionReg_1[Output]);
 	set_bit = Input < Soc_Aud_InterConnectionInput_I32 ? Input : Input -
 		  Soc_Aud_InterConnectionInput_I32;
 
