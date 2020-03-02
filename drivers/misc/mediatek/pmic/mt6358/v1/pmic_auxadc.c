@@ -26,7 +26,7 @@
 #include "include/pmic.h"
 #include "include/pmic_auxadc.h"
 #include "include/mt635x-auxadc-internal.h"
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
 #include <mt-plat/upmu_common.h>
@@ -197,7 +197,7 @@ int wk_vbat_cali(int vbat_out, int precision_factor)
 			g_AUXCALI_EN, g_BGRCALI_EN,
 			g_GAIN_AUX, g_GAIN_BGRL, g_GAIN_BGRH,
 			g_TEMP_L_CALI, g_TEMP_H_CALI);
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("PMIC AUXADC CALI", "VBAT CALI");
 #endif
 	} else
@@ -527,7 +527,7 @@ static int mdrt_kthread(void *x)
 			}
 			if (polling_cnt >= 312) { /* 312 * 32ms ~= 10s*/
 				mdrt_reg_dump();
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 				aee_kernel_warning("PMIC AUXADC:MDRT", "MDRT");
 #endif
 				break;
@@ -686,7 +686,7 @@ static int auxadc_bat_temp_cali(int bat_temp, int precision_factor)
 		/* dump debug log when BAT_TEMP being abnormal */
 		bat_temp = wk_bat_temp_dbg(bat_temp_prev, bat_temp);
 #if BAT_TEMP_AEE_DBG
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 		if (aee_count < 2)
 			aee_kernel_warning("PMIC AUXADC:BAT_TEMP", "BAT_TEMP");
 #endif
@@ -847,7 +847,7 @@ void pmic_auxadc_chip_timeout_handler(
 	if (timeout_times > 10 && timeout_times < 13) {
 		pmic_set_hk_reg_value(PMIC_AUXADC_DATA_REUSE_EN, 1);
 		pr_notice("AUXADC timeout, enable DATA REUSE\n");
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("PMIC AUXADC:TIMEOUT", "");
 #endif
 	}
