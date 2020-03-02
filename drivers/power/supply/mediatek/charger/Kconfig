@@ -115,8 +115,8 @@ config CHARGER_RT9471
 	depends on MTK_CHARGER
 	help
 	  Say Yes to enable Richtek RT9471 driver.
-	  It supports both of RT9471/RT9471D,
-	  which RT9471D supports BC1.2
+	  It supports RT9470/RT9470D/RT9471/RT9471D,
+	  which RT9470D and RT9471D support BC1.2
 	  It depends on config MTK_CHARGER.
 
 config MTK_CHARGER_UNLIMITED
