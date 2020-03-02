@@ -54,7 +54,6 @@ enum m4u_cmd {
 	CMD_M4U_UNMAP_NONSEC_BUFFER,
 
 	CMD_M4U_GET_RESERVED_MEMORY,
-	CMD_M4U_GET_SEC_MEM,
 	CMD_M4U_NUM,
 };
 
@@ -94,21 +93,12 @@ struct m4u_buf_param {
 	unsigned long long pa;
 };
 
-#define TZ_M4U_MAX_MEM_CHUNK_NR 2
-
-struct m4u_sec_mem_param {
-	uint64_t pa[TZ_M4U_MAX_MEM_CHUNK_NR];
-	uint64_t sz[TZ_M4U_MAX_MEM_CHUNK_NR];
-	uint64_t mva[TZ_M4U_MAX_MEM_CHUNK_NR];
-	unsigned int nr;
-};
-
 struct m4u_init_param {
 	unsigned long long nonsec_pt_pa;
 	int l2_en;
 	unsigned int sec_pt_pa;
-	struct m4u_sec_mem_param sec_mem;
-	unsigned int chunk_nr;
+	unsigned long long sec_pa_start;
+	unsigned int sec_pa_size;
 	int reinit;
 };
 
@@ -118,7 +108,7 @@ struct m4u_systrace_param {
 };
 
 struct m4u_cfg_port_array_param {
-	unsigned char m4u_port_array[M4U_PORT_NR];
+	unsigned char m4u_port_array[(M4U_PORT_NR+1)/2];
 };
 
 struct m4u_larb_restore_param {
@@ -146,18 +136,9 @@ struct m4u_msg {
 #endif
 		struct m4u_larb_restore_param larb_param;
 		struct m4u_reserved_memory_param reserved_memory_param;
-		struct m4u_sec_mem_param sec_mem_param;
 	};
 
 };
-
-/* logs */
-#define M4U_U64_FMT	"0x%08x_%08x"
-#define M4U_U64_PR(u64)		((uint32_t)((u64) >> 32), (uint32_t)(u64))
-
-/* should be removed before MP */
-#define TZ_M4U_DBG
-
 
 #if defined(__cplusplus)
 }
