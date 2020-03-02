@@ -1,0 +1,16 @@
+config MTK_APUSYS
+	bool "APUSYS driver"
+	help
+	  For Mediatek APUSYS features, such as APUSYS driver
+	  APUSYS power, APUSYS QoS,
+	  CONFIG_MTK_APUSYS defines
+	  if the APUSYS driver should be
+	  built in or not
+
+config MTK_APUSYS_MDLA
+	bool "MDLA driver"
+	help
+	  Support deep neural network calculation using
+	  hardware accelerator. Customers and third party
+	  could use MDLA to develop feature and algorithm
+	  by themselves.
