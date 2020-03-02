@@ -144,6 +144,7 @@ long adsp_driver_ioctl(
 	struct audio_dsp_query_status_t adsp_status;
 
 	int retval = 0;
+	unsigned int magic[2];
 
 	switch (cmd) {
 	case AUDIO_DSP_IOCTL_ADSP_REG_FEATURE: {
@@ -208,9 +209,15 @@ long adsp_driver_ioctl(
 		break;
 	}
 	case AUDIO_DSP_IOCTL_ADSP_RESET_CBK: {
-		retval = adsp_read_status_blocked();
-		pr_debug("%s(), AUDIO_DSP_IOCTL_ADSP_RESET_CBK(%d)\n",
-			 __func__, retval);
+		if (copy_from_user(&magic, (void *)arg, sizeof(magic))) {
+			retval = -EINVAL;
+			break;
+		}
+		if (magic[0] + magic[1] == 0xFFFFFFFF) {
+			retval = adsp_read_status_blocked();
+			pr_debug("%s(), AUDIO_DSP_IOCTL_ADSP_RESET_CBK(%d)\n",
+				 __func__, retval);
+		}
 		break;
 	}
 	}
