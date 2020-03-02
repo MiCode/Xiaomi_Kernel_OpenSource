@@ -20,8 +20,8 @@ int secmem_fr_set_prot_shared_region(u64 pa, u32 size);
 int secmem_fr_dump_info(void);
 #endif
 
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
-int secmem_set_sdsp_shared_region(u64 pa, u32 size);
+#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
+int secmem_set_mchunks_region(u64 pa, u32 size, enum TRUSTED_MEM_TYPE mem_type);
 #endif
 
 #if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
