@@ -116,4 +116,14 @@ ssize_t tipc_k_read(struct tipc_k_handle *h, void *buf, size_t buf_len,
 ssize_t tipc_k_write(struct tipc_k_handle *h, void *buf, size_t len,
 		     unsigned int flags);
 
+/* port_lookup_tid() - indicate the tee_id from service port name.
+ * @port: service name
+ * @o_tid: output tee_id value, must be the value in enum tee_id_t
+ *
+ * Return 0 means no error.
+ * port_lookup_tid will set a default tee_id value when errors happened, but
+ * still needs to check the returned err value.
+ */
+int port_lookup_tid(const char *port, enum tee_id_t *o_tid);
+
 #endif				/* __LINUX_TRUSTY_TRUSTY_IPC_H */

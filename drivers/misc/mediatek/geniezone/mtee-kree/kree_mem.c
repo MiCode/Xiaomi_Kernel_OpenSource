@@ -28,7 +28,8 @@
 #define KREE_INFO(fmt...) pr_info("[KREE_MEM]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE_MEM][ERR]" fmt)
 
-DEFINE_MUTEX(shared_mem_mutex);
+DEFINE_MUTEX(shared_mem_mutex_trusty);
+DEFINE_MUTEX(shared_mem_mutex_nebula);
 DEFINE_MUTEX(chmem_mutex);
 DEFINE_MUTEX(chmem_mutex_alloc);
 DEFINE_MUTEX(chmem_mutex_unref);
@@ -449,12 +450,24 @@ static TZ_RESULT kree_register_sharedmem(KREE_SESSION_HANDLE session,
 	union MTEEC_PARAM p[4];
 	TZ_RESULT ret = 0;
 	int locktry;
+	enum tee_id_t tee_id;
+	struct mutex *shared_mem_mutex;
 
 	KREE_DEBUG("[%s]is calling.\n", __func__);
 
+	ret = KREE_SessionToTID(session, &tee_id);
+	if (ret != TZ_RESULT_SUCCESS)
+		pr_info("[%s] err %d, get default tee_id %d\n",
+			__func__, ret, tee_id);
+
 	/*FIXME: mutex should be removed after re-implement sending procedure */
+	if (tee_id == TEE_ID_TRUSTY)
+		shared_mem_mutex = &shared_mem_mutex_trusty;
+	else
+		shared_mem_mutex = &shared_mem_mutex_nebula;
+
 	do {
-		locktry = mutex_lock_interruptible(&shared_mem_mutex);
+		locktry = mutex_lock_interruptible(shared_mem_mutex);
 		if (locktry && locktry != -EINTR) {
 			KREE_ERR("[%s]mutex lock fail(0x%x)\n",
 				 __func__, locktry);
@@ -469,7 +482,7 @@ static TZ_RESULT kree_register_sharedmem(KREE_SESSION_HANDLE session,
 		ret = kree_register_desc_shm(p, session, start, size, mapAry,
 					     cmd, region_id);
 
-	mutex_unlock(&shared_mem_mutex);	/* FIXME: should be removed */
+	mutex_unlock(shared_mem_mutex);	/* FIXME: should be removed */
 
 	if (ret != TZ_RESULT_SUCCESS) {
 		*mem_handle = 0;

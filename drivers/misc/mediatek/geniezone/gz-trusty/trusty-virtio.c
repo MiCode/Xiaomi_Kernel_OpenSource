@@ -497,15 +497,6 @@ static int trusty_set_tee_name(struct trusty_ctx *tctx,
 	struct device_node *node = tctx->trusty_dev->of_node;
 	char *str;
 
-#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
-	if (is_trusty_tee(tctx->tee_id)) {
-		strncpy(cfg->dev_name.tee_name, "aosp-trusty",
-			MAX_MINOR_NAME_LEN);
-		pr_info("[%s] set tee_name: %s\n",
-			__func__, cfg->dev_name.tee_name);
-		return 0;
-	}
-#endif
 	if (!node) {
 		dev_info(tctx->dev, "[%s] of_node required\n", __func__);
 		return -EINVAL;

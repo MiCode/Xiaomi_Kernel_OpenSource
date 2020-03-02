@@ -12,4 +12,4 @@ obj-$(CONFIG_TRUSTY_FIQ_ARM)		+= trusty-fiq-arm.o
 obj-$(CONFIG_TRUSTY_FIQ_ARM64)		+= trusty-fiq-arm64.o \
 					   trusty-fiq-arm64-glue.o
 obj-$(CONFIG_GZ_LOG)			+= gz-log.o
-obj-$(CONFIG_MT_GZ_TRUSTY_DEBUGFS)	+= trusty-nebula.o
+obj-$(CONFIG_MT_GZ_TRUSTY_DEBUGFS)	+= trusty-debugfs.o
