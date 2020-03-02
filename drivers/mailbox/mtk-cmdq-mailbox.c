@@ -128,7 +128,7 @@ struct cmdq {
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
-	s32 usage, err;
+	s32 usage, err, err_timer;
 
 	usage = atomic_inc_return(&cmdq->usage);
 
@@ -142,7 +142,9 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 				cmdq->base + CMDQ_PREFETCH_GSIZE);
 	}
 
-	clk_enable(cmdq->clock_timer);
+	err_timer = clk_enable(cmdq->clock_timer);
+	if (err_timer < 0)
+		cmdq_err("timer clk fail:%d", err_timer);
 
 	return err;
 }
