@@ -3341,100 +3341,100 @@ static int CONN_sys_disable_op(struct subsys *sys)
 static int DIS_sys_disable_op(struct subsys *sys)
 {
 	/*printk("DIS_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
 }
 
 static int MFG_sys_disable_op(struct subsys *sys)
 {
 	/*printk("MFG_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_mfg(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_mfg(STA_POWER_DOWN);
 }
 
 static int ISP_sys_disable_op(struct subsys *sys)
 {
 	/*printk("ISP_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_isp(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_isp(STA_POWER_DOWN);
 }
 
 static int VEN_sys_disable_op(struct subsys *sys)
 {
 	/*printk("VEN_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_ven(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_ven(STA_POWER_DOWN);
 }
 
 static int MFG_ASYNC_sys_disable_op(struct subsys *sys)
 {
 	/*printk("MFG_ASYNC_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_mfg_async(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_mfg_async(STA_POWER_DOWN);
 }
 
 static int AUDIO_sys_disable_op(struct subsys *sys)
 {
 	/*printk("AUDIO_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_audio(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_audio(STA_POWER_DOWN);
 }
 
 static int CAM_sys_disable_op(struct subsys *sys)
 {
 	/*printk("CAM_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_cam(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_cam(STA_POWER_DOWN);
 }
 
 static int MFG_CORE1_sys_disable_op(struct subsys *sys)
 {
 	/*printk("MFG_CORE1_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_mfg_core1(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_mfg_core1(STA_POWER_DOWN);
 }
 
 static int MFG_CORE0_sys_disable_op(struct subsys *sys)
 {
 	/*printk("MFG_CORE0_sys_disable_op\r\n"); */
-	return 0;//spm_mtcmos_ctrl_mfg_core0(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_mfg_core0(STA_POWER_DOWN);
 }
 
 static int MFG_2D_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_mfg_2d(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_mfg_2d(STA_POWER_DOWN);
 }
 
 static int VDE_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vde(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vde(STA_POWER_DOWN);
 }
 
 static int VPU_TOP_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_top(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_top(STA_POWER_DOWN);
 }
 
 static int VPU_CORE0_DORMANT_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_core0_dormant(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_core0_dormant(STA_POWER_DOWN);
 }
 
 static int VPU_CORE0_SHUTDOWN_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_core0_shut_down(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_core0_shut_down(STA_POWER_DOWN);
 }
 
 static int VPU_CORE1_DORMANT_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_core1_dormant(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_core1_dormant(STA_POWER_DOWN);
 }
 
 static int VPU_CORE1_SHUTDOWN_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_core1_shut_down(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_core1_shut_down(STA_POWER_DOWN);
 }
 
 static int VPU_CORE2_DORMANT_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_core2_dormant(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_core2_dormant(STA_POWER_DOWN);
 }
 
 static int VPU_CORE2_SHUTDOWN_sys_disable_op(struct subsys *sys)
 {
-	return 0;//spm_mtcmos_ctrl_vpu_core2_shut_down(STA_POWER_DOWN);
+	return spm_mtcmos_ctrl_vpu_core2_shut_down(STA_POWER_DOWN);
 }
 
 static int sys_get_state_op(struct subsys *sys)
