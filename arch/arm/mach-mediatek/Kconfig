@@ -34,11 +34,6 @@ config MACH_MT8135
 	bool "MediaTek MT8135 SoCs support"
 	default ARCH_MEDIATEK
 
-config MACH_MT6771
-	bool "MediaTek MT6771 SoCs support"
-	select MTK_TIMER_APXGPT
-	select MTK_EMI
-
 config MACH_MT8168
 	bool "MediaTek MT8168"
 	select GENERIC_TIME
@@ -82,5 +77,50 @@ config MACH_MT8168
 	  If you need support for MediaTek MT8168, say Y here.
 	  This including the basic selections,
 	  But not all of them.
-
 endif
+
+config MACH_MT6771
+	bool "MediaTek MT6771 SoCs support"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6771
+	select MFD_SYSCON
+	select CPU_IDLE
+	select NEON
+	select VFP
+	select KERNEL_MODE_NEON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select ARM_GIC_V3
+	select MTK_SYSIRQ
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_SYS_CIRQ
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_SYSTRACKER_V2
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_SYSTRACKER_V2
+	select MTK_CACHE_FLUSH_BY_SF
+	select MTK_TIMER_APXGPT
+	select MTK_EMI
+
+	help
+	  This enables support for MediaTek MT6771
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6771 related projects
+	  Support for mt6771 related projects
+
