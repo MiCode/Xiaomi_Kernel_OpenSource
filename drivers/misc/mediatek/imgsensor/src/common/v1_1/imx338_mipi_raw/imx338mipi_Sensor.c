@@ -312,6 +312,7 @@ static struct imgsensor_struct imgsensor = {
 	.current_scenario_id = MSDK_SCENARIO_ID_CAMERA_PREVIEW,
 	.hdr_mode = 0,	/* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x6c,	/* record current sensor's i2c write id */
+	.current_ae_effective_frame = 2,
 };
 
 
@@ -805,8 +806,13 @@ static void set_shutter(kal_uint32 shutter)
 			read_cmos_sensor(0x3028) | (l_shift & 0x7));
 		/* LOG_INF("0x3028 0x%x\n", read_cmos_sensor(0x3028)); */
 
+		/* Frame exposure mode customization for LE*/
+		imgsensor.ae_frm_mode.frame_mode_1 = IMGSENSOR_AE_MODE_SE;
+		imgsensor.ae_frm_mode.frame_mode_2 = IMGSENSOR_AE_MODE_SE;
+		imgsensor.current_ae_effective_frame = 2;
 	} else {
 		write_cmos_sensor(0x3028, read_cmos_sensor(0x3028) & 0xf8);
+		imgsensor.current_ae_effective_frame = 2;
 	}
 
 	shutter = (shutter >
@@ -4383,6 +4389,15 @@ static kal_uint32 feature_control(
 		LOG_INF("SENSOR_FEATURE_SET_STREAMING_RESUME\n");
 		streaming_control(KAL_TRUE);
 		break;
+
+	case SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE:
+		memcpy(feature_return_para_32, &imgsensor.ae_frm_mode,
+		       sizeof(struct IMGSENSOR_AE_FRM_MODE));
+		break;
+	case SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE:
+		*feature_return_para_32 = imgsensor.current_ae_effective_frame;
+		break;
+
 	default:
 		break;
 	}
