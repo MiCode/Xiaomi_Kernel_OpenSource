@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/module.h>
+#include <linux/sched/clock.h>
 
 #include "tick-internal.h"
 
@@ -33,8 +34,6 @@
 #define _MTK_TICK_BROADCAST_AEE_DUMP
 #endif
 #endif
-
-extern unsigned long long notrace sched_clock(void);
 
 /*
  * Broadcast support for broken x86 hardware, where the local apic
