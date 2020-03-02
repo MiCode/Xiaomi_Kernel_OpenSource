@@ -93,6 +93,7 @@ static struct {
 	{DISP_OPT_SODI_SUPPORT, 0, "DISP_OPT_SODI_SUPPORT"},
 	{DISP_OPT_IDLE_MGR, 0, "DISP_OPT_IDLE_MGR"},
 	{DISP_OPT_IDLEMGR_SWTCH_DECOUPLE, 0, "DISP_OPT_IDLEMGR_SWTCH_DECOUPLE"},
+	{DISP_OPT_IDLEMGR_BY_REPAINT, 0, "DISP_OPT_IDLEMGR_BY_REPAINT"},
 	{DISP_OPT_IDLEMGR_ENTER_ULPS, 0, "DISP_OPT_IDLEMGR_ENTER_ULPS"},
 	{DISP_OPT_SHARE_SRAM, 0, "DISP_OPT_SHARE_SRAM"},
 	{DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK, 0,
@@ -357,7 +358,7 @@ void disp_helper_option_init(void)
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
 	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
-	disp_helper_set_option(DISP_OPT_IDLEMGR_BY_REPAINT, 1);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_BY_REPAINT, 0);
 	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 0);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);
 
