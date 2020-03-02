@@ -506,8 +506,8 @@ void rtc_bbpu_power_down(void)
 
 void mt_power_off(void)
 {
-#if !defined(CONFIG_POWER_EXT)
 	int count = 0;
+#if !defined(CONFIG_POWER_EXT)
 #ifdef CONFIG_MTK_CHARGER
 	unsigned char exist;
 #endif
@@ -518,7 +518,7 @@ void mt_power_off(void)
 	/* pull PWRBB low */
 	rtc_bbpu_power_down();
 
-	while (1) {
+	while (count < INT_MAX) {
 #if defined(CONFIG_POWER_EXT)
 		/* EVB */
 		rtc_xinfo("EVB without charger\n");
@@ -532,8 +532,8 @@ void mt_power_off(void)
 		if (exist == 1 || count > 10)
 			arch_reset(0, "charger");
 #endif
-		count++;
 #endif
+		count++;
 	}
 }
 
