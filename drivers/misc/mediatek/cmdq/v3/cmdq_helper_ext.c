@@ -5396,7 +5396,7 @@ void cmdq_core_initialize(void)
 
 #ifdef CMDQ_DAPC_DEBUG
 static struct devapc_vio_callbacks devapc_vio_handle = {
-	.id = SUBSYS_GCE,
+	.id = INFRA_SUBSYS_GCE,
 	.debug_dump = cmdq_core_handle_devapc_vio,
 };
 #endif

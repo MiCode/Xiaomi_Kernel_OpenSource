@@ -41,7 +41,7 @@ static void devapc_test_cb(void)
 }
 
 static struct devapc_vio_callbacks devapc_test_handle = {
-	.id = SUBSYS_TEST,
+	.id = DEVAPC_SUBSYS_TEST,
 	.debug_dump = devapc_test_cb,
 };
 
@@ -577,7 +577,7 @@ static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
 	struct mtk_devapc_dbg_status *dbg_stat;
 	struct devapc_vio_callbacks *viocb;
 	char dispatch_key[48] = {0};
-	enum subsys_id id;
+	enum infra_subsys_id id;
 
 	device_info[SLAVE_TYPE_INFRA] = mtk_devapc_ctx->soc->device_info_infra;
 	device_info[SLAVE_TYPE_PERI] = mtk_devapc_ctx->soc->device_info_peri;
@@ -600,30 +600,31 @@ static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
 
 	/* Callback func for vio master */
 	if (!strncasecmp(vio_master, "MD", 2))
-		id = SUBSYS_MD;
+		id = INFRA_SUBSYS_MD;
 	else if (!strncasecmp(vio_master, "CONN", 4) ||
 			!strncasecmp(dispatch_key, "CONN", 4))
-		id = SUBSYS_CONN;
+		id = INFRA_SUBSYS_CONN;
 	else if (!strncasecmp(vio_master, "TINYSYS", 7))
-		id = SUBSYS_ADSP;
+		id = INFRA_SUBSYS_ADSP;
 	else if (!strncasecmp(vio_master, "GCE", 3))
-		id = SUBSYS_GCE;
+		id = INFRA_SUBSYS_GCE;
 	else if (!strncasecmp(vio_master, "APMCU", 5))
-		id = SUBSYS_APMCU;
+		id = INFRA_SUBSYS_APMCU;
 	else
-		id = SUBSYS_RESERVED;
+		id = DEVAPC_SUBSYS_RESERVED;
 
 	/* enable_ut to test callback */
 	if (dbg_stat->enable_ut)
-		id = SUBSYS_TEST;
+		id = DEVAPC_SUBSYS_TEST;
 
-	if (id != SUBSYS_RESERVED) {
+	if (id != DEVAPC_SUBSYS_RESERVED) {
 		list_for_each_entry(viocb, &viocb_list, list) {
 			if (viocb->id == id && viocb->debug_dump)
 				viocb->debug_dump();
 
 			/* always call clkmgr cb if it's registered */
-			if (viocb->id == SUBSYS_CLKMGR && viocb->debug_dump)
+			if (viocb->id == DEVAPC_SUBSYS_CLKMGR &&
+					viocb->debug_dump)
 				viocb->debug_dump();
 		}
 	}
@@ -631,7 +632,7 @@ static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
 	/* Severity level */
 	if (dbg_stat->enable_KE) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
-		BUG_ON(id != SUBSYS_CONN && id != SUBSYS_MD);
+		BUG_ON(id != INFRA_SUBSYS_CONN && id != INFRA_SUBSYS_MD);
 
 	} else if (dbg_stat->enable_AEE) {
 
