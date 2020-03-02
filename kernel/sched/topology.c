@@ -1052,8 +1052,9 @@ static inline int sched_group_energy_equal(const struct sched_group_energy *a,
 	((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/cap_state_power(e, n))
 #else
 	/* to enlarge the difference of energy_eff */
+#define CPU_CAP_HIGH_RES 6
 #define energy_eff(e, n) \
-	((e->cap_states[n].cap << (SCHED_CAPACITY_SHIFT+4)) \
+	((e->cap_states[n].cap << (SCHED_CAPACITY_SHIFT + CPU_CAP_HIGH_RES)) \
 		/cap_state_power(e, n))
 #endif
 
@@ -1106,6 +1107,10 @@ static void init_sched_groups_energy(int cpu, struct sched_domain *sd,
 	 * decreasing in the capacity state vector with higher indexes
 	 */
 	for (i = 0; i < (sge->nr_cap_states - 1); i++) {
+#ifdef CONFIG_MTK_UNIFY_POWER
+		if (cap_state_power(sge, i) == 0)
+			continue;
+#endif
 		if (energy_eff(sge, i) > energy_eff(sge, i+1))
 			continue;
 #ifdef CONFIG_SCHED_DEBUG
