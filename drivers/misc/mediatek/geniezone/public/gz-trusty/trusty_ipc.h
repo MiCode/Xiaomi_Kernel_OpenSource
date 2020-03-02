@@ -50,11 +50,9 @@ struct tipc_dn_chan {
 	wait_queue_head_t readq;
 	struct completion reply_comp;
 	struct list_head rx_msg_queue;
-#if defined(CONFIG_MTK_GZ_KREE)
 	u32 session;
 	struct mutex sess_lock;
 	enum tee_id_t tee_id;
-#endif
 };
 
 struct tipc_chan *tipc_create_channel(struct device *dev,
