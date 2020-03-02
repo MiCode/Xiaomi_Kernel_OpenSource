@@ -149,7 +149,7 @@ mtk_rpmsg_create_channel(struct mtk_rpmsg_device *mdev, u32 chan_id, char *name)
 	//copy name to rpdev, only dev no need now
 	//strncpy(rpdev->id.name, name, RPMSG_NAME_SIZE);
 	//copy name to channel info
-	strncpy(mchan->info.name, name, RPMSG_NAME_SIZE);
+	strlcpy(mchan->info.name, name, RPMSG_NAME_SIZE);
 
 	count = mbdev->recv_count;
 	found = 0;
