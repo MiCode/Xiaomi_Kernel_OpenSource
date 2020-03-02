@@ -139,6 +139,7 @@ static int peer_mgr_mem_add_locked(u64 pa, u32 size,
 
 	sess_data->mem_pa_start = pa;
 	sess_data->mem_size = size;
+	sess_data->mem_size_runtime = size;
 
 	MGR_SESSION_UNLOCK();
 	return TMEM_OK;

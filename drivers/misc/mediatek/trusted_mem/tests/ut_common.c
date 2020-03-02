@@ -236,34 +236,10 @@ enum UT_RET_STATE mem_alloc_alignment_test(enum TRUSTED_MEM_TYPE mem_type,
 	return UT_STATE_PASS;
 }
 
-static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
-{
-	switch (mem_type) {
-	case TRUSTED_MEM_SVP:
-		return SIZE_256M;
-	case TRUSTED_MEM_PROT:
-		return SIZE_128M;
-	case TRUSTED_MEM_WFD:
-		return SIZE_64M;
-	case TRUSTED_MEM_2D_FR:
-		return SIZE_16M;
-	case TRUSTED_MEM_HAPP:
-		return SIZE_16M;
-	case TRUSTED_MEM_HAPP_EXTRA:
-		return SIZE_96M;
-	case TRUSTED_MEM_SDSP:
-		return SIZE_16M;
-	case TRUSTED_MEM_SDSP_SHARED:
-		return SIZE_16M;
-	default:
-		return SIZE_4K;
-	}
-}
-
 static u32 *g_mem_handle_list;
 enum UT_RET_STATE mem_handle_list_init(enum TRUSTED_MEM_TYPE mem_type)
 {
-	int max_pool_size = get_max_pool_size(mem_type);
+	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
 
 	int max_handle_cnt = max_pool_size / min_chunk_sz;
@@ -324,7 +300,7 @@ mem_alloc_saturation_variant(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 	int chunk_num;
 	u32 alignment = 0, chunk_size, ref_count;
 	u32 one_more_handle;
-	int max_pool_size = get_max_pool_size(mem_type);
+	int max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	int max_items;
 	u32 min_chunk_sz = get_saturation_test_min_chunk_size(mem_type);
 
@@ -595,7 +571,8 @@ static enum UT_RET_STATE mem_create_run_thread(enum TRUSTED_MEM_TYPE mem_type)
 	int idx;
 	int chunk_cnt;
 	u32 min_alloc_sz = tmem_core_get_min_chunk_size(mem_type);
-	u32 max_total_sz = get_max_pool_size(mem_type) / MEM_SPAWN_THREAD_COUNT;
+	u32 max_total_sz =
+		tmem_core_get_max_pool_size(mem_type) / MEM_SPAWN_THREAD_COUNT;
 
 	/* create new thread */
 	for (idx = 0; idx < MEM_SPAWN_THREAD_COUNT; idx++) {
