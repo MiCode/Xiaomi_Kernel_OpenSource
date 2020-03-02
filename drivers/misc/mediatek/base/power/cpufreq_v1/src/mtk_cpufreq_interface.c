@@ -109,7 +109,7 @@ static int cpufreq_power_mode_proc_show(struct seq_file *m, void *v)
 static ssize_t cpufreq_power_mode_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int mode;
+	unsigned int mode = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -623,7 +623,7 @@ static ssize_t cpufreq_imax_enable_proc_write(struct file *file,
 
 static int cpufreq_imax_reg_dump_proc_show(struct seq_file *m, void *v)
 {
-	unsigned int reg_val[REG_LEN];
+	unsigned int reg_val[REG_LEN] = {0};
 	unsigned int addr_arr[REG_LEN] = { 0xcd10, 0xce0c, 0xce10, 0xce14 };
 	unsigned int i;
 

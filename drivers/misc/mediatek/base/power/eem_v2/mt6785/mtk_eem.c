@@ -257,6 +257,8 @@ static int get_devinfo(void)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
+	memset(&tm, 0, sizeof(struct rtc_time));
+
 	rtc_dev = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
 	if (rtc_dev) {
 		err = rtc_read_time(rtc_dev, &tm);

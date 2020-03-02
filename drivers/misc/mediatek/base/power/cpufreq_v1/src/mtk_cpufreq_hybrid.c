@@ -246,10 +246,12 @@ int Ripi_cpu_dvfs_thread(void *data)
 
 				previous_limit = p->idx_opp_ppm_limit;
 				previous_base = p->idx_opp_ppm_base;
-				p->idx_opp_ppm_limit =
+				if (num_log) {
+					p->idx_opp_ppm_limit =
 	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].limit_idx);
-				p->idx_opp_ppm_base =
+					p->idx_opp_ppm_base =
 	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].base_idx);
+				}
 
 				if (j < p->idx_opp_ppm_limit)
 					j = p->idx_opp_ppm_limit;
@@ -322,7 +324,7 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #define OPT				(0) /* reserve for extensibility */
 #define DVFS_D_LEN		(4) /* # of cmd + arg0 + arg1 + ... */
 	unsigned int len = DVFS_D_LEN;
-	int ack_data;
+	int ack_data = 0;
 	unsigned int ret = 0;
 
 	/* cpufreq_ver("#@# %s(%d) cmd %x\n", __func__, __LINE__, cmd); */
