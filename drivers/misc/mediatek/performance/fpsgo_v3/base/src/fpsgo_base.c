@@ -273,6 +273,9 @@ void fpsgo_delete_render_info(int pid)
 	list_del(&(data->bufferid_list));
 	fpsgo_base2fbt_item_del(data->pLoading, data->p_blc,
 		data->dep_arr, data);
+	data->pLoading = NULL;
+	data->p_blc = NULL;
+	data->dep_arr = NULL;
 
 	if (data->boost_info.proc.jerks[0].jerking == 0
 		&& data->boost_info.proc.jerks[1].jerking == 0)
@@ -394,6 +397,9 @@ void fpsgo_check_thread_status(void)
 			list_del(&(iter->bufferid_list));
 			fpsgo_base2fbt_item_del(iter->pLoading, iter->p_blc,
 				iter->dep_arr, iter);
+			iter->pLoading = NULL;
+			iter->p_blc = NULL;
+			iter->dep_arr = NULL;
 			n = rb_first(&render_pid_tree);
 
 			if (iter->boost_info.proc.jerks[0].jerking == 0
@@ -456,6 +462,9 @@ void fpsgo_clear(void)
 		list_del(&(iter->bufferid_list));
 		fpsgo_base2fbt_item_del(iter->pLoading, iter->p_blc,
 			iter->dep_arr, iter);
+		iter->pLoading = NULL;
+		iter->p_blc = NULL;
+		iter->dep_arr = NULL;
 		n = rb_first(&render_pid_tree);
 
 		if (iter->boost_info.proc.jerks[0].jerking == 0
