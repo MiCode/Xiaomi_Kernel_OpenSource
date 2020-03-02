@@ -607,7 +607,7 @@ void mrdump_mini_build_task_info(struct pt_regs *regs)
 		off = strlen(cur_proc->backtrace);
 		plen = AEE_BACKTRACE_LENGTH - ALIGN(off, 8);
 		if (plen > 16) {
-			sz = snprintf(symbol, 96, "[<%p>] %pS\n",
+			sz = snprintf(symbol, 96, "[<%px>] %pS\n",
 				      (void *)ipanic_stack_entries[i],
 				      (void *)ipanic_stack_entries[i]);
 			if (ALIGN(sz, 8) - sz) {
@@ -629,10 +629,10 @@ void mrdump_mini_build_task_info(struct pt_regs *regs)
 		cur_proc->ke_frame.pc = ipanic_stack_entries[0];
 		cur_proc->ke_frame.lr = ipanic_stack_entries[1];
 	}
-	snprintf(cur_proc->ke_frame.pc_symbol, AEE_SZ_SYMBOL_S, "[<%p>] %pS",
+	snprintf(cur_proc->ke_frame.pc_symbol, AEE_SZ_SYMBOL_S, "[<%px>] %pS",
 		 (void *)(unsigned long)cur_proc->ke_frame.pc,
 		 (void *)(unsigned long)cur_proc->ke_frame.pc);
-	snprintf(cur_proc->ke_frame.lr_symbol, AEE_SZ_SYMBOL_L, "[<%p>] %pS",
+	snprintf(cur_proc->ke_frame.lr_symbol, AEE_SZ_SYMBOL_L, "[<%px>] %pS",
 		 (void *)(unsigned long)cur_proc->ke_frame.lr,
 		 (void *)(unsigned long)cur_proc->ke_frame.lr);
 }
