@@ -163,6 +163,17 @@ struct mmc_request {
 	 */
 	void			(*recovery_notifier)(struct mmc_request *);
 	struct mmc_host		*host;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_async_req	*areq;
+	int			flags;
+	struct list_head	link;
+	struct list_head	hlist;
+#endif
+
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
+	struct request		*req;
+	bool		is_mmc_req; /* request is from mmc layer */
+#endif
 
 	/* Allow other commands during this ongoing data transfer or busy wait */
 	bool			cap_cmd_during_tfr;

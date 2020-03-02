@@ -80,6 +80,28 @@ config MMC_TEST
 	  This driver is only of interest to those developing or
 	  testing a host driver. Most people should say N here.
 
+config MMC_BLOCK_IO_LOG
+	bool "Block IO log"
+	depends on MMC_BLOCK
+	depends on MTK_BLOCK_TAG
+	default y
+	help
+	  The BLOCK TAG trace provides I/O logs for performance analysis and
+	  application access pattern study. The BLOCK TAG trace summarizes the
+	  I/O of each process every 1 second, and saves to ring buffer. The log
+	  can be displayed by "cat /sys/kernel/debug/blockio".
+	  The trace is default enabled on user and eng builts, say N here to
+	  disable it.
+
+config MMC_FFU
+	bool "Field firmware updates to eMMC FW"
+	depends on MMC
+	help
+	  This is an option to run firmware update on eMMC 5.0.
+	  Field firmware updates (FFU) enables features enhancement
+	  in the field.
+	  This is must to upgrade the eMMC FW.
+
 config MMC_EMBEDDED_SDIO
 	boolean "MMC embedded SDIO device support"
 	help
@@ -94,3 +116,14 @@ config MMC_PARANOID_SD_INIT
 	  about re-trying SD init requests. This can be a useful
 	  work-around for buggy controllers and hardware. Enable
 	  if you are experiencing issues with SD detection.
+
+config MTK_MMC_PWR_WP
+	bool "Kernel power-on write protect Support"
+	depends on MMC
+	help
+	  This is an option to set power-on write protect on the partitions which
+	  have already been defined in kernel. Currently, only for HUIWEI projects
+	  use.
+
+	  E.g.  Kernel hard-code a partition named "system", User space use
+	  ioctl(fd, MMC_IOC_WP_CMD , &buf ) will set power-on write protect on it.

@@ -660,6 +660,80 @@ static void blk_account_io_merge(struct request *req)
 	}
 }
 
+
+static int crypto_try_merge_bio(struct bio *bio, struct bio *nxt, int type)
+{
+	unsigned long iv_bio, iv_nxt;
+	struct bio_vec bv;
+	struct bvec_iter iter;
+	unsigned int count = 0;
+
+	iv_bio = bio_bc_iv_get(bio);
+	iv_nxt = bio_bc_iv_get(nxt);
+
+	if (iv_bio == BC_INVALID_IV || iv_nxt == BC_INVALID_IV)
+		return ELEVATOR_NO_MERGE;
+
+	bio_for_each_segment(bv, bio, iter)
+		count++;
+
+	if ((iv_bio + count) != iv_nxt)
+		return ELEVATOR_NO_MERGE;
+
+	return type;
+}
+
+static int crypto_try_merge(struct request *rq, struct bio *bio, int type)
+{
+	/* flag mismatch => don't merge */
+	if (rq->bio->bi_crypt_ctx.bc_flags != bio->bi_crypt_ctx.bc_flags)
+		return ELEVATOR_NO_MERGE;
+
+	if (type == ELEVATOR_BACK_MERGE)
+		return crypto_try_merge_bio(rq->biotail, bio, type);
+	else if (type == ELEVATOR_FRONT_MERGE)
+		return crypto_try_merge_bio(bio, rq->bio, type);
+
+	return ELEVATOR_NO_MERGE;
+}
+
+static bool crypto_not_mergeable(struct request *req, struct bio *nxt)
+{
+	struct bio *bio = req->bio;
+
+	/* If neither is encrypted, no veto from us. */
+	if (~(bio->bi_crypt_ctx.bc_flags | nxt->bi_crypt_ctx.bc_flags) &
+	    BC_CRYPT) {
+		return false;
+	}
+
+	/* If one's encrypted and the other isn't, don't merge. */
+	/* If one's using page index as iv, and the other isn't don't merge */
+	if ((bio->bi_crypt_ctx.bc_flags ^ nxt->bi_crypt_ctx.bc_flags)
+	    & (BC_CRYPT | BC_IV_PAGE_IDX))
+		return true;
+
+	/* If both using page index as iv */
+	if (bio->bi_crypt_ctx.bc_flags & nxt->bi_crypt_ctx.bc_flags &
+		BC_IV_PAGE_IDX) {
+		/* must be the same file on the same mount */
+		if ((bio_bc_sb(bio) != bio_bc_sb(nxt)) ||
+			(bio_bc_ino(bio) != bio_bc_ino(nxt)))
+			return true;
+		/* page index must be contiguous */
+		if (crypto_try_merge(req, bio, ELEVATOR_BACK_MERGE)
+			== ELEVATOR_NO_MERGE)
+			return true;
+	}
+
+	/* If the key lengths are different or the keys aren't the
+	 * same, don't merge.
+	 */
+	return ((bio->bi_crypt_ctx.bc_key_size !=
+		 nxt->bi_crypt_ctx.bc_key_size) ||
+		(bio->bi_crypt_ctx.bc_keyring_key !=
+		 nxt->bi_crypt_ctx.bc_keyring_key));
+}
 /*
  * For non-mq, this has to be called with the request spinlock acquired.
  * For mq with scheduling, the appropriate queue wide lock should be held.
@@ -691,6 +765,8 @@ static struct request *attempt_merge(struct request_queue *q,
 	    !blk_write_same_mergeable(req->bio, next->bio))
 		return NULL;
 
+	if (crypto_not_mergeable(req, next->bio))
+		return NULL;
 	/*
 	 * Don't allow merge of different write hints, or for a hint with
 	 * non-hint IO.
@@ -822,6 +898,8 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 	    !blk_write_same_mergeable(rq->bio, bio))
 		return false;
 
+	if (crypto_not_mergeable(rq, bio))
+		return false;
 	/*
 	 * Don't allow merge of different write hints, or for a hint with
 	 * non-hint IO.

@@ -61,6 +61,7 @@ struct fscrypt_info {
 	u8 ci_flags;
 	struct crypto_skcipher *ci_ctfm;
 	struct crypto_cipher *ci_essiv_tfm;
+	struct key	*ci_keyring_key;
 	u8 ci_master_key[FS_KEY_DESCRIPTOR_SIZE];
 };
 
@@ -85,6 +86,10 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 
 	if (contents_mode == FS_ENCRYPTION_MODE_SPECK128_256_XTS &&
 	    filenames_mode == FS_ENCRYPTION_MODE_SPECK128_256_CTS)
+		return true;
+
+	if (contents_mode == FS_ENCRYPTION_MODE_PRIVATE &&
+	    filenames_mode == FS_ENCRYPTION_MODE_AES_256_CTS)
 		return true;
 
 	return false;
@@ -120,5 +125,8 @@ extern bool fscrypt_fname_encrypted_size(const struct inode *inode,
 
 /* keyinfo.c */
 extern void __exit fscrypt_essiv_cleanup(void);
+
+/* policy.c */
+extern u8 fscrypt_data_crypt_mode(u8 mode);
 
 #endif /* _FSCRYPT_PRIVATE_H */
