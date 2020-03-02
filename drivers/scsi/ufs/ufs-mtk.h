@@ -242,23 +242,5 @@ int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 int ufs_mtk_di_inspect(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 #endif
 
-#ifdef CONFIG_HIE
-struct hie_dev *ufs_mtk_hie_get_dev(void);
-int ufs_mtk_hie_req_done(struct ufs_hba *hba,
-	struct ufshcd_lrb *lrbp);
-#else
-static inline
-struct hie_dev *ufs_mtk_hie_get_dev(void)
-{
-	return NULL;
-}
-
-static inline int ufs_mtk_hie_req_done(
-	struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
-{
-	return 0;
-}
-#endif
-
 #endif /* !_UFS_MTK_H */
 

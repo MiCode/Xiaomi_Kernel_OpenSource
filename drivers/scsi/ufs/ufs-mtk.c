@@ -14,7 +14,6 @@
 #include <linux/bitfield.h>
 #include <linux/blk_types.h>
 #include <linux/blkdev.h>
-#include <linux/hie.h>
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -31,9 +30,6 @@
 #include "ufs-mtk-platform.h"
 #include "ufs-mtk-dbg.h"
 
-#ifdef CONFIG_HIE
-#include <mt-plat/keyhint.h>
-#endif
 #include <mt-plat/mtk_partition.h>
 #include <mt-plat/mtk_secure_api.h>
 #include <mt-plat/mtk_boot.h>
@@ -194,7 +190,8 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 		} else
 		#endif
 		{
-			if (hie_request_crypted(cmd->request)) {
+			/* TODO: Use inline-crypt method here */
+			if (0) {
 				LBA_CRC16_ARRAY[lba] = crc_temp;
 				LBA_CRC16_ARRAY_NE[lba] = 0;
 			} else {
@@ -230,7 +227,8 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 		} else
 		#endif
 		{
-			if (hie_request_crypted(cmd->request)) {
+			/* TODO: Use inline-crypt method here */
+			if (0) {
 				crc_temp = crc16(0x0, &buffer[len],
 					 CRC16_CAL_SIZE);
 				if (crc_temp == 0)
@@ -308,205 +306,6 @@ static int ufs_mtk_query_desc(struct ufs_hba *hba, enum query_opcode opcode,
 	return ufshcd_query_descriptor_retry(hba,
 		opcode, idn, index, 0, desc, &len);
 }
-
-#ifdef CONFIG_HIE
-
-static struct kh_dev ufs_mtk_kh;
-
-struct kh_dev *ufs_mtk_get_kh(void)
-{
-	return &ufs_mtk_kh;
-}
-
-#if defined(HIE_CHANGE_KEY_IN_NORMAL_WORLD)
-static int ufs_crypto_hie_get_cap(struct ufs_hba *hba, unsigned int hie_cap)
-{
-	dev_dbg(hba->dev, "hie_cap: 0x%x\n", hie_cap);
-
-	if (hie_cap & BC_AES_128_XTS)
-		return 0;
-	else if (hie_cap & BC_AES_256_XTS)
-		return 1;
-	else
-		return -1;
-}
-#endif
-
-/* configure request for HIE */
-static int ufs_mtk_hie_cfg_request(unsigned int mode,
-	const char *key, int len, struct request *req, void *priv)
-{
-	struct ufs_crypt_info *info = (struct ufs_crypt_info *)priv;
-	struct ufshcd_lrb *lrbp;
-	struct ufs_hba *hba = info->hba;
-	u32 i;
-	u32 *key_ptr;
-	unsigned long flags;
-	u64 iv, lba;
-	u32 dunl, dunu;
-	struct scsi_cmnd *cmd;
-	int need_update = 1;
-	int key_idx;
-#if defined(HIE_CHANGE_KEY_IN_NORMAL_WORLD)
-	union ufs_cpt_cap cpt_cap;
-	union ufs_cap_cfg cpt_cfg;
-	u32 addr;
-#else
-	u32 hie_para;
-#endif
-
-	spin_lock_irqsave(info->hba->host->host_lock, flags);
-
-	if (!(hba->crypto_feature & UFS_CRYPTO_HW_FBE_ENCRYPTED)) {
-		mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_INIT, 0, 0, 0, 0);
-		hba->crypto_feature |= UFS_CRYPTO_HW_FBE_ENCRYPTED;
-	}
-
-	/* get key index from key hint, or install new key to key hint */
-	key_idx = kh_get_hint(ufs_mtk_get_kh(), key, &need_update);
-
-	/*
-	 * Return error if free key slots are unavailable (-ENOMEM).
-	 *
-	 * Bypass error by unsuccesful keyhint registration (-ENODEV)
-	 * because ufs host driver shall work fine in this case.
-	 */
-	if ((key_idx < 0) && (key_idx != -ENODEV))
-		return key_idx;
-
-	spin_unlock_irqrestore(info->hba->host->host_lock, flags);
-
-	if (need_update || (key_idx < 0)) {
-
-		/*
-		 * Shall happen only if keyhint is not registered
-		 * successfully. Use tag as key index directly and
-		 * always update key.
-		 *
-		 * Note. In this case, queue depth shall align to
-		 * number of key slots.
-		 */
-		if (key_idx < 0)
-			key_idx = req->tag;
-
-		key_ptr = (u32 *)key;
-
-#if defined(HIE_CHANGE_KEY_IN_NORMAL_WORLD)
-		/* init crypto cfg */
-		memset(&cpt_cfg, 0, sizeof(cpt_cfg));
-
-		/* init key */
-		len = len >> 2;
-		if (len > 16) {
-			dev_info(info->hba->dev,
-				"Key size is over %d bits\n", len * 32);
-			len = 16;
-		}
-		for (i = 0; i < len; i++)
-			cpt_cfg.cfgx.key[i] = key_ptr[i];
-
-		/* enable this cfg */
-		cpt_cfg.cfgx.cfg_en = 1;
-
-		/* init capability id */
-		mode = ufs_crypto_hie_get_cap(info->hba, mode);
-		cpt_cfg.cfgx.cap_id = (u8) mode;
-
-		/* init data unit size: fixed as 4 KB (512 * 2^3) for UFS */
-		cpt_cfg.cfgx.du_size = (1 << 3);
-
-		/*
-		 * Get address of cfg[cfg_id], this is also
-		 * address of key in cfg[cfg_id].
-		 */
-		cpt_cap.cap_raw = ufshcd_readl(info->hba,
-			UFS_REG_CRYPTO_CAPABILITY);
-		addr = (cpt_cap.cap.cfg_ptr << 8) + (u32)(key_idx << 7);
-
-		spin_lock_irqsave(info->hba->host->host_lock, flags);
-
-		/* write configuration only to register */
-		for (i = 0; i < 32; i++) {
-			ufshcd_writel(info->hba, cpt_cfg.cfgx_raw[i],
-				(addr + i * 4));
-			dev_dbg(info->hba->dev, "[%d] 0x%x=0x%x\n",
-				key_idx,
-				(addr + i * 4), cpt_cfg.cfgx_raw[i]);
-		}
-
-		spin_unlock_irqrestore(info->hba->host->host_lock, flags);
-#else
-		hie_para = ((key_idx & 0xFF) << UFS_HIE_PARAM_OFS_CFG_ID) |
-			((mode & 0xFF) << UFS_HIE_PARAM_OFS_MODE) |
-			((len & 0xFF) << UFS_HIE_PARAM_OFS_KEY_TOTAL_BYTE);
-
-		spin_lock_irqsave(info->hba->host->host_lock, flags);
-
-		/* init ufs crypto IP for HIE and program key by first 8B */
-		mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST,
-			hie_para, key_ptr[0], key_ptr[1], 0);
-
-		/* program remaining key */
-		for (i = 2; i < len / sizeof(u32); i += 3) {
-			mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST,
-				key_ptr[i], key_ptr[i + 1], key_ptr[i + 2], 0);
-		}
-
-		spin_unlock_irqrestore(info->hba->host->host_lock, flags);
-#endif
-	}
-
-	cmd = info->cmd;
-
-	lba = blk_rq_pos(req) >> 3;
-
-	/* Get iv from hie */
-	iv = hie_get_iv(req);
-
-	/* If hie not assign iv, then use lba as iv */
-	if (!iv)
-		iv = lba;
-
-	ufs_mtk_crypto_cal_dun(UFS_CRYPTO_ALGO_AES_XTS, iv, &dunl, &dunu);
-
-	/* setup LRB for UTPRD's crypto fields */
-	lrbp = &info->hba->lrb[req->tag];
-	lrbp->crypto_en = 1;
-	lrbp->crypto_cfgid = key_idx;
-
-	/* remember to give "tweak" for AES-XTS */
-	lrbp->crypto_dunl = dunl;
-	lrbp->crypto_dunu = dunu;
-
-	return 0;
-}
-
-struct hie_dev ufs_hie_dev = {
-	.name = "ufs",
-	.mode = (BC_AES_256_XTS | BC_AES_128_XTS),
-	.encrypt = ufs_mtk_hie_cfg_request,
-	.decrypt = ufs_mtk_hie_cfg_request,
-	.priv = NULL,
-};
-
-struct hie_dev *ufs_mtk_hie_get_dev(void)
-{
-	return &ufs_hie_dev;
-}
-
-int ufs_mtk_hie_req_done(struct ufs_hba *hba,
-	struct ufshcd_lrb *lrbp)
-{
-	int ret = 0;
-
-	if (lrbp->crypto_en) {
-		ret = kh_release_hint(
-			ufs_mtk_get_kh(), lrbp->crypto_cfgid);
-	}
-
-	return ret;
-}
-#endif
 
 static int ufs_mtk_send_uic_command(struct ufs_hba *hba, u32 cmd,
 	u32 arg1, u32 arg2, u32 *arg3, u8 *err_code)
@@ -1054,31 +853,9 @@ static int ufs_mtk_enable_crypto(struct ufs_hba *hba)
 
 static int ufs_mtk_probe_crypto(struct ufs_hba *hba)
 {
-#ifdef CONFIG_HIE
-	int ret;
-	union ufs_cpt_cap cpt_cap;
-
-	ret = hie_register_device(&ufs_hie_dev);
-	if (ret)
-		return ret;
-	/*
-	 * enable hie key hint feature
-	 *
-	 * key_bits = 512 bits for all possible FBE crypto algorithms
-	 * key_slot = crypto configuration slots
-	 */
-	cpt_cap.cap_raw = ufshcd_readl(hba, UFS_REG_CRYPTO_CAPABILITY);
-	ret = kh_register(ufs_mtk_get_kh(), 512, cpt_cap.cap.cfg_cnt + 1);
-	if (ret)
-		return ret;
-
-	hba->crypto_feature |= UFS_CRYPTO_HW_FBE;
-#endif
-
 #if defined(CONFIG_MTK_HW_FDE)
 	hba->crypto_feature |= UFS_CRYPTO_HW_FDE;
 #endif
-
 	return 0;
 }
 
@@ -1227,9 +1004,6 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		/* vendor-specific crypto suspend */
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 1),
 			0, 0, 0);
-#ifdef CONFIG_HIE
-		kh_suspend(ufs_mtk_get_kh());
-#endif
 	}
 
 	return ret;
@@ -2311,24 +2085,12 @@ void ufs_mtk_dbg_dump_scsi_cmd(struct ufs_hba *hba,
 		} else
 #endif
 		{
-			#ifdef CONFIG_HIE
-			if (hie_request_crypted(cmd->request)) {
-				dev_dbg(hba->dev,
-				"QCMD(H),L:%x,T:%d,0x%x,%s,LBA:%d,BCNT:%d,FUA:%d,FLUSH:%d\n",
-				ufshcd_scsi_to_upiu_lun(cmd->device->lun),
-					cmd->request->tag, cmd->cmnd[0],
-					str,
-					lba, blk_cnt, fua, flush);
-			} else
-			#endif
-			{
-				dev_dbg(hba->dev,
-				"QCMD,L:%x,T:%d,0x%x,%s,LBA:%d,BCNT:%d,FUA:%d,FLUSH:%d\n",
-				ufshcd_scsi_to_upiu_lun(cmd->device->lun),
-					cmd->request->tag, cmd->cmnd[0],
-					str,
-					lba, blk_cnt, fua, flush);
-			}
+			dev_dbg(hba->dev,
+			"QCMD,L:%x,T:%d,0x%x,%s,LBA:%d,BCNT:%d,FUA:%d,FLUSH:%d\n",
+			ufshcd_scsi_to_upiu_lun(cmd->device->lun),
+				cmd->request->tag, cmd->cmnd[0],
+				str,
+				lba, blk_cnt, fua, flush);
 		}
 	} else {
 		dev_dbg(hba->dev, "QCMD,L:%x,T:%d,0x%x,%s\n",
