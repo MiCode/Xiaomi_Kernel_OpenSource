@@ -45,23 +45,6 @@ extern struct dentry *arch_debugfs_dir;
 
 extern struct srcu_struct debugfs_srcu;
 
-/**
- * debugfs_real_fops - getter for the real file operation
- * @filp: a pointer to a struct file
- *
- * Must only be called under the protection established by
- * debugfs_use_file_start().
- */
-static inline const struct file_operations *debugfs_real_fops(const struct file *filp)
-	__must_hold(&debugfs_srcu)
-{
-	/*
-	 * Neither the pointer to the struct file_operations, nor its
-	 * contents ever change -- srcu_dereference() is not needed here.
-	 */
-	return filp->f_path.dentry->d_fsdata;
-}
-
 #define DEFINE_DEBUGFS_ATTRIBUTE(__fops, __get, __set, __fmt)		\
 static int __fops ## _open(struct inode *inode, struct file *file)	\
 {									\
@@ -106,6 +89,8 @@ struct dentry *debugfs_create_automount(const char *name,
 
 void debugfs_remove(struct dentry *dentry);
 void debugfs_remove_recursive(struct dentry *dentry);
+
+const struct file_operations *debugfs_real_fops(const struct file *filp);
 
 int debugfs_use_file_start(const struct dentry *dentry, int *srcu_idx)
 	__acquires(&debugfs_srcu);
