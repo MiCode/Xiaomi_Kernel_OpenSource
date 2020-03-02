@@ -64,6 +64,7 @@ update_system_overutilized(struct lb_env *env)
 	unsigned long max_capacity;
 	struct sched_group *group = env->sd->groups;
 	int this_cpu;
+	int max_cap_orig_cpu;
 	bool overutilized =  sd_overutilized(env->sd);
 	int i;
 
@@ -71,7 +72,11 @@ update_system_overutilized(struct lb_env *env)
 		return;
 
 	this_cpu = smp_processor_id();
-	max_capacity = capacity_orig_of(cpu_rq(this_cpu)->rd->max_cap_orig_cpu);
+	max_cap_orig_cpu = cpu_rq(this_cpu)->rd->max_cap_orig_cpu;
+	if (max_cap_orig_cpu > -1)
+		max_capacity = capacity_orig_of(max_cap_orig_cpu);
+	else
+		max_capacity = cpu_rq(this_cpu)->rd->max_cpu_capacity.val;
 
 	do {
 
