@@ -1670,12 +1670,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				if (psi) {
 					aee_si.si_signo = psi->si_signo;
 					aee_si.si_errno = psi->si_errno;
-					if (psi->si_code >= 0)
-						/* debuggerd original_si_code */
-						aee_si.si_code = psi->si_code &
-							~__SI_MASK;
-					else
-						aee_si.si_code = psi->si_code;
+					aee_si.si_code = psi->si_code;
 					aee_si.fault_addr =
 						(uintptr_t)psi->si_addr;
 					if (copy_to_user(

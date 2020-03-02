@@ -24,6 +24,11 @@
 #include <linux/proc_fs.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/debug.h>
+#include <linux/sched/rt.h>
+#include <linux/sched/task.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -54,6 +59,10 @@
 #endif
 #include "../mrdump/mrdump_private.h"
 #include <mrdump.h>
+
+#ifndef TASK_STATE_TO_CHAR_STR
+#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
+#endif
 
 static DEFINE_SPINLOCK(pwk_hang_lock);
 static int wdt_kick_status;
@@ -458,12 +467,12 @@ static void save_stack_trace_tsk_me(struct task_struct *tsk,
 	if (tsk != current) {
 		data.no_sched_functions = 0; /* modify to 0 */
 		frame.fp = thread_saved_fp(tsk);
-		frame.sp = thread_saved_sp(tsk);
+		/* frame.sp = thread_saved_sp(tsk); */
 		frame.pc = thread_saved_pc(tsk);
 	} else {
 		data.no_sched_functions = 0;
 		frame.fp = (unsigned long)__builtin_frame_address(0);
-		frame.sp = current_stack_pointer;
+		/* frame.sp = current_stack_pointer; */
 		frame.pc = (unsigned long)save_stack_trace_tsk_me;
 	}
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
@@ -1586,7 +1595,7 @@ static void ShowStatus(int flag)
 	if (Hang_Detect_first == true)	{ /* the last dump */
 		/* debug_locks = 1; */
 		debug_show_all_locks();
-		show_free_areas(0);
+		show_free_areas(0, NULL);
 		if (show_task_mem)
 			show_task_mem();
 #ifdef CONFIG_MTK_ION
