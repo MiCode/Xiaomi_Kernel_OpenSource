@@ -13,6 +13,7 @@
 obj-$(CONFIG_MACH_MT6768) += drcc_v1/
 obj-$(CONFIG_MACH_MT6785) += drcc_v1/
 obj-$(CONFIG_MACH_MT6768) += spm/
+obj-$(CONFIG_MACH_MT6768) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6785) += spm/
 obj-$(CONFIG_MACH_MT6785) += power_gs_v1/
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
