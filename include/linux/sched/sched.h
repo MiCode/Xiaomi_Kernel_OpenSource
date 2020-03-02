@@ -100,4 +100,6 @@ extern unsigned int hmp_cpu_is_slowest(int cpu);
 static inline unsigned int hmp_cpu_is_slowest(int cpu) { return false; }
 #endif /* CONFIG_SCHED_HMP */
 
+extern unsigned long capacity_curr_of(int cpu);
+
 #endif
