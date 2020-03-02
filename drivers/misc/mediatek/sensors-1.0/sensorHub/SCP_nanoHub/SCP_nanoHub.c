@@ -180,7 +180,7 @@ static void moving_average_filter(struct moving_average *filter,
 	uint64_t ap_time, uint64_t hub_time)
 {
 	int i = 0;
-	int32_t avg;
+	int64_t avg = 0;
 	uint64_t ret_avg = 0;
 
 	if (ap_time > filter->last_time + FILTER_TIMEOUT ||
@@ -200,8 +200,8 @@ static void moving_average_filter(struct moving_average *filter,
 	/* pr_err("hongxu raw_offset=%lld\n", ap_time - hub_time); */
 
 	for (i = 1, avg = 0; i < filter->cnt; i++)
-		avg += (int32_t)(filter->input[i] - filter->input[0]);
-	ret_avg = (avg / filter->cnt) + filter->input[0];
+		avg += (filter->input[i] - filter->input[0]);
+	ret_avg = div_s64(avg, filter->cnt) + filter->input[0];
 	WRITE_ONCE(filter->output, ret_avg);
 }
 
