@@ -193,6 +193,6 @@ struct stAF_MotorI2CSendCmd {
 
 #define AFIOC_S_SETDRVINIT _IOW(AF_MAGIC, 16, u32)
 
-#define AFIOC_G_GETDRVNAME _IOR(AF_MAGIC, 17, struct stAF_MotorName)
+#define AFIOC_G_GETDRVNAME _IOWR(AF_MAGIC, 17, struct stAF_MotorName)
 
 #endif
