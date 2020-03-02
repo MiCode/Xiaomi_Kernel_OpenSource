@@ -349,6 +349,7 @@ static void __f2fs_submit_read_bio(struct f2fs_sb_info *sbi,
 		struct page *first_page = bio->bi_io_vec[0].bv_page;
 
 		if (first_page != NULL &&
+			first_page->mapping != NULL &&
 			__read_io_type(first_page) == F2FS_RD_DATA) {
 			char *path, pathbuf[MAX_TRACE_PATHBUF_LEN];
 
