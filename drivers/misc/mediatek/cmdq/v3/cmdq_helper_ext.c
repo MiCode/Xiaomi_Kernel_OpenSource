@@ -4856,8 +4856,9 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 			cmdq_core_dump_thread(NULL, CMDQ_SEC_IRQ_THREAD, false,
 				"INFO");
 
+		cmdq_core_dump_trigger_loop_thread("INFO");
+
 		if (count == 0) {
-			cmdq_core_dump_trigger_loop_thread("INFO");
 			/* first time we dump full handle detail */
 			cmdq_core_dump_handle(handle, "INFO");
 		}
