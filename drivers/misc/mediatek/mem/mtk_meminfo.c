@@ -13,6 +13,7 @@
 #include <asm/pgtable.h>
 #include <linux/vmalloc.h>
 #include <linux/page-flags.h>
+#include <linux/mmzone.h>
 
 phys_addr_t get_zone_movable_cma_base(void)
 {
