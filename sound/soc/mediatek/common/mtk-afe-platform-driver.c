@@ -26,7 +26,7 @@ int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe)
 	struct mtk_base_afe_dai *dai;
 	size_t num_dai_drivers = 0, dai_idx = 0;
 
-	/* calcualte total dai driver size */
+	/* calculate total dai driver size */
 	list_for_each_entry(dai, &afe->sub_dais, list) {
 		num_dai_drivers += dai->num_dai_drivers;
 	}
@@ -53,7 +53,6 @@ int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_afe_combine_sub_dai);
 
 int mtk_afe_add_sub_dai_control(struct snd_soc_platform *platform)
 {
@@ -84,7 +83,18 @@ int mtk_afe_add_sub_dai_control(struct snd_soc_platform *platform)
 	return 0;
 
 }
-EXPORT_SYMBOL_GPL(mtk_afe_add_sub_dai_control);
+
+unsigned int word_size_align(unsigned int in_size)
+{
+	unsigned int align_size;
+
+	/* sram is device memory,need word size align,
+	 * 8 byte for 64 bit platform
+	 * [3:0] = 4'h0 for the convenience of the hardware implementation
+	 */
+	align_size = in_size & 0xFFFFFFF0;
+	return align_size;
+}
 
 static snd_pcm_uframes_t mtk_afe_pcm_pointer
 			 (struct snd_pcm_substream *substream)
@@ -117,14 +127,33 @@ static snd_pcm_uframes_t mtk_afe_pcm_pointer
 	pcm_ptr_bytes = hw_ptr - hw_base;
 
 POINTER_RETURN_FRAMES:
+	pcm_ptr_bytes = word_size_align(pcm_ptr_bytes);
 	return bytes_to_frames(substream->runtime, pcm_ptr_bytes);
+}
+
+int mtk_afe_pcm_ack(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
+	struct mtk_base_afe_memif *memif = &afe->memif[rtd->cpu_dai->id];
+
+	if (!memif->ack_enable)
+		return 0;
+
+	if (memif->ack)
+		memif->ack(substream);
+	else
+		dev_warn(afe->dev, "%s(), ack_enable but ack == NULL\n",
+			 __func__);
+
+	return 0;
 }
 
 const struct snd_pcm_ops mtk_afe_pcm_ops = {
 	.ioctl = snd_pcm_lib_ioctl,
 	.pointer = mtk_afe_pcm_pointer,
+	.ack = mtk_afe_pcm_ack,
 };
-EXPORT_SYMBOL_GPL(mtk_afe_pcm_ops);
 
 int mtk_afe_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
@@ -134,16 +163,14 @@ int mtk_afe_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	size = afe->mtk_afe_hardware->buffer_bytes_max;
 	return snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
-						     rtd->platform->dev,
+						     afe->dev,
 						     size, size);
 }
-EXPORT_SYMBOL_GPL(mtk_afe_pcm_new);
 
 void mtk_afe_pcm_free(struct snd_pcm *pcm)
 {
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
-EXPORT_SYMBOL_GPL(mtk_afe_pcm_free);
 
 const struct snd_soc_platform_driver mtk_afe_pcm_platform = {
 	.ops = &mtk_afe_pcm_ops,
