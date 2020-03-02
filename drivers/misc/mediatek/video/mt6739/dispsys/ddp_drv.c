@@ -530,13 +530,14 @@ static inline unsigned int gic_irq(struct irq_data *d)
 static inline unsigned int virq_to_hwirq(unsigned int virq)
 {
 	struct irq_desc *desc;
-	unsigned int hwirq;
+	unsigned int hwirq = 0;
 
 	desc = irq_to_desc(virq);
 
-	WARN_ON(!desc);
-
-	hwirq = gic_irq(&desc->irq_data);
+	if (!desc)
+		WARN_ON(1);
+	else
+		hwirq = gic_irq(&desc->irq_data);
 
 	return hwirq;
 }
