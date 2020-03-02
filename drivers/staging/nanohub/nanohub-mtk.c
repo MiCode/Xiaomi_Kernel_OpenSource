@@ -19,6 +19,8 @@
 #include "bl.h"
 #include "comms.h"
 #include "nanohub-mtk.h"
+#include "SCP_power_monitor.h"
+
 
 #define CHRE_IPI_DEBUG	0
 struct nanohub_ipi_rx_st {
@@ -39,11 +41,12 @@ struct nanohub_ipi_data {
 
 /*
  *Add the function weak defination, to avoid the build error
- *when the TINYSYS_SCP_SUPPORT is not set.
+ *when the MTK_SENSOR_SUPPORT is not set(SOC bringup).
  */
-void __attribute__((weak))
-scp_A_register_notify(struct notifier_block *nb)
+int __attribute__((weak))
+scp_power_monitor_register(struct scp_power_monitor *monitor)
 {
+	return 0;
 }
 
 /* scp_nano_ipi_status: 1 :ready to ipi  0:not ready*/
@@ -82,31 +85,31 @@ void mtk_ipi_scp_isr_sim(int got_size)
 
 static void nano_ipi_start(void)
 {
-	pr_debug("%s notify\n", __func__);
+	pr_info("%s notify\n", __func__);
 	WRITE_ONCE(scp_nano_ipi_status, 1);
 }
 
 static void nano_ipi_stop(void)
 {
-	pr_debug("%s notify\n", __func__);
+	pr_info("%s notify\n", __func__);
 	WRITE_ONCE(scp_nano_ipi_status, 0);
 }
 
-static int nano_ipi_event(struct notifier_block *this,
-			  unsigned long event, void *ptr)
+static int nano_ipi_event(u8 event, void *ptr)
 {
 	switch (event) {
-	case SCP_EVENT_READY:
+	case SENSOR_POWER_UP:
 		nano_ipi_start();
 		break;
-	case SCP_EVENT_STOP:
+	case SENSOR_POWER_DOWN:
 		nano_ipi_stop();
 		break;
 	}
-	return NOTIFY_DONE;
+	return 0;
 }
 
-static struct notifier_block nano_ipi_notifier = {
+static struct scp_power_monitor nano_ipi_notifier = {
+	.name = "nanohub_ipi",
 	.notifier_call = nano_ipi_event,
 };
 
@@ -117,10 +120,10 @@ int nanohub_ipi_write(void *data, u8 *tx, int length, int timeout)
 #if CHRE_IPI_DEBUG
 	int i;
 
-	pr_debug("AP->(%d) ", length);
+	pr_info("AP->(%d) ", length);
 	for (i = 0; i < length; i++)
-		pr_debug("%02x ", tx[i]);
-	pr_debug("\n");
+		pr_info("%02x ", tx[i]);
+	pr_info("\n");
 #endif
 	ret = SCP_IPI_ERROR;
 	while (retry-- && (READ_ONCE(scp_nano_ipi_status) == 1)) {
@@ -131,7 +134,7 @@ int nanohub_ipi_write(void *data, u8 *tx, int length, int timeout)
 	}
 
 	if (ret == SCP_IPI_BUSY)
-		pr_debug("%s ipi busy, ret=%d\n", __func__, ret);
+		pr_info("%s ipi busy, ret=%d\n", __func__, ret);
 
 	if (ret == SCP_IPI_DONE)
 		return length;
@@ -158,7 +161,7 @@ int nanohub_ipi_read(void *data, u8 *rx, int max_length, int timeout)
 		mtk_ipi_scp_isr_sim(ret);
 	}
 #if CHRE_IPI_DEBUG
-	pr_debug("%s ret %d\n", __func__, ret);
+	pr_info("%s ret %d\n", __func__, ret);
 #endif
 	return ret;	/* return packet size */
 }
@@ -230,10 +233,10 @@ void scp_to_ap_ipi_handler(int id, void *data, unsigned int len)
 	int i;
 	unsigned char *data_p = data;
 
-	pr_debug("->AP(%d):", len);
+	pr_info("->AP(%d):", len);
 	for (i = 0; i < len; i++)
-		pr_debug("%02x ", data_p[i]);
-	pr_debug("\n");
+		pr_info("%02x ", data_p[i]);
+	pr_info("\n");
 #endif
 	nanohub_ipi_rx.copy_size = len;
 	memcpy(g_nanohub_data_p->comms.rx_buffer, data, len);
@@ -261,7 +264,7 @@ int nanohub_ipi_probe(struct platform_device *pdev)
 				      scp_to_ap_ipi_handler, "chre_ap_rx");
 	/*init nano scp ipi status*/
 	WRITE_ONCE(scp_nano_ipi_status, 1);
-	scp_A_register_notify(&nano_ipi_notifier);
+	scp_power_monitor_register(&nano_ipi_notifier);
 
 	return 0;
 }

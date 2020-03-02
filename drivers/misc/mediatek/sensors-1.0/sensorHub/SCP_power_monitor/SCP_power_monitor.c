@@ -65,7 +65,7 @@ int scp_power_monitor_register(struct scp_power_monitor *monitor)
 			goto out;
 		}
 	}
-	list_add(&monitor->list, &power_monitor_list);
+	list_add_tail(&monitor->list, &power_monitor_list);
 	if (atomic_read(&power_status) == SENSOR_POWER_UP) {
 		pr_debug("scp_power_monitor_notify, module name:%s notify\n",
 			monitor->name);
