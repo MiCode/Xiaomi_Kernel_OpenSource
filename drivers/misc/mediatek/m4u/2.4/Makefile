@@ -13,6 +13,7 @@
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/arch/arm
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
