@@ -68,6 +68,7 @@ int debounce_times_reset_adb;
 int debounce_times_perf_down;
 int debounce_times_perf_force_down = 100;
 static int update;
+static int emi_latency = 1;
 static int update_v2f_table = 1;
 static int cm_mgr_opp_enable = 1;
 int cm_mgr_enable = 1;
