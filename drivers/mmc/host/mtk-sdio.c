@@ -3702,6 +3702,34 @@ void sdio_set_card_clkpd(int on)
 }
 EXPORT_SYMBOL(sdio_set_card_clkpd);
 
+static const struct mt81xx_sdio_compatible mt8183_compat = {
+	.v3_plus = true,
+	.top_reg = true,
+};
+
+static const struct mt81xx_sdio_compatible mt8167_compat = {
+	.v3_plus = false,
+	.top_reg = false,
+};
+
+static const struct mt81xx_sdio_compatible mt2712_compat = {
+	.v3_plus = false,
+	.top_reg = false,
+};
+
+static const struct mt81xx_sdio_compatible mt8695_compat = {
+	.v3_plus = true,
+	.top_reg = false,
+};
+
+static const struct of_device_id msdc_of_ids[] = {
+	{ .compatible = "mediatek,mt8183-sdio", .data = &mt8183_compat},
+	{ .compatible = "mediatek,mt8167-sdio", .data = &mt8167_compat},
+	{ .compatible = "mediatek,mt2712-sdio", .data = &mt2712_compat},
+	{ .compatible = "mediatek,mt8695-sdio", .data = &mt8695_compat},
+	{}
+};
+
 static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -4098,33 +4126,6 @@ static const struct dev_pm_ops msdc_dev_pm_ops = {
 	SET_RUNTIME_PM_OPS(msdc_runtime_suspend, msdc_runtime_resume, NULL)
 };
 
-static const struct mt81xx_sdio_compatible mt8183_compat = {
-	.v3_plus = true,
-	.top_reg = true,
-};
-
-static const struct mt81xx_sdio_compatible mt8167_compat = {
-	.v3_plus = false,
-	.top_reg = false,
-};
-
-static const struct mt81xx_sdio_compatible mt2712_compat = {
-	.v3_plus = false,
-	.top_reg = false,
-};
-
-static const struct mt81xx_sdio_compatible mt8695_compat = {
-	.v3_plus = true,
-	.top_reg = false,
-};
-
-static const struct of_device_id msdc_of_ids[] = {
-	{ .compatible = "mediatek,mt8183-sdio", .data = &mt8183_compat},
-	{ .compatible = "mediatek,mt8167-sdio", .data = &mt8167_compat},
-	{ .compatible = "mediatek,mt2712-sdio", .data = &mt2712_compat},
-	{ .compatible = "mediatek,mt8695-sdio", .data = &mt8695_compat},
-	{}
-};
 
 static struct platform_driver mt_sdio_driver = {
 	.probe = msdc_drv_probe,
