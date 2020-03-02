@@ -927,3 +927,7 @@ CONFIG_ZSM,PROJECT,Robbin.Chiu,new config 84a52cb60725192d8ae0c80b58c363c35484cf
 CONFIG_BUG_ON_DATA_CORRUPTION,COMMON,chunhui.li,new config,y,y,y,y
 CONFIG_MMC_FFU,PROJECT,,,X,X,X,O,X,X,X,X,
 CONFIG_HIE,PROJECT,,,X,X,X,X,X,X,X,X,
+CONFIG_UCLAMP_TASK, PROJECT, yun.hsiang, task utilization clamping,x,x,y,y
+CONFIG_UCLAMP_TASK_GROUP, PROJECT, yun.hsiang, task utilization clamping cgroup support,x,x,y,y
+CONFIG_UCLAMP_GROUPS_COUNT, PROJECT, yun.hsiang, task utilization clamping,x,x,32,32
+CONFIG_UCLAMP_MAP_OPP, PROJECT, yun.hsiang, map uclamp to opp capacity, x,x,y,y
