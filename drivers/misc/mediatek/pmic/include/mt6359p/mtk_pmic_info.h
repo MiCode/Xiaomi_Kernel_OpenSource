@@ -23,7 +23,7 @@
 
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#define IPIMB
+/* #define IPIMB */
 /* disable for Bring up */
 #endif
 
