@@ -548,6 +548,9 @@ void mt_gpufreq_enable_by_ptpod(void)
 	/* Turn off GPU MTCMOS */
 	mt_gpufreq_disable_MTCMOS();
 
+	/* Turn off GPU PMIC Buck */
+	mt_gpufreq_voltage_enable_set(0);
+
 #if defined(CONFIG_ARM64) && \
 	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	gpufreq_pr_info("@%s: flavor name: %s\n",
