@@ -1,0 +1,12 @@
+
+config MTK_MT6381
+	bool "MT6381 for MediaTek package"
+	default n
+	help
+	  MT6381 is a 2-in-1 bio-sensing analog
+	  front-end(AFE) module to facilitate
+	  bio-signal acquisition. The AFE consists
+	  of low noise voltage and current sensing
+	  channels, and is capable of sensing EKG
+	  (Electrocardiography) and PPG
+	  (Photoplethysmography) simultaneously.

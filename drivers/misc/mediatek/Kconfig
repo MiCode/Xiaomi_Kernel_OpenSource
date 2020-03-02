@@ -120,6 +120,25 @@ endmenu  # MM
 
 menu "Sensors"
 
+config MTK_SENSOR_SUPPORT
+	bool "MTK SENSOR SUPPORT"
+	help
+	  Sensor config for sensor feature in project.
+	  Please say Y here if you want to support and sensors
+	  with mediatek sensor architecture.
+	  If unsure, say N.
+
+config MTK_SENSORS_1_0
+	bool "MTK SENSORs driver 1.0 SUPPORT"
+	help
+	  This is an option for MTK SENSOR 1.0 driver.
+	  we use BIO architecture instead of linux input
+	  architecture, BIO means boost io transfer data
+	  between kernel space and user space.
+	  And we support loadble drivers
+
+source "drivers/misc/mediatek/sensors-1.0/Kconfig"
+
 endmenu  # Sensors
 
 menu "Modem & Connectivity"
