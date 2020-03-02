@@ -1,16 +1,14 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
- * TCPC Interface for alert handler
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include <linux/init.h>
@@ -60,35 +58,42 @@ static inline int tcpci_alert_vsafe0v(struct tcpc_device *tcpc_dev)
 
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-void tcpci_vbus_level_init(struct tcpc_device *tcpc_dev, uint16_t power_status)
+static inline void __tcpci_vbus_level_refresh(struct tcpc_device *tcpc_dev)
 {
-	mutex_lock(&tcpc_dev->access_lock);
-
-	tcpc_dev->vbus_level =
-			power_status & TCPC_REG_POWER_STATUS_VBUS_PRES ?
-			TCPC_VBUS_VALID : TCPC_VBUS_INVALID;
+	tcpc_dev->vbus_level = tcpc_dev->vbus_present ? TCPC_VBUS_VALID :
+			       TCPC_VBUS_INVALID;
 
 #ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
-	if (power_status & TCPC_REG_POWER_STATUS_EXT_VSAFE0V) {
+	if (tcpc_dev->vbus_safe0v) {
 		if (tcpc_dev->vbus_level == TCPC_VBUS_INVALID)
 			tcpc_dev->vbus_level = TCPC_VBUS_SAFE0V;
 		else
-			TCPC_INFO("ps_confused: 0x%02x\r\n", power_status);
+			TCPC_INFO("ps_confused: %d\r\n", tcpc_dev->vbus_level);
 	}
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
+}
 
+static inline void tcpci_vbus_level_refresh(struct tcpc_device *tcpc_dev)
+{
+	mutex_lock(&tcpc_dev->access_lock);
+	__tcpci_vbus_level_refresh(tcpc_dev);
 	mutex_unlock(&tcpc_dev->access_lock);
 }
 
-static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc_dev)
+void tcpci_vbus_level_init(struct tcpc_device *tcpc_dev, uint16_t status)
+{
+	mutex_lock(&tcpc_dev->access_lock);
+
+	tcpc_dev->vbus_present = status & TCPC_REG_POWER_STATUS_VBUS_PRES ?
+				 true : false;
+	__tcpci_vbus_level_refresh(tcpc_dev);
+	mutex_unlock(&tcpc_dev->access_lock);
+}
+
+static inline int tcpci_vbus_level_changed(struct tcpc_device *tcpc_dev)
 {
 	int rv = 0;
 	bool show_msg = true;
-	uint16_t power_status = 0;
-
-	rv = tcpci_get_power_status(tcpc_dev, &power_status);
-	if (rv < 0)
-		return rv;
 
 #ifdef CONFIG_USB_PD_DIRECT_CHARGE
 	if (tcpc_dev->pd_during_direct_charge && tcpc_dev->vbus_level != 0)
@@ -110,7 +115,20 @@ static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc_dev)
 	if (tcpc_dev->vbus_level == TCPC_VBUS_SAFE0V)
 		rv = tcpci_alert_vsafe0v(tcpc_dev);
 #endif	/* CONFIG_TCPC_VSAFE0V_DETECT_IC */
+	return rv;
+}
 
+static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc_dev)
+{
+	int rv = 0;
+	uint16_t status = 0;
+
+	rv = tcpci_get_power_status(tcpc_dev, &status);
+	if (rv < 0)
+		return rv;
+
+	tcpc_dev->vbus_present = (status & TCPC_REG_POWER_STATUS_VBUS_PRES) ?
+				 true : false;
 	return rv;
 }
 
@@ -237,10 +255,17 @@ static int tcpci_alert_recv_hard_reset(struct tcpc_device *tcpc_dev)
 {
 	TCPC_INFO("HardResetAlert\r\n");
 	pd_put_recv_hard_reset_event(tcpc_dev);
+	tcpci_init_alert_mask(tcpc_dev);
 	return 0;
 }
 
 #endif /* CONFIG_USB_POWER_DELIVERY */
+
+static int tcpci_alert_vendor_defined(struct tcpc_device *tcpc_dev)
+{
+	tcpci_alert_vendor_defined_handler(tcpc_dev);
+	return 0;
+}
 
 static int tcpci_alert_fault(struct tcpc_device *tcpc_dev)
 {
@@ -252,6 +277,7 @@ static int tcpci_alert_fault(struct tcpc_device *tcpc_dev)
 	return 0;
 }
 
+#if 0 /* alert_v10 */
 #ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 static int tcpci_alert_wakeup(struct tcpc_device *tcpc_dev)
 {
@@ -279,6 +305,7 @@ static int tcpci_alert_ra_detach(struct tcpc_device *tcpc_dev)
 	return 0;
 }
 #endif /* CONFIG_TYPEC_CAP_RA_DETACH */
+#endif
 
 struct tcpci_alert_handler {
 	uint32_t bit_mask;
@@ -291,6 +318,7 @@ struct tcpci_alert_handler {
 	}
 
 static const struct tcpci_alert_handler tcpci_alert_handlers[] = {
+	DECL_TCPCI_ALERT_HANDLER(15, tcpci_alert_vendor_defined),
 #ifdef CONFIG_USB_POWER_DELIVERY
 	DECL_TCPCI_ALERT_HANDLER(4, tcpci_alert_tx_failed),
 	DECL_TCPCI_ALERT_HANDLER(5, tcpci_alert_tx_discard),
@@ -301,14 +329,6 @@ static const struct tcpci_alert_handler tcpci_alert_handlers[] = {
 	DECL_TCPCI_ALERT_HANDLER(3, tcpci_alert_recv_hard_reset),
 	DECL_TCPCI_ALERT_HANDLER(10, tcpci_alert_rx_overflow),
 #endif /* CONFIG_USB_POWER_DELIVERY */
-
-#ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
-	DECL_TCPCI_ALERT_HANDLER(16, tcpci_alert_wakeup),
-#endif /* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
-
-#ifdef CONFIG_TYPEC_CAP_RA_DETACH
-	DECL_TCPCI_ALERT_HANDLER(21, tcpci_alert_ra_detach),
-#endif /* CONFIG_TYPEC_CAP_RA_DETACH */
 
 	DECL_TCPCI_ALERT_HANDLER(9, tcpci_alert_fault),
 	DECL_TCPCI_ALERT_HANDLER(0, tcpci_alert_cc_changed),
@@ -361,9 +381,6 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 
 	alert_status &= alert_mask;
 
-	if (alert_status & TCPC_REG_ALERT_EXT_VBUS_80)
-		alert_status |= TCPC_REG_ALERT_POWER_STATUS;
-
 #ifdef CONFIG_USB_POWER_DELIVERY
 	if (tcpc_dev->pd_transmit_state == PD_TX_STATE_WAIT_HARD_RESET) {
 		tcpci_check_hard_reset_complete(tcpc_dev, alert_status);
@@ -380,6 +397,8 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 	}
 #endif /* CONFIG_USB_PD_DBG_SKIP_ALERT_HANDLER */
 
+	tcpci_vbus_level_refresh(tcpc_dev);
+	tcpci_vbus_level_changed(tcpc_dev);
 	return 0;
 }
 
@@ -408,7 +427,7 @@ static inline void tcpci_attach_wake_lock(struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_TCPC_ATTACH_WAKE_LOCK_TOUT
 	__pm_wakeup_event(&tcpc->attach_wake_lock,
-		CONFIG_TCPC_ATTACH_WAKE_LOCK_TOUT);
+					     CONFIG_TCPC_ATTACH_WAKE_LOCK_TOUT);
 #else
 	__pm_stay_awake(&tcpc->attach_wake_lock);
 #endif	/* CONFIG_TCPC_ATTACH_WAKE_LOCK_TOUT */
