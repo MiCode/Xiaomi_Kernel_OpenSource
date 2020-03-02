@@ -224,7 +224,7 @@ void AudDrv_BTCVSD_WriteToBT(enum bt_sco_packet_len uLen,
 	for (i = 0; i < uBlockSize; i++) {
 		memcpy(btsco.pTX->TempPacketBuf + (SCO_TX_ENCODE_SIZE * i),
 		       (btsco.pTX->PacketBuf +
-			(btsco.pTX->iPacket_r & SCO_TX_PACKET_MASK) *
+			(btsco.pTX->iPacket_r % SCO_TX_PACKER_BUF_NUM) *
 				SCO_TX_ENCODE_SIZE),
 		       SCO_TX_ENCODE_SIZE);
 
@@ -927,9 +927,7 @@ ssize_t AudDrv_btcvsd_write(const char __user *data, size_t count)
 	}
 
 	/* ns */
-	write_timeout_limit = ((kal_uint64)SCO_TX_PACKER_BUF_NUM *
-			       SCO_TX_ENCODE_SIZE * 16 * 1000000000) /
-			      2 / 2 / 64000;
+	write_timeout_limit = 22500000; /* one interrupt period = 22.5ms */
 
 	/* Save current timestamp & buffer time in bt_tx_timestamp and
 	 * bt_tx_bufdata_equivalent_time
@@ -981,7 +979,7 @@ ssize_t AudDrv_btcvsd_write(const char __user *data, size_t count)
 		if (copy_size != 0) {
 			spin_lock_irqsave(&auddrv_btcvsd_tx_lock, flags);
 			BTSCOTX_WriteIdx =
-				(btsco.pTX->iPacket_w & SCO_TX_PACKET_MASK) *
+				(btsco.pTX->iPacket_w % SCO_TX_PACKER_BUF_NUM) *
 				SCO_TX_ENCODE_SIZE;
 			spin_unlock_irqrestore(&auddrv_btcvsd_tx_lock, flags);
 

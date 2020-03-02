@@ -82,8 +82,8 @@ extern struct device *mDev_btcvsd_tx;
 
 /* TX */
 #define SCO_TX_ENCODE_SIZE (60)   /* 60 byte (60*8 samples) */
-#define SCO_TX_PACKER_BUF_NUM (8) /* 8 */
-#define SCO_TX_PACKET_MASK (0x7)  /* 0x7*/
+/* 18 = 6 * 180 / SCO_TX_ENCODE_SIZE */
+#define SCO_TX_PACKER_BUF_NUM (18)
 #define SCO_TX_PCM64K_BUF_SIZE                                                 \
 	(SCO_TX_ENCODE_SIZE * 2 * 8) /* 60 * 2 * 8 byte */
 
