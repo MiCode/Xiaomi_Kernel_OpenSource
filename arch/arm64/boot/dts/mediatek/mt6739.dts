@@ -2225,33 +2225,33 @@
 		ta_ac_charger_current = <3000000>;
 
 		/* sw jeita */
-		jeita_temp_above_t4_cv_voltage = <4240000>;
-		jeita_temp_t3_to_t4_cv_voltage = <4240000>;
-		jeita_temp_t2_to_t3_cv_voltage = <4340000>;
-		jeita_temp_t1_to_t2_cv_voltage = <4240000>;
-		jeita_temp_t0_to_t1_cv_voltage = <4040000>;
-		jeita_temp_below_t0_cv_voltage = <4040000>;
-		temp_t4_threshold = <50>;
+		jeita_temp_above_t4_cv = <4240000>;
+		jeita_temp_t3_to_t4_cv = <4240000>;
+		jeita_temp_t2_to_t3_cv = <4340000>;
+		jeita_temp_t1_to_t2_cv = <4240000>;
+		jeita_temp_t0_to_t1_cv = <4040000>;
+		jeita_temp_below_t0_cv = <4040000>;
+		temp_t4_thres = <50>;
 		temp_t4_thres_minus_x_degree = <47>;
-		temp_t3_threshold = <45>;
+		temp_t3_thres = <45>;
 		temp_t3_thres_minus_x_degree = <39>;
-		temp_t2_threshold = <10>;
+		temp_t2_thres = <10>;
 		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_threshold = <0>;
+		temp_t1_thres = <0>;
 		temp_t1_thres_plus_x_degree = <6>;
-		temp_t0_threshold = <0>;
+		temp_t0_thres = <0>;
 		temp_t0_thres_plus_x_degree = <0>;
-		temp_neg_10_threshold = <0>;
+		temp_neg_10_thres = <0>;
 
 		/* battery temperature protection */
-		enable_min_charge_temperature;
-		min_charge_temperature = <0>;
-		min_charge_temperature_plus_x_degree = <6>;
-		max_charge_temperature = <50>;
-		max_charge_temperature_minus_x_degree = <47>;
+		enable_min_charge_temp;
+		min_charge_temp = <0>;
+		min_charge_temp_plus_x_degree = <6>;
+		max_charge_temp = <50>;
+		max_charge_temp_minus_x_degree = <47>;
 
 		/* PE 2.0 */
-		pe20_ichg_level_threshold = <1000>;
+		pe20_ichg_level_threshold = <1000000>; /* uA */
 		ta_start_battery_soc = <0>;
 		ta_stop_battery_soc = <85>;
 
@@ -2261,7 +2261,7 @@
 
 		/* cable measurement impedance */
 		cable_imp_threshold = <699>;
-		vbat_cable_imp_threshold = <3900>;
+		vbat_cable_imp_threshold = <3900000>; /* uV */
 
 		/* bif */
 		bif_threshold1 = <4250000>;
