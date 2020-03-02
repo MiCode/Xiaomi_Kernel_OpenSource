@@ -19,17 +19,6 @@
 #include <linux/interrupt.h>
 #include "ccu_drv.h"
 
-#ifdef MTK_CCU_EMULATOR
-/*#define CCUI_OF_M4U_PORT M4U_PORT_CAM_IMGI*/
-/*#define CCUI_OF_M4U_PORT M4U_PORT_CAM_CCUI*/
-/*#define CCUO_OF_M4U_PORT M4U_PORT_CAM_CCUO*/
-/*#define CCUG_OF_M4U_PORT M4U_PORT_CAM_CCUG*/
-#else
-#define CCUI_OF_M4U_PORT M4U_PORT_CAM_CCUI
-#define CCUO_OF_M4U_PORT M4U_PORT_CAM_CCUO
-#define CCUG_OF_M4U_PORT M4U_PORT_CAM_CCUG
-#endif
-
 /* Common Structure */
 enum ccu_req_type_e {
 	CCU_IRQ_TYPE_XXX,
