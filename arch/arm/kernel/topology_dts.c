@@ -20,7 +20,7 @@ inline
 const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 {
 	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL1];
-	int cluster_id = cpu_topology[cpu].cluster_id;
+	int cluster_id = cpu_topology[cpu].socket_id;
 	struct upower_tbl_info **addr_ptr_tbl_info;
 	struct upower_tbl_info *ptr_tbl_info;
 	struct upower_tbl *ptr_tbl;
