@@ -31,6 +31,8 @@
 #include <asm/cputype.h>
 #include <asm/topology.h>
 
+#include "topology_dts.c"
+
 inline
 const struct sched_group_energy * const cpu_core_energy(int cpu)
 {
