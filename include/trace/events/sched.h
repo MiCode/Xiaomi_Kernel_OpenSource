@@ -195,9 +195,9 @@ static inline long __trace_sched_switch_state(bool preempt, struct task_struct *
 #else
 	if (preempt)
 		return TASK_REPORT_MAX;
-#endif
 
 	return 1 << __get_task_state(p);
+#endif
 }
 #endif /* CREATE_TRACE_POINTS */
 
