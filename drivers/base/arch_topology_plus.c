@@ -4,6 +4,7 @@
  */
 
 #include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
+#include "../../drivers/misc/mediatek/include/mt-plat/mtk_cpufreq_common_api.h"
 
 static inline unsigned long get_freq_capacity(int cpu, unsigned long freq)
 {
