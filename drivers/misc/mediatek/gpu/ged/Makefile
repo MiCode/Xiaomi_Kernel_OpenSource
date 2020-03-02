@@ -56,8 +56,8 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
 #ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
-ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6771"))
+ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
 endif
 
 ifneq ($(CONFIG_MTK_ENG_BUILD),y)
