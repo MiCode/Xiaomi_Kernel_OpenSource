@@ -21,7 +21,7 @@
 static int32_t g_ccu_sensor_current_fps[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {-1};
 #define SENSOR_NAME_MAX_LEN 50
 static struct ccu_sensor_info g_ccu_sensor_info
-	[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {0};
+	[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 static char g_ccu_sensor_name
 	[IMGSENSOR_SENSOR_IDX_MAX_NUM][SENSOR_NAME_MAX_LEN];
 /*<<<<< Information get from imgsensor driver*/
