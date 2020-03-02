@@ -191,7 +191,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		if (lock->owner && lock->owner != SPINLOCK_OWNER_INIT)
 			owner = lock->owner;
 
-		pr_info("(%ps) spin time: %llu ns(from %llu ns), raw_lock: 0x%08x, lock is held by %s/%d/[0x%x] on CPU#%d\n",
+		pr_info("(%ps) spin time: %llu ns(from %llu ns), raw_lock: 0x%08x, lock is held by %s/%d/[%ld] on CPU#%d\n",
 		lock,
 		sched_clock() - t1, t1,
 		*((unsigned int *)&lock->raw_lock),
