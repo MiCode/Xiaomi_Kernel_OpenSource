@@ -13,10 +13,6 @@
 #ifndef _AUTOK_CUST_H_
 #define _AUTOK_CUST_H_
 
-#if !defined(FPGA_PLATFORM)
-#include <mt-plat/mtk_chip.h>
-#endif
-
 #define AUTOK_VERSION                   (0x17080217)
 
 struct AUTOK_PLAT_PARA_TX {
@@ -137,9 +133,6 @@ struct AUTOK_PLAT_PARA_MISC {
 };
 
 struct AUTOK_PLAT_TOP_CTRL {
-	u8 msdc0_pad_dly_top;
-	u8 msdc1_pad_dly_top;
-	u8 msdc2_pad_dly_top;
 	u8 msdc0_rx_enhance_top;
 	u8 msdc1_rx_enhance_top;
 	u8 msdc2_rx_enhance_top;
@@ -155,6 +148,10 @@ struct AUTOK_PLAT_FUNC {
 	u8 new_path_hs;
 	u8 multi_sync;
 	u8 rx_enhance;
+	u8 r1b_check;
+	u8 ddr50_fix;
+	u8 fifo_1k;
+	u8 latch_enhance;
 	u8 msdc0_bypass_duty_modify;
 	u8 msdc1_bypass_duty_modify;
 	u8 msdc2_bypass_duty_modify;
@@ -162,7 +159,6 @@ struct AUTOK_PLAT_FUNC {
 
 #define get_platform_para_tx(autok_para_tx) \
 	do { \
-		autok_para_tx.chip_hw_ver = mt_get_chip_hw_ver(); \
 		autok_para_tx.msdc0_hs400_clktx = 0; \
 		autok_para_tx.msdc0_hs400_cmdtx = 0; \
 		autok_para_tx.msdc0_hs400_dat0tx = 0; \
@@ -207,7 +203,6 @@ struct AUTOK_PLAT_FUNC {
 
 #define get_platform_para_rx(autok_para_rx) \
 	do { \
-		autok_para_rx.chip_hw_ver = mt_get_chip_hw_ver(); \
 		autok_para_rx.ckgen_val = 0; \
 		autok_para_rx.latch_en_cmd_hs400 = 2; \
 		autok_para_rx.latch_en_crc_hs400 = 2; \
@@ -256,7 +251,6 @@ struct AUTOK_PLAT_FUNC {
 
 #define get_platform_para_misc(autok_para_misc) \
 	do { \
-		autok_para_misc.chip_hw_ver = mt_get_chip_hw_ver(); \
 		autok_para_misc.latch_ck_emmc_times = 10; \
 		autok_para_misc.latch_ck_sdio_times = 20; \
 		autok_para_misc.latch_ck_sd_times = 20; \
@@ -266,9 +260,6 @@ struct AUTOK_PLAT_FUNC {
 
 #define get_platform_top_ctrl(autok_top_ctrl) \
 	do { \
-		autok_top_ctrl.msdc0_pad_dly_top = 1; \
-		autok_top_ctrl.msdc1_pad_dly_top = 1; \
-		autok_top_ctrl.msdc2_pad_dly_top = 0; \
 		autok_top_ctrl.msdc0_rx_enhance_top = 1; \
 		autok_top_ctrl.msdc1_rx_enhance_top = 1; \
 		autok_top_ctrl.msdc2_rx_enhance_top = 0; \
@@ -278,7 +269,6 @@ struct AUTOK_PLAT_FUNC {
 */
 #define get_platform_func(autok_para_func) \
 	do { \
-		autok_para_func.chip_hw_ver = mt_get_chip_hw_ver(); \
 		autok_para_func.new_path_hs400 = 1; \
 		autok_para_func.new_path_hs200 = 1; \
 		autok_para_func.new_path_ddr208 = 1; \
@@ -300,14 +290,14 @@ struct AUTOK_PLAT_FUNC {
 #define MMC_SWITCH_CQ_DIS 600
 
 /*
-* reg define
-*/
+ * reg define
+ */
 #define AUTOK_SDC_RX_ENH_EN	(0x1  << 20) /* RW */
 #define AUTOK_TOP_SDC_RX_ENHANCE_EN (0x1 << 15) /* RW */
 
 /**********************************************************
-* Feature  Control Defination                             *
-**********************************************************/
+ * Feature  Control Defination                            *
+ **********************************************************/
 #define AUTOK_EMMC_OFFLINE_TUNE_TX_ENABLE 0
 #define AUTOK_SD_CARD_OFFLINE_TUNE_TX_ENABLE 0
 #define AUTOK_SDIO_OFFLINE_TUNE_TX_ENABLE 1

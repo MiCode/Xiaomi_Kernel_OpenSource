@@ -14,11 +14,11 @@
 #ifndef _AUTOK_DVFS_H_
 #define _AUTOK_DVFS_H_
 
-#define VOREFS_READY
+#define VCOREFS_READY
 
 #include "autok.h"
 
-#ifdef VOREFS_READY
+#ifdef VCOREFS_READY
 #include <mtk_vcorefs_manager.h>
 #include <mtk_spm_vcore_dvfs.h>
 
@@ -65,7 +65,7 @@ enum dvfs_opp {
 #define BACKUP_REG_COUNT_SDIO           14
 #define BACKUP_REG_COUNT_EMMC_INTERNAL  5
 #define BACKUP_REG_COUNT_EMMC_TOP       12
-#define BACKUP_REG_COUNT_EMMC \
+#define BACKUP_REG_COUNT_EMMC           \
 	(BACKUP_REG_COUNT_EMMC_INTERNAL + BACKUP_REG_COUNT_EMMC_TOP)
 
 #define MSDC_DVFS_SET_SIZE      0x48
@@ -75,8 +75,8 @@ enum dvfs_opp {
 /* #define SDIO_HW_DVFS_CONDITIONAL */
 
 /**********************************************************
-* Function Declaration                                    *
-**********************************************************/
+ * Function Declaration                                   *
+ **********************************************************/
 extern int sdio_autok_res_exist(struct msdc_host *host);
 extern int sdio_autok_res_apply(struct msdc_host *host, int vcore);
 extern int sdio_autok_res_save(struct msdc_host *host, int vcore, u8 *res);
@@ -90,6 +90,8 @@ extern void msdc_dump_autok(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
 extern void msdc_dvfs_reg_backup_init(struct msdc_host *host);
 extern void msdc_dvfs_reg_restore(struct msdc_host *host);
+extern void msdc_dump_autok(char **buff, unsigned long *size,
+	struct seq_file *m, struct msdc_host *host);
 extern int msdc_vcorefs_get_hw_opp(struct msdc_host *host);
 
 #endif /* _AUTOK_DVFS_H_ */

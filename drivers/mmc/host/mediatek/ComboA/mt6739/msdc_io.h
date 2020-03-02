@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -33,9 +33,6 @@ int msdc_dt_init(struct platform_device *pdev, struct mmc_host *mmc);
 /**************************************************************/
 void msdc_sd_power_switch(struct msdc_host *host, u32 on);
 void msdc_set_host_power_control(struct msdc_host *host);
-void msdc_clk_enable_and_stable(struct msdc_host *host);
-void msdc_clk_pre_enable(struct msdc_host *host);
-void msdc_clk_post_disble(struct msdc_host *host);
 
 #if !defined(FPGA_PLATFORM)
 void msdc_pmic_force_vcore_pwm(bool enable);
@@ -47,8 +44,6 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 void msdc_HQA_set_voltage(struct msdc_host *host);
 
 #else
-#define msdc_clk_pre_enable(host)
-#define msdc_clk_post_disble(host)
 #define msdc_power_calibration_init(host)
 #define msdc_pmic_force_vcore_pwm(enable)
 void msdc_fpga_pwr_init(void);
@@ -72,11 +67,11 @@ extern void msdc_fpga_power(struct msdc_host *host, u32 on);
 extern  u32 hclks_msdc[];
 #define msdc_dump_dvfs_reg(buff, size, m, host)
 #define msdc_dump_clock_sts(buff, size, m, host)
-#define dbg_msdc_dump_clock_sts(m, host)
 #define msdc_get_hclk(host, src)        MSDC_SRC_FPGA
 static inline int msdc_clk_enable(struct msdc_host *host) { return 0; }
 #define msdc_clk_disable(host)
 #define msdc_get_ccf_clk_pointer(pdev, host) (0)
+#define msdc_clk_enable_and_stable(host)
 #endif
 
 #if !defined(FPGA_PLATFORM)
@@ -85,15 +80,13 @@ extern void msdc_dump_dvfs_reg(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
 void msdc_dump_clock_sts(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
-void dbg_msdc_dump_clock_sts(char **buff, unsigned long *size,
-	struct seq_file *m, struct msdc_host *host);
 #define msdc_get_hclk(id, src)          hclks_msdc_all[id][src]
 int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	struct msdc_host *host);
+void msdc_clk_enable_and_stable(struct msdc_host *host);
 
 #define msdc_clk_enable(host) \
 	do { \
-		msdc_clk_pre_enable(host); \
 		(void)clk_enable(host->clk_ctl); \
 		if (host->hclk_ctl) \
 			(void)clk_enable(host->hclk_ctl); \
@@ -104,7 +97,6 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		clk_disable(host->clk_ctl); \
 		if (host->hclk_ctl) \
 			clk_disable(host->hclk_ctl); \
-		msdc_clk_post_disble(host); \
 	} while (0)
 
 #endif

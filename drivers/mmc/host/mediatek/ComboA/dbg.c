@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -38,7 +38,7 @@
 #include "dbg.h"
 #include "autok_dvfs.h"
 
-#if !defined(FPGA_PLATFORM) && !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
+#if !defined(FPGA_PLATFORM)
 #include <mt-plat/upmu_common.h>
 #endif
 #ifdef MTK_MSDC_BRINGUP_DEBUG
@@ -212,8 +212,6 @@ static void msdc_init_dma_latest_address(void)
 
 #ifdef CONFIG_MTK_MMC_DEBUG
 #define dbg_max_cnt (500)
-#define dbg_max_cnt_low_io (5000)
-#define criterion_low_io (10 * 1024) /* unit: KB/s */
 #define MSDC_AEE_BUFFER_SIZE (300 * 1024)
 struct dbg_run_host_log {
 	unsigned long long time_sec;
@@ -221,7 +219,7 @@ struct dbg_run_host_log {
 	int type;
 	int cmd;
 	int arg;
-	int skip;
+	int skip_cmd23cnt;
 };
 struct dbg_run_host_log_low_io {
 	int cmd;
@@ -242,13 +240,18 @@ struct dbg_dma_cmd_log {
 };
 
 static struct dbg_run_host_log dbg_run_host_log_dat[dbg_max_cnt];
-static struct dbg_run_host_log_low_io
-	dbg_run_host_log_dat_low_io[dbg_max_cnt_low_io];
 static struct dbg_dma_cmd_log dbg_dma_cmd_log_dat;
 static struct dbg_task_log dbg_task_log_dat[32];
 char msdc_aee_buffer[MSDC_AEE_BUFFER_SIZE];
 static int dbg_host_cnt;
+
+#ifdef MTK_MSDC_LOW_IO_DEBUG
+#define dbg_max_cnt_low_io (5000)
+#define criterion_low_io (10 * 1024) /* unit: KB/s */
+static struct dbg_run_host_log_low_io
+	dbg_run_host_log_dat_low_io[dbg_max_cnt_low_io];
 static int dbg_host_cnt_low_io;
+#endif
 
 static unsigned int printk_cpu_test = UINT_MAX;
 
@@ -256,7 +259,8 @@ static unsigned int printk_cpu_test = UINT_MAX;
  * type 0: cmd; type 1: rsp; type 3: dma end
  * when type 3: arg 0: no data crc error; arg 1: data crc error
  */
-inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
+inline void mmc_cmd_log(struct mmc_host *mmc, int type, int cmd, int arg,
+	struct mmc_command *sbc)
 {
 	unsigned long long t, tn;
 	unsigned long long nanosec_rem;
@@ -264,7 +268,9 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 	int l_skip = 0;
 	struct msdc_host *host = mmc_priv(mmc);
 	static int tag = -1;
+#ifdef MTK_MSDC_LOW_IO_DEBUG
 	static int continuous_count_low_io;
+#endif
 
 	/* only log msdc0 */
 	if (!host || host->id != 0)
@@ -281,10 +287,12 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 			dbg_task_log_dat[tag].size = arg & 0xffff;
 		} else if (cmd == 45) {
 			dbg_task_log_dat[tag].address = arg;
-		} else if (cmd == 46 || cmd == 47) {
+		} else if (check_mmc_cmd4647(cmd)) {
 			dbg_dma_cmd_log_dat.time = tn;
 			dbg_dma_cmd_log_dat.cmd = cmd;
 			dbg_dma_cmd_log_dat.arg = arg;
+		} else if (check_mmc_cmd1825(cmd) && sbc) {
+			l_skip = sbc->arg & 0xffff;
 		}
 
 		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
@@ -292,7 +300,7 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 		dbg_run_host_log_dat[dbg_host_cnt].type = type;
 		dbg_run_host_log_dat[dbg_host_cnt].cmd = cmd;
 		dbg_run_host_log_dat[dbg_host_cnt].arg = arg;
-		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+		dbg_run_host_log_dat[dbg_host_cnt].skip_cmd23cnt = l_skip;
 		dbg_host_cnt++;
 		if (dbg_host_cnt >= dbg_max_cnt)
 			dbg_host_cnt = 0;
@@ -319,11 +327,12 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 		dbg_run_host_log_dat[dbg_host_cnt].type = type;
 		dbg_run_host_log_dat[dbg_host_cnt].cmd = cmd;
 		dbg_run_host_log_dat[dbg_host_cnt].arg = arg;
-		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+		dbg_run_host_log_dat[dbg_host_cnt].skip_cmd23cnt = l_skip;
 		dbg_host_cnt++;
 		if (dbg_host_cnt >= dbg_max_cnt)
 			dbg_host_cnt = 0;
 		break;
+#ifdef MTK_MSDC_LOW_IO_DEBUG
 	case 3:
 		/*
 		 * try to reduce executing time in case 3 to keep performance
@@ -358,6 +367,7 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 		} else
 			continuous_count_low_io = 0;
 		break;
+#endif
 	default:
 		break;
 	}
@@ -366,6 +376,7 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 void mmc_low_io_dump(char **buff, unsigned long *size, struct seq_file *m,
 	struct mmc_host *mmc)
 {
+#ifdef MTK_MSDC_LOW_IO_DEBUG
 	int i, j;
 	unsigned long long t, nanosec_rem, speed;
 	char dir;
@@ -404,13 +415,15 @@ void mmc_low_io_dump(char **buff, unsigned long *size, struct seq_file *m,
 		if (--i < 0)
 			i = dbg_max_cnt_low_io - 1;
 	}
+#endif
 }
+
+
 void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 	struct mmc_host *mmc, u32 latest_cnt)
 {
 	int i, j;
-	int tag = -1;
-	int is_read, is_rel, is_fprg;
+	int is_read, is_rel, is_fprg, tag = -1;
 	unsigned long long time_sec, time_usec;
 	int type, cmd, arg, skip, cnt;
 	struct msdc_host *host;
@@ -435,7 +448,7 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		type = dbg_run_host_log_dat[i].type;
 		cmd = dbg_run_host_log_dat[i].cmd;
 		arg = dbg_run_host_log_dat[i].arg;
-		skip = dbg_run_host_log_dat[i].skip;
+		skip = dbg_run_host_log_dat[i].skip_cmd23cnt;
 		if (cmd == 44 && !type) {
 			cnt = arg & 0xffff;
 			tag = (arg >> 16) & 0x1f;
@@ -448,7 +461,7 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 				type, cmd, arg, tag,
 				is_read ? "R" : "W",
 				cnt, is_rel, is_fprg);
-		} else if ((cmd == 46 || cmd == 47) && !type) {
+		} else if (check_mmc_cmd4647(cmd) && !type) {
 			tag = (arg >> 16) & 0x1f;
 			SPREAD_PRINTF(buff, size, m,
 				"%03d [%5llu.%06llu]%2d %2d %08x id=%02d\n",
@@ -456,7 +469,7 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 				type, cmd, arg, tag);
 		} else
 			SPREAD_PRINTF(buff, size, m,
-			"%03d [%5llu.%06llu]%2d %2d %08x (%d)\n",
+				"%03d [%5llu.%06llu]%2d %2d %08x (%d)\n",
 				j, time_sec, time_usec,
 				type, cmd, arg, skip);
 		i--;
@@ -531,28 +544,30 @@ void get_msdc_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	*size = MSDC_AEE_BUFFER_SIZE - free_size;
 }
 EXPORT_SYMBOL(get_msdc_aee_buffer);
+
 #else
-inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
+inline void mmc_cmd_log(struct mmc_host *mmc, int type, int cmd, int arg,
+	struct mmc_command *sbc)
 {
-	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
+	/* pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__); */
 }
 void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 	struct mmc_host *mmc, u32 latest_cnt)
 {
-	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
+	/* pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__); */
 }
 void msdc_dump_host_state(char **buff, unsigned long *size,
 		struct seq_file *m, struct msdc_host *host)
 {
-	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
+	/* pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__); */
 }
 static void msdc_proc_dump(struct seq_file *m, u32 id)
 {
-	//pr_info("config MTK_MMC_DEBUG is not set : %s!\n",__func__);
+	/* pr_info("config MTK_MMC_DEBUG is not set : %s!\n",__func__); */
 }
 void get_msdc_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
-	//pr_info("config MTK_MMC_DEBUG is not set : %s!\n",__func__);
+	/* pr_info("config MTK_MMC_DEBUG is not set : %s!\n",__func__); */
 }
 #endif
 
@@ -632,7 +647,7 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 #else
 	seq_puts(m, "driver not supported\n");
 #endif
-#if defined(CONFIG_MTK_HW_FDE) && !defined(CONFIG_MTK_HW_FDE_AES)
+#if defined(CONFIG_MTK_HW_FDE)
 	seq_puts(m, "hardware fde support\n");
 #endif
 #if defined(CONFIG_HIE)
@@ -1225,16 +1240,6 @@ static int multi_rw_compare_core(int host_num, int read, uint address,
 		for (forIndex = 0; forIndex < MSDC_MULTI_BUF_LEN; forIndex++)
 			*(wPtr + forIndex) = wData[forIndex % wData_len];
 	}
-
-#if defined(CONFIG_MTK_HW_FDE) && defined(CONFIG_MTK_HW_FDE_AES)
-	if (fde_aes_check_cmd(FDE_AES_EN_RAW, fde_aes_get_raw(), host_num)) {
-		fde_aes_set_msdc_id(host_num & 0xff);
-		if (read)
-			fde_aes_set_fde(0);
-		else
-			fde_aes_set_fde(1);
-	}
-#endif
 
 	msdc_cmd.arg = address;
 
