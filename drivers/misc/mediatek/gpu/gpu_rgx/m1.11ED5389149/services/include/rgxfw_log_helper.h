@@ -57,7 +57,11 @@ static IMG_CHAR *const groups[]= {
 /*  idToStringID : Search SFs tuples {id,string} for a matching id.
  *   return index to array if found or RGXFW_SF_LAST if none found.
  *   bsearch could be used as ids are in increasing order. */
-static IMG_UINT32 idToStringID(IMG_UINT32 ui32CheckData, const RGXFW_STID_FMT *const psSFs)
+#if defined(RGX_FIRMWARE)
+ static IMG_UINT32 idToStringID(IMG_UINT32 ui32CheckData, const RGXFW_STID_FMT *const psSFs)
+#else
+static IMG_UINT32 idToStringID(IMG_UINT32 ui32CheckData, const RGXKM_STID_FMT *const psSFs)
+#endif
 {
 	IMG_UINT32 i = 0, ui32Id = (IMG_UINT32)RGXFW_SF_LAST;
 
