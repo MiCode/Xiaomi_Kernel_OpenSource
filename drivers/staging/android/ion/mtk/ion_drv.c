@@ -33,9 +33,7 @@
 #ifdef CONFIG_PM
 #include <linux/fb.h>
 #endif
-#ifndef ION_MIGRATION_MT6771
 #include <mmprofile.h>
-#endif
 #define ION_FUNC_ENTER
 #define ION_FUNC_LEAVE
 
@@ -815,7 +813,7 @@ static int ion_drv_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, g_ion_device);
-	#ifdef CONFIG_XEN//hc2
+	#ifdef CONFIG_XEN
 	g_ion_device->dev.this_device->archdata.dev_dma_ops = NULL;
 	#endif
 	arch_setup_dma_ops(g_ion_device->dev.this_device, 0, 0, NULL, false);
@@ -828,9 +826,8 @@ static int ion_drv_probe(struct platform_device *pdev)
 			       "./heaps/ion_mm_heap");
 
 	ion_history_init();
-#ifndef ION_MIGRATION_MT6771
 	ion_profile_init();
-#endif
+
 	return 0;
 }
 
@@ -845,7 +842,7 @@ int ion_drv_remove(struct platform_device *pdev)
 
 static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	{
-	 .type = (unsigned int)ION_HEAP_TYPE_SYSTEM_CONTIG,//hc2
+	 .type = (unsigned int)ION_HEAP_TYPE_SYSTEM_CONTIG,
 	 .id = ION_HEAP_TYPE_SYSTEM_CONTIG,
 	 .name = "ion_system_contig_heap",
 	 .base = 0,

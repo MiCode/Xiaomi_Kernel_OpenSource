@@ -25,15 +25,13 @@
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
-#include <linux/sched/signal.h>//hc2
-#include <linux/sched/clock.h>//hc2
-#include <uapi/linux/sched/types.h>//hc2
+#include <linux/sched/signal.h>
+#include <linux/sched/clock.h>
+#include <uapi/linux/sched/types.h>
 #include "ion_profile.h"
 #include "ion_drv_priv.h"
 #include "mtk/ion_drv.h"
-#ifndef ION_MIGRATION_MT6771
 #include <mmprofile.h>
-#endif
 
 #include <linux/delay.h>
 #include <linux/time.h>

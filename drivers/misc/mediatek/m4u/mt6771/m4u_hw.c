@@ -13,7 +13,7 @@
 
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/sched/clock.h>//hc2
+#include <linux/sched/clock.h>
 
 #include "m4u_priv.h"
 #include "m4u_platform.h"
@@ -22,9 +22,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include "m4u.h"
-#ifndef M4U_MIGRATION_MT6771
 #include <mt-plat/mtk_lpae.h>
-#endif
+
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
@@ -776,9 +775,7 @@ int m4u_confirm_main_range_invalidated(
 int m4u_confirm_range_invalidated(int m4u_index,
 	unsigned int MVAStart, unsigned int MVAEnd)
 {
-#ifndef M4U_MIGRATION_MT6771
 	unsigned int i = 0;
-#endif
 	unsigned int regval;
 	unsigned long m4u_base = gM4UBaseAddr[m4u_index];
 	int result = 0;
@@ -1498,7 +1495,7 @@ int m4u_config_port_array(struct m4u_port_array *port_array)
 			config_larb[larb] |= (1 << larb_port);
 			regNew[larb][larb_port] = value =
 				(!!(port_array->ports[port] &
-				M4U_PORT_ATTR_VIRTUAL));//hc2
+				M4U_PORT_ATTR_VIRTUAL));
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 			{

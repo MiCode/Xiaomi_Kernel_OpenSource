@@ -85,11 +85,7 @@ extern mmp_event M4U_MMP_Events[M4U_MMP_MAX];
 #endif
 
 #ifndef M4U_FPGAPORTING
-#ifdef ION_MIGRATION_MT6771
-#define smp_inner_dcache_flush_all(...)
-#else
 extern void smp_inner_dcache_flush_all(void);
-#endif
 #endif
 /* m4u driver internal use -------- */
 /*  */

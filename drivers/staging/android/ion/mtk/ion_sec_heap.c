@@ -24,17 +24,15 @@
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
-#include <linux/sched/task.h>//hc2
-#include <linux/sched/signal.h>//hc2
+#include <linux/sched/task.h>
+#include <linux/sched/signal.h>
 #include "mtk/mtk_ion.h"
 #include "ion_profile.h"
 #include "ion_drv_priv.h"
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
-#ifndef ION_MIGRATION_MT6771
 #include <mmprofile.h>
-#endif
 
 #ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
 #include "tz_cross/trustzone.h"
@@ -167,101 +165,58 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 		return -EFAULT;
 	}
 
-#if defined(CONFIG_MTK_PROT_MEM_SUPPORT)
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_PROT) {
 		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			pmem_api_alloc_zero(
-				align, size,
-				&refcount, &sec_handle,
+			trusted_mem_api_alloc_zero(
+				TRUSTED_MEM_REQ_PROT,
+				align, size, &refcount, &sec_handle,
 				(uint8_t *)heap->name, heap->id);
 		else
-			pmem_api_alloc(
-				align, size,
-				&refcount, &sec_handle,
+			trusted_mem_api_alloc(
+				TRUSTED_MEM_REQ_PROT,
+				align, size, &refcount, &sec_handle,
 				(uint8_t *)heap->name, heap->id);
-		goto prot_alloc;
-	}
-#endif
-
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC) {
+	} else if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_2D_FR) {
 		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			secmem_api_alloc_zero_ext(
-				align, size,
-				&refcount, &sec_handle,
-				(uint8_t *)heap->name,
-				heap->id,
-				SECMEM_VIRT_SHARE_REGION_SVP);
+			trusted_mem_api_alloc_zero(
+				TRUSTED_MEM_REQ_2D_FR,
+				align, size, &refcount, &sec_handle,
+				(uint8_t *)heap->name, heap->id);
 		else
-			secmem_api_alloc_ext(
-				align, size,
-				&refcount, &sec_handle,
-				(uint8_t *)heap->name,
-				heap->id,
-				SECMEM_VIRT_SHARE_REGION_SVP);
-		goto prot_alloc;
-	}
-#endif
-
-#if defined(CONFIG_MTK_CAM_SECURITY_SUPPORT) && \
-	defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_2D_FR) {
+			trusted_mem_api_alloc(
+				TRUSTED_MEM_REQ_2D_FR,
+				align, size, &refcount, &sec_handle,
+				(uint8_t *)heap->name, heap->id);
+	} else if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_WFD) {
 		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			secmem_api_alloc_zero_ext(
-			align, size,
-			&refcount, &sec_handle, (uint8_t *)heap->name,
-			heap->id, SECMEM_VIRT_SHARE_REGION_2D_FR);
+			trusted_mem_api_alloc_zero(
+				TRUSTED_MEM_REQ_WFD,
+				align, size, &refcount, &sec_handle,
+				(uint8_t *)heap->name, heap->id);
 		else
-			secmem_api_alloc_ext(
-				align, size,
-				&refcount, &sec_handle, (uint8_t *)heap->name,
-			     heap->id,
-			     SECMEM_VIRT_SHARE_REGION_2D_FR);
-		goto prot_alloc;
-	}
-#endif
-
-#if defined(SECMEM_KERNEL_API)
-	if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-		secmem_api_alloc_zero(
-			align, size, &refcount,
-			&sec_handle, (uint8_t *)heap->name, heap->id);
-	else
-		secmem_api_alloc(
-			align, size, &refcount,
-			&sec_handle, (uint8_t *)heap->name, heap->id);
-#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
-		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	{
-		int ret = 0;
-
+			trusted_mem_api_alloc(
+				TRUSTED_MEM_REQ_WFD,
+				align, size, &refcount, &sec_handle,
+				(uint8_t *)heap->name, heap->id);
+	} else if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC) {
 		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			ret = kree_zallocsecurechunkmemwithtag(//hc2
-				ion_session_handle(),
-				&sec_handle, align, size, heap->name);
+			trusted_mem_api_alloc_zero(
+				TRUSTED_MEM_REQ_SVP,
+				align, size, &refcount, &sec_handle,
+				(uint8_t *)heap->name, heap->id);
 		else
-			ret = kree_allocsecurechunkmemwithtag(//hc2
-				ion_session_handle(),
-				&sec_handle, align, size, heap->name);
-		if (ret != TZ_RESULT_SUCCESS) {
-			IONMSG(
-				"KREE_AllocSecurechunkmemWithTag failed, ret is 0x%x\n",
-				ret);
-			caller_pid = 0;
-			caller_tid = 0;
-			return -ENOMEM;
-		}
+			trusted_mem_api_alloc(
+				TRUSTED_MEM_REQ_SVP,
+				align, size, &refcount, &sec_handle,
+				(uint8_t *)heap->name, heap->id);
 	}
-	refcount = 0;
+#elif defined(MTK_IN_HOUSE_SEC_ION_SUPPORT)
+		refcount = 0;
 #else
-	refcount = 0;
+		refcount = 0;
 #endif
-#if defined(CONFIG_MTK_PROT_MEM_SUPPORT) || \
-	defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 
-prot_alloc:
-
-#endif
 	if (sec_handle <= 0) {
 		IONMSG(
 			"%s alloc security memory failed, total size %zu\n",
@@ -314,57 +269,29 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 	sec_handle =
 		((struct ion_sec_buffer_info *)buffer->priv_virt)->priv_phys;
 
-#if defined(CONFIG_MTK_PROT_MEM_SUPPORT)
-	if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_PROT) {
-		pmem_api_unref(
-			sec_handle,
-			(uint8_t *)buffer->heap->name, buffer->heap->id);
-		goto prot_free;
-	}
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_PROT)
+		trusted_mem_api_unref(
+			TRUSTED_MEM_REQ_PROT,
+			sec_handle, (uint8_t *)buffer->heap->name,
+			buffer->heap->id);
+	else if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_2D_FR)
+		trusted_mem_api_unref(
+			TRUSTED_MEM_REQ_2D_FR,
+			sec_handle, (uint8_t *)buffer->heap->name,
+			buffer->heap->id);
+	else if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_WFD)
+		trusted_mem_api_unref(
+		TRUSTED_MEM_REQ_WFD,
+		sec_handle, (uint8_t *)buffer->heap->name,
+			buffer->heap->id);
+	else if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC)
+		trusted_mem_api_unref(
+		TRUSTED_MEM_REQ_SVP,
+		sec_handle, (uint8_t *)buffer->heap->name,
+			buffer->heap->id);
 #endif
 
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-	if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC) {
-		secmem_api_unref_ext(
-			sec_handle,
-			(uint8_t *)buffer->heap->name, buffer->heap->id,
-				     SECMEM_VIRT_SHARE_REGION_SVP);
-		goto prot_free;
-	}
-#endif
-
-#if defined(CONFIG_MTK_CAM_SECURITY_SUPPORT) && \
-		defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-	if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_2D_FR) {
-		secmem_api_unref_ext(
-			sec_handle,
-			(uint8_t *)buffer->heap->name, buffer->heap->id,
-			SECMEM_VIRT_SHARE_REGION_2D_FR);
-		goto prot_free;
-	}
-#endif
-#if defined(SECMEM_KERNEL_API)
-	secmem_api_unref(
-		sec_handle,
-		(uint8_t *)buffer->heap->name, buffer->heap->id);
-
-#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
-		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	{
-		TZ_RESULT ret = 0;
-
-		ret = kree_unreferencesecurechunkmem(//hc2
-			ion_session_handle(), sec_handle);
-		if (ret != TZ_RESULT_SUCCESS)
-			IONMSG(
-			"KREE_UnreferenceSecurechunkmem failed, ret is 0x%x\n",
-			ret);
-	}
-#endif
-#if defined(CONFIG_MTK_PROT_MEM_SUPPORT) || \
-	defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-prot_free:
-#endif
 	ion_sec_heap_unmap_dma(buffer->heap, buffer);
 	kfree(table);
 	buffer->priv_virt = NULL;
@@ -451,7 +378,7 @@ int ion_sec_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 static struct ion_heap_ops mm_sec_heap_ops = {
 		.allocate = ion_sec_heap_allocate,
 		.free = ion_sec_heap_free,
-		//.map_dma = ion_sec_heap_map_dma,  hc2
+		//.map_dma = ion_sec_heap_map_dma,
 		//.unmap_dma = ion_sec_heap_unmap_dma,
 		.map_kernel = ion_sec_heap_map_kernel,
 		.unmap_kernel = ion_sec_heap_unmap_kernel,
@@ -574,7 +501,7 @@ skip_client_entry:
 					     buffer->size,
 					     buffer->kmap_cnt,
 					     atomic_read(
-					     &buffer->ref.refcount.refs));//hc2
+					     &buffer->ref.refcount.refs));
 					total_orphaned_size += buffer->size;
 				}
 			}
@@ -711,7 +638,7 @@ static int ion_sec_heap_debug_show(
 			ION_PRINT_LOG_OR_SEQ(s,
 					     "0x%p %8zu %3d %3d %3d 0x%10.x %3lu %3d %3d %3d %s %s",
 		     buffer, buffer->size, buffer->kmap_cnt,
-		     atomic_read(&buffer->ref.refcount.refs),//hc2
+		     atomic_read(&buffer->ref.refcount.refs),
 		     buffer->handle_count, *secur_handle,
 		     buffer->flags, bug_info->module_id,
 		     buffer->heap->id,
@@ -845,17 +772,18 @@ struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *heap_data)
 
 void ion_sec_heap_destroy(struct ion_heap *heap)
 {
-#if (defined(SECMEM_KERNEL_API) || defined(CONFIG_MTK_SECURE_MEM_SUPPORT)) || \
-	(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
-	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT))
+#if (defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) || \
+	defined(CONFIG_MTK_SECURE_MEM_SUPPORT)) || \
+		(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
+		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT))
 
-	struct ion_sec_heap *sec_heap;
+		struct ion_sec_heap *sec_heap;
 
-	IONMSG("%s enter\n", __func__);
-	sec_heap = container_of(heap, struct ion_sec_heap, heap);
-	kfree(sec_heap);
+		IONMSG("%s enter\n", __func__);
+		sec_heap = container_of(heap, struct ion_sec_heap, heap);
+		kfree(sec_heap);
 #else
-	IONMSG("%s error: not support\n", __func__);
+		IONMSG("%s error: not support\n", __func__);
 #endif
 }
 
