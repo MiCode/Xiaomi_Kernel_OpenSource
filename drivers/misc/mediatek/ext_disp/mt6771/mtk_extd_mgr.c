@@ -25,6 +25,8 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/fb.h>
+#include <linux/extcon.h>
+#include <../../../extcon/extcon.h>
 
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
@@ -47,6 +49,11 @@ static struct class *extd_class;
 
 static const struct EXTD_DRIVER *extd_driver[DEV_MAX_NUM];
 static const struct EXTD_DRIVER *extd_factory_driver[DEV_MAX_NUM - 1];
+struct extcon_dev *hdmi_extcon;
+static const unsigned int hdmi_cable[] = {
+	EXTCON_DISP_HDMI,
+	EXTCON_NONE,
+};
 
 static void external_display_enable(unsigned long param)
 {
@@ -364,7 +371,26 @@ static int mtk_extd_mgr_probe(struct platform_device *pdev)
 	class_dev = (struct class_device *)
 		device_create(extd_class, NULL, extd_devno, NULL, EXTD_DEVNAME);
 	ext_dev_context = (struct device *)&(pdev->dev);
+	/*HDMI add 'extcon' for audio Framework,
+	 *Since Android Q, Audio Framework detect HDMI event through 'extcon'
+	 *rather than 'switch'
+	 */
+	hdmi_extcon = devm_extcon_dev_allocate(&pdev->dev, hdmi_cable);
+	if (IS_ERR(hdmi_extcon)) {
+		pr_debug("Couldn't allocate HDMI extcon device\n");
+		return PTR_ERR(hdmi_extcon);
+	}
 
+	hdmi_extcon->dev.init_name = "HDMI_audio_extcon";
+
+	ret = devm_extcon_dev_register(&pdev->dev, hdmi_extcon);
+	if (ret) {
+		pr_debug("failed to register HDMI extcon: %d\n", ret);
+		return ret;
+	}
+
+	/*device_rename(&(hdmi_extcon->dev), "hdmi_audio_extcon");*/
+	/*device_rename API is not recommended*/
 	for (i = DEV_MHL; i < DEV_MAX_NUM; i++) {
 		if (extd_driver[i] && extd_driver[i]->post_init)
 			extd_driver[i]->post_init();

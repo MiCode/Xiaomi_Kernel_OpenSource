@@ -207,6 +207,8 @@ struct HDMITX_AUDIO_PARA {
 };
 
 extern int enable_ut;
+extern struct extcon_dev *hdmi_extcon;
+
 int hdmi_post_init(void);
 void hdmi_force_on(int from_uart_drv);
 void hdmi_cable_fake_plug_in(void);
