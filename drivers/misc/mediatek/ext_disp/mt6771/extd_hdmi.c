@@ -542,7 +542,8 @@ int hdmi_get_support_info(void)
 #endif
 
 #ifdef MTK_AUDIO_MULTI_CHANNEL_SUPPORT
-	temp = hdmi_drv->get_external_device_capablity();
+	//temp = hdmi_drv->get_external_device_capablity();
+	temp = 0x2 << 3;
 #else
 	temp = 0x2 << 3;
 #endif
