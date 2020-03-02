@@ -39,4 +39,44 @@ config MACH_MT6771
 	select MTK_TIMER_APXGPT
 	select MTK_EMI
 
+config MACH_MT8168
+	bool "MediaTek MT8168"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT8168
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select MTK_SYSIRQ
+	select MTK_BOUNCING_CHECK if AEE_FEATURE
+	select MTK_SYS_CIRQ
+	select MTK_GIC_TARGET_ALL
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_L2C_PARITY_CHECK
+	select DEBUG_TIMEKEEPING
+	select HIGHMEM
+	select AEABI
+	select HAVE_ARM_ARCH_TIMER
+	select ARM_PSCI
+	select ARM_CRYPTO
+	select SMP
+	help
+	  This enables support for MediaTek MT8168.
+	  If you need support for MediaTek MT8168, say Y here.
+	  This including the basic selections,
+	  But not all of them.
+
 endif

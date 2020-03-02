@@ -107,6 +107,14 @@ config MTK_COMBO_CHIP_CONSYS_8167
           is
           MT8167(BT/WIFI/GPS/FM combo chip)
 
+config MTK_COMBO_CHIP_CONSYS_8168
+        bool "MTK MT8168 combo chip support"
+        help
+          this config is used to decided SOC consys version
+          in current platform
+          is
+          MT8168(BT/WIFI/GPS/FM combo chip)
+
 config MTK_COMBO_CHIP_CONSYS_3967
 	bool "MTK MT3967 combo chip support"
 	help
