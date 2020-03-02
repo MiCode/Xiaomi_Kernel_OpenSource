@@ -26,4 +26,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
 # a tracker for performance index
 obj-$(CONFIG_MTK_PERF_TRACKER) += perf_tracker.o
 obj-y += perf_common.o
-
+# a low memory hint sent to userspace
+obj-$(CONFIG_MTK_LOWMEM_HINT) += lowmem_hint.o
