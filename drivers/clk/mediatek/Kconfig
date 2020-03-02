@@ -50,6 +50,17 @@ config COMMON_CLK_MT2701_BDPSYS
 	---help---
 	  This driver supports Mediatek MT2701 bdpsys clocks.
 
+config COMMON_CLK_MT6771
+	bool "Clock driver for Mediatek MT6771"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6771
+	---help---
+	  This driver supports Mediatek MT6771 clocks.
+	  Use the config to support CCF on MT6771,
+	  instead of old clkmgr architecture.
+	  MT6771 default will use CCF.
+
 config COMMON_CLK_MT6797
        bool "Clock driver for Mediatek MT6797"
        depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
