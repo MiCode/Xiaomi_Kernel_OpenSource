@@ -120,6 +120,9 @@
 /* Thermal VPU throttling support */
 #define THERMAL_VPU_SUPPORT
 
+/* EARA_Thermal power budget allocation support */
+#define EARA_THERMAL_SUPPORT
+
 /* Thermal workaround for DDR/stressapptest fail
  * 8core@OPP0 can't over 70 degreeC
  */
