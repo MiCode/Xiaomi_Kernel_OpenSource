@@ -117,6 +117,9 @@ static void smi_clk_record(const u32 id, const bool en, const char *user)
 	u64 sec;
 	u32 nsec;
 
+	if (id >= SMI_LARB_NUM)
+		return;
+
 	record = &smi_record[id][en ? 1 : 0];
 	sec = sched_clock();
 	nsec = do_div(sec, 1000000000) / 1000;
