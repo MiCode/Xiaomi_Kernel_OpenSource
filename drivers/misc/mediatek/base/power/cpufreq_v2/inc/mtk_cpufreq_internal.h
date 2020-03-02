@@ -75,7 +75,7 @@ extern unsigned int func_lv_mask;
 #define tag_pr_info(fmt, args...)	pr_info(TAG fmt, ##args)
 #define tag_pr_debug(fmt, args...)	pr_debug(TAG fmt, ##args)
 
-#define cpufreq_ver(fmt, args...)		\
+#define cpufreq_ver_dbg(fmt, args...)		\
 do {						\
 	if (func_lv_mask)			\
 		tag_pr_info(fmt, ##args);	\
