@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
+ifeq ($(cc-name),clang)
 ccflags-y += -Wno-error=unneeded-internal-declaration
+endif
 # CPUfreq core
 obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o freq_table.o
 
