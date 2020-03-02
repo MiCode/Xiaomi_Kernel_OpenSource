@@ -2785,47 +2785,11 @@ AA_EXIT:
 static signed int ISP_DumpReg(void)
 {
 	signed int Ret = 0;
-	union CQ_RTBC_FBC p1_fbc[4];
 	/*      */
 	LOG_PR_ERR("- E.");
 	/*      */
 	/* spin_lock_irqsave(&(IspInfo.SpinLock), flags); */
-	p1_fbc[0].Reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_FBC);
-	p1_fbc[1].Reg_val = ISP_RD32(ISP_REG_ADDR_RRZO_FBC);
-	p1_fbc[2].Reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_D_FBC);
-	p1_fbc[3].Reg_val = ISP_RD32(ISP_REG_ADDR_RRZO_D_FBC);
 
-	if (((pstRTBuf->ring_buf[_imgo_].active) && ((p1_fbc[0].Bits.FB_NUM - p1_fbc[0].Bits.FBC_CNT) == 0)) ||
-	((pstRTBuf->ring_buf[_rrzo_].active) && ((p1_fbc[1].Bits.FB_NUM - p1_fbc[1].Bits.FBC_CNT) == 0)) ||
-	((pstRTBuf->ring_buf[_imgo_d_].active) && ((p1_fbc[2].Bits.FB_NUM - p1_fbc[2].Bits.FBC_CNT) == 0)) ||
-	((pstRTBuf->ring_buf[_rrzo_d_].active) && ((p1_fbc[3].Bits.FB_NUM - p1_fbc[3].Bits.FBC_CNT) == 0))) {
-
-	LOG_PR_ERR("[0x%08X %08X],[0x%08X %08X],[0x%08X %08X],[0x%08X %08X][0x%08X %08X],[0x%08X %08X],[0x%08X %08X]\n",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4), (unsigned int)ISP_RD32(ISP_ADDR + 0x4),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x8), (unsigned int)ISP_RD32(ISP_ADDR + 0x8),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x10), (unsigned int)ISP_RD32(ISP_ADDR + 0x10),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x14), (unsigned int)ISP_RD32(ISP_ADDR + 0x14),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x70), (unsigned int)ISP_RD32(ISP_ADDR + 0x70),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x74), (unsigned int)ISP_RD32(ISP_ADDR + 0x74),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x78), (unsigned int)ISP_RD32(ISP_ADDR + 0x78));
-	LOG_PR_ERR("[0x%08X %08X],[0x%08X %08X],[0x%08X %08X],[0x%08X %08X][0x%08X %08X],[0x%08X %08X],[0x%08X %08X]\n",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x418), (unsigned int)ISP_RD32(ISP_ADDR + 0x418),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x41C), (unsigned int)ISP_RD32(ISP_ADDR + 0x41C),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x448), (unsigned int)ISP_RD32(ISP_ADDR + 0x448),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x44C), (unsigned int)ISP_RD32(ISP_ADDR + 0x44C),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x2418), (unsigned int)ISP_RD32(ISP_ADDR + 0x2418),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x241C), (unsigned int)ISP_RD32(ISP_ADDR + 0x241c),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x2448), (unsigned int)ISP_RD32(ISP_ADDR + 0x2448));
-	LOG_PR_ERR("[0x%08X %08X],[0x%08X %08X],[0x%08X %08X],[0x%08X %08X][0x%08X %08X],[0x%08X %08X],[0x%08X %08X]\n",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x244C), (unsigned int)ISP_RD32(ISP_ADDR + 0x244C),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4128), (unsigned int)ISP_RD32(ISP_ADDR + 0x4128),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4134), (unsigned int)ISP_RD32(ISP_ADDR + 0x4134),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x43B4), (unsigned int)ISP_RD32(ISP_ADDR + 0x43B4),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4528), (unsigned int)ISP_RD32(ISP_ADDR + 0x4528),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4534), (unsigned int)ISP_RD32(ISP_ADDR + 0x4534),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x47B4), (unsigned int)ISP_RD32(ISP_ADDR + 0x47B4));
-		goto EXIT_DumpReg;
-	}
 	/* tile tool parse range */
 	/* Joseph Hung (xa)#define ISP_ADDR_START  0x15004000 */
 	/* #define ISP_ADDR_END    0x15006000 */
@@ -3320,7 +3284,6 @@ static signed int ISP_DumpReg(void)
 		}
 	}
 #endif
-EXIT_DumpReg:
 	/* spin_unlock_irqrestore(&(IspInfo.SpinLock), flags); */
 	/*      */
 	LOG_PR_ERR("- X.");
@@ -3335,7 +3298,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	int ret;
 	/* must keep this clk open order: CG_SCP_SYS_MM0-> CG_SCP_SYS_ISP -> ISP clk */
 	/* enable through smi API : CG_IMG_LARB2_SMI, CG_MM_SMI_COMMON*/
-	smi_bus_enable(SMI_LARB2, ISP_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB2, ISP_DEV_NAME);
 
 	ret = clk_prepare_enable(isp_clk.CG_SCP_SYS_MM0);
 	if (ret)
@@ -3379,7 +3342,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.CG_SCP_SYS_ISP);
 	clk_disable_unprepare(isp_clk.CG_SCP_SYS_MM0);
 	/* disable through smi API : CG_IMG_LARB2_SMI, CG_MM_SMI_COMMON*/
-	smi_bus_disable(SMI_LARB2, ISP_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB2, ISP_DEV_NAME);
 }
 
 
@@ -8040,7 +8003,7 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT irqinfo)
 	/* 2. record mark time */
 	idx = my_get_pow_idx(irqinfo.UserInfo.Status);
 
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();;     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 
@@ -8081,7 +8044,7 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	enum eISPIrq eIrq = _IRQ;
 
 	/* do_gettimeofday(&time_ready2return);*/
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 	time_ready2return.tv_usec = usec;
@@ -8511,7 +8474,7 @@ static signed int ISP_WaitIrq_v3(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 
 	/* do_gettimeofday(&time_getrequest); */
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 	time_getrequest.tv_usec = usec;
@@ -8677,7 +8640,7 @@ static signed int ISP_WaitIrq_v3(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 	/* 3. get interrupt     and     update time     related information     that would be return to user */
 	/* do_gettimeofday(&time_ready2return); */
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 	time_ready2return.tv_usec = usec;
@@ -8955,7 +8918,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV(signed int Irq, void *DeviceId)
 	unsigned long usec = 0;
 
 	/* do_gettimeofday(&time_frmb);*/
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 	time_frmb.tv_usec = usec;
@@ -9026,7 +8989,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV(signed int Irq, void *DeviceId)
 		unsigned long usec = 0;
 
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
-			sec = cpu_clock(0);     /* ns */
+			sec = ktime_get();     /* ns */
 			do_div(sec, 1000);      /*     usec */
 			usec = do_div(sec, 1000000);    /* sec and usec */
 		}
@@ -9040,7 +9003,6 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV(signed int Irq, void *DeviceId)
 		unsigned int rt_dma = 0;
 		unsigned long long sec;
 		unsigned long usec;
-		ktime_t time;
 		unsigned int z, buf_idx;
 
 		if (pstRTBuf->ring_buf[_camsv_imgo_].active)
@@ -9148,8 +9110,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV(signed int Irq, void *DeviceId)
 		/*		unsigned long long sec;*/
 		/*		unsigned long usec;*/
 		/*		ktime_t time;*/
-		time = ktime_get();     /* ns */
-		sec = time.tv64;
+		sec = ktime_get();	/* ns */
 		do_div(sec, 1000);      /*     usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 		curr_pa = ISP_RD32(ISP_REG_ADDR_IMGO_SV_BASE_ADDR);
@@ -9189,7 +9150,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 	unsigned long usec = 0;
 
 	/* do_gettimeofday(&time_frmb);*/
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 	time_frmb.tv_usec = usec;
@@ -9263,7 +9224,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 		unsigned long long sec;
 		unsigned long usec;
 
-		sec = cpu_clock(0);     /* ns */
+		sec = ktime_get();     /* ns */
 		do_div(sec, 1000);      /*     usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
@@ -9278,7 +9239,6 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 
 		unsigned long long sec;
 		unsigned long usec;
-		ktime_t time;
 		unsigned int z, buf_idx;
 
 		if (pstRTBuf->ring_buf[_camsv2_imgo_].active)
@@ -9389,8 +9349,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 		/*              unsigned long usec;*/
 		/*              ktime_t time;*/
 
-		time = ktime_get();     /* ns */
-		sec = time.tv64;
+		sec = ktime_get();	/* ns */
 		do_div(sec, 1000);      /*     usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 		curr_pa = ISP_RD32(ISP_REG_ADDR_IMGO_SV_D_BASE_ADDR);
@@ -9451,7 +9410,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 #endif
 	/*      */
 	/* do_gettimeofday(&time_frmb);*/
-	sec = cpu_clock(0);     /* ns */
+	sec = ktime_get();     /* ns */
 	do_div(sec, 1000);      /*     usec */
 	usec = do_div(sec, 1000000);    /* sec and usec */
 	time_frmb.tv_usec = usec;
@@ -9605,7 +9564,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		unsigned long long sec;
 		unsigned long usec;
 
-		sec = cpu_clock(0);     /* ns */
+		sec = ktime_get();     /* ns */
 		do_div(sec, 1000);      /*     usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 		/* update pass1 done time stamp for eis user(need match with the time stamp in image header) */
@@ -9637,7 +9596,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		unsigned long long sec;
 		unsigned long usec;
 
-		sec = cpu_clock(0);     /* ns */
+		sec = ktime_get();     /* ns */
 		do_div(sec, 1000);      /*     usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 		/* update pass1 done time stamp for     eis     user(need match with the time stamp in image header) */
@@ -9661,7 +9620,6 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		unsigned int rt_dma = 0;
 		unsigned long long sec;
 		unsigned long usec;
-		ktime_t time;
 		unsigned int z;
 
 		if (pstRTBuf->ring_buf[_imgo_].active) {
@@ -9788,8 +9746,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		/*              unsigned long usec;*/
 		/*              ktime_t time;*/
 
-		time = ktime_get();     /* ns */
-		sec = time.tv64;
+		sec = ktime_get();	/* ns */
 #ifdef T_STAMP_2_0
 		if (g1stSof[_IRQ] == MTRUE)
 			m_T_STAMP.T_ns = sec;
@@ -9862,7 +9819,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		}
 #ifdef _rtbc_buf_que_2_0_
 
-		sec = cpu_clock(0);     /* ns */
+		sec = ktime_get();     /* ns */
 		do_div(sec, 1000);      /*     usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 		/* update pass1 done time stamp for eis user(need match with the time stamp in image header) */

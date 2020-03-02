@@ -41,11 +41,9 @@ static struct SYSRAM_STRUCT Sysram;
 /* ------------------------------------------------------------------------------ */
 static void SYSRAM_GetTime(unsigned long long *pUS64, unsigned int *pSec, unsigned int *pUSec)
 {
-	ktime_t Time;
 	unsigned long long TimeSec;
 
-	Time = ktime_get();/* ns */
-	TimeSec = Time.tv64;
+	TimeSec = ktime_get(); /* ns */
 	do_div(TimeSec, 1000);
 
 	*pUS64 = TimeSec;
