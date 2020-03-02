@@ -908,7 +908,7 @@ static void get_segment_from_efuse(void)
 		segment_max_opp = 0;
 		break;
 	}
-	LOG_DVFS("vpu segment_max_opp: %d\n", segment_max_opp);
+	LOG_INF("vpu segment_max_opp: %d\n", segment_max_opp);
 }
 
 /* expected range, vvpu_index: 0~15 */
@@ -3712,10 +3712,6 @@ int vpu_init_hw(int core, struct vpu_device *device)
 			#endif
 
 			if (vpu_dev->vpu_hw_support[i]) {
-				vpu_service_cores[i].srvc_task =
-				kmalloc(sizeof(struct task_struct), GFP_KERNEL);
-
-			if (vpu_service_cores[i].srvc_task != NULL) {
 				param = i;
 				vpu_service_cores[i].thread_var = i;
 				if (i == 0) {
@@ -3739,10 +3735,6 @@ int vpu_init_hw(int core, struct vpu_device *device)
 				ftrace_dump_work[i].pid =
 				vpu_service_cores[i].srvc_task->pid;
 #endif
-			} else {
-				LOG_ERR("allocate enque task(%d) fail", i);
-				goto out;
-			}
 			wake_up_process(vpu_service_cores[i].srvc_task);
 			}
 
@@ -4039,7 +4031,7 @@ out:
 
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 		if (vpu_service_cores[i].srvc_task != NULL) {
-			kfree(vpu_service_cores[i].srvc_task);
+			kthread_stop(vpu_service_cores[i].srvc_task);
 			vpu_service_cores[i].srvc_task = NULL;
 		}
 
@@ -4060,7 +4052,6 @@ int vpu_uninit_hw(void)
 
 		if (vpu_service_cores[i].srvc_task != NULL) {
 			kthread_stop(vpu_service_cores[i].srvc_task);
-			kfree(vpu_service_cores[i].srvc_task);
 			vpu_service_cores[i].srvc_task = NULL;
 		}
 
