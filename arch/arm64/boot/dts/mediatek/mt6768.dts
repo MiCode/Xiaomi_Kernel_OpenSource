@@ -831,7 +831,7 @@ page_owner=on loop.max_part=7";
 	};
 #endif
 	devapc@10207000 {
-		compatible = "mediatek,devapc";
+		compatible = "mediatek,mt6768-devapc";
 		reg = <0 0x10207000 0 0x1000>,
 			<0 0x1000e000 0 0x1000>;
 		interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_LOW>;
