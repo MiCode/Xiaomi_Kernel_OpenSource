@@ -1073,7 +1073,7 @@ static int ITG1010_set_delay(u64 ns) { return 0; }
 
 static int ITG1010_get_data(int *x, int *y, int *z, int *status)
 {
-	char buff[ITG1010_BUFSIZE];
+	char buff[ITG1010_BUFSIZE] = {0};
 	int ret = 0;
 
 	if (atomic_xchg(&obj_i2c_data->first_enable, false))
