@@ -15,3 +15,7 @@ config MTK_TINYSYS_SSPM_PLT_SUPPORT
 	  on platform.
 	  Set Y to enable this feature for specific platform.
 	  If unsure, set N to stay with legancy feature.
+
+config MTK_MET_MEM_ALLOC
+	bool "Using dynamic allocate memory for MET"
+	default n

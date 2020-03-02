@@ -21,6 +21,10 @@ enum {
 	UPD_MEM_ID,
 	QOS_MEM_ID,
 	SWPM_MEM_ID,
+#if defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) || defined(CONFIG_MTK_MET_MEM_ALLOC)
+#else
+	MET_MEM_ID,
+#endif
 	NUMS_MEM_ID,
 };
 
@@ -56,6 +60,14 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 		.num = SWPM_MEM_ID,
 		.size = 0xC00,  /* 3K */
 	},
+#if defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) || defined(CONFIG_MTK_MET_MEM_ALLOC)
+#else
+	{
+		.num = MET_MEM_ID,
+		.size = 0x400000, /* 4M */
+	},
+#endif
+
 	/* TO align 64K, total is 1M+64K. The remaining size = 0xB900 */
 };
 #endif
