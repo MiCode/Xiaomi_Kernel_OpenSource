@@ -620,7 +620,7 @@ int __parse_tag_videolfb(struct device_node *node)
 }
 
 
-static int _parse_tag_videolfb(void)
+int _parse_tag_videolfb(void)
 {
 	int ret;
 	struct device_node *chosen_node;
