@@ -1555,7 +1555,7 @@ u32 cmdq_get_event(void *chan, u16 event_id)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 
-	writel(0x3FF & event_id, cmdq->base + CMDQ_SYNC_TOKEN_UPD);
+	writel(0x3FF & event_id, cmdq->base + CMDQ_SYNC_TOKEN_ID);
 	return readl(cmdq->base + CMDQ_SYNC_TOKEN_VAL);
 }
 EXPORT_SYMBOL(cmdq_get_event);
