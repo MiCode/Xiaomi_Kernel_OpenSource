@@ -61,12 +61,16 @@
 	defined(CONFIG_MACH_KIBOPLUS) || \
 	defined(CONFIG_MACH_ELBRUS)
 #define CONNADP_HAS_CLOCK_BUF_CTRL
+#define KERNEL_CLK_BUF_CHIP_NOT_SUPPORT -7788
 #define KERNEL_clk_buf_ctrl connectivity_export_clk_buf_ctrl
 #define KERNEL_clk_buf_show_status_info \
 		connectivity_export_clk_buf_show_status_info
+#define KERNEL_clk_buf_get_xo_en_sta \
+		connectivity_export_clk_buf_get_xo_en_sta
 enum clk_buf_id;
 void connectivity_export_clk_buf_ctrl(enum clk_buf_id id, bool onoff);
 void connectivity_export_clk_buf_show_status_info(void);
+int connectivity_export_clk_buf_get_xo_en_sta(/*enum xo_id id*/ int id);
 #endif
 
 /*******************************************************************************
