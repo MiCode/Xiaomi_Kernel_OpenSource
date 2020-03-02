@@ -51,7 +51,7 @@ extern int hrt_show_flag;
 extern int layer_en_num;
 extern int layer_en_num_flag;
 extern uint64_t layer_size_high;
-extern int layer_size_low;
+extern uint64_t layer_size_low;
 extern int layer_size_flag;
 
 /* path mode */

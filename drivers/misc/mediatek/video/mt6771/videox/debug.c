@@ -83,7 +83,7 @@ int hrt_show_flag;
 int layer_en_num;
 int layer_en_num_flag;
 uint64_t layer_size_high;
-int layer_size_low;
+uint64_t layer_size_low;
 int layer_size_flag;
 
 /* path mode */

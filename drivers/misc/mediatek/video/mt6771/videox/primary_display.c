@@ -767,8 +767,8 @@ static void add_layer_info_for_debug(void)
 			layer_size_low =
 				do_div(layer_size_high, full_layer_size);
 			layer_size_low *= 10;
-			layer_size_low /= full_layer_size;
-			snprintf(p, sizeof(disp_tmp), "Lsize:%01llu.%01d ",
+			do_div(layer_size_low, full_layer_size);
+			snprintf(p, sizeof(disp_tmp), "Lsize:%01llu.%01llu ",
 				layer_size_high,
 				layer_size_low);
 		} else
