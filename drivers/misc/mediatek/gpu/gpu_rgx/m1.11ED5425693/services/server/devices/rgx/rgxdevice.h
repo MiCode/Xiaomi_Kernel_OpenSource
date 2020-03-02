@@ -393,8 +393,8 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	RGXFWIF_TRACEBUF		*psRGXFWIfTraceBuf;		/* structure containing trace control data and actual trace buffer */
 
 	DEVMEM_MEMDESC			*psRGXFWIfTBIBufferMemDesc;	/*!< memdesc of actual FW TBI buffer */
-	RGXFWIF_DEV_VIRTADDR		sRGXFWIfTBIBuffer;		/* TBI buffer data */
-	IMG_UINT32			ui32FWIfTBIBufferSize;
+	RGXFWIF_DEV_VIRTADDR	sRGXFWIfTBIBuffer;		/* TBI buffer data */
+	IMG_UINT32				ui32FWIfTBIBufferSize;
 
 	DEVMEM_MEMDESC			*psRGXFWIfHWRInfoBufCtlMemDesc;
 	RGXFWIF_HWRINFOBUF		*psRGXFWIfHWRInfoBuf;
@@ -416,6 +416,7 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 
 	DEVMEM_MEMDESC			*psRGXFWIfHWPerfCountersMemDesc;
 	DEVMEM_MEMDESC			*psRGXFWIfInitMemDesc;
+	RGXFWIF_INIT			*psRGXFWIfInit;
 	DEVMEM_MEMDESC			*psRGXFWIfOSConfigDesc;
 	RGXFWIF_OS_CONFIG		*psFWIfOSConfig;
 

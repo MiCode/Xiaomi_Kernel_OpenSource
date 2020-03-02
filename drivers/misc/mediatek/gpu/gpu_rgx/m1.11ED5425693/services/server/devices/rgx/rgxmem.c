@@ -162,6 +162,7 @@ PVRSRV_ERROR _PrepareAndSubmitCacheCommand(PVRSRV_DEVICE_NODE *psDeviceNode,
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to schedule MMU cache command to "
 		                        "DM=%d with error (%u)", __func__, eDM, eError));
+		psDeviceNode->ui16NextMMUInvalidateUpdate--;
 	}
 
 	return eError;

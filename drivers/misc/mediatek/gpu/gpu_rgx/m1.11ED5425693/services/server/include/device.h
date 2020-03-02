@@ -382,7 +382,7 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	/* With this sync-prim we make sure the MMU cache is flushed
 	 * before we free the page table memory */
 	PVRSRV_CLIENT_SYNC_PRIM	*psMMUCacheSyncPrim;
-	IMG_UINT16				ui16NextMMUInvalidateUpdate;
+	IMG_UINT32				ui16NextMMUInvalidateUpdate;
 
 	IMG_HANDLE				hCmdCompNotify;
 	IMG_HANDLE				hDbgReqNotify;
