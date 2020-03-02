@@ -20,6 +20,7 @@ ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 #obj-$(CONFIG_MACH_MT6771) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6771) += pbm_v3/
 obj-$(CONFIG_MACH_MT6771) += spm_v4/
+obj-$(CONFIG_MACH_MT6771) += vcorefs_v3/
 endif
 ifeq ($(CONFIG_MTK_CM_MGR), y)
 obj-$(CONFIG_MACH_MT6771) += cm_mgr_v1/

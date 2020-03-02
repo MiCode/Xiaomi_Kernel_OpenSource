@@ -382,47 +382,49 @@ DEFINE_EVENT(power_domain, power_domain_target,
  */
 DECLARE_EVENT_CLASS(pm_qos_request,
 
-	TP_PROTO(int pm_qos_class, s32 value),
+	TP_PROTO(int pm_qos_class, s32 value, char *owner),
 
-	TP_ARGS(pm_qos_class, value),
+	TP_ARGS(pm_qos_class, value, owner),
 
 	TP_STRUCT__entry(
 		__field( int,                    pm_qos_class   )
 		__field( s32,                    value          )
+		__string(owner,                 owner)
 	),
 
 	TP_fast_assign(
 		__entry->pm_qos_class = pm_qos_class;
 		__entry->value = value;
+		__assign_str(owner, owner);
 	),
 
-	TP_printk("pm_qos_class=%s value=%d",
+	TP_printk("pm_qos_class=%s value=%d owner=%s",
 		  __print_symbolic(__entry->pm_qos_class,
 			{ PM_QOS_CPU_DMA_LATENCY,	"CPU_DMA_LATENCY" },
 			{ PM_QOS_NETWORK_LATENCY,	"NETWORK_LATENCY" },
 			{ PM_QOS_NETWORK_THROUGHPUT,	"NETWORK_THROUGHPUT" }),
-		  __entry->value)
+		  __entry->value, __get_str(owner))
 );
 
 DEFINE_EVENT(pm_qos_request, pm_qos_add_request,
 
-	TP_PROTO(int pm_qos_class, s32 value),
+	TP_PROTO(int pm_qos_class, s32 value, char *owner),
 
-	TP_ARGS(pm_qos_class, value)
+	TP_ARGS(pm_qos_class, value, owner)
 );
 
 DEFINE_EVENT(pm_qos_request, pm_qos_update_request,
 
-	TP_PROTO(int pm_qos_class, s32 value),
+	TP_PROTO(int pm_qos_class, s32 value, char *owner),
 
-	TP_ARGS(pm_qos_class, value)
+	TP_ARGS(pm_qos_class, value, owner)
 );
 
 DEFINE_EVENT(pm_qos_request, pm_qos_remove_request,
 
-	TP_PROTO(int pm_qos_class, s32 value),
+	TP_PROTO(int pm_qos_class, s32 value, char *owner),
 
-	TP_ARGS(pm_qos_class, value)
+	TP_ARGS(pm_qos_class, value, owner)
 );
 
 TRACE_EVENT(pm_qos_update_request_timeout,

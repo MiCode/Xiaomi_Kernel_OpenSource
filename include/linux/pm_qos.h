@@ -17,6 +17,22 @@ enum {
 	PM_QOS_NETWORK_THROUGHPUT,
 	PM_QOS_MEMORY_BANDWIDTH,
 
+	PM_QOS_CPU_MEMORY_BANDWIDTH,
+	PM_QOS_GPU_MEMORY_BANDWIDTH,
+	PM_QOS_MM_MEMORY_BANDWIDTH,
+	PM_QOS_MD_PERI_MEMORY_BANDWIDTH,
+
+	PM_QOS_EMI_OPP,
+	PM_QOS_VCORE_OPP,
+	PM_QOS_VCORE_DVFS_FIXED_OPP,
+
+	PM_QOS_DISP_FREQ,
+	PM_QOS_MDP_FREQ,
+	PM_QOS_VDEC_FREQ,
+	PM_QOS_VENC_FREQ,
+	PM_QOS_IMG_FREQ,
+	PM_QOS_CAM_FREQ,
+
 	/* insert new class ID */
 	PM_QOS_NUM_CLASSES,
 };
@@ -34,6 +50,14 @@ enum pm_qos_flags_status {
 #define PM_QOS_NETWORK_LAT_DEFAULT_VALUE	(2000 * USEC_PER_SEC)
 #define PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE	0
 #define PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE	0
+#define PM_QOS_CPU_MEMORY_BANDWIDTH_DEFAULT_VALUE	0
+#define PM_QOS_GPU_MEMORY_BANDWIDTH_DEFAULT_VALUE	0
+#define PM_QOS_MM_MEMORY_BANDWIDTH_DEFAULT_VALUE	0
+#define PM_QOS_MD_PERI_MEMORY_BANDWIDTH_DEFAULT_VALUE	0
+#define PM_QOS_EMI_OPP_DEFAULT_VALUE	16
+#define PM_QOS_VCORE_OPP_DEFAULT_VALUE	16
+#define PM_QOS_VCORE_DVFS_FIXED_OPP_DEFAULT_VALUE	16
+#define PM_QOS_MM_FREQ_DEFAULT_VALUE		0
 #define PM_QOS_RESUME_LATENCY_DEFAULT_VALUE	0
 #define PM_QOS_LATENCY_TOLERANCE_DEFAULT_VALUE	0
 #define PM_QOS_LATENCY_TOLERANCE_NO_CONSTRAINT	(-1)
@@ -43,9 +67,11 @@ enum pm_qos_flags_status {
 #define PM_QOS_FLAG_REMOTE_WAKEUP	(1 << 1)
 
 struct pm_qos_request {
+	struct list_head list_node;
 	struct plist_node node;
 	int pm_qos_class;
 	struct delayed_work work; /* for pm_qos_update_request_timeout */
+	char owner[20];
 };
 
 struct pm_qos_flags_request {
@@ -81,6 +107,7 @@ enum pm_qos_type {
  * types linux supports for 32 bit quantites
  */
 struct pm_qos_constraints {
+	struct list_head req_list;
 	struct plist_head list;
 	s32 target_value;	/* Do not change to 64 bit */
 	s32 default_value;
@@ -147,6 +174,8 @@ int dev_pm_qos_add_notifier(struct device *dev,
 			    struct notifier_block *notifier);
 int dev_pm_qos_remove_notifier(struct device *dev,
 			       struct notifier_block *notifier);
+int dev_pm_qos_add_global_notifier(struct notifier_block *notifier);
+int dev_pm_qos_remove_global_notifier(struct notifier_block *notifier);
 void dev_pm_qos_constraints_init(struct device *dev);
 void dev_pm_qos_constraints_destroy(struct device *dev);
 int dev_pm_qos_add_ancestor_request(struct device *dev,
