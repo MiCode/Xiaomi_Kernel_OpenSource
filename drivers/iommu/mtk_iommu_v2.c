@@ -465,14 +465,18 @@ static int mtk_dump_reg(const struct mtk_iommu_data *data,
 }
 static int mtk_dump_debug_reg_info(const struct mtk_iommu_data *data)
 {
-	pr_notice("------ debug register ------\n");
+	pr_notice("------ iommu:%d debug register ------\n",
+		  data->m4uid);
 	return mtk_dump_reg(data, REG_MMU_DBG(0), MTK_IOMMU_DEBUG_REG_NR);
 }
 
 static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
 {
-	pr_notice("------ mmu%d: RS status register ------\n", mmu);
-	return mtk_dump_reg(data, REG_MMU_RS_STA(mmu, 0), MTK_IOMMU_RS_COUNT);
+	pr_notice("------ iommu:%d mmu%d: RS status register ------\n",
+		  data->m4uid, mmu);
+	return mtk_dump_reg(data,
+			    REG_MMU_RS_VA(mmu, 0),
+			    MTK_IOMMU_RS_COUNT * 4);
 }
 
 int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
@@ -741,6 +745,7 @@ static int __mtk_iommu_tlb_sync(struct mtk_iommu_data *data)
 			 readl_relaxed(data->base + REG_MMU_INVLD_START_A),
 			 readl_relaxed(data->base + REG_MMU_INVLD_END_A),
 			 g_start, g_end);
+		mtk_dump_reg(data, REG_MMU_STA, 12);
 		WARN_ON(ret);
 		__mtk_iommu_tlb_flush_all(data);
 	}
@@ -2784,6 +2789,7 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 		   F_INT_MAIN_MAU_INT_EN(slave),
 		   F_INT_MAIN_MAU_INT_EN(slave));
 
+	/*config start addr*/
 	writel_relaxed(start, base +
 		   REG_MMU_MAU_SA(slave, mau));
 	writel_relaxed(bit32, base +
@@ -3084,18 +3090,19 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 
 	writel_relaxed(regval, data->base + REG_MMU_CTRL_REG);
 
+	for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++) {
 #ifdef APU_IOMMU_INDEX
-	if (m4u_id < APU_IOMMU_INDEX)
-		wr_en = 0;
-	else
-		wr_en = 1;
+		if (m4u_id < APU_IOMMU_INDEX)
+			wr_en = 0;
+		else
+			wr_en = F_MMU_MISC_CTRL_IN_ORDER_WR_EN(i);
 #else
-	wr_en = 1;
+		wr_en = 0;
 #endif
 
-	for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++) {
 		iommu_set_field_by_mask(data->base, REG_MMU_MISC_CTRL,
-					F_MMU_MISC_CTRL_COHERENCE_EN(i), 1);
+					F_MMU_MISC_CTRL_COHERENCE_EN(i),
+					F_MMU_MISC_CTRL_COHERENCE_EN(i));
 #ifdef CONFIG_MTK_SMI_EXT
 		iommu_set_field_by_mask(data->base, REG_MMU_MISC_CTRL,
 					F_MMU_MISC_CTRL_IN_ORDER_WR_EN(i),
