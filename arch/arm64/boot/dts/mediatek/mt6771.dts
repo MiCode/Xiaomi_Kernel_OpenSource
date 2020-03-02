@@ -4279,9 +4279,6 @@ firmware_class.path=/vendor/firmware";
 		status = "okay";
 	};
 
-	eas {
-		tiny = <50>;
-	};
 };
 
 #include "mt6358.dtsi"
