@@ -19,6 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/printk.h>
+#include <linux/memblock.h>
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/mtk_meminfo.h>
@@ -424,9 +425,8 @@ static void protect_ap_region(void)
 {
 	struct emi_region_info_t region_info;
 
-	region_info.start = (unsigned long long)DRAM_OFFSET;
-	region_info.end = (unsigned long long)DRAM_OFFSET +
-		get_max_DRAM_size();
+	region_info.start = (unsigned long long)memblock_start_of_DRAM();
+	region_info.end = (unsigned long long)memblock_end_of_DRAM() - 1;
 	region_info.region = AP_REGION_ID;
 	set_ap_region_permission(region_info.apc);
 
