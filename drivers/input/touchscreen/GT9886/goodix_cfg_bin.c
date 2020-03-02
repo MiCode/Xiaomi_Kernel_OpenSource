@@ -535,13 +535,16 @@ int goodix_read_cfg_bin(struct device *dev, struct goodix_cfg_bin *cfg_bin)
 {
 	int r;
 	const struct firmware *firmware;
-	char cfg_bin_name[32] = {0x00};
+	char cfg_bin_name[32] = {0};
 	int i = 0;
 
 	/*get cfg_bin_name*/
-	strlcpy(cfg_bin_name, TS_DEFAULT_CFG_BIN,
-				sizeof(cfg_bin_name));
-
+	r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s.bin",
+		TS_DEFAULT_CFG_BIN, gt9886_config_buf);
+	if (r >= sizeof(cfg_bin_name)) {
+		ts_err("get cfg_bin name FAILED!!!");
+		goto exit;
+	}
 	ts_info("cfg_bin_name:%s", cfg_bin_name);
 
 	for (i = 0; i < TS_RQST_FW_RETRY_TIMES; i++) {
