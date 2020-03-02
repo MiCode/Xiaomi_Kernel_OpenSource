@@ -981,12 +981,14 @@ static kal_uint16 imx318_table_write_cmos_sensor(
 		}
 #if MULTI_WRITE
 
-	if (tosend >= I2C_BUFFER_LEN || IDX == len || addr != addr_last) {
-		iBurstWriteReg_multi(puSendCmd, tosend,
-			  imgsensor.i2c_write_id, 3, imgsensor_info.i2c_speed);
+		if ((I2C_BUFFER_LEN - tosend) < 3 ||
+		    len == IDX || addr != addr_last) {
+			iBurstWriteReg_multi(puSendCmd, tosend,
+					     imgsensor.i2c_write_id,
+					     3, imgsensor_info.i2c_speed);
 
-		tosend = 0;
-	}
+			tosend = 0;
+		}
 #else
 		iWriteRegI2C(puSendCmd, 3, imgsensor.i2c_write_id);
 		tosend = 0;
