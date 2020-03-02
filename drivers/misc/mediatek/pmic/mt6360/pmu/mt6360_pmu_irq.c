@@ -20,7 +20,7 @@
 #include <linux/gpio.h>
 #include <linux/irqdomain.h>
 #include <linux/pm_runtime.h>
-
+#include <linux/irq.h>
 #include "../inc/mt6360_pmu.h"
 
 static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
