@@ -303,8 +303,8 @@ static void alspshub_init_done_work(struct work_struct *work)
 			ID_PROXIMITY, CUST_ACTION_SET_CALI);
 #else
 	spin_lock(&calibration_lock);
-	cfg_data[0] = atomic_read(&obj->ps_thd_val_low);
-	cfg_data[1] = atomic_read(&obj->ps_thd_val_high);
+	cfg_data[0] = atomic_read(&obj->ps_thd_val_high);
+	cfg_data[1] = atomic_read(&obj->ps_thd_val_low);
 	spin_unlock(&calibration_lock);
 	err = sensor_cfg_to_hub(ID_PROXIMITY,
 		(uint8_t *)cfg_data, sizeof(cfg_data));
@@ -546,6 +546,12 @@ static int pshub_factory_set_threshold(int32_t threshold[2])
 #ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[2] = {0};
 #endif
+	if (threshold[0] < threshold[1] || threshold[0] <= 0 ||
+		threshold[1] <= 0) {
+		pr_err("PS set threshold fail! invalid value:[%d, %d]\n",
+			threshold[0], threshold[1]);
+		return -1;
+	}
 
 	spin_lock(&calibration_lock);
 	atomic_set(&obj->ps_thd_val_high, (threshold[0] + obj->ps_cali));
@@ -830,8 +836,8 @@ static int ps_set_cali(uint8_t *data, uint8_t count)
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
 	spin_lock(&calibration_lock);
-	atomic_set(&obj->ps_thd_val_low, buf[0]);
-	atomic_set(&obj->ps_thd_val_high, buf[1]);
+	atomic_set(&obj->ps_thd_val_high, buf[0]);
+	atomic_set(&obj->ps_thd_val_low, buf[1]);
 	spin_unlock(&calibration_lock);
 	return sensor_cfg_to_hub(ID_PROXIMITY, data, count);
 }
