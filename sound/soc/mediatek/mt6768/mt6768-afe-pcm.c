@@ -3327,8 +3327,11 @@ static int mt6768_afe_pcm_dev_probe(struct platform_device *pdev)
 	/* init sram */
 	afe->sram = devm_kzalloc(&pdev->dev, sizeof(struct mtk_audio_sram),
 				GFP_KERNEL);
-	if (!afe->sram)
+	if (!afe->sram) {
+		dev_err(dev, "%s(), no memory when allocate afe->sram, size = %zu\n",
+			__func__, sizeof(struct mtk_audio_sram));
 		return -ENOMEM;
+	}
 
 	ret = mtk_audio_sram_init(dev, afe->sram, &mt6768_sram_ops);
 	if (ret) {
