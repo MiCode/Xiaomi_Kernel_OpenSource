@@ -37,7 +37,7 @@ spinlock_t *get_mtk_clk_lock(void)
 /*
  * clk_mux
  */
-
+#if 0
 struct clk *mtk_clk_register_mux(
 		const char *name,
 		const char **parent_names,
@@ -98,3 +98,4 @@ struct clk *mtk_clk_register_mux(
 
 	return clk;
 }
+#endif

@@ -23,7 +23,9 @@ struct clk;
 
 #define MAX_MUX_GATE_BIT	31
 #define INVALID_MUX_GATE_BIT	(MAX_MUX_GATE_BIT + 1)
-
+#define INVALID_OFS		-1
+#define INVALID_SHFT		-1
+#define INVALID_WIDTH		-1
 #define MHZ (1000 * 1000)
 
 struct mtk_fixed_clk {
@@ -83,10 +85,72 @@ struct mtk_composite {
 	signed char num_parents;
 };
 
+struct mtk_mux {
+	int id;
+	const char *name;
+	const char * const *parent_names;
+	unsigned int flags;
+
+	u32 mux_ofs;
+	u32 set_ofs;
+	u32 clr_ofs;
+	u32 upd_ofs;
+
+	signed char mux_shift;
+	signed char mux_width;
+	signed char gate_shift;
+	signed char upd_shift;
+
+	const struct clk_ops *ops;
+
+	signed char num_parents;
+};
+
 /*
  * In case the rate change propagation to parent clocks is undesirable,
  * this macro allows to specify the clock flags manually.
  */
+#define CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs, _mux_set_ofs,\
+			_mux_clr_ofs, _shift, _width, _gate,		\
+			_upd_ofs, _upd, _flags, _ops) {			\
+		.id = _id,						\
+		.name = _name,						\
+		.mux_ofs = _mux_ofs,					\
+		.set_ofs = _mux_set_ofs,				\
+		.clr_ofs = _mux_clr_ofs,				\
+		.upd_ofs = _upd_ofs,					\
+		.mux_shift = _shift,					\
+		.mux_width = _width,					\
+		.gate_shift = _gate,					\
+		.upd_shift = _upd,					\
+		.parent_names = _parents,				\
+		.num_parents = ARRAY_SIZE(_parents),			\
+		.flags = _flags,					\
+		.ops = &_ops,						\
+	}
+
+#define MUX_CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs, _mux_set_ofs,\
+			_mux_clr_ofs, _shift, _width, _gate,		\
+			_upd_ofs, _upd, _flags)			\
+		CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,	\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd, _flags,			\
+			mtk_mux_clr_set_upd_ops)
+
+#define MUX_CLR_SET_UPD(_id, _name, _parents, _mux_ofs, _mux_set_ofs,	\
+			_mux_clr_ofs, _shift, _width, _gate,		\
+			_upd_ofs, _upd)				\
+		MUX_CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,	\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd, CLK_SET_RATE_PARENT)
+
+#define MUX_UPD(_id, _name, _parents, _mux_ofs, _shift, _width, _gate,	\
+			_upd_ofs, _upd)				\
+		CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,	\
+			INVALID_OFS, INVALID_OFS, _shift, _width,	\
+			_gate, _upd_ofs, _upd, CLK_SET_RATE_PARENT,	\
+			mtk_mux_upd_ops)
+
 #define MUX_GATE_FLAGS(_id, _name, _parents, _reg, _shift, _width,	\
 			_gate, _flags) {				\
 		.id = _id,						\
@@ -110,18 +174,8 @@ struct mtk_composite {
 	MUX_GATE_FLAGS(_id, _name, _parents, _reg, _shift, _width,	\
 		_gate, CLK_SET_RATE_PARENT)
 
-#define MUX(_id, _name, _parents, _reg, _shift, _width) {		\
-		.id = _id,						\
-		.name = _name,						\
-		.mux_reg = _reg,					\
-		.mux_shift = _shift,					\
-		.mux_width = _width,					\
-		.gate_shift = -1,					\
-		.divider_shift = -1,					\
-		.parent_names = _parents,				\
-		.num_parents = ARRAY_SIZE(_parents),			\
-		.flags = CLK_SET_RATE_PARENT,				\
-	}
+#define MUX(_id, _name, _parents, _reg, _shift, _width)		\
+	MUX_GATE(_id, _name, _parents, _reg, _shift, _width, INVALID_SHFT)
 
 #define DIV_GATE(_id, _name, _parent, _gate_reg, _gate_shift, _div_reg,	\
 					_div_width, _div_shift) {	\
@@ -136,6 +190,11 @@ struct mtk_composite {
 		.mux_shift = -1,					\
 		.flags = 0,						\
 	}
+
+int mtk_clk_register_muxes(const struct mtk_mux *muxes,
+			   int num, struct device_node *node,
+			   spinlock_t *lock,
+			   struct clk_onecell_data *clk_data);
 
 struct clk *mtk_clk_register_composite(const struct mtk_composite *mc,
 		void __iomem *base, spinlock_t *lock);
@@ -157,6 +216,7 @@ struct mtk_gate {
 	const struct mtk_gate_regs *regs;
 	int shift;
 	const struct clk_ops *ops;
+	unsigned int flags;
 };
 
 int mtk_clk_register_gates(struct device_node *node,
@@ -207,6 +267,8 @@ struct mtk_pll_data {
 	uint32_t en_mask;
 	uint32_t pd_reg;
 	uint32_t tuner_reg;
+	uint32_t tuner_en_reg;
+	uint8_t tuner_en_bit;
 	int pd_shift;
 	unsigned int flags;
 	const struct clk_ops *ops;

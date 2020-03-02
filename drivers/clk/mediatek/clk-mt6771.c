@@ -752,7 +752,7 @@ static const char * const aud_2_parents[] __initconst = {
 #define INVALID_UPDATE_SHIFT -1
 #define INVALID_MUX_GATE -1
 
-static const struct mtk_mux_clr_set_upd top_muxes[] __initconst = {
+static const struct mtk_mux top_muxes[] __initconst = {
 #if 0/*MT_CCF_BRINGUP*/
 #else
 	/* CLK_CFG_0 */
@@ -1799,8 +1799,9 @@ static void __init mtk_topckgen_init(struct device_node *node)
 		ARRAY_SIZE(fixed_clks), clk_data);
 
 	mtk_clk_register_factors(top_divs, ARRAY_SIZE(top_divs), clk_data);
-	mtk_clk_register_mux_clr_set_upds(top_muxes,
-		ARRAY_SIZE(top_muxes), base, &mt6771_clk_lock, clk_data);
+
+	mtk_clk_register_muxes(top_muxes, ARRAY_SIZE(top_muxes), node,
+			       &mt6771_clk_lock, clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
 	if (r)
