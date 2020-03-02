@@ -1,3 +1,8 @@
+Version 1.1.5
+=============
+[ATLDRV-1382] - Failed install Driver 1.1.4 on Antigua
+[ATLDRV-1384] - WOL does not work on Antigua
+
 Version 1.1.4
 ==============
 [ATLDRV-1371] - Add supported eee with 2.5G and 5G

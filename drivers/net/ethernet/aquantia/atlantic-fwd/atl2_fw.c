@@ -614,7 +614,7 @@ static int atl2_fw_set_phy_loopback(struct atl_nic *nic, u32 mode)
 	switch (mode) {
 	case ATL_PF_LPB_INT_PHY:
 		if (!device_link_caps.internal_loopback) {
-			ret = -ENOTSUPP;
+			ret = -EOPNOTSUPP;
 			goto unlock;
 		}
 
@@ -622,7 +622,7 @@ static int atl2_fw_set_phy_loopback(struct atl_nic *nic, u32 mode)
 		break;
 	case ATL_PF_LPB_EXT_PHY:
 		if (!device_link_caps.external_loopback) {
-			ret = -ENOTSUPP;
+			ret = -EOPNOTSUPP;
 			goto unlock;
 		}
 		link_options.external_loopback = on;
@@ -640,6 +640,7 @@ unlock:
 
 static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 {
+	struct link_control_s link_control;
 	struct wake_on_lan_s wake_on_lan;
 	struct mac_address_s mac_address;
 	int ret = 0;
@@ -666,7 +667,10 @@ static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 
 	atl2_shared_buffer_write(hw, mac_address, mac_address);
 	atl2_shared_buffer_write(hw, sleep_proxy, wake_on_lan);
-	atl2_mif_host_finished_write_set(hw, 1);
+	atl2_shared_buffer_get(hw, link_control, link_control);
+	link_control.mode = ATL2_HOST_MODE_SLEEP_PROXY;
+	atl2_shared_buffer_write(hw, link_control, link_control);
+
 	ret = atl2_shared_buffer_finish_ack(hw);
 
 	atl_unlock_fw(hw);
@@ -719,7 +723,7 @@ static int atl2_fw_set_pad_stripping(struct atl_hw *hw, bool on)
 
 static int atl2_fw_unsupported(struct atl_hw *hw)
 {
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 
 int atl2_get_fw_version(struct atl_hw *hw, u32 *fw_version)
