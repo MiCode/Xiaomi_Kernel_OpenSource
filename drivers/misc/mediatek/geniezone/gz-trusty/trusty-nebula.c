@@ -17,8 +17,8 @@
 
 
 #ifdef CONFIG_MT_TRUSTY_DEBUGFS
-ssize_t vmm_fast_add(struct device *dev, struct device_attribute *attr,
-		     char *buf)
+ssize_t vmm_fast_add_show(struct device *dev, struct device_attribute *attr,
+	char *buf)
 {
 	s32 a, b, c, ret;
 
@@ -33,10 +33,11 @@ ssize_t vmm_fast_add(struct device *dev, struct device_attribute *attr,
 			 ret, (a + b + c) == ret ? "PASS" : "FAIL");
 }
 
-DEVICE_ATTR(vmm_fast_add, 0400, vmm_fast_add, NULL);
+DEVICE_ATTR_RW(vmm_fast_add);
 
-ssize_t vmm_fast_multiply(struct device *dev, struct device_attribute *attr,
-			  char *buf)
+
+ssize_t vmm_fast_multiply_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
 {
 	s32 a, b, c, ret;
 
@@ -51,10 +52,10 @@ ssize_t vmm_fast_multiply(struct device *dev, struct device_attribute *attr,
 			 ret, (a * b * c) == ret ? "PASS" : "FAIL");
 }
 
-DEVICE_ATTR(vmm_fast_multiply, 0400, vmm_fast_multiply, NULL);
+DEVICE_ATTR_RW(vmm_fast_multiply);
 
-ssize_t vmm_std_add(struct device *dev, struct device_attribute *attr,
-		    char *buf)
+ssize_t vmm_std_add_show(struct device *dev, struct device_attribute *attr,
+	char *buf)
 {
 	s32 a, b, c, ret;
 
@@ -69,10 +70,10 @@ ssize_t vmm_std_add(struct device *dev, struct device_attribute *attr,
 			 ret, (a + b + c) == ret ? "PASS" : "FAIL");
 }
 
-DEVICE_ATTR(vmm_std_add, 0400, vmm_std_add, NULL);
+DEVICE_ATTR_RW(vmm_std_add);
 
-ssize_t vmm_std_multiply(struct device *dev, struct device_attribute *attr,
-			 char *buf)
+ssize_t vmm_std_multiply_show(struct device *dev, struct device_attribute *attr,
+	char *buf)
 {
 	s32 a, b, c, ret;
 
@@ -87,7 +88,7 @@ ssize_t vmm_std_multiply(struct device *dev, struct device_attribute *attr,
 			 ret, (a * b * c) == ret ? "PASS" : "FAIL");
 }
 
-DEVICE_ATTR(vmm_std_multiply, 0400, vmm_std_multiply, NULL);
+DEVICE_ATTR_RW(vmm_std_multiply);
 
 void trusty_create_debugfs_vmm(struct trusty_state *s, struct device *pdev)
 {

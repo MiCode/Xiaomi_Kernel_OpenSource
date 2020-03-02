@@ -89,6 +89,8 @@ static struct tipc_k_handle
 	_kree_session_handle_pool[KREE_SESSION_HANDLE_MAX_SIZE];
 static int32_t _kree_session_handle_idx;
 
+#define debugFg 0
+
 static bool _tipc_retry_check_and_wait(int err, int retry_cnt, int tag)
 {
 	if (likely(!IS_RESTARTSYS_ERROR(err)))
@@ -372,7 +374,7 @@ int _gz_client_wait_ret(int32_t Fd, struct gz_syscall_cmd_param *data)
 	size = data->payload_size;
 	KREE_DEBUG(" ===> %s: tipc_k_read(1) rc = %d.\n", __func__, (int)rc);
 	KREE_DEBUG(" ===> %s: data payload size = %d.\n", __func__, size);
-#if 0
+#if debugFg
 	if (size > GZ_MSG_DATA_MAX_LEN) {
 		KREE_ERR("%s: ret payload size(%d) exceed max len(%d)\n",
 			__func__, size, GZ_MSG_DATA_MAX_LEN);
@@ -459,7 +461,7 @@ static int GZ_CopyMemToBuffer(struct gz_syscall_cmd_param *param)
 			}
 /* NOTE: currently a single mem param can use up to GZ_MSG_DATA_MAX_LEN */
 /* Users just need to make sure that total does not exceed the limit */
-#if 0
+#if debugFg
 			if (size > GZ_MEM_MAX_LEN) {
 				KREE_DEBUG("CMTB: invalid gp mem size: %u\n",
 					size);
@@ -514,7 +516,7 @@ static int GZ_CopyMemFromBuffer(struct gz_syscall_cmd_param *param)
 			}
 /* NOTE: currently a single mem param can use up to GZ_MSG_DATA_MAX_LEN */
 /* Users just need to make sure that total does not exceed the limit */
-#if 0
+#if debugFg
 			if (size > GZ_MEM_MAX_LEN) {
 				KREE_DEBUG("CMTB: invalid gp mem size: %u\n",
 					size);
@@ -1074,7 +1076,7 @@ TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid,
 				    KREE_SESSION_HANDLE *pHandle,
 				    const char *tag)
 {
-#if 0
+#if debugFg
 	uint32_t paramTypes;
 	union MTEEC_PARAM param[4];
 	TZ_RESULT ret;
@@ -1192,7 +1194,7 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 }
 EXPORT_SYMBOL(KREE_TeeServiceCall);
 
-#if 0
+#if debugFg
 #include "tz_cross/tz_error_strings.h"
 
 const char *TZ_GetErrorString(TZ_RESULT res)
