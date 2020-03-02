@@ -1212,7 +1212,7 @@ u32 aee_rr_curr_cidle_data_val(void)
 	return LAST_RR_VAL(cidle_data);
 }
 
-void aee_rr_rec_cidle_time_val(u32 val)
+void aee_rr_rec_cidle_time_val(u64 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
