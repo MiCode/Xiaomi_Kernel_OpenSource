@@ -548,7 +548,7 @@ static void dump_lvts_error_info(void)
 		g_lvts_e_data.ts_temp[lvts_index][e_index],
 		LVTS_ERROR_THRESHOLD);
 
-	for (i = TS_MCU1; i <= TS_LVTS4_1; i++) {
+	for (i = TS_MCU1; i <= TS_LVTS4_0; i++) {
 		offset = sprintf(buffer, "[LVTS_ERROR][%s][DUMP] ",
 				mcu_s_array[i]);
 
