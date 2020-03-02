@@ -1868,9 +1868,10 @@ static int is_limit_in_range(int cpu_limit, int gpu_limit,
 	}
 
 #ifdef EARA_THERMAL_VPU_SUPPORT
+	/* when vpu is not on, limit is always equal to min power */
 	min_vpu = apthermolmt_get_vpu_min_power();
 
-	if (vpu_limit <= min_vpu) {
+	if (vpu_limit < min_vpu) {
 		EARA_THRM_LOGE("VPU limit too low (%d, %d)\n",
 			vpu_limit, min_vpu);
 		return 0;
@@ -1880,7 +1881,7 @@ static int is_limit_in_range(int cpu_limit, int gpu_limit,
 #ifdef EARA_THERMAL_MDLA_SUPPORT
 	min_mdla = apthermolmt_get_mdla_min_power();
 
-	if (mdla_limit <= min_mdla) {
+	if (mdla_limit < min_mdla) {
 		EARA_THRM_LOGE("MDLA limit too low (%d, %d)\n",
 			mdla_limit, min_mdla);
 		return 0;
