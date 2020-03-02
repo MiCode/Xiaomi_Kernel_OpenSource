@@ -2915,11 +2915,13 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 				memcpy(&gm.g_fgd_pid, &msg->fgd_data[0],
 					sizeof(gm.g_fgd_pid));
 				bm_err(
-					"[fr]FG_DAEMON_CMD_SET_DAEMON_PID=%d,kill daemon case, %d\n",
+					"[fr]FG_DAEMON_CMD_SET_DAEMON_PID=%d,kill daemon case, %d init_flag:%d\n",
 					gm.g_fgd_pid,
-					get_ec()->debug_kill_daemontest);
+					get_ec()->debug_kill_daemontest,
+					gm.init_flag);
 				/* kill daemon dod_init 14*/
-				if (get_ec()->debug_kill_daemontest != 1)
+				if (get_ec()->debug_kill_daemontest != 1 &&
+					gm.init_flag == 1)
 					fg_cust_data.dod_init_sel = 14;
 			}
 
