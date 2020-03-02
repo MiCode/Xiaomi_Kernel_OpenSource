@@ -1,0 +1,160 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	mt6370_pmu: mt6370_pmu_dts {
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		mt6370,intr_gpio_num = <3>; /* direct defined GPIO num */
+		mt6370,intr_gpio = <&pio 3 0x0>; /* GPIO */
+		core {
+			compatible = "mediatek,mt6370_pmu_core";
+			interrupt-names = "otp", "vdda_ovp", "vdda_uv";
+			//i2cstmr_rst_en; /* i2c safe timer reset function */
+			i2cstmr_rst_tmr = <0>; /* 0: 0.5s, 1: 0.75s, 2: 1s, 3: 2s */
+			mrstb_en; /* external reset pin enable */
+			mrstb_tmr = <3>; /* 0: 0.75ms, 1: 1ms, 2: 1.25ms, 3: 1.5ms */
+			/* 4: 1.75ms, 5: 2ms, 6: 2.25ms, 7: 2.5ms */
+			int_wdt = <0>; /* 0: disable, 1: 250ms, 2: 500ms, 3: 1s */
+			int_deg = <0>; /* interrupt deglitch, 0: 1ms, 1: 2ms, 2: 5ms, 3: 10ms */
+		};
+		charger {
+			compatible = "mediatek,mt6370_pmu_charger";
+			interrupt-names = "chg_mivr", "chg_aiclmeasi", "attachi",
+				"ovpctrl_uvp_d_evt", "chg_wdtmri", "chg_vbusov",
+				"chg_tmri", "chg_treg";
+			charger_name = "primary_chg";
+			load_switch_name = "primary_load_switch";
+			ichg = <2000000>;	/* uA */
+			aicr = <500000>;	/* uA */
+			mivr = <4400000>;	/* uV */
+			cv = <4350000>;		/* uA */
+			ieoc = <150000>;	/* uA */
+			safety_timer = <12>;	/* hour */
+			dc_wdt = <4000000>;	/* us */
+			ircmp_resistor = <25000>;	/* uohm */
+			ircmp_vclamp = <32000>;		/* uV */
+			enable_te;
+			enable_wdt;
+			/* enable_polling; */	/* is this charger needs polling */
+		};
+		mt6370_pmu_fled1 {
+			compatible = "mediatek,mt6370_pmu_fled1";
+			interrupt-names = "fled_lvf", "fled2_short",
+					  "fled1_short";
+			fled_enable = <1>;
+			torch_cur = <300000>;  /*25000 ~ 400000 uA */
+			strobe_cur = <1200000>; /* 100000 ~ 1500000 uA */
+			strobe_timeout = <2400>; /* 64 ~ 2432 ms */
+		};
+		mt6370_pmu_fled2 {
+			compatible = "mediatek,mt6370_pmu_fled2";
+			fled_enable = <1>;
+			torch_cur = <200000>;
+			strobe_cur = <1000000>;
+			strobe_timeout = <1200>;
+		};
+		ldo {
+			compatible = "mediatek,mt6370_pmu_ldo";
+			interrupt-names = "ldo_oc";
+			ldo_oms = <1>; /* 0: floating ; 1: discharge to ground for off mode */
+			/* 0:  1 step/16us; 1 : 2 steps/16us; 2: 4 steps/16us; 3: 8steps/16us */
+			/*ldo_vrc = <0>; */ /* to assign this  a value will also set en_vrc = 1 */
+
+			ldo_vrc_lt = <1>; /* 0 : disable; 1: 10 us; 2: 20 us; 3: 40 us */
+			mt6370_ldo {
+				regulator-name = "irtx_ldo"; /* change name by yourself */
+				regulator-min-microvolt = <1600000>;
+				regulator-max-microvolt = <4000000>; /* max == min then apply_uV = 1 */
+				/* regulator-microvolt-offset = < 0>; optional*/
+				/* regulator-boot-on = "yes"; optional, exist = enabled */
+				/* regulator-always-on = "yes"; optional, exist = enabled */
+				/* regulator-ramp-delay = <100>; optional*/
+			};
+		};
+		rgbled {
+			compatible = "mediatek,mt6370_pmu_rgbled";
+			interrupt-names = "isink4_short", "isink3_short",
+					  "isink2_short", "isink1_short",
+					  "isink4_open", "isink3_open",
+					  "isink2_open", "isink1_open";
+			/* name cnt must be 4 */
+			mt,led_name = "mt6370_pmu_led1", "mt6370_pmu_led2",
+				      "mt6370_pmu_led3", "mt6370_pmu_led4";
+			/* trigger cnt must be 4, mode can be selected as */
+			/* cc_mode -> const current mode */
+			/* pwm_mode -> pwm dimming mode */
+			/* breath_mode -> as the name */
+			mt,led_default_trigger = "cc_mode", "cc_mode",
+						 "cc_mode", "none";
+		};
+		bled {
+			compatible = "mediatek,mt6370_pmu_bled";
+			interrupt-names = "bled_ocp";
+			mt,bled_name = "mt6370_pmu_bled";
+			//mt,ext_en_pin;
+			mt,chan_en  = <0xf>; /* bit 0 1 2 3 -> chan 1 2 3 4 */
+			mt,map_linear;
+			mt,bl_ovp_level = <3>; /* 0 17v, 1 21v, 2 25v, 3 29v */
+			mt,bl_ocp_level = <2>; /* 0 900mA, 1 1200mA, 2 1500mA, 3 1800mA */
+			mt,use_pwm;
+			mt,pwm_fsample = <2>; /* 0 1MHz, 1 4MHz, 2 or 3 24mHz */
+			mt,pwm_deglitch = <1>; /* 0 no filter, 1 100ns, 2 160ns, 3 200ns */
+			mt,pwm_avg_cycle = <0>; /* 0 disable avg, 1 avg 2 cycle, 2 avg 4 cycle */
+						/* 3 avg 8 cycle, 4 avg 16 cycle, 5 avg 32 cycle */
+			mt,bled_ramptime = <3>; /* 0, 500us, 750us, 1ms, 2ms, 5ms, 10ms, 20ms */
+						/* 50ms, 100ms, 250ms, 800ms, 1s, 2s, 4s, 8s */
+			mt,bled_flash_ramp = <1>; /* 0, 500us, 750us, 1ms, 2ms, 5ms */
+			mt,max_bled_brightness = <512>; /* we have 11 bit resolution, quantize in driver */
+							 /* maximum 2047 */
+		};
+		dsv {
+			compatible = "mediatek,mt6370_pmu_dsv";
+			interrupt-names = "dsv_vneg_ocp", "dsv_vpos_ocp",
+					  "dsv_bst_ocp", "dsv_vneg_scp",
+					  "dsv_vpos_scp";
+			db_ext_en = <0>;  /* 0 = i2c ctrl; 1 = ext pin */
+			db_periodic_fix = <0>; /* 1 = prevent from voltage drop when db is restart */
+			db_single_pin = <0>; /* 0 => VOS & VNEG are ctrled by DB_ENP & DB_ENN; 1 : single pin ctrl*/
+			db_freq_pm = <0>; /*  0 = 20Hz ; 1 = 33Hz; valid if db_period_mode = 1 */
+			db_periodic_mode = <0>; /* 0 = always on if DB is enabled; 1 = DB period mode */
+			db_startup = <0>; /* 0 = close loop, wait 80%; 1 = open loop, go after soft-start dimming */
+			db_vneg_20ms = <1>; /* 1 = DB VNEG discharge 20ms when shutdown; 0 = disable */
+			db_vneg_disc = <0>; /*  1 = Discharge VNEG when turn off; 0 = disable */
+			db_vpos_20ms = <1>; /* 1 = DB VPOS discharge 20ms when shutdown; 0 = disable */
+			db_vpos_disc = <0>; /*  1 = Discharge VPOS when turn off; 0 = disable */
+			db_delay = <3>; /* 0 = no constraint; 1 = 0 ms; 2 = 1 ms; 3 = 4 ms */
+			db_vbst  = <5700>; /* mV */
+			db_vpos_slew = <1>; /* 0 : 8.46 V/ms; 1 : 5.79 V/ms; 2: 3.87 V/ms; 3: 2.97V/ms */
+			db_vneg_slew = <1>; /* 0: -9.24V/ms; 1: -5.97V/ms; 2: -4.82V/ms; 3: -3.07V/ms*/
+			mt6370_dsvp {
+				regulator-name = "dsv_pos"; /* change name by yourself */
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>; /* max == min then apply_uV = 1 */
+				/* regulator-microvolt-offset = < 0>; optional*/
+				/* regulator-boot-on = "yes"; optional, exist = enabled */
+				/* regulator-always-on = "yes"; optional, exist = enabled */
+				/* regulator-ramp-delay = <100>; optional*/
+			};
+			mt6370_dsvn {
+				regulator-name = "dsv_neg"; /* change name by yourself */
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>; /* max == min then apply_uV = 1 */
+				/* regulator-microvolt-offset = < 0>; optional*/
+				/* regulator-boot-on = "yes"; optional, exist = enabled */
+				/* regulator-always-on = "yes"; optional, exist = enabled */
+				/* regulator-ramp-delay = <100>; optional*/
+			};
+		};
+	};
+};
