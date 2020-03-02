@@ -1385,6 +1385,9 @@ static int goodix_syfs_init(struct goodix_ts_core *core_data,
 	fw_ctrl->attr_fwimage.attr.mode = 0666;
 	fw_ctrl->attr_fwimage.size = 0;
 	fw_ctrl->attr_fwimage.write = goodix_sysfs_fwimage_store;
+	#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	fw_ctrl->attr_fwimage.attr.ignore_lockdep = 1;
+	#endif
 	ret = sysfs_create_bin_file(&module->kobj,
 			&fw_ctrl->attr_fwimage);
 
