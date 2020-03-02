@@ -109,9 +109,9 @@
 #endif
 #endif
 
-#ifndef EP_STAGE
+//#ifndef EP_STAGE
 static u32 target_clk;
-#endif
+//#endif
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 
@@ -742,7 +742,7 @@ void mtk_pmqos_clr(module)
 #endif
 #endif
 
-//#define EP_PMQOS
+#define EP_PMQOS
 int ISP_SetPMQOS(
 	enum E_QOS_OP cmd,
 	enum ISP_IRQ_TYPE_ENUM module,
@@ -756,7 +756,7 @@ int ISP_SetPMQOS(
 	}
 
 	switch (cmd) {
-#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
+//#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	case E_BW_REMOVE:
 		mtk_pmqos_remove(module);
 		LOG_INF("PM_QOS:module:%d,OFF\n", module);
@@ -815,7 +815,7 @@ int ISP_SetPMQOS(
 	case E_CLK_SUPPORTED:
 		{
 #ifdef EP_PMQOS
-			*pvalue = target_clk = 546;
+			*pvalue = target_clk = 624;
 
 			LOG_DBG("1:DFS Clk_0:%d", pvalue[0]);
 			return 1;
@@ -846,7 +846,7 @@ int ISP_SetPMQOS(
 		LOG_DBG("cur clk:%d,tar clk:%d", pvalue[0], pvalue[1]);
 		break;
 	case E_QOS_UNKNOWN:
-#endif
+//#endif
 	default:
 		LOG_NOTICE("unsupport cmd:%d", cmd);
 		Ret = -1;
@@ -926,7 +926,7 @@ int SV_SetPMQOS(
 	case E_CLK_SUPPORTED:
 		{
 #ifdef EP_PMQOS
-			*pvalue = target_clk = 546;
+			*pvalue = target_clk = 624;
 
 			LOG_DBG("1:DFS Clk_0:%d", pvalue[0]);
 			return 1;

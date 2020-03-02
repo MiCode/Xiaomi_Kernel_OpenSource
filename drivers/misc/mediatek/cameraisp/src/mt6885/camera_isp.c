@@ -4631,9 +4631,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 
 		switch (larbInfo.LarbNum) {
-		case 0:
-		case 9:
-		case 10:
+		case 13:
+		case 14:
+		case 16:
+		case 17:
+		case 18:
 			break;
 		default:
 			LOG_NOTICE("Wrong SMI_LARB port=%d\n",
