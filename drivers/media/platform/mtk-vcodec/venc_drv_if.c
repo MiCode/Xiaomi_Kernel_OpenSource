@@ -88,11 +88,7 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 		drv_handle_exist = 0;
 	}
 
-	if (ctx->slowmotion == 0)
-		mtk_venc_lock(ctx);
 	ret = ctx->enc_if->get_param(ctx->drv_handle, type, out);
-	if (ctx->slowmotion == 0)
-		mtk_venc_unlock(ctx);
 
 	if (!drv_handle_exist) {
 		kfree(inst);
@@ -146,16 +142,9 @@ int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 	struct venc_done_result *result)
 {
 	int ret = 0;
-	unsigned long flags;
-
-	if (ctx->oal_vcodec == 0 && ctx->slowmotion == 0)
-		venc_encode_prepare(ctx, &flags);
 
 	ret = ctx->enc_if->encode(ctx->drv_handle, opt, frm_buf,
 							  bs_buf, result);
-
-	if (ctx->oal_vcodec == 0 && ctx->slowmotion == 0)
-		venc_encode_unprepare(ctx, &flags);
 
 	return ret;
 }
