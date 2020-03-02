@@ -900,6 +900,24 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	device_mpu_low@1021a000 {
+		compatible = "mediatek,device_mpu_low";
+		reg = <0 0x1021a000 0 0x1000>;
+		prot-base = <0x0 0x40000000>;
+		prot-size = <0x4 0x00000000>;
+		page-size = <0x200000>;
+		interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	device_mpu_sub@1021b000 {
+		compatible = "mediatek,device_mpu_sub";
+		reg = <0 0x1021b000 0 0x1000>;
+		prot-base = <0x0 0x40000000>;
+		prot-size = <0x4 0x00000000>;
+		page-size = <0x200000>;
+		interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 #ifdef CONFIG_MTK_CONFIG_M4U
 	m4u@10220000 {
 		compatible = "mediatek,m4u";
@@ -926,16 +944,6 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10224000 0 0x1000>;
 	};
 #endif
-	infra_device_mpu@1021a000 {
-		compatible = "mediatek,infra_device_mpu";
-		reg = <0 0x1021a000 0 0x1000>;
-	};
-
-	infra_device_mpu@1021b000 {
-		compatible = "mediatek,infra_device_mpu";
-		reg = <0 0x1021b000 0 0x1000>;
-	};
-
 	infracfg_mem@1021c000 {
 		compatible = "mediatek,infracfg_mem";
 		reg = <0 0x1021c000 0 0x1000>;
@@ -1435,6 +1443,15 @@ page_owner=on loop.max_part=7";
 	mm_vpu_m1_sub_common@1030d000 {
 		compatible = "mediatek,mm_vpu_m1_sub_common";
 		reg = <0 0x1030d000 0 0x1000>;
+	};
+
+	device_mpu_acp@1030d000 {
+		compatible = "mediatek,device_mpu_acp";
+		reg = <0 0x1030d000 0 0x1000>;
+		prot-base = <0x0 0x40000000>;
+		prot-size = <0x4 0x00000000>;
+		page-size = <0x200000>;
+		interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	sys_cirq@10312000 {
