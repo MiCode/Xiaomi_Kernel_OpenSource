@@ -358,6 +358,12 @@
 	status = "okay";
 };
 
+&apuart1 {
+	pinctrl-names = "uart1_gpio_default";
+	pinctrl-0 = <&uart1_gpio_def_cfg>;
+	status = "okay";
+};
+
 &pio {
 	/* UART GPIO Settings - Start */
 	/* UART0: rx set, rx clear, tx clear, tx clear*/
@@ -387,6 +393,10 @@
 			slew-rate = <1>;
 			output-high;
 		};
+	};
+	/* UART1: rx set, rx clear, tx clear, tx clear*/
+	uart1_gpio_def_cfg:uart1gpiodefault {
+
 	};
 };/* UART GPIO end */
 
