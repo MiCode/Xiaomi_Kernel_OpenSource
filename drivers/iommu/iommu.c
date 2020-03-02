@@ -1703,7 +1703,7 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		if (!IS_ERR(sg_page(s))) {
 			phys = page_to_phys(sg_page(s)) + s->offset;
 #ifdef IOMMU_DEBUG_ENABLED
-			if (i == 0 || i == nents-1)
+			if (i == nents-1)
 				pr_notice("%s, %d, sg[%d],domain:%p, iova:0x%lx, nents=%d, mapped=0x%lx, phys=0x%lx, length=0x%x\n",
 					__func__, __LINE__, i,
 					domain, iova + mapped,
@@ -1713,7 +1713,7 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			phys = sg_dma_address(s);
 			s->length = sg_dma_len(s);
 #ifdef IOMMU_DEBUG_ENABLED
-			if (i == 0 || i == nents-1)
+			if (i == nents-1)
 				pr_notice("%s, %d, sg[%d],domain:%p, iova:0x%lx, nents=%d, mapped=0x%lx, phys=0x%lx, length=0x%x\n",
 					__func__, __LINE__, i,
 					domain, iova + mapped,
@@ -1738,7 +1738,7 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		if (ret)
 			goto out_err;
 
-#ifdef IOMMU_DEBUG_ENABLED
+#if 0 //def IOMMU_DEBUG_ENABLED
 		if (i == 0 || i == nents-1)
 			pr_notice("%s, %d, sg%d, double check mapping result:  iova:0x%lx, phys:0x%lx",
 				__func__, __LINE__, i, iova+mapped,

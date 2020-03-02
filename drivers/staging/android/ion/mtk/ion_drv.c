@@ -49,6 +49,8 @@
 #include <linux/fb.h>
 #endif
 #include <aee.h>
+//#include <mmprofile.h>
+//#include <mmprofile_function.h>
 
 #define ION_FUNC_ENTER
 #define ION_FUNC_LEAVE
@@ -695,7 +697,7 @@ static int ion_clients_summary_show(struct seq_file *s, void *unused)
 {
 	struct ion_device *dev = g_ion_device;
 	struct rb_node *n, *m;
-	int buffer_size = 0;
+	unsigned int buffer_size = 0;
 	unsigned int id = 0;
 	enum mtk_ion_heap_type cam_heap = ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA;
 	enum mtk_ion_heap_type mm_heap = ION_HEAP_TYPE_MULTIMEDIA;
@@ -718,8 +720,8 @@ static int ion_clients_summary_show(struct seq_file *s, void *unused)
 
 				if ((id == mm_heap || id == cam_heap) &&
 				    handle->buffer->handle_count != 0)
-					buffer_size +=
-					    (int)(handle->buffer->size) /
+					buffer_size += (unsigned int)(
+					    handle->buffer->size) /
 					    (handle->buffer->handle_count);
 			}
 			if (!buffer_size) {
@@ -762,6 +764,7 @@ static int ion_drv_probe(struct platform_device *pdev)
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct device *dev = &pdev->dev;
 
+	IONMSG("%s, start\n", __func__);
 	if (!iommu_get_domain_for_dev(dev)) {
 		IONMSG("%s, iommu is not ready, waiting\n", __func__);
 		return -EPROBE_DEFER;
@@ -818,6 +821,7 @@ static int ion_drv_probe(struct platform_device *pdev)
 	ion_history_init();
 	ion_profile_init();
 
+	IONMSG("%s, done\n", __func__);
 	return 0;
 }
 
@@ -953,8 +957,12 @@ static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	 .id = ION_HEAP_TYPE_CARVEOUT,
 	 .name = "ion_carveout_heap",
 	 .base = 0,
-	 .size = 0,		/* reserve size, align to Mbytes; */
-	 .align = 0x1000,	/* this must not be 0 if enable */
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	 .size = 0x10000000, /* reserve 256MB for Camera; */
+#else
+	 .size = 0x4000, /* reserve 16KB for Audio; */
+#endif
+	 .align = 0x1000, /* this must not be 0 if enable */
 	 .priv = NULL,
 	 },
 };

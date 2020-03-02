@@ -593,6 +593,8 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_APU, 21, TF_APU, 0),
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_DATA", 2,
 		SLAVE_APU, 21, TF_APU, 1),
+	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_VLM", 2,
+		SLAVE_APU, 21, TF_APU, 2),
 	/*Larb22 */
 	MTK_IOMMU_PORT_INIT("L22_CCU_DISP", 0,
 		SLAVE_CCU_DISP, 22, TF_CCU_DISP, 0),
@@ -618,12 +620,33 @@ struct mtk_iommu_port iommu_port[] = {
 #define TF_EDMAL1    0xC
 #define TF_ADL       0xD
 #define TF_EXTERNAL  0xF
+
+#define MSK_VP6_0     F_MSK(10, 7)
+#define MSK_VP6_1     F_MSK(10, 7)
+#define MSK_VP6_2     F_MSK(10, 7)
+#define MSK_UP        F_MSK(10, 7)
+#define MSK_MDLA0_5   F_MSK(10, 7)
+#define MSK_MDLA0_6   F_MSK(10, 7)
+#define MSK_MDLA1_7   F_MSK(10, 7)
+#define MSK_MDLA1_8   F_MSK(10, 7)
+#define MSK_EDMA0     F_MSK(10, 7)
+#define MSK_EDMA1     F_MSK(10, 7)
+#define MSK_EDMAL0    F_MSK(10, 7)
+#define MSK_EDMAL1    F_MSK(10, 7)
+#define MSK_ADL       F_MSK(10, 7)
+#define MSK_EXTERNAL  F_MSK(10, 7)
+
 #define IOMMU_APU_AXI_PORT_NR (14)
 
 static uint32_t vpu_axi_bus_id[IOMMU_APU_AXI_PORT_NR] = {
 	TF_VP6_0, TF_VP6_1, TF_VP6_2, TF_UP, TF_MDLA0_5, TF_MDLA0_6,
 	TF_MDLA1_7, TF_MDLA1_8, TF_EDMA0, TF_EDMA1, TF_EDMAL0, TF_EDMAL1,
 	TF_ADL, TF_EXTERNAL};
+
+static uint32_t vpu_axi_bus_mask[IOMMU_APU_AXI_PORT_NR] = {
+	MSK_VP6_0, MSK_VP6_1, MSK_VP6_2, MSK_UP, MSK_MDLA0_5, MSK_MDLA0_6,
+	MSK_MDLA1_7, MSK_MDLA1_8, MSK_EDMA0, MSK_EDMA1, MSK_EDMAL0, MSK_EDMAL1,
+	MSK_ADL, MSK_EXTERNAL};
 
 static char *vpu_axi_bus_name[IOMMU_APU_AXI_PORT_NR] = {
 	"APU_VP6_0", "APU_VP6_1", "APU_VP6_2",

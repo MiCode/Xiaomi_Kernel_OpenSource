@@ -85,25 +85,6 @@ int M4U_L2_ENABLE = 1;
 
 static unsigned long pseudo_mmubase[TOTAL_M4U_NUM];
 static unsigned long pseudo_larbbase[SMI_LARB_NR];
-static char *pseudo_larbname[] = {
-	"mediatek,smi_larb0", "mediatek,smi_larb1", "mediatek,smi_larb2",
-	"mediatek,smi_larb3", "mediatek,smi_larb4", "mediatek,smi_larb5",
-	"m4u_none", "mediatek,smi_larb7", "mediatek,smi_larb8",
-	"mediatek,smi_larb9", "m4u_none", "mediatek,smi_larb11",
-	"m4u_none", "mediatek,smi_larb13", "mediatek,smi_larb14",
-	"m4u_none", "mediatek,smi_larb16", "mediatek,smi_larb17",
-	"mediatek,smi_larb18", "mediatek,smi_larb19", "mediatek,smi_larb20",
-	"m4u_none", "m4u_none", "m4u_none"
-};
-char *pseudo_larb_clk_name[] = {
-	"m4u_smi_larb0", "m4u_smi_larb1", "m4u_smi_larb2", "m4u_smi_larb3",
-	"m4u_smi_larb4", "m4u_smi_larb5", "m4u_none", "m4u_smi_larb7",
-	"m4u_smi_larb8", "m4u_smi_larb9", "m4u_none", "m4u_smi_larb11",
-	"m4u_none", "m4u_smi_larb13", "m4u_smi_larb14", "m4u_none",
-	"m4u_smi_larb16", "m4u_smi_larb17", "m4u_smi_larb18", "m4u_smi_larb19",
-	"m4u_smi_larb20", "m4u_none", "m4u_none", "m4u_none"
-};
-
 struct m4u_device *pseudo_mmu_dev;
 
 static inline unsigned int pseudo_readreg32(
@@ -166,13 +147,20 @@ static char *m4u_get_module_name(int portID)
 
 static int get_pseudo_larb(unsigned int port)
 {
-	int i, j, count;
+	int i, j, fake_nr;
 
-	for (i = 0; i < PSEUDO_LARB_NR; i++) {
-		count = ARRAY_SIZE(pseudo_dev_larb_fake[i].port);
-		for (j = 0; j < count; j++) {
-			if (pseudo_dev_larb_fake[i].port[j] == port)
+	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
+	for (i = 0; i < fake_nr; i++) {
+		for (j = 0; j < 32; j++) {
+			if (pseudo_dev_larb_fake[i].port[j] == -1)
+				break;
+			if (pseudo_dev_larb_fake[i].port[j] == port) {
+#ifdef IOMMU_DEBUG_ENABLED
+				pr_notice("%s, find port%d at larb_fake[%d][%d], nr=%d\n",
+					  __func__, port, i, j, fake_nr);
+#endif
 				return i;
+			}
 		}
 	}
 	return -1;
@@ -181,19 +169,29 @@ static int get_pseudo_larb(unsigned int port)
 struct device *pseudo_get_larbdev(int portid)
 {
 	struct pseudo_device *pseudo;
-	unsigned int larbid, larbport, index;
+	unsigned int larbid, larbport, fake_nr;
+	int index;
 
+	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
 	larbid = m4u_get_larbid(portid);
 	larbport = m4u_port_2_larb_port(portid);
-	if (larbid >= (SMI_LARB_NR + PSEUDO_LARB_NR) ||
+	if (larbid >= (SMI_LARB_NR + fake_nr) ||
 	    larbport >= 32) {
-		pr_notice("%s, invalid portid:%d\n",
-			  __func__, portid);
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		return NULL;
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 32)
+		/*
+		 * for 34bit IOVA space, boundary is mandatory
+		 * we cannot use a default device for iova mapping
+		 */
+#if 0
+		index = get_pseudo_larb(M4U_PORT_OVL_DEBUG);
+		if (index >= 0 &&
+		    index < fake_nr)
+			pseudo = &pseudo_dev_larb_fake[index];
 #else
-		return pseudo_dev_misc_disp.dev;
+		pseudo = &pseudo_dev_larb_fake[2];
 #endif
+#endif
+		goto out;
 	}
 
 	if (larbid >= 0 &&
@@ -202,15 +200,16 @@ struct device *pseudo_get_larbdev(int portid)
 	} else {
 		index = get_pseudo_larb(portid);
 		if (index >= 0 &&
-		    index < PSEUDO_LARB_NR)
+		    index < fake_nr)
 			pseudo = &pseudo_dev_larb_fake[index];
 	}
 
+out:
 	if (pseudo && pseudo->dev)
 		return pseudo->dev;
 
-	M4U_MSG("could not get larbdev, porid=%d, larbid=%d, larbport=%d\n",
-		portid, larbid, larbport);
+	M4U_MSG("err, p:%d(%d-%d) index=%d fake_nr=%d smi_nr=%d\n",
+		portid, larbid, larbport, index, fake_nr, SMI_LARB_NR);
 	return NULL;
 }
 
@@ -486,7 +485,8 @@ int m4u_get_boundary(int port)
 #endif
 }
 
-static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort)
+static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
+	bool is_user)
 {
 	/* all the port will be attached by dma and configed by iommu driver */
 	unsigned long larb_base;
@@ -498,14 +498,14 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 	larb = m4u_get_larbid(pM4uPort->ePortID);
 	larb_port = m4u_port_2_larb_port(pM4uPort->ePortID);
 	name = iommu_get_port_name(pM4uPort->ePortID);
-	if (strcmp(name, pM4uPort->name)) {
+	if (is_user && strcmp(name, pM4uPort->name)) {
 		M4U_MSG("port name(%s) not matched(%s)\n",
 			pM4uPort->name, name);
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				DB_OPT_DEFAULT|DB_OPT_NATIVE_BACKTRACE,
 				"port name not matched",
 				"dump user backtrace");
-		return 0;
+		return -1;
 	}
 
 	if (pM4uPort->Virtuality) {
@@ -514,14 +514,14 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 		    bit32 >= (1 <<
 		    (CONFIG_MTK_IOMMU_PGTABLE_EXT - 32))) {
 			M4U_MSG("enable larb%d fail\n", larb);
-			return -1;
+			return -2;
 		}
 	}
 
 	larb_base = pseudo_larbbase[larb];
 	if (!larb_base) {
 		M4U_MSG("larb %d not existed, no need of config\n", larb);
-		return 0;
+		return -3;
 	}
 
 	ret = larb_clock_on(larb, 1);
@@ -551,11 +551,13 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 	/* debug use */
 	if (value != pseudo_readreg32(larb_base,
-					  SMI_LARB_NON_SEC_CONx(larb_port)))
+					  SMI_LARB_NON_SEC_CONx(larb_port))) {
 		M4U_ERR("%d(%d-%d),vir=%d, bound=%d, old=0x%x, expect=0x%x\n",
 			pM4uPort->ePortID, larb, larb_port,
 			pM4uPort->Virtuality,
 			bit32, old_value, value);
+		ret = -4;
+	}
 
 	M4U_MSG("%s, l%d-p%d, switch fr %d to %d, bd:%d\n",
 		m4u_get_module_name(pM4uPort->ePortID),
@@ -1341,7 +1343,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	int ret;
 	struct device *dev = pseudo_get_larbdev(port);
 	dma_addr_t dma_addr = ARM_MAPPING_ERROR;
-	unsigned int i, prot = 0;
+	unsigned int i;
 	struct scatterlist *s = sg_table->sgl;
 	dma_addr_t orig_addr = ARM_MAPPING_ERROR;
 	dma_addr_t offset = 0;
@@ -1403,11 +1405,9 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 		}
 	}
 
-	prot = DMA_BIDIRECTIONAL;
-
 	dma_map_sg_attrs(dev, table->sgl,
 			sg_table ? table->nents : table->orig_nents,
-			prot,
+			DMA_BIDIRECTIONAL,
 			DMA_ATTR_SKIP_CPU_SYNC);
 	dma_addr = sg_dma_address(table->sgl);
 
@@ -1436,8 +1436,8 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	pseudo_add_sgtable(mva_sg);
 
 #ifdef IOMMU_DEBUG_ENABLED
-	M4U_MSG("larb%d, port%d, phys=0x%lx, iova=0x%lx, size=0x%lx, nents=%d",
-		MTK_IOMMU_TO_LARB(port),
+	M4U_MSG("p:%d(%d-%d) pa=0x%lx iova=0x%lx s=0x%lx n=%d",
+		port, MTK_IOMMU_TO_LARB(port),
 		MTK_IOMMU_TO_PORT(port),
 		sg_phys(table->sgl),
 		*retmva, size, table->nents);
@@ -1519,6 +1519,9 @@ int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 		M4U_ERR("failed to get ion_m4u_client\n");
 		return -1;
 	}
+
+	if (port_info->flags & M4U_FLAGS_FIX_MVA)
+		flags = M4U_FLAGS_FIX_MVA;
 
 	if (port_info->flags & M4U_FLAGS_SG_READY)
 		flags |= M4U_FLAGS_SG_READY;
@@ -2084,7 +2087,7 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 {
 	int ret;
 
-	ret = pseudo_config_port(pM4uPort);
+	ret = pseudo_config_port(pM4uPort, 0);
 
 	return ret;
 }
@@ -2721,7 +2724,7 @@ static long pseudo_ioctl(struct file *filp,
 				return -EFAULT;
 			}
 
-		ret = m4u_config_port(&m4u_port);
+			ret = pseudo_config_port(&m4u_port, 1);
 		}
 		break;
 #ifdef PSEUDO_M4U_TEE_SERVICE_ENABLE
@@ -2976,7 +2979,7 @@ static int pseudo_probe(struct platform_device *pdev)
 							   F_SMI_DOMN(0x7),
 							   F_SMI_DOMN(0x4));
 			// MDP path config
-			if (i == 2 || i == 3)
+			if (m4u_port_id_of_mdp(i, j))
 				pseudo_set_reg_by_mask(
 						   pseudo_larbbase[i],
 						   SMI_LARB_NON_SEC_CONx(j),
@@ -3006,9 +3009,11 @@ static int pseudo_probe(struct platform_device *pdev)
 	M4U_MSG("%s done\n", __func__);
 	return 0;
 }
+
 static int pseudo_port_probe(struct platform_device *pdev)
 {
-	int larbid, larbid_fake;
+	int larbid;
+	unsigned int fake_nr, i;
 	int ret;
 	struct device *dev;
 	struct device_dma_parameters *dma_param;
@@ -3028,21 +3033,26 @@ static int pseudo_port_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
 	if (larbid >= 0 && larbid < SMI_LARB_NR) {
 		pseudo_dev_larb[larbid].larbid = larbid;
 		pseudo_dev_larb[larbid].dev = dev;
 		pseudo_dev_larb[larbid].name = pseudo_larbname[larbid];
 		if (pseudo_dev_larb[larbid].mmuen)
 			return 0;
-	} else if (larbid < SMI_LARB_NR + PSEUDO_LARB_NR) {
-		larbid_fake = pseudo_dev_larb_fake[
-				larbid - SMI_LARB_NR].larbid;
-		if (larbid != larbid_fake) {
-			M4U_ERR("%s, pseudo larb%d not matched of dev larb%d\n",
-				__func__, larbid_fake, larbid);
+	} else if (larbid < SMI_LARB_NR + fake_nr) {
+		for (i = 0; i < fake_nr; i++) {
+			if (!pseudo_dev_larb_fake[i].dev &&
+			    larbid == pseudo_dev_larb_fake[i].larbid) {
+				pseudo_dev_larb_fake[i].dev = dev;
+				break;
+			}
+		}
+		if (i == fake_nr) {
+			M4U_ERR("%s, pseudo not matched of dev larb%d\n",
+				__func__, larbid);
 			return -ENOMEM;
 		}
-		pseudo_dev_larb_fake[larbid - SMI_LARB_NR].dev = dev;
 	}
 
 	M4U_MSG("done, larbid:%d, dev:%p)\n", larbid, dev);
@@ -3115,7 +3125,7 @@ static int __pseudo_dump_iova_reserved_region(struct device *dev)
 int pseudo_dump_iova_reserved_region(void)
 {
 	struct device *dev;
-	int i;
+	unsigned int i, fake_nr;
 
 	for (i = 0; i < SMI_LARB_NR; i++) {
 		pr_notice("======== %s  ==========\n",
@@ -3127,7 +3137,8 @@ int pseudo_dump_iova_reserved_region(void)
 		__pseudo_dump_iova_reserved_region(dev);
 	}
 
-	for (i = 0; i < PSEUDO_LARB_NR; i++) {
+	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
+	for (i = 0; i < fake_nr; i++) {
 		pr_notice("======== %s  ==========\n",
 			  pseudo_dev_larb_fake[i].name);
 		dev = pseudo_dev_larb_fake[i].dev;
