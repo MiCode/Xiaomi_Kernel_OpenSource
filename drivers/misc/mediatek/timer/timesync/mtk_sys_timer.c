@@ -11,17 +11,18 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/module.h>
 #if defined(CONFIG_MTK_TIMER_TIMESYNC) && !defined(CONFIG_FPGA_EARLY_PORTING)
 
 #include <linux/kernel.h>
 #include <linux/clocksource.h>
 #include <linux/debugfs.h>
 #include <linux/io.h>
-#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/spinlock_types.h>
@@ -239,6 +240,55 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 {
 	u64 tick, ts;
 	unsigned long irq_flags = 0;
+	int freeze, unfreeze;
+
+	spin_lock_irqsave(&timesync_cxt.lock, irq_flags);
+
+	ts = sched_clock_get_cyc(&tick);
+
+	timesync_cxt.base_tick = tick;
+	timesync_cxt.base_ts = ts;
+	sys_timer_timesync_inc_ver();
+
+	freeze = (flag & SYS_TIMER_TIMESYNC_FLAG_FREEZE) ? 1 : 0;
+	unfreeze = (flag & SYS_TIMER_TIMESYNC_FLAG_UNFREEZE) ? 1 : 0;
+
+	/* sync with sysram */
+	if (timesync_cxt.support_sysram) {
+		sys_timer_timesync_update_ram(timesync_cxt.ram_base,
+			freeze, tick, ts);
+	}
+
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+	if (freeze == 0 && unfreeze == 0) {
+	/* sync with adsp */
+		adsp_enable_dsp_clk(true);
+
+		sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
+			freeze, tick, ts);
+
+		adsp_enable_dsp_clk(false);
+	}
+#endif
+	/* sync with sspm */
+	sys_timer_timesync_update_sspm(freeze, tick, ts);
+
+	spin_unlock_irqrestore(&timesync_cxt.lock, irq_flags);
+
+	pr_debug("update base: ts=%llu, tick=0x%llx, fz=%d, ver=%d\n",
+		ts, tick, freeze, timesync_cxt.base_ver);
+}
+
+/* Todo: This api is used for adsp when suspend/resume, which
+ * sram cannot be accessed and will cause system hang. This should
+ * be refined by suspend/resume time_sync flow to make timesync at
+ * the beginning of suspend and at the end of resume, then this api
+ * can be removed
+ */
+void sys_timer_timesync_sync_adsp(unsigned int flag)
+{
+	u64 tick, ts;
+	unsigned long irq_flags = 0;
 	int freeze;
 
 	spin_lock_irqsave(&timesync_cxt.lock, irq_flags);
@@ -250,31 +300,17 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 	sys_timer_timesync_inc_ver();
 
 	freeze = (flag & SYS_TIMER_TIMESYNC_FLAG_FREEZE) ? 1 : 0;
-
-	/* sync with sysram */
-	if (timesync_cxt.support_sysram) {
-		sys_timer_timesync_update_ram(timesync_cxt.ram_base,
-			freeze, tick, ts);
-	}
-
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 	/* sync with adsp */
-	adsp_enable_dsp_clk(true);
-
 	sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
 		freeze, tick, ts);
-
-	adsp_enable_dsp_clk(false);
 #endif
-
-	/* sync with sspm */
-	sys_timer_timesync_update_sspm(freeze, tick, ts);
-
 	spin_unlock_irqrestore(&timesync_cxt.lock, irq_flags);
 
-	pr_debug("update base: ts=%llu, tick=0x%llx, fz=%d, ver=%d\n",
+	pr_debug("update base (adsp): ts=%llu, tick=0x%llx, fz=%d, ver=%d\n",
 		ts, tick, freeze, timesync_cxt.base_ver);
 }
+EXPORT_SYMBOL(sys_timer_timesync_sync_adsp);
 
 u64 sys_timer_timesync_tick_to_sched_clock(u64 tick)
 {
