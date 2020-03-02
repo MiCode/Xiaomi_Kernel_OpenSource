@@ -19,7 +19,10 @@
 #include <fpsgo_common.h>
 #include <linux/pm_qos.h>
 
+#define API_READY 0
+#if API_READY
 static struct pm_qos_request dram_req;
+#endif
 
 void fbt_notify_CM_limit(int reach_limit)
 {
@@ -31,6 +34,7 @@ void fbt_notify_CM_limit(int reach_limit)
 
 void fbt_reg_dram_request(int reg)
 {
+#if API_READY
 	if (reg) {
 		if (!pm_qos_request_active(&dram_req))
 			pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
@@ -39,10 +43,12 @@ void fbt_reg_dram_request(int reg)
 		if (pm_qos_request_active(&dram_req))
 			pm_qos_remove_request(&dram_req);
 	}
+#endif
 }
 
 void fbt_boost_dram(int boost)
 {
+#if API_READY
 	if (!pm_qos_request_active(&dram_req)) {
 		fbt_reg_dram_request(1);
 		if (!pm_qos_request_active(&dram_req)) {
@@ -58,6 +64,7 @@ void fbt_boost_dram(int boost)
 				PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
 	fpsgo_systrace_c_fbt_gm(-100, boost, "dram_boost");
+#endif
 }
 
 void fbt_set_boost_value(unsigned int base_blc)
@@ -101,14 +108,7 @@ int fbt_get_L_cluster_num(void)
 
 int fbt_get_L_min_ceiling(void)
 {
-	int freq = 0;
-	int opp;
-
-	opp = upower_get_turn_point();
-	if (opp >= NR_FREQ_CPU || opp < 0)
-		return 0;
-
-	freq = cpu_dvfs[fbt_get_L_cluster_num()].power[opp];
+	int freq = 1400000;
 
 	return freq;
 }
