@@ -550,6 +550,65 @@ TRACE_EVENT(sched_set_cpuprefer,
 );
 #endif
 
+#ifdef CONFIG_MTK_SCHED_INTEROP
+TRACE_EVENT(sched_interop,
+
+	TP_PROTO(int cpu, unsigned long lowest_bits),
+
+	TP_ARGS(cpu, lowest_bits),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(unsigned long, lowest_bits)
+	),
+
+	TP_fast_assign(
+		__entry->cpu         = cpu;
+		__entry->lowest_bits = lowest_bits;
+	),
+
+	TP_printk("current cpu=%d, find idle cpu from cpumask 0x%lx",
+		__entry->cpu, __entry->lowest_bits)
+);
+
+TRACE_EVENT(sched_interop_lb,
+
+	TP_PROTO(int cpu, int rt_nr_running),
+
+	TP_ARGS(cpu, rt_nr_running),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(int, rt_nr_running)
+	),
+
+	TP_fast_assign(
+		__entry->cpu           = cpu;
+		__entry->rt_nr_running = rt_nr_running;
+	),
+
+	TP_printk("cpu=%d, rq->rt.rt_nr_running=%d",
+		__entry->cpu, __entry->rt_nr_running)
+);
+
+TRACE_EVENT(sched_interop_best_cpu,
+
+	TP_PROTO(int cpu),
+
+	TP_ARGS(cpu),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+	),
+
+	TP_printk("find_idle_cpu=%d", __entry->cpu)
+);
+#endif
+
 /*
  * Tracepoint for load balance sched group calculation
  */
