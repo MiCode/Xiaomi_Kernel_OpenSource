@@ -1,0 +1,8 @@
+# VIDEOCODEC_DRIVER
+config MTK_VIDEOCODEC_DRIVER
+	bool "MediaTek VideoCodec Driver"
+	default n
+	help
+	  VideoCodec driver is used to support
+	  Video Playback/Video Recording/Video related features...
+	  which is using MTK solution
