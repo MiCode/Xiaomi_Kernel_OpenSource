@@ -31,7 +31,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
-#include <mt-plat/mtk_gpio.h>
+
 #include <mach/mtk_pmic_wrap.h>
 #include "pwrap_hal.h"
 #undef CONFIG_MTK_TINYSYS_SSPM_SUPPORT

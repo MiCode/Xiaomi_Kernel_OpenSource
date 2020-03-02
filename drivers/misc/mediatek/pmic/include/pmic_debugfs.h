@@ -15,6 +15,8 @@
 #define __PMIC_DEBUGFS_H__
 
 #include <linux/dcache.h>
+#include <linux/platform_device.h>
+#include <linux/seq_file.h>
 
 #define adb_output_reg(reg) \
 	seq_printf(s, "[pmic_boot_status] " #reg " Reg[0x%x]=0x%x\n",	\
