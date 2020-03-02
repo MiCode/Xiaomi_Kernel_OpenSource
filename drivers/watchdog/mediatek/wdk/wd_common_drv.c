@@ -65,10 +65,8 @@
 #define PROC_WK "wdk"
 #define	PROC_MRDUMP_RST	"mrdump_rst"
 
-#define WITH_CPU_NOTIFY	0
-
-__weak void mtk_wdt_cpu_callback(struct task_struct *wk_tsk,
-	unsigned long action, int hotcpu, int kicker_init)
+__weak void mtk_wdt_cpu_callback(struct task_struct *wk_tsk, int hotcpu,
+				     int kicker_init)
 {
 }
 
@@ -797,92 +795,49 @@ ssize_t mtk_rgu_pause_wdt_store(struct kobject *kobj,
 /*---------------------------------------------------------------------------*/
 #endif /*__ENABLE_WDT_SYSFS__*/
 /*---------------------------------------------------------------------------*/
-#if WITH_CPU_NOTIFY
-static int wk_cpu_callback(struct notifier_block *nfb,
-	unsigned long action, void *hcpu)
+
+static int wk_cpu_callback_online(unsigned int cpu)
 {
-	int hotcpu = (unsigned long)hcpu;
+	wk_cpu_update_bit_flag(cpu, 1);
 
-	switch (action) {
-	case CPU_UP_PREPARE:
-	case CPU_UP_PREPARE_FROZEN:
-		/* Update CPU mask in WDT driver */
-		wk_cpu_update_bit_flag(hotcpu, 1);
-
-		/*
-		 * Kick WDT here because this CPU may be blocked awhile
-		 * between PREPARE and ONLINE states. If HWT happens
-		 * during this period, we may be confused by WDT CPU
-		 * kicking status: it will indicate "2 CPUs did not
-		 * kick WDT". This makes us hard to debug.
-		 */
-		mtk_wdt_restart(WD_TYPE_NORMAL);
+	mtk_wdt_restart(WD_TYPE_NORMAL);
 
 #ifdef CONFIG_LOCAL_WDT
-		pr_debug("[wdk]cpu %d plug on kick local wdt\n", hotcpu);
-		/* kick local wdt */
-		mpcore_wdt_restart(WD_TYPE_NORMAL);
+	pr_debug("[wdk]cpu %d plug on kick local wdt\n", cpu);
+	/* kick local wdt */
+	mpcore_wdt_restart(WD_TYPE_NORMAL);
 #endif
-		/* pr_info("[wdk]cpu %d plug on kick wdt\n", hotcpu); */
-		break;
-	case CPU_ONLINE:
-	case CPU_ONLINE_FROZEN:
-		/*
-		 * Bind WDK thread to this CPU.
-		 * NOTE: Thread binding must be executed after CPU is ready
-		 * (online).
-		 */
-		if (g_kicker_init == 1)
-			kicker_cpu_bind(hotcpu);
+	/*
+	 * Bind WDK thread to this CPU.
+	 * NOTE: Thread binding must be executed after CPU is ready
+	 * (online).
+	 */
+	if (g_kicker_init == 1)
+		kicker_cpu_bind(cpu);
+	else
+		pr_info("kicker was not bound to CPU%d\n", cpu);
 
-		/*
-		 * DO NOT kick WDT here because we do not expect long execution
-		 * time between PREPARE and ONLINE.
-		 *
-		 * Long execution time between PREPARE and ONLINE may cause HWT
-		 * after CPU is ONLINE, i.e., after thread binding. In this
-		 * case, HWT is required to report this unexpected issue.
-		 */
-		break;
-#ifdef CONFIG_HOTPLUG_CPU
-#ifdef CONFIG_LOCAL_WDT
-		/* must kick local wdt in per cpu */
-	case CPU_DYING:
-		/* fall-through */
-#endif
-	case CPU_UP_CANCELED:
-		/* fall-through */
-	case CPU_UP_CANCELED_FROZEN:
-		/* fall-through */
-	case CPU_DEAD:
-		/* fall-through */
-	case CPU_DEAD_FROZEN:
-		mtk_wdt_restart(WD_TYPE_NORMAL);/* for KICK external wdt */
-#ifdef CONFIG_LOCAL_WDT
-		pr_debug("[wdk]cpu %d plug off kick local wdt\n", hotcpu);
-		/* kick local wdt */
-		/* mpcore_wdt_restart(WD_TYPE_NORMAL); */
-		/* disable local watchdog */
-		mpcore_wk_wdt_stop();
-#endif
-		wk_cpu_update_bit_flag(hotcpu, 0);
-		/* pr_info("[wdk]cpu %d plug off, kick wdt\n", hotcpu); */
-		break;
-#endif				/* CONFIG_HOTPLUG_CPU */
-	default:
-		return NOTIFY_DONE;
-	}
+	mtk_wdt_cpu_callback(wk_tsk[cpu], cpu, g_kicker_init);
 
-	mtk_wdt_cpu_callback(wk_tsk[hotcpu], action, hotcpu, g_kicker_init);
-
-	return NOTIFY_OK;
+	return 0;
 }
 
-static struct notifier_block cpu_nfb = {
-	.notifier_call = wk_cpu_callback,
-	.priority = 6
-};
+static int wk_cpu_callback_offline(unsigned int cpu)
+{
+#ifdef CONFIG_LOCAL_WDT
+	pr_debug("[wdk]cpu %d plug off kick local wdt\n", cpu);
+	/* kick local wdt */
+	/* mpcore_wdt_restart(WD_TYPE_NORMAL); */
+	/* disable local watchdog */
+	mpcore_wk_wdt_stop();
 #endif
+	wk_cpu_update_bit_flag(cpu, 0);
+	/* pr_info("[wdk]cpu %d plug off, kick wdt\n", hotcpu); */
+
+	mtk_wdt_cpu_callback(wk_tsk[cpu], cpu, g_kicker_init);
+
+	return 0;
+}
 
 static void wdk_work_callback(struct work_struct *work)
 {
@@ -903,9 +858,9 @@ static void wdk_work_callback(struct work_struct *work)
 
 	wk_proc_init();
 
-#if WITH_CPU_NOTIFY
-	register_cpu_notifier(&cpu_nfb);
-#endif
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN + 5, "watchdog:wdkctrl",
+				     wk_cpu_callback_online,
+				     wk_cpu_callback_offline);
 
 	for (i = 0; i < CPU_NR; i++) {
 		if (cpu_online(i)) {
