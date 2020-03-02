@@ -3326,6 +3326,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		compatible = "mediatek,lk_charger";
 		enable_anime;
 		/* enable_pe_plus; */
+		enable_pd20_reset;
 		power_path_support;
 		max_charger_voltage = <6500000>;
 		fast_charge_voltage = <3000000>;
@@ -3419,6 +3420,12 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		ta_start_battery_soc = <0>;
 		ta_stop_battery_soc = <85>;
 
+		/* PE 4.0 */
+		high_temp_to_leave_pe40 = <46>;
+		high_temp_to_enter_pe40 = <39>;
+		low_temp_to_leave_pe40 = <10>;
+		low_temp_to_enter_pe40 = <16>;
+
 		/* PE 4.0 single charger*/
 		pe40_single_charger_input_current = <3000000>;
 		pe40_single_charger_current = <3000000>;
@@ -3437,6 +3444,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		/* dual charger */
 		chg1_ta_ac_charger_current = <1500000>;
 		chg2_ta_ac_charger_current = <1500000>;
+		slave_mivr_diff = <100000>;
+		dual_polling_ieoc = <450000>;
 
 		/* cable measurement impedance */
 		cable_imp_threshold = <699>;
@@ -3446,6 +3455,20 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		bif_threshold1 = <4250000>;
 		bif_threshold2 = <4300000>;
 		bif_cv_under_threshold2 = <4450000>;
+
+		/* PD */
+		pd_vbus_low_bound = <5000000>;
+		pd_vbus_upper_bound = <12000000>;
+		pd_ichg_level_threshold = <1000000>; /* uA */
+		pd_stop_battery_soc = <80>;
+
+		ibus_err = <14>;
+		vsys_watt = <5000000>;
+	};
+
+	pd_adapter: pd_adapter {
+		compatible = "mediatek,pd_adapter";
+		adapter_name = "pd_adapter";
 	};
 
 	rt9465_slave_chr: rt9465_slave_chr {
