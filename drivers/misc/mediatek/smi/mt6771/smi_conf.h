@@ -34,6 +34,14 @@ static u32 smi_scen_map[SMI_BWC_SCEN_CNT] = {
 	SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_INIT
 };
 
+static u32 smi_larb_cmd_gp_en_port[SMI_LARB_NUM][2] = {
+	{0, 5}, {0, 0}, {0, 0},
+};
+
+static u32 smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
+	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+};
+
 /* conf */
 #define SMI_COMM_CONF_NUM	8
 struct mtk_smi_pair smi_comm_conf_pair[SMI_COMM_CONF_NUM] = {
@@ -54,7 +62,7 @@ struct mtk_smi_pair smi_larb0_conf_pair[SMI_LARB0_CONF_NUM] = {
 };
 
 #define SMI_LARB1_CONF_NUM	1
-struct mtk_smi_pair smi_larb1_conf_pair[SMI_LARB0_CONF_NUM] = {
+struct mtk_smi_pair smi_larb1_conf_pair[SMI_LARB1_CONF_NUM] = {
 	{SMI_LARB_SW_FLAG, 0x1}
 };
 
