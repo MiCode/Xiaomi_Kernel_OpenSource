@@ -48,6 +48,9 @@ static uint64_t     t_setevt_in;
 static uint64_t     t_setevt_out;
 static uint64_t     t_hdl_in;
 static uint64_t     t_hdl_out;
+static uint64_t     t_setevt_ticks;
+
+static DEFINE_SPINLOCK(systimer_lock);
 
 #define aee_log(fmt, ...) \
 do { \
@@ -174,6 +177,9 @@ void mtk_timer_clkevt_aee_dump(void)
 	aee_log("set next event entry: %llu\n",
 		t_setevt_in);
 
+	aee_log("set next event ticks: %llu\n",
+		t_setevt_ticks);
+
 	aee_log("set next event exit:  %llu\n",
 		t_setevt_out);
 
@@ -216,8 +222,11 @@ static irqreturn_t mtk_stmr_handler(int irq, void *dev_id)
 	dev = mtk_stmr_id_to_dev(id);
 
 	if (likely(dev)) {
+		spin_lock(&systimer_lock);
 
 		mtk_stmr_ack_irq(dev);
+
+		spin_unlock(&systimer_lock);
 
 		if (likely(stmr_handlers[id]))
 			stmr_handlers[id]((unsigned long)dev_id);
@@ -286,6 +295,7 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 
 #if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_setevt_in = sched_clock();
+	t_setevt_ticks = ticks;
 #endif
 
 	/*
@@ -297,6 +307,9 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 	 * reset timer first because we do not expect interrupt is triggered
 	 * by old compare value.
 	 */
+
+	spin_lock(&systimer_lock);
+
 	mtk_stmr_reset(dev);
 
 	mt_reg_sync_writel(STMR_CON_EN, dev->base_addr + STMR_CON);
@@ -305,6 +318,8 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 
 	mt_reg_sync_writel(STMR_CON_EN | STMR_CON_IRQ_EN,
 		dev->base_addr + STMR_CON);
+
+	spin_unlock(&systimer_lock);
 
 #if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_setevt_out = sched_clock();
@@ -357,7 +372,7 @@ static inline void mtk_stmr_setup_clkevt(u32 freq, int irq)
 	evt->irq = irq;
 	evt->mult = div_sc(freq, NSEC_PER_SEC, evt->shift);
 	evt->max_delta_ns = clockevent_delta2ns(0xffffffff, evt);
-	evt->min_delta_ns = clockevent_delta2ns(3, evt);
+	evt->min_delta_ns = clockevent_delta2ns(1300, evt);
 	evt->cpumask = cpu_possible_mask;
 
 	mtk_stmr_dev_setup(dev, mtk_stmr_clkevt_handler);
