@@ -33,7 +33,8 @@ struct mt_fh_hal_driver {
 	int (*mt_dfs_armpll)(unsigned int coreid, unsigned int dds);
 	int (*mt_fh_hal_dumpregs_read)(struct seq_file *m, void *v);
 	int (*mt_fh_hal_slt_start)(void);
-	int (*mt_dfs_general_pll)(unsigned int pll_id, unsigned int target_dds);
+	int (*mt_dfs_general_pll)(enum FH_PLL_ID pll_id,
+				unsigned int target_dds);
 	void (*mt_fh_popod_restore)(void);
 	void (*mt_fh_popod_save)(void);
 
