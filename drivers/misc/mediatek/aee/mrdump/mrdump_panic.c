@@ -300,7 +300,6 @@ inline void aee_print_bt(struct pt_regs *regs)
 	int ret;
 	unsigned long high, bottom, fp;
 	struct stackframe cur_frame;
-	struct pt_regs *excp_regs;
 
 	bottom = regs->reg_sp;
 	if (!mrdump_virt_addr_valid(bottom)) {
@@ -331,21 +330,6 @@ inline void aee_print_bt(struct pt_regs *regs)
 #endif
 		if (ret < 0 || !mrdump_virt_addr_valid(cur_frame.pc))
 			break;
-		if (in_exception_text(cur_frame.pc)) {
-#ifdef __aarch64__
-			/* work around for unknown reason
-			 * do_mem_abort stack abnormal
-			 */
-			excp_regs = (void *)(cur_frame.fp + 0x10 + 0xa0);
-			/* skip do_mem_abort & el1_da */
-			ret = unwind_frame(current, &cur_frame);
-			if (ret < 0)
-				break;
-#else
-			excp_regs = (void *)(cur_frame.fp + 4);
-#endif
-			cur_frame.pc = excp_regs->reg_pc;
-		}
 		aee_nested_printf("[<%px>] %pS\n", (void *)cur_frame.pc,
 				(void *)cur_frame.pc);
 
