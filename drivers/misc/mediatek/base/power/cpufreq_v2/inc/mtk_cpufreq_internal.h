@@ -148,12 +148,12 @@ static const struct file_operations name ## _proc_fops = {		\
 /*
  * BIT Operation
  */
-#define _BIT_(_bit_)                    (unsigned long)(1 << (_bit_))
+#define _BIT_(_bit_)                    (unsigned int)(1 << (_bit_))
 #define _BITS_(_bits_, _val_) \
-	((((unsigned long) -1 >> (31 - ((1) ? _bits_))) & \
+	((((unsigned int) -1 >> (31 - ((1) ? _bits_))) & \
 	~((1U << ((0) ? _bits_)) - 1)) & ((_val_)<<((0) ? _bits_)))
 #define _BITMASK_(_bits_)               \
-	(((unsigned long) -1 >> (31 - ((1) ? _bits_))) & \
+	(((unsigned int) -1 >> (31 - ((1) ? _bits_))) & \
 	~((1U << ((0) ? _bits_)) - 1))
 #define _GET_BITS_VAL_(_bits_, _val_)   \
 	(((_val_) & (_BITMASK_(_bits_))) >> ((0) ? _bits_))
