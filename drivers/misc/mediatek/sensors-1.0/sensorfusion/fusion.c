@@ -608,7 +608,10 @@ int uncali_gyro_temperature_data_report(int *data, int status, int64_t nt)
 {
 	return uncali_sensor_data_report(data, status, nt, ID_GYRO_TEMPERATURE);
 }
-
+int uncali_gyro_temperature_flush_report(void)
+{
+	return uncali_sensor_flush_report(ID_GYRO_TEMPERATURE);
+}
 int uncali_gyro_flush_report(void)
 {
 	return uncali_sensor_flush_report(ID_GYROSCOPE_UNCALIBRATED);
