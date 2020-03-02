@@ -406,7 +406,7 @@ void disp_helper_option_init(void)
 	/* smart layer OVL*/
 	disp_helper_set_option(DISP_OPT_OVL_EXT_LAYER, 1);
 
-	disp_helper_set_option(DISP_OPT_REG_PARSER_RAW_DUMP, 0);
+	disp_helper_set_option(DISP_OPT_REG_PARSER_RAW_DUMP, 1);
 
 	disp_helper_set_option(DISP_OPT_AOD, 0);
 

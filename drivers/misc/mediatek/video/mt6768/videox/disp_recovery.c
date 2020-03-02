@@ -825,7 +825,6 @@ void primary_display_requset_eint(void)
 {
 	struct LCM_PARAMS *params;
 	struct device_node *node;
-	u32 ints[2] = { 0, 0 };
 
 	params = primary_get_lcm()->params;
 	if (params->dsi.customization_esd_check_enable == 0) {
@@ -839,9 +838,6 @@ void primary_display_requset_eint(void)
 		}
 
 		/* 1.register irq handler */
-		of_property_read_u32_array(node, "debounce",
-					   ints, ARRAY_SIZE(ints));
-
 		te_irq = irq_of_parse_and_map(node, 0);
 		if (request_irq(te_irq, _esd_check_ext_te_irq_handler,
 				IRQF_TRIGGER_RISING, "DSI_TE-eint", NULL)) {

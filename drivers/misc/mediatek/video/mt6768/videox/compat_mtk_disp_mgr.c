@@ -69,6 +69,18 @@ static int compat_get_disp_caps_info(
 	err |= get_user(u, &(data32->is_support_three_session));
 	err |= put_user(u, &(data->is_support_three_session));
 
+	err |= get_user(u, &(data32->lcm_color_mode));
+	err |= put_user(u, &(data->lcm_color_mode));
+
+	err |= get_user(u, &(data32->max_luminance));
+	err |= put_user(u, &(data->max_luminance));
+
+	err |= get_user(u, &(data32->average_luminance));
+	err |= put_user(u, &(data->average_luminance));
+
+	err |= get_user(u, &(data32->min_luminance));
+	err |= put_user(u, &(data->min_luminance));
+
 	return err;
 }
 
@@ -116,6 +128,19 @@ static int compat_put_disp_caps_info(
 
 	err |= get_user(u, &(data->is_support_three_session));
 	err |= put_user(u, &(data32->is_support_three_session));
+
+	err |= get_user(u, &(data->lcm_color_mode));
+	err |= put_user(u, &(data32->lcm_color_mode));
+
+	err |= get_user(u, &(data->max_luminance));
+	err |= put_user(u, &(data32->max_luminance));
+
+	err |= get_user(u, &(data->average_luminance));
+	err |= put_user(u, &(data32->average_luminance));
+
+	err |= get_user(u, &(data->min_luminance));
+	err |= put_user(u, &(data32->min_luminance));
+
 
 	return err;
 }
@@ -272,6 +297,9 @@ static int compat_get_disp_input_config(
 	err |= get_user(u, &(data32->yuv_range));
 	err |= put_user(u, &(data->yuv_range));
 
+	err |= get_user(i, &(data32->dataspace));
+	err |= put_user(i, &(data->dataspace));
+
 	err |= get_user(u, &(data32->layer_rotation));
 	err |= put_user(u, &(data->layer_rotation));
 
@@ -304,6 +332,9 @@ static int compat_get_disp_input_config(
 
 	err |= get_user(s, &(data32->dirty_roi_num));
 	err |= put_user(s, &(data->dirty_roi_num));
+
+	err |= get_user(s, &(data32->src_v_pitch));
+	err |= put_user(s, &(data->src_v_pitch));
 
 	err |= get_user(s, &(data32->src_pitch));
 	err |= put_user(s, &(data->src_pitch));
@@ -364,6 +395,9 @@ static int compat_get_disp_input_config(
 
 	err |= get_user(c, &(data32->ext_sel_layer));
 	err |= put_user(c, &(data->ext_sel_layer));
+
+	err |= get_user(c, &(data32->compress));
+	err |= put_user(c, &(data->compress));
 
 	return err;
 }
@@ -912,6 +946,12 @@ static int compat_get_disp_frame_cfg(
 
 	err |= get_user(u, &(data32->res_idx));
 	err |= put_user(u, &(data->res_idx));
+
+	err |= get_user(u, &(data32->hrt_weight));
+	err |= put_user(u, &(data->hrt_weight));
+
+	err |= get_user(u, &(data32->hrt_idx));
+	err |= put_user(u, &(data->hrt_idx));
 
 	return err;
 }

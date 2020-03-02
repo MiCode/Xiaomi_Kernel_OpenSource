@@ -227,6 +227,14 @@ int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
 		struct cmdqRecStruct *cmdq,
 		unsigned char cmd, unsigned char count,
 		unsigned char *para_list);
+void DSI_dcs_set_lcm_reg_v4(enum DISP_MODULE_ENUM module,
+	bool hs, struct LCM_setting_table_V3 *para_tbl, unsigned int size,
+	unsigned char force_update);
+UINT32 DSI_dcs_read_lcm_reg_v4(enum DISP_MODULE_ENUM module,
+	UINT8 cmd, UINT8 *user_buffer, UINT8 buffer_size, bool sendhs);
+int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
+	void *cmdq_trigger_handle, enum CMDQ_STATE state);
+
 
 #ifdef __cplusplus
 }
