@@ -230,7 +230,7 @@ static int rtc_field_read(unsigned int reg,
 		       unsigned int mask, unsigned int shift, unsigned int *val)
 {
 	int ret;
-	unsigned int reg_val;
+	unsigned int reg_val = 0;
 
 	ret = rtc_read(reg, &reg_val);
 	if (ret != 0)
@@ -261,9 +261,9 @@ static int rtc_bulk_access(int mode, unsigned int reg, void *val,
 
 static int rtc_write_trigger(void)
 {
-	int ret, bbpu;
+	int ret, bbpu = 0;
 	unsigned long long timeout = sched_clock() + 500000000;
-	u32 pwrkey1, pwrkey2, sec;
+	u32 pwrkey1 = 0, pwrkey2 = 0, sec = 0;
 
 	ret = rtc_write(RTC_WRTGR, 1);
 	if (ret < 0)
@@ -294,7 +294,7 @@ static int mtk_rtc_read_time(struct rtc_time *tm)
 {
 	u16 data[RTC_OFFSET_COUNT];
 	int ret;
-	u32 sec;
+	u32 sec = 0;
 
 	do {
 
@@ -366,8 +366,8 @@ exit:
 
 bool mtk_rtc_is_pwron_alarm(struct rtc_time *nowtm, struct rtc_time *tm)
 {
-	u32 pdn1;
-	u32 data[RTC_OFFSET_COUNT];
+	u32 pdn1 = 0;
+	u32 data[RTC_OFFSET_COUNT] = {0};
 	int ret, i;
 
 	ret = rtc_read(RTC_PDN1, &pdn1);
@@ -477,7 +477,7 @@ exit:
 void rtc_read_pwron_alarm(struct rtc_wkalrm *alm)
 {
 	struct rtc_time *tm;
-	u32 pdn1, pdn2;
+	u32 pdn1 = 0, pdn2 = 0;
 	u16 data[RTC_OFFSET_COUNT];
 	unsigned long flags;
 	int ret;
@@ -605,8 +605,8 @@ reboot:
 #ifndef USER_BUILD_KERNEL
 void mtk_rtc_lp_exception(void)
 {
-	u32 bbpu, irqsta, irqen, osc32;
-	u32 pwrkey1, pwrkey2, prot, con, sec1, sec2;
+	u32 bbpu = 0, irqsta = 0, irqen = 0, osc32 = 0;
+	u32 pwrkey1 = 0, pwrkey2 = 0, prot = 0, con = 0, sec1 = 0, sec2 = 0;
 
 	rtc_read(RTC_BBPU, &bbpu);
 	rtc_read(RTC_IRQ_STA, &irqsta);
@@ -638,7 +638,7 @@ void mtk_rtc_lp_exception(void)
 
 static int mtk_rtc_is_alarm_irq(void)
 {
-	u32 irqsta, bbpu;
+	u32 irqsta = 0, bbpu;
 	int ret, val;
 
 	ret = rtc_read(RTC_IRQ_STA, &irqsta);	/* read clear */
@@ -858,7 +858,7 @@ static int rtc_ops_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	unsigned long flags;
 	struct rtc_time *tm = &alm->time;
 	struct mt6358_rtc *rtc = dev_get_drvdata(dev);
-	u32 irqen, pdn2;
+	u32 irqen = 0, pdn2 = 0;
 	u16 data[RTC_OFFSET_COUNT];
 	int ret;
 
