@@ -54,7 +54,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	},
 	{
 		.feature     = SPEAKER_PROTECT_FEATURE_ID,
-		.freq        = 200,
+		.freq        = 110,
 		.enable      = 0,
 		.sub_feature = 0,
 	},
