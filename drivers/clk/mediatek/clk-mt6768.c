@@ -2254,9 +2254,11 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 		ARRAY_SIZE(apmixed_clks), clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	apmixed_base = base;
 
 	/* MPLL, ARM/CCIPLLs, MAINPLL set to HW mode, TDCLKSQ, CLKSQ1 */
@@ -2390,9 +2392,11 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	r = of_clk_add_provider(node, of_clk_src_onecell_get,
 		mt6768_top_clk_data);
 
-	if (r)
-		pr_info("%s(): could not register clock provider: %d\n",
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(mt6768_top_clk_data);
+	}
 
 	cksys_base = base;
 /* FIX ME: 20171209 SPM CLK Init Flow */
@@ -2441,9 +2445,11 @@ static void __init mtk_infracfg_ao_init(struct device_node *node)
 		ARRAY_SIZE(ifr_clks), clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	infracfg_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2488,9 +2494,11 @@ static void __init mtk_pericfg_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	pericfg_base = base;
 	/* AO */
 #if (!MT_CG_ENABLE)
@@ -2520,9 +2528,11 @@ static void __init mtk_audio_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	audio_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2552,9 +2562,11 @@ static void __init mtk_camsys_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	cam_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2580,9 +2592,11 @@ static void __init mtk_imgsys_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	img_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2608,9 +2622,11 @@ static void __init mtk_gce_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	gce_base = base;
 	/* default AO, cannot access til infra clk bus on */
 #if (!MT_CG_ENABLE)
@@ -2636,9 +2652,11 @@ static void __init mtk_mmsys_config_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mmsys_config_base = base;
 #if (!MT_CG_ENABLE)
 	clk_writel(MMSYS_CG_CLR0, MM_DISABLE_CG);
@@ -2665,9 +2683,11 @@ static void __init mtk_mfgcfg_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mfgcfg_base = base;
 	/* mfg register would cause hang */
 #if (!MT_CG_ENABLE)
@@ -2695,9 +2715,11 @@ static void __init mtk_venc_global_con_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	venc_gcon_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2727,9 +2749,11 @@ static void __init mtk_vdec_global_con_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	vdec_gcon_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2758,9 +2782,11 @@ static void __init mtk_mipi0a_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mipi_rx_ana_csi0a_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2789,9 +2815,11 @@ static void __init mtk_mipi0b_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mipi_rx_ana_csi0b_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2820,9 +2848,11 @@ static void __init mtk_mipi1a_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mipi_rx_ana_csi1a_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2851,9 +2881,11 @@ static void __init mtk_mipi1b_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mipi_rx_ana_csi1b_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2882,9 +2914,11 @@ static void __init mtk_mipi2a_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mipi_rx_ana_csi2a_base = base;
 
 #if (!MT_CG_ENABLE)
@@ -2913,9 +2947,11 @@ static void __init mtk_mipi2b_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mipi_rx_ana_csi2b_base = base;
 
 #if (!MT_CG_ENABLE)
