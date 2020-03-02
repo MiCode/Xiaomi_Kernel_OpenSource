@@ -29,11 +29,18 @@ static const char *const mt6885_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
 						  MTK_SPK_NXP_TFA98XX_STR
 						  };
-static const char *const mt6885_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
-						      MTK_SPK_I2S_1_STR,
-						      MTK_SPK_I2S_2_STR,
-						      MTK_SPK_I2S_3_STR,
-						      MTK_SPK_I2S_5_STR};
+static const char *const
+	mt6885_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
+				     MTK_SPK_I2S_1_STR,
+				     MTK_SPK_I2S_2_STR,
+				     MTK_SPK_I2S_3_STR,
+				     MTK_SPK_I2S_5_STR,
+				     MTK_SPK_I2S_6_STR,
+				     MTK_SPK_I2S_7_STR,
+				     MTK_SPK_I2S_8_STR,
+				     MTK_SPK_I2S_9_STR,
+				     MTK_SPK_TINYCONN_I2S_0_STR,
+				     };
 
 static const struct soc_enum mt6885_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6885_spk_type_str),
