@@ -802,14 +802,18 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			       port_info.iova_start, port_info.iova_end,
 			       (unsigned long)buffer_info->VA, buffer->size,
 			       non_vmalloc_request);
-			*addr = 0;
+			*(unsigned int *)addr = 0;
 			if (port_info.flags > 0)
 				buffer_info->FIXED_MVA[domain_idx] = 0;
 			ret = -EFAULT;
 			goto out;
 		}
-
-		*addr = port_info.mva;
+		/* fix kasan issue, ion_phys_addr_t is defined
+		 * as (unsigned long), however, mva is unsigned int,
+		 * if not mandatory convert it as (unsigned int *),
+		 * will write something to others memory region.
+		 */
+		*(unsigned int *)addr = port_info.mva;
 
 		if ((port_info.flags & M4U_FLAGS_FIX_MVA) == 0)
 			buffer_info->MVA[domain_idx] = port_info.mva;
