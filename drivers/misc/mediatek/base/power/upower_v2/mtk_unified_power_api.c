@@ -130,6 +130,15 @@ struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 	enum upower_bank bank = UPOWER_BANK_LL;
 #endif
 
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785) || \
+	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779)
+	if (cpu < 6) /* cpu 0-5 */
+		bank = UPOWER_BANK_LL;
+	else if (cpu < 8) /* cpu 6-7 */
+		bank = UPOWER_BANK_LL + 1;
+	else if (cpu < 10) /* cpu 8-9 */
+		bank = UPOWER_BANK_LL + 2;
+#else
 #ifdef FIRST_CLUSTER_IS_L
 	if (cpu < 4) /* cpu 0-3 */
 		bank = UPOWER_BANK_0;
@@ -142,6 +151,7 @@ struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 		bank = UPOWER_BANK_LL + 1;
 	else if (cpu < 10) /* cpu 8-9 */
 		bank = UPOWER_BANK_LL + 2;
+#endif
 #endif
 
 #ifdef UPOWER_L_PLUS
