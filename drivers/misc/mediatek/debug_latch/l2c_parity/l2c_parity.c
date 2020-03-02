@@ -77,7 +77,7 @@ static irqreturn_t l2c_parity_interrupt(int irq, void *dev_id)
 			"CPU7 info1", l2c_reg[15], "CPU7 info2", l2c_reg[16]);
 	}
 #ifdef CONFIG_MTK_ENG_BUILD
-	WARN_ON();
+	WARN_ON(1);
 #endif
 	return IRQ_NONE;
 }
@@ -110,7 +110,7 @@ static irqreturn_t l3c_parity_interrupt(int irq, void *dev_id)
 		dsb(sy);
 	}
 #ifdef CONFIG_MTK_ENG_BUILD
-	WARN_ON();
+	WARN_ON(1);
 #endif
 	return IRQ_NONE;
 }
