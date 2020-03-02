@@ -22,10 +22,7 @@
 
 #include "tz_cross/trustzone.h"
 #include "tz_cross/ree_service.h"
-
-
-/* / KREE session handle type. */
-typedef uint32_t KREE_SESSION_HANDLE;
+#include "kree/system.h"
 
 #define KREE_SESSION_HANDLE_NULL    ((KREE_SESSION_HANDLE)0)
 #define KREE_SESSION_HANDLE_FAIL    ((KREE_SESSION_HANDLE)-1)
@@ -41,9 +38,6 @@ typedef uint32_t KREE_SESSION_HANDLE;
  * According to their different purpose, they are redefined to specific name.
  * Just for easy programming.
  */
-
-/* Shared memory handle define */
-typedef uint32_t KREE_SHAREDMEM_HANDLE;
 
 /* Secure memory handle define */
 typedef uint32_t KREE_SECUREMEM_HANDLE;
