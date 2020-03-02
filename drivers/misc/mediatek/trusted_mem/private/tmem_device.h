@@ -84,52 +84,52 @@ struct trusted_driver_cmd_params {
 };
 
 struct trusted_driver_operations {
-	int (*session_open)(void **peer_data, void *priv);
-	int (*session_close)(void *peer_data, void *priv);
+	int (*session_open)(void **peer_data, void *dev_desc);
+	int (*session_close)(void *peer_data, void *dev_desc);
 	int (*memory_alloc)(u32 alignment, u32 size, u32 *refcount,
 			    u32 *sec_handle, u8 *owner, u32 id, u32 clean,
-			    void *peer_data, void *priv);
+			    void *peer_data, void *dev_desc);
 	int (*memory_free)(u32 sec_handle, u8 *owner, u32 id, void *peer_data,
 			   void *priv);
-	int (*memory_grant)(u64 pa, u32 size, void *peer_data, void *priv);
-	int (*memory_reclaim)(void *peer_data, void *priv);
+	int (*memory_grant)(u64 pa, u32 size, void *peer_data, void *dev_desc);
+	int (*memory_reclaim)(void *peer_data, void *dev_desc);
 	int (*invoke_cmd)(struct trusted_driver_cmd_params *invoke_params,
-			  void *peer_data, void *priv);
+			  void *peer_data, void *dev_desc);
 };
 
 struct ssmr_operations {
-	int (*offline)(u64 *pa, u32 *size, u32 feat, void *priv);
-	int (*online)(u32 feat, void *priv);
+	int (*offline)(u64 *pa, u32 *size, u32 feat, void *dev_desc);
+	int (*online)(u32 feat, void *dev_desc);
 };
 
 struct peer_mgr_desc {
 	int (*mgr_sess_open)(struct trusted_driver_operations *drv_ops,
 			     struct trusted_peer_session *sess_data,
-			     void *peer_priv);
+			     void *dev_desc);
 	int (*mgr_sess_close)(bool keep_alive,
 			      struct trusted_driver_operations *drv_ops,
 			      struct trusted_peer_session *sess_data,
-			      void *peer_priv);
+			      void *dev_desc);
 	int (*mgr_sess_mem_alloc)(u32 alignment, u32 size, u32 *refcount,
 				  u32 *sec_handle, u8 *owner, u32 id, u32 clean,
 				  struct trusted_driver_operations *drv_ops,
 				  struct trusted_peer_session *sess_data,
-				  void *peer_priv);
+				  void *dev_desc);
 	int (*mgr_sess_mem_free)(u32 sec_handle, u8 *owner, u32 id,
 				 struct trusted_driver_operations *drv_ops,
 				 struct trusted_peer_session *sess_data,
-				 void *peer_priv);
+				 void *dev_desc);
 	int (*mgr_sess_mem_add)(u64 pa, u32 size,
 				struct trusted_driver_operations *drv_ops,
 				struct trusted_peer_session *sess_data,
-				void *peer_priv);
+				void *dev_desc);
 	int (*mgr_sess_mem_remove)(struct trusted_driver_operations *drv_ops,
 				   struct trusted_peer_session *sess_data,
-				   void *peer_priv);
+				   void *dev_desc);
 	int (*mgr_sess_invoke_cmd)(
 		struct trusted_driver_cmd_params *invoke_params,
 		struct trusted_driver_operations *drv_ops,
-		struct trusted_peer_session *sess_data, void *peer_priv);
+		struct trusted_peer_session *sess_data, void *dev_desc);
 	struct trusted_peer_session peer_mgr_data;
 };
 
@@ -166,14 +166,14 @@ struct profile_mgr_desc {
 	struct profile_data_context data;
 	struct ssmr_operations *profiled_ssmr_ops;
 	struct trusted_driver_operations *profiled_peer_ops;
-	void *profiled_peer_priv;
+	void *profiled_dev_desc;
 };
 #endif
 
 struct trusted_mem_device {
 	struct ssmr_operations *ssmr_ops;
 	struct trusted_driver_operations *peer_ops;
-	void *peer_priv;
+	void *dev_desc;
 
 	struct peer_mgr_desc *peer_mgr;
 	struct region_mgr_desc *reg_mgr;
