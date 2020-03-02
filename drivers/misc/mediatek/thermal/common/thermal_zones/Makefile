@@ -399,7 +399,7 @@ endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
 
-obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
 
 obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
 obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
@@ -408,7 +408,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
-obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
 

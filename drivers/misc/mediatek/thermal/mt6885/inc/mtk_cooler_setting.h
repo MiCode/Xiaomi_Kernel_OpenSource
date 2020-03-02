@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -20,7 +20,7 @@
  */
  /* mtk_cooler_mutt.c */
 /* 1: turn on MD throttle V2 cooler; 0: turn off */
-#define FEATURE_MUTT_V2				(1)
+#define FEATURE_MUTT_V2			(1)
 
 /* mtk_cooler_mutt.c */
 /* 1: turn on MD Thermal Warning Notification; 0: turn off */
@@ -32,6 +32,19 @@
 
 /* mtk_ta.c */
 /* 1: turn on SPA; 0: turn off  */
-#define FEATURE_SPA		(0)
+#define FEATURE_SPA			(0)
+
+
+
+
+/* mtk_cooler_mutt.c*/
+/*
+ * "GEN  < 95 MD" --- not define FEATURE_MUTT_INTERFACE_VER
+ * "GEN >= 95 MD" --- define FEATURE_MUTT_INTERFACE_VER = 2 ,
+ * Add VER num to do version control if interface is changed in next GEN.
+ */
+#define FEATURE_MUTT_INTERFACE_VER	(2)
+
+
 
 #endif				/* _MTK_COOLER_SETTING_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,17 +16,18 @@
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (1)
 #else
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (0)
 #endif
 
-#if THERMAL_ENABLE_TINYSYS_SSPM
-#include <mt-plat/mtk_tinysys_ipi.h>
+#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+#include "sspm_ipi.h"
 #include <sspm_reservedmem_define.h>
-#include <sspm_ipi_table.h>
 
 #define THERMAL_SLOT_NUM (4)
-
+#define BIG_CORE_THRESHOLD_ARRAY_SIZE (3)
 /* IPI Msg type */
 enum {
 	THERMAL_IPI_INIT_GRP1,
@@ -35,6 +36,7 @@ enum {
 	THERMAL_IPI_INIT_GRP4,
 	THERMAL_IPI_INIT_GRP5,
 	THERMAL_IPI_INIT_GRP6,
+	THERMAL_IPI_LVTS_INIT_GRP1,
 	THERMAL_IPI_GET_TEMP,
 	THERMAL_IPI_SET_ATM_CFG_GRP1,
 	THERMAL_IPI_SET_ATM_CFG_GRP2,
@@ -48,6 +50,8 @@ enum {
 	THERMAL_IPI_SET_ATM_EN,
 	THERMAL_IPI_GET_ATM_CPU_LIMIT,
 	THERMAL_IPI_GET_ATM_GPU_LIMIT,
+	THERMAL_IPI_SET_BIG_FREQ_THRESHOLD,
+	THERMAL_IPI_GET_BIG_FREQ_THRESHOLD,
 	NR_THERMAL_IPI
 };
 
