@@ -27,7 +27,7 @@
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6785)
+	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT8168)
 
 #include <mtk_leds_drv.h>
 #else
@@ -2129,7 +2129,7 @@ static void ddp_aal_dre_restore(enum DISP_MODULE_ENUM module, void *cmq_handle)
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6765) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768) || \
-	defined(CONFIG_MACH_MT6885)
+	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT8168)
 	DISP_REG_SET(cmq_handle, DISP_AAL_DRE_FLT_FORCE_11 + offset,
 	    g_aal_backup.DRE_FLT_FORCE[11]);
 	DISP_REG_SET(cmq_handle, DISP_AAL_DRE_FLT_FORCE_12 + offset,
