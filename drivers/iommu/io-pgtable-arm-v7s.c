@@ -841,6 +841,10 @@ static int arm_v7s_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
+
+static arm_v7s_iopte * ptep_last;
+static int lvl_last;
+
 static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 			unsigned long iova, arm_v7s_iopte *pte, bool is_acp)
 {
@@ -848,20 +852,21 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 	arm_v7s_iopte *ptep = data->pgd;
 	int lvl = 0;
 	unsigned int mask, enabled = 0;
-	arm_v7s_iopte *ptep_l1;
+	arm_v7s_iopte *ptep_curr;
 
 	/* get target pte of iova */
 	do {
 		ptep += ARM_V7S_LVL_IDX(iova, ++lvl);
 		if (lvl == 1)
-			ptep_l1 = ptep;
+			ptep_curr = ptep;
 		*pte = READ_ONCE(*ptep);
 		ptep = iopte_deref(*pte, lvl);
 	} while (ARM_V7S_PTE_IS_TABLE(*pte, lvl));
 
 	if (!ARM_V7S_PTE_IS_VALID(*pte)) {
-		pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%lx, pte=0x%lx, level=0x%lx\n",
-			  __func__, __LINE__, iova, ptep_l1, *pte, lvl);
+		pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx/0x%lx, level=0x%lx\n",
+			  __func__, __LINE__, iova, ptep_curr,
+			  *ptep_curr, pte, *pte, lvl);
 		return -EINVAL;
 	}
 
@@ -875,17 +880,31 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 		*pte &= ~mask;
 	} else {
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
-		pr_notice("%s, %d, no need of acp switch, iova=0x%lx, ptep=0x%lx, pte=0x%lx/0x%lx, level=%d\n",
-			  __func__, __LINE__, iova, ptep_l1, pte, *pte, lvl);
+		pr_notice("%s, %d, no need of acp switch, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx/0x%lx, level=%d\n",
+			  __func__, __LINE__, iova, ptep_curr,
+			  *ptep_curr, pte, *pte, lvl);
 #endif
 		goto out;
 	}
 
 	/* cache sync of pte */
-	__arm_v7s_pte_sync(ptep_l1, 1, cfg);
+	if (ptep_curr != ptep_last) {
+		if (ptep_last) {
+			if (lvl_last == 2)
+				__arm_v7s_pte_sync(ptep_last, 256, cfg);
+			else if (lvl_last == 1)
+				__arm_v7s_pte_sync(ptep_last, 1, cfg);
+			pr_notice("%s, %d, pte sync done, ptep:0x%lx->0x%lx, lvl:%d->%d\n",
+				  __func__, __LINE__, ptep_last,
+				  ptep_curr, lvl_last, lvl);
+		}
+		ptep_last = ptep_curr;
+		lvl_last = lvl;
+	}
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
-	pr_notice("%s, %d, iova=0x%lx, ptep=0x%lx, pte=0x%lx/0x%lx, level=%d\n",
-		  __func__, __LINE__, iova, ptep_l1, pte, *pte, lvl);
+	pr_notice("%s, %d, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx/0x%lx, level=%d\n",
+		  __func__, __LINE__, iova,
+		  ptep_curr, *ptep_curr, pte, *pte, lvl);
 #endif
 
 out:
@@ -903,14 +922,18 @@ static int arm_v7s_switch_acp(struct io_pgtable_ops *ops,
 	u32 sz;
 	int lvl;
 
+	ptep_last = NULL;
+	lvl_last = 0;
 	while (iova < iova_end) {
 		lvl = arm_v7s_set_acp(data, iova, &pte, is_acp);
 		if (lvl < 0 || lvl > 2)
 			return -1;
 
 		sz = ARM_V7S_BLOCK_SIZE(lvl);
+#if 0
 		if (arm_v7s_pte_is_cont(pte, lvl))
 			sz *= ARM_V7S_CONT_PAGES;
+#endif
 		iova += sz;
 	}
 
@@ -927,7 +950,7 @@ static phys_addr_t arm_v7s_iova_to_phys(struct io_pgtable_ops *ops,
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
 	arm_v7s_iopte *ptep = data->pgd, pte;
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
-	arm_v7s_iopte *ptep_l1;
+	arm_v7s_iopte *ptep_curr;
 #endif
 	phys_addr_t paddr;
 	int lvl = 0;
@@ -937,7 +960,7 @@ static phys_addr_t arm_v7s_iova_to_phys(struct io_pgtable_ops *ops,
 		ptep += ARM_V7S_LVL_IDX(iova, ++lvl);
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 		if (lvl == 1)
-			ptep_l1 = ptep;
+			ptep_curr = ptep;
 #endif
 		pte = READ_ONCE(*ptep);
 		ptep = iopte_deref(pte, lvl);
@@ -946,7 +969,7 @@ static phys_addr_t arm_v7s_iova_to_phys(struct io_pgtable_ops *ops,
 	if (!ARM_V7S_PTE_IS_VALID(pte)) {
 #if 0 //def MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%lx, pte=0x%lx, level=0x%lx\n",
-			  __func__, __LINE__, iova, ptep_l1, pte, lvl);
+			  __func__, __LINE__, iova, ptep_curr, pte, lvl);
 #endif
 		return 0;
 	}
@@ -969,7 +992,7 @@ static phys_addr_t arm_v7s_iova_to_phys(struct io_pgtable_ops *ops,
 	}
 #if 0 //def MTK_PGTABLE_DEBUG_ENABLED
 	pr_notice("%s, %d, iova=0x%lx, paddr=0x%lx, ptep=0x%lx, pte=0x%lx, level=%d\n",
-		  __func__, __LINE__, iova, paddr, ptep_l1, pte, lvl);
+		  __func__, __LINE__, iova, paddr, ptep_curr, pte, lvl);
 #endif
 	return paddr;
 }
