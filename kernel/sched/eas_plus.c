@@ -436,7 +436,8 @@ static struct sched_entity
 			if (check_min_cap && util_min >= src_capacity)
 				return se;
 
-			if (schedtune_prefer_idle(task_of(se))) {
+			if (schedtune_prefer_idle(task_of(se)) &&
+					!idle_cpu(cpu)) {
 				if (!check_min_cap)
 					return se;
 
@@ -783,7 +784,7 @@ static unsigned int aggressive_idle_pull(int this_cpu)
 	if (hmp_cpu_is_slowest(this_cpu)) {
 		hmp_slowest_idle_prefer_pull(this_cpu, &p, &target);
 		if (p) {
-			trace_sched_hmp_migrate(p, target->cpu, 0x10);
+			trace_sched_hmp_migrate(p, this_cpu, 0x10);
 			moved = migrate_runnable_task(p, this_cpu, target);
 			if (moved)
 				goto done;
@@ -791,7 +792,7 @@ static unsigned int aggressive_idle_pull(int this_cpu)
 	} else {
 		hmp_fastest_idle_prefer_pull(this_cpu, &p, &target);
 		if (p) {
-			trace_sched_hmp_migrate(p, target->cpu, 0x10);
+			trace_sched_hmp_migrate(p, this_cpu, 0x10);
 			moved = migrate_runnable_task(p, this_cpu, target);
 			if (moved)
 				goto done;
