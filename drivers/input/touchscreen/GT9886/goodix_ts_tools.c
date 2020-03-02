@@ -206,7 +206,8 @@ static int sync_read(struct goodix_tools_dev *dev, void __user *arg)
 	tools_data.length = i2c_msg_head[4] + (i2c_msg_head[5] << 8)
 			+ (i2c_msg_head[6] << 16) + (i2c_msg_head[7] << 24);
 	tools_data.filled = 0;
-
+	if (tools_data.length > GOODIX_CFG_MAX_SIZE)
+		return -EMSGSIZE;
 	tools_data.data = kzalloc(tools_data.length, GFP_KERNEL);
 	if (!tools_data.data) {
 			ts_err("Alloc memory failed");
