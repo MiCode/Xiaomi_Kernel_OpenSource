@@ -15,6 +15,7 @@
 #define TMEM_UT_COMMON_H
 
 #include "private/tmem_device.h"
+#include "tests/ut_api.h"
 
 #define REGMGR_REGION_FINAL_STATE_ON (1)
 #define REGMGR_REGION_FINAL_STATE_OFF (0)

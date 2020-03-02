@@ -20,7 +20,7 @@
 #include <linux/unistd.h>
 #include <linux/version.h>
 
-#include "private/ut_entry.h"
+#include "private/tmem_entry.h"
 #include "private/tmem_utils.h"
 #include "public/trusted_mem_api.h"
 

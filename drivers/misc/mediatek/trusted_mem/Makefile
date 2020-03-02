@@ -42,39 +42,12 @@ trusted_mem-y += mld_helper.o
 ccflags-y += -DTCORE_MEMORY_LEAK_DETECTION_SUPPORT
 endif # !TCORE_KERN_MEMORY_LEAK_DETECTION_SUPPORT
 
-ifeq ($(TCORE_UT_FWK_SUPPORT),y)
-ccflags-y += -DTCORE_UT_FWK_SUPPORT
-trusted_mem-y += ut_tests/core_ut.o
-trusted_mem-y += ut_tests/ut_common.o
-ifeq ($(TCORE_MEMORY_LEAK_DETECTION_SUPPORT),y)
-trusted_mem-y += ut_tests/mld_ut.o
-endif # !TCORE_KERN_MEMORY_LEAK_DETECTION_SUPPORT
-ifeq ($(CONFIG_MTK_PROT_MEM_SUPPORT),y)
-trusted_mem-y += ut_tests/pmem_ut.o
-endif # !CONFIG_MTK_PROT_MEM_SUPPORT
-ifeq ($(CONFIG_MTK_SECURE_MEM_SUPPORT),y)
-trusted_mem-y += ut_tests/secmem_ut.o
-endif # !CONFIG_MTK_SECURE_MEM_SUPPORT
-ifeq ($(TCORE_PROFILING_SUPPORT),y)
-trusted_mem-y += ut_tests/profiler_ut.o
-endif # !TCORE_PROFILING_SUPPORT
-ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
-trusted_mem-y += ut_tests/fr_ut.o
-endif # !CONFIG_MTK_CAM_SECURITY_SUPPORT
-ifeq ($(CONFIG_MTK_WFD_SMEM_SUPPORT),y)
-trusted_mem-y += ut_tests/wfd_smem_ut.o
-endif # !CONFIG_MTK_WFD_SMEM_SUPPORT
-ifeq ($(CONFIG_MTK_HAPP_MEM_SUPPORT),y)
-trusted_mem-y += ut_tests/happ_ut.o
-trusted_mem-y += ut_tests/happ_extra_ut.o
-endif # !CONFIG_MTK_HAPP_MEM_SUPPORT
-ifeq ($(CONFIG_MTK_SDSP_MEM_SUPPORT),y)
-trusted_mem-y += ut_tests/sdsp_ut.o
-endif # !CONFIG_MTK_SDSP_MEM_SUPPORT
-ifeq ($(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT),y)
-trusted_mem-y += ut_tests/sdsp_shared_ut.o
-endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
-endif # !TCORE_UT_FWK_SUPPORT
+ifeq ($(TCORE_UT_TESTS_SUPPORT),y)
+ccflags-y += -DTCORE_UT_TESTS_SUPPORT
+trusted_mem-y += tests/ut_common.o
+trusted_mem-y += tests/ut_server.o
+trusted_mem-y += tests/ut_cases.o
+endif # !TCORE_UT_TESTS_SUPPORT
 
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
