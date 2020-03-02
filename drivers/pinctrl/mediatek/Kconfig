@@ -53,6 +53,17 @@ config PINCTRL_MT6397
 	default MFD_MT6397
 	select PINCTRL_MTK
 
+# For pintcrl command debug
+config PINCTRL_MTK_DEBUG
+	bool "Mediatek pin control common debug"
+	depends on OF
+	default ARM64 && ARCH_MEDIATEK
+	select PINCTRL_MTK
+	help
+	  Say yes here to enable support for MediaTek pinctrl debug command.
+	  It can provide gpio status debug shell command.
+	  We also can use these shell command to change gpio status.
+
 endif
 
 if !ARCH_MEDIATEK

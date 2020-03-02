@@ -1688,6 +1688,11 @@ static struct pdev_drv pderv[] = {
 	PDEV_DRV("clkdbg-pd8"),
 	PDEV_DRV("clkdbg-pd9"),
 	PDEV_DRV("clkdbg-pd10"),
+	PDEV_DRV("clkdbg-pd11"),
+	PDEV_DRV("clkdbg-pd12"),
+	PDEV_DRV("clkdbg-pd13"),
+	PDEV_DRV("clkdbg-pd14"),
+	PDEV_DRV("clkdbg-pd15"),
 };
 
 static void reg_pdev_drv(const char *pdname, struct seq_file *s)

@@ -7,6 +7,7 @@ Required properties:
 		"mediatek,mt2701-smi-larb"
 		"mediatek,mt2712-smi-larb"
 		"mediatek,mt8173-smi-larb"
+		"mediatek,mt8183-smi-larb"
 - reg : the register and size of this local arbiter.
 - mediatek,smi : a phandle to the smi_common node.
 - power-domains : a phandle to the power domain of this local arbiter.
@@ -15,6 +16,8 @@ Required properties:
   - "apb" : Advanced Peripheral Bus clock, It's the clock for setting
 	    the register.
   - "smi" : It's the clock for transfer data and command.
+  and this optional clock name:
+  - "gals": the clock for gals(Global Async Local Sync).
 
 Required property for mt2701 and mt2712:
 - mediatek,larb-id :the hardware id of this larb.
