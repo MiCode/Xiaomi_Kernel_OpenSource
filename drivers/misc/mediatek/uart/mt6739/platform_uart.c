@@ -2181,44 +2181,37 @@ void mtk_uart_restore(void)
 	unsigned long base;
 	unsigned long flags;
 	struct mtk_uart *uart;
-	int i;
 
-	for (i = 0; i < UART_NR; i++) {
-		uart = &mtk_uarts[i];
-		base = uart->base;
+	uart = console_port;
+	base = uart->base;
 
-		mtk_uart_power_up(uart);
-		spin_lock_irqsave(&mtk_console_lock, flags);
-		reg_sync_writel(0xbf, UART_LCR);
-		reg_sync_writel(uart->registers.efr, UART_EFR);
-		reg_sync_writel(uart->registers.lcr, UART_LCR);
-		reg_sync_writel(uart->registers.fcr, UART_FCR);
+	mtk_uart_power_up(uart);
+	spin_lock_irqsave(&mtk_console_lock, flags);
+	reg_sync_writel(0xbf, UART_LCR);
+	reg_sync_writel(uart->registers.efr, UART_EFR);
+	reg_sync_writel(uart->registers.lcr, UART_LCR);
+	reg_sync_writel(uart->registers.fcr, UART_FCR);
 
-		/* baudrate */
-		reg_sync_writel(uart->registers.highspeed, UART_HIGHSPEED);
-		reg_sync_writel(uart->registers.fracdiv_l, UART_FRACDIV_L);
-		reg_sync_writel(uart->registers.fracdiv_m, UART_FRACDIV_M);
-		reg_sync_writel(uart->registers.lcr | UART_LCR_DLAB, UART_LCR);
-		reg_sync_writel(uart->registers.dll, UART_DLL);
-		reg_sync_writel(uart->registers.dlh, UART_DLH);
-		reg_sync_writel(uart->registers.lcr, UART_LCR);
-		reg_sync_writel(uart->registers.sample_count, UART_SAMPLE_COUNT);
-		reg_sync_writel(uart->registers.sample_point, UART_SAMPLE_POINT);
-		reg_sync_writel(uart->registers.guard, UART_GUARD);
+	/* baudrate */
+	reg_sync_writel(uart->registers.highspeed, UART_HIGHSPEED);
+	reg_sync_writel(uart->registers.fracdiv_l, UART_FRACDIV_L);
+	reg_sync_writel(uart->registers.fracdiv_m, UART_FRACDIV_M);
+	reg_sync_writel(uart->registers.lcr | UART_LCR_DLAB, UART_LCR);
+	reg_sync_writel(uart->registers.dll, UART_DLL);
+	reg_sync_writel(uart->registers.dlh, UART_DLH);
+	reg_sync_writel(uart->registers.lcr, UART_LCR);
+	reg_sync_writel(uart->registers.sample_count, UART_SAMPLE_COUNT);
+	reg_sync_writel(uart->registers.sample_point, UART_SAMPLE_POINT);
+	reg_sync_writel(uart->registers.guard, UART_GUARD);
 
-		/* flow control */
-		reg_sync_writel(uart->registers.escape_en, UART_ESCAPE_EN);
-		reg_sync_writel(uart->registers.mcr, UART_MCR);
-		reg_sync_writel(uart->registers.ier, UART_IER);
+	/* flow control */
+	reg_sync_writel(uart->registers.escape_en, UART_ESCAPE_EN);
+	reg_sync_writel(uart->registers.mcr, UART_MCR);
+	reg_sync_writel(uart->registers.ier, UART_IER);
 
-		reg_sync_writel(uart->registers.rx_sel, UART_RX_SEL);
+	reg_sync_writel(uart->registers.rx_sel, UART_RX_SEL);
 
-		spin_unlock_irqrestore(&mtk_console_lock, flags);
-
-		if (uart != console_port)
-			mtk_uart_power_down(uart);
-
-	}
+	spin_unlock_irqrestore(&mtk_console_lock, flags);
 #endif
 }
 
