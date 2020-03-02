@@ -1589,7 +1589,7 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned int type)
 	struct mtk_iommu_domain *dom;
 	struct mtk_iommu_pgtable *pgtable =
 				mtk_iommu_get_pgtable(NULL, init_data_id);
-	unsigned int id = pgtable->init_domain_id;
+	unsigned int id;
 #ifdef CONFIG_ARM64
 	// allocated at device_group for IOVA  space management by iovad
 	unsigned int domain_type = IOMMU_DOMAIN_DMA;
@@ -1610,6 +1610,7 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned int type)
 		return NULL;
 	}
 
+	id = pgtable->init_domain_id;
 	list_for_each_entry(dom, &pgtable->m4u_dom, list) {
 		if (dom->id == id)
 			return &dom->domain;
