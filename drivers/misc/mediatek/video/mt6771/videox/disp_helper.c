@@ -353,8 +353,8 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_OVL_WARM_RESET, 0);
 
 	/* ================ Begin: lowpower option setting ================ */
-	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 0);
-	disp_helper_set_option(DISP_OPT_IDLE_MGR, 0);
+	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 1);
+	disp_helper_set_option(DISP_OPT_IDLE_MGR, 1);
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
 	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
@@ -388,7 +388,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_BYPASS_OVL, 0);
 	disp_helper_set_option(DISP_OPT_FPS_CALC_WND, 10);
 	/* report external fps statistics */
-	disp_helper_set_option(DISP_OPT_FPS_EXT, 0);
+	disp_helper_set_option(DISP_OPT_FPS_EXT, 1);
 	/* set external fps interval (ms) */
 	disp_helper_set_option(DISP_OPT_FPS_EXT_INTERVAL, 1000);
 	disp_helper_set_option(DISP_OPT_SMART_OVL, 0);
