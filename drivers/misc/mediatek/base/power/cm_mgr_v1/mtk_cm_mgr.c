@@ -908,7 +908,7 @@ static struct device cm_mgr_device = {
 static void cm_mgr_update_fw(void)
 {
 	int j = 0;
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
 	int err;
 	int copy_size = 0;
 	int offset = 0;
