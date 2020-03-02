@@ -19,8 +19,11 @@
 #include <linux/clk.h>
 #include <linux/workqueue.h>
 #include <linux/pm_qos.h>
-
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
+#else
+#include "mach/mt_iommu.h"
+#endif
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
@@ -93,7 +96,9 @@ struct VPU_OPP_INFO vpu_power_table[VPU_OPP_NUM] = {
 #define HOST_VERSION	(0x18070300) /* 20180703, 00:00 : vpu log mechanism */
 
 /* ion & m4u */
+#ifdef CONFIG_MTK_M4U
 static struct m4u_client_t *m4u_client;
+#endif
 static struct ion_client *ion_client;
 static struct vpu_device *vpu_dev;
 static wait_queue_head_t cmd_wait;
@@ -2328,14 +2333,21 @@ static int vpu_map_mva_of_bin(int core, uint64_t bin_pa)
 	int ret = 0;
 
 #ifndef BYPASS_M4U_DBG
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct ion_handle *vpu_handle = NULL;
+	struct ion_mm_data vpu_data;
+	unsigned long fix_mva = 0;
+#endif
 	uint32_t mva_reset_vector;
 	uint32_t mva_main_program;
+#ifdef CONFIG_MTK_M4U
 	uint32_t mva_algo_binary_data;
 	uint32_t mva_iram_data;
+	struct sg_table *sg;
+#endif
 	uint64_t binpa_reset_vector;
 	uint64_t binpa_main_program;
 	uint64_t binpa_iram_data;
-	struct sg_table *sg;
 	/*const uint64_t size_algos = VPU_SIZE_ALGO_AREA + */
 	/*		VPU_SIZE_ALGO_AREA + VPU_SIZE_ALGO_AREA;*/
 	const uint64_t size_algos =
@@ -2370,7 +2382,103 @@ static int vpu_map_mva_of_bin(int core, uint64_t bin_pa)
 	    __func__, core,
 	    (unsigned long)binpa_reset_vector,
 	    (unsigned long)binpa_main_program);
+#ifdef CONFIG_MTK_IOMMU_V2
+	/*map reset vector*/
+	vpu_handle = ion_alloc(ion_client, VPU_SIZE_RESET_VECTOR,
+		binpa_reset_vector,
+		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, 0);
+	if (IS_ERR(vpu_handle)) {
+		LOG_ERR("reset-vpu_ion_alloc error %p\n", vpu_handle);
+			return -1;
+	}
 
+	memset((void *)&vpu_data, 0, sizeof(struct ion_mm_data));
+	fix_mva = ((unsigned long)VPU_PORT_OF_IOMMU << 24) |
+		ION_FLAG_GET_FIXED_PHYS;
+	vpu_data.get_phys_param.module_id = VPU_PORT_OF_IOMMU;
+	vpu_data.get_phys_param.kernel_handle = vpu_handle;
+	vpu_data.get_phys_param.reserve_iova_start = mva_reset_vector;
+	vpu_data.get_phys_param.reserve_iova_end = IOMMU_VA_END;
+	vpu_data.get_phys_param.phy_addr = fix_mva;
+	vpu_data.get_phys_param.len = ION_FLAG_GET_FIXED_PHYS;
+	vpu_data.mm_cmd = ION_MM_GET_IOVA_EXT;
+	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+	    (unsigned long)&vpu_data) < 0) {
+		LOG_ERR("main-config buffer failed.%p -%p\n",
+			ion_client, vpu_handle);
+		ion_free(ion_client, vpu_handle);
+		return -1;
+	}
+
+	/*map main vector*/
+	vpu_handle = ion_alloc(ion_client, VPU_SIZE_MAIN_PROGRAM,
+		binpa_main_program,
+		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, 0);
+	if (IS_ERR(vpu_handle)) {
+		LOG_ERR("main-vpu_ion_alloc error %p\n", vpu_handle);
+		return -1;
+	}
+
+	vpu_data.get_phys_param.kernel_handle = vpu_handle;
+	vpu_data.get_phys_param.phy_addr = fix_mva;
+	vpu_data.get_phys_param.len = ION_FLAG_GET_FIXED_PHYS;
+	vpu_data.get_phys_param.reserve_iova_start = mva_main_program;
+	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+	    (unsigned long)&vpu_data) < 0) {
+		LOG_ERR("main-config buffer failed.%p -%p\n",
+			ion_client, vpu_handle);
+		ion_free(ion_client, vpu_handle);
+		return -1;
+	}
+
+	if (core == 0) {
+		vpu_handle = ion_alloc(ion_client, size_algos,
+			bin_pa + VPU_OFFSET_ALGO_AREA,
+			ION_HEAP_MULTIMEDIA_PA2MVA_MASK, 0);
+		if (IS_ERR(vpu_handle)) {
+			LOG_ERR("main-vpu_ion_alloc error %p\n", vpu_handle);
+			return -1;
+		}
+
+		vpu_data.get_phys_param.kernel_handle = vpu_handle;
+		vpu_data.get_phys_param.phy_addr = 0;
+		vpu_data.get_phys_param.len = 0;
+		vpu_data.mm_cmd = ION_MM_GET_IOVA;
+		if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+		    (unsigned long)&vpu_data) < 0) {
+			LOG_ERR("algo-config buffer failed.%p -%p\n",
+				ion_client, vpu_handle);
+			ion_free(ion_client, vpu_handle);
+			return -1;
+		}
+
+		vpu_service_cores[core].algo_data_mva =
+			vpu_data.get_phys_param.phy_addr;
+	}
+
+	vpu_handle = ion_alloc(ion_client, VPU_SIZE_MAIN_PROGRAM_IMEM,
+		binpa_iram_data,
+		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, 0);
+	if (IS_ERR(vpu_handle)) {
+		LOG_ERR("main-vpu_ion_alloc error %p\n", vpu_handle);
+		return -1;
+	}
+
+	vpu_data.get_phys_param.kernel_handle = vpu_handle;
+	vpu_data.get_phys_param.phy_addr = 0;
+	vpu_data.get_phys_param.len = 0;
+	vpu_data.mm_cmd = ION_MM_GET_IOVA;
+	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+	    (unsigned long)&vpu_data) < 0) {
+		LOG_ERR("iram-config buffer failed.%p -%p\n",
+			ion_client, vpu_handle);
+		ion_free(ion_client, vpu_handle);
+		return -1;
+	}
+
+	vpu_service_cores[core].iram_data_mva =
+		vpu_data.get_phys_param.phy_addr;
+#else
 	/* 1. map reset vector */
 	sg = &(vpu_service_cores[core].sg_reset_vector);
 	ret = sg_alloc_table(sg, 1, GFP_KERNEL);
@@ -2495,6 +2603,7 @@ static int vpu_map_mva_of_bin(int core, uint64_t bin_pa)
 		(unsigned long)(vpu_service_cores[core].iram_data_mva));
 
 out:
+#endif
 #endif
 	return ret;
 }
@@ -2732,8 +2841,10 @@ int vpu_init_hw(int core, struct vpu_device *device)
 #ifdef MTK_VPU_EMULATOR
 	vpu_request_emulator_irq(device->irq_num[core], vpu_isr_handler);
 #else
+#ifdef CONFIG_MTK_M4U
 	if (!m4u_client)
 		m4u_client = m4u_create_client();
+#endif
 	if (!ion_client)
 		ion_client = ion_client_create(g_ion_device, "vpu");
 
@@ -3081,11 +3192,12 @@ int vpu_uninit_hw(void)
 
 	vpu_unprepare_regulator_and_clock();
 
+#ifdef CONFIG_MTK_M4U
 	if (m4u_client) {
 		m4u_destroy_client(m4u_client);
 		m4u_client = NULL;
 	}
-
+#endif
 	if (ion_client) {
 		ion_client_destroy(ion_client);
 		ion_client = NULL;

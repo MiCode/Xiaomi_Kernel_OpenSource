@@ -73,7 +73,7 @@
 			compatible = "mediatek,ion-carveout-heap";
 			no-map;
 #ifdef CONFIG_FPGA_EARLY_PORTING
-			size = <0 0x20000000>;
+			size = <0 0x10000000>;
 #else
 			size = <0 0x4000>;
 #endif
@@ -3200,26 +3200,16 @@
 		compatible = "mediatek,mt-pseudo_m4u-port";
 		mediatek,larbid = <CCU_PSEUDO_LARBID_DISP>;
 		iommus = <&iommu0 M4U_PORT_L14_CAM_CCUI_DISP>,
-			<&iommu0 M4U_PORT_L14_CAM_CCUO_DISP>;
+			<&iommu0 M4U_PORT_L14_CAM_CCUO_DISP>,
+			<&iommu0 M4U_PORT_L22_CCU_DISP>;
 	};
 
 	pseudo_m4u-ccu-mdp {
 		compatible = "mediatek,mt-pseudo_m4u-port";
 		mediatek,larbid = <CCU_PSEUDO_LARBID_MDP>;
 		iommus = <&iommu1 M4U_PORT_L13_CAM_CCUI_MDP>,
-			<&iommu1 M4U_PORT_L13_CAM_CCUO_MDP>;
-	};
-
-	pseudo_m4u-misc-disp {
-		compatible = "mediatek,mt-pseudo_m4u-port";
-		mediatek,larbid = <MISC_PSEUDO_LARBID_DISP>;
-		iommus = <&iommu0 M4U_PORT_L0_DISP_FAKE0>;
-	};
-
-	pseudo_m4u-misc-mdp {
-		compatible = "mediatek,mt-pseudo_m4u-port";
-		mediatek,larbid = <MISC_PSEUDO_LARBID_MDP>;
-		iommus = <&iommu1 M4U_PORT_L2_MDP_FAKE0>;
+			<&iommu1 M4U_PORT_L13_CAM_CCUO_MDP>,
+			<&iommu1 M4U_PORT_L23_CCU_MDP>;
 	};
 
 	pseudo_m4u-vpu-code {
@@ -3233,5 +3223,12 @@
 		mediatek,larbid = <APU_PSEUDO_LARBID_DATA>;
 		iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_DATA>;
 	};
+
+	pseudo_m4u-misc-disp {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <MISC_PSEUDO_LARBID_DISP>;
+		iommus = <&iommu0 M4U_PORT_L0_DISP_FAKE0>;
+	};
+
 #endif
 };

@@ -167,8 +167,10 @@ const struct iommu_ops *of_iommu_configure(struct device *dev,
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	int err = NO_IOMMU;
 
-	if (!master_np)
+	if (!master_np) {
+		pr_notice("%s, %d, err master np\n", __func__, __LINE__);
 		return NULL;
+	}
 
 	if (fwspec) {
 		if (fwspec->ops)
@@ -194,7 +196,6 @@ const struct iommu_ops *of_iommu_configure(struct device *dev,
 	} else {
 		struct of_phandle_args iommu_spec;
 		int idx = 0;
-
 		while (!of_parse_phandle_with_args(master_np, "iommus",
 						   "#iommu-cells",
 						   idx, &iommu_spec)) {
@@ -218,6 +219,7 @@ const struct iommu_ops *of_iommu_configure(struct device *dev,
 	 * If we have reason to believe the IOMMU driver missed the initial
 	 * add_device callback for dev, replay it to get things in order.
 	 */
+
 	if (ops && ops->add_device && dev->bus && !dev->iommu_group)
 		err = ops->add_device(dev);
 

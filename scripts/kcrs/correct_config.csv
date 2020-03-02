@@ -519,6 +519,8 @@ CONFIG_MTK_IMGSENSOR,COMMON,Josepchi.Tsai,,y,y,y,y,,,,
 CONFIG_MTK_INPKHUB,PROJECT,qiangming.xia,new config in this commit e5afb39d5bc749c04142bb69e4f89131015320a6,,,,,,,,
 CONFIG_MTK_INTERNAL,PROJECT,junzhi.zhao,,y,,,y,,,,
 CONFIG_MTK_IO_BOOST,PLATFORM,stanley.chu,finetune for performance,X,X,y,y,,,,
+CONFIG_MTK_IOMMU_PGTABLE_EXT,PROJECT,Cui.Zhang,,N,N,N,N,X,X
+CONFIG_MTK_IOMMU_V2,PROJECT,Cui.Zhang,,N,N,N,N,X,X
 CONFIG_MTK_ION,COMMON,youhua.li,new config in this commit 30f50f4e2f5b4c1996816cc4997e5c6b86d28386,y,y,y,y,,,,
 CONFIG_MTK_IPV6_VZW,PROJECT,Xin.Xu,for customer project only,O,O,O,O,,,,
 CONFIG_MTK_IRAT_SUPPORT,PROJECT,anny.hu,,,,,,,,,
@@ -566,6 +568,7 @@ CONFIG_MTK_LOAD_TRACKER,PROJECT,poting.chen,,,,,,,,,
 CONFIG_MTK_LOWMEM_HINT,PROJECT,Jian-Min Liu,new config in this commit 7fb704f8dd8a08b26c17a245a4b56b85224fb0c5,y,y,y,y,,,,
 CONFIG_MTK_LSM6DS3HG,PROJECT,jy.lan,,,,,,,,,
 CONFIG_MTK_LSM6DS3HGY,PROJECT,jy.lan,,,,,,,,,
+CONFIG_MTK_M4U,PROJECT,Cui.Zhang,,X,X,X,X,X,X
 CONFIG_MTK_MAGHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,
 CONFIG_MTK_MC3410_I2C,PROJECT,ruixue.su,SS6,O,O,O,O,,,,
 CONFIG_MTK_MC3410_NEW,PROJECT,jy.lan,,X,X,X,X,,,,
@@ -618,6 +621,7 @@ CONFIG_MTK_PMIC_WRAP_HAL,PLATFORM,brian-py.chen,pmic wrap support option,X,y,y,y
 CONFIG_MTK_PMIC_WRAP,PLATFORM,brian-py.chen,pmic wrap upstream support option,X,y,y,y,,,,
 CONFIG_MTK_PQ_COLOR_MODE,PROJECT,Yj.li, new config I1b7b0441f385f77703b529b6efe6b78d122676b1,,,,,,,,
 CONFIG_MTK_PSCI,PLATFORM,scott.shu,,y,X,X,y,,,,
+CONFIG_MTK_PSEUDO_M4U,PROJECT,Cui.Zhang,,N,N,N,N,X,X
 CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT,PROJECT,elvin.lin,,,,,,,,,
 CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT,PROJECT,wy.chuang,,,,,,,,,
 CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT,PROJECT,wy.chuang,(<NEW>new config in this commit 0a8d9b64437012ca7ccadfe1338fa26d74f49b16),,,,,,,,
