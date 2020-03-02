@@ -41,6 +41,8 @@ endif
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
 obj-$(CONFIG_MTK_SWPM) += swpm_v1/
 
+obj-$(CONFIG_MACH_MT8167) += hps_v1/
+
 obj-$(CONFIG_MACH_MT6771) += mcdi/
 obj-$(CONFIG_MACH_MT6739) += mcdi/
 obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
