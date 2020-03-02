@@ -1014,7 +1014,7 @@ static void cmdq_sec_irq_notify_start(void)
 	err = cmdq_pkt_flush_async(clt, cmdq_sec_irq_pkt,
 		cmdq_sec_irq_notify_callback, (void *)g_cmdq);
 	if (err < 0) {
-		CMDQ_ERR("fail to start irq thread err:%s\n", err);
+		CMDQ_ERR("fail to start irq thread err:%d\n", err);
 		cmdq_mbox_stop(clt);
 		cmdq_pkt_destroy(cmdq_sec_irq_pkt);
 		cmdq_sec_irq_pkt = NULL;
