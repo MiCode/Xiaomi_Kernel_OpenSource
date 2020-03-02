@@ -47,6 +47,7 @@
 #include <linux/math64.h>
 #include <linux/uaccess.h>
 #include <linux/unistd.h>
+#include <linux/rtc.h>
 
 #ifdef CONFIG_OF
 	#include <linux/cpu.h>
@@ -248,7 +249,15 @@ static int get_devinfo(void)
 	struct eem_det *det;
 	int ret = 0, i = 0;
 	int *val;
+	int efuse_val, year, mon, real_year, real_mon;
 	unsigned int safeEfuse = 0;
+	struct rtc_device *rtc_dev;
+	struct rtc_time tm;
+
+	rtc_dev = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc_dev == NULL)
+		pr_info("[systimer] rtc_class_open rtc_dev fail\n");
+	rtc_read_time(rtc_dev, &tm);
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	val = (int *)&eem_devinfo;
@@ -268,6 +277,16 @@ static int get_devinfo(void)
 	val[11] = get_devinfo_with_index(DEVINFO_IDX_19);
 	val[12] = get_devinfo_with_index(DEVINFO_IDX_23);
 	val[13] = get_devinfo_with_index(DEVINFO_IDX_24);
+
+	efuse_val = get_devinfo_with_index(DEVINFO_TIME_IDX);
+	year = ((efuse_val >> 4) & 0xf) + 2018;
+	mon = efuse_val  & 0xf;
+	real_year = tm.tm_year + 1900;
+	real_mon = tm.tm_mon + 1;
+
+	if (((real_year - year == 1) && (real_mon > mon)) ||
+			(real_year - year > 1))
+		time_val = 0;
 
 #if EEM_FAKE_EFUSE
 	/* for verification */
