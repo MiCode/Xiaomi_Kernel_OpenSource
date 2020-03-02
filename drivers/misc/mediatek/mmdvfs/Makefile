@@ -33,6 +33,11 @@ else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
 SUPPORT_MMP := true
 FORCE_STEP0 := false
 BUILD_MMDVFS := true
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8168"))
+ccflags-y += -DSMI_AQU
+ENABLE_SCENARIO := true
+FORCE_STEP0 := false
+PLL_HOPPING_READY := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
 ccflags-y += -DSMI_TAL
 SUPPORT_MMP := true
