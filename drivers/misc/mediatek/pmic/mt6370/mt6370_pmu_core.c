@@ -158,9 +158,9 @@ static int mt6370_pmu_core_reset(struct mt6370_pmu_core_data *core_data)
 				   MT6370_PMU_REG_RSTPASCODE2, 0x96);
 	if (ret < 0)
 		dev_err(core_data->dev, "set passcode2 fail\n");
-	/* reset all fled/ldo/rgb/bl/db reg and logic, without chg */
+	/* reset chg/fled/ldo/rgb/bl/dsv logic and all pmu register */
 	ret = mt6370_pmu_reg_write(core_data->chip,
-				   MT6370_PMU_REG_CORECTRL2, 0x7E);
+				   MT6370_PMU_REG_CORECTRL2, 0x7F);
 	if (ret < 0)
 		dev_err(core_data->dev, "reset all reg/logic fail\n");
 	mdelay(1);
