@@ -147,6 +147,7 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
 	int skip = 0;
+	unsigned long prev_fp = 0;
 
 	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
 
@@ -198,6 +199,7 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		ret = unwind_frame(tsk, &frame);
 		if (ret < 0)
 			break;
+
 		if (in_entry_text(frame.pc)) {
 			stack = frame.fp - offsetof(struct pt_regs, stackframe);
 
@@ -205,6 +207,11 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 				dump_mem("", "Exception stack", stack,
 					 stack + sizeof(struct pt_regs));
 		}
+
+		if (prev_fp && frame.fp == prev_fp)
+			break;
+		if (frame.fp)
+			prev_fp = frame.fp;
 	}
 
 	put_task_stack(tsk);
