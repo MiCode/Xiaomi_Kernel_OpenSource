@@ -1120,6 +1120,53 @@ static inline void uclamp_cpu_put(struct rq *rq, struct task_struct *p)
 }
 
 /**
+ * uclamp_task_update_active: update the clamp group of a RUNNABLE task
+ * @p: the task which clamp groups must be updated
+ * @clamp_id: the clamp index to consider
+ * @group_id: the clamp group to update
+ *
+ * Each time the clamp value of a task group is changed, the old and new clamp
+ * groups have to be updated for each CPU containing a RUNNABLE task belonging
+ * to this tasks group. Sleeping tasks are not updated since they will be
+ * enqueued with the proper clamp group index at their next activation.
+ */
+static inline void
+uclamp_task_update_active(struct task_struct *p, int clamp_id, int group_id)
+{
+	struct rq_flags rf;
+	struct rq *rq;
+
+	/*
+	 * Lock the task and the CPU where the task is (or was) queued.
+	 *
+	 * We might lock the (previous) RQ of a !RUNNABLE task, but that's the
+	 * price to pay to safely serialize util_{min,max} updates with
+	 * enqueues, dequeues and migration operations.
+	 * This is the same locking schema used by __set_cpus_allowed_ptr().
+	 */
+	rq = task_rq_lock(p, &rf);
+
+	/*
+	 * The setting of the clamp group is serialized by task_rq_lock().
+	 * Thus, if the task's task_struct is not referencing a valid group
+	 * index, then that task is not yet RUNNABLE and it's going to be
+	 * enqueued with the proper clamp group value.
+	 */
+	if (!uclamp_task_active(p))
+		goto done;
+
+	/* Release p's currently referenced clamp group */
+	uclamp_cpu_put_id(p, rq, clamp_id);
+
+	/* Get p's new clamp group */
+	uclamp_cpu_get_id(p, rq, clamp_id);
+
+done:
+	task_rq_unlock(rq, p, &rf);
+}
+
+
+/**
  * uclamp_group_put: decrease the reference count for a clamp group
  * @clamp_id: the clamp index which was affected by a task group
  * @uc_se: the utilization clamp data for that task group
@@ -1154,6 +1201,7 @@ static inline void uclamp_group_put(int clamp_id, int group_id)
 
 /**
  * uclamp_group_get: increase the reference count for a clamp group
+ * @p: the task which clamp value must be tracked
  * @clamp_id: the clamp index affected by the task
  * @next_group_id: the clamp group to refcount
  * @uc_se: the utilization clamp data for the task
@@ -1164,9 +1212,10 @@ static inline void uclamp_group_put(int clamp_id, int group_id)
  * this new clamp value. The corresponding clamp group index will be used by
  * the task to reference count the clamp value on CPUs while enqueued.
  */
-static inline void uclamp_group_get(int clamp_id, int next_group_id,
-				   struct uclamp_se *uc_se,
-				   unsigned int clamp_value)
+static inline void uclamp_group_get(struct task_struct *p,
+				    int clamp_id, int next_group_id,
+				    struct uclamp_se *uc_se,
+				    unsigned int clamp_value)
 {
 	struct uclamp_map *uc_map = &uclamp_maps[clamp_id][0];
 	int prev_group_id = uc_se->group_id;
@@ -1182,6 +1231,9 @@ static inline void uclamp_group_get(int clamp_id, int next_group_id,
 	uc_se->group_id = next_group_id;
 	uc_map[next_group_id].se_count += 1;
 	raw_spin_unlock_irqrestore(&uc_map[next_group_id].se_lock, flags);
+
+	/* Update CPU's clamp group refcounts of RUNNABLE task */
+	uclamp_task_update_active(p, clamp_id, next_group_id);
 
 	/* Release the previous clamp group */
 	uclamp_group_put(clamp_id, prev_group_id);

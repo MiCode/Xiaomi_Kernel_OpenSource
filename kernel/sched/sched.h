@@ -2260,6 +2260,51 @@ static inline bool uclamp_group_active(struct uclamp_group *uc_grp,
 {
 	return uc_grp[group_id].tasks > 0;
 }
+
+/**
+ * uclamp_task_affects: check if a task affects a utilization clamp
+ * @p: the task to consider
+ * @clamp_id: the utilization clamp to check
+ *
+ * A task affects a clamp index if:
+ * - it's currently enqueued on a CPU
+ * - it references a valid clamp group index for the specified clamp index
+ *
+ * Return: true if p currently affects the specified clamp_id
+ */
+static inline bool uclamp_task_affects(struct task_struct *p, int clamp_id)
+{
+	return (p->uclamp[clamp_id].group_id != UCLAMP_NOT_VALID);
+}
+
+/**
+ * uclamp_task_active: check if a task is currently clamping a CPU
+ * @p: the task to check
+ *
+ * A task actively affects the utilization clamp of a CPU if:
+ * - it's currently enqueued or running on that CPU
+ * - it's refcounted in at least one clamp group of that CPU
+ *
+ * Return: true if p is currently clamping the utilization of its CPU.
+ */
+static inline bool uclamp_task_active(struct task_struct *p)
+{
+	struct rq *rq = task_rq(p);
+	int clamp_id;
+
+	lockdep_assert_held(&p->pi_lock);
+	lockdep_assert_held(&rq->lock);
+
+	if (!task_on_rq_queued(p) && !p->on_cpu)
+		return false;
+
+	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
+		if (uclamp_task_affects(p, clamp_id))
+			return true;
+	}
+
+	return false;
+}
 #endif /* CONFIG_UCLAMP_TASK */
 
 /* sched:  add for print aee log */
