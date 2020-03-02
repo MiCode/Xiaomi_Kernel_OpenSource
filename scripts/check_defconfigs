@@ -66,11 +66,12 @@ function toolchain_check ()
 		cd -
 	fi
 
-	if [ ! -d "../${TOOLCHAIN_GCC_PATH}" ]; then
+	if [ ! -d "../${TOOLCHAIN_GCC_PATH}/bin" ]; then
 		echo "GCC does not exist, clone it"
+		rm -rf "../${TOOLCHAIN_GCC_PATH}"
 		mkdir -p "../prebuilts/gcc/linux-x86/aarch64"
 		cd "../prebuilts/gcc/linux-x86/aarch64"
-		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_GCC_REPO}"
+		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_GCC_REPO}" -b alps-trunk-r0.basic
 		cd -
 	fi
 }
