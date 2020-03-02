@@ -3601,6 +3601,7 @@ static struct mmc_host_ops mt_msdc_ops = {
 	.enable_sdio_irq = msdc_enable_sdio_irq,
 };
 
+#ifndef SUPPORT_LEGACY_SDIO
 static irqreturn_t sdio_eint_irq(int irq, void *dev_id)
 {
 	struct msdc_host *host = (struct msdc_host *)dev_id;
@@ -3610,7 +3611,6 @@ static irqreturn_t sdio_eint_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-#ifndef SUPPORT_LEGACY_SDIO
 static int request_dat1_eint_irq(struct msdc_host *host)
 {
 	struct gpio_desc *desc;
