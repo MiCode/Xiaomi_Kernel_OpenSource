@@ -1209,7 +1209,7 @@ static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 		imgsensor.i2c_write_id = imgsensor_info.i2c_addr_table[i];
 		spin_unlock(&imgsensor_drv_lock);
 		do {
-			*sensor_id = return_sensor_id();
+			*sensor_id = return_sensor_id() + 1;
 			if (*sensor_id == imgsensor_info.sensor_id) {
 				LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n",
 					imgsensor.i2c_write_id, *sensor_id);
@@ -1866,6 +1866,10 @@ static kal_uint32 get_default_framerate_by_scenario(enum
 	MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 *framerate)
 {
 	LOG_INF("scenario_id = %d\n", scenario_id);
+	if (framerate == NULL) {
+		LOG_INF("---- framerate is NULL ---- check here\n");
+		return ERROR_NONE;
+	}
 
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
@@ -1997,7 +2001,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO:
 		get_default_framerate_by_scenario(
 			(enum MSDK_SCENARIO_ID_ENUM) *(feature_data),
-			(MUINT32 *) (uintptr_t) (feature_data + 1));
+			(MUINT32 *) (uintptr_t) (*(feature_data + 1)));
 		break;
 		/* case SENSOR_FEATURE_GET_PDAF_DATA:
 		 * LOG_INF("SENSOR_FEATURE_GET_PDAF_DATA\n");
