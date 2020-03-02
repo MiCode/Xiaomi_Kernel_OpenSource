@@ -1799,7 +1799,6 @@ static int find_lowest_rq(struct task_struct *task)
 #ifdef CONFIG_MTK_SCHED_INTEROP
 	interop_cpu = mt_sched_interop_rt(cpu, lowest_mask);
 	if (interop_cpu != -1) {
-		mt_sched_printf(interop_cpu);
 		return interop_cpu;
 	}
 #endif
