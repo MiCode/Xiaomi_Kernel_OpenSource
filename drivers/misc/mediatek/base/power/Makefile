@@ -42,5 +42,6 @@ obj-$(CONFIG_MTK_SWPM) += swpm_v1/
 obj-$(CONFIG_MACH_MT6771) += mcdi/
 obj-$(CONFIG_MACH_MT6739) += mcdi/
 obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
+obj-$(CONFIG_MACH_MT6739) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6771) += ppm_v3/
 obj-$(CONFIG_MACH_MT6739) += ppm_v3/
