@@ -306,6 +306,8 @@ static int mt6768_mt6358_vow_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
+	struct snd_soc_component *component;
+	struct snd_soc_rtdcom_list *rtdcom;
 
 	dev_info(afe->dev, "%s(), start\n", __func__);
 	snd_soc_set_runtime_hwparams(substream, &mt6768_mt6358_vow_hardware);
@@ -313,8 +315,10 @@ static int mt6768_mt6358_vow_startup(struct snd_pcm_substream *substream)
 	mt6768_afe_gpio_request(afe, true, MT6768_DAI_VOW, 0);
 
 	/* ASoC will call pm_runtime_get, but vow don't need */
-	pm_runtime_put_autosuspend(afe->dev);
-
+	for_each_rtdcom(rtd, rtdcom) {
+		component = rtdcom->component;
+		pm_runtime_put_autosuspend(component->dev);
+	}
 	return 0;
 }
 
@@ -322,12 +326,17 @@ static void mt6768_mt6358_vow_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
+	struct snd_soc_component *component;
+	struct snd_soc_rtdcom_list *rtdcom;
 
 	dev_info(afe->dev, "%s(), end\n", __func__);
 	mt6768_afe_gpio_request(afe, false, MT6768_DAI_VOW, 0);
 
 	/* restore to fool ASoC */
-	pm_runtime_get_sync(afe->dev);
+	for_each_rtdcom(rtd, rtdcom) {
+		component = rtdcom->component;
+		pm_runtime_get_sync(component->dev);
+	}
 }
 
 static const struct snd_soc_ops mt6768_mt6358_vow_ops = {

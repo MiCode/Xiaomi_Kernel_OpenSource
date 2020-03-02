@@ -103,7 +103,9 @@ struct scp_work_struct {
 
 /* scp reserve memory ID definition*/
 enum scp_reserve_mem_id_t {
+#ifdef CONFIG_MTK_VOW_SUPPORT
 	VOW_MEM_ID,
+#endif
 	SENS_MEM_ID,
 #ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	MP3_MEM_ID,
@@ -115,6 +117,9 @@ enum scp_reserve_mem_id_t {
 	AUDIO_IPI_MEM_ID,
 #ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	SPK_PROTECT_MEM_ID,
+#endif
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	VOW_BARGEIN_MEM_ID,
 #endif
 	NUMS_MEM_ID,
 };

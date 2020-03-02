@@ -1,0 +1,23 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+#ifndef __VOW_HW_H__
+#define __VOW_HW_H__
+
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+#define VOW_ECHO_SW_SRC
+#endif
+
+unsigned int vow_check_scp_status(void);
+
+#endif /*__VOW_HW_H__ */

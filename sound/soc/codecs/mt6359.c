@@ -2172,6 +2172,8 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_0];
+	bool vow_is_on = (IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
+			  IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]));
 
 	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d\n",
 		 __func__, event, mic_type);
@@ -2205,7 +2207,7 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 		/* vow low power select */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON15,
 				   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
-				   (IS_VOW_AMIC_BASE(mic_type) ? 1 : 0)
+				   (vow_is_on ? 1 : 0)
 				   << RG_AUDMICBIAS0LOWPEN_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2313,7 +2315,9 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
+	unsigned int mic_type_l = priv->mux_select[MUX_MIC_TYPE_0];
+	unsigned int mic_type_hs = priv->mux_select[MUX_MIC_TYPE_1];
+	unsigned int mic_type_r = priv->mux_select[MUX_MIC_TYPE_2];
 	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
 
 	switch (event) {
@@ -2322,9 +2326,12 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Enable Audio ADC 1st Stage LPW */
 		/* Enable Audio ADC 2nd & 3rd LPW */
 		/* Enable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-				   0x0039, 0x0039);
-		if (priv->vow_channel == 2)
+		if (IS_VOW_AMIC_BASE(mic_type_l) ||
+		    IS_VOW_AMIC_BASE(mic_type_hs))
+			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+					   0x0039, 0x0039);
+		if (IS_VOW_BASE(mic_type_r) ||
+		   (priv->vow_channel == 2))
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
 					   0x0039, 0x0039);
 		break;
@@ -2333,9 +2340,12 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Disable Audio ADC 1st Stage LPW */
 		/* Disable Audio ADC 2nd & 3rd LPW */
 		/* Disable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-				   0x0039, 0x0000);
-		if (priv->vow_channel == 2)
+		if (IS_VOW_BASE(mic_type_l) ||
+		    IS_VOW_BASE(mic_type_hs))
+			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+					   0x0039, 0x0000);
+		if (IS_VOW_BASE(mic_type_r) ||
+		   (priv->vow_channel == 2))
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
 					   0x0039, 0x0000);
 		break;
@@ -3915,6 +3925,22 @@ static int mt_vow_amic_connect(struct snd_soc_dapm_widget *source,
 		return 0;
 }
 
+static int mt_normal_amic_connect(struct snd_soc_dapm_widget *source,
+				  struct snd_soc_dapm_widget *sink)
+{
+
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	if (IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
+	    IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
+	    IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
+		return 0;
+	else
+		return 1;
+}
+
 static int mt_vow_amic_dcc_connect(struct snd_soc_dapm_widget *source,
 				   struct snd_soc_dapm_widget *sink)
 {
@@ -4047,7 +4073,7 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 		 * amic fifo ch1/2 clk from ADC_L,
 		 * enable ADC_L even use ADC_R only
 		 */
-		{"ADC_R", NULL, "ADC_L_EN"},
+		{"ADC_R", NULL, "ADC_L_EN", mt_normal_amic_connect},
 	{"ADC_3", NULL, "ADC_3_Mux"},
 		{"ADC_3", NULL, "ADC_CLKGEN"},
 		{"ADC_3", NULL, "ADC_3_EN"},
