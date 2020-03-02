@@ -21,17 +21,17 @@ int init_boostctrl(struct proc_dir_entry *parent)
 
 	pr_debug("__init %s\n", __func__);
 
+
 	bstctrl_root = proc_mkdir("boost_ctrl", parent);
+
+    /* init topology info first */
+	topo_ctrl_init(bstctrl_root);
 
 	cpu_ctrl_init(bstctrl_root);
 
-#if 0
 	dram_ctrl_init(bstctrl_root);
 
 	eas_ctrl_init(bstctrl_root);
-
-	topo_ctrl_init(bstctrl_root);
-#endif
 
 	return 0;
 }

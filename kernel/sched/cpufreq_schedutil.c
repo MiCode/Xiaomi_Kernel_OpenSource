@@ -25,6 +25,9 @@
 static struct cpufreq_governor schedutil_gov;
 unsigned long boosted_cpu_util(int cpu);
 
+void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
+EXPORT_SYMBOL(cpufreq_notifier_fp);
+
 #define SUGOV_KTHREAD_PRIORITY	50
 
 struct sugov_tunables {
@@ -168,6 +171,9 @@ static void sugov_update_commit(struct sugov_policy *sg_policy, u64 time,
 
 	sg_policy->next_freq = next_freq;
 	sg_policy->last_freq_update_time = time;
+
+	if (cpufreq_notifier_fp)
+		cpufreq_notifier_fp(cid, next_freq);
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	mt_cpufreq_set_by_wfi_load_cluster(cid, next_freq);
