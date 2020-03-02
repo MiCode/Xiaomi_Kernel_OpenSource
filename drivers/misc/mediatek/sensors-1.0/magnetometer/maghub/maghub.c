@@ -429,9 +429,14 @@ static int maghub_open_report_data(int open)
 
 static int maghub_get_data(int *x, int *y, int *z, int *status)
 {
-	char buff[MAGHUB_BUFSIZE];
+	char buff[MAGHUB_BUFSIZE] = { 0 };
+	int ret;
 
-	maghub_GetMData(buff, MAGHUB_BUFSIZE);
+	ret = maghub_GetMData(buff, MAGHUB_BUFSIZE);
+	if (ret < 0) {
+		pr_err("maghub_GetMData fail, ret:%d\n", ret);
+		return ret;
+	}
 
 	if (sscanf(buff, "%x %x %x %x", x, y, z, status) != 4)
 		pr_err("maghub_m_get_data sscanf fail!!\n");
