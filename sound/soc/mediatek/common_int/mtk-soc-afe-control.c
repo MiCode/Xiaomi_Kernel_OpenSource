@@ -3293,7 +3293,7 @@ bool InitSramManager(struct device *pDev, unsigned int sramblocksize)
 			mAud_Sram_Manager.msram_phys_addr + (sramblocksize * i);
 		mAud_Sram_Manager.mAud_Sram_Block[i].msram_virt_addr =
 			(void *)((char *)mAud_Sram_Manager.msram_virt_addr +
-				 (sramblocksize * i));
+				 (sramblocksize * (dma_addr_t)i));
 	}
 
 	/* init for normal mode or compact mode */
