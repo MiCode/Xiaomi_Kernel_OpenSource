@@ -60,7 +60,6 @@
 /* information about */
 struct afe_mem_control_t *VUL2_Control_context;
 static struct snd_dma_buffer *Capture2_dma_buf;
-static struct audio_digital_i2s *mAudioDigitalI2S;
 static bool mPrepareDone;
 
 /*
@@ -375,8 +374,6 @@ static int mtk_afe_capture2_probe(struct snd_soc_platform *platform)
 				   Soc_Aud_Digital_Block_MEM_VUL_DATA2,
 				   UL2_MAX_BUFFER_SIZE);
 	Capture2_dma_buf = Get_Mem_Buffer(Soc_Aud_Digital_Block_MEM_VUL_DATA2);
-	mAudioDigitalI2S =
-		kzalloc(sizeof(struct audio_digital_i2s), GFP_KERNEL);
 	return 0;
 }
 
