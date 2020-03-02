@@ -5,6 +5,9 @@
 subdir-ccflags-$(CONFIG_USB_GADGET_DEBUG)	:= -DDEBUG
 subdir-ccflags-$(CONFIG_USB_GADGET_VERBOSE)	+= -DVERBOSE_DEBUG
 ccflags-y				+= -I$(srctree)/drivers/usb/gadget/udc
+ifdef CONFIG_MTPROF
+ccflags-y += -Idrivers/misc/mediatek/mtprof/
+endif
 
 obj-$(CONFIG_USB_LIBCOMPOSITE)	+= libcomposite.o
 libcomposite-y			:= usbstring.o config.o epautoconf.o
