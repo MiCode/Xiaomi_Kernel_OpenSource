@@ -10,10 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
-obj-$(CONFIG_MACH_MT6771) += cpufreq_v1/
-endif
-ifeq ($(CONFIG_MTK_CM_MGR), y)
-obj-$(CONFIG_MACH_MT6771) += cm_mgr_v1/
-endif
-obj-$(CONFIG_MACH_MT6771) += swpm_v1/
+
+export CPUFREQ_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1
+
+obj-y += src/
