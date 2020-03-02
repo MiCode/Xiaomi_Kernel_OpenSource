@@ -180,6 +180,7 @@ unsigned long m4u_get_pte(struct m4u_domain *domain, unsigned int mva);
 /* ==== define in m4u_hw.c     ===== */
 void m4u_invalid_tlb_by_range(struct m4u_domain *m4u_domain,
 			      unsigned int mva_start, unsigned int mva_end);
+int m4u_dump_rs_info(int m4u_index, int m4u_slave_id);
 struct m4u_domain *m4u_get_domain_by_port(M4U_PORT_ID port);
 struct m4u_domain *m4u_get_domain_by_id(int id);
 int m4u_get_domain_nr(void);
@@ -196,6 +197,11 @@ void m4u_print_port_status(struct seq_file *seq, int only_print_active);
 int m4u_dump_main_tlb(int m4u_id, int m4u_slave_id);
 int m4u_dump_pfh_tlb(int m4u_id);
 int m4u_domain_init(struct m4u_device *m4u_dev, void *priv_reserve);
+int mau_start_monitor(unsigned int m4u_id,
+	int m4u_slave_id, unsigned int mau_set,
+	int wr, int vir, int io, int bit32,
+	unsigned int start, unsigned int end,
+	unsigned int port_mask, unsigned int larb_mask);
 
 /*int config_mau(M4U_MAU_STRUCT mau);*/
 int m4u_enable_tf(unsigned int port, bool fgenable);
