@@ -163,6 +163,7 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 	.en_wdt = true,
 	.aicc_once = true,
 	.post_aicc = true,
+	.batoc_notify = false,
 	.chg_name = "primary_chg",
 };
 
@@ -2521,6 +2522,7 @@ static const struct mt6360_val_prop mt6360_val_props[] = {
 	MT6360_DT_VALPROP(en_wdt, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(aicc_once, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(post_aicc, struct mt6360_chg_platform_data),
+	MT6360_DT_VALPROP(batoc_notify, struct mt6360_chg_platform_data),
 };
 
 static int mt6360_chg_parse_dt_data(struct device *dev,
@@ -2819,8 +2821,9 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	INIT_WORK(&mpci->pe_work, mt6360_trigger_pep_work_handler);
 
 	/* register fg bat oc notify */
-	register_battery_oc_notify(&mt6360_recv_batoc_callback,
-				   BATTERY_OC_PRIO_CHARGER);
+	if (pdata->batoc_notify)
+		register_battery_oc_notify(&mt6360_recv_batoc_callback,
+					   BATTERY_OC_PRIO_CHARGER);
 	/* Schedule work for microB's BC1.2 */
 #if defined(CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT)\
 && !defined(CONFIG_TCPC_CLASS)
