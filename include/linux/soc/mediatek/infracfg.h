@@ -30,5 +30,6 @@
 
 int mtk_infracfg_set_bus_protection(struct regmap *infracfg, u32 mask);
 int mtk_infracfg_clear_bus_protection(struct regmap *infracfg, u32 mask);
-
+void mtk_infracfg_set_axi_si1_way_en(struct regmap *infracfg, u32 mask);
+void mtk_infracfg_clear_axi_si1_way_en(struct regmap *infracfg, u32 mask);
 #endif /* __SOC_MEDIATEK_INFRACFG_H */
