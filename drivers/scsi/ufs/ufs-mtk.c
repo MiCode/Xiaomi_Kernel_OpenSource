@@ -1843,18 +1843,6 @@ static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 		return;
 
 	if (enable) {
-		/*
-		 * For UFSHCI 2.0 (in Elbrus), ensure hibernate enter/exit
-		 * interrupts are disabled during
-		 * auto hibern8.
-		 *
-		 * For UFSHCI 2.1 (in future projects), keep these 2
-		 * interrupts for auto-hibern8
-		 * error handling.
-		 */
-		ufshcd_disable_intr(hba, (UIC_HIBERNATE_ENTER |
-			UIC_HIBERNATE_EXIT));
-
 		/* set timer scale as "ms" and timer */
 		ufshcd_writel(hba, (0x03 << 10 | ufs_mtk_auto_hibern8_timer_ms),
 			REG_AUTO_HIBERNATE_IDLE_TIMER);
@@ -1863,13 +1851,6 @@ static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 	} else {
 		/* disable auto-hibern8 */
 		ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
-
-		/*
-		 * ensure hibernate enter/exit interrupts
-		 * are enabled for future manual-hibern8
-		 */
-		ufshcd_enable_intr(hba, (UIC_HIBERNATE_ENTER |
-			UIC_HIBERNATE_EXIT));
 
 		ufs_mtk_auto_hibern8_enabled = false;
 	}
