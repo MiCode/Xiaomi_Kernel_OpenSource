@@ -98,6 +98,14 @@ config ARCH_MEDIATEK
 	help
 	  Support for Mediatek MT65xx & MT81xx ARMv8 SoCs
 
+config MTK_IGNORE_SSBS
+	bool "Mediatek option to ignore SSBS check"
+	help
+	  Sometimes we need to bypass SSBS check manually to
+	  prevent cpu online check from failure. This option
+	  is for that. Please select it if needed. Anything in
+	  doubt, just say N
+
 config MACH_MT6785
 	bool "MediaTek MT6785"
 	select ARM_DSU_PMU
@@ -292,6 +300,7 @@ config MACH_MT6768
 	select MTK_SECURITY_SW_SUPPORT
 	select DEVAPC_MT6768
 	select OVERLAY_FS
+	select MTK_IGNORE_SSBS
 	help
 	  This enables support for MediaTek MT6768
 	  Support for aarch64 Architecture
