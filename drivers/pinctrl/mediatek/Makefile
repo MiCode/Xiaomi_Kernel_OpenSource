@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 # Core
 obj-$(CONFIG_PINCTRL_MTK)	+= pinctrl-mtk-common.o
-
+ifneq ($(CONFIG_ARCH_MEDIATEK), n)
+ccflags-y += -DCONFIG_PINCTRL_MTK_ALTERNATIVE
+endif
 obj-$(CONFIG_EINT_MTK)		+= mtk-eint.o
 obj-$(CONFIG_PINCTRL_MTK_MOORE) += pinctrl-moore.o pinctrl-mtk-common-v2.o
 obj-$(CONFIG_PINCTRL_MTK_PARIS) += pinctrl-paris.o pinctrl-mtk-common-v2.o pinctrl-mtk-common-v2_debug.o
