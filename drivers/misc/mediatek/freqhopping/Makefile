@@ -12,6 +12,7 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 
 obj-y := mtk_freqhopping_drv.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
