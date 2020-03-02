@@ -194,6 +194,7 @@ source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/hifi_dsp/Kconfig"
 source "drivers/misc/mediatek/dfrc/Kconfig"
 source "drivers/misc/mediatek/camera_security/Kconfig"
+source "drivers/misc/mediatek/jpeg/Kconfig"
 
 endmenu  # MM
 

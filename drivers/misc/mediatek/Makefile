@@ -131,3 +131,4 @@ ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met_drv/),)
 obj-y += met_drv/
 endif
 obj-y += perf/
+obj-$(CONFIG_MTK_JPEG) += jpeg/
