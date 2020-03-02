@@ -32,6 +32,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
              -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
 
+ifneq ($(filter mt8168,$(shell echo $(MTK_PLATFORM)|tr A-Z a-z)),)
+ccflags-y += -DCMDQ_TABLET_ENABLE
+endif
+
 # mdp platform code
 MDP_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)
 
