@@ -61,4 +61,5 @@
 
 #define CLATM_INIT_HRTIMER_POLLING_DELAY	(50)
 
+#define CLATM_USE_MIN_CPU_OPP			(1)
 #endif	/* __CLATM_INITCFG_H__ */

@@ -35,6 +35,7 @@
 #include <ap_thermal_limit.h>
 #ifdef ATM_USES_PPM
 #include "mtk_ppm_api.h"
+#include "mtk_ppm_platform.h"
 #else
 #include "mt_cpufreq.h"
 #endif
@@ -173,9 +174,9 @@ static int PACKAGE_THETA_JA_FALLS[MAX_CPT_ADAPTIVE_COOLERS] = {
 					CLATM_INIT_CFG_2_THETA_FALL };
 
 static int MINIMUM_BUDGET_CHANGES[MAX_CPT_ADAPTIVE_COOLERS] = {
-	CLATM_INIT_CFG_0_MIN_BUDGET_CHG,
-	CLATM_INIT_CFG_1_MIN_BUDGET_CHG,
-	CLATM_INIT_CFG_2_MIN_BUDGET_CHG };
+					CLATM_INIT_CFG_0_MIN_BUDGET_CHG,
+					CLATM_INIT_CFG_1_MIN_BUDGET_CHG,
+					CLATM_INIT_CFG_2_MIN_BUDGET_CHG };
 
 static int MINIMUM_CPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = {
 					CLATM_INIT_CFG_0_MIN_CPU_PWR,
@@ -207,6 +208,28 @@ static int MINIMUM_CPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 1200, 0 };
 static int MAXIMUM_CPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 4400, 0 };
 static int MINIMUM_GPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 350, 0 };
 static int MAXIMUM_GPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 960, 0 };
+#endif
+
+#ifndef CLATM_USE_MIN_CPU_OPP
+#define CLATM_USE_MIN_CPU_OPP			(0)
+#endif
+
+#if CLATM_USE_MIN_CPU_OPP
+struct atm_cpu_min_opp {
+	/* mode is
+	 * 0: Didn't initialize or Some errors occurred
+	 * 1: Use a min CPU power budget to guarantee minimum performance
+	 * 2: Use a set of CPU OPPs to gurantee minimum performance
+	 */
+	int mode[MAX_CPT_ADAPTIVE_COOLERS];
+	/* To keep original min CPU power budgets */
+	int min_CPU_power[MAX_CPT_ADAPTIVE_COOLERS];
+	/* To keep min CPU power budgets calculated from a set of CPU OPP */
+	int min_CPU_power_from_opp[MAX_CPT_ADAPTIVE_COOLERS];
+	struct ppm_cluster_status
+		cpu_opp_set[MAX_CPT_ADAPTIVE_COOLERS][NR_PPM_CLUSTERS];
+};
+static struct atm_cpu_min_opp g_c_min_opp;
 #endif
 
 #if defined(CLATM_SET_INIT_CFG)
@@ -329,7 +352,7 @@ static int CATMP_STEADY_TTJ_DELTA = 10000;
 
 #define TS_MS_TO_NS(x) (x * 1000 * 1000)
 #if KRTATM_TIMER == KRTATM_HR
-	static struct hrtimer atm_hrtimer;
+static struct hrtimer atm_hrtimer;
 static unsigned long atm_hrtimer_polling_delay =
 				TS_MS_TO_NS(CLATM_INIT_HRTIMER_POLLING_DELAY);
 
@@ -356,6 +379,8 @@ static int atm_curr_maxtj;
 static int atm_prev_maxtj;
 static int krtatm_curr_maxtj;
 static int krtatm_prev_maxtj;
+static u64 atm_curr_maxtj_time;
+static u64 atm_prev_maxtj_time;
 static struct task_struct *krtatm_thread_handle;
 #endif
 
@@ -1235,7 +1260,7 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 		set_adaptive_mdla_power_limit(0);
 #endif
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
-			aee_rr_rec_thermal_ATM_status(ATM_DONE);
+		aee_rr_rec_thermal_ATM_status(ATM_DONE);
 #endif
 		return 0;
 	}
@@ -1272,10 +1297,10 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 				if ((mtk_gpu_power[i].gpufreq_power <=
 					max_allowed_gpu_power) &&
 					(-1 == highest_possible_gpu_power)) {
-				/* choose OPP with power "<=" limit */
+					/* choose OPP with power "<=" limit */
 					highest_possible_gpu_power =
 					mtk_gpu_power[i].gpufreq_power + 1;
-				/* highest_possible_gpu_power_idx = i; */
+					/* highest_possible_gpu_power_idx = i;*/
 				}
 
 				if (mtk_gpu_power[i].gpufreq_khz ==
@@ -1356,7 +1381,7 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 #if defined(THERMAL_VPU_SUPPORT)
 	if (total_power <= MINIMUM_TOTAL_POWER)
 		vpu_power = MAX(last_vpu_power + g_delta_power,
-						MINIMUM_VPU_POWER);
+			MINIMUM_VPU_POWER);
 	else
 		vpu_power = MAXIMUM_VPU_POWER;
 #endif
@@ -2925,6 +2950,162 @@ static const struct file_operations mtktscpu_atm_setting_fops = {
 	.release = single_release,
 };
 
+#if CLATM_USE_MIN_CPU_OPP
+static int tscpu_atm_cpu_min_opp_read(struct seq_file *m, void *v)
+{
+	int i, j;
+
+	for (i = 0; i < MAX_CPT_ADAPTIVE_COOLERS; i++) {
+		seq_printf(m, "%s%02d\n", adaptive_cooler_name, i);
+		seq_printf(m, "mode = %d\n", g_c_min_opp.mode[i]);
+
+		seq_printf(m, "min CPU power = %d\n",
+			g_c_min_opp.min_CPU_power[i]);
+
+		seq_printf(m, "min CPU power from opp = %d\n",
+			g_c_min_opp.min_CPU_power_from_opp[i]);
+
+		seq_printf(m, "current min cpu power = %d\n",
+			MINIMUM_CPU_POWERS[i]);
+
+		for (j = 0; j < NR_PPM_CLUSTERS; j++) {
+			seq_printf(m, "cluster%02d core %d, freq_idx %d\n",
+				j, g_c_min_opp.cpu_opp_set[i][j].core_num,
+				g_c_min_opp.cpu_opp_set[i][j].freq_idx);
+		}
+
+		seq_puts(m, "\n");
+	}
+
+	seq_puts(m, "Two commands\n");
+	seq_puts(m, "1. Set a set of min cpu opp\n");
+	seq_puts(m, "   echo [ATM_ID] [N_CLUSTER] [CORE_0] [F_IDX0] [CORE_1] [F_IDX1]");
+	seq_puts(m, " [CORE_2] [F_IDX2] > /proc/driver/thermal/clatm_cpu_min_opp\n");
+	seq_puts(m, "   ATM_ID: 0:cpu_adaptive_00, 1: cpu_adaptive_01, 2: cpu_adaptive_02\n");
+	seq_puts(m, "   N_CLUSTER: number of clusters in this platform\n");
+	seq_puts(m, "   CORE_0: number of cores in cluster 0\n");
+	seq_puts(m, "   F_IDX_0: frequency opp index in cluster 0\n");
+	seq_puts(m, "   and etc.\n");
+	seq_puts(m, "2. Change mode\n");
+	seq_puts(m, "   echo chmod [MODE_ID] > /proc/driver/thermal/clatm_cpu_min_opp\n");
+	seq_puts(m, "   MODE_ID:\n");
+	seq_puts(m, "      1: Use a conventional min cpu power budget\n");
+	seq_puts(m, "      2: Use a set of min cpu opp\n");
+
+	return 0;
+}
+
+static ssize_t tscpu_atm_cpu_min_opp_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[128], cmd[20];
+	int i, len = 0, arg;
+	int atm_id, num_cluster, core[3],
+		freq_idx[3];
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	desc[len] = '\0';
+	if (sscanf(desc, "%d %d %d %d %d %d %d %d", &atm_id, &num_cluster,
+		&core[0], &freq_idx[0], &core[1], &freq_idx[1],
+		&core[2], &freq_idx[2]) == 8) {
+		if (atm_id < 0 || atm_id >= MAX_CPT_ADAPTIVE_COOLERS) {
+			tscpu_printk("Bad arg: atm_id error\n");
+			goto BAD_ARG;
+		}
+
+		if (num_cluster != NR_PPM_CLUSTERS) {
+			g_c_min_opp.mode[atm_id] = 0;
+			tscpu_printk("Bad arg: Total number of clusters doesn't match\n");
+			goto BAD_ARG;
+		}
+
+		for (i = 0; i < NR_PPM_CLUSTERS; i++) {
+			g_c_min_opp.cpu_opp_set[atm_id][i].core_num = core[i];
+			g_c_min_opp.cpu_opp_set[atm_id][i].freq_idx
+				= freq_idx[i];
+		}
+
+		if (g_c_min_opp.min_CPU_power[atm_id] == 0)
+			g_c_min_opp.min_CPU_power[atm_id] =
+				MINIMUM_CPU_POWERS[atm_id];
+
+		g_c_min_opp.min_CPU_power_from_opp[atm_id] =
+			ppm_find_pwr_idx(g_c_min_opp.cpu_opp_set[atm_id]);
+
+		if (g_c_min_opp.min_CPU_power_from_opp[atm_id] == -1) {
+			g_c_min_opp.mode[atm_id] = 0;
+			tscpu_printk("Error: When transfer a CPU opp to a power budget\n");
+			goto BAD_ARG;
+		}
+
+		g_c_min_opp.min_CPU_power_from_opp[atm_id] += 1;
+		MINIMUM_CPU_POWERS[atm_id] =
+			g_c_min_opp.min_CPU_power_from_opp[atm_id];
+		thermal_spa_t.t_spa_Tpolicy_info.min_cpu_power[atm_id] =
+			g_c_min_opp.min_CPU_power_from_opp[atm_id];
+
+		g_c_min_opp.mode[atm_id] = 2;
+
+		return count;
+	} else if (sscanf(desc, "%19s %d", cmd, &arg) == 2) {
+		if ((strncmp(cmd, "chmod", 5) == 0)) {
+			if (arg != 1 && arg != 2) {
+				tscpu_printk("Bad arg: mode should only be 1 and 2\n");
+				goto BAD_ARG;
+			}
+
+			for (i = 0; i < MAX_CPT_ADAPTIVE_COOLERS; i++) {
+				if (g_c_min_opp.mode[i] == 0) {
+					tscpu_printk("Skip cpu_adaptive_%d, because didn't initialized\n",
+						i);
+					continue;
+				}
+				if (arg == 1) {
+					if (g_c_min_opp.min_CPU_power[i] == 0)
+						continue;
+
+					MINIMUM_CPU_POWERS[i] =
+						g_c_min_opp.min_CPU_power[i];
+			thermal_spa_t.t_spa_Tpolicy_info.min_cpu_power[i] =
+					g_c_min_opp.min_CPU_power[i];
+				} else if (arg == 2) {
+					MINIMUM_CPU_POWERS[i] =
+					g_c_min_opp.min_CPU_power_from_opp[i];
+			thermal_spa_t.t_spa_Tpolicy_info.min_cpu_power[i] =
+					g_c_min_opp.min_CPU_power_from_opp[i];
+				}
+
+				g_c_min_opp.mode[i] = arg;
+			}
+			return count;
+		}
+
+		tscpu_printk("Bad arg: No this command\n");
+		goto BAD_ARG;
+	}
+BAD_ARG:
+	tscpu_printk("%s,%d: bad argument, %s\n", __func__, __LINE__, desc);
+	return -EINVAL;
+}
+
+static int tscpu_atm_cpu_min_opp_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tscpu_atm_cpu_min_opp_read, NULL);
+}
+
+static const struct file_operations mtktscpu_atm_cpu_min_opp_fops = {
+	.owner = THIS_MODULE,
+	.open = tscpu_atm_cpu_min_opp_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = tscpu_atm_cpu_min_opp_write,
+	.release = single_release,
+};
+#endif
+
 static int tscpu_gpu_threshold_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, tscpu_read_gpu_threshold, NULL);
@@ -3057,6 +3238,15 @@ static void tscpu_cooler_create_fs(void)
 
 		if (entry)
 			proc_set_user(entry, uid, gid);
+
+#if CLATM_USE_MIN_CPU_OPP
+		entry = proc_create("clatm_cpu_min_opp",
+				0664,
+				mtktscpu_dir, &mtktscpu_atm_cpu_min_opp_fops);
+
+		if (entry)
+			proc_set_user(entry, uid, gid);
+#endif
 
 		entry = proc_create("clatm_gpu_threshold",
 				0664,
@@ -3201,11 +3391,18 @@ static void atm_loop(unsigned long data)
 	unsigned long polling_time_s;
 	unsigned long polling_time_ns;
 #endif
+	ktime_t now;
+
+	now = ktime_get();
 
 	tscpu_workqueue_start_timer();
 
 	atm_prev_maxtj = atm_curr_maxtj;
 	atm_curr_maxtj = tscpu_get_curr_temp();
+
+
+	atm_prev_maxtj_time = atm_curr_maxtj_time;
+	atm_curr_maxtj_time = ktime_to_us(now);
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
@@ -3219,10 +3416,11 @@ static void atm_loop(unsigned long data)
 #endif
 #endif
 
-	temp = sprintf(buffer, "%s c %d p %d l %d ", __func__,
+	temp = sprintf(buffer, "%s c %d p %d l %d ct %lld pt %lld ", __func__,
 						atm_curr_maxtj, atm_prev_maxtj,
-		adaptive_cpu_power_limit);
-
+						adaptive_cpu_power_limit,
+						atm_curr_maxtj_time,
+						atm_prev_maxtj_time);
 #if 0
 	if (atm_curr_maxtj >= 100000
 		|| (atm_curr_maxtj - atm_prev_maxtj >= 15000))
