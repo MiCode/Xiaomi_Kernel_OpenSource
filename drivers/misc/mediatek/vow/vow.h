@@ -34,7 +34,11 @@
 #define VOW_DEVNAME                    "vow"
 #define VOW_IOC_MAGIC                  'V'
 #define VOW_PRE_LEARN_MODE             1
+#ifdef CONFIG_MTK_VOW_2E2K_SUPPORT
 #define MAX_VOW_SPEAKER_MODEL          2
+#else
+#define MAX_VOW_SPEAKER_MODEL          1
+#endif
 #define VOW_WAITCHECK_INTERVAL_MS      1
 #define MAX_VOW_INFO_LEN               6
 #define VOW_VOICE_RECORD_THRESHOLD     2560 /* 80ms */
