@@ -29,6 +29,9 @@ DEFINE_PER_CPU(unsigned long, max_cpu_freq);
 DEFINE_PER_CPU(unsigned long, max_freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, min_freq_scale) = 0;
 
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+#include "arch_topology_plus.c"
+#else
 void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 			 unsigned long max_freq)
 {
@@ -80,6 +83,7 @@ void arch_set_min_freq_scale(struct cpumask *cpus,
 	for_each_cpu(cpu, cpus)
 		per_cpu(min_freq_scale, cpu) = scale;
 }
+#endif
 
 static DEFINE_MUTEX(cpu_scale_mutex);
 DEFINE_PER_CPU(unsigned long, cpu_scale) = SCHED_CAPACITY_SCALE;

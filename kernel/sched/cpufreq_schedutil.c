@@ -194,6 +194,10 @@ static void sugov_update_commit(struct sugov_policy *sg_policy, u64 time,
 #endif
 }
 
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+
+#include "cpufreq_schedutil_plus.c"
+#else
 /**
  * get_next_freq - Compute a new frequency for a given cpufreq policy.
  * @sg_policy: schedutil policy object to compute the new frequency for.
@@ -232,6 +236,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	return cpufreq_driver_resolve_freq(policy, freq);
 #endif
 }
+#endif
 
 static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 {
