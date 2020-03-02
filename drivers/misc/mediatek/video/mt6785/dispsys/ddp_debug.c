@@ -187,6 +187,8 @@ void _ddic_test_read_write(void)
 	read_tab.payload = vmalloc(2 * sizeof(unsigned char));
 	if (read_tab.payload == NULL) {
 		DDPMSG("[DISP]%s: vmalloc fail.\n", __func__);
+		vfree(read_tab.payload);
+		vfree(write_tab.payload);
 		return;
 	}
 	memset(read_tab.payload, 0, 2);
