@@ -11,6 +11,8 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+extern int cpu_eff_tp;
+extern unsigned long long big_cpu_eff_tp;
 /* Stune group info */
 #ifdef CONFIG_SCHED_TUNE
 extern int group_boost_read(int group_idx);
