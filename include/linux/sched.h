@@ -697,11 +697,11 @@ struct sched_dl_entity {
  * its own boosting to 0%.
  */
 struct uclamp_se {
-	unsigned int value		: SCHED_CAPACITY_SHIFT + 1;
-	unsigned int group_id		: order_base_2(UCLAMP_GROUPS);
-	unsigned int mapped		: 1;
-	unsigned int active		: 1;
-	unsigned int user_defined	: 1;
+	unsigned int value;
+	unsigned int group_id;
+	unsigned int mapped;
+	unsigned int active;
+	unsigned int user_defined;
 	/*
 	 * Clamp group and value actually used by a scheduling entity,
 	 * i.e. a (RUNNABLE) task or a task group.
