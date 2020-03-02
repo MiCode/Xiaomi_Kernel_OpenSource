@@ -56,6 +56,8 @@ int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	{900, 900, 900, 1350},
 	/* HRT_BOUND_TYPE_LP4_FHD_19 */
 	{400, 500, 500, 500},
+	/* HRT_BOUND_TYPE_LP4_FHD_19_CMD */
+	{300, 400, 400, 400},
 };
 
 int emi_bound_t[HRT_LEVEL_NUM] = {0};
@@ -74,6 +76,8 @@ int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4_HD */
 	{1200, 1200, 1200, 1200},
 	/* HRT_BOUND_TYPE_LP4_FHD_19 */
+	{1200, 1200, 1200, 1200},
+	/* HRT_BOUND_TYPE_LP4_FHD_19_CMD */
 	{1200, 1200, 1200, 1200},
 };
 
@@ -431,10 +435,15 @@ static void layering_rule_senario_decision(struct disp_layer_info *disp_info)
 					HRT_BOUND_TYPE_LP3_HD;
 		} else {
 			if (primary_display_get_width() != 0 &&
-				 primary_display_get_height() * 10 /
-					primary_display_get_width() > 20)
-				l_rule_info.bound_tb_idx =
-					HRT_BOUND_TYPE_LP4_FHD_19;
+					primary_display_get_height() * 10 /
+					primary_display_get_width() > 20) {
+				if (primary_display_is_video_mode())
+					l_rule_info.bound_tb_idx =
+						HRT_BOUND_TYPE_LP4_FHD_19;
+				else
+					l_rule_info.bound_tb_idx =
+						HRT_BOUND_TYPE_LP4_FHD_19_CMD;
+			}
 			else
 				l_rule_info.bound_tb_idx =
 					HRT_BOUND_TYPE_LP4;
@@ -774,10 +783,6 @@ int modify_display_hrt_cb(int num)
 {
 	int i = 0, type = l_rule_info.bound_tb_idx;
 	unsigned long flags = 0;
-
-	/* just modify HRT table for LPDDR3 case now */
-	if (type != HRT_BOUND_TYPE_LP3)
-		return 1;
 
 	spin_lock_irqsave(&hrt_table_lock, flags);
 
