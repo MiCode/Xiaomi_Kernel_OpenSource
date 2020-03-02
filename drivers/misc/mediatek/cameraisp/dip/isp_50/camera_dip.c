@@ -4829,6 +4829,7 @@ static const struct file_operations dip_p2_ke_dump_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = proc_dip_p2_ke_dump_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 /**************************************************************
@@ -4945,6 +4946,7 @@ static const struct file_operations dip_p2_dump_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = proc_dip_p2_dump_open,
 	.read = seq_read,
+	.release = single_release,
 };
 /**************************************************************
  *
@@ -5029,6 +5031,7 @@ static const struct file_operations dip_dump_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = proc_dip_dump_open,
 	.read = seq_read,
+	.release = single_release,
 };
 /**************************************************************
  *
