@@ -24,7 +24,11 @@
 #include <linux/iio/adc/mt635x-auxadc-internal.h>
 #include <linux/regmap.h>
 #include <linux/mfd/mt6358/core.h>
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
+#include <linux/mfd/mt6357/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 #include <linux/mfd/mt6358/registers.h>
+#endif
 
 #define AUXADC_RDY_SHIFT		15
 
@@ -116,7 +120,25 @@ struct auxadc_regs {
 		.out_reg = _chip##_##_out_reg,		\
 	}						\
 
+static const struct auxadc_regs mt6357_auxadc_regs_tbl[] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
+	MT635x_AUXADC_REG(BATADC, MT6357, AUXADC_RQST0, 0, AUXADC_ADC0),
+	MT635x_AUXADC_REG(ISENSE, MT6357, AUXADC_RQST0, 1, AUXADC_ADC1),
+	MT635x_AUXADC_REG(VCDT, MT6357, AUXADC_RQST0, 2, AUXADC_ADC2),
+	MT635x_AUXADC_REG(BAT_TEMP, MT6357, AUXADC_RQST0, 3, AUXADC_ADC3),
+	MT635x_AUXADC_REG(CHIP_TEMP, MT6357, AUXADC_RQST0, 4, AUXADC_ADC4),
+	MT635x_AUXADC_REG(VCORE_TEMP, MT6357, AUXADC_RQST2, 5, AUXADC_ADC46),
+	MT635x_AUXADC_REG(VPROC_TEMP, MT6357, AUXADC_RQST2, 6, AUXADC_ADC47),
+	MT635x_AUXADC_REG(ACCDET, MT6357, AUXADC_RQST0, 5, AUXADC_ADC5),
+	MT635x_AUXADC_REG(TSX_TEMP, MT6357, AUXADC_RQST0, 7, AUXADC_ADC7),
+	MT635x_AUXADC_REG(HPOFS_CAL, MT6357, AUXADC_RQST0, 9, AUXADC_ADC9),
+	MT635x_AUXADC_REG(DCXO_TEMP, MT6357, AUXADC_RQST0, 4, AUXADC_ADC40),
+	MT635x_AUXADC_REG(VBIF, MT6357, AUXADC_RQST0, 11, AUXADC_ADC11),
+#endif
+};
+
 static const struct auxadc_regs mt6358_auxadc_regs_tbl[] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 	MT635x_AUXADC_REG(BATADC, MT6358, AUXADC_RQST0, 0, AUXADC_ADC0),
 	MT635x_AUXADC_REG(VCDT, MT6358, AUXADC_RQST0, 2, AUXADC_ADC2),
 	MT635x_AUXADC_REG(BAT_TEMP, MT6358, AUXADC_RQST0, 3, AUXADC_ADC3),
@@ -130,16 +152,42 @@ static const struct auxadc_regs mt6358_auxadc_regs_tbl[] = {
 	MT635x_AUXADC_REG(HPOFS_CAL, MT6358, AUXADC_RQST0, 9, AUXADC_ADC9),
 	MT635x_AUXADC_REG(DCXO_TEMP, MT6358, AUXADC_RQST0, 10, AUXADC_ADC10),
 	MT635x_AUXADC_REG(VBIF, MT6358, AUXADC_RQST0, 11, AUXADC_ADC11),
+#endif
+};
+
+static const unsigned int mt6357_dbg_regs[] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
+	MT6357_AUXADC_STA0, MT6357_AUXADC_STA1, MT6357_AUXADC_STA2,
+	MT6357_STRUP_CON6, MT6357_HK_TOP_RST_CON0,
+	MT6357_HK_TOP_CLK_CON0, MT6357_HK_TOP_CLK_CON1,
+#endif
 };
 
 static const unsigned int mt6358_dbg_regs[] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 	MT6358_AUXADC_STA0, MT6358_AUXADC_STA1, MT6358_AUXADC_STA2,
 	MT6358_STRUP_CON6, MT6358_HK_TOP_RST_CON0,
 	MT6358_HK_TOP_CLK_CON0, MT6358_HK_TOP_CLK_CON1,
 	MT6358_AUXADC_CON20, /* check DATA_REUSE */
+#endif
+};
+
+static const unsigned int mt6357_rst_setting[][3] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
+	{
+		MT6357_HK_TOP_RST_CON0, 0x9, 0x9,
+	}, {
+		MT6357_HK_TOP_RST_CON0, 0x9, 0,
+	}, {
+		MT6357_AUXADC_RQST0, 0x80, 0x80,
+	}, {
+		MT6357_AUXADC_RQST1, 0x400, 0x400,
+	}
+#endif
 };
 
 static const unsigned int mt6358_rst_setting[][3] = {
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 	{
 		MT6358_HK_TOP_RST_CON0, 0x9, 0x9,
 	}, {
@@ -149,6 +197,7 @@ static const unsigned int mt6358_rst_setting[][3] = {
 	}, {
 		MT6358_AUXADC_RQST1, 0x40, 0x40,
 	}
+#endif
 };
 
 static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
@@ -460,6 +509,13 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 	adc_dev->chip_id = (uintptr_t)of_device_get_match_data(&pdev->dev);
 
 	switch (adc_dev->chip_id) {
+	case 0x6357:
+		adc_dev->auxadc_regs_tbl = mt6357_auxadc_regs_tbl;
+		adc_dev->dbg_regs = mt6357_dbg_regs;
+		adc_dev->num_dbg_regs = ARRAY_SIZE(mt6357_dbg_regs);
+		adc_dev->rst_setting = mt6357_rst_setting;
+		adc_dev->num_rst_setting = ARRAY_SIZE(mt6357_rst_setting);
+		break;
 	case 0x6358:
 		adc_dev->auxadc_regs_tbl = mt6358_auxadc_regs_tbl;
 		adc_dev->dbg_regs = mt6358_dbg_regs;
@@ -521,6 +577,9 @@ static int mt635x_auxadc_remove(struct platform_device *pdev)
 
 static const struct of_device_id mt635x_auxadc_of_match[] = {
 	{
+		.compatible = "mediatek,mt6357-auxadc",
+		.data = (void *)0x6357,
+	}, {
 		.compatible = "mediatek,mt6358-auxadc",
 		.data = (void *)0x6358,
 	}, {

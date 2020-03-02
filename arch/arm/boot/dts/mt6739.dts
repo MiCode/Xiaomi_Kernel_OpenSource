@@ -20,6 +20,7 @@
 #include <dt-bindings/pinctrl/mt6739-pinfunc.h>
 #include <dt-bindings/gce/mt6739-gce.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6357-irq.h>
 #include <generated/autoconf.h>
 
 / {
@@ -526,9 +527,10 @@
 		clocks = <&clk26m>, <&clk26m>;
 		clock-names = "spi", "wrap";
 
-		main_pmic: mt-pmic {
-			compatible = "mediatek,mt6357-pmic";
-			interrupt-controller;
+		main_pmic: mt6357-pmic {
+			interrupt-parent = <&pio>;
+			interrupts = <182 IRQ_TYPE_LEVEL_HIGH 182 0>;
+			status = "okay";
 		};
 	};
 
