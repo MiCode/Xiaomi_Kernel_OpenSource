@@ -16,6 +16,7 @@
 
 #include <linux/sizes.h>
 #include "scp_helper.h"
+#include "scp_ipi_pin.h"
 
 #define AED_LOG_PRINT_SIZE	SZ_16K
 #define SCP_LOCK_OFS	0xE0

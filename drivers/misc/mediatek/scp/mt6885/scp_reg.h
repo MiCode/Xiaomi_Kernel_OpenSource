@@ -38,22 +38,25 @@
 #define SCP_A_DEBUG_SP_REG       (scpreg.cfg + 0x00A8)
 #define SCP_A_WDT_REG            (scpreg.cfg + 0x0084)
 
-#define SCP_A_GENERAL_REG0       (scpreg.cfg + 0x0050)
-#define SCP_A_GENERAL_REG1       (scpreg.cfg + 0x0054)
-#define SCP_A_GENERAL_REG2       (scpreg.cfg + 0x0058)
+#define SCP_A_GENERAL_REG0       (scpreg.cfg_core0 + 0x0040)
+/* DRAM reserved address and size */
+#define SCP_A_GENERAL_REG1       (scpreg.cfg_core0 + 0x0044)
+#define DRAM_RESV_ADDR_REG	 SCP_A_GENERAL_REG1
+#define SCP_A_GENERAL_REG2       (scpreg.cfg_core0 + 0x0048)
+#define DRAM_RESV_SIZE_REG	 SCP_A_GENERAL_REG2
 /*EXPECTED_FREQ_REG*/
-#define SCP_A_GENERAL_REG3       (scpreg.cfg + 0x005C)
-#define EXPECTED_FREQ_REG        (scpreg.cfg  + 0x5C)
+#define SCP_A_GENERAL_REG3       (scpreg.cfg_core0 + 0x004C)
+#define EXPECTED_FREQ_REG        (scpreg.cfg_core0  + 0x4C)
 /*CURRENT_FREQ_REG*/
-#define SCP_A_GENERAL_REG4       (scpreg.cfg + 0x0060)
-#define CURRENT_FREQ_REG         (scpreg.cfg  + 0x60)
+#define SCP_A_GENERAL_REG4       (scpreg.cfg_core0 + 0x0050)
+#define CURRENT_FREQ_REG         (scpreg.cfg_core0  + 0x50)
 /*SCP_GPR_CM4_A_REBOOT*/
-#define SCP_A_GENERAL_REG5       (scpreg.cfg + 0x0064)
-#define SCP_GPR_CM4_A_REBOOT     (scpreg.cfg + 0x64)
+#define SCP_A_GENERAL_REG5       (scpreg.cfg_core0 + 0x0054)
+#define SCP_GPR_CM4_A_REBOOT     (scpreg.cfg_core0 + 0x54)
 	#define CM4_A_READY_TO_REBOOT  0x34
 	#define CM4_A_REBOOT_OK        0x1
-#define SCP_A_GENERAL_REG6       (scpreg.cfg + 0x0068)
-#define SCP_A_GENERAL_REG7       (scpreg.cfg + 0x006C)
+#define SCP_A_GENERAL_REG6       (scpreg.cfg_core0 + 0x0058)
+#define SCP_A_GENERAL_REG7       (scpreg.cfg_core0 + 0x005C)
 
 #define SCP_SEMAPHORE	         (scpreg.cfg  + 0x90)
 #define SCP_SCP2SPM_VOL_LV		 (scpreg.cfg + 0x0094)

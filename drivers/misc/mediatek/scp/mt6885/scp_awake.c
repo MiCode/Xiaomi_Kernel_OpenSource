@@ -39,7 +39,7 @@
 #include <mt-plat/aee.h>
 #include <linux/delay.h>
 #include "scp_feature_define.h"
-#include "scp_ipi.h"
+#include "scp_ipi_pin.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
