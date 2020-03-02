@@ -691,6 +691,7 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 	if (!is_engine_sec) {
 		DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR + Lx_addr_base,
 			     cfg->real_addr);
+		DISP_REG_SET(handle, DISP_REG_OVL_SECURE + baddr, 0);
 	} else {
 #ifdef MTKFB_M4U_SUPPORT
 		unsigned int size;
@@ -709,6 +710,15 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 							  Lx_addr_base),
 					CMDQ_SAM_NMVA_2_MVA, cfg->addr + offset,
 					0, size, m4u_port);
+			if (is_ext_layer)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 0);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 0);
 		} else {
 			/*
 			 * for sec layer, addr variable stores sec handle
@@ -721,6 +731,15 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 							  Lx_addr_base),
 					CMDQ_SAM_H_2_MVA, cfg->addr, offset,
 					size, m4u_port);
+			if (is_ext_layer)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 1);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 1);
 		}
 #endif /* MTKFB_M4U_SUPPORT */
 	}
@@ -1068,7 +1087,7 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 	if (!is_engine_sec) {
 		DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR + Lx_addr_base,
 			     buf_addr + src_addr_offset);
-
+		DISP_REG_SET(handle, DISP_REG_OVL_SECURE + baddr, 0);
 	} else {
 
 #ifdef MTKFB_M4U_SUPPORT
@@ -1093,6 +1112,15 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 			DISP_REG_SET(handle,
 				DISP_REG_OVL_L0_ADDR + Lx_addr_base,
 				buf_addr + src_addr_offset);
+			if (cfg->ext_layer != -1)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 0);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 0);
 		} else {
 			/*
 			 * for sec layer, addr variable stores sec handle
@@ -1107,6 +1135,15 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 				CMDQ_SAM_H_2_MVA,
 				buf_addr + src_addr_offset,
 				0, size, m4u_port);
+			if (cfg->ext_layer != -1)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 1);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 1);
 		}
 #endif /* MTKFB_M4U_SUPPORT */
 	}
@@ -1341,7 +1378,7 @@ static inline int ovl_switch_to_sec(enum DISP_MODULE_ENUM module, void *handle)
 	 * set engine as sec port, it will to access
 	 * the sec memory EMI_MPU protected
 	 */
-	cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
+	//cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
 	/* enable DAPC to protect the engine register */
 	/* cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine)); */
 	if (ovl_is_sec[ovl_idx] == 0) {
@@ -1398,8 +1435,8 @@ int ovl_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 		 */
 		disable_ovl_layers(module, nonsec_switch_handle);
 		/* in fact, dapc/port_sec will be disabled by cmdq */
-		cmdqRecSecureEnablePortSecurity(nonsec_switch_handle,
-						(1LL << cmdq_engine));
+		//cmdqRecSecureEnablePortSecurity(nonsec_switch_handle,
+		//				(1LL << cmdq_engine));
 
 		if (handle) {
 			/* async flush method */
@@ -1448,8 +1485,8 @@ static int setup_ovl_sec(enum DISP_MODULE_ENUM module,
 
 	if (has_sec_layer == 1)
 		ret = ovl_switch_to_sec(module, handle);
-	else
-		ret = ovl_switch_to_nonsec(module, NULL);
+//	else
+//		ret = ovl_switch_to_nonsec(module, NULL);
 
 	if (ret)
 		DDPAEE("[SVP]fail to %s: ret=%d\n",
