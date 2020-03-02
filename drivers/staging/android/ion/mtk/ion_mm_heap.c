@@ -170,7 +170,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	} else {
 		__free_pages(page, order);
 		if (atomic64_sub_return((1 << order), &page_sz_cnt) < 0) {
-			IONMSG("underflow!, total_now[%llu]free[%lu]\n",
+			IONMSG("underflow!, total_now[%ld]free[%lu]\n",
 			       atomic64_read(&page_sz_cnt),
 			       (unsigned long)(1 << order));
 			atomic64_set(&page_sz_cnt, 0);
@@ -1167,8 +1167,9 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	}
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	IONMSG("current time %lld ms, total: %llu!!\n",
-	       current_ts, atomic64_read(&page_sz_cnt) * 4096);
+	IONMSG("current time %llu ms, total: %llu!!\n",
+	       current_ts,
+	       (unsigned long long)(atomic64_read(&page_sz_cnt) * 4096));
 #ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_log_dump(s);
 #endif
@@ -1454,12 +1455,14 @@ skip_client_entry:
 			 total_orphaned_size);
 		ION_DUMP(NULL, "mm total: %16zu, cam: %16zu\n",
 			 mm_size, cam_size);
-		ION_DUMP(NULL, "ion heap total memory: %16zu\n",
-			 atomic64_read(&page_sz_cnt) * 4096);
+		ION_DUMP(NULL, "ion heap total memory: %llu\n",
+			 (unsigned long long)(
+			 atomic64_read(&page_sz_cnt) * 4096));
 		ION_DUMP(NULL, "------------------------------\n");
 	} else {
-		ION_DUMP(NULL, "ion heap total memory: %16zu\n",
-			 atomic64_read(&page_sz_cnt) * 4096);
+		ION_DUMP(NULL, "ion heap total memory: %llu\n",
+			 (unsigned long long)(
+			 atomic64_read(&page_sz_cnt) * 4096));
 	}
 }
 

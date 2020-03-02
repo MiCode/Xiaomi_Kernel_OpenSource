@@ -58,7 +58,7 @@ static void ion_page_pool_free_pages(struct ion_page_pool *pool,
 {
 	__free_pages(page, pool->order);
 	if (atomic64_sub_return((1 << pool->order), &page_sz_cnt) < 0) {
-		IONMSG("underflow!, total_now[%llu]free[%lu]\n",
+		IONMSG("underflow!, total_now[%ld]free[%lu]\n",
 		       atomic64_read(&page_sz_cnt),
 		       (unsigned long)(1 << pool->order));
 		atomic64_set(&page_sz_cnt, 0);
