@@ -106,7 +106,7 @@ int cpu_type_idx_get(int cpu)
 
 void mcdi_status_init(void)
 {
-	set_mcdi_enable_status(false);
+	set_mcdi_enable_status(true);
 }
 
 void mcdi_of_init(void **base)
