@@ -1327,6 +1327,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	struct eem_det *ndet = det;
 	unsigned int i, verr = 0;
 	int low_temp_offset = 0, rm_dvtfix_offset = 0;
+	unsigned int t_clamp = 0;
 
 	if (det == NULL)
 		return;
@@ -1535,6 +1536,8 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	else if ((det->isTempInv) && (ndet->temp > OVER_INV_TEM_VAL))
 		ndet->isTempInv = 0;
 
+	t_clamp = (ndet->isTempInv) ? EXTRA_TEMP_OFF_GPU : 0;
+
 	if (ndet->volt_policy) {
 #if 0
 		/* For this project, check high temp is not necessary*/
@@ -1676,19 +1679,13 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			(unsigned int)(clamp(
 			ndet->ops->eem_2_pmic(ndet,
 			(ndet->volt_tbl[i] + ndet->volt_offset +
-			low_temp_offset + ndet->volt_aging[i]) +
+			ndet->volt_aging[i]) +
 			rm_dvtfix_offset - ndet->volt_dcv),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
-			ndet->ops->eem_2_pmic(ndet, VMAX_VAL_GPU))),
-			ndet->volt_tbl_orig[i] + ndet->volt_clamp);
-#if 0
-			if ((i == 1) &&
-				(ndet->volt_tbl_pmic[1] >
-				ndet->volt_tbl_pmic[0])) {
-				ndet->volt_tbl_pmic[0] = ndet->volt_tbl_pmic[1];
-			}
-#endif
-
+			ndet->ops->eem_2_pmic(ndet, VMAX_VAL_GPU)) +
+			low_temp_offset),
+			ndet->volt_tbl_orig[i] + ndet->volt_clamp +
+			t_clamp);
 			break;
 #if ENABLE_VPU
 		case EEM_CTRL_VPU:
@@ -2267,6 +2264,9 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 		det->MTDES	= devinfo->GPU_HI_MTDES;
 		det->SPEC       = devinfo->GPU_HI_SPEC;
 
+		det->volt_policy = 1;
+		det->low_temp_off = EXTRA_TEMP_OFF_GPU;
+		det->VMAX += det->DVTFIXED;
 
 		if (!gpu_2line) {
 			det->features = 0;
