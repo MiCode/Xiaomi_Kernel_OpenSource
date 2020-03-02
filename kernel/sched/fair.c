@@ -9697,6 +9697,9 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 	sgs->group_no_capacity = group_is_overloaded(env, sgs);
 	sgs->group_type = group_classify(group, sgs);
+	trace_sched_update_lb_sg(sgs->avg_load, sgs->group_load,
+			sgs->group_capacity,
+			sgs->group_no_capacity, sgs->group_type);
 }
 
 /**
@@ -10728,6 +10731,13 @@ more_balance:
 				goto out_one_pinned;
 			}
 
+			if (task_prefer_fit(busiest->curr, cpu_of(busiest))) {
+				raw_spin_unlock_irqrestore(&busiest->lock,
+							    flags);
+				env.flags |= LBF_ALL_PINNED;
+				goto out_one_pinned;
+			}
+
 			/*
 			 * ->active_balance synchronizes accesses to
 			 * ->active_balance_work.  Once set, it's cleared
@@ -10744,6 +10754,8 @@ more_balance:
 				stop_one_cpu_nowait(cpu_of(busiest),
 					active_load_balance_cpu_stop, busiest,
 					&busiest->active_balance_work);
+				trace_sched_hmp_migrate(busiest->curr,
+							this_cpu, 6);
 			}
 
 			/* We've kicked active balancing, force task migration. */

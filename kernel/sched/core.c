@@ -3302,6 +3302,10 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 
 	init_entity_runnable_average(&p->se);
 
+#ifdef CONFIG_MTK_SCHED_BOOST
+	p->cpu_prefer = current->cpu_prefer;
+#endif
+
 	/*
 	 * The child is not yet in the pid-hash so no cgroup attach races,
 	 * and the cgroup is pinned to this child due to cgroup_fork()
@@ -5218,6 +5222,9 @@ static int _sched_setscheduler(struct task_struct *p, int policy,
 		policy &= ~SCHED_RESET_ON_FORK;
 		attr.sched_policy = policy;
 	}
+
+	if (attr.sched_policy & SCHED_ENHANCED_ATTR)
+		return sched_setattr_enhanced(p, &attr);
 
 	return __sched_setscheduler(p, &attr, check, true);
 }

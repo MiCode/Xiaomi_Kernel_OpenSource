@@ -24,3 +24,14 @@ static inline unsigned long arch_scale_get_max_freq(int cpu) { return 0; }
 static inline unsigned long arch_scale_get_min_freq(int cpu) { return 0; }
 #endif
 #endif
+#define SCHED_ENHANCED_ATTR 0x40000
+int select_task_prefer_cpu(struct task_struct *p, int new_cpu);
+int
+sched_setattr_enhanced(struct task_struct *p, const struct sched_attr *attr);
+
+int task_prefer_little(struct task_struct *p);
+int task_prefer_big(struct task_struct *p);
+int task_prefer_fit(struct task_struct *p, int cpu);
+int task_prefer_match(struct task_struct *p, int cpu);
+int
+task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
