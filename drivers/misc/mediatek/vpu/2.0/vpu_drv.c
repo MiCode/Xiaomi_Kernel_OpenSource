@@ -295,6 +295,7 @@ int vpu_put_request_to_pool(struct vpu_user *user, struct vpu_request *req)
 			if (IS_ERR(handle)) {
 				LOG_WRN("[vpu_drv] %s=0x%p failed!\n",
 					"import ion handle", handle);
+				return -EINVAL;
 			} else {
 				if (g_vpu_log_level > Log_STATE_MACHINE)
 					LOG_INF("[vpu_drv]cnt_%d,%s=0x%p\n",
