@@ -214,6 +214,29 @@ static enum UT_RET_STATE tmem_alloc_multithread_test(struct ut_params *params,
 	return UT_STATE_PASS;
 }
 
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+static enum UT_RET_STATE tmem_alloc_mixed_size(struct ut_params *params,
+					       char *test_desc)
+{
+	int ret;
+	enum TRUSTED_MEM_TYPE mem_type = params->param1;
+	int reg_final_state = params->param2;
+
+	UNUSED(reg_final_state);
+
+	pr_info("%s:%d\n", __func__, __LINE__);
+	if (ut_is_halt())
+		return UT_STATE_FAIL;
+
+	ASSERT_EQ(0, mem_handle_list_init(mem_type), "alloc handle list check");
+	ret = mem_alloc_mixed_size_test(mem_type, NULL, reg_final_state);
+	mem_handle_list_deinit();
+	ASSERT_EQ(0, ret, test_desc);
+
+	return UT_STATE_PASS;
+}
+#endif
+
 static enum UT_RET_STATE tmem_regmgr_run_all(struct ut_params *params,
 					     char *test_desc)
 {
@@ -701,6 +724,9 @@ static struct test_case test_cases[] = {
 	CASE(PMEM_UT_PROC_ALLOC_MULTITHREAD, "PROT Alloc Multi-thread",
 	     TRUSTED_MEM_PROT, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_alloc_multithread_test),
+	CASE(PMEM_UT_PROC_ALLOC_MIXED_SIZE, "PROT Alloc Diff Size",
+	     TRUSTED_MEM_PROT, REGMGR_REGION_FINAL_STATE_OFF, 0,
+	     tmem_alloc_mixed_size),
 	CASE(PMEM_UT_PROC_ALL, "PROT Run ALL", TRUSTED_MEM_PROT,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
 #endif
