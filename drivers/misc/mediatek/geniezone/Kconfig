@@ -34,7 +34,7 @@ config GZ_VPU_WITH_M4U
 	  dram, need use M4U to enlarge dram
 	  access over 4G.
 
-config GZ_SUPPORT_SDSP
+config MTK_GZ_SUPPORT_SDSP
 	bool "GenieZone support SDSP"
 	depends on MTK_GZ_KREE
 	help
