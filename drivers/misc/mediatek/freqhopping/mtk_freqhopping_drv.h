@@ -18,7 +18,8 @@
 #include "mtk_freqhopping.h"
 
 struct mt_fh_hal_driver {
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) || \
+	defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 	void (*fh_pll_set)(int pll_id, int field, int value);
 	int (*fh_pll_get)(int pll_id, int field);
 #endif
@@ -52,7 +53,8 @@ enum FH_DEVCTL_CMD_ID {
 	FH_DCTL_CMD_SSC_ENABLE = 0x1004,
 	FH_DCTL_CMD_SSC_DISABLE = 0x1005,
 	FH_DCTL_CMD_GENERAL_DFS = 0x1006,
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) || \
+	defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 	FH_DCTL_CMD_ARM_DFS = 0x1007,
 	FH_DCTL_CMD_MM_DFS = 0x1008,
 	FH_DCTL_CMD_FH_CONFIG = 0x1009,

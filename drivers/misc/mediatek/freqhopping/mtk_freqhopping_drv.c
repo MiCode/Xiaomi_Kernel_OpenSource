@@ -262,7 +262,8 @@ static int freqhopping_status_proc_read(struct seq_file *m, void *v)
 
 	seq_puts(m, "===============================================\r\n");
 	seq_printf(m, FH_STATUS_PROC_BANNER);
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) || \
+	defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 	for (i = 0; i < g_drv_pll_count; ++i) {
 		seq_printf(m, "%2d    %8d      %8d",
 				i, g_p_fh_hal_drv->fh_pll_get(i, FH_STATUS),
@@ -522,7 +523,8 @@ int freqhopping_config(unsigned int pll_id
 	, unsigned long vco_freq, unsigned int enable)
 {
 	struct freqhopping_ioctl fh_ctl;
-#ifndef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if !defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
+	!defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 	unsigned int fh_status;
 	unsigned long flags = 0;
 	unsigned int skip_flag = 0;
