@@ -1415,7 +1415,19 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 			goto ERR_EXIT;
 		}
 	}
-
+#if defined(CONFIG_MACH_MT6785)
+	/*just a workaround, since m4u design didn't define VPU_DATA*/
+	if (!(flags & (M4U_FLAGS_FIX_MVA | M4U_FLAGS_START_FROM))) {
+		M4U_MSG("%s,%d, vpu data, flags=0x%x\n",
+			__func__, __LINE__, flags);
+		if (port == M4U_PORT_VPU)
+			port = M4U_PORT_VPU_DATA;
+		dev = pseudo_get_larbdev(port);
+	} else {
+		M4U_MSG("%s,%d, vpu code, flags=0x%x\n",
+			__func__, __LINE__, flags);
+	}
+#endif
 	dma_map_sg_attrs(dev, table->sgl,
 			sg_table ? table->nents : table->orig_nents,
 			DMA_BIDIRECTIONAL,
