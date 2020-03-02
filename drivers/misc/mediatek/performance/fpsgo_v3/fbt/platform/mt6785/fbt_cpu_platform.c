@@ -102,9 +102,7 @@ int fbt_get_L_cluster_num(void)
 
 int fbt_get_L_min_ceiling(void)
 {
-	int freq = 1400000;
-
-	return freq;
+	return 0;
 }
 
 int fbt_get_default_boost_ta(void)
