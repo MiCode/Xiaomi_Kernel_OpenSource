@@ -1568,7 +1568,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 	scan_count =
 	sscanf(desc, "%d %31s %d %d %d %d %d %d", &klog_on, arg_name,
 		&mutt_level, &mutt_a, &mutt_s, &mutt_noIMS, &mutt_off1pa,
-		&mutt_off1ca));
+		&mutt_off1ca);
 
 	if (scan_count >= 1) {
 
