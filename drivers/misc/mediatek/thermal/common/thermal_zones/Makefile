@@ -299,7 +299,11 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_pmic1.o
+ifneq ($(CONFIG_CHARGER_BQ25601),)
+obj-$(CONFIG_THERMAL) += mtk_ts_btscharger.o
+else
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+endif
 
 ifneq ($(CONFIG_MTK_DUAL_CHARGER_SUPPORT),)
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
@@ -331,7 +335,11 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_pmic1.o
+ifneq ($(CONFIG_CHARGER_BQ25601),)
+obj-$(CONFIG_THERMAL) += mtk_ts_btscharger.o
+else
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+endif
 obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
