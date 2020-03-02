@@ -91,28 +91,28 @@ static unsigned int spm_sleep_count;
 
 int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return -1;
 }
 
 void __attribute__((weak)) mt_cirq_clone_gic(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_enable(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_flush(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_disable(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 static inline void spm_suspend_footprint(enum spm_suspend_step step)
@@ -317,7 +317,7 @@ u32 spm_get_sleep_wakesrc(void)
 /* extern int get_dlpt_imix_spm(void); */
 int __attribute__((weak)) get_dlpt_imix_spm(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return 0;
 }
 #endif

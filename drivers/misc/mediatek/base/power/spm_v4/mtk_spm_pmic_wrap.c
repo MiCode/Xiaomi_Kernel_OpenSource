@@ -27,18 +27,18 @@
  * Macro and Definition
  */
 #undef TAG
-#define TAG "[SPM_PWRAP]"
+#define TAG "[name:spm&][SPM_PWRAP]"
 #define spm_pwrap_crit(fmt, args...)	\
-	pr_err(TAG"[CRTT]"fmt, ##args)
+	printk_deferred(TAG"[CRTT]"fmt, ##args)
 #define spm_pwrap_err(fmt, args...)	\
-	pr_err(TAG"[ERR]"fmt, ##args)
+	printk_deferred(TAG"[ERR]"fmt, ##args)
 #define spm_pwrap_warn(fmt, args...)	\
-	pr_warn(TAG"[WARN]"fmt, ##args)
-/* pr_info(TAG""fmt, ##args) */
+	printk_deferred(TAG"[WARN]"fmt, ##args)
+/* printk_deferred(TAG""fmt, ##args) */
 #define spm_pwrap_info(fmt, args...)	\
-	pr_warn(TAG""fmt, ##args)
+	printk_deferred(TAG""fmt, ##args)
 #define spm_pwrap_debug(fmt, args...)	\
-	pr_debug(TAG""fmt, ##args)
+	printk_deferred(TAG""fmt, ##args)
 
 
 /*

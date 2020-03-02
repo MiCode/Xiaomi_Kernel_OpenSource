@@ -21,8 +21,8 @@
 #include <mt-plat/mtk_secure_api.h>
 #include <mtk_spm_reg.h>
 
-#define IDLE_TAG     "Power/swap"
-#define idle_err(fmt, args...)		pr_info(IDLE_TAG fmt, ##args)
+#define IDLE_TAG     "[name:spm&]Power/swap"
+#define idle_err(fmt, args...)		printk_deferred(IDLE_TAG fmt, ##args)
 
 #define NF_CLKMUX_PASS_CRITERIA     8
 #define NF_CLKMUX_COND_SET          9 /* NF_CLKMUX_PASS_CRITERIA + 1 */
