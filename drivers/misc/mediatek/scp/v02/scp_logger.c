@@ -24,10 +24,11 @@
 #include <linux/delay.h>
 
 #include <mt-plat/sync_write.h>
-#include "scp_ipi.h"
 #include "scp_helper.h"
+#include "scp_ipi_pin.h"
+#include "scp_mbox_layout.h"
 
-#define DRAM_BUF_LEN				(1 * 1024 * 1024)
+#define DRAM_BUF_LEN			(1 * 1024 * 1024)
 #define SCP_TIMER_TIMEOUT	        (1 * HZ) /* 1 seconds*/
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
 #define PLT_LOG_ENABLE              0x504C5402 /*magic*/
@@ -98,13 +99,19 @@ unsigned int r_pos_debug;
 unsigned int log_ctl_debug;
 static struct mutex scp_logger_mutex;
 
+/* ipi message buffer */
+struct SCP_LOG_INFO msg_logger_init;
+void *msg_logger_wk;
+
 /*
  * get log from scp when received a buf full notify
  * @param id:   IPI id
+ * @param prdata: IPI handler parameter
  * @param data: IPI data
  * @param len:  IPI data length
  */
-static void scp_logger_wakeup_handler(int id, void *data, unsigned int len)
+static void scp_logger_wakeup_handler(int id, void *prdata, void *data,
+				      unsigned int len)
 {
 	pr_debug("[SCP]wakeup by SCP logger\n");
 }
@@ -311,9 +318,9 @@ static unsigned int scp_A_log_enable_set(unsigned int enable)
 		enable = (enable) ? SCP_LOGGER_ON : SCP_LOGGER_OFF;
 		retrytimes = SCP_IPI_RETRY_TIMES;
 		do {
-			ret = scp_ipi_send(IPI_LOGGER_ENABLE,
-				&enable, sizeof(enable), 0, SCP_A_ID);
-			if (ret == SCP_IPI_DONE)
+			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_LOGGER_ENABLE_0,
+				0, &enable, PIN_OUT_SIZE_LOGGER_ENABLE_0, 0);
+			if (ret == IPI_ACTION_DONE)
 				break;
 			retrytimes--;
 			udelay(100);
@@ -321,12 +328,12 @@ static unsigned int scp_A_log_enable_set(unsigned int enable)
 		/*
 		 *disable/enable logger flag
 		 */
-		if ((ret == SCP_IPI_DONE) && (enable == 1))
+		if ((ret == IPI_ACTION_DONE) && (enable == 1))
 			SCP_A_log_ctl->enable = 1;
-		else if ((ret == SCP_IPI_DONE) && (enable == 0))
+		else if ((ret == IPI_ACTION_DONE) && (enable == 0))
 			SCP_A_log_ctl->enable = 0;
 
-		if (ret != SCP_IPI_DONE) {
+		if (ret != IPI_ACTION_DONE) {
 			pr_err("[SCP] %s: fail ret=%d\n", __func__, ret);
 			goto error;
 		}
@@ -353,9 +360,9 @@ static unsigned int scp_A_log_wakeup_set(unsigned int enable)
 		enable = (enable) ? 1 : 0;
 		retrytimes = SCP_IPI_RETRY_TIMES;
 		do {
-			ret = scp_ipi_send(IPI_LOGGER_WAKEUP, &enable,
-				sizeof(enable), 0, SCP_A_ID);
-			if (ret == SCP_IPI_DONE)
+			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_LOGGER_WAKEUP_0,
+				0, &enable, PIN_OUT_SIZE_LOGGER_WAKEUP_0, 0);
+			if (ret == IPI_ACTION_DONE)
 				break;
 			retrytimes--;
 			udelay(100);
@@ -363,12 +370,12 @@ static unsigned int scp_A_log_wakeup_set(unsigned int enable)
 		/*
 		 *disable/enable logger flag
 		 */
-		if ((ret == SCP_IPI_DONE) && (enable == 1))
+		if ((ret == IPI_ACTION_DONE) && (enable == 1))
 			scp_A_logger_wakeup_ap = 1;
-		else if ((ret == SCP_IPI_DONE) && (enable == 0))
+		else if ((ret == IPI_ACTION_DONE) && (enable == 0))
 			scp_A_logger_wakeup_ap = 0;
 
-		if (ret != SCP_IPI_DONE) {
+		if (ret != IPI_ACTION_DONE) {
 			pr_err("[SCP] %s: fail ret=%d\n", __func__, ret);
 			goto error;
 		}
@@ -532,10 +539,12 @@ DEVICE_ATTR(scp_A_mobile_log_UT, 0644,
 /*
  * IPI for logger init
  * @param id:   IPI id
- * @param data: IPI data
- * @param len:  IPI data length
+ * @param prdata: callback function parameter
+ * @param data:  IPI data
+ * @param len: IPI data length
  */
-static void scp_A_logger_init_handler(int id, void *data, unsigned int len)
+static void scp_logger_init_handler(int id, void *prdata, void *data,
+				    unsigned int len)
 {
 	unsigned long flags;
 	struct SCP_LOG_INFO *log_info = (struct SCP_LOG_INFO *)data;
@@ -573,15 +582,14 @@ static void scp_A_logger_init_handler(int id, void *data, unsigned int len)
  */
 static void scp_logger_notify_ws(struct work_struct *ws)
 {
-	struct scp_work_struct *sws =
-			container_of(ws, struct scp_work_struct, work);
-	unsigned int magic = 0x5A5A5A5A;
 	unsigned int retrytimes;
-	unsigned int scp_core_id = sws->id;
-	enum scp_ipi_status ret;
-	enum ipi_id scp_ipi_id;
+	int ret;
+	unsigned int scp_ipi_id;
+	unsigned int dram_info[2];
 
-	scp_ipi_id = IPI_LOGGER_INIT_A;
+	scp_ipi_id = IPI_OUT_LOGGER_INIT_0;
+	dram_info[0] = scp_get_reserve_mem_phys(SCP_A_LOGGER_MEM_ID);
+	dram_info[1] = scp_get_reserve_mem_size(SCP_A_LOGGER_MEM_ID);
 
 	pr_notice("[SCP] %s: id=%u\n", __func__, scp_ipi_id);
 	/*
@@ -589,24 +597,25 @@ static void scp_logger_notify_ws(struct work_struct *ws)
 	 */
 	retrytimes = SCP_IPI_RETRY_TIMES;
 	do {
-		ret = scp_ipi_send(scp_ipi_id,
-			&magic, sizeof(magic), 0, scp_core_id);
+		ret = mtk_ipi_send(&scp_ipidev, scp_ipi_id, 0, dram_info,
+				   PIN_OUT_SIZE_LOGGER_INIT_0, 0);
 		if ((retrytimes % 500) == 0)
 			pr_debug("[SCP] %s: ipi ret=%d\n", __func__, ret);
-		if (ret == SCP_IPI_DONE)
+		if (ret == IPI_ACTION_DONE)
 			break;
 		retrytimes--;
 		udelay(2000);
 	} while (retrytimes > 0);
 
 	/*enable logger flag*/
-	if (ret == SCP_IPI_DONE)
+	if (ret == IPI_ACTION_DONE)
 		SCP_A_log_ctl->enable = 1;
 	else {
 		/*scp logger ipi init fail but still let logger dump*/
 		SCP_A_log_ctl->enable = 1;
 		pr_err("[SCP]logger initial fail, ipi ret=%d\n", ret);
 	}
+
 }
 
 
@@ -666,13 +675,16 @@ int scp_logger_init(phys_addr_t start, phys_addr_t limit)
 	}
 
 	/* register logger ini IPI */
-	scp_ipi_registration(IPI_LOGGER_INIT_A, scp_A_logger_init_handler,
-			"loggerA");
+	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_INIT_0,
+			(void *)scp_logger_init_handler, NULL,
+			&msg_logger_init);
 	/* register log wakeup IPI */
-	scp_ipi_registration(IPI_LOGGER_WAKEUP, scp_logger_wakeup_handler,
-			"log wakeup");
+	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_WAKEUP_0,
+			(void *)scp_logger_wakeup_handler, NULL,
+			&msg_logger_wk);
 
 	scp_A_logger_inited = 1;
+
 	return last_ofs;
 
 error:
