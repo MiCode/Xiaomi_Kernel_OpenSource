@@ -17,7 +17,9 @@
 
 #include <mtk_spm.h>
 #include <mtk_sleep.h>
+#if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_cpuidle.h>
+#endif
 #include <mtk_spm_resource_req_internal.h>
 
 int __attribute__ ((weak)) mtk_cpuidle_init(void) { return -EOPNOTSUPP; }

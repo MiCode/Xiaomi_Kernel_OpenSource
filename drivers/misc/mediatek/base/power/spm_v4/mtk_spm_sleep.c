@@ -59,8 +59,7 @@
 #endif
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
-/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
+#ifdef CONFIG_MTK_CCCI_DEVICES
 #include <mt-plat/mtk_ccci_common.h>
 #endif
 
