@@ -28,8 +28,13 @@ DTB_LIST := $(dtb-y)
 endif
 DTB_OBJS := $(addprefix $(obj)/dts/,$(DTB_LIST))
 
+ifneq ($(wildcard $(BOARD_PREBUILT_DTBIMAGE_DIR)),)
 $(obj)/Image: vmlinux $(obj)/mtk.dtb FORCE
 	$(call if_changed,objcopy)
+else
+$(obj)/Image: vmlinux FORCE
+	$(call if_changed,objcopy)
+endif
 
 $(obj)/Image.bz2: $(obj)/Image FORCE
 	$(call if_changed,bzip2)
@@ -52,8 +57,10 @@ $(obj)/Image.lzo: $(obj)/Image FORCE
 $(obj)/Image.gz-dtb: $(obj)/Image.gz $(DTB_OBJS) FORCE
 	$(call if_changed,cat)
 
+ifneq ($(wildcard $(BOARD_PREBUILT_DTBIMAGE_DIR)),)
 $(obj)/mtk.dtb: $(DTB_OBJS) FORCE
 	$(call if_changed,cat)
+endif
 
 install:
 	$(CONFIG_SHELL) $(srctree)/$(src)/install.sh $(KERNELRELEASE) \
