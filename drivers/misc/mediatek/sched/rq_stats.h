@@ -11,9 +11,6 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-
-/* get kernel function */
-#include "../../../kernel/sched/sched.h"
 extern unsigned long boosted_cpu_util(int cpu, unsigned long other_util);
 extern void get_task_util(struct task_struct *p, unsigned long *util,
 		unsigned long *boost_util);
