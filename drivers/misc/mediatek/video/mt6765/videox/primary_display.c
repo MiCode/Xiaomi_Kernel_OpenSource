@@ -12,8 +12,7 @@
  */
 
 #include <linux/delay.h>
-#include <uapi/linux/sched/types.h>
-#include <linux/sched/clock.h>
+#include <linux/sched.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -26,7 +25,8 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
-
+#include <linux/sched/clock.h>
+#include <uapi/linux/sched/types.h>
 #include "disp_drv_platform.h"
 #ifdef MTK_FB_ION_SUPPORT
 #include "mtk_ion.h"
@@ -54,6 +54,7 @@
 #include "cmdq_reg.h"
 #include "cmdq_core.h"
 #include "ddp_rdma.h"
+#include "ddp_rdma_ex.h"
 #include "ddp_manager.h"
 #include "mtkfb_fence.h"
 #include "display_recorder.h"
@@ -79,7 +80,7 @@
 
 #include "ddp_clkmgr.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mmdvfs_mgr.h"
+//#include "mmdvfs_mgr.h"
 #include "mtk_vcorefs_governor.h"
 #include "mtk_vcorefs_manager.h"
 #endif
@@ -188,7 +189,6 @@ static int od_need_start;
 /* dvfs */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 static int dvfs_last_ovl_req = HRT_LEVEL_NUM - 1;
-static unsigned int ovl_throughput_freq_req;
 #endif
 
 /* delayed trigger */
@@ -214,8 +214,33 @@ static int primary_display_get_round_corner_mva(
 	unsigned int *pitch, unsigned int *height, unsigned int *height_bot);
 #endif
 
+/* Must manipulate wake lock through lock_primary_wake_lock() */
 /* hold the wakelock to make kernel awake when primary display is on*/
 struct wakeup_source pri_wk_lock;
+
+/* Notice: should hold path lock before call this function */
+void lock_primary_wake_lock(bool lock)
+{
+	static bool is_locked;
+
+	if (lock) {
+		if (is_locked)
+			DISPMSG("wake lock already held...\n");
+		else {
+			DISPMSG("hold the wakelock...\n");
+			__pm_stay_awake(&pri_wk_lock);
+			is_locked = 1;
+		}
+	} else {
+		if (is_locked) {
+			DISPMSG("release wakelock...\n");
+			__pm_relax(&pri_wk_lock);
+			is_locked = 0;
+		} else
+			DISPMSG("wake lock already free...\n");
+	}
+
+}
 
 static int smart_ovl_try_switch_mode_nolock(void);
 
@@ -648,7 +673,7 @@ static int primary_show_basic_debug_info(struct disp_frame_cfg_t *cfg)
 		primary_display_is_video_mode() ? "vdo," : "cmd,");
 	screen_logger_add_message("mode", MESSAGE_REPLACE, disp_tmp);
 
-	for (i = 0; TOTAL_OVL_LAYER_NUM; i++) {
+	for (i = 0; i < TOTAL_OVL_LAYER_NUM; i++) {
 		if (cfg->input_cfg[i].tgt_offset_y == 0 &&
 		    cfg->input_cfg[i].layer_enable) {
 			dst_layer_id =
@@ -1560,6 +1585,10 @@ void _cmdq_start_trigger_loop(void)
 	int ret = 0;
 
 	ret = cmdqRecStartLoop(pgc->cmdq_handle_trigger);
+	if (ret < 0) {
+		DISPERR("%s cmdq start loop fail\n", __func__);
+		return;
+	}
 	if (!primary_display_is_video_mode()) {
 		if (need_wait_esd_eof()) {
 			/* Need set esd check eof synctoken to
@@ -1589,6 +1618,8 @@ void _cmdq_stop_trigger_loop(void)
 	 * trigger loop will never stop
 	 */
 	ret = cmdqRecStopLoop(pgc->cmdq_handle_trigger);
+	if (ret < 0)
+		DISPERR("%s cmdq stop loop fail\n", __func__);
 	DISPINFO("primary display STOP cmdq trigger loop finished\n");
 }
 
@@ -1798,9 +1829,8 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 	}
 	cmdqRecReset(cmdq_wait_handle);
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-		HRT_LEVEL_NUM - 1,
-		layering_rule_get_mm_freq_table(HRT_OPP_LEVEL_LEVEL0));
+	primary_display_request_dvfs_perf(0,
+		HRT_LEVEL_NUM - 1);
 #endif
 	/* configure config thread */
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
@@ -1928,11 +1958,18 @@ static int init_sec_buf(void)
 {
 	/* int height = primary_display_get_height(); */
 	/* int width = primary_display_get_width(); */
-	int height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
-	int width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
-	int Bpp = primary_display_get_bpp() / 8;
-	int buffer_size = width * height * Bpp;
-	int ret  = 0;
+	int height = 0, width = 0, Bpp = 0;
+	int buffer_size = 0, ret = 0;
+
+	height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
+	if (height == 0)
+		DISPERR(" error, lcm height is null!\n");
+	width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
+	if (width == 0)
+		DISPERR("error, lcm width is null!\n");
+	Bpp = primary_display_get_bpp() / 8;
+	buffer_size = width * height * Bpp;
+	ret  = 0;
 
 	if (sec_mva)
 		return 0;
@@ -1948,10 +1985,10 @@ static int init_sec_buf(void)
 
 static int deinit_sec_buf(void)
 {
-	int ret  = 0;
+
 
 	if (sec_mva) {
-		ret  = sec_buf_ion_free();
+		sec_buf_ion_free();
 		sec_mva = 0;
 		/* DISPMSG("deinit_sec_mva 0x%x\n", sec_mva); */
 	}
@@ -2060,7 +2097,7 @@ static int _DL_switch_to_DC_fast(int block)
 	/* Switch to lower gear */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	primary_display_request_dvfs_perf(
-		MMDVFS_SCEN_DISP, HRT_LEVEL_LEVEL0, 0);
+		0, HRT_LEVEL_LEVEL0);
 #endif
 	/* ddp_mmp_rdma_layer(&rdma_config, 0, 20, 20); */
 
@@ -2222,8 +2259,7 @@ static int _DC_switch_to_DL_fast(int block)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* switch back to last request gear */
 	primary_display_request_dvfs_perf(
-		MMDVFS_SCEN_DISP, dvfs_last_ovl_req,
-		ovl_throughput_freq_req);
+		0, dvfs_last_ovl_req);
 #endif
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
@@ -2758,7 +2794,7 @@ static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
 int _trigger_display_interface(int blocking, void *callback,
 	unsigned int userdata)
 {
-	int ret;
+	int ret = 0, x = 0, y = 0, width = 0, height = 0;
 
 	DISPFUNC();
 	if (_should_wait_path_idle()) {
@@ -2770,10 +2806,19 @@ int _trigger_display_interface(int blocking, void *callback,
 	}
 
 	if (_should_update_lcm()) {
-		int x = disp_helper_get_option(DISP_OPT_FAKE_LCM_X);
-		int y = disp_helper_get_option(DISP_OPT_FAKE_LCM_Y);
-		int width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
-		int height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
+		x = disp_helper_get_option(DISP_OPT_FAKE_LCM_X);
+		if (x)
+			DISPERR("error, lcm fake x is %d\n", x);
+		y = disp_helper_get_option(DISP_OPT_FAKE_LCM_Y);
+		if (y)
+			DISPERR("error, lcm fake y is %d\n", y);
+		width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
+		if (width == 0)
+			DISPERR("error, lcm fake width is null\n");
+
+		height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
+		if (height == 0)
+			DISPERR("error, lcm fake height is null\n");
 
 		disp_lcm_update(pgc->plcm, x, y, width, height, 0);
 	}
@@ -2916,6 +2961,10 @@ static int __primary_check_trigger(void)
 		if (!handle)
 			ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP,
 				&handle);
+			if (ret) {
+				DISPERR("%s CMDQ create fail\n", __func__);
+				goto out;
+			}
 		cmdqRecReset(handle);
 
 		primary_display_idlemgr_kick((char *)__func__, 0);
@@ -3079,7 +3128,7 @@ int primary_display_change_lcm_resolution(unsigned int width,
 
 static int _wdma_fence_release_callback(unsigned long userdata)
 {
-	int fence_idx, layer;
+	int fence_idx = 0, layer;
 
 	layer = disp_sync_get_output_timeline_id();
 
@@ -3098,7 +3147,7 @@ static int _Interface_fence_release_callback(unsigned long userdata)
 
 #ifdef _DEBUG_DITHER_HANG_
 	if (primary_display_is_video_mode()) {
-		unsigned int status;
+		unsigned int status = 0;
 
 		cmdqBackupReadSlot(pgc->dither_status_info, 0, &status);
 		if ((status) != 0x10001) {
@@ -3154,6 +3203,9 @@ static int _decouple_update_rdma_config_nolock(void)
 	int composed_size =
 		disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT) *
 		disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH) * 3;
+	if (composed_size == 0) {
+		DISPERR("error,lcm fake height or fake width is null\n");
+	}
 
 	if (primary_display_is_decouple_mode()) {
 		static struct cmdqRecStruct *cmdq_handle;
@@ -3276,12 +3328,11 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 	real_hrt_level >>= 16;
 
 	_primary_path_lock(__func__);
-
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	if ((real_hrt_level >= dvfs_last_ovl_req) &&
 	    (!primary_display_is_decouple_mode()))
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			dvfs_last_ovl_req, ovl_throughput_freq_req);
+		primary_display_request_dvfs_perf(0,
+			dvfs_last_ovl_req);
 #endif
 	_primary_path_unlock(__func__);
 
@@ -3705,16 +3756,17 @@ static int update_primary_intferface_module(void)
 
 static void replace_fb_addr_to_mva(void)
 {
-#ifdef CONFIG_MTK_M4U
+#if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V2)
 	struct ddp_fb_info fb_info;
-
+	int i;
 	fb_info.fb_mva = pgc->framebuffer_mva;
 	fb_info.fb_pa = pgc->framebuffer_pa;
 	fb_info.fb_size = DISP_GetFBRamSize();
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 		DDP_OVL_MVA_REPLACEMENT, &fb_info);
-	DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD(1, 0),
-		DISPSYS_SMI_LARB0_BASE + 0x380, 0x1);
+	for (i = 0; i < 4; i++)
+		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
+			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, 0x1);
 #endif
 }
 
@@ -3887,7 +3939,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 	dpmgr_path_set_video_mode(pgc->dpmgr_handle,
 		primary_display_is_video_mode());
-	DISPDBG("primary_display_init->dpmgr_path_init\n");
+	DISPDBG("%s->dpmgr_path_init\n", __func__);
 	dpmgr_path_init(pgc->dpmgr_handle, use_cmdq);
 
 	/*
@@ -3918,7 +3970,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 		_cmdq_start_trigger_loop();
 	}
 
-	DISPINFO("primary_display_init->dpmgr_path_config\n");
+	DISPINFO("%s->dpmgr_path_config\n", __func__);
 
 	data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 	memcpy(&(data_config->dispif_config), lcm_param,
@@ -3957,7 +4009,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	gset_arg.is_decouple_mode = 0;
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 		DDP_OVL_GOLDEN_SETTING, &gset_arg);
-	replace_fb_addr_to_mva();
+	if (disp_helper_get_option(DISP_OPT_USE_M4U))
+		replace_fb_addr_to_mva();
 
 	if (is_lcm_inited) {
 		/* ??? why need */
@@ -3978,7 +4031,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	}
 	if (!ret)
 		primary_display_set_lcm_power_state_nolock(LCM_ON);
-	DISPCHECK("primary_display_init->dpmgr_path_start\n");
+	DISPCHECK("%s->dpmgr_path_start\n", __func__);
 	/* path start must after lcm init for video mode
 	 * because dsi_start will set mode
 	 */
@@ -3989,10 +4042,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 		_cmdq_reset_config_handle();
 	}
 
-#ifdef CONFIG_MTK_M4U
-	config_display_m4u_port();
-#endif
-
+	if (disp_helper_get_option(DISP_OPT_USE_M4U))
+		config_display_m4u_port();
 
 	if (use_cmdq)
 		_cmdq_insert_wait_frame_done_token_mira(
@@ -4111,12 +4162,12 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	ret = switch_dev_register(&disp_switch_data);
 #endif
 
-	DISPCHECK("primary_display_init done\n");
+	DISPCHECK("%s done\n", __func__);
 
 done:
 	DISPDBG("init and hold wakelock...\n");
 	wakeup_source_init(&pri_wk_lock, "pri_disp_wakelock");
-	__pm_stay_awake(&pri_wk_lock);
+	lock_primary_wake_lock(1);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		primary_display_diagnose();
@@ -4510,9 +4561,14 @@ int primary_display_wait_for_vsync(void *config)
 	}
 
 out:
-	c->vsync_ts = ts;
-	c->vsync_cnt++;
-	c->lcm_fps = pgc->lcm_refresh_rate;
+	if (c != NULL) {
+		c->vsync_ts = ts;
+		c->vsync_cnt++;
+		c->lcm_fps = pgc->lcm_refresh_rate;
+	} else {
+		DISPWARN("vsync config pointer is NULL\n");
+	}
+
 
 	return ret;
 }
@@ -4572,7 +4628,7 @@ int primary_display_suspend(void)
 {
 	enum DISP_STATUS ret = DISP_STATUS_OK;
 
-	DISPCHECK("primary_display_suspend begin\n");
+	DISPCHECK("%s begin\n", __func__);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_START, 0, 0);
 	primary_display_idlemgr_kick(__func__, 1);
@@ -4591,13 +4647,13 @@ int primary_display_suspend(void)
 
 	while (primary_get_state() == DISP_BLANK) {
 		_primary_path_unlock(__func__);
-		DISPCHECK("primary_display_suspend wait tui finish!!\n");
+		DISPCHECK("p%s wait tui finish!!\n", __func__);
 #if 0 //def CONFIG_TRUSTONIC_TRUSTED_UI
 		switch_set_state(&disp_switch_data, DISP_SLEPT);
 #endif
 		primary_display_wait_state(DISP_ALIVE, MAX_SCHEDULE_TIMEOUT);
 		_primary_path_lock(__func__);
-		DISPCHECK("primary_display_suspend wait tui done stat=%d\n",
+		DISPCHECK("%s wait tui done stat=%d\n", __func__,
 			primary_get_state());
 	}
 
@@ -4661,6 +4717,13 @@ int primary_display_suspend(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_PULSE, 0, 2);
 
+/* SW workaround.
+ * Disable polling RDMA output line isn't 0 && RDMA status is run,
+ * before path stop.
+ */
+	if (!primary_display_is_video_mode())
+		polling_rdma_output_line_enable = 0;
+
 	if (disp_helper_get_option(DISP_OPT_USE_CMDQ)) {
 		DISPCHECK("[POWER]display cmdq trigger loop stop\n");
 		_cmdq_stop_trigger_loop();
@@ -4693,6 +4756,9 @@ int primary_display_suspend(void)
 			primary_display_set_lcm_power_state_nolock(
 				LCM_ON_LOW_POWER);
 		}
+		DISPINFO("[POWER]primary display path Release Fence[begin]\n");
+		primary_suspend_release_fence();
+		DISPINFO("[POWER]primary display path Release Fence[end]\n");
 	} else if (primary_display_get_power_mode_nolock() == FB_SUSPEND) {
 		DISPCHECK("[POWER]lcm suspend[begin]\n");
 		disp_lcm_suspend(pgc->plcm);
@@ -4739,8 +4805,7 @@ done:
 	if (primary_display_get_power_mode_nolock() == DOZE_SUSPEND)
 		primary_display_esd_check_enable(0);
 
-	DISPDBG("release wakelock...\n");
-	__pm_relax(&pri_wk_lock);
+	lock_primary_wake_lock(0);
 
 	_primary_path_unlock(__func__);
 	disp_sw_mutex_unlock(&(pgc->capture_lock));
@@ -4753,12 +4818,12 @@ done:
 	primary_trigger_cnt = 0;
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_END, 0, 0);
-	DISPCHECK("primary_display_suspend end\n");
+	DISPCHECK("%s end\n", __func__);
 	ddp_clk_check();
 	/* set MMDVFS to default, do not prevent it from stepping into ULPM */
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-		HRT_LEVEL_DEFAULT, 0);
+	primary_display_request_dvfs_perf(0,
+		HRT_LEVEL_DEFAULT);
 #endif
 	return ret;
 }
@@ -4788,6 +4853,10 @@ static int check_switch_lcm_mode_for_debug(void)
 		return 0;
 
 	lcm_param_cv = disp_lcm_get_params(pgc->plcm);
+	if (lcm_param_cv == NULL) {
+		DISPERR("(%s)lcm_param_cv == NULL\n", __func__);
+		return 0;
+	}
 	DISPCHECK("lcm_mode_status=%d, lcm_param_cv->dsi.mode %d\n",
 		  lcm_mode_status, lcm_param_cv->dsi.mode);
 	if (lcm_param_cv->dsi.mode != CMD_MODE)
@@ -4808,12 +4877,46 @@ static int check_switch_lcm_mode_for_debug(void)
 		MMPROFILE_FLAG_PULSE, 0, lcm_mode_status);
 	lcm_mode_status = 0;
 	set_esd_check_mode(GPIO_EINT_MODE);
-	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))
-		primary_display_sodi_rule_init();
 	DISPDBG("lcm_mode_status=%d, lcm_dsi_mode=%d\n",
 		lcm_mode_status, lcm_dsi_mode);
 
 	return 1;
+}
+
+int primary_display_lcm_power_on_state(int alive)
+{
+	int skip_update = 0;
+
+	if (primary_display_get_power_mode_nolock() == DOZE) {
+		if (primary_display_get_lcm_power_state_nolock() !=
+			LCM_ON_LOW_POWER) {
+
+			if (pgc->plcm->drv->aod)
+				disp_lcm_aod(pgc->plcm, 1);
+			else if (!alive)
+				disp_lcm_resume(pgc->plcm);
+
+			primary_display_set_lcm_power_state_nolock(
+				LCM_ON_LOW_POWER);
+		} else
+			skip_update = 1;
+	} else if (primary_display_get_power_mode_nolock() == FB_RESUME) {
+		if (primary_display_get_lcm_power_state_nolock() != LCM_ON) {
+			DISPDBG("[POWER]lcm resume[begin]\n");
+
+			if (primary_display_get_lcm_power_state_nolock() !=
+				LCM_ON_LOW_POWER) {
+				disp_lcm_resume(pgc->plcm);
+			} else {
+				disp_lcm_aod(pgc->plcm, 0);
+				skip_update = 1;
+			}
+			DISPCHECK("[POWER]lcm resume[end]\n");
+			primary_display_set_lcm_power_state_nolock(LCM_ON);
+		}
+	}
+
+	return skip_update;
 }
 
 int primary_display_resume(void)
@@ -4833,6 +4936,7 @@ int primary_display_resume(void)
 
 	_primary_path_lock(__func__);
 	if (pgc->state == DISP_ALIVE) {
+		primary_display_lcm_power_on_state(1);
 		DISPCHECK("primary display path is already resume, skip\n");
 		goto done;
 	}
@@ -4841,7 +4945,7 @@ int primary_display_resume(void)
 
 	if (is_ipoh_bootup) {
 		DISPCHECK(
-			"[primary display path] leave primary_display_resume -- IPOH\n");
+			"[primary display path] leave %s -- IPOH\n", __func__);
 		DISPCHECK("ESD check start[begin]\n");
 		primary_display_esd_check_enable(1);
 		DISPCHECK("ESD check start[end]\n");
@@ -4868,8 +4972,12 @@ int primary_display_resume(void)
 	dpmgr_path_power_on(pgc->dpmgr_handle, CMDQ_DISABLE);
 
 	/*Exit PD mode*/
-	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))
-		ddp_set_spm_mode(DDP_CG_MODE, NULL);
+	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT)) {
+		if (disp_helper_get_option(DISP_OPT_CV_BYSUSPEND))
+			primary_display_sodi_rule_init();
+		else
+			ddp_set_spm_mode(DDP_CG_MODE, NULL);
+	}
 
 	if (disp_helper_get_option(DISP_OPT_MET_LOG))
 		set_enterulps(0);
@@ -4916,6 +5024,11 @@ int primary_display_resume(void)
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 			MMPROFILE_FLAG_PULSE, 1, 2);
 		lcm_param = disp_lcm_get_params(pgc->plcm);
+		if (lcm_param == NULL) {
+			DISPERR("(%s)lcm_param == NULL\n", __func__);
+			ret = -1;
+			goto done;
+		}
 
 		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 		memcpy(&(data_config->dispif_config), lcm_param,
@@ -4992,32 +5105,7 @@ int primary_display_resume(void)
 	DISPCHECK("[POWER]dpmanager re-init[end]\n");
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_PULSE, 0, 3);
-
-	if (primary_display_get_power_mode_nolock() == DOZE) {
-		if (primary_display_get_lcm_power_state_nolock() !=
-			LCM_ON_LOW_POWER) {
-			if (pgc->plcm->drv->aod)
-				disp_lcm_aod(pgc->plcm, 1);
-			else
-				disp_lcm_resume(pgc->plcm);
-			primary_display_set_lcm_power_state_nolock(
-				LCM_ON_LOW_POWER);
-		}
-	} else if (primary_display_get_power_mode_nolock() == FB_RESUME) {
-		if (primary_display_get_lcm_power_state_nolock() != LCM_ON) {
-			DISPCHECK("[POWER]lcm resume[begin]\n");
-			if (primary_display_get_lcm_power_state_nolock() !=
-				LCM_ON_LOW_POWER) {
-				disp_lcm_resume(pgc->plcm);
-			} else {
-				disp_lcm_aod(pgc->plcm, 0);
-				skip_update = 1;
-			}
-			DISPCHECK("[POWER]lcm resume[end]\n");
-			primary_display_set_lcm_power_state_nolock(LCM_ON);
-		}
-	}
-
+	skip_update = primary_display_lcm_power_on_state(0);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_PULSE, 0, 4);
 	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
@@ -5031,6 +5119,14 @@ int primary_display_resume(void)
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_PULSE, 0, 5);
+
+/* SW workaround.
+ * Enable polling RDMA output line isn't 0 && RDMA status is run,
+ * before path resume.
+ */
+	if (!primary_display_is_video_mode())
+		polling_rdma_output_line_enable = 1;
+
 	DISPINFO("[POWER]dpmgr path start[begin]\n");
 	dpmgr_path_start(pgc->dpmgr_handle, CMDQ_DISABLE);
 
@@ -5116,7 +5212,8 @@ int primary_display_resume(void)
 			DISP_PATH_EVENT_IF_VSYNC, DDP_IRQ_DSI0_EXT_TE);
 		dpmgr_enable_event(pgc->dpmgr_handle, DISP_PATH_EVENT_IF_VSYNC);
 
-		if (primary_display_get_power_mode_nolock() == FB_RESUME &&
+		if (((primary_display_get_power_mode_nolock() == FB_RESUME) ||
+			(primary_display_get_power_mode_nolock() == DOZE)) &&
 			!skip_update) {
 			/* refresh black picture of ovl bg */
 			_trigger_display_interface(1, NULL, 0);
@@ -5183,8 +5280,7 @@ done:
 	if (primary_display_get_power_mode_nolock() == DOZE)
 		primary_display_esd_check_enable(1);
 
-	DISPDBG("hold the wakelock...\n");
-	__pm_stay_awake(&pri_wk_lock);
+	lock_primary_wake_lock(1);
 
 	_primary_path_unlock(__func__);
 	DISPMSG("skip_update:%d\n", skip_update);
@@ -5199,6 +5295,182 @@ done:
 	return ret;
 }
 
+int primary_display_aod_backlight(int level)
+{
+	int ret;
+
+	_primary_path_lock(__func__);
+
+	lock_primary_wake_lock(1);
+
+	if (pgc->state == DISP_ALIVE) {
+		DISPCHECK("primary display path is already resume, skip\n");
+		goto skip_resume;
+	}
+
+	dpmgr_path_power_on(pgc->dpmgr_handle, CMDQ_DISABLE);
+
+	dpmgr_path_reset(pgc->dpmgr_handle, CMDQ_DISABLE);
+	{
+		struct LCM_PARAMS *lcm_param;
+		struct disp_ddp_path_config *data_config;
+
+		/*
+		 * disconnect primary path first
+		 * because MMsys config register may not power off during
+		 * early suspend
+		 * BUT session mode may change in primary_display_switch_mode()
+		 */
+		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_ALL, NULL);
+		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+				NULL);
+		DISPCHECK("cmd/video mode=%d\n",
+				primary_display_is_video_mode());
+		dpmgr_path_set_video_mode(pgc->dpmgr_handle,
+				primary_display_is_video_mode());
+
+		dpmgr_path_connect(pgc->dpmgr_handle, CMDQ_DISABLE);
+
+		mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
+				MMPROFILE_FLAG_PULSE, 1, 2);
+		lcm_param = disp_lcm_get_params(pgc->plcm);
+
+		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+		memcpy(&(data_config->dispif_config), lcm_param,
+				sizeof(struct LCM_PARAMS));
+
+		data_config->dst_w =
+			disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
+		data_config->dst_h =
+			disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
+		if (lcm_param->type == LCM_TYPE_DSI) {
+			if (lcm_param->dsi.data_format.format ==
+					LCM_DSI_FORMAT_RGB888)
+				data_config->lcm_bpp = 24;
+			else if (lcm_param->dsi.data_format.format ==
+					LCM_DSI_FORMAT_RGB565)
+				data_config->lcm_bpp = 16;
+			else if (lcm_param->dsi.data_format.format ==
+					LCM_DSI_FORMAT_RGB666)
+				data_config->lcm_bpp = 18;
+		} else if (lcm_param->type == LCM_TYPE_DPI) {
+			if (lcm_param->dpi.format == LCM_DPI_FORMAT_RGB888)
+				data_config->lcm_bpp = 24;
+			else if (lcm_param->dpi.format == LCM_DPI_FORMAT_RGB565)
+				data_config->lcm_bpp = 16;
+			if (lcm_param->dpi.format == LCM_DPI_FORMAT_RGB666)
+				data_config->lcm_bpp = 18;
+		}
+
+		data_config->fps = pgc->lcm_fps;
+
+		data_config->dst_dirty = 1;
+
+		ret = dpmgr_path_config(pgc->dpmgr_handle, data_config, NULL);
+		data_config->dst_dirty = 0;
+	}
+
+	if (primary_display_get_lcm_power_state_nolock() != LCM_ON_LOW_POWER) {
+		if (pgc->plcm->drv->aod)
+			disp_lcm_aod(pgc->plcm, 1);
+		else
+			disp_lcm_resume(pgc->plcm);
+		primary_display_set_lcm_power_state_nolock(LCM_ON_LOW_POWER);
+	}
+
+	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
+		mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
+			 MMPROFILE_FLAG_PULSE, 1, 4);
+		DISPERR("didn't start display path but it's busy\n");
+		ret = -1;
+		/* goto done; */
+	}
+
+	dpmgr_path_start(pgc->dpmgr_handle, CMDQ_DISABLE);
+
+	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
+		mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
+			MMPROFILE_FLAG_PULSE, 1, 6);
+		DISPERR("didn't trigger display path but it's busy\n");
+		ret = -1;
+		/* goto done; */
+	}
+
+	DISPCHECK("%s start trig loop\n", __func__);
+	cmdqRecReset(pgc->cmdq_handle_trigger);
+	cmdqRecStartLoop(pgc->cmdq_handle_trigger);
+	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_STREAM_EOF);
+	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_CABC_EOF);
+
+	primary_set_state(DISP_ALIVE);
+
+skip_resume:
+
+	primary_display_setbacklight_nolock(level);
+
+	/* blocking flush before stop trigger loop */
+	_blocking_flush();
+
+	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
+		int event_ret;
+
+		mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
+				 MMPROFILE_FLAG_PULSE, 1, 2);
+		event_ret = dpmgr_wait_event_timeout(pgc->dpmgr_handle,
+				 DISP_PATH_EVENT_FRAME_DONE, HZ * 1);
+
+		mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
+				 MMPROFILE_FLAG_PULSE, 2, 2);
+		DISPCHECK("display path is busy now,wait frame done,event=%d\n",
+				event_ret);
+		if (event_ret <= 0) {
+			DISPERR("wait frame done in suspend timeout\n");
+			mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
+				 MMPROFILE_FLAG_PULSE, 3, 2);
+			primary_display_diagnose();
+			ret = -1;
+		}
+	}
+	DISPCHECK("%s stop trig loop\n", __func__);
+	_cmdq_stop_trigger_loop();
+
+	dpmgr_path_stop(pgc->dpmgr_handle, CMDQ_DISABLE);
+
+	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
+		mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
+			 MMPROFILE_FLAG_PULSE, 1, 4);
+		DISPERR("[POWER]stop display path failed, still busy\n");
+		dpmgr_path_reset(pgc->dpmgr_handle, CMDQ_DISABLE);
+		ret = -1;
+		/*
+		 * even path is busy(stop fail), we still need to
+		 * continue power off other module/devices
+		 */
+		/* goto done; */
+	}
+
+	if (primary_display_get_lcm_power_state_nolock() != LCM_ON_LOW_POWER) {
+		if (pgc->plcm->drv->aod)
+			disp_lcm_aod(pgc->plcm, 1);
+
+		primary_display_set_lcm_power_state_nolock(LCM_ON_LOW_POWER);
+	}
+
+	dpmgr_path_power_off(pgc->dpmgr_handle, CMDQ_DISABLE);
+
+	pgc->lcm_refresh_rate = 60;
+	/* pgc->state = DISP_SLEPT; */
+
+	primary_set_state(DISP_SLEPT);
+
+	lock_primary_wake_lock(0);
+
+	_primary_path_unlock(__func__);
+
+	DISPCHECK("%s end\n", __func__);
+
+	return 0;
+}
 int primary_display_ipoh_restore(void)
 {
 	DISPMSG("primary_display_ipoh_restore In\n");
@@ -5317,7 +5589,7 @@ static int primary_display_trigger_nolock(int blocking, void *callback,
 
 	last_primary_trigger_time = sched_clock();
 	if (is_switched_dst_mode) {
-		/* swith to vdo mode if trigger disp */
+		/* switch to vdo mode if trigger disp */
 		primary_display_switch_dst_mode(1);
 		is_switched_dst_mode = false;
 	}
@@ -6003,153 +6275,9 @@ static void rsz_in_out_roi(struct disp_frame_cfg_t *cfg,
 		data_config->rsz_dst_roi.height);
 }
 
-static int _is_overlap(struct disp_input_config *src,
-			       struct disp_input_config *dst)
-{
-	if ((src->tgt_offset_y + src->tgt_height <=
-			dst->tgt_offset_y) ||
-	    (dst->tgt_offset_y + dst->tgt_height <=
-		src->tgt_offset_y))
-		return 0;
-	else if ((src->tgt_offset_x + src->tgt_width <=
-			dst->tgt_offset_x) ||
-		(dst->tgt_offset_x + dst->tgt_width <=
-		src->tgt_offset_x))
-		return 0;
-
-	return 1;
-}
-
-/* This function can only check for YUV layer overlap*/
-/* Todo: modify this func to check YUV layer number */
-static int _is_yuv_overlap
-	(struct disp_frame_cfg_t *cfg)
-{
-	int i = 0, j = 0, is_yuv_overlap = 0;
-	unsigned int yuv_num = 0;
-	struct disp_input_config *yuv_cfg[cfg->input_layer_num];
-
-	/* input layer less than 2, have not YUV overlap */
-	if (cfg->input_layer_num < 2)
-		return 0;
-
-	/* filter YUV layer */
-	for (i = 0; i < cfg->input_layer_num; i++) {
-		struct disp_input_config *input_cfg = &cfg->input_cfg[i];
-		enum DISP_FORMAT src_fmt = input_cfg->src_fmt;
-
-		if (!input_cfg->layer_enable)
-			continue;
-
-		if (UFMT_GET_RGB(disp_fmt_to_unified_fmt(src_fmt)))
-			continue;
-		else {
-			yuv_cfg[yuv_num] = input_cfg;
-			yuv_num += 1;
-		}
-	}
-
-	/* YUV layer less than 2, have not YUV overlap */
-	if (yuv_num < 2)
-		return 0;
-
-	/* Calculate YUV overlap number */
-	for (i = 0; i < yuv_num - 1; i++)
-		for (j = i + 1; j < yuv_num; j++)
-			if (_is_overlap(yuv_cfg[i], yuv_cfg[j]))
-				is_yuv_overlap = 1;
-
-	DISPDBG("%s yuv_num=%d, is_yuv_overlap=%d\n",
-		__func__, yuv_num, is_yuv_overlap);
-	return is_yuv_overlap;
-}
-
-static void _ovl_yuv_throughput_freq_request
-	(struct disp_frame_cfg_t *cfg)
-{
-	int overlap_yuv_num = 0;
-	long long panel_height =
-		(long long)disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
-	long long panel_width =
-		(long long)disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
-	unsigned long long blank_ratio = 0;
-	unsigned long long pixel_total = 0;
-	unsigned long long blank_field = 0;
-	struct LCM_PARAMS *lcm_param;
-	int throughput_freq = 0;
-	unsigned long long throughput_freq_temp = 0;
-	enum HRT_OPP_LEVEL mm_dvfs_level;
-
-	/* if have yuv layer overlap, the overlap_yuv_num = 2 */
-	/* this is a workaround for two MM layer overlap */
-	overlap_yuv_num = _is_yuv_overlap(cfg) + 1;
-
-	/* have not overlay yuv layer */
-	if (overlap_yuv_num < 2) {
-		ovl_throughput_freq_req = 0;
-		return;
-	}
-
-	/* calculate ovl throughput frequence */
-	lcm_param = disp_lcm_get_params(pgc->plcm);
-
-	blank_field = (long long int)(((panel_height +
-		(long long)lcm_param->dsi.horizontal_sync_active +
-		(long long)lcm_param->dsi.horizontal_backporch +
-		(long long)lcm_param->dsi.horizontal_frontporch) *
-		(panel_width +
-		(long long)lcm_param->dsi.vertical_sync_active +
-		(long long)lcm_param->dsi.vertical_backporch +
-		(long long)lcm_param->dsi.vertical_frontporch)) -
-		(panel_height * panel_width));
-
-	pixel_total = panel_height * panel_width;
-
-	blank_ratio = blank_field * 10000;
-
-	if (pixel_total == 0) {
-		DISPERR(
-			"width or height of panel is 0! width=%lld, height=%lld\n",
-			panel_width, panel_height);
-		return;
-	}
-
-	do_div(blank_ratio, pixel_total);
-
-	throughput_freq_temp = panel_height * panel_width * overlap_yuv_num *
-		60 * (10000 + blank_ratio) * 10500;
-
-	do_div(throughput_freq_temp, 10000);
-	do_div(throughput_freq_temp, 10000);
-	do_div(throughput_freq_temp, 1000000);
-
-	throughput_freq = (int)throughput_freq_temp;
-
-	DISPDBG("%s throughput_freq=%d\n", __func__, throughput_freq);
-
-	/* Request MM freq, ensure MM Freq more than ovl throughput freq */
-	for (mm_dvfs_level = HRT_OPP_LEVEL_NUM - 1;
-		mm_dvfs_level >= HRT_OPP_LEVEL_LEVEL0;
-		mm_dvfs_level--) {
-		if (throughput_freq <
-				layering_rule_get_mm_freq_table
-					(mm_dvfs_level)) {
-			pm_qos_update_request(&primary_display_mm_freq_request,
-				layering_rule_get_mm_freq_table(mm_dvfs_level));
-			DISPDBG("%s request_mm_freq=%d\n",
-				__func__,
-				layering_rule_get_mm_freq_table(mm_dvfs_level));
-			ovl_throughput_freq_req =
-				layering_rule_get_mm_freq_table(mm_dvfs_level);
-			break;
-		}
-		ovl_throughput_freq_req = 0;
-	}
-}
-
 static void _ovl_sbch_invalid_config(struct cmdqRecStruct *cmdq_handle)
 {
-	int i = 0;
+	int i = 0, j = 0;
 	CMDQ_VARIABLE sbch_invalid_status;
 	CMDQ_VARIABLE result;
 	CMDQ_VARIABLE shift;
@@ -6158,8 +6286,8 @@ static void _ovl_sbch_invalid_config(struct cmdqRecStruct *cmdq_handle)
 	cmdq_op_init_variable(&result);
 	cmdq_op_init_variable(&shift);
 
-	for (i = 0; i < OVL_NUM; i++) {
-		unsigned long ovl_base = ovl_base_addr(i);
+	for (j = 0; j < OVL_NUM; j++) {
+		unsigned long ovl_base = ovl_base_addr(j);
 
 		if (ovl_base == 0)
 			continue;
@@ -6310,7 +6438,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	if ((hrt_level - dvfs_last_ovl_req) > 0 &&
 		(!primary_display_is_decouple_mode()))
 		primary_display_request_dvfs_perf(
-			MMDVFS_SCEN_DISP, hrt_level, 0);
+			0, hrt_level);
 
 	dvfs_last_ovl_req = hrt_level;
 #endif
@@ -6401,28 +6529,28 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	}
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	/* Adjust MM DVFS by ovl YUV throughput */
-	_ovl_yuv_throughput_freq_request(cfg);
-
 	/* display hrt request*/
 	if (primary_display_is_decouple_mode() &&
 		primary_display_is_mirror_mode()) {
 		/* if DCMirror mode(WFD/ScreenRecord), */
 		/* forced set dvfs to opp0 */
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			HRT_LEVEL_LEVEL3, ovl_throughput_freq_req);
+		primary_display_request_dvfs_perf(0,
+			HRT_LEVEL_LEVEL3);
 		dvfs_last_ovl_req = HRT_LEVEL_LEVEL3;
 	} else if (hrt_level > HRT_LEVEL_LEVEL2 &&
 		primary_display_is_directlink_mode()) {
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			HRT_LEVEL_LEVEL3, ovl_throughput_freq_req);
+		primary_display_request_dvfs_perf(0,
+			HRT_LEVEL_LEVEL3);
 		dvfs_last_ovl_req = HRT_LEVEL_LEVEL3;
 	} else if (hrt_level > HRT_LEVEL_LEVEL1 &&
 		primary_display_is_directlink_mode()) {
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			HRT_LEVEL_LEVEL2, ovl_throughput_freq_req);
+		primary_display_request_dvfs_perf(0,
+			HRT_LEVEL_LEVEL2);
 		dvfs_last_ovl_req = HRT_LEVEL_LEVEL2;
 	} else if (hrt_level > HRT_LEVEL_LEVEL0) {
+		if (dvfs_last_ovl_req == HRT_LEVEL_LEVEL0)
+			primary_display_request_dvfs_perf(0,
+					HRT_LEVEL_LEVEL1);
 		dvfs_last_ovl_req = HRT_LEVEL_LEVEL1;
 	} else {
 		dvfs_last_ovl_req = HRT_LEVEL_LEVEL0;
@@ -6645,7 +6773,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	 * (put these after config registers done)
 	 */
 	for (i = 0; i < cfg->input_layer_num; i++) {
-		unsigned int last_fence, cur_fence, sub;
+		unsigned int last_fence = 0, cur_fence, sub;
 		struct disp_input_config *input_cfg = &cfg->input_cfg[i];
 
 		layer = input_cfg->layer_id;
@@ -6700,7 +6828,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	/* check last ovl status: should be idle when config */
 	if (primary_display_is_video_mode() &&
 		!primary_display_is_decouple_mode()) {
-		/* mt6765 last OVL is DISP_MODULE_OVL0_2L */
+		/* last OVL is DISP_MODULE_OVL0_2L */
 		unsigned long ovl_base = ovl_base_addr(DISP_MODULE_OVL0_2L);
 
 		cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_status_info,
@@ -7687,7 +7815,7 @@ int primary_display_force_set_vsync_fps(unsigned int fps, unsigned int scenario)
 	}
 
 	DISPMSG(
-		"primary_display_force_set_vsync_fps scenario=%d, fps=%d\n",
+		"%s scenario=%d, fps=%d\n", __func__,
 		scenario, fps);
 
 	/* scenario is APP, and support ARR change fps */
@@ -7759,7 +7887,7 @@ int primary_display_force_set_vsync_fps(unsigned int fps, unsigned int scenario)
 		dynamic_fps_changed = 1;
 	}
 
-	DISPMSG("primary_display_force_set_vsync_fps done\n");
+	DISPMSG("%s done\n", __func__);
 
 	return ret;
 }
@@ -7807,7 +7935,7 @@ int _set_backlight_by_cmdq(unsigned int level)
 		disp_lcm_set_backlight(pgc->plcm, cmdq_handle_backlight, level);
 		/*Async flush by cmdq*/
 		_cmdq_flush_config_handle_mira(cmdq_handle_backlight, 0);
-		DISPMSG("[BL]_set_backlight_by_cmdq ret=%d\n", ret);
+		DISPMSG("[BL]%s ret=%d\n", __func__, ret);
 	} else {
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
 			MMPROFILE_FLAG_PULSE, 1, 3);
@@ -7825,7 +7953,7 @@ int _set_backlight_by_cmdq(unsigned int level)
 		_cmdq_flush_config_handle_mira(cmdq_handle_backlight, 1);
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
 			MMPROFILE_FLAG_PULSE, 1, 6);
-		DISPMSG("[BL]_set_backlight_by_cmdq ret=%d\n", ret);
+		DISPMSG("[BL]%s ret=%d\n", __func__, ret);
 	}
 	cmdqRecDestroy(cmdq_handle_backlight);
 	cmdq_handle_backlight = NULL;
@@ -7900,11 +8028,9 @@ int _set_backlight_by_cpu(unsigned int level)
 	return ret;
 }
 
-int primary_display_setbacklight(unsigned int level)
+int primary_display_setbacklight_nolock(unsigned int level)
 {
-	int ret = 0;
 	static unsigned int last_level;
-	bool aal_is_support = disp_aal_is_support();
 
 	DISPFUNC();
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL) {
@@ -7917,16 +8043,10 @@ int primary_display_setbacklight(unsigned int level)
 		return 0;
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
-		MMPROFILE_FLAG_START, 0, 0);
-
-	if (aal_is_support == false) {
-		_primary_path_switch_dst_lock();
-
-		_primary_path_lock(__func__);
-	}
+			 MMPROFILE_FLAG_START, 0, 0);
 
 	if (pgc->state == DISP_SLEPT) {
-		DISPWARN("Sleep State set backlight invald\n");
+		DISPCHECK("Sleep State set backlight invalid\n");
 	} else {
 		primary_display_idlemgr_kick(__func__, 0);
 		if (primary_display_cmdq_enabled()) {
@@ -7934,7 +8054,7 @@ int primary_display_setbacklight(unsigned int level)
 				mmprofile_log_ex(
 					ddp_mmp_get_events()->primary_set_bl,
 					MMPROFILE_FLAG_PULSE, 0, 7);
-				_set_backlight_by_cmdq(level);
+				disp_lcm_set_backlight(pgc->plcm, NULL, level);
 			} else {
 				_set_backlight_by_cmdq(level);
 			}
@@ -7945,15 +8065,29 @@ int primary_display_setbacklight(unsigned int level)
 		last_level = level;
 	}
 
+	mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
+			 MMPROFILE_FLAG_END, 0, 0);
+	return 0;
+}
+
+int primary_display_setbacklight(unsigned int level)
+{
+	bool aal_is_support = disp_aal_is_support();
+
+	if (aal_is_support == false) {
+		_primary_path_switch_dst_lock();
+		_primary_path_lock(__func__);
+	}
+
+	primary_display_setbacklight_nolock(level);
+
+
 	if (aal_is_support == false) {
 		_primary_path_unlock(__func__);
-
 		_primary_path_switch_dst_unlock();
 	}
 
-	mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
-		MMPROFILE_FLAG_END, 0, 0);
-	return ret;
+	return 0;
 }
 
 int _set_lcm_cmd_by_cmdq(unsigned int *lcm_cmd, unsigned int *lcm_count,
@@ -8053,9 +8187,10 @@ int primary_display_setlcm_cmd(unsigned int *lcm_cmd, unsigned int *lcm_count,
 int primary_display_mipi_clk_change(unsigned int clk_value)
 {
 	struct cmdqRecStruct *cmdq_handle = NULL;
+	int ret = 0;
 
 	if (pgc->state == DISP_SLEPT) {
-		DISPCHECK("Sleep State clk change invald\n");
+		DISPCHECK("Sleep State clk change invalid\n");
 		return 0;
 	}
 
@@ -8066,33 +8201,50 @@ int primary_display_mipi_clk_change(unsigned int clk_value)
 		return 0;
 	}
 
-	cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
-	cmdqRecReset(cmdq_handle);
+	ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
+	if (ret < 0)
+		DISPERR(" %s cmdqRecCreate fail\n", __func__);
+	ret = cmdqRecReset(cmdq_handle);
+	if (ret < 0)
+		DISPERR(" %s cmdqRecReset fail\n", __func__);
 
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
 	pgc->plcm->params->dsi.PLL_CLOCK = clk_value;
 
-	dpmgr_path_build_cmdq(pgc->dpmgr_handle, cmdq_handle,
+	ret = dpmgr_path_build_cmdq(pgc->dpmgr_handle, cmdq_handle,
 			      CMDQ_STOP_VDO_MODE, 0);
+	if (ret < 0)
+		DISPERR(" %s dpmgr_path_build_cmdq fail\n", __func__);
 
-	dpmgr_path_ioctl(primary_get_dpmgr_handle(), cmdq_handle,
+	ret = dpmgr_path_ioctl(primary_get_dpmgr_handle(), cmdq_handle,
 			 DDP_PHY_CLK_CHANGE, &clk_value);
+	if (ret < 0)
+		DISPERR(" %s dpmgr_path_ioctl fail\n", __func__);
 
-	dpmgr_path_build_cmdq(pgc->dpmgr_handle, cmdq_handle,
+	ret = dpmgr_path_build_cmdq(pgc->dpmgr_handle, cmdq_handle,
 			      CMDQ_START_VDO_MODE, 0);
+	if (ret < 0)
+		DISPERR(" %s dpmgr_path_build_cmdq fail\n", __func__);
 
-	cmdqRecClearEventToken(cmdq_handle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
-	cmdqRecClearEventToken(cmdq_handle, CMDQ_EVENT_DISP_RDMA0_EOF);
-
-	dpmgr_path_trigger(pgc->dpmgr_handle, cmdq_handle, CMDQ_ENABLE);
-	ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(pgc->dpmgr_handle),
+	ret = cmdqRecClearEventToken(cmdq_handle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
+	if (ret < 0)
+		DISPERR(" %s cmdqRecClearEventToken fail\n", __func__);
+	ret = cmdqRecClearEventToken(cmdq_handle, CMDQ_EVENT_DISP_RDMA0_EOF);
+	if (ret < 0)
+		DISPERR(" %s cmdqRecClearEvent fail\n", __func__);
+	ret = dpmgr_path_trigger(pgc->dpmgr_handle, cmdq_handle, CMDQ_ENABLE);
+	if (ret < 0)
+		DISPERR(" %s dpmgr_path_trigger fail\n", __func__);
+	ret = ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(pgc->dpmgr_handle),
 			       pgc->cmdq_handle_config_esd, 0);
+	if (ret < 0)
+		DISPERR(" %s ddp_mutex_set_sof_wait fail\n", __func__);
 	_cmdq_flush_config_handle_mira(cmdq_handle, 1);
 
 	cmdqRecDestroy(cmdq_handle);
 	cmdq_handle = NULL;
 
-	DISPCHECK("primary_display_mipi_clk_change return\n");
+	DISPCHECK("%s return\n", __func__);
 
 	_primary_path_unlock(__func__);
 
@@ -8392,9 +8544,9 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	}
 
 	disp_ion_get_mva(ion_display_client, ion_display_handle,
-		&mva, DISP_M4U_PORT_DISP_WDMA0);
+		&mva, 0, DISP_M4U_PORT_DISP_WDMA0);
 	disp_ion_cache_flush(ion_display_client, ion_display_handle,
-			     ION_CACHE_FLUSH_BY_RANGE);
+		ION_CACHE_INVALID_BY_RANGE);
 
 	tmp = disp_helper_get_option(DISP_OPT_SCREEN_CAP_FROM_DITHER);
 	if (tmp == 0)
@@ -8406,7 +8558,7 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 		_screen_cap_by_cpu((unsigned int)mva, ufmt, after_eng);
 
 	disp_ion_cache_flush(ion_display_client, ion_display_handle,
-		ION_CACHE_FLUSH_BY_RANGE);
+		ION_CACHE_INVALID_BY_RANGE);
 
 out:
 	if (ion_display_client)
@@ -8480,7 +8632,7 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 		_screen_cap_by_cpu(mva, ufmt, after_eng);
 
 	ret = m4u_cache_sync(m4uClient, DISP_M4U_PORT_DISP_WDMA0, pbuf,
-			     buffer_size, mva, M4U_CACHE_FLUSH_BY_RANGE);
+			     buffer_size, mva, M4U_CACHE_INVALID_BY_RANGE);
 
 out:
 	if (mva > 0)
@@ -8579,7 +8731,7 @@ UINT32 DISP_GetVRamSize(void)
 		/* Align vramSize to 1MB */
 		vramSize = ALIGN_TO_POW_OF_2(vramSize, 0x100000);
 
-		DISP_LOG("DISP_GetVRamSize: %u bytes\n", vramSize);
+		DISP_LOG("%s: %u bytes\n", __func__, vramSize);
 	}
 
 	return vramSize;
@@ -8799,7 +8951,8 @@ int Panel_Master_dsi_config_entry(const char *name, void *config_value)
 	dpmgr_path_reset(pgc->dpmgr_handle, CMDQ_DISABLE);
 	/*after dsi_stop, we should enable the DSI_TE/CMD_DONE.*/
 	dsi_basic_irq_enable(DISP_MODULE_DSI0, NULL);
-	if ((!strcmp(name, "PM_CLK")) || (!strcmp(name, "PM_SSC")))
+	if (((!strcmp(name, "PM_CLK")) || (!strcmp(name, "PM_SSC")))
+		&& (config_dsi != NULL))
 		Panel_Master_primary_display_config_dsi(name, *config_dsi);
 	else if (!strcmp(name, "PM_DDIC_CONFIG")) {
 		Panel_Master_DDIC_config();
@@ -8882,7 +9035,8 @@ int primary_display_switch_dst_mode(int mode)
 			ddp_mmp_get_events()->primary_display_switch_dst_mode,
 			MMPROFILE_FLAG_PULSE, 6, pgc->state);
 		DISPCHECK(
-			"[primary_display_switch_dst_mode], primary display path is already sleep, skip\n");
+			"[%s] primary display path is already sleep, skip\n",
+			__func__);
 		goto done;
 	}
 
@@ -8898,7 +9052,8 @@ int primary_display_switch_dst_mode(int mode)
 			ddp_mmp_get_events()->primary_display_switch_dst_mode,
 			MMPROFILE_FLAG_PULSE, 7, mode);
 		DISPCHECK(
-			"[primary_display_switch_dst_mode]not need switch,cur_mode:%d, switch_mode:%d\n",
+			"[%s]not need switch,cur_mode:%d, switch_mode:%d\n",
+			__func__,
 			primary_display_cur_dst_mode, mode);
 		goto done;
 	}
@@ -8910,8 +9065,8 @@ int primary_display_switch_dst_mode(int mode)
 			ddp_mmp_get_events()->primary_display_switch_dst_mode,
 			MMPROFILE_FLAG_PULSE, 8, mode);
 		DISPCHECK(
-			"[primary_display_switch_dst_mode]get lcm cmd fail primary_display_cur_dst_mode=%d mode=%d\n",
-			primary_display_cur_dst_mode, mode);
+			"[%s]get lcm cmd fail primary_display_cur_dst_mode=%d mode=%d\n",
+			__func__, primary_display_cur_dst_mode, mode);
 		goto done;
 	}
 
@@ -9392,7 +9547,7 @@ int display_enter_tui(void)
 	display_vsync_switch_to_dsi(1);
 	mmprofile_log_ex(ddp_mmp_get_events()->tui,
 		MMPROFILE_FLAG_PULSE, 0, 1);
-
+	_cmdq_flush_config_handle(1, NULL, 0);
 	_primary_path_unlock(__func__);
 	return 0;
 
@@ -9434,7 +9589,7 @@ int display_exit_tui(void)
 
 	mmprofile_log_ex(ddp_mmp_get_events()->tui, MMPROFILE_FLAG_END, 0, 0);
 	DISPMSG("TDDP: %s\n", __func__);
-	pr_info("[TUI-HAL] display_exit_tui() done\n");
+	pr_info("[TUI-HAL] %s() done\n", __func__);
 	return 0;
 }
 

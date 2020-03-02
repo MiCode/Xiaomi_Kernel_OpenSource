@@ -262,8 +262,8 @@ static int ovl2mem_callback(unsigned int userdata)
 
 	_ovl2mem_path_lock(__func__);
 
-	DISPINFO("ovl2mem_callback(%x), current tick=%d, release tick: %d\n",
-		pgcl->session, get_ovl2mem_ticket(), userdata);
+	DISPINFO("%s(%x), current tick=%d, release tick: %d\n",
+		__func__, pgcl->session, get_ovl2mem_ticket(), userdata);
 	for (layid = 0; layid < (MEMORY_SESSION_INPUT_LAYER_COUNT); layid++) {
 		cmdqBackupReadSlot(pgcl->ovl2mem_cur_config_fence,
 			layid, &fence_idx);
@@ -309,7 +309,7 @@ static int ovl2mem_callback(unsigned int userdata)
 			atomic_read(&g_release_ticket));
 
 	_ovl2mem_path_unlock(__func__);
-	DISPINFO("ovl2mem_callback done\n");
+	DISPINFO("%s done\n", __func__);
 
 	return 0;
 }
@@ -465,7 +465,7 @@ Exit:
 	mmprofile_log_ex(ddp_mmp_get_events()->ovl_trigger,
 		MMPROFILE_FLAG_PULSE, 0x01, 1);
 
-	DISPMSG("ovl2mem_init done\n");
+	DISPMSG("%s done\n", __func__);
 
 	return ret;
 }
@@ -477,7 +477,7 @@ int ovl2mem_trigger(int blocking, void *callback, unsigned int userdata)
 	DISPFUNC();
 
 	if (pgcl->need_trigger_path == 0) {
-		DISPMSG("ovl2mem_trigger do not trigger\n");
+		DISPMSG("%s do not trigger\n", __func__);
 		DISPMSG("%s (%x), configue input, but didn't config output!!\n",
 				__func__,
 				pgcl->session);
@@ -515,7 +515,7 @@ int ovl2mem_trigger(int blocking, void *callback, unsigned int userdata)
 		(atomic_read(&g_trigger_ticket)<<16) |
 		atomic_read(&g_release_ticket));
 
-	DISPINFO("ovl2mem_trigger done %d\n", get_ovl2mem_ticket());
+	DISPINFO("%s done %d\n", __func__, get_ovl2mem_ticket());
 
 	return ret;
 }
@@ -849,7 +849,7 @@ Exit:
 	mmprofile_log_ex(ddp_mmp_get_events()->ovl_trigger,
 		MMPROFILE_FLAG_END, 0x03, (loop_cnt<<24)|1);
 
-	DISPMSG("ovl2mem_deinit done\n");
+	DISPMSG("%s done\n", __func__);
 	return ret;
 }
 

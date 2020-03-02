@@ -378,7 +378,7 @@ const char *ddp_get_module_name(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module(module))
 		return ddp_modules[module].module_name;
 
-	DDPMSG("ddp_get_module_name: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return "unknown";
 }
 
@@ -387,7 +387,7 @@ unsigned int _can_connect(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module(module))
 		return ddp_modules[module].can_connect;
 
-	DDPMSG("_can_connect: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return 0;
 }
 
@@ -396,7 +396,7 @@ struct DDP_MODULE_DRIVER *ddp_get_module_driver(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module(module))
 		return ddp_modules[module].module_driver;
 
-	DDPMSG("ddp_get_module_driver: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return 0;
 }
 
@@ -423,7 +423,7 @@ unsigned int ddp_get_module_checkirq(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module_has_reg_info(module))
 		return ddp_modules[module].reg_info.reg_irq_check;
 
-	DDPMSG("ddp_get_module_checkirq: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return 0;
 }
 
@@ -432,7 +432,7 @@ unsigned long ddp_get_module_pa(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module_has_reg_info(module))
 		return ddp_modules[module].reg_info.reg_pa_check;
 
-	DDPMSG("ddp_get_module_pa: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return 0;
 }
 
@@ -441,7 +441,7 @@ unsigned int ddp_get_module_max_irq_bit(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module_has_reg_info(module))
 		return ddp_modules[module].reg_info.irq_max_bit;
 
-	DDPMSG("ddp_get_module_max_irq_bit: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return 0;
 }
 
@@ -477,7 +477,7 @@ void ddp_set_module_va(enum DISP_MODULE_ENUM module, unsigned long va)
 		return;
 	}
 
-	DDPMSG("ddp_set_module_va: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 }
 
 unsigned long ddp_get_module_va(enum DISP_MODULE_ENUM module)
@@ -495,7 +495,7 @@ void ddp_set_module_irq(enum DISP_MODULE_ENUM module, unsigned int irq)
 		return;
 	}
 
-	DDPMSG("ddp_set_module_irq: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 }
 
 unsigned int ddp_get_module_irq(enum DISP_MODULE_ENUM module)
@@ -503,7 +503,7 @@ unsigned int ddp_get_module_irq(enum DISP_MODULE_ENUM module)
 	if (is_ddp_module_has_reg_info(module))
 		return ddp_modules[module].reg_info.reg_irq;
 
-	DDPMSG("ddp_get_module_irq: invalid module id=%d\n", module);
+	DDPMSG("%s: invalid module id=%d\n", __func__, module);
 	return 0;
 }
 
@@ -526,8 +526,8 @@ unsigned int is_reg_addr_valid(unsigned int isVa, unsigned long addr)
 		return i;
 	}
 
-	DDPERR("is_reg_addr_valid return fail, isVa=0x%x, addr=0x%lx!\n",
-		isVa, addr);
+	DDPERR("%s: return fail, isVa=0x%x, addr=0x%lx!\n",
+		__func__, isVa, addr);
 	return 0;
 }
 

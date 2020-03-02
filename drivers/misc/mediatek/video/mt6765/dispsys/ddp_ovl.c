@@ -101,8 +101,9 @@ static inline unsigned long ovl_layer_num(enum DISP_MODULE_ENUM module)
 		return 2;
 	default:
 		DDPERR("invalid ovl module=%d\n", module);
-		return 0;
+		return -1;
 	}
+	return 0;
 }
 
 enum CMDQ_EVENT_ENUM ovl_to_cmdq_event_nonsec_end(enum DISP_MODULE_ENUM module)
@@ -118,7 +119,7 @@ enum CMDQ_EVENT_ENUM ovl_to_cmdq_event_nonsec_end(enum DISP_MODULE_ENUM module)
 		DDPERR("invalid ovl module=%d, get cmdq event nonsecure fail\n",
 			module);
 		ASSERT(0);
-		return CMDQ_SYNC_TOKEN_INVALID;
+		//return DISP_MODULE_UNKNOWN;
 	}
 	return 0;
 }
@@ -276,7 +277,8 @@ int ovl_roi(enum DISP_MODULE_ENUM module, unsigned int bg_w, unsigned int bg_h,
 	unsigned long ovl_base = ovl_base_addr(module);
 
 	if ((bg_w > OVL_MAX_WIDTH) || (bg_h > OVL_MAX_HEIGHT)) {
-		DDPERR("ovl_roi,exceed OVL max size, w=%d, h=%d\n", bg_w, bg_h);
+		DDPERR("%s: exceed OVL max size, w=%d, h=%d\n",
+			__func__, bg_w, bg_h);
 		ASSERT(0);
 	}
 
@@ -351,32 +353,27 @@ static int _ovl_lc_config(enum DISP_MODULE_ENUM module,
 	unsigned long ovl_base = ovl_base_addr(module);
 	struct disp_rect rsz_dst_roi = pconfig->rsz_dst_roi;
 	int rotate = 0;
-	u32 lc_x, lc_y, lc_w, lc_h;
+	u32 lc_x = 0, lc_y = 0, lc_w = pconfig->dst_w, lc_h = pconfig->dst_h;
 
 	#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
 		rotate = 1;
 	#endif
 
 	if (pconfig->rsz_enable) {
-		if (!rotate) {
-			lc_x = rsz_dst_roi.x;
-			lc_y = rsz_dst_roi.y;
-			lc_w = rsz_dst_roi.width;
-			lc_h = rsz_dst_roi.height;
-		} else {
-			lc_x = pconfig->dst_w - rsz_dst_roi.x -
-						rsz_dst_roi.width;
-			lc_y = pconfig->dst_h - rsz_dst_roi.y -
-						rsz_dst_roi.height;
-			lc_w = rsz_dst_roi.width;
-			lc_h = rsz_dst_roi.height;
-		}
-	} else {
-		lc_x = 0;
-		lc_y = 0;
-		lc_w = pconfig->dst_w;
-		lc_h = pconfig->dst_h;
+		lc_x = rsz_dst_roi.x;
+		lc_y = rsz_dst_roi.y;
+		lc_w = rsz_dst_roi.width;
+		lc_h = rsz_dst_roi.height;
 	}
+
+	if (rotate) {
+		unsigned int bg_w = 0, bg_h = 0;
+
+		_get_roi(module, &bg_w, &bg_h);
+		lc_y = bg_h - lc_h - lc_y;
+		lc_x = bg_w - lc_w - lc_x;
+	}
+
 	DISP_REG_SET_FIELD(handle, FLD_OVL_LC_XOFF,
 			   ovl_base + DISP_REG_OVL_LC_OFFSET, lc_x);
 	DISP_REG_SET_FIELD(handle, FLD_OVL_LC_YOFF,
@@ -953,7 +950,7 @@ int ovl_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 
 	if (ovl_is_sec[ovl_idx] == 1) {
 		/* ovl is in sec stat, we need to switch it to nonsec */
-		struct cmdqRecStruct *nonsec_switch_handle;
+		struct cmdqRecStruct *nonsec_switch_handle = NULL;
 		int ret;
 
 		ret = cmdqRecCreate(
@@ -1042,7 +1039,7 @@ static int setup_ovl_sec(enum DISP_MODULE_ENUM module,
 		ret = ovl_switch_to_nonsec(module, NULL);
 
 	if (ret)
-		DDPAEE("[SVP]fail to setup_ovl_sec: %s ret=%d\n",
+		DDPAEE("[SVP]fail to %s ret=%d\n",
 			__func__, ret);
 
 	return has_sec_layer;
@@ -1581,11 +1578,11 @@ static unsigned long long sbch_calc(enum DISP_MODULE_ENUM module,
 static int ovl_config_l(enum DISP_MODULE_ENUM module,
 	struct disp_ddp_path_config *pConfig, void *handle)
 {
-	int enabled_layers = 0;
+	unsigned int enabled_layers = 0;
 	int has_sec_layer = 0;
 	int layer_id;
 	int ovl_layer = 0;
-	int enabled_ext_layers = 0, ext_sel_layers = 0;
+	unsigned int enabled_ext_layers = 0, ext_sel_layers = 0;
 	struct golden_setting_context *golden_setting =
 		pConfig->p_golden_setting_context;
 	unsigned int Bpp, fps;
@@ -1633,7 +1630,7 @@ static int ovl_config_l(enum DISP_MODULE_ENUM module,
 	for (layer_id = 0; layer_id < TOTAL_REAL_OVL_LAYER_NUM; layer_id++) {
 		struct OVL_CONFIG_STRUCT *ovl_cfg =
 			&pConfig->ovl_config[layer_id];
-		int enable = ovl_cfg->layer_en;
+		unsigned int enable = ovl_cfg->layer_en;
 
 		if (enable == 0)
 			continue;
@@ -1741,6 +1738,11 @@ static int ovl_config_l(enum DISP_MODULE_ENUM module,
 			ovl_base_addr(module) + DISP_REG_OVL_SBCH_EXT, 0);
 	}
 
+	/* Enable SMI GDRDY */
+	DISP_REG_SET(handle,
+				ovl_base_addr(module) + DISP_REG_OVL_GDRDY_PRD,
+				0xFFFFFFFF);
+
 	DDPDBG("%s transparent bw:%llu, total bw:%llu\n",
 		ddp_get_module_name(module), full_trans_bw, ovl_bw);
 
@@ -1772,6 +1774,10 @@ int ovl_build_cmdq(enum DISP_MODULE_ENUM module, void *cmdq_trigger_handle,
 		if (module == DISP_MODULE_OVL0) {
 			ret = cmdqRecPoll(cmdq_trigger_handle,
 				0x14007240, 2, 0x3f);
+			if (ret) {
+				DDPERR("%s CMDQ POLL ERR\n", __func__);
+				return -1;
+			}
 		} else {
 			DDPERR("wrong module: %s\n",
 					ddp_get_module_name(module));
@@ -2237,6 +2243,19 @@ void ovl_dump_reg(enum DISP_MODULE_ENUM module)
 			DISP_REG_GET(DISP_REG_OVL_SBCH + offset),
 			DISP_REG_GET(DISP_REG_OVL_SBCH_EXT + offset),
 			DISP_REG_GET(DISP_REG_OVL_SBCH_EXT + offset));
+
+		DDPDUMP(
+			"OVL: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n",
+			0x238, INREG32(offset + 0x238),
+			0x240, INREG32(offset + 0x240),
+			0x244, INREG32(offset + 0x244),
+			0x24c, INREG32(offset + 0x24c));
+		DDPDUMP(
+			"OVL: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n",
+			0x250, INREG32(offset + 0x250),
+			0x254, INREG32(offset + 0x254),
+			0x258, INREG32(offset + 0x258),
+			0x25c, INREG32(offset + 0x25c));
 	}
 }
 

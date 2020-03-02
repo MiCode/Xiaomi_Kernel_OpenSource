@@ -95,7 +95,8 @@ bool fbconfig_start_LCM_config;
 #define DP_COLOR_BITS_PER_PIXEL(color) ((0x0003FF00 & color) >>  8)
 #endif
 
-
+static int ic_config_count;
+#define MAX_IC_CMD_LENGTH 2048
 struct dentry *ConfigPara_dbgfs;
 struct CONFIG_RECORD_LIST head_list;
 struct LCM_REG_READ reg_read;
@@ -199,6 +200,7 @@ static void free_list_memory(void)
 	else
 		pr_debug("*****list is NOT empty!!\n");
 
+	ic_config_count = 0;
 }
 
 static int fbconfig_open(struct inode *inode, struct file *file)
@@ -215,10 +217,12 @@ static int fbconfig_open(struct inode *inode, struct file *file)
 	pm_params->pLcm_drv = DISP_GetLcmDrv();
 	pm_params->pLcm_params = DISP_GetLcmPara();
 
-	if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI_DUAL)
-		pm_params->dsi_id = PM_DSI_DUAL;
-	else if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI1)
-		pm_params->dsi_id = PM_DSI1;
+	if (pm_params->pLcm_params != NULL) {
+		if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI_DUAL)
+			pm_params->dsi_id = PM_DSI_DUAL;
+		else if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI1)
+			pm_params->dsi_id = PM_DSI1;
+	}
 	return 0;
 }
 
@@ -302,7 +306,16 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	}
 	case DRIVER_IC_CONFIG:
 	{
-		struct CONFIG_RECORD_LIST *record_tmp_list =
+		struct CONFIG_RECORD_LIST *record_tmp_list = NULL;
+
+		if (ic_config_count > MAX_IC_CMD_LENGTH) {
+			pr_debug("fbconfig:config count exceed limit!\n");
+			/*free the memory && set ic_config_count = 0*/
+			free_list_memory();
+			return -EFAULT;
+		}
+
+		record_tmp_list =
 			kmalloc(sizeof(*record_tmp_list), GFP_KERNEL);
 		if (record_tmp_list == NULL)
 			return -ENOMEM;
@@ -316,6 +329,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 		list_add(&record_tmp_list->list, &head_list.list);
+		ic_config_count++;
 		return 0;
 	}
 	case DRIVER_IC_CONFIG_DONE:
@@ -357,6 +371,10 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		pr_debug("LCM_GET_DSI_CLK=>dsi:%d\n", clk);
+		if (clk < 63 || clk > 1250) {
+			pr_debug(" %s is too lower too larger\n", __func__);
+			return 0;
+		}
 		Panel_Master_dsi_config_entry("PM_CLK", &clk);
 		return 0;
 	}

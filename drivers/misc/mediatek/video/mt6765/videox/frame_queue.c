@@ -171,7 +171,7 @@ static int frame_wait_all_fence(struct disp_frame_cfg_t *cfg)
 static int fence_wait_worker_func(void *data);
 
 static int frame_queue_head_init(struct frame_queue_head_t *head,
-	int session_id)
+	unsigned int session_id)
 {
 	WARN_ON(head->inited);
 
@@ -179,6 +179,7 @@ static int frame_queue_head_init(struct frame_queue_head_t *head,
 	mutex_init(&head->lock);
 	head->session_id = session_id;
 	init_waitqueue_head(&head->wq);
+	head->worker = NULL;
 
 	/* create fence wait worker thread */
 	head->worker = kthread_run(fence_wait_worker_func,
@@ -258,7 +259,7 @@ static int frame_queue_size(struct frame_queue_head_t *head)
 
 struct frame_queue_t *frame_queue_node_create(void)
 {
-	struct frame_queue_t *node;
+	struct frame_queue_t *node = NULL;
 
 	node = kzalloc(sizeof(struct frame_queue_t), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(node)) {

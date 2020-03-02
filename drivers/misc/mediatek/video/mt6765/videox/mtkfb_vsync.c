@@ -38,6 +38,7 @@
 
 #include "mtkfb_vsync.h"
 #include "primary_display.h"
+#include "disp_drv_log.h"
 /* #include "extd_info.h" */
 
 static size_t mtkfb_vsync_on;
@@ -198,13 +199,15 @@ static int mtkfb_vsync_probe(struct platform_device *pdev)
 	struct class_device;
 	struct class_device *class_dev = NULL;
 	int ret = -1;
+	int alloc_ret = -1;
 
 	pr_info("\n=== MTKFB_VSYNC probe ===\n");
 
-	if (alloc_chrdev_region(&mtkfb_vsync_devno, 0,
-		1, MTKFB_VSYNC_DEVNAME)) {
-		pr_debug("can't get device major number...\n");
-		return -EFAULT;
+	alloc_ret = alloc_chrdev_region(&mtkfb_vsync_devno, 0,
+		1, MTKFB_VSYNC_DEVNAME);
+	if (alloc_ret) {
+		DISPERR("%s, alloc_chrdev_region failed!\n", __func__);
+		goto error;
 	}
 
 	pr_info("get device major number (%d)\n", mtkfb_vsync_devno);
@@ -217,16 +220,35 @@ static int mtkfb_vsync_probe(struct platform_device *pdev)
 
 	if (ret != 0) {
 		pr_debug("cdev_add Failed!\n");
-		return -EFAULT;
+		goto error;
 	}
 
 	mtkfb_vsync_class = class_create(THIS_MODULE, MTKFB_VSYNC_DEVNAME);
+	if (IS_ERR(mtkfb_vsync_class)) {
+		DISPERR("%s, class_create failed!\n", __func__);
+		goto error;
+	}
 	class_dev =
 	    (struct class_device *)device_create(mtkfb_vsync_class,
 	    NULL, mtkfb_vsync_devno, NULL, MTKFB_VSYNC_DEVNAME);
+	if (IS_ERR(class_dev)) {
+		DISPERR("%s, device_create failed!\n", __func__);
+		goto error;
+	}
 
 	pr_debug("probe is done\n");
 	return 0;
+error:
+	if (mtkfb_vsync_class)
+		class_destroy(mtkfb_vsync_class);
+
+	if (ret == 0)
+		cdev_del(mtkfb_vsync_cdev);
+
+	if (alloc_ret == 0)
+		unregister_chrdev_region(mtkfb_vsync_devno, 1);
+
+	return -EFAULT;
 }
 
 static int mtkfb_vsync_remove(struct platform_device *pdev)

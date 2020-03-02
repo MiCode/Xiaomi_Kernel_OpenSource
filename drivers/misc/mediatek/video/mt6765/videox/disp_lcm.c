@@ -1068,7 +1068,7 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 		}
 
 		lcmindex = 0;
-	} else
+		}
 #endif
 	if (_lcm_count() == 0) {
 		DISPERR("no lcm driver defined in linux kernel driver\n");

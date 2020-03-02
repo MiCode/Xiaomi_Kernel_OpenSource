@@ -43,6 +43,31 @@ struct DISP_EXEC_COMMAND {
 	uint32_t blockSize;
 };
 
+
+/* PQ */
+#define COLOR_TUNING_INDEX 19
+#define THSHP_TUNING_INDEX 12
+#define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
+#define PARTIAL_Y_INDEX 10
+
+#define GLOBAL_SAT_SIZE 10
+#define CONTRAST_SIZE 10
+#define BRIGHTNESS_SIZE 10
+#define PARTIAL_Y_SIZE 16
+#define PQ_HUE_ADJ_PHASE_CNT 4
+#define PQ_SAT_ADJ_PHASE_CNT 4
+#define PQ_PARTIALS_CONTROL 5
+#define PURP_TONE_SIZE 3
+#define SKIN_TONE_SIZE 8	/* (-6) */
+#define GRASS_TONE_SIZE 6	/* (-2) */
+#define SKY_TONE_SIZE 3
+#define CCORR_COEF_CNT 4 /* ccorr feature */
+
+
+
+
+
+
 enum DISP_INTERLACE_FORMAT {
 	DISP_INTERLACE_FORMAT_NONE,
 	DISP_INTERLACE_FORMAT_TOP_FIELD,
@@ -142,10 +167,9 @@ struct disp_iommu_device *disp_get_iommu_dev(void);
 /* Get CCORR interrupt */
 #define DISP_IOCTL_CCORR_GET_IRQ \
 	_IOR(DISP_IOCTL_MAGIC, 111, int)
-/* Get color transform support */
+
 #define DISP_IOCTL_SUPPORT_COLOR_TRANSFORM \
 	_IOW(DISP_IOCTL_MAGIC, 112, struct DISP_COLOR_TRANSFORM)
-
 
 /*---------------------------------------------------------------------------*/
 /*  DDP Kernel Mode API  (for Kernel Trap) */
