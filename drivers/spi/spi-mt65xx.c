@@ -161,7 +161,7 @@ static const struct mtk_spi_compatible mt8173_compat = {
 static const struct mtk_spi_compatible mt6771_compat = {
 	.need_pad_sel = true,
 	.enhance_timing = true,
-	.dma8g_peri_ext = true,
+	.dma8g_spi_ext = true,
 	.must_tx = true,
 };
 static const struct mtk_spi_compatible mt8183_compat = {
