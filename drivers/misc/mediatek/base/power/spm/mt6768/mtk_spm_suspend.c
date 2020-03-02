@@ -112,13 +112,13 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 		SMC_CALL(ARGS, SPM_ARGS_SUSPEND_FINISH, 0, 0);
 	}
 
+	if (is_infra_pdn(pwrctrl->pcm_flags))
+		mtk8250_restore_dev();
+
 	if (spm_dormant_sta < 0) {
 		aee_sram_printk("spm_dormant_sta %d", spm_dormant_sta);
 		pr_info("[SPM] spm_dormant_sta %d", spm_dormant_sta);
 	}
-
-	if (is_infra_pdn(pwrctrl->pcm_flags))
-		mtk8250_restore_dev();
 }
 
 static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
