@@ -40,6 +40,11 @@ struct IMGSENSOR {
 	struct IMGSENSOR_SENSOR_LIST *psensor_list[MAX_NUM_OF_SUPPORT_SENSOR];
 
 	atomic_t imgsensor_open_cnt;
+	enum IMGSENSOR_RETURN (*mclk_set_drive_current)
+		(void *pinstance,
+		enum IMGSENSOR_SENSOR_IDX sensor_idx,
+		enum ISP_DRIVING_CURRENT_ENUM drive_current);
+
 #if defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	unsigned long long imgsensor_sec_flag;
 #endif

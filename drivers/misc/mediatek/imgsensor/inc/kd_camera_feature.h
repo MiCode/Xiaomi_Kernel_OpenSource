@@ -15,6 +15,7 @@
 #define _KD_CAMERA_FEATURE_H_
 
 
+#include <linux/string.h>
 #include "kd_camera_feature_id.h"
 #include "kd_camera_feature_enum.h"
 
