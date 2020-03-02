@@ -27,7 +27,7 @@
 #ifdef CONFIG_ARM64
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-#include <linux/irqchip/mtk-gic.h>
+#include <linux/irqchip/mtk-gic-extend.h>
 #endif
 #endif
 #if defined(CONFIG_MTK_SYS_CIRQ)
