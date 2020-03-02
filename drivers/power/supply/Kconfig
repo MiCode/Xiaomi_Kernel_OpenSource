@@ -610,4 +610,7 @@ config CHARGER_RT9455
 	help
 	  Say Y to enable support for Richtek RT9455 battery charger.
 
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+
 endif # POWER_SUPPLY
