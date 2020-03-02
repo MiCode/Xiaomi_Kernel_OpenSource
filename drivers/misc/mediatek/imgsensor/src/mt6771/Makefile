@@ -50,6 +50,14 @@ endif
 
 $(info imgsensor drv by platform $(project_drv))
 
+#secure part
+ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
+#i2c
+ccflags-y           += -DCONFIG_MTK_CAM_I2C
+obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_ca.o
+endif
+#end
+
 obj-y				+= $(platform_drv)
 ifeq (,$(wildcard $(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$(ARCH_MTK_PROJECT)/camera_hw))
 subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_hw
