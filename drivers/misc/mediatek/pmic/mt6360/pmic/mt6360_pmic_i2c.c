@@ -74,12 +74,8 @@ static int mt6360_pmic_read_device(void *client, u32 addr, int len, void *dst)
 	}
 	chunk[0] = ((i2c->addr & 0x7f) << 1) + 1;
 	chunk[1] = (addr & 0x3f) | ((len - 1) << 6);
-	pm_stay_awake(mpi->dev);
-	down(&mpi->suspend_lock);
-	ret = i2c_smbus_read_i2c_block_data(client, chunk[1],
-					    len + 1, chunk + 2);
-	up(&mpi->suspend_lock);
-	pm_relax(mpi->dev);
+	ret =  i2c_smbus_read_i2c_block_data(client, chunk[1],
+					     len + 1, chunk + 2);
 	if (ret < 0)
 		return ret;
 	chunk[7] = crc8(mpi->crc8_table, chunk, 2 + len, 0);
@@ -95,7 +91,6 @@ static int mt6360_pmic_write_device(void *client, u32 addr,
 	struct i2c_client *i2c = client;
 	struct mt6360_pmic_info *mpi = i2c_get_clientdata(i2c);
 	u8 chunk[8] = {0};
-	int ret;
 
 	if ((addr & 0xc0) != 0 || len > 4 || len <= 0) {
 		dev_err(&i2c->dev,
@@ -106,13 +101,8 @@ static int mt6360_pmic_write_device(void *client, u32 addr,
 	chunk[1] = (addr & 0x3f) | ((len - 1) << 6);
 	memcpy(chunk + 2, src, len);
 	chunk[2 + len] = crc8(mpi->crc8_table, chunk, 2 + len, 0);
-	pm_stay_awake(mpi->dev);
-	down(&mpi->suspend_lock);
-	ret = i2c_smbus_write_i2c_block_data(client, chunk[1],
-					     len + 2, chunk + 2);
-	up(&mpi->suspend_lock);
-	pm_relax(mpi->dev);
-	return ret;
+	return i2c_smbus_write_i2c_block_data(client, chunk[1],
+					      len + 2, chunk + 2);
 }
 
 static struct rt_regmap_fops mt6360_pmic_regmap_fops = {
@@ -840,7 +830,6 @@ static int mt6360_pmic_i2c_probe(struct i2c_client *client,
 	mpi->chip_rev = chip_rev;
 	crc8_populate_msb(mpi->crc8_table, 0x7);
 	mutex_init(&mpi->io_lock);
-	sema_init(&mpi->suspend_lock, 1);
 	i2c_set_clientdata(client, mpi);
 	dev_info(&client->dev, "chip_rev [%02x]\n", mpi->chip_rev);
 
@@ -893,7 +882,6 @@ static int mt6360_pmic_i2c_probe(struct i2c_client *client,
 						REGULATOR_MODE_STANDBY;
 	}
 	mt6360_pmic_irq_register(mpi);
-	device_init_wakeup(mpi->dev, true);
 	dev_info(&client->dev, "%s: successfully probed\n", __func__);
 
 #if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
@@ -962,19 +950,13 @@ static void mt6360_pmic_shutdown(struct i2c_client *client)
 
 static int __maybe_unused mt6360_pmic_i2c_suspend(struct device *dev)
 {
-	struct mt6360_pmic_info *mpi = dev_get_drvdata(dev);
-
 	dev_dbg(dev, "%s\n", __func__);
-	down(&mpi->suspend_lock);
 	return 0;
 }
 
 static int __maybe_unused mt6360_pmic_i2c_resume(struct device *dev)
 {
-	struct mt6360_pmic_info *mpi = dev_get_drvdata(dev);
-
 	dev_dbg(dev, "%s\n", __func__);
-	up(&mpi->suspend_lock);
 	return 0;
 }
 
@@ -1011,4 +993,4 @@ module_i2c_driver(mt6360_pmic_i2c_driver);
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 PMIC Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.1");
+MODULE_VERSION("1.0.0");
