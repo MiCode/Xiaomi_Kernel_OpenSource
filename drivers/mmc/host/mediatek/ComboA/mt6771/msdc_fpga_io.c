@@ -76,15 +76,19 @@ bool hwPowerOn_fpga(void)
 {
 #ifdef USE_FPGA_PWR_GPIO_CTRL
 	u16 l_val;
+	int boot_type;
 
 	l_val = MSDC_READ16(PWR_GPIO);
-#ifdef CONFIG_MTK_EMMC_SUPPORT
-	MSDC_WRITE16(PWR_GPIO, (l_val | PWR_MASK_VOL_18 | PWR_MASK_CARD));
-		/* | PWR_GPIO_L4_DIR)); */
-#else
-	MSDC_WRITE16(PWR_GPIO, (l_val | PWR_MASK_VOL_33 | PWR_MASK_CARD));
-		/* | PWR_GPIO_L4_DIR)); */
-#endif
+
+	boot_type = get_boot_type();
+	if (boot_type == BOOTDEV_SDMMC) {
+		MSDC_WRITE16(PWR_GPIO,
+			(l_val | PWR_MASK_VOL_18 | PWR_MASK_CARD));
+	} else {
+		MSDC_WRITE16(PWR_GPIO,
+			(l_val | PWR_MASK_VOL_33 | PWR_MASK_CARD));
+	}
+
 	l_val = MSDC_READ16(PWR_GPIO);
 	pr_debug("[%s]: pwr gpio = 0x%x\n", __func__, l_val);
 #endif
@@ -113,15 +117,20 @@ bool hwPowerDown_fpga(void)
 {
 #ifdef USE_FPGA_PWR_GPIO_CTRL
 	u16 l_val;
+	int boot_type;
 
 	l_val = MSDC_READ16(PWR_GPIO);
-#ifdef CONFIG_MTK_EMMC_SUPPORT
-	MSDC_WRITE16(PWR_GPIO,
-		(l_val & ~(PWR_MASK_VOL_18 | PWR_MASK_CARD)));
-#else
-	MSDC_WRITE16(PWR_GPIO,
-		(l_val & ~(PWR_MASK_VOL_18 | PWR_MASK_VOL_33 | PWR_MASK_CARD)));
-#endif
+
+	boot_type = get_boot_type();
+	if (boot_type == BOOTDEV_SDMMC) {
+		MSDC_WRITE16(PWR_GPIO,
+			(l_val & ~(PWR_MASK_VOL_18 | PWR_MASK_CARD)));
+	} else {
+		MSDC_WRITE16(PWR_GPIO,
+			(l_val & ~(PWR_MASK_VOL_18 |
+				PWR_MASK_VOL_33 | PWR_MASK_CARD)));
+	}
+
 	l_val = MSDC_READ16(PWR_GPIO);
 	pr_debug("[%s]: pwr gpio = 0x%x\n", __func__, l_val);
 #endif
