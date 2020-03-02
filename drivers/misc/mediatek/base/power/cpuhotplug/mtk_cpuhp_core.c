@@ -17,8 +17,31 @@
 #include <linux/cpumask.h>
 #include <linux/topology.h>
 #include <linux/suspend.h>
+#include <linux/of.h>
 
 #include "mtk_cpuhp_private.h"
+
+static int is_multi_cluster(void)
+{
+	struct device_node *cn, *map;
+
+	cn = of_find_node_by_path("/cpus");
+	if (!cn) {
+		pr_err("No CPU information found in DT\n");
+		return 0;
+	}
+
+	map = of_get_child_by_name(cn, "virtual-cpu-map");
+	if (!map) {
+		map = of_get_child_by_name(cn, "cpu-map");
+		if (!map)
+			return 0;
+
+		return arch_get_nr_clusters() > 1 ? 1 : 0;
+	}
+
+	return 0;
+}
 
 static int get_cpu_topology(int cpu, int *isalone)
 {
@@ -31,7 +54,7 @@ static int get_cpu_topology(int cpu, int *isalone)
 	 * test this being hotplugged up/down CPU if the first/last core in
 	 * this cluster. It would affect each platform's buck control policy.
 	 */
-	if (arch_is_multi_cluster()) {
+	if (is_multi_cluster()) {
 		arch_get_cluster_cpus(&cpumask_this_cluster, cluster);
 		cpumask_and(&cpumask_this_cluster,
 			    &cpumask_this_cluster, cpu_online_mask);
@@ -50,6 +73,43 @@ static int get_cpu_topology(int cpu, int *isalone)
 	return cluster;
 }
 
+static int cpuhp_cpu_dead(unsigned int cpu)
+{
+	int cluster;
+	int isalone;
+	int rc = 0;
+
+	cluster = get_cpu_topology(cpu, &isalone);
+
+	pr_debug("cluster=%d, cpu=%d, isalone=%d\n",
+		cluster, (int)cpu, isalone);
+
+	if (cpu_report_state(cpu) == CPU_DEAD_FROZEN)
+		rc = cpuhp_platform_cpuoff(cluster, cpu,
+				 isalone, CPU_DEAD_FROZEN);
+	else
+		rc = cpuhp_platform_cpuoff(cluster, cpu, isalone, CPU_DEAD);
+
+	return notifier_from_errno(rc);
+}
+
+static int cpuhp_cpu_up(unsigned int cpu)
+{
+	int cluster;
+	int isalone;
+	int rc = 0;
+
+	cluster = get_cpu_topology(cpu, &isalone);
+
+	pr_debug("cluster=%d, cpu=%d, isalone=%d\n",
+		cluster, (int)cpu, isalone);
+
+	rc = cpuhp_platform_cpuon(cluster, cpu, isalone, CPUHP_BRINGUP_CPU);
+
+	return notifier_from_errno(rc);
+}
+
+#if 0 /* obsolete */
 static int cpuhp_callback(struct notifier_block *nb,
 			  unsigned long action, void *hcpu)
 {
@@ -83,6 +143,7 @@ static int cpuhp_callback(struct notifier_block *nb,
 
 	return notifier_from_errno(rc);
 }
+#endif /* obsolete */
 
 #ifdef CONFIG_PM_SLEEP
 static int cpuhp_pm_callback(struct notifier_block *nb,
@@ -111,7 +172,16 @@ static int __init cpuhp_init(void)
 
 	pr_debug("%s+\n", __func__);
 
+#if 0 /* obsolete */
 	hotcpu_notifier(cpuhp_callback, 0);
+#endif /* obsolete */
+
+	cpuhp_setup_state_nocalls(CPUHP_BRINGUP_CPU,
+				"hps/cpuhotplug:up", cpuhp_cpu_up,
+				NULL);
+	cpuhp_setup_state_nocalls(CPUHP_AP_IDLE_DEAD,
+				"hps/cpuhotplug:up", NULL,
+				cpuhp_cpu_dead);
 	pm_notifier(cpuhp_pm_callback, 0);
 	ppm_notifier();
 	rc = cpuhp_platform_init();
