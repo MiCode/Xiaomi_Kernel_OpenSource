@@ -1143,7 +1143,7 @@ static void cmdq_core_print_thd_usage(struct seq_file *m, void *v,
 {
 	void *va = NULL;
 	dma_addr_t pa = 0;
-	u32 *pcva, pcpa;
+	u32 *pcva, pcpa = 0;
 	u32 insts[2] = {0};
 	char parsed_inst[128] = { 0 };
 	struct cmdq_core_thread *thread = &cmdq_ctx.thread[thread_idx];
@@ -2913,7 +2913,7 @@ static void cmdq_core_dump_handle_summary(const struct cmdqRecStruct *handle,
 	s32 irqFlag = 0;
 	u32 insts[2] = { 0 };
 	u32 *pcVA = NULL;
-	dma_addr_t curr_pc;
+	dma_addr_t curr_pc = 0;
 	struct cmdq_client *client;
 
 	if (!handle || !handle->pkt || list_empty(&handle->pkt->buf) ||
