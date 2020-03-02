@@ -253,11 +253,12 @@ int scp_sys_full_reset(void)
 #endif
 
 	/*copy loader to scp sram*/
-	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_base_virt
-		, scp_region_info_copy.ap_loader_size);
+	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_base_virt,
+		scp_region_info_copy.ap_loader_size);
+
 	/*set info to sram*/
-	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy
-			, sizeof(scp_region_info_copy));
+	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy,
+		sizeof(scp_region_info_copy));
 
 	pr_notice("[SCP]full reset done\n");
 	return 0;
