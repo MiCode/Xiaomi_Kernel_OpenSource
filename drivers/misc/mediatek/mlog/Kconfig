@@ -1,0 +1,11 @@
+config MTK_MLOG
+	bool "Support memory log"
+	default y
+	help
+          Periodic memory log module.
+
+		  Mlog will tracking memory usage include meminfo, buddy system,
+		  hardware memory and process memory and oom_score_adj.
+		  Enable this may casue a little memory buffer overhead but keep
+		  tracking previous memory status. For dump memory usage,
+		  please cat /d/mlog for persistent memory dump.

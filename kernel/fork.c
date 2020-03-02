@@ -1226,6 +1226,13 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 	int retval;
 
 	tsk->min_flt = tsk->maj_flt = 0;
+#ifdef CONFIG_MTK_MLOG
+	tsk->fm_flt = 0;
+#ifdef CONFIG_SWAP
+	tsk->swap_in = tsk->swap_out = 0;
+#endif
+#endif
+
 	tsk->nvcsw = tsk->nivcsw = 0;
 #ifdef CONFIG_DETECT_HUNG_TASK
 	tsk->last_switch_count = tsk->nvcsw + tsk->nivcsw;

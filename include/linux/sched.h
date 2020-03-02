@@ -983,6 +983,15 @@ struct task_struct {
 	unsigned long			min_flt;
 	unsigned long			maj_flt;
 
+#ifdef CONFIG_MTK_MLOG
+	/* Page-in/out accounting for filemap fault and swap */
+	unsigned long			fm_flt;
+#ifdef CONFIG_SWAP
+	unsigned long			swap_in;
+	unsigned long			swap_out;
+#endif
+#endif
+
 #ifdef CONFIG_POSIX_TIMERS
 	struct task_cputime		cputime_expires;
 	struct list_head		cpu_timers[3];
