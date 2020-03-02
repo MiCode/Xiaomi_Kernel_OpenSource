@@ -7587,8 +7587,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			wake_util = cpu_util_without(i, p);
-			if (idle_cpu(i))
-				wake_util = 0;
 			new_util = wake_util + task_util_est(p);
 
 			/*
