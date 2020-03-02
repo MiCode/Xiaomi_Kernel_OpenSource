@@ -30,16 +30,6 @@
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
 #define gpufreq_pr_debug(fmt, args...)	pr_debug(GPUFERQ_TAG fmt, ##args)
 
-#define gpufreq_pr_mask(log_mask, module, fmt, args...)		\
-do {								\
-	if (!log_mask)						\
-		gpufreq_pr_debug(fmt, ##args);			\
-	else if (log_mask & (1 << module))			\
-		gpufreq_pr_info(fmt, ##args);			\
-	else							\
-		gpufreq_pr_debug(fmt, ##args);			\
-} while (0)
-
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
 	unsigned int gpufreq_volt;
@@ -51,13 +41,6 @@ enum mt_gpufreq_kicker {
 	KIR_DDK,
 	KIR_PTPOD,
 	KIR_THERMAL,
-};
-
-enum mt_gpufreq_log_mask {
-	M_DVFS = 0,
-	M_BUCK,
-	M_PTPOD,
-	M_ALL = (1 << M_DVFS) | (1 << M_BUCK) | (1 << M_PTPOD),
 };
 
 enum mt_power_state {
