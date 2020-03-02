@@ -630,13 +630,13 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	/* k71v1_bsp_2g */
 	len = sizeof(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES);
 	if (strncmp(
-	    &CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+	    &CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES[len - 4],
 	    "k71v1_bsp_2g", 12) == 0) {
 		lv = buf;
 	}
 	/* k71v1_bsp_2g_ducam */
 	if (strncmp(
-	    &CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+	    &CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES[len - 4],
 	    "k71v1_bsp_2g_ducam", 18) == 0) {
 		lv = buf;
 	}
