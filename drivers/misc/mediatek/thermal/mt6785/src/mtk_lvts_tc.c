@@ -206,8 +206,8 @@ int diff_error_count;
 
 #if CFG_THERM_LVTS
 #define DEFAULT_EFUSE_GOLDEN_TEMP		(50)
-#define DEFAULT_EFUSE_COUNT			(350000)
-#define DEFAULT_EFUSE_COUNT_RC			(350000)
+#define DEFAULT_EFUSE_COUNT_R			(19000)
+#define DEFAULT_EFUSE_COUNT_RC			(5350)
 #define FAKE_EFUSE_VALUE			0x2B048500
 #define LVTS_COEFF_A_X_1000			(-204650) //-204.65
 #define LVTS_COEFF_B_X_1000			 (204650) // 204.65
@@ -881,7 +881,7 @@ void lvts_thermal_cal_prepare(void)
 
 		g_golden_temp = DEFAULT_EFUSE_GOLDEN_TEMP;
 		for (i = 0; i < L_TS_LVTS_NUM; i++) {
-			g_count_r[i] = DEFAULT_EFUSE_COUNT;
+			g_count_r[i] = DEFAULT_EFUSE_COUNT_R;
 			g_count_rc[i] = DEFAULT_EFUSE_COUNT_RC;
 		}
 
