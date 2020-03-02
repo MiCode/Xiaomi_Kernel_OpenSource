@@ -85,12 +85,14 @@ static int ovl_mapping_table[HRT_TB_NUM] = {
 	0x00000008,
 };
 
-#define GET_SYS_STATE(sys_state) ((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
+#define GET_SYS_STATE(sys_state)                                               \
+	((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
 
 static void layering_rule_senario_decision(struct disp_layer_info *disp_info)
 {
-	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_START, l_rule_info.disp_path,
-		l_rule_info.layer_tb_idx | (l_rule_info.bound_tb_idx << 16));
+	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_START,
+			 l_rule_info.disp_path, l_rule_info.layer_tb_idx |
+				 (l_rule_info.bound_tb_idx << 16));
 
 	if (GET_SYS_STATE(DISP_HRT_MULTI_TUI_ON)) {
 		l_rule_info.disp_path = HRT_PATH_GENERAL;
@@ -108,8 +110,9 @@ static void layering_rule_senario_decision(struct disp_layer_info *disp_info)
 	else
 		l_rule_info.bound_tb_idx = HRT_BOUND_TYPE_LP3_PLUSP;
 
-	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_END, l_rule_info.disp_path,
-		l_rule_info.layer_tb_idx | (l_rule_info.bound_tb_idx << 16));
+	mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_END,
+			 l_rule_info.disp_path, l_rule_info.layer_tb_idx |
+				 (l_rule_info.bound_tb_idx << 16));
 }
 
 static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
@@ -150,9 +153,11 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 		layer_cnt++;
 		if (layer_cnt > SECONDARY_OVL_LAYER_NUM) {
 			/* push to GPU */
-			if (disp_info->gles_head[disp_idx] == -1 || i < disp_info->gles_head[disp_idx])
+			if (disp_info->gles_head[disp_idx] == -1 ||
+			    i < disp_info->gles_head[disp_idx])
 				disp_info->gles_head[disp_idx] = i;
-			if (disp_info->gles_tail[disp_idx] == -1 || i > disp_info->gles_tail[disp_idx])
+			if (disp_info->gles_tail[disp_idx] == -1 ||
+			    i > disp_info->gles_tail[disp_idx])
 				disp_info->gles_tail[disp_idx] = i;
 
 			flag = false;
@@ -161,7 +166,6 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 #endif
 	return flag;
 }
-
 
 static int get_hrt_bound(int is_larb, int hrt_level)
 {
@@ -185,14 +189,16 @@ static int *get_bound_table(enum DISP_HW_MAPPING_TB_TYPE tb_type)
 
 static int get_mapping_table(enum DISP_HW_MAPPING_TB_TYPE tb_type, int param)
 {
+	int layer_tb_idx = l_rule_info.layer_tb_idx;
+
 	switch (tb_type) {
 	case DISP_HW_OVL_TB:
-		return ovl_mapping_table[l_rule_info.layer_tb_idx];
+		return ovl_mapping_table[layer_tb_idx];
 	case DISP_HW_LARB_TB:
-		return larb_mapping_table[l_rule_info.layer_tb_idx];
+		return larb_mapping_table[layer_tb_idx];
 	case DISP_HW_LAYER_TB:
 		if (param < MAX_PHY_OVL_CNT && param >= 0)
-			return layer_mapping_table[l_rule_info.layer_tb_idx][param];
+			return layer_mapping_table[layer_tb_idx][param];
 		else
 			return -1;
 	default:
@@ -213,4 +219,3 @@ static struct layering_rule_ops l_rule_ops = {
 	.get_mapping_table = get_mapping_table,
 	.rollback_to_gpu_by_hw_limitation = filter_by_hw_limitation,
 };
-

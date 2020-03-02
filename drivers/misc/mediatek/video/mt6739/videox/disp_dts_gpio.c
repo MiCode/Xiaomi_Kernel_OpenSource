@@ -17,7 +17,6 @@
 #include <linux/kernel.h> /* printk */
 #include <linux/pinctrl/consumer.h>
 
-
 static struct pinctrl *this_pctrl; /* static pinctrl instance */
 
 /* DTS state mapping name */
@@ -63,7 +62,7 @@ long disp_dts_gpio_init(struct platform_device *pdev)
 	/* retrieve */
 	pctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(pctrl)) {
-/*		DISPERR(&pdev->dev, "Cannot find disp pinctrl!");*/
+		/* DISPERR(&pdev->dev, "Cannot find disp pinctrl!");*/
 		ret = PTR_ERR(pctrl);
 		goto exit;
 	}

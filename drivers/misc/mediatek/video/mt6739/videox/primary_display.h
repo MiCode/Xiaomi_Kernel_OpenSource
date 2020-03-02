@@ -30,19 +30,19 @@ enum DISP_PRIMARY_PATH_MODE {
 #define UINT32 unsigned int
 
 #ifndef TRUE
-	#define TRUE	(1)
+#define TRUE (1)
 #endif
 
 #ifndef FALSE
-	#define FALSE	(0)
+#define FALSE (0)
 #endif
 
 #define ALIGN_TO(x, n)	(((x) + ((n) - 1)) & ~((n) - 1))
 
-#define ASSERT_LAYER    (DDP_OVL_LAYER_MUN-1)
-extern unsigned int FB_LAYER;	/* default LCD layer */
-#define DISP_DEFAULT_UI_LAYER_ID (DDP_OVL_LAYER_MUN-1)
-#define DISP_CHANGED_UI_LAYER_ID (DDP_OVL_LAYER_MUN-2)
+#define ASSERT_LAYER (DDP_OVL_LAYER_MUN - 1)
+extern unsigned int FB_LAYER; /* default LCD layer */
+#define DISP_DEFAULT_UI_LAYER_ID (DDP_OVL_LAYER_MUN - 1)
+#define DISP_CHANGED_UI_LAYER_ID (DDP_OVL_LAYER_MUN - 2)
 
 extern unsigned int ap_fps_changed;
 extern unsigned int arr_fps_backup;
@@ -122,7 +122,7 @@ struct primary_disp_input_config {
 	unsigned int dst_x;
 	unsigned int dst_y;
 	unsigned int dst_w;
-	unsigned int dst_h;	/* clip region */
+	unsigned int dst_h; /* clip region */
 	unsigned int keyEn;
 	unsigned int key;
 	unsigned int aen;
@@ -289,11 +289,13 @@ static inline char *power_mode_to_string(enum mtkfb_power_mode pm)
 	return "MTKFB_POWER_MODE_UNKNOWN";
 }
 
-typedef int (*PRIMARY_DISPLAY_CALLBACK) (unsigned int user_data);
+typedef int (*PRIMARY_DISPLAY_CALLBACK)(unsigned int user_data);
 
-int primary_display_init(char *lcm_name, unsigned int lcm_fps, int is_lcm_inited);
+int primary_display_init(char *lcm_name, unsigned int lcm_fps,
+			 int is_lcm_inited);
 int primary_display_config(unsigned long pa, unsigned long mva);
-int primary_display_set_frame_buffer_address(unsigned long va, unsigned long mva);
+int primary_display_set_frame_buffer_address(unsigned long va,
+					     unsigned long mva);
 unsigned long primary_display_get_frame_buffer_mva_address(void);
 unsigned long primary_display_get_frame_buffer_va_address(void);
 int primary_display_suspend(void);
@@ -317,14 +319,16 @@ int primary_display_diagnose(void);
 
 int primary_display_get_info(struct disp_session_info *info);
 int primary_display_capture_framebuffer(unsigned long pbuf);
-int primary_display_capture_framebuffer_ovl(unsigned long pbuf, unsigned int format);
+int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
+					    unsigned int format);
 
 int primary_display_is_video_mode(void);
 int decouple_path_allocate_buffer(void);
 int decouple_path_release_buffer(void);
 int primary_is_sec(void);
-int do_primary_display_switch_mode(int sess_mode, unsigned int session, int need_lock,
-					struct cmdqRecStruct *handle, int block);
+int do_primary_display_switch_mode(int sess_mode, unsigned int session,
+				   int need_lock, struct cmdqRecStruct *handle,
+				   int block);
 enum DISP_MODE primary_get_sess_mode(void);
 unsigned int primary_get_sess_id(void);
 enum DISP_POWER_STATE primary_get_state(void);
@@ -347,17 +351,20 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len);
 void primary_display_set_max_layer(int maxlayer);
 void primary_display_reset(void);
 void primary_display_esd_check_enable(int enable);
-int primary_display_config_input_multiple(struct disp_session_input_config *session_input);
+int primary_display_config_input_multiple(
+	struct disp_session_input_config *session_input);
 int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg);
 unsigned int primary_display_force_get_vsync_fps(void);
-int primary_display_force_set_vsync_fps(unsigned int fps, unsigned int scenario);
+int primary_display_force_set_vsync_fps(unsigned int fps,
+					unsigned int scenario);
 unsigned int primary_display_get_fps(void);
 unsigned int primary_display_get_fps_nolock(void);
 int primary_display_get_original_width(void);
 int primary_display_get_original_height(void);
 int primary_display_lcm_ATA(void);
 int primary_display_setbacklight(unsigned int level);
-int primary_display_pause(PRIMARY_DISPLAY_CALLBACK callback, unsigned int user_data);
+int primary_display_pause(PRIMARY_DISPLAY_CALLBACK callback,
+			  unsigned int user_data);
 int primary_display_switch_dst_mode(int mode);
 int primary_display_get_lcm_index(void);
 int primary_display_force_set_fps(unsigned int keep, unsigned int skip);
@@ -379,19 +386,23 @@ int primary_display_mipi_clk_change(unsigned int clk_value);
 void _cmdq_insert_wait_frame_done_token_mira(void *handle);
 int primary_display_get_max_layer(void);
 long primary_display_wait_state(enum DISP_POWER_STATE state, long timeout);
-int do_primary_display_switch_mode(int sess_mode, unsigned int session, int need_lock,
-					struct cmdqRecStruct *handle, int block);
+int do_primary_display_switch_mode(int sess_mode, unsigned int session,
+				   int need_lock, struct cmdqRecStruct *handle,
+				   int block);
 int primary_display_check_test(void);
 void _primary_path_switch_dst_lock(void);
 void _primary_path_switch_dst_unlock(void);
 
 /* AOD */
-enum lcm_power_state primary_display_set_power_state(enum lcm_power_state new_state);
+enum lcm_power_state primary_display_set_power_state(
+enum lcm_power_state new_state);
 enum lcm_power_state primary_display_get_lcm_power_state(void);
-enum mtkfb_power_mode primary_display_set_power_mode(enum mtkfb_power_mode new_mode);
+enum mtkfb_power_mode
+primary_display_set_power_mode(enum mtkfb_power_mode new_mode);
 enum mtkfb_power_mode primary_display_get_power_mode(void);
 enum mtkfb_power_mode primary_display_check_power_mode(void);
-void debug_print_power_mode_check(enum mtkfb_power_mode prev, enum mtkfb_power_mode cur);
+void debug_print_power_mode_check(enum mtkfb_power_mode prev,
+				  enum mtkfb_power_mode cur);
 bool primary_is_aod_supported(void);
 
 /* legancy */
@@ -409,12 +420,14 @@ UINT32 DISP_GetActiveHeightUm(void);
 UINT32 DISP_GetActiveWidthUm(void);
 UINT32 DISP_GetDensity(void);
 unsigned long get_dim_layer_mva_addr(void);
-int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end, unsigned long *va,
-				  unsigned long *mva);
+int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
+				  unsigned long *va, unsigned long *mva);
 int Panel_Master_dsi_config_entry(const char *name, void *config_value);
-int fbconfig_get_esd_check_test(UINT32 dsi_id, UINT32 cmd, UINT8 *buffer, UINT32 num);
+int fbconfig_get_esd_check_test(UINT32 dsi_id, UINT32 cmd, UINT8 *buffer,
+				UINT32 num);
 
-extern unsigned int gTriggerDispMode;	/* 0: normal, 1: lcd only, 2: none of lcd and lcm */
+/* 0: normal, 1: lcd only, 2: none of lcd and lcm */
+extern unsigned int gTriggerDispMode;
 
 /* defined in mtkfb.c should move to mtkfb.h*/
 extern unsigned int islcmconnected;
@@ -425,13 +438,15 @@ void restart_smart_ovl_nolock(void);
 
 int primary_fps_ctx_set_wnd_sz(unsigned int wnd_sz);
 
-int dynamic_debug_msg_print(unsigned int mva, int w, int h, int pitch, int bytes_per_pix);
+int dynamic_debug_msg_print(unsigned int mva, int w, int h, int pitch,
+			    int bytes_per_pix);
 
 int display_enter_tui(void);
 int display_exit_tui(void);
 
-int primary_display_config_full_roi(struct disp_ddp_path_config *pconfig, disp_path_handle disp_handle,
-		struct cmdqRecStruct *cmdq_handle);
+int primary_display_config_full_roi(struct disp_ddp_path_config *pconfig,
+				    disp_path_handle disp_handle,
+				    struct cmdqRecStruct *cmdq_handle);
 int primary_display_set_scenario(int scenario);
 enum DISP_MODULE_ENUM _get_dst_module_by_lcm(struct disp_lcm_handle *plcm);
 

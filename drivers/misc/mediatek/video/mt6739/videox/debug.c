@@ -62,7 +62,8 @@ int bypass_blank;
 int lcm_mode_status;
 
 static int draw_buffer(char *va, int w, int h,
-		       enum UNIFIED_COLOR_FMT ufmt, char r, char g, char b, char a)
+		       enum UNIFIED_COLOR_FMT ufmt,
+		       char r, char g, char b, char a)
 {
 	int i, j;
 	int Bpp = UFMT_GET_Bpp(ufmt);
@@ -86,7 +87,6 @@ static int draw_buffer(char *va, int w, int h,
 		}
 	return 0;
 }
-
 
 struct test_buf_info {
 	struct ion_client *ion_client;
@@ -127,7 +127,8 @@ static int alloc_buffer_from_ion(size_t size, struct test_buf_info *buf_info)
 	}
 	mm_data.config_buffer_param.kernel_handle = handle;
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA, (unsigned long)&mm_data) < 0) {
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+			     (unsigned long)&mm_data) < 0) {
 		DISPERR("ion_test_drv: Config buffer failed.\n");
 		ion_free(client, handle);
 		ion_client_destroy(client);
@@ -154,9 +155,11 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 
 	size_align = round_up(size, PAGE_SIZE);
 
-	buf_info->buf_va = dma_alloc_coherent(disp_get_device(), size, &buf_info->buf_pa, GFP_KERNEL);
+	buf_info->buf_va = dma_alloc_coherent(disp_get_device(), size,
+					      &buf_info->buf_pa, GFP_KERNEL);
 	if (!(buf_info->buf_va)) {
-		DISPMSG("dma_alloc_coherent error!  dma memory not available. size=%zu\n", size);
+		DISPMSG("dma_alloc_coherent error! dma memory not available. size=%zu\n",
+			size);
 		return -1;
 	}
 
@@ -173,13 +176,16 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 		if (IS_ERR_OR_NULL(buf_info->m4u_client))
 			DISPERR("create client fail!\n");
 
-		ret = m4u_alloc_mva(buf_info->m4u_client, DISP_M4U_PORT_DISP_OVL0, 0, sg_table, size_align,
-				    M4U_PROT_READ | M4U_PROT_WRITE, 0, &mva);
+		ret = m4u_alloc_mva(buf_info->m4u_client,
+				    DISP_M4U_PORT_DISP_OVL0, 0, sg_table,
+				    size_align, M4U_PROT_READ | M4U_PROT_WRITE,
+				    0, &mva);
 		if (ret)
 			DISPERR("m4u_alloc_mva returns fail: %d\n", ret);
 
 		buf_info->buf_mva = mva;
-		DISPMSG("%s MVA is 0x%x PA is 0x%pa\n", __func__, mva, &buf_info->buf_pa);
+		DISPMSG("%s MVA is 0x%x PA is 0x%pa\n", __func__, mva,
+			&buf_info->buf_pa);
 	}
 
 	return 0;
@@ -192,7 +198,7 @@ static int release_test_buf(struct test_buf_info *buf_info)
 		ion_free(buf_info->ion_client, buf_info->handle);
 	else
 		dma_free_coherent(disp_get_device(), buf_info->size,
-			buf_info->buf_va, buf_info->buf_pa);
+				  buf_info->buf_va, buf_info->buf_pa);
 
 	if (buf_info->m4u_client)
 		m4u_destroy_client(buf_info->m4u_client);
@@ -201,12 +207,13 @@ static int release_test_buf(struct test_buf_info *buf_info)
 		ion_client_destroy(buf_info->ion_client);
 
 	return 0;
-
 }
 
-static int primary_display_basic_test(int layer_num, int w, int h, enum DISP_FORMAT fmt, int frame_num,
+static int primary_display_basic_test(int layer_num, int w, int h,
+				      enum DISP_FORMAT fmt, int frame_num,
 				      int vsync_num, int offset_x, int offset_y,
-				      unsigned int r, unsigned int g, unsigned int b, unsigned int a)
+				      unsigned int r, unsigned int g,
+				      unsigned int b, unsigned int a)
 {
 	struct disp_session_input_config *input_config;
 	int session_id = MAKE_DISP_SESSION(DISP_SESSION_PRIMARY, 0);
@@ -226,7 +233,8 @@ static int primary_display_basic_test(int layer_num, int w, int h, enum DISP_FOR
 	size = w * h * Bpp;
 
 	DISPMSG("%s: layer_num=%u,w=%d,h=%d,fmt=%s,frame_num=%d,vsync=%d, size=%lu\n",
-		__func__, layer_num, w, h, unified_color_fmt_name(ufmt), frame_num, vsync_num, size);
+		__func__, layer_num, w, h, unified_color_fmt_name(ufmt),
+		frame_num, vsync_num, size);
 
 	input_config = kmalloc(sizeof(*input_config), GFP_KERNEL);
 	if (!input_config)
@@ -265,9 +273,11 @@ static int primary_display_basic_test(int layer_num, int w, int h, enum DISP_FOR
 			input_config->config[i].layer_enable = enable;
 			input_config->config[i].src_base_addr = 0;
 			if (disp_helper_get_option(DISP_OPT_USE_M4U))
-				input_config->config[i].src_phy_addr = (void *)((unsigned long)buf_mva);
+				input_config->config[i].src_phy_addr =
+					(void *)((unsigned long)buf_mva);
 			else
-				input_config->config[i].src_phy_addr = (void *)((unsigned long)buf_pa);
+				input_config->config[i].src_phy_addr =
+					(void *)((unsigned long)buf_pa);
 			input_config->config[i].next_buff_idx = -1;
 			input_config->config[i].src_fmt = fmt;
 			input_config->config[i].src_pitch = w;
@@ -288,7 +298,7 @@ static int primary_display_basic_test(int layer_num, int w, int h, enum DISP_FOR
 		primary_display_config_input_multiple(input_config);
 		primary_display_trigger(0, NULL, 0);
 
-		for (i = 0; i < vsync_num; i++)  {
+		for (i = 0; i < vsync_num; i++) {
 			struct disp_session_vsync_config vsync_config;
 
 			vsync_config.session_id = session_id;
@@ -319,26 +329,35 @@ static int primary_display_basic_test(int layer_num, int w, int h, enum DISP_FOR
  * latency : 0
  * loop : 1
  */
-static int  disp_fake_engine_config(unsigned int rd_add, unsigned int wr_add,
-				unsigned int wr_pat, unsigned int length, unsigned int brust,
-				unsigned int disable_rd, unsigned int disable_wr,
-				unsigned int latency, unsigned int loop)
+static int disp_fake_engine_config(unsigned int rd_add, unsigned int wr_add,
+				   unsigned int wr_pat, unsigned int length,
+				   unsigned int brust, unsigned int disable_rd,
+				   unsigned int disable_wr,
+				   unsigned int latency, unsigned int loop)
 {
 	primary_display_idlemgr_kick(__func__, 1);
-	DISP_REG_SET_FIELD(NULL, MMSYS_CG_FLD_FAKE_ENG, DISP_REG_CONFIG_MMSYS_CG_CLR0, 0x01);
+	DISP_REG_SET_FIELD(NULL, MMSYS_CG_FLD_FAKE_ENG,
+			   DISP_REG_CONFIG_MMSYS_CG_CLR0, 0x01);
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_RD_ADDR, rd_add);
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_WR_ADDR, wr_add);
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_CON0,
-			(wr_pat<<24) | (loop<<22) | (length));
+		     (wr_pat << 24) | (loop << 22) | (length));
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_CON1,
-			(brust<<12) | (disable_wr<<11) | (disable_rd<<10) | (latency));
+		     (brust << 12) | (disable_wr << 11) | (disable_rd << 10) |
+			     (latency));
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_EN, 3);
-	DISPMSG("Fake eng start dump CG_CON0 = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0));
-	DISPMSG("Fake eng start dump RD_ADDR = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_RD_ADDR));
-	DISPMSG("Fake eng start dump WD_ADDR = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_WR_ADDR));
-	DISPMSG("Fake eng start dump FAKE_CON0 = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_CON0));
-	DISPMSG("Fake eng start dump FAKE_CON1 = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_CON1));
-	DISPMSG("Fake eng start dump FAKE_EN = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_EN));
+	DISPMSG("Fake eng start dump CG_CON0 = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0));
+	DISPMSG("Fake eng start dump RD_ADDR = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_RD_ADDR));
+	DISPMSG("Fake eng start dump WD_ADDR = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_WR_ADDR));
+	DISPMSG("Fake eng start dump FAKE_CON0 = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_CON0));
+	DISPMSG("Fake eng start dump FAKE_CON1 = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_CON1));
+	DISPMSG("Fake eng start dump FAKE_EN = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_DISP_FAKE_ENG_EN));
 	return 0;
 }
 
@@ -348,38 +367,12 @@ static int disp_fake_engine_stop(void)
 
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_RST, 1);
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_DISP_FAKE_ENG_RST, 0);
-	DISP_REG_SET_FIELD(NULL, MMSYS_CG_FLD_FAKE_ENG, DISP_REG_CONFIG_MMSYS_CG_SET0, 0x01);
-	DISPMSG("Fake eng end dump CG_CON0 = 0x%x\n", DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0));
+	DISP_REG_SET_FIELD(NULL, MMSYS_CG_FLD_FAKE_ENG,
+			   DISP_REG_CONFIG_MMSYS_CG_SET0, 0x01);
+	DISPMSG("Fake eng end dump CG_CON0 = 0x%x\n",
+		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0));
 	return 0;
 }
-
-
-#if 0 /* defined but not used */
-static char STR_HELP[] =
-	"\n"
-	"USAGE\n"
-	"        echo [ACTION]... > /d/mtkfb\n"
-	"\n"
-	"        suspend\n"
-	"             enter suspend mode\n"
-	"\n"
-	"        resume\n"
-	"             leave suspend mode\n"
-	"\n"
-	"        lcm:[on|off|init]\n"
-	"             power on/off lcm\n"
-	"\n"
-	"        cabc:[ui|mov|still]\n"
-	"             cabc mode, UI/Moving picture/Still picture\n"
-	"\n"
-	"       esd:[on|off]\n"
-	"             esd kthread on/off\n"
-	"       HQA:[NormalToFactory|FactoryToNormal]\n"
-	"             for HQA requirement\n"
-	"\n"
-	"       dump_layer:[on|off[,down_sample_x[,down_sample_y]][,layer(0:L0,1:L1,2:L2,3:L3,4:L0-3)]\n"
-	"             Start/end to capture current enabled OVL layer every frame\n";
-#endif
 
 static void process_dbg_opt(const char *opt)
 {
@@ -401,7 +394,8 @@ static void process_dbg_opt(const char *opt)
 		tmp += i + 1;
 		ret = sscanf(tmp, "%d\n", &value);
 		if (ret != 1) {
-			pr_debug("error to parse cmd %s: %s %s ret=%d\n", opt, option, tmp, ret);
+			pr_debug("error to parse cmd %s: %s %s ret=%d\n", opt,
+				 option, tmp, ret);
 			return;
 		}
 
@@ -447,7 +441,8 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		if (pattern) {
-			DSI_BIST_Pattern_Test(DISP_MODULE_DSI0, NULL, true, pattern);
+			DSI_BIST_Pattern_Test(DISP_MODULE_DSI0, NULL, true,
+					      pattern);
 			DISPMSG("enable dsi pattern: 0x%08x\n", pattern);
 		} else {
 			primary_display_manual_lock();
@@ -479,9 +474,10 @@ static void process_dbg_opt(const char *opt)
 		DISPMSG("STOP FAKE\n");
 		disp_fake_engine_stop();
 	} else if (strncmp(opt, "fake_eng:", 9) == 0) {
-		DISPMSG("START FAKE, THE CMD:%s", opt+9);
+		DISPMSG("START FAKE, THE CMD:%s", opt + 9);
 		if (strncmp(opt + 9, "de", 2) == 0) {
-			disp_fake_engine_config(fb_pa, fb_pa+4, 1, 2047, 3, 0, 0, 0, 1);
+			disp_fake_engine_config(fb_pa, fb_pa + 4, 1, 2047, 3, 0,
+						0, 0, 1);
 		} else {
 			unsigned int WR_mode = 0;
 			unsigned int loop_mode = 0;
@@ -489,13 +485,17 @@ static void process_dbg_opt(const char *opt)
 			unsigned int burst_len = 0;
 			unsigned int latency = 0;
 
-			ret = sscanf(opt, "fake_eng:%d,%d,%d,%d,%d\n",
-				     &WR_mode, &loop_mode, &test_len, &burst_len, &latency);
+			ret = sscanf(opt, "fake_eng:%d,%d,%d,%d,%d\n", &WR_mode,
+				     &loop_mode, &test_len, &burst_len,
+				     &latency);
 			if (ret != 5) {
-				pr_debug("%d error to parse cmd %s\n", __LINE__, opt);
+				pr_debug("%d error to parse cmd %s\n", __LINE__,
+					 opt);
 				return;
 			}
-			disp_fake_engine_config(fb_pa, fb_pa+1, 1, test_len, burst_len, 0, 0, latency, loop_mode);
+			disp_fake_engine_config(fb_pa, fb_pa + 1, 1, test_len,
+						burst_len, 0, 0, latency,
+						loop_mode);
 		}
 	} else if (strncmp(opt, "force_fps:", 9) == 0) {
 		unsigned int keep;
@@ -515,7 +515,8 @@ static void process_dbg_opt(const char *opt)
 
 		for (i = 0; i < 1200; i++) {
 			primary_display_wait_for_vsync(&vsync_config);
-			dpmgr_module_notify(DISP_MODULE_AAL0, DISP_PATH_EVENT_TRIGGER);
+			dpmgr_module_notify(DISP_MODULE_AAL0,
+					    DISP_PATH_EVENT_TRIGGER);
 		}
 #ifdef CONFIG_MTK_DISPLAY_120HZ_SUPPORT
 	} else if (strncmp(opt, "odbypass:", 9) == 0) {
@@ -571,11 +572,13 @@ static void process_dbg_opt(const char *opt)
 		if (enable) {
 			DDPMSG("lfr enable %d mode =%d\n", enable, mode);
 			enable = 1;
-			DSI_Set_LFR(DISP_MODULE_DSI0, NULL, mode, type, enable, skip_num);
+			DSI_Set_LFR(DISP_MODULE_DSI0, NULL, mode, type, enable,
+				    skip_num);
 		} else {
 			DDPMSG("lfr disable %d mode=%d\n", enable, mode);
 			enable = 0;
-			DSI_Set_LFR(DISP_MODULE_DSI0, NULL, mode, type, enable, skip_num);
+			DSI_Set_LFR(DISP_MODULE_DSI0, NULL, mode, type, enable,
+				    skip_num);
 		}
 	} else if (strncmp(opt, "vsync_switch:", 13) == 0) {
 		char *p = (char *)opt + 13;
@@ -703,9 +706,12 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "dump_layer:", 11) == 0) {
 		if (strncmp(opt + 11, "on", 2) == 0) {
 			ret = sscanf(opt, "dump_layer:on,%d,%d,%d\n",
-				     &gCapturePriLayerDownX, &gCapturePriLayerDownY, &gCapturePriLayerNum);
+				     &gCapturePriLayerDownX,
+				     &gCapturePriLayerDownY,
+				     &gCapturePriLayerNum);
 			if (ret != 3) {
-				pr_debug("%d error to parse cmd %s\n", __LINE__, opt);
+				pr_debug("%d error to parse cmd %s\n", __LINE__,
+					 opt);
 				return;
 			}
 
@@ -715,8 +721,9 @@ static void process_dbg_opt(const char *opt)
 				gCapturePriLayerDownX = 20;
 			if (gCapturePriLayerDownY == 0)
 				gCapturePriLayerDownY = 20;
-			DDPMSG("dump_layer En %d DownX %d DownY %d,Num %d", gCapturePriLayerEnable,
-			       gCapturePriLayerDownX, gCapturePriLayerDownY, gCapturePriLayerNum);
+			DDPMSG("dump_layer En %d DownX %d DownY %d,Num %d",
+			       gCapturePriLayerEnable, gCapturePriLayerDownX,
+			       gCapturePriLayerDownY, gCapturePriLayerNum);
 
 		} else if (strncmp(opt + 11, "off", 3) == 0) {
 			gCapturePriLayerEnable = 0;
@@ -728,9 +735,11 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "dump_wdma_layer:", 16) == 0) {
 		if (strncmp(opt + 16, "on", 2) == 0) {
 			ret = sscanf(opt, "dump_wdma_layer:on,%d,%d\n",
-				     &gCapturePriLayerDownX, &gCapturePriLayerDownY);
+				     &gCapturePriLayerDownX,
+				     &gCapturePriLayerDownY);
 			if (ret != 2) {
-				pr_debug("%d error to parse cmd %s\n", __LINE__, opt);
+				pr_debug("%d error to parse cmd %s\n", __LINE__,
+					 opt);
 				return;
 			}
 
@@ -739,8 +748,9 @@ static void process_dbg_opt(const char *opt)
 				gCapturePriLayerDownX = 20;
 			if (gCapturePriLayerDownY == 0)
 				gCapturePriLayerDownY = 20;
-			DDPMSG("dump_wdma_layer En %d DownX %d DownY %d", gCaptureWdmaLayerEnable,
-			       gCapturePriLayerDownX, gCapturePriLayerDownY);
+			DDPMSG("dump_wdma_layer En %d DownX %d DownY %d",
+			       gCaptureWdmaLayerEnable, gCapturePriLayerDownX,
+			       gCapturePriLayerDownY);
 
 		} else if (strncmp(opt + 16, "off", 3) == 0) {
 			gCaptureWdmaLayerEnable = 0;
@@ -750,9 +760,11 @@ static void process_dbg_opt(const char *opt)
 #if defined(CONFIG_MTK_ENG_BUILD) || !defined(CONFIG_MTK_GMO_RAM_OPTIMIZE)
 		if (strncmp(opt + 16, "on", 2) == 0) {
 			ret = sscanf(opt, "dump_rdma_layer:on,%d,%d\n",
-				     &gCapturePriLayerDownX, &gCapturePriLayerDownY);
+				     &gCapturePriLayerDownX,
+				     &gCapturePriLayerDownY);
 			if (ret != 2) {
-				pr_debug("%d error to parse cmd %s\n", __LINE__, opt);
+				pr_debug("%d error to parse cmd %s\n", __LINE__,
+					 opt);
 				return;
 			}
 
@@ -761,8 +773,9 @@ static void process_dbg_opt(const char *opt)
 				gCapturePriLayerDownX = 20;
 			if (gCapturePriLayerDownY == 0)
 				gCapturePriLayerDownY = 20;
-			DDPMSG("dump_wdma_layer En %d DownX %d DownY %d", gCaptureRdmaLayerEnable,
-			       gCapturePriLayerDownX, gCapturePriLayerDownY);
+			DDPMSG("dump_wdma_layer En %d DownX %d DownY %d",
+			       gCaptureRdmaLayerEnable, gCapturePriLayerDownX,
+			       gCapturePriLayerDownY);
 
 		} else if (strncmp(opt + 16, "off", 3) == 0) {
 			gCaptureRdmaLayerEnable = 0;
@@ -780,7 +793,7 @@ static void process_dbg_opt(const char *opt)
 		}
 		enable_idlemgr(flg);
 	} else if (strncmp(opt, "fps:", 4) == 0) {
-		char *p = (char *)opt+4;
+		char *p = (char *)opt + 4;
 		int fps = kstrtoul(p, 10, (unsigned long int *)&p);
 
 		DDPMSG("change fps\n");
@@ -831,15 +844,19 @@ static void process_dbg_opt(const char *opt)
 
 		DDPMSG("Display debug command: disp_get_fps start\n");
 		disp_fps = primary_display_force_get_vsync_fps();
-		DDPMSG("Display debug command: disp_get_fps done, disp_fps=%d\n", disp_fps);
+		DDPMSG("Display debug command: disp_get_fps done, disp_fps=%d\n",
+		       disp_fps);
 	}
 
 	if (strncmp(opt, "primary_basic_test:", 19) == 0) {
-		unsigned int layer_num, w, h, fmt, frame_num, vsync_num, x, y, r, g, b, a;
+		unsigned int layer_num, w, h, fmt, frame_num,
+			vsync_num, x, y, r, g, b, a;
 
-		ret = sscanf(opt, "primary_basic_test:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
-			     &layer_num, &w, &h, &fmt, &frame_num, &vsync_num,
-			     &x, &y, &r, &g, &b, &a);
+		ret = sscanf(
+			opt,
+			"primary_basic_test:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			&layer_num, &w, &h, &fmt, &frame_num, &vsync_num, &x,
+			&y, &r, &g, &b, &a);
 		if (ret != 12) {
 			pr_debug("error to parse cmd %s, ret=%d\n", opt, ret);
 			return;
@@ -853,7 +870,7 @@ static void process_dbg_opt(const char *opt)
 			fmt = DISP_FORMAT_RGB565;
 
 		primary_display_basic_test(layer_num, w, h, fmt, frame_num,
-			vsync_num, x, y, r, g, b, a);
+					   vsync_num, x, y, r, g, b, a);
 	}
 
 	if (strncmp(opt, "pan_disp_test:", 13) == 0) {
@@ -873,7 +890,8 @@ static void process_dbg_opt(const char *opt)
 		dpmgr_path_stop(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 		primary_display_diagnose();
 		dpmgr_path_start(primary_get_dpmgr_handle(), CMDQ_DISABLE);
-		dpmgr_path_trigger(primary_get_dpmgr_handle(), NULL, CMDQ_DISABLE);
+		dpmgr_path_trigger(primary_get_dpmgr_handle(), NULL,
+				   CMDQ_DISABLE);
 	}
 
 	if (strncmp(opt, "dsi_ut:restart_cmd_mode", 23) == 0) {
@@ -881,12 +899,14 @@ static void process_dbg_opt(const char *opt)
 		primary_display_diagnose();
 
 		dpmgr_path_start(primary_get_dpmgr_handle(), CMDQ_DISABLE);
-		dpmgr_path_trigger(primary_get_dpmgr_handle(), NULL, CMDQ_DISABLE);
+		dpmgr_path_trigger(primary_get_dpmgr_handle(), NULL,
+				   CMDQ_DISABLE);
 		dpmgr_path_stop(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 		primary_display_diagnose();
 
 		dpmgr_path_start(primary_get_dpmgr_handle(), CMDQ_DISABLE);
-		dpmgr_path_trigger(primary_get_dpmgr_handle(), NULL, CMDQ_DISABLE);
+		dpmgr_path_trigger(primary_get_dpmgr_handle(), NULL,
+				   CMDQ_DISABLE);
 	}
 
 	if (strncmp(opt, "scenario:", 8) == 0) {
@@ -899,9 +919,7 @@ static void process_dbg_opt(const char *opt)
 		}
 		primary_display_set_scenario(scen);
 	}
-
 }
-
 
 static void process_dbg_cmd(char *cmd)
 {
@@ -935,15 +953,20 @@ int debug_get_info(unsigned char *stringbuf, int buf_len)
 
 	n += disp_helper_get_option_list(stringbuf + n, buf_len - n);
 
-	n += dprec_logger_get_buf(DPREC_LOGGER_ERROR, stringbuf + n, buf_len - n);
+	n += dprec_logger_get_buf(DPREC_LOGGER_ERROR, stringbuf + n,
+				  buf_len - n);
 
-	n += dprec_logger_get_buf(DPREC_LOGGER_FENCE, stringbuf + n, buf_len - n);
+	n += dprec_logger_get_buf(DPREC_LOGGER_FENCE, stringbuf + n,
+				  buf_len - n);
 
-	n += dprec_logger_get_buf(DPREC_LOGGER_DUMP, stringbuf + n, buf_len - n);
+	n += dprec_logger_get_buf(DPREC_LOGGER_DUMP, stringbuf + n,
+				  buf_len - n);
 
-	n += dprec_logger_get_buf(DPREC_LOGGER_DEBUG, stringbuf + n, buf_len - n);
+	n += dprec_logger_get_buf(DPREC_LOGGER_DEBUG, stringbuf + n,
+				  buf_len - n);
 
-	n += dprec_logger_get_buf(DPREC_LOGGER_STATUS, stringbuf + n, buf_len - n);
+	n += dprec_logger_get_buf(DPREC_LOGGER_STATUS, stringbuf + n,
+				  buf_len - n);
 
 	stringbuf[n++] = 0;
 	return n;
@@ -958,13 +981,15 @@ void debug_info_dump_to_printk(char *buf, int buf_len)
 		DISPMSG("%s", buf + i);
 }
 
-static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
+static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count,
+			  loff_t *ppos)
 {
 	int debug_bufmax;
 	static int n;
 
-	/* Debugfs read only fetch 4096 byte each time, thus whole ringbuffer need massive
-	 * iteration. We only copy ringbuffer content to debugfs buffer at first time (*ppos = 0)
+	/* Debugfs read only fetch 4096 byte each time, thus whole ringbuffer
+	 * need massive iteration. We only copy ringbuffer content to debugfs
+	 * buffer at first time (*ppos = 0)
 	 */
 	if (*ppos != 0 || !is_buffer_init)
 		goto out;
@@ -973,12 +998,13 @@ static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count, lo
 
 	debug_bufmax = DEBUG_BUFFER_SIZE - 1;
 	n = debug_get_info(debug_buffer, debug_bufmax);
-	/* debug_info_dump_to_printk(); */
+/* debug_info_dump_to_printk(); */
 out:
 	return simple_read_from_buffer(ubuf, count, ppos, debug_buffer, n);
 }
 
-static ssize_t debug_write(struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
+static ssize_t debug_write(struct file *file, const char __user *ubuf,
+			   size_t count, loff_t *ppos)
 {
 	const int debug_bufmax = 512 - 1;
 	size_t ret;
@@ -999,23 +1025,25 @@ static ssize_t debug_write(struct file *file, const char __user *ubuf, size_t co
 	return ret;
 }
 
-
 static const struct file_operations debug_fops = {
 	.read = debug_read,
 	.write = debug_write,
 	.open = debug_open,
 };
 
-static ssize_t kick_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
+static ssize_t kick_read(struct file *file, char __user *ubuf,
+			 size_t count, loff_t *ppos)
 {
-	return simple_read_from_buffer(ubuf, count, ppos, get_kick_dump(), get_kick_dump_size());
+	return simple_read_from_buffer(ubuf, count, ppos, get_kick_dump(),
+				       get_kick_dump_size());
 }
 
 static const struct file_operations kickidle_fops = {
 	.read = kick_read,
 };
 
-static ssize_t partial_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos)
+static ssize_t partial_read(struct file *file, char __user *ubuf, size_t count,
+			    loff_t *ppos)
 {
 	char p[10];
 	int support = 0;
@@ -1046,12 +1074,15 @@ void DBG_Init(void)
 	struct dentry *d_folder;
 	struct dentry *d_file;
 
-	mtkfb_dbgfs = debugfs_create_file("mtkfb", S_IFREG | S_IRUGO, NULL, (void *)0, &debug_fops);
+	mtkfb_dbgfs = debugfs_create_file("mtkfb", S_IFREG | 0444, NULL,
+					  (void *)0, &debug_fops);
 
 	d_folder = debugfs_create_dir("displowpower", NULL);
 	if (d_folder) {
-		d_file = debugfs_create_file("kickdump", S_IFREG | S_IRUGO, d_folder, NULL, &kickidle_fops);
-		d_file = debugfs_create_file("partial", S_IFREG | S_IRUGO, d_folder, NULL, &partial_fops);
+		d_file = debugfs_create_file("kickdump", S_IFREG | 0444,
+					     d_folder, NULL, &kickidle_fops);
+		d_file = debugfs_create_file("partial", S_IFREG | 0444,
+					     d_folder, NULL, &partial_fops);
 	}
 }
 

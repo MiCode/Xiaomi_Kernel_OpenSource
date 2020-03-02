@@ -28,7 +28,6 @@ enum DAL_STATUS {
 	DAL_STATUS_FATAL_ERROR = -10,
 };
 
-
 enum DAL_COLOR {
 	DAL_COLOR_BLACK = 0x000000,
 	DAL_COLOR_WHITE = 0xFFFFFF,
@@ -39,7 +38,6 @@ enum DAL_COLOR {
 	DAL_COLOR_YELLOW = (DAL_COLOR_RED | DAL_COLOR_GREEN),
 	DAL_COLOR_PINK = (DAL_COLOR_RED | DAL_COLOR_BLUE),
 };
-
 
 /* Display Assertion Layer API */
 
@@ -57,4 +55,4 @@ int is_DAL_Enabled(void);
 #ifdef __cplusplus
 }
 #endif
-#endif				/* __DISP_ASSERT_LAYER_H__ */
+#endif /* __DISP_ASSERT_LAYER_H__ */
