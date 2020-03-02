@@ -54,6 +54,69 @@ extern kal_bool gFG_Is_Charging;
 
 extern int force_get_tbat(void);
 
+
+/* --- TA daemon --- */
+enum ta_daemon_crtl_cmd_to_kernel {
+	TA_DAEMON_CMD_GET_INIT_FLAG = 0,
+	TA_DAEMON_CMD_SET_DAEMON_PID,
+	TA_DAEMON_CMD_NOTIFY_DAEMON,
+	TA_DAEMON_CMD_NOTIFY_DAEMON_CATMINIT,
+	TA_DAEMON_CMD_SET_TTJ,
+	TA_DAEMON_CMD_GET_TPCB,
+	TA_DAEMON_CMD_GET_TI,
+	TA_DAEMON_CMD_GET_DCTM_DRCCFG,
+	TA_DAEMON_CMD_GET_DTCM,
+	TA_DAEMON_CMD_GET_TSCPU,
+
+	TA_DAEMON_CMD_TO_KERNEL_NUMBER
+}; /*must sync userspace/kernel: TA_DAEMON_CTRL_CMD_FROM_USER*/
+
+#define TAD_NL_MSG_T_HDR_LEN 12
+#define TAD_NL_MSG_MAX_LEN 512
+
+struct tad_nl_msg_t {
+	unsigned int tad_cmd;
+	unsigned int tad_data_len;
+	unsigned int tad_ret_data_len;
+	char tad_data[TAD_NL_MSG_MAX_LEN];
+};
+
+enum {
+	TA_CATMPLUS = 1,
+	TA_CONTINUOUS = 2,
+	TA_CATMPLUS_TTJ = 3,
+	TA_DCTM_DRC_CFG = 4,
+	TA_DCTM_DRC_RST = 5,
+	TA_DCTM_TTJ = 6
+};
+/* --- TA daemon --- */
+
+/* --- cATM parameters --- */
+struct cATM_params_t {
+	int CATM_ON;
+	int K_TT;
+	int K_SUM_TT_LOW;
+	int K_SUM_TT_HIGH;
+	int MIN_SUM_TT;
+	int MAX_SUM_TT;
+	int MIN_TTJ;
+	int CATMP_STEADY_TTJ_DELTA;
+};
+struct continuetm_params_t {
+	int STEADY_TARGET_TJ;
+	int MAX_TARGET_TJ;
+	int TRIP_TPCB;
+	int STEADY_TARGET_TPCB;
+};
+
+
+struct CATM_T {
+	struct cATM_params_t t_catm_par;
+	struct continuetm_params_t t_continuetm_par;
+};
+extern struct CATM_T thermal_atm_t;
+/* --- cATM parameters --- */
+
 /* --- SPA parameters --- */
 struct spa_Tpolicy_info {
 	int min_cpu_power[3];
@@ -84,62 +147,31 @@ struct SPA_T {
 extern struct SPA_T thermal_spa_t;
 /* --- SPA parameters --- */
 
-enum ta_daemon_crtl_cmd_to_kernel {
-	TA_DAEMON_CMD_GET_INIT_FLAG = 0,
-	TA_DAEMON_CMD_SET_DAEMON_PID,
-	TA_DAEMON_CMD_NOTIFY_DAEMON,
-	TA_DAEMON_CMD_NOTIFY_DAEMON_CATMINIT,
-	TA_DAEMON_CMD_SET_TTJ,
-	TA_DAEMON_CMD_GET_TPCB,
-	TA_DAEMON_CMD_GET_TI,
-
-	TA_DAEMON_CMD_TO_KERNEL_NUMBER
-}; /*must sync userspace/kernel: TA_DAEMON_CTRL_CMD_FROM_USER*/
-
-#define TAD_NL_MSG_T_HDR_LEN 12
-#define TAD_NL_MSG_MAX_LEN 512
-
-struct tad_nl_msg_t {
-	unsigned int tad_cmd;
-	unsigned int tad_data_len;
-	unsigned int tad_ret_data_len;
-	char tad_data[TAD_NL_MSG_MAX_LEN];
+/* --- DCTM parameters --- */
+struct DRC_params_t {
+	int tamb;
+	int init_r1_r2;
+	int init_r1c1;
+	int dtskin_thres;
+	int drc_bound;
+	int ttskin;
+	int ave_window;
+	int drc_ave_window;
+	int ttj_limit;
 };
 
-enum {
-	TA_CATMPLUS = 1,
-	TA_CONTINUOUS = 2,
-	TA_CATMPLUS_TTJ = 3
+struct DCTM_T {
+	struct DRC_params_t t_drc_par;
 };
 
+extern struct DCTM_T thermal_dctm_t;
+/* --- DCTM parameters --- */
 
-struct cATM_params_t {
-	int CATM_ON;
-	int K_TT;
-	int K_SUM_TT_LOW;
-	int K_SUM_TT_HIGH;
-	int MIN_SUM_TT;
-	int MAX_SUM_TT;
-	int MIN_TTJ;
-	int CATMP_STEADY_TTJ_DELTA;
-};
-struct continuetm_params_t {
-	int STEADY_TARGET_TJ;
-	int MAX_TARGET_TJ;
-	int TRIP_TPCB;
-	int STEADY_TARGET_TPCB;
-};
-
-
-struct CATM_T {
-	struct cATM_params_t t_catm_par;
-	struct continuetm_params_t t_continuetm_par;
-};
-extern struct CATM_T thermal_atm_t;
 int wakeup_ta_algo(int flow_state);
 int ta_get_ttj(void);
 
 extern int mtk_thermal_get_tpcb_target(void);
 extern int tsatm_thermal_get_catm_type(void);
+extern int tsdctm_thermal_get_ttj_on(void);
 
 #endif/* _MTK_THERMAL_PLATFORM_H */

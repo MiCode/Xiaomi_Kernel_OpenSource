@@ -37,6 +37,12 @@
 #include "vpu_dvfs.h"
 #endif
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#include "mdla_dvfs.h"
+#endif
+#endif
+
 /*=============================================================
  * Local variable definition
  *=============================================================
@@ -53,6 +59,10 @@ static unsigned int apthermolmt_curr_cpu_pwr_lim = 0x7FFFFFFF;
 static unsigned int apthermolmt_prev_vpu_pwr_lim;
 static unsigned int apthermolmt_curr_vpu_pwr_lim = 0x7FFFFFFF;
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+static unsigned int apthermolmt_prev_mdla_pwr_lim;
+static unsigned int apthermolmt_curr_mdla_pwr_lim = 0x7FFFFFFF;
+#endif
 static unsigned int apthermolmt_prev_gpu_pwr_lim;
 static unsigned int apthermolmt_curr_gpu_pwr_lim = 0x7FFFFFFF;
 
@@ -60,6 +70,7 @@ static struct apthermolmt_user _dummy = {
 	.log = "dummy ",
 	.cpu_limit = 0x7FFFFFFF,
 	.vpu_limit = 0x7FFFFFFF,
+	.mdla_limit = 0x7FFFFFFF,
 	.gpu_limit = 0x7FFFFFFF,
 	.ptr = &_dummy
 };
@@ -68,6 +79,7 @@ static struct apthermolmt_user _gp = {
 	.log = "set_gp_power ",
 	.cpu_limit = 0x7FFFFFFF,
 	.vpu_limit = 0x7FFFFFFF,
+	.mdla_limit = 0x7FFFFFFF,
 	.gpu_limit = 0x7FFFFFFF,
 	.ptr = &_gp
 };
@@ -129,6 +141,7 @@ int apthermolmt_register_user(struct apthermolmt_user *handle, char *log)
 			handle->log = log;
 			handle->cpu_limit = 0x7FFFFFFF;
 			handle->vpu_limit = 0x7FFFFFFF;
+			handle->mdla_limit = 0x7FFFFFFF;
 			handle->gpu_limit = 0x7FFFFFFF;
 			handle->ptr = &_users[i];
 			return 0;
@@ -246,6 +259,48 @@ struct apthermolmt_user *handle, unsigned int limit)
 EXPORT_SYMBOL(apthermolmt_set_vpu_power_limit);
 #endif
 
+#if defined(THERMAL_MDLA_SUPPORT)
+void apthermolmt_set_mdla_power_limit(
+struct apthermolmt_user *handle, unsigned int limit)
+{
+	unsigned int final_limit;
+
+	if (!handle || !(handle->ptr))
+		return;
+
+	/* decide min MDLA limit */
+	handle->mdla_limit = limit;
+
+#if AP_THERMO_LMT_MAX_USERS == 4
+	final_limit = MIN(_users[0]->mdla_limit, _users[1]->mdla_limit);
+	final_limit = MIN(final_limit, _users[2]->mdla_limit);
+	final_limit = MIN(final_limit, _users[3]->mdla_limit);
+#else
+#error "handle this!"
+#endif
+
+	apthermolmt_prev_mdla_pwr_lim = apthermolmt_curr_mdla_pwr_lim;
+	apthermolmt_curr_mdla_pwr_lim = final_limit;
+
+	if (apthermolmt_prev_mdla_pwr_lim != apthermolmt_curr_mdla_pwr_lim) {
+#if defined(CONFIG_MTK_MDLA_SUPPORT)
+		int opp = 0;
+
+		if (final_limit != 0x7FFFFFFF) {
+			for (opp = 0; opp < MDLA_OPP_NUM - 1; opp++) {
+				if (final_limit >= mdla_power_table[opp].power)
+					break;
+			}
+			mdla_thermal_en_throttle_cb(0xff, opp);
+		} else
+			mdla_thermal_dis_throttle_cb();
+#endif
+		tscpu_dprintk("%s %u\n", __func__, final_limit);
+	}
+}
+EXPORT_SYMBOL(apthermolmt_set_mdla_power_limit);
+#endif
+
 void apthermolmt_set_gpu_power_limit(
 struct apthermolmt_user *handle, unsigned int limit)
 {
@@ -322,5 +377,13 @@ unsigned int apthermolmt_get_vpu_power_limit(void)
 	return apthermolmt_curr_vpu_pwr_lim;
 }
 EXPORT_SYMBOL(apthermolmt_get_vpu_power_limit);
+#endif
+
+#if defined(THERMAL_MDLA_SUPPORT)
+unsigned int apthermolmt_get_mdla_power_limit(void)
+{
+	return apthermolmt_curr_mdla_pwr_lim;
+}
+EXPORT_SYMBOL(apthermolmt_get_mdla_power_limit);
 #endif
 

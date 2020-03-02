@@ -878,16 +878,28 @@ static int tscpu_read_opp(struct seq_file *m, void *v)
 {
 	unsigned int cpu_power, gpu_power;
 	unsigned int gpu_loading = 0;
+#if defined(THERMAL_VPU_SUPPORT)
+	unsigned int vpu_power;
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	unsigned int mdla_power;
+#endif
 
 	cpu_power = apthermolmt_get_cpu_power_limit();
 	gpu_power = apthermolmt_get_gpu_power_limit();
+#if defined(THERMAL_VPU_SUPPORT)
+	vpu_power = apthermolmt_get_vpu_power_limit();
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	mdla_power = apthermolmt_get_mdla_power_limit();
+#endif
 
 #if CPT_ADAPTIVE_AP_COOLER
 
 	if (!mtk_get_gpu_loading(&gpu_loading))
 		gpu_loading = 0;
 
-	seq_printf(m, "%d,%d,%d,%d,%d\n",
+	seq_printf(m, "%d,%d,%d,%d,%d",
 			(int)((cpu_power != 0x7FFFFFFF) ? cpu_power : 0),
 			(int)((gpu_power != 0x7FFFFFFF) ? gpu_power : 0),
 			/* ((NULL == mtk_thermal_get_gpu_loading_fp) ?
@@ -896,6 +908,16 @@ static int tscpu_read_opp(struct seq_file *m, void *v)
 			(int)gpu_loading, (int)mt_gpufreq_get_cur_freq(),
 			get_target_tj());
 
+#if defined(THERMAL_VPU_SUPPORT)
+	seq_printf(m, ",%d",
+		   (int)((vpu_power != 0x7FFFFFFF) ? vpu_power : 0));
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	seq_printf(m, ",%d",
+		   (int)((mdla_power != 0x7FFFFFFF) ? mdla_power : 0));
+#endif
+
+	seq_puts(m, "\n");
 #else
 	seq_printf(m, "%d,%d,0,%d\n",
 			(int)((cpu_power != 0x7FFFFFFF) ? cpu_power : 0),
@@ -1142,6 +1164,18 @@ static ssize_t tscpu_write
 		&ptr_mtktscpu_data->t_type[9], ptr_mtktscpu_data->bind9,
 		&ptr_mtktscpu_data->time_msec) == 32) {
 
+		if (num_trip < 0 || num_trip > 10 ||
+			(num_trip >= 1 &&
+			strncmp("mtk", ptr_mtktscpu_data->bind0, 3) != 0)) {
+#ifdef CONFIG_MTK_AEE_FEATURE
+			aee_kernel_warning_api(__FILE__, __LINE__,
+						DB_OPT_DEFAULT, __func__,
+						"Bad argument");
+#endif
+			tscpu_dprintk("%s bad argument\n", __func__);
+			kfree(ptr_mtktscpu_data);
+			return -EINVAL;
+		}
 
 		/* modify for PTPOD, if disable Thermal,
 		 * PTPOD still need to use this function for getting temperature
@@ -1155,21 +1189,8 @@ static ssize_t tscpu_write
 		tscpu_dprintk("%s tscpu_unregister_thermal\n", __func__);
 		tscpu_unregister_thermal();
 
-		if (num_trip < 0 || num_trip > 10) {
-#ifdef CONFIG_MTK_AEE_FEATURE
-			aee_kernel_warning_api(__FILE__, __LINE__,
-						DB_OPT_DEFAULT, "tscpu_write",
-						"Bad argument");
-#endif
-			tscpu_dprintk("%s bad argument\n", __func__);
-			kfree(ptr_mtktscpu_data);
-			up(&sem_mutex);
-			return -EINVAL;
-		}
-
 		for (i = 0; i < num_trip; i++)
 			g_THERMAL_TRIP[i] =  ptr_mtktscpu_data->t_type[i];
-
 
 		g_bind0[0] = g_bind1[0] = g_bind2[0] =
 			g_bind3[0] = g_bind4[0] = g_bind5[0] =
