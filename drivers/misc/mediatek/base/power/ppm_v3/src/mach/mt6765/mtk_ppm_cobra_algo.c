@@ -175,7 +175,7 @@ void ppm_cobra_update_limit(void *user_req)
 
 	for_each_ppm_clusters(i) {
 #ifndef NO_SCHEDULE_API
-		arch_get_cluster_cpus(&cluster_cpu, i);
+		ppm_get_cl_cpus(&cluster_cpu, i);
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
 
 		cl_status[i].core_num = cpumask_weight(&online_cpu);

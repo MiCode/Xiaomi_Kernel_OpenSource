@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -55,7 +55,7 @@ static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
 
 	for_each_ppm_clusters(i) {
 #ifndef NO_SCHEDULE_API
-		arch_get_cluster_cpus(&cluster_cpu, i);
+		ppm_get_cl_cpus(&cluster_cpu, i);
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
 		cl_status[i].core_num = cpumask_weight(&online_cpu);
 #else
@@ -108,40 +108,41 @@ static struct notifier_block ppm_cpu_freq_notifier = {
 };
 #endif
 
-#if 0
-static int ppm_cpu_hotplug_callback(struct notifier_block *nfb,
-			unsigned long action, void *hcpu)
+static int ppm_cpu_dead(unsigned int cpu)
 {
 	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
 #ifdef PPM_SSPM_SUPPORT
 	int i;
 #endif
 
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_ONLINE:
-	case CPU_DEAD:
-		ppm_dbg(DLPT, "%s: action = %lu\n", __func__, action);
-		ppm_get_cluster_status(cl_status);
+	ppm_dbg(DLPT, "action = %s\n", __func__);
+	ppm_get_cluster_status(cl_status);
 #ifdef PPM_SSPM_SUPPORT
-		for_each_ppm_clusters(i)
-			mt_reg_sync_writel(cl_status[i].core_num,
-			online_core + 4 * i);
+	for_each_ppm_clusters(i)
+		mt_reg_sync_writel(cl_status[i].core_num, online_core + 4 * i);
 #endif
-		mt_ppm_dlpt_kick_PBM(cl_status, ppm_main_info.cluster_num);
-		break;
-	default:
-		break;
-	}
+	mt_ppm_dlpt_kick_PBM(cl_status, ppm_main_info.cluster_num);
 
-	return NOTIFY_OK;
+	return 0;
 }
+
+static int ppm_cpu_up(unsigned int cpu)
+{
+	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
+#ifdef PPM_SSPM_SUPPORT
+	int i;
 #endif
 
-#if 0
-static struct notifier_block __refdata ppm_cpu_hotplug_notifier = {
-	.notifier_call = ppm_cpu_hotplug_callback,
-};
+	ppm_dbg(DLPT, "action = %s\n", __func__);
+	ppm_get_cluster_status(cl_status);
+#ifdef PPM_SSPM_SUPPORT
+	for_each_ppm_clusters(i)
+		mt_reg_sync_writel(cl_status[i].core_num, online_core + 4 * i);
 #endif
+	mt_ppm_dlpt_kick_PBM(cl_status, ppm_main_info.cluster_num);
+
+	return 0;
+}
 
 #ifdef CONFIG_THERMAL
 static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
@@ -199,9 +200,9 @@ int ppm_platform_init(void)
 	cpufreq_register_notifier(&ppm_cpu_freq_notifier,
 		CPUFREQ_TRANSITION_NOTIFIER);
 #endif
-#if 0
-	register_hotcpu_notifier(&ppm_cpu_hotplug_notifier);
-#endif
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
+			"ppm/cpuhp", ppm_cpu_up,
+			ppm_cpu_dead);
 	return 0;
 }
 
@@ -280,13 +281,21 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 		if (core != 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 			now = ktime_get();
 #ifdef CONFIG_MTK_UNIFY_POWER
-			dynamic = upower_get_power(i, opp, UPOWER_DYN) / 1000;
-			lkg = mt_ppm_get_leakage_mw((enum ppm_cluster_lkg)i);
-			total = ((((dynamic * 100 + (percentage - 1))
-				/ percentage) + lkg) * core)
-				+ ((upower_get_power(i+NR_PPM_CLUSTERS,
-				opp, UPOWER_DYN) + upower_get_power(
-				i+NR_PPM_CLUSTERS, opp, UPOWER_LKG)) / 1000);
+			dynamic =
+				upower_get_power(i, opp, UPOWER_DYN) / 1000;
+			lkg =
+				mt_ppm_get_leakage_mw((enum ppm_cluster_lkg)i);
+			total =
+				((((dynamic * 100 + percentage - 1) /
+					percentage) + lkg) * core) +
+				((upower_get_power(
+					i + NR_PPM_CLUSTERS,
+					opp,
+					UPOWER_DYN) +
+				upower_get_power(
+					i + NR_PPM_CLUSTERS,
+					opp,
+					UPOWER_LKG)) / 1000);
 #else
 			dynamic = 100;
 			lkg = 50;
