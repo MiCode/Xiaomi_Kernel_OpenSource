@@ -27,6 +27,7 @@ obj-$(CONFIG_MTK_BASE_POWER) += base/
 obj-$(CONFIG_MTK_PMIC_NEW_ARCH)	+= pmic/
 obj-$(CONFIG_MTK_M4U)   += m4u/
 obj-$(CONFIG_MTK_PSEUDO_M4U)   += pseudo_m4u/
+obj-$(CONFIG_MTK_ICE_DEBUG) += ice_debug/
 
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/

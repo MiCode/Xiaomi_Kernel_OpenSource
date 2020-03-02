@@ -210,6 +210,7 @@ source "drivers/misc/mediatek/ext_gic/Kconfig"
 source "drivers/misc/mediatek/auxadc/Kconfig"
 source "drivers/misc/mediatek/m4u/Kconfig"
 source "drivers/misc/mediatek/pseudo_m4u/Kconfig"
+source "drivers/misc/mediatek/ice_debug/Kconfig"
 
 source "drivers/misc/mediatek/atf/Kconfig"
 source "drivers/misc/mediatek/lens/Kconfig"
