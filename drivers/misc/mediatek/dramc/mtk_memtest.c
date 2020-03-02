@@ -38,9 +38,7 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_meminfo.h>
 #include <mt-plat/mtk_chip.h>
-#ifdef TRIGGER_DB
 #include <mt-plat/aee.h>
-#endif
 #include "mtk_dramc.h"
 #include "dramc.h"
 
@@ -455,9 +453,7 @@ static ssize_t test_result_read(struct file *file,
 		if (test_fail_region[FAIL_REGION_VIRT])
 			sz2 += snprintf(buf + sz2, sizeof(buf) - sz2,
 					"virtual\n");
-#ifdef TRIGGER_DB
 		aee_kernel_warning("DRAM_MEMTEST", buf);
-#endif
 	}
 
 	return simple_read_from_buffer(user_buf, len, offset, buf, sz);
