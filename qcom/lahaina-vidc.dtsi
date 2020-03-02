@@ -34,6 +34,9 @@
 
 		qcom,reg-presets = <0xB0088 0x0 0x11>;
 
+		/* Video Firmware ELF image name */
+		vidc,firmware-name = "vpu20_4v";
+
 		/* Bus Interconnects */
 		interconnect-names = "venus-cnoc", "venus-ddr", "venus-llcc";
 		interconnects = <&gem_noc MASTER_APPSS_PROC
