@@ -435,7 +435,8 @@ static int mmc_check_write(struct mmc_host *host, struct mmc_request *mrq)
 	if (mrq->cmd->opcode == MMC_EXECUTE_WRITE_TASK) {
 		ret = mmc_blk_status_check(host->card, &status);
 
-		if ((status & R1_WP_VIOLATION) || host->wp_error) {
+		if ((status & R1_WP_VIOLATION) || host->wp_error ||
+			R1_CURRENT_STATE(status) != R1_STATE_TRAN) {
 			mrq->data->error = -EROFS;
 			areq_active =
 				host->areq_que[(mrq->cmd->arg >> 16) & 0x1f];
@@ -445,10 +446,10 @@ static int mmc_check_write(struct mmc_host *host, struct mmc_request *mrq)
 	"[%s]: data error = %d, status=0x%x, line:%d, block addr:0x%x\n",
 				__func__, mrq->data->error, status,
 				__LINE__, mq_rq->brq.que.arg);
+			mmc_wait_tran(host);
+			host->wp_error = 0;
 		}
-		mmc_wait_tran(host);
 		mrq->data->error = 0;
-		host->wp_error = 0;
 		atomic_set(&host->cq_w, false);
 	}
 
