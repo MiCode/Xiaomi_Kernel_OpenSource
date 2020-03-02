@@ -1784,7 +1784,8 @@ static ssize_t eachreg_write(struct file *file, const char __user *ubuf,
 	char lbuf[128];
 	ssize_t res;
 
-	if ((rm->size - 1) * 3 + 5 != count) {
+	if ((rm->size - 1) * 3 + 5 != count &&
+		(rm->size - 1) * 3 + 4 != count) {
 		dev_err(&rd->dev, "wrong input length\n");
 		return -EINVAL;
 	}
