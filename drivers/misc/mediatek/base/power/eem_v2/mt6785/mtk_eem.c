@@ -159,6 +159,7 @@ DEFINE_SPINLOCK(record_spinlock);
 #define PI_MTDES_MASK		(0xFF)
 #define PI_DVTFIXED_MASK	(0xF)
 #define WAIT_TIME	(2500000)
+#define FALL_NUM        (3)
 
 struct pi_efuse_index {
 	enum eem_det_id det_id;
@@ -192,6 +193,7 @@ struct pi_efuse_index {
 static int eem_log_en;
 static unsigned int eem_checkEfuse = 1;
 static unsigned int informEEMisReady;
+static int time_val = 1;
 static struct pi_efuse_index pi_efuse_idx[] = {
 	/* Without LOO enabled */
 	{EEM_DET_CCI, 3, 0, 4, 16, 0, 16, 0, 0, {0} },
@@ -1328,6 +1330,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	unsigned int i, verr = 0;
 	int low_temp_offset = 0, rm_dvtfix_offset = 0;
 	unsigned int t_clamp = 0;
+	int extra_aging = 0;
 
 	if (det == NULL)
 		return;
@@ -1633,6 +1636,11 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				low_temp_offset = ndet->low_temp_off;
 		}
 
+		if (time_val && (i < FALL_NUM))
+			extra_aging = 1;
+		else
+			extra_aging = 0;
+
 		switch (ndet->ctrl_id) {
 		case EEM_CTRL_L:
 			ndet->volt_tbl_pmic[i] = min(
@@ -1691,7 +1699,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			rm_dvtfix_offset - ndet->volt_dcv),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 			ndet->ops->eem_2_pmic(ndet, VMAX_VAL_GPU)) +
-			low_temp_offset),
+			low_temp_offset - extra_aging),
 			ndet->volt_tbl_orig[i] + ndet->volt_clamp +
 			t_clamp);
 			break;
