@@ -22,8 +22,6 @@
 #include "tz_m4u.h"
 #include "m4u_sec_gp.h"
 
-unsigned int M4U_SEC_SESSION;
-
 static struct m4u_sec_gp_context m4u_gp_ta_ctx = {
 #if defined(CONFIG_MICROTRUST_TEE_SUPPORT) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
@@ -113,7 +111,7 @@ static int m4u_sec_gp_init(struct m4u_sec_context *ctx)
 		M4UMSG("m4u msg is invalid\n");
 		return -1;
 	}
-	if (!M4U_SEC_SESSION) {
+	if (!gp_ctx->init) {
 		ret = TEEC_OpenSession(&gp_ctx->ctx,
 			&gp_ctx->session, &gp_ctx->uuid,
 				       TEEC_LOGIN_PUBLIC, NULL, NULL, NULL);
@@ -122,10 +120,8 @@ static int m4u_sec_gp_init(struct m4u_sec_context *ctx)
 			goto exit_release;
 
 		}
-		M4U_SEC_SESSION = 1;
+		gp_ctx->init = 1;
 	}
-
-	gp_ctx->init = 1;
 
 	M4ULOG_HIGH("%s, open TCI session success\n", __func__);
 	return ret;
