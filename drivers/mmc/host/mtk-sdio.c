@@ -3526,6 +3526,7 @@ static irqreturn_t sdio_eint_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifndef SUPPORT_LEGACY_SDIO
 static int request_dat1_eint_irq(struct msdc_host *host)
 {
 	struct gpio_desc *desc;
@@ -3551,7 +3552,7 @@ static int request_dat1_eint_irq(struct msdc_host *host)
 	return ret;
 }
 
-#ifdef SUPPORT_LEGACY_SDIO
+#else
 /* For backward compatible, remove later */
 int wait_sdio_autok_ready(void *data)
 {
@@ -3790,13 +3791,13 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (ret)
 		goto release;
 
+#ifndef SUPPORT_LEGACY_SDIO
 	ret = request_dat1_eint_irq(host);
 	if (ret) {
 		dev_info(host->dev, "failed to register data1 eint irq!\n");
 		goto release;
 	}
-
-#ifdef SUPPORT_LEGACY_SDIO
+#else
 	host->suspend = 0;
 
 	register_legacy_sdio_apis(host);
