@@ -1407,13 +1407,14 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 
 	}
 
-	if (!table && va && size) {
+	if (!table && va && size)
 		table = pseudo_get_sg(port, va, size);
-		if (!table) {
-			M4U_ERR("err sg of va:0x%lx, size:0x%lx\n", va, size);
-			goto ERR_EXIT;
-		}
+
+	if (!table) {
+		M4U_ERR("err sg of va:0x%lx, size:0x%lx\n", va, size);
+		goto ERR_EXIT;
 	}
+
 #if defined(CONFIG_MACH_MT6785)
 	/*just a workaround, since m4u design didn't define VPU_DATA*/
 	if (!(flags & (M4U_FLAGS_FIX_MVA | M4U_FLAGS_START_FROM))) {
