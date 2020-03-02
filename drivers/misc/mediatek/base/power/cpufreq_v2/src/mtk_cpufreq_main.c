@@ -1079,16 +1079,15 @@ static int _mt_cpufreq_target(struct cpufreq_policy *policy,
 	unsigned int relation)
 {
 	struct mt_cpu_dvfs *p;
-	int ret;
-	unsigned int new_opp_idx;
+	unsigned int new_opp_idx = -1;
 
 	p = id_to_cpu_dvfs(_get_cpu_dvfs_id(policy->cpu));
 	if (!p)
 		return -EINVAL;
 
-	ret = cpufreq_frequency_table_target(policy,
+	new_opp_idx = cpufreq_frequency_table_target(policy,
 					     target_freq, relation);
-	if (ret || new_opp_idx >= p->nr_opp_tbl)
+	if (new_opp_idx >= p->nr_opp_tbl)
 		return -EINVAL;
 
 	if (dvfs_disable_flag || p->dvfs_disable_by_suspend
