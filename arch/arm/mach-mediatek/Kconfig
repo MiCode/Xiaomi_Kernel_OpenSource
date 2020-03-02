@@ -34,4 +34,8 @@ config MACH_MT8135
 	bool "MediaTek MT8135 SoCs support"
 	default ARCH_MEDIATEK
 
+config MACH_MT6771
+	bool "MediaTek MT6771 SoCs support"
+	select MTK_TIMER_APXGPT
+
 endif
