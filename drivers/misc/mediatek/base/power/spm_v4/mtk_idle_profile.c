@@ -315,8 +315,8 @@ void mtk_idle_ratio_calc_stop(int type, int cpu)
 #endif
 		}
 #if 0
-		idle_prof_err("XXIDLE %llu,
-			      %llu, %llu, %llu, %llu, %llu, %llu, %llu, %d\n",
+		idle_prof_err(
+		"XXIDLE %llu, %llu, %llu, %llu, %llu, %llu, %llu, %llu, %d\n",
 			ratio->last_end_ts,
 			ratio->start_ts,
 			ratio->end_ts,
