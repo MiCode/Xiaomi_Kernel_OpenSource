@@ -2548,7 +2548,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	chip->chgdev = get_charger_by_name("primary_chg");
 	if (!chip->chgdev) {
 		dev_err(chip->dev, "%s get charger device fail\n", __func__);
-		ret = -EINVAL;
+		ret = -EPROBE_DEFER;
 		goto err_tcpc_reg;
 	}
 #endif /* CONFIG_MTK_GAUGE_VERSION == 30 */
@@ -2719,7 +2719,7 @@ static int __init mt6360_init(void)
 
 	return i2c_add_driver(&mt6360_driver);
 }
-device_initcall_sync(mt6360_init);
+subsys_initcall(mt6360_init);
 
 static void __exit mt6360_exit(void)
 {
