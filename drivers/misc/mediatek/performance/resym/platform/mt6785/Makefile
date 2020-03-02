@@ -11,14 +11,11 @@
 # GNU General Public License for more details.
 #
 
-obj-y += pob_main.o
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/performance/resym
+ccflags-y += -Idrivers/misc/mediatek/vpu/mt6785/
+ccflags-y += -Idrivers/misc/mediatek/mdla/1.0/
 
-obj-y += bqd_notify.o
-obj-y += fpsgo_notify.o
-obj-y += rs_notify.o
-obj-y += qos_notify.o
-obj-y += nn_notify.o
-obj-y += xpu_notify.o
+obj-y += rs_cpu_pfm.o
+obj-y += rs_vpu_pfm.o
+obj-y += rs_mdla_pfm.o
 
-obj-$(CONFIG_MACH_MT6768) += platform/mt6768/
-obj-$(CONFIG_MACH_MT6785) += platform/mt6785/
