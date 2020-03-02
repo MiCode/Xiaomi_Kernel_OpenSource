@@ -23,6 +23,9 @@ extern int stune_task_threshold;
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 extern struct mutex uclamp_mutex;
+extern int opp_capacity_tbl_ready;
+extern void init_opp_capacity_tbl(void);
+extern unsigned int find_fit_capacity(unsigned int cap);
 extern  void uclamp_group_get(struct task_struct *p,
 			     struct cgroup_subsys_state *css,
 			     struct uclamp_se *uc_se,

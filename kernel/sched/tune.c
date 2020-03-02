@@ -324,6 +324,11 @@ static int cpu_util_min_write_u64(struct cgroup_subsys_state *css,
 	if (min_value > SCHED_CAPACITY_SCALE)
 		return -ERANGE;
 
+	if (!opp_capacity_tbl_ready)
+		init_opp_capacity_tbl();
+
+	min_value = find_fit_capacity(min_value);
+
 	mutex_lock(&uclamp_mutex);
 	rcu_read_lock();
 
@@ -357,6 +362,11 @@ static int cpu_util_max_write_u64(struct cgroup_subsys_state *css,
 
 	if (max_value > SCHED_CAPACITY_SCALE)
 		return -ERANGE;
+
+	if (!opp_capacity_tbl_ready)
+		init_opp_capacity_tbl();
+
+	max_value = find_fit_capacity(max_value);
 
 	mutex_lock(&uclamp_mutex);
 	rcu_read_lock();
