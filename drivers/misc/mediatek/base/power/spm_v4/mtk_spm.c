@@ -86,7 +86,7 @@ u32 spm_irq_0;
 #elif defined(CONFIG_MACH_MT6739)
 #define NF_EDGE_TRIG_IRQS	3
 #elif defined(CONFIG_MACH_MT6771)
-#define NF_EDGE_TRIG_IRQS	4	/* TODO: confirm & modify */
+#define NF_EDGE_TRIG_IRQS	3 /* remove auxadc (lowbattery_irq_b) */
 #endif
 static u32 edge_trig_irqs[NF_EDGE_TRIG_IRQS];
 
@@ -363,6 +363,7 @@ static void spm_register_init(void)
 	}
 
 	/* mediatek,auxadc */
+	/* remove auxadc (lowbattery_irq_b)
 	node = of_find_compatible_node(NULL, NULL, "mediatek,auxadc");
 	if (!node) {
 		spm_err("find mediatek,auxadc node failed\n");
@@ -371,6 +372,7 @@ static void spm_register_init(void)
 		if (!edge_trig_irqs[3])
 			spm_err("get mediatek,auxadc failed\n");
 	}
+	*/
 #endif
 
 #if defined(CONFIG_MACH_MT6763)
@@ -391,8 +393,8 @@ static void spm_register_init(void)
 	spm_err("edge trigger irqs: %d, %d, %d, %d\n",
 		 edge_trig_irqs[0],
 		 edge_trig_irqs[1],
-		 edge_trig_irqs[2],
-		 edge_trig_irqs[3]);
+		 edge_trig_irqs[2]);
+	//	 edge_trig_irqs[3]); /* remove auxadc (lowbattery_irq_b) */
 #endif
 
 #if defined(CONFIG_MACH_MT6739)
@@ -1427,7 +1429,7 @@ void unmask_edge_trig_irqs_for_cirq(void)
 	for (i = 0; i < NF_EDGE_TRIG_IRQS; i++) {
 		if (edge_trig_irqs[i]) {
 			/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING) && !defined(CONFIG_MACH_MT6771)
+#if !defined(SPM_K414_EARLY_PORTING)
 			/* unmask edge trigger irqs */
 			mt_irq_unmask_for_sleep_ex(edge_trig_irqs[i]);
 #endif
