@@ -414,6 +414,9 @@ struct sched_avg {
 	unsigned long			load_avg;
 	unsigned long			util_avg;
 	struct util_est			util_est;
+#ifdef CONFIG_SCHED_HMP
+	unsigned long loadwop_avg, loadwop_sum;
+#endif
 };
 
 struct sched_statistics {
