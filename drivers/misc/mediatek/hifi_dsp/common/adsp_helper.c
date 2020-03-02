@@ -22,6 +22,7 @@
 #include "mtk_hifixdsp_common.h"
 #include "adsp_helper.h"
 #include "adsp_clk.h"
+#include "adsp_ipi.h"
 
 
 static struct adsp_chip_info *adsp_info;
@@ -98,6 +99,11 @@ static int adsp_device_probe(struct platform_device *pdev)
 		goto tail;
 	}
 
+	ret = adsp_ipi_device_init(pdev);
+	if (unlikely(ret != 0)) {
+		dev_err(dev, "[ADSP] adsp ipi init failed.\n");
+		goto tail;
+	}
 tail:
 	if (ret) {
 		devm_kfree(dev, pri_data);
@@ -108,6 +114,7 @@ tail:
 
 static int adsp_device_remove(struct platform_device *pdev)
 {
+	adsp_ipi_device_remove(pdev);
 	adsp_destroy_sys_files(&pdev->dev);
 	return 0;
 }
