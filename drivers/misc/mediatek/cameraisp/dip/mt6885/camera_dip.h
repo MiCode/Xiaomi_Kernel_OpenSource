@@ -41,6 +41,8 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 /*Chip Dependent Constanct*/
 #define DIP_IMGSYS_BASE_HW   0x15020000
 #define DIP_A_BASE_HW   0x15021000
+#define MSS_BASE_HW   0x15012000
+#define MSF_BASE_HW   0x15010000
 /*PAGE_SIZE*6 = 4096*6 <=dependent on device tree setting */
 #define DIP_REG_RANGE           (0xC000)
 
@@ -66,6 +68,8 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 enum DIP_DEV_NODE_ENUM {
 	DIP_IMGSYS_CONFIG_IDX = 0,
 	DIP_DIP_A_IDX, /* Remider: Add this device node manually in .dtsi */
+	DIP_MSS_IDX,
+	DIP_MSF_IDX,
 	DIP_DEV_NODE_NUM
 };
 
