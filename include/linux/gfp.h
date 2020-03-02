@@ -598,6 +598,8 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask);
 
 extern void pm_restrict_gfp_mask(void);
 extern void pm_restore_gfp_mask(void);
+extern void amms_cma_restrict_gfp_mask(void);
+extern void amms_cma_restore_gfp_mask(void);
 
 #ifdef CONFIG_PM_SLEEP
 extern bool pm_suspended_storage(void);
