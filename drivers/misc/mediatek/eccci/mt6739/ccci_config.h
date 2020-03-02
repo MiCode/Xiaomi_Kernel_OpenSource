@@ -49,4 +49,7 @@
 #define ENABLE_32K_CLK_LESS
 /*#define CCCI_LOG_LEVEL     1*/
 
+
+#define DISABLE_MD_WDT
+
 #endif
