@@ -629,6 +629,10 @@ GED_ERROR ged_dvfs_vsync_offset_event_switch(GED_DVFS_VSYNC_OFFSET_SWITCH_CMD eE
 			ret = ged_dvfs_probe_signal
 			(GED_LOW_LATENCY_MODE_SIGNAL_EVENT);
 			break;
+		case GED_DVFS_VSYNC_OFFSET_DHWC_EVENT:
+			(bSwitch) ? (g_ui32EventStatus |= GED_EVENT_DHWC) :
+				(g_ui32EventStatus &= (~GED_EVENT_DHWC));
+			break;
 	default:
 		GED_LOGE("%s: not acceptable event:%u\n", __func__, eEvent);
 		ret = GED_ERROR_INVALID_PARAMS;

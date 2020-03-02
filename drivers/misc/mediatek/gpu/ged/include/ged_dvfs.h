@@ -67,6 +67,7 @@ typedef enum GED_DVFS_TUNING_MODE_TAG {
 #define GED_EVENT_VILTE_VID      (1 << 9)
 #define GED_EVENT_LCD            (1 << 10)
 #define GED_EVENT_LOW_LATENCY_MODE (1 << 13)
+#define GED_EVENT_DHWC             (1 << 14)
 
 typedef void (*ged_event_change_fp)(void *private_data, int events);
 
