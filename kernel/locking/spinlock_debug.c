@@ -13,6 +13,10 @@
 #include <linux/delay.h>
 #include <linux/export.h>
 
+#ifdef CONFIG_MTK_SCHED_MONITOR
+#include "mtk_sched_mon.h"
+#endif
+
 void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
 			  struct lock_class_key *key)
 {
@@ -109,9 +113,15 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
  */
 void do_raw_spin_lock(raw_spinlock_t *lock)
 {
+#ifdef CONFIG_MTK_SCHED_MONITOR
+	mt_trace_lock_spinning_start(lock);
+#endif
 	debug_spin_lock_before(lock);
 	arch_spin_lock(&lock->raw_lock);
 	debug_spin_lock_after(lock);
+#ifdef CONFIG_MTK_SCHED_MONITOR
+	mt_trace_lock_spinning_end(lock);
+#endif
 }
 
 int do_raw_spin_trylock(raw_spinlock_t *lock)
