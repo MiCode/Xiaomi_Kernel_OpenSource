@@ -494,7 +494,7 @@ int goodix_set_i2c_doze_mode(struct goodix_ts_device *dev, int enable)
 {
 	int result = -EINVAL;
 	int i;
-	u8 w_data, r_data;
+	u8 w_data, r_data = 0;
 
 	if (dev->ic_type != IC_TYPE_NORMANDY)
 		return 0;
