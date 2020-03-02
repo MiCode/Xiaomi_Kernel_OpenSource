@@ -55,6 +55,7 @@
 /* All are MMU0 defaultly. Only specialize mmu1 here. */
 #define F_MMU1_LARB(larbid)		(0x1 << SMI_BUS_LARB_SHIFT(larbid))
 
+#if !IS_ENABLED(CONFIG_MTK_SMI_EXT)
 enum mtk_smi_gen {
 	MTK_SMI_GEN1,
 	MTK_SMI_GEN2
@@ -552,6 +553,238 @@ static struct platform_driver mtk_smi_common_driver = {
 		.pm             = &smi_common_pm_ops,
 	}
 };
+#else /* IS_ENABLED(CONFIG_MTK_SMI_EXT) */
+#include <linux/of_address.h>
+
+static u32 nr_larbs;
+static struct mtk_smi_dev **smi_dev;
+
+s32 mtk_smi_clk_enable(const struct mtk_smi_dev *smi)
+{
+	s32 i, j, ret = 0;
+
+	if (!smi) {
+		pr_info("No such device or address\n");
+		return -ENXIO;
+	} else if (!smi->dev || !smi->clks) {
+		pr_info("SMI%u no such device or address\n", smi->id);
+		return -ENXIO;
+	}
+	for (i = 1; i < smi->nr_clks; i++) { /* without MTCMOS */
+		ret = clk_prepare_enable(smi->clks[i]);
+		if (ret) {
+			dev_info(smi->dev, "SMI%u CLK%d enable failed:%d\n",
+				smi->id, i, ret);
+			break;
+		}
+	}
+	if (ret)
+		for (j = i - 1; j > 0; j--)
+			clk_disable_unprepare(smi->clks[j]);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_clk_enable);
+
+void mtk_smi_clk_disable(const struct mtk_smi_dev *smi)
+{
+	s32 i;
+
+	if (!smi)
+		pr_info("No such device or address\n");
+	else if (!smi->dev || !smi->clks)
+		pr_info("SMI%u no such device or address\n", smi->id);
+
+	for (i = smi->nr_clks - 1; i > 0; i--)
+		clk_disable_unprepare(smi->clks[i]);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_clk_disable);
+
+struct mtk_smi_dev *mtk_smi_dev_get(const u32 id)
+{
+	if (id > nr_larbs)
+		pr_info("Invalid id: %u, nr_larbs=%u\n", id, nr_larbs);
+	else if (!smi_dev[id])
+		pr_info("SMI%u no such device or address\n", id);
+	else
+		return smi_dev[id];
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dev_get);
+
+s32 mtk_smi_conf_set(const struct mtk_smi_dev *smi, const u32 scen_id)
+{
+	u32 cnts, i;
+
+	if (!smi) {
+		pr_info("No such device or address\n");
+		return -ENXIO;
+	} else if (!smi->dev) {
+		pr_info("SMI%u no such device or address\n", smi->id);
+		return -ENXIO;
+	}
+
+	cnts = atomic_read(&(smi->clk_cnts));
+	if (cnts <= 0) {
+		dev_dbg(smi->dev, "SMI%u without MTCMOS: %d\n", smi->id, cnts);
+		return cnts;
+	}
+	/* conf */
+	for (i = 0; i < smi->nr_conf_pairs; i++)
+		writel(smi->conf_pairs[i].val,
+			smi->base + smi->conf_pairs[i].off);
+	/* scen */
+	for (i = 0; i < smi->nr_scen_pairs; i++)
+		writel(smi->scen_pairs[scen_id][i].val,
+			smi->base + smi->scen_pairs[scen_id][i].off);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_conf_set);
+
+static s32 mtk_smi_clks_get(struct mtk_smi_dev *smi)
+{
+	struct property *prop;
+	const char *name, *clk_names = "clock-names";
+	s32 i = 0;
+
+	if (!smi) {
+		pr_info("No such device or address\n");
+		return -ENXIO;
+	} else if (!smi->dev) {
+		pr_info("SMI%u no such device or address\n", smi->id);
+		return -ENXIO;
+	}
+
+	smi->nr_clks = of_property_count_strings(smi->dev->of_node, clk_names);
+	/* MMDVFS */
+	smi->clks = devm_kcalloc(smi->dev, smi->nr_clks, sizeof(*smi->clks),
+		GFP_KERNEL);
+	if (!smi->clks)
+		return -ENOMEM;
+
+	of_property_for_each_string(smi->dev->of_node, clk_names, prop, name) {
+		smi->clks[i] = devm_clk_get(smi->dev, name);
+		if (IS_ERR(smi->clks[i])) {
+			dev_info(smi->dev, "SMI%u CLK%d:%s get failed\n",
+				smi->id, i, name);
+			break;
+		}
+		dev_info(smi->dev, "SMI%u CLK%d:%s\n", smi->id, i, name);
+		i += 1;
+	}
+	if (i < smi->nr_clks)
+		return PTR_ERR(smi->clks[i]);
+
+	atomic_set(&(smi->clk_cnts), 0);
+	return 0;
+}
+
+static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
+{
+	struct resource *res;
+	void __iomem *base;
+
+	if (id > nr_larbs) {
+		dev_dbg(&pdev->dev,
+			"Invalid id:%u, nr_larbs=%u\n", id, nr_larbs);
+		return -EINVAL;
+	}
+
+	smi_dev[id] =
+		devm_kzalloc(&pdev->dev, sizeof(*smi_dev[id]), GFP_KERNEL);
+	if (!smi_dev[id])
+		return -ENOMEM;
+
+	smi_dev[id]->id = id;
+	smi_dev[id]->dev = &pdev->dev;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	base = devm_ioremap_resource(smi_dev[id]->dev, res);
+	if (IS_ERR(base)) {
+		dev_info(&pdev->dev, "SMI%u base:%#p read failed\n",
+			id, base);
+		return PTR_ERR(base);
+	}
+	smi_dev[id]->base = base;
+	of_address_to_resource(smi_dev[id]->dev->of_node, 0, res);
+	dev_info(&pdev->dev,
+		"SMI%u base: VA=%#p, PA=%pa\n", id, base, &res->start);
+
+	platform_set_drvdata(pdev, smi_dev[id]);
+	return mtk_smi_clks_get(smi_dev[id]);
+}
+
+static int mtk_smi_larb_probe(struct platform_device *pdev)
+{
+	u32 id;
+	s32 ret;
+
+	if (!pdev) {
+		pr_notice("platform_device missed\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-id", &id);
+	if (ret) {
+		dev_info(&pdev->dev, "LARB%u read failed:%d\n", id, ret);
+		return ret;
+	}
+	return mtk_smi_dev_probe(pdev, id);
+}
+
+static int mtk_smi_common_probe(struct platform_device *pdev)
+{
+	u32 id;
+	s32 ret;
+
+	if (!pdev) {
+		pr_notice("platform_device missed\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-id", &id);
+	if (ret) {
+		dev_info(&pdev->dev, "COMMON%u read failed:%d\n", id, ret);
+		return ret;
+	}
+	nr_larbs = id;
+
+	smi_dev =
+		devm_kcalloc(&pdev->dev, id + 1, sizeof(*smi_dev), GFP_KERNEL);
+	if (!smi_dev)
+		return -ENOMEM;
+	return mtk_smi_dev_probe(pdev, id);
+}
+
+static const struct of_device_id mtk_smi_larb_of_ids[] = {
+	{
+		.compatible = "mediatek,smi_larb",
+	},
+	{}
+};
+
+static const struct of_device_id mtk_smi_common_of_ids[] = {
+	{
+		.compatible = "mediatek,smi_common",
+	},
+	{}
+};
+
+static struct platform_driver mtk_smi_larb_driver = {
+	.probe	= mtk_smi_larb_probe,
+	.driver	= {
+		.name = "mtk-smi-larb",
+		.of_match_table = mtk_smi_larb_of_ids,
+	}
+};
+
+static struct platform_driver mtk_smi_common_driver = {
+	.probe	= mtk_smi_common_probe,
+	.driver	= {
+		.name = "mtk-smi-common",
+		.of_match_table = mtk_smi_common_of_ids,
+	}
+};
+#endif /* IS_ENABLED(CONFIG_MTK_SMI_EXT) */
 
 static int __init mtk_smi_init(void)
 {
@@ -568,6 +801,15 @@ static int __init mtk_smi_init(void)
 		pr_err("Failed to register SMI-LARB driver\n");
 		goto err_unreg_smi;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
+	ret = smi_register();
+	if (ret) {
+		pr_notice("Failed to register SMI_EXT driver\n");
+		platform_driver_unregister(&mtk_smi_larb_driver);
+		goto err_unreg_smi;
+	}
+#endif
 	return ret;
 
 err_unreg_smi:
@@ -575,7 +817,11 @@ err_unreg_smi:
 	return ret;
 }
 
+#if !IS_ENABLED(CONFIG_MTK_SMI_EXT)
 module_init(mtk_smi_init);
+#else
+arch_initcall_sync(mtk_smi_init);
+#endif
 
 MODULE_DESCRIPTION("MediaTek SMI driver");
 MODULE_LICENSE("GPL v2");
