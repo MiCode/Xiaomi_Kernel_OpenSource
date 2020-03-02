@@ -17,18 +17,6 @@
 /*#include "val_log.h"*/
 #include "drv_api.h"
 
-/* #define VCODEC_DEBUG */
-#ifdef VCODEC_DEBUG
-#undef VCODEC_DEBUG
-#define VCODEC_DEBUG pr_debug
-#undef pr_debug
-#define pr_debug pr_debug
-#else
-#define VCODEC_DEBUG(...)
-#undef pr_debug
-#define pr_debug(...)
-#endif
-
 /* ============================================================== */
 /* For Hybrid HW */
 /* spinlock : OalHWContextLock */
@@ -37,7 +25,8 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T oal_hw_context[MULTI_INST_NUM];
 struct VAL_NON_CACHE_MEMORY_LIST_T grNCMemoryList[MULTI_INST_NUM_x_10];
 
 /* For both hybrid and pure HW */
-struct VAL_VCODEC_HW_LOCK_T grVcodecHWLock;	/* mutex : HWLock */
+struct VAL_VCODEC_HW_LOCK_T grVcodecDecHWLock;	/* mutex : VdecHWLock */
+struct VAL_VCODEC_HW_LOCK_T grVcodecEncHWLock;	/* mutex : VencHWLock */
 
 unsigned int gu4LockDecHWCount;	/* spinlock : LockDecHWCountLock */
 unsigned int gu4LockEncHWCount;	/* spinlock : LockEncHWCountLock */
@@ -51,9 +40,11 @@ int search_HWLockSlot_ByTID(unsigned long ulpa, unsigned int curr_tid)
 	int j;
 
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		if (oal_hw_context[i].u4ThreadNum != VCODEC_THREAD_MAX_NUM) {
-			for (j = 0; j < oal_hw_context[i].u4ThreadNum; j++) {
-				if (oal_hw_context[i].u4ThreadID[j]	==
+		if (oal_hw_context[i].u4ThreadNum !=
+			VCODEC_THREAD_MAX_NUM) {
+			for (j = 0; j <
+				oal_hw_context[i].u4ThreadNum; j++) {
+				if (oal_hw_context[i].u4ThreadID[j] ==
 					curr_tid) {
 					pr_debug("[VCODEC][%s]\n",
 						__func__);
@@ -73,18 +64,14 @@ int search_HWLockSlot_ByHandle(unsigned long ulpa, unsigned long handle)
 	int i;
 
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		if (oal_hw_context[i].pvHandle == handle) {
-			/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+		if (oal_hw_context[i].pvHandle == handle)
 			return i;
-		}
 	}
 
 	/* dump debug info */
 	pr_debug("search_HWLockSlot_ByHandle");
-	for (i = 0; i < MULTI_INST_NUM / 2; i++) {
-/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+	for (i = 0; i < MULTI_INST_NUM / 2; i++)
 		pr_debug("[%d] 0x%lx", i, oal_hw_context[i].pvHandle);
-	}
 
 	return -1;
 }
@@ -97,7 +84,6 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot(unsigned long ulpa,
 
 	/* Dump current ObjId */
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
 		pr_debug("[VCODEC] Dump curr slot %d ObjId 0x%lx\n",
 			i, oal_hw_context[i].ObjId);
 	}
@@ -112,8 +98,10 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot(unsigned long ulpa,
 
 	/* if not exist in table,  find a new free slot and put it */
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		if (oal_hw_context[i].u4ThreadNum != VCODEC_THREAD_MAX_NUM) {
-			for (j = 0; j < oal_hw_context[i].u4ThreadNum; j++) {
+		if (oal_hw_context[i].u4ThreadNum !=
+			VCODEC_THREAD_MAX_NUM) {
+			for (j = 0; j <
+				oal_hw_context[i].u4ThreadNum; j++) {
 				if (oal_hw_context[i].u4ThreadID[j] ==
 					current->pid) {
 					oal_hw_context[i].ObjId = ulpa;
@@ -125,19 +113,18 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot(unsigned long ulpa,
 		}
 	}
 
-	pr_err("[VCODEC][ERROR] %s All %d Slots unavaliable\n",
+	pr_debug("[VCODEC][ERROR] %s All %d Slots unavaliable\n",
 		__func__, MULTI_INST_NUM);
 	oal_hw_context[0].u4ThreadNum = VCODEC_THREAD_MAX_NUM - 1;
-	for (i = 0; i < oal_hw_context[0].u4ThreadNum; i++) {
-		/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+	for (i = 0; i < oal_hw_context[0].u4ThreadNum; i++)
 		oal_hw_context[0].u4ThreadID[i] = current->pid;
-	}
+
 	return &oal_hw_context[0];
 }
 
 
 struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot_Thread_ID(
-	struct VAL_VCODEC_THREAD_ID_T a_prVcodecThreadID,
+	struct VAL_VCODEC_THREAD_ID_T a_prThreadID,
 	unsigned int *a_prIndex)
 {
 	int i;
@@ -146,8 +133,10 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot_Thread_ID(
 
 	/* Dump current tids */
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		if (oal_hw_context[i].u4ThreadNum != VCODEC_THREAD_MAX_NUM) {
-			for (j = 0; j < oal_hw_context[i].u4ThreadNum; j++) {
+		if (oal_hw_context[i].u4ThreadNum !=
+			VCODEC_THREAD_MAX_NUM) {
+			for (j = 0; j < oal_hw_context[i].u4ThreadNum;
+				j++) {
 				pr_debug("[VCODEC][%s]\n", __func__);
 				pr_debug("Dump curr slot %d, ThreadID[%d] = %d\n",
 					i, j,
@@ -156,20 +145,20 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot_Thread_ID(
 		}
 	}
 
-	for (i = 0; i < a_prVcodecThreadID.u4ThreadNum; i++) {
+	for (i = 0; i < a_prThreadID.u4ThreadNum; i++) {
 		pr_debug("[VCODEC][%s] VCodecThreadNum = %d, VCodecThreadID = %d\n",
-		     __func__, a_prVcodecThreadID.u4ThreadNum,
-		     a_prVcodecThreadID.u4ThreadID[i]);
+		     __func__, a_prThreadID.u4ThreadNum,
+		     a_prThreadID.u4ThreadID[i]);
 	}
 
 	/* check if current tids exist in oal_hw_context[i].ObjId */
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		if (oal_hw_context[i].u4ThreadNum != VCODEC_THREAD_MAX_NUM) {
+		if (oal_hw_context[i].u4ThreadNum !=
+			VCODEC_THREAD_MAX_NUM) {
 			for (j = 0; j < oal_hw_context[i].u4ThreadNum; j++) {
-				for (k = 0; k <
-					a_prVcodecThreadID.u4ThreadNum; k++) {
+				for (k = 0; k < a_prThreadID.u4ThreadNum; k++) {
 					if (oal_hw_context[i].u4ThreadID[j] ==
-					    a_prVcodecThreadID.u4ThreadID[k]) {
+					    a_prThreadID.u4ThreadID[k]) {
 						pr_debug("[VCODEC][%s]\n",
 							__func__);
 						pr_debug("Curr Already exist in %d Slot\n",
@@ -184,12 +173,13 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot_Thread_ID(
 
 	/* if not exist in table,  find a new free slot and put it */
 	for (i = 0; i < MULTI_INST_NUM; i++) {
-		if (oal_hw_context[i].u4ThreadNum == VCODEC_THREAD_MAX_NUM) {
+		if (oal_hw_context[i].u4ThreadNum ==
+			VCODEC_THREAD_MAX_NUM) {
 			oal_hw_context[i].u4ThreadNum =
-				a_prVcodecThreadID.u4ThreadNum;
-			for (j = 0; j < a_prVcodecThreadID.u4ThreadNum; j++) {
+				a_prThreadID.u4ThreadNum;
+			for (j = 0; j < a_prThreadID.u4ThreadNum; j++) {
 				oal_hw_context[i].u4ThreadID[j] =
-				    a_prVcodecThreadID.u4ThreadID[j];
+				    a_prThreadID.u4ThreadID[j];
 				pr_debug("[VCODEC][%s] setCurr %d Slot, %d\n",
 					__func__, i,
 					oal_hw_context[i].u4ThreadID[j]);
@@ -200,13 +190,13 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *setCurr_HWLockSlot_Thread_ID(
 	}
 
 	{
-		pr_err("[VCODEC][ERROR] %s All %d Slots unavaliable\n",
+		pr_debug("[VCODEC][ERROR] %s All %d Slots unavaliable\n",
 			__func__, MULTI_INST_NUM);
-		oal_hw_context[0].u4ThreadNum = a_prVcodecThreadID.u4ThreadNum;
+		oal_hw_context[0].u4ThreadNum =
+			a_prThreadID.u4ThreadNum;
 		for (i = 0; i < oal_hw_context[0].u4ThreadNum; i++) {
-			/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
 			oal_hw_context[0].u4ThreadID[i] =
-			    a_prVcodecThreadID.u4ThreadID[i];
+			    a_prThreadID.u4ThreadID[i];
 		}
 		*a_prIndex = 0;
 		return &oal_hw_context[0];
@@ -224,10 +214,9 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *freeCurr_HWLockSlot(unsigned long ulpa)
 	for (i = 0; i < MULTI_INST_NUM; i++) {
 		if (oal_hw_context[i].ObjId == ulpa) {
 			oal_hw_context[i].ObjId = -1L;
-			for (j = 0; j < oal_hw_context[i].u4ThreadNum; j++) {
-				/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+			for (j = 0; j < oal_hw_context[i].u4ThreadNum; j++)
 				oal_hw_context[i].u4ThreadID[j] = -1;
-			}
+
 			oal_hw_context[i].u4ThreadNum =
 				VCODEC_THREAD_MAX_NUM;
 			oal_hw_context[i].Oal_HW_reg =
@@ -237,7 +226,7 @@ struct VAL_VCODEC_OAL_HW_CONTEXT_T *freeCurr_HWLockSlot(unsigned long ulpa)
 		}
 	}
 
-	pr_err("[VCODEC][ERROR] %s can't find pid in HWLockSlot\n", __func__);
+	pr_debug("[VCODEC][ERROR] %s can't find pid in HWLockSlot\n", __func__);
 	return 0;
 }
 
@@ -267,9 +256,9 @@ void Add_NonCacheMemoryList(unsigned long a_ulKVA,
 				grNCMemoryList[u4I].u4ThreadID[u4J] =
 				    *(a_pu4ThreadID + u4J);
 				pr_debug("[VCODEC][%s] VCodecThreadNum = %d, VCodecThreadID = %d\n",
-				     __func__,
+				__func__,
 				grNCMemoryList[u4I].u4ThreadNum,
-			grNCMemoryList[u4I].u4ThreadID[u4J]);
+				grNCMemoryList[u4I].u4ThreadID[u4J]);
 			}
 
 			grNCMemoryList[u4I].ulKVA = a_ulKVA;
@@ -280,8 +269,7 @@ void Add_NonCacheMemoryList(unsigned long a_ulKVA,
 	}
 
 	if (u4I == MULTI_INST_NUM_x_10) {
-		/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
-		pr_err("[VCODEC][ERROR] CAN'T ADD %s, List is FULL!!\n",
+		pr_debug("[VCODEC][ERROR] CAN'T ADD %s, List is FULL!!\n",
 			__func__);
 	}
 
@@ -293,18 +281,23 @@ void Free_NonCacheMemoryList(unsigned long a_ulKVA, unsigned long a_ulKPA)
 	unsigned int u4I = 0;
 	unsigned int u4J = 0;
 
-	pr_debug("[VCODEC] %s +, KVA = 0x%lx, KPA = 0x%lx\n",
-		__func__, a_ulKVA, a_ulKPA);
+	pr_debug("[VCODEC] %s +, KVA = 0x%lx, KPA = 0x%lx\n", __func__,
+		 a_ulKVA, a_ulKPA);
 
 	for (u4I = 0; u4I < MULTI_INST_NUM_x_10; u4I++) {
 		if ((grNCMemoryList[u4I].ulKVA == a_ulKVA)
 		    && (grNCMemoryList[u4I].ulKPA == a_ulKPA)) {
 			pr_debug("[VCODEC] Free %s index = %d\n",
 				__func__, u4I);
-			grNCMemoryList[u4I].u4ThreadNum = VCODEC_THREAD_MAX_NUM;
-			for (u4J = 0; u4J < VCODEC_THREAD_MAX_NUM; u4J++)
-				grNCMemoryList[u4I].u4ThreadID[u4J] =
-					0xffffffff;
+			grNCMemoryList[u4I].u4ThreadNum =
+				VCODEC_THREAD_MAX_NUM;
+			for (u4J = 0; u4J < VCODEC_THREAD_MAX_NUM; u4J++) {
+				/* Add one line comment for
+				 * avoid kernel coding style, WARNING:BRACES:
+				 */
+				grNCMemoryList[u4I].u4ThreadID[u4J]
+					= 0xffffffff;
+			}
 
 			grNCMemoryList[u4I].ulKVA = -1L;
 			grNCMemoryList[u4I].ulKPA = -1L;
@@ -313,11 +306,9 @@ void Free_NonCacheMemoryList(unsigned long a_ulKVA, unsigned long a_ulKPA)
 		}
 	}
 
-	if (u4I == MULTI_INST_NUM_x_10) {
-		/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
-		pr_err("[VCODEC][ERROR] CAN'T Free %s, Address is not find!!\n",
+	if (u4I == MULTI_INST_NUM_x_10)
+		pr_debug("[VCODEC][ERROR] %s, addr not found\n",
 			__func__);
-	}
 
 	pr_debug("[VCODEC]%s -\n", __func__);
 }
@@ -377,20 +368,21 @@ unsigned long Search_NonCacheMemoryList_By_KPA(unsigned long a_ulKPA)
 
 	ulVA_Offset = a_ulKPA & 0x0000000000000fff;
 
-	pr_debug("[VCODEC] %s +, KPA = 0x%lx, ulVA_Offset = 0x%lx\n", __func__,
-		 a_ulKPA, ulVA_Offset);
+	pr_debug("[VCODEC] %s +, KPA = 0x%lx, ulVA_Offset = 0x%lx\n",
+		 __func__, a_ulKPA, ulVA_Offset);
 
 	for (u4I = 0; u4I < MULTI_INST_NUM_x_10; u4I++) {
-		if (grNCMemoryList[u4I].ulKPA == (a_ulKPA - ulVA_Offset)) {
+		if (grNCMemoryList[u4I].ulKPA ==
+			(a_ulKPA - ulVA_Offset)) {
 			pr_debug("[VCODEC] Find %s index = %d\n",
-				__func__, u4I);
+				 __func__, u4I);
 			break;
 		}
 	}
 
 	if (u4I == MULTI_INST_NUM_x_10) {
-		pr_err("[VCODEC][ERROR] CAN'T Find %s, Address is not find!!\n",
-			__func__);
+		pr_debug
+		    ("[VCODEC][ERROR] %s, Address is not find!!\n", __func__);
 		return grNCMemoryList[0].ulKVA + ulVA_Offset;
 	}
 
