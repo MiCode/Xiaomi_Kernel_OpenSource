@@ -3,7 +3,7 @@
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
-obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o clk-mux.o
+obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-fixup-div.o clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o clk-mux.o
 obj-$(CONFIG_RESET_CONTROLLER) += reset.o
 ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 obj-$(CONFIG_COMMON_CLK_MT6785) += clk-mt6785.o clk-mt6785-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6785.o clkchk-mt6785.o
@@ -25,6 +25,13 @@ obj-$(CONFIG_COMMON_CLK_MT6768) += clk-mt6768.o clk-mtk-v1.o clk-mt6768-pg.o clk
 obj-$(CONFIG_COMMON_CLK_MT6765) += clk-mt6765.o clk-mt6765-pg.o clk-mtk-v1.o clkdbg.o
 obj-$(CONFIG_COMMON_CLK_MT8135) += clk-mt8135.o
 obj-$(CONFIG_COMMON_CLK_MT8167) += clk-mt8167.o clkchk_mt8167.o clkdbg.o clkdbg_mt8167.o
+obj-$(CONFIG_COMMON_CLK_MT8168) += clk-mt8168.o clk-bringup.o clkdbg.o clkdbg-mt8168.o clkchk-mt8168.o
+obj-$(CONFIG_COMMON_CLK_MT8168_APU) += clk-mt8168-apu.o
+obj-$(CONFIG_COMMON_CLK_MT8168_CAMSYS) += clk-mt8168-cam.o
+obj-$(CONFIG_COMMON_CLK_MT8168_MFGCFG) += clk-mt8168-mfg.o
+obj-$(CONFIG_COMMON_CLK_MT8168_MMSYS) += clk-mt8168-mm.o
+obj-$(CONFIG_COMMON_CLK_MT8168_VDECSYS) += clk-mt8168-vdec.o
+obj-$(CONFIG_COMMON_CLK_MT8168_VENCSYS) += clk-mt8168-venc.o
 obj-$(CONFIG_COMMON_CLK_MT8173) += clk-mt8173.o
 obj-$(CONFIG_COMMON_CLK_MT8183) += clk-mt8183.o clk-bringup.o clkdbg.o clkdbg-mt8183.o
 obj-$(CONFIG_COMMON_CLK_MT8183_AUDIOSYS) += clk-mt8183-audio.o
