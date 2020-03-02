@@ -1888,9 +1888,9 @@ static void __mt_gpufreq_cal_sb_opp_index(void)
 	int i, j, diff;
 	int min_vsram_idx = g_max_opp_idx_num - 1;
 
-	/* find 0.850(V) index */
 	for (i = 0; i < g_max_opp_idx_num; i++) {
-		if (g_opp_table[i].gpufreq_vsram == SEG_GPU_DVFS_VSRAM8) {
+		if (g_opp_table[i].gpufreq_vsram ==
+				g_opp_table[g_max_opp_idx_num].gpufreq_vsram) {
 			min_vsram_idx = i;
 			break;
 		}
