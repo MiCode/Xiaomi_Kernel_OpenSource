@@ -13,6 +13,10 @@
 #include <xen/xen.h>
 #include <asm/xen/hypervisor.h>
 
+#ifdef CONFIG_MTK_BOUNCING_CHECK
+#include <mt-plat/aee.h>
+#endif
+
 extern const struct dma_map_ops arm_dma_ops;
 extern const struct dma_map_ops arm_coherent_dma_ops;
 
@@ -125,17 +129,33 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
 {
 	u64 limit, mask;
 
-	if (!dev->dma_mask)
+	if (!dev->dma_mask) {
+#ifdef CONFIG_MTK_BOUNCING_CHECK
+		aee_kernel_warning("Bounce Buffering", "NULL dma_mask");
+#endif
 		return 0;
+	}
 
 	mask = *dev->dma_mask;
 
 	limit = (mask + 1) & ~mask;
-	if (limit && size > limit)
+	if (limit && size > limit) {
+#ifdef CONFIG_MTK_BOUNCING_CHECK
+		aee_kernel_warning("Bounce Buffering",
+				"Incorrect dma_mask(%llx): limit(%llx), size(%llx)",
+				mask, limit, size);
+#endif
 		return 0;
+	}
 
-	if ((addr | (addr + size - 1)) & ~mask)
+	if ((addr | (addr + size - 1)) & ~mask) {
+#ifdef CONFIG_MTK_BOUNCING_CHECK
+		aee_kernel_warning("Bounce Buffering",
+				"Incorrect dma_mask(%llx): addr(%llx), size(%llx)",
+				mask, addr, size);
+#endif
 		return 0;
+	}
 
 	return 1;
 }
