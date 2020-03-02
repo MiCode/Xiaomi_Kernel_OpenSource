@@ -13,11 +13,12 @@
 
 #ifndef __IMGSENSOR_CLK_H__
 #define __IMGSENSOR_CLK_H__
+#include "imgsensor_common.h"
 
 #include <linux/atomic.h>
 #include <linux/platform_device.h>
 #include <kd_imgsensor_define.h>
-#include "imgsensor_common.h"
+
 
 enum IMGSENSOR_CCF {
 	IMGSENSOR_CCF_MCLK_TG_MIN_NUM,

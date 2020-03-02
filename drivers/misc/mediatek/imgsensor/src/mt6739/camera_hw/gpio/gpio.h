@@ -13,14 +13,13 @@
 
 #ifndef __IMGSENSOR_HW_GPIO_H__
 #define __IMGSENSOR_HW_GPIO_H__
-
+#include "imgsensor_common.h"
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 
 #include <linux/platform_device.h>
 #include <linux/pinctrl/pinctrl.h>
 #include "imgsensor_hw.h"
-#include "imgsensor_common.h"
 
 extern struct mutex pinctrl_mutex;
 

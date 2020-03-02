@@ -10,9 +10,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+#include "imgsensor_common.h"
 
 #include <linux/clk.h>
-#include "imgsensor_common.h"
 #include "imgsensor_clk.h"
 
 /*by platform settings and elements should not be reordered */
@@ -70,7 +70,7 @@ enum IMGSENSOR_RETURN imgsensor_clk_init(struct IMGSENSOR_CLK *pclk)
 	struct platform_device *pplatform_dev = gpimgsensor_hw_platform_device;
 
 	if (pplatform_dev == NULL) {
-		PK_PR_ERR("[%s] pdev is null\n", __func__);
+		pr_err("[%s] pdev is null\n", __func__);
 		return IMGSENSOR_RETURN_ERROR;
 	}
 	/* get all possible using clocks */
@@ -96,7 +96,7 @@ int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk,
 	if (pmclk->TG >= IMGSENSOR_CCF_MCLK_TG_MAX_NUM ||
 		pmclk->TG < IMGSENSOR_CCF_MCLK_TG_MIN_NUM ||
 		mclk_index == MCLK_MAX) {
-		PK_PR_ERR("[CAMERA SENSOR]kdSetSensorMclk out of range, tg=%d, freq= %d\n",
+		pr_err("[CAMERA SENSOR]kdSetSensorMclk out of range, tg=%d, freq= %d\n",
 			pmclk->TG, pmclk->freq);
 		return -EFAULT;
 	}
@@ -107,17 +107,18 @@ int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk,
 
 		/* Workaround for timestamp: TG1 always ON */
 		if (clk_prepare_enable(pclk->imgsensor_ccf[IMGSENSOR_CCF_MCLK_TOP_CAMTG_SEL]))
-			PK_PR_ERR("[CAMERA SENSOR] failed tg=%d\n", IMGSENSOR_CCF_MCLK_TOP_CAMTG_SEL);
+			pr_err("[CAMERA SENSOR] failed tg=%d\n",
+			       IMGSENSOR_CCF_MCLK_TOP_CAMTG_SEL);
 		else
 			atomic_inc(&pclk->enable_cnt[IMGSENSOR_CCF_MCLK_TOP_CAMTG_SEL]);
 
 		if (clk_prepare_enable(pclk->imgsensor_ccf[pmclk->TG]))
-			PK_PR_ERR("[CAMERA SENSOR] failed tg=%d\n", pmclk->TG);
+			pr_err("[CAMERA SENSOR] failed tg=%d\n", pmclk->TG);
 		else
 			atomic_inc(&pclk->enable_cnt[pmclk->TG]);
 
 		if (clk_prepare_enable(pclk->imgsensor_ccf[mclk_index]))
-			PK_PR_ERR("[CAMERA SENSOR]imgsensor_ccf failed freq= %d, mclk_index %d\n",
+			pr_err("[CAMERA SENSOR]imgsensor_ccf failed freq= %d, mclk_index %d\n",
 					pmclk->freq, mclk_index);
 		else
 			atomic_inc(&pclk->enable_cnt[mclk_index]);
@@ -142,14 +143,19 @@ void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk)
 {
 	int i;
 
-	PK_DBG("imgsensor_clk_enable_all_cg\n");
+	pr_debug("imgsensor_clk_enable_all_cg\n");
 	for (i = IMGSENSOR_CCF_CG_MIN_NUM; i < IMGSENSOR_CCF_CG_MAX_NUM; i++) {
 		if (!IS_ERR(pclk->imgsensor_ccf[i])) {
 			if (clk_prepare_enable(pclk->imgsensor_ccf[i]))
-				PK_PR_ERR("[CAMERA SENSOR]imgsensor_ccf enable cg fail cg_index = %d\n", i);
+				pr_err(
+				"[CAMERA SENSOR]imgsensor_ccf enable cg fail cg_index = %d\n",
+				i);
 			else
 				atomic_inc(&pclk->enable_cnt[i]);
-			/*PK_DBG("imgsensor_clk_enable_all %s ok\n", gimgsensor_mclk_name[i]);*/
+			/*
+			 * pr_debug("imgsensor_clk_enable_all %s ok\n",
+			 * gimgsensor_mclk_name[i]);
+			 */
 		}
 	}
 }
@@ -158,7 +164,7 @@ void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 {
 	int i;
 
-	PK_DBG("imgsensor_clk_disable_all\n");
+	pr_debug("%s\n", __func__);
 	for (i = 0; i < IMGSENSOR_CCF_MAX_NUM; i++) {
 		for (; atomic_read(&pclk->enable_cnt[i]) > 0; ) {
 			clk_disable_unprepare(pclk->imgsensor_ccf[i]);
@@ -175,9 +181,9 @@ int imgsensor_clk_ioctrl_handler(void *pbuff)
 		*(unsigned int *)pbuff = mt_get_ckgen_freq(id);
 	else
 		*(unsigned int *)pbuff = 0;
-	PK_DBG("hf_fmm_ck = %u\n", mt_get_ckgen_freq(3));
-	PK_DBG("f_fcamtg_ck = %u\n", mt_get_ckgen_freq(8));
-	PK_DBG("f_fseninf_ck = %u\n", mt_get_ckgen_freq(35));
-	PK_DBG("f_fcamtg2_ck = %u\n", mt_get_ckgen_freq(41));
+	pr_debug("hf_fmm_ck = %u\n", mt_get_ckgen_freq(3));
+	pr_debug("f_fcamtg_ck = %u\n", mt_get_ckgen_freq(8));
+	pr_debug("f_fseninf_ck = %u\n", mt_get_ckgen_freq(35));
+	pr_debug("f_fcamtg2_ck = %u\n", mt_get_ckgen_freq(41));
 	return 0;
 }
