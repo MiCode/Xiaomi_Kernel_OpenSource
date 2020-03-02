@@ -53,7 +53,7 @@
 #include "vpu_algo.h"
 #include "vpu_dbg.h"
 
-
+#define ENABLE_PMQOS
 #ifdef ENABLE_PMQOS
 #include "helio-dvfsrc-opp.h"
 #endif
