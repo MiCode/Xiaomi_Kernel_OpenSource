@@ -52,11 +52,12 @@ struct FSTB_FRAME_INFO {
 	int pid;
 	int target_fps;
 	int target_fps_margin;
+	int target_fps_margin2;
+	int target_fps_margin_dbnc_a;
+	int target_fps_margin_dbnc_b;
 	int queue_fps;
 	unsigned long long bufid;
-	int asfc_flag;
 	int in_list;
-	int check_asfc;
 	int new_info;
 
 	long long m_c_time;
