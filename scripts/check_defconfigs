@@ -73,10 +73,19 @@ for CONFIG in $CONFIGS ; do
 		ARCH=arm64
 	fi
 
-	make ARCH=${ARCH} O=${OUT} `basename ${CONFIG}` savedefconfig
+	OUTPUT="$(make ARCH=${ARCH} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1)"
 	RETVAL=$?
+	echo "$OUTPUT"
+
 	if [ $RETVAL != 0 ]; then
 		echo error: Make ${CONFIG} error
+		FAIL=1
+		continue
+	fi
+
+	# Check if there is a warning message
+	if echo "$OUTPUT" | grep -q ":warning:"; then
+		echo error: there is a warning message with Kconfig
 		FAIL=1
 		continue
 	fi
@@ -98,10 +107,11 @@ for CONFIG in $CONFIGS ; do
 
 	if [ $UPDATE == 0 ]; then
 		# Compare output, make sure format is correct
-		cmp ${OUT}/defconfig ${CONFIG} > /dev/null
+		OUTPUT="$(diff -u ${OUT}/defconfig ${CONFIG} 2>&1)"
 		RETVAL=$?
 		if [ $RETVAL != 0 ]; then
 			echo error: ${CONFIG} compare error. Please follow SOP to update _defconfig
+			echo "$OUTPUT"
 			FAIL=1
 			continue
 		fi
