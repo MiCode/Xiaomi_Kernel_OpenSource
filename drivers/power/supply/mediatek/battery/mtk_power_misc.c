@@ -454,9 +454,7 @@ void power_misc_handler(void *arg)
 	struct shutdown_controller *sdd = arg;
 	int ret;
 
-	mutex_lock(&sdd->lock);
 	ret = shutdown_event_handler(sdd);
-	mutex_unlock(&sdd->lock);
 	if (ret != 0 && is_fg_disabled() == false)
 		gtimer_start(&sdd->kthread_fgtimer, ret);
 
