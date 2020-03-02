@@ -432,26 +432,24 @@ static int ufs_help_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-int ufs_g_count;
 /* ========== driver proc interface =========== */
 static int ufs_debug_proc_show(struct seq_file *m, void *v)
 {
-	int cmd = -1;
-	int sscanf_num;
-	int p1, p2, p3, p4, p5, p6, p7, p8;
+	unsigned long cmd;
 
-	p1 = p2 = p3 = p4 = p5 = p6 = p7 = p8 = -1;
+	seq_printf(m, "ufsdbg: debug command: %s\n", cmd_buf);
 
-	cmd_buf[ufs_g_count] = '\0';
-	seq_printf(m, "Debug Command:  %s\n", cmd_buf);
+	if (kstrtoul(cmd_buf, 10, &cmd))
+		cmd = UFS_CMDS_DUMP;
 
-	sscanf_num = sscanf(cmd_buf, "%x %x %x %x %x %x %x %x %x", &cmd,
-		&p1, &p2, &p3, &p4, &p5, &p6, &p7, &p8);
-
-	ufs_g_count = 0;
-	cmd_buf[ufs_g_count] = '\0';
+	cmd_buf[0] = '\0';
 
 	if (cmd == UFS_CMDS_DUMP) {
+		/*
+		 * Default print cmd history for aee:
+		 * JE/NE/ANR/EE/SWT/system api dump
+		 */
+		seq_puts(m, "==== UFS Debug Info ====\n");
 		ufs_mtk_dbg_proc_dump(m);
 	} else if (cmd == UFS_GET_PWR_MODE) {
 		seq_puts(m, "(1:FAST 2:SLOW 4:FAST_AUTO 5:SLOW_AUTO 7:UNCHANGE)\n");
@@ -467,21 +465,7 @@ static int ufs_debug_proc_show(struct seq_file *m, void *v)
 			ufs_mtk_hba->pwr_info.lane_tx,
 			ufs_mtk_hba->pwr_info.lane_rx);
 	} else if (cmd == UFS_DUMP_HEALTH_DESCRIPTOR) {
-		/* dump health information */
 		ufsdbg_dump_health_desc(m);
-	} else if (cmd == UFS_CMD_HIST_BEGIN) {
-		/* enable command history */
-		atomic_set(&cmd_hist_enabled, 1);
-	} else if (cmd == UFS_CMD_HIST_STOP) {
-		/* disable command history */
-		atomic_set(&cmd_hist_enabled, 0);
-	} else {
-		/*
-		 * Default print cmd history for aee:
-		 * JE/NE/ANR/EE/SWT/system api dump
-		 */
-		seq_puts(m, "==== ufs debug info for aee ====\n");
-		ufs_mtk_dbg_proc_dump(m);
 	}
 
 	return 0;
@@ -490,16 +474,38 @@ static int ufs_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 	size_t count, loff_t *data)
 {
-	int ret;
+	unsigned long op;
+	bool handled = false;
 
-	if (count == 0)
-		return -1;
-	if (count > 255)
-		count = 255;
-	ufs_g_count = count;
-	ret = copy_from_user(cmd_buf, buf, count);
-	if (ret < 0)
-		return -1;
+	if (count == 0 || count > 255)
+		return -EINVAL;
+
+	if (copy_from_user(cmd_buf, buf, count))
+		return -EINVAL;
+
+	/*
+	 * Let's handle simple commands here.
+	 * Simple command can be executed immediately
+	 * after command is written and do not need further
+	 * "read" or "cat" anymore.
+	 */
+	cmd_buf[count] = '\0';
+	if (kstrtoul(cmd_buf, 10, &op))
+		return -EINVAL;
+
+	if (op == UFS_CMD_HIST_BEGIN) {
+		atomic_set(&cmd_hist_enabled, 1);
+		pr_info("ufsdbg: cmd history on\n");
+		handled = true;
+	} else if (op == UFS_CMD_HIST_STOP) {
+		atomic_set(&cmd_hist_enabled, 0);
+		pr_info("ufsdbg: cmd history off\n");
+		handled = true;
+	}
+
+	if (handled)
+		cmd_buf[0] = '\0';
+
 	return count;
 }
 
