@@ -314,8 +314,13 @@ int do_esd_check_read(void)
 	mmp_event mmp_te = ddp_mmp_get_events()->esd_rdlcm;
 
 	DISPCHECK("[ESD]ESD check read\n");
-	mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
-		primary_display_is_video_mode(), GPIO_DSI_MODE);
+
+	if (primary_display_is_video_mode())
+		mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
+			1, GPIO_DSI_MODE);
+	else
+		mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
+			0, GPIO_DSI_MODE);
 
 	/* only cmd mode read & with disable mmsys clk will kick */
 	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS) &&
