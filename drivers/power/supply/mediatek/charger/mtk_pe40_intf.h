@@ -15,20 +15,7 @@
 #define __MTK_PE_40_INTF_H
 
 #define CONFIG_MTK_PUMP_EXPRESS_PLUS_40_SUPPORT
-#include <mtk_direct_charge_vdm.h>
-
-#define VBUS_IDX_MAX 5
-
-struct pe40_power_cap {
-	uint8_t selected_cap_idx;
-	uint8_t nr;
-	uint8_t pwr_limit[PDO_MAX_NR];
-	int max_mv[PDO_MAX_NR];
-	int min_mv[PDO_MAX_NR];
-	int ma[PDO_MAX_NR];
-	int maxwatt[PDO_MAX_NR];
-	int minwatt[PDO_MAX_NR];
-};
+#include "adapter_class.h"
 
 struct pe4_pps_status {
 	int output_mv;	/* 0xffff means no support */
@@ -41,7 +28,7 @@ struct mtk_pe40 {
 	bool is_connect;
 	bool is_enabled;
 	bool can_query;
-	struct pe40_power_cap cap;
+	struct adapter_power_cap cap;
 
 	int avbus;
 	int vbus;

@@ -21,6 +21,7 @@
 #include <linux/spinlock.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
+#include <linux/alarmtimer.h>
 #include <mt-plat/charger_type.h>
 #include <mt-plat/mtk_charger.h>
 #include <mt-plat/mtk_battery.h>
@@ -29,14 +30,12 @@
 
 #include <mt-plat/charger_class.h>
 
-/* PD */
-#include <tcpm.h>
-
 struct charger_manager;
 #include "mtk_pe_intf.h"
 #include "mtk_pe20_intf.h"
 #include "mtk_pe40_intf.h"
 #include "mtk_pdc_intf.h"
+#include "adapter_class.h"
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
@@ -79,6 +78,15 @@ do {								\
 #define	CHR_PE40_POSTCC	(0x000A)
 #define CHR_PE30	(0x000B)
 
+/* charging abnormal status */
+#define CHG_VBUS_OV_STATUS	(1 << 0)
+#define CHG_BAT_OT_STATUS	(1 << 1)
+#define CHG_OC_STATUS		(1 << 2)
+#define CHG_BAT_OV_STATUS	(1 << 3)
+#define CHG_ST_TMO_STATUS	(1 << 4)
+#define CHG_BAT_LT_STATUS	(1 << 5)
+#define CHG_TYPEC_WD_STATUS	(1 << 6)
+
 /* charger_algorithm notify charger_dev */
 enum {
 	EVENT_EOC,
@@ -115,6 +123,7 @@ struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+	int pre_cv;
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -153,6 +162,11 @@ struct charger_custom_data {
 	int apple_2_1a_charger_current;
 	int ta_ac_charger_current;
 	int pd_charger_current;
+
+	/* dynamic mivr */
+	int min_charger_voltage_1;
+	int min_charger_voltage_2;
+	int max_dmivr_charger_current;
 
 	/* sw jeita */
 	int jeita_temp_above_t4_cv;
@@ -200,6 +214,12 @@ struct charger_custom_data {
 	int pe40_dual_charger_chg1_current;
 	int pe40_dual_charger_chg2_current;
 	int pe40_stop_battery_soc;
+	int pe40_max_vbus;
+	int pe40_max_ibus;
+	int high_temp_to_leave_pe40;
+	int high_temp_to_enter_pe40;
+	int low_temp_to_leave_pe40;
+	int low_temp_to_enter_pe40;
 
 	/* pe4.0 cable impedance threshold (mohm) */
 	u32 pe40_r_cable_1a_lower;
@@ -209,6 +229,12 @@ struct charger_custom_data {
 	/* dual charger */
 	u32 chg1_ta_ac_charger_current;
 	u32 chg2_ta_ac_charger_current;
+	int slave_mivr_diff;
+	u32 dual_polling_ieoc;
+
+	/* slave charger */
+	int chg2_eff;
+	bool parallel_vbus;
 
 	/* cable measurement impedance */
 	int cable_imp_threshold;
@@ -223,6 +249,17 @@ struct charger_custom_data {
 	bool power_path_support;
 
 	int max_charging_time; /* second */
+
+	int bc12_charger;
+
+	/* pd */
+	int pd_vbus_upper_bound;
+	int pd_vbus_low_bound;
+	int pd_ichg_level_threshold;
+	int pd_stop_battery_soc;
+
+	int vsys_watt;
+	int ibus_err;
 };
 
 struct charger_data {
@@ -255,8 +292,12 @@ struct charger_manager {
 	struct notifier_block chg2_nb;
 	struct charger_data chg2_data;
 
+	struct adapter_device *pd_adapter;
+
+
 	enum charger_type chr_type;
 	bool can_charging;
+	int cable_out_cnt;
 
 	int (*do_algorithm)(struct charger_manager *cm);
 	int (*plug_in)(struct charger_manager *cm);
@@ -315,21 +356,28 @@ struct charger_manager {
 	/* type-C*/
 	bool enable_type_c;
 
+	/* water detection */
+	bool water_detected;
+
 	/* pd */
 	struct mtk_pdc pdc;
+	bool disable_pd_dual;
 
 	int pd_type;
-	struct tcpc_device *tcpc;
-	struct notifier_block pd_nb;
 	bool pd_reset;
 
 	/* thread related */
 	struct hrtimer charger_kthread_timer;
-	struct gtimer charger_kthread_fgtimer;
+
+	/* alarm timer */
+	struct alarm charger_timer;
+	struct timespec endtime;
+	bool is_suspend;
 
 	struct wakeup_source charger_wakelock;
 	struct mutex charger_lock;
 	struct mutex charger_pd_lock;
+	struct mutex cable_out_lock;
 	spinlock_t slock;
 	unsigned int polling_interval;
 	bool charger_thread_timeout;
@@ -341,6 +389,9 @@ struct charger_manager {
 
 	/* ATM */
 	bool atm_enabled;
+
+	/* dynamic mivr */
+	bool enable_dynamic_mivr;
 };
 
 /* charger related module interface */
@@ -364,6 +415,11 @@ extern int pmic_is_bif_exist(void);
 extern int pmic_enable_hw_vbus_ovp(bool enable);
 extern bool pmic_is_battery_exist(void);
 
+
+extern void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
+	void *val);
+
+
 /* FIXME */
 enum usb_state_enum {
 	USB_SUSPEND = 0,
@@ -373,7 +429,8 @@ enum usb_state_enum {
 
 bool __attribute__((weak)) is_usb_rdy(void)
 {
-	return true;
+	pr_info("%s is not defined\n", __func__);
+	return false;
 }
 
 /* procfs */

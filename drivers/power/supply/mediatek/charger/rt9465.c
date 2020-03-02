@@ -68,7 +68,7 @@ enum rt9465_irq_idx {
 };
 
 static u8 rt9465_irqmask[RT9465_IRQIDX_MAX] = {
-	0xE0, 0xE0, 0xFF, 0xFF
+	0x00, 0xE0, 0xFF, 0xFF
 };
 
 static const u8 rt9465_irq_maskall[RT9465_IRQIDX_MAX] = {
@@ -975,7 +975,7 @@ static int rt9465_set_ieoc(struct rt9465_info *info, u32 ieoc)
 		reg_ieoc << RT9465_SHIFT_IEOC, RT9465_MASK_IEOC);
 }
 
-static int rt9465_get_mivr(struct rt9465_info *info, u32 *mivr)
+static int __rt9465_get_mivr(struct rt9465_info *info, u32 *mivr)
 {
 	int ret = 0;
 	u8 reg_mivr = 0;
@@ -1362,12 +1362,14 @@ static int rt9465_dump_register(struct charger_device *chg_dev)
 	bool chg_enable = 0;
 	enum rt9465_charging_status chg_status = RT9465_CHG_STATUS_READY;
 	struct rt9465_info *info = dev_get_drvdata(&chg_dev->dev);
+	u8 chg_stat = 0;
 
 	ret = rt9465_get_ichg(chg_dev, &ichg);
-	ret = rt9465_get_mivr(info, &mivr);
+	ret = __rt9465_get_mivr(info, &mivr);
 	ret = rt9465_is_charging_enabled(chg_dev, &chg_enable);
 	ret = rt9465_get_ieoc(info, &ieoc);
 	ret = rt9465_get_charging_status(info, &chg_status);
+	chg_stat = rt9465_i2c_read_byte(info, RT9465_REG_CHG_STATC);
 
 	/* Dump register if in fault status */
 	if (chg_status == RT9465_CHG_STATUS_FAULT) {
@@ -1378,8 +1380,9 @@ static int rt9465_dump_register(struct charger_device *chg_dev)
 	chr_info("%s: ICHG = %dmA, MIVR = %dmV, IEOC = %dmA\n",
 		__func__, ichg / 1000, mivr / 1000, ieoc / 1000);
 
-	chr_info("%s: CHG_EN = %d, CHG_STATUS = %s\n",
-		__func__, chg_enable, rt9465_chg_status_name[chg_status]);
+	chr_info("%s: CHG_EN = %d, CHG_STATUS = %s, CHG_STAT = 0x%02X\n",
+		__func__, chg_enable, rt9465_chg_status_name[chg_status],
+		chg_stat);
 
 	return ret;
 }
@@ -1413,6 +1416,14 @@ static int rt9465_set_mivr(struct charger_device *chg_dev, u32 uV)
 	return __rt9465_set_mivr(info, uV);
 }
 
+static int rt9465_get_mivr_state(struct charger_device *chg_dev, bool *in_loop)
+{
+	struct rt9465_info *info = dev_get_drvdata(&chg_dev->dev);
+
+	return rt9465_i2c_test_bit(info, RT9465_REG_CHG_STATC,
+				   RT9465_SHIFT_CHG_MIVR, in_loop);
+}
+
 static int rt9465_set_cv(struct charger_device *chg_dev, u32 uV)
 {
 	struct rt9465_info *info = dev_get_drvdata(&chg_dev->dev);
@@ -1443,6 +1454,13 @@ static int rt9465_get_min_ichg(struct charger_device *chg_dev, u32 *uA)
 	*uA = rt9465_closest_value(RT9465_ICHG_MIN, RT9465_ICHG_MAX,
 		RT9465_ICHG_STEP, 0);
 	return 0;
+}
+
+static int rt9465_get_mivr(struct charger_device *chg_dev, u32 *uV)
+{
+	struct rt9465_info *info = dev_get_drvdata(&chg_dev->dev);
+
+	return __rt9465_get_mivr(info, uV);
 }
 
 static int rt9465_get_tchg(struct charger_device *chg_dev,
@@ -1543,7 +1561,9 @@ static struct charger_ops rt9465_chg_ops = {
 	.set_constant_voltage = rt9465_set_cv,
 	.kick_wdt = rt9465_kick_wdt,
 	.get_tchg_adc = rt9465_get_tchg,
+	.get_mivr = rt9465_get_mivr,
 	.set_mivr = rt9465_set_mivr,
+	.get_mivr_state = rt9465_get_mivr_state,
 };
 
 /* ========================= */
