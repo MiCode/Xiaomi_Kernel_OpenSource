@@ -817,11 +817,11 @@ static int m4u_debug_set(void *data, u64 val)
 	/*debug pagetable corruption*/
 	case 38:
 	{
-		int ret;
-		unsigned int mva;
-		int size;
+		int ret = 0;
+		unsigned int mva = 0;
+		int size = 0;
 		struct m4u_client_t *client;
-		unsigned long va;
+		unsigned long va = 0;
 
 		size = 0x500000;
 		va = (unsigned long)vmalloc(size);
