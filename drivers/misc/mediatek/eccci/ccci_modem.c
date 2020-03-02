@@ -495,19 +495,20 @@ void ccci_md_config(struct ccci_modem *md)
 {
 	phys_addr_t md_resv_mem_addr = 0,
 		md_resv_smem_addr = 0, md1_md3_smem_phy = 0;
-
-	phys_addr_t smem_amms_pos_addr = 0,
-		smem_align_padding_addr = 0;
-
 	unsigned int md_resv_mem_size = 0,
 		md_resv_smem_size = 0, md1_md3_smem_size = 0;
-	unsigned int md_bank4_cacheable_total_size = 0;
-	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
-	unsigned int i, offset_adjust_flag = 0;
-	int dfd_size;
-	int amms_pos_size = 0, align_size = 0;
+	int amms_pos_size = 0;
 	phys_addr_t bank4_phy_addr;
-
+#if (MD_GENERATION == 6293)
+	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
+	int align_size = 0;
+	int dfd_size;
+	unsigned int md_bank4_cacheable_total_size = 0;
+	phys_addr_t smem_amms_pos_addr = 0,
+		smem_align_padding_addr = 0;
+	unsigned int i;
+	unsigned int offset_adjust_flag = 0;
+#endif
 	/* setup config */
 	md->per_md_data.config.load_type = get_md_img_type(md->index);
 	if (get_modem_is_enabled(md->index))

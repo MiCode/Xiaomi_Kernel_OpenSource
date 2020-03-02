@@ -717,7 +717,6 @@ static void mtk_rtc_enable_k_eosc_revised(void)
 {
 	u32 td;
 	int ret;
-	unsigned int val;
 
 	pr_notice("%s\n", __func__);
 

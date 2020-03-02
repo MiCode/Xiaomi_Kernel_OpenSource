@@ -15,6 +15,7 @@
 #define __MTK_SWPM_PLATFORM_H__
 
 #define MAX_RECORD_CNT                  (64)
+#define MAX_APHY_PWR                    (10)
 #define DEFAULT_LOG_INTERVAL_MS         (1000)
 #define DEFAULT_LOG_MASK                (0x13) /* VPROC2 + VPROC1 + VDRAM */
 
@@ -93,9 +94,23 @@ enum cpu_lkg_type {
 	NR_CPU_LKG_TYPE
 };
 
+enum gpu_power_counter {
+	gfreq,
+	gvolt,
+	galu_urate,
+	gtex_urate,
+	glsc_urate,
+	gl2c_urate,
+	gvary_urate,
+	gtiler_urate,
+	gloading,
+
+	GPU_POWER_COUNTER_LAST
+};
+
 struct aphy_pwr {
-	unsigned short bw[5];
-	unsigned short coef[5];
+	unsigned short bw[MAX_APHY_PWR];
+	unsigned short coef[MAX_APHY_PWR];
 };
 
 /* unit: uW / V^2 */
@@ -141,7 +156,11 @@ struct swpm_rec_data {
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
 	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
-	/* remaining size = 1952 bytes */
+	/* 4(int) * 10 = 40 bytes */
+	unsigned int gpu_enable;
+	unsigned int gpu_counter[GPU_POWER_COUNTER_LAST];
+
+	/* remaining size = 1912 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;
@@ -149,6 +168,8 @@ extern struct swpm_rec_data *swpm_info_ref;
 #ifdef CONFIG_MTK_CACHE_CONTROL
 extern int ca_force_stop_set_in_kernel(int val);
 #endif
+extern void swpm_update_gpu_counter(unsigned int gpu_pmu[]);
+extern int swpm_get_gpu_enable(void);
 
 #endif
 

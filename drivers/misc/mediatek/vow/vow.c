@@ -64,7 +64,7 @@
 #include "vow.h"
 #include "vow_hw.h"
 #include "vow_assert.h"
-
+#include <linux/sched/types.h>
 
 /*****************************************************************************
  * Variable Definition
@@ -1058,11 +1058,10 @@ static int vow_bargein_dump_kthread(void *data)
 	struct dump_package_t *dump_package = NULL;
 	mm_segment_t old_fs;
 
-
-	struct sched_param param = {.sched_priority = 85 };
-
+	struct sched_param param;
 	sched_setscheduler(current, SCHED_RR, &param);
 
+	param.sched_priority = 85;
 	/* VOWDRV_DEBUG("[BargeIn] dump_queue = %p\n", dump_queue); */
 
 	while (b_enable_dump && !kthread_should_stop()) {

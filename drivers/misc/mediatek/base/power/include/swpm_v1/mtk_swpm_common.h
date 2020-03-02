@@ -56,7 +56,9 @@ extern const struct of_device_id swpm_of_ids[];
 extern char *swpm_power_rail_to_string(enum power_rail p);
 extern int swpm_platform_init(void);
 extern void swpm_set_enable(unsigned int type, unsigned int enable);
+extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
 extern void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 	unsigned int ch_num);
+extern void swpm_update_lkg_table(void);
 #endif
 

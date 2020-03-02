@@ -1432,7 +1432,7 @@ void m4u_port_array_init(struct m4u_port_array *port_array)
 }
 
 int m4u_port_array_add(
-		struct m4u_port_array *port_array, int port,
+		struct m4u_port_array *port_array, unsigned int port,
 		int m4u_en, int secure)
 {
 	if (port >= M4U_PORT_NR) {
@@ -2064,7 +2064,7 @@ int m4u_unregister_fault_callback(int port)
 	return 0;
 }
 
-int m4u_enable_tf(int port, bool fgenable)
+int m4u_enable_tf(unsigned int port, bool fgenable)
 {
 	if (port < 0 || port >= M4U_PORT_UNKNOWN) {
 		M4UMSG("%s fail,m port=%d\n", __func__, port);

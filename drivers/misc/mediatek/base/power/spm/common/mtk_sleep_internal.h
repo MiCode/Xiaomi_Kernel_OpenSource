@@ -34,6 +34,7 @@
 #define SLP_SUSPEND_LOG_EN          1
 #endif
 
+#define	SPM_SUSPEND_PLAT_SLP_DP		(1<<0u)
 /**************************************
  * SW code for sleep
  **************************************/

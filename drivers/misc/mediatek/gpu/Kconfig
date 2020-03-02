@@ -47,3 +47,8 @@ config MTK_GPU_SPM_DVFS_SUPPORT
 	  MTK_GPU_COMMON_DVFS_SUPPORT and MTK_GPU_SPM_DVFS_SUPPORT shouldn't
 	  exist concurrently.
 
+config MTK_GPU_SWPM_SUPPORT
+	bool "Enable GPU SPM DVFS"
+	default n
+	help
+	   config supports to make SWPM enable/disable GPU power model

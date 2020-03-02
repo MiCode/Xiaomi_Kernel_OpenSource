@@ -37,6 +37,16 @@
 #include <mt-plat/upmu_common.h>
 
 #define TAG     "[Power/clkbuf]"
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#define pr_fmt(fmt) "[Power/clkbuf] " fmt
+
+#define clk_buf_pr_dbg(fmt, args...)			\
+	do {						\
+		if (clkbuf_debug)			\
+			pr_info(fmt, ##args);		\
+	} while (0)
 #define clkbuf_readl(addr)			__raw_readl(addr)
 #define clkbuf_writel(addr, val)	mt_reg_sync_writel(val, addr)
 
