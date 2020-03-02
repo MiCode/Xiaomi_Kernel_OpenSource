@@ -134,6 +134,7 @@ struct FDVT_MetaDataToGCE {
 	unsigned int rotateDegree;
 	unsigned short featureTH;
 	unsigned short SecMemType;
+	bool isReleased;
 };
 #define FDVT_MetaDataToGCE struct FDVT_MetaDataToGCE
 
