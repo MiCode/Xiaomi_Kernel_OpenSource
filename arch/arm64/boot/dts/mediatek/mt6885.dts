@@ -137,6 +137,14 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
 		};
+		reserve-memory-mcupm_share {
+			compatible = "mediatek,reserve-memory-mcupm_share";
+			no-map;
+			status = "okay";
+			size = <0 0x200000>; /* 2M  */
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
 	};
 
 	gic: interrupt-controller {
@@ -2916,6 +2924,75 @@
 		reg = <0 0x17010000 0 0x1000>;
 		mediatek,larb-id = <7>;
 		interrupts = <GIC_SPI 307 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	mcupm@10300000 {
+		compatible = "mediatek,mcupm";
+		reg = <0 0x10301000 0 0xC000>,
+			<0 0x1031FCE0 0 0xA0>,
+			<0 0x10300154 0 0x4>,
+			<0 0x10300074 0 0x4>,
+			<0 0x10300150 0 0x4>,
+			<0 0x10300078 0 0x4>,
+			<0 0x1031FD80 0 0xA0>,
+			<0 0x10300154 0 0x4>,
+			<0 0x10300158 0 0x4>,
+			<0 0x10300150 0 0x4>,
+			<0 0x10300078 0 0x4>,
+			<0 0x1031FE20 0 0xA0>,
+			<0 0x10300154 0 0x4>,
+			<0 0x10300158 0 0x4>,
+			<0 0x10300150 0 0x4>,
+			<0 0x10300078 0 0x4>,
+			<0 0x1031FEC0 0 0xA0>,
+			<0 0x10300154 0 0x4>,
+			<0 0x10300158 0 0x4>,
+			<0 0x10300150 0 0x4>,
+			<0 0x10300078 0 0x4>,
+			<0 0x1031FF60 0 0xA0>,
+			<0 0x10300154 0 0x4>,
+			<0 0x10300158 0 0x4>,
+			<0 0x10300150 0 0x4>,
+			<0 0x10300078 0 0x4>;
+
+		reg-names = "mcupm_base",
+			"mbox0_base",
+			"mbox0_set",
+			"mbox0_clr",
+			"mbox0_send",
+			"mbox0_recv",
+			"mbox1_base",
+			"mbox1_set",
+			"mbox1_clr",
+			"mbox1_send",
+			"mbox1_recv",
+			"mbox2_base",
+			"mbox2_set",
+			"mbox2_clr",
+			"mbox2_send",
+			"mbox2_recv",
+			"mbox3_base",
+			"mbox3_set",
+			"mbox3_clr",
+			"mbox3_send",
+			"mbox3_recv",
+			"mbox4_base",
+			"mbox4_set",
+			"mbox4_clr",
+			"mbox4_send",
+			"mbox4_recv";
+
+		interrupts = <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
+
+		interrupt-names = "mbox0",
+			"mbox1",
+			"mbox2",
+			"mbox3",
+			"mbox4";
 	};
 
 	odm: odm {
