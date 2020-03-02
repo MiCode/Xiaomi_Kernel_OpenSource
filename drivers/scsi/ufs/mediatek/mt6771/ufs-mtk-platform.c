@@ -592,6 +592,9 @@ int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 	/* Disable MPHY 26MHz ref clock in H8 mode */
 	clk_buf_ctrl(CLK_BUF_UFS, false);
 #endif
+	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
+		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
+
 	/* Set regulator to turn off VA09 LDO */
 	ret = regulator_disable(reg_va09);
 	if (ret < 0) {
