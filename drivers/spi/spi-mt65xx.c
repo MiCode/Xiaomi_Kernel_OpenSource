@@ -127,6 +127,27 @@ static const struct mtk_spi_compatible mt2712_compat = {
 	.must_tx = true,
 };
 
+static const struct mtk_spi_compatible mt6758_compat = {
+	.need_pad_sel = true,
+	.enhance_timing = true,
+	.dma8g_peri_ext = true,
+	.must_tx = true,
+};
+
+static const struct mtk_spi_compatible mt6765_compat = {
+	.need_pad_sel = true,
+	.enhance_timing = true,
+	.dma8g_spi_ext = true,
+	.must_tx = true,
+};
+
+static const struct mtk_spi_compatible mt3967_compat = {
+	.need_pad_sel = true,
+	.enhance_timing = true,
+	.dma8g_spi_ext = true,
+	.must_tx = true,
+};
+
 static const struct mtk_spi_compatible mt7622_compat = {
 	.must_tx = true,
 	.enhance_timing = true,
@@ -170,6 +191,15 @@ static const struct of_device_id mtk_spi_of_match[] = {
 	{ .compatible = "mediatek,mt6589-spi",
 		.data = (void *)&mtk_common_compat,
 	},
+	{ .compatible = "mediatek,mt6758-spi",
+		.data = (void *)&mt6758_compat,
+	},
+	{ .compatible = "mediatek,mt6765-spi",
+		.data = (void *)&mt6765_compat,
+	},
+	{ .compatible = "mediatek,mt3967-spi",
+		.data = (void *)&mt3967_compat,
+	},
 	{ .compatible = "mediatek,mt7622-spi",
 		.data = (void *)&mt7622_compat,
 	},
@@ -209,9 +239,9 @@ static ssize_t spi_log_show(struct device *dev, struct device_attribute *attr,
 		return -EINVAL;
 	}
 
-	sprintf(buf_temp, "Now spi log %s.\n",
+	snprintf(buf_temp, sizeof(buf_temp), "Now spi log %s.\n",
 		(spi_log_status == LOG_CLOSE)?"disabled":"enabled");
-		strncat(buf, buf_temp, strlen(buf_temp));
+	strncat(buf, buf_temp, strlen(buf_temp));
 
 	return strlen(buf);
 }
@@ -242,7 +272,7 @@ static DEVICE_ATTR(spi_log, 0644, spi_log_show, spi_log_store);
 
 static void spi_dump_reg(struct mtk_spi *ms)
 {
-	spi_debug("%s\n", __func__);
+	spi_debug("||* spi_dump_reg *******************||\n");
 	spi_debug("cfg0:0x%.8x\n", readl(ms->base + SPI_CFG0_REG));
 	spi_debug("cfg1:0x%.8x\n", readl(ms->base + SPI_CFG1_REG));
 	spi_debug("cfg2:0x%.8x\n", readl(ms->base + SPI_CFG2_REG));
@@ -260,7 +290,7 @@ static void spi_dump_config(struct spi_master *master, struct spi_message *msg)
 	struct mtk_chip_config *chip_config = spi->controller_data;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
-	spi_debug("%s\n", __func__);
+	spi_debug("||* %s *******************||\n", "spi_dump_config");
 	spi_debug("spi->mode:0x%.4x\n", spi->mode);
 	spi_debug("chip_config->tx_mlsb:%d.\n", chip_config->tx_mlsb);
 	spi_debug("chip_config->rx_mlsb:%d.\n", chip_config->rx_mlsb);
@@ -377,43 +407,80 @@ static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 }
 
 static void mtk_spi_prepare_transfer(struct spi_master *master,
-				     struct spi_transfer *xfer)
+			struct spi_transfer *xfer, struct spi_device *spi)
 {
 	u32 spi_clk_hz, div, sck_time, cs_time, reg_val = 0;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
-	spi_clk_hz = clk_get_rate(mdata->spi_clk);
-	if (xfer->speed_hz < spi_clk_hz / 2)
-		div = DIV_ROUND_UP(spi_clk_hz, xfer->speed_hz);
-	else
-		div = 1;
+	u32 cs_setuptime, cs_holdtime, cs_idletime, cs_lowtime, cs_hightime = 0;
+	struct mtk_chip_config *chip_config = spi->controller_data;
 
-	sck_time = (div + 1) / 2;
-	cs_time = sck_time * 2;
+	spi_debug("********************************\n");
+	spi_debug("cs_hightime=%d\n", chip_config->cs_hightime);
+	spi_debug("cs_lowtime=%d\n", chip_config->cs_lowtime);
+	spi_debug("cs_setuptime=%d\n", chip_config->cs_setuptime);
+	spi_debug("cs_holdtime=%d\n", chip_config->cs_holdtime);
+	spi_debug("cs_idletime=%d\n", chip_config->cs_idletime);
+	spi_debug("********************************\n");
 
+	if (chip_config->cs_setuptime && chip_config->cs_holdtime
+		&& chip_config->cs_idletime
+		&& chip_config->cs_lowtime
+		&& chip_config->cs_hightime) {
+		spi_debug("Using Special Timing Value...\n");
+		cs_hightime = chip_config->cs_hightime;
+		cs_lowtime = chip_config->cs_lowtime;
+
+		cs_setuptime = chip_config->cs_setuptime;
+		cs_holdtime = chip_config->cs_holdtime;
+		cs_idletime = chip_config->cs_idletime;
+	} else {
+		spi_debug("Using spi_clk_hz/speed_hz to calculate Timing Value...\n");
+		spi_clk_hz = clk_get_rate(mdata->spi_clk);
+		if (xfer->speed_hz < spi_clk_hz / 2)
+			div = DIV_ROUND_UP(spi_clk_hz, xfer->speed_hz);
+		else
+			div = 1;
+
+		sck_time = (div + 1) / 2;
+		cs_time = sck_time * 2;
+
+		spi_debug("sck_time = %d\n", sck_time);
+		spi_debug("cs_time = %d\n", cs_time);
+		cs_hightime = sck_time;
+		cs_lowtime = sck_time;
+		cs_setuptime = cs_time;
+		cs_holdtime = cs_time;
+		cs_idletime = cs_time;
+	}
 	if (mdata->dev_comp->enhance_timing) {
-		reg_val |= (((sck_time - 1) & 0xffff)
+		reg_val |= (((cs_hightime - 1) & 0xffff)
 			   << SPI_CFG0_SCK_HIGH_OFFSET);
-		reg_val |= (((sck_time - 1) & 0xffff)
+		reg_val |= (((cs_lowtime - 1) & 0xffff)
 			   << SPI_ADJUST_CFG0_SCK_LOW_OFFSET);
 		writel(reg_val, mdata->base + SPI_CFG2_REG);
-		reg_val |= (((cs_time - 1) & 0xffff)
+
+		reg_val = 0;
+		reg_val |= (((cs_holdtime - 1) & 0xffff)
 			   << SPI_ADJUST_CFG0_CS_HOLD_OFFSET);
-		reg_val |= (((cs_time - 1) & 0xffff)
+		reg_val |= (((cs_setuptime - 1) & 0xffff)
 			   << SPI_ADJUST_CFG0_CS_SETUP_OFFSET);
 		writel(reg_val, mdata->base + SPI_CFG0_REG);
 	} else {
-		reg_val |= (((sck_time - 1) & 0xff)
+		reg_val |= (((cs_hightime - 1) & 0xff)
 			   << SPI_CFG0_SCK_HIGH_OFFSET);
-		reg_val |= (((sck_time - 1) & 0xff) << SPI_CFG0_SCK_LOW_OFFSET);
-		reg_val |= (((cs_time - 1) & 0xff) << SPI_CFG0_CS_HOLD_OFFSET);
-		reg_val |= (((cs_time - 1) & 0xff) << SPI_CFG0_CS_SETUP_OFFSET);
+		reg_val |= (((cs_lowtime - 1) & 0xff) <<
+			SPI_CFG0_SCK_LOW_OFFSET);
+		reg_val |= (((cs_holdtime - 1) & 0xff) <<
+			SPI_CFG0_CS_HOLD_OFFSET);
+		reg_val |= (((cs_setuptime - 1) & 0xff) <<
+			SPI_CFG0_CS_SETUP_OFFSET);
 		writel(reg_val, mdata->base + SPI_CFG0_REG);
 	}
 
 	reg_val = readl(mdata->base + SPI_CFG1_REG);
 	reg_val &= ~SPI_CFG1_CS_IDLE_MASK;
-	reg_val |= (((cs_time - 1) & 0xff) << SPI_CFG1_CS_IDLE_OFFSET);
+	reg_val |= (((cs_idletime - 1) & 0xff) << SPI_CFG1_CS_IDLE_OFFSET);
 	writel(reg_val, mdata->base + SPI_CFG1_REG);
 }
 
@@ -550,7 +617,7 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 
 	mdata->cur_transfer = xfer;
 	mdata->xfer_len = xfer->len;
-	mtk_spi_prepare_transfer(master, xfer);
+	mtk_spi_prepare_transfer(master, xfer, spi);
 	mtk_spi_setup_packet(master);
 
 	cnt = xfer->len / 4;
@@ -585,7 +652,7 @@ static int mtk_spi_dma_transfer(struct spi_master *master,
 	mdata->rx_sgl_len = 0;
 	mdata->cur_transfer = xfer;
 
-	mtk_spi_prepare_transfer(master, xfer);
+	mtk_spi_prepare_transfer(master, xfer, spi);
 
 	cmd = readl(mdata->base + SPI_CMD_REG);
 	if (xfer->tx_buf)
