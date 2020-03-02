@@ -179,11 +179,8 @@ int m4u_put_sgtable_pages(struct sg_table *table)
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 
-		if (page) {
-			if (!PageReserved(page))
-				SetPageDirty(page);
+		if (page)
 			put_page(page);
-		}
 	}
 	return 0;
 }
