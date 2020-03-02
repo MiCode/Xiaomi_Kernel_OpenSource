@@ -20,8 +20,8 @@
 /*>>>>> Information get from imgsensor driver*/
 static int32_t g_ccu_sensor_current_fps[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {-1};
 #define SENSOR_NAME_MAX_LEN 50
-static struct ccu_sensor_info
-	g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {0};
+static struct ccu_sensor_info g_ccu_sensor_info
+	[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 static char g_ccu_sensor_name
 	[IMGSENSOR_SENSOR_IDX_MAX_NUM][SENSOR_NAME_MAX_LEN];
 /*<<<<< Information get from imgsensor driver*/
@@ -69,26 +69,26 @@ void ccu_set_sensor_info(int32_t sensorType, struct ccu_sensor_info *info)
 	}
 }
 
-void ccu_get_sensor_i2c_slave_addr(int32_t *sensorI2cSlaveAddr)
+void ccu_get_sensor_i2c_info(struct ccu_i2c_info *sensor_info)
 {
-	sensorI2cSlaveAddr[0] =
-		g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAIN].slave_addr;
-	sensorI2cSlaveAddr[1] =
-		g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_SUB].slave_addr;
-	sensorI2cSlaveAddr[2] =
-		g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAIN2].slave_addr;
-	sensorI2cSlaveAddr[3] =
-		g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAIN3].slave_addr;
+	int32_t i;
+
+	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
+		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; ++i) {
+		sensor_info[i].slave_addr =
+		g_ccu_sensor_info[i].slave_addr;
+		sensor_info[i].i2c_id =
+		g_ccu_sensor_info[i].i2c_id;
+	}
 }
 
 void ccu_get_sensor_name(char **sensor_name)
 {
-	sensor_name[0] =
-	g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAIN].sensor_name_string;
-	sensor_name[1] =
-	g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_SUB].sensor_name_string;
-	sensor_name[2] =
-	g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAIN2].sensor_name_string;
-	sensor_name[3] =
-	g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAIN3].sensor_name_string;
+	int32_t i;
+
+	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
+		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; ++i) {
+		sensor_name[i] =
+		g_ccu_sensor_info[i].sensor_name_string;
+	}
 }
