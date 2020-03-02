@@ -650,11 +650,7 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_WALT
-	P(cluster->max_possible_capacity);
-	P(cluster->efficiency);
 	P(cluster->cur_freq);
-	P(cluster->max_freq);
-	P(cluster->exec_scale_factor);
 	P(walt_stats.nr_big_tasks);
 	SEQ_printf(m, "  .%-30s: %llu\n", "walt_stats.cumulative_runnable_avg",
 			rq->walt_stats.cumulative_runnable_avg_scaled);

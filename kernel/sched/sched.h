@@ -89,7 +89,6 @@ extern unsigned int sched_capacity_margin_up[NR_CPUS];
 extern unsigned int sched_capacity_margin_down[NR_CPUS];
 
 struct sched_walt_cpu_load {
-	unsigned long prev_window_util;
 	unsigned long nl;
 	unsigned long pl;
 	bool rtgb_active;
@@ -129,19 +128,11 @@ struct sched_cluster {
 	struct list_head list;
 	struct cpumask cpus;
 	int id;
-	int max_power_cost;
-	int min_power_cost;
-	int max_possible_capacity;
-	int efficiency; /* Differentiate cpus with different IPC capability */
-	unsigned int exec_scale_factor;
 	/*
-	 * max_freq = user maximum
-	 * max_mitigated_freq = thermal defined maximum
 	 * max_possible_freq = maximum supported by hardware
 	 */
-	unsigned int cur_freq, max_freq, max_mitigated_freq, min_freq;
+	unsigned int cur_freq;
 	unsigned int max_possible_freq;
-	bool freq_init_done;
 	u64 aggr_grp_load;
 };
 
@@ -2901,13 +2892,8 @@ struct related_thread_group {
 extern struct sched_cluster *sched_cluster[NR_CPUS];
 
 extern unsigned int __weak sched_disable_window_stats;
-extern unsigned int max_possible_freq;
-extern unsigned int min_max_freq;
-extern unsigned int max_possible_efficiency;
-extern unsigned int min_possible_efficiency;
 extern unsigned int max_possible_capacity;
 extern unsigned int __weak min_max_possible_capacity;
-extern unsigned int max_power_cost;
 extern unsigned int __read_mostly __weak sched_init_task_load_windows;
 extern unsigned int  __read_mostly __weak sched_load_granule;
 
@@ -2960,29 +2946,15 @@ static inline bool asym_cap_sibling_group_has_capacity(int dst_cpu, int margin)
 	return ((total_capacity * 100) > (total_util * margin));
 }
 
-static inline int cpu_max_possible_capacity(int cpu)
+static inline unsigned int cpu_max_possible_freq(int cpu)
 {
-	return cpu_rq(cpu)->cluster->max_possible_capacity;
-}
-
-static inline unsigned int cluster_max_freq(struct sched_cluster *cluster)
-{
-	/*
-	 * Governor and thermal driver don't know the other party's mitigation
-	 * voting. So struct cluster saves both and return min() for current
-	 * cluster fmax.
-	 */
-	return min(cluster->max_mitigated_freq, cluster->max_freq);
+	return cpu_rq(cpu)->cluster->max_possible_freq;
 }
 
 static inline unsigned int cpu_max_freq(int cpu)
 {
-	return cluster_max_freq(cpu_rq(cpu)->cluster);
-}
-
-static inline unsigned int cpu_max_possible_freq(int cpu)
-{
-	return cpu_rq(cpu)->cluster->max_possible_freq;
+	return mult_frac(cpu_max_possible_freq(cpu), capacity_orig_of(cpu),
+			 arch_scale_cpu_capacity(cpu));
 }
 
 static inline bool hmp_capable(void)
@@ -2992,12 +2964,12 @@ static inline bool hmp_capable(void)
 
 static inline bool is_max_capacity_cpu(int cpu)
 {
-	return cpu_max_possible_capacity(cpu) == max_possible_capacity;
+	return arch_scale_cpu_capacity(cpu) == max_possible_capacity;
 }
 
 static inline bool is_min_capacity_cpu(int cpu)
 {
-	return cpu_max_possible_capacity(cpu) == min_max_possible_capacity;
+	return arch_scale_cpu_capacity(cpu) == min_max_possible_capacity;
 }
 
 static inline unsigned int task_load(struct task_struct *p)
@@ -3144,11 +3116,6 @@ extern enum sched_boost_policy sched_boost_policy(void);
 extern void sched_boost_parse_dt(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern bool early_detection_notify(struct rq *rq, u64 wallclock);
-
-static inline unsigned int power_cost(int cpu, u64 demand)
-{
-	return cpu_max_possible_capacity(cpu);
-}
 
 void note_task_waking(struct task_struct *p, u64 wallclock);
 
@@ -3323,13 +3290,6 @@ static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
 	return 0;
 }
 
-#ifdef CONFIG_SMP
-static inline unsigned int power_cost(int cpu, u64 demand)
-{
-	return SCHED_CAPACITY_SCALE;
-}
-#endif
-
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 #endif  /* CONFIG_SCHED_WALT */
 
@@ -3403,13 +3363,3 @@ extern struct task_struct *find_process_by_pid(pid_t pid);
 
 extern void enqueue_task_core(struct rq *rq, struct task_struct *p, int flags);
 extern void dequeue_task_core(struct rq *rq, struct task_struct *p, int flags);
-
-#ifdef CONFIG_SMP
-static inline void sched_irq_work_queue(struct irq_work *work)
-{
-	if (likely(cpu_online(raw_smp_processor_id())))
-		irq_work_queue(work);
-	else
-		irq_work_queue_on(work, cpumask_any(cpu_online_mask));
-}
-#endif

@@ -216,3 +216,4 @@ void __weak update_cluster_topology(void) { }
 void __weak init_clusters(void) { }
 
 void __weak walt_sched_init_rq(struct rq *rq) { }
+void __weak walt_update_cluster_topology(void) { }
