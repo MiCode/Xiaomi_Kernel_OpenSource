@@ -28,7 +28,7 @@
 #include "mtk/mtk_ion.h"
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
-#include <mach/pseudo_m4u.h>
+#include "pseudo_m4u.h"
 #elif defined(CONFIG_MTK_M4U)
 #include <m4u.h>
 #endif
@@ -122,11 +122,7 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	port_info.emoduleid = buffer_info->module_id;
 	port_info.cache_coherent = buffer_info->coherent;
 	port_info.security = buffer_info->security;
-#if defined(CONFIG_MTK_M4U)
 	port_info.buf_size = buffer->size;
-#else
-	port_info.bufsize = buffer->size;
-#endif
 	port_info.flags = 0;
 
 	/*Allocate MVA */
