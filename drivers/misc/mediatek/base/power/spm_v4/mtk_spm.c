@@ -329,16 +329,6 @@ static void spm_register_init(void)
 		if (!edge_trig_irqs[1])
 			spm_err("get mdcldma failed\n");
 	}
-
-	/* conn_wdt_irq_b */
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6739-consys");
-	if (!node) {
-		spm_err("find mt6739-consys node failed\n");
-	} else {
-		edge_trig_irqs[2] = irq_of_parse_and_map(node, 1);
-		if (!edge_trig_irqs[2])
-			spm_err("get mt6739-consys failed\n");
-	}
 #elif defined(CONFIG_MACH_MT6771)
 	/* mediatek,infracfg_ao */
 	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
