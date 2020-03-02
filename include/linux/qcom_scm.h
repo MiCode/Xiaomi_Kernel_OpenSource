@@ -18,6 +18,7 @@ enum qcom_download_mode {
 	QCOM_DOWNLOAD_NODUMP	= 0x00,
 	QCOM_DOWNLOAD_EDL	= 0x01,
 	QCOM_DOWNLOAD_FULLDUMP	= 0x10,
+	QCOM_DOWNLOAD_MINIDUMP	= 0x20,
 };
 
 struct qcom_scm_hdcp_req {
