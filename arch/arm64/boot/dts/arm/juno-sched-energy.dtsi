@@ -28,7 +28,7 @@ energy-costs {
 			302    46
 			368    61
 			406    76
-			447    93
+			446    93
 		>;
 		idle-cost-data = <
 		      6
@@ -55,10 +55,10 @@ energy-costs {
 	CLUSTER_COST_A53: cluster-cost1 {
 		busy-cost-data = <
 			235    26
-			303    30
+			302    30
 			368    39
 			406    47
-			447    57
+			446    57
 		>;
 		idle-cost-data = <
 			56
