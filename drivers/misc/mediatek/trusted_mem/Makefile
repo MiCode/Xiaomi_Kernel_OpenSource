@@ -77,39 +77,10 @@ endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 endif # !TCORE_UT_FWK_SUPPORT
 
 #==========================================================================
-# SVP Secure Memory Core Driver
-#==========================================================================
-obj-$(CONFIG_MTK_SECURE_MEM_SUPPORT) += secmem.o
-secmem-y += secmem/secmem_device.o
-
-ifeq ($(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT),y)
-obj-$(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE) += sdsp_smem.o
-sdsp_smem-y += sdsp_smem/sdsp_smem_device.o
-endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
-
-#==========================================================================
-# 2D_FR Secure Memory Core Driver
-#==========================================================================
-obj-$(CONFIG_MTK_CAM_SECURITY_SUPPORT) += fr_smem.o
-fr_smem-y += fr_smem/fr_smem_device.o
-
-#==========================================================================
-# WFD Secure Memory Core Driver
-#==========================================================================
-obj-$(CONFIG_MTK_WFD_SMEM_SUPPORT) += wfd_smem.o
-wfd_smem-y += wfd_smem/wfd_smem_device.o
-
-#==========================================================================
-# MTEE Multiple Chunk Memory Device Driver
-#==========================================================================
-ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
-obj-y += mtee_devices.o
-endif
-
-#==========================================================================
-# Trustzone Peer Driver
+# TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
 ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) $(CONFIG_MTK_WFD_SMEM_SUPPORT) $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
+obj-y += tee_devices.o
 obj-y += tee_impl.o
 tee_impl-y += tee_impl/tee_common.o
 tee_impl-y += tee_impl/tee_invoke.o
@@ -120,8 +91,11 @@ endif
 endif
 
 #==========================================================================
-# Geniezone Peer Driver
+# MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
+ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
+obj-y += mtee_devices.o
+endif
 ifeq ($(CONFIG_MTK_GZ_KREE),y)
 obj-y += mtee_impl.o
 mtee_impl-y += mtee_impl/mtee_ops.o

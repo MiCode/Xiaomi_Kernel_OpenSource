@@ -93,7 +93,8 @@ u32 get_tee_mem_type(void *peer_priv)
 	return op_map->tee_mem_type;
 }
 
-void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type, void **peer_priv)
+void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type,
+			    struct tee_op_cmd_mappings **peer_priv)
 {
 	if (tee_mem_type == TEE_MEM_SVP) {
 		pr_info("TEE_MEM_SVP_PRIV_DATA\n");
