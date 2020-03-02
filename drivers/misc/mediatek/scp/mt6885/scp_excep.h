@@ -22,14 +22,13 @@
 #define SCP_TCM_LOCK_BIT	(1 << 20)
 
 enum scp_excep_id {
-	EXCEP_LOAD_FIRMWARE = 0,
 	EXCEP_RESET,
 	EXCEP_BOOTUP,
 	EXCEP_RUNTIME,
 	SCP_NR_EXCEP,
 };
 
-extern void scp_aed(enum scp_excep_id type, enum scp_core_id id);
+extern void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id);
 extern void scp_aed_reset(enum scp_excep_id type, enum scp_core_id id);
 extern void scp_aed_reset_inplace(enum scp_excep_id type,
 		enum scp_core_id id);
@@ -43,7 +42,6 @@ extern void aed_scp_exception_api(const int *log, int log_size,
 		const int db_opt);
 extern void scp_excep_cleanup(void);
 enum { r0, r1, r2, r3, r12, lr, pc, psr};
-extern int scp_ee_force_ke_enable;
 extern int scp_ee_enable;
 
 struct TaskContextType {
@@ -69,10 +67,8 @@ struct TaskContextType {
 	unsigned int msp;        /* msp                           */
 };
 
-#define CRASH_SUMMARY_LENGTH 12
-#define CRASH_MEMORY_HEADER_SIZE  (8 * 1024)
-#define CRASH_MEMORY_OFFSET  (0x800)
-#define CRASH_MEMORY_LENGTH  (512 * 1024 - CRASH_MEMORY_OFFSET)
+#define MDUMP_CDMP_SIZE		(8 * 1024)
+#define MDUMP_L2TCM_SIZE	(512 * 1024)
 
 #define CRASH_REG_SIZE  (9 * 32)
 
@@ -184,18 +180,9 @@ struct scp_dump_header_list {
 };
 
 struct MemoryDump {
-	struct elf32_hdr elf;
-	struct elf32_phdr nhdr;
-	struct elf32_phdr phdr;
-	char notes[CRASH_MEMORY_HEADER_SIZE-sizeof(struct elf32_hdr)
-		-sizeof(struct elf32_phdr)-sizeof(struct elf32_phdr)
-		-sizeof(struct scp_dump_header_list)];
-	/* ram dump total header size(elf+nhdr+phdr+header)
-	 * must be fixed at CRASH_MEMORY_HEADER_SIZE
-	 */
-	struct scp_dump_header_list scp_dump_header;
+	char cdmp[MDUMP_CDMP_SIZE];
 	/*scp sram*/
-	char memory[CRASH_MEMORY_LENGTH];
+	char l2tcm[MDUMP_L2TCM_SIZE];
 	/*scp reg*/
 	struct scp_reg_dump_list scp_reg_dump;
 };
