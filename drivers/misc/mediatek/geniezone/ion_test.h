@@ -11,6 +11,25 @@
  * GNU General Public License for more details.
  */
 
+struct _test_chmem_regions {
+	uint64_t pa;
+	uint32_t size;
+	uint32_t region_id;
+};
+
+/*limit: PA & Size needs 2MB   alignment (p80)*/
+/*limit: PA & Size needs 64KMB alignment (p60)*/
+/*test data will be replaced with SSMR setting*/
+struct _test_chmem_regions _test_CM_ary[] = {
+	{0x128000000, 0x14000000, 0x1},	/*320MB: (ION)secure shared mem*/
+	{0x128000000, 0x2000000,  0x3},	/*32MB: secure camera*/
+	{0x12A000000, 0x200000,   0x4},	/*2MB : TA elf*/
+	{0x12A200000, 0x200000,   0x5},	/*4KB : TEE/MTEE shmem*/
+	{0x12A400000, 0x3200000,  0x6}	/*50MB: heap/stack*/
+
+
+};
+
 struct AllocParameters {
 	int size;
 	int alignment;
