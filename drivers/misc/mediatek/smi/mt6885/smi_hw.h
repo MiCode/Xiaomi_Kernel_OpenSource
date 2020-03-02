@@ -18,22 +18,39 @@
 #include <smi_port.h>
 
 static const u32 smi_subsys_to_larbs[NR_SYSS] = {
-	[SYS_DIS] = ((1 << 0) | (1 << 1) | (1 << (SMI_LARB_NUM))),
-	// TODO
-	[SYS_VEN] = ((1 << 7) | (1 << 8)),
-	[SYS_VDE] = ((1 << 4) | (1 << 5)),
-	[SYS_CAM] = ((1 << 13) | (1 << 14) | (1 << 15) |
-		(1 << 16) | (1 << 17) | (1 << 18)),
-	[SYS_ISP] = ((1 << 9) | (1 << 11)),
-	[SYS_IPE] = ((1 << 19) | (1 << 20)),
+	[SYS_ISP] = (1 << 9),
+	[SYS_ISP2] = (1 << 11),
+	[SYS_IPE] = (1 << 19) | (1 << 20),
+	[SYS_VDE] = (1 << 4),
+	[SYS_VDE2] = (1 << 5),
+	[SYS_VEN] = (1 << 7),
+	[SYS_VEN_CORE1] = (1 << 8),
+	[SYS_MDP] = (1 << 2) | (1 << 3) |
+			(1 << (SMI_LARB_NUM + 1)) | (1 << (SMI_LARB_NUM + 2)),
+	[SYS_DIS] = (1 << 0) | (1 << 1) | (1 << (SMI_LARB_NUM)),
+	[SYS_CAM] = (1 << 13) | (1 << 14) | (1 << 15),
+	[SYS_CAM_RAWA] = (1 << 16),
+	[SYS_CAM_RAWB] = (1 << 17),
+	[SYS_CAM_RAWC] = (1 << 18),
 };
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include <mmprofile.h>
 
 static const char *smi_mmp_name[NR_SYSS] = {
-	[SYS_DIS] = "DIS", [SYS_VEN] = "VEN", [SYS_VDE] = "VDE",
-	[SYS_ISP] = "ISP", [SYS_CAM] = "CAM", [SYS_IPE] = "IPE",
+	[SYS_ISP] = "ISP",
+	[SYS_ISP2] = "ISP2",
+	[SYS_IPE] = "IPE",
+	[SYS_VDE] = "VDE",
+	[SYS_VDE2] = "VDE2",
+	[SYS_VEN] = "VEN",
+	[SYS_VEN_CORE1] = "VEN_CORE1",
+	[SYS_MDP] = "MDP",
+	[SYS_DIS] = "DIS",
+	[SYS_CAM] = "CAM",
+	[SYS_CAM_RAWA] = "CAM_RAWA",
+	[SYS_CAM_RAWB] = "CAM_RAWB",
+	[SYS_CAM_RAWC] = "CAM_RAWC",
 };
 static mmp_event smi_mmp_event[NR_SYSS];
 #endif

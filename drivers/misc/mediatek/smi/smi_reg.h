@@ -64,6 +64,7 @@
 #define SMI_LARB_CON			(0x10)
 #define SMI_LARB_CON_SET		(0x14)
 #define SMI_LARB_CON_CLR		(0x18)
+#define SMI_LARB_VC_PRI_MODE		(0x20)
 #define SMI_LARB_CMD_THRT_CON		(0x24)
 #define SMI_LARB_SW_FLAG		(0x40)
 #define SMI_LARB_BWL_EN			(0x50)
