@@ -49,6 +49,7 @@ struct TEE_GP_SESSION_DATA {
 	struct TEEC_Context context;
 	struct TEEC_Session session;
 	struct TEEC_SharedMemory wsm;
+	void *wsm_buffer;
 };
 
 static struct TEE_GP_SESSION_DATA *g_sess_data;
@@ -95,6 +96,13 @@ static int tee_session_open_single_session_unlocked(void)
 		return TMEM_TEE_CREATE_SESSION_DATA_FAILED;
 	}
 
+	g_sess_data->wsm_buffer =
+		mld_kmalloc(sizeof(struct secmem_ta_msg_t), GFP_KERNEL);
+	if (INVALID(g_sess_data->wsm_buffer)) {
+		pr_err("Create wsm buffer failed: out of memory!\n");
+		goto err_create_wsm_buffer;
+	}
+
 	ret = TEEC_InitializeContext(SECMEM_TL_GP_UUID_STRING,
 				     &g_sess_data->context);
 	if (ret != TEEC_SUCCESS) {
@@ -102,8 +110,7 @@ static int tee_session_open_single_session_unlocked(void)
 		goto err_initialize_context;
 	}
 
-	g_sess_data->wsm.buffer =
-		mld_kmalloc(sizeof(struct secmem_ta_msg_t), GFP_KERNEL);
+	g_sess_data->wsm.buffer = g_sess_data->wsm_buffer;
 	g_sess_data->wsm.size = sizeof(struct secmem_ta_msg_t);
 	g_sess_data->wsm.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
 	memset(g_sess_data->wsm.buffer, 0, g_sess_data->wsm.size);
@@ -132,10 +139,12 @@ err_open_session:
 
 err_register_shared_memory:
 	pr_err("TEEC_FinalizeContext\n");
-	mld_kfree(g_sess_data->wsm.buffer);
 	TEEC_FinalizeContext(&g_sess_data->context);
 
 err_initialize_context:
+	mld_kfree(g_sess_data->wsm_buffer);
+
+err_create_wsm_buffer:
 	tee_gp_destroy_session_data();
 
 	return TMEM_TEE_CREATE_SESSION_FAILED;
@@ -150,8 +159,8 @@ static int tee_session_close_single_session_unlocked(void)
 
 	TEEC_CloseSession(&g_sess_data->session);
 	TEEC_ReleaseSharedMemory(&g_sess_data->wsm);
-	mld_kfree(g_sess_data->wsm.buffer);
 	TEEC_FinalizeContext(&g_sess_data->context);
+	mld_kfree(g_sess_data->wsm_buffer);
 	tee_gp_destroy_session_data();
 	is_sess_ready = false;
 	return TMEM_OK;
