@@ -7529,6 +7529,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			wake_util = cpu_util_without(i, p);
+			if (idle_cpu(i))
+				wake_util = 0;
 			new_util = wake_util + task_util_est(p);
 
 			/*
@@ -7648,9 +7650,11 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * The goal here is to remain in EAS mode as long as
 			 * possible at least for !prefer_idle tasks.
 			 */
+			/*
 			if ((new_util * capacity_margin) >
 			    (capacity_orig * SCHED_CAPACITY_SCALE))
 				continue;
+			*/
 
 			/*
 			 * Favor CPUs with smaller capacity for non latency
