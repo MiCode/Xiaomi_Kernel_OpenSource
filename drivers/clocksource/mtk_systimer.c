@@ -10,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -28,6 +29,8 @@
 #include <linux/spinlock.h>
 #include <clocksource/arm_arch_timer.h>
 #include <mt-plat/sync_write.h>
+
+#ifdef CONFIG_MTK_TIMER_SYSTIMER
 
 #define MTK_TIMER_DBG_AEE_DUMP
 
@@ -77,8 +80,13 @@ do { \
 /* STMR_VAL */
 #define STMR_VAL_MAX      (0xFFFFFFFF)
 
-/* flags */
-#define STMR_FLG_IN_USE   (0x0001)
+/* apxgpt */
+#define APXGPT_IRQEN      (0x0)
+#define APXGPT_IRQACK     (0x8)
+#define APXGPT_TMR_START  (0x10)
+#define APXGPT_TMR_SIZE   (0x10)
+#define APXGPT_TMR_CNT    (6)
+#define APXGPT_TMR_MASK   (0x3F)
 
 struct mtk_stmrs {
 	int tmr_irq;
@@ -88,7 +96,6 @@ struct mtk_stmrs {
 struct mtk_stmr_device {
 	unsigned int id;
 	void (*func)(unsigned long data);
-	int flags;
 	void __iomem *base_addr;
 };
 
@@ -138,7 +145,7 @@ static struct clock_event_device mtk_stmr_clkevt = {
 
 static struct irqaction mtk_stmr_irq = {
 	.name = "mtk-clkevt",
-	.flags = IRQF_TIMER | IRQF_IRQPOLL,
+	.flags = IRQF_TIMER | IRQF_IRQPOLL | IRQF_TRIGGER_HIGH | IRQF_PERCPU,
 	.handler = mtk_stmr_handler,
 	.dev_id = &mtk_stmr_clkevt,
 };
@@ -268,8 +275,6 @@ static void mtk_stmr_dev_init(void)
 static void mtk_stmr_dev_setup(struct mtk_stmr_device *dev,
 	void (*func)(unsigned long))
 {
-	dev->flags |= STMR_FLG_IN_USE;
-
 	if (func)
 		mtk_stmr_set_handler(dev, func);
 }
@@ -423,6 +428,9 @@ static int __init mtk_stmr_init(struct device_node *node)
 
 CLOCKSOURCE_OF_DECLARE(mtk_timer_systimer, "mediatek,sys_timer", mtk_stmr_init);
 MODULE_AUTHOR("Stanley Chu <stanley.chu@mediatek.com>");
+
+#endif /* CONFIG_MTK_TIMER_SYSTIMER */
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Mediatek Clock Event Timer");
 

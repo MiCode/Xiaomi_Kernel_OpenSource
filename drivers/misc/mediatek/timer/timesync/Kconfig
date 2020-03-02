@@ -1,0 +1,57 @@
+#
+# Kernel configuration file for Mediatek proprietary timers
+#
+# Copyright (C) 2017 Mediatek Inc.
+#
+# Authors:
+#	Stanley Chu <stanley.chu@mediatek.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# See the COPYING file in the top-level directory or visit
+# <http://www.gnu.org/licenses/gpl-2.0.html>
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# This program is provided "AS IS" and "WITH ALL FAULTS" and
+# without warranty of any kind. You are solely responsible for
+# determining the appropriateness of using and distributing
+# the program and assume all risks associated with your exercise
+# of rights with respect to the program, including but not limited
+# to infringement of third party rights, the risks and costs of
+# program errors, damage to or loss of data, programs or equipment,
+# and unavailability or interruption of operations. Under no
+# circumstances will the contributor of this Program be liable for
+# any damages of any kind arising from your use or distribution of
+# this program.
+
+config MTK_TIMER_TIMESYNC
+	tristate "Time synchronization between kernel sched_clock and sys_timer tick"
+	default n
+	help
+	  This selects the support for time synchronization between kernel
+	  sched_clock and sys_timer tick.
+
+	  Time synchronization may be required in some sub-systems, for example,
+	  sspm and scp ...etc, to have ability to get the same sched_clock
+	  as kernel in AP.
+
+	  If unsure, say N.
+
+config MTK_ARCHCOUNTER_TIMESYNC
+	tristate "Time synchronization between archcounter time and monotonic time"
+	default y
+	help
+	  This selects the support for time synchronization between archcounter time
+	  and monotonic time.
+
+	  Time synchronization may be required in some sub-systems, for example,
+	  camera ...etc, to have ability to get the same monotonic time as kernel
+	  in AP.
+
+	  If unsure, say N.

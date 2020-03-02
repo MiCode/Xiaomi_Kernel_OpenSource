@@ -478,7 +478,7 @@ config MTK_TIMER_SYSTIMER
 	  as clock event for tick broadcast.
 	  Only sys-timer0 will be activated.
 
-config MTK_TIMER_V1
+config MTK_TIMER_APXGPT
 	bool "Mediatek timer driver v1" if COMPILE_TEST
 	depends on GENERIC_CLOCKEVENTS && HAS_IOMEM && !MTK_TIEMR
 	select CLKSRC_OF
