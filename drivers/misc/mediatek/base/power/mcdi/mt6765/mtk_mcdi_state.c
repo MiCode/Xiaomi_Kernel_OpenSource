@@ -207,9 +207,9 @@ static struct cpuidle_driver
 do {                                                                     \
 	mtk_acao_mcdi_state[type].states[i].member = val;                \
 	if (i == MCDI_STATE_CPU_OFF) {                                   \
-		if (cpu_type == CPU_TYPE_L)                              \
+		if (type == CPU_TYPE_L)                              \
 			mtk_cpuidle_driver_set_0.states[i].member = val; \
-		else if (cpu_type == CPU_TYPE_LL)                        \
+		else if (type == CPU_TYPE_B)                        \
 			mtk_cpuidle_driver_set_1.states[i].member = val; \
 	}                                                                \
 } while (0)
