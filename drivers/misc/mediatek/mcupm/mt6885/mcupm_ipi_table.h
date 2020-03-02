@@ -15,6 +15,7 @@
 #define __MCUPM_IPI_TABLE_H__
 
 #include <mt-plat/mtk_tinysys_ipi.h>
+#include "mcupm_ipi_id.h"
 
 #define MCUPM_MBOX_TOTAL 5
 
@@ -66,13 +67,6 @@
 #define PIN_R_OFFSET_FHCTL	(PIN_S_OFFSET_FHCTL + PIN_S_SIZE_FHCTL)
 #define PIN_R_OFFSET_MCDI	(PIN_S_OFFSET_MCDI + PIN_S_SIZE_MCDI)
 #define PIN_R_OFFSET_SUSPEND	(PIN_S_OFFSET_SUSPEND + PIN_R_SIZE_SUSPEND)
-
-#define CH_S_PLATFORM	0
-#define CH_S_CPU_DVFS	1
-#define CH_S_FHCTL	2
-#define CH_S_MCDI	3
-#define CH_S_SUSPEND	4
-#define MCUPM_IPI_COUNT	5
 
 extern struct mtk_ipi_device mcupm_ipidev;
 

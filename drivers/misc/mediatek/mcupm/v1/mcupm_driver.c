@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/io.h>
 #include <linux/miscdevice.h>   /* needed by miscdevice* */
+#include "mcupm_ipi_id.h"
 #include "mcupm_ipi_table.h"
 #include "mcupm_driver.h"
 #ifdef CONFIG_OF_RESERVED_MEM
