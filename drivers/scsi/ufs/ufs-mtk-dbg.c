@@ -474,7 +474,7 @@ static int ufs_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 	size_t count, loff_t *data)
 {
-	unsigned long op;
+	unsigned long op = UFS_CMD_UNKNOWN;
 	bool handled = false;
 
 	if (count == 0 || count > 255)
