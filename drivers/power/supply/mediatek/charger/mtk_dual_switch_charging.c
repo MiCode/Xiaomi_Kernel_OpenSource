@@ -863,7 +863,7 @@ static int mtk_dual_switch_charging_run(struct charger_manager *info)
 {
 	struct dual_switch_charging_alg_data *swchgalg = info->algorithm_data;
 	int ret = 10;
-	bool chg2_en;
+	bool chg2_en = false;
 
 	pr_info("%s [%d]\n", __func__, swchgalg->state);
 

@@ -1449,7 +1449,7 @@ static void check_dynamic_mivr(struct charger_manager *info)
 static void mtk_chg_get_tchg(struct charger_manager *info)
 {
 	int ret;
-	int tchg_min, tchg_max;
+	int tchg_min = -127, tchg_max = -127;
 	struct charger_data *pdata;
 
 	pdata = &info->chg1_data;
@@ -2953,6 +2953,16 @@ static int proc_dump_log_show(struct seq_file *m, void *v)
 {
 	struct adapter_power_cap cap;
 	int i;
+
+	cap.nr = 0;
+	cap.pdp = 0;
+	for (i = 0; i < ADAPTER_CAP_MAX_NR; i++) {
+		cap.max_mv[i] = 0;
+		cap.min_mv[i] = 0;
+		cap.ma[i] = 0;
+		cap.type[i] = 0;
+		cap.pwr_limit[i] = 0;
+	}
 
 	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
 		seq_puts(m, "********** PD APDO cap Dump **********\n");
