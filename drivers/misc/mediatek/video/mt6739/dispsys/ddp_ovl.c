@@ -690,7 +690,11 @@ static inline int ovl_switch_to_sec(enum DISP_MODULE_ENUM module, void *handle)
 	 * set engine as sec port, it will to access
 	 * the sec memory EMI_MPU protected
 	 */
-	cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
+	if (cmdq_engine < 64)
+		cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
+	else
+		DDPERR("cmdq engine overflow!:%d\n", cmdq_engine);
+
 	/* Enable DAPC to protect the engine register */
 	/* cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine)); */
 	if (ovl_is_sec[ovl_idx] == 0) {
