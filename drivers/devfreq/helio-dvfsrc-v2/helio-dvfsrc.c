@@ -215,13 +215,11 @@ int get_sw_req_vcore_opp(void)
 		return 0;
 	/* 1st get sw req opp  no lock protect is ok*/
 	if (!is_opp_forced()) {
-		mutex_lock(&sw_req1_mutex);
 		sw_req = (dvfsrc_read(DVFSRC_SW_REQ) >> VCORE_SW_AP_SHIFT);
 		sw_req = sw_req & VCORE_SW_AP_MASK;
 		sw_req = VCORE_OPP_NUM - sw_req - 1;
 		/* 2nd read current level to get current vcore opp */
 		opp = get_cur_vcore_opp();
-		mutex_unlock(&sw_req1_mutex);
 		if (opp > sw_req) {
 			/* should not happen */
 			dvfsrc_dump_reg(NULL);
