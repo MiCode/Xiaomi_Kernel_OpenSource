@@ -417,67 +417,53 @@ static void mrdump_mini_add_entry_ext(unsigned long start, unsigned long end,
 		LOGE("mrdump: MINI_NR_SECTION overflow!\n");
 }
 
-#ifdef __aarch64__
-static bool addr_in_kimg(unsigned long addr)
-{
-	if ((void *)(addr) >= (void *)KIMAGE_VADDR &&
-		(void *)(addr) < (void *)_end)
-		return true;
-	else
-		return false;
-}
-#else
-static bool addr_in_kimg(unsigned long addr)
-{
-	return false;
-}
-#endif
-
 void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 {
-	unsigned long start = 0, __end, pa = 0, end_pfn = 0, _pfn;
+	unsigned long start = 0, __end, _pfn;
+	unsigned long laddr;
 
 	if (!pfn_valid(virt_2_pfn(addr)))
 		return;
-	if (((addr < VMALLOC_END && addr >= VMALLOC_START)
-			|| addr < PAGE_OFFSET)
-			&& !addr_in_kimg(addr)) {
-		/* If addr belongs to non-linear mapping region and not
-		 * in kernel image, we only dump 1 page to economize on
-		 * the number of sections of minirdump
-		 */
+
+	if (size > PAGE_SIZE) {
+		__end = ALIGN(addr + size / 2, PAGE_SIZE);
+		laddr = __end - ALIGN(size, PAGE_SIZE);
+
+		start = addr & PAGE_MASK;
+		while (start >= laddr) {
+			_pfn = virt_2_pfn(start - PAGE_SIZE);
+			if (!pfn_valid(_pfn)) {
+				laddr = start;
+				break;
+			}
+			start -= PAGE_SIZE;
+		}
+
+		start = addr & PAGE_MASK;
+		while (start < __end) {
+			start += PAGE_SIZE;
+			_pfn = virt_2_pfn(start);
+			if (!pfn_valid(_pfn)) {
+				__end = start;
+				break;
+			}
+		}
+
+		if (pfn_valid(virt_2_pfn(laddr))
+			&& __end > laddr) {
+			mrdump_mini_add_entry_ext(laddr, __end,
+					__pfn_to_phys(virt_2_pfn(laddr)));
+		} else {
+			/* should never be here just in case and 1 page safe*/
+			start = addr & PAGE_MASK;
+			mrdump_mini_add_entry_ext(start, start + PAGE_SIZE,
+					__pfn_to_phys(virt_2_pfn(addr)));
+		}
+	} else {
 		start = addr & PAGE_MASK;
 		mrdump_mini_add_entry_ext(start, start + PAGE_SIZE,
 				__pfn_to_phys(virt_2_pfn(addr)));
-		return;
 	}
-	for (__end = ALIGN(addr + size / 2, PAGE_SIZE),
-			addr = __end - ALIGN(size, PAGE_SIZE);
-			addr < __end; addr += PAGE_SIZE) {
-		_pfn = virt_2_pfn(addr);
-		if (pfn_valid(_pfn)) {
-			if (!start || _pfn != end_pfn) {
-				if (start)
-					mrdump_mini_add_entry_ext(start,
-						start + (__pfn_to_phys(end_pfn)
-							- pa), pa);
-				start = addr;
-				pa = __pfn_to_phys(_pfn);
-				end_pfn = _pfn + 1;
-			} else {
-				end_pfn++;
-			}
-		} else {
-			if (start)
-				mrdump_mini_add_entry_ext(start,
-					start + (__pfn_to_phys(end_pfn) - pa),
-					pa);
-			start = 0;
-		}
-	}
-	if (start)
-		mrdump_mini_add_entry_ext(start,
-				start + (__pfn_to_phys(end_pfn) - pa), pa);
 }
 
 static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
