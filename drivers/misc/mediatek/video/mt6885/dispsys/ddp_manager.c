@@ -539,7 +539,7 @@ int dpmgr_modify_path(disp_path_handle dp_handle,
 	struct ddp_path_handle *handle;
 	enum DDP_SCENARIO_ENUM old_scenario;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	old_scenario = handle->scenario;
 	handle->cmdqhandle = cmdq_handle;
