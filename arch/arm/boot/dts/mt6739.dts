@@ -1240,7 +1240,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	i2c0: i2c@11007000 {
-		compatible = "mediatek,mt6739-i2c";
+		compatible = "mediatek,i2c";
 		id = <0>;
 		reg = <0 0x11007000 0 0x1000>,
 			<0 0x11000100 0 0x80>;
@@ -1252,7 +1252,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	i2c1: i2c@11008000 {
-		compatible = "mediatek,mt6739-i2c";
+		compatible = "mediatek,i2c";
 		id = <1>;
 		reg = <0 0x11008000 0 0x1000>,
 			<0 0x11000180 0 0x80>;
@@ -1264,7 +1264,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	i2c2: i2c@11009000 {
-		compatible = "mediatek,mt6739-i2c";
+		compatible = "mediatek,i2c";
 		id = <2>;
 		reg = <0 0x11009000 0 0x1000>,
 			<0 0x11000200 0 0x80>;
@@ -1276,7 +1276,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	i2c3: i2c@1100f000 {
-		compatible = "mediatek,mt6739-i2c";
+		compatible = "mediatek,i2c";
 		id = <3>;
 		reg = <0 0x1100f000 0 0x1000>,
 			<0 0x11000280 0 0x80>;
@@ -1288,7 +1288,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	i2c4: i2c@11011000 {
-		compatible = "mediatek,mt6739-i2c";
+		compatible = "mediatek,i2c";
 		id = <4>;
 		reg = <0 0x11011000 0 0x1000>,
 			<0 0x11000300 0 0x80>;
@@ -1300,7 +1300,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	i2c5: i2c@11016000 {
-		compatible = "mediatek,mt6739-i2c";
+		compatible = "mediatek,i2c";
 		id = <5>;
 		reg = <0 0x11016000 0 0x1000>,
 			<0 0x11000380 0 0x80>;
@@ -1767,7 +1767,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	touch: touch {
-		compatible = "mediatek,mt6739-touch";
+		compatible = "mediatek,touch";
 		/* VTOUCH-supply = <&mt_pmic_vgp1_ldo_reg>; */
 	};
 
