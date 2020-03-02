@@ -792,10 +792,7 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 27:
 	{
-		int i;
-
-		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_dump_reg_for_hang_issue(i);
+		mtk_dump_reg_for_hang_issue();
 	}
 	break;
 	case 28:

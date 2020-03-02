@@ -173,25 +173,15 @@ struct device *pseudo_get_larbdev(int portid)
 	fake_nr = ARRAY_SIZE(pseudo_dev_larb_fake);
 	larbid = m4u_get_larbid(portid);
 	larbport = m4u_port_2_larb_port(portid);
+
 	if (larbid >= (SMI_LARB_NR + fake_nr) ||
-	    larbport >= 32) {
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 32)
-		/*
-		 * for 34bit IOVA space, boundary is mandatory
-		 * we cannot use a default device for iova mapping
-		 */
-		index = get_pseudo_larb(M4U_PORT_OVL_DEBUG);
-		if (index >= 0 &&
-		    index < fake_nr)
-			pseudo = &pseudo_dev_larb_fake[index];
-#endif
+	    larbport >= 32)
 		goto out;
-	}
 
 	if (larbid >= 0 &&
 	    larbid < SMI_LARB_NR) {
 		pseudo = &pseudo_dev_larb[larbid];
-	} else {
+	} else if (larbid < (SMI_LARB_NR + fake_nr)) {
 		index = get_pseudo_larb(portid);
 		if (index >= 0 &&
 		    index < fake_nr)
@@ -199,6 +189,23 @@ struct device *pseudo_get_larbdev(int portid)
 	}
 
 out:
+	if (!pseudo) {
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 32)
+		/*
+		 * for 34bit IOVA space, boundary is mandatory
+		 * we cannot use a default device for iova mapping
+		 */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		index = get_pseudo_larb(M4U_PORT_OVL_DEBUG);
+		if (index >= 0 &&
+		    index < fake_nr)
+			pseudo = &pseudo_dev_larb_fake[index];
+#else
+		pseudo = &pseudo_dev_larb_fake[2];
+#endif
+#endif
+	}
+
 	if (pseudo && pseudo->dev)
 		return pseudo->dev;
 
@@ -568,9 +575,15 @@ int pseudo_dump_port(int port)
 
 	larb = m4u_get_larbid(port);
 	larb_port = m4u_port_2_larb_port(port);
+	if (larb >= SMI_LARB_NR || larb_port >= 32) {
+		M4U_MSG("port:%d, larb:%d is fake, or port:%d invalid\n",
+			port, larb, larb_port);
+		return 0;
+	}
+
 	larb_base = pseudo_larbbase[larb];
 	if (!larb_base) {
-		M4U_MSG("larb not existed, no need of config\n", larb);
+		M4U_MSG("larb:%d not existed, no need of config\n", larb);
 		return 0;
 	}
 

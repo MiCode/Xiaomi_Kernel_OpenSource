@@ -194,7 +194,6 @@ char *mtk_iommu_get_vpu_port_name(unsigned int tf_id);
 char *mtk_iommu_get_mm_port_name(unsigned int tf_id);
 int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id);
 int mtk_dump_pfh_tlb(int m4u_id);
-int mtk_dump_reg_for_hang_issue(unsigned int m4u_id);
 int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
 		unsigned int end);
 int mtk_iommu_get_boundary_id(struct device *dev);
@@ -211,4 +210,5 @@ void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd);
 bool mtk_dev_is_size_alignment(struct device *dev);
 char *mtk_iommu_get_port_name(unsigned int m4u_id,
 		unsigned int tf_id);
+void mtk_dump_reg_for_hang_issue(void);
 #endif
