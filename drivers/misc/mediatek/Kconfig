@@ -179,3 +179,4 @@ endmenu    # Misc
 
 source "drivers/misc/mediatek/freqhopping/Kconfig"
 source "drivers/misc/mediatek/sspm/Kconfig"
+source "drivers/misc/mediatek/vibrator/Kconfig"
