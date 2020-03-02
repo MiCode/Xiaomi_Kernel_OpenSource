@@ -1170,6 +1170,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&hx83112b_fhdp_dsi_cmd_auo_rt5081_hdp_lcm_drv,
 #endif
 
+#if defined(HX83112B_FHDP_DSI_CMD_AUO_RT5081_HDP_1560)
+	&hx83112b_fhdp_dsi_cmd_auo_rt5081_hdp_1560_lcm_drv,
+#endif
+
 #if defined(HX83112B_FHDP_DSI_VDO_AUO_RT5081_HDP)
 	&hx83112b_fhdp_dsi_vdo_auo_rt5081_hdp_lcm_drv,
 #endif
