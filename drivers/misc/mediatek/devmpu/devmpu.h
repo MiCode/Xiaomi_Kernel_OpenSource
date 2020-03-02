@@ -1,25 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
  */
 
 #ifndef __DEVMPU_H__
 #define __DEVMPU_H__
-
-#include <devmpu_mt.h>
-
-/* general utils */
-#define DEVMPU_MASK             (~(DEVMPU_PAGE_SIZE-1))
-#define DEVMPU_ALIGN_UP(x)      ((x + DEVMPU_PAGE_SIZE - 1) & DEVMPU_MASK)
-#define DEVMPU_ALIGN_DOWN(x)    ((x) & DEVMPU_MASK)
 
 /**
  * Print DeviceMPU violation info.
@@ -38,4 +23,5 @@
  */
 int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		uint32_t vio_domain, uint32_t vio_rw, bool from_emimpu);
+
 #endif /* __DEVMPU_H__ */

@@ -1,23 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
  */
 
 #include <asm/page.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/device.h>
 #include <linux/compiler.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/of.h>
+#include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
 #include <mt_emi.h>
 #include <mpu_v1.h>
@@ -31,10 +26,21 @@
 #endif
 #define pr_fmt(fmt) LOG_TAG " " fmt
 
-#define get_bit_field(x, m, o)	((x & (m << o)) >> o)
+struct devmpu_context {
 
-static void __iomem *DEVMPU_BASE;
-static const char *UNKNOWN_MASTER = "unknown";
+	/* HW register mapped base */
+	void __iomem *reg_base;
+
+	/* DRAM (PA) space protected */
+	uint64_t prot_base;
+	uint64_t prot_size;
+
+	/* page granularity */
+	uint32_t page_size;
+
+	/* virtual irq number */
+	uint32_t virq;
+} devmpu_ctx[1];
 
 struct devmpu_vio_stat {
 
@@ -44,7 +50,7 @@ struct devmpu_vio_stat {
 	/* master domain */
 	uint8_t domain;
 
-	/* is NS transaction (AXI sideband secure bit) */
+	/* is NS transaction (AxPROT[1]) */
 	bool is_ns;
 
 	/* is write violation */
@@ -57,6 +63,8 @@ struct devmpu_vio_stat {
 	uint64_t addr;
 };
 
+static const char *UNKNOWN_MASTER = "unknown";
+
 static unsigned int match_id(
 	unsigned int axi_id, unsigned int tbl_idx, unsigned int port_id)
 {
@@ -64,25 +72,22 @@ static unsigned int match_id(
 		if (port_id == mst_tbl[tbl_idx].port)
 			return 1;
 	}
-
 	return 0;
 }
 
 static const char *id2name(unsigned int axi_id, unsigned int port_id)
 {
 	int i;
-
 	for (i = 0; i < ARRAY_SIZE(mst_tbl); i++) {
 		if (match_id(axi_id, i, port_id))
 			return mst_tbl[i].name;
 	}
-
 	return (char *)UNKNOWN_MASTER;
 }
 
 static int devmpu_vio_get(struct devmpu_vio_stat *vio, bool do_clear)
 {
-	size_t ret;
+	struct arm_smccc_res res;
 
 	size_t vio_addr;
 	size_t vio_info;
@@ -93,13 +98,17 @@ static int devmpu_vio_get(struct devmpu_vio_stat *vio, bool do_clear)
 		return -1;
 	}
 
-	ret = mt_secure_call_ret3(MTK_SIP_KERNEL_DEVMPU_VIO_GET,
-			do_clear, 0, 0, 0, &vio_addr, &vio_info);
-	if (ret == (size_t)(-1)) {
-		pr_err("%s:%d failed to get violation, ret=%zd\n",
-				__func__, __LINE__, ret);
+
+	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_VIO_GET,
+			do_clear, 0, 0, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		pr_err("%s:%d failed to get violation, ret=0x%lx\n",
+				__func__, __LINE__, res.a0);
 		return -1;
 	}
+
+	vio_addr = res.a1;
+	vio_info = res.a2;
 
 	vio->addr = vio_addr;
 	vio->is_write = (vio_info >> 0) & 0x1;
@@ -180,8 +189,8 @@ static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
 	size_t ret;
 
 	if (unlikely(
-			pa < DEVMPU_DRAM_BASE
-		||	pa >= DEVMPU_DRAM_BASE + DEVMPU_DRAM_SIZE)) {
+			pa < devmpu_ctx->prot_base
+		||	pa >= devmpu_ctx->prot_base + devmpu_ctx->prot_size)) {
 		pr_err("%s:%d invalid DRAM physical address, pa=0x%llx\n",
 				__func__, __LINE__, pa);
 		return -1;
@@ -209,18 +218,19 @@ static ssize_t devmpu_show(struct device_driver *driver, char *buf)
 	ssize_t ret = 0;
 
 	uint32_t i;
-	uint64_t pa;
 
-	size_t rd_perm = 0xffffffff;
-	size_t wr_perm = 0xffffffff;
+	uint64_t pa = devmpu_ctx->prot_base;
+	uint32_t pages = devmpu_ctx->prot_size / devmpu_ctx->page_size;
+
+	size_t rd_perm;
+	size_t wr_perm;
 
 	uint8_t rd_perm_bmp[16];
 	uint8_t wr_perm_bmp[16];
 
 	pr_info("Page#  RD/WR permissions\n");
 
-	for (i = 0; i < DEVMPU_PAGE_NUM; ++i) {
-
+	for (i = 0; i < pages; ++i) {
 		if (i && i % 16 == 0) {
 			pr_info("%04x:  %08x/%08x %08x/%08x %08x/%08x %08x/%08x\n",
 				i - 16,
@@ -234,7 +244,6 @@ static ssize_t devmpu_show(struct device_driver *driver, char *buf)
 				*((uint32_t *)wr_perm_bmp+3));
 		}
 
-		pa = DEVMPU_DRAM_BASE + (i * DEVMPU_PAGE_SIZE);
 		if (devmpu_rw_perm_get(pa, &rd_perm, &wr_perm)) {
 			pr_err("%s:%d failed to get permission\n",
 					__func__, __LINE__);
@@ -243,6 +252,8 @@ static ssize_t devmpu_show(struct device_driver *driver, char *buf)
 
 		rd_perm_bmp[i % 16] = (uint8_t)rd_perm;
 		wr_perm_bmp[i % 16] = (uint8_t)wr_perm;
+
+		pa += devmpu_ctx->page_size;
 	}
 
 	return ret;
@@ -255,27 +266,86 @@ static ssize_t devmpu_store(struct device_driver *driver,
 }
 DRIVER_ATTR(devmpu_config, 0444, devmpu_show, devmpu_store);
 
+static irqreturn_t devmpu_irq_handler(int irq, void *dev_id)
+{
+	devmpu_print_violation(0, 0, 0, 0, false);
+	return IRQ_HANDLED;
+}
+
 /* driver registration */
 static int devmpu_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	int rc;
+
+	void __iomem *reg_base;
+	uint64_t prot_base;
+	uint64_t prot_size;
+	uint32_t page_size;
+	uint32_t virq;
+
+	struct device_node *dn = pdev->dev.of_node;
 	struct resource *res;
 
-	pr_info("%s:%d module probe\n", __func__, __LINE__);
+	pr_info("Device MPU probe\n");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	DEVMPU_BASE = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(DEVMPU_BASE)) {
-		pr_err("%s:%d unable to map DEVMPU_BASE\n",
+	if (!res) {
+		pr_err("%s:%d failed to get resource\n",
 				__func__, __LINE__);
-		return -EINVAL;
+		return -ENOENT;
 	}
 
-	return ret;
+	reg_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(reg_base)) {
+		pr_err("%s:%d unable to map DEVMPU_BASE\n",
+				__func__, __LINE__);
+		return -ENOENT;
+	}
+
+	if (of_property_read_u64(dn, "prot-base", &prot_base)) {
+		pr_err("%s:%d failed to get protected region base\n",
+				__func__, __LINE__);
+		return -ENOENT;
+	}
+
+	if (of_property_read_u64(dn, "prot-size", &prot_size)) {
+		pr_err("%s:%d failed to get protected region size\n",
+				__func__, __LINE__);
+		return -ENOENT;
+	}
+
+	if (of_property_read_u32(dn, "page-size", &page_size)) {
+		pr_err("%s:%d failed to get protected region granularity\n",
+				__func__, __LINE__);
+		return -ENOENT;
+	}
+
+	virq = irq_of_parse_and_map(dn, 0);
+	rc = request_irq(virq, (irq_handler_t)devmpu_irq_handler,
+			IRQF_TRIGGER_NONE, "devmpu", NULL);
+	if (rc) {
+		pr_err("%s:%d failed to request irq, rc=%d\n",
+				__func__, __LINE__, rc);
+		return -EPERM;
+	}
+
+	devmpu_ctx->reg_base = reg_base;
+	devmpu_ctx->prot_base = prot_base;
+	devmpu_ctx->prot_size = prot_size;
+	devmpu_ctx->page_size = page_size;
+	devmpu_ctx->virq = virq;
+
+	pr_info("reg_base=0x%pK\n", devmpu_ctx->reg_base);
+	pr_info("prot_base=0x%llx\n", devmpu_ctx->prot_base);
+	pr_info("prot_size=0x%llx\n", devmpu_ctx->prot_size);
+	pr_info("page_size=0x%x\n", devmpu_ctx->page_size);
+	pr_info("virq=0x%x\n", devmpu_ctx->virq);
+
+	return 0;
 }
 
 static const struct of_device_id devmpu_of_match[] = {
-	{ .compatible = "mediatek,infra_device_mpu" },
+	{ .compatible = "mediatek,device_mpu_low" },
 	{},
 };
 
