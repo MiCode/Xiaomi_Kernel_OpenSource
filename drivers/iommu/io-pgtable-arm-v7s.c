@@ -997,9 +997,7 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 						void *cookie)
 {
 	struct arm_v7s_io_pgtable *data;
-#ifdef CONFIG_MTK_IOMMU_V2
 	unsigned long base = 0;
-#endif
 
 	if (cfg->ias > ARM_V7S_ADDR_BITS || cfg->oas > ARM_V7S_PHYS_ADDR_BITS) {
 		pr_notice("%s, %d, err ias=0x%lx, oas=0x%lx\n",
@@ -1103,9 +1101,9 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 		pr_notice("%s, %d, err align\n", __func__, __LINE__);
 		goto out_free_data;
 	}
+#endif
 	base = (unsigned long)virt_to_phys(data->pgd);
 
-#endif
 	/* Ensure the empty pgd is visible before any actual TTBR write */
 	wmb();
 
