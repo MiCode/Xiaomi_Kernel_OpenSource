@@ -2917,26 +2917,14 @@ static ssize_t f2fs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		if (iov_iter_fault_in_readable(from, iov_iter_count(from)))
 			set_inode_flag(inode, FI_NO_PREALLOC);
 
-		if ((iocb->ki_flags & IOCB_NOWAIT) &&
-			(iocb->ki_flags & IOCB_DIRECT)) {
-				if (!f2fs_overwrite_io(inode, iocb->ki_pos,
-						iov_iter_count(from)) ||
-					f2fs_has_inline_data(inode) ||
-					f2fs_force_buffered_io(inode, WRITE)) {
-						inode_unlock(inode);
-						return -EAGAIN;
-				}
+		preallocated = true;
+		target_size = iocb->ki_pos + iov_iter_count(from);
 
-		} else {
-			preallocated = true;
-			target_size = iocb->ki_pos + iov_iter_count(from);
-
-			err = f2fs_preallocate_blocks(iocb, from);
-			if (err) {
-				clear_inode_flag(inode, FI_NO_PREALLOC);
-				inode_unlock(inode);
-				return err;
-			}
+		err = f2fs_preallocate_blocks(iocb, from);
+		if (err) {
+			clear_inode_flag(inode, FI_NO_PREALLOC);
+			inode_unlock(inode);
+			return err;
 		}
 		blk_start_plug(&plug);
 		ret = __generic_file_write_iter(iocb, from);
