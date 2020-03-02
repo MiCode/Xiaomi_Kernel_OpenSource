@@ -35,6 +35,7 @@ static int fgclog_level;
 static int pre_coulomb;
 static bool init;
 static int coulomb_lock_cnt, hw_coulomb_lock_cnt;
+int fix_coverity;
 
 #define FTLOG_ERROR_LEVEL   1
 #define FTLOG_DEBUG_LEVEL   2
@@ -357,6 +358,7 @@ void gauge_coulomb_stop(struct gauge_consumer *coulomb)
 	if (is_fg_disabled()) {
 		gauge_set_coulomb_interrupt1_ht(0);
 		gauge_set_coulomb_interrupt1_lt(0);
+		fix_coverity = 1;
 		return;
 	}
 
@@ -511,6 +513,9 @@ static int gauge_coulomb_thread(void *arg)
 			(int)(duraction.tv_nsec / 1000000),
 			(int)(sstart[0].tv_nsec / 1000000),
 			(int)(sstart[1].tv_nsec / 1000000));
+
+		if (fix_coverity == 1)
+			break;
 	}
 
 	return 0;
