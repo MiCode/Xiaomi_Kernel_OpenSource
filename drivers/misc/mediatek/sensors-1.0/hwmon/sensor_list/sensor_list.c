@@ -163,7 +163,7 @@ static struct scp_power_monitor scp_ready_notifier = {
 };
 #else
 int sensorlist_register_deviceinfo(int sensor,
-		struct sensorInfo_t *devinfo)
+		struct sensorInfo_NonHub_t *devinfo)
 {
 	int handle = -1;
 
