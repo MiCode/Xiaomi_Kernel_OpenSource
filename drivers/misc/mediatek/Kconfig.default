@@ -234,6 +234,7 @@ config MTK_ANDROID_DEFAULT_SETTING
 	select HW_RANDOM_MT67XX
 	select PGTABLE_MAPPING if ZSMALLOC && (ARM || ARM64)
 	select PSI
+	select MTK_MIX_DEVICES
 	help
 	  Select the MTK android config by default
 	  to avoid missing basic or common setting
