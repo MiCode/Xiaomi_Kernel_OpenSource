@@ -3405,7 +3405,7 @@ static signed int MFB_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
 	log_inf(
-	    "&s:vm_pgoff(0x%lx) pfn(0x%x) phy(0x%lx) vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
+	    "%s:vm_pgoff(0x%lx) pfn(0x%x) phy(0x%lx) vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
 	    __func__,
 	    pVma->vm_pgoff,
 	    pfn, pVma->vm_pgoff << PAGE_SHIFT,
