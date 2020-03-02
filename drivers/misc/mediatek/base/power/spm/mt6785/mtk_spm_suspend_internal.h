@@ -118,6 +118,7 @@ extern struct wake_status spm_wakesta;
 extern unsigned int spm_sleep_count;
 extern bool slp_dump_golden_setting;
 extern bool slp_dump_subsys_sleep_duration;
+extern bool slp_dump_ap_awake_duration;
 extern int slp_dump_golden_setting_type;
 
 #endif /* __MTK_SPM_SUSPEND_INTERNAL_H__ */
