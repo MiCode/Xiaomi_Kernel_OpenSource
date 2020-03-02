@@ -270,6 +270,11 @@ static int mt6358_irq_init(struct mt6358_chip *chip)
 {
 	int i, ret = 0;
 
+	if (chip->irq <= 0) {
+		dev_notice(chip->dev,
+			   "failed to get platform irq, ret=%d", chip->irq);
+		return 0;
+	}
 	mutex_init(&chip->irqlock);
 	ret = of_property_read_u32(chip->dev->of_node,
 				   "mediatek,num-pmic-irqs",
@@ -342,7 +347,7 @@ static int mt6358_irq_init(struct mt6358_chip *chip)
 	if (ret) {
 		dev_notice(chip->dev, "failed to register irq=%d; err: %d\n",
 			chip->irq, ret);
-		return ret;
+		return 0;
 	}
 	enable_irq_wake(chip->irq);
 
@@ -376,8 +381,10 @@ static int mt6358_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	chip->irq = platform_get_irq(pdev, 0);
-	if (chip->irq < 0)
-		return chip->irq;
+	if (chip->irq <= 0) {
+		dev_notice(&pdev->dev,
+			"failed to get platform irq, ret=%d", chip->irq);
+	}
 
 	platform_set_drvdata(pdev, chip);
 
