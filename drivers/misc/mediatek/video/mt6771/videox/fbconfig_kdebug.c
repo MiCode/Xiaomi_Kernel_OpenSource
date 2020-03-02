@@ -1306,8 +1306,10 @@ static const struct file_operations fbconfig_fops = {
 
 void PanelMaster_Init(void)
 {
+#if defined(CONFIG_MTK_ENG_BUILD)
 	ConfigPara_dbgfs = debugfs_create_file("fbconfig", S_IFREG | 0444,
 					       NULL, (void *)0, &fbconfig_fops);
+#endif
 
 	INIT_LIST_HEAD(&head_list.list);
 }
