@@ -1201,7 +1201,9 @@ static int proc_bulk(struct usb_dev_state *ps, void __user *arg)
 	}
 	tmo = bulk.timeout;
 
+#ifdef CONFIG_MEDIATEK_SOLUTION
 	usb_boost();
+#endif
 	if (bulk.ep & 0x80) {
 		if (len1 && !access_ok(VERIFY_WRITE, bulk.data, len1)) {
 			ret = -EINVAL;
