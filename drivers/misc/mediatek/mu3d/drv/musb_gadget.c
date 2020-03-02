@@ -1039,7 +1039,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req, gfp_t g
 
 	/* don't queue if the ep is down */
 	if (!musb_ep->desc) {
-		dev_dbg(musb->controller, "req %p queued to %s while ep %s\n",
+		os_printk(K_DEBUG, "req %p queued to %s while ep %s\n",
 			req, ep->name, "disabled");
 		status = -ESHUTDOWN;
 		goto cleanup;
