@@ -596,12 +596,16 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 
 	/* ARM7 only avilable after check header v5 */
 	if (head->header_verno >= 5) {
-		image->arm7_offset = headv5->arm7_img_offset;
-		image->arm7_size = headv5->arm7_img_size;
-		CCCI_UTIL_INF_MSG_WITH_ID(md_id,
-			"load_image: check_header_v5, arm7_offset = 0x%08X, arm_size = 0x%08X\n",
-			image->arm7_offset,
-			image->arm7_size);
+		if (headv5) {
+			image->arm7_offset = headv5->arm7_img_offset;
+			image->arm7_size = headv5->arm7_img_size;
+			CCCI_UTIL_INF_MSG_WITH_ID(md_id,
+				"load_image: check_header_v5, arm7_offset = 0x%08X, arm_size = 0x%08X\n",
+				image->arm7_offset,
+				image->arm7_size);
+		} else
+			CCCI_UTIL_INF_MSG_WITH_ID(md_id,
+				"load_image: headv5 is null.\n");
 	}
 
 	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
