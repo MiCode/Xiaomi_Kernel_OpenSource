@@ -138,7 +138,7 @@ static int
 ___select_idle_sibling(struct task_struct *p, int prev_cpu, int new_cpu)
 {
 	if (sched_feat(SCHED_MTK_EAS)) {
-#ifdef CONFIG_CGROUP_SCHEDTUNE
+#ifdef CONFIG_SCHED_TUNE
 		bool prefer_idle = schedtune_prefer_idle(p) > 0;
 #else
 		bool prefer_idle = true;
@@ -530,20 +530,8 @@ migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
 #endif
 
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
-int __weak schedtune_task_capacity_min(struct task_struct *tsk)
-{
-	return 0;
-}
-
 bool idle_lb_enhance(struct task_struct *p, int cpu)
 {
-	int target_capacity;
-
-	target_capacity = capacity_orig_of(cpu);
-
-	if (schedtune_task_capacity_min(p) >= target_capacity)
-		return 1;
-
 	if (schedtune_prefer_idle(p))
 		return 1;
 
@@ -588,12 +576,7 @@ static struct sched_entity
 				return se;
 #endif
 
-			if (check_min_cap &&
-			    (schedtune_task_capacity_min(p) >= src_capacity))
-				return se;
-
-			if (schedtune_prefer_idle(task_of(se)) &&
-			    target_capacity >= schedtune_task_capacity_min(p)) {
+			if (schedtune_prefer_idle(task_of(se))) {
 				if (!check_min_cap)
 					return se;
 
@@ -819,9 +802,7 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 			}
 
 			target_capacity = capacity_orig_of(cpu);
-			if ((se && entity_is_task(se) &&
-			     schedtune_task_capacity_min(task_of(se)) >=
-							 target_capacity) &&
+			if (se && entity_is_task(se) &&
 			     cpumask_test_cpu(this_cpu,
 					      &((task_of(se))->cpus_allowed))) {
 				selected = 1;
@@ -1070,10 +1051,8 @@ void mtk_cluster_capacity_idx(int cid, struct energy_env *eenv, int cpu_idx)
 	eenv->cpu[cpu_idx].cap_idx[cid] = max_idx;
 	eenv->cpu[cpu_idx].cap[cid] = sge->cap_states[max_idx].cap;
 
-#ifdef CONFIG_CPU_FREQ_GOV_SCHEDPLUS
 	/* OPP idx to refer capacity margin */
 	new_capacity = util * capacity_margin_dvfs >> SCHED_CAPACITY_SHIFT;
-#endif
 	new_capacity = min(new_capacity,
 		(unsigned long) sge->cap_states[sge->nr_cap_states-1].cap);
 
