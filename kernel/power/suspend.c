@@ -571,8 +571,10 @@ int suspend_syssync_enqueue(void)
 	if (suspend_sys_sync_work_queue == NULL) {
 		suspend_sys_sync_work_queue =
 			create_singlethread_workqueue("fs_suspend_syssync");
-		if (suspend_sys_sync_work_queue == NULL)
+		if (suspend_sys_sync_work_queue == NULL) {
 			pr_err("fs_suspend_syssync workqueue create failed\n");
+			return -EBUSY;
+		}
 	}
 
 	while (timeout < SYS_SYNC_TIMEOUT) {
