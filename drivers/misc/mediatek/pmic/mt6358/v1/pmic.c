@@ -29,16 +29,10 @@ void record_md_vosel(void)
 /* [Export API] */
 void vmd1_pmic_setting_on(void)
 {
-	/* MT3967 + MT6358 use VSRAM_GPU for MD sram */
-	unsigned int vsram_md_vosel = 0x4B;
-
 	/* 1.Call PMIC driver API configure VMODEM voltage */
 	if (g_vmodem_vosel != 0) {
 		pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL,
 			g_vmodem_vosel);
-		/* MT3967 + MT6358 use VSRAM_GPU for MD sram */
-		pmic_set_register_value(PMIC_RG_LDO_VSRAM_GPU_VOSEL,
-			vsram_md_vosel);
 	} else {
 		pr_notice("[%s] vmodem vosel has not recorded!\n", __func__);
 		g_vmodem_vosel =
