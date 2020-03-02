@@ -38,7 +38,7 @@
 #define CFG_THERM_LVTS				(1)
 
 #if CFG_THERM_LVTS
-#define	CFG_LVTS_DOMINATOR			(0)
+#define	CFG_LVTS_DOMINATOR			(1)
 #define	LVTS_DEVICE_AUTO_RCK			(1)
 #else
 #define	CFG_LVTS_DOMINATOR			(0)
