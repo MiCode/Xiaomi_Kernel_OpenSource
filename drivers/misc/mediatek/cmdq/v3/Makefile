@@ -17,7 +17,17 @@ MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
 
 ccflags-$(CONFIG_MACH_MT6768) += -DCMDQ_MDP_ENABLE_SPR
 
+ifeq ($(CONFIG_MACH_MT6785),y)
+ccflags-y += -DPMQOS_VERSION2
+ccflags-y += -DMDP_MMPATH
+ccflags-y += -DCMDQ_MDP_ENABLE_SPR
+ifeq ($(CONFIG_MTK_DEVAPC),y)
+ccflags-y += -DCMDQ_DEVAPC
+endif
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
+             -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
              -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
