@@ -1428,7 +1428,8 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		md, md->private_data);
 
 	/* register modem */
-	ccci_md_register(md);
+	if (ccci_md_register(md) < 0)
+		return -1;
 
 	/* init modem private data */
 	md_info = (struct md_sys1_info *)md->private_data;

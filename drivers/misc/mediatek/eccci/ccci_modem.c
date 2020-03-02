@@ -491,7 +491,7 @@ void ccci_md_smem_layout_config(struct ccci_modem *md)
 	/* md_smem_layout_parsing(md); */
 }
 
-void ccci_md_config(struct ccci_modem *md)
+int ccci_md_config(struct ccci_modem *md)
 {
 	phys_addr_t md_resv_mem_addr = 0,
 		md_resv_smem_addr = 0, md1_md3_smem_phy = 0;
@@ -560,10 +560,10 @@ void ccci_md_config(struct ccci_modem *md)
 			md_resv_smem_size);
 		if (bank4_phy_addr != md_resv_smem_addr) {
 			CCCI_ERROR_LOG(-1, TAG,
-				"AMMS ret memory[0x%llx] miss sync with LK alloc[0x%llx]",
+				"error: AMMS ret memory[0x%llx] miss sync with LK alloc[0x%llx]",
 				(unsigned long long)bank4_phy_addr,
 				(unsigned long long)md_resv_smem_addr);
-			return;
+			return -1;
 		}
 	}
 	md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir =
@@ -807,6 +807,8 @@ void ccci_md_config(struct ccci_modem *md)
 		md->mem_layout.md_bank0.base_ap_view_phy;
 	md->per_md_data.img_info[IMG_DSP].type = IMG_DSP;
 	md->per_md_data.img_info[IMG_ARMV7].type = IMG_ARMV7;
+
+	return 0;
 }
 
 int ccci_md_register(struct ccci_modem *md)
@@ -819,7 +821,9 @@ int ccci_md_register(struct ccci_modem *md)
 	ret = md->ops->init(md);
 	if (ret < 0)
 		return ret;
-	ccci_md_config(md);
+
+	if (ccci_md_config(md) < 0)
+		return -1;
 
 	modem_sys[md->index] = md;
 	ccci_sysfs_add_md(md->index, (void *)&md->kobj);
