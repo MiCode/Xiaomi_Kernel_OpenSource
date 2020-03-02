@@ -22,6 +22,7 @@
 #include <linux/mmc/host.h>
 #include <linux/sched/rt.h>
 #include <uapi/linux/sched/types.h>
+#include <mt-plat/mtk_io_boost.h>
 
 #include "mtk_mmc_block.h"
 #include "queue.h"
@@ -211,6 +212,8 @@ static int mmc_queue_thread(void *d)
 
 	down(&mq->thread_sem);
 	mt_bio_queue_alloc(current, q);
+
+	mtk_iobst_register_tid(current->pid);
 
 	do {
 		struct request *req;
