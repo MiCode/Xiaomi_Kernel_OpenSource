@@ -31,7 +31,7 @@
 #ifdef HP_EN_REG_SEMAPHORE_PROTECT
 #include "mtk_cpufreq_hybrid.h"
 #endif
-#include "sspm_ipi.h"
+#include "v1/sspm_ipi.h"
 #include <linux/seq_file.h>
 #include <linux/of_address.h>
 

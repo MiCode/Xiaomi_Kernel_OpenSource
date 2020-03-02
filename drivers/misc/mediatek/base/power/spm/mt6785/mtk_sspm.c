@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h> /* copy_from/to_user() */
 
-#include <sspm_ipi.h>
+#include <v1/sspm_ipi.h>
 #include <trace/events/mtk_events.h>
 
 #include <mtk_sspm.h>

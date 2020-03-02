@@ -37,8 +37,8 @@
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <mtk_sys_timer_mbox.h>
 #include <sspm_define.h>
-#include <sspm_ipi.h>
-#include <sspm_mbox.h>
+#include <v1/sspm_ipi.h>
+#include <v1/sspm_mbox.h>
 #endif
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
@@ -178,7 +178,7 @@ void sys_timer_timesync_verify_sspm(void)
 	ipi_data.cmd = PLT_TIMESYNC_SRAM_TEST;
 
 	sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_WAIT,
-		&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
+		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, &ackdata, 1);
 
 	/* wait until sspm writes sspm-view timestamp to sram */
 	while (1) {

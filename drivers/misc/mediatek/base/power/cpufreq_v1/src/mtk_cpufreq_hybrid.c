@@ -45,7 +45,7 @@
 /* #include <trace/events/mtk_events.h> */
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include "sspm_ipi.h"
+#include "v1/sspm_ipi.h"
 #endif
 
 /* #include <mt-plat/met_drv.h> */

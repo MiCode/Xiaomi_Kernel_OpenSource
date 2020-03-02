@@ -69,7 +69,7 @@
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_define.h>
-#include <sspm_timesync.h>
+#include <v1/sspm_timesync.h>
 #endif
 
 #ifdef CONFIG_MTK_ICCS_SUPPORT
