@@ -458,6 +458,10 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 	iwc->command.engineFlag = cmdq_sec_get_secure_engine(task->engineFlag);
 	iwc->command.hNormalTask = 0LL | ((unsigned long)task);
 
+	/* assign extension and read back parameter */
+	iwc->command.extension = task->secData.extension;
+	iwc->command.readback_pa = task->reg_values_pa;
+
 	last_buf = list_last_entry(&task->pkt->buf, typeof(*last_buf),
 		list_entry);
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
