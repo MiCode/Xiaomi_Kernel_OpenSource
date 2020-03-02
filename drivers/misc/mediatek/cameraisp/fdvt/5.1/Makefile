@@ -15,7 +15,11 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 
+#ifdef CONFIG_MTK_M4U
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
+#else
+ccflags-y += -I$(srctree)/drivers/iommu/
+#endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
