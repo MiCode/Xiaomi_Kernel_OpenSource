@@ -62,7 +62,7 @@ int mc_clock_init(void)
 #ifdef MC_CRYPTO_CLOCK_CORESRC_PROPNAME
 	/* Get core clk src */
 	clk_ctx.mc_ce_core_src_clk = clk_get(g_ctx.mcd, "core_clk_src");
-	if (IS_ERR(clk_ctx.mc_ce_core_src_clk)) {
+	if (IS_ERR_OR_NULL(clk_ctx.mc_ce_core_src_clk)) {
 		ret = PTR_ERR(clk_ctx.mc_ce_core_src_clk);
 		mc_dev_err(ret, "cannot get core src clock");
 		goto error;
