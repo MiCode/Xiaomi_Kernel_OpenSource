@@ -98,6 +98,7 @@ config ANDROID_DEFAULT_SETTING
 	select MODULES
 	select MODULE_UNLOAD
 	select MODVERSIONS
+	select MTK_AMMS
 	select NET
 	select NET_CLS_ACT
 	select NET_CLS_BPF

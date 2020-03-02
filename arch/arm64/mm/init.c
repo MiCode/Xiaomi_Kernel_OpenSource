@@ -257,13 +257,15 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 	unsigned long zone_size[MAX_NR_ZONES], zhole_size[MAX_NR_ZONES];
 	unsigned long max_dma = min;
 #ifdef CONFIG_ZONE_MOVABLE_CMA
-	phys_addr_t cma_base, cma_size;
+	phys_addr_t cma_base = 0, cma_size = 0;
 	unsigned long cma_base_pfn = ULONG_MAX;
 
 	if (is_zmc_inited())
 		zmc_get_range(&cma_base, &cma_size);
+#if !defined(CONFIG_MTK_AMMS)
 	else
 		cma_get_range(&cma_base, &cma_size);
+#endif
 
 	if (cma_size)
 		cma_base_pfn = PFN_DOWN(cma_base);
