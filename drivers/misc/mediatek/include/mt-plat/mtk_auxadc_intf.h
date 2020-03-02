@@ -84,6 +84,7 @@ enum {
 extern void mt6357_auxadc_init(void);
 extern void mt6357_auxadc_dump_regs(char *buf);
 extern int mt6357_get_auxadc_value(u8 channel);
+extern void mtk_auxadc_init(void);
 #endif /* CONFIG_MTK_PMIC_CHIP_MT6357 */
 
 #endif /* __LINUX_MTK_AUXADC_INTF_H */
