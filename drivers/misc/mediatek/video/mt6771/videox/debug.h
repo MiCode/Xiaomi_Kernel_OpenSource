@@ -44,13 +44,13 @@ extern struct fps_debug fps_info_debug;
 
 
 /* show hrt */
-extern int hrt_high, hrt_low;
+extern unsigned long long hrt_high, hrt_low;
 extern int hrt_show_flag;
 
 /* show layer_en num*/
 extern int layer_en_num;
 extern int layer_en_num_flag;
-extern int layer_size_high;
+extern uint64_t layer_size_high;
 extern int layer_size_low;
 extern int layer_size_flag;
 
