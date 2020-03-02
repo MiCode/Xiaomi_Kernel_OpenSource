@@ -14,7 +14,7 @@
 #obj-m += midware/
 obj-m += power/
 #obj-m += sample/
-obj-m += reviser/
+#obj-m += reviser/
 obj-m += mnoc/
 obj-$(CONFIG_MTK_APUSYS_MDLA_SUPPORT) += mdla/
 obj-$(CONFIG_MTK_APUSYS_VPU) += vpu/
