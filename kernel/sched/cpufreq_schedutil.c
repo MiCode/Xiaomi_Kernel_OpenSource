@@ -171,6 +171,7 @@ static void sugov_update_commit(struct sugov_policy *sg_policy, u64 time,
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	mt_cpufreq_set_by_wfi_load_cluster(cid, next_freq);
+	policy->cur = next_freq;
 	trace_sched_util(cid, next_freq, time);
 #else
 	if (policy->fast_switch_enabled) {
@@ -221,7 +222,11 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	if (freq == sg_policy->cached_raw_freq && sg_policy->next_freq != UINT_MAX)
 		return sg_policy->next_freq;
 	sg_policy->cached_raw_freq = freq;
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	return freq;
+#else
 	return cpufreq_driver_resolve_freq(policy, freq);
+#endif
 }
 
 static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
@@ -367,6 +372,10 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 	struct cpufreq_policy *policy = sg_policy->policy;
 	unsigned long util = 0, max = 1;
 	unsigned int j;
+	unsigned int next_f;
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	int cid;
+#endif
 
 	for_each_cpu(j, policy->cpus) {
 		struct sugov_cpu *j_sg_cpu = &per_cpu(sugov_cpu, j);
@@ -399,7 +408,14 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		sugov_iowait_boost(j_sg_cpu, &util, &max);
 	}
 
-	return get_next_freq(sg_policy, util, max);
+	next_f = get_next_freq(sg_policy, util, max);
+
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	next_f = clamp_val(next_f, policy->min, policy->max);
+	cid = arch_get_cluster_id(sg_policy->policy->cpu);
+	next_f = mt_cpufreq_find_close_freq(cid, next_f);
+#endif
+	return next_f;
 }
 
 static void sugov_update_shared(struct update_util_data *hook, u64 time,
@@ -409,7 +425,6 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 	unsigned long util, max;
 	unsigned int next_f;
-	int cid;
 
 	sugov_get_util(&util, &max, sg_cpu->cpu);
 
@@ -428,9 +443,6 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 		else
 			next_f = sugov_next_freq_shared(sg_cpu, time);
 
-		/* MTK support */
-		cid = arch_get_cluster_id(sg_policy->policy->cpu);
-		next_f = mt_cpufreq_find_close_freq(cid, next_f);
 
 		sugov_update_commit(sg_policy, time, next_f);
 	}
