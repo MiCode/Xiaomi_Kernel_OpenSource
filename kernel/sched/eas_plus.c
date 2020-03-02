@@ -110,7 +110,7 @@ update_system_overutilized(struct lb_env *env)
 	} while (group != env->sd->groups && !intra_overutil);
 
 	if (overutilized != intra_overutil) {
-		if (overutilized == true)
+		if (intra_overutil == true)
 			set_sd_overutilized(env->sd);
 		else
 			clear_sd_overutilized(env->sd);
@@ -857,11 +857,9 @@ long group_norm_util(struct energy_env *eenv, int cpu_idx)
 
 		util_sum += __cpu_norm_util(util, capacity);
 
-		mt_sched_printf(sched_eas_energy_calc,
-			"%s: cpu=%d util_sum=%lu norm_util=%d delta=%d util=%lu capacity=%d",
-			__func__, cpu, util_sum,
-			(int)__cpu_norm_util(util, capacity),
-			(int)eenv->util_delta, util, (int)capacity);
+		trace_group_norm_util(cpu_idx, cpu, cid, util_sum,
+			__cpu_norm_util(util, capacity), eenv->util_delta,
+			util, capacity);
 	}
 
 	if (util_sum > SCHED_CAPACITY_SCALE)
@@ -1317,12 +1315,11 @@ int mtk_busy_power(int cpu_idx, int cpu, void *argu, int sd_level)
 void mtk_update_new_capacity(struct energy_env *eenv)
 {
 	int i, cpu_idx;
-	int last_cpu_idx = eenv->max_cpu_count - 1;
 
 	/* To get max opp index of every cluster for power estimation of
 	 * share buck
 	 */
-	for (cpu_idx = EAS_CPU_PRV; cpu_idx < last_cpu_idx; ++cpu_idx) {
+	for (cpu_idx = EAS_CPU_PRV; cpu_idx < eenv->max_cpu_count ; ++cpu_idx) {
 		if (eenv->cpu[cpu_idx].cpu_id == -1)
 			continue;
 
