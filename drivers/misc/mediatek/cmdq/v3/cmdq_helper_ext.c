@@ -3045,8 +3045,11 @@ static void cmdq_core_dump_status(const char *tag)
 	value[0] = CMDQ_REG_GET32(CMDQ_CURR_LOADED_THR);
 	value[1] = CMDQ_REG_GET32(CMDQ_THR_EXEC_CYCLES);
 	value[2] = CMDQ_REG_GET32(CMDQ_THR_TIMEOUT_TIMER);
-	value[3] = CMDQ_REG_GET32(CMDQ_BUS_CONTROL_TYPE);
+	value[3] = CMDQ_REG_GET32(GCE_DBG_CTL);
 	value[4] = CMDQ_REG_GET32(CMDQ_CURR_IRQ_STATUS);
+
+	/* debug gce hang */
+	CMDQ_REG_SET32(GCE_DBG_CTL, 0x500);
 
 	/* this returns (1 + index of least bit set) or 0 if input is 0. */
 	coreExecThread = __builtin_ffs(value[0]) - 1;
@@ -3056,12 +3059,12 @@ static void cmdq_core_dump_status(const char *tag)
 		tag, value[4], (0x80000000 & value[0]) ? 1 : 0,
 		 coreExecThread, value[0], value[1]);
 	CMDQ_LOG(
-		"[%s]THR_TIMER:0x%x BUS_CTRL:0x%x DEBUG:0x%x 0x%x 0x%x 0x%x\n",
+		"[%s]THR_TIMER:0x%x DBG CTRL:0x%x DEBUG:0x%x 0x%x 0x%x 0x%x\n",
 		tag, value[2], value[3],
-		CMDQ_REG_GET32((GCE_BASE_VA + 0xF0)),
-		CMDQ_REG_GET32((GCE_BASE_VA + 0xF4)),
-		CMDQ_REG_GET32((GCE_BASE_VA + 0xF8)),
-		CMDQ_REG_GET32((GCE_BASE_VA + 0xFC)));
+		CMDQ_REG_GET32(GCE_DBG0),
+		CMDQ_REG_GET32(GCE_DBG1),
+		CMDQ_REG_GET32(GCE_DBG2),
+		CMDQ_REG_GET32(GCE_DBG3));
 }
 
 void cmdq_core_dump_handle_buffer(const struct cmdq_pkt *pkt,

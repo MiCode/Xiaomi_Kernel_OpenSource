@@ -1347,7 +1347,7 @@
 
 	gce@10238000 {
 		compatible = "mediatek,gce";
-		reg = <0 0x10238000 0 0x1000>;
+		reg = <0 0x10238000 0 0x4000>;
 		interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_LOW>,
 			<GIC_SPI 163 IRQ_TYPE_LEVEL_LOW>;
 		disp_mutex_reg = <0x14016000 0x1000>;
