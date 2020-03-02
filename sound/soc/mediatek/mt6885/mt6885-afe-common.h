@@ -181,6 +181,8 @@ struct mt6885_afe_private {
 	int mmap_record_state;
 	/* primary playback */
 	int primary_playback_state;
+	/* voip rx */
+	int voip_rx_state;
 	/* xrun assert */
 	int xrun_assert[MT6885_MEMIF_NUM];
 
