@@ -595,11 +595,17 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	int ptp_val = (get_devinfo_with_index(50) & 0xF0);
 
 	turbo_flag = 0;
-	if ((val == 0x80) || (val == 0x01) || (val == 0x40) || (val == 0x02))
+	if ((val == 0x80) || (val == 0x01) || (val == 0x40) || (val == 0x02) ||
+		(val == 0xE0) || (val == 0x07) || (val == 0x10) ||
+		(val == 0x08))
 		lv = CPU_LEVEL_0;
 	else if ((val == 0xC0) || (val == 0x03) ||
 					(val == 0x20) || (val == 0x04))
 		lv = CPU_LEVEL_1;
+
+	else if ((val == 0x90) || (val == 0x09) ||
+					(val == 0x50) || (val == 0x0A))
+		lv = CPU_LEVEL_6;
 
 	if (ptp_val <= 0x10 && lv == CPU_LEVEL_0)
 		lv = CPU_LEVEL_3;
