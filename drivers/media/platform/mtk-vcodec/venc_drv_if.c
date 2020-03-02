@@ -117,6 +117,9 @@ void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
 
+	if (ctx == NULL)
+		return;
+
 	mtk_venc_pmqos_prelock(ctx, core_id);
 	mtk_venc_lock(ctx, core_id);
 	mtk_venc_pmqos_begin_frame(ctx);
@@ -132,6 +135,10 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	int core_id, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
+
+	if (ctx == NULL)
+		return;
+
 	disable_irq(ctx->dev->enc_irq);
 	mtk_venc_pmqos_end_frame(ctx);
 	mtk_vcodec_enc_clock_off(&ctx->dev->pm, core_id);
