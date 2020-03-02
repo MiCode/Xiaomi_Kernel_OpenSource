@@ -19,6 +19,7 @@
 #include <linux/hrtimer.h>
 #include <linux/sched.h>
 #include <linux/math64.h>
+#include <linux/types.h>
 #include <linux/sched/clock.h>
 #include <linux/topology.h>
 #include <linux/arch_topology.h>
@@ -214,10 +215,13 @@ enum overutil_type_t is_task_overutil(struct task_struct *p)
 		return NO_OVERUTIL;
 }
 
+#define MAX_UTIL_TRACKER_PERIODIC_MS 32
 static int gb_task_util;
 static int gb_task_pid;
 static int gb_task_cpu;
 static int gb_boosted_util;
+
+static DEFINE_SPINLOCK(gb_max_util_lock);
 
 void sched_max_util_task_tracking(void)
 {
@@ -227,6 +231,23 @@ void sched_max_util_task_tracking(void)
 	int boost_util = 0;
 	int max_cpu = 0;
 	int max_task_pid = 0;
+	ktime_t now = ktime_get();
+	unsigned long flag;
+	static ktime_t max_util_tracker_last_update;
+
+	spin_lock_irqsave(&gb_max_util_lock, flag);
+
+	/* periodic: 32ms */
+	if (ktime_before(now, ktime_add_ms(
+		max_util_tracker_last_update, MAX_UTIL_TRACKER_PERIODIC_MS))) {
+		spin_unlock_irqrestore(&gb_max_util_lock, flag);
+		return;
+	}
+
+	/* update last update time for tracker */
+	max_util_tracker_last_update = now;
+
+	spin_unlock_irqrestore(&gb_max_util_lock, flag);
 
 	for_each_possible_cpu(cpu) {
 		cpu_overutil = &per_cpu(cpu_overutil_state, cpu);
@@ -1042,14 +1063,6 @@ OUT:
 }
 EXPORT_SYMBOL(sched_update_nr_heavy_prod);
 
-static struct timer_list tracker_timer;
-
-static void tracker_isr(unsigned long data)
-{
-	sched_max_util_task_tracking();
-	mod_timer(&tracker_timer, jiffies + HZ/32); /* 32ms */
-}
-
 static int init_heavy_tlb(void)
 {
 	if (!init_heavy) {
@@ -1135,12 +1148,6 @@ static int init_heavy_tlb(void)
 				(unsigned long int)
 				cluster_heavy_tbl[cid].max_capacity);
 		}
-
-
-		init_timer_deferrable(&tracker_timer);
-		tracker_timer.function = tracker_isr;
-		tracker_timer.expires = jiffies + HZ/32; /*32ms*/
-		add_timer(&tracker_timer);
 
 		init_heavy = 1;
 	}
