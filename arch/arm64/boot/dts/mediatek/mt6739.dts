@@ -32,7 +32,7 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyMT3,921600n1 vmalloc=496M \
+		bootargs = "console=tty0 console=ttyMT3,921600n1 vmalloc=400M \
 			slub_debug=OFZPU page_owner=on swiotlb=noforce \
 			cgroup.memory=nosocket,nokmem \
 			androidboot.hardware=mt6739 maxcpus=8 \
