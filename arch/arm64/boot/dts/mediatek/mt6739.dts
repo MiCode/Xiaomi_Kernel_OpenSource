@@ -18,6 +18,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/mmc/mt6739-msdc.h>
 #include <dt-bindings/pinctrl/mt6739-pinfunc.h>
+#include <dt-bindings/gce/mt6739-gce.h>
 #include <generated/autoconf.h>
 
 #ifdef CONFIG_MTK_DTBO_FEATURE
