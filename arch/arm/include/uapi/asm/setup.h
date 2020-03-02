@@ -174,6 +174,17 @@ struct tagtable {
 	int (*parse)(const struct tag *);
 };
 
+/* general memory descriptor */
+struct mem_desc {
+	u64 start;
+	u64 size;
+};
+
+struct dram_info {
+	u32 rank_num;
+	struct mem_desc rank_info[4];
+};
+
 #define tag_member_present(tag,member)				\
 	((unsigned long)(&((struct tag *)0L)->member + 1)	\
 		<= (tag)->hdr.size * 4)
