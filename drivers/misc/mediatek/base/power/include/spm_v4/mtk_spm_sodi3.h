@@ -17,9 +17,7 @@
 #include <mtk_cpuidle.h>
 #include "mtk_spm_idle.h"
 #include "mtk_spm_misc.h"
-#include "mtk_spm_internal.h"
 #include "mtk_spm_pmic_wrap.h"
-#include "mtk_spm_misc.h"
 #include "mtk_spm_internal.h"
 #include "mtk_spm_sodi.h"
 

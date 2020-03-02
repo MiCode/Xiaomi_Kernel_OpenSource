@@ -59,7 +59,9 @@
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
 
+#if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_power_gs_api.h>
+#endif
 
 #include <trace/events/mtk_idle_event.h>
 
@@ -248,10 +250,10 @@ static void spm_trigger_wfi_for_dpidle(struct pwr_ctrl *pwrctrl)
 	if (is_cpu_pdn(pwrctrl->pcm_flags))
 		spm_dormant_sta = mtk_enter_idle_state(MTK_DPIDLE_MODE);
 	else {
-		mt_secure_call(MTK_SIP_KERNEL_SPM_ARGS,
+		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
 			       SPM_ARGS_DPIDLE, 0, 0);
-		mt_secure_call(MTK_SIP_KERNEL_SPM_LEGACY_SLEEP, 0, 0, 0);
-		mt_secure_call(MTK_SIP_KERNEL_SPM_ARGS,
+		SMC_CALL(MTK_SIP_KERNEL_SPM_LEGACY_SLEEP, 0, 0, 0);
+		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
 			       SPM_ARGS_DPIDLE_FINISH, 0, 0);
 	}
 
@@ -454,13 +456,19 @@ unsigned int spm_go_to_dpidle(u32 spm_flags, u32 spm_data,
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	/* Dump low power golden setting */
+#if !defined(SPM_K414_EARLY_PORTING)
 	if (operation_cond & DEEPIDLE_OPT_DUMP_LP_GOLDEN)
 		mt_power_gs_dump_dpidle(GS_ALL);
+#endif
 
 	spm_dpidle_footprint(SPM_DEEPIDLE_ENTER_UART_SLEEP);
 
 	if (!(operation_cond & DEEPIDLE_OPT_DUMP_LP_GOLDEN)) {
+#if defined(CONFIG_MACH_MT6771)
+		if (mtk8250_request_to_sleep()) {
+#else
 		if (request_uart_to_sleep()) {
+#endif
 			wr = WR_UART_BUSY;
 			goto RESTORE_IRQ;
 		}
@@ -483,7 +491,11 @@ unsigned int spm_go_to_dpidle(u32 spm_flags, u32 spm_data,
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (!(operation_cond & DEEPIDLE_OPT_DUMP_LP_GOLDEN))
+#if defined(CONFIG_MACH_MT6771)
+		mtk8250_request_to_wakeup();
+#else
 		request_uart_to_wakeup();
+#endif
 RESTORE_IRQ:
 #endif
 
@@ -632,7 +644,11 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 			     SPM_DEEPIDLE_ENTER_UART_SLEEP);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MACH_MT6771)
+	if (mtk8250_request_to_sleep()) {
+#else
 	if (request_uart_to_sleep()) {
+#endif
 		last_wr = WR_UART_BUSY;
 		goto RESTORE_IRQ;
 	}
@@ -651,7 +667,11 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 			     SPM_DEEPIDLE_LEAVE_WFI);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-	request_uart_to_wakeup();
+#if defined(CONFIG_MACH_MT6771)
+		mtk8250_request_to_wakeup();
+#else
+		request_uart_to_wakeup();
+#endif
 RESTORE_IRQ:
 #endif
 
