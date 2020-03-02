@@ -277,6 +277,20 @@ int kh_reset(struct kh_dev *dev)
 	return 0;
 }
 
+int kh_suspend(struct kh_dev *dev)
+{
+	int i;
+
+	if (unlikely(!dev->kh))
+		return -ENODEV;
+
+	/* shall have zero key reference before suspend */
+	for (i = 0; i < dev->kh_slot_active_cnt; i++)
+		WARN_ON(dev->kh_slot_usage_cnt[i]);
+
+	return kh_reset(dev);
+}
+
 MODULE_AUTHOR("Stanley Chu <stanley.chu@mediatek.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Key Hint");
