@@ -44,20 +44,6 @@
 
 #define M6785T(range)	(1 ? range)
 #define L6785T(range)	(0 ? range)
-/**
- * Genearte a mask wher M6785T to L6785T are all 0b1
- * @r:	Range in the form of M6785T:L6785T
- */
-#define BITMASK(r)	\
-	(((unsigned int) -1 >> (31 - M6785T(r))) & ~((1U << L6785T(r)) - 1))
-
-/**
- * Set value at M6785T:L6785T. For example, BITS(7:3, 0x5A)
- * will return a value where bit 3 to bit 7 is 0x5A
- * @r:	Range in the form of M6785T:L6785T
- */
-/* BITS(M6785T:L6785T, value) => Set value at M6785T:L6785T  */
-#define BITS(r, val)	((val << L6785T(r)) & BITMASK(r))
 
 #define GET_BITS_VAL(_bits_, _val_)   \
 	(((_val_) & (BITMASK(_bits_))) >> ((0) ? _bits_))
