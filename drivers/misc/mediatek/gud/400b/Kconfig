@@ -1,0 +1,43 @@
+#
+# Trustonic drivers configuration
+#
+config TRUSTONIC_TEE
+	tristate "Trustonic TEE Driver"
+	depends on ARM || ARM64
+	default y
+	---help---
+	  Enable Trustonic TEE Support.
+	  This option enables MobiCore Driver which is used to communicate with
+	  TEE OS, for things like, setting up log buffers, interrupt pins,
+	  and IPC channels.
+
+config TRUSTONIC_TEE_LPAE
+	bool "Trustonic TEE uses LPAE"
+	depends on TRUSTONIC_TEE
+	default y if ARM64
+	default n if ARM
+	---help---
+	  Enable Trustonic TEE 64-bit physical addresses support.
+	  This allows 32-bit trusted driver has capabilities of map/unmap
+	  64-bit physical addresses, which is useful in device equipped with
+	  RAM size more than 4GB.
+
+config TRUSTONIC_TEE_DEBUG
+	bool "Trustonic TEE driver debug mode"
+	depends on TRUSTONIC_TEE
+	default n
+	---help---
+	  Enable the debug mode in the Trustonic TEE Driver.
+	  Enable Debug mode in the MobiCore Driver.
+	  MobiCore Driver has loglevel control thru DEBUG and VERBOSE
+	  This option enables MCDRV_DBG() macros to print useful debugging
+	  information about mobicore operations.
+
+config TRUSTONIC_TRUSTED_UI
+	tristate "Trustonic Trusted UI"
+	depends on TRUSTONIC_TEE
+	---help---
+	  Enable <t-base Trusted User Interface.
+	  Trustonic TUI features was based on Trustonic TEE mechanism to protect
+	  Touch/Display inside TEE, to prevent malicious access of sensitive data
+	  used by APPs like Banking.
