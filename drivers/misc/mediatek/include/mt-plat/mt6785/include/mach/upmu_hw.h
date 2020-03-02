@@ -9212,10 +9212,6 @@
 	MT6359_BIF_CON15
 #define PMIC_BIF_COMMAND_TYPE_MASK                          0x3
 #define PMIC_BIF_COMMAND_TYPE_SHIFT                         8
-#define PMIC_BIF_TRASFER_NUM_ADDR                           \
-	MT6359_BIF_CON15
-#define PMIC_BIF_TRASFER_NUM_MASK                           0xF
-#define PMIC_BIF_TRASFER_NUM_SHIFT                          12
 #define PMIC_BIF_LOGIC_0_SET_ADDR                           \
 	MT6359_BIF_CON16
 #define PMIC_BIF_LOGIC_0_SET_MASK                           0xF
@@ -33682,7 +33678,6 @@ enum PMU_FLAGS_LIST {
 	PMIC_BIF_COMMAND_14,
 	PMIC_BIF_RSV,
 	PMIC_BIF_COMMAND_TYPE,
-	PMIC_BIF_TRASFER_NUM,
 	PMIC_BIF_LOGIC_0_SET,
 	PMIC_BIF_LOGIC_1_SET,
 	PMIC_BIF_STOP_SET,
