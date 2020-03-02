@@ -621,11 +621,9 @@ static void SCP_sensorHub_moving_average(union SCP_SENSOR_HUB_DATA *rsp)
 	uint64_t scp_raw_time = 0, scp_now_time = 0;
 	uint64_t ipi_transfer_time = 0;
 
-	if (timekeeping_rtc_skipresume()) {
-		if (READ_ONCE(rtc_compensation_suspend)) {
-			pr_err("rtc_compensation_suspended,drop run algo\n");
+	if (!timekeeping_rtc_skipresume()) {
+		if (READ_ONCE(rtc_compensation_suspend))
 			return;
-		}
 	}
 	ap_now_time = ktime_get_boot_ns();
 	arch_counter = arch_counter_get_cntvct();

@@ -322,55 +322,60 @@ static void alspshub_init_done_work(struct work_struct *work)
 }
 static int ps_recv_data(struct data_unit_t *event, void *reserved)
 {
+	int err = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
 	if (!obj)
-		return -1;
+		return 0;
 
 	if (event->flush_action == FLUSH_ACTION)
-		ps_flush_report();
+		err = ps_flush_report();
 	else if (event->flush_action == DATA_ACTION &&
 			READ_ONCE(obj->ps_android_enable) == true) {
 		__pm_wakeup_event(&obj->ps_wake_lock, msecs_to_jiffies(100));
-		ps_data_report(event->proximity_t.oneshot,
+		err = ps_data_report(event->proximity_t.oneshot,
 			SENSOR_STATUS_ACCURACY_HIGH);
 	} else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->ps_thd_val_high, event->data[0]);
 		atomic_set(&obj->ps_thd_val_low, event->data[1]);
 		spin_unlock(&calibration_lock);
-		ps_cali_report(event->data);
+		err = ps_cali_report(event->data);
 	}
-	return 0;
+	return err;
 }
 static int als_recv_data(struct data_unit_t *event, void *reserved)
 {
+	int err = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
 	if (!obj)
-		return -1;
+		return 0;
 
 	if (event->flush_action == FLUSH_ACTION)
-		als_flush_report();
+		err = als_flush_report();
 	else if ((event->flush_action == DATA_ACTION) &&
 			READ_ONCE(obj->als_android_enable) == true)
-		als_data_report(event->light, SENSOR_STATUS_ACCURACY_MEDIUM);
+		err = als_data_report(event->light,
+			SENSOR_STATUS_ACCURACY_MEDIUM);
 	else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->als_cali, event->data[0]);
 		spin_unlock(&calibration_lock);
-		als_cali_report(event->data);
+		err = als_cali_report(event->data);
 	}
-	return 0;
+	return err;
 }
 
 static int rgbw_recv_data(struct data_unit_t *event, void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
-		rgbw_flush_report();
+		err = rgbw_flush_report();
 	else if (event->flush_action == DATA_ACTION)
-		rgbw_data_report(event->data);
-	return 0;
+		err = rgbw_data_report(event->data);
+	return err;
 }
 
 static int alshub_factory_enable_sensor(bool enable_disable,
