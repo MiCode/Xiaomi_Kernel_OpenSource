@@ -79,6 +79,7 @@ extern long DW9718AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int DW9718AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9718AF_GetFileName(unsigned char *pFileName);
 
+#if 0
 #define FM50AF_SetI2Cclient FM50AF_SetI2Cclient_Sub
 #define FM50AF_Ioctl FM50AF_Ioctl_Sub
 #define FM50AF_Release FM50AF_Release_Sub
@@ -122,6 +123,7 @@ extern long AD5820AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			   unsigned long a_u4Param);
 extern int AD5820AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int AD5820AF_GetFileName(unsigned char *pFileName);
+#endif
 
 #define WV511AAF_SetI2Cclient WV511AAF_SetI2Cclient_Sub
 #define WV511AAF_Ioctl WV511AAF_Ioctl_Sub
