@@ -822,12 +822,14 @@ static int ITG1010_gpio_config(void)
 		ret = PTR_ERR(pinctrl);
 		pr_err_ratelimited("[Gyro]%s:Cannot find gyro pinctrl!\n",
 			__func__);
+		return ret;
 	}
 	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
 	if (IS_ERR(pins_default)) {
 		ret = PTR_ERR(pins_default);
 		pr_err_ratelimited("[Gyro]%s:Cannot find gyro pinctrl default!\n",
 			__func__);
+		return ret;
 	}
 
 	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
