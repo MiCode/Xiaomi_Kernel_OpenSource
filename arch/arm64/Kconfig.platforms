@@ -390,6 +390,7 @@ config MACH_MT6885
         select MTK_BOUNCING_CHECK if AEE_FEATURE
         select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
         select MTK_TIMER_APXGPT
+	select MTK_BASE_POWER
         help
           This enables support for MediaTek MT6885
           Support for aarch64 Architecture
