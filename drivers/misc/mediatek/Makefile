@@ -78,6 +78,7 @@ obj-$(CONFIG_MTK_BOOT_REASON) += boot_reason/
 obj-$(CONFIG_MTK_CHIP) += chip/
 obj-$(CONFIG_MTK_DEVAPC_DRIVER) += devapc/
 obj-$(CONFIG_MTK_SYNC) += sync/
+obj-$(CONFIG_MICROTRUST_TEE_SUPPORT) += teei/
 obj-$(CONFIG_MTK_RAM_CONSOLE) += ram_console/
 obj-$(CONFIG_MEDIATEK_SOLUTION)	+= aee/
 obj-$(CONFIG_MEDIATEK_SOLUTION) += sched/
