@@ -108,6 +108,39 @@ unsigned int PMIC_CHIP_VER(void)
 	return ret;
 }
 
+void PMIC_CUST_SETTING(void)
+{
+	struct device_node *np;
+	int i, idx = 0;
+	unsigned int reg_value[4] = {0}, ret;
+
+	/* check customer setting */
+	np = of_find_compatible_node(NULL, NULL,
+		"mediatek,mt-pmic-custom-setting");
+	if (!np) {
+		pr_info("[%s]Failed to find device-tree node\n", __func__);
+		return;
+	}
+
+	while (!of_property_read_u32_index(np,
+		"custom-reg", idx++, &reg_value[0])) {
+		for (i = 1; i < 4; i++) {
+			if (of_property_read_u32_index(np,
+				"custom-reg", idx++, &reg_value[i]))
+				break;
+
+			if (i == 3)
+				ret = pmic_config_interface(reg_value[0],
+							    reg_value[1],
+							    reg_value[2],
+							    reg_value[3]);
+		}
+	}
+	of_node_put(np);
+
+	pr_debug("[%s] Done\n", __func__);
+}
+
 void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
@@ -199,4 +232,5 @@ void PMIC_LP_INIT_SETTING(void)
 	pr_info("[%s] Chip Ver = %d\n", __func__, g_pmic_chip_version);
 #endif /*LP_INIT_SETTING_VERIFIED*/
 
+	PMIC_CUST_SETTING();
 }
