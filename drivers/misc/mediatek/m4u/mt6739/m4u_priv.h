@@ -108,7 +108,7 @@ struct m4u_device {
 };
 
 struct m4u_domain {
-	imu_pgd_t *pgd;
+	struct imu_pgd_t *pgd;
 	dma_addr_t pgd_pa;
 	struct mutex pgtable_mutex;
 	unsigned int pgsize_bitmap;

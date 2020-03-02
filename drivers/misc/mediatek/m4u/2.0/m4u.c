@@ -194,7 +194,7 @@ static int m4u_client_add_buf(struct m4u_client_t *client,
 }
 
 /*static int m4u_client_del_buf(struct m4u_client_t *client,
- *m4u_buf_info_t *pList)
+ *m4u_buf_info *pList)
  */
 /*{*/
 /*    mutex_lock(&(client->dataMutex));*/
@@ -254,14 +254,14 @@ static struct m4u_buf_info *m4u_client_find_buf(struct m4u_client_t *client,
  *struct m4u_client_t *client, const char *pMsg)
  */
 /*{*/
-/*    m4u_buf_info_t *pList;*/
+/*    m4u_buf_info *pList;*/
 /*    struct list_head *pListHead;*/
 
 /*    M4UMSG("print mva list [%s] ================================>\n", pMsg);*/
 /*    mutex_lock(&(client->dataMutex));*/
 /*    list_for_each(pListHead, &(client->mvaList))*/
 /*    {*/
-/*	pList = container_of(pListHead, m4u_buf_info_t, link);*/
+/*	pList = container_of(pListHead, m4u_buf_info, link);*/
 /*	M4UMSG("port=%s, va=0x%x, size=0x%x, mva=0x%x, prot=%d\n",*/
 /*	m4u_get_port_name(pList->port),
  *pList->va, pList->size, pList->mva, pList->prot);
