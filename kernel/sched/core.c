@@ -5486,9 +5486,6 @@ static int _sched_setscheduler(struct task_struct *p, int policy,
 		attr.sched_policy = policy;
 	}
 
-	if (attr.sched_policy & SCHED_ENHANCED_ATTR)
-		return sched_setattr_enhanced(p, &attr);
-
 	return __sched_setscheduler(p, &attr, check, true);
 }
 /**
