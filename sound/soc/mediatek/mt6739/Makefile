@@ -11,6 +11,7 @@
 # GNU General Public License for more details.
 #
 
+
 # AP object
 obj-y += mtk-auddrv-clk.o
 obj-y += mtk-soc-afe-connection.o
