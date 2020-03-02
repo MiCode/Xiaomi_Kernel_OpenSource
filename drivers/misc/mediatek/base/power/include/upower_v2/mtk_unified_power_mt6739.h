@@ -45,6 +45,7 @@ extern "C" {
 
 #define UPOWER_RCU_LOCK
 #define UPOWER_LOG (0)
+#define DISABLE_TP
 
 /* #define UPOWER_L_PLUS */
 /* #define UPOWER_L_PLUS_CORE 7 */

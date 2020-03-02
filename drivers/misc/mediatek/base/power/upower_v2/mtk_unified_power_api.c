@@ -105,7 +105,7 @@ EXPORT_SYMBOL(upower_get_tbl);
 
 int upower_get_turn_point(void)
 {
-#if defined(UPOWER_BANK_L)
+#ifndef DISABLE_TP
 	struct upower_tbl *L_tbl;
 	int turn_point;
 
