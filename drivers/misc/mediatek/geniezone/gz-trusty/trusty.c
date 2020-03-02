@@ -88,7 +88,12 @@ static inline ulong smc_asm(ulong r0, ulong r1, ulong r2, ulong r3)
 
 s32 trusty_fast_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 
 	WARN_ON(!s);
 	WARN_ON(!SMC_IS_FASTCALL(smcnr));
@@ -282,7 +287,12 @@ static DEFINE_MUTEX(multi_lock);
 s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
 	int ret;
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 
 	WARN_ON(SMC_IS_FASTCALL(smcnr));
 	WARN_ON(SMC_IS_SMC64(smcnr));
@@ -323,8 +333,12 @@ EXPORT_SYMBOL(trusty_std_call32);
 
 int trusty_call_notifier_register(struct device *dev, struct notifier_block *n)
 {
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
 
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 	return atomic_notifier_chain_register(&s->notifier, n);
 }
 EXPORT_SYMBOL(trusty_call_notifier_register);
@@ -332,8 +346,12 @@ EXPORT_SYMBOL(trusty_call_notifier_register);
 int trusty_call_notifier_unregister(struct device *dev,
 				    struct notifier_block *n)
 {
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
 
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 	return atomic_notifier_chain_unregister(&s->notifier, n);
 }
 EXPORT_SYMBOL(trusty_call_notifier_unregister);
@@ -390,8 +408,12 @@ static void init_gz_ramconsole(struct device *dev)
 
 const char *trusty_version_str_get(struct device *dev)
 {
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
 
+	if (IS_ERR_OR_NULL(dev))
+		return ERR_PTR(-EINVAL);
+
+	s = platform_get_drvdata(to_platform_device(dev));
 	return s->version_str;
 }
 EXPORT_SYMBOL(trusty_version_str_get);
@@ -441,8 +463,12 @@ err_get_size:
 
 u32 trusty_get_api_version(struct device *dev)
 {
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
 
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 	return s->api_version;
 }
 EXPORT_SYMBOL(trusty_get_api_version);
@@ -561,7 +587,12 @@ void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop)
 {
 	unsigned long flags;
 	struct trusty_work *tw;
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 
 	preempt_disable();
 	tw = this_cpu_ptr(s->nop_works);
@@ -584,7 +615,12 @@ EXPORT_SYMBOL(trusty_enqueue_nop);
 void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop)
 {
 	unsigned long flags;
-	struct trusty_state *s = platform_get_drvdata(to_platform_device(dev));
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return;
+
+	s = platform_get_drvdata(to_platform_device(dev));
 
 	if (WARN_ON(!nop))
 		return;
