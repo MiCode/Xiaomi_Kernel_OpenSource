@@ -2671,7 +2671,7 @@ const char *cmdq_mdp_get_rdma_state(u32 state)
 
 void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 {
-	u32 value[17] = { 0 };
+	u32 value[39] = { 0 };
 	u32 state = 0;
 	u32 grep = 0;
 
@@ -2688,11 +2688,33 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	value[9] = CMDQ_REG_GET32(base + 0x400);
 	value[10] = CMDQ_REG_GET32(base + 0x408);
 	value[11] = CMDQ_REG_GET32(base + 0x410);
-	value[12] = CMDQ_REG_GET32(base + 0x420);
-	value[13] = CMDQ_REG_GET32(base + 0x430);
-	value[14] = CMDQ_REG_GET32(base + 0x440);
-	value[15] = CMDQ_REG_GET32(base + 0x4D0);
-	value[16] = CMDQ_REG_GET32(base + 0x0);
+	value[12] = CMDQ_REG_GET32(base + 0x418);
+	value[13] = CMDQ_REG_GET32(base + 0x420);
+	value[14] = CMDQ_REG_GET32(base + 0x428);
+	value[15] = CMDQ_REG_GET32(base + 0x430);
+	value[16] = CMDQ_REG_GET32(base + 0x438);
+	value[17] = CMDQ_REG_GET32(base + 0x440);
+	value[18] = CMDQ_REG_GET32(base + 0x448);
+	value[19] = CMDQ_REG_GET32(base + 0x450);
+	value[20] = CMDQ_REG_GET32(base + 0x458);
+	value[21] = CMDQ_REG_GET32(base + 0x460);
+	value[22] = CMDQ_REG_GET32(base + 0x468);
+	value[23] = CMDQ_REG_GET32(base + 0x470);
+	value[24] = CMDQ_REG_GET32(base + 0x478);
+	value[25] = CMDQ_REG_GET32(base + 0x480);
+	value[26] = CMDQ_REG_GET32(base + 0x488);
+	value[27] = CMDQ_REG_GET32(base + 0x490);
+	value[28] = CMDQ_REG_GET32(base + 0x498);
+	value[29] = CMDQ_REG_GET32(base + 0x4A0);
+	value[30] = CMDQ_REG_GET32(base + 0x4A8);
+	value[31] = CMDQ_REG_GET32(base + 0x4B0);
+	value[32] = CMDQ_REG_GET32(base + 0x4B8);
+	value[33] = CMDQ_REG_GET32(base + 0x4C0);
+	value[34] = CMDQ_REG_GET32(base + 0x4C8);
+	value[35] = CMDQ_REG_GET32(base + 0x4D0);
+	value[36] = CMDQ_REG_GET32(base + 0x4D8);
+	value[37] = CMDQ_REG_GET32(base + 0x4E0);
+	value[38] = CMDQ_REG_GET32(base + 0x0);
 
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
@@ -2710,10 +2732,33 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 		"RDMA_MON_STA_0: 0x%08x, RDMA_MON_STA_1: 0x%08x, RDMA_MON_STA_2: 0x%08x\n",
 		value[9], value[10], value[11]);
 	CMDQ_ERR(
-		"RDMA_MON_STA_4: 0x%08x, RDMA_MON_STA_6: 0x%08x, RDMA_MON_STA_8: 0x%08x\n",
+		"RDMA_MON_STA_3: 0x%08x, RDMA_MON_STA_4: 0x%08x, RDMA_MON_STA_5: 0x%08x\n",
 		value[12], value[13], value[14]);
-	CMDQ_ERR("RDMA_MON_STA_26: 0x%08x\n", value[15]);
-	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[16]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_6: 0x%08x, RDMA_MON_STA_7: 0x%08x, RDMA_MON_STA_8: 0x%08x\n",
+		value[15], value[16], value[17]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_9: 0x%08x, RDMA_MON_STA_10: 0x%08x, RDMA_MON_STA_11: 0x%08x\n",
+		value[18], value[19], value[20]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_12: 0x%08x, RDMA_MON_STA_13: 0x%08x, RDMA_MON_STA_14: 0x%08x\n",
+		value[21], value[22], value[23]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_15: 0x%08x, RDMA_MON_STA_16: 0x%08x, RDMA_MON_STA_17: 0x%08x\n",
+		value[24], value[25], value[26]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_18: 0x%08x, RDMA_MON_STA_19: 0x%08x, RDMA_MON_STA_20: 0x%08x\n",
+		value[27], value[28], value[29]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_21: 0x%08x, RDMA_MON_STA_22: 0x%08x, RDMA_MON_STA_23: 0x%08x\n",
+		value[30], value[31], value[32]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_24: 0x%08x, RDMA_MON_STA_25: 0x%08x, RDMA_MON_STA_26: 0x%08x\n",
+		value[33], value[34], value[35]);
+	CMDQ_ERR(
+		"RDMA_MON_STA_27: 0x%08x, RDMA_MON_STA_28: 0x%08x\n",
+		value[36], value[37]);
+	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[38]);
 
 	/* parse state */
 	CMDQ_ERR("RDMA ack:%d req:%d\n", (value[9] & (1 << 11)) >> 11,
@@ -2723,7 +2768,7 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	CMDQ_ERR("RDMA state: 0x%x (%s)\n",
 		state, cmdq_mdp_get_rdma_state(state));
 	CMDQ_ERR("RDMA horz_cnt: %d vert_cnt:%d\n",
-		value[15] & 0xFFF, (value[15] >> 16) & 0xFFF);
+		value[35] & 0xFFF, (value[35] >> 16) & 0xFFF);
 
 	CMDQ_ERR("RDMA grep:%d => suggest to ask SMI help:%d\n", grep, grep);
 }
