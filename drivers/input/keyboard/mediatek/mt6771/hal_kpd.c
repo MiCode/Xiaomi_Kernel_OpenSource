@@ -11,21 +11,15 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <kpd.h>
-#include <mt-plat/aee.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
 #include <mt-plat/upmu_common.h>
 #endif
-#ifdef CONFIG_MT_SND_SOC_NEW_ARCH
-#include <mt_soc_afe_control.h>
-#endif
-
-#ifdef CONFIG_KPD_PWRKEY_USE_EINT
-static u8 kpd_pwrkey_state = !KPD_PWRKEY_POLARITY;
-#endif
+#include <kpd.h>
+#include <hal_kpd.h>
+#include <mt-plat/mtk_boot_common.h>
 
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH /*for pmic not ready*/
 static int kpd_enable_lprst = 1;
