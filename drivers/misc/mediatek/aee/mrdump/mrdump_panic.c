@@ -52,6 +52,11 @@ void __weak sysrq_sched_debug_show_at_AEE(void)
 	pr_notice("%s weak function at %s\n", __func__, __FILE__);
 }
 
+__weak void console_unlock(void)
+{
+	pr_notice("%s weak function\n", __func__);
+}
+
 static inline unsigned long get_linear_memory_size(void)
 {
 	return (unsigned long)high_memory - PAGE_OFFSET;
@@ -166,26 +171,29 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 
 	switch (reboot_reason) {
 	case AEE_REBOOT_MODE_KERNEL_OOPS:
+#ifdef CONFIG_MTK_RAM_CONSOLE
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
+#endif
 		__show_regs(regs);
 		dump_stack();
 		break;
-#ifndef CONFIG_DEBUG_BUGVERBOSE
 	case AEE_REBOOT_MODE_KERNEL_PANIC:
+#ifdef CONFIG_MTK_RAM_CONSOLE
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
-		dump_stack();
-		break;
 #endif
+#ifndef CONFIG_DEBUG_BUGVERBOSE
+		dump_stack();
+#endif
+		break;
 	case AEE_REBOOT_MODE_HANG_DETECT:
+#ifdef CONFIG_MTK_RAM_CONSOLE
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
+#endif
 		break;
 	default:
 		/* Don't print anything */
 		break;
 	}
-#ifdef CONFIG_MTK_WQ_DEBUG
-	wq_debug_dump();
-#endif
 
 	mrdump_mini_ke_cpu_regs(regs);
 	dis_D_inner_fL1L2();
@@ -197,9 +205,13 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 {
 	struct pt_regs saved_regs;
+	int fiq_step = 0;
 
+#ifdef CONFIG_MTK_RAM_CONSOLE
+	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
+#endif
 	mrdump_mini_save_regs(&saved_regs);
-	return mrdump_common_die(AEE_FIQ_STEP_KE_IPANIC_START,
+	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_PANIC,
 				 "Kernel Panic", &saved_regs);
 }
@@ -207,8 +219,12 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 {
 	struct die_args *dargs = (struct die_args *)ptr;
+	int fiq_step = 0;
 
-	return mrdump_common_die(AEE_FIQ_STEP_KE_IPANIC_DIE,
+#ifdef CONFIG_MTK_RAM_CONSOLE
+	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
+#endif
+	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_OOPS,
 				 "Kernel Oops", dargs->regs);
 }
