@@ -49,4 +49,5 @@
 #define ENABLE_32K_CLK_LESS
 /*#define CCCI_LOG_LEVEL     1*/
 
+#define DEBUG_FOR_CCB
 #endif
