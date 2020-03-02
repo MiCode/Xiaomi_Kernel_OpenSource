@@ -392,6 +392,8 @@ static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 	u32 retry_time0 = 3;
 	u32 retry_time1 = 3;
 
+	if (ts_dev == NULL)
+		return -EINVAL;
 	while (retry_time0) {
 		/* 1. write 0xAA to 0x30F0 */
 		write_data = 0xAA;
