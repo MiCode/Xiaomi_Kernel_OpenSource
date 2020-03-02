@@ -94,7 +94,7 @@ int vproc_pmic_set_mode(unsigned char mode)
 /* Support for MT6357 CRV/MRV */
 unsigned int is_pmic_mrv(void)
 {
-	unsigned int g_is_mrv;
+	unsigned int g_is_mrv = 0;
 
 	pmic_read_interface(PMIC_RG_TOP2_RSV0_ADDR,
 			    &g_is_mrv, 0x1, 15);
