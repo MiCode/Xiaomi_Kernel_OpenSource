@@ -35,8 +35,10 @@ int g_vpu_log_level = 1;
 int g_vpu_internal_log_level;
 unsigned int g_func_mask;
 
+/* #define SUPPORT_VPU_KERNEL_UT */
 #ifdef MTK_VPU_DVT
 
+#ifdef SUPPORT_VPU_KERNEL_UT
 #include "test/vpu_data_wpp.h"
 
 #if 0
@@ -569,6 +571,7 @@ static int vpu_test_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_test_fops, vpu_test_get,
 				vpu_test_set, "%llu\n");
 #endif
+#endif
 
 static int vpu_log_level_set(void *data, u64 val)
 {
@@ -841,7 +844,9 @@ int vpu_init_debug(struct vpu_device *vpu_dev)
 	CREATE_VPU_DEBUGFS(device_dbg);
 
 #ifdef MTK_VPU_DVT
+#ifdef SUPPORT_VPU_KERNEL_UT
 	CREATE_VPU_DEBUGFS(test);
+#endif
 #endif
 
 #undef CREATE_VPU_DEBUGFS
