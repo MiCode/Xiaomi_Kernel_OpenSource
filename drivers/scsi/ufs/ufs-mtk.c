@@ -1009,7 +1009,7 @@ static int ufs_mtk_init_mphy(struct ufs_hba *hba)
 	return 0;
 }
 
-static int ufs_mtk_init_crypto(struct ufs_hba *hba)
+static int ufs_mtk_enable_crypto(struct ufs_hba *hba)
 {
 	/* avoid resetting host during resume flow or when link is not off */
 	if (hba->pm_op_in_progress || !ufshcd_is_link_off(hba))
@@ -1017,6 +1017,36 @@ static int ufs_mtk_init_crypto(struct ufs_hba *hba)
 
 	/* restore vendor crypto setting by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
+
+	return 0;
+}
+
+static int ufs_mtk_probe_crypto(struct ufs_hba *hba)
+{
+#ifdef CONFIG_HIE
+	int ret;
+	union ufs_cpt_cap cpt_cap;
+
+	ret = hie_register_device(&ufs_hie_dev);
+	if (ret)
+		return ret;
+	/*
+	 * enable hie key hint feature
+	 *
+	 * key_bits = 512 bits for all possible FBE crypto algorithms
+	 * key_slot = crypto configuration slots
+	 */
+	cpt_cap.cap_raw = ufshcd_readl(hba, UFS_REG_CRYPTO_CAPABILITY);
+	ret = kh_register(ufs_mtk_get_kh(), 512, cpt_cap.cap.cfg_cnt + 1);
+	if (ret)
+		return ret;
+
+	hba->crypto_feature |= UFS_CRYPTO_HW_FBE;
+#endif
+
+#if defined(CONFIG_MTK_HW_FDE)
+	hba->crypto_feature |= UFS_CRYPTO_HW_FDE;
+#endif
 
 	return 0;
 }
@@ -1051,7 +1081,7 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 	case PRE_CHANGE:
 		break;
 	case POST_CHANGE:
-		ret = ufs_mtk_init_crypto(hba);
+		ret = ufs_mtk_enable_crypto(hba);
 		/*
 		 * After HCE enable, need disable xoufs_req_s in ufshci
 		 * when xoufs hw solution is not ready.
@@ -2379,23 +2409,9 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 
 	hba = platform_get_drvdata(pdev);
 
-#ifdef CONFIG_HIE
-	hie_register_device(&ufs_hie_dev);
-
-	/*
-	 * enable hie key hint feature
-	 *
-	 * key_bits = 512 bits for all possible FBE crypto algorithms
-	 * key_slot = 16 crypto configuration slots
-	 */
-	kh_register(ufs_mtk_get_kh(), 512, 16);
-
-	hba->crypto_feature |= UFS_CRYPTO_HW_FBE;
-#endif
-
-#if defined(CONFIG_MTK_HW_FDE)
-	hba->crypto_feature |= UFS_CRYPTO_HW_FDE;
-#endif
+	err = ufs_mtk_probe_crypto(hba);
+	if (err)
+		dev_info(dev, "ufs_mtk_probe_crypto() failed %d\n", err);
 
 out:
 	return err;
