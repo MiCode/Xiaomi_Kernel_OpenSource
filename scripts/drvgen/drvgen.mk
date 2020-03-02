@@ -55,7 +55,8 @@ DRVGEN_FIG := $(wildcard $(dir $(DRVGEN_TOOL))config/*.fig)
 drvgen: $(DRVGEN_FILE_LIST)
 $(DRVGEN_FILE_LIST): $(DRVGEN_TOOL) $(DWS_FILE) $(DRVGEN_FIG) $(PROJ_DTS_FILES)
 	for i in $(PROJ_DTS_FILES); do \
-		base_prj=`grep -m 1 "#include [<\"].*\/cust\.dtsi[>\"]" $$i | sed 's/#include [<"]//g' | sed 's/\/cust\.dtsi[>"]//g'`;\
+		base_prj=`grep -m 1 '#include [<\"].*\/cust\.dtsi[>\"]' $$i | sed 's/#include [<"]//g'\
+	       	| sed 's/\/cust\.dtsi[>"]//g' | sed 's/\/\*//g' | sed 's/\*\///g' | sed 's/ //g'`\
 		prj_path=$(DRVGEN_OUT)/$$base_prj ;\
 		dws_path=$(srctree)/$(DRVGEN_PATH)/$$base_prj.dws ;\
 		if [ -f $$dws_path ] ; then \
@@ -85,7 +86,5 @@ $(objtree)/dtboimg.cfg: FORCE
 	else \
 		rm $@.tmp; \
 	fi
-else
-dtbo_check:
 
 endif#MTK_PLATFORM
