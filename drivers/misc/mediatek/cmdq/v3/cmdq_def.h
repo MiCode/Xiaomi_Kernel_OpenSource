@@ -249,10 +249,8 @@ enum CMDQ_SCENARIO_ENUM {
 	CMDQ_SCENARIO_ISP_DPE = 45,
 	CMDQ_SCENARIO_ISP_FDVT_OFF = 46,
 
-#ifdef CMDQ_TABLET_ENABLE
 	/* Trigger loop scenario does not enable HWs */
 	CMDQ_SCENARIO_TRIGGER_LOOP_SUB = 47,
-#endif
 
 	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
 };
@@ -431,7 +429,7 @@ enum sec_extension {
 	SEC_TDSHP
 };
 
-#ifdef CMDQ_TABLET_ENABLE
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
 /* tablet use */
 enum CMDQ_DISP_MODE {
 	CMDQ_DISP_NON_SUPPORTED_MODE = 0,
@@ -468,7 +466,7 @@ struct cmdqSecDataStruct {
 	/* client extension feature */
 	uint64_t extension;
 
-#ifdef CMDQ_TABLET_ENABLE
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
 	/* tablet use */
 	uint32_t secMode;
 #endif
