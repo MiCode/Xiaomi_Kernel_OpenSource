@@ -531,7 +531,7 @@ void mt_usb_disconnect(void)
 #endif
 
 /* to avoid build error due to PMIC module not ready */
-#ifndef CONFIG_MTK_SMART_BATTERY
+#ifndef CONFIG_MTK_CHARGER
 #define BYPASS_PMIC_LINKAGE
 #endif
 static enum charger_type musb_hal_get_charger_type(void)
@@ -719,7 +719,7 @@ void musb_sync_with_bat(struct musb *musb, int usb_state)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 
 	DBG(0, "BATTERY_SetUSBState, state=%d\n", usb_state);
-#ifdef CONFIG_MTK_SMART_BATTERY
+#ifdef CONFIG_MTK_CHARGER
 	BATTERY_SetUSBState(usb_state);
 	wake_up_bat();
 #endif
