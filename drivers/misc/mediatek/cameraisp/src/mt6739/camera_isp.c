@@ -12770,7 +12770,8 @@ int32_t ISP_EndGCECallback(uint32_t taskID, uint32_t regCount, uint32_t *regValu
 	return 0;
 }
 
-m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port, unsigned int mva, void *data)
+enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(
+			int port, unsigned int mva, void *data)
 {
 	LOG_DBG("[ISP_M4U]fault	call port=%d, mva=0x%x", port, mva);
 

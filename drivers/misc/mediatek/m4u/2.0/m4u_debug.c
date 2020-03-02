@@ -91,7 +91,7 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 	return 0;
 }
 
-m4u_callback_ret_t m4u_test_callback(int alloc_port, unsigned int mva,
+enum m4u_callback_ret_t m4u_test_callback(int alloc_port, unsigned int mva,
 				     unsigned int size, void *data)
 {
 	if (data != NULL)
@@ -215,7 +215,7 @@ int m4u_test_ddp(unsigned int prot)
 	unsigned int *pSrc, *pDst;
 	unsigned int src_pa, dst_pa;
 	unsigned int size = 64 * 64 * 3;
-	M4U_PORT_STRUCT port;
+	struct M4U_PORT_STRUCT port;
 	struct m4u_client_t *client = m4u_create_client();
 
 	pSrc = vmalloc(size);
@@ -252,7 +252,8 @@ int m4u_test_ddp(unsigned int prot)
 	return 0;
 }
 
-m4u_callback_ret_t test_fault_callback(int port, unsigned int mva, void *data)
+enum m4u_callback_ret_t test_fault_callback(
+		int port, unsigned int mva, void *data)
 {
 	if (data != NULL)
 		M4UMSG("fault call port=%d, mva=0x%x, data=0x%x\n", port, mva,
@@ -272,7 +273,7 @@ int m4u_test_tf(unsigned int prot)
 	unsigned int *pSrc, *pDst;
 	unsigned int src_pa, dst_pa;
 	unsigned int size = 64 * 64 * 3;
-	M4U_PORT_STRUCT port;
+	struct M4U_PORT_STRUCT port;
 	struct m4u_client_t *client = m4u_create_client();
 	int data = 88;
 
@@ -327,7 +328,7 @@ void m4u_test_ion(void)
 	unsigned int *pSrc, *pDst;
 	unsigned long src_pa, dst_pa;
 	unsigned int size = 64 * 64 * 3, tmp_size;
-	M4U_PORT_STRUCT port;
+	struct M4U_PORT_STRUCT port;
 	struct ion_mm_data mm_data;
 	struct ion_client *ion_client;
 	struct ion_handle *src_handle, *dst_handle;
@@ -567,7 +568,7 @@ static int m4u_debug_set(void *data, u64 val)
 		break;
 	}
 	case 20: {
-		M4U_PORT_STRUCT rM4uPort;
+		struct M4U_PORT_STRUCT rM4uPort;
 		int i;
 
 		rM4uPort.Virtuality = 1;
@@ -581,7 +582,7 @@ static int m4u_debug_set(void *data, u64 val)
 		}
 	} break;
 	case 21: {
-		M4U_PORT_STRUCT rM4uPort;
+		struct M4U_PORT_STRUCT rM4uPort;
 		int i;
 
 		rM4uPort.Virtuality = 0;
@@ -739,9 +740,9 @@ static int m4u_debug_set(void *data, u64 val)
 		break;
 	}
 	case 51: {
-		M4U_PORT_STRUCT port;
+		struct M4U_PORT_STRUCT port;
 
-		memset(&port, 0, sizeof(M4U_PORT_STRUCT));
+		memset(&port, 0, sizeof(struct M4U_PORT_STRUCT));
 
 		port.ePortID = M4U_PORT_HW_VDEC_PP_EXT;
 		port.Virtuality = 1;
@@ -785,7 +786,7 @@ DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
 #if (M4U_DVT != 0)
 static void m4u_test_init(void)
 {
-	M4U_PORT_STRUCT rM4uPort;
+	struct M4U_PORT_STRUCT rM4uPort;
 	int i;
 
 	rM4uPort.Virtuality = 0;
@@ -806,7 +807,7 @@ static void m4u_test_init(void)
 
 static void m4u_test_start(void)
 {
-	M4U_PORT_STRUCT rM4uPort;
+	struct M4U_PORT_STRUCT rM4uPort;
 	int i;
 
 	m4u_monitor_start(0);
@@ -827,7 +828,7 @@ static void m4u_test_start(void)
 
 static void m4u_test_end(int invalid_tlb)
 {
-	M4U_PORT_STRUCT rM4uPort;
+	struct M4U_PORT_STRUCT rM4uPort;
 	int i;
 
 	m4u_monitor_stop(0);

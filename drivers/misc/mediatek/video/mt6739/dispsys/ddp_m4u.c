@@ -53,7 +53,8 @@ enum DISP_MODULE_ENUM m4u_port_to_module(int port)
 	return DISP_MODULE_UNKNOWN;
 }
 
-m4u_callback_ret_t disp_m4u_callback(int port, unsigned long mva, void *data)
+enum m4u_callback_ret_t disp_m4u_callback(
+		int port, unsigned long mva, void *data)
 {
 
 	DDPERR("fault call port=%d, mva=0x%lx, data=0x%p\n", port, mva, data);
@@ -91,7 +92,7 @@ int config_display_m4u_port(void)
 {
 	unsigned int i;
 	int ret = 0;
-	M4U_PORT_STRUCT sPort;
+	struct M4U_PORT_STRUCT sPort;
 	char *m4u_usage = disp_helper_get_option(DISP_OPT_USE_M4U) ? "virtual"
 								   : "physical";
 
