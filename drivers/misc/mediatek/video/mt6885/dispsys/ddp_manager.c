@@ -829,7 +829,7 @@ int dpmgr_path_disconnect(disp_path_handle dp_handle, int encmdq)
 	struct ddp_path_handle *handle;
 	struct cmdqRecStruct *cmdqHandle;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	cmdqHandle = encmdq ? handle->cmdqhandle : NULL;
 
