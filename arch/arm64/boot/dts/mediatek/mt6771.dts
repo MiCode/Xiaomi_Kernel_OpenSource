@@ -787,6 +787,14 @@ firmware_class.path=/vendor/firmware";
 			compatible = "mediatek,mt_pmic";
 			interrupt-controller;
 		};
+
+		mt6358_rtc: mt6358_rtc {
+			compatible = "mediatek,mt6358-rtc";
+		};
+
+		mt6358_misc: mt6358_misc {
+			compatible = "mediatek,mt6358-misc";
+		};
 	};
 
 	pwraph: pwraphal@ {
