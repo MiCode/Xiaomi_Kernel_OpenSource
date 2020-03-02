@@ -37,7 +37,7 @@ static int mt_dual_role_get_prop(struct dual_role_phy_instance *dual_role,
 		enum dual_role_property prop, unsigned int *val)
 {
 	int ret = 0;
-	int mode, pr, dr;
+	int mode = 0, pr = 0, dr = 0;
 
 	if (state == DUALROLE_HOST) {
 		mode = DUAL_ROLE_PROP_MODE_DFP;
