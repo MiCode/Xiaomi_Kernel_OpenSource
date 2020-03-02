@@ -3591,7 +3591,9 @@ cmd_abort:
 
 	mq->mqrq[index].req = NULL;
 	host->areq_que[index] = NULL;
-	mmc_put_card(card);
+	/* Add for coverity check, it shouldn't be NULL */
+	if (card)
+		mmc_put_card(card);
 
 	atomic_set(&mq->mqrq[index].index, 0);
 	atomic_dec(&mq->qcnt);
