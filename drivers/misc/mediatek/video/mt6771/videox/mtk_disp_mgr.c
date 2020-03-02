@@ -1372,6 +1372,7 @@ int _ioctl_get_ut_result(unsigned long arg)
 /*---------------- function for repaint start ------------------*/
 void trigger_repaint(int type)
 {
+#if 0
 	if (type > WAIT_FOR_REFRESH && type < REFRESH_TYPE_NUM) {
 		struct repaint_job_t *repaint_job;
 
@@ -1401,6 +1402,7 @@ void trigger_repaint(int type)
 				type);
 		wake_up_interruptible(&repaint_wq);
 	}
+#endif
 }
 
 int _ioctl_wait_self_refresh_trigger(unsigned long arg)
