@@ -78,6 +78,12 @@ bool mtk_get_gpu_custom_boost_freq(unsigned long *pulFreq);
 bool mtk_get_gpu_custom_upbound_freq(unsigned long *pulFreq);
 bool mtk_get_vsync_offset_event_status(unsigned int *pui32EventStatus);
 bool mtk_get_vsync_offset_debug_status(unsigned int *pui32DebugStatus);
+bool mtk_dvfs_margin_value(int i32MarginValue);
+bool mtk_get_dvfs_margin_value(int *pi32MaginValue);
+bool mtk_loading_base_dvfs_step(int i32StepValue);
+bool mtk_get_loading_base_dvfs_step(int *pi32StepValue);
+bool mtk_timer_base_dvfs_margin(int i32MarginValue);
+bool mtk_get_timer_base_dvfs_margin(int *pi32MaginValue);
 
 /* CAP */
 bool mtk_get_gpu_dvfs_cal_freq(unsigned long *pulGpu_tar_freq);

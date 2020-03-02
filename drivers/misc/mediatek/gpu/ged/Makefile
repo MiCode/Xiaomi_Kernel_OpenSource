@@ -28,22 +28,11 @@ ccflags-y += -DGED_ENABLE_FB_DVFS
 endif
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779" "mt6768" "mt6785"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779" "mt6768" "mt6771" "mt6785"))
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_DYNAMIC_DVFS_MARGIN
-endif
-endif
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779" "mt6785"))
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
-endif
-endif
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
-ccflags-y += -DGED_ENABLE_FB_DVFS_CWAITG
 endif
 endif
 
