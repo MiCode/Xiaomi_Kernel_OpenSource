@@ -2163,10 +2163,8 @@ MTK_M4U_COMPAT_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
 
 
-#ifdef CONFIG_ARM64
+#ifndef CONFIG_ARM64
 /* A64 Direct mapping is helped via iommu framework. */
-
-#else
 static struct dma_iommu_mapping *dmapping;
 static dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
 				      size_t size);
