@@ -1430,12 +1430,12 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 #ifndef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case MTEE_CMD_FOD_TEE_SHM_ON:
 		KREE_DEBUG("====> MTEE_CMD_FOD_TEE_SHM_ON ====\n");
-		ret = mtee_fod_enable(1);
+		ret = mtee_sdsp_enable(1);
 		break;
 
 	case MTEE_CMD_FOD_TEE_SHM_OFF:
 		KREE_DEBUG("====> MTEE_CMD_FOD_TEE_SHM_OFF ====\n");
-		ret = mtee_fod_enable(0);
+		ret = mtee_sdsp_enable(0);
 		break;
 #endif
 
