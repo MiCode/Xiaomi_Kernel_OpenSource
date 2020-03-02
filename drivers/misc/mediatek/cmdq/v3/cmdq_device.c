@@ -28,12 +28,13 @@
 #include <mt-plat/mtk_lpae.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
-
+#include <linux/clk-provider.h>
 
 struct CmdqDeviceStruct {
 	struct device *pDev;
 	struct clk *clk_gce;
 	struct clk *clk_gce_timer;
+	struct clk *clk_mmsys_mtcmos;
 	long regBaseVA;		/* considering 64 bit kernel, use long */
 	phys_addr_t regBasePA;
 	u32 irqId;
@@ -178,8 +179,12 @@ u32 cmdq_dev_enable_device_clock(bool enable,
 
 	if (enable) {
 		result = clk_prepare_enable(clk_module);
-		CMDQ_MSG("enable clock with module: %s, result:%d\n",
-			clkName, result);
+		if (result)
+			CMDQ_ERR("enable clock with module:%s result:%d\n",
+				clkName, result);
+		else
+			CMDQ_MSG("enable clock with module:%s result:%d\n",
+				clkName, result);
 	} else {
 		clk_disable_unprepare(clk_module);
 		CMDQ_MSG("disable clock with module:%s\n", clkName);
@@ -210,6 +215,16 @@ void cmdq_dev_enable_gce_clock(bool enable)
 bool cmdq_dev_gce_clock_is_enable(void)
 {
 	return cmdq_dev_device_clock_is_enable(gCmdqDev.clk_gce);
+}
+
+bool cmdq_dev_mmsys_clock_is_enable(void)
+{
+	if (IS_ERR(gCmdqDev.clk_mmsys_mtcmos)) {
+		CMDQ_ERR("MMSYS_MTCMOS clk not support\n");
+		return false;
+	}
+
+	return __clk_is_enabled(gCmdqDev.clk_mmsys_mtcmos);
 }
 
 phys_addr_t cmdq_dev_get_reference_PA(const char *ref_name, int index)
@@ -481,6 +496,8 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 void cmdq_dev_init(struct platform_device *pDevice)
 {
 	struct device_node *node = pDevice->dev.of_node;
+	u32 dma_mask_bit = 0;
+	s32 ret;
 
 	/* init cmdq device dependent data */
 	do {
@@ -494,6 +511,8 @@ void cmdq_dev_init(struct platform_device *pDevice)
 		gCmdqDev.clk_gce = devm_clk_get(&pDevice->dev, "GCE");
 		gCmdqDev.clk_gce_timer = devm_clk_get(&pDevice->dev,
 			"GCE_TIMER");
+		gCmdqDev.clk_mmsys_mtcmos = devm_clk_get(&pDevice->dev,
+			"MMSYS_MTCMOS");
 
 		CMDQ_LOG(
 			"[CMDQ] platform_dev: dev:%p PA:%pa VA:%lx irqId:%d irqSecId:%d\n",
@@ -502,15 +521,15 @@ void cmdq_dev_init(struct platform_device *pDevice)
 			gCmdqDev.irqSecId);
 	} while (0);
 
-	if (!enable_4G()) {
-		/* Not special 4GB case, use dma_mask to restrict dma memory
-		 * to low 4GB address
-		 */
-		gCmdqDev.dma_mask_result = dma_set_coherent_mask(
-			&pDevice->dev, DMA_BIT_MASK(32));
-		CMDQ_LOG("set dma mask result: %d\n",
-			gCmdqDev.dma_mask_result);
-	}
+	ret = of_property_read_u32(gCmdqDev.pDev->of_node, "dma_mask_bit",
+		&dma_mask_bit);
+	/* if not assign from dts, give default 32bit for legacy chip */
+	if (ret != 0 || !dma_mask_bit)
+		dma_mask_bit = 32;
+	gCmdqDev.dma_mask_result = dma_set_coherent_mask(
+		&pDevice->dev, DMA_BIT_MASK(dma_mask_bit));
+	CMDQ_LOG("set dma mask bit:%u result:%d\n",
+		dma_mask_bit, gCmdqDev.dma_mask_result);
 
 	/* map MMSYS VA */
 	cmdq_mdp_map_mmsys_VA();

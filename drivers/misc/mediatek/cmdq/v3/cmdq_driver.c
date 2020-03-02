@@ -43,6 +43,7 @@
 #include <linux/pm.h>
 #include <linux/suspend.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/sched/clock.h>
 #ifdef CMDQ_USE_LEGACY
 #include <mach/mt_boot.h>
 #endif
@@ -264,8 +265,6 @@ static void cmdq_driver_process_read_address_request(
 	/* create kernel-space buffer for working */
 	u32 *addrs = NULL;
 	u32 *values = NULL;
-	dma_addr_t pa = 0;
-	int i = 0;
 	void *dma_addr;
 	void *values_addr;
 
@@ -307,11 +306,7 @@ static void cmdq_driver_process_read_address_request(
 		}
 
 		/* actually read these PA write buffers */
-		for (i = 0; i < req_user->count; i++) {
-			pa = 0xFFFFFFFF & addrs[i];
-			CMDQ_MSG("[READ_PA] req read dma address 0x%pa\n", &pa);
-			values[i] = cmdqCoreReadWriteAddress(pa);
-		}
+		cmdqCoreReadWriteAddressBatch(addrs, req_user->count, values);
 
 		/* copy value to user */
 		if (copy_to_user(values_addr, values,
@@ -325,23 +320,74 @@ static void cmdq_driver_process_read_address_request(
 	kfree(values);
 }
 
+#define CMDQ_PTR_FREE_NULL(ptr) \
+do { \
+	vfree(CMDQ_U32_PTR((ptr))); \
+	(ptr) = 0; \
+} while (0)
+
+
 static long cmdq_driver_destroy_secure_medadata(
 	struct cmdqCommandStruct *pCommand)
 {
-	if (pCommand->secData.addrMetadatas) {
-		kfree(CMDQ_U32_PTR(pCommand->secData.addrMetadatas));
-		pCommand->secData.addrMetadatas = 0;
+	u32 i;
+
+	kfree(CMDQ_U32_PTR(pCommand->secData.addrMetadatas));
+	pCommand->secData.addrMetadatas = 0;
+
+	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++)
+		CMDQ_PTR_FREE_NULL(pCommand->secData.ispMeta.ispBufs[i].va);
+
+	return 0;
+}
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+static s32 cmdq_driver_copy_meta(void *src, void **dest, size_t copy_size,
+	size_t max_size, bool vm)
+{
+	void *meta_buf;
+
+	if (!copy_size)
+		return -EINVAL;
+
+	if (copy_size > max_size) {
+		CMDQ_ERR("source size exceed:%zu > %zu", copy_size, max_size);
+		return -EFAULT;
+	}
+
+	if (vm)
+		meta_buf = vzalloc(copy_size);
+	else
+		meta_buf = kzalloc(copy_size, GFP_KERNEL);
+	if (!meta_buf) {
+		CMDQ_ERR("allocate size fail:%zu\n", copy_size);
+		return -ENOMEM;
+	}
+	*dest = meta_buf;
+
+	if (copy_from_user(meta_buf, src, copy_size)) {
+		CMDQ_ERR("fail to copy user data\n");
+		return -EFAULT;
 	}
 
 	return 0;
 }
+#endif
 
 static long cmdq_driver_create_secure_medadata(
 	struct cmdqCommandStruct *pCommand)
 {
 #ifdef CMDQ_SECURE_PATH_SUPPORT
-	void *pAddrMetadatas = NULL;
-	u32 length;
+	u32 length, max_length;
+	void *meta_buf;
+	s32 ret;
+	void *addr_meta = CMDQ_U32_PTR(pCommand->secData.addrMetadatas);
+	void *isp_bufs[ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs)] = {0};
+	u32 i;
+
+	if (pCommand->secData.is_secure &&
+		!pCommand->secData.addrMetadataCount)
+		CMDQ_LOG("[warn]secure task without secure handle\n");
 
 	if (pCommand->secData.addrMetadataCount >=
 		CMDQ_IWC_MAX_ADDR_LIST_LENGTH) {
@@ -351,16 +397,24 @@ static long cmdq_driver_create_secure_medadata(
 		return -EFAULT;
 	}
 
+	max_length = CMDQ_IWC_MAX_ADDR_LIST_LENGTH *
+		sizeof(struct cmdqSecAddrMetadataStruct);
 	length = pCommand->secData.addrMetadataCount *
 		sizeof(struct cmdqSecAddrMetadataStruct);
+
+	/* always clear to prevent free unknown memory */
+	pCommand->secData.addrMetadatas = 0;
+	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++) {
+		isp_bufs[i] = (void *)pCommand->secData.ispMeta.ispBufs[i].va;
+		pCommand->secData.ispMeta.ispBufs[i].va = 0;
+	}
 
 	/* verify parameter */
 	if (!pCommand->secData.is_secure &&
 		pCommand->secData.addrMetadataCount) {
-
 		/* normal path with non-zero secure metadata */
 		CMDQ_ERR(
-			"[secData]mismatch secData.is_secure(%d) and secData.addrMetadataCount(%d)\n",
+			"[secData]mismatch is_secure %d and addrMetadataCount %d\n",
 			pCommand->secData.is_secure,
 			pCommand->secData.addrMetadataCount);
 		return -EFAULT;
@@ -371,40 +425,50 @@ static long cmdq_driver_create_secure_medadata(
 		pCommand->secData.addrMetadataCount;
 
 	/* bypass 0 metadata case */
-	if (!pCommand->secData.addrMetadataCount) {
-		pCommand->secData.addrMetadatas = 0;
+	if (!pCommand->secData.addrMetadataCount)
 		return 0;
-	}
 
 	/* create kernel-space buffer for working */
-	pAddrMetadatas = kzalloc(length, GFP_KERNEL);
-	if (!pAddrMetadatas) {
+	meta_buf = NULL;
+	ret = cmdq_driver_copy_meta(addr_meta, &meta_buf, length, max_length,
+		false);
+	if (ret < 0) {
 		CMDQ_ERR(
-			"[secData]kzalloc for addrMetadatas failed count:%d alloacted_size:%d\n",
-			pCommand->secData.addrMetadataCount, length);
-		return -ENOMEM;
-	}
-
-	/* copy from user */
-	if (copy_from_user(pAddrMetadatas,
-		CMDQ_U32_PTR(pCommand->secData.addrMetadatas), length)) {
-
-		CMDQ_ERR("[secData]fail to copy user addrMetadatas\n");
-
+			"[secData]copy meta fail count:%d alloacted size:%d ret:%d\n",
+			 pCommand->secData.addrMetadataCount, length, ret);
 		/* replace buffer first to ensure that
-		 * addrMetadatas is valid kernel space buffer address
-		 * when free it
+		 * meta_buf is valid kernel space buffer address when free it
+		 * crazy casting to cast 64bit int to 32/64 bit pointer
 		 */
 		pCommand->secData.addrMetadatas =
-			(cmdqU32Ptr_t)(unsigned long)pAddrMetadatas;
+			(cmdqU32Ptr_t)(unsigned long)meta_buf;
 		/* free secure path metadata */
 		cmdq_driver_destroy_secure_medadata(pCommand);
-		return -EFAULT;
+		return ret;
 	}
+	/* replace buffer with kernel buffer */
+	pCommand->secData.addrMetadatas = (cmdqU32Ptr_t)(unsigned long)meta_buf;
 
-	/* replace buffer */
-	pCommand->secData.addrMetadatas =
-		(cmdqU32Ptr_t)(unsigned long)pAddrMetadatas;
+	/* check isp data valid */
+
+	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++) {
+		if (!isp_bufs[i])
+			continue;
+		meta_buf = NULL;
+		ret = cmdq_driver_copy_meta(isp_bufs[i], &meta_buf,
+			pCommand->secData.ispMeta.ispBufs[i].size,
+			isp_iwc_buf_size[i], true);
+		pCommand->secData.ispMeta.ispBufs[i].va =
+			(cmdqU32Ptr_t)(unsigned long)meta_buf;
+		if (ret < 0) {
+			CMDQ_ERR(
+				"[secData]copy meta %u size:%llu va:0x%llx ret:%d\n",
+				i, pCommand->secData.ispMeta.ispBufs[i].size,
+				pCommand->secData.ispMeta.ispBufs[i].va,
+				ret);
+			pCommand->secData.ispMeta.ispBufs[i].size = 0;
+		}
+	}
 
 #if 0
 	cmdq_core_dump_secure_metadata(&(pCommand->secData));
@@ -616,8 +680,10 @@ static s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 	u32 userRegCount;
 	s32 status;
 
-	if (copy_from_user(&job, (void *)param, sizeof(job)))
+	if (copy_from_user(&job, (void *)param, sizeof(job))) {
+		CMDQ_ERR("copy job from user fail\n");
 		return -EFAULT;
+	}
 
 	if (job.command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
 		!job.command.blockSize ||
@@ -639,8 +705,10 @@ static s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 
 	/* create kernel-space address buffer */
 	status = cmdq_driver_create_reg_address_buffer(&job.command);
-	if (status != 0)
+	if (status != 0) {
+		CMDQ_ERR("create reg buffer fail:%d\n", status);
 		return status;
+	}
 
 	/* avoid copy large string */
 	if (job.command.userDebugStrLen > CMDQ_MAX_DBG_STR_LEN)
@@ -651,8 +719,10 @@ static s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 
 	/* allocate secure medatata */
 	status = cmdq_driver_create_secure_medadata(&job.command);
-	if (status != 0)
+	if (status != 0) {
+		CMDQ_ERR("create secure meta fail:%d\n", status);
 		return status;
+	}
 
 	status = cmdq_driver_copy_handle_prop_from_user(
 			(void *)CMDQ_U32_PTR(job.command.prop_addr),
@@ -710,6 +780,7 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	u32 *userRegValue = NULL;
 	/* backup value after task release */
 	s32 status;
+	u64 exec_cost = sched_clock();
 
 	if (copy_from_user(&jobResult, (void *)param, sizeof(jobResult))) {
 		CMDQ_ERR("copy_from_user jobResult fail\n");
@@ -806,6 +877,11 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 
 	/* free kernel space result buffer */
 	kfree(CMDQ_U32_PTR(jobResult.regValue.regValues));
+
+	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	if (exec_cost > 150000)
+		CMDQ_LOG("[warn]job wait and close cost:%lluus handle:0x%p\n",
+			exec_cost, handle);
 
 	/* task now can release */
 	cmdq_task_destroy(handle);
@@ -929,10 +1005,14 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		status = cmdq_driver_ioctl_query_usage(pf, param);
 		break;
 	case CMDQ_IOCTL_ASYNC_JOB_EXEC:
+		CMDQ_SYSTRACE_BEGIN("%s_async_job_exec\n", __func__);
 		status = cmdq_driver_ioctl_async_job_exec(pf, param);
+		CMDQ_SYSTRACE_END();
 		break;
 	case CMDQ_IOCTL_ASYNC_JOB_WAIT_AND_CLOSE:
+		CMDQ_SYSTRACE_BEGIN("%s_async_job_wait_and_close\n", __func__);
 		status = cmdq_driver_ioctl_async_job_wait_and_close(param);
+		CMDQ_SYSTRACE_END();
 		break;
 	case CMDQ_IOCTL_ALLOC_WRITE_ADDRESS:
 		status = cmdq_driver_ioctl_alloc_write_address(param);
@@ -1136,11 +1216,20 @@ static int cmdq_probe(struct platform_device *pDevice)
 	cmdq_create_debug_entries();
 
 	/* device attributes for debugging */
-	device_create_file(&pDevice->dev, &dev_attr_error);
-	device_create_file(&pDevice->dev, &dev_attr_log_level);
-	device_create_file(&pDevice->dev, &dev_attr_profile_enable);
+	status = device_create_file(&pDevice->dev, &dev_attr_error);
+	if (status != 0)
+		CMDQ_ERR("%s attr error create fail\n", __func__);
+	status = device_create_file(&pDevice->dev, &dev_attr_log_level);
+	if (status != 0)
+		CMDQ_ERR("%s attr log level create fail\n", __func__);
+	status = device_create_file(&pDevice->dev, &dev_attr_profile_enable);
+	if (status != 0)
+		CMDQ_ERR("%s attr profile create fail\n", __func__);
 #ifdef CMDQ_INSTRUCTION_COUNT
-	device_create_file(&pDevice->dev, &dev_attr_instruction_count_level);
+	status = device_create_file(&pDevice->dev,
+		&dev_attr_instruction_count_level);
+	if (status != 0)
+		CMDQ_ERR("%s attr inst count create fail\n", __func__);
 #endif
 
 	CMDQ_LOG("CMDQ driver probe end\n");

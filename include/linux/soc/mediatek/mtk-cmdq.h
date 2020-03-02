@@ -32,15 +32,14 @@
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
  */
-#define CMDQ_MS_TO_TICK(_t)		(_t * 26)
+#define CMDQ_US_TO_TICK(_t)		(_t * 26)
+#define CMDQ_TICK_TO_NS(_t)		(_t * 38)
 
-
-#if IS_ENABLED(CONFIG_MACH_MT6771) || IS_ENABLED(CONFIG_MACH_MT6765) || \
-	IS_ENABLED(CONFIG_MACH_MT6761) || IS_ENABLED(CONFIG_MACH_MT3967) || \
-	IS_ENABLED(CONFIG_MACH_MT8168) || IS_ENABLED(CONFIG_MACH_MT6739)
+#if IS_ENABLED(CONFIG_MACH_MT6771) || IS_ENABLED(CONFIG_MACH_MT8168) || \
+	IS_ENABLED(CONFIG_MACH_MT6768)
 #define CMDQ_REG_SHIFT_ADDR(addr)	(addr)
 #define CMDQ_REG_REVERT_ADDR(addr)	(addr)
-#elif IS_ENABLED(CONFIG_MACH_MT6779)
+#else
 #define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> 3)
 #define CMDQ_REG_REVERT_ADDR(addr)	((addr) << 3)
 #endif
@@ -316,6 +315,10 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 
 s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	u32 value, u32 addr, u32 mask, u16 count, u16 reg_gpr);
+
+void cmdq_pkt_perf_end(struct cmdq_pkt *pkt);
+void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt);
+u32 *cmdq_pkt_get_perf_ret(struct cmdq_pkt *pkt);
 
 /**
  * cmdq_pkt_wfe() - append wait for event command to the CMDQ packet

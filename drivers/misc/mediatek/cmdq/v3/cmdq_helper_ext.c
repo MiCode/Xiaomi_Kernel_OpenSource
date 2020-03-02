@@ -20,6 +20,10 @@
 #include <linux/notifier.h>
 #include <linux/irqchip/mtk-gic-extend.h>
 #include <linux/sched/clock.h>
+#include <linux/mailbox_controller.h>
+#ifdef CMDQ_DAPC_DEBUG
+#include <devapc_public.h>
+#endif
 
 #include "cmdq_helper_ext.h"
 #include "cmdq_record.h"
@@ -30,7 +34,7 @@
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #include "cmdq_sec.h"
 #endif
-#ifdef CMDQ_PROFILE_MMP
+#if IS_ENABLED(CONFIG_MMPROFILE)
 #include "cmdq_mmp.h"
 #endif
 
@@ -58,9 +62,6 @@ static DEFINE_MUTEX(cmdq_thread_mutex);
 
 static DEFINE_SPINLOCK(cmdq_write_addr_lock);
 static DEFINE_SPINLOCK(cmdq_record_lock);
-#ifdef CMDQ_TIMER_ENABLE
-static DEFINE_SPINLOCK(cmdq_delay_thd_lock);
-#endif
 static DEFINE_SPINLOCK(cmdq_first_err_lock);
 
 /* callbacks */
@@ -84,12 +85,6 @@ static struct SubsysStruct cmdq_adds_subsys = {
 	.mask = 0,
 	.grpName = "AddOn"
 };
-
-#ifdef CMDQ_TIMER_ENABLE
-static struct cmdq_cmd_struct cmdq_delay_thd_cmd;
-static bool cmdq_delay_thd_started;
-static bool cmdq_delay_thd_inited;
-#endif
 
 /* CMDQ core feature functions */
 
@@ -722,6 +717,11 @@ bool cmdq_core_should_pmqos_log(void)
 	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_PMQOS);
 }
 
+bool cmdq_core_should_secure_log(void)
+{
+	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_SECURE);
+}
+
 bool cmdq_core_aee_enable(void)
 {
 	return cmdq_ctx.aee;
@@ -740,6 +740,11 @@ bool cmdq_core_met_enabled(void)
 bool cmdq_core_ftrace_enabled(void)
 {
 	return cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_FTRACE);
+}
+
+bool cmdq_core_profile_exec_enabled(void)
+{
+	return cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_EXEC);
 }
 
 void cmdq_long_string_init(bool force, char *buf, u32 *offset, s32 *max_size)
@@ -1102,14 +1107,6 @@ int cmdq_core_print_status_seq(struct seq_file *m, void *v)
 			p_sram_chunk->owner);
 		index++;
 	}
-#ifdef CMDQ_TIMER_ENABLE
-	cmdq_dev_enable_gce_clock(true);
-	seq_printf(m, "==Delay Task TPR_MASK:0x%08x size:%u started:%d pa:%pa va:0x%p sram:%u\n",
-		CMDQ_REG_GET32(CMDQ_TPR_MASK), cmdq_delay_thd_cmd.buffer_size,
-		cmdq_delay_thd_started, &cmdq_delay_thd_cmd.mva_base,
-		cmdq_delay_thd_cmd.p_va_base, cmdq_delay_thd_cmd.sram_base);
-	cmdq_dev_enable_gce_clock(false);
-#endif
 
 	/* call to dump other infos */
 	blocking_notifier_call_chain(&cmdq_status_dump_notifier, 0, m);
@@ -1162,6 +1159,7 @@ int cmdq_core_print_status_seq(struct seq_file *m, void *v)
 	return 0;
 }
 
+#if 0
 static s32 cmdq_core_thread_exec_counter(const s32 thread)
 {
 #ifdef CMDQ_SECURE_PATH_SUPPORT
@@ -1172,6 +1170,7 @@ static s32 cmdq_core_thread_exec_counter(const s32 thread)
 	return CMDQ_GET_COOKIE_CNT(thread);
 #endif
 }
+#endif
 
 static s32 cmdq_core_get_thread_id(s32 scenario)
 {
@@ -1203,7 +1202,7 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 	}
 
 	value[3] = CMDQ_REG_GET32(CMDQ_THR_WAIT_TOKEN(thread));
-	value[4] = cmdq_core_thread_exec_counter(thread);
+	value[4] = CMDQ_GET_COOKIE_CNT(thread);
 	value[5] = CMDQ_REG_GET32(CMDQ_THR_INST_CYCLES(thread));
 	value[6] = CMDQ_REG_GET32(CMDQ_THR_CURR_STATUS(thread));
 	value[7] = CMDQ_REG_GET32(CMDQ_THR_IRQ_ENABLE(thread));
@@ -1220,8 +1219,9 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 		tag, thread, value[8], cmdq_ctx.thread[thread].scenario);
 
 	CMDQ_LOG(
-		"[%s]PC:0x%08x End:0x%08x Wait Token:0x%08x IRQ:0x%x IRQ_EN:0x%x\n",
-		tag, value[0], value[1], value[3], value[2], value[7]);
+		"[%s]PC:0x%08x End:0x%08x Wait Token:0x%08x IRQ:0x%x IRQ_EN:0x%x cookie:%u\n",
+		tag, value[0], value[1], value[3], value[2], value[7],
+		value[4]);
 	/* TODO: support cookie */
 #if 0
 	CMDQ_LOG(
@@ -1229,6 +1229,11 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 		tag, value[4], pThread->waitCookie, pThread->nextCookie,
 		pThread->taskCount, pThread->engineFlag);
 #endif
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	cmdq_sec_dump_secure_thread_cookie(thread);
+#endif
+
 	CMDQ_LOG(
 		"[%s]Timeout Cycle:%d Status:0x%x reset:0x%x Suspend:%d sec:%d cfg:%d prefetch:%d thrsex:%d\n",
 		tag, value[5], value[6], value[9], value[10],
@@ -1256,9 +1261,7 @@ void cmdq_core_dump_trigger_loop_thread(const char *tag)
 		cmdq_core_dump_thread(NULL, i, false, tag);
 		cmdq_core_dump_pc(NULL, i, tag);
 		val = cmdqCoreGetEvent(evt_rdma);
-		CMDQ_LOG("[%s]CMDQ_SYNC_TOKEN_VAL of %s is %d\n",
-			tag, cmdq_core_get_event_name_enum(evt_rdma),
-			val);
+		CMDQ_LOG("[%s]CMDQ_EVENT_DISP_RDMA0_EOF is %d\n", tag, val);
 		break;
 	}
 }
@@ -1657,254 +1660,6 @@ size_t cmdq_core_get_cpr_cnt(void)
 	return cmdq_dts.cpr_size;
 }
 
-#ifdef CMDQ_TIMER_ENABLE
-static s32 cmdq_copy_delay_to_sram(void)
-{
-	u32 cpr_offset = 0;
-	dma_addr_t pa = cmdq_delay_thd_cmd.mva_base;
-	u32 buffer_size = cmdq_delay_thd_cmd.buffer_size;
-
-	if (cmdq_delay_thd_cmd.sram_base == 0)
-		return 0;
-
-	cpr_offset = CMDQ_CPR_OFFSET(cmdq_delay_thd_cmd.sram_base);
-	if (cmdq_task_copy_to_sram(pa, cpr_offset, buffer_size) < 0) {
-		CMDQ_ERR("DELAY: copy delay thread to SRAM failed!\n");
-		return -EFAULT;
-	}
-	CMDQ_MSG("Copy delay thread:%pa size:%u cpr_offset:0x%x\n",
-		&pa, buffer_size, cpr_offset);
-	return 0;
-}
-
-static s32 cmdq_delay_thread_init(void)
-{
-	static u32 sram_task_size;
-	static bool use_sram = true;
-
-	void *p_delay_thread_buffer = NULL;
-	void *p_va = NULL;
-	dma_addr_t pa = 0;
-	u32 buffer_size = 0;
-	u32 cpr_offset = 0;
-	u32 free_sram_size = cmdq_core_get_free_sram_size();
-
-	memset(&cmdq_delay_thd_cmd, 0x0, sizeof(cmdq_delay_thd_cmd));
-
-	if (!sram_task_size) {
-		if (cmdq_task_create_delay_thread_sram(&p_delay_thread_buffer,
-			&sram_task_size, &cpr_offset) < 0) {
-			CMDQ_LOG(
-				"[DelayThread]create delay thread in sram failed free:%u sram size:%u\n",
-				free_sram_size, sram_task_size);
-			use_sram = false;
-		} else {
-			CMDQ_LOG("[DelayThread]sram task size:%u free:%u\n",
-				sram_task_size, free_sram_size);
-			if (sram_task_size > free_sram_size)
-				use_sram = false;
-			else
-				buffer_size = sram_task_size;
-		}
-	}
-
-	if (!use_sram) {
-		if (cmdq_task_create_delay_thread_dram(&p_delay_thread_buffer,
-			&buffer_size) < 0) {
-			CMDQ_ERR(
-				"[DelayThread]create delay thread in dram failed!\n");
-			return -EINVAL;
-		}
-	} else if (!p_delay_thread_buffer) {
-		if (cmdq_task_create_delay_thread_sram(&p_delay_thread_buffer,
-			&buffer_size, &cpr_offset) < 0) {
-			CMDQ_ERR(
-				"[DelayThread]create delay thread in sram failed, free:%u sram size:%u\n",
-				free_sram_size, sram_task_size);
-			return -EINVAL;
-		}
-	}
-
-	CMDQ_LOG(
-		"[DelayThread]create delay thread task in %s task size:%u sram size:%u\n",
-		use_sram ? "SRAM" : "DRAM", buffer_size, free_sram_size);
-
-	p_va = cmdq_core_alloc_hw_buffer(cmdq_dev_get(), buffer_size, &pa,
-		GFP_KERNEL);
-
-	memcpy(p_va, p_delay_thread_buffer, buffer_size);
-
-	CMDQ_MSG("Set delay thread CMD START:%pa size:%u cpr_offset:0x%x\n",
-		&pa, buffer_size, cpr_offset);
-
-	cmdq_delay_thd_cmd.mva_base = pa;
-	cmdq_delay_thd_cmd.p_va_base = p_va;
-	cmdq_delay_thd_cmd.buffer_size = buffer_size;
-	if (cpr_offset > 0) {
-		cmdq_delay_thd_cmd.sram_base = CMDQ_SRAM_ADDR(cpr_offset);
-		cmdq_copy_delay_to_sram();
-	}
-
-	kfree(p_delay_thread_buffer);
-	cmdq_delay_thd_inited = true;
-	cmdq_delay_thd_started = false;
-	return 0;
-}
-
-static s32 cmdq_delay_thread_start(void)
-{
-	bool enable_prefetch;
-	int thread_priority;
-	u32 end_address;
-	const s32 thread = CMDQ_DELAY_THREAD_ID;
-	unsigned long flags;
-	struct cmdq_client *client = cmdq_clients[thread];
-
-	spin_lock_irqsave(&cmdq_delay_thd_lock, flags);
-	if (!cmdq_delay_thd_inited || cmdq_delay_thd_started ||
-		atomic_read(&cmdq_thread_usage) < 1) {
-		spin_unlock_irqrestore(&cmdq_delay_thd_lock, flags);
-		return 0;
-	}
-
-	CMDQ_MSG("EXEC: new delay thread:%d\n", thread);
-	if (cmdq_mbox_thread_reset((void *)client->chan) < 0) {
-		spin_unlock_irqrestore(&cmdq_delay_thd_lock, flags);
-		return -EFAULT;
-	}
-
-	CMDQ_REG_SET32(CMDQ_THR_INST_CYCLES(thread), 0);
-
-	enable_prefetch = cmdq_core_get_thread_prefetch_size(thread) > 0;
-	if (enable_prefetch) {
-		CMDQ_MSG("EXEC: set delay thread:%d enable prefetch size:%d\n",
-			thread, cmdq_core_get_thread_prefetch_size(thread));
-		CMDQ_REG_SET32(CMDQ_THR_PREFETCH(thread), 0x1);
-	}
-
-	thread_priority = cmdq_get_func()->priority(CMDQ_SCENARIO_TIMER_LOOP);
-
-	if (cmdq_delay_thd_cmd.sram_base > 0) {
-		CMDQ_MSG(
-			"EXEC: set delay thread(%d) in SRAM sram_addr:%u qos:%d\n",
-			 thread, cmdq_delay_thd_cmd.sram_base, thread_priority);
-
-		end_address = cmdq_delay_thd_cmd.sram_base +
-			cmdq_delay_thd_cmd.buffer_size;
-		CMDQ_REG_SET32(CMDQ_THR_END_ADDR(thread), end_address);
-		CMDQ_REG_SET32(CMDQ_THR_CURR_ADDR(thread),
-			cmdq_delay_thd_cmd.sram_base);
-	} else {
-		CMDQ_MSG("EXEC: set delay thread:%d pc:%pa qos:%d\n",
-			 thread, &cmdq_delay_thd_cmd.mva_base,
-			 thread_priority);
-
-		end_address = CMDQ_PHYS_TO_AREG(cmdq_delay_thd_cmd.mva_base +
-			cmdq_delay_thd_cmd.buffer_size);
-		CMDQ_REG_SET32(CMDQ_THR_END_ADDR(thread), end_address);
-		CMDQ_REG_SET32(CMDQ_THR_CURR_ADDR(thread),
-			CMDQ_PHYS_TO_AREG(cmdq_delay_thd_cmd.mva_base));
-	}
-
-	/* set thread priority, bit 0-2 for priority level; */
-	CMDQ_REG_SET32(CMDQ_THR_CFG(thread), thread_priority & 0x7);
-
-	/* For loop thread, do not enable timeout */
-	CMDQ_REG_SET32(CMDQ_THR_IRQ_ENABLE(thread), 0x011);
-
-	/* enable thread */
-	CMDQ_REG_SET32(CMDQ_THR_ENABLE_TASK(thread), 0x01);
-
-	cmdq_delay_thd_started = true;
-
-	spin_unlock_irqrestore(&cmdq_delay_thd_lock, flags);
-
-	return 0;
-}
-
-static s32 cmdq_delay_thread_stop(void)
-{
-	unsigned long flags;
-	const s32 thread = CMDQ_DELAY_THREAD_ID;
-	struct cmdq_client *client = cmdq_clients[thread];
-
-	spin_lock_irqsave(&cmdq_delay_thd_lock, flags);
-	if (!cmdq_delay_thd_started ||
-		atomic_read(&cmdq_thread_usage) > 1) {
-		spin_unlock_irqrestore(&cmdq_delay_thd_lock, flags);
-		return 0;
-	}
-
-	if (cmdq_mbox_thread_suspend((void *)client->chan) < 0) {
-		spin_unlock_irqrestore(&cmdq_delay_thd_lock, flags);
-		return -EFAULT;
-	}
-
-	cmdq_mbox_thread_disable((void *)client->chan);
-
-	cmdq_delay_thd_started = false;
-	spin_unlock_irqrestore(&cmdq_delay_thd_lock, flags);
-	CMDQ_MSG("EXEC: stop delay thread:%d\n", thread);
-
-	return 0;
-}
-
-static void cmdq_delay_thread_deinit(void)
-{
-	cmdq_core_free_hw_buffer(cmdq_dev_get(),
-		cmdq_delay_thd_cmd.buffer_size,
-		cmdq_delay_thd_cmd.p_va_base,
-		cmdq_delay_thd_cmd.mva_base);
-}
-
-void cmdq_delay_dump_thread(bool dump_sram)
-{
-	cmdq_core_dump_thread(NULL, CMDQ_DELAY_THREAD_ID, false, "INFO");
-	CMDQ_LOG(
-		"==Delay Thread Task, size:%u started:%d pa:%pa va:0x%p sram:%u\n",
-		cmdq_delay_thd_cmd.buffer_size, cmdq_delay_thd_started,
-		&cmdq_delay_thd_cmd.mva_base, cmdq_delay_thd_cmd.p_va_base,
-		cmdq_delay_thd_cmd.sram_base);
-	CMDQ_LOG("Dump TPR_MASK:0x%08x\n", CMDQ_REG_GET32(CMDQ_TPR_MASK));
-	cmdq_core_dump_cmd_mem(cmdq_delay_thd_cmd.p_va_base,
-		cmdq_delay_thd_cmd.buffer_size);
-	CMDQ_LOG("==Delay Thread Task command END\n");
-	if (dump_sram)
-		cmdq_core_dump_sram_mem(cmdq_delay_thd_cmd.sram_base,
-			cmdq_delay_thd_cmd.buffer_size);
-}
-
-u32 cmdq_core_get_delay_start_cpr(void)
-{
-	return cmdq_ctx.delay_cpr_start;
-}
-
-s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario)
-{
-	s32 delay_id = -1;
-
-	switch (scenario) {
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-	/* HACK: force debug into 0/1 thread */
-	case CMDQ_SCENARIO_DEBUG_PREFETCH:
-		delay_id = 0;
-		break;
-	case CMDQ_SCENARIO_TRIGGER_LOOP:
-		delay_id = 1;
-		break;
-	case CMDQ_SCENARIO_DEBUG:
-	case CMDQ_SCENARIO_DEBUG_MDP:
-		delay_id = 2;
-		break;
-	default:
-		delay_id = -1;
-		break;
-	}
-
-	return delay_id;
-}
-#endif
-
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart)
 {
 	unsigned long flags;
@@ -1971,6 +1726,8 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart)
 
 		status = 0;
 
+		atomic_inc(&cmdq_ctx.write_addr_cnt);
+
 	} while (0);
 
 	if (status != 0) {
@@ -2023,6 +1780,51 @@ u32 cmdqCoreReadWriteAddress(dma_addr_t pa)
 	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
 
 	return value;
+}
+
+void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out)
+{
+	struct WriteAddrStruct *waddr, *cur_waddr = NULL;
+	unsigned long flags = 0L;
+	u32 i;
+	dma_addr_t pa;
+
+	/* search for the entry */
+	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
+
+	CMDQ_PROF_MMP(cmdq_mmp_get_event()->read_reg,
+		MMPROFILE_FLAG_START, ((unsigned long)addrs),
+		(u32)atomic_read(&cmdq_ctx.write_addr_cnt));
+
+	for (i = 0; i < count; i++) {
+		pa = addrs[i];
+
+		if (!cur_waddr || pa < cur_waddr->pa ||
+			pa >= cur_waddr->pa + cur_waddr->count * sizeof(u32)) {
+			cur_waddr = NULL;
+			list_for_each_entry(waddr, &cmdq_ctx.writeAddrList,
+				list_node) {
+
+				if (pa < waddr->pa || pa >= waddr->pa +
+					waddr->count * sizeof(u32))
+					continue;
+				cur_waddr = waddr;
+				break;
+			}
+		}
+
+		if (cur_waddr)
+			val_out[i] = *((u32 *)(cur_waddr->va +
+				(pa - cur_waddr->pa)));
+		else
+			val_out[i] = 0;
+	}
+
+	CMDQ_PROF_MMP(cmdq_mmp_get_event()->read_reg,
+		MMPROFILE_FLAG_END, ((unsigned long)addrs), count);
+
+	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
+
 }
 
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value)
@@ -2109,6 +1911,8 @@ int cmdqCoreFreeWriteAddress(dma_addr_t paStart)
 
 	kfree(pWriteAddr);
 	pWriteAddr = NULL;
+
+	atomic_dec(&cmdq_ctx.write_addr_cnt);
 
 	return 0;
 }
@@ -3400,38 +3204,6 @@ static void cmdq_core_attach_engine_error(
 	}
 }
 
-void cmdq_core_dump_resource_status(enum cmdq_event resourceEvent)
-{
-	/* TODO: revise with resource list in mdp.c */
-#if 0
-	struct ResourceUnitStruct *pResource = NULL;
-
-	list_for_each_entry(pResource, &cmdq_ctx.resourceList,
-		list_entry) {
-		if (resourceEvent == pResource->lockEvent) {
-			CMDQ_ERR("[Res] Dump resource with event:%d\n",
-				resourceEvent);
-			mutex_lock(&gCmdqResourceMutex);
-			/* find matched resource */
-			CMDQ_ERR("[Res] Dump resource latest time:\n");
-			CMDQ_ERR("[Res]   notify:%llu delay:%lld\n",
-				pResource->notify, pResource->delay);
-			CMDQ_ERR("[Res]   lock:%llu unlock:%lld\n",
-				pResource->lock, pResource->unlock);
-			CMDQ_ERR("[Res]   acquire:%llu release:%lld\n",
-				pResource->acquire, pResource->release);
-			CMDQ_ERR("[Res] isUsed:%d isLend:%d isDelay:%d\n",
-				pResource->used, pResource->lend,
-				pResource->delaying);
-			if (!pResource->releaseCB)
-				CMDQ_ERR("[Res] release CB func is NULL\n");
-			mutex_unlock(&gCmdqResourceMutex);
-			break;
-		}
-	}
-#endif
-}
-
 static void cmdq_core_attach_error_handle_detail(
 	const struct cmdqRecStruct *handle, s32 thread,
 	const struct cmdqRecStruct **nghandle_out, const char **module_out,
@@ -3468,7 +3240,7 @@ static void cmdq_core_attach_error_handle_detail(
 		const u32 event = nginfo.inst[1] & ~0xFF000000;
 
 		if (event >= CMDQ_SYNC_RESOURCE_WROT0)
-			cmdq_core_dump_resource_status(event);
+			cmdq_mdp_dump_resource(event);
 	}
 
 	if (handle->scenario == CMDQ_SCENARIO_DISP_ESD_CHECK) {
@@ -3569,6 +3341,24 @@ static void cmdq_core_dump_thread_usage(void)
 			cmdq_ctx.thread[idx].scenario);
 	}
 }
+
+#ifdef CMDQ_DAPC_DEBUG
+static void cmdq_core_handle_devapc_vio(void)
+{
+	s32 mdp_smi_usage = cmdq_mdp_get_smi_usage();
+	s32 thd_usage = atomic_read(&cmdq_thread_usage);
+
+	CMDQ_ERR("GCE devapc vio dump mdp smi:%d cmdq thd:%d mmsys clk:%s\n",
+		mdp_smi_usage, thd_usage,
+		cmdq_dev_mmsys_clock_is_enable() ? "on" : "off");
+
+	cmdq_core_dump_thread_usage();
+	cmdq_mdp_dump_engine_usage();
+	cmdq_mdp_dump_thread_usage();
+
+	cmdq_get_func()->dumpSMI(0);
+}
+#endif
 
 s32 cmdq_core_acquire_thread(enum CMDQ_SCENARIO_ENUM scenario, bool exclusive)
 {
@@ -3730,6 +3520,11 @@ static void cmdq_core_group_clk_cb(bool enable,
 				cmdq_core_group_clk_off(index, engine_clk);
 		}
 	}
+}
+
+bool cmdq_thread_in_use(void)
+{
+	return (bool)(atomic_read(&cmdq_thread_usage) > 0);
 }
 
 static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
@@ -3961,7 +3756,7 @@ static void cmdq_core_v3_replace_jumpc(struct cmdqRecStruct *handle,
 		((p_cmd_logic[1] >> 16) & 0x1F) == CMDQ_LOGIC_ASSIGN) {
 		u32 jump_op = CMDQ_CODE_JUMP_C_ABSOLUTE << 24;
 		u32 jump_op_header = va[1] & 0xFFFFFF;
-		u32 jump_offset = p_cmd_logic[0];
+		u32 jump_offset = CMDQ_REG_REVERT_ADDR(p_cmd_logic[0]);
 		u32 offset_target = (revise_offset) ?
 			(inst_pos - 1) * CMDQ_INST_SIZE + jump_offset :
 			inst_pos * CMDQ_INST_SIZE + jump_offset;
@@ -3984,10 +3779,10 @@ static void cmdq_core_v3_replace_jumpc(struct cmdqRecStruct *handle,
 		va[1] = jump_op | jump_op_header;
 
 		CMDQ_MSG(
-			"Replace jump_c inst idx:0x%08x(0x%08x) cmd:0x%p 0x%08x:%08x logic:0x%p 0x%08x:0x%08x",
+			"Replace jump_c inst idx:%u(%u) cmd:0x%p %#016llx logic:0x%p %#016llx\n",
 			inst_idx, inst_pos,
-			va, va[1], va[0],
-			p_cmd_logic, p_cmd_logic[1], p_cmd_logic[0]);
+			va, *(u64 *)va,
+			p_cmd_logic, *(u64 *)p_cmd_logic);
 	} else {
 		/* unable to jump correctly since relative offset
 		 * may cross page
@@ -4191,11 +3986,6 @@ s32 cmdq_core_suspend(void)
 	}
 
 	CMDQ_MSG("CMDQ is suspended\n");
-#ifdef CMDQ_TIMER_ENABLE
-	/* set to true to disable delay thread when boot */
-	cmdq_delay_thd_inited = false;
-	cmdq_helper_mbox_clear_pools();
-#endif
 
 	/* ALWAYS allow suspend */
 	return 0;
@@ -4225,14 +4015,6 @@ s32 cmdq_core_resume_notifier(void)
 	 */
 
 	ref_count = atomic_read(&cmdq_thread_usage);
-
-#ifdef CMDQ_TIMER_ENABLE
-	if (!cmdq_delay_thd_inited) {
-		cmdq_copy_delay_to_sram();
-		CMDQ_MSG("resume, after copy delay to SRAM\n");
-		cmdq_delay_thd_inited = true;
-	}
-#endif
 
 	cmdq_mdp_resume();
 
@@ -4276,7 +4058,16 @@ struct CmdqCBkStruct *cmdq_core_get_group_cb(void)
 
 dma_addr_t cmdq_core_get_pc(s32 thread)
 {
-	dma_addr_t pc = CMDQ_REG_GET32(CMDQ_THR_CURR_ADDR(thread));
+	dma_addr_t pc;
+
+	if (atomic_read(&cmdq_thread_usage) <= 0) {
+		CMDQ_ERR("%s get pc thread:%d violation\n",
+			__func__, thread);
+		dump_stack();
+		return 0;
+	}
+
+	pc = CMDQ_REG_GET32(CMDQ_THR_CURR_ADDR(thread));
 
 	if (CMDQ_IS_SRAM_ADDR(pc))
 		return pc;
@@ -4544,11 +4335,6 @@ static s32 cmdq_pkt_lock_handle(struct cmdqRecStruct *handle,
 
 	/* task and thread dispatched, increase usage */
 	cmdq_core_clk_enable(handle);
-
-	/* Start delay thread before first task */
-#ifdef CMDQ_TIMER_ENABLE
-	cmdq_delay_thread_start();
-#endif
 	mutex_unlock(&cmdq_clock_mutex);
 
 	mutex_lock(&cmdq_handle_list_mutex);
@@ -4666,11 +4452,6 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 		mutex_unlock(&cmdq_thread_mutex);
 	}
 
-#ifdef CMDQ_TIMER_ENABLE
-	/* Stop delay thread after last task is done */
-	cmdq_delay_thread_stop();
-#endif
-
 	/* protect multi-thread lock/unlock same time */
 	mutex_lock(&cmdq_clock_mutex);
 
@@ -4679,6 +4460,11 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 
 	/* before stop job, decrease usage */
 	cmdq_core_clk_disable(handle);
+
+	/* stop callback */
+	if (handle->stop)
+		handle->stop(handle);
+
 	mutex_unlock(&cmdq_clock_mutex);
 
 	mutex_lock(&cmdq_handle_list_mutex);
@@ -4813,9 +4599,14 @@ s32 cmdq_pkt_dump_command(struct cmdqRecStruct *handle)
 	const void *inst;
 	u32 size;
 	static char text[128] = { 0 };
-	const struct cmdq_pkt *pkt = handle->pkt;
+	struct cmdq_pkt *pkt;
 	struct cmdq_pkt_buffer *buf;
 	u32 cnt = 0;
+
+	if (!handle)
+		return -EINVAL;
+
+	pkt = handle->pkt;
 
 	CMDQ_LOG("===== REC 0x%p command buffer =====\n", handle);
 	cmdq_core_dump_error_buffer(handle, NULL, 0);
@@ -4857,12 +4648,27 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	s32 status = 0;
 	u32 count = 0;
 	const struct cmdq_controller *ctrl = handle->ctrl;
+	struct cmdq_client *client;
 
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), handle->thread);
 
+	if (!cmdq_clients[handle->thread]) {
+		CMDQ_ERR("thread:%d cannot use since client is not used\n",
+			handle->thread);
+		return -EINVAL;
+	}
+
+
 	CMDQ_SYSTRACE_BEGIN("%s_wait_done\n", __func__);
 	handle->beginWait = sched_clock();
+
+	client = cmdq_clients[handle->thread];
+	if (!client->chan->mbox || !client->chan->mbox->dev)
+		CMDQ_AEE("CMDQ",
+			"chan:%u mbox:%p or mbox->dev:%p invalid!!",
+			handle->thread, client->chan->mbox,
+			client->chan->mbox->dev);
 
 	do {
 		if (!handle->pkt->loop) {
@@ -4897,6 +4703,10 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 		cmdq_core_dump_pc(handle, handle->thread, "INFO");
 		cmdq_core_dump_thread(handle, handle->thread, true, "INFO");
 
+		if (handle->secData.is_secure)
+			cmdq_core_dump_thread(NULL, CMDQ_SEC_IRQ_THREAD, false,
+				"INFO");
+
 		if (count == 0) {
 			cmdq_core_dump_trigger_loop_thread("INFO");
 			/* first time we dump full handle detail */
@@ -4909,13 +4719,38 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	handle->wakedUp = sched_clock();
 	CMDQ_SYSTRACE_END();
 
+	if (handle->profile_exec) {
+		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
+		u32 exec;
+
+		if (va[1] > va[0])
+			exec = 0xffffffff - va[0] + va[1];
+		else
+			exec = va[1] - va[0];
+
+		exec = CMDQ_TICK_TO_NS(exec) / 1000;
+
+		CMDQ_LOG(
+			"task profile thread:%d handle:0x%p execute time:%uus begin:%u end:%u\n",
+			handle->thread, handle, exec, va[0], va[1]);
+
+		CMDQ_PROF_MMP(cmdq_mmp_get_event()->task_exec,
+			MMPROFILE_FLAG_PULSE, ((unsigned long)handle), exec);
+	}
+
 	status = ctrl->handle_wait_result(handle, handle->thread);
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task_done,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle),
 		handle->wakedUp - handle->beginWait);
 
+	CMDQ_SYSTRACE_BEGIN("%s_wait_release\n", __func__);
 	cmdq_core_track_handle_record(handle, handle->thread);
 	cmdq_pkt_release_handle(handle);
+
+	CMDQ_SYSTRACE_END();
+	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task_clean,
+		MMPROFILE_FLAG_PULSE, ((unsigned long)handle->pkt),
+		(unsigned long)handle->pkt);
 
 	return status;
 }
@@ -5209,25 +5044,60 @@ s32 cmdq_pkt_stop(struct cmdqRecStruct *handle)
 s32 cmdq_helper_mbox_register(struct device *dev)
 {
 	u32 i;
+	s32 chan_id;
+	struct cmdq_client *clt;
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u32 sec_thread[2] = {0};
+	s32 ret;
+
+	ret = of_property_read_u32_array(dev->of_node, "secure_thread",
+		sec_thread, 2);
+	if (ret != 0) {
+		sec_thread[0] = CMDQ_MIN_SECURE_THREAD_ID;
+		sec_thread[1] = CMDQ_MIN_SECURE_THREAD_ID +
+			CMDQ_MAX_SECURE_THREAD_COUNT;
+	}
+	CMDQ_LOG("sec thread index %u to %u\n", sec_thread[0], sec_thread[1]);
+#endif
 
 	/* for display we start from thread 0 */
 	for (i = 0; i < CMDQ_MAX_THREAD_COUNT; i++) {
-		if (cmdq_clients[i])
-			continue;
-		cmdq_clients[i] = cmdq_mbox_create(dev, i);
-		if (IS_ERR(cmdq_clients[i]->chan)) {
-			CMDQ_LOG("chan %u 0x%p err:%ld dev:0x%p\n",
-				i, cmdq_clients[i]->chan,
-				PTR_ERR(cmdq_clients[i]->chan), dev);
-			kfree(cmdq_clients[i]);
-			cmdq_clients[i] = NULL;
+		clt = cmdq_mbox_create(dev, i);
+		if (!clt || IS_ERR(clt)) {
+			CMDQ_LOG("register mbox stop:0x%p idx:%u\n", clt, i);
 			break;
 		}
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+		/* if channel is not valid in normal controller, check sec */
+		if (i >= sec_thread[0] && i <= sec_thread[1])
+			chan_id = cmdq_mbox_sec_chan_id(clt->chan);
+		else
+			chan_id = cmdq_mbox_chan_id(clt->chan);
+#else
+		chan_id = cmdq_mbox_chan_id(clt->chan);
+#endif
+
+		if (chan_id < 0 || cmdq_clients[chan_id]) {
+			CMDQ_ERR("channel and client duplicate:%d\n", chan_id);
+			cmdq_mbox_destroy(clt);
+			continue;
+		}
+
+		cmdq_clients[chan_id] = clt;
+		CMDQ_LOG("chan %d 0x%p dev:0x%p\n",
+			chan_id, cmdq_clients[chan_id]->chan, dev);
 	}
 
-	CMDQ_LOG("register client done count:%u\n", i);
-
 	cmdq_client_base = cmdq_register_device(dev);
+
+	/* for mm like mdp set large pool count */
+	for (i = CMDQ_DYNAMIC_THREAD_ID_START;
+		i < CMDQ_DYNAMIC_THREAD_ID_START + 3; i++) {
+		if (!cmdq_clients[i])
+			continue;
+		cmdq_mbox_pool_set_limit(cmdq_clients[i], CMDQ_DMA_POOL_COUNT);
+	}
 
 	return 0;
 }
@@ -5285,6 +5155,11 @@ void cmdq_core_initialize(void)
 		if (thread_id != CMDQ_INVALID_THREAD)
 			cmdq_ctx.thread[thread_id].used = true;
 	}
+
+	for (index = 0; index < ARRAY_SIZE(cmdq_clients); index++)
+		if (!cmdq_clients[index])
+			cmdq_ctx.thread[index].used = true;
+
 	cmdq_long_string_init(false, long_msg, &msg_offset, &msg_max_size);
 	for (index = 0; index < max_thread_count; index++) {
 		if (!cmdq_ctx.thread[index].used)
@@ -5351,7 +5226,7 @@ void cmdq_core_initialize(void)
 	/* Initialize MET for statistics */
 	/* note that we don't need to uninit it. */
 	CMDQ_PROF_INIT();
-#ifdef CMDQ_PROFILE_MMP
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	cmdq_mmp_init();
 #endif
 #ifdef CMDQ_SECURE_PATH_SUPPORT
@@ -5362,24 +5237,21 @@ void cmdq_core_initialize(void)
 	/* Initialize test case structure */
 	cmdq_test_init_setting();
 #endif
-
-#ifdef CMDQ_TIMER_ENABLE
-	/* set to true to disable delay thread when boot */
-	cmdq_delay_thd_inited = false;
-#endif
 }
+
+#ifdef CMDQ_DAPC_DEBUG
+static struct devapc_vio_callbacks devapc_vio_handle = {
+	.id = SUBSYS_GCE,
+	.debug_dump = cmdq_core_handle_devapc_vio,
+};
+#endif
 
 static int __init cmdq_core_late_init(void)
 {
 	CMDQ_LOG("CMDQ driver late init begin\n");
 
-#ifdef CMDQ_TIMER_ENABLE
-	if (!cmdq_delay_thd_inited) {
-		s32 status = cmdq_delay_thread_init();
-
-		if (status < 0)
-			CMDQ_ERR("delay init failed in late init!\n");
-	}
+#ifdef CMDQ_DAPC_DEBUG
+	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
 
 	CMDQ_MSG("CMDQ driver late init end\n");
@@ -5417,11 +5289,6 @@ void cmdq_core_deinitialize(void)
 
 	kmem_cache_destroy(cmdq_ctx.taskCache);
 	cmdq_ctx.taskCache = NULL;
-#endif
-
-#ifdef CMDQ_TIMER_ENABLE
-	/* Delay thread de-initialization */
-	cmdq_delay_thread_deinit();
 #endif
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
