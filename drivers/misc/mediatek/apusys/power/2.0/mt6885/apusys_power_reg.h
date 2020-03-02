@@ -11,13 +11,11 @@
  * GNU General Public License for more details.
  */
 
-// FIXME: should read base address from device tree
-#if 1
-#define	APU_RPCTOP_BASE		(0x190F0000)
-#else
-extern uint32_t g_APU_RPCTOP_BASE;
+static void __iomem *g_APU_RPCTOP_BASE;
+static void __iomem *g_APU_PCUTOP_BASE;
+
 #define	APU_RPCTOP_BASE		(g_APU_RPCTOP_BASE)
-#endif
+#define	APU_PCUTOP_BASE		(g_APU_PCUTOP_BASE)
 
 #define	APU_RPC_TOP_CON		(void *)(APU_RPCTOP_BASE + 0x000)
 #define	APU_RPC_TOP_SEL		(void *)(APU_RPCTOP_BASE + 0x004)

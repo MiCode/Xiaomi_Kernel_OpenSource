@@ -34,6 +34,19 @@
 
 #define POWER_ON_DELAY	(100)
 
+struct power_device {
+	enum DVFS_USER dev_usr;
+	int is_power_on;
+	struct platform_device *pdev;
+	struct list_head list;
+};
+
+struct power_callback_device {
+	enum POWER_CALLBACK_USER power_callback_usr;
+	void (*power_on_callback)(void *para);
+	void (*power_off_callback)(void *para);
+	struct list_head list;
+};
 
 static LIST_HEAD(power_device_list);
 static LIST_HEAD(power_callback_device_list);
@@ -43,20 +56,7 @@ static int apu_power_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
 
-struct power_device {
-	enum DVFS_USER dev_usr;
-	int is_power_on;
-	struct platform_device *pdev;
-	struct list_head list;
-};
-
-
-struct power_callback_device {
-	enum POWER_CALLBACK_USER power_callback_usr;
-	void (*power_on_callback)(void *para);
-	void (*power_off_callback)(void *para);
-	struct list_head list;
-};
+struct hal_param_init_power init_power_data;
 
 
 uint64_t get_current_time_us(void)
@@ -313,9 +313,9 @@ int apu_power_device_register(enum DVFS_USER user, struct platform_device *pdev)
 
 	list_add_tail(&pwr_dev->list, &power_device_list);
 
-	if (apu_power_counter == 0 && pwr_dev->pdev != NULL) {
+	if (apu_power_counter == 0) {
 		// prepare clock and get regulator handle
-		apusys_power_init(user, pwr_dev->pdev);
+		apusys_power_init(user, (void *)&init_power_data);
 	}
 	apu_power_counter++;
 
@@ -399,10 +399,42 @@ EXPORT_SYMBOL(apu_power_callback_device_unregister);
 static int apu_power_probe(struct platform_device *pdev)
 {
 	int err = 0;
+	struct resource *apusys_rpc_res = NULL;
+	struct resource *apusys_pcu_res = NULL;
+	struct device *apusys_dev = &pdev->dev;
 
 	LOG_INF("%s pdev id = %d name = %s, name = %s\n", __func__,
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
+	init_power_data.dev = apusys_dev;
+
+	apusys_rpc_res = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "apusys_rpc");
+	init_power_data.rpc_base_addr = devm_ioremap_resource(
+						apusys_dev, apusys_rpc_res);
+
+	if (IS_ERR((void *)init_power_data.rpc_base_addr)) {
+		LOG_ERR("Unable to ioremap apusys_rpc\n");
+		goto err_exit;
+	}
+
+	LOG_INF("%s apusys_rpc = 0x%x, size = %d\n", __func__,
+				init_power_data.rpc_base_addr,
+				(unsigned int)resource_size(apusys_rpc_res));
+
+	apusys_pcu_res = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "apusys_pcu");
+	init_power_data.pcu_base_addr = devm_ioremap_resource(
+						apusys_dev, apusys_pcu_res);
+
+	if (IS_ERR((void *)init_power_data.pcu_base_addr)) {
+		LOG_ERR("Unable to ioremap apusys_pcu\n");
+		goto err_exit;
+	}
+
+	LOG_INF("%s apusys_pcu = 0x%x, size = %d\n", __func__,
+				init_power_data.pcu_base_addr,
+				(unsigned int)resource_size(apusys_pcu_res));
 
 	power_task_handle = kthread_create(apusys_power_task,
 						(void *)NULL, "apusys_power");
@@ -420,6 +452,8 @@ static int apu_power_probe(struct platform_device *pdev)
 	return 0;
 
 err_exit:
+	init_power_data.rpc_base_addr = NULL;
+	init_power_data.pcu_base_addr = NULL;
 	return err;
 }
 
@@ -439,8 +473,8 @@ static int apu_power_remove(struct platform_device *pdev)
 
 
 static const struct of_device_id apu_power_of_match[] = {
-	{ .compatible = "mediatek,apu_power" },
-	{ },
+	{ .compatible = "mediatek,apusys_power" },
+	{ /* end of list */},
 };
 
 
@@ -448,7 +482,7 @@ static struct platform_driver apu_power_driver = {
 	.probe	= apu_power_probe,
 	.remove	= apu_power_remove,
 	.driver = {
-		.name = "apu_power",
+		.name = "apusys_power",
 		.of_match_table = apu_power_of_match,
 	},
 };

@@ -40,6 +40,8 @@ enum HAL_POWER_CMD {
 
 struct hal_param_init_power {
 	struct device *dev;
+	void __iomem *rpc_base_addr;
+	void __iomem *pcu_base_addr;
 };
 
 // regulator only, target_opp range : 0 ~ 15
