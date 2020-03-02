@@ -315,9 +315,10 @@ static int hf_manager_find_client(struct hf_manager_event *event)
 
 	spin_lock_irqsave(&hf_client_list_lock, flags);
 	list_for_each_entry(client, &hf_client_list, list) {
+		/* must (err |=), collect all err to decide retry? */
 		if (READ_ONCE(client->request[event->sensor_id].action) ==
 				HF_MANAGER_SENSOR_ENABLE)
-			err = hf_manager_report_event(client, event);
+			err |= hf_manager_report_event(client, event);
 	}
 	spin_unlock_irqrestore(&hf_client_list_lock, flags);
 
