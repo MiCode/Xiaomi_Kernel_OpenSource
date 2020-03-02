@@ -45,7 +45,7 @@ TRACE_EVENT(__MET_PACKET__,
 		__entry->core = core;
 		__entry->pid = pid;
 		__entry->sessid = sessid;
-		strncpy(__entry->str_desc, str_desc, MX_LEN_STR_DESC);
+		snprintf(__entry->str_desc, MX_LEN_STR_DESC, "%s", str_desc);
 		__entry->val = val;
 	),
 	TP_printk(

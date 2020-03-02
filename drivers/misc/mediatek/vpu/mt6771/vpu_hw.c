@@ -1768,27 +1768,27 @@ list_rescan:
 	spin_lock_irq(&(my_work_core->my_lock));
 	list_for_each(entry, &(my_work_core->list)) {
 		vlr = list_entry(entry, struct vpu_log_reader_t, list);
-		log_buf_size = vlr->buf_size;
-		vpu_core = vlr->core;
 		if (vlr != NULL) {
+			log_buf_size = vlr->buf_size;
+			vpu_core = vlr->core;
 			vpu_trace_dump("%s %d addr/size/ptr: %08x/%08x/%p",
 				__func__, __LINE__, vlr->buf_addr,
 				vlr->buf_size, vlr->ptr);
+			ptr = vlr->ptr;
+			if (ptr) {
+				vpu_log_parser(vpu_core, ptr, log_buf_size);
+				kfree(ptr);
+				vlr->ptr = NULL;
+			} else {
+				vpu_trace_dump("my_work_core->ptr is NULL");
+			}
+			list_del(entry);
+			kfree(vlr);
 		} else {
-			vpu_trace_dump("%s %d [%d] vlr is null",
-				__func__, __LINE__, vpu_core);
+			vpu_trace_dump("%s %d vlr is null",
+				__func__, __LINE__);
+			list_del(entry);
 		}
-
-		ptr = vlr->ptr;
-		if (ptr) {
-			vpu_log_parser(vpu_core, ptr, log_buf_size);
-			kfree(ptr);
-			vlr->ptr = NULL;
-		} else {
-			vpu_trace_dump("my_work_core->ptr is NULL");
-		}
-		list_del(entry);
-		kfree(vlr);
 		spin_unlock_irq(&(my_work_core->my_lock));
 		goto list_rescan;
 	}
@@ -1923,6 +1923,7 @@ static int isr_common_handler(int core)
 					    &(ftrace_dump_work[core].my_work));
 				} else {
 					LOG_ERR("vpu_log_reader alloc fail");
+					kfree(ptr);
 				}
 				if (g_vpu_log_level > VpuLogThre_PERFORMANCE)
 					vpu_trace_end();
