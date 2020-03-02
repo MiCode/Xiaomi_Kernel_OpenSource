@@ -1367,6 +1367,49 @@ unsigned int scp_set_reset_status(void)
 	return 0;
 }
 
+
+/******************************************************************************
+ *****************************************************************************/
+void reset_sram_state_machine(void)
+{
+	void __iomem *clkctrl = scpreg.clkctrl;  // 0x105C_4000
+	unsigned int offset;
+	unsigned int value;
+
+	if ((clkctrl == NULL) || (SCP_TCM == NULL))
+		return;
+
+	pr_notice("[SCP] Reset SRAM state machine.\n");
+
+	/**********************************************************************
+	 * Step 3. Reset SRAM state machine.
+	 *********************************************************************/
+	// Set bit 0 of 0xC4020 to 0.
+	offset = 0x20;
+	value = (unsigned int)readl(clkctrl + offset);
+	pr_notice("[SCP] clk[0x%02x]: 0x%08x\n", offset, value);
+	value &= ~0x1;
+	writel(value, clkctrl + offset);
+	value = (unsigned int)readl(clkctrl + offset);
+	pr_notice("[SCP] clk[0x%02x]: 0x%08x\n", offset, value);
+
+	/**********************************************************************
+	 * SRAM read/write test.
+	 *********************************************************************/
+	// Loader[0]
+	writel(0x33CCCC33, SCP_TCM + 0);
+	value = readl(SCP_TCM + 0);
+	if (value != 0x33CCCC33)
+		pr_notice("[SCP] SRAM W/R failed! loader[0]: 0x%08x\n", value);
+
+	// Loader[4]
+	writel(0x44BBBB44, SCP_TCM + 4);
+	value = readl(SCP_TCM + 4);
+	if (value != 0x44BBBB44)
+		pr_notice("[SCP] SRAM W/R failed! loader[4]: 0x%08x\n", value);
+}
+
+
 /******************************************************************************
  *****************************************************************************/
 void print_clk_registers(void)
@@ -1376,12 +1419,36 @@ void print_clk_registers(void)
 	void __iomem *clkctrl = scpreg.clkctrl;  // 0x105C_4000
 	unsigned int offset;
 	unsigned int value;
+	int cmp_error = 0;
 
 	// Print the first few bytes of the loader binary.
 	if (loader_base) {
 		for (offset = 0; offset < 16; offset += 4) {
 			value = (unsigned int)readl(loader_base + offset);
-			pr_notice("[SCP] loader[%u]: 0x%08x\n", offset, value);
+			pr_notice("[SCP] loader[0x%02x]: 0x%08x\n",
+				offset, value);
+		}
+	}
+
+	if (SCP_TCM) {
+		for (offset = 0; offset < 32; offset += 4) {
+			value = (unsigned int)readl(SCP_TCM + offset);
+			pr_notice("[SCP] SRAM loader[0x%02x]: 0x%08x\n",
+				offset, value);
+		}
+		writel(0x3CC35AA5, SCP_TCM + 0);
+		value = readl(SCP_TCM + 0);
+		if (value != 0x3CC35AA5) {
+			pr_notice("[SCP] SRAM W/R failed! loader[0]: 0x%08x\n",
+				value);
+			cmp_error = 1;
+		}
+		writel(0x2DD24BB4, SCP_TCM + 4);
+		value = readl(SCP_TCM + 4);
+		if (value != 0x2DD24BB4) {
+			pr_notice("[SCP] SRAM W/R failed! loader[4]: 0x%08x\n",
+				value);
+			cmp_error = 1;
 		}
 	}
 
@@ -1395,6 +1462,9 @@ void print_clk_registers(void)
 		value = (unsigned int)readl(clkctrl + offset);
 		pr_notice("[SCP] clk[%p]: 0x%08x\n", clkctrl + offset, value);
 	}
+
+	if (cmp_error)
+		reset_sram_state_machine();
 }
 
 /*
