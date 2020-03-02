@@ -503,8 +503,20 @@ firmware_class.path=/vendor/firmware";
 		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	i2c_common: i2c_common {
+		compatible = "mediatek,i2c_common";
+		dma_support = /bits/ 8 <2>;
+		idvfs = /bits/ 8 <1>;
+		set_dt_div = /bits/ 8 <1>;
+		check_max_freq = /bits/ 8 <1>;
+		ver = /bits/ 8 <2>;
+		set_ltiming = /bits/ 8 <1>;
+		ext_time_config = /bits/ 16 <0x1801>;
+		cnt_constraint = /bits/ 8 <1>;
+	};
+
 	i2c0: i2c@11007000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <0>;
 		reg = <0 0x11007000 0 0x1000>,
 			<0 0x11000080 0 0x80>;
@@ -518,7 +530,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c1: i2c@11011000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <1>;
 		reg = <0 0x11011000 0 0x1000>,
 			<0 0x11000480 0 0x80>;
@@ -532,7 +544,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c2: i2c@11009000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <2>;
 		reg = <0 0x11009000 0 0x1000>,
 			<0 0x11000280 0 0x80>;
@@ -548,7 +560,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c3: i2c@1100f000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <3>;
 		reg = <0 0x1100f000 0 0x1000>,
 			<0 0x11000400 0 0x80>;
@@ -561,7 +573,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c4: i2c@11008000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <4>;
 		reg = <0 0x11008000 0 0x1000>,
 			<0 0x11000100 0 0x80>;
@@ -577,7 +589,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c5: i2c@11017000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <5>;
 		reg = <0 0x11017000 0 0x1000>,
 			<0 0x11000580 0 0x80>;
@@ -591,7 +603,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c6: i2c@11005000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <6>;
 		reg = <0 0x11005000 0 0x1000>,
 			<0 0x11000600 0 0x80>;
@@ -604,7 +616,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c7: i2c@1101a000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <7>;
 		reg = <0 0x1101a000 0 0x1000>,
 			<0 0x11000680 0 0x80>;
@@ -617,7 +629,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c8: i2c@1101b000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <8>;
 		reg = <0 0x1101b000 0 0x1000>,
 			<0 0x11000700 0 0x80>;
@@ -630,7 +642,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c9: i2c@11014000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <9>;
 		reg = <0 0x11014000 0 0x1000>,
 			<0 0x11000180 0 0x80>;
@@ -644,7 +656,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c10: i2c@11015000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <10>;
 		reg = <0 0x11015000 0 0x1000>,
 			<0 0x11000300 0 0x80>;
@@ -658,7 +670,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	i2c11: i2c@11016000 {
-		compatible = "mediatek,mt6771-i2c";
+		compatible = "mediatek,i2c";
 		id = <11>;
 		reg = <0 0x11016000 0 0x1000>,
 			<0 0x11000500 0 0x80>;
