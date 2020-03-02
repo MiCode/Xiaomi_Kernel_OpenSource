@@ -204,7 +204,7 @@ CONFIG_FB,PLATFORM,,,y,y,X,y,X,y,X,y,X,y,X,y,X
 CONFIG_FB_MODE_HELPERS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_FB_TILEBLITTING,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_FHANDLE,COMMON,,,N,N,N,N,N,N,N,N,N,N,N,N,N
-CONFIG_FORTIFY_SOURCE,PROJECT,miles.lin,Need to enable or modify this option according to https://github.com/google/syzkaller/blob/master/docs/linux/kernel_configs.md,O,O,O,O,O,O,O,O,O,O,O,O,O
+CONFIG_FORTIFY_SOURCE,USER,miles.lin,Need to enable or modify this option according to https://github.com/google/syzkaller/blob/master/docs/linux/kernel_configs.md,N,X,N,X,N,X,N,X,N,X,N,X,N
 CONFIG_FRAME_WARN,PLATFORM,Miles.Chen,KASAN used,1500,1500,2800,1500,1500,1500,2800,1500,2800,1500,2800,1500,2800
 CONFIG_FUSE_FS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_FW_LOADER_USER_HELPER_FALLBACK,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,X,X,X,X
