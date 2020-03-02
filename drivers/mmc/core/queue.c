@@ -87,14 +87,6 @@ static struct request *mmc_peek_request(struct mmc_queue *mq)
 	return mq->cmdq_req_peeked;
 }
 
-static void mmc_cmdq_set_active(struct mmc_cmdq_context_info *ctx, bool en)
-{
-	if (en)
-		set_bit(CMDQ_STATE_FETCH_QUEUE, &ctx->curr_state);
-	else
-		clear_bit(CMDQ_STATE_FETCH_QUEUE, &ctx->curr_state);
-}
-
 static bool mmc_check_blk_queue_start_tag(struct request_queue *q,
 	struct request *req)
 {
@@ -112,18 +104,9 @@ static bool mmc_check_blk_queue_start(struct mmc_cmdq_context_info *ctx,
 {
 	struct request_queue *q = mq->queue;
 
-	/*
-	 * Set fetch queue flag before check error state.
-	 * This is to prevent when error occurs after error check
-	 * and the request is not issue at LLD.
-	 */
-	mmc_cmdq_set_active(ctx, true);
-
 	if (!test_bit(CMDQ_STATE_ERR, &ctx->curr_state)
 		&& !mmc_check_blk_queue_start_tag(q, mq->cmdq_req_peeked))
 		return true;
-
-	mmc_cmdq_set_active(ctx, false);
 
 	return false;
 }
@@ -159,7 +142,6 @@ static int mmc_cmdq_thread(void *d)
 	struct mmc_queue *mq = d;
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
-	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 	struct sched_param scheduler_params = {0};
 
 	scheduler_params.sched_priority = 1;
@@ -178,8 +160,14 @@ static int mmc_cmdq_thread(void *d)
 
 		mt_biolog_cqhci_check();
 
+		ret = mmc_cmdq_down_rwsem(host, mq->cmdq_req_peeked);
+		if (ret) {
+			mmc_cmdq_up_rwsem(host);
+			continue;
+		}
+
 		ret = mq->cmdq_issue_fn(mq, mq->cmdq_req_peeked);
-		mmc_cmdq_set_active(ctx, false);
+		mmc_cmdq_up_rwsem(host);
 		/*
 		 * Don't requeue if issue_fn fails, just bug on.
 		 * We don't expect failure here and there is no recovery other
@@ -690,6 +678,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 
 	init_waitqueue_head(&card->host->cmdq_ctx.queue_empty_wq);
 	init_waitqueue_head(&card->host->cmdq_ctx.wait);
+	init_rwsem(&card->host->cmdq_ctx.err_rwsem);
 
 	mq->mqrq_cmdq = kcalloc(q_depth,
 			sizeof(struct mmc_queue_req), GFP_KERNEL);
