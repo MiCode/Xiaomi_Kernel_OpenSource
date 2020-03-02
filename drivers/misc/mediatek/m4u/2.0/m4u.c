@@ -1040,7 +1040,11 @@ int m4u_dma_cache_flush_all(void)
 void m4u_dma_cache_flush_range(void *start, size_t size)
 {
 #ifndef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
+#ifdef CONFIG_ARM64
+	__dma_flush_area((void *)start, size);
+#else
 	dmac_flush_range((void *)start, (void *)(start + size));
+#endif
 #else
 	mt_smp_cache_flush_m4u(start, size);
 #endif
@@ -1083,7 +1087,11 @@ static int __m4u_cache_sync_kernel(const void *start, size_t size,
 		dmac_unmap_area((void *)start, size, DMA_FROM_DEVICE);
 	else if (sync_type == M4U_CACHE_FLUSH_BY_RANGE)
 #ifndef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
+#ifdef CONFIG_ARM64
+		__dma_flush_area((void *)start, size);
+#else
 		dmac_flush_range((void *)start, (void *)(start + size));
+#endif
 #else
 		mt_smp_cache_flush_m4u(start, size);
 #endif
