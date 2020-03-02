@@ -782,7 +782,9 @@ static ssize_t scp_wdt_trigger(struct device *dev
 {
 	unsigned int value = 0;
 
-	pr_debug("%s: %s\n", __func__, buf);
+	if (!buf || count == 0)
+		return count;
+	pr_debug("%s: %8s\n", __func__, buf);
 	if (kstrtouint(buf, 10, &value) == 0) {
 		if (value == 666)
 			scp_wdt_reset(SCP_A_ID);
@@ -799,11 +801,18 @@ DEVICE_ATTR(wdt_reset, 0200, NULL, scp_wdt_trigger);
 static ssize_t scp_reset_trigger(struct device *dev
 		, struct device_attribute *attr, const char *buf, size_t count)
 {
-	pr_debug("%s: %s\n", __func__, buf);
+	unsigned int value = 0;
 
+	if (!buf || count == 0)
+		return count;
+	pr_debug("%s: %8s\n", __func__, buf);
 	/* scp reset by cmdm set flag =1 */
-	scp_reset_by_cmd = 1;
-	scp_wdt_reset(SCP_A_ID);
+	if (kstrtouint(buf, 10, &value) == 0) {
+		if (value == 666) {
+			scp_reset_by_cmd = 1;
+			scp_wdt_reset(SCP_A_ID);
+		}
+	}
 
 	return count;
 }
@@ -1426,8 +1435,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	*(unsigned int *)scp_reset_reg = 0x1;
 	dsb(SY);
 #if SCP_BOOT_TIME_OUT_MONITOR
-	scp_ready_timer[SCP_A_ID].expires = jiffies + SCP_READY_TIMEOUT;
-	add_timer(&scp_ready_timer[SCP_A_ID]);
+	mod_timer(&scp_ready_timer[SCP_A_ID], jiffies + SCP_READY_TIMEOUT);
 #endif
 	/* clear scp reset by cmd flag*/
 	scp_reset_by_cmd = 0;
