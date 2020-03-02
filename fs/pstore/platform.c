@@ -49,6 +49,9 @@
 #include "internal.h"
 
 #ifdef __aarch64__
+#ifdef memcpy
+#undef memcpy
+#endif
 #define memcpy memcpy_toio
 #endif
 

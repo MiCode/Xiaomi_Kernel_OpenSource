@@ -39,6 +39,9 @@
 #define RAMOOPS_KERNMSG_HDR "===="
 #define MIN_MEM_SIZE 4096UL
 #ifdef __aarch64__
+#ifdef memcpy
+#undef memcpy
+#endif
 #define memcpy memcpy_toio
 #endif
 

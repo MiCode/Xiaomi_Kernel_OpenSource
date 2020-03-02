@@ -37,6 +37,9 @@ struct persistent_ram_buffer {
 };
 
 #ifdef __aarch64__
+#ifdef memcpy
+#undef memcpy
+#endif
 #define memcpy memcpy_toio
 #endif
 
