@@ -9,6 +9,7 @@
 #include <linux/dma-debug.h>
 
 #include <asm/memory.h>
+#include <asm/dma-iommu.h>
 
 #include <xen/xen.h>
 #include <asm/xen/hypervisor.h>
@@ -272,6 +273,27 @@ extern void arm_dma_sync_sg_for_device(struct device *, struct scatterlist *, in
 extern int arm_dma_get_sgtable(struct device *dev, struct sg_table *sgt,
 		void *cpu_addr, dma_addr_t dma_addr, size_t size,
 		unsigned long attrs);
+
+/*
+ * For reserve iova regions
+ */
+
+int arm_dma_reserve(struct dma_iommu_mapping *mapping, dma_addr_t addr,
+		size_t size);	/*only for iommu device*/
+
+
+extern int dma_map_sg_within_reserved_iova(struct device *dev,
+					struct scatterlist *sg, int nents,
+					int prot, dma_addr_t dma_addr);
+extern void dma_unmap_sg_within_reserved_iova(struct device *dev,
+				       struct scatterlist *sg, int nents,
+				       int prot, size_t size);
+extern void *dma_alloc_coherent_fix_iova(struct device *dev,
+					dma_addr_t dma_addr,
+					size_t size, gfp_t flag);
+extern void dma_free_coherent_fix_iova(struct device *dev, void *cpu_addr,
+				dma_addr_t dma_addr, size_t size);
+
 
 #endif /* __KERNEL__ */
 #endif
