@@ -13,14 +13,7 @@
 #ifndef __EEPROM_I2C_DEV_H
 #define __EEPROM_I2C_DEV_H
 
-enum CAM_CAL_SENSOR_IDX {
-	CAM_CAL_SENSOR_IDX_MAIN = 0,
-	CAM_CAL_SENSOR_IDX_SUB,
-	CAM_CAL_SENSOR_IDX_MAIN2,
-	CAM_CAL_SENSOR_IDX_SUB2,
-	CAM_CAL_SENSOR_IDX_MAIN3,
-	CAM_CAL_SENSOR_IDX_MAX,
-};
+#include "kd_camera_feature.h"
 
 enum EEPROM_I2C_DEV_IDX {
 	I2C_DEV_IDX_1 = 0,
@@ -31,6 +24,6 @@ enum EEPROM_I2C_DEV_IDX {
 
 extern int gi2c_dev_timing[I2C_DEV_IDX_MAX];
 
-enum EEPROM_I2C_DEV_IDX get_i2c_dev_sel(enum CAM_CAL_SENSOR_IDX idx);
+enum EEPROM_I2C_DEV_IDX get_i2c_dev_sel(enum IMGSENSOR_SENSOR_IDX idx);
 
 #endif /* __EEPROM_I2C_DEV_H */

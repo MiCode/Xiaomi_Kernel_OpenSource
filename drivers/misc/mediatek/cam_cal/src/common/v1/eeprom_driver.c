@@ -58,20 +58,7 @@ static struct i2c_client *g_pstI2Cclients[I2C_DEV_IDX_MAX] = { NULL };
 static DEFINE_SPINLOCK(g_spinLock);	/*for SMP */
 
 
-/*Note: Must Mapping to IHalSensor.h*/
-enum {
-	SENSOR_DEV_NONE = 0x00,
-	SENSOR_DEV_MAIN = 0x01,
-	SENSOR_DEV_SUB = 0x02,
-	SENSOR_DEV_PIP = 0x03,
-	SENSOR_DEV_MAIN_2 = 0x04,
-	SENSOR_DEV_MAIN_3D = 0x05,
-	SENSOR_DEV_SUB_2 = 0x08,
-	SENSOR_DEV_MAIN_3 = 0x10,
-	SENSOR_DEV_MAX = 0x50
-};
-
-static unsigned int g_lastDevID = SENSOR_DEV_NONE;
+static unsigned int g_lastDevID;
 
 /***********************************************************
  *
@@ -86,7 +73,8 @@ struct stCAM_CAL_CMD_INFO_STRUCT {
 	unsigned int maxEepromSize;
 };
 
-static struct stCAM_CAL_CMD_INFO_STRUCT g_camCalDrvInfo[CAM_CAL_SENSOR_IDX_MAX];
+static struct stCAM_CAL_CMD_INFO_STRUCT
+	g_camCalDrvInfo[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 
 /********************************************************************
  * EEPROM_set_i2c_bus()
@@ -96,28 +84,13 @@ static struct stCAM_CAL_CMD_INFO_STRUCT g_camCalDrvInfo[CAM_CAL_SENSOR_IDX_MAX];
 static int EEPROM_set_i2c_bus(unsigned int deviceID,
 			      struct stCAM_CAL_CMD_INFO_STRUCT *cmdInfo)
 {
-	enum CAM_CAL_SENSOR_IDX idx;
+	enum IMGSENSOR_SENSOR_IDX idx;
 	struct i2c_client *client;
 
-	switch (deviceID) {
-	case SENSOR_DEV_MAIN:
-		idx = CAM_CAL_SENSOR_IDX_MAIN;
-		break;
-	case SENSOR_DEV_SUB:
-		idx = CAM_CAL_SENSOR_IDX_SUB;
-		break;
-	case SENSOR_DEV_MAIN_2:
-		idx = CAM_CAL_SENSOR_IDX_MAIN2;
-		break;
-	case SENSOR_DEV_SUB_2:
-		idx = CAM_CAL_SENSOR_IDX_SUB2;
-		break;
-	case SENSOR_DEV_MAIN_3:
-		idx = CAM_CAL_SENSOR_IDX_MAIN3;
-		break;
-	default:
+	idx = IMGSENSOR_SENSOR_IDX_MAP(deviceID);
+	if (idx == IMGSENSOR_SENSOR_IDX_NONE)
 		return -EFAULT;
-	}
+
 	client = g_pstI2Cclients[get_i2c_dev_sel(idx)];
 	pr_debug("%s end! deviceID=%d index=%u client=%p\n",
 		 __func__, deviceID, idx, client);
@@ -185,14 +158,14 @@ static struct stCAM_CAL_CMD_INFO_STRUCT *EEPROM_get_cmd_info_ex
 	int i = 0;
 
 	/* To check device ID */
-	for (i = 0; i < CAM_CAL_SENSOR_IDX_MAX; i++) {
+	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		if (g_camCalDrvInfo[i].deviceID == deviceID)
 			break;
 	}
 	/* To check cmd from Sensor ID */
 
-	if (i == CAM_CAL_SENSOR_IDX_MAX) {
-		for (i = 0; i < CAM_CAL_SENSOR_IDX_MAX; i++) {
+	if (i == IMGSENSOR_SENSOR_IDX_MAX_NUM) {
+		for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 			/* To Set Client */
 			if (g_camCalDrvInfo[i].sensorID == 0) {
 				pr_debug("Start get_cmd_info!\n");
@@ -210,7 +183,7 @@ static struct stCAM_CAL_CMD_INFO_STRUCT *EEPROM_get_cmd_info_ex
 		}
 	}
 
-	if (i == CAM_CAL_SENSOR_IDX_MAX) {	/*g_camCalDrvInfo is full */
+	if (i == IMGSENSOR_SENSOR_IDX_MAX_NUM) {/*g_camCalDrvInfo is full */
 		return NULL;
 	} else {
 		return &g_camCalDrvInfo[i];
