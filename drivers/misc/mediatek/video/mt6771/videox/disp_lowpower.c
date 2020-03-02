@@ -1149,7 +1149,7 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 #endif
 
 		t_idle = local_clock() - idlemgr_pgc->idlemgr_last_kick_time;
-		if (t_idle < idle_check_interval * 1000 * 1000) {
+		if (t_idle < idle_check_interval * 1000ULL * 1000ULL) {
 			/* kicked in idle_check_interval msec, it's not idle */
 			primary_display_manual_unlock();
 			continue;
