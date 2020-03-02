@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -91,7 +91,7 @@ do { \
 	if (print_nums == 0) { \
 		print_nums++; \
 		msdc_print_start_time = sched_clock(); \
-		pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> " \
+		pr_info(TAGMSDC"MSDC", TAG"%d -> "fmt" <- %s() : L<%d> " \
 			"PID<%s><0x%x>\n", \
 			host->id, ##args, __func__, __LINE__, \
 			current->comm, current->pid); \
@@ -99,17 +99,18 @@ do { \
 		msdc_print_end_time = sched_clock();    \
 		if ((msdc_print_end_time - msdc_print_start_time) >= \
 			MAX_PRINT_PERIOD) { \
-			pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> " \
+			pr_info( \
+			TAGMSDC"MSDC", TAG"%d -> "fmt" <- %s() : L<%d> " \
 				"PID<%s><0x%x>\n", \
 				host->id, ##args, __func__, __LINE__, \
 				current->comm, current->pid); \
 			print_nums = 0; \
 		} \
 		if (print_nums <= MAX_PRINT_NUMS_OVER_PERIOD) { \
-			pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> " \
-				"PID<%s><0x%x>\n", \
-				host->id, ##args, __func__, __LINE__, \
-				current->comm, current->pid); \
+			pr_info(TAGMSDC"MSDC", TAG"%d -> "fmt" <- %s() : " \
+				"L<%d> PID<%s><0x%x>\n", \
+				host->id, ##args, __func__, \
+				__LINE__, current->comm, current->pid); \
 			print_nums++;   \
 		} \
 	} \
@@ -122,7 +123,7 @@ do { \
 		current->pid)
 
 #define INFO_MSG(fmt, args...) \
-	pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
+	pr_debug(TAGMSDC"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
 		host->id, ##args, __func__, __LINE__, current->comm, \
 		current->pid)
 
@@ -158,6 +159,15 @@ do { \
 	} \
 } while (0)
 
+#define MAGIC_CQHCI_DBG_TYPE 5
+#define MAGIC_CQHCI_DBG_NUM_L 100
+#define MAGIC_CQHCI_DBG_NUM_U 200
+#define MAGIC_CQHCI_DBG_NUM_RI 500
+
+#define MAGIC_CQHCI_DBG_TYPE_DCMD 60
+/* softirq type */
+#define MAGIC_CQHCI_DBG_TYPE_SIRQ 70
+
 void msdc_dump_gpd_bd(int id);
 int msdc_debug_proc_init(void);
 int msdc_debug_proc_init_bootdevice(void);
@@ -175,8 +185,9 @@ void msdc_error_tune_debug2(struct msdc_host *host,
 	struct mmc_command *stop, u32 *intsts);
 int multi_rw_compare(struct seq_file *m, int host_num,
 	uint address, int count, uint type, int multi_thread);
-void mmc_cmd_log(struct mmc_host *mmc, int type, int cmd, int arg,
-	struct mmc_command *sbc);
+void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg);
+void dbg_add_sirq_log(struct mmc_host *mmc, int type,
+		int cmd, int arg, int cpu, unsigned long active_reqs);
 void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		struct mmc_host *mmc, u32 latest_cnt);
 void msdc_dump_host_state(char **buff, unsigned long *size,

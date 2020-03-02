@@ -65,6 +65,17 @@ config MTK_EMMC_CQ_SUPPORT
 	  use MTK eMMC Command Queuing scheme.
 	  If unsure, say N.
 
+config MTK_EMMC_HW_CQ
+	tristate "MediaTek eMMC hardware Command Queuing support"
+	depends on MTK_EMMC_SUPPORT
+	depends on !MTK_EMMC_CQ_SUPPORT
+	default n
+	help
+	  This enables eMMC hardware Command Queuing support by MTK.
+	  Say Y if you turns on MTK_EMMC_HW_CQ and want to
+	  use MTK eMMC hardware Command Queuing scheme.
+	  If unsure, say N.
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA
@@ -481,7 +492,6 @@ config MMC_SDHCI_MSM
 	tristate "Qualcomm SDHCI Controller Support"
 	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
 	depends on MMC_SDHCI_PLTFM
-	select MMC_SDHCI_IO_ACCESSORS
 	help
 	  This selects the Secure Digital Host Controller Interface (SDHCI)
 	  support present in Qualcomm SOCs. The controller supports
@@ -961,5 +971,4 @@ config MMC_SDHCI_XENON
 	  This selects Marvell Xenon eMMC/SD/SDIO SDHCI.
 	  If you have a controller with this interface, say Y or M here.
 	  If unsure, say N.
-
 source "drivers/mmc/host/mediatek/Kconfig"

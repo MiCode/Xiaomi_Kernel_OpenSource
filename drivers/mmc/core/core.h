@@ -117,6 +117,22 @@ void mmc_wait_for_req_done(struct mmc_host *host, struct mmc_request *mrq);
 bool mmc_is_req_done(struct mmc_host *host, struct mmc_request *mrq);
 
 struct mmc_async_req;
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+struct mmc_cmdq_req;
+
+int mmc_cmdq_discard_queue(struct mmc_host *host, u32 tasks);
+int mmc_cmdq_halt(struct mmc_host *host, bool enable);
+int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host);
+void mmc_cmdq_post_req(struct mmc_host *host, int tag, int err);
+int mmc_cmdq_start_req(struct mmc_host *host,
+			      struct mmc_cmdq_req *cmdq_req);
+int mmc_cmdq_prepare_flush(struct mmc_command *cmd);
+int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
+			struct mmc_cmdq_req *cmdq_req);
+int mmc_cmdq_erase(struct mmc_cmdq_req *cmdq_req,
+	      struct mmc_card *card, unsigned int from, unsigned int nr,
+	      unsigned int arg);
+#endif
 
 struct mmc_async_req *mmc_start_areq(struct mmc_host *host,
 				     struct mmc_async_req *areq,
@@ -142,8 +158,14 @@ void mmc_release_host(struct mmc_host *host);
 void mmc_get_card(struct mmc_card *card);
 void mmc_put_card(struct mmc_card *card);
 
+#if defined(CONFIG_MMC_FFU)
 extern int mmc_reinit_oldcard(struct mmc_host *host);
+#endif
 
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+void mmc_blk_cmdq_req_done(struct mmc_request *mrq);
+#endif
+extern int mmc_blk_cmdq_switch(struct mmc_card *card, int enable);
 /**
  *	mmc_claim_host - exclusively claim a host
  *	@host: mmc host to claim
