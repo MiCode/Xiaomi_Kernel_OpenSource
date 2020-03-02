@@ -85,7 +85,9 @@ int kbase_sync_fence_out_create(struct kbase_jd_atom *katom, int stream_fd)
 	/* create a sync_file fd representing the fence */
 	sync_file = sync_file_create(fence);
 	if (!sync_file) {
+#if (KERNEL_VERSION(4, 9, 67) >= LINUX_VERSION_CODE)
 		dma_fence_put(fence);
+#endif
 		kbase_fence_out_remove(katom);
 		return -ENOMEM;
 	}
