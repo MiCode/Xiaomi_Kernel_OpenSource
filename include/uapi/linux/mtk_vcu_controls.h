@@ -19,7 +19,7 @@
 
 #define SHARE_BUF_SIZE 64
 #define LOG_INFO_SIZE 1024
-#define VCODEC_CMDQ_CMD_MAX           (768)
+#define VCODEC_CMDQ_CMD_MAX           (1024)
 
 /**
  * struct mem_obj - memory buffer allocated in kernel
@@ -37,26 +37,36 @@ struct mem_obj {
 };
 
 /**
- * struct gce_cmdq_obj - cmdQ buffer allocated in kernel
+ * struct gce_cmds - cmds buffer
  *
  * @cmd:	gce cmd
  * @addr:	cmd operation addr
  * @data:	cmd operation data
  * @mask:  cmd operation mask
  * @cmd_cnt: cmdq total cmd count
+ */
+struct gce_cmds {
+	u8  cmd[VCODEC_CMDQ_CMD_MAX];
+	u64 addr[VCODEC_CMDQ_CMD_MAX];
+	u64 data[VCODEC_CMDQ_CMD_MAX];
+	u32 mask[VCODEC_CMDQ_CMD_MAX];
+	u32 cmd_cnt;
+};
+
+/**
+ * struct gce_cmdq_obj - cmdQ buffer allocated in kernel
+ *
+ * @cmds_user_ptr: user pointer to struct gce_cmds
  * @gce_handle: instance handle
  * @flush_order: cmdQ buffer order
  * @codec_type: decoder(1) or encoder(0)
  */
 struct gce_cmdq_obj {
-	u8	cmd[VCODEC_CMDQ_CMD_MAX];
-	u64	addr[VCODEC_CMDQ_CMD_MAX];
-	u64	data[VCODEC_CMDQ_CMD_MAX];
-	u32	mask[VCODEC_CMDQ_CMD_MAX];
-	u32	cmd_cnt;
+	u64	cmds_user_ptr;
 	u64	gce_handle;
 	u32	flush_order;
 	u32	codec_type;
+	u32	core_id;
 };
 
 /**
@@ -78,6 +88,8 @@ enum gce_cmd_id {
 	/* polling register until get some value (no timeout, blocking wait) */
 	CMD_WAIT_EVENT,      /* gce wait HW done event & clear */
 	CMD_MEM_MV,      /* copy memory data from PA to another PA */
+	CMD_POLL_ADDR,
+	/* polling addr until get some value (with timeout) */
 	CMD_MAX
 };
 

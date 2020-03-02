@@ -974,6 +974,7 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD: return "MD Global Threshold";
 	case V4L2_CID_DETECT_MD_THRESHOLD_GRID:	return "MD Threshold Grid";
 	case V4L2_CID_DETECT_MD_REGION_GRID:	return "MD Region Grid";
+
 	/* Mediatek control */
 	case V4L2_CID_MPEG_MTK_FRAME_INTERVAL:	return "Video frame interval";
 	case V4L2_CID_MPEG_MTK_ERRORMB_MAP:	return "Video error map";
@@ -984,6 +985,7 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_MTK_CRC_PATH:	return "Video crc path";
 	case V4L2_CID_MPEG_MTK_GOLDEN_PATH:	return "Video golden path";
 	case V4L2_CID_MPEG_MTK_SET_WAIT_KEY_FRAME: return "Wait key frame";
+	case V4L2_CID_MPEG_MTK_OPERATING_RATE: return "Vdec Operating Rate";
 	case V4L2_CID_MPEG_MTK_ASPECT_RATIO:	return "Video aspect ratio";
 	case V4L2_CID_MPEG_MTK_SEC_DECODE:	return "Video Sec Decode path";
 	case V4L2_CID_MPEG_MTK_SEC_ENCODE:	return "Video Sec Encode path";
@@ -1015,6 +1017,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_MPEG_MTK_FRAME_SIZE:
 	case V4L2_CID_MPEG_MTK_FIXED_MAX_FRAME_BUFFER:
 	case V4L2_CID_MPEG_MTK_SET_WAIT_KEY_FRAME:
+	case V4L2_CID_MPEG_MTK_OPERATING_RATE:
 	case V4L2_CID_MPEG_MTK_SEC_DECODE:
 	case V4L2_CID_MPEG_MTK_SEC_ENCODE:
 		*type = V4L2_CTRL_TYPE_INTEGER;
