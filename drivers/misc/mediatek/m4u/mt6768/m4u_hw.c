@@ -2180,6 +2180,9 @@ void m4u_larb0_disable(char *name)
 	mutex_unlock(&m4u_larb0_mutex);
 }
 
+/* will use larb_clock_on to open clock,
+ * however, this api maybe sleep, SO, shouldn't use it in IRQ
+ */
 void m4u_print_port_status(struct seq_file *seq, int only_print_active)
 {
 	unsigned int port, mmu_en = 0;
@@ -2661,7 +2664,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 				m4u_dump_pte_nolock(
 					m4u_get_domain_by_port(m4u_port),
 					fault_mva);
-				m4u_print_port_status(NULL, 1);
+				m4u_print_port_status_ext(NULL, m4u_port);
 
 				/* call user's callback to
 				 *dump user registers
