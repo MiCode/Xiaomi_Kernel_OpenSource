@@ -18,7 +18,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 
-#include "mtk-eint-v2.h"
+#include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
 
 #define MTK_EINT_EDGE_SENSITIVE           0
