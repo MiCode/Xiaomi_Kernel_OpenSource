@@ -19,7 +19,7 @@
 #include "thermal_budget_platform.h"
 #include "thermal_budget.h"
 
-void update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
+void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 			struct mt_gpufreq_power_table_info **gpu_tbl,
 			struct thrm_pb_ratio **opp_ratio)
 {
@@ -62,5 +62,23 @@ void update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 		return;
 
 	memcpy((*gpu_tbl), tbl, opp_num * sizeof(*tbl));
+}
+
+int eara_thrm_get_vpu_core_num(void)
+{
+#ifdef CONFIG_MTK_VPU_SUPPORT
+	return 2;
+#else
+	return 0;
+#endif
+}
+
+int eara_thrm_get_mdla_core_num(void)
+{
+#ifdef CONFIG_MTK_MDLA_SUPPORT
+	return 1;
+#else
+	return 0;
+#endif
 }
 
