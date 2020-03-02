@@ -62,7 +62,7 @@ static DEFINE_MUTEX(gM4u_prog_pfh_mutex);
 
 int gM4U_L2_enable = 1;
 int gM4U_4G_DRAM_Mode;
-
+unsigned int g_translation_fault_debug;
 
 static spinlock_t gM4u_reg_lock[TOTAL_M4U_NUM];
 int gM4u_port_num = M4U_PORT_UNKNOWN;
@@ -2275,7 +2275,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 				unsigned int valid_size = 0;
 				unsigned int valid_mva_end = 0;
 
-				m4u_query_mva_info(m4u_index, fault_mva - 1,
+				__m4u_query_mva_info(m4u_index, fault_mva - 1,
 					0, &valid_mva, &valid_size);
 				if (valid_mva != 0 && valid_size != 0)
 					valid_mva_end = valid_mva + valid_size;
@@ -2718,6 +2718,7 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 	mau_start_monitor(0, 0, 1, 0, 1, 0, 0, 0x0,
 			0xfffff, 0xffffffff, 0xffffffff);
 #endif
+	g_translation_fault_debug = 0;
 
 	return 0;
 }

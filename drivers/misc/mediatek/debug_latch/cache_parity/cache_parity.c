@@ -13,6 +13,7 @@
  */
 
 #include <linux/printk.h>
+#include <linux/bug.h>
 #include <linux/module.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
@@ -86,7 +87,7 @@ static irqreturn_t default_parity_isr_v1(int irq, void *dev_id)
 	}
 
 #ifdef CONFIG_MTK_ENG_BUILD
-	WARN_ON();
+	WARN_ON(1);
 #else
 	if (err_level) {
 		aee_kernel_exception("cache parity",
@@ -95,7 +96,7 @@ static irqreturn_t default_parity_isr_v1(int irq, void *dev_id)
 			"status", status,
 			"CRDISPATCH_KEY:Cache Parity Issue");
 	} else
-		WARN_ON();
+		WARN_ON(1);
 #endif
 
 	spin_lock(&parity_isr_lock);

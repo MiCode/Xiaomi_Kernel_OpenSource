@@ -17,6 +17,22 @@
 #include "cmdq_def.h"
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
+#ifdef CONFIG_MTK_SMI_EXT
+
+/* translate port */
+typedef uint32_t (*CmdqTranslatePort) (uint32_t engineId);
+
+/* get request */
+typedef struct mm_qos_request *(*CmdqGetRequest) (
+	uint32_t thread_id, uint32_t port);
+
+/* init pmqos mdp */
+typedef void (*CmdqInitPmqosMdp) (s32 index, struct plist_head *owner_list);
+
+/* init pmqos isp */
+typedef void (*CmdqInitPmqosIsp) (s32 index, struct plist_head *owner_list);
+
+#endif	/* CONFIG_MTK_SMI_EXT */
 
 /* dump mmsys config */
 typedef void (*CmdqDumpMMSYSConfig) (void);
@@ -83,6 +99,12 @@ typedef void (*CmdqCheckHwStatus) (struct cmdqRecStruct *handle);
 typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
 
 struct cmdqMDPFuncStruct {
+#ifdef CONFIG_MTK_SMI_EXT
+	CmdqTranslatePort translatePort;
+	CmdqGetRequest getRequest;
+	CmdqInitPmqosMdp initPmqosMdp;
+	CmdqInitPmqosIsp initPmqosIsp;
+#endif	/* CONFIG_MTK_SMI_EXT */
 	CmdqDumpMMSYSConfig dumpMMSYSConfig;
 	CmdqVEncDumpInfo vEncDumpInfo;
 	CmdqMdpInitModuleBaseVA initModuleBaseVA;

@@ -42,13 +42,14 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
+#include <trace/events/power.h>
 /* #include <trace/events/mtk_events.h> */
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include "v1/sspm_ipi.h"
 #endif
 
-/* #include <mt-plat/met_drv.h> */
+#include <mt-plat/met_drv.h>
 
 #include "mtk_cpufreq_internal.h"
 #include "mtk_cpufreq_platform.h"
@@ -70,6 +71,23 @@ static void __iomem *csram_base;
 #define OFFS_TBL_S		0x0010
 #define OFFS_TBL_E		0x0250
 #define PVT_TBL_SIZE    (OFFS_TBL_E - OFFS_TBL_S)
+
+#define OFFS_CCI_TBL_USER    0x0F94   /* 997 */
+#define OFFS_CCI_TOGGLE_BIT  0x0F98   /* 998 */
+#define OFFS_CCI_TBL_MODE    0x0F9C   /* 999 */
+#define OFFS_CCI_TBL_S       0x0FA0   /* 1000 */
+#define OFFS_CCI_TBL_E       0x119C   /* 1127 */
+#define OFFS_IMAX_TBL_S      0x11A0   /* 1128 */
+#define OFFS_IMAX_TBL_E      0x11C0   /* 1136 */
+#define OFFS_IMAX_EN         0x11C4   /* 1137 */
+#define OFFS_IMAX_CHANGE     0x11C8   /* 1138 */
+#define OFFS_IMAX_THERMAL_INFO     0x11CC   /* 1139 */
+#define OFFS_IMAX_THERMAL_CHANGE   0x11D0   /* 1140 */
+#define OFFS_IMAX_THERMAL_EN       0x11D4   /* 1141 */
+#define PVT_CCI_TBL_SIZE    (OFFS_CCI_TBL_E - OFFS_CCI_TBL_S)
+#define PVT_IMAX_TBL_SIZE    (OFFS_IMAX_TBL_E - OFFS_IMAX_TBL_S)
+#define MCUCFG_BASE          0x0c530000
+
 #define OFFS_DATA_S		0x02a0
 #define OFFS_LOG_S		0x03d0
 #define OFFS_LOG_E		(OFFS_LOG_S + DVFS_LOG_NUM * ENTRY_EACH_LOG * 4)
@@ -246,9 +264,16 @@ int Ripi_cpu_dvfs_thread(void *data)
 				p->mt_policy->max =
 					cpu_dvfs_get_freq_by_idx(p,
 					p->idx_opp_ppm_limit);
+
+#ifdef SINGLE_CLUSTER
 				cid =
 	cpufreq_get_cluster_id(p->mt_policy->cpu);
-#if 0
+#else
+				cid =
+	arch_get_cluster_id(p->mt_policy->cpu);
+#endif
+
+#ifdef MET_READY
 				if (cid == 0) {
 					met_tag_oneshot(0, "sched_dvfs_max_c0",
 							p->mt_policy->max);
@@ -266,6 +291,10 @@ int Ripi_cpu_dvfs_thread(void *data)
 						p->mt_policy->min);
 				}
 #endif
+				trace_cpu_frequency_limits(p->mt_policy->max,
+						p->mt_policy->min,
+						p->mt_policy->cpu);
+
 				/* Policy notification */
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
@@ -283,6 +312,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 			}
 		}
 		cpufreq_unlock(flags);
+
 	} while (!kthread_should_stop());
 	return 0;
 }
@@ -506,6 +536,15 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #define REPO_GUARD0		0x55aa55aa
 #define REPO_GUARD1		0xaa55aa55
 
+#define DBG_REPO_CCI_TBL_S		(DBG_REPO_S + OFFS_CCI_TBL_S)
+#define DBG_REPO_CCI_TBL_E		(DBG_REPO_S + OFFS_CCI_TBL_E)
+
+#define DBG_REPO_IMAX_TBL_S		(DBG_REPO_S + OFFS_IMAX_TBL_S)
+#define DBG_REPO_IMAX_TBL_E		(DBG_REPO_S + OFFS_IMAX_TBL_E)
+
+/* CCI Volt Clamp */
+#define OFFS_CCI_VOLT_CLAMP (0x024c)   /* 147 */
+
 #define OFFS_TURBO_FREQ		0x02a4	/* 169 */
 #define OFFS_TURBO_VOLT		0x02a8	/* 170 */
 
@@ -528,6 +567,12 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #define OFFS_CUR_VPROC_S	0x032c	/* 203 */
 #define OFFS_CUR_VPROC_E	0x0350	/* 212 */
 
+/* Voltage settle */
+#define OFFS_VOLT2_RISE    0x033c   /* 207 */
+#define OFFS_VOLT2_FALL    0x0340   /* 208 */
+#define OFFS_VOLT1_RISE    0x0344   /* 209 */
+#define OFFS_VOLT1_FALL    0x0348   /* 210 */
+
 /* CUR idx */
 #define OFFS_CUR_FREQ_S		0x0354	/* 213 */
 #define OFFS_CUR_FREQ_E		0x0378	/* 222 */
@@ -541,11 +586,101 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #define OFFS_SCHED_E		0x03c8	/* 242 */
 
 static u32 g_dbg_repo_bak[DBG_REPO_NUM];
+
+#ifdef ENABLE_DOE
+void srate_doe(void)
+{
+	struct device_node *node = NULL;
+	struct cpudvfs_doe *d = &dvfs_doe;
+	int ret;
+
+	node = of_find_compatible_node(NULL, NULL, DVFSP_DT_NODE);
+	/* little up srate */
+	ret = of_property_read_u32(node,
+			"little-rise-time", &d->lt_rs_t);
+	tag_pr_notice("@@~%s DVFS little rise time = %d\n",
+			__func__, d->lt_rs_t);
+	if (ret)
+		csram_write(OFFS_VOLT2_RISE, UP_SRATE);
+	else
+		csram_write(OFFS_VOLT2_RISE, d->lt_rs_t);
+	/* little fall srate */
+	ret = of_property_read_u32(node, "little-down-time",
+			&d->lt_dw_t);
+	tag_pr_notice("@@~%s DVFS little down time = %d\n", __func__,
+			d->lt_dw_t);
+	if (ret)
+		csram_write(OFFS_VOLT2_FALL, DOWN_SRATE);
+	else
+		csram_write(OFFS_VOLT2_FALL, d->lt_dw_t);
+	/* big raise srate */
+	ret = of_property_read_u32(node, "big-rise-time",
+			&d->bg_rs_t);
+	tag_pr_notice("@@~%s DVFS big raise time = %d\n", __func__,
+			d->bg_rs_t);
+	if (ret)
+		csram_write(OFFS_VOLT1_RISE, UP_SRATE);
+	else
+		csram_write(OFFS_VOLT1_RISE, d->bg_rs_t);
+
+	/* big fall srate */
+	ret = of_property_read_u32(node, "big-down-time",
+			&d->bg_dw_t);
+	tag_pr_notice("@@~%s DVFS big down time = %d\n", __func__,
+			d->bg_dw_t);
+	if (ret)
+		csram_write(OFFS_VOLT1_FALL, DOWN_SRATE);
+	else
+		csram_write(OFFS_VOLT1_FALL, d->bg_dw_t);
+
+}
+#endif
+
 static int _mt_dvfsp_pdrv_probe(struct platform_device *pdev)
 {
 	/* cspm_base = of_iomap(pdev->dev.of_node, 0); */
-
+#ifdef ENABLE_DOE
+	int i, j;
+	int ret;
+	int flag;
+	struct cpudvfs_doe *d = &dvfs_doe;
+#endif
 	csram_base = of_iomap(pdev->dev.of_node, 1);
+
+#ifdef ENABLE_DOE
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"change_flag", &d->change_flag);
+	if (ret)
+		tag_pr_info("Cant find change_flag attr\n");
+	if (d->change_flag) {
+		for (i = 0; i < NR_MT_CPU_DVFS; i++) {
+			flag = 0;
+			ret = of_property_read_u32_array(pdev->dev.of_node,
+					d->dtsn[i],
+			d->dts_opp_tbl[i], ARRAY_SIZE(d->dts_opp_tbl[i]));
+			if (ret)
+				tag_pr_info("Cant find %s node\n", d->dtsn[i]);
+		else {
+			for (j = 0; j < ARRAY_SIZE(d->dts_opp_tbl[i]); j++) {
+				if (!d->dts_opp_tbl[i][j]) {
+					flag = 1;
+					tag_pr_info
+					("@@ %s contain illegal value\n",
+					d->dtsn[i]);
+					break;
+				}
+			}
+			if (!flag)
+				d->doe_flag |= BIT(i);
+		}
+#if 0
+		for (j = 0; j < NR_FREQ * ARRAY_COL_SIZE; j++)
+			tag_pr_info("@@@ %d pvt[%d] = %u\n",
+					i, j, d->dts_opp_tbl[i][j]);
+#endif
+	}
+	}
+#endif
 
 	if (!csram_base)
 		return -ENOMEM;
@@ -785,8 +920,17 @@ int cpuhvfs_set_iccs_freq(enum mt_cpu_dvfs_id id, unsigned int freq)
 
 	p = id_to_cpu_dvfs(id);
 
+#ifndef ONE_CLUSTER
+#ifdef DVFS_CLUSTER_REMAPPING
+	cluster = (id == MT_CPU_DVFS_LL) ? DVFS_CLUSTER_LL :
+		(id == MT_CPU_DVFS_L) ? DVFS_CLUSTER_L : DVFS_CLUSTER_B;
+#else
 	cluster = (id == MT_CPU_DVFS_LL) ? 0 :
 		(id == MT_CPU_DVFS_L) ? 1 : 2;
+#endif
+#else
+	cluster = 0;
+#endif
 
 	cpufreq_ver("ICCS: cluster = %d, freq = %d\n", cluster, freq);
 
@@ -809,8 +953,17 @@ int cpuhvfs_set_cluster_load_freq(enum mt_cpu_dvfs_id id, unsigned int freq)
 
 	p = id_to_cpu_dvfs(id);
 
+#ifndef ONE_CLUSTER
+#ifdef DVFS_CLUSTER_REMAPPING
+	cluster = (id == MT_CPU_DVFS_LL) ? DVFS_CLUSTER_LL :
+		(id == MT_CPU_DVFS_L) ? DVFS_CLUSTER_L : DVFS_CLUSTER_B;
+#else
 	cluster = (id == MT_CPU_DVFS_LL) ? 0 :
 		(id == MT_CPU_DVFS_L) ? 1 : 2;
+#endif
+#else
+	cluster = 0;
+#endif
 
 	cpufreq_ver("sched: cluster = %d, freq = %d\n", cluster, freq);
 
@@ -832,8 +985,87 @@ int cpuhvfs_set_cluster_load_freq(enum mt_cpu_dvfs_id id, unsigned int freq)
 	return 0;
 }
 
+int cpuhvfs_set_set_cci_volt(unsigned int volt)
+{
+	csram_write(OFFS_CCI_VOLT_CLAMP, volt);
+
+	return 0;
+}
+
 u32 *recordRef;
 static unsigned int *recordTbl;
+
+#ifdef IMAX_ENABLE
+u8 *record_IMAX_Ref;
+unsigned char *record_IMAX_Tbl;
+
+unsigned int cpuhvfs_get_imax_state(void)
+{
+	return csram_read(OFFS_IMAX_EN);
+}
+
+void cpuhvfs_update_imax_state(unsigned int state)
+{
+	csram_write(OFFS_IMAX_EN, state);
+	csram_write(OFFS_IMAX_CHANGE, 1);
+}
+
+unsigned int cpuhvfs_get_imax_thermal_state(void)
+{
+	return csram_read(OFFS_IMAX_THERMAL_EN);
+}
+void cpuhvfs_update_imax_thermal_state(unsigned int state)
+{
+	csram_write(OFFS_IMAX_THERMAL_EN, state);
+}
+#endif
+
+#ifdef CCI_MAP_TBL_SUPPORT
+u8 *record_CCI_Ref;
+unsigned char *record_CCI_Tbl;
+
+unsigned int cpuhvfs_get_cci_result(unsigned int idx_1,
+	unsigned int idx_2, unsigned int mode)
+{
+	if (idx_1 < NR_FREQ && idx_2 < NR_FREQ) {
+		if (mode == 0)
+			return record_CCI_Ref[(idx_1 * NR_FREQ) + idx_2];
+		else
+			return record_CCI_Ref[((idx_1 + NR_FREQ) * NR_FREQ)
+				+ idx_2];
+	} else
+		return 0;
+}
+
+void cpuhvfs_update_cci_map_tbl(unsigned int idx_1, unsigned int idx_2,
+	unsigned char result, unsigned int mode, unsigned int use_id)
+{
+	if (idx_1 < NR_FREQ && idx_2 < NR_FREQ && mode < NR_CCI_TBL) {
+		csram_write(OFFS_CCI_TBL_USER, use_id);
+		if (mode == 0)
+			record_CCI_Ref[(idx_1 * NR_FREQ) + idx_2] = result;
+		else
+			record_CCI_Ref[((idx_1 + NR_FREQ) * NR_FREQ)
+				+ idx_2] = result;
+		csram_write(OFFS_CCI_TOGGLE_BIT, 1);
+	}
+}
+
+void cpuhvfs_update_cci_mode(unsigned int mode, unsigned int use_id)
+{
+	if (mode < NR_CCI_TBL) {
+		csram_write(OFFS_CCI_TBL_USER, use_id);
+		/* mode = 0(Normal as 50%) mode = 1(Perf as 70%) */
+		csram_write(OFFS_CCI_TBL_MODE, mode);
+		csram_write(OFFS_CCI_TOGGLE_BIT, 1);
+	}
+}
+
+unsigned int cpuhvfs_get_cci_mode(void)
+{
+	return csram_read(OFFS_CCI_TBL_MODE);
+}
+#endif
 
 int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 	char nr_volt_tbl)
@@ -841,6 +1073,15 @@ int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 #ifdef EEM_AP_SIDE
 	int i;
 	int index;
+	int checkFlag = 0;
+
+	for (i = 0; i < nr_volt_tbl; i++) {
+		if (volt_tbl[i] == 0)
+			checkFlag = 1;
+	}
+
+	if (checkFlag == 1)
+		return 0;
 
 	for (i = 0; i < nr_volt_tbl; i++) {
 		index = (cluster_id * 36) + i;
@@ -852,19 +1093,50 @@ int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 
 	return 0;
 }
+#ifdef ENABLE_DOE
+void update_pvt_tbl_by_doe(void)
+{
+	int i;
+	struct cpudvfs_doe *d = &dvfs_doe;
 
+	for (i = 0; i < NR_MT_CPU_DVFS; i++) {
+		if ((d->doe_flag >> i) & 1) {
+			memcpy(&(*(recordTbl + (NR_FREQ * i) * ARRAY_COL_SIZE)),
+				d->dts_opp_tbl[i], sizeof(d->dts_opp_tbl[i]));
+#if 0
+			tag_pr_info("@@@[%s] %d update doe_flag = %d\n",
+					__func__, i, d->doe_flag);
+#endif
+		}
+	}
+
+}
+#endif
 /* Module driver */
 void cpuhvfs_pvt_tbl_create(void)
 {
 	int i;
 	unsigned int lv = _mt_cpufreq_get_cpu_level();
+#ifdef IMAX_ENABLE
+	unsigned int imax_state = IMAX_INIT_STATE;
+#ifdef ENABLE_DOE
+	struct device_node *node = NULL;
+	int ret;
+#endif
+#endif
+#ifdef CCI_MAP_TBL_SUPPORT
+	int j;
+#endif
 
 	recordRef = ioremap_nocache(DBG_REPO_TBL_S, PVT_TBL_SIZE);
 	tag_pr_info("DVFS - @(Record)%s----->(%p)\n", __func__, recordRef);
 	memset_io((u8 *)recordRef, 0x00, PVT_TBL_SIZE);
 
 	recordTbl = xrecordTbl[lv];
-
+#ifdef ENABLE_DOE
+	update_pvt_tbl_by_doe();
+	dsb(sy);
+#endif
 	for (i = 0; i < NR_FREQ; i++) {
 		/* Freq, Vproc, post_div, clk_div */
 		/* LL [31:16] = Vproc, [15:0] = Freq */
@@ -882,42 +1154,45 @@ void cpuhvfs_pvt_tbl_create(void)
 			(i * ARRAY_COL_SIZE) + 2) & 0xFF);
 		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + NR_FREQ, recordRef[i + NR_FREQ]);
-		/* L [31:16] = Vproc, [15:0] = Freq */
-		recordRef[i + 36] =
-			((*(recordTbl +
-			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 1) &
-			0xFFF) << 16) |
-			(*(recordTbl +
-			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE) & 0xFFFF);
-		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+
+		if (NR_MT_CPU_DVFS > 2) {
+			/* L [31:16] = Vproc, [15:0] = Freq */
+			recordRef[i + 36] =
+				((*(recordTbl +
+				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 1) &
+				0xFFF) << 16) |
+				(*(recordTbl +
+				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE) & 0xFFFF);
+			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 36, recordRef[i + 36]);
-		/* L [31:16] = clk_div, [15:0] = post_div */
-		recordRef[i + 36 + NR_FREQ] =
+			/* L [31:16] = clk_div, [15:0] = post_div */
+			recordRef[i + 36 + NR_FREQ] =
 			((*(recordTbl +
 			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 3) &
 			0xFF) << 16) |
 			(*(recordTbl +
 			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 2) & 0xFF);
-		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 36 + NR_FREQ, recordRef[i + 36 + NR_FREQ]);
-		/* B/CCI [31:16] = Vproc, [15:0] = Freq */
-		recordRef[i + 72] =
-			((*(recordTbl +
-			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 1) &
-			0xFFF) << 16) |
-			(*(recordTbl +
-			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE) &	0xFFFF);
-		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+			/* B/CCI [31:16] = Vproc, [15:0] = Freq */
+			recordRef[i + 72] =
+				((*(recordTbl +
+				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 1) &
+				0xFFF) << 16) |
+				(*(recordTbl +
+				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE) &	0xFFFF);
+			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 72, recordRef[i + 72]);
-		/* B/CCI [31:16] = clk_div, [15:0] = post_div */
-		recordRef[i + 72 + NR_FREQ] =
+			/* B/CCI [31:16] = clk_div, [15:0] = post_div */
+			recordRef[i + 72 + NR_FREQ] =
 			((*(recordTbl +
 			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 3) &
 			0xFFF) << 16) |
 			(*(recordTbl +
 			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 2) & 0xFF);
-		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 72 + NR_FREQ, recordRef[i + 72 + NR_FREQ]);
+		}
 
 		if (NR_MT_CPU_DVFS > 3) {
 			/* CCI [31:16] = Vproc, [15:0] = Freq */
@@ -947,6 +1222,46 @@ void cpuhvfs_pvt_tbl_create(void)
 	recordRef[i*2+72] = 0xffffffff;
 	recordRef[i*2+108] = 0xffffffff;
 	mb(); /* SRAM writing */
+
+#ifdef CCI_MAP_TBL_SUPPORT
+	record_CCI_Ref = ioremap_nocache(DBG_REPO_CCI_TBL_S, PVT_CCI_TBL_SIZE);
+	tag_pr_info("DVFS - @(Record)%s----->(%p)\n", __func__, record_CCI_Ref);
+	memset_io((u8 *)record_CCI_Ref, 0x00, PVT_CCI_TBL_SIZE);
+
+	record_CCI_Tbl = xrecord_CCI_Tbl[lv];
+
+	for (i = 0; i < NR_FREQ * NR_CCI_TBL; i++) {
+		for (j = 0; j < NR_FREQ; j++) {
+			record_CCI_Ref[(i * NR_FREQ) + j] =
+				*(record_CCI_Tbl + (i * NR_FREQ) + j);
+			cpufreq_ver("%d ", record_CCI_Ref[(i * NR_FREQ) + j]);
+		}
+		cpufreq_ver("\n");
+	}
+	mb(); /* SRAM writing */
+#endif
+
+#ifdef IMAX_ENABLE
+#ifdef ENABLE_DOE
+	node = of_find_compatible_node(NULL, NULL, DVFSP_DT_NODE);
+	ret = of_property_read_u32(node, "imax_state", &imax_state);
+	if (ret)
+		tag_pr_info(" %s Cant find imax state node\n", __func__);
+#endif
+	record_IMAX_Ref = ioremap_nocache(DBG_REPO_IMAX_TBL_S,
+			PVT_IMAX_TBL_SIZE);
+	tag_pr_info("DVFS - @(IMAX Record)%s----->(%p)\n", __func__,
+			record_IMAX_Ref);
+	memset_io((u8 *)record_IMAX_Ref, 0x00, PVT_IMAX_TBL_SIZE);
+
+	record_IMAX_Tbl = xrecord_IMAX_Tbl[lv];
+	for (i = 0; i < (NR_FREQ + 1) * IMAX_EN_RATIO_TBL_NUM; i++)
+		record_IMAX_Ref[i] = *(record_IMAX_Tbl + i);
+
+	csram_write(OFFS_IMAX_EN, imax_state);
+	csram_write(OFFS_IMAX_THERMAL_EN, 1);
+	mb(); /* SRAM writing */
+#endif
 }
 
 static int dbg_repo_proc_show(struct seq_file *m, void *v)
@@ -1089,7 +1404,11 @@ static void init_cpuhvfs_debug_repo(void)
 
 	dbg_repo[REPO_I_DATA_S] = REPO_GUARD0;
 
+#ifndef ONE_CLUSTER
 	for (c = 0; c < NR_MT_CPU_DVFS && c != MT_CPU_DVFS_CCI; c++) {
+#else
+	for (c = 0; c < NR_MT_CPU_DVFS; c++) {
+#endif
 		repo_i = OFFS_PPM_LIMIT_S / sizeof(u32) + c;
 		dbg_repo[repo_i] = (0 << 16) | (NR_FREQ - 1);
 	}
@@ -1100,9 +1419,25 @@ static void init_cpuhvfs_debug_repo(void)
 static int cpuhvfs_pre_module_init(void)
 {
 	int r;
+#ifdef ENABLE_DOE
+	struct cpudvfs_doe *d = &dvfs_doe;
+	struct device_node *node = NULL;
+	int ret;
+#endif
 
 #ifdef CPU_DVFS_NOT_READY
 	return 0;
+#endif
+
+#ifdef ENABLE_DOE
+	node = of_find_compatible_node(NULL, NULL, DVFSP_DT_NODE);
+	ret = of_property_read_u32(node, "state", &d->state);
+	if (ret)
+		tag_pr_info(" %s Cant find state node\n", __func__);
+
+	tag_pr_notice("@@~%s DVFS state = %d\n", __func__, d->state);
+	if (!d->state)
+		return 0;
 #endif
 
 	r = dvfsp_module_init();

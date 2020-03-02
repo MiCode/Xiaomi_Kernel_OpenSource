@@ -24,7 +24,8 @@
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6765) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
-	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885)
+	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
+	defined(CONFIG_MACH_MT6785)
 
 #include <disp_helper.h>
 #endif

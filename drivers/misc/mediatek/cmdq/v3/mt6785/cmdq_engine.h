@@ -91,6 +91,8 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_ISP_IMGCI,		/* 56 */
 	CMDQ_ENG_ISP_TIMGO,		/* 57 */
 
+	CMDQ_ENG_INORDER,		/* 58 */
+
 	CMDQ_MAX_ENGINE_COUNT		/* ALWAYS keep at the end */
 };
 
