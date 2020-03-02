@@ -67,7 +67,7 @@ int Enable_FGADC_LOG;
 /* ============================================================ // */
 BATTERY_METER_CONTROL battery_meter_ctrl;
 
-bool gFG_Is_Charging;
+enum kal_bool gFG_Is_Charging;
 signed int g_auxadc_solution;
 unsigned int g_spm_timer = 600;
 bool bat_spm_timeout;
@@ -243,7 +243,7 @@ signed int gFG_min_temperature = 100;
 /* Temperature window size */
 #define TEMP_AVERAGE_SIZE 30
 
-bool gFG_Is_offset_init;
+enum kal_bool gFG_Is_offset_init;
 
 void battery_meter_reset_sleep_time(void)
 {
@@ -1122,7 +1122,7 @@ int BattVoltToTemp(int dwVolt)
 	return sBaTTMP;
 }
 
-int force_get_tbat(bool update)
+int force_get_tbat(enum kal_bool update)
 {
 #if defined(CONFIG_POWER_EXT) || defined(FIXED_TBAT_25)
 	bm_print(BM_LOG_CRTI, "[%s] fixed TBAT=25 t\n", __func__);
@@ -1133,7 +1133,7 @@ int force_get_tbat(bool update)
 	static int pre_bat_temperature_val = -1;
 	int fg_r_value = 0;
 	signed int fg_current_temp = 0;
-	bool fg_current_state = false;
+	enum kal_bool fg_current_state = KAL_FALSE;
 	int bat_temperature_volt_temp = 0;
 	int ret = 0;
 
@@ -1142,7 +1142,7 @@ int force_get_tbat(bool update)
 		return 25;
 	}
 
-	if (update == true || pre_bat_temperature_val == -1) {
+	if (update == KAL_TRUE || pre_bat_temperature_val == -1) {
 		/* Get V_BAT_Temperature */
 		bat_temperature_volt = 2;
 		ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_ADC_V_BAT_TEMP,
@@ -1160,7 +1160,7 @@ int force_get_tbat(bool update)
 				&fg_current_state);
 			fg_current_temp = fg_current_temp / 10;
 
-			if (fg_current_state == true) {
+			if (fg_current_state == KAL_TRUE) {
 				bat_temperature_volt_temp =
 					bat_temperature_volt;
 				bat_temperature_volt =
@@ -1788,7 +1788,7 @@ void fgauge_construct_table_by_temp(void)
 #if defined(CONFIG_POWER_EXT)
 #else
 	unsigned int i;
-	static signed int init_temp = true;
+	static signed int init_temp = KAL_TRUE;
 	static signed int curr_temp, last_temp, avg_temp;
 	static signed int battTempBuffer[TEMP_AVERAGE_SIZE];
 	static signed int temperature_sum;
@@ -1798,13 +1798,13 @@ void fgauge_construct_table_by_temp(void)
 	curr_temp = battery_meter_get_battery_temperature();
 
 	/* Temperature window init */
-	if (init_temp == true) {
+	if (init_temp == KAL_TRUE) {
 		for (i = 0; i < TEMP_AVERAGE_SIZE; i++)
 			battTempBuffer[i] = curr_temp;
 
 		last_temp = curr_temp;
 		temperature_sum = curr_temp * TEMP_AVERAGE_SIZE;
-		init_temp = false;
+		init_temp = KAL_FALSE;
 	}
 	/* Temperature sliding window */
 	temperature_sum -= battTempBuffer[tempIndex];
@@ -1836,10 +1836,10 @@ void fg_qmax_update_for_aging(void)
 {
 #if defined(CONFIG_POWER_EXT)
 #else
-	bool hw_charging_done = bat_is_charging_full();
+	enum kal_bool hw_charging_done = bat_is_charging_full();
 
 	if (hw_charging_done ==
-	    true) { /* charging full, g_HW_Charging_Done == 1 */
+	    KAL_TRUE) { /* charging full, g_HW_Charging_Done == 1 */
 		if (gFG_DOD0 > 85) {
 			if (gFG_columb < 0)
 				gFG_columb =
@@ -1906,7 +1906,7 @@ void sw_oam_init_v2(void)
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_BATTERY_PLUG_STATUS,
 				 &plugout_status);
 
-	if (plugout_status == 0 && bat_is_charger_exist() == false) {
+	if (plugout_status == 0 && bat_is_charger_exist() == KAL_FALSE) {
 		if (g_rtc_fg_soc == 0) {
 			/* g_booting_vbat */
 			gFG_capacity_by_v = gFG_capacity_by_v_init;
@@ -1985,7 +1985,7 @@ void dod_init(void)
 	/* compare with hw_ocv & sw_ocv, */
 	/* check if less than or equal to 5% tolerance */
 	if ((abs(gFG_capacity_by_v_init - gFG_capacity_by_v) > 5) &&
-	    (bat_is_charger_exist() == true)) {
+	    (bat_is_charger_exist() == KAL_TRUE)) {
 		gFG_capacity_by_v = gFG_capacity_by_v_init;
 	}
 #endif
@@ -2034,7 +2034,7 @@ void dod_init(void)
 		     ((gFG_capacity_by_v >
 			       batt_meter_cust_data
 				       .cust_poweron_low_capacity_tolrance ||
-		       bat_is_charger_exist() == true))) ||
+		       bat_is_charger_exist() == KAL_TRUE))) ||
 		    ((g_rtc_fg_soc != 0) &&
 		     (get_boot_reason() == BR_WDT_BY_PASS_PWK ||
 		      get_boot_reason() == BR_WDT ||
@@ -2085,7 +2085,7 @@ void dod_init(void)
 	     ((gFG_capacity_by_v >
 		       batt_meter_cust_data
 			       .cust_poweron_low_capacity_tolrance ||
-	       bat_is_charger_exist() == true))) ||
+	       bat_is_charger_exist() == KAL_TRUE))) ||
 	    ((g_rtc_fg_soc != 0) && (get_boot_reason() == BR_WDT_BY_PASS_PWK ||
 				     get_boot_reason() == BR_WDT ||
 				     get_boot_reason() == BR_TOOL_BY_PASS_PWK ||
@@ -2104,7 +2104,7 @@ void dod_init(void)
 	     ((gFG_capacity_by_v >
 		       batt_meter_cust_data
 			       .cust_poweron_low_capacity_tolrance ||
-	       bat_is_charger_exist() == true))) ||
+	       bat_is_charger_exist() == KAL_TRUE))) ||
 	    ((g_rtc_fg_soc != 0) && (get_boot_reason() == BR_WDT_BY_PASS_PWK ||
 				     get_boot_reason() == BR_WDT ||
 				     get_boot_reason() == BR_TOOL_BY_PASS_PWK ||
@@ -2122,7 +2122,7 @@ void dod_init(void)
 	bm_print(BM_LOG_CRTI, "[FGADC] g_rtc_fg_soc=%d, gFG_capacity_by_v=%d\n",
 		 g_rtc_fg_soc, gFG_capacity_by_v);
 
-	if (gFG_capacity_by_v == 0 && bat_is_charger_exist() == true) {
+	if (gFG_capacity_by_v == 0 && bat_is_charger_exist() == KAL_TRUE) {
 		gFG_capacity_by_v = 1;
 
 		bm_print(BM_LOG_CRTI, "[FGADC] gFG_capacity_by_v=%d\n",
@@ -2211,7 +2211,7 @@ void oam_init(void)
 {
 	int ret = 0;
 	signed int vbat_capacity = 0;
-	bool charging_enable = false;
+	enum kal_bool charging_enable = KAL_FALSE;
 
 	/*stop charging for vbat measurement */
 	battery_charging_control(CHARGING_CMD_ENABLE, &charging_enable);
@@ -2226,7 +2226,7 @@ void oam_init(void)
 	gFG_capacity_by_v = fgauge_read_capacity_by_v(gFG_voltage);
 	vbat_capacity = fgauge_read_capacity_by_v(g_booting_vbat);
 
-	if (bat_is_charger_exist() == true) {
+	if (bat_is_charger_exist() == KAL_TRUE) {
 		bm_print(
 			BM_LOG_CRTI,
 			"[oam_init_inf] gFG_capacity_by_v=%d, vbat_capacity=%d,\n",
@@ -2256,7 +2256,7 @@ void oam_init(void)
 
 	dod_init();
 
-	gFG_BATT_CAPACITY_aging = fgauge_get_Q_max(force_get_tbat(false));
+	gFG_BATT_CAPACITY_aging = fgauge_get_Q_max(force_get_tbat(KAL_FALSE));
 
 	/* oam_v_ocv_1 = gFG_voltage; */
 	/* oam_v_ocv_2 = gFG_voltage; */
@@ -2300,7 +2300,8 @@ void oam_init(void)
 	bm_print(BM_LOG_CRTI, "[%s] %d, %d, %d, %d, %d, %d\n",
 		 __func__,
 		 gFG_voltage, (100 - fgauge_read_capacity_by_v(gFG_voltage)),
-		 g_rtc_fg_soc, gFG_DOD0, oam_v_ocv_init, force_get_tbat(false));
+		 g_rtc_fg_soc, gFG_DOD0, oam_v_ocv_init,
+		 force_get_tbat(KAL_FALSE));
 }
 
 void oam_run(void)
@@ -2379,12 +2380,12 @@ void oam_run(void)
 	gFG_columb = oam_car_2 / 10; /* mAh */
 
 	if ((oam_i_1 < 0) || (oam_i_2 < 0))
-		gFG_Is_Charging = true;
+		gFG_Is_Charging = KAL_TRUE;
 	else
-		gFG_Is_Charging = false;
+		gFG_Is_Charging = KAL_FALSE;
 
 #if 0
-	if (gFG_Is_Charging == false) {
+	if (gFG_Is_Charging == KAL_FALSE) {
 		d5_count_time = 60;
 	} else {
 		charging_current = get_charging_setting_current();
@@ -2404,7 +2405,7 @@ void oam_run(void)
 #endif
 	d5_count = d5_count + delta_time;
 	if (d5_count >= d5_count_time) {
-		if (gFG_Is_Charging == false) {
+		if (gFG_Is_Charging == KAL_FALSE) {
 			if (oam_d_3 > oam_d_5)
 				oam_d_5 = oam_d_5 + 1;
 			else if (oam_d_4 > oam_d_5)
@@ -2464,14 +2465,15 @@ void oam_run(void)
 
 	bm_print(BM_LOG_CRTI, "[oam_init_inf] %d, %d, %d, %d, %d, %d\n",
 		 gFG_voltage, (100 - fgauge_read_capacity_by_v(gFG_voltage)),
-		 g_rtc_fg_soc, gFG_DOD0, oam_v_ocv_init, force_get_tbat(false));
+		 g_rtc_fg_soc, gFG_DOD0, oam_v_ocv_init,
+		 force_get_tbat(KAL_FALSE));
 
 	bm_print(
 		BM_LOG_CRTI,
 		"[oam_run_inf] %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
 		oam_v_ocv_1, oam_v_ocv_2, vol_bat, oam_i_1, oam_i_2, oam_r_1,
 		oam_r_2, oam_car_1, oam_car_2, gFG_BATT_CAPACITY_aging,
-		force_get_tbat(false), oam_d0);
+		force_get_tbat(KAL_FALSE), oam_d0);
 
 	bm_print(BM_LOG_CRTI, "[oam_result_inf] %d, %d, %d, %d, %d, %d\n",
 		 oam_d_1, oam_d_2, oam_d_3, oam_d_4, oam_d_5,
@@ -2491,7 +2493,7 @@ void table_init(void)
 	struct battery_profile_struct *profile_p;
 	struct r_profile_struct *profile_p_r_table;
 
-	int temperature = force_get_tbat(false);
+	int temperature = force_get_tbat(KAL_FALSE);
 
 	/* Re-constructure r-table profile according to current temperature */
 	profile_p_r_table =
@@ -2517,7 +2519,7 @@ signed int auxadc_algo_run(void)
 {
 	signed int val = 0;
 
-	gFG_voltage = battery_meter_get_battery_voltage(false);
+	gFG_voltage = battery_meter_get_battery_voltage(KAL_FALSE);
 	val = fgauge_read_capacity_by_v(gFG_voltage);
 
 	bm_print(BM_LOG_CRTI, "[%s] %d,%d\n", __func__, gFG_voltage, val);
@@ -2530,7 +2532,7 @@ void update_fg_dbg_tool_value(void)
 {
 	g_fg_dbg_bat_volt = gFG_voltage_init;
 
-	if (gFG_Is_Charging == true)
+	if (gFG_Is_Charging == KAL_TRUE)
 		g_fg_dbg_bat_current = 1 - gFG_current - 1;
 	else
 		g_fg_dbg_bat_current = gFG_current;
@@ -2568,7 +2570,7 @@ signed int fgauge_compensate_battery_voltage(signed int ori_voltage)
 		1000;
 	ret_compensate_value = (ret_compensate_value + (10 / 2)) / 10;
 
-	if (gFG_Is_Charging == true)
+	if (gFG_Is_Charging == KAL_TRUE)
 		ret_compensate_value =
 			ret_compensate_value - (ret_compensate_value * 2);
 
@@ -2601,7 +2603,7 @@ fgauge_compensate_battery_voltage_recursion(signed int ori_voltage,
 			1000;
 		ret_compensate_value = (ret_compensate_value + (10 / 2)) / 10;
 
-		if (gFG_Is_Charging == true)
+		if (gFG_Is_Charging == KAL_TRUE)
 			ret_compensate_value = ret_compensate_value -
 					       (ret_compensate_value * 2);
 
@@ -2623,7 +2625,7 @@ fgauge_compensate_battery_voltage_recursion(signed int ori_voltage,
 		1000;
 	ret_compensate_value = (ret_compensate_value + (10 / 2)) / 10;
 
-	if (gFG_Is_Charging == true)
+	if (gFG_Is_Charging == KAL_TRUE)
 		ret_compensate_value =
 			ret_compensate_value - (ret_compensate_value * 2);
 
@@ -2640,7 +2642,7 @@ fgauge_compensate_battery_voltage_recursion(signed int ori_voltage,
 }
 
 signed int fgauge_get_dod0(signed int voltage, signed int temperature,
-			   bool bOcv)
+			   enum kal_bool bOcv)
 {
 	signed int dod0 = 0;
 	int i = 0, saddles = 0, jj = 0;
@@ -2676,7 +2678,7 @@ signed int fgauge_get_dod0(signed int voltage, signed int temperature,
 	/* loading */
 	/* Compasate battery voltage from current battery voltage */
 	jj = 0;
-	if (bOcv == false) {
+	if (bOcv == KAL_FALSE) {
 		while (gFG_current == 0) {
 			ret = battery_meter_ctrl(
 				BATTERY_METER_CMD_GET_HW_FG_CURRENT,
@@ -2746,7 +2748,7 @@ signed int fgauge_update_dod(void)
 	} else {
 	}
 
-	gFG_temp = force_get_tbat(false);
+	gFG_temp = force_get_tbat(KAL_FALSE);
 
 #if !defined(CONFIG_POWER_EXT)
 	if (temperature_change == 1) {
@@ -2813,10 +2815,10 @@ signed int fgauge_read_capacity(signed int type)
 	if (type == 0) { /* for initialization */
 		/* Use voltage to calculate capacity */
 		voltage = battery_meter_get_battery_voltage(
-			true); /* in unit of mV */
-		temperature = force_get_tbat(false);
+			KAL_TRUE); /* in unit of mV */
+		temperature = force_get_tbat(KAL_FALSE);
 		dvalue = fgauge_get_dod0(voltage, temperature,
-					 false); /* need compensate vbat */
+					 KAL_FALSE); /* need compensate vbat */
 	} else {
 		/* Use DOD0 and columb counter to calculate capacity */
 		dvalue = fgauge_update_dod(); /* DOD1 = DOD0 + (-CAR)/Qmax */
@@ -2842,7 +2844,7 @@ void fg_voltage_mode(void)
 {
 #if defined(CONFIG_POWER_EXT)
 #else
-	if (bat_is_charger_exist() == true) {
+	if (bat_is_charger_exist() == KAL_TRUE) {
 		/* SOC only UP when charging */
 		if (gFG_capacity_by_v > gfg_percent_check_point)
 			gfg_percent_check_point++;
@@ -2878,7 +2880,7 @@ void fgauge_algo_run(void)
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CURRENT_SIGN,
 				 &gFG_Is_Charging);
 
-	gFG_voltage = battery_meter_get_battery_voltage(false);
+	gFG_voltage = battery_meter_get_battery_voltage(KAL_FALSE);
 	gFG_voltage_init = gFG_voltage;
 	gFG_voltage = gFG_voltage + fgauge_compensate_battery_voltage_recursion(
 					    gFG_voltage, 5); /* mV */
@@ -2917,8 +2919,8 @@ void fgauge_algo_run(void)
 #endif
 
 	/* add by willcai 2014-12-18 begin */
-	if (BMT_status.charger_exist == false) {
-		if (gFG_Is_offset_init == false) {
+	if (BMT_status.charger_exist == KAL_FALSE) {
+		if (gFG_Is_offset_init == KAL_FALSE) {
 			for (i = 0;
 			     i < batt_meter_cust_data.fg_vbat_average_size; i++)
 				FGvbatVoltageBuffer[i] = gFG_voltage;
@@ -2927,7 +2929,7 @@ void fgauge_algo_run(void)
 				gFG_voltage *
 				batt_meter_cust_data.fg_vbat_average_size;
 			gFG_voltage_AVG = gFG_voltage;
-			gFG_Is_offset_init = true;
+			gFG_Is_offset_init = KAL_TRUE;
 		}
 		/* 1.1 Average FG_voltage */
 		/**************** Averaging : START ****************/
@@ -2972,7 +2974,7 @@ void fgauge_algo_run(void)
 				gFG_voltage, gFG_voltage_AVG);
 		}
 	} else
-		gFG_Is_offset_init = false;
+		gFG_Is_offset_init = KAL_FALSE;
 
 #ifdef Q_MAX_BY_CURRENT
 	/* 1.2 Average FG_current */
@@ -3038,7 +3040,7 @@ void fgauge_algo_run_init(void)
 	int ret = 0;
 
 #ifdef INIT_SOC_BY_SW_SOC
-	bool charging_enable = false;
+	enum kal_bool charging_enable = KAL_FALSE;
 #if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING) && !defined(SWCHR_POWER_PATH)
 	if (get_boot_mode() != LOW_POWER_OFF_CHARGING_BOOT)
 #endif
@@ -3048,7 +3050,7 @@ void fgauge_algo_run_init(void)
 	msleep(50);
 #endif
 	/* 1. Get Raw Data */
-	gFG_voltage = battery_meter_get_battery_voltage(true);
+	gFG_voltage = battery_meter_get_battery_voltage(KAL_TRUE);
 	gFG_voltage_init = gFG_voltage;
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CURRENT,
 				 &gFG_current);
@@ -3063,7 +3065,7 @@ void fgauge_algo_run_init(void)
 		 gFG_voltage_init, gFG_voltage, gFG_current, gFG_Is_Charging,
 		 gFG_resistance_bat, gFG_compensate_value);
 #ifdef INIT_SOC_BY_SW_SOC
-	charging_enable = true;
+	charging_enable = KAL_TRUE;
 	battery_charging_control(CHARGING_CMD_ENABLE, &charging_enable);
 #endif
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CAR, &gFG_columb);
@@ -3174,11 +3176,11 @@ void fgauge_algo_run_init(void)
 }
 
 #ifdef FG_BAT_INT
-unsigned char reset_fg_bat_int = true;
+unsigned char reset_fg_bat_int = KAL_TRUE;
 void fg_bat_int_handler(void)
 {
 	pr_notice("%s\n", __func__);
-	reset_fg_bat_int = true;
+	reset_fg_bat_int = KAL_TRUE;
 	wake_up_bat2();
 }
 #endif
@@ -3217,7 +3219,7 @@ void fgauge_initialization(void)
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CAR, &gFG_columb);
 
 	fgauge_construct_battery_profile_init();
-	gFG_temp = force_get_tbat(false);
+	gFG_temp = force_get_tbat(KAL_FALSE);
 	gFG_capacity = fgauge_read_capacity(0);
 
 	gFG_capacity_by_c_init = gFG_capacity;
@@ -3263,7 +3265,7 @@ signed int get_dynamic_period(int first_use, int first_wakeup_time,
 	signed int vbat_val = 0;
 
 #ifdef CONFIG_MTK_POWER_EXT_DETECT
-	if (true == bat_is_ext_power())
+	if (bat_is_ext_power() == KAL_TRUE)
 		return batt_meter_cust_data.normal_wakeup_period;
 #endif
 
@@ -3313,7 +3315,7 @@ signed int get_dynamic_period(int first_use, int first_wakeup_time,
 	if (car_instant < 0)
 		car_instant = car_instant - (car_instant * 2);
 
-	if (BMT_status.UI_SOC != BMT_status.SOC && gDisableGM != true) {
+	if (BMT_status.UI_SOC != BMT_status.SOC && gDisableGM != KAL_TRUE) {
 		last_time = 60;
 		g_spm_timer = 60;
 		bm_print(
@@ -3393,13 +3395,13 @@ signed int get_dynamic_period(int first_use, int first_wakeup_time,
 }
 
 /* ============================================================ // */
-signed int battery_meter_get_battery_voltage(bool update)
+signed int battery_meter_get_battery_voltage(enum kal_bool update)
 {
 	int ret = 0;
 	int val = 5;
 	static int pre_val = -1;
 
-	if (update == true || pre_val == -1) {
+	if (update == KAL_TRUE || pre_val == -1) {
 		val = 5; /* set avg times */
 		ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_ADC_V_BAT_SENSE,
 					 &val);
@@ -3560,10 +3562,10 @@ signed int battery_meter_get_battery_current(void)
 	return val;
 }
 
-bool battery_meter_get_battery_current_sign(void)
+enum kal_bool battery_meter_get_battery_current_sign(void)
 {
 	int ret = 0;
-	bool val = 0;
+	enum kal_bool val = 0;
 
 	if (g_auxadc_solution == 1)
 		val = 0; /* discharging */
@@ -3590,7 +3592,7 @@ signed int battery_meter_get_car(void)
 signed int battery_meter_get_battery_temperature(void)
 {
 #ifdef MTK_BATTERY_LIFETIME_DATA_SUPPORT
-	signed int batt_temp = force_get_tbat(true);
+	signed int batt_temp = force_get_tbat(KAL_TRUE);
 
 	if (batt_temp > gFG_max_temperature)
 		gFG_max_temperature = batt_temp;
@@ -3599,7 +3601,7 @@ signed int battery_meter_get_battery_temperature(void)
 
 	return batt_temp;
 #else
-	return force_get_tbat(true);
+	return force_get_tbat(KAL_TRUE);
 #endif
 }
 
@@ -3631,7 +3633,7 @@ signed int battery_meter_get_battery_percentage(void)
 	return 50;
 #else
 
-	if (bat_is_charger_exist() == false)
+	if (bat_is_charger_exist() == KAL_FALSE)
 		fg_qmax_update_for_aging_flag = 1;
 
 #if defined(SOC_BY_AUXADC)
@@ -3680,10 +3682,10 @@ signed int battery_meter_initial(void)
 #if defined(CONFIG_POWER_EXT)
 	return 0;
 #else
-	static bool meter_initilized;
+	static enum kal_bool meter_initilized;
 
 	mutex_lock(&FGADC_mutex);
-	if (meter_initilized == false) {
+	if (meter_initilized == KAL_FALSE) {
 #ifdef MTK_MULTI_BAT_PROFILE_SUPPORT
 		fgauge_get_profile_id();
 #endif
@@ -3713,7 +3715,7 @@ signed int battery_meter_initial(void)
 			 __func__);
 #endif
 
-		meter_initilized = true;
+		meter_initilized = KAL_TRUE;
 	}
 	mutex_unlock(&FGADC_mutex);
 	return 0;
@@ -3806,9 +3808,9 @@ signed int battery_meter_reset(void)
 	unsigned int ui_percentage = bat_get_ui_percentage();
 
 #if defined(CUST_CAPACITY_OCV2CV_TRANSFORM)
-	if (false == g_USE_UI_SOC) {
+	if (g_USE_UI_SOC == KAL_FALSE) {
 		ui_percentage = battery_meter_get_battery_soc();
-		g_USE_UI_SOC = true;
+		g_USE_UI_SOC = KAL_TRUE;
 		bm_print(
 			BM_LOG_FULL,
 			"[CUST_CAPACITY_OCV2CV_TRANSFORM]Use Battery SOC: %d\n",
@@ -4309,13 +4311,13 @@ static ssize_t show_FG_Current(struct device *dev,
 	signed int ret = 0;
 	signed int fg_current_inout_battery = 0;
 	signed int val = 0;
-	bool is_charging = 0;
+	enum kal_bool is_charging = 0;
 
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CURRENT, &val);
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CURRENT_SIGN,
 				 &is_charging);
 
-	if (is_charging == true)
+	if (is_charging == KAL_TRUE)
 		fg_current_inout_battery = 0 - val;
 	else
 		fg_current_inout_battery = val;
@@ -4659,9 +4661,9 @@ static int battery_meter_suspend(struct platform_device *dev,
 #if defined(FG_BAT_INT)
 #if defined(CONFIG_POWER_EXT)
 #elif defined(SOC_BY_HW_FG)
-	if (reset_fg_bat_int == true) {
+	if (reset_fg_bat_int == KAL_TRUE) {
 		battery_meter_set_columb_interrupt(gFG_BATT_CAPACITY / 100);
-		reset_fg_bat_int = false;
+		reset_fg_bat_int = KAL_FALSE;
 	} else {
 		battery_meter_set_columb_interrupt(0x1ffff);
 	}
@@ -4680,7 +4682,7 @@ static int battery_meter_suspend(struct platform_device *dev,
 #elif defined(SOC_BY_SW_FG) || defined(SOC_BY_HW_FG)
 	{
 #ifdef MTK_POWER_EXT_DETECT
-		if (true == bat_is_ext_power())
+		if (bat_is_ext_power() == KAL_TRUE)
 			return 0;
 #endif
 		get_monotonic_boottime(&xts_before_sleep);
@@ -4713,7 +4715,7 @@ void battery_aging_check(void)
 #endif
 
 	battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_OCV, &hw_ocv_after_sleep);
-	vbat = battery_meter_get_battery_voltage(true);
+	vbat = battery_meter_get_battery_voltage(KAL_TRUE);
 	bm_print(BM_LOG_CRTI, "@@@ HW_OCV_D3=%d, HW_OCV_D1=%d, VBAT=%d\n",
 		 hw_ocv_after_sleep, g_hw_ocv_before_sleep, vbat);
 
@@ -4923,7 +4925,7 @@ static int battery_meter_resume(struct platform_device *dev)
 	signed int sleep_interval;
 	struct timespec rtc_time_after_sleep;
 #ifdef MTK_POWER_EXT_DETECT
-	if (true == bat_is_ext_power())
+	if (bat_is_ext_power() == KAL_TRUE)
 		return 0;
 #endif
 
@@ -4939,7 +4941,7 @@ static int battery_meter_resume(struct platform_device *dev)
 
 #if defined(SOC_BY_HW_FG)
 #ifdef MTK_ENABLE_AGING_ALGORITHM
-	if (bat_is_charger_exist() == false)
+	if (bat_is_charger_exist() == KAL_FALSE)
 		battery_aging_check();
 
 #endif
@@ -4964,7 +4966,7 @@ static int battery_meter_resume(struct platform_device *dev)
 
 	/* try to calibrate D0 by HWOCV */
 	/* if battery has no loading for more than 30mins */
-	if (sleep_interval > 1800 && bat_is_charger_exist() == false) {
+	if (sleep_interval > 1800 && bat_is_charger_exist() == KAL_FALSE) {
 
 		DOD_hwocv = fgauge_read_d_by_v(hw_ocv_after_sleep);
 

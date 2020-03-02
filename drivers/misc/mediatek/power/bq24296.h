@@ -33,14 +33,6 @@
 #ifndef _bq24296_SW_H_
 #define _bq24296_SW_H_
 
-#ifndef BATTERY_BOOL
-#define BATTERY_BOOL
-enum {
-	KAL_FALSE = 0,
-	KAL_TRUE = 1,
-} kal_bool;
-#endif
-
 #define bq24296_CON0 0x00
 #define bq24296_CON1 0x01
 #define bq24296_CON2 0x02
