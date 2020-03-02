@@ -25,7 +25,8 @@ extern int AK7371AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long AK7371AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			   unsigned long a_u4Param);
 extern int AK7371AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-extern int AK7371AF_PowerDown(void);
+extern int AK7371AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int AK7371AF_GetFileName(unsigned char *pFileName);
 
 #define LC898212XDAF_F_SetI2Cclient LC898212XDAF_F_SetI2Cclient_Main2
@@ -62,7 +63,8 @@ extern int LC898217AFC_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long LC898217AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			     unsigned long a_u4Param);
 extern int LC898217AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-extern int LC898217AF_PowerDown(void);
+extern int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int LC898217AF_GetFileName(unsigned char *pFileName);
 
 extern int bu64748af_SetI2Cclient_Main2(struct i2c_client *pstAF_I2Cclient,
@@ -73,7 +75,8 @@ extern long bu64748af_Ioctl_Main2(struct file *a_pstFile,
 				  unsigned long a_u4Param);
 extern int bu64748af_Release_Main2(struct inode *a_pstInode,
 				   struct file *a_pstFile);
-extern int bu64748af_PowerDown_Main2(void);
+extern int bu64748af_PowerDown_Main2(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
 extern int bu64748af_GetFileName_Main2(unsigned char *pFileName);
 
 extern void AFRegulatorCtrl(int Stage);
