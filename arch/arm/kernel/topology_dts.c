@@ -11,9 +11,15 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+/*
+ * generic entry point for cpu mask construction, dedicated for
+ * mediatek scheduler.
+ */
+void __init arch_build_cpu_topology_domain(void) {}
+
 #ifdef CONFIG_MTK_UNIFY_POWER
 
- #include "../../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
+#include "../../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
 
 /* sd energy functions */
 inline
@@ -63,31 +69,58 @@ const struct sched_group_energy * const cpu_core_energy(int cpu)
 }
 #endif
 
-/* TODO: implement function */
 int arch_get_nr_clusters(void)
 {
-	return 2;
+	int __arch_nr_clusters = -1;
+	int max_id = 0;
+	unsigned int cpu;
+
+	/* assume socket id is monotonic increasing without gap. */
+	for_each_possible_cpu(cpu) {
+		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->socket_id > max_id)
+			max_id = cpu_topo->socket_id;
+	}
+	__arch_nr_clusters = max_id + 1;
+	return __arch_nr_clusters;
 }
 
-/* TODO: implement function */
-void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+void arch_get_cluster_cpus(struct cpumask *cpus, int socket_id)
 {
+	unsigned int cpu;
+
+	cpumask_clear(cpus);
+	for_each_possible_cpu(cpu) {
+		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->socket_id == socket_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
 }
 
-/* TODO: implement function */
 unsigned long arch_get_max_cpu_capacity(int cpu)
 {
-	return 0;
+	return per_cpu(cpu_scale, cpu);
 }
 
-/* TODO: implement function */
+
 unsigned long arch_get_cur_cpu_capacity(int cpu)
 {
-	return 0;
+	unsigned long scale_freq;
+
+	scale_freq  = arch_scale_freq_capacity(NULL, cpu);
+
+	if (!scale_freq)
+		scale_freq = SCHED_CAPACITY_SCALE;
+
+	return (per_cpu(cpu_scale, cpu) * scale_freq / SCHED_CAPACITY_SCALE);
 }
 
-/* TODO: implement function */
 int arch_get_cluster_id(unsigned int cpu)
 {
-	return 0;
+	struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+	return cpu_topo->socket_id < 0 ? 0 : cpu_topo->socket_id;
 }
+

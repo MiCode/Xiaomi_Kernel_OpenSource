@@ -57,6 +57,7 @@ struct hmp_domain {
 	struct cpumask possible_cpus;
 	struct list_head hmp_domains;
 };
+extern void init_hmp_domains(void);
 extern struct list_head hmp_domains;
 
 #define for_each_hmp_domain(hmpd) for_each_hmp_domain_B_first(hmpd)

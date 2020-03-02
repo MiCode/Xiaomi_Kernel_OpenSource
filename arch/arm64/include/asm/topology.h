@@ -60,7 +60,6 @@ int arch_is_smp(void);
 int arch_get_nr_clusters(void);
 int arch_get_cluster_id(unsigned int cpu);
 void arch_build_cpu_topology_domain(void);
-void arch_init_hmp_domains(void);
 
 #include <asm-generic/topology.h>
 
