@@ -1945,22 +1945,30 @@ firmware_class.path=/vendor/firmware";
 		clocks =
 			<&infracfg_ao INFRACFG_AO_UFS_CG>,
 			<&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>,
-			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>;
+			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>,
+			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
 		clock-names =
 			"ufs0-clock",
 			"ufs0-unipro-clk",
-			"ufs0-mp-clk";
+			"ufs0-mp-clk",
+			"ufs0-aes-clk";
 		freq-table-hz =
+			<0 0>,
 			<0 0>,
 			<0 0>,
 			<0 0>;
 
 		/* Regulators */
-		/* In MT6771, only VCC is available to be controlled by UFS driver */
-		/* VCCQ:  Provided by external LDO. SW control is not necessary */
-		/* VCCQ2: Not supported by current UFS devices */
+		/* In MT67xx, only VCC is available to be controlled by UFS */
+		/* driver */
+		/* VCCQ2:  Provided by external LDO. SW control is not */
+		/* necessary */
+		/* VCCQ: Not supported by current UFS devices */
 		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
 		vcc-fixed-regulator;
+
+		/* Number of lanes available per direction - either 1 or 2 */
+		lanes-per-direction = <1>;
 
 		/* Auto-Hibern8 Timer. Unit: ms	(0 means disabled) */
 		mediatek,auto-hibern8-timer = <10>;
