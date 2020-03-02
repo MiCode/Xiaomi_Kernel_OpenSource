@@ -235,14 +235,6 @@ endmenu # Other Peripheral
 
 menu "Memory configs"
 
-config MTK_MEM
-	bool "Support platform memory information"
-	default y
-	help
-	  MTK_MEM provides basic platform memory information
-	  for mediatek platform drivers. It also provides
-	  some debug features.
-
 config MTK_SSMR
 	bool "Support Mediatek Shareable Secure Memory Region technology"
 	depends on CMA
