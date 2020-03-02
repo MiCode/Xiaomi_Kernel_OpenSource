@@ -53,7 +53,7 @@ void lockdep_test_suspicious_rcu(void)
 			return;
 
 		rcu_updater->val = 123;
-		rcu_assign_pointer(lockdep_test_rcu_data, rcu_updater);
+		RCU_INIT_POINTER(lockdep_test_rcu_data, rcu_updater);
 		synchronize_rcu();
 	}
 	/* RCU Reader */
