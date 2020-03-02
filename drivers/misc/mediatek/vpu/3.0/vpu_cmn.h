@@ -229,6 +229,18 @@ int vpu_boot_up(int core, bool secure);
 int vpu_shut_down(int core);
 
 /**
+ * vpu_get_power - power on vpu
+ * @core: index of device
+ */
+int vpu_get_power(int core, bool secure);
+
+/**
+ * vpu_put_power - power off vpu
+ * @core: index of device
+ */
+void vpu_put_power(int core, enum VpuPowerOnType type);
+
+/**
  * vpu_hw_load_algo - call vpu program to load algo, by specifying the
  *                    start address
  * @core:	core index of device.
@@ -344,6 +356,7 @@ int vpu_dump_image_file(struct seq_file *s);
  * @s:          the pointer to seq_file.
  */
 int vpu_dump_mesg(struct seq_file *s);
+int vpu_dump_mesg_seq(struct seq_file *s, int core);
 
 /**
  * vpu_dump_opp_table - dump the OPP table
@@ -469,6 +482,27 @@ int vpu_dump_user(struct seq_file *s);
  * @s:          the pointer to seq_file.
  */
 int vpu_dump_user_algo(struct seq_file *s);
+
+/**
+ * vpu_bin_base() - get vpu binary base
+ */
+unsigned long vpu_bin_base(void);
+
+/**
+ * vpu_bin_base() - get vpu control base
+ */
+unsigned long vpu_ctl_base(int core);
+
+/**
+ * vpu_syscfg_base() - get syscfg base
+ */
+unsigned long vpu_syscfg_base(void);
+
+/**
+ * vpu_vcore_base() - get vcore base
+ */
+unsigned long vpu_vcore_base(void);
+
 
 /* ========================== define in vpu_algo.c  ======================== */
 

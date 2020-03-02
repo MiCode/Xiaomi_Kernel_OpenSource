@@ -260,6 +260,13 @@ void vpu_dump_code_segment(int core);
 void vpu_dump_algo_segment(int core, int algo_id, int size);
 
 
+void vpu_lock(int core);
+void vpu_unlock(int core);
+uint32_t vpu_get_iram_data(int core);
+struct vpu_shared_memory *vpu_get_kernel_lib(int core);
+struct vpu_shared_memory *vpu_get_work_buf(int core);
+unsigned long vpu_get_ctrl_base(int core);
+
 /**
  * Working buffer's offset
  *
