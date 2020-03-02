@@ -949,8 +949,7 @@ s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 }
 EXPORT_SYMBOL(cmdq_pkt_poll);
 
-s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-	u16 tick, u16 reg_gpr)
+s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 {
 	const u32 tpr_en = 1 << reg_gpr;
 	const u16 event = (u16)GCE_TOKEN_GPR_TIMER + reg_gpr;
@@ -965,7 +964,7 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	 */
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_SUBTRACT,
 		CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
-	cmdq_pkt_write(pkt, clt_base, timeout_en, tpr_en, tpr_en);
+	cmdq_pkt_write(pkt, NULL, timeout_en, tpr_en, tpr_en);
 	cmdq_pkt_clear_event(pkt, event);
 	rop.value = tick;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_GPR_CNT_ID + reg_gpr,
@@ -976,8 +975,8 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 }
 EXPORT_SYMBOL(cmdq_pkt_sleep);
 
-s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-	u32 value, phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr)
+s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
+	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr)
 {
 	const u16 reg_tmp = CMDQ_SPR_FOR_TEMP;
 	const u16 reg_val = CMDQ_THR_SPR_IDX1;
@@ -998,7 +997,11 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	begin_mark = pkt->cmd_buf_size;
 
 	/* read target address */
-	cmdq_pkt_read(pkt, clt_base, addr, reg_poll);
+	if (subsys != SUBSYS_NO_SUPPORT)
+		cmdq_pkt_read_reg(pkt, subsys, CMDQ_GET_REG_OFFSET(addr),
+			reg_poll);
+	else
+		cmdq_pkt_read_addr(pkt, addr, reg_poll);
 
 	/* mask it */
 	if (mask != ~0) {
@@ -1039,7 +1042,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop, &rop);
 
 	/* sleep for 5 tick, which around 192us */
-	cmdq_pkt_sleep(pkt, clt_base, 5, reg_gpr);
+	cmdq_pkt_sleep(pkt, 5, reg_gpr);
 
 	/* loop to begin */
 	cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
