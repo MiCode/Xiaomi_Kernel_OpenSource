@@ -234,7 +234,7 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,cache_parity";
 		version = <1>;
 		reg = <0 0x0c530000 0 0x10000>;
-		err_level = <0>;
+		err_level = <1>;
 		irq_config = <0 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
 			<1 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
 			<2 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
