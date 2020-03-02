@@ -275,6 +275,9 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	if (!pin_r)
 		return IPI_UNAVAILABLE;
 
+	/* Run receive at least once */
+	wait_us = (wait_us > 0) ? : IPI_POLLING_INTERVAL_US;
+
 	ret = IPI_COMPL_TIMEOUT;
 	if (opt == IPI_SEND_POLLING) {
 		while (wait_us > 0) {
