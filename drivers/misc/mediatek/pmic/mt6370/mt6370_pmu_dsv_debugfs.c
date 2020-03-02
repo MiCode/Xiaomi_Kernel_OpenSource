@@ -124,7 +124,7 @@ static ssize_t mt6370_pmu_dsv_debug_write(struct file *file,
 	int flag = 0;
 	ssize_t res;
 	char *token;
-	unsigned int val;
+	unsigned int val = 0;
 
 	if (*ppos != 0 || size >= sizeof(lbuf) || size == 0)
 		return -EINVAL;
