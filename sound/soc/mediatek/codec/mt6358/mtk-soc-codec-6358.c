@@ -569,8 +569,6 @@ static void set_playback_gpio(bool enable)
 		Ana_Set_Reg(GPIO_MODE2_CLR, 0xffff, 0xffff);
 		Ana_Set_Reg(GPIO_MODE2_SET, 0x0249, 0xffff);
 		Ana_Set_Reg(GPIO_MODE2, 0x0249, 0xffff);
-		/* set gpio mosi SMT mode */
-		Ana_Set_Reg(SMT_CON1, 0x0ff0, 0x0ff0);
 	} else {
 		/* set pad_aud_*_mosi to GPIO mode and dir input
 		 * reason:
@@ -579,8 +577,6 @@ static void set_playback_gpio(bool enable)
 		Ana_Set_Reg(GPIO_MODE2_CLR, 0xffff, 0xffff);
 		Ana_Set_Reg(GPIO_MODE2, 0x0000, 0xffff);
 		Ana_Set_Reg(GPIO_DIR0, 0x0, 0xf << 8);
-		/* reset gpio mosi SMT mode */
-		Ana_Set_Reg(SMT_CON1, 0x0, 0x0ff0);
 	}
 }
 
@@ -7662,6 +7658,8 @@ static void mt6358_codec_init_reg(struct snd_soc_codec *codec)
 	Ana_Set_Reg(AUDDEC_ANA_CON7, 0x1 << 4, 0x1 << 4);
 	/* gpio miso driving set to default 4mA */
 	Ana_Set_Reg(DRV_CON3, 0x8888, 0xffff);
+	/* Enable mtkaif gpio SMT mode */
+	Ana_Set_Reg(SMT_CON1, 0x0ff0, 0x0ff0);
 	/* set gpio */
 	set_playback_gpio(false);
 	set_capture_gpio(false);
