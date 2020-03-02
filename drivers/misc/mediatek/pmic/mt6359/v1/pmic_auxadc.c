@@ -404,6 +404,9 @@ static int mdrt_kthread(void *x)
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
+		/* Fix Cove.Scan, should not happened */
+		if (polling_cnt >= 0x1000)
+			break;
 	}
 	return 0;
 }
