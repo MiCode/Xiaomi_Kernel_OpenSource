@@ -257,6 +257,18 @@ unsigned int pmic_Read_Efuse_HPOffset(int i)
 }
 #endif
 
+#if !defined CONFIG_MTK_PMIC_WRAP && !defined CONFIG_MTK_PMIC_WRAP_HAL
+signed int pwrap_read(unsigned int adr, unsigned int *rdata)
+{
+	return 0;
+}
+
+signed int pwrap_write(unsigned int adr, unsigned int wdata)
+{
+	return 0;
+}
+#endif
+
 inline u32 pmic_read(u32 addr)
 {
 	u32 val = 0;
