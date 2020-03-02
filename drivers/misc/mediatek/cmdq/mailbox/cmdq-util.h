@@ -8,7 +8,6 @@
 
 #include <aee.h>
 
-extern u8 *g_cmdq_util_log_feat;
 enum {
 	CMDQ_LOG_FEAT_SECURE,
 	CMDQ_LOG_FEAT_PERF,
@@ -18,7 +17,7 @@ enum {
 #define cmdq_util_log(feat, fmt, args...) \
 	do { \
 		cmdq_util_save_first_error("[cmdq] "fmt"\n", ##args); \
-		if (*g_cmdq_util_log_feat & (1 << feat)) \
+		if (cmdq_util_get_bit_feature() & (1 << feat)) \
 			cmdq_msg(fmt, ##args); \
 	} while (0)
 
@@ -51,9 +50,11 @@ enum {
 			DB_OPT_CMDQ, tag, fmt, ##args); \
 	} while (0)
 
-void cmdq_util_enable(void); // TODO : need be called
-void cmdq_util_disable(void);
-s32 cmdq_util_save_first_error(const char *str, ...);
+u32 cmdq_util_get_bit_feature(void);
+
+void cmdq_util_error_enable(void); // TODO : need be called
+void cmdq_util_error_disable(void);
+s32 cmdq_util_error_save(const char *str, ...);
 
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event);
 

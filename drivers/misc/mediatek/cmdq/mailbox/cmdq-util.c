@@ -9,89 +9,99 @@
 
 #include "cmdq-util.h"
 
-struct cmdq_util {
-	bool ena;
-	spinlock_t lock;
-	char *buf; // ARG_MAX
-	u32 len;
-	u64 nsec;
-	char caller[TASK_COMM_LEN]; // TODO
-
-	struct dentry *fs_status;
-	struct dentry *fs_record;
-	struct dentry *fs_log_feat;
-	u8 log_feat;
+struct cmdq_util_error {
+	spinlock_t	lock;
+	bool		enable;
+	char		*buffer; // ARG_MAX
+	u32		length;
+	u64		nsec;
+	char		caller[TASK_COMM_LEN]; // TODO
 };
-static struct cmdq_util *g_util;
 
-u8 *g_cmdq_util_log_feat;
+struct cmdq_util_dentry {
+	struct dentry	*status;
+	struct dentry	*record;
+	struct dentry	*log_feature;
+	u8		bit_feature;
+};
 
-void cmdq_util_enable(void)
+struct cmdq_util {
+	struct cmdq_util_error	err;
+	struct cmdq_util_dentry	fs;
+};
+static struct cmdq_util	util;
+
+u32 cmdq_util_get_bit_feature(void)
 {
-	g_util->nsec = sched_clock();
-	g_util->ena = true;
+	return util.fs.bit_feature;
 }
-EXPORT_SYMBOL(cmdq_util_enable);
 
-void cmdq_util_disable(void)
+void cmdq_util_error_enable(void)
 {
-	g_util->ena = false;
+	util.err.nsec = sched_clock();
+	util.err.enable = true;
 }
-EXPORT_SYMBOL(cmdq_util_disable);
+EXPORT_SYMBOL(cmdq_util_error_enable);
 
-s32 cmdq_util_save_first_error(const char *str, ...)
+void cmdq_util_error_disable(void)
 {
-	unsigned long flags;
-	va_list args;
-	s32 len;
+	util.err.enable = false;
+}
+EXPORT_SYMBOL(cmdq_util_error_disable);
 
-	if (!g_util->ena)
+s32 cmdq_util_error_save(const char *str, ...)
+{
+	unsigned long	flags;
+	va_list		args;
+	s32		size;
+
+	if (!util.err.enable)
 		return -EFAULT;
 
-	spin_lock_irqsave(&g_util->lock, flags);
 	va_start(args, str);
-	len = vsnprintf(
-		g_util->buf + g_util->len, ARG_MAX - g_util->len, str, args);
-	g_util->len += len;
+	spin_lock_irqsave(&util.err.lock, flags);
+	size = vsnprintf(util.err.buffer + util.err.length,
+		ARG_MAX - util.err.length, str, args);
+	util.err.length += size;
+	spin_unlock_irqrestore(&util.err.lock, flags);
 
-	if (g_util->len >= ARG_MAX) {
-		cmdq_util_disable();
-		cmdq_msg("Error0 buf is full");
+	if (util.err.length >= ARG_MAX) {
+		cmdq_util_error_disable();
+		cmdq_err("util.err.length:%u is over ARG_MAX:%u",
+			util.err.length, ARG_MAX);
 	}
 	va_end(args);
-	spin_unlock_irqrestore(&g_util->lock, flags);
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_util_save_first_error);
+EXPORT_SYMBOL(cmdq_util_error_save);
 
-static int cmdq_util_print_status(struct seq_file *seq, void *arg)
+static int cmdq_util_status_print(struct seq_file *seq, void *data)
 {
-	struct cmdq_util *util = (struct cmdq_util *)seq->private;
-	u64 sec = util->nsec;
-	unsigned long nsec = do_div(sec, 1000000000);
+	u64		sec = util.err.nsec;
+	unsigned long	nsec = do_div(sec, 1000000000);
 
-	if (!util->len)
+	if (!util.err.length)
 		return 0;
 
 	seq_printf(seq, "======== [cmdq] first error [%5llu.%06lu] ========\n",
 		sec, nsec);
-	seq_printf(seq, "%s", util->buf);
+	seq_printf(seq, "%s", util.err.buffer);
 	return 0;
 }
 
-static int cmdq_util_print_record(struct seq_file *seq, void *data)
+static int cmdq_util_record_print(struct seq_file *seq, void *data)
 {
 	return 0;
 }
 
 static int cmdq_util_status_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, cmdq_util_print_status, inode->i_private);
+	return single_open(file, cmdq_util_status_print, inode->i_private);
 }
 
 static int cmdq_util_record_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, cmdq_util_print_record, inode->i_private);
+	return single_open(file, cmdq_util_record_print, inode->i_private);
 }
 
 static const struct file_operations cmdq_util_status_fops = {
@@ -102,84 +112,75 @@ static const struct file_operations cmdq_util_record_fops = {
 	.open = cmdq_util_record_open,
 };
 
-static int cmdq_util_log_feat_get(void *data, u64 *val)
+static int cmdq_util_log_feature_get(void *data, u64 *val)
 {
-	cmdq_msg("data:%p val:%#llx log_feat:%#x",
-		data, *val, g_util->log_feat);
-	return g_util->log_feat;
+	cmdq_msg("data:%p val:%#llx bit_feature:%#x",
+		data, *val, util.fs.bit_feature);
+	return util.fs.bit_feature;
 }
 
-static int cmdq_util_log_feat_set(void *data, u64 val)
+static int cmdq_util_log_feature_set(void *data, u64 val)
 {
 	if (val == ~0) {
-		g_util->log_feat = 0;
-		cmdq_msg("clean log_feat:%#x", g_util->log_feat);
+		util.fs.bit_feature = 0;
+		cmdq_msg("data:%p val:%#llx bit_feature:%#x reset",
+			data, val, util.fs.bit_feature);
 		return 0;
 	}
 
 	if (val >= CMDQ_LOG_FEAT_NUM) {
-		cmdq_msg("log_feat:%#x cannot over %u",
-			g_util->log_feat, CMDQ_LOG_FEAT_NUM);
+		cmdq_err("data:%p val:%#llx cannot be over %#x",
+			data, val, CMDQ_LOG_FEAT_NUM);
 		return -EINVAL;
 	}
 
-	g_util->log_feat |= (1 << val);
-
-	cmdq_err("data:%p val:%#llx log_feat:%#x",
-		data, val, g_util->log_feat);
+	util.fs.bit_feature |= (1 << val);
+	cmdq_msg("data:%p val:%#llx bit_feature:%#x",
+		data, val, util.fs.bit_feature);
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feat_fops,
-	cmdq_util_log_feat_get, cmdq_util_log_feat_set, "%llu");
+DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
+	cmdq_util_log_feature_get, cmdq_util_log_feature_set, "%llu");
 
 static int __init cmdq_util_init(void)
 {
-	struct cmdq_util *util;
-	struct dentry *dir;
+	struct dentry	*dir;
 
-	util = kzalloc(sizeof(*util), GFP_KERNEL);
-	if (!util)
-		return -ENOMEM;
-	g_util = util;
-
-	spin_lock_init(&util->lock);
-
-	util->buf = kzalloc(ARG_MAX, GFP_KERNEL);
-	if (!util->buf)
+	spin_lock_init(&util.err.lock);
+	util.err.buffer = kzalloc(ARG_MAX, GFP_KERNEL);
+	if (!util.err.buffer)
 		return -ENOMEM;
 
-	// fs
 	dir = debugfs_create_dir("cmdq", NULL);
 	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
-		cmdq_err("debugfs_create_dir cmdq failed:%d", PTR_ERR(dir));
+		cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
 		return PTR_ERR(dir);
 	}
 
-	util->fs_status = debugfs_create_file(
-		"cmdq-status", 0444, dir, util, &cmdq_util_status_fops);
-	if (IS_ERR(util->fs_status)) {
-		cmdq_err("debugfs_create_file cmdq-status failed:%d",
-			PTR_ERR(util->fs_status));
-		return PTR_ERR(util->fs_status);
+	util.fs.status = debugfs_create_file(
+		"cmdq-status", 0444, dir, &util, &cmdq_util_status_fops);
+	if (IS_ERR(util.fs.status)) {
+		cmdq_err("debugfs_create_file cmdq-status failed:%ld",
+			PTR_ERR(util.fs.status));
+		return PTR_ERR(util.fs.status);
 	}
 
-	util->fs_record = debugfs_create_file(
-		"cmdq-record", 0444, dir, util, &cmdq_util_record_fops);
-	if (IS_ERR(util->fs_record)) {
-		cmdq_err("debugfs_create_file cmdq-record failed:%d",
-			PTR_ERR(util->fs_record));
-		return PTR_ERR(util->fs_record);
+	util.fs.record = debugfs_create_file(
+		"cmdq-record", 0444, dir, &util, &cmdq_util_record_fops);
+	if (IS_ERR(util.fs.record)) {
+		cmdq_err("debugfs_create_file cmdq-record failed:%ld",
+			PTR_ERR(util.fs.record));
+		return PTR_ERR(util.fs.record);
 	}
 
-	util->fs_log_feat = debugfs_create_file(
-		"cmdq-log-feat", 0444, dir, util, &cmdq_util_log_feat_fops);
-	if (IS_ERR(util->fs_record)) {
-		cmdq_err("debugfs_create_file cmdq-log-feat failed:%d",
-			PTR_ERR(util->fs_log_feat));
-		return PTR_ERR(util->fs_log_feat);
+	util.fs.log_feature = debugfs_create_file("cmdq-log-feature",
+		0444, dir, &util, &cmdq_util_log_feature_fops);
+	if (IS_ERR(util.fs.log_feature)) {
+		cmdq_err("debugfs_create_file cmdq-log-feature failed:%ld",
+			PTR_ERR(util.fs.log_feature));
+		return PTR_ERR(util.fs.log_feature);
 	}
-	g_cmdq_util_log_feat = &util->log_feat;
 	return 0;
 }
 late_initcall(cmdq_util_init);
