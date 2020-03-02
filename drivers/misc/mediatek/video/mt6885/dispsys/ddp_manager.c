@@ -1158,7 +1158,7 @@ struct disp_ddp_path_config *dpmgr_path_get_last_config_notclear(
 {
 	struct ddp_path_handle *handle = (struct ddp_path_handle *)dp_handle;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	return &handle->last_config;
 }
 
@@ -1167,7 +1167,7 @@ struct disp_ddp_path_config *dpmgr_path_get_last_config(
 {
 	struct ddp_path_handle *handle = (struct ddp_path_handle *)dp_handle;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle->last_config.ovl_dirty = 0;
 	handle->last_config.rdma_dirty = 0;
 	handle->last_config.wdma_dirty = 0;
@@ -1427,7 +1427,7 @@ int dpmgr_path_user_cmd(disp_path_handle dp_handle, unsigned int msg,
 	struct ddp_path_handle *handle = NULL;
 	struct DDP_MODULE_DRIVER *mod_drv;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	/* DISP_LOG_W("dpmgr_path_user_cmd msg 0x%08x\n",msg); */
 	switch (msg) {
@@ -1511,7 +1511,7 @@ int dpmgr_path_get_parameter(disp_path_handle dp_handle, int io_evnet,
 
 int dpmgr_path_is_idle(disp_path_handle dp_handle)
 {
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	return !dpmgr_path_is_busy(dp_handle);
 }
 
@@ -1579,7 +1579,7 @@ int dpmgr_enable_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event)
 	struct ddp_path_handle *handle;
 	struct DPMGR_WQ_HANDLE *wq_handle;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	wq_handle = &handle->wq_list[event];
 
@@ -1753,7 +1753,7 @@ int dpmgr_wait_event_timeout(disp_path_handle dp_handle,
 	struct DPMGR_WQ_HANDLE *wq_handle;
 	unsigned long long cur_time;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	wq_handle = &handle->wq_list[event];
 
@@ -1798,7 +1798,7 @@ int _dpmgr_wait_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event,
 	struct DPMGR_WQ_HANDLE *wq_handle;
 	unsigned long long cur_time;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	wq_handle = &handle->wq_list[event];
 
@@ -1847,7 +1847,7 @@ int dpmgr_signal_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event)
 	struct ddp_path_handle *handle;
 	struct DPMGR_WQ_HANDLE *wq_handle;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	wq_handle = &handle->wq_list[event];
 
