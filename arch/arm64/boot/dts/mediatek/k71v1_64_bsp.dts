@@ -723,6 +723,12 @@
 };
 /* USB TYPEC GPIO end */
 
+&charger {
+	algorithm_name = "DualSwitchCharging";
+	chg1_ta_ac_charger_current = <2000000>;
+	chg2_ta_ac_charger_current = <2000000>;
+};
+
 &i2c6 {
 	rt9465@4b {
 		compatible = "richtek,rt9465";
@@ -730,7 +736,6 @@
 		status = "okay";
 		rt,en_gpio_num = <179>;
 		rt,en_gpio = <&pio 179 0x0>;
-		mt6306_en_pin = <1>;
 		rt,intr_gpio_num = <9>; /* direct defined GPIO num */
 		rt,intr_gpio = <&pio 9 0x0>;
 		interrupt-names = "wdtmri";
