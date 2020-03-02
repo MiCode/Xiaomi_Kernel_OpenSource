@@ -375,12 +375,26 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
 	}
 
 	if (tmp == VENDOR_POWERSTATE_HIBERNATE) {
-		/* delay 100us before DeepIdle/SODI
-		 * disable XO_UFS for Toshiba device
+		/*
+		 * Delay before disable XO_UFS: H8 -> delay A -> disable XO_UFS
+		 *		delayA
+		 * Hynix	30us
+		 * Samsung	1us
+		 * Toshiba	100us
 		 */
-		if (ufs_mtk_hba->dev_quirks &
-			UFS_DEVICE_QUIRK_DELAY_BEFORE_DISABLE_REF_CLK)
+		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		case UFS_VENDOR_TOSHIBA:
 			udelay(100);
+			break;
+		case UFS_VENDOR_SKHYNIX:
+			udelay(30);
+			break;
+		case UFS_VENDOR_SAMSUNG:
+			udelay(1);
+			break;
+		default:
+			break;
+		}
 		/*
 		 * Disable MPHY 26MHz ref clock in H8 mode
 		 * SSPM project will disable MPHY 26MHz ref clock
@@ -430,6 +444,13 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
 #endif
 #endif
+	/* Delay after enable XO_UFS: enable XO_UFS -> delay B -> leave H8
+	 *		delayB
+	 * Hynix	30us
+	 * Samsung	max(1us,32us)
+	 * Toshiba	32us
+	 */
+	udelay(32);
 }
 
 /**
