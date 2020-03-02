@@ -69,7 +69,8 @@ void __attribute__((weak)) dcm_set_fmem_fsel_dbc
 
 int __attribute__((weak)) dcm_smc_get_cnt(int type_id)
 {
-	dcm_pr_info("weak function of %s: dcm->type_id=%d\n", __func__, type_id);
+	dcm_pr_info("weak function of %s: dcm->type_id=%d\n",
+					__func__, type_id);
 
 	return 0;
 }
@@ -112,6 +113,30 @@ int __attribute__((weak)) sync_dcm_set_mp2_freq(unsigned int mp2)
 	return 0;
 }
 
+void __attribute__((weak)) *mt_dramc_chn_base_get(int channel)
+{
+	dcm_pr_info("weak function of %s\n", __func__);
+	return NULL;
+}
+
+void __attribute__((weak)) *mt_ddrphy_chn_base_get(int channel)
+{
+	dcm_pr_info("weak function of %s\n", __func__);
+	return NULL;
+}
+
+void __attribute__((weak)) __iomem *mt_cen_emi_base_get(void)
+{
+	dcm_pr_info("weak function of %s\n", __func__);
+	return 0;
+}
+
+void __attribute__((weak)) __iomem *mt_chn_emi_base_get(int chn)
+{
+	dcm_pr_info("weak function of %s\n", __func__);
+	return 0;
+}
+
 /*****************************************
  * DCM driver will provide regular APIs :
  * 1. dcm_restore(type) to recovery CURRENT_STATE before any power-off reset.
@@ -119,7 +144,8 @@ int __attribute__((weak)) sync_dcm_set_mp2_freq(unsigned int mp2)
  * 3. dcm_disable(type) to disable all dcm.
  * 4. dcm_set_state(type) to set dcm state.
  * 5. dcm_dump_state(type) to show CURRENT_STATE.
- * 6. /sys/power/dcm_state interface:  'restore', 'disable', 'dump', 'set'. 4 commands.
+ * 6. /sys/power/dcm_state interface:
+ *			'restore', 'disable', 'dump', 'set'. 4 commands.
  *
  * spsecified APIs for workaround:
  * 1. (definitely no workaround now)
@@ -130,7 +156,8 @@ void dcm_set_default(unsigned int type)
 	struct DCM *dcm;
 
 #ifndef ENABLE_DCM_IN_LK
-	dcm_pr_info("[%s]type:0x%08x, init_dcm_type=0x%x\n", __func__, type, init_dcm_type);
+	dcm_pr_info("[%s]type:0x%08x, init_dcm_type=0x%x\n",
+					__func__, type, init_dcm_type);
 #else
 	dcm_pr_info("[%s]type:0x%08x, init_dcm_type=0x%x, INIT_DCM_TYPE_BY_K=0x%x\n",
 		 __func__, type, init_dcm_type, INIT_DCM_TYPE_BY_K);
@@ -175,7 +202,8 @@ void dcm_set_state(unsigned int type, int state)
 
 	mutex_lock(&dcm_lock);
 
-	for (i = 0, dcm = &dcm_array[0]; type && (i < NR_DCM_TYPE); i++, dcm++) {
+	for (i = 0, dcm = &dcm_array[0];
+		type && (i < NR_DCM_TYPE); i++, dcm++) {
 		if (type & dcm->typeid) {
 			type &= ~(dcm->typeid);
 
@@ -199,7 +227,9 @@ void dcm_set_state(unsigned int type, int state)
 
 	if (init_dcm_type_pre != init_dcm_type) {
 		dcm_pr_info("[%s]type:0x%08x, set:%d, init_dcm_type=0x%x->0x%x\n",
-			 __func__, type, state, init_dcm_type_pre, init_dcm_type);
+			__func__, type, state,
+			init_dcm_type_pre,
+			init_dcm_type);
 		dcm_smc_msg_send(init_dcm_type);
 	}
 
@@ -216,7 +246,8 @@ void dcm_disable(unsigned int type)
 
 	mutex_lock(&dcm_lock);
 
-	for (i = 0, dcm = &dcm_array[0]; type && (i < NR_DCM_TYPE); i++, dcm++) {
+	for (i = 0, dcm = &dcm_array[0];
+		type && (i < NR_DCM_TYPE); i++, dcm++) {
 		if (type & dcm->typeid) {
 			type &= ~(dcm->typeid);
 
@@ -252,7 +283,8 @@ void dcm_restore(unsigned int type)
 
 	mutex_lock(&dcm_lock);
 
-	for (i = 0, dcm = &dcm_array[0]; type && (i < NR_DCM_TYPE); i++, dcm++) {
+	for (i = 0, dcm = &dcm_array[0];
+		type && (i < NR_DCM_TYPE); i++, dcm++) {
 		if (type & dcm->typeid) {
 			type &= ~(dcm->typeid);
 
@@ -315,7 +347,8 @@ static ssize_t dcm_state_show(struct kobject *kobj, struct kobj_attribute *attr,
 		len += snprintf(buf+len, PAGE_SIZE-len,
 				"[%-16s 0x%08x] current state:%d (%d), atf_on_cnt:%u\n",
 				dcm->name, dcm->typeid, dcm->current_state,
-				dcm->disable_refcnt, dcm_smc_get_cnt(dcm->typeid));
+				dcm->disable_refcnt,
+				dcm_smc_get_cnt(dcm->typeid));
 
 	len += snprintf(buf+len, PAGE_SIZE-len,
 			"\n********** dcm_state help *********\n");
@@ -389,7 +422,10 @@ static ssize_t dcm_state_store(struct kobject *kobj,
 
 				dcm_set_state(mask, mode);
 
-				/* Log for stallDCM switching in Performance/Normal mode */
+				/*
+				 * Log for stallDCM switching
+				 * in Performance/Normal mode
+				 */
 				if (mask & STALL_DCM_TYPE) {
 					if (mode)
 						dcm_pr_info("stall dcm is enabled for Default(Normal) mode started\n");
@@ -398,7 +434,8 @@ static ssize_t dcm_state_store(struct kobject *kobj,
 				}
 			}
 		} else {
-			dcm_pr_info("SORRY, do not support your command: %s\n", cmd);
+			dcm_pr_info("SORRY, do not support your command: %s\n",
+				    cmd);
 		}
 		ret = n;
 	} else {
@@ -419,7 +456,7 @@ static struct kobj_attribute dcm_state_attr = {
 };
 #endif /* #ifdef CONFIG_PM */
 
-int mt_dcm_init(void)
+int __init mt_dcm_init(void)
 {
 	if (is_dcm_bringup())
 		return 0;
