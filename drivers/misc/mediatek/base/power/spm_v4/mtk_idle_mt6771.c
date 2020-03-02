@@ -352,19 +352,25 @@ bool __attribute__((weak)) disp_pwm_is_osc(void)
 const char *mtk_get_idle_name(int id)
 {
 	WARN_ON(INVALID_IDLE_ID(id));
-	return idle_name[id];
+	if ((id >= 0) && (id < NR_TYPES))
+		return idle_name[id];
+	return "Invalid_Name";
 }
 
 const char *mtk_get_reason_name(int id)
 {
 	WARN_ON(INVALID_REASON_ID(id));
-	return reason_name[id];
+	if ((id >= 0) && (id < NR_REASONS))
+		return reason_name[id];
+	return "Invalid_Name";
 }
 
 const char *mtk_get_cg_group_name(int id)
 {
 	WARN_ON(INVALID_GRP_ID(id));
-	return cg_group_name[id];
+	if ((id >= 0) && (id < NR_GRPS))
+		return cg_group_name[id];
+	return "Invalid_Name";
 }
 
 static int sys_is_on(enum subsys_id id)
