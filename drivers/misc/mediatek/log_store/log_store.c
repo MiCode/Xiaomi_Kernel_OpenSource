@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
+#include <linux/syscalls.h>
 #include <asm/memory.h>
 
 #include "log_store_kernel.h"
@@ -35,6 +36,10 @@ static char *pbuff;
 static struct pl_lk_log *dram_curlog_header;
 static struct dram_buf_header *sram_dram_buff;
 static bool early_log_disable;
+
+#define EXPDB_PATH "/dev/block/platform/bootdevice/by-name/expdb"
+
+#define LOG_BLOCK_SIZE (512)
 
 #ifdef CONFIG_MTK_DRAM_LOG_STORE
 /* set the flag whether store log to emmc in next boot phase in pl */
@@ -64,6 +69,82 @@ void log_store_bootup(void)
 {
 	/* Boot up finish, don't save log to emmc in next boot.*/
 	store_log_to_emmc_enable(false);
+}
+
+int set_emmc_config(int type, int value)
+{
+	int fd;
+	mm_segment_t fs;
+	struct log_emmc_header pEmmc;
+	int file_size;
+
+	if (type >= EMMC_STORE_TYPE_NR || type < 0) {
+		pr_notice("invalid config type: %d.\n", type);
+		return -1;
+	}
+
+	fs = get_fs();
+	set_fs(get_ds());
+
+	fd = sys_open(EXPDB_PATH, O_RDWR, 0);
+	if (fd < 0) {
+		pr_notice("log_store can't open expdb file: %d.\n", fd);
+		set_fs(fs);
+		return -1;
+	}
+
+	file_size  = sys_lseek(fd, 0, SEEK_END);
+	sys_lseek(fd, file_size - LOG_BLOCK_SIZE, 0);
+	sys_read(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
+	if (pEmmc.sig != LOG_EMMC_SIG) {
+		pr_notice("log_store emmc header error.\n");
+		sys_close(fd);
+		set_fs(fs);
+		return -1;
+	}
+	if (type == UART_LOG) {
+		if (value)
+			pEmmc.uart_flag = 1;
+		else
+			pEmmc.uart_flag = 2;
+	} else
+		pEmmc.reserve[type - 1] = value;
+	sys_lseek(fd, file_size - LOG_BLOCK_SIZE, 0);
+	sys_write(fd, (char *)&pEmmc, sizeof(struct log_emmc_header));
+	sys_close(fd);
+	set_fs(fs);
+	pr_notice("type:%d, value:%d.\n", type, value);
+	return 0;
+}
+
+int read_emmc_config(struct log_emmc_header *log_header)
+{
+	int fd;
+	mm_segment_t fs;
+	int file_size;
+
+	fs = get_fs();
+	set_fs(get_ds());
+
+	fd = sys_open(EXPDB_PATH, O_RDWR, 0);
+	if (fd < 0) {
+		pr_notice("log_store can't open expdb file: %d.\n", fd);
+		set_fs(fs);
+		return -1;
+	}
+
+	file_size  = sys_lseek(fd, 0, SEEK_END);
+	sys_lseek(fd, file_size - LOG_BLOCK_SIZE, 0);
+	sys_read(fd, (char *)log_header, sizeof(struct log_emmc_header));
+	if (log_header->sig != LOG_EMMC_SIG) {
+		pr_notice("log_store emmc header error.\n");
+		sys_close(fd);
+		set_fs(fs);
+		return -1;
+	}
+	sys_close(fd);
+	set_fs(fs);
+	return 0;
 }
 #endif
 
