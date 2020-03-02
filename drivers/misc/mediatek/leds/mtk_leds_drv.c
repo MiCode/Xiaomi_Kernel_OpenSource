@@ -81,6 +81,8 @@ int __weak disp_bls_set_max_backlight(unsigned int level_1024) { return 0; };
 int __weak disp_bls_set_backlight(int level_1024) { return 0; }
 int __weak mtkfb_set_backlight_level(unsigned int level) { return 0; };
 void __weak disp_pq_notify_backlight_changed(int bl_1024) {};
+int __weak enable_met_backlight_tag(void){ return 0; };
+int __weak output_met_backlight_tag(int level) { return 0; };
 static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level);
 
 /****************************************************************************
@@ -481,10 +483,12 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONTROL_BL_TEMPERATURE
+	mutex_lock(&bl_level_limit_mutex);
 	last_level = 0;
 	limit = 255;
 	limit_flag = 0;
 	current_level = 0;
+	mutex_unlock(&bl_level_limit_mutex);
 	LEDS_DRV_DEBUG
 	    ("last_level= %d, limit= %d, limit_flag= %d, current_level= %d\n",
 	     last_level, limit, limit_flag, current_level);
