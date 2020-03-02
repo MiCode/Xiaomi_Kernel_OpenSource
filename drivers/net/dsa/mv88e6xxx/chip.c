@@ -4044,6 +4044,8 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 				goto out_g1_irq;
 		}
 	}
+	if (chip->reset)
+		usleep_range(1000, 2000);
 
 	err = mv88e6xxx_mdios_register(chip, np);
 	if (err)

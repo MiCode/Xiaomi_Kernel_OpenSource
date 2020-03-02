@@ -1290,8 +1290,6 @@ again:
 					ret = -EIO;
 					goto out;
 				}
-				btrfs_tree_read_lock(eb);
-				btrfs_set_lock_blocking_rw(eb, BTRFS_READ_LOCK);
 				if (!path->skip_locking) {
 					btrfs_tree_read_lock(eb);
 					btrfs_set_lock_blocking_rw(eb, BTRFS_READ_LOCK);
