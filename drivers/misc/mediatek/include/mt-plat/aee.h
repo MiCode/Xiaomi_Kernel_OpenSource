@@ -183,7 +183,6 @@ void aee_sram_printk(const char *fmt, ...);
 int aee_nested_printf(const char *fmt, ...);
 void aee_wdt_irq_info(void);
 void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp);
-void aee_trigger_kdb(void);
 struct aee_oops *aee_oops_create(enum AE_DEFECT_ATTR attr,
 		enum AE_EXP_CLASS clazz, const char *module);
 void aee_oops_set_backtrace(struct aee_oops *oops, const char *backtrace);
