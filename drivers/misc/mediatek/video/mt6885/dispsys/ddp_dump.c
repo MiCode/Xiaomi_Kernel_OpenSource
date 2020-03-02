@@ -22,221 +22,679 @@
 #include "ddp_rdma.h"
 #include "ddp_rdma_ex.h"
 #include "ddp_dsi.h"
-#include "disp_helper.h"
-#include "ddp_dpi.h"
-#include "ddp_dbi.h"
 #include "ddp_rsz.h"
+#include "ddp_postmask.h"
+#include "smi_public.h"
+#include "disp_helper.h"
 
 
 static char *ddp_signal_0(int bit)
 {
 	switch (bit) {
 	case 0:
-		return "aal0__to__gamma0";
+		return
+			"AFBC_WDMA0_SEL__TO__D_UFBC_WDMA0";
 	case 1:
-		return "ccorr0__to__aal0";
+		return
+			"AFBC_WDMA1_SEL__TO__D_UFBC_WDMA1";
 	case 2:
-		return "color0__to__disp_color_out_sel_in0";
+		return
+			"D_AAL0__TO__D_GAMMA0";
 	case 3:
-		return "disp_color_out_sel__to__ccorr0";
+		return
+			"D_AAL0_SEL__TO__D_AAL0";
 	case 4:
-		return "disp_path0_sel__to__disp_rdma0";
+		return
+			"D_AAL1__TO__D_GAMMA1";
 	case 5:
-		return "disp_rdma0__to__disp_rdma0_sout";
+		return
+			"D_CCORR0__TO__D_CCORR0_SOUT";
 	case 6:
-		return "disp_rdma0_sout_out0__to__dsi0_sel_in1";
+		return
+			"D_CCORR0_SOUT0__TO__MDP_AAL4_SEL0";
 	case 7:
-		return "disp_rdma0_sout_out1__to__color0";
+		return
+			"D_CCORR0_SOUT1__TO__D_AAL0_SEL1";
 	case 8:
-		return "disp_rdma0_sout_out2__to__disp_color_out_sel_in1";
+		return
+			"D_CCORR1__TO__D_CCORR1_SOUT";
 	case 9:
-		return "disp_rdma0_sout_out3__to__dsi1_sel_in1";
+		return
+			"D_CCORR1_SOUT0__TO__MDP_AAL5_SEL0";
 	case 10:
-		return "disp_rdma1__to__disp_rdma1_sout";
+		return
+			"D_CCORR1_SOUT1__TO__MDP_AAL1_SEL1";
 	case 11:
-		return "disp_rdma1_sout_out0__to__dsi1_sel_in2";
+		return
+			"D_COLOR0__TO__D_COLOR0_OUT_SEL0";
 	case 12:
-		return "disp_rdma1_sout_out1__to__dsi0_sel_in3";
+		return
+			"D_COLOR0_OUT_SEL__TO__D_CCORR0";
 	case 13:
-		return "disp_rsz__to__disp_rsz_mout";
+		return
+			"D_COLOR1__TO__D_COLOR1_OUT_SEL0";
 	case 14:
-		return "disp_rsz_mout0__to__ovl0";
+		return
+			"D_COLOR1_OUT_SEL__TO__D_CCORR1";
 	case 15:
-		return "disp_rsz_mout1__to__ovl0_2L";
+		return
+			"D_DITHER0__TO__D_DITHER0_MOUT";
 	case 16:
-		return "disp_rsz_mout2__to__ovl1_2L";
+		return
+			"D_DITHER0_MOUT_OUT0__TO__DSI0_SEL1";
 	case 17:
-		return "disp_rsz_mout3__to__disp_path0_sel_in3";
+		return
+			"D_DITHER0_MOUT_OUT1__to__D_WDMA0_SEL0";
 	case 18:
-		return "disp_rsz_mout4__to__ovl_to_wdma_sel_in3";
+		return
+			"D_DITHER0_MOUT_OUT2__TO__DSI1_SEL2";
 	case 19:
-		return "disp_rsz_sel__to__disp_rsz";
+		return
+			"D_DITHER0_MOUT_OUT3__TO__D_PQ0_SOUT";
 	case 20:
-		return "disp_split_out0__to__dsi0_sel_in2";
+		return
+			"D_DITHER1__TO__D_DITHER1_MOUT";
 	case 21:
-		return "disp_split_out1__to__dsi1_sel_in0";
+		return
+			"D_DITHER1_MOUT_OUT0__TO__DSI1_SEL1";
 	case 22:
-		return "disp_wdma_pre_sel__to__disp_to_wdma";
+		return
+			"D_DITHER1_MOUT_OUT1__TO__D_WDMA1_SEL0";
 	case 23:
-		return "dither0__to__dither0_mout";
+		return
+			"D_DITHER1_MOUT_OUT2__TO__D_PQ1_SOUT";
 	case 24:
-		return "dither0_mout0__to__dsi0_sel_in0";
+		return
+			"D_DP_WRAP_SEL__TO__DP_INTD0";
 	case 25:
-		return "dither0_mout1__to__disp_split";
+		return
+			"D_DSC_WRAP0_OUT0__TO__D_DSC_WRAP_SOUT";
 	case 26:
-		return "dither0_mout2__to__dsi1_sel_in3";
+		return
+			"D_DSC_WRAP0_OUT1__TO__DSI1_SEL3";
 	case 27:
-		return "dither0_mout3__to__disp_wdma0_pre_sel_in1";
+		return
+			"D_DSC_WRAP_SOUT0__TO__DSI0_SEL3";
 	case 28:
-		return "dsi0_sel__to__dsi0";
+		return
+			"D_DSC_WRAP_SOUT1__TO__D_DP_WRAP_SEL0";
 	case 29:
-		return "dsi1_sel__to__dsi1";
+		return
+			"D_DSI0_DSC_WRAP_SOUT0__TO__DSI0_SEL2";
 	case 30:
-		return "gamma0__to__dither0";
+		return
+			"D_DSI0_DSC_WRAP_SOUT1__TO__D_DSC_WRAP0_IN0";
 	case 31:
-		return "mdp_to_disp0__to__mdp_to_disp0_sout";
+		return
+			"D_GAMMA0__TO__D_POSTMASK0";
 	default:
-		break;
+		return NULL;
 	}
-	return NULL;
 }
 
 static char *ddp_signal_1(int bit)
 {
 	switch (bit) {
 	case 0:
-		return "mdp_to_disp0_sout_out0__to__ovl0_sel_in0";
+		return
+			"D_GAMMA1__TO__D_POSTMASK1";
 	case 1:
-		return "mdp_to_disp0_sout_out1__to__ovl0_2L_sel_in0";
+		return
+			"MDP_AAL4_MDP_HDR4_SEL__TO__MDP_RSZ4";
 	case 2:
-		return "mdp_to_disp1__to__mdp_to_disp1_sout";
+		return
+			"MDP_AAL4_SEL__TO__MDP_AAL4";
 	case 3:
-		return "mdp_to_disp1_sout_out0__to__ovl0_2L_sel_in1";
+		return
+			"MDP_AAL4_SOUT0__TO__D_AAL0_SEL0";
 	case 4:
-		return "mdp_to_disp1_sout_out1__to__ovl1_2L";
+		return
+			"MDP_AAL4_SOUT1__TO__MDP_AAL4_MDP_HDR4_SEL1";
 	case 5:
-		return "mdp_to_disp1_sout_out2__to__ovl0_sel_in1";
+		return
+			"MDP_AAL5_MDP_HDR5_SEL__TO__MDP_RSZ5";
 	case 6:
-		return "ovl0_2L__to__ovl0_2L_mout";
+		return
+			"MDP_AAL5_SEL__TO__MDP_AAL5";
 	case 7:
-		return "ovl0_2L_mout0__to__disp_path0_sel_in1";
+		return
+			"MDP_AAL5_SOUT0__TO__MDP_AAL1_SEL0";
 	case 8:
-		return "ovl0_2L_mout1__to__ovl_to_wrot_sel_in1";
+		return
+			"MDP_AAL5_SOUT1__TO__MDP_AAL5_MDP_HDR5_SEL1";
 	case 9:
-		return "ovl0_2L_mout2__to__ovl_to_wdma_sel_in1";
+		return
+			"MDP_TDSHP4_SOUT0__TO__D_OVL0_2L_IN1";
 	case 10:
-		return "ovl0_2L_mout3__to__ovl_to_rsz_sel_in1";
+		return
+			"MDP_TDSHP4_SOUT1__TO__D_OVL0_IN1";
 	case 11:
-		return "ovl0_2L_mout4__to__ovl1_2L";
+		return
+			"MDP_TDSHP5_SOUT0__TO__D_OVL1_2L_IN1";
 	case 12:
-		return "ovl0_2L_mout5__to__disp_rsz_sel_in1";
+		return
+			"MDP_TDSHP5_SOUT1__TO__D_OVL1_IN1";
 	case 13:
-		return "ovl0_2L_sel__to__ovl0_2L";
+		return
+			"D_MERGE0__TO__D_RDMA4_PQ0_MERGE0_SEL2";
 	case 14:
-		return "ovl0__to__ovl0_mout";
+		return
+			"D_MERGE1__TO__D_DP_WRAP_SEL1";
 	case 15:
-		return "ovl0_mout0__to__disp_path0_sel_in0";
+		return
+			"D_OVL0_2L_BLENDOUT_SOUT0__TO__D_TOVL0_OUT0_SEL0";
 	case 16:
-		return "ovl0_mout1__to__ovl_to_wrot_sel_in0";
+		return
+			"D_OVL0_2L_BLENDOUT_SOUT1__TO__D_TOVL0_OUT1_SEL0";
 	case 17:
-		return "ovl0_mout2__to__ovl_to_wdma_sel_in0";
+		return
+			"D_OVL0_2L_OUT0__TO__D_OVL0_2L_BLENDOUT_SOUT";
 	case 18:
-		return "ovl0_mout3__to__ovl_to_rsz_sel_in0";
+		return
+			"D_OVL0_2L_OUT1__TO__D_OVL0_2L_OVL1_2L_BG_SEL1";
 	case 19:
-		return "ovl0_mout4__to__ovl0_2L";
+		return
+			"D_OVL0_2L_OUT2__TO__D_OVL0_2L_PG_SEL1";
 	case 20:
-		return "ovl0_mout5__to__disp_rsz_sel_in0";
+		return
+			"D_OVL0_2L_OVL1_2L_BG_SEL__TO__D_OVL0_IN0";
 	case 21:
-		return "ovl0_sel__to__ovl0";
+		return
+			"D_OVL0_BLENDOUT_SOUT0__TO__D_TOVL0_OUT0_SEL1";
 	case 22:
-		return "ovl1_2L__to__ovl1_2L_mout";
+		return
+			"D_OVL0_BLENDOUT_SOUT1__TO__D_TOVL0_OUT1_SEL1";
 	case 23:
-		return "ovl1_2L_mout0__to__disp_path0_sel_in2";
+		return
+			"D_OVL0_OUT0__TO__D_OVL0_BLENDOUT_SOUT";
 	case 24:
-		return "ovl1_2L_mout1__to__ovl_to_wrot_sel_in2";
+		return
+			"D_OVL0_OUT1__TO__D_OVL1_2L_BG_SEL1";
 	case 25:
-		return "ovl1_2L_mout2__to__ovl_to_wdma_sel_in2";
+		return
+			"D_OVL0_OUT2__TO__D_OVL0_2L_PG_SEL0";
 	case 26:
-		return "ovl1_2L_mout3__to__ovl_to_rsz_sel_in2";
+		return
+			"D_OVL0_2L_PG_SEL__TO__D_TOVL0_PQOUT_MDP_RDMA4_SEL1";
 	case 27:
-		return "ovl1_2L_mout4__to__disp_rdma1";
+		return
+			"D_OVL1_2L_BG_SEL__TO__D_OVL0_2L_IN0";
 	case 28:
-		return "ovl1_2L_mout5__to__disp_rsz_sel_in2";
+		return
+			"D_OVL1_2L_BG_SOUT0__TO__D_OVL1_IN0";
 	case 29:
-		return "ovl_to_rsz_sel__to__disp_to_rsz";
+		return
+			"D_OVL1_2L_BG_SOUT1__TO__D_OVL1_2L_BG_SEL0";
 	case 30:
-		return "ovl_to_wdma_sel__to__disp_wdma0_pre_sel_in0";
+		return
+			"D_OVL1_2L_BLENDOUT_SOUT0__TO_D_TOVL1_OUT0_SEL0";
 	case 31:
-		return "ovl_to_wrot_sel__to__disp_to_wrot";
+		return
+			"D_OVL1_2L_BLENDOUT_SOUT1__TO__D_OVL1_2L_BG_SEL0";
 	default:
-		break;
+		return NULL;
 	}
-	return NULL;
+}
+
+static char *ddp_signal_2(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"D_OVL1_2L_OUT0__TO__D_OVL1_2L_BLENDOUT_SOUT";
+	case 1:
+		return
+			"D_OVL1_2L_OUT1__TO__D_OVL1_2L_BG_SOUT";
+	case 2:
+		return
+			"D_OVL1_2L_OUT2__TO__D_OVL1_2L_PQOUT_SEL1";
+	case 3:
+		return
+			"D_OVL1_BG_SOUT0__TO__D_OVL1_2L_IN0";
+	case 4:
+		return
+			"D_OVL1_BG_SOUT1__TO__D_OVL1_2L_BG_SEL1";
+	case 5:
+		return
+			"D_OVL1_BLENDOUT_SOUT0__TO__D_TOVL1_OUT0_SEL1";
+	case 6:
+		return
+			"D_OVL1_BLENDOUT_SOUT1__TO__D_TOVL1_OUT1_SEL1";
+	case 7:
+		return
+			"D_OVL1_OUT0__TO__D_OVL1_BLENDOUT_SOUT";
+	case 8:
+		return
+			"D_OVL1_OUT1__TO__D_OVL1_BG_SOUT";
+	case 9:
+		return
+			"D_OVL1_OUT2__TO__D_OVL1_OUT1_2L_PQOUT_SEL0";
+	case 10:
+		return
+			"D_OVL1_2L_BG_SEL__TO__D_OVL1_2L_BG_SOUT";
+	case 11:
+		return
+			"D_OVL1_2L_BG_SOUT0__TO__D_OVL1_2L_BG_SEL";
+	case 12:
+		return
+			"D_OVL1_2L_BG_SOUT1__TO__D_OVL0_2L_OUT1_OVL1_2L_BG_SEL";
+	case 13:
+		return
+			"D_OVL1_2L_PQOUT_SEL__TO__D_TOVL1_PQOUT_MDP_RDMA5_SEL1";
+	case 14:
+		return
+			"D_OVL2_2L__TO__D_OVL2_2L_OUT0_MOUT";
+	case 15:
+		return
+			"D_OVL2_2L_OUT0_MOUT_OUT0__TO__D_RDMA4";
+	case 16:
+		return
+			"D_OVL2_2L_OUT0_MOUT_OUT1__TO__D_WDMA0_SEL4";
+	case 17:
+		return
+			"D_OVL3_2L_OUT0__TO__D_OVL3_2L_OUT0_MOUT";
+	case 18:
+		return
+			"D_OVL3_2L_OUT0_MOUT_OUT0__TO__D_RDMA5";
+	case 19:
+		return
+			"D_OVL3_2L_OUT0_MOUT_OUT1__TO__D_WDMA1_SEL4";
+	case 20:
+		return
+			"D_OVL3_2L_OUT1__TO__D_OVL2_2L";
+	case 21:
+		return
+			"D_POSTMASK0__TO__D_DITHER0";
+	case 22:
+		return
+			"D_POSTMASK1__TO__D_DITHER1";
+	case 23:
+		return
+			"D_PQ0_SOUT0__TO__D_MERGE0_IN0";
+	case 24:
+		return
+			"D_PQ0_SOUT1__TO__D_RDMA4_PQ0_MERGE0_SEL1";
+	case 25:
+		return
+			"D_PQ1_SOUT0__TO__D_MERGE0_IN0";
+	case 26:
+		return
+			"D_PQ1_SOUT1__TO__D_RDMA5_PQ1_SEL1";
+	case 27:
+		return
+			"D_RDMA0__TO__D_RDMA0_SOUT";
+	case 28:
+		return
+			"D_RDMA0_RSZ0_SEL__TO__D_RDMA0_RSZ0_SOUT";
+	case 29:
+		return
+			"D_RDMA0_RSZ0_SOUT0__TO__DSI0_SEL0";
+	case 30:
+		return
+			"D_RDMA0_RSZ0_SOUT1__TO__D_COLOR0";
+	case 31:
+		return
+			"D_RDMA0_RSZ0_SOUT2__TO_D_COLOR0_OUT_SEL1";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_3(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"D_RDMA0_SEL__TO__D_RDMA0";
+	case 1:
+		return
+			"D_RDMA0_SOUT0__TO__D_RDMA0_RSZ0_SEL0";
+	case 2:
+		return
+			"D_RDMA0_SOUT1__TO__D_RSZ0_SEL2";
+	case 3:
+		return
+			"D_RDMA1__TO__D_RDMA1_SOUT";
+	case 4:
+		return
+			"D_RDMA1_TSZ1_SEL__TO__D_RDMA1_RSZ1_SOUT";
+	case 5:
+		return
+			"D_RDMA1_RSZ1_SOUT0__TO__DSI1_SEL0";
+	case 6:
+		return
+			"D_RDMA1_RSZ1_SOUT1__TO__D_COLOR1";
+	case 7:
+		return
+			"D_RDMA1_RSZ1_SOUT2__TO__D_COLOR1_OUT_SEL1";
+	case 8:
+		return
+			"D_RDMA1_SEL__TO__D_RDMA1";
+	case 9:
+		return
+			"D_RDMA1_SOUT0__TO__D_RDMA1_RSZ1_SEL0";
+	case 10:
+		return
+			"D_RDMA1_SOUT1__TO__D_RSZ1_SEL2";
+	case 11:
+		return
+			"D_RDMA2_RSZ0_RSZ1_SEL__TO__D_RDMA2_RSZ0_RSZ1_SOUT";
+	case 12:
+		return
+			"D_RDMA2_RSZ0_RSZ1_SOUT0__TO__D_OVL0_2L_IN2";
+	case 13:
+		return
+			"D_RDMA2_RSZ0_RSZ1_SOUT1__TO__D_OVL0_IN2";
+	case 14:
+		return
+			"D_RDMA3_SOUT0__TO__D_OVL1_2L_IN2";
+	case 15:
+		return
+			"D_RDMA3_SOUT1__TO__D_OVL1_IN2";
+	case 16:
+		return
+			"D_RDMA4__TO__D_RDMA4_SOUT";
+	case 17:
+		return
+			"D_RDMA4_PQ0_MERGE0_SEL__TO__D_DSI0_DSC_WRAP_SOUT";
+	case 18:
+		return
+			"D_RDMA4_SOUT0__TO__D_MERGE1_IN0";
+	case 19:
+		return
+			"D_RDMA4_SOUT1__TO__D_RDMA4_PQ0_MERGE0_SEL0";
+	case 20:
+		return
+			"D_RDMA4_SOUT2__TO__D_DP_WRAP_SEL2";
+	case 21:
+		return
+			"D_RDMA5__TO__D_RDMA5_SOUT";
+	case 22:
+		return
+			"D_RDMA5_PQ1_SEL__TO__D_DSC_WRAP0_IN1";
+	case 23:
+		return
+			"D_RDMA5_SOUT0__TO__D_MERGE1_IN1";
+	case 24:
+		return
+			"D_RDMA5_SOUT1__TO__D_RDMA5_PQ1_SEL0";
+	case 25:
+		return
+			"D_RSZ0__TO__D_RSZ0_MOUT";
+	case 26:
+		return
+			"D_RSZ0_MOUT_OUT0__TO__D_RDMA0_SEL1";
+	case 27:
+		return
+			"D_RSZ0_MOUT_OUT1__TO__D_WDMA0_SEL1";
+	case 28:
+		return
+			"D_RSZ0_MOUT_OUT2__TO__D_RDMA0_RSZ0_SEL1";
+	case 29:
+		return
+			"D_RSZ0_MOUT_OUT3__TO_D_RDMA2_RSZ0_RSZ1_SEL0";
+	case 30:
+		return
+			"D_RSZ0_SEL__TO__D_RSZ0";
+	case 31:
+		return
+			"D_RSZ1__TO__D_RSZ1_MOUT";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_4(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"D_RSZ1_MOUT_OUT0__TO__D_RDMA1_SEL1";
+	case 1:
+		return
+			"D_RSZ1_MOUT_OUT1__TO__D_WDMA1_SEL1";
+	case 2:
+		return
+			"D_RSZ1_MOUT_OUT2__TO__D_RDMA1_RSZ1_SEL1";
+	case 3:
+		return
+			"D_RSZ1_MOUT_OUT3__TO__D_RDMA2_RSZ0_RSZ1_SEL1";
+	case 4:
+		return
+			"D_RSZ1_MOUT_OUT4__TO__D_RDMA3_SOUT";
+	case 5:
+		return
+			"D_RSZ1_SEL__TO__D_RSZ1";
+	case 6:
+		return
+			"D_TOVL0_OUT0_MOUT_OUT0__TO__D_WDMA0_SEL2";
+	case 7:
+		return
+			"D_TOVL0_OUT0_MOUT_OUT1__TO__D_RSZ0_SEL0";
+	case 8:
+		return
+			"D_TOVL0_OUT0_MOUT_OUT2__TO__AFBC_WDMA0_SEL0";
+	case 9:
+		return
+			"D_TOVL0_OUT0_SEL__TO__D_TOVL0_OUT0_MOUT";
+	case 10:
+		return
+			"D_TOVL0_OUT1_MOUT_OUT0__TO__D_RDMA0_SEL0";
+	case 11:
+		return
+			"D_TOVL0_OUT1_MOUT_OUT1__TO__D_RSZ0_SEL1";
+	case 12:
+		return
+			"D_TOVL0_OUT1_MOUT_OUT2__TO__D_WDMA0_SEL3";
+	case 13:
+		return
+			"D_TOVL0_OUT1_MOUT_OUT3__TO__AFBC_WDMA0_SEL1";
+	case 14:
+		return
+			"D_TOVL0_OUT1_SEL__TO__D_TOVL0_OUT1_MOUT";
+	case 15:
+		return
+			"D_TOVL0_PQOUT_MDP_RDMA4_SEL__TO__MDP_HDR4";
+	case 16:
+		return
+			"D_TOVL1_OUT0_MOUT_OUT0__TO__D_WDMA1_SEL2";
+	case 17:
+		return
+			"D_TOVL1_OUT0_MOUT_OUT1__TO__D_RSZ1_SEL0";
+	case 18:
+		return
+			"D_TOVL1_OUT0_MOUT_OUT2__TO__AFBC_WDMA1_SEL0";
+	case 19:
+		return
+			"D_TOVL1_OUT0_SEL__TO__D_TOVL1_OUT0_MOUT";
+	case 20:
+		return
+			"D_TOVL1_OUT1_MOUT_OUT0__TO__D_RDMA1_SEL0";
+	case 21:
+		return
+			"D_TOVL1_OUT1_MOUT_OUT1__TO__D_RSZ1_SEL1";
+	case 22:
+		return
+			"D_TOVL1_OUT1_MOUT_OUT2__TO__D_WDMA1_SEL3";
+	case 23:
+		return
+			"D_TOVL1_OUT1_MOUT_OUT3__TO__AFBC_WDMA1_SEL1";
+	case 24:
+		return
+			"D_TOVL1_OUT1_SEL__TO__D_TOVL1_OUT1_MOUT";
+	case 25:
+		return
+			"D_TOVL1_PQOUT_MDP_RDMA5_SEL__TO__MDP_HDR5";
+	case 26:
+		return
+			"D_WDMA0_SEL__TO__D_WDMA0";
+	case 27:
+		return
+			"D_WDMA1_SEL__TO__D_WDMA1";
+	case 28:
+		return
+			"DSI0_SEL__TO__THP_LMT_DSI0";
+	case 29:
+		return
+			"DSI1_SEL__TO__THP_LMT_DSI1";
+	case 30:
+		return
+			"MDP_AAL1_SEL__TO__D_AAL1";
+	case 31:
+		return
+			"MDP_AAL4__TO__MDP_AAL4_SOUT";
+	default:
+		return NULL;
+	}
+}
+
+static char *ddp_signal_5(int bit)
+{
+	switch (bit) {
+	case 0:
+		return
+			"MDP_AAL4_SOUT0__TO__MDP_AAL4_MDP_HDR4_SEL0";
+	case 1:
+		return
+			"MDP_AAL4_SOUT1__TO__MDP_AAL4_SEL1";
+	case 2:
+		return
+			"MDP_AAL5__TO__MDP_AAL5_SOUT";
+	case 3:
+		return
+			"MDP_AAL5_SOUT0__TO__MDP_AAL5_MDP_HDR5_SEL0";
+	case 4:
+		return
+			"MDP_AAL5_SOUT1__TO__DIS_MDP_AAL5_SEL1";
+	case 5:
+		return
+			"MDP_HDR4__TO__MDP_AAL4_SOUT";
+	case 6:
+		return
+			"MDP_HDR5__TO__MDP_AAL5_SOUT";
+	case 7:
+		return
+			"MDP_RDMA4__TO__D_TOVL0_PQOUT_MDP_RDMA4_SEL0";
+	case 8:
+		return
+			"MDP_RDMA5__TO__D_TOVL1_PQOUT_MDP_RDMA5_SEL0";
+	case 9:
+		return
+			"MDP_RSZ4__TO__MDP_TDSHP4";
+	case 10:
+		return
+			"MDP_RSZ5__TO__MDP_TDSHP5";
+	case 11:
+		return
+			"MDP_TDSHP4__TO__MDP_TDSHP4_SOUT";
+	case 12:
+		return
+			"MDP_TDSHP5__TO__MDP_TDSHP5_SOUT";
+	case 13:
+		return
+			"THP_LMT_DSI1__TO__DSI1";
+	default:
+		return NULL;
+	}
 }
 
 static char *ddp_greq_name(int bit)
 {
 	switch (bit) {
 	case 0:
-		return "OVL0";
+		return "OVL0 ";
 	case 1:
-		return "OVL0_2L_LARB0";
+		return "OVL0_2L ";
 	case 2:
-		return "RDMA0";
+		return "DISP_RDMA0 ";
 	case 3:
-		return "WDMA0";
+		return "DISP_WDMA0 ";
 	case 4:
-		return "MDP_RDMA0";
+		return "MDP_RDMA0 ";
 	case 5:
-		return "MDP_WROT0";
+		return "MDP_WDMA0 ";
 	case 6:
-		return "DISP_FAKE0";
-	case 16:
-		return "OVL1";
-	case 17:
-		return "RDMA1";
-	case 18:
-		return "OVL0_2L_LARB1";
-	case 19:
-		return "MDP_RDMA1";
-	case 20:
-		return "MDP_WROT1";
-	case 21:
-		return "DISP_FAKE1";
+		return "MDP_WROT0 ";
+	case 7:
+		return "DISP_FAKE ";
 	default:
-		break;
+		return NULL;
 	}
-	return NULL;
 }
 
 static char *ddp_get_mutex_module0_name(unsigned int bit)
 {
 	switch (bit) {
-	case 0:  return "rdma0";
-	case 1:  return "rdma1";
-	case 2:  return "mdp_rdma0";
-	case 4:  return "mdp_rsz0";
-	case 5:  return "mdp_rsz1";
-	case 6:  return "mdp_tdshp";
-	case 7: return "mdp_wrot0";
-	case 8: return "mdp_wrot1";
-	case 9: return "ovl0";
-	case 10: return "ovl0_2L";
-	case 11: return "ovl1_2L";
-	case 12: return "wdma0";
-	case 13: return "color0";
-	case 14: return "ccorr0";
-	case 15: return "aal0";
-	case 16: return "gamma0";
-	case 17: return "dither0";
-	case 18: return "PWM0";
-	case 19: return "DSI";
-	case 20: return "DPI";
-	case 22: return "rsz";
-	case 25: return "DBI";
-	default: return "mutex-unknown";
+	case 0:
+		return "disp_ovl0";
+	case 1:
+		return "disp_ovl0_2l";
+	case 2:
+		return "disp_rdma0";
+	case 3:
+		return "disp_wdma0";
+	case 4:
+		return "disp_color0";
+	case 5:
+		return "disp_ccorr0";
+	case 6:
+		return "disp_aal0";
+	case 7:
+		return "disp_gamma0";
+	case 8:
+		return "disp_dither0";
+	case 9:
+		return "dsi0";
+	case 10:
+		return "disp_rsz0";
+	case 11:
+		return "disp_pwm0";
+	case 12:
+		return "disp_ovl1";
+	case 13:
+		return "disp_ovl1_2l";
+	case 14:
+		return "disp_rdma1";
+	case 15:
+		return "disp_wdma1";
+	case 16:
+		return "disp_color1";
+	case 17:
+		return "disp_ccorr1";
+	case 18:
+		return "disp_aal1";
+	case 19:
+		return "disp_gamma1";
+	case 20:
+		return "disp_dither1";
+	case 21:
+		return "dsi1";
+	case 22:
+		return "disp_rsz1";
+	case 23:
+		return "disp_ovl2";
+	case 24:
+		return "disp_ovl3";
+	case 25:
+		return "disp_postmask0";
+	case 26:
+		return "disp_postmask1";
+	case 27:
+		return "disp_merge0";
+	case 28:
+		return "disp_merge1";
+	case 29:
+		return "disp_dsc_wrap";
+	case 30:
+		return "disp_dsc_wrap_1";
+	case 31:
+		return "dp_intf";
+	default:
+		return "mutex-unknown";
 	}
 }
+
+
 
 char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 {
@@ -261,9 +719,9 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 		case 12:
 			return "nv12";
 		default:
-			DDPDUMP("%s, unknown fmt=%d, module=%d\n",
+			DDPDUMP("%s: unknown fmt=%d, module=%d\n",
 				__func__, fmt, module);
-			return "unknown-fmt";
+			return "unknown";
 		}
 	} else if (module == DISP_MODULE_OVL0) {
 		switch (fmt) {
@@ -280,11 +738,11 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 		case 5:
 			return "yuyv";
 		default:
-			DDPDUMP("%s, unknown fmt=%d, module=%d\n",
+			DDPDUMP("%s: unknown fmt=%d, module=%d\n",
 				__func__, fmt, module);
-			return "unknown-fmt";
+			return "unknown";
 		}
-	} else if (module == DISP_MODULE_RDMA0 || module == DISP_MODULE_RDMA1) {
+	} else if (module == DISP_MODULE_RDMA0) {
 		switch (fmt) {
 		case 0:
 			return "rgb565";
@@ -299,12 +757,12 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 		case 5:
 			return "yuyv";
 		default:
-			DDPDUMP("%s, unknown fmt=%d, module=%d\n",
+			DDPDUMP("%s: unknown fmt=%d, module=%d\n",
 				__func__, fmt, module);
-			return "unknown-fmt";
+			return "unknown";
 		}
 	} else {
-		DDPDUMP("%s, unknown module=%d\n", __func__, module);
+		DDPDUMP("%s: unknown module=%d\n", __func__, module);
 	}
 
 	return "unknown";
@@ -313,194 +771,179 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 static char *ddp_clock_0(int bit)
 {
 	switch (bit) {
-	case 0:
-		return "smi_common(cg), ";
-	case 1:
-		return "smi_larb0(cg), ";
-	case 2:
-		return "smi_larb1(cg), ";
-	case 3:
-		return "gals_common0(cg), ";
-	case 4:
-		return "gals_common1(cg), ";
-	case 20:
-		return "ovl0, ";
-	case 21:
-		return "ovl0_2L, ";
-	case 22:
-		return "ovl1_2L, ";
-	case 23:
-		return "rdma0, ";
-	case 24:
-		return "rdma1, ";
-	case 25:
-		return "wdma0, ";
-	case 26:
-		return "color, ";
-	case 27:
-		return "ccorr, ";
-	case 28:
-		return "aal, ";
-	case 29:
-		return "gamma, ";
-	case 30:
-		return "dither, ";
-	case 31:
-		return "split, ";
-	default:
-		break;
-	}
-	return NULL;
-}
-
-static char *ddp_clock_1(int bit)
-{
-	switch (bit) {
-	case 0:
-		return "dsi0_mm(cg), ";
-	case 1:
-		return "dsi0_interface(cg), ";
-	case 2:
-		return "dpi_mm(cg), ";
-	case 3:
-		return "dpi_interface, ";
 	case 7:
-		return "26M, ";
+		return "ovl0, ";
+	case 8:
+		return "ovl0_2L, ";
 	case 9:
-		return "disp_rsz, ";
+		return "disp_rsz0, ";
+	case 10:
+		return "rdma0, ";
+	case 11:
+		return "wdma0, ";
 	case 12:
-		return "dbi_mm(cg), ";
+		return "color, ";
 	case 13:
-		return "dbi_interface, ";
+		return "ccorr, ";
+	case 14:
+		return "aal, ";
+	case 15:
+		return "gamma, ";
+	case 16:
+		return "dither, ";
+	case 17:
+		return "dsi0_mm(cg), ";
+	case 19:
+		return "smi_common(cg), ";
+	case 20:
+		return "smi_larb0(cg), ";
+	case 21:
+		return "smi_comm0(cg), ";
+	case 22:
+		return "smi_comm1(cg), ";
+	case 28:
+		return "dsi0_interface(cg), ";
+	case 29:
+		return "26M, ";
 	default:
-		break;
+		return NULL;
 	}
-	return NULL;
 }
 
-void dump_reg_row(unsigned long baddr, unsigned long offset, unsigned int count)
-{
-	const int buf_len = 7 + count * 11;
-	char buf[buf_len];
-	int len = 0;
-	int i = 0;
-	unsigned int val = 0;
-
-	if (count > 4)
-		return;
-
-	len = snprintf(buf, buf_len, "0x%03lx:", offset);
-	for (i = 0; i < count; i++) {
-		val = INREG32(baddr + offset + 0x4 * i);
-		if (val)
-			len += snprintf(buf + len, buf_len - len,
-					"0x%08x", val);
-		else
-			len += snprintf(buf + len, buf_len - len, "%10x", val);
-
-		if (i < count - 1)
-			len += snprintf(buf + len, buf_len - len, " ");
-		else if (i == count - 1)
-			len += snprintf(buf + len, buf_len - len, "\n");
-	}
-
-	DDPDUMP("%s", buf);
-}
+/* no need ddp_clock_1 */
+/*
+ *
+ *	static char *ddp_clock_1(int bit)
+ *	{
+ *		switch (bit) {
+ *		case 0:
+ *			return "dsi0_mm(cg), ";
+ *		case 1:
+ *			return "dsi0_interface(cg), ";
+ *		case 7:
+ *			return "26M, ";
+ *		default:
+ *			return NULL;
+ *		}
+ *	}
+ */
 
 static void mutex_dump_reg(void)
 {
 	unsigned long module_base = DISPSYS_MUTEX_BASE;
+	char module_name[] = "MUTEX:";
 
-	DDPDUMP("== DISP MUTEX REGS ==\n");
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("== START: DISP MUTEX registers ==\n");
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x0, INREG32(module_base + 0x0),
 		0x4, INREG32(module_base + 0x4),
 		0x8, INREG32(module_base + 0x8),
 		0xC, INREG32(module_base + 0xC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x10, INREG32(module_base + 0x10),
 		0x18, INREG32(module_base + 0x18),
 		0x1C, INREG32(module_base + 0x1C),
 		0x020, INREG32(module_base + 0x020));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x024, INREG32(module_base + 0x024),
 		0x028, INREG32(module_base + 0x028),
 		0x02C, INREG32(module_base + 0x02C),
 		0x030, INREG32(module_base + 0x030));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x040, INREG32(module_base + 0x040),
 		0x044, INREG32(module_base + 0x044),
 		0x048, INREG32(module_base + 0x048),
 		0x04C, INREG32(module_base + 0x04C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x050, INREG32(module_base + 0x050),
 		0x060, INREG32(module_base + 0x060),
 		0x064, INREG32(module_base + 0x064),
 		0x068, INREG32(module_base + 0x068));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x06C, INREG32(module_base + 0x06C),
 		0x070, INREG32(module_base + 0x070),
 		0x080, INREG32(module_base + 0x080),
 		0x084, INREG32(module_base + 0x084));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x088, INREG32(module_base + 0x088),
 		0x08C, INREG32(module_base + 0x08C),
 		0x090, INREG32(module_base + 0x090),
 		0x0A0, INREG32(module_base + 0x0A0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x0A4, INREG32(module_base + 0x0A4),
 		0x0A8, INREG32(module_base + 0x0A8),
 		0x0AC, INREG32(module_base + 0x0AC),
 		0x0B0, INREG32(module_base + 0x0B0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x0C0, INREG32(module_base + 0x0C0),
 		0x0C4, INREG32(module_base + 0x0C4),
 		0x0C8, INREG32(module_base + 0x0C8),
 		0x0CC, INREG32(module_base + 0x0CC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x0D0, INREG32(module_base + 0x0D0),
 		0x0E0, INREG32(module_base + 0x0E0),
 		0x0E4, INREG32(module_base + 0x0E4),
 		0x0E8, INREG32(module_base + 0x0E8));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x0EC, INREG32(module_base + 0x0EC),
 		0x0F0, INREG32(module_base + 0x0F0),
 		0x100, INREG32(module_base + 0x100),
 		0x104, INREG32(module_base + 0x104));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x108, INREG32(module_base + 0x108),
 		0x10C, INREG32(module_base + 0x10C),
 		0x110, INREG32(module_base + 0x110),
 		0x120, INREG32(module_base + 0x120));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x124, INREG32(module_base + 0x124),
 		0x128, INREG32(module_base + 0x128),
 		0x12C, INREG32(module_base + 0x12C),
 		0x130, INREG32(module_base + 0x130));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x140, INREG32(module_base + 0x140),
 		0x144, INREG32(module_base + 0x144),
 		0x148, INREG32(module_base + 0x148),
 		0x14C, INREG32(module_base + 0x14C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x150, INREG32(module_base + 0x150),
 		0x160, INREG32(module_base + 0x160),
 		0x164, INREG32(module_base + 0x164),
 		0x168, INREG32(module_base + 0x168));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x16C, INREG32(module_base + 0x16C),
 		0x170, INREG32(module_base + 0x170),
 		0x180, INREG32(module_base + 0x180),
 		0x184, INREG32(module_base + 0x184));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x188, INREG32(module_base + 0x188),
 		0x18C, INREG32(module_base + 0x18C),
 		0x190, INREG32(module_base + 0x190),
 		0x300, INREG32(module_base + 0x300));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x, 0x%04x=0x%08x\n",
+		module_name,
 		0x304, INREG32(module_base + 0x304),
 		0x30C, INREG32(module_base + 0x30C));
+	DDPDUMP("-- END: DISP MUTEX registers --\n");
+
 }
+
 
 static void mutex_dump_analysis(void)
 {
@@ -519,12 +962,13 @@ static void mutex_dump_analysis(void)
 			continue;
 
 		val = DISP_REG_GET(DISP_REG_CONFIG_MUTEX_SOF(i));
-		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(",
-		      i, ddp_get_mutex_sof_name(
+		len = sprintf(p, "MUTEX%d :SOF=%s,EOF=%s,WAIT=%d,module=(",
+			i,
+			ddp_get_mutex_sof_name(
 				REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
-		      ddp_get_mutex_sof_name(
+			ddp_get_mutex_sof_name(
 				REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
-		      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
+			REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
 		p += len;
 		for (j = 0; j < 32; j++) {
@@ -533,7 +977,7 @@ static void mutex_dump_analysis(void)
 
 			if ((regval & (1 << j))) {
 				len = sprintf(p, "%s,",
-					      ddp_get_mutex_module0_name(j));
+					ddp_get_mutex_module0_name(j));
 				p += len;
 			}
 		}
@@ -544,253 +988,292 @@ static void mutex_dump_analysis(void)
 static void mmsys_config_dump_reg(void)
 {
 	unsigned long module_base = DISPSYS_CONFIG_BASE;
+	char module_name[] = "MMSYS_CONFIG:";
 
-	DDPDUMP("== DISP MMSYS_CONFIG REGS ==\n");
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("== START: DISP MMSYS_CONFIG registers ==\n");
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x000, INREG32(module_base + 0x000),
 		0x004, INREG32(module_base + 0x004),
 		0x00C, INREG32(module_base + 0x00C),
 		0x010, INREG32(module_base + 0x010));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x014, INREG32(module_base + 0x014),
 		0x018, INREG32(module_base + 0x018),
 		0x020, INREG32(module_base + 0x020),
 		0x024, INREG32(module_base + 0x024));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x028, INREG32(module_base + 0x028),
 		0x02C, INREG32(module_base + 0x02C),
 		0x030, INREG32(module_base + 0x030),
 		0x034, INREG32(module_base + 0x034));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x038, INREG32(module_base + 0x038),
 		0x048, INREG32(module_base + 0x048),
 		0x0F0, INREG32(module_base + 0x0F0),
 		0x0F4, INREG32(module_base + 0x0F4));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x0F8, INREG32(module_base + 0x0F8),
 		0x100, INREG32(module_base + 0x100),
 		0x104, INREG32(module_base + 0x104),
 		0x108, INREG32(module_base + 0x108));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x110, INREG32(module_base + 0x110),
 		0x114, INREG32(module_base + 0x114),
 		0x118, INREG32(module_base + 0x118),
 		0x120, INREG32(module_base + 0x120));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x124, INREG32(module_base + 0x124),
 		0x128, INREG32(module_base + 0x128),
 		0x130, INREG32(module_base + 0x130),
 		0x134, INREG32(module_base + 0x134));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x138, INREG32(module_base + 0x138),
 		0x140, INREG32(module_base + 0x140),
 		0x144, INREG32(module_base + 0x144),
 		0x150, INREG32(module_base + 0x150));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x180, INREG32(module_base + 0x180),
 		0x184, INREG32(module_base + 0x184),
 		0x190, INREG32(module_base + 0x190),
 		0x200, INREG32(module_base + 0x200));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x204, INREG32(module_base + 0x204),
 		0x208, INREG32(module_base + 0x208),
 		0x20C, INREG32(module_base + 0x20C),
 		0x210, INREG32(module_base + 0x210));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x214, INREG32(module_base + 0x214),
 		0x218, INREG32(module_base + 0x218),
 		0x220, INREG32(module_base + 0x220),
 		0x224, INREG32(module_base + 0x224));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x228, INREG32(module_base + 0x228),
 		0x22C, INREG32(module_base + 0x22C),
 		0x230, INREG32(module_base + 0x230),
 		0x234, INREG32(module_base + 0x234));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x238, INREG32(module_base + 0x238),
 		0x800, INREG32(module_base + 0x800),
 		0x804, INREG32(module_base + 0x804),
 		0x808, INREG32(module_base + 0x808));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x80C, INREG32(module_base + 0x80C),
 		0x810, INREG32(module_base + 0x810),
 		0x814, INREG32(module_base + 0x814),
 		0x818, INREG32(module_base + 0x818));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x81C, INREG32(module_base + 0x81C),
 		0x820, INREG32(module_base + 0x820),
 		0x824, INREG32(module_base + 0x824),
 		0x828, INREG32(module_base + 0x828));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x82C, INREG32(module_base + 0x82C),
 		0x830, INREG32(module_base + 0x830),
 		0x834, INREG32(module_base + 0x834),
 		0x838, INREG32(module_base + 0x838));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x83C, INREG32(module_base + 0x83C),
 		0x840, INREG32(module_base + 0x840),
 		0x844, INREG32(module_base + 0x844),
 		0x848, INREG32(module_base + 0x848));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x84C, INREG32(module_base + 0x84C),
 		0x854, INREG32(module_base + 0x854),
 		0x858, INREG32(module_base + 0x858),
 		0x85C, INREG32(module_base + 0x85C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x860, INREG32(module_base + 0x860),
 		0x864, INREG32(module_base + 0x864),
 		0x868, INREG32(module_base + 0x868),
 		0x870, INREG32(module_base + 0x870));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x874, INREG32(module_base + 0x874),
 		0x878, INREG32(module_base + 0x878),
 		0x88C, INREG32(module_base + 0x88C),
 		0x890, INREG32(module_base + 0x890));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x894, INREG32(module_base + 0x894),
 		0x898, INREG32(module_base + 0x898),
 		0x89C, INREG32(module_base + 0x89C),
 		0x8A0, INREG32(module_base + 0x8A0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x8A4, INREG32(module_base + 0x8A4),
 		0x8A8, INREG32(module_base + 0x8A8),
 		0x8AC, INREG32(module_base + 0x8AC),
 		0x8B0, INREG32(module_base + 0x8B0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x8B4, INREG32(module_base + 0x8B4),
 		0x8B8, INREG32(module_base + 0x8B8),
 		0x8C0, INREG32(module_base + 0x8C0),
 		0x8C4, INREG32(module_base + 0x8C4));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x8CC, INREG32(module_base + 0x8CC),
 		0x8D0, INREG32(module_base + 0x8D0),
 		0x8D4, INREG32(module_base + 0x8D4),
 		0x8D8, INREG32(module_base + 0x8D8));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x8DC, INREG32(module_base + 0x8DC),
 		0x8E0, INREG32(module_base + 0x8E0),
 		0x8E4, INREG32(module_base + 0x8E4),
 		0x8E8, INREG32(module_base + 0x8E8));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x8EC, INREG32(module_base + 0x8EC),
 		0x8F0, INREG32(module_base + 0x8F0),
 		0x908, INREG32(module_base + 0x908),
 		0x90C, INREG32(module_base + 0x90C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x910, INREG32(module_base + 0x910),
 		0x914, INREG32(module_base + 0x914),
 		0x918, INREG32(module_base + 0x918),
 		0x91C, INREG32(module_base + 0x91C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x920, INREG32(module_base + 0x920),
 		0x924, INREG32(module_base + 0x924),
 		0x928, INREG32(module_base + 0x928),
 		0x934, INREG32(module_base + 0x934));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0x938, INREG32(module_base + 0x938),
 		0x93C, INREG32(module_base + 0x93C),
 		0x940, INREG32(module_base + 0x940),
 		0x944, INREG32(module_base + 0x944));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x948, INREG32(module_base + 0x948),
-		0x94C, INREG32(module_base + 0x94C),
-		0x950, INREG32(module_base + 0x950),
-		0x954, INREG32(module_base + 0x954));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x958, INREG32(module_base + 0x958),
-		0x95C, INREG32(module_base + 0x95C),
-		0x960, INREG32(module_base + 0x960),
-		0x964, INREG32(module_base + 0x964));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x968, INREG32(module_base + 0x968),
-		0x96C, INREG32(module_base + 0x96C),
-		0x970, INREG32(module_base + 0x970),
-		0x974, INREG32(module_base + 0x974));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF00, INREG32(module_base + 0xF00),
 		0xF04, INREG32(module_base + 0xF04),
 		0xF08, INREG32(module_base + 0xF08),
 		0xF0C, INREG32(module_base + 0xF0C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF10, INREG32(module_base + 0xF10),
+		0xF14, INREG32(module_base + 0xF14),
+		0xF18, INREG32(module_base + 0xF18),
+		0xF1C, INREG32(module_base + 0xF1C));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF20, INREG32(module_base + 0xF20),
 		0xF24, INREG32(module_base + 0xF24),
-		0xF28, INREG32(module_base + 0xF28));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF2C, INREG32(module_base + 0xF2C),
+		0xF28, INREG32(module_base + 0xF28),
+		0xF2C, INREG32(module_base + 0xF2C));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF30, INREG32(module_base + 0xF30),
 		0xF34, INREG32(module_base + 0xF34),
-		0xF38, INREG32(module_base + 0xF38));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF3C, INREG32(module_base + 0xF3C),
+		0xF38, INREG32(module_base + 0xF38),
+		0xF3C, INREG32(module_base + 0xF3C));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF40, INREG32(module_base + 0xF40),
 		0xF44, INREG32(module_base + 0xF44),
-		0xF48, INREG32(module_base + 0xF48));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0xF48, INREG32(module_base + 0xF48),
+		0xF4C, INREG32(module_base + 0xF4C));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF50, INREG32(module_base + 0xF50),
 		0xF54, INREG32(module_base + 0xF54),
 		0xF58, INREG32(module_base + 0xF58),
 		0xF5C, INREG32(module_base + 0xF5C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xF50, INREG32(module_base + 0xF60),
-		0xF54, INREG32(module_base + 0xF64),
-		0xF58, INREG32(module_base + 0xF68),
-		0xF5C, INREG32(module_base + 0xF6C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
+		0xF60, INREG32(module_base + 0xF60),
+		0xF64, INREG32(module_base + 0xF64),
+		0xF68, INREG32(module_base + 0xF68),
+		0xF6C, INREG32(module_base + 0xF6C));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF80, INREG32(module_base + 0xF80),
 		0xF84, INREG32(module_base + 0xF84),
 		0xF88, INREG32(module_base + 0xF88),
 		0xF8C, INREG32(module_base + 0xF8C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xF90, INREG32(module_base + 0xF90),
 		0xF94, INREG32(module_base + 0xF94),
 		0xF98, INREG32(module_base + 0xF98),
-		0xFA0, INREG32(module_base + 0xFA0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0xF9C, INREG32(module_base + 0xF9C));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
+		0xFA0, INREG32(module_base + 0xFA0),
 		0xFA4, INREG32(module_base + 0xFA4),
 		0xFA8, INREG32(module_base + 0xFA8),
-		0xFAC, INREG32(module_base + 0xFAC),
-		0xFB0, INREG32(module_base + 0xFB0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+		0xFAC, INREG32(module_base + 0xFAC));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
+		0xFB0, INREG32(module_base + 0xFB0),
+		0xFB4, INREG32(module_base + 0xFB4),
+		0xFB8, INREG32(module_base + 0xFB8),
+		0xFBC, INREG32(module_base + 0xFBC));
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xFC0, INREG32(module_base + 0xFC0),
-		0xFC4, INREG32(module_base + 0XFC4),
+		0XFC4, INREG32(module_base + 0XFC4),
 		0xFC8, INREG32(module_base + 0xFC8),
 		0xFCC, INREG32(module_base + 0xFCC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		module_name,
 		0xFD0, INREG32(module_base + 0xFD0),
 		0xFD4, INREG32(module_base + 0xFD4),
 		0xFD8, INREG32(module_base + 0xFD8),
 		0xFDC, INREG32(module_base + 0xFDC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x\n",
+	DDPDUMP("%s 0x%04x=0x%08x, 0x%04x=0x%08x\n",
+		module_name,
 		0xFE0, INREG32(module_base + 0xFE0),
 		0xFE4, INREG32(module_base + 0xFE4));
+	DDPDUMP("-- END: DISP MMSYS_CONFIG registers --\n");
 }
 
-/**
- * ------ clock:
- * Before power on mmsys:
- * CLK_CFG_0_CLR (address is 0x10000048) = 0x80000000 (bit 31).
- * Before using DISP_PWM0 or DISP_PWM1:
- * CLK_CFG_1_CLR(address is 0x10000058)=0x80 (bit 7).
- * Before using DPI pixel clock:
- * CLK_CFG_6_CLR(address is 0x100000A8)=0x80 (bit 7).
- *
- * Only need to enable the corresponding bits of MMSYS_CG_CON0 and
- * MMSYS_CG_CON1 for the modules: smi_common, larb0, mdp_crop, fake_eng,
- * mutex_32k, pwm0, pwm1, dsi0, dsi1, dpi.
- * Other bits could keep 1. Suggest to keep smi_common and larb0
- * always clock on.
- *
- * --------valid & ready
- * example:
- * ovl0 -> ovl0_mout_ready=1 means engines after ovl_mout are
- *         ready for receiving data
- *	ovl0_mout_ready=0 means ovl0_mout can not receive data,
- *         maybe ovl0_mout or after engines config error
- * ovl0 -> ovl0_mout_valid=1 means engines before ovl0_mout is OK,
- *	ovl0_mout_valid=0 means ovl can not transfer data to ovl0_mout,
- *         means ovl0 or before engines are not ready.
- */
+ /*  ------ clock:
+  * Before power on mmsys:
+  * CLK_CFG_0_CLR (address is 0x10000048) = 0x80000000 (bit 31).
+  * Before using DISP_PWM0 or DISP_PWM1:
+  * CLK_CFG_1_CLR(address is 0x10000058)=0x80 (bit 7).
+  * Before using DPI pixel clock:
+  * CLK_CFG_6_CLR(address is 0x100000A8)=0x80 (bit 7).
+  *
+  * Only need to enable the corresponding bits of MMSYS_CG_CON0 and
+  * MMSYS_CG_CON1 for the modules: smi_common, larb0, mdp_crop, fake_eng,
+  * mutex_32k, pwm0, pwm1, dsi0, dsi1, dpi.
+  * Other bits could keep 1. Suggest to keep smi_common and larb0
+  * always clock on.
+  *
+  * --------valid & ready
+  * example:
+  * ovl0 -> ovl0_mout_ready=1 means engines after ovl_mout are
+  *         ready for receiving data
+  *	ovl0_mout_ready=0 means ovl0_mout can not receive data,
+  *         maybe ovl0_mout or after engines config error
+  * ovl0 -> ovl0_mout_valid=1 means engines before ovl0_mout is OK,
+  *	ovl0_mout_valid=0 means ovl can not transfer data to ovl0_mout,
+  *         means ovl0 or before engines are not ready.
+  */
 
 static void mmsys_config_dump_analysis(void)
 {
@@ -799,12 +1282,23 @@ static void mmsys_config_dump_analysis(void)
 	char clock_on[512] = { '\0' };
 	char *pos = NULL;
 	char *name;
+	/* int len = 0; */
+	unsigned int valid[6], ready[6];
+	unsigned int greq;
 
-	unsigned int valid0 = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_0);
-	unsigned int valid1 = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_1);
-	unsigned int ready0 = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_0);
-	unsigned int ready1 = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_1);
-	unsigned int greq = DISP_REG_GET(DISP_REG_CONFIG_SMI_LARB0_GREQ);
+	valid[0] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_0);
+	valid[1] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_1);
+	valid[2] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_2);
+	valid[3] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_3);
+	valid[4] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_4);
+	valid[5] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_VALID_5);
+	ready[0] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_0);
+	ready[1] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_1);
+	ready[2] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_2);
+	ready[3] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_3);
+	ready[4] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_4);
+	ready[5] = DISP_REG_GET(DISP_REG_CONFIG_DISP_DL_READY_5);
+	greq = DISP_REG_GET(DISP_REG_CONFIG_SMI_LARB0_GREQ);
 
 	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
 #if 0 /* TODO: mmsys clk?? */
@@ -813,7 +1307,7 @@ static void mmsys_config_dump_analysis(void)
 		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
 		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
 	if ((DISP_REG_GET(DISP_REG_CLK_CFG_0_MM_CLK) >> 31) & 0x1)
-		DDPPR_ERR("mmsys clock abnormal!!\n");
+		DDPERR("mmsys clock abnormal!!\n");
 #endif
 
 	reg = DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0);
@@ -821,24 +1315,33 @@ static void mmsys_config_dump_analysis(void)
 		if ((reg & (1 << i)) == 0) {
 			name = ddp_clock_0(i);
 			if (name)
-				strncat(clock_on, name, (sizeof(clock_on) -
-							 strlen(clock_on) - 1));
+				strncat(clock_on, name,
+					(sizeof(clock_on) -
+					strlen(clock_on) - 1));
 		}
 	}
 
-	reg = DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1);
-	for (i = 0; i < 32; i++) {
-		if ((reg & (1 << i)) == 0) {
-			name = ddp_clock_1(i);
-			if (name)
-				strncat(clock_on, name, (sizeof(clock_on) -
-							 strlen(clock_on) - 1));
-		}
-	}
+/* no need ddp_clock_1 */
+/*
+ *	reg = DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1);
+ *	for (i = 0; i < 32; i++) {
+ *		if ((reg & (1 << i)) == 0) {
+ *			name = ddp_clock_1(i);
+ *			if (name)
+ *				strncat(clock_on, name,
+ *					(sizeof(clock_on) -
+ *					strlen(clock_on) - 1));
+ *		}
+ *	}
+ */
 	DDPDUMP("clock on modules:%s\n", clock_on);
 
 	DDPDUMP("valid0=0x%x,valid1=0x%x,ready0=0x%x,ready1=0x%x,greq=0%x\n",
-		valid0, valid1, ready0, ready1, greq);
+		valid[0], valid[1], ready[0], ready[1], greq);
+	DDPDUMP("valid2=0x%x,valid3=0x%x,ready2=0x%x,ready3=0x%x\n",
+		valid[2], valid[3], ready[2], ready[3]);
+	DDPDUMP("valid4=0x%x,valid5=0x%x,ready4=0x%x,ready5=0x%x\n",
+		valid[4], valid[5], ready[4], ready[5]);
 	for (i = 0; i < 32; i++) {
 		name = ddp_signal_0(i);
 		if (!name)
@@ -846,12 +1349,12 @@ static void mmsys_config_dump_analysis(void)
 
 		pos = clock_on;
 
-		if ((valid0 & (1 << i)))
+		if ((valid[0] & (1 << i)))
 			pos += sprintf(pos, "%s,", "v");
 		else
 			pos += sprintf(pos, "%s,", "n");
 
-		if ((ready0 & (1 << i)))
+		if ((ready[0] & (1 << i)))
 			pos += sprintf(pos, "%s", "r");
 		else
 			pos += sprintf(pos, "%s", "n");
@@ -868,12 +1371,100 @@ static void mmsys_config_dump_analysis(void)
 
 		pos = clock_on;
 
-		if ((valid1 & (1 << i)))
+		if ((valid[1] & (1 << i)))
 			pos += sprintf(pos, "%s,", "v");
 		else
 			pos += sprintf(pos, "%s,", "n");
 
-		if ((ready1 & (1 << i)))
+		if ((ready[1] & (1 << i)))
+			pos += sprintf(pos, "%s", "r");
+		else
+			pos += sprintf(pos, "%s", "n");
+
+		pos += sprintf(pos, ": %s", name);
+
+		DDPDUMP("%s\n", clock_on);
+	}
+
+	for (i = 0; i < 32; i++) {
+		name = ddp_signal_2(i);
+		if (!name)
+			continue;
+
+		pos = clock_on;
+
+		if ((valid[2] & (1 << i)))
+			pos += sprintf(pos, "%s,", "v");
+		else
+			pos += sprintf(pos, "%s,", "n");
+
+		if ((ready[2] & (1 << i)))
+			pos += sprintf(pos, "%s", "r");
+		else
+			pos += sprintf(pos, "%s", "n");
+
+		pos += sprintf(pos, ": %s", name);
+
+		DDPDUMP("%s\n", clock_on);
+	}
+
+	for (i = 0; i < 32; i++) {
+		name = ddp_signal_3(i);
+		if (!name)
+			continue;
+
+		pos = clock_on;
+
+		if ((valid[3] & (1 << i)))
+			pos += sprintf(pos, "%s,", "v");
+		else
+			pos += sprintf(pos, "%s,", "n");
+
+		if ((ready[3] & (1 << i)))
+			pos += sprintf(pos, "%s", "r");
+		else
+			pos += sprintf(pos, "%s", "n");
+
+		pos += sprintf(pos, ": %s", name);
+
+		DDPDUMP("%s\n", clock_on);
+	}
+
+	for (i = 0; i < 32; i++) {
+		name = ddp_signal_4(i);
+		if (!name)
+			continue;
+
+		pos = clock_on;
+
+		if ((valid[4] & (1 << i)))
+			pos += sprintf(pos, "%s,", "v");
+		else
+			pos += sprintf(pos, "%s,", "n");
+
+		if ((ready[4] & (1 << i)))
+			pos += sprintf(pos, "%s", "r");
+		else
+			pos += sprintf(pos, "%s", "n");
+
+		pos += sprintf(pos, ": %s", name);
+
+		DDPDUMP("%s\n", clock_on);
+	}
+
+	for (i = 0; i < 32; i++) {
+		name = ddp_signal_5(i);
+		if (!name)
+			continue;
+
+		pos = clock_on;
+
+		if ((valid[5] & (1 << i)))
+			pos += sprintf(pos, "%s,", "v");
+		else
+			pos += sprintf(pos, "%s,", "n");
+
+		if ((ready[5] & (1 << i)))
 			pos += sprintf(pos, "%s", "r");
 		else
 			pos += sprintf(pos, "%s", "n");
@@ -885,7 +1476,7 @@ static void mmsys_config_dump_analysis(void)
 
 	/* greq: 1 means SMI dose not grant, maybe SMI hang */
 	if (greq)
-		DDPDUMP("smi greq not grant module: (greq: 1 means SMI dose not grant, maybe SMI hang)");
+		DDPDUMP("greq: 1 means SMI dose not grant, maybe SMI hang");
 
 	clock_on[0] = '\0';
 	for (i = 0; i < 32; i++) {
@@ -898,6 +1489,12 @@ static void mmsys_config_dump_analysis(void)
 		}
 	}
 	DDPDUMP("%s\n", clock_on);
+
+	/* dump SMI status, when maybe SMI hang */
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (greq)
+			smi_debug_bus_hang_detect(false, "DISP");
+	}
 }
 
 static void gamma_dump_reg(enum DISP_MODULE_ENUM module)
@@ -910,10 +1507,8 @@ static void gamma_dump_reg(enum DISP_MODULE_ENUM module)
 	else
 		i = 1;
 
-	DDPDUMP("== DISP %s REGS ==\n", ddp_get_module_name(module));
-	if (!disp_helper_get_option(DISP_OPT_PQ_REG_DUMP))
-		return;
 
+	DDPDUMP("== DISP GAMMA%d REGS ==\n", i);
 	DDPDUMP("(0x000)GA_EN=0x%x\n",
 		DISP_REG_GET(DISP_REG_GAMMA_EN + i * offset));
 	DDPDUMP("(0x004)GA_RESET=0x%x\n",
@@ -950,337 +1545,389 @@ static void gamma_dump_analysis(enum DISP_MODULE_ENUM module)
 	else
 		i = 1;
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	DDPDUMP("en=%d,wh(%dx%d),pos:in(%d,%d)out(%d,%d)\n",
+
+	DDPDUMP("== DISP GAMMA%d ANALYSIS ==\n", i);
+	DDPDUMP("gamma: en=%d, w=%d, h=%d,\n",
 		DISP_REG_GET(DISP_REG_GAMMA_EN + i * offset),
-		(DISP_REG_GET(DISP_REG_GAMMA_SIZE + i * offset) >> 16) & 0x1fff,
-		DISP_REG_GET(DISP_REG_GAMMA_SIZE + i * offset) & 0x1fff,
+		(DISP_REG_GET(DISP_REG_GAMMA_SIZE + i * offset) >> 16) &
+			0x1fff,
+		DISP_REG_GET(DISP_REG_GAMMA_SIZE + i * offset) & 0x1fff);
+	DDPDUMP("gamma: in_p_cnt=%d, in_l_cnt=%d, out_p_cnt=%d, out_l_cnt=%d\n",
 		DISP_REG_GET(DISP_REG_GAMMA_INPUT_COUNT + i * offset) & 0x1fff,
 		(DISP_REG_GET(DISP_REG_GAMMA_INPUT_COUNT + i * offset) >> 16) &
 			0x1fff,
 		DISP_REG_GET(DISP_REG_GAMMA_OUTPUT_COUNT + i * offset) & 0x1fff,
 		(DISP_REG_GET(DISP_REG_GAMMA_OUTPUT_COUNT + i * offset) >>
 			16) & 0x1fff);
+
 }
+
 
 static void color_dump_reg(enum DISP_MODULE_ENUM module)
 {
+	int idx = 0;
 	unsigned long module_base = DISPSYS_COLOR0_BASE;
 
-	DDPDUMP("== DISP %s REGS ==\n", ddp_get_module_name(module));
-	if (!disp_helper_get_option(DISP_OPT_PQ_REG_DUMP))
-		return;
+	DDPDUMP("== START: DISP COLOR%d registers ==\n", idx);
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000400, INREG32(module_base + 0x00000400),
+		0x00000404, INREG32(module_base + 0x00000404),
+		0x00000408, INREG32(module_base + 0x00000408),
+		0x0000040C, INREG32(module_base + 0x0000040C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000410, INREG32(module_base + 0x00000410),
+		0x00000418, INREG32(module_base + 0x00000418),
+		0x0000041C, INREG32(module_base + 0x0000041C),
+		0x00000420, INREG32(module_base + 0x00000420));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000428, INREG32(module_base + 0x00000428),
+		0x0000042C, INREG32(module_base + 0x0000042C),
+		0x00000430, INREG32(module_base + 0x00000430),
+		0x00000434, INREG32(module_base + 0x00000434));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000438, INREG32(module_base + 0x00000438),
+		0x00000484, INREG32(module_base + 0x00000484),
+		0x00000488, INREG32(module_base + 0x00000488),
+		0x0000048C, INREG32(module_base + 0x0000048C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000490, INREG32(module_base + 0x00000490),
+		0x00000494, INREG32(module_base + 0x00000494),
+		0x00000498, INREG32(module_base + 0x00000498),
+		0x0000049C, INREG32(module_base + 0x0000049C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000004A0, INREG32(module_base + 0x000004A0),
+		0x000004A4, INREG32(module_base + 0x000004A4),
+		0x000004A8, INREG32(module_base + 0x000004A8),
+		0x000004AC, INREG32(module_base + 0x000004AC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000004B0, INREG32(module_base + 0x000004B0),
+		0x000004B4, INREG32(module_base + 0x000004B4),
+		0x000004B8, INREG32(module_base + 0x000004B8),
+		0x000004BC, INREG32(module_base + 0x000004BC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000620, INREG32(module_base + 0x00000620),
+		0x00000624, INREG32(module_base + 0x00000624),
+		0x00000628, INREG32(module_base + 0x00000628),
+		0x0000062C, INREG32(module_base + 0x0000062C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000630, INREG32(module_base + 0x00000630),
+		0x00000740, INREG32(module_base + 0x00000740),
+		0x0000074C, INREG32(module_base + 0x0000074C),
+		0x00000768, INREG32(module_base + 0x00000768));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x0000076C, INREG32(module_base + 0x0000076C),
+		0x0000079C, INREG32(module_base + 0x0000079C),
+		0x000007E0, INREG32(module_base + 0x000007E0),
+		0x000007E4, INREG32(module_base + 0x000007E4));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000007E8, INREG32(module_base + 0x000007E8),
+		0x000007EC, INREG32(module_base + 0x000007EC),
+		0x000007F0, INREG32(module_base + 0x000007F0),
+		0x000007FC, INREG32(module_base + 0x000007FC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000800, INREG32(module_base + 0x00000800),
+		0x00000804, INREG32(module_base + 0x00000804),
+		0x00000808, INREG32(module_base + 0x00000808),
+		0x0000080C, INREG32(module_base + 0x0000080C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000810, INREG32(module_base + 0x00000810),
+		0x00000814, INREG32(module_base + 0x00000814),
+		0x00000818, INREG32(module_base + 0x00000818),
+		0x0000081C, INREG32(module_base + 0x0000081C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000820, INREG32(module_base + 0x00000820),
+		0x00000824, INREG32(module_base + 0x00000824),
+		0x00000828, INREG32(module_base + 0x00000828),
+		0x0000082C, INREG32(module_base + 0x0000082C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000830, INREG32(module_base + 0x00000830),
+		0x00000834, INREG32(module_base + 0x00000834),
+		0x00000838, INREG32(module_base + 0x00000838),
+		0x0000083C, INREG32(module_base + 0x0000083C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000840, INREG32(module_base + 0x00000840),
+		0x00000844, INREG32(module_base + 0x00000844),
+		0x00000848, INREG32(module_base + 0x00000848),
+		0x0000084C, INREG32(module_base + 0x0000084C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000850, INREG32(module_base + 0x00000850),
+		0x00000854, INREG32(module_base + 0x00000854),
+		0x00000858, INREG32(module_base + 0x00000858),
+		0x0000085C, INREG32(module_base + 0x0000085C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000860, INREG32(module_base + 0x00000860),
+		0x00000864, INREG32(module_base + 0x00000864),
+		0x00000868, INREG32(module_base + 0x00000868),
+		0x0000086C, INREG32(module_base + 0x0000086C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000870, INREG32(module_base + 0x00000870),
+		0x00000874, INREG32(module_base + 0x00000874),
+		0x00000878, INREG32(module_base + 0x00000878),
+		0x0000087C, INREG32(module_base + 0x0000087C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000880, INREG32(module_base + 0x00000880),
+		0x00000884, INREG32(module_base + 0x00000884),
+		0x00000888, INREG32(module_base + 0x00000888),
+		0x0000088C, INREG32(module_base + 0x0000088C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000890, INREG32(module_base + 0x00000890),
+		0x00000894, INREG32(module_base + 0x00000894),
+		0x00000898, INREG32(module_base + 0x00000898),
+		0x0000089C, INREG32(module_base + 0x0000089C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000008A0, INREG32(module_base + 0x000008A0),
+		0x000008A4, INREG32(module_base + 0x000008A4),
+		0x000008A8, INREG32(module_base + 0x000008A8),
+		0x000008AC, INREG32(module_base + 0x000008AC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000008B0, INREG32(module_base + 0x000008B0),
+		0x000008B4, INREG32(module_base + 0x000008B4),
+		0x000008B8, INREG32(module_base + 0x000008B8),
+		0x000008BC, INREG32(module_base + 0x000008BC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000008C0, INREG32(module_base + 0x000008C0),
+		0x000008C4, INREG32(module_base + 0x000008C4),
+		0x000008C8, INREG32(module_base + 0x000008C8),
+		0x000008CC, INREG32(module_base + 0x000008CC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000008D0, INREG32(module_base + 0x000008D0),
+		0x000008D4, INREG32(module_base + 0x000008D4),
+		0x000008D8, INREG32(module_base + 0x000008D8),
+		0x000008DC, INREG32(module_base + 0x000008DC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000008E0, INREG32(module_base + 0x000008E0),
+		0x000008E4, INREG32(module_base + 0x000008E4),
+		0x000008E8, INREG32(module_base + 0x000008E8),
+		0x000008EC, INREG32(module_base + 0x000008EC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x000008F0, INREG32(module_base + 0x000008F0),
+		0x000008F4, INREG32(module_base + 0x000008F4),
+		0x000008F8, INREG32(module_base + 0x000008F8),
+		0x000008FC, INREG32(module_base + 0x000008FC));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000900, INREG32(module_base + 0x00000900),
+		0x00000904, INREG32(module_base + 0x00000904),
+		0x00000908, INREG32(module_base + 0x00000908),
+		0x0000090C, INREG32(module_base + 0x0000090C));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000910, INREG32(module_base + 0x00000910),
+		0x00000914, INREG32(module_base + 0x00000914),
+		0x00000C00, INREG32(module_base + 0x00000C00),
+		0x00000C04, INREG32(module_base + 0x00000C04));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000C08, INREG32(module_base + 0x00000C08),
+		0x00000C0C, INREG32(module_base + 0x00000C0C),
+		0x00000C10, INREG32(module_base + 0x00000C10),
+		0x00000C14, INREG32(module_base + 0x00000C14));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000C18, INREG32(module_base + 0x00000C18),
+		0x00000C28, INREG32(module_base + 0x00000C28),
+		0x00000C50, INREG32(module_base + 0x00000C50),
+		0x00000C54, INREG32(module_base + 0x00000C54));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000C60, INREG32(module_base + 0x00000C60),
+		0x00000CA0, INREG32(module_base + 0x00000CA0),
+		0x00000CB0, INREG32(module_base + 0x00000CB0),
+		0x00000CF0, INREG32(module_base + 0x00000CF0));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000CF4, INREG32(module_base + 0x00000CF4),
+		0x00000CF8, INREG32(module_base + 0x00000CF8),
+		0x00000CFC, INREG32(module_base + 0x00000CFC),
+		0x00000D00, INREG32(module_base + 0x00000D00));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000D04, INREG32(module_base + 0x00000D04),
+		0x00000D08, INREG32(module_base + 0x00000D08),
+		0x00000D0C, INREG32(module_base + 0x00000D0C),
+		0x00000D10, INREG32(module_base + 0x00000D10));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000D14, INREG32(module_base + 0x00000D14),
+		0x00000D18, INREG32(module_base + 0x00000D18),
+		0x00000D1C, INREG32(module_base + 0x00000D1C),
+		0x00000D20, INREG32(module_base + 0x00000D20));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000D24, INREG32(module_base + 0x00000D24),
+		0x00000D28, INREG32(module_base + 0x00000D28),
+		0x00000D2C, INREG32(module_base + 0x00000D2C),
+		0x00000D30, INREG32(module_base + 0x00000D30));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000D34, INREG32(module_base + 0x00000D34),
+		0x00000D38, INREG32(module_base + 0x00000D38),
+		0x00000D3C, INREG32(module_base + 0x00000D3C),
+		0x00000D40, INREG32(module_base + 0x00000D40));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000D44, INREG32(module_base + 0x00000D44),
+		0x00000D48, INREG32(module_base + 0x00000D48),
+		0x00000D4C, INREG32(module_base + 0x00000D4C),
+		0x00000D50, INREG32(module_base + 0x00000D50));
+	DDPDUMP("COLOR%d:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		idx,
+		0x00000D54, INREG32(module_base + 0x00000D54),
+		0x00000D58, INREG32(module_base + 0x00000D58),
+		0x00000D5C, INREG32(module_base + 0x00000D5C));
+	DDPDUMP("-- END: DISP COLOR%d registers --\n", idx);
 
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x400, INREG32(module_base + 0x400),
-		0x404, INREG32(module_base + 0x404),
-		0x408, INREG32(module_base + 0x408),
-		0x40C, INREG32(module_base + 0x40C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x410, INREG32(module_base + 0x410),
-		0x418, INREG32(module_base + 0x418),
-		0x41C, INREG32(module_base + 0x41C),
-		0x420, INREG32(module_base + 0x420));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x428, INREG32(module_base + 0x428),
-		0x42C, INREG32(module_base + 0x42C),
-		0x430, INREG32(module_base + 0x430),
-		0x434, INREG32(module_base + 0x434));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x438, INREG32(module_base + 0x438),
-		0x484, INREG32(module_base + 0x484),
-		0x488, INREG32(module_base + 0x488),
-		0x48C, INREG32(module_base + 0x48C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x490, INREG32(module_base + 0x490),
-		0x494, INREG32(module_base + 0x494),
-		0x498, INREG32(module_base + 0x498),
-		0x49C, INREG32(module_base + 0x49C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x4A0, INREG32(module_base + 0x4A0),
-		0x4A4, INREG32(module_base + 0x4A4),
-		0x4A8, INREG32(module_base + 0x4A8),
-		0x4AC, INREG32(module_base + 0x4AC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x4B0, INREG32(module_base + 0x4B0),
-		0x4B4, INREG32(module_base + 0x4B4),
-		0x4B8, INREG32(module_base + 0x4B8),
-		0x4BC, INREG32(module_base + 0x4BC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x620, INREG32(module_base + 0x620),
-		0x624, INREG32(module_base + 0x624),
-		0x628, INREG32(module_base + 0x628),
-		0x62C, INREG32(module_base + 0x62C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x630, INREG32(module_base + 0x630),
-		0x740, INREG32(module_base + 0x740),
-		0x74C, INREG32(module_base + 0x74C),
-		0x768, INREG32(module_base + 0x768));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x76C, INREG32(module_base + 0x76C),
-		0x79C, INREG32(module_base + 0x79C),
-		0x7E0, INREG32(module_base + 0x7E0),
-		0x7E4, INREG32(module_base + 0x7E4));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x7E8, INREG32(module_base + 0x7E8),
-		0x7EC, INREG32(module_base + 0x7EC),
-		0x7F0, INREG32(module_base + 0x7F0),
-		0x7FC, INREG32(module_base + 0x7FC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x800, INREG32(module_base + 0x800),
-		0x804, INREG32(module_base + 0x804),
-		0x808, INREG32(module_base + 0x808),
-		0x80C, INREG32(module_base + 0x80C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x810, INREG32(module_base + 0x810),
-		0x814, INREG32(module_base + 0x814),
-		0x818, INREG32(module_base + 0x818),
-		0x81C, INREG32(module_base + 0x81C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x820, INREG32(module_base + 0x820),
-		0x824, INREG32(module_base + 0x824),
-		0x828, INREG32(module_base + 0x828),
-		0x82C, INREG32(module_base + 0x82C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x830, INREG32(module_base + 0x830),
-		0x834, INREG32(module_base + 0x834),
-		0x838, INREG32(module_base + 0x838),
-		0x83C, INREG32(module_base + 0x83C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x840, INREG32(module_base + 0x840),
-		0x844, INREG32(module_base + 0x844),
-		0x848, INREG32(module_base + 0x848),
-		0x84C, INREG32(module_base + 0x84C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x850, INREG32(module_base + 0x850),
-		0x854, INREG32(module_base + 0x854),
-		0x858, INREG32(module_base + 0x858),
-		0x85C, INREG32(module_base + 0x85C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x860, INREG32(module_base + 0x860),
-		0x864, INREG32(module_base + 0x864),
-		0x868, INREG32(module_base + 0x868),
-		0x86C, INREG32(module_base + 0x86C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x870, INREG32(module_base + 0x870),
-		0x874, INREG32(module_base + 0x874),
-		0x878, INREG32(module_base + 0x878),
-		0x87C, INREG32(module_base + 0x87C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x880, INREG32(module_base + 0x880),
-		0x884, INREG32(module_base + 0x884),
-		0x888, INREG32(module_base + 0x888),
-		0x88C, INREG32(module_base + 0x88C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x890, INREG32(module_base + 0x890),
-		0x894, INREG32(module_base + 0x894),
-		0x898, INREG32(module_base + 0x898),
-		0x89C, INREG32(module_base + 0x89C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8A0, INREG32(module_base + 0x8A0),
-		0x8A4, INREG32(module_base + 0x8A4),
-		0x8A8, INREG32(module_base + 0x8A8),
-		0x8AC, INREG32(module_base + 0x8AC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8B0, INREG32(module_base + 0x8B0),
-		0x8B4, INREG32(module_base + 0x8B4),
-		0x8B8, INREG32(module_base + 0x8B8),
-		0x8BC, INREG32(module_base + 0x8BC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8C0, INREG32(module_base + 0x8C0),
-		0x8C4, INREG32(module_base + 0x8C4),
-		0x8C8, INREG32(module_base + 0x8C8),
-		0x8CC, INREG32(module_base + 0x8CC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8D0, INREG32(module_base + 0x8D0),
-		0x8D4, INREG32(module_base + 0x8D4),
-		0x8D8, INREG32(module_base + 0x8D8),
-		0x8DC, INREG32(module_base + 0x8DC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8E0, INREG32(module_base + 0x8E0),
-		0x8E4, INREG32(module_base + 0x8E4),
-		0x8E8, INREG32(module_base + 0x8E8),
-		0x8EC, INREG32(module_base + 0x8EC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x8F0, INREG32(module_base + 0x8F0),
-		0x8F4, INREG32(module_base + 0x8F4),
-		0x8F8, INREG32(module_base + 0x8F8),
-		0x8FC, INREG32(module_base + 0x8FC));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x900, INREG32(module_base + 0x900),
-		0x904, INREG32(module_base + 0x904),
-		0x908, INREG32(module_base + 0x908),
-		0x90C, INREG32(module_base + 0x90C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x910, INREG32(module_base + 0x910),
-		0x914, INREG32(module_base + 0x914),
-		0xC00, INREG32(module_base + 0xC00),
-		0xC04, INREG32(module_base + 0xC04));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xC08, INREG32(module_base + 0xC08),
-		0xC0C, INREG32(module_base + 0xC0C),
-		0xC10, INREG32(module_base + 0xC10),
-		0xC14, INREG32(module_base + 0xC14));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xC18, INREG32(module_base + 0xC18),
-		0xC28, INREG32(module_base + 0xC28),
-		0xC50, INREG32(module_base + 0xC50),
-		0xC54, INREG32(module_base + 0xC54));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xC60, INREG32(module_base + 0xC60),
-		0xCA0, INREG32(module_base + 0xCA0),
-		0xCB0, INREG32(module_base + 0xCB0),
-		0xCF0, INREG32(module_base + 0xCF0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xCF4, INREG32(module_base + 0xCF4),
-		0xCF8, INREG32(module_base + 0xCF8),
-		0xCFC, INREG32(module_base + 0xCFC),
-		0xD00, INREG32(module_base + 0xD00));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xD04, INREG32(module_base + 0xD04),
-		0xD08, INREG32(module_base + 0xD08),
-		0xD0C, INREG32(module_base + 0xD0C),
-		0xD10, INREG32(module_base + 0xD10));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xD14, INREG32(module_base + 0xD14),
-		0xD18, INREG32(module_base + 0xD18),
-		0xD1C, INREG32(module_base + 0xD1C),
-		0xD20, INREG32(module_base + 0xD20));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xD24, INREG32(module_base + 0xD24),
-		0xD28, INREG32(module_base + 0xD28),
-		0xD2C, INREG32(module_base + 0xD2C),
-		0xD30, INREG32(module_base + 0xD30));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xD34, INREG32(module_base + 0xD34),
-		0xD38, INREG32(module_base + 0xD38),
-		0xD3C, INREG32(module_base + 0xD3C),
-		0xD40, INREG32(module_base + 0xD40));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xD44, INREG32(module_base + 0xD44),
-		0xD48, INREG32(module_base + 0xD48),
-		0xD4C, INREG32(module_base + 0xD4C),
-		0xD50, INREG32(module_base + 0xD50));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0xD54, INREG32(module_base + 0xD54),
-		0xD58, INREG32(module_base + 0xD58),
-		0xD5C, INREG32(module_base + 0xD5C));
 }
 
 static void color_dump_analysis(enum DISP_MODULE_ENUM module)
 {
-	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	DDPDUMP("bypass=%d,wh(%dx%d),pos:in(%d,%d)\n",
+	int index = 0;
+
+	DDPDUMP("== DISP COLOR%d ANALYSIS ==\n", index);
+	DDPDUMP("color%d: bypass=%d, w=%d, h=%d, pixel_cnt=%d, line_cnt=%d,\n",
+		index,
 		(DISP_REG_GET(DISP_COLOR_CFG_MAIN) >> 7) & 0x1,
 		DISP_REG_GET(DISP_COLOR_INTERNAL_IP_WIDTH),
 		DISP_REG_GET(DISP_COLOR_INTERNAL_IP_HEIGHT),
 		DISP_REG_GET(DISP_COLOR_PXL_CNT_MAIN) & 0xffff,
 		(DISP_REG_GET(DISP_COLOR_LINE_CNT_MAIN) >> 16) & 0x1fff);
+
 }
 
 static void aal_dump_reg(enum DISP_MODULE_ENUM module)
 {
+	int i;
 	unsigned long module_base = DISPSYS_AAL0_BASE;
 
-	DDPDUMP("== DISP %s REGS ==\n", ddp_get_module_name(module));
-	if (!disp_helper_get_option(DISP_OPT_PQ_REG_DUMP))
-		return;
+	if (module == DISP_MODULE_AAL0)
+		i = 0;
+	else
+		i = 1;
 
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x000, INREG32(module_base + 0x000),
-		0x004, INREG32(module_base + 0x004),
-		0x008, INREG32(module_base + 0x008),
-		0x00C, INREG32(module_base + 0x00C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x010, INREG32(module_base + 0x010),
-		0x020, INREG32(module_base + 0x020),
-		0x024, INREG32(module_base + 0x024),
-		0x028, INREG32(module_base + 0x028));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x02C, INREG32(module_base + 0x02C),
-		0x030, INREG32(module_base + 0x030),
-		0x0B0, INREG32(module_base + 0x0B0),
-		0x0C0, INREG32(module_base + 0x0C0));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x0FC, INREG32(module_base + 0x0FC),
-		0x204, INREG32(module_base + 0x204),
-		0x20C, INREG32(module_base + 0x20C),
-		0x214, INREG32(module_base + 0x214));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x21C, INREG32(module_base + 0x21C),
-		0x224, INREG32(module_base + 0x224),
-		0x228, INREG32(module_base + 0x228),
-		0x22C, INREG32(module_base + 0x22C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x230, INREG32(module_base + 0x230),
-		0x234, INREG32(module_base + 0x234),
-		0x238, INREG32(module_base + 0x238),
-		0x23C, INREG32(module_base + 0x23C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x240, INREG32(module_base + 0x240),
-		0x244, INREG32(module_base + 0x244),
-		0x248, INREG32(module_base + 0x248),
-		0x24C, INREG32(module_base + 0x24C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x250, INREG32(module_base + 0x250),
-		0x254, INREG32(module_base + 0x254),
-		0x258, INREG32(module_base + 0x258),
-		0x25C, INREG32(module_base + 0x25C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x260, INREG32(module_base + 0x260),
-		0x264, INREG32(module_base + 0x264),
-		0x268, INREG32(module_base + 0x268),
-		0x26C, INREG32(module_base + 0x26C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x270, INREG32(module_base + 0x270),
-		0x274, INREG32(module_base + 0x274),
-		0x278, INREG32(module_base + 0x278),
-		0x27C, INREG32(module_base + 0x27C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x280, INREG32(module_base + 0x280),
-		0x284, INREG32(module_base + 0x284),
-		0x288, INREG32(module_base + 0x288),
-		0x28C, INREG32(module_base + 0x28C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x290, INREG32(module_base + 0x290),
-		0x294, INREG32(module_base + 0x294),
-		0x298, INREG32(module_base + 0x298),
-		0x29C, INREG32(module_base + 0x29C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x2A0, INREG32(module_base + 0x2A0),
-		0x2A4, INREG32(module_base + 0x2A4),
-		0x358, INREG32(module_base + 0x358),
-		0x35C, INREG32(module_base + 0x35C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x360, INREG32(module_base + 0x360),
-		0x364, INREG32(module_base + 0x364),
-		0x368, INREG32(module_base + 0x368),
-		0x36C, INREG32(module_base + 0x36C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x370, INREG32(module_base + 0x370),
-		0x374, INREG32(module_base + 0x374),
-		0x378, INREG32(module_base + 0x378),
-		0x37C, INREG32(module_base + 0x37C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x380, INREG32(module_base + 0x380),
-		0x3B0, INREG32(module_base + 0x3B0),
-		0x40C, INREG32(module_base + 0x40C),
-		0x410, INREG32(module_base + 0x410));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x414, INREG32(module_base + 0x414),
-		0x418, INREG32(module_base + 0x418),
-		0x41C, INREG32(module_base + 0x41C),
-		0x420, INREG32(module_base + 0x420));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x424, INREG32(module_base + 0x424),
-		0x428, INREG32(module_base + 0x428),
-		0x42C, INREG32(module_base + 0x42C),
-		0x430, INREG32(module_base + 0x430));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x434, INREG32(module_base + 0x434),
-		0x440, INREG32(module_base + 0x440),
-		0x444, INREG32(module_base + 0x444),
-		0x448, INREG32(module_base + 0x448));
+	DDPDUMP("== START: DISP AAL%d registers ==\n", i);
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000000, INREG32(module_base + 0x00000000),
+		0x00000004, INREG32(module_base + 0x00000004),
+		0x00000008, INREG32(module_base + 0x00000008),
+		0x0000000C, INREG32(module_base + 0x0000000C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000010, INREG32(module_base + 0x00000010),
+		0x00000020, INREG32(module_base + 0x00000020),
+		0x00000024, INREG32(module_base + 0x00000024),
+		0x00000028, INREG32(module_base + 0x00000028));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x0000002C, INREG32(module_base + 0x0000002C),
+		0x00000030, INREG32(module_base + 0x00000030),
+		0x000000B0, INREG32(module_base + 0x000000B0),
+		0x000000C0, INREG32(module_base + 0x000000C0));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x000000FC, INREG32(module_base + 0x000000FC),
+		0x00000204, INREG32(module_base + 0x00000204),
+		0x0000020C, INREG32(module_base + 0x0000020C),
+		0x00000214, INREG32(module_base + 0x00000214));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x0000021C, INREG32(module_base + 0x0000021C),
+		0x00000224, INREG32(module_base + 0x00000224),
+		0x00000228, INREG32(module_base + 0x00000228),
+		0x0000022C, INREG32(module_base + 0x0000022C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000230, INREG32(module_base + 0x00000230),
+		0x00000234, INREG32(module_base + 0x00000234),
+		0x00000238, INREG32(module_base + 0x00000238),
+		0x0000023C, INREG32(module_base + 0x0000023C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000240, INREG32(module_base + 0x00000240),
+		0x00000244, INREG32(module_base + 0x00000244),
+		0x00000248, INREG32(module_base + 0x00000248),
+		0x0000024C, INREG32(module_base + 0x0000024C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000250, INREG32(module_base + 0x00000250),
+		0x00000254, INREG32(module_base + 0x00000254),
+		0x00000258, INREG32(module_base + 0x00000258),
+		0x0000025C, INREG32(module_base + 0x0000025C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000260, INREG32(module_base + 0x00000260),
+		0x00000264, INREG32(module_base + 0x00000264),
+		0x00000268, INREG32(module_base + 0x00000268),
+		0x0000026C, INREG32(module_base + 0x0000026C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000270, INREG32(module_base + 0x00000270),
+		0x00000274, INREG32(module_base + 0x00000274),
+		0x00000278, INREG32(module_base + 0x00000278),
+		0x0000027C, INREG32(module_base + 0x0000027C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000280, INREG32(module_base + 0x00000280),
+		0x00000284, INREG32(module_base + 0x00000284),
+		0x00000288, INREG32(module_base + 0x00000288),
+		0x0000028C, INREG32(module_base + 0x0000028C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000290, INREG32(module_base + 0x00000290),
+		0x00000294, INREG32(module_base + 0x00000294),
+		0x00000298, INREG32(module_base + 0x00000298),
+		0x0000029C, INREG32(module_base + 0x0000029C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x000002A0, INREG32(module_base + 0x000002A0),
+		0x000002A4, INREG32(module_base + 0x000002A4),
+		0x00000358, INREG32(module_base + 0x00000358),
+		0x0000035C, INREG32(module_base + 0x0000035C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000360, INREG32(module_base + 0x00000360),
+		0x00000364, INREG32(module_base + 0x00000364),
+		0x00000368, INREG32(module_base + 0x00000368),
+		0x0000036C, INREG32(module_base + 0x0000036C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000370, INREG32(module_base + 0x00000370),
+		0x00000374, INREG32(module_base + 0x00000374),
+		0x00000378, INREG32(module_base + 0x00000378),
+		0x0000037C, INREG32(module_base + 0x0000037C));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000380, INREG32(module_base + 0x00000380),
+		0x000003B0, INREG32(module_base + 0x000003B0),
+		0x0000040C, INREG32(module_base + 0x0000040C),
+		0x00000410, INREG32(module_base + 0x00000410));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000414, INREG32(module_base + 0x00000414),
+		0x00000418, INREG32(module_base + 0x00000418),
+		0x0000041C, INREG32(module_base + 0x0000041C),
+		0x00000420, INREG32(module_base + 0x00000420));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000424, INREG32(module_base + 0x00000424),
+		0x00000428, INREG32(module_base + 0x00000428),
+		0x0000042C, INREG32(module_base + 0x0000042C),
+		0x00000430, INREG32(module_base + 0x00000430));
+	DDPDUMP("AAL:0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x,0x%04x=0x%08x\n",
+		0x00000434, INREG32(module_base + 0x00000434),
+		0x00000440, INREG32(module_base + 0x00000440),
+		0x00000444, INREG32(module_base + 0x00000444),
+		0x00000448, INREG32(module_base + 0x00000448));
+	DDPDUMP("-- END: DISP AAL%d registers --\n", i);
 }
 
 static void aal_dump_analysis(enum DISP_MODULE_ENUM module)
@@ -1293,8 +1940,9 @@ static void aal_dump_analysis(enum DISP_MODULE_ENUM module)
 	else
 		i = 1;
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	DDPDUMP("bypass=%d,relay=%d,en=%d,wh(%dx%d),pos:in(%d,%d)out(%d,%d)\n",
+
+	DDPDUMP("== DISP AAL ANALYSIS ==\n");
+	DDPDUMP("aal:bypass=%d,relay=%d,en=%d,w=%d,h=%d,in(%d,%d),out(%d,%d)\n",
 		DISP_REG_GET(DISP_AAL_EN + i * offset) == 0x0,
 		DISP_REG_GET(DISP_AAL_CFG + i * offset) & 0x01,
 		DISP_REG_GET(DISP_AAL_EN + i * offset),
@@ -1306,76 +1954,86 @@ static void aal_dump_analysis(enum DISP_MODULE_ENUM module)
 		(DISP_REG_GET(DISP_AAL_OUT_CNT + i * offset) >> 16) & 0x1fff);
 }
 
+#if 0
 static void pwm_dump_reg(enum DISP_MODULE_ENUM module)
 {
 	unsigned long module_base = DISPSYS_PWM0_BASE;
 
-	DDPDUMP("== DISP %s REGS ==\n", ddp_get_module_name(module));
-	if (!disp_helper_get_option(DISP_OPT_PQ_REG_DUMP))
-		return;
-
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("== START: DISP PWM0 registers ==\n");
+	DDPDUMP("PWM0:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x0, INREG32(module_base + 0x0),
 		0x4, INREG32(module_base + 0x4),
 		0x8, INREG32(module_base + 0x8),
 		0xC, INREG32(module_base + 0xC));
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("PWM0:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x10, INREG32(module_base + 0x10),
 		0x14, INREG32(module_base + 0x14),
 		0x18, INREG32(module_base + 0x18),
 		0x1C, INREG32(module_base + 0x1C));
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("PWM0:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x80, INREG32(module_base + 0x80),
 		0x28, INREG32(module_base + 0x28),
 		0x2C, INREG32(module_base + 0x2C),
 		0x30, INREG32(module_base + 0x30));
-	DDPDUMP("0x%04x=0x%08x\n",
+	DDPDUMP("PWM0:0x%x=0x%x\n",
 		0xC0, INREG32(module_base + 0xC0));
+	DDPDUMP("-- END: DISP PWM0 registers --\n");
 }
+#endif
 
+#if 0
 static void pwm_dump_analysis(enum DISP_MODULE_ENUM module)
 {
+	int index = 0;
 	unsigned int reg_base = 0;
 
+	index = 0;
 	reg_base = DISPSYS_PWM0_BASE;
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
+	DDPDUMP("== DISP PWM%d ANALYSIS ==\n", index);
 #if 0 /* TODO: clk reg?? */
 	DDPDUMP("pwm clock=%d\n",
 		(DISP_REG_GET(DISP_REG_CLK_CFG_1_CLR) >> 7) & 0x1);
 #endif
+
 }
+#endif
+
 
 static void ccorr_dump_reg(enum DISP_MODULE_ENUM module)
 {
+	int i;
 	unsigned long module_base = DISPSYS_CCORR0_BASE;
 
-	DDPDUMP("== DISP %s REGS ==\n", ddp_get_module_name(module));
-	if (!disp_helper_get_option(DISP_OPT_PQ_REG_DUMP))
-		return;
+	if (module == DISP_MODULE_CCORR0)
+		i = 0;
+	else
+		i = 1;
 
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("== START: DISP CCORR%i registers ==\n", i);
+	DDPDUMP("CCORR:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x000, INREG32(module_base + 0x000),
 		0x004, INREG32(module_base + 0x004),
 		0x008, INREG32(module_base + 0x008),
 		0x00C, INREG32(module_base + 0x00C));
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("CCORR:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x010, INREG32(module_base + 0x010),
 		0x020, INREG32(module_base + 0x020),
 		0x024, INREG32(module_base + 0x024),
 		0x028, INREG32(module_base + 0x028));
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("CCORR:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x02C, INREG32(module_base + 0x02C),
 		0x030, INREG32(module_base + 0x030),
 		0x080, INREG32(module_base + 0x080),
 		0x084, INREG32(module_base + 0x084));
-	DDPDUMP("0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x 0x%04x=0x%08x\n",
+	DDPDUMP("CCORR:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
 		0x088, INREG32(module_base + 0x088),
 		0x08C, INREG32(module_base + 0x08C),
 		0x090, INREG32(module_base + 0x090),
 		0x0A0, INREG32(module_base + 0x0A0));
-	DDPDUMP("0x%04x=0x%08x\n",
+	DDPDUMP("CCORR:0x%x=0x%x\n",
 		0x0C0, INREG32(module_base + 0x0C0));
+	DDPDUMP("-- END: DISP CCORR%d registers --\n", i);
 }
 
 static void ccorr_dump_analyze(enum DISP_MODULE_ENUM module)
@@ -1395,10 +2053,11 @@ static void ccorr_dump_analyze(enum DISP_MODULE_ENUM module)
 	ccorr_in_cnt = DISP_REG_GET(DISP_REG_CCORR_IN_CNT + i * offset);
 	ccorr_out_cnt = DISP_REG_GET(DISP_REG_CCORR_OUT_CNT + i * offset);
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	DDPDUMP("en=%d,config=0x%08x,wh(%dx%d),pos:in(%d,%d)out(%d,%d)\n",
+	DDPDUMP("ccorr: en=%d, config=%d, w=%d, h=%d\n",
 		ccorr_en, ccorr_cfg, (ccorr_size >> 16) & 0x1fff,
-		ccorr_size & 0x1fff, ccorr_in_cnt & 0x1fff,
+		ccorr_size & 0x1fff);
+	DDPDUMP("ccorr: in_p_cnt=%d, in_l_cnt=%d, out_p_cnt=%d, out_l_cnt=%d\n",
+		ccorr_in_cnt & 0x1fff,
 		(ccorr_in_cnt >> 16) & 0x1fff,	ccorr_out_cnt & 0x1fff,
 		(ccorr_out_cnt >> 16) & 0x1fff);
 }
@@ -1413,43 +2072,43 @@ static void dither_dump_reg(enum DISP_MODULE_ENUM module)
 	else
 		i = 1;
 
-	DDPDUMP("== DISP %s REGS ==\n", ddp_get_module_name(module));
-	if (!disp_helper_get_option(DISP_OPT_PQ_REG_DUMP))
-		return;
+	DDPDUMP("== START: DISP DITHER%d registers ==\n", i);
+	DDPDUMP("DITHER:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		0x00000000, INREG32(module_base + 0x00000000),
+		0x00000004, INREG32(module_base + 0x00000004),
+		0x00000008, INREG32(module_base + 0x00000008),
+		0x0000000C, INREG32(module_base + 0x0000000C));
+	DDPDUMP("DITHER:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		0x00000010, INREG32(module_base + 0x00000010),
+		0x00000020, INREG32(module_base + 0x00000020),
+		0x00000024, INREG32(module_base + 0x00000024),
+		0x00000028, INREG32(module_base + 0x00000028));
+	DDPDUMP("DITHER:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		0x0000002C, INREG32(module_base + 0x0000002C),
+		0x00000030, INREG32(module_base + 0x00000030),
+		0x000000C0, INREG32(module_base + 0x000000C0),
+		0x00000100, INREG32(module_base + 0x00000100));
+	DDPDUMP("DITHER:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		0x00000114, INREG32(module_base + 0x00000114),
+		0x00000118, INREG32(module_base + 0x00000118),
+		0x0000011C, INREG32(module_base + 0x0000011C),
+		0x00000120, INREG32(module_base + 0x00000120));
+	DDPDUMP("DITHER:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		0x00000124, INREG32(module_base + 0x00000124),
+		0x00000128, INREG32(module_base + 0x00000128),
+		0x0000012C, INREG32(module_base + 0x0000012C),
+		0x00000130, INREG32(module_base + 0x00000130));
+	DDPDUMP("DITHER:0x%x=0x%x,0x%x=0x%x,0x%x=0x%x,0x%x=0x%x\n",
+		0x00000134, INREG32(module_base + 0x00000134),
+		0x00000138, INREG32(module_base + 0x00000138),
+		0x0000013C, INREG32(module_base + 0x0000013C),
+		0x00000140, INREG32(module_base + 0x00000140));
+	DDPDUMP("DITHER:0x%x=0x%x\n",
+		0x00000144, INREG32(module_base + 0x00000144));
+	DDPDUMP("-- END: DISP DITHER%d registers --\n", i);
 
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x000, INREG32(module_base + 0x000),
-		0x004, INREG32(module_base + 0x004),
-		0x008, INREG32(module_base + 0x008),
-		0x00C, INREG32(module_base + 0x00C));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x010, INREG32(module_base + 0x010),
-		0x020, INREG32(module_base + 0x020),
-		0x024, INREG32(module_base + 0x024),
-		0x028, INREG32(module_base + 0x028));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x02C, INREG32(module_base + 0x02C),
-		0x030, INREG32(module_base + 0x030),
-		0x0C0, INREG32(module_base + 0x0C0),
-		0x100, INREG32(module_base + 0x100));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x114, INREG32(module_base + 0x114),
-		0x118, INREG32(module_base + 0x118),
-		0x11C, INREG32(module_base + 0x11C),
-		0x120, INREG32(module_base + 0x120));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x124, INREG32(module_base + 0x124),
-		0x128, INREG32(module_base + 0x128),
-		0x12C, INREG32(module_base + 0x12C),
-		0x130, INREG32(module_base + 0x130));
-	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
-		0x134, INREG32(module_base + 0x134),
-		0x138, INREG32(module_base + 0x138),
-		0x13C, INREG32(module_base + 0x13C),
-		0x140, INREG32(module_base + 0x140));
-	DDPDUMP("0x%03x=0x%08x\n",
-		0x144, INREG32(module_base + 0x144));
 }
+
 
 static void dither_dump_analyze(enum DISP_MODULE_ENUM module)
 {
@@ -1466,18 +2125,13 @@ static void dither_dump_analyze(enum DISP_MODULE_ENUM module)
 	dither_in_cnt = DISP_REG_GET(DISP_REG_DITHER_IN_CNT + i * offset);
 	dither_out_cnt = DISP_REG_GET(DISP_REG_DITHER_OUT_CNT + i * offset);
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	DDPDUMP("en=%d,config=0x%08x,wh(%dx%d),pos:in(%d,%d)out(%d,%d)\n",
+	DDPDUMP(
+		"dither: en=%d, config=%d, w=%d, h=%d, in_p_cnt=%d, in_l_cnt=%d, out_p_cnt=%d, out_l_cnt=%d\n",
 		 DISP_REG_GET(DISPSYS_DITHER0_BASE + 0x000 + i * offset),
 		 DISP_REG_GET(DISPSYS_DITHER0_BASE + 0x020 + i * offset),
 		 (dither_size >> 16) & 0x1fff, dither_size & 0x1fff,
 		 dither_in_cnt & 0x1fff, (dither_in_cnt >> 16) & 0x1fff,
 		 dither_out_cnt & 0x1fff, (dither_out_cnt >> 16) & 0x1fff);
-}
-
-static void dpi_dump_reg(enum DISP_MODULE_ENUM module)
-{
-	ddp_dpi_dump(module, 1);
 }
 
 static void dsi_dump_reg(enum DISP_MODULE_ENUM module)
@@ -1492,12 +2146,10 @@ int ddp_dump_reg(enum DISP_MODULE_ENUM module)
 		wdma_dump_reg(module);
 		break;
 	case DISP_MODULE_RDMA0:
-	case DISP_MODULE_RDMA1:
 		rdma_dump_reg(module);
 		break;
 	case DISP_MODULE_OVL0:
 	case DISP_MODULE_OVL0_2L:
-	case DISP_MODULE_OVL1_2L:
 		ovl_dump_reg(module);
 		break;
 	case DISP_MODULE_GAMMA0:
@@ -1516,13 +2168,7 @@ int ddp_dump_reg(enum DISP_MODULE_ENUM module)
 		aal_dump_reg(module);
 		break;
 	case DISP_MODULE_PWM0:
-		pwm_dump_reg(module);
-		break;
-	case DISP_MODULE_DPI:
-		dpi_dump_reg(module);
-		break;
-	case DISP_MODULE_DBI:
-		ddp_dbi_dump_reg(module);
+		/* pwm_dump_reg(module); */
 		break;
 	case DISP_MODULE_DSI0:
 	case DISP_MODULE_DSI1:
@@ -1538,10 +2184,12 @@ int ddp_dump_reg(enum DISP_MODULE_ENUM module)
 	case DISP_MODULE_RSZ0:
 		rsz_dump_reg(module);
 		break;
+	case DISP_MODULE_POSTMASK0:
+		postmask_dump_reg(module);
+		break;
 	default:
 		DDPDUMP("no dump_reg for module %s(%d)\n",
 			ddp_get_module_name(module), module);
-		break;
 	}
 	return 0;
 }
@@ -1553,12 +2201,10 @@ int ddp_dump_analysis(enum DISP_MODULE_ENUM module)
 		wdma_dump_analysis(module);
 		break;
 	case DISP_MODULE_RDMA0:
-	case DISP_MODULE_RDMA1:
 		rdma_dump_analysis(module);
 		break;
 	case DISP_MODULE_OVL0:
 	case DISP_MODULE_OVL0_2L:
-	case DISP_MODULE_OVL1_2L:
 		ovl_dump_analysis(module);
 		break;
 	case DISP_MODULE_GAMMA0:
@@ -1577,15 +2223,12 @@ int ddp_dump_analysis(enum DISP_MODULE_ENUM module)
 		aal_dump_analysis(module);
 		break;
 	case DISP_MODULE_PWM0:
-		pwm_dump_analysis(module);
+		/* pwm_dump_analysis(module); */
 		break;
 	case DISP_MODULE_DSI0:
 	case DISP_MODULE_DSI1:
 	case DISP_MODULE_DSIDUAL:
 		dsi_analysis(module);
-		break;
-	case DISP_MODULE_DBI:
-		dbi_analysis(module);
 		break;
 	case DISP_MODULE_CCORR0:
 		ccorr_dump_analyze(module);
@@ -1595,6 +2238,9 @@ int ddp_dump_analysis(enum DISP_MODULE_ENUM module)
 		break;
 	case DISP_MODULE_RSZ0:
 		rsz_dump_analysis(module);
+		break;
+	case DISP_MODULE_POSTMASK0:
+		postmask_dump_analysis(module);
 		break;
 	default:
 		DDPDUMP("no dump_analysis for module %s(%d)\n",

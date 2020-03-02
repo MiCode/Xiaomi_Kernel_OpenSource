@@ -11,13 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __DISP_LOWPOWER_H__
-#define __DISP_LOWPOWER_H__
+#ifndef _DISP_LOWPOWER_H_
+#define _DISP_LOWPOWER_H_
 
 #define LINE_ACCURACY 1000
-
 unsigned int dsi_phy_get_clk(enum DISP_MODULE_ENUM module);
 void primary_display_idlemgr_enter_idle_nolock(void);
+
 
 struct golden_setting_context *get_golden_setting_pgc(void);
 int primary_display_lowpower_init(void);
@@ -47,19 +47,16 @@ unsigned int get_idlemgr_flag(void);
 unsigned int set_idlemgr(unsigned int flag, int need_lock);
 unsigned int get_us_perline(unsigned int width);
 unsigned int time_to_line(unsigned int ms, unsigned int width);
-unsigned int disp_lp_set_idle_check_interval(unsigned int new_interval);
-
-/************************** for met ***********************************/
-/**
- * return 0: not enter ultra lowpower state which means mipi pll is enabled
- * return 1: enter ultra lowpower state whicn means mipi pll is disabled
- */
+/******************************** for met************************************/
+/*return 0: not enter ultra lowpower state which means mipi pll enable*/
+/*return 1: enter ultra lowpower state whicn means mipi pll disable*/
 unsigned int is_mipi_enterulps(void);
 
 /* read dsi regs to calculate clk */
 unsigned int get_mipi_clk(void);
 
-int primary_display_request_dvfs_perf(int scenario, int req);
+int primary_display_request_dvfs_perf(
+	int scenario, int req);
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
@@ -68,13 +65,9 @@ void external_display_sodi_rule_init(void);
 int external_display_is_idle(void);
 void enable_ext_idlemgr(unsigned int flag);
 void external_display_idlemgr_kick(const char *source, int need_lock);
+
 #endif
 
-/* functions for anti-latency 2.0 */
-int is_wrot_sram_available(void);
-void unblock_release_wrot_sram(void);
-void set_antilatency_need_repaint(void);
+extern unsigned int esd_checking;
 
-extern atomic_t idle_need_repaint;
-
-#endif /* _DISP_LOWPOWER_H_ */
+#endif

@@ -13,6 +13,8 @@
 
 #ifndef _DISP_RECOVERY_H_
 #define _DISP_RECOVERY_H_
+#include "ddp_info.h"
+#include "ddp_dsi.h"
 
 #define GPIO_EINT_MODE	0
 #define GPIO_DSI_MODE	1
@@ -31,5 +33,10 @@ void external_display_check_recovery_init(void);
 void external_display_esd_check_enable(int enable);
 
 void set_esd_check_mode(unsigned int mode);
+int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table);
+int do_lcm_vdo_lp_write(struct ddp_lcm_write_cmd_table *write_table,
+			unsigned int count);
+
+
 
 #endif
