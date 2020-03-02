@@ -26,18 +26,12 @@
 #include <linux/sched/clock.h>
 #include <mrdump.h>
 #include <linux/reboot.h>
-#include "mrdump_panic.h"
 #ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
 #endif
 #include "mrdump_private.h"
 #include "mrdump_mini.h"
-
-int __weak ipanic_atflog_buffer(void *data, unsigned char *buffer,
-		size_t sz_buf)
-{
-	return 0;
-}
+#include <mt-plat/mtk_ram_console.h>
 
 void __weak sysrq_sched_debug_show_at_AEE(void)
 {
