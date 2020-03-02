@@ -98,8 +98,10 @@
 #define REG_MMU1_INVLD_PA			0x148
 #define REG_MMU0_INT_ID				0x150
 #define REG_MMU1_INT_ID				0x154
-#define F_MMU_INT_ID_LARB_ID(a)		(((a) >> 7) & 0x7)
-#define F_MMU_INT_ID_PORT_ID(a)		(((a) >> 2) & 0x1f)
+#define F_MMU_INT_ID_LARB_ID(a)			(((a) >> 7) & 0x7)
+#define F_MMU_INT_ID_PORT_ID(a)			(((a) >> 2) & 0x1f)
+#define F_MMU_INT_ID_LARB_ID_MT8168(a)		(((a) >> 8) & 0x7)
+#define F_MMU_INT_ID_PORT_ID_MT8168(a)		(((a) >> 2) & 0x3f)
 
 #define MTK_PROTECT_PA_ALIGN			128
 
@@ -240,8 +242,14 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
-	fault_larb = F_MMU_INT_ID_LARB_ID(regval);
-	fault_port = F_MMU_INT_ID_PORT_ID(regval);
+
+	if (data->plat_data->m4u_plat == M4U_MT8168) {
+		fault_larb = F_MMU_INT_ID_LARB_ID_MT8168(regval);
+		fault_port = F_MMU_INT_ID_PORT_ID_MT8168(regval);
+	} else {
+		fault_larb = F_MMU_INT_ID_LARB_ID(regval);
+		fault_port = F_MMU_INT_ID_PORT_ID(regval);
+	}
 
 	if (data->plat_data->larbid_remap_enable)
 		fault_larb = mtk_iommu_get_larbid(
@@ -589,7 +597,8 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 	 * It's MISC control register whose default value is ok
 	 * except mt8173 and mt8183.
 	 */
-	if (m4u_plat == M4U_MT8173 || m4u_plat == M4U_MT8183)
+	if (m4u_plat == M4U_MT8168 || m4u_plat == M4U_MT8173 ||
+	    m4u_plat == M4U_MT8183)
 		writel_relaxed(0, data->base + REG_MMU_STANDARD_AXI_MODE);
 
 	if (devm_request_irq(data->dev, data->irq, mtk_iommu_isr, 0,
@@ -781,6 +790,11 @@ static const struct mtk_iommu_plat_data mt2712_data = {
 	.has_4gb_mode = true,
 };
 
+static const struct mtk_iommu_plat_data mt8168_data = {
+	.m4u_plat = M4U_MT8168,
+	.has_4gb_mode = true,
+};
+
 static const struct mtk_iommu_plat_data mt8173_data = {
 	.m4u_plat = M4U_MT8173,
 	.has_4gb_mode = true,
@@ -794,6 +808,7 @@ static const struct mtk_iommu_plat_data mt8183_data = {
 
 static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-m4u", .data = &mt2712_data},
+	{ .compatible = "mediatek,mt8168-m4u", .data = &mt8168_data},
 	{ .compatible = "mediatek,mt8173-m4u", .data = &mt8173_data},
 	{ .compatible = "mediatek,mt8183-m4u", .data = &mt8183_data},
 	{}

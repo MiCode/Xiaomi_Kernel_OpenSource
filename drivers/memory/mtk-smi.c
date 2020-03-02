@@ -437,6 +437,10 @@ static const struct of_device_id mtk_smi_common_of_ids[] = {
 		.data = &mtk_smi_common_gen2,
 	},
 	{
+		.compatible = "mediatek,mt8168-smi-common",
+		.data = &mtk_smi_common_gen2,
+	},
+	{
 		.compatible = "mediatek,mt8183-smi-common",
 		.data = &mtk_smi_common_mt8183,
 	},
