@@ -329,6 +329,7 @@ void get_freq_table_gpu(struct eem_det *det)
 {
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	int i = 0;
+	int gpufreq;
 
 	memset(det->freq_tbl, 0, sizeof(det->freq_tbl));
 
@@ -356,8 +357,19 @@ void get_freq_table_gpu(struct eem_det *det)
 	}
 
 	det->num_freq_tbl = i;
+	for (i = 0; i < det->num_freq_tbl; i++) {
+		gpufreq = mt_gpufreq_get_freq_by_real_idx
+			(mt_gpufreq_get_ori_opp_idx(i));
+
+		if (gpufreq <= BANK_GPU_TURN_FREQ) {
+			det->turn_pt = i;
+			break;
+		}
+	}
+
 	eem_debug("[%s] freq_num:%d, max_freq=%d\n", det->name+8,
 		det->num_freq_tbl, det->max_freq_khz);
+
 #endif
 
 	FUNC_EXIT(FUNC_LV_HELP);
