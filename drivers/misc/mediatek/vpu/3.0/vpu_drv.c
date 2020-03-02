@@ -176,7 +176,7 @@ enum m4u_callback_ret_t vpu_m4u_fault_callback(int port,
 	unsigned int mva, void *data)
 #else
 enum mtk_iommu_callback_ret_t vpu_m4u_fault_callback(int port,
-	unsigned int mva, void *data)
+	unsigned long mva, void *data)
 #endif
 {
 	LOG_DBG("[m4u] fault callback: port=%d, mva=0x%x", port, mva);
