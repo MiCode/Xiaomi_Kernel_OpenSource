@@ -160,7 +160,7 @@ static ssize_t gz_concurrent_store(struct device *dev,
 	}
 
 	tmp %= 100;
-	pr_info("[%s] get number %d\n", __func__, tmp);
+	pr_info("[%s] get number %lu\n", __func__, tmp);
 
 	if (tmp == 0) {
 		if (trusty_task) {
