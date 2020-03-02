@@ -96,6 +96,11 @@ obj-$(CONFIG_MTK_SECURE_MEM_SUPPORT) += secmem.o
 secmem-y += secmem/secmem_device.o
 secmem-y += secmem/secmem_api.o
 
+ifeq ($(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT),y)
+obj-$(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE) += sdsp_smem.o
+sdsp_smem-y += sdsp_smem/sdsp_smem_device.o
+endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+
 #==========================================================================
 # WFD Secure Memory Core Driver
 #==========================================================================
@@ -114,7 +119,7 @@ endif
 #==========================================================================
 # Trustzone Peer Driver
 #==========================================================================
-ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) $(CONFIG_MTK_WFD_SMEM_SUPPORT)),)
+ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) $(CONFIG_MTK_WFD_SMEM_SUPPORT) $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
 obj-y += tee_impl.o
 tee_impl-y += tee_impl/tee_common.o
 tee_impl-y += tee_impl/tee_invoke.o
@@ -130,6 +135,7 @@ endif
 ifeq ($(CONFIG_MTK_GZ_KREE),y)
 obj-y += mtee_impl.o
 mtee_impl-y += mtee_impl/mtee_ops.o
+mtee_impl-y += mtee_impl/mtee_invoke.o
 endif
 
 #==========================================================================
