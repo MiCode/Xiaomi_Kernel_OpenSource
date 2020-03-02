@@ -3,6 +3,14 @@ menuconfig MEDIATEK_BATTERY_SOLUTION
 	help
 	  Check this to enable MediaTek Battery configuration.
 
+config MTK_SMART_BATTERY
+	bool "MediaTek Smart Battery Driver"
+	help
+	  Check this to enable MediaTek smart battery driver.
+	  The driver supports charging control flow.
+	  It maintais both charger and battery status.
+	  It also includes Mediatek gas gauge.
+
 config MTK_GAUGE_VERSION
 	int "MediaTek Fuel Gauge version"
 	default 20
