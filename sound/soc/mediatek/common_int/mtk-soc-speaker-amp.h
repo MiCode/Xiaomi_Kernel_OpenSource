@@ -30,6 +30,7 @@ struct mtk_spk_i2c_ctrl {
 enum mtk_spk_type {
 	MTK_SPK_NOT_SMARTPA = 0,
 	MTK_SPK_RICHTEK_RT5509,
+	MTK_SPK_TI_TAS5782M,
 	MTK_SPK_MEDIATEK_MT6660,
 	MTK_SPK_TYPE_NUM
 };
