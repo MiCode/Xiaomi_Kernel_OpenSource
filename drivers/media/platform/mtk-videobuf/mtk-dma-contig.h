@@ -29,6 +29,7 @@ mtk_dma_contig_plane_dma_addr(struct vb2_buffer *vb, unsigned int plane_no)
 
 int mtk_dma_contig_set_max_seg_size(struct device *dev, unsigned int size);
 void mtk_dma_contig_clear_max_seg_size(struct device *dev);
+void mtk_dma_contig_set_secure_mode(struct device *dev, int secure_mode);
 
 extern const struct vb2_mem_ops mtk_dma_contig_memops;
 

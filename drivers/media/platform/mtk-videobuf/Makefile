@@ -1,2 +1,5 @@
 subdir-ccflags-y += -Werror
-obj-y += mtk-dma-contig.o
+
+mtk-videobuf-y += mtk-dma-contig.o
+
+obj-$(CONFIG_VB2_MEDIATEK_DMA_CONTIG) += mtk-dma-contig.o
