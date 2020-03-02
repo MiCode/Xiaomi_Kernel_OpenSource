@@ -184,6 +184,7 @@ static int port_char_recv_skb(struct port_t *port, struct sk_buff *skb)
 		port->rx_ch != CCCI_PCM_RX &&
 		port->rx_ch != CCCI_FS_RX &&
 		port->rx_ch != CCCI_RPC_RX &&
+		port->rx_ch != CCCI_UDC_RX &&
 		!(port->rx_ch == CCCI_IPC_RX &&
 		port->minor ==
 		AP_IPC_LWAPROXY + CCCI_IPC_MINOR_BASE)))
