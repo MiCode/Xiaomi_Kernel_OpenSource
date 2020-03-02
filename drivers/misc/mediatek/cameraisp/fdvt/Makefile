@@ -37,5 +37,14 @@ subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1/inc
 obj-y += 5.1/
 endif
 
+ifeq ($(CONFIG_MACH_MT6765),y)
+  MTK_FD_LARB := 2
+else ifeq ($(CONFIG_MACH_MT6768),y)
+  MTK_FD_LARB := 2
+else ifeq ($(CONFIG_MACH_MT6771),y)
+  MTK_FD_LARB := 5
+endif
+
+subdir-ccflags-y += -DMTK_FD_LARB=$(MTK_FD_LARB)
 #$(info FDVT: makefile end)
 
