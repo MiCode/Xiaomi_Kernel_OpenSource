@@ -752,8 +752,6 @@ struct cmdqRecStruct {
 	cmdq_core_handle_cb unprepare;
 	cmdq_core_handle_cb stop;
 
-	struct cmdq_timeout_info *timeout_info;
-
 	/* debug information */
 	u32 error_irq_pc;
 	bool dumpAllocTime;	/* flag to print static info to kernel log. */

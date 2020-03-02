@@ -1369,16 +1369,10 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 	if (thread == CMDQ_INVALID_THREAD)
 		return;
 
-	if (handle && handle->timeout_info) {
-		value[0] = (u32)handle->timeout_info->curr_pc;
-		value[1] = (u32)handle->timeout_info->end_addr;
-		value[2] = handle->timeout_info->irq;
-	} else {
-		/* normal thread */
-		value[0] = cmdq_core_get_pc(thread);
-		value[1] = cmdq_core_get_end(thread);
-		value[2] = CMDQ_REG_GET32(CMDQ_THR_IRQ_STATUS(thread));
-	}
+	/* normal thread */
+	value[0] = cmdq_core_get_pc(thread);
+	value[1] = cmdq_core_get_end(thread);
+	value[2] = CMDQ_REG_GET32(CMDQ_THR_IRQ_STATUS(thread));
 
 	value[3] = CMDQ_REG_GET32(CMDQ_THR_WAIT_TOKEN(thread));
 	value[4] = CMDQ_GET_COOKIE_CNT(thread);
@@ -2957,94 +2951,6 @@ static void cmdq_core_dump_handle_summary(const struct cmdqRecStruct *handle,
 
 }
 
-static void cmdq_core_dump_task_in_thread_by_handle(const s32 thread,
-	const bool fullTatskDump, const bool dumpCookie,
-	const bool dumpCmd, const struct cmdqRecStruct *handle)
-{
-#if 0
-	struct cmdq_client *client;
-
-	if (thread == CMDQ_INVALID_THREAD || !handle)
-		return;
-
-	CMDQ_ERR("========= [CMDQ] All Task in Error Thread %d =========\n",
-			thread);
-
-	client = cmdq_clients[handle->thread];
-#endif
-#if 0
-	struct cmdq_timeout_info *timeout_info = NULL;
-	struct cmdq_thread_task_info *task_info = NULL;
-	u32 index = 0;
-
-	if (thread == CMDQ_INVALID_THREAD || !handle || !handle->timeout_info)
-		return;
-
-	CMDQ_ERR("========= [CMDQ] All Task in Error Thread %d =========\n",
-		thread);
-
-	timeout_info = handle->timeout_info;
-
-	list_for_each_entry(task_info, &timeout_info->task_list, list_entry) {
-		struct cmdq_pkt_buffer *buf;
-		u32 *va;
-
-		buf = list_last_entry(&handle->pkt->buf, typeof(*buf),
-			list_entry);
-		va = (u32 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE -
-			handle->pkt->avail_buf_size);
-		va -= 4;
-
-		CMDQ_ERR(
-			"Slot %d task:0x%p va:0x%p pa:%pa size:%zu priority:%d\n",
-			index, task_info, buf->va_base, &buf->pa_base,
-			handle->pkt->cmd_buf_size, 0);
-		CMDQ_ERR("cont'd: Last Inst 0x%08x:0x%08x 0x%08x:0x%08x\n",
-			va[1], va[0], va[3], va[2]);
-
-		if (dumpCmd && buf->va_base) {
-			u32 dump_size = CMDQ_CMD_BUFFER_SIZE -
-				handle->pkt->avail_buf_size;
-
-			CMDQ_ERR("dump last buffer content size:%u ...\n",
-				dump_size);
-			print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS,
-				16, 4, buf->va_base, dump_size, true);
-		}
-		index++;
-	}
-#endif
-}
-
-static void cmdq_core_dump_handle_with_engine_flag(
-	const struct cmdqRecStruct *handle, u64 engineFlag, s32 current_thread)
-{
-	/* TODO: move to cmdq_mdp_common.c */
-#if 0
-	const u32 max_thread_count = cmdq_dev_get_thread_count();
-	s32 thread_idx = 0;
-
-	if (current_thread == CMDQ_INVALID_THREAD)
-		return;
-
-	CMDQ_ERR(
-		"=============== [CMDQ] All task in thread sharing same engine flag 0x%016llx ===============\n",
-		engineFlag);
-
-	/* TODO: revise thread with mdp_common.c */
-	for (thread_idx = 0; thread_idx < max_thread_count; thread_idx++) {
-		struct ThreadStruct *thread = &cmdq_ctx.thread[thread_idx];
-
-		if (thread_idx == current_thread || thread->taskCount <= 0 ||
-			!(thread->engineFlag & engineFlag))
-			continue;
-
-		cmdq_core_dump_task_in_thread_by_handle(current_thread,
-			false, false, false, handle);
-	}
-#endif
-}
-
 static atomic_t cmdq_sec_dbg_ctrl = ATOMIC_INIT(0);
 
 static void cmdq_core_dump_dbg(const char *tag)
@@ -3223,12 +3129,6 @@ static void cmdq_core_dump_error_handle(const struct cmdqRecStruct *handle,
 
 	if (cmdq_ctx.errNum > 1)
 		return;
-
-	/* dump tasks in error thread */
-	cmdq_core_dump_task_in_thread_by_handle(
-		thread, false, false, false, handle);
-	cmdq_core_dump_handle_with_engine_flag(
-		handle, printEngineFlag, thread);
 
 	CMDQ_ERR("============ [CMDQ] CMDQ Status ============\n");
 	cmdq_core_dump_status("ERR");
