@@ -72,3 +72,4 @@ endif
 obj-y += mmdvfs/
 obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb/
 obj-$(CONFIG_USB) += usb_boost/
+obj-$(CONFIG_MTK_USB_TYPEC) += typec/
