@@ -852,7 +852,7 @@ CONFIG_REFCOUNT_FULL,PROJECT,miles.lin,Need to enable or modify this option acco
 CONFIG_REG_MONITOR_DRIVER,PLATFORM,argus.lin,,,N,,N,,N,,N,,N,,N,
 CONFIG_REGULATOR,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_REGULATOR_ISL91302A,PLATFORM,jeter.chen,,X,X,X,X,X,X,X,X,X,X,X,X,X
-CONFIG_REGULATOR_MT6358,PLATFORM,wen.su,,X,X,X,X,X,y,y,X,X,X,X,X,X
+CONFIG_REGULATOR_MT6358,PLATFORM,wen.su,,X,X,X,y,y,y,y,X,X,X,X,X,X
 CONFIG_REGULATOR_MT6359,PLATFORM,wen.su,,X,X,X,X,X,X,X,y,y,y,y,y,y
 CONFIG_REGULATOR_MTK,PROJECT,vend_jeff_chang001,new config in this commit 96c0c6f571fd090208bc172e912776bfd41a9945,,,,,,,,,,,,,
 CONFIG_REGULATOR_RT5738,PROJECT,vend_jeff_chang001,new config in this commit b51f08961a7debca7a9c080790906cbae194e9af,,,,,,,,,,,,,
