@@ -157,6 +157,7 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort);
 void mmc_release_host(struct mmc_host *host);
 void mmc_get_card(struct mmc_card *card);
 void mmc_put_card(struct mmc_card *card);
+int mmc_try_claim_host(struct mmc_host *host, unsigned int delay);
 
 #if defined(CONFIG_MMC_FFU)
 extern int mmc_reinit_oldcard(struct mmc_host *host);
