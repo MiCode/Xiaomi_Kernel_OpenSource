@@ -1527,7 +1527,7 @@ static inline int mt6370_check_revision(struct i2c_client *client)
 	}
 
 	/* add MT6371 chip TCPC pid check for compatible */
-	if (pid != MEDIATEK_6370_PID && pid != 0x5101) {
+	if (pid != MEDIATEK_6370_PID && pid != 0x5101 && pid != 0x6372) {
 		pr_info("%s failed, PID=0x%04x\n", __func__, pid);
 		return -ENODEV;
 	}
