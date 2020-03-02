@@ -194,10 +194,10 @@ static inline long __trace_sched_switch_state(bool preempt, struct task_struct *
 	return state;
 #else
 	if (preempt)
-		return TASK_STATE_MAX;
+		return TASK_REPORT_MAX;
 #endif
 
-	return __get_task_state(p);
+	return 1 << __get_task_state(p);
 }
 #endif /* CREATE_TRACE_POINTS */
 
@@ -270,7 +270,7 @@ TRACE_EVENT(sched_switch,
 				{ 0x40, "P" }, { 0x80, "I" }) :
 		  "R",
 
-		__entry->prev_state & TASK_STATE_MAX ? "+" : "",
+		__entry->prev_state & TASK_REPORT_MAX ? "+" : "",
 		__entry->next_comm, __entry->next_pid, __entry->next_prio)
 #endif
 );
