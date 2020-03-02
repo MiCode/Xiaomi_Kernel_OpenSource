@@ -21,6 +21,7 @@
  * level 9: dump log buffer
  */
 extern int g_vpu_log_level;
+extern int g_vpu_internal_log_level;
 extern unsigned int g_func_mask;
 
 enum VpuFuncMask {
