@@ -34,6 +34,7 @@ obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
+obj-$(CONFIG_MACH_MT6771) += power_gs_v1/
 endif
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
 obj-$(CONFIG_MTK_SWPM) += swpm_v1/
