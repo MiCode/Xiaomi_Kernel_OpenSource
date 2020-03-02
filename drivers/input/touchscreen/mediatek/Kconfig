@@ -102,5 +102,26 @@ config TOUCHSCREEN_MTK_GT9XX_LM
 
 source "drivers/input/touchscreen/mediatek/GT9XX_LM/Kconfig"
 
+config TOUCHSCREEN_FT5X26
+	bool "FT5X26 for Mediatek package"
+	help
+	  Say Y here if you have FT5X26 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_FT5X26_WUXGA
+	bool "FT5X26 WUXGA for Mediatek package"
+	help
+	  Say Y here if you have FT5X26 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/FT5X26/Kconfig"
 
 endif
