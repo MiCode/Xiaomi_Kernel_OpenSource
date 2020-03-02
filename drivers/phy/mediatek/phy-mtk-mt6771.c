@@ -479,7 +479,7 @@ static void phy_recover(struct mtk_phy_instance *instance)
 	phy_efuse_settings(instance);
 
 	u3phywrite32(U3D_USBPHYACR6, RG_USB20_DISCTH_OFST,
-		RG_USB20_DISCTH, 0x7);
+		RG_USB20_DISCTH, 0xF);
 
 	usb_phy_tuning(instance);
 	phy_advance_settings(instance);
