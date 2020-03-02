@@ -125,6 +125,18 @@ static int dummy_write_reg(struct i2c_client *client, u8 reg, u8 val)
 	return ret;
 }
 
+static int dummy_read_reg(struct i2c_client *client, u8 reg)
+{
+	int val;
+	struct dummy_chip_data *chip = i2c_get_clientdata(client);
+
+	mutex_lock(&chip->lock);
+	val = i2c_smbus_read_byte_data(client, reg);
+	mutex_unlock(&chip->lock);
+
+	return val;
+}
+
 /* flashlight enable function */
 static int dummy_enable(void)
 {
@@ -160,6 +172,19 @@ static int dummy_set_level(int level)
 	/* TODO: wrap set level function */
 
 	return dummy_write_reg(dummy_i2c_client, reg, val);
+}
+
+static int dummy_get_hw_fault(int num)
+{
+	unsigned char reg = 0;
+
+	if (num == 1)
+		return dummy_read_reg(dummy_i2c_client, reg);
+	else if (num == 2)
+		return dummy_read_reg(dummy_i2c_client, reg);
+
+	pr_info("Error num\n");
+	return 0;
 }
 
 /* flashlight init */
@@ -266,6 +291,16 @@ static int dummy_ioctl(unsigned int cmd, unsigned long arg)
 	case FLASH_IOC_GET_HW_TIMEOUT:
 		pr_debug("FLASH_IOC_GET_HW_TIMEOUT(%d)\n", channel);
 		fl_arg->arg = DUMMY_HW_TIMEOUT;
+		break;
+
+	case FLASH_IOC_GET_HW_FAULT:
+		pr_debug("FLASH_IOC_GET_HW_FAULT(%d)\n", channel);
+		fl_arg->arg = dummy_get_hw_fault(1);
+		break;
+
+	case FLASH_IOC_GET_HW_FAULT2:
+		pr_debug("FLASH_IOC_GET_HW_FAULT2(%d)\n", channel);
+		fl_arg->arg = dummy_get_hw_fault(2);
 		break;
 
 	default:
