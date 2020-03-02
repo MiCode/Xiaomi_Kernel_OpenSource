@@ -1957,7 +1957,7 @@ int switch_module_to_nonsec(disp_path_handle dp_handle, void *cmdqhandle,
 	int module_num;
 	struct DDP_MODULE_DRIVER *mod_drv;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	modules = ddp_get_scenario_list(handle->scenario);
 	module_num = ddp_get_module_num(handle->scenario);
