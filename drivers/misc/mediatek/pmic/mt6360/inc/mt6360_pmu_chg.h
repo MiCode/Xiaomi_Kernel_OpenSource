@@ -40,6 +40,8 @@ struct mt6360_chg_platform_data {
 /* MT6360_PMU_CHG_CTRL1 : 0x11 */
 #define MT6360_MASK_FORCE_SLEEP	BIT(3)
 #define MT6360_SHFT_FORCE_SLEEP	(3)
+#define MT6360_MASK_HZ_EN	BIT(2)
+#define MT6360_SHFT_HZ_EN	(2)
 #define MT6360_MASK_OPA_MODE	BIT(0)
 #define MT6360_SHFT_OPA_MODE	(0)
 
