@@ -23,6 +23,8 @@ struct mt6370_pmu_bled_platdata {
 	uint8_t use_pwm:1;
 	uint8_t pwm_fsample:2;
 	uint8_t pwm_deglitch:2;
+	uint8_t pwm_hys_en:1;
+	uint8_t pwm_hys:2;
 	uint8_t pwm_avg_cycle:3;
 	uint8_t bled_ramptime:4;
 	uint8_t bled_flash_ramp:3;
@@ -45,6 +47,8 @@ struct mt6370_pmu_bled_platdata {
 #define MT6370_BLED_PWMSHIFT (7)
 #define MT6370_BLED_PWMDSHFT (5)
 #define MT6370_BLED_PWMFSHFT (3)
+#define MT6370_BLED_PWMHESHFT (2)
+#define MT6370_BLED_PWMHSHFT (0)
 
 /* MT6370_PMU_REG_BLCTRL : 0xA3 */
 #define MT6370_BLED_RAMPTSHFT (4)
