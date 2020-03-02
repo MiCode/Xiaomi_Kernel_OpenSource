@@ -11,8 +11,9 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __EXTD_HDMI_TYPES_H__
-#define __EXTD_HDMI_TYPES_H__
+/* -------------------------------- */
+#ifndef _EXTD_HDMI_TYPES_H_
+#define     _EXTD_HDMI_TYPES_H_
 
 #include <linux/list.h>
 #include <linux/atomic.h>
@@ -21,7 +22,7 @@
 #include "mtk_sync.h"
 #include "extd_log.h"
 
-/* typedef definition declare */
+/* ~~~~~~typedef definition declare~~~~~~ */
 enum HDMI_STATUS {
 	HDMI_STATUS_OK = 0,
 	HDMI_STATUS_NOT_IMPLEMENTED,
@@ -78,6 +79,7 @@ struct hdmi_video_buffer_info {
 	int identity;
 	int connected_type;
 	unsigned int security;
+
 };
 
 struct hdmi_buffer_info {
@@ -103,7 +105,7 @@ struct _t_hdmi_context {
 	bool is_enabled;
 	/* whether HDMI is enabled or disabled by user */
 	bool is_force_disable;
-	/* used for camera scenario */
+	/* used for camera scenario. */
 	bool is_clock_on;
 	/* DPI is running or not */
 	bool is_mhl_video_on;
@@ -131,7 +133,9 @@ struct _t_hdmi_context {
 	enum HDMI_VIDEO_OUTPUT_FORMAT vout;
 };
 
-/* the definition */
+/* ~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+/* ~~~~~~~~the definition~~~~~~~ */
 #define HDMI_DEVNAME "hdmitx"
 
 #define HDMI_DPI(suffix)        DPI  ## suffix
@@ -141,11 +145,12 @@ struct _t_hdmi_context {
 #define HMID_DEST_DPI           DISP_MODULE_DPI
 #endif
 
-#define MTK_HDMI_NO_FENCE_FD	((int)(-1)) /* ((int)(~0U>>1)) */
-#define MTK_HDMI_NO_ION_FD	((int)(-1)) /* ((int)(~0U>>1)) */
+#define MTK_HDMI_NO_FENCE_FD        ((int)(-1))	/* ((int)(~0U>>1)) */
+#define MTK_HDMI_NO_ION_FD        ((int)(-1))	/* ((int)(~0U>>1)) */
 
 #define ALIGN_TO(x, n)  \
 	(((x) + ((n) - 1)) & ~((n) - 1))
 #define hdmi_abs(a) (((a) < 0) ? -(a) : (a))
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-#endif /* __EXTD_HDMI_TYPES_H__ */
+#endif

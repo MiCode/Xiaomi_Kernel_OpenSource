@@ -653,7 +653,6 @@ struct LCM_DSI_PARAMS {
 };
 
 /* ------------------------------------------------------------------------- */
-
 struct LCM_PARAMS {
 	enum LCM_TYPE type;
 	enum LCM_CTRL ctrl;		/* ! how to control LCM registers */
@@ -684,13 +683,13 @@ struct LCM_PARAMS {
 	unsigned int max_refresh_rate;
 	unsigned int min_refresh_rate;
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	unsigned int round_corner_en;
 	unsigned int full_content;
 	unsigned int corner_pattern_width;
 	unsigned int corner_pattern_height;
 	unsigned int corner_pattern_height_bot;
-#endif
+	unsigned int corner_pattern_tp_size;
+	void *corner_pattern_lt_addr;
 };
 
 

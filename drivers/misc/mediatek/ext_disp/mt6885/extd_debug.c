@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,10 +19,10 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
-/* #include <mach/mt_typedefs.h> */
+/*#include <mach/mt_typedefs.h>*/
 #include <linux/types.h>
-/* #include <mach/mt_gpio.h> */
-/* #include <mt-plat/mt_gpio.h> */
+/*#include <mach/mt_gpio.h>*/
+/*#include <mt-plat/mt_gpio.h>*/
 /* #include <cust_gpio_usage.h> */
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) &&	\
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
@@ -43,29 +43,25 @@
 
 static const char STR_HELP[] =
 	"\n"
-	"USAGE\n"
-	"        echo [ACTION]... > /d/extd\n"
+	" USAGE\n"
+	"         echo [ACTION]... > /d/extd\n"
 	"\n"
-	"ACTION\n"
+	"  ACTION\n"
 	"        fakecablein:[enable|disable]\n"
 	"	fake mhl cable in/out\n"
 	"\n"
 	"        echo [ACTION]... > /d/extd\n"
 	"\n"
-	"ACTION\n"
+	" ACTION\n"
 	"        force_res:0xffff\n"
 	"	fix resolution or 3d enable(high 16 bit)\n"
 	"\n";
 
-/* TODO: this is a temp debug solution */
-/* extern void hdmi_cable_fake_plug_in(void); */
-/* extern int hdmi_drv_init(void); */
-
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) &&	\
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
-#define LCM_WIDTH	1080
-#define LCM_HEIGHT	1920
-#define BUFFER_COUNT	1
+#define LCM_WIDTH     1080
+#define LCM_HEIGHT    1920
+#define BUFFER_COUNT 1
 
 unsigned long buffer_va, buffer_mva;
 unsigned long buffer_va_1, buffer_mva_1;
@@ -78,29 +74,31 @@ static int test_allocate_buffer(void)
 	int imageSize = pixelSize * 4;
 	int bufferSize = imageSize * BUFFER_COUNT;
 
-	pr_debug("%s\n", __func__);
+	EXTDMSG("%s\n", __func__);
 	if (buffer_va) {
-		pr_debug("buffer has allocated, return in %d\n", __LINE__);
+		EXTDMSG("buffer has allocated, return in %d\n", __LINE__);
 		return 0;
 	}
 
 	buffer_va = (unsigned long)vmalloc(bufferSize);
 	buffer_va_1 = (unsigned long)vmalloc(bufferSize);
 	if (!buffer_va || !buffer_va_1) {
-		pr_debug("vmalloc %d bytes fail!!!\n", bufferSize);
+		EXTDMSG("vmalloc %d bytes fail!!!\n", bufferSize);
 		return -1;
 	}
 
 	client = m4u_create_client();
-	ret = m4u_alloc_mva(client, M4U_PORT_DISP_OVL1, buffer_va, 0,
-			    bufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
-			    (unsigned int *)(&buffer_mva));
-	ret = m4u_alloc_mva(client, M4U_PORT_DISP_OVL1, buffer_va_1, 0,
-			    bufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
-			    (unsigned int *)(&buffer_mva_1));
+	ret =
+	    m4u_alloc_mva(client, M4U_PORT_DISP_OVL1, buffer_va, 0, bufferSize,
+			  M4U_PROT_READ | M4U_PROT_WRITE, 0,
+			  (unsigned int *)(&buffer_mva));
+	ret =
+	    m4u_alloc_mva(client, M4U_PORT_DISP_OVL1, buffer_va_1, 0,
+			  bufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
+			  (unsigned int *)(&buffer_mva_1));
 
-	pr_debug("buffer_va:0x%lx, buffer_mva=0x%lx, size %d\n", buffer_va,
-		 buffer_mva, bufferSize);
+	EXTDMSG("buffer_va:0x%lx, buffer_mva=0x%lx, size %d\n", buffer_va,
+		buffer_mva, bufferSize);
 
 	return 0;
 }
@@ -131,7 +129,7 @@ static int internal_test(unsigned long va, unsigned int w, unsigned int h,
 	block_cnts = w * h / _internal_test_block_h / _internal_test_block_w;
 
 	/* this is for debug */
-	pr_debug("_mtkfb_internal_test, block counts:%d\n", block_cnts);
+	EXTDMSG("_mtkfb_internal_test, block counts:%d\n", block_cnts);
 	for (i = 0; i < block_cnts; i++) {
 		color = ((i + odd) & 0x1) * 0xff;
 		/* color += ((i&0x2)>>1)*0xff00; */
@@ -177,21 +175,27 @@ static void config_ovl(struct disp_frame_cfg_t *cfg, unsigned int offset)
 	cfg->input_cfg[0].alpha_enable = 1;
 	cfg->input_cfg[0].alpha = 0xff;
 	cfg->input_cfg[0].ext_sel_layer = -1;
+
 }
 #endif
 
 static void process_dbg_opt(const char *opt)
 {
-	if (strncmp(opt, "on", 2) == 0) {
+	if (strncmp(opt, "extd_mobile:", 12) == 0) {
+		if (strncmp(opt + 12, "on", 2) == 0)
+			g_extd_mobilelog = 1;
+		else if (strncmp(opt + 12, "off", 3) == 0)
+			g_extd_mobilelog = 0;
+	} else if (strncmp(opt, "on", 2) == 0) {
 #if defined(CONFIG_MTK_HDMI_SUPPORT)
 		hdmi_power_on();
-	} else if (strncmp(opt, "off", 3) == 0) {
+	} else if (strncmp(opt, "off", 3) == 0)
 		hdmi_power_off();
-	} else if (strncmp(opt, "suspend", 7) == 0) {
+	else if (strncmp(opt, "suspend", 7) == 0)
 		hdmi_suspend();
-	} else if (strncmp(opt, "resume", 6) == 0) {
+	else if (strncmp(opt, "resume", 6) == 0)
 		hdmi_resume();
-	} else if (strncmp(opt, "fakecablein:", 12) == 0) {
+	else if (strncmp(opt, "fakecablein:", 12) == 0) {
 		if (strncmp(opt + 12, "enable", 6) == 0)
 			hdmi_cable_fake_plug_in();
 		else if (strncmp(opt + 12, "disable", 7) == 0)
@@ -206,9 +210,9 @@ static void process_dbg_opt(const char *opt)
 		p = (char *)opt + 10;
 		ret = kstrtouint(p, 0, &res);
 		hdmi_force_resolution(res);
-	} else if (strncmp(opt, "hdmireg", 7) == 0) {
+	} else if (strncmp(opt, "hdmireg", 7) == 0)
 		ext_disp_diagnose();
-	} else if (strncmp(opt, "I2S1:", 5) == 0) {
+	else if (strncmp(opt, "I2S1:", 5) == 0) {
 #ifdef GPIO_MHL_I2S_OUT_WS_PIN
 		if (strncmp(opt + 5, "on", 2) == 0) {
 			pr_debug("[hdmi][Debug] Enable I2S1\n");
@@ -224,16 +228,16 @@ static void process_dbg_opt(const char *opt)
 					 GPIO_MODE_02);
 		}
 #endif
-	} else if (strncmp(opt, "forceon", 7) == 0) {
+	} else if (strncmp(opt, "forceon", 7) == 0)
 		hdmi_force_on(false);
-	} else if (strncmp(opt, "extd_vsync:", 11) == 0) {
+	else if (strncmp(opt, "extd_vsync:", 11) == 0) {
 		if (strncmp(opt + 11, "on", 2) == 0)
 			hdmi_wait_vsync_debug(1);
 		else if (strncmp(opt + 11, "off", 3) == 0)
 			hdmi_wait_vsync_debug(0);
-	} else if (strncmp(opt, "dumpReg", 7) == 0) {
+	} else if (strncmp(opt, "dumpReg", 7) == 0)
 		hdmi_dump_vendor_chip_register();
-	} else if (strncmp(opt, "extd_ut:", 8) == 0) {
+	else if (strncmp(opt, "extd_ut:", 8) == 0) {
 		if (strncmp(opt + 8, "on", 2) == 0)
 			enable_ut = 1;
 		else if (strncmp(opt + 8, "off", 3) == 0)
@@ -251,12 +255,12 @@ static void process_dbg_opt(const char *opt)
 #if defined(CONFIG_MTK_INTERNAL_HDMI_SUPPORT)
 		mt_hdmi_debug_write(opt);
 #endif
-#else /* !CONFIG_MTK_HDMI_SUPPORT */
-		pr_debug("[Debug] Not enable 'CONFIG_MTK_HDMI_SUPPORT'\n");
-#endif /* CONFIG_MTK_HDMI_SUPPORT */
+#else
+		EXTDMSG("[Debug] Not enable 'CONFIG_MTK_HDMI_SUPPORT'\n");
+#endif
 	} else if (strncmp(opt, "duallcm:on", 10) == 0) {
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) &&	\
-	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
+			(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 		unsigned int frame_cnts = 0;
 		unsigned int image_size = 0;
 		unsigned int created_session[5];
@@ -265,7 +269,7 @@ static void process_dbg_opt(const char *opt)
 		struct disp_session_vsync_config vsync_config;
 		struct disp_frame_cfg_t *cfg = NULL;
 
-		pr_debug("[Debug] dual lcm test debug duallcm:on start!!!\n");
+		EXTDMSG("[Debug] dual lcm test debug duallcm:on start!!!\n");
 
 		cfg = kzalloc(sizeof(struct disp_frame_cfg_t), GFP_KERNEL);
 
@@ -273,13 +277,13 @@ static void process_dbg_opt(const char *opt)
 		config.type = 2;
 		config.device_id = 3;
 		external_display_get_info((void *)&info, 0x20003);
-		pr_debug("[Debug] get device info, width:%d, height:%d, mode:%d\n",
-			 info.displayWidth, info.displayHeight,
-			 info.displayMode);
-		pr_debug("[Debug] create path in +\n");
+		EXTDMSG
+		    ("[Debug] get device info, width:%d, height:%d, mode:%d\n",
+		     info.displayWidth, info.displayHeight, info.displayMode);
+		EXTDMSG("[Debug] create path in +\n");
 		disp_create_session(&config);
 		external_display_switch_mode(1, created_session, 0x20003);
-		pr_debug("[Debug] create path out -\n");
+		EXTDMSG("[Debug] create path out -\n");
 
 		if (test_allocate_buffer() < 0)
 			goto Error;
@@ -287,7 +291,7 @@ static void process_dbg_opt(const char *opt)
 		do {
 			ext_disp_wait_for_vsync((void *)&vsync_config, 0x20003);
 			internal_test(buffer_va, 1080, 1920, 0);
-			pr_debug("[Debug] config ovl !\n");
+			EXTDMSG("[Debug] config ovl !\n");
 			config_ovl(cfg, 0);
 			external_display_frame_cfg(cfg);
 
@@ -296,7 +300,7 @@ static void process_dbg_opt(const char *opt)
 			ext_disp_wait_for_vsync((void *)&vsync_config, 0x20003);
 			image_size = LCM_WIDTH * LCM_HEIGHT * 4;
 			internal_test(buffer_va_1, 1080, 1920, 1);
-			pr_debug("[Debug] config ovl !\n");
+			EXTDMSG("[Debug] config ovl !\n");
 			config_ovl(cfg, 1);
 			external_display_frame_cfg(cfg);
 			msleep(500);
@@ -315,15 +319,15 @@ static void process_dbg_opt(const char *opt)
 		} while (frame_cnts < 20);
 
 		kfree(cfg);
-		pr_debug("[Debug] dual lcm test debug duallcm:on done!!!\n");
+		EXTDMSG("[Debug] dual lcm test debug duallcm:on done!!!\n");
 	} else if (strncmp(opt, "duallcm:suspend", 15) == 0) {
-		pr_debug
+		EXTDMSG
 		    ("[Debug] dual lcm test debug duallcm:suspend start!!!\n");
 		external_display_suspend(0x20003);
-		pr_debug
+		EXTDMSG
 		    ("[Debug] dual lcm test debug duallcm:suspend done!!!\n");
 	} else if (strncmp(opt, "lcm1_reset", 10) == 0) {
-		pr_debug("[EXTD] LCM1 reset !\n");
+		EXTDMSG("[EXTD] LCM1 reset !\n");
 		disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM1_RST_OUT1);
 		msleep(20);
 		disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM1_RST_OUT0);
@@ -335,7 +339,8 @@ static void process_dbg_opt(const char *opt)
 		unsigned int frame_cnts = 0;
 		unsigned int image_size = 0;
 
-		pr_debug("[Debug] dual lcm test debug duallcm:resume start!!!\n");
+		EXTDMSG
+		    ("[Debug] dual lcm test debug duallcm:resume start!!!\n");
 		external_display_resume(0x20003);
 
 		cfg = kzalloc(sizeof(struct disp_frame_cfg_t), GFP_KERNEL);
@@ -348,7 +353,7 @@ static void process_dbg_opt(const char *opt)
 		do {
 			ext_disp_wait_for_vsync((void *)&vsync_config, 0x20003);
 			internal_test(buffer_va, 1080, 1920, 0);
-			pr_debug("[Debug] config ovl !\n");
+			EXTDMSG("[Debug] config ovl !\n");
 			config_ovl(cfg, 0);
 			external_display_frame_cfg(cfg);
 
@@ -357,54 +362,54 @@ static void process_dbg_opt(const char *opt)
 			ext_disp_wait_for_vsync((void *)&vsync_config, 0x20003);
 			image_size = LCM_WIDTH * LCM_HEIGHT * 4;
 			internal_test(buffer_va_1, 1080, 1920, 1);
-			pr_debug("[Debug] config ovl !\n");
+			EXTDMSG("[Debug] config ovl !\n");
 			config_ovl(cfg, 1);
 			external_display_frame_cfg(cfg);
 			msleep(500);
 			frame_cnts++;
 
 			if (frame_cnts == 15) {
-				disp_dts_gpio_select_state(
-						DTS_GPIO_STATE_LCM1_RST_OUT1);
+				disp_dts_gpio_select_state
+				    (DTS_GPIO_STATE_LCM1_RST_OUT1);
 				msleep(20);
-				disp_dts_gpio_select_state(
-						DTS_GPIO_STATE_LCM1_RST_OUT0);
+				disp_dts_gpio_select_state
+				    (DTS_GPIO_STATE_LCM1_RST_OUT0);
 				msleep(20);
-				disp_dts_gpio_select_state(
-						DTS_GPIO_STATE_LCM1_RST_OUT1);
+				disp_dts_gpio_select_state
+				    (DTS_GPIO_STATE_LCM1_RST_OUT1);
 			}
 		} while (frame_cnts < 20);
 
 		kfree(cfg);
 
-		pr_debug("[Debug] dual lcm test debug duallcm:resume done!\n");
+		EXTDMSG("[Debug] dual lcm test debug duallcm:resume done!!!\n");
 	} else if (strncmp(opt, "duallcm:off", 11) == 0) {
 		struct disp_session_config config;
 
 		config.session_id = 0x20003;
 
-		pr_debug("[Debug] deinit path in +\n");
+		EXTDMSG("[Debug] deinit path in +\n");
 		/* LCM needn't destroy session */
 		disp_destroy_session(&config);
-		pr_debug("[Debug] dual lcm test debug duallcm:off!!!\n");
+		EXTDMSG("[Debug] dual lcm test debug duallcm:off!!!\n");
 #else
-		pr_debug("[Debug] no enable 'CONFIG_MTK_DUAL_DISPLAY_SUPPORT=2'\n");
+		EXTDMSG
+		    ("[Debug] not 'CONFIG_MTK_DUAL_DISPLAY_SUPPORT=2'\n");
 #endif
-	} else {
+	} else
 		goto Error;
-	}
 
 	return;
 
 Error:
-	pr_debug("[extd] parse command error!\n\n%s", STR_HELP);
+	EXTDMSG("[extd] parse command error!\n\n%s", STR_HELP);
 }
 
 static void process_dbg_cmd(char *cmd)
 {
 	char *tok;
 
-	pr_debug("[extd] %s\n", cmd);
+	EXTDMSG("[extd] %s\n", cmd);
 
 	while ((tok = strsep(&cmd, " ")) != NULL)
 		process_dbg_opt(tok);
@@ -454,19 +459,23 @@ static ssize_t debug_write(struct file *file, const char __user *ubuf,
 	return ret;
 }
 
+
 static const struct file_operations debug_fops = {
 	.read = debug_read,
 	.write = debug_write,
 	.open = debug_open,
 };
 
-void extd_dbg_init(void)
+
+void Extd_DBG_Init(void)
 {
-	extd_dbgfs = debugfs_create_file("extd", S_IFREG | 0444, NULL,
-					 (void *)0, &debug_fops);
+	extd_dbgfs =
+	    debugfs_create_file("extd", S_IFREG | 0444, NULL, (void *)0,
+				&debug_fops);
 }
 
-void extd_dbg_deinit(void)
+
+void Extd_DBG_Deinit(void)
 {
 	debugfs_remove(extd_dbgfs);
 }
