@@ -526,12 +526,15 @@ static void put_crypt_info(struct fscrypt_info *ci)
 
 static void fscrypt_put_crypt_info(struct fscrypt_info *ci)
 {
+	unsigned long flags;
+
 	if (!ci)
 		return;
 
-	if (atomic_dec_and_lock(&ci->ci_count, &ci->ci_lock)) {
+	/* only ci_count == 1, add lock protection */
+	if (atomic_dec_and_lock_irqsafe(&ci->ci_count, &ci->ci_lock, &flags)) {
 		ci->ci_status |= CI_FREEING;
-		spin_unlock(&ci->ci_lock);
+		spin_unlock_irqrestore(&ci->ci_lock, flags);
 		put_crypt_info(ci);
 	}
 }
@@ -539,18 +542,20 @@ static void fscrypt_put_crypt_info(struct fscrypt_info *ci)
 static struct fscrypt_info *fscrypt_get_crypt_info(struct fscrypt_info *ci,
 	bool init)
 {
+	unsigned long flags;
+
 	if (init) {
 		spin_lock_init(&ci->ci_lock);
 		atomic_set(&ci->ci_count, 0);
 		ci->ci_status = 0;
 	}
 
-	spin_lock(&ci->ci_lock);
+	spin_lock_irqsave(&ci->ci_lock, flags);
 	if (!(ci->ci_status & CI_FREEING)) {
 		atomic_inc(&ci->ci_count);
-		spin_unlock(&ci->ci_lock);
+		spin_unlock_irqrestore(&ci->ci_lock, flags);
 	} else {
-		spin_unlock(&ci->ci_lock);
+		spin_unlock_irqrestore(&ci->ci_lock, flags);
 		ci = NULL;
 	}
 
