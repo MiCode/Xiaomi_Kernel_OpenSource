@@ -1158,6 +1158,10 @@ int _ioctl_get_display_caps(unsigned long arg)
 		caps_info.rsz_in_max[1] = RSZ_IN_MAX_HEIGHT;
 	}
 
+	/* add read HW config to decide enable AOD or not */
+	if (disp_helper_get_option(DISP_OPT_AOD) == 0)
+		caps_info.disp_feature |= DISP_FEATURE_FORCE_DISABLE_AOD;
+
 	if (copy_to_user(argp, &caps_info, sizeof(caps_info))) {
 		DISPPR_ERROR("[FB] copy_to_user failed! line:%d\n", __LINE__);
 		ret = -EFAULT;

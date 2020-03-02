@@ -86,6 +86,15 @@ int mm_freq_table[HRT_DRAMC_TYPE_NUM][HRT_OPP_LEVEL_NUM] = {
 	{450, 312, 312, 312},
 };
 
+int emi_freq_table[HRT_DRAMC_TYPE_NUM][HRT_OPP_LEVEL_NUM] = {
+	/* HRT_DRAMC_TYPE_LP4_3733 */
+	{0, 1, 1, 2},
+	/* HRT_DRAMC_TYPE_LP4_3200 */
+	{0, 0, 1, 2},
+	/* HRT_DRAMC_TYPE_LP3 */
+	{0, 1, 1, 2},
+};
+
 static enum HRT_LEVEL max_hrt_level = HRT_LEVEL_NUM - 1;
 
 /**
@@ -147,6 +156,35 @@ static int ovl_mapping_table[HRT_TB_NUM] = {
 #endif
 #define GET_SYS_STATE(sys_state) \
 		((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
+
+static inline bool support_color_format(enum DISP_FORMAT src_fmt)
+{
+	switch (src_fmt) {
+	case DISP_FORMAT_RGB565:
+	case DISP_FORMAT_RGB888:
+	case DISP_FORMAT_BGR888:
+	case DISP_FORMAT_ARGB8888:
+	case DISP_FORMAT_ABGR8888:
+	case DISP_FORMAT_RGBA8888:
+	case DISP_FORMAT_BGRA8888:
+	case DISP_FORMAT_YUV422:
+	case DISP_FORMAT_XRGB8888:
+	case DISP_FORMAT_XBGR8888:
+	case DISP_FORMAT_RGBX8888:
+	case DISP_FORMAT_BGRX8888:
+	case DISP_FORMAT_UYVY:
+	case DISP_FORMAT_PARGB8888:
+	case DISP_FORMAT_PABGR8888:
+	case DISP_FORMAT_PRGBA8888:
+	case DISP_FORMAT_PBGRA8888:
+	case DISP_FORMAT_DIM:
+		return true;
+	default:
+		return false;
+	}
+
+	return false;
+}
 
 static bool has_rsz_layer(struct disp_layer_info *disp_info, int disp_idx)
 {
@@ -437,6 +475,17 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 				    i > disp_info->gles_tail[disp_idx])
 					disp_info->gles_tail[disp_idx] = i;
 			}
+
+			if (support_color_format(info->src_fmt))
+				continue;
+
+			/* push to GPU */
+			if (disp_info->gles_head[disp_idx] == -1 ||
+			    i < disp_info->gles_head[disp_idx])
+				disp_info->gles_head[disp_idx] = i;
+			if (disp_info->gles_tail[disp_idx] == -1 ||
+			    i > disp_info->gles_tail[disp_idx])
+				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
 
@@ -628,6 +677,35 @@ int layering_rule_get_mm_freq_table(enum HRT_OPP_LEVEL opp_level)
 			MMPROFILE_FLAG_PULSE, dramc_type, opp_level);
 
 	return mm_freq_table[dramc_type][opp_level];
+}
+
+int layering_rule_get_emi_freq_table(enum HRT_OPP_LEVEL opp_level)
+{
+	enum HRT_DRAMC_TYPE dramc_type = HRT_DRAMC_TYPE_LP4_3733;
+
+	if (opp_level == HRT_OPP_LEVEL_DEFAULT) {
+		DISPINFO("skip opp level=%d\n", opp_level);
+		return 0;
+	} else if (opp_level > HRT_OPP_LEVEL_DEFAULT) {
+		DISPERR("unsupport opp level=%d\n", opp_level);
+		return 0;
+	}
+
+#if defined(CONFIG_MTK_DRAMC)
+	if (get_ddr_type() == TYPE_LPDDR3) {
+		dramc_type = HRT_DRAMC_TYPE_LP3;
+	} else {
+		/* LPDDR4-3733, LPDDR4-3200 */
+		if (dram_steps_freq(0) == 3600)
+			dramc_type = HRT_DRAMC_TYPE_LP4_3733;
+		else
+			dramc_type = HRT_DRAMC_TYPE_LP4_3200;
+	}
+#endif
+	mmprofile_log_ex(ddp_mmp_get_events()->dvfs, MMPROFILE_FLAG_PULSE,
+			 dramc_type, opp_level);
+
+	return emi_freq_table[dramc_type][opp_level];
 }
 
 void layering_rule_set_max_hrt_level(void)

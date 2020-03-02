@@ -225,15 +225,20 @@ static unsigned int dpmgr_is_PQ(enum DISP_MODULE_ENUM module)
 
 static struct DDP_MANAGER_CONTEXT *_get_context(void)
 {
+	static DEFINE_SPINLOCK(ctx_lock);
 	static int is_context_inited;
 	static struct DDP_MANAGER_CONTEXT context;
+	unsigned long flag;
 
+	spin_lock_irqsave(&ctx_lock, flag);
 	if (!is_context_inited) {
-		memset((void *)&context, 0, sizeof(struct DDP_MANAGER_CONTEXT));
-		context.mutex_idx = (1 << DISP_MUTEX_DDP_COUNT) - 1;
-		mutex_init(&context.mutex_lock);
 		is_context_inited = 1;
+		memset((void *)&context, 0, sizeof(struct DDP_MANAGER_CONTEXT));
+		mutex_init(&context.mutex_lock);
+		context.mutex_idx = (1 << DISP_MUTEX_DDP_COUNT) - 1;
 	}
+	spin_unlock_irqrestore(&ctx_lock, flag);
+
 	return &context;
 }
 
@@ -402,8 +407,11 @@ static int acquire_mutex(enum DDP_SCENARIO_ENUM scenario)
 	mutex_unlock(&c->mutex_lock);
 
 	ASSERT(mutex_id < (DISP_MUTEX_DDP_FIRST + DISP_MUTEX_DDP_COUNT));
-	DDPDBG("scenario %s acquire mutex %d, left mutex 0x%x!\n",
-	       ddp_get_scenario_name(scenario), mutex_id, c->mutex_idx);
+	DISPMSG("scenario %s acquire mutex %d, left mutex 0x%x!\n",
+		ddp_get_scenario_name(scenario), mutex_id, c->mutex_idx);
+	WARN((mutex_id == 0) && (scenario != DDP_SCENARIO_PRIMARY_DISP),
+	     "scenario %s acquire mutex %d, left mutex 0x%x!\n",
+	     ddp_get_scenario_name(scenario), mutex_id, c->mutex_idx);
 	return mutex_id;
 }
 
@@ -417,8 +425,8 @@ static int release_mutex(int mutex_idx)
 	c->mutex_idx |= 1 << (mutex_idx - DISP_MUTEX_DDP_FIRST);
 	mutex_unlock(&c->mutex_lock);
 
-	DDPDBG("release mutex %d, left mutex 0x%x!\n",
-	       mutex_idx, c->mutex_idx);
+	DISPMSG("release mutex %d, left mutex 0x%x!\n",
+		mutex_idx, c->mutex_idx);
 	return 0;
 }
 

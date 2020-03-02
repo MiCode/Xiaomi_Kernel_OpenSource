@@ -32,6 +32,7 @@
 #include "mtk_spm.h"	/* for sodi reg addr define */
 /* #include "mtk_spm_idle.h" */
 
+#include "mt-plat/mtk_smi.h"
 #include "mtk_ion.h"
 #include "ion_drv.h"
 #include "ddp_m4u.h"
@@ -2665,7 +2666,14 @@ static int _DC_switch_to_DL_fast(int block)
 
 	/* copy ovl config from DC handle to DL handle */
 	memcpy(data_config_dl->ovl_config, data_config_dc->ovl_config,
-			sizeof(data_config_dl->ovl_config));
+	       sizeof(data_config_dl->ovl_config));
+	memcpy(&data_config_dl->rsz_enable, &data_config_dc->rsz_enable,
+	       sizeof(data_config_dc->rsz_enable));
+	memcpy(&data_config_dl->rsz_src_roi, &data_config_dc->rsz_src_roi,
+	       sizeof(data_config_dc->rsz_src_roi));
+	memcpy(&data_config_dl->rsz_dst_roi, &data_config_dc->rsz_dst_roi,
+	       sizeof(data_config_dc->rsz_dst_roi));
+
 #if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
 		defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
@@ -3405,6 +3413,7 @@ static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
 	if (src->buffer_source == DISP_BUFFER_ALPHA) {
 		/* dim layer, constant alpha */
 		dst->source = OVL_LAYER_SOURCE_RESERVED;
+		dst->dim_color = src->dim_color;
 	} else if (src->buffer_source == DISP_BUFFER_ION ||
 		   src->buffer_source == DISP_BUFFER_MVA) {
 		dst->source = OVL_LAYER_SOURCE_MEM; /* from memory */
@@ -5362,6 +5371,9 @@ int primary_suspend_release_fence(void)
 			session, i);
 		mtkfb_release_layer_fence(session, i);
 	}
+	/* release present fence */
+	mtkfb_release_present_fence(primary_session_id, gPresentFenceIndex);
+
 	return 0;
 }
 
