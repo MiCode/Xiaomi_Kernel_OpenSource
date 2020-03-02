@@ -12,7 +12,7 @@
  */
 
 #include <linux/kthread.h>
-
+#include <uapi/linux/sched/types.h>
 #include "extd_multi_control.h"
 #include "disp_drv_platform.h"
 #include "external_display.h"

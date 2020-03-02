@@ -43,6 +43,7 @@ obj-$(CONFIG_MACH_MT6771) += vcorefs_v3/
 obj-$(CONFIG_MACH_MT6739) += vcorefs_v3/
 obj-$(CONFIG_MACH_MT6771) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6739) += cpuidle_v3/
+obj-$(CONFIG_MACH_MT6765) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6771) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6768) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6785) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
@@ -89,6 +90,7 @@ ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 obj-$(CONFIG_MACH_MT6765) += pbm_v4/
 #obj-$(CONFIG_MACH_MT6765) += hps_v3/
+obj-$(CONFIG_MACH_MT6765) += mdpm_v1/
 obj-$(CONFIG_MACH_MT6765) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6765) += udi_v1/
 obj-$(CONFIG_MACH_MT6765) += mcdi/

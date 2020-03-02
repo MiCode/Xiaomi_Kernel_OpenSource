@@ -48,6 +48,6 @@ ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 #ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
-#obj-$(CONFIG_MACH_MT6765) += mtk_gpu_bw.o
+obj-$(CONFIG_MACH_MT6765) += mtk_gpu_bw.o
 endif
 endif

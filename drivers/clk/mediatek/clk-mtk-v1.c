@@ -28,10 +28,16 @@
 #endif
 
 static DEFINE_SPINLOCK(clk_ops_lock);
+static DEFINE_SPINLOCK(mtcmos_ops_lock);
 
 spinlock_t *get_mtk_clk_lock(void)
 {
 	return &clk_ops_lock;
+}
+
+spinlock_t *get_mtk_mtcmos_lock(void)
+{
+	return &mtcmos_ops_lock;
 }
 
 /*
