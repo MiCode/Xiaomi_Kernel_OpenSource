@@ -646,7 +646,7 @@ int dpmgr_path_add_memout(disp_path_handle dp_handle,
 	enum DISP_MODULE_ENUM wdma;
 	struct DDP_MANAGER_CONTEXT *context;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	ASSERT(handle->scenario == DDP_SCENARIO_PRIMARY_DISP ||
 	       handle->scenario == DDP_SCENARIO_SUB_DISP ||
