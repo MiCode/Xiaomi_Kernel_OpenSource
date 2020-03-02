@@ -27,12 +27,6 @@
 #endif
 
 __weak int __spm_get_dram_type(void) { return 0; }
-/* hh, temp fix build error */
-enum {
-	SPMFW_LP4X_2CH_3733 = 0,
-	SPMFW_LP4X_2CH_3200,
-	SPMFW_LP3_1CH_1866,
-};
 
 #define VCORE_OPP_EFUSE_NUM     (2)
 

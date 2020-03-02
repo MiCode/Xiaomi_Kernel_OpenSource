@@ -52,9 +52,8 @@
 
 #include <mt-plat/mtk_devinfo.h>
 
-/* hh, temp fix build error */
-//#include <mtk_ts_setting.h>
-//#include <tscpu_settings.h>
+#include <mtk_ts_setting.h>
+#include <tscpu_settings.h>
 
 
 #define is_dvfs_in_progress()    (spm_read(DVFSRC_LEVEL) & 0xFFFF)
@@ -598,8 +597,7 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 	if (r < 0) {
 		spm_vcorefs_warn("[%s]wait idle timeout !\n", __func__);
 		spm_vcorefs_dump_dvfs_regs(NULL);
-		/* hh, temp fix build error */
-		/* aee_kernel_warning("VCOREFS", "wait idle timeout"); */
+		aee_kernel_warning("VCOREFS", "wait idle timeout");
 		return -1;
 	}
 
@@ -642,8 +640,7 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 	if (r < 0) {
 		spm_vcorefs_warn("[%s]wait complete timeout!\n", __func__);
 		spm_vcorefs_dump_dvfs_regs(NULL);
-		/* hh, temp fix build error */
-		/* aee_kernel_warning("VCOREFS", "wait complete timeout"); */
+		aee_kernel_warning("VCOREFS", "wait complete timeout");
 		return -1;
 	}
 
@@ -731,8 +728,7 @@ void dvfsrc_set_vcore_request(unsigned int mask,
 		spm_vcorefs_warn("[%s]wait idle timeout!(level=%d, opp=%d)\n",
 				__func__, level, opp);
 		spm_vcorefs_dump_dvfs_regs(NULL);
-		/* hh, temp fix build error */
-		/* aee_kernel_warning("VCOREFS", "wait idle timeout"); */
+		aee_kernel_warning("VCOREFS", "wait idle timeout");
 		goto out;
 	}
 
@@ -747,8 +743,7 @@ void dvfsrc_set_vcore_request(unsigned int mask,
 			("[%s]vcore wait complete timeout!(level=%d, opp=%d)\n",
 			__func__, level, opp);
 		spm_vcorefs_dump_dvfs_regs(NULL);
-		/* hh, temp fix build error */
-		/* aee_kernel_warning("VCOREFS", "wait complete timeout"); */
+		aee_kernel_warning("VCOREFS", "wait complete timeout");
 	}
 
 out:
@@ -1063,16 +1058,18 @@ static struct notifier_block spm_vcorefs_fb_notif = {
 #if defined(CONFIG_MTK_QOS_SUPPORT)
 static void dvfsrc_init_qos_opp(void)
 {
-	u32 vcore_req[NUM_OPP] = {0x1, 0x1, 0x0, 0x0};
-	u32 emi_req[NUM_OPP] = {0x2, 0x1, 0x1, 0x0};
+	u32 vcore_req[VCORE_OPP_NUM] = {0x1, 0x0};
+	u32 emi_req[DDR_OPP_NUM] = {0x2, 0x1, 0x0};
 	int emi_opp, vcore_opp;
 
-	if (__spm_get_dram_type() == SPMFW_LP4X_2CH_3200) {
-		vcore_req[1] = 0x0;
-		emi_req[1] = 0x2;
-	}
 	emi_opp = pm_qos_request(PM_QOS_EMI_OPP);
 	vcore_opp = pm_qos_request(PM_QOS_VCORE_OPP);
+
+	if (emi_opp >= DDR_OPP_NUM)
+		emi_opp = DDR_OPP_NUM - 1;
+	if (vcore_opp >= VCORE_OPP_NUM)
+		vcore_opp = VCORE_OPP_NUM - 1;
+
 	spm_vcorefs_warn
 		("pm_qos curr opp: emi = %d(req: %d), vcore = %d(req: %d)\n",
 		emi_opp, emi_req[emi_opp], vcore_opp, vcore_req[vcore_opp]);
@@ -1129,9 +1126,8 @@ void vcorefs_temp_opp_init(void)
 	if (!lt_opp_feature_en)
 		return;
 
-/* hh, temp fix build error */
-//	if (init_temp == CLEAR_TEMP)
-//		return;
+	if (init_temp == CLEAR_TEMP)
+		return;
 
 	spm_vcorefs_warn("[%s] init temp: %d (enter_lt: %d, leave_lt: %d\n)",
 			__func__, init_temp,
@@ -1161,9 +1157,9 @@ void vcorefs_temp_opp_config(int temp)
 
 	if (is_vcorefs_can_work() != 1)
 		return;
-/* hh, temp fix build error */
-//	if (temp == CLEAR_TEMP)
-//		return;
+
+	if (temp == CLEAR_TEMP)
+		return;
 
 	if ((temp > leave_lt_opp_temp) && (lt_opp_enable == 1)) {
 		lt_opp_enable = 0;

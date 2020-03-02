@@ -14,13 +14,11 @@
 #ifndef __MTK_SPM_VCORE_DVFS_MT6771_H__
 #define __MTK_SPM_VCORE_DVFS_MT6771_H__
 
-/* hh: temp fix */
-/* #include "mtk_spm.h" */
+#include "mtk_spm.h"
 #include <mtk_vcorefs_manager.h>
 
 /* Feature will disable both of DVS/DFS are 0 */
-/* hh, temp */
-/* TODO: enable after function verify on P */
+/* TODO: enable after function verify */
 #define SPM_VCORE_DVS_EN       1 /* SB disabled */
 #define SPM_DDR_DFS_EN         1 /* SB disabled */
 #define SPM_MM_CLK_EN          0 /* for intra-frame dvfs */
