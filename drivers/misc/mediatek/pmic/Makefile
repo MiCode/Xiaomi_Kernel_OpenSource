@@ -6,6 +6,7 @@ subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6356)+= -I$(srctree)/drivers/misc/mediat
 subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6357)+= -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6357
 subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6358)+= -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
 subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6359)+= -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6359
+subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6359P)+= -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6359p
 
 obj-$(CONFIG_MTK_EXTBUCK) += extbuck/
 obj-$(CONFIG_MTK_PMIC_COMMON) += common/
@@ -19,6 +20,7 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6356) += mt6356/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6357) += mt6357/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6358) += mt6358/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6359) += mt6359/
+obj-$(CONFIG_MTK_PMIC_CHIP_MT6359P) += mt6359p/
 
 obj-$(CONFIG_MFD_RT5081_PMU)	+= rt5081/
 obj-$(CONFIG_MFD_MT6370_PMU)    += mt6370/

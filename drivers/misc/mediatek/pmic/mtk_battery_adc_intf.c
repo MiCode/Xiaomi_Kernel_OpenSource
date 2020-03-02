@@ -55,7 +55,9 @@ bool pmic_is_battery_exist(void)
 	return is_bat_exist;
 #endif
 
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6358) || defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358) \
+|| defined(CONFIG_MTK_PMIC_CHIP_MT6359) \
+|| defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 	temp = pmic_get_register_value(PMIC_AD_BATON_UNDET);
 #else
 	temp = pmic_get_register_value(PMIC_RGS_BATON_UNDET);
@@ -206,7 +208,8 @@ int pmic_bif_init(void)
 int pmic_enable_hw_vbus_ovp(bool enable)
 {
 	int ret = 0;
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) \
+|| defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 	/* TODO check replace by which RG*/
 #else
 	ret = pmic_set_register_value(PMIC_RG_VCDT_HV_EN, enable);

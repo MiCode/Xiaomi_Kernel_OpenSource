@@ -10,6 +10,8 @@ endif
 obj-$(CONFIG_MTK_PMIC_COMMON) += upmu.o upmu_regulator.o upmu_debugfs.o upmu_initial_setting.o
 ifeq ($(CONFIG_MTK_PMIC_CHIP_MT6359), y)
 obj-y += upmu_lbat_service_v2.o
+else ifeq ($(CONFIG_MTK_PMIC_CHIP_MT6359P), y)
+obj-y += upmu_lbat_service_v2.o
 else
 obj-y += upmu_lbat_service.o
 endif
