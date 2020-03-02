@@ -258,6 +258,7 @@ int DW9718SAF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 	if (*g_pAF_Opened == 2) {
 		int i4RetValue = 0;
+		u8 data = 0x0;
 		char puSendCmd[2] = {0x00, 0x01};
 
 		LOG_INF("apply\n");
@@ -265,6 +266,9 @@ int DW9718SAF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 		g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
 		g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
 		i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
+
+		data = read_data(0x00);
+		LOG_INF("Addr:0x00 Data:0x%x (%d)\n", data, i4RetValue);
 	}
 
 	if (*g_pAF_Opened) {
@@ -289,11 +293,15 @@ int DW9718SAF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 	LOG_INF("+\n");
 	if (*g_pAF_Opened == 0) {
 		int i4RetValue = 0;
+		u8 data = 0x0;
 		char puSendCmd[2] = {0x00, 0x01};
 
 		g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
 		g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
 		i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
+
+		data = read_data(0x00);
+		LOG_INF("Addr:0x00 Data:0x%x\n", data);
 
 		LOG_INF("apply - %d\n", i4RetValue);
 
@@ -319,11 +327,14 @@ int DW9718SAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 
 int DW9718SAF_GetFileName(unsigned char *pFileName)
 {
-	char *FileString = (strrchr(__FILE__, '/') + 1);
+	char FilePath[512];
+	char *FileString;
 
-	strncpy(pFileName, FileString, AF_MOTOR_NAME);
-	FileString = strchr(pFileName, '.');
+	sprintf(FilePath, "%s", __FILE__);
+	FileString = strrchr(FilePath, '/');
 	*FileString = '\0';
+	FileString = (strrchr(FilePath, '/') + 1);
+	strncpy(pFileName, FileString, AF_MOTOR_NAME);
 	LOG_INF("FileName : %s\n", pFileName);
 
 	return 1;
