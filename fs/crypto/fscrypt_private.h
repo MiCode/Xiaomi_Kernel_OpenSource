@@ -176,6 +176,6 @@ struct fscrypt_mode {
 extern void __exit fscrypt_essiv_cleanup(void);
 
 /* policy.c */
-extern u8 fscrypt_data_crypt_mode(u8 mode);
+extern u8 fscrypt_data_crypt_mode(const struct inode *inode, u8 mode);
 
 #endif /* _FSCRYPT_PRIVATE_H */

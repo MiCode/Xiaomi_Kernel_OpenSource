@@ -5065,6 +5065,11 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	mmc->caps |= MMC_CAP_ERASE;
 
+#ifdef CONFIG_HIE
+	if (host->hw->host_function == MSDC_EMMC)
+		mmc->caps2 |= MMC_CAP2_INLINECRYPT;
+#endif
+
 	/* If 0  < mmc->max_busy_timeout < cmd.busy_timeout,
 	 * R1B will change to R1, host will not detect DAT0 busy,
 	 * next CMD may send to eMMC at busy state.
