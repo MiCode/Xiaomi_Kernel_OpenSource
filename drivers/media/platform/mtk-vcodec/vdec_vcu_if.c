@@ -16,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <stdint-gcc.h>
 #include <media/v4l2-mem2mem.h>
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec.h"
@@ -25,6 +26,7 @@
 #include "vdec_ipi_msg.h"
 #include "vdec_vcu_if.h"
 #include "vdec_drv_if.h"
+
 
 // ALWAYS disable IOMMU_V2 before IT done
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -252,7 +254,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			}
 			mtk_vcodec_debug(vcu, "- wait get fm pfb=0x%p\n", pfb);
 
-			vdec_fb_va = (u64)pfb;
+			vdec_fb_va = (intptr_t)pfb;
 			vsi->dec.vdec_fb_va = vdec_fb_va;
 			if (pfb != NULL) {
 				vsi->dec.index = pfb->index;

@@ -189,7 +189,7 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		target_freq_64 = match_freq(target_freq, &venc_freq_steps[0],
 					venc_freq_step_size);
 
-		if (ctx->slowmotion == 1 && target_freq_64 > 416)
+		if (ctx->use_gce == 1 && target_freq_64 > 416)
 			target_freq_64 = 416;
 
 		if (target_freq > 0) {
