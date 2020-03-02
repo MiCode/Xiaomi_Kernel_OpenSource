@@ -305,7 +305,25 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	writel(r, pll->pwr_addr);
 }
 
-#if (defined(CONFIG_MACH_MT6771))
+
+static int mtk_pll_is_prepared_dummy(struct clk_hw *hw)
+{
+	return 1;
+}
+static int mtk_pll_prepare_dummy(struct clk_hw *hw)
+{
+	return 0;
+}
+static void mtk_pll_unprepare_dummy(struct clk_hw *hw)
+{
+}
+static int mtk_pll_set_rate_dummy(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate)
+{
+	return 0;
+}
+
+#if (defined(CONFIG_MACH_MT6771)) | (defined(CONFIG_MACH_MT6768))
 static const struct clk_ops mtk_pll_ops = {
 	.is_enabled	= mtk_pll_is_prepared,
 	.enable		= mtk_pll_prepare,
@@ -314,6 +332,15 @@ static const struct clk_ops mtk_pll_ops = {
 	.round_rate	= mtk_pll_round_rate,
 	.set_rate	= mtk_pll_set_rate,
 };
+static const struct clk_ops mtk_pll_ops_dummy = {
+	.is_enabled	= mtk_pll_is_prepared_dummy,
+	.enable		= mtk_pll_prepare_dummy,
+	.disable	= mtk_pll_unprepare_dummy,
+	.recalc_rate	= mtk_pll_recalc_rate,
+	.round_rate	= mtk_pll_round_rate,
+	.set_rate	= mtk_pll_set_rate_dummy,
+};
+
 #else
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
@@ -350,7 +377,16 @@ static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 
 	init.name = data->name;
 	init.flags = (data->flags & PLL_AO) ? CLK_IS_CRITICAL : 0;
+
+#if defined(CONFIG_MACH_MT6768)
+	if (mtk_is_pll_enable())
+		init.ops = &mtk_pll_ops;
+	else
+		init.ops = &mtk_pll_ops_dummy;
+#else
 	init.ops = &mtk_pll_ops;
+#endif
+
 	if (data->parent_name)
 		init.parent_names = &data->parent_name;
 	else

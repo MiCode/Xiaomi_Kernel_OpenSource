@@ -19,6 +19,10 @@
 #include "clk-mtk.h"
 #include "clk-mux.h"
 
+#if defined(CONFIG_MACH_MT6768)
+void mm_polling(struct clk_hw *hw);
+#endif
+
 #if defined(CONFIG_MACH_MT6739)
 #define WORKAROUND_318_WARNING	1
 struct mtk_mux_upd_data {
@@ -631,6 +635,15 @@ static int mtk_mux_set_parent_setclr(struct clk_hw *hw, u8 index)
 		regmap_write(mux->regmap, mux->mux_clr_ofs, val);
 		val = (index << mux->mux_shift);
 		regmap_write(mux->regmap, mux->mux_set_ofs, val);
+
+#if defined(CONFIG_MACH_MT6768)
+		/*
+		 * Workaround for mm dvfs. Poll mm rdma reg before
+		 * clkmux switching.
+		 */
+		if (!strcmp(__clk_get_name(hw->clk), "mm_sel"))
+			mm_polling(hw);
+#endif
 
 		if (mux->upd_shift >= 0)
 			regmap_write(mux->regmap, mux->upd_ofs,

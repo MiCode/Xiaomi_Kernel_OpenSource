@@ -131,12 +131,41 @@ static void __iomem *smi_common_base;	/* smi_common */
 static void __iomem *conn_base;		/* connsys*/
 static void __iomem *conn_mcu_base;	/* connsys MCU */
 
+static void __iomem *cksys_base;	/* topckgen */
+static void __iomem *vdec_gcon_base;	/* vdec gcon */
+static void __iomem *vdec_base;		/* vdec */
+
+
 #define INFRACFG_REG(offset)		(infracfg_base + offset)
 #define SPM_REG(offset)			(spm_base + offset)
 #define INFRA_REG(offset)		(infra_base + offset)
 #define SMI_COMMON_REG(offset)		(smi_common_base + offset)
 #define CONN_HIF_REG(offset)		(conn_base + offset)
 #define CONN_MCU_REG(offset)		(conn_mcu_base + offset)
+
+#define CK_REG_0			(cksys_base + 0x40)
+#define CK_REG_7			(cksys_base + 0xB0)
+
+#define VDEC_CG_CON			(vdec_gcon_base + 0x0)
+#define VDEC_CG_SET			(vdec_gcon_base + 0x0)
+#define VDEC_CG_CLR			(vdec_gcon_base + 0x4)
+#define VDEC_LARB1_CG_CON		(vdec_gcon_base + 0x8)
+#define VDEC_LARB1_CG_SET		(vdec_gcon_base + 0x8)
+#define VDEC_LARB1_CG_CLR		(vdec_gcon_base + 0xC)
+
+#define VDEC_REG0			(vdec_base + 0x110)
+#define VDEC_REG1			(vdec_base + 0x114)
+#define VDEC_REG2			(vdec_base + 0x118)
+#define VDEC_REG3			(vdec_base + 0x11C)
+#define VDEC_REG4			(vdec_base + 0x120)
+#define VDEC_REG5			(vdec_base + 0x124)
+#define VDEC_REG6			(vdec_base + 0x128)
+#define VDEC_REG7			(vdec_base + 0x12C)
+#define VDEC_REG8			(vdec_base + 0x130)
+#define VDEC_REG9			(vdec_base + 0x134)
+#define VDEC_REG10			(vdec_base + 0x138)
+#define VDEC_REG11			(vdec_base + 0x13C)
+
 
 /* Define MTCMOS power control */
 #define PWR_RST_B			(0x1 << 0)
@@ -538,6 +567,113 @@ void __attribute__((weak)) print_enabled_clks_once(void)
 {
 }
 
+u32 data_latched[16];
+static void vdec_pre_busprotect(void)
+{
+	data_latched[0] = clk_readl(CK_REG_0);
+	data_latched[1] = clk_readl(CK_REG_7);
+	data_latched[2] = clk_readl(VDEC_CG_CON);
+	data_latched[3] = clk_readl(VDEC_LARB1_CG_CON);
+	data_latched[4] = clk_readl(VDEC_REG0);
+	data_latched[5] = clk_readl(VDEC_REG1);
+	data_latched[6] = clk_readl(VDEC_REG2);
+	data_latched[7] = clk_readl(VDEC_REG3);
+	data_latched[8] = clk_readl(VDEC_REG4);
+	data_latched[9] = clk_readl(VDEC_REG5);
+	data_latched[10] = clk_readl(VDEC_REG6);
+	data_latched[11] = clk_readl(VDEC_REG7);
+	data_latched[12] = clk_readl(VDEC_REG8);
+	data_latched[13] = clk_readl(VDEC_REG9);
+	data_latched[14] = clk_readl(VDEC_REG10);
+	data_latched[15] = clk_readl(VDEC_REG11);
+}
+
+static void vdec_dump_regs(void)
+{
+	int i;
+	void __iomem *GCON, *MISC, *VLD, *VLD_TOP, *MC, *HEVC_VLD, *HEVC_MV;
+	void __iomem *PP, *UFO;
+
+	/*  HWT soon, so that no need to free them */
+	GCON = ioremap(0x16000000, PAGE_SIZE);
+	VLD = ioremap(0x16020000, PAGE_SIZE);
+	VLD_TOP = ioremap(0x16020800, PAGE_SIZE);
+	MC = ioremap(0x16021000, PAGE_SIZE);
+	HEVC_MV = ioremap(0x16023000, PAGE_SIZE);
+	PP = ioremap(0x16024000, PAGE_SIZE);
+	MISC = ioremap(0x16025000, PAGE_SIZE);
+	HEVC_VLD = ioremap(0x16028000, PAGE_SIZE);
+	UFO = ioremap(0x16000800, PAGE_SIZE);
+
+	pr_notice("===GCON===\n");
+	for (i = 0; i < 64; i += 4)
+		pr_notice("GCON[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+			clk_readl(GCON+i*4), clk_readl(GCON+(i+1)*4),
+			clk_readl(GCON+(i+2)*4), clk_readl(GCON+(i+3)*4));
+
+	pr_notice("===VLD===\n");
+	pr_notice("VLD[34]:0x%x\n", clk_readl(VLD+34*4));
+	pr_notice("VLD[35]:0x%x\n", clk_readl(VLD+35*4));
+	for (i = 36; i < 256; i += 4)
+		pr_notice("VLD[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+			clk_readl(VLD+i*4), clk_readl(VLD+(i+1)*4),
+			clk_readl(VLD+(i+2)*4), clk_readl(VLD+(i+3)*4));
+
+	pr_notice("===VLD_TOP===\n");
+	pr_notice("VLD_T[34]:0x%x\n", clk_readl(VLD_TOP+34*4));
+	pr_notice("VLD_T[35]:0x%x\n", clk_readl(VLD_TOP+35*4));
+	for (i = 36; i < 230; i += 4)
+		pr_notice("VLD_T[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+			clk_readl(VLD_TOP+i*4), clk_readl(VLD_TOP+(i+1)*4),
+			clk_readl(VLD_TOP+(i+2)*4),
+			clk_readl(VLD_TOP+(i+3)*4));
+
+	pr_notice("===MC===\n");
+	for (i = 0; i < 880; i += 4)
+		pr_notice("MC[%d]:0x%x 0x%x 0x%x 0x%x\n", i, clk_readl(MC+i*4),
+			clk_readl(MC+(i+1)*4), clk_readl(MC+(i+2)*4),
+			clk_readl(MC+(i+3)*4));
+
+	pr_notice("===HEVC_MV===\n");
+	for (i = 0; i < 256; i += 4)
+		pr_notice("HEVC_MV[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+			clk_readl(HEVC_MV+i*4), clk_readl(HEVC_MV+(i+1)*4),
+			clk_readl(HEVC_MV+(i+2)*4),
+			clk_readl(HEVC_MV+(i+3)*4));
+
+	pr_notice("===PP===\n");
+	for (i = 0; i < 1024; i += 4)
+		pr_notice("PP[%d]:0x%x 0x%x 0x%x 0x%x\n", i, clk_readl(PP+i*4),
+			clk_readl(PP+(i+1)*4), clk_readl(PP+(i+2)*4),
+			clk_readl(PP+(i+3)*4));
+
+	pr_notice("===MISC===\n");
+	for (i = 0; i < 104; i += 4)
+		pr_notice("MISC[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+			clk_readl(MISC+i*4), clk_readl(MISC+(i+1)*4),
+			clk_readl(MISC+(i+2)*4), clk_readl(MISC+(i+3)*4));
+
+	pr_notice("===HEVC_VLD===\n");
+	pr_notice("HEVC_VLD[0]:0x%x\n", clk_readl(HEVC_VLD+0*4));
+	pr_notice("HEVC_VLD[33]:0x%x\n", clk_readl(HEVC_VLD+33*4));
+	pr_notice("HEVC_VLD[34]:0x%x\n", clk_readl(HEVC_VLD+34*4));
+	pr_notice("HEVC_VLD[35]:0x%x\n", clk_readl(HEVC_VLD+35*4));
+	pr_notice("HEVC_VLD[36]:0x%x\n", clk_readl(HEVC_VLD+36*4));
+	pr_notice("HEVC_VLD[37]:0x%x\n", clk_readl(HEVC_VLD+37*4));
+
+	for (i = 40; i < 256; i += 4)
+		pr_notice("HEVC_VLD[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+			clk_readl(HEVC_VLD+i*4), clk_readl(HEVC_VLD+(i+1)*4),
+			clk_readl(HEVC_VLD+(i+2)*4),
+			clk_readl(HEVC_VLD+(i+3)*4));
+
+	pr_notice("===UFO===\n");
+	for (i = 0; i < 64; i += 4)
+		pr_notice("UFO[%d]:0x%x 0x%x 0x%x 0x%x\n", i,
+		clk_readl(UFO+i*4), clk_readl(UFO+(i+1)*4),
+		clk_readl(UFO+(i+2)*4), clk_readl(UFO+(i+3)*4));
+}
+
 enum dbg_id {
 	DBG_ID_MD1_BUS = 0,
 	DBG_ID_CONN_BUS,
@@ -579,6 +715,7 @@ enum dbg_id {
 static int DBG_ID;
 static int DBG_STA;
 static int DBG_STEP;
+
 /*
  * ram console data0 define
  * [31:24] : DBG_ID
@@ -617,7 +754,7 @@ static void ram_console_update(void)
 
 	if (k > 5000 && print_once) {
 		enum subsys_id id =
-			(enum subsys_id)(DBG_ID - (DBG_ID_NUM / 2));
+			(enum subsys_id)(DBG_ID % (DBG_ID_NUM / 2));
 
 		print_once = false;
 		k = 0;
@@ -700,6 +837,30 @@ static void ram_console_update(void)
 			spm_read(INFRA_MCI_SI0_STA));
 		pr_notice("INFRA_MCI_SI2_STA =0x%x\n",
 			spm_read(INFRA_MCI_SI2_STA));
+
+		for (j = 0; j < sizeof(data_latched)/sizeof(u32); j++)
+			pr_notice("datalatch[%d]=0x%x\n", j, data_latched[j]);
+
+		if (DBG_ID == DBG_ID_VDEC_BUS) {
+			pr_notice("CK_REG_0=0x%x\n", spm_read(CK_REG_0));
+			pr_notice("CK_REG_7=0x%x\n", spm_read(CK_REG_7));
+			pr_notice("VDEC_CG_CON=0x%x\n", spm_read(VDEC_CG_CON));
+			pr_notice("VDEC_LARB1_CG_CON=0x%x\n",
+						spm_read(VDEC_LARB1_CG_CON));
+			pr_notice("VENC_110=0x%x\n", spm_read(VDEC_REG0));
+			pr_notice("VENC_114=0x%x\n", spm_read(VDEC_REG1));
+			pr_notice("VENC_118=0x%x\n", spm_read(VDEC_REG2));
+			pr_notice("VENC_11C=0x%x\n", spm_read(VDEC_REG3));
+			pr_notice("VENC_120=0x%x\n", spm_read(VDEC_REG4));
+			pr_notice("VENC_124=0x%x\n", spm_read(VDEC_REG5));
+			pr_notice("VENC_128=0x%x\n", spm_read(VDEC_REG6));
+			pr_notice("VENC_12C=0x%x\n", spm_read(VDEC_REG7));
+			pr_notice("VENC_130=0x%x\n", spm_read(VDEC_REG8));
+			pr_notice("VENC_134=0x%x\n", spm_read(VDEC_REG9));
+			pr_notice("VENC_138=0x%x\n", spm_read(VDEC_REG10));
+			pr_notice("VENC_13C=0x%x\n", spm_read(VDEC_REG11));
+			vdec_dump_regs();
+		}
 	}
 
 	for (j = 0; j <= i; j++)
@@ -2304,7 +2465,6 @@ int spm_mtcmos_ctrl_ven_pwr(int state)
 	return err;
 }
 
-
 int spm_mtcmos_ctrl_vde_bus_prot(int state)
 {
 	int err = 0;
@@ -2316,6 +2476,8 @@ int spm_mtcmos_ctrl_vde_bus_prot(int state)
 	/* TINFO="enable SPM register control" */
 
 	if (state == STA_POWER_DOWN) {
+		vdec_pre_busprotect();
+
 		/* TINFO="Start to turn off VDE" */
 		/* TINFO="Set bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_1_SET, VDE_PROT_STEP1_0_MASK);
@@ -3406,6 +3568,10 @@ static void __init mt_scpsys_init(struct device_node *node)
 	conn_base = get_reg(node, 4);
 	conn_mcu_base = get_reg(node, 5);
 
+	cksys_base = get_reg(node, 6);
+	vdec_gcon_base = get_reg(node, 7);
+	vdec_base = get_reg(node, 8);
+
 	if (!infracfg_base || !spm_base || !smi_common_base || !infra_base ||
 		!conn_base || !conn_mcu_base) {
 		pr_debug("clk-pg-mt6758: missing reg\n");
@@ -3580,6 +3746,16 @@ void mtcmos_force_off(void)
 
 }
 #endif
+
+/*
+ * Workaround for mm dvfs: Poll mm rdma before clkmux switching.
+ */
+void polling_rdma_output_line_is_not_zero(void);
+void mm_polling(struct clk_hw *hw)
+{
+	if (subsys_is_on(SYS_DIS))
+		polling_rdma_output_line_is_not_zero();
+}
 
 #if CLK_DEBUG
 /*
