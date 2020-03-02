@@ -418,6 +418,7 @@ enum mt_cpu_dvfs_id {
 
 
 #define INVERT_TEMP_VAL		(25000)
+#define INVERT_LOW_TEMP_VAL	(10000)
 #define OVER_INV_TEM_VAL	(27000)
 #define HIGH_TEM_VAL		(85000)
 #define LOWER_HIGH_TEM_VAL	(83000)
@@ -425,7 +426,8 @@ enum mt_cpu_dvfs_id {
 #define LOW_TEMP_OFF_DEFAULT	(0)
 #define EXTRA_TEMP_OFF_L		(8)
 #define EXTRA_TEMP_OFF_B		(8)
-#define EXTRA_TEMP_OFF_GPU		(7)
+#define EXTRA_TEMP_OFF_GPU		(4)
+#define EXTRA_LOW_TEMP_OFF_GPU	(7)
 #define EXTRA_TEMP_OFF_B_LO		(2)
 #define MARGIN_ADD_OFF			(5)
 #define MARGIN_CLAMP_OFF		(8)
