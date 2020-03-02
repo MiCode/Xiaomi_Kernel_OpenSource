@@ -20,6 +20,7 @@
 #include <devmpu.h>
 
 #define LOG_TAG "[DEVMPU]"
+#define DUMP_TAG "dump_devmpu"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -218,8 +219,12 @@ static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
 
 static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
 {
-	ssize_t ret = 0;
+	return 0;
+}
 
+static ssize_t devmpu_config_store(struct device_driver *driver,
+	const char *buf, size_t count)
+{
 	uint32_t i;
 
 	uint64_t pa = devmpu_ctx->prot_base;
@@ -230,6 +235,11 @@ static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
 
 	uint8_t rd_perm_bmp[16];
 	uint8_t wr_perm_bmp[16];
+
+	if (strncmp(buf, DUMP_TAG, strlen(DUMP_TAG))) {
+		pr_notice("%s Invalid argument!!\n", __func__);
+		return -EINVAL;
+	}
 
 	pr_info("Page#  RD/WR permissions\n");
 
@@ -259,9 +269,9 @@ static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
 		pa += devmpu_ctx->page_size;
 	}
 
-	return ret;
+	return count;
 }
-static DRIVER_ATTR_RO(devmpu_config);
+static DRIVER_ATTR_RW(devmpu_config);
 
 static irqreturn_t devmpu_irq_handler(int irq, void *dev_id)
 {
