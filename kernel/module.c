@@ -4400,17 +4400,14 @@ void print_modules(void)
 	list_for_each_entry_rcu(mod, &modules, list) {
 		if (mod->state == MODULE_STATE_UNFORMED)
 			continue;
-#if 0
-		pr_cont(" %s%s", mod->name, module_flags(mod, buf));
-#else
-		pr_cont(" %s %p %p %d %d %s",
+
+		pr_cont(" %s %px %px %d %d %s",
 			mod->name,
 			mod->core_layout.base,
 			mod->init_layout.base,
 			mod->core_layout.size,
 			mod->init_layout.size,
 			module_flags(mod, buf));
-#endif
 	}
 	preempt_enable();
 	if (last_unloaded_module[0])
@@ -4441,7 +4438,7 @@ int save_modules(char *mbuf, int mbufsize)
 				mbufsize);
 			break;
 		}
-		sz += snprintf(mbuf + sz, mbufsize - sz, " %s %p %p %d %d %s",
+		sz += snprintf(mbuf + sz, mbufsize - sz, " %s %px %px %d %d %s",
 				mod->name,
 				mod->core_layout.base,
 				mod->init_layout.base,
