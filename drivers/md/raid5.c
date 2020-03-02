@@ -6336,6 +6336,7 @@ raid5_show_stripe_cache_size(struct mddev *mddev, char *page)
 int
 raid5_set_cache_size(struct mddev *mddev, int size)
 {
+	int result = 0;
 	struct r5conf *conf = mddev->private;
 
 	if (size <= 16 || size > 32768)
@@ -6352,11 +6353,14 @@ raid5_set_cache_size(struct mddev *mddev, int size)
 
 	mutex_lock(&conf->cache_size_mutex);
 	while (size > conf->max_nr_stripes)
-		if (!grow_one_stripe(conf, GFP_KERNEL))
+		if (!grow_one_stripe(conf, GFP_KERNEL)) {
+			conf->min_nr_stripes = conf->max_nr_stripes;
+			result = -ENOMEM;
 			break;
+		}
 	mutex_unlock(&conf->cache_size_mutex);
 
-	return 0;
+	return result;
 }
 EXPORT_SYMBOL(raid5_set_cache_size);
 
@@ -7366,6 +7370,8 @@ static int raid5_run(struct mddev *mddev)
 		set_bit(MD_RECOVERY_RUNNING, &mddev->recovery);
 		mddev->sync_thread = md_register_thread(md_do_sync, mddev,
 							"reshape");
+		if (!mddev->sync_thread)
+			goto abort;
 	}
 
 	/* Ok, everything is just fine now */

@@ -1881,8 +1881,10 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	if (!(flags & ENQUEUE_NOCLOCK))
 		update_rq_clock(rq);
 
-	if (!(flags & ENQUEUE_RESTORE))
+	if (!(flags & ENQUEUE_RESTORE)) {
 		sched_info_queued(rq, p);
+		psi_enqueue(p, flags & ENQUEUE_WAKEUP);
+	}
 
 	uclamp_cpu_get(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
@@ -1896,8 +1898,10 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	if (!(flags & DEQUEUE_NOCLOCK))
 		update_rq_clock(rq);
 
-	if (!(flags & DEQUEUE_SAVE))
+	if (!(flags & DEQUEUE_SAVE)) {
 		sched_info_dequeued(rq, p);
+		psi_dequeue(p, flags & DEQUEUE_SLEEP);
+	}
 
 	uclamp_cpu_put(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
@@ -2077,8 +2081,10 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
 
 	p->on_rq = TASK_ON_RQ_MIGRATING;
 	dequeue_task(rq, p, DEQUEUE_NOCLOCK);
+	rq_unpin_lock(rq, rf);
+	double_lock_balance(rq, cpu_rq(new_cpu));
 	set_task_cpu(p, new_cpu);
-	rq_unlock(rq, rf);
+	double_rq_unlock(cpu_rq(new_cpu), rq);
 
 	rq = cpu_rq(new_cpu);
 
@@ -3290,6 +3296,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 			     sibling_count_hint);
 	if (task_cpu(p) != cpu) {
 		wake_flags |= WF_MIGRATED;
+		psi_ttwu_dequeue(p);
 		set_task_cpu(p, cpu);
 	}
 
@@ -4282,6 +4289,7 @@ void scheduler_tick(void)
 	curr->sched_class->task_tick(rq, curr, 0);
 	cpu_load_update_active(rq);
 	calc_global_load_tick(rq);
+	psi_task_tick(rq);
 
 	rq_unlock(rq, &rf);
 
@@ -6118,9 +6126,7 @@ SYSCALL_DEFINE0(sched_yield)
 	struct rq_flags rf;
 	struct rq *rq;
 
-	local_irq_disable();
-	rq = this_rq();
-	rq_lock(rq, &rf);
+	rq = this_rq_lock_irq(&rf);
 
 	schedstat_inc(rq->yld_count);
 	current->sched_class->yield_task(rq);
@@ -7640,6 +7646,8 @@ void __init sched_init(void)
 	init_uclamp();
 
 	init_sched_energy_costs();
+
+	psi_init();
 
 	scheduler_running = 1;
 
