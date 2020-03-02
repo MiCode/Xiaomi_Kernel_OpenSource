@@ -338,7 +338,7 @@ void sbitmap_queue_resize(struct sbitmap_queue *sbq, unsigned int depth)
 		 * Pairs with the memory barrier in sbq_wake_up() to ensure that
 		 * the batch size is updated before the wait counts.
 		 */
-		smp_mb__before_atomic();
+		smp_mb();
 		for (i = 0; i < SBQ_WAIT_QUEUES; i++)
 			atomic_set(&sbq->ws[i].wait_cnt, 1);
 	}
