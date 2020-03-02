@@ -87,9 +87,9 @@ void adsp_A_ipi_handler(void)
 			 * Must ensure the callback can do in isr
 			 */
 			adsp_ipi_desc[ipi_id].handler(ipi_id, share_buf, len);
-		} else if (is_scp_ipi_queue_init(AUDIO_OPENDSP_USE_HIFI3)) {
+		} else if (is_scp_ipi_queue_init(AUDIO_OPENDSP_USE_HIFI3_A)) {
 			scp_dispatch_ipi_hanlder_to_queue(
-				AUDIO_OPENDSP_USE_HIFI3,
+				AUDIO_OPENDSP_USE_HIFI3_A,
 				ipi_id, share_buf, len,
 				adsp_ipi_desc[ipi_id].handler);
 		} else {
@@ -98,7 +98,7 @@ void adsp_A_ipi_handler(void)
 				DUMP_IPI_MSG("ipi queue not ready!", ipi_msg);
 			else
 				pr_info("ipi queue not ready!! opendsp_id: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
-					AUDIO_OPENDSP_USE_HIFI3,
+					AUDIO_OPENDSP_USE_HIFI3_A,
 					ipi_id, share_buf, len,
 					adsp_ipi_desc[ipi_id].handler);
 			WARN_ON(1);
@@ -187,7 +187,7 @@ enum adsp_ipi_status adsp_ipi_send(enum adsp_ipi_id id, void *buf,
 
 	/* wait until IPC done */
 	retval = scp_send_msg_to_queue(
-			 AUDIO_OPENDSP_USE_HIFI3, id, buf, len, wait_ms);
+			 AUDIO_OPENDSP_USE_HIFI3_A, id, buf, len, wait_ms);
 
 	return (retval == 0) ? ADSP_IPI_DONE : ADSP_IPI_ERROR;
 }
