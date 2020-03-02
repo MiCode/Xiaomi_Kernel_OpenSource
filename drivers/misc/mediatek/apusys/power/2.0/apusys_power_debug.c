@@ -52,10 +52,9 @@ static int apusys_debug_power_open(struct inode *inode, struct file *file)
 int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
-	int j = 0;
+	int i = 0, j = 0;
 
 	switch (param) {
-#if 0
 	case POWER_PARAM_FIX_OPP:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
@@ -92,25 +91,22 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		ret = args[0] >= opps.count;
+		ret = args[0] >= APUSYS_MAX_NUM_OPPS;
 		if (ret) {
-			PWR_LOG_INF("opp step(%d) is out-of-bound, count:%d\n",
-					(int)(args[0]), opps.count);
+			PWR_LOG_INF("opp step(%d) is out-of-bound,
+				max opp:%d\n",
+					(int)(args[0]), APUSYS_MAX_NUM_OPPS);
 			goto out;
 		}
 		PWR_LOG_INF("@@test%d\n", argc);
 
-		opps.vcore.index = opps.vcore.opp_map[args[0]];
-		opps.vvpu.index = opps.vvpu.opp_map[args[0]];
-		opps.vmdla.index = opps.vmdla.opp_map[args[0]];
-		opps.dsp.index = opps.dsp.opp_map[args[0]];
-		opps.ipu_if.index = opps.ipu_if.opp_map[args[0]];
-		opps.mdlacore.index = opps.mdlacore.opp_map[args[0]];
+		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++)
+			apusys_opps.cur_opp_index[i] = args[0];
 
 		is_power_debug_lock = true;
 
-
 		break;
+#if 0
 	case POWER_PARAM_JTAG:
 		mdla_put_power(0);
 		#if 0
@@ -126,8 +122,9 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		ret = vpu_hw_enable_jtag(is_jtag_enabled);
 		#endif
 		break;
+
 	case POWER_PARAM_LOCK:
-#if 0
+
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
 			PWR_LOG_INF(
@@ -137,7 +134,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		}
 
 		is_power_debug_lock = args[0];
-#endif
+
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
 			PWR_LOG_INF(
@@ -172,43 +169,54 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 
 
 		break;
+#endif
 	case POWER_HAL_CTL:
 	{
-		struct mdla_lock_power mdla_lock_power;
-
-		ret = (argc == 2) ? 0 : -EINVAL;
+		ret = (argc == 3) ? 0 : -EINVAL;
 		if (ret) {
 			PWR_LOG_INF(
-				"invalid argument, expected:2, received:%d\n",
-									argc);
-				goto out;
+			"invalid argument, expected:1, received:%d\n",
+								argc);
+			goto out;
 		}
 
-		if (args[0] > 100 || args[0] < 0) {
-			PWR_LOG_INF("min boost(%d) is out-of-bound\n",
+		if (args[0] < 0 || args[0] > 1) {
+			PWR_LOG_INF("user is invalid\n",
 					(int)(args[0]));
 			goto out;
 		}
 		if (args[1] > 100 || args[1] < 0) {
-			PWR_LOG_INF("max boost(%d) is out-of-bound\n",
+			PWR_LOG_INF("min boost(%d) is out-of-bound\n",
 					(int)(args[1]));
 			goto out;
 		}
-		mdla_lock_power.core = 1;
-		mdla_lock_power.lock = true;
-		mdla_lock_power.priority = MDLA_OPP_POWER_HAL;
-		mdla_lock_power.max_boost_value = args[1];
-		mdla_lock_power.min_boost_value = args[0];
-		mdla_dvfs_debug("[mdla]POWER_HAL_LOCK+core:%d, maxb:%d, minb:%d\n",
-			mdla_lock_power.core, mdla_lock_power.max_boost_value,
-				mdla_lock_power.min_boost_value);
-		ret = mdla_lock_set_power(&mdla_lock_power);
-		if (ret) {
-			PWR_LOG_INF("[POWER_HAL_LOCK]failed, ret=%d\n", ret);
+		if (args[2] > 100 || args[2] < 0) {
+			PWR_LOG_INF("max boost(%d) is out-of-bound\n",
+					(int)(args[2]));
 			goto out;
 		}
+
+		if (args[0] == 0 && APUSYS_VPU_NUM != 0) {
+			for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++) {
+				apusys_opps.power_lock_max_opp[i] =
+					apusys_boost_value_to_opp(i, args[1]);
+				apusys_opps.power_lock_min_opp[i] =
+					apusys_boost_value_to_opp(i, args[2]);
+			}
+		}
+
+		if (args[0] == 1 && APUSYS_MDLA_NUM != 0) {
+			for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++) {
+				apusys_opps.power_lock_max_opp[i] =
+					apusys_boost_value_to_opp(i, args[1]);
+				apusys_opps.power_lock_min_opp[i] =
+					apusys_boost_value_to_opp(i, args[2]);
+			}
+		}
+
 		break;
 	}
+#if 0
 	case POWER_EARA_CTL:
 	{
 		struct mdla_lock_power mdla_lock_power;
