@@ -407,9 +407,18 @@ static inline void dpm_update_request_not_bat(struct pd_port *pd_port,
 	}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
-	pd_port->last_rdo = RDO_FIXED(
+	if (req_info->mismatch && (pd_port->cap_miss_match == 0x3)) {
+		pd_port->cap_miss_match = 0;
+		req_info->mismatch = 0;
+		flags &= ~RDO_CAP_MISMATCH;
+		pd_port->last_rdo = RDO_FIXED(
+			req_info->pos, req_info->oper_ma,
+			req_info->oper_ma, flags);
+	} else {
+		pd_port->last_rdo = RDO_FIXED(
 			req_info->pos, req_info->oper_ma,
 			req_info->max_ma, flags);
+	}
 }
 
 static inline void dpm_update_request(
@@ -430,8 +439,11 @@ static inline void dpm_update_request(
 	if (pd_port->dpm_caps & DPM_CAP_LOCAL_USB_COMM)
 		flags |= RDO_COMM_CAP;
 
-	if (req_info->mismatch)
+	if (req_info->mismatch) {
 		flags |= RDO_CAP_MISMATCH;
+		pd_port->cap_miss_match |= 0x1;
+		DPM_INFO("cap miss match case\r\n");
+	}
 
 	pd_port->request_v_new = req_info->vmax;
 
@@ -2181,13 +2193,7 @@ bool svdm_reset_state(struct pd_port *pd_port)
 	int i;
 	struct svdm_svid_data *svid_data;
 
-	uint8_t policy =
-		pd_port->dpm_charging_policy & DPM_CHARGING_POLICY_MASK;
-
-	if (policy >= DPM_CHARGING_POLICY_RUNTIME) {
-		pd_port->dpm_charging_policy =
-			pd_port->dpm_charging_policy_default;
-	}
+	pd_port->dpm_charging_policy = pd_port->dpm_charging_policy_default;
 
 	for (i = 0; i < pd_port->svid_data_cnt; i++) {
 		svid_data = &pd_port->svid_data[i];
