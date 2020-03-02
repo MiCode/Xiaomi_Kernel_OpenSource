@@ -437,7 +437,7 @@ static struct sched_entity
 				return se;
 
 			if (schedtune_prefer_idle(task_of(se)) &&
-					!idle_cpu(cpu)) {
+					cpu_rq(cpu)->nr_running > 1) {
 				if (!check_min_cap)
 					return se;
 
