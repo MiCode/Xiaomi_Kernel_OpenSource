@@ -342,7 +342,7 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
 {
 #ifdef SPM_READY
 	int ret = 0;
-	u32 tmp;
+	u32 tmp = 0;
 
 	/**
 	 * If current device is not active or link is h8, it means it is after
