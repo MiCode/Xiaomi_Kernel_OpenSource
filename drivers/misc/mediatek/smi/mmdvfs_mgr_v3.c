@@ -550,7 +550,6 @@ void mmdvfs_handle_cmd(struct MTK_MMDVFS_CMD *cmd)
 	case MTK_MMDVFS_CMD_TYPE_SET:
 		/* save cmd */
 		mmdvfs_update_cmd(cmd);
-
 		if (!(g_mmdvfs_concurrency & (1 << cmd->scen))) {
 			/*MMDVFSMSG("invalid set scen %d\n", cmd->scen); */
 			cmd->ret = -1;

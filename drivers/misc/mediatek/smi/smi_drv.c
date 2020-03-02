@@ -444,6 +444,21 @@ static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 	smi_drv.scen = (i > 0 ? i : 0);
 	spin_unlock(&(smi_drv.lock));
 
+#ifdef MMDVFS_HOOK
+	{
+		unsigned int concurrency = 0;
+
+		if (conf->b_on)
+			mmdvfs_notify_scenario_enter(conf->scen);
+		else
+			mmdvfs_notify_scenario_exit(conf->scen);
+
+		for (i = 0; i < SMI_BWC_SCEN_CNT; i++)
+			concurrency |= (smi_drv.table[i] ? 1 : 0) << i;
+		mmdvfs_notify_scenario_concurrency(concurrency);
+	}
+#endif
+
 	smi_scen = smi_scen_map[smi_drv.scen];
 	if (same) {
 		SMIDBG("ioctl=%s:%s, curr=%s(%d), SMI_SCEN=%d [same as prev]\n",
@@ -691,7 +706,7 @@ s32 smi_register(void)
 		smi_dev[SMI_LARB_NUM]->dev->of_node, "mmsys_config", 0);
 #ifdef MMDVFS_HOOK
 	mmdvfs_init();
-	mmdvfs_clks_init(of_node);
+	mmdvfs_clks_init(smi_dev[SMI_LARB_NUM]->dev->of_node);
 #endif
 	smi_mmsys_base = (void *)of_iomap(of_node, 0);
 	if (!smi_mmsys_base) {

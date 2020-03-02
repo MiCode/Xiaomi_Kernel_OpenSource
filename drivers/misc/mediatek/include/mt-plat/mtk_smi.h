@@ -162,8 +162,8 @@ struct MTK_SMI_BWC_MM_INFO {
 	int video_decode_codec;
 	int hw_ovl_limit;
 };
-#define MTK_IOC_SMI_BWC_INFO_SET _IOW('O', 28, struct MTK_SMI_BWC_INFO_SET)
-#define MTK_IOC_SMI_BWC_INFO_GET _IOW('O', 29, struct MTK_SMI_BWC_MM_INFO)
+#define MTK_IOC_SMI_BWC_INFO_SET _IOWR('O', 28, struct MTK_SMI_BWC_INFO_SET)
+#define MTK_IOC_SMI_BWC_INFO_GET _IOWR('O', 29, struct MTK_SMI_BWC_MM_INFO)
 #define MTK_IOC_MMDVFS_CMD _IOW('O', 88, struct MTK_MMDVFS_CMD)
 
 #endif
