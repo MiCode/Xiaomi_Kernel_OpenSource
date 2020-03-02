@@ -31,11 +31,11 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyMT3,921600n1 \
-vmalloc=496M slub_max_order=0 slub_debug=OFZPU \
-cgroup.memory=nosocket,nokmem \
-androidboot.hardware=mt6739 maxcpus=8 \
-firmware_class.path=/vendor/firmware loop.max_part=7";
+		bootargs = "console=tty0 console=ttyMT3,921600n1 vmalloc=496M \
+			slub_debug=OFZPU page_owner=on swiotlb=noforce \
+			cgroup.memory=nosocket,nokmem \
+			androidboot.hardware=mt6739 maxcpus=8 \
+			firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 
