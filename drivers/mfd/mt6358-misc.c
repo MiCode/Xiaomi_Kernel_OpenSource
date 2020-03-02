@@ -18,16 +18,14 @@
 #include <linux/sched/clock.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-
-#include <mtk_rtc.h>
-#include <upmu_common.h>
-#include <include/pmic.h>
-
-#include <mtk_reboot.h>
-#ifdef CONFIG_MTK_CHARGER
-#include <mt-plat/mtk_charger.h>
-#endif
-
+#include <linux/irqdomain.h>
+#include <linux/platform_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/io.h>
+#include <linux/mfd/mt6358/core.h>
+#include <linux/mfd/mt6358/rtc_misc.h>
+#include <linux/mfd/mt6358/registers.h>
 
 
 #ifdef pr_fmt
@@ -133,6 +131,10 @@
 
 #define RTC_BBPU_2SEC_EN		BIT(8)
 #define RTC_BBPU_AUTO_PDN_SEL	BIT(6)
+
+
+#define IPIMB
+
 
 enum rtc_spare_enum {
 	RTC_FGSOC = 0,
@@ -268,12 +270,13 @@ struct mt6358_misc {
 };
 
 static struct mt6358_misc *rtc_misc;
+#ifdef IPIMB
+struct regmap *pmic_regmap;
+#endif
 
 static int rtc_eosc_cali_td = 8;
-
-
-
-
+static int dcxo_switch;
+module_param(rtc_eosc_cali_td, int, 0664);
 
 
 static int rtc_read(unsigned int reg, unsigned int *val)
@@ -669,160 +672,82 @@ void rtc_mark_fast(void)
 	spin_unlock_irqrestore(&rtc_misc->lock, flags);
 }
 
-static int rtc_xosc_write(u16 val)
+static int pmic_config_interface(unsigned int RegNum, unsigned int val,
+			    unsigned int MASK, unsigned int SHIFT)
 {
-	int ret;
+	int ret = 0;
 
-	ret = rtc_write(RTC_OSC32CON, RTC_OSC32CON_UNLOCK1);
-	if (ret < 0)
-		goto exit;
-	ret = rtc_busy_wait();
-	if (ret < 0)
-		goto exit;
-	ret = rtc_write(RTC_OSC32CON, RTC_OSC32CON_UNLOCK2);
-	if (ret < 0)
-		goto exit;
-	ret = rtc_busy_wait();
-	if (ret < 0)
-		goto exit;
+#ifdef IPIMB
+	ret = regmap_update_bits(pmic_regmap, RegNum,
+				(MASK << SHIFT), (val << SHIFT));
+#else
+	ret = regmap_update_bits(rtc_misc->regmap, RegNum,
+				(MASK << SHIFT), (val << SHIFT));
+#endif
+	if (ret) {
+		pr_notice("[%s]ret=%d Reg=0x%x val=0x%x MASK=0x%x SHIFT=%d\n",
+			__func__, ret, RegNum, val, MASK, SHIFT);
+		return ret;
+	}
 
-	ret = rtc_write(RTC_OSC32CON, val);
-	if (ret < 0)
-		goto exit;
-	ret = rtc_busy_wait();
-	if (ret < 0)
-		goto exit;
-
-	ret = rtc_update_bits(RTC_BBPU,
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD));
-	if (ret < 0)
-		goto exit;
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	return ret;
-
-exit:
-	pr_err("%s error\n", __func__);
 	return ret;
 }
 
 static void mtk_rtc_enable_k_eosc(void)
 {
-	unsigned int osc32;
-	int ret;
-
 	pr_notice("%s\n", __func__);
+
 	/* Truning on eosc cali mode clock */
-	pmic_config_interface_nolock(PMIC_SCK_TOP_CKPDN_CON0_CLR_ADDR, 1,
-					PMIC_RG_RTC_EOSC32_CK_PDN_MASK,
-					PMIC_RG_RTC_EOSC32_CK_PDN_SHIFT);
-	pmic_config_interface_nolock(PMIC_RG_SRCLKEN_IN0_HW_MODE_ADDR, 1,
-					PMIC_RG_SRCLKEN_IN0_HW_MODE_MASK,
-					PMIC_RG_SRCLKEN_IN0_HW_MODE_SHIFT);
-	pmic_config_interface_nolock(PMIC_RG_SRCLKEN_IN1_HW_MODE_ADDR, 1,
-					PMIC_RG_SRCLKEN_IN1_HW_MODE_MASK,
-					PMIC_RG_SRCLKEN_IN1_HW_MODE_SHIFT);
-	pmic_config_interface_nolock(PMIC_RG_RTC_EOSC32_CK_PDN_ADDR, 0,
+	pmic_config_interface(PMIC_SCK_TOP_CKPDN_CON0_CLR_ADDR, 1,
 					PMIC_RG_RTC_EOSC32_CK_PDN_MASK,
 					PMIC_RG_RTC_EOSC32_CK_PDN_SHIFT);
 
-	switch (rtc_eosc_cali_td) {
-	case 1:
-		pmic_config_interface_nolock(PMIC_EOSC_CALI_TD_ADDR, 0x3,
-					     PMIC_EOSC_CALI_TD_MASK,
-					     PMIC_EOSC_CALI_TD_SHIFT);
-		break;
-	case 2:
-		pmic_config_interface_nolock(PMIC_EOSC_CALI_TD_ADDR, 0x4,
-					     PMIC_EOSC_CALI_TD_MASK,
-					     PMIC_EOSC_CALI_TD_SHIFT);
-		break;
-	case 4:
-		pmic_config_interface_nolock(PMIC_EOSC_CALI_TD_ADDR, 0x5,
-					     PMIC_EOSC_CALI_TD_MASK,
-					     PMIC_EOSC_CALI_TD_SHIFT);
-		break;
-	case 16:
-		pmic_config_interface_nolock(PMIC_EOSC_CALI_TD_ADDR, 0x7,
-					     PMIC_EOSC_CALI_TD_MASK,
-					     PMIC_EOSC_CALI_TD_SHIFT);
-		break;
-	default:
-		pmic_config_interface_nolock(PMIC_EOSC_CALI_TD_ADDR, 0x6,
-					     PMIC_EOSC_CALI_TD_MASK,
-					     PMIC_EOSC_CALI_TD_SHIFT);
-		break;
+	if (rtc_eosc_cali_td != 8) {
+		pr_notice("%s: rtc_eosc_cali_td = %d\n",
+						__func__, rtc_eosc_cali_td);
+		switch (rtc_eosc_cali_td) {
+		case 1:
+			pmic_config_interface(PMIC_EOSC_CALI_TD_ADDR, 0x3,
+						PMIC_EOSC_CALI_TD_MASK,
+						PMIC_EOSC_CALI_TD_SHIFT);
+			break;
+		case 2:
+			pmic_config_interface(PMIC_EOSC_CALI_TD_ADDR, 0x4,
+						PMIC_EOSC_CALI_TD_MASK,
+						PMIC_EOSC_CALI_TD_SHIFT);
+			break;
+		case 4:
+			pmic_config_interface(PMIC_EOSC_CALI_TD_ADDR, 0x5,
+						PMIC_EOSC_CALI_TD_MASK,
+						PMIC_EOSC_CALI_TD_SHIFT);
+			break;
+		case 16:
+			pmic_config_interface(PMIC_EOSC_CALI_TD_ADDR, 0x7,
+						PMIC_EOSC_CALI_TD_MASK,
+						PMIC_EOSC_CALI_TD_SHIFT);
+			break;
+		default:
+			pmic_config_interface(PMIC_EOSC_CALI_TD_ADDR, 0x6,
+						PMIC_EOSC_CALI_TD_MASK,
+						PMIC_EOSC_CALI_TD_SHIFT);
+			break;
+		}
 	}
-
 	/*
 	 * Switch the DCXO from 32k-less mode to RTC mode,
 	 * otherwise, EOSC cali will fail
 	 * RTC mode will have only OFF mode and FPM
 	 */
-	pmic_config_interface_nolock(PMIC_XO_EN32K_MAN_ADDR, 0,
+	if (dcxo_switch) {
+		pr_notice("%s: dcxo_switch\n", __func__);
+		pmic_config_interface(PMIC_XO_EN32K_MAN_ADDR, 0,
 				     PMIC_XO_EN32K_MAN_MASK,
 					 PMIC_XO_EN32K_MAN_SHIFT);
-
-	ret = rtc_update_bits(RTC_BBPU,
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
-				(RTC_BBPU_KEY | RTC_BBPU_RELOAD));
-	if (ret < 0)
-		goto exit;
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	/* Enable K EOSC mode for normal power off and then plug out battery */
-	ret = rtc_update_bits(RTC_AL_YEA,
-		(RTC_K_EOSC_RSV_0 | RTC_K_EOSC_RSV_1 | RTC_K_EOSC_RSV_2),
-		(RTC_K_EOSC_RSV_0 | RTC_K_EOSC_RSV_2));
-
-	if (ret < 0)
-		goto exit;
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	ret = rtc_read(RTC_OSC32CON, &osc32);
-	if (ret < 0)
-		goto exit;
-	ret = rtc_xosc_write(osc32 | RTC_EMBCK_SRC_SEL);
-	if (ret < 0)
-		goto exit;
-
-	return;
-
-exit:
-	pr_err("%s error\n", __func__);
-}
-
-static void mtk_rtc_disable_2sec_reboot(void)
-{
-	int ret;
-
-	pr_notice("%s\n", __func__);
-
-	ret = rtc_update_bits(RTC_AL_SEC,
-				(RTC_BBPU_2SEC_EN & RTC_BBPU_AUTO_PDN_SEL), 0);
-	if (ret < 0)
-		goto exit;
-
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	return;
-
-exit:
-	pr_err("%s error\n", __func__);
+	}
 }
 
 static void mtk_rtc_spar_alarm_clear_wait(void)
 {
-
 	unsigned long long timeout = sched_clock() + 500000000;
 	u32 bbpu;
 	int ret;
@@ -842,86 +767,14 @@ static void mtk_rtc_spar_alarm_clear_wait(void)
 
 void mt_power_off(void)
 {
-#if !defined(CONFIG_POWER_EXT)
-	int count = 0;
-#ifdef CONFIG_MTK_CHARGER
-	unsigned char exist;
-#endif
-#endif
-
-	pr_notice("%s\n", __func__);
-	dump_stack();
-
-	wk_pmic_enable_sdn_delay();
-
-	/* pull PWRBB low */
-	PMIC_POWER_HOLD(0);
-
-	while (1) {
-#if defined(CONFIG_POWER_EXT)
-		/* EVB */
-		pr_notice("EVB without charger\n");
-#else
-		/* Phone */
-		pr_notice("Phone with charger\n");
-		mdelay(100);
-		pr_notice("arch_reset\n");
-#ifdef CONFIG_MTK_CHARGER
-		mtk_chr_is_charger_exist(&exist);
-		if (exist == 1 || count > 10)
-			arch_reset(0, "charger");
-#endif
-		count++;
-#endif
-	}
-}
-
-static void mtk_rtc_lpsd_restore_al_mask(void)
-{
-	int ret;
-	u32 val;
-
-	ret = rtc_update_bits(RTC_BBPU,
-					(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
-					(RTC_BBPU_KEY | RTC_BBPU_RELOAD));
-	if (ret < 0)
-		goto exit;
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	ret = rtc_read(RTC_AL_MASK, &val);
-	if (ret < 0)
-		goto exit;
-	pr_notice("%s: 1st RTC_AL_MASK = 0x%x\n", __func__, val);
-
-	/* mask DOW */
-	ret = rtc_write(RTC_AL_MASK, RTC_AL_MASK_DOW);
-	if (ret < 0)
-		goto exit;
-	ret = rtc_write_trigger();
-	if (ret < 0)
-		goto exit;
-
-	ret = rtc_read(RTC_AL_MASK, &val);
-	if (ret < 0)
-		goto exit;
-	pr_notice("%s: 2nd RTC_AL_MASK = 0x%x\n", __func__, val);
-
-exit:
-	pr_err("%s error\n", __func__);
-}
-
-static void mt6358_misc_shutdown(struct platform_device *pdev)
-{
 	unsigned long flags;
 	u32 pdn1 = 0, al_mask = 0, irq_en = 0;
 	int ret;
 
-	spin_lock_irqsave(&rtc_misc->lock, flags);
+	pr_notice("%s\n", __func__);
+	dump_stack();
 
-	mtk_rtc_disable_2sec_reboot();
-	mtk_rtc_enable_k_eosc();
+	spin_lock_irqsave(&rtc_misc->lock, flags);
 
 	ret = rtc_field_read(RTC_PDN1,
 			RTC_GPIO_USER_MASK, RTC_GPIO_USER_WIFI, &pdn1);
@@ -969,15 +822,72 @@ static void mt6358_misc_shutdown(struct platform_device *pdev)
 				__func__, al_mask, irq_en);
 
 	spin_unlock_irqrestore(&rtc_misc->lock, flags);
+
+	//wk_pmic_enable_sdn_delay();
+	pmic_config_interface(PMIC_TMA_KEY_ADDR, 0x9CA7,
+			PMIC_TMA_KEY_MASK, PMIC_TMA_KEY_SHIFT);
+	pmic_config_interface(PMIC_RG_SDN_DLY_ENB_ADDR, 0,
+			PMIC_RG_SDN_DLY_ENB_MASK, PMIC_RG_SDN_DLY_ENB_SHIFT);
+	pmic_config_interface(PMIC_TMA_KEY_ADDR, 0,
+			PMIC_TMA_KEY_MASK, PMIC_TMA_KEY_SHIFT);
+
+
+	pmic_config_interface(PMIC_RG_PWRHOLD_ADDR, 0,
+			PMIC_RG_PWRHOLD_MASK, PMIC_RG_PWRHOLD_SHIFT);
+
 	return;
 
 exit:
 	spin_unlock_irqrestore(&rtc_misc->lock, flags);
 	pr_err("%s error\n", __func__);
+
+}
+
+static void mtk_rtc_lpsd_restore_al_mask(void)
+{
+	int ret;
+	u32 val;
+
+	ret = rtc_update_bits(RTC_BBPU,
+					(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
+					(RTC_BBPU_KEY | RTC_BBPU_RELOAD));
+	if (ret < 0)
+		goto exit;
+	ret = rtc_write_trigger();
+	if (ret < 0)
+		goto exit;
+
+	ret = rtc_read(RTC_AL_MASK, &val);
+	if (ret < 0)
+		goto exit;
+	pr_notice("%s: 1st RTC_AL_MASK = 0x%x\n", __func__, val);
+
+	/* mask DOW */
+	ret = rtc_write(RTC_AL_MASK, RTC_AL_MASK_DOW);
+	if (ret < 0)
+		goto exit;
+	ret = rtc_write_trigger();
+	if (ret < 0)
+		goto exit;
+
+	ret = rtc_read(RTC_AL_MASK, &val);
+	if (ret < 0)
+		goto exit;
+	pr_notice("%s: 2nd RTC_AL_MASK = 0x%x\n", __func__, val);
+
+	return;
+exit:
+	pr_err("%s error\n", __func__);
+}
+
+static void mt6358_misc_shutdown(struct platform_device *pdev)
+{
+	mtk_rtc_enable_k_eosc();
 }
 
 static int mt6358_misc_probe(struct platform_device *pdev)
 {
+	struct mt6358_chip *mt6358_chip = dev_get_drvdata(pdev->dev.parent);
 	struct mt6358_misc *misc;
 	unsigned long flags;
 
@@ -985,7 +895,12 @@ static int mt6358_misc_probe(struct platform_device *pdev)
 	if (!misc)
 		return -ENOMEM;
 
-	misc->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+#ifdef IPIMB
+	pmic_regmap = mt6358_chip->regmap;
+	misc->regmap = dev_get_regmap(pdev->dev.parent->parent, NULL);
+#else
+	misc->regmap = mt6358_chip->regmap;
+#endif
 	if (!misc->regmap) {
 		pr_notice("get regmap failed\n");
 		return -ENODEV;
@@ -996,15 +911,22 @@ static int mt6358_misc_probe(struct platform_device *pdev)
 	rtc_misc = misc;
 	platform_set_drvdata(pdev, misc);
 
-	rtc_misc->addr_base = RTC_DSN_ID;
+	if (of_property_read_u32(pdev->dev.of_node, "base",
+							&rtc_misc->addr_base))
+		rtc_misc->addr_base = RTC_DSN_ID;
 	pr_notice("%s: rtc_misc->addr_base =0x%x\n",
 				__func__, rtc_misc->addr_base);
 
-	spin_lock_irqsave(&misc->lock, flags);
-	mtk_rtc_lpsd_restore_al_mask();
-	spin_unlock_irqrestore(&misc->lock, flags);
+	if (of_property_read_bool(pdev->dev.of_node, "apply-lpsd-solution")) {
+		spin_lock_irqsave(&misc->lock, flags);
+		mtk_rtc_lpsd_restore_al_mask();
+		spin_unlock_irqrestore(&misc->lock, flags);
 
-	pm_power_off = mt_power_off;
+		pm_power_off = mt_power_off;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "dcxo-switch"))
+		dcxo_switch = 1;
 
 	pr_notice("%s done\n", __func__);
 
@@ -1031,5 +953,3 @@ module_platform_driver(mt6358_misc_driver);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Wilma Wu <wilma.wu@mediatek.com>");
 MODULE_DESCRIPTION("Misc Driver for MediaTek MT6358 PMIC");
-
-

@@ -32,6 +32,33 @@ enum rtc_gpio_user_t {
  * by some user even if the phone is powered off
  */
 
+extern unsigned long rtc_read_hw_time(void);
+extern void rtc_gpio_enable_32k(enum rtc_gpio_user_t user);
+extern void rtc_gpio_disable_32k(enum rtc_gpio_user_t user);
+extern bool rtc_gpio_32k_status(void);
+
+/* for AUDIOPLL (deprecated) */
+extern void rtc_enable_abb_32k(void);
+extern void rtc_disable_abb_32k(void);
+
+/* NOTE: used in Sleep driver to workaround Vrtc-Vore level shifter issue */
+extern void rtc_enable_writeif(void);
+extern void rtc_disable_writeif(void);
+
+extern void rtc_mark_recovery(void);
+extern void rtc_mark_kpoc(void);
+extern void rtc_mark_fast(void);
+extern u16 rtc_rdwr_uart_bits(u16 *val);
+extern void rtc_bbpu_power_down(void);
+extern void rtc_read_pwron_alarm(struct rtc_wkalrm *alm);
+extern int get_rtc_spare_fg_value(void);
+extern int set_rtc_spare_fg_value(int val);
+extern int get_rtc_spare0_fg_value(void);
+extern int set_rtc_spare0_fg_value(int val);
+extern void rtc_irq_handler(void);
+extern bool crystal_exist_status(void);
+extern void mt_power_off(void);
+#elif defined(CONFIG_MT6358_MISC)
 extern void rtc_gpio_enable_32k(enum rtc_gpio_user_t user);
 extern void rtc_gpio_disable_32k(enum rtc_gpio_user_t user);
 extern void rtc_mark_recovery(void);
@@ -43,7 +70,8 @@ extern int set_rtc_spare_fg_value(int val);
 extern int get_rtc_spare0_fg_value(void);
 extern int set_rtc_spare0_fg_value(int val);
 extern bool crystal_exist_status(void);
-#else
+#else/*ifdef CONFIG_MTK_RTC*/
+#define rtc_read_hw_time()              ({ 0; })
 #define rtc_gpio_enable_32k(user)	({ 0; })
 #define rtc_gpio_disable_32k(user)	({ 0; })
 #define rtc_mark_recovery()             ({ 0; })
