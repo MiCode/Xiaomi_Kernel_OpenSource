@@ -474,6 +474,36 @@
 		#mbox-cells = <2>;
 	};
 
+	system_noc: interconnect@1880000 {
+		compatible = "qcom,holi-system_noc";
+		#interconnect-cells = <1>;
+	};
+
+	qup_virt: interconnect@1880000 {
+		compatible = "qcom,holi-qup_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mmnrt_virt: interconnect@1880000 {
+		compatible = "qcom,holi-mmnrt_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mmrt_virt: interconnect@1880000 {
+		compatible = "qcom,holi-mmrt_virt";
+		#interconnect-cells = <1>;
+	};
+
+	config_noc: interconnect@1900000 {
+		compatible = "qcom,holi-config_noc";
+		#interconnect-cells = <1>;
+	};
+
+	bimc: interconnect@4480000 {
+		compatible = "qcom,holi-bimc";
+		#interconnect-cells = <1>;
+	};
+
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
