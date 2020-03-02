@@ -608,11 +608,30 @@ static long ion_sys_dma_op(struct ion_client *client,
 			   struct ion_dma_param *param, int from_kernel)
 {
 	long ret = 0;
+	enum ION_DMA_TYPE dma_type = param->dma_type;
 
-	switch (param->dma_type) {
+	//address check
+	if (dma_type == ION_DMA_MAP_AREA_VA ||
+	    dma_type == ION_DMA_UNMAP_AREA_VA ||
+	    dma_type == ION_DMA_FLUSH_BY_RANGE_USE_VA) {
+		ret = __ion_is_kernel_va((unsigned long)param->va,
+					 (size_t)param->size);
+		if (unlikely(ret == 0)) {
+			IONMSG("%s va inv[%d]-hdl %d-%p-va%lx-sz%zu-clt[%s]\n",
+			       __func__, from_kernel,
+			       param->handle, param->kernel_handle,
+			       (unsigned long)param->va, (size_t)param->size,
+			       (*client->dbg_name) ?
+			       client->dbg_name : client->name);
+			return -EINVAL;
+		}
+	}
+
+	switch (dma_type) {
 	case ION_DMA_MAP_AREA:
 	case ION_DMA_UNMAP_AREA:
 	case ION_DMA_FLUSH_BY_RANGE:
+		// will check va in ion_dma_op
 		ion_dma_op(client, param, from_kernel);
 		break;
 	case ION_DMA_MAP_AREA_VA:
