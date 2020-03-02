@@ -209,7 +209,7 @@ static bool same_ratio_limitation(struct layer_config *tgt, int limitation)
 	panel_h = primary_display_get_height();
 	diff_w = tgt->dst_width - tgt->src_width;
 	diff_h = tgt->dst_height - tgt->src_height;
-	if (panel_w <= 0 || panel_w <= 0)
+	if (panel_w <= 0 || panel_h <= 0)
 		return false;
 	if (((100 * diff_w/panel_w < limitation) && (diff_w > 0)) ||
 			((100 * diff_h/panel_h < limitation) && (diff_h > 0)))
