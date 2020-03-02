@@ -178,7 +178,7 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 	int retVal = 0;
 
 	down(&fdrv_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 	down(&smc_lock);
 
 	IMSG_ENTER();
@@ -198,7 +198,7 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 	retVal = add_work_entry(FDRV_CALL, (unsigned long)(&fdrv_ent));
 	if (retVal != 0) {
 		up(&smc_lock);
-		ut_pm_mutex_unlock(&pm_mutex);
+		unlock_system_sleep();
 		up(&fdrv_lock);
 		return retVal;
 	}
@@ -211,7 +211,7 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 	Invalidate_Dcache_By_Area((unsigned long)fdrv->buf,
 				(unsigned long)fdrv->buf + fdrv->buff_size);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&fdrv_lock);
 
 	IMSG_LEAVE();

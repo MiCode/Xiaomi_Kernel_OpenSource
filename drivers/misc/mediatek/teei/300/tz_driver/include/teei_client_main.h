@@ -15,6 +15,8 @@
 #ifndef __TEEI_CLIENT_MAIN_H__
 #define __TEEI_CLIENT_MAIN_H__
 
+#include <linux/suspend.h>
+
 #ifdef TUI_SUPPORT
 #define POWER_DOWN			"power-detect"
 #endif
@@ -28,6 +30,7 @@
 #define TEEI_CONFIG_DEV			"teei_config"
 #define MIN_BC_NUM			(4)
 #define MAX_LC_NUM			(3)
+#define TEEI_CPU_0
 
 extern struct teei_context *teei_create_context(int dev_count);
 extern struct teei_session *teei_create_session(struct teei_context *cont);
@@ -103,7 +106,6 @@ extern int keymaster_call_flag;
 extern struct completion boot_decryto_lock;
 extern struct task_struct *teei_switch_task;
 extern struct kthread_worker ut_fastcall_worker;
-extern struct mutex pm_mutex;
 extern unsigned long ut_pm_count;
 extern struct mutex device_cnt_mutex;
 extern unsigned long spi_ready_flag;
