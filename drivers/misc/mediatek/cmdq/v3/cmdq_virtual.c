@@ -181,8 +181,7 @@ u64 cmdq_virtual_flag_from_scenario_legacy(enum CMDQ_SCENARIO_ENUM scn)
 		    (1LL << CMDQ_ENG_DISP_COLOR0) |
 		    (1LL << CMDQ_ENG_DISP_AAL) |
 		    (1LL << CMDQ_ENG_DISP_RDMA0) |
-		    (1LL << CMDQ_ENG_DISP_UFOE) |
-		    (1LL << CMDQ_ENG_DISP_DSI0_CMD);
+		    (1LL << CMDQ_ENG_DISP_UFOE);
 		break;
 	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
 		flag = ((1LL << CMDQ_ENG_DISP_OVL0) |
@@ -194,21 +193,18 @@ u64 cmdq_virtual_flag_from_scenario_legacy(enum CMDQ_SCENARIO_ENUM scn)
 			(1LL << CMDQ_ENG_DISP_COLOR0) |
 			(1LL << CMDQ_ENG_DISP_AAL) |
 			(1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_UFOE) |
-			(1LL << CMDQ_ENG_DISP_DSI0_CMD));
+			(1LL << CMDQ_ENG_DISP_UFOE));
 		break;
 	case CMDQ_SCENARIO_SUB_DISP:
 		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
 			(1LL << CMDQ_ENG_DISP_GAMMA) |
-			(1LL << CMDQ_ENG_DISP_RDMA1) |
-			(1LL << CMDQ_ENG_DISP_DSI1_CMD));
+			(1LL << CMDQ_ENG_DISP_RDMA1));
 		break;
 	case CMDQ_SCENARIO_SUB_ALL:
 		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
 			(1LL << CMDQ_ENG_DISP_WDMA1) |
 			(1LL << CMDQ_ENG_DISP_GAMMA) |
-			(1LL << CMDQ_ENG_DISP_RDMA1) |
-			(1LL << CMDQ_ENG_DISP_DSI1_CMD));
+			(1LL << CMDQ_ENG_DISP_RDMA1));
 		break;
 	case CMDQ_SCENARIO_MHL_DISP:
 		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
@@ -217,8 +213,7 @@ u64 cmdq_virtual_flag_from_scenario_legacy(enum CMDQ_SCENARIO_ENUM scn)
 		break;
 	case CMDQ_SCENARIO_RDMA0_DISP:
 		flag = ((1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_UFOE) |
-			(1LL << CMDQ_ENG_DISP_DSI0_CMD));
+			(1LL << CMDQ_ENG_DISP_UFOE));
 		break;
 	case CMDQ_SCENARIO_RDMA2_DISP:
 		flag = (1LL << CMDQ_ENG_DISP_RDMA2);
@@ -933,8 +928,7 @@ u64 cmdq_virtual_flag_from_scenario(enum CMDQ_SCENARIO_ENUM scn)
 		    (1LL << CMDQ_ENG_DISP_AAL) |
 		    (1LL << CMDQ_ENG_DISP_GAMMA) |
 		    (1LL << CMDQ_ENG_DISP_RDMA0) |
-		    (1LL << CMDQ_ENG_DISP_UFOE) |
-		    (1LL << CMDQ_ENG_DISP_DSI0_CMD);
+		    (1LL << CMDQ_ENG_DISP_UFOE);
 		break;
 	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
 		flag = 0LL;
@@ -946,8 +940,7 @@ u64 cmdq_virtual_flag_from_scenario(enum CMDQ_SCENARIO_ENUM scn)
 			(1LL << CMDQ_ENG_DISP_AAL) |
 			(1LL << CMDQ_ENG_DISP_GAMMA) |
 			(1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_UFOE) |
-			(1LL << CMDQ_ENG_DISP_DSI0_CMD));
+			(1LL << CMDQ_ENG_DISP_UFOE));
 		break;
 	case CMDQ_SCENARIO_SUB_DISP:
 		flag = ((1LL << CMDQ_ENG_DISP_OVL1) |
@@ -959,16 +952,14 @@ u64 cmdq_virtual_flag_from_scenario(enum CMDQ_SCENARIO_ENUM scn)
 			(1LL << CMDQ_ENG_DISP_RDMA1));
 		break;
 	case CMDQ_SCENARIO_RDMA0_DISP:
-		flag = ((1LL << CMDQ_ENG_DISP_RDMA0) |
-			(1LL << CMDQ_ENG_DISP_DSI0_CMD));
+		flag = (1LL << CMDQ_ENG_DISP_RDMA0);
 		break;
 	case CMDQ_SCENARIO_RDMA0_COLOR0_DISP:
 		flag = ((1LL << CMDQ_ENG_DISP_RDMA0) |
 			(1LL << CMDQ_ENG_DISP_COLOR0) |
 			(1LL << CMDQ_ENG_DISP_AAL) |
 			(1LL << CMDQ_ENG_DISP_GAMMA) |
-			(1LL << CMDQ_ENG_DISP_UFOE) |
-			(1LL << CMDQ_ENG_DISP_DSI0_CMD));
+			(1LL << CMDQ_ENG_DISP_UFOE));
 		break;
 	case CMDQ_SCENARIO_MHL_DISP:
 	case CMDQ_SCENARIO_RDMA1_DISP:
