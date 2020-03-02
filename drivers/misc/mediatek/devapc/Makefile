@@ -1,26 +1,18 @@
-#
-# Copyright (C) 2015 MediaTek Inc.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
+# SPDX-License-Identifier: GPL-2.0
 
 LOCAL_PATH := $(srctree)/drivers/misc/mediatek/devapc
-PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 subdir-ccflags-$(CONFIG_MTK_ENG_BUILD) += -DDBG_ENABLE
 
-#$(info PLATFORM = $(PLATFORM))
-
-ifneq ($(wildcard $(LOCAL_PATH)/$(PLATFORM)/Makefile),)
-   $(info DEVAPC platform code exists...)
-    obj-y += $(PLATFORM)/
+ifneq ($(wildcard $(LOCAL_PATH)/$(MTK_PLATFORM)/Makefile),)
+   $(info DEVAPC legacy driver build...)
+    obj-$(CONFIG_DEVAPC_LEGACY) += $(MTK_PLATFORM)/
 else
-   $(info DEVAPC platform code not exists...)
+  # Core
+  obj-$(CONFIG_DEVAPC_ARCH_V1) += devapc-mtk-common.o
+
+  # SoC
+  obj-$(CONFIG_DEVAPC_MT6779) += devapc-mt6779.o
+  obj-$(CONFIG_DEVAPC_MT6768) += devapc-mt6768.o
+  obj-$(CONFIG_DEVAPC_MT6785) += devapc-mt6785.o
 endif
