@@ -1016,7 +1016,7 @@
 	ufshci:ufshci@11270000 {
 		compatible = "mediatek,ufshci";
 		reg = <0 0x11270000 0 0x2300>;
-		interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_LOW>;
 
 		#ifndef CONFIG_FPGA_EARLY_PORTING
 		clocks =
