@@ -386,6 +386,9 @@ void check_cm_mgr_status_internal(void)
 	if (cm_mgr_perf_force_enable)
 		return;
 
+	if (!cm_mgr_check_bw_status())
+		return;
+
 	if (spin_trylock_irqsave(&cm_mgr_lock, flags)) {
 #ifdef CONFIG_MTK_CPU_FREQ
 		int ret;
@@ -480,11 +483,7 @@ void check_cm_mgr_status_internal(void)
 #endif /* CONFIG_MTK_CPU_FREQ */
 #endif /* USE_NEW_CPU_OPP */
 #ifdef CONFIG_MTK_QOS_SUPPORT
-#if defined(CONFIG_MACH_MT6771)
-		total_bw = dvfsrc_get_bw(QOS_TOTAL) / 512;
-#else
-		total_bw = dvfsrc_get_emi_bw(QOS_EMI_BW_TOTAL) / 512;
-#endif /* defined(CONFIG_MACH_MT6771) */
+		total_bw = cm_mgr_get_bw() / 512;
 #else
 		total_bw = 0;
 #endif /* CONFIG_MTK_QOS_SUPPORT */
