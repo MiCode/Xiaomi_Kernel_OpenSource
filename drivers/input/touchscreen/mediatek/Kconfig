@@ -67,6 +67,16 @@ config TOUCHSCREEN_MTK_GT1151
 
 source "drivers/input/touchscreen/mediatek/GT1151/Kconfig"
 
+config TOUCHSCREEN_MTK_GSLX680
+	bool "gslX680 for Mediatek package"
+	help
+	  Say Y here if you have gslX680 touch panel.
+
+	  If unsure, say N.
+
+	  you can config it if you want to use MTK9XX_LM for
+	  touch panel.
+
 config TOUCHSCREEN_MTK_NT36xxx
 	bool "NT36xxx for Mediatek package"
 	default n
