@@ -165,7 +165,7 @@ static int ddp_mutex_set_l(int mutex_id, int *module_list,
 	int i = 0;
 	unsigned int value = 0;
 	unsigned int sof_val;
-	unsigned int sof_src, eof_src;
+	unsigned int sof_src = 0, eof_src = 0;
 	int module_num = ddp_get_module_num_l(module_list);
 
 	if (mutex_id < DISP_MUTEX_DDP_FIRST || mutex_id > DISP_MUTEX_DDP_LAST) {
@@ -199,7 +199,7 @@ static void ddp_check_mutex_l(int mutex_id, int *module_list,
 	uint32_t real_value0 = 0;
 	uint32_t expect_value0 = 0;
 	unsigned int real_sof, real_eof, val;
-	unsigned int expect_sof, expect_eof;
+	unsigned int expect_sof = 0, expect_eof = 0;
 	int module_num = ddp_get_module_num_l(module_list);
 
 	if (mutex_id < DISP_MUTEX_DDP_FIRST || mutex_id > DISP_MUTEX_DDP_LAST) {
