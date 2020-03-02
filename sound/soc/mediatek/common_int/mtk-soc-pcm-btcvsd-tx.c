@@ -208,9 +208,9 @@ static int mtk_pcm_btcvsd_tx_hw_params(struct snd_pcm_substream *substream,
 	pr_debug("%s\n", __func__);
 #endif
 
-	if (params_period_size(hw_params) % SCO_TX_ENCODE_SIZE != 0) {
-		pr_err("%s(), error, period size %d not valid\n", __func__,
-		       params_period_size(hw_params));
+	if (params_buffer_bytes(hw_params) % SCO_TX_ENCODE_SIZE != 0) {
+		pr_info("%s(), error, buffer size %d not valid\n", __func__,
+			params_buffer_bytes(hw_params));
 		return -EINVAL;
 	}
 
