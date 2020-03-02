@@ -73,6 +73,9 @@ struct notifier_block;
 
 #define CPU_ONLINE		0x0002 /* CPU (unsigned)v is up */
 #define CPU_UP_PREPARE		0x0003 /* CPU (unsigned)v coming up */
+#define CPU_UP_CANCELED     0x0004 /* CPU (unsigned)v NOT coming up */
+#define CPU_DOWN_PREPARE    0x0005 /* CPU (unsigned)v going down */
+#define CPU_DOWN_FAILED     0x0006 /* CPU (unsigned)v NOT going down */
 #define CPU_DEAD		0x0007 /* CPU (unsigned)v dead */
 #define CPU_POST_DEAD		0x0009 /* CPU (unsigned)v dead, cpu_hotplug
 					* lock is dropped */
@@ -120,6 +123,7 @@ extern void cpus_read_unlock(void);
 extern void lockdep_assert_cpus_held(void);
 extern void cpu_hotplug_disable(void);
 extern void cpu_hotplug_enable(void);
+#define register_hotcpu_notifier(nb)	register_cpu_notifier(nb)
 void clear_tasks_mm_cpumask(int cpu);
 int cpu_down(unsigned int cpu);
 

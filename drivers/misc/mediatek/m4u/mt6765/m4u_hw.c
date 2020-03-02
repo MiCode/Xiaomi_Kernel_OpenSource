@@ -20,6 +20,7 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/sched/clock.h>
 
 #include <mt-plat/mtk_lpae.h>
 
@@ -318,7 +319,7 @@ int mau_dump_status(int m4u_id, int m4u_slave_id)
 	return 0;
 }
 
-int m4u_dump_reg(int m4u_index, unsigned int start, unsigned int end)
+int __m4u_dump_reg(int m4u_index, unsigned int start, unsigned int end)
 {
 	int i;
 	unsigned long m4u_base = gM4UBaseAddr[m4u_index];
@@ -332,6 +333,11 @@ int m4u_dump_reg(int m4u_index, unsigned int start, unsigned int end)
 	}
 
 	return 0;
+}
+
+int m4u_dump_reg(int m4u_index, unsigned int start)
+{
+	return __m4u_dump_reg(0, 0, 400);
 }
 
 unsigned int m4u_get_main_descriptor(int m4u_id, int m4u_slave_id, int idx)
@@ -801,7 +807,7 @@ int larb_clock_on(int larb, bool config_mtcmos)
 
 	if (larb < ARRAY_SIZE(smi_clk_name))
 		ret =
-		    smi_bus_prepare_enable(larb, smi_clk_name[larb], true);
+		    smi_bus_prepare_enable(larb, smi_clk_name[larb]);
 	if (ret != 0)
 		M4UMSG("larb_clock_on error: larb %d\n", larb);
 #endif
@@ -817,7 +823,7 @@ int larb_clock_off(int larb, bool config_mtcmos)
 
 	if (larb < ARRAY_SIZE(smi_clk_name))
 		ret =
-		    smi_bus_disable_unprepare(larb, smi_clk_name[larb], true);
+		    smi_bus_disable_unprepare(larb, smi_clk_name[larb]);
 	if (ret != 0)
 		M4UMSG("larb_clock_on error: larb %d\n", larb);
 #endif
@@ -1146,7 +1152,7 @@ static inline void _m4u_port_clock_toggle(int m4u_index, int larb, int on)
 	mmprofile_log_ex(M4U_MMP_Events[M4U_MMP_TOGGLE_CG], MMPROFILE_FLAG_END, 0, 0);
 }
 
-int m4u_config_port(M4U_PORT_STRUCT *pM4uPort)	/* native */
+int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)	/* native */
 {
 	M4U_PORT_ID PortID = (pM4uPort->ePortID);
 	int m4u_index = m4u_port_2_m4u_id(PortID);
@@ -1184,7 +1190,7 @@ int m4u_config_port(M4U_PORT_STRUCT *pM4uPort)	/* native */
 	return 0;
 }
 
-int m4u_config_port_ext(M4U_PORT_STRUCT *pM4uPort)
+int m4u_config_port_ext(struct M4U_PORT_STRUCT *pM4uPort)
 {
 	int ret = m4u_config_port(pM4uPort);
 
@@ -1718,7 +1724,7 @@ int m4u_unregister_fault_callback(int port)
 	return 0;
 }
 
-int m4u_enable_tf(int port, bool fgenable)
+int m4u_enable_tf(unsigned int port, bool fgenable)
 {
 	if (port < 0 || port >= M4U_PORT_UNKNOWN) {
 		M4UMSG("%s fail,m port=%d\n", __func__, port);
@@ -1884,7 +1890,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 		/* dump something quickly */
 		///m4u_dump_rs_info(m4u_index, slave_id);
 		m4u_dump_invalid_main_tlb(m4u_index, m4u_slave_id);
-		/* m4u_dump_reg(m4u_index, 0x860); */
+		/* __m4u_dump_reg(m4u_index, 0x860); */
 		/* m4u_dump_main_tlb(m4u_index, 0); */
 		/* m4u_dump_pfh_tlb(m4u_index); */
 
@@ -2202,7 +2208,7 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 	/* config MDP related port default use M4U */
 
 	if (m4u_id == 0) {
-		M4U_PORT_STRUCT port;
+		struct M4U_PORT_STRUCT port;
 
 		port.Direction = 0;
 		port.Distance = 1;
@@ -2243,12 +2249,12 @@ int m4u_dump_reg_for_smi_hang_issue(void)
 		return 0;
 	}
 	M4UMSG("0x44 = 0x%x\n", M4U_ReadReg32(gM4UBaseAddr[0], 0x44));
-	m4u_dump_reg(0, 0, 400);
-	m4u_dump_reg(0, 0x500, 0x5fc);
-	m4u_dump_reg(0, 0xb00, 0xb0c);
-	m4u_dump_reg(0, 0xc00, 0xc0c);
-	m4u_dump_reg(0, 0x380, 0x3fc);
-	m4u_dump_reg(0, 0x680, 0x6fc);
+	__m4u_dump_reg(0, 0, 400);
+	__m4u_dump_reg(0, 0x500, 0x5fc);
+	__m4u_dump_reg(0, 0xb00, 0xb0c);
+	__m4u_dump_reg(0, 0xc00, 0xc0c);
+	__m4u_dump_reg(0, 0x380, 0x3fc);
+	__m4u_dump_reg(0, 0x680, 0x6fc);
 
 	m4u_print_perf_counter(0, 0, "m4u");
 	m4u_dump_rs_info(0, 0);

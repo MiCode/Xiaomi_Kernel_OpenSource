@@ -109,7 +109,7 @@ struct m4u_device {
 };
 
 struct m4u_domain {
-	imu_pgd_t *pgd;
+	struct imu_pgd_t *pgd;
 	dma_addr_t pgd_pa;
 	struct mutex pgtable_mutex;
 	unsigned int pgsize_bitmap;
@@ -202,7 +202,7 @@ int m4u_dump_victim_tlb(int m4u_id);
 int m4u_domain_init(struct m4u_device *m4u_dev, void *priv_reserve);
 
 /*int config_mau(struct M4U_MAU_STRUCT mau);*/
-int m4u_enable_tf(int port, bool fgenable);
+int m4u_enable_tf(unsigned int port, bool fgenable);
 
 int m4u_dump_rs_info(int m4u_index, int m4u_slave_id);
 
@@ -297,6 +297,14 @@ extern int gM4U_log_to_uart;
 			seq_printf(seq_file, fmt, ##args);\
 		else\
 			pr_info(fmt, ##args);\
+	} while (0)
+
+#define M4U_PRINT_LOG_OR_SEQ(seq_file, fmt, args...) \
+	do {\
+		if (seq_file)\
+			seq_printf(seq_file, fmt, ##args);\
+		else\
+			pr_debug(fmt, ##args);\
 	} while (0)
 
 /* ======================================= */

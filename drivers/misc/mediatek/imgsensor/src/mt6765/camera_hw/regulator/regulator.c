@@ -18,6 +18,7 @@
 #include <asm/siginfo.h>
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 
 static const int regulator_voltage[] = {
 	REGULATOR_VOLTAGE_0,
