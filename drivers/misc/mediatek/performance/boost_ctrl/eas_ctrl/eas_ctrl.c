@@ -167,10 +167,10 @@ int update_schedplus_down_throttle_ns(int kicker, int nsec)
 	if (debug_schedplus_down_throttle_nsec == -1) {
 		if (cur_schedplus_down_throttle_ns >= 0)
 			schedutil_set_down_rate_limit_us(0,
-				cur_schedplus_down_throttle_ns);
+				cur_schedplus_down_throttle_ns / 1000);
 		else
 			schedutil_set_down_rate_limit_us(0,
-				default_schedplus_down_throttle_ns);
+				default_schedplus_down_throttle_ns / 1000);
 	}
 #endif
 
@@ -214,10 +214,10 @@ int update_schedplus_up_throttle_ns(int kicker, int nsec)
 	if (debug_schedplus_up_throttle_nsec == -1) {
 		if (cur_schedplus_up_throttle_ns >= 0)
 			schedutil_set_up_rate_limit_us(0,
-				cur_schedplus_up_throttle_ns);
+				cur_schedplus_up_throttle_ns / 1000);
 		else
 			schedutil_set_up_rate_limit_us(0,
-				default_schedplus_up_throttle_ns);
+				default_schedplus_up_throttle_ns / 1000);
 	}
 #endif
 
@@ -1075,7 +1075,7 @@ static ssize_t perfmgr_debug_schedplus_down_throttle_proc_write(
 		schedutil_set_down_rate_limit_us(0,
 			cur_schedplus_down_throttle_ns);
 	else if (data >= 0)
-		schedutil_set_down_rate_limit_us(0, data);
+		schedutil_set_down_rate_limit_us(0, data / 1000);
 #endif
 
 	mutex_unlock(&boost_eas);
@@ -1134,7 +1134,7 @@ static ssize_t perfmgr_debug_schedplus_up_throttle_proc_write(
 		schedutil_set_up_rate_limit_us(0,
 			cur_schedplus_up_throttle_ns);
 	else if (data >= 0)
-		schedutil_set_up_rate_limit_us(0, data);
+		schedutil_set_up_rate_limit_us(0, data / 1000);
 #endif
 
 	mutex_unlock(&boost_eas);
@@ -1388,8 +1388,8 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 	perf_sched_big_task_rotation = 0;
 	perf_sched_stune_task_thresh = -1;
 
-	default_schedplus_down_throttle_ns = 1000;
-	default_schedplus_up_throttle_ns = 1000;
+	default_schedplus_down_throttle_ns = 1000000;
+	default_schedplus_up_throttle_ns = 1000000;
 	default_schedplus_sync_flag = 1;
 	cur_schedplus_down_throttle_ns = -1;
 	cur_schedplus_up_throttle_ns = -1;
