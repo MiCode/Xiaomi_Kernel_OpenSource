@@ -767,6 +767,13 @@ static TZ_RESULT _get_US_PAMapAry(struct user_shm_param *shm_data,
 		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
 		goto us_map_fail;
 	}
+
+	if (!pin->pageArray) {
+		KREE_ERR("[%s]pin->pageArray is null. fail.\n", __func__);
+		cret = TZ_RESULT_ERROR_GENERIC;
+		goto us_map_fail;
+	}
+
 	map_p[0] = pin->nrPages;
 	if (pin->isPage) {
 		page = (struct page **)pin->pageArray;
@@ -860,7 +867,7 @@ static long tz_client_close_session(struct file *filep, unsigned long arg)
 	if (cret)
 		return -EFAULT;
 
-	if (param.handle < 0 || param.handle > KREE_SESSION_HANDLE_MAX_SIZE)
+	if (param.handle < 0 || param.handle >= KREE_SESSION_HANDLE_MAX_SIZE)
 		return TZ_RESULT_ERROR_INVALID_HANDLE;
 
 	ret = KREE_CloseSession(param.handle);
