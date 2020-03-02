@@ -9122,12 +9122,22 @@ static struct task_struct *detach_one_task(struct lb_env *env)
 	lockdep_assert_held(&env->src_rq->lock);
 
 	list_for_each_entry_safe(p, n, &env->src_rq->cfs_tasks, se.group_node) {
-		if (!hmp_should_migrate_task(p, env->src_rq))
-			continue;
+#if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
+		if (env->src_rq->migrate_task) {
+			struct task_struct *pm;
 
+			pm = env->src_rq->migrate_task;
+			if (p != pm)
+				continue;
+
+			env->src_rq->migrate_task = NULL;
+		} else if (!can_migrate_task(p, env)) {
+			continue;
+		}
+#else
 		if (!can_migrate_task(p, env))
 			continue;
-
+#endif
 		detach_task(p, env);
 
 		/*
@@ -10949,6 +10959,21 @@ more_balance:
 				env.flags |= LBF_ALL_PINNED;
 				goto out_one_pinned;
 			}
+
+#ifdef CONFIG_SCHED_HMP
+			/*
+			 * If cpu_util + new task_util is overutil,
+			 * we don't migrate this task.
+			 */
+			if ((capacity_of(env.dst_cpu) * 1024) <
+			((cpu_util(env.dst_cpu) + task_util(busiest->curr))
+				* capacity_margin)) {
+				raw_spin_unlock_irqrestore(&busiest->lock,
+							    flags);
+				env.flags |= LBF_ALL_PINNED;
+				goto out_one_pinned;
+			}
+#endif
 
 			/*
 			 * ->active_balance synchronizes accesses to
