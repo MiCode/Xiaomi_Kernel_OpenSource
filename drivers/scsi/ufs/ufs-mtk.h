@@ -183,6 +183,8 @@ struct ufs_mtk_host {
 	struct clk *crypto_parent_clk_normal;
 	struct clk *crypto_parent_clk_perf;
 	struct pm_qos_request *req_vcore;
+
+	bool spm_sw_mode;
 };
 
 extern bool ufs_mtk_auto_hibern8_enabled;
@@ -205,7 +207,7 @@ void ufs_mtk_hwfde_cfg_cmd(struct ufs_hba *hba,
 	struct scsi_cmnd *cmd);
 int ufs_mtk_linkup_fail_handler(struct ufs_hba *hba, int left_retry);
 void ufs_mtk_parse_auto_hibern8_timer(struct ufs_hba *hba);
-void ufs_mtk_parse_pm_levels(struct ufs_hba *hba);
+void ufs_mtk_parse_dt(struct ufs_hba *hba);
 bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host);
 int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf);
 int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user);
