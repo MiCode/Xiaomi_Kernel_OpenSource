@@ -24,14 +24,6 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 
 void smp_inner_dcache_flush_all(void);
 
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-int mt_smp_cache_flush(struct sg_table *table,
-		       unsigned int sync_type, int npages);
-extern int (*ion_sync_kernel_func)(unsigned long start,
-				   size_t size,
-				   unsigned int sync_type);
-#endif
-
 #ifdef ION_HISTORY_RECORD
 int ion_history_init(void);
 void ion_history_count_kick(bool allc, size_t len);
