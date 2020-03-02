@@ -49,10 +49,16 @@ struct mtu3_request;
 #define USB_QMU_RQCSR(epnum)	(U3D_RXQCSR1 + (((epnum) - 1) * 0x10))
 #define USB_QMU_RQSAR(epnum)	(U3D_RXQSAR1 + (((epnum) - 1) * 0x10))
 #define USB_QMU_RQCPR(epnum)	(U3D_RXQCPR1 + (((epnum) - 1) * 0x10))
+#define USB_QMU_RXQHIAR1(epnum)	(U3D_RXQHIAR1 + (((epnum) - 1) * 0x4))
 
 #define USB_QMU_TQCSR(epnum)	(U3D_TXQCSR1 + (((epnum) - 1) * 0x10))
 #define USB_QMU_TQSAR(epnum)	(U3D_TXQSAR1 + (((epnum) - 1) * 0x10))
 #define USB_QMU_TQCPR(epnum)	(U3D_TXQCPR1 + (((epnum) - 1) * 0x10))
+#define USB_QMU_TXQHIAR1(epnum)	(U3D_TXQHIAR1 + (((epnum) - 1) * 0x4))
+
+#define QMU_GPD_BUF_HI(x)	(((x) & 0xf))
+#define QMU_GPD_NEXT_HI(x)	(((x) & 0xf) << 4)
+
 
 #define SSUSB_U3_CTRL(p)	(U3D_SSUSB_U3_CTRL_0P + ((p) * 0x08))
 #define SSUSB_U2_CTRL(p)	(U3D_SSUSB_U2_CTRL_0P + ((p) * 0x08))
@@ -65,7 +71,39 @@ struct mtu3_request;
 #define MTU3_EP_WEDGE		BIT(2)
 #define MTU3_EP_BUSY		BIT(3)
 
+#define K_EMERG		0
+#define K_ALET		1
+#define K_CRIT		2
+#define K_ERR		3
+#define K_WARNIN	4
+#define K_NOTICE	5
+#define K_INFO		6
+#define K_DEBUG		7
+
+#ifdef CONFIG_USB_MTU3_PLAT_PHONE
+#define MTU3_U3_IP_SLOT_DEFAULT 1
+#define MTU3_LTSSM_INTR_EN (U3_RESUME_INTR | U3_LFPS_TMOUT_INTR | \
+		VBUS_FALL_INTR | VBUS_RISE_INTR | \
+		RXDET_SUCCESS_INTR | EXIT_U3_INTR | \
+		ENTER_U3_INTR | ENTER_U0_INTR | \
+		RECOVERY_INTR | WARM_RST_INTR | \
+		HOT_RST_INTR | LOOPBACK_INTR | \
+		COMPLIANCE_INTR | SS_DISABLE_INTR | \
+		SS_INACTIVE_INTR | VBUS_RISE_INTR | \
+		VBUS_FALL_INTR)
+/*Set the debug level at musb_core.c*/
+extern u32 debug_level;
+#define mtu3_printk(level, fmt, args...) do { \
+			if (debug_level >= level) { \
+				pr_notice("[MTU3]" fmt, ## args); \
+			} \
+		} while (0)
+
+#else
 #define MTU3_U3_IP_SLOT_DEFAULT 2
+#define mtu3_printk(level, fmt, args...) do {} while (0)
+#endif
+
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
 /**
@@ -159,13 +197,13 @@ struct qmu_gpd {
 } __packed;
 
 /**
-* dma: physical base address of GPD segment
-* start: virtual base address of GPD segment
-* end: the last GPD element
-* enqueue: the first empty GPD to use
-* dequeue: the first completed GPD serviced by ISR
-* NOTE: the size of GPD ring should be >= 2
-*/
+ * dma: physical base address of GPD segment
+ * start: virtual base address of GPD segment
+ * end: the last GPD element
+ * enqueue: the first empty GPD to use
+ * dequeue: the first completed GPD serviced by ISR
+ * NOTE: the size of GPD ring should be >= 2
+ */
 struct mtu3_gpd_ring {
 	dma_addr_t dma;
 	struct qmu_gpd *start;
@@ -175,18 +213,18 @@ struct mtu3_gpd_ring {
 };
 
 /**
-* @vbus: vbus 5V used by host mode
-* @edev: external connector used to detect vbus and iddig changes
-* @vbus_nb: notifier for vbus detection
-* @vbus_nb: notifier for iddig(idpin) detection
-* @extcon_reg_dwork: delay work for extcon notifier register, waiting for
-*		xHCI driver initialization, it's necessary for system bootup
-*		as device.
-* @is_u3_drd: whether port0 supports usb3.0 dual-role device or not
-* @id_*: used to maually switch between host and device modes by idpin
-* @manual_drd_enabled: it's true when supports dual-role device by debugfs
-*		to switch host/device modes depending on user input.
-*/
+ * @vbus: vbus 5V used by host mode
+ * @edev: external connector used to detect vbus and iddig changes
+ * @vbus_nb: notifier for vbus detection
+ * @vbus_nb: notifier for iddig(idpin) detection
+ * @extcon_reg_dwork: delay work for extcon notifier register, waiting for
+ *		xHCI driver initialization, it's necessary for system bootup
+ *		as device.
+ * @is_u3_drd: whether port0 supports usb3.0 dual-role device or not
+ * @id_*: used to maually switch between host and device modes by idpin
+ * @manual_drd_enabled: it's true when supports dual-role device by debugfs
+ *		to switch host/device modes depending on user input.
+ */
 struct otg_switch_mtk {
 	struct regulator *vbus;
 	struct extcon_dev *edev;
@@ -194,11 +232,17 @@ struct otg_switch_mtk {
 	struct notifier_block id_nb;
 	struct delayed_work extcon_reg_dwork;
 	bool is_u3_drd;
+	bool is_u3h_drd;
 	/* dual-role switch by debugfs */
 	struct pinctrl *id_pinctrl;
 	struct pinctrl_state *id_float;
 	struct pinctrl_state *id_ground;
 	bool manual_drd_enabled;
+	struct delayed_work dr_work;
+	struct workqueue_struct *dr_workq;
+	unsigned int usb_mode;
+	unsigned int desire_usb_mode;
+	spinlock_t dr_lock;
 };
 
 /**
@@ -230,14 +274,19 @@ struct ssusb_mtk {
 	struct otg_switch_mtk otg_switch;
 	enum usb_dr_mode dr_mode;
 	bool is_host;
+	bool u3ports_disable;
 	int u2_ports;
 	int u3_ports;
 	struct dentry *dbgfs_root;
 	/* usb wakeup for host mode */
 	bool wakeup_en;
+	bool force_vbus;
+	bool u1u2_disable;
+	bool u3_loopb_support;
 	struct clk *wk_deb_p0;
 	struct clk *wk_deb_p1;
 	struct regmap *pericfg;
+	void *priv_data;
 };
 
 /**
@@ -328,11 +377,13 @@ struct mtu3 {
 	unsigned u1_enable:1;
 	unsigned u2_enable:1;
 	unsigned is_u3_ip:1;
+	unsigned is_36bit:1;
 	unsigned delayed_status:1;
-
 	u8 address;
 	u8 test_mode_nr;
 	u32 hw_version;
+
+	struct delayed_work check_ltssm_work;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)
@@ -412,5 +463,19 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu);
 
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;
+extern void mtu3_check_ltssm_work(struct work_struct *data);
+extern bool upmu_is_chr_det(void);
+extern u32 upmu_get_rgs_chrdet(void);
+extern void disconnect_check(struct mtu3 *mtu);
+extern bool is_saving_mode(void);
+extern unsigned int mtu3_cable_mode;
+/* USB working mode */
+enum cable_mode {
+	CABLE_MODE_CHRG_ONLY = 0,
+	CABLE_MODE_NORMAL,
+	CABLE_MODE_HOST_ONLY,
+	CABLE_MODE_FORCEON,
+	CABLE_MODE_MAX
+};
 
 #endif
