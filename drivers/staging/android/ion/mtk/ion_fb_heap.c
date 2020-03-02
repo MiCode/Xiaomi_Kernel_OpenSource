@@ -28,7 +28,7 @@
 #include "mtk/mtk_ion.h"
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
-#include "pseudo_m4u.h"
+#include <mach/pseudo_m4u.h>
 #elif defined(CONFIG_MTK_M4U)
 #include <m4u.h>
 #endif
@@ -110,11 +110,11 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct port_mva_info_t port_info;
 
 	if (!buffer_info) {
-		IONMSG("[ion_fb_heap_phy]: Error. Invalid buffer.\n");
+		IONMSG("%s: Error. Invalid buffer.\n", __func__);
 		return -EFAULT;	/* Invalid buffer */
 	}
 	if (buffer_info->module_id == -1) {
-		IONMSG("[ion_fb_heap_phy]: Error. Buffer not configured.\n");
+		IONMSG("%s: Error. Buffer not configured.\n", __func__);
 		return -EFAULT;	/* Buffer not configured. */
 	}
 
@@ -155,7 +155,12 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 {
 	struct ion_fb_buffer_info *buffer_info = NULL;
 	ion_phys_addr_t paddr;
-
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	ion_phys_addr_t iova = 0;
+	dma_addr_t offset = 0;
+	struct scatterlist *sg;
+	int i = 0;
+#endif
 	if (align > PAGE_SIZE)
 		return -EINVAL;
 
@@ -187,6 +192,18 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 	buffer->size = size;
 	buffer->sg_table = ion_fb_heap_map_dma(heap, buffer);
 
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	buffer_info->module_id = 0;
+	ion_fb_heap_phys(heap, buffer, &iova, &size);
+
+	sg = buffer->sg_table->sgl;
+	for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents, i) {
+		sg_dma_address(sg) = iova + offset;
+		sg_dma_len(sg) = sg->length;
+		offset += sg->length;
+	}
+	buffer->priv_virt = buffer_info;
+#endif
 	return buffer_info->priv_phys == ION_FB_ALLOCATE_FAIL ? -ENOMEM : 0;
 }
 
@@ -225,15 +242,15 @@ static struct ion_heap_ops fb_heap_ops = {
 	.unmap_kernel = ion_heap_unmap_kernel,
 };
 
-#define ION_PRINT_LOG_OR_SEQ(seq_files, fmt, args...) \
-		do {\
-			struct seq_file *file = (struct seq_file *)seq_files;\
-			char *fmat = fmt;\
-			if (file)\
-				seq_printf(file, fmat, ##args);\
-			else\
-				printk(fmat, ##args);\
-		} while (0)
+#define ION_DUMP(seq_files, fmt, args...) \
+do {\
+	struct seq_file *file = (struct seq_file *)seq_files;\
+	char *fmat = fmt;\
+	if (file)\
+		seq_printf(file, fmat, ##args);\
+	else\
+		pr_info(fmat, ##args);\
+} while (0)
 
 static void ion_fb_chunk_show(struct gen_pool *pool,
 			      struct gen_pool_chunk *chunk, void *data)

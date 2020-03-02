@@ -19,7 +19,6 @@
 
 #define BACKTRACE_SIZE 10
 
-
 /* Structure definitions */
 
 enum ION_CMDS {
@@ -99,6 +98,13 @@ enum ION_DMA_DIR {
 	ION_DMA_BIDIRECTIONAL,
 };
 
+enum ION_M4U_DOMAIN {
+	MM_DOMAIN,
+	VPU_DOMAIN,
+
+	DOMAIN_NUM
+};
+
 struct ion_dma_param {
 	union {
 		int handle;
@@ -115,7 +121,7 @@ struct ion_sys_get_phys_param {
 		int handle;
 		struct ion_handle *kernel_handle;
 	};
-	unsigned int phy_addr;
+	unsigned long phy_addr;
 	unsigned long len;
 };
 
