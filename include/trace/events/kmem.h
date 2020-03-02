@@ -327,19 +327,19 @@ TRACE_EVENT(ion_heap_shrink,
 	TP_ARGS(heap_name, len, total_allocated),
 
 	TP_STRUCT__entry(
-		__field(const char *, heap_name)
+		__string(heap_name, heap_name)
 		__field(size_t, len)
 		__field(long, total_allocated)
 	),
 
 	TP_fast_assign(
-		__entry->heap_name = heap_name;
+		__assign_str(heap_name, heap_name);
 		__entry->len = len;
 		__entry->total_allocated = total_allocated;
 	),
 
 	TP_printk("heap_name=%s, len=%zu, total_allocated=%ld",
-		  __entry->heap_name, __entry->len, __entry->total_allocated)
+		  __get_str(heap_name), __entry->len, __entry->total_allocated)
 );
 
 TRACE_EVENT(ion_heap_grow,
@@ -351,19 +351,19 @@ TRACE_EVENT(ion_heap_grow,
 	TP_ARGS(heap_name, len, total_allocated),
 
 	TP_STRUCT__entry(
-		__field(const char *, heap_name)
+		__string(heap_name, heap_name)
 		__field(size_t, len)
 		__field(long, total_allocated)
 	),
 
 	TP_fast_assign(
-		__entry->heap_name = heap_name;
+		__assign_str(heap_name, heap_name);
 		__entry->len = len;
 		__entry->total_allocated = total_allocated;
 	),
 
 	TP_printk("heap_name=%s, len=%zu, total_allocated=%ld",
-		  __entry->heap_name, __entry->len, __entry->total_allocated)
+		  __get_str(heap_name), __entry->len, __entry->total_allocated)
 	);
 
 TRACE_EVENT(rss_stat,
