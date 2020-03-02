@@ -849,9 +849,8 @@ static ssize_t scp_recovery_flag_r(struct device *dev
 static ssize_t scp_recovery_flag_w(struct device *dev
 		, struct device_attribute *attr, const char *buf, size_t count)
 {
-	int ret, tmp;
+	int tmp;
 
-	ret = kstrtoint(buf, 10, &tmp);
 	if (kstrtoint(buf, 10, &tmp) < 0) {
 		pr_debug("scp_recovery_flag error\n");
 		return count;
