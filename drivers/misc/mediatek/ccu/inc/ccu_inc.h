@@ -23,5 +23,6 @@ struct ccu_sensor_info {
 
 void ccu_set_current_fps(int32_t current_fps);
 void ccu_set_sensor_info(int32_t sensorType, struct ccu_sensor_info *info);
+void ccu_get_timestamp(uint32_t *low, uint32_t *high);
 
 #endif
