@@ -66,4 +66,38 @@ extern struct list_head hmp_domains;
 #define for_each_hmp_domain_L_first(hmpd) \
 		list_for_each_entry_reverse(hmpd, &hmp_domains, hmp_domains)
 
+#ifdef CONFIG_SCHED_HMP
+struct clb_stats {
+	int ncpu;                  /* The number of CPU */
+	int ntask;                 /* The number of tasks */
+	int load_avg;              /* Arithmetic average of task load ratio */
+	int cpu_capacity;          /* Current CPU capacity */
+	int cpu_power;             /* Max CPU capacity */
+	int acap;                  /* Available CPU capacity */
+	int scaled_acap;           /* Scaled available CPU capacity */
+	int scaled_atask;          /* Scaled available task */
+	int threshold;             /* Dynamic threshold */
+#ifdef CONFIG_SCHED_HMP_PRIO_FILTER
+	int nr_normal_prio_task;   /* The number of normal-prio tasks */
+	int nr_dequeuing_low_prio; /* The number of dequeuing low-prio tasks */
+#endif
+};
+
+
+extern struct cpumask hmp_fast_cpu_mask;
+extern struct cpumask hmp_slow_cpu_mask;
+
+#define hmp_cpu_domain(cpu)     (per_cpu(hmp_cpu_domain, (cpu)))
+
+/* Number of task statistic to force migration */
+struct hmp_statisic {
+	unsigned int nr_force_up;
+	unsigned int nr_force_down;
+};
+
+extern unsigned int hmp_cpu_is_slowest(int cpu);
+#else
+static inline unsigned int hmp_cpu_is_slowest(int cpu) { return false; }
+#endif /* CONFIG_SCHED_HMP */
+
 #endif
