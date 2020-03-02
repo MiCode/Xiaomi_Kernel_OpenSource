@@ -345,16 +345,14 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
 	u32 tmp;
 
 	/**
-	 * If current device is not active, it means it is after
+	 * If current device is not active or link is h8, it means it is after
 	 * ufshcd_suspend() through
 	 * a. runtime or system pm b. ufshcd_shutdown
 	 * Both a. and b. will disable 26MHz ref clk(XO_UFS),
 	 * so that deepidle/SODI do not need to disable 26MHz ref clk here.
-	 * Not use hba->uic_link_state to judge it's after ufshcd_suspend()
-	 * is because
-	 * hba->uic_link_state also used by ufshcd_gate_work()
 	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE) {
+	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE ||
+		ufshcd_is_link_hibern8(ufs_mtk_hba)) {
 		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
 		return UFS_H8_SUSPEND;
 	}
@@ -451,20 +449,6 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
 	 * Toshiba	32us
 	 */
 	udelay(32);
-}
-
-/**
- * ufs_mtk_deepidle_resource_req - Deepidle & SODI resource request.
- * @hba: per-adapter instance
- * @resource: DRAM/26M clk/MainPLL resources to be claimed. New claim will
- * substitute old claim.
- */
-void ufs_mtk_pltfrm_deepidle_resource_req(struct ufs_hba *hba,
-	unsigned int resource)
-{
-#ifdef SPM_READY
-	spm_resource_req(SPM_RESOURCE_USER_UFS, resource);
-#endif
 }
 
 /**
@@ -644,39 +628,6 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 	}
 
 	return err;
-}
-
-int ufs_mtk_pltfrm_res_req(struct ufs_hba *hba, u32 option)
-{
-#ifdef SPM_READY
-	if (option == UFS_MTK_RESREQ_DMA_OP) {
-
-		/*
-		 * request resource for DMA operations, e.g., DRAM
-		 * SPM_RESOURCE_MAINPLL | SPM_RESOURCE_DRAM |
-		 * SPM_RESOURCE_CK_26M
-		 */
-		/*
-		 * Request SPM_RESOURCE_ALL anyway to avoid
-		 * entering low-power state, e.g., MCUSYS on/off,
-		 * because latency of leaving low-power state
-		 * may impact I/O performance
-		 */
-		ufshcd_vops_deepidle_resource_req(hba,
-			SPM_RESOURCE_ALL);
-
-	} else if (option == UFS_MTK_RESREQ_MPHY_NON_H8) {
-
-		/*
-		 * request resource for mphy not in H8, e.g.,
-		 * main PLL, 26 mhz clock
-		 */
-		ufshcd_vops_deepidle_resource_req(hba,
-		  SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M);
-	}
-#endif
-
-	return 0;
 }
 
 int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)
