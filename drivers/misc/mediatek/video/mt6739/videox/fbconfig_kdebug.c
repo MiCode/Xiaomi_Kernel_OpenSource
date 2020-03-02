@@ -428,7 +428,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	case FB_LAYER_GET_EN:
 	{
 		struct PM_LAYER_EN layers;
-		struct OVL_BASIC_STRUCT ovl_all[TOTAL_OVL_LAYER_NUM];
+		struct OVL_BASIC_STRUCT ovl_all[TOTAL_OVL_LAYER_NUM] = { {0} };
 		int i = 0;
 
 #ifdef PRIMARY_THREE_OVL_CASCADE
@@ -459,7 +459,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	case FB_LAYER_GET_INFO:
 	{
 		struct PM_LAYER_INFO layer_info;
-		struct OVL_BASIC_STRUCT ovl_all[TOTAL_OVL_LAYER_NUM];
+		struct OVL_BASIC_STRUCT ovl_all[TOTAL_OVL_LAYER_NUM] = { {0} };
 
 		if (copy_from_user(&layer_info, (void __user *)argp,
 				   sizeof(layer_info))) {
