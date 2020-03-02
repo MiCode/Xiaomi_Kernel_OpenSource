@@ -38,6 +38,9 @@
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "private/secmem_ext.h"
+#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
+#include "public/mtee_regions.h"
+#endif
 /* clang-format off */
 #include "mtee_impl/mtee_priv.h"
 /* clang-format on */
@@ -229,6 +232,29 @@ static int MTEE_mem_reg_cfg_notify_tee(enum TRUSTED_MEM_TYPE mem_type, u64 pa,
 	}
 }
 
+#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
+static int get_mchunks_id(enum TRUSTED_MEM_TYPE mem_type)
+{
+	switch (mem_type) {
+	case TRUSTED_MEM_PROT:
+		return MTEE_MCHUNKS_PROT;
+	case TRUSTED_MEM_HAPP:
+		return MTEE_MCHUNKS_HAPP;
+	case TRUSTED_MEM_HAPP_EXTRA:
+		return MTEE_MCHUNKS_HAPP_EXTRA;
+	case TRUSTED_MEM_SDSP:
+		return MTEE_MCHUNKS_SDSP;
+	case TRUSTED_MEM_SDSP_SHARED:
+		return MTEE_MCHUNKS_SDSP_SHARED;
+	case TRUSTED_MEM_SVP:
+	case TRUSTED_MEM_WFD:
+	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+	default:
+		return MTEE_MCUHNKS_INVALID;
+	}
+}
+#endif
+
 static int MTEE_mem_reg_add(u64 pa, u32 size, void *peer_data, void *priv)
 {
 	int ret;
@@ -243,7 +269,7 @@ static int MTEE_mem_reg_add(u64 pa, u32 size, void *peer_data, void *priv)
 	mem_param.size = size;
 	mem_param.mapAry = NULL;
 #if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
-	mem_param.region_id = priv_data->mem_type;
+	mem_param.region_id = get_mchunks_id(priv_data->mem_type);
 #endif
 
 	MTEE_SESSION_LOCK();
