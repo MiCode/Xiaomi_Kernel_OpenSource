@@ -455,7 +455,7 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 		for (i = 0; i < sg_table->nents; i++) {
 			phys = sg_phys(s);
 			size += s->length;
-			sg_set_page(ng, sg_page(s), s->length, 0);
+			sg_set_page(ng, sg_page(s), s->length, s->offset);
 			s = sg_next(s);
 			ng = sg_next(ng);
 		}
@@ -870,6 +870,7 @@ static phys_addr_t m4u_user_v2p(unsigned long va)
 	return 0;
 }
 
+#if 0
 static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 		unsigned long va, int page_num,
 				 struct scatterlist **pSg, int has_page)
@@ -1076,90 +1077,138 @@ out:
 	up_read(&current->mm->mmap_sem);
 	return ret;
 }
+#endif
+
+static struct frame_vector *m4u_get_vaddr_framevec(unsigned long va_base,
+						int nr_pages)
+{
+	struct frame_vector *vec = NULL;
+	struct mm_struct *mm = current->mm;
+	int ret = 0;
+	struct vm_area_struct *vma;
+	int gup_flags;
+
+	vma = find_vma(mm, va_base);
+	if (!vma) {
+		M4U_ERR("%s: pid %d, get mva fail, va 0x%lx(pgnum %d)\n",
+			__func__, current->pid, va_base, nr_pages);
+		return ERR_PTR(-EINVAL);
+	}
+	if ((va_base + (nr_pages << PAGE_SHIFT)) > vma->vm_end) {
+		M4U_ERR("%s: pid %d, va 0x%lx(pgnum %d), vma 0x%lx~0x%lx\n",
+			__func__, current->pid, va_base, nr_pages,
+			vma->vm_start, vma->vm_end);
+		return ERR_PTR(-EINVAL);
+	}
+
+	vec = frame_vector_create(nr_pages);
+	if (!vec)
+		return ERR_PTR(-ENOMEM);
+
+	gup_flags = FOLL_TOUCH | FOLL_POPULATE | FOLL_MLOCK;
+	if (vma->vm_flags & VM_LOCKONFAULT)
+		gup_flags &= ~FOLL_POPULATE;
+	/*
+	 * We want to touch writable mappings with a write fault
+	 * in order to break COW, except for shared mappings
+	 * because these don't COW and we would not want to
+	 * dirty them for nothing.
+	 */
+	if ((vma->vm_flags & (VM_WRITE | VM_SHARED)) == VM_WRITE)
+		gup_flags |= FOLL_WRITE;
+	/*
+	 * We want mlock to succeed for regions that have any
+	 * permissions other than PROT_NONE.
+	 */
+	if (vma->vm_flags & (VM_READ | VM_WRITE | VM_EXEC))
+		gup_flags |= FOLL_FORCE;
+
+	ret = get_vaddr_frames(va_base, nr_pages, gup_flags, vec);
+	if (ret < 0)
+		goto m4u_get_frmvec_dst;
+	else if (ret != nr_pages) {
+		ret = -EFAULT;
+		goto m4u_get_frmvec_rls;
+	}
+
+	return vec;
+
+m4u_get_frmvec_rls:
+	put_vaddr_frames(vec);
+m4u_get_frmvec_dst:
+	frame_vector_destroy(vec);
+	return ERR_PTR(ret);
+}
+
+static void m4u_put_vaddr_framevec(struct frame_vector *vec)
+{
+	put_vaddr_frames(vec);
+	frame_vector_destroy(vec);
+}
 
 /* make a sgtable for virtual buffer */
 struct sg_table *m4u_create_sgtable(unsigned long va, unsigned int size)
 {
-	struct sg_table *table;
-	int ret, i, page_num;
-	unsigned long va_align;
-	phys_addr_t pa;
-	struct scatterlist *sg;
-	struct page *page;
+	struct sg_table *table = NULL;
+	struct scatterlist *s;
+	int ret, page_num, i;
+	unsigned long va_align, offset;
+	struct frame_vector *vec = NULL;
 
 	page_num = M4U_GET_PAGE_NUM(va, size);
 	va_align = round_down(va, PAGE_SIZE);
+	offset = va & ~PAGE_MASK;
+
+	M4U_DBG("%s va=0x%lx, PG OFF=0x%lx, VM START~END=0x%lx~0x%lx\n",
+		__func__, va, PAGE_OFFSET, VMALLOC_START, VMALLOC_END);
 
 	table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!table)
 		return ERR_PTR(-ENOMEM);
 
-	ret = sg_alloc_table(table, page_num, GFP_KERNEL);
-	if (ret) {
+	vec = m4u_get_vaddr_framevec(va_align, page_num);
+	if (IS_ERR_OR_NULL(vec)) {
 		kfree(table);
-		M4U_ERR("%s alloc_sgtable fail: va=0x%lx,sz=0x%x,pgnum=%d\n",
-				__func__, va, size, page_num);
-		return ERR_PTR(-ENOMEM);
+		M4U_ERR(
+			"%s get frmvec fail %ld: va = 0x%lx, sz = 0x%x, pgnum = %d\n",
+			__func__, PTR_ERR(vec), va, size, page_num);
+		return (struct sg_table *)vec;
+	}
+	ret = frame_vector_to_pages(vec);
+	if (ret < 0) {
+		M4U_ERR("%s get frmvec pg fail\n", __func__);
+		goto m4u_create_sgtbl_out;
 	}
 
-	M4U_DBG(
-		"%s va=0x%lx, PAGE_OFFSET=0x%lx, VMALLOC_START=0x%lx,VMALLOC_END=0x%lx\n",
-		__func__, va, PAGE_OFFSET, VMALLOC_START, VMALLOC_END);
+	ret = sg_alloc_table_from_pages(table, frame_vector_pages(vec),
+					page_num, offset, size, GFP_KERNEL);
+	if (ret) {
+		M4U_ERR("%s set tbl pages fail\n", __func__);
+		goto m4u_create_sgtbl_out;
+	}
 
-	if (va < PAGE_OFFSET) {	/* from user space */
-		if (va >= VMALLOC_START && va <= VMALLOC_END) {	/* vmalloc */
-			M4U_DBG("from user space vmalloc, va = 0x%lx", va);
-			for_each_sg(table->sgl, sg, table->nents, i) {
-				page = vmalloc_to_page(
-					(void *)(va_align + i * PAGE_SIZE));
-				if (!page) {
-					M4U_ERR(
-					    "vmalloc_to_page fail, va=0x%lx\n",
-					     va_align + i * PAGE_SIZE);
-					goto err;
-				}
-				sg_set_page(sg, page, PAGE_SIZE, 0);
-			}
-		} else {
-			ret = m4u_create_sgtable_user(va_align, table);
-			if (ret) {
-				M4U_ERR("%s error va=0x%lx, size=%d\n",
-					__func__, va, size);
-				goto err;
-			}
-		}
-	} else {		/* from kernel space */
-		if (va >= VMALLOC_START && va <= VMALLOC_END) {	/* vmalloc */
-			M4U_DBG(
-				"from kernel space vmalloc, va = 0x%lx",
-				va);
-			for_each_sg(table->sgl, sg, table->nents, i) {
-				page = vmalloc_to_page(
-					(void *)(va_align + i * PAGE_SIZE));
-				if (!page) {
-					M4U_ERR(
-					     "vmalloc_to_page fail, va=0x%lx\n",
-					     va_align + i * PAGE_SIZE);
-					goto err;
-				}
-				sg_set_page(sg, page, PAGE_SIZE, 0);
-			}
-		} else {	/* kmalloc to-do: use one entry sgtable. */
-			for_each_sg(table->sgl, sg, table->nents, i) {
-				pa = virt_to_phys(
-					(void *)(va_align + i * PAGE_SIZE));
-				page = phys_to_page(pa);
-				sg_set_page(sg, page, PAGE_SIZE, 0);
-			}
-		}
+	/*
+	 * For sg_alloc_table with empty table object, it will not clear the
+	 * sgtable->sgl space to zero which allocated by kmalloc.
+	 * In here, we manually initialize the dma information of sgl for
+	 * stable execution.
+	 */
+	for_each_sg(table->sgl, s, table->nents, i) {
+		sg_dma_address(s) = 0;
+		sg_dma_len(s) = 0;
+	}
+
+m4u_create_sgtbl_out:
+	m4u_put_vaddr_framevec(vec);
+
+	if (ret) {
+		kfree(table);
+		M4U_ERR("%s fail %d: va = 0x%lx, sz = 0x%x, pgnum = %d\n",
+			__func__, ret, va, size, page_num);
+		return ERR_PTR(ret);
 	}
 
 	return table;
-
-err:
-	sg_free_table(table);
-	kfree(table);
-	return ERR_PTR(-EFAULT);
 }
 
 /* the caller should make sure the mva offset have been eliminated. */
