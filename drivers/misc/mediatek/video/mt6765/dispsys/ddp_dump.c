@@ -888,8 +888,7 @@ static void mmsys_config_dump_analysis(void)
 
 	/* dump SMI status, when maybe SMI hang */
 	if (greq)
-		smi_debug_bus_hang_detect(
-			SMI_PARAM_BUS_OPTIMIZATION, true, false, true);
+		smi_debug_bus_hang_detect(false, "DISP");
 }
 
 static void gamma_dump_reg(enum DISP_MODULE_ENUM module)

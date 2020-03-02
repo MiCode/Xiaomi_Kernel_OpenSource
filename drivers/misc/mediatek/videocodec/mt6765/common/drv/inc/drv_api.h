@@ -29,9 +29,9 @@ struct VAL_NON_CACHE_MEMORY_LIST_T {
 	unsigned long ulKVA;	/* Kernel virtual address */
 	unsigned long ulKPA;	/* Kernel physical address */
 	unsigned long pvHandle;	/*  */
-	unsigned int u4VCodecThreadNum;	/* Hybrid vcodec thread num */
+	unsigned int u4ThreadNum;	/* Hybrid vcodec thread num */
 	/* hybrid vcodec thread ids */
-	unsigned int u4VCodecThreadID[VCODEC_THREAD_MAX_NUM];
+	unsigned int u4ThreadID[VCODEC_THREAD_MAX_NUM];
 	unsigned long  ulSize;
 };
 
