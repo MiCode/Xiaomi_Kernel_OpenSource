@@ -32,7 +32,6 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/semaphore.h>
-#include <linux/switch.h>
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
 
@@ -44,7 +43,9 @@
 #include <linux/kthread.h>
 #include <linux/time.h>
 #include <linux/uaccess.h>
-#include <linux/wakelock.h>
+#include <linux/device.h>
+#include <linux/pm_wakeup.h>
+#include <linux/sched/clock.h>
 
 #include "reg_accdet.h"
 #include <linux/string.h>

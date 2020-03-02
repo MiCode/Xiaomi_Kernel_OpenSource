@@ -71,25 +71,5 @@ void init_sched_energy_costs(void)
 	return;
 }
 
-struct sched_group_energy cci_tbl;
-inline
-const struct sched_group_energy * const cci_energy(void)
-{
-	struct sched_group_energy *sge = &cci_tbl;
-	struct upower_tbl_info **addr_ptr_tbl_info;
-	struct upower_tbl_info *ptr_tbl_info;
-	struct upower_tbl *ptr_tbl;
-
-	addr_ptr_tbl_info = upower_get_tbl();
-	ptr_tbl_info = *addr_ptr_tbl_info;
-
-	ptr_tbl = ptr_tbl_info[UPOWER_BANK_CCI].p_upower_tbl;
-
-	sge->nr_cap_states = ptr_tbl->row_num;
-	sge->cap_states = ptr_tbl->row;
-	sge->lkg_idx = ptr_tbl->lkg_idx;
-
-	return sge;
-}
 #endif
 
