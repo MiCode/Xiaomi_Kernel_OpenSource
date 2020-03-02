@@ -14,8 +14,8 @@
 #ifndef _HAL_CONFIG_POWER_H_
 #define _HAL_CONFIG_POWER_H_
 
-//#include <helio-dvfsrc-opp.h>
 #include "apusys_power_cust.h"
+
 
 /************************************
  * command base hal interface
@@ -40,15 +40,14 @@ enum HAL_POWER_CMD {
 
 struct hal_param_init_power {
 	struct device *dev;
-	void __iomem *rpc_base_addr;
-	void __iomem *pcu_base_addr;
+	void *rpc_base_addr;
+	void *pcu_base_addr;
 };
 
-// regulator only, target_opp range : 0 ~ 15
+// regulator only
 struct hal_param_volt {
-	enum DVFS_VOLTAGE_DOMAIN target_volt_domain;
 	enum DVFS_BUCK target_buck;
-	int target_opp;
+	enum DVFS_VOLTAGE target_volt;
 };
 
 // regulator only, target_mode range : 0 and 1

@@ -15,15 +15,24 @@
 #define _APUSYS_POWER_CUST_H_
 
 #include <linux/types.h>
-#include <linux/printk.h>
 
 
 #define APUSYS_MAX_NUM_OPPS                (23)
 #define APUSYS_PATH_USER_NUM               (4)   // num of DVFS_XXX_PATH
-#define APUSYS_DVFS_CONSTRAINT_NUM			(15)
+#define APUSYS_DVFS_CONSTRAINT_NUM			(3)
 #define APUSYS_VPU_NUM						(3)
 #define APUSYS_MDLA_NUM						(2)
 #define APUSYS_DEFAULT_OPP					(9)
+
+#define SUPPORT_HW_CONTROL_PMIC	(1)
+
+// FIXME: check default value
+#define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_750000_V
+#define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VMDLA_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+
+#define VSRAM_TRANS_VOLT	DVFS_VOLT_00_750000_V
 
 enum POWER_CALLBACK_USER {
 	IOMMU = 0,
@@ -56,6 +65,7 @@ enum DVFS_VOLTAGE_DOMAIN {
 
 
 enum DVFS_BUCK {
+	SRAM_BUCK = -1,	// sepcial case for VSRAM constraint
 	VPU_BUCK = 0,
 	MDLA_BUCK = 1,
 	VCORE_BUCK = 2,
@@ -152,9 +162,9 @@ struct apusys_dvfs_steps {
 };
 
 struct apusys_dvfs_constraint {
-	enum DVFS_VOLTAGE_DOMAIN voltage_domain0;
+	enum DVFS_BUCK buck0;
 	enum DVFS_VOLTAGE voltage0;
-	enum DVFS_VOLTAGE_DOMAIN voltage_domain1;
+	enum DVFS_BUCK buck1;
 	enum DVFS_VOLTAGE voltage1;
 };
 
@@ -164,7 +174,8 @@ struct apusys_dvfs_opps {
 	struct apusys_dvfs_steps (*opps)[APUSYS_BUCK_DOMAIN_NUM];
 	enum DVFS_VOLTAGE user_path_volt[APUSYS_DVFS_USER_NUM]
 					[APUSYS_PATH_USER_NUM];
-	enum DVFS_VOLTAGE final_buck_volt[APUSYS_BUCK_DOMAIN_NUM];
+	enum DVFS_VOLTAGE cur_buck_volt[APUSYS_BUCK_NUM];
+	enum DVFS_VOLTAGE prev_buck_volt[APUSYS_BUCK_NUM];
 	uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t prev_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t power_lock_max_opp[APUSYS_DVFS_USER_NUM];
@@ -175,27 +186,27 @@ struct apusys_dvfs_opps {
 	bool is_power_on[APUSYS_DVFS_USER_NUM];
 	uint8_t power_bit_mask;
 	uint64_t id;
+	enum DVFS_VOLTAGE vsram_volatge;
 };
 
 extern char *user_str[APUSYS_DVFS_USER_NUM];
 extern char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM];
+extern char *buck_str[APUSYS_BUCK_NUM];
 extern enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain
 					[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM];
-extern enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM];
 extern enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM];
-extern enum DVFS_BUCK apusys_buck_up_sequence[APUSYS_BUCK_NUM];
-extern enum DVFS_BUCK apusys_buck_down_sequence[APUSYS_BUCK_NUM];
+extern enum DVFS_BUCK apusys_buck_domain_to_buck[APUSYS_BUCK_DOMAIN_NUM];
 extern uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
 extern uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM];
 extern enum DVFS_VOLTAGE
 	dvfs_clk_path_max_vol[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
-extern bool buck_shared[APUSYS_BUCK_DOMAIN_NUM]
+extern bool buck_shared[APUSYS_BUCK_NUM]
 				[APUSYS_DVFS_USER_NUM]
 				[APUSYS_PATH_USER_NUM];
 extern struct apusys_dvfs_constraint dvfs_constraint_table
 					[APUSYS_DVFS_CONSTRAINT_NUM];
-extern int vcore_opp_mapping[APUSYS_MAX_NUM_OPPS];
+extern enum DVFS_VOLTAGE vcore_opp_mapping[];
 extern struct apusys_dvfs_steps dvfs_table[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 

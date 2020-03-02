@@ -12,7 +12,6 @@
  */
 
 #include "apusys_power_cust.h"
-#include <helio-dvfsrc-opp.h>
 
 
 //	| VPU0 |		| VPU1 |		| MDLA0 |  --> DVFS_USER
@@ -42,6 +41,11 @@ char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM] = {
 	"V_VCORE",
 };
 
+char *buck_str[APUSYS_BUCK_NUM] = {
+	"VPU_BUCK",
+	"MDLA_BUCK",
+	"VCORE_BUCK",
+};
 
 enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain[APUSYS_DVFS_USER_NUM] = {
 	V_VPU0, V_VPU1, V_VPU2, V_MDLA0, V_MDLA1
@@ -53,11 +57,6 @@ enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM] = {
 };
 
 
-enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM] = {
-	V_VPU0, V_MDLA0, V_VCORE // pointer to any one of shard buck domain
-};
-
-
 enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM] = {
 	VPU0, VPU1, VPU2, MDLA0, MDLA1,
 	APUSYS_DVFS_USER_NUM,
@@ -66,13 +65,9 @@ enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM] = {
 };
 
 
-enum DVFS_BUCK apusys_buck_up_sequence[APUSYS_BUCK_NUM] = {
-	VCORE_BUCK, VPU_BUCK, MDLA_BUCK
-};
-
-
-enum DVFS_BUCK apusys_buck_down_sequence[APUSYS_BUCK_NUM] = {
-	MDLA_BUCK, VPU_BUCK, VCORE_BUCK
+enum DVFS_BUCK apusys_buck_domain_to_buck[APUSYS_BUCK_DOMAIN_NUM] = {
+	VPU_BUCK, VPU_BUCK, VPU_BUCK, MDLA_BUCK, MDLA_BUCK,
+	VPU_BUCK, VPU_BUCK, VCORE_BUCK
 };
 
 
@@ -108,9 +103,9 @@ uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM] = {
 #endif
 
 // relation for dvfs_clk_path,
-bool buck_shared[APUSYS_BUCK_DOMAIN_NUM]
+bool buck_shared[APUSYS_BUCK_NUM]
 			[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM] = {
-	// VPU0
+	// VPU BUCK
 	{{true, true, true, false},
 	{true, true, true, false},
 	{true, true, true, false},
@@ -118,52 +113,12 @@ bool buck_shared[APUSYS_BUCK_DOMAIN_NUM]
 	{false, true, true, false},
 	},
 
-	// VPU1
-	{{true, true, true, false},
-	{true, true, true, false},
-	{true, true, true, false},
-	{false, true, true, false},
-	{false, true, true, false},
-	},
-
-	// VPU2
-	{{true, true, true, false},
-	{true, true, true, false},
-	{true, true, true, false},
-	{false, true, true, false},
-	{false, true, true, false},
-	},
-
-	// MDLA0
+	// MDLA BUCK
 	{{false, false, false, false},
 	{false, false, false, false},
 	{false, false, false, false},
 	{true, false, false, false},
 	{true, false, false, false},
-	},
-
-	// MDLA0
-	{{false, false, false, false},
-	{false, false, false, false},
-	{false, false, false, false},
-	{true, false, false, false},
-	{true, false, false, false},
-	},
-
-	// APU_CONN
-	{{true, true, true, false},
-	{true, true, true, false},
-	{true, true, true, false},
-	{false, true, true, false},
-	{false, true, true, false},
-	},
-
-	// APU_TOP_IOMMU
-	{{true, true, true, false},
-	{true, true, true, false},
-	{true, true, true, false},
-	{false, true, true, false},
-	{false, true, true, false},
 	},
 
 	// VCORE
@@ -178,44 +133,17 @@ bool buck_shared[APUSYS_BUCK_DOMAIN_NUM]
 
 struct apusys_dvfs_constraint
 	dvfs_constraint_table[APUSYS_DVFS_CONSTRAINT_NUM] = {
-	{V_VPU0, DVFS_VOLT_00_575000_V, V_MDLA0, DVFS_VOLT_00_825000_V},
-	{V_VPU0, DVFS_VOLT_00_575000_V, V_MDLA1, DVFS_VOLT_00_825000_V},
-	{V_VPU1, DVFS_VOLT_00_575000_V, V_MDLA0, DVFS_VOLT_00_825000_V},
-	{V_VPU1, DVFS_VOLT_00_575000_V, V_MDLA1, DVFS_VOLT_00_825000_V},
-	{V_VPU2, DVFS_VOLT_00_575000_V, V_MDLA0, DVFS_VOLT_00_825000_V},
-	{V_VPU2, DVFS_VOLT_00_575000_V, V_MDLA1, DVFS_VOLT_00_825000_V},
-
-	{V_VCORE, DVFS_VOLT_00_575000_V, V_VPU0, DVFS_VOLT_00_800000_V},
-	{V_VCORE, DVFS_VOLT_00_575000_V, V_VPU1, DVFS_VOLT_00_800000_V},
-	{V_VCORE, DVFS_VOLT_00_575000_V, V_VPU2, DVFS_VOLT_00_800000_V},
-
-	{V_MDLA0, DVFS_VOLT_00_575000_V, V_VPU0, DVFS_VOLT_00_800000_V},
-	{V_MDLA0, DVFS_VOLT_00_575000_V, V_VPU1, DVFS_VOLT_00_800000_V},
-	{V_MDLA0, DVFS_VOLT_00_575000_V, V_VPU2, DVFS_VOLT_00_800000_V},
-	{V_MDLA1, DVFS_VOLT_00_575000_V, V_VPU0, DVFS_VOLT_00_800000_V},
-	{V_MDLA1, DVFS_VOLT_00_575000_V, V_VPU1, DVFS_VOLT_00_800000_V},
-	{V_MDLA1, DVFS_VOLT_00_575000_V, V_VPU2, DVFS_VOLT_00_800000_V},
+	{VPU_BUCK, DVFS_VOLT_00_575000_V, MDLA_BUCK, DVFS_VOLT_00_825000_V},
+	{MDLA_BUCK, DVFS_VOLT_00_575000_V, VPU_BUCK, DVFS_VOLT_00_800000_V},
+	{VCORE_BUCK, DVFS_VOLT_00_575000_V, VPU_BUCK, DVFS_VOLT_00_800000_V},
 };
 
 
-int vcore_opp_mapping[APUSYS_MAX_NUM_OPPS] = {
-	VCORE_OPP_0, // opp 0
-	VCORE_OPP_0, // opp 1
-	VCORE_OPP_0, // opp 2
-	VCORE_OPP_0, // opp 3
-	VCORE_OPP_0, // opp 4
-	VCORE_OPP_0, // opp 5
-	VCORE_OPP_0, // opp 6
-	VCORE_OPP_1, // opp 7
-	VCORE_OPP_1, // opp 8
-	VCORE_OPP_1, // opp 9
-	VCORE_OPP_1, // opp 10
-	VCORE_OPP_2, // opp 11
-	VCORE_OPP_2, // opp 12
-	VCORE_OPP_2, // opp 13
-	VCORE_OPP_2, // opp 14
-	VCORE_OPP_2, // opp 15
-	VCORE_OPP_2, // opp 16
+enum DVFS_VOLTAGE vcore_opp_mapping[] = {
+	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
+	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
+	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
+	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
 
 struct apusys_dvfs_steps
