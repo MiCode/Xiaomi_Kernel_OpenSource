@@ -41,8 +41,6 @@
 #define SECMEM_2DFR_DEVICE_NAME "SECMEM_2DFR"
 
 static struct trusted_mem_configs fr_smem_configs = {
-	.mock_peer_enable = false,
-	.mock_ssmr_enable = false,
 	.session_keep_alive_enable = false,
 	.minimal_chunk_size = SIZE_64K,
 	.phys_mem_shift_bits = 6,

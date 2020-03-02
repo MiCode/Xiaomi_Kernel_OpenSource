@@ -54,13 +54,6 @@ static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 		return true;
 #endif
 
-	if (unlikely(mem_device->configs.mock_peer_enable)
-	    && unlikely(INVALID(mem_device->mock_peer_ops)))
-		return true;
-	if (unlikely(mem_device->configs.mock_ssmr_enable)
-	    && unlikely(INVALID(mem_device->mock_ssmr_ops)))
-		return true;
-
 	if (unlikely(INVALID(mem_device->peer_ops)))
 		return true;
 	if (unlikely(INVALID(mem_device->ssmr_ops)))
