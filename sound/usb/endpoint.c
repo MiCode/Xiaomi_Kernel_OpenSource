@@ -482,7 +482,7 @@ struct snd_usb_endpoint *snd_usb_add_endpoint(struct snd_usb_audio *chip,
 		}
 	}
 
-	usb_audio_dbg(chip, "Creating new %s %s endpoint #%x\n",
+	usb_audio_info(chip, "Creating new %s %s endpoint #%x\n",
 		    is_playback ? "playback" : "capture",
 		    type == SND_USB_ENDPOINT_TYPE_DATA ? "data" : "sync",
 		    ep_num);
@@ -752,9 +752,6 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 			snd_usb_endpoint_implicit_feedback_sink(ep)) {
 
 		urb_packs = packs_per_ms;
-
-		pr_info("UL: packs_per_ms, packs_per_ms =%d\n",
-			   packs_per_ms);
 		/*
 		 * Wireless devices can poll at a max rate of once per 4ms.
 		 * For dataintervals less than 5, increase the packet count to
@@ -774,8 +771,12 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 			urb_packs >>= 1;
 		ep->nurbs = MAX_URBS;
 
-		pr_info("UL: max_packs_per_urb=%d, urb_packs =%d, nurbs=%d\n",
-			   max_packs_per_urb, urb_packs, ep->nurbs);
+		usb_audio_info(ep->chip,
+			"in: frames_per_period=%d, packs_per_ms=%d\n",
+			frames_per_period, packs_per_ms);
+		usb_audio_info(ep->chip,
+			"in: nurbs=%d, urb_packs=%d, periods_per_buffer=%d\n",
+			ep->nurbs, urb_packs, periods_per_buffer);
 
 	/*
 	 * Playback endpoints without implicit sync are adjusted so that
@@ -784,9 +785,6 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 	 * ALSA buffer, subject to the MAX_URBS and MAX_QUEUE limits.
 	 */
 	} else {
-
-		pr_info("freqn=%d, datainterval=%d frame_bits=%d\n",
-			   ep->freqn, ep->datainterval, frame_bits);
 		/* determine how small a packet can be */
 		minsize = (ep->freqn >> (16 - ep->datainterval)) *
 				(frame_bits >> 3);
@@ -808,28 +806,30 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 		/* how many URBs will contain a period? */
 		urbs_per_period = DIV_ROUND_UP(max_packs_per_period,
 				max_packs_per_urb);
-		pr_info("max_packs_per_period=%d, max_packs_per_urb=%d\n",
-			   max_packs_per_period, max_packs_per_urb);
-
 		/* how many packets are needed in each URB? */
 		urb_packs = DIV_ROUND_UP(max_packs_per_period, urbs_per_period);
 
 		/* limit the number of frames in a single URB */
 		ep->max_urb_frames = DIV_ROUND_UP(frames_per_period,
 					urbs_per_period);
-		pr_info("frames_per_period=%d, urbs_per_period=%d\n",
-				frames_per_period, urbs_per_period);
+
 		/* try to use enough URBs to contain an entire ALSA buffer */
 		max_urbs = min((unsigned) MAX_URBS,
 				max_queue * packs_per_ms / urb_packs);
 
-		pr_info("packs_per_ms=%d, urb_packs=%d\n", packs_per_ms,
-			urb_packs);
 		ep->nurbs = min(max_urbs, urbs_per_period * periods_per_buffer);
 		if (ep->nurbs < 2)
 			ep->nurbs++;
-		pr_info("nurbs=%d, urbs_per_period=%d, periods_per_buffer=%d\n",
-			   ep->nurbs, urbs_per_period, periods_per_buffer);
+
+		usb_audio_info(ep->chip,
+			"interval=%d, frames_per_period=%d, urbs_per_period=%d\n",
+			ep->datainterval, frames_per_period, urbs_per_period);
+		usb_audio_info(ep->chip,
+			"max_packs_per_period=%d, max_packs_per_urb=%d\n",
+			max_packs_per_period, max_packs_per_urb);
+		usb_audio_info(ep->chip,
+			"nurbs=%d, urbs_per_period=%d, periods_per_buffer=%d\n",
+			ep->nurbs, urbs_per_period, periods_per_buffer);
 	}
 
 	/* allocate and initialize data urbs */
@@ -1083,6 +1083,11 @@ int snd_usb_endpoint_start(struct snd_usb_endpoint *ep)
 		set_bit(i, &ep->active_mask);
 	}
 
+	usb_audio_info(ep->chip, "start %s %s endpoint #%x\n",
+		    usb_pipeout(ep->pipe) ? "out" : "in",
+		    ep->type == SND_USB_ENDPOINT_TYPE_DATA ? "data" : "sync",
+		    ep->ep_num);
+
 	return 0;
 
 __error:
@@ -1117,6 +1122,11 @@ void snd_usb_endpoint_stop(struct snd_usb_endpoint *ep)
 	if (--ep->use_count == 0) {
 		deactivate_urbs(ep, false);
 		set_bit(EP_FLAG_STOPPING, &ep->flags);
+
+		usb_audio_info(ep->chip, "stop %s %s endpoint #%x\n",
+		    usb_pipeout(ep->pipe) ? "out" : "in",
+		    ep->type == SND_USB_ENDPOINT_TYPE_DATA ? "data" : "sync",
+		    ep->ep_num);
 	}
 }
 
