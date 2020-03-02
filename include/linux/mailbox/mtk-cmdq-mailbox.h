@@ -124,6 +124,7 @@ struct cmdq_pkt {
 	void			*priv;
 	struct device		*dev;
 	bool			loop;
+	void			*buf_pool;
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	void			*sec_data;
