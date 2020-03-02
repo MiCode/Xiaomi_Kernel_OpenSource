@@ -1139,7 +1139,10 @@ void MT_trace_hardirqs_on(void)
 			MT_trace_irq_on();
 			t_on = sched_clock();
 			t_off = __raw_get_cpu_var(t_irq_off);
-			t_dur = t_on - t_off;
+			if (t_on > t_off)
+				t_dur = t_on - t_off;
+			else
+				t_dur = 0;
 
 			__raw_get_cpu_var(t_irq_on) = t_on;
 			if (t_dur > WARN_IRQ_DISABLE_DUR) {
