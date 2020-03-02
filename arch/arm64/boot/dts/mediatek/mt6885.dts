@@ -1017,6 +1017,10 @@ page_owner=on";
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
+		clock-names = "gce", "gce-timer";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
+			<&infracfg_ao INFRACFG_AO_GCE_26M>;
+
 	};
 
 	infra_dpmaif@1022c000 {
@@ -1453,6 +1457,9 @@ page_owner=on";
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
+		clock-names = "gce", "gce-timer";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE2_CG>,
+			<&infracfg_ao INFRACFG_AO_GCE_26M>;
 	};
 
 	gce@10318000 {
@@ -1698,6 +1705,9 @@ page_owner=on";
 		mdp_tcc1   = <&mdp_tcc1>;
 		mdp_tcc2   = <&mdp_tcc2>;
 		mdp_tcc3   = <&mdp_tcc3>;
+		clock-names = "GCE", "GCE_TIMER";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE2_CG>,
+			<&infracfg_ao INFRACFG_AO_GCE_26M>;
 	};
 
 	scp: scp@10700000 {
