@@ -700,8 +700,25 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 18:
+	{
+		int i, j;
+
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
+			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
+				mau_start_monitor(i, j, 0, 0, 1, 0, 0,
+					0x1000, 0xffffffff,
+					0xffffffff, 0xffffffff);
+		}
+	}
 	break;
 	case 19:
+	{
+		int i, j;
+
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
+				mau_stop_monitor(i, j, 0);
+	}
 	break;
 	case 20:
 	{
@@ -798,11 +815,17 @@ static int m4u_debug_set(void *data, u64 val)
 	case 28:
 	{
 		m4u_test_fake_engine();
-		break;
 	}
+	break;
 	case 29:
+	{
+		mtk_iommu_switch_tf_test(true, __func__);
+	}
 	break;
 	case 30:
+	{
+		mtk_iommu_switch_tf_test(false, __func__);
+	}
 	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
@@ -932,6 +955,10 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 	M4U_PRINT_SEQ(s,
 		      "echo 17 > /d/m4u/debug:	dump prefetch TLB\n");
 	M4U_PRINT_SEQ(s,
+		      "echo 18 > /d/m4u/debug:	start MAU monitor of 4KB~4GB\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 19 > /d/m4u/debug:	stop MAU monitor of 4KB~4GB\n");
+	M4U_PRINT_SEQ(s,
 		      "echo 20 > /d/m4u/debug:	config all ports of IOVA path\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 21 > /d/m4u/debug:	config all ports of PA path\n");
@@ -947,6 +974,10 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 27 > /d/m4u/debug:	dump the debug registers of SMI bus hang\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 28 > /d/m4u/debug:	test display fake engine read/write\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 29 > /d/m4u/debug:	enable translation fault debug\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 30 > /d/m4u/debug:	disable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,

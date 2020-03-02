@@ -420,7 +420,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 			return 0;
 		}
 
-		if (size >= (dma_limit -
+		if (size > (dma_limit -
 			domain->geometry.aperture_start + 1)) {
 			dev_notice(dev, "size:0x%lx, is out of dma limit(0x%lx~0x%lx)",
 				   size, domain->geometry.aperture_start,

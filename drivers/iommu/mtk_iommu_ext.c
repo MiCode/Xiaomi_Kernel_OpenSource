@@ -554,7 +554,7 @@ int m4u_user2kernel_port(int userport)
 
 	larb_id = iommu_port[userport].larb_id;
 	port = iommu_port[userport].larb_port;
-	pr_notice("transfer larb_id=%d, port=%d(%d)\n",
+	pr_debug("transfer larb_id=%d, port=%d(%d)\n",
 		larb_id, port, userport);
 	return MTK_M4U_ID(larb_id, port);
 #endif

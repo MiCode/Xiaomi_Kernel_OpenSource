@@ -757,6 +757,35 @@
 		clock-names = "vpu1-ck";
 		#iommu-cells = <1>;
 	};
+
+	iommu0_sec: m4u@1411e000 {
+		cell-index = <0>;
+		compatible = "mediatek,sec_m4u0";
+		reg = <0 0x1411e000 0 0x1000>;
+		interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	iommu1_sec: m4u@1f02b000 {
+		cell-index = <0>;
+		compatible = "mediatek,sec_m4u1";
+		reg = <0 0x1f02b000 0 0x1000>;
+		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	iommu2_sec: m4u@19014000 {
+		cell-index = <0>;
+		compatible = "mediatek,sec_m4u2";
+		reg = <0 0x19014000 0 0x1000>;
+		interrupts = <GIC_SPI 397 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	iommu3_sec: m4u@19019000 {
+		cell-index = <0>;
+		compatible = "mediatek,sec_m4u3";
+		reg = <0 0x19019000 0 0x1000>;
+		interrupts = <GIC_SPI 402 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 #endif
 	devapc@10207000 {
 		compatible = "mediatek,devapc";

@@ -69,6 +69,7 @@ struct pseudo_device pseudo_dev_larb_fake[] = {
 unsigned int pseudo_acp_port_array[] = {
 	M4U_PORT_L21_APU_FAKE_CODE,
 	M4U_PORT_L21_APU_FAKE_DATA,
+	M4U_PORT_L21_APU_FAKE_VLM,
 };
 
 static char *pseudo_larbname[] = {
