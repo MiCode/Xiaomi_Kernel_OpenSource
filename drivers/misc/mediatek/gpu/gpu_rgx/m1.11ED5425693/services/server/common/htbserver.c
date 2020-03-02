@@ -791,6 +791,9 @@ HTBLogKM(
 	IMG_UINT32 * pui32Message = aui32MessageBuffer;
 	IMG_UINT32 ui32MessageSize = 4 * (HTB_LOG_HEADER_SIZE+ui32NumArgs);
 
+	PVR_LOGR_IF_FALSE(ui32NumArgs == HTB_SF_PARAMNUM(SF), "ui32NumArgs invalid", PVRSRV_ERROR_INVALID_PARAMS);
+	PVR_LOGR_IF_FALSE(!(ui32NumArgs != 0 && aui32Args == NULL), "aui32Args invalid", PVRSRV_ERROR_INVALID_PARAMS);
+
 	if ( g_hTLStream
 			&& ( 0 == PID || ~0 == PID || HTB_LOGMODE_ALLPID == g_sCtrl.eLogMode || _ValidPID(PID) )
 /*			&& ( g_sCtrl.ui32GroupEnable & (0x1 << HTB_SF_GID(SF)) ) */
