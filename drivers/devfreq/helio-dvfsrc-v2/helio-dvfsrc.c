@@ -218,14 +218,6 @@ int get_sw_req_vcore_opp(void)
 		sw_req = (dvfsrc_read(DVFSRC_SW_REQ) >> VCORE_SW_AP_SHIFT);
 		sw_req = sw_req & VCORE_SW_AP_MASK;
 		sw_req = VCORE_OPP_NUM - sw_req - 1;
-		/* 2nd read current level to get current vcore opp */
-		opp = get_cur_vcore_opp();
-		if (opp > sw_req) {
-			/* should not happen */
-			dvfsrc_dump_reg(NULL);
-			aee_kernel_warning("DVFSRC",
-						"%s: failed.", __func__);
-		}
 		return sw_req;  /* return sw_request, as vcore floor level*/
 	}
 	opp = get_cur_vcore_opp();
