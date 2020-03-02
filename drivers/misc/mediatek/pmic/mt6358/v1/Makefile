@@ -24,12 +24,12 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6358)	+= pmic.o pmic_common.o \
 		pmic_initial_setting.o \
 		pmic_api.o \
 		pmic_auxadc.o \
-		pmic_throttling_dlpt.o \
 		regulator_codegen.o \
 		pmic_lp_api.o \
 		pmic_efuse.o \
 
 		#TODO
+		#pmic_throttling_dlpt.o \
 		#pmic_bif.o \
 
 #TODO
