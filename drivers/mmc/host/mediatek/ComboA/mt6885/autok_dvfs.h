@@ -14,7 +14,7 @@
 #ifndef _AUTOK_DVFS_H_
 #define _AUTOK_DVFS_H_
 
-#define VCOREFS_READY
+//#define VCOREFS_READY
 
 #include "autok.h"
 
