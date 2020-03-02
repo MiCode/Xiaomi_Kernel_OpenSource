@@ -1,0 +1,14 @@
+config MTK_IRRX
+	bool "support MTK irrx"
+	depends on MEDIA_SUPPORT && LIRC
+	help
+		If the platform is supported for IRRX,
+		this configuration should be configured,
+		and the IRRX driver configuration should
+		be configured as well.
+
+source "drivers/misc/mediatek/irrx/nec/Kconfig"
+source "drivers/misc/mediatek/irrx/rc5/Kconfig"
+source "drivers/misc/mediatek/irrx/rc6/Kconfig"
+source "drivers/misc/mediatek/irrx/sirc/Kconfig"
+source "drivers/misc/mediatek/irrx/rcmm/Kconfig"
