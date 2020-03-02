@@ -87,6 +87,8 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define REGFLAG_RESET_LOW		0xFFFE
 #define REGFLAG_RESET_HIGH		0xFFFF
 
+#define LCM_ID_HX83112B 0x83
+
 #ifndef TRUE
 #define TRUE 1
 #endif
@@ -604,6 +606,34 @@ static void lcm_update(unsigned int x, unsigned int y, unsigned int width,
 	dsi_set_cmdq(data_array, 1, 0);
 }
 
+static unsigned int lcm_compare_id(void)
+{
+	unsigned int id = 0;
+	unsigned char buffer[1];
+	unsigned int array[16];
+
+	SET_RESET_PIN(1);
+	SET_RESET_PIN(0);
+	MDELAY(1);
+
+	SET_RESET_PIN(1);
+	MDELAY(20);
+
+	array[0] = 0x00013700;  /* read id return 1byte */
+	dsi_set_cmdq(array, 1, 1);
+
+	read_reg_v2(0xDA, buffer, 1);
+	id = buffer[0];     /* we only need ID */
+
+	LCM_LOGI("%s,hx83112b id = 0x%08x\n", __func__, id);
+
+	if (id == LCM_ID_HX83112B)
+		return 1;
+	else
+		return 0;
+
+}
+
 struct LCM_DRIVER hx83112b_fhdp_dsi_vdo_auo_rt5081_hdp_lcm_drv = {
 	.name = "hx83112b_fhdp_dsi_vdo_auo_rt5081_hdp_drv",
 	.set_util_funcs = lcm_set_util_funcs,
@@ -614,6 +644,7 @@ struct LCM_DRIVER hx83112b_fhdp_dsi_vdo_auo_rt5081_hdp_lcm_drv = {
 	.init_power = lcm_init_power,
 	.resume_power = lcm_resume_power,
 	.suspend_power = lcm_suspend_power,
+	.compare_id = lcm_compare_id,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
 	.ata_check = lcm_ata_check,
 	.update = lcm_update,
