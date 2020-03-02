@@ -531,8 +531,7 @@ static void trusty_init_version(struct trusty_state *s, struct device *dev)
 	int ret;
 	int i;
 	int version_str_len;
-	u32 smcnr_version = (is_trusty_tee(s->tee_id)) ?
-	    SMC_FC_GET_VERSION_STR : SMC_FC_GET_VERSION_STR;
+	u32 smcnr_version = SMC_FC_GET_VERSION_STR;
 
 	ret = trusty_fast_call32(dev, smcnr_version, -1, 0, 0);
 	if (ret <= 0)
@@ -541,6 +540,10 @@ static void trusty_init_version(struct trusty_state *s, struct device *dev)
 	version_str_len = ret;
 
 	s->version_str = kmalloc(version_str_len + 1, GFP_KERNEL);
+
+	if (!s->version_str)
+		goto err_nomem;
+
 	for (i = 0; i < version_str_len; i++) {
 		ret = trusty_fast_call32(dev, smcnr_version, i, 0, 0);
 		if (ret < 0)
@@ -561,6 +564,7 @@ err_create_file:
 err_get_char:
 	kfree(s->version_str);
 	s->version_str = NULL;
+err_nomem:
 err_get_size:
 	trusty_info(dev, "failed to get version: %d\n", ret);
 }
@@ -576,8 +580,7 @@ EXPORT_SYMBOL(trusty_get_api_version);
 static int trusty_init_api_version(struct trusty_state *s, struct device *dev)
 {
 	u32 api_version;
-	u32 smcnr_api_version = (is_trusty_tee(s->tee_id)) ?
-	    SMC_FC_API_VERSION : SMC_FC_API_VERSION;
+	u32 smcnr_api_version = SMC_FC_API_VERSION;
 
 	api_version = trusty_fast_call32(dev, smcnr_api_version,
 					 TRUSTY_API_VERSION_CURRENT, 0, 0);
@@ -836,18 +839,19 @@ static int trusty_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	/* For multiple TEEs */
+	ret = of_property_read_u32(node, "tee_id", &tee_id);
+	if (ret != 0 && !is_tee_id(tee_id)) {
+		dev_info(&pdev->dev,
+			 "[%s] ERROR: tee_id is not set on device tree\n",
+			 __func__);
+		return -EINVAL;
+	}
+
 	s = kzalloc(sizeof(*s), GFP_KERNEL);
 	if (!s) {
 		ret = -ENOMEM;
 		goto err_allocate_state;
-	}
-
-	/* For multiple TEEs */
-	ret = of_property_read_u32(node, "tee_id", &tee_id);
-	if (ret != 0 && !is_tee_id(tee_id)) {
-		trusty_info(&pdev->dev,
-		   "tee_id is not properly set on device tree,please fix it\n");
-		return -EINVAL;
 	}
 
 	pdev->id = tee_id;
