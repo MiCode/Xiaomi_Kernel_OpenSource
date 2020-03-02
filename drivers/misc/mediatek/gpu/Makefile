@@ -24,3 +24,7 @@ else ifneq ($(word 1,$(MTK_GPU_VERSION)),)
 else
     obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
+    obj-y += gpu_bm/
+endif
