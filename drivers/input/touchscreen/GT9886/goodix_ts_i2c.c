@@ -1969,7 +1969,7 @@ static int goodix_hw_resume(struct goodix_ts_device *dev)
 {
 	int r = 0;
 	int i, retry = GOODIX_BUS_RETRY_TIMES;
-	u8 temp_buf[256], checksum;
+	u8 temp_buf[256] = {0}, checksum;
 	u8 data[2] = {0x00};
 
 	for (; retry > 0; retry--) {
