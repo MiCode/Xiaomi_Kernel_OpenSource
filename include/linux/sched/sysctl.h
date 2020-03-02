@@ -35,6 +35,8 @@ extern unsigned int sysctl_sched_walt_cpu_high_irqload;
 extern unsigned int sysctl_sched_isolation_hint_enable;
 #endif
 
+extern unsigned int sysctl_sched_rotation_enable;
+
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,
 	SCHED_TUNABLESCALING_LOG,

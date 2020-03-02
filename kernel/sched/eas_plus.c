@@ -1520,3 +1520,149 @@ task_match_on_dst_cpu(struct task_struct *p, int src_cpu, int target_cpu)
 	return 1;
 }
 
+struct task_rotate_work {
+	struct work_struct w;
+	struct task_struct *src_task;
+	struct task_struct *dst_task;
+	int src_cpu;
+	int dst_cpu;
+};
+
+static DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
+unsigned int sysctl_sched_rotation_enable;
+
+void set_sched_rotation_enable(bool enable)
+{
+	sysctl_sched_rotation_enable = enable;
+}
+
+static void task_rotate_work_func(struct work_struct *work)
+{
+	struct task_rotate_work *wr = container_of(work,
+				struct task_rotate_work, w);
+
+	migrate_swap(wr->src_task, wr->dst_task);
+
+	put_task_struct(wr->src_task);
+	put_task_struct(wr->dst_task);
+
+	clear_reserved(wr->src_cpu);
+	clear_reserved(wr->dst_cpu);
+}
+
+void task_rotate_work_init(void)
+{
+	int i;
+
+	for_each_possible_cpu(i) {
+		struct task_rotate_work *wr = &per_cpu(task_rotate_works, i);
+
+		INIT_WORK(&wr->w, task_rotate_work_func);
+	}
+}
+
+void task_check_for_rotation(struct rq *src_rq)
+{
+	u64 wc, wait, max_wait = 0, run, max_run = 0;
+	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
+	int i, src_cpu = cpu_of(src_rq);
+	struct rq *dst_rq;
+	struct task_rotate_work *wr = NULL;
+	int heavy_task = 0;
+
+	if (!sysctl_sched_rotation_enable)
+		return;
+
+	if (is_max_capacity_cpu(src_cpu))
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+		struct task_struct *curr_task = rq->curr;
+
+		if (curr_task &&
+			!task_fits_capacity(curr_task, capacity_of(i)))
+			heavy_task += 1;
+	}
+
+	if (heavy_task < HEAVY_TASK_NUM)
+		return;
+
+	wc = ktime_get_ns();
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (is_max_capacity_cpu(i))
+			break;
+
+		if (is_reserved(i))
+			continue;
+
+		if (!rq->misfit_task_load || rq->curr->sched_class !=
+						&fair_sched_class)
+			continue;
+
+		wait = wc - rq->curr->last_enqueued_ts;
+		if (wait > max_wait) {
+			max_wait = wait;
+			deserved_cpu = i;
+		}
+	}
+
+	if (deserved_cpu != src_cpu)
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (!is_max_capacity_cpu(i))
+			continue;
+
+		if (is_reserved(i))
+			continue;
+
+		if (rq->curr->sched_class != &fair_sched_class)
+			continue;
+
+		if (rq->nr_running > 1)
+			continue;
+
+		run = wc - rq->curr->last_enqueued_ts;
+
+		if (run < TASK_ROTATION_THRESHOLD_NS)
+			continue;
+
+		if (run > max_run) {
+			max_run = run;
+			dst_cpu = i;
+		}
+	}
+
+	if (dst_cpu == nr_cpu_ids)
+		return;
+
+	dst_rq = cpu_rq(dst_cpu);
+
+	double_rq_lock(src_rq, dst_rq);
+	if (dst_rq->curr->sched_class == &fair_sched_class) {
+		get_task_struct(src_rq->curr);
+		get_task_struct(dst_rq->curr);
+
+		mark_reserved(src_cpu);
+		mark_reserved(dst_cpu);
+		wr = &per_cpu(task_rotate_works, src_cpu);
+
+		wr->src_task = src_rq->curr;
+		wr->dst_task = dst_rq->curr;
+
+		wr->src_cpu = src_cpu;
+		wr->dst_cpu = dst_cpu;
+	}
+	double_rq_unlock(src_rq, dst_rq);
+
+	if (wr) {
+		queue_work_on(src_cpu, system_highpri_wq, &wr->w);
+		trace_sched_big_task_rotation(src_cpu, dst_cpu,
+					src_rq->curr->pid, dst_rq->curr->pid);
+	}
+}

@@ -1606,6 +1606,9 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 
 	uclamp_cpu_get(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
+
+	/* update last_enqueued_ts for big task rotation */
+	p->last_enqueued_ts = ktime_get_ns();
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -3388,6 +3391,7 @@ void wake_up_new_task(struct task_struct *p)
 	update_rq_clock(rq);
 	post_init_entity_util_avg(&p->se);
 
+	p->last_enqueued_ts = ktime_get_ns();
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
 	walt_mark_task_starting(p);
 
@@ -3980,6 +3984,8 @@ void scheduler_tick(void)
 #ifdef CONFIG_MTK_SCHED_SYSHINT
 	sched_hint_check(sched_ktime_clock());
 #endif
+	if (curr->sched_class == &fair_sched_class)
+		check_for_rotation(rq, curr);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
@@ -6903,6 +6909,7 @@ void __init sched_init(void)
 #endif /* CONFIG_SMP */
 		init_rq_hrtick(rq);
 		atomic_set(&rq->nr_iowait, 0);
+		rq->rotate_flags = 0;
 	}
 
 	set_load_weight(&init_task);
@@ -6939,6 +6946,8 @@ void __init sched_init(void)
 	init_sched_energy_costs();
 
 	scheduler_running = 1;
+
+	task_rotate_work_init();
 }
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
