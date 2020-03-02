@@ -134,7 +134,7 @@ static ssize_t vibr_activate_show(struct device *dev,
 static ssize_t vibr_activate_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
-	unsigned int activate, dur;
+	unsigned int activate = 0, dur = 0;
 	ssize_t ret;
 
 	ret = kstrtouint(buf, 10, &activate);
