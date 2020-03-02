@@ -367,8 +367,8 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	struct ion_buffer *buffer;
 	int ion_need_unmap_flag = 0;
 	int ret = 0;
-	unsigned long kernel_va;
-	unsigned int kernel_size;
+	unsigned long kernel_va = 0;
+	unsigned int kernel_size = 0;
 
 	/* Get kernel handle
 	 * For cache sync all cases, some users

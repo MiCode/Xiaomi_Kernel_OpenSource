@@ -41,7 +41,7 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
 	struct m4u_client_t *client;
 	unsigned long va = 0;
-	unsigned int mva;
+	unsigned int mva = 0;
 	int ret;
 	unsigned long populate;
 
@@ -113,7 +113,7 @@ int m4u_test_reclaim(unsigned int size)
 	struct m4u_client_t *client;
 	unsigned int *va[10];
 	unsigned int buf_size;
-	unsigned int mva;
+	unsigned int mva = 0;
 	int ret, i;
 
 	/* register callback */
@@ -163,9 +163,9 @@ static int m4u_test_map_kernel(void)
 	struct m4u_client_t *client;
 	unsigned long va;
 	unsigned int size = 1024 * 1024;
-	unsigned int mva;
-	unsigned long kernel_va;
-	unsigned int kernel_size;
+	unsigned int mva = 0;
+	unsigned long kernel_va = 0;
+	unsigned int kernel_size = 0;
 	int i;
 	int ret;
 	unsigned long populate;
@@ -222,7 +222,8 @@ static int m4u_test_map_kernel(void)
 int m4u_test_ddp(unsigned int prot)
 {
 	unsigned int *pSrc, *pDst;
-	unsigned int src_pa, dst_pa;
+	unsigned int src_pa = 0;
+	unsigned int dst_pa = 0;
 	unsigned int size = 64 * 64 * 3;
 	struct M4U_PORT_STRUCT port;
 	struct m4u_client_t *client = m4u_create_client();
@@ -282,7 +283,8 @@ enum m4u_callback_ret_t test_fault_callback(
 int m4u_test_tf(unsigned int prot)
 {
 	unsigned int *pSrc, *pDst;
-	unsigned int src_pa, dst_pa;
+	unsigned int src_pa = 0;
+	unsigned int dst_pa = 0;
 	unsigned int size = 64 * 64 * 3;
 	struct M4U_PORT_STRUCT port;
 	struct m4u_client_t *client = m4u_create_client();
@@ -662,7 +664,7 @@ static int m4u_debug_set(void *data, u64 val)
 	case 24:
 	{
 		unsigned int *pSrc;
-		unsigned int mva;
+		unsigned int mva = 0;
 		unsigned long pa;
 		struct m4u_client_t *client = m4u_create_client();
 
