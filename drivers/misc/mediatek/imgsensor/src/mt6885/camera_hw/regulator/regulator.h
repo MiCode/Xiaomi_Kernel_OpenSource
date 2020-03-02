@@ -49,6 +49,9 @@ enum REGULATOR_TYPE {
 	REGULATOR_TYPE_SUB2_VCAMA,
 	REGULATOR_TYPE_SUB2_VCAMD,
 	REGULATOR_TYPE_SUB2_VCAMIO,
+	REGULATOR_TYPE_MAIN3_VCAMA,
+	REGULATOR_TYPE_MAIN3_VCAMD,
+	REGULATOR_TYPE_MAIN3_VCAMIO,
 	REGULATOR_TYPE_MAX_NUM
 };
 
@@ -61,8 +64,8 @@ struct REGULATOR {
 	atomic_t          enable_cnt[REGULATOR_TYPE_MAX_NUM];
 };
 
-enum IMGSENSOR_RETURN
-	imgsensor_hw_regulator_open(struct IMGSENSOR_HW_DEVICE **pdevice);
+enum IMGSENSOR_RETURN imgsensor_hw_regulator_open(
+	struct IMGSENSOR_HW_DEVICE **pdevice);
 
 #endif
 

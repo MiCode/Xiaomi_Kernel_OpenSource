@@ -65,6 +65,7 @@ struct imgsensor_mode_struct {
 
 	/*   following for GetDefaultFramerateByScenario()  */
 	kal_uint16 max_framerate;
+	kal_uint32 mipi_pixel_rate;
 
 };
 
@@ -145,7 +146,7 @@ struct imgsensor_info_struct {
 	kal_uint8 ihdr_support;	/* 1, support; 0,not support */
 	kal_uint8 ihdr_le_firstline;	/* 1,le first ; 0, se first */
 	kal_uint8 sensor_mode_num;	/* support sensor mode num */
-
+	kal_uint8 frame_time_delay_frame;
 	kal_uint8 cap_delay_frame;	/* enter capture delay frame num */
 	kal_uint8 pre_delay_frame;	/* enter preview delay frame num */
 	kal_uint8 video_delay_frame;	/* enter video delay frame num */
@@ -167,7 +168,7 @@ struct imgsensor_info_struct {
 
 	kal_uint8 isp_driving_current;	/* mclk driving current */
 	kal_uint8 sensor_interface_type;	/* sensor_interface_type */
-
+	kal_uint8 temperature_support;
 	kal_uint8 mipi_sensor_type;
 	/* 0,MIPI_OPHY_NCSI2; 1,MIPI_OPHY_CSI2,
 	 * default is NCSI2, don't modify this para
@@ -184,12 +185,9 @@ struct imgsensor_info_struct {
 
 	kal_uint8 mipi_lane_num;	/* mipi lane num */
 
-	/* record sensor support all write id addr,
-	 * only supprt 4must end with 0xff
-	 */
+/* record sensor support all write id addr, only supprt 4must end with 0xff */
 	kal_uint8 i2c_addr_table[5];
-
-	kal_uint32 i2c_speed;
+	kal_uint32 i2c_speed;	/* i2c speed */
 };
 
 /* SENSOR READ/WRITE ID */
@@ -203,10 +201,10 @@ extern int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
 
 extern int iWriteRegI2C(u8 *a_pSendData, u16 a_sizeSendData, u16 i2cId);
 
-extern void read_imx398_SPC(BYTE *data);
+/*extern void read_imx398_SPC(BYTE *data);*/
 extern void read_imx398_DCC(kal_uint16 addr, BYTE *data, kal_uint32 size);
-extern int iBurstWriteReg_multi(u8 *pData, u32 bytes, u16 i2cId,
-	u16 transfer_length, u16 timing);
+extern int iBurstWriteReg_multi(
+	u8 *pData, u32 bytes, u16 i2cId, u16 transfer_length, u16 timing);
 
 /* extern void read_imx398_eeprom( void); */
 
