@@ -485,18 +485,19 @@
 
 	pio: pinctrl@1000b000 {
 		compatible = "mediatek,pinctrl";
-		reg = <0 0x1000b000 0 0x1000>;
-		mediatek,pctl-regmap = <&gpio>,
-				       <&iocfg_0>,
-				       <&iocfg_1>,
-				       <&iocfg_2>,
-				       <&iocfg_3>,
-				       <&iocfg_4>,
-				       <&iocfg_5>,
-				       <&iocfg_6>,
-				       <&iocfg_7>;
+		reg_bases = <&gpio>,
+			<&iocfg_0>,
+			<&iocfg_1>,
+			<&iocfg_2>,
+			<&iocfg_3>,
+			<&iocfg_4>,
+			<&iocfg_5>,
+			<&iocfg_6>,
+			<&iocfg_7>;
+		eint_base = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
+		gpio-ranges = <&pio 0 0 191>;
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
@@ -758,7 +759,7 @@
 		interrupts = <GIC_SPI 195 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	apirq@1000b000 {
+	eint: apirq@1000b000 {
 		compatible = "mediatek,apirq";
 		reg = <0 0x1000b000 0 0x1000>;
 		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
