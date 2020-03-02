@@ -3607,10 +3607,12 @@ int mt_eemg_status(enum eemg_det_id id)
 	struct eemg_det *det = id_to_eemg_det(id);
 
 	FUNC_ENTER(FUNC_LV_API);
-
-	WARN_ON(!det); /*BUG_ON(!det);*/
-	WARN_ON(!det->ops); /*BUG_ON(!det->ops);*/
-	WARN_ON(!det->ops->get_status_gpu); /* BUG_ON(!det->ops->get_status);*/
+	if (det == NULL)
+		return 0;
+	else if (det->ops == NULL)
+		return 0;
+	else if (det->ops->get_status_gpu == NULL)
+		return 0;
 
 	FUNC_EXIT(FUNC_LV_API);
 
