@@ -21,7 +21,6 @@
 #define ENABLE_MBW	0
 #define DECS_ON_SSPM
 /* #define ENABLE_MPU_SLVERR */
-#define MTK_CCCI_READY	0
 #define DBG_INFO_READY	0
 
 /* IRQ from device tree */
