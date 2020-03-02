@@ -13,6 +13,8 @@
 
 #include "blk.h"
 
+#include <linux/hie.h>
+
 static struct bio *blk_bio_discard_split(struct request_queue *q,
 					 struct bio *bio,
 					 struct bio_set *bs,
@@ -736,9 +738,14 @@ static bool crypto_not_mergeable(struct request *req, struct bio *nxt)
 	/* If both using page index as iv */
 	if (bio->bi_crypt_ctx.bc_flags & nxt->bi_crypt_ctx.bc_flags &
 		BC_IV_PAGE_IDX) {
-		/* must be the same file on the same mount */
-		if ((bio_bc_sb(bio) != bio_bc_sb(nxt)) ||
-			(bio_bc_ino(bio) != bio_bc_ino(nxt)))
+		/*
+		 * Must be the same file on the same mount.
+		 *
+		 * If the same, keys shall be the same as well since
+		 * keys are bound to inodes.
+		 */
+		if ((bio_bc_inode(bio) != bio_bc_inode(nxt)) ||
+		    (bio_bc_sb(bio) != bio_bc_sb(nxt)))
 			return true;
 		/*
 		 * Page index must be contiguous.
@@ -753,15 +760,30 @@ static bool crypto_not_mergeable(struct request *req, struct bio *nxt)
 		    (crypto_try_merge(req, nxt, ELEVATOR_FRONT_MERGE) ==
 		     ELEVATOR_NO_MERGE))
 			return true;
+	} else {
+		/*
+		 * Not using page index as iv: allow merge bios belong to
+		 * different inodes if their keys are exactly the same.
+		 *
+		 * Above case could happen in hw-crypto path because
+		 * key is not derived for different inodes.
+		 *
+		 * Checking keys only is sufficient here since iv or
+		 * dun shall be physical sector number which shall be taken
+		 * care by blk_try_merge().
+		 */
+
+		/* Keys shall be the same if inodes are the same */
+		if ((bio_bc_inode(bio) == bio_bc_inode(nxt)) &&
+		    (bio_bc_sb(bio) == bio_bc_sb(nxt)))
+			return false;
+
+		/* Check keys if inodes are different */
+		if (!hie_key_verify(bio, nxt))
+			return true;
 	}
 
-	/* If the key lengths are different or the keys aren't the
-	 * same, don't merge.
-	 */
-	return ((bio->bi_crypt_ctx.bc_key_size !=
-		 nxt->bi_crypt_ctx.bc_key_size) ||
-		(bio->bi_crypt_ctx.bc_keyring_key !=
-		 nxt->bi_crypt_ctx.bc_keyring_key));
+	return false;
 }
 /*
  * For non-mq, this has to be called with the request spinlock acquired.

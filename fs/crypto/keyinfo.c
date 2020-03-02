@@ -217,8 +217,9 @@ static int find_and_derive_key(struct fscrypt_info *crypt_info,
 	}
 	if (IS_ERR(key))
 		return PTR_ERR(key);
-		
-	crypt_info->ci_keyring_key = key_get(key);
+
+	memcpy(crypt_info->ci_raw_key,
+	       payload->raw, sizeof(crypt_info->ci_raw_key));
 
 	if (ctx->flags & FS_POLICY_FLAG_DIRECT_KEY) {
 		if (mode->ivsize < offsetofend(union fscrypt_iv, nonce)) {
@@ -514,8 +515,6 @@ static void put_crypt_info(struct fscrypt_info *ci)
 	if (!ci)
 		return;
 
-	key_put(ci->ci_keyring_key);
-
 	if (ci->ci_master_key) {
 		put_master_key(ci->ci_master_key);
 	} else {
@@ -523,6 +522,53 @@ static void put_crypt_info(struct fscrypt_info *ci)
 		crypto_free_cipher(ci->ci_essiv_tfm);
 	}
 	kmem_cache_free(fscrypt_info_cachep, ci);
+}
+
+static void fscrypt_put_crypt_info(struct fscrypt_info *ci)
+{
+	if (!ci)
+		return;
+
+	if (atomic_dec_and_lock(&ci->ci_count, &ci->ci_lock)) {
+		ci->ci_status |= CI_FREEING;
+		spin_unlock(&ci->ci_lock);
+		put_crypt_info(ci);
+	}
+}
+
+static struct fscrypt_info *fscrypt_get_crypt_info(struct fscrypt_info *ci,
+	bool init)
+{
+	if (init) {
+		spin_lock_init(&ci->ci_lock);
+		atomic_set(&ci->ci_count, 0);
+		ci->ci_status = 0;
+	}
+
+	spin_lock(&ci->ci_lock);
+	if (!(ci->ci_status & CI_FREEING)) {
+		atomic_inc(&ci->ci_count);
+		spin_unlock(&ci->ci_lock);
+	} else {
+		spin_unlock(&ci->ci_lock);
+		ci = NULL;
+	}
+
+	return ci;
+}
+
+void *fscrypt_crypt_info_act(void *ci, int act)
+{
+	struct fscrypt_info *fi;
+
+	fi = (struct fscrypt_info *)ci;
+
+	if (act & BIO_BC_INFO_GET)
+		return fscrypt_get_crypt_info(ci, false);
+	else if (act & BIO_BC_INFO_PUT)
+		fscrypt_put_crypt_info(ci);
+
+	return NULL;
 }
 
 int fscrypt_get_encryption_info(struct inode *inode)
@@ -565,6 +611,7 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	if (!crypt_info)
 		return -ENOMEM;
 
+	fscrypt_get_crypt_info(crypt_info, true);
 	crypt_info->ci_flags = ctx.flags;
 	crypt_info->ci_data_mode =
 		fscrypt_data_crypt_mode(inode, ctx.contents_encryption_mode);
@@ -572,7 +619,6 @@ int fscrypt_get_encryption_info(struct inode *inode)
 	memcpy(crypt_info->ci_master_key_descriptor, ctx.master_key_descriptor,
 	       FS_KEY_DESCRIPTOR_SIZE);
 	memcpy(crypt_info->ci_nonce, ctx.nonce, FS_KEY_DERIVATION_NONCE_SIZE);
-	crypt_info->ci_keyring_key = NULL;
 #ifdef CONFIG_HIE_DEBUG
 	if (hie_debug(HIE_DBG_FS))
 		pr_info("HIE: %s: inode: %p, %ld, res: %d, dmode: %d, fmode: %d\n",
@@ -629,7 +675,7 @@ EXPORT_SYMBOL(fscrypt_get_encryption_info);
 
 void fscrypt_put_encryption_info(struct inode *inode)
 {
-	put_crypt_info(inode->i_crypt_info);
+	fscrypt_put_crypt_info(inode->i_crypt_info);
 	inode->i_crypt_info = NULL;
 }
 EXPORT_SYMBOL(fscrypt_put_encryption_info);

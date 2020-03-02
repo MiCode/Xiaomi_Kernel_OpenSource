@@ -13,17 +13,17 @@
 
 #define DEBUG 1
 
-#include <linux/bio.h>
 #include <linux/module.h>
+#include <linux/blk_types.h>
+#include <linux/fs.h>
+#include <linux/bio.h>
 #include <linux/printk.h>
 #include <linux/key.h>
 #include <linux/key-type.h>
 #include <keys/user-type.h>
 #include <linux/debugfs.h>
 #include <linux/hie.h>
-#include <linux/blk_types.h>
 #include <linux/preempt.h>
-#include <linux/fs.h>
 
 #ifdef CONFIG_MTK_PLATFORM
 //#include <mt-plat/aee.h>
@@ -37,6 +37,9 @@ static DEFINE_SPINLOCK(hie_dev_list_lock);
 static LIST_HEAD(hie_dev_list);
 static DEFINE_SPINLOCK(hie_fs_list_lock);
 static LIST_HEAD(hie_fs_list);
+
+static int hie_key_payload(struct bio_crypt_ctx *ctx,
+	const unsigned char **key);
 
 static struct hie_dev *hie_default_dev;
 static struct hie_fs *hie_default_fs;
@@ -405,8 +408,7 @@ int hie_req_end_size(struct request *req, unsigned long bytes)
 static int hie_req_verify(struct request *req, struct hie_dev *dev,
 	unsigned int *crypt_mode)
 {
-	struct bio *bio;
-	struct key *keyring_key;
+	struct bio *bio, *bio_head;
 	unsigned int key_size;
 	unsigned int mode;
 	unsigned int last_mode;
@@ -417,9 +419,8 @@ static int hie_req_verify(struct request *req, struct hie_dev *dev,
 	if (!req->bio)
 		return -ENOENT;
 
-	bio = req->bio;
-	keyring_key = bio->bi_crypt_ctx.bc_keyring_key;
-	key_size = bio->bi_crypt_ctx.bc_key_size;
+	bio = bio_head = req->bio;
+	key_size = bio_bc_key_size(bio);
 	mode = last_mode = bio->bi_crypt_ctx.bc_flags & dev->mode;
 	flag = bio->bi_crypt_ctx.bc_flags;
 
@@ -428,10 +429,9 @@ static int hie_req_verify(struct request *req, struct hie_dev *dev,
 
 	__rq_for_each_bio(bio, req) {
 		if ((!bio_encrypted(bio)) ||
-			(keyring_key != bio->bi_crypt_ctx.bc_keyring_key) ||
-			(key_size != bio->bi_crypt_ctx.bc_key_size)) {
-			pr_info("%s: inconsistent context. bio: %p, key_size: %d, key: %p, req: %p.\n",
-				__func__, bio, key_size, keyring_key, req);
+			!hie_key_verify(bio_head, bio)) {
+			pr_info("%s: inconsistent keys. bio: %p, key_size: %d, req: %p.\n",
+				__func__, bio, key_size, req);
 			return -EINVAL;
 		}
 		mode = bio->bi_crypt_ctx.bc_flags & dev->mode;
@@ -483,32 +483,10 @@ static int hie_req_verify(struct request *req, struct hie_dev *dev,
 	return 0;
 }
 
-static int hie_key_payload(struct bio_crypt_ctx *ctx, const char *data,
-	const unsigned char **key)
-{
-	int ret = -EINVAL;
-	unsigned long flags;
-	struct hie_fs *fs, *n;
-
-	spin_lock_irqsave(&hie_fs_list_lock, flags);
-	list_for_each_entry_safe(fs, n, &hie_fs_list, list) {
-		if (fs->key_payload) {
-			ret = fs->key_payload(ctx, data, key);
-			if (ret != -EINVAL || ret >= 0)
-				break;
-		}
-	}
-	spin_unlock_irqrestore(&hie_fs_list_lock, flags);
-
-	return ret;
-}
-
 static int hie_req_key_act(struct hie_dev *dev, struct request *req,
 	hie_act act, void *priv)
 {
-	struct key *keyring_key = NULL;
 	const unsigned char *key = NULL;
-	const struct user_key_payload *ukp;
 	struct bio *bio = req->bio;
 	unsigned int mode = 0;
 	int key_size = 0;
@@ -526,19 +504,13 @@ static int hie_req_key_act(struct hie_dev *dev, struct request *req,
 	if (hie_req_verify(req, dev, &mode))
 		return -EINVAL;
 
-	key_size = bio->bi_crypt_ctx.bc_key_size;
-	keyring_key = bio->bi_crypt_ctx.bc_keyring_key;
-try_lock_key:
-	ret = down_read_trylock(&keyring_key->sem);
-	if (!ret)
-		goto try_lock_key;
+	key_size = bio_bc_key_size(bio);
 
-	ukp = user_key_payload_locked(keyring_key);
-	ret = hie_key_payload(&bio->bi_crypt_ctx, ukp->data, &key);
+	ret = hie_key_payload(&bio->bi_crypt_ctx, &key);
 
 	if (ret == -EINVAL) {
-		pr_info("HIE: %s: key payload was not recognized by fs: %p\n",
-			__func__, ukp->data);
+		pr_info("HIE: %s: key payload was not recognized\n",
+			__func__);
 		ret = -ENOKEY;
 	} else if (ret >= 0 && ret != key_size) {
 		pr_info("HIE: %s: key size mismatch, ctx: %d, payload: %d\n",
@@ -575,10 +547,53 @@ try_lock_key:
 #endif
 
 out:
-	if (keyring_key)
-		up_read(&keyring_key->sem);
+	return ret;
+}
+
+static int hie_key_payload(struct bio_crypt_ctx *ctx,
+	const unsigned char **key)
+{
+	int ret = -EINVAL;
+	unsigned long flags;
+	struct hie_fs *fs, *n;
+
+	spin_lock_irqsave(&hie_fs_list_lock, flags);
+	list_for_each_entry_safe(fs, n, &hie_fs_list, list) {
+		if (fs->key_payload) {
+			ret = fs->key_payload(ctx, key);
+			if (ret != -EINVAL || ret >= 0)
+				break;
+		}
+	}
+	spin_unlock_irqrestore(&hie_fs_list_lock, flags);
 
 	return ret;
+}
+
+bool hie_key_verify(struct bio *bio1, struct bio *bio2)
+{
+	const unsigned char *key1 = NULL;
+	const unsigned char *key2 = NULL;
+	int ret;
+
+	/* compare key size */
+	if (bio_bc_key_size(bio1) !=
+		bio_bc_key_size(bio2))
+		return false;
+
+	/* compare keys */
+	ret = hie_key_payload(&bio1->bi_crypt_ctx, &key1);
+	if (ret < 0)
+		return false;
+
+	ret = hie_key_payload(&bio2->bi_crypt_ctx, &key2);
+	if (ret < 0)
+		return false;
+
+	if (memcmp(key1, key2, bio_bc_key_size(bio1)))
+		return false;
+
+	return true;
 }
 
 struct hie_key_info {
@@ -677,7 +692,6 @@ int hie_set_dio_crypt_context(struct inode *inode, struct bio *bio,
 }
 EXPORT_SYMBOL(hie_set_dio_crypt_context);
 
-
 /**
  * hie_get_iv - get initialization vector(iv.) from the request.
  *     The iv. is the file logical block number translated from
@@ -705,7 +719,7 @@ u64 hie_get_iv(struct request *req)
 	if (!bio_bcf_test(bio, BC_IV_PAGE_IDX))
 		return 0;
 
-	ino = bio_bc_ino(bio);
+	ino = bio_bc_inode(bio);
 	iv = bio_bc_iv_get(bio);
 
 	WARN_ON(iv == BC_INVALID_IV);
