@@ -41,22 +41,6 @@
 #include "private/tmem_priv.h"
 #include "private/tmem_cfg.h"
 
-bool is_shared_device_region_busy(enum TRUSTED_MEM_TYPE mem_type)
-{
-	struct trusted_mem_device *mem_device =
-		get_trusted_mem_device(mem_type);
-	struct trusted_mem_device *shared_device;
-
-	if (unlikely(INVALID(mem_device)))
-		return false;
-	if (likely(INVALID(mem_device->shared_trusted_mem_device)))
-		return false;
-
-	shared_device = (struct trusted_mem_device *)
-				mem_device->shared_trusted_mem_device;
-	return get_device_busy_status(shared_device);
-}
-
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
 	if (unlikely(INVALID(mem_device)))
@@ -252,12 +236,6 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 	pr_debug("[%d] alloc sz req is %d (0x%x), align 0x%x, clean: %d\n",
 		 mem_type, size, size, alignment, clean);
 
-	if (unlikely(is_shared_device_region_busy(mem_type))) {
-		pr_err("%s:%d %d:mem device may not be registered!\n", __func__,
-		       __LINE__, mem_type);
-		return TMEM_SHARED_DEVICE_REGION_IS_BUSY;
-	}
-
 	mem_cfg = &mem_device->configs;
 	ret = parameter_checks_with_alignment_adjust(&alignment, size, mem_cfg);
 	if (unlikely(ret))
@@ -297,12 +275,6 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 	}
 
 	pr_debug("[%d] free handle is 0x%x\n", mem_type, sec_handle);
-
-	if (unlikely(is_shared_device_region_busy(mem_type))) {
-		pr_err("%s:%d %d:share region is already activated!\n",
-		       __func__, __LINE__, mem_type);
-		return TMEM_SHARED_DEVICE_REGION_IS_BUSY;
-	}
 
 	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
 		pr_err("[%d] regmgr region is still not online!\n", mem_type);
@@ -368,12 +340,6 @@ int tmem_core_regmgr_online(enum TRUSTED_MEM_TYPE mem_type)
 	struct trusted_mem_device *mem_device =
 		get_trusted_mem_device(mem_type);
 
-	if (unlikely(is_shared_device_region_busy(mem_type))) {
-		pr_err("%s:%d %d:share region is already activated!\n",
-		       __func__, __LINE__, mem_type);
-		return TMEM_SHARED_DEVICE_REGION_IS_BUSY;
-	}
-
 	if (unlikely(INVALID(mem_device)))
 		return TMEM_OPERATION_NOT_REGISTERED;
 
@@ -384,12 +350,6 @@ int tmem_core_regmgr_offline(enum TRUSTED_MEM_TYPE mem_type)
 {
 	struct trusted_mem_device *mem_device =
 		get_trusted_mem_device(mem_type);
-
-	if (unlikely(is_shared_device_region_busy(mem_type))) {
-		pr_err("%s:%d %d:share region is already activated!\n",
-		       __func__, __LINE__, mem_type);
-		return TMEM_SHARED_DEVICE_REGION_IS_BUSY;
-	}
 
 	if (unlikely(INVALID(mem_device)))
 		return TMEM_OPERATION_NOT_REGISTERED;

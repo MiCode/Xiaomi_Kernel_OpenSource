@@ -103,7 +103,7 @@ static unsigned int get_ion_heap_mask_id(enum TRUSTED_MEM_TYPE mem_type)
 		return ION_HEAP_MULTIMEDIA_PROT_MASK;
 	case TRUSTED_MEM_WFD:
 		return ION_HEAP_MULTIMEDIA_WFD_MASK;
-	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+	case TRUSTED_MEM_2D_FR:
 		return ION_HEAP_MULTIMEDIA_2D_FR_MASK;
 	case TRUSTED_MEM_HAPP:
 		return ION_HEAP_MULTIMEDIA_HAPP_MASK;

@@ -32,7 +32,7 @@
 #endif
 
 #define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-#include "secmem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
+#include "fr_smem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
 
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
@@ -40,53 +40,54 @@
 #include "tee_impl/tee_priv.h"
 #include "tee_impl/tee_common.h"
 
-#define SECMEM_SVP_DEVICE_NAME "SECMEM_SVP"
+#define SECMEM_2DFR_DEVICE_NAME "SECMEM_2DFR"
 
-static struct trusted_mem_configs secmem_configs = {
+static struct trusted_mem_configs fr_smem_configs = {
 	.mock_peer_enable = false,
 	.mock_ssmr_enable = false,
-#if defined(SECMEM_TEE_SESSION_KEEP_ALIVE)
+#if defined(FR_SMEM_TEE_SESSION_KEEP_ALIVE)
 	.session_keep_alive_enable = true,
 #endif
-	.minimal_chunk_size = SECMEM_MIN_ALLOC_CHUNK_SIZE,
-	.phys_mem_shift_bits = SECMEM_64BIT_PHYS_SHIFT,
-	.phys_limit_min_alloc_size = (1 << SECMEM_64BIT_PHYS_SHIFT),
-#if defined(SECMEM_MIN_SIZE_CHECK)
+	.minimal_chunk_size = FR_SMEM_MIN_ALLOC_CHUNK_SIZE,
+	.phys_mem_shift_bits = FR_SMEM_64BIT_PHYS_SHIFT,
+	.phys_limit_min_alloc_size = (1 << FR_SMEM_64BIT_PHYS_SHIFT),
+#if defined(FR_SMEM_MIN_SIZE_CHECK)
 	.min_size_check_enable = true,
 #endif
-#if defined(SECMEM_ALIGNMENT_CHECK)
+#if defined(FR_SMEM_ALIGNMENT_CHECK)
 	.alignment_check_enable = true,
 #endif
 	.caps = 0,
 };
 
-static int __init secmem_init(void)
+static int __init fr_smem_init(void)
 {
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
 
 	pr_info("%s:%d\n", __func__, __LINE__);
 
-	t_device = create_trusted_mem_device(TRUSTED_MEM_SVP, &secmem_configs);
+	t_device =
+		create_trusted_mem_device(TRUSTED_MEM_2D_FR, &fr_smem_configs);
 	if (INVALID(t_device)) {
-		pr_err("create SECMEM device failed\n");
+		pr_err("create 2DFR_SMEM device failed\n");
 		return TMEM_CREATE_DEVICE_FAILED;
 	}
 
 	get_tee_peer_ops(&t_device->peer_ops);
-	get_tee_peer_priv_data(TEE_MEM_SVP, &t_device->peer_priv);
+	get_tee_peer_priv_data(TEE_MEM_2D_FR, &t_device->peer_priv);
 
 	snprintf(t_device->name, MAX_DEVICE_NAME_LEN, "%s",
-		 SECMEM_SVP_DEVICE_NAME);
+		 SECMEM_2DFR_DEVICE_NAME);
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
-	t_device->ssmr_feature_id = SSMR_FEAT_SVP;
+	t_device->ssmr_feature_id = SSMR_FEAT_2D_FR;
 #endif
-	t_device->mem_type = TRUSTED_MEM_SVP;
+	t_device->mem_type = TRUSTED_MEM_2D_FR;
 
-	ret = register_trusted_mem_device(TRUSTED_MEM_SVP, t_device);
+	ret = register_trusted_mem_device(TRUSTED_MEM_2D_FR, t_device);
 	if (ret) {
 		destroy_trusted_mem_device(t_device);
-		pr_err("register SECMEM device failed\n");
+		pr_err("register 2DFR_SMEM device failed\n");
 		return ret;
 	}
 
@@ -94,13 +95,13 @@ static int __init secmem_init(void)
 	return TMEM_OK;
 }
 
-static void __exit secmem_exit(void)
+static void __exit fr_smem_exit(void)
 {
 }
 
-module_init(secmem_init);
-module_exit(secmem_exit);
+module_init(fr_smem_init);
+module_exit(fr_smem_exit);
 
 MODULE_AUTHOR("MediaTek Inc.");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek SVP Secure Memory Driver");
+MODULE_DESCRIPTION("MediaTek 2D_FR Secure Memory Driver");
