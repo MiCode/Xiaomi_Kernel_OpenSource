@@ -16,7 +16,6 @@
 
 #include <linux/ioctl.h>
 #include <linux/fs.h>
-#include <dt-bindings/memory/mt8168-larb-port.h>
 #include <linux/list.h>
 #ifdef CONFIG_ARM64
 #include <linux/iova.h>
@@ -302,7 +301,7 @@ static inline int mtk_smi_init_setting(void)
 	return 0;
 }
 
-unsigned long mtk_get_pgt_base(void);
+extern unsigned long mtk_get_pgt_base(void);
 
 bool m4u_portid_valid(const int portID);
 const char *m4u_get_port_name(const int portID);
