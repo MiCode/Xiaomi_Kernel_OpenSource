@@ -545,7 +545,7 @@ static struct platform_driver mtk_smi_common_driver = {
 static u32 nr_larbs;
 static struct mtk_smi_dev **smi_dev;
 
-s32 mtk_smi_clk_enable(const struct mtk_smi_dev *smi)
+s32 mtk_smi_clk_enable(struct mtk_smi_dev *smi)
 {
 	s32 i, j, ret = 0;
 
@@ -561,17 +561,17 @@ s32 mtk_smi_clk_enable(const struct mtk_smi_dev *smi)
 		if (ret) {
 			dev_info(smi->dev, "SMI%u CLK%d enable failed:%d\n",
 				smi->id, i, ret);
-			break;
+			for (j = i - 1; j > 0; j--)
+				clk_disable_unprepare(smi->clks[j]);
+			return ret;
 		}
 	}
-	if (ret)
-		for (j = i - 1; j > 0; j--)
-			clk_disable_unprepare(smi->clks[j]);
+	atomic_inc(&(smi->clk_cnts));
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_smi_clk_enable);
 
-void mtk_smi_clk_disable(const struct mtk_smi_dev *smi)
+void mtk_smi_clk_disable(struct mtk_smi_dev *smi)
 {
 	s32 i;
 
@@ -580,6 +580,7 @@ void mtk_smi_clk_disable(const struct mtk_smi_dev *smi)
 	else if (!smi->dev || !smi->clks)
 		pr_info("SMI%u no such device or address\n", smi->id);
 
+	atomic_dec(&(smi->clk_cnts));
 	for (i = smi->nr_clks - 1; i > 0; i--)
 		clk_disable_unprepare(smi->clks[i]);
 }
@@ -614,12 +615,11 @@ s32 mtk_smi_conf_set(const struct mtk_smi_dev *smi, const u32 scen_id)
 		dev_dbg(smi->dev, "SMI%u without MTCMOS: %d\n", smi->id, cnts);
 		return cnts;
 	}
-	/* conf */
-	for (i = 0; i < smi->nr_conf_pairs; i++)
+
+	for (i = 0; i < smi->nr_conf_pairs; i++) /* conf */
 		writel(smi->conf_pairs[i].val,
 			smi->base + smi->conf_pairs[i].off);
-	/* scen */
-	for (i = 0; i < smi->nr_scen_pairs; i++)
+	for (i = 0; i < smi->nr_scen_pairs; i++) /* scen */
 		writel(smi->scen_pairs[scen_id][i].val,
 			smi->base + smi->scen_pairs[scen_id][i].off);
 	return 0;

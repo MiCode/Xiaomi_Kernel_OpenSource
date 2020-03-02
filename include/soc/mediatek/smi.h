@@ -60,8 +60,8 @@ struct mtk_smi_dev {
 	struct mtk_smi_pair **scen_pairs;
 };
 
-s32 mtk_smi_clk_enable(const struct mtk_smi_dev *smi);
-void mtk_smi_clk_disable(const struct mtk_smi_dev *smi);
+s32 mtk_smi_clk_enable(struct mtk_smi_dev *smi);
+void mtk_smi_clk_disable(struct mtk_smi_dev *smi);
 
 struct mtk_smi_dev *mtk_smi_dev_get(const u32 id);
 s32 mtk_smi_conf_set(const struct mtk_smi_dev *smi, const u32 scen_id);
