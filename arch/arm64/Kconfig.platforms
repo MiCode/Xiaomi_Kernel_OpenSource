@@ -106,6 +106,8 @@ config MACH_MT6771
         select ARM_AMBA
         select CPU_V7
         select HAVE_SMP
+	select HIE
+	select MTK_PID_MAP
         select NEED_MACH_MEMORY_H
         select IRQ_DOMAIN
         select IRQ_DOMAIN_DEBUG

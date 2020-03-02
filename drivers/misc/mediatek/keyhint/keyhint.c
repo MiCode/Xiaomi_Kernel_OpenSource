@@ -13,7 +13,7 @@
 
 #include <linux/key.h>
 #include <linux/module.h>
-#include <linux/sched_clock.h>
+#include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <mt-plat/keyhint.h>
 
