@@ -18,6 +18,8 @@
 #include <linux/device.h>
 #include <linux/debugfs.h>
 #include <linux/version.h>
+#include <linux/sched/clock.h>
+#include <archcounter_timesync.h>
 
 #include "main.h"
 #include "logging.h"
@@ -25,8 +27,12 @@
 /* Supported log buffer version */
 #define MC_LOG_VERSION			2
 
-/* Default length of the log ring buffer 256KiB */
-#define LOG_BUF_ORDER			6
+/* Default length of the log ring buffer */
+#ifdef TEE_TRACING_ENABLED
+#define LOG_BUF_ORDER			7 /* 512 KB */
+#else
+#define LOG_BUF_ORDER			6 /* 256 KB */
+#endif
 
 /* Max Len of a log line for printing */
 #define LOG_LINE_SIZE			256
@@ -80,11 +86,130 @@ static struct logging_ctx {
 	bool	dead;
 } log_ctx;
 
+#ifdef TEE_TRACING_ENABLED
+u64 boot_to_kernel_ns;
+
+static void set_boot_to_kernel_time(void)
+{
+	u64 gud_init_time;
+	u64 boot_time;
+
+	gud_init_time = sched_clock();
+	boot_time = mtk_get_archcounter_time(arch_counter_get_cntvct());
+
+	boot_to_kernel_ns = boot_time - gud_init_time;
+}
+
+static void convert_kernel_time(char *tee_timestamp, char *output,
+		size_t output_sz)
+{
+	u64 boot_to_kernel_us;
+	u64 kernel_time_us;
+	u64 tee_time_us;
+	u64 tee_time_s;
+	int err;
+
+	if (!tee_timestamp || !output || !output_sz) {
+		dev_err(g_ctx.mcd, "param check failed\n");
+		return;
+	}
+
+	err = kstrtou64(tee_timestamp, 10, &tee_time_us);
+	if (err) {
+		dev_err(g_ctx.mcd, "kstrtou64 failed\n");
+		return;
+	}
+
+	boot_to_kernel_us = boot_to_kernel_ns / NSEC_PER_USEC;
+	kernel_time_us = tee_time_us - boot_to_kernel_us;
+
+	/* shrink the error due to jiffies & timer tick not sync problem
+	 * reduce half jiffies time as temp solution
+	 */
+	kernel_time_us -= USEC_PER_SEC / HZ / 2;
+
+	tee_time_us = kernel_time_us % USEC_PER_SEC;
+	tee_time_s = kernel_time_us / USEC_PER_SEC;
+
+	snprintf(output, output_sz, "%u.%06u", tee_time_s, tee_time_us);
+}
+
+static int log_tracing(u32 cpuid)
+{
+	char tee_trace_buf[512] = {0};
+	char ktimestamp[512] = {0};
+	char trace_buf[512] = {0};
+	char *trace_buf_ptr;
+	char delim[] = ":";
+	char *prefix;
+	char *postfix;
+	char *timestamp;
+
+	bool trace_start = false;
+	bool trace_end = false;
+
+	if (!log_ctx.prev_source)
+		return -1;
+
+	if (!strncmp(log_ctx.line, TEE_BEGIN_TRACE, strlen(TEE_BEGIN_TRACE)))
+		trace_start = true;
+	else if (!strncmp(log_ctx.line, TEE_END_TRACE, strlen(TEE_END_TRACE)))
+		trace_end = true;
+	else
+		return -1;
+
+	strncpy(trace_buf, log_ctx.line,
+			(log_ctx.line_len >= sizeof(trace_buf)) ?
+			sizeof(trace_buf) :
+			log_ctx.line_len);
+
+	trace_buf_ptr = trace_buf;
+	prefix = strsep(&trace_buf_ptr, delim);
+	if (!prefix) {
+		dev_err(g_ctx.mcd, "strsep prefix failed\n");
+		return -1;
+	}
+
+	timestamp = strsep(&trace_buf_ptr, delim);
+	if (!timestamp) {
+		dev_err(g_ctx.mcd, "strsep timestamp failed\n");
+		return -1;
+	}
+
+	postfix = strsep(&trace_buf_ptr, delim);
+	if (!postfix) {
+		dev_err(g_ctx.mcd, "strsep postfix failed\n");
+		return -1;
+	}
+
+	convert_kernel_time(timestamp, ktimestamp, sizeof(ktimestamp));
+
+	snprintf(tee_trace_buf, sizeof(tee_trace_buf), "%s[%u][%s]%03x-%s",
+			TEE_TRACING_MARK, cpuid,
+			ktimestamp,
+			log_ctx.prev_source, postfix);
+
+	if (trace_start)
+		KATRACE_BEGIN(tee_trace_buf);
+	else if (trace_end)
+		KATRACE_END(tee_trace_buf);
+
+	return 0;
+}
+#endif /* TEE_TRACING_ENABLED */
+
 static inline void log_eol(u16 source, u32 cpuid)
 {
 	if (!log_ctx.line_len)
 		return;
 
+#ifdef TEE_TRACING_ENABLED
+	if (!log_tracing(cpuid)) {
+		log_ctx.line[0] = '\0';
+		log_ctx.line_len = 0;
+		return;
+	}
+#endif
 	if (log_ctx.prev_source)
 		/* TEE user-space */
 		dev_info(g_ctx.mcd, "%03x(%u)|%s\n", log_ctx.prev_source,
@@ -232,6 +357,11 @@ int logging_init(phys_addr_t *buffer, u32 *size)
 	log_ctx.enabled = true;
 	debugfs_create_bool("swd_debug", 0600, g_ctx.debug_dir,
 			    &log_ctx.enabled);
+
+#ifdef TEE_TRACING_ENABLED
+	/* Init boot to kernel time */
+	set_boot_to_kernel_time();
+#endif
 	return 0;
 }
 
