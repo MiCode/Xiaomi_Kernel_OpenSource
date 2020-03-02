@@ -14,6 +14,10 @@
 #ifndef _APU_LOG_H_
 #define _APU_LOG_H_
 
+#ifdef BUILD_POLICY_TEST
+#include "test.h"
+#else
+
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...) \
 		pr_info(DVFS_TAG " " format, ##args)
@@ -28,5 +32,7 @@
 #define LOG_INF(format, args...)    pr_info(VPU_TAG " " format, ##args)
 #define LOG_WRN(format, args...)    pr_info(VPU_TAG "[warn] " format, ##args)
 #define LOG_ERR(format, args...)    pr_info(VPU_TAG "[error] " format, ##args)
+
+#endif
 
 #endif
