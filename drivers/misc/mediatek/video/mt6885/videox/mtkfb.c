@@ -2617,10 +2617,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 		&fb_pa, 0,
 		DISP_M4U_PORT_DISP_OVL0);
 #else
-#ifdef CONFIG_MTK_M4U
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
 		(unsigned long *)(&fbdev->fb_va_base), &fb_pa);
-#endif
 #endif
 	fbdev->fb_pa_base = fb_base;
 

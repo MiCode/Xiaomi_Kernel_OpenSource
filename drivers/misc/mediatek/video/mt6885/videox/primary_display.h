@@ -452,10 +452,8 @@ UINT32 DISP_GetActiveHeightUm(void);
 UINT32 DISP_GetActiveWidthUm(void);
 UINT32 DISP_GetDensity(void);
 unsigned long get_dim_layer_mva_addr(void);
-#ifdef CONFIG_MTK_M4U
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 	unsigned long *va, unsigned long *mva);
-#endif
 int Panel_Master_dsi_config_entry(const char *name, void *config_value);
 int fbconfig_get_esd_check_test(UINT32 dsi_id, UINT32 cmd, UINT8 *buffer,
 	UINT32 num);
