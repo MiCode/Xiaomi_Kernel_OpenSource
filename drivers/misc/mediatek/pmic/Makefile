@@ -20,8 +20,6 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6357) += mt6357/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6358) += mt6358/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6359) += mt6359/
 
-obj-y += common/mt635x-auxadc.o
-
 obj-$(CONFIG_MFD_RT5081_PMU)	+= rt5081/
 obj-$(CONFIG_MFD_MT6370_PMU)    += mt6370/
 

@@ -112,7 +112,7 @@ void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
 #if LP_INIT_SETTING_VERIFIED
-	/*Suspend*/
+	/*SODI3*/
 	pmic_buck_vproc11_lp(SW, 1, SW_OFF);
 	pmic_buck_vcore_lp(SW, 1, SW_ON);
 	pmic_buck_vgpu_lp(SW, 1, SW_OFF);
@@ -122,22 +122,22 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vpa_lp(SW, 1, SW_OFF);
 	pmic_buck_vdram1_lp(SRCLKEN0, 1, HW_LP);
 	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
-	pmic_ldo_vsram_gpu_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_others_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vsram_proc11_lp(SW, 1, SW_OFF);
 	pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
-	pmic_ldo_vrf18_lp(SW, 1, SW_ON);
+	pmic_ldo_vrf18_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vrf12_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vefuse_lp(SW, 1, SW_OFF);
-	pmic_ldo_vcn33_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcn33_lp(SW, 1, SW_ON);
 	pmic_ldo_vcn28_lp(SW, 1, SW_OFF);
-	pmic_ldo_vcn18_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcn18_lp(SW, 1, SW_ON);
 	pmic_ldo_vcama1_lp(SW, 1, SW_OFF);
 	pmic_ldo_vcamd_lp(SW, 1, SW_OFF);
 	pmic_ldo_vcama2_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_proc12_lp(SW, 1, SW_OFF);
 	pmic_ldo_vcamio_lp(SW, 1, SW_OFF);
-	pmic_ldo_vldo28_lp(SW, 1, SW_OFF);
+	pmic_ldo_vldo28_lp(SW, 1, SW_ON);
 	pmic_ldo_va12_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vaux18_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vaud28_lp(SRCLKEN0, 1, HW_LP);
@@ -147,7 +147,7 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vdram2_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vmc_lp(SW, 1, SW_OFF);
 	pmic_ldo_vmch_lp(SW, 1, SW_OFF);
-	pmic_ldo_vemc_lp(SW, 1, SW_OFF);
+	pmic_ldo_vemc_lp(SW, 1, SW_ON);
 	pmic_ldo_vsim1_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsim2_lp(SW, 1, SW_OFF);
 	pmic_ldo_vibr_lp(SW, 1, SW_OFF);
@@ -164,11 +164,11 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vpa_lp(SW, 1, SW_OFF);
 	pmic_buck_vdram1_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
-	pmic_ldo_vsram_gpu_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_others_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vsram_proc11_lp(SW, 1, SW_OFF);
 	pmic_ldo_vxo22_lp(SRCLKEN2, 1, HW_LP);
-	pmic_ldo_vrf18_lp(SW, 1, SW_ON);
+	pmic_ldo_vrf18_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vrf12_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vefuse_lp(SW, 1, SW_OFF);
 	pmic_ldo_vcn33_lp(SW, 1, SW_OFF);

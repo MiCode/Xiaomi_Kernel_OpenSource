@@ -22,10 +22,10 @@
 #include <linux/math64.h>
 
 #include <linux/iio/consumer.h>
+#include <linux/iio/adc/mt635x-auxadc-internal.h>
 
 #include "include/pmic.h"
 #include "include/pmic_auxadc.h"
-#include "include/mt635x-auxadc-internal.h"
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
@@ -44,6 +44,7 @@
 #include <mtk_battery_internal.h>
 #endif
 
+static struct device *pmic_auxadc_dev;
 static int auxadc_bat_temp_cali(int bat_temp, int precision_factor);
 
 /*********************************
@@ -70,21 +71,22 @@ void wk_auxadc_bgd_ctrl(unsigned char en)
 	pmic_set_hk_reg_value(PMIC_AUXADC_BAT_TEMP_EN_MAX, en);
 	pmic_set_hk_reg_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN, en);
 	pmic_set_hk_reg_value(PMIC_AUXADC_BAT_TEMP_EN_MIN, en);
-
-	pmic_set_hk_reg_value(PMIC_RG_INT_EN_BAT_TEMP_H, en);
-	pmic_set_hk_reg_value(PMIC_RG_INT_EN_BAT_TEMP_L, en);
 }
 
 void pmic_auxadc_suspend(void)
 {
+#ifndef IPIMB
 	wk_auxadc_bgd_ctrl(0);
+#endif
 	/* special call to restore bat_temp_prev when enter suspend */
 	auxadc_bat_temp_cali(-1, -1);
 }
 
 void pmic_auxadc_resume(void)
 {
+#ifndef IPIMB
 	wk_auxadc_bgd_ctrl(1);
+#endif
 }
 
 void lockadcch3(void)
@@ -95,6 +97,18 @@ void lockadcch3(void)
 void unlockadcch3(void)
 {
 	mutex_unlock(&auxadc_ch3_mutex);
+}
+
+void wk_auxadc_reset(void)
+{
+	pmic_set_register_value(PMIC_RG_AUXADC_RST, 1);
+	pmic_set_register_value(PMIC_RG_AUXADC_RST, 0);
+	pmic_set_register_value(PMIC_BANK_AUXADC_SWRST, 1);
+	pmic_set_register_value(PMIC_BANK_AUXADC_SWRST, 0);
+	/* avoid GPS can't receive AUXADC ready after reset, request again */
+	pmic_set_register_value(PMIC_AUXADC_RQST_CH7, 1);
+	pmic_set_register_value(PMIC_AUXADC_RQST_DCXO_BY_GPS, 1);
+	pr_notice("reset AUXADC done\n");
 }
 
 /*********************************
@@ -166,7 +180,7 @@ int wk_vbat_cali(int vbat_out, int precision_factor)
 	int vbat_out_old;
 	int vthr;
 
-	vthr = auxadc_priv_read_channel(AUXADC_CHIP_TEMP);
+	vthr = auxadc_priv_read_channel(pmic_auxadc_dev, AUXADC_CHIP_TEMP);
 	mV_diff = vthr - g_O_VTS * 1800 / 4096;
 	if (g_O_SLOPE_SIGN == 0)
 		T_curr = mV_diff * 10000 / (signed int)(1681 + g_O_SLOPE * 10);
@@ -341,14 +355,15 @@ static int wk_bat_temp_dbg(int bat_temp_prev, int bat_temp)
 	int arr_bat_temp[5];
 	unsigned short i;
 
-	vbif28 = auxadc_priv_read_channel(AUXADC_VBIF);
+	vbif28 = auxadc_priv_read_channel(pmic_auxadc_dev, AUXADC_VBIF);
 	pr_notice("BAT_TEMP_PREV:%d,BAT_TEMP:%d,VBIF28:%d\n",
 		bat_temp_prev, bat_temp, vbif28);
 	if (bat_temp < 200 || abs(bat_temp_prev - bat_temp) > 100) {
 		wk_auxadc_dbg_dump();
 		for (i = 0; i < 5; i++) {
 			arr_bat_temp[i] =
-				auxadc_priv_read_channel(AUXADC_BAT_TEMP);
+				auxadc_priv_read_channel(pmic_auxadc_dev,
+							 AUXADC_BAT_TEMP);
 		}
 		bat_temp_new = bat_temp_filter(arr_bat_temp, 5);
 		pr_notice("%d,%d,%d,%d,%d, BAT_TEMP_NEW:%d\n",
@@ -522,8 +537,7 @@ static int mdrt_kthread(void *x)
 			if (polling_cnt == 156) { /* 156 * 32ms ~= 5s*/
 				pr_notice("[MDRT_ADC] (%d) reset AUXADC\n",
 					polling_cnt);
-				pmic_set_register_value(PMIC_RG_AUXADC_RST, 1);
-				pmic_set_register_value(PMIC_RG_AUXADC_RST, 0);
+				wk_auxadc_reset();
 			}
 			if (polling_cnt >= 312) { /* 312 * 32ms ~= 10s*/
 				mdrt_reg_dump();
@@ -594,8 +608,9 @@ static void legacy_auxadc_init(struct device *dev)
 			devm_iio_channel_get(dev,
 					     legacy_auxadc[i].channel_name);
 		if (IS_ERR(legacy_auxadc[i].chan))
-			pr_notice("%s get fail with list %d\n",
-				legacy_auxadc[i].channel_name, i);
+			pr_notice("%s get fail with list %d, dev_name:%s\n",
+				legacy_auxadc[i].channel_name, i,
+				dev_name(dev));
 	}
 }
 
@@ -608,7 +623,7 @@ int pmic_get_auxadc_value(int list)
 		pr_notice("[%s] Invalid channel list(%d)\n", __func__, list);
 		return -EINVAL;
 	}
-	if (IS_ERR(legacy_auxadc[list].chan)) {
+	if (!(legacy_auxadc[list].chan) || IS_ERR(legacy_auxadc[list].chan)) {
 		pr_notice("[%s] iio channel consumer error(%s)\n",
 			__func__, legacy_auxadc[list].channel_name);
 		return PTR_ERR(legacy_auxadc[list].chan);
@@ -702,170 +717,14 @@ out:
 	return bat_temp;
 }
 
-struct auxadc_regs_map {
-	int channel;
-	struct auxadc_regs regs;
-};
-
-static struct auxadc_regs_map pmic_auxadc_regs_map[] = {
-	{
-		.channel = AUXADC_BATADC,
-		.regs = {
-			PMIC_AUXADC_RQST_CH0,
-			PMIC_AUXADC_ADC_RDY_CH0_BY_AP,
-			PMIC_AUXADC_ADC_OUT_CH0_BY_AP
-		},
-	},
-	{
-		.channel = AUXADC_VCDT,
-		.regs = {
-			PMIC_AUXADC_RQST_CH2,
-			PMIC_AUXADC_ADC_RDY_CH2,
-			PMIC_AUXADC_ADC_OUT_CH2
-		},
-	},
-	{
-		.channel = AUXADC_BAT_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH3,
-			PMIC_AUXADC_ADC_RDY_CH3,
-			PMIC_AUXADC_ADC_OUT_CH3
-		},
-	},
-	{
-		.channel = AUXADC_CHIP_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4,
-			PMIC_AUXADC_ADC_RDY_CH4,
-			PMIC_AUXADC_ADC_OUT_CH4
-		},
-	},
-	{
-		.channel = AUXADC_VCORE_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4_BY_THR1,
-			PMIC_AUXADC_ADC_RDY_CH4_BY_THR1,
-			PMIC_AUXADC_ADC_OUT_CH4_BY_THR1
-		},
-	},
-	{
-		.channel = AUXADC_VPROC_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4_BY_THR2,
-			PMIC_AUXADC_ADC_RDY_CH4_BY_THR2,
-			PMIC_AUXADC_ADC_OUT_CH4_BY_THR2
-		},
-	},
-	{
-		.channel = AUXADC_VGPU_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4_BY_THR3,
-			PMIC_AUXADC_ADC_RDY_CH4_BY_THR3,
-			PMIC_AUXADC_ADC_OUT_CH4_BY_THR3
-		},
-	},
-	{
-		.channel = AUXADC_ACCDET,
-		.regs = {
-			PMIC_AUXADC_RQST_CH5,
-			PMIC_AUXADC_ADC_RDY_CH5,
-			PMIC_AUXADC_ADC_OUT_CH5
-		},
-	},
-	{
-		.channel = AUXADC_VDCXO,
-		.regs = {
-			PMIC_AUXADC_RQST_CH6,
-			PMIC_AUXADC_ADC_RDY_CH6,
-			PMIC_AUXADC_ADC_OUT_CH6
-		},
-	},
-	{
-		.channel = AUXADC_TSX_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH7,
-			PMIC_AUXADC_ADC_RDY_CH7,
-			PMIC_AUXADC_ADC_OUT_CH7
-		},
-	},
-	{
-		.channel = AUXADC_HPOFS_CAL,
-		.regs = {
-			PMIC_AUXADC_RQST_CH9,
-			PMIC_AUXADC_ADC_RDY_CH9,
-			PMIC_AUXADC_ADC_OUT_CH9
-		},
-	},
-	{
-		.channel = AUXADC_DCXO_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH10,
-			PMIC_AUXADC_ADC_RDY_DCXO_BY_AP,
-			PMIC_AUXADC_ADC_OUT_DCXO_BY_AP
-		},
-	},
-	{
-		.channel = AUXADC_VBIF,
-		.regs = {
-			PMIC_AUXADC_RQST_CH11,
-			PMIC_AUXADC_ADC_RDY_CH11,
-			PMIC_AUXADC_ADC_OUT_CH11
-		},
-	},
-};
-
-void pmic_auxadc_chip_timeout_handler(
-	struct device *dev, bool is_timeout, unsigned char ch_num)
-{
-	static unsigned short timeout_times;
-
-	if (is_timeout == false) {
-		if (timeout_times > 10) {
-			pr_notice("timeout resolved, disable DATA REUSE\n");
-			pmic_set_hk_reg_value(PMIC_AUXADC_DATA_REUSE_EN, 0);
-		}
-		timeout_times = 0;
-		return;
-	}
-	timeout_times++;
-	dev_notice(dev, "(%d)Time out!STA0=0x%x,STA1=0x%x,STA2=0x%x\n",
-		ch_num,
-		upmu_get_reg_value(MT6358_AUXADC_STA0),
-		upmu_get_reg_value(MT6358_AUXADC_STA1),
-		upmu_get_reg_value(MT6358_AUXADC_STA2));
-	dev_notice(dev, "RST: Reg[0x%x]=0x%x, Reg[0x%x]=0x%x\n",
-		MT6358_STRUP_CON6,
-		upmu_get_reg_value(MT6358_STRUP_CON6),
-		MT6358_HK_TOP_RST_CON0,
-		upmu_get_reg_value(MT6358_HK_TOP_RST_CON0));
-	dev_notice(dev, "CLK: Reg[0x%x]=0x%x, Reg[0x%x]=0x%x\n",
-		MT6358_HK_TOP_CLK_CON0,
-		upmu_get_reg_value(MT6358_HK_TOP_CLK_CON0),
-		MT6358_HK_TOP_CLK_CON1,
-		upmu_get_reg_value(MT6358_HK_TOP_CLK_CON1));
-
-	if (timeout_times > 10 && timeout_times < 13) {
-		pmic_set_hk_reg_value(PMIC_AUXADC_DATA_REUSE_EN, 1);
-		pr_notice("AUXADC timeout, enable DATA REUSE\n");
-#ifdef CONFIG_MTK_AEE_FEATURE
-		aee_kernel_warning("PMIC AUXADC:TIMEOUT", "");
-#endif
-	}
-}
-
 int pmic_auxadc_chip_init(struct device *dev)
 {
 	int ret = 0;
-	unsigned short i;
 	struct iio_channel *chan_vbif;
 
 	HKLOG("%s\n", __func__);
+	pmic_auxadc_dev = dev;
 
-	for (i = 0; i < ARRAY_SIZE(pmic_auxadc_regs_map); i++) {
-		auxadc_set_regs(
-			pmic_auxadc_regs_map[i].channel,
-			&(pmic_auxadc_regs_map[i].regs));
-	}
 	auxadc_set_convert_fn(AUXADC_BATADC, auxadc_batadc_convert);
 	auxadc_set_convert_fn(AUXADC_BAT_TEMP, auxadc_bat_temp_convert);
 	auxadc_set_convert_fn(AUXADC_VDCXO, auxadc_vdcxo_convert);

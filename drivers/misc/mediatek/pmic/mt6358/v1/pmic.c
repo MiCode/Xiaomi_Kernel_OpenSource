@@ -55,6 +55,9 @@ void vmd1_pmic_setting_off(void)
 void pmic_enable_smart_reset(unsigned char smart_en,
 	unsigned char smart_sdn_en)
 {
+	pr_notice("[%s] pwrkey %s, JUST_SMART_RST:%d\n", __func__,
+		pmic_get_register_value(PMIC_PWRKEY_DEB)?"released":"pressed",
+		pmic_get_register_value(PMIC_JUST_SMART_RST));
 	pmic_set_register_value(PMIC_RG_SMART_RST_MODE, smart_en);
 	pmic_set_register_value(PMIC_RG_SMART_RST_SDN_EN, smart_sdn_en);
 	pr_info("[%s] smart_en:%d, smart_sdn_en:%d\n",

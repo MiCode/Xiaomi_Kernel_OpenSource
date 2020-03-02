@@ -19,6 +19,7 @@
 extern bool is_isense_supported(void);
 extern void pmic_auxadc_suspend(void);
 extern void pmic_auxadc_resume(void);
+extern void wk_auxadc_reset(void);
 extern unsigned short pmic_set_hk_reg_value(
 			PMU_FLAGS_LIST_ENUM flagname, unsigned int val);
 

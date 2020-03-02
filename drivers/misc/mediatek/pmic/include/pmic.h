@@ -55,12 +55,6 @@
 #define PMIC_VOL REGULATOR_CHANGE_VOLTAGE
 #define PMIC_EN_VOL 9
 
-#if defined(MTK_EVB_PLATFORM) || defined(CONFIG_FPGA_EARLY_PORTING)
-#define ENABLE_ALL_OC_IRQ 0
-#else
-#define ENABLE_ALL_OC_IRQ 1
-#endif
-
 /*
  * PMIC EXTERN VARIABLE
  */
