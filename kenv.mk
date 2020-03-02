@@ -78,6 +78,9 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   ifneq ($(OBJCOPY),)
     ARGS += OBJCOPY=$(OBJCOPY)
   endif
+  ifeq ("$(CC)", "gcc")
+    CC :=
+  endif
 
   ifneq ($(filter-out false,$(USE_CCACHE)),)
     CCACHE_EXEC ?= /usr/bin/ccache
