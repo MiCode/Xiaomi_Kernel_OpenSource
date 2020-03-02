@@ -99,7 +99,11 @@ extern void show_pte(struct mm_struct *mm, unsigned long addr);
 #define aee_kernel_warning_api(...)
 #endif
 #else
+#if 0 /* workaround */
 extern void smp_inner_dcache_flush_all(void);
+#else
+#define smp_inner_dcache_flush_all(...)
+#endif
 #endif
 
 #ifdef CONFIG_MTK_CLKMGR
