@@ -231,34 +231,29 @@ page_owner=on loop.max_part=7";
 		};
 	};
 
-	l2c_parity {
-		compatible = "mediatek,l2c_parity-v1";
+	cache_parity {
+		compatible = "mediatek,cache_parity";
+		version = <1>;
 		reg = <0 0x0c530000 0 0x10000>;
-		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "L3C_irq",
-				"L2C_irq-0",
-				"L2C_irq-1",
-				"L2C_irq-2",
-				"L2C_irq-3",
-				"L2C_irq-4",
-				"L2C_irq-5",
-				"L2C_irq-6",
-				"L2C_irq-7";
-		l2_err_status_offset = <0x8090>;
-		l3_err_status_offset = <0xc8c0>;
-#ifdef CONFIG_MTK_ENG_BUILD
-		target_all = <8>;
-#else
-		target_all = <6>;
-#endif
+		err_level = <1>;
+		irq_config = <0 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<1 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<2 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<3 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<4 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<5 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<6 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<7 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
+			<1024 0xc8c0 0x01000000 0xc8c0 12 0xc8c8 0x00000001>;
+		interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	memory {
