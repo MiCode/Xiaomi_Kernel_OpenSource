@@ -29,6 +29,12 @@ static inline void trusted_mem_type_enum_validate(void)
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SVP == (int)TRUSTED_MEM_SVP);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_PROT == (int)TRUSTED_MEM_PROT);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_WFD == (int)TRUSTED_MEM_WFD);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP == (int)TRUSTED_MEM_HAPP);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_HAPP_EXTRA
+		       == (int)TRUSTED_MEM_HAPP_EXTRA);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SDSP == (int)TRUSTED_MEM_SDSP);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SDSP_SHARED
+		       == (int)TRUSTED_MEM_SDSP_SHARED);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_2D_FR
 		       == (int)TRUSTED_MEM_SVP_VIRT_2D_FR);
 	COMPILE_ASSERT((int)(TRUSTED_MEM_MAX - 1)
@@ -46,6 +52,14 @@ get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 		return TRUSTED_MEM_PROT;
 	case TRUSTED_MEM_REQ_WFD:
 		return TRUSTED_MEM_WFD;
+	case TRUSTED_MEM_REQ_HAPP:
+		return TRUSTED_MEM_HAPP;
+	case TRUSTED_MEM_REQ_HAPP_EXTRA:
+		return TRUSTED_MEM_HAPP_EXTRA;
+	case TRUSTED_MEM_REQ_SDSP:
+		return TRUSTED_MEM_SDSP;
+	case TRUSTED_MEM_REQ_SDSP_SHARED:
+		return TRUSTED_MEM_SDSP_SHARED;
 	case TRUSTED_MEM_REQ_2D_FR:
 		return TRUSTED_MEM_SVP_VIRT_2D_FR;
 	default:
@@ -78,3 +92,10 @@ int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 sec_handle,
 				     id);
 }
 EXPORT_SYMBOL(trusted_mem_api_unref);
+
+bool trusted_mem_api_get_region_info(enum TRUSTED_MEM_REQ_TYPE mem_type,
+				     u64 *pa, u32 *size)
+{
+	return tmem_core_get_region_info(get_mem_type(mem_type), pa, size);
+}
+EXPORT_SYMBOL(trusted_mem_api_get_region_info);

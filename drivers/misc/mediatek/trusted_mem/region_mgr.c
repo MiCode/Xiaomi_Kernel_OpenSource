@@ -53,7 +53,7 @@ static int trusted_mem_region_poweron(struct trusted_mem_device *mem_device)
 
 	ret = peer_mgr->mgr_sess_open(drv_ops, peer_mgr_data,
 				      mem_device->peer_priv);
-	if (ret) {
+	if (ret && (ret != TMEM_MGR_SESSION_IS_ALREADY_OPEN)) {
 		pr_err("open trusted mem session failed!\n");
 		goto err_open_mtee_failed;
 	}
@@ -97,7 +97,7 @@ static int trusted_mem_region_poweroff(struct trusted_mem_device *mem_device)
 
 	ret = peer_mgr->mgr_sess_close(is_session_keep_alive, drv_ops,
 				       peer_mgr_data, mem_device->peer_priv);
-	if (ret) {
+	if (ret && (ret != TMEM_MGR_SESSION_IS_ALREADY_CLOSE)) {
 		pr_err("close trusted mem session failed!\n");
 		return ret;
 	}
