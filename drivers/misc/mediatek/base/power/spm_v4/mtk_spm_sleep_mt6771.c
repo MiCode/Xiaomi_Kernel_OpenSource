@@ -26,7 +26,7 @@
 #ifdef CONFIG_ARM64
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-#include <linux/irqchip/mtk-gic.h>
+#include <linux/irqchip/mtk-gic-extend.h>
 #endif
 #endif
 #if defined(CONFIG_MTK_SYS_CIRQ)
@@ -49,9 +49,9 @@
 
 #include <mtk_spm_internal.h>
 #include <mtk_spm_pmic_wrap.h>
+#include "pmic_api_buck.h"
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-#include <mtk_pmic_api_buck.h>
 #include <mtk_spm_vcore_dvfs.h>
 #endif
 
