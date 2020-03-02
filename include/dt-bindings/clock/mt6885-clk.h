@@ -75,7 +75,7 @@
 #define TOP_MUX_AUDIO_H 61
 #define TOP_MUX_CAMTG5 62
 #define TOP_MUX_CAMTG6 63
-#define TOP_MUX_CUPM 64
+#define TOP_MUX_MCUPM 64
 #define TOP_MUX_SPMI_MST 65
 #define TOP_MUX_DVFSRC 66
 
@@ -159,10 +159,30 @@
 #define TOP_OSC2_D2 144
 #define TOP_OSC2_D3 145
 #define TOP_TVDPLL_MAINPLL_D2_CK 146
-#define CLK_TOP_UNIVPLL2_D4 147		/* temp */
-#define CLK_TOP_ULPOSC1_D2 148		/* temp */
-#define CLK_TOP_ULPOSC1_D8 149		/* temp */
-#define TOP_NR_CLK 150
+
+#define TOP_CLK26M				147	/* add manually */
+#define TOP_CLK13M				148	/* add manually */
+#define TOP_F26M_CK_D2			149	/* add manually */
+#define TOP_UNIVP_192M_CK		150	/* add manually */
+#define TOP_UNIVP_192M_D2		151	/* add manually */
+#define TOP_UNIVP_192M_D4		152	/* add manually */
+#define TOP_UNIVP_192M_D8		153	/* add manually */
+#define TOP_UNIVP_192M_D16		154	/* add manually */
+#define TOP_UNIVP_192M_D32		155	/* add manually */
+#define TOP_APLL1_D2			156	/* add manually */
+#define TOP_APLL1_D4			157	/* add manually */
+#define TOP_APLL1_D8			158	/* add manually */
+#define TOP_APLL2_D2			159	/* add manually */
+#define TOP_APLL2_D4			160	/* add manually */
+#define TOP_APLL2_D8			161	/* add manually */
+#define TOP_MFGPLL_CK			162	/* add manually */
+#define TOP_ADSPPLL_CK			163	/* add manually */
+#define TOP_NR_CLK 164
+
+#define CLK_TOP_UNIVPLL2_D4 148         /* TODO: removed!! */
+#define CLK_TOP_ULPOSC1_D2 149          /* TODO: removed!! */
+#define CLK_TOP_ULPOSC1_D8 150          /* TODO: removed!! */
+
 
 /* APMIXED */
 #define APMIXED_ARMPLL_LL 1
@@ -181,27 +201,24 @@
 #define APMIXED_APLL1 14
 #define APMIXED_APLL2 15
 #define APMIXED_APUPLL 16
-#define CLK_APMIXED_MIPID0_26M 17	/* temp */
-#define APMIXED_NR_CLK 18
+#define APMIXED_NR_CLK 17
+#define CLK_APMIXED_MIPID0_26M 18       /* TODO: removed!! */
 
 /* APU0 */
 #define APU0_APU_CG 1
 #define APU0_AXI_M_CG 2
 #define APU0_JTAG_CG 3
-#define APU0_PCLK_GATED_EN 4
-#define APU0_NR_CLK 5
+#define APU0_NR_CLK 4
 /* APU1 */
 #define APU1_APU_CG 1
 #define APU1_AXI_M_CG 2
 #define APU1_JTAG_CG 3
-#define APU1_PCLK_GATED_EN 4
-#define APU1_NR_CLK 5
+#define APU1_NR_CLK 4
 /* APU2 */
 #define APU2_APU_CG 1
 #define APU2_AXI_M_CG 2
 #define APU2_JTAG_CG 3
-#define APU2_PCLK_GATED_EN 4
-#define APU2_NR_CLK 5
+#define APU2_NR_CLK 4
 /* APUSYS_VCORE */
 #define APUSYS_VCORE_AHB_CG 1
 #define APUSYS_VCORE_AXI_CG 2
@@ -209,31 +226,56 @@
 #define APUSYS_VCORE_QOS_CG 4
 #define APUSYS_VCORE_NR_CLK 5
 /* APU_CONN */
-#define APU_CONN_APU_CG 1
-#define APU_CONN_AHB_CG 2
-#define APU_CONN_AXI_CG 3
-#define APU_CONN_ISP_CG 4
-#define APU_CONN_CAM_ADL_CG 5
-#define APU_CONN_IMG_ADL_CG 6
-#define APU_CONN_EMI_26M_CG 7
-#define APU_CONN_VPU_UDI_CG 8
-#define APU_CONN_EDMA_0_CG 9
-#define APU_CONN_EDMA_1_CG 10
-#define APU_CONN_EDMAL_0_CG 11
-#define APU_CONN_EDMAL_1_CG 12
-#define APU_CONN_MNOC_CG 13
-#define APU_CONN_TCM_CG 14
-#define APU_CONN_MD32_CG 15
-#define APU_CONN_IOMMU_0_CG 16
-#define APU_CONN_IOMMU_1_CG 17
-#define APU_CONN_MD32_32K_CG 18
-#define APU_CONN_NR_CLK 19
+#define APU_CONN_AHB_CG 1
+#define APU_CONN_AXI_CG 2
+#define APU_CONN_ISP_CG 3
+#define APU_CONN_CAM_ADL_CG 4
+#define APU_CONN_IMG_ADL_CG 5
+#define APU_CONN_EMI_26M_CG 6
+#define APU_CONN_VPU_UDI_CG 7
+#define APU_CONN_EDMA_0_CG 8
+#define APU_CONN_EDMA_1_CG 9
+#define APU_CONN_EDMAL_0_CG 10
+#define APU_CONN_EDMAL_1_CG 11
+#define APU_CONN_MNOC_CG 12
+#define APU_CONN_TCM_CG 13
+#define APU_CONN_MD32_CG 14
+#define APU_CONN_IOMMU_0_CG 15
+#define APU_CONN_IOMMU_1_CG 16
+#define APU_CONN_MD32_32K_CG 17
+#define APU_CONN_NR_CLK 18
 /* APU_MDLA0 */
-#define APU_MDLA0_APB_CG 1
-#define APU_MDLA0_NR_CLK 2
+#define APU_MDLA0_MDLA_CG0 1
+#define APU_MDLA0_MDLA_CG1 2
+#define APU_MDLA0_MDLA_CG2 3
+#define APU_MDLA0_MDLA_CG3 4
+#define APU_MDLA0_MDLA_CG4 5
+#define APU_MDLA0_MDLA_CG5 6
+#define APU_MDLA0_MDLA_CG6 7
+#define APU_MDLA0_MDLA_CG7 8
+#define APU_MDLA0_MDLA_CG8 9
+#define APU_MDLA0_MDLA_CG9 10
+#define APU_MDLA0_MDLA_CG10 11
+#define APU_MDLA0_MDLA_CG11 12
+#define APU_MDLA0_MDLA_CG12 13
+#define APU_MDLA0_APB_CG 14
+#define APU_MDLA0_NR_CLK 15
 /* APU_MDLA1 */
-#define APU_MDLA1_APB_CG 1
-#define APU_MDLA1_NR_CLK 2
+#define APU_MDLA1_MDLA_CG0 1
+#define APU_MDLA1_MDLA_CG1 2
+#define APU_MDLA1_MDLA_CG2 3
+#define APU_MDLA1_MDLA_CG3 4
+#define APU_MDLA1_MDLA_CG4 5
+#define APU_MDLA1_MDLA_CG5 6
+#define APU_MDLA1_MDLA_CG6 7
+#define APU_MDLA1_MDLA_CG7 8
+#define APU_MDLA1_MDLA_CG8 9
+#define APU_MDLA1_MDLA_CG9 10
+#define APU_MDLA1_MDLA_CG10 11
+#define APU_MDLA1_MDLA_CG11 12
+#define APU_MDLA1_MDLA_CG12 13
+#define APU_MDLA1_APB_CG 14
+#define APU_MDLA1_NR_CLK 15
 /* AP_DMA */
 #define AP_DMA_I2C0 1
 #define AP_DMA_I2C1 2
@@ -307,8 +349,8 @@
 #define AUDIODSP_UART_BCLK_CG 6
 #define AUDIODSP_NR_CLK 7
 /* CAMSYS_MAIN */
-#define CAMSYS_MAIN_LARBX_CGPDN 1
-#define CAMSYS_MAIN_LARB13_CGPDN 2
+#define CAMSYS_MAIN_LARB13_CGPDN 1
+#define CAMSYS_MAIN_LARBX_CGPDN 2
 #define CAMSYS_MAIN_DFP_VAD_CGPDN 3
 #define CAMSYS_MAIN_CAM_CGPDN 4
 #define CAMSYS_MAIN_CAMTG_CGPDN 5
@@ -327,69 +369,19 @@
 #define CAMSYS_MAIN_NR_CLK 18
 /* CAMSYS_RAWA */
 #define CAMSYS_RAWA_LARBX_CGPDN 1
-#define CAMSYS_RAWA_LARB13_CGPDN 2
-#define CAMSYS_RAWA_DFP_VAD_CGPDN 3
-#define CAMSYS_RAWA_CAM_CGPDN 4
-#define CAMSYS_RAWA_CAMTG_CGPDN 5
-#define CAMSYS_RAWA_LARB14_CGPDN 6
-#define CAMSYS_RAWA_LARB15_CGPDN 7
-#define CAMSYS_RAWA_SENINF_CGPDN 8
-#define CAMSYS_RAWA_CAMSV0_CGPDN 9
-#define CAMSYS_RAWA_CAMSV1_CGPDN 10
-#define CAMSYS_RAWA_CAMSV2_CGPDN 11
-#define CAMSYS_RAWA_CAMSV3_CGPDN 12
-#define CAMSYS_RAWA_CCU0_CGPDN 13
-#define CAMSYS_RAWA_CCU1_CGPDN 14
-#define CAMSYS_RAWA_MRAW0_CGPDN 15
-#define CAMSYS_RAWA_MRAW1_CGPDN 16
-#define CAMSYS_RAWA_FAKE_ENG_CGPDN 17
-#define CAMSYS_RAWA_NR_CLK 18
+#define CAMSYS_RAWA_CAM_CGPDN 2
+#define CAMSYS_RAWA_CAMTG_CGPDN 3
+#define CAMSYS_RAWA_NR_CLK 4
 /* CAMSYS_RAWB */
 #define CAMSYS_RAWB_LARBX_CGPDN 1
-#define CAMSYS_RAWB_LARB13_CGPDN 2
-#define CAMSYS_RAWB_CAM_CGPDN 3
-#define CAMSYS_RAWB_DFP_VAD_CGPDN 4
-#define CAMSYS_RAWB_LARB14_CGPDN 5
-#define CAMSYS_RAWB_CAMTG_CGPDN 6
-#define CAMSYS_RAWB_LARB15_CGPDN 7
-#define CAMSYS_RAWB_SENINF_CGPDN 8
-#define CAMSYS_RAWB_CAMSV0_CGPDN 9
-#define CAMSYS_RAWB_CAMSV1_CGPDN 10
-#define CAMSYS_RAWB_CAMSV2_CGPDN 11
-#define CAMSYS_RAWB_CAMSV3_CGPDN 12
-#define CAMSYS_RAWB_CCU0_CGPDN 13
-#define CAMSYS_RAWB_CCU1_CGPDN 14
-#define CAMSYS_RAWB_MRAW0_CGPDN 15
-#define CAMSYS_RAWB_MRAW1_CGPDN 16
-#define CAMSYS_RAWB_FAKE_ENG_CGPDN 17
-#define CAMSYS_RAWB_NR_CLK 18
+#define CAMSYS_RAWB_CAM_CGPDN 2
+#define CAMSYS_RAWB_CAMTG_CGPDN 3
+#define CAMSYS_RAWB_NR_CLK 4
 /* CAMSYS_RAWC */
-#define CAMSYS_RAWC_LARB13_CGPDN 1
-#define CAMSYS_RAWC_LARBX_CGPDN 2
-#define CAMSYS_RAWC_DFP_VAD_CGPDN 3
-#define CAMSYS_RAWC_CAM_CGPDN 4
-#define CAMSYS_RAWC_CAMTG_CGPDN 5
-#define CAMSYS_RAWC_LARB14_CGPDN 6
-#define CAMSYS_RAWC_LARB15_CGPDN 7
-#define CAMSYS_RAWC_SENINF_CGPDN 8
-#define CAMSYS_RAWC_CAMSV0_CGPDN 9
-#define CAMSYS_RAWC_CAMSV1_CGPDN 10
-#define CAMSYS_RAWC_CAMSV2_CGPDN 11
-#define CAMSYS_RAWC_CAMSV3_CGPDN 12
-#define CAMSYS_RAWC_CCU0_CGPDN 13
-#define CAMSYS_RAWC_CCU1_CGPDN 14
-#define CAMSYS_RAWC_MRAW0_CGPDN 15
-#define CAMSYS_RAWC_MRAW1_CGPDN 16
-#define CAMSYS_RAWC_FAKE_ENG_CGPDN 17
-#define CAMSYS_RAWC_NR_CLK 18
-/* CQ_DMA */
-/*
- * #define CQ_DMA_DCM_EN 1
- * #define CQ_DMA_DCM_EN 2
- * #define CQ_DMA_DCM_EN 3
- * #define CQ_DMA_DCM_EN 4
- * #define CQ_DMA_NR_CLK 5
- */
+#define CAMSYS_RAWC_LARBX_CGPDN 1
+#define CAMSYS_RAWC_CAM_CGPDN 2
+#define CAMSYS_RAWC_CAMTG_CGPDN 3
+#define CAMSYS_RAWC_NR_CLK 4
 /* DBGAPB */
 #define DBGAPB_ATB_EN 1
 #define DBGAPB_BUSCLK_EN 2
@@ -435,48 +427,48 @@
 #define DVFSRC_TOP_DVFSRC_EN 1
 #define DVFSRC_TOP_NR_CLK 2
 /* EMI */
-#define EMI_CAM_HRT_URGENT_TO_MASK 1
+#define EMI_BUS_MON_MODE 1
 #define EMI_NR_CLK 2
 /* GCE */
-#define GCE_NR_CLK 1
+#define GCE_SW_CG_0 1
+#define GCE_NR_CLK 2
 /* IMGSYS1 */
 #define IMGSYS1_LARB9_CGPDN 1
-#define IMGSYS1_LARB19_CGPDN 2
-#define IMGSYS1_LARB10_CGPDN 3
-#define IMGSYS1_LARB20_CGPDN 4
-#define IMGSYS1_IPE_SMI_SUBCOM_CGPDN 5
-#define IMGSYS1_DIP_CGPDN 6
-#define IMGSYS1_FD_CGPDN 7
-#define IMGSYS1_FE_CGPDN 8
-#define IMGSYS1_RSC_CGPDN 9
-#define IMGSYS1_MFB_CGPDN 10
-#define IMGSYS1_DPE_CGPDN 11
-#define IMGSYS1_WPE_CGPDN 12
-#define IMGSYS1_MSS_CGPDN 13
-#define IMGSYS1_NR_CLK 14
+#define IMGSYS1_LARB10_CGPDN 2
+#define IMGSYS1_DIP_CGPDN 3
+#define IMGSYS1_MFB_CGPDN 4
+#define IMGSYS1_WPE_CGPDN 5
+#define IMGSYS1_MSS_CGPDN 6
+#define IMGSYS1_NR_CLK 7
 /* IMGSYS2 */
 #define IMGSYS2_LARB9_CGPDN 1
-#define IMGSYS2_LARB19_CGPDN 2
-#define IMGSYS2_LARB20_CGPDN 3
-#define IMGSYS2_LARB10_CGPDN 4
-#define IMGSYS2_DIP_CGPDN 5
-#define IMGSYS2_IPE_SMI_SUBCOM_CGPDN 6
-#define IMGSYS2_FD_CGPDN 7
-#define IMGSYS2_FE_CGPDN 8
-#define IMGSYS2_RSC_CGPDN 9
-#define IMGSYS2_MFB_CGPDN 10
-#define IMGSYS2_DPE_CGPDN 11
-#define IMGSYS2_WPE_CGPDN 12
-#define IMGSYS2_MSS_CGPDN 13
-#define IMGSYS2_NR_CLK 14
+#define IMGSYS2_LARB10_CGPDN 2
+#define IMGSYS2_DIP_CGPDN 3
+#define IMGSYS2_MFB_CGPDN 4
+#define IMGSYS2_WPE_CGPDN 5
+#define IMGSYS2_MSS_CGPDN 6
+#define IMGSYS2_NR_CLK 7
 /* IMP_IIC_WRAP_C */
-#define IMP_IIC_WRAP_C_NR_CLK 1
+#define IMP_IIC_WRAP_C_AP_I2C0_CG_RO 1
+#define IMP_IIC_WRAP_C_AP_I2C10_CG_RO 2
+#define IMP_IIC_WRAP_C_AP_I2C11_CG_RO 3
+#define IMP_IIC_WRAP_C_AP_I2C12_CG_RO 4
+#define IMP_IIC_WRAP_C_NR_CLK 5
 /* IMP_IIC_WRAP_E */
-#define IMP_IIC_WRAP_E_NR_CLK 1
+#define IMP_IIC_WRAP_E_AP_I2C3_CG_RO 1
+#define IMP_IIC_WRAP_E_AP_I2C9_CG_RO 2
+#define IMP_IIC_WRAP_E_NR_CLK 3
 /* IMP_IIC_WRAP_N */
-#define IMP_IIC_WRAP_N_NR_CLK 1
+#define IMP_IIC_WRAP_N_AP_I2C5_CG_RO 1
+#define IMP_IIC_WRAP_N_AP_I2C6_CG_RO 2
+#define IMP_IIC_WRAP_N_NR_CLK 3
 /* IMP_IIC_WRAP_S */
-#define IMP_IIC_WRAP_S_NR_CLK 1
+#define IMP_IIC_WRAP_S_AP_I2C1_CG_RO 1
+#define IMP_IIC_WRAP_S_AP_I2C2_CG_RO 2
+#define IMP_IIC_WRAP_S_AP_I2C4_CG_RO 3
+#define IMP_IIC_WRAP_S_AP_I2C7_CG_RO 4
+#define IMP_IIC_WRAP_S_AP_I2C8_CG_RO 5
+#define IMP_IIC_WRAP_S_NR_CLK 6
 /* INFRACFG_AO */
 #define INFRACFG_AO_INFRA_DCM_RG_FORCE_CLKOFF 1
 #define INFRACFG_AO_PMIC_CG_TMR 2
@@ -590,26 +582,25 @@
 #define INFRACFG_AO_PERI_DCM_RG_FORCE_CLKOFF 110
 #define INFRACFG_AO_NR_CLK 111
 /* INFRACFG_MEM */
-#define INFRACFG_MEM_NR_CLK 1
+#define INFRACFG_MEM_MEM_CK_MON_EN0 1
+#define INFRACFG_MEM_MEM_CK_MON_EN1 2
+#define INFRACFG_MEM_MEM_CK_MON_EN2 3
+#define INFRACFG_MEM_MEM_CK_MON_EN3 4
+#define INFRACFG_MEM_NR_CLK 5
 /* IPESYS */
-#define IPESYS_LARB9_CGPDN 1
-#define IPESYS_LARB19_CGPDN 2
-#define IPESYS_LARB20_CGPDN 3
-#define IPESYS_LARB10_CGPDN 4
-#define IPESYS_DIP_CGPDN 5
-#define IPESYS_IPE_SMI_SUBCOM_CGPDN 6
-#define IPESYS_FD_CGPDN 7
-#define IPESYS_FE_CGPDN 8
-#define IPESYS_RSC_CGPDN 9
-#define IPESYS_MFB_CGPDN 10
-#define IPESYS_DPE_CGPDN 11
-#define IPESYS_WPE_CGPDN 12
-#define IPESYS_MSS_CGPDN 13
-#define IPESYS_NR_CLK 14
+#define IPESYS_LARB19_CGPDN 1
+#define IPESYS_LARB20_CGPDN 2
+#define IPESYS_IPE_SMI_SUBCOM_CGPDN 3
+#define IPESYS_FD_CGPDN 4
+#define IPESYS_FE_CGPDN 5
+#define IPESYS_RSC_CGPDN 6
+#define IPESYS_DPE_CGPDN 7
+#define IPESYS_NR_CLK 8
 /* MDPSYS_CONFIG */
 #define MDPSYS_CONFIG_NR_CLK 1
 /* MDP_GCE */
-#define MDP_GCE_NR_CLK 1
+#define MDP_GCE_SW_CG_0 1
+#define MDP_GCE_NR_CLK 2
 /* MD_CONFIG */
 #define MD_CONFIG_LVTSCKEN 1
 #define MD_CONFIG_PTPODCORE0EN 2
@@ -624,7 +615,63 @@
 #define MFGCFG_BG3D 1
 #define MFGCFG_NR_CLK 2
 /* MMSYS_CONFIG */
-#define MMSYS_CONFIG_NR_CLK 1
+#define MM_DISP_RSZ0	1
+#define MM_DISP_RSZ1	2
+#define MM_DISP_OVL0	3
+#define MM_INLINEROT	4
+#define MM_MDP_TDSHP4	5
+#define MM_MDP_TDSHP5	6
+#define MM_MDP_AAL4	7
+#define MM_MDP_AAL5	8
+#define MM_MDP_HDR4	9
+#define MM_MDP_HDR5	10
+#define MM_MDP_RSZ4	11
+#define MM_MDP_RSZ5	12
+#define MM_MDP_RDMA4	13
+#define MM_MDP_RDMA5	14
+#define MM_DISP_FAKE_ENG0	15
+#define MM_DISP_FAKE_ENG1	16
+#define MM_DISP_OVL0_2L	17
+#define MM_DISP_OVL1_2L	18
+#define MM_DISP_OVL2_2L	19
+#define MM_DISP_MUTEX0	20
+#define MM_DISP_OVL1	21
+#define MM_DISP_OVL3_2L	22
+#define MM_DISP_CCORR0	23
+#define MM_DISP_CCORR1	24
+#define MM_DISP_COLOR0	25
+#define MM_DISP_COLOR1	26
+#define MM_DISP_POSTMASK0	27
+#define MM_DISP_POSTMASK1	28
+#define MM_DISP_DITHER0	29
+#define MM_DISP_DITHER1	30
+#define MM_DISP_DSI0	31
+#define MM_DISP_DSI1	32
+#define MM_DISP_GAMMA0	33
+#define MM_DISP_GAMMA1	34
+#define MM_DISP_AAL0	35
+#define MM_DISP_AAL1	36
+#define MM_DISP_WDMA0	37
+#define MM_DISP_WDMA1	38
+#define MM_DISP_RDMA0	39
+#define MM_DISP_RDMA1	40
+#define MM_DISP_RDMA4	41
+#define MM_DISP_RDMA5	42
+#define MM_DISP_DSC_WRAP	43
+#define MM_DISP_DP_INTF	44
+#define MM_DISP_MERGE0	45
+#define MM_DISP_MERGE1	46
+#define MM_SMI_COMMON	47
+#define MM_SMI_GALS	48
+#define MM_SMI_INFRA	49
+#define MM_SMI_IOMMU	50
+#define MM_DSI_DSI0	51
+#define MM_DSI_DSI1	52
+#define MM_DP_INTF	53
+#define MM_26MHZ	54
+#define MM_32KHZ	55
+#define MM_NR_CLK	56
+
 /* MP_CPUSYS_TOP */
 #define MP_CPUSYS_TOP_DIS_TIMESTAMP_CLK 1
 #define MP_CPUSYS_TOP_NR_CLK 2
@@ -656,23 +703,17 @@
 #define SSPM_UART_BCLK_CG 19
 #define SSPM_NR_CLK 20
 /* SUB_EMI */
-#define SUB_EMI_CAM_HRT_URGENT_TO_MASK 1
+#define SUB_EMI_BUS_MON_MODE 1
 #define SUB_EMI_NR_CLK 2
 /* THERM_CTRL */
-/*
- *#define THERM_CTRL_LVTSCKEN 1
- *#define THERM_CTRL_LVTSCKEN 2
- *#define THERM_CTRL_LVTSCKEN 3
- *#define THERM_CTRL_LVTSCKEN 4
- *#define THERM_CTRL_PTPODCORE0EN 5
- *#define THERM_CTRL_PTPODCORE1EN 6
- *#define THERM_CTRL_PTPODCORE2EN 7
- *#define THERM_CTRL_PTPODCORE3EN 8
- *#define THERM_CTRL_PTPODCORE4EN 9
- *#define THERM_CTRL_PTPODCORE5EN 10
- *#define THERM_CTRL_SYSTEMCLK_CG_EN 11
- *#define THERM_CTRL_NR_CLK 12
- */
+#define THERM_CTRL_PTPODCORE0EN 5
+#define THERM_CTRL_PTPODCORE1EN 6
+#define THERM_CTRL_PTPODCORE2EN 7
+#define THERM_CTRL_PTPODCORE3EN 8
+#define THERM_CTRL_PTPODCORE4EN 9
+#define THERM_CTRL_PTPODCORE5EN 10
+#define THERM_CTRL_SYSTEMCLK_CG_EN 11
+#define THERM_CTRL_NR_CLK 12
 /* TOPCKGEN */
 #define TOPCKGEN_APLL12_DIV0_PDN 1
 #define TOPCKGEN_APLL12_DIV1_PDN 2
@@ -695,19 +736,14 @@
 #define TOPCKGEN_PDN_CONN_26M 19
 #define TOPCKGEN_NR_CLK 20
 /* USB3 */
-/*
- * #define USB3_LVTSCKEN 1
- * #define USB3_LVTSCKEN 2
- * #define USB3_LVTSCKEN 3
- * #define USB3_PTPODCORE0EN 4
- * #define USB3_PTPODCORE1EN 5
- * #define USB3_PTPODCORE2EN 6
- * #define USB3_PTPODCORE3EN 7
- * #define USB3_PTPODCORE4EN 8
- * #define USB3_PTPODCORE5EN 9
- * #define USB3_SYSTEMCLK_CG_EN 10
- * #define USB3_NR_CLK 11
- */
+#define USB3_PTPODCORE0EN 4
+#define USB3_PTPODCORE1EN 5
+#define USB3_PTPODCORE2EN 6
+#define USB3_PTPODCORE3EN 7
+#define USB3_PTPODCORE4EN 8
+#define USB3_PTPODCORE5EN 9
+#define USB3_SYSTEMCLK_CG_EN 10
+#define USB3_NR_CLK 11
 /* VDEC_GCON */
 #define VDEC_GCON_LARB1_CKEN 1
 #define VDEC_GCON_LAT_CKEN 2
@@ -730,17 +766,17 @@
 #define VENC_C1_GCON_SET0_LARB 1
 #define VENC_C1_GCON_SET1_VENC 2
 #define VENC_C1_GCON_SET2_JPGENC 3
-#define VENC_C1_GCON_SET4_JPGDEC_C1 4
-#define VENC_C1_GCON_SET5_GALS 5
-#define VENC_C1_GCON_SET3_GALS 6
+#define VENC_C1_GCON_SET3_JPGDEC 4
+#define VENC_C1_GCON_SET4_JPGDEC_C1 5
+#define VENC_C1_GCON_SET5_GALS 6
 #define VENC_C1_GCON_NR_CLK 7
 /* VENC_GCON */
 #define VENC_GCON_SET0_LARB 1
 #define VENC_GCON_SET1_VENC 2
 #define VENC_GCON_SET2_JPGENC 3
-#define VENC_GCON_SET4_JPGDEC_C1 4
-#define VENC_GCON_SET5_GALS 5
-#define VENC_GCON_SET3_GALS 6
+#define VENC_GCON_SET3_JPGDEC 4
+#define VENC_GCON_SET4_JPGDEC_C1 5
+#define VENC_GCON_SET5_GALS 6
 #define VENC_GCON_NR_CLK 7
 /* WPE */
 #define WPE_VECI_DCM_DIS 1
@@ -769,7 +805,7 @@
 #define WPE_NR_CLK 24
 
 /* Note: TOPCK register offset definition is generated from parsing
- *	TOPCKGEN's register (project.h) with keyword "CLK_CFG_"
+ * TOPCKGEN's register (project.h) with keyword "CLK_CFG_"
  */
 /* #define TOPCKGEN_BASE 0x10000000 */
 
@@ -836,54 +872,69 @@
 
 
 /* SCP_SYS */
-#define SCP_SYS_MD1		0
-#define SCP_SYS_CONN		1
-#define SCP_SYS_DPY		2
-#define SCP_SYS_DIS		3
-#define SCP_SYS_MFG		4
-#define SCP_SYS_ISP		5
-#define SCP_SYS_IFR		6
-#define SCP_SYS_MFG_CORE0	7
-#define SCP_SYS_MFG_CORE1	8
-#define SCP_SYS_MFG_ASYNC	9
-#define SCP_SYS_CAM		10
-#define SCP_SYS_VENC		11
-#define SCP_SYS_VDEC		12
-#define SCP_NR_SYSS		13
+#define SCP_SYS_MD1	0
+#define SCP_SYS_CONN	1
+#define SCP_SYS_MFG0	2
+#define SCP_SYS_MFG1	3
+#define SCP_SYS_MFG2	4
+#define SCP_SYS_MFG3	5
+#define SCP_SYS_MFG4	6
+#define SCP_SYS_MFG5	7
+#define SCP_SYS_MFG6	8
+#define SCP_SYS_IFR	9
+#define SCP_SYS_IFR_SUB	10
+#define SCP_SYS_DPY	11
+#define SCP_SYS_ISP	12
+#define SCP_SYS_ISP2	13
+#define SCP_SYS_IPE	14
+#define SCP_SYS_VDEC	15
+#define SCP_SYS_VDEC2	16
+#define SCP_SYS_VENC	17
+#define SCP_SYS_VENC_CORE1	18
+#define SCP_SYS_MDP	19
+#define SCP_SYS_DIS	20
+#define SCP_SYS_AUDIO	21
+#define SCP_SYS_ADSP	22
+#define SCP_SYS_CAM	23
+#define SCP_SYS_CAM_RAWA	24
+#define SCP_SYS_CAM_RAWB	25
+#define SCP_SYS_CAM_RAWC	26
+#define SCP_SYS_DP_TX	27
+#define SCP_SYS_DPY2	28
+#define SCP_NR_SYSS	29
 
 
-/* MMSYS_CONFIG */
-/* temp */
-#define CLK_MM_MDP_RDMA0		0
-#define CLK_MM_MDP_CCORR0		1
-#define CLK_MM_MDP_RSZ0			2
-#define CLK_MM_MDP_RSZ1			3
-#define CLK_MM_MDP_TDSHP0		4
-#define CLK_MM_MDP_WROT0		5
-#define CLK_MM_MDP_WDMA0		6
-#define CLK_MM_DISP_OVL0		7
-#define CLK_MM_DISP_OVL0_2L		8
-#define CLK_MM_DISP_RSZ0		9
-#define CLK_MM_DISP_RDMA0		10
-#define CLK_MM_DISP_WDMA0		11
-#define CLK_MM_DISP_COLOR0		12
-#define CLK_MM_DISP_CCORR0		13
-#define CLK_MM_DISP_AAL0		14
-#define CLK_MM_DISP_GAMMA0		15
-#define CLK_MM_DISP_DITHER0		16
-#define CLK_MM_DSI0			17
-#define CLK_MM_FAKE_ENG			18
-#define CLK_MM_SMI_COMMON		19
-#define CLK_MM_SMI_LARB0		20
-#define CLK_MM_SMI_COMM0		21
-#define CLK_MM_SMI_COMM1		22
-#define CLK_MM_CAM_MDP			23
-#define CLK_MM_SMI_IMG			24
-#define CLK_MM_SMI_CAM			25
-#define CLK_MM_SMI_VENC			26
-#define CLK_MM_SMI_VDEC			27
-#define CLK_MM_IMG_DL_RELAY		28
-#define CLK_MM_IMG_DL_ASYNC_TOP		29
-#define CLK_MM_DIG_DSI			30
-#define CLK_MM_F26M_HRTWT		31
-#define CLK_MM_NR_CLK			32
+/* TODO: removed !!  */
+#define CLK_MM_MDP_RDMA0                0
+#define CLK_MM_MDP_CCORR0               1
+#define CLK_MM_MDP_RSZ0                 2
+#define CLK_MM_MDP_RSZ1                 3
+#define CLK_MM_MDP_TDSHP0               4
+#define CLK_MM_MDP_WROT0                5
+#define CLK_MM_MDP_WDMA0                6
+#define CLK_MM_DISP_OVL0                7
+#define CLK_MM_DISP_OVL0_2L             8
+#define CLK_MM_DISP_RSZ0                9
+#define CLK_MM_DISP_RDMA0               10
+#define CLK_MM_DISP_WDMA0               11
+#define CLK_MM_DISP_COLOR0              12
+#define CLK_MM_DISP_CCORR0              13
+#define CLK_MM_DISP_AAL0                14
+#define CLK_MM_DISP_GAMMA0              15
+#define CLK_MM_DISP_DITHER0             16
+#define CLK_MM_DSI0                     17
+#define CLK_MM_FAKE_ENG                 18
+#define CLK_MM_SMI_COMMON               19
+#define CLK_MM_SMI_LARB0                20
+#define CLK_MM_SMI_COMM0                21
+#define CLK_MM_SMI_COMM1                22
+#define CLK_MM_CAM_MDP                  23
+#define CLK_MM_SMI_IMG                  24
+#define CLK_MM_SMI_CAM                  25
+#define CLK_MM_SMI_VENC                 26
+#define CLK_MM_SMI_VDEC                 27
+#define CLK_MM_IMG_DL_RELAY             28
+#define CLK_MM_IMG_DL_ASYNC_TOP         29
+#define CLK_MM_DIG_DSI                  30
+#define CLK_MM_F26M_HRTWT               31
+#define CLK_MM_NR_CLK                   32
