@@ -32,6 +32,7 @@
 #define GED_GAS_SIGNAL_EVENT               49
 #define GED_SIGNAL_BOOST_HOST_EVENT        50
 #define GED_VILTE_VID_SIGNAL_EVENT         51
+#define GED_LOW_LATENCY_MODE_SIGNAL_EVENT  52
 
 /* GED_DVFS_DIFF_THRESHOLD (us) */
 #define GED_DVFS_DIFF_THRESHOLD        500
@@ -65,6 +66,7 @@ typedef enum GED_DVFS_TUNING_MODE_TAG {
 #define GED_EVENT_VR             (1 << 8)
 #define GED_EVENT_VILTE_VID      (1 << 9)
 #define GED_EVENT_LCD            (1 << 10)
+#define GED_EVENT_LOW_LATENCY_MODE (1 << 13)
 
 typedef void (*ged_event_change_fp)(void *private_data, int events);
 
@@ -132,7 +134,7 @@ extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target, int boost_accum_gp
 
 #ifdef GED_ENABLE_FB_DVFS
 extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target,
-	unsigned int force_fallback);
+	int target_fps_margin, unsigned int force_fallback);
 extern void (*ged_kpi_trigger_fb_dvfs_fp)(void);
 extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
 #endif
@@ -140,5 +142,16 @@ extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
 extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq, int *pmode);
 
 extern void mtk_gpu_ged_hint(int, int);
+int ged_dvfs_boost_value(void);
+
+#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
+extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);
+extern int (*mtk_get_dvfs_margin_value_fp)(void);
+#endif
+
+#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
+extern void (*mtk_loading_base_dvfs_step_fp)(int i32MarginValue);
+extern int (*mtk_get_loading_base_dvfs_step_fp)(void);
+#endif
 
 #endif

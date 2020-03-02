@@ -54,6 +54,8 @@ bool ged_kpi_set_gpu_dvfs_hint(int t_gpu_target, int t_gpu_cur);
 void ged_kpi_set_game_hint(int mode);
 unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
+void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
+	int target_FPS_margin);
 
 extern int linear_real_boost(int linear_boost);
 #ifdef GED_KPI_CPU_INFO

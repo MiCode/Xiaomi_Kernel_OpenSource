@@ -29,9 +29,6 @@
 #include "ged_base.h"
 #include "ged_monitor_3D_fence.h"
 #include "ged.h"
-#include "ged_global.h"
-
-#undef CONFIG_MTK_QOS_SUPPORT
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
 #include <mtk_gpu_bw.h>
@@ -60,7 +57,7 @@ static u64 g_fallback_time_out = GED_DVFS_FB_TIMER_TIMEOUT;
 static struct hrtimer g_HT_hwvsync_emu;
 
 #include "ged_dvfs.h"
-
+#include "ged_global.h"
 
 static struct workqueue_struct *g_psNotifyWorkQueue;
 #if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
