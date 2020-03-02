@@ -763,14 +763,23 @@ firmware_class.path=/vendor/firmware";
 		reg = <0 0x1000ce00 0 0x1000>;
 	};
 
-	pwrap@1000d000 {
+	pwrap: pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
+		reg-names = "pwrap";
 		interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk26m>, <&clk26m>;
+		clock-names = "spi", "wrap";
+
 		main_pmic: mt-pmic {
 			compatible = "mediatek,mt_pmic";
 			interrupt-controller;
 		};
+	};
+
+	pwraph: pwraphal@ {
+		compatible = "mediatek,pwraph";
+		mediatek,pwrap-regmap = <&pwrap>;
 	};
 
 	pwrap_mpu@1000d000 {
