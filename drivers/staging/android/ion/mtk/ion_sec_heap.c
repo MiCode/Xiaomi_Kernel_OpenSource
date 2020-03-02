@@ -211,10 +211,31 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 				align, size, &refcount, &sec_handle,
 				(uint8_t *)heap->name, heap->id);
 	}
-#elif defined(MTK_IN_HOUSE_SEC_ION_SUPPORT)
-		refcount = 0;
+#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+	{
+		int ret = 0;
+
+		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
+			ret = KREE_ZallocSecurechunkmemWithTag(
+				ion_session_handle(), &sec_handle,
+				align, size, heap->name);
+		else
+			ret = KREE_AllocSecurechunkmemWithTag(
+				ion_session_handle(), &sec_handle,
+				align, size, heap->name);
+		if (ret != TZ_RESULT_SUCCESS) {
+			IONMSG(
+			"KREE_AllocSecurechunkmemWithTag failed, ret 0x%x\n",
+				ret);
+			kfree(pbufferinfo);
+			caller_pid = 0;
+			caller_tid = 0;
+			return -ENOMEM;
+		}
+	}
+	refcount = 0;
 #else
-		refcount = 0;
+	refcount = 0;
 #endif
 
 	if (sec_handle <= 0) {
@@ -290,6 +311,18 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 		TRUSTED_MEM_REQ_SVP,
 		sec_handle, (uint8_t *)buffer->heap->name,
 			buffer->heap->id);
+#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+	{
+		int ret = 0;
+
+		ret = KREE_UnreferenceSecurechunkmem(
+			ion_session_handle(),
+			sec_handle);
+		if (ret != TZ_RESULT_SUCCESS)
+			IONMSG(
+			"KREE_UnreferenceSecurechunkmem failed, ret is 0x%x\n",
+				ret);
+	}
 #endif
 
 	ion_sec_heap_unmap_dma(buffer->heap, buffer);
@@ -741,8 +774,7 @@ static int ion_sec_heap_debug_show(
 struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *heap_data)
 {
 #if (defined(SECMEM_KERNEL_API) || defined(CONFIG_MTK_SECURE_MEM_SUPPORT)) || \
-	(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
-	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT))
+	(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT))
 
 	struct ion_sec_heap *heap;
 
@@ -774,8 +806,7 @@ void ion_sec_heap_destroy(struct ion_heap *heap)
 {
 #if (defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) || \
 	defined(CONFIG_MTK_SECURE_MEM_SUPPORT)) || \
-		(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
-		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT))
+		(defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT))
 
 		struct ion_sec_heap *sec_heap;
 
