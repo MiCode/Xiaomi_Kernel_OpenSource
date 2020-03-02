@@ -6000,8 +6000,9 @@ static noinline int trace_circular_bug(struct lock_list *this,
 
 #ifdef MTK_LOCK_DEBUG
 static const char * const critical_lock_list[] = {
-	/* the lock is used by workqueue */
-	"&(&pool->lock)->rlock"
+	/* these locks are used by workqueue */
+	"&(&pool->lock)->rlock",
+	"works_lock"
 };
 
 static bool is_critical_lock_held(void)
