@@ -5735,8 +5735,8 @@ static signed int __init WPE_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
-	struct proc_dir_entry *proc_entry;
-	struct proc_dir_entry *isp_wpe_dir;
+	/*struct proc_dir_entry *proc_entry; */
+	/*struct proc_dir_entry *isp_wpe_dir; */
 
 
 	int i;
@@ -5764,21 +5764,21 @@ static signed int __init WPE_Init(void)
 	LOG_DBG("ISP_WPE_BASE: %lx\n", ISP_WPE_BASE);
 #endif
 
-	isp_wpe_dir = proc_mkdir("wpe", NULL);
-	if (!isp_wpe_dir) {
-		LOG_ERR("[%s]: fail to mkdir /proc/wpe\n", __func__);
-		return 0;
-	}
+	/*isp_wpe_dir = proc_mkdir("wpe", NULL); */
+	/*if (!isp_wpe_dir) { */
+	/*	LOG_ERR("[%s]: fail to mkdir /proc/wpe\n", __func__); */
+	/*	return 0; */
+	/*} */
 
 	/* proc_entry = */
 	/*	proc_create("pll_test", S_IRUGO | */
 	/*		S_IWUSR, isp_wpe_dir, &pll_test_proc_fops); */
 
-	proc_entry = proc_create("wpe_dump", 0444, isp_wpe_dir,
-					&WPE_dump_proc_fops);
+	/*proc_entry = proc_create("wpe_dump", 0444, isp_wpe_dir, */
+	/*				&WPE_dump_proc_fops); */
 
-	proc_entry = proc_create("wpe_reg", 0644, isp_wpe_dir,
-					&WPE_reg_proc_fops);
+	/*proc_entry = proc_create("wpe_reg", 0644, isp_wpe_dir, */
+	/*				&WPE_reg_proc_fops); */
 
 
 	/* isr log */
