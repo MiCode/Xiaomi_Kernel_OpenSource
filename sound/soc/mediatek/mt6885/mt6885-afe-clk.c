@@ -12,7 +12,7 @@
 #include "mt6885-afe-common.h"
 #include "mt6885-afe-clk.h"
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0 // temporarily comment it for big-sw change
 #include <mtk_idle.h>
 #include <mtk_spm_resource_req.h>
 #endif
@@ -437,7 +437,7 @@ int mt6885_afe_dram_request(struct device *dev)
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0 // temporarily comment it for big-sw change
 	if (afe_priv->dram_resource_counter == 0)
 		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_ALL);
 #endif
@@ -456,7 +456,7 @@ int mt6885_afe_dram_release(struct device *dev)
 
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter--;
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0 // temporarily comment it for big-sw change
 	if (afe_priv->dram_resource_counter == 0)
 		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_RELEASE);
 #endif
@@ -966,7 +966,7 @@ void mt6885_mck_disable(struct mtk_base_afe *afe, int mck_id)
 		clk_disable_unprepare(afe_priv->clk[m_sel_id]);
 }
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0 // temporarily comment it for big-sw change
 enum {
 	aud_intbus_sel_26m = 0,
 	aud_intbus_sel_mainpll_d2_d4,
@@ -1025,7 +1025,7 @@ int mt6885_init_clock(struct mtk_base_afe *afe)
 	APMIXEDSYS_ADDRESS = ioremap_nocache(APMIXEDSYS_BASE, 0x1000);
 	CKSYS_ADDRESS = ioremap_nocache(CKSYS_BASE, 0x1000);
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0 // temporarily comment it for big-sw change
 	local_afe = afe;
 	mtk_idle_notifier_register(&mt6885_afe_idle_nfb);
 #endif
