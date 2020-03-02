@@ -55,8 +55,14 @@ static void __iomem *g_apmixed_base;
 #define MASK22b (0x3FFFFF)
 #define BIT32   (1U<<31)
 
-#define VALIDATE_PLLID(id) WARN_ON((id >= FH_PLL_NUM) \
-		|| (g_reg_pll_con0[id] == REG_PLL_NOT_SUPPORT))
+#define VALIDATE_PLLID(id) WARN_ON(((id) < 0) \
+		|| ((id) >= FH_PLL_NUM) \
+		|| (g_reg_pll_con0[(id)] == REG_PLL_NOT_SUPPORT))
+
+#define IS_PLLID_VALID(id) ((id) >= 0 \
+		&& (id) < FH_PLL_NUM \
+		&& g_reg_pll_con0[(id)] != REG_PLL_NOT_SUPPORT)
+
 #define VALIDATE_DDS(dds)  WARN_ON(dds > MASK22b)
 #define PERCENT_TO_DDSLMT(dDS, pERCENT_M10) (((dDS * pERCENT_M10) >> 5) / 100)
 
@@ -448,15 +454,16 @@ static int __freqhopping_ctrl(struct freqhopping_ioctl *fh_ctl, bool enable)
 	struct fhctl_ipi_data ipi_data;
 	struct fh_pll_t fh_pll;
 
+	if (fh_ctl == NULL)
+		return -1;
 	FH_MSG("%s for pll %d", __func__, fh_ctl->pll_id);
 
-	if (g_reg_pll_con0[fh_ctl->pll_id] == REG_PLL_NOT_SUPPORT) {
+	if (!IS_PLLID_VALID(fh_ctl->pll_id)) {
 		FH_MSG("(ERROR) %s [pll_id]:%d freqhop is not supported ",
 				__func__, fh_ctl->pll_id);
 		return -1;
 	}
 	/* Check the out of range of frequency hopping PLL ID */
-	VALIDATE_PLLID(fh_ctl->pll_id);
 	if (enable == true) {
 		fh_pll.user_defined =
 			mt_fh_pll_struct_get(fh_ctl->pll_id, USER_DEFINED);
@@ -543,9 +550,15 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 {
 	struct fhctl_ipi_data ipi_data;
 
-	VALIDATE_PLLID(pll_id);
 	if (g_initialize == 0) {
 		FH_MSG("(Warning) %s FHCTL isn't ready. ", __func__);
+		return -1;
+	}
+
+	if (!IS_PLLID_VALID(pll_id)) {
+		FH_MSG("(ERROR) %s [pll_id]: %d freqhop isn't supported ",
+				__func__, pll_id);
+		WARN_ON(1);
 		return -1;
 	}
 
