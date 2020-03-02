@@ -26,6 +26,8 @@
 #include "mtk_sched_mon.h"
 #endif
 
+extern bool is_logbuf_lock(raw_spinlock_t *lock);
+
 void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
 			  struct lock_class_key *key)
 {
@@ -160,7 +162,6 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 	unsigned long long t1, t2, t3;
 	struct task_struct *owner = NULL;
 
-#if 0 // wait printk supports is_logbuf_lock() function
 	if (is_logbuf_lock(lock)) { /* ignore to debug logbuf_lock */
 		for (i = 0; i < loops; i++) {
 			if (arch_spin_trylock(&lock->raw_lock))
@@ -169,7 +170,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		}
 		return;
 	}
-#endif
+
 	t1 = sched_clock();
 	t2 = t1;
 
