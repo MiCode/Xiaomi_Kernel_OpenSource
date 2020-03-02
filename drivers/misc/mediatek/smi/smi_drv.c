@@ -25,6 +25,10 @@
 #include <mtk_smi.h>
 #include <aee.h>
 
+#if IS_ENABLED(CONFIG_COMPAT)
+#include <linux/compat.h>
+#endif
+
 #include <smi_conf.h>
 #include <smi_public.h>
 #include <smi_pmqos.h>
@@ -704,11 +708,236 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_COMPAT)
+struct MTK_SMI_COMPAT_BWC_CONFIG {
+	compat_int_t scen;
+	compat_int_t b_on;
+};
+
+struct MTK_SMI_COMPAT_BWC_INFO_SET {
+	compat_int_t property;
+	compat_int_t value1;
+	compat_int_t value2;
+};
+
+struct MTK_SMI_COMPAT_BWC_MM_INFO {
+	compat_uint_t flag; /* reserved */
+	compat_int_t concurrent_profile;
+	compat_int_t sensor_size[2];
+	compat_int_t video_record_size[2];
+	compat_int_t display_size[2];
+	compat_int_t tv_out_size[2];
+	compat_int_t fps;
+	compat_int_t video_encode_codec;
+	compat_int_t video_decode_codec;
+	compat_int_t hw_ovl_limit;
+};
+
+#define COMPAT_MTK_IOC_SMI_BWC_CONFIG \
+	_IOW('O', 24, struct MTK_SMI_COMPAT_BWC_CONFIG)
+static int smi_bwc_config_compat_get(
+	struct MTK_SMI_BWC_CONF __user *data,
+	struct MTK_SMI_COMPAT_BWC_CONFIG __user *data32)
+{
+	compat_int_t i;
+	int ret;
+
+	ret = get_user(i, &(data32->scen));
+	ret |= put_user(i, &(data->scen));
+	ret |= get_user(i, &(data32->b_on));
+	ret |= put_user(i, &(data->b_on));
+	return ret;
+}
+
+#define COMPAT_MTK_IOC_SMI_BWC_INFO_SET \
+	_IOWR('O', 28, struct MTK_SMI_COMPAT_BWC_INFO_SET)
+static int smi_bwc_info_compat_set(
+	struct MTK_SMI_BWC_INFO_SET __user *data,
+	struct MTK_SMI_COMPAT_BWC_INFO_SET __user *data32)
+{
+	compat_int_t i;
+	int ret;
+
+	ret = get_user(i, &(data32->property));
+	ret |= put_user(i, &(data->property));
+	ret |= get_user(i, &(data32->value1));
+	ret |= put_user(i, &(data->value1));
+	ret |= get_user(i, &(data32->value2));
+	ret |= put_user(i, &(data->value2));
+	return ret;
+}
+
+#define COMPAT_MTK_IOC_SMI_BWC_INFO_GET \
+	_IOWR('O', 29, struct MTK_SMI_COMPAT_BWC_MM_INFO)
+static int smi_bwc_info_compat_get(
+	struct MTK_SMI_BWC_MM_INFO __user *data,
+	struct MTK_SMI_COMPAT_BWC_MM_INFO __user *data32)
+{
+	compat_uint_t u;
+	compat_int_t p[2];
+	compat_int_t i;
+	int ret;
+
+	ret = get_user(u, &(data32->flag));
+	ret |= put_user(u, &(data->flag));
+
+	ret |= copy_from_user(p, &(data32->sensor_size), sizeof(p));
+	ret |= copy_to_user(&(data->sensor_size), p, sizeof(p));
+	ret |= copy_from_user(p, &(data32->video_record_size), sizeof(p));
+	ret |= copy_to_user(&(data->video_record_size), p, sizeof(p));
+	ret |= copy_from_user(p, &(data32->display_size), sizeof(p));
+	ret |= copy_to_user(&(data->display_size), p, sizeof(p));
+	ret |= copy_from_user(p, &(data32->tv_out_size), sizeof(p));
+	ret |= copy_to_user(&(data->tv_out_size), p, sizeof(p));
+
+	ret |= get_user(i, &(data32->concurrent_profile));
+	ret |= put_user(i, &(data->concurrent_profile));
+	ret |= get_user(i, &(data32->fps));
+	ret |= put_user(i, &(data->fps));
+	ret |= get_user(i, &(data32->video_encode_codec));
+	ret |= put_user(i, &(data->video_encode_codec));
+	ret |= get_user(i, &(data32->video_decode_codec));
+	ret |= put_user(i, &(data->video_decode_codec));
+	ret |= get_user(i, &(data32->hw_ovl_limit));
+	ret |= put_user(i, &(data->hw_ovl_limit));
+	return ret;
+}
+
+static int smi_bwc_info_compat_put(
+	struct MTK_SMI_BWC_MM_INFO __user *data,
+	struct MTK_SMI_COMPAT_BWC_MM_INFO __user *data32)
+{
+	compat_uint_t u;
+	compat_int_t p[2];
+	compat_int_t i;
+	int ret;
+
+	ret = get_user(u, &(data->flag));
+	ret |= put_user(u, &(data32->flag));
+
+	ret |= copy_from_user(p, &(data->sensor_size), sizeof(p));
+	ret |= copy_to_user(&(data32->sensor_size), p, sizeof(p));
+	ret |= copy_from_user(p, &(data->video_record_size), sizeof(p));
+	ret |= copy_to_user(&(data32->video_record_size), p, sizeof(p));
+	ret |= copy_from_user(p, &(data->display_size), sizeof(p));
+	ret |= copy_to_user(&(data32->display_size), p, sizeof(p));
+	ret |= copy_from_user(p, &(data->tv_out_size), sizeof(p));
+	ret |= copy_to_user(&(data32->tv_out_size), p, sizeof(p));
+
+	ret |= get_user(i, &(data->concurrent_profile));
+	ret |= put_user(i, &(data32->concurrent_profile));
+	ret |= get_user(i, &(data->fps));
+	ret |= put_user(i, &(data32->fps));
+	ret |= get_user(i, &(data->video_encode_codec));
+	ret |= put_user(i, &(data32->video_encode_codec));
+	ret |= get_user(i, &(data->video_decode_codec));
+	ret |= put_user(i, &(data32->video_decode_codec));
+	ret |= get_user(i, &(data->hw_ovl_limit));
+	ret |= put_user(i, &(data32->hw_ovl_limit));
+	return ret;
+}
+
+static long smi_compat_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	int ret = 0;
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case COMPAT_MTK_IOC_SMI_BWC_CONFIG:
+	{
+		struct MTK_SMI_BWC_CONF __user *data;
+		struct MTK_SMI_COMPAT_BWC_CONFIG __user *data32;
+
+		data32 = compat_ptr(arg);
+
+		if (cmd == MTK_IOC_SMI_BWC_CONF)
+			return file->f_op->unlocked_ioctl(file, cmd,
+				(unsigned long)data32);
+
+		data = compat_alloc_user_space(
+			sizeof(struct MTK_SMI_BWC_CONF));
+		if (!data)
+			return -EFAULT;
+
+		ret = smi_bwc_config_compat_get(data, data32);
+		if (ret)
+			return ret;
+
+		return file->f_op->unlocked_ioctl(file,
+			MTK_IOC_SMI_BWC_CONF, (unsigned long)data);
+	}
+
+	case COMPAT_MTK_IOC_SMI_BWC_INFO_SET:
+	{
+		struct MTK_SMI_BWC_INFO_SET __user *data;
+		struct MTK_SMI_COMPAT_BWC_INFO_SET __user *data32;
+
+		data32 = compat_ptr(arg);
+
+		if (cmd == MTK_IOC_SMI_BWC_INFO_SET)
+			return file->f_op->unlocked_ioctl(file, cmd,
+				(unsigned long)data32);
+
+		data = compat_alloc_user_space(
+			sizeof(struct MTK_SMI_BWC_INFO_SET));
+		if (!data)
+			return -EFAULT;
+
+		ret = smi_bwc_info_compat_set(data, data32);
+		if (ret)
+			return ret;
+
+		return file->f_op->unlocked_ioctl(file,
+			MTK_IOC_SMI_BWC_INFO_SET, (unsigned long)data);
+	}
+
+	case COMPAT_MTK_IOC_SMI_BWC_INFO_GET:
+	{
+		struct MTK_SMI_BWC_MM_INFO __user *data;
+		struct MTK_SMI_COMPAT_BWC_MM_INFO __user *data32;
+
+		data32 = compat_ptr(arg);
+
+		if (cmd == MTK_IOC_SMI_BWC_INFO_GET)
+			return file->f_op->unlocked_ioctl(file, cmd,
+				(unsigned long)data32);
+
+		data = compat_alloc_user_space(
+			sizeof(struct MTK_SMI_BWC_MM_INFO));
+		if (!data)
+			return -EFAULT;
+
+		ret = smi_bwc_info_compat_get(data, data32);
+		if (ret)
+			return ret;
+
+		ret = file->f_op->unlocked_ioctl(file,
+			MTK_IOC_SMI_BWC_INFO_GET, (unsigned long)data);
+
+		return smi_bwc_info_compat_put(data, data32);
+	}
+	case MTK_IOC_MMDVFS_CMD:
+	case MTK_IOC_MMDVFS_QOS_CMD:
+		return file->f_op->unlocked_ioctl(file, cmd, (unsigned long)
+			compat_ptr(arg));
+	default:
+		return -ENOIOCTLCMD;
+	}
+}
+#else /* #if !IS_ENABLED(CONFIG_COMPAT) */
+#define smi_compat_ioctl NULL
+#endif
+
+
 static const struct file_operations smi_file_opers = {
 	.owner = THIS_MODULE,
 	.open = smi_open,
 	.release = smi_release,
 	.unlocked_ioctl = smi_ioctl,
+	.compat_ioctl = smi_compat_ioctl,
 };
 
 static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
