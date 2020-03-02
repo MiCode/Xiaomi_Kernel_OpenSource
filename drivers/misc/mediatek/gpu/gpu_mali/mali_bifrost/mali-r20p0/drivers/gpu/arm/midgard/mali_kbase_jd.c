@@ -748,7 +748,7 @@ bool jd_submit_atom(struct kbase_context *kctx, const struct base_jd_atom_v2 *us
 
 #if defined(MTK_GPU_BM_2)
 	/* set up frame number */
-	//katom->frame_nr = user_atom->frame_nr;
+	katom->frame_nr = user_atom->frame_nr;
 #endif
 
 	/* Implicitly sets katom->protected_state.enter as well. */
