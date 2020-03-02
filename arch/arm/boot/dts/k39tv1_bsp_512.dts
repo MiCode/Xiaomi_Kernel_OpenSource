@@ -21,6 +21,11 @@
 
 /* chosen */
 &chosen {
+	bootargs = "console=tty0 console=ttyMT3,921600n1 vmalloc=400M \
+		slub_debug=OFZPU page_owner=on swiotlb=noforce \
+		cgroup.memory=nosocket,nokmem androidboot.rsc.ago=512m \
+		androidboot.hardware=mt6739 maxcpus=8 \
+		firmware_class.path=/vendor/firmware loop.max_part=7";
 	/* fpga may has no lk, we need to specify display info here */
 	/* fb buffer is reserved using this dts by memory node above */
 
