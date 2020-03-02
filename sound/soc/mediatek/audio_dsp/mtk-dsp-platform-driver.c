@@ -1064,7 +1064,7 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 	Ringbuf_Bridge_Check(
 			&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
-	availsize = RingBuf_getFreeSpace(ringbuf);
+	availsize = RingBuf_getDataCount(ringbuf);
 
 	if (availsize < copy_size) {
 		pr_info("%s fail copy_size = %d availsize = %d\n", __func__,
