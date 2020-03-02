@@ -147,6 +147,16 @@ config MTK_MEMORY_LOWPOWER
 	  different DRAM mode dynamically. It's a
 	  platform-dependent feature.
 
+config MTK_LOW_POWER_MODULE
+        bool "Meditaek Low Power Module"
+        depends on MTK_LPM
+        help
+          For MediaTek Low Power Module, such as CPU idle,
+          CPU suspend low power enhencement.
+          Select "y" if you want to enable low power features.
+          Select "n" if unsure.
+
+source "drivers/misc/mediatek/lpm/Kconfig"
 endmenu  # Power
 
 menu "MultiMedia, Display, Camera"
