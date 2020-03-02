@@ -288,7 +288,7 @@ static int mt6358_irq_init(struct mt6358_chip *chip)
 				 sizeof(struct pmic_irq_t), GFP_KERNEL);
 	for (i = 0; i < chip->num_pmic_irqs; i++) {
 		const char *name = NULL;
-		unsigned int hwirq, sp, num_int_bits;
+		unsigned int hwirq = 0, sp = 0, num_int_bits;
 		struct pmic_irq_t *pmic_irq;
 
 		ret = of_property_read_string_index(chip->dev->of_node,
@@ -368,7 +368,7 @@ static void mt6358_power_off(void)
 static int mt6358_probe(struct platform_device *pdev)
 {
 	int ret;
-	unsigned int id;
+	unsigned int id = 0;
 	struct mt6358_chip *chip;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
