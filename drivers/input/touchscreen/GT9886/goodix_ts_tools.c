@@ -260,6 +260,8 @@ static int async_write(struct goodix_tools_dev *dev, void __user *arg)
 	length = i2c_msg_head[4] + (i2c_msg_head[5] << 8)
 			+ (i2c_msg_head[6] << 16) + (i2c_msg_head[7] << 24);
 
+	if (length > 8*1024)
+		return -EMSGSIZE;
 	databuf = kzalloc(length, GFP_KERNEL);
 	if (!databuf) {
 			ts_err("Alloc memory failed");
