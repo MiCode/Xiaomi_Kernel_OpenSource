@@ -145,7 +145,7 @@ static struct step_c_context *step_c_context_alloc_object(void)
 	return obj;
 }
 
-int step_notify(enum STEP_NOTIFY_TYPE type)
+int step_notify_t(enum STEP_NOTIFY_TYPE type, int64_t time_stamp)
 {
 	int err = 0;
 	struct step_c_context *cxt = NULL;
@@ -154,6 +154,7 @@ int step_notify(enum STEP_NOTIFY_TYPE type)
 	memset(&event, 0, sizeof(struct sensor_event));
 
 	cxt = step_c_context_obj;
+	event.time_stamp = time_stamp;
 
 	if (type == TYPE_STEP_DETECTOR) {
 		event.flush_action = DATA_ACTION;
@@ -175,7 +176,10 @@ int step_notify(enum STEP_NOTIFY_TYPE type)
 
 	return err;
 }
-
+int step_notify(enum STEP_NOTIFY_TYPE type)
+{
+	return step_notify_t(type, 0);
+}
 static int step_d_real_enable(int enable)
 {
 	int err = 0;
@@ -933,14 +937,14 @@ int step_c_register_control_path(struct step_c_control_path *ctl)
 	return 0;
 }
 
-int step_c_data_report(uint32_t new_counter, int status)
+int step_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 {
 	int err = 0;
 	struct sensor_event event;
 	static uint32_t last_step_counter;
 
 	memset(&event, 0, sizeof(struct sensor_event));
-
+	event.time_stamp = time_stamp;
 	if (last_step_counter != new_counter) {
 		event.flush_action = DATA_ACTION;
 		event.handle = ID_STEP_COUNTER;
@@ -951,15 +955,19 @@ int step_c_data_report(uint32_t new_counter, int status)
 	}
 	return 0;
 }
+int step_c_data_report(uint32_t new_counter, int status)
+{
+	return step_c_data_report_t(new_counter, status, 0);
+}
 
-int floor_c_data_report(uint32_t new_counter, int status)
+int floor_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 {
 	int err = 0;
 	struct sensor_event event;
 	static uint32_t last_floor_counter;
 
 	memset(&event, 0, sizeof(struct sensor_event));
-
+	event.time_stamp = time_stamp;
 	if (last_floor_counter != new_counter) {
 		event.flush_action = DATA_ACTION;
 		event.handle = ID_FLOOR_COUNTER;
@@ -970,7 +978,10 @@ int floor_c_data_report(uint32_t new_counter, int status)
 	}
 	return 0;
 }
-
+int floor_c_data_report(uint32_t new_counter, int status)
+{
+	return floor_c_data_report_t(new_counter, status, 0);
+}
 int step_c_flush_report(void)
 {
 	struct sensor_event event;

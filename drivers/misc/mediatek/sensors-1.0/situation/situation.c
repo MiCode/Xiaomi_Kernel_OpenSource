@@ -90,7 +90,8 @@ static int handle_to_index(int handle)
 	return index;
 }
 
-int situation_data_report(int handle, uint32_t one_sample_data)
+int situation_data_report_t(int handle, uint32_t one_sample_data,
+	int64_t time_stamp)
 {
 	int err = 0, index = -1;
 	struct sensor_event event;
@@ -104,7 +105,7 @@ int situation_data_report(int handle, uint32_t one_sample_data)
 	}
 
 	pr_debug("situation_notify handle:%d, index:%d\n", handle, index);
-
+	event.time_stamp = time_stamp;
 	event.handle = handle;
 	event.flush_action = DATA_ACTION;
 	event.word[0] = one_sample_data;
@@ -114,8 +115,11 @@ int situation_data_report(int handle, uint32_t one_sample_data)
 		__pm_wakeup_event(&cxt->ws[index], 250);
 	return err;
 }
-
-int sar_data_report(int32_t value[3])
+int situation_data_report(int handle, uint32_t one_sample_data)
+{
+	return situation_data_report_t(handle, one_sample_data, 0);
+}
+int sar_data_report_t(int32_t value[3], int64_t time_stamp)
 {
 	int err = 0, index = -1;
 	struct sensor_event event;
@@ -128,6 +132,7 @@ int sar_data_report(int32_t value[3])
 		pr_err("[%s] invalid index\n", __func__);
 		return -1;
 	}
+	event.time_stamp = time_stamp;
 	event.handle = ID_SAR;
 	event.flush_action = DATA_ACTION;
 	event.word[0] = value[0];
@@ -139,12 +144,18 @@ int sar_data_report(int32_t value[3])
 		__pm_wakeup_event(&cxt->ws[index], 250);
 	return err;
 }
-
+int sar_data_report(int32_t value[3])
+{
+	return sar_data_report_t(value, 0);
+}
+int situation_notify_t(int handle, int64_t time_stamp)
+{
+	return situation_data_report_t(handle, 1, time_stamp);
+}
 int situation_notify(int handle)
 {
-	return situation_data_report(handle, 1);
+	return situation_data_report_t(handle, 1, 0);
 }
-
 int situation_flush_report(int handle)
 {
 	struct sensor_event event;
