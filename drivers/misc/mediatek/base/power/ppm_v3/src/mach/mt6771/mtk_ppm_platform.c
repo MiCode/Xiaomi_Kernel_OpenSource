@@ -101,7 +101,7 @@ static struct notifier_block ppm_cpu_freq_notifier = {
 
 static int ppm_cpu_dead(unsigned int cpu)
 {
-	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
+	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
 #ifdef PPM_SSPM_SUPPORT
 	int i = 0;
 #endif
@@ -119,7 +119,7 @@ static int ppm_cpu_dead(unsigned int cpu)
 
 static int ppm_cpu_up(unsigned int cpu)
 {
-	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
+	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
 #ifdef PPM_SSPM_SUPPORT
 	int i = 0;
 #endif
@@ -354,7 +354,7 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 
 	/* read total leakage */
 	if (cluster >= TOTAL_CLUSTER_LKG) {
-		struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS];
+		struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
 		int i = 0;
 
 		ppm_get_cluster_status(cl_status);
