@@ -350,6 +350,7 @@ enum ISP_WRDMA_ENUM {
 	_dma_ltmso_,
 	_dma_rrzo_,
 	_dma_lcso_,        /* _dma_lceso_ */
+	_dma_lcesho_,
 	_dma_aao_,         /*40*/
 	_dma_flko_,
 	_dma_ufeo_,
@@ -372,6 +373,7 @@ enum ISP_WRDMA_ENUM {
 	_dma_ltmso_fh_,
 	_dma_rrzo_fh_,
 	_dma_lcso_fh_,     /*60*/
+	_dma_lcesho_fh_,
 	_dma_aao_fh_,
 	_dma_flko_fh_,
 	_dma_ufeo_fh_,

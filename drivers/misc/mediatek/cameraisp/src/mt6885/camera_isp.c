@@ -3759,6 +3759,9 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					((cam_dmao & 0x10) ? (MTRUE)
 							   : (MFALSE));
 
+				pstRTBuf[module]->ring_buf[_lcesho_].active =
+					((cam_dmao & 0x10) ? (MTRUE)
+							   : (MFALSE));
 				pstRTBuf[module]->ring_buf[_lmvo_].active =
 					((cam_dmao & 0x4000) ? (MTRUE)
 							     : (MFALSE));
@@ -7525,6 +7528,10 @@ static int32_t ISP_PushBufTimestamp(unsigned int module, unsigned int dma_id,
 			fbc_ctrl2.Raw =
 				ISP_RD32(CAM_REG_FBC_LCESO_CTL2(reg_module));
 			break;
+		case _lcesho_:
+			fbc_ctrl2.Raw =
+				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(reg_module));
+			break;
 		case _aao_:
 			fbc_ctrl2.Raw =
 				ISP_RD32(CAM_REG_FBC_AAO_CTL2(reg_module));
@@ -7650,6 +7657,7 @@ static int32_t ISP_PopBufTimestamp(unsigned int module, unsigned int dma_id,
 		case _ltmso_:
 		case _rrzo_:
 		case _lcso_:
+		case _lcesho_:
 		case _aao_:
 		case _aaho_:
 		case _flko_:
@@ -7803,6 +7811,10 @@ static int32_t ISP_CompensateMissingSofTime(enum ISP_DEV_NODE_ENUM reg_module,
 		case _lcso_:
 			fbc_ctrl2.Raw =
 				ISP_RD32(CAM_REG_FBC_LCESO_CTL2(reg_module));
+			break;
+		case _lcesho_:
+			fbc_ctrl2.Raw =
+				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(reg_module));
 			break;
 		case _aao_:
 			fbc_ctrl2.Raw =
@@ -8806,6 +8818,12 @@ unsigned int *reg_module_count)
 		else
 			g_fbc_ctrl2[index][_lcso_].Raw = 0;
 
+		if (DmaEnStatus[index][_lcesho_])
+			g_fbc_ctrl2[index][_lcesho_].Raw =
+				ISP_RD32(CAM_REG_FBC_LCESHO_CTL2(tmp_module));
+		else
+			g_fbc_ctrl2[index][_lcesho_].Raw = 0;
+
 		if (DmaEnStatus[index][_ltmso_])
 			g_fbc_ctrl2[index][_ltmso_].Raw =
 				ISP_RD32(CAM_REG_FBC_LTMSO_CTL2(tmp_module));
@@ -8892,10 +8910,11 @@ unsigned int *reg_module_count)
 		   g_fbc_ctrl2[index][_rrzo_].Raw,
 		   g_fbc_ctrl2[index][_ufeo_].Raw,
 		   g_fbc_ctrl2[index][_ufgo_].Raw);
-	LOG_NOTICE("fbc:rsso:0x%x,lmvo:0x%x,lcso:0x%x\n",
+	LOG_NOTICE("fbc:rsso:0x%x,lmvo:0x%x,lcso:0x%x,lcesho:0x%x\n",
 		   g_fbc_ctrl2[index][_rsso_].Raw,
 		   g_fbc_ctrl2[index][_lmvo_].Raw,
-		   g_fbc_ctrl2[index][_lcso_].Raw);
+		   g_fbc_ctrl2[index][_lcso_].Raw,
+		   g_fbc_ctrl2[index][_lcesho_].Raw);
 
 	LOG_NOTICE("fbc:aao:0x%x,aaho:0x%x,afo:0x%x,flko:0x%x\n",
 		   g_fbc_ctrl2[index][_aao_].Raw,
@@ -8998,6 +9017,10 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			if (DmaEnStatus[index][_lcso_])
 				ISP_WR32(CAM_REG_FBC_LCESO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_lcso_].Raw);
+
+			if (DmaEnStatus[index][_lcesho_])
+				ISP_WR32(CAM_REG_FBC_LCESHO_CTL2(tmp_module),
+					g_fbc_ctrl2[index][_lcesho_].Raw);
 
 			if (DmaEnStatus[index][_ltmso_])
 				ISP_WR32(CAM_REG_FBC_LTMSO_CTL2(tmp_module),
@@ -9830,6 +9853,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				ISP_PatchTimestamp(module, _lcso_, frmPeriod,
 						   cur_timestp,
 						   gPrevSofTimestp[module]);
+				ISP_PatchTimestamp(module, _lcesho_, frmPeriod,
+						   cur_timestp,
+						   gPrevSofTimestp[module]);
 				ISP_PatchTimestamp(module, _ufgo_, frmPeriod,
 						   cur_timestp,
 						   gPrevSofTimestp[module]);
@@ -10002,6 +10028,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				reg_module, module, _lcso_,
 				sec, usec, frmPeriod);
 			}
+			if (IspInfo.TstpQInfo[module].DmaEnStatus[_lcesho_]) {
+				ISP_CompensateMissingSofTime(
+				reg_module, module, _lcesho_,
+				sec, usec, frmPeriod);
+			}
 			if (IspInfo.TstpQInfo[module].DmaEnStatus[_aao_]) {
 				ISP_CompensateMissingSofTime(
 				reg_module, module, _aao_,
@@ -10066,6 +10097,13 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 							_lcso_, sec, usec,
 							frmPeriod);
 					}
+				if (
+				IspInfo.TstpQInfo[module].DmaEnStatus
+				[_lcesho_]) {
+					ISP_PushBufTimestamp(module,
+							_lcesho_, sec, usec,
+							frmPeriod);
+					}
 				}
 
 				/* for slow motion sub-sample */
@@ -10117,6 +10155,15 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				IspInfo.TstpQInfo[module].DmaEnStatus[_lcso_]) {
 					ISP_PatchTimestamp(module,
 						_lcso_, frmPeriod,
+						cur_timestp,
+						gPrevSofTimestp
+						[module]);
+					}
+				if (
+				IspInfo.TstpQInfo[module].DmaEnStatus
+				[_lcesho_]) {
+					ISP_PatchTimestamp(module,
+						_lcesho_, frmPeriod,
 						cur_timestp,
 						gPrevSofTimestp
 						[module]);
