@@ -145,3 +145,12 @@ config MTK_CHARGER_UNLIMITED
 	  Say No to not release charging current restrictions.
 	  It is mainly used for long-term tests.
 	  It depends on config MTK_CHARGER.
+
+config CHARGER_HL7005
+	bool "Charger Driver for Halo HL7005 Charger IC"
+	depends on MTK_SWCHR_SUPPORT
+	help
+	  Say Y to enable
+	  Halo HL7005 driver.
+	  It depends on config MTK_SWCHR_SUPPORT.
+
