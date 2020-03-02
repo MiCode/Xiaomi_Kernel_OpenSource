@@ -4468,6 +4468,11 @@ static long WPE_ioctl(struct file *pFile,
 				     g_WPE_ReqRing.WPEReq_Struct[
 				     g_WPE_ReqRing.ReadIdx].
 				     enqueReqNum);
+				spin_unlock_irqrestore(
+					&(WPEInfo.SpinLockIrq
+					[WPE_IRQ_TYPE_INT_WPE_ST]), flags);
+
+				mutex_unlock(&gWpeDequeMutex);
 				Ret = -EFAULT;
 				return Ret;
 			}
