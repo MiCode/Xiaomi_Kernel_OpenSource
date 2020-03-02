@@ -185,6 +185,7 @@ config MACH_MT6771
 	select MTK_TIMER_APXGPT
 	select DEVAPC_LEGACY
 	select OVERLAY_FS
+	select MTK_SYSTRACKER_V2
         help
           This enables support for MediaTek MT6771
           Support for aarch64 Architecture
