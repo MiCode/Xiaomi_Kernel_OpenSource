@@ -1410,7 +1410,7 @@ TRACE_EVENT(walt_migration_update_sum,
 
 struct rq;
 
-TRACE_EVENT(uclamp_util_dvfs,
+TRACE_EVENT(schedutil_uclamp_util,
 
 	TP_PROTO(int cpu, unsigned long util),
 
@@ -1437,6 +1437,67 @@ TRACE_EVENT(uclamp_util_dvfs,
 		  __entry->util_max)
 );
 
+TRACE_EVENT(uclamp_cpu_get_id,
+
+	TP_PROTO(struct task_struct *p, struct rq *rq, unsigned int clamp_id),
+
+	TP_ARGS(p, rq, clamp_id),
+
+	TP_STRUCT__entry(
+		__field(int,		cpu)
+		__field(int,	pid)
+		__field(unsigned int,	clamp_id)
+		__field(unsigned int,	task_uclamp_eff)
+		__field(unsigned int,	rq_uclamp)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu_of(rq);
+		__entry->pid		= p->pid;
+		__entry->clamp_id	= clamp_id;
+		__entry->task_uclamp_eff = p->uclamp[clamp_id].effective.value;
+		__entry->rq_uclamp	= rq->uclamp.value[clamp_id];
+	),
+
+	TP_printk("cpu=%d pid=%d clamp_id=%u task_uclamp_eff=%u rq_uclamp=%u",
+		  __entry->cpu,
+		  __entry->pid,
+		  __entry->clamp_id,
+		  __entry->task_uclamp_eff,
+		  __entry->rq_uclamp)
+);
+
+TRACE_EVENT(uclamp_cpu_put_id,
+
+	TP_PROTO(struct task_struct *p, struct rq *rq, unsigned int clamp_id,
+		unsigned int clamp_value),
+
+	TP_ARGS(p, rq, clamp_id, clamp_value),
+
+	TP_STRUCT__entry(
+		__field(int,		cpu)
+		__field(int,	pid)
+		__field(unsigned int,	clamp_id)
+		__field(unsigned int,	task_uclamp_eff)
+		__field(unsigned int,	rq_uclamp)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu_of(rq);
+		__entry->pid		= p->pid;
+		__entry->clamp_id	= clamp_id;
+		__entry->task_uclamp_eff	= clamp_value;
+		__entry->rq_uclamp	= rq->uclamp.value[clamp_id];
+	),
+
+	TP_printk("cpu=%d pid=%d clamp_id=%u task_uclamp_eff=%u rq_uclamp=%u",
+		  __entry->cpu,
+		  __entry->pid,
+		  __entry->clamp_id,
+		  __entry->task_uclamp_eff,
+		  __entry->rq_uclamp)
+);
+
 TRACE_EVENT_CONDITION(uclamp_util_se,
 
 	TP_PROTO(bool is_task, struct task_struct *p, struct rq *rq),
@@ -1449,26 +1510,33 @@ TRACE_EVENT_CONDITION(uclamp_util_se,
 		__field(pid_t,	pid)
 		__array(char,	comm,   TASK_COMM_LEN)
 		__field(int,	cpu)
+		__field(unsigned int,	active)
 		__field(unsigned long,	util_avg)
 		__field(unsigned long,	uclamp_avg)
 		__field(unsigned long,	uclamp_min)
 		__field(unsigned long,	uclamp_max)
+		__field(unsigned long,	uclamp_min_eff)
+		__field(unsigned long,	uclamp_max_eff)
 	),
 
 	TP_fast_assign(
 		__entry->pid            = p->pid;
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->cpu            = rq->cpu;
+		__entry->active         = p->uclamp[UCLAMP_MIN].active;
 		__entry->util_avg       = p->se.avg.util_avg;
 		__entry->uclamp_avg     = uclamp_util(rq, p->se.avg.util_avg);
-		__entry->uclamp_min     = rq->uclamp.value[UCLAMP_MIN];
-		__entry->uclamp_max     = rq->uclamp.value[UCLAMP_MAX];
+		__entry->uclamp_min = p->uclamp[UCLAMP_MIN].value;
+		__entry->uclamp_max = p->uclamp[UCLAMP_MAX].value;
+		__entry->uclamp_min_eff = p->uclamp[UCLAMP_MIN].effective.value;
+		__entry->uclamp_max_eff = p->uclamp[UCLAMP_MAX].effective.value;
 		),
 
-	TP_printk("pid=%d comm=%s cpu=%d util_avg=%lu uclamp_avg=%lu uclamp_min=%lu uclamp_max=%lu",
+	TP_printk("pid=%d comm=%s cpu=%d active=%u util_avg=%lu uclamp_avg=%lu uclamp_min=%lu uclamp_max=%lu uclamp_min_eff=%lu uclamp_max_eff=%lu",
 		  __entry->pid, __entry->comm, __entry->cpu,
-		  __entry->util_avg, __entry->uclamp_avg,
-		  __entry->uclamp_min, __entry->uclamp_max)
+		  __entry->active, __entry->util_avg, __entry->uclamp_avg,
+		  __entry->uclamp_min, __entry->uclamp_max,
+		  __entry->uclamp_min_eff, __entry->uclamp_max_eff)
 );
 
 TRACE_EVENT_CONDITION(uclamp_util_cfs,
