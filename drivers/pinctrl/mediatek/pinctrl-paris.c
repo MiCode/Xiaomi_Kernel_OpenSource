@@ -1,14 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
+ * MediaTek Pinctrl Paris Driver, which implement the vendor per-pin
+ * bindings for MediaTek SoC.
+ *
  * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * Author: Sean Wang <sean.wang@mediatek.com>
+ *	   Zhiyong Tao <zhiyong.tao@mediatek.com>
+ *	   Hongzhou.Yang <hongzhou.yang@mediatek.com>
  */
 
 #include <linux/of_address.h>
@@ -20,18 +18,24 @@
 #define PINCTRL_PINCTRL_DEV     KBUILD_MODNAME
 
 /* Custom pinconf parameters */
-#define MTK_PIN_CONFIG_TDSEL    (PIN_CONFIG_END + 1)
-#define MTK_PIN_CONFIG_RDSEL    (PIN_CONFIG_END + 2)
+#define MTK_PIN_CONFIG_TDSEL	(PIN_CONFIG_END + 1)
+#define MTK_PIN_CONFIG_RDSEL	(PIN_CONFIG_END + 2)
+#define MTK_PIN_CONFIG_PU_ADV	(PIN_CONFIG_END + 3)
+#define MTK_PIN_CONFIG_PD_ADV	(PIN_CONFIG_END + 4)
 
 static const struct pinconf_generic_params mtk_custom_bindings[] = {
-	{"mediatek,tdsel",      MTK_PIN_CONFIG_TDSEL,           0},
-	{"mediatek,rdsel",      MTK_PIN_CONFIG_RDSEL,           0},
+	{"mediatek,tdsel",	MTK_PIN_CONFIG_TDSEL,		0},
+	{"mediatek,rdsel",	MTK_PIN_CONFIG_RDSEL,		0},
+	{"mediatek,pull-up-adv", MTK_PIN_CONFIG_PU_ADV,		1},
+	{"mediatek,pull-down-adv", MTK_PIN_CONFIG_PD_ADV,	1},
 };
 
 #ifdef CONFIG_DEBUG_FS
 static const struct pin_config_item mtk_conf_items[] = {
 	PCONFDUMP(MTK_PIN_CONFIG_TDSEL, "tdsel", NULL, true),
 	PCONFDUMP(MTK_PIN_CONFIG_RDSEL, "rdsel", NULL, true),
+	PCONFDUMP(MTK_PIN_CONFIG_PU_ADV, "pu-adv", NULL, true),
+	PCONFDUMP(MTK_PIN_CONFIG_PD_ADV, "pd-adv", NULL, true),
 };
 #endif
 
@@ -64,7 +68,7 @@ static int mtk_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin];
 
-	/* hardware take 0 as input direction */
+	/* hardware would take 0 as input direction */
 	return mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR, !input);
 }
 
@@ -76,7 +80,7 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 {
 	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
 	u32 param = pinconf_to_config_param(*config);
-	int val, err, reg, ret = 1;
+	int err, reg, ret = 1;
 	int pullup;
 	const struct mtk_pin_desc *desc;
 
@@ -112,15 +116,14 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 		break;
 	case PIN_CONFIG_SLEW_RATE:
 #ifdef USE_SLEW_RATE_AS_OUTPUT_ENABLE
-		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &val);
+		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &ret);
 #else
-		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_SR, &val);
+		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_SR, &ret);
 #endif
-
 		break;
 	case PIN_CONFIG_INPUT_ENABLE:
 	case PIN_CONFIG_OUTPUT_ENABLE:
-		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &val);
+		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &ret);
 		if (err)
 			goto out;
 		/*     CONFIG     Current direction return value
@@ -131,38 +134,49 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 		 *                     input        1 (= reverse HW value)
 		 */
 		if (param == PIN_CONFIG_INPUT_ENABLE)
-			val = !val;
+			ret = !ret;
 
 		break;
 	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
-		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &val);
+		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &ret);
 		if (err)
 			goto out;
 		/* return error when in output mode
 		 * because schmitt trigger only work in input mode
 		 */
-		if (val) {
+		if (ret) {
 			err = -EINVAL;
 			goto out;
 		}
 
-		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_SMT, &val);
+		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_SMT, &ret);
 
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
-		err = hw->soc->drive_get(hw, desc, &ret);
-
+		if (hw->soc->drive_get)
+			err = hw->soc->drive_get(hw, desc, &ret);
+		else
+			err = -ENOTSUPP;
 		break;
 	case MTK_PIN_CONFIG_TDSEL:
 	case MTK_PIN_CONFIG_RDSEL:
 		reg = (param == MTK_PIN_CONFIG_TDSEL) ?
 		       PINCTRL_PIN_REG_TDSEL : PINCTRL_PIN_REG_RDSEL;
+		err = mtk_hw_get_value(hw, desc, reg, &ret);
+		break;
+	case MTK_PIN_CONFIG_PU_ADV:
+	case MTK_PIN_CONFIG_PD_ADV:
+		if (hw->soc->adv_pull_get) {
+			bool pullup;
 
-		err = mtk_hw_get_value(hw, desc, reg, &val);
-
+			pullup = param == MTK_PIN_CONFIG_PU_ADV;
+			err = hw->soc->adv_pull_get(hw, desc, pullup, &ret);
+		} else {
+			err = -ENOTSUPP;
+		}
 		break;
 	default:
-		return -ENOTSUPP;
+		err = -ENOTSUPP;
 	}
 
 out:
@@ -185,32 +199,22 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 
 	switch ((u32)param) {
 	case PIN_CONFIG_BIAS_DISABLE:
-		if (hw->soc->bias_set_combo) {
-			err = hw->soc->bias_set_combo(hw, desc, 0,
-				MTK_DISABLE);
-			if (err)
-				goto err;
-		} else {
-			return -ENOTSUPP;
-		}
+		if (hw->soc->bias_set_combo)
+			err = hw->soc->bias_set_combo(hw, desc, 0, MTK_DISABLE);
+		else
+			err = -ENOTSUPP;
 		break;
 	case PIN_CONFIG_BIAS_PULL_UP:
-		if (hw->soc->bias_set_combo) {
+		if (hw->soc->bias_set_combo)
 			err = hw->soc->bias_set_combo(hw, desc, 1, arg);
-			if (err)
-				goto err;
-		} else {
-			return -ENOTSUPP;
-		}
+		else
+			err = -ENOTSUPP;
 		break;
 	case PIN_CONFIG_BIAS_PULL_DOWN:
-		if (hw->soc->bias_set_combo) {
+		if (hw->soc->bias_set_combo)
 			err = hw->soc->bias_set_combo(hw, desc, 0, arg);
-			if (err)
-				goto err;
-		} else {
-			return -ENOTSUPP;
-		}
+		else
+			err = -ENOTSUPP;
 		break;
 	case PIN_CONFIG_OUTPUT_ENABLE:
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_SMT,
@@ -220,8 +224,6 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR,
 				       MTK_OUTPUT);
-		if (err)
-			goto err;
 		break;
 	case PIN_CONFIG_INPUT_ENABLE:
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_IES,
@@ -231,19 +233,13 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR,
 				       MTK_INPUT);
-		if (err)
-			goto err;
 		break;
 	case PIN_CONFIG_SLEW_RATE:
-		/* For MTK's legacy usage: use slew-rate for output mode */
 #ifdef USE_SLEW_RATE_AS_OUTPUT_ENABLE
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR, arg);
 #else
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_SR, arg);
 #endif
-		if (err)
-			goto err;
-
 		break;
 	case PIN_CONFIG_OUTPUT:
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR,
@@ -252,8 +248,6 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			goto err;
 
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DO, arg);
-		if (err)
-			goto err;
 		break;
 	case PIN_CONFIG_INPUT_SCHMITT:
 	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
@@ -265,25 +259,30 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			goto err;
 
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_SMT, !!arg);
-		if (err)
-			goto err;
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		if (hw->soc->drive_set)
 			err = hw->soc->drive_set(hw, desc, arg);
 		else
 			err = -ENOTSUPP;
-		if (err)
-			goto err;
 		break;
 	case MTK_PIN_CONFIG_TDSEL:
 	case MTK_PIN_CONFIG_RDSEL:
 		reg = (param == MTK_PIN_CONFIG_TDSEL) ?
 		       PINCTRL_PIN_REG_TDSEL : PINCTRL_PIN_REG_RDSEL;
-
 		err = mtk_hw_set_value(hw, desc, reg, arg);
-		if (err)
-			goto err;
+		break;
+	case MTK_PIN_CONFIG_PU_ADV:
+	case MTK_PIN_CONFIG_PD_ADV:
+		if (hw->soc->adv_pull_set) {
+			bool pullup;
+
+			pullup = param == MTK_PIN_CONFIG_PU_ADV;
+			err = hw->soc->adv_pull_set(hw, desc, pullup,
+						    arg);
+		} else {
+			err = -ENOTSUPP;
+		}
 		break;
 	default:
 		err = -ENOTSUPP;
@@ -393,8 +392,8 @@ static int mtk_pctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 
 	pins = of_find_property(node, "pinmux", NULL);
 	if (!pins) {
-		dev_err(hw->dev, "missing pins property in node %s .\n",
-			node->name);
+		dev_err(hw->dev, "missing pins property in node %pOFn .\n",
+			node);
 		return -EINVAL;
 	}
 
@@ -670,9 +669,8 @@ static int mtk_pmx_set_mux(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[grp->pin];
-	mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_MODE, desc_func->muxval);
-
-	return 0;
+	return mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_MODE,
+		desc_func->muxval);
 }
 
 static const struct pinmux_ops mtk_pmxops = {
@@ -775,7 +773,7 @@ static void mtk_gpio_set(struct gpio_chip *chip, unsigned int gpio, int value)
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
 
-	mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DO, !!value);
+	(void)mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DO, !!value);
 }
 
 static int mtk_gpio_direction_input(struct gpio_chip *chip, unsigned int gpio)
@@ -900,6 +898,7 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 	struct device_node *np = pdev->dev.of_node, *node;
 	struct pinctrl_pin_desc *pins;
 	struct mtk_pinctrl *hw;
+	struct resource *res;
 	int err, i, get_base_pass;
 
 	hw = devm_kzalloc(&pdev->dev, sizeof(*hw), GFP_KERNEL);
@@ -910,24 +909,47 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 	hw->soc = soc;
 	hw->dev = &pdev->dev;
 
-	for (get_base_pass = 0; get_base_pass < 2; get_base_pass++) {
-		for (i = 0;; i++) {
-			node = of_parse_phandle(np, "reg_bases", i);
-			if (!node)
-				break;
-			if (get_base_pass == 1)
-				hw->base[i] = of_iomap(node, 0);
-			of_node_put(node);
+	if (hw->soc->nbase_names) {
+		hw->base = devm_kmalloc_array(&pdev->dev, hw->soc->nbase_names,
+				      sizeof(*hw->base), GFP_KERNEL);
+		if (!hw->base)
+			return -ENOMEM;
+
+		for (i = 0; i < hw->soc->nbase_names; i++) {
+			res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							hw->soc->base_names[i]);
+			if (!res) {
+				dev_err(&pdev->dev, "missing IO resource\n");
+				return -ENXIO;
+			}
+
+			hw->base[i] = devm_ioremap_resource(&pdev->dev, res);
+			if (IS_ERR(hw->base[i]))
+				return PTR_ERR(hw->base[i]);
 		}
 
-		if (i == 0)
-			return -EINVAL;
-		if (get_base_pass == 0) {
-			hw->nbase = i;
-			hw->base = devm_kmalloc_array(&pdev->dev, i,
-				sizeof(*hw->base), GFP_KERNEL | __GFP_ZERO);
-			if (IS_ERR(hw->base))
-				return PTR_ERR(hw->base);
+		hw->nbase = hw->soc->nbase_names;
+	} else {
+		for (get_base_pass = 0; get_base_pass < 2; get_base_pass++) {
+			for (i = 0;; i++) {
+				node = of_parse_phandle(np, "reg_bases", i);
+				if (!node)
+					break;
+				if (get_base_pass == 1)
+					hw->base[i] = of_iomap(node, 0);
+				of_node_put(node);
+			}
+
+			if (i == 0)
+				return -EINVAL;
+			if (get_base_pass == 0) {
+				hw->nbase = i;
+				hw->base = devm_kmalloc_array(&pdev->dev, i,
+					sizeof(*hw->base),
+					GFP_KERNEL | __GFP_ZERO);
+				if (IS_ERR(hw->base))
+					return PTR_ERR(hw->base);
+			}
 		}
 	}
 
@@ -940,8 +962,8 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 	/* Copy from internal struct mtk_pin_desc to register to the core */
 	pins = devm_kmalloc_array(&pdev->dev, hw->soc->npins, sizeof(*pins),
 				  GFP_KERNEL);
-	if (IS_ERR(pins))
-		return PTR_ERR(pins);
+	if (!pins)
+		return -ENOMEM;
 
 	for (i = 0; i < hw->soc->npins; i++) {
 		pins[i].number = hw->soc->pins[i].number;
