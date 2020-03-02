@@ -724,6 +724,13 @@ stage3:
 	} else {
 		new_end = s + nr - 1;
 		new_start = new_end + 1;
+		if (new_end > MVA_MAX_BLOCK_NR ||
+			new_start > MVA_MAX_BLOCK_NR) {
+			M4UMSG(
+				"mva_alloc error: mva region error! nr=%u, new_end=%u, s=%u, mvaGraph=0x%x\n",
+				nr, new_end, s, mvaGraph[s]);
+			return 0;
+		}
 		/* note: new_start may equals to end */
 		mvaGraph[new_start] = (mvaGraph[s] - nr);
 		mvaGraph[new_end] = nr | MVA_BUSY_MASK;
