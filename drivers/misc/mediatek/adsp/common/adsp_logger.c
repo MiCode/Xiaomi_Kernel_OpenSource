@@ -227,7 +227,7 @@ static ssize_t adsp_A_mobile_log_store(struct device *kobj,
 				       struct device_attribute *attr,
 				       const char *buf, size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -302,7 +302,7 @@ static ssize_t adsp_A_mobile_log_UT_store(struct device *kobj,
 					  struct device_attribute *attr,
 					  const char *buf, size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
