@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2017 MICROTRUST Incorporated
+# Copyright (c) 2015-2019, MICROTRUST Incorporated
 # All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
@@ -13,7 +13,7 @@
 #include $(srctree)/drivers/misc/mediatek/Makefile.custom
 
 ccflags-y += -I$(src) -I$(src)/include
-
+ccflags-y += -I$(srctree)
 teei-objs += teei_client_main.o
 teei-objs += global_function.o
 teei-objs += fdrv.o

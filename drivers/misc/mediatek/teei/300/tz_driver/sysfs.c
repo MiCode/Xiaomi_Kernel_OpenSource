@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 MICROTRUST Incorporated
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -23,10 +23,12 @@
 #include <tz_dcih_test.h>
 
 #define IMSG_TAG "[tz_driver]"
+
 #include <imsg_log.h>
 
 #include <teei_client_main.h>
 #include "../teei_fp/fp_func.h"
+
 
 static uint32_t imsg_log_level = IMSG_LOG_LEVEL;
 static DEFINE_MUTEX(drv_load_mutex);
@@ -230,7 +232,7 @@ static int get_driver_id(struct ut_drv_entry *ut_drv)
 		int ret = get_result(&op);
 
 		IMSG_ERROR("failed to get id by UUID %08x res 0x%x ret 0x%x\n",
-					ut_drv->uuid.timeLow, res, ret);
+				ut_drv->uuid.timeLow, res, ret);
 		return ret;
 	}
 
@@ -239,7 +241,7 @@ static int get_driver_id(struct ut_drv_entry *ut_drv)
 	return 0;
 }
 
-static int load_ut_drv(struct TEEC_UUID *uuid)
+static int load_ut_drv(struct TEEC_UUID *uuid, unsigned int flags)
 {
 	int res;
 	int ret = 0;
@@ -281,22 +283,23 @@ static int load_ut_drv(struct TEEC_UUID *uuid)
 	}
 
 	memcpy(&new_entry->uuid, uuid, sizeof(struct TEEC_UUID));
+	new_entry->driver_id = 0;
 
 	res = open_driver_session(new_entry);
 	if (res != TEEC_SUCCESS) {
 		ret = -EIO;
 		goto fail;
 	}
+	if (flags == TEEI_DRV) {
+		res = get_driver_id(new_entry);
+		if (res != TEEC_SUCCESS) {
+			ret = -EIO;
+			goto fail_get_driver_id;
+		}
 
-	res = get_driver_id(new_entry);
-	if (res != TEEC_SUCCESS) {
-		ret = -EIO;
-		goto fail_get_driver_id;
+		IMSG_DEBUG("load driver successfully, driver_id 0x%x\n",
+				new_entry->driver_id);
 	}
-
-	IMSG_DEBUG("load driver successfully, driver_id 0x%x\n",
-							new_entry->driver_id);
-
 	list_add_tail(&new_entry->list, &ut_drv_list);
 
 	if (is_uuid_equal(&new_entry->uuid, &spi_uuid)) {
@@ -318,9 +321,30 @@ exit:
 
 int tz_load_drv(struct TEEC_UUID *uuid)
 {
-	return load_ut_drv(uuid);
+	return load_ut_drv(uuid, TEEI_DRV);
 }
+int tz_load_ta_by_str(const char *buf)
+{
+	struct TEEC_UUID uuid;
+	size_t len = strlen(buf);
+	int res;
 
+	if (len < UUID_STRING_LENGTH) {
+		IMSG_ERROR("bad UUID length, buf '%s' len %zd\n",
+				buf, len);
+		return -EINVAL;
+	}
+
+	str_to_uuid(&uuid, buf);
+	print_uuid(&uuid);
+
+	res = load_ut_drv(&uuid, TEEI_TA);
+	if (res)
+		IMSG_DEBUG("load secure ta failed(uuid: %s)\n",
+				buf);
+
+	return res;
+}
 int tz_load_drv_by_str(const char *buf)
 {
 	struct TEEC_UUID uuid;
@@ -336,7 +360,7 @@ int tz_load_drv_by_str(const char *buf)
 	str_to_uuid(&uuid, buf);
 	print_uuid(&uuid);
 
-	res = load_ut_drv(&uuid);
+	res = load_ut_drv(&uuid, TEEI_DRV);
 	if (res)
 		IMSG_DEBUG("load secure driver failed(uuid: %s)\n",
 				buf);
@@ -359,7 +383,7 @@ static ssize_t load_ut_drv_store(struct device *dev,
 	str_to_uuid(&uuid, buf);
 	print_uuid(&uuid);
 
-	ret = load_ut_drv(&uuid);
+	ret = load_ut_drv(&uuid, TEEI_DRV);
 	if (ret)
 		IMSG_ERROR("failed to load ut driver, ret %d\n", ret);
 
@@ -563,8 +587,8 @@ static ssize_t tzdriver_dynamical_debug_show(struct device *dev,
 }
 
 static ssize_t tzdriver_dynamical_debug_store(struct device *dev,
-			struct device_attribute *attr,
-			const char *buf, size_t len)
+				struct device_attribute *attr,
+				const char *buf, size_t len)
 {
 	uint32_t value;
 

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015-2016, Linaro Limited
- * Copyright (c) 2017-2018, MICROTRUST
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -97,6 +97,11 @@ static int tee_shm_op_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct tee_shm *shm = dmabuf->priv;
 	size_t size = vma->vm_end - vma->vm_start;
+
+	if (size > shm->size) {
+		IMSG_INFO("Invalid memory mapping size.\n");
+		return -EINVAL;
+	}
 
 	return remap_pfn_range(vma, vma->vm_start, shm->paddr >> PAGE_SHIFT,
 			       size, vma->vm_page_prot);

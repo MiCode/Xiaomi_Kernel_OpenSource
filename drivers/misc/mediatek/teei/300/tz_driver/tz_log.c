@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Microtrust, Inc.
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * Copyright (C) 2015 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -103,7 +103,7 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 		 */
 
 		if (likely(is_teei_ready()))
-			IMSG_PRINTK_DEBUG("[TZ_LOG] %s", s->line_buffer);
+			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
 		else
 			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
 

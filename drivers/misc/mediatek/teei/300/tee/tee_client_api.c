@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015-2016, Linaro Limited
- * Copyright (c) 2017-2018, MICROTRUST
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License Version 2 as
@@ -21,7 +21,6 @@
 #include <linux/file.h>
 #include <tee_client_api.h>
 #include <linux/mutex.h>
-#include <linux/cred.h>
 
 #include <linux/uaccess.h>
 #include <linux/mman.h>
@@ -34,7 +33,6 @@
 /* How many device sequence numbers will be tried before giving up */
 #define TEEC_MAX_DEV_SEQ	10
 #define DEFAULT_CAPABILITY "bta_loader"
-#define GPTEE_CAPABILITY "tta"
 
 static inline long ioctl(struct file *filp, unsigned int cmd, void *arg)
 {
@@ -137,24 +135,6 @@ TEEC_Result TEEC_InitializeContext(const char *name, struct TEEC_Context *ctx)
 
 	if (!ctx)
 		return TEEC_ERROR_BAD_PARAMETERS;
-
-#ifndef DEFAULT_TEE_GPTEE
-	if (!name)
-		name = (char *)DEFAULT_CAPABILITY;
-	else
-		if (strcmp(name, GPTEE_CAPABILITY) == 0)
-			name = (char *)GPTEE_CAPABILITY;
-		else
-			name = (char *)DEFAULT_CAPABILITY;
-#else
-	if (!name)
-		name = (char *)GPTEE_CAPABILITY;
-	else
-		if (strcmp(name, DEFAULT_CAPABILITY) == 0)
-			name = (char *)DEFAULT_CAPABILITY;
-		else
-			name = (char *)GPTEE_CAPABILITY;
-#endif
 
 	for (n = 0; n < TEEC_MAX_DEV_SEQ; n++) {
 		snprintf(devname, sizeof(devname), "/dev/tee%zu", n);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 MICROTRUST Incorporated
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -1083,6 +1083,7 @@ static long teei_config_ioctl(struct file *file,
 {
 	int retVal = 0;
 	struct init_param param;
+	unsigned int teei_ta_flags;
 
 	switch (cmd) {
 
@@ -1132,10 +1133,13 @@ static long teei_config_ioctl(struct file *file,
 			teei_flags = 1;
 
 			TEEI_BOOT_FOOTPRINT("TEEI start to load driver TAs");
-
-			for (i = 0; i < param.uuid_count; i++)
-				tz_load_drv_by_str(param.uuids[i]);
-
+			teei_ta_flags = param.flag;
+			for (i = 0; i < param.uuid_count; i++) {
+				if ((teei_ta_flags >> i) & (0x01))
+					tz_load_ta_by_str(param.uuids[i]);
+				else
+					tz_load_drv_by_str(param.uuids[i]);
+			}
 			param.flag = teei_flags;
 
 			TEEI_BOOT_FOOTPRINT("TEEI end of load driver TAs");
@@ -2027,48 +2031,6 @@ static ssize_t teei_client_dump(struct file *filp,
 	return 0;
 }
 
-
-
-
-/**
- * @brief	Map the vma with the free pages
- *
- * @param filp
- * @param vma
- *
- * @return	0: success
- *		EINVAL: Invalid parament
- *		ENOMEM: No enough memory
- */
-static int teei_client_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	int retVal = 0;
-	void *alloc_addr = NULL;
-	long length = vma->vm_end - vma->vm_start;
-	int dev_file_id = (unsigned long)filp->private_data;
-
-	alloc_addr =  __teei_client_map_mem(dev_file_id, length, vma->vm_start);
-	if (alloc_addr == NULL) {
-		IMSG_ERROR("[%s][%d] get free pages failed!\n",
-							__func__, __LINE__);
-		return -ENOMEM;
-	}
-
-	vma->vm_flags = vma->vm_flags | VM_IO;
-
-	/* Remap the free pages to the VMA */
-	retVal = remap_pfn_range(vma, vma->vm_start,
-			((virt_to_phys((void *)alloc_addr)) >> PAGE_SHIFT),
-			length, vma->vm_page_prot);
-
-	if (retVal) {
-		IMSG_ERROR("[%s][%d] remap_pfn_range failed!\n",
-							__func__, __LINE__);
-		return retVal;
-	}
-
-	return 0;
-}
 /**
  * @brief		The release operation of /dev/teei_client device node.
  *
@@ -2100,7 +2062,6 @@ static const struct file_operations teei_client_fops = {
 	.compat_ioctl = teei_client_ioctl,
 #endif
 	.open = teei_client_open,
-	.mmap = teei_client_mmap,
 	.read = teei_client_dump,
 	.release = teei_client_release
 };
