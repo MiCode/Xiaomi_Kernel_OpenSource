@@ -120,6 +120,7 @@ void venc_encode_prepare(void *ctx_prepare, unsigned long *flags)
 	ctx->dev->curr_ctx = ctx;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
 	mtk_vcodec_enc_clock_on(&ctx->dev->pm);
+	enable_irq(ctx->dev->enc_irq);
 }
 EXPORT_SYMBOL_GPL(venc_encode_prepare);
 
@@ -127,6 +128,7 @@ void venc_encode_unprepare(void *ctx_unprepare, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
+	disable_irq(ctx->dev->enc_irq);
 	mtk_vcodec_enc_clock_off(&ctx->dev->pm);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_ctx = NULL;
