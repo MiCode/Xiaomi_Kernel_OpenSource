@@ -307,45 +307,6 @@ enum _isp_dma_enum_ {
 	_camsv_imgo_ = _imgo_,
 	_camsv_ufeo_,
 	_camsv_max_,
-
-	#if 0
-	_ltmso_,           /* _ltmso_r1_ */
-	_rrzo_,            /* _rrzo_r1_  */
-	_lcso_,            /* _lceso_r1_ */
-	_aao_,             /* _aao_r1_   */
-	_flko_,     /* 5 *//* _flko_r1_  */
-	_ufeo_,            /* _ufeo_r1_  */
-	_afo_,             /* _afo_r1_   */
-	_ufgo_,            /* _ufgo_r1_  */
-	_rsso_,            /* _rsso_r1   */
-	_lmvo_,    /* 10 *//* _lmvo_r1_  */
-	_yuvbo_,
-	_tsfso_,
-	_pdo_,             /* _pdo_r1_   */
-	_crzo_,
-	_crzbo_,   /* 15 */
-	_yuvco_,
-	/* dmao_2 */
-	_crzo_r2_,
-	_crzbo_r2_, // 6s remove
-	_rsso_r2_,
-	_yuvo_,    /* 20 */
-
-	/*dami    */
-	/* ISP5.0 */ /* ISP6.0    */
-	_rawi_,      /* _rawi_r2_ *//* Need to be the first port after dmao */
-	_bpci_,      /* _bpci_r1_ */
-	_lsci_,      /* _lsci_r1_ */
-	_bpci_r2_,
-	_pdi_,       /* _pdi_r1_  *//* 25 */
-	_ufdi_r2,
-	_cam_max_,
-	/* For user space usage, it is easy to have the total numbers of dmao */
-	_dmao_max_   = _rawi_,
-	_camsv_imgo_ = _imgo_,
-	_camsv_ufeo_,
-	_camsv_max_,
-	#endif
 };
 
 /* for keep ion handle */
@@ -407,7 +368,6 @@ enum ISP_WRDMA_ENUM {
 	_dma_yuvco_,
 	/* dmao_2 */
 	_dma_crzo_r2_,
-	_dma_crzbo_r2_,
 	_dma_rsso_r2_,     /*55*/
 	_dma_yuvo_,
 	/* dmao_1_fh */
@@ -433,7 +393,6 @@ enum ISP_WRDMA_ENUM {
 
 	/* dmao_2 */
 	_dma_crzo_r2_fh_,
-	_dma_crzbo_r2_fh_,
 	_dma_rsso_r2_fh_,
 	_dma_yuvo_fh_,
 	_dma_max_wr_
