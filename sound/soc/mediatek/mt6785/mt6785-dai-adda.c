@@ -438,8 +438,13 @@ static int mtk_adda_mtkaif_cfg_event(struct snd_soc_dapm_widget *w,
 				     0x00010000);
 
 			if (!afe_priv->mtkaif_calibration_ok) {
-				dev_warn(afe->dev, "%s(), calibration fail\n",
-					 __func__);
+				AUDIO_AEE("check mtkaif_calibration_ok fail");
+				dev_warn(afe->dev, "%s(), calibration fail %d, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
+					 __func__,
+					 afe_priv->mtkaif_calibration_ok,
+					 afe_priv->mtkaif_chosen_phase[0],
+					 afe_priv->mtkaif_chosen_phase[1],
+					 afe_priv->mtkaif_chosen_phase[2]);
 				break;
 			}
 
