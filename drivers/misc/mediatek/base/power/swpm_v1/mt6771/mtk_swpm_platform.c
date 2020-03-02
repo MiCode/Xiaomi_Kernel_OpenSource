@@ -303,3 +303,11 @@ void swpm_set_enable(unsigned int type, unsigned int enable)
 {
 }
 
+void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
+{
+}
+
+void swpm_update_lkg_table(void)
+{
+}
+
