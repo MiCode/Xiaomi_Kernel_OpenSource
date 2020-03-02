@@ -1048,6 +1048,9 @@ u32 *tempmsr_name, enum thermal_sensor ts_name)
 {
 	int temp = 0, raw = 0;
 
+	if (thermal_base == 0)
+		return 0;
+
 	if (tempmsr_name == 0)
 		return 0;
 
