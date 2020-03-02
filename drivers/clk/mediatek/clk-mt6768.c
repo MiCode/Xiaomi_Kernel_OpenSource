@@ -2080,22 +2080,18 @@ static const struct mtk_gate apmixed_clks[] __initconst = {
 
 static const char * const i2s0_m_ck_parents[] __initconst = {
 	"aud_1_sel",
-	"aud_2_sel"
 };
 
 static const char * const i2s1_m_ck_parents[] __initconst = {
 	"aud_1_sel",
-	"aud_2_sel"
 };
 
 static const char * const i2s2_m_ck_parents[] __initconst = {
 	"aud_1_sel",
-	"aud_2_sel"
 };
 
 static const char * const i2s3_m_ck_parents[] __initconst = {
 	"aud_1_sel",
-	"aud_2_sel"
 };
 
 static const struct mtk_composite top_audmuxes[] __initconst = {
