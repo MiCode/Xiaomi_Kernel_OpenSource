@@ -324,6 +324,9 @@ static void cm_mgr_perf_timer_fn(unsigned long data)
 
 void cm_mgr_perf_set_status(int enable)
 {
+	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
+		enable = 0;
+
 	cm_mgr_perf_platform_set_force_status(enable);
 
 	if (cm_mgr_perf_force_enable)
