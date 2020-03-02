@@ -745,6 +745,8 @@ struct task_struct {
 	struct sched_dl_entity		dl;
 
 #ifdef CONFIG_UCLAMP_TASK
+	/* Clamp group the task is currently accounted into */
+	int				uclamp_group_id[UCLAMP_CNT];
 	/* Utlization clamp values for this task */
 	struct uclamp_se		uclamp[UCLAMP_CNT];
 #endif
