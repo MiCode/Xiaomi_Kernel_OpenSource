@@ -2061,7 +2061,7 @@ static int mt6360_get_message(struct tcpc_device *tcpc, u32 *payload,
 {
 	int ret;
 	u8 type, cnt = 0;
-	u8 buf[4];
+	u8 buf[4] = {0};
 
 	ret = mt6360_i2c_block_read(tcpc, TCPC_V10_REG_RX_BYTE_CNT, 4, buf);
 	cnt = buf[0];
