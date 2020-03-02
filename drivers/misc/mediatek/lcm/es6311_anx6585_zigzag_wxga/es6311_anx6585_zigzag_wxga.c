@@ -834,6 +834,11 @@ static void lcm_update(unsigned int x,
 }
 #endif
 
+static unsigned int lcm_ata_check(unsigned char *buffer)
+{
+	return 1;
+}
+
 struct LCM_DRIVER es6311_anx6585_zigzag_wxga_lcm_drv = {
 	.name = "es6311_anx6585_zigzag_wxga",
 	.set_util_funcs = lcm_set_util_funcs,
@@ -844,6 +849,7 @@ struct LCM_DRIVER es6311_anx6585_zigzag_wxga_lcm_drv = {
 	.init_power = lcm_init_power,
 	.resume_power = lcm_resume_power,
 	.suspend_power = lcm_suspend_power,
+	.ata_check = lcm_ata_check,
 #if (LCM_DSI_CMD_MODE)
 	.update = lcm_update,
 #endif
