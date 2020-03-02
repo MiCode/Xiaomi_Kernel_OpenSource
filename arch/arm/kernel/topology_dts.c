@@ -86,6 +86,11 @@ int arch_get_nr_clusters(void)
 	return __arch_nr_clusters;
 }
 
+int arch_is_multi_cluster(void)
+{
+	return (arch_get_nr_clusters() > 1);
+}
+
 void arch_get_cluster_cpus(struct cpumask *cpus, int socket_id)
 {
 	unsigned int cpu;
@@ -124,3 +129,18 @@ int arch_get_cluster_id(unsigned int cpu)
 	return cpu_topo->socket_id < 0 ? 0 : cpu_topo->socket_id;
 }
 
+int arch_is_smp(void)
+{
+	int cap = 0, max_cap = 0;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		cap = arch_get_max_cpu_capacity(cpu);
+		if (max_cap == 0)
+			max_cap = cap;
+
+		if (max_cap != cap)
+			return 0;
+	}
+	return 1;
+}
