@@ -102,7 +102,7 @@ bool swpm_debug;
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 bool swpm_gpu_debug;
 #endif
-DEFINE_SPINLOCK(swpm_mutex);
+DEFINE_SPINLOCK(swpm_spinlock);
 
 /****************************************************************************
  *  Static Function
@@ -268,7 +268,7 @@ static ssize_t enable_proc_write(struct file *file,
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	if (sscanf(buf, "%d %d", &type, &enable) == 2) {
-		swpm_lock(&swpm_mutex, flags);
+		swpm_lock(&swpm_spinlock, flags);
 		swpm_set_enable(type, enable);
 		if (swpm_status) {
 			unsigned long expires;
@@ -282,7 +282,7 @@ static ssize_t enable_proc_write(struct file *file,
 			if (log_timer.function != NULL)
 				del_timer(&log_timer);
 		}
-		swpm_unlock(&swpm_mutex, flags);
+		swpm_unlock(&swpm_spinlock, flags);
 	} else {
 		swpm_err("echo <type or 65535> <0 or 1> > /proc/swpm/enable\n");
 	}
@@ -490,9 +490,9 @@ static ssize_t idd_tbl_proc_write(struct file *file,
 	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
 		if (type >= NR_DRAM_PWR_TYPE || idd_idx > 6)
 			goto end;
-		swpm_lock(&swpm_mutex, flags);
+		swpm_lock(&swpm_spinlock, flags);
 		*(&swpm_info_ref->dram_conf[type].i_dd0 + idd_idx) = val;
-		swpm_unlock(&swpm_mutex, flags);
+		swpm_unlock(&swpm_spinlock, flags);
 	} else {
 		swpm_err("echo <type> <idx> <val> > /proc/swpm/idd_tbl\n");
 	}

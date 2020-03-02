@@ -124,8 +124,8 @@ void m4u_invalid_tlb_by_range(struct m4u_domain_t *m4u_domain,
 		0, mva_start, mva_end);
 }
 
-#if 0
-static int __m4u_dump_rs_info(unsigned int va[],
+#if 1
+int __m4u_dump_rs_info(unsigned int va[],
 	unsigned int pa[], unsigned int st[], unsigned int pte[])
 {
 	int i;
@@ -146,7 +146,7 @@ static int __m4u_dump_rs_info(unsigned int va[],
 	return 0;
 }
 
-static int m4u_dump_rs_info(int m4u_index, int m4u_slave_id)
+int m4u_dump_rs_info(unsigned int m4u_index, int m4u_slave_id)
 {
 	unsigned long m4u_base = gM4UBaseAddr[m4u_index];
 	int i;
@@ -2728,7 +2728,8 @@ int m4u_hw_deinit(struct m4u_device *m4u_dev, int m4u_id)
 	free_irq(m4u_dev->irq_num[m4u_id], NULL);
 	return 0;
 }
-#if 0
+#if 1
+extern int m4u_dump_reg_for_hang_issue(int m4u_id);
 /* to compact kernel-4.9, use old api name */
 int m4u_dump_reg_for_smi_hang_issue(void)
 {

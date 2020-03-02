@@ -149,7 +149,7 @@ const char*
 		reason == BY_PLL ? GET_ENUM_STRING(BY_PLL) : "null";
 }
 
-static unsigned int ufs_cb_before_idle(void)
+unsigned int ufs_cb_before_idle(void)
 {
 	unsigned int op_cond = 0;
 #if defined(CONFIG_MTK_UFS_SUPPORT)
@@ -171,7 +171,7 @@ static unsigned int ufs_cb_before_idle(void)
 	return op_cond;
 }
 
-static void ufs_cb_after_idle(void)
+void ufs_cb_after_idle(void)
 {
 #if defined(CONFIG_MTK_UFS_SUPPORT)
 	int boot_type;
