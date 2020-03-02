@@ -233,10 +233,14 @@ void hdmi_factory_dpi_parameters(int arg, int io_driving)
 	hdmi_factory_dpi_params.dispif_config.dpi.bg_height =
 				DPI_Params_Context.bg_height;
 
-	hdmi_factory_dpi_params.dispif_config.dpi.clk_pol = clk_pol;
-	hdmi_factory_dpi_params.dispif_config.dpi.de_pol = de_pol;
-	hdmi_factory_dpi_params.dispif_config.dpi.vsync_pol = vsync_pol;
-	hdmi_factory_dpi_params.dispif_config.dpi.hsync_pol = hsync_pol;
+	hdmi_factory_dpi_params.dispif_config.dpi.clk_pol =
+				(enum LCM_POLARITY)clk_pol;
+	hdmi_factory_dpi_params.dispif_config.dpi.de_pol =
+				(enum LCM_POLARITY)de_pol;
+	hdmi_factory_dpi_params.dispif_config.dpi.vsync_pol =
+				(enum LCM_POLARITY)vsync_pol;
+	hdmi_factory_dpi_params.dispif_config.dpi.hsync_pol =
+				(enum LCM_POLARITY)hsync_pol;
 
 	hdmi_factory_dpi_params.dispif_config.dpi.hsync_pulse_width =
 				hsync_pulse_width;
@@ -257,9 +261,9 @@ void hdmi_factory_dpi_parameters(int arg, int io_driving)
 	hdmi_factory_dpi_params.dispif_config.dpi.i2x_edge = 2;
 	hdmi_factory_dpi_params.dispif_config.dpi.embsync = false;
 	hdmi_factory_dpi_params.dispif_config.dpi.io_driving_current =
-				(enum LCM_DRIVING_CURRENT)io_driving;
-	hdmi_factory_dpi_params.dispif_config.dpi.dpi_clock = dpi_clock;
+		(enum LCM_DRIVING_CURRENT)io_driving;
 
+	hdmi_factory_dpi_params.dispif_config.dpi.dpi_clock = dpi_clock;
 	EXTD_FACTORY_LOG("[hdmi]%s:%d\n", __func__, arg);
 }
 
@@ -302,7 +306,7 @@ int hdmi_factory_mode_test(enum HDMI_FACTORY_TEST test_step, void *info)
 		 */
 		int test_type = ((long int)info >> 24);
 		int resolution = (((long int)info >> 16) & 0xFF);
-		int test_case = resolution;
+		/*int test_case = resolution;*/
 		int io_driving = ((long int)info & 0xFFFF);
 
 		EXTD_FACTORY_LOG("STEP3_START_DPI_AND_CONFIG +\n");
@@ -326,7 +330,7 @@ int hdmi_factory_mode_test(enum HDMI_FACTORY_TEST test_step, void *info)
 			EXTD_FACTORY_LOG("[hdmi] Not need video config\n");
 		} else if (test_type == 2) { /* DVT */
 			EXTD_FACTORY_LOG("[hdmi] Start DPI DVT Test\n");
-			dpi_dvt_ioctl(test_case);
+/*			dpi_dvt_ioctl(test_case);*/
 		}
 
 		break;
