@@ -304,6 +304,10 @@ process_command:
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1));
 
+	pr_info("%s: MREG_TOP_G_INTP3: %.8x\n",
+		__func__,
+		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3));
+
 	/*MDLA-PMU Command Counter*/
 	mdla_cmd_debug("%s: PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
 				__func__,
