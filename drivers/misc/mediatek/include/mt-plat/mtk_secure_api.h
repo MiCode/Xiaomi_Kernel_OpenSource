@@ -45,6 +45,8 @@
 	(0x82000204 | MTK_SIP_SMC_AARCH_BIT)
 #define MTK_SIP_KERNEL_DFD \
 	(0x82000205 | MTK_SIP_SMC_AARCH_BIT)
+#define MTK_SIP_KERNEL_GET_RND \
+	(0x82000206 | MTK_SIP_SMC_AARCH_BIT)
 
 /* CPU operations */
 #define MTK_SIP_POWER_DOWN_CLUSTER \
@@ -120,11 +122,23 @@
 	(0x82000263 | MTK_SIP_SMC_AARCH_BIT)
 
 /* Storage Encryption related SMC call */
+/* HW FDE related SMC call */
+#define MTK_SIP_KERNEL_HW_FDE_UFS_CTL \
+	(0x82000270 | MTK_SIP_SMC_AARCH_BIT)
+#define MTK_SIP_KERNEL_HW_FDE_AES_INIT \
+	(0x82000271 | MTK_SIP_SMC_AARCH_BIT)
 #define MTK_SIP_KERNEL_HW_FDE_KEY   \
 	(0x82000272 | MTK_SIP_SMC_AARCH_BIT)
 #define MTK_SIP_KERNEL_HW_FDE_MSDC_CTL \
 	(0x82000273 | MTK_SIP_SMC_AARCH_BIT)
-
+/* HIE related SMC call */
+#define MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST \
+	(0x82000274 | MTK_SIP_SMC_AARCH_BIT)
+#define MTK_SIP_KERNEL_CRYPTO_HIE_INIT \
+	(0x82000275 | MTK_SIP_SMC_AARCH_BIT)
+/* UFS generic SMC call */
+#define MTK_SIP_KERNEL_UFS_CTL \
+	(0x82000276 | MTK_SIP_SMC_AARCH_BIT)
 /* Cache related SMC call */
 #define MTK_SIP_KERNEL_CACHE_FLUSH_FIQ \
 	(0x82000280 | MTK_SIP_SMC_AARCH_BIT)
@@ -157,7 +171,6 @@ extern size_t mt_secure_call_all(size_t function_id,
 	mt_secure_call_all(_fun_id, _arg0, _arg1, _arg2, _arg3, _r1, _r2, _r3)
 
 #endif				/* _MTK_SECURE_API_H_ */
-
 
 #define emi_mpu_smc_write(offset, val) \
 mt_secure_call(MTK_SIP_KERNEL_EMIMPU_WRITE, offset, val, 0, 0)
