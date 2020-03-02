@@ -131,9 +131,6 @@ __weak struct vm_struct *find_vm_area(const void *addr)
 #define MIN_MARGIN PAGE_OFFSET
 #endif
 
-#undef mrdump_virt_addr_valid
-#define mrdump_virt_addr_valid(kaddr) \
-	kernel_addr_valid((unsigned long)kaddr)
 #ifdef __aarch64__
 static unsigned long virt_2_pfn(unsigned long addr)
 {

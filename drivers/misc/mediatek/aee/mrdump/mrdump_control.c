@@ -17,6 +17,7 @@
 #include <linux/memblock.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/mm.h>
 #include <asm/memory.h>
 #include <asm/sections.h>
 #include <mt-plat/mrdump.h>
@@ -69,7 +70,7 @@ static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
 	default:
 		BUILD_BUG();
 	}
-	kparam->start_addr = __pa(start_addr);
+	kparam->start_addr = __pa_symbol(start_addr);
 	kparam->size = (unsigned long)&kallsyms_token_index - start_addr + 512;
 	kparam->crc = crc32(0, (unsigned char *)start_addr, kparam->size);
 	kparam->addresses_off = (unsigned long)&kallsyms_addresses - start_addr;
@@ -142,7 +143,13 @@ __init void mrdump_cblock_init(void)
 	machdesc_p->modules_end = (uint64_t)MODULES_END;
 
 	machdesc_p->phys_offset = (uint64_t)(phys_addr_t)PHYS_OFFSET;
-	machdesc_p->master_page_table = (uintptr_t)__pa(&swapper_pg_dir);
+	if (virt_addr_valid(&swapper_pg_dir)) {
+		machdesc_p->master_page_table =
+			(uintptr_t)__pa(&swapper_pg_dir);
+	} else {
+		machdesc_p->master_page_table =
+			(uintptr_t)__pa_symbol(&swapper_pg_dir);
+	}
 
 #if defined(CONFIG_SPARSEMEM_VMEMMAP)
 	machdesc_p->memmap = (uintptr_t)vmemmap;
