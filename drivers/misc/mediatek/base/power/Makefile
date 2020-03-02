@@ -31,6 +31,7 @@ obj-$(CONFIG_MACH_MT6739) += vcorefs_v3/
 obj-$(CONFIG_MACH_MT6739) += cpufreq_v2/
 obj-$(CONFIG_MACH_MT6771) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
