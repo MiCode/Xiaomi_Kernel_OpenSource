@@ -2166,8 +2166,7 @@ int rt5509_i2c_probe(struct i2c_client *client,
 		dev_err(chip->dev, "power off fail\n");
 		goto err_put_sync;
 	}
-	dev_set_name(chip->dev, "%s",
-		     kasprintf(GFP_KERNEL, "RT5509_MT_%d", chip->dev_cnt));
+	dev_set_name(chip->dev, "RT5509_MT_%d", chip->dev_cnt);
 	ret = rt5509_codec_register(chip);
 	if (ret < 0) {
 		dev_err(chip->dev, "codec register fail\n");
