@@ -26,43 +26,42 @@ static DEFINE_MUTEX(probe_list_lock);
 
 static int probe_count;
 
-DEFINE_QNODE_QOS(qhm_qspi, 2, 0, 0, 65536);
-DEFINE_QNODE_QOS(qhm_qup1, 2, 0, 0, 69632);
-DEFINE_QNODE_QOS(xm_sdc4, 2, 0, 0, 73728);
-DEFINE_QNODE_QOS(xm_ufs_mem, 2, 0, 0, 77824);
-DEFINE_QNODE_QOS(xm_usb3_0, 2, 0, 0, 81920);
-DEFINE_QNODE_QOS(xm_usb3_1, 2, 0, 0, 86016);
-DEFINE_QNODE_QOS(qhm_qdss_bam, 2, 0, 0, 98304);
-DEFINE_QNODE_QOS(qhm_qup0, 2, 0, 0, 102400);
-DEFINE_QNODE_QOS(qhm_qup2, 2, 0, 0, 106496);
-DEFINE_QNODE_QOS(qxm_crypto, 2, 1, 0, 118784);
+DEFINE_QNODE_QOS(qhm_qspi, 2, 0, 1, 65536);
+DEFINE_QNODE_QOS(qhm_qup1, 2, 0, 1, 69632);
+DEFINE_QNODE_QOS(xm_sdc4, 2, 0, 1, 73728);
+DEFINE_QNODE_QOS(xm_ufs_mem, 2, 0, 1, 77824);
+DEFINE_QNODE_QOS(xm_usb3_0, 2, 0, 1, 81920);
+DEFINE_QNODE_QOS(xm_usb3_1, 2, 0, 1, 86016);
+DEFINE_QNODE_QOS(qhm_qdss_bam, 2, 0, 1, 98304);
+DEFINE_QNODE_QOS(qhm_qup0, 2, 0, 1, 102400);
+DEFINE_QNODE_QOS(qhm_qup2, 2, 0, 1, 106496);
+DEFINE_QNODE_QOS(qxm_crypto, 2, 1, 1, 118784);
 DEFINE_QNODE_QOS(qxm_ipa, 2, 1, 0, 65536);
-DEFINE_QNODE_QOS(xm_pcie3_0, 2, 0, 0, 77824);
-DEFINE_QNODE_QOS(xm_pcie3_1, 2, 0, 0, 81920);
-DEFINE_QNODE_QOS(xm_qdss_etr, 2, 0, 0, 86016);
-DEFINE_QNODE_QOS(xm_sdc2, 2, 0, 0, 90112);
-DEFINE_QNODE_QOS(xm_ufs_card, 2, 0, 0, 94208);
-DEFINE_QNODE_QOS(alm_gpu_tcu, 1, 0, 0, 655360);
-DEFINE_QNODE_QOS(alm_sys_tcu, 6, 0, 0, 659456);
-DEFINE_QNODE_QOS(qnm_cmpnoc, 0, 1, 0, 135168, 397312);
-DEFINE_QNODE_QOS(qnm_gpu, 0, 0, 0, 139264, 401408);
-DEFINE_QNODE_QOS(qnm_mnoc_hf, 0, 1, 0, 143360, 405504);
-DEFINE_QNODE_QOS(qnm_mnoc_sf, 0, 1, 0, 147456, 409600);
-DEFINE_QNODE_QOS(qnm_pcie, 2, 1, 0, 663552);
-DEFINE_QNODE_QOS(qnm_snoc_gc, 0, 1, 0, 667648);
-DEFINE_QNODE_QOS(qnm_snoc_sf, 0, 1, 0, 671744);
-DEFINE_QNODE_QOS(qnm_camnoc_hf, 0, 1, 0, 65536, 65920);
-DEFINE_QNODE_QOS(qnm_camnoc_icp, 5, 1, 0, 69632);
-DEFINE_QNODE_QOS(qnm_camnoc_sf, 0, 1, 0, 73728, 73856);
-DEFINE_QNODE_QOS(qnm_video0, 0, 1, 0, 81920);
-DEFINE_QNODE_QOS(qnm_video1, 0, 1, 0, 82048);
-DEFINE_QNODE_QOS(qnm_video_cvp, 0, 1, 0, 86016);
-DEFINE_QNODE_QOS(qxm_mdp0, 0, 1, 0, 90112);
-DEFINE_QNODE_QOS(qxm_mdp1, 0, 1, 0, 90240);
-DEFINE_QNODE_QOS(qxm_rot, 0, 1, 0, 94208);
-DEFINE_QNODE_QOS(qxm_nsp, 0, 0, 0, 49152, 53248);
-DEFINE_QNODE_QOS(qxm_pimem, 2, 1, 0, 45056);
-DEFINE_QNODE_QOS(xm_gic, 2, 0, 0, 53248);
+DEFINE_QNODE_QOS(xm_pcie3_0, 2, 0, 1, 77824);
+DEFINE_QNODE_QOS(xm_pcie3_1, 2, 0, 1, 81920);
+DEFINE_QNODE_QOS(xm_qdss_etr, 2, 0, 1, 86016);
+DEFINE_QNODE_QOS(xm_sdc2, 2, 0, 1, 90112);
+DEFINE_QNODE_QOS(xm_ufs_card, 2, 0, 1, 94208);
+DEFINE_QNODE_QOS(alm_gpu_tcu, 1, 0, 1, 655360);
+DEFINE_QNODE_QOS(alm_sys_tcu, 6, 0, 1, 659456);
+DEFINE_QNODE_QOS(qnm_cmpnoc, 0, 1, 2, 135168, 397312);
+DEFINE_QNODE_QOS(qnm_gpu, 0, 0, 2, 139264, 401408);
+DEFINE_QNODE_QOS(qnm_mnoc_hf, 0, 1, 1, 143360, 405504);
+DEFINE_QNODE_QOS(qnm_mnoc_sf, 0, 1, 1, 147456, 409600);
+DEFINE_QNODE_QOS(qnm_pcie, 2, 1, 1, 663552);
+DEFINE_QNODE_QOS(qnm_snoc_gc, 0, 1, 1, 667648);
+DEFINE_QNODE_QOS(qnm_snoc_sf, 0, 1, 1, 671744);
+DEFINE_QNODE_QOS(qnm_camnoc_hf, 0, 1, 2, 65536, 65920);
+DEFINE_QNODE_QOS(qnm_camnoc_icp, 5, 1, 1, 69632);
+DEFINE_QNODE_QOS(qnm_camnoc_sf, 0, 1, 2, 73728, 73856);
+DEFINE_QNODE_QOS(qnm_video0, 0, 1, 1, 81920);
+DEFINE_QNODE_QOS(qnm_video1, 0, 1, 1, 82048);
+DEFINE_QNODE_QOS(qnm_video_cvp, 0, 1, 1, 86016);
+DEFINE_QNODE_QOS(qxm_mdp0, 0, 1, 1, 90112);
+DEFINE_QNODE_QOS(qxm_mdp1, 0, 1, 1, 90240);
+DEFINE_QNODE_QOS(qxm_rot, 0, 1, 1, 94208);
+DEFINE_QNODE_QOS(qxm_pimem, 2, 1, 1, 45056);
+DEFINE_QNODE_QOS(xm_gic, 2, 0, 1, 53248);
 
 DEFINE_QNODE(qhm_qspi, MASTER_QSPI_0, 1, 4, &qhm_qspi_qos, 1,
 		SLAVE_A1NOC_SNOC);
@@ -222,7 +221,7 @@ DEFINE_QNODE(qxm_rot, MASTER_ROTATOR, 1, 32, &qxm_rot_qos, 1,
 		SLAVE_MNOC_SF_MEM_NOC);
 DEFINE_QNODE(qhm_nsp_noc_config, MASTER_CDSP_NOC_CFG, 1, 4, NULL, 1,
 		SLAVE_SERVICE_NSP_NOC);
-DEFINE_QNODE(qxm_nsp, MASTER_CDSP_PROC, 2, 32, &qxm_nsp_qos, 1,
+DEFINE_QNODE(qxm_nsp, MASTER_CDSP_PROC, 2, 32, NULL, 1,
 		SLAVE_CDSP_MEM_NOC);
 DEFINE_QNODE(qnm_aggre1_noc, MASTER_A1NOC_SNOC, 1, 16, NULL, 1,
 		SLAVE_SNOC_GEM_NOC_SF);
@@ -945,10 +944,6 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (qp->num_clks < 0)
 		return qp->num_clks;
 
-	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
-	if (ret)
-		return ret;
-
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
@@ -975,13 +970,8 @@ static int qnoc_probe(struct platform_device *pdev)
 			icc_link_create(node, qnodes[i]->links[j]);
 
 		data->nodes[i] = node;
-		if (qnodes[i]->noc_ops)
-			qnodes[i]->noc_ops->set_qos(qnodes[i]);
 	}
 	data->num_nodes = num_nodes;
-
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
@@ -996,8 +986,6 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	return ret;
 err:
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-	clk_bulk_put_all(qp->num_clks, qp->clks);
 	list_for_each_entry(node, &provider->nodes, node_list) {
 		icc_node_del(node);
 		icc_node_destroy(node->id);
@@ -1044,18 +1032,31 @@ static const struct of_device_id qnoc_of_match[] = {
 	  .data = &lahaina_nsp_noc},
 	{ .compatible = "qcom,lahaina-system_noc",
 	  .data = &lahaina_system_noc},
-	{ .compatible = "qcom,lahaina-gem_noc",
-	  .data = &lahaina_gem_noc},
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
 static void qnoc_sync_state(struct device *dev)
 {
-	struct qcom_icc_provider *qp;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	struct icc_provider *provider = &qp->provider;
+	struct qcom_icc_node *qnode;
+	struct icc_node *node;
 
 	mutex_lock(&probe_list_lock);
 	probe_count++;
+
+	clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+
+	list_for_each_entry(node, &provider->nodes, node_list) {
+		qnode = node->data;
+		if (qnode && qnode->noc_ops)
+			qnode->noc_ops->set_qos(qnode);
+	}
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
+	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
 		mutex_unlock(&probe_list_lock);
