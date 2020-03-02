@@ -395,8 +395,8 @@ void debug_print_power_mode_check(enum mtkfb_power_mode prev, enum mtkfb_power_m
 bool primary_is_aod_supported(void);
 
 /* legancy */
-LCM_PARAMS *DISP_GetLcmPara(void);
-LCM_DRIVER *DISP_GetLcmDrv(void);
+struct LCM_PARAMS *DISP_GetLcmPara(void);
+struct LCM_DRIVER *DISP_GetLcmDrv(void);
 UINT32 DISP_GetVRamSize(void);
 UINT32 DISP_GetFBRamSize(void);
 UINT32 DISP_GetPages(void);

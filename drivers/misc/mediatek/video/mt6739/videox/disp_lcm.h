@@ -18,13 +18,13 @@
 #define MAX_LCM_NUMBER	2
 
 extern unsigned char lcm_name_list[][128];
-extern LCM_DRIVER lcm_common_drv;
+extern struct LCM_DRIVER lcm_common_drv;
 
 
 struct disp_lcm_handle {
-	LCM_PARAMS *params;
-	LCM_DRIVER *drv;
-	LCM_INTERFACE_ID lcm_if_id;
+	struct LCM_PARAMS *params;
+	struct LCM_DRIVER *drv;
+	enum LCM_INTERFACE_ID lcm_if_id;
 	int module;
 	int is_inited;
 	unsigned int lcm_original_width;
@@ -34,14 +34,16 @@ struct disp_lcm_handle {
 
 
 /* these 2 variables are defined in mt65xx_lcm_list.c */
-extern LCM_DRIVER *lcm_driver_list[];
+extern struct LCM_DRIVER *lcm_driver_list[];
 extern unsigned int lcm_count;
 
 
-struct disp_lcm_handle *disp_lcm_probe(char *plcm_name, LCM_INTERFACE_ID lcm_id, int is_lcm_inited);
+struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
+					enum LCM_INTERFACE_ID lcm_id,
+					int is_lcm_inited);
 int disp_lcm_init(struct disp_lcm_handle *plcm, int force);
-LCM_PARAMS *disp_lcm_get_params(struct disp_lcm_handle *plcm);
-LCM_INTERFACE_ID disp_lcm_get_interface_id(struct disp_lcm_handle *plcm);
+struct LCM_PARAMS *disp_lcm_get_params(struct disp_lcm_handle *plcm);
+enum LCM_INTERFACE_ID disp_lcm_get_interface_id(struct disp_lcm_handle *plcm);
 int disp_lcm_update(struct disp_lcm_handle *plcm, int x, int y, int w, int h, int force);
 int disp_lcm_esd_check(struct disp_lcm_handle *plcm);
 int disp_lcm_esd_recover(struct disp_lcm_handle *plcm);
@@ -51,7 +53,8 @@ int disp_lcm_is_support_adjust_fps(struct disp_lcm_handle *plcm);
 int disp_lcm_adjust_fps(void *cmdq, struct disp_lcm_handle *plcm, int fps);
 int disp_lcm_set_backlight(struct disp_lcm_handle *plcm, void *handle, int level);
 int disp_lcm_read_fb(struct disp_lcm_handle *plcm);
-int disp_lcm_ioctl(struct disp_lcm_handle *plcm, LCM_IOCTL ioctl, unsigned int arg);
+int disp_lcm_ioctl(struct disp_lcm_handle *plcm, enum LCM_IOCTL ioctl,
+			unsigned int arg);
 int disp_lcm_is_video_mode(struct disp_lcm_handle *plcm);
 int disp_lcm_is_inited(struct disp_lcm_handle *plcm);
 unsigned int disp_lcm_ATA(struct disp_lcm_handle *plcm);
