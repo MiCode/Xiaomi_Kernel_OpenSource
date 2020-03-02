@@ -298,7 +298,9 @@ static int mdla_probe(struct platform_device *pdev)
 	struct apusys_device *apusys_mdla_ptr = NULL;
 	struct mdla_dev *apusys_mdla_dev_ptr = NULL;
 #endif
+#if defined(CONFIG_FPGA_EARLY_PORTING)
 	int i;
+#endif
 
 	if (mdla_dts_map(pdev)) {
 		dev_info(dev, "%s: failed due to DTS failed\n", __func__);
