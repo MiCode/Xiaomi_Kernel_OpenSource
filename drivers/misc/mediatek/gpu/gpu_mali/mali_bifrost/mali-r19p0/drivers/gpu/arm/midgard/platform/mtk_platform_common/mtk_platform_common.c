@@ -481,7 +481,7 @@ int mtk_set_mt_gpufreq_target(int freq_id)
 	mutex_lock(&g_flag_lock);
 
 	if (mtk_get_vgpu_power_on_flag() == MTK_VGPU_POWER_ON)
-		ret = mt_gpufreq_target(freq_id);
+		ret = mt_gpufreq_target(freq_id, false);
 
 	mutex_unlock(&g_flag_lock);
 
