@@ -29,6 +29,9 @@ static const char * const flashlight_mode_string[] = {
 	[FLASHLIGHT_MODE_TORCH] = "Torch",
 	[FLASHLIGHT_MODE_FLASH] = "Flash",
 	[FLASHLIGHT_MODE_MIXED] = "Mixed",
+	[FLASHLIGHT_MODE_DUAL_FLASH] = "Flash",
+	[FLASHLIGHT_MODE_DUAL_TORCH] = "Torch",
+	[FLASHLIGHT_MODE_DUAL_OFF] = "Off",
 };
 
 static ssize_t flashlight_show_name(struct device *dev,

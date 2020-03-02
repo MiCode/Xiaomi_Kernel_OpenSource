@@ -32,6 +32,12 @@ enum flashlight_mode {
 	FLASHLIGHT_MODE_FLASH,
 	/* MIXED mode means TORCH + FLASH */
 	FLASHLIGHT_MODE_MIXED,
+	/* DUAL_FLASH mode means turn on FCS_ENx & strobe simultaneously */
+	FLASHLIGHT_MODE_DUAL_FLASH,
+	/* DUAL_TORCH mode means turn on FCS_ENx & torch simultaneously */
+	FLASHLIGHT_MODE_DUAL_TORCH,
+	/* DUAL_OFF mode means turn off FCS_ENx simultaneously */
+	FLASHLIGHT_MODE_DUAL_OFF,
 	FLASHLIGHT_MODE_MAX,
 };
 
