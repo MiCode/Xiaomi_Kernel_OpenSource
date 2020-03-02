@@ -1431,6 +1431,11 @@ void aee_rr_rec_gpu_dvfs_vgpu(u8 val)
 	LAST_RR_SET(gpu_dvfs_vgpu, val);
 }
 
+u8 aee_rr_curr_gpu_dvfs_vgpu(void)
+{
+	return LAST_RR_VAL(gpu_dvfs_vgpu);
+}
+
 void aee_rr_rec_gpu_dvfs_oppidx(u8 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
