@@ -225,7 +225,11 @@ mext_page_mkuptodate(struct page *page, unsigned from, unsigned to)
 	for (i = 0; i < nr; i++) {
 		bh = arr[i];
 		if (!bh_uptodate_or_lock(bh)) {
-			err = bh_submit_read(bh);
+			/*
+			 * Inline encryption shall be engaged for
+			 * moved data blocks
+			 */
+			err = bh_submit_read_crypt(inode, bh);
 			if (err)
 				return err;
 		}
