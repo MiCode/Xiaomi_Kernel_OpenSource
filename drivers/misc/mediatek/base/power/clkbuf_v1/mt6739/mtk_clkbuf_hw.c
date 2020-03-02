@@ -1013,7 +1013,7 @@ int clk_buf_dts_map(void)
 			__func__);
 		return -1;
 	}
-	node = of_find_compatible_node(NULL, NULL, "mediatek,pwrap");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6739-pwrap");
 	if (node)
 		pwrap_base = of_iomap(node, 0);
 	else {
