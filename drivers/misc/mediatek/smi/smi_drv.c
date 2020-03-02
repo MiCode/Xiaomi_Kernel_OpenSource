@@ -408,6 +408,12 @@ static inline void smi_larb_port_set(const struct mtk_smi_dev *smi)
 		i < smi_larb_bw_thrt_en_port[smi->id][1]; i++)
 		writel(readl(smi->base + SMI_LARB_NON_SEC_CON(i)) | 0x8,
 			smi->base + SMI_LARB_NON_SEC_CON(i));
+
+#if IS_ENABLED(CONFIG_MACH_MT6765) || IS_ENABLED(CONFIG_MACH_MT6768) || \
+	IS_ENABLED(CONFIG_MACH_MT6771)
+	if (!smi->id) /* mm-infra gals DCM */
+		writel(0x780000, smi_mmsys_base + MMSYS_HW_DCM_1ST_DIS_SET0);
+#endif
 }
 
 static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
@@ -686,6 +692,20 @@ s32 smi_register(void)
 	memset(&smi_record, 0, sizeof(smi_record));
 	smi_drv.table[smi_drv.scen] += 1;
 
+	/* mmsys */
+	smi_conf_get(SMI_LARB_NUM);
+	of_node = of_parse_phandle(
+		smi_dev[SMI_LARB_NUM]->dev->of_node, "mmsys_config", 0);
+	smi_mmsys_base = (void *)of_iomap(of_node, 0);
+	if (!smi_mmsys_base) {
+		SMIERR("Unable to parse or iomap mmsys_config\n");
+		return -ENOMEM;
+	}
+	if (of_address_to_resource(of_node, 0, &res))
+		return -EINVAL;
+	SMIWRN(0, "MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
+	of_node_put(of_node);
+
 	/* init */
 	spin_lock(&(smi_drv.lock));
 	smi_subsys_on = smi_subsys_to_larbs[SYS_DIS];
@@ -700,22 +720,10 @@ s32 smi_register(void)
 	}
 	smi_mm_first = ~0;
 
-	/* mmsys */
-	of_node = of_parse_phandle(
-		smi_dev[SMI_LARB_NUM]->dev->of_node, "mmsys_config", 0);
 #ifdef MMDVFS_HOOK
 	mmdvfs_init();
 	mmdvfs_clks_init(smi_dev[SMI_LARB_NUM]->dev->of_node);
 #endif
-	smi_mmsys_base = (void *)of_iomap(of_node, 0);
-	if (!smi_mmsys_base) {
-		SMIERR("Unable to parse or iomap mmsys_config\n");
-		return -ENOMEM;
-	}
-	if (of_address_to_resource(of_node, 0, &res))
-		return -EINVAL;
-	SMIWRN(0, "MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
-	of_node_put(of_node);
 
 	smi_debug_dump_status(false);
 	register_pg_callback(&smi_clk_subsys_handle);
