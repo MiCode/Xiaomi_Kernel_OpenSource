@@ -78,15 +78,27 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 	int ret;
 	unsigned long populate;
 
-	if (id == 1)
+	if (id == 1) {
 		va = (unsigned long)kmalloc(size, GFP_KERNEL);
-	else if (id == 2)
+		if (!va) {
+			M4U_MSG("kmalloc failed!\n");
+			return -1;
+		}
+	} else if (id == 2) {
 		va = (unsigned long)vmalloc(size);
-	else if (id == 3) {
+		if (!va) {
+			M4U_MSG("vmalloc failed!\n");
+			return -1;
+		}
+	} else if (id == 3) {
 		down_write(&current->mm->mmap_sem);
 		va = do_mmap_pgoff(NULL, 0, size,
 			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED,
 			0, &populate, NULL);
+		if (!va) {
+			M4U_MSG("mmap pgoff failed!\n");
+			return -1;
+		}
 		up_write(&current->mm->mmap_sem);
 	}
 
@@ -166,6 +178,77 @@ static int m4u_test_map_kernel(void)
 	return 0;
 }
 
+int m4u_test_fake_engine(void)
+{
+	unsigned char *pSrc = NULL;
+	unsigned char *pDst = NULL;
+	unsigned long mva_rd;
+	unsigned long mva_wr;
+	unsigned int allocated_size = 1024;
+	unsigned int i;
+	struct m4u_client_t *client = pseudo_get_m4u_client();
+
+	iommu_perf_monitor_start(0);
+
+	pSrc = vmalloc(allocated_size);
+	if (!pSrc) {
+		M4U_MSG("vmalloc failed!\n");
+		return -1;
+	}
+	memset(pSrc, 0xFF, allocated_size);
+	M4U_MSG("(0) vmalloc pSrc:0x%p\n", pSrc);
+
+	pDst =  vmalloc(allocated_size);
+	if (!pDst) {
+		M4U_MSG("vmalloc failed!\n");
+		return -1;
+	}
+	memset(pDst, 0xFF, allocated_size);
+	M4U_MSG("(0) vmalloc pDst:0x%p\n", pDst);
+
+	M4U_MSG("(1) pDst check 0x%x 0x%x 0x%x 0x%x  0x%x\n",
+		*pDst, *(pDst+1),
+		*(pDst+126), *(pDst+127), *(pDst+128));
+
+	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG,
+		(unsigned long)*pSrc,
+		allocated_size, NULL, 0, &mva_rd);
+	__pseudo_alloc_mva(client,  M4U_PORT_OVL_DEBUG,
+		(unsigned long)*pDst,
+		allocated_size, NULL, 0, &mva_wr);
+
+	m4u_dump_pgtable(0);
+
+	m4u_display_fake_engine_test(mva_rd, mva_wr);
+
+	M4U_MSG("(2) mva_wr:0x%x\n", mva_wr);
+
+	pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_rd);
+	pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_wr);
+
+	M4U_MSG("(3) pDst check 0x%x 0x%x 0x%x 0x%x  0x%x\n",
+		*pDst, *(pDst+1), *(pDst+126), *(pDst+127),
+		*(pDst+128));
+
+	for (i = 0; i < 128; i++) {
+		if (*(pDst+i) != 0) {
+			M4U_MSG("(4) [Error] pDst check fail VA\n");
+			M4U_MSG("0x%p: 0x%x\n",
+				pDst+i*sizeof(unsigned char),
+				*(pDst+i));
+			return -2;
+		}
+	}
+	if (i == 128)
+		M4U_MSG("(4) m4u_disp_fake_test R/W 128 bytes PASS\n ");
+
+	vfree(pSrc);
+	vfree(pDst);
+
+	iommu_perf_monitor_stop(0);
+	return 0;
+}
+
 int m4u_test_ddp(void)
 {
 	unsigned long *pSrc = NULL;
@@ -178,6 +261,10 @@ int m4u_test_ddp(void)
 
 	pSrc = vmalloc(size);
 	pDst = vmalloc(size);
+	if (!pSrc || !pDst) {
+		M4U_MSG("vmalloc failed!\n");
+		return -1;
+	}
 
 	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG, *pSrc,
 		      size, NULL, 0, &src_pa);
@@ -243,6 +330,10 @@ int m4u_test_tf(void)
 
 	pSrc = vmalloc(size);
 	pDst = vmalloc(size);
+	if (!pSrc || !pDst) {
+		M4U_MSG("vmalloc failed!\n");
+		return -1;
+	}
 
 	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG, *pSrc,
 		      size, NULL, 0, &src_pa);
@@ -283,7 +374,8 @@ int m4u_test_tf(void)
 
 void m4u_test_ion(void)
 {
-	unsigned long *pSrc, *pDst;
+	unsigned long *pSrc = NULL;
+	unsigned long *pDst = NULL;
 	unsigned long src_pa, dst_pa;
 	unsigned int size = 64 * 64 * 3, tmp_size;
 	struct M4U_PORT_STRUCT port;
@@ -302,6 +394,10 @@ void m4u_test_ion(void)
 
 	pSrc = ion_map_kernel(ion_client, src_handle);
 	pDst = ion_map_kernel(ion_client, dst_handle);
+	if (!pSrc || !pDst) {
+		M4U_MSG("ion map kernel failed!\n");
+		return;
+	}
 
 	mm_data.config_buffer_param.kernel_handle = src_handle;
 	mm_data.config_buffer_param.module_id = M4U_PORT_OVL_DEBUG;
@@ -544,7 +640,9 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 18:
+	break;
 	case 19:
+	break;
 	case 20:
 	{
 		struct M4U_PORT_STRUCT rM4uPort;
@@ -581,25 +679,29 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 23:
 	{
-		void *pgd_pa;
+		unsigned int pgd_pa = 0;
 
-		if (mtk_iommu_get_pgtable_base_addr(pgd_pa)) {
+		if (mtk_iommu_get_pgtable_base_addr(&pgd_pa)) {
 			M4U_MSG("failed to get pgd info\n");
 			break;
 		}
-		M4U_MSG("pgd_pa:0x%p\n",
-			pgd_pa);
+		M4U_MSG("pgd_pa:0x%x\n", pgd_pa);
 	}
 	break;
 	case 24:
 	{
-		unsigned int *pSrc;
+		unsigned int *pSrc = NULL;
 		unsigned long mva;
 		unsigned long pa;
 		struct m4u_client_t *client = pseudo_get_m4u_client();
 		struct device *dev = pseudo_get_larbdev(M4U_PORT_UNKNOWN);
 
 		pSrc = vmalloc(128);
+		if (!pSrc) {
+			M4U_MSG("vmalloc failed!\n");
+			return -1;
+		}
+
 		__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG,
 			(unsigned long)*pSrc, 128, NULL, 0, &mva);
 
@@ -638,65 +740,7 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 28:
 	{
-#if 0
-		unsigned char *pSrc;
-		unsigned char *pDst;
-		unsigned int mva_rd;
-		unsigned int mva_wr;
-		unsigned int allocated_size = 1024;
-		unsigned int i;
-		struct m4u_client_t *client = pseudo_get_m4u_client();
-
-		iommu_perf_monitor_start(0);
-
-		pSrc = vmalloc(allocated_size);
-		memset(pSrc, 0xFF, allocated_size);
-		M4U_MSG("(0) vmalloc pSrc:0x%p\n", pSrc);
-		pDst =  vmalloc(allocated_size);
-		memset(pDst, 0xFF, allocated_size);
-		M4U_MSG("(0) vmalloc pDst:0x%p\n", pDst);
-		M4U_MSG("(1) pDst check 0x%x 0x%x 0x%x 0x%x  0x%x\n",
-			*pDst, *(pDst+1),
-			*(pDst+126), *(pDst+127), *(pDst+128));
-
-
-		__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG,
-			(unsigned long)*pSrc,
-			allocated_size, NULL, 0, &mva_rd);
-		__pseudo_alloc_mva(client,  M4U_PORT_OVL_DEBUG,
-			(unsigned long)*pDst,
-			allocated_size, NULL, 0, &mva_wr);
-
-		m4u_dump_pgtable(0);
-
-		m4u_display_fake_engine_test(mva_rd, mva_wr);
-
-		M4U_MSG("(2) mva_wr:0x%x\n", mva_wr);
-
-		pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_rd);
-		pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_wr);
-
-		M4U_MSG("(3) pDst check 0x%x 0x%x 0x%x 0x%x  0x%x\n",
-			*pDst, *(pDst+1), *(pDst+126), *(pDst+127),
-			*(pDst+128));
-
-		for (i = 0; i < 128; i++) {
-			if (*(pDst+i) != 0) {
-				M4U_MSG("(4) [Error] pDst check fail VA\n");
-				M4U_MSG("0x%p: 0x%x\n",
-					pDst+i*sizeof(unsigned char),
-					*(pDst+i));
-				break;
-			}
-		}
-		if (i == 128)
-			M4U_MSG("(4) m4u_disp_fake_test R/W 128 bytes PASS\n ");
-
-		vfree(pSrc);
-		vfree(pDst);
-
-		iommu_perf_monitor_stop(0);
-#endif
+		m4u_test_fake_engine();
 		break;
 	}
 	case 29:
@@ -826,6 +870,8 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 26 > /d/m4u/debug:	stop performance monitor\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 27 > /d/m4u/debug:	dump the debug registers of SMI bus hang\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 28 > /d/m4u/debug:	test display fake engine read/write\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,

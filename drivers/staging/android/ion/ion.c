@@ -226,8 +226,10 @@ err2:
 
 void ion_buffer_destroy(struct ion_buffer *buffer)
 {
-	if (WARN_ON(buffer->kmap_cnt > 0))
+	if (buffer->kmap_cnt > 0) {
+		WARN_ON(1);
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
+	}
 
 	buffer->heap->ops->free(buffer);
 	vfree(buffer->pages);
@@ -589,9 +591,11 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 		return buffer->vaddr;
 	}
 	vaddr = buffer->heap->ops->map_kernel(buffer->heap, buffer);
-	if (WARN_ONCE(!vaddr,
-		      "heap->ops->map_kernel should return ERR_PTR on error"))
+	if (!vaddr) {
+		WARN_ONCE(1,
+			  "heap->ops->map_kernel should return ERR_PTR on error");
 		return ERR_PTR(-EINVAL);
+	}
 	if (IS_ERR(vaddr)) {
 		IONMSG("%s map kernel is failed addr = 0x%p.\n",
 		       __func__, vaddr);
@@ -968,8 +972,10 @@ int clone_sg_table(const struct sg_table *source, struct sg_table *dest)
 #ifdef MTK_ION_DMABUF_SUPPORT
 static int ion_iommu_heap_type(struct ion_buffer *buffer)
 {
-	if (WARN_ON(!buffer))
+	if (!buffer) {
+		WARN_ON(1);
 		return 0;
+	}
 
 	if (buffer->heap->type == (int)ION_HEAP_TYPE_FB ||
 	    buffer->heap->type == (int)ION_HEAP_TYPE_MULTIMEDIA ||
@@ -1229,9 +1235,11 @@ static int ion_vm_fault(struct vm_fault *vmf)
 
 	mutex_lock(&buffer->lock);
 	ion_buffer_page_dirty(buffer->pages + vmf->pgoff);
-	if (WARN_ON(!buffer->pages ||
-		    !buffer->pages[vmf->pgoff]))
+	if (!buffer->pages ||
+	    !buffer->pages[vmf->pgoff]) {
+		WARN_ON(1);
 		return VM_FAULT_ERROR;
+	}
 
 	pfn = page_to_pfn(ion_buffer_page(buffer->pages[vmf->pgoff]));
 	ret = vm_insert_pfn(vma, (unsigned long)vmf->address, pfn);

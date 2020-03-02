@@ -16,6 +16,8 @@
 
 extern unsigned long gM4U_ProtectVA;
 
+extern int __attribute__((weak)) m4u_display_fake_engine_test(
+	unsigned long mva_rd, unsigned long mva_wr);
 extern int __attribute__((weak)) __ddp_mem_test(unsigned long *pSrc,
 	unsigned long pSrcPa,
 	unsigned long *pDst, unsigned long pDstPa,
