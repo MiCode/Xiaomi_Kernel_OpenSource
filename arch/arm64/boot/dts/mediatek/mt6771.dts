@@ -36,7 +36,7 @@
 vmalloc=400M slub_debug=OFZPU swiotlb=noforce page_owner=on \
 cgroup.memory=nosocket,nokmem \
 androidboot.hardware=mt6771 \
-firmware_class.path=/vendor/firmware";
+firmware_class.path=/vendor/firmware loop.max_part=7";
 		kaslr-seed = <0 0>;
 	};
 
