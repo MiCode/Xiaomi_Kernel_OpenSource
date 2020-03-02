@@ -2705,11 +2705,9 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	lrbp->intr_cmd = !ufshcd_is_intr_aggr_allowed(hba) ? true : false;
 	lrbp->req_abort_skip = false;
 
-	/*
-	 * MTK PATCH
-	 * file-based inline encryption:
-	 * call UFS registered decryption/encryption function.
-	 */
+	/* reset crypto_en first and set it later only on encrypted request */
+	lrbp->crypto_en = 0;
+
 	if (hie_request_crypted(cmd->request)) {
 		struct ufs_crypt_info info = {
 			.hba = hba,
@@ -2804,11 +2802,7 @@ static int ufshcd_compose_dev_cmd(struct ufs_hba *hba,
 	lrbp->lun = 0; /* device management cmd is not specific to any LUN */
 	lrbp->intr_cmd = true; /* No interrupt aggregation */
 	hba->dev_cmd.type = cmd_type;
-
-/* MTK PATCH */
-#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
-	lrbp->crypto_en = 0;
-#endif
+	lrbp->crypto_en = 0; /* device command shall not enable crypto */
 
 	return ufshcd_comp_devman_upiu(hba, lrbp);
 }

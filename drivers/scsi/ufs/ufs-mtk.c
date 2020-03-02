@@ -330,6 +330,7 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 {
 	struct ufs_crypt_info *info = (struct ufs_crypt_info *)priv;
 	struct ufshcd_lrb *lrbp;
+	struct ufs_hba *hba = info->hba;
 	u32 i;
 	u32 *key_ptr;
 	unsigned long flags;
@@ -347,6 +348,11 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 #endif
 
 	spin_lock_irqsave(info->hba->host->host_lock, flags);
+
+	if (!(hba->crypto_feature & UFS_CRYPTO_HW_FBE_ENCRYPTED)) {
+		mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_INIT, 0, 0, 0, 0);
+		hba->crypto_feature |= UFS_CRYPTO_HW_FBE_ENCRYPTED;
+	}
 
 	/* get key index from key hint, or install new key to key hint */
 	key_idx = kh_get_hint(ufs_mtk_get_kh(), key, &need_update);
@@ -415,7 +421,8 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 		for (i = 0; i < 32; i++) {
 			ufshcd_writel(info->hba, cpt_cfg.cfgx_raw[i],
 				(addr + i * 4));
-			dev_dbg(info->hba->dev, "0x%x=0x%x\n",
+			dev_dbg(info->hba->dev, "[%d] 0x%x=0x%x\n",
+				key_idx,
 				(addr + i * 4), cpt_cfg.cfgx_raw[i]);
 		}
 
@@ -462,9 +469,6 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 	/* remember to give "tweak" for AES-XTS */
 	lrbp->crypto_dunl = dunl;
 	lrbp->crypto_dunu = dunu;
-
-	/* mark data has ever gone through encryption/decryption path */
-	info->hba->crypto_feature |= UFS_CRYPTO_HW_FBE_ENCRYPTED;
 
 	return 0;
 }
@@ -665,10 +669,6 @@ void ufs_mtk_hwfde_cfg_cmd(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 
 		/* mark data has ever gone through encryption/decryption path */
 		hba->crypto_feature |= UFS_CRYPTO_HW_FDE_ENCRYPTED;
-
-	} else {
-		/* disable inline encryption */
-		lrbp->crypto_en = 0;
 	}
 }
 
@@ -845,13 +845,8 @@ static int ufs_mtk_init_crypto(struct ufs_hba *hba)
 	if (hba->pm_op_in_progress || !ufshcd_is_link_off(hba))
 		return 0;
 
-#ifdef CONFIG_MTK_HW_FDE
-
-	/* restore HW FDE related settings by re-using resume operation */
+	/* restore vendor crypto setting by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
-
-	dev_info(hba->dev, "crypto cfg initialized\n");
-#endif
 
 	return 0;
 }
@@ -955,11 +950,6 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 		ret = 0;	/* skip error */
 	}
 
-#ifdef CONFIG_HIE
-	/* init ufs crypto IP for HIE */
-	mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_INIT, 0, 0, 0, 0);
-#endif
-
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
 
@@ -1002,12 +992,9 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 		ufs_mtk_pltfrm_suspend(hba);
 
-#ifdef CONFIG_MTK_HW_FDE
-		/* HW FDE related suspend operation */
+		/* vendor-specific crypto suspend */
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 1),
 			0, 0, 0);
-#endif
-
 #ifdef CONFIG_HIE
 		kh_suspend(ufs_mtk_get_kh());
 #endif
@@ -1085,11 +1072,9 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (ret)
 			return ret;
 
-#ifdef CONFIG_MTK_HW_FDE
-		/* HW FDE related resume operation */
+		/* vendor-specific crypto resume */
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2),
 			0, 0, 0);
-#endif
 	}
 
 	return ret;
@@ -2207,7 +2192,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	hba = platform_get_drvdata(pdev);
 
 #ifdef CONFIG_HIE
-
 	hie_register_device(&ufs_hie_dev);
 
 	/*
@@ -2219,13 +2203,10 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	kh_register(ufs_mtk_get_kh(), 512, 16);
 
 	hba->crypto_feature |= UFS_CRYPTO_HW_FBE;
-
 #endif
 
 #if defined(CONFIG_MTK_HW_FDE)
-
 	hba->crypto_feature |= UFS_CRYPTO_HW_FDE;
-
 #endif
 
 out:
