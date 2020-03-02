@@ -102,13 +102,6 @@ int fbt_get_L_cluster_num(void)
 int fbt_get_L_min_ceiling(void)
 {
 	int freq = 0;
-	int opp;
-
-	opp = upower_get_turn_point();
-	if (opp >= NR_FREQ_CPU || opp < 0)
-		return 0;
-
-	freq = cpu_dvfs[fbt_get_L_cluster_num()].power[opp];
 
 	return freq;
 }
