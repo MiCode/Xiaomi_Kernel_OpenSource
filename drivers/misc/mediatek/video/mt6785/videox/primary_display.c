@@ -113,11 +113,12 @@
 #include "ddp_ovl.h"
 static bool fb_size_cal;
 static UINT32 afbc_frame_buf_size;
-
 #endif
 
 #define MMSYS_CLK_LOW (0)
 #define MMSYS_CLK_HIGH (1)
+#define TUI_SINGLE_WINDOW_MODE (0)
+#define TUI_MULTIPLE_WINDOW_MODE (1)
 
 #define _DEBUG_DITHER_HANG_
 
@@ -139,11 +140,12 @@ static unsigned int gPresentFenceIndex;
 unsigned int gTriggerDispMode;
 static unsigned int g_keep;
 static unsigned int g_skip;
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if 0 //def CONFIG_TRUSTONIC_TRUSTED_UI
 static struct switch_dev disp_switch_data;
 #endif
 static int osc_last_stat;
 static bool has_rsz_input;
+static bool has_yuv_input;
 
 #if 0
 /* global variable for idle manager */
@@ -2788,7 +2790,6 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 	}
 
 	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = M4U_PORT_DISP_WDMA0;
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 			     (unsigned long)&mm_data) < 0) {
@@ -4011,6 +4012,12 @@ static void replace_fb_addr_to_mva(void)
 	DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD(1, 0),
 			   DISPSYS_SMI_LARB1_BASE + 0x388, 0x1);
 #endif
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+	if (disp_helper_get_option(DISP_OPT_ROUND_CORNER_MODE) ==
+		DISP_HELPER_HW_RC)
+		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD(1, 0),
+			   DISPSYS_SMI_LARB0_BASE + 0x380, 0x1);
+#endif
 }
 
 int primary_display_init(char *lcm_name, unsigned int lcm_fps,
@@ -4054,7 +4061,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	init_cmdq_slots(&(pgc->next_working_fps), 1, 0);
 	init_cmdq_slots(&(pgc->night_light_params), 17, 0);
 	init_cmdq_slots(&(pgc->hrt_idx_id), 1, 0);
-	init_cmdq_slots(&(pgc->ovl_dummy_info), OVL_NUM, 0);
+	init_cmdq_slots(&(pgc->ovl_sbch_info), OVL_NUM, 0);
 	init_cmdq_slots(&(pgc->trigger_record_slot), 1, 0);
 
 
@@ -4946,7 +4953,7 @@ int primary_display_suspend(void)
 	while (primary_get_state() == DISP_BLANK) {
 		_primary_path_unlock(__func__);
 		DISPCHECK("%s wait tui finish!!\n", __func__);
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if 0 //def CONFIG_TRUSTONIC_TRUSTED_UI
 		switch_set_state(&disp_switch_data, DISP_SLEPT);
 #endif
 		primary_display_wait_state(DISP_ALIVE, MAX_SCHEDULE_TIMEOUT);
@@ -5543,7 +5550,7 @@ int primary_display_resume(void)
 
 done:
 	primary_set_state(DISP_ALIVE);
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if 0 //def CONFIG_TRUSTONIC_TRUSTED_UI
 	switch_set_state(&disp_switch_data, DISP_ALIVE);
 #endif
 
@@ -5673,6 +5680,7 @@ int primary_display_aod_backlight(int level)
 		/* goto done; */
 	}
 
+	DISPCHECK("%s stop trig loop\n", __func__);
 	cmdqRecReset(pgc->cmdq_handle_trigger);
 	cmdqRecStartLoop(pgc->cmdq_handle_trigger);
 	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_STREAM_EOF);
@@ -5707,6 +5715,8 @@ skip_resume:
 			ret = -1;
 		}
 	}
+	DISPCHECK("%s stop trig loop\n", __func__);
+	_cmdq_stop_trigger_loop();
 
 	dpmgr_path_stop(pgc->dpmgr_handle, CMDQ_DISABLE);
 
@@ -6454,6 +6464,25 @@ void add_round_corner_layers(struct disp_ddp_path_config *cfg,
 	input_ext->phy_layer = phy_layer;
 }
 #endif
+bool disp_input_has_yuv(void)
+{
+	return has_yuv_input;
+}
+static bool disp_input_has_yuv_layer(struct disp_frame_cfg_t *cfg)
+{
+	int i = 0;
+
+	for (i = 0; i < cfg->input_layer_num; i++) {
+		struct disp_input_config *c = &cfg->input_cfg[i];
+
+		if (!c->layer_enable)
+			continue;
+
+		if (is_yuv(c->src_fmt))
+			return true;
+	}
+	return false;
+}
 
 bool disp_idle_check_rsz(void)
 {
@@ -6670,7 +6699,9 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 		assign_full_lcm_roi(&total_dirty_roi);
 	} else
 		has_rsz_input = false;
-	DISPDBG("ovl input has rsz layer:%d\n", has_rsz_input);
+	has_yuv_input = disp_input_has_yuv_layer(cfg);
+	DISPDBG("ovl input has rsz layer:%d, yuv layer:%d\n",
+		has_rsz_input, has_rsz_input);
 
 
 	disp_rsz_in_out_roi(cfg, pconfig);
@@ -7029,9 +7060,9 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 
 			/* full transparent layer */
 			cmdqRecBackupRegisterToSlot(cmdq_handle,
-				pgc->ovl_dummy_info, i,
+				pgc->ovl_sbch_info, i,
 				disp_addr_convert
-				(DISP_REG_OVL_DUMMY_REG + ovl_base));
+				(DISP_REG_OVL_SBCH_STS + ovl_base));
 		}
 	}
 
