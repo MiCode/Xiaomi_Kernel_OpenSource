@@ -11,3 +11,13 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 extern void unthrottle_offline_rt_rqs(struct rq *rq);
+DECLARE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
+#include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
+#ifdef CONFIG_SMP
+static inline unsigned long capacity_hw_of(int cpu)
+{
+	return cpu_rq(cpu)->cpu_capacity_hw;
+}
+#endif
+
+extern int l_plus_cpu;

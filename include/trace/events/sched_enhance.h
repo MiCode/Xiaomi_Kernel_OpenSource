@@ -50,6 +50,106 @@ TRACE_EVENT(sched_system_overutilized,
 		__entry->overutilized ? 1 : 0)
 );
 
+#ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
+/*
+ * Tracepoint for share buck calculation
+ */
+TRACE_EVENT(sched_share_buck,
+
+	TP_PROTO(int cpu_idx, int cid, int cap_idx, int co_buck_cid,
+			int co_buck_cap_idx),
+
+	TP_ARGS(cpu_idx, cid, cap_idx, co_buck_cid, co_buck_cap_idx),
+
+	TP_STRUCT__entry(
+		__field(int, cpu_idx)
+		__field(int, cid)
+		__field(int, cap_idx)
+		__field(int, co_buck_cid)
+		__field(int, co_buck_cap_idx)
+	),
+
+	TP_fast_assign(
+		__entry->cpu_idx        = cpu_idx;
+		__entry->cid            = cid;
+		__entry->cap_idx        = cap_idx;
+		__entry->co_buck_cid    = co_buck_cid;
+		__entry->co_buck_cap_idx = co_buck_cap_idx;
+	),
+
+	TP_printk("cpu_idx=%d cid%d=%d co_cid%d=%d",
+		__entry->cpu_idx, __entry->cid, __entry->cap_idx,
+		__entry->co_buck_cid, __entry->co_buck_cap_idx)
+);
+
+/*
+ * Tracepoint for idle power calculation
+ */
+TRACE_EVENT(sched_idle_power,
+
+	TP_PROTO(int sd_level, int cap_idx, int leak_pwr, int energy_cost),
+
+	TP_ARGS(sd_level, cap_idx, leak_pwr, energy_cost),
+
+	TP_STRUCT__entry(
+		__field(int, sd_level)
+		__field(int, cap_idx)
+		__field(int, leak_pwr)
+		__field(int, energy_cost)
+	),
+
+	TP_fast_assign(
+		__entry->sd_level       = sd_level;
+		__entry->cap_idx        = cap_idx;
+		__entry->leak_pwr       = leak_pwr;
+		__entry->energy_cost    = energy_cost;
+	),
+
+	TP_printk("lv=%d tlb[%d].leak=(%d) total=%d",
+		__entry->sd_level, __entry->cap_idx, __entry->leak_pwr,
+		__entry->energy_cost)
+);
+
+/*
+ * Tracepoint for busy_power calculation
+ */
+TRACE_EVENT(sched_busy_power,
+
+	TP_PROTO(int sd_level, int cap_idx, unsigned long dyn_pwr,
+			unsigned long volt_f, unsigned long buck_pwr,
+			int co_cap_idx, int leak_pwr, int energy_cost),
+
+	TP_ARGS(sd_level, cap_idx, dyn_pwr, volt_f, buck_pwr, co_cap_idx,
+		leak_pwr, energy_cost),
+
+	TP_STRUCT__entry(
+		__field(int, sd_level)
+		__field(int, cap_idx)
+		__field(unsigned long, dyn_pwr)
+		__field(unsigned long, volt_f)
+		__field(unsigned long, buck_pwr)
+		__field(int, co_cap_idx)
+		__field(unsigned long, leak_pwr)
+		__field(int, energy_cost)
+	),
+
+	TP_fast_assign(
+		__entry->sd_level       = sd_level;
+		__entry->cap_idx        = cap_idx;
+		__entry->dyn_pwr        = dyn_pwr;
+		__entry->volt_f         = volt_f;
+		__entry->buck_pwr       = buck_pwr;
+		__entry->co_cap_idx     = co_cap_idx;
+		__entry->leak_pwr       = leak_pwr;
+		__entry->energy_cost    = energy_cost;
+	),
+
+	TP_printk("lv=%d tlb[%d].pwr=%ld volt_f=%ld buck.pwr=%ld tlb[%d].leak=(%ld) total=%d",
+		__entry->sd_level, __entry->cap_idx,  __entry->dyn_pwr,
+		__entry->volt_f, __entry->buck_pwr,  __entry->co_cap_idx,
+		__entry->leak_pwr, __entry->energy_cost)
+);
+#endif
 
 /*
  * Tracepoint for HMP (CONFIG_SCHED_HMP) task migrations.

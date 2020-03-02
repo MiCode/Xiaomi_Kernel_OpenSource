@@ -165,7 +165,8 @@ subsys_initcall(register_cpu_capacity_sysctl);
 enum asym_cpucap_type { no_asym, asym_thread, asym_core, asym_die };
 static enum asym_cpucap_type asym_cpucap = no_asym;
 enum share_cap_type { no_share_cap, share_cap_thread, share_cap_core, share_cap_die};
-static enum share_cap_type share_cap = no_share_cap;
+/* static enum share_cap_type share_cap = no_share_cap; */
+static enum share_cap_type share_cap = share_cap_core;
 
 #ifdef CONFIG_CPU_FREQ
 int detect_share_cap_flag(void)

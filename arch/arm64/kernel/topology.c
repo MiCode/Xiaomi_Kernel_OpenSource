@@ -333,7 +333,7 @@ static struct sched_domain_topology_level arm64_topology[] = {
 	{ cpu_coregroup_mask, core_flags, cpu_core_energy, SD_INIT_NAME(MC) },
 #endif
 	{ cpu_cpu_mask, cpu_flags, cpu_cluster_energy, SD_INIT_NAME(DIE) },
-	{ cpu_cpu_mask, NULL, cpu_system_energy, SD_INIT_NAME(SYS) },
+//	{ cpu_cpu_mask, NULL, cpu_system_energy, SD_INIT_NAME(SYS) },
 	{ NULL, }
 };
 
