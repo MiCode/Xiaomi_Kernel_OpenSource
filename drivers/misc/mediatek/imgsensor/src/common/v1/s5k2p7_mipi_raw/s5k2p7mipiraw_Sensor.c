@@ -1462,7 +1462,6 @@ static void capture_setting(kal_uint16 currefps)
 		write_cmos_sensor(0x3056, 0x0100);
 	}
 	write_cmos_sensor_8(0x0B0E, 0x01);
-	write_cmos_sensor_8(0x0100, 0x01);
 }
 
 kal_uint16 addr_data_pair_normal_video_s5k2p7[] = {
