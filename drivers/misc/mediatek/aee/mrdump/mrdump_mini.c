@@ -43,8 +43,6 @@
 #include "mrdump_private.h"
 #include <mach/memory_layout.h>
 
-static bool reserve_mem_fail;
-
 #define LOG_DEBUG(fmt, ...)			\
 	do {	\
 		if (aee_in_nested_panic())			\
@@ -760,14 +758,38 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 }
 EXPORT_SYMBOL(mrdump_mini_ke_cpu_regs);
 
+static void mrdump_mini_fatal(const char *str)
+{
+	LOGE("minirdump: FATAL:%s\n", str);
+	BUG();
+}
+
+static unsigned int mrdump_mini_addr;
+static unsigned int mrdump_mini_size;
+void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
+{
+	mrdump_mini_addr = addr;
+	mrdump_mini_size = size;
+}
+
 static void mrdump_mini_build_elf_misc(void)
 {
 	struct mrdump_mini_elf_misc misc;
 	unsigned long task_info_va =
 	    (unsigned long)((void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
-	unsigned long task_info_pa =
-	    MRDUMP_MINI_BUF_PADDR ? (MRDUMP_MINI_BUF_PADDR +
-			MRDUMP_MINI_HEADER_SIZE) : __pa_nodebug(task_info_va);
+	unsigned long task_info_pa = 0;
+
+	if (mrdump_mini_addr != 0
+		&& mrdump_mini_size != 0
+		&& MRDUMP_MINI_HEADER_SIZE < mrdump_mini_size) {
+		task_info_pa = (unsigned long)(mrdump_mini_addr +
+				MRDUMP_MINI_HEADER_SIZE);
+	} else {
+		LOGE("minirdump: unexpected addr:0x%x, size:0x%x(0x%x)\n",
+			mrdump_mini_addr, mrdump_mini_size,
+			MRDUMP_MINI_HEADER_SIZE);
+		mrdump_mini_fatal("illegal addr size");
+	}
 	mrdump_mini_add_misc_pa(task_info_va, task_info_pa,
 			sizeof(struct aee_process_info), 0, "PROC_CUR_TSK");
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
@@ -880,7 +902,7 @@ static void mrdump_mini_clear_loads(void)
 	}
 }
 
-static void __init *remap_lowmem(phys_addr_t start, phys_addr_t size)
+static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
 	struct page **pages;
 	phys_addr_t page_start;
@@ -920,19 +942,25 @@ static void __init *remap_lowmem(phys_addr_t start, phys_addr_t size)
 #define PSTORE_SIZE 0x8000
 static void __init mrdump_mini_elf_header_init(void)
 {
-	if (MRDUMP_MINI_BUF_PADDR)
+	if (mrdump_mini_addr != 0
+		&& mrdump_mini_size != 0) {
 		mrdump_mini_ehdr =
-		    remap_lowmem(MRDUMP_MINI_BUF_PADDR,
-				 MRDUMP_MINI_HEADER_SIZE + TASK_INFO_SIZE +
-				 PSTORE_SIZE);
-	else
-		mrdump_mini_ehdr = kmalloc(MRDUMP_MINI_HEADER_SIZE, GFP_KERNEL);
+		    remap_lowmem(mrdump_mini_addr,
+				 mrdump_mini_size);
+		LOGE("minirdump: [DT] reserved 0x%x+0x%lx->%p\n",
+			mrdump_mini_addr,
+			(unsigned long)mrdump_mini_size,
+			mrdump_mini_ehdr);
+	} else {
+		LOGE("minirdump: [DT] illegal value 0x%x(0x%x)\n",
+				mrdump_mini_addr,
+				mrdump_mini_size);
+		mrdump_mini_fatal("illegal addr size");
+	}
 	if (mrdump_mini_ehdr == NULL) {
 		LOGE("mrdump mini reserve buffer fail");
-		return;
+		mrdump_mini_fatal("header null pointer");
 	}
-	LOGE("mirdump: reserved %x+%lx->%p", MRDUMP_MINI_BUF_PADDR,
-	     (unsigned long)MRDUMP_MINI_HEADER_SIZE, mrdump_mini_ehdr);
 	memset_io(mrdump_mini_ehdr, 0, MRDUMP_MINI_HEADER_SIZE +
 			sizeof(struct aee_process_info));
 	fill_elf_header(&mrdump_mini_ehdr->ehdr, MRDUMP_MINI_NR_SECTION);
@@ -943,11 +971,6 @@ int mrdump_mini_init(void)
 	int i;
 	unsigned long size, offset;
 	struct pt_regs regs;
-
-	if (reserve_mem_fail) {
-		pr_info("minirdump wrong reserved memory\n");
-		BUG();
-	}
 
 	mrdump_mini_elf_header_init();
 
@@ -998,22 +1021,8 @@ int mrdump_mini_init(void)
 	return 0;
 }
 
-void mrdump_mini_reserve_memory(void)
-{
-	if (MRDUMP_MINI_BUF_PADDR)
-		memblock_reserve(MRDUMP_MINI_BUF_PADDR,
-			MRDUMP_MINI_HEADER_SIZE + TASK_INFO_SIZE + PSTORE_SIZE);
-}
-
 int mini_rdump_reserve_memory(struct reserved_mem *rmem)
 {
-#ifndef DUMMY_MEMORY_LAYOUT
-	if (rmem->base != KERN_MINIDUMP_BASE ||
-		rmem->size > KERN_MINIDUMP_MAX_SIZE) {
-		reserve_mem_fail = true;
-		pr_info("minirdump: Check the reserved address and size\n");
-	}
-#endif
 	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n",
 		"mediatek,minirdump",
 		 (unsigned long long)rmem->base,

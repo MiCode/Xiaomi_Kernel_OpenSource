@@ -229,18 +229,6 @@
 		#size-cells = <2>;
 		ranges;
 		/*TODO: add reserved memory node here*/
-		pstore-reserved-memory@44410000 {
-			compatible = "mediatek,pstore";
-			reg = <0 0x44410000 0 0xe0000>;
-		};
-		ram_console-reserved-memory@44400000 {
-			compatible = "mediatek,ram_console";
-			reg = <0 0x44400000 0 0x10000>;
-		};
-		minirdump-reserved-memory@444f0000{
-			compatible = "mediatek,minirdump";
-			reg = <0 0x444f0000 0 0x10000>;
-		};
 		consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			#address-cells = <2>;
