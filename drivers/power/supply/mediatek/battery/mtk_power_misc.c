@@ -189,7 +189,7 @@ int set_shutdown_cond(int shutdown_cond)
 		sdc.shutdown_status.is_overheat = true;
 		mutex_unlock(&sdc.lock);
 		bm_err("[%s]OVERHEAT shutdown!\n", __func__);
-		mutex_trylock(&pm_mutex);
+		mutex_lock(&pm_mutex);
 		kernel_power_off();
 		mutex_unlock(&pm_mutex);
 		break;
@@ -308,7 +308,7 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 			polling++;
 			if (duraction.tv_sec >= SHUTDOWN_TIME) {
 				bm_err("soc zero shutdown\n");
-				mutex_trylock(&pm_mutex);
+				mutex_lock(&pm_mutex);
 				kernel_power_off();
 				mutex_unlock(&pm_mutex);
 				return next_waketime(polling);
@@ -332,7 +332,7 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 			polling++;
 			if (duraction.tv_sec >= SHUTDOWN_TIME) {
 				bm_err("uisoc one percent shutdown\n");
-				mutex_trylock(&pm_mutex);
+				mutex_lock(&pm_mutex);
 				kernel_power_off();
 				mutex_unlock(&pm_mutex);
 				return next_waketime(polling);
@@ -354,7 +354,7 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 		polling++;
 		if (duraction.tv_sec >= SHUTDOWN_TIME) {
 			bm_err("dlpt shutdown\n");
-			mutex_trylock(&pm_mutex);
+			mutex_lock(&pm_mutex);
 			kernel_power_off();
 			mutex_unlock(&pm_mutex);
 			return next_waketime(polling);
@@ -423,7 +423,7 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 				if (duraction.tv_sec >= SHUTDOWN_TIME) {
 					bm_err("low bat shutdown, over %d second\n",
 						SHUTDOWN_TIME);
-					mutex_trylock(&pm_mutex);
+					mutex_lock(&pm_mutex);
 					kernel_power_off();
 					mutex_unlock(&pm_mutex);
 					return next_waketime(polling);
@@ -511,7 +511,7 @@ static int power_misc_routine_thread(void *arg)
 			sdd->overheat = false;
 			bm_err("%s battery overheat~ power off\n",
 				__func__);
-			mutex_trylock(&pm_mutex);
+			mutex_lock(&pm_mutex);
 			kernel_power_off();
 			mutex_unlock(&pm_mutex);
 			fix_coverity = 1;
