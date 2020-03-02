@@ -828,7 +828,6 @@ void do_sw_jeita_state_machine(struct charger_manager *info)
 
 	sw_jeita = &info->sw_jeita;
 	sw_jeita->pre_sm = sw_jeita->sm;
-	sw_jeita->pre_cv = sw_jeita->cv;
 	sw_jeita->charging = true;
 
 	/* JEITA battery temp Standard */
