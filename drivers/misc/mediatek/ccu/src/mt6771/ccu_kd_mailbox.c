@@ -78,6 +78,13 @@ enum mb_result mailbox_receive_cmd(struct ccu_msg *task)
 
 	MUINT32 nextReadSlot;
 
+	if (((uintptr_t)&(_apmcu_mailbox) & (uintptr_t)0x3) != 0) {
+		LOG_DBG_MUST(
+		"ccu _apmcu_mailbox address not aligned %p\n",
+		&(_apmcu_mailbox));
+		return -1;
+	}
+
 	rear = _apmcu_mailbox->rear;
 	front = _apmcu_mailbox->front;
 
@@ -87,8 +94,17 @@ enum mb_result mailbox_receive_cmd(struct ccu_msg *task)
 		/*modulus add: rear+1 = rear+1 % CCU_MAILBOX_QUEUE_SIZE*/
 		nextReadSlot =
 		(_apmcu_mailbox->front + 1) & (CCU_MAILBOX_QUEUE_SIZE - 1);
+	if (((uintptr_t)&(_apmcu_mailbox->queue[nextReadSlot])
+		& (uintptr_t)0x3) != 0) {
+		LOG_DBG_MUST(
+		"ccu _apmcu_mailbox->queue[nextReadSlot] address not aligned %p\n",
+		&(_apmcu_mailbox->queue[nextReadSlot]));
+	} else {
 		ccu_memcpy(task, &(_apmcu_mailbox->queue[nextReadSlot]),
-			sizeof(struct ccu_msg));
+		sizeof(struct ccu_msg));
+	}
+		_apmcu_mailbox->front = nextReadSlot;
+
 		_apmcu_mailbox->front = nextReadSlot;
 
 		LOG_DBG(
