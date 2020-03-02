@@ -22,7 +22,7 @@
 
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
-#include "apusys_power_driver.h"
+#include "apusys_power.h"
 #include "hal_config_power.h"
 #include "apu_log.h"
 

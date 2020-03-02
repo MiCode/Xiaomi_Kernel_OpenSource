@@ -19,8 +19,8 @@
 #include <linux/of.h>
 #include <linux/delay.h>
 
-#include "../apusys_power_driver.h"
-#include "../apu_log.h"
+#include "apusys_power.h"
+#include "apu_log.h"
 
 
 static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)

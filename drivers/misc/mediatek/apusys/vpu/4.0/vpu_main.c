@@ -29,7 +29,7 @@
 #include "vpu_mem.h"
 #include "vpu_algo.h"
 #include "vpu_debug.h"
-#include "apusys_power_driver.h"
+#include "apusys_power.h"
 // #include "../mt6779/vpu_dvfs.h"  // TODO: for vpu_boost_value_to_opp()
 #include "remoteproc_internal.h"  // TODO: move to drivers/remoteproc/../..
 
