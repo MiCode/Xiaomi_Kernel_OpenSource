@@ -276,7 +276,7 @@ menu "Memory configs"
 
 config MTK_SSMR
 	bool "Support Mediatek Shareable Secure Memory Region technology"
-	depends on CMA
+	depends on CMA && ZONE_MOVABLE_CMA
 	default y if (ARM || ARM64)
 	help
 	  Mediatek Shareable SMR technology.
