@@ -38,3 +38,5 @@ obj-$(CONFIG_QCOM_APCS_IPC)	+= qcom-apcs-ipc-mailbox.o
 obj-$(CONFIG_TEGRA_HSP_MBOX)	+= tegra-hsp.o
 
 obj-$(CONFIG_MTK_CMDQ_MBOX)    += mtk-cmdq-mailbox.o
+
+obj-$(CONFIG_MTK_RPMSG_MBOX)    += mtk-rpmsg-mailbox.o

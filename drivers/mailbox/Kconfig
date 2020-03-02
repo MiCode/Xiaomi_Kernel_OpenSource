@@ -178,4 +178,12 @@ config MTK_CMDQ_MBOX
 	  mailbox driver. The CMDQ is used to help read/write registers with
 	  critical time limitation, such as updating display configuration
 	  during the vblank.
+
+config MTK_RPMSG_MBOX
+	tristate "MediaTek RPMSG Mailbox Support"
+	help
+	  Say yes here to add support for the MediaTek RPMSG mailbox driver.
+	  This uses MTK MBOX driver to communicate with remote processors
+	  base on mailbox framework. It provide channels, controller creation
+	  and send operations.
 endif
