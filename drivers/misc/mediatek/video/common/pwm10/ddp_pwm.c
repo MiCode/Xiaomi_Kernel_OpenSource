@@ -625,7 +625,7 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 	if (g_pwm_led_mode == MT65XX_LED_MODE_CUST_BLS_PWM &&
 		atomic_read(&g_pwm_is_power_on[index]) == 0 && level_1024 > 0) {
 		/* print backlight once after device resumed */
-		disp_pwm_backlight_status(id, 1);
+		disp_pwm_backlight_status(id, true);
 	}
 #endif
 	return 0;
