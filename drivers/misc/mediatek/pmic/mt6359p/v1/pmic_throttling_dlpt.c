@@ -26,6 +26,7 @@
 #include <linux/interrupt.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/iio/adc/mt635x-auxadc-internal.h>
+#include <linux/syscore_ops.h>
 
 #include <mt-plat/upmu_common.h>
 #if defined(CONFIG_MTK_AEE_FEATURE)
@@ -257,7 +258,7 @@ int __attribute__ ((weak)) dlpt_check_power_off(void)
  *  /fg_cust_data.car_tune_value))
  *
  * Ricky update for MT6359
- * 65535–(I_mA*1000*fg_cust_data.r_fg_value / DEFAULT_RFG*1000*1000
+ * 65535-(I_mA*1000*fg_cust_data.r_fg_value / DEFAULT_RFG*1000*1000
  * / fg_cust_data.car_tune_value / UNIT_FGCURRENT * 95 / 100)
  *
  */
@@ -1684,6 +1685,16 @@ static DEVICE_ATTR(dlpt_level, 0664, show_dlpt_level, store_dlpt_level);
 #ifdef DLPT_FEATURE_SUPPORT
 static unsigned long pmic_node;
 
+int mtk_dlpt_suspend_enter(void)
+{
+	get_dlpt_imix_spm();
+	return 0;
+}
+
+struct syscore_ops mtk_dlpt_suspend = {
+	.suspend = mtk_dlpt_suspend_enter,
+};
+
 static int fb_early_init_dt_get_chosen(
 		unsigned long node, const char *uname, int depth, void *data)
 {
@@ -1871,6 +1882,7 @@ int pmic_throttling_dlpt_init(struct platform_device *pdev)
 
 #ifdef DLPT_FEATURE_SUPPORT
 	dlpt_notify_init();
+	register_syscore_ops(&mtk_dlpt_suspend);
 #else
 	pr_info("[PMIC] no define DLPT_FEATURE_SUPPORT\n");
 #endif
