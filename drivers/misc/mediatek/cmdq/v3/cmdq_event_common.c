@@ -369,7 +369,14 @@ static struct cmdq_event_table cmdq_events[] = {
 	/* ISP (IMGSYS) engine events */
 	DECLAR_EVENT(CMDQ_EVENT_ISP_SENINF_CAM1_2_3_FULL,
 		seninf_cam1_2_3_fifo_full)
-	DECLAR_EVENT(CMDQ_EVENT_ISP_SENINF_CAM0_FULL, seninf_cam0_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_0_FIFO_FULL, seninf_cam0_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_1_FIFO_FULL, seninf_cam1_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_2_FIFO_FULL, seninf_cam2_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_3_FIFO_FULL, seninf_cam3_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_4_FIFO_FULL, seninf_cam4_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_5_FIFO_FULL, seninf_cam5_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_6_FIFO_FULL, seninf_cam6_fifo_full)
+	DECLAR_EVENT(CMDQ_EVENT_SENINF_7_FIFO_FULL, seninf_cam7_fifo_full)
 
 	/* VENC frame done */
 	DECLAR_EVENT(CMDQ_EVENT_VENC_EOF, venc_done)
@@ -517,10 +524,135 @@ static struct cmdq_event_table cmdq_events[] = {
 	DECLAR_EVENT(CMDQ_EVENT_VDEC_EVENT_14, vdec_event_14)
 	DECLAR_EVENT(CMDQ_EVENT_VDEC_EVENT_15, vdec_event_15)
 
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_SOF, vdec_sof)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_0, vdec_frame_done_0)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_1, vdec_frame_done_1)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_2, vdec_frame_done_2)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_3, vdec_frame_done_3)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_4, vdec_frame_done_4)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_5, vdec_frame_done_5)
+	DECLAR_EVENT(CMDQ_EVENT_VDEC_FRAME_DONE_6, vdec_frame_done_6)
+
 	DECLAR_EVENT(CMDQ_EVENT_FDVT_DONE, fdvt_done)
 	DECLAR_EVENT(CMDQ_EVENT_FE_DONE, fe_done)
 	DECLAR_EVENT(CMDQ_EVENT_DVS_DONE_ASYNC_SHOT, dvs_done_async_shot)
 	DECLAR_EVENT(CMDQ_EVENT_DVP_DONE_ASYNC_SHOT, dvp_done_async_shot)
+
+//		mdp_rdma0_sof = <0>;
+//		mdp_ccorr0_sof = <1>;
+//		mdp_rsz0_sof = <2>;
+//		mdp_rsz1_sof = <3>;
+//		mdp_wrot1_sof = <4>;
+//		mdp_wrot0_sof = <5>;
+//		mdp_tdshp0_sof = <6>;
+//		disp_ovl0_sof = <7>;
+//		disp_2l_ovl0_sof = <8>;
+//		disp_rdma0_sof = <9>;
+//		disp_rdma1_sof = <10>;
+//		disp_wdma0_sof = <11>;
+//		disp_color0_sof = <12>;
+//		disp_ccorr0_sof = <13>;
+//		disp_aal0_sof = <14>;
+//		disp_gamma0_sof = <15>;
+//		disp_dither0_sof = <16>;
+//		disp_dsi0_sof = <17>;
+//		img_dl_relay_sof = <18>;
+//		disp_rsz0_sof = <19>;
+//		disp_pwm0_sof = <20>;
+//		mdp_rdma1_sof = <21>;
+//		disp_dpi0_sof = <22>;
+//		mdp_rdma0_frame_done = <23>;
+//		mdp_ccorr0_frame_done = <24>;
+//		mdp_rsz0_frame_done = <25>;
+//		mdp_rsz1_frame_done = <26>;
+//		mdp_wrot0_write_frame_done = <27>;
+//		mdp_wrot1_write_frame_done = <28>;
+//		mdp_tdshp0_frame_done = <29>;
+//		disp_ovl0_frame_done = <30>;
+//		disp_2l_ovl0_frame_done = <31>;
+//		disp_rsz0_frame_done = <32>;
+//		disp_rdma0_frame_done = <33>;
+//		disp_rdma1_frame_done = <34>;
+//		disp_wdma0_frame_done = <35>;
+//		disp_color0_frame_done = <36>;
+//		disp_ccorr0_frame_done = <37>;
+//		disp_aal0_frame_done = <38>;
+//		disp_gamma0_frame_done = <39>;
+//		disp_dither0_frame_done = <40>;
+//		disp_dsi0_frame_done = <41>;
+//		mdp_rdma1_frame_done = <42>;
+//		disp_dpi0_frame_done = <43>;
+//		reserved1_frame_done = <44>;
+//		reserved0_frame_done = <45>;
+//		stream_done_0 = <130>;
+//		stream_done_1 = <131>;
+//		stream_done_2 = <132>;
+//		stream_done_3 = <133>;
+//		stream_done_4 = <134>;
+//		stream_done_5 = <135>;
+//		stream_done_6 = <136>;
+//		stream_done_7 = <137>;
+//		stream_done_8 = <138>;
+//		stream_done_9 = <139>;
+//		buf_underrun_event_0 = <140>;
+//		buf_underrun_event_1 = <141>;
+//		dsi0_te_pulse = <142>;//Fix ME
+//		dsi0_irq_event = <143>;
+//		dsi0_done_event = <144>;
+//		disp_wdma0_rst_done = <148>;
+//		mdp_wrot1_rst_done = <149>;
+//		mdp_wrot0_rst_done = <150>;
+//		mdp_rdma1_rst_done = <151>;
+//		mdp_rdma0_rst_done = <152>;
+//		disp_ovl0_frame_rst_done_pusle = <153>;
+//		isp_frame_done_p2_2 = <257>;
+//		isp_frame_done_p2_1 = <258>;
+//		isp_frame_done_p2_0 = <259>;
+//		isp_frame_done_p1_1 = <260>;
+//		isp_frame_done_p1_0 = <261>;
+//		camsv_0_pass1_done = <262>;
+//		camsv_1_pass1_done = <263>;
+//		seninf_cam0_fifo_full = <264>;
+//		seninf_cam1_fifo_full = <265>;
+//		seninf_cam2_fifo_full = <266>;
+//		seninf_cam3_fifo_full = <267>;
+//		seninf_cam4_fifo_full = <268>;
+//		seninf_cam5_fifo_full = <269>;
+//		seninf_cam6_fifo_full = <270>;
+//		seninf_cam7_fifo_full = <271>;
+//		fdvt_done = <272>;
+//		wpe_gce_frame_done = <273>;//Fix ME
+//		JPGENC_CMDQ_PAUSE_DONE = <289>;//Fix ME
+//		jpgenc_done = <290>;
+//		venc_cmdq_pause_done = <291>;
+//		venc_done = <292>;
+//		venc_mb_done = <293>;
+//		venc_128byte_cnt_done = <294>;
+//		out_event_0 = <898>;//Fix ME
+//		apu_gce_core0_event_0 = <321>;
+//		apu_gce_core0_event_1 = <322>;
+//		apu_gce_core0_event_2 = <323>;
+//		apu_gce_core0_event_3 = <324>;
+//		vdec_sof = <352>;
+//		vdec_frame_done_0 = <353>;
+//		vdec_frame_done_1 = <354>;
+//		vdec_frame_done_2 = <355>;
+//		vdec_frame_done_3 = <356>;
+//		vdec_frame_done_4 = <357>;
+//		vdec_frame_done_5 = <358>;
+//		vdec_frame_done_6 = <359>;
+//		vdec_event_0 = <360>;
+//		vdec_event_1 = <361>;
+//		vdec_event_2 = <362>;
+//		vdec_event_3 = <363>;
+//		vdec_event_4 = <364>;
+//		vdec_event_5 = <365>;
+//		vdec_event_6 = <366>;
+//		vdec_event_7 = <367>;
+
+
+
+
 
 	/* Keep this at the end of HW events */
 	DECLAR_EVENT(CMDQ_MAX_HW_EVENT_COUNT, hw_event_conunt)
