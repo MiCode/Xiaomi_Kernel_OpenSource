@@ -49,10 +49,13 @@ static struct i2c_client *g_pstI2CclientG;
 #define I2C_MASK_FLAG	(0x00ff)
 #endif
 
+#define EEPROM_I2C_MSG_SIZE_READ 2
+
 static int Read_I2C_CAM_CAL(u16 a_u2Addr, u32 ui4_length, u8 *a_puBuff)
 {
 	int i4RetValue = 0;
 	char puReadCmd[2] = { (char)(a_u2Addr >> 8), (char)(a_u2Addr & 0xFF) };
+	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
 
 
 	if (ui4_length > 8) {
@@ -64,22 +67,30 @@ static int Read_I2C_CAM_CAL(u16 a_u2Addr, u32 ui4_length, u8 *a_puBuff)
 		g_pstI2CclientG->addr & (I2C_MASK_FLAG | I2C_WR_FLAG);
 	spin_unlock(&g_spinLock);
 
-	i4RetValue = i2c_master_send(g_pstI2CclientG, puReadCmd, 2);
-	if (i4RetValue != 2) {
-		pr_debug("I2C send read address failed!!\n");
-		return -1;
-	}
+	msg[0].addr = g_pstI2CclientG->addr;
+	msg[0].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[0].len = 2;
+	msg[0].buf = puReadCmd;
 
-	i4RetValue = i2c_master_recv(g_pstI2CclientG,
-						(char *)a_puBuff, ui4_length);
-	if (i4RetValue != ui4_length) {
-		pr_debug("I2C read data failed!!\n");
-		return -1;
-	}
+	msg[1].addr = g_pstI2CclientG->addr;
+	msg[1].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].len = ui4_length;
+	msg[1].buf = a_puBuff;
+
+	i4RetValue = i2c_transfer(g_pstI2CclientG->adapter,
+				msg,
+				EEPROM_I2C_MSG_SIZE_READ);
 
 	spin_lock(&g_spinLock);
 	g_pstI2CclientG->addr = g_pstI2CclientG->addr & I2C_MASK_FLAG;
 	spin_unlock(&g_spinLock);
+
+	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
+		pr_debug("I2C read data failed!!\n");
+		return -1;
+	}
+
 	return 0;
 }
 
