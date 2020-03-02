@@ -339,6 +339,7 @@ CONFIG_MMC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MMC_BLOCK_MINORS,COMMON,,,32,32,32,32,32,32,32,32,32,32,32,32,32
 CONFIG_MMC_MTK,PROJECT,,,,,,,,,,,,,,,
 CONFIG_MMC_MTK_PRO,PROJECT,andy.teng,new config in this commit 82cb77493ea32288206e7399cc206e617fefec81,,,,,,,,,,,,,
+CONFIG_MMC_MTK_COMM_SDIO,PROJECT,axe.yang,,,,,,,,,,,,,,
 CONFIG_MMPROFILE,COMMON,Le.Yang,ME5/ME13/ME16 defaule is y,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MNTL_SUPPORT,PROJECT,isaac.lee,,X,O,X,O,X,O,X,O,X,O,X,O,X
 CONFIG_MOBICORE_API,PROJECT,tryout.chen,,,,,,,,,,,,,,
