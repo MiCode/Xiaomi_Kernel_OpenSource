@@ -740,7 +740,7 @@ int dram_steps_freq(unsigned int step)
 
 	switch (step) {
 	case 0:
-		freq = 1344;
+		freq = 1333;
 		break;
 	case 1:
 		freq = 1066;
