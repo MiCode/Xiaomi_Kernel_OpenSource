@@ -12,8 +12,8 @@
  */
 
 
-#ifndef _MT_SECURE_API_H_
-#define _MT_SECURE_API_H_
+#ifndef _MTK_SECURE_API_V1_3_H_
+#define _MTK_SECURE_API_V1_3_H_
 
 #include <linux/kernel.h>
 #include <mt-plat/sync_write.h>
@@ -333,4 +333,4 @@ mt_secure_call(MTK_SIP_KERNEL_MCUSYS_ACCESS_COUNT, 0, 0, 0, 0)
 #define kernel_smc_msg(x1, x2, x3)
 #endif
 
-#endif				/* _MT_SECURE_API_H_ */
+#endif				/* _MTK_SECURE_API_V1_3_H_ */
