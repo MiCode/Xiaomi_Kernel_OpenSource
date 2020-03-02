@@ -765,9 +765,13 @@ int scp_excep_init(void)
  *****************************************************************************/
 void scp_ram_dump_init(void)
 {
+#if SCP_RECOVERY_SUPPORT
 	scp_A_task_context_addr = scp_region_info->TaskContext_ptr;
 	pr_debug("[SCP] get scp_A_task_context_addr: 0x%x\n",
 		scp_A_task_context_addr);
+#else
+	scp_A_task_context_addr = 0;
+#endif
 }
 
 
