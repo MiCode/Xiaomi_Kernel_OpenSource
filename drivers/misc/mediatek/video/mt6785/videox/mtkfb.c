@@ -2665,13 +2665,16 @@ static int mtkfb_probe(struct platform_device *pdev)
 #else
 	primary_display_diagnose(__func__, __LINE__);
 #endif
-
+/*disp decouple will use this buffer*/
+#if 0
 	/*
 	 * this function will get fb_heap base address to ion
 	 * for management frame buffer
 	 */
-#ifdef MTK_FB_ION_SUPPORT
-	ion_drv_create_FB_heap(mtkfb_get_fb_base(), mtkfb_get_fb_size());
+//#ifdef MTK_FB_ION_SUPPORT
+	ion_drv_create_FB_heap(mtkfb_get_fb_base(), DISP_GetFBRamSize());
+	pr_info("%s DISP_GetFBRamSize size:%d\n",
+		__func__, DISP_GetFBRamSize());
 #endif
 	fbdev->state = MTKFB_ACTIVE;
 
