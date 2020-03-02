@@ -269,6 +269,9 @@ EXPORT_SYMBOL(apu_device_power_on);
 
 void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 {
+#ifdef MTK_FPGA_PORTING
+	LOG_WRN("%s FPGA porting bypass DVFS\n", __func__);
+#else
 	if (user >= 0 && user < APUSYS_DVFS_USER_NUM
 		&& opp < APUSYS_MAX_NUM_OPPS) {
 
@@ -285,6 +288,7 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 
 		mutex_unlock(&power_opp_mtx);
 	}
+#endif
 }
 EXPORT_SYMBOL(apu_device_set_opp);
 

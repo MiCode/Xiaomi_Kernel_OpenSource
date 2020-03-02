@@ -22,6 +22,8 @@
  ************************************/
 enum HAL_POWER_CMD {
 	PWR_CMD_INIT_POWER,
+	PWR_CMD_SET_BOOT_UP,
+	PWR_CMD_SET_SHUT_DOWN,
 	PWR_CMD_SET_VOLT,
 	PWR_CMD_SET_REGULATOR_MODE,
 	PWR_CMD_SET_MTCMOS,
@@ -71,6 +73,10 @@ struct hal_param_freq {
 
 struct hal_param_pwr_info {
 	uint64_t id;
+};
+
+struct hal_param_pwr_mask {
+	uint8_t power_bit_mask;
 };
 
 /************************************

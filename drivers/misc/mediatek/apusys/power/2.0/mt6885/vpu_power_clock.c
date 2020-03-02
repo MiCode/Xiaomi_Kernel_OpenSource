@@ -222,7 +222,10 @@ void vpu_enable_clock(int core)
 	ENABLE_CLK(clk_apu_vcore_adl_cg);
 	ENABLE_CLK(clk_apu_vcore_qos_cg);
 
+// FIXME: check if mt6885 need this code
+#if 0
 	vcore_cg_ctl(1);
+#endif
 
 	ENABLE_CLK(clk_apu_conn_apu_cg);
 	ENABLE_CLK(clk_apu_conn_ahb_cg);
@@ -474,6 +477,7 @@ int set_if_clock_source(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain)
 	return clk_set_parent(find_clk_by_domain(domain), clk_src);
 }
 
+// FIXME: check clk id to support 3 core VPU
 // dump related frequencies of APUsys
 void dump_frequency(struct apu_power_info *info)
 {
@@ -482,10 +486,9 @@ void dump_frequency(struct apu_power_info *info)
 	int dsp2_freq = 0;
 	int dsp3_freq = 0;
 	int ipuif_freq = 0;
-	int temp_freq = 0;
 	int dump_div = 1;
-
-	// FIXME: check clk id to support 3 core VPU
+#if 0
+	int temp_freq = 0;
 
 	temp_freq = mt_get_ckgen_freq(1);
 
@@ -520,7 +523,7 @@ void dump_frequency(struct apu_power_info *info)
 	}
 
 	check_vpu_clk_sts();
-
+#endif
 	if (info->dump_div > 0)
 		dump_div = info->dump_div;
 
