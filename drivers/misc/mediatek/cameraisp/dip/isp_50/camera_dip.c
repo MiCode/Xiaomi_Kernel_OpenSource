@@ -4954,6 +4954,13 @@ static int dip_dump_read(struct seq_file *m, void *v)
 
 	int i;
 
+	spin_lock(&(IspInfo.SpinLockClock));
+	if (G_u4DipEnClkCnt == 0) {
+		spin_unlock(&(IspInfo.SpinLockClock));
+		return 0;
+	}
+	spin_unlock(&(IspInfo.SpinLockClock));
+
 	seq_puts(m, "\n============ dip dump register============\n");
 	seq_puts(m, "dip top control\n");
 	for (i = 0; i < 0xFC; i = i + 4) {
