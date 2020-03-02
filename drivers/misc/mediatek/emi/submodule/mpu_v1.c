@@ -328,8 +328,10 @@ static ssize_t mpu_config_store
 		pr_info("[MPU] %s %s\n", token[0], token[1]);
 
 		ret = kstrtoul(token[1], 10, &region);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse region\n");
+			goto mpu_store_end;
+		}
 
 		if (region < EMI_MPU_REGION_NUM) {
 			show_region = (unsigned int) region;
@@ -342,11 +344,16 @@ static ssize_t mpu_config_store
 		pr_info("[MPU] %s %s %s\n", token[0], token[1], token[2]);
 
 		ret = kstrtoul(token[1], 10, &dgroup);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse dgroup\n");
+			goto mpu_store_end;
+		}
+
 		ret = kstrtoul(token[2], 16, &apc);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse apc\n");
+			goto mpu_store_end;
+		}
 
 		if (dgroup < EMI_MPU_DGROUP_NUM) {
 			region_info.apc[dgroup] = (unsigned int) apc;
@@ -361,14 +368,22 @@ static ssize_t mpu_config_store
 			token[0], token[1], token[2], token[3]);
 
 		ret = kstrtoull(token[1], 16, &start);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse start\n");
+			goto mpu_store_end;
+		}
+
 		ret = kstrtoull(token[2], 16, &end);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse end\n");
+			goto mpu_store_end;
+		}
+
 		ret = kstrtoul(token[3], 10, &region);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse region\n");
+			goto mpu_store_end;
+		}
 
 		if (region < EMI_MPU_REGION_NUM) {
 			region_info.start = start;
@@ -383,8 +398,10 @@ static ssize_t mpu_config_store
 		pr_info("[MPU] %s %s\n", token[0], token[1]);
 
 		ret = kstrtoul(token[1], 10, &region);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse region\n");
+			goto mpu_store_end;
+		}
 
 		if (region < EMI_MPU_REGION_NUM) {
 			region_info.region = (unsigned int)region;
