@@ -10943,7 +10943,8 @@ more_balance:
 			 * we don't migrate this task.
 			 */
 			if ((capacity_of(env.dst_cpu) * 1024) <
-			((cpu_util(env.dst_cpu) + task_util(busiest->curr))
+			((cpu_util(env.dst_cpu) +
+				boosted_task_util(busiest->curr))
 				* capacity_margin)) {
 				raw_spin_unlock_irqrestore(&busiest->lock,
 							    flags);
