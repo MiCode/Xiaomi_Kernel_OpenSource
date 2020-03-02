@@ -494,7 +494,11 @@ static inline ssize_t adsp_suspend_cmd_store(struct device *kobj,
 	temp = kstrdup(buf, GFP_KERNEL);
 	pin = temp;
 	token1 = strsep(&pin, delim);
+	if (token1 == NULL)
+		return -EINVAL;
 	token2 = strsep(&pin, delim);
+	if (token2 == NULL)
+		return -EINVAL;
 
 	id = adsp_get_feature_index(token2);
 

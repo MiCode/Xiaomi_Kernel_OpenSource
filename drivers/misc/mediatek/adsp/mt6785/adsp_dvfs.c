@@ -238,7 +238,11 @@ static inline ssize_t adsp_dvfs_set_freq_store(struct device *kobj,
 	temp = kstrdup(buf, GFP_KERNEL);
 	pin = temp;
 	token1 = strsep(&pin, delim);
+	if (token1 == NULL)
+		return -EINVAL;
 	token2 = strsep(&pin, delim);
+	if (token2 == NULL)
+		return -EINVAL;
 
 	if (kstrtoint(token2, 10, &value))
 		return -EINVAL;
@@ -695,12 +699,10 @@ int adsp_resume(void)
 
 void adsp_reset(void)
 {
-	int itcm_ret = 0;
+	uint32_t reg_val = 0;
 #if ADSP_DVFS_PROFILE
-	ktime_t begin, end;
-#endif
-#if ADSP_DVFS_PROFILE
-	begin = ktime_get();
+	ktime_t begin = ktime_get();
+	ktime_t end;
 #endif
 	adsp_reset_ready(ADSP_A_ID);
 	adsp_release_runstall(false);
@@ -710,7 +712,8 @@ void adsp_reset(void)
 
 	writel(0, CREG_BOOTUP_MARK);
 	writel(0x0, ADSP_A_IRQ_EN);
-	DRV_ClrReg32(ADSP_A_WDT_REG, WDT_EN_BIT);
+	reg_val = readl(ADSP_A_WDT_REG) & ~(WDT_EN_BIT);
+	writel(reg_val, ADSP_A_WDT_REG);
 
 	/** TCM back to initial state **/
 	adsp_sram_reset_init();
@@ -720,9 +723,8 @@ void adsp_reset(void)
 	adsp_is_suspend = 0;
 #if ADSP_DVFS_PROFILE
 	end = ktime_get();
-	pr_debug("[%s]latency = %lld us, itcm_check(%d)\n",
-		 __func__, ktime_us_delta(end, begin),
-		 itcm_ret);
+	pr_debug("[%s]latency = %lld us\n",
+		 __func__, ktime_us_delta(end, begin));
 #endif
 }
 

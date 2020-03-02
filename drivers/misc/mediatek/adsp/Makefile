@@ -11,6 +11,6 @@
 # GNU General Public License for more details.
 #
 
-
+subdir-ccflags-y += -Wformat
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
