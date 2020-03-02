@@ -6221,7 +6221,8 @@ static int smart_ovl_try_switch_mode_nolock(void)
 	data_config = dpmgr_path_get_last_config(disp_handle);
 
 	/* calc wdma/rdma data size */
-	rdma_sz = data_config->dst_h * data_config->dst_w * 3;
+	rdma_sz = (unsigned long long)data_config->dst_h *
+				      data_config->dst_w * 3;
 
 	/* calc ovl data size */
 	ovl_sz = 0;
