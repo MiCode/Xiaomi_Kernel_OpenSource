@@ -607,11 +607,18 @@ ext4_move_extents(struct file *o_filp, struct file *d_filp, __u64 orig_blk,
 		return -EOPNOTSUPP;
 	}
 
-	if (ext4_encrypted_inode(orig_inode) ||
-	    ext4_encrypted_inode(donor_inode)) {
-		ext4_msg(orig_inode->i_sb, KERN_ERR,
-			 "Online defrag not supported for encrypted files");
-		return -EOPNOTSUPP;
+	/*
+	 * Limitaion is only applicable for SW encryption but not for
+	 * inline encryption
+	 */
+	if (!fscrypt_is_hw_encrypt(orig_inode) ||
+	    !fscrypt_is_hw_encrypt(donor_inode)) {
+		if (ext4_encrypted_inode(orig_inode) ||
+		    ext4_encrypted_inode(donor_inode)) {
+			ext4_msg(orig_inode->i_sb, KERN_ERR,
+				 "Online defrag not supported for encrypted files");
+			return -EOPNOTSUPP;
+		}
 	}
 
 	/* Protect orig and donor inodes against a truncate */
