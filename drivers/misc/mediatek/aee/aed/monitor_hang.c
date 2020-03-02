@@ -1753,9 +1753,7 @@ static int hang_detect_thread(void *arg)
 #ifdef HANG_LOW_MEM
 			if (MaxHangInfoSize == MAX_HANG_INFO_SIZE) {
 				buf = kmalloc(4*1024*1024, GFP_KERNEL);
-				if (buf == NULL) {
-					pr_info("[Hang_detect] kmalloc memory failed.\n");
-				} else {
+				if (buf != NULL) {
 					Hang_Info = buf;
 					MaxHangInfoSize = 4*1024*1024;
 				}
