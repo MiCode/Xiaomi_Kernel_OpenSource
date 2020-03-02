@@ -132,17 +132,17 @@ enum DVFS_VPU2_PWR_PATH {
 
 
 enum DVFS_MDLA0_PWR_PATH {
-	VMDLA0_MDLA = 0,
-	VMDLA0_APU_CONN = 1,
-	VMDLA0_TOP_IOMMU = 2,
-	VMDLA0_VCORE = 3,
+	MDLA0_MDLA = 0,
+	MDLA0_APU_CONN = 1,
+	MDLA0_TOP_IOMMU = 2,
+	MDLA0_VCORE = 3,
 };
 
 enum DVFS_MDLA1_PWR_PATH {
-	VMDLA1_MDLA = 0,
-	VMDLA1_APU_CONN = 1,
-	VMDLA1_TOP_IOMMU = 2,
-	VMDLA1_VCORE = 3,
+	MDLA1_MDLA = 0,
+	MDLA1_APU_CONN = 1,
+	MDLA1_TOP_IOMMU = 2,
+	MDLA1_VCORE = 3,
 };
 
 
@@ -188,6 +188,8 @@ extern enum DVFS_BUCK apusys_buck_up_sequence[APUSYS_BUCK_NUM];
 extern enum DVFS_BUCK apusys_buck_down_sequence[APUSYS_BUCK_NUM];
 extern uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
 extern uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM];
+extern enum DVFS_VOLTAGE
+	dvfs_clk_path_max_vol[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
 extern bool buck_shared[APUSYS_BUCK_DOMAIN_NUM]
 				[APUSYS_DVFS_USER_NUM]
 				[APUSYS_PATH_USER_NUM];
