@@ -179,6 +179,18 @@
 #define APLL_I2S9_MCK_SEL_SFT              27
 #define APLL_I2S9_MCK_SEL_MASK             0x1
 #define APLL_I2S9_MCK_SEL_MASK_SFT         (0x1 << 27)
+#define APLL12_DIV6_INV_SFT                28
+#define APLL12_DIV6_INV_MASK               0x1
+#define APLL12_DIV6_INV_MASK_SFT           (0x1 << 28)
+#define APLL12_DIV7_INV_SFT                29
+#define APLL12_DIV7_INV_MASK               0x1
+#define APLL12_DIV7_INV_MASK_SFT           (0x1 << 29)
+#define APLL12_DIV8_INV_SFT                30
+#define APLL12_DIV8_INV_MASK               0x1
+#define APLL12_DIV8_INV_MASK_SFT           (0x1 << 30)
+#define APLL12_DIV9_INV_SFT                31
+#define APLL12_DIV9_INV_MASK               0x1
+#define APLL12_DIV9_INV_MASK_SFT           (0x1 << 31)
 
 /* CLK_AUDDIV_4 */
 #define APLL12_CK_DIV6_SFT                 0
