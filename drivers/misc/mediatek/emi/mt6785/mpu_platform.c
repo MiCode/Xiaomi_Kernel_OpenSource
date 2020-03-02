@@ -133,7 +133,8 @@ int bypass_violation(unsigned int mpus, unsigned int *init_flag)
 		return 1;
 	}
 
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+#if defined(CONFIG_MTK_ENABLE_GENIEZONE) \
+	|| defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if ((wr_vio == 2) && (wr_oo_vio == 0) &&
 	    ((port_id == 0) || (port_id == 1)))
 		return 1;
