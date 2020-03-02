@@ -22,6 +22,10 @@
 extern struct apusys_dvfs_opps apusys_opps;
 extern bool is_power_debug_lock;
 
+extern int32_t apusys_thermal_en_throttle_cb
+	(enum DVFS_USER user, uint8_t opp);
+extern int32_t apusys_thermal_dis_throttle_cb
+	(enum DVFS_USER user);
 extern void apusys_dvfs_policy(uint64_t round_id);
 extern void apusys_set_opp(enum DVFS_USER user, uint8_t opp);
 extern bool apusys_check_opp_change(void);

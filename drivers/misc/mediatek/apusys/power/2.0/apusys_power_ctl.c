@@ -31,43 +31,6 @@
 struct apusys_dvfs_opps apusys_opps;
 bool is_power_debug_lock;
 
-#if 0
-int32_t vpu_thermal_en_throttle_cb(uint8_t vcore_opp, uint8_t vpu_opp)
-{
-	apusys_opps.thermal_opp[vcore_opp] = vpu_opp;
-	PWR_LOG_INF("%s, vcore_opp=%d, vpu_opp=%d\n",
-		__func__, vcore_opp, vpu_opp);
-
-	return 0;
-}
-
-
-int32_t vpu_thermal_dis_throttle_cb(void)
-{
-	apusys_opps.thermal_opp[VPU0] = 0;
-	apusys_opps.thermal_opp[VPU1] = 0;
-	PWR_LOG_INF("%s\n", __func__);
-
-	return 0;
-}
-
-int32_t mdla_thermal_en_throttle_cb(uint8_t vcore_opp, uint8_t mdla_opp)
-{
-	apusys_opps.thermal_opp[MDLA] = mdla_opp;
-	PWR_LOG_INF("%s, vcore_opp=%d, mdla_opp=%d\n",
-		__func__, vcore_opp, mdla_opp);
-
-	return 0;
-}
-
-int32_t mdla_thermal_dis_throttle_cb(void)
-{
-	apusys_opps.thermal_opp[MDLA] = 0;
-	PWR_LOG_INF("%s\n", __func__);
-
-	return 0;
-}
-#else
 int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user, uint8_t opp)
 {
 	// need to check constraint voltage, fixed me
@@ -85,8 +48,6 @@ int32_t apusys_thermal_dis_throttle_cb(enum DVFS_USER user)
 
 	return 0;
 }
-
-#endif
 
 uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 {
@@ -534,6 +495,9 @@ void apusys_dvfs_state_machine(void)
 		apusys_opps.prev_buck_volt[buck_index] =
 			apusys_opps.cur_buck_volt[buck_index];
 	}
+
+	for (buck_index = 0; buck_index < APUSYS_BUCK_NUM; buck_index++)
+		apusys_opps.cur_buck_volt[buck_index] = 0;
 }
 
 
@@ -639,8 +603,8 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	}
 
 	for (i = 0; i < APUSYS_BUCK_NUM; i++) {
-		apusys_opps.cur_buck_volt[i] = 0;
-		apusys_opps.prev_buck_volt[i] = 0;
+		apusys_opps.cur_buck_volt[i] = DVFS_VOLT_00_575000_V;
+		apusys_opps.prev_buck_volt[i] = DVFS_VOLT_00_575000_V;
 	}
 
 	apusys_opps.power_bit_mask = 0;
