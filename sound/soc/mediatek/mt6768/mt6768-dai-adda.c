@@ -668,12 +668,6 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 		/* set mtkaif protocol */
 		set_mtkaif_rx(afe);
 
-		/* Using Internal ADC */
-		regmap_update_bits(afe->regmap,
-				   AFE_ADDA_TOP_CON0,
-				   0x1 << 0,
-				   0x0 << 0);
-
 		voice_mode = adda_ul_rate_transform(afe, rate);
 
 		ul_src_con0 |= (voice_mode << 17) & (0x7 << 17);
@@ -692,6 +686,12 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 		regmap_write(afe->regmap, AFE_ADDA_IIR_COEF_10_09, 0x0000C048);
 
 		regmap_write(afe->regmap, AFE_ADDA_UL_SRC_CON0, ul_src_con0);
+
+		/* Using Internal ADC */
+		regmap_update_bits(afe->regmap,
+				   AFE_ADDA_TOP_CON0,
+				   0x1 << 0,
+				   0x0 << 0);
 
 		/* mtkaif_rxif_data_mode = 0, amic */
 		regmap_update_bits(afe->regmap,
