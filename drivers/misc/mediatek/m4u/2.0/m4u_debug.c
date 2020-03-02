@@ -27,9 +27,8 @@
 #include "trustzone/kree/mem.h"
 #endif
 
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT) && \
-		defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-#include "secmem_api.h"
+#if defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
+#include "trusted_mem_api.h"
 #endif
 
 /* global variables */
@@ -728,7 +727,8 @@ static int m4u_debug_set(void *data, u64 val)
 		u32 sec_handle = 0;
 		u32 refcount;
 
-		secmem_api_alloc(0, 0x1000, &refcount, &sec_handle, "m4u_ut", 0);
+		trusted_mem_api_alloc(TRUSTED_MEM_REQ_SVP, 0, 0x1000, &refcount,
+			&sec_handle, "m4u_ut", 0);
 #elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
 		u32 sec_handle = 0;
 		u32 refcount = 0;
