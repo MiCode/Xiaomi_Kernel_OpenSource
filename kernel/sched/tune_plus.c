@@ -136,6 +136,10 @@ int prefer_idle_for_perf_idx(int idx, int prefer_idle)
 	rcu_read_unlock();
 
 #if MET_STUNE_DEBUG
+	/* foreground */
+	if (ct->idx == 1)
+		met_tag_oneshot(0, "sched_prefer_idle_fg",
+				ct->prefer_idle);
 	/* top-app */
 	if (ct->idx == 3)
 		met_tag_oneshot(0, "sched_prefer_idle_ta",
@@ -144,6 +148,38 @@ int prefer_idle_for_perf_idx(int idx, int prefer_idle)
 
 	return 0;
 }
+
+int group_boost_read(int group_idx)
+{
+	struct schedtune *ct;
+	int boost = 0;
+
+	ct = allocated_group[group_idx];
+	if (ct) {
+		rcu_read_lock();
+		boost = ct->boost;
+		rcu_read_unlock();
+	}
+
+	return boost;
+}
+EXPORT_SYMBOL(group_boost_read);
+
+int group_prefer_idle_read(int group_idx)
+{
+	struct schedtune *ct;
+	int prefer_idle = 0;
+
+	ct = allocated_group[group_idx];
+	if (ct) {
+		rcu_read_lock();
+		prefer_idle = ct->prefer_idle;
+		rcu_read_unlock();
+	}
+
+	return prefer_idle;
+}
+EXPORT_SYMBOL(group_prefer_idle_read);
 
 #ifdef CONFIG_MTK_SCHED_RQAVG_KS
 /* mtk: a linear boost value for tuning */
