@@ -658,13 +658,15 @@ static void lcm_initial_registers(void)
 	data_array[1] = 0x000000E7;
 	dsi_set_cmdq(data_array, 2, 1);
 
+#if 0
 	data_array[0] = 0x00110500;
 	dsi_set_cmdq(data_array, 1, 1);
 	MDELAY(120);
 
 	data_array[0] = 0x00290500;
 	dsi_set_cmdq(data_array, 1, 1);
-	MDELAY(120);
+	MDELAY(10);
+#endif
 
 	data_array[0] = 0x00023902;
 	data_array[1] = 0x00000035;
@@ -677,11 +679,11 @@ static void lcm_initial_registers(void)
 
 	data_array[0] = 0x00110500;
 	dsi_set_cmdq(data_array, 1, 1);
-	MDELAY(200);
+	MDELAY(120);
 
 	data_array[0] = 0x00290500;
 	dsi_set_cmdq(data_array, 1, 1);
-	MDELAY(100);
+	MDELAY(10);
 }
 
 
@@ -707,7 +709,6 @@ static void lcm_resume_power(void)
 	pr_notice("[Kernel/LCM] %s enter\n", __func__);
 
 	lcm_set_gpio_output(GPIO_LCD_PWR_EN, 1);
-	MDELAY(20);
 }
 
 /* ------------------------------------------------------------------- */
@@ -778,22 +779,21 @@ void lcm_resume(void)
 
 	lcm_set_gpio_output(GPIO_LCD_RST_EN, 0);
 	lcm_set_gpio_output(GPIO_LCD_PWR_EN, 0);
-	MDELAY(90);
+	MDELAY(1);
 
 	lcm_set_gpio_output(GPIO_LCD_PWR_EN, 1);
-	MDELAY(30);
+	MDELAY(2);
 
 	lcm_set_gpio_output(GPIO_LCD_RST_EN, 1);
-	MDELAY(10);
+	MDELAY(5);
 
 	lcm_set_gpio_output(GPIO_LCD_RST_EN, 0);
-	MDELAY(10);
+	MDELAY(5);
 
 	lcm_set_gpio_output(GPIO_LCD_RST_EN, 1);
-	MDELAY(130);
+	MDELAY(5);
 
 	lcm_initial_registers();
-	MDELAY(400);
 }
 
 #if (LCM_DSI_CMD_MODE)
