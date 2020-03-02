@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -1172,7 +1172,7 @@ static int ipa3_wwan_change_mtu(struct net_device *dev, int new_mtu)
  * later
  * -EFAULT: Error while transmitting the skb
  */
-static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int ret = 0;
 	bool qmap_check;
