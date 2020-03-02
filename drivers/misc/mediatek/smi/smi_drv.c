@@ -175,7 +175,7 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
 		if (ret)
 			return ret;
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // mmsram
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // sysram
 		if (ret)
 			return ret;
 		break;
@@ -196,7 +196,7 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
 		if (ret)
 			return ret;
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // mmsram
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // sysram
 		if (ret)
 			return ret;
 		break;
@@ -245,7 +245,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	case 7:
 	case 14:
 	case 17:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // mmsram
+		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // sysram
 		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
 		break;
 	case 5:
@@ -260,7 +260,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	case 13:
 	case 16:
 	case 18:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // mmsram
+		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // sysram
 		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
 		break;
 	case 4:
@@ -334,6 +334,33 @@ void smi_ostd_update(const struct plist_head *head, const char *user)
 #endif
 }
 EXPORT_SYMBOL_GPL(smi_ostd_update);
+
+s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	u32 larb = MTK_IOMMU_TO_LARB(master_id);
+	u32 port = MTK_IOMMU_TO_PORT(master_id);
+	u32 ostd[2], val;
+
+	smi_bus_prepare_enable(larb, user);
+	ostd[0] = readl(smi_dev[larb]->base + SMI_LARB_OSTD_MON_PORT(p));
+	ostd[1] = readl(smi_dev[larb]->base + INT_SMI_LARB_OSTD_MON_PORT(p));
+	if (ostd[0] || ostd[1]) {
+		SMIWRN(1, "%s set larb%u port%u sysram %d failed ostd:%u %u\n",
+			user, larb, port, enable, ostd[0], ostd[1]);
+		return (ostd[1] << 16) | ostd[0];
+	}
+
+	val = readl(smi_dev[larb]->base + SMI_LARB_NON_SEC_CON(port));
+	writel(val | ((enable ? 0xf : 0) << 16),
+		smi_dev[larb]->base + SMI_LARB_NON_SEC_CON(port));
+	SMIWRN(1, "%s set larb%u port%u sysram %d succeeded\n",
+		user, larb, port, enable);
+	smi_bus_disable_unprepare(larb, user);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL_GPL(smi_sysram_enable);
 
 static inline void
 smi_debug_print(const bool gce, const u32 num, const u32 *pos, const u32 *val)
