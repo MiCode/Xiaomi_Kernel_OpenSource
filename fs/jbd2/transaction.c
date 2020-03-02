@@ -372,7 +372,7 @@ repeat:
 	}
 
 	/* OK, account for the buffers that this operation expects to
-	 * use and add the handle to the running transaction. 
+	 * use and add the handle to the running transaction.
 	 */
 	update_t_max_wait(transaction, ts);
 	handle->h_transaction = transaction;
@@ -386,8 +386,17 @@ repeat:
 		  jbd2_log_space_left(journal));
 	read_unlock(&journal->j_state_lock);
 	current->journal_info = handle;
-
+	/*
+	 * MTK WA:
+	 * Disable jbd2_handle lockdep checking
+	 * because false alarms may be raised, for example,
+	 *   1. "possible irq lock inversion dependency" by
+	 *      "fscrypt_init_mutex" and "jbd2_handle".
+	 *   2. "potential deadlock" by "jbd2_handle" and "sb_internal".
+	 */
+#if 0
 	rwsem_acquire_read(&journal->j_trans_commit_map, 0, 0, _THIS_IP_);
+#endif
 	jbd2_journal_free_transaction(new_transaction);
 	/*
 	 * Ensure that no allocations done while the transaction is open are
@@ -681,8 +690,14 @@ int jbd2__journal_restart(handle_t *handle, int nblocks, gfp_t gfp_mask)
 	read_unlock(&journal->j_state_lock);
 	if (need_to_start)
 		jbd2_log_start_commit(journal, tid);
-
+	/*
+	 * MTK WA:
+	 * Disable jbd2_handle lockdep checking.
+	 * See start_this_handle() for details.
+	 */
+#if 0
 	rwsem_release(&journal->j_trans_commit_map, 1, _THIS_IP_);
+#endif
 	handle->h_buffer_credits = nblocks;
 	/*
 	 * Restore the original nofs context because the journal restart
@@ -1782,9 +1797,14 @@ int jbd2_journal_stop(handle_t *handle)
 		if (journal->j_barrier_count)
 			wake_up(&journal->j_wait_transaction_locked);
 	}
-
+	/*
+	 * MTK WA:
+	 * Disable jbd2_handle lockdep checking.
+	 * See start_this_handle() for details.
+	 */
+#if 0
 	rwsem_release(&journal->j_trans_commit_map, 1, _THIS_IP_);
-
+#endif
 	if (wait_for_commit)
 		err = jbd2_log_wait_commit(journal, tid);
 
