@@ -950,8 +950,10 @@ static inline int rt_se_prio(struct sched_rt_entity *rt_se)
 static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 {
 	u64 runtime = sched_rt_runtime(rt_rq);
+#ifdef CONFIG_RT_GROUP_SCHED
 	u64 runtime_pre = runtime; /* sched: get runtime */
 	int cpu = rq_cpu(rt_rq->rq);
+#endif
 
 	if (rt_rq->rt_throttled)
 		return rt_rq_throttled(rt_rq);
@@ -1893,7 +1895,10 @@ static int push_rt_task(struct rq *rq)
 	struct task_struct *next_task;
 	struct rq *lowest_rq;
 	int ret = 0;
+#ifdef CONFIG_RT_GROUP_SCHED
 	struct rt_rq *rt_rq;
+#endif
+
 
 	if (!rq->rt.overloaded)
 		return 0;
@@ -1903,7 +1908,10 @@ static int push_rt_task(struct rq *rq)
 		return 0;
 
 retry:
+#ifdef CONFIG_RT_GROUP_SCHED
 	rt_rq = next_task->rt.rt_rq;
+#endif
+
 	if (unlikely(next_task == rq->curr)) {
 		WARN_ON(1);
 		return 0;
@@ -1915,11 +1923,16 @@ retry:
 	 * just reschedule current.
 	 */
 	if (unlikely(next_task->prio < rq->curr->prio)) {
+#ifdef CONFIG_RT_GROUP_SCHED
 		/* We only reschedule when next_task not throttle */
 		if (!rt_rq_throttled(rt_rq)) {
 			resched_curr(rq);
 			return 0;
 		}
+#else
+		resched_curr(rq);
+		return 0;
+#endif
 	}
 
 	/* We might release rq lock */
