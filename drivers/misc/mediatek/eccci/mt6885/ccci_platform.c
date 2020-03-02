@@ -30,6 +30,13 @@
 #ifdef FEATURE_USING_4G_MEMORY_API
 #include <mt-plat/mtk_lpae.h>
 #endif
+#ifdef FEATURE_LOW_BATTERY_SUPPORT
+#include <mach/upmu_sw.h>
+#endif
+
+#ifdef FEATURE_LOW_BATTERY_SUPPORT
+#define TMC_CTRL_CMD_TX_POWER 9
+#endif
 
 #define TAG "plat"
 
@@ -65,43 +72,40 @@ void ccci_get_platform_version(char *ver)
 static int ccci_md_low_power_notify(
 	struct ccci_modem *md, enum LOW_POEWR_NOTIFY_TYPE type, int level)
 {
-	unsigned int reserve = 0xFFFFFFFF;
+	unsigned int md_throttle_cmd = 0;
 	int ret = 0;
 
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"low power notification type=%d, level=%d\n", type, level);
-	/*
-	 * byte3 byte2 byte1 byte0
-	 *    0   4G   3G   2G
-	 */
+
 	switch (type) {
 	case LOW_BATTERY:
-		if (level == LOW_BATTERY_LEVEL_0)
-			reserve = 0;	/* 0 */
-		else if (level == LOW_BATTERY_LEVEL_1
-						|| level == LOW_BATTERY_LEVEL_2)
-			reserve = (1 << 6);	/* 64 */
-		ret = port_proxy_send_msg_to_md(md->port_proxy,
-			CCCI_SYSTEM_TX, MD_LOW_BATTERY_LEVEL, reserve, 1);
-		if (ret)
-			CCCI_ERROR_LOG(md->index, TAG,
-			 "send low battery notification fail, ret=%d\n", ret);
+		if (level <= LOW_BATTERY_LEVEL_2 &&
+			level >= LOW_BATTERY_LEVEL_0) {
+			md_throttle_cmd = TMC_CTRL_CMD_TX_POWER |
+			LOW_BATTERY << 8 | level << 16;
+		}
 		break;
-	case BATTERY_PERCENT:
-		if (level == BATTERY_PERCENT_LEVEL_0)
-			reserve = 0;	/* 0 */
-		else if (level == BATTERY_PERCENT_LEVEL_1)
-			reserve = (1 << 6);	/* 64 */
-		ret = port_proxy_send_msg_to_md(md->port_proxy,
-			CCCI_SYSTEM_TX, MD_LOW_BATTERY_LEVEL, reserve, 1);
-		if (ret)
-			CCCI_ERROR_LOG(md->index, TAG,
-			"send battery percent info fail, ret=%d\n", ret);
+	case OVER_CURRENT:
+		if (level <= BATTERY_OC_LEVEL_1 &&
+			level >= BATTERY_OC_LEVEL_0) {
+			md_throttle_cmd = TMC_CTRL_CMD_TX_POWER |
+			OVER_CURRENT << 8 | level << 16;
+		}
 		break;
 	default:
 		break;
 	};
 
+	if (md_throttle_cmd)
+		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *) &md_throttle_cmd, 4);
+
+	if (ret || !md_throttle_cmd)
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s: error, ret=%d, t=%d l=%d\n",
+			__func__, ret, type, level);
 	return ret;
 }
 
@@ -117,7 +121,7 @@ static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 	}
 }
 
-static void ccci_md_battery_percent_cb(BATTERY_PERCENT_LEVEL level)
+static void ccci_md_over_current_cb(BATTERY_OC_LEVEL level)
 {
 	int idx = 0;
 	struct ccci_modem *md;
@@ -125,7 +129,7 @@ static void ccci_md_battery_percent_cb(BATTERY_PERCENT_LEVEL level)
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
 		if (md != NULL)
-			ccci_md_low_power_notify(md, BATTERY_PERCENT, level);
+			ccci_md_low_power_notify(md, OVER_CURRENT, level);
 	}
 }
 #endif
@@ -202,8 +206,8 @@ int ccci_platform_init(struct ccci_modem *md)
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
 	register_low_battery_notify(
 		&ccci_md_low_battery_cb, LOW_BATTERY_PRIO_MD);
-	register_battery_percent_notify(
-		&ccci_md_battery_percent_cb, BATTERY_PERCENT_PRIO_MD);
+	register_battery_oc_notify(
+		&ccci_md_over_current_cb, BATTERY_OC_PRIO_MD);
 #endif
 	return 0;
 }
