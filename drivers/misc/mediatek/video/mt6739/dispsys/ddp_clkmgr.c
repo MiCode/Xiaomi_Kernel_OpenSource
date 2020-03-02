@@ -22,14 +22,11 @@
 #include "primary_display.h"
 #include "ddp_clkmgr.h"
 
-/* #define READ_REGISTER_UINT32(reg)       (*(volatile uint32_t * const)(reg)) */
-/* #define INREG32(x)          READ_REGISTER_UINT32((uint32_t *)((void *)(x))) */
 #define DRV_Reg32(addr) INREG32(addr)
 #define clk_readl(addr) DRV_Reg32(addr)
 #define clk_writel(addr, val) mt_reg_sync_writel(val, addr)
 #define clk_setl(addr, val) mt_reg_sync_writel(clk_readl(addr) | (val), addr)
 #define clk_clrl(addr, val) mt_reg_sync_writel(clk_readl(addr) & ~(val), addr)
-
 
 /* display clk table
  * -- by chip
@@ -39,22 +36,29 @@
  *	unsigned int belong_to; 1: main display
  *	enum DISP_MODULE_ENUM module_id;
  */
-static ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
-	{NULL, "CLK_MM_MTCMOS", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, top clk */
-	{NULL, "CLK_MM_SMI_COMMON", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, top clk */
-	{NULL, "CLK_MM_SMI_LARB0", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, top clk */
-	{NULL, "CLK_MM_GALS_COMM0", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, top clk */
-	{NULL, "CLK_MM_GALS_COMM1", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, top clk */
-	{NULL, "CLK_MM_DISP_OVL0", 0, (1), DISP_MODULE_OVL0},		/* 11 */
+static struct ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
+	/* set 0, top clk */
+	{NULL, "CLK_MM_MTCMOS", 0, (0), DISP_MODULE_UNKNOWN},
+	/* set 0, top clk */
+	{NULL, "CLK_MM_SMI_COMMON", 0, (0), DISP_MODULE_UNKNOWN},
+	/* set 0, top clk */
+	{NULL, "CLK_MM_SMI_LARB0", 0, (0), DISP_MODULE_UNKNOWN},
+	/* set 0, top clk */
+	{NULL, "CLK_MM_GALS_COMM0", 0, (0), DISP_MODULE_UNKNOWN},
+	/* set 0, top clk */
+	{NULL, "CLK_MM_GALS_COMM1", 0, (0), DISP_MODULE_UNKNOWN},
+	{NULL, "CLK_MM_DISP_OVL0", 0, (1), DISP_MODULE_OVL0}, /* 11 */
 	{NULL, "CLK_MM_DISP_RDMA0", 0, (1), DISP_MODULE_RDMA0},
 	{NULL, "CLK_MM_DISP_WDMA0", 0, (1), DISP_MODULE_WDMA0},
 	{NULL, "CLK_MM_DISP_COLOR0", 0, (1), DISP_MODULE_COLOR0},
 	{NULL, "CLK_MM_DISP_CCORR0", 0, (1), DISP_MODULE_CCORR0},
 	{NULL, "CLK_MM_DISP_AAL0", 0, (1), DISP_MODULE_AAL0},
-	{NULL, "CLK_MM_DISP_GAMMA0", 0, (1), DISP_MODULE_GAMMA0},	/* 20 */
+	{NULL, "CLK_MM_DISP_GAMMA0", 0, (1), DISP_MODULE_GAMMA0}, /* 20 */
 	{NULL, "CLK_MM_DISP_DITHER0", 0, (1), DISP_MODULE_DITHER0},
-	{NULL, "CLK_MM_DSI_MM_CLOCK", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, particular case */
-	{NULL, "CLK_MM_DSI_INTERF", 0, (0), DISP_MODULE_UNKNOWN}, /* set 0, particular case */
+	/* set 0, particular case */
+	{NULL, "CLK_MM_DSI_MM_CLOCK", 0, (0), DISP_MODULE_UNKNOWN},
+	/* set 0, particular case */
+	{NULL, "CLK_MM_DSI_INTERF", 0, (0), DISP_MODULE_UNKNOWN},
 	{NULL, "CLK_MM_F26M_HRT", 0, (1), DISP_MODULE_UNKNOWN}, /* cg */
 	{NULL, "MDP_WROT0", 0, (0), DISP_MODULE_UNKNOWN},
 	{NULL, "DISP_PWM", 0, (1), DISP_MODULE_PWM0},
@@ -96,16 +100,19 @@ int ddp_clk_check(void)
 {
 	int i;
 	int ret = 0;
+
 	for (i = 0; i < MAX_DISP_CLK_CNT; i++) {
 		if (ddp_clks[i].refcnt != 0)
 			ret++;
 
-		DDPDBG("ddp_clk_check %s is %s refcnt=%d\n", ddp_clks[i].clk_name,
-			ddp_clks[i].refcnt == 0 ? "off" : "on", ddp_clks[i].refcnt);
+		DDPDBG("%s %s is %s refcnt=%d\n",
+		       __func__, ddp_clks[i].clk_name,
+		       ddp_clks[i].refcnt == 0 ? "off" : "on",
+		       ddp_clks[i].refcnt);
 	}
 
-	DDPDBG("ddp_clk_check mipitx pll clk is %s refcnt=%d\n",
-		apmixed_refcnt == 0 ? "off" : "on", apmixed_refcnt);
+	DDPDBG("%s mipitx pll clk is %s refcnt=%d\n",
+	       __func__, apmixed_refcnt == 0 ? "off" : "on", apmixed_refcnt);
 	return ret;
 }
 
@@ -113,7 +120,7 @@ int ddp_clk_prepare_enable(enum DDP_CLK_ID id)
 {
 	int ret = 0;
 
-	DDPDBG("ddp_clk_prepare_enable, clkid = %d\n", id);
+	DDPDBG("%s, clkid = %d\n", __func__, id);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		return ret;
@@ -139,7 +146,7 @@ int ddp_clk_disable_unprepare(enum DDP_CLK_ID id)
 {
 	int ret = 0;
 
-	DDPDBG("ddp_clk_disable_unprepare, clkid = %d\n", id);
+	DDPDBG("%s, clkid = %d\n", __func__, id);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		return ret;
@@ -166,7 +173,8 @@ int ddp_clk_set_parent(enum DDP_CLK_ID id, enum DDP_CLK_ID parent)
 	}
 
 	if (parent >= MAX_DISP_CLK_CNT) {
-		DDPERR("DISPSYS CLK parent=%d is more than MAX_DISP_CLK_CNT\n", parent);
+		DDPERR("DISPSYS CLK parent=%d is more than MAX_DISP_CLK_CNT\n",
+		       parent);
 		return -1;
 	}
 
@@ -180,10 +188,12 @@ int ddp_clk_set_parent(enum DDP_CLK_ID id, enum DDP_CLK_ID parent)
 static int __ddp_set_mipi26m(int idx, int en)
 {
 	if (en) {
-		DISP_REG_SET_FIELD(NULL, FLD_PLL_MIPID26M_EN_MIPITX0, APMIXEDSYS_PLL_BASE + APMIXED_PLL_CON8, 1);
+		DISP_REG_SET_FIELD(NULL, FLD_PLL_MIPID26M_EN_MIPITX0,
+				   APMIXEDSYS_PLL_BASE + APMIXED_PLL_CON8, 1);
 		apmixed_refcnt++;
 	} else {
-		DISP_REG_SET_FIELD(NULL, FLD_PLL_MIPID26M_EN_MIPITX0, APMIXEDSYS_PLL_BASE + APMIXED_PLL_CON8, 0);
+		DISP_REG_SET_FIELD(NULL, FLD_PLL_MIPID26M_EN_MIPITX0,
+				   APMIXEDSYS_PLL_BASE + APMIXED_PLL_CON8, 0);
 		apmixed_refcnt--;
 	}
 
@@ -232,17 +242,17 @@ int ddp_parse_apmixed_base(void)
 	return ret;
 }
 
-static unsigned int _is_main_module(ddp_clk *pclk)
+static unsigned int _is_main_module(struct ddp_clk *pclk)
 {
 	return (pclk->belong_to & 0x1);
 }
 
-static unsigned int _is_ext_module(ddp_clk *pclk)
+static unsigned int _is_ext_module(struct ddp_clk *pclk)
 {
 	return (pclk->belong_to & 0x2);
 }
 
-static unsigned int _is_ovl2mem_module(ddp_clk *pclk)
+static unsigned int _is_ovl2mem_module(struct ddp_clk *pclk)
 {
 	return (pclk->belong_to & 0x4);
 }
@@ -256,7 +266,8 @@ int ddp_main_modules_clk_on(void)
 {
 	unsigned int i = 0;
 	int ret = 0;
-	enum DISP_MODULE_ENUM module;
+	enum DISP_MODULE_ENUM m;
+	struct DDP_MODULE_DRIVER *m_drv;
 
 	DISPFUNC();
 	/* --TOP CLK-- */
@@ -273,30 +284,31 @@ int ddp_main_modules_clk_on(void)
 		if (!_is_main_module(&ddp_clks[i]))
 			continue;
 
-		module = ddp_clks[i].module_id;
-		if (module != DISP_MODULE_UNKNOWN
-			&& ddp_get_module_driver(module) != 0) {
+		m = ddp_clks[i].module_id;
+		m_drv = ddp_get_module_driver(m);
+		if (m != DISP_MODULE_UNKNOWN && m_drv) {
 			/* module driver power on */
-			if (ddp_get_module_driver(module)->power_on != 0
-				&& ddp_get_module_driver(module)->power_off != 0) {
-				DDPDBG("%s power_on\n", ddp_get_module_name(module));
-				ddp_get_module_driver(module)->power_on(module, NULL);
+			if (m_drv->power_on && m_drv->power_off) {
+				DDPDBG("%s power_on\n", ddp_get_module_name(m));
+				m_drv->power_on(m, NULL);
 			} else {
-				DDPERR("[modules_clk_on] %s no power on(off) function\n", ddp_get_module_name(module));
+				DDPERR("[%s] %s no power on(off) function\n",
+				       __func__, ddp_get_module_name(m));
 				ret = -1;
 			}
 		}
 	}
 
 	/* DISP_DSI */
-	module = _get_dst_module_by_lcm(primary_get_lcm());
-	if (module == DISP_MODULE_UNKNOWN)
+	m = _get_dst_module_by_lcm(primary_get_lcm());
+	if (m == DISP_MODULE_UNKNOWN)
 		ret = -1;
 	else
-		ddp_get_module_driver(module)->power_on(module, NULL);
+		ddp_get_module_driver(m)->power_on(m, NULL);
 
-	DDPMSG("CG0 0x%x, CG1 0x%x\n", clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON0),
-									clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON1));
+	DDPMSG("CG0 0x%x, CG1 0x%x\n",
+	       clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON0),
+	       clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON1));
 	return ret;
 }
 
@@ -304,7 +316,8 @@ int ddp_ext_modules_clk_on(void)
 {
 	unsigned int i = 0;
 	int ret = 0;
-	enum DISP_MODULE_ENUM module;
+	enum DISP_MODULE_ENUM m;
+	struct DDP_MODULE_DRIVER *m_drv;
 
 	DISPFUNC();
 	/* --TOP CLK-- */
@@ -320,23 +333,24 @@ int ddp_ext_modules_clk_on(void)
 		if (!_is_ext_module(&ddp_clks[i]))
 			continue;
 
-		module = ddp_clks[i].module_id;
-		if (module != DISP_MODULE_UNKNOWN
-			&& ddp_get_module_driver(module) != 0) {
+		m = ddp_clks[i].module_id;
+		m_drv = ddp_get_module_driver(m);
+		if (m != DISP_MODULE_UNKNOWN && m_drv) {
 			/* module driver power on */
-			if (ddp_get_module_driver(module)->power_on != 0
-				&& ddp_get_module_driver(module)->power_off != 0) {
-				DDPDBG("%s power_on\n", ddp_get_module_name(module));
-				ddp_get_module_driver(module)->power_on(module, NULL);
+			if (m_drv->power_on && m_drv->power_off) {
+				DDPDBG("%s power_on\n", ddp_get_module_name(m));
+				m_drv->power_on(m, NULL);
 			} else {
-				DDPERR("[modules_clk_on] %s no power on(off) function\n", ddp_get_module_name(module));
+				DDPERR("[%s] %s no power on(off) function\n",
+				       __func__, ddp_get_module_name(m));
 				ret = -1;
 			}
 		}
 	}
 
-	DDPMSG("CG0 0x%x, CG1 0x%x\n", clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON0),
-									clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON1));
+	DDPMSG("CG0 0x%x, CG1 0x%x\n",
+clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON0),
+	       clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON1));
 	return ret;
 }
 
@@ -344,7 +358,8 @@ int ddp_ovl2mem_modules_clk_on(void)
 {
 	unsigned int i = 0;
 	int ret = 0;
-	enum DISP_MODULE_ENUM module;
+	enum DISP_MODULE_ENUM m;
+	struct DDP_MODULE_DRIVER *m_drv;
 
 	DISPFUNC();
 	/* --TOP CLK-- */
@@ -360,27 +375,28 @@ int ddp_ovl2mem_modules_clk_on(void)
 		if (!_is_ovl2mem_module(&ddp_clks[i]))
 			continue;
 
-		module = ddp_clks[i].module_id;
-		if (module != DISP_MODULE_UNKNOWN
-			&& ddp_get_module_driver(module) != 0) {
+		m = ddp_clks[i].module_id;
+		m_drv = ddp_get_module_driver(m);
+		if (m != DISP_MODULE_UNKNOWN && m_drv) {
 			/* module driver power on */
-			if (ddp_get_module_driver(module)->power_on != 0
-				&& ddp_get_module_driver(module)->power_off != 0) {
-				DDPDBG("%s power_on\n", ddp_get_module_name(module));
-				ddp_get_module_driver(module)->power_on(module, NULL);
+			if (m_drv->power_on && m_drv->power_off) {
+				DDPDBG("%s power_on\n", ddp_get_module_name(m));
+				m_drv->power_on(m, NULL);
 			} else {
-				DDPERR("[modules_clk_on] %s no power on(off) function\n", ddp_get_module_name(module));
+				DDPERR("[%s] %s no power on(off) function\n",
+				       __func__, ddp_get_module_name(m));
 				ret = -1;
 			}
 		}
 	}
 
 	DDPMSG("CG0 0x%x, CG1 0x%x\n", clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON0),
-									clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON1));
+	       clk_readl(DISP_REG_CONFIG_MMSYS_CG_CON1));
 	return ret;
 }
 
-/* ddp_main_modules_clk_on
+/**
+ * ddp_main_modules_clk_on
  *
  * success: ret = 0
  * error: ret = -1
@@ -389,7 +405,8 @@ int ddp_main_modules_clk_off(void)
 {
 	unsigned int i = 0;
 	int ret = 0;
-	enum DISP_MODULE_ENUM module;
+	enum DISP_MODULE_ENUM m;
+	struct DDP_MODULE_DRIVER *m_drv;
 
 	DISPFUNC();
 	/* --MODULE CLK-- */
@@ -397,28 +414,28 @@ int ddp_main_modules_clk_off(void)
 		if (!_is_main_module(&ddp_clks[i]))
 			continue;
 
-		module = ddp_clks[i].module_id;
-		if (module != DISP_MODULE_UNKNOWN
-			&& ddp_get_module_driver(module) != 0) {
+		m = ddp_clks[i].module_id;
+		if (m != DISP_MODULE_UNKNOWN && ddp_get_module_driver(m)) {
 			/* module driver power off */
-			if (ddp_get_module_driver(module)->power_on != 0
-				&& ddp_get_module_driver(module)->power_off != 0) {
-				DDPDBG("%s power_off\n", ddp_get_module_name(module));
-				ddp_get_module_driver(module)->power_off(module, NULL);
+			m_drv = ddp_get_module_driver(m);
+			if (m_drv->power_on && m_drv->power_off) {
+				DDPDBG("%s power_off\n",
+					ddp_get_module_name(m));
+				m_drv->power_off(m, NULL);
 			} else {
-				DDPERR("[modules_clk_on] %s no power on(off) function\n", ddp_get_module_name(module));
+				DDPERR("[%s] %s no power on(off) function\n",
+					__func__, ddp_get_module_name(m));
 				ret = -1;
 			}
 		}
 	}
 
 	/* DISP_DSI */
-	module = _get_dst_module_by_lcm(primary_get_lcm());
-	if (module == DISP_MODULE_UNKNOWN)
+	m = _get_dst_module_by_lcm(primary_get_lcm());
+	if (m == DISP_MODULE_UNKNOWN)
 		ret = -1;
 	else
-		ddp_get_module_driver(module)->power_off(module, NULL);
-
+		ddp_get_module_driver(m)->power_off(m, NULL);
 
 	/* --TOP CLK-- */
 	ddp_clk_disable_unprepare(MDP_WROT0);
@@ -437,7 +454,8 @@ int ddp_ext_modules_clk_off(void)
 {
 	unsigned int i = 0;
 	int ret = 0;
-	enum DISP_MODULE_ENUM module;
+	enum DISP_MODULE_ENUM m;
+	struct DDP_MODULE_DRIVER *m_drv;
 
 	DISPFUNC();
 	/* --MODULE CLK-- */
@@ -445,16 +463,17 @@ int ddp_ext_modules_clk_off(void)
 		if (!_is_ext_module(&ddp_clks[i]))
 			continue;
 
-		module = ddp_clks[i].module_id;
-		if (module != DISP_MODULE_UNKNOWN
-			&& ddp_get_module_driver(module) != 0) {
+		m = ddp_clks[i].module_id;
+		if (m != DISP_MODULE_UNKNOWN && ddp_get_module_driver(m)) {
 			/* module driver power off */
-			if (ddp_get_module_driver(module)->power_on != 0
-				&& ddp_get_module_driver(module)->power_off != 0) {
-				DDPDBG("%s power_off\n", ddp_get_module_name(module));
-				ddp_get_module_driver(module)->power_off(module, NULL);
+			m_drv = ddp_get_module_driver(m);
+			if (m_drv->power_on && m_drv->power_off) {
+				DDPDBG("%s power_off\n",
+					ddp_get_module_name(m));
+				m_drv->power_off(m, NULL);
 			} else {
-				DDPERR("[modules_clk_on] %s no power on(off) function\n", ddp_get_module_name(module));
+				DDPERR("[%s] %s no power on(off) function\n",
+				       __func__, ddp_get_module_name(m));
 				ret = -1;
 			}
 		}
@@ -475,7 +494,8 @@ int ddp_ovl2mem_modules_clk_off(void)
 {
 	unsigned int i = 0;
 	int ret = 0;
-	enum DISP_MODULE_ENUM module;
+	enum DISP_MODULE_ENUM m;
+	struct DDP_MODULE_DRIVER *m_drv;
 
 	DISPFUNC();
 	/* --MODULE CLK-- */
@@ -483,16 +503,17 @@ int ddp_ovl2mem_modules_clk_off(void)
 		if (!_is_ovl2mem_module(&ddp_clks[i]))
 			continue;
 
-		module = ddp_clks[i].module_id;
-		if (module != DISP_MODULE_UNKNOWN
-			&& ddp_get_module_driver(module) != 0) {
+		m = ddp_clks[i].module_id;
+		if (m != DISP_MODULE_UNKNOWN && ddp_get_module_driver(m)) {
+			m_drv = ddp_get_module_driver(m);
 			/* module driver power off */
-			if (ddp_get_module_driver(module)->power_on != 0
-				&& ddp_get_module_driver(module)->power_off != 0) {
-				DDPDBG("%s power_off\n", ddp_get_module_name(module));
-				ddp_get_module_driver(module)->power_off(module, NULL);
+			if (m_drv->power_on && m_drv->power_off) {
+				DDPDBG("%s power_off\n",
+					ddp_get_module_name(m));
+				m_drv->power_off(m, NULL);
 			} else {
-				DDPERR("[modules_clk_on] %s no power on(off) function\n", ddp_get_module_name(module));
+				DDPERR("[%s] %s no power on(off) function\n",
+				       __func__, ddp_get_module_name(m));
 				ret = -1;
 			}
 		}
@@ -518,10 +539,11 @@ int ddp_module_clk_enable(enum DISP_MODULE_TYPE_ENUM module_t)
 	enum DISP_MODULE_ENUM module_id = DISP_MODULE_UNKNOWN;
 
 	number = ddp_get_module_num_by_t(module_t);
-	DDPDBG("[ddp_module_clk_enable] module type = %d, module num on this type = %d\n", module_t, number);
+	DDPDBG("[%s] module type = %d, module num on this type = %d\n",
+	       __func__, module_t, number);
 	for (i = 0; i < number; i++) {
 		module_id = ddp_get_module_id_by_idx(module_t, i);
-		DDPDBG("[ddp_module_clk_enable] module id = %d\n", module_id);
+		DDPDBG("[%s] module id = %d\n", __func__, module_id);
 		for (j = 0; j < MAX_DISP_CLK_CNT; j++) {
 			if (ddp_clks[j].module_id == module_id)
 				ddp_clk_prepare_enable(j);
@@ -540,10 +562,11 @@ int ddp_module_clk_disable(enum DISP_MODULE_TYPE_ENUM module_t)
 	enum DISP_MODULE_ENUM module_id = DISP_MODULE_UNKNOWN;
 
 	number = ddp_get_module_num_by_t(module_t);
-	pr_info("[ddp_module_clk_disable] module type = %d, module num on this type = %d\n", module_t, number);
+	pr_info("[%s] module type = %d, module num on this type = %d\n",
+		__func__, module_t, number);
 	for (i = 0; i < number; i++) {
 		module_id = ddp_get_module_id_by_idx(module_t, i);
-		DDPDBG("[ddp_module_clk_disable] module id = %d\n", module_id);
+		DDPDBG("[%s] module id = %d\n", __func__, module_id);
 		for (j = 0; j < MAX_DISP_CLK_CNT; j++) {
 			if (ddp_clks[j].module_id == module_id)
 				ddp_clk_disable_unprepare(j);
@@ -551,7 +574,6 @@ int ddp_module_clk_disable(enum DISP_MODULE_TYPE_ENUM module_t)
 	}
 
 	return ret;
-
 }
 
 enum DDP_CLK_ID ddp_get_module_clk_id(enum DISP_MODULE_ENUM module_id)
@@ -584,7 +606,6 @@ void ddp_clk_force_on(unsigned int on)
 		ddp_clk_disable_unprepare(DISP_MTCMOS_CLK);
 	}
 }
-
 
 void ddp_clk_tree_dump(void)
 {

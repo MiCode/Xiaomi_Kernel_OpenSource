@@ -116,7 +116,6 @@ char *unified_color_fmt_name(enum UNIFIED_COLOR_FMT fmt)
 	}
 }
 
-
 static enum UNIFIED_COLOR_FMT display_engine_supported_color[] = {
 	/* ovl/rdma supported */
 	UFMT_RGB565, UFMT_BGR565,
@@ -144,18 +143,21 @@ int is_unified_color_fmt_supported(enum UNIFIED_COLOR_FMT ufmt)
 	return 0;
 }
 
-enum UNIFIED_COLOR_FMT display_fmt_reg_to_unified_fmt(int fmt_reg_val, int byteswap, int rgbswap)
+enum UNIFIED_COLOR_FMT display_fmt_reg_to_unified_fmt(int fmt_reg_val,
+						      int byteswap, int rgbswap)
 {
 	int i;
 	enum UNIFIED_COLOR_FMT ufmt;
 
 	for (i = 0; i < ARRAY_SIZE(display_engine_supported_color); i++) {
 		ufmt = display_engine_supported_color[i];
-		if (UFMT_GET_FORMAT(ufmt) == fmt_reg_val && UFMT_GET_BYTESWAP(ufmt) == byteswap &&
-			UFMT_GET_RGBSWAP(ufmt) == rgbswap)
+		if (UFMT_GET_FORMAT(ufmt) == fmt_reg_val &&
+		    UFMT_GET_BYTESWAP(ufmt) == byteswap &&
+		    UFMT_GET_RGBSWAP(ufmt) == rgbswap)
 			return ufmt;
 	}
-	DDPERR("unknown_fmt fmt=%d, byteswap=%d, rgbswap=%d\n", fmt_reg_val, byteswap, rgbswap);
+	DDPERR("unknown_fmt fmt=%d, byteswap=%d, rgbswap=%d\n",
+	       fmt_reg_val, byteswap, rgbswap);
 	return UFMT_UNKNOWN;
 }
 
@@ -206,8 +208,8 @@ enum UNIFIED_COLOR_FMT disp_fmt_to_unified_fmt(enum DISP_FORMAT src_fmt)
 	}
 }
 
-int ufmt_disable_X_channel(enum UNIFIED_COLOR_FMT src_fmt, enum UNIFIED_COLOR_FMT *dst_fmt,
-	int *const_bld)
+int ufmt_disable_X_channel(enum UNIFIED_COLOR_FMT src_fmt,
+			   enum UNIFIED_COLOR_FMT *dst_fmt, int *const_bld)
 {
 	int ret = 1;
 
@@ -241,7 +243,9 @@ int ufmt_disable_X_channel(enum UNIFIED_COLOR_FMT src_fmt, enum UNIFIED_COLOR_FM
 	}
 	return ret;
 }
-int ufmt_disable_P(enum UNIFIED_COLOR_FMT src_fmt, enum UNIFIED_COLOR_FMT *dst_fmt)
+
+int ufmt_disable_P(enum UNIFIED_COLOR_FMT src_fmt,
+		   enum UNIFIED_COLOR_FMT *dst_fmt)
 {
 	int ret = 1;
 
@@ -327,4 +331,3 @@ unsigned int ufmt_is_old_fmt(unsigned int fmt)
 	}
 	return old_fmt;
 }
-

@@ -18,7 +18,6 @@
 
 #include <linux/clk.h>
 
-
 /* display clk id
  * -- by chip
  */
@@ -53,13 +52,14 @@ enum DDP_CLK_ID {
 	MAX_DISP_CLK_CNT
 };
 
-typedef struct {
+struct ddp_clk {
 	struct clk *pclk;
 	const char *clk_name;
 	int refcnt;
-	unsigned int belong_to; /* bit 0: main display , bit 1: second display */
+	/* bit 0: main display , bit 1: second display */
+	unsigned int belong_to;
 	enum DISP_MODULE_ENUM module_id;
-} ddp_clk;
+};
 
 const char *ddp_get_clk_name(unsigned int n);
 int ddp_set_clk_handle(struct clk *pclk, unsigned int n);
