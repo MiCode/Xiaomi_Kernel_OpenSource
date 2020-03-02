@@ -20,10 +20,10 @@
 #include "mtk_sd.h"
 #include <mt-plat/mtk_boot.h>
 
-/*#define USE_FPGA_PWR_GPIO_CTRL*/
+#define USE_FPGA_PWR_GPIO_CTRL
 
-#define FPGA_PWR_GPIO                   (0xF0000E84)
-#define FPGA_PWR_GPIO_EO                (0xF0000E88)
+#define FPGA_PWR_GPIO                   (0x10001E84)
+#define FPGA_PWR_GPIO_EO                (0x10001E88)
 
 #ifdef USE_FPGA_PWR_GPIO_CTRL
 static void __iomem *fpga_pwr_gpio;
