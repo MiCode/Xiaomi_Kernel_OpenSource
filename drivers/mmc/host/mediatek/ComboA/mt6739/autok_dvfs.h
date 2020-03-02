@@ -14,7 +14,7 @@
 #ifndef _AUTOK_DVFS_H_
 #define _AUTOK_DVFS_H_
 
-#define VOREFS_READY
+/*#define VOREFS_READY*/
 
 #include "autok.h"
 
@@ -65,7 +65,8 @@ enum dvfs_opp {
 #define BACKUP_REG_COUNT_SDIO           14
 #define BACKUP_REG_COUNT_EMMC_INTERNAL  5
 #define BACKUP_REG_COUNT_EMMC_TOP       12
-#define BACKUP_REG_COUNT_EMMC           (BACKUP_REG_COUNT_EMMC_INTERNAL + BACKUP_REG_COUNT_EMMC_TOP)
+#define BACKUP_REG_COUNT_EMMC \
+	(BACKUP_REG_COUNT_EMMC_INTERNAL + BACKUP_REG_COUNT_EMMC_TOP)
 
 #define MSDC_DVFS_SET_SIZE      0x48
 #define MSDC_TOP_SET_SIZE       0x30
@@ -85,9 +86,10 @@ extern int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode);
 extern void sdio_execute_dvfs_autok(struct msdc_host *host);
 
 extern int autok_res_check(u8 *res_h, u8 *res_l);
+extern void msdc_dump_autok(char **buff, unsigned long *size,
+	struct seq_file *m, struct msdc_host *host);
 extern void msdc_dvfs_reg_backup_init(struct msdc_host *host);
 extern void msdc_dvfs_reg_restore(struct msdc_host *host);
-extern void msdc_dump_autok(struct msdc_host *host, struct seq_file *m);
 extern int msdc_vcorefs_get_hw_opp(struct msdc_host *host);
 
 #endif /* _AUTOK_DVFS_H_ */
