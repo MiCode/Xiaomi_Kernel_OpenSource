@@ -526,13 +526,6 @@ struct dynamic_fps_info {
 	/*unsigned int idle_check_interval;*//*ms*/
 };
 
-/*DynFPS*/
-enum FPS_CHANGE_INDEX {
-	DYNFPS_NOT_DEFINED = 0,
-	DYNFPS_DSI_VFP,
-	DYNFPS_DSI_HFP,
-	DYNFPS_DSI_MIPI_CLK
-};
 struct LCM_DSI_PARAMS {
 	enum LCM_DSI_MODE_CON mode;
 	enum LCM_DSI_MODE_CON switch_mode;
@@ -681,12 +674,6 @@ struct LCM_DSI_PARAMS {
 	/*for ARR*/
 	unsigned int dynamic_fps_levels;
 	struct dynamic_fps_info dynamic_fps_table[DYNAMIC_FPS_LEVELS];
-
-	/****DynFPS start****/
-	unsigned int dfps_enable;
-	unsigned int dfps_default_fps;
-	unsigned int dfps_num;
-	/****DynFPS end****/
 };
 
 /* ------------------------------------------------------------------------- */

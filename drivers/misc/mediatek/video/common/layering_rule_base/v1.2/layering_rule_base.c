@@ -471,7 +471,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			l_rule_info->layer_tb_idx, l_rule_info->bound_tb_idx,
 			HRT_GET_DC_FLAG(disp_info->hrt_num),
 			roll_gpu_for_idle);
-		DISPMSG("HRT cfg_id=%d\n", disp_info->active_config_id);
+
 		for (i = 0; i < 2; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
@@ -482,7 +482,6 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 				disp_info->gles_head[i],
 				disp_info->gles_tail[i],
 				disp_info->hrt_idx);
-			DISPMSG("HRT cfg_id=%d\n", disp_info->active_config_id);
 
 			for (j = 0; j < disp_info->layer_num[i]; j++) {
 				layer_info = &disp_info->input_config[i][j];
@@ -513,7 +512,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			l_rule_info->bound_tb_idx,
 			HRT_GET_DC_FLAG(disp_info->hrt_num),
 			roll_gpu_for_idle);
-		DISPMSG("HRT cfg_id=%d\n", disp_info->active_config_id);
+
 		for (i = 0; i < 2; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
@@ -524,7 +523,6 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 				disp_info->gles_head[i],
 				disp_info->gles_tail[i],
 				disp_info->hrt_idx);
-			DISPMSG("HRT cfg_id=%d\n", disp_info->active_config_id);
 
 			for (j = 0; j < disp_info->layer_num[i]; j++) {
 				layer_info = &disp_info->input_config[i][j];
@@ -563,11 +561,10 @@ static void print_disp_info_to_log_buffer(struct disp_layer_info *disp_info)
 		"Last hrt query data[start]\n");
 	for (i = 0; i < 2; i++) {
 		n += snprintf(status_buf + n, LOGGER_BUFFER_SIZE - n,
-			"HRT D%d/M%d/LN%d/hrt_num:%d/G(%d,%d)/fps:%d/config_id:%d\n",
+			"HRT D%d/M%d/LN%d/hrt_num:%d/G(%d,%d)/fps:%d\n",
 			i, disp_info->disp_mode[i], disp_info->layer_num[i],
 			disp_info->hrt_num, disp_info->gles_head[i],
-			disp_info->gles_tail[i], l_rule_info->primary_fps,
-			disp_info->active_config_id);
+			disp_info->gles_tail[i], l_rule_info->primary_fps);
 
 		for (j = 0; j < disp_info->layer_num[i]; j++) {
 			layer_info = &disp_info->input_config[i][j];
@@ -1930,18 +1927,8 @@ int layering_rule_start(struct disp_layer_info *disp_info_user, int debug_mode)
 	l_rule_info->hrt_idx++;
 	if (l_rule_info->hrt_idx == 0xffffffff)
 		l_rule_info->hrt_idx = 0;
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	l_rule_info->active_config_id = disp_info_user->active_config_id;
-	/*ToDo change to use fps
-	 * get fps through config id,
-	 * copy_hrt_bound_table change use fps parameter
-	 */
-	primary_display_update_cfg_id(disp_info_user->active_config_id);
-#endif
 
-	l_rule_ops->copy_hrt_bound_table(
-		0, g_emi_bound_table, disp_info_user->active_config_id);
+	l_rule_ops->copy_hrt_bound_table(0, g_emi_bound_table);
 
 	/* 1.Pre-distribution */
 	l_rule_info->dal_enable = is_DAL_Enabled();

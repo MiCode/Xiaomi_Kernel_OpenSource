@@ -398,10 +398,6 @@ struct disp_ddp_path_config {
 	int hrt_scale;
 	int sbch_enable;
 	int read_dum_reg[OVL_NUM];
-
-	/*DynFPS*/
-	unsigned int last_dynfps;
-	unsigned int dynfps;
 };
 
 /* dpmgr_ioctl cmd definition */
