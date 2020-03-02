@@ -465,7 +465,7 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 	int ret = 0;
 	unsigned long size_align;
 
-#ifndef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_M4U
 	unsigned int mva = 0;
 
 	size_align = round_up(size, PAGE_SIZE);
