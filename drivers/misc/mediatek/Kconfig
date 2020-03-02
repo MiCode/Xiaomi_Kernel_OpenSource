@@ -113,6 +113,8 @@ endmenu  # Power
 
 menu "MultiMedia, Display, Camera"
 
+source "drivers/misc/mediatek/cmdq/Kconfig"
+
 endmenu  # MM
 
 menu "Sensors"

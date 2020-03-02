@@ -375,7 +375,9 @@ CONFIG_MTK_CLKMGR,PLATFORM,,,X,X,X,X
 CONFIG_MTK_CM36558,PROJECT,hongxu.zhao,new config in this commit 063ebd2dfda85d1c6ea1c0120c87fa93fc2570e8,,,,
 CONFIG_MTK_CM36652_NEW,PLATFORM,jy.lan,,,,,
 CONFIG_MTK_CM36686_NEW,PLATFORM,jy.lan,,,,,
-CONFIG_MTK_CMDQ,COMMON,,,y,y,y,y
+CONFIG_MTK_CMDQ,COMMON,dennis-yc.hsieh,,y,y,y,y
+CONFIG_MTK_CMDQ_MBOX,COMMON,dennis-yc.hsieh,,y,y,y,y
+CONFIG_MAILBOX,COMMON,dennis-yc.hsieh,,y,y,y,y
 CONFIG_MTK_CPU_FREQ,PLATFORM,hector.yuan,,X,X,y,y
 CONFIG_MTK_CM_MGR,PLATFORM,morven-cf.yeh,,y,X,y,y
 CONFIG_MTK_COMBO_ANT,PROJECT,zhiguo.niu,new config in this commit 3413d51500ed33e5696cbfe6286d5b8617867b35,,,,
