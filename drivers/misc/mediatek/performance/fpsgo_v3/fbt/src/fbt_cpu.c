@@ -392,8 +392,14 @@ static struct fbt_thread_loading *fbt_list_loading_add(int pid)
 	atomic_t *loading_cl;
 
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
+	if (!obj) {
+		FPSGO_LOGE("ERROR OOM\n");
+		return NULL;
+	}
+
 	loading_cl = kcalloc(cluster_num, sizeof(atomic_t), GFP_KERNEL);
-	if (!obj || !loading_cl) {
+	if (!loading_cl) {
+		kfree(obj);
 		FPSGO_LOGE("ERROR OOM\n");
 		return NULL;
 	}
