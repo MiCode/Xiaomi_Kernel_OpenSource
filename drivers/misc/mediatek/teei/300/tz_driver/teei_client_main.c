@@ -953,6 +953,7 @@ static int init_teei_framework(void)
 
 	/* waiting for keymaster shm ready and anable the keymaster IOCTL */
 	up(&keymaster_api_lock);
+	up(&capi_mutex);
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Keymaster Unlocked");
 
 	/* android notify the uTdriver that the TAs is ready !*/
@@ -2097,6 +2098,8 @@ static int teei_client_init(void)
 	int ret_code = 0;
 	struct device *class_dev = NULL;
 	int i;
+
+	TZ_SEMA_INIT_0(&(capi_mutex));
 
 #ifdef TUI_SUPPORT
 	int pwr_pid = 0;

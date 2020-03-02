@@ -35,7 +35,8 @@
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
-static DEFINE_MUTEX(capi_mutex);
+
+struct semaphore capi_mutex;
 
 void set_sch_nq_cmd(void)
 {
@@ -107,7 +108,7 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 
 	ut_pm_mutex_lock(&pm_mutex);
 
-	mutex_lock(&capi_mutex);
+	down(&capi_mutex);
 
 	down(&smc_lock);
 
@@ -116,20 +117,51 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 	ret = add_work_entry(NEW_CAPI_CALL, (unsigned long)&params);
 	if (ret) {
 		up(&smc_lock);
-		mutex_unlock(&capi_mutex);
+		up(&capi_mutex);
 		ut_pm_mutex_unlock(&pm_mutex);
 		return ret;
 	}
 
 	wait_for_completion(&wait_completion);
 
-	mutex_unlock(&capi_mutex);
+	up(&capi_mutex);
 
 	ut_pm_mutex_unlock(&pm_mutex);
 
 	return 0;
 }
 EXPORT_SYMBOL(teei_forward_call);
+
+int teei_forward_call_without_lock(u32 cmd, unsigned long cmd_addr, int size)
+{
+	int ret;
+	struct new_api_call_param params = {
+		.cmd = cmd,
+		.cmd_addr = cmd_addr,
+		.size = size,
+	};
+
+	ut_pm_mutex_lock(&pm_mutex);
+
+	down(&smc_lock);
+
+	init_completion(&wait_completion);
+
+	ret = add_work_entry(NEW_CAPI_CALL, (unsigned long)&params);
+	if (ret) {
+		up(&smc_lock);
+		up(&capi_mutex);
+		ut_pm_mutex_unlock(&pm_mutex);
+		return ret;
+	}
+
+	wait_for_completion(&wait_completion);
+
+	ut_pm_mutex_unlock(&pm_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(teei_forward_call_without_lock);
 
 /**
  * @brief

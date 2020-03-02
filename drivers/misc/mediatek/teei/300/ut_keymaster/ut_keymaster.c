@@ -76,11 +76,10 @@ int keymaster_release(struct inode *inode, struct file *filp)
 static long keymaster_ioctl(struct file *filp,
 				unsigned int cmd, unsigned long arg)
 {
+
 	down(&keymaster_api_lock);
 	switch (cmd) {
-#ifdef CONFIG_MICROTRUST_KM4_SUPPORT
 
-#else
 	case CMD_KM_MEM_CLEAR:
 		IMSG_DEBUG("microtrust keymaster mem clear.\n");
 		break;
@@ -112,44 +111,10 @@ static long keymaster_ioctl(struct file *filp,
 		}
 
 		break;
-#endif
 	case CMD_KM_NOTIFY_UTD:
 		complete(&boot_decryto_lock);
 		break;
-#ifdef CONFIG_MICROTRUST_KM4_SUPPORT
 
-#else
-	case CMD_KM_FIRST_TIME_BOOT:
-
-		if (!keymaster_buff_addr) {
-			IMSG_ERROR("keymaster fp_buff_addr is invalid!.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-		memset((void *)keymaster_buff_addr, 0, 8);
-
-		if (copy_from_user((void *)keymaster_buff_addr,
-					(void *)arg, 8)) {
-			IMSG_ERROR("keymaster copy from user failed.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-
-		if (send_keymaster_command((void *)keymaster_buff_addr, 8)) {
-			IMSG_ERROR("keymaster transfer_data failed.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-
-
-		if (copy_to_user((void *)arg, (void *)keymaster_buff_addr, 8)) {
-			IMSG_ERROR("keymaster copy from user failed.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-
-		break;
-#endif
 	default:
 		up(&keymaster_api_lock);
 		return -EINVAL;
