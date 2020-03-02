@@ -1045,7 +1045,7 @@ static int _get_current_gpu_power(void)
 {
 	unsigned int cur_gpu_freq = mt_gpufreq_get_cur_freq();
 	unsigned int cur_gpu_power = 0;
-	int i = 0;
+	int i = gpu_max_opp;
 
 	if (mtk_gpu_power != NULL) {
 		for (; i < Num_of_GPU_OPP; i++)
@@ -1098,7 +1098,7 @@ static int adjust_gpu_power(int power)
 	gpu_power_history_idx = (gpu_power_history_idx + 1) % gpu_power_sma_len;
 	sma_power = total / gpu_power_sma_len;
 
-	for (i = 0; i < Num_of_GPU_OPP; i++) {
+	for (i = gpu_max_opp; i < Num_of_GPU_OPP; i++) {
 		if (mtk_gpu_power[i].gpufreq_power <= sma_power)
 			break;
 	}
@@ -1194,7 +1194,7 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 							(max_gpu_power+1) : -1;
 
 			/* int highest_possible_gpu_power_idx = 0; */
-			int i = 0;
+			int i = gpu_max_opp;
 
 			unsigned int cur_gpu_freq = mt_gpufreq_get_cur_freq();
 			/* int cur_idx = 0; */
@@ -1321,7 +1321,7 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 
 	if ((gpu_power != last_gpu_power) && (mtk_gpu_power != NULL)) {
 		/* Work-around for unsync GPU power table problem 1. */
-		if (gpu_power > mtk_gpu_power[0].gpufreq_power)
+		if (gpu_power >= mtk_gpu_power[gpu_max_opp].gpufreq_power)
 			set_adaptive_gpu_power_limit(0);
 		else
 			set_adaptive_gpu_power_limit(gpu_power);
