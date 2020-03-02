@@ -1678,14 +1678,19 @@ void clk_buf_post_init(void)
 	clk_buf_ctrl_internal(CLK_BUF_NFC, false);
 #endif
 #ifdef CLKBUF_USE_BBLPM
+	/* For no modem case, just keep bblpm SW mode for deepidle
+	 * but disable the bblpm HW mode.
+	 */
+	if (CLK_BUF4_STATUS_PMIC == CLOCK_BUFFER_DISABLE) {
+		clk_buf_ctrl_bblpm_mask(CLK_BUF_RF, true);
+		clk_buf_ctrl_bblpm_hw(false);
+		bblpm_switch = 1;
+	}
+
 	if (bblpm_switch == 2) {
 		clk_buf_ctrl_bblpm_mask(CLK_BUF_BB_MD, true);
-		clk_buf_ctrl_bblpm_mask(CLK_BUF_UFS, false);
-		if (CLK_BUF4_STATUS_PMIC == CLOCK_BUFFER_DISABLE) {
-			clk_buf_ctrl_bblpm_mask(CLK_BUF_RF, true);
-			clk_buf_ctrl_bblpm_hw(true);
-		} else
-			clk_buf_ctrl_bblpm_hw(false);
+		clk_buf_ctrl_bblpm_mask(CLK_BUF_UFS, true);
+		clk_buf_ctrl_bblpm_hw(false);
 	}
 #endif
 }
