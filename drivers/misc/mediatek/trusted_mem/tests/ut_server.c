@@ -167,7 +167,7 @@ static int run_one_test_case(struct UT_TEST_CASE *t_case, u64 cmd, u64 param1,
 	struct ut_params params;
 	struct ut_test_case_statistics *statistics = &t_case->item.statistics;
 
-	pr_info("[UT_SUITE]        UT case:%d .....\n", cmd);
+	pr_info("[UT_SUITE]        UT case:%lld .....\n", cmd);
 
 	ut_status_reset(cmd);
 
