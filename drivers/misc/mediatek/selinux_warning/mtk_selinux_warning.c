@@ -88,7 +88,8 @@ static const char *aee_filter_list[AEE_FILTER_NUM] = {
 
 #define AEE_AV_FILTER_NUM 5
 static const char *aee_av_filter_list[AEE_AV_FILTER_NUM] = {
-//	"map",
+	"map",
+	"ioctl"
 };
 
 static int mtk_check_filter(char *scontext);
