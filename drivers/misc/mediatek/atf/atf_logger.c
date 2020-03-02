@@ -55,20 +55,6 @@ static const struct of_device_id atf_logger_of_ids[] = {
 	{}
 };
 
-#ifdef CONFIG_ARM64
-static void *_memcpy(void *dest, const void *src, size_t count)
-{
-	char *tmp = dest;
-	const char *s = src;
-
-	while (count--)
-		*tmp++ = *s++;
-	return dest;
-}
-
-#define memcpy _memcpy
-#endif
-
 union atf_log_ctl_t {
 	struct {
 		unsigned int atf_buf_addr;          /*  0x00 */
@@ -112,88 +98,6 @@ static unsigned int atf_buf_len;
 static unsigned char *atf_log_vir_addr;
 static unsigned int atf_log_len;
 
-static size_t atf_log_dump_nolock(unsigned char *buffer,
-	struct ipanic_atf_log_rec *rec, size_t size)
-{
-	unsigned int len;
-	unsigned int least;
-
-	unsigned int local_write_index = 0;
-
-	local_write_index = atf_buf_vir_ctl->info.atf_write_pos;
-	/* find the first letter to read */
-	while ((local_write_index +
-		atf_log_len - rec->start_idx) % atf_log_len > 0) {
-		if (*(atf_log_vir_addr + rec->start_idx) != 0)
-			break;
-		rec->start_idx++;
-		if (rec->start_idx == atf_log_len)
-			rec->start_idx = 0;
-	}
-	least = (local_write_index +
-		atf_buf_len - rec->start_idx) % atf_buf_len;
-	if (size > least)
-		size = least;
-	len = min(size, (size_t)(atf_log_len - rec->start_idx));
-	if (size == len) {
-		memcpy(buffer, atf_log_vir_addr + rec->start_idx, size);
-	} else {
-		size_t right = atf_log_len - rec->start_idx;
-
-		memcpy(buffer, atf_log_vir_addr + rec->start_idx, right);
-		memcpy(buffer, atf_log_vir_addr, size - right);
-	}
-	rec->start_idx += size;
-	rec->start_idx %= atf_log_len;
-	return size;
-}
-static size_t atf_log_dump(unsigned char *buffer,
-		struct ipanic_atf_log_rec *rec, size_t size)
-{
-	size_t ret;
-
-	atf_log_lock();
-	/* ret = atf_log_dump_nolock(buffer, start, size); */
-	ret = atf_log_dump_nolock(buffer, rec, size);
-	atf_log_unlock();
-	/* show_data(atf_log_vir_addr, 24*1024, "atf_buf"); */
-	return ret;
-}
-
-size_t ipanic_atflog_buffer(void *data, unsigned char *buffer, size_t sz_buffer)
-{
-	static bool last_read;
-	size_t count;
-	struct ipanic_atf_log_rec *rec = (struct ipanic_atf_log_rec *)data;
-	unsigned int local_write_index = 0;
-
-	if (atf_buf_len == 0)
-		return 0;
-	/* pr_notice("ipanic_atf_log: need %d, rec:%d, %d, %lu\n", */
-	/* sz_buffer, rec->total_size, rec->has_read, rec->start_idx); */
-	if (rec->total_size == rec->has_read || last_read) {
-		last_read = false;
-		return 0;
-	}
-	if (rec->has_read == 0) {
-		if (atf_buf_vir_ctl->info.atf_write_seq < atf_log_len
-			&& atf_buf_vir_ctl->info.atf_write_seq < sz_buffer)
-			rec->start_idx = 0;
-		else {
-			/* atf_log_lock(); */
-			local_write_index = atf_buf_vir_ctl->info.atf_write_pos;
-			/* atf_log_unlock(); */
-			rec->start_idx = (local_write_index +
-				atf_log_len - rec->total_size) % atf_log_len;
-		}
-	}
-	count = atf_log_dump(buffer, rec, sz_buffer);
-	/* pr_notice("ipanic_atf_log: dump %d\n", count); */
-	rec->has_read += count;
-	if (count != sz_buffer)
-		last_read = true;
-	return count;
-}
 
 static ssize_t atf_log_write(struct file *file,
 	const char __user *buf, size_t count, loff_t *pos)
