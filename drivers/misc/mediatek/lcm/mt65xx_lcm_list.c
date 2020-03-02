@@ -559,6 +559,18 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt35598_wqhd_dsi_vdo_truly_lcm_drv,
 #endif
 
+#if defined(NT35521_HD_DSI_VDO_TRULY_NT50358)
+	&nt35521_hd_dsi_vdo_truly_nt50358_lcm_drv,
+#endif
+
+#if defined(NT35521_HD_DSI_VDO_TRULY_NT50358_FWVGA)
+	&nt35521_hd_dsi_vdo_truly_nt50358_fwvga_lcm_drv,
+#endif
+
+#if defined(NT35521_HD_DSI_VDO_TRULY_NT50358_QHD)
+	&nt35521_hd_dsi_vdo_truly_nt50358_qhd_lcm_drv,
+#endif
+
 #if defined(NT35595_FHD_DSI_CMD_TRULY_TPS65132)
 	&nt35595_fhd_dsi_cmd_truly_tps65132_lcm_drv,
 #endif
