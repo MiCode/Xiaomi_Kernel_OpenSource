@@ -337,7 +337,7 @@ static void show_cpu_backtrace(void *info)
 
 static void __spin_lock_debug(raw_spinlock_t *lock)
 {
-	u64 one_second = loops_per_jiffy * msecs_to_jiffies(1000);
+	u64 one_second = (u64)loops_per_jiffy * msecs_to_jiffies(1000);
 	u64 loops = one_second;
 	int owner_cpu = -1;
 	int curr_cpu = raw_smp_processor_id();
