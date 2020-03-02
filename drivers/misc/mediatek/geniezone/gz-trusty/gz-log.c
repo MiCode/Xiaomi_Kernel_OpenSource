@@ -351,21 +351,18 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	int ret;
 	unsigned long offset = 0;
 	struct gz_log_state *gls;
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *pnode = pdev->dev.parent->of_node;
 	int tee_id = 0;
-
-	dev_info(&pdev->dev, "gz_log split version\n");
 
 	if (!trusty_supports_logging(pdev->dev.parent))
 		return -ENXIO;
 
-	ret = of_property_read_u32(node, "tee_id", &tee_id);
+	ret = of_property_read_u32(pnode, "tee-id", &tee_id);
 	if (ret != 0)
-		dev_info(&pdev->dev,
-			 "tee_id is not set on device tree, please fix it\n");
+		dev_info(&pdev->dev, "tee_id is not set\n");
 	else
-		dev_info(&pdev->dev, "[%s] gz_log for TEE:%d\n",
-			 __func__, tee_id);
+		dev_info(&pdev->dev, "--- init gz-log for MTEE %d ---\n",
+			 tee_id);
 
 	gz_log_page_init();
 	gls = kzalloc(sizeof(*gls), GFP_KERNEL);
@@ -509,10 +506,17 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
+static const struct of_device_id trusty_gz_of_match[] = {
+	{ .compatible = "android,nebula-gz-log-v1", },
+	{},
+};
+#else
 static const struct of_device_id trusty_gz_of_match[] = {
 	{ .compatible = "android,trusty-gz-log-v1", },
 	{},
 };
+#endif /* CONFIG_MTK_NEBULA_VM_SUPPORT */
 
 static struct platform_driver trusty_gz_log_driver = {
 	.probe = trusty_gz_log_probe,
