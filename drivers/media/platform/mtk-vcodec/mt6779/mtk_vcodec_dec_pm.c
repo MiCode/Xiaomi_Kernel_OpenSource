@@ -60,6 +60,12 @@ static struct mm_qos_request vdec_ufo_enc;
 static struct mm_qos_request vdec_rg_ctrl_dma;
 #endif
 
+void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
+{
+	ctx->input_driven = 0;
+	ctx->user_lock_hw = 0;
+}
+
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 {
 	int ret = 0;
@@ -129,15 +135,15 @@ void mtk_vcodec_release_dec_pm(struct mtk_vcodec_dev *dev)
 	mutex_unlock(&dev->dec_dvfs_mutex);
 }
 
-void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
 }
 
-void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id)
 {
 }
 
-void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
 	int ret;
@@ -149,7 +155,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm)
 #endif
 }
 
-void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
 	clk_disable_unprepare(pm->clk_MT_CG_VDEC);

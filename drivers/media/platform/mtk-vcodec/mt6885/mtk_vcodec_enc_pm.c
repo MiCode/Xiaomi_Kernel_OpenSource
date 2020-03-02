@@ -44,7 +44,7 @@ struct pm_qos_request venc_qos_req_bw;
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-	ctx->use_gce = 0;
+	ctx->use_gce = 1;
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -92,10 +92,16 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 		return PTR_ERR(pm->clk_MT_SCP_SYS_DIS);
 	}
 
-	pm->clk_MT_CG_VENC = devm_clk_get(&pdev->dev, "MT_CG_VENC");
-	if (IS_ERR(pm->clk_MT_CG_VENC)) {
-		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VENC\n");
-		ret = PTR_ERR(pm->clk_MT_CG_VENC);
+	pm->clk_MT_CG_VENC0 = devm_clk_get(&pdev->dev, "MT_CG_VENC0");
+	if (IS_ERR(pm->clk_MT_CG_VENC0)) {
+		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VENC0\n");
+		ret = PTR_ERR(pm->clk_MT_CG_VENC0);
+	}
+
+	pm->clk_MT_CG_VENC1 = devm_clk_get(&pdev->dev, "MT_CG_VENC1");
+	if (IS_ERR(pm->clk_MT_CG_VENC1)) {
+		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VENC1\n");
+		ret = PTR_ERR(pm->clk_MT_CG_VENC1);
 	}
 #endif
 	return ret;
@@ -114,7 +120,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 	int ret;
 
 	smi_bus_prepare_enable(SMI_LARB4, "VENC");
-	ret = clk_prepare_enable(pm->clk_MT_CG_VENC);
+	ret = clk_prepare_enable(pm->clk_MT_CG_VENC0);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
 #endif
@@ -123,7 +129,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
-	clk_disable_unprepare(pm->clk_MT_CG_VENC);
+	clk_disable_unprepare(pm->clk_MT_CG_VENC0);
 	smi_bus_disable_unprepare(SMI_LARB4, "VENC");
 #endif
 }
@@ -188,10 +194,6 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 					venc_hists);
 		target_freq_64 = match_freq(target_freq, &venc_freq_steps[0],
 					venc_freq_step_size);
-
-		if (ctx->slowmotion == 1 && target_freq_64 > 416)
-			target_freq_64 = 416;
-
 		if (target_freq > 0) {
 			venc_freq = target_freq;
 			if (venc_freq > target_freq_64)

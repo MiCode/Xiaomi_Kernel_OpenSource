@@ -326,6 +326,9 @@ static int venc_encode(unsigned long handle,
 
 	mtk_vcodec_debug(inst, "opt %d ->", opt);
 
+	if (inst->ctx->use_gce)
+		vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
+
 	switch (opt) {
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
 		unsigned int bs_size_hdr;
@@ -493,8 +496,6 @@ static int venc_set_param(unsigned long handle,
 			mtk_vcodec_debug(inst, "sizeimage[%d] size=0x%x", i,
 							 enc_prm->sizeimage[i]);
 		}
-		if (inst->ctx->slowmotion)
-			vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
 
 		break;
 	case VENC_SET_PARAM_PREPEND_HEADER:
@@ -519,6 +520,9 @@ static int venc_deinit(unsigned long handle)
 	mtk_vcodec_debug_enter(inst);
 
 	ret = vcu_enc_deinit(&inst->vcu_inst);
+
+	if (inst->ctx->use_gce)
+		vcu_enc_clear_ctx_for_gce(&inst->vcu_inst);
 
 	mtk_vcodec_debug_leave(inst);
 	kfree(inst);

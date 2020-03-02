@@ -120,5 +120,7 @@ void mtk_vcodec_mem_free(struct mtk_vcodec_ctx *data,
 void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
 	struct mtk_vcodec_ctx *ctx);
 struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev);
+struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx);
+int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

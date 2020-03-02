@@ -43,7 +43,6 @@
 #define WAIT_INTR_TIMEOUT_MS    500
 #define SUSPEND_TIMEOUT_CNT     5000
 
-
 /**
  * enum mtk_instance_type - The type of an MTK Vcodec instance.
  */
@@ -339,7 +338,10 @@ struct mtk_vcodec_ctx {
 	struct mtk_video_dec_buf *dec_flush_buf;
 	struct mtk_video_enc_buf *enc_flush_buf;
 	struct vb2_buffer *pend_src_buf;
-	int slowmotion;
+	wait_queue_head_t fm_wq;
+	int input_driven;
+	int user_lock_hw;
+	int use_gce;
 	int oal_vcodec;
 
 	enum v4l2_colorspace colorspace;
@@ -381,8 +383,8 @@ struct mtk_vcodec_ctx {
  * @enc_irq: h264 encoder irq resource
  * @enc_lt_irq: vp8 encoder irq resource
  *
- * @dec_mutex: decoder hardware lock
- * @enc_mutex: encoder hardware lock.
+ * @dec_sem: decoder hw lock. Use sem for gce different thread lock unlock
+ * @enc_sem: encoder hw lock. Use sem for gce different thread lock unlock
  *
  * @pm: power management control
  * @dec_capability: used to identify decode capability, ex: 4k
@@ -416,12 +418,11 @@ struct mtk_vcodec_dev {
 	int enc_irq;
 	int enc_lt_irq;
 
-	struct mutex dec_mutex;
-	struct semaphore enc_sem;
+	struct semaphore dec_sem[MTK_VDEC_HW_NUM];
+	struct semaphore enc_sem[MTK_VENC_HW_NUM];
 
 	struct mutex dec_dvfs_mutex;
 	struct mutex enc_dvfs_mutex;
-	atomic_t enc_smvr;
 
 	struct mtk_vcodec_pm pm;
 	unsigned int dec_capability;

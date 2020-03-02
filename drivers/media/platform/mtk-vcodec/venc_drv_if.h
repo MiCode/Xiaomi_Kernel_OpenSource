@@ -124,7 +124,9 @@ int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 				   struct venc_done_result *result);
 
 
-void venc_encode_prepare(void *ctx_prepare, unsigned long *flags);
-void venc_encode_unprepare(void *ctx_unprepare, unsigned long *flags);
+void venc_encode_prepare(void *ctx_prepare,
+		int core_id, unsigned long *flags);
+void venc_encode_unprepare(void *ctx_unprepare,
+		int core_id, unsigned long *flags);
 
 #endif /* _VENC_DRV_IF_H_ */
