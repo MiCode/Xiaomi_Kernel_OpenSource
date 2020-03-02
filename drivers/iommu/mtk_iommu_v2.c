@@ -159,12 +159,18 @@ static unsigned int mtk_iommu_get_domain_id(
 					struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
-	unsigned int larbid, portid;
+	unsigned int larbid, portid, domain_id;
 
 	larbid = MTK_IOMMU_TO_LARB(fwspec->ids[0]);
 	portid = MTK_IOMMU_TO_PORT(fwspec->ids[0]);
 
-	return __mtk_iommu_get_domain_id(larbid, portid);
+	domain_id = __mtk_iommu_get_domain_id(larbid, portid);
+	if (domain_id >= MTK_IOVA_DOMAIN_COUNT)
+		dev_notice(dev, "%s, %d, cannot find domain of port%d[%d-%d]\n",
+			    __func__, __LINE__, fwspec->ids[0],
+			    larbid, portid);
+
+	return domain_id;
 }
 
 static struct iommu_domain *__mtk_iommu_get_domain(
@@ -1724,6 +1730,11 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 	dom->group = group;
 
 	dom->id = mtk_iommu_get_domain_id(dev);
+	if (dom->id >= MTK_IOVA_DOMAIN_COUNT) {
+		dev_notice(dev, "%s, %d, invalid iommu device, dom id = %d\n",
+			   __func__, __LINE__, dom->id);
+		goto free_group;
+	}
 
 	spin_lock_irqsave(&pgtable->domain_lock, flags);
 	if (pgtable->domain_count >= MTK_IOVA_DOMAIN_COUNT) {
