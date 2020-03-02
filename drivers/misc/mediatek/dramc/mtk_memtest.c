@@ -46,7 +46,6 @@
 #define DRAM_R0_MEMTEST_RESERVED_KEY "reserve-memory-dram_r0_memtest"
 #define DRAM_R1_MEMTEST_RESERVED_KEY "reserve-memory-dram_r1_memtest"
 #include <linux/of_reserved_mem.h>
-#include <mt-plat/mtk_memcfg.h>
 #endif
 
 #ifdef DRAMC_MEMTEST_DEBUG_SUPPORT

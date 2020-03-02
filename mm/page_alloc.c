@@ -76,7 +76,6 @@
 #if defined(CONFIG_DMAUSER_PAGES)
 #include <mt-plat/aee.h>
 #endif
-#include <mt-plat/mtk_memcfg_reserve_info.h>
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -6231,9 +6230,6 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
 			map = memblock_virt_alloc_node_nopanic(size,
 							       pgdat->node_id);
 		pgdat->node_mem_map = map + offset;
-#if defined(CONFIG_MTK_MEMCFG) && defined(CONFIG_FLATMEM)
-		mem_map_size = size;
-#endif
 	}
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 	/*
@@ -6849,22 +6845,6 @@ void __init mem_init_print_info(const char *str)
 		totalhigh_pages << (PAGE_SHIFT - 10),
 #endif
 		str ? ", " : "", str ? str : "");
-
-#ifdef CONFIG_MTK_MEMCFG
-		kernel_reserve_meminfo.available =
-			nr_free_pages() << PAGE_SHIFT;
-		kernel_reserve_meminfo.total = physpages << PAGE_SHIFT;
-		kernel_reserve_meminfo.kernel_code = codesize;
-		kernel_reserve_meminfo.rwdata = datasize;
-		kernel_reserve_meminfo.rodata = rosize;
-		kernel_reserve_meminfo.init = init_data_size + init_code_size;
-		kernel_reserve_meminfo.bss = bss_size;
-		kernel_reserve_meminfo.reserved =
-			(physpages - totalram_pages) << PAGE_SHIFT;
-#ifdef CONFIG_HIGHMEM
-		kernel_reserve_meminfo.highmem = totalhigh_pages << PAGE_SHIFT;
-#endif
-#endif
 }
 
 /**
@@ -7929,8 +7909,6 @@ int free_reserved_memory(phys_addr_t start_phys,
 		pr_info("Freeing modem memory: %ldK from phys %llx\n",
 			pages << (PAGE_SHIFT - 10),
 			(unsigned long long)start_phys);
-
-	mtk_memcfg_record_freed_reserved(start_phys, end_phys);
 
 	return 0;
 }
