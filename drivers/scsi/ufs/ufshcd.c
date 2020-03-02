@@ -553,6 +553,11 @@ void ufshcd_print_all_err_hist(struct ufs_hba *hba,
 		&hba->ufs_stats.tl_err, "tl_err", m, buff, size);
 	ufshcd_print_err_hist(hba,
 		&hba->ufs_stats.dme_err, "dme_err", m, buff, size);
+	ufshcd_print_err_hist(hba,
+		&hba->ufs_stats.fatal_err, "fatal_err", m, buff, size);
+	ufshcd_print_err_hist(hba,
+		&hba->ufs_stats.auto_hibern8_err, "auto_hibern8_err",
+		m, buff, size);
 }
 
 static void ufshcd_print_host_regs(struct ufs_hba *hba)
@@ -6031,8 +6036,10 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 {
 	bool queue_eh_work = false;
 
-	if (hba->errors & INT_FATAL_ERRORS)
+	if (hba->errors & INT_FATAL_ERRORS) {
+		ufshcd_update_reg_hist(&hba->ufs_stats.fatal_err, hba->errors);
 		queue_eh_work = true;
+	}
 
 	if (hba->errors & UIC_ERROR) {
 		hba->uic_error = 0;
@@ -6052,6 +6059,8 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 			__func__, (hba->errors & UIC_HIBERNATE_ENTER) ?
 			"Enter" : "Exit",
 			hba->errors, ufshcd_get_upmcrs(hba));
+		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
+				       hba->errors);
 		queue_eh_work = true;
 	}
 
@@ -7534,6 +7543,8 @@ static void ufshcd_clear_dbg_ufs_stats(struct ufs_hba *hba)
 	memset(&hba->ufs_stats.nl_err, 0, err_reg_hist_size);
 	memset(&hba->ufs_stats.tl_err, 0, err_reg_hist_size);
 	memset(&hba->ufs_stats.dme_err, 0, err_reg_hist_size);
+	memset(&hba->ufs_stats.fatal_err, 0, err_reg_hist_size);
+	memset(&hba->ufs_stats.auto_hibern8_err, 0, err_reg_hist_size);
 
 	hba->req_abort_count = 0;
 }
