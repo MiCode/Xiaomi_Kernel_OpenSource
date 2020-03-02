@@ -2037,12 +2037,9 @@ static int calculate_trim_result(int *on_value, int *off_value, int trimTime,
 		}
 	}
 	/* calculate result */
-	for (i = discard_num; i < trimTime - discard_num; i++) {
+	for (i = discard_num; i < trimTime - discard_num; i++)
 		offset += on_value[i] - off_value[i];
-		pr_debug("%s(), offset diff %d, on %d, off %d\n",
-			 __func__,
-			 on_value[i] - off_value[i], on_value[i], off_value[i]);
-	}
+
 	return DIV_ROUND_CLOSEST(offset, useful_num);
 }
 static void get_hp_trim_offset(void)
