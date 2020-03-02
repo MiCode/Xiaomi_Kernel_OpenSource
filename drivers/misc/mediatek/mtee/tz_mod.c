@@ -53,7 +53,7 @@
 #include "tz_secure_clock.h"
 #define MTEE_MOD_TAG "MTEE_MOD"
 
-#define TZ_PAGESIZE 0x1000	/* fix me!!!! need global define */
+#define MAX_TAG_SIZE   32
 
 #define TZ_DEVNAME "mtk_tz"
 
@@ -1144,6 +1144,9 @@ static long tz_client_reg_sharedmem_with_tag(struct file *file,
 	if (cret)
 		return -EFAULT;
 
+	if (cparam.tag_size > MAX_TAG_SIZE)
+		cparam.tag_size = MAX_TAG_SIZE;
+
 	return __tz_reg_sharedmem(file, arg, &cparam);
 }
 
@@ -1708,7 +1711,7 @@ static int __init rmem_tz_sec_setup(struct reserved_mem *rmem)
 		return -EINVAL;
 	}
 
-	err = cma_init_reserved_mem(rmem->base, rmem->size, 0, &cma);
+	err = cma_init_reserved_mem(rmem->base, rmem->size, 0, "tz_cma", &cma);
 	if (err) {
 		pr_err("Reserved memory: unable to setup CMA region\n");
 		return err;
