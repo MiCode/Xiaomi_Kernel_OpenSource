@@ -257,8 +257,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			if (pfb != NULL) {
 				vsi->dec.index = pfb->index;
 				for (i = 0; i < pfb->num_planes; i++) {
-					vsi->dec.fb_dma[i] =  pfb ? (u64)
-						pfb->fb_base[i].dma_addr : 0;
+					vsi->dec.fb_dma[i] = (u64)
+						pfb->fb_base[i].dma_addr;
 					vsi->dec.fb_fd[i] = (uint64_t)
 						get_mapped_fd(
 							pfb->fb_base[i].dmabuf);

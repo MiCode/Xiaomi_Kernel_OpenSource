@@ -732,7 +732,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 				imagePixels * bytesPP;
 			pix_fmt_mp->plane_fmt[0].bytesperline =
 			pix_fmt_mp->width * bytesPP;
-			pix_fmt_mp->num_planes == 1U;
+			pix_fmt_mp->num_planes = 1U;
 		} else if (pix_fmt_mp->num_planes == 1U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
 				(imagePixels * bytesPP) +
@@ -2409,6 +2409,7 @@ void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
 	unsigned int suspend_block_cnt = 0;
+	int ret = -1;
 
 	while (ctx->dev->is_codec_suspending == 1) {
 		suspend_block_cnt++;
@@ -2420,8 +2421,8 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	}
 
 	mtk_v4l2_debug(4, "ctx %p [%d]", ctx, ctx->id);
-	if (hw_id < MTK_VENC_HW_NUM)
-		down_interruptible(&ctx->dev->enc_sem[hw_id]);
+	while (hw_id < MTK_VENC_HW_NUM && ret != 0)
+		ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
 }
 
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)

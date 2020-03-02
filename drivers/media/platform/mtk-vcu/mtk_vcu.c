@@ -718,6 +718,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	if (j < 0)
 		j = vcu_gce_set_inst_id(vcu->curr_ctx[i],
 			buff->cmdq_buff.gce_handle);
+	if (j < 0)
+		return -EINVAL;
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
 	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&

@@ -147,15 +147,16 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	int i;
 
+	if (!ctx) {
+		mtk_v4l2_err("Ctx is NULL!");
+		return NULL;
+	}
+
 	/* for getting timestamp*/
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	src_vb2_v4l2 = container_of(src_buf, struct vb2_v4l2_buffer, vb2_buf);
 	src_buf_info = container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
 
-	if (!ctx) {
-		mtk_v4l2_err("Ctx is NULL!");
-		return NULL;
-	}
 	mtk_v4l2_debug_enter();
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	if (dst_buf) {
