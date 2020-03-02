@@ -44,7 +44,7 @@ config MICROTRUST_TZ_DRIVER
 	  If unsure, say Y.
 
 config MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
-	bool "Enable MTK bootprof"
+	bool "Enable MTK bootprof to track boot progress of TEEI"
 	depends on MICROTRUST_TZ_DRIVER
 	depends on MTPROF
 	default y
@@ -54,6 +54,17 @@ config MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
 	  notifying mtk bootprof driver in each check point.
 	  Say Y if you would like to enable this feature.
 	  If unsure, say Y.
+
+config MICROTRUST_TZ_DRIVER_MTK_TRACING
+	bool "Enable MTK tracing to profile TEEI"
+	depends on MICROTRUST_TZ_DRIVER
+	depends on TRACING
+	default n
+	---help---
+	  Enables the support of Mediatek tracing feature in Microtrust
+	  tz_driver. This feature is for tracking teei thread by MTK
+	  tracing mechanism.
+	  Say Y if you would like to enable this feature.
 
 config MICROTRUST_VFS_DRIVER
 	tristate "Microtrust Virtual File System Driver"
