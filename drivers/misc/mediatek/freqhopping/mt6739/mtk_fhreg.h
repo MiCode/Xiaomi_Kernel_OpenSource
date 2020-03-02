@@ -120,7 +120,8 @@
 #define REG_CCIPLL_CON1     REG_PLL_NOT_SUPPORT /* not support in MT6739 */
 #define REG_GPUPLL_CON1     REG_PLL_NOT_SUPPORT /* not support in MT6739 */
 #define REG_MPLL_CON1       REG_PLL_NOT_SUPPORT /* not support in MT6739 */
-#define REG_MEMPLL_CON1     REG_DDRPHY_ADDR(0x0624) /* MEMPLL's dds value is in 0x1001E624[31:11] */
+/* MEMPLL's dds value is in 0x1001E624[31:11] */
+#define REG_MEMPLL_CON1     REG_DDRPHY_ADDR(0x0624)
 #define REG_MAINPLL_CON1    REG_APMIX_ADDR(0x0224)
 #define REG_MFGPLL_CON1     REG_APMIX_ADDR(0x0244)
 #define REG_MSDCPLL_CON1    REG_APMIX_ADDR(0x0254)

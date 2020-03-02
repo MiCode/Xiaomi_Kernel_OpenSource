@@ -79,7 +79,7 @@
 #ifndef CONFIG_MACH_MT6739
 	#include "upmu_common.h"
 #endif
-	#include "mach/mtk_freqhopping.h"
+	#include "mtk_freqhopping_drv.h"
 	#include "mtk_thermal.h"
 	#include "mtk_ppm_api.h"
 
