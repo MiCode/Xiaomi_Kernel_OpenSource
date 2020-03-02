@@ -19,11 +19,11 @@
 #ifndef __KREE_MEM_H__
 #define __KREE_MEM_H__
 
-#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) || defined(CONFIG_TRUSTY)
+#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)	\
+	|| defined(CONFIG_MTK_ENABLE_GENIEZONE)
 
 #include <tz_cross/trustzone.h>
 #include <tz_cross/gz_version.h>
-#include "system.h"
 
 #define KREE_SESSION_HANDLE_NULL ((KREE_SESSION_HANDLE)0)
 #define KREE_SESSION_HANDLE_FAIL ((KREE_SESSION_HANDLE)-1)
@@ -39,6 +39,9 @@
  * According to their different purpose, they are redefined to specific name.
  * Just for easy programming.
  */
+
+/* / KREE session handle type. */
+typedef int32_t KREE_SESSION_HANDLE;
 
 /* Shared memory handle define */
 typedef uint32_t KREE_SHAREDMEM_HANDLE;
@@ -330,7 +333,7 @@ TZ_RESULT KREE_ReferenceSecureMultichunkmem(KREE_SESSION_HANDLE session,
 					KREE_SECUREMEM_HANDLE mem_handle);
 
 TZ_RESULT KREE_UnreferenceSecureMultichunkmem(KREE_SESSION_HANDLE session,
-					KREE_SECUREMEM_HANDLE mem_handle);
+	KREE_SECUREMEM_HANDLE mem_handle, uint32_t *count);
 #endif
 
 TZ_RESULT KREE_ION_AllocChunkmem(KREE_SESSION_HANDLE session,
@@ -625,5 +628,5 @@ TZ_RESULT KREE_ServReleaseChunkmemPool(u32 op,
 				       u8 uparam[REE_SERVICE_BUFFER_SIZE]);
 #endif /* CONFIG_MTEE_CMA_SECURE_MEMORY */
 
-#endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_TRUSTY*/
+#endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_MTK_ENABLE_GENIEZONE*/
 #endif /* __KREE_MEM_H__ */

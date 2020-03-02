@@ -15,10 +15,11 @@
  * Header files for basic KREE functions.
  */
 
-#ifndef __KREE_H__
-#define __KREE_H__
+#ifndef __KREE_SYSTEM_H__
+#define __KREE_SYSTEM_H__
 
-#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) || defined(CONFIG_TRUSTY)
+#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)	\
+	|| defined(CONFIG_MTK_ENABLE_GENIEZONE)
 
 #include <tz_cross/trustzone.h>
 
@@ -26,13 +27,23 @@ void KREE_SESSION_LOCK(int32_t handle);
 void KREE_SESSION_UNLOCK(int32_t handle);
 
 int gz_get_cpuinfo_thread(void *data);
+void set_gz_bind_cpu(int on);
+int get_gz_bind_cpu(void);
+int ree_dummy_thread(void *data);
+
 struct _cpus_cluster_freq {
 	unsigned int max_freq;
 	unsigned int min_freq;
 };
 
-/* / KREE session handle type. */
-typedef int32_t KREE_SESSION_HANDLE;
+#include "mem.h"
+
+#ifdef CONFIG_GZ_VPU_WITH_M4U
+int gz_do_m4u_map(KREE_SHAREDMEM_HANDLE handle,
+					phys_addr_t pa, uint32_t size,
+					uint32_t region_id);
+int gz_do_m4u_umap(KREE_SHAREDMEM_HANDLE handle);
+#endif
 
 
 /* Session Management */
@@ -101,5 +112,5 @@ u64 KREE_GetSystemCnt(void);
 u32 KREE_GetSystemCntFrq(void);
 
 
-#endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_TRUSTY */
+#endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_MTK_ENABLE_GENIEZONE */
 #endif /* __KREE_H__ */
