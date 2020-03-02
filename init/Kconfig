@@ -613,6 +613,25 @@ config UCLAMP_TASK
 
 	  If in doubt, say N.
 
+config UCLAMP_GROUPS_COUNT
+	int "Number of different utilization clamp values supported"
+	range 0 32
+	default 5
+	depends on UCLAMP_TASK
+	help
+	  This defines the maximum number of different utilization clamp
+	  values which can be concurrently enforced for each utilization
+	  clamp index (i.e. minimum and maximum utilization).
+
+	  Only a limited number of clamp values are supported because:
+	    1. there are usually only few classes of workloads for which it
+	       makes sense to boost/cap for different frequencies,
+	       e.g. background vs foreground, interactive vs low-priority.
+	    2. it allows a simpler and more memory/time efficient tracking of
+	       the per-CPU clamp values.
+
+	  If in doubt, use the default value.
+
 endmenu
 
 menu "FAIR Scheuler tunables"
