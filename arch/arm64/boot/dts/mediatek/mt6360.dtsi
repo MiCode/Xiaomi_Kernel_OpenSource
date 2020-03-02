@@ -159,7 +159,7 @@
 		};
 	};
 
-	mt6360_ldo_dts {
+	mt6360_ldo: mt6360_ldo_dts {
 		status = "ok";
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <113 0>, <114 0>, <115 0>, <117 0>,
