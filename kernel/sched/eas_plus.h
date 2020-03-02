@@ -34,6 +34,8 @@ extern int find_best_idle_cpu(struct task_struct *p, bool prefer_idle);
 
 static int start_cpu(struct task_struct *p, bool prefer_idle,
 				bool boosted, bool *t);
+static int
+migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target);
 
 #ifdef CONFIG_MTK_UNIFY_POWER
 extern int

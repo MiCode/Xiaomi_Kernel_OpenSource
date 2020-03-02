@@ -4308,7 +4308,7 @@ void scheduler_tick(void)
 	sched_hint_check(sched_ktime_clock());
 #endif
 	if (curr->sched_class == &fair_sched_class)
-		check_for_rotation(rq, curr);
+		check_for_migration(rq, curr);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
