@@ -32,16 +32,22 @@
 #include <linux/memblock.h>
 #ifdef CONFIG_ARM64
 #include <asm/tlbflush.h>
+#include <asm/pgtable.h>
 #endif
 #include "ssmr_internal.h"
 
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 #define COUNT_DOWN_MS 10000
 #define	COUNT_DOWN_INTERVAL 500
 #define	COUNT_DOWN_LIMIT (COUNT_DOWN_MS / COUNT_DOWN_INTERVAL)
 static atomic_t svp_online_count_down;
+static atomic_t svp_ref_count;
+static struct task_struct *_svp_online_task; /* NULL */
+static DEFINE_MUTEX(svp_online_task_lock);
+#endif
 
-/* 64 MB alignment */
-#define SSMR_CMA_ALIGN_PAGE_ORDER 14
+/* 16 MB alignment */
+#define SSMR_CMA_ALIGN_PAGE_ORDER 12
 #define SSMR_ALIGN_SHIFT (SSMR_CMA_ALIGN_PAGE_ORDER + PAGE_SHIFT)
 #define SSMR_ALIGN (1 << (PAGE_SHIFT + (MAX_ORDER - 1)))
 
@@ -54,14 +60,15 @@ static int is_pre_reserve_memory;
 #include "mt-plat/mtk_meminfo.h"
 
 static unsigned long ssmr_usage_count;
-static atomic_t svp_ref_count;
-
-static struct task_struct *_svp_online_task; /* NULL */
-static DEFINE_MUTEX(svp_online_task_lock);
 static struct cma *cma;
 
-#define pmd_unmapping(virt, size) set_pmd_mapping(virt, size, 0)
-#define pmd_mapping(virt, size) set_pmd_mapping(virt, size, 1)
+struct page_change_data {
+	pgprot_t set_mask;
+	pgprot_t clear_mask;
+};
+
+#define memory_unmapping(virt, size) set_memory_mapping(virt, size, 0)
+#define memory_mapping(virt, size) set_memory_mapping(virt, size, 1)
 
 /*
  * Use for zone-movable-cma callback
@@ -93,6 +100,9 @@ static int __init dt_scan_for_ssmr_features(unsigned long node,
 {
 	int i = 0;
 
+	if (__MAX_NR_SSMR_FEATURES <= 0)
+		return 0;
+
 	if (!strncmp(uname, SSMR_FEATURES_DT_UNAME,
 		strlen(SSMR_FEATURES_DT_UNAME))) {
 		for (; i < __MAX_NR_SSMR_FEATURES; i++) {
@@ -123,9 +133,12 @@ static void __init setup_feature_size(struct reserved_mem *rmem)
 	}
 }
 
-static void __init finalize_region_size(void)
+static int __init finalize_region_size(void)
 {
 	int i = 0;
+
+	if (__MAX_NR_SSMRSUBS <= 0)
+		return 1;
 
 	for (; i < __MAX_NR_SSMRSUBS; i++) {
 		u64 max_feat_req_size = 0;
@@ -141,12 +154,17 @@ static void __init finalize_region_size(void)
 		pr_info("%s, %s: %pa\n", __func__, _ssmregs[i].name,
 			&_ssmregs[i].usable_size);
 	}
+
+	return 0;
 }
 
 static u64 __init get_total_target_size(void)
 {
 	u64 total = 0;
 	int i = 0;
+
+	if (__MAX_NR_SSMRSUBS <= 0)
+		return total;
 
 	for (; i < __MAX_NR_SSMRSUBS; i++)
 		total += _ssmregs[i].usable_size;
@@ -276,6 +294,7 @@ RESERVEDMEM_OF_DECLARE(tui_memory, "mediatek,memory-tui",
 			dedicate_tui_memory);
 #endif
 
+#ifdef SSMR_SECMEM_REGION_ENABLE
 static int __init dedicate_secmem_memory(struct reserved_mem *rmem)
 {
 	struct SSMR_Region *region;
@@ -298,6 +317,7 @@ static int __init dedicate_secmem_memory(struct reserved_mem *rmem)
 }
 RESERVEDMEM_OF_DECLARE(secmem_memory, "mediatek,memory-secmem",
 			dedicate_secmem_memory);
+#endif
 
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 static int __init dedicate_prot_sharedmem_memory(struct reserved_mem *rmem)
@@ -324,10 +344,99 @@ RESERVEDMEM_OF_DECLARE(prot_sharedmem_memory, "mediatek,memory-prot-sharedmem",
 			dedicate_prot_sharedmem_memory);
 #endif
 
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+static int __init dedicate_ta_elf_memory(struct reserved_mem *rmem)
+{
+	struct SSMR_Region *region;
+
+	region = &_ssmregs[SSMR_TA_ELF];
+
+	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
+		 __func__, rmem->name,
+		 &rmem->base, &rmem->size);
+
+	region->use_cache_memory = true;
+	region->is_unmapping = true;
+	region->count = rmem->size / PAGE_SIZE;
+	region->cache_page = phys_to_page(rmem->base);
+
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(ta_elf_memory, "mediatek,ta_elf",
+			dedicate_ta_elf_memory);
+
+static int __init dedicate_ta_stack_heap_memory(struct reserved_mem *rmem)
+{
+	struct SSMR_Region *region;
+
+	region = &_ssmregs[SSMR_TA_STACK_HEAP];
+
+	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
+		 __func__, rmem->name,
+		 &rmem->base, &rmem->size);
+
+	region->use_cache_memory = true;
+	region->is_unmapping = true;
+	region->count = rmem->size / PAGE_SIZE;
+	region->cache_page = phys_to_page(rmem->base);
+
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(ta_stack_heap_memory, "mediatek,ta_stack_heap",
+			dedicate_ta_stack_heap_memory);
+#endif
+
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+static int __init dedicate_sdsp_sharedmem_memory(struct reserved_mem *rmem)
+{
+	struct SSMR_Region *region;
+
+	region = &_ssmregs[SSMR_SDSP_TEE_SHAREDMEM];
+
+	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
+		 __func__, rmem->name,
+		 &rmem->base, &rmem->size);
+
+	region->use_cache_memory = true;
+	region->is_unmapping = true;
+	region->count = rmem->size / PAGE_SIZE;
+	region->cache_page = phys_to_page(rmem->base);
+
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(sdsp_sharedmem_memory, "mediatek,sdsp_sharedmem",
+			dedicate_sdsp_sharedmem_memory);
+#endif
+
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+static int __init dedicate_sdsp_firmware_memory(struct reserved_mem *rmem)
+{
+	struct SSMR_Region *region;
+
+	region = &_ssmregs[SSMR_SDSP_FIRMWARE];
+
+	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
+		 __func__, rmem->name,
+		 &rmem->base, &rmem->size);
+
+	region->use_cache_memory = true;
+	region->is_unmapping = true;
+	region->count = rmem->size / PAGE_SIZE;
+	region->cache_page = phys_to_page(rmem->base);
+
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(sdsp_firmware_memory, "mediatek,sdsp_firmware",
+			dedicate_sdsp_firmware_memory);
+#endif
+
 static bool has_dedicate_resvmem_region(void)
 {
 	bool ret = false;
 	int i = 0;
+
+	if (__MAX_NR_SSMRSUBS <= 0)
+		return ret;
 
 	for (; i < __MAX_NR_SSMRSUBS; i++) {
 		if (_ssmregs[i].use_cache_memory) {
@@ -349,6 +458,19 @@ bool memory_ssmr_inited(void)
 }
 
 #ifdef CONFIG_ARM64
+#ifdef CONFIG_DEBUG_PAGEALLOC
+static int change_page_range(pte_t *ptep, pgtable_t token, unsigned long addr,
+			void *data)
+{
+	struct page_change_data *cdata = data;
+	pte_t pte = *ptep;
+
+	pte = clear_pte_bit(pte, cdata->clear_mask);
+	pte = set_pte_bit(pte, cdata->set_mask);
+
+	set_pte(ptep, pte);
+	return 0;
+}
 /*
  * Unmapping memory region kernel mapping
  * SSMR protect memory region with EMI MPU. While protecting, memory prefetch
@@ -361,7 +483,28 @@ bool memory_ssmr_inited(void)
  *
  * @return: success return 0, failed return -1;
  */
-static int set_pmd_mapping(unsigned long start, phys_addr_t size, int map)
+static int set_memory_mapping(unsigned long start, phys_addr_t size, int map)
+{
+	struct page_change_data data;
+	int ret;
+
+	if (map) {
+		data.set_mask = __pgprot(PTE_VALID);
+		data.clear_mask = __pgprot(0);
+	} else {
+		data.set_mask = __pgprot(0);
+		data.clear_mask = __pgprot(PTE_VALID);
+	}
+
+	ret = apply_to_page_range(&init_mm, start, size, change_page_range,
+					&data);
+	flush_tlb_kernel_range(start, start + size);
+
+	return ret;
+
+}
+#else
+static int set_memory_mapping(unsigned long start, phys_addr_t size, int map)
 {
 	unsigned long address = start;
 	pud_t *pud;
@@ -373,7 +516,7 @@ static int set_pmd_mapping(unsigned long start, phys_addr_t size, int map)
 			|| (size != (size & PMD_MASK))
 			|| !memblock_is_memory(virt_to_phys((void *)start))
 			|| !size || !start) {
-		pr_err("[invalid parameter]: start=0x%lx, size=%pa\n",
+		pr_info("[invalid parameter]: start=0x%lx, size=%pa\n",
 				start, &size);
 		return -1;
 	}
@@ -427,8 +570,9 @@ fail:
 	show_pte(NULL, address);
 	return -1;
 }
+#endif
 #else
-static inline int set_pmd_mapping(unsigned long start, phys_addr_t size,
+static inline int set_memory_mapping(unsigned long start, phys_addr_t size,
 					int map)
 {
 	pr_debug("start=0x%lx, size=%pa, map=%d\n", start, &size, map);
@@ -450,7 +594,12 @@ static int memory_region_offline(struct SSMR_Region *region,
 	phys_addr_t page_phys;
 
 	/* Determine alloc pages by feature */
-	alloc_pages = _ssmr_feats[region->cur_feat].req_size / PAGE_SIZE;
+	if (region->cache_page)
+		alloc_pages = region->count;
+	else
+		alloc_pages = _ssmr_feats[region->cur_feat].req_size /
+				PAGE_SIZE;
+
 	region->alloc_pages = alloc_pages;
 
 	/* compare with function and system wise upper limit */
@@ -510,7 +659,8 @@ static int memory_region_offline(struct SSMR_Region *region,
 	}
 
 	ssmr_usage_count += alloc_pages;
-	ret_map = pmd_unmapping((unsigned long)__va((page_to_phys(page))),
+
+	ret_map = memory_unmapping((unsigned long)__va((page_to_phys(page))),
 			alloc_pages << PAGE_SHIFT);
 
 	if (ret_map < 0) {
@@ -563,7 +713,7 @@ static int memory_region_online(struct SSMR_Region *region)
 		unsigned long region_page_va =
 			(unsigned long)__va(page_to_phys(region->page));
 
-		ret_map = pmd_mapping(region_page_va,
+		ret_map = memory_mapping(region_page_va,
 				region->alloc_pages << PAGE_SHIFT);
 
 		if (ret_map < 0) {
@@ -674,6 +824,7 @@ out:
 EXPORT_SYMBOL(tui_region_online);
 #endif
 
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 static void reset_svp_online_task(void)
 {
 	mutex_lock(&svp_online_task_lock);
@@ -844,6 +995,7 @@ int svp_region_online(void)
 	return secmem_region_online();
 }
 EXPORT_SYMBOL(svp_region_online);
+#endif
 
 static bool is_valid_feature(unsigned int feat)
 {
@@ -920,7 +1072,7 @@ int ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
 
 	return _ssmr_offline_internal(pa, size,
 		is_64bit ? UPPER_LIMIT64 : UPPER_LIMIT32,
-		_ssmr_feats[feat].region);
+		feat);
 }
 EXPORT_SYMBOL(ssmr_offline);
 
@@ -973,6 +1125,7 @@ int ssmr_online(unsigned int feat)
 }
 EXPORT_SYMBOL(ssmr_online);
 
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 static long svp_cma_ioctl(struct file *filp, unsigned int cmd,
 				 unsigned long arg)
 {
@@ -1021,6 +1174,7 @@ static const struct file_operations ssmr_cma_fops = {
 	.unlocked_ioctl = svp_cma_ioctl,
 	.compat_ioctl   = svp_cma_COMPAT_ioctl,
 };
+#endif // end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 
 static ssize_t memory_ssmr_write(struct file *file,
 		const char __user *user_buf, size_t size, loff_t *ppos)
@@ -1036,21 +1190,21 @@ static ssize_t memory_ssmr_write(struct file *file,
 
 	pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
 
+	if (__MAX_NR_SSMR_FEATURES <= 0)
+		return -EINVAL;
+
 	for (feat = 0; feat < __MAX_NR_SSMR_FEATURES; feat++) {
 		if (!strncmp(buf, _ssmr_feats[feat].cmd_offline,
 			strlen(buf) - 1)) {
-			_ssmr_offline_internal(NULL, NULL, ssmr_upper_limit,
+			ssmr_offline(NULL, NULL, ssmr_upper_limit,
 				feat);
 			break;
 		} else if (!strncmp(buf, _ssmr_feats[feat].cmd_online,
 			strlen(buf) - 1)) {
-			_ssmr_online_internal(feat);
+			ssmr_online(feat);
 			break;
 		}
 	}
-
-	if (feat == __MAX_NR_SSMR_FEATURES)
-		return -EINVAL;
 
 	*ppos += size;
 	return size;
@@ -1070,6 +1224,11 @@ static int memory_ssmr_show(struct seq_file *m, void *v)
 		&cma_base,
 		__phys_to_pfn(cma_base), __phys_to_pfn(cma_end),
 		cma_get_size(cma) >> PAGE_SHIFT);
+
+	if (__MAX_NR_SSMRSUBS <= 0) {
+		seq_puts(m, "no SSMR user enable\n");
+		return 0;
+	}
 
 	for (; i < __MAX_NR_SSMRSUBS; i++) {
 		unsigned long region_pa;
@@ -1195,7 +1354,7 @@ static int __init memory_ssmr_init_region(char *name, u64 size,
 		region->use_cache_memory = true;
 		region->cache_page = page;
 		ssmr_usage_count += region->count;
-		ret_map = pmd_unmapping(region_cache_page_va,
+		ret_map = memory_unmapping(region_cache_page_va,
 				region->count << PAGE_SHIFT);
 
 		if (ret_map < 0) {
@@ -1248,7 +1407,12 @@ static int __init memory_ssmr_debug_init(void)
 	/*
 	 * TODO: integrate into _svpregs[] initialization
 	 */
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 	_ssmregs[i].proc_entry_fops = &ssmr_cma_fops;
+#endif
+
+	if (__MAX_NR_SSMRSUBS <= 0)
+		return 0;
 
 	for (; i < __MAX_NR_SSMRSUBS; i++) {
 		memory_ssmr_init_region(_ssmregs[i].name,
