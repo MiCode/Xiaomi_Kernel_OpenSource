@@ -1646,6 +1646,10 @@ static int scp_device_probe(struct platform_device *pdev)
 	pr_debug("[SCP] l1cctrl base = 0x%p\n", scpreg.l1cctrl);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (!res) {
+		pr_err("[SCP] IRQ resource not found!\n");
+		return -ENODEV;
+	}
 	scpreg.irq = res->start;
 	pr_debug("[SCP] scpreg.irq = %d\n", scpreg.irq);
 
