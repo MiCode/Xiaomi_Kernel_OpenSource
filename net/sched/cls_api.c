@@ -151,8 +151,8 @@ static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
 		} else {
 			err = -ENOENT;
 		}
-		goto errout;
 #endif
+		goto errout;
 	}
 	tp->classify = tp->ops->classify;
 	tp->protocol = protocol;
@@ -871,13 +871,18 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
 		if (tca[TCA_CHAIN] &&
 		    nla_get_u32(tca[TCA_CHAIN]) != chain->index)
 			continue;
-		if (!tcf_chain_dump(chain, skb, cb, index_start, &index))
+		if (!tcf_chain_dump(chain, skb, cb, index_start, &index)) {
+			err = -EMSGSIZE;
 			break;
+		}
 	}
 
 	cb->args[0] = index;
 
 out:
+	/* If we did no progress, the error (EMSGSIZE) is real */
+	if (skb->len == 0 && err)
+		return err;
 	return skb->len;
 }
 

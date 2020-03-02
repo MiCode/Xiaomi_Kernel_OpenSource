@@ -10,3 +10,4 @@ arch/x86/boot/bzImage
 vmlinux
 System.map
 "
+STOP_SHIP_TRACEPRINTK=1

@@ -557,7 +557,8 @@ static int acpi_button_remove(struct acpi_device *device)
 	return 0;
 }
 
-static int param_set_lid_init_state(const char *val, struct kernel_param *kp)
+static int param_set_lid_init_state(const char *val,
+				    const struct kernel_param *kp)
 {
 	int result = 0;
 
@@ -575,7 +576,8 @@ static int param_set_lid_init_state(const char *val, struct kernel_param *kp)
 	return result;
 }
 
-static int param_get_lid_init_state(char *buffer, struct kernel_param *kp)
+static int param_get_lid_init_state(char *buffer,
+				    const struct kernel_param *kp)
 {
 	switch (lid_init_state) {
 	case ACPI_BUTTON_LID_INIT_OPEN:
@@ -595,4 +597,26 @@ module_param_call(lid_init_state,
 		  NULL, 0644);
 MODULE_PARM_DESC(lid_init_state, "Behavior for reporting LID initial state");
 
-module_acpi_driver(acpi_button_driver);
+static int acpi_button_register_driver(struct acpi_driver *driver)
+{
+	/*
+	 * Modules such as nouveau.ko and i915.ko have a link time dependency
+	 * on acpi_lid_open(), and would therefore not be loadable on ACPI
+	 * capable kernels booted in non-ACPI mode if the return value of
+	 * acpi_bus_register_driver() is returned from here with ACPI disabled
+	 * when this driver is built as a module.
+	 */
+	if (acpi_disabled)
+		return 0;
+
+	return acpi_bus_register_driver(driver);
+}
+
+static void acpi_button_unregister_driver(struct acpi_driver *driver)
+{
+	if (!acpi_disabled)
+		acpi_bus_unregister_driver(driver);
+}
+
+module_driver(acpi_button_driver, acpi_button_register_driver,
+	       acpi_button_unregister_driver);

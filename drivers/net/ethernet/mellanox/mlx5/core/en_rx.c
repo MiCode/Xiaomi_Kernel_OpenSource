@@ -36,6 +36,7 @@
 #include <linux/tcp.h>
 #include <linux/bpf_trace.h>
 #include <net/busy_poll.h>
+#include <net/ip6_checksum.h>
 #include "en.h"
 #include "en_tc.h"
 #include "eswitch.h"
@@ -546,19 +547,32 @@ bool mlx5e_post_rx_mpwqes(struct mlx5e_rq *rq)
 	return true;
 }
 
+static void mlx5e_lro_update_tcp_hdr(struct mlx5_cqe64 *cqe, struct tcphdr *tcp)
+{
+	u8 l4_hdr_type = get_cqe_l4_hdr_type(cqe);
+	u8 tcp_ack     = (l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA) ||
+			 (l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA);
+
+	tcp->check                      = 0;
+	tcp->psh                        = get_cqe_lro_tcppsh(cqe);
+
+	if (tcp_ack) {
+		tcp->ack                = 1;
+		tcp->ack_seq            = cqe->lro_ack_seq_num;
+		tcp->window             = cqe->lro_tcp_win;
+	}
+}
+
 static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
 				 u32 cqe_bcnt)
 {
 	struct ethhdr	*eth = (struct ethhdr *)(skb->data);
 	struct tcphdr	*tcp;
 	int network_depth = 0;
+	__wsum check;
 	__be16 proto;
 	u16 tot_len;
 	void *ip_p;
-
-	u8 l4_hdr_type = get_cqe_l4_hdr_type(cqe);
-	u8 tcp_ack = (l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA) ||
-		(l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA);
 
 	skb->mac_len = ETH_HLEN;
 	proto = __vlan_get_protocol(skb, eth->h_proto, &network_depth);
@@ -577,23 +591,30 @@ static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
 		ipv4->check             = 0;
 		ipv4->check             = ip_fast_csum((unsigned char *)ipv4,
 						       ipv4->ihl);
+
+		mlx5e_lro_update_tcp_hdr(cqe, tcp);
+		check = csum_partial(tcp, tcp->doff * 4,
+				     csum_unfold((__force __sum16)cqe->check_sum));
+		/* Almost done, don't forget the pseudo header */
+		tcp->check = csum_tcpudp_magic(ipv4->saddr, ipv4->daddr,
+					       tot_len - sizeof(struct iphdr),
+					       IPPROTO_TCP, check);
 	} else {
+		u16 payload_len = tot_len - sizeof(struct ipv6hdr);
 		struct ipv6hdr *ipv6 = ip_p;
 
 		tcp = ip_p + sizeof(struct ipv6hdr);
 		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
 
 		ipv6->hop_limit         = cqe->lro_min_ttl;
-		ipv6->payload_len       = cpu_to_be16(tot_len -
-						      sizeof(struct ipv6hdr));
-	}
+		ipv6->payload_len       = cpu_to_be16(payload_len);
 
-	tcp->psh = get_cqe_lro_tcppsh(cqe);
-
-	if (tcp_ack) {
-		tcp->ack                = 1;
-		tcp->ack_seq            = cqe->lro_ack_seq_num;
-		tcp->window             = cqe->lro_tcp_win;
+		mlx5e_lro_update_tcp_hdr(cqe, tcp);
+		check = csum_partial(tcp, tcp->doff * 4,
+				     csum_unfold((__force __sum16)cqe->check_sum));
+		/* Almost done, don't forget the pseudo header */
+		tcp->check = csum_ipv6_magic(&ipv6->saddr, &ipv6->daddr, payload_len,
+					     IPPROTO_TCP, check);
 	}
 }
 
@@ -614,6 +635,45 @@ static inline bool is_first_ethertype_ip(struct sk_buff *skb)
 	return (ethertype == htons(ETH_P_IP) || ethertype == htons(ETH_P_IPV6));
 }
 
+static __be32 mlx5e_get_fcs(struct sk_buff *skb)
+{
+	int last_frag_sz, bytes_in_prev, nr_frags;
+	u8 *fcs_p1, *fcs_p2;
+	skb_frag_t *last_frag;
+	__be32 fcs_bytes;
+
+	if (!skb_is_nonlinear(skb))
+		return *(__be32 *)(skb->data + skb->len - ETH_FCS_LEN);
+
+	nr_frags = skb_shinfo(skb)->nr_frags;
+	last_frag = &skb_shinfo(skb)->frags[nr_frags - 1];
+	last_frag_sz = skb_frag_size(last_frag);
+
+	/* If all FCS data is in last frag */
+	if (last_frag_sz >= ETH_FCS_LEN)
+		return *(__be32 *)(skb_frag_address(last_frag) +
+				   last_frag_sz - ETH_FCS_LEN);
+
+	fcs_p2 = (u8 *)skb_frag_address(last_frag);
+	bytes_in_prev = ETH_FCS_LEN - last_frag_sz;
+
+	/* Find where the other part of the FCS is - Linear or another frag */
+	if (nr_frags == 1) {
+		fcs_p1 = skb_tail_pointer(skb);
+	} else {
+		skb_frag_t *prev_frag = &skb_shinfo(skb)->frags[nr_frags - 2];
+
+		fcs_p1 = skb_frag_address(prev_frag) +
+			    skb_frag_size(prev_frag);
+	}
+	fcs_p1 -= bytes_in_prev;
+
+	memcpy(&fcs_bytes, fcs_p1, bytes_in_prev);
+	memcpy(((u8 *)&fcs_bytes) + bytes_in_prev, fcs_p2, last_frag_sz);
+
+	return fcs_bytes;
+}
+
 static inline void mlx5e_handle_csum(struct net_device *netdev,
 				     struct mlx5_cqe64 *cqe,
 				     struct mlx5e_rq *rq,
@@ -632,6 +692,9 @@ static inline void mlx5e_handle_csum(struct net_device *netdev,
 	if (is_first_ethertype_ip(skb)) {
 		skb->ip_summed = CHECKSUM_COMPLETE;
 		skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
+		if (unlikely(netdev->features & NETIF_F_RXFCS))
+			skb->csum = csum_add(skb->csum,
+					     (__force __wsum)mlx5e_get_fcs(skb));
 		rq->stats.csum_complete++;
 		return;
 	}
