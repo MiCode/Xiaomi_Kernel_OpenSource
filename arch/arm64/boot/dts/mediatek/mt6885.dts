@@ -2858,6 +2858,18 @@
 		aed = <0x1a>;
 	};
 
+	spmi_bus: spmi@10027000 {
+		compatible = "mediatek,mt6885-pmif";
+		reg = <0 0x10027000 0 0x000e00>,
+		      <0 0x10027f00 0 0x00008c>,
+		      <0 0x10029000 0 0x000100>;
+		reg-names = "pmif", "pmifmpu", "spmimst";
+		interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pmif_irq";
+		swinf_ch_start = <4>;
+		ap_swinf_no = <2>;
+		interrupt-controller;
+	};
 #ifdef CONFIG_MTK_IOMMU_V2
 	ion: iommu {
 		compatible = "mediatek,ion";
