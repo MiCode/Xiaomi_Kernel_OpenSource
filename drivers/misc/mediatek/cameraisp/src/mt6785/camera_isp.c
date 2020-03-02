@@ -2617,7 +2617,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			goto NON_CLEAR_WAIT;
 		}
 	}
-//#ifdef ENABLE_WAITIRQ_LOG
+#ifdef ENABLE_WAITIRQ_LOG
 	if (WaitIrq->EventInfo.UserKey == 1) {
 		LOG_INF("Before wait: C:%d T:%d StT:%d Sts:0x%08X\n",
 			WaitIrq->EventInfo.Clear,
@@ -2630,7 +2630,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			WaitIrq->EventInfo.Timeout,
 			WaitIrq->EventInfo.UserKey);
 	}
-//#endif
+#endif
 	/* 2. start to wait signal */
 	if (log_on)
 		LOG_NOTICE("+ start to wait signal\n");
@@ -2727,7 +2727,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		Ret = -EFAULT;
 		goto EXIT;
 	}
-//#ifdef ENABLE_WAITIRQ_LOG
+#ifdef ENABLE_WAITIRQ_LOG
 	else {
 		/* Store irqinfo status in here to
 		 * redeuce time of spin_lock_irqsave
@@ -2755,7 +2755,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 				WaitIrq->EventInfo.UserKey);
 		}
 	}
-//#endif
+#endif
 
 NON_CLEAR_WAIT:
 	/* 3. get interrupt and update time related
@@ -9564,6 +9564,7 @@ LB_CAM_SOF_IGNORE:
 			[ISP_GetWaitQCamIndex(module)]
 			[ISP_WAITQ_HEAD_IRQ_SW_P1_DONE]);
 	}
+#ifdef ENABLE_STT_IRQ_LOG
 	if (DmaStatus & AAO_DONE_ST) {
 		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 			"CAM_%c AAO_DONE_%d_%d(aao_ctrl_1:0x%x,aao_ctrl_2:0x%x)\n",
@@ -9577,6 +9578,7 @@ LB_CAM_SOF_IGNORE:
 			[ISP_GetWaitQCamIndex(module)]
 			[ISP_WAITQ_HEAD_IRQ_AAO_DONE]);
 	}
+#endif
 	if (DmaStatus & FLKO_DONE_ST) {
 		wake_up_interruptible(&IspInfo.WaitQHeadCam
 			[ISP_GetWaitQCamIndex(module)]
