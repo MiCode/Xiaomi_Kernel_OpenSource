@@ -40,6 +40,7 @@ static inline bool should_hmp(int cpu)
 extern int cpu_park(int cpu);
 extern int stop_one_cpu_dispatch(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
 				struct cpu_stop_work *work_buf);
+static void __init hmp_cpu_mask_setup(void);
 
 #ifdef CONFIG_SCHED_HMP
 
@@ -88,7 +89,6 @@ static void hmp_force_up_migration(int this_cpu);
 static void hmp_online_cpu(int cpu);
 static void hmp_offline_cpu(int cpu);
 
-static void __init hmp_cpu_mask_setup(void);
 static inline void
 hmp_enqueue_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se);
 static inline void
@@ -109,6 +109,5 @@ static inline int hmp_select_task_rq_fair(int sd_flag, struct task_struct *p,
 static inline void hmp_online_cpu(int cpu) {}
 static inline void hmp_offline_cpu(int cpu) {}
 static inline int hmp_idle_pull(int this_cpu) { return 0; }
-static inline void __init hmp_cpu_mask_setup(void) {}
 
 #endif /* CONFIG_SCHED_HMP */
