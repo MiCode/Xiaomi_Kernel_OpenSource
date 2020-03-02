@@ -3270,6 +3270,24 @@
 			    "apusys_pcu";
 	};
 
+	vpu_core0@19030000 {
+		compatible = "mediatek,vpu_core0";
+		reg = <0 19030000 0 0x1000>;
+		interrupts = <GIC_SPI 451 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	vpu_core1@19031000 {
+		compatible = "mediatek,vpu_core1";
+		reg = <0 19031000 0 0x1000>;
+		interrupts = <GIC_SPI 452 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	vpu_core2@19032000 {
+		compatible = "mediatek,vpu_core2";
+		reg = <0 19032000 0 0x1000>;
+		interrupts = <GIC_SPI 453 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 #ifdef CONFIG_MTK_IOMMU_V2
 	ion: iommu {
 		compatible = "mediatek,ion";
