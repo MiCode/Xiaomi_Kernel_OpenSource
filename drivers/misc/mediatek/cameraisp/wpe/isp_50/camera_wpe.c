@@ -2954,7 +2954,7 @@ static inline void WPE_Prepare_ccf_clock(void)
 	/* must keep this clk open order: */
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON ->*/
 	/*CG_SCP_SYS_ISP -> WPE clk */
-	smi_clk_prepare(SMI_LARB_IMGSYS1, "camera_wpe", 1);
+	//smi_clk_prepare(SMI_LARB_IMGSYS1, "camera_wpe", 1);
 	ret = clk_prepare(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_WPE_A clock\n");
@@ -2970,7 +2970,7 @@ static inline void WPE_Enable_ccf_clock(void)
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON*/
 	/*-> CG_SCP_SYS_ISP -> WPE  clk */
 
-	smi_clk_enable(SMI_LARB_IMGSYS1, "camera_wpe", 1);
+	//smi_clk_enable(SMI_LARB_IMGSYS1, "camera_wpe", 1);
 	ret = clk_enable(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_WPE_A clock\n");
@@ -2985,7 +2985,7 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:*/
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON ->*/
 	/*CG_SCP_SYS_ISP -> WPE clk */
-	smi_bus_enable(SMI_LARB_IMGSYS1, "camera_wpe");
+	smi_bus_prepare_enable(SMI_LARB5, "camera_wpe");
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_WPE_A clock\n");
@@ -3001,7 +3001,7 @@ static inline void WPE_Unprepare_ccf_clock(void)
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 	clk_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
 	clk_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
-	smi_clk_unprepare(SMI_LARB_IMGSYS1, "camera_wpe", 1);
+	//smi_clk_unprepare(SMI_LARB_IMGSYS1, "camera_wpe", 1);
 }
 
 static inline void WPE_Disable_ccf_clock(void)
@@ -3011,7 +3011,7 @@ static inline void WPE_Disable_ccf_clock(void)
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 	clk_disable(wpe_clk.CG_IMGSYS_WPE_B);
 	clk_disable(wpe_clk.CG_IMGSYS_WPE_A);
-	smi_clk_disable(SMI_LARB_IMGSYS1, "camera_wpe", 1);
+	//smi_clk_disable(SMI_LARB_IMGSYS1, "camera_wpe", 1);
 }
 
 static inline void WPE_Disable_Unprepare_ccf_clock(void)
@@ -3021,7 +3021,7 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
-	smi_bus_disable(SMI_LARB_IMGSYS1, "camera_wpe");
+	smi_bus_disable_unprepare(SMI_LARB5, "camera_wpe");
 }
 #endif
 #endif
