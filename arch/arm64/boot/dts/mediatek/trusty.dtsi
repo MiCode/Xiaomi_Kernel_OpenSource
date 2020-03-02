@@ -18,6 +18,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		tee_id = <0>;
+		tee_name = "trusty";
 
 		mtee {
 			compatible = "mediatek,trusty-mtee-v1";
@@ -27,10 +28,10 @@
 			compatible = "mediatek,trusty-gz";
 		};
 
-#ifndef CONFIG_MTK_NEBULA_VM_SUPPORT
-		irq {
+		trusty-irq {
 			compatible = "android,trusty-irq-v1";
 			ppi-interrupt-parent = <&gic>;
+			tee_id = <0>;
 		};
 
 		trusty-virtio {
@@ -38,6 +39,7 @@
 			tee_id = <0>;
 		};
 
+#ifndef CONFIG_MTK_NEBULA_VM_SUPPORT
 		trusty-gz-log {
 			compatible = "android,trusty-gz-log-v1";
 			tee_id = <0>;
@@ -45,28 +47,33 @@
 #endif
 	};
 
-#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
 	nebula {
 		compatible = "android,nebula-smc-v1";
 		ranges;
 		#address-cells = <2>;
 		#size-cells = <2>;
 		tee_id = <1>;
-
-		irq {
-			compatible = "android,trusty-irq-v1";
-			ppi-interrupt-parent = <&gic>;
-		};
+		/* FIXME: char device node name
+		 * correct it when gz 3.3 is ready.
+		 */
+		tee_name = "trusty";
 
 		nebula-virtio {
 			compatible = "android,nebula-virtio-v1";
 			tee_id = <1>;
 		};
 
+		nebula-irq {
+			compatible = "android,nebula-irq-v1";
+			ppi-interrupt-parent = <&gic>;
+			tee_id = <1>;
+		};
+
+#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
 		nebula-gz-log {
 			compatible = "android,trusty-gz-log-v1";
 			tee_id = <1>;
 		};
-	};
 #endif
+	};
 };
