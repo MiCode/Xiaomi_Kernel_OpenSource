@@ -41,6 +41,14 @@ struct route_info {
  */
 #define IP6_MAX_MTU (0xFFFF + sizeof(struct ipv6hdr))
 
+/* Use to control all vzw feature*/
+#define MTK_IPV6_VZW_ALL        0x000C
+
+/* Use to control vzw feature except for
+ * the fixed rs interval time of 4 seconds
+ */
+#define MTK_IPV6_EX_RS_INTERVAL 0x01F7
+
 extern int sysctl_optr;
 
 /*
@@ -138,7 +146,6 @@ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr,
 				     struct net_device *dev);
 
 struct rt6_info *rt6_get_dflt_router_expires(struct net_device *dev);
-int ip6_operator_isop12(void);
 
 struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
 				     struct net_device *dev, unsigned int pref);
