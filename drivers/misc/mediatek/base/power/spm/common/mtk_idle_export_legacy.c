@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,18 +11,30 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#ifndef __MTK_IDLE_PROFILE_H__
-#define __MTK_IDLE_PROFILE_H__
+#include <linux/module.h>
 
-#include <linux/kernel.h>
-#include <linux/cpumask.h>
-#include <mtk_idle_internal.h>
-#include <mtk_idle_module.h>
+/* Symbol export */
+int soidle3_enter(int cpu)
+{
+	return 0;
+}
+EXPORT_SYMBOL(soidle3_enter);
 
-unsigned long long idle_get_current_time_ms(void);
+int soidle_enter(int cpu)
+{
+	return 0;
+}
+EXPORT_SYMBOL(soidle_enter);
 
-void mtk_idle_latency_profile_result(struct MTK_IDLE_MODEL_CLERK *clerk);
+int dpidle_enter(int cpu)
+{
+	return 0;
+}
+EXPORT_SYMBOL(dpidle_enter);
 
-void mtk_idle_block_reason_report(struct MTK_IDLE_MODEL_CLERK const *clerk);
+/* for display use, abandoned 'spm_enable_sodi' */
+void mtk_idle_disp_is_ready(bool enable)
+{
+	pr_notice("Power/swap - %s not support anymore!\n", __func__);
+}
 
-#endif

@@ -44,6 +44,17 @@ u32 spm_get_dvfs_level(void)
 	return spm_read(SPM_SW_RSV_9) & 0xFFFF;
 }
 
+u32 spm_get_dvfs_final_level(void)
+{
+	int event_sta = spm_read(SPM_DVFS_EVENT_STA) & 0xFFFF;
+	int rsv9 = spm_read(SPM_SW_RSV_9) & 0xFFFF;
+
+	if (event_sta != 0)
+		return min(rsv9, event_sta);
+	else
+		return rsv9;
+}
+
 u32 spm_get_pcm_reg9_data(void)
 {
 	return spm_read(PCM_REG9_DATA);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,18 +11,25 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#ifndef __MTK_IDLE_PROFILE_H__
-#define __MTK_IDLE_PROFILE_H__
+#ifndef __MTK_LP_KERNFS_H__
+#define __MTK_LP_KERNFS_H__
 
 #include <linux/kernel.h>
-#include <linux/cpumask.h>
-#include <mtk_idle_internal.h>
-#include <mtk_idle_module.h>
+#include <linux/module.h>
+#include <linux/kobject.h>
 
-unsigned long long idle_get_current_time_ms(void);
+#include <linux/list.h>
+#include <linux/kernfs.h>
+#include <linux/fs.h>
+#include <linux/seq_file.h>
 
-void mtk_idle_latency_profile_result(struct MTK_IDLE_MODEL_CLERK *clerk);
 
-void mtk_idle_block_reason_report(struct MTK_IDLE_MODEL_CLERK const *clerk);
+int mtk_lp_kernfs_create_group(struct kobject *kobj
+						, struct attribute_group *grp);
+
+int mtk_lp_kernfs_create_file(struct kernfs_node *parent
+		, const struct attribute *attr);
+
+size_t get_mtk_lp_kernfs_bufsz_max(void);
 
 #endif

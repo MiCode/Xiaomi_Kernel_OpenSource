@@ -27,14 +27,6 @@ enum mtk_idle_type_id {
 	NR_TYPES = NR_IDLE_TYPES,
 };
 
-static inline const char *mtk_idle_name(int idle_type)
-{
-	return idle_type == IDLE_TYPE_DP ? "dpidle" :
-		idle_type == IDLE_TYPE_SO3 ? "sodi3" :
-		idle_type == IDLE_TYPE_SO ? "sodi" :
-		idle_type == IDLE_TYPE_RG ? "rgidle" : "null";
-}
-
 /* --------------------------------------------------------
  * mtk idle notification
  **********************************************************/
@@ -102,9 +94,8 @@ extern void idle_lock_by_ufs(unsigned int lock);
 extern int mtk_idle_enter_dvt(int cpu);
 
 /* FIXME: DPIDLE - Refine dpidle api */
-#define dpidle_active_status() mtk_dpidle_is_active()
-extern struct timeval pre_dpidle_time;
-extern bool mtk_dpidle_is_active(void);
+#define dpidle_active_status() is_mtk_idle_active()
+extern bool is_mtk_idle_active(void);
 
 /* Call as disp driver is ready */
 extern void mtk_idle_disp_is_ready(bool enable);

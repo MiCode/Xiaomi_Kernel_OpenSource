@@ -40,6 +40,8 @@
 #ifdef CONFIG_MTK_ICCS_SUPPORT
 #include <mtk_hps_internal.h>
 #endif
+#include <mtk_sleep_internal.h>
+#include <mtk_idle_module.h>
 
 static int spm_dormant_sta;
 int spm_ap_mdsrc_req_cnt;
@@ -54,19 +56,19 @@ unsigned int spm_sleep_count;
 
 int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return -1;
 }
 
 int __attribute__ ((weak)) vcorefs_get_curr_ddr(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return -1;
 }
 
 int  __attribute__ ((weak)) vcorefs_get_curr_vcore(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return -1;
 }
 
@@ -84,6 +86,25 @@ static u32 suspend_pcm_flags = {
 static u32 suspend_pcm_flags1 = {
 	0
 };
+
+/* pcm_flag is same as dpidle but depend on platform */
+static unsigned int slp_dp_pcm_flags = (
+		/* SPM_FLAG_DIS_CPU_PDN | */
+		SPM_FLAG_DIS_INFRA_PDN |
+		/* SPM_FLAG_DIS_DDRPHY_PDN | */
+		SPM_FLAG_DIS_VCORE_DVS |
+		SPM_FLAG_DIS_VCORE_DFS |
+		SPM_FLAG_DIS_ATF_ABORT |
+		SPM_FLAG_KEEP_CSYSPWRUPACK_HIGH |
+		#if !defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+		SPM_FLAG_DIS_SSPM_SRAM_SLEEP |
+		#endif
+		SPM_FLAG_DEEPIDLE_OPTION
+	);
+
+static unsigned int slp_dp_pcm_flags1 = (
+		SPM_FLAG1_ENABLE_CPU_SLEEP_VOLT
+	);
 
 static inline void spm_suspend_footprint(enum spm_suspend_step step)
 {
@@ -120,12 +141,13 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 
 	if (spm_dormant_sta < 0) {
 		aee_sram_printk("spm_dormant_sta %d", spm_dormant_sta);
-		pr_info("[SPM] spm_dormant_sta %d", spm_dormant_sta);
+		printk_deferred("[name:spm&][SPM] spm_dormant_sta %d"
+			, spm_dormant_sta);
 	}
 }
 
-static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
-		struct pwr_ctrl *pwrctrl)
+static void spm_suspend_pcm_setup_before_wfi(unsigned int ex_flag
+	, u32 cpu, struct pwr_ctrl *pwrctrl)
 {
 	unsigned int resource_usage = 0;
 
@@ -136,7 +158,11 @@ static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
 	/* Only get resource usage from user SCP */
 	resource_usage = spm_get_resource_usage_by_user(SPM_RESOURCE_USER_SCP);
 
-	spm_suspend_pre_process(pwrctrl);
+	if ((ex_flag & SPM_SUSPEND_PLAT_SLP_DP) != 0) {
+		mtk_idle_module_notifier_call_chain(MTK_IDLE_MAINPLL_OFF);
+		spm_suspend_pre_process(SPM_DPIDLE_ENTER, pwrctrl);
+	} else
+		spm_suspend_pre_process(SPM_SUSPEND, pwrctrl);
 
 	spm_dump_world_clk_cntcv();
 	spm_set_sysclk_settle();
@@ -147,26 +173,30 @@ static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
 		pwrctrl->pcm_flags1, pwrctrl->timer_val, resource_usage);
 }
 
-static void spm_suspend_pcm_setup_after_wfi(u32 cpu, struct pwr_ctrl *pwrctrl)
+static void spm_suspend_pcm_setup_after_wfi(unsigned int ex_flag
+	, u32 cpu, struct pwr_ctrl *pwrctrl)
 {
-	spm_suspend_post_process(pwrctrl);
+	if ((ex_flag & SPM_SUSPEND_PLAT_SLP_DP) != 0) {
+		mtk_idle_module_notifier_call_chain(MTK_IDLE_MAINPLL_ON);
+		spm_suspend_post_process(SPM_DPIDLE_LEAVE, pwrctrl);
+	} else
+		spm_suspend_post_process(SPM_RESUME, pwrctrl);
 }
 
-int sleep_ddr_status;
-int sleep_vcore_status;
-
-static unsigned int spm_output_wake_reason(struct wake_status *wakesta)
+static unsigned int spm_output_wake_reason(unsigned int ex_flag
+		, struct wake_status *wakesta)
 {
 	unsigned int wr;
-	int ddr_status = 0;
-	int vcore_status = 0;
 
 	if (spm_sleep_count >= 0xfffffff0)
 		spm_sleep_count = 0;
 	else
 		spm_sleep_count++;
 
-	wr = __spm_output_wake_reason(wakesta, true, "suspend");
+	if ((ex_flag & SPM_SUSPEND_PLAT_SLP_DP) != 0)
+		wr = __spm_output_wake_reason(wakesta, true, "sleep_dpidle");
+	else
+		wr = __spm_output_wake_reason(wakesta, true, "suspend");
 
 	memcpy(&suspend_info[log_wakesta_cnt], wakesta,
 		sizeof(struct wake_status));
@@ -182,26 +212,17 @@ static unsigned int spm_output_wake_reason(struct wake_status *wakesta)
 
 	if (log_wakesta_index >= 0xFFFFFFF0)
 		log_wakesta_index = 0;
-#if 0 // FIXME
-	ddr_status = vcorefs_get_curr_ddr();
-	vcore_status = vcorefs_get_curr_vcore();
-#endif
-	aee_sram_printk("dormant = %d, s_ddr = %d, s_vcore = %d, ",
-		  spm_dormant_sta, sleep_ddr_status, sleep_vcore_status);
-	pr_info("[SPM] dormant = %d, s_ddr = %d, s_vcore = %d, ",
-		  spm_dormant_sta, sleep_ddr_status, sleep_vcore_status);
-	aee_sram_printk("ddr = %d, vcore = %d, sleep_count = %d\n",
-		  ddr_status, vcore_status, spm_sleep_count);
-	pr_info("ddr = %d, vcore = %d, sleep_count = %d\n",
-		  ddr_status, vcore_status, spm_sleep_count);
+
+	aee_sram_printk("sleep_count = %d\n", spm_sleep_count);
+	printk_deferred("[name:spm&][SPM] sleep_count = %d\n", spm_sleep_count);
 	if (spm_ap_mdsrc_req_cnt != 0) {
 		aee_sram_printk("warning: spm_ap_mdsrc_req_cnt = %d, ",
 			spm_ap_mdsrc_req_cnt);
-		pr_info("[SPM ]warning: spm_ap_mdsrc_req_cnt = %d, ",
+		printk_deferred("[name:spm&][SPM ]warning: spm_ap_mdsrc_req_cnt = %d, ",
 			spm_ap_mdsrc_req_cnt);
 		aee_sram_printk("r7[ap_mdsrc_req] = 0x%x\n",
 			spm_read(SPM_POWER_ON_VAL1) & (1 << 17));
-		pr_info("r7[ap_mdsrc_req] = 0x%x\n",
+		printk_deferred("r7[ap_mdsrc_req] = 0x%x\n",
 			spm_read(SPM_POWER_ON_VAL1) & (1 << 17));
 	}
 
@@ -288,7 +309,7 @@ bool spm_is_enable_sleep(void)
 bool spm_suspend_condition_check(void)
 {
 	if (is_infra_pdn(suspend_pcm_flags) && !is_cpu_pdn(suspend_pcm_flags)) {
-		pr_info("[SLP] CANNOT SLEEP DUE TO INFRA PDN BUT CPU PDN\n");
+		printk_deferred("[name:spm&][SLP] CANNOT SLEEP DUE TO INFRA PDN BUT CPU PDN\n");
 		return false;
 	}
 
@@ -302,14 +323,14 @@ bool spm_suspend_condition_check(void)
 /* extern int get_dlpt_imix_spm(void); */
 int __attribute__((weak)) get_dlpt_imix_spm(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return 0;
 }
 #endif
 #endif
 #endif
 
-unsigned int spm_go_to_sleep(void)
+unsigned int spm_go_to_sleep_ex(unsigned int ex_flag)
 {
 	u32 sec = 2;
 	unsigned long flags;
@@ -320,8 +341,10 @@ unsigned int spm_go_to_sleep(void)
 	static unsigned int last_wr = WR_NONE;
 	struct pwr_ctrl *pwrctrl;
 	u32 cpu = 0;
-	u32 spm_flags = suspend_pcm_flags;
-	u32 spm_flags1 = suspend_pcm_flags1;
+	u32 spm_flags = (ex_flag & SPM_SUSPEND_PLAT_SLP_DP) ?
+		slp_dp_pcm_flags : suspend_pcm_flags;
+	u32 spm_flags1 = (ex_flag & SPM_SUSPEND_PLAT_SLP_DP) ?
+		slp_dp_pcm_flags1 : suspend_pcm_flags1;
 
 	spm_suspend_footprint(SPM_SUSPEND_ENTER);
 
@@ -356,7 +379,7 @@ unsigned int spm_go_to_sleep(void)
 		wd_api->wd_spmwdt_mode_config(WD_REQ_EN, WD_REQ_RST_MODE);
 		wd_api->wd_suspend_notify();
 	} else
-		pr_info("FAILED TO GET WD API\n");
+		printk_deferred("[name:spm&]FAILED TO GET WD API\n");
 #endif
 	lockdep_off();
 	spin_lock_irqsave(&__spm_lock, flags);
@@ -367,18 +390,18 @@ unsigned int spm_go_to_sleep(void)
 	aee_sram_printk("sec = %u, wakesrc = 0x%x (%u)(%u)\n",
 		  sec, pwrctrl->wake_src, is_cpu_pdn(pwrctrl->pcm_flags),
 		  is_infra_pdn(pwrctrl->pcm_flags));
-	pr_info("[SPM] sec = %u, wakesrc = 0x%x (%u)(%u)\n",
+	printk_deferred("[name:spm&][SPM] sec = %u, wakesrc = 0x%x (%u)(%u)\n",
 		  sec, pwrctrl->wake_src, is_cpu_pdn(pwrctrl->pcm_flags),
 		  is_infra_pdn(pwrctrl->pcm_flags));
 
-	spm_suspend_pcm_setup_before_wfi(cpu, pwrctrl);
+	spm_suspend_pcm_setup_before_wfi(ex_flag, cpu, pwrctrl);
 
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (mtk8250_request_to_sleep()) {
 		last_wr = WR_UART_BUSY;
-		pr_info("Fail to request uart sleep\n");
+		printk_deferred("[name:spm&]Fail to request uart sleep\n");
 		goto RESTORE_IRQ;
 	}
 #endif
@@ -399,10 +422,10 @@ RESTORE_IRQ:
 
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_AWAKE);
 
-	spm_suspend_pcm_setup_after_wfi(0, pwrctrl);
+	spm_suspend_pcm_setup_after_wfi(ex_flag, cpu, pwrctrl);
 
 	/* record last wakesta */
-	last_wr = spm_output_wake_reason(&spm_wakesta);
+	last_wr = spm_output_wake_reason(ex_flag, &spm_wakesta);
 	mtk_spm_irq_restore();
 
 	lockdep_off();
@@ -416,7 +439,7 @@ RESTORE_IRQ:
 		else {
 			aee_sram_printk("pwrctrl->wdt_disable %d\n",
 				pwrctrl->wdt_disable);
-			pr_info("[SPM] pwrctrl->wdt_disable %d\n",
+			printk_deferred("[name:spm&][SPM] pwrctrl->wdt_disable %d\n",
 				pwrctrl->wdt_disable);
 		}
 		wd_api->wd_spmwdt_mode_config(WD_REQ_DIS, WD_REQ_RST_MODE);
@@ -434,12 +457,17 @@ RESTORE_IRQ:
 	if (pwrctrl->wakelock_timer_val) {
 		aee_sram_printk("#@# %s(%d) calling spm_pm_stay_awake()\n",
 			__func__, __LINE__);
-		pr_info("[SPM ]#@# %s(%d) calling spm_pm_stay_awake()\n",
+		printk_deferred("[name:spm&][SPM ]#@# %s(%d) calling spm_pm_stay_awake()\n",
 			__func__, __LINE__);
 		spm_pm_stay_awake(pwrctrl->wakelock_timer_val);
 	}
 
 	return last_wr;
+}
+
+unsigned int spm_go_to_sleep(void)
+{
+	return spm_go_to_sleep_ex(0);
 }
 
 MODULE_DESCRIPTION("SPM-Sleep Driver v0.1");

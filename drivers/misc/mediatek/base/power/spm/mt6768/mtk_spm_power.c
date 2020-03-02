@@ -23,6 +23,7 @@
 #include <mtk_spm_internal.h>
 #include <mtk_sspm.h>
 
+#include <mtk_idle_module_plat.h>
 void mtk_idle_power_pre_process(int idle_type, unsigned int op_cond)
 {
 	int ret;
@@ -30,9 +31,10 @@ void mtk_idle_power_pre_process(int idle_type, unsigned int op_cond)
 	unsigned int spm_opt = 0;
 	int cmd;
 
-	cmd = (idle_type == IDLE_TYPE_DP) ? SPM_DPIDLE_ENTER :
-		(idle_type == IDLE_TYPE_SO) ? SPM_ENTER_SODI :
-		(idle_type == IDLE_TYPE_SO3) ? SPM_ENTER_SODI3 : -1;
+	cmd =
+		(idle_type == IDLE_MODEL_SYSPLL) ? SPM_DPIDLE_ENTER :
+		(idle_type == IDLE_MODEL_BUS26M) ? SPM_ENTER_SODI3 :
+		(idle_type == IDLE_MODEL_DRAM) ? SPM_ENTER_SODI3 : -1;
 
 	memset(&spm_d, 0, sizeof(struct spm_data));
 
@@ -49,7 +51,7 @@ void mtk_idle_power_pre_process(int idle_type, unsigned int op_cond)
 
 	ret = spm_to_sspm_command_async(cmd, &spm_d);
 	if (ret < 0)
-		pr_notice("%s: ret %d", __func__, ret);
+		printk_deferred("[name:spm&]%s: ret %d", __func__, ret);
 }
 
 void mtk_idle_power_pre_process_async_wait(int idle_type, unsigned int op_cond)
@@ -57,13 +59,14 @@ void mtk_idle_power_pre_process_async_wait(int idle_type, unsigned int op_cond)
 	int ret = 0;
 	int cmd;
 
-	cmd = (idle_type == IDLE_TYPE_DP) ? SPM_DPIDLE_ENTER :
-		(idle_type == IDLE_TYPE_SO) ? SPM_ENTER_SODI :
-		(idle_type == IDLE_TYPE_SO3) ? SPM_ENTER_SODI3 : -1;
+	cmd =
+		(idle_type == IDLE_MODEL_SYSPLL) ? SPM_DPIDLE_ENTER :
+		(idle_type == IDLE_MODEL_BUS26M) ? SPM_ENTER_SODI3 :
+		(idle_type == IDLE_MODEL_DRAM) ? SPM_ENTER_SODI3 : -1;
 
 	ret = spm_to_sspm_command_async_wait(cmd);
 	if (ret < 0)
-		pr_notice("%s: ret %d", __func__, ret);
+		printk_deferred("[name:spm&]%s: ret %d", __func__, ret);
 }
 
 void mtk_idle_power_post_process(int idle_type, unsigned int op_cond)
@@ -73,9 +76,10 @@ void mtk_idle_power_post_process(int idle_type, unsigned int op_cond)
 	unsigned int spm_opt = 0;
 	int cmd;
 
-	cmd = (idle_type == IDLE_TYPE_DP) ? SPM_DPIDLE_LEAVE :
-		(idle_type == IDLE_TYPE_SO) ? SPM_LEAVE_SODI :
-		(idle_type == IDLE_TYPE_SO3) ? SPM_LEAVE_SODI3 : -1;
+	cmd =
+		(idle_type == IDLE_MODEL_SYSPLL) ? SPM_DPIDLE_LEAVE :
+		(idle_type == IDLE_MODEL_BUS26M) ? SPM_LEAVE_SODI3 :
+		(idle_type == IDLE_MODEL_DRAM) ? SPM_LEAVE_SODI3 : -1;
 
 	memset(&spm_d, 0, sizeof(struct spm_data));
 
@@ -92,7 +96,7 @@ void mtk_idle_power_post_process(int idle_type, unsigned int op_cond)
 
 	ret = spm_to_sspm_command_async(cmd, &spm_d);
 	if (ret < 0)
-		pr_notice("%s: ret %d", __func__, ret);
+		printk_deferred("[name:spm&]%s: ret %d", __func__, ret);
 }
 
 void mtk_idle_power_post_process_async_wait(int idle_type, unsigned int op_cond)
@@ -100,12 +104,13 @@ void mtk_idle_power_post_process_async_wait(int idle_type, unsigned int op_cond)
 	int ret = 0;
 	int cmd;
 
-	cmd = (idle_type == IDLE_TYPE_DP) ? SPM_DPIDLE_LEAVE :
-		(idle_type == IDLE_TYPE_SO) ? SPM_LEAVE_SODI :
-		(idle_type == IDLE_TYPE_SO3) ? SPM_LEAVE_SODI3 : -1;
+	cmd =
+		(idle_type == IDLE_MODEL_SYSPLL) ? SPM_DPIDLE_LEAVE :
+		(idle_type == IDLE_MODEL_BUS26M) ? SPM_LEAVE_SODI3 :
+		(idle_type == IDLE_MODEL_DRAM) ? SPM_LEAVE_SODI3 : -1;
 
 	ret = spm_to_sspm_command_async_wait(cmd);
 	if (ret < 0)
-		pr_notice("%s: ret %d", __func__, ret);
+		printk_deferred("[name:spm&]%s: ret %d", __func__, ret);
 }
 

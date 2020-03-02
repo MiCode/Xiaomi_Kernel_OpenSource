@@ -9,7 +9,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/cpuidle_v3/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 # Include sspm header "sspm_ipi.h"
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 # Include mtk idle headers and cpuidle driver header for external modules
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
@@ -26,6 +26,7 @@ endif
 # Include sspm header "sspm_ipi.h"
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 endif
 
@@ -47,4 +48,8 @@ obj-y += mtk_spm_utils.o
 obj-y += mtk_idle_cond_check.o
 obj-y += mtk_spm_idle.o
 obj-y += mtk_spm_vcore_dvfs.o
+obj-y += mtk_idle_module_plat.o
 obj-y += mtk_spm_resource_req_console.o
+obj-y += models/mtk_idle_dram.o
+obj-y += models/mtk_idle_syspll.o
+obj-y += models/mtk_idle_bus26m.o
