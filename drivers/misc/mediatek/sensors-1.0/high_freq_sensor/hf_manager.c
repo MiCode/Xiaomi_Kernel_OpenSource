@@ -19,9 +19,12 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/poll.h>
+#include <linux/bitmap.h>
 
 #include "hf_manager.h"
 
+#define SENSOR_LIST_BITMAP_BITS (HIGH_FREQUENCY_SENSOR_MAX + 8)
+static DECLARE_BITMAP(sensor_list_map, SENSOR_LIST_BITMAP_BITS);
 static LIST_HEAD(hf_manager_list);
 static DEFINE_SPINLOCK(hf_fifo_lock);
 static DEFINE_MUTEX(hf_manager_list_mtx);
@@ -97,19 +100,22 @@ static void hf_manager_io_schedule(struct hf_manager *manager)
 			&manager->io_kthread_work);
 }
 
-static void hf_manager_io_complete(struct hf_manager *manager,
+static void hf_manager_io_report(struct hf_manager *manager,
 		struct hf_manager_event *event)
 {
 	unsigned long flags;
 	struct hf_manager_fifo *hf_fifo = NULL;
-
-	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &(manager->flags));
 
 	spin_lock_irqsave(&hf_fifo_lock, flags);
 	hf_fifo = manager->hf_fifo;
 	if (hf_fifo)
 		hf_manager_report(hf_fifo, event);
 	spin_unlock_irqrestore(&hf_fifo_lock, flags);
+}
+
+static void hf_manager_io_complete(struct hf_manager *manager)
+{
+	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &(manager->flags));
 	if (test_and_clear_bit(HF_MANAGER_IO_READY, &manager->flags))
 		hf_manager_io_schedule(manager);
 }
@@ -173,8 +179,14 @@ static void hf_manager_io_interrupt(struct hf_manager *manager)
 
 int hf_manager_create(struct hf_device *device)
 {
+	unsigned char sensor_id = 0;
+	int i = 0;
 	int err = 0;
-	struct hf_manager *manager = NULL, *c = NULL;
+	struct hf_manager *manager = NULL;
+
+	if (!device || !device->dev_name ||
+		!device->support_list || !device->support_size)
+		return -EFAULT;
 
 	manager = kzalloc(sizeof(*manager), GFP_KERNEL);
 	if (!manager)
@@ -193,6 +205,7 @@ int hf_manager_create(struct hf_device *device)
 	} else if (device->device_poll == HF_DEVICE_IO_INTERRUPT) {
 		manager->interrupt = hf_manager_io_interrupt;
 	}
+	manager->report = hf_manager_io_report;
 	manager->complete = hf_manager_io_complete;
 
 	if (device->device_bus == HF_DEVICE_IO_ASYNC)
@@ -204,14 +217,17 @@ int hf_manager_create(struct hf_device *device)
 
 	INIT_LIST_HEAD(&manager->list);
 	mutex_lock(&hf_manager_list_mtx);
-	list_for_each_entry(c, &hf_manager_list, list) {
-		if (c->hf_dev->sensor_id == device->sensor_id) {
+	for (i = 0; i < device->support_size; ++i) {
+		sensor_id = device->support_list[i];
+		if (test_and_set_bit(sensor_id, sensor_list_map)) {
 			mutex_unlock(&hf_manager_list_mtx);
-			pr_err("%s (%s) sensor_id repeat\n",
-				__func__, device->dev_name);
+			pr_err("%s %s %d repeat\n", __func__,
+				device->dev_name, sensor_id);
 			err = -EBUSY;
 			goto out_err;
-		}
+		} else
+			pr_err("%s %s register %d\n", __func__,
+				device->dev_name, sensor_id);
 	}
 	list_add(&manager->list, &hf_manager_list);
 	mutex_unlock(&hf_manager_list_mtx);
@@ -224,7 +240,18 @@ out_err:
 
 int hf_manager_destroy(struct hf_manager *manager)
 {
+	int i = 0;
+	struct hf_device *device = NULL;
+
+	if (!manager || !manager->hf_dev || !manager->hf_dev->support_list)
+		return -EFAULT;
+
+	device = manager->hf_dev;
 	mutex_lock(&hf_manager_list_mtx);
+	for (i = 0; i < device->support_size; ++i) {
+		clear_bit(device->support_list[i],
+			sensor_list_map);
+	}
 	list_del(&manager->list);
 	mutex_unlock(&hf_manager_list_mtx);
 	if (manager->hf_dev->device_bus == HF_DEVICE_IO_ASYNC)
@@ -342,33 +369,63 @@ static ssize_t hf_manager_read(struct file *filp,
 	return read;
 }
 
-static int hf_manager_config_device(struct hf_manager_cmd *cmd)
+static struct hf_manager *hf_manager_find_manager(uint8_t sensor_id)
+{
+	int i = 0;
+	struct hf_manager *manager = NULL;
+	struct hf_device *device = NULL;
+
+	list_for_each_entry(manager, &hf_manager_list, list) {
+		device = manager->hf_dev;
+		if (!device || !device->support_list)
+			continue;
+		for (i = 0; i < device->support_size; ++i) {
+			if (sensor_id == device->support_list[i])
+				return manager;
+		}
+	}
+	return NULL;
+}
+
+static int hf_manager_drive_device(struct hf_manager_cmd *cmd)
 {
 	int err = 0;
 	struct hf_manager *manager = NULL;
 	struct hf_device *device = NULL;
 
-	pr_notice("%s: %d,%d,%lld,%lld\n", __func__,
-		cmd->sensor_id, cmd->action, cmd->delay, cmd->latency);
+	if (cmd->sensor_id >= HIGH_FREQUENCY_SENSOR_MAX_PLUS_ONE)
+		return -EINVAL;
 
 	mutex_lock(&hf_manager_list_mtx);
-	list_for_each_entry(manager, &hf_manager_list, list) {
-		if (manager->hf_dev->sensor_id == cmd->sensor_id) {
-			device = manager->hf_dev;
-			break;
-		}
-	}
-	if (!device || !device->batch || !device->enable) {
+	if (!test_bit(cmd->sensor_id, sensor_list_map)) {
+		pr_err("%s: %d not registered\n", __func__, cmd->sensor_id);
 		mutex_unlock(&hf_manager_list_mtx);
 		return -EINVAL;
 	}
+	manager = hf_manager_find_manager(cmd->sensor_id);
+	if (!manager) {
+		pr_err("%s: no manager finded\n");
+		mutex_unlock(&hf_manager_list_mtx);
+		return -EINVAL;
+	}
+	device = manager->hf_dev;
+	if (!device || !device->dev_name ||
+			!device->batch || !device->enable) {
+		pr_err("%s: no hf device or important param finded\n");
+		mutex_unlock(&hf_manager_list_mtx);
+		return -EINVAL;
+	}
+
+	pr_notice("%s: %s: %d,%d,%lld,%lld\n", __func__, device->dev_name,
+		cmd->sensor_id, cmd->action, cmd->delay, cmd->latency);
 
 	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags);
 	clear_bit(HF_MANAGER_IO_READY, &manager->flags);
 
 	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
-		err = device->batch(device, cmd->delay, cmd->latency);
-		err = device->enable(device, cmd->action);
+		err = device->batch(device, cmd->sensor_id,
+			cmd->delay, cmd->latency);
+		err = device->enable(device, cmd->sensor_id, cmd->action);
 		WRITE_ONCE(manager->io_enabled, true);
 		WRITE_ONCE(manager->io_poll_interval, cmd->delay);
 		if (device->device_poll == HF_DEVICE_IO_POLLING &&
@@ -377,7 +434,7 @@ static int hf_manager_config_device(struct hf_manager_cmd *cmd)
 				READ_ONCE(manager->io_poll_interval),
 					HRTIMER_MODE_REL);
 	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
-		err = device->enable(device, cmd->action);
+		err = device->enable(device, cmd->sensor_id, cmd->action);
 		WRITE_ONCE(manager->io_enabled, false);
 		if (device->device_poll == HF_DEVICE_IO_POLLING &&
 			hrtimer_active(&manager->io_poll_timer)) {
@@ -404,7 +461,7 @@ static ssize_t hf_manager_write(struct file *filp,
 	if (copy_from_user(&cmd, buf, count))
 		return -EFAULT;
 
-	err = hf_manager_config_device(&cmd);
+	err = hf_manager_drive_device(&cmd);
 	return err;
 }
 
@@ -453,7 +510,7 @@ static ssize_t test_store(struct device *dev, struct device_attribute *attr,
 	cmd.delay = 5000000;
 	cmd.latency = 0;
 
-	err = hf_manager_config_device(&cmd);
+	err = hf_manager_drive_device(&cmd);
 	return (err < 0) ? err : count;
 }
 
