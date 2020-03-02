@@ -53,6 +53,7 @@ struct SensorState {
 	bool enable;
 	bool timestamp_filter;
 	atomic_t flushCnt;
+	atomic64_t enableTime;
 };
 
 #define SCP_SENSOR_HUB_TEMP_BUFSIZE     256
