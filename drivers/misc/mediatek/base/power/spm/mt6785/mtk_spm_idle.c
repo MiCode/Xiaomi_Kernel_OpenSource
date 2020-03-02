@@ -221,11 +221,6 @@ static void spm_idle_pcm_setup_before_wfi(
 	mt_secure_call(MTK_SIP_KERNEL_SPM_LP_ARGS,
 		(SPM_LP_SMC_MAGIC | idle_type),
 		pwrctrl->pcm_flags, pwrctrl->pcm_flags1, resource_usage);
-
-	if (idle_type == IDLE_MODEL_BUS26M)
-		mt_secure_call(MTK_SIP_KERNEL_SPM_PWR_CTRL_ARGS
-			, SPM_PWR_CTRL_IDLE_BUS26M, PW_WDT_DISABLE, 1, 0);
-
 }
 
 static void spm_idle_pcm_setup_after_wfi(
@@ -238,7 +233,6 @@ static void spm_idle_pcm_setup_after_wfi(
  * dp/so3/so main flow by chip
  *******************************************************************/
 
-static unsigned int slp_dp_last_wr = WR_NONE;
 static unsigned long flags;
 
 void mtk_idle_pre_process_by_chip(
@@ -327,10 +321,6 @@ void mtk_idle_post_process_by_chip(
 
 }
 
-unsigned int get_slp_dp_last_wr(void)
-{
-	return slp_dp_last_wr;
-}
 /********************************************************************
  * mtk idle output log
  *******************************************************************/

@@ -17,6 +17,7 @@
 #include <mtk_spm_internal.h>
 #include <mtk_spm_resource_req_console.h>
 #include <mtk_idle_module_plat.h>
+#include <mtk_spm_resource_req_internal.h>
 #include <mtk_lp_dts.h>
 
 DEFINE_MUTEX(__spm_mutex);
