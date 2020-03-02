@@ -20,6 +20,7 @@
 #include <mt-plat/mtk_boot.h>
 #include <mtk_gpufreq.h>
 
+#undef CONFIG_MTK_QOS_SUPPORT
 #ifdef CONFIG_MTK_QOS_SUPPORT
 #include <mtk_gpu_bw.h>
 #endif
@@ -124,7 +125,7 @@ static int g_VsyncOffsetLevel;
 static int g_probe_pid = GED_NO_UM_SERVICE;
 
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
-#define DEFAULT_DVFS_STEP_MODE	0x0004 /* dvfs step =4, enlarge range= 0 */
+#define DEFAULT_DVFS_STEP_MODE	0x0000 /* dvfs step =0, enlarge range= 0 */
 unsigned int dvfs_step_mode = DEFAULT_DVFS_STEP_MODE;
 static int init;
 #endif
@@ -166,9 +167,9 @@ struct ld_ud_table {
 };
 static struct ld_ud_table *loading_ud_table;
 
-static int gx_tb_dvfs_margin;
-static int gx_tb_dvfs_margin_cur;
 #define GED_DVFS_TIMER_BASED_DVFS_MARGIN 30
+static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 module_param(gx_tb_dvfs_margin, int, 0644);
 static void _init_loading_ud_table(void)
 {
@@ -1133,8 +1134,7 @@ static bool ged_dvfs_policy(
 		if (init == 0) {
 			init = 1;
 			gx_tb_dvfs_margin_cur
-				= gx_tb_dvfs_margin
-				= GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+				= gx_tb_dvfs_margin;
 			_init_loading_ud_table();
 		}
 
@@ -1390,7 +1390,7 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 	/* 0~100: configure margin mode */
 	/* 101~199:  dynamic margin mode - CONFIG_FPS_MARGIN */
 	/* 201~299:  dynamic margin mode - FIXED_FPS_MARGIN */
-	/* 301~499:  dynamic margin mode - NO_FPS_MARGIN */
+	/* 301~399:  dynamic margin mode - NO_FPS_MARGIN */
 
 	mutex_lock(&gsDVFSLock);
 
@@ -1461,6 +1461,105 @@ static int ged_get_loading_base_dvfs_step(void)
 }
 
 #endif
+
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+static void ged_timer_base_dvfs_margin(int i32MarginValue)
+{
+	/* -1:  default: GED_DVFS_TIMER_BASED_DVFS_MARGIN */
+	/* 1~99: configure timer base dvfs margin */
+
+	mutex_lock(&gsDVFSLock);
+
+	if (i32MarginValue == -1)
+		gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+	else if ((i32MarginValue > 0) && (i32MarginValue < 100))
+		gx_tb_dvfs_margin = i32MarginValue;
+
+	mutex_unlock(&gsDVFSLock);
+}
+
+static int ged_get_timer_base_dvfs_margin(void)
+{
+	return gx_tb_dvfs_margin_cur;
+}
+#endif
+
+#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_FB_DVFS_CWAITG))
+
+#define DVFS_CEAITG_FACTOR_DEFAULT 100 // 100%
+static unsigned int dvfs_cwaitg_mode;
+
+unsigned int ged_dvfs_cwaitg_check(struct GED_DVFS_CWAITG *pInfo)
+{
+	unsigned int ratio;
+	static int gain_factor = DVFS_CEAITG_FACTOR_DEFAULT;
+	unsigned long long result;
+	unsigned long long loading;
+
+	if (dvfs_cwaitg_mode != 0) {
+		ratio = dvfs_cwaitg_mode;
+		loading = (unsigned long long)pInfo->ui32GpuLoading;
+
+		result = pInfo->ullGpuPipeTime*100;
+		do_div(result, pInfo->i32GpuRealTime);
+
+		//if ((pInfo->ullGpuPipeTime*100/pInfo->i32GpuRealTime)<=
+		// lower gpu hw pipe/real ratio
+		if (result <= (loading * ratio / 100)) {
+			int temp;
+
+			if (pInfo->i32CpuWallTime > pInfo->i32GpuTargetTime) {
+				temp = gain_factor *
+				(pInfo->i32CpuWallTime-pInfo->i32GpuTargetTime)/
+				pInfo->i32GpuTargetTime;
+
+				gain_factor += temp;
+			} else {
+				temp = gain_factor *
+				(pInfo->i32GpuTargetTime-pInfo->i32CpuWallTime)/
+				pInfo->i32GpuTargetTime;
+
+				gain_factor -= temp;
+
+				if (gain_factor < DVFS_CEAITG_FACTOR_DEFAULT)
+					gain_factor =
+					DVFS_CEAITG_FACTOR_DEFAULT;
+			}
+		} else
+			gain_factor = DVFS_CEAITG_FACTOR_DEFAULT;
+
+		//time_spent_modify
+		pInfo->i32GpuRealTime_Modify = (int)
+		(((long long)pInfo->i32GpuRealTime*gain_factor)/
+		DVFS_CEAITG_FACTOR_DEFAULT);
+	}
+
+	return dvfs_cwaitg_mode;
+}
+
+static void ged_dvfs_cwaitg(unsigned int ui32DvfsCWaitG)
+{
+	/* 0:  default: disable CWaitG mode */
+	/* 1:~100: enable CWaitG mode and set GPU Pipe ratio */
+	/* others: don't care */
+
+
+	mutex_lock(&gsDVFSLock);
+
+	if ((ui32DvfsCWaitG >= 0) && (ui32DvfsCWaitG <= 100))
+		dvfs_cwaitg_mode = ui32DvfsCWaitG;
+
+	mutex_unlock(&gsDVFSLock);
+}
+
+static unsigned int ged_get_dvfs_cwaitg(void)
+{
+
+	return dvfs_cwaitg_mode;
+}
+#endif
+
+
 /* Need spinlocked */
 void ged_dvfs_save_loading_page(void)
 {
@@ -1848,6 +1947,15 @@ GED_ERROR ged_dvfs_system_init(void)
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	mtk_loading_base_dvfs_step_fp = ged_loading_base_dvfs_step;
 	mtk_get_loading_base_dvfs_step_fp = ged_get_loading_base_dvfs_step;
+#endif
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	mtk_timer_base_dvfs_margin_fp =	ged_timer_base_dvfs_margin;
+	mtk_get_timer_base_dvfs_margin_fp = ged_get_timer_base_dvfs_margin;
+#endif
+
+#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_FB_DVFS_CWAITG))
+		mtk_dvfs_cwaitg_fp = ged_dvfs_cwaitg;
+		mtk_get_dvfs_cwaitg_fp = ged_get_dvfs_cwaitg;
 #endif
 	/* CAP query */
 	mtk_get_gpu_dvfs_cal_freq_fp = ged_get_gpu_dvfs_cal_freq;
