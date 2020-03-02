@@ -104,6 +104,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/task.h>
 
+#include <mt-plat/mtk_pidmap.h>
+
 /*
  * Minimum number of threads to boot the kernel
  */
@@ -1952,6 +1954,7 @@ static __latent_entropy struct task_struct *copy_process(
 	perf_event_fork(p);
 
 	trace_task_newtask(p, clone_flags);
+	mtk_pidmap_update(p);
 	uprobe_copy_process(p, clone_flags);
 
 	return p;
