@@ -18,8 +18,8 @@
 /* #define LAST_DRAMC */
 #define SW_ZQCS
 #define SW_TX_TRACKING
-//#define DVFS_READY
-//#define EMI_READY
+#define DVFS_READY
+#define EMI_READY
 #define PLAT_DBG_INFO_MANAGE
 
 #if defined(CONFIG_MTK_ENG_BUILD)
