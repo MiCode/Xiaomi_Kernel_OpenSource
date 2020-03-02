@@ -130,6 +130,9 @@ source "drivers/misc/mediatek/lens/Kconfig"
 source "drivers/misc/mediatek/flashlight/Kconfig"
 source "drivers/misc/mediatek/flashlight/richtek/Kconfig"
 source "drivers/misc/mediatek/scp/Kconfig"
+source "drivers/misc/mediatek/boot/Kconfig"
+source "drivers/misc/mediatek/boot_reason/Kconfig"
+source "drivers/misc/mediatek/chip/Kconfig"
 endmenu # Other Peripheral
 
 menu "Memory configs"
