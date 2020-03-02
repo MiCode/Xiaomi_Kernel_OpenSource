@@ -26,7 +26,6 @@
 #include "kd_imgsensor_define.h"
 #include "kd_imgsensor_errcode.h"
 
-
 #include "gc2375mipi_Sensor.h"
 
 /*********************Modify Following Strings for Debug*********************/
@@ -144,7 +143,6 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.i2c_addr_table = {0x6e, 0x78, 0x2e, 0xff},
 };
 
-
 static struct imgsensor_struct imgsensor = {
 	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
@@ -161,19 +159,18 @@ static struct imgsensor_struct imgsensor = {
 	.i2c_write_id = 0x6e,	/* record current sensor's i2c write id */
 };
 
-
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
-{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
-	0, 0, 1600, 1200},	/* Preview */
-{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
-	0, 0, 1600, 1200},	/* capture */
-{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
-	0, 0, 1600, 1200},	/* video */
-{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
-	0, 0, 1600, 1200},	/* high speed video */
-{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
-	0, 0, 1600, 1200}	/* slim video */
+	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
+		0, 0, 1600, 1200},	/* Preview */
+	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
+		0, 0, 1600, 1200},	/* capture */
+	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
+		0, 0, 1600, 1200},	/* video */
+	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
+		0, 0, 1600, 1200},	/* high speed video */
+	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200, 0000, 0000, 1600, 1200,
+		0, 0, 1600, 1200}	/* slim video */
 };
 
 static kal_uint16 read_cmos_sensor(kal_uint32 addr)
@@ -328,7 +325,8 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-
+static kal_uint16 set_gain(kal_uint16 gain)
+{
 #define ANALOG_GAIN_1 64	/* 1.00x */
 #define ANALOG_GAIN_2 92	/* 1.43x */
 #define ANALOG_GAIN_3 128	/* 2.00x */
@@ -339,8 +337,6 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 #define ANALOG_GAIN_8 725	/* 11.34x */
 #define ANALOG_GAIN_9 1038	/* 16.23x */
 
-static kal_uint16 set_gain(kal_uint16 gain)
-{
 	kal_uint16 iReg, temp;
 
 	iReg = gain;
@@ -702,7 +698,7 @@ static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 					imgsensor.i2c_write_id, *sensor_id);
 				return ERROR_NONE;
 			}
-			cam_pr_debug("Read sensor id fail:0x%x, id: 0x%x\n",
+			cam_pr_debug("Read sensor id fail, write id: 0x%x, id: 0x%x\n",
 				imgsensor.i2c_write_id, *sensor_id);
 			retry--;
 		} while (retry > 0);
@@ -751,9 +747,8 @@ static kal_uint32 open(void)
 					imgsensor.i2c_write_id, sensor_id);
 				break;
 			}
-			cam_pr_debug
-			    ("Read sensor id fail, write id: 0x%x, id: 0x%x\n",
-			     imgsensor.i2c_write_id, sensor_id);
+			cam_pr_debug("Read sensor id fail, write id: 0x%x, id: 0x%x\n",
+				imgsensor.i2c_write_id, sensor_id);
 			retry--;
 		} while (retry > 0);
 		i++;
@@ -956,6 +951,8 @@ static kal_uint32 get_resolution(
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT * sensor_resolution)
 {
 	cam_pr_debug("E\n");
+
+	spin_lock(&imgsensor_drv_lock);
 	sensor_resolution->SensorFullWidth =
 		imgsensor_info.cap.grabwindow_width;
 	sensor_resolution->SensorFullHeight =
@@ -980,6 +977,8 @@ static kal_uint32 get_resolution(
 	    imgsensor_info.slim_video.grabwindow_width;
 	sensor_resolution->SensorSlimVideoHeight =
 	    imgsensor_info.slim_video.grabwindow_height;
+	spin_unlock(&imgsensor_drv_lock);
+
 	return ERROR_NONE;
 }			/*    get_resolution    */
 
@@ -989,6 +988,8 @@ static kal_uint32 get_info(
 	MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
 	cam_pr_debug("scenario_id = %d\n", scenario_id);
+
+	spin_lock(&imgsensor_drv_lock);
 
 	sensor_info->SensorClockPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	sensor_info->SensorClockFallingPolarity = SENSOR_CLOCK_POLARITY_LOW;
@@ -1014,12 +1015,11 @@ static kal_uint32 get_info(
 
 	sensor_info->SensorMasterClockSwitch = 0;	/* not use */
 	sensor_info->SensorDrivingCurrent = imgsensor_info.isp_driving_current;
-
 	sensor_info->AEShutDelayFrame = imgsensor_info.ae_shut_delay_frame;
-	/* The frame of setting shutter default 0 for TG int */
+
+	/* The frame of setting sensor gain */
 	sensor_info->AESensorGainDelayFrame =
 		imgsensor_info.ae_sensor_gain_delay_frame;
-	/* The frame of setting sensor gain */
 	sensor_info->AEISPGainDelayFrame =
 		imgsensor_info.ae_ispGain_delay_frame;
 	sensor_info->IHDR_Support = imgsensor_info.ihdr_support;
@@ -1093,6 +1093,7 @@ static kal_uint32 get_info(
 		    imgsensor_info.pre.mipi_data_lp2hs_settle_dc;
 		break;
 	}
+	spin_unlock(&imgsensor_drv_lock);
 
 	return ERROR_NONE;
 }			/*    get_info  */
@@ -1327,6 +1328,7 @@ static kal_uint32 get_default_framerate_by_scenario(
 		cam_pr_debug("---- framerate is NULL ---- check here\n");
 		return ERROR_NONE;
 	}
+	spin_lock(&imgsensor_drv_lock);
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		*framerate = imgsensor_info.pre.max_framerate;
@@ -1346,6 +1348,7 @@ static kal_uint32 get_default_framerate_by_scenario(
 	default:
 		break;
 	}
+	spin_unlock(&imgsensor_drv_lock);
 
 	return ERROR_NONE;
 }
@@ -1538,7 +1541,7 @@ static kal_uint32 feature_control(
 		}
 		*(MUINT32 *) (uintptr_t) (*(feature_data + 1)) = rate;
 	}
-	break;
+		break;
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 		cam_pr_debug("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
 		streaming_control(KAL_FALSE);
@@ -1566,7 +1569,7 @@ static struct SENSOR_FUNCTION_STRUCT sensor_func = {
 	close
 };
 
-UINT32 GC2375_MIPI_RAW_SensorInit(struct PSENSOR_FUNCTION_STRUCT **pfFunc)
+UINT32 GC2375_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc)
 {
 	/* To Do : Check Sensor status here */
 	if (pfFunc != NULL)
