@@ -27,7 +27,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-
 #include <linux/mmc/card.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/host.h>
@@ -1008,6 +1007,11 @@ static void msdc_init_hw(struct msdc_host *host)
 	writel(0x403c0046, host->base + MSDC_PATCH_BIT0);
 	sdr_set_field(host->base + MSDC_PATCH_BIT0, MSDC_CKGEN_MSDC_DLY_SEL, 1);
 	writel(0xffff0089, host->base + MSDC_PATCH_BIT1);
+
+	/* For SDIO3.0+ IP, this bit should be set to 0 */
+	if (host->dev_comp->v3_plus)
+		sdr_clr_bits(host->base + MSDC_PATCH_BIT1,
+			MSDC_PB1_SINGLE_BURST);
 
 	sdr_set_bits(host->base + EMMC50_CFG0, EMMC50_CFG_CFCSTS_SEL);
 
@@ -2579,6 +2583,7 @@ static int autok_adjust_param(struct msdc_host *host,
 				   int rw)
 {
 	void __iomem *base = host->base;
+	void __iomem *base_top = host->base_top;
 	u32 *reg;
 	u32 field = 0;
 
@@ -2609,9 +2614,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-
-		reg = (u32 *) (base + MSDC_IOCON);
-		field = (u32) (MSDC_IOCON_DDLSEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CONTROL);
+			field = (u32) (DATA_K_VALUE_SEL);
+		} else {
+			reg = (u32 *) (base + MSDC_IOCON);
+			field = (u32) (MSDC_IOCON_DDLSEL);
+		}
 		break;
 	case MSDC_DAT_TUNE_SEL:	/* 0-Dat tune 1-CLk tune ; */
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2619,8 +2628,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE0);
-		field = (u32) (MSDC_PAD_TUNE0_RXDLYSEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CONTROL);
+			field = (u32) (PAD_RXDLY_SEL);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE0);
+			field = (u32) (MSDC_PAD_TUNE0_RXDLYSEL);
+		}
 		break;
 	case MSDC_WCRC_ASYNC_FIFO_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2678,8 +2692,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE0);
-		field = (u32) (MSDC_PAD_TUNE0_CMDRDLY);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CMD);
+			field = (u32) (PAD_CMD_RXDLY);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE0);
+			field = (u32) (MSDC_PAD_TUNE0_CMDRDLY);
+		}
 		break;
 	case CMD_RD_D_DLY1_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2687,8 +2706,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE0);
-		field = (u32) (MSDC_PAD_TUNE0_CMDRRDLYSEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CMD);
+			field = (u32) (PAD_CMD_RD_RXDLY_SEL);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE0);
+			field = (u32) (MSDC_PAD_TUNE0_CMDRRDLYSEL);
+		}
 		break;
 	case CMD_RD_D_DLY2:
 		if ((rw == AUTOK_WRITE) && (*value > 31)) {
@@ -2696,8 +2720,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE1);
-		field = (u32) (MSDC_PAD_TUNE1_CMDRDLY2);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CMD);
+			field = (u32) (PAD_CMD_RXDLY2);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE1);
+			field = (u32) (MSDC_PAD_TUNE1_CMDRDLY2);
+		}
 		break;
 	case CMD_RD_D_DLY2_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2705,8 +2734,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE1);
-		field = (u32) (MSDC_PAD_TUNE1_CMDRRDLY2SEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CMD);
+			field = (u32) (PAD_CMD_RD_RXDLY2_SEL);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE1);
+			field = (u32) (MSDC_PAD_TUNE1_CMDRRDLY2SEL);
+		}
 		break;
 	case DAT_RD_D_DLY1:
 		if ((rw == AUTOK_WRITE) && (*value > 31)) {
@@ -2714,8 +2748,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE0);
-		field = (u32) (MSDC_PAD_TUNE0_DATRRDLY);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CONTROL);
+			field = (u32) (PAD_DAT_RD_RXDLY);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE0);
+			field = (u32) (MSDC_PAD_TUNE0_DATRRDLY);
+		}
 		break;
 	case DAT_RD_D_DLY1_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2723,8 +2762,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE0);
-		field = (u32) (MSDC_PAD_TUNE0_DATRRDLYSEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CONTROL);
+			field = (u32) (PAD_DAT_RD_RXDLY_SEL);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE0);
+			field = (u32) (MSDC_PAD_TUNE0_DATRRDLYSEL);
+		}
 		break;
 	case DAT_RD_D_DLY2:
 		if ((rw == AUTOK_WRITE) && (*value > 31)) {
@@ -2732,8 +2776,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE1);
-		field = (u32) (MSDC_PAD_TUNE1_DATRRDLY2);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CONTROL);
+			field = (u32) (PAD_DAT_RD_RXDLY2);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE1);
+			field = (u32) (MSDC_PAD_TUNE1_DATRRDLY2);
+		}
 		break;
 	case DAT_RD_D_DLY2_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2741,8 +2790,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE1);
-		field = (u32) (MSDC_PAD_TUNE1_DATRRDLY2SEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_CONTROL);
+			field = (u32) (PAD_DAT_RD_RXDLY2_SEL);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE1);
+			field = (u32) (MSDC_PAD_TUNE1_DATRRDLY2SEL);
+		}
 		break;
 	case INT_DAT_LATCH_CK:
 		if ((rw == AUTOK_WRITE) && (*value > 7)) {
@@ -2786,8 +2840,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + MSDC_PAD_TUNE0);
-		field = (u32) (MSDC_PAD_TUNE0_CLKTXDLY);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_PAD_CTRL0);
+			field = (u32) (MSDC_PAD_CLK_TXDLY);
+		} else {
+			reg = (u32 *) (base + MSDC_PAD_TUNE0);
+			field = (u32) (MSDC_PAD_TUNE0_CLKTXDLY);
+		}
 		break;
 	case EMMC50_WDATA_MUX_EN:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2822,8 +2881,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
-		field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY1);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_PAD_DS_TUNE);
+			field = (u32) (PAD_DS_DLY1);
+		} else {
+			reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
+			field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY1);
+		}
 		break;
 	case EMMC50_DS_Z_DLY1_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2831,8 +2895,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
-		field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLYSEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_PAD_DS_TUNE);
+			field = (u32) (PAD_DS_DLY_SEL);
+		} else {
+			reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
+			field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLYSEL);
+		}
 		break;
 	case EMMC50_DS_Z_DLY2:
 		if ((rw == AUTOK_WRITE) && (*value > 31)) {
@@ -2840,8 +2909,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
-		field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY2);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_PAD_DS_TUNE);
+			field = (u32) (PAD_DS_DLY2);
+		} else {
+			reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
+			field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY2);
+		}
 		break;
 	case EMMC50_DS_Z_DLY2_SEL:
 		if ((rw == AUTOK_WRITE) && (*value > 1)) {
@@ -2849,8 +2923,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
-		field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY2SEL);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_PAD_DS_TUNE);
+			field = (u32) (PAD_DS_DLY2_SEL);
+		} else {
+			reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
+			field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY2SEL);
+		}
 		break;
 	case EMMC50_DS_ZDLY_DLY:
 		if ((rw == AUTOK_WRITE) && (*value > 31)) {
@@ -2858,8 +2937,13 @@ static int autok_adjust_param(struct msdc_host *host,
 				 *value);
 			return -1;
 		}
-		reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
-		field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY3);
+		if (host->base_top) {
+			reg = (u32 *) (base_top + MSDC_TOP_PAD_DS_TUNE);
+			field = (u32) (PAD_DS_DLY3);
+		} else {
+			reg = (u32 *) (base + EMMC50_PAD_DS_TUNE);
+			field = (u32) (MSDC_EMMC50_PAD_DS_TUNE_DLY3);
+		}
 		break;
 	default:
 		pr_debug("Value of [enum AUTOK_PARAM param] is wrong\n");
@@ -3607,11 +3691,24 @@ static void msdc_pm(pm_message_t state, void *data)
 }
 #endif
 
+void sdio_set_card_clkpd(int on)
+{
+	if (!on)
+		sdr_clr_bits(sdio_host->base + MSDC_CFG,
+			 MSDC_CFG_CKPDN);
+	else
+		sdr_set_bits(sdio_host->base + MSDC_CFG,
+			 MSDC_CFG_CKPDN);
+}
+EXPORT_SYMBOL(sdio_set_card_clkpd);
+
 static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct msdc_host *host;
 	struct resource *res;
+	struct resource *res_top;
+	const struct of_device_id *of_id;
 	int ret;
 	u32 val;
 
@@ -3619,6 +3716,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "No DT found\n");
 		return -EINVAL;
 	}
+
+	of_id = of_match_node(msdc_of_ids, pdev->dev.of_node);
+	if (!of_id)
+		return -EINVAL;
 	/* Allocate MMC host for this device */
 	mmc = mmc_alloc_host(sizeof(struct msdc_host), &pdev->dev);
 	if (!mmc)
@@ -3636,17 +3737,27 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		goto host_free;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	host->infra_reset = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(host->infra_reset)) {
-		ret = PTR_ERR(host->infra_reset);
-		goto host_free;
-	}
+	host->dev_comp = of_id->data;
+	if (host->dev_comp->top_reg) {
+		res_top = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		host->base_top = devm_ioremap_resource(&pdev->dev, res_top);
+		if (IS_ERR(host->base_top)) {
+			ret = PTR_ERR(host->base_top);
+			goto host_free;
+		}
+	} else {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		host->infra_reset = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(host->infra_reset)) {
+			ret = PTR_ERR(host->infra_reset);
+			goto host_free;
+		}
 
-	if (!of_property_read_u32(pdev->dev.of_node,
-				 "module_reset_bit", &host->module_reset_bit))
-		dev_dbg(&pdev->dev, "module_reset_bit: %x\n",
+		if (!of_property_read_u32(pdev->dev.of_node,
+			"module_reset_bit", &host->module_reset_bit))
+			dev_dbg(&pdev->dev, "module_reset_bit: %x\n",
 				 host->module_reset_bit);
+	}
 
 	ret = mmc_regulator_get_supply(mmc);
 	if (ret == -EPROBE_DEFER)
@@ -3704,7 +3815,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	}
 
 	host->pins_dat1_eint = pinctrl_lookup_state(host->pinctrl,
-			"state_eint");
+		"state_eint");
 	if (IS_ERR(host->pins_dat1_eint)) {
 		ret = PTR_ERR(host->pins_dat1_eint);
 		dev_info(&pdev->dev, "Cannot find pinctrl dat1 eint!\n");
@@ -3768,21 +3879,23 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mmc);
 	msdc_ungate_clock(host);
 
-	/* just test module reset func */
-	sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_MODE);
-	/* do MSDC module reset */
-	val = readl(host->infra_reset);
-	pr_debug("init 0x10001030: 0x%x, MSDC_CFG: 0x%x\n",
-			val, readl(host->base + MSDC_CFG));
-	writel(0x1 << host->module_reset_bit, host->infra_reset);
-	val = readl(host->infra_reset);
-	udelay(1);
-	pr_debug("msdc module resetting 0x10001030: 0x%x\n", val);
-	writel(0x1 << host->module_reset_bit, host->infra_reset + 0x04);
-	udelay(1);
-	val = readl(host->infra_reset);
-	pr_info("msdc module reset done 0x10001030: 0x%x, MSDC_CFG: 0x%x\n",
-			val, readl(host->base + MSDC_CFG));
+	if (!host->dev_comp->top_reg) {
+		/* just test module reset func */
+		sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_MODE);
+		/* do MSDC module reset */
+		val = readl(host->infra_reset);
+		pr_debug("init 0x10001030: 0x%x, MSDC_CFG: 0x%x\n",
+				val, readl(host->base + MSDC_CFG));
+		writel(0x1 << host->module_reset_bit, host->infra_reset);
+		val = readl(host->infra_reset);
+		udelay(1);
+		pr_debug("msdc module resetting 0x10001030: 0x%x\n", val);
+		writel(0x1 << host->module_reset_bit, host->infra_reset + 0x04);
+		udelay(1);
+		val = readl(host->infra_reset);
+		pr_info("msdc module reset done 0x10001030: 0x%x, MSDC_CFG: 0x%x\n",
+				val, readl(host->base + MSDC_CFG));
+	}
 
 	msdc_init_hw(host);
 
@@ -3797,6 +3910,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		dev_info(host->dev, "failed to register data1 eint irq!\n");
 		goto release;
 	}
+
+	pinctrl_select_state(host->pinctrl, host->pins_dat1);
 #else
 	host->suspend = 0;
 
@@ -3816,7 +3931,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(host->dev);
 	pm_runtime_enable(host->dev);
 
-	mmc->caps2 |= MMC_CAP2_NO_PRESCAN_POWERUP;
+	if (!host->dev_comp->top_reg)
+		mmc->caps2 |= MMC_CAP2_NO_PRESCAN_POWERUP;
 	host->mmc->caps |= MMC_CAP_NONREMOVABLE;
 	host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
 	host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
@@ -3895,6 +4011,7 @@ static void msdc_save_reg(struct msdc_host *host)
 	host->save_para.patch_bit2 = readl(host->base + MSDC_PATCH_BIT2);
 	host->save_para.pad_ds_tune = readl(host->base + EMMC50_PAD_DS_TUNE);
 	host->save_para.emmc50_cfg0 = readl(host->base + EMMC50_CFG0);
+	host->save_para.msdc_inten = readl(host->base + MSDC_INTEN);
 }
 
 static void msdc_restore_reg(struct msdc_host *host)
@@ -3909,6 +4026,7 @@ static void msdc_restore_reg(struct msdc_host *host)
 	writel(host->save_para.patch_bit2, host->base + MSDC_PATCH_BIT2);
 	writel(host->save_para.pad_ds_tune, host->base + EMMC50_PAD_DS_TUNE);
 	writel(host->save_para.emmc50_cfg0, host->base + EMMC50_CFG0);
+	writel(host->save_para.msdc_inten, host->base + MSDC_INTEN);
 }
 
 static int msdc_runtime_suspend(struct device *dev)
@@ -3930,6 +4048,7 @@ static int msdc_runtime_suspend(struct device *dev)
 	spin_lock_irqsave(&host->irqlock, flags);
 	if (host->sdio_irq_cnt == 0) {
 		enable_irq(host->eint_irq);
+		enable_irq_wake(host->eint_irq);
 		host->sdio_irq_cnt++;
 		/*
 		 * if SDIO card do not support async irq,
@@ -3958,6 +4077,7 @@ static int msdc_runtime_resume(struct device *dev)
 	spin_lock_irqsave(&host->irqlock, flags);
 	if (host->sdio_irq_cnt > 0) {
 		disable_irq_nosync(host->eint_irq);
+		disable_irq_wake(host->eint_irq);
 		host->sdio_irq_cnt--;
 		if (mmc->card && (mmc->card->cccr.eai == 0))
 			pm_runtime_put_noidle(host->dev);
@@ -3973,14 +4093,36 @@ static int msdc_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops msdc_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
 				pm_runtime_force_resume)
 	SET_RUNTIME_PM_OPS(msdc_runtime_suspend, msdc_runtime_resume, NULL)
 };
 
+static const struct mt81xx_sdio_compatible mt8183_compat = {
+	.v3_plus = true,
+	.top_reg = true,
+};
+
+static const struct mt81xx_sdio_compatible mt8167_compat = {
+	.v3_plus = false,
+	.top_reg = false,
+};
+
+static const struct mt81xx_sdio_compatible mt2712_compat = {
+	.v3_plus = false,
+	.top_reg = false,
+};
+
+static const struct mt81xx_sdio_compatible mt8695_compat = {
+	.v3_plus = true,
+	.top_reg = false,
+};
+
 static const struct of_device_id msdc_of_ids[] = {
-	{   .compatible = "mediatek,mt8167-sdio", },
-	{   .compatible = "mediatek,mt8173-sdio", },
+	{ .compatible = "mediatek,mt8183-sdio", .data = &mt8183_compat},
+	{ .compatible = "mediatek,mt8167-sdio", .data = &mt8167_compat},
+	{ .compatible = "mediatek,mt2712-sdio", .data = &mt2712_compat},
+	{ .compatible = "mediatek,mt8695-sdio", .data = &mt8695_compat},
 	{}
 };
 
