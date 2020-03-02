@@ -785,6 +785,33 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 		.name = MT_SOC_BTCVSD_TX_DAI_NAME,
 		.ops = &mtk_dai_stub_ops,
 	},
+	{
+		.playback = {
+
+				.stream_name =
+					MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
+				.rates = SNDRV_PCM_RATE_8000_48000,
+				.formats = SND_SOC_ADV_MT_FMTS,
+				.channels_min = 1,
+				.channels_max = 2,
+				.rate_min = 8000,
+				.rate_max = 48000,
+		},
+		.capture = {
+
+				.stream_name =
+					MT_SOC_BTCVSD_CAPTURE_STREAM_NAME,
+				.rates = SNDRV_PCM_RATE_8000_48000,
+				.formats = SND_SOC_ADV_MT_FMTS,
+				.channels_min = 1,
+				.channels_max = 2,
+				.rate_min = 8000,
+				.rate_max = 48000,
+		},
+
+		.name = MT_SOC_BTCVSD_DAI_NAME,
+		.ops = &mtk_dai_stub_ops,
+	},
 #ifdef _NON_COMMON_FEATURE_READY
 	{
 		.capture = {
