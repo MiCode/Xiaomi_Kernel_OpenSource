@@ -401,6 +401,10 @@ config MTK_DM_VERITY_OFF
 	bool "Disable dm-verity"
 	default n
 
+config MTK_HIGH_FRAME_RATE
+	bool "high frame rate,for 90hz or 120hz display"
+	default n
+
 source "drivers/misc/mediatek/freqhopping/Kconfig"
 source "drivers/misc/mediatek/sspm/Kconfig"
 source "drivers/misc/mediatek/gpu/Kconfig"

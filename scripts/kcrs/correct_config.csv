@@ -561,6 +561,7 @@ CONFIG_MTK_GZ_KREE,PROJECT,chsuan.lin,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_GZ_SUPPORT_SDSP,PROJECT,sean-sy.su,,,,,,,,,,
 CONFIG_MTK_HDMI_SUPPORT,PROJECT,junzhi.zhao,new config in this commit 8981f73cf7bc71472ded61c12aa2a21239e1f68b,,,,,,,,,,,,,
 CONFIG_MTK_HDMI_TDM,PLATFORM,Michael.Hsiao,new config in this commit 3db7e757ff4b38b71bf2d09fc921a7d277d11b75,X,,X,,X,,X,,X,,X,,X
+CONFIG_MTK_HIGH_FRAME_RATE,PROJECT,Huadian.liu,,,,,,,,,,,,,,
 CONFIG_MTK_HMDYHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_HP_ANASWITCH,PROJECT,georgecy.lin,new config in this commit 378eb5b131260db917d022555fa920fa118ab3a1,,,,,,,,,,,,,
 CONFIG_MTK_HTS221,PROJECT,hongxu.zhao,new config in this commit 063ebd2dfda85d1c6ea1c0120c87fa93fc2570e8,,,,,,,,,,,,,
