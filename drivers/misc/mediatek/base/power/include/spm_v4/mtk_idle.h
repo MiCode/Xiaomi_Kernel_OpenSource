@@ -16,6 +16,14 @@
 
 #include <linux/notifier.h>
 
+enum {
+	IDLE_TYPE_DP = 0,
+	IDLE_TYPE_SO3,
+	IDLE_TYPE_SO,
+	IDLE_TYPE_RG,
+	NR_TYPES,
+};
+
 enum idle_lock_spm_id {
 	IDLE_SPM_LOCK_VCORE_DVFS = 0,
 };
