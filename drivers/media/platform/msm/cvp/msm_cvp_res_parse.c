@@ -626,17 +626,20 @@ err_load_clk_table_fail:
 	return rc;
 }
 
+#define MAX_CLK_RESETS 5
+
 static int msm_cvp_load_reset_table(
 		struct msm_cvp_platform_resources *res)
 {
 	struct platform_device *pdev = res->pdev;
 	struct reset_set *rst = &res->reset_set;
-	int num_clocks = 0, c = 0;
+	int num_clocks = 0, c = 0, ret = 0;
+	int pwr_stats[MAX_CLK_RESETS];
 
 	num_clocks = of_property_count_strings(pdev->dev.of_node,
 				"reset-names");
-	if (num_clocks <= 0) {
-		dprintk(CVP_DBG, "No reset clocks found\n");
+	if (num_clocks <= 0 || num_clocks > MAX_CLK_RESETS) {
+		dprintk(CVP_ERR, "Num reset clocks out of range\n");
 		rst->count = 0;
 		return 0;
 	}
@@ -648,12 +651,21 @@ static int msm_cvp_load_reset_table(
 
 	rst->count = num_clocks;
 	dprintk(CVP_DBG, "Found %d reset clocks\n", num_clocks);
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+				"reset-power-status", pwr_stats,
+				num_clocks);
+	if (ret) {
+		dprintk(CVP_ERR, "Failed to read reset pwr state: %d\n", ret);
+		devm_kfree(&pdev->dev, rst->reset_tbl);
+		return ret;
+	}
 
 	for (c = 0; c < num_clocks; ++c) {
 		struct reset_info *rc = &res->reset_set.reset_tbl[c];
 
 		of_property_read_string_index(pdev->dev.of_node,
 				"reset-names", c, &rc->name);
+		rc->required_state = pwr_stats[c];
 	}
 
 	return 0;
@@ -895,6 +907,7 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 		msm_cvp_comm_print_inst_info(inst);
 	}
 	core->smmu_fault_handled = true;
+	msm_cvp_noc_error_info(core);
 	mutex_unlock(&core->lock);
 	/*
 	 * Return -EINVAL to elicit the default behaviour of smmu driver.
