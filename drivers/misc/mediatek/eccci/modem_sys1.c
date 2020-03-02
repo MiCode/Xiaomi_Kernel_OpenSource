@@ -1216,7 +1216,9 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		md_cd_lock_modem_clock_src(0);
 		CCCI_MEM_LOG_TAG(md->index, TAG, "wdt_enabled=%d\n",
 			atomic_read(&md->wdt_enabled));
+#ifdef CONFIG_MTK_GIC_V3_EXT
 		mt_irq_dump_status(md->md_wdt_irq_id);
+#endif
 	}
 
 	if (flag & DUMP_MD_BOOTUP_STATUS)
@@ -1281,8 +1283,10 @@ static ssize_t md_cd_dump_show(struct ccci_modem *md, char *buf)
 static ssize_t md_cd_dump_store(struct ccci_modem *md,
 	const char *buf, size_t count)
 {
+#ifdef CONFIG_MTK_GIC_V3_EXT
 	struct md_sys1_info *md_info =
 		(struct md_sys1_info *)md->private_data;
+#endif
 	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
 	/* echo will bring "xxx\n" here,
 	 * so we eliminate the "\n" during comparing
@@ -1317,7 +1321,9 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 			md->ops->dump_info(md, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
 		if (strncmp(buf, "ccif_irq", count - 1) == 0) {
 			CCCI_ERROR_LOG(md->index, TAG, "dump ccif.\n");
+#ifdef CONFIG_MTK_GIC_V3_EXT
 			mt_irq_dump_status(md_info->ap_ccif_irq_id);
+#endif
 		}
 		if (strncmp(buf, "dpmaif", count - 1) == 0)
 			ccci_hif_dump_status(1<<DPMAIF_HIF_ID,

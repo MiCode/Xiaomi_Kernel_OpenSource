@@ -62,8 +62,8 @@ void ccci_get_platform_version(char *ver)
 }
 
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
-static int ccci_md_low_power_notify(struct ccci_modem *md,
-	enum LOW_POEWR_NOTIFY_TYPE type, int level)
+static int ccci_md_low_power_notify(
+	struct ccci_modem *md, enum LOW_POEWR_NOTIFY_TYPE type, int level)
 {
 	unsigned int reserve = 0xFFFFFFFF;
 	int ret = 0;
@@ -144,7 +144,6 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 
 	{
 		int reset_bit = -1;
-		unsigned int reg_value;
 
 		switch (ccif_id) {
 		case AP_MD1_CCIF:
@@ -160,21 +159,15 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 		 *CCIF's busy/wch/irq, but not SRAM
 		 */
 		/*set reset bit*/
-		reg_value = ccci_read32(infra_ao_base, 0x150);
-		reg_value &= ~(1 << reset_bit);
-		reg_value |= (1 << reset_bit);
-		ccci_write32(infra_ao_base, 0x150, reg_value);
+		ccci_write32(infra_ao_base, 0x150, 1 << reset_bit);
 		/*clear reset bit*/
-		reg_value = ccci_read32(infra_ao_base, 0x154);
-		reg_value &= ~(1 << reset_bit);
-		reg_value |= (1 << reset_bit);
-		ccci_write32(infra_ao_base, 0x154, reg_value);
+		ccci_write32(infra_ao_base, 0x154, 1 << reset_bit);
 	}
 
 	/* clear SRAM */
 	for (i = 0; i < PCCIF_SRAM_SIZE/sizeof(unsigned int); i++) {
-		ccci_write32(baseA, PCCIF_CHDATA+i*sizeof(unsigned int), 0);
-		ccci_write32(baseB, PCCIF_CHDATA+i*sizeof(unsigned int), 0);
+		ccif_write32(baseA, PCCIF_CHDATA+i*sizeof(unsigned int), 0);
+		ccif_write32(baseB, PCCIF_CHDATA+i*sizeof(unsigned int), 0);
 	}
 
 	/* extend from 36bytes to 72bytes in CCIF SRAM */
@@ -183,13 +176,13 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 	 */
 	region = ccci_md_get_smem_by_user_id(md_id,
 		SMEM_USER_RAW_MDSS_DBG);
-	ccci_write32(baseA,
+	ccif_write32(baseA,
 		PCCIF_CHDATA + PCCIF_SRAM_SIZE - 3 * sizeof(u32),
 		0x7274626E);
-	ccci_write32(baseA,
+	ccif_write32(baseA,
 		PCCIF_CHDATA + PCCIF_SRAM_SIZE - 2 * sizeof(u32),
 		region->base_md_view_phy);
-	ccci_write32(baseA,
+	ccif_write32(baseA,
 		PCCIF_CHDATA + PCCIF_SRAM_SIZE - sizeof(u32),
 		region->size);
 }

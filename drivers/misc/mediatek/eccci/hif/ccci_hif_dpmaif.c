@@ -327,7 +327,9 @@ static int dpmaif_dump_status(unsigned char hif_id,
 	if (flag & DUMP_FLAG_IRQ_STATUS) {
 		CCCI_NORMAL_LOG(hif_ctrl->md_id, TAG,
 			"Dump AP DPMAIF IRQ status\n");
+#ifdef CONFIG_MTK_GIC_V3_EXT
 		mt_irq_dump_status(hif_ctrl->dpmaif_irq_id);
+#endif
 	}
 
 	return 0;
@@ -2971,7 +2973,7 @@ static int dpmaif_stop_rxq(struct dpmaif_rx_queue *rxq)
 		page = cur_page->page;
 		if (page != NULL) {
 			/* rx unmapping */
-			dma_unmap_single(
+			dma_unmap_page(
 				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
 				cur_page->data_phy_addr, cur_page->data_len,
 				DMA_FROM_DEVICE);

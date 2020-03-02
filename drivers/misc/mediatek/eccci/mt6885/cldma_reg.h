@@ -25,21 +25,6 @@
 #define INFRA_CLDMA_CTRL_REG (0x0C00)
 #define CLDMA_IP_BUSY_MASK (1 << 1)
 
-#define INFRA_AP2MD_DUMMY_REG	(0x370)
-#define INFRA_AP2MD_DUMMY_BIT	0
-#define	INFRA_MD2PERI_PROT_EN	(0x250)
-#define	INFRA_MD2PERI_PROT_RDY	(0x258)
-#define	INFRA_MD2PERI_PROT_SET	(0x2A8)
-#define	INFRA_MD2PERI_PROT_CLR	(0x2AC)
-#define	INFRA_MD2PERI_PROT_BIT	6
-
-#define	INFRA_PERI2MD_PROT_EN	(0x220)
-#define	INFRA_PERI2MD_PROT_RDY	(0x228)
-#define	INFRA_PERI2MD_PROT_SET	(0x2A0)
-#define	INFRA_PERI2MD_PROT_CLR	(0x2A4)
-#define	INFRA_PERI2MD_PROT_BIT	7
-
-#define INFRA_AO_MD_SRCCLKENA    (0xF0C) /* SRC CLK ENA */
 /*=====================CLDMA_AO_UL_CFG: 10014004-1001402C=====================*/
 /* The start address of first TGPD descriptor for power-down back-up. */
 #define CLDMA_AP_UL_START_ADDR_BK_0      (0x0004)

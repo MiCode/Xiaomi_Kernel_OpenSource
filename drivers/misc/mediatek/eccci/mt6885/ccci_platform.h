@@ -17,23 +17,6 @@
 #include <mt-plat/sync_write.h>
 #include "ccci_config.h"
 #include "modem_sys.h"
-#include "hif/ccci_hif_cldma.h"
-
-/* the last EMI bank, properly not used */
-#define INVALID_ADDR (0xF0000000)
-#define KERN_EMI_BASE (0x40000000)	/* Bank4 */
-
-/* - AP side, using mcu config base */
-/* -- AP Bank4 */
-/* ((volatile unsigned int*)(MCUSYS_CFGREG_BASE+0x200)) */
-#define AP_BANK4_MAP0 (0)
-/* ((volatile unsigned int*)(MCUSYS_CFGREG_BASE+0x204)) */
-#define AP_BANK4_MAP1 (0)
-
-/* - MD side, using infra config base */
-#define DBG_FLAG_DEBUG		(1<<0)
-#define DBG_FLAG_JTAG		(1<<1)
-#define MD_DBG_JTAG_BIT		(1<<0)
 
 #define ccci_write32(b, a, v)           mt_reg_sync_writel(v, (b)+(a))
 #define ccci_write16(b, a, v)           mt_reg_sync_writew(v, (b)+(a))
@@ -53,9 +36,11 @@ void ccci_get_platform_version(char *ver);
 int ccci_plat_common_init(void);
 int ccci_platform_init(struct ccci_modem *md);
 void ccci_reset_ccif_hw(unsigned char md_id,
-	int ccif_id, void __iomem *baseA, void __iomem *baseB);
+			int ccif_id, void __iomem *baseA, void __iomem *baseB);
 void ccci_set_clk_cg(struct ccci_modem *md, unsigned int is_on);
+#ifdef ENABLE_DRAM_API
+extern phys_addr_t get_max_DRAM_size(void);
+#endif
 int Is_MD_EMI_voilation(void);
-/* ((ccci_get_md_debug_mode(md)&(DBG_FLAG_JTAG|DBG_FLAG_DEBUG)) != 0) */
 #define MD_IN_DEBUG(md) (0)
 #endif	/* __CCCI_PLATFORM_H__ */

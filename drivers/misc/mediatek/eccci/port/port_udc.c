@@ -20,7 +20,7 @@
 #define MAX_QUEUE_LENGTH 16
 
 #define Min(a, b) (a < b ? a : b)
-#if (MD_GENERATION == 6295)
+#if (MD_GENERATION >= 6295)
 #define MAX_PACKET_SIZE 1277936 /* (2.4375*1024*1024 -32)/2 */
 #define COMP_DATA_OFFSET (0xC00000 + 32)
 #define RW_INDEX_OFFSET 0xC00000

@@ -15,8 +15,8 @@
 #define __ECCCI_INTERNAL_OPTION__
 
 /* platform info */
-#define MD_GENERATION       (6293)
-#define MD_PLATFORM_INFO    "6293"
+#define MD_GENERATION       (6297)
+#define MD_PLATFORM_INFO    "6297"
 #define AP_PLATFORM_INFO    "MT6885"
 #define CCCI_DRIVER_VER     0x20110118
 
@@ -50,10 +50,32 @@
 #define IPC_L4C_MSG_ID_LEN   (0x40)
 
 /* feature option, always try using platform info first! */
+#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 #define FEATURE_SCP_CCCI_SUPPORT
+#endif
 /*#define ENABLE_EMI_PROTECTION*/
 #define ENABLE_32K_CLK_LESS
-/* #define FEATURE_CLK_BUF */
-/*#define CCCI_LOG_LEVEL     1*/
 
+#define HW_CHECK_SUM_ENABLE
+#define HW_FRG_FEATURE_ENABLE
+#ifdef HW_FRG_FEATURE_ENABLE
+/* #define FRG_FEATURE_TEST */
+#ifdef FRG_FEATURE_TEST
+/* 1024 + 2432 = 3456 */
+#define DPMAIF_PKT_SIZE      (128*8) /* == 1024 */
+#define DPMAIF_FRG_SIZE      (128*19) /* 2432 */
+#else
+/* 1664 + 1920 = 3584 (> 3* 1024)+8 */
+#define DPMAIF_PKT_SIZE      (128*13) /* == 1664 */
+#define DPMAIF_FRG_SIZE      (128*15) /* 1920  */
+#endif
+#else
+#define DPMAIF_PKT_SIZE      (128*28) /* 3584 ==SKB_4K */
+#define DPMAIF_FRG_SIZE      (128) /* =_=, no used */
+#endif
+
+/*#define CCCI_LOG_LEVEL     1*/
+/*#define FEATURE_CLK_BUF*/
+/*#define DPMAIF_DEBUG_LOG*/
+#define DEBUG_FOR_CCB
 #endif

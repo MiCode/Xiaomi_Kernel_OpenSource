@@ -55,9 +55,8 @@ obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci.o
 
 # platform dependent parts
 ccci-y := ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj)
-ifeq ($(CONFIG_MTK_ECCCI_CLDMA), y)
+ccci-y += ap_md_reg_dump.o
 ccci-y += md_sys1_platform.o
-endif
 
 else
 obj-  := dummy.o # avoid build error
