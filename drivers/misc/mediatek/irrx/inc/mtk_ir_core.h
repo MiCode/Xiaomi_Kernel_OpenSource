@@ -82,7 +82,6 @@ struct mtk_ir_hw {
 	u32 irrx_chip_id;
 	u32 irrx_irq;
 	u32 irrx_irq_type;
-	struct clk *irrx_clk;
 	void __iomem *irrx_base_addr;
 };
 
