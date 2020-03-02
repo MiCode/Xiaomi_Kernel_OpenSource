@@ -1184,6 +1184,12 @@ int32_t cmdq_sec_init_allocate_resource_thread(void *data)
 	return status;
 }
 
+/* empty function to compatible with mailbox */
+s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
+{
+	return 0;
+}
+
 /*
  * Insert instruction to back secure threads' cookie count to normal world
  * Return:
