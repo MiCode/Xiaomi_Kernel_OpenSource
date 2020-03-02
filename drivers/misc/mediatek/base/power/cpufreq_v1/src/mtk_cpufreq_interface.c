@@ -316,6 +316,7 @@ static ssize_t cpufreq_volt_proc_write(struct file *file,
 	struct mt_cpu_dvfs *p = PDE_DATA(file_inode(file));
 #ifndef CONFIG_HYBRID_CPU_DVFS
 	struct buck_ctrl_t *vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
+	int ret = 0;
 #endif
 	int uv;
 	int rc;
@@ -341,7 +342,10 @@ static ssize_t cpufreq_volt_proc_write(struct file *file,
 #endif
 #else
 		vproc_p->fix_volt = uv / 10;
-		set_cur_volt_wrapper(p, vproc_p->fix_volt);
+		ret = set_cur_volt_wrapper(p, vproc_p->fix_volt);
+		if (ret)
+			tag_pr_info("%s err to set_cur_volt_wrapper ret = %d\n",
+					__func__, ret);
 #endif
 		cpufreq_unlock(flags);
 	}
