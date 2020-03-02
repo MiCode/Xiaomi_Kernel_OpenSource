@@ -1676,7 +1676,7 @@ static int jpeg_probe(struct platform_device *pdev)
 	    (struct class_device *)device_create(jenc_class,
 			 NULL, jenc_devno, NULL, JPEG_DEVNAME);
 #else
-	proc_create("mtk_jpeg", 0x644, NULL, &jpeg_fops);
+	proc_create("mtk_jpeg", 0644, NULL, &jpeg_fops);
 #endif
 }
 
