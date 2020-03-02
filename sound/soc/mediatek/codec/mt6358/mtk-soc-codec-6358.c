@@ -5042,7 +5042,6 @@ enum AUDIO_MIC_MODE {
 	AUDIO_MIC_MODE_DCCECMSINGLE,
 };
 
-#ifdef CONFIG_MT6771_QUERY_PCB_ID
 #ifndef CONFIG_MT8183_QUERY_PCB_ID_METHOD
 enum pcb_id_index {
 	PCD_ID_1 = 0, /* GPIO175 */
@@ -5168,8 +5167,8 @@ static int Audio_MIC_Mode_Get(struct snd_kcontrol *kcontrol,
 		ucontrol->value.integer.value[0] = mic_mode;
 	else
 		ucontrol->value.integer.value[0] = AUDIO_MIC_MODE_ACC;
-	pr_debug("%s(), return MIC_MODE: %ld\n",
-		 __func__, ucontrol->value.integer.value[0]);
+	pr_info("%s(), return MIC_MODE: %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
 	return 0;
 }
 
@@ -5179,7 +5178,7 @@ static int Audio_MIC_Mode_Set(struct snd_kcontrol *kcontrol,
 	pr_debug("%s(), not support\n", __func__);
 	return 0;
 }
-#endif
+
 static int hp_impedance_get(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
@@ -5314,10 +5313,8 @@ static const struct snd_kcontrol_new mt6358_snd_controls[] = {
 		       hp_impedance_get, hp_impedance_set),
 	SOC_ENUM_EXT("Headphone Plugged In", Audio_DL_Enum[0],
 		     hp_plugged_in_get, hp_plugged_in_set),
-#ifdef CONFIG_MT6771_QUERY_PCB_ID
 	SOC_SINGLE_EXT("Audio_MIC_Mode", SND_SOC_NOPM, 0, 6, 0,
 		       Audio_MIC_Mode_Get, Audio_MIC_Mode_Set),
-#endif
 #ifdef ANALOG_HPTRIM
 	SOC_ENUM_EXT("Disable Analog DC Compensation", Audio_DL_Enum[0],
 		     disable_pmic_dctrim_get,
@@ -7728,12 +7725,8 @@ static int dc_trim_thread(void *arg)
 	get_hp_lr_trim_offset();
 
 #ifdef CONFIG_MTK_ACCDET
-#ifdef CONFIG_MT6771_QUERY_PCB_ID
-	accdet_late_init(get_mic_mode());
-#else
 	/* By default, set mic mode as AUDIO_MIC_MODE_ACC */
 	accdet_late_init(AUDIO_MIC_MODE_ACC);
-#endif
 #endif
 
 	do_exit(0);
