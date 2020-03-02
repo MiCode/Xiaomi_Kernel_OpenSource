@@ -24,10 +24,7 @@
 #endif
 
 #include <mt-plat/upmu_common.h>
-/* k414 FIXME */
-//#include "mtk_spm_resource_req.h"
-//#include "mtk_idle.h"
-#//include "mtk_clk_id.h"
+#include "mtk_spm_resource_req.h"
 #include "musb_core.h"
 
 #include <linux/module.h>
@@ -87,8 +84,7 @@ static void VA09_operation(int op, bool force)
 }
 
 static int dpidle_status = USB_DPIDLE_ALLOWED;
-/* k414 FIXME */
-//static DEFINE_SPINLOCK(usb_hal_dpidle_lock);
+static DEFINE_SPINLOCK(usb_hal_dpidle_lock);
 #define DPIDLE_TIMER_INTERVAL_MS 30
 static void issue_dpidle_timer(void);
 static void dpidle_timer_wakeup_func(unsigned long data)
@@ -128,8 +124,6 @@ static void issue_dpidle_timer(void)
 
 void usb_hal_dpidle_request(int mode)
 {
-	/* k414 FIXME */
-#if 0
 	unsigned long flags;
 
 #ifdef U3_COMPLIANCE
@@ -182,7 +176,6 @@ void usb_hal_dpidle_request(int mode)
 	}
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
-#endif
 }
 
 static bool usb_enable_clock(bool enable)
