@@ -42,7 +42,7 @@
 
 /* Wrap SPM/MMDVFS code for early porting */
 #define MTK_FB_SPM_SUPPORT
-/* #define MTK_FB_MMDVFS_SUPPORT*/
+#define MTK_FB_MMDVFS_SUPPORT
 /* #define DISP_SYNC_ENABLE */
 #define MTK_FB_ION_SUPPORT
 #define VIDEO_LAYER_COUNT (3)
