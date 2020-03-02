@@ -700,14 +700,14 @@ static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(smi_dev[id]->dev, res);
 	if (IS_ERR(base)) {
-		dev_info(&pdev->dev, "SMI%u base:%#p read failed\n",
+		dev_info(&pdev->dev, "SMI%u base:%p read failed\n",
 			id, base);
 		return PTR_ERR(base);
 	}
 	smi_dev[id]->base = base;
 	of_address_to_resource(smi_dev[id]->dev->of_node, 0, res);
 	dev_info(&pdev->dev,
-		"SMI%u base: VA=%#p, PA=%pa\n", id, base, &res->start);
+		"SMI%u base: VA=%p, PA=%pa\n", id, base, &res->start);
 
 	platform_set_drvdata(pdev, smi_dev[id]);
 	return mtk_smi_clks_get(smi_dev[id]);
