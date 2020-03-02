@@ -9196,7 +9196,7 @@ static inline ssize_t ufshcd_pm_lvl_store(struct device *dev,
 					   bool rpm)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	unsigned long flags, value;
+	unsigned long flags, value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
