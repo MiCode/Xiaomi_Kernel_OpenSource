@@ -41,6 +41,7 @@ obj-y += mmdvfs_mgr_util.o
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))
 ccflags-y += -DSMI_SYL
 ccflags-y += -DDYNAMIC_DISP_HRT
+ccflags-y += -DMMDVFS_HOOK
 ccflags-y += -I$(srctree)/drivers/clk/mediatek
 obj-y += mmdvfs_mgr_v3.o
 obj-y += mmdvfs_profile_adaptor.o
