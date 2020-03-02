@@ -25,6 +25,7 @@
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/log2.h>
 
 #include "hf_manager.h"
 
@@ -71,6 +72,17 @@ void coordinate_map(unsigned char direction, int32_t *data)
 	data[2] = temp[2];
 }
 
+static bool filter_event_by_timestamp(struct hf_client_fifo *hf_fifo,
+		struct hf_manager_event *event)
+{
+	if (hf_fifo->last_time_stamp[event->sensor_id] ==
+			event->timestamp) {
+		return true;
+	}
+	hf_fifo->last_time_stamp[event->sensor_id] = event->timestamp;
+	return false;
+}
+
 static int hf_manager_report_event(struct hf_client *client,
 		struct hf_manager_event *event)
 {
@@ -80,12 +92,27 @@ static int hf_manager_report_event(struct hf_client *client,
 
 	spin_lock_irqsave(&hf_fifo->buffer_lock, flags);
 	if (unlikely(hf_fifo->buffull == true)) {
-		pr_err_ratelimited("%s [%s][%d:%d] full, head:%d, tail:%d\n",
+		pr_err_ratelimited("%s [%s][%d:%d] buffer full, [%d,%d]\n",
 			__func__, client->proc_comm, client->leader_pid,
 			client->pid, hf_fifo->head, hf_fifo->tail);
-		spin_unlock(&hf_fifo->buffer_lock);
+		spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 		wake_up_interruptible(&hf_fifo->wait);
+		/*
+		 * must return -1 when buffer full, tell caller retry
+		 * send data some times later.
+		 */
 		return -1;
+	}
+	if (unlikely(filter_event_by_timestamp(hf_fifo, event))) {
+		pr_err_ratelimited("%s [%s][%d:%d] filterd, [%d,%lld]\n",
+			__func__, client->proc_comm, client->leader_pid,
+			client->pid, event->sensor_id, event->timestamp);
+		spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
+		/*
+		 * must return 0 when timestamp filtered, tell caller data
+		 * already in buffer, don't need send again.
+		 */
+		return 0;
 	}
 	hf_fifo->buffer[hf_fifo->head++] = *event;
 	hf_fifo->head &= hf_fifo->bufsize - 1;
@@ -114,6 +141,12 @@ static void hf_manager_io_schedule(struct hf_manager *manager)
 static int hf_manager_io_report(struct hf_manager *manager,
 		struct hf_manager_event *event)
 {
+	/* must return 0 when sensor_id exceed and no need to retry */
+	if (unlikely(event->sensor_id >= HIGH_FREQUENCY_SENSOR_MAX)) {
+		pr_err_ratelimited("%s %d exceed max sensor id\n", __func__,
+			event->sensor_id);
+		return 0;
+	}
 	return hf_manager_find_client(event);
 }
 
@@ -200,7 +233,7 @@ int hf_manager_create(struct hf_device *device)
 	device->manager = manager;
 
 	manager->io_enabled = false;
-	manager->io_poll_interval = KTIME_MAX;
+	manager->io_poll_interval = S64_MAX;
 
 	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags);
 	clear_bit(HF_MANAGER_IO_READY, &manager->flags);
@@ -224,6 +257,12 @@ int hf_manager_create(struct hf_device *device)
 
 	for (i = 0; i < device->support_size; ++i) {
 		sensor_id = device->support_list[i];
+		if (unlikely(sensor_id >= HIGH_FREQUENCY_SENSOR_MAX)) {
+			pr_err("%s %s %d exceed max sensor id\n", __func__,
+				device->dev_name, sensor_id);
+			err = -EINVAL;
+			goto out_err;
+		}
 		if (test_and_set_bit(sensor_id, sensor_list_bitmap)) {
 			pr_err("%s %s %d repeat\n", __func__,
 				device->dev_name, sensor_id);
@@ -314,9 +353,9 @@ static void hf_manager_update_client_param(
 		client->request[cmd->sensor_id].start_time = sched_clock();
 	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
 		client->request[cmd->sensor_id].action = cmd->action;
-		client->request[cmd->sensor_id].delay = KTIME_MAX;
-		client->request[cmd->sensor_id].latency = KTIME_MAX;
-		client->request[cmd->sensor_id].start_time = KTIME_MAX;
+		client->request[cmd->sensor_id].delay = S64_MAX;
+		client->request[cmd->sensor_id].latency = S64_MAX;
+		client->request[cmd->sensor_id].start_time = S64_MAX;
 	}
 }
 
@@ -327,8 +366,8 @@ static void hf_manager_find_best_param(uint8_t sensor_id,
 	struct hf_client *client = NULL;
 	struct sensor_state *request = NULL;
 	uint8_t tmp_action = HF_MANAGER_SENSOR_DISABLE;
-	int64_t tmp_delay = KTIME_MAX;
-	int64_t tmp_latency = KTIME_MAX;
+	int64_t tmp_delay = S64_MAX;
+	int64_t tmp_latency = S64_MAX;
 
 	spin_lock_irqsave(&hf_client_list_lock, flags);
 	list_for_each_entry(client, &hf_client_list, list) {
@@ -392,8 +431,8 @@ static int hf_manager_device_enable(struct hf_device *device,
 	int err = 0;
 	struct hf_manager *manager = device->manager;
 	uint8_t best_action = HF_MANAGER_SENSOR_DISABLE;
-	int64_t best_delay = KTIME_MAX;
-	int64_t best_latency = KTIME_MAX;
+	int64_t best_delay = S64_MAX;
+	int64_t best_latency = S64_MAX;
 
 	if (!device->enable || !device->batch)
 		return -EINVAL;
@@ -471,7 +510,7 @@ static int hf_manager_drive_device(struct hf_client *client,
 	struct hf_device *device = NULL;
 	uint8_t sensor_id = cmd->sensor_id;
 
-	if (sensor_id >= HIGH_FREQUENCY_SENSOR_MAX)
+	if (unlikely(sensor_id >= HIGH_FREQUENCY_SENSOR_MAX))
 		return -EINVAL;
 
 	mutex_lock(&hf_manager_list_mtx);
@@ -540,7 +579,7 @@ static int hf_manager_open(struct inode *inode, struct file *filp)
 	hf_fifo = &client->hf_fifo;
 	hf_fifo->head = 0;
 	hf_fifo->tail = 0;
-	hf_fifo->bufsize = HF_MANAGER_FIFO_SIZE;
+	hf_fifo->bufsize = roundup_pow_of_two(HF_MANAGER_FIFO_SIZE);
 	hf_fifo->buffull = false;
 	spin_lock_init(&hf_fifo->buffer_lock);
 	init_waitqueue_head(&hf_fifo->wait);
@@ -678,7 +717,7 @@ static long hf_manager_ioctl(struct file *filp,
 			return -EINVAL;
 		if (copy_from_user(&sensor_id, ubuf, sizeof(sensor_id)))
 			return -EFAULT;
-		if (sensor_id >= HIGH_FREQUENCY_SENSOR_MAX)
+		if (unlikely(sensor_id >= HIGH_FREQUENCY_SENSOR_MAX))
 			return -EINVAL;
 		result = test_bit(sensor_id, sensor_list_bitmap);
 		if (copy_to_user(ubuf, &result, sizeof(result)))
@@ -792,9 +831,9 @@ static int __init hf_manager_init(void)
 
 	for (i = 0; i < HIGH_FREQUENCY_SENSOR_MAX; ++i) {
 		prev_request[i].action = HF_MANAGER_SENSOR_DISABLE;
-		prev_request[i].delay = KTIME_MAX;
-		prev_request[i].latency = KTIME_MAX;
-		prev_request[i].start_time = KTIME_MAX;
+		prev_request[i].delay = S64_MAX;
+		prev_request[i].latency = S64_MAX;
+		prev_request[i].start_time = S64_MAX;
 	}
 
 	major = register_chrdev(0, "hf_manager", &hf_manager_fops);
