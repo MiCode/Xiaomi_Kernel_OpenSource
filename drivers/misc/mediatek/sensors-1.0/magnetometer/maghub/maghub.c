@@ -111,20 +111,20 @@ static int maghub_ReadChipInfo(char *buf, int bufsize)
 
 static ssize_t chipinfo_show(struct device_driver *ddri, char *buf)
 {
-	char strbuf[MAGHUB_BUFSIZE];
+	char strbuf[MAGHUB_BUFSIZE] = {0};
 
 	maghub_ReadChipInfo(strbuf, MAGHUB_BUFSIZE);
-	return sprintf(buf, "%s\n", strbuf);
+	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 static ssize_t sensordata_show(struct device_driver *ddri,
 	char *buf)
 {
-	char strbuf[MAGHUB_BUFSIZE];
+	char strbuf[MAGHUB_BUFSIZE] = {0};
 
 	maghub_m_setPowerMode(true);
 	msleep(20);
 	maghub_GetMData(strbuf, MAGHUB_BUFSIZE);
-	return sprintf(buf, "%s\n", strbuf);
+	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {

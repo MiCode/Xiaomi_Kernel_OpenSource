@@ -98,7 +98,7 @@ static int barohub_get_pressure(char *buf, int bufsize)
 }
 static ssize_t sensordata_show(struct device_driver *ddri, char *buf)
 {
-	char strbuf[BAROHUB_BUFSIZE];
+	char strbuf[BAROHUB_BUFSIZE] = {0};
 	int err = 0;
 
 	err = barohub_set_powermode(true);
@@ -111,7 +111,7 @@ static ssize_t sensordata_show(struct device_driver *ddri, char *buf)
 		pr_err("barohub_set_powermode fail!!\n");
 		return 0;
 	}
-	return sprintf(buf, "%s\n", strbuf);
+	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {
