@@ -1286,7 +1286,7 @@ static void __init mtk_apmixed_init(struct device_node *node)
 	clk_clrl(APLL1_PWR_CON0, PLL_PWR_ON);
 #endif
 }
-CLK_OF_DECLARE(mtk_apmixed, "mediatek,apmixed", mtk_apmixed_init);
+CLK_OF_DECLARE_DRIVER(mtk_apmixed, "mediatek,apmixed", mtk_apmixed_init);
 
 static void __init mtk_top_init(struct device_node *node)
 {
@@ -1356,7 +1356,7 @@ static void __init mtk_top_init(struct device_node *node)
 #endif
 
 }
-CLK_OF_DECLARE(mtk_top, "mediatek,topckgen", mtk_top_init);
+CLK_OF_DECLARE_DRIVER(mtk_top, "mediatek,topckgen", mtk_top_init);
 
 static void __init mtk_infra_init(struct device_node *node)
 {
@@ -1395,7 +1395,7 @@ static void __init mtk_infra_init(struct device_node *node)
 	clk_writel(MODULE_SW_CG_3_SET, INFRA_CG3);
 #endif
 }
-CLK_OF_DECLARE(mtk_infra, "mediatek,infracfg_ao", mtk_infra_init);
+CLK_OF_DECLARE_DRIVER(mtk_infra, "mediatek,infracfg_ao", mtk_infra_init);
 
 static void __init mtk_audio_init(struct device_node *node)
 {
@@ -1431,7 +1431,7 @@ static void __init mtk_audio_init(struct device_node *node)
 
 
 }
-CLK_OF_DECLARE(mtk_audio, "mediatek,audio", mtk_audio_init);
+CLK_OF_DECLARE_DRIVER(mtk_audio, "mediatek,audio", mtk_audio_init);
 
 static void __init mtk_mm_init(struct device_node *node)
 {
@@ -1461,7 +1461,7 @@ static void __init mtk_mm_init(struct device_node *node)
 	/*won't touch MMSYS*/
 #endif
 }
-CLK_OF_DECLARE(mtk_mm, "mediatek,mmsys_config", mtk_mm_init);
+CLK_OF_DECLARE_DRIVER(mtk_mm, "mediatek,mmsys_config", mtk_mm_init);
 
 static void __init mtk_img_init(struct device_node *node)
 {
@@ -1492,7 +1492,7 @@ static void __init mtk_img_init(struct device_node *node)
 	clk_writel(IMG_CG_SET, IMG_DISABLE_CG);
 #endif
 }
-CLK_OF_DECLARE(mtk_img, "mediatek,imgsys", mtk_img_init);
+CLK_OF_DECLARE_DRIVER(mtk_img, "mediatek,imgsys", mtk_img_init);
 
 static void __init mtk_venc_init(struct device_node *node)
 {
@@ -1524,7 +1524,7 @@ static void __init mtk_venc_init(struct device_node *node)
 	clk_writel(VCODECSYS_CG_CLR, VEN_DISABLE_CG);
 #endif
 }
-CLK_OF_DECLARE(mtk_venc, "mediatek,venc_global_con", mtk_venc_init);
+CLK_OF_DECLARE_DRIVER(mtk_venc, "mediatek,venc_global_con", mtk_venc_init);
 
 unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
