@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/proc_fs.h>
 #include <linux/iopoll.h>
 #include <linux/io.h>
 #include <linux/iio/iio.h>
@@ -91,14 +92,24 @@ static const struct iio_chan_spec mt6577_auxadc_iio_channels[] = {
 };
 
 /* For calibration */
-#define ADC_GE_OE_MASK 0x000003ff
+#define ADC_GE_OE_MASK          0x000003ff
+#define ADC_GE_OE_EN_MASK       0x00000001
 
-static u32 cali_reg;
-static s32 cali_oe;
-static s32 cali_ge;
-static u32 cali_ge_a;
-static u32 cali_oe_a;
-static u32 gain;
+struct adc_cali_info {
+	u32 efuse_en_bs;        /* dt efuse en bit shift */
+	u32 efuse_ge_bs;        /* dt efuse ge bit shift */
+	u32 efuse_oe_bs;        /* dt efuse oe bit shift */
+	u32 efuse_idx;          /* dt efuse index */
+	u32 efuse_reg_value;    /* efuse reg value */
+	u32 efuse_en;           /* efuse en value */
+	u32 efuse_ge;           /* efuse ge value */
+	u32 efuse_oe;           /* efuse oe value */
+	s32 cali_ge;            /* cali ge value */
+	s32 cali_oe;            /* cali oe value */
+	u32 gain;               /* gain value */
+};
+
+static struct adc_cali_info adc_cali;
 
 extern u32 __attribute__((weak)) get_devinfo_with_index(u32 index)
 {
@@ -108,61 +119,61 @@ extern u32 __attribute__((weak)) get_devinfo_with_index(u32 index)
 static void mt_auxadc_update_cali(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-	u32 efuse_index = 0, en_bit_shift = 0,
-		ge_bit_shift = 0, oe_bit_shift = 0;
+	u32 reg;
 	int ret = 0;
-
-	cali_oe = 0;
-	cali_ge = 0;
 
 	if (np) {
 		ret = of_property_read_u32(np, "mediatek,cali-en-bit",
-			&en_bit_shift);
+			&adc_cali.efuse_en_bs);
 		if (ret == 0)
 			pr_info("find node mediatek,cali-en-bit:%d\n",
-				en_bit_shift);
+				adc_cali.efuse_en_bs);
 		else
 			return;
 
 		ret = of_property_read_u32(np, "mediatek,cali-ge-bit",
-			&ge_bit_shift);
+			&adc_cali.efuse_ge_bs);
 		if (ret == 0)
 			pr_info("find node mediatek,cali-ge-bit:%d\n",
-				ge_bit_shift);
+				adc_cali.efuse_ge_bs);
 		else
 			return;
 
 		ret = of_property_read_u32(np, "mediatek,cali-oe-bit",
-			&oe_bit_shift);
+			&adc_cali.efuse_oe_bs);
 		if (ret == 0)
 			pr_info("find node mediatek,cali-oe-bit:%d\n",
-				oe_bit_shift);
+				adc_cali.efuse_oe_bs);
 		else
 			return;
 
 		ret = of_property_read_u32(np, "mediatek,cali-efuse-index",
-			&efuse_index);
+			&adc_cali.efuse_idx);
 		if (ret == 0)
 			pr_info("find node mediatek,cali-efuse-index:%d\n",
-				efuse_index);
+				adc_cali.efuse_idx);
 		else
 			return;
 
+		reg = get_devinfo_with_index(adc_cali.efuse_idx);
+		adc_cali.efuse_reg_value = reg;
 
-		cali_reg = get_devinfo_with_index(efuse_index);
+		adc_cali.efuse_en = (reg >> adc_cali.efuse_en_bs) &
+			ADC_GE_OE_EN_MASK;
 
-		if ((cali_reg & (1 << en_bit_shift))) {
-			cali_oe_a =
-				(cali_reg >> oe_bit_shift) & ADC_GE_OE_MASK;
-			cali_ge_a =
-				(cali_reg >> ge_bit_shift) & ADC_GE_OE_MASK;
+		if (adc_cali.efuse_en) {
+			adc_cali.efuse_oe =
+				(reg >> adc_cali.efuse_oe_bs) & ADC_GE_OE_MASK;
+			adc_cali.efuse_ge =
+				(reg >> adc_cali.efuse_ge_bs) & ADC_GE_OE_MASK;
+
 			/* In sw implement guide, ge should div 4096.
 			 * But we don't do that now due to it
 			 * will multi 4096 later
 			 */
-			cali_ge = cali_ge_a - 512;
-			cali_oe = cali_oe_a - 512;
-			gain = 1 + cali_ge;
+			adc_cali.cali_ge = adc_cali.efuse_ge - 512;
+			adc_cali.cali_oe = adc_cali.efuse_oe - 512;
+			adc_cali.gain = 1 + adc_cali.cali_ge;
 			/* In sw implement guide, gain = 1 + GE =
 			 * 1 + cali_ge / 4096,
 			 * we doen't use the variable here
@@ -173,14 +184,18 @@ static void mt_auxadc_update_cali(struct device *dev)
 
 static int mt_auxadc_get_cali_data(unsigned int rawdata, bool enable_cali)
 {
+	unsigned int data;
 
-	if (enable_cali == true) {
-		/* In sw implement guide, 4096 * gain = 4096 * (1 + GE)
-		 * = 4096 * (1 + cali_ge / 4096) = 4096 + cali_ge)
-		 */
-		return  (4096 * (rawdata - cali_oe)) / (4096 + cali_ge);
-	}
-	return rawdata;
+	/* In sw implement guide, 4096 * gain = 4096 * (1 + GE)
+	 * = 4096 * (1 + cali_ge / 4096) = 4096 + cali_ge)
+	 */
+	if (enable_cali)
+		data = (4096 * (rawdata - adc_cali.cali_oe)) /
+			(4096 + adc_cali.cali_ge);
+	else
+		data = rawdata;
+
+	return data;
 }
 
 static inline void mt6577_auxadc_mod_reg(void __iomem *reg,
@@ -290,10 +305,6 @@ static int mt6577_auxadc_read_raw(struct iio_dev *indio_dev,
 		if (adc_dev->dev_comp->sample_data_cali)
 			*val = mt_auxadc_get_cali_data(*val, true);
 
-		pr_debug("[auxadc] reg=0x%x ADC_GE_A=%d ADC_OE_A=%d ",
-			cali_reg, cali_ge_a, cali_oe_a);
-		pr_debug("GE:%d OE:%d gain:0x%x raw_val=%d cali_val=%d\n",
-			cali_ge, cali_oe, gain, raw_val, *val);
 		return IIO_VAL_INT;
 
 	default:
@@ -335,6 +346,60 @@ static int __maybe_unused mt6577_auxadc_suspend(struct device *dev)
 	clk_disable_unprepare(adc_dev->adc_clk);
 
 	return 0;
+}
+
+static int proc_utilization_show(struct seq_file *m, void *v)
+{
+	int raw, raw_cali;
+
+	seq_puts(m, "********** Auxadc status dump **********\n");
+
+	seq_printf(m, "ADC_CALI_EN_MASK:0x%x ADC_CALI_EN_SHIFT:%d\n",
+		ADC_GE_OE_EN_MASK, adc_cali.efuse_en_bs);
+	seq_printf(m, "ADC_GE_MASK:0x%x ADC_GE_SHIFT:%d\n",
+		ADC_GE_OE_MASK, adc_cali.efuse_ge_bs);
+	seq_printf(m, "ADC_OE_MASK:0x%x ADC_OE_SHIFT:%d\n",
+		ADC_GE_OE_MASK, adc_cali.efuse_oe_bs);
+
+	seq_printf(m, "reg_value=0x%x efuse_en=%d, efuse_ge=%d, efuse_oe=%d\n",
+		adc_cali.efuse_reg_value, adc_cali.efuse_en,
+		adc_cali.efuse_ge, adc_cali.efuse_oe);
+
+	seq_printf(m, "cali_ge:%d cali_oe:%d gain:0x%x\n",
+		adc_cali.cali_ge, adc_cali.cali_oe, adc_cali.gain);
+
+	for (raw = 100; raw <= 4500; raw = raw + 100) {
+		raw_cali = mt_auxadc_get_cali_data(raw, true);
+
+		seq_printf(m, "raw without cali : %d, with cali : %d\n",
+			raw, raw_cali);
+	}
+
+	return 0;
+}
+
+static int proc_utilization_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_utilization_show, NULL);
+}
+
+static const struct file_operations auxadc_debug_proc_fops = {
+	.open = proc_utilization_open,
+	.read = seq_read,
+};
+
+static void adc_debug_init(void)
+{
+	struct proc_dir_entry *mt_auxadc_dir;
+
+	mt_auxadc_dir = proc_mkdir("mt-auxadc", NULL);
+	if (!mt_auxadc_dir) {
+		pr_debug("fail to mkdir /proc/mt-auxadc\n");
+		return;
+	}
+	proc_create("dump_auxadc_status", 0644, mt_auxadc_dir,
+		&auxadc_debug_proc_fops);
+	pr_debug("proc_create auxadc_debug_proc_fops\n");
 }
 
 static int mt6577_auxadc_probe(struct platform_device *pdev)
@@ -401,6 +466,9 @@ static int mt6577_auxadc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register iio device\n");
 		goto err_power_off;
 	}
+
+	adc_debug_init();
+
 	return 0;
 
 err_power_off:
