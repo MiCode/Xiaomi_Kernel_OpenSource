@@ -81,7 +81,7 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
-//#include <mt-plat/sync_write.h>
+#include <mt-plat/sync_write.h>
 
 /* wakelock is replace by pm_wakeup*/
 #include <linux/device.h>
