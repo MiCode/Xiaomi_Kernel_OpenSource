@@ -6703,8 +6703,9 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	DISPDBG("ovl input has rsz layer:%d, yuv layer:%d\n",
 		has_rsz_input, has_rsz_input);
 
-
-	disp_rsz_in_out_roi(cfg, pconfig);
+	if (cfg->setter != SESSION_USER_AEE) {
+		disp_rsz_in_out_roi(cfg, pconfig);
+	}
 
 	for (i = 0; i < cfg->input_layer_num; i++) {
 		struct disp_input_config *input_cfg = &cfg->input_cfg[i];
