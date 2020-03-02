@@ -46,37 +46,11 @@
 #include <linux/pagemap.h>
 #include <linux/compat.h>
 #include "pseudo_m4u.h"
+#include "pseudo_m4u_log.h"
 #include "mt_smi.h"
 
-#define M4U_LOG_LEVEL_HIGH	3
-#define M4U_LOG_LEVEL_MID	2
-#define M4U_LOG_LEVEL_LOW	1
-
-int m4u_log_level;
-int m4u_log_to_uart = 1;
-
-#define _M4ULOG(level, string, args...) \
-do { \
-	if (level > m4u_log_level) { \
-		if (level > m4u_log_to_uart) \
-			pr_warn("PSEUDO M4U"string, ##args); \
-	}  \
-} while (0)
-
-#define m4u_pr_debug(string, args...) _M4ULOG(M4U_LOG_LEVEL_LOW, string, ##args)
-#define m4u_pr_warn(string, args...) _M4ULOG(M4U_LOG_LEVEL_MID, string, ##args)
-#define m4u_pr_err(string, args...) _M4ULOG(M4U_LOG_LEVEL_HIGH, string, ##args)
-#define M4U_ASSERT(x) {	\
-	if (!(x))	\
-		pr_err("M4U assert fail, file:%s, line:%d",\
-		       __FILE__, __LINE__); \
-}
-
-#define M4UTRACE() \
-do { \
-	if (!m4u_log_to_uart) \
-		pr_err("PSEUDO M4U %s, %d\n", __func__, __LINE__); \
-} while (0)
+int m4u_log_level = 2;
+int m4u_log_to_uart = 2;
 
 LIST_HEAD(pseudo_sglist);
 /* this is the mutex lock to protect mva_sglist->list*/
@@ -144,9 +118,10 @@ int m4u_destroy_client(struct m4u_client_t *client)
 		}
 		pMvaInfo = container_of(client->mvaList.next,
 					struct m4u_buf_info_t, link);
-		pr_warn("warnning: clean garbage at m4u close: module=%s,va=0x%lx,mva=0x%x,size=%d\n",
-		     m4u_get_port_name(pMvaInfo->port), pMvaInfo->va,
-		     pMvaInfo->mva, pMvaInfo->size);
+		M4U_MSG(
+			"warnning: clean garbage at m4u close: module=%s,va=0x%lx,mva=0x%x,size=%d\n",
+			m4u_get_port_name(pMvaInfo->port), pMvaInfo->va,
+			pMvaInfo->mva, pMvaInfo->size);
 
 		port = pMvaInfo->port;
 		mva = pMvaInfo->mva;
@@ -168,10 +143,10 @@ static int MTK_M4U_open(struct inode *inode, struct file *file)
 {
 	struct m4u_client_t *client;
 
-	m4u_pr_debug("enter %s process : %s\n", __func__, current->comm);
+	M4U_DBG("enter %s process : %s\n", __func__, current->comm);
 	client = m4u_create_client();
 	if (IS_ERR_OR_NULL(client)) {
-		m4u_pr_err("createclientfail\n");
+		M4U_ERR("createclientfail\n");
 		return -ENOMEM;
 	}
 
@@ -184,7 +159,7 @@ static int MTK_M4U_release(struct inode *inode, struct file *file)
 {
 	struct m4u_client_t *client = file->private_data;
 
-	m4u_pr_debug("enter %s process : %s\n", __func__, current->comm);
+	M4U_DBG("enter %s process : %s\n", __func__, current->comm);
 	m4u_destroy_client(client);
 	return 0;
 }
@@ -213,10 +188,10 @@ static int pseudo_m4u_session_init(void)
 
 	ret = KREE_CreateSession(TZ_TA_M4U_UUID, &m4u_session);
 	if (ret != TZ_RESULT_SUCCESS) {
-		m4u_pr_err("m4u CreateSession error %d\n", ret);
+		M4U_ERR("m4u CreateSession error %d\n", ret);
 		return -1;
 	}
-	m4u_pr_err("create session : 0x%x\n", (unsigned int)m4u_session);
+	M4U_MSG("create session : 0x%x\n", (unsigned int)m4u_session);
 	m4u_tee_en = true;
 	return 0;
 }
@@ -238,7 +213,7 @@ int m4u_larb_restore_sec(unsigned int larb_idx)
 			M4U_TZCMD_LARB_REG_RESTORE,
 			paramTypes, param);
 		if (ret != TZ_RESULT_SUCCESS) {
-			m4u_pr_err("m4u reg backup SeviceCall error %d\n", ret);
+			M4U_ERR("m4u reg backup SeviceCall error %d\n", ret);
 			return -1;
 		}
 	}
@@ -262,7 +237,7 @@ int m4u_larb_backup_sec(unsigned int larb_idx)
 					M4U_TZCMD_LARB_REG_BACKUP,
 					paramTypes, param);
 		if (ret != TZ_RESULT_SUCCESS) {
-			m4u_pr_err("reg backup ServiceCall error %d\n", ret);
+			M4U_ERR("reg backup ServiceCall error %d\n", ret);
 			return -1;
 		}
 	}
@@ -278,7 +253,7 @@ int smi_reg_backup_sec(void)
 	ret = KREE_TeeServiceCall(m4u_session, M4U_TZCMD_REG_BACKUP,
 				paramTypes, NULL);
 	if (ret != TZ_RESULT_SUCCESS) {
-		m4u_pr_err("m4u reg backup ServiceCall error %d\n", ret);
+		M4U_ERR("m4u reg backup ServiceCall error %d\n", ret);
 		return -1;
 	}
 	return 0;
@@ -293,7 +268,7 @@ int smi_reg_restore_sec(void)
 	ret = KREE_TeeServiceCall(m4u_session, M4U_TZCMD_REG_RESTORE,
 				paramTypes, NULL);
 	if (ret != TZ_RESULT_SUCCESS) {
-		m4u_pr_err("m4u reg backup ServiceCall error %d\n", ret);
+		M4U_ERR("m4u reg backup ServiceCall error %d\n", ret);
 		return -1;
 	}
 
@@ -323,7 +298,7 @@ int pseudo_m4u_do_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 	mutex_unlock(&gM4u_port_tee);
 
 	if (ret != TZ_RESULT_SUCCESS)
-		m4u_pr_err("m4u_config_port ServiceCall error 0x%x\n", ret);
+		M4U_ERR("m4u_config_port ServiceCall error 0x%x\n", ret);
 
 	return 0;
 }
@@ -343,7 +318,7 @@ static int pseudo_m4u_sec_init(unsigned int u4NonSecPa,
 	ret = KREE_TeeServiceCall(m4u_session, M4U_TZCMD_SEC_INIT,
 			paramTypes, param);
 	if (ret != TZ_RESULT_SUCCESS) {
-		m4u_pr_err("m4u sec init error 0x%x\n", ret);
+		M4U_ERR("m4u sec init error 0x%x\n", ret);
 		return -1;
 	}
 
@@ -379,7 +354,7 @@ int m4u_dump_secpgd(unsigned int larbid, unsigned int portid,
 	ret = KREE_TeeServiceCall(m4u_session, M4U_TZCMD_SECPGTDUMP,
 			paramTypes, param);
 	if (ret != TZ_RESULT_SUCCESS) {
-		m4u_pr_err("m4u sec dump error 0x%x\n", ret);
+		M4U_ERR("m4u sec dump error 0x%x\n", ret);
 		return -1;
 	}
 
@@ -455,7 +430,7 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 	dma_addr_t dma_addr;
 
 	if (!va && !sg_table) {
-		m4u_pr_err("va and sg_table are all NULL\n");
+		M4U_ERR("va and sg_table are all NULL\n");
 		return -EINVAL;
 	}
 
@@ -491,7 +466,7 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 		/* table = pseudo_get_sg(port, va, size); */
 		if (IS_ERR_OR_NULL(table)) {
 			table = NULL;
-			m4u_pr_err("pseudo_get_sg failed\n");
+			M4U_ERR("pseudo_get_sg failed\n");
 			goto err;
 		}
 	}
@@ -521,10 +496,12 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 #else
 	if (dma_addr == ARM_MAPPING_ERROR) {
 #endif
-		m4u_pr_err("%s, %d alloc mva failed, port is %s, dma_address is 0x%lx, size is 0x%x\n",
+		M4U_ERR(
+			"%s, %d alloc mva failed, port is %s, dma_address is 0x%lx, size is 0x%x\n",
 			__func__, __LINE__, m4u_get_port_name(port),
 			(unsigned long)dma_addr, size);
-		m4u_pr_err("SUSPECT that iova have been all exhaust, maybe there's someone hold too much mva\n");
+		M4U_ERR(
+			"SUSPECT that iova have been all exhaust, maybe there's someone hold too much mva\n");
 		goto err;
 	}
 
@@ -536,7 +513,7 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 
 	m4u_add_sgtable(mva_sg);
 
-	m4u_pr_debug("%s, %d mva is 0x%x, dma_address is 0x%lx, size is 0x%x\n",
+	M4U_DBG("%s, %d mva is 0x%x, dma_address is 0x%lx, size is 0x%x\n",
 		__func__, __LINE__, mva_sg->mva, (unsigned long)dma_addr, size);
 	return 0;
 
@@ -556,7 +533,7 @@ static struct m4u_buf_info_t *m4u_alloc_buf_info(void)
 	pList = kzalloc(sizeof(struct m4u_buf_info_t), GFP_KERNEL);
 	if (pList == NULL)
 		return NULL;
-	m4u_pr_debug("pList size %d, ptr %p\n",
+	M4U_DBG("pList size %d, ptr %p\n",
 		(int)sizeof(struct m4u_buf_info_t), pList);
 	INIT_LIST_HEAD(&(pList->link));
 	return pList;
@@ -598,7 +575,7 @@ static struct m4u_buf_info_t *m4u_client_find_buf(struct m4u_client_t *client,
 	struct m4u_buf_info_t *ret = NULL;
 
 	if (client == NULL) {
-		m4u_pr_err("m4u_delete_from_garbage_list(), client is NULL!\n");
+		M4U_ERR("m4u_delete_from_garbage_list(), client is NULL!\n");
 		return NULL;
 	}
 
@@ -667,7 +644,7 @@ int pseudo_alloc_mva(struct m4u_client_t *client, int port,
 
 	ret = __m4u_alloc_mva(port, va_align, size_align, sg_table, &mva_align);
 	if (ret) {
-		m4u_pr_err("error alloc mva, %s, %d\n", __func__, __LINE__);
+		M4U_ERR("error alloc mva, %s, %d\n", __func__, __LINE__);
 		mva = 0;
 		goto err;
 	}
@@ -708,7 +685,7 @@ int m4u_dealloc_mva_sg(int eModuleID,
 		       const unsigned int BufSize, const unsigned int MVA)
 {
 	if (!sg_table) {
-		m4u_pr_err("%s, %d, sg_table is NULL\n", __func__, __LINE__);
+		M4U_ERR("%s, %d, sg_table is NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -737,16 +714,16 @@ struct sg_table *m4u_del_sgtable(unsigned int mva)
 	struct mva_sglist *entry, *tmp;
 	struct sg_table *table;
 
-	m4u_pr_debug("%s, %d, mva = 0x%x\n", __func__, __LINE__, mva);
+	M4U_DBG("%s, %d, mva = 0x%x\n", __func__, __LINE__, mva);
 	mutex_lock(&pseudo_list_mutex);
 	list_for_each_entry_safe(entry, tmp, &pseudo_sglist, list) {
-		m4u_pr_debug("%s, %d, entry->mva = 0x%x\n", __func__, __LINE__,
+		M4U_DBG("%s, %d, entry->mva = 0x%x\n", __func__, __LINE__,
 			entry->mva);
 		if (entry->mva == mva) {
 			list_del(&entry->list);
 			mutex_unlock(&pseudo_list_mutex);
 			table = entry->table;
-			m4u_pr_debug("%s, %d, mva is 0x%x, entry->mva is 0x%x\n",
+			M4U_DBG("%s, %d, mva is 0x%x, entry->mva is 0x%x\n",
 				__func__, __LINE__, mva, entry->mva);
 			kfree(entry);
 			return table;
@@ -770,7 +747,7 @@ struct sg_table *m4u_add_sgtable(struct mva_sglist *mva_sg)
 	list_add(&mva_sg->list, &pseudo_sglist);
 	mutex_unlock(&pseudo_list_mutex);
 
-	m4u_pr_debug("adding pseudo_sglist, mva = 0x%x\n", mva_sg->mva);
+	M4U_DBG("adding pseudo_sglist, mva = 0x%x\n", mva_sg->mva);
 	return table;
 }
 
@@ -818,19 +795,19 @@ static int m4u_dump_mmaps(unsigned long addr)
 {
 	struct vm_area_struct *vma;
 
-	m4u_pr_warn(
+	M4U_MSG(
 		"addr=0x%lx, name=%s, pid=0x%x,",
 		addr, current->comm, current->pid);
 
 	vma = find_vma(current->mm, addr);
 
 	if (vma && (addr >= vma->vm_start)) {
-		m4u_pr_warn("find vma: 0x%16lx-0x%16lx, flags=0x%lx\n",
+		M4U_MSG("find vma: 0x%16lx-0x%16lx, flags=0x%lx\n",
 			   (vma->vm_start), (vma->vm_end), vma->vm_flags);
 		return 0;
 	}
 
-	m4u_pr_err("cannot find vma for addr 0x%lx\n", addr);
+	M4U_ERR("cannot find vma for addr 0x%lx\n", addr);
 	return -1;
 }
 
@@ -845,37 +822,34 @@ static phys_addr_t m4u_user_v2p(unsigned long va)
 	phys_addr_t pa;
 
 	if (current == NULL) {
-		m4u_pr_err(
-			"warning: %s, current is NULL!\n",
+		M4U_ERR("warning: %s, current is NULL!\n",
 			__func__);
 		return 0;
 	}
 	if (current->mm == NULL) {
-		m4u_pr_err("warning: %s, current->mm is NULL! tgid=0x%x, name=%s\n",
+		M4U_ERR(
+			"warning: %s, current->mm is NULL! tgid=0x%x, name=%s\n",
 		       __func__, current->tgid, current->comm);
 		return 0;
 	}
 
 	pgd = pgd_offset(current->mm, va);	/* what is tsk->mm */
 	if (pgd_none(*pgd) || pgd_bad(*pgd)) {
-		m4u_pr_err(
-			"%s(), va=0x%lx, pgd invalid!\n",
+		M4U_ERR("%s(), va=0x%lx, pgd invalid!\n",
 			__func__, va);
 		return 0;
 	}
 
 	pud = pud_offset(pgd, va);
 	if (pud_none(*pud) || pud_bad(*pud)) {
-		m4u_pr_err(
-			"%s(), va=0x%lx, pud invalid!\n",
+		M4U_ERR("%s(), va=0x%lx, pud invalid!\n",
 			__func__, va);
 		return 0;
 	}
 
 	pmd = pmd_offset(pud, va);
 	if (pmd_none(*pmd) || pmd_bad(*pmd)) {
-		m4u_pr_err(
-			"%s(), va=0x%lx, pmd invalid!\n",
+		M4U_ERR("%s(), va=0x%lx, pmd invalid!\n",
 				__func__, va);
 		return 0;
 	}
@@ -891,12 +865,10 @@ static phys_addr_t m4u_user_v2p(unsigned long va)
 
 	pte_unmap(pte);
 
-	m4u_pr_err(
-		"%s(), va=0x%lx, pte invalid!\n",
+	M4U_ERR("%s(), va=0x%lx, pte invalid!\n",
 		__func__, va);
 	return 0;
 }
-
 
 static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 		unsigned long va, int page_num,
@@ -966,16 +938,18 @@ static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 		if (!pa || !sg) {
 			struct vm_area_struct *vma_temp;
 
-			m4u_pr_err("%s: fail(0x%lx) va=0x%lx,page_num=0x%x\n",
+			M4U_ERR("%s: fail(0x%lx) va=0x%lx,page_num=0x%x\n",
 				__func__, ret, va, page_num);
-			m4u_pr_err("%s: fail_va=0x%lx,pa=0x%lx,sg=0x%p,i=%d\n",
+			M4U_ERR("%s: fail_va=0x%lx,pa=0x%lx,sg=0x%p,i=%d\n",
 				__func__, va_tmp, (unsigned long)pa, sg, i);
 			vma_temp = find_vma(current->mm, va_tmp);
 			if (vma_temp != NULL) {
-				m4u_pr_err("vm_start=0x%lx,vm_end=%lx,vm_flg=%lx\n",
+				M4U_ERR(
+					"vm_start=0x%lx,vm_end=%lx,vm_flg=%lx\n",
 					vma->vm_start, vma->vm_end,
 					vma->vm_flags);
-				m4u_pr_err("vma_temp_start=0x%lx, vma_temp_end=%lx,vm_temp_flag= %lx\n",
+				M4U_ERR(
+					"vma_temp_start=0x%lx, vma_temp_end=%lx,vm_temp_flag= %lx\n",
 					vma_temp->vm_start,
 					vma_temp->vm_end, vma_temp->vm_flags);
 			}
@@ -987,16 +961,14 @@ static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 		}
 
 		if (fault_cnt > 2) {
-			m4u_pr_err(
-				"warning: handle_mm_fault for %d times\n",
+			M4U_ERR("warning: handle_mm_fault for %d times\n",
 				fault_cnt);
 			m4u_show_pte(current->mm, va_tmp);
 			m4u_dump_mmaps(va_tmp);
 		}
 		/* debug check... */
 		if ((pa & (PAGE_SIZE - 1)) != 0) {
-			m4u_pr_err(
-				"pa error,pa: 0x%lx, va: 0x%lx, align: 0x%lx\n",
+			M4U_ERR("pa error,pa: 0x%lx, va: 0x%lx, align: 0x%lx\n",
 				(unsigned long)pa, va_tmp, va_align);
 		}
 
@@ -1038,13 +1010,13 @@ static int m4u_create_sgtable_user(
 
 		vma = find_vma(current->mm, va);
 		if (vma == NULL || vma->vm_start > va) {
-			m4u_pr_err(
-				"cannot find vma: va=0x%lx, vma=0x%p\n",
+			M4U_ERR("cannot find vma: va=0x%lx, vma=0x%p\n",
 				va, vma);
 			if (vma != NULL) {
-				m4u_pr_err(
-				"vm_start=0x%lx, vm_end=0x%lx,vm_flag= 0x%lx\n",
-				vma->vm_start, vma->vm_end, vma->vm_flags);
+				M4U_ERR(
+					"vm_start=0x%lx, vm_end=0x%lx,vm_flag= 0x%lx\n",
+					vma->vm_start, vma->vm_end,
+					vma->vm_flags);
 			}
 			m4u_dump_mmaps(va);
 			ret = -1;
@@ -1066,9 +1038,8 @@ static int m4u_create_sgtable_user(
 			 */
 			ret = m4u_fill_sgtable_user(
 			vma, va, vma_page_num, &sg, 0);
-			m4u_pr_warn(
-				"alloc_mva VM_PFNMAP va=0x%lx, page_num=0x%x\n",
-					va, vma_page_num);
+			M4U_DBG("alloc_mva VM_PFNMAP va=0x%lx, page_num=0x%x\n",
+				va, vma_page_num);
 		} else {
 			/* Add one line comment for avoid kernel
 			 * coding style, WARNING:BRACES:
@@ -1080,12 +1051,12 @@ static int m4u_create_sgtable_user(
 
 				vma_temp = find_vma(current->mm, va_align);
 				if (!vma_temp) {
-					m4u_pr_err(
-						"%s cannot find vma\n",
+					M4U_ERR("%s cannot find vma\n",
 						__func__);
 					return -1;
 				}
-				m4u_pr_err("%s: vm_start=0x%lx, vm_end=0x%lx,vm_flag= 0x%lx\n",
+				M4U_ERR(
+					"%s: vm_start=0x%lx, vm_end=0x%lx,vm_flag= 0x%lx\n",
 					__func__, vma_temp->vm_start,
 					vma_temp->vm_end, vma_temp->vm_flags);
 			}
@@ -1126,22 +1097,23 @@ struct sg_table *m4u_create_sgtable(unsigned long va, unsigned int size)
 	ret = sg_alloc_table(table, page_num, GFP_KERNEL);
 	if (ret) {
 		kfree(table);
-		m4u_pr_err("%s alloc_sgtable fail: va=0x%lx,sz=0x%x,pgnum=%d\n",
+		M4U_ERR("%s alloc_sgtable fail: va=0x%lx,sz=0x%x,pgnum=%d\n",
 				__func__, va, size, page_num);
 		return ERR_PTR(-ENOMEM);
 	}
 
-	m4u_pr_debug("%s va=0x%lx, PAGE_OFFSET=0x%lx, VMALLOC_START=0x%lx,VMALLOC_END=0x%lx\n",
-		   __func__, va, PAGE_OFFSET, VMALLOC_START, VMALLOC_END);
+	M4U_DBG(
+		"%s va=0x%lx, PAGE_OFFSET=0x%lx, VMALLOC_START=0x%lx,VMALLOC_END=0x%lx\n",
+		__func__, va, PAGE_OFFSET, VMALLOC_START, VMALLOC_END);
 
 	if (va < PAGE_OFFSET) {	/* from user space */
 		if (va >= VMALLOC_START && va <= VMALLOC_END) {	/* vmalloc */
-			m4u_pr_debug("from user space vmalloc, va = 0x%lx", va);
+			M4U_DBG("from user space vmalloc, va = 0x%lx", va);
 			for_each_sg(table->sgl, sg, table->nents, i) {
 				page = vmalloc_to_page(
 					(void *)(va_align + i * PAGE_SIZE));
 				if (!page) {
-					m4u_pr_err(
+					M4U_ERR(
 					    "vmalloc_to_page fail, va=0x%lx\n",
 					     va_align + i * PAGE_SIZE);
 					goto err;
@@ -1151,22 +1123,21 @@ struct sg_table *m4u_create_sgtable(unsigned long va, unsigned int size)
 		} else {
 			ret = m4u_create_sgtable_user(va_align, table);
 			if (ret) {
-				m4u_pr_err(
-					"%s error va=0x%lx, size=%d\n",
+				M4U_ERR("%s error va=0x%lx, size=%d\n",
 					__func__, va, size);
 				goto err;
 			}
 		}
 	} else {		/* from kernel space */
 		if (va >= VMALLOC_START && va <= VMALLOC_END) {	/* vmalloc */
-			m4u_pr_debug(
+			M4U_DBG(
 				"from kernel space vmalloc, va = 0x%lx",
 				va);
 			for_each_sg(table->sgl, sg, table->nents, i) {
 				page = vmalloc_to_page(
 					(void *)(va_align + i * PAGE_SIZE));
 				if (!page) {
-					m4u_pr_err(
+					M4U_ERR(
 					     "vmalloc_to_page fail, va=0x%lx\n",
 					     va_align + i * PAGE_SIZE);
 					goto err;
@@ -1205,13 +1176,14 @@ int __m4u_dealloc_mva(int eModuleID,
 	int offset;
 
 	if (!dev) {
-		m4u_pr_err("%s, %d, dev is NULL\n", __func__, __LINE__);
+		M4U_ERR("%s, %d, dev is NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
-	m4u_pr_debug("m4u_dealloc_mva, module = %s, addr = 0x%lx, size = 0x%x,MVA = 0x%x, mva_end = 0x%x\n",
-	     m4u_get_port_name(kernelport), BufAddr, BufSize, MVA,
-	     MVA + BufSize - 1);
+	M4U_DBG(
+		"m4u_dealloc_mva, module = %s, addr = 0x%lx, size = 0x%x,MVA = 0x%x, mva_end = 0x%x\n",
+		m4u_get_port_name(kernelport), BufAddr, BufSize, MVA,
+		MVA + BufSize - 1);
 
 	/* for ion sg alloc, we did not align the mva in allocation. */
 	if (!sg_table)
@@ -1223,13 +1195,15 @@ int __m4u_dealloc_mva(int eModuleID,
 		m4u_buf_info = m4u_client_find_buf(ion_m4u_client, addr_align,
 						   1);
 		if (m4u_buf_info && m4u_buf_info->mva != addr_align)
-			m4u_pr_err("warning: %s, %d, mva addr are not same\n",
+			M4U_ERR("warning: %s, %d, mva addr are not same\n",
 				__func__, __LINE__);
 		table = m4u_del_sgtable(addr_align);
 		if (!table) {
-			m4u_pr_err("%s-%d could not find the table from mva 0x%x\n",
+			M4U_ERR(
+				"%s-%d could not find the table from mva 0x%x\n",
 				__func__, __LINE__, MVA);
-			m4u_pr_err("m4u_dealloc_mva, module = %s, addr = 0x%lx,size = 0x%x, MVA = 0x%x, mva_end = 0x%x\n",
+			M4U_ERR(
+				"m4u_dealloc_mva, module = %s, addr = 0x%lx,size = 0x%x, MVA = 0x%x, mva_end = 0x%x\n",
 				m4u_get_port_name(kernelport), BufAddr,
 				BufSize, MVA, MVA + BufSize - 1);
 			dump_stack();
@@ -1237,7 +1211,7 @@ int __m4u_dealloc_mva(int eModuleID,
 		}
 
 		if (sg_page(table->sgl) != sg_page(sg_table->sgl)) {
-			m4u_pr_err("%s, %d, error, sg have not been added\n",
+			M4U_ERR("%s, %d, error, sg have not been added\n",
 				__func__, __LINE__);
 			return -EINVAL;
 		}
@@ -1257,7 +1231,7 @@ int __m4u_dealloc_mva(int eModuleID,
 					      0);
 #endif
 	} else {
-		m4u_pr_err("could not found the sgtable and would return error\n");
+		M4U_ERR("could not found the sgtable and would return error\n");
 		return -EINVAL;
 	}
 
@@ -1277,9 +1251,10 @@ int __m4u_dealloc_mva(int eModuleID,
 			}
 			M4UTRACE();
 			if (vma == NULL) {
-				m4u_pr_err("cannot find vma: module=%s, va=0x%lx,size=0x%x\n",
-				       m4u_get_port_name(eModuleID), BufAddr,
-				       BufSize);
+				M4U_ERR(
+					"cannot find vma: module=%s, va=0x%lx,size=0x%x\n",
+					m4u_get_port_name(eModuleID), BufAddr,
+					BufSize);
 				if (current->mm)
 					up_read(&current->mm->mmap_sem);
 				else if (current->active_mm)
@@ -1367,7 +1342,7 @@ static void *m4u_cache_map_page_va(struct page *page)
 
 	ret = map_vm_area(cache_map_vm_struct, PAGE_KERNEL, ppPage);
 	if (ret) {
-		m4u_pr_err("error to map page\n");
+		M4U_ERR("error to map page\n");
 		return NULL;
 	}
 	return cache_map_vm_struct->addr;
@@ -1411,7 +1386,7 @@ static struct page *m4u_cache_get_page(unsigned long va)
 	start = va & (~M4U_PAGE_MASK);
 	pa = m4u_user_v2p(start);
 	if (pa == 0) {
-		m4u_pr_err(
+		M4U_ERR(
 			"error m4u_get_phys user_v2p return 0 on va=0x%lx\n",
 			start);
 		/* dump_page(page); */
@@ -1440,16 +1415,17 @@ static int __m4u_cache_sync_user(unsigned long start,
 	mutex_lock(&gM4u_cache_sync_user_lock);
 
 	if (!cache_map_vm_struct) {
-		m4u_pr_err("error: cache_map_vm_struct is NULL, retry\n");
+		M4U_ERR("error: cache_map_vm_struct is NULL, retry\n");
 		m4u_cache_sync_init();
 	}
 	if (!cache_map_vm_struct) {
-		m4u_pr_err("error: cache_map_vm_struct is NULL, no vmalloc area\n");
+		M4U_ERR(
+			"error: cache_map_vm_struct is NULL, no vmalloc area\n");
 		ret = -1;
 		goto out;
 	}
 
-	m4u_pr_debug("__m4u_sync_user: start=0x%lx, size=0x%x\n", start,
+	M4U_DBG("__m4u_sync_user: start=0x%lx, size=0x%x\n", start,
 		(unsigned int)size);
 
 	map_start = start;
@@ -1472,7 +1448,7 @@ static int __m4u_cache_sync_user(unsigned long start,
 
 		map_va_align = map_va | (map_start & (M4U_PAGE_SIZE - 1));
 
-		m4u_pr_debug("__m4u_sync_user:start=0x%lx, size=0x%lx,va=0x%lx\n",
+		M4U_DBG("__m4u_sync_user:start=0x%lx, size=0x%lx,va=0x%lx\n",
 		       map_start, map_size, map_va_align);
 		__m4u_cache_sync_kernel((void *)map_va_align,
 			map_size, sync_type);
@@ -1533,7 +1509,7 @@ int m4u_cache_sync(struct m4u_client_t *client,
 {
 	int ret = 0;
 
-	m4u_pr_debug(
+	M4U_DBG(
 	"cache_sync port=%s, va=0x%lx, size=0x%x, mva=0x%x, type=%d\n",
 		   m4u_get_port_name(port), va, size, mva, sync_type);
 
@@ -1553,13 +1529,14 @@ int m4u_cache_sync(struct m4u_client_t *client,
 		 */
 
 		if (!pMvaInfo) {
-			m4u_pr_err("cache sync fail, cannot find buf: mva=0x%x, client=0x%p\n",
+			M4U_ERR(
+				"cache sync fail, cannot find buf: mva=0x%x, client=0x%p\n",
 				mva, client);
 			return -1;
 		}
 
 		if ((pMvaInfo->size != size) || (pMvaInfo->va != va)) {
-			m4u_pr_err(
+			M4U_ERR(
 				"cache_sync fail: expect mva=0x%x,size=0x%x,va=0x%lx, but mva=0x%x,size=0x%x,va=0x%lx\n",
 			       pMvaInfo->mva, pMvaInfo->size,
 			       pMvaInfo->va, mva, size, va);
@@ -1567,7 +1544,7 @@ int m4u_cache_sync(struct m4u_client_t *client,
 		}
 		/* va size should be cache line align */
 		if ((va | size) & (L1_CACHE_BYTES - 1)) {
-			m4u_pr_err(
+			M4U_ERR(
 				"warning: cache_sync not align: va=0x%lx,size=0x%x,align=0x%x\n",
 			       va, size, L1_CACHE_BYTES);
 		}
@@ -1580,7 +1557,7 @@ int m4u_cache_sync(struct m4u_client_t *client,
 			smp_inner_dcache_flush_all();
 			outer_clean_all();
 		} else if (sync_type == M4U_CACHE_INVALID_ALL) {
-			m4u_pr_err("no one can use invalid all!\n");
+			M4U_ERR("no one can use invalid all!\n");
 			return -1;
 		} else if (sync_type == M4U_CACHE_FLUSH_ALL) {
 			smp_inner_dcache_flush_all();
@@ -1634,13 +1611,14 @@ static long m4u_dma_op(struct m4u_client_t *client, int port,
 	 */
 
 	if (!pMvaInfo) {
-		m4u_pr_err("m4u dma fail,cannot find buf: mva=0x%x, client=0x%p.\n",
+		M4U_ERR(
+			"m4u dma fail,cannot find buf: mva=0x%x, client=0x%p.\n",
 			mva, client);
 		return -1;
 	}
 
 	if ((pMvaInfo->size != size) || (pMvaInfo->va != va)) {
-		m4u_pr_err(
+		M4U_ERR(
 			"m4u dma fail: expect mva=0x%x,size=0x%x,va=0x%lx, but mva=0x%x,size=0x%x,va=0x%lx\n",
 			pMvaInfo->mva, pMvaInfo->size,
 			pMvaInfo->va, mva, size, va);
@@ -1648,8 +1626,8 @@ static long m4u_dma_op(struct m4u_client_t *client, int port,
 	}
 	/* va size should be cache line align */
 	if ((va|size) & (L1_CACHE_BYTES-1))
-		m4u_pr_err(
-		"warning: cache_sync not align: va=0x%lx,size=0x%x,align=0x%x\n",
+		M4U_ERR(
+			"warning: cache_sync not align: va=0x%lx,size=0x%x,align=0x%x\n",
 			va, size, L1_CACHE_BYTES);
 
 	table = pMvaInfo->sg_table;
@@ -1659,12 +1637,13 @@ static long m4u_dma_op(struct m4u_client_t *client, int port,
 	mutex_lock(&gM4u_cache_sync_user_lock);
 
 	if (!cache_map_vm_struct) {
-		m4u_pr_err(" error: cache_map_vm_struct is NULL, retry\n");
+		M4U_ERR("error: cache_map_vm_struct is NULL, retry\n");
 		m4u_cache_sync_init();
 	}
 
 	if (!cache_map_vm_struct) {
-		m4u_pr_err("error: cache_map_vm_struct is NULL, no vmalloc area\n");
+		M4U_ERR(
+			"error: cache_map_vm_struct is NULL, no vmalloc area\n");
 		mutex_unlock(&gM4u_cache_sync_user_lock);
 		return -ENOMEM;
 	}
@@ -1677,14 +1656,13 @@ static long m4u_dma_op(struct m4u_client_t *client, int port,
 			phys_addr_t pa = sg_dma_address(sg);
 
 			if (!pa) {
-				m4u_pr_err(
-					"%s fail, VM_PFNMAP, no page.\n",
+				M4U_ERR("%s fail, VM_PFNMAP, no page.\n",
 					__func__);
 				return -EFAULT;
 			}
 			page = phys_to_page(pa);
 			if (!pfn_valid(page_to_pfn(page))) {
-				m4u_pr_err(
+				M4U_ERR(
 					"%s fail, VM_PFNMAP, no page, va = 0x%lx, size = 0x%x, npages = 0x%x.\n",
 					__func__, va, size, npages);
 				return -EFAULT;
@@ -1692,16 +1670,15 @@ static long m4u_dma_op(struct m4u_client_t *client, int port,
 		}
 
 		if (i >= npages)
-			m4u_pr_err(
-			"sg table is over pages number, i=%d, npages=0x%x\n",
-			i, npages);
+			M4U_ERR(
+				"sg table is over pages number, i=%d, npages=0x%x\n",
+				i, npages);
 
 		for (j = 0; j < npages_this_entry; j++) {
 			start = (unsigned long) m4u_cache_map_page_va(page++);
 
 			if (IS_ERR_OR_NULL((void *) start)) {
-				m4u_pr_err(
-					"cannot do cache sync: ret=%lu\n",
+				M4U_ERR("cannot do cache sync: ret=%lu\n",
 					start);
 				mutex_unlock(&gM4u_cache_sync_user_lock);
 				return -EFAULT;
@@ -1748,7 +1725,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&ModuleID, (void *)arg,
 				     sizeof(unsigned int));
 		if (ret) {
-			m4u_pr_err("MTK_M4U_T_POWER_ON,copy_from_user failed,%d\n",
+			M4U_ERR("MTK_M4U_T_POWER_ON,copy_from_user failed,%d\n",
 				ret);
 			return -EFAULT;
 		}
@@ -1759,7 +1736,8 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&ModuleID, (void *)arg,
 				     sizeof(unsigned int));
 		if (ret) {
-			m4u_pr_err("MTK_M4U_T_POWER_OFF,copy_from_user failed,%d\n",
+			M4U_ERR(
+				"MTK_M4U_T_POWER_OFF,copy_from_user failed,%d\n",
 				ret);
 			return -EFAULT;
 		}
@@ -1770,18 +1748,19 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&m4u_module, (void *)arg,
 				     sizeof(struct M4U_MOUDLE_STRUCT));
 		if (ret) {
-			m4u_pr_err("MTK_M4U_T_ALLOC_MVA,copy_from_user failed:%d\n",
+			M4U_ERR(
+				"MTK_M4U_T_ALLOC_MVA,copy_from_user failed:%d\n",
 				ret);
 			return -EFAULT;
 		}
 
 		if (!m4u_portid_valid(m4u_module.port)) {
-			m4u_pr_err("m4u T_ALLOC_MVA, portid %d failed\n",
+			M4U_ERR("m4u T_ALLOC_MVA, portid %d failed\n",
 				m4u_module.port);
 			return -EINVAL;
 		}
 
-		m4u_pr_debug("T_ALLOC_MVA, %s, %d\n", __func__, __LINE__);
+		M4U_DBG("T_ALLOC_MVA, %s, %d\n", __func__, __LINE__);
 		ret = pseudo_alloc_mva(client, m4u_module.port,
 				m4u_module.BufAddr,
 				NULL, m4u_module.BufSize, m4u_module.prot,
@@ -1795,7 +1774,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			&(m4u_module.MVAStart),
 			sizeof(unsigned int));
 		if (ret) {
-			m4u_pr_err("T_ALLOC_MVA,copy_from_user failed:%d\n",
+			M4U_ERR("T_ALLOC_MVA,copy_from_user failed:%d\n",
 				ret);
 			return -EFAULT;
 		}
@@ -1810,17 +1789,18 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = copy_from_user(&m4u_module, (void *)arg,
 				sizeof(struct M4U_MOUDLE_STRUCT));
 			if (ret) {
-				m4u_pr_err("T_DEALLOC_MVA,cpy failed:%d\n",
+				M4U_ERR("T_DEALLOC_MVA,cpy failed:%d\n",
 					ret);
 				return -EFAULT;
 			}
 
-			m4u_pr_debug("DEALLOC_MVA, eModuleID: %d, VABuf:0x%lx, Length : %d, MVAStart = 0x%x\n",
-			     m4u_module.port, m4u_module.BufAddr,
-			     m4u_module.BufSize, m4u_module.MVAStart);
+			M4U_DBG(
+				"DEALLOC_MVA, eModuleID: %d, VABuf:0x%lx, Length : %d, MVAStart = 0x%x\n",
+				m4u_module.port, m4u_module.BufAddr,
+				m4u_module.BufSize, m4u_module.MVAStart);
 
 			if (!m4u_module.BufAddr || !m4u_module.BufSize) {
-				m4u_pr_debug(
+				M4U_DBG(
 				     "MTK_M4U_T_DEALLOC_MVA va:0x%lx, sz:0x%x",
 				     m4u_module.BufAddr, m4u_module.BufSize);
 				/* return -EINVAL;*/
@@ -1848,12 +1828,13 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 						m4u_module.MVAStart);
 				m4u_free_buf_info(pMvaInfo);
 			} else {
-				m4u_pr_err
-				    ("warning: dealloc a registered buffer.\n");
-				m4u_pr_err("error to dealloc mva : id = %s, va = 0x%lx, size = %d, mva = 0x%x\n",
-				     m4u_get_port_name(m4u_module.port),
-				     m4u_module.BufAddr, m4u_module.BufSize,
-				     m4u_module.MVAStart);
+				M4U_ERR(
+					"warning: dealloc a registered buffer.\n");
+				M4U_ERR(
+					"error to dealloc mva : id = %s, va = 0x%lx, size = %d, mva = 0x%x\n",
+					m4u_get_port_name(m4u_module.port),
+					m4u_module.BufAddr, m4u_module.BufSize,
+					m4u_module.MVAStart);
 			}
 
 		}
@@ -1864,7 +1845,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&ModuleID, (void *)arg,
 				     sizeof(unsigned int));
 		if (ret) {
-			m4u_pr_err("MTK_M4U_T_DUMP_INFO failed,%d\n", ret);
+			M4U_ERR("MTK_M4U_T_DUMP_INFO failed,%d\n", ret);
 			return -EFAULT;
 		}
 
@@ -1874,13 +1855,13 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&m4u_cache_data, (void *)arg,
 				     sizeof(struct M4U_CACHE_STRUCT));
 		if (ret) {
-			m4u_pr_err("m4u_cache_sync,copy_from_user failed:%d\n",
+			M4U_ERR("m4u_cache_sync,copy_from_user failed:%d\n",
 				ret);
 			return -EFAULT;
 		}
 
 		if (!m4u_portid_valid(m4u_cache_data.port)) {
-			m4u_pr_err("m4u T_CACHE_SYNC,portid %d failed\n",
+			M4U_ERR("m4u T_CACHE_SYNC,portid %d failed\n",
 				m4u_cache_data.port);
 			return -EINVAL;
 		}
@@ -1895,12 +1876,12 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&m4u_dma_data, (void *) arg,
 				sizeof(struct M4U_DMA_STRUCT));
 		if (ret) {
-			m4u_pr_err("dma map/unmap area,cpy failed:%d\n", ret);
+			M4U_ERR("dma map/unmap area,cpy failed:%d\n", ret);
 			return -EFAULT;
 		}
 
 		if (!m4u_portid_valid(m4u_dma_data.port)) {
-			m4u_pr_err("m4u dma map/unmap area,portid %d failed\n",
+			M4U_ERR("m4u dma map/unmap area,portid %d failed\n",
 				m4u_dma_data.port);
 			return -EINVAL;
 		}
@@ -1914,7 +1895,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&m4u_port, (void *)arg,
 				     sizeof(struct M4U_PORT_STRUCT));
 		if (ret) {
-			m4u_pr_err("T_CONFIG_PORT,cpy failed:%d\n", ret);
+			M4U_ERR("T_CONFIG_PORT,cpy failed:%d\n", ret);
 			return -EFAULT;
 		}
 
@@ -1926,7 +1907,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&PortID, (void *)arg,
 				     sizeof(unsigned int));
 		if (ret) {
-			m4u_pr_err("MONITOR_START,cpy failed,%d\n", ret);
+			M4U_ERR("MONITOR_START,cpy failed,%d\n", ret);
 			return -EFAULT;
 		}
 		ret = 0;
@@ -1937,7 +1918,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&PortID, (void *)arg,
 				     sizeof(unsigned int));
 		if (ret) {
-			m4u_pr_err("T_MONITOR_STOP,cpy failed,%d\n", ret);
+			M4U_ERR("T_MONITOR_STOP,cpy failed,%d\n", ret);
 			return -EFAULT;
 		}
 		ret = 0;
@@ -1954,8 +1935,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = copy_from_user(&port_array, (void *)arg,
 						sizeof(struct m4u_port_array));
 			if (ret) {
-				m4u_pr_err("T_CONFIG_PORT,cpy failed:%d\n",
-					ret);
+				M4U_ERR("T_CONFIG_PORT,cpy failed:%d\n", ret);
 				return -EFAULT;
 			}
 
@@ -1968,7 +1948,7 @@ MTK_M4U_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	default:
-		m4u_pr_err("MTK M4U ioctl:No such command!!\n");
+		M4U_ERR("MTK M4U ioctl:No such command!!\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -2161,6 +2141,109 @@ MTK_M4U_COMPAT_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #define MTK_M4U_COMPAT_ioctl  NULL
 
 #endif
+
+
+/***********************************************************/
+/** map mva buffer to kernel va buffer
+ *   this function should ONLY used for DEBUG
+ ************************************************************/
+int m4u_mva_map_kernel(unsigned int mva,
+	unsigned long size, unsigned long *map_va,
+	unsigned long *map_size)
+{
+	struct m4u_buf_info_t *pMvaInfo;
+	struct sg_table *table;
+	struct scatterlist *sg;
+	int i, j, k, ret = 0;
+	struct page **pages;
+	unsigned int page_num;
+	void *kernel_va;
+	unsigned int kernel_size;
+
+	pMvaInfo = m4u_client_find_buf(ion_m4u_client, mva, 0);
+
+	if (!pMvaInfo || pMvaInfo->size < size) {
+		M4U_ERR("%s cannot find mva: mva=0x%x, size=0x%lx\n",
+			__func__, mva, size);
+		if (pMvaInfo)
+			M4U_ERR("pMvaInfo: mva=0x%x, size=0x%x\n",
+				pMvaInfo->mva, pMvaInfo->size);
+		return -1;
+	}
+
+	table = pMvaInfo->sg_table;
+
+	page_num = M4U_GET_PAGE_NUM(mva, size);
+	pages = vmalloc(sizeof(struct page *) * page_num);
+	if (pages == NULL) {
+		M4U_ERR("mva_map_kernel:error to vmalloc for %d\n",
+			(unsigned int)sizeof(struct page *) * page_num);
+		return -1;
+	}
+
+	k = 0;
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		struct page *page_start;
+		int pages_in_this_sg = PAGE_ALIGN(sg_dma_len(sg)) / PAGE_SIZE;
+#ifdef CONFIG_NEED_SG_DMA_LENGTH
+		if (sg_dma_address(sg) == 0)
+			pages_in_this_sg = PAGE_ALIGN(sg->length) / PAGE_SIZE;
+#endif
+		page_start = sg_page(sg);
+		for (j = 0; j < pages_in_this_sg; j++) {
+			pages[k++] = page_start++;
+			if (k >= page_num)
+				goto get_pages_done;
+		}
+	}
+
+get_pages_done:
+	if (k < page_num) {
+		/* this should not happen, because we have
+		 * checked the size before.
+		 */
+		M4U_ERR(
+			"mva_map_kernel:only get %d pages: mva=0x%x, size=0x%lx, pg_num=%d\n",
+			k, mva, size, page_num);
+		ret = -1;
+		goto error_out;
+	}
+
+	kernel_va = 0;
+	kernel_size = 0;
+	kernel_va = vmap(pages, page_num, VM_MAP, PAGE_KERNEL);
+	if (kernel_va == 0 || (unsigned long)kernel_va & M4U_PAGE_MASK) {
+		M4U_ERR(
+			"mva_map_kernel:vmap fail: page_num=%d, kernel_va=0x%p\n",
+			page_num, kernel_va);
+		ret = -2;
+		goto error_out;
+	}
+
+	kernel_va += ((unsigned long)mva & (M4U_PAGE_MASK));
+
+	*map_va = (unsigned long)kernel_va;
+	*map_size = size;
+
+error_out:
+	vfree(pages);
+	M4U_DBG(
+		"mva_map_kernel:mva=0x%x,size=0x%lx,map_va=0x%lx,map_size=0x%lx\n",
+		mva, size, *map_va, *map_size);
+
+	return ret;
+}
+EXPORT_SYMBOL(m4u_mva_map_kernel);
+
+int m4u_mva_unmap_kernel(unsigned int mva,
+		unsigned long size, unsigned long map_va)
+{
+	M4U_DBG("mva_unmap_kernel:mva=0x%x,size=0x%lx,va=0x%lx\n",
+		mva, size, map_va);
+	vunmap((void *)(map_va & (~M4U_PAGE_MASK)));
+	return 0;
+}
+EXPORT_SYMBOL(m4u_mva_unmap_kernel);
 
 
 #ifndef CONFIG_ARM64
@@ -2703,7 +2786,7 @@ static int pseudo_probe(struct platform_device *pdev)
 	gM4uDev->m4u_dev_proc_entry = proc_create("m4u", 0444, NULL,
 						  &g_stMTK_M4U_fops);
 	if (!gM4uDev->m4u_dev_proc_entry) {
-		m4u_pr_err("proc m4u create error\n");
+		M4U_ERR("proc m4u create error\n");
 		return -ENODEV;
 	}
 
@@ -2995,12 +3078,12 @@ static struct platform_driver pseudo_driver = {
 static int __init mtk_pseudo_init(void)
 {
 	if (platform_driver_register(&pseudo_driver)) {
-		m4u_pr_err("failed to register pseudo driver");
+		M4U_ERR("failed to register pseudo driver");
 		return -ENODEV;
 	}
 
 	if (smi_init()) {
-		m4u_pr_err("smi bwc init failed\n");
+		M4U_ERR("smi bwc init failed\n");
 		return -EINVAL;
 	}
 

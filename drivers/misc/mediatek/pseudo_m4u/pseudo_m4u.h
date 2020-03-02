@@ -281,6 +281,14 @@ int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 
 int pseudo_config_port_tee(int kernelport);
 
+int m4u_mva_map_kernel(unsigned int mva,
+	unsigned long size, unsigned long *map_va,
+	unsigned long *map_size);
+
+int m4u_mva_unmap_kernel(unsigned int mva,
+		unsigned long size, unsigned long map_va);
+
+
 extern void smp_inner_dcache_flush_all(void);
 extern phys_addr_t mtkfb_get_fb_base(void);
 extern size_t mtkfb_get_fb_size(void);
