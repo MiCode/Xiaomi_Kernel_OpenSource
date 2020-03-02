@@ -644,13 +644,6 @@
 			status = "okay";
 		};
 
-		mt6358_rtc: mt6358_rtc {
-			compatible = "mediatek,mt6358-rtc";
-		};
-
-		mt6358_misc: mt6358_misc {
-			compatible = "mediatek,mt6358-misc";
-		};
 	};
 
 	pwraph: pwraphal@ {

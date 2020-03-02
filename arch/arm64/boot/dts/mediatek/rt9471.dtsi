@@ -11,7 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-&i2c5 {
+&i2c7 {
 	rt-swchg@53 {
 		compatible = "richtek,swchg";
 		reg = <0x53>;
@@ -30,8 +30,8 @@
 			rm-slave-addr = /bits/ 8 <0x53>;
 			rm-name = "rt9471";
 			interrupt-names = "wdt", "chg_mivr", "vbus_gd",
-					  "chg_rdy", "bc12_done", "detach",
-					  "vac_ov", "otg_fault";
+					  "bc12_done", "detach", "vac_ov",
+					  "otg_fault";
 			ichg = <1000000>;		/* uA */
 			aicr = <500000>;		/* uA */
 			mivr = <4400000>;		/* uV */
@@ -46,7 +46,6 @@
 			 * >= 3: MIVR = VBAT + 300mV
 			 */
 			mivr-track = <0>;
-			en-safe-tmr;
 			en-te;
 			/* en-jeita; */
 			/* ceb-invert; */
