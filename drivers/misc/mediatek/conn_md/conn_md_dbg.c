@@ -119,12 +119,12 @@ static int conn_md_dbg_write(struct file *file, const char *buffer,
 	else
 		z = 0;
 
-	CONN_MD_INFO_FUNC("x(0x%08x), y(0x%08x), z(0x%08x)\n\r", x, y, z);
+	CONN_MD_INFO_FUNC("x(0x%08lx), y(0x%08lx), z(0x%08lx)\n\r", x, y, z);
 
 	if (ARRAY_SIZE(conn_md_dbg_func) > x && NULL != conn_md_dbg_func[x])
 		(*conn_md_dbg_func[x]) (x, y, z);
 	else
-		CONN_MD_WARN_FUNC("no handler for command id(0x%08x)\n\r", x);
+		CONN_MD_WARN_FUNC("no handler for command id(0x%08lx)\n\r", x);
 	return len;
 }
 
