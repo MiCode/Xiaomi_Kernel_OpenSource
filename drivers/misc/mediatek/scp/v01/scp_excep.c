@@ -458,7 +458,7 @@ static void scp_prepare_aed(char *aed_str, struct scp_aed_cfg *aed)
 	pr_debug("[SCP] %s begins\n", __func__);
 
 	aed->detail = NULL;
-	detail = vmalloc(SCP_AED_STR_LEN);
+	detail = scp_A_detail_buffer;
 	if (!detail)
 		return;
 
