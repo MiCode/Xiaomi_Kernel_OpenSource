@@ -436,12 +436,93 @@ static int ccu_open(struct inode *inode, struct file *flip)
 static long ccu_compat_ioctl(struct file *flip, unsigned int cmd,
 	unsigned long arg)
 {
+	struct compat_ccu_power_s __user *ptr_power32;
+	struct ccu_power_s __user *ptr_power64;
+
+	compat_uptr_t uptr_Addr32;
+	compat_uint_t uint_Data32;
+
+	int err;
+	int i;
+	/*>>>>>>>>>> debug 32/64 compat check*/
+
 	int ret = 0;
 	struct ccu_user_s *user = flip->private_data;
 
 	LOG_DBG("+, cmd: %d\n", cmd);
 
-	ret = flip->f_op->unlocked_ioctl(flip, cmd, arg);
+	switch (cmd) {
+	case CCU_IOCTL_SET_POWER:
+	{
+		LOG_DBG("CCU_IOCTL_SET_POWER+\n");
+
+		/*<<<<<<<<<< debug 32/64 compat check*/
+		LOG_DBG("[IOCTL_DBG] struct ccu_power_s size: %zu\n",
+			sizeof(struct ccu_power_s));
+		LOG_DBG("[IOCTL_DBG] struct ccu_working_buffer_s size: %zu\n",
+			sizeof(struct ccu_working_buffer_s));
+		LOG_DBG("[IOCTL_DBG] arg: %p\n", (void *)arg);
+		LOG_DBG("[IOCTL_DBG] long size: %zu\n", sizeof(long));
+		LOG_DBG("[IOCTL_DBG] long long: %zu\n", sizeof(long long));
+		LOG_DBG("[IOCTL_DBG] char *size: %zu\n", sizeof(char *));
+		LOG_DBG("[IOCTL_DBG] power.workBuf.va_log[0]: %p\n",
+			power.workBuf.va_log[0]);
+
+		ptr_power32 = compat_ptr(arg);
+		ptr_power64 = compat_alloc_user_space(sizeof(*ptr_power64));
+		if (ptr_power64 == NULL)
+			return -EFAULT;
+
+		LOG_DBG("[IOCTL_DBG] (void *)arg: %p\n", (void *)arg);
+		LOG_DBG("[IOCTL_DBG] ptr_power32: %p\n", ptr_power32);
+		LOG_DBG("[IOCTL_DBG] ptr_power64: %p\n", ptr_power64);
+		LOG_DBG("[IOCTL_DBG] *ptr_power32 size: %zu\n",
+			sizeof(*ptr_power32));
+		LOG_DBG("[IOCTL_DBG] *ptr_power64 size: %zu\n",
+			sizeof(*ptr_power64));
+
+		err = 0;
+		err |= get_user(uint_Data32, &(ptr_power32->bON));
+		err |= put_user(uint_Data32, &(ptr_power64->bON));
+
+		for (i = 0; i < MAX_LOG_BUF_NUM; i++) {
+			err |= get_user(uptr_Addr32,
+				(&ptr_power32->workBuf.va_log[i]));
+			err |= put_user(compat_ptr(uptr_Addr32),
+				(&ptr_power64->workBuf.va_log[i]));
+			err |= get_user(uint_Data32,
+				(&ptr_power32->workBuf.mva_log[i]));
+			err |= copy_to_user(
+				&(ptr_power64->workBuf.mva_log[i]),
+				&uint_Data32,
+				sizeof(uint_Data32));
+		}
+
+		LOG_DBG("[IOCTL_DBG] err: %d\n", err);
+		LOG_DBG("[IOCTL_DBG] ptr_power32->workBuf.va_pool: %x\n",
+			ptr_power32->workBuf.va_pool);
+		LOG_DBG("[IOCTL_DBG] ptr_power64->workBuf.va_pool: %p\n",
+			ptr_power64->workBuf.va_pool);
+		LOG_DBG("[IOCTL_DBG] ptr_power32->workBuf.va_log: %x\n",
+			ptr_power32->workBuf.va_log[0]);
+		LOG_DBG("[IOCTL_DBG] ptr_power64->workBuf.va_log: %p\n",
+			ptr_power64->workBuf.va_log[0]);
+		LOG_DBG("[IOCTL_DBG] ptr_power32->workBuf.mva_log: %x\n",
+			ptr_power32->workBuf.mva_log[0]);
+		LOG_DBG("[IOCTL_DBG] ptr_power64->workBuf.mva_log: %x\n",
+			ptr_power64->workBuf.mva_log[0]);
+
+		ret = flip->f_op->unlocked_ioctl(flip, cmd,
+			(unsigned long)ptr_power64);
+		/*>>>>>>>>>> debug 32/64 compat check*/
+
+		LOG_DBG("CCU_IOCTL_SET_POWER-");
+		break;
+	}
+	default:
+		ret = flip->f_op->unlocked_ioctl(flip, cmd, arg);
+		break;
+	}
 
 	if (ret != 0) {
 		LOG_ERR("fail, cmd(%d), pid(%d), ",
