@@ -22,10 +22,6 @@
 #include <helio-dvfsrc-mt6775.h>
 #elif defined(CONFIG_MACH_MT6771)
 #include <helio-dvfsrc-mt6771.h>
-#elif defined(CONFIG_MACH_MT6768)
-#include <helio-dvfsrc-mt6768.h>
-#else
-#include <helio-dvfsrc-mt67xx.h>
 #endif
 
 struct reg_config {
