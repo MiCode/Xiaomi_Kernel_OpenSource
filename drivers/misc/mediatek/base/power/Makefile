@@ -21,6 +21,7 @@ obj-$(CONFIG_MACH_MT6771) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6771) += pbm_v3/
 obj-$(CONFIG_MACH_MT6771) += spm_v4/
 obj-$(CONFIG_MACH_MT6771) += vcorefs_v3/
+obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
 endif
 ifeq ($(CONFIG_MTK_CM_MGR), y)
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
