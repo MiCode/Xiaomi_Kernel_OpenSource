@@ -799,7 +799,7 @@ void msdc_dump_padctl_by_id(char **buff, unsigned long *size,
 			"MSDC1 IES    [0x%p]=0x%8x\tshould: 0x??????7?\n",
 			MSDC1_GPIO_IES_ADDR, MSDC_READ32(MSDC1_GPIO_IES_ADDR));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC1 SMT    [0x%p]=0x%8x\tshould: 0x??????7?\n",
+			"MSDC1 SMT    [0x%p]=0x%8x\tshould: 0x?????1c?\n",
 			MSDC1_GPIO_SMT_ADDR, MSDC_READ32(MSDC1_GPIO_SMT_ADDR));
 		SPREAD_PRINTF(buff, size, m,
 			"MSDC1 TDSEL0 [0x%p]=0x%8x\n",
