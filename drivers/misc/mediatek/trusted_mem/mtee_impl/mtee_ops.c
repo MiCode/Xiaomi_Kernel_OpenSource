@@ -38,11 +38,11 @@
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
-#include "private/secmem_ext.h"
 #include "public/mtee_regions.h"
 /* clang-format off */
 #include "mtee_impl/mtee_priv.h"
 /* clang-format on */
+#include "tee_impl/tee_invoke.h"
 
 static const char mem_srv_name[] = "com.mediatek.geniezone.srv.mem";
 
