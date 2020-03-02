@@ -1427,12 +1427,6 @@ int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user)
 	if (err) {
 		dev_err(hba->dev, "%s: query bDeviceFFUStatus failed, err %d\n",
 			__func__, err);
-		/*
-		 * UFS might not be used normally after FFU.
-		 * Just reboot system (including device) to avoid following
-		 * false alarm. For example, I/O errors.
-		 */
-		emergency_restart();
 		goto out_release_mem;
 	}
 
@@ -1445,6 +1439,13 @@ out_release_mem:
 	kfree(idata);
 	kfree(idata_user);
 out:
+	/*
+	 * UFS might not be used normally after FFU.
+	 * Just reboot system (including device) to avoid following
+	 * false alarm. For example, I/O errors.
+	 */
+	emergency_restart();
+
 	return err;
 }
 
