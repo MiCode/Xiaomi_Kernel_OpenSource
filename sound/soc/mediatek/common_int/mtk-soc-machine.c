@@ -538,24 +538,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.codec_dai_name = MT_SOC_CODEC_OFFLOAD_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
 	},
-#ifdef CONFIG_SND_SOC_MTK_BTCVSD
-	{
-		.name = "BTCVSD_RX",
-		.stream_name = MT_SOC_BTCVSD_CAPTURE_STREAM_NAME,
-		.cpu_dai_name = "snd-soc-dummy-dai",
-		.platform_name = MT_SOC_BTCVSD_RX_PCM,
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-	},
-	{
-		.name = "BTCVSD_TX",
-		.stream_name = MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
-		.cpu_dai_name = "snd-soc-dummy-dai",
-		.platform_name = MT_SOC_BTCVSD_TX_PCM,
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-	},
-#endif
 #ifdef _NON_COMMON_FEATURE_READY
 	{
 		.name = "MOD_DAI_CAPTURE",
@@ -642,6 +624,18 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 #endif
 };
 
+#ifdef CONFIG_SND_SOC_MTK_BTCVSD
+static struct snd_soc_dai_link mt_soc_btcvsd_dai[] = {
+	{
+		.name = "BTCVSD",
+		.stream_name = "BTCVSD",
+		.cpu_dai_name   = "snd-soc-dummy-dai",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+};
+#endif
+
 static struct snd_soc_dai_link mt_soc_exthp_dai[] = {
 	{
 		.name = "ext_Headphone_Multimedia",
@@ -698,6 +692,9 @@ static struct snd_soc_dai_link mt_soc_extspk_dai[] = {
 
 static struct snd_soc_dai_link
 	mt_soc_dai_component[ARRAY_SIZE(mt_soc_dai_common) +
+#ifdef CONFIG_SND_SOC_MTK_BTCVSD
+	ARRAY_SIZE(mt_soc_btcvsd_dai) +
+#endif
 			     ARRAY_SIZE(mt_soc_exthp_dai) +
 			     ARRAY_SIZE(mt_soc_extspk_dai)];
 
@@ -716,6 +713,7 @@ static void get_ext_dai_codec_name(void)
 static int mt_soc_snd_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt_snd_soc_card_mt;
+	struct device_node *btcvsd_node;
 	int ret;
 	int daiLinkNum = 0;
 
@@ -734,6 +732,22 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 	memcpy(mt_soc_dai_component, mt_soc_dai_common,
 	       sizeof(mt_soc_dai_common));
 	daiLinkNum += ARRAY_SIZE(mt_soc_dai_common);
+
+#ifdef CONFIG_SND_SOC_MTK_BTCVSD
+	/* assign btcvsd platform_node */
+	btcvsd_node = of_parse_phandle(pdev->dev.of_node,
+				       "mediatek,btcvsd_snd", 0);
+	if (!btcvsd_node) {
+		dev_err(&pdev->dev, "Property 'btcvsd_snd' missing or invalid\n");
+		return -EINVAL;
+	}
+	mt_soc_btcvsd_dai[0].platform_of_node = btcvsd_node;
+
+	memcpy(mt_soc_dai_component + daiLinkNum,
+	mt_soc_btcvsd_dai, sizeof(mt_soc_btcvsd_dai));
+	daiLinkNum += ARRAY_SIZE(mt_soc_btcvsd_dai);
+#endif
+
 	memcpy(mt_soc_dai_component + daiLinkNum, mt_soc_exthp_dai,
 	       sizeof(mt_soc_exthp_dai));
 	daiLinkNum += ARRAY_SIZE(mt_soc_exthp_dai);
