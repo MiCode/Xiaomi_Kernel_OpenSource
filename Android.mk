@@ -17,27 +17,28 @@ include $(LOCAL_PATH)/kenv.mk
 
 ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
 # .config cannot be PHONY due to config_data.gz
+KERNEL_MAKE_DEPENDENCIES := $(shell find $(KERNEL_DIR) -type f -and -not -name ".*")
 $(TARGET_KERNEL_CONFIG): $(KERNEL_CONFIG_FILE) $(LOCAL_PATH)/Android.mk
-$(TARGET_KERNEL_CONFIG): $(shell find $(KERNEL_DIR) -name "Kconfig*")
+$(TARGET_KERNEL_CONFIG): $(KERNEL_MAKE_DEPENDENCIES)
 	$(hide) mkdir -p $(dir $@)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) $(KERNEL_DEFCONFIG)
 
-$(KERNEL_MODULES_DEPS): $(KERNEL_ZIMAGE_OUT) ;
+#$(KERNEL_MODULES_DEPS): $(KERNEL_ZIMAGE_OUT) ;
 $(BUILT_DTB_OVERLAY_TARGET): $(KERNEL_ZIMAGE_OUT)
 
 .KATI_RESTAT: $(KERNEL_ZIMAGE_OUT)
-$(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) FORCE
+$(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) $(KERNEL_MAKE_DEPENDENCIES)
 	$(hide) mkdir -p $(dir $@)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION)
 	$(hide) $(call fixup-kernel-cmd-file,$(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/compressed/.piggy.xzkern.cmd)
-ifneq ($(KERNEL_CONFIG_MODULES),)
+#ifneq ($(KERNEL_CONFIG_MODULES),)
 	#$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) INSTALL_MOD_PATH=$(KERNEL_MODULES_SYMBOLS_OUT) modules_install
 	#$(hide) $(call move-kernel-module-files,$(KERNEL_MODULES_SYMBOLS_OUT),$(KERNEL_OUT))
 	#$(hide) $(call clean-kernel-module-dirs,$(KERNEL_MODULES_SYMBOLS_OUT),$(KERNEL_OUT))
 	#$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) INSTALL_MOD_PATH=$(KERNEL_MODULES_OUT) modules_install
 	#$(hide) $(call move-kernel-module-files,$(KERNEL_MODULES_OUT),$(KERNEL_OUT))
 	#$(hide) $(call clean-kernel-module-dirs,$(KERNEL_MODULES_OUT),$(KERNEL_OUT))
-endif
+#endif
 
 ifeq ($(strip $(MTK_HEADER_SUPPORT)), yes)
 $(BUILT_KERNEL_TARGET): $(KERNEL_ZIMAGE_OUT) $(TARGET_KERNEL_CONFIG) $(LOCAL_PATH)/Android.mk | $(HOST_OUT_EXECUTABLES)/mkimage$(HOST_EXECUTABLE_SUFFIX)
@@ -55,11 +56,11 @@ endif#TARGET_PREBUILT_KERNEL is empty
 $(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
 
-ifneq ($(KERNEL_CONFIG_MODULES),)
-$(BUILT_SYSTEMIMAGE): $(KERNEL_MODULES_DEPS)
-endif
+#ifneq ($(KERNEL_CONFIG_MODULES),)
+#$(BUILT_SYSTEMIMAGE): $(KERNEL_MODULES_DEPS)
+#endif
 
-.PHONY: kernel save-kernel kernel-savedefconfig %config-kernel clean-kernel odmdtboimage
+.PHONY: kernel save-kernel kernel-savedefconfig kernel-menuconfig menuconfig-kernel savedefconfig-kernel clean-kernel clean-kernel 
 kernel: $(INSTALLED_KERNEL_TARGET)
 save-kernel: $(TARGET_PREBUILT_KERNEL)
 
@@ -70,9 +71,10 @@ kernel-menuconfig:
 	$(hide) mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) menuconfig
 
-%config-kernel:
+menuconfig-kernel savedefconfig-kernel:
 	$(hide) mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) $(patsubst %config-kernel,%config,$@)
+
 
 clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(KERNEL_MODULES_OUT) $(INSTALLED_KERNEL_TARGET)
