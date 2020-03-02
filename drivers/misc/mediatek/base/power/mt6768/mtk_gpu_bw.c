@@ -47,7 +47,7 @@ EXPORT_SYMBOL(mt_gpu_bw_qos_vcore);
 
 static int mt_gpu_bw_ap2sspm(unsigned int eCMD, int type)
 {
-	struct qos_data qos_d;
+	struct qos_ipi_data qos_d;
 	int md32Ret = -1;
 	int apDebug = -1;
 
