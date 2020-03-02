@@ -334,6 +334,7 @@ void mtk_wd_resume(void)
 void wdt_dump_reg(void)
 {
 	int i;
+
 	pr_info("****************dump wdt reg start*************\n");
 	pr_info("MTK_WDT_MODE:0x%x\n", __raw_readl(MTK_WDT_MODE));
 	pr_info("MTK_WDT_LENGTH:0x%x\n", __raw_readl(MTK_WDT_LENGTH));
