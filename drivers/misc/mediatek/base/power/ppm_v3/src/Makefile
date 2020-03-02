@@ -36,9 +36,8 @@ obj-y += mtk_ppm_profile.o
 # for IPI to SSPM
 obj-y += mtk_ppm_ipi.o
 
-# no need for Talbot, will not port this
 # for CPI
-# obj-y += mtk_ppm_cpi.o
+obj-y += mtk_ppm_cpi.o
 
 # policies
 obj-y += mtk_ppm_policy_dlpt.o
