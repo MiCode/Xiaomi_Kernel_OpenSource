@@ -103,6 +103,7 @@ extern void vcorefs_temp_opp_config(int temp);
 extern void vcorefs_set_lt_opp_feature(int en);
 extern void vcorefs_set_lt_opp_enter_temp(int val);
 extern void vcorefs_set_lt_opp_leave_temp(int val);
+extern int is_force_opp_enable(void);
 
 /* met profile function */
 extern int vcorefs_get_opp_info_num(void);
