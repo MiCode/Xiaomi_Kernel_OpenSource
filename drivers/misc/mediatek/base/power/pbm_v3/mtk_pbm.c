@@ -39,7 +39,7 @@
 #include <mtk_cpufreq_api.h>
 #include <mtk_gpufreq.h>
 #include <mach/mtk_thermal.h>
-#include <mach/mtk_ppm_api.h>
+#include <mtk_ppm_api.h>
 #endif
 
 #if MD_POWER_METER_ENABLE
@@ -311,6 +311,19 @@ spm_vcorefs_get_MD_status(void)
 {
 	pr_warn_ratelimited("%s not ready\n", __func__);
 	return 0;
+}
+
+unsigned int __attribute__ ((weak))
+mt_ppm_get_leakage_mw(enum ppm_cluster_lkg limited_power)
+{
+	pr_warn_ratelimited("%s not ready\n", __func__);
+	return 0;
+}
+
+void __attribute__ ((weak))
+mt_ppm_dlpt_set_limit_by_pbm(unsigned int limited_power)
+{
+	pr_warn_ratelimited("%s not ready\n", __func__);
 }
 
 int get_battery_volt(void)
