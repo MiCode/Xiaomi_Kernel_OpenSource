@@ -28,6 +28,15 @@ config MTK_LCM_PHYSICAL_ROTATION
 	  MTK_LCM_PHYSICAL_ROTATION=0 means not rotation.
 	  MTK_LCM_PHYSICAL_ROTATION=180 means 180 rotation.
 
+config MTK_LCM_PHYSICAL_ROTATION_HW
+	bool "Rotate LCM display for 180 degree using HW"
+	default n
+	help
+	  Rotate LCM display for 180 degree using mediatek
+	  hardware engine.
+	  Enable it when LCM hardware is intalled upside down,
+	  and you need to rotate the display content to adapting.
+
 config MTK_ROUND_CORNER_SUPPORT
 	bool "enable medietak display round corner"
 	default n
