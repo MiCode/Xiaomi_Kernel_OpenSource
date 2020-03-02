@@ -32,6 +32,7 @@
        .global __disable_dcache__inner_flush_dcache_L1__inner_clean_dcache_L2
        .global dis_D_inner_fL1L2
        .global d_i_dis_flush_all
+       .global dis_D_inner_flush_all
 .equ C1_IBIT ,  0x00001000
 .equ C1_CBIT ,  0x00000004
 .equ PSR_F_BIT, 0x00000040
@@ -1083,5 +1084,17 @@ DIF1F2_L2_finished:
         pop     {r0,r1,r2,r3,r4,r5,r7,r9,r10,r11,r14}
         bx      lr
 
+
+dis_D_inner_flush_all:
+	/* disable data cache*/
+
+	MRC p15,0,r0,c1,c0,0
+	BIC r0,r0,#C1_CBIT
+	dsb
+	MCR p15,0,r0,c1,c0,0
+	dsb
+	isb
+
+	b	v7_flush_dcache_all
 
         .end
