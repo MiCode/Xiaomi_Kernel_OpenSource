@@ -108,7 +108,7 @@ static inline bool is_xen_domu(void)
 }
 
 /* TEE tracing support */
-//#define TEE_TRACING_ENABLED
+#define TEE_TRACING_ENABLED	(0)
 
 /* TEE tracing log prefix */
 #define TEE_BEGIN_TRACE         "tee_trace_begin"
