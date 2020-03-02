@@ -50,13 +50,11 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
 endif
 
 
-ifneq ($(strip $(CONFIG_MTK_ENG_BUILD )),)
-ifneq ($(strip $(CONFIG_MTK_ENG_BUILD )),eng)
+ifneq ($(CONFIG_MTK_ENG_BUILD),y)
 VER:=user
 ifeq ($(CONFIG_EXTREME_LOW_RAM), y)
 ccflags-y += -DGED_LOG_SIZE_LIMITED
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
-endif
 endif
 endif
 
