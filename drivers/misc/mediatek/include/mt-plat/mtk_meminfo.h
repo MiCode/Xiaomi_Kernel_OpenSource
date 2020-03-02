@@ -42,7 +42,7 @@ struct single_cma_registration {
 	unsigned long flag;
 	const char *name;
 	int (*preinit)(struct reserved_mem *rmem);
-	void (*init)(struct cma *);
+	void (*init)(struct cma *cma);
 	enum zmc_prio prio;
 };
 
