@@ -41,4 +41,6 @@ void cmdq_util_enable(void); // TODO : need be called
 void cmdq_util_disable(void);
 s32 cmdq_util_save_first_error(const char *str, ...);
 
+const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event);
+
 #endif
