@@ -484,8 +484,10 @@ s32 cmdq_pkt_cl_create(struct cmdq_pkt **pkt_ptr, struct cmdq_client *cl)
 	struct cmdq_pkt *pkt;
 
 	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
-	if (!pkt)
+	if (!pkt) {
+		*pkt_ptr = NULL;
 		return -ENOMEM;
+	}
 	INIT_LIST_HEAD(&pkt->buf);
 	cmdq_pkt_set_client(pkt, cl);
 	*pkt_ptr = pkt;
