@@ -1617,7 +1617,7 @@ int m4u_monitor_start(int m4u_id)
 
 int m4u_monitor_stop(int m4u_id)
 {
-	struct M4U_PERF_COUNT cnt;
+	struct M4U_PERF_COUNT cnt = {0, 0, 0, 0, 0};
 	int m4u_index = m4u_id;
 	unsigned long m4u_base = gM4UBaseAddr[m4u_index];
 
@@ -1641,7 +1641,7 @@ int m4u_monitor_stop(int m4u_id)
 
 void m4u_print_perf_counter(int m4u_index, int m4u_slave_id, const char *msg)
 {
-	struct M4U_PERF_COUNT cnt;
+	struct M4U_PERF_COUNT cnt = {0, 0, 0, 0, 0};
 
 	M4UINFO(
 		"====m4u performance count for %s m4u%d_%d======\n",
