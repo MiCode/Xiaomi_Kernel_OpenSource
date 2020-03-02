@@ -440,6 +440,7 @@ static int params_to_scp(void)
 static void scp_A_set_ready(void)
 {
 	pr_debug("[SCP] %s()\n", __func__);
+	scp_timeout_times = 0;
 #if SCP_BOOT_TIME_OUT_MONITOR
 	del_timer(&scp_ready_timer[SCP_A_ID]);
 #endif
@@ -1503,9 +1504,22 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 
 	/* start scp */
-	pr_debug("[SCP]start scp\n");
+	timeout = 5;
 	writel(1, scp_reset_reg);
 	dsb(SY);
+
+	while ((readl(scp_reset_reg) == 0) && (timeout > 0)) {
+		pr_notice("[SCP]reset countdown, %d\n", timeout);
+		writel(1, scp_reset_reg);
+		mdelay(20);
+		timeout--;
+	};
+
+	if (readl(scp_reset_reg))
+		pr_notice("[SCP]start scp\n");
+	else
+		pr_notice("[SCP]start scp failed\n");
+
 #if SCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&scp_ready_timer[SCP_A_ID], jiffies + SCP_READY_TIMEOUT);
 #endif
@@ -1750,6 +1764,7 @@ static int __init scp_init(void)
 	init_timer(&scp_ready_timer[SCP_A_ID]);
 	scp_ready_timer[SCP_A_ID].function = &scp_wait_ready_timeout;
 	scp_ready_timer[SCP_A_ID].data = (unsigned long) SCP_A_TIMER;
+	scp_timeout_times = 0;
 #endif
     /* scp platform initialise */
 	pr_debug("[SCP] %s begins\n", __func__);
