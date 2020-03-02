@@ -23,6 +23,7 @@
 #include <linux/of_irq.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/sched/clock.h>
 #include "cust_alsps.h"
 #include "cm36558.h"
 #include "alsps.h"

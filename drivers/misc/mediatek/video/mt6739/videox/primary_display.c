@@ -13,6 +13,8 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -23,7 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
-#include <linux/switch.h>
+/* #include <linux/switch.h> */
 /* #include "mtk_idle.h" */
 #include "mtk_spm.h"	/* for sodi reg addr define */
 /* #include "mtk_spm_idle.h" */
@@ -4068,7 +4070,7 @@ int primary_display_get_lcm_index(void)
 
 static int check_switch_lcm_mode_for_debug(void)
 {
-	static LCM_DSI_MODE_CON vdo_mode_type;
+	static enum LCM_DSI_MODE_CON vdo_mode_type;
 	struct LCM_PARAMS *lcm_param_cv = NULL;
 
 	if (lcm_mode_status == 0)
@@ -4401,13 +4403,16 @@ int primary_display_ipoh_restore(void)
 	primary_display_esd_check_enable(0);
 	DISPCHECK("ESD check stop[end]\n");
 	if (pgc->cmdq_handle_trigger != NULL) {
-		struct TaskStruct *pTask = pgc->cmdq_handle_trigger->pRunningTask;
+		struct TaskStruct *pTask =
+			pgc->cmdq_handle_trigger->running_task;
 
 		if (pTask != NULL) {
 			DISPCHECK("[Primary_display]display cmdq trigger loop stop[begin]\n");
 			_cmdq_stop_trigger_loop();
 			DISPCHECK("[Primary_display]display cmdq trigger loop stop[end]\n");
-			ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(pgc->dpmgr_handle), NULL, 0);
+			ddp_mutex_set_sof_wait(
+				dpmgr_path_get_mutex(pgc->dpmgr_handle),
+				NULL, 0);
 		}
 	}
 	DISPMSG("primary_display_ipoh_restore Out\n");
@@ -6763,7 +6768,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt, enu
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf, enum UNIFIED_COLOR_FMT ufmt)
 {
 	int ret = 0;
-	m4u_client_t *m4uClient = NULL;
+	struct m4u_client_t *m4uClient = NULL;
 	unsigned int mva = 0;
 	unsigned int w_xres = primary_display_get_width();
 	unsigned int h_yres = primary_display_get_height();
@@ -6936,7 +6941,7 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end, unsi
 		 &pa_end, *va);
 
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
-		m4u_client_t *client;
+		struct m4u_client_t *client;
 
 		struct sg_table *sg_table = &table;
 
@@ -7402,7 +7407,7 @@ int primary_display_resolution_test(void)
 	unsigned int h_backup = 0;
 	int dst_width = 0;
 	int dst_heigh = 0;
-	LCM_DSI_MODE_CON dsi_mode_backup = primary_display_is_video_mode();
+	enum LCM_DSI_MODE_CON dsi_mode_backup = primary_display_is_video_mode();
 
 	memset((void *)&data_config2, 0, sizeof(data_config2));
 	lcm_param2 = NULL;

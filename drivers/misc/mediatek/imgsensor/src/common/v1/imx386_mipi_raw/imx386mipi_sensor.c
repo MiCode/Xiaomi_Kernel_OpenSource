@@ -244,7 +244,7 @@ static struct imgsensor_struct imgsensor = {
 };
 
 /*VC1 for HDR(DT=0X35) , VC2 for PDAF(DT=0X36), unit : 10bit*/
-static SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[3] = {
+static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[3] = {
 	/* Preview mode setting */
 	{
 		0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
@@ -266,7 +266,7 @@ static SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[3] = {
 };
 
 /* Sensor output window information*/
-static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[8] = {
+static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[8] = {
 	{4032, 3016, 0, 0, 4032, 3016, 2016, 1508, 0, 0, 2016, 1508, 0, 0, 2016, 1508},	/* Preview */
 	{4032, 3016, 0, 0, 4032, 3016, 4032, 3016, 0, 0, 4032, 3016, 0, 0, 4032, 3016},	/* capture */
 	{4032, 3016, 0, 0, 4032, 3016, 4032, 3016, 0, 0, 4032, 3016, 0, 0, 4032, 3016},	/* normal video */
@@ -277,7 +277,7 @@ static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[8] = {
 	{4032, 3016, 0, 0, 4032, 3016, 2016, 1508, 0, 0, 2016, 1508, 0, 0, 2016, 1508}, /* custom3*/
 };
 
-static SET_PD_BLOCK_INFO_T imgsensor_pd_info =
+static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info =
 /* for 2M8 non mirror flip */
 {
 
@@ -2507,7 +2507,7 @@ static kal_uint32 get_resolution(MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_reso
 	return ERROR_NONE;
 }				/*      get_resolution  */
 
-static kal_uint32 get_info(MSDK_SCENARIO_ID_ENUM scenario_id,
+static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 			   MSDK_SENSOR_INFO_STRUCT *sensor_info,
 			   MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
@@ -2655,7 +2655,7 @@ static kal_uint32 get_info(MSDK_SCENARIO_ID_ENUM scenario_id,
 }				/*      get_info  */
 
 
-static kal_uint32 control(MSDK_SCENARIO_ID_ENUM scenario_id,
+static kal_uint32 control(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 			  MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
@@ -2730,8 +2730,9 @@ static kal_uint32 set_auto_flicker_mode(kal_bool enable, UINT16 framerate)
 }
 
 
-static kal_uint32 set_max_framerate_by_scenario(MSDK_SCENARIO_ID_ENUM scenario_id,
-						MUINT32 framerate)
+static kal_uint32 set_max_framerate_by_scenario(
+	enum MSDK_SCENARIO_ID_ENUM scenario_id,
+	MUINT32 framerate)
 {
 	kal_uint32 frame_length;
 
@@ -2834,8 +2835,9 @@ static kal_uint32 set_max_framerate_by_scenario(MSDK_SCENARIO_ID_ENUM scenario_i
 }
 
 
-static kal_uint32 get_default_framerate_by_scenario(MSDK_SCENARIO_ID_ENUM scenario_id,
-						    MUINT32 *framerate)
+static kal_uint32 get_default_framerate_by_scenario(
+	enum MSDK_SCENARIO_ID_ENUM scenario_id,
+	MUINT32 *framerate)
 {
 	LOG_INF("scenario_id = %d\n", scenario_id);
 
@@ -2925,11 +2927,12 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT32 *feature_data_32 = (UINT32 *) feature_para;
 	INT32 *feature_return_para_i32 = (INT32 *) feature_para;
 	unsigned long long *feature_data = (unsigned long long *)feature_para;
+	uintptr_t tmp;
 
-	SENSOR_WINSIZE_INFO_STRUCT *wininfo;
-	SENSOR_VC_INFO_STRUCT *pvcinfo;
+	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
+	struct SENSOR_VC_INFO_STRUCT *pvcinfo;
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data = (MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
-	SET_PD_BLOCK_INFO_T *PDAFinfo;
+	struct SET_PD_BLOCK_INFO_T *PDAFinfo;
 
 	LOG_INF("feature_id = %d\n", feature_id);
 	switch (feature_id) {
@@ -2977,17 +2980,20 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		set_auto_flicker_mode((BOOL) (*feature_data_16), *(feature_data_16 + 1));
 		break;
 	case SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO:
-		set_max_framerate_by_scenario((MSDK_SCENARIO_ID_ENUM) *feature_data,
-					      *(feature_data + 1));
+		set_max_framerate_by_scenario(
+			(enum MSDK_SCENARIO_ID_ENUM) *feature_data,
+			*(feature_data + 1));
 		break;
 	case SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO:
-		get_default_framerate_by_scenario((MSDK_SCENARIO_ID_ENUM) *(feature_data),
-						  (MUINT32 *) (uintptr_t) (*(feature_data + 1)));
+		get_default_framerate_by_scenario(
+			(enum MSDK_SCENARIO_ID_ENUM) *(feature_data),
+			(MUINT32 *) (uintptr_t) (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern_mode((BOOL) (*feature_data));
 		break;
-	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:	/* for factory mode auto testing */
+		/* for factory mode auto testing */
+	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		*feature_return_para_32 = imgsensor_info.checksum_value;
 		*feature_para_len = 4;
 		break;
@@ -3004,43 +3010,45 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
-		LOG_INF("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n", (UINT32) *feature_data);
+		LOG_INF("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
+			(UINT32) *feature_data);
+		tmp = (uintptr_t) (*(feature_data + 1));
 
-		wininfo = (SENSOR_WINSIZE_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
+		wininfo = (struct SENSOR_WINSIZE_INFO_STRUCT *) tmp;
 
 		switch (*feature_data_32) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[1],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[2],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[3],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_SLIM_VIDEO:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[4],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM1:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[5],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM2:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[6],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM3:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[7],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		default:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[0],
-			       sizeof(SENSOR_WINSIZE_INFO_STRUCT));
+			       sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 		}
 		break;
@@ -3081,14 +3089,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
-		LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n", (UINT32) *feature_data);
-		PDAFinfo = (SET_PD_BLOCK_INFO_T *) (uintptr_t) (*(feature_data + 1));
+		LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n",
+			(UINT32) *feature_data);
+		tmp = (uintptr_t) (*(feature_data + 1));
+
+		PDAFinfo = (struct SET_PD_BLOCK_INFO_T *) tmp;
 
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 		case MSDK_SCENARIO_ID_CUSTOM2:
 			memcpy((void *)PDAFinfo, (void *)&imgsensor_pd_info,
-			       sizeof(SET_PD_BLOCK_INFO_T));
+			       sizeof(struct SET_PD_BLOCK_INFO_T));
 			break;
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
@@ -3111,22 +3122,24 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_GET_VC_INFO:
 		LOG_INF("SENSOR_FEATURE_GET_VC_INFO %d\n", (UINT16) *feature_data);
-		pvcinfo = (SENSOR_VC_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
+		tmp = (uintptr_t) (*(feature_data + 1));
+
+		pvcinfo = (struct SENSOR_VC_INFO_STRUCT *)tmp;
 		switch (*feature_data_32) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[1],
-			       sizeof(SENSOR_VC_INFO_STRUCT));
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM1:
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[2],
-			       sizeof(SENSOR_VC_INFO_STRUCT));
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
 		case MSDK_SCENARIO_ID_CUSTOM3:
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		default:
 			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
-			       sizeof(SENSOR_VC_INFO_STRUCT));
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
 		}
 		break;
@@ -3164,7 +3177,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 }				/*    feature_control()  */
 
 
-static SENSOR_FUNCTION_STRUCT sensor_func = {
+static struct SENSOR_FUNCTION_STRUCT sensor_func = {
 	open,
 	get_info,
 	get_resolution,
@@ -3174,7 +3187,7 @@ static SENSOR_FUNCTION_STRUCT sensor_func = {
 };
 
 
-UINT32 IMX386_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc)
+UINT32 IMX386_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc)
 {
 	/* To Do : Check Sensor status here */
 	if (pfFunc != NULL)

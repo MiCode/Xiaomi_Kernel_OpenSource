@@ -3030,7 +3030,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	return ERROR_NONE;
 }				/*    feature_control()  */
 
-static SENSOR_FUNCTION_STRUCT sensor_func = {
+static struct SENSOR_FUNCTION_STRUCT sensor_func = {
 	open,
 	get_info,
 	get_resolution,

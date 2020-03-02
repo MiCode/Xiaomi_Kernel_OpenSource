@@ -35,10 +35,10 @@ typedef int M4U_PORT_ID;
 #define M4U_FLAGS_MVA_IN_FREE (1<<8) /* this mva is in deallocating. */
 
 
-typedef enum {
+enum M4U_RANGE_PRIORITY_ENUM {
 	RT_RANGE_HIGH_PRIORITY = 0,
 	SEQ_RANGE_LOW_PRIORITY = 1
-} M4U_RANGE_PRIORITY_ENUM;
+};
 
 
 /* port related: virtuality, security, distance */
@@ -52,7 +52,7 @@ typedef struct _M4U_PORT {
 } M4U_PORT_STRUCT;
 
 
-typedef enum {
+enum M4U_CACHE_SYNC_ENUM {
 	M4U_CACHE_CLEAN_BY_RANGE,
 	M4U_CACHE_INVALID_BY_RANGE,
 	M4U_CACHE_FLUSH_BY_RANGE,
@@ -60,44 +60,44 @@ typedef enum {
 	M4U_CACHE_CLEAN_ALL,
 	M4U_CACHE_INVALID_ALL,
 	M4U_CACHE_FLUSH_ALL,
-} M4U_CACHE_SYNC_ENUM;
+};
 
-typedef enum {
+enum M4U_DMA_TYPE {
 	M4U_DMA_MAP_AREA,
 	M4U_DMA_UNMAP_AREA,
 	M4U_DMA_FLUSH_BY_RANGE,
-} M4U_DMA_TYPE;
+};
 
-typedef enum {
+enum M4U_DMA_DIR {
 	M4U_DMA_FROM_DEVICE,
 	M4U_DMA_TO_DEVICE,
 	M4U_DMA_BIDIRECTIONAL,
-} M4U_DMA_DIR;
+};
 
-typedef struct {
-    /* mutex to protect mvaList */
-    /* should get this mutex whenever add/delete/interate mvaList */
+struct m4u_client_t {
+	/* mutex to protect mvaList */
+	/* should get this mutex whenever add/delete/interate mvaList */
 	struct mutex dataMutex;
 	pid_t open_pid;
 	pid_t open_tgid;
 	struct list_head mvaList;
-} m4u_client_t;
+};
 
-typedef struct {
-	int eModuleID;
+struct port_mva_info_t {
+	int emoduleid;
 	unsigned long va;
-	unsigned int BufSize;
+	unsigned int buf_size;
 	int security;
 	int cache_coherent;
 	unsigned int flags;
 	unsigned int iova_start;
 	unsigned int iova_end;
 	unsigned int mva;
-} port_mva_info_t;
+};
 
 struct sg_table *m4u_create_sgtable(unsigned long va, unsigned int size);
 
-int m4u_alloc_mva_sg(port_mva_info_t *port_info,
+int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 		struct sg_table *sg_table);
 
 int m4u_dealloc_mva_sg(int eModuleID,

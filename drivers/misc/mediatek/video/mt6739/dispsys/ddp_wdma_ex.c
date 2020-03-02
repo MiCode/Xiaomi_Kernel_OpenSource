@@ -409,18 +409,24 @@ static int wdma_golden_setting(enum DISP_MODULE_ENUM module,
 
 	preultra_low = (preultra_low_us) * consume_rate * bytes_per_sec;
 	preultra_low_UV = (preultra_low_us) * consume_rate;
-	do_div(preultra_low, 1000);
-	do_div(preultra_low_UV, 1000);
+	preultra_low = DIV_ROUND_UP(preultra_low, 1000);
+	preultra_low_UV = DIV_ROUND_UP(preultra_low_UV, 1000);
+/*	do_div(preultra_low, 1000); */
+/*	do_div(preultra_low_UV, 1000); */
 
 	preultra_high = (preultra_high_us) * consume_rate * bytes_per_sec;
 	preultra_high_UV = (preultra_high_us) * consume_rate;
-	do_div(preultra_high, 1000);
-	do_div(preultra_high_UV, 1000);
+	preultra_high = DIV_ROUND_UP(preultra_high, 1000);
+	preultra_high_UV = DIV_ROUND_UP(preultra_high_UV, 1000);
+/*	do_div(preultra_high, 1000);*/
+/*	do_div(preultra_high_UV, 1000);*/
 
 	ultra_high = (ultra_high_us) * consume_rate * bytes_per_sec;
 	ultra_high_UV = (ultra_high_us) * consume_rate;
-	do_div(ultra_high, 1000);
-	do_div(ultra_high_UV, 1000);
+	ultra_high = DIV_ROUND_UP(ultra_high, 1000);
+	ultra_high_UV = DIV_ROUND_UP(ultra_high_UV, 1000);
+/*	do_div(ultra_high, 1000);*/
+/*	do_div(ultra_high_UV, 1000);*/
 
 	ultra_low = preultra_high;
 	ultra_low_UV = preultra_high_UV;
@@ -504,8 +510,10 @@ static int wdma_golden_setting(enum DISP_MODULE_ENUM module,
 	/* TODO: SET DRS_EN */
 	ultra_low = (ultra_low_us + fifo_off_drs_enter) * consume_rate * bytes_per_sec;
 	ultra_low_UV = (ultra_low_us + fifo_off_drs_enter) * consume_rate;
-	do_div(ultra_low, 1000);
-	do_div(ultra_low_UV, 1000);
+	ultra_low = DIV_ROUND_UP(ultra_low, 1000);
+	ultra_low_UV = DIV_ROUND_UP(ultra_low_UV, 1000);
+/*	do_div(ultra_low, 1000);*/
+/*	do_div(ultra_low_UV, 1000);*/
 
 	regval = 0;
 	temp = fifo_pseudo_size - ultra_low;
@@ -526,8 +534,10 @@ static int wdma_golden_setting(enum DISP_MODULE_ENUM module,
 
 	ultra_low = (ultra_low_us + fifo_off_drs_leave) * consume_rate * bytes_per_sec;
 	ultra_low_UV = (ultra_low_us + fifo_off_drs_leave) * consume_rate;
-	do_div(ultra_low, 1000);
-	do_div(ultra_low_UV, 1000);
+	ultra_low = DIV_ROUND_UP(ultra_low, 1000);
+	ultra_low_UV = DIV_ROUND_UP(ultra_low_UV, 1000);
+/*	do_div(ultra_low, 1000);*/
+/*	do_div(ultra_low_UV, 1000);*/
 
 	regval = 0;
 	temp = fifo_pseudo_size - ultra_low;
@@ -548,18 +558,24 @@ static int wdma_golden_setting(enum DISP_MODULE_ENUM module,
 	/*DVFS*/
 	preultra_low = (preultra_low_us + fifo_off_dvfs) * consume_rate * bytes_per_sec;
 	preultra_low_UV = (preultra_low_us + fifo_off_dvfs) * consume_rate;
-	do_div(preultra_low, 1000);
-	do_div(preultra_low_UV, 1000);
+	preultra_low = DIV_ROUND_UP(preultra_low, 1000);
+	preultra_low_UV = DIV_ROUND_UP(preultra_low_UV, 1000);
+/*	do_div(preultra_low, 1000); */
+/*	do_div(preultra_low_UV, 1000); */
 
 	preultra_high = (preultra_high_us + fifo_off_dvfs) * consume_rate * bytes_per_sec;
 	preultra_high_UV = (preultra_high_us + fifo_off_dvfs) * consume_rate;
-	do_div(preultra_high, 1000);
-	do_div(preultra_high_UV, 1000);
+	preultra_high = DIV_ROUND_UP(preultra_high, 1000);
+	preultra_high_UV = DIV_ROUND_UP(preultra_high_UV, 1000);
+/*	do_div(preultra_high, 1000);*/
+/*	do_div(preultra_high_UV, 1000);*/
 
 	ultra_high = (ultra_high_us + fifo_off_dvfs) * consume_rate * bytes_per_sec;
 	ultra_high_UV = (ultra_high_us + fifo_off_dvfs) * consume_rate;
-	do_div(ultra_high, 1000);
-	do_div(ultra_high_UV, 1000);
+	ultra_high = DIV_ROUND_UP(ultra_high, 1000);
+	ultra_high_UV = DIV_ROUND_UP(ultra_high_UV, 1000);
+/*	do_div(ultra_high, 1000);*/
+/*	do_div(ultra_high_UV, 1000);*/
 
 	ultra_low = preultra_high;
 	ultra_low_UV = preultra_high_UV;

@@ -13,6 +13,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -1124,7 +1125,7 @@ void __attribute__((weak)) enter_pd_by_cmdq(struct cmdqRecStruct *handler)
 void enter_share_sram(enum CMDQ_EVENT_ENUM resourceEvent)
 {
 	/* 1. register call back first */
-	cmdqCoreSetResourceCallback(CMDQ_SYNC_RESOURCE_WROT0,
+	cmdq_mdp_set_resource_callback(CMDQ_SYNC_RESOURCE_WROT0,
 		_acquire_wrot_resource, _release_wrot_resource);
 
 	/* 2. try to allocate sram at the fisrt time */
@@ -1134,7 +1135,7 @@ void enter_share_sram(enum CMDQ_EVENT_ENUM resourceEvent)
 void leave_share_sram(enum CMDQ_EVENT_ENUM resourceEvent)
 {
 	/* 1. unregister call back */
-	cmdqCoreSetResourceCallback(CMDQ_SYNC_RESOURCE_WROT0, NULL, NULL);
+	cmdq_mdp_set_resource_callback(CMDQ_SYNC_RESOURCE_WROT0, NULL, NULL);
 
 	/* 2. try to release share sram */
 	_release_wrot_resource_nolock(CMDQ_SYNC_RESOURCE_WROT0);

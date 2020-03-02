@@ -17,7 +17,7 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
-
+#include <linux/sched/clock.h>
 #include <linux/wait.h>
 #include <linux/file.h>
 
@@ -323,7 +323,7 @@ static struct ion_handle *mtkfb_ion_import_handle(struct ion_client *client, int
 		MTKFB_FENCE_ERR("invalid ion fd!\n");
 		return handle;
 	}
-	handle = ion_import_dma_buf(client, fd);
+	handle = ion_import_dma_buf_fd(client, fd);
 	if (IS_ERR(handle)) {
 		MTKFB_FENCE_ERR("import ion handle failed!\n");
 		return NULL;

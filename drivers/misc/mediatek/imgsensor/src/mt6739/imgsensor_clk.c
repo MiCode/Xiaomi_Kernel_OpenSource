@@ -80,7 +80,8 @@ enum IMGSENSOR_RETURN imgsensor_clk_init(struct IMGSENSOR_CLK *pclk)
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
-int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk, ACDK_SENSOR_MCLK_STRUCT *pmclk)
+int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk,
+	struct ACDK_SENSOR_MCLK_STRUCT *pmclk)
 {
 	int ret = 0;
 	int mclk_index = MCLK_ENU_START;

@@ -40,7 +40,7 @@ struct IMGSENSOR_SENSOR_INST {
 
 struct IMGSENSOR_SENSOR {
 	struct IMGSENSOR_SENSOR_INST  inst;
-	SENSOR_FUNCTION_STRUCT *pfunc;
+	struct SENSOR_FUNCTION_STRUCT *pfunc;
 };
 
 #endif

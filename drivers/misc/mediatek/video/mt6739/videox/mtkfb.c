@@ -37,7 +37,7 @@
 #include <asm/cacheflush.h>
 #include <linux/io.h>
 #include "ion_drv.h"
-#include "mt-plat/dma.h"
+/* #include "mt-plat/dma.h" */
 /* #include <mach/irqs.h> */
 #include <linux/dma-mapping.h>
 #include <linux/compat.h>
