@@ -322,6 +322,8 @@ static int pd_get_cap(struct adapter_device *dev,
 			chr_err("no APDO for pps\n");
 
 	} else if (type == MTK_PD) {
+		pd_cap.nr = 0;
+		pd_cap.selected_cap_idx = 0;
 		tcpm_get_remote_power_cap(info->tcpc, &pd_cap);
 
 		if (pd_cap.nr != 0) {

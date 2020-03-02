@@ -381,6 +381,14 @@ static int mt6360_psy_online_changed(struct mt6360_pmu_chg_info *mpci)
 	propval.intval = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
 
+	/* Get chg type det power supply */
+	mpci->psy = power_supply_get_by_name("charger");
+	if (!mpci->psy) {
+		dev_notice(mpci->dev,
+			"%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
+
 	ret = power_supply_set_property(mpci->psy, POWER_SUPPLY_PROP_ONLINE,
 					&propval);
 	if (ret < 0)
@@ -397,6 +405,14 @@ static int mt6360_psy_chg_type_changed(struct mt6360_pmu_chg_info *mpci)
 	int ret = 0;
 #if 1 /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) */
 	union power_supply_propval propval;
+
+	/* Get chg type det power supply */
+	mpci->psy = power_supply_get_by_name("charger");
+	if (!mpci->psy) {
+		dev_notice(mpci->dev,
+			"%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
 
 	propval.intval = mpci->chg_type;
 	ret = power_supply_set_property(mpci->psy,
@@ -2776,14 +2792,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		}
 		mpci->channels[i] = channel;
 	}
-	/* Get chg type det power supply */
-	mpci->psy = power_supply_get_by_name("charger");
-	if (!mpci->psy) {
-		dev_err(mpci->dev,
-			"%s: get power supply failed\n", __func__);
-		ret = -EINVAL;
-		goto err_mutex_init;
-	}
+
 	/* charger class register */
 	mpci->chg_dev = charger_device_register(pdata->chg_name, mpci->dev,
 						mpci, &mt6360_chg_ops,
