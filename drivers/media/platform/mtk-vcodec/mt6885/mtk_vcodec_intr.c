@@ -19,15 +19,16 @@
 #include "mtk_vcodec_util.h"
 #include "smi_public.h"
 
-int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx, int command,
-	unsigned int timeout_ms)
+int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
+	int core_id, int command, unsigned int timeout_ms)
+
 {
 	int status = 0;
 #ifndef FPGA_INTERRUPT_API_DISABLE
 	wait_queue_head_t *waitqueue;
 	long timeout_jiff, ret;
 
-	waitqueue = (wait_queue_head_t *)&ctx->queue;
+	waitqueue = (wait_queue_head_t *)&ctx->queue[core_id];
 	timeout_jiff = msecs_to_jiffies(timeout_ms);
 
 	ret = wait_event_interruptible_timeout(*waitqueue,
@@ -55,10 +56,10 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx, int command,
 EXPORT_SYMBOL(mtk_vcodec_wait_for_done_ctx);
 
 /* Wake up context wait_queue */
-void wake_up_dec_ctx(struct mtk_vcodec_ctx *ctx)
+void wake_up_dec_ctx(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 	ctx->int_cond = 1;
-	wake_up_interruptible(&ctx->queue);
+	wake_up_interruptible(&ctx->queue[core_id]);
 }
 
 irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
@@ -93,7 +94,7 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	writel((readl(vdec_misc_addr) & ~MTK_VDEC_IRQ_CLR),
 		   dev->dec_reg_base[VDEC_MISC] + MTK_VDEC_IRQ_CFG_REG);
 
-	wake_up_dec_ctx(ctx);
+	wake_up_dec_ctx(ctx, MTK_VDEC_CORE);
 
 	mtk_v4l2_debug(4,
 				   "%s :wake up ctx %d, dec_done_status=%x",
@@ -102,6 +103,49 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	return IRQ_HANDLED;
 }
 EXPORT_SYMBOL(mtk_vcodec_dec_irq_handler);
+
+irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
+{
+#ifndef FPGA_INTERRUPT_API_DISABLE
+	struct mtk_vcodec_dev *dev = priv;
+	struct mtk_vcodec_ctx *ctx;
+	u32 cg_status = 0;
+	unsigned int dec_done_status = 0;
+	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_LAT_MISC] +
+		MTK_VDEC_IRQ_CFG_REG;
+
+	ctx = mtk_vcodec_get_curr_ctx(dev);
+
+	/* check if HW active or not */
+	cg_status = readl(dev->dec_reg_base[0]);
+	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
+		mtk_v4l2_err("DEC LAT ISR, VDEC active is not 0x0 (0x%08x)",
+					 cg_status);
+		return IRQ_HANDLED;
+	}
+
+	dec_done_status = readl(vdec_misc_addr);
+	ctx->irq_status = dec_done_status;
+	if ((dec_done_status & MTK_VDEC_IRQ_STATUS_DEC_SUCCESS) !=
+		MTK_VDEC_IRQ_STATUS_DEC_SUCCESS)
+		return IRQ_HANDLED;
+
+	/* clear interrupt */
+	writel((readl(vdec_misc_addr) | MTK_VDEC_IRQ_CFG),
+		   dev->dec_reg_base[VDEC_LAT_MISC] + MTK_VDEC_IRQ_CFG_REG);
+	writel((readl(vdec_misc_addr) & ~MTK_VDEC_IRQ_CLR),
+		   dev->dec_reg_base[VDEC_LAT_MISC] + MTK_VDEC_IRQ_CFG_REG);
+
+	wake_up_dec_ctx(ctx, MTK_VDEC_LAT);
+
+	mtk_v4l2_debug(4,
+				   "%s :wake up ctx %d, dec_done_status=%x",
+				   __func__, ctx->id, dec_done_status);
+#endif
+	return IRQ_HANDLED;
+}
+EXPORT_SYMBOL(mtk_vcodec_lat_dec_irq_handler);
+
 
 void clean_irq_status(unsigned int irq_status, void __iomem *addr)
 {
@@ -133,7 +177,7 @@ void wake_up_enc_ctx(struct mtk_vcodec_ctx *ctx, unsigned int reason)
 {
 	ctx->int_cond = 1;
 	ctx->int_type = reason;
-	wake_up_interruptible(&ctx->queue);
+	wake_up_interruptible(&ctx->queue[0]);
 }
 
 irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
@@ -162,50 +206,30 @@ irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
 }
 EXPORT_SYMBOL(mtk_vcodec_enc_irq_handler);
 
-irqreturn_t mtk_vcodec_enc_lt_irq_handler(int irq, void *priv)
-{
-#ifndef FPGA_INTERRUPT_API_DISABLE
-	struct mtk_vcodec_dev *dev = priv;
-	struct mtk_vcodec_ctx *ctx;
-	unsigned long flags;
-	void __iomem *addr;
-
-	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
-	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	mtk_v4l2_debug(1, "id=%d", ctx->id);
-	ctx->irq_status = readl(dev->enc_reg_base[VENC_LT_SYS] +
-		(MTK_VENC_IRQ_STATUS_OFFSET));
-
-	addr = dev->enc_reg_base[VENC_LT_SYS] + MTK_VENC_IRQ_ACK_OFFSET;
-
-	clean_irq_status(ctx->irq_status, addr);
-
-	wake_up_enc_ctx(ctx, MTK_INST_IRQ_RECEIVED);
-#endif
-	return IRQ_HANDLED;
-}
-EXPORT_SYMBOL(mtk_vcodec_enc_lt_irq_handler);
-
-
 
 int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 	struct mtk_vcodec_dev *dev)
 {
 #ifndef FPGA_INTERRUPT_API_DISABLE
+	int i = 0;
 	int ret = 0;
 
-	dev->dec_irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, dev->dec_irq,
-		mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
-	if (ret) {
-		mtk_v4l2_debug(1, "Failed to install dev->dec_irq %d (%d)",
-				dev->dec_irq,
-				ret);
-		return -1;
+	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
+		dev->dec_irq[i] = platform_get_irq(pdev, i);
+		if (i == MTK_VDEC_CORE)
+			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+				mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
+		else if (i == MTK_VDEC_LAT)
+			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+				mtk_vcodec_lat_dec_irq_handler, 0,
+					pdev->name, dev);
+		if (ret) {
+			mtk_v4l2_debug(1, "Failed to install dev->dec_irq[%d] %d (%d)",
+					i, dev->dec_irq[i],
+					ret);
+		}
+		disable_irq(dev->dec_irq[i]);
 	}
-	disable_irq(dev->dec_irq);
 #endif
 	return 0;
 

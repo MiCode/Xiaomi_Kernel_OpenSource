@@ -517,7 +517,7 @@ static bool vp9_wait_dec_end(struct vdec_vp9_inst *inst)
 {
 	struct mtk_vcodec_ctx *ctx = inst->ctx;
 
-	mtk_vcodec_wait_for_done_ctx(inst->ctx,
+	mtk_vcodec_wait_for_done_ctx(inst->ctx, 0,
 		MTK_INST_IRQ_RECEIVED,
 		WAIT_INTR_TIMEOUT_MS);
 
