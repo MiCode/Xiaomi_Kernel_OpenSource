@@ -1593,7 +1593,7 @@
 
 	sdhc_2: sdhci@8804000 {
 		compatible = "qcom,sdhci-msm-v5";
-		reg = <0x8804000 0x1000>;
+		reg = <0x08804000 0x1000>;
 		reg-names = "hc_mem";
 
 		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
@@ -1602,6 +1602,32 @@
 
 		qcom,bus-width = <4>;
 		qcom,large-address-bus;
+
+		interconnects = <&aggre2_noc MASTER_SDCC_2 &mc_virt SLAVE_EBI1>,
+			<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_SDCC_2>;
+		interconnect-names = "sdhc-ddr","cpu-sdhc";
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No Vote */
+			<0 0>, <0 0>,
+			/* 400 KB/s*/
+			<1046 1600>, <1600 1600>,
+			/* 20 MB/s */
+			<52286 80000>, <80000 80000>,
+			/* 25 MB/s */
+			<65360 100000>, <100000 100000>,
+			/* 50 MB/s */
+			<130718 200000>, <133320 133320>,
+			/* 100 MB/s */
+			<261438 200000>, <150000 150000>,
+			/* 200 MB/s */
+			<261438 400000>, <300000 300000>,
+			/* Max. bandwidth */
+			<1338562 4096000>, <1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
 
 		qcom,restore-after-cx-collapse;
 
@@ -1614,12 +1640,6 @@
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface", "core";
-
-		/* PM QoS */
-		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <44 44>;
-		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
-		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
 
 		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
 		qcom,dll-hsr-list = <0x0007642C 0xA800 0x10
