@@ -322,7 +322,7 @@ void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa)
 s32 cmdq_dev_get_event(struct device *dev, const char *name)
 {
 	s32 index = 0;
-	struct of_phandle_args spec;
+	struct of_phandle_args spec = {0};
 	s32 result;
 
 	if (!dev) {
