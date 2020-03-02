@@ -55,7 +55,7 @@
 #endif
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-#include <linux/wakelock.h>
+#include <linux/pm_wakeup.h>
 #endif
 
 #include <linux/platform_device.h>
@@ -64,7 +64,7 @@
 #include <mtk_spm_misc.h>
 #include <mtk_spm_resource_req_internal.h>
 /* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
+#if !defined(SPM_K414_EARLY_PORTING) && defined(CONFIG_MTK_SYS_CIRQ)
 #include <mt-plat/mtk_cirq.h>
 #endif
 
@@ -548,11 +548,11 @@ static struct platform_device *pspmdev;
 
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-struct wake_lock spm_wakelock;
+struct wakeup_source spm_wakelock;
 
 void spm_pm_stay_awake(int sec)
 {
-	wake_lock_timeout(&spm_wakelock, HZ * sec);
+	__pm_wakeup_event(&spm_wakelock, jiffies_to_msecs(HZ * sec));
 };
 #endif
 
@@ -628,7 +628,7 @@ int __init spm_module_init(void)
 
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-	wake_lock_init(&spm_wakelock, WAKE_LOCK_SUSPEND, "spm");
+	wakeup_source_init(&spm_wakelock, "spm");
 #endif
 
 	spm_register_init();
@@ -657,7 +657,7 @@ int __init spm_module_init(void)
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
 	if (spm_golden_setting_cmp(1) != 0)
-		aee_kernel_warning(
+		aee_kernel_warning("SPM Warning",
 			"SPM Warning, dram golden setting mismach");
 #else
 	if (spm_golden_setting_cmp(1) != 0)
@@ -1145,7 +1145,7 @@ void spm_phypll_mode_check(void)
 
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-		aee_kernel_warning(
+		aee_kernel_warning("SPM Warning",
 			"SPM Warning, Invalid SPM_POWER_ON_VAL0: 0x%08x\n",
 			val);
 #else
