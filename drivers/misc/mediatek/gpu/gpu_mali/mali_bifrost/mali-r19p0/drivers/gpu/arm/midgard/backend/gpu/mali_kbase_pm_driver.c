@@ -67,6 +67,11 @@ module_param(platform_power_down_only, bool, 0444);
 MODULE_PARM_DESC(platform_power_down_only,
 		"Disable power down of individual cores.");
 
+bool l2_always_on = true;
+module_param(l2_always_on, bool, 0444);
+MODULE_PARM_DESC(l2_always_on,
+		"Always keep L2 powered up.");
+
 /**
  * enum kbasep_pm_action - Actions that can be performed on a core.
  *
@@ -658,7 +663,7 @@ static u64 kbase_pm_l2_update_state(struct kbase_device *kbdev)
 			break;
 
 		case KBASE_L2_POWER_DOWN:
-			if (!platform_power_down_only)
+			if (!platform_power_down_only && !l2_always_on)
 				/* Powering off the L2 will also power off the
 				 * tiler.
 				 */
@@ -681,7 +686,7 @@ static u64 kbase_pm_l2_update_state(struct kbase_device *kbdev)
 			break;
 
 		case KBASE_L2_PEND_OFF:
-			if (!platform_power_down_only) {
+			if (!platform_power_down_only && !l2_always_on) {
 				/* We only need to check the L2 here - if the L2
 				 * is off then the tiler is definitely also off.
 				 */
