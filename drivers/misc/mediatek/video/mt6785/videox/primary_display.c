@@ -1106,6 +1106,126 @@ static int __maybe_unused fps_monitor_thread(void *data)
 }
 /************** fps calculate finish ******************/
 
+/************** lcm fps calculate ******************/
+struct lcm_fps_ctx_t lcm_fps_ctx;
+
+int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx)
+{
+	if (fps_ctx->is_inited)
+		return 0;
+
+	memset(fps_ctx, 0, sizeof(*fps_ctx));
+	mutex_init(&fps_ctx->lock);
+	fps_ctx->is_inited = 1;
+	if (primary_display_is_video_mode())
+		fps_ctx->dsi_mode = 1;
+	else
+		fps_ctx->dsi_mode = 0;
+
+	DISPINFO("%s done", __func__);
+
+	return 0;
+}
+
+int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx)
+{
+	memset(fps_ctx, 0, sizeof(*fps_ctx));
+	mutex_init(&fps_ctx->lock);
+	fps_ctx->is_inited = 1;
+	if (primary_display_is_video_mode())
+		fps_ctx->dsi_mode = 1;
+	else
+		fps_ctx->dsi_mode = 0;
+
+	DISPINFO("%s done", __func__);
+
+	return 0;
+}
+
+int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx, unsigned long long cur_ns)
+{
+	unsigned int idx;
+	unsigned long long delta;
+
+	if (!fps_ctx->is_inited)
+		lcm_fps_ctx_init(fps_ctx);
+
+	delta = cur_ns - fps_ctx->last_ns;
+	if (delta == 0 || fps_ctx->last_ns == 0) {
+		fps_ctx->last_ns = cur_ns;
+		return 0;
+	}
+
+	if (mutex_trylock(&fps_ctx->lock) == 0) {
+		DISPMSG("%s try lock fail", __func__);
+		fps_ctx->last_ns = cur_ns;
+		return 0;
+	}
+	idx = (fps_ctx->head_idx + fps_ctx->num) % LCM_FPS_ARRAY_SIZE;
+	fps_ctx->array[idx] = delta;
+
+	if (fps_ctx->num < LCM_FPS_ARRAY_SIZE)
+		fps_ctx->num++;
+	else
+		fps_ctx->head_idx = (fps_ctx->head_idx + 1) %
+			LCM_FPS_ARRAY_SIZE;
+
+	fps_ctx->last_ns = cur_ns;
+
+	mutex_unlock(&fps_ctx->lock);
+
+	DISPINFO("%s update %lld to index %d", __func__, delta, idx);
+
+	return 0;
+}
+
+unsigned int lcm_fps_ctx_get(struct lcm_fps_ctx_t *fps_ctx)
+{
+	unsigned int i;
+	unsigned long long duration_avg = 0;
+	unsigned long long duration_min = (1ULL << 63) - 1ULL;
+	unsigned long long duration_max = 0;
+	unsigned long long duration_sum = 0;
+	unsigned long long fps = 100000000000;
+
+	if (!fps_ctx->is_inited)
+		lcm_fps_ctx_init(fps_ctx);
+
+	if (fps_ctx->num <= 3) {
+		DISPMSG("%s num is %d which is < 3, so return fix fps",
+			__func__, fps_ctx->num);
+		if (primary_display_is_idle() &&
+			fps_ctx->dsi_mode == 1)
+			return 4500;
+		else
+			return 6000;
+	}
+
+	mutex_lock(&fps_ctx->lock);
+
+	for (i = 0; i < fps_ctx->num; i++) {
+		duration_sum += fps_ctx->array[i];
+		duration_min = min(duration_min, fps_ctx->array[i]);
+		duration_max = max(duration_max, fps_ctx->array[i]);
+	}
+	duration_sum -= duration_min + duration_max;
+	duration_avg = duration_sum / (fps_ctx->num - 2);
+	do_div(fps, duration_avg);
+
+	DISPINFO("%s remove max = %lld, min = %lld, sum = %lld, num = %d",
+		__func__,
+		duration_max, duration_min, duration_sum, fps_ctx->num);
+
+	DISPINFO("%s fps = %d", __func__, fps);
+
+	mutex_unlock(&fps_ctx->lock);
+	return (unsigned int)fps;
+}
+
+
+/************** lcm fps calculate finish ******************/
+
+
 /************** idle manager **************************/
 int primary_display_get_debug_state(char *stringbuf, int buf_len)
 {
@@ -4116,6 +4236,9 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	/* update path dst module: for dual dsi */
 	update_primary_intferface_module();
 
+	/* init lcm fps after get lcm mode */
+	lcm_fps_ctx_init(&lcm_fps_ctx);
+
 	/* Part2: CMDQ */
 	if (use_cmdq) {
 		ret = cmdqCoreRegisterCB(CMDQ_GROUP_DISP,
@@ -5576,6 +5699,9 @@ done:
 	ddp_clk_check();
 
 	disp_tphint_reset_status();
+
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
+
 	return ret;
 }
 
@@ -7893,7 +8019,7 @@ int primary_display_get_info(struct disp_session_info *info)
 	dispif_info->physicalWidthUm = DISP_GetActiveWidthUm();
 	dispif_info->physicalHeightUm = DISP_GetActiveHeightUm();
 
-	dispif_info->vsyncFPS = pgc->lcm_fps;
+	dispif_info->vsyncFPS = lcm_fps_ctx_get(&lcm_fps_ctx);
 
 	dispif_info->isConnected = 1;
 
