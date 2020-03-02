@@ -447,10 +447,14 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 		thread->cpu_excp++;
 		if (thread->cpu_excp == 1) {
 			thread->regs_on_excp = (void *)regs;
+#ifdef CONFIG_MTK_AEE_IPANIC
 			aee_excp_regs = (void *)regs;
+#endif
 		}
+#ifdef CONFIG_MTK_AEE_IPANIC
 		if (thread->cpu_excp >= 2)
 			aee_stop_nested_panic(regs);
+#endif
 	}
 
 	pc = (void __user *)instruction_pointer(regs);
