@@ -160,10 +160,53 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	} else if (id < SMI_LARB_NUM)
 		smi_clk_record(id, true, user);
 
-	// TODO
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	switch (id) {
+	case 0:
+	case 1:
+	case 7:
+	case 14:
+	case 17:
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // mmsram
+		if (ret)
+			return ret;
+		break;
+	case 5:
+	case 11:
+	case 19:
+	case 20:
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
+		if (ret)
+			return ret;
+		break;
+	case 2:
+	case 3:
+	case 8:
+	case 13:
+	case 16:
+	case 18:
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // mmsram
+		if (ret)
+			return ret;
+		break;
+	case 4:
+	case 9:
+		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
+		if (ret)
+			return ret;
+		break;
+	}
+#else // !CONFIG_MACH_MT6885
 	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
 	if (ret || id == SMI_LARB_NUM)
 		return ret;
+#endif
 	return smi_unit_prepare_enable(id);
 }
 EXPORT_SYMBOL_GPL(smi_bus_prepare_enable);
@@ -189,7 +232,40 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT))
 		SMIWRN(1, "LARB%u OFF by %s but busy\n", id, user);
 	smi_unit_disable_unprepare(id);
-	smi_unit_disable_unprepare(SMI_LARB_NUM); // TODO
+
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	switch (id) {
+	case 0:
+	case 1:
+	case 7:
+	case 14:
+	case 17:
+		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // mmsram
+		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
+		break;
+	case 5:
+	case 11:
+	case 19:
+	case 20:
+		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
+		break;
+	case 2:
+	case 3:
+	case 8:
+	case 13:
+	case 16:
+	case 18:
+		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // mmsram
+		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
+		break;
+	case 4:
+	case 9:
+		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
+		break;
+	}
+#else // !CONFIG_MACH_MT6885
+	smi_unit_disable_unprepare(SMI_LARB_NUM);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(smi_bus_disable_unprepare);
@@ -197,21 +273,24 @@ EXPORT_SYMBOL_GPL(smi_bus_disable_unprepare);
 void
 smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 {
-	u32 val;
+	u32 val, comm = 0;
 
 	if (id >= SMI_LARB_NUM) {
 		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u\n", id, SMI_LARB_NUM);
 		return;
 	}
-	// TODO
-	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
-	smi_scen_pair[SMI_LARB_NUM][SMI_ESL_INIT][id].val = val;
 
-	if (ATOMR_CLK(SMI_LARB_NUM)) {
-		smi_bus_prepare_enable(SMI_LARB_NUM, user);
-		writel(val, smi_dev[SMI_LARB_NUM]->base +
-			smi_scen_pair[SMI_LARB_NUM][SMI_ESL_INIT][id].off);
-		smi_bus_disable_unprepare(SMI_LARB_NUM, user);
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	comm = SMI_LARB_L1ARB[id] >> 16;
+#endif
+	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
+	smi_scen_pair[SMI_LARB_NUM + comm][SMI_ESL_INIT][id].val = val;
+
+	if (ATOMR_CLK(SMI_LARB_NUM + comm)) {
+		smi_bus_prepare_enable(SMI_LARB_NUM + comm, user);
+		writel(val, smi_dev[SMI_LARB_NUM + comm]->base +
+		smi_scen_pair[SMI_LARB_NUM + comm][SMI_ESL_INIT][id].off);
+		smi_bus_disable_unprepare(SMI_LARB_NUM + comm, user);
 	}
 }
 EXPORT_SYMBOL_GPL(smi_bwl_update);
@@ -721,7 +800,7 @@ s32 smi_register(void)
 
 #ifdef MMDVFS_HOOK
 	mmdvfs_init();
-	mmdvfs_clks_init(smi_dev[SMI_LARB_NUM]->dev->of_node); // TODO
+	mmdvfs_clks_init(smi_dev[SMI_LARB_NUM]->dev->of_node);
 #endif
 
 	smi_debug_dump_status(false);
