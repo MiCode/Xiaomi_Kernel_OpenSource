@@ -217,6 +217,7 @@
 #define CAM_REG_FBC_RSSO_CTL2(module)  (isp_devs[module].regs + 0x0164)
 #define CAM_REG_FBC_UFGO_CTL1(module)  (isp_devs[module].regs + 0x0168)
 #define CAM_REG_FBC_UFGO_CTL2(module)  (isp_devs[module].regs + 0x016C)
+#define CAM_REG_FBC_AAO_CTL1(module)   (isp_devs[module].regs + 0x0138)
 #define CAM_REG_FBC_AAO_CTL2(module)   (isp_devs[module].regs + 0x013c)
 #define CAM_REG_FBC_AFO_CTL2(module)   (isp_devs[module].regs + 0x0134)
 #define CAM_REG_FBC_FLKO_CTL2(module)  (isp_devs[module].regs + 0x0154)
