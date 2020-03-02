@@ -7,6 +7,7 @@
 # CFLAGS_cipher.o := -DDEBUG
 # CFLAGS_spu.o := -DDEBUG
 # CFLAGS_spu2.o := -DDEBUG
+ccflags-y += -Wno-error=enum-conversion
 
 obj-$(CONFIG_CRYPTO_DEV_BCM_SPU) := bcm_crypto_spu.o
 
