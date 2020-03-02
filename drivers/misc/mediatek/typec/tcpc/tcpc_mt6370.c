@@ -1091,7 +1091,7 @@ static int mt6370_set_low_power_mode(
 			data |= MT6370_REG_BMCIO_LPRPRD;
 
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
-		data |= MT6370_REG_VBUS_DET_EN;
+		data |= (MT6370_REG_VBUS_DET_EN | MT6370_REG_BMCIO_BG_EN);
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 	} else {
 		data = MT6370_REG_BMCIO_BG_EN |
