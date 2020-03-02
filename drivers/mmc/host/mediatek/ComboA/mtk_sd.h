@@ -87,7 +87,7 @@
 /* ================================= */
 
 #define MAX_GPD_NUM                     (1 + 1) /* one null gpd */
-#define MAX_BD_NUM                      (1024)
+#define MAX_BD_NUM                      (128)
 #define MAX_BD_PER_GPD                  (MAX_BD_NUM)
 #define CLK_SRC_MAX_NUM                 (1)
 
