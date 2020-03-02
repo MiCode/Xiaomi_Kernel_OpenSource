@@ -136,16 +136,8 @@ static struct proc_dir_entry *proc_drv_therm_dir_entry;
  *  write to nBattCurrentCnsmpt, nCPU0_usage,
  *  and nCPU1_usage are locked by MTM_SYSINFO_LOCK
  */
-static int nBattCurrentCnsmpt;
-static int nCPU_loading_sum;
-/* 64bit */
-static unsigned long long g_check_cpu_info_flag;
-static unsigned long long g_check_batt_info_flag;
-static unsigned long long g_check_wifi_info_flag;
-static unsigned long long g_check_mobile_info_flag;
 
-static int nWifi_throughput;
-static int nMobile_throughput;
+
 
 /* static int nModem_TxPower = -127;  ///< Indicate invalid value */
 
@@ -323,7 +315,6 @@ struct gpu_index_st {
 };
 
 static struct cpu_index_st cpu_index_list[8];	/* /< 8-Core is maximum */
-static struct gpu_index_st gpu_index;
 
 
 #define SEEK_BUFF(x, c) \
@@ -335,114 +326,11 @@ static struct gpu_index_st gpu_index;
 
 #define TRIMz_ex(tz, x)   ((tz = (unsigned long long)(x)) < 0 ? 0 : tz)
 
-enum {
-	THERMAL_SYS_INFO_CPU = 0x1,
-	THERMAL_SYS_INFO_GPU = 0x2,
-	THERMAL_SYS_INFO_BATT = 0x4,
-	THERMAL_SYS_INFO_WIFI = 0x8,
-	THERMAL_SYS_INFO_MD = 0x10,
-	THERMAL_SYS_INFO_ALL = 0xFFFFFFF
-};
-
-static int mtk_sysinfo_get_info(unsigned int mask)
-{
-	int i;
-	int nocpucores = 0, *cpufreqs, *cpuloadings;
-	int nogpucores = 0, *gpufreqs, *gpuloadings;
-
-	if (mask == 0x0)
-		return 0;
-
-	mutex_lock(&MTM_SYSINFO_LOCK);
-	/* ****************** */
-	/* CPU Usage */
-	/* ****************** */
-	/* ****************** */
-	/* CPU Frequency */
-	/* ****************** */
-	if (mask & THERMAL_SYS_INFO_CPU) {
-		if (mtk_thermal_get_cpu_info(&nocpucores, &cpufreqs,
-							&cpuloadings))
-			;	/* TODO: print error log */
-		else {
-			for (i = 0; i < nocpucores; i++) {
-				cpu_index_list[i].freq = cpufreqs[i];
-				cpu_index_list[i].usage = cpuloadings[i];
-			}
-		}
-
-		/* CPU loading average */
-		nCPU_loading_sum = 0;
-		for (i = 0; i < nocpucores; i++)
-			nCPU_loading_sum += cpuloadings[i];
-
-	}
-	/* ****************** */
-	/* GPU Index */
-	/* ****************** */
-	if (mask & THERMAL_SYS_INFO_GPU) {
-		if (mtk_thermal_get_gpu_info(&nogpucores, &gpufreqs,
-							&gpuloadings))
-			;	/* TODO: print error log */
-		else {
-			gpu_index.freq = gpufreqs[0];
-			gpu_index.usage = gpuloadings[0];
-		}
-	}
-	mutex_unlock(&MTM_SYSINFO_LOCK);
-
-	/* print batt info */
-	if (mask & THERMAL_SYS_INFO_BATT) {
-		THRML_LOG("%s nBattCurrentCnsmpt=%d\n", __func__,
-				nBattCurrentCnsmpt);
-	}
-	THRML_STORAGE_LOG(THRML_LOGGER_MSG_BATTERY_INFO, get_battery_info,
-							nBattCurrentCnsmp);
-
-	/* CPU and GPU to storage logger */
-	THRML_STORAGE_LOG(THRML_LOGGER_MSG_CPU_INFO_EX, get_cpu_info_ex,
-			cpu_index_list[0].usage, cpu_index_list[1].usage,
-			cpu_index_list[2].usage, cpu_index_list[3].usage,
-			cpu_index_list[0].freq, cpu_index_list[1].freq,
-			cpu_index_list[2].freq, cpu_index_list[3].freq,
-			gpu_index.usage, gpu_index.freq);
-
-	if (mask & THERMAL_SYS_INFO_CPU) {
-		THRML_LOG("%s CPU U C0=%d C1=%d C2=%d C3=%d\n", __func__,
-			cpu_index_list[0].usage, cpu_index_list[1].usage,
-			cpu_index_list[2].usage, cpu_index_list[3].usage);
-
-		THRML_LOG("%s CPU Freq C0=%d C1=%d C2=%d C3=%d\n", __func__,
-			cpu_index_list[0].freq, cpu_index_list[1].freq,
-			cpu_index_list[2].freq, cpu_index_list[3].freq);
-	}
-
-	return 0;
-}
 
 static int _mtm_interval;
 
 static void _mtm_update_sysinfo(struct work_struct *work)
 {
-	if (true == enable_ThermalMonitor)
-		mtk_sysinfo_get_info(THERMAL_SYS_INFO_ALL);
-	else {
-		unsigned int mask = 0;
-
-		mask |=
-		(g_check_cpu_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_CPU;
-
-		mask |=
-		(g_check_batt_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_BATT;
-
-		mask |=
-		(g_check_wifi_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_WIFI;
-
-		mask |=
-		(g_check_mobile_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_MD;
-
-		mtk_sysinfo_get_info(mask);
-	}
 
 	cancel_delayed_work(&_mtm_sysinfo_poll_queue);
 
@@ -456,26 +344,8 @@ static void _mtm_decide_new_delay(void)
 {
 	int new_interval = 0;
 
-	if (true == enable_ThermalMonitor) {
+	if (true == enable_ThermalMonitor)
 		new_interval = 1000;
-	} else {
-		unsigned int mask = 0;
-
-		mask |=
-		(g_check_cpu_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_CPU;
-
-		mask |=
-		(g_check_batt_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_BATT;
-
-		mask |=
-		(g_check_wifi_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_WIFI;
-
-		mask |=
-		(g_check_mobile_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_MD;
-
-		if (mask != 0x0)
-			new_interval = 1000;
-	}
 
 	if (_mtm_interval == 0 && new_interval != 0) {
 		_mtm_interval = new_interval;
@@ -653,10 +523,7 @@ static void _mtkthermal_clear_cooler_conditions
 		cldata->condition_last_value[i] = NULL;
 		cldata->threshold[i] = 0;
 	}
-	g_check_cpu_info_flag &= (~(1ULL << cldata->id));
-	g_check_batt_info_flag &= (~(1ULL << cldata->id));
-	g_check_wifi_info_flag &= (~(1ULL << cldata->id));
-	g_check_mobile_info_flag &= (~(1ULL << cldata->id));
+
 
 	_mtm_decide_new_delay();
 }
@@ -749,59 +616,6 @@ static ssize_t _mtkthermal_cooler_write
 		i++) {
 			if (strncmp(mcdata->conditions[i], "EXIT", 4) == 0) {
 				mcdata->exit_threshold = mcdata->threshold[i];
-
-			} else if (strncmp(mcdata->conditions[i],
-			"CPU0", 4) == 0){
-
-				mcdata->condition_last_value[i] =
-							&nCPU_loading_sum;
-
-				g_check_cpu_info_flag |= (1ULL << mcdata->id);
-
-				THRML_LOG("%s cpu flag: %016llx, id=%d\n",
-						__func__,
-						g_check_cpu_info_flag,
-						mcdata->id);
-
-			} else if (strncmp(mcdata->conditions[i],
-			"BATCC", 5) == 0) {
-
-				mcdata->condition_last_value[i] =
-							&nBattCurrentCnsmpt;
-
-				g_check_batt_info_flag |= (1ULL << mcdata->id);
-
-				THRML_LOG("%s batt flag: %016llx, id=%d\n",
-						__func__,
-						g_check_batt_info_flag,
-						mcdata->id);
-
-			} else if (strncmp(mcdata->conditions[i], "WIFI", 4)
-			== 0) {
-
-				mcdata->condition_last_value[i] =
-							&nWifi_throughput;
-
-				g_check_wifi_info_flag |= (1ULL << mcdata->id);
-
-				THRML_LOG("%s wifi flag: %016llx, id=%d\n",
-						__func__,
-						g_check_wifi_info_flag,
-						mcdata->id);
-
-			} else if (strncmp(mcdata->conditions[i], "MOBILE", 5)
-			== 0) {
-
-				mcdata->condition_last_value[i] =
-							&nMobile_throughput;
-
-				g_check_mobile_info_flag |=
-							(1ULL << mcdata->id);
-
-				THRML_LOG("%s mobile flag: %016llx, id=%d\n",
-						__func__,
-						g_check_mobile_info_flag,
-						mcdata->id);
 
 			} else {
 				/* normal thermal zones */
@@ -1230,11 +1044,7 @@ static int __init mtkthermal_init(void)
 
 	THRML_LOG("%s\n", __func__);
 
-	/*set init val*/
-	g_check_cpu_info_flag = 0x0;
-	g_check_batt_info_flag = 0x0;
-	g_check_wifi_info_flag = 0x0;
-	g_check_mobile_info_flag = 0x0;
+
 
 	entry = proc_create("mtm_monitor",
 		0664, dir_entry, &mtkthermal_fops);
