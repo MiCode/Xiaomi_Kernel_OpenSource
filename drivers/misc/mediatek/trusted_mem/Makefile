@@ -125,7 +125,7 @@ endif
 # Other Modules Include Header Paths
 #==========================================================================
 ifeq ($(CONFIG_MTK_GZ_KREE),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/gz/
 endif # !CONFIG_MTK_GZ_KREE
 

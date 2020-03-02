@@ -31,6 +31,7 @@ obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
+obj-$(CONFIG_MTK_GZ_KREE) += geniezone/
 obj-y += atf/
 obj-y += devinfo/
 obj-y += sspm/
