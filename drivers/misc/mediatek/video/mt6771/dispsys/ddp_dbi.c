@@ -141,7 +141,7 @@ struct t_dbi_context {
 static struct t_dbi_context _dbi_context;
 struct DBI_REGS *DBI_REG;
 
-static const struct LCM_UTIL_FUNCS lcm_utils_dbi0;
+static struct LCM_UTIL_FUNCS lcm_utils_dbi0;
 
 static void _init_condition_wq(struct t_condition_wq *waitq)
 {

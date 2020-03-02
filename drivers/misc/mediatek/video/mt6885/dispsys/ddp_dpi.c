@@ -114,7 +114,7 @@ static int dpi_undflow_irq_count;
 
 /*static DPI_REGS regBackup;*/
 struct DPI_REGS *DPI_REG;
-static const struct LCM_UTIL_FUNCS lcm_utils_dpi;
+static struct LCM_UTIL_FUNCS lcm_utils_dpi;
 
 const unsigned int BACKUP_DPI_REG_OFFSETS[] = {
 	DPI_REG_OFFSET(INT_ENABLE),
