@@ -444,9 +444,17 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	struct ion_heap *heap;
 	int ret;
 	unsigned long long start, end;
+	unsigned int heap_mask = ~0;
 
 	pr_debug("%s: len %zu align %zu heap_id_mask %u flags %x\n", __func__,
 		 len, align, heap_id_mask, flags);
+
+	/* For some case(C2 audio decoder), it can not set heap id in AOSP,
+	 * so mtk ion will set this heap to ion_mm_heap.
+	 */
+	if (heap_id_mask == heap_mask)
+		heap_id_mask = ION_HEAP_MULTIMEDIA_MASK;
+
 	/*
 	 * traverse the list of heaps available in this system in priority
 	 * order.  If the heap type is supported by the client, and matches the
