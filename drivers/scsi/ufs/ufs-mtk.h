@@ -85,13 +85,6 @@ enum {
 };
 
 enum {
-	/* request resource for DMA operations, e.g., DRAM */
-	UFS_MTK_RESREQ_DMA_OP,
-	/* request resource for mphy not in H8, e.g., main PLL, 26 mhz clock */
-	UFS_MTK_RESREQ_MPHY_NON_H8
-};
-
-enum {
 	UFS_H8                      = 0x0,
 	UFS_H8_SUSPEND              = 0x1,
 };
