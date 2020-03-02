@@ -178,14 +178,18 @@ static int ccp_init_dm_workarea(struct ccp_dm_workarea *wa,
 	return 0;
 }
 
-static void ccp_set_dm_area(struct ccp_dm_workarea *wa, unsigned int wa_offset,
-			    struct scatterlist *sg, unsigned int sg_offset,
-			    unsigned int len)
+static int ccp_set_dm_area(struct ccp_dm_workarea *wa, unsigned int wa_offset,
+			   struct scatterlist *sg, unsigned int sg_offset,
+			   unsigned int len)
 {
 	WARN_ON(!wa->address);
 
+	if (len > (wa->length - wa_offset))
+		return -EINVAL;
+
 	scatterwalk_map_and_copy(wa->address + wa_offset, sg, sg_offset, len,
 				 0);
+	return 0;
 }
 
 static void ccp_get_dm_area(struct ccp_dm_workarea *wa, unsigned int wa_offset,
@@ -205,8 +209,11 @@ static int ccp_reverse_set_dm_area(struct ccp_dm_workarea *wa,
 				   unsigned int len)
 {
 	u8 *p, *q;
+	int	rc;
 
-	ccp_set_dm_area(wa, wa_offset, sg, sg_offset, len);
+	rc = ccp_set_dm_area(wa, wa_offset, sg, sg_offset, len);
+	if (rc)
+		return rc;
 
 	p = wa->address + wa_offset;
 	q = p + len - 1;
@@ -509,7 +516,9 @@ static int ccp_run_aes_cmac_cmd(struct ccp_cmd_queue *cmd_q,
 		return ret;
 
 	dm_offset = CCP_SB_BYTES - aes->key_len;
-	ccp_set_dm_area(&key, dm_offset, aes->key, 0, aes->key_len);
+	ret = ccp_set_dm_area(&key, dm_offset, aes->key, 0, aes->key_len);
+	if (ret)
+		goto e_key;
 	ret = ccp_copy_to_sb(cmd_q, &key, op.jobid, op.sb_key,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
 	if (ret) {
@@ -528,7 +537,9 @@ static int ccp_run_aes_cmac_cmd(struct ccp_cmd_queue *cmd_q,
 		goto e_key;
 
 	dm_offset = CCP_SB_BYTES - AES_BLOCK_SIZE;
-	ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+	ret = ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+	if (ret)
+		goto e_ctx;
 	ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
 	if (ret) {
@@ -556,8 +567,10 @@ static int ccp_run_aes_cmac_cmd(struct ccp_cmd_queue *cmd_q,
 				goto e_src;
 			}
 
-			ccp_set_dm_area(&ctx, 0, aes->cmac_key, 0,
-					aes->cmac_key_len);
+			ret = ccp_set_dm_area(&ctx, 0, aes->cmac_key, 0,
+					      aes->cmac_key_len);
+			if (ret)
+				goto e_src;
 			ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
 					     CCP_PASSTHRU_BYTESWAP_256BIT);
 			if (ret) {
@@ -612,6 +625,7 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 
 	unsigned long long *final;
 	unsigned int dm_offset;
+	unsigned int authsize;
 	unsigned int jobid;
 	unsigned int ilen;
 	bool in_place = true; /* Default value */
@@ -633,6 +647,21 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 	if (!aes->key) /* Gotta have a key SGL */
 		return -EINVAL;
 
+	/* Zero defaults to 16 bytes, the maximum size */
+	authsize = aes->authsize ? aes->authsize : AES_BLOCK_SIZE;
+	switch (authsize) {
+	case 16:
+	case 15:
+	case 14:
+	case 13:
+	case 12:
+	case 8:
+	case 4:
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	/* First, decompose the source buffer into AAD & PT,
 	 * and the destination buffer into AAD, CT & tag, or
 	 * the input into CT & tag.
@@ -647,7 +676,7 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 		p_tag = scatterwalk_ffwd(sg_tag, p_outp, ilen);
 	} else {
 		/* Input length for decryption includes tag */
-		ilen = aes->src_len - AES_BLOCK_SIZE;
+		ilen = aes->src_len - authsize;
 		p_tag = scatterwalk_ffwd(sg_tag, p_inp, ilen);
 	}
 
@@ -669,7 +698,9 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 		return ret;
 
 	dm_offset = CCP_SB_BYTES - aes->key_len;
-	ccp_set_dm_area(&key, dm_offset, aes->key, 0, aes->key_len);
+	ret = ccp_set_dm_area(&key, dm_offset, aes->key, 0, aes->key_len);
+	if (ret)
+		goto e_key;
 	ret = ccp_copy_to_sb(cmd_q, &key, op.jobid, op.sb_key,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
 	if (ret) {
@@ -688,7 +719,9 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 		goto e_key;
 
 	dm_offset = CCP_AES_CTX_SB_COUNT * CCP_SB_BYTES - aes->iv_len;
-	ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+	ret = ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+	if (ret)
+		goto e_ctx;
 
 	ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
@@ -752,8 +785,7 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 		while (src.sg_wa.bytes_left) {
 			ccp_prepare_data(&src, &dst, &op, AES_BLOCK_SIZE, true);
 			if (!src.sg_wa.bytes_left) {
-				unsigned int nbytes = aes->src_len
-						      % AES_BLOCK_SIZE;
+				unsigned int nbytes = ilen % AES_BLOCK_SIZE;
 
 				if (nbytes) {
 					op.eom = 1;
@@ -780,7 +812,9 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 		goto e_dst;
 	}
 
-	ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+	ret = ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+	if (ret)
+		goto e_dst;
 
 	ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
@@ -823,17 +857,19 @@ static int ccp_run_aes_gcm_cmd(struct ccp_cmd_queue *cmd_q,
 
 	if (aes->action == CCP_AES_ACTION_ENCRYPT) {
 		/* Put the ciphered tag after the ciphertext. */
-		ccp_get_dm_area(&final_wa, 0, p_tag, 0, AES_BLOCK_SIZE);
+		ccp_get_dm_area(&final_wa, 0, p_tag, 0, authsize);
 	} else {
 		/* Does this ciphered tag match the input? */
-		ret = ccp_init_dm_workarea(&tag, cmd_q, AES_BLOCK_SIZE,
+		ret = ccp_init_dm_workarea(&tag, cmd_q, authsize,
 					   DMA_BIDIRECTIONAL);
 		if (ret)
 			goto e_tag;
-		ccp_set_dm_area(&tag, 0, p_tag, 0, AES_BLOCK_SIZE);
+		ret = ccp_set_dm_area(&tag, 0, p_tag, 0, authsize);
+		if (ret)
+			goto e_tag;
 
 		ret = crypto_memneq(tag.address, final_wa.address,
-				    AES_BLOCK_SIZE) ? -EBADMSG : 0;
+				    authsize) ? -EBADMSG : 0;
 		ccp_dm_free(&tag);
 	}
 
@@ -841,11 +877,11 @@ e_tag:
 	ccp_dm_free(&final_wa);
 
 e_dst:
-	if (aes->src_len && !in_place)
+	if (ilen > 0 && !in_place)
 		ccp_free_data(&dst, cmd_q);
 
 e_src:
-	if (aes->src_len)
+	if (ilen > 0)
 		ccp_free_data(&src, cmd_q);
 
 e_aad:
@@ -925,7 +961,9 @@ static int ccp_run_aes_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		return ret;
 
 	dm_offset = CCP_SB_BYTES - aes->key_len;
-	ccp_set_dm_area(&key, dm_offset, aes->key, 0, aes->key_len);
+	ret = ccp_set_dm_area(&key, dm_offset, aes->key, 0, aes->key_len);
+	if (ret)
+		goto e_key;
 	ret = ccp_copy_to_sb(cmd_q, &key, op.jobid, op.sb_key,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
 	if (ret) {
@@ -946,7 +984,9 @@ static int ccp_run_aes_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 	if (aes->mode != CCP_AES_MODE_ECB) {
 		/* Load the AES context - convert to LE */
 		dm_offset = CCP_SB_BYTES - AES_BLOCK_SIZE;
-		ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+		ret = ccp_set_dm_area(&ctx, dm_offset, aes->iv, 0, aes->iv_len);
+		if (ret)
+			goto e_ctx;
 		ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
 				     CCP_PASSTHRU_BYTESWAP_256BIT);
 		if (ret) {
@@ -1124,8 +1164,12 @@ static int ccp_run_xts_aes_cmd(struct ccp_cmd_queue *cmd_q,
 		 * big endian to little endian.
 		 */
 		dm_offset = CCP_SB_BYTES - AES_KEYSIZE_128;
-		ccp_set_dm_area(&key, dm_offset, xts->key, 0, xts->key_len);
-		ccp_set_dm_area(&key, 0, xts->key, xts->key_len, xts->key_len);
+		ret = ccp_set_dm_area(&key, dm_offset, xts->key, 0, xts->key_len);
+		if (ret)
+			goto e_key;
+		ret = ccp_set_dm_area(&key, 0, xts->key, xts->key_len, xts->key_len);
+		if (ret)
+			goto e_key;
 	} else {
 		/* Version 5 CCPs use a 512-bit space for the key: each portion
 		 * occupies 256 bits, or one entire slot, and is zero-padded.
@@ -1134,9 +1178,13 @@ static int ccp_run_xts_aes_cmd(struct ccp_cmd_queue *cmd_q,
 
 		dm_offset = CCP_SB_BYTES;
 		pad = dm_offset - xts->key_len;
-		ccp_set_dm_area(&key, pad, xts->key, 0, xts->key_len);
-		ccp_set_dm_area(&key, dm_offset + pad, xts->key, xts->key_len,
-				xts->key_len);
+		ret = ccp_set_dm_area(&key, pad, xts->key, 0, xts->key_len);
+		if (ret)
+			goto e_key;
+		ret = ccp_set_dm_area(&key, dm_offset + pad, xts->key,
+				      xts->key_len, xts->key_len);
+		if (ret)
+			goto e_key;
 	}
 	ret = ccp_copy_to_sb(cmd_q, &key, op.jobid, op.sb_key,
 			     CCP_PASSTHRU_BYTESWAP_256BIT);
@@ -1155,7 +1203,9 @@ static int ccp_run_xts_aes_cmd(struct ccp_cmd_queue *cmd_q,
 	if (ret)
 		goto e_key;
 
-	ccp_set_dm_area(&ctx, 0, xts->iv, 0, xts->iv_len);
+	ret = ccp_set_dm_area(&ctx, 0, xts->iv, 0, xts->iv_len);
+	if (ret)
+		goto e_ctx;
 	ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
 			     CCP_PASSTHRU_BYTESWAP_NOOP);
 	if (ret) {
@@ -1298,12 +1348,18 @@ static int ccp_run_des3_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 	dm_offset = CCP_SB_BYTES - des3->key_len; /* Basic offset */
 
 	len_singlekey = des3->key_len / 3;
-	ccp_set_dm_area(&key, dm_offset + 2 * len_singlekey,
-			des3->key, 0, len_singlekey);
-	ccp_set_dm_area(&key, dm_offset + len_singlekey,
-			des3->key, len_singlekey, len_singlekey);
-	ccp_set_dm_area(&key, dm_offset,
-			des3->key, 2 * len_singlekey, len_singlekey);
+	ret = ccp_set_dm_area(&key, dm_offset + 2 * len_singlekey,
+			      des3->key, 0, len_singlekey);
+	if (ret)
+		goto e_key;
+	ret = ccp_set_dm_area(&key, dm_offset + len_singlekey,
+			      des3->key, len_singlekey, len_singlekey);
+	if (ret)
+		goto e_key;
+	ret = ccp_set_dm_area(&key, dm_offset,
+			      des3->key, 2 * len_singlekey, len_singlekey);
+	if (ret)
+		goto e_key;
 
 	/* Copy the key to the SB */
 	ret = ccp_copy_to_sb(cmd_q, &key, op.jobid, op.sb_key,
@@ -1331,7 +1387,10 @@ static int ccp_run_des3_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 
 		/* Load the context into the LSB */
 		dm_offset = CCP_SB_BYTES - des3->iv_len;
-		ccp_set_dm_area(&ctx, dm_offset, des3->iv, 0, des3->iv_len);
+		ret = ccp_set_dm_area(&ctx, dm_offset, des3->iv, 0,
+				      des3->iv_len);
+		if (ret)
+			goto e_ctx;
 
 		if (cmd_q->ccp->vdata->version == CCP_VERSION(3, 0))
 			load_mode = CCP_PASSTHRU_BYTESWAP_NOOP;
@@ -1615,8 +1674,10 @@ static int ccp_run_sha_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		}
 	} else {
 		/* Restore the context */
-		ccp_set_dm_area(&ctx, 0, sha->ctx, 0,
-				sb_count * CCP_SB_BYTES);
+		ret = ccp_set_dm_area(&ctx, 0, sha->ctx, 0,
+				      sb_count * CCP_SB_BYTES);
+		if (ret)
+			goto e_ctx;
 	}
 
 	ret = ccp_copy_to_sb(cmd_q, &ctx, op.jobid, op.sb_ctx,
@@ -1938,7 +1999,9 @@ static int ccp_run_passthru_cmd(struct ccp_cmd_queue *cmd_q,
 		if (ret)
 			return ret;
 
-		ccp_set_dm_area(&mask, 0, pt->mask, 0, pt->mask_len);
+		ret = ccp_set_dm_area(&mask, 0, pt->mask, 0, pt->mask_len);
+		if (ret)
+			goto e_mask;
 		ret = ccp_copy_to_sb(cmd_q, &mask, op.jobid, op.sb_key,
 				     CCP_PASSTHRU_BYTESWAP_NOOP);
 		if (ret) {
