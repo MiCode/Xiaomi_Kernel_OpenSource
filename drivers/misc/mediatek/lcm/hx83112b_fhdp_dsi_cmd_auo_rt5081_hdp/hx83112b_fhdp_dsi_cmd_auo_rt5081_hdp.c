@@ -243,14 +243,14 @@ static struct LCM_setting_table init_setting_cmd[] = {
 	{0x44, 2, {0x08, 0x66} }, /* set TE event @ line 0x866(2150) */
 
 	{0x11, 0, {} },
-	{REGFLAG_DELAY, 150, {} },
+	{REGFLAG_DELAY, 120, {} },
 
 	{0xE9, 0x01, {0xC2} },
 	{0xB0, 0x01, {0x01} },
 	{0xE9, 0x01, {0x00} },
 
 	{0x29, 0, {} },
-	{REGFLAG_DELAY, 50, {} },
+	{REGFLAG_DELAY, 20, {} },
 };
 
 static struct LCM_setting_table

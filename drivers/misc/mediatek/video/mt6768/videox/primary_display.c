@@ -5176,7 +5176,7 @@ int primary_display_resume(void)
 			_trigger_display_interface(1, NULL, 0);
 			DISPINFO("[POWER]triggger cmdq[end]\n");
 			/* wait for one frame for pms workarround!!!! */
-			mdelay(16);
+			mdelay(33);
 		}
 	}
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
