@@ -92,10 +92,11 @@ extern int get_immediate_cpuLL_wrap(void);
 
 extern int get_immediate_mcucci_wrap(void);
 
-/* Added for DLPT. */
+/* Added for DLPT/EARA */
 extern int tscpu_get_min_cpu_pwr(void);
-
 extern int tscpu_get_min_gpu_pwr(void);
+extern int tscpu_get_min_vpu_pwr(void);
+extern int tscpu_get_min_mdla_pwr(void);
 
 /* Five thermal sensors. */
 enum mtk_thermal_sensor_cpu_id_met {
