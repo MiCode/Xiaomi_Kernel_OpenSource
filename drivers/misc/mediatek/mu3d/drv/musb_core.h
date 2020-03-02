@@ -57,10 +57,6 @@ enum charger_type {
 	WIRELESS_CHARGER,
 };
 #else
-/*#include <mt-plat/battery_common.h>*/
-#if (CONFIG_MTK_GAUGE_VERSION != 30)
-#include <mt-plat/charging.h>
-#endif
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/charger_type.h>
 #endif
