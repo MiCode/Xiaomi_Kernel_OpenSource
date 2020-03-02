@@ -437,7 +437,7 @@ struct DVS_Settings {
 	struct DVS_SubModule_EN SubModule_EN;
 	struct DVS_Iteration Iteration;
 	bool is_pd_mode;
-	unsigned int pd_tile_num; // set by driver
+	unsigned int pd_frame_num; // set by driver
 	unsigned int pd_st_x; // set by driver
 	unsigned int frmWidth;
 	unsigned int frmHeight;
