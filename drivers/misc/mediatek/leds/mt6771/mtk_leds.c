@@ -22,6 +22,8 @@
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
+
 
 #ifdef CONFIG_MTK_AAL_SUPPORT
 #include <ddp_aal.h>
@@ -42,9 +44,8 @@
 #include "mtkfb.h"
 #endif
 
-#define MET_USER_EVENT_SUPPORT
 #ifdef MET_USER_EVENT_SUPPORT
-//#include <mt-plat/met_drv.h>
+#include <mt-plat/met_drv.h>
 #endif
 
 #include "mtk_leds_sw.h"
@@ -149,9 +150,8 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 	int i, ret;
 	int mode, data;
 	int pwm_config[5] = { 0 };
-	char node_name[32] = "mediatek,";
 
-	if (!pled_dtsi) {
+	if (pled_dtsi) {
 		pr_info("[LED] %s pled_dtsi not null\n", __func__);
 		goto out;
 	}
@@ -164,6 +164,8 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 	}
 
 	for (i = 0; i < TYPE_TOTAL; i++) {
+		char node_name[32] = "mediatek,";
+
 		if (strlen(node_name) + strlen(leds_name[i]) + 1 >
 				sizeof(node_name)) {
 			LEDS_DEBUG("buffer for %s%s not enough\n",
@@ -174,8 +176,7 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 		}
 
 		pled_dtsi[i].name = leds_name[i];
-		led_node =
-		    of_find_compatible_node(NULL, NULL,
+		led_node = of_find_compatible_node(NULL, NULL,
 			strncat(node_name, leds_name[i],
 			sizeof(node_name) - strlen(node_name) - 1));
 		if (!led_node) {
