@@ -287,13 +287,15 @@ smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 {
 	u32 val, comm = 0;
 
-	if (id >= SMI_LARB_NUM) {
-		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u\n", id, SMI_LARB_NUM);
+	if ((id & 0xffff) >= SMI_COMM_MASTER_NUM) {
+		SMIDBG("Invalid id:%#x SMI_COMM_MASTER_NUM:%u\n",
+			id, SMI_COMM_MASTER_NUM);
 		return;
 	}
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
-	comm = SMI_LARB_L1ARB[id] >> 16;
+	comm = id >> 16;
+	id &= 0xffff;
 #endif
 	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
 	smi_scen_pair[SMI_LARB_NUM + comm][SMI_ESL_INIT][id].val = val;
@@ -779,9 +781,21 @@ static void smi_subsys_before_off(enum subsys_id sys)
 #endif
 }
 
+#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(CONFIG_MACH_MT6885)
+static void smi_subsys_debug_dump(enum subsys_id sys)
+{
+	if (!smi_subsys_to_larbs[sys])
+		return;
+	smi_debug_bus_hang_detect(0, "ccf-cb");
+}
+#endif
+
 static struct pg_callbacks smi_clk_subsys_handle = {
 	.after_on = smi_subsys_after_on,
 	.before_off = smi_subsys_before_off,
+#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(CONFIG_MACH_MT6885)
+	.debug_dump = smi_subsys_debug_dump,
+#endif
 };
 
 static s32 smi_conf_get(const u32 id)
