@@ -25,6 +25,13 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
+#if defined(CONFIG_MTK_ION)
+#include <ion.h>
+#include <ion_priv.h>
+#include <mtk/ion_drv.h>
+#include <mtk/mtk_ion.h>
+#endif
+
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "private/tmem_priv.h"
@@ -55,8 +62,7 @@ static int tmem_release(struct inode *inode, struct file *file)
 }
 
 static u32 g_common_mem_handle[TRUSTED_MEM_MAX];
-static void
-trusted_mem_device_common_chunk_alloc(enum TRUSTED_MEM_TYPE mem_type)
+static void trusted_mem_device_chunk_alloc(enum TRUSTED_MEM_TYPE mem_type)
 {
 	int ret = TMEM_OK;
 	u32 alignment = 0, ref_count;
@@ -74,7 +80,7 @@ trusted_mem_device_common_chunk_alloc(enum TRUSTED_MEM_TYPE mem_type)
 		pr_err("%d alloc chunk failed:%d\n", mem_type, ret);
 }
 
-static void trusted_mem_device_common_chunk_free(enum TRUSTED_MEM_TYPE mem_type)
+static void trusted_mem_device_chunk_free(enum TRUSTED_MEM_TYPE mem_type)
 {
 	int ret = TMEM_OK;
 
@@ -86,6 +92,81 @@ static void trusted_mem_device_common_chunk_free(enum TRUSTED_MEM_TYPE mem_type)
 		pr_err("%d free chunk failed:%d\n", mem_type, ret);
 	else
 		g_common_mem_handle[mem_type] = 0;
+}
+
+static unsigned int get_ion_heap_mask_id(enum TRUSTED_MEM_TYPE mem_type)
+{
+	switch (mem_type) {
+	case TRUSTED_MEM_SVP:
+		return ION_HEAP_MULTIMEDIA_SEC_MASK;
+	case TRUSTED_MEM_PROT:
+		return ION_HEAP_MULTIMEDIA_PROT_MASK;
+	case TRUSTED_MEM_WFD:
+		return ION_HEAP_MULTIMEDIA_WFD_MASK;
+	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+		return ION_HEAP_MULTIMEDIA_2D_FR_MASK;
+	default:
+		return ION_HEAP_MULTIMEDIA_SEC_MASK;
+	}
+}
+
+static void trusted_mem_device_ion_alloc_free(enum TRUSTED_MEM_TYPE mem_type)
+{
+#if defined(CONFIG_MTK_ION)
+	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
+	struct ion_client *kern_ion_client;
+	struct ion_handle *kern_ion_handle;
+
+	pr_info("%d ion alloc sz: 0x%x\n", mem_type, min_chunk_sz);
+
+	kern_ion_client = ion_client_create(g_ion_device, "cpa_ion_client");
+	if (INVALID(kern_ion_client)) {
+		pr_err("%d create ion client failed!\n", mem_type);
+		return;
+	}
+
+	if (tmem_core_is_regmgr_region_on(mem_type)
+	    || !IS_ZERO(tmem_core_get_regmgr_region_ref_cnt(mem_type))) {
+		pr_err("%d region should be offlined!\n", mem_type);
+		ion_client_destroy(kern_ion_client);
+		return;
+	}
+
+	kern_ion_handle = ion_alloc(kern_ion_client, min_chunk_sz, 0,
+				    get_ion_heap_mask_id(mem_type), 0);
+
+	if (tmem_core_is_device_registered(mem_type)) {
+		/* Expect allocation to be passed if device is registered */
+		if (IS_ERR(kern_ion_handle))
+			pr_err("%d expect to be passed!\n", mem_type);
+		else if (!tmem_core_is_regmgr_region_on(mem_type))
+			pr_err("%d region should be onlined!\n", mem_type);
+		else if (IS_ZERO(tmem_core_get_regmgr_region_ref_cnt(mem_type)))
+			pr_err("%d region should be referenced!\n", mem_type);
+		else
+			pr_info("%s:%d %d ion alloc tested pass!\n", __func__,
+				__LINE__, mem_type);
+	} else {
+		/* Expect allocation to be failed if device is not registered */
+		if (!IS_ERR(kern_ion_handle))
+			pr_err("%d expect to be failed!\n", mem_type);
+		else if (tmem_core_is_regmgr_region_on(mem_type))
+			pr_err("%d region should not be onlined!\n", mem_type);
+		else if (!IS_ZERO(
+				 tmem_core_get_regmgr_region_ref_cnt(mem_type)))
+			pr_err("%d region should not be referenced!\n",
+			       mem_type);
+		else
+			pr_info("%s:%d %d ion alloc tested pass!\n", __func__,
+				__LINE__, mem_type);
+	}
+
+	if (!IS_ERR(kern_ion_handle))
+		ion_free(kern_ion_client, kern_ion_handle);
+	ion_client_destroy(kern_ion_client);
+#else
+	pr_info("%d ion interface is not supported!\n", mem_type);
+#endif
 }
 
 static void trusted_mem_device_common_operations(u64 cmd, u64 param1,
@@ -127,11 +208,15 @@ static void trusted_mem_device_common_operations(u64 cmd, u64 param1,
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_CHUNK_ALLOC:
 		pr_info("TMEM_DEVICE_COMMON_OPERATION_CHUNK_ALLOC\n");
-		trusted_mem_device_common_chunk_alloc(device_mem_type);
+		trusted_mem_device_chunk_alloc(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_CHUNK_FREE:
 		pr_info("TMEM_DEVICE_COMMON_OPERATION_CHUNK_FREE\n");
-		trusted_mem_device_common_chunk_free(device_mem_type);
+		trusted_mem_device_chunk_free(device_mem_type);
+		break;
+	case TMEM_DEVICE_COMMON_OPERATION_ION_ALLOC_FREE:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_ION_ALLOC_FREE\n");
+		trusted_mem_device_ion_alloc_free(device_mem_type);
 		break;
 	default:
 		pr_err("unsupported device cmd: %d, mem type: %d (user cmd:%lld)\n",
