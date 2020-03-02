@@ -1846,6 +1846,362 @@ static void PointEdge(void)
 	}
 }
 
+static void PointStretch_for(int *dc_p, int *ds_p)
+{
+	static int save_dr[POINT_MAX], save_dn[POINT_MAX];
+	int i, j;
+	int dn;
+	int dr;
+	int *dc, *ds;
+	int len = 8;
+
+	dc = dc_p;
+	ds = ds_p;
+	for (i = 0; i < POINT_MAX; i++) {
+		if (ps[1][i].all == 0) {
+			for (j = 1; j < PS_DEEP; j++)
+				ps[j][i].all = ps[0][i].all;
+			save_dr[i] = 128;
+			save_dn[i] = 0;
+			continue;
+		}
+		if (id_flag.other.first_avg && point_delay[i].other.able == 0)
+			continue;
+		if ((point_shake & (0x1 << i)) == 0)
+			continue;
+		if (dc[len] == 3) /* dc == 2 */ {
+			dn = pp[0][i].other.x > ps[1][i].other.x
+				     ? pp[0][i].other.x - ps[1][i].other.x
+				     : ps[1][i].other.x - pp[0][i].other.x;
+			if (dn < ds[0]) {
+				for (j = 0; j <= len; j++) {
+					if (j == len || dn == 0) {
+						ps[0][i].other.x =
+							ps[1][i].other.x;
+						break;
+					} else if (ds[j] > dn &&
+						   dn >= ds[j + 1]) {
+						dr = dc[j + 1] +
+						     ((dn - ds[j + 1]) *
+						      (dc[j] - dc[j + 1])) /
+							     (ds[j] -
+							      ds[j + 1]);
+						ps[0][i].other.x =
+							(int)ps[1][i].other.x +
+							(((int)pp[0][i]
+								  .other.x -
+							  (int)ps[1][i]
+								  .other.x) *
+								 dr +
+							 64) / 128;
+						break;
+					}
+				}
+			}
+			dn = pp[0][i].other.y > ps[1][i].other.y
+				     ? pp[0][i].other.y - ps[1][i].other.y
+				     : ps[1][i].other.y - pp[0][i].other.y;
+			if (dn < ds[0]) {
+				for (j = 0; j <= len; j++) {
+					if (j == len || dn == 0) {
+						ps[0][i].other.y =
+							ps[1][i].other.y;
+						break;
+					} else if (ds[j] > dn &&
+						   dn >= ds[j + 1]) {
+						dr = dc[j + 1] +
+						     ((dn - ds[j + 1]) *
+						      (dc[j] - dc[j + 1])) /
+							     (ds[j] -
+							      ds[j + 1]);
+						ps[0][i].other.y =
+							(int)ps[1][i].other.y +
+							(((int)pp[0][i]
+								  .other.y -
+							  (int)ps[1][i]
+								  .other.y) *
+								 dr +
+							 64) / 128;
+						break;
+					}
+				}
+			}
+		} else {
+			dn = PointDistance(&pp[0][i], &ps[1][i]);
+			dn = Sqrt(dn);
+			if (dn >= ds[0])
+				continue;
+
+			if (dn < save_dn[i]) {
+				dr = save_dr[i];
+				save_dn[i] = dn;
+				ps[0][i].other.x = (int)ps[1][i].other.x +
+						   (((int)pp[0][i].other.x -
+						     (int)ps[1][i].other.x) *
+						    dr) / 128;
+				ps[0][i].other.y = (int)ps[1][i].other.y +
+						   (((int)pp[0][i].other.y -
+						     (int)ps[1][i].other.y) *
+						    dr) / 128;
+				continue;
+			}
+			for (j = 0; j <= len; j++) {
+				if (j == len || dn == 0) {
+					ps[0][i].other.x = ps[1][i].other.x;
+					ps[0][i].other.y = ps[1][i].other.y;
+					break;
+				} else if (ds[j] > dn && dn >= ds[j + 1]) {
+					dr = dc[j + 1] +
+					     ((dn - ds[j + 1]) *
+					      (dc[j] - dc[j + 1])) /
+						     (ds[j] - ds[j + 1]);
+					save_dr[i] = dr;
+					save_dn[i] = dn;
+					ps[0][i].other.x =
+						(int)ps[1][i].other.x +
+						(((int)pp[0][i].other.x -
+						  (int)ps[1][i].other.x) *
+							 dr +
+						 64) / 128;
+					ps[0][i].other.y =
+						(int)ps[1][i].other.y +
+						(((int)pp[0][i].other.y -
+						  (int)ps[1][i].other.y) *
+							 dr +
+						 64) / 128;
+					break;
+				}
+			}
+		}
+	}
+}
+
+static void PointStretch(void)
+{
+	struct SHAKE_TYPE {
+		int dis;
+		int coe;
+	};
+	struct SHAKE_TYPE *shake_all = (struct SHAKE_TYPE *)shake_all_array;
+	int i, j;
+	int dn;
+	int dr;
+	int dc[9], ds[9];
+	int len = 8;
+	unsigned int temp;
+
+	for (i = 0; i < POINT_MAX; i++)
+		ps[0][i].all = pp[0][i].all;
+
+	for (i = 0; i < POINT_MAX; i++) {
+		if (pp[0][i].all == 0 || pp[0][i].other.key) {
+			point_shake &= ~(0x1 << i);
+			if (i == 0)
+				point_edge.rate = 0;
+			continue;
+		}
+		if (i == 0) {
+			if (edge_first != 0 && ps[1][i].all == 0) {
+				point_edge.coor.all = ps[0][i].all;
+				if (point_edge.coor.other.x <
+				    (unsigned int)((edge_first >> 24) & 0xff))
+					point_edge.coor.other.x =
+						((edge_first >> 24) & 0xff);
+				if (point_edge.coor.other.x >
+				    drv_num_nokey * 64 -
+					    ((edge_first >> 16) & 0xff))
+					point_edge.coor.other.x =
+						drv_num_nokey * 64 -
+						((edge_first >> 16) & 0xff);
+				if (point_edge.coor.other.y <
+				    (unsigned int)((edge_first >> 8) & 0xff))
+					point_edge.coor.other.y =
+						((edge_first >> 8) & 0xff);
+				if (point_edge.coor.other.y >
+				    sen_num_nokey * 64 -
+					    ((edge_first >> 0) & 0xff))
+					point_edge.coor.other.y =
+						sen_num_nokey * 64 -
+						((edge_first >> 0) & 0xff);
+				if (point_edge.coor.all != ps[0][i].all) {
+					point_edge.dis = PointDistance(
+						&ps[0][i], &point_edge.coor);
+					if (point_edge.dis)
+						point_edge.rate = 0x1000;
+				}
+			}
+			if (point_edge.rate != 0 && point_edge.dis != 0) {
+				temp = PointDistance(&ps[0][i],
+						     &point_edge.coor);
+				if (temp >=
+				    point_edge.dis * edge_first_coe / 0x80) {
+					point_edge.rate = 0;
+				} else if (temp > point_edge.dis) {
+					temp = (point_edge.dis *
+							edge_first_coe / 0x80 -
+						temp) *
+					       0x1000 / point_edge.dis;
+					if (temp < point_edge.rate)
+						point_edge.rate = temp;
+				}
+				ps[0][i].other.x =
+					point_edge.coor.other.x +
+					(ps[0][i].other.x -
+					 point_edge.coor.other.x) *
+						(0x1000 - point_edge.rate) /
+						0x1000;
+				ps[0][i].other.y =
+					point_edge.coor.other.y +
+					(ps[0][i].other.y -
+					 point_edge.coor.other.y) *
+						(0x1000 - point_edge.rate) /
+						0x1000;
+			}
+		}
+		if (ps[1][i].all == 0) {
+			continue;
+		} else if (id_flag.other.first_avg &&
+			   (point_shake & (0x1 << i)) == 0 && pp[0][i].all &&
+			   point_delay[i].other.able == 0 && shake_min != 0) {
+			dn = 0;
+			for (j = 1; j < PP_DEEP /* && j < PS_DEEP*/; j++) {
+				if (pp[j][i].all == 0)
+					break;
+			}
+			j--;
+			dn = PointDistance(&ps[0][i], &ps[j][i]);
+			if (PointDistance(&ps[0][i], &ps[j][i]) >=
+			    (unsigned int)shake_min * 4) {
+				point_delay[i].other.init = 1;
+				point_delay[i].other.able = 1;
+				point_delay[i].other.report = 1;
+				point_delay[i].other.dele = 1;
+			}
+		} else if ((point_shake & (0x1 << i)) == 0) {
+			if (PointDistance(&ps[0][i], &ps[1][i]) <
+			    (unsigned int)shake_min) {
+				if (point_delay[i].other.able)
+					ps[0][i].all = ps[1][i].all;
+				else {
+					for (j = 1; j < PS_DEEP; j++)
+						ps[j][i].all = ps[0][i].all;
+					for (j = 0; j < PR_DEEP; j++)
+						pr[j][i].all = ps[0][i].all;
+				}
+				continue;
+			} else
+				point_shake |= (0x1 << i);
+		}
+	}
+	for (i = 0; i < len; i++) {
+		if (shake_all[i].dis == 0) {
+			len = i;
+			break;
+		}
+	}
+	if (len == 1) {
+		ds[0] = shake_all[0].dis;
+		dc[0] = (shake_all[0].coe * 100 + 64) / 128;
+		for (i = 0; i < POINT_MAX; i++) {
+			if (ps[1][i].all == 0) {
+				for (j = 1; j < PS_DEEP; j++)
+					ps[j][i].all = ps[0][i].all;
+				continue;
+			}
+			if ((point_shake & (0x1 << i)) == 0)
+				continue;
+			dn = PointDistance(&pp[0][i], &ps[1][i]);
+			dn = Sqrt(dn);
+			dr = dn > ds[0] ? dn - ds[0] : 0;
+			temp = ps[0][i].all;
+			if (dn == 0 || dr == 0) {
+				ps[0][i].other.x = ps[1][i].other.x;
+				ps[0][i].other.y = ps[1][i].other.y;
+			} else {
+				ps[0][i].other.x = (int)ps[1][i].other.x +
+						   ((int)pp[0][i].other.x -
+						    (int)ps[1][i].other.x) *
+							   dr / dn;
+				ps[0][i].other.y = (int)ps[1][i].other.y +
+						   ((int)pp[0][i].other.y -
+						    (int)ps[1][i].other.y) *
+							   dr / dn;
+			}
+			if (dc[0] > 0) {
+				if (ps[0][i].all == ps[1][i].all &&
+				    temp != ps[0][i].all) {
+					ps[0][i].all = temp;
+					point_decimal[i].other.x +=
+						ps[0][i].other.x -
+						ps[1][i].other.x;
+					point_decimal[i].other.y +=
+						ps[0][i].other.y -
+						ps[1][i].other.y;
+					ps[0][i].other.x = ps[1][i].other.x;
+					ps[0][i].other.y = ps[1][i].other.y;
+					if (point_decimal[i].other.x > dc[0] &&
+					    ps[1][i].other.x < 0xffff) {
+						ps[0][i].other.x += 1;
+						point_decimal[i].other.x = 0;
+					}
+					if (point_decimal[i].other.x < -dc[0] &&
+					    ps[1][i].other.x > 0) {
+						ps[0][i].other.x -= 1;
+						point_decimal[i].other.x = 0;
+					}
+					if (point_decimal[i].other.y > dc[0] &&
+					    ps[1][i].other.y < 0xfff) {
+						ps[0][i].other.y += 1;
+						point_decimal[i].other.y = 0;
+					}
+					if (point_decimal[i].other.y < -dc[0] &&
+					    ps[1][i].other.y > 0) {
+						ps[0][i].other.y -= 1;
+						point_decimal[i].other.y = 0;
+					}
+				} else {
+					point_decimal[i].other.x = 0;
+					point_decimal[i].other.y = 0;
+				}
+			}
+		}
+
+	} else if (len >= 2) {
+		temp = 0;
+		for (i = 0; i < POINT_MAX; i++)
+			if (pp[0][i].all)
+				temp++;
+		if (temp > 5)
+			temp = 5;
+		for (i = 0; i < 8 && i < len; i++) {
+			if (stretch_mult)
+				ds[i + 1] = shake_all[i].dis *
+					    (stretch_mult *
+						     (temp > 1 ? temp - 1 : 0) +
+					     0x80) /
+					    0x80;
+			else
+				ds[i + 1] = shake_all[i].dis;
+			dc[i + 1] =
+				shake_all[i]
+					.coe; /* ;ds[i+1] * shake_all[i].coe; */
+		}
+		if (shake_all[0].coe >= 128 ||
+		    shake_all[0].coe <= shake_all[1].coe) {
+			ds[0] = ds[1];
+			dc[0] = dc[1];
+		} else {
+			ds[0] = ds[1] +
+				(128 - shake_all[0].coe) * (ds[1] - ds[2]) /
+					(shake_all[0].coe - shake_all[1].coe);
+			dc[0] = 128;
+		}
+		PointStretch_for(dc, ds);
+	} else {
+		return;
+	}
+}
+
 static void ResetMask(void)
 {
 	if (reset_mask_send)
@@ -2209,8 +2565,6 @@ static void PressMask(void)
 				continue;
 			if (pr[0][j].all == 0 || point_delay[j].other.able == 0)
 				continue;
-
-
 
 			if (PointDistance(&pp[0][i], &pp[0][j]) <
 			    press_range * press_range)
@@ -2825,6 +3179,7 @@ void gsl_alg_id_main(struct gsl_touch_info *cinfo)
 
 	prev_num = point_num;
 	ResetMask();
+	PointStretch();
 	PointDiagonal();
 	PointFilter();
 	GetPointNum(pr[0]);

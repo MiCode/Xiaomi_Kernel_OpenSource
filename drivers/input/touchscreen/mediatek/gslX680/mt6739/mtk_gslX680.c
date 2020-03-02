@@ -988,7 +988,6 @@ static int char_to_int(char ch)
 }
 
 
-
 static int gsl_config_read_proc(struct seq_file *m, void *v)
 {
 	char temp_data[5] = {0};
@@ -1150,7 +1149,7 @@ static void tpd_rotate_270(int *x, int *y)
 u8 rs_value1;
 static void tpd_down(int id, int x, int y, int p)
 {
-	GSL_LOGD("----tpd down id: %d, x:%d, y:%d----\n", id, x, y);
+	GSL_LOGD("----tpd_down id: %d, x:%d, y:%d----\n", id, x, y);
 
 #ifdef TPD_ROTATION_SUPPORT
 	switch (tpd_rotation_type) {
@@ -1178,7 +1177,7 @@ static void tpd_down(int id, int x, int y, int p)
 
 static void tpd_up(void)
 {
-	GSL_LOGD("------tpd up------\n");
+	GSL_LOGD("------tpd_up------\n");
 
 	input_report_key(tpd->dev, BTN_TOUCH, 0);
 	input_mt_sync(tpd->dev);
@@ -1202,8 +1201,6 @@ static void gsl_report_point(struct gsl_touch_info *ti)
 	} else {
 		gsl_up_flag = 1;
 		for (tmp = 0; ti->finger_num > tmp; tmp++) {
-
-
 
 
 			tpd_down(ti->id[tmp] - 1, ti->x[tmp], ti->y[tmp], 0);
@@ -1550,7 +1547,7 @@ static int tpd_i2c_probe(struct i2c_client *client,
 		GSL_LOGD("node -> name = %s , touch_irq = %d\n", node->name,
 			 touch_irq);
 		touch_irq = irq_of_parse_and_map(node, 0);
-		GSL_LOGD("touch irq = %d\n ", touch_irq);
+		GSL_LOGD("touch_irq = %d\n ", touch_irq);
 		ret = request_irq(touch_irq,
 				  (irq_handler_t)tpd_eint_interrupt_handler,
 				  IRQF_TRIGGER_RISING, TPD_DEVICE, NULL);
@@ -1602,10 +1599,10 @@ static int tpd_i2c_probe(struct i2c_client *client,
 #ifdef TPD_PROC_DEBUG
 #if 0
 		gsl_config_proc = create_proc_entry(GSL_CONFIG_PROC_FILE,
-			0666, NULL);
+		0666, NULL);
 		if (gsl_config_proc == NULL) {
 			GSL_LOGD("create_proc_entry %s failed\n",
-				GSL_CONFIG_PROC_FILE);
+			GSL_CONFIG_PROC_FILE);
 		} else {
 			gsl_config_proc->read_proc = gsl_config_read_proc;
 			gsl_config_proc->write_proc = gsl_config_write_proc;
@@ -1632,9 +1629,6 @@ static int tpd_i2c_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id tpd_i2c_id[] = {{TPD_DEVICE, 0}, {} };
-
-
-
 
 static unsigned short force[] = {0, (GSLX680_ADDR << 1), I2C_CLIENT_END,
 				 I2C_CLIENT_END};
@@ -1727,13 +1721,11 @@ static void tpd_suspend(struct device *h)
 	GSL_LOGF();
 
 #ifdef GSL_MONITOR
-	GSL_LOGD("gsl ts_suspend () : cancel gsl_monitor_work\n");
+	GSL_LOGD("gsl_ts_suspend () : cancel gsl_monitor_work\n");
 	cancel_delayed_work_sync(&gsl_monitor_work);
 #endif
 	tpd_gpio_output(GTP_RST_PORT, 0);
 	msleep(20);
-
-
 
 	disable_irq(touch_irq);
 	tpd_halt = 1;
@@ -1757,11 +1749,8 @@ static void tpd_resume(struct device *h)
 	startup_chip(i2c_client);
 	check_mem_data(i2c_client);
 
-
-
-
 #if defined(GSL_MONITOR)
-	GSL_LOGD("gsl ts_resume () : queue gsl_monitor_work\n");
+	GSL_LOGD("gsl_ts_resume () : queue gsl_monitor_work\n");
 	queue_delayed_work(gsl_monitor_workqueue, &gsl_monitor_work,
 			   MONITOR_CYCLE_IDLE);
 #endif
@@ -1784,7 +1773,8 @@ static struct tpd_driver_t tpd_device_driver = {
 
 #if 0
 static ssize_t db_value_store(struct class *class,
-	struct class_attribute *attr,	const char *buf, size_t count)
+			struct class_attribute *attr,
+			const char *buf, size_t count)
 {
 	unsigned long rs_tmp;
 
