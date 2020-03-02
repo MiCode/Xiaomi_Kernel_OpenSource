@@ -1718,12 +1718,12 @@ static int goodix_remap_trace_id(struct goodix_ts_device *dev,
 		/*swap*/
 		if (need_swap) {
 			memcpy(temp_buf, small, BYTES_PER_COORD);
-			memcpy(small,
-					&coor_buf[BYTES_PER_COORD * i],
-					BYTES_PER_COORD);
+			memmove(small,
+				&coor_buf[BYTES_PER_COORD * i],
+				BYTES_PER_COORD);
 			memcpy(&coor_buf[BYTES_PER_COORD * i],
-					temp_buf,
-					BYTES_PER_COORD);
+				temp_buf,
+				BYTES_PER_COORD);
 		}
 	}
 
