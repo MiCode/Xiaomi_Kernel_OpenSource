@@ -793,6 +793,21 @@ struct LCM_setting_table_V3 {
 	unsigned char para_list[128];
 };
 
+/*
+ * dtype	---- data type
+ * vc		---- virtual channel
+ * dlen	---- data length
+ * link_state ---- HS:0  LP:1
+ * payload ---- payload
+ */
+struct dsi_cmd_desc {
+	unsigned int dtype;
+	unsigned int vc;
+	unsigned int dlen;
+	unsigned int link_state;
+	char *payload;
+};
+
 struct LCM_UTIL_FUNCS {
 	void (*set_reset_pin)(unsigned int value);
 	void (*set_chip_select)(unsigned int value);
@@ -839,6 +854,9 @@ struct LCM_UTIL_FUNCS {
 	void (*dsi_set_cmdq_V23)(void *cmdq, unsigned int cmd,
 		unsigned char count, unsigned char *para_list,
 		unsigned char force_update);	/* dual */
+	void (*mipi_dsi_cmds_tx)(void *cmdq, struct dsi_cmd_desc *cmds);
+	unsigned int (*mipi_dsi_cmds_rx)(char *out,
+		struct dsi_cmd_desc *cmds, unsigned int len);
 };
 enum LCM_DRV_IOCTL_CMD {
 	LCM_DRV_IOCTL_ENABLE_CMD_MODE = 0x100,
