@@ -34,7 +34,7 @@ static const unsigned int a6xx_gmu_tcm_registers[] = {
 
 static const unsigned int a6xx_gmu_registers[] = {
 	/* GMU CX */
-	0x1F400, 0x1F407, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
+	0x1F400, 0x1F40B, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
 	0x1F800, 0x1F804, 0x1F807, 0x1F808, 0x1F80B, 0x1F80C, 0x1F80F, 0x1F81C,
 	0x1F824, 0x1F82A, 0x1F82D, 0x1F830, 0x1F840, 0x1F853, 0x1F887, 0x1F889,
 	0x1F8A0, 0x1F8A2, 0x1F8A4, 0x1F8AF, 0x1F8C0, 0x1F8C3, 0x1F8D0, 0x1F8D0,
@@ -352,12 +352,22 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 		mask = 0xFFFFFFFF;
 	}
 
+	/**
+	 * We may have asserted gbif halt as part of reset sequence which may
+	 * not get cleared if the gdsc was not reset. So clear it before
+	 * attempting GMU boot.
+	 */
+	if (adreno_has_gbif(ADRENO_DEVICE(device)))
+		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+
 	/* Set the log wptr index */
 	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_RESP,
 			gmu->log_wptr_retention);
 
 	/* Bring GMU out of reset */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
+	/* Make sure the request completes before continuing */
+	wmb();
 	if (timed_poll_check(device,
 			A6XX_GMU_CM3_FW_INIT_RESULT,
 			val, GMU_START_TIMEOUT, mask)) {
@@ -1057,6 +1067,13 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			GMU_FENCE_RANGE_MASK);
+
+	/*
+	 * Make sure that CM3 state is at reset value. Snapshot is changing
+	 * NMI bit and if we boot up GMU with NMI bit set.GMU will boot straight
+	 * in to NMI handler without executing __main code
+	 */
+	gmu_core_regwrite(device, A6XX_GMU_CM3_CFG, 0x4052);
 
 	/* Pass chipid to GMU FW, must happen before starting GMU */
 
