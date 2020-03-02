@@ -966,12 +966,12 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt35695_fhd_dsi_vdo_truly_rt5081_hdp_19_9_lcm_drv,
 #endif
 
-#if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_HDP_20_9)
-	&nt35695_fhd_dsi_vdo_truly_rt5081_hdp_20_9_lcm_drv,
-#endif
-
 #if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_HDP_1560)
 	&nt35695_fhd_dsi_vdo_truly_rt5081_hdp_1560_lcm_drv,
+#endif
+
+#if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_HDP_20_9)
+	&nt35695_fhd_dsi_vdo_truly_rt5081_hdp_20_9_lcm_drv,
 #endif
 
 #if defined(NT35695_FHD_DSI_VDO_TRULY_RT5081_720P)
@@ -1089,13 +1089,14 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_19_9_lcm_drv,
 #endif
 
+#if defined(NT35695B_FHD_DSI_VDO_AUO_RT5081_HDP_1560)
+	&nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_1560_lcm_drv,
+#endif
+
 #if defined(NT35695B_FHD_DSI_VDO_AUO_RT5081_HDP_20_9)
 	&nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_20_9_lcm_drv,
 #endif
 
-#if defined(NT35695B_FHD_DSI_VDO_AUO_RT5081_HDP_1560)
-	&nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_1560_lcm_drv,
-#endif
 #if defined(CLAA101FP01_DSI_VDO)
 	&claa101fp01_dsi_vdo_lcm_drv,
 #endif
