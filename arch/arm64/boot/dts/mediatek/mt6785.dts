@@ -5473,7 +5473,6 @@ page_owner=on loop.max_part=7";
 
 #include "mt6359.dtsi"
 #include "cust_mt6785_msdc.dtsi"
-#include "cust_mt6785_camera.dtsi"
 #include "mt6360.dtsi"
 #include "mt6360_pd.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
