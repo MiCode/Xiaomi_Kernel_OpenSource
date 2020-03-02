@@ -222,7 +222,11 @@ unsigned int _is_power_on_status(enum DISP_MODULE_ENUM module);
 int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 		cmdqBackupSlotHandle *read_Slot,
 		struct cmdqRecStruct *cmdq_trigger_handle,
-		struct ddp_lcm_read_cmd_table *read_table);
+		struct dsi_cmd_desc *cmd_tab, unsigned int count);
+int ddp_dsi_read_lcm_cmdq_v1(enum DISP_MODULE_ENUM module,
+		cmdqBackupSlotHandle *read_Slot,
+		struct cmdqRecStruct *cmdq_trigger_handle,
+		struct dsi_cmd_desc *cmd_tab);
 int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
 		struct cmdqRecStruct *cmdq,
 		unsigned char cmd, unsigned char count,
