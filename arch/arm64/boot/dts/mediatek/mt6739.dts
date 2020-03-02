@@ -336,37 +336,37 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		clock-frequency = <32000>;
 	};
 
-	io_cfg_lt@10002000 {
+	io_cfg_lt: io_cfg_lt@10002000 {
 		compatible = "mediatek,io_cfg_lt";
 		reg = <0 0x10002000 0 0x200>;
 	};
 
-	io_cfg_lm@10002200 {
+	io_cfg_lm: io_cfg_lm@10002200 {
 		compatible = "mediatek,io_cfg_lm";
 		reg = <0 0x10002200 0 0x200>;
 	};
 
-	io_cfg_lb@10002400 {
+	io_cfg_lb: io_cfg_lb@10002400 {
 		compatible = "mediatek,io_cfg_lb";
 		reg = <0 0x10002400 0 0x200>;
 	};
 
-	io_cfg_bl@10002600 {
+	io_cfg_bl: io_cfg_bl@10002600 {
 		compatible = "mediatek,io_cfg_bl";
 		reg = <0 0x10002600 0 0x200>;
 	};
 
-	io_cfg_bm@10002800 {
+	io_cfg_bm: io_cfg_bm@10002800 {
 		compatible = "mediatek,io_cfg_bm";
 		reg = <0 0x10002800 0 0x200>;
 	};
 
-	io_cfg_rb@10002a00 {
+	io_cfg_rb: io_cfg_rb@10002a00 {
 		compatible = "mediatek,io_cfg_rb";
 		reg = <0 0x10002a00 0 0x200>;
 	};
 
-	io_cfg_rt@10002c00 {
+	io_cfg_rt: io_cfg_rt@10002c00 {
 		compatible = "mediatek,io_cfg_rt";
 		reg = <0 0x10002c00 0 0x200>;
 	};
@@ -401,7 +401,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	pio: pinctrl@1000b000 {
-		compatible = "mediatek,pinctrl-mt6739";
+		compatible = "mediatek,mt6739-pinctrl";
 		reg_bases = <&gpio>,
 			    <&io_cfg_lt>,
 			    <&io_cfg_lm>,
