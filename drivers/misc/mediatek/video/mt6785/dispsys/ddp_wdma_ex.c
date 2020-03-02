@@ -690,6 +690,9 @@ void wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int tmp;
 
 	frame_rate = 60;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	frame_rate = gsc->fps;
+#endif
 	if (is_primary_flag)
 		res = gsc->dst_width * gsc->dst_height;
 	else {

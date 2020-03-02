@@ -265,6 +265,11 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->corner_pattern_tp_size = sizeof(top_rc_pattern);
 	params->corner_pattern_lt_addr = (void *)top_rc_pattern;
 #endif
+	/****DynFPS start****/
+	params->dsi.dfps_enable = 0;
+	params->dsi.dfps_default_fps = 90;
+	params->dsi.dfps_num = 2;
+	/****DynFPS end****/
 }
 
 static void lcm_init_power(void)
