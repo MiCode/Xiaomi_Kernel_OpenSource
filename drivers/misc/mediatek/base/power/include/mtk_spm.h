@@ -31,6 +31,9 @@
 
 #include "spm_v4/mtk_spm.h"
 
+#elif defined(CONFIG_MACH_MT6768)
+#include "spm/mtk_spm.h"
+
 #endif
 
 #endif /* __MT_SPM_H__ */
