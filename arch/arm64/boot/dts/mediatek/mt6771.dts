@@ -2028,7 +2028,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	touch: touch {
-		compatible = "mediatek,mt6771-touch";
+		compatible = "mediatek,touch";
 	};
 
 	accdet: accdet {
