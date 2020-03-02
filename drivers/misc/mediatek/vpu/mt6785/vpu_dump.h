@@ -86,7 +86,7 @@ void vpu_dmp_seq(struct seq_file *s);
 			vpu_dmp_create_locked(core, req, fmt, ##args); \
 			vpu_put_power(core, VPT_ENQUE_ON); \
 		} else { \
-			pr_info("%s: vpu_get_power: failed\n"); \
+			pr_info("%s: vpu_get_power: failed\n", __func__); \
 		} \
 		vpu_unlock(core); \
 	} while (0)
