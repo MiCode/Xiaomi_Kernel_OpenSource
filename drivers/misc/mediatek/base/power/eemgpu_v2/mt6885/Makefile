@@ -27,10 +27,9 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/thermal/$(CONFIG_MTK_PLATFORM)/inc/mach	\
 	-I$(srctree)/include/linux/	\
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
-	-I$(EEM_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
+	-I$(EEMGPU_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/	\
 
-obj-y += mtk_eem.o
-obj-y += mtk_eem_platform.o
-obj-y += mtk_eem_internal.o
-obj-y += mtk_eem_api.o
+obj-y += mtk_eemgpu.o
+obj-y += mtk_eemgpu_platform.o
+obj-y += mtk_eemgpu_internal.o
