@@ -282,8 +282,9 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id, unsigned int bank)
 #ifdef IOMMU_DESIGN_OF_BANK
 	unsigned int atf_cmd = 0;
 	int ret = 0;
+#if 0
 	size_t tf_port = 0;
-
+#endif
 	if (cmd >= IOMMU_ATF_CMD_COUNT ||
 	    m4u_id >= MTK_IOMMU_M4U_COUNT ||
 	    bank > MTK_IOMMU_BANK_COUNT) {
