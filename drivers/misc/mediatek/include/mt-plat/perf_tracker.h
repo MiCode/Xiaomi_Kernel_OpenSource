@@ -15,6 +15,7 @@
 
 
 extern void perf_tracker(u64 wallclock);
+extern int perf_tracker_enable(int val);
 
 #ifdef CONFIG_MTK_PERF_TRACKER
 extern void __perf_tracker(u64 wallclock,
