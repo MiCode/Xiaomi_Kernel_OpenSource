@@ -11,6 +11,7 @@
  */
 
 #include "ufs.h"
+#include <linux/bitfield.h>
 #include <linux/hie.h>
 #include <linux/nls.h>
 #include <linux/of.h>
@@ -49,7 +50,6 @@
 /* refer to ufs_mtk_init() for default value of these globals */
 int  ufs_mtk_rpm_autosuspend_delay;    /* runtime PM: auto suspend delay */
 bool ufs_mtk_rpm_enabled;              /* runtime PM: on/off */
-u32  ufs_mtk_auto_hibern8_timer_ms;
 bool ufs_mtk_auto_hibern8_enabled;
 bool ufs_mtk_host_deep_stall_enable;
 bool ufs_mtk_host_scramble_enable;
@@ -709,7 +709,6 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	/* initialize globals */
 	ufs_mtk_rpm_autosuspend_delay = -1;
 	ufs_mtk_rpm_enabled = false;
-	ufs_mtk_auto_hibern8_timer_ms = 0;
 	ufs_mtk_auto_hibern8_enabled = false;
 	ufs_mtk_host_deep_stall_enable = 0;
 	ufs_mtk_host_scramble_enable = 0;
@@ -1126,15 +1125,29 @@ void ufs_mtk_parse_auto_hibern8_timer(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
 	struct device_node *np = dev->of_node;
+	unsigned long flags;
+	u32 ah_ms, ahit;
 
 	if (np) {
 		if (of_property_read_u32(np, "mediatek,auto-hibern8-timer",
-			&ufs_mtk_auto_hibern8_timer_ms))
-			ufs_mtk_auto_hibern8_timer_ms = 0;
+			&ah_ms))
+			ah_ms = 0;
 	}
 
-	dev_info(hba->dev, "auto-hibern8 timer %d ms\n",
-		ufs_mtk_auto_hibern8_timer_ms);
+	dev_info(hba->dev, "auto-hibern8 timer %d ms\n", ah_ms);
+
+	if (!ah_ms)
+		return;
+
+	/* update auto-hibern8 timer */
+	ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, ah_ms) |
+	       FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->ahit == ahit)
+		goto out_unlock;
+	hba->ahit = ahit;
+out_unlock:
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
 /**
@@ -1822,20 +1835,17 @@ void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 {
 	/* if auto-hibern8 is not enabled by device tree, return */
-	if (!ufs_mtk_auto_hibern8_timer_ms)
+	if (!hba->ahit)
 		return;
 
-	dev_dbg(hba->dev, "ah8: %d, t: %d ms\n", enable,
-		ufs_mtk_auto_hibern8_timer_ms);
+	dev_dbg(hba->dev, "ah8: %d, ahit: 0x%x\n", enable, hba->ahit);
 
 	/* if already enabled or disabled, return */
 	if (!(ufs_mtk_auto_hibern8_enabled ^ enable))
 		return;
 
 	if (enable) {
-		/* set timer scale as "ms" and timer */
-		ufshcd_writel(hba, (0x03 << 10 | ufs_mtk_auto_hibern8_timer_ms),
-			REG_AUTO_HIBERNATE_IDLE_TIMER);
+		ufshcd_writel(hba, hba->ahit, REG_AUTO_HIBERNATE_IDLE_TIMER);
 
 		ufs_mtk_auto_hibern8_enabled = true;
 	} else {
