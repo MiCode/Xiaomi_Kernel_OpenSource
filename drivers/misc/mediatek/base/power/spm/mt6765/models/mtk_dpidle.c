@@ -27,8 +27,6 @@ static bool dpidle_feature_enable = MTK_IDLE_FEATURE_ENABLE_DPIDLE;
 static bool dpidle_bypass_idle_cond;
 static bool dpidle_force_vcore_lp_mode;
 
-unsigned long dp_cnt[NR_CPUS] = {0};
-static unsigned long dp_block_cnt[NR_REASONS] = {0};
 static unsigned int dpidle_flag = MTK_IDLE_LOG_REDUCE;
 
 /* [ByChip] Internal weak functions: implemented in mtk_idle_cond_check.c */
@@ -85,6 +83,7 @@ static ssize_t dpidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	int i;
 	char *p = ToUserBuf;
+	struct MTK_IDLE_MODEL_COUNTER cnt;
 
 	#undef log
 	#define log(fmt, args...) ({\
@@ -92,12 +91,16 @@ static ssize_t dpidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 					, fmt, ##args); p; })
 
 	log("*************** dpidle state *********************\n");
-	for (i = 0; i < NR_REASONS; i++) {
-		if (dp_block_cnt[i] > 0)
-			log("[%d] block_cnt[%s]=%lu\n", i,
-				mtk_idle_block_reason_name(i), dp_block_cnt[i]);
+	if (mtk_idle_model_count_get(IDLE_TYPE_DP, &cnt)
+		== MTK_IDLE_MOD_OK) {
+		for (i = 0; i < NR_REASONS; i++) {
+			if (cnt.block[i] > 0)
+				log("[%d] block_cnt[%s]=%lu\n"
+					, i, mtk_idle_block_reason_name(i),
+					cnt.block[i]);
+		}
+		log("\n");
 	}
-	log("\n");
 
 	p += mtk_idle_cond_append_info(
 		false, IDLE_TYPE_DP, p, sz - strlen(ToUserBuf));
@@ -170,7 +173,5 @@ void mtk_dpidle_init(struct mtk_idle_init_data *pData)
 	dpidle_force_vcore_lp_mode = false;
 	mtk_idle_sysfs_entry_node_add("dpidle_state"
 				, 0644, &dpidle_state_fops, NULL);
-
-	mtk_idle_block_setting(IDLE_TYPE_DP, dp_cnt, dp_block_cnt);
 }
 
