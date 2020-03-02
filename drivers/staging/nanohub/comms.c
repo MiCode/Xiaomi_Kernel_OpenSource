@@ -427,7 +427,7 @@ static int nanohub_comms_download(struct nanohub_data *data,
 	int chunk_size;
 	u32 offset = 0;
 	int ret;
-	u8 chunk_reply, upload_reply = 0;
+	u8 chunk_reply = 0, upload_reply = 0;
 	u32 clear_interrupts[8] = { 0x00000008 };
 
 	header.type = type;
