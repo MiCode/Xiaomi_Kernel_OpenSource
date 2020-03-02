@@ -2952,6 +2952,21 @@
 		ap_swinf_no = <2>;
 		interrupt-controller;
 	};
+
+	mtk_mdla: mdla@19036000 {
+		compatible = "mtk,mdla";
+		reg = <0 0x19034000 0 0x1000>,  /* dla0 config  */
+		      <0 0x19036000 0 0x1000>,  /* dla0 command */
+		      <0 0x19035000 0 0x1000>,  /* dla0 biu     */
+		      <0 0x19038000 0 0x1000>,  /* dla1 config  */
+		      <0 0x1903a000 0 0x1000>,  /* dla1 command */
+		      <0 0x19039000 0 0x1000>,  /* dla1 biu     */
+		      <0 0x1d000000 0 0x100000>,/* GSM,TODO      */
+		      <0 0x19020000 0 0x40000>;  /* APU CONN     */
+		interrupts = <GIC_SPI 413 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 414 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 #ifdef CONFIG_MTK_IOMMU_V2
 	ion: iommu {
 		compatible = "mediatek,ion";

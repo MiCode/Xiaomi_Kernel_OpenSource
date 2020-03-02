@@ -32,6 +32,7 @@
 
 static struct platform_device *mdlactlPlatformDevice;
 
+#if 0
 static u32 reg_read(void *base, u32 offset)
 {
 	return ioread32(base + offset);
@@ -51,7 +52,7 @@ static void reg_clr(void *base, u32 offset, u32 value)
 {
 	reg_write(base, offset, reg_read(base, offset) & (~value));
 }
-
+#endif
 
 static void mdla_cfg_write_with_mdlaid(u32 mdlaid, u32 value, u32 offset)
 {
@@ -71,13 +72,12 @@ static void mdla_reg_write_with_mdlaid(u32 mdlaid, u32 value, u32 offset)
 
 int mdla_dts_map(struct platform_device *pdev)
 {
-	//TODO: modify for multi core
 	struct resource *apu_mdla_command; /* IO mem resources */
 	struct resource *apu_mdla_config; /* IO mem resources */
 	struct resource *apu_mdla_biu; /* IO mem resources */
 	struct resource *apu_mdla_gsm; /* IO mem resources */
 	struct resource *apu_conn; /* IO mem resources */
-	struct resource *infracfg_ao; /* IO mem resources */
+	//struct resource *infracfg_ao; /* IO mem resources */
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
@@ -88,30 +88,79 @@ int mdla_dts_map(struct platform_device *pdev)
 
 	dev_info(dev, "Device Tree Probing\n");
 
-	/* Get iospace for MDLA Config */
-	apu_mdla_config = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!apu_mdla_config) {
-		mdla_drv_debug("invalid address\n");
-		return -ENODEV;
+	for (i = 0; i < mdla_max_num_core; i++) {
+		/* Get iospace for MDLA Config */
+		apu_mdla_config = platform_get_resource(pdev,
+			IORESOURCE_MEM, i+(i*2));
+		if (!apu_mdla_config) {
+			mdla_drv_debug("invalid address\n");
+			return -ENODEV;
+		}
+
+		/* Get iospace for MDLA Command */
+		apu_mdla_command = platform_get_resource(pdev,
+			IORESOURCE_MEM, i+1+(i*2));
+		if (!apu_mdla_command) {
+			dev_info(dev, "invalid address\n");
+			return -ENODEV;
+		}
+
+		/* Get iospace for MDAL PMU */
+		apu_mdla_biu = platform_get_resource(pdev,
+			IORESOURCE_MEM, i+2+(i*2));
+		if (!apu_mdla_biu) {
+			dev_info(dev, "apu_mdla_biu address\n");
+			return -ENODEV;
+		}
+
+		mdla_reg_control[i].apu_mdla_config_top = ioremap_nocache(
+				apu_mdla_config->start,
+				apu_mdla_config->end -
+				apu_mdla_config->start + 1);
+		if (!mdla_reg_control[i].apu_mdla_config_top) {
+			dev_info(dev, "mtk_mdla: Could not allocate iomem\n");
+			rc = -EIO;
+			return rc;
+		}
+
+		mdla_reg_control[i].apu_mdla_cmde_mreg_top = ioremap_nocache(
+				apu_mdla_command->start,
+				apu_mdla_command->end -
+				apu_mdla_command->start + 1);
+		if (!mdla_reg_control[i].apu_mdla_cmde_mreg_top) {
+			dev_info(dev, "mtk_mdla: Could not allocate iomem\n");
+			rc = -EIO;
+			return rc;
+		}
+
+		mdla_reg_control[i].apu_mdla_biu_top = ioremap_nocache(
+				apu_mdla_biu->start,
+				apu_mdla_biu->end - apu_mdla_biu->start + 1);
+		if (!mdla_reg_control[i].apu_mdla_biu_top) {
+			dev_info(dev, "mtk_mdla: Could not allocate iomem\n");
+			rc = -EIO;
+			return rc;
+		}
+
+		dev_info(dev, "mdla_config_top at 0x%08lx mapped to 0x%08lx\n",
+				(unsigned long __force)apu_mdla_config->start,
+				(unsigned long __force)apu_mdla_config->end);
+
+		dev_info(dev, "mdla_command at 0x%08lx mapped to 0x%08lx\n",
+				(unsigned long __force)apu_mdla_command->start,
+				(unsigned long __force)apu_mdla_command->end);
+
+		dev_info(dev, "mdla_biu_top at 0x%08lx mapped to 0x%08lx\n",
+				(unsigned long __force)apu_mdla_biu->start,
+				(unsigned long __force)apu_mdla_biu->end);
+
 	}
 
-	/* Get iospace for MDLA Command */
-	apu_mdla_command = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!apu_mdla_command) {
-		dev_info(dev, "invalid address\n");
-		return -ENODEV;
-	}
-	/* Get iospace for MDAL PMU */
-	apu_mdla_biu = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (!apu_mdla_biu) {
-		dev_info(dev, "apu_mdla_biu address\n");
-		return -ENODEV;
-	}
 
 	/* Get iospace GSM */
 	apu_mdla_gsm = platform_get_resource(pdev, IORESOURCE_MEM, 3);
 	if (!apu_mdla_gsm) {
-		dev_info(dev, "apu_mdla_biu address\n");
+		dev_info(dev, "apu_gsm address\n");
 		return -ENODEV;
 	}
 
@@ -122,40 +171,14 @@ int mdla_dts_map(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+#if 0
 	/* Get INFRA CFG */
 	infracfg_ao = platform_get_resource(pdev, IORESOURCE_MEM, 5);
 	if (!infracfg_ao) {
 		mdla_drv_debug("infracfg_ao address\n");
 		return -ENODEV;
 	}
-
-	//TODO: need handle for Multi MDLA
-	mdla_reg_control[0].apu_mdla_config_top = ioremap_nocache(
-			apu_mdla_config->start,
-			apu_mdla_config->end - apu_mdla_config->start + 1);
-	if (!mdla_reg_control[0].apu_mdla_config_top) {
-		dev_info(dev, "mtk_mdla: Could not allocate iomem\n");
-		rc = -EIO;
-		return rc;
-	}
-
-	mdla_reg_control[0].apu_mdla_cmde_mreg_top = ioremap_nocache(
-			apu_mdla_command->start,
-			apu_mdla_command->end - apu_mdla_command->start + 1);
-	if (!mdla_reg_control[0].apu_mdla_cmde_mreg_top) {
-		dev_info(dev, "mtk_mdla: Could not allocate iomem\n");
-		rc = -EIO;
-		return rc;
-	}
-
-	mdla_reg_control[0].apu_mdla_biu_top = ioremap_nocache(
-			apu_mdla_biu->start,
-			apu_mdla_biu->end - apu_mdla_biu->start + 1);
-	if (!mdla_reg_control[0].apu_mdla_biu_top) {
-		dev_info(dev, "mtk_mdla: Could not allocate iomem\n");
-		rc = -EIO;
-		return rc;
-	}
+#endif
 
 	apu_mdla_gsm_top = ioremap_nocache(apu_mdla_gsm->start,
 			apu_mdla_gsm->end - apu_mdla_gsm->start + 1);
@@ -176,13 +199,13 @@ int mdla_dts_map(struct platform_device *pdev)
 		return rc;
 	}
 
-	infracfg_ao_top = ioremap_nocache(infracfg_ao->start,
-			infracfg_ao->end - infracfg_ao->start + 1);
-	if (!infracfg_ao_top) {
-		mdla_drv_debug("mtk_mdla: Could not allocate infracfg_ao_top\n");
-		rc = -EIO;
-		return rc;
-	}
+	dev_info(dev, "apu_mdla_gsm at 0x%08lx mapped to 0x%08lx\n",
+			(unsigned long __force)apu_mdla_gsm->start,
+			(unsigned long __force)apu_mdla_gsm->end);
+
+	dev_info(dev, "apu_conn_top at 0x%08lx mapped to 0x%08lx\n",
+			(unsigned long __force)apu_conn->start,
+			(unsigned long __force)apu_conn->end);
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -219,25 +242,6 @@ int mdla_dts_map(struct platform_device *pdev)
 		dev_info(dev, "request_irq %d done\n", mdla_irqdesc[i].irq);
 	}
 
-
-	dev_info(dev, "apu_mdla_config_top at 0x%08lx mapped to 0x%08lx\n",
-			(unsigned long __force)apu_mdla_config->start,
-			(unsigned long __force)apu_mdla_config->end);
-
-	dev_info(dev, "apu_mdla_command at 0x%08lx mapped to 0x%08lx, irq=%d\n",
-			(unsigned long __force)apu_mdla_command->start,
-			(unsigned long __force)apu_mdla_command->end,
-			(int)mdla_irqdesc[0].irq);
-
-	dev_info(dev, "apu_mdla_biu_top at 0x%08lx mapped to 0x%08lx\n",
-			(unsigned long __force)apu_mdla_biu->start,
-			(unsigned long __force)apu_mdla_biu->end);
-	dev_info(dev, "apu_conn_top at 0x%08lx mapped to 0x%08lx\n",
-			(unsigned long __force)apu_conn->start,
-			(unsigned long __force)apu_conn->end);
-	dev_info(dev, "infracfg_ao_top at 0x%08lx mapped to 0x%08lx\n",
-			(unsigned long __force)infracfg_ao->start,
-			(unsigned long __force)infracfg_ao->end);
 	return 0;
 }
 
@@ -249,6 +253,7 @@ void mdla_reset(int core, int res)
 	pr_info("%s: MDLA RESET: %s(%d)\n", __func__,
 		str, res);
 
+#if 0//TODO MDLA Rst by RPC power control
 	// Enable Bus prot, start to turn off, set bus protect - step 1:0
 	reg_write(infracfg_ao_top,
 		INFRA_TOPAXI_PROTECTEN_MCU_SET,
@@ -266,7 +271,7 @@ void mdla_reset(int core, int res)
 	// Release Bus Prot
 	reg_write(infracfg_ao_top, INFRA_TOPAXI_PROTECTEN_MCU_CLR,
 		VPU_CORE2_PROT_STEP1_0_MASK);
-
+#endif
 
 	mdla_cfg_write_with_mdlaid(core, 0xffffffff, MDLA_CG_CLR);
 
@@ -274,10 +279,10 @@ void mdla_reset(int core, int res)
 		MREG_TOP_G_INTP2);
 
 	/* for DCM and CG */
-	/*must review wi DE, hw default value(free run)*/
 	mdla_reg_write_with_mdlaid(core, cfg_eng0, MREG_TOP_ENG0);
 	mdla_reg_write_with_mdlaid(core, cfg_eng1, MREG_TOP_ENG1);
 	mdla_reg_write_with_mdlaid(core, cfg_eng2, MREG_TOP_ENG2);
+	/*TODO, 0x0 after verification*/
 	mdla_reg_write_with_mdlaid(core, cfg_eng11, MREG_TOP_ENG11);
 
 #ifdef CONFIG_MTK_MDLA_ION
@@ -311,7 +316,9 @@ irqreturn_t mdla_interrupt(u32 mdlaid)
 	u32 id;
 
 	spin_lock_irqsave(&mdla_devices[mdlaid].hw_lock, flags);
-	id = mdla_reg_read_with_mdlaid(mdlaid, MREG_TOP_G_FIN0);
+	/*Toggle for Latch Fin1 Tile ID*/
+	mdla_reg_read_with_mdlaid(mdlaid, MREG_TOP_G_FIN0);
+	id = mdla_reg_read_with_mdlaid(mdlaid, MREG_TOP_G_FIN3);
 	pmu_reg_save();//pmu need refine for multi core
 
 	/* avoid max_cmd_id lost after timeout reset */
@@ -744,4 +751,75 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 	return IRQ_HANDLED;
 }
 #endif
+
+void dump_timeout_debug_info(int core_id)
+{
+	u32 mreg_top_g_idle, c2r_exe_st, ste_debug_if_1;
+	int i;
+
+	mreg_top_g_idle = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_IDLE);
+	c2r_exe_st = mdla_reg_read_with_mdlaid(core_id, 0x0000);
+	ste_debug_if_1 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_STE_DEBUG_IF_1);
+	if (((ste_debug_if_1&0x1C0) != 0x0 && (ste_debug_if_1&0x3) == 0x3)) {
+		mdla_timeout_debug(
+				"Matched, %s, mdla_timeout:%d, mreg_top_g_idle: %08x, c2r_exe_st: %08x, ste_debug_if_1: %08x\n",
+				__func__, mdla_timeout,
+				mreg_top_g_idle, c2r_exe_st, ste_debug_if_1);
+	} else {
+		mdla_timeout_debug(
+				"Not match, %s, mdla_timeout:%d, mreg_top_g_idle: %08x, c2r_exe_st: %08x, ste_debug_if_1: %08x\n",
+				__func__, mdla_timeout,
+				mreg_top_g_idle, c2r_exe_st, ste_debug_if_1);
+	}
+
+	for (i = 0x0000; i < 0x1000; i += 4)
+		mdla_timeout_debug("apu_mdla_config_top+%04X: %08X\n",
+				i, mdla_cfg_read_with_mdlaid(core_id, i));
+	for (i = 0x0000; i < 0x1000; i += 4)
+		mdla_timeout_debug("apu_mdla_cmde_mreg_top+%04X: %08X\n",
+				i, mdla_reg_read_with_mdlaid(core_id, i));
+
+}
+
+void mdla_dump_reg(int core_id)
+{
+	mdla_timeout_debug("mdla_timeout\n");
+	// TODO: too many registers, dump only debug required ones.
+	dump_reg_cfg(core_id, MDLA_CG_CON);
+	dump_reg_cfg(core_id, MDLA_SW_RST);
+	dump_reg_cfg(core_id, MDLA_MBIST_MODE0);
+	dump_reg_cfg(core_id, MDLA_MBIST_MODE1);
+	dump_reg_cfg(core_id, MDLA_MBIST_CTL);
+	dump_reg_cfg(core_id, MDLA_MBIST_DEFAULT_DELSEL);
+	dump_reg_cfg(core_id, MDLA_RP_RST);
+	dump_reg_cfg(core_id, MDLA_RP_CON);
+	dump_reg_cfg(core_id, MDLA_AXI_CTRL);
+	dump_reg_cfg(core_id, MDLA_AXI1_CTRL);
+
+	dump_reg_top(core_id, MREG_TOP_G_REV);
+	dump_reg_top(core_id, MREG_TOP_G_INTP0);
+	dump_reg_top(core_id, MREG_TOP_G_INTP1);
+	dump_reg_top(core_id, MREG_TOP_G_INTP2);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA0);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA1);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA2);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA3);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA4);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA5);
+	dump_reg_top(core_id, MREG_TOP_G_CDMA6);
+	dump_reg_top(core_id, MREG_TOP_G_CUR0);
+	dump_reg_top(core_id, MREG_TOP_G_CUR1);
+	dump_reg_top(core_id, MREG_TOP_G_FIN0);
+	dump_reg_top(core_id, MREG_TOP_G_FIN1);
+	dump_reg_top(core_id, MREG_TOP_G_FIN3);
+	dump_reg_top(core_id, MREG_TOP_G_IDLE);
+
+	/* for DCM and CG */
+	dump_reg_top(core_id, MREG_TOP_ENG0);
+	dump_reg_top(core_id, MREG_TOP_ENG1);
+	dump_reg_top(core_id, MREG_TOP_ENG2);
+	dump_reg_top(core_id, MREG_TOP_ENG11);
+	dump_timeout_debug_info(core_id);
+}
 
