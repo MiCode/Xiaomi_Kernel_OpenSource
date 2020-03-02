@@ -403,8 +403,6 @@ void wdt_arch_reset(char mode)
 			toprgu_base, wdt_irq_id);
 	}
 
-	spin_lock(&rgu_reg_operation_spinlock);
-
 	/* Watchdog Rest */
 	mt_reg_sync_writel(MTK_WDT_RESTART_KEY, MTK_WDT_RESTART);
 
@@ -482,8 +480,6 @@ void wdt_arch_reset(char mode)
 
 	/* trigger SW reset */
 	mt_reg_sync_writel(MTK_WDT_SWRST_KEY, MTK_WDT_SWRST);
-
-	spin_unlock(&rgu_reg_operation_spinlock);
 
 	while (1) {
 		/* check if system is alive for debugging */
