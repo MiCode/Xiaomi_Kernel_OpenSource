@@ -149,10 +149,9 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 #ifdef CONFIG_HIE
 	int err;
 #endif
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	struct mmc_queue_req *mq_rq = NULL;
-#endif
 	struct request *req = NULL;
+	struct mmc_queue_req *mq_rq = NULL;
+	struct mmc_blk_request *brq;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	struct mmc_async_req *areq;
 #endif
@@ -169,7 +168,7 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 		areq = mmc->areq_que[(cmd->arg >> 16) & 0x1f];
 		mq_rq = container_of(areq, struct mmc_queue_req, areq);
 		blk_addr = mq_rq->brq.que.arg;
-		req = mq_rq->req;
+		req = mmc_queue_req_to_req(mq_rq);
 		goto check_hw_crypto;
 	}
 #endif
@@ -178,9 +177,10 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (mrq->is_mmc_req &&
 		(check_mmc_cmd1718(cmd->opcode) ||
 		check_mmc_cmd2425(cmd->opcode))) {
+		brq = container_of(mrq, struct mmc_blk_request, mrq);
+		mq_rq = container_of(brq, struct mmc_queue_req, brq);
 		blk_addr = cmd->arg;
-		/* patch from ALPS03339398 */
-		req = mrq->req;
+		req = mmc_queue_req_to_req(mq_rq);
 		goto check_hw_crypto;
 	}
 
