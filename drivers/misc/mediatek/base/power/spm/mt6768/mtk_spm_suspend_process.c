@@ -163,10 +163,6 @@ void spm_suspend_post_process(struct pwr_ctrl *pwrctrl)
 #else
 	/* dvfsrc_md_scenario_update(0); */
 
-#if SPM_PMIC_DEBUG
-	spm_dump_pmic_reg();
-#endif /* SPM_PMIC_DEBUG */
-
 #if SPM_PMIC_EN
 	/* VCORE 0.6V */
 	pmic_config_interface(PMIC_RG_BUCK_VCORE_VOSEL_SLEEP_ADDR, 0x10,
