@@ -27,6 +27,7 @@ typedef struct raw_spinlock {
 	void *owner;
 	/* timestamp of lock/unlock*/
 	unsigned long long lock_t;
+	unsigned long long unlock_t;
 #endif
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map dep_map;
