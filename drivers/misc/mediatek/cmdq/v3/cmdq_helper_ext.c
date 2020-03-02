@@ -152,8 +152,14 @@ static bool cmdq_core_check_instr_valid(const u64 instr)
 	case CMDQ_CODE_WRITE:
 		if (!option)
 			return true;
+		if (option == 0x2 && cmdq_core_check_gpr_valid(argB, true))
+			return true;
 		if (option == 0x4 && cmdq_core_check_gpr_valid(argA, false))
 			return true;
+		if (option == 0x6 && cmdq_core_check_gpr_valid(argA, false) &&
+			cmdq_core_check_gpr_valid(argB, true))
+			return true;
+		break;
 	case CMDQ_CODE_READ:
 		if (option == 0x2 && cmdq_core_check_gpr_valid(argB, true))
 			return true;
