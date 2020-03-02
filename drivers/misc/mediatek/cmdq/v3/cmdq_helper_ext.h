@@ -801,6 +801,8 @@ u32 cmdq_event_get_table_size(void);
 
 /* CMDQ core feature functions */
 
+bool cmdq_core_check_pkt_valid(struct cmdq_pkt *pkt);
+
 void cmdq_core_deinit_group_cb(void);
 
 s32 cmdqCoreRegisterCB(enum CMDQ_GROUP_ENUM engGroup,
