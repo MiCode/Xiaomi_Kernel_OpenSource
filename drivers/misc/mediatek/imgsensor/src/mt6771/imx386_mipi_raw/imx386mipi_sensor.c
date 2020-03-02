@@ -241,21 +241,21 @@ static struct imgsensor_info_struct imgsensor_info = {
 	 */
 	.ae_sensor_gain_delay_frame = 0,
 	.ae_ispGain_delay_frame = 2,/* isp gain delay frame for AE cycle */
-	.frame_time_delay_frame = 2,
+	.frame_time_delay_frame = 3,
 	.ihdr_support = 0,	  /* 1, support; 0,not support */
 	.ihdr_le_firstline = 0,  /* 1,le first ; 0, se first */
 	.temperature_support = 1, /* 1, support; 0,not support */
 	/* support sensor mode num ,don't support Slow motion */
 	.sensor_mode_num = 8,
 
-	.cap_delay_frame = 2,		/* enter capture delay frame num */
-	.pre_delay_frame = 2,		/* enter preview delay frame num */
-	.custom1_delay_frame = 2,	/* enter capture delay frame num */
-	.custom2_delay_frame = 2,	/* enter capture delay frame num */
-	.video_delay_frame = 2,		/* enter video delay frame num */
+	.cap_delay_frame = 3,		/* enter capture delay frame num */
+	.pre_delay_frame = 3,		/* enter preview delay frame num */
+	.custom1_delay_frame = 3,	/* enter capture delay frame num */
+	.custom2_delay_frame = 3,	/* enter capture delay frame num */
+	.video_delay_frame = 3,		/* enter video delay frame num */
 	/* enter high speed video delay frame num */
-	.hs_video_delay_frame = 2,
-	.slim_video_delay_frame = 2,/* enter slim video delay frame num */
+	.hs_video_delay_frame = 3,
+	.slim_video_delay_frame = 3,/* enter slim video delay frame num */
 
 	.isp_driving_current = ISP_DRIVING_8MA, /* mclk driving current */
 	/* sensor_interface_type */
