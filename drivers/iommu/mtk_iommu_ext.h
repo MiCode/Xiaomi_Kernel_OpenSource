@@ -195,7 +195,8 @@ char *mtk_iommu_get_mm_port_name(unsigned int tf_id);
 int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id);
 int mtk_dump_pfh_tlb(int m4u_id);
 int mtk_dump_reg_for_hang_issue(unsigned int m4u_id);
-int mtk_iommu_dump_reg(int m4u_index, unsigned int start, unsigned int end);
+int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
+		unsigned int end);
 int mtk_iommu_get_boundary_id(struct device *dev);
 int mtk_iommu_get_iova_space(struct device *dev,
 		unsigned long *base, unsigned long *max,
@@ -203,4 +204,9 @@ int mtk_iommu_get_iova_space(struct device *dev,
 void mtk_iommu_put_iova_space(struct device *dev,
 		struct list_head *list);
 void mtk_iommu_dump_iova_space(void);
+unsigned int mtk_iommu_get_larb_port_count(unsigned int larb);
+int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
+		unsigned int bank);
+void mtk_iommu_atf_test(unsigned int m4u_id);
+bool mtk_dev_is_size_alignment(struct device *dev);
 #endif

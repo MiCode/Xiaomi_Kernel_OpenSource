@@ -40,6 +40,9 @@ char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
 	"iommu_null_larb21", "iommu_null_larb22", "iommu_null_larb23"
 };
 
+unsigned int port_size_not_aligned[] = {
+	M4U_PORT_L21_APU_FAKE_CODE
+};
 const char *smi_larb_id = "mediatek,larb-id";
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
@@ -80,9 +83,22 @@ enum IOMMU_ATF_CMD {
 	IOMMU_ATF_BANK_DOMAIN_CONFIG,
 	IOMMU_ATF_SECURITY_BACKUP,
 	IOMMU_ATF_SECURITY_RESTORE,
+	IOMMU_ATF_DUMP_SECURE_PORT_CONFIG,
 	IOMMU_ATF_CMD_COUNT
 };
 
+char *iommu_atf_cmd_name[IOMMU_ATF_CMD_COUNT] = {
+	"IOMMU_ATF_DUMP_SECURE_REG",
+	"IOMMU_ATF_SECURITY_DEBUG_ENABLE",
+	"IOMMU_ATF_SECURITY_DEBUG_DISABLE",
+	"IOMMU_ATF_BANK_ENABLE_TF",
+	"IOMMU_ATF_BANK_DISABLE_TF",
+	"IOMMU_ATF_BANK_DUMP_INFO",
+	"IOMMU_ATF_BANK_DOMAIN_CONFIG",
+	"IOMMU_ATF_SECURITY_BACKUP",
+	"IOMMU_ATF_SECURITY_RESTORE",
+	"IOMMU_ATF_DUMP_SECURE_PORT_CONFIG",
+};
 #endif
 inline void iommu_set_field_by_mask(void __iomem *M4UBase,
 					   unsigned int reg,

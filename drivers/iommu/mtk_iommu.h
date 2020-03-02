@@ -100,6 +100,8 @@ struct mtk_iommu_clks {
 struct mtk_iommu_data {
 	void __iomem *base;
 	int irq;
+	void __iomem *base_sec;
+	int irq_sec;
 	struct device *dev;
 	struct clk *bclk;
 	phys_addr_t protect_base; /* protect memory base */

@@ -147,15 +147,22 @@ void free_iova_fast(struct iova_domain *iovad, unsigned long pfn,
 void queue_iova(struct iova_domain *iovad,
 		unsigned long pfn, unsigned long pages,
 		unsigned long data);
+#ifdef CONFIG_MTK_IOMMU_V2
+unsigned long
+alloc_iova_fast(struct iova_domain *iovad, unsigned long size,
+		unsigned long limit_pfn, bool size_align);
+#else
 unsigned long alloc_iova_fast(struct iova_domain *iovad, unsigned long size,
 			      unsigned long limit_pfn);
+#endif
 struct iova *reserve_iova(struct iova_domain *iovad, unsigned long pfn_lo,
 	unsigned long pfn_hi);
 void copy_reserved_iova(struct iova_domain *from, struct iova_domain *to);
 #ifdef CONFIG_MTK_IOMMU_V2
 void iovad_scan_reserved_iova(void *arg,
 		struct iova_domain *iovad,
-		void (*f)(void *domain, unsigned long iova));
+		void (*f)(void *domain, unsigned long start,
+			unsigned long end, unsigned long size));
 #endif
 void init_iova_domain(struct iova_domain *iovad, unsigned long granule,
 	unsigned long start_pfn, unsigned long pfn_32bit);
