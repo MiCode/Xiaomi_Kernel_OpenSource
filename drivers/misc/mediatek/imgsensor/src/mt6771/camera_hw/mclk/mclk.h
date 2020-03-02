@@ -23,10 +23,16 @@
 #include "kd_camera_typedef.h"
 #include "imgsensor_hw.h"
 #include "imgsensor_common.h"
+#include "imgsensor.h"
+
+extern struct IMGSENSOR gimgsensor;
 
 enum MCLK_STATE {
 	MCLK_STATE_DISABLE = 0,
-	MCLK_STATE_ENABLE,
+	MCLK_STATE_ENABLE_2MA,
+	MCLK_STATE_ENABLE_4MA,
+	MCLK_STATE_ENABLE_6MA,
+	MCLK_STATE_ENABLE_8MA,
 	MCLK_STATE_MAX_NUM,
 };
 
@@ -39,6 +45,7 @@ struct mclk {
 	struct pinctrl_state
 	    *ppinctrl_state[IMGSENSOR_SENSOR_IDX_MAX_NUM][MCLK_STATE_MAX_NUM];
 	struct mutex         *pmclk_mutex;
+	int drive_current[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 };
 
 enum IMGSENSOR_RETURN
