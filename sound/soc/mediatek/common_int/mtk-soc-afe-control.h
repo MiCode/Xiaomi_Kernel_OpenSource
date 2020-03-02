@@ -125,15 +125,18 @@ bool set_i2s_dac_out_source(unsigned int aud_block);
 
 int get_dai_rate(enum soc_aud_digital_block digitalBlock);
 
-bool SetHwDigitalGainMode(unsigned int GainType, unsigned int SampleRate,
+bool SetHwDigitalGainMode(enum soc_aud_digital_block AudBlock,
+			  unsigned int SampleRate,
 			  unsigned int SamplePerStep);
-bool SetHwDigitalGainEnable(int GainType, bool Enable);
-bool SetHwDigitalGain(unsigned int Gain, int GainType);
-bool set_chip_hw_digital_gain_mode(unsigned int gain_type,
+bool SetHwDigitalGainEnable(enum soc_aud_digital_block AudBlock, bool Enable);
+bool SetHwDigitalGain(enum soc_aud_digital_block AudBlock, unsigned int Gain);
+bool set_chip_hw_digital_gain_mode(enum soc_aud_digital_block aud_block,
 				   unsigned int sample_rate,
 				   unsigned int sample_per_step);
-bool set_chip_hw_digital_gain_enable(int gain_type, bool enable);
-bool set_chip_hw_digital_gain(unsigned int gain, int gain_type);
+bool set_chip_hw_digital_gain_enable(enum soc_aud_digital_block aud_block,
+				     bool enable);
+bool set_chip_hw_digital_gain(enum soc_aud_digital_block aud_block,
+			      unsigned int gain);
 
 bool EnableSineGen(unsigned int connection, bool direction, bool Enable);
 bool SetSineGenSampleRate(unsigned int SampleRate);
