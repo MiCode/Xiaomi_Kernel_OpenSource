@@ -39,6 +39,12 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 
+#include <mtk_swpm_platform.h>
+#include <platform/mtk_mfg_counter.h>
+#ifdef CONFIG_MTK_PERF_TRACKER
+#include <perf_tracker_internal.h>
+#endif
+
 /* Hwcnt reader API version */
 #define HWCNT_READER_API 1
 
@@ -132,6 +138,17 @@ static const struct file_operations vinstr_client_fops = {
 	.release        = kbasep_vinstr_hwcnt_reader_release,
 };
 
+
+unsigned int *kernel_dump;
+
+struct mtk_gpu_perf{
+	uint32_t counter[VINSTR_PERF_COUNTER_LAST];
+};
+
+static struct mtk_gpu_perf gpu_perf_counter;
+bool mtk_pm = false;
+
+
 /**
  * kbasep_vinstr_timestamp_ns() - Get the current time in nanoseconds.
  *
@@ -194,18 +211,30 @@ static int kbasep_vinstr_client_dump(
 	write_idx = atomic_read(&vcli->write_idx);
 	read_idx = atomic_read(&vcli->read_idx);
 
-	/* Check if there is a place to copy HWC block into. */
-	if (write_idx - read_idx == vcli->dump_bufs.buf_cnt)
-		return -EBUSY;
-	write_idx %= vcli->dump_bufs.buf_cnt;
+	if(!mtk_pm){
+		/* Check if there is a place to copy HWC block into. */
+		if (write_idx - read_idx == vcli->dump_bufs.buf_cnt)
+			return -EBUSY;
+		write_idx %= vcli->dump_bufs.buf_cnt;
 
-	dump_buf = &vcli->dump_bufs.bufs[write_idx];
-	meta = &vcli->dump_bufs_meta[write_idx];
+		dump_buf = &vcli->dump_bufs.bufs[write_idx];
+		meta = &vcli->dump_bufs_meta[write_idx];
+	}
+	else{
+		dump_buf = &vcli->dump_bufs.bufs[0];
+		meta = &vcli->dump_bufs_meta[0];
+	}
 
 	errcode = kbase_hwcnt_virtualizer_client_dump(
 		vcli->hvcli, &ts_start_ns, &ts_end_ns, dump_buf);
 	if (errcode)
 		return errcode;
+
+	if(mtk_pm){
+		kernel_dump = dump_buf->dump_buf;
+		MTK_update_gpu_perf();
+	}
+
 
 	/* Patch the dump buf headers, to hide the counters that other hwcnt
 	 * clients are using.
@@ -591,7 +620,6 @@ int kbase_vinstr_hwcnt_reader_setup(
 	list_add(&vcli->node, &vctx->clients);
 
 	mutex_unlock(&vctx->lock);
-
 	return fd;
 error:
 	kbasep_vinstr_client_destroy(vcli);
@@ -976,7 +1004,7 @@ static int kbasep_vinstr_hwcnt_reader_release(struct inode *inode,
 	struct file *filp)
 {
 	struct kbase_vinstr_client *vcli = filp->private_data;
-
+if(!mtk_pm){
 	mutex_lock(&vcli->vctx->lock);
 
 	vcli->vctx->client_count--;
@@ -985,6 +1013,69 @@ static int kbasep_vinstr_hwcnt_reader_release(struct inode *inode,
 	mutex_unlock(&vcli->vctx->lock);
 
 	kbasep_vinstr_client_destroy(vcli);
-
+}
 	return 0;
+}
+
+void MTK_update_mtk_pm(int flag){
+	mtk_pm = flag;
+
+}
+
+void MTK_kbasep_vinstr_hwcnt_set_interval(struct kbase_vinstr_context *vctx, unsigned int interval){
+	struct kbase_vinstr_client *pos;
+	mtk_pm = true;
+	list_for_each_entry(pos, &vctx->clients, node) {
+		kbasep_vinstr_hwcnt_reader_ioctl_set_interval(pos, interval);
+	}
+}
+
+void MTK_kbasep_vinstr_hwcnt_release(struct kbase_vinstr_context *vctx){
+	mtk_pm = false;
+	/* Non-zero client count implies client leak */
+	if (WARN_ON(vctx->client_count != 0)) {
+		struct kbase_vinstr_client *pos, *n;
+		list_for_each_entry_safe(pos, n, &vctx->clients, node) {
+			list_del(&pos->node);
+			vctx->client_count--;
+			kbasep_vinstr_client_destroy(pos);
+		}
+	}
+}
+
+void MTK_update_gpu_perf(){
+	unsigned int pm_gpu_loading;
+	mtk_get_gpu_loading(&pm_gpu_loading);
+	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
+	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
+	gpu_perf_counter.counter[VINSTR_GPU_LOADING] = pm_gpu_loading;
+	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];
+	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_COUNT] = kernel_dump[284];
+	gpu_perf_counter.counter[VINSTR_EXEC_CORE_ACTIVE] = kernel_dump[282];
+	gpu_perf_counter.counter[VINSTR_EXEC_ACTIVE] = kernel_dump[283];
+	gpu_perf_counter.counter[VINSTR_FRAG_ACTIVE] = kernel_dump[260];
+	gpu_perf_counter.counter[VINSTR_TILER_ACTIVE] = kernel_dump[68];
+	gpu_perf_counter.counter[VINSTR_VARY_SLOT_32] = kernel_dump[306];
+	gpu_perf_counter.counter[VINSTR_VARY_SLOT_16] = kernel_dump[307];
+	gpu_perf_counter.counter[VINSTR_TEX_FILT_NUM_OPERATIONS] = kernel_dump[299];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_READ_FULL] = kernel_dump[300];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_WRITE_FULL] = kernel_dump[302];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_READ_SHORT] = kernel_dump[301];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_WRITE_SHORT] = kernel_dump[303];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_WRITE_BEATS] = kernel_dump[175]+kernel_dump[239];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_READ_BEATS] = kernel_dump[160]+kernel_dump[224];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_0_127] = kernel_dump[165]+kernel_dump[229];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_128_191] = kernel_dump[166]+kernel_dump[230];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_192_255] = kernel_dump[167]+kernel_dump[231];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_256_319] = kernel_dump[168]+kernel_dump[232];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_320_383] = kernel_dump[169]+kernel_dump[233];
+	gpu_perf_counter.counter[VINSTR_L2_ANY_LOOKUP] = kernel_dump[153]+kernel_dump[217];
+	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
+	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
+	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_STARVING] = kernel_dump[286];
+#if defined(CONFIG_MTK_PERF_TRACKER) && defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
+	perf_update_gpu_counter(gpu_perf_counter.counter, VINSTR_PERF_COUNTER_LAST);
+#endif
+
+
 }
