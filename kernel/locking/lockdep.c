@@ -227,28 +227,7 @@ static void lock_mon_msg(char *buf, int out)
 #endif
 }
 
-static void lockdep_aee(void)
-{
-#ifdef MTK_LOCK_DEBUG
-	char aee_str[40];
-	int cpu;
-	struct rq *rq;
-
-	cpu = raw_smp_processor_id();
-	rq = cpu_rq(cpu);
-
-	if (!raw_spin_is_locked(&rq->lock)) {
-		snprintf(aee_str, 40, "[%s]LockProve Warning", current->comm);
-#ifdef CONFIG_MTK_AEE_FEATURE
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-			aee_str, "LockProve Debug\n");
-#endif
-	}
-#else
-	return;
-#endif
-}
+static void lockdep_aee(void);
 
 /*
  * lockdep_lock: protects the lockdep graph, the hashes and the
@@ -6015,3 +5994,75 @@ static noinline int trace_circular_bug(struct lock_list *this,
 
 	return 0;
 }
+
+#ifdef MTK_LOCK_DEBUG
+static const char * const critical_lock_list[] = {
+	/* the lock is used by workqueue */
+	"&(&pool->lock)->rlock"
+};
+
+static bool is_critical_lock_held(void)
+{
+	int cpu;
+	int i, j;
+	struct rq *rq;
+	struct held_lock *hlock;
+	struct lock_class *class;
+	char name[MAX_LOCK_NAME];
+	unsigned int class_idx;
+
+	/* check if current rq->lock is held by someone */
+	cpu = raw_smp_processor_id();
+	rq = cpu_rq(cpu);
+
+	if (raw_spin_is_locked(&rq->lock))
+		return true;
+
+	/* check locks held by current task */
+	if (!current->lockdep_depth)
+		return false;
+
+	for (i = 0; i < current->lockdep_depth; i++) {
+
+		hlock = current->held_locks + i;
+		class_idx = hlock->class_idx;
+
+		/* skip check if lock is released */
+		if (hlock->timestamp == 0)
+			continue;
+
+		/* Don't re-read hlock->class_idx */
+		barrier();
+
+		if (!class_idx || (class_idx - 1) >= MAX_LOCKDEP_KEYS)
+			continue;
+
+		class = lock_classes + class_idx - 1;
+		get_lock_name(class, name);
+
+		/* check critical lock list */
+		for (j = 0; j < ARRAY_SIZE(critical_lock_list); j++) {
+			if (!strcmp(name, critical_lock_list[j]))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static void lockdep_aee(void)
+{
+	char aee_str[40];
+
+	if (!is_critical_lock_held()) {
+		snprintf(aee_str, 40, "[%s]LockProve Warning", current->comm);
+#ifdef CONFIG_MTK_AEE_FEATURE
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+			aee_str, "LockProve Debug\n");
+#endif
+	}
+}
+#else
+static void lockdep_aee(void) {};
+#endif
