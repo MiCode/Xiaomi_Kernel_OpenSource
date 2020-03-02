@@ -595,6 +595,26 @@ config HAVE_UNSTABLE_SCHED_CLOCK
 config GENERIC_SCHED_CLOCK
 	bool
 
+menu "Scheduler features"
+
+config UCLAMP_TASK
+	bool "Enable utilization clamping for RT/FAIR tasks"
+	depends on CPU_FREQ_GOV_SCHEDUTIL
+	default false
+	help
+	  This feature enables the scheduler to track the clamped utilization
+	  of each CPU based on RUNNABLE tasks currently scheduled on that CPU.
+
+	  When this option is enabled, the user can specify a min and max CPU
+          bandwidth which is allowed for a task.
+	  The max bandwidth allows to clamp the maximum frequency a task can
+	  use, while the min bandwidth allows to define a minimum frequency a
+          task will always use.
+
+	  If in doubt, say N.
+
+endmenu
+
 menu "FAIR Scheuler tunables"
 
 choice
