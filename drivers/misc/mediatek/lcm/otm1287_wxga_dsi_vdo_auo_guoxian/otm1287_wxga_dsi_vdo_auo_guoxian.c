@@ -46,14 +46,37 @@
 
 #ifndef BUILD_LK
 static unsigned int GPIO_LCD_RST;
+struct pinctrl *lcd_pinctrl;
+struct pinctrl_state *lcd_disp_pwm;
+struct pinctrl_state *lcd_disp_pwm_gpio;
 static struct regulator *lcm_vgp;
 
 static void lcm_request_gpio_control(struct device *dev)
 {
+	int ret;
+
 	pr_notice("[Kernel/LCM] otm1287: %s\n", __func__);
 
 	GPIO_LCD_RST = of_get_named_gpio(dev->of_node, "gpio_lcd_rst", 0);
 	gpio_request(GPIO_LCD_RST, "GPIO_LCD_RST");
+
+	lcd_pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(lcd_pinctrl)) {
+		ret = PTR_ERR(lcd_pinctrl);
+		pr_notice(" Cannot find lcd_pinctrl %d!\n", ret);
+	}
+
+	lcd_disp_pwm = pinctrl_lookup_state(lcd_pinctrl, "disp_pwm");
+	if (IS_ERR(lcd_pinctrl)) {
+		ret = PTR_ERR(lcd_pinctrl);
+		pr_notice(" Cannot find lcd_disp_pwm %d!\n", ret);
+	}
+
+	lcd_disp_pwm_gpio = pinctrl_lookup_state(lcd_pinctrl, "disp_pwm_gpio");
+	if (IS_ERR(lcd_pinctrl)) {
+		ret = PTR_ERR(lcd_pinctrl);
+		pr_notice(" Cannot find lcd_disp_pwm_gpio %d!\n", ret);
+	}
 }
 
 /* get LDO supply */
@@ -558,6 +581,8 @@ static void lcm_init_lcm(void)
 	lcm_set_gpio_output(GPIO_LCD_RST, GPIO_OUT_ONE);
 	MDELAY(5);
 
+	pinctrl_select_state(lcd_pinctrl, lcd_disp_pwm);
+
 	init_lcm_registers();
 }
 
@@ -569,6 +594,7 @@ static void lcm_suspend(void)
 		sizeof(sleep_in_setting) / sizeof(struct LCM_setting_table),
 		1);
 
+	pinctrl_select_state(lcd_pinctrl, lcd_disp_pwm_gpio);
 	lcm_set_gpio_output(GPIO_LCD_RST, GPIO_OUT_ZERO);
 	lcm_vgp_supply_disable();
 	MDELAY(20);
@@ -585,6 +611,8 @@ static void lcm_resume(void)
 	MDELAY(1);
 	lcm_set_gpio_output(GPIO_LCD_RST, GPIO_OUT_ONE);
 	MDELAY(5);
+	pinctrl_select_state(lcd_pinctrl, lcd_disp_pwm);
+	MDELAY(20);
 
 	push_table(sleep_out_setting,
 		sizeof(sleep_out_setting) / sizeof(struct LCM_setting_table),
