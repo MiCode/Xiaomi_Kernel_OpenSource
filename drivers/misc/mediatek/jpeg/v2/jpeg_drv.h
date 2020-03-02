@@ -100,6 +100,13 @@
 
 #define JPEG_ENC_DST_ADDR_OFFSET_MASK (0x0f)
 
+#if defined(PLATFORM_MT6785)
+#define ENABLE_MMQOS 1
+#else
+#define ENABLE_MMQOS 0
+#endif
+
+
 /* #ifdef CONFIG_OF */
 struct JpegDeviceStruct {
 
