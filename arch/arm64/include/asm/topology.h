@@ -47,6 +47,13 @@ int pcibus_to_node(struct pci_bus *bus);
 /* Enable topology flag updates */
 #define arch_update_cpu_topology topology_update_cpu_topology
 
+/* Arch max frequency */
+#define arch_max_cpu_freq topology_get_max_cpu_freq
+
+/* Ceiling/floor frequency sacle */
+#define arch_max_freq_scale topology_get_max_freq_scale
+#define arch_min_freq_scale topology_get_min_freq_scale
+
 /* Extras of CPU & Cluster functions */
 int arch_is_multi_cluster(void);
 int arch_is_smp(void);

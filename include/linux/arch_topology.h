@@ -30,6 +30,13 @@ unsigned long topology_get_cpu_scale(struct sched_domain *sd, int cpu)
 void topology_set_cpu_scale(unsigned int cpu, unsigned long capacity);
 
 DECLARE_PER_CPU(unsigned long, freq_scale);
+DECLARE_PER_CPU(unsigned long, max_cpu_freq);
+
+static inline
+unsigned long topology_get_max_cpu_freq(struct sched_domain *sd, int cpu)
+{
+	return  per_cpu(max_cpu_freq, cpu);
+}
 
 static inline
 unsigned long topology_get_freq_scale(struct sched_domain *sd, int cpu)
@@ -38,6 +45,7 @@ unsigned long topology_get_freq_scale(struct sched_domain *sd, int cpu)
 }
 
 DECLARE_PER_CPU(unsigned long, max_freq_scale);
+DECLARE_PER_CPU(unsigned long, min_freq_scale);
 
 static inline
 unsigned long topology_get_max_freq_scale(struct sched_domain *sd, int cpu)
@@ -45,7 +53,12 @@ unsigned long topology_get_max_freq_scale(struct sched_domain *sd, int cpu)
 	return per_cpu(max_freq_scale, cpu);
 }
 
-#define topology_max_cpu_capacity(cpu) (arch_get_max_cpu_capacity(cpu))
+static inline
+unsigned long topology_get_min_freq_scale(struct sched_domain *sd, int cpu)
+{
+	return  per_cpu(min_freq_scale, cpu);
+}
+
 #define topology_cur_cpu_capacity(cpu) (arch_get_cur_cpu_capacity(cpu))
 
 /* Extras of CPU & Cluster functions */
