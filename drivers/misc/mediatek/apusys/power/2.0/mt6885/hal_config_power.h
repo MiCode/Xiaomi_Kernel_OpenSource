@@ -69,7 +69,7 @@ struct hal_param_clk {
 // freq only, target_opp range : 0 ~ 15
 struct hal_param_freq {
 	enum DVFS_VOLTAGE_DOMAIN target_volt_domain;
-	int target_opp;
+	enum DVFS_FREQ target_freq;
 };
 
 struct hal_param_pwr_info {
