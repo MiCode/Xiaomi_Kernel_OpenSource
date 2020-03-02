@@ -35,6 +35,11 @@ struct schedtune {
 	/* Hint to bias scheduling of tasks on that SchedTune CGroup
 	 * towards idle CPUs */
 	int prefer_idle;
+
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+	/* Task utilization clamping */
+	struct			uclamp_se uclamp[UCLAMP_CNT];
+#endif
 };
 
 static inline struct schedtune *css_st(struct cgroup_subsys_state *css)
@@ -51,6 +56,19 @@ static inline struct schedtune *parent_st(struct schedtune *st)
 {
 	return css_st(st->css.parent);
 }
+
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+struct uclamp_se *task_schedtune_uclamp(struct task_struct *tsk, int clamp_id)
+{
+	struct schedtune *st;
+
+	rcu_read_lock();
+	st = task_schedtune(tsk);
+	rcu_read_unlock();
+
+	return &st->uclamp[clamp_id];
+}
+#endif
 
 /*
  * SchedTune root control group
@@ -448,6 +466,160 @@ int schedtune_prefer_idle(struct task_struct *p)
 	return prefer_idle;
 }
 
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+/*
+ * free_uclamp_sched_group: release utilization clamp references of a TG
+ * @st: the schetune being removed
+ *
+ * An empty task group can be removed only when it has no more tasks or child
+ * groups. This means that we can also safely release all the reference
+ * counting to clamp groups.
+ */
+static inline void free_uclamp_sched_group(struct schedtune *st)
+{
+	int clamp_id;
+
+	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id)
+		uclamp_group_put(clamp_id, st->uclamp[clamp_id].group_id);
+}
+
+/**
+ * alloc_uclamp_sched_group: initialize a new TG's for utilization clamping
+ * @st: the newly created schedtune
+ *
+ * A newly created schedtune inherits its utilization clamp values, for all
+ * clamp indexes, from its parent task group.
+ * This ensures that its values are properly initialized and that the task
+ * group is accounted in the same parent's group index.
+ *
+ * Return: 0 on error
+ */
+static inline int alloc_uclamp_sched_group(struct schedtune *st)
+{
+	int clamp_id;
+
+	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
+		uclamp_group_get(NULL, NULL, &st->uclamp[clamp_id],
+				 clamp_id, uclamp_none(clamp_id));
+		st->uclamp[clamp_id].effective.value =
+			uclamp_none(clamp_id);
+		st->uclamp[clamp_id].effective.group_id =
+			uclamp_none(clamp_id);
+	}
+
+	return 1;
+}
+
+static int cpu_util_min_write_u64(struct cgroup_subsys_state *css,
+				  struct cftype *cftype, u64 min_value)
+{
+	struct schedtune *st;
+	int ret = 0;
+
+	if (min_value > SCHED_CAPACITY_SCALE)
+		return -ERANGE;
+
+	mutex_lock(&uclamp_mutex);
+	rcu_read_lock();
+
+	st = css_st(css);
+	if (st->uclamp[UCLAMP_MIN].value == min_value)
+		goto out;
+	if (st->uclamp[UCLAMP_MAX].value < min_value) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Update TG's reference count */
+	uclamp_group_get(NULL, css, &st->uclamp[UCLAMP_MIN],
+			 UCLAMP_MIN, min_value);
+
+out:
+	rcu_read_unlock();
+	mutex_unlock(&uclamp_mutex);
+
+	return ret;
+}
+
+static int cpu_util_max_write_u64(struct cgroup_subsys_state *css,
+				  struct cftype *cftype, u64 max_value)
+{
+	struct schedtune *st;
+	int ret = 0;
+
+	if (max_value > SCHED_CAPACITY_SCALE)
+		return -ERANGE;
+
+	mutex_lock(&uclamp_mutex);
+	rcu_read_lock();
+
+	st = css_st(css);
+	if (st->uclamp[UCLAMP_MAX].value == max_value)
+		goto out;
+	if (st->uclamp[UCLAMP_MIN].value > max_value) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Update ST's reference count */
+	uclamp_group_get(NULL, css, &st->uclamp[UCLAMP_MAX],
+			 UCLAMP_MAX, max_value);
+
+out:
+	rcu_read_unlock();
+	mutex_unlock(&uclamp_mutex);
+
+	return ret;
+}
+
+static inline u64 cpu_uclamp_read(struct cgroup_subsys_state *css,
+				  enum uclamp_id clamp_id,
+				  bool effective)
+{
+	struct schedtune *st;
+	u64 util_clamp;
+
+	rcu_read_lock();
+	st = css_st(css);
+	util_clamp = effective
+		? st->uclamp[clamp_id].effective.value
+		: st->uclamp[clamp_id].value;
+	rcu_read_unlock();
+
+	return util_clamp;
+}
+
+static u64 cpu_util_min_read_u64(struct cgroup_subsys_state *css,
+				 struct cftype *cft)
+{
+	return cpu_uclamp_read(css, UCLAMP_MIN, false);
+}
+
+static u64 cpu_util_max_read_u64(struct cgroup_subsys_state *css,
+				 struct cftype *cft)
+{
+	return cpu_uclamp_read(css, UCLAMP_MAX, false);
+}
+
+static u64 cpu_util_min_effective_read_u64(struct cgroup_subsys_state *css,
+					   struct cftype *cft)
+{
+	return cpu_uclamp_read(css, UCLAMP_MIN, true);
+}
+
+static u64 cpu_util_max_effective_read_u64(struct cgroup_subsys_state *css,
+					   struct cftype *cft)
+{
+	return cpu_uclamp_read(css, UCLAMP_MAX, true);
+}
+#else
+static inline void free_uclamp_sched_group(struct schedtune *st) {}
+static inline int alloc_uclamp_sched_group(struct schedtune *st)
+{
+	return 1;
+}
+#endif /* CONFIG_UCLAMP_TASK_GROUP */
+
 static u64
 prefer_idle_read(struct cgroup_subsys_state *css, struct cftype *cft)
 {
@@ -522,6 +694,26 @@ static struct cftype files[] = {
 		.read_u64 = prefer_idle_read,
 		.write_u64 = prefer_idle_write,
 	},
+#if defined(CONFIG_UCLAMP_TASK_GROUP)
+	{
+		.name = "util.min",
+		.read_u64 = cpu_util_min_read_u64,
+		.write_u64 = cpu_util_min_write_u64,
+	},
+	{
+		.name = "util.min.effective",
+		.read_u64 = cpu_util_min_effective_read_u64,
+	},
+	{
+		.name = "util.max",
+		.read_u64 = cpu_util_max_read_u64,
+		.write_u64 = cpu_util_max_write_u64,
+	},
+	{
+		.name = "util.max.effective",
+		.read_u64 = cpu_util_max_effective_read_u64,
+	},
+#endif
 	{ }	/* terminate */
 };
 
@@ -579,6 +771,9 @@ schedtune_css_alloc(struct cgroup_subsys_state *parent_css)
 	if (schedtune_boostgroup_init(st))
 		goto release;
 
+	if (!alloc_uclamp_sched_group(st))
+		goto release;
+
 	return &st->css;
 
 release:
@@ -603,6 +798,7 @@ schedtune_css_free(struct cgroup_subsys_state *css)
 	struct schedtune *st = css_st(css);
 
 	schedtune_boostgroup_release(st);
+	free_uclamp_sched_group(st);
 	kfree(st);
 }
 
@@ -614,6 +810,24 @@ struct cgroup_subsys schedtune_cgrp_subsys = {
 	.legacy_cftypes	= files,
 	.early_init	= 1,
 };
+
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+void schedtune_init_uclamp(void)
+{
+	struct uclamp_se *uc_se;
+	unsigned int clamp_id;
+
+	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
+		/* Init root TG's clamp group */
+		uc_se = &root_schedtune.uclamp[clamp_id];
+		uclamp_group_get(NULL, NULL, uc_se, clamp_id,
+				 uclamp_none(UCLAMP_MAX));
+		uc_se->effective.group_id = uc_se->group_id;
+		uc_se->effective.value = uc_se->value;
+	}
+
+}
+#endif
 
 static inline void
 schedtune_init_cgroups(void)
