@@ -31,4 +31,5 @@ extern void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start);
 #endif
 extern struct ram_console_buffer *ram_console_buffer;
+extern int kernel_addr_valid(unsigned long addr);
 #endif
