@@ -687,7 +687,6 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 
 static const struct file_operations cmdq_test_fops = {
 	.write = cmdq_test_write,
-
 };
 
 static int cmdq_test_probe(struct platform_device *pdev)
@@ -811,7 +810,7 @@ static int cmdq_test_probe(struct platform_device *pdev)
 
 	// fs
 	dir = debugfs_create_dir("cmdq", NULL);
-	if (IS_ERR(dir)) {
+	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
 		cmdq_err("debugfs_create_dir cmdq failed:%d", PTR_ERR(dir));
 		return PTR_ERR(dir);
 	}
