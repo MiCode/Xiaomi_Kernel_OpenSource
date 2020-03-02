@@ -7431,6 +7431,8 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 		bool boosted, bool *t)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	unsigned long capacity_limit_little;
+	unsigned long task_clamped_util = task_uclamped_min_w_ceiling(p);
 	bool turning = false;
 
 	if (rd->min_cap_orig_cpu < 0)
@@ -7439,6 +7441,14 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 	if (boosted && (task_util(p) >= stune_task_threshold))
 		return boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
 
+	capacity_limit_little  = capacity_of(rd->min_cap_orig_cpu);
+
+	/*
+	 * favor higher cpu if hitting
+	 * power turnning point or capacity impact.
+	 */
+	if (capacity_limit_little < task_clamped_util)
+		turning = true;
 
 	if (check_freq_turning()) {
 		int max_cap_cpu;
@@ -7541,7 +7551,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * than the one required to boost the task.
 			 */
 			new_util = max(min_util, new_util);
-			new_util = max(task_clamped_util, new_util);
 			if (new_util > capacity)
 				continue;
 
@@ -7643,6 +7652,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				best_active_cpu = i;
 				continue;
 			}
+
+			new_util = max(task_clamped_util, new_util);
+			if (new_util > capacity)
+				continue;
 
 			/*
 			 * Enforce EAS mode
