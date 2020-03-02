@@ -291,6 +291,8 @@ int dpmgr_path_set_video_mode(disp_path_handle dp_handle, int is_vdo_mode)
 	struct ddp_path_handle *phandle = NULL;
 
 	ASSERT(dp_handle != NULL);
+	if (!dp_handle)
+		return 0;
 
 	phandle = (struct ddp_path_handle *)dp_handle;
 	phandle->mode = is_vdo_mode ? DDP_VIDEO_MODE : DDP_CMD_MODE;
@@ -342,6 +344,8 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 int dpmgr_get_scenario(disp_path_handle dp_handle)
 {
 	struct ddp_path_handle *phandle = (struct ddp_path_handle *)dp_handle;
+	if (!dp_handle)
+		return 0;
 
 	return phandle->scenario;
 }
