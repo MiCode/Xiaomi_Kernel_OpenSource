@@ -21,7 +21,9 @@
 #include <helio-dvfsrc-opp.h>
 
 /* platform specific parameter here */
-#if defined(CONFIG_MACH_MT6771)
+#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6768) \
+				|| defined(CONFIG_MACH_MT6785)
+
 static int cpu_freq_test_para[] = {1, 5, 500, 0};
 static int cpu_core_test_para[] = {1, 5, 500, 0};
 static int dram_vcore_test_para[] = {1, 5, 500, 0};
