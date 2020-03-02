@@ -39,8 +39,9 @@
 #include "ddp_path.h"
 #include "ddp_drv.h"
 
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
-
+#endif
 #include "primary_display.h"
 #include "cmdq_def.h"
 #include "cmdq_record.h"

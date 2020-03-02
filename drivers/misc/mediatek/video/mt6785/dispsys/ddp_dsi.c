@@ -504,7 +504,7 @@ static void _DSI_INTERNAL_IRQ_Handler(enum DISP_MODULE_ENUM module,
 
 	if (status.BUFFER_UNDERRUN_INT_EN) {
 		DDP_PR_ERR("%s:buffer underrun\n", ddp_get_module_name(module));
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 	}
 
 	if (status.INP_UNFINISH_INT_EN)

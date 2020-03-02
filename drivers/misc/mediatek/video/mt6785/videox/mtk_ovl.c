@@ -34,8 +34,10 @@
 #include "primary_display.h"
 #include "disp_lowpower.h"
 
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
 #include "m4u_port.h"
+#endif
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"

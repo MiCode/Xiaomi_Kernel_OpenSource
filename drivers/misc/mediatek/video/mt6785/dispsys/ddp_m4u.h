@@ -14,8 +14,13 @@
 #ifndef __DSI_M4U_H__
 #define __DSI_M4U_H__
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#include "mach/mt_iommu.h"
+#include <soc/mediatek/smi.h>
+#elif defined(CONFIG_MTK_M4U)
 #include "m4u.h"
 #include "m4u_port.h"
+#endif
 #include "ddp_hal.h"
 #include "mtk_ion.h"
 #include "ion_drv.h"
@@ -65,14 +70,14 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 				  unsigned int heap_id_mask, size_t align,
 				  unsigned int size);
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
-		     unsigned int *mva, int port);
+	unsigned int *mva, unsigned int fixed_mva, int port);
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd);
 void disp_ion_free_handle(struct ion_client *client, struct ion_handle *handle);
 void disp_ion_cache_flush(struct ion_client *client, struct ion_handle *handle,
 			  enum ION_CACHE_SYNC_TYPE sync_type);
 void disp_ion_destroy(struct ion_client *client);
 
-#ifndef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_M4U
 int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 		      unsigned long va, struct sg_table *sg_table,
 		      unsigned int size, unsigned int prot, unsigned int flags,
