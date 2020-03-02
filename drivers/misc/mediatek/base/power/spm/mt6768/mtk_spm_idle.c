@@ -99,17 +99,19 @@ static unsigned int idle_pcm_flags1[NR_IDLE_TYPES] = {
 /********************************************************************
  * dp/so3/so pwrctrl variables
  *******************************************************************/
+#define INVALID_IDLE_TYPE(type) \
+	(type != IDLE_TYPE_DP && type != IDLE_TYPE_SO && \
+		type != IDLE_TYPE_SO3)
 
 struct pwr_ctrl pwrctrl_dp;
 struct pwr_ctrl pwrctrl_so3;
 struct pwr_ctrl pwrctrl_so;
 
-static struct pwr_ctrl *get_pwrctrl(int idle_type)
-{
-	return idle_type == IDLE_TYPE_DP ? &pwrctrl_dp :
-		idle_type == IDLE_TYPE_SO3 ? &pwrctrl_so3 :
-		idle_type == IDLE_TYPE_SO ? &pwrctrl_so : NULL;
-}
+static struct pwr_ctrl *get_pwrctrl[NR_IDLE_TYPES] = {
+	[IDLE_TYPE_DP] = &pwrctrl_dp,
+	[IDLE_TYPE_SO3] = &pwrctrl_so3,
+	[IDLE_TYPE_SO] = &pwrctrl_so,
+};
 
 static void mtk_idle_gs_dump(int idle_type)
 {
@@ -164,11 +166,14 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 		[IDLE_TYPE_SO] = SPM_ARGS_SODI_FINISH,
 	};
 
+	if (INVALID_IDLE_TYPE(idle_type))
+		return 0;
+
 	/* Dump low power golden setting */
 	if (idle_flag & MTK_IDLE_LOG_DUMP_LP_GS)
 		mtk_idle_gs_dump(idle_type);
 
-	pwrctrl = get_pwrctrl(idle_type);
+	pwrctrl = get_pwrctrl[idle_type];
 
 	print_ftrace_tag(idle_type, cpu, 1);
 
@@ -212,6 +217,8 @@ static void spm_idle_pcm_setup_before_wfi(
 		spm_get_resource_usage_by_user(SPM_RESOURCE_USER_SCP)
 		: spm_get_resource_usage();
 
+	if (INVALID_IDLE_TYPE(idle_type))
+		return;
 
 	mt_secure_call(smc_id[idle_type], pwrctrl->pcm_flags,
 		pwrctrl->pcm_flags1, resource_usage, 0);
@@ -233,7 +240,8 @@ static void spm_idle_pcm_setup_before_wfi(
 static void spm_idle_pcm_setup_after_wfi(
 	int idle_type, struct pwr_ctrl *pwrctrl, unsigned int op_cond)
 {
-
+	if (INVALID_IDLE_TYPE(idle_type))
+		return;
 }
 
 
@@ -253,9 +261,14 @@ static int wd_ret;
 void mtk_idle_pre_process_by_chip(
 	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag)
 {
-	struct pwr_ctrl *pwrctrl = get_pwrctrl(idle_type);
+	struct pwr_ctrl *pwrctrl;
 	unsigned int pcm_flags;
 	unsigned int pcm_flags1;
+
+	if (INVALID_IDLE_TYPE(idle_type))
+		return;
+
+	pwrctrl = get_pwrctrl[idle_type];
 
 	/* get pcm_flags and update if needed */
 	pcm_flags = idle_pcm_flags[idle_type];
@@ -330,9 +343,14 @@ static mtk_idle_log_t mtk_idle_log[NR_IDLE_TYPES] = {
 void mtk_idle_post_process_by_chip(
 	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag)
 {
-	struct pwr_ctrl *pwrctrl = get_pwrctrl(idle_type);
+	struct pwr_ctrl *pwrctrl;
 	struct wake_status wakesta;
 	unsigned int wr = WR_NONE;
+
+	if (INVALID_IDLE_TYPE(idle_type))
+		return;
+
+	pwrctrl = get_pwrctrl[idle_type];
 
 	/* get spm info */
 	__spm_get_wakeup_status(&wakesta);

@@ -77,8 +77,8 @@ enum _MTK_IDLE_PLAT_STATUS_ {
 
 /*mtk idle initial data*/
 struct mtk_idle_init_data {
-	int dts_state;
-	int dts_value;
+	unsigned int dts_state;
+	unsigned int dts_value;
 };
 #define IS_MTK_LP_DTS_FEATURE_AVAILABLE(p, _f)\
 			(p->dts_state & (1<<_f))
