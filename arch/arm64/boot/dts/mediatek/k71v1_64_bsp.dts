@@ -737,12 +737,6 @@
 };
 /* USB TYPEC GPIO end */
 
-&charger {
-	algorithm_name = "DualSwitchCharging";
-	chg1_ta_ac_charger_current = <2000000>;
-	chg2_ta_ac_charger_current = <2000000>;
-};
-
 &i2c6 {
 	rt9465@4b {
 		compatible = "richtek,rt9465";
