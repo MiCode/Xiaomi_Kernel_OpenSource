@@ -68,6 +68,13 @@ extern int sysctl_sched_rt_runtime;
 extern unsigned int sysctl_sched_cfs_bandwidth_slice;
 #endif
 
+#ifdef CONFIG_SCHED_TUNE
+extern int stune_task_threshold;
+extern int sched_stune_task_threshold_handler(struct ctl_table *table,
+					int write, void __user *buffer,
+					size_t *length, loff_t *ppos);
+#endif
+
 #ifdef CONFIG_SCHED_AUTOGROUP
 extern unsigned int sysctl_sched_autogroup_enabled;
 #endif
