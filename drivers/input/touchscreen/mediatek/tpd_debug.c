@@ -168,13 +168,15 @@ static int tpd_debug_log_open(struct inode *inode, struct file *file)
 static int tpd_debug_log_release(struct inode *inode, struct file *file)
 {
 
-	pr_debug("[tpd_em_log]: close log file\n");
-	if (tpd_buf.buffer == NULL)
-		return 0;
+	unsigned char *tmp_buffer = NULL;
 
-	vfree(tpd_buf.buffer);
-	/* free(tpd_buf); */
+	pr_debug("[tpd_em_log]: close log file\n");
+	spin_lock(&tpd_buf.buffer_lock);
+	tmp_buffer = tpd_buf.buffer;
 	tpd_buf.buffer = NULL;
+	spin_unlock(&tpd_buf.buffer_lock);
+	if (tmp_buffer)
+		vfree(tmp_buffer);
 	return 0;
 }
 

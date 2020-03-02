@@ -53,6 +53,11 @@ static struct task_struct *thread;
 static struct task_struct *update_thread;
 static struct task_struct *probe_thread;
 static struct notifier_block pm_notifier_block;
+struct pinctrl *pinctrl1;
+struct pinctrl_state *pins_default;
+struct pinctrl_state *eint_as_int, *eint_output0,
+		*eint_output1, *rst_output0, *rst_output1;
+
 static int tpd_polling_time = 50;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 static DECLARE_WAIT_QUEUE_HEAD(pm_waiter);
@@ -377,6 +382,97 @@ static int tpd_i2c_detect(struct i2c_client *client,
 	return 0;
 }
 
+static DEFINE_MUTEX(tpd_set_gpio_mutex);
+void tpd_gpio_as_int(int pin)
+{
+	mutex_lock(&tpd_set_gpio_mutex);
+	GTP_ERROR("[tpd]%s\n", __func__);
+	if (pin == 1)
+		pinctrl_select_state(pinctrl1, eint_as_int);
+	mutex_unlock(&tpd_set_gpio_mutex);
+}
+
+void tpd_gpio_output(int pin, int level)
+{
+	mutex_lock(&tpd_set_gpio_mutex);
+	GTP_ERROR("%s pin = %d, level = %d\n", __func__, pin, level);
+	if (pin == 1) {
+		if (level)
+			pinctrl_select_state(pinctrl1, eint_output1);
+		else
+			pinctrl_select_state(pinctrl1, eint_output0);
+	} else {
+		if (tpd_dts_data.tpd_use_ext_gpio) {
+#ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
+			mt6306_set_gpio_dir(
+				tpd_dts_data.rst_ext_gpio_num, 1);
+			mt6306_set_gpio_out(
+				tpd_dts_data.rst_ext_gpio_num, level);
+#endif
+		} else {
+			if (level)
+				pinctrl_select_state(pinctrl1, rst_output1);
+			else
+				pinctrl_select_state(pinctrl1, rst_output0);
+		}
+	}
+	mutex_unlock(&tpd_set_gpio_mutex);
+}
+
+int tpd_get_gpio_info(struct i2c_client *client)
+{
+	int ret;
+
+	GTP_ERROR("[tpd] mt_tpd_pinctrl+++++++++++++++++\n");
+	pinctrl1 = devm_pinctrl_get(client->adapter->dev.parent);
+	if (IS_ERR(pinctrl1)) {
+		ret = PTR_ERR(pinctrl1);
+		GTP_ERROR("fwq Cannot find pinctrl1!\n");
+		return ret;
+	}
+	pins_default = pinctrl_lookup_state(pinctrl1, "default");
+	if (IS_ERR(pins_default)) {
+		ret = PTR_ERR(pins_default);
+		GTP_ERROR("Cannot find pinctrl default %d!\n", ret);
+	}
+	eint_as_int = pinctrl_lookup_state(pinctrl1, "state_eint_as_int");
+	if (IS_ERR(eint_as_int)) {
+		ret = PTR_ERR(eint_as_int);
+		GTP_ERROR("Cannot find pinctrl state_eint_as_int!\n");
+		return ret;
+	}
+	eint_output0 = pinctrl_lookup_state(pinctrl1, "state_eint_output0");
+	if (IS_ERR(eint_output0)) {
+		ret = PTR_ERR(eint_output0);
+		GTP_ERROR("Cannot find pinctrl state_eint_output0!\n");
+		return ret;
+	}
+	eint_output1 = pinctrl_lookup_state(pinctrl1, "state_eint_output1");
+	if (IS_ERR(eint_output1)) {
+		ret = PTR_ERR(eint_output1);
+		GTP_ERROR("Cannot find pinctrl state_eint_output1!\n");
+		return ret;
+	}
+	if (tpd_dts_data.tpd_use_ext_gpio == false) {
+		rst_output0 =
+			pinctrl_lookup_state(pinctrl1, "state_rst_output0");
+		if (IS_ERR(rst_output0)) {
+			ret = PTR_ERR(rst_output0);
+			GTP_ERROR("Cannot find pinctrl state_rst_output0!\n");
+			return ret;
+		}
+		rst_output1 =
+			pinctrl_lookup_state(pinctrl1, "state_rst_output1");
+		if (IS_ERR(rst_output1)) {
+			ret = PTR_ERR(rst_output1);
+			GTP_ERROR("Cannot find pinctrl state_rst_output1!\n");
+			return ret;
+		}
+	}
+	GTP_ERROR("[tpd] mt_tpd_pinctrl----------\n");
+	return 0;
+}
+
 static int tpd_power_on(void)
 {
 	gt1x_power_switch(SWITCH_ON);
@@ -434,6 +530,20 @@ void gt1x_irq_disable(void)
 		GTP_ERROR("Invalid irq_flag %d!", irq_flag);
 	}
 	/*GTP_INFO("Disable irq_flag=%d",irq_flag);*/
+}
+
+void gt1x_power_off(void)
+{
+	int ret = 0;
+
+	if (power_flag == 1) {
+		GTP_DEBUG("Power switch off!");
+		/*disable regulator*/
+		ret = regulator_disable(tpd->reg);
+		if (ret)
+			GTP_ERROR("regulator_disable() failed!\n");
+		power_flag = 0;
+	}
 }
 
 void gt1x_power_switch(s32 state)
@@ -607,6 +717,9 @@ static int tpd_registration(void *client)
 		 */
 		gt1x_abs_x_max = 0;
 		gt1x_abs_y_max = 0;
+		gt1x_power_off();
+		wake_up(&init_waiter);
+		return -1;
 	}
 
 	thread = kthread_run(tpd_event_handler, 0, TPD_DEVICE);
@@ -661,6 +774,7 @@ static s32 tpd_i2c_probe(struct i2c_client *client,
 	if (get_boot_mode() == RECOVERY_BOOT)
 		return 0;
 #endif
+	tpd_get_gpio_info(client);
 	probe_thread = kthread_run(tpd_registration,
 					(void *)client, "tpd_probe");
 	if (IS_ERR(probe_thread)) {
@@ -696,7 +810,7 @@ static irqreturn_t tpd_eint_interrupt_handler(unsigned int irq,
 	disable_irq_nosync(touch_irq);
 	GTP_DEBUG("eint disable irq_flat=%d", irq_flag);
 	/*GTP_INFO("disable irq_flag=%d",irq_flag);*/
-	wake_up_interruptible(&waiter);
+	wake_up(&waiter);
 	return IRQ_HANDLED;
 }
 static int tpd_history_x, tpd_history_y;
@@ -813,10 +927,8 @@ static int tpd_event_handler(void *unused)
 
 	sched_setscheduler(current, SCHED_RR, &param);
 	do {
-		set_current_state(TASK_INTERRUPTIBLE);
-
 		if (tpd_eint_mode) {
-			wait_event_interruptible(waiter, tpd_flag != 0);
+			wait_event(waiter, tpd_flag != 0);
 			tpd_flag = 0;
 		} else {
 			GTP_DEBUG("Polling coordinate mode!");
@@ -923,7 +1035,7 @@ int gt1x_debug_proc(u8 *buf, int count)
 			tpd_eint_mode = 0;
 			tpd_polling_time = mode;
 			tpd_flag = 1;
-			wake_up_interruptible(&waiter);
+			wake_up(&waiter);
 		} else {
 			/* please set between 10~200ms */
 			GTP_INFO("Wrong polling time\n");
@@ -1011,10 +1123,10 @@ static int tpd_local_init(void)
 	}
 
 	/*set 2.8v*/
-	ret = regulator_set_voltage(tpd->reg, 2800000, 2800000);
+	ret = regulator_set_voltage(tpd->reg, 3000000, 3000000);
 	if (ret) {
 		GTP_ERROR("regulator_set_voltage(%d) failed!\n", ret);
-		return -1;
+		goto regulator_out;
 	}
 #endif
 #ifdef TPD_POWER_SOURCE_CUSTOM
@@ -1032,20 +1144,20 @@ static int tpd_local_init(void)
 			&gpDMABuf_pa, GFP_KERNEL);
 		if (!gpDMABuf_va) {
 			GTP_ERROR("Allocate DMA I2C Buffer failed!");
-			return -1;
+			goto regulator_out;
 		}
 		memset(gpDMABuf_va, 0, IIC_DMA_MAX_TRANSFER_SIZE);
 #endif
 	spin_lock_init(&irq_flag_lock);
 	if (i2c_add_driver(&tpd_i2c_driver) != 0) {
 		GTP_ERROR("unable to add i2c driver.");
-		return -1;
+		goto regulator_out;
 	}
 	/*disable auto load touch driver for linux3.0 porting*/
 	if (tpd_load_status == 0) {
 		GTP_ERROR("add error touch panel driver.");
 		i2c_del_driver(&tpd_i2c_driver);
-		return -1;
+		goto regulator_out;
 	}
 #ifdef CONFIG_GTP_ICS_SLOT_REPORT
 	input_mt_init_slots(tpd->dev, 10, 0);
@@ -1079,6 +1191,10 @@ static int tpd_local_init(void)
 	GTP_INFO("end %s, %d\n", __func__, __LINE__);
 	tpd_type_cap = 1;
 	return 0;
+
+regulator_out:
+	regulator_put(tpd->reg);
+	return -1;
 }
 
 /* Function to manage low power suspend */
