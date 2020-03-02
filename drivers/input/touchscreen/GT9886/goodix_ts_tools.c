@@ -300,6 +300,8 @@ static int init_cfg_data(struct goodix_ts_config *cfg, void __user *arg)
 	length = i2c_msg_head[4] + (i2c_msg_head[5] << 8)
 			+ (i2c_msg_head[6] << 16) + (i2c_msg_head[7] << 24);
 
+	if (length > GOODIX_CFG_MAX_SIZE)
+		return -EMSGSIZE;
 	ret = copy_from_user(cfg->data, (u8 *)arg + I2C_MSG_HEAD_LEN, length);
 	if (ret) {
 		ret = -EFAULT;
