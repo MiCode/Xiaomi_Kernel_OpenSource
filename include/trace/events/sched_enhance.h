@@ -583,3 +583,43 @@ TRACE_EVENT(sched_update_lb_sg,
 		__entry->group_no_capacity, __entry->group_type)
 );
 
+TRACE_EVENT(sched_select_task_rq,
+
+	TP_PROTO(struct task_struct *tsk,
+		int policy, int prev_cpu, int target_cpu,
+		int task_util, int boost, bool prefer),
+
+	TP_ARGS(tsk, policy, prev_cpu, target_cpu, task_util, boost, prefer),
+
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(int, policy)
+		__field(int, prev_cpu)
+		__field(int, target_cpu)
+		__field(int, task_util)
+		__field(int, boost)
+		__field(long, task_mask)
+		__field(bool, prefer)
+		),
+
+	TP_fast_assign(
+		__entry->pid        = tsk->pid;
+		__entry->policy     = policy;
+		__entry->prev_cpu   = prev_cpu;
+		__entry->target_cpu = target_cpu;
+		__entry->task_util	= task_util;
+		__entry->boost		= boost;
+		__entry->task_mask	= tsk->cpus_allowed.bits[0];
+		__entry->prefer		= prefer;
+		),
+
+	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d boost=%d mask=0x%lx prefer=%d",
+		__entry->pid,
+		__entry->policy,
+		__entry->prev_cpu,
+		__entry->target_cpu,
+		__entry->task_util,
+		__entry->boost,
+		__entry->task_mask,
+		__entry->prefer)
+);
