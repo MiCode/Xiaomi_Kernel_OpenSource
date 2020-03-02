@@ -862,6 +862,9 @@ static int vcu_alloc_d_ext_mem(struct mtk_vcu *vcu, unsigned long len)
 	mutex_unlock(&vcu->vcu_mutex[0]);
 	mutex_unlock(&vcu->vcu_share);
 
+	if (!VCU_DMEM0_VIRT(vcu))
+		return -1;
+
 	dev_dbg(vcu->dev,
 		"[VCU] Data extend memory (len:%lu) phy=0x%llx virt=0x%p iova=0x%llx\n",
 		VCU_DMEM0_LEN(vcu), (unsigned long long)VCU_DMEM0_PHY(vcu),
