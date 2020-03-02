@@ -222,8 +222,11 @@ static void smi_larb_dump(struct device *dev, void __iomem *base)
 	dev_info(dev, "0xa0(violation) 0x%x-0x%x-0x%x-0x%x(0 is expected)\n",
 		 readl_relaxed(base + 0xa0), readl_relaxed(base + 0xa4),
 		 readl_relaxed(base + 0xa8), readl_relaxed(base + 0xac));
+	dev_info(dev, "0x0c(slp_en) 0x%x, 0xc8(ext_ongoing) 0x%x\n",
+		readl_relaxed(base + 0x00c), readl_relaxed(base + 0x0c8));
 	dev_info(dev, "0x60(outstanding) 0x%x, below is 0x200+x\n",
 		 readl_relaxed(base + 0x60));
+
 	for (i = 0; i < 32; i += 8) /* 32 */
 		dev_info(dev, "0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x-0x%x\n",
 			 readl_relaxed(base + 0x200 + i * 4),
