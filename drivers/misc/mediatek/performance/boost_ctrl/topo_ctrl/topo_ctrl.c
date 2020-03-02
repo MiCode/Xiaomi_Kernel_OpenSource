@@ -44,16 +44,11 @@ static struct topo_plat_cluster_info *topo_cluster_info;
 
 int topo_ctrl_get_nr_clusters(void)
 {
-#if 0
-	return perfmgr_clusters;
-#else
 	/* get cluster num */
-    #ifndef NO_SCHEDULE_API
+#ifndef NO_SCHEDULE_API
 	return arch_get_nr_clusters();
-    #else
+#else
 	return NR_PPM_CLUSTERS;
-    #endif
-
 #endif
 }
 EXPORT_SYMBOL(topo_ctrl_get_nr_clusters);
