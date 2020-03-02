@@ -791,7 +791,7 @@ static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
 
 static int mtk_smi_larb_probe(struct platform_device *pdev)
 {
-	u32 id;
+	u32 id = 0;
 	s32 ret;
 
 	if (!pdev) {
@@ -801,7 +801,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-id", &id);
 	if (ret) {
-		dev_info(&pdev->dev, "LARB%u read failed:%d\n", id, ret);
+		dev_info(&pdev->dev, "LARB read failed:%d\n", ret);
 		return ret;
 	}
 	return mtk_smi_dev_probe(pdev, id);
@@ -809,7 +809,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 
 static int mtk_smi_common_probe(struct platform_device *pdev)
 {
-	u32 id;
+	u32 id = 0;
 	s32 ret;
 
 	if (!pdev) {
@@ -819,7 +819,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-id", &id);
 	if (ret) {
-		dev_info(&pdev->dev, "COMMON%u read failed:%d\n", id, ret);
+		dev_info(&pdev->dev, "COMMON read failed:%d\n", ret);
 		return ret;
 	}
 	nr_larbs = id;

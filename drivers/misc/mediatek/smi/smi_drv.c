@@ -1011,7 +1011,7 @@ int smi_dram_dump_get(char *buf, const struct kernel_param *kp)
 
 int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 {
-	s32 arg, ret;
+	s32 arg = 0, ret;
 
 	ret = kstrtoint(val, 0, &arg);
 	if (ret)
