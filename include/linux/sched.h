@@ -1812,4 +1812,5 @@ extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
 #define TASK_SIZE_OF(tsk)	TASK_SIZE
 #endif
 
+#include <linux/sched/sched.h>
 #endif
