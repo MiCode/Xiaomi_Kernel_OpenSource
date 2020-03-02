@@ -780,6 +780,7 @@ static int sdcardfs_getattr(const struct path *path, struct kstat *stat,
 		goto out;
 	sdcardfs_copy_and_fix_attrs(d_inode(dentry),
 			      d_inode(lower_path.dentry));
+	fsstack_copy_inode_size(dentry->d_inode, lower_path.dentry->d_inode);
 	err = sdcardfs_fillattr(mnt, d_inode(dentry), &lower_stat, stat);
 out:
 	sdcardfs_put_lower_path(dentry, &lower_path);
