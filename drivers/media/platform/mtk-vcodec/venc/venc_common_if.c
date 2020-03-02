@@ -335,7 +335,7 @@ static int venc_encode(unsigned long handle,
 
 	switch (opt) {
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
-		unsigned int bs_size_hdr;
+		unsigned int bs_size_hdr = 0;
 
 		ret = venc_encode_header(inst, bs_buf, &bs_size_hdr);
 		if (ret)
