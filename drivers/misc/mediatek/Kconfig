@@ -21,6 +21,24 @@ config FPGA_EARLY_PORTING
 	  Say Y here if you are doing FPGA early porting.
 	  If unsure, say N
 
+config MTK_AB_OTA_UPDATER
+	bool "Support Android A/B system updates"
+	default n
+	help
+	  MediaTek A/B system updates support.
+	  Partitions which need OTA update have both A and B partition.
+	  Y means this kernel enabled OTA A/B system updates feature.
+	  If you are not sure about this, set n
+
+config SYSTEM_AS_ROOT
+	bool "Support system-as-root"
+	default y
+	help
+	  Y means to enable system-as-root.
+	  This option merges ramdisk into system image
+	  All new launched projects in android P should enable it.
+	  If you are not sure about this, set n
+
 config MTK_ENG_BUILD
 	bool "flag for MTK eng/usr build verification"
 	help
@@ -66,6 +84,7 @@ endmenu  # CONN
 menu "Security"
 
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
+source "drivers/misc/mediatek/masp/Kconfig"
 endmenu  # Security
 
 menu "Other Peripherals"
@@ -76,4 +95,8 @@ endmenu # Other Peripheral
 menu "Misc configs"
 
 source "drivers/misc/mediatek/Kconfig.default"
+config MTK_DM_VERITY_OFF
+	bool "Disable dm-verity"
+	default n
+
 endmenu    # Misc
