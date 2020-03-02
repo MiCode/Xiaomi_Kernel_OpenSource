@@ -20,20 +20,15 @@
 #include "imgsensor_sensor.h"
 #include "imgsensor_hw.h"
 
-char *imgsensor_sensor_idx_name[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {
-	IMGSENSOR_SENSOR_IDX_NAME_MAIN,
-	IMGSENSOR_SENSOR_IDX_NAME_SUB,
-	IMGSENSOR_SENSOR_IDX_NAME_MAIN2,
-	IMGSENSOR_SENSOR_IDX_NAME_SUB2,
-	IMGSENSOR_SENSOR_IDX_NAME_MAIN3
-};
-
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 {
 	struct IMGSENSOR_HW_SENSOR_POWER      *psensor_pwr;
 	struct IMGSENSOR_HW_CFG               *pcust_pwr_cfg;
 	struct IMGSENSOR_HW_CUSTOM_POWER_INFO *ppwr_info;
 	int i, j;
+	char str_prop_name[LENGTH_FOR_SNPRINTF];
+	struct device_node *of_node
+		= of_find_compatible_node(NULL, NULL, "mediatek,imgsensor");
 
 	mutex_init(&phw->common.pinctrl_mutex);
 
@@ -67,6 +62,21 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 
 			psensor_pwr->id[ppwr_info->pin] = j;
 			ppwr_info++;
+		}
+	}
+
+	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
+		memset(str_prop_name, 0, sizeof(str_prop_name));
+		snprintf(str_prop_name,
+					sizeof(str_prop_name),
+					"cam%d_%s",
+					i,
+					"enable_sensor");
+		if (of_property_read_string(
+			of_node, str_prop_name,
+			&phw->enable_sensor_by_index[i]) < 0) {
+			PK_DBG("Property cust-sensor not defined\n");
+			phw->enable_sensor_by_index[i] = NULL;
 		}
 	}
 
@@ -182,61 +192,28 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 {
 	enum IMGSENSOR_SENSOR_IDX sensor_idx = psensor->inst.sensor_idx;
 	char *curr_sensor_name = psensor->inst.psensor_list->name;
+	char str_index[LENGTH_FOR_SNPRINTF];
 
-#if defined(CONFIG_IMGSENSOR_MAIN)  || \
-		defined(CONFIG_IMGSENSOR_SUB)   || \
-		defined(CONFIG_IMGSENSOR_MAIN2) || \
-		defined(CONFIG_IMGSENSOR_SUB2)  || \
-		defined(CONFIG_IMGSENSOR_MAIN3)
+	PK_DBG("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
+		sensor_idx,
+		pwr_status,
+		curr_sensor_name,
+		phw->enable_sensor_by_index[sensor_idx] == NULL
+		? "NULL"
+		: phw->enable_sensor_by_index[sensor_idx]);
 
-	char *pcustomize_sensor = NULL;
-
-	switch (sensor_idx) {
-#ifdef CONFIG_IMGSENSOR_MAIN
-	case IMGSENSOR_SENSOR_IDX_MAIN:
-		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_MAIN);
-		break;
-#endif
-#ifdef CONFIG_IMGSENSOR_SUB
-	case IMGSENSOR_SENSOR_IDX_SUB:
-		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_SUB);
-		break;
-#endif
-#ifdef CONFIG_IMGSENSOR_MAIN2
-	case IMGSENSOR_SENSOR_IDX_MAIN2:
-		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_MAIN2);
-		break;
-#endif
-#ifdef CONFIG_IMGSENSOR_SUB2
-	case IMGSENSOR_SENSOR_IDX_SUB2:
-		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_SUB2);
-		break;
-#endif
-#ifdef CONFIG_IMGSENSOR_MAIN3
-	case IMGSENSOR_SENSOR_IDX_MAIN3:
-		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_MAIN3);
-		break;
-#endif
-	default:
-		break;
-	}
-
-	if (pcustomize_sensor &&
-			strlen(pcustomize_sensor) > 2 &&
-			!strstr(pcustomize_sensor, curr_sensor_name))
+	if (phw->enable_sensor_by_index[sensor_idx] &&
+	!strstr(phw->enable_sensor_by_index[sensor_idx], curr_sensor_name))
 		return IMGSENSOR_RETURN_ERROR;
-#endif
 
-	PK_DBG("sensor_idx %d, power %d curr_sensor_name %s\n",
-		sensor_idx, pwr_status,
-		curr_sensor_name);
 
+	snprintf(str_index, sizeof(str_index), "%d", sensor_idx);
 	imgsensor_hw_power_sequence(
 			phw,
 			sensor_idx,
 			pwr_status,
 			platform_power_sequence,
-			imgsensor_sensor_idx_name[sensor_idx]);
+			str_index);
 
 	imgsensor_hw_power_sequence(
 			phw,
