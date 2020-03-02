@@ -1645,7 +1645,22 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	min_pagesz = 1 << __ffs(domain->pgsize_bitmap);
 
 	for_each_sg(sg, s, nents, i) {
+		/*
+		 * FIXME: Mediatek workaround for the buffer that don't has
+		 * "struct page"
+		 */
+		#ifndef CONFIG_MTK_PSEUDO_M4U
 		phys_addr_t phys = page_to_phys(sg_page(s)) + s->offset;
+		#else
+		phys_addr_t phys;
+
+		if (!IS_ERR(sg_page(s))) {
+			phys = page_to_phys(sg_page(s)) + s->offset;
+		} else {
+			phys = sg_dma_address(s);
+			s->length = sg_dma_len(s);
+		}
+		#endif
 
 		/*
 		 * We are mapping on IOMMU page boundaries, so offset within

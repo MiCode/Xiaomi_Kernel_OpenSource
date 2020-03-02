@@ -755,12 +755,34 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 		size_t s_length = s->length;
 		size_t pad_len = (mask - iova_len + 1) & mask;
 
+		/*
+		 * FIXME: Mediatek workaround for the buffer that don't has
+		 * "struct page *"
+		 */
+#ifndef CONFIG_MTK_PSEUDO_M4U
 		sg_dma_address(s) = s_iova_off;
 		sg_dma_len(s) = s_length;
 		s->offset -= s_iova_off;
 		s_length = iova_align(iovad, s_length + s_iova_off);
 		s->length = s_length;
-
+#else
+		if (!sg_dma_address(s) && !sg_dma_len(s)) {
+			sg_dma_address(s) = s_iova_off;
+			sg_dma_len(s) = s_length;
+			s->offset -= s_iova_off;
+			s_length = iova_align(iovad, s_length + s_iova_off);
+			s->length = s_length;
+		} else {
+			/*
+			 * pseudo m4u store the s_length in sg_dma_len, it may
+			 * be in different field depend on the
+			 * CONFIG_NEED_SG_DMA_LENGTH, get the length from the
+			 * macro.
+			 */
+			s_length = sg_dma_len(s);
+			s->length = s_length;
+		}
+#endif
 		/*
 		 * Due to the alignment of our single IOVA allocation, we can
 		 * depend on these assumptions about the segment boundary mask:
