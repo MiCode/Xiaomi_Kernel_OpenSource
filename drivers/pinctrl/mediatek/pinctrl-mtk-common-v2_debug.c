@@ -212,7 +212,7 @@ void gpio_dump_regs(void)
 static ssize_t mtk_gpio_store_pin(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int i, gpio, val, val2, pullup, pullen;
+	int i, gpio, val, val2, pullup = 0, pullen = 0;
 	int vals[12];
 	char attrs[12];
 	struct mtk_pinctrl *hw = dev_get_drvdata(dev);
