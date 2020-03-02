@@ -2522,8 +2522,6 @@ static void __init mtk_mmsys_config_init(struct device_node *node)
 	mmsys_config_base = base;
 #if (!MT_CG_ENABLE)
 	clk_writel(MMSYS_CG_CLR0, MM_DISABLE_CG);
-#else
-	clk_writel(MMSYS_CG_SET0, MM_DISABLE_CG);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_mmsys_config, "mediatek,mmsys_config",
