@@ -430,7 +430,7 @@ static int vpu_test_set(void *data, u64 val)
 		/* do nothing */
 		break;
 	case 1:
-		vpu_boot_up(TEMP_CORE);
+		vpu_boot_up(TEMP_CORE, false);
 		LOG_INF("[vpu_%d] vpu_boot_up\n", TEMP_CORE);
 		break;
 	case 2:

@@ -6122,7 +6122,7 @@ unlock_core:
 
 	vpu_print_seq(s, LINE_BAR);
 #ifdef CONFIG_MTK_M4U
-	m4u_dump_reg_for_hang_issue(1);
+	// m4u_dump_reg_for_hang_issue(1);
 #elif defined(CONFIG_MTK_IOMMU_V2)
 	mtk_dump_reg_for_hang_issue(1);
 #endif
