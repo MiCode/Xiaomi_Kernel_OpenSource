@@ -9177,6 +9177,10 @@ static struct task_struct *detach_one_task(struct lb_env *env,
 				continue;
 
 			env->src_rq->migrate_task = NULL;
+
+			if (!cpumask_test_cpu(env->dst_cpu, &p->cpus_allowed))
+				return NULL;
+
 		} else if (!can_migrate_task(p, env)) {
 			continue;
 		}
