@@ -27,6 +27,7 @@
 #include "cam_cal.h"
 #include "cam_cal_define.h"
 #include "cam_cal_list.h"
+#include "eeprom_platform_def.h"
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -58,8 +59,9 @@ static int Read_I2C_CAM_CAL(u16 a_u2Addr, u32 ui4_length, u8 *a_puBuff)
 	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
 
 
-	if (ui4_length > 8) {
-		pr_debug("exceed I2c-mt65xx.c 8 bytes limitation\n");
+	if (ui4_length > EEPROM_I2C_READ_MSG_LENGTH_MAX) {
+		pr_debug("exceed one transition %d bytes limitation\n",
+			 EEPROM_I2C_READ_MSG_LENGTH_MAX);
 		return -1;
 	}
 	spin_lock(&g_spinLock);
@@ -107,15 +109,16 @@ int iReadData_CAM_CAL(unsigned int ui4_offset,
 	u4CurrentOffset = ui4_offset;
 	pBuff = pinputdata;
 	do {
-		if (i4ResidueDataLength >= 8) {
+		if (i4ResidueDataLength >= EEPROM_I2C_READ_MSG_LENGTH_MAX) {
 			i4RetValue = Read_I2C_CAM_CAL(
-				(u16) u4CurrentOffset, 8, pBuff);
+				(u16) u4CurrentOffset,
+				EEPROM_I2C_READ_MSG_LENGTH_MAX, pBuff);
 			if (i4RetValue != 0) {
 				pr_debug("I2C iReadData failed!!\n");
 				return -1;
 			}
-			u4IncOffset += 8;
-			i4ResidueDataLength -= 8;
+			u4IncOffset += EEPROM_I2C_READ_MSG_LENGTH_MAX;
+			i4ResidueDataLength -= EEPROM_I2C_READ_MSG_LENGTH_MAX;
 			u4CurrentOffset = ui4_offset + u4IncOffset;
 			pBuff = pinputdata + u4IncOffset;
 		} else {
@@ -126,8 +129,8 @@ int iReadData_CAM_CAL(unsigned int ui4_offset,
 				pr_debug("I2C iReadData failed!!\n");
 				return -1;
 			}
-			u4IncOffset += 8;
-			i4ResidueDataLength -= 8;
+			u4IncOffset += i4ResidueDataLength;
+			i4ResidueDataLength = 0;
 			u4CurrentOffset = ui4_offset + u4IncOffset;
 			pBuff = pinputdata + u4IncOffset;
 			/* break; */
