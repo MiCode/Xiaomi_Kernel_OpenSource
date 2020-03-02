@@ -1063,6 +1063,9 @@ static ssize_t aed_ee_write(struct file *filp, const char __user *buf,
 	int rsize;
 	struct aed_eerec *eerec = aed_dev.eerec;
 
+	if (strncmp(current->comm, "aee_aed", 7))
+		return -1;
+
 	/* recevied a new request means the previous response is unavilable */
 	/* 1. set position to be zero */
 	/* 2. destroy the previous response message */
@@ -1270,6 +1273,9 @@ static ssize_t aed_ke_write(struct file *filp, const char __user *buf,
 {
 	struct AE_Msg msg;
 	int rsize;
+
+	if (strncmp(current->comm, "aee_aed", 7))
+		return -1;
 
 	/* recevied a new request means the previous response is unavilable */
 	/* 1. set position to be zero */
