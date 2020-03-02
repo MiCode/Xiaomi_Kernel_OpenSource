@@ -184,7 +184,7 @@ struct _mtk_btif_dma_ {
 #define BTIF_LOG_ENTRY_NUM 30
 #endif
 
-#define BTIF_LOG_SZ  1536
+#define BTIF_LOG_SZ  16
 
 typedef void (*MTK_BTIF_RX_NOTIFY) (void);
 
@@ -203,7 +203,10 @@ struct _btif_log_queue_t_ {
 	unsigned int out;
 	unsigned int size;
 	spinlock_t lock;
-	struct _btif_log_buf_t_ *p_queue[BTIF_LOG_ENTRY_NUM];
+	struct _btif_log_buf_t_ *p_queue;
+	struct _btif_log_buf_t_ *p_dump_queue;
+	struct work_struct dump_work;
+	unsigned int dump_size;
 };
 
 /*---------------------------------------------------------------------------*/
