@@ -13,49 +13,14 @@
 
 #include "mclk.h"
 
-struct MCLK_PINCTRL_NAMES mclk0_pinctrl[MCLK_STATE_MAX_NUM] = {
-	{"cam0_mclk_off"},
-	{"cam0_mclk_2mA"},
-	{"cam0_mclk_4mA"},
-	{"cam0_mclk_6mA"},
-	{"cam0_mclk_8mA"},
+struct MCLK_PINCTRL_NAMES mclk_pinctrl_list[MCLK_STATE_MAX_NUM] = {
+	{"off"},
+	{"2mA"},
+	{"4mA"},
+	{"6mA"},
+	{"8mA"},
 };
 
-struct MCLK_PINCTRL_NAMES mclk1_pinctrl[MCLK_STATE_MAX_NUM] = {
-	{"cam1_mclk_off"},
-	{"cam1_mclk_2mA"},
-	{"cam1_mclk_4mA"},
-	{"cam1_mclk_6mA"},
-	{"cam1_mclk_8mA"},
-};
-
-struct MCLK_PINCTRL_NAMES mclk2_pinctrl[MCLK_STATE_MAX_NUM] = {
-	{"cam2_mclk_off"},
-	{"cam2_mclk_2mA"},
-	{"cam2_mclk_4mA"},
-	{"cam2_mclk_6mA"},
-	{"cam2_mclk_8mA"},
-};
-struct MCLK_PINCTRL_NAMES mclk3_pinctrl[MCLK_STATE_MAX_NUM] = {
-	{"cam3_mclk_off"},
-	{"cam3_mclk_2mA"},
-	{"cam3_mclk_4mA"},
-	{"cam3_mclk_6mA"},
-	{"cam3_mclk_8mA"},
-};
-struct MCLK_PINCTRL_NAMES mclk4_pinctrl[MCLK_STATE_MAX_NUM] = {
-	{"cam3_mclk_off"},
-	{"cam3_mclk_2mA"},
-	{"cam3_mclk_4mA"},
-	{"cam3_mclk_6mA"},
-	{"cam3_mclk_8mA"},
-};
-
-struct MCLK_PINCTRL_NAMES*
-	mclk_pinctrl_list[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {
-	mclk0_pinctrl, mclk1_pinctrl, mclk2_pinctrl,
-	mclk3_pinctrl, mclk4_pinctrl,
-};
 #define MCLK_STATE_ENABLE MCLK_STATE_ENABLE_4MA
 
 static struct mclk mclk_instance;
@@ -85,10 +50,9 @@ static enum IMGSENSOR_RETURN mclk_init(void *pinstance)
 {
 	struct mclk *pinst = (struct mclk *)pinstance;
 	struct platform_device *pplatform_dev = gpimgsensor_hw_platform_device;
-	int i;
-	int j;
-	struct MCLK_PINCTRL_NAMES *mclk_pin_state = NULL;
+	int i, j;
 	enum   IMGSENSOR_RETURN ret           = IMGSENSOR_RETURN_SUCCESS;
+	char str_pinctrl_name[LENGTH_FOR_SNPRINTF];
 
 	pinst->ppinctrl = devm_pinctrl_get(&pplatform_dev->dev);
 	if (IS_ERR(pinst->ppinctrl)) {
@@ -100,27 +64,31 @@ static enum IMGSENSOR_RETURN mclk_init(void *pinstance)
 	    i < IMGSENSOR_SENSOR_IDX_MAX_NUM;
 	    i++) {
 		for (j = MCLK_STATE_DISABLE; j < MCLK_STATE_MAX_NUM; j++) {
-			mclk_pin_state = mclk_pinctrl_list[i];
-			mclk_pin_state += j;
-			if (mclk_pin_state->ppinctrl_names) {
+			if (mclk_pinctrl_list[j].ppinctrl_names) {
+				snprintf(str_pinctrl_name,
+					sizeof(str_pinctrl_name),
+					"cam%d_mclk_%s",
+					i,
+					mclk_pinctrl_list[j].ppinctrl_names);
 				pinst->ppinctrl_state[i][j] =
-					pinctrl_lookup_state(pinst->ppinctrl,
-						mclk_pin_state->ppinctrl_names);
-				if (IS_ERR(pinst->ppinctrl_state[i][j]))
+			    pinctrl_lookup_state(pinst->ppinctrl,
+							str_pinctrl_name);
+				if (IS_ERR(pinst->ppinctrl_state[i][j])) {
 					pr_debug("%s : pinctrl err, %s\n",
 						__func__,
-						mclk_pin_state->ppinctrl_names);
-				else {
+						str_pinctrl_name);
+					ret = IMGSENSOR_RETURN_ERROR;
+				} else {
 					if (j == MCLK_STATE_DISABLE) {
+						mutex_lock(&pinctrl_mutex);
 						pinctrl_select_state(
 							pinst->ppinctrl,
 						pinst->ppinctrl_state[i][j]);
+						mutex_unlock(&pinctrl_mutex);
 					}
 				}
 			}
-
 		}
-
 		pinst->drive_current[i] = MCLK_STATE_ENABLE;
 	}
 
