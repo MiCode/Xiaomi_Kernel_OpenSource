@@ -20,6 +20,8 @@
 #define SMI_LARB1_PORT_NUM	(11)	/* SYS_VEN */
 #define SMI_LARB2_PORT_NUM	(11)	/* SYS_ISP */
 #define SMI_COMM_MASTER_NUM	(SMI_LARB_NUM)
+#define SMI_COMM_NUM		(1)
+#define SMI_DEV_NUM		((SMI_LARB_NUM) + (SMI_COMM_NUM))
 
 static const bool
 SMI_COMM_BUS_SEL[SMI_COMM_MASTER_NUM] = {0, 0, 0,};

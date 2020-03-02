@@ -628,7 +628,7 @@ static int __init mtk_smi_init_late(void)
 #else /* IS_ENABLED(CONFIG_MTK_SMI_EXT) */
 #include <linux/of_address.h>
 
-static u32 nr_larbs;
+static u32 nr_larbs, nr_dev;
 static struct mtk_smi_dev **smi_dev;
 
 s32 mtk_smi_clk_enable(struct mtk_smi_dev *smi)
@@ -675,8 +675,8 @@ EXPORT_SYMBOL_GPL(mtk_smi_clk_disable);
 
 struct mtk_smi_dev *mtk_smi_dev_get(const u32 id)
 {
-	if (id > nr_larbs)
-		pr_info("Invalid id: %u, nr_larbs=%u\n", id, nr_larbs);
+	if (id > nr_dev)
+		pr_info("Invalid id: %u, nr_dev=%u\n", id, nr_dev);
 	else if (!smi_dev[id])
 		pr_info("SMI%u no such device or address\n", id);
 	else
@@ -758,9 +758,9 @@ static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
 	struct resource *res;
 	void __iomem *base;
 
-	if (id > nr_larbs) {
+	if (id > nr_dev) {
 		dev_dbg(&pdev->dev,
-			"Invalid id:%u, nr_larbs=%u\n", id, nr_larbs);
+			"Invalid id:%u, nr_dev=%u\n", id, nr_dev);
 		return -EINVAL;
 	}
 
@@ -824,8 +824,17 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	}
 	nr_larbs = id;
 
-	smi_dev =
-		devm_kcalloc(&pdev->dev, id + 1, sizeof(*smi_dev), GFP_KERNEL);
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-cnt", &id);
+	if (ret)
+		dev_dbg(&pdev->dev, "COMMON%u read all:%d failed:%d\n",
+			nr_larbs, id, ret);
+
+	if (!smi_dev) {
+		smi_dev = devm_kcalloc(
+			&pdev->dev, id + 1, sizeof(*smi_dev), GFP_KERNEL);
+		nr_dev = id;
+	}
+
 	if (!smi_dev)
 		return -ENOMEM;
 	return mtk_smi_dev_probe(pdev, id);
@@ -841,6 +850,9 @@ static const struct of_device_id mtk_smi_larb_of_ids[] = {
 static const struct of_device_id mtk_smi_common_of_ids[] = {
 	{
 		.compatible = "mediatek,smi_common",
+	},
+	{
+		.compatible = "mediatek,smi_sub_common",
 	},
 	{}
 };
