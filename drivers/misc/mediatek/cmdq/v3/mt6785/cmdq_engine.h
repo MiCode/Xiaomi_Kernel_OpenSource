@@ -93,6 +93,9 @@ enum CMDQ_ENG_ENUM {
 
 	CMDQ_ENG_INORDER,		/* 58 */
 
+	/* Dummy DISP */
+	CMDQ_ENG_DISP_2L_OVL2,		/* 59 */
+
 	CMDQ_MAX_ENGINE_COUNT		/* ALWAYS keep at the end */
 };
 
