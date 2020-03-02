@@ -318,6 +318,17 @@ void arm64_notify_die(const char *str, struct pt_regs *regs,
 	}
 }
 
+void arm64_skip_faulting_instruction(struct pt_regs *regs, unsigned long size)
+{
+	regs->pc += size;
+
+	/*
+	 * If we were single stepping, we want to get the step exception after
+	 * we return from the trap.
+	 */
+	user_fastforward_single_step(current);
+}
+
 static LIST_HEAD(undef_hook);
 static DEFINE_RAW_SPINLOCK(undef_lock);
 
@@ -347,10 +358,13 @@ static int call_undef_hook(struct pt_regs *regs)
 	int (*fn)(struct pt_regs *regs, u32 instr) = NULL;
 	void __user *pc = (void __user *)instruction_pointer(regs);
 
-	if (!user_mode(regs))
-		return 1;
+	if (!user_mode(regs)) {
+		__le32 instr_le;
 
-	if (compat_thumb_mode(regs)) {
+		if (probe_kernel_address((__force __le32 *)pc, instr_le))
+			goto exit;
+		instr = le32_to_cpu(instr_le);
+	} else if (compat_thumb_mode(regs)) {
 		/* 16-bit Thumb instruction */
 		__le16 instr_le;
 		if (get_user(instr_le, (__le16 __user *)pc))
@@ -443,6 +457,7 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	if (call_undef_hook(regs) == 0)
 		return;
 
+	BUG_ON(!user_mode(regs));
 	force_signal_inject(SIGILL, ILL_ILLOPC, regs, 0);
 }
 
