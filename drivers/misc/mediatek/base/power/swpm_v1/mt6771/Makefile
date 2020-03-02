@@ -1,5 +1,5 @@
-#
-# Copyright (C) 2015 MediaTek Inc.
+
+# Copyright (C) 2017 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,7 +11,9 @@
 # GNU General Public License for more details.
 #
 
-ifeq ($(CONFIG_MTK_CM_MGR), y)
-obj-$(CONFIG_MACH_MT6771) += cm_mgr_v1/
-endif
-obj-$(CONFIG_MACH_MT6771) += swpm_v1/
+ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/include/	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/	\
+
+obj-y += mtk_swpm_platform.o
