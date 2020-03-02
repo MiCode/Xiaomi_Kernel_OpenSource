@@ -1057,7 +1057,7 @@ void gt1x_leave_update_mode(void)
 void read_reg(u16 addr, int len)
 {
 	int i;
-	u8 buffer[16];
+	u8 buffer[16] = {0};
 	int read_len = 0;
 	int cur_len;
 
