@@ -240,7 +240,7 @@ static void __nanohub_interrupt_cfg(struct nanohub_data *data,
 				    u8 interrupt, bool mask)
 {
 	int ret;
-	u8 mask_ret;
+	u8 mask_ret = 0;
 	int cnt = 10;
 	struct device *dev = data->io[ID_NANOHUB_SENSOR].dev;
 	int cmd = mask ? CMD_COMMS_MASK_INTR : CMD_COMMS_UNMASK_INTR;
