@@ -14,7 +14,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/module.h>
-#include <linux/cpuhotplug.h>
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/pm_qos.h>
@@ -77,8 +77,6 @@ static bool mcdi_stress_en;
 static unsigned int mcdi_stress_us = 10 * 1000;
 static struct task_struct *mcdi_stress_tsk[NF_CPU];
 
-#define MTK_MCDI_CPU_MODE 0
-#define MTK_MCDI_CLUSTER_MODE 0
 int __attribute__((weak)) mtk_enter_idle_state(int mode)
 {
 	return 0;
@@ -120,6 +118,13 @@ mcdi_set_state_lat(int cpu_type, int state, unsigned int val)
 void __attribute__((weak))
 mcdi_set_state_res(int cpu_type, int state, unsigned int val)
 {
+}
+
+int __attribute__((weak))
+mtk_idle_model_enter(int cpu, int IdleModelType)
+{
+	soidle_enter(cpu);
+	return 0;
 }
 
 void wakeup_all_cpu(void)
@@ -165,7 +170,8 @@ static int mcdi_stress_task(void *arg)
 static void mcdi_stress_start(void)
 {
 	int i;
-	char name[16] = {0};
+	char name[24] = {0};
+	int ret = 0;
 
 	if (mcdi_stress_en)
 		return;
@@ -173,7 +179,9 @@ static void mcdi_stress_start(void)
 	mcdi_stress_en = true;
 
 	for (i = 0; i < NF_CPU; i++) {
-		snprintf(name, sizeof(name), "mcdi_stress_task%d", i);
+		ret = scnprintf(name, sizeof(name), "mcdi_stress_task%d", i);
+		if (ret == 0)
+			pr_info("[mcdi]%s task naming fail\n", __func__);
 
 		mcdi_stress_tsk[i] =
 			kthread_create(mcdi_stress_task, NULL, name);
@@ -494,14 +502,14 @@ parse_cmd:
 	} else if (!strncmp(cmd_str, "remain", sizeof("remain"))) {
 
 		if (param_cnt == 1 && mcdi_is_cpc_mode())
-			get_mcdi_cluster_dev()->chk_res_each_core = !!param_0;
+			mcdi_cluster_chk_res_each_core_set(!!param_0);
 
 		return count;
 
 	} else if (!strncmp(cmd_str, "mcdi_timer", sizeof("mcdi_timer"))) {
 
 		if (param_cnt == 1 && mcdi_is_cpc_mode())
-			get_mcdi_cluster_dev()->tmr_en = !!param_0;
+			mcdi_cluster_tmr_en_set(!!param_0);
 
 		return count;
 
@@ -532,13 +540,8 @@ static int mcdi_procfs_init(void)
 		return -ENOMEM;
 	}
 
-	if (!proc_create("state", 0644, mcdi_dir, &mcdi_state_fops))
-		pr_notice("%s(), create /proc/mcdi/%s failed\n",
-			__func__, "state");
-
-	if (!proc_create("info", 0644, mcdi_dir, &mcdi_info_fops))
-		pr_notice("%s(), create /proc/mcdi/%s failed\n",
-			__func__, "info");
+	PROC_CREATE_MCDI(mcdi_dir, state);
+	PROC_CREATE_MCDI(mcdi_dir, info);
 
 	mcdi_procfs_profile_init(mcdi_dir);
 	mcdi_procfs_cpc_init(mcdi_dir);
@@ -548,7 +551,6 @@ static int mcdi_procfs_init(void)
 
 static void __go_to_wfi(int cpu)
 {
-/* TODO */
 /*	remove_cpu_from_prefer_schedule_domain(cpu); */
 
 	trace_rgidle_rcuidle(cpu, 1);
@@ -640,7 +642,7 @@ void mcdi_heart_beat_log_dump(void)
 	mcdi_buf_append(buf, ", system_idle_hint = %08x",
 						system_idle_hint_result_raw());
 
-	pr_info("%s\n", get_mcdi_buf(buf));
+	printk_deferred("[mcdi]%s\n", get_mcdi_buf(buf));
 }
 
 int wfi_enter(int cpu)
@@ -735,7 +737,7 @@ int mcdi_enter(int cpu)
 		break;
 	case MCDI_STATE_SODI:
 
-		soidle_enter(cpu);
+		mtk_idle_model_enter(cpu, mcdi_get_mtk_idle_mode());
 
 		break;
 	case MCDI_STATE_DPIDLE:
@@ -747,6 +749,8 @@ int mcdi_enter(int cpu)
 
 		soidle3_enter(cpu);
 
+		break;
+	default:
 		break;
 	}
 

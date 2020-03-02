@@ -67,11 +67,15 @@ bool is_mcdi_working(void);
 bool is_last_core_in_mcusys(int cpu);
 bool is_last_core_in_cluster(int cpu);
 unsigned int mcdi_get_gov_data_num_mcusys(void);
+void mcdi_cluster_chk_res_each_core_set(bool en);
+void mcdi_cluster_tmr_en_set(bool en);
 
 void idle_refcnt_inc(void);
 void idle_refcnt_dec(void);
 int all_cpu_idle_ratio_get(void);
 bool is_all_cpu_idle_criteria(void);
 unsigned int mcdi_get_boot_time_check(void);
+
+unsigned int mcdi_get_mtk_idle_mode(void);
 
 #endif /* __MTK_MCDI_GOVERNOR_H__ */

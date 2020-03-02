@@ -35,7 +35,7 @@ bool _system_idle_hint_request(unsigned int id, bool value)
 {
 	unsigned long flags = 0;
 
-	if (!(id >= 0 && id < NF_SYSTEM_IDLE_HINT))
+	if (id >= NF_SYSTEM_IDLE_HINT)
 		return false;
 
 	spin_lock_irqsave(&system_idle_hint_spin_lock, flags);

@@ -126,6 +126,7 @@ void mcdi_usage_calc(int cpu);
 bool mcdi_usage_cpu_valid(int cpu);
 
 void mcdi_profile_ts(int cpu_idx, unsigned int prof_idx);
+void mcdi_profile_ts_clr(int cpu_idx, unsigned int prof_idx);
 void mcdi_profile_calc(int cpu);
 
 void mcdi_prof_core_cluster_off_token(int cpu);
