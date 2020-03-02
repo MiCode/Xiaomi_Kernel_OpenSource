@@ -839,6 +839,8 @@ void clk_buf_dump_clkbuf_log(void)
 {
 	u32 pmic_cw00 = 0, pmic_cw01 = 0, pmic_cw02 = 0, pmic_cw11 = 0,
 		pmic_cw14 = 0, pmic_cw16 = 0, pmic_cw23 = 0, top_spi_con1 = 0;
+	char buf[256];
+	char *p = buf;
 
 	pmic_read_interface(PMIC_XO_EXTBUF1_MODE_ADDR, &pmic_cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
@@ -856,10 +858,15 @@ void clk_buf_dump_clkbuf_log(void)
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pmic_read_interface(PMIC_DCXO_CW23, &pmic_cw23,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pr_info("%s 0/1/2/11/14/16/23 = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-		__func__, pmic_cw00, pmic_cw01, pmic_cw02, pmic_cw11,
-		pmic_cw14, pmic_cw16, pmic_cw23, top_spi_con1);
-	pr_info("%s top_spi_con1=0x%x", top_spi_con1);
+	p += sprintf(p, "xo_buf 0/1/2/11/14/16/23 = ");
+
+	p += sprintf(p, "0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+		pmic_cw00, pmic_cw01, pmic_cw02, pmic_cw11,
+		pmic_cw14, pmic_cw16, pmic_cw23);
+
+	p += sprintf(p, "top_spi_con1=0x%x\n", top_spi_con1);
+
+	pr_info("%s %s", __func__, p);
 }
 
 static u32 dcxo_dbg_read_auxout(u16 sel)
