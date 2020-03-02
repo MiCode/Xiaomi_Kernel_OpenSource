@@ -283,7 +283,9 @@ static const struct file_operations ut_tui_fops = {
 	.read = tz_ut_tui_read,
 	.write = tz_ut_tui_write,
 	.unlocked_ioctl = tz_ut_tui_u64_ioctl,	/* 64 */
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = tz_ut_tui_u32_ioctl,	/* 32 */
+#endif
 	.open = tz_ut_tui_open,
 	.mmap = tz_ut_tui_map,
 	.release = tz_ut_tui_release,

@@ -47,7 +47,11 @@ static inline long ioctl(struct file *filp, unsigned int cmd, void *arg)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
+#ifdef CONFIG_COMPAT
 	ret = filp->f_op->compat_ioctl(filp, cmd, (unsigned long)arg);
+#else
+	ret = filp->f_op->unlocked_ioctl(filp, cmd, (unsigned long)arg);
+#endif
 	set_fs(old_fs);
 
 	return ret;
