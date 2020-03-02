@@ -1175,9 +1175,9 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	}
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	IONMSG("current time %llu ms, total: %llu!!\n",
-	       current_ts,
-	       (unsigned long long)(atomic64_read(&page_sz_cnt) * 4096));
+	ION_DUMP(s, "current time %llu ms, total: %llu!!\n",
+		 current_ts,
+		 (unsigned long long)(atomic64_read(&page_sz_cnt) * 4096));
 #ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_log_dump(s);
 #endif
