@@ -208,7 +208,9 @@ static int kjournald2(void *arg)
 	/* Record that the journal thread is running */
 	journal->j_task = current;
 	wake_up(&journal->j_wait_done_commit);
+#if defined(CONFIG_MTK_IO_BOOST)
 	mtk_iobst_register_tid(current->pid);
+#endif
 
 	/*
 	 * Make sure that no allocations from this kernel thread will ever
