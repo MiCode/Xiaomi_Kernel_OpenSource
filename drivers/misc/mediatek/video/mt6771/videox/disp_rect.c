@@ -108,11 +108,11 @@ void rect_join(const struct disp_rect *in1, const struct disp_rect *in2,
 	int in2_h = in2->height;
 
 	/* do nothing if the params are empty */
-	if (left >= right || top >= bottom) {
+	if (left > right || top > bottom) {
 		rect_set(out, fLeft, fTop, fRight, fBottom);
 	} else {
 		/* if we are empty, just assign */
-		if (fLeft >= fRight || fTop >= fBottom) {
+		if (fLeft > fRight || fTop > fBottom) {
 			rect_set(out, left, top, right, bottom);
 		} else {
 			if (left < fLeft)
