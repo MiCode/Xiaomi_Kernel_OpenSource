@@ -816,3 +816,125 @@ out:
 	return TZ_RESULT_SUCCESS;
 }
 #endif				//end of #if test_main_entry
+
+
+
+#define mytest_vreg 1
+
+#if mytest_vreg
+
+#define GZ_REG_SIZE 0x2000
+#define GZREG_BASE_t1 0x1070A000
+#define GZREG_BASE_t2 0x1070C000
+
+#define GZREG_WIDTH 4
+#define GZREG_TOTAL_SIZE 0x1000 /* control register size */
+
+#define DREG_BASE (GZREG_BASE + GZREG_TOTAL_SIZE)
+#define DREG_TOTAL_SIZE (GZ_REG_SIZE - GZREG_TOTAL_SIZE)
+
+
+#define test_Vmemory 0
+#if test_Vmemory
+static int vmemory_test(void *args)
+{
+	/*test data register*/
+	int i;
+	char *ptr;
+	void __iomem *data_io = ioremap(DREG_BASE, DREG_TOTAL_SIZE);
+
+	ptr = (char *) data_io;
+	if (ptr) {
+		for (i = 0; i < 4; i++)
+			KREE_DEBUG("r[%d] = %c\n", i, ptr[i]);
+	}
+
+	if (data_io)
+		iounmap(data_io);
+
+	return TZ_RESULT_SUCCESS;
+}
+
+#endif
+
+#define test_vreg_from_gzha 0
+int vreg_test(void *args)
+{
+	uint32_t v;
+
+#if test_vreg_from_gzha
+	KREE_SESSION echo_sn;
+	int ret;
+	union MTEEC_PARAM p[4];
+	uint32_t paramTypes;
+#endif
+
+	void __iomem *io_1 = ioremap(GZREG_BASE_t1, GZREG_TOTAL_SIZE);
+
+	void __iomem *io_2 = ioremap(GZREG_BASE_t2, GZREG_TOTAL_SIZE);
+
+	KREE_DEBUG("[%s][%d] runs...\n", __func__, __LINE__);
+	if (io_1) {
+		KREE_DEBUG("swreg: write control reg:io_1\n");
+		writel(0x00000002, io_1 + (1 * GZREG_WIDTH));
+		writel(0x00000001, io_1 + (2 * GZREG_WIDTH));
+		v = readl(io_1 + (1 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+		v = readl(io_1 + (2 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+		v = readl(io_1 + (4 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+		v = readl(io_1 + (5 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+	} else
+		KREE_DEBUG("swreg: null io_1\n");
+
+	if (io_1)
+		iounmap(io_1);
+
+	if (io_2) {
+		KREE_DEBUG("swreg: write control reg:io_2\n");
+		writel(0x00000003, io_2 + (1 * GZREG_WIDTH));
+		writel(0x00000004, io_2 + (2 * GZREG_WIDTH));
+		v = readl(io_2 + (1 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+		v = readl(io_2 + (2 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+		v = readl(io_2 + (4 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+		v = readl(io_2 + (5 * GZREG_WIDTH));
+		KREE_DEBUG("swreg: red %#08x\n", v);
+	} else
+		KREE_DEBUG("swreg: null io_2\n");
+
+	if (io_2)
+		iounmap(io_2);
+
+#if test_vreg_from_gzha
+	/*session: echo svr */
+	ret = _create_session(echo_srv_name, &echo_sn);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("echo_sn create fail\n");
+		return ret;
+	}
+
+	paramTypes = TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT);
+
+	/*TZCMD_TEST_VREG_FROM_HA*/
+	ret = KREE_TeeServiceCall(echo_sn, 0x9004, paramTypes, p);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("[%s] Fail(0x%x)\n", __func__, ret);
+		return ret;
+	}
+
+	/*close session */
+	ret = _close_session(echo_sn);
+	if (ret != TZ_RESULT_SUCCESS) {
+		KREE_ERR("echo_sn close fail\n");
+		return ret;
+	}
+#endif
+
+	return TZ_RESULT_SUCCESS;
+}
+#endif
