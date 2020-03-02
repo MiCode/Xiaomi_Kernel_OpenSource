@@ -723,6 +723,7 @@ static void ram_console_parse_memory_info(struct mem_desc_t *sram,
 			pr_err("ram_console: [DT] offset:0x%x not map\n",
 					sram->offset);
 			ram_console_fatal("memory_info not map");
+			return;
 		}
 		magic1 = memory_info->magic1;
 		magic2 = memory_info->magic2;
@@ -828,7 +829,10 @@ static int __init ram_console_early_init(void)
 	pr_notice("ram_console: buffer start: 0x%lx, size: 0x%zx\n",
 			(unsigned long)bufp, buffer_size);
 	mtk_cpu_num = num_present_cpus();
-	return ram_console_init(bufp, buffer_size);
+	if (bufp)
+		return ram_console_init(bufp, buffer_size);
+	else
+		return 0;
 }
 
 static int ram_console_show(struct seq_file *m, void *v)
