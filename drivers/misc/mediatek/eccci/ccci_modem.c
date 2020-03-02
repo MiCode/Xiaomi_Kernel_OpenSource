@@ -61,13 +61,16 @@ struct ccci_smem_region md1_6293_noncacheable_fat[] = {
 {SMEM_USER_RAW_USB,		104*1024,	4*1024,		0, },
 {SMEM_USER_RAW_AUDIO,		108*1024,	52*1024,
 	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU,		160*1024,	(704+1)*1024,	0, },
-{SMEM_USER_CCISM_MCU_EXP,	865*1024,	(120+1)*1024,	0, },
+{SMEM_USER_CCISM_MCU,		160*1024,	(720+1)*1024,	0, },
+{SMEM_USER_CCISM_MCU_EXP,	881*1024,	(120+1)*1024,	0, },
 {SMEM_USER_RAW_DFD,		1*1024*1024,	0*1024,	0, },
-{SMEM_USER_RAW_UDC_DATA,	1*1024*1024,	0*1024*1024,	0, },
+{SMEM_USER_RAW_UDC_DATA, 1*1024*1024, 0*1024*1024,	0, },
+{SMEM_USER_RAW_AMMS_POS,	1*1024*1024,	0, SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_ALIGN_PADDING,	1*1024*1024,	0, SMF_NCLR_FIRST, },
+
 /* for SIB */
-{SMEM_USER_RAW_LWA,		(1*1024+448)*1024,	0*1024*1024,	0, },
-{SMEM_USER_RAW_PHY_CAP,	(1*1024+448)*1024, 0*1024*1024, SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_LWA,		(1*1024)*1024,	0*1024*1024,	0, },
+{SMEM_USER_RAW_PHY_CAP,	(1*1024)*1024, 0*1024*1024, SMF_NCLR_FIRST, },
 {SMEM_USER_MAX, }, /* tail guard */
 };
 #define CCB_CACHE_MIN_SIZE    (2 * 1024 * 1024)
@@ -293,6 +296,16 @@ static inline int log2_remain(unsigned int value)
 	return y;
 }
 
+phys_addr_t __attribute__((weak)) amms_cma_allocate(unsigned long size)
+{
+	return 0;
+}
+
+int __attribute__((weak)) amms_cma_free(phys_addr_t addr, unsigned long size)
+{
+	return 0;
+}
+
 void ccci_md_smem_layout_config(struct ccci_modem *md)
 {
 	struct ccci_mem_layout *mm_str = &md->mem_layout;
@@ -301,8 +314,12 @@ void ccci_md_smem_layout_config(struct ccci_modem *md)
 	unsigned int offset_adjust_flag = 0;
 	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
 	unsigned int i;
+	phys_addr_t md_resv_smem_addr = 0, smem_amms_pos_addr = 0,
+		smem_align_padding_addr = 0;
+	int size;
 
 	/* non-cacheable start */
+	get_md_resv_mem_info(md->index, NULL, NULL, &md_resv_smem_addr, NULL);
 	for (i = 0; i < (sizeof(md1_6293_noncacheable_fat)/
 		sizeof(struct ccci_smem_region)); i++) {
 		/* update offset */
@@ -316,6 +333,47 @@ void ccci_md_smem_layout_config(struct ccci_modem *md)
 				get_md_resv_phy_cap_size(MD_SYS1);
 			CCCI_BOOTUP_LOG(md->index, TAG,
 			"PHY size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
+			break;
+		case SMEM_USER_RAW_DFD:
+			size = get_md_smem_dfd_size(MD_SYS1);
+			if (size >= 0 && size !=
+			md1_6293_noncacheable_fat[i].size) {
+				md1_6293_noncacheable_fat[i].size = size;
+				offset_adjust_flag = 1;
+			}
+			CCCI_BOOTUP_LOG(md->index, TAG,
+			"dfd size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
+			break;
+		case SMEM_USER_RAW_AMMS_POS:
+			size = get_smem_amms_pos_size(MD_SYS1);
+			if (size >= 0 && size !=
+			md1_6293_noncacheable_fat[i].size) {
+				md1_6293_noncacheable_fat[i].size = size;
+				offset_adjust_flag = 1;
+				/* free AMMS POS smem*/
+				smem_amms_pos_addr = md_resv_smem_addr
+					+ md1_6293_noncacheable_fat[i].offset;
+				amms_cma_free(smem_amms_pos_addr, size);
+			}
+			CCCI_BOOTUP_LOG(md->index, TAG,
+			"smem amms pos size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
+			break;
+		case SMEM_USER_RAW_ALIGN_PADDING:
+			size = get_smem_align_padding_size(MD_SYS1);
+			if (size >= 0 && size !=
+			md1_6293_noncacheable_fat[i].size) {
+				md1_6293_noncacheable_fat[i].size = size;
+				offset_adjust_flag = 1;
+				/* free POS padding smem*/
+				smem_align_padding_addr = md_resv_smem_addr
+					+ md1_6293_noncacheable_fat[i].offset;
+				amms_cma_free(smem_align_padding_addr, size);
+			}
+			CCCI_BOOTUP_LOG(md->index, TAG,
+			"smem align padding size:%d\n",
 			md1_6293_noncacheable_fat[i].size);
 			break;
 		case SMEM_USER_RAW_UDC_DATA:
@@ -341,7 +399,7 @@ void ccci_md_smem_layout_config(struct ccci_modem *md)
 	if (mm_str->md_bank4_cacheable_total.base_ap_view_phy &&
 		mm_str->md_bank4_cacheable_total.size)
 		mm_str->md_bank4_cacheable_total.base_ap_view_vir =
-			ioremap_nocache(
+			ccci_map_phy_addr(
 			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 			mm_str->md_bank4_cacheable_total.size);
 	else
@@ -435,17 +493,19 @@ void ccci_md_config(struct ccci_modem *md)
 {
 	phys_addr_t md_resv_mem_addr = 0,
 		md_resv_smem_addr = 0, md1_md3_smem_phy = 0;
+
+	phys_addr_t smem_amms_pos_addr = 0,
+		smem_align_padding_addr = 0;
+
 	unsigned int md_resv_mem_size = 0,
 		md_resv_smem_size = 0, md1_md3_smem_size = 0;
-	phys_addr_t base_ap_view_phy;
-	pgprot_t prot;
-	int ret;
-	unsigned int i;
-#if (MD_GENERATION == 6293)
 	unsigned int md_bank4_cacheable_total_size = 0;
 	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
-	int offset_adjust_flag = 0;
-#endif
+	unsigned int i, offset_adjust_flag = 0;
+	int dfd_size;
+	int amms_pos_size = 0, align_size = 0;
+	phys_addr_t bank4_phy_addr;
+
 	/* setup config */
 	md->per_md_data.config.load_type = get_md_img_type(md->index);
 	if (get_modem_is_enabled(md->index))
@@ -463,21 +523,10 @@ void ccci_md_config(struct ccci_modem *md)
 	md->mem_layout.md_bank0.base_ap_view_phy = md_resv_mem_addr;
 	md->mem_layout.md_bank0.size = md_resv_mem_size;
 	/* do not remap whole region, consume too much vmalloc space */
-	base_ap_view_phy = md->mem_layout.md_bank0.base_ap_view_phy;
-	base_ap_view_phy &= PAGE_MASK;
-	if (!pfn_valid(__phys_to_pfn(base_ap_view_phy)))
-		md->mem_layout.md_bank0.base_ap_view_vir =
-			ioremap_wc(
-				md->mem_layout.md_bank0.base_ap_view_phy,
-				MD_IMG_DUMP_SIZE);
-	else {
-
-		prot = pgprot_noncached(PAGE_KERNEL);
-		md->mem_layout.md_bank0.base_ap_view_vir =
-			(void __iomem *)vmap_reserved_mem(
+	md->mem_layout.md_bank0.base_ap_view_vir =
+		ccci_map_phy_addr(
 			md->mem_layout.md_bank0.base_ap_view_phy,
-							MD_IMG_DUMP_SIZE, prot);
-	}
+			MD_IMG_DUMP_SIZE);
 	/* Share memory */
 	/*
 	 * MD bank4 is remap to nearest 32M aligned address
@@ -498,8 +547,24 @@ void ccci_md_config(struct ccci_modem *md)
 			= md1_md3_smem_phy;
 	md->mem_layout.md_bank4_noncacheable_total.size
 			= md_resv_smem_size + md1_md3_smem_size;
+	/* re-alloc smem for amms */
+	amms_pos_size = get_smem_amms_pos_size(MD_SYS1);
+	if (amms_pos_size > 0) {
+		bank4_phy_addr = amms_cma_allocate(md_resv_smem_size);
+		CCCI_BOOTUP_LOG(-1, TAG,
+			"AMMS get phy non-cache mem addr 0x%llx with size:0x%x\r\n",
+			(unsigned long long)bank4_phy_addr,
+			md_resv_smem_size);
+		if (bank4_phy_addr != md_resv_smem_addr) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"AMMS ret memory[0x%llx] miss sync with LK alloc[0x%llx]",
+				(unsigned long long)bank4_phy_addr,
+				(unsigned long long)md_resv_smem_addr);
+			return;
+		}
+	}
 	md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir =
-		ioremap_wc(
+		ccci_map_phy_addr(
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
 			md->mem_layout.md_bank4_noncacheable_total.size);
 	md->mem_layout.md_bank4_noncacheable_total.base_md_view_phy =
@@ -519,7 +584,7 @@ void ccci_md_config(struct ccci_modem *md)
 	if (md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy &&
 		md->mem_layout.md_bank4_cacheable_total.size)
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir =
-			ioremap_wc(
+			ccci_map_phy_addr(
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
 			md->mem_layout.md_bank4_cacheable_total.size);
 	else
@@ -562,34 +627,6 @@ void ccci_md_config(struct ccci_modem *md)
 		md->mem_layout.md_bank4_cacheable_total.base_md_view_phy,
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir,
 		md->mem_layout.md_bank4_cacheable_total.size);
-	/* add alignment check */
-#if (MD_GENERATION >= 6293)
-	ret = log2_remain(md->mem_layout.md_bank4_noncacheable_total.size);
-	if (md->mem_layout.md_bank4_noncacheable_total.size
-		&& (ret < 0 || ret > 16))
-		WARN_ON(1);
-	ret = log2_remain(md->mem_layout.md_bank4_cacheable_total.size);
-	if (md->mem_layout.md_bank4_cacheable_total.size
-		&& (ret < 0 || ret > 16))
-		WARN_ON(1);
-#elif (MD_GENERATION == 6292)
-	if (md->mem_layout.md_bank4_noncacheable_total.size
-		> (4 * 1024 * 1024))
-		WARN_ON(1);
-	if (md->mem_layout.md_bank4_cacheable_total.size
-		> (128 * 1024 * 1024))
-		WARN_ON(1);
-	ret = 0;
-#elif (MD_GENERATION == 6291)
-	ret = log2_remain(md->mem_layout.md_bank4_noncacheable_total.size);
-	if (md->mem_layout.md_bank4_noncacheable_total.size
-		&& (ret < 0 || ret > 8))
-		WARN_ON(1);
-	ret = log2_remain(md->mem_layout.md_bank4_cacheable_total.size);
-	if (md->mem_layout.md_bank4_cacheable_total.size
-		&& (ret < 0 || ret > 8))
-		WARN_ON(1);
-#endif
 
 #if (MD_GENERATION == 6293)
 	/* Get udc cache&noncache size */
@@ -603,7 +640,7 @@ void ccci_md_config(struct ccci_modem *md)
 			= md1_6293_noncacheable_fat;
 		md->mem_layout.md_bank4_cacheable
 			= md1_6293_cacheable;
-		/* Runtime adjust md_phy_capture size */
+		/* Runtime adjust md_phy_capture and udc noncache size */
 		for (i = 0; i < (sizeof(md1_6293_noncacheable_fat)/
 			sizeof(struct ccci_smem_region)); i++) {
 			if (offset_adjust_flag == 1)
@@ -624,6 +661,58 @@ void ccci_md_config(struct ccci_modem *md)
 					udc_noncache_size;
 				offset_adjust_flag = 1;
 			}
+			if (md1_6293_noncacheable_fat[i].id ==
+				SMEM_USER_RAW_DFD) {
+				dfd_size = get_md_smem_dfd_size(MD_SYS1);
+				if (dfd_size >= 0 && dfd_size !=
+					md1_6293_noncacheable_fat[i].size) {
+					md1_6293_noncacheable_fat[i].size =
+					dfd_size;
+					offset_adjust_flag = 1;
+				}
+				CCCI_BOOTUP_LOG(md->index, TAG,
+				"dfd size:%d\n",
+				md1_6293_noncacheable_fat[i].size);
+			}
+			if (md1_6293_noncacheable_fat[i].id ==
+				SMEM_USER_RAW_AMMS_POS) {
+				amms_pos_size = get_smem_amms_pos_size(MD_SYS1);
+				if (amms_pos_size >= 0 && amms_pos_size !=
+				md1_6293_noncacheable_fat[i].size) {
+					md1_6293_noncacheable_fat[i].size =
+					amms_pos_size;
+					offset_adjust_flag = 1;
+					/* free AMMS POS smem*/
+					smem_amms_pos_addr = md_resv_smem_addr
+					+ md1_6293_noncacheable_fat[i].offset;
+					amms_cma_free(smem_amms_pos_addr,
+					amms_pos_size);
+				}
+				CCCI_BOOTUP_LOG(md->index, TAG,
+				"smem amms pos size:%d\n",
+				md1_6293_noncacheable_fat[i].size);
+			}
+			if (md1_6293_noncacheable_fat[i].id ==
+				SMEM_USER_RAW_ALIGN_PADDING) {
+				align_size =
+				get_smem_align_padding_size(MD_SYS1);
+				if (align_size >= 0 && align_size !=
+				md1_6293_noncacheable_fat[i].size) {
+					md1_6293_noncacheable_fat[i].size =
+					align_size;
+					offset_adjust_flag = 1;
+					/* free POS padding smem*/
+					smem_align_padding_addr =
+					md_resv_smem_addr
+					+ md1_6293_noncacheable_fat[i].offset;
+					amms_cma_free(smem_align_padding_addr,
+					align_size);
+				}
+				CCCI_BOOTUP_LOG(md->index, TAG,
+				"smem align padding size:%d\n",
+				md1_6293_noncacheable_fat[i].size);
+			}
+
 		}
 		if (md_bank4_cacheable_total_size
 			>= CCB_CACHE_MIN_SIZE) {
@@ -997,6 +1086,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	struct md_query_ap_feature *md_feature)
 {
 	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
+
 	md->runtime_version = AP_MD_HS_V2;
 	md_feature->feature_set[BOOT_INFO].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
@@ -1043,6 +1133,12 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	else
 		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
 			= CCCI_FEATURE_NOT_SUPPORT;
+	if ((md->index == MD_SYS1) && (get_smem_amms_pos_size(MD_SYS1) > 0))
+		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_MUST_SUPPORT;
+	else
+		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
 #else
 	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
 		= CCCI_FEATURE_NOT_SUPPORT;
@@ -1175,7 +1271,8 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
-
+	md_feature->feature_set[MD_MTEE_SHARE_MEMORY_ENABLE].support_mask
+		= CCCI_FEATURE_OPTIONAL_SUPPORT;
 }
 
 unsigned int align_to_2_power(unsigned int n)
@@ -1634,6 +1731,20 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
 				&rt_shm);
+				break;
+			case MD_MTEE_SHARE_MEMORY_ENABLE:
+				rt_feature.data_len = sizeof(unsigned int);
+				/* use the random_seed as temp_u32 value */
+				random_seed = get_mtee_is_enabled();
+				append_runtime_feature(&rt_data, &rt_feature,
+				&random_seed);
+				break;
+			case MD_POS_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_AMMS_POS,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+					&rt_shm);
 				break;
 			default:
 				break;

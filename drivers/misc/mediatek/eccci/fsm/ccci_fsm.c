@@ -720,6 +720,7 @@ int ccci_fsm_init(int md_id)
 	fsm_poller_init(&ctl->poller_ctl);
 	fsm_ee_init(&ctl->ee_ctl);
 	fsm_monitor_init(&ctl->monitor_ctl);
+	fsm_sys_init();
 
 	ccci_fsm_entries[md_id] = ctl;
 	return 0;

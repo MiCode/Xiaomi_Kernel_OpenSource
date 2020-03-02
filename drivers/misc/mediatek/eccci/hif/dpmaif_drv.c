@@ -21,8 +21,7 @@
  *
  * =======================================================
  */
- #if defined(_DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_) \
-				|| defined(_E1_SB_SW_WORKAROUND_1)
+ #if defined(_E1_SB_SW_WORKAROUND_)
 
 static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 {
@@ -237,6 +236,48 @@ static int drv_dpmaif_dl_set_idle(bool set_en)
 }
 #endif
 
+#ifdef HW_FRG_FEATURE_ENABLE
+unsigned short drv_dpmaif_dl_get_frg_bat_ridx(unsigned char q_num)
+{
+	unsigned int ridx = 0;
+
+	ridx = DPMA_READ_AO_DL(DPMAIF_AO_DL_FRGBAT_STA2);
+	ridx = ((ridx >> 16) & DPMAIF_DL_BAT_WRIDX_MSK);
+
+	return (unsigned short)ridx;
+}
+
+int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
+	unsigned short frg_entry_cnt)
+{
+	unsigned int dl_bat_update;
+	int count = 0;
+
+	dl_bat_update = (frg_entry_cnt & 0xffff);
+	dl_bat_update |= (DPMAIF_DL_ADD_UPDATE|DPMAIF_DL_BAT_FRG_ADD);
+
+	while (1) {
+		if ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_ADD) &
+			DPMAIF_DL_ADD_NOT_READY) == 0) {
+			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_ADD, dl_bat_update);
+			break;
+		}
+	}
+
+	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_ADD) &
+		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"frg update failed, 0x%x\n", DPMA_READ_PD_DL(
+				DPMAIF_PD_DL_DBG_STA1));
+			break;
+		}
+	}
+
+	return 0;
+}
+#endif
+
 unsigned short drv_dpmaif_dl_get_bat_ridx(unsigned char q_num)
 {
 	unsigned int ridx = 0;
@@ -256,13 +297,7 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 	dl_bat_update = (bat_entry_cnt & 0xffff);
 	dl_bat_update |= DPMAIF_DL_ADD_UPDATE;
 
-#if defined(_E1_SB_SW_WORKAROUND_) && !defined(_E1_SB_SW_WORKAROUND_1)
-	while (drv_dpmaif_dl_idle_check() != 0)
-		;
-#endif
-
-#if defined(_DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_) || \
-				defined(_E1_SB_SW_WORKAROUND_1)
+#if defined(_E1_SB_SW_WORKAROUND_)
 	count = drv_dpmaif_dl_set_idle(true);
 	if (count < 0)
 		return count;
@@ -285,8 +320,7 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 			break;
 		}
 	}
-#if defined(_DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_) || \
-				defined(_E1_SB_SW_WORKAROUND_1)
+#if defined(_E1_SB_SW_WORKAROUND_)
 	drv_dpmaif_dl_set_idle(false);
 #endif
 	return 0;
@@ -296,8 +330,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 		unsigned short pit_remain_cnt)
 {
 	unsigned int dl_update;
-#if defined(_DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_) || \
-				defined(_E1_SB_SW_WORKAROUND_1)
+#if defined(_E1_SB_SW_WORKAROUND_)
 	int ret = 0;
 
 	ret = drv_dpmaif_dl_set_idle(true);
@@ -307,11 +340,6 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 
 	dl_update = (pit_remain_cnt & 0x0000ffff);
 	dl_update |= DPMAIF_DL_ADD_UPDATE;
-
-#if defined(_E1_SB_SW_WORKAROUND_) && !defined(_E1_SB_SW_WORKAROUND_1)
-	while (drv_dpmaif_dl_idle_check() != 0)
-		;
-#endif
 
 	while (1) {
 		if ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_ADD) &
@@ -324,8 +352,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_ADD) &
 		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY)
 		;
-#if defined(_DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_) || \
-				defined(_E1_SB_SW_WORKAROUND_1)
+#if defined(_E1_SB_SW_WORKAROUND_)
 	drv_dpmaif_dl_set_idle(false);
 	return ret;
 #else
@@ -337,7 +364,7 @@ unsigned int  drv_dpmaif_dl_get_wridx(unsigned char q_num)
 {
 	unsigned int widx;
 
-#ifdef _E1_SB_SW_WORKAROUND_1
+#ifdef _E1_SB_SW_WORKAROUND_
 	widx = DPMA_READ_PD_DL(DPMAIF_PD_DL_STA8);
 	widx = (widx >> 16) & DPMAIF_DL_PIT_WRIDX_MSK;
 
@@ -396,7 +423,7 @@ void drv_dpmaif_mask_dl_interrupt(unsigned char q_num)
 
 	/* set mask register: bit1s */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMSR0, (
-#ifdef _E1_SB_SW_WORKAROUND_1
+#ifdef _E1_SB_SW_WORKAROUND_
 		DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
 #endif
@@ -404,7 +431,7 @@ void drv_dpmaif_mask_dl_interrupt(unsigned char q_num)
 
 	ui_que_done_mask = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
 	ui_que_done_mask |= DPMAIF_DL_INT_QDONE_MSK;
-#ifdef _E1_SB_SW_WORKAROUND_1
+#ifdef _E1_SB_SW_WORKAROUND_
 	/* mask pit+batcnt len err isr */
 	ui_que_done_mask |= (DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num));
@@ -423,7 +450,7 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 
 	/* set unmask/clear_mask register: bit0s */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMCR0, (
-#ifdef _E1_SB_SW_WORKAROUND_1
+#ifdef _E1_SB_SW_WORKAROUND_
 		DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
 #endif
@@ -431,7 +458,7 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 
 	ui_que_done_mask = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
 	ui_que_done_mask &= ~DPMAIF_DL_INT_QDONE_MSK;
-#ifdef _E1_SB_SW_WORKAROUND_1
+#ifdef _E1_SB_SW_WORKAROUND_
 	/* mask pit+batcnt len err isr */
 	ui_que_done_mask &= ~(DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num));
@@ -443,7 +470,7 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 	 */
 }
 
-#ifdef _E1_SB_SW_WORKAROUND_1
+#ifdef _E1_SB_SW_WORKAROUND_
 void drv_dpmaif_unmask_dl_full_intr(unsigned char q_num)
 {
 	unsigned int ui_que_done_mask = DPMAIF_DL_INT_QDONE_MSK;
@@ -501,7 +528,6 @@ void drv_dpmaif_dl_all_queue_en(bool enable)
 	unsigned long dl_bat_init = 0;
 	unsigned long value;
 
-#ifndef _DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_
 	value = DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1);
 
 	if (enable == true)
@@ -525,34 +551,6 @@ void drv_dpmaif_dl_all_queue_en(bool enable)
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
 		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY)
 		;
-#else /*_DPMAIF_E1_QUEUE_DISABLE_WORKAROUND_*/
-
-	if (enable == true) {
-		value = DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1);
-		value |= DPMAIF_BAT_EN_MSK;
-
-		DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1, value);
-		/* only update bat_en bit. */
-		dl_bat_init |= DPMAIF_DL_BAT_INIT_ONLY_ENABLE_BIT;
-		dl_bat_init |= DPMAIF_DL_BAT_INIT_EN;
-
-		/*update DL bat setting to HW*/
-		while (1) {
-			if ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
-				DPMAIF_DL_BAT_INIT_NOT_READY) == 0) {
-				DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT,
-					dl_bat_init);
-				break;
-			}
-		}
-		/*wait HW updating*/
-		while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
-			DPMAIF_DL_BAT_INIT_NOT_READY) ==
-			DPMAIF_DL_BAT_INIT_NOT_READY)
-			;
-	} else
-		drv_dpmaif_dl_set_idle(true);
-#endif
 }
 
 unsigned int drv_dpmaif_dl_idle_check(void)
@@ -914,6 +912,97 @@ void drv_dpmaif_dl_set_bat_chk_thres(unsigned char q_num, unsigned int size)
 
 	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES, value);
 }
+
+#ifdef HW_FRG_FEATURE_ENABLE
+void drv_dpmaif_dl_set_ao_frag_check_thres(unsigned char q_num,
+	unsigned int size)
+{
+	unsigned int value;
+
+	/* 2.2 bit 21~16: bat threadhold, < size will len_err_irq2, curr: 1 */
+	value = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_FRG_THRES);
+	value &= ~(DPMAIF_FRG_CHECK_THRES_MSK);
+
+	value |= ((size) & DPMAIF_FRG_CHECK_THRES_MSK);
+
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_FRG_THRES, value);
+}
+
+void drv_dpmaif_dl_set_ao_frg_bat_feature(unsigned char q_num, bool enable)
+{
+	unsigned int value;
+
+	value = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_FRG_THRES);
+	value &= ~(DPMAIF_FRG_BAT_BUF_FEATURE_ON_MSK);
+
+	if (enable == true)
+		value |= (DPMAIF_FRG_BAT_BUF_FEATURE_EN &
+			DPMAIF_FRG_BAT_BUF_FEATURE_ON_MSK);
+
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_FRG_THRES, value);
+}
+
+void drv_dpmaif_dl_set_ao_frg_bat_bufsz(unsigned char q_num,
+	unsigned int buf_sz)
+{
+	unsigned int value;
+
+	/* 1.2 bit 16~8: BAT->buffer size: 128*28 = 3584 unit:? curr: 28 */
+	value = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_FRG_THRES);
+
+	value &= ~(DPMAIF_FRG_BAT_BUF_SZ_MSK);
+	value |= (((buf_sz/DPMAIF_FRG_BAT_BUFFER_SZ_BASE) << 8) &
+		DPMAIF_FRG_BAT_BUF_SZ_MSK);
+
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_FRG_THRES, value);
+
+}
+
+void drv_dpmaif_dl_all_frg_queue_en(bool enable)
+{
+	unsigned long dl_bat_init = 0;
+	unsigned long value;
+
+	value = DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1);
+
+	if (enable == true)
+		value |= DPMAIF_BAT_EN_MSK;
+	else
+		value &= ~DPMAIF_BAT_EN_MSK;
+	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1, value);
+	/* only update bat_en bit. */
+	dl_bat_init |= DPMAIF_DL_BAT_INIT_ONLY_ENABLE_BIT;
+	dl_bat_init |= (DPMAIF_DL_BAT_INIT_EN|DPMAIF_DL_BAT_FRG_INIT);
+
+	/*update DL bat setting to HW*/
+	while (1) {
+		if ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
+				DPMAIF_DL_BAT_INIT_NOT_READY) == 0) {
+			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT, dl_bat_init);
+			break;
+		}
+	}
+	/*wait HW updating*/
+	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
+		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY)
+		;
+}
+#endif
+
+#ifdef HW_CHECK_SUM_ENABLE
+void drv_dpmaif_dl_set_ao_chksum_en(unsigned char q_num, bool enable)
+{
+	unsigned int value;
+
+	value = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
+	value &= ~(DPMAIF_CHKSUM_ON_MSK);
+
+	if (enable == true)
+		value |= (DPMAIF_CHKSUM_ON_MSK);
+
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES, value);
+}
+#endif
 
 /* =======================================================
  *

@@ -19,6 +19,7 @@
 #endif
 #include "mdee_dumper_v3.h"
 #include "ccci_config.h"
+#include "ccci_fsm_sys.h"
 
 #ifndef DB_OPT_DEFAULT
 #define DB_OPT_DEFAULT    (0)	/* Dummy macro define to avoid build error */
@@ -37,7 +38,9 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	int md_img_len = 0;
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
+#if defined(CONFIG_MTK_AEE_FEATURE)
 	char buf_fail[] = "Fail alloc mem for exception\n";
+#endif
 	char *img_inf;
 	struct mdee_dumper_v3 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
@@ -90,6 +93,7 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
+		fsm_sys_mdee_info_notify(aed_str);
 #if defined(CONFIG_MTK_AEE_FEATURE)
 		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
@@ -99,6 +103,7 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 				md_img_len, buf_fail, db_opt);
 #endif
 	} else {
+		fsm_sys_mdee_info_notify(aed_str);
 #if defined(CONFIG_MTK_AEE_FEATURE)
 		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,

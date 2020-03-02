@@ -30,6 +30,13 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_AO_RST_MASK (1 << 6)
 #define INFRA_DPMAIF_CTRL_REG  (0xC00)
 #define DPMAIF_IP_BUSY_MASK   (0x3 << 12)
+
+#define INFRA_TOPAXI_PROTECTEN_1_SET  (0x2A8)
+#define INFRA_TOPAXI_PROTECTEN_1_CLR  (0x2AC)
+#define INFRA_TOPAXI_PROTECTEN_1      (0x250)
+#define DPMAIF_SLEEP_PROTECT_CTRL   (0x1<<4)
+#define INFRA_TOPAXI_PROTECT_READY_STA1_1 (0x258)
+
 /***********************************************************************
  *  DPMAIF AO/PD register define macro
  *
@@ -85,6 +92,9 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_AO_DL_PIT_STA1             (DPMAIF_AO_DL_CFG_BASE + 0x0024)
 #define DPMAIF_AO_DL_PIT_STA2             (DPMAIF_AO_DL_CFG_BASE + 0x0028)
 #define DPMAIF_AO_DL_PIT_STA3             (DPMAIF_AO_DL_CFG_BASE + 0x002C)
+
+#define DPMAIF_AO_DL_RDY_CHK_FRG_THRES    (DPMAIF_AO_DL_CFG_BASE + 0x0030)
+#define DPMAIF_AO_DL_FRGBAT_STA2          (DPMAIF_AO_DL_CFG_BASE + 0x0048)
 
 /*DPMAIF PD UL CONFIG: 0x1022D000 /pd+0*/
 #define DPMAIF_PD_UL_ADD_DESC             (DPMAIF_PD_UL_CFG_BASE + 0x0000)
@@ -249,6 +259,7 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 /* DPMAIF_PD_DL_BAT/PIT_ADD */
 #define DPMAIF_DL_ADD_UPDATE                (1 << 31)
 #define DPMAIF_DL_ADD_NOT_READY             (1 << 31)
+#define DPMAIF_DL_BAT_FRG_ADD               (1 << 16)
 
 #define DPMAIF_DL_BAT_INIT_ALLSET           (1 << 0)
 #define DPMAIF_DL_BAT_FRG_INIT              (1 << 16)
@@ -266,6 +277,7 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 
 #define DPMAIF_BAT_REMAIN_SZ_BASE      16
 #define DPMAIF_BAT_BUFFER_SZ_BASE      128
+#define DPMAIF_FRG_BAT_BUFFER_SZ_BASE  128
 
 #define DPMAIF_PIT_EN_MSK              0x01
 #define DPMAIF_PIT_SIZE_MSK            0xFFFF
@@ -292,6 +304,11 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_BAT_CHECK_THRES_MSK     (0x3F << 16)
 #define DPMAIF_FRG_CHECK_THRES_MSK     (0xFF)
 #define DPMAIF_AO_DL_ISR_MSK           (0x7F)
+
+#define DPMAIF_FRG_BAT_BUF_FEATURE_ON_MSK   (1 << 28)
+#define DPMAIF_FRG_BAT_BUF_FEATURE_EN       (1 << 28)
+#define DPMAIF_FRG_BAT_BUF_SZ_MSK           (0xff << 8)
+#define DPMAIF_CHKSUM_ON_MSK                (1 << 31)
 
 /*DPMAIF_PD_DL_DBG_STA1*/
 #define DPMAIF_DL_IDLE_STS             (1 << 25)

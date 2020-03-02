@@ -43,6 +43,9 @@
 #define DATA_AT_CMD_Q	5
 #endif
 
+#define DATA_TCHE	8
+
+
 #define SMEM_Q			AP_MD_CCB_WAKEUP
 
 static struct port_t md1_ccci_ports[] = {
@@ -277,6 +280,12 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_SMEM_CH, CCCI_SMEM_CH, SMEM_Q, SMEM_Q, SMEM_Q, SMEM_Q,
 		CCIF_HIF_ID, PORT_F_WITH_CHAR_NODE,
 		&smem_port_ops, SMEM_USER_CCB_META, "ccci_ccb_meta",},
+	{CCCI_TCHE_TX, CCCI_TCHE_RX, DATA_TCHE, DATA_TCHE, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 28, "ttyC5",},
+	{CCCI_DISP_TX, CCCI_DISP_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 29, "ttyC6",},
 };
 
 #ifdef CONFIG_MTK_ECCCI_C2K
