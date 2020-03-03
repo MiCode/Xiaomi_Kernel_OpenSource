@@ -505,3 +505,22 @@ config SDM_VIDEOCC_LAGOON
 	  LAGOON devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
+
+config QM_GCC_SCUBA
+	tristate "SCUBA Global Clock Controller"
+	select QCOM_GDSC
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SCUBA devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, etc.
+
+config QM_DISPCC_SCUBA
+	tristate "SCUBA Display Clock Controller"
+	select QM_GCC_SCUBA
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc.
+	  SCUBA devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
