@@ -704,8 +704,14 @@ int mhi_destroy_device(struct device *dev, void *data)
 
 int mhi_early_notify_device(struct device *dev, void *data)
 {
-	struct mhi_device *mhi_dev = to_mhi_device(dev);
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_device *mhi_dev;
+	struct mhi_controller *mhi_cntrl;
+
+	if (dev->bus != &mhi_bus_type)
+		return 0;
+
+	mhi_dev = to_mhi_device(dev);
+	mhi_cntrl = mhi_dev->mhi_cntrl;
 
 	/* skip early notification */
 	if (!mhi_dev->early_notif)
