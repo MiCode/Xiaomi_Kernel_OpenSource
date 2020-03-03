@@ -326,6 +326,12 @@ F:	drivers/pci/*acpi*
 F:	drivers/pci/*/*acpi*
 F:	tools/power/acpi/
 
+commit 6f40c42105d5c913cf855320ba7cfbc418314e29
+Author: Meng Jiang <mengjian@codeaurora.org>
+Date:   Mon Jan 13 18:20:15 2020 -0400
+	MAINTAINERS: add MCP25xxFD driver to support SPI to CAN
+	Signed-off-by: Meng Jiang <mengjian@codeaurora.org>
+
 ACPI APEI
 M:	"Rafael J. Wysocki" <rjw@rjwysocki.net>
 M:	Len Brown <lenb@kernel.org>
