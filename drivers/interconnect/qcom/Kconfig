@@ -89,6 +89,15 @@ config INTERCONNECT_QCOM_CPUCP_L3
 	  collects and aggregates consumer requests to satisfy constraints
 	  placed on L3 performance states.
 
+config INTERCONNECT_QCOM_OSM_L3
+	tristate "QTI OSM L3 interconnect driver"
+	depends on INTERCONNECT_QCOM || COMPILE_TEST
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on osm-based platforms.
+	  Say y here to support the Operating State Manager (OSM) interconnect
+	  driver which controls the scaling of L3 caches on QTI SoCs.
+
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate
 
