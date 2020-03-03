@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QG_CORE_H__
@@ -125,6 +125,7 @@ struct qpnp_qg {
 
 	/* status variable */
 	u32			*debug_mask;
+	u32			qg_version;
 	bool			qg_device_open;
 	bool			profile_loaded;
 	bool			battery_missing;
@@ -167,6 +168,7 @@ struct qpnp_qg {
 	u32			s2_state_mask;
 	u32			soc_fvss_entry;
 	u32			vbat_fvss_entry;
+	u32			max_fifo_length;
 	ktime_t			last_user_update_time;
 	ktime_t			last_fifo_update_time;
 	unsigned long		last_maint_soc_update_time;
@@ -254,5 +256,9 @@ enum qg_wa_flags {
 	QG_PON_OCV_WA = BIT(3),
 };
 
+enum qg_version {
+	QG_PMIC5,
+	QG_LITE,
+};
 
 #endif /* __QG_CORE_H__ */
