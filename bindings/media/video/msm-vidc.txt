@@ -11,6 +11,7 @@ Required properties:
 	- "qcom,holi-vidc" : Invokes driver-specific data for HOLI.
 
 Optional properties:
+- vidc,firmware-name : Video Firmware ELF image name to be loaded by PIL
 - reg : offset and length of the register set for the device.
 - sku-index : sku version of the hardware.
 - interrupts : should contain the vidc interrupt.
