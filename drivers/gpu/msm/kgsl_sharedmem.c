@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/shmem_fs.h>
 
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
@@ -581,10 +582,14 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 
 	/* Free pages using the pages array for non secure paged memory */
 	if (memdesc->pages != NULL)
-		kgsl_pool_free_pages(memdesc->pages, memdesc->page_count);
+		kgsl_free_pages(memdesc);
 	else
-		kgsl_pool_free_sgt(memdesc->sgt);
+		kgsl_free_pages_from_sgt(memdesc);
 
+	if (memdesc->shmem_filp) {
+		fput(memdesc->shmem_filp);
+		memdesc->shmem_filp = NULL;
+	}
 }
 
 /*
@@ -871,6 +876,109 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	kgsl_memdesc_set_align(memdesc, align);
 }
 
+#ifdef CONFIG_QCOM_KGSL_USE_SHMEM
+static int kgsl_alloc_page(int *page_size, struct page **pages,
+			unsigned int pages_len, unsigned int *align,
+			struct file *shmem_filp, unsigned int page_off)
+{
+	struct page *page;
+
+	if (pages == NULL)
+		return -EINVAL;
+
+	page = shmem_read_mapping_page_gfp(shmem_filp->f_mapping, page_off,
+			kgsl_gfp_mask(0));
+	if (IS_ERR(page))
+		return PTR_ERR(page);
+
+	kgsl_zero_page(page, 0);
+
+	*pages = page;
+
+	return 1;
+}
+
+void kgsl_free_pages(struct kgsl_memdesc *memdesc)
+{
+	int i;
+
+	for (i = 0; i < memdesc->page_count; i++)
+		put_page(memdesc->pages[i]);
+}
+
+static void kgsl_free_page(struct page *p)
+{
+	put_page(p);
+}
+
+static int kgsl_memdesc_file_setup(struct kgsl_memdesc *memdesc, uint64_t size)
+{
+	int ret;
+
+	memdesc->shmem_filp = shmem_file_setup("kgsl-3d0", size,
+			VM_NORESERVE);
+	if (IS_ERR(memdesc->shmem_filp)) {
+		ret = PTR_ERR(memdesc->shmem_filp);
+		pr_err("kgsl: unable to setup shmem file err %d\n",
+				ret);
+		memdesc->shmem_filp = NULL;
+		return ret;
+	}
+
+	return 0;
+}
+#else
+static int kgsl_alloc_page(int *page_size, struct page **pages,
+			unsigned int pages_len, unsigned int *align,
+			struct file *shmem_filp, unsigned int page_off)
+{
+	return kgsl_pool_alloc_page(page_size, pages, pages_len, align);
+}
+
+void kgsl_free_pages(struct kgsl_memdesc *memdesc)
+{
+	kgsl_pool_free_pages(memdesc->pages, memdesc->page_count);
+}
+
+static void kgsl_free_page(struct page *p)
+{
+	kgsl_pool_free_page(p);
+}
+
+static int kgsl_memdesc_file_setup(struct kgsl_memdesc *memdesc, uint64_t size)
+{
+	return 0;
+}
+#endif
+
+void kgsl_free_pages_from_sgt(struct kgsl_memdesc *memdesc)
+{
+	int i;
+	struct scatterlist *sg;
+
+	for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
+		/*
+		 * sg_alloc_table_from_pages() will collapse any physically
+		 * adjacent pages into a single scatterlist entry. We cannot
+		 * just call __free_pages() on the entire set since we cannot
+		 * ensure that the size is a whole order. Instead, free each
+		 * page or compound page group individually.
+		 */
+		struct page *p = sg_page(sg), *next;
+		unsigned int count;
+		unsigned int j = 0;
+
+		while (j < (sg->length/PAGE_SIZE)) {
+			count = 1 << compound_order(p);
+			next = nth_page(p, count);
+			kgsl_free_page(p);
+
+			p = next;
+			j += count;
+		}
+	}
+}
+
 int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			uint64_t size)
@@ -945,13 +1053,17 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 
 	len = size;
 
+	ret = kgsl_memdesc_file_setup(memdesc, size);
+	if (ret)
+		goto done;
+
 	while (len > 0) {
 		int page_count;
 
-		page_count = kgsl_pool_alloc_page(&page_size,
+		page_count = kgsl_alloc_page(&page_size,
 					memdesc->pages + pcount,
 					len_alloc - pcount,
-					&align);
+					&align, memdesc->shmem_filp, pcount);
 		if (page_count <= 0) {
 			if (page_count == -EAGAIN)
 				continue;
@@ -1046,11 +1158,13 @@ done:
 
 			for (j = 0; j < pcount; j += count) {
 				count = 1 << compound_order(memdesc->pages[j]);
-				kgsl_pool_free_page(memdesc->pages[j]);
+				kgsl_free_page(memdesc->pages[j]);
 			}
 		}
 
 		kvfree(memdesc->pages);
+		if (memdesc->shmem_filp)
+			fput(memdesc->shmem_filp);
 		memset(memdesc, 0, sizeof(*memdesc));
 	}
 
@@ -1501,4 +1615,34 @@ void kgsl_sharedmem_set_noretry(bool val)
 bool kgsl_sharedmem_get_noretry(void)
 {
 	return sharedmem_noretry_flag;
+}
+
+void kgsl_zero_page(struct page *p, unsigned int order)
+{
+	int i;
+
+	for (i = 0; i < (1 << order); i++) {
+		struct page *page = nth_page(p, i);
+		void *addr = kmap_atomic(page);
+
+		memset(addr, 0, PAGE_SIZE);
+		dmac_flush_range(addr, addr + PAGE_SIZE);
+		kunmap_atomic(addr);
+	}
+}
+
+unsigned int kgsl_gfp_mask(unsigned int page_order)
+{
+	unsigned int gfp_mask = __GFP_HIGHMEM;
+
+	if (page_order > 0) {
+		gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
+		gfp_mask &= ~__GFP_RECLAIM;
+	} else
+		gfp_mask |= GFP_KERNEL;
+
+	if (kgsl_sharedmem_get_noretry())
+		gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
+
+	return gfp_mask;
 }
