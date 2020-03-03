@@ -1748,6 +1748,13 @@ static int a6xx_gmu_wait_for_active_transition(
 	return -ETIMEDOUT;
 }
 
+static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
+}
+
 struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.load_firmware = a6xx_gmu_load_firmware,
 	.oob_set = a6xx_gmu_oob_set,
@@ -1767,4 +1774,5 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
+	.scales_bandwidth = a6xx_gmu_scales_bandwidth,
 };

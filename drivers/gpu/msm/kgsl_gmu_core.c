@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -98,13 +98,12 @@ bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
-	if (device->gmu_core.type == GMU_CORE_TYPE_PCC)
-		return false;
+	if (ops && ops->scales_bandwidth)
+		return ops->scales_bandwidth(device);
 
-	return gmu_core_gpmu_isenabled(device) &&
-		   (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
+	return false;
 }
 
 int gmu_core_init(struct kgsl_device *device)
