@@ -209,8 +209,6 @@ static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
 		iommu_domain_set_attr(domain,
 			DOMAIN_ATTR_SECURE_VMID, &attrs->vmid);
 
-	iommu_domain_set_attr(domain, DOMAIN_ATTR_DEBUG, &val);
-
 	return 0;
 }
 
@@ -237,6 +235,7 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 
 	const struct iommu_ops *iommu;
 	struct iommu_domain *domain;
+	struct msm_iommu_domain *msm_domain;
 	struct device *dev = ddev->dev;
 	int is_fast;
 	bool coherent;
@@ -275,6 +274,9 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 		dev_err_ratelimited(dev, "Allocating iommu domain failed\n");
 		return -EINVAL;
 	}
+
+	msm_domain = to_msm_iommu_domain(domain);
+	msm_domain->is_debug_domain = true;
 
 	if (iommu_debug_set_attrs(ddev, domain, attrs)) {
 		dev_err_ratelimited(dev, "Setting attrs failed\n");
