@@ -44,6 +44,14 @@
 			#cooling-cells = <2>;
 		};
 	};
+
+	qcom,limits-dcvs {
+		compatible = "qcom,msm-hw-limits";
+		isens_vref_0p8-supply = <&pm8350_l5_ao>;
+		isens-vref-0p8-settings = <880000 880000 30000>;
+		isens_vref_1p8-supply = <&pm8350c_l1_ao>;
+		isens-vref-1p8-settings = <1800000 1800000 20000>;
+	};
 };
 
 &msm_gpu {
