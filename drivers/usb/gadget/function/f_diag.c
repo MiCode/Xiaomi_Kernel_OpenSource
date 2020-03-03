@@ -3,7 +3,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  */
 #include <linux/init.h>
@@ -28,21 +28,18 @@
 #define SERIAL_NUM_MAGIC_ID	0x61945374
 #define SERIAL_NUMBER_LENGTH	128
 
-struct magic_num_struct {
-	uint32_t pid;
-	uint32_t serial_num;
-};
-
 struct dload_struct {
-	uint32_t	pid;
-	char		serial_number[SERIAL_NUMBER_LENGTH];
-	struct magic_num_struct magic_struct;
+	u32	pid;
+	char	serial_number[SERIAL_NUMBER_LENGTH];
+	u32	pid_magic;
+	u32	serial_magic;
 };
 
 /* for configfs support */
 struct diag_opts {
 	struct usb_function_instance func_inst;
 	char *name;
+	struct dload_struct dload;
 };
 
 static inline struct diag_opts *to_diag_opts(struct config_item *item)
@@ -229,9 +226,9 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	}
 
 	/* update pid */
-	local_diag_dload.magic_struct.pid = PID_MAGIC_ID;
 	local_diag_dload.pid = cdev->desc.idProduct;
-	local_diag_dload.magic_struct.serial_num = SERIAL_NUM_MAGIC_ID;
+	local_diag_dload.pid_magic = PID_MAGIC_ID;
+	local_diag_dload.serial_magic = SERIAL_NUM_MAGIC_ID;
 
 	list_for_each_entry(uc, &cdev->gstrings, list) {
 		table = (struct usb_gadget_strings **)uc->stash;
@@ -966,8 +963,100 @@ static struct configfs_item_operations diag_item_ops = {
 	.release	= diag_opts_release,
 };
 
+static ssize_t diag_pid_show(struct config_item *item, char *page)
+{
+	struct dload_struct local_dload_struct;
+
+	if (!diag_dload) {
+		pr_warn("%s: diag_dload mem region not defined\n", __func__);
+		return -EINVAL;
+	}
+
+	memcpy_fromio(&local_dload_struct.pid, &diag_dload->pid,
+			sizeof(local_dload_struct.pid));
+
+	return scnprintf(page, PAGE_SIZE, "%x\n", local_dload_struct.pid);
+}
+
+static ssize_t diag_pid_store(struct config_item *item, const char *page,
+		size_t len)
+{
+	int ret;
+	u32 pid;
+
+	if (!diag_dload) {
+		pr_warn("%s: diag_dload mem region not defined\n", __func__);
+		return 0;
+	}
+
+	ret = kstrtou32(page, 0, &pid);
+	if (ret)
+		return ret;
+
+	memcpy_toio(&diag_dload->pid, &pid, sizeof(pid));
+
+	pid = PID_MAGIC_ID;
+	memcpy_toio(&diag_dload->pid_magic, &pid, sizeof(pid));
+
+	return len;
+}
+
+CONFIGFS_ATTR(diag_, pid);
+
+static ssize_t diag_serial_show(struct config_item *item, char *page)
+{
+	struct dload_struct local_dload_struct;
+
+	if (!diag_dload) {
+		pr_warn("%s: diag_dload mem region not defined\n", __func__);
+		return -EINVAL;
+	}
+
+	memcpy_fromio(&local_dload_struct.serial_number,
+			&diag_dload->serial_number,
+			SERIAL_NUMBER_LENGTH);
+
+	return scnprintf(page, PAGE_SIZE, "%s\n",
+			local_dload_struct.serial_number);
+}
+
+static ssize_t diag_serial_store(struct config_item *item, const char *page,
+		size_t len)
+{
+	u32 magic;
+	char *p;
+	char serial_number[SERIAL_NUMBER_LENGTH] = {0};
+
+	if (!diag_dload) {
+		pr_warn("%s: diag_dload mem region not defined\n", __func__);
+		return 0;
+	}
+
+	strlcpy(serial_number, page, SERIAL_NUMBER_LENGTH);
+	p = strnchr(serial_number, SERIAL_NUMBER_LENGTH, '\n');
+	if (p)
+		*p = '\0';
+
+	memcpy_toio(&diag_dload->serial_number, serial_number,
+			SERIAL_NUMBER_LENGTH);
+
+	magic = SERIAL_NUM_MAGIC_ID;
+	memcpy_toio(&diag_dload->serial_magic, &magic, sizeof(magic));
+
+	return len;
+}
+
+CONFIGFS_ATTR(diag_, serial);
+
+static struct configfs_attribute *diag_attrs[] = {
+	&diag_attr_pid,
+	&diag_attr_serial,
+	NULL,
+};
+
 static struct config_item_type diag_func_type = {
 	.ct_item_ops	= &diag_item_ops,
+	.ct_attrs	= diag_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
