@@ -882,8 +882,18 @@ static int handle_rx_console(struct uart_port *uport,
 				tty_insert_flip_char(tport, rx_char[c], flag);
 		}
 	}
-	if (!drop_rx)
+	if (!drop_rx) {
+		/*
+		 * Driver acquiring port->lock in isr function and calling
+		 * tty_flip_buffer_push() which in turn will wait for
+		 * another lock from framework __queue_work function.
+		 * release the port lock before calling tty_flip_buffer_push()
+		 * to avoid deadlock scenarios.
+		 */
+		spin_unlock(&uport->lock);
 		tty_flip_buffer_push(tport);
+		spin_lock(&uport->lock);
+	}
 	return 0;
 }
 #else
@@ -1524,14 +1534,13 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	unsigned int dma_tx_status;
 	unsigned int dma_rx_status;
 	struct uart_port *uport = dev;
-	unsigned long flags;
 	unsigned int m_irq_en;
 	unsigned int geni_status;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	struct tty_port *tport = &uport->state->port;
 	bool drop_rx = false;
 
-	spin_lock_irqsave(&uport->lock, flags);
+	spin_lock(&uport->lock);
 	if (uart_console(uport) && uport->suspended) {
 		IPC_LOG_MSG(msm_port->console_log,
 			"%s. Console in suspend state\n", __func__);
@@ -1637,7 +1646,7 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	}
 
 exit_geni_serial_isr:
-	spin_unlock_irqrestore(&uport->lock, flags);
+	spin_unlock(&uport->lock);
 	return IRQ_HANDLED;
 }
 
