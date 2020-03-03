@@ -143,7 +143,7 @@ static size_t g_max_cb_buf_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 static long smcinvoke_ioctl(struct file *, unsigned int, unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
 static int smcinvoke_release(struct inode *, struct file *);
-static int destroy_cb_server(uint16_t);
+static int release_cb_server(uint16_t);
 
 static const struct file_operations g_smcinvoke_fops = {
 	.owner		= THIS_MODULE,
@@ -212,6 +212,7 @@ struct smcinvoke_server_info {
 	uint16_t server_id;
 	uint16_t state;
 	uint32_t txn_id;
+	struct kref ref_cnt;
 	wait_queue_head_t req_wait_q;
 	wait_queue_head_t rsp_wait_q;
 	size_t cb_buf_size;
@@ -247,6 +248,23 @@ struct smcinvoke_mem_obj {
 	struct list_head list;
 };
 
+static void destroy_cb_server(struct kref *kref)
+{
+	struct smcinvoke_server_info *server = container_of(kref,
+					struct smcinvoke_server_info, ref_cnt);
+	if (server) {
+		hash_del(&server->hash);
+		kfree(server);
+	}
+}
+
+/*
+ *  A separate find func is reqd mainly for couple of cases:
+ *  next_cb_server_id_locked which checks if server id had been utilized or not.
+ *      - It would be overhead if we do ref_cnt for this case
+ *  smcinvoke_release: which is called when server is closed from userspace.
+ *      - During server creation we init ref count, now put it back
+ */
 static struct smcinvoke_server_info *find_cb_server_locked(uint16_t server_id)
 {
 	struct smcinvoke_server_info *data = NULL;
@@ -256,6 +274,16 @@ static struct smcinvoke_server_info *find_cb_server_locked(uint16_t server_id)
 			return data;
 	}
 	return  NULL;
+}
+
+struct smcinvoke_server_info *get_cb_server_locked(uint16_t server_id)
+{
+	struct smcinvoke_server_info *server = find_cb_server_locked(server_id);
+
+	if (server)
+		kref_get(&server->ref_cnt);
+
+	return server;
 }
 
 static uint16_t next_cb_server_id_locked(void)
@@ -390,19 +418,18 @@ static void free_pending_cbobj_locked(struct kref *kref)
 	list_del(&obj->list);
 	server = obj->server;
 	kfree(obj);
-	if ((server->state == SMCINVOKE_SERVER_STATE_DEFUNCT) &&
-				list_empty(&server->pending_cbobjs)) {
-		hash_del(&server->hash);
-		kfree(server);
-	}
+	if (server)
+		kref_put(&server->ref_cnt, destroy_cb_server);
 }
 
 static int get_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
 {
+	int ret = 0;
+	bool release_server = true;
 	struct list_head *head = NULL;
 	struct smcinvoke_cbobj *cbobj = NULL;
 	struct smcinvoke_cbobj *obj = NULL;
-	struct smcinvoke_server_info *server = find_cb_server_locked(srvr_id);
+	struct smcinvoke_server_info *server = get_cb_server_locked(srvr_id);
 
 	if (!server)
 		return OBJECT_ERROR_BADOBJ;
@@ -411,38 +438,50 @@ static int get_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
 	list_for_each_entry(cbobj, head, list)
 		if (cbobj->cbobj_id == obj_id)  {
 			kref_get(&cbobj->ref_cnt);
-			return 0;
+			goto out;
 		}
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
-	if (!obj)
-		return OBJECT_ERROR_KMEM;
+	if (!obj) {
+		ret = OBJECT_ERROR_KMEM;
+		goto out;
+	}
 
 	obj->cbobj_id = obj_id;
 	kref_init(&obj->ref_cnt);
 	obj->server = server;
+	/*
+	 * we are holding server ref in cbobj; we will
+	 * release server ref when cbobj is destroyed
+	 */
+	release_server = false;
 	list_add_tail(&obj->list, head);
-
-	return 0;
+out:
+	if (release_server)
+		kref_put(&server->ref_cnt, destroy_cb_server);
+	return ret;
 }
 
 static int put_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
 {
+	int ret = -EINVAL;
 	struct smcinvoke_server_info *srvr_info =
-					find_cb_server_locked(srvr_id);
+					get_cb_server_locked(srvr_id);
 	struct list_head *head = NULL;
 	struct smcinvoke_cbobj *cbobj = NULL;
 
 	if (!srvr_info)
-		return -EINVAL;
+		return ret;
 
 	head = &srvr_info->pending_cbobjs;
 	list_for_each_entry(cbobj, head, list)
 		if (cbobj->cbobj_id == obj_id)  {
 			kref_put(&cbobj->ref_cnt, free_pending_cbobj_locked);
-			return 0;
+			ret = 0;
+			break;
 		}
-	return -EINVAL;
+	kref_put(&srvr_info->ref_cnt, destroy_cb_server);
+	return ret;
 }
 
 static int release_tzhandle_locked(int32_t tzhandle)
@@ -905,7 +944,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	kref_init(&cb_txn->ref_cnt);
 
 	mutex_lock(&g_smcinvoke_lock);
-	srvr_info = find_cb_server_locked(
+	srvr_info = get_cb_server_locked(
 				TZHANDLE_GET_SERVER(cb_req->hdr.tzhandle));
 	if (!srvr_info || srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT) {
 		/* ret equals Object_ERROR_DEFUNCT, at this point go to out */
@@ -946,6 +985,8 @@ out:
 	}
 	memcpy(buf, cb_req, buf_len);
 	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
+	if (srvr_info)
+		kref_put(&srvr_info->ref_cnt, destroy_cb_server);
 	mutex_unlock(&g_smcinvoke_lock);
 }
 
@@ -1426,6 +1467,7 @@ static long process_server_req(struct file *filp, unsigned int cmd,
 	if (!server_info)
 		return -ENOMEM;
 
+	kref_init(&server_info->ref_cnt);
 	init_waitqueue_head(&server_info->req_wait_q);
 	init_waitqueue_head(&server_info->rsp_wait_q);
 	server_info->cb_buf_size = server_req.cb_buf_size;
@@ -1446,7 +1488,7 @@ static long process_server_req(struct file *filp, unsigned int cmd,
 				server_info->server_id, &server_fd);
 
 	if (ret)
-		destroy_cb_server(server_info->server_id);
+		release_cb_server(server_info->server_id);
 
 	return server_fd;
 }
@@ -1476,7 +1518,7 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		return -EPERM;
 
 	mutex_lock(&g_smcinvoke_lock);
-	server_info = find_cb_server_locked(server_obj->server_id);
+	server_info = get_cb_server_locked(server_obj->server_id);
 	mutex_unlock(&g_smcinvoke_lock);
 	if (!server_info)
 		return -EINVAL;
@@ -1571,6 +1613,8 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		}
 	} while (!cb_txn);
 out:
+	if (server_info)
+		kref_put(&server_info->ref_cnt, destroy_cb_server);
 	return ret;
 }
 
@@ -1732,26 +1776,14 @@ static int smcinvoke_open(struct inode *nodp, struct file *filp)
 	return 0;
 }
 
-static int destroy_cb_server(uint16_t server_id)
+static int release_cb_server(uint16_t server_id)
 {
 	struct smcinvoke_server_info *server = NULL;
 
 	mutex_lock(&g_smcinvoke_lock);
 	server = find_cb_server_locked(server_id);
-	if (server) {
-		if (!list_empty(&server->pending_cbobjs)) {
-			server->state = SMCINVOKE_SERVER_STATE_DEFUNCT;
-			wake_up_interruptible(&server->rsp_wait_q);
-			/*
-			 * we dont worry about threads waiting on req_wait_q
-			 * because server can't be closed as long as there is
-			 * atleast one accept thread active
-			 */
-		} else {
-			hash_del(&server->hash);
-			kfree(server);
-		}
-	}
+	if (server)
+		kref_put(&server->ref_cnt, destroy_cb_server);
 	mutex_unlock(&g_smcinvoke_lock);
 	return 0;
 }
@@ -1769,7 +1801,7 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	struct qtee_shm in_shm = {0}, out_shm = {0};
 
 	if (file_data->context_type == SMCINVOKE_OBJ_TYPE_SERVER) {
-		ret = destroy_cb_server(file_data->server_id);
+		ret = release_cb_server(file_data->server_id);
 		goto out;
 	}
 
