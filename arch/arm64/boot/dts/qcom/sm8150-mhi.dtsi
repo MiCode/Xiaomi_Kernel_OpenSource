@@ -462,7 +462,7 @@
 			};
 
 			mhi_event@4 {
-				mhi,num-elements = <32>;
+				mhi,num-elements = <64>;
 				mhi,intmod = <0>;
 				mhi,msi = <0>;
 				mhi,priority = <2>;
@@ -1065,7 +1065,7 @@
 			};
 
 			mhi_event@4 {
-				mhi,num-elements = <32>;
+				mhi,num-elements = <64>;
 				mhi,intmod = <0>;
 				mhi,msi = <0>;
 				mhi,priority = <2>;
