@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_batterydata.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
@@ -98,14 +99,25 @@ static int qg_load_battery_profile(struct qpnp_qg *chip);
 
 static bool is_battery_present(struct qpnp_qg *chip)
 {
+	bool present = true;
 	u8 reg = 0;
 	int rc;
 
-	rc = qg_read(chip, chip->qg_base + QG_STATUS1_REG, &reg, 1);
-	if (rc < 0)
-		pr_err("Failed to read battery presence, rc=%d\n", rc);
+	if (chip->qg_version == QG_LITE) {
+		rc = qg_read(chip, chip->qg_base + QG_STATUS2_REG, &reg, 1);
+		if (rc < 0)
+			pr_err("Failed to read battery presence, rc=%d\n", rc);
+		else
+			present = !(reg & BATTERY_MISSING_BIT);
+	} else {
+		rc = qg_read(chip, chip->qg_base + QG_STATUS1_REG, &reg, 1);
+		if (rc < 0)
+			pr_err("Failed to read battery presence, rc=%d\n", rc);
+		else
+			present = !!(reg & BATTERY_PRESENT_BIT);
+	}
 
-	return !!(reg & BATTERY_PRESENT_BIT);
+	return present;
 }
 
 #define DEBUG_BATT_ID_LOW	6000
@@ -175,7 +187,7 @@ static int qg_update_fifo_length(struct qpnp_qg *chip, u8 length)
 	int rc;
 	u8 s3_entry_fifo_length = 0;
 
-	if (!length || length > 8) {
+	if (!length || length > chip->max_fifo_length) {
 		pr_err("Invalid FIFO length %d\n", length);
 		return -EINVAL;
 	}
@@ -683,7 +695,7 @@ static int qg_vbat_low_wa(struct qpnp_qg *chip)
 	int rc, i, temp = 0;
 	u32 vbat_low_uv = 0;
 
-	if ((chip->wa_flags & QG_VBAT_LOW_WA) && chip->vbat_low) {
+	if (chip->wa_flags & QG_VBAT_LOW_WA) {
 		rc = qg_get_battery_temp(chip, &temp);
 		if (rc < 0) {
 			pr_err("Failed to read batt_temp rc=%d\n", rc);
@@ -693,19 +705,19 @@ static int qg_vbat_low_wa(struct qpnp_qg *chip)
 		vbat_low_uv = 1000 * ((temp < chip->dt.cold_temp_threshold) ?
 					chip->dt.vbatt_low_cold_mv :
 					chip->dt.vbatt_low_mv);
-		vbat_low_uv += VBAT_LOW_HYST_UV;
-		/*
-		 * PMI632 1.0 does not generate a falling VBAT_LOW IRQ.
-		 * To exit from VBAT_LOW config, check if any of the FIFO
-		 * averages is > vbat_low threshold and reconfigure the
-		 * FIFO length to normal.
-		 */
+
 		for (i = 0; i < chip->kdata.fifo_length; i++) {
-			if (chip->kdata.fifo[i].v > vbat_low_uv) {
+			if ((chip->kdata.fifo[i].v > (vbat_low_uv +
+					VBAT_LOW_HYST_UV)) && chip->vbat_low) {
 				chip->vbat_low = false;
-				pr_info("Exit VBAT_LOW vbat_avg=%duV vbat_low=%duV updated fifo_length=%d\n",
-					chip->kdata.fifo[i].v, vbat_low_uv,
-					chip->dt.s2_fifo_length);
+				pr_info("Exit VBAT_LOW vbat_avg=%duV vbat_low=%duV\n",
+					chip->kdata.fifo[i].v, vbat_low_uv);
+				break;
+			} else if ((chip->kdata.fifo[i].v < vbat_low_uv) &&
+							!chip->vbat_low) {
+				chip->vbat_low = true;
+				pr_info("Enter VBAT_LOW vbat_avg=%duV vbat_low=%duV\n",
+					chip->kdata.fifo[i].v, vbat_low_uv);
 				break;
 			}
 		}
@@ -757,6 +769,9 @@ static int qg_vbat_thresholds_config(struct qpnp_qg *chip)
 						vbat_mv, temp);
 
 config_vbat_low:
+	if (chip->qg_version == QG_LITE)
+		return 0;
+
 	vbat_mv = (temp < chip->dt.cold_temp_threshold) ?
 			chip->dt.vbatt_low_cold_mv :
 			chip->dt.vbatt_low_mv;
@@ -3327,6 +3342,11 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 	case PM7250B_SUBTYPE:
 		qg_esr_mod_count = 10;
 		break;
+	case PM2250_SUBTYPE:
+		chip->wa_flags |= QG_CLK_ADJUST_WA |
+				QG_RECHARGE_SOC_WA |
+				QG_VBAT_LOW_WA;
+		break;
 	default:
 		pr_err("Unsupported PMIC subtype %d\n",
 			chip->pmic_rev_id->pmic_subtype);
@@ -3378,6 +3398,9 @@ static int qg_hw_init(struct qpnp_qg *chip)
 {
 	int rc, temp;
 	u8 reg;
+
+	/* read STATUS2 register to clear its last state */
+	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &reg, 1);
 
 	/* read the QG perph_subtype */
 	rc = qg_read(chip, chip->qg_base + PERPH_SUBTYPE_REG,
@@ -3453,7 +3476,8 @@ done_fifo:
 	}
 	chip->last_fifo_update_time = ktime_get_boottime();
 
-	if (chip->dt.ocv_timer_expiry_min != -EINVAL) {
+	if (chip->dt.ocv_timer_expiry_min != -EINVAL &&
+				chip->qg_version != QG_LITE) {
 		if (chip->dt.ocv_timer_expiry_min < 2)
 			chip->dt.ocv_timer_expiry_min = 2;
 		else if (chip->dt.ocv_timer_expiry_min > 30)
@@ -3488,8 +3512,10 @@ done_fifo:
 	if (chip->dt.s3_entry_fifo_length != -EINVAL) {
 		if (chip->dt.s3_entry_fifo_length < 1)
 			chip->dt.s3_entry_fifo_length = 1;
-		else if (chip->dt.s3_entry_fifo_length > 8)
-			chip->dt.s3_entry_fifo_length = 8;
+		else if (chip->dt.s3_entry_fifo_length >
+					chip->max_fifo_length)
+			chip->dt.s3_entry_fifo_length =
+					chip->max_fifo_length;
 
 		reg = chip->dt.s3_entry_fifo_length - 1;
 		rc = qg_masked_write(chip,
@@ -3569,12 +3595,14 @@ done_fifo:
 		return rc;
 	}
 
-	/* disable S5 */
-	rc = qg_masked_write(chip, chip->qg_base +
-				QG_S5_OCV_VALIDATE_MEAS_CTL1_REG,
-				ALLOW_S5_BIT, 0);
-	if (rc < 0)
-		pr_err("Failed to disable S5 rc=%d\n", rc);
+	if (chip->qg_version != QG_LITE) {
+		/* disable S5 */
+		rc = qg_masked_write(chip, chip->qg_base +
+					QG_S5_OCV_VALIDATE_MEAS_CTL1_REG,
+					ALLOW_S5_BIT, 0);
+		if (rc < 0)
+			pr_err("Failed to disable S5 rc=%d\n", rc);
+	}
 
 	/* change PON OCV time to 512ms */
 	rc = qg_masked_write(chip, chip->qg_base +
@@ -3624,7 +3652,6 @@ static int qg_soh_batt_profile_init(struct qpnp_qg *chip)
 
 static int qg_post_init(struct qpnp_qg *chip)
 {
-	u8 status = 0;
 	int rc = 0;
 
 	/* disable all IRQs if profile is not loaded */
@@ -3640,9 +3667,6 @@ static int qg_post_init(struct qpnp_qg *chip)
 	/* restore ESR data */
 	if (!chip->dt.esr_disable)
 		qg_retrieve_esr_params(chip);
-
-	/* read STATUS2 register to clear its last state */
-	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
 
 	/*soh based multi profile init */
 	rc = qg_soh_batt_profile_init(chip);
@@ -3856,6 +3880,13 @@ static int qg_parse_s2_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.s2_fifo_length = temp;
 
+	if (chip->dt.s2_fifo_length > chip->max_fifo_length) {
+		pr_err("Invalid S2 fifo-length=%d max_length=%d\n",
+					chip->dt.s2_fifo_length,
+					chip->max_fifo_length);
+		return -EINVAL;
+	}
+
 	rc = of_property_read_u32(node, "qcom,s2-vbat-low-fifo-length", &temp);
 	if (rc < 0)
 		chip->dt.s2_vbat_low_fifo_length = DEFAULT_S2_VBAT_LOW_LENGTH;
@@ -3890,6 +3921,13 @@ static int qg_parse_s2_dt(struct qpnp_qg *chip)
 		else
 			chip->dt.sleep_s2_fifo_length = temp;
 
+		if (chip->dt.s2_fifo_length > chip->max_fifo_length) {
+			pr_err("Invalid S2 sleep-fifo-length=%d max_length=%d\n",
+					chip->dt.sleep_s2_fifo_length,
+					chip->max_fifo_length);
+			return -EINVAL;
+		}
+
 		rc = of_property_read_u32(node,
 				"qcom,sleep-s2-acc-length", &temp);
 		if (rc < 0)
@@ -3918,6 +3956,13 @@ static int qg_parse_s2_dt(struct qpnp_qg *chip)
 					DEFAULT_FAST_CHG_S2_FIFO_LENGTH;
 		else
 			chip->dt.fast_chg_s2_fifo_length = temp;
+
+		if (chip->dt.fast_chg_s2_fifo_length > chip->max_fifo_length) {
+			pr_err("Invalid S2 fast-fifo-length=%d max_length=%d\n",
+					chip->dt.fast_chg_s2_fifo_length,
+					chip->max_fifo_length);
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -4598,6 +4643,17 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->esr_nominal = -EINVAL;
 	chip->batt_age_level = -EINVAL;
 
+	chip->qg_version = (u8)of_device_get_match_data(&pdev->dev);
+
+	switch (chip->qg_version) {
+	case QG_LITE:
+		chip->max_fifo_length = 5;
+		break;
+	default:
+		chip->max_fifo_length = 8;
+		break;
+	}
+
 	qg_create_debugfs(chip);
 
 	rc = qg_alg_init(chip);
@@ -4737,8 +4793,10 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	}
 
 	qg_get_battery_capacity(chip, &soc);
-	pr_info("QG initialized! battery_profile=%s SOC=%d QG_subtype=%d\n",
-			qg_get_battery_type(chip), soc, chip->qg_subtype);
+
+	pr_info("QG initialized! battery_profile=%s SOC=%d QG_subtype=%d QG_version=%s\n",
+			qg_get_battery_type(chip), soc, chip->qg_subtype,
+			(chip->qg_version == QG_LITE) ? "QG_LITE" : "QG_PMIC5");
 
 	return rc;
 
@@ -4793,7 +4851,8 @@ static void qpnp_qg_shutdown(struct platform_device *pdev)
 }
 
 static const struct of_device_id match_table[] = {
-	{ .compatible = "qcom,qpnp-qg", },
+	{ .compatible = "qcom,qpnp-qg", .data = (void *)QG_PMIC5, },
+	{ .compatible = "qcom,qpnp-qg-lite", .data = (void *)QG_LITE, },
 	{ },
 };
 
