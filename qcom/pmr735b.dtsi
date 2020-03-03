@@ -48,13 +48,13 @@
 			pmr735b_trip1: trip1 {
 				temperature = <115000>;
 				hysteresis = <0>;
-				type = "passive";
+				type = "critical";
 			};
 
 			pmr735b_trip2: trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
