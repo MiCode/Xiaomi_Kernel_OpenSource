@@ -199,8 +199,6 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
 
-static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu);
-
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
 	if (pm_runtime_enabled(smmu->dev))
@@ -405,6 +403,14 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
  *
  * device_group()
  * Hook for checking whether a device is compatible with a said group.
+ *
+ * tlb_sync_timeout()
+ * Hook for performing architecture-specific procedures to collect additional
+ * debugging information on a TLB sync timeout.
+ *
+ * device_remove()
+ * Hook for performing architecture-specific procedures prior to powering off
+ * the SMMU.
  */
 struct arm_smmu_arch_ops {
 	int (*init)(struct arm_smmu_device *smmu);
@@ -414,6 +420,8 @@ struct arm_smmu_arch_ops {
 	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
 					struct device *dev);
 	int (*device_group)(struct device *dev, struct iommu_group *group);
+	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
+	void (*device_remove)(struct arm_smmu_device *smmu);
 };
 
 static int arm_smmu_arch_init(struct arm_smmu_device *smmu)
@@ -457,6 +465,24 @@ static int arm_smmu_arch_device_group(struct device *dev,
 	if (!smmu->arch_ops->device_group)
 		return 0;
 	return smmu->arch_ops->device_group(dev, group);
+}
+
+static void arm_smmu_arch_tlb_sync_timeout(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops || !smmu->arch_ops->tlb_sync_timeout)
+		return;
+
+	smmu->arch_ops->tlb_sync_timeout(smmu);
+}
+
+
+static void arm_smmu_arch_device_remove(struct arm_smmu_device *smmu)
+{
+	if (!smmu->arch_ops)
+		return;
+	if (!smmu->arch_ops->device_remove)
+		return;
+	return smmu->arch_ops->device_remove(smmu);
 }
 
 static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu)
@@ -894,6 +920,13 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 	unsigned int inc, delay;
 	u32 reg;
 
+	/*
+	 * Allowing an unbounded number of sync requests to be submitted when a
+	 * TBU is not processing sync requests can cause a TBU's command queue
+	 * to fill up. Once the queue is full, subsequent sync requests can
+	 * stall the CPU indefinitely. Avoid this by gating subsequent sync
+	 * requests after the first sync timeout on an SMMU.
+	 */
 	if (IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG) &&
 	    test_bit(0, &smmu->sync_timed_out))
 		return -EINVAL;
@@ -915,7 +948,7 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 		goto out;
 
 	trace_tlbsync_timeout(smmu->dev, 0);
-	__arm_smmu_tlb_sync_timeout(smmu);
+	arm_smmu_arch_tlb_sync_timeout(smmu);
 
 out:
 	return -EINVAL;
@@ -4853,7 +4886,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_bus_init(NULL);
 	iommu_device_unregister(&smmu->iommu);
 
-	cancel_work_sync(&smmu->outstanding_tnx_work);
+	arm_smmu_arch_device_remove(smmu);
 
 	idr_destroy(&smmu->asid_idr);
 
@@ -5009,6 +5042,8 @@ struct qsmmuv500_archdata {
 	u32				version;
 	struct actlr_setting		*actlrs;
 	u32				actlr_tbl_size;
+	struct work_struct		outstanding_tnx_work;
+	struct arm_smmu_device		*smmu;
 };
 #define get_qsmmuv500_archdata(smmu)				\
 	((struct qsmmuv500_archdata *)(smmu->archdata))
@@ -5047,15 +5082,15 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
  */
 static DEFINE_MUTEX(capture_reg_lock);
 
-static void arm_smmu_log_outstanding_transactions(struct work_struct *work)
+static void qsmmuv500_log_outstanding_transactions(struct work_struct *work)
 {
 	struct qsmmuv500_tbu_device *tbu = NULL;
 	u64 outstanding_tnxs;
 	u64 tcr_cntl_val, res;
-	struct arm_smmu_device *smmu = container_of(work,
-						    struct arm_smmu_device,
-						    outstanding_tnx_work);
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	struct qsmmuv500_archdata *data = container_of(work,
+						struct qsmmuv500_archdata,
+						outstanding_tnx_work);
+	struct arm_smmu_device *smmu = data->smmu;
 	void __iomem *base;
 
 	if (!mutex_trylock(&capture_reg_lock)) {
@@ -5126,13 +5161,14 @@ bug:
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }
 
-static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu)
+static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 {
 	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
 	u32 tbu_inv_pending = 0, tbu_sync_pending = 0;
 	u32 tbu_inv_acked = 0, tbu_sync_acked = 0;
 	u32 tcu_inv_pending = 0, tcu_sync_pending = 0;
 	u32 tbu_ids = 0;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	int ret;
 
 	static DEFINE_RATELIMIT_STATE(_rs,
@@ -5212,10 +5248,17 @@ static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	}
 
 	if (tcu_sync_pending)
-		schedule_work(&smmu->outstanding_tnx_work);
+		schedule_work(&data->outstanding_tnx_work);
 	else
 out:
 		BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+}
+
+static void qsmmuv500_device_remove(struct arm_smmu_device *smmu)
+{
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+
+	cancel_work_sync(&data->outstanding_tnx_work);
 }
 
 static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
@@ -5726,6 +5769,7 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
+	data->smmu = smmu;
 
 	ret = qsmmuv500_read_actlr_tbl(smmu);
 	if (ret)
@@ -5746,8 +5790,8 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	if (ret)
 		return ret;
 
-	INIT_WORK(&smmu->outstanding_tnx_work,
-		  arm_smmu_log_outstanding_transactions);
+	INIT_WORK(&data->outstanding_tnx_work,
+		  qsmmuv500_log_outstanding_transactions);
 
 	/* Attempt to register child devices */
 	ret = device_for_each_child(dev, smmu, qsmmuv500_tbu_register);
@@ -5762,6 +5806,8 @@ static struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
 	.init_context_bank = qsmmuv500_init_cb,
 	.device_group = qsmmuv500_device_group,
+	.tlb_sync_timeout = qsmmuv500_tlb_sync_timeout,
+	.device_remove = qsmmuv500_device_remove,
 };
 
 static const struct of_device_id qsmmuv500_tbu_of_match[] = {
