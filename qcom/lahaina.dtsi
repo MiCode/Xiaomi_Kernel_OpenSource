@@ -3773,7 +3773,6 @@
 	};
 };
 
-#include "lahaina-thermal.dtsi"
 #include "ipcc-test.dtsi"
 #include "lahaina-regulators.dtsi"
 #include "lahaina-pinctrl.dtsi"
@@ -3813,6 +3812,7 @@
 
 #include "lahaina-gpu.dtsi"
 #include "display/lahaina-sde.dtsi"
+#include "lahaina-thermal.dtsi"
 
 &qupv3_se18_4uart {
 	status = "ok";
