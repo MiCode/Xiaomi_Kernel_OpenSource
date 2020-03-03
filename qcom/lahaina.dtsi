@@ -1489,7 +1489,6 @@
 		lanes-per-direction = <2>;
 		limit-rate = <1>; /* HS Rate-A */
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
-		qcom,disable-lpm;
 		clock-names =
 			"core_clk",
 			"bus_aggr_clk",
@@ -1585,8 +1584,6 @@
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "rst";
 		dma-coherent;
-		limit-tx-hs-gear = <3>;
-		limit-rx-hs-gear = <3>;
 
 		status = "disabled";
 	};
