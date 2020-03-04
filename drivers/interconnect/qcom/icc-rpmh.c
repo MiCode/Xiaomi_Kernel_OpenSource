@@ -3,6 +3,7 @@
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/clk.h>
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
 #include <linux/module.h>
@@ -11,6 +12,7 @@
 
 #include "bcm-voter.h"
 #include "icc-rpmh.h"
+#include "qnoc-qos.h"
 
 /**
  * qcom_icc_pre_aggregate - cleans up stale values from prior icc_set
@@ -99,6 +101,15 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 
 	for (i = 0; i < qp->num_voters; i++)
 		qcom_icc_bcm_voter_commit(qp->voters[i]);
+
+	/* Defer setting QoS until the first non-zero bandwidth request. */
+	if (qn && qn->qosbox && !qn->qosbox->initialized &&
+	    (node->avg_bw || node->peak_bw)) {
+		clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+		qn->noc_ops->set_qos(qn);
+		clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
+		qn->qosbox->initialized = true;
+	}
 
 	return 0;
 }
