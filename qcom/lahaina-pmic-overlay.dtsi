@@ -38,6 +38,20 @@
 	};
 };
 
+&pm8350c_gpios {
+	lcd_backlight_ctrl {
+		lcd_backlight_ctrl_default: lcd_backlight_ctrl_default {
+			pins = "gpio9";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <1>;	/* 1.8V */
+			qcom,drive-strength = <2>;
+		};
+	};
+};
+
 &qupv3_se13_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
