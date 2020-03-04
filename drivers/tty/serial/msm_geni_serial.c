@@ -3113,6 +3113,7 @@ static const struct dev_pm_ops msm_geni_serial_pm_ops = {
 	.resume_noirq = msm_geni_serial_sys_resume_noirq,
 	.freeze = msm_geni_serial_sys_suspend_noirq,
 	.restore = msm_geni_serial_sys_hib_resume_noirq,
+	.thaw = msm_geni_serial_sys_hib_resume_noirq,
 };
 
 static struct platform_driver msm_geni_serial_platform_driver = {
