@@ -991,6 +991,8 @@ err:
 		icc_node_destroy(node->id);
 	}
 
+	clk_bulk_put_all(qp->num_clks, qp->clks);
+
 	icc_provider_del(provider);
 	return ret;
 }
@@ -1005,6 +1007,8 @@ static int qnoc_remove(struct platform_device *pdev)
 		icc_node_del(n);
 		icc_node_destroy(n->id);
 	}
+
+	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	return icc_provider_del(provider);
 }
@@ -1040,25 +1044,11 @@ static void qnoc_sync_state(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
-	struct icc_provider *provider = &qp->provider;
-	struct qcom_icc_node *qnode;
 	struct qcom_icc_bcm *bcm;
 	struct bcm_voter *voter;
-	struct icc_node *node;
 
 	mutex_lock(&probe_list_lock);
 	probe_count++;
-
-	clk_bulk_prepare_enable(qp->num_clks, qp->clks);
-
-	list_for_each_entry(node, &provider->nodes, node_list) {
-		qnode = node->data;
-		if (qnode && qnode->noc_ops)
-			qnode->noc_ops->set_qos(qnode);
-	}
-
-	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
-	clk_bulk_put_all(qp->num_clks, qp->clks);
 
 	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
 		mutex_unlock(&probe_list_lock);

@@ -37,6 +37,7 @@ struct qos_config {
 struct qcom_icc_qosbox {
 	u32 num_ports;
 	const u8 *regs;
+	bool initialized;
 	struct qos_config *config;
 	u32 offsets[];
 };
