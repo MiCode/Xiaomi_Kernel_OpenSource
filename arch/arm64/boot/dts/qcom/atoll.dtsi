@@ -629,14 +629,19 @@
 			size = <0 0x8c00000>;
 		};
 
-		cont_splash_memory: cont_splash_region@9bc00000 {
-			reg = <0x0 0x9bc00000 0x0 0x02300000>;
+		cont_splash_memory: cont_splash_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x01700000>;
 			label = "cont_splash_region";
 		};
 
 		dfps_data_memory: dfps_data_region@9d700000 {
 			reg = <0x0 0x9d700000 0x0 0x0100000>;
 			label = "dfps_data_region";
+		};
+
+		disp_rdump_memory: disp_rdump_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x01700000>;
+			label = "disp_rdump_region";
 		};
 
 		adsp_mem: adsp_region {
