@@ -357,13 +357,14 @@ int32_t habmm_unimport(int32_t handle, uint32_t export_id, void *buff_shared,
  * status (success/failure)
  *
  */
+#define VMNAME_SIZE 12
 
 struct hab_socket_info {
 	int32_t vmid_remote; /* habmm's vmid */
 	int32_t vmid_local;
 	/* name from hypervisor framework if available */
-	char    vmname_remote[12];
-	char    vmname_local[12];
+	char    vmname_remote[VMNAME_SIZE];
+	char    vmname_local[VMNAME_SIZE];
 };
 
 int32_t habmm_socket_query(int32_t handle, struct hab_socket_info *info,

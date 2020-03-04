@@ -141,7 +141,10 @@ int32_t habmm_socket_query(int32_t handle,
 {
 	int ret;
 	uint64_t ids;
-	char nm[sizeof(info->vmname_remote) + sizeof(info->vmname_local)];
+	char nm[VMNAME_SIZE * 2];
+
+	if (!info)
+		return -EINVAL;
 
 	ret = hab_vchan_query(hab_driver.kctx, handle, &ids, nm, sizeof(nm), 1);
 	if (!ret) {
