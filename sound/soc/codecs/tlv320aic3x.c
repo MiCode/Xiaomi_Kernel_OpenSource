@@ -1044,8 +1044,10 @@ static int aic3x_hw_params(struct snd_pcm_substream *substream,
 	int clk;
 	int width = aic3x->slot_width;
 
-	if (!width)
+	if (!width) {
 		width = params_width(params);
+		aic3x->slot_width = width;
+	}
 
 	/* select data word length */
 	data = snd_soc_read(codec, AIC3X_ASD_INTF_CTRLB) & (~(0x3 << 4));
