@@ -6033,7 +6033,8 @@ static int smblib_role_switch_failure(struct smb_charger *chg, int mode)
 	 * When role switch fails notify the
 	 * current charger state to usb driver.
 	 */
-	if (pval.intval && mode == TYPEC_PORT_SRC) {
+	if (pval.intval && (mode == TYPEC_PORT_SRC) &&
+				(chg->typec_mode == POWER_SUPPLY_TYPEC_NONE)) {
 		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
 		smblib_notify_device_mode(chg, true);
 	}
@@ -6110,8 +6111,6 @@ static void typec_sink_removal(struct smb_charger *chg)
 			smblib_notify_usb_host(chg, false);
 		chg->otg_present = false;
 	}
-
-	typec_partner_unregister(chg);
 }
 
 static void typec_src_removal(struct smb_charger *chg)
@@ -6247,7 +6246,6 @@ static void typec_src_removal(struct smb_charger *chg)
 	if (chg->use_extcon)
 		smblib_notify_device_mode(chg, false);
 
-	typec_partner_unregister(chg);
 	chg->typec_legacy = false;
 
 	del_timer_sync(&chg->apsd_timer);
@@ -6390,6 +6388,7 @@ static void smblib_lpd_clear_ra_open_work(struct smb_charger *chg)
 	vote(chg->awake_votable, LPD_VOTER, false, 0);
 }
 
+#define TYPEC_DETACH_DETECT_DELAY_MS 2000
 irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -6466,8 +6465,20 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 		 */
 		mutex_lock(&chg->typec_lock);
 
-		if (chg->typec_port && !chg->pr_swap_in_progress)
+		if (chg->typec_port && !chg->pr_swap_in_progress) {
+
+			/*
+			 * Schedule the work to differentiate actual removal
+			 * of cable and detach interrupt during role swap,
+			 * unregister the partner only during actual cable
+			 * removal.
+			 */
+			cancel_delayed_work(&chg->pr_swap_detach_work);
+			vote(chg->awake_votable, DETACH_DETECT_VOTER, true, 0);
+			schedule_delayed_work(&chg->pr_swap_detach_work,
+				msecs_to_jiffies(TYPEC_DETACH_DETECT_DELAY_MS));
 			smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
+		}
 
 		mutex_unlock(&chg->typec_lock);
 
@@ -7093,6 +7104,9 @@ static void smblib_pr_swap_detach_work(struct work_struct *work)
 		rc = smblib_request_dpdm(chg, false);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't disable DPDM rc=%d\n", rc);
+
+		if (chg->typec_port)
+			typec_partner_unregister(chg);
 	}
 out:
 	vote(chg->awake_votable, DETACH_DETECT_VOTER, false, 0);
