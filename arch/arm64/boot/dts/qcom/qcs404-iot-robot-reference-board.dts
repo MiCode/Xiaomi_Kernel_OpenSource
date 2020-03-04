@@ -23,6 +23,10 @@
 	qcom,board-id = <0x010020 3>;
 };
 
+&mdss_rgb {
+	status = "disabled";
+};
+
 &i2c_5 {
 	status = "ok";
 };
