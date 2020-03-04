@@ -19,6 +19,13 @@
 		interrupts = <0 300 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "kgsl_3d0_irq";
 
+		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
+			<&clock_gpucc GPU_CC_AHB_CLK>;
+		clock-names = "gcc_gpu_memnoc_gfx",
+				"gcc_gpu_snoc_dvm_gfx",
+				"gpu_cc_ahb";
+
 		qcom,chipid = <0x06060000>;
 
 		qcom,initial-pwrlevel = <4>;
@@ -184,12 +191,7 @@
 		compatible = "qcom,kgsl-smmu-v2";
 		reg = <0x03da0000 0x20000>;
 
-		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
-			<&clock_gpucc GPU_CC_AHB_CLK>;
-		clock-names = "gcc_gpu_memnoc_gfx",
-				"gcc_gpu_snoc_dvm_gfx",
-				"gpu_cc_ahb";
+		vddcx-supply = <&gpu_cc_cx_gdsc>;
 
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
