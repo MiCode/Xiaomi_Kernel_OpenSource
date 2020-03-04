@@ -5260,7 +5260,7 @@
 
 		altmode: qcom,altmode {
 			compatible = "qcom,altmode-glink";
-			qcom,altmode-name = "altmode_0";
+			#altmode-cells = <1>;
 		};
 	};
 
