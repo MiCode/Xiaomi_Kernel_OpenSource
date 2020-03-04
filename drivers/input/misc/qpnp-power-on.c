@@ -1971,7 +1971,8 @@ static void qpnp_pon_debugfs_remove(struct qpnp_pon *pon)
 static int qpnp_pon_read_gen2_pon_off_reason(struct qpnp_pon *pon, u16 *reason,
 					int *reason_index_offset)
 {
-	unsigned int buf[2], reg;
+	unsigned int reg, reg1;
+	u8 buf[2];
 	int rc;
 
 	rc = qpnp_pon_read(pon, QPNP_PON_OFF_REASON(pon), &reg);
@@ -1979,10 +1980,10 @@ static int qpnp_pon_read_gen2_pon_off_reason(struct qpnp_pon *pon, u16 *reason,
 		return rc;
 
 	if (reg & QPNP_GEN2_POFF_SEQ) {
-		rc = qpnp_pon_read(pon, QPNP_POFF_REASON1(pon), buf);
+		rc = qpnp_pon_read(pon, QPNP_POFF_REASON1(pon), &reg1);
 		if (rc)
 			return rc;
-		*reason = (u8)buf[0];
+		*reason = (u8)reg1;
 		*reason_index_offset = 0;
 	} else if (reg & QPNP_GEN2_FAULT_SEQ) {
 		rc = regmap_bulk_read(pon->regmap, QPNP_FAULT_REASON1(pon), buf,
@@ -1992,13 +1993,13 @@ static int qpnp_pon_read_gen2_pon_off_reason(struct qpnp_pon *pon, u16 *reason,
 				QPNP_FAULT_REASON1(pon), rc);
 			return rc;
 		}
-		*reason = (u8)buf[0] | (u16)(buf[1] << 8);
+		*reason = buf[0] | (u16)(buf[1] << 8);
 		*reason_index_offset = POFF_REASON_FAULT_OFFSET;
 	} else if (reg & QPNP_GEN2_S3_RESET_SEQ) {
-		rc = qpnp_pon_read(pon, QPNP_S3_RESET_REASON(pon), buf);
+		rc = qpnp_pon_read(pon, QPNP_S3_RESET_REASON(pon), &reg1);
 		if (rc)
 			return rc;
-		*reason = (u8)buf[0];
+		*reason = (u8)reg1;
 		*reason_index_offset = POFF_REASON_S3_RESET_OFFSET;
 	}
 
@@ -2072,7 +2073,7 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 {
 	struct device *dev = pon->dev;
 	unsigned int reg = 0;
-	unsigned int buf[2];
+	u8 buf[2];
 	int reason_index_offset = 0;
 	unsigned int pon_sts = 0;
 	u16 poff_sts = 0;
@@ -2148,10 +2149,11 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 				QPNP_POFF_REASON1(pon), rc);
 			return rc;
 		}
-		poff_sts = buf[0] | (buf[1] << 8);
+		poff_sts = buf[0] | (u16)(buf[1] << 8);
 	}
 	index = ffs(poff_sts) - 1 + reason_index_offset;
-	if (index >= ARRAY_SIZE(qpnp_poff_reason) || index < 0) {
+	if (index >= ARRAY_SIZE(qpnp_poff_reason) || index < 0 ||
+					index < reason_index_offset) {
 		dev_info(dev, "PMIC@SID%d: Unknown power-off reason\n",
 			 to_spmi_device(dev->parent)->usid);
 	} else {
