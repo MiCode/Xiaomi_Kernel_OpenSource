@@ -3769,6 +3769,7 @@ static const struct qcom_reset_map gcc_bengal_resets[] = {
 	[GCC_QUSB2PHY_PRIM_BCR] = { 0x1c000 },
 	[GCC_QUSB2PHY_SEC_BCR] = { 0x1c004 },
 	[GCC_SDCC1_BCR] = { 0x38000 },
+	[GCC_SDCC2_BCR] = { 0x141E000 },
 	[GCC_UFS_PHY_BCR] = { 0x45000 },
 	[GCC_USB30_PRIM_BCR] = { 0x1a000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x1d000 },
