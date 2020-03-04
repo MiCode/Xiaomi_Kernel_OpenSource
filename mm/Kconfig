@@ -805,4 +805,31 @@ config ARCH_HAS_PTE_SPECIAL
 config ARCH_HAS_HUGEPD
 	bool
 
+config PRIORITIZE_OOM_TASKS
+	bool "Attempt to further prioritize OOM killer kills"
+	depends on QGKI
+	help
+	  When the OOM killer selects a task to kill it considers all tasks
+	  with a oom_score_adj value > OOM_SCORE_ADJ_MIN. This doesn't work
+	  well when the OS has 'high priority' tasks which should only be
+	  considered for killing after all other 'lower priority' tasks
+	  have first been killed.
+
+	  Enable this option to impose a limit on the minimum task
+	  oom_score_adj which should first be considered for killing
+	  before allowing the OOM killer to select tasks without
+	  limitation.
+
+	  If unsure, say N.
+
+config OOM_TASK_PRIORITY_ADJ_LIMIT
+	int "Min oom_score_adj when priotizing OOM killer kills"
+	depends on PRIORITIZE_OOM_TASKS
+	range -1000 1000
+	default 0
+	help
+	  With this parameter you can limit the OOM killer to first kill
+	  tasks with an oom_score_adj value above a certain threshold
+	  before considering tasks with a lower oom_score_adj value.
+
 endmenu
