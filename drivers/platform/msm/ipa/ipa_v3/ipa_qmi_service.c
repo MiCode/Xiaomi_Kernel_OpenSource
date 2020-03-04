@@ -2101,7 +2101,7 @@ int ipa3_qmi_set_aggr_info(enum ipa_aggr_enum_type_v01 aggr_enum_type)
 		resp.resp.error, "ipa_mhi_prime_aggr_info_req_msg_v01");
 }
 
-int ipa3_qmi_req_ind(void)
+int ipa3_qmi_req_ind(bool bw_reg)
 {
 	struct ipa_indication_reg_req_msg_v01 req;
 	struct ipa_indication_reg_resp_msg_v01 resp;
@@ -2112,7 +2112,7 @@ int ipa3_qmi_req_ind(void)
 	memset(&resp, 0, sizeof(struct ipa_indication_reg_resp_msg_v01));
 
 	req.bw_change_ind_valid = true;
-	req.bw_change_ind = true;
+	req.bw_change_ind = bw_reg;
 
 	req_desc.max_msg_len =
 		QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01;

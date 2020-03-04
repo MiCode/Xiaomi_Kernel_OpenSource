@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef IPA_QMI_SERVICE_H
@@ -319,7 +319,7 @@ int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 int ipa3_qmi_set_aggr_info(
 	enum ipa_aggr_enum_type_v01 aggr_enum_type);
 
-int ipa3_qmi_req_ind(void);
+int ipa3_qmi_req_ind(bool bw_reg);
 
 int ipa3_qmi_stop_data_qouta(void);
 

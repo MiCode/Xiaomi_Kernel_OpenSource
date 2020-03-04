@@ -15,6 +15,7 @@
 #include <linux/gfp.h>
 #include "../ipa_common_i.h"
 #include "ipa_i.h"
+#include "ipa_qmi_service.h"
 
 #define IPA_MPM_DRV_NAME "ipa_mpm"
 
@@ -400,6 +401,8 @@ struct ipa_mpm_context {
 	atomic_t flow_ctrl_mask;
 	atomic_t adpl_over_usb_available;
 	atomic_t adpl_over_odl_available;
+	atomic_t active_teth_count;
+	atomic_t voted_before;
 	struct device *parent_pdev;
 	struct ipa_smmu_cb_ctx carved_smmu_cb;
 	struct device *mhi_parent_dev;
@@ -1905,6 +1908,10 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 		case MHIP_STATUS_SUCCESS:
 			ipa_mpm_ctx->md[probe_id].teth_state =
 						IPA_MPM_TETH_CONNECTED;
+			/* Register for BW indication from Q6 */
+			if (!ipa3_qmi_reg_dereg_for_bw(true))
+				IPA_MPM_ERR(
+					"Failed rgstring for QMIBW Ind, might be SSR");
 			break;
 		case MHIP_STATUS_EP_NOT_READY:
 		case MHIP_STATUS_NO_OP:
@@ -1953,6 +1960,18 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 					ret);
 			ipa_assert();
 		}
+
+		/* De-register for BW indication from Q6*/
+		if (atomic_read(&ipa_mpm_ctx->active_teth_count) >= 1) {
+			if (!ipa3_qmi_reg_dereg_for_bw(false))
+				IPA_MPM_DBG(
+					"Failed De-rgstrng QMI BW Indctn,might be SSR");
+		} else {
+			IPA_MPM_ERR(
+				"Active teth count is %d",
+				atomic_read(&ipa_mpm_ctx->active_teth_count));
+		}
+
 		/*
 		 * Make sure to stop Device side channels before
 		 * stopping Host side UL channels. This is to make
@@ -2481,6 +2500,10 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		if (probe_id == IPA_MPM_MHIP_CH_ID_1) {
 			pipe_idx = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
 			ipa3_xdci_ep_delay_rm(pipe_idx);
+			/* Register for BW indication from Q6*/
+			if (!ipa3_qmi_reg_dereg_for_bw(true))
+				IPA_MPM_DBG(
+					"QMI BW reg Req failed,might be SSR");
 		}
 		break;
 	default:
@@ -2618,6 +2641,8 @@ static void ipa_mpm_mhi_remove_cb(struct mhi_device *mhi_dev)
 		ipa_mpm_ctx->carved_smmu_cb.next_addr =
 			ipa_mpm_ctx->carved_smmu_cb.va_start;
 		atomic_set(&ipa_mpm_ctx->pcie_clk_total_cnt, 0);
+		/* Force set to zero during SSR */
+		atomic_set(&ipa_mpm_ctx->active_teth_count, 0);
 		for (mhip_idx = 0;
 			mhip_idx < IPA_MPM_MHIP_CH_ID_MAX; mhip_idx++) {
 			atomic_set(
@@ -2821,6 +2846,9 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 	case MHIP_STATUS_SUCCESS:
 	case MHIP_STATUS_NO_OP:
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
+		/* Register for BW indication from Q6*/
+		if (!ipa3_qmi_reg_dereg_for_bw(true))
+			IPA_MPM_DBG("Fail regst QMI BW Indctn,might be SSR");
 
 		pipe_idx = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
 
@@ -2962,6 +2990,16 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	case MHIP_STATUS_NO_OP:
 	case MHIP_STATUS_EP_NOT_READY:
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_INIT);
+		/* De-register for BW indication from Q6*/
+		if (atomic_read(&ipa_mpm_ctx->active_teth_count) >= 1) {
+			if (!ipa3_qmi_reg_dereg_for_bw(false))
+				IPA_MPM_DBG(
+					"Failed De-rgstrng QMI BW Indctn,might be SSR");
+		} else {
+			IPA_MPM_ERR(
+				"Active tethe count is %d",
+				atomic_read(&ipa_mpm_ctx->active_teth_count));
+		}
 		break;
 	case MHIP_STATUS_FAIL:
 	case MHIP_STATUS_BAD_STATE:
@@ -2983,7 +3021,6 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 		IPA_MPM_ERR("Error cloking off PCIe clk, err = %d\n", ret);
 		return ret;
 	}
-
 	ipa_mpm_ctx->md[probe_id].mhip_client = IPA_MPM_MHIP_NONE;
 
 	return ret;
@@ -3116,6 +3153,8 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 	atomic_set(&ipa_mpm_ctx->ipa_clk_total_cnt, 0);
 	atomic_set(&ipa_mpm_ctx->pcie_clk_total_cnt, 0);
 	atomic_set(&ipa_mpm_ctx->flow_ctrl_mask, 0);
+	atomic_set(&ipa_mpm_ctx->active_teth_count, 0);
+	atomic_set(&ipa_mpm_ctx->voted_before, 1);
 
 	for (idx = 0; idx < IPA_MPM_MHIP_CH_ID_MAX; idx++) {
 		ipa_mpm_ctx->md[idx].ul_prod.gsi_state = GSI_INIT;
@@ -3377,6 +3416,53 @@ int ipa3_mpm_enable_adpl_over_odl(bool enable)
 
 	IPA_MPM_FUNC_EXIT();
 	return ret;
+}
+
+int ipa3_qmi_reg_dereg_for_bw(bool bw_reg)
+{
+	int rt;
+
+	if (bw_reg) {
+		atomic_inc(&ipa_mpm_ctx->active_teth_count);
+		if (atomic_read(&ipa_mpm_ctx->active_teth_count) == 1) {
+			rt = ipa3_qmi_req_ind(true);
+			if (rt < 0) {
+				IPA_MPM_ERR("QMI BW regst fail, rt = %d", rt);
+				atomic_dec(&ipa_mpm_ctx->active_teth_count);
+				/* Using voted_before for keeping track of
+				 * request successful or not, so that we don't
+				 * request for devote when tether turned off
+				 */
+				atomic_set(&ipa_mpm_ctx->voted_before, 0);
+				return false;
+			}
+			IPA_MPM_DBG("QMI BW regst success");
+		} else {
+			IPA_MPM_DBG("bw_change to %d no-op, teth_count = %d",
+				bw_reg,
+				atomic_read(&ipa_mpm_ctx->active_teth_count));
+		}
+	} else {
+		atomic_dec(&ipa_mpm_ctx->active_teth_count);
+		if (atomic_read(&ipa_mpm_ctx->active_teth_count) == 0) {
+			if (atomic_read(&ipa_mpm_ctx->voted_before) == 0) {
+				atomic_inc(&ipa_mpm_ctx->active_teth_count);
+				atomic_set(&ipa_mpm_ctx->voted_before, 1);
+				return false;
+			}
+			rt = ipa3_qmi_req_ind(false);
+			if (rt < 0) {
+				IPA_MPM_ERR("QMI BW de-regst fail, rt= %d", rt);
+				return false;
+			}
+			IPA_MPM_DBG("QMI BW De-regst success");
+		} else {
+			IPA_MPM_DBG("bw_change to %d no-op, teth_count = %d",
+				bw_reg,
+				atomic_read(&ipa_mpm_ctx->active_teth_count));
+		}
+	}
+	return true;
 }
 
 late_initcall(ipa_mpm_init);
