@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,6 +72,7 @@ enum print_reason {
 #define OV_VOTER			"OV_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
 #define FG_ESR_VOTER			"FG_ESR_VOTER"
+#define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -353,6 +354,7 @@ struct smb_charger {
 	bool			use_extcon;
 	bool			otg_present;
 	bool			disable_stat_sw_override;
+	bool			fcc_stepper_enable;
 
 	/* workaround flag */
 	u32			wa_flags;
