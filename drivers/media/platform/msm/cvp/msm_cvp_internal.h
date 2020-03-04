@@ -273,9 +273,17 @@ struct cvp_session_prop {
 	u32 ddr_op_cache;
 };
 
+enum op_mode {
+	OP_NORMAL,
+	OP_DRAINING,
+	OP_FLUSH,
+	OP_INVALID,
+};
+
 struct cvp_fence_queue {
-	spinlock_t lock;
+	struct mutex lock;
 	enum queue_state state;
+	enum op_mode mode;
 	struct list_head wait_list;
 	wait_queue_head_t wq;
 	struct list_head sched_list;
@@ -359,6 +367,8 @@ struct cvp_fence_type {
 
 struct cvp_fence_command {
 	struct list_head list;
+	u64 frame_id;
+	enum op_mode mode;
 	u32 type;
 	u32 synx[MAX_HFI_FENCE_SIZE/2];
 	struct cvp_hfi_cmd_session_hdr *pkt;

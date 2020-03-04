@@ -48,6 +48,7 @@
 #define HFI_ERR_SESSION_BUFFERCOUNT_TOOSMALL	(HFI_COMMON_BASE + 0x1011)
 #define HFI_ERR_SESSION_INVALID_SCALE_FACTOR	(HFI_COMMON_BASE + 0x1012)
 #define HFI_ERR_SESSION_UPSCALE_NOT_SUPPORTED	(HFI_COMMON_BASE + 0x1013)
+#define HFI_ERR_SESSION_FLUSHED			(HFI_COMMON_BASE + 0x101C)
 
 #define HFI_EVENT_SYS_ERROR				(HFI_COMMON_BASE + 0x1)
 #define HFI_EVENT_SESSION_ERROR			(HFI_COMMON_BASE + 0x2)
@@ -453,6 +454,14 @@ struct cvp_buf_type {
 			u32 reserved2;
 		};
 	};
+};
+
+struct cvp_hfi_msg_sys_session_flush_done_packet {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	u32 error_type;
+	struct cvp_hfi_client client_data;
 };
 
 #endif

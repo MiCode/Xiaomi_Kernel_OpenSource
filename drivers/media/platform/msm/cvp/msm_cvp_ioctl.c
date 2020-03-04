@@ -78,7 +78,8 @@ static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
 		struct cvp_kmd_arg __user *up,
 		unsigned int size)
 {
-	struct cvp_kmd_hfi_fence_packet *k, *u;
+	struct cvp_kmd_hfi_fence_packet *k;
+	struct cvp_kmd_hfi_fence_packet __user *u;
 	int i;
 
 	k = &kp->data.hfi_fence_pkt;
@@ -91,6 +92,24 @@ static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
 		if (get_user(k->fence_data[i], &u->fence_data[i]))
 			return -EFAULT;
 	}
+
+	if (get_user(k->frame_id, &u->frame_id)) {
+		dprintk(CVP_ERR, "Failed to get frame id from fence pkt\n");
+		return -EFAULT;
+	}
+
+
+	return 0;
+}
+
+static int _copy_frameid_from_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up)
+{
+	if (get_user(kp->data.frame_id, &up->data.frame_id)) {
+		dprintk(CVP_ERR, "Failed to get frame id from user\n");
+		return -EFAULT;
+	}
+
 	return 0;
 }
 
@@ -211,6 +230,41 @@ static int _get_session_ctrl_from_user(
 	return 0;
 }
 
+static int _get_session_info_from_user(
+	struct cvp_kmd_session_info *k,
+	struct cvp_kmd_session_info __user *u)
+{
+	int i;
+
+	if (get_user(k->session_id, &u->session_id))
+		return -EFAULT;
+
+	for (i = 0; i < 10; i++)
+		if (get_user(k->reserved[i], &u->reserved[i]))
+			return -EFAULT;
+	return 0;
+}
+
+static int _get_power_request(
+		struct cvp_kmd_request_power *k,
+		struct cvp_kmd_request_power __user *u)
+{
+	int i;
+
+	if (get_user(k->clock_cycles_a, &u->clock_cycles_a) ||
+			get_user(k->clock_cycles_b, &u->clock_cycles_b) ||
+			get_user(k->ddr_bw, &u->ddr_bw) ||
+			get_user(k->sys_cache_bw, &u->sys_cache_bw))
+		return -EFAULT;
+
+	for (i = 0; i < 8; i++)
+		if (get_user(k->reserved[i], &u->reserved[i]))
+			return -EFAULT;
+
+	return 0;
+
+}
+
 static int convert_from_user(struct cvp_kmd_arg *kp,
 		unsigned long arg,
 		struct msm_cvp_inst *inst)
@@ -238,31 +292,30 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 	switch (kp->type) {
 	case CVP_KMD_GET_SESSION_INFO:
 	{
-		struct cvp_kmd_session_info *k, *u;
+		struct cvp_kmd_session_info *k;
+		struct cvp_kmd_session_info __user *u;
 
 		k = &kp->data.session;
 		u = &up->data.session;
-		if (get_user(k->session_id, &u->session_id))
+		if (_get_session_info_from_user(k, u)) {
+			dprintk(CVP_ERR, "fail to get sess info\n");
 			return -EFAULT;
-		for (i = 0; i < 10; i++)
-			if (get_user(k->reserved[i], &u->reserved[i]))
-				return -EFAULT;
+		}
+
 		break;
 	}
 	case CVP_KMD_REQUEST_POWER:
 	{
-		struct cvp_kmd_request_power *k, *u;
+		struct cvp_kmd_request_power *k;
+		struct cvp_kmd_request_power __user *u;
 
 		k = &kp->data.req_power;
 		u = &up->data.req_power;
-		if (get_user(k->clock_cycles_a, &u->clock_cycles_a) ||
-			get_user(k->clock_cycles_b, &u->clock_cycles_b) ||
-			get_user(k->ddr_bw, &u->ddr_bw) ||
-			get_user(k->sys_cache_bw, &u->sys_cache_bw))
+		if (_get_power_request(k, u)) {
+			dprintk(CVP_ERR, "fail to get power request\n");
 			return -EFAULT;
-		for (i = 0; i < 8; i++)
-			if (get_user(k->reserved[i], &u->reserved[i]))
-				return -EFAULT;
+		}
+
 		break;
 	}
 	case CVP_KMD_REGISTER_BUFFER:
@@ -364,8 +417,15 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		}
 		break;
 	}
+	case CVP_KMD_FLUSH_ALL:
 	case CVP_KMD_UPDATE_POWER:
 		break;
+	case CVP_KMD_FLUSH_FRAME:
+	{
+		if (_copy_frameid_from_user(kp, up))
+			return -EFAULT;
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -374,6 +434,42 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 	}
 
 	return rc;
+}
+
+static int _put_user_session_info(
+		struct cvp_kmd_session_info *k,
+		struct cvp_kmd_session_info __user *u)
+{
+	int i;
+
+	if (put_user(k->session_id, &u->session_id))
+		return -EFAULT;
+
+	for (i = 0; i < 10; i++)
+		if (put_user(k->reserved[i], &u->reserved[i]))
+			return -EFAULT;
+
+	return 0;
+}
+
+
+static int _put_power_request(
+		struct cvp_kmd_request_power *k,
+		struct cvp_kmd_request_power __user *u)
+{
+	int i;
+
+	if (put_user(k->clock_cycles_a, &u->clock_cycles_a) ||
+		put_user(k->clock_cycles_b, &u->clock_cycles_b) ||
+		put_user(k->ddr_bw, &u->ddr_bw) ||
+		put_user(k->sys_cache_bw, &u->sys_cache_bw))
+		return -EFAULT;
+
+	for (i = 0; i < 8; i++)
+		if (put_user(k->reserved[i], &u->reserved[i]))
+			return -EFAULT;
+
+	return 0;
 }
 
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
@@ -405,31 +501,30 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 	}
 	case CVP_KMD_GET_SESSION_INFO:
 	{
-		struct cvp_kmd_session_info *k, *u;
+		struct cvp_kmd_session_info *k;
+		struct cvp_kmd_session_info __user *u;
 
 		k = &kp->data.session;
 		u = &up->data.session;
-		if (put_user(k->session_id, &u->session_id))
+		if (_put_user_session_info(k, u)) {
+			dprintk(CVP_ERR, "fail to copy sess info to user\n");
 			return -EFAULT;
-		for (i = 0; i < 10; i++)
-			if (put_user(k->reserved[i], &u->reserved[i]))
-				return -EFAULT;
+		}
+
 		break;
 	}
 	case CVP_KMD_REQUEST_POWER:
 	{
-		struct cvp_kmd_request_power *k, *u;
+		struct cvp_kmd_request_power *k;
+		struct cvp_kmd_request_power __user *u;
 
 		k = &kp->data.req_power;
 		u = &up->data.req_power;
-		if (put_user(k->clock_cycles_a, &u->clock_cycles_a) ||
-			put_user(k->clock_cycles_b, &u->clock_cycles_b) ||
-			put_user(k->ddr_bw, &u->ddr_bw) ||
-			put_user(k->sys_cache_bw, &u->sys_cache_bw))
+		if (_put_power_request(k, u)) {
+			dprintk(CVP_ERR, "fail to copy power to user\n");
 			return -EFAULT;
-		for (i = 0; i < 8; i++)
-			if (put_user(k->reserved[i], &u->reserved[i]))
-				return -EFAULT;
+		}
+
 		break;
 	}
 	case CVP_KMD_REGISTER_BUFFER:
@@ -508,8 +603,9 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		}
 		break;
 	}
+	case CVP_KMD_FLUSH_ALL:
+	case CVP_KMD_FLUSH_FRAME:
 	case CVP_KMD_SET_SYS_PROPERTY:
-		break;
 	case CVP_KMD_UPDATE_POWER:
 		break;
 	default:

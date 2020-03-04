@@ -520,7 +520,25 @@ static void handle_release_res_done(enum hal_command_response cmd, void *data)
 
 static void handle_session_flush(enum hal_command_response cmd, void *data)
 {
-	dprintk(CVP_WARN, "%s is not supported on CVP!\n", __func__);
+	struct msm_cvp_cb_cmd_done *response = data;
+	struct msm_cvp_inst *inst;
+
+	if (!response) {
+		dprintk(CVP_ERR,
+			"Failed to get valid response for release resource\n");
+		return;
+	}
+
+	inst = cvp_get_inst(get_cvp_core(response->device_id),
+			response->session_id);
+	if (!inst) {
+		dprintk(CVP_WARN, "%s:Got a response for an inactive session\n",
+				__func__);
+		return;
+	}
+
+	signal_session_msg_receipt(cmd, inst);
+	cvp_put_inst(inst);
 }
 
 static void handle_session_error(enum hal_command_response cmd, void *data)
