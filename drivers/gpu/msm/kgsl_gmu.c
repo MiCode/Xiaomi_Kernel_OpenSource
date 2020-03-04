@@ -5,6 +5,7 @@
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/clk.h>
+#include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/interconnect.h>
@@ -945,7 +946,7 @@ static int gmu_bus_vote_init(struct kgsl_device *device)
 	if (count > 0)
 		cnoc = build_rpmh_bw_votes(a660_cnoc_bcms,
 			ARRAY_SIZE(a660_cnoc_bcms), cnoc_table, count);
-	kfree(cnoc_table);
+	devm_kfree(&device->pdev->dev, cnoc_table);
 
 	if (IS_ERR(cnoc)) {
 		free_rpmh_bw_votes(ddr);
@@ -1296,8 +1297,9 @@ static int gmu_bus_set(struct kgsl_device *device, int buslevel,
 	return ret;
 }
 
-/* Do not access any GMU registers in GMU probe function */
-static int gmu_probe(struct kgsl_device *device, struct device_node *node)
+static struct gmu_core_ops gmu_ops;
+
+static int gmu_probe(struct kgsl_device *device, struct platform_device *pdev)
 {
 	struct gmu_device *gmu;
 	struct kgsl_hfi *hfi;
@@ -1305,35 +1307,28 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i = 0, ret = -ENXIO, index;
 
-	gmu = kzalloc(sizeof(struct gmu_device), GFP_KERNEL);
-
-	if (gmu == NULL)
+	gmu = devm_kzalloc(&pdev->dev, sizeof(*gmu), GFP_KERNEL);
+	if (!gmu)
 		return -ENOMEM;
 
-	gmu->pdev = of_find_device_by_node(node);
-	if (!gmu->pdev) {
-		kfree(gmu);
-		return -EINVAL;
-	}
+	gmu->pdev = pdev;
 
 	device->gmu_core.ptr = (void *)gmu;
 	hfi = &gmu->hfi;
 	gmu->load_mode = TCM_BOOT;
-
-	of_dma_configure(&gmu->pdev->dev, node, true);
 
 	dma_set_coherent_mask(&gmu->pdev->dev, DMA_BIT_MASK(64));
 	gmu->pdev->dev.dma_mask = &gmu->pdev->dev.coherent_dma_mask;
 	set_dma_ops(&gmu->pdev->dev, NULL);
 
 	/* Set up GMU regulators */
-	ret = gmu_regulators_probe(gmu, node);
+	ret = gmu_regulators_probe(gmu, pdev->dev.of_node);
 	if (ret)
-		goto error;
+		return ret;
 
 	ret = devm_clk_bulk_get_all(&gmu->pdev->dev, &gmu->clks);
 	if (ret < 0)
-		goto error;
+		return ret;
 
 	gmu->num_clks = ret;
 
@@ -1341,12 +1336,11 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	gmu->gmu_clk = kgsl_of_clk_by_name(gmu->clks, gmu->num_clks, "gmu_clk");
 	if (!gmu->gmu_clk) {
 		dev_err(&gmu->pdev->dev, "Couldn't get gmu_clk\n");
-		ret = -ENODEV;
-		goto error;
+		return -ENODEV;
 	}
 
 	/* Set up GMU IOMMU and shared memory with GMU */
-	ret = gmu_iommu_init(gmu, node);
+	ret = gmu_iommu_init(gmu, pdev->dev.of_node);
 	if (ret)
 		goto error;
 
@@ -1421,12 +1415,14 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
 
-	gmu_acd_probe(device, gmu, node);
+	gmu_acd_probe(device, gmu, pdev->dev.of_node);
 
 	if (gmu_core_scales_bandwidth(device))
 		pwr->bus_set = gmu_bus_set;
 
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
+
+	device->gmu_core.core_ops = &gmu_ops;
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;
 
 	return 0;
@@ -1729,27 +1725,12 @@ static void gmu_remove(struct kgsl_device *device)
 
 	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 
-	if (gmu->fw_image) {
+	if (gmu->fw_image)
 		release_firmware(gmu->fw_image);
-		gmu->fw_image = NULL;
-	}
 
 	gmu_memory_close(gmu);
 
-	if (gmu->gx_gdsc) {
-		devm_regulator_put(gmu->gx_gdsc);
-		gmu->gx_gdsc = NULL;
-	}
-
-	if (gmu->cx_gdsc) {
-		devm_regulator_put(gmu->cx_gdsc);
-		gmu->cx_gdsc = NULL;
-	}
-
-	device->gmu_core.flags = 0;
-	device->gmu_core.ptr = NULL;
-	gmu->pdev = NULL;
-	kfree(gmu);
+	memset(&device->gmu_core, 0, sizeof(device->gmu_core));
 }
 
 static bool gmu_regulator_isenabled(struct kgsl_device *device)
@@ -1759,9 +1740,7 @@ static bool gmu_regulator_isenabled(struct kgsl_device *device)
 	return (gmu->gx_gdsc && regulator_is_enabled(gmu->gx_gdsc));
 }
 
-struct gmu_core_ops gmu_ops = {
-	.probe = gmu_probe,
-	.remove = gmu_remove,
+static struct gmu_core_ops gmu_ops = {
 	.init = gmu_init,
 	.start = gmu_start,
 	.stop = gmu_stop,
@@ -1770,4 +1749,49 @@ struct gmu_core_ops gmu_ops = {
 	.regulator_isenabled = gmu_regulator_isenabled,
 	.suspend = gmu_suspend,
 	.acd_set = gmu_acd_set,
+};
+
+static int kgsl_gmu_bind(struct device *dev, struct device *master, void *data)
+{
+	struct kgsl_device *device = dev_get_drvdata(master);
+
+	return gmu_probe(device, to_platform_device(dev));
+}
+
+static void kgsl_gmu_unbind(struct device *dev, struct device *master,
+		void *data)
+{
+	struct kgsl_device *device = dev_get_drvdata(master);
+
+	gmu_remove(device);
+}
+
+static const struct component_ops kgsl_gmu_ops = {
+	.bind = kgsl_gmu_bind,
+	.unbind = kgsl_gmu_unbind,
+};
+
+static int kgsl_gmu_probe(struct platform_device *pdev)
+{
+	return component_add(&pdev->dev, &kgsl_gmu_ops);
+}
+
+static int kgsl_gmu_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &kgsl_gmu_ops);
+	return 0;
+}
+
+static const struct of_device_id kgsl_gmu_match_table[] = {
+	{ .compatible = "qcom,gpu-gmu" },
+	{ },
+};
+
+struct platform_driver kgsl_gmu_driver = {
+	.probe = kgsl_gmu_probe,
+	.remove = kgsl_gmu_remove,
+	.driver = {
+		.name = "kgsl-gmu",
+		.of_match_table = kgsl_gmu_match_table,
+	},
 };
