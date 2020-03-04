@@ -507,6 +507,18 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto err_power_on;
 		}
 
+		priv->mem_base_va = devm_ioremap(&priv->pdev->dev,
+							 priv->mem_base_pa,
+							 priv->mem_base_size);
+		if (!priv->mem_base_va) {
+			icnss_pr_err("Ioremap failed for bar address\n");
+			goto err_power_on;
+		}
+
+		icnss_pr_dbg("MEM_BASE pa: %pa, va: 0x%pK\n",
+			     &priv->mem_base_pa,
+			     priv->mem_base_va);
+
 		icnss_wlfw_bdf_dnld_send_sync(priv, ICNSS_BDF_REGDB);
 
 		ret = icnss_wlfw_bdf_dnld_send_sync(priv,
