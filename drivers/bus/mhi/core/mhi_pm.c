@@ -1509,9 +1509,10 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	mhi_cntrl->wake_get(mhi_cntrl, true);
-	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
-		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	pm_wakeup_hard_event(&mhi_cntrl->mhi_dev->dev);
+	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 
 	mhi_force_reg_write(mhi_cntrl);
 
@@ -1527,9 +1528,11 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 		read_lock_bh(&mhi_cntrl->pm_lock);
 		mhi_cntrl->wake_put(mhi_cntrl, false);
 		read_unlock_bh(&mhi_cntrl->pm_lock);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 		return -EIO;
 	}
 
+	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	return 0;
 }
 
@@ -1590,9 +1593,7 @@ void mhi_device_put(struct mhi_device *mhi_dev, int vote)
 	if (vote & MHI_VOTE_DEVICE) {
 		atomic_dec(&mhi_dev->dev_vote);
 		read_lock_bh(&mhi_cntrl->pm_lock);
-		if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
-			mhi_trigger_resume(mhi_cntrl);
-
+		mhi_trigger_resume(mhi_cntrl);
 		mhi_cntrl->wake_put(mhi_cntrl, false);
 		MHI_LOG("dev_wake %d\n", atomic_read(&mhi_cntrl->dev_wake));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
