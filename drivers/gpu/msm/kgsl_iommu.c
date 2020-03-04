@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include <linux/qcom_scm.h>
 #include <linux/random.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include "adreno.h"
@@ -762,6 +763,9 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu)
 	for (j = (KGSL_IOMMU_MAX_CLKS - 1); j >= 0; j--)
 		if (iommu->clks[j])
 			clk_disable_unprepare(iommu->clks[j]);
+
+	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
+		regulator_disable(iommu->cx_gdsc);
 }
 
 /*
@@ -788,6 +792,9 @@ static void kgsl_iommu_enable_clk(struct kgsl_mmu *mmu)
 {
 	int j;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+
+	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
+		regulator_enable(iommu->cx_gdsc);
 
 	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
 		if (iommu->clks[j])
@@ -2515,13 +2522,17 @@ static const struct {
 	{ "qcom,force-32bit", KGSL_MMU_FORCE_32BIT },
 };
 
+static const char * const kgsl_iommu_clocks[] = {
+	"gcc_gpu_memnoc_gfx",
+	"gcc_gpu_snoc_dvm_gfx",
+	"gpu_cc_ahb",
+};
+
 static int _kgsl_iommu_probe(struct kgsl_device *device,
 		struct device_node *node)
 {
-	const char *cname;
-	struct property *prop;
 	u32 reg_val[2];
-	int i = 0, ret;
+	int ret, i, index = 0;
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct platform_device *pdev = of_find_device_by_node(node);
@@ -2538,24 +2549,38 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	iommu->regstart = reg_val[0];
 	iommu->regsize = reg_val[1];
 
-	of_property_for_each_string(node, "clock-names", prop, cname) {
-		struct clk *c = devm_clk_get(&pdev->dev, cname);
+	/* Get the clock from the KGSL device */
+	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_clocks); i++) {
+		struct clk *c;
 
-		if (IS_ERR(c)) {
-			dev_err(device->dev,
-				"dt: Couldn't get clock: %s\n", cname);
-			platform_device_put(pdev);
-			return -ENODEV;
-		}
-		if (i >= KGSL_IOMMU_MAX_CLKS) {
-			dev_err(device->dev, "dt: too many clocks defined.\n");
+		/*
+		 * First try to get the clocks from the parent device and if
+		 * that doesn't work fall back to getting them from the iommu
+		 * platform device
+		 */
+		c = devm_clk_get(&device->pdev->dev, kgsl_iommu_clocks[i]);
+		if (IS_ERR(c))
+			c = devm_clk_get(&pdev->dev, kgsl_iommu_clocks[i]);
+
+		/*
+		 * The list of clock names may diverge over the years so don't
+		 * worry if we can't get a specific clock, eventually we'll get
+		 * all the ones we need if we walk the list
+		 */
+		if (IS_ERR(c))
+			continue;
+
+		if (index >= KGSL_IOMMU_MAX_CLKS) {
+			dev_err(device->dev, "dt: too many clocks defined\n");
 			platform_device_put(pdev);
 			return -EINVAL;
 		}
 
-		iommu->clks[i] = c;
-		++i;
+		iommu->clks[index++] = c;
 	}
+
+	/* Get the CX regulator if it is available */
+	iommu->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
 
 	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_features); i++) {
 		if (of_property_read_bool(node, kgsl_iommu_features[i].feature))
