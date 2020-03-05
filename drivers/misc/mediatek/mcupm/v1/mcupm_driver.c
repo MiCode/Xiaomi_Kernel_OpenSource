@@ -42,7 +42,7 @@ struct plt_ctrl_s {
 	unsigned int magic;
 	unsigned int size;
 	unsigned int mem_sz;
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	unsigned int logger_ofs;
 #endif
 };
@@ -388,7 +388,6 @@ static ssize_t mcupm_mobile_log_store(struct device *kobj,
 {
 	unsigned int enable = 0;
 
-
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
 
@@ -486,21 +485,24 @@ DEVICE_ATTR(mcupm_alive, 0444, mcupm_alive_show, NULL);
 
 int __init mcupm_plt_init(void)
 {
+	int ret, i;
+#if MCUPM_ACCESS_DRAM_SUPPORT
 	phys_addr_t phys_addr, virt_addr, mem_sz;
 	struct mcupm_ipi_data_s ipi_data;
 	struct plt_ctrl_s *plt_ctl;
-	int ret, i;
 	unsigned int last_ofs;
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	unsigned int last_sz;
 #endif
 	unsigned int *mark;
 	unsigned char *b;
+#endif //MCUPM_ACCESS_DRAM_SUPPORT
 
 	ret = mcupm_sysfs_create_file(&dev_attr_mcupm_alive);
 	if (unlikely(ret != 0))
 		goto error;
 
+#if MCUPM_ACCESS_DRAM_SUPPORT
 	phys_addr = mcupm_reserve_mem_get_phys(MCUPM_MEM_ID);
 	if (phys_addr == 0) {
 		pr_err("MCUPM: Can't get logger phys mem\n");
@@ -539,7 +541,7 @@ int __init mcupm_plt_init(void)
 
 	pr_debug("MCUPM: %s(): after plt, ofs=0x%x\n", __func__, last_ofs);
 
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	plt_ctl->logger_ofs = last_ofs;
 	last_sz = mcupm_logger_init(virt_addr + last_ofs, mem_sz - last_ofs);
 
@@ -577,10 +579,11 @@ int __init mcupm_plt_init(void)
 	pr_info("MCUPM: plt IPI success ret=%d, ackdata=%d\n",
 		ret, mcupm_plt_ackdata);
 
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	mcupm_logger_init_done();
 #endif
 
+#endif //MCUPM_ACCESS_DRAM_SUPPORT
 	for (i = 0; i < MCUPM_MBOX_TOTAL; i++)
 		spin_lock_init(&mcupm_mbox_lock[i]);
 
