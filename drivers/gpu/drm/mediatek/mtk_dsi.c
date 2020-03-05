@@ -948,16 +948,20 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 				8 * dsi->lanes - 28 -
 				2 * dsi->data_phy_cycle * dsi->lanes;
 	} else {
-		horizontal_sync_active_byte =
-			ALIGN_TO((t_hsa * dsi_tmp_buf_bpp - 10), 4);
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+			horizontal_sync_active_byte =
+				ALIGN_TO((t_hsa * dsi_tmp_buf_bpp - 10), 4);
 
-		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
 			horizontal_backporch_byte =
 				ALIGN_TO((t_hbp * dsi_tmp_buf_bpp - 10), 4);
-		else
+		} else {
+			horizontal_sync_active_byte =
+				ALIGN_TO((t_hsa * dsi_tmp_buf_bpp - 4), 4);
+
 			horizontal_backporch_byte =
 				ALIGN_TO(((t_hbp + t_hsa) * dsi_tmp_buf_bpp -
 				 10), 4);
+		}
 
 		horizontal_frontporch_byte =
 			ALIGN_TO((t_hfp * dsi_tmp_buf_bpp - 12), 4);

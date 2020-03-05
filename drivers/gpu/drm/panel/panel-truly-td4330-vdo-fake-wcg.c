@@ -549,9 +549,9 @@ static int lcm_enable(struct drm_panel *panel)
 static const struct drm_display_mode default_mode = {
 	.clock = 163406,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 40,
-	.hsync_end = 1080 + 40 + 20,
-	.htotal = 1080 + 40 + 20 + 40,
+	.hsync_start = 1080 + 26,
+	.hsync_end = 1080 + 26 + 20,
+	.htotal = 1080 + 26 + 20 + 20,
 	.vdisplay = 2280,
 	.vsync_start = 2280 + 10,
 	.vsync_end = 2280 + 10 + 2,
@@ -615,7 +615,7 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 540,
+	.pll_clk = 522,
 	.vfp_low_power = 810,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,

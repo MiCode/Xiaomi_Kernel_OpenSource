@@ -959,6 +959,8 @@ static void process_dbg_opt(const char *opt)
 		mtk_disp_mipi_ccci_callback(en, 0);
 	} else if (strncmp(opt, "aal:", 4) == 0) {
 		disp_aal_debug(opt + 4);
+	} else if (strncmp(opt, "aee:", 4) == 0) {
+		DDPAEE("trigger aee dump of mmproile\n");
 	}
 }
 
