@@ -3481,7 +3481,7 @@ int mau_get_config_info(struct mau_config_info *cfg)
 	cfg->start_bit32 = readl_relaxed(base +
 			REG_MMU_MAU_SA_EXT(slave, mau));
 	cfg->end_bit32 = readl_relaxed(base +
-			REG_MMU_MAU_SA_EXT(slave, mau));
+			REG_MMU_MAU_EA_EXT(slave, mau));
 	cfg->port_mask = readl_relaxed(base +
 			REG_MMU_MAU_PORT_EN(slave, mau));
 	cfg->larb_mask = readl_relaxed(base +

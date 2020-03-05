@@ -949,7 +949,7 @@ static int m4u_debug_set(void *data, u64 val)
 	{
 		int i, j, ret;
 
-		for (i = 0; i < APU_IOMMU_INDEX; i++) {
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 			ret = mtk_iommu_power_switch_by_id(i, true, "dump_mau");
 			if (ret) {
 				pr_notice("%s, m4u%d open clk failed\n",
