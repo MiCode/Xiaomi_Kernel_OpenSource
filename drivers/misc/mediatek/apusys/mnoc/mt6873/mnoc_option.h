@@ -22,4 +22,6 @@
 #define MNOC_AEE_WARN_ENABLE (1)
 #define MNOC_APU_PWR_CHK (0)
 
+#define APU_QOS_IPUIF_ADJUST
+
 #endif

@@ -50,6 +50,40 @@ unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #define APUSYS_QOSBOUND_START (QOS_SMIBM_VPU0)
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
 
+#ifdef APU_QOS_IPUIF_ADJUST
+#ifdef CONFIG_MACH_MT6873
+#define NR_APU_VCORE_OPP (4)
+static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
+	10200, /* 4266 Mhz -> 0.725v */
+	7600,  /* 3200 Mhz -> 0.65v */
+	5120,  /* 1866 Mhz -> 0.6v */
+	0,     /* 800~1600 Mhz -> 0.575v */
+};
+enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
+	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
+	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
+	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
+	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
+};
+#endif /* CONFIG_MACH_MT6873 */
+#ifdef CONFIG_MACH_MT6885
+#define NR_APU_VCORE_OPP (4)
+static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
+	20400, /* 3733 Mhz -> 0.725v */
+	15300, /* 3068 Mhz -> 0.65v */
+	11900, /* 2366 Mhz -> 0.6v */
+	0,     /* 800~1866 Mhz -> 0.575v */
+};
+enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
+	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
+	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
+	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
+	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
+};
+#endif /* CONFIG_MACH_MT6885 */
+unsigned int apu_bw_vcore_opp;
+#endif /* APU_QOS_IPUIF_ADJUST */
+
 enum apu_qos_cmd_status {
 	CMD_RUNNING,
 	CMD_BLOCKED,
@@ -275,6 +309,10 @@ void apu_qos_off(void)
 	apusys_on_flag = false;
 	mutex_unlock(&apu_qos_boost_mtx);
 #endif
+#ifdef APU_QOS_IPUIF_ADJUST
+	apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
+	apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+#endif
 	notify_sspm_apusys_off();
 
 	LOG_DEBUG("-\n");
@@ -406,6 +444,22 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 	return avg_bw;
 }
 
+#ifdef APU_QOS_IPUIF_ADJUST
+static unsigned int apu_bw_round_down(unsigned int bw)
+{
+	unsigned int ret;
+
+	/* PMQoS will do rounding to SW BW */
+	if (bw % 100 == 0)
+		ret = bw;
+	else
+		ret = (bw / 100) * 100;
+		/* ret = ((bw / 100) + 1) * 100; */
+
+	return ret;
+}
+#endif
+
 static void qos_work_func(struct work_struct *work)
 {
 	struct qos_bound *qos_info = NULL;
@@ -413,6 +467,9 @@ static void qos_work_func(struct work_struct *work)
 	int qos_smi_idx = 0;
 	int i = 0, idx = 0;
 	unsigned int peak_bw = 0;
+#ifdef APU_QOS_IPUIF_ADJUST
+	unsigned int total_apu_bw = 0, new_apu_vcore_opp = 0;
+#endif
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -447,6 +504,10 @@ static void qos_work_func(struct work_struct *work)
 		LOG_DETAIL("idx[%d](%d ~ %d)\n", i, counter->last_idx, idx);
 		counter->last_idx = idx;
 
+#ifdef APU_QOS_IPUIF_ADJUST
+		peak_bw = apu_bw_round_down(peak_bw);
+		total_apu_bw += peak_bw;
+#endif
 		/* update peak bw */
 		if (counter->last_peak_val != peak_bw) {
 			counter->last_peak_val = peak_bw;
@@ -455,6 +516,30 @@ static void qos_work_func(struct work_struct *work)
 
 		LOG_DETAIL("peakbw[%d]=%d\n", i, peak_bw);
 	}
+
+#ifdef APU_QOS_IPUIF_ADJUST
+	new_apu_vcore_opp = 0;
+	for (i = NR_APU_VCORE_OPP - 1; i >= 0 ; i--) {
+		if (total_apu_bw >= apu_vcore_bw_opp_tab[i])
+			new_apu_vcore_opp = i;
+		else
+			break;
+	}
+#if MNOC_QOS_BOOST_ENABLE
+	mutex_lock(&apu_qos_boost_mtx);
+	if (new_apu_vcore_opp != apu_bw_vcore_opp &&
+		apu_qos_boost_flag == false) {
+		apu_bw_vcore_opp = new_apu_vcore_opp;
+		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+	}
+	mutex_unlock(&apu_qos_boost_mtx);
+#else
+	if (new_apu_vcore_opp != apu_bw_vcore_opp) {
+		apu_bw_vcore_opp = new_apu_vcore_opp;
+		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+	}
+#endif /* MNOC_QOS_BOOST_ENABLE */
+#endif /* APU_QOS_IPUIF_ADJUST */
 
 	mutex_lock(&(qos_counter.list_mtx));
 	update_cmd_qos_list_locked(qos_info);
@@ -871,7 +956,10 @@ void apu_qos_boost_start(void)
 		apu_qos_boost_ddr_opp = 0;
 		pm_qos_update_request(&apu_qos_ddr_req, 0);
 		pm_qos_update_request(&apu_qos_cpu_dma_req, 2);
-		apu_set_vcore_boost(true);
+#ifdef APU_QOS_IPUIF_ADJUST
+		apu_bw_vcore_opp = 0;
+		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+#endif
 	}
 #endif
 	LOG_DEBUG("-\n");
@@ -881,8 +969,11 @@ void apu_qos_boost_end(void)
 {
 	LOG_DEBUG("+\n");
 #if MNOC_QOS_BOOST_ENABLE
-	if (apu_qos_boost_ddr_opp == 0) {
-		apu_set_vcore_boost(false);
+	if (apu_qos_boost_ddr_opp == 0 && apusys_on_flag == true) {
+#ifdef APU_QOS_IPUIF_ADJUST
+		apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
+		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+#endif
 		apu_qos_boost_ddr_opp =
 			PM_QOS_DDR_OPP_DEFAULT_VALUE;
 		pm_qos_update_request(&apu_qos_ddr_req,
@@ -935,6 +1026,10 @@ void apu_qos_counter_init(void)
 	pm_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
 	apu_qos_boost_ddr_opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
+#endif
+
+#ifdef APU_QOS_IPUIF_ADJUST
+	apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
 #endif
 
 #if MNOC_TIME_PROFILE
