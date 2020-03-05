@@ -42,8 +42,13 @@
 #include <mt-plat/sync_write.h>
 #include "mtk_udi_internal.h"
 
-static unsigned int func_lv_mask_udi;
+#ifdef CONFIG_OF
+#define DEVICE_GPIO "mediatek,gpio"
+/* 0x10005000 0x1000, UDI pinmux reg */
+static void __iomem  *udipin_base;
+#endif
 
+static unsigned int func_lv_mask_udi;
 
 /*-----------------------------------------*/
 /* Reused code start                       */

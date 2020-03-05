@@ -53,6 +53,10 @@
 #include "mtk_cpufreq_opp_pv_table.h"
 #include "mtk_cpufreq_debug.h"
 
+#ifdef CONFIG_MTK_CPU_MSSV
+extern unsigned int cpumssv_get_state(void);
+#endif
+
 #ifdef CONFIG_HYBRID_CPU_DVFS
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -425,7 +429,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		}
 		aee_record_cpu_dvfs_cb(8);
 		break;
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	case IPI_SET_FREQ:
 		cdvfs_d->cmd = cmd;
 
@@ -953,9 +957,12 @@ int cpuhvfs_get_cur_volt(int cluster_id)
 
 int cpuhvfs_get_volt(int buck_id)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
 	int ret = 0;
+
+	if (!cpumssv_get_state())
+		return csram_read(OFFS_CUR_VPROC_S + (buck_id * 4));
 
 	/* Cluster, Volt */
 	cdvfs_d.u.set_fv.arg[0] = buck_id;
@@ -970,9 +977,12 @@ int cpuhvfs_get_volt(int buck_id)
 
 int cpuhvfs_get_freq(int pll_id)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
 	int ret = 0;
+
+	if (!cpumssv_get_state())
+		return 0;
 
 	/* Cluster, Freq */
 	cdvfs_d.u.set_fv.arg[0] = pll_id;
@@ -987,8 +997,11 @@ int cpuhvfs_get_freq(int pll_id)
 
 int cpuhvfs_set_volt(int cluster_id, unsigned int volt)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
+
+	if (!cpumssv_get_state())
+		return 0;
 
 	cdvfs_d.u.set_fv.arg[0] = cluster_id;
 	cdvfs_d.u.set_fv.arg[1] = volt;
@@ -1000,8 +1013,11 @@ int cpuhvfs_set_volt(int cluster_id, unsigned int volt)
 
 int cpuhvfs_set_freq(int cluster_id, unsigned int freq)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
+
+	if (!cpumssv_get_state())
+		return 0;
 
 	cdvfs_d.u.set_fv.arg[0] = cluster_id;
 	cdvfs_d.u.set_fv.arg[1] = freq;
@@ -1449,6 +1465,91 @@ static int dbg_repo_bak_proc_show(struct seq_file *m, void *v)
 
 	return 0;
 }
+
+#ifdef CONFIG_MTK_CPU_MSSV
+/* ============================ for MSSV Fmax ============================ */
+#define ARRAY_ROW_SIZE ARRAY_COL_SIZE
+
+static int idx[] = { 0, 36, 72};	/* L/B/CCI */
+unsigned int cpuhvfs_get_max_freq(int cluster_id)
+{
+	unsigned int freq_mhz;
+
+	if (!cpumssv_get_state())
+		return 0;
+
+	if (cluster_id >= sizeof(idx)/sizeof(int))
+		return 0;
+
+	freq_mhz = recordRef[idx[cluster_id]] & 0xFFFF;
+
+	return freq_mhz;
+}
+
+void cpuhvfs_set_max_freq(int cluster_id, unsigned int freq_mhz)
+{
+	int off = idx[cluster_id];
+
+	if (!cpumssv_get_state())
+		return;
+
+	/* freq */
+	recordTbl[NR_FREQ*cluster_id*ARRAY_ROW_SIZE] = freq_mhz;
+
+	recordRef[off] =
+		((*(recordTbl+(NR_FREQ*cluster_id)*ARRAY_ROW_SIZE+1)&
+		0xFFF)<<16)|(*(recordTbl+(NR_FREQ*cluster_id)*
+		ARRAY_ROW_SIZE)&0xFFFF);
+
+	/* postdiv */
+	if ((freq_mhz >= 1700) &&
+		(recordTbl[NR_FREQ*cluster_id*ARRAY_ROW_SIZE+2] != 1)) {
+		recordTbl[NR_FREQ*cluster_id*ARRAY_ROW_SIZE+2] = 1;
+
+		recordRef[off+NR_FREQ] =
+			((*(recordTbl+(NR_FREQ*cluster_id)*ARRAY_ROW_SIZE+3)&
+			0xFFF)<<16)|(*(recordTbl+(NR_FREQ*cluster_id)*
+			ARRAY_ROW_SIZE+2)&0xFF);
+	}
+	mb(); /* SRAM writing */
+}
+
+unsigned int cpuhvfs_get_max_volt(int cluster_id)
+{
+	unsigned int pmic_step;
+	unsigned long uv;
+
+	if (!cpumssv_get_state())
+		return 0;
+
+	if (cluster_id >= sizeof(idx)/sizeof(int))
+		return 0;
+
+	pmic_step = (recordRef[idx[cluster_id]] >> 16) & 0xFFF;
+	uv = (6250 * pmic_step) + 500000;
+
+	return uv;
+}
+
+void cpuhvfs_set_max_volt(int cluster_id, unsigned int uv)
+{
+	int off = idx[cluster_id];
+	unsigned int pmic_step;
+
+	if (!cpumssv_get_state())
+		return;
+
+	pmic_step = (uv-500000)/6250;
+	recordTbl[NR_FREQ*cluster_id*ARRAY_ROW_SIZE+1] = pmic_step;
+
+	recordRef[off] =
+		((*(recordTbl+(NR_FREQ*cluster_id)*ARRAY_ROW_SIZE+1)&
+		0xFFF)<<16)|(*(recordTbl+(NR_FREQ*cluster_id)*
+		ARRAY_ROW_SIZE)&0xFFFF);
+	mb(); /* SRAM writing */
+}
+/* ======================================================================= */
+#endif
 
 PROC_FOPS_RO(dbg_repo);
 PROC_FOPS_RO(dbg_repo_bak);

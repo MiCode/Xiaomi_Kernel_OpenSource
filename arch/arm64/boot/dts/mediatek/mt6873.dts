@@ -6176,6 +6176,11 @@ page_owner=on loop.max_part=7";
 		drcc7_Code = <255>;
 	};
 
+	cpumssv: cpumssv {
+		compatible = "mediatek,cpumssv";
+		state = <0>;
+	};
+
 	ssusb_ip_sleep: ssusb_ip_sleep {
 		compatible = "mediatek,usb_ipsleep";
 		interrupt-parent = <&pio>;

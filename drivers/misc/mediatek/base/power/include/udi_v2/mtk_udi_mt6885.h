@@ -20,13 +20,6 @@
 /* 1. Write 0x10005360= 44044000 */
 /* 2. Write 0x10005370= 00000004 */
 
-
-#ifdef CONFIG_OF
-#define DEVICE_GPIO "mediatek,gpio"
-/* 0x10005000 0x1000, UDI pinmux reg */
-static void __iomem  *udipin_base;
-#endif
-
 #ifdef __KERNEL__
 #define UDIPIN_BASE				(udipin_base)
 #else

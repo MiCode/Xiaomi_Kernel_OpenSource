@@ -19,6 +19,10 @@
 #include "mtk_cpufreq_hybrid.h"
 #include "mtk_cpufreq_platform.h"
 
+#ifdef CONFIG_MTK_CPU_MSSV
+extern unsigned int cpumssv_get_state(void);
+#endif
+
 unsigned int func_lv_mask;
 unsigned int do_dvfs_stress_test;
 unsigned int dvfs_power_mode;
@@ -266,6 +270,42 @@ static ssize_t cpufreq_freq_proc_write(struct file *file,
 
 			p->dvfs_disable_by_procfs = false;
 		} else {
+#ifdef CONFIG_MTK_CPU_MSSV
+			if (!cpumssv_get_state()) {
+				for (i = 0; i < p->nr_opp_tbl; i++) {
+					if (freq == p->opp_tbl[i].cpufreq_khz) {
+						found = 1;
+						break;
+					}
+				}
+			} else
+				found = 1;
+
+			if (found == 1) {
+				p->dvfs_disable_by_procfs = true;
+  #ifdef CONFIG_HYBRID_CPU_DVFS
+				if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI))
+    #ifdef SINGLE_CLUSTER
+					cpuhvfs_set_freq(
+						cpufreq_get_cluster_id(
+						p->cpu_id), freq);
+    #else
+					cpuhvfs_set_freq(
+						arch_get_cluster_id(
+						p->cpu_id), freq);
+    #endif
+				else
+					cpuhvfs_set_freq(MT_CPU_DVFS_CCI, freq);
+  #else
+				_mt_cpufreq_dvfs_request_wrapper(p,
+					i, MT_CPU_DVFS_NORMAL, NULL);
+  #endif
+			} else {
+				p->dvfs_disable_by_procfs = false;
+				tag_pr_info(
+		"frequency %dKHz! is not found in CPU opp table\n", freq);
+			}
+#else
 			for (i = 0; i < p->nr_opp_tbl; i++) {
 				if (freq == p->opp_tbl[i].cpufreq_khz) {
 					found = 1;
@@ -275,21 +315,22 @@ static ssize_t cpufreq_freq_proc_write(struct file *file,
 
 			if (found == 1) {
 				p->dvfs_disable_by_procfs = true;
-#ifdef CONFIG_HYBRID_CPU_DVFS
+  #ifdef CONFIG_HYBRID_CPU_DVFS
 				if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI))
 					cpuhvfs_set_freq(
 					cpufreq_get_cluster_id(p->cpu_id),
 						cpu_dvfs_get_freq_by_idx(p, i));
-#else
+  #else
 				_mt_cpufreq_dvfs_request_wrapper(p,
 				i, MT_CPU_DVFS_NORMAL, NULL);
-#endif
+  #endif
 			} else {
 				p->dvfs_disable_by_procfs = false;
 				tag_pr_info
 			("frequency %dKHz! is not found in CPU opp table\n",
 					    freq);
 			}
+#endif
 		}
 	}
 
@@ -341,11 +382,15 @@ static ssize_t cpufreq_volt_proc_write(struct file *file,
 		p->dvfs_disable_by_procfs = true;
 		cpufreq_lock(flags);
 #ifdef CONFIG_HYBRID_CPU_DVFS
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 		if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI))
+#ifdef SINGLE_CLUSTER
 			cpuhvfs_set_volt(
-				cpufreq_get_cluster_id(p->cpu_id),
-				uv / 10);
+				cpufreq_get_cluster_id(p->cpu_id), uv/10);
+#else
+			cpuhvfs_set_volt(
+				arch_get_cluster_id(p->cpu_id), uv/10);
+#endif
 #endif
 #else
 		vproc_p->fix_volt = uv / 10;
@@ -361,6 +406,106 @@ static ssize_t cpufreq_volt_proc_write(struct file *file,
 
 	return count;
 }
+
+#ifdef CONFIG_MTK_CPU_MSSV
+/* ============================ for MSSV Fmax ============================ */
+static int cpufreq_max_freq_proc_show(struct seq_file *m, void *v)
+{
+	struct mt_cpu_dvfs *p = (struct mt_cpu_dvfs *)m->private;
+	int cluster_id;
+
+#ifdef SINGLE_CLUSTER
+	cluster_id = cpufreq_get_cluster_id(p->cpu_id);
+#else
+	cluster_id = arch_get_cluster_id(p->cpu_id);
+#endif
+	tag_pr_info("cpu_id=%d, cluster_id=%d\n", p->cpu_id, cluster_id);
+	seq_printf(m, "%d KHz\n", (cpuhvfs_get_max_freq(cluster_id) * 1000));
+
+	return 0;
+}
+
+static ssize_t cpufreq_max_freq_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	struct mt_cpu_dvfs *p =
+		(struct mt_cpu_dvfs *)PDE_DATA(file_inode(file));
+	char *buf = _copy_from_user_for_proc(buffer, count);
+	unsigned int freq;
+	int rc;
+	int cluster_id;
+
+	if (!buf)
+		return -EINVAL;
+
+#ifdef SINGLE_CLUSTER
+	cluster_id = cpufreq_get_cluster_id(p->cpu_id);
+#else
+	cluster_id = arch_get_cluster_id(p->cpu_id);
+#endif
+
+	rc = kstrtoint(buf, 10, &freq);
+	if (rc < 0) {
+		p->dvfs_disable_by_procfs = false;
+		tag_pr_info("echo khz > /proc/cpufreq/cpufreq_max_freq\n");
+	} else {
+		tag_pr_info("cpu_id=%d, cluster_id=%d, freq=%d\n",
+			p->cpu_id, cluster_id, freq);
+		cpuhvfs_set_max_freq(cluster_id, (freq/1000));
+	}
+
+	return count;
+}
+
+static int cpufreq_max_volt_proc_show(struct seq_file *m, void *v)
+{
+	struct mt_cpu_dvfs *p = (struct mt_cpu_dvfs *)m->private;
+	int cluster_id;
+
+#ifdef SINGLE_CLUSTER
+	cluster_id = cpufreq_get_cluster_id(p->cpu_id);
+#else
+	cluster_id = arch_get_cluster_id(p->cpu_id);
+#endif
+	tag_pr_info("cpu_id=%d, cluster_id=%d\n", p->cpu_id, cluster_id);
+	seq_printf(m, "%d uV\n", (cpuhvfs_get_max_volt(cluster_id)));
+
+	return 0;
+}
+
+static ssize_t cpufreq_max_volt_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	struct mt_cpu_dvfs *p =
+		(struct mt_cpu_dvfs *)PDE_DATA(file_inode(file));
+	char *buf = _copy_from_user_for_proc(buffer, count);
+	unsigned int uv;
+	int rc;
+	int cluster_id;
+
+	if (!buf)
+		return -EINVAL;
+
+#ifdef SINGLE_CLUSTER
+	cluster_id = cpufreq_get_cluster_id(p->cpu_id);
+#else
+	cluster_id = arch_get_cluster_id(p->cpu_id);
+#endif
+
+	rc = kstrtoint(buf, 10, &uv);
+	if (rc < 0) {
+		p->dvfs_disable_by_procfs = false;
+		tag_pr_info("echo uV > /proc/cpufreq/cpufreq_max_volt\n");
+	} else {
+		tag_pr_info("cpu_id=%d, cluster_id=%d, uV=%d\n",
+			p->cpu_id, cluster_id, uv);
+		cpuhvfs_set_max_volt(cluster_id, uv);
+	}
+
+	return count;
+}
+/* ======================================================================= */
+#endif
 
 /* cpufreq_turbo_mode */
 int disable_turbo;
@@ -704,6 +849,11 @@ PROC_FOPS_RW(cpufreq_freq);
 PROC_FOPS_RW(cpufreq_volt);
 PROC_FOPS_RW(cpufreq_turbo_mode);
 
+#ifdef CONFIG_MTK_CPU_MSSV
+PROC_FOPS_RW(cpufreq_max_freq); // for MSSV Fmax
+PROC_FOPS_RW(cpufreq_max_volt); // for MSSV Fmax
+#endif
+
 int cpufreq_procfs_init(void)
 {
 	struct proc_dir_entry *dir = NULL;
@@ -739,6 +889,10 @@ int cpufreq_procfs_init(void)
 		PROC_ENTRY(cpufreq_freq),
 		PROC_ENTRY(cpufreq_volt),
 		PROC_ENTRY(cpufreq_turbo_mode),
+#ifdef CONFIG_MTK_CPU_MSSV
+		PROC_ENTRY(cpufreq_max_freq), // for MSSV Fmax
+		PROC_ENTRY(cpufreq_max_volt), // for MSSV Fmax
+#endif
 	};
 
 	dir = proc_mkdir("cpufreq", NULL);
