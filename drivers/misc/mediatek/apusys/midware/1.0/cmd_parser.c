@@ -499,12 +499,13 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	sc->runtime = sc->c_hdr->cmn.driver_time;
 
 
-	if (sc->period) {
+	if (sc->period && preemption_support) {
 		if (res_get_device_num(sc->type + APUSYS_DEVICE_RT) != 0)
 			sc->type += APUSYS_DEVICE_RT;
 		else
 			sc->period = 0; /* No RT device avail, disable period */
-	}
+	} else
+		sc->period = 0; /* No RT device avail, disable period */
 
 	/* check codebuf type, fd or offset */
 	LOG_DEBUG("cb offset = 0x%x\n", sc->c_hdr->cmn.ofs_cb_info);
