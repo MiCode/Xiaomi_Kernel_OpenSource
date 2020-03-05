@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt)	"PMIC_GLINK: %s: " fmt, __func__
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/list.h>
@@ -21,6 +22,7 @@
  * struct pmic_glink_dev - Top level data structure for pmic_glink device
  * @rpdev:		rpmsg device from rpmsg framework
  * @dev:		pmic_glink parent device for all child devices
+ * @debugfs_dir:	Debugfs directory handle
  * @channel_name:	Glink channel name used by rpmsg device
  * @client_idr:		idr list for the clients
  * @client_lock:	mutex lock when idr APIs are used on client_idr
@@ -32,10 +34,13 @@
  * @dev_list:		list for pmic_glink_dev_list
  * @state:		indicates when remote subsystem is up/down
  * @child_probed:	indicates when the children are probed
+ * @log_filter:		message owner filter for logging
+ * @log_enable:		enables message logging
  */
 struct pmic_glink_dev {
 	struct rpmsg_device	*rpdev;
 	struct device		*dev;
+	struct dentry		*debugfs_dir;
 	const char		*channel_name;
 	struct idr		client_idr;
 	struct mutex		client_lock;
@@ -47,6 +52,8 @@ struct pmic_glink_dev {
 	struct list_head	dev_list;
 	atomic_t		state;
 	bool			child_probed;
+	u32			log_filter;
+	bool			log_enable;
 };
 
 /**
@@ -134,6 +141,15 @@ int pmic_glink_write(struct pmic_glink_client *client, void *data,
 	mutex_lock(&client->lock);
 	rc = rpmsg_trysend(client->pgdev->rpdev->ept, data, len);
 	mutex_unlock(&client->lock);
+
+	if (!rc && client->pgdev->log_enable) {
+		struct pmic_glink_hdr *hdr = data;
+
+		if (client->pgdev->log_filter == hdr->owner)
+			pr_info("Tx data: %*ph\n", len, data);
+		else if (client->pgdev->log_filter == 65535)
+			pr_info("[%u] Tx data: %*ph\n", hdr->owner, len, data);
+	}
 
 	return rc;
 }
@@ -252,6 +268,14 @@ static void pmic_glink_rx_callback(struct pmic_glink_dev *pgdev,
 		return;
 	}
 
+	if (pgdev->log_enable) {
+		if (pgdev->log_filter == hdr->owner)
+			pr_info("Rx data: %*ph\n", pbuf->len, pbuf->buf);
+		else if (pgdev->log_filter == 65535)
+			pr_info("[%u] Rx data: %*ph\n", hdr->owner, pbuf->len,
+				pbuf->buf);
+	}
+
 	client->callback(client->priv, pbuf->buf, pbuf->len);
 }
 
@@ -345,6 +369,41 @@ static struct rpmsg_driver pmic_glink_rpmsg_driver = {
 	},
 };
 
+#ifdef CONFIG_DEBUG_FS
+static void pmic_glink_add_debugfs(struct pmic_glink_dev *pgdev)
+{
+	struct dentry *dir, *file;
+
+	dir = debugfs_create_dir(dev_name(pgdev->dev), NULL);
+	if (IS_ERR(dir)) {
+		pr_err("Failed to create pmic_glink debugfs directory rc=%d\n",
+			PTR_ERR(dir));
+		return;
+	}
+
+	file = debugfs_create_u32("filter", 0600, dir, &pgdev->log_filter);
+	if (IS_ERR(file)) {
+		pr_err("Failed to create filter debugfs file rc=%d\n",
+			PTR_ERR(file));
+		debugfs_remove_recursive(dir);
+		return;
+	}
+
+	file = debugfs_create_bool("enable", 0600, dir, &pgdev->log_enable);
+	if (IS_ERR(file)) {
+		pr_err("Failed to create enable debugfs file rc=%d\n",
+			PTR_ERR(file));
+		debugfs_remove_recursive(dir);
+		return;
+	}
+
+	pgdev->debugfs_dir = dir;
+}
+#else
+static inline void pmic_glink_add_debugfs(struct pmic_glink_dev *pgdev)
+{ }
+#endif
+
 static void pmic_glink_init_work(struct work_struct *work)
 {
 	struct pmic_glink_dev *pgdev = container_of(work, struct pmic_glink_dev,
@@ -422,6 +481,7 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	pgdev->dev = dev;
 
 	pmic_glink_dev_add(pgdev);
+	pmic_glink_add_debugfs(pgdev);
 
 	pr_debug("%s probed successfully\n", pgdev->channel_name);
 	return 0;
@@ -431,6 +491,7 @@ static int pmic_glink_remove(struct platform_device *pdev)
 {
 	struct pmic_glink_dev *pgdev = dev_get_drvdata(&pdev->dev);
 
+	debugfs_remove_recursive(pgdev->debugfs_dir);
 	flush_workqueue(pgdev->rx_wq);
 	destroy_workqueue(pgdev->rx_wq);
 	idr_destroy(&pgdev->client_idr);
