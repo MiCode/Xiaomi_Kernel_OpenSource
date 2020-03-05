@@ -1,4 +1,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,dispcc-lahaina.h>
+#include <dt-bindings/clock/qcom,gcc-lahaina.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 
 / {
 	#address-cells = <0x2>;
@@ -394,3 +397,7 @@
 };
 
 #include "trustedvm-ion.dtsi"
+#include "display/trustedvm-lahaina-sde.dtsi"
+#include "display/trustedvm-lahaina-sde-display.dtsi"
+#include "display/dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
+#include "display/dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
