@@ -180,6 +180,8 @@
 #define LVTS_VALID_DATA_TIME_PROFILING (0)
 
 #define LVTS_USE_DOMINATOR_SENSING_POINT (1)
+
+#define CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR (0)
 /*=============================================================
  *REG ACCESS
  *=============================================================

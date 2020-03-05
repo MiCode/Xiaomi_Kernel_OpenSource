@@ -173,6 +173,8 @@
 #define LVTS_VALID_DATA_TIME_PROFILING (0)
 
 #define LVTS_USE_DOMINATOR_SENSING_POINT (1)
+
+#define CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR (1)
 /*=============================================================
  *REG ACCESS
  *=============================================================
@@ -628,6 +630,9 @@ extern void dump_lvts_register_value(void);
 #endif
 #if LVTS_VALID_DATA_TIME_PROFILING
 extern void lvts_dump_time_profiling_result(struct seq_file *m);
+#endif
+#if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
+extern int tscpu_check_cpu_segment(void);
 #endif
 /*=============================================================
  *LOG

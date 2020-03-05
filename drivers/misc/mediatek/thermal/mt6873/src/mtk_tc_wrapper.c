@@ -32,6 +32,10 @@
 #include <tscpu_settings.h>
 #include "mtk_idle.h"
 
+#if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
+#include <mt-plat/mtk_devinfo.h>
+#endif
+
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 #include <mt-plat/aee.h>
 #include <linux/delay.h>
@@ -64,6 +68,9 @@ int tscpu_ts_lvts_temp_r[L_TS_LVTS_NUM];
 
 int tscpu_curr_cpu_temp;
 int tscpu_curr_gpu_temp;
+#if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
+static int ignore_hot_sensor;
+#endif
 
 static int tscpu_curr_max_ts_temp;
 
@@ -530,48 +537,40 @@ int tscpu_get_curr_max_ts_temp(void)
 	return tscpu_curr_max_ts_temp;
 }
 
-#if CFG_THERM_LVTS
+/*
+ * module			LVTS Plan
+ *=====================================================
+ * MCU_BIG(T4,T5)		LVTS1-0, LVTS1-1
+ * MCU_BIG(T6,T7)		LVTS2-0, LVTS2-1
+ * MCU_LITTLE(T0,T1,T2,T3)	LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
+ * VPU_MLDA(T9,T10)		LVTS4-0, LVTS4-1
+ * GPU(T11,T12)			LVTS5-0, LVTS5-1
+ * INFA(T13)			LVTS6-0
+ * CAMSYS(T18)			LVTS6-1
+ * MDSYS(T14,T16,T19)		LVTS7-0, LVTS7-1, LVTS7-2
+ */
 int tscpu_max_temperature(void)
 {
-	int i, j, max = 0;
+	int i, j, max = -127000;
 
-#if CFG_LVTS_DOMINATOR
-#if CFG_THERM_LVTS
 	tscpu_dprintk("lvts_max_temperature %s, %d\n", __func__, __LINE__);
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		for (j = 0; j < lvts_tscpu_g_tc[i].ts_number; j++) {
-			if (i == 0 && j == 0) {
-				max = tscpu_ts_lvts_temp[
-					lvts_tscpu_g_tc[i].ts[j]];
-			} else {
+#if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
+			if (ignore_hot_sensor == 0 ||
+				!(i == 0 && j == 1))
+#endif
 				if (max < tscpu_ts_lvts_temp[
 						lvts_tscpu_g_tc[i].ts[j]])
 					max = tscpu_ts_lvts_temp[
 						lvts_tscpu_g_tc[i].ts[j]];
-			}
 		}
 	}
-#endif /* CFG_THERM_LVTS */
-#else
-	tscpu_dprintk("tscpu_get_temp %s, %d\n", __func__, __LINE__);
 
-	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++) {
-		for (j = 0; j < tscpu_g_tc[i].ts_number; j++) {
-			if (i == 0 && j == 0) {
-				max = tscpu_ts_mcu_temp[tscpu_g_tc[i].ts[j]];
-			} else {
-				if (max < tscpu_ts_mcu_temp[
-						tscpu_g_tc[i].ts[j]])
-					max = tscpu_ts_mcu_temp[
-						tscpu_g_tc[i].ts[j]];
-			}
-		}
-	}
-#endif /* CFG_LVTS_DOMINATOR */
 	return max;
 }
-#endif
+
 
 int tscpu_get_curr_temp(void)
 {
@@ -1023,4 +1022,19 @@ int tscpu_thermal_clock_off(void)
 	clk_disable_unprepare(therm_main);
 	return ret;
 }
+
+#if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
+#define CPU_SEGMENT 7
+int tscpu_check_cpu_segment(void)
+{
+	int val = (get_devinfo_with_index(CPU_SEGMENT) & 0xFF);
+
+	if (val == 0x30)
+		ignore_hot_sensor = 1;
+	else
+		ignore_hot_sensor = 0;
+
+	return val;
+}
+#endif
 

@@ -2666,6 +2666,10 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 	tscpu_dprintk("therm-main Ptr=%p", therm_main);
 #endif
 
+#if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
+	tscpu_check_cpu_segment();
+#endif
+
 	tscpu_thermal_clock_on();
 	init_thermal();
 
