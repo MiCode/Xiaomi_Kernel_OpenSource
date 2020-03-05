@@ -148,6 +148,7 @@ struct cmdq_pkt {
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	void			*sec_data;
 #endif
+	bool			task_alloc;
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 };
 

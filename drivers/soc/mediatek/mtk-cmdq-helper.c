@@ -1760,7 +1760,7 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	cmdq_mbox_enable(client->chan);
 
 	do {
-		if (timeout_ms == CMDQ_NO_TIMEOUT) {
+		if (timeout_ms == CMDQ_NO_TIMEOUT || !pkt->task_alloc) {
 			wait_for_completion(&pkt->cmplt);
 			break;
 		}
@@ -1776,6 +1776,7 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 		cmdq_util_dump_unlock();
 	} while (1);
 
+	pkt->task_alloc = false;
 	cmdq_mbox_disable(client->chan);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)

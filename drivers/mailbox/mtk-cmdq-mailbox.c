@@ -653,6 +653,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task)
 		return;
+	pkt->task_alloc = true;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq->mmp.submit, MMPROFILE_FLAG_PULSE,
