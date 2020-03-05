@@ -882,13 +882,13 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 		MREG_TOP_G_INTP0);
 	spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
 
-	spin_lock_irqsave(&scheduler->lock, flags);
-
 	if (unlikely(scheduler == NULL)) {
 		mdla_info->error_bit |= IRQ_NO_SCHEDULER;
 		spin_unlock_irqrestore(&scheduler->lock, flags);
 		return IRQ_HANDLED;
 	}
+
+	spin_lock_irqsave(&scheduler->lock, flags);
 
 	if (unlikely(scheduler->processing_ce == NULL)) {
 		mdla_info->error_bit |= IRQ_NO_PROCESSING_CE;
@@ -897,6 +897,12 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 	}
 
 	ce = scheduler->processing_ce;
+
+	if (unlikely(ce == NULL)) {
+		mdla_info->error_bit |= IRQ_NO_PROCESSING_CE;
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+		return IRQ_HANDLED;
+	}
 
 	if (unlikely(ce->state & (1 << CE_FAIL))) {
 		mdla_info->error_bit |= IRQ_TIMEOUT;
