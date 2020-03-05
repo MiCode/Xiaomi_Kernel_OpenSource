@@ -727,11 +727,19 @@ s32 cmdq_pkt_write_reg_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 {
 	s32 err;
 	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
 
 	err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
 		CMDQ_GET_ADDR_HIGH(addr));
 	if (err != 0)
 		return err;
+
+	if (addr < 0x20000) {
+		cmdq_err("pkt:%p addr:%#x src_reg_idx:%#x mask:%#x thrd:%d",
+			pkt, addr, src_reg_idx, mask,
+			cmdq_mbox_chan_id(client->chan));
+		dump_stack();
+	}
 
 	return cmdq_pkt_store_value_reg(pkt, dst_reg_idx,
 		CMDQ_GET_ADDR_LOW(addr), src_reg_idx, mask);
@@ -743,12 +751,20 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 {
 	s32 err;
 	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
 
 	/* assign bit 47:16 to spr temp */
 	err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
 		CMDQ_GET_ADDR_HIGH(addr));
 	if (err != 0)
 		return err;
+
+	if (addr < 0x20000) {
+		cmdq_err("pkt:%p addr:%#x value:%#x mask:%#x thrd:%d",
+			pkt, addr, value, mask,
+			cmdq_mbox_chan_id(client->chan));
+		dump_stack();
+	}
 
 	return cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
 		value, mask);
@@ -1098,6 +1114,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	struct cmdq_operand lop, rop;
 	struct cmdq_instruction *inst;
 	bool absolute = true;
+	size_t prev_avail = pkt->avail_buf_size;
 
 	if (pkt->avail_buf_size > PAGE_SIZE)
 		absolute = false;
@@ -1223,6 +1240,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
 	}
 
+	if (pkt->avail_buf_size > prev_avail)
+		cmdq_dump_pkt(pkt, ~0, true);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_poll_timeout);
@@ -1413,6 +1432,8 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 {
 	u32 start_pa;
 	s32 err;
+	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+	s32 id = cmdq_mbox_chan_id(client->chan);
 
 	if (cmdq_pkt_is_finalized(pkt))
 		return 0;
@@ -1432,8 +1453,8 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 	/* mark pkt as loop */
 	pkt->loop = true;
 
-	cmdq_log("finalize: add EOC and JUMP begin cmd");
-
+	cmdq_msg("finalize: add EOC and JUMP begin cmd thrd:%d", id);
+	cmdq_dump_pkt(pkt, ~0, true);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize_loop);
@@ -1516,6 +1537,9 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			"%s(%s) instruction not available pc:%#llx thread:%d",
 			mod, cmdq_util_hw_name(client->chan), pc, thread_id);
 	}
+
+	if (thread_id == 3) /* trigger loop */
+		cmdq_dump_pkt(pkt, ~0, true);
 
 	cmdq_util_error_disable();
 	cmdq_util_dump_unlock();
@@ -2244,7 +2268,8 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
-		} else if (cnt > 2 && !(curr_pa >= buf->pa_base &&
+		} else if (curr_pa != ~0 && cnt > 2 &&
+			!(curr_pa >= buf->pa_base &&
 			curr_pa < buf->pa_base + CMDQ_BUF_ALLOC_SIZE)) {
 			cmdq_util_msg(
 				"buffer %u va:0x%p pa:%pa %#018llx (skip detail) %#018llx",

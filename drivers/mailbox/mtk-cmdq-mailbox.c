@@ -1322,6 +1322,28 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 			thread->idx, curr_pa, end_pa);
 	}
 
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+		struct cmdq_thread *thread = &cmdq->thread[i];
+		struct cmdq_task *task;
+
+		if (!thread->occupied || list_empty(&thread->task_busy_list))
+			continue;
+
+		en = readl(thread->base + CMDQ_THR_ENABLE_TASK);
+		if (!en)
+			continue;
+
+		curr_pa = cmdq_thread_get_pc(thread);
+		end_pa = cmdq_thread_get_end(thread);
+
+		cmdq_util_msg("thd idx:%u pc:%#x end:%#x",
+			thread->idx, curr_pa, end_pa);
+
+		task = list_first_entry(&thread->task_busy_list,
+			typeof(*task), list_entry);
+		cmdq_dump_pkt(task->pkt, ~0, true);
+	}
+
 }
 EXPORT_SYMBOL(cmdq_thread_dump_all);
 
