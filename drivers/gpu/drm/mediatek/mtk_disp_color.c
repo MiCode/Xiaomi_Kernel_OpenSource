@@ -2704,12 +2704,21 @@ int mtk_drm_ioctl_write_reg(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	struct drm_crtc *crtc = private->crtc[0];
 	struct DISP_WRITE_REG *wParams = data;
+	struct mtk_ddp_comp *ccorr_comp =
+		private->ddp_comp[DDP_COMPONENT_CCORR0];
 	unsigned int pa = (unsigned int)wParams->reg;
 
 	if (color_is_reg_addr_valid(comp, pa) < 0) {
 		DDPPR_ERR("reg write, addr invalid, pa:0x%x\n", pa);
 		return -EFAULT;
 	}
+
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+	// For 6885 CCORR COEF, real values need to left shift one bit
+	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
+		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
+		wParams->val = wParams->val << 1;
+#endif
 
 	return mtk_crtc_user_cmd(crtc, comp, WRITE_REG, data);
 }
