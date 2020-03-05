@@ -20,7 +20,7 @@
 #include <linux/usb/cdc.h>
 #include <linux/netdevice.h>
 
-#define QMULT_DEFAULT 30
+#define QMULT_DEFAULT 50
 
 /*
  * dev_addr: initial value
