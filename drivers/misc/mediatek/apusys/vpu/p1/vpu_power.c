@@ -45,17 +45,16 @@ static void vpu_pwr_release(struct kref *ref)
 		= container_of(ref, struct vpu_device, pw_ref);
 	unsigned long t = (unsigned long)vd->pw_off_latency;
 
-	if (t == 1) {
-		vpu_pwr_down_locked(vd);
+	if (!t)  /* t = 0: always on, return */
 		return;
-	}
 
-	if (t) {
-		vpu_pwr_debug("%s: vpu%d: vpu_pwr_off_timer: %ld ms\n",
-			__func__, vd->id, t);
-		vpu_pwr_wake_unlock(vd);
-		vpu_pwr_off_timer(vd, t /* ms */);
-	}
+	if (t == 1)  /* t = 1: instant power off */
+		t = 0;
+
+	vpu_pwr_debug("%s: vpu%d: vpu_pwr_off_timer: %ld ms\n",
+		__func__, vd->id, t);
+	vpu_pwr_wake_unlock(vd);
+	vpu_pwr_off_timer(vd, t /* ms */);
 }
 
 static void vpu_pwr_param(struct vpu_device *vd, uint8_t boost)
@@ -278,14 +277,17 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 	vpu_xos_unlock(vd);
 }
 
+/**
+ * vpu_pwr_off() - worker function of delayed power off
+ * @vd: vpu device
+ *
+ */
 static void vpu_pwr_off(struct work_struct *work)
 {
 	struct vpu_device *vd
 		= container_of(work, struct vpu_device, pw_off_work.work);
 
-	vpu_cmd_lock_all(vd);
-	vpu_pwr_off_locked(vd, /* suspend */ 0);
-	vpu_cmd_unlock_all(vd);
+	vpu_pwr_down(vd);
 	wake_up_interruptible(&vd->pw_wait);
 }
 
