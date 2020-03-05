@@ -61,6 +61,7 @@ static struct ccci_clk_node clk_table[] = {
 	{ NULL, "infra-ccif2-ap"},
 	{ NULL, "infra-ccif2-md"},
 	{ NULL, "infra-ccif4-md"},
+	{ NULL, "infra-ccif5-md"},
 };
 
 unsigned int devapc_check_flag = 1;
@@ -199,6 +200,18 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		}
 
 		node = of_find_compatible_node(NULL, NULL,
+			"mediatek,md_ccif5");
+		if (node) {
+			hw_info->md_ccif5_base = of_iomap(node, 0);
+			if (!hw_info->md_ccif5_base) {
+				CCCI_ERROR_LOG(dev_cfg->index, TAG,
+				"ccif5_base fail: 0x%p!\n",
+				(void *)hw_info->md_ccif5_base);
+				return -1;
+			}
+		}
+
+		node = of_find_compatible_node(NULL, NULL,
 					"mediatek,topckgen");
 		if (node)
 			hw_info->ap_topclkgen_base = of_iomap(node, 0);
@@ -270,9 +283,9 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 
 	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
 
-	/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
+	/* Clean MD_PCCIF5_SW_READYMD_PCCIF5_PWR_ON */
 	if (!on)
-		ccif_write32(infra_ao_base, 0x22C, 0x0);
+		ccif_write32(pericfg_base, 0x30C, 0x0);
 
 	for (idx = 3; idx < ARRAY_SIZE(clk_table); idx++) {
 		if (clk_table[idx].clk_ref == NULL)
@@ -294,16 +307,26 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 				ccci_write32(hw_info->md_ccif4_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
+
+			if (strcmp(clk_table[idx].clk_name, "infra-ccif5-md")
+				== 0) {
+				udelay(1000);
+				CCCI_NORMAL_LOG(md->index, TAG,
+					"ccif5 %s: after 1ms, set 0x%p + 0x14 = 0xFF\n",
+					__func__, hw_info->md_ccif5_base);
+				ccci_write32(hw_info->md_ccif5_base, 0x14,
+					0xFF); /* special use ccci_write32 */
+			}
 			devapc_check_flag = 0;
 			clk_disable_unprepare(clk_table[idx].clk_ref);
 		}
 	}
-	/* Set MD_PCCIF4_PWR_ON */
+	/* Set MD_PCCIF5_PWR_ON */
 	if (on) {
 		CCCI_NORMAL_LOG(md->index, TAG,
-			"ccif4 %s:  set 0x%p + 0x22C = 0x1\n",
-			__func__, (void *)infra_ao_base);
-		ccif_write32(infra_ao_base, 0x22C, 0x1);
+			"ccif5 %s:  set 0x%lx + 0x30C = 0x1\n",
+			__func__, (unsigned long)pericfg_base);
+		ccif_write32(pericfg_base, 0x30C, 0x1);
 	}
 }
 
