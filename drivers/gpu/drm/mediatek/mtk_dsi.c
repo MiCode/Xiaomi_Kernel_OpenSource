@@ -28,6 +28,9 @@
 #include <video/mipi_display.h>
 #include <video/videomode.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
+#if defined(CONFIG_MACH_MT6873)
+#include <linux/ratelimit.h>
+#endif
 
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
@@ -1141,6 +1144,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
+#if defined(CONFIG_MACH_MT6873)
+	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
+#endif
 
 	if (mtk_drm_top_clk_isr_get("dsi_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
@@ -1195,8 +1201,18 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				}
 			}
 
+#if defined(CONFIG_MACH_MT6873)
+			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
+				"[IRQ] %s: buffer underrun\n",
+				mtk_dump_comp_str(&dsi->ddp_comp));
+			if (__ratelimit(&ioctl_ratelimit))
+				pr_err(pr_fmt("[IRQ] %s: buffer underrun\n"),
+					mtk_dump_comp_str(&dsi->ddp_comp));
+#else
 			DDPPR_ERR("[IRQ] %s: buffer underrun\n",
-				  mtk_dump_comp_str(&dsi->ddp_comp));
+				mtk_dump_comp_str(&dsi->ddp_comp));
+#endif
+
 			if (dsi->encoder.crtc) {
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
