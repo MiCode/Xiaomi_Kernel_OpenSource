@@ -49,7 +49,6 @@ int fixed_opp;
 int apu_power_power_stress(int type, int device, int opp)
 {
 	int id = 0;
-	int opp_rand = 0;
 
 	LOG_WRN("%s begin with type %d +++\n", __func__, type);
 
@@ -122,15 +121,6 @@ int apu_power_power_stress(int type, int device, int opp)
 		#if SUPPORT_VCORE_TO_IPUIF
 			apu_qos_set_vcore(g_ipuif_opp_table[opp].ipuif_vcore);
 		#endif
-		} else {
-			while (1) {
-				opp_rand = get_random_int() % 3;
-		#if SUPPORT_VCORE_TO_IPUIF
-				apu_qos_set_vcore(
-				g_ipuif_opp_table[opp_rand].ipuif_vcore);
-		#endif
-				msleep_interruptible(5);
-			}
 		}
 		break;
 
