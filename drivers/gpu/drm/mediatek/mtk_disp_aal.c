@@ -102,11 +102,13 @@ static struct DISP_DRE30_PARAM g_aal_gain_db;
 static struct DISP_DRE30_HIST g_aal_dre30_hist;
 static struct DISP_DRE30_HIST g_aal_dre30_hist_db;
 
+static atomic_t g_aal_change_to_dre30 = ATOMIC_INIT(0);
+#endif	/* CONFIG_MTK_DRE30_SUPPORT */
+
 static DECLARE_WAIT_QUEUE_HEAD(g_aal_size_wq);
 static bool g_aal_get_size_available;
 static struct DISP_AAL_DISPLAY_SIZE g_aal_size;
-static atomic_t g_aal_change_to_dre30 = ATOMIC_INIT(0);
-#endif	/* CONFIG_MTK_DRE30_SUPPORT */
+
 
 static atomic_t g_aal_panel_type = ATOMIC_INIT(CONFIG_BY_CUSTOM_LIB);
 static int g_aal_ess_level = ESS_LEVEL_BY_CUSTOM_LIB;
@@ -553,14 +555,12 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 
 	AALFLOW_LOG("(w,h)=(%d,%d)+\n", width, height);
 
-#if defined(CONFIG_MTK_DRE30_SUPPORT)
 	if (g_aal_get_size_available == false) {
 		g_aal_size.height = height;
 		g_aal_size.width = width;
 		g_aal_get_size_available = true;
 		wake_up_interruptible(&g_aal_size_wq);
 	}
-#endif
 	val = (width << 16) | (height);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_SIZE, val, ~0);
@@ -1680,7 +1680,7 @@ int mtk_drm_ioctl_aal_init_dre30(struct drm_device *dev, void *data,
 	return 0;
 }
 
-#if defined(CONFIG_MTK_DRE30_SUPPORT)
+
 static int disp_aal_wait_size(unsigned long timeout)
 {
 	int ret = 0;
@@ -1697,21 +1697,18 @@ static int disp_aal_wait_size(unsigned long timeout)
 	}
 	return ret;
 }
-#endif
+
 
 int mtk_drm_ioctl_aal_get_size(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
 {
-#if defined(CONFIG_MTK_DRE30_SUPPORT)
 	struct DISP_AAL_DISPLAY_SIZE *dst =
 		(struct DISP_AAL_DISPLAY_SIZE *)data;
 
 	AALFLOW_LOG("\n");
 	disp_aal_wait_size(60);
 	memcpy(dst, &g_aal_size, sizeof(g_aal_size));
-#else
-	AALFLOW_LOG("DRE30 not support\n");
-#endif
+
 	return 0;
 }
 
