@@ -4808,7 +4808,7 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	msfdl@15010000 {
+	msfdl@15810000 {
 		compatible = "mediatek,msfdl";
 		reg = <0 15810000 0 0x1000>;
 		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
