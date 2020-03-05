@@ -68,6 +68,17 @@ enum custom_action {
 	/*Add custom cmd action here!*/
 };
 
+struct hf_core {
+	struct mutex manager_lock;
+	struct list_head manager_list;
+	struct sensor_state state[SENSOR_TYPE_SENSOR_MAX];
+
+	spinlock_t client_lock;
+	struct list_head client_list;
+
+	struct kthread_worker kworker;
+};
+
 struct hf_device {
 	int (*sample)(struct hf_device *hfdev);
 	int (*enable)(struct hf_device *hfdev, int sensor_type, int en);
@@ -116,6 +127,7 @@ struct hf_manager {
 	atomic_t io_enabled;
 	unsigned long flags;
 	struct hf_device *hf_dev;
+	struct hf_core *core;
 
 	int (*report)(struct hf_manager *manager,
 		struct hf_manager_event *event);
@@ -128,6 +140,7 @@ struct hf_client {
 	struct hf_client_fifo hf_fifo;
 	struct sensor_state request[SENSOR_TYPE_SENSOR_MAX];
 	spinlock_t request_lock;
+	struct hf_core *core;
 
 	/* record process info */
 	char proc_comm[TASK_COMM_LEN];
