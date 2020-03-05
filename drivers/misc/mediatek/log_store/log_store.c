@@ -343,7 +343,7 @@ static void store_printk_buff(void)
 		return;
 	}
 	buff = log_buf_addr_get();
-	log_buf = virt_to_phys(buff);
+	log_buf = __pa_symbol(buff);
 	size = log_buf_len_get();
 	sram_dram_buff->klog_addr = (u32)log_buf;
 	sram_dram_buff->klog_size = size;
