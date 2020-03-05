@@ -194,7 +194,7 @@ static bool g_buck_on;
 static bool g_fixed_freq_volt_state;
 static int g_power_count;
 static unsigned int g_opp_stress_test_state;
-static unsigned int g_opp_power_test_state;
+static int g_opp_power_test_state;
 static unsigned int g_max_opp_idx_num;
 static unsigned int g_segment_max_opp_idx;
 static unsigned int g_segment_min_opp_idx;
@@ -1939,11 +1939,15 @@ static ssize_t mt_gpufreq_power_stress_test_proc_write(
 		mdelay(delay);
 		mt_gpufreq_power_control(
 			POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF);
+		// delay 5 ~ 10ms
+		get_random_bytes(&rand, sizeof(rand));
+		delay = (rand % 6) + 5;
+		mdelay(delay);
 	}
 
 	g_opp_power_test_state = 0;
 out:
-	return ret;
+	return (ret < 0) ? ret : count;
 }
 
 static int mt_gpufreq_aging_enable_proc_show(struct seq_file *m, void *v)
