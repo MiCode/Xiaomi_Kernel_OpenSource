@@ -15,8 +15,8 @@
 #define __VPU_TAG_H__
 
 #include "vpu_ioctl.h"
+#include "vpu_cfg.h"
 
-#define VPU_TAGS_CNT (500)
 #define STAGE_NAMELEN (32)
 
 /* The tag entry of VPU */

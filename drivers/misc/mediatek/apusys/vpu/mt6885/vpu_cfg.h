@@ -104,6 +104,9 @@ bool vpu_is_disabled(struct vpu_device *vd);
 /* Dump: Information String Size */
 #define VPU_DMP_INFO_SZ 128
 
+/* Tags: Count of Tags */
+#define VPU_TAGS_CNT (3000)
+
 /* Register Defines */
 #define MBOX_INBOX_0	0x000
 #define MBOX_INBOX_1	0x004
