@@ -612,7 +612,7 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
 
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id)
 {
 	int ret = 0;

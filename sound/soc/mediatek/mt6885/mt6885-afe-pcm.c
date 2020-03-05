@@ -141,13 +141,18 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT) ||\
 	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		/* with dsp enable, not to set when stop_threshold = ~(0U) */
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
+/* only when adsp enable using hw semaphore to set memif */
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 			ret = mtk_dsp_memif_set_enable(afe, id);
+#else
+			ret = mtk_memif_set_enable(afe, id);
+#endif
 #else
 		ret = mtk_memif_set_enable(afe, id);
 #endif
@@ -215,7 +220,12 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
+/* only when adsp enable using hw semaphore to set memif */
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 			ret = mtk_dsp_memif_set_disable(afe, id);
+#else
+			ret = mtk_memif_set_disable(afe, id);
+#endif
 #else
 		ret = mtk_memif_set_disable(afe, id);
 #endif
