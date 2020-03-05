@@ -514,7 +514,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 
 	if (fence_increment > 0) {
 		mtk_sync_timeline_inc(layer_info->timeline, fence_increment);
-		DDPFENCE("RL+/%s%d/L%d/id%d\n",
+		DDPFENCE("RL+/%s%d/T%d/id%d\n",
 			 mtk_fence_session_mode_spy(session_id),
 			 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);
 	}

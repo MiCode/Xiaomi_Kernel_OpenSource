@@ -587,7 +587,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	cb_data->cmdq_handle = cmdq_handle;
 
-	cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data);
+	if (cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush bl_cmdq_cb\n");
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
@@ -875,7 +876,8 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
-	cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data);
+	if (cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush user_cmd\n");
 
 	CRTC_MMP_EVENT_END(index, user_cmd, (unsigned long)cmd,
 			(unsigned long)params);
@@ -1853,7 +1855,8 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
-	cmdq_pkt_flush_threaded(cmdq_handle, sub_cmdq_cb, cb_data);
+	if (cmdq_pkt_flush_threaded(cmdq_handle, sub_cmdq_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush sub\n");
 end:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
@@ -2644,7 +2647,9 @@ static void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 		mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 
 	cb_data->cmdq_handle = cmdq_handle;
-	cmdq_pkt_flush_threaded(cmdq_handle, set_dirty_cmdq_cb, cb_data);
+	if (cmdq_pkt_flush_threaded(cmdq_handle,
+	    set_dirty_cmdq_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush set_dirty\n");
 }
 
 static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
@@ -3945,6 +3950,7 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
 		cmdq_pkt_destroy(cmdq_handle);
 		kfree(cb_data);
+		DDPPR_ERR("flush check failed\n");
 		return;
 	}
 
@@ -3995,8 +4001,9 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
-	cmdq_pkt_flush_threaded(cmdq_handle,
-		gce_cb, cb_data);
+	if (cmdq_pkt_flush_threaded(cmdq_handle,
+		gce_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush gce_cb\n");
 #else
 	cmdq_pkt_flush(cmdq_handle);
 #endif

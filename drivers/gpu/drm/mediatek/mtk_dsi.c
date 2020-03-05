@@ -3404,8 +3404,9 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 
 			cb_data->cmdq_handle = handle;
-			cmdq_pkt_flush_threaded(handle, mtk_dsi_dy_fps_cmdq_cb,
-				cb_data);
+			if (cmdq_pkt_flush_threaded(handle,
+			    mtk_dsi_dy_fps_cmdq_cb, cb_data) < 0)
+				DDPPR_ERR("failed to flush dsi_dy_fps\n");
 		}
 	}
 }
