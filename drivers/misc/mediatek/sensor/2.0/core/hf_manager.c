@@ -465,6 +465,17 @@ static void hf_manager_update_client_param(
 	}
 }
 
+static void hf_manager_clear_client_param(
+		struct hf_client *client, struct hf_manager_cmd *cmd)
+{
+	struct sensor_state *request = &client->request[cmd->sensor_type];
+
+	atomic64_set(&request->start_time, S64_MAX);
+	request->enable = false;
+	request->delay = S64_MAX;
+	request->latency = S64_MAX;
+}
+
 static void hf_manager_find_best_param(uint8_t sensor_type,
 		bool *action, int64_t *delay, int64_t *latency)
 {
@@ -500,28 +511,36 @@ static void hf_manager_find_best_param(uint8_t sensor_type,
 #endif
 }
 
-static bool device_rebatch(uint8_t sensor_type,
+static inline bool device_rebatch(uint8_t sensor_type,
 			int64_t best_delay, int64_t best_latency)
 {
 	if (prev_request[sensor_type].delay != best_delay ||
-			prev_request[sensor_type].latency != best_latency) {
-		prev_request[sensor_type].delay = best_delay;
-		prev_request[sensor_type].latency = best_latency;
+			prev_request[sensor_type].latency != best_latency)
 		return true;
-	}
 	return false;
 }
 
-static bool device_reenable(uint8_t sensor_type, bool best_enable)
+static inline void device_rebatch_update(uint8_t sensor_type,
+			int64_t best_delay, int64_t best_latency)
 {
-	if (prev_request[sensor_type].enable != best_enable) {
-		prev_request[sensor_type].enable = best_enable;
+	prev_request[sensor_type].delay = best_delay;
+	prev_request[sensor_type].latency = best_latency;
+}
+
+static inline bool device_reenable(uint8_t sensor_type, bool best_enable)
+{
+	if (prev_request[sensor_type].enable != best_enable)
 		return true;
-	}
 	return false;
 }
 
-static bool device_redisable(uint8_t sensor_type, bool best_enable,
+static inline void device_reenable_update(uint8_t sensor_type,
+			bool best_enable)
+{
+	prev_request[sensor_type].enable = best_enable;
+}
+
+static inline bool device_redisable(uint8_t sensor_type, bool best_enable,
 			int64_t best_delay, int64_t best_latency)
 {
 	if (prev_request[sensor_type].enable != best_enable) {
@@ -583,21 +602,43 @@ static int hf_manager_device_enable(struct hf_device *device,
 		&best_delay, &best_latency);
 
 	if (best_enable) {
-		if (device_rebatch(sensor_type, best_delay, best_latency))
+		if (device_rebatch(sensor_type, best_delay, best_latency)) {
 			err = device->batch(device, sensor_type,
 				best_delay, best_latency);
+			/* handle error to return when batch fail */
+			if (err < 0)
+				goto err_out;
+			device_rebatch_update(sensor_type,
+				best_delay, best_latency);
+		}
 		if (device_reenable(sensor_type, best_enable)) {
-			err = device->enable(device, sensor_type, best_enable);
-			/* must update io_enabled before hrtimer_start */
+			/* must update io_enabled before enable */
 			atomic_inc(&manager->io_enabled);
+			err = device->enable(device, sensor_type, best_enable);
+			/* handle error to clear prev request */
+			if (err < 0) {
+				atomic_dec_if_positive(&manager->io_enabled);
+				/*
+				 * rebatch success and enable fail.
+				 * update prev request's delay and latency.
+				 */
+				device_rebatch_update(sensor_type,
+					S64_MAX, S64_MAX);
+				goto err_out;
+			}
+			device_reenable_update(sensor_type, best_enable);
 		}
 		if (device->device_poll == HF_DEVICE_IO_POLLING)
 			device_poll_trigger(device, best_enable);
 	} else {
 		if (device_redisable(sensor_type, best_enable,
 				best_delay, best_latency)) {
-			err = device->enable(device, sensor_type, best_enable);
 			atomic_dec_if_positive(&manager->io_enabled);
+			err = device->enable(device, sensor_type, best_enable);
+			/*
+			 * disable fail no need to handle error.
+			 * run next to update hrtimer or tasklet.
+			 */
 		}
 		if (device->device_poll == HF_DEVICE_IO_POLLING)
 			device_poll_trigger(device, best_enable);
@@ -605,6 +646,8 @@ static int hf_manager_device_enable(struct hf_device *device,
 				!atomic_read(&manager->io_enabled))
 			tasklet_kill(&manager->io_work_tasklet);
 	}
+
+err_out:
 	return err;
 }
 
@@ -766,6 +809,8 @@ static int hf_manager_drive_device(struct hf_client *client,
 	case HF_MANAGER_SENSOR_DISABLE:
 		hf_manager_update_client_param(client, cmd);
 		err = hf_manager_device_enable(device, sensor_type);
+		if (err < 0)
+			hf_manager_clear_client_param(client, cmd);
 		break;
 	case HF_MANAGER_SENSOR_FLUSH:
 		atomic_inc(&client->request[sensor_type].flush);
@@ -788,6 +833,8 @@ static int hf_manager_drive_device(struct hf_client *client,
 		client->request[sensor_type].raw =
 			cmd->data[0] ? true : false;
 		err = hf_manager_device_rawdata(device, sensor_type);
+		if (err < 0)
+			client->request[sensor_type].raw = false;
 		break;
 	}
 	mutex_unlock(&hf_manager_list_mtx);
