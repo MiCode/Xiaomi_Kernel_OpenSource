@@ -40,7 +40,7 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 
-#define MT6360_PMU_CHG_DRV_VERSION	"1.0.5_MTK"
+#define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
 
 void __attribute__ ((weak)) Charger_Detect_Init(void)
 {
@@ -377,7 +377,8 @@ static int mt6360_psy_online_changed(struct mt6360_pmu_chg_info *mpci)
 	union power_supply_propval propval;
 
 	/* Get chg type det power supply */
-	mpci->psy = power_supply_get_by_name("charger");
+	if (!mpci->psy)
+		mpci->psy = power_supply_get_by_name("charger");
 	if (!mpci->psy) {
 		dev_notice(mpci->dev,
 			"%s: get power supply failed\n", __func__);
@@ -403,7 +404,8 @@ static int mt6360_psy_chg_type_changed(struct mt6360_pmu_chg_info *mpci)
 	union power_supply_propval propval;
 
 	/* Get chg type det power supply */
-	mpci->psy = power_supply_get_by_name("charger");
+	if (!mpci->psy)
+		mpci->psy = power_supply_get_by_name("charger");
 	if (!mpci->psy) {
 		dev_notice(mpci->dev,
 			"%s: get power supply failed\n", __func__);
@@ -1783,6 +1785,14 @@ static int mt6360_plug_in(struct charger_device *chg_dev)
 	}
 
 	/* Workaround for ibus stuck in pe/pe20 pattern */
+	if (!mpci->psy)
+		mpci->psy = power_supply_get_by_name("charger");
+	if (!mpci->psy) {
+		dev_notice(mpci->dev,
+			"%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
+
 	ret = power_supply_get_property(mpci->psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE,
 					&propval);
@@ -2417,12 +2427,7 @@ static int mt6360_chg_mivr_task_threadfn(void *data)
 
 	dev_info(mpci->dev, "%s ++\n", __func__);
 	while (!kthread_should_stop()) {
-		atomic_set(&mpci->mivr_cnt, 0);
-		mt6360_pmu_chg_irq_enable("chg_mivr_evt", 1);
-		ret = wait_event_interruptible(mpci->waitq,
-					      atomic_read(&mpci->mivr_cnt) > 0);
-		if (ret < 0)
-			continue;
+		wait_event(mpci->waitq, atomic_read(&mpci->mivr_cnt) > 0);
 		mt_dbg(mpci->dev, "%s: enter mivr thread\n", __func__);
 		pm_stay_awake(mpci->dev);
 		/* check real mivr stat or not */
@@ -2449,6 +2454,9 @@ static int mt6360_chg_mivr_task_threadfn(void *data)
 		}
 loop_cont:
 		pm_relax(mpci->dev);
+		atomic_set(&mpci->mivr_cnt, 0);
+		mt6360_pmu_chg_irq_enable("chg_mivr_evt", 1);
+		msleep(200);
 	}
 	dev_info(mpci->dev, "%s --\n", __func__);
 	return 0;
@@ -2975,6 +2983,13 @@ MODULE_VERSION(MT6360_PMU_CHG_DRV_VERSION);
 
 /*
  * Version Note
+ * 1.0.7_MTK
+ * (1) Fix Unbalanced enable for MIVR IRQ
+ * (2) Sleep 200ms before do another iteration in mt6360_chg_mivr_task_threadfn
+ *
+ * 1.0.6_MTK
+ * (1) Fix the usages of charger power supply
+ *
  * 1.0.5_MTK
  * (1) Prevent charger type infromed repeatedly
  *
