@@ -44,7 +44,7 @@ static struct kthread_worker hf_manager_kthread_worker;
 
 static int hf_manager_find_client(struct hf_manager_event *event);
 
-static struct coordinate coordinates[] = {
+static const struct coordinate coordinates[] = {
 	{ { 1, 1, 1}, {0, 1, 2} },
 	{ { -1, 1, 1}, {1, 0, 2} },
 	{ { -1, -1, 1}, {0, 1, 2} },
@@ -74,6 +74,7 @@ void coordinate_map(unsigned char direction, int32_t *data)
 	data[1] = temp[1];
 	data[2] = temp[2];
 }
+EXPORT_SYMBOL_GPL(coordinate_map);
 
 static bool filter_event_by_timestamp(struct hf_client_fifo *hf_fifo,
 		struct hf_manager_event *event)
@@ -182,7 +183,7 @@ static int hf_manager_io_report(struct hf_manager *manager,
 
 static void hf_manager_io_complete(struct hf_manager *manager)
 {
-	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &(manager->flags));
+	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags);
 }
 
 static void hf_manager_io_sample(struct hf_manager *manager)
@@ -309,6 +310,7 @@ out_err:
 	device->manager = NULL;
 	return err;
 }
+EXPORT_SYMBOL_GPL(hf_manager_create);
 
 int hf_manager_destroy(struct hf_manager *manager)
 {
@@ -338,6 +340,7 @@ int hf_manager_destroy(struct hf_manager *manager)
 	kfree(manager);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hf_manager_destroy);
 
 static int hf_manager_distinguish_event(struct hf_client *client,
 		struct hf_manager_event *event)
@@ -907,6 +910,7 @@ void hf_client_destroy(struct hf_client *client)
 	kfree(client->hf_fifo.buffer);
 	kfree(client);
 }
+EXPORT_SYMBOL_GPL(hf_client_destroy);
 
 int hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type)
 {
@@ -916,6 +920,7 @@ int hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type)
 		return -EINVAL;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hf_client_find_sensor);
 
 int hf_client_get_sensor_info(struct hf_client *client,
 		uint8_t sensor_type, struct sensor_info *info)
@@ -926,6 +931,7 @@ int hf_client_get_sensor_info(struct hf_client *client,
 		return -EINVAL;
 	return hf_manager_device_info(sensor_type, info);
 }
+EXPORT_SYMBOL_GPL(hf_client_get_sensor_info);
 
 int hf_client_request_sensor_cali(struct hf_client *client,
 		uint8_t sensor_type, unsigned int cmd, bool status)
@@ -950,12 +956,14 @@ int hf_client_request_sensor_cali(struct hf_client *client,
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hf_client_request_sensor_cali);
 
 int hf_client_control_sensor(struct hf_client *client,
 		struct hf_manager_cmd *cmd)
 {
 	return hf_manager_drive_device(client, cmd);
 }
+EXPORT_SYMBOL_GPL(hf_client_control_sensor);
 
 static int fetch_next(struct hf_client_fifo *hf_fifo,
 				  struct hf_manager_event *event)
@@ -1006,6 +1014,7 @@ int hf_client_poll_sensor_timeout(struct hf_client *client,
 	}
 	return read;
 }
+EXPORT_SYMBOL_GPL(hf_client_poll_sensor_timeout);
 
 int hf_client_custom_cmd(struct hf_client *client,
 		uint8_t sensor_type, struct custom_cmd *cust_cmd)
@@ -1016,6 +1025,7 @@ int hf_client_custom_cmd(struct hf_client *client,
 		return -EINVAL;
 	return hf_manager_custom_cmd(sensor_type, cust_cmd);
 }
+EXPORT_SYMBOL_GPL(hf_client_custom_cmd);
 
 static int hf_manager_open(struct inode *inode, struct file *filp)
 {
@@ -1257,7 +1267,6 @@ static const struct file_operations hf_manager_proc_fops = {
 	.llseek         = seq_lseek,
 };
 
-
 static int __init hf_manager_init(void)
 {
 	int major = -1, i = 0;
@@ -1298,7 +1307,6 @@ static int __init hf_manager_init(void)
 }
 subsys_initcall(hf_manager_init);
 
-
 MODULE_AUTHOR("Mediatek");
-MODULE_DESCRIPTION("high freq sensor manaer driver");
+MODULE_DESCRIPTION("high frequency manager");
 MODULE_LICENSE("GPL");
