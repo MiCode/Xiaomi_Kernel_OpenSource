@@ -50,6 +50,7 @@ struct FSTB_FRAME_INFO {
 	struct hlist_node hlist;
 
 	int pid;
+	char proc_name[16];
 	int target_fps;
 	int target_fps_margin;
 	int target_fps_margin2;
