@@ -1481,6 +1481,9 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	int ret;
 	struct mtk_panel_ext *ext = dsi->ext;
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
+	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
+	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 
 	DDPINFO("%s +\n", __func__);
 
@@ -1520,6 +1523,17 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
 		}
+
+		/* add for ESD recovery */
+		if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mode_id != 0) {
+			if (dsi->ext && dsi->ext->funcs &&
+				dsi->ext->funcs->mode_switch)
+				DDPMSG("%s do lcm mode_switch to %u\n",
+					__func__, mode_id);
+				dsi->ext->funcs->mode_switch(dsi->panel, 0,
+					mode_id, AFTER_DSI_POWERON);
+		}
+
 		if (new_doze_state && !dsi->doze_enabled) {
 			if (ext && ext->funcs &&
 				ext->funcs->doze_enable_start)
@@ -3297,6 +3311,12 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	    old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int dst_mode =
 	    state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	bool need_mipi_change = 1;
+
+	/* use no mipi clk change solution */
+	if (dsi->ext && dsi->ext->params &&
+		dsi->ext->params->dyn_fps.switch_en > 0)
+		need_mipi_change = 0;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -3310,6 +3330,9 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	mtk_dsi_poll_for_idle(dsi, cmdq_handle);
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
+
+	if (need_mipi_change == 0)
+		goto skip_change_mipi;
 
 	/*  send lcm cmd before DSI power down if needed */
 	if (dsi->ext && dsi->ext->funcs &&
@@ -3333,6 +3356,7 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	while (dsi->clk_refcnt != clk_refcnt)
 		mtk_dsi_ddp_prepare(&dsi->ddp_comp);
 
+skip_change_mipi:
 	/*  send lcm cmd after DSI power on if needed */
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->mode_switch)

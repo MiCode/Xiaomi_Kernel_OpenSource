@@ -3253,6 +3253,9 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 
 	crtc->mode.hdisplay = timing->hdisplay;
 	crtc->mode.vdisplay = timing->vdisplay;
+	crtc->state->adjusted_mode.hdisplay = timing->hdisplay;
+	crtc->state->adjusted_mode.vdisplay = timing->vdisplay;
+	crtc->state->adjusted_mode.vrefresh = timing->vrefresh;
 
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 
@@ -3284,6 +3287,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 
 	cfg.w = crtc->mode.hdisplay;
 	cfg.h = crtc->mode.vdisplay;
+	cfg.p_golden_setting_context =
+			__get_golden_setting_context(mtk_crtc);
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -3306,6 +3311,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		mtk_ddp_comp_first_cfg(comp, &cfg, cmdq_handle);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_ALL, NULL);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
 	}
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);

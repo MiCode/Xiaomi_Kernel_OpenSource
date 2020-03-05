@@ -411,7 +411,6 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 {
 	/* fixed variable */
 	unsigned int mmsys_clk = 208;
-	unsigned int if_fps = cfg->vrefresh;
 	unsigned int FP = 1000;
 	unsigned int fifo_size = 2240;
 #if defined(CONFIG_MACH_MT6885)
@@ -430,16 +429,10 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned long long width = gsc->dst_width, height = gsc->dst_height;
 	unsigned int Bpp;
 	bool is_dc = gsc->is_dc;
-	unsigned int default_vrefresh = gsc->vrefresh;
+	unsigned int if_fps = gsc->vrefresh;
 
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
-
-	if (if_fps == 0) {
-		DDPPR_ERR("%s invalid vrefresh %u\n",
-			__func__, if_fps);
-		if_fps = default_vrefresh;
-	}
 
 	switch (cfg->bpc) {
 	case 8:
@@ -466,8 +459,8 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	else
 		fill_rate = 96 * mmsys_clk * 3 / 16; /* FIFO depth / us */
 
-	DDPINFO("%s,w:%d,h:%d,vrefresh:%d,bpc:%d,is_vdo:%d,is_dc:%d\n",
-		__func__, cfg->w, cfg->h, if_fps, cfg->bpc,
+	DDPINFO("%s,w:%llu,h:%llu,vrefresh:%d,bpc:%d,is_vdo:%d,is_dc:%d\n",
+		__func__, width, height, if_fps, cfg->bpc,
 		gsc->is_vdo_mode, gsc->is_dc);
 
 	consume_rate = width * height * if_fps * Bpp;
@@ -526,6 +519,9 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		FP);
 	if (gs[GS_RDMA_TH_HIGH_FOR_SODI] < gs[GS_RDMA_PRE_ULTRA_TH_HIGH])
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = gs[GS_RDMA_PRE_ULTRA_TH_HIGH];
+
+	if (gs[GS_RDMA_TH_HIGH_FOR_SODI] >= gs[GS_RDMA_FIFO_SIZE])
+		gs[GS_RDMA_TH_HIGH_FOR_SODI] = gs[GS_RDMA_FIFO_SIZE] - 1;
 
 	/* DISP_RDMA_THRESHOLD_FOR_DVFS */
 	gs[GS_RDMA_TH_LOW_FOR_DVFS] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
