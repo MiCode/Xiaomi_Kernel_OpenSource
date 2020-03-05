@@ -484,7 +484,7 @@ static int ccmni_close(struct net_device *dev)
 	return 0;
 }
 
-static int ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int ret;
 	int skb_len = skb->len;
