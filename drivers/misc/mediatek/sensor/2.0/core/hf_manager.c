@@ -249,7 +249,7 @@ int hf_manager_create(struct hf_device *device)
 	struct hf_manager *manager = NULL;
 
 	if (!device || !device->dev_name ||
-		!device->support_list || !device->support_size)
+			!device->support_list || !device->support_size)
 		return -EFAULT;
 
 	manager = kzalloc(sizeof(*manager), GFP_KERNEL);
@@ -334,8 +334,15 @@ int hf_manager_destroy(struct hf_manager *manager)
 	mutex_lock(&hf_manager_list_mtx);
 	list_del(&manager->list);
 	mutex_unlock(&hf_manager_list_mtx);
-	if (manager->hf_dev->device_bus == HF_DEVICE_IO_ASYNC)
+	if (device->device_poll == HF_DEVICE_IO_POLLING)
+		hrtimer_cancel(&manager->io_poll_timer);
+	if (device->device_bus == HF_DEVICE_IO_ASYNC)
 		tasklet_kill(&manager->io_work_tasklet);
+	else if (device->device_bus == HF_DEVICE_IO_SYNC)
+		kthread_flush_work(&manager->io_kthread_work);
+
+	while (test_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags))
+		cpu_relax();
 
 	kfree(manager);
 	return 0;
