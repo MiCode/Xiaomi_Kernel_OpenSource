@@ -96,15 +96,15 @@ struct upower_tbl_info
 	/* 6873T (Turbo Mode) */
 	[1] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
-				upower_tbl_l_6873T),
+				upower_tbl_l_6873TB),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
-				upower_tbl_b_6873T),
+				upower_tbl_b_6873TB),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
-				upower_tbl_cluster_l_6873T),
+				upower_tbl_cluster_l_6873TB),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
-				upower_tbl_cluster_b_6873T),
+				upower_tbl_cluster_b_6873TB),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
-				upower_tbl_cci_6873T),
+				upower_tbl_cci_6873TB),
 	},
 	/* 6873T */
 	[2] = {
