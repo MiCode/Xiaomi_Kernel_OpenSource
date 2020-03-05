@@ -41,8 +41,8 @@ extern "C" {
 #endif
 
 /* FIX ME */
-#define EARLY_PORTING_EEM
-#define EARLY_PORTING_SPOWER
+/* #define EARLY_PORTING_EEM */
+/* #define EARLY_PORTING_SPOWER */
 /* #define UPOWER_UT */
 /* #define UPOWER_PROFILE_API_TIME */
 #define UPOWER_RCU_LOCK
