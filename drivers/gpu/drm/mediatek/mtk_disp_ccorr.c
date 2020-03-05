@@ -83,6 +83,9 @@ static int g_pq_backlight_db;
 static atomic_t g_ccorr_is_init_valid = ATOMIC_INIT(0);
 
 static DEFINE_MUTEX(g_ccorr_global_lock);
+// For color conversion bug fix
+static bool need_offset;
+#define OFFSET_VALUE (1024)
 
 /* TODO */
 /* static ddp_module_notify g_ccorr_ddp_notify; */
@@ -521,7 +524,18 @@ static int disp_ccorr_set_coef(
 
 			old_ccorr = g_disp_ccorr_coef[id];
 			g_disp_ccorr_coef[id] = ccorr;
-
+			if ((g_disp_ccorr_coef[id]->offset[0] == 0) &&
+				(g_disp_ccorr_coef[id]->offset[1] == 0) &&
+				(g_disp_ccorr_coef[id]->offset[2] == 0) &&
+				need_offset) {
+				DDPINFO("%s:need change offset", __func__);
+				g_disp_ccorr_coef[id]->offset[0] =
+						(OFFSET_VALUE << 1) << 14;
+				g_disp_ccorr_coef[id]->offset[1] =
+						(OFFSET_VALUE << 1) << 14;
+				g_disp_ccorr_coef[id]->offset[2] =
+						(OFFSET_VALUE << 1) << 14;
+			}
 			DDPINFO("%s: Set module(%d) coef", __func__, id);
 			ret = disp_ccorr_write_coef_reg(comp, handle, 0);
 
@@ -580,6 +594,11 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	// offset part
+	if ((matrix[12] != 0) || (matrix[13] != 0) || (matrix[14] != 0))
+		need_offset = true;
+	else
+		need_offset = false;
+
 	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << 14;
 	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << 14;
 	g_disp_ccorr_coef[id]->offset[2] = (matrix[14] << 1) << 14;
