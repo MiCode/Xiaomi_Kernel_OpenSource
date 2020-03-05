@@ -1153,6 +1153,21 @@ static int register_pm_qos_misc(struct pm_qos_object *qos, struct dentry *d)
 	return misc_register(&qos->pm_qos_power_miscdev);
 }
 
+/* User space interface to PM QoS classes via misc devices */
+static int register_pm_qos_debug(struct pm_qos_object *qos, struct dentry *d)
+{
+	qos->pm_qos_power_miscdev.minor = MISC_DYNAMIC_MINOR;
+	qos->pm_qos_power_miscdev.name = qos->name;
+	qos->pm_qos_power_miscdev.fops = &pm_qos_power_fops;
+
+	if (d) {
+		(void)debugfs_create_file(qos->name, 0444, d,
+					  (void *)qos, &pm_qos_debug_fops);
+	}
+
+	return 0;
+}
+
 static int find_pm_qos_object_by_minor(int minor)
 {
 	int pm_qos_class;
@@ -1252,7 +1267,10 @@ static int __init pm_qos_power_init(void)
 		d = NULL;
 
 	for (i = PM_QOS_CPU_DMA_LATENCY; i < PM_QOS_NUM_CLASSES; i++) {
-		ret = register_pm_qos_misc(pm_qos_array[i], d);
+		if (i > PM_QOS_MEMORY_BANDWIDTH)
+			ret = register_pm_qos_debug(pm_qos_array[i], d);
+		else
+			ret = register_pm_qos_misc(pm_qos_array[i], d);
 		if (ret < 0) {
 			printk(KERN_ERR "pm_qos_param: %s setup failed\n",
 			       pm_qos_array[i]->name);
