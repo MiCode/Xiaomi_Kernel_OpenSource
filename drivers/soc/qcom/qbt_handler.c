@@ -11,6 +11,7 @@
 #include <linux/time.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
@@ -1171,7 +1172,23 @@ static struct platform_driver qbt_plat_driver = {
 	},
 };
 
-module_platform_driver(qbt_plat_driver);
+static int __init qbt_handler_init(void)
+{
+	int ret;
+
+	pr_debug("entry\n");
+	ret = platform_driver_register(&qbt_plat_driver);
+	return ret;
+}
+
+static void __exit qbt_handler_exit(void)
+{
+	pr_debug("entry\n");
+	platform_driver_unregister(&qbt_plat_driver);
+}
+
+module_init(qbt_handler_init);
+module_exit(qbt_handler_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. QBT HANDLER");
