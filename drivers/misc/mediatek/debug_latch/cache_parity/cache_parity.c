@@ -27,6 +27,12 @@
 #include <mt-plat/aee.h>
 #include <cache_parity.h>
 
+#define ECC_LOG(fmt, ...) \
+	do { \
+		pr_notice(fmt, __VA_ARGS__); \
+		aee_sram_printk(fmt, __VA_ARGS__); \
+	} while (0)
+
 static inline unsigned int gic_irq(struct irq_data *d)
 {
 #ifdef CONFIG_MTK_SYSIRQ
@@ -57,6 +63,7 @@ static unsigned int irq_count;
 static unsigned int version;
 static struct parity_irq_record_t *parity_irq_record;
 static bool cache_error_happened;
+static unsigned int cache_error_times;
 
 static irqreturn_t (*custom_parity_isr)(int irq, void *dev_id);
 static int cache_parity_probe(struct platform_device *pdev);
@@ -97,7 +104,8 @@ static ssize_t cache_status_show(struct device_driver *driver,
 {
 
 	if (cache_error_happened)
-		return snprintf(buf, PAGE_SIZE, "True\n");
+		return snprintf(buf, PAGE_SIZE, "True, %u times\n",
+				cache_error_times);
 	else
 		return snprintf(buf, PAGE_SIZE, "False\n");
 }
@@ -174,10 +182,6 @@ static void handle_error(struct work_struct *w)
 			"misc0_el1", cache_parity_wd.data.v2.misc0_el1,
 			"status_el1", cache_parity_wd.data.v2.status_el1,
 			"CRDISPATCH_KEY:Cache Parity Issue");
-		aee_sram_printk("ecc error(%s): %s%d, %s:0x%016llx, %s:0x%016llx\n",
-			error_type, "irq", wd->data.v2.irq_index,
-			"misc0_el1", cache_parity_wd.data.v2.misc0_el1,
-			"status_el1", cache_parity_wd.data.v2.status_el1);
 	} else {
 		pr_debug("Unknown Cache Error Irq\n");
 	}
@@ -186,6 +190,7 @@ static void handle_error(struct work_struct *w)
 static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 {
 	cache_error_happened = true;
+	cache_error_times++;
 
 	/* collect error status to report later */
 	cache_parity_wd.data.v2.irq_index = virq_to_hwirq(irq);
@@ -195,13 +200,30 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 	/* clear error status to make irq not pending */
 	write_ERXSTATUS_EL1(cache_parity_wd.data.v2.status_el1);
 
+	/*
+	 * if we read 0x0 from status, force clear all error
+	 * to de-assert nFAULTIRQ
+	 */
+	if (!cache_parity_wd.data.v2.misc0_el1 &&
+			!cache_parity_wd.data.v2.status_el1) {
+		write_ERXSTATUS_EL1(0xFFC00000);
+	}
+
 	/* OK, can start a worker to generate error report */
 	schedule_work(&cache_parity_wd.work);
 
-	pr_warn("ecc error,%s:%d, %s%016llx, %s:%016llx\n",
+	ECC_LOG("ecc error,%s:%d, %s: 0x%016llx, %s: 0x%016llx\n",
 	       "irq_index", cache_parity_wd.data.v2.irq_index,
 	       "misc0_el1", cache_parity_wd.data.v2.misc0_el1,
 	       "status_el1", cache_parity_wd.data.v2.status_el1);
+
+	if (cache_error_times > ECC_IRQ_TRIGGER_THRESHOLD) {
+		disable_irq_nosync(irq);
+		ECC_LOG("%s disable IRQ%d due to trigger over than %d times.",
+			__func__,
+			cache_parity_wd.data.v2.irq_index,
+			ECC_IRQ_TRIGGER_THRESHOLD);
+	}
 
 	return IRQ_HANDLED;
 }

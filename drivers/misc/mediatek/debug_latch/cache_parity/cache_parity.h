@@ -18,6 +18,8 @@
 #define ECC_CE_BIT		(0x3 << 24)
 #define ECC_DE_BIT		(0x1 << 23)
 
+#define ECC_IRQ_TRIGGER_THRESHOLD	1
+
 struct parity_record_t {
 	unsigned int check_offset;
 	unsigned int check_mask;
