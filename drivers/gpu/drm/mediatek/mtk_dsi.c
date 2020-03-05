@@ -4014,6 +4014,9 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	struct mtk_panel_ext *ext = dsi->ext;
 	unsigned int data_rate;
 	unsigned int pixclk = 0;
+	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
+	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
 
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
@@ -4024,14 +4027,17 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	dsi->ext = find_panel_ext(dsi->panel);
 	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	data_rate = mtk_dsi_default_rate(dsi);
-
+	//consider enable dsc case,hact will change
+	htotal = htotal - hact + hact * 100 / compress_rate;
+	hact = hact * 100 / compress_rate;
 	// note:for 5G-7 if dsi have FIFO, there need change
+	pixclk = data_rate * dsi->lanes * compress_rate;
 	if (data_rate && ext->params->is_cphy)
-		pixclk = data_rate * compress_rate * dsi->lanes * 2 / 7;
-	else
-		pixclk = data_rate * compress_rate * dsi->lanes / 8;
-	pixclk = pixclk / 3 / 100;
-	DDPINFO("%s,data_rate =%d,clk=%d comparess_rate=%d\n", __func__,
+		pixclk = pixclk * 16 / 7;
+	if (ext->params->dsc_params.enable)
+		pixclk = pixclk * hact / htotal;
+	pixclk = pixclk / bpp / 100;
+	DDPINFO("%s,data_rate =%d,clk=%u comparess_rate=%d\n", __func__,
 			data_rate, pixclk, compress_rate);
 
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);

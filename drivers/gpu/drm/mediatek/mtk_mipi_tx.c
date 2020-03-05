@@ -1067,6 +1067,7 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6873(struct clk_hw *hw)
 	}
 	/*set volate*/
 	writel(0x4444236A, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
+	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED);
 	/* step 0 */
 	/* BG_LPF_EN / BG_CORE_EN */
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);

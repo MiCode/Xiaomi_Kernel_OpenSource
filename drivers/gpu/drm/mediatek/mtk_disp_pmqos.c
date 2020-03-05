@@ -308,6 +308,7 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 	if (pixclk >= g_freq_steps[0]) {
 		DDPMSG("%s:error:pixleclk (%d) is to big for mmclk (%llu)\n",
 			caller, pixclk, g_freq_steps[0]);
+		mtk_drm_set_mmclk(crtc, 0, caller);
 		return;
 	}
 	if (!pixclk) {
