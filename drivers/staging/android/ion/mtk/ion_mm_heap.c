@@ -1857,7 +1857,7 @@ static int mtk_ion_copy_param(unsigned int type,
 				mm_cmd, param.config_buffer_param.module_id,
 				(*client_name) ? client_name : "null");
 		return 0;
-#endif
+#else
 
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -1930,6 +1930,7 @@ static int mtk_ion_copy_param(unsigned int type,
 		}
 #endif
 		break;
+#endif
 	case 2:
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
