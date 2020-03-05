@@ -27,6 +27,7 @@
 
 #include "u_ether.h"
 #include "rndis.h"
+#include "rps_perf.h"
 
 #ifdef CONFIG_MEDIATEK_SOLUTION
 #include "usb_boost.h"
@@ -1035,6 +1036,8 @@ success:
 static void eth_start(struct eth_dev *dev, gfp_t gfp_flags)
 {
 	U_ETHER_DBG("\n");
+
+	set_rps_map(dev->net->_rx, 0xff);
 
 	/* fill the rx queue */
 	rx_fill(dev, gfp_flags);
