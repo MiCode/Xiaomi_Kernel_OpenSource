@@ -735,7 +735,7 @@ s32 cmdq_pkt_write_reg_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 		return err;
 
 	if (addr < 0x20000) {
-		cmdq_err("pkt:%p addr:%#x src_reg_idx:%#x mask:%#x thrd:%d",
+		cmdq_err("pkt:%p addr:%#lx src_reg_idx:%#x mask:%#x thrd:%d",
 			pkt, addr, src_reg_idx, mask,
 			cmdq_mbox_chan_id(client->chan));
 		dump_stack();
@@ -760,7 +760,7 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 		return err;
 
 	if (addr < 0x20000) {
-		cmdq_err("pkt:%p addr:%#x value:%#x mask:%#x thrd:%d",
+		cmdq_err("pkt:%p addr:%#lx value:%#x mask:%#x thrd:%d",
 			pkt, addr, value, mask,
 			cmdq_mbox_chan_id(client->chan));
 		dump_stack();
