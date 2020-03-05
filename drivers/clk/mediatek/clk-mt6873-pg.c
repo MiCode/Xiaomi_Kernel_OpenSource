@@ -340,6 +340,8 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define VDE_PROT_STEP1_0_ACK_MASK        ((0x1 << 24))
 #define VEN_PROT_STEP1_0_MASK            ((0x1 << 26))
 #define VEN_PROT_STEP1_0_ACK_MASK        ((0x1 << 26))
+#define VEN_PROT_STEP2_0_MASK            ((0x1 << 27))
+#define VEN_PROT_STEP2_0_ACK_MASK        ((0x1 << 27))
 #define MDP_PROT_STEP1_0_MASK            ((0x1 << 12))
 #define MDP_PROT_STEP1_0_ACK_MASK        ((0x1 << 12))
 #define DIS_PROT_STEP1_0_MASK            ((0x1 << 10) \
@@ -2352,6 +2354,16 @@ int spm_mtcmos_ctrl_ven(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Set bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_SET, VEN_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
+			& VEN_PROT_STEP2_0_ACK_MASK)
+			!= VEN_PROT_STEP2_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(VEN_PWR_CON, spm_read(VEN_PWR_CON) | VEN_SRAM_PDN);
 #ifndef IGNORE_MTCMOS_CHECK
@@ -2414,6 +2426,8 @@ int spm_mtcmos_ctrl_ven(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Release bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, VEN_PROT_STEP2_0_MASK);
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, VEN_PROT_STEP1_0_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
