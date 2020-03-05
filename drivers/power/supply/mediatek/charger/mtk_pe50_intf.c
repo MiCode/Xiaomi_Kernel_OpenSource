@@ -79,8 +79,6 @@ bool mtk_pe50_is_ready(struct charger_manager *chgmgr)
 
 	if (!chgmgr->enable_pe_5 || !chgmgr->enable_hv_charging)
 		return false;
-	if (chgmgr->chr_type != STANDARD_CHARGER)
-		return false;
 	return prop_chgalgo_is_algo_ready(pe50->pca_algo);
 }
 

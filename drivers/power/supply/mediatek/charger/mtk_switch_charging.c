@@ -694,6 +694,11 @@ static int mtk_switch_charging_run(struct charger_manager *info)
 			mtk_pe_check_charger(info);
 	}
 
+	if (mtk_pe40_get_is_connect(info)) {
+		if (mtk_pe50_is_ready(info))
+			mtk_pe40_end(info, 4, true);
+	}
+
 	do {
 		switch (swchgalg->state) {
 			chr_err("%s_2 [%d] %d\n", __func__, swchgalg->state,

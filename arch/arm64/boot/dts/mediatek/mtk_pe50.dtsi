@@ -14,16 +14,17 @@
 &odm {
 	mtk_pe50 {
 		polling_interval = <10000>;
+		ta_cv_ss_repeat_tmin = <25>;
 		vbat_cv = <4350>;
-		start_soc_min = <1>;
+		start_soc_min = <0>;
 		start_soc_max = <80>;
 		start_vbat_max = <4300>;
 		idvchg_term = <500>;
 		idvchg_step = <50>;
 		ita_level = <3000 2700 2400 2000>;
-		rcable_level = <250 278 313 375>;
+		rcable_level = <250 277 312 375>;
 		ita_level_dual = <4000 3700 3400 3000>;
-		rcable_level_dual = <188 203 221 250>;
+		rcable_level_dual = <187 202 220 250>;
 		idvchg_ss_init = <1000>;
 		idvchg_ss_step = <250>;
 		idvchg_ss_step1 = <100>;

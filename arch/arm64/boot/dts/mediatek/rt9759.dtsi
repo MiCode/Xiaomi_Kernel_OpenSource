@@ -34,6 +34,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <30000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
 			/* vbatovp_dis; */
 			/* vbatovp_alm_dis; */
 			/* ibatocp_dis; */
@@ -48,7 +49,6 @@
 			/* tdieotp_dis; */
 			/* reg_en; */
 			/* voutovp_dis; */
-			ibat_rsen;
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
 			/* vacadc_dis; */
@@ -72,6 +72,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <1000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
 			vbatovp_dis;
 			vbatovp_alm_dis;
 			ibatocp_dis;
@@ -86,7 +87,6 @@
 			/* tdieotp_dis; */
 			/* reg_en; */
 			/* voutovp_dis; */
-			ibat_rsen;
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
 			/* vacadc_dis; */
@@ -118,6 +118,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <30000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
 			/* vbatovp_dis; */
 			/* vbatovp_alm_dis; */
 			/* ibatocp_dis; */
@@ -132,7 +133,6 @@
 			/* tdieotp_dis; */
 			/* reg_en; */
 			/* voutovp_dis; */
-			ibat_rsen;
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
 			/* vacadc_dis; */
@@ -156,6 +156,7 @@
 			ibusocp_alm = <4000000>;
 			vacovp = <11000000>;
 			wdt = <30000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
 			/* vbatovp_dis; */
 			/* vbatovp_alm_dis; */
 			/* ibatocp_dis; */
@@ -170,7 +171,6 @@
 			/* tdieotp_dis; */
 			/* reg_en; */
 			/* voutovp_dis; */
-			ibat_rsen;
 			/* ibusadc_dis; */
 			/* vbusadc_dis; */
 			/* vacadc_dis; */

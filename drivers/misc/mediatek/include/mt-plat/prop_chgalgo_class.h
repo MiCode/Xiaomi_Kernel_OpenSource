@@ -17,7 +17,7 @@
 #include <linux/device.h>
 #include <linux/notifier.h>
 
-#define PCA_DBG_EN	0
+#define PCA_DBG_EN	1
 #define PCA_INFO_EN	1
 #define PCA_ERR_EN	1
 

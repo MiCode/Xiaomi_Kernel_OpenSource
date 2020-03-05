@@ -17,19 +17,29 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/notifier.h>
+#include <linux/of.h>
 
 #include <tcpm.h>
 #include <mt-plat/prop_chgalgo_class.h>
 
-#define PCA_PPS_TA_VERSION	"1.0.4_G"
+#define PCA_PPS_TA_VERSION	"1.0.6_G"
 #define PCA_PPS_CMD_RETRY_COUNT	2
 
 #ifndef MIN
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
 #endif
 
+struct pca_pps_desc {
+	bool force_cv;
+};
+
+static struct pca_pps_desc pca_pps_desc_defval = {
+	.force_cv = false,
+};
+
 struct pca_pps_info {
 	struct device *dev;
+	struct pca_pps_desc *desc;
 	struct prop_chgalgo_device *pca;
 	struct tcpc_device *tcpc;
 	struct notifier_block tcp_nb;
@@ -233,6 +243,7 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 	int ret, apdo_idx = -1, i;
 	struct pca_pps_info *info = prop_chgalgo_get_drvdata(pca);
 	struct tcpm_power_cap_val apdo_cap;
+	struct tcpm_power_cap_val selected_apdo_cap;
 	struct pd_source_cap_ext src_cap_ext;
 	struct prop_chgalgo_ta_status ta_status;
 	u8 cap_idx;
@@ -277,16 +288,24 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 		    apdo_cap.max_mv < data->vcap_max ||
 		    apdo_cap.ma < data->icap_min)
 			continue;
-
-		data->vta_min = apdo_cap.min_mv;
-		data->vta_max = apdo_cap.max_mv;
-		data->ita_max = apdo_cap.ma;
-		data->pwr_lmt = apdo_cap.pwr_limit;
+		if (apdo_idx == -1 || apdo_cap.ma > selected_apdo_cap.ma) {
+			memcpy(&selected_apdo_cap, &apdo_cap,
+			       sizeof(struct tcpm_power_cap_val));
+			apdo_idx = cap_idx;
+			PCA_INFO("select potential cap_idx[%d]\n", cap_idx);
+		}
+	}
+	if (apdo_idx != -1) {
+		data->vta_min = selected_apdo_cap.min_mv;
+		data->vta_max = selected_apdo_cap.max_mv;
+		data->ita_max = selected_apdo_cap.ma;
+		data->pwr_lmt = selected_apdo_cap.pwr_limit;
 		data->support_cc = true;
 		data->support_meas_cap = true;
 		data->support_status = true;
 		data->vta_step = 20;
 		data->ita_step = 50;
+		data->ita_gap_per_vstep = 200;
 		ret = tcpm_dpm_pd_get_source_cap_ext(info->tcpc, NULL,
 						     &src_cap_ext);
 		if (ret != TCP_DPM_RET_SUCCESS) {
@@ -310,17 +329,16 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 		/* Check whether TA supports getting pps status */
 		ret = pca_pps_enable_charging(pca, true, 5000, 3000);
 		if (ret != TCP_DPM_RET_SUCCESS)
-			continue;
+			goto out;
 		ret = pca_pps_get_measure_cap(pca, &vta_meas, &ita_meas);
 		if (ret != TCP_DPM_RET_SUCCESS &&
 		    ret != -TCP_DPM_RET_NOT_SUPPORT)
-			continue;
+			goto out;
 		if (ret == -TCP_DPM_RET_NOT_SUPPORT ||
 		    vta_meas == PPS_STATUS_VTA_NOTSUPP ||
 		    ita_meas == PPS_STATUS_ITA_NOTSUPP) {
 			data->support_cc = false;
 			data->support_meas_cap = false;
-			data->ita_gap_per_vstep = 200;
 			ret = TCP_DPM_RET_SUCCESS;
 		}
 		ret = pca_pps_get_status(pca, &ta_status);
@@ -328,17 +346,16 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 			data->support_status = false;
 			ret = TCP_DPM_RET_SUCCESS;
 		} else if (ret != TCP_DPM_RET_SUCCESS)
-			continue;
-		apdo_idx = cap_idx;
+			goto out;
+		if (info->desc->force_cv)
+			data->support_cc = false;
 		PCA_INFO("select cap_idx[%d], power limit[%d,%dW]\n",
 			 cap_idx, data->pwr_lmt, data->pdp);
-		break;
-	}
-
-	if (apdo_idx == -1) {
+	} else {
 		PCA_ERR("cannot find apdo for pps algo\n");
 		return -EINVAL;
 	}
+out:
 	if (ret != TCP_DPM_RET_SUCCESS)
 		PCA_ERR("fail(%d)\n", ret);
 	return ret > 0 ? -ret : ret;
@@ -408,6 +425,20 @@ static int pca_pps_tcp_notifier_call(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int pca_pps_parse_dt(struct pca_pps_info *info)
+{
+	struct device_node *np = info->dev->of_node;
+	struct pca_pps_desc *desc;
+
+	desc = devm_kzalloc(info->dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
+	info->desc = desc;
+	memcpy(desc, &pca_pps_desc_defval, sizeof(*desc));
+	desc->force_cv = of_property_read_bool(np, "force_cv");
+	return 0;
+}
+
 static int pca_pps_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -420,6 +451,12 @@ static int pca_pps_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	info->dev = &pdev->dev;
 	platform_set_drvdata(pdev, info);
+
+	ret = pca_pps_parse_dt(info);
+	if (ret < 0) {
+		dev_notice(info->dev, "%s parse dt fail\n", __func__);
+		return ret;
+	}
 
 	info->tcpc = tcpc_dev_get_by_name("type_c_port0");
 	if (!info->tcpc) {
@@ -441,11 +478,16 @@ static int pca_pps_probe(struct platform_device *pdev)
 						 info);
 	if (!info->pca) {
 		dev_notice(info->dev, "%s register pps fail\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
 	}
 
 	dev_info(info->dev, "%s successfully\n", __func__);
 	return 0;
+err:
+	unregister_tcp_dev_notifier(info->tcpc, &info->tcp_nb,
+				    TCP_NOTIFY_TYPE_USB);
+	return ret;
 }
 
 static int pca_pps_remove(struct platform_device *pdev)
@@ -453,23 +495,24 @@ static int pca_pps_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_device pca_pps_platdev = {
-	.name = "pca_pps",
-	.id = -1,
+static const struct of_device_id pca_pps_of_id[] = {
+	{ .compatible = "richtek,pca_pps_ta" },
+	{},
 };
+MODULE_DEVICE_TABLE(of, pca_pps_of_id);
 
 static struct platform_driver pca_pps_platdrv = {
+	.driver = {
+		.name = "pca_pps_ta",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(pca_pps_of_id),
+	},
 	.probe = pca_pps_probe,
 	.remove = pca_pps_remove,
-	.driver = {
-		.name = "pca_pps",
-		.owner = THIS_MODULE,
-	},
 };
 
 static int __init pca_pps_init(void)
 {
-	platform_device_register(&pca_pps_platdev);
 	return platform_driver_register(&pca_pps_platdrv);
 }
 device_initcall_sync(pca_pps_init);
@@ -478,7 +521,6 @@ device_initcall_sync(pca_pps_init);
 static void __exit pca_pps_exit(void)
 {
 	platform_driver_unregister(&pca_pps_platdrv);
-	platform_device_unregister(&pca_pps_platdev);
 }
 module_exit(pca_pps_exit);
 
@@ -488,6 +530,13 @@ MODULE_VERSION(PCA_PPS_TA_VERSION);
 MODULE_LICENSE("GPL");
 
 /*
+ * 1.0.6_G
+ * (1) Move platform device to dtsi
+ * (2) Add force_cv option in dtsi
+ *
+ * 1.0.5_G
+ * (1) Select PPS cap whose voltage range is valid and with maximum current cap
+ *
  * 1.0.4_G
  * (1) Implement is_cc ops and move cc from get_status to is_cc
  * (2) Add ita_gap_per_vstep in authentication data

@@ -28,7 +28,7 @@
 #endif /* CONFIG_RT_REGMAP */
 
 /* Information */
-#define RT9759_DRV_VERSION	"1.0.5_MTK"
+#define RT9759_DRV_VERSION	"1.0.6_MTK"
 #define RT9759_DEVID		0x08
 
 /* Registers */
@@ -215,6 +215,7 @@ struct rt9759_desc {
 	u32 ibusocp_alm;
 	u32 vacovp;
 	u32 wdt;
+	u32 ibat_rsense;
 	bool vbatovp_dis;
 	bool vbatovp_alm_dis;
 	bool ibatocp_dis;
@@ -229,7 +230,6 @@ struct rt9759_desc {
 	bool tdieotp_dis;
 	bool reg_en;
 	bool voutovp_dis;
-	bool ibat_rsen;
 	bool ibusadc_dis;
 	bool vbusadc_dis;
 	bool vacadc_dis;
@@ -256,6 +256,7 @@ static const struct rt9759_desc rt9759_desc_defval = {
 	.ibusocp_alm = 4000000,
 	.vacovp = 11000000,
 	.wdt = 500000,
+	.ibat_rsense = 0,	/* 2mohm */
 	.vbatovp_dis = false,
 	.vbatovp_alm_dis = false,
 	.ibatocp_dis = false,
@@ -270,7 +271,6 @@ static const struct rt9759_desc rt9759_desc_defval = {
 	.tdieotp_dis = false,
 	.reg_en = false,
 	.voutovp_dis = false,
-	.ibat_rsen = false,
 };
 
 struct rt9759_chip {
@@ -1684,6 +1684,7 @@ static const struct rt9759_dtprop rt9759_dtprops_u32[] = {
 			  rt9759_wdt_toreg, 0),
 	RT9759_DT_VALPROP(vacovp, RT9759_REG_ACPROTECT, 0, 0x07,
 			  rt9759_vacovp_toreg, 0),
+	RT9759_DT_VALPROP(ibat_rsense, RT9759_REG_REGCTRL, 1, 0x02, NULL, 0),
 };
 
 static const struct rt9759_dtprop rt9759_dtprops_bool[] = {
@@ -1706,7 +1707,6 @@ static const struct rt9759_dtprop rt9759_dtprops_bool[] = {
 	RT9759_DT_VALPROP(tdieotp_dis, RT9759_REG_CHGCTRL1, 0, 0x01, NULL, 0),
 	RT9759_DT_VALPROP(reg_en, RT9759_REG_REGCTRL, 4, 0x10, NULL, 0),
 	RT9759_DT_VALPROP(voutovp_dis, RT9759_REG_REGCTRL, 3, 0x08, NULL, 0),
-	RT9759_DT_VALPROP(ibat_rsen, RT9759_REG_REGCTRL, 1, 0x02, NULL, 0),
 	RT9759_DT_VALPROP(ibusadc_dis, RT9759_REG_ADCCTRL, 0, 0x01, NULL, 0),
 	RT9759_DT_VALPROP(tdieadc_dis, RT9759_REG_ADCEN, 0, 0x01, NULL, 0),
 	RT9759_DT_VALPROP(tsbatadc_dis, RT9759_REG_ADCEN, 1, 0x02, NULL, 0),
@@ -1969,6 +1969,9 @@ MODULE_AUTHOR("ShuFan Lee<shufan_lee@richtek.com>");
 MODULE_VERSION(RT9759_DRV_VERSION);
 
 /*
+ * 1.0.6_MTK
+ * (1) Add ibat_rsense in dtsi
+ *
  * 1.0.5_MTK
  * (1) Modify IBUS ADC accuracy to 150mA
  * (2) Move adc_lock from __rt9759_get_adc to rt9759_get_adc

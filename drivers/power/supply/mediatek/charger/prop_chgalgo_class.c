@@ -20,7 +20,7 @@
 
 #include <mt-plat/prop_chgalgo_class.h>
 
-#define PROP_CHGALGO_CLASS_VERSION	"1.0.5_G"
+#define PROP_CHGALGO_CLASS_VERSION	"1.0.6_G"
 
 #define to_pca_device(obj) container_of(obj, struct prop_chgalgo_device, dev)
 
@@ -462,8 +462,8 @@ EXPORT_SYMBOL(prop_chgalgo_init_algo);
 
 bool prop_chgalgo_is_algo_ready(struct prop_chgalgo_device *pca)
 {
-	if (pca_check_devtype_bool(pca, PCA_DEVTYPE_ALGO) < 0)
-		return -EINVAL;
+	if (!pca_check_devtype_bool(pca, PCA_DEVTYPE_ALGO))
+		return false;
 	if (!pca->algo_ops->is_algo_ready)
 		return false;
 	return pca->algo_ops->is_algo_ready(pca);
@@ -475,15 +475,15 @@ int prop_chgalgo_start_algo(struct prop_chgalgo_device *pca)
 	if (pca_check_devtype(pca, PCA_DEVTYPE_ALGO) < 0)
 		return -EINVAL;
 	if (!pca->algo_ops->start_algo)
-		return false;
+		return -ENOTSUPP;
 	return pca->algo_ops->start_algo(pca);
 }
 EXPORT_SYMBOL(prop_chgalgo_start_algo);
 
 bool prop_chgalgo_is_algo_running(struct prop_chgalgo_device *pca)
 {
-	if (pca_check_devtype_bool(pca, PCA_DEVTYPE_ALGO) < 0)
-		return -EINVAL;
+	if (!pca_check_devtype_bool(pca, PCA_DEVTYPE_ALGO))
+		return false;
 	if (!pca->algo_ops->is_algo_running)
 		return false;
 	return pca->algo_ops->is_algo_running(pca);
@@ -655,6 +655,9 @@ MODULE_LICENSE("GPL");
 
 /*
  * Revision Note
+ * 1.0.6
+ * (1) Fix is_algo_running & is_algo_ready build error
+ *
  * 1.0.5
  * (1) Add thermal throttling ops
  * (2) Add is_ta_cc ops
