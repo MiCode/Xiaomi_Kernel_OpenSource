@@ -7247,6 +7247,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa3_get_gsi_stats;
 	api_ctrl->ipa_get_prot_id =
 		ipa3_get_prot_id;
+	api_ctrl->ipa_add_socksv5_conn = ipa3_add_socksv5_conn;
+	api_ctrl->ipa_del_socksv5_conn = ipa3_del_socksv5_conn;
 	return 0;
 }
 
@@ -8943,4 +8945,315 @@ int ipa3_app_clk_vote(
 	IPADBG("Out\n");
 
 	return ret;
+}
+
+/**
+ * ipa3_setup_uc_act_tbl() - IPA setup uc_act_tbl
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_setup_uc_act_tbl(void)
+{
+	int res = 0;
+	struct ipa_mem_buffer *tbl;
+	struct ipahal_reg_nat_uc_external_cfg nat_ex_cfg;
+	struct ipahal_reg_nat_uc_shared_cfg nat_share_cfg;
+	struct ipahal_reg_conn_track_uc_external_cfg ct_ex_cfg;
+	struct ipahal_reg_conn_track_uc_shared_cfg ct_share_cfg;
+
+	/* IPA version check */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("Not support!\n");
+		return -EPERM;
+	}
+
+	if (ipa3_ctx->uc_act_tbl_valid) {
+		IPAERR(" already allocate uC act tbl\n");
+		return -EEXIST;
+	}
+
+	tbl = &ipa3_ctx->uc_act_tbl;
+	/* Allocate uc act tbl */
+	tbl->size = sizeof(struct ipa_socksv5_uc_tmpl) * IPA_UC_ACT_TBL_SIZE;
+	tbl->base = dma_zalloc_coherent(ipa3_ctx->pdev, tbl->size,
+		&tbl->phys_base, GFP_KERNEL);
+	if (tbl->base == NULL)
+		return -ENOMEM;
+
+	ipa3_ctx->uc_act_tbl_valid = true;
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	/* LSB 32 bits*/
+	nat_ex_cfg.nat_uc_external_table_addr_lsb =
+		(u32) (tbl->phys_base & 0xFFFFFFFF);
+	ipahal_write_reg_fields(IPA_NAT_UC_EXTERNAL_CFG, &nat_ex_cfg);
+	/* MSB 16 bits */
+	nat_share_cfg.nat_uc_external_table_addr_msb =
+		(u16) (((tbl->phys_base & 0xFFFFFFFF00000000) >> 32) & 0xFFFF);
+	ipahal_write_reg_fields(IPA_NAT_UC_SHARED_CFG, &nat_share_cfg);
+
+	/* LSB 32 bits*/
+	ct_ex_cfg.conn_track_uc_external_table_addr_lsb =
+		(u32) (tbl->phys_base & 0xFFFFFFFF);
+
+	ipahal_write_reg_fields(IPA_CONN_TRACK_UC_EXTERNAL_CFG, &ct_ex_cfg);
+	/* MSB 16 bits */
+	ct_share_cfg.conn_track_uc_external_table_addr_msb =
+		(u16) (((tbl->phys_base & 0xFFFFFFFF00000000) >> 32) & 0xFFFF);
+	ipahal_write_reg_fields(IPA_CONN_TRACK_UC_SHARED_CFG, &ct_share_cfg);
+
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	return res;
+}
+
+static void ipa3_socksv5_msg_free_cb(void *buff, u32 len, u32 type)
+{
+	if (!buff) {
+		IPAERR("Null buffer\n");
+		return;
+	}
+
+	if (type != IPA_SOCKV5_ADD &&
+	    type != IPA_SOCKV5_DEL) {
+		IPAERR("Wrong type given. buff %pK type %d\n", buff, type);
+		kfree(buff);
+		return;
+	}
+
+	kfree(buff);
+}
+
+/**
+ * ipa3_add_socksv5_conn() - IPA add socksv5_conn
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_add_socksv5_conn(struct ipa_socksv5_info *info)
+{
+	int res = 0;
+	void *rp_va, *wp_va;
+	struct ipa_socksv5_msg *socksv5_msg;
+	struct ipa_msg_meta msg_meta;
+
+	/* IPA version check */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("Not support !\n");
+		return -EPERM;
+	}
+
+	if (!ipa3_ctx->uc_act_tbl_valid) {
+		IPAERR("uC act tbl haven't allocated\n");
+		return -ENOENT;
+	}
+
+	if (!info) {
+		IPAERR("Null info\n");
+		return -EIO;
+	}
+
+	mutex_lock(&ipa3_ctx->act_tbl_lock);
+	/* check the left # of entries */
+	if (ipa3_ctx->uc_act_tbl_total
+		>= IPA_UC_ACT_TBL_SIZE)	{
+		IPAERR("uc act tbl is full!\n");
+		res = -EFAULT;
+		goto error;
+	}
+
+	/* Copied the act-info to tbl */
+	wp_va = ipa3_ctx->uc_act_tbl.base +
+		ipa3_ctx->uc_act_tbl_next_index
+			* sizeof(struct ipa_socksv5_uc_tmpl);
+
+	/* check entry valid */
+	if ((info->ul_out.cmd_id != IPA_SOCKsv5_ADD_COM_ID)
+		|| (info->dl_out.cmd_id != IPA_SOCKsv5_ADD_COM_ID)) {
+		IPAERR("cmd_id not set UL%d DL%d!\n",
+			info->ul_out.cmd_id,
+			info->dl_out.cmd_id);
+		res = -EINVAL;
+		goto error;
+	}
+
+	if ((info->ul_out.cmd_param < IPA_SOCKsv5_ADD_V6_V4_COM_PM)
+		|| (info->ul_out.cmd_param > IPA_SOCKsv5_ADD_V6_V6_COM_PM)) {
+		IPAERR("ul cmd_param is not support%d!\n",
+			info->ul_out.cmd_param);
+		res = -EINVAL;
+		goto error;
+	}
+
+	if ((info->dl_out.cmd_param < IPA_SOCKsv5_ADD_V6_V4_COM_PM)
+		|| (info->dl_out.cmd_param > IPA_SOCKsv5_ADD_V6_V6_COM_PM)) {
+		IPAERR("dl cmd_param is not support%d!\n",
+			info->dl_out.cmd_param);
+		res = -EINVAL;
+		goto error;
+	}
+
+	/* indicate entry valid */
+	info->ul_out.ipa_sockv5_mask |= IPA_SOCKSv5_ENTRY_VALID;
+	info->dl_out.ipa_sockv5_mask |= IPA_SOCKSv5_ENTRY_VALID;
+
+	memcpy(wp_va, &(info->ul_out), sizeof(info->ul_out));
+	memcpy(wp_va + sizeof(struct ipa_socksv5_uc_tmpl),
+		&(info->dl_out), sizeof(info->dl_out));
+
+	/* set output handle */
+	info->handle = (uint16_t) ipa3_ctx->uc_act_tbl_next_index;
+
+	ipa3_ctx->uc_act_tbl_total += 2;
+
+	/* send msg to ipacm */
+	socksv5_msg = kzalloc(sizeof(*socksv5_msg), GFP_KERNEL);
+	if (!socksv5_msg) {
+		IPAERR("socksv5_msg memory allocation failed !\n");
+		res = -ENOMEM;
+		goto error;
+	}
+	memcpy(&(socksv5_msg->ul_in), &(info->ul_in), sizeof(info->ul_in));
+	memcpy(&(socksv5_msg->dl_in), &(info->dl_in), sizeof(info->dl_in));
+	socksv5_msg->handle = info->handle;
+	socksv5_msg->ul_in.index =
+		(uint16_t) ipa3_ctx->uc_act_tbl_next_index;
+	socksv5_msg->dl_in.index =
+		(uint16_t) ipa3_ctx->uc_act_tbl_next_index + 1;
+
+	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+	msg_meta.msg_type = IPA_SOCKV5_ADD;
+	msg_meta.msg_len = sizeof(struct ipa_socksv5_msg);
+	/* post event to ipacm*/
+	res = ipa3_send_msg(&msg_meta, socksv5_msg, ipa3_socksv5_msg_free_cb);
+	if (res) {
+		IPAERR_RL("ipa3_send_msg failed: %d\n", res);
+		kfree(socksv5_msg);
+		goto error;
+	}
+
+	if (ipa3_ctx->uc_act_tbl_total < IPA_UC_ACT_TBL_SIZE) {
+		/* find next free spot */
+		do {
+			ipa3_ctx->uc_act_tbl_next_index += 2;
+			ipa3_ctx->uc_act_tbl_next_index %=
+				IPA_UC_ACT_TBL_SIZE;
+
+			rp_va =  ipa3_ctx->uc_act_tbl.base +
+				ipa3_ctx->uc_act_tbl_next_index
+					* sizeof(struct ipa_socksv5_uc_tmpl);
+
+			if (!((((struct ipa_socksv5_uc_tmpl *) rp_va)->
+				ipa_sockv5_mask) & IPA_SOCKSv5_ENTRY_VALID)) {
+				IPADBG("next available entry %d, total %d\n",
+				ipa3_ctx->uc_act_tbl_next_index,
+				ipa3_ctx->uc_act_tbl_total);
+				break;
+			}
+		} while (rp_va != wp_va);
+
+		if (rp_va == wp_va) {
+			/* set to max tbl size to debug */
+			IPAERR("can't find available spot!\n");
+			ipa3_ctx->uc_act_tbl_total = IPA_UC_ACT_TBL_SIZE;
+			res = -EFAULT;
+		}
+	}
+
+error:
+	mutex_unlock(&ipa3_ctx->act_tbl_lock);
+	return res;
+}
+
+/**
+ * ipa3_del_socksv5_conn() - IPA add socksv5_conn
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_del_socksv5_conn(uint32_t handle)
+{
+	int res = 0;
+	void *rp_va;
+	uint32_t *socksv5_handle;
+	struct ipa_msg_meta msg_meta;
+
+	/* IPA version check */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("Not support !\n");
+		return -EPERM;
+	}
+
+	if (!ipa3_ctx->uc_act_tbl_valid) {
+		IPAERR("uC act tbl haven't allocated\n");
+		return -ENOENT;
+	}
+
+	if (handle > IPA_UC_ACT_TBL_SIZE || handle < 0) {
+		IPAERR("invalid handle!\n");
+		return -EINVAL;
+	}
+
+	if ((handle % 2) != 0) {
+		IPAERR("invalid handle!\n");
+		return -EINVAL;
+	}
+
+	if (ipa3_ctx->uc_act_tbl_total < 2) {
+		IPAERR("invalid handle, all tbl is empty!\n");
+		return -EINVAL;
+	}
+
+	rp_va =  ipa3_ctx->uc_act_tbl.base +
+			handle * sizeof(struct ipa_socksv5_uc_tmpl);
+
+	/* check entry is valid or not */
+	mutex_lock(&ipa3_ctx->act_tbl_lock);
+	if (!((((struct ipa_socksv5_uc_tmpl *) rp_va)->
+		ipa_sockv5_mask) & IPA_SOCKSv5_ENTRY_VALID)) {
+		IPADBG(" entry %d already free\n", handle);
+	}
+
+	if (!((((struct ipa_socksv5_uc_tmpl *) (rp_va +
+		sizeof(struct ipa_socksv5_uc_tmpl)))->
+		ipa_sockv5_mask) & IPA_SOCKSv5_ENTRY_VALID)) {
+		IPADBG(" entry %d already free\n", handle);
+	}
+
+	((struct ipa_socksv5_uc_tmpl *) rp_va)->ipa_sockv5_mask
+		&= ~IPA_SOCKSv5_ENTRY_VALID;
+	((struct ipa_socksv5_uc_tmpl *) (rp_va +
+		sizeof(struct ipa_socksv5_uc_tmpl)))->ipa_sockv5_mask
+			&= ~IPA_SOCKSv5_ENTRY_VALID;
+	ipa3_ctx->uc_act_tbl_total -= 2;
+
+	IPADBG("free entry %d and %d, left total %d\n",
+		handle,
+		handle + 1,
+		ipa3_ctx->uc_act_tbl_total);
+
+	/* send msg to ipacm */
+	socksv5_handle = kzalloc(sizeof(*socksv5_handle), GFP_KERNEL);
+	if (!socksv5_handle) {
+		IPAERR("socksv5_handle memory allocation failed!\n");
+		res = -ENOMEM;
+		goto error;
+	}
+	memcpy(socksv5_handle, &handle, sizeof(handle));
+	msg_meta.msg_type = IPA_SOCKV5_DEL;
+	msg_meta.msg_len = sizeof(uint32_t);
+	res = ipa3_send_msg(&msg_meta, socksv5_handle,
+		ipa3_socksv5_msg_free_cb);
+	if (res) {
+		IPAERR_RL("ipa3_send_msg failed: %d\n", res);
+		kfree(socksv5_handle);
+	}
+
+error:
+	mutex_unlock(&ipa3_ctx->act_tbl_lock);
+	return res;
 }

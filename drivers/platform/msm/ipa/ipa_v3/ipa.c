@@ -6238,6 +6238,10 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	mutex_unlock(&ipa3_ctx->lock);
 
 	ipa3_trigger_ipa_ready_cbs();
+
+	/* init uc-activation tbl*/
+	ipa3_setup_uc_act_tbl();
+
 	complete_all(&ipa3_ctx->init_completion_obj);
 	pr_info("IPA driver initialization was successful.\n");
 
@@ -6745,7 +6749,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->secure_debug_check_action =
 	    resource_p->secure_debug_check_action;
 	ipa3_ctx->ipa_mhi_proxy = resource_p->ipa_mhi_proxy;
-	ipa3_ctx->ipa_config_is_auto = resource_p->ipa_config_is_auto;
+	ipa3_ctx->uc_act_tbl_valid = false;
+	ipa3_ctx->uc_act_tbl_total = 0;
+	ipa3_ctx->uc_act_tbl_next_index = 0;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
@@ -7066,6 +7072,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	mutex_init(&ipa3_ctx->lock);
 	mutex_init(&ipa3_ctx->q6_proxy_clk_vote_mutex);
 	mutex_init(&ipa3_ctx->ipa_cne_evt_lock);
+	mutex_init(&ipa3_ctx->act_tbl_lock);
 
 	idr_init(&ipa3_ctx->ipa_idr);
 	spin_lock_init(&ipa3_ctx->idr_lock);
