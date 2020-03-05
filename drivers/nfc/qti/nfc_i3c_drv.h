@@ -41,6 +41,8 @@
 // I3C WorkQueue name
 #define NFC_I3C_WORKQUEUE		"nfc_i3c_workq"
 
+/* Time(in ms) to wait for NCI packet respones */
+#define MAX_IBI_WAIT_TIME		(2000)
 struct nfc_dev;
 
 /**
@@ -72,6 +74,7 @@ struct nci_buf {
  * @ibi_enabled:      IBI enabled or not.
  * @pm_state:         PM state of NFC I3C device.
  * @nfc_read_direct   Do NFC read bypassing the read buffer.
+ * @is_probe_done     Is NFC I3C probe completed.
  */
 struct i3c_dev {
 	struct i3c_device *device;
@@ -87,6 +90,7 @@ struct i3c_dev {
 	atomic_t pm_state;
 	int (*nfc_read_direct)(struct nfc_dev *dev,
 					char *buf, size_t count);
+	bool is_probe_done;
 };
 
 int nfc_i3c_dev_probe(struct i3c_device *device);
