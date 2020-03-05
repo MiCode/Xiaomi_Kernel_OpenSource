@@ -2238,8 +2238,8 @@ static int skhpb_init(struct ufs_hba *hba)
 
 	do_work = false;
 	for (lun = 0 ; lun < UFS_UPIU_MAX_GENERAL_LUN ; lun++) {
-		struct skhpb_lu_desc lu_desc;
-		bool do_work_lun;
+		struct skhpb_lu_desc lu_desc = {0};
+		bool do_work_lun = false;
 
 		ret = skhpb_get_hpb_lu_desc(hba, &lu_desc, lun);
 		if (ret)
