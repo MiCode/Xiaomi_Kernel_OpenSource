@@ -789,6 +789,7 @@ int port_smem_init(struct port_t *port)
 
 	port->private_data = smem_port =
 		kzalloc(sizeof(struct ccci_smem_port), GFP_KERNEL);
+	kmemleak_ignore(smem_port);
 	/*user ID is from 0*/
 	smem_port->user_id = port->minor - CCCI_SMEM_MINOR_BASE;
 	spin_lock_init(&smem_port->write_lock);
