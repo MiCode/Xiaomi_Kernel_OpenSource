@@ -40,6 +40,7 @@
 #include <linux/module.h>
 #include <linux/debugfs.h>
 
+#include "rps_perf.h"
 
 int set_rps_map(struct netdev_rx_queue *queue, unsigned long rps_value)
 {
