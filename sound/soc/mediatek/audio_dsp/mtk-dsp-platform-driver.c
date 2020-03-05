@@ -512,7 +512,6 @@ static int smartpa_swdsp_process_enable_set(struct snd_kcontrol *kcontrol,
 {
 	unsigned int val = ucontrol->value.integer.value[0];
 
-	pr_debug("%s() enable = %d\n", __func__, val);
 	set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA, val);
 	return 0;
 }
@@ -523,8 +522,7 @@ static int smartpa_swdsp_process_enable_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] =
 		get_task_attr(AUDIO_TASK_PLAYBACK_ID,
 			      ADSP_TASK_ATTR_SMARTPA);
-	pr_debug("%s() enable = %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+
 	return 0;
 }
 
