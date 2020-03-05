@@ -2653,8 +2653,13 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 
 void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
+
+	if (hw_id >= MTK_VENC_HW_NUM)
+		return;
+
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
+
 	if (hw_id < MTK_VENC_HW_NUM)
 		up(&ctx->dev->enc_sem[hw_id]);
 }
@@ -2663,6 +2668,9 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
 	unsigned int suspend_block_cnt = 0;
 	int ret = -1;
+
+	if (hw_id >= MTK_VENC_HW_NUM)
+		return;
 
 	while (ctx->dev->is_codec_suspending == 1) {
 		suspend_block_cnt++;
@@ -2675,6 +2683,7 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
+
 	while (hw_id < MTK_VENC_HW_NUM && ret != 0
 		&& !ctx->lock_abort)
 		ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);

@@ -556,11 +556,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 	unsigned int dpbsize = 0;
 	struct mtk_color_desc color_desc = {.is_hdr = 0};
 
-	if (ctx == NULL) {
-		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
-		return;
-	}
-
 	mutex_lock(&ctx->worker_lock);
 	if (ctx->state != MTK_STATE_HEADER) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
@@ -888,8 +883,12 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 
 void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
+	if (hw_id >= MTK_VDEC_HW_NUM)
+		return;
+
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
+
 	if (hw_id < MTK_VDEC_HW_NUM)
 		up(&ctx->dev->dec_sem[hw_id]);
 	ctx->hw_locked[hw_id] = 0;
@@ -899,6 +898,9 @@ int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
 	unsigned int suspend_block_cnt = 0;
 	int ret = -1;
+
+	if (hw_id >= MTK_VDEC_HW_NUM)
+		return -1;
 
 	while (ctx->dev->is_codec_suspending == 1) {
 		suspend_block_cnt++;
@@ -911,6 +913,7 @@ int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
+
 	while (hw_id < MTK_VDEC_HW_NUM && ret != 0
 		&& !ctx->lock_abort)
 		ret = down_interruptible(&ctx->dev->dec_sem[hw_id]);
