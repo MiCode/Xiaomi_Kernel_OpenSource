@@ -272,7 +272,7 @@ led_dat->brightness = brightness;
 #ifdef CONFIG_MTK_AAL_SUPPORT
 	disp_pq_notify_backlight_changed(trans_level);
 #else
-	led_level_pwm_set(led_dat, brightness);
+	led_level_disp_set(led_dat, brightness);
 	led_dat->last_level = brightness;
 #endif
 	return 0;
