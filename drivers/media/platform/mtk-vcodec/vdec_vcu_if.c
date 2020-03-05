@@ -84,6 +84,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 
 #ifndef CONFIG_MTK_IOMMU_V2
 	unsigned long rlim_cur;
+	unsigned long irqs;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
 	struct sighand_struct *sighand;
@@ -116,23 +117,38 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 		vcu_put_sig_lock(flags);
 		return -EMFILE;
 	}
+	vcu_put_sig_lock(flags);
 
+	if (!lock_task_sighand(task, &irqs)) {
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
+
+	// get max number of open files
 	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
+	unlock_task_sighand(task, &irqs);
+
+	f = get_files_struct(task);
+	if (!f) {
+		vcu_put_file_lock();
+		return -EMFILE;
+	}
 
 	target_fd = __alloc_fd(f, 0, rlim_cur, O_CLOEXEC);
 
 	get_file(dmabuf->file);
 
 	if (target_fd < 0) {
+		put_files_struct(f);
 		vcu_put_file_lock();
-		vcu_put_sig_lock(flags);
 		return -EMFILE;
 	}
 
 	__fd_install(f, target_fd, dmabuf->file);
 
+	put_files_struct(f);
 	vcu_put_file_lock();
-	vcu_put_sig_lock(flags);
+
 
 	/* pr_info("get_mapped_fd: %d", target_fd); */
 #endif
@@ -166,7 +182,15 @@ inline void close_mapped_fd(unsigned int target_fd)
 		return;
 	}
 
+	f = get_files_struct(task);
+	if (!f) {
+		vcu_put_file_lock();
+		return;
+	}
+
 	__close_fd(f, target_fd);
+
+	put_files_struct(f);
 	vcu_put_file_lock();
 	vcu_put_sig_lock(flags);
 #endif
