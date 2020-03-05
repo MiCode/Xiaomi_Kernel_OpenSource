@@ -51,6 +51,7 @@ enum adsp_ipi_status {
 enum adsp_status {
 	ADSP_ERROR = -1,
 	ADSP_OK,
+	ADSP_SEMAPHORE_BUSY,
 };
 
 /* adsp notify event */

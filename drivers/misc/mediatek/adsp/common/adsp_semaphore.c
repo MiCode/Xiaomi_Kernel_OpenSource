@@ -48,7 +48,7 @@ static unsigned int get_adsp_sem_flag(unsigned int flags)
  */
 int get_adsp_semaphore(unsigned int flags)
 {
-	enum adsp_status ret = ADSP_ERROR;
+	enum adsp_status ret = ADSP_SEMAPHORE_BUSY;
 	unsigned int cnt;
 	unsigned long spin_flags;
 
@@ -92,7 +92,7 @@ int get_adsp_semaphore(unsigned int flags)
  */
 int release_adsp_semaphore(unsigned int flags)
 {
-	enum adsp_status ret = ADSP_ERROR;
+	enum adsp_status ret = ADSP_SEMAPHORE_BUSY;
 	unsigned long spin_flags;
 
 	if (!is_adsp_system_running()) {
