@@ -757,6 +757,7 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	enum DVFS_FREQ ckmux_freq = 0;
 	enum DVFS_FREQ_POSTDIV posdiv_power = 0;
 	enum DVFS_FREQ_POSTDIV real_posdiv_power = 0;
+	enum DVFS_VOLTAGE_DOMAIN domain_idx = 0;
 	unsigned int dds, pll = 0;
 	bool parking = false;
 #if APUSYS_SETTLE_TIME_TEST
@@ -786,17 +787,18 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		dds, pll, parking);
 
 	if (parking) {
-		for (domain = V_VPU0; domain < V_VPU0 + APUSYS_VPU_NUM;
-			domain++) {
-			clk_target = find_clk_by_domain(domain);
+		for (domain_idx = V_VPU0; domain_idx < V_VPU0 + APUSYS_VPU_NUM;
+			domain_idx++) {
+			clk_target = find_clk_by_domain(domain_idx);
 
 			if (clk_target != NULL) {
 				ckmux_freq = DVFS_FREQ_00_273000_F;
-				ret |= set_apu_clock_source(ckmux_freq, domain);
+				ret |= set_apu_clock_source(ckmux_freq,
+					domain_idx);
 			} else {
 				LOG_ERR("%s config domain %s to freq %d fail\n",
 					__func__,
-					buck_domain_str[domain],
+					buck_domain_str[domain_idx],
 					freq);
 				return -1;
 			}
