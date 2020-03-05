@@ -169,4 +169,5 @@ extern void *g_APU_APMIXED_BASE;
  * Vol Binning
  **************************************************/
 #define EFUSE_INDEX 209  //(PTPOD26)
+#define EFUSE_POD19 69   //(PTPOD19)
 

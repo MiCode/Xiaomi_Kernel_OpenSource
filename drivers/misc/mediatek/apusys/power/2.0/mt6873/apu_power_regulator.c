@@ -406,10 +406,12 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int check_volt = 0;
 #endif
 
-#if BINNING_VOLTAGE_SUPPORT
+#if BINNING_VOLTAGE_SUPPORT || VOLTAGE_RAISE_UP
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
+#endif
 
+#if BINNING_VOLTAGE_SUPPORT
 	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
 	mdla_efuse_val = GET_BITS_VAL(13:11,
 		get_devinfo_with_index(EFUSE_INDEX));
@@ -453,6 +455,25 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 			__func__, voltage_mV);
 		return -1;
 	}
+
+#if VOLTAGE_RAISE_UP
+	vpu_efuse_val = GET_BITS_VAL(3 : 2,
+				     get_devinfo_with_index(EFUSE_POD19));
+	mdla_efuse_val = GET_BITS_VAL(1 : 0,
+				      get_devinfo_with_index(EFUSE_POD19));
+
+	/* raising up Vvpu LV from 575mv to 600mv */
+	if (vpu_efuse_val == 1 &&
+	    buck == VPU_BUCK &&
+	    voltage_mV == DVFS_VOLT_00_575000_V)
+		voltage_mV = DVFS_VOLT_00_600000_V;
+
+	/* raising up Vmdla LV from 575mv to 600mv */
+	if (mdla_efuse_val == 1 &&
+	    buck == MDLA_BUCK &&
+	    voltage_mV == DVFS_VOLT_00_575000_V)
+		voltage_mV = DVFS_VOLT_00_600000_V;
+#endif
 
 #if SUPPORT_HW_CONTROL_PMIC
 	if (buck == VPU_BUCK) {

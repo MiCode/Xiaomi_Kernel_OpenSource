@@ -61,6 +61,9 @@
  */
 #define CCF_SET_RATE		(0)
 
+/* Raise up lowest voltage */
+#define VOLTAGE_RAISE_UP	(1)
+
 // FIXME: check default value with APUSYS_DEFAULT_OPP
 #define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
 #define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
