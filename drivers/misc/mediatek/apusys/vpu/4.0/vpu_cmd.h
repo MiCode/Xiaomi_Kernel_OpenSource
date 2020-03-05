@@ -28,6 +28,11 @@ void vpu_cmd_unlock(struct vpu_device *vd, int prio);
 void vpu_cmd_lock_all(struct vpu_device *vd);
 void vpu_cmd_unlock_all(struct vpu_device *vd);
 
+/* boost value handling */
+int vpu_cmd_boost_set(struct vpu_device *vd, int prio, int boost);
+int vpu_cmd_boost_put(struct vpu_device *vd, int prio);
+int vpu_cmd_boost(struct vpu_device *vd, int prio);
+
 /* command algorithm */
 void vpu_cmd_run(struct vpu_device *vd, int prio, uint32_t cmd);
 void vpu_cmd_alg_set(struct vpu_device *vd, int prio, struct __vpu_algo *alg);
@@ -51,6 +56,9 @@ int vpu_cmd_buf_set(struct vpu_device *vd, int prio, void *buf, size_t size);
 /* command control data */
 struct vpu_cmd_ctl {
 	uint32_t cmd;
+	uint64_t start_t;    /* command start time */
+	uint64_t end_t;      /* command end time */
+	int boost;           /* boost value from vpu_reqest */
 	struct mutex lock;
 	wait_queue_head_t wait;
 	struct __vpu_algo *alg;  /* current active algorithm */

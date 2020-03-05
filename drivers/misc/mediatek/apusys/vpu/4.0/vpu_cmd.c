@@ -13,6 +13,8 @@
 
 #include <linux/wait.h>
 #include <linux/mutex.h>
+#include <linux/sched/clock.h>
+#include "vpu_power.h"
 #include "vpu_cfg.h"
 #include "vpu_cmd.h"
 #include "vpu_reg.h"
@@ -46,6 +48,7 @@ int vpu_cmd_init(struct platform_device *pdev, struct vpu_device *vd)
 		mutex_init(&c->lock);
 		init_waitqueue_head(&c->wait);
 		c->done = false;
+		c->boost = VPU_PWR_NO_BOOST;
 		c->vi.bin = VPU_MEM_ALLOC;
 		c->vi.size = VPU_CMD_SIZE;
 		c->exe_cnt = 0;
@@ -82,6 +85,7 @@ void vpu_cmd_lock(struct vpu_device *vd, int prio)
 	int p = vpu_prio(prio);
 
 	mutex_lock_nested(&vd->cmd[p].lock, VPU_MUTEX_CMD + p);
+	vd->cmd[p].start_t = sched_clock();
 }
 
 /**
@@ -91,7 +95,10 @@ void vpu_cmd_lock(struct vpu_device *vd, int prio)
  */
 void vpu_cmd_unlock(struct vpu_device *vd, int prio)
 {
-	mutex_unlock(&vd->cmd[vpu_prio(prio)].lock);
+	int p = vpu_prio(prio);
+
+	vd->cmd[p].end_t = sched_clock();
+	mutex_unlock(&vd->cmd[p].lock);
 }
 
 /**
@@ -293,3 +300,64 @@ int vpu_cmd_buf_set(struct vpu_device *vd, int prio, void *buf, size_t size)
 	vpu_cmd_buf_sync(vd, prio);
 	return 0;
 }
+
+/**
+ * vpu_cmd_boost_elevate - get the maximum boot value across all priorites
+ * @vd: vpu_device
+ */
+static int vpu_cmd_boost_elevate(struct vpu_device *vd)
+{
+#if VPU_XOS
+	int i;
+	int boost = -1;
+
+	for (i = 0; i < vd->cmd_prio_max; i++) {
+		if (vd->cmd[i].boost == VPU_PWR_NO_BOOST)
+			continue;
+		boost = max_t(int, vd->cmd[i].boost, boost);
+	}
+
+	return (boost >= 0) ? boost : VPU_PWR_NO_BOOST;
+#else
+	return vd->cmd[0].boost;
+#endif
+}
+
+/**
+ * vpu_cmd_boost_set - set boost value to the command of given priority
+ * @vd: vpu_device
+ * @prio: priority
+ * @boost: boost value from vpu_request
+ *
+ * Returns the elevated boost value across all priorities
+ */
+int vpu_cmd_boost_set(struct vpu_device *vd, int prio, int boost)
+{
+	vd->cmd[vpu_prio(prio)].boost = boost;
+	return vpu_cmd_boost_elevate(vd);
+}
+
+/**
+ * vpu_cmd_boost_set - unset boost value to the command of given priority
+ * @vd: vpu_device
+ * @prio: priority
+ *
+ * Returns the elevated boost value across all priorities
+ */
+int vpu_cmd_boost_put(struct vpu_device *vd, int prio)
+{
+	return vpu_cmd_boost_set(vd, prio, VPU_PWR_NO_BOOST);
+}
+
+/**
+ * vpu_cmd_boost_set - get the boost value of given priority
+ * @vd: vpu_device
+ * @prio: priority
+ */
+int vpu_cmd_boost(struct vpu_device *vd, int prio)
+{
+	return vd->cmd[vpu_prio(prio)].boost;
+}
+
+
+

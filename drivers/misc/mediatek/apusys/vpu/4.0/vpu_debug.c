@@ -114,6 +114,25 @@ static const struct name_tag vc_str[] = {
 
 static int vpu_debug_info(struct seq_file *s);
 
+/**
+ * vpu_seq_time() - print time to seq_file
+ *
+ * @time: schedule clock time got from sched_clock()
+ */
+void vpu_seq_time(struct seq_file *s, uint64_t t)
+{
+	uint32_t nsec;
+
+	if (!t) {
+		seq_puts(s, "N/A");
+		return;
+	}
+
+	nsec = do_div(t, 1000000000);
+	seq_printf(s, "%lu.%06lu", (unsigned long)t,
+		(unsigned long)nsec/1000);
+}
+
 static int vpu_debug_algo_entry(struct seq_file *s,
 	struct vpu_algo_list *al, struct __vpu_algo *alg)
 {
@@ -199,7 +218,7 @@ static int vpu_debug_algo(struct seq_file *s)
 #endif
 
 err_boot:
-	vpu_pwr_put_locked(vd);
+	vpu_pwr_put_locked_nb(vd);
 err_pwr:
 	vpu_cmd_unlock(vd, 0);
 
@@ -443,7 +462,7 @@ static int vpu_debug_reg(struct seq_file *s)
 	seq_vpu_reg(XTENSA_ALTRESETVEC);
 #undef seq_vpu_reg
 
-	vpu_pwr_put_locked(vd);
+	vpu_pwr_put_locked_nb(vd);
 	mutex_unlock(&vd->lock);
 
 	return 0;
@@ -591,6 +610,14 @@ out:
 	return count;
 }
 
+void vpu_seq_boost(struct seq_file *s, int boost)
+{
+	if (boost == VPU_PWR_NO_BOOST)
+		seq_puts(s, "unset");
+	else
+		seq_printf(s, "%d", boost);
+}
+
 /**
  * vpu_debug_cmd_entry_seq -Show command control of given priority
  *
@@ -614,9 +641,15 @@ vpu_debug_cmd_entry_seq(struct seq_file *s, struct vpu_cmd_ctl *c, int prio)
 	}
 	seq_printf(s, "(unknown cmd 0x%x): ", c->cmd);
 algo:
-	seq_printf(s, "algorithm: %s, done: %d, result: 0x%x\n",
-		c->alg ? c->alg->a.name : "(none)",
-		c->done, c->result);
+	seq_printf(s, "algorithm: %s, boost: ",
+		c->alg ? c->alg->a.name : "(none)");
+	vpu_seq_boost(s, c->boost);
+	seq_puts(s, ", start: ");
+	vpu_seq_time(s, c->start_t);
+	seq_puts(s, ", end: ");
+	vpu_seq_time(s, c->end_t);
+	seq_printf(s, ", done: %d, result: 0x%x\n", c->done, c->result);
+
 	return c->exe_cnt;
 }
 
@@ -629,7 +662,7 @@ int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
 
 	seq_printf(s, "priority: current: %d (highest: %d)\n",
 		prio, prio_max - 1);
-	seq_printf(s, "timeout setting: %llu ms\n",	timeout);
+	seq_printf(s, "timeout setting: %llu ms\n", timeout);
 
 	if (prio_max > VPU_MAX_PRIORITY)
 		prio_max = VPU_MAX_PRIORITY;
@@ -667,7 +700,7 @@ static int vpu_debug_cmd(struct seq_file *s)
 		vd->cmd_prio_max, vd->cmd, vd->cmd_timeout);
 }
 
-int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds)
+int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds, int b)
 {
 	int i, j;
 
@@ -685,6 +718,9 @@ int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds)
 			seq_printf(s, "%s%s", j++ ? "," : "", ds_str[i].n);
 	}
 	seq_puts(s, "\n");
+	seq_puts(s, "boost: ");
+	vpu_seq_boost(s, b);
+	seq_puts(s, "\n");
 	return 0;
 }
 
@@ -697,7 +733,8 @@ static int vpu_debug_state(struct seq_file *s)
 
 	vd = (struct vpu_device *) s->private;
 
-	return vpu_debug_state_seq(s, vd->state, vd->dev_state);
+	return vpu_debug_state_seq(s, vd->state, vd->dev_state,
+		atomic_read(&vd->pw_boost));
 }
 
 static int vpu_debug_iova_seq(struct seq_file *s,

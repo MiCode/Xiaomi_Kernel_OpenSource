@@ -24,15 +24,6 @@
 #include "vpu_tag.h"
 #include "vpu_events.h"
 
-static void vpu_dmp_seq_time(struct seq_file *s, uint64_t t)
-{
-	uint32_t nsec;
-
-	nsec = do_div(t, 1000000000);
-	seq_printf(s, "%lu.%06lu", (unsigned long)t,
-		(unsigned long)nsec/1000);
-}
-
 static int vpu_dmp_alloc(struct vpu_device *vd)
 {
 	if (vd->dmp)
@@ -203,6 +194,7 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 
 	d->vd_state = vd->state;
 	d->vd_dev_state = vd->dev_state;
+	d->vd_pw_boost = atomic_read(&vd->pw_boost);
 
 	memcpy(&d->c_ctl, vd->cmd,
 		sizeof(struct vpu_cmd_ctl) * VPU_MAX_PRIORITY);
@@ -400,10 +392,10 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 	vpu_dmp_seq_bar(s, vd, "device info");
 	seq_printf(s, "exception reason: %s\n", d->info);
 	seq_puts(s, "exception time: [");
-	vpu_dmp_seq_time(s, d->time);
+	vpu_seq_time(s, d->time);
 	seq_puts(s, "]\n");
 
-	vpu_debug_state_seq(s, d->vd_state, d->vd_dev_state);
+	vpu_debug_state_seq(s, d->vd_state, d->vd_dev_state, d->vd_pw_boost);
 
 	vpu_dmp_seq_bar(s, vd, "commands");
 	vpu_debug_cmd_seq(s, vd, d->c_prio,

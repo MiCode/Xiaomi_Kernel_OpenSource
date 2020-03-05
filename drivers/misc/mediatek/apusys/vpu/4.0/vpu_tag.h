@@ -29,6 +29,7 @@ struct vpu_tag {
 			int prio;
 			char algo[ALGO_NAMELEN];
 			uint64_t start_time;
+			int boost;
 			int cmd;
 			int ret;
 			int algo_ret;
@@ -38,6 +39,12 @@ struct vpu_tag {
 			char stage[STAGE_NAMELEN];
 			uint32_t pc;
 		} dmp;
+		struct vpu_tag_wait {
+			uint32_t donest;
+			uint32_t info00;
+			uint32_t info25;
+			uint32_t pc;
+		} wait;
 	} d;
 };
 

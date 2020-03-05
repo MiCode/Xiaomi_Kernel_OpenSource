@@ -31,13 +31,19 @@ void vpu_pwr_down_locked(struct vpu_device *vd);
 void vpu_pwr_suspend_locked(struct vpu_device *vd);
 
 int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost);
-void vpu_pwr_put_locked(struct vpu_device *vd);
+void vpu_pwr_put_locked(struct vpu_device *vd, uint8_t boost);
 
 static inline
 int vpu_pwr_get_locked_nb(struct vpu_device *vd)
 {
 	return vpu_pwr_get_locked(vd, VPU_PWR_NO_BOOST);
 }
+static inline
+void vpu_pwr_put_locked_nb(struct vpu_device *vd)
+{
+	vpu_pwr_put_locked(vd, VPU_PWR_NO_BOOST);
+}
+
 
 static inline
 int vpu_pwr_cnt(struct vpu_device *vd)

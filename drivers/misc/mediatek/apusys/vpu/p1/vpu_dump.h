@@ -30,6 +30,7 @@ struct vpu_dmp {
 	// device
 	int vd_state;
 	uint32_t vd_dev_state;
+	int vd_pw_boost;
 
 	// registers
 	uint32_t r_info[VPU_DMP_REG_CNT_INFO];
@@ -79,7 +80,7 @@ void vpu_dmp_seq(struct seq_file *s);
 			if (!vpu_dev_boot(vd)) { \
 				vpu_dmp_create_locked(vd, req, fmt, ##args); \
 			} \
-			vpu_pwr_put_locked(vd); \
+			vpu_pwr_put_locked_nb(vd); \
 		} \
 		vpu_cmd_unlock_all(vd); \
 	} while (0)

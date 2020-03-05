@@ -221,6 +221,10 @@ static int wait_idle(struct vpu_device *vd, uint32_t latency, uint32_t retry)
 		if (pwait)
 			return 0;
 		udelay(latency);
+		trace_vpu_wait(vd->id, done_st,
+			vpu_reg_read(vd, XTENSA_INFO00),
+			vpu_reg_read(vd, XTENSA_INFO25),
+			vpu_reg_read(vd, DEBUG_INFO05));
 	} while (count < retry);
 
 	pr_info("%s: vpu%d: %d us: done_st: 0x%x, pwaitmode: %d, info00: 0x%x, info25: 0x%x\n",
@@ -773,7 +777,8 @@ err_cmd:
 out:
 	VPU_TS_END(d2d);
 	req->busy_time = VPU_TS_NS(d2d);
-	trace_vpu_cmd(vd->id, req->prio, req->algo, cmd, start_t, ret,
+	trace_vpu_cmd(vd->id, req->prio, req->algo, cmd,
+		vpu_cmd_boost(vd, req->prio), start_t, ret,
 		req->algo_ret, result);
 	vpu_cmd_debug("%s: vpu%d: prio: %d, %s: time: %llu ns, ret: %d, alg_ret: %d, result: %d\n",
 		__func__, vd->id, req->prio,
@@ -843,6 +848,7 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 {
 	int ret = 0;
 	int ret_pwr = 0;
+	int boost = 0;
 	uint64_t flags;
 	struct vpu_algo_list *al;
 
@@ -851,7 +857,8 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 	flags = req->flags;
 	/* Bootup VPU */
 	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
-	ret_pwr = vpu_pwr_get_locked(vd, req->power_param.boost_value);
+	boost = vpu_cmd_boost_set(vd, req->prio, req->power_param.boost_value);
+	ret_pwr = vpu_pwr_get_locked(vd, boost);
 	if (!ret_pwr)
 		ret = vpu_dev_boot(vd);
 	mutex_unlock(&vd->lock);
@@ -898,7 +905,10 @@ err_alg:
 
 err_boot:
 	vd->state = VS_IDLE;
-	vpu_pwr_put_locked(vd);
+	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
+	boost = vpu_cmd_boost_put(vd, req->prio);
+	vpu_pwr_put_locked(vd, boost);
+	mutex_unlock(&vd->lock);
 
 err_remove:
 	req->flags = flags;
@@ -1046,7 +1056,8 @@ err_timeout:
 	}
 
 out:
-	trace_vpu_cmd(vd->id, 0, "", 0, start_t, ret, 0, 0);
+	trace_vpu_cmd(vd->id, 0, "", 0, atomic_read(&vd->pw_boost),
+		start_t, ret, 0, 0);
 	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 	return ret;
 }
@@ -1126,7 +1137,8 @@ err:
 	ret = vpu_cmd_result(vd, 0);
 
 out:
-	trace_vpu_cmd(vd->id, 0, "", VPU_CMD_SET_DEBUG, start_t, ret, 0, 0);
+	trace_vpu_cmd(vd->id, 0, "", VPU_CMD_SET_DEBUG,
+		atomic_read(&vd->pw_boost), start_t, ret, 0, 0);
 	if (ret)
 		pr_info("%s: vpu%d: fail to set debug: %d\n",
 			__func__, vd->id, ret);
@@ -1177,7 +1189,7 @@ int vpu_hw_alg_init(struct vpu_algo_list *al, struct __vpu_algo *algo)
 
 out:
 	trace_vpu_cmd(vd->id, 0, algo->a.name, VPU_CMD_DO_LOADER,
-		start_t, ret, 0, 0);
+		vpu_cmd_boost(vd, 0), start_t, ret, 0, 0);
 	vpu_cmd_debug("%s: vpu%d: %s: %d\n",
 		__func__, vd->id, algo->a.name, ret);
 	return ret;
@@ -1218,7 +1230,7 @@ static int vpu_set_ftrace(struct vpu_device *vd)
 
 out:
 	trace_vpu_cmd(vd->id, 0, "", VPU_CMD_SET_FTRACE_LOG,
-		start_t, ret, 0, 0);
+		atomic_read(&vd->pw_boost), start_t, ret, 0, 0);
 	if (ret)
 		pr_info("%s: vpu%d: fail to set ftrace: %d\n",
 			__func__, vd->id, ret);

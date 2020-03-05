@@ -70,6 +70,7 @@ static void vpu_pwr_param(struct vpu_device *vd, uint8_t boost)
 		__func__, vd->id, boost, opp);
 
 	apu_device_set_opp(adu(vd->id), opp);
+	atomic_set(&vd->pw_boost, boost);
 }
 
 /**
@@ -111,6 +112,7 @@ int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
 	}
 
 	kref_init(&vd->pw_ref);
+	atomic_set(&vd->pw_boost, VPU_PWR_NO_BOOST);
 	vpu_pwr_wake_lock(vd);
 	vpu_pwr_debug("%s: vpu%d: ref: 1\n", __func__, vd->id);
 
@@ -123,6 +125,7 @@ err:
 /**
  * vpu_pwr_put_locked() - decrease power reference
  * @vd: vpu device
+ * @boost: boost value to be restored
  *
  * 1. Must paired with vpu_pwr_get_locked()
  * 2. There's no need to acquire vd->lock or vpu_cmd_lock()
@@ -130,7 +133,7 @@ err:
  *    vpu_pwr_off() when vd->pw_ref reaches zero,
  *    and kref_put() itself is atomic.
  */
-void vpu_pwr_put_locked(struct vpu_device *vd)
+void vpu_pwr_put_locked(struct vpu_device *vd, uint8_t boost)
 {
 	if (!kref_read(&vd->pw_ref)) {
 		vpu_pwr_debug("%s: vpu%d: ref is already zero\n",
@@ -139,6 +142,7 @@ void vpu_pwr_put_locked(struct vpu_device *vd)
 	}
 	vpu_pwr_debug("%s: vpu%d: ref: %d--\n",
 		__func__, vd->id, vpu_pwr_cnt(vd));
+	vpu_pwr_param(vd, boost);
 	kref_put(&vd->pw_ref, vpu_pwr_release);
 }
 
@@ -162,7 +166,8 @@ int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 	if (off_timer) {
 		pol = vd->pw_off_latency;
 		vd->pw_off_latency = off_timer;
-		vpu_pwr_put_locked(vd);
+		/* No need to restore boost for unconditionally power up */
+		vpu_pwr_put_locked_nb(vd);
 		vd->pw_off_latency = pol;
 	}
 
