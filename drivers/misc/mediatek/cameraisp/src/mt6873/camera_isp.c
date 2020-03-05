@@ -725,7 +725,13 @@ enum RAW_IDX {
 	CAM_C,
 	CAM_MAX,
 };
-
+#define P1DONE_STR_LEN (112)
+struct RAW_LOG {
+	char module;
+	char _str[P1DONE_STR_LEN];
+};
+static struct RAW_LOG gPass1doneLog[ISP_IRQ_TYPE_AMOUNT];
+static struct RAW_LOG gLostPass1doneLog[ISP_IRQ_TYPE_AMOUNT];
 #define NORMAL_STR_LEN (512)
 #define ERR_PAGE 2
 #define DBG_PAGE 2
@@ -9281,7 +9287,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 					CAMSV_REG_FBC_IMGO_CTL2(reg_module))),
 				ISP_RD32(CAMSV_REG_IMGO_BASE_ADDR(reg_module)),
 				(unsigned int)((sec * 1000000 + usec) -
-					       (1000000 * m_sec + m_usec)),
+				(1000000 * m_sec + m_usec)),
 				time_stamp);
 			/* keep current time */
 			m_sec = sec;
@@ -10583,6 +10589,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	struct timeval time_frmb;
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
+	static unsigned int sec_sof[ISP_IRQ_TYPE_INT_CAMSV_0_ST] = {0};
+	static unsigned int usec_sof[ISP_IRQ_TYPE_INT_CAMSV_0_ST] = {0};
 	ktime_t time;
 	unsigned int IrqEnableOrig, IrqEnableNew;
 
@@ -10774,9 +10782,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			/*SW p1_don is not reliable */
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
-				IRQ_LOG_KEEPER(
-					module, m_CurrentPPB, _LOG_INF,
-					"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)\n",
+				gPass1doneLog[module].module = module;
+				snprintf(gPass1doneLog[module]._str,
+				P1DONE_STR_LEN,
+				"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)exe_us:%d",
 					'A' + cardinalNum,
 					(sof_count[module])
 						? (sof_count[module] - 1)
@@ -10793,7 +10802,33 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 						ISP_CAM_B_IDX)),
 					(unsigned int)ISP_RD32(
 						CAM_REG_CTL_RAW_INT2_STATUSX(
-						ISP_CAM_C_IDX)));
+						ISP_CAM_C_IDX)),
+					(unsigned int)((sec * 1000000 + usec) -
+					       (1000000 * sec_sof[module] +
+						usec_sof[module])));
+		/*
+		 *IRQ_LOG_KEEPER(
+		 *	module, m_CurrentPPB, _LOG_INF,
+		 *"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)
+		 *dma done(0x%x,0x%x,0x%x)\n",
+		 *	'A' + cardinalNum,
+		 *	(sof_count[module])
+		 *		? (sof_count[module] - 1)
+		 *		: (sof_count[module]),
+		 *	(unsigned int)(fbc_ctrl1[0].Raw),
+		 *	(unsigned int)(fbc_ctrl2[0].Raw),
+		 *	(unsigned int)(fbc_ctrl1[1].Raw),
+		 *	(unsigned int)(fbc_ctrl2[1].Raw),
+		 *	(unsigned int)ISP_RD32(
+		 *		CAM_REG_CTL_RAW_INT2_STATUSX(
+		 *		ISP_CAM_A_IDX)),
+		 *	(unsigned int)ISP_RD32(
+		 *		CAM_REG_CTL_RAW_INT2_STATUSX(
+		 *		ISP_CAM_B_IDX)),
+		 *	(unsigned int)ISP_RD32(
+		 *		CAM_REG_CTL_RAW_INT2_STATUSX(
+		 *		ISP_CAM_C_IDX)));
+		 */
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
@@ -10879,10 +10914,17 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			Irq_CAM_FrameStatus(reg_module, module, irqDelay);
 
 		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				       "CAM%c Lost p1 done_%d (0x%x): ",
-				       'A' + cardinalNum, sof_count[module],
-				       cur_v_cnt);
+			gLostPass1doneLog[module].module = module;
+			snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN,
+				"CAM%c Lost p1 done_%d (0x%x): ",
+				'A' + cardinalNum, sof_count[module],
+				cur_v_cnt);
+			/*
+			 *IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+			 *	       "CAM%c Lost p1 done_%d (0x%x): ",
+			 *	       'A' + cardinalNum, sof_count[module],
+			 *	       cur_v_cnt);
+			 */
 		}
 
 		/* During SOF, re-enable that err/warn irq had been marked and
@@ -10903,7 +10945,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		}
 
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
-			static unsigned int m_sec = 0, m_usec;
+			static unsigned int m_sec[ISP_IRQ_TYPE_AMOUNT] = {0};
+			static unsigned int m_usec[ISP_IRQ_TYPE_AMOUNT] = {0};
 			unsigned int magic_num;
 
 			if (pstRTBuf[module]->ring_buf[_imgo_].active) {
@@ -10915,8 +10958,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_RRZO_FH_SPARE_2(reg_module));
 			}
 			if (g1stSof[module]) {
-				m_sec = sec;
-				m_usec = usec;
+				m_sec[module] = sec;
+				m_usec[module] = usec;
 				gSTime[module].sec = sec;
 				gSTime[module].usec = usec;
 			}
@@ -11211,7 +11254,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x_0x%08x_0x%08x,DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CRZO(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
+				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x_0x%08x_0x%08x,DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CRZO(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
+				gPass1doneLog[module]._str,
+				gLostPass1doneLog[module]._str,
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
 				(unsigned int)(ISP_RD32(
 					CAM_REG_FBC_IMGO_CTL1(reg_module))),
@@ -11225,7 +11270,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				ISP_RD32(CAM_REG_RRZO_BASE_ADDR(reg_module)),
 				magic_num,
 				(unsigned int)((sec * 1000000 + usec) -
-					       (1000000 * m_sec + m_usec)),
+				(1000000 * m_sec[module] + m_usec[module])),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(reg_module)),
 				(unsigned int)ISP_RD32(
@@ -11320,6 +11365,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_YUVO_FH_BASE_ADDR(
 						ISP_CAM_C_INNER_IDX)));
+		snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
+		snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
 
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr */
 			IRQ_LOG_KEEPER(
@@ -11368,8 +11415,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_FBC_LTMSO_CTL2(reg_module))));
 #endif
 			/* keep current time */
-			m_sec = sec;
-			m_usec = usec;
+			m_sec[module] = sec;
+			m_usec[module] = usec;
+			sec_sof[module] = sec;
+			usec_sof[module] = usec;
 
 			/* dbg information only */
 			if (cur_v_cnt !=
