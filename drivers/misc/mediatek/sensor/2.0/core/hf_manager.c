@@ -447,13 +447,20 @@ static struct hf_manager *hf_manager_find_manager(uint8_t sensor_type)
 	return NULL;
 }
 
-static void hf_manager_update_client_param(
-		struct hf_client *client, struct hf_manager_cmd *cmd)
+static void hf_manager_update_client_param(struct hf_client *client,
+		struct hf_manager_cmd *cmd, struct sensor_state *old)
 {
 	struct sensor_state *request = &client->request[cmd->sensor_type];
 
 	/* only enable disable update action delay and latency */
 	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
+		/* save enable delay latency and start_time to old */
+		old->enable = request->enable;
+		old->delay = request->delay;
+		old->latency = request->latency;
+		atomic64_set(&old->start_time,
+			atomic64_read(&request->start_time));
+		/* update new */
 		if (!request->enable)
 			atomic64_set(&request->start_time,
 				ktime_get_boot_ns());
@@ -468,15 +475,27 @@ static void hf_manager_update_client_param(
 	}
 }
 
-static void hf_manager_clear_client_param(
-		struct hf_client *client, struct hf_manager_cmd *cmd)
+static void hf_manager_clear_client_param(struct hf_client *client,
+		struct hf_manager_cmd *cmd, struct sensor_state *old)
 {
 	struct sensor_state *request = &client->request[cmd->sensor_type];
 
-	atomic64_set(&request->start_time, S64_MAX);
-	request->enable = false;
-	request->delay = S64_MAX;
-	request->latency = S64_MAX;
+	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
+		/*
+		 * restore enable delay latency and start_time
+		 * remember must not restore bias raw etc
+		 */
+		atomic64_set(&request->start_time,
+			atomic64_read(&old->start_time));
+		request->enable = old->enable;
+		request->delay = old->delay;
+		request->latency = old->latency;
+	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
+		atomic64_set(&request->start_time, S64_MAX);
+		request->enable = false;
+		request->delay = S64_MAX;
+		request->latency = S64_MAX;
+	}
 }
 
 static void hf_manager_find_best_param(uint8_t sensor_type,
@@ -518,29 +537,21 @@ static inline bool device_rebatch(uint8_t sensor_type,
 			int64_t best_delay, int64_t best_latency)
 {
 	if (prev_request[sensor_type].delay != best_delay ||
-			prev_request[sensor_type].latency != best_latency)
+			prev_request[sensor_type].latency != best_latency) {
+		prev_request[sensor_type].delay = best_delay;
+		prev_request[sensor_type].latency = best_latency;
 		return true;
+	}
 	return false;
-}
-
-static inline void device_rebatch_update(uint8_t sensor_type,
-			int64_t best_delay, int64_t best_latency)
-{
-	prev_request[sensor_type].delay = best_delay;
-	prev_request[sensor_type].latency = best_latency;
 }
 
 static inline bool device_reenable(uint8_t sensor_type, bool best_enable)
 {
-	if (prev_request[sensor_type].enable != best_enable)
+	if (prev_request[sensor_type].enable != best_enable) {
+		prev_request[sensor_type].enable = best_enable;
 		return true;
+	}
 	return false;
-}
-
-static inline void device_reenable_update(uint8_t sensor_type,
-			bool best_enable)
-{
-	prev_request[sensor_type].enable = best_enable;
 }
 
 static inline bool device_redisable(uint8_t sensor_type, bool best_enable,
@@ -553,6 +564,27 @@ static inline bool device_redisable(uint8_t sensor_type, bool best_enable,
 		return true;
 	}
 	return false;
+}
+
+static inline void device_request_update(uint8_t sensor_type,
+		struct sensor_state *old)
+{
+	/* save enable delay and latency to old */
+	old->enable = prev_request[sensor_type].enable;
+	old->delay = prev_request[sensor_type].delay;
+	old->latency = prev_request[sensor_type].latency;
+}
+
+static inline void device_request_clear(uint8_t sensor_type,
+		struct sensor_state *old)
+{
+	/*
+	 * restore enable delay and latency
+	 * remember must not restore bias raw etc
+	 */
+	prev_request[sensor_type].enable = old->enable;
+	prev_request[sensor_type].delay = old->delay;
+	prev_request[sensor_type].latency = old->latency;
 }
 
 static int64_t device_poll_min_interval(struct hf_device *device)
@@ -593,6 +625,7 @@ static int hf_manager_device_enable(struct hf_device *device,
 				uint8_t sensor_type)
 {
 	int err = 0;
+	struct sensor_state old;
 	struct hf_manager *manager = device->manager;
 	bool best_enable = false;
 	int64_t best_delay = S64_MAX;
@@ -605,14 +638,15 @@ static int hf_manager_device_enable(struct hf_device *device,
 		&best_delay, &best_latency);
 
 	if (best_enable) {
+		device_request_update(sensor_type, &old);
 		if (device_rebatch(sensor_type, best_delay, best_latency)) {
 			err = device->batch(device, sensor_type,
 				best_delay, best_latency);
 			/* handle error to return when batch fail */
-			if (err < 0)
-				goto err_out;
-			device_rebatch_update(sensor_type,
-				best_delay, best_latency);
+			if (err < 0) {
+				device_request_clear(sensor_type, &old);
+				return err;
+			}
 		}
 		if (device_reenable(sensor_type, best_enable)) {
 			/* must update io_enabled before enable */
@@ -623,13 +657,11 @@ static int hf_manager_device_enable(struct hf_device *device,
 				atomic_dec_if_positive(&manager->io_enabled);
 				/*
 				 * rebatch success and enable fail.
-				 * update prev request's delay and latency.
+				 * update prev request from old.
 				 */
-				device_rebatch_update(sensor_type,
-					S64_MAX, S64_MAX);
-				goto err_out;
+				device_request_clear(sensor_type, &old);
+				return err;
 			}
-			device_reenable_update(sensor_type, best_enable);
 		}
 		if (device->device_poll == HF_DEVICE_IO_POLLING)
 			device_poll_trigger(device, best_enable);
@@ -650,7 +682,6 @@ static int hf_manager_device_enable(struct hf_device *device,
 			tasklet_kill(&manager->io_work_tasklet);
 	}
 
-err_out:
 	return err;
 }
 
@@ -690,6 +721,7 @@ static int hf_manager_device_selftest(struct hf_device *device,
 static int hf_manager_device_rawdata(struct hf_device *device,
 		uint8_t sensor_type)
 {
+	int err = 0;
 	unsigned long flags;
 	struct hf_client *client = NULL;
 	struct sensor_state *request = NULL;
@@ -703,12 +735,15 @@ static int hf_manager_device_rawdata(struct hf_device *device,
 	}
 	spin_unlock_irqrestore(&hf_client_list_lock, flags);
 
+	if (!device->rawdata)
+		return 0;
 	if (prev_request[sensor_type].raw == best_enable)
 		return 0;
 	prev_request[sensor_type].raw = best_enable;
-	if (device->rawdata)
-		return device->rawdata(device, sensor_type, best_enable);
-	return 0;
+	err = device->rawdata(device, sensor_type, best_enable);
+	if (err < 0)
+		prev_request[sensor_type].raw = false;
+	return err;
 }
 
 static int hf_manager_device_info(uint8_t sensor_type,
@@ -780,6 +815,7 @@ static int hf_manager_drive_device(struct hf_client *client,
 		struct hf_manager_cmd *cmd)
 {
 	int err = 0;
+	struct sensor_state old;
 	struct hf_manager *manager = NULL;
 	struct hf_device *device = NULL;
 	uint8_t sensor_type = cmd->sensor_type;
@@ -810,10 +846,10 @@ static int hf_manager_drive_device(struct hf_client *client,
 	switch (cmd->action) {
 	case HF_MANAGER_SENSOR_ENABLE:
 	case HF_MANAGER_SENSOR_DISABLE:
-		hf_manager_update_client_param(client, cmd);
+		hf_manager_update_client_param(client, cmd, &old);
 		err = hf_manager_device_enable(device, sensor_type);
 		if (err < 0)
-			hf_manager_clear_client_param(client, cmd);
+			hf_manager_clear_client_param(client, cmd, &old);
 		break;
 	case HF_MANAGER_SENSOR_FLUSH:
 		atomic_inc(&client->request[sensor_type].flush);
