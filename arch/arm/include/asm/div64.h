@@ -40,7 +40,7 @@ static inline uint32_t __div64_32(uint64_t *n, uint32_t base)
 		__asmeq("%1", "r2")
 		__asmeq("%2", "r0")
 		__asmeq("%3", "r4")
-		"bl	__do_div64"
+		__asmbl("", "ip",  "__do_div64")
 		: "=r" (__rem), "=r" (__res)
 		: "r" (__n), "r" (__base)
 		: "ip", "lr", "cc");

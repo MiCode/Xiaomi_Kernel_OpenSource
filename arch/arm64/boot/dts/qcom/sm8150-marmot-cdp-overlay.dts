@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,19 @@
  * GNU General Public License for more details.
  */
 
-&mpss_adsp_mem {
-	reg = <0x90800000 0xf800000>;
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,camcc-sm8150.h>
+
+#include "sm8150-cdp.dtsi"
+
+#include "sdx5xm-external-soc.dtsi"
+#include "sm8150-marmot.dtsi"
+
+/ {
+	model = "MARMOT CDP";
+	compatible = "qcom,sm8150-cdp", "qcom,sm8150", "qcom,cdp";
+	qcom,board-id = <0x05010001 0x5>;
 };
+

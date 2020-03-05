@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1148,6 +1148,11 @@ static int cnss_wlfw_server_arrive_hdlr(struct cnss_plat_data *plat_priv,
 {
 	int ret;
 	unsigned int bdf_type;
+
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_info("Unloading is in progress, ignore server arrive\n");
+		return 0;
+	}
 
 	ret = cnss_wlfw_server_arrive(plat_priv, data);
 	if (ret)

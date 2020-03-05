@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,6 +280,7 @@ struct mhi_controller {
 
 	/* caller should grab pm_mutex for suspend/resume operations */
 	struct mutex pm_mutex;
+	struct mutex tsync_mutex;
 	bool pre_init;
 	rwlock_t pm_lock;
 	u32 pm_state;

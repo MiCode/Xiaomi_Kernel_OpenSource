@@ -25,5 +25,18 @@
 	  ".endif; "				\
 	".endif\n\t"
 
+/*
+ * This is used for calling exported symbols from inline assembly code.
+ */
+#if defined(MODULE) && defined(CONFIG_MODULES_USE_LONG_CALLS)
+#define __asmbl(cond, reg, target) \
+	"movw	" reg ", #:lower16:" target "\n\t" \
+	"movt	" reg ", #:upper16:" target "\n\t" \
+	"blx" cond "	" reg "\n\t"
+#define __asmbl_clobber(reg)	,reg
+#else
+#define __asmbl(cond, reg, target) "bl" cond "	" target"\n\t"
+#define __asmbl_clobber(reg)
+#endif
 
 #endif /* __ASM_ARM_COMPILER_H */

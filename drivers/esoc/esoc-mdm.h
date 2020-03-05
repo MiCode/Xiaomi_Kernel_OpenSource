@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #define SDX50M_LABEL			"SDX50M"
 #define SDX50M_PCIE			"PCIe"
 #define SDXPRAIRIE_LABEL		"SDXPRAIRIE"
+#define MARMOT_LABEL			"SDXMARMOT"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000

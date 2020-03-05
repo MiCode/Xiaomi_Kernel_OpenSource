@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -453,6 +453,7 @@ void mhi_ring_init(struct mhi_dev_ring *ring, enum mhi_dev_ring_type type,
 	ring->state = RING_STATE_UINT;
 	ring->ring_cb = NULL;
 	ring->type = type;
+	mutex_init(&ring->event_lock);
 }
 EXPORT_SYMBOL(mhi_ring_init);
 

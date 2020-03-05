@@ -38,6 +38,7 @@
 #endif
 
 #ifdef CONFIG_MMU
+#ifndef CONFIG_MODULES_USE_VMALLOC
 void *module_alloc(unsigned long size)
 {
 	gfp_t gfp_mask = GFP_KERNEL;
@@ -56,6 +57,7 @@ void *module_alloc(unsigned long size)
 				GFP_KERNEL, PAGE_KERNEL_EXEC, 0, NUMA_NO_NODE,
 				__builtin_return_address(0));
 }
+#endif /* CONFIG_MODULES_USE_VMALLOC */
 #endif
 
 int

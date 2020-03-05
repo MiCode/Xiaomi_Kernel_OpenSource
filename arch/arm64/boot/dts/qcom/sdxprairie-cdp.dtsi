@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,6 +143,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_XO_THERM_PU2>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 	};
 
 	pa-therm1-usr {
@@ -150,6 +151,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_AMUX_THM1_PU2>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 	};
 
 	pa-therm2-usr {
@@ -157,6 +159,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_AMUX_THM2_PU2>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 	};
 
 	sdx-case-therm-usr {
@@ -164,6 +167,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_AMUX_THM3_PU2>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 	};
 
 	ambient-therm-usr {
@@ -171,6 +175,7 @@
 		polling-delay = <0>;
 		thermal-sensors = <&pmxprairie_adc_tm_iio ADC_GPIO1_PU2>;
 		thermal-governor = "user_space";
+		wake-capable-sensor;
 	};
 };
 

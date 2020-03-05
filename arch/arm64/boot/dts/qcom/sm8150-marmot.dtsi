@@ -1,0 +1,274 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&mdm3 {
+	compatible = "qcom,ext-marmot";
+	qcom,mdm-link-info = "0307_01.01.00";
+};
+
+&pcie1 {
+	dma-coherent;
+};
+
+&mhi_0 {
+	esoc-names = "mdm";
+	esoc-0 = <&mdm3>;
+	qcom,smmu-cfg = <0x1d>;
+	qcom,addr-win = <0x0 0x20000000 0x0 0x2fffffff>;
+	mhi,sfr-support;
+
+	/* controller noc frequency scaling configuration */
+	qcom,msm-bus,name = "mhi0";
+	qcom,msm-bus,num-cases = <4>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			0 0>,
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			0 0>,
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			500000 0>, /* 4 Gbps */
+			<MSM_BUS_MASTER_PCIE_1 MSM_BUS_SLAVE_EBI_CH0
+			1000000 0>; /* 8 Gbps */
+
+	mhi_channels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mhi_chan@9 {
+			mhi,num-elements = <128>;
+		};
+
+		mhi_chan@25 {
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+		};
+
+		mhi_chan@80 {
+			reg = <80>;
+			label = "AUDIO_VOICE_0";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x4>;
+		};
+
+		mhi_chan@81 {
+			reg = <81>;
+			label = "AUDIO_VOICE_0";
+			mhi,num-elements = <32>;
+			mhi,event-ring = <1>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <0>;
+			mhi,doorbell-mode = <2>;
+			mhi,ee = <0x4>;
+		};
+
+		mhi_chan@100 {
+			 mhi,event-ring = <6>;
+		};
+
+		mhi_chan@101 {
+			 mhi,event-ring = <7>;
+		};
+
+		mhi_chan@102 {
+			 mhi,event-ring = <8>;
+		};
+
+		mhi_chan@103 {
+			 mhi,event-ring = <9>;
+		};
+
+		mhi_chan@104 {
+			label = "IP_HW0_RSC";
+			mhi,num-elements = <512>;
+			mhi,local-elements = <3078>;
+			mhi,event-ring = <7>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <5>;
+			mhi,doorbell-mode = <3>;
+			mhi,chan-type = <3>;
+		};
+
+		mhi_chan@105 {
+			label = "IP_HW_MHIP_0";
+			mhi,event-ring = <10>;
+			mhi,chan-dir = <1>;
+			mhi,data-type = <3>;
+			mhi,ee = <0x4>;
+			mhi,offload-chan;
+		};
+
+		mhi_chan@106 {
+			reg = <106>;
+			label = "IP_HW_MHIP_0";
+			mhi,event-ring = <11>;
+			mhi,chan-dir = <2>;
+			mhi,data-type = <3>;
+			mhi,ee = <0x4>;
+			mhi,offload-chan;
+			mhi,lpm-notify;
+		};
+
+		mhi_chan@107 {
+			mhi,event-ring = <12>;
+		};
+
+		mhi_chan@108 {
+			mhi,event-ring = <13>;
+		};
+
+		mhi_chan@109 {
+			mhi,event-ring = <14>;
+		};
+
+		mhi_chan@110 {
+			mhi,event-ring = <15>;
+		};
+	};
+
+	mhi_events {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mhi_event@5 {
+			mhi,num-elements = <32>;
+			mhi,intmod = <1>;
+			mhi,msi = <0>;
+			mhi,priority = <2>;
+			mhi,brstmode = <2>;
+			mhi,data-type = <2>;
+		};
+
+		mhi_event@6 {
+			mhi,num-elements = <1024>;
+			mhi,intmod = <5>;
+			mhi,msi = <5>;
+			mhi,chan = <100>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@7 {
+			mhi,num-elements = <2048>;
+			mhi,intmod = <5>;
+			mhi,msi = <6>;
+			mhi,chan = <101>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+		};
+
+		mhi_event@8 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <7>;
+			mhi,chan = <102>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@9 {
+			mhi,num-elements = <1024>;
+			mhi,intmod = <5>;
+			mhi,msi = <8>;
+			mhi,chan = <103>;
+			mhi,priority = <1>;
+			mhi,brstmode = <2>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@10 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <9>;
+			mhi,chan = <105>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@11 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <10>;
+			mhi,chan = <106>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@12 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <11>;
+			mhi,chan = <107>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@13 {
+			mhi,num-elements = <0>;
+			mhi,intmod = <0>;
+			mhi,msi = <12>;
+			mhi,chan = <108>;
+			mhi,priority = <1>;
+			mhi,brstmode = <3>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@14 {
+			mhi,num-elements = <1024>;
+			mhi,intmod = <1>;
+			mhi,msi = <13>;
+			mhi,chan = <109>;
+			mhi,priority = <0>;
+			mhi,brstmode = <2>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@15 {
+			mhi,num-elements = <1024>;
+			mhi,intmod = <0>;
+			mhi,msi = <14>;
+			mhi,chan = <110>;
+			mhi,priority = <0>;
+			mhi,brstmode = <2>;
+			mhi,hw-ev;
+		};
+	};
+
+	mhi_devices {
+		mhi_qrtr {
+			qcom,net-id = <3>;
+		};
+	};
+};

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4640,7 +4640,6 @@ static int msm_nand_probe(struct platform_device *pdev)
 	}
 	info->nand_chip.qpic_version = qpic_version.qpic_major;
 	if (info->nand_chip.qpic_version >= 2) {
-		info->nand_chip.caps = MSM_NAND_CAP_PAGE_SCOPE_READ;
 		mutex_lock(&info->lock);
 		err = msm_nand_get_device(info->nand_chip.dev);
 		if (err) {
