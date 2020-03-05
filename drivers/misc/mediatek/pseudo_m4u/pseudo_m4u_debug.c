@@ -34,6 +34,10 @@
 #include "trusted_mem_api.h"
 #endif
 
+#define M4U_MAGIC_KEY	(0x14045a)
+#define M4U_CMD_SHIFT	(8)
+#define M4U_CMD_MASK	(0xff)
+
 int test_mva;
 
 unsigned int gM4U_seed_mva;
@@ -406,16 +410,14 @@ void m4u_test_ion(void)
 {
 	unsigned long *pSrc = NULL;
 	unsigned long *pDst = NULL;
-	unsigned long src_pa = 0, dst_pa = 0;
-	unsigned int size = 64 * 64 * 3, tmp_size = 0;
-	struct M4U_PORT_STRUCT port;
-	struct ion_mm_data mm_data;
+	unsigned int size = 64 * 64 * 3;
+	struct ion_mm_data mm_data[2];
 	struct ion_client *ion_client = NULL;
 	struct ion_handle *src_handle = NULL, *dst_handle = NULL;
 
 	/* FIX-ME: modified for linux-3.10 early porting */
 	/* ion_client = ion_client_create(g_ion_device, 0xffffffff, "test"); */
-	ion_client = ion_client_create(g_ion_device, "test");
+	ion_client = ion_client_create(g_ion_device, "m4u_test_ion");
 
 	src_handle = ion_alloc(ion_client,
 		size, 0, ION_HEAP_MULTIMEDIA_MASK, 0);
@@ -425,7 +427,7 @@ void m4u_test_ion(void)
 	pSrc = ion_map_kernel(ion_client, src_handle);
 	if (!pSrc) {
 		M4U_MSG("ion map kernel failed!\n");
-		goto out;
+		goto out1;
 	}
 	pDst = ion_map_kernel(ion_client, dst_handle);
 	if (!pDst) {
@@ -433,42 +435,34 @@ void m4u_test_ion(void)
 		goto out;
 	}
 
-	mm_data.config_buffer_param.kernel_handle = src_handle;
-	mm_data.config_buffer_param.module_id = M4U_PORT_OVL_DEBUG;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 0;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data[0].get_phys_param.kernel_handle = src_handle;
+	mm_data[0].get_phys_param.module_id = M4U_PORT_OVL_DEBUG;
+	mm_data[0].get_phys_param.security = 0;
+	mm_data[0].get_phys_param.coherent = 0;
+	mm_data[0].mm_cmd = ION_MM_GET_IOVA;
 	if (ion_kernel_ioctl(ion_client,
-		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data) < 0)
-		M4U_MSG("ion_test_drv: Config buffer failed.\n");
+		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data[0]) < 0)
+		M4U_MSG("ion_test_drv0: GET_IOVA failed.\n");
 
-	mm_data.config_buffer_param.kernel_handle = dst_handle;
+	mm_data[1].get_phys_param.kernel_handle = dst_handle;
+	mm_data[1].get_phys_param.module_id = M4U_PORT_OVL_DEBUG;
+	mm_data[1].get_phys_param.security = 0;
+	mm_data[1].get_phys_param.coherent = 0;
+	mm_data[1].mm_cmd = ION_MM_GET_IOVA;
 	if (ion_kernel_ioctl(ion_client,
-		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data) < 0)
-		M4U_MSG("ion_test_drv: Config buffer failed.\n");
+		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data[1]) < 0)
+		M4U_MSG("ion_test_drv1: GET_IOVA failed.\n");
 
-	ion_phys(ion_client, src_handle, &src_pa, (size_t *)&tmp_size);
-	ion_phys(ion_client, dst_handle, &dst_pa, (size_t *)&tmp_size);
+	M4U_MSG(
+		"ion alloced: pSrc=0x%p, pDst=0x%p, src_pa=0x%llx, dst_pa=0x%llx\n",
+		pSrc, pDst,
+		mm_data[0].get_phys_param.phy_addr,
+		mm_data[1].get_phys_param.phy_addr);
 
-	M4U_MSG("ion alloced: pSrc=0x%p, pDst=0x%p, src_pa=%lu, dst_pa=%lu\n",
-		pSrc, pDst, src_pa, dst_pa);
-
-	port.ePortID = M4U_PORT_OVL_DEBUG;
-	port.Direction = 0;
-	port.Distance = 1;
-	port.domain = 3;
-	port.Security = 0;
-	port.Virtuality = 1;
-	m4u_config_port(&port);
-
-	port.ePortID = M4U_PORT_MDP_DEBUG;
-	m4u_config_port(&port);
-
-	iommu_perf_monitor_start(0);
-	__ddp_mem_test(pSrc, src_pa, pDst, dst_pa, 0);
-	iommu_perf_monitor_stop(0);
-
+	ion_unmap_kernel(ion_client, dst_handle);
 out:
+	ion_unmap_kernel(ion_client, src_handle);
+out1:
 	ion_free(ion_client, src_handle);
 	ion_free(ion_client, dst_handle);
 
@@ -511,10 +505,16 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 
 static int m4u_debug_set(void *data, u64 val)
 {
+	u64 value;
 
-	M4U_MSG("%s:val=%llu\n", __func__, val);
-
-	switch (val) {
+	if ((val >> M4U_CMD_SHIFT) == M4U_MAGIC_KEY) {
+		value = val & M4U_CMD_MASK;
+		M4U_MSG("%s:val=%llu\n", __func__, value);
+	} else {
+		M4U_MSG("%s fail:val=0x%llx\n", __func__, val);
+		return 0;
+	}
+	switch (value) {
 	case 1:
 	{ /* map4kpageonly */
 		struct sg_table table;
@@ -1078,81 +1078,85 @@ DEFINE_SIMPLE_ATTRIBUTE(m4u_log_level_fops,
 int m4u_debug_help_show(struct seq_file *s, void *unused)
 {
 	M4U_PRINT_SEQ(s,
-		      "echo 1 > /d/m4u/debug:	boundary0 domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 8'd1 > /d/m4u/debug:	boundary0 domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 2 > /d/m4u/debug:	boundary1 domain: map/unmap the sg table(51 count of 64KB pages) to IOVA(aligned of 0x10000)\n");
+		      "echo 8'd2 > /d/m4u/debug:	boundary1 domain: map/unmap the sg table(51 count of 64KB pages) to IOVA(aligned of 0x10000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 3 > /d/m4u/debug:	boundary2 domain: map/unmap the sg table(37 count of 1MB pages) to IOVA(aligned of 0x100000)\n");
+		      "echo 8'd3 > /d/m4u/debug:	boundary2 domain: map/unmap the sg table(37 count of 1MB pages) to IOVA(aligned of 0x100000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 4 > /d/m4u/debug:	boundary3 domain: map/unmap the sg table(2 count of 16MB pages) to IOVA(aligned of 0x1000000)\n");
+		      "echo 8'd4 > /d/m4u/debug:	boundary3 domain: map/unmap the sg table(2 count of 16MB pages) to IOVA(aligned of 0x1000000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 5 > /d/m4u/debug:	unknown domain: map/unmap the sg table(1 count of 32MB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 8'd5 > /d/m4u/debug:	unknown domain: map/unmap the sg table(1 count of 32MB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 6 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(kmalloc) to IOVA\n");
+		      "echo 8'd6 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(kmalloc) to IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 7 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(vmalloc) to IOVA\n");
+		      "echo 8'd7 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(vmalloc) to IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8 > /d/m4u/debug:	map/unmap 4MB user space virtual buffer(do_mmap_pgoff) to IOVA\n");
+		      "echo 8'd8 > /d/m4u/debug:	map/unmap 4MB user space virtual buffer(do_mmap_pgoff) to IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 9 > /d/m4u/debug:	CCU domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 8'd9 > /d/m4u/debug:	CCU domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 10 > /d/m4u/debug:	APU CODE domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 8'd10 > /d/m4u/debug:	APU CODE domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 11 > /d/m4u/debug:	map userspace VA to IOVA / map IOVA to kernel VA / unmap kernel VA / unmap IOVA / unmap userspace VA\n");
+		      "echo 8'd11 > /d/m4u/debug:	map userspace VA to IOVA / map IOVA to kernel VA / unmap kernel VA / unmap IOVA / unmap userspace VA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 12 > /d/m4u/debug:	do display memory test\n");
+		      "echo 8'd12 > /d/m4u/debug:	do display memory test\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 13 > /d/m4u/debug:	do IOVA mapping of OVL, start performance monitor of OVL, trigger OVL read/write\n");
+		      "echo 8'd13 > /d/m4u/debug:	do IOVA mapping of OVL, start performance monitor of OVL, trigger OVL read/write\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 14 > /d/m4u/debug:	register the fault callback of OVL and MDP, check if it works well\n");
+		      "echo 8'd14 > /d/m4u/debug:	register the fault callback of OVL and MDP, check if it works well\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 15 > /d/m4u/debug:	ION test: alloc / config port / IOVA mapping / performance monitor\n");
+		      "echo 8'd15 > /d/m4u/debug:	ION test: alloc / config port / IOVA mapping / performance monitor\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 16 > /d/m4u/debug:	dump main TLB\n");
+		      "echo 8'd16 > /d/m4u/debug:	dump main TLB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 17 > /d/m4u/debug:	dump prefetch TLB\n");
+		      "echo 8'd17 > /d/m4u/debug:	dump prefetch TLB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 18 > /d/m4u/debug:	start MAU monitor of 4KB~4GB\n");
+		      "echo 8'd18 > /d/m4u/debug:	start MAU monitor of 4KB~4GB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 19 > /d/m4u/debug:	stop MAU monitor of 4KB~4GB\n");
+		      "echo 8'd19 > /d/m4u/debug:	stop MAU monitor of 4KB~4GB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 20 > /d/m4u/debug:	config all ports of IOVA path\n");
+		      "echo 8'd20 > /d/m4u/debug:	config all ports of IOVA path\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 21 > /d/m4u/debug:	config all ports of PA path\n");
+		      "echo 8'd21 > /d/m4u/debug:	config all ports of PA path\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 22 > /d/m4u/debug:	aee dump of the top 5 users of IOVA space\n");
+		      "echo 8'd22 > /d/m4u/debug:	aee dump of the top 5 users of IOVA space\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 23 > /d/m4u/debug:	dump IOVA page table base address\n");
+		      "echo 8'd23 > /d/m4u/debug:	dump IOVA page table base address\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 24 > /d/m4u/debug:	dump the PA addr mapped by the target IOVA\n");
+		      "echo 8'd24 > /d/m4u/debug:	dump the PA addr mapped by the target IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 25 > /d/m4u/debug:	start performance monitor\n");
+		      "echo 8'd25 > /d/m4u/debug:	start performance monitor\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 26 > /d/m4u/debug:	stop performance monitor\n");
+		      "echo 8'd26 > /d/m4u/debug:	stop performance monitor\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 27 > /d/m4u/debug:	dump the debug registers of SMI bus hang\n");
+		      "echo 8'd27 > /d/m4u/debug:	dump the debug registers of SMI bus hang\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 28 > /d/m4u/debug:	test display fake engine read/write\n");
+		      "echo 8'd28 > /d/m4u/debug:	test display fake engine read/write\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 29 > /d/m4u/debug:	enable translation fault debug\n");
+		      "echo 8'd29 > /d/m4u/debug:	enable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 30 > /d/m4u/debug:	disable translation fault debug\n");
+		      "echo 8'd30 > /d/m4u/debug:	disable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 31 > /d/m4u/debug:	iommu power on/off test\n");
+		      "echo 8'd31 > /d/m4u/debug:	iommu power on/off test\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 33 > /d/m4u/debug:	disable mau monitor interrupt\n");
+		      "echo 8'd33 > /d/m4u/debug:	disable mau monitor interrupt\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 34 > /d/m4u/debug:	TLB flush All\n");
+		      "echo 8'd34 > /d/m4u/debug:	TLB flush All\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 35 > /d/m4u/debug:	enable iommu bank irq test\n");
+		      "echo 8'd35 > /d/m4u/debug:	enable iommu bank irq test\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 36 > /d/m4u/debug:	disable iommu bank irq test\n");
+		      "echo 8'd36 > /d/m4u/debug:	disable iommu bank irq test\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 37 > /d/m4u/debug:	dump iommu mau info\n");
+		      "echo 8'd37 > /d/m4u/debug:	dump iommu mau info\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
+		      "echo 8'd50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 51 > /d/m4u/debug:	IOMMU ATF (all) command test\n");
+		      "echo 8'd51 > /d/m4u/debug:	IOMMU ATF (all) command test\n");
+
+	M4U_PRINT_SEQ(s, "\nM4U_MAGIC_KEY:0x%x(bit31~bit8)\n", M4U_MAGIC_KEY);
+	M4U_PRINT_SEQ(s, "ex: adb shell \"echo 0x%xxx > /d/m4u/debug\"\n",
+			M4U_MAGIC_KEY);
 	return 0;
 }
 
