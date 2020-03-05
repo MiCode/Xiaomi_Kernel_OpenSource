@@ -1497,6 +1497,27 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 #endif
 	}
 #endif
+
+#ifdef _HW_REORDER_SW_WORKAROUND_
+	if (rxq->pit_reload_en) {
+		ret = drv_dpmaif_dl_add_apit_num(rxq->pit_dummy_cnt);
+
+		if (ret < 0) {
+			CCCI_MEM_LOG_TAG(0, TAG,
+				"dpmaif: update dummy pit fail(128)\n");
+			return ret;
+		}
+		/*reset dummy cnt and update dummy idx*/
+		if (ret != 0) {
+			rxq->pit_dummy_idx += rxq->pit_dummy_cnt;
+			if (rxq->pit_dummy_idx >= DPMAIF_DUMMY_PIT_MAX_NUM)
+				rxq->pit_dummy_idx -= DPMAIF_DUMMY_PIT_MAX_NUM;
+			rxq->pit_dummy_cnt = 0;
+			ret = 0;
+			rxq->pit_reload_en = 0;
+		}
+	}
+#endif
 	return ret;
 }
 
@@ -1609,88 +1630,107 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		pkt_inf_t = (struct dpmaifq_normal_pit *)rxq->pit_base +
 			cur_pit;
 #endif
-		if (pkt_inf_t->packet_type == DES_PT_MSG) {
-			dpmaif_rx_msg_pit(rxq,
-				(struct dpmaifq_msg_pit *)pkt_inf_t);
-			rxq->skb_idx = -1;
-			rxq->pit_dp = ((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
-		} else if (pkt_inf_t->packet_type == DES_PT_PD) {
-#ifdef HW_FRG_FEATURE_ENABLE
-			if (pkt_inf_t->buffer_type != PKT_BUF_FRAG) {
+#ifdef _HW_REORDER_SW_WORKAROUND_
+		if (pkt_inf_t->ig == 0) {
 #endif
-				/* skb->data: add to skb ptr && record ptr. */
-				rxq->skb_idx = pkt_inf_t->buffer_id;
-				ret = dpmaif_get_rx_pkt(rxq,
-					(unsigned int)rxq->skb_idx,
-					blocking, pkt_inf_t);
-				if (ret < 0)
-					break;
+			if (pkt_inf_t->packet_type == DES_PT_MSG) {
+				dpmaif_rx_msg_pit(rxq,
+					(struct dpmaifq_msg_pit *)pkt_inf_t);
+				rxq->skb_idx = -1;
+				rxq->pit_dp =
+				((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
+			} else if (pkt_inf_t->packet_type == DES_PT_PD) {
+#ifdef HW_FRG_FEATURE_ENABLE
+				if (pkt_inf_t->buffer_type != PKT_BUF_FRAG) {
+#endif
+					/* skb->data: add to skb ptr */
+					/* && record ptr. */
+					rxq->skb_idx = pkt_inf_t->buffer_id;
+					ret = dpmaif_get_rx_pkt(rxq,
+						(unsigned int)rxq->skb_idx,
+						blocking, pkt_inf_t);
+					if (ret < 0)
+						break;
 
 #if defined(_97_REORDER_BAT_PAGE_TABLE_)
-				/*ret return BAT cnt*/
-				notify_hw.bat_cnt += ret;
+					/*ret return BAT cnt*/
+					notify_hw.bat_cnt += ret;
 #else
-				notify_hw.bat_cnt++;
+					notify_hw.bat_cnt++;
 #endif
 
 #ifdef HW_FRG_FEATURE_ENABLE
-			} else if (rxq->skb_idx < 0) {
-				/* msg+frag pit, no data pkt received. */
-				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+				} else if (rxq->skb_idx < 0) {
+					/* msg+frag pit, no data */
+					/* pkt received. */
+					CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 					"skb_idx < 0 pit/bat/frag = %d, %d; buf: %d; %d, %d\n",
 					cur_pit, pkt_inf_t->buffer_id,
 					pkt_inf_t->buffer_type, rx_cnt,
 					pit_cnt);
 #ifdef DPMAIF_DEBUG_LOG
-				CCCI_HISTORY_TAG_LOG(dpmaif_ctrl->md_id, TAG,
+					CCCI_HISTORY_TAG_LOG(
+					dpmaif_ctrl->md_id, TAG,
 					"skb_idx < 0 pit/bat/frag = %d, %d; buf: %d; %d, %d\n",
 					cur_pit, pkt_inf_t->buffer_id,
 					pkt_inf_t->buffer_type, rx_cnt,
 					pit_cnt);
 #endif
-				CCCI_MEM_LOG_TAG(dpmaif_ctrl->md_id, TAG,
+					CCCI_MEM_LOG_TAG(
+					dpmaif_ctrl->md_id, TAG,
 					"skb_idx < 0 pit/bat/frag = %d, %d; buf: %d; %d, %d\n",
 					cur_pit, pkt_inf_t->buffer_id,
 					pkt_inf_t->buffer_type, rx_cnt,
 					pit_cnt);
-				dpmaif_dump_rxq_remain(dpmaif_ctrl,
+					dpmaif_dump_rxq_remain(dpmaif_ctrl,
 					DPMAIF_RXQ_NUM, 1);
 
-				ret = DATA_CHECK_FAIL;
-				break;
-			} else {
-				/* skb->frag_list: add to frag_list */
-				ret = dpmaif_get_rx_frag(rxq,
-					(unsigned int)rxq->skb_idx,
-					blocking, pkt_inf_t);
-				if (ret < 0)
+					ret = DATA_CHECK_FAIL;
 					break;
+				} else {
+					/* skb->frag_list: add to frag_list */
+					ret = dpmaif_get_rx_frag(rxq,
+						(unsigned int)rxq->skb_idx,
+					blocking, pkt_inf_t);
+					if (ret < 0)
+						break;
 
 #if defined(_97_REORDER_BAT_PAGE_TABLE_)
-				/*ret return BAT cnt*/
-				notify_hw.frag_cnt += ret;
+					/*ret return BAT cnt*/
+					notify_hw.frag_cnt += ret;
 #else
-				notify_hw.frag_cnt++;
+					notify_hw.frag_cnt++;
 #endif
-			}
-#endif
-			if (pkt_inf_t->c_bit == 0) {
-				/* last one, not msg pit, && data had rx. */
-				ret = dpmaif_send_skb_to_net(rxq,
-					rxq->skb_idx);
-				if (ret < 0)
-					break;
-				recv_skb_cnt++;
-				if ((recv_skb_cnt&0x7) == 0) {
-					NOTIFY_RX_PUSH(rxq);
-					recv_skb_cnt = 0;
 				}
-				ret = dpmaif_check_rel_cnt(rxq);
-				if (ret < 0)
-					break;
-				notify_hw.bat_cnt += ret;
+#endif
+				if (pkt_inf_t->c_bit == 0) {
+					/* last one, not msg pit, */
+					/* && data had rx. */
+					ret = dpmaif_send_skb_to_net(rxq,
+						rxq->skb_idx);
+					if (ret < 0)
+						break;
+					recv_skb_cnt++;
+					if ((recv_skb_cnt&0x7) == 0) {
+						NOTIFY_RX_PUSH(rxq);
+						recv_skb_cnt = 0;
+					}
+					ret = dpmaif_check_rel_cnt(rxq);
+					if (ret < 0)
+						break;
+					notify_hw.bat_cnt += ret;
+				}
 			}
+#ifdef _HW_REORDER_SW_WORKAROUND_
+		} else {
+			/*resv PIT IG=1 bit*/
+			if (pkt_inf_t->reserved2 & (1<<6))
+				rxq->pit_reload_en = 1;
+			else
+				rxq->pit_reload_en = 0;
+			rxq->pit_dummy_cnt++;
 		}
+#endif
 		/* get next pointer to get pkt data */
 		cur_pit = ringbuf_get_next_idx(pit_len, cur_pit, 1);
 		rxq->pit_rd_idx = cur_pit;
@@ -2843,6 +2883,13 @@ static void dpmaif_rx_hw_init(struct dpmaif_rx_queue *rxq)
 		drv_dpmaif_dl_set_chk_rbnum(rxq->index,
 			DPMAIF_HW_CHK_RB_PIT_NUM);
 		drv_dpmaif_dl_set_performance();
+		#ifdef _HW_REORDER_SW_WORKAROUND_
+		drv_dpmaif_dl_set_apit_idx(rxq->index,
+			DPMAIF_DUMMY_PIT_AIDX);
+
+		rxq->pit_dummy_idx = DPMAIF_DUMMY_PIT_AIDX;
+		rxq->pit_dummy_cnt = 0;
+		#endif
 		#endif
 		/*
 		 * drv_dpmaif_dl_set_ao_frag_check_thres(que_cnt,

@@ -251,6 +251,8 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 				(BASE_NADDR_NRL2_DPMAIF_AP_MISC + 0x6C)
 #define NRL2_DPMAIF_AP_MISC_APB_DBG_SRAM	\
 				(BASE_NADDR_NRL2_DPMAIF_AP_MISC + 0x70)
+#define NRL2_DPMAIF_PD_MD_MISC_MD_L1TIMSR0	\
+				(BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC + 0x001C)
 
 #define NRL2_DPMAIF_AO_UL_CH0_STA	(BASE_NADDR_NRL2_DPMAIF_AO_UL + 0x0)
 #define NRL2_DPMAIF_AO_UL_CH1_STA	(BASE_NADDR_NRL2_DPMAIF_AO_UL + 0x4)
@@ -359,6 +361,8 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 				(BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC + 0x0000)
 #define NRL2_DPMAIF_PD_MD_IP_BUSY_MASK		\
 				(BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC + 0x0040)
+#define NRL2_DPMAIF_PD_MD_DL_RB_PIT_INIT		\
+				(BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC + 0x0100)
 
 /*DPMAIF AO UL CONFIG: 0x10014000 / ao + 0*/
 #define DPMAIF_AO_UL_CHNL0_STA            NRL2_DPMAIF_AO_UL_CH0_STA
@@ -693,6 +697,11 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMA_READ_AO_MD_DL(a) \
 	dpmaif_read32(dpmaif_ctrl->dpmaif_ao_md_dl_base, (a))
 
+#define DPMA_WRITE_MD_MISC_DL(a, v) \
+	dpmaif_write32(dpmaif_ctrl->dpmaif_pd_md_misc_base, (a), v)
+
+#define DPMA_READ_MD_MISC_DL(a) \
+	dpmaif_read32(dpmaif_ctrl->dpmaif_pd_md_misc_base, (a))
 #endif
 
 /* DL */
@@ -791,6 +800,10 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DP_BANK1_ID 7
 
 #define DPMAIF_MD_AO_REMAP_ENABLE (1 << 0)
+
+#ifdef _HW_REORDER_SW_WORKAROUND_
+#define DPMAIF_MD_DUMMYPIT_EN     (1 << 31)
+#endif
 
 /* ======== UL ========= */
 

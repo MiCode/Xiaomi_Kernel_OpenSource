@@ -69,6 +69,10 @@ void drv_dpmaif_dl_set_pit_size(unsigned char q_num, unsigned int size);
 void drv_dpmaif_dl_pit_en(unsigned char q_num, bool enable);
 void drv_dpmaif_dl_set_bid_maxcnt(unsigned char q_num, unsigned int cnt);
 void drv_dpmaif_dl_set_remain_minsz(unsigned char q_num, unsigned int sz);
+#ifdef _HW_REORDER_SW_WORKAROUND_
+void drv_dpmaif_dl_set_apit_idx(unsigned char q_num, unsigned int idx);
+int drv_dpmaif_dl_add_apit_num(unsigned short ap_entry_cnt);
+#endif
 void drv_dpmaif_dl_set_mtu(unsigned int mtu_sz);
 void drv_dpmaif_dl_set_pit_chknum(unsigned char q_num, unsigned int number);
 void drv_dpmaif_dl_set_bat_bufsz(unsigned char q_num, unsigned int buf_sz);

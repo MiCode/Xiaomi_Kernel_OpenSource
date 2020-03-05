@@ -80,6 +80,11 @@
 #define DPMAIF_DL_BAT_SIZE (DPMAIF_DL_BAT_ENTRY_SIZE*DPMAIF_DL_BAT_BYTE_SIZE)
 #define DPMAIF_UL_DRB_SIZE (DPMAIF_UL_DRB_ENTRY_SIZE*DPMAIF_UL_DRB_BYTE_SIZE)
 
+#ifdef _HW_REORDER_SW_WORKAROUND_
+#define DPMAIF_DUMMY_PIT_MAX_NUM 0x3fffff
+#define DPMAIF_DUMMY_PIT_AIDX    1024
+#endif
+
 struct ringbuf_str {
 unsigned int rd_idx;
 unsigned int wrt_idx;
@@ -243,7 +248,11 @@ struct dpmaif_rx_queue {
 	unsigned short    pit_wr_idx;
 	unsigned short    pit_rel_rd_idx;
 	unsigned int reg_int_mask_bak;
-
+#ifdef _HW_REORDER_SW_WORKAROUND_
+	unsigned long     pit_dummy_cnt;
+	unsigned long	  pit_dummy_idx;
+	unsigned char     pit_reload_en;
+#endif
 	struct dpmaif_bat_request bat_req;
 #ifdef HW_FRG_FEATURE_ENABLE
 	struct dpmaif_bat_request bat_frag;

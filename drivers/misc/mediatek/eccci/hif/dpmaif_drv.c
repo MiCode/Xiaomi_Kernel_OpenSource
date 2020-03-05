@@ -22,7 +22,6 @@
  *
  * =======================================================
  */
- #if defined(_E1_SB_SW_WORKAROUND_)
 
 static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 {
@@ -99,6 +98,7 @@ static void drv_dpmaif_check_dl_fifo_idle(void)
 	}
 }
 
+#if defined(_E1_SB_SW_WORKAROUND_)
 static unsigned int dpmaif_rx_chk_pit_type(unsigned int chk_aidx)
 {
 	struct dpmaifq_normal_pit *pkt_inf_t =
@@ -907,6 +907,23 @@ void drv_dpmaif_dl_set_pit_size(unsigned char q_num, unsigned int size)
 	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON1, value);
 }
 
+#ifdef _HW_REORDER_SW_WORKAROUND_
+void drv_dpmaif_dl_set_apit_idx(unsigned char q_num, unsigned int idx)
+{
+	unsigned int value;
+
+	value = DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON3);
+
+	value &= ~((DPMAIF_DL_PIT_WRIDX_MSK) << 16);
+	value |= ((idx & DPMAIF_DL_PIT_WRIDX_MSK) << 16);
+
+	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON3, value);
+	/*notify MD idx*/
+	DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW,
+			(idx|DPMAIF_MD_DUMMYPIT_EN));
+}
+#endif
+
 void drv_dpmaif_dl_pit_en(unsigned char q_num, bool enable)
 {
 	unsigned int value;
@@ -1641,6 +1658,173 @@ int drv_dpmaif_dl_restore(unsigned int mask)
 		}
 	}
 #endif
+
+#ifdef _HW_REORDER_SW_WORKAROUND_
+	/*Restore MD idx*/
+	DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW,
+		((dpmaif_ctrl->rxq[0].pit_dummy_idx)|DPMAIF_MD_DUMMYPIT_EN));
+#endif
 	return 0;
 }
 
+#ifdef _HW_REORDER_SW_WORKAROUND_
+static int drv_dpmaif_set_dl_idle(bool set_en)
+{
+	int ret = 0;
+	int count = 0, count1 = 0;
+
+	if (set_en == true) {
+		while (1) {
+			drv_dpmaif_dl_pit_en(0, false);
+			drv_dpmaif_dl_pit_only_update_enable_bit_done(0);
+			while (drv_dpmaif_dl_idle_check() != 0) {
+				if (++count >= 1600000) {
+					CCCI_MEM_LOG_TAG(0, TAG,
+						"drv_dpmaif_dl_idle poll\n");
+					count = 0;
+					ret = HW_REG_CHK_FAIL;
+					break;
+				}
+			}
+			count = 0;
+			if ((DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA3)&0x01)
+				== 0) {
+				while (drv_dpmaif_dl_idle_check() != 0) {
+					if (++count >= 1600000) {
+						CCCI_MEM_LOG_TAG(0, TAG,
+						"drv_dpmaif_dl_idle poll\n");
+						count = 0;
+						ret = HW_REG_CHK_FAIL;
+						break;
+					}
+				}
+				drv_dpmaif_check_dl_fifo_idle();
+				break;
+			}
+			if (++count1 >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG,
+					"DPMAIF_AO_DL_PIT_STA3 failed\n");
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+				count1 = 0;
+				ret = HW_REG_CHK_FAIL;
+				break;
+			}
+		}
+	} else {
+		drv_dpmaif_dl_pit_en(0, true);
+		drv_dpmaif_dl_pit_only_update_enable_bit_done(0);
+	}
+	return ret;
+}
+
+int drv_dpmaif_dl_add_apit_num(unsigned short ap_entry_cnt)
+{
+	int count = 0, ret = 0;
+	unsigned int ridx = 0, aidx = 0, size = 0, widx = 0;
+	unsigned int chk_num, new_aidx;
+	unsigned int dl_pit_init = 0;
+	unsigned long md_cnt = 0;
+
+	/*Diasbale FROCE EN*/
+	DPMA_WRITE_MD_MISC_DL(NRL2_DPMAIF_PD_MD_DL_RB_PIT_INIT, 0);
+
+	count = drv_dpmaif_set_dl_idle(true);
+	if (count < 0)
+		return count;
+	count = 0;
+
+	/*check DL all index*/
+	ridx = ((DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2)>>16) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	widx = (DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	aidx = ((DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA3)>>16) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	size = (DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA1) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	/*check enough pit entry to add for dummy reorder*/
+	if (ridx <= aidx)
+		chk_num = size - aidx + ridx;
+	else
+		chk_num = ridx - aidx;
+
+	if ((ap_entry_cnt + DPMAIF_HW_CHK_PIT_NUM) < chk_num) {
+		/*cal new aidx*/
+		new_aidx = aidx + ap_entry_cnt;
+		if (new_aidx >= size)
+			new_aidx -= size;
+		/*restore all r/w/a/base/size/en */
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON0,
+				DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA0));
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON1,
+				DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA1));
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON2,
+				DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2));
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON3,
+				((new_aidx & DPMAIF_DL_PIT_WRIDX_MSK)
+				<< 16)|DPMAIF_PIT_EN_MSK);
+
+		dl_pit_init |= DPMAIF_DL_PIT_INIT_ALLSET;
+		dl_pit_init |= DPMAIF_DL_PIT_INIT_EN;
+		dl_pit_init |= ((widx & DPMAIF_DL_PIT_WRIDX_MSK) << 4);
+
+		while (1) {
+			if ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT) &
+				DPMAIF_DL_PIT_INIT_NOT_READY) == 0) {
+				DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT,
+						dl_pit_init);
+				break;
+			}
+			if (++count >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG,
+					"DPMAIF_PD_DL_PIT_INIT ready failed\n");
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+				count = 0;
+				ret = HW_REG_CHK_FAIL;
+				return ret;
+			}
+		}
+
+		while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT) &
+			DPMAIF_DL_PIT_INIT_NOT_READY) ==
+				DPMAIF_DL_PIT_INIT_NOT_READY) {
+			if (++count >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG,
+					"DPMAIF_PD_DL_PIT_INIT not ready failed\n");
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+				count = 0;
+				ret = HW_REG_CHK_FAIL;
+				return ret;
+			}
+		}
+
+		/*Notify SW update dummt count*/
+		md_cnt = DPMA_READ_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW);
+		md_cnt &= ~DPMAIF_MD_DUMMYPIT_EN;
+		md_cnt += ap_entry_cnt;
+		if (md_cnt >= DPMAIF_DUMMY_PIT_MAX_NUM)
+			md_cnt -= DPMAIF_DUMMY_PIT_MAX_NUM;
+		DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW,
+				(md_cnt|DPMAIF_MD_DUMMYPIT_EN));
+		DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_AO_RW, 0xff);
+		/* Notify to MD */
+		DPMA_WRITE_MD_MISC_DL(NRL2_DPMAIF_PD_MD_MISC_MD_L1TIMSR0,
+					(1<<0));
+		ret = ap_entry_cnt;
+	} else {
+		drv_dpmaif_set_dl_idle(false);
+		ret = 0;
+	}
+	/*Enable Force EN*/
+	DPMA_WRITE_MD_MISC_DL(NRL2_DPMAIF_PD_MD_DL_RB_PIT_INIT, (1<<7));
+	return ret;
+}
+
+#endif /*_HW_REORDER_SW_WORKAROUND_*/

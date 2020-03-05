@@ -76,6 +76,7 @@
 #define DPMAIF_PKT_SIZE      (128*28) /* 3584 ==SKB_4K */
 #define DPMAIF_FRG_SIZE      (128) /* =_=, no used */
 #endif
+#define _HW_REORDER_SW_WORKAROUND_
 
 /*#define CCCI_LOG_LEVEL     1*/
 #define FEATURE_CLK_BUF
