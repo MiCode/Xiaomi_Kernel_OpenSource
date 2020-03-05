@@ -40,6 +40,9 @@
 #include <linux/pm_wakeup.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/signal.h>
+#include <trace/events/signal.h>
+#include <linux/string.h>
 
 // ALWAYS disable IOMMU_V2 before IT done
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -127,6 +130,11 @@ inline int ipi_id_to_inst_id(int id)
 	else
 		return VCU_VENC;
 }
+
+#define vcu_dbg_log(fmt, arg...) do { \
+		if (vcu_ptr->enable_vcu_dbg_log) \
+			pr_info(fmt, ##arg); \
+	} while (0)
 
 #define MAP_PA_BASE_1GB  0x40000000 /* < 1GB registers */
 #define VCU_MAP_HW_REG_NUM 4
@@ -327,6 +335,13 @@ struct mtk_vcu {
 	bool is_entering_suspend;
 	u32 gce_gpr[GCE_THNUM_MAX];
 	/* for gce poll timer, multi-thread sync */
+
+	/* for vpud sig check */
+	spinlock_t vpud_sig_lock;
+	int vpud_is_going_down;
+
+	/* for vcu dbg log*/
+	int enable_vcu_dbg_log;
 };
 
 static inline bool vcu_running(struct mtk_vcu *vcu)
@@ -727,7 +742,7 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 
 	wake_up(&vcu->gce_wq[i]);
 
-	pr_info("[VCU][%d] %s: buff %p type %d order %d handle %llx\n",
+	vcu_dbg_log("[VCU][%d] %s: buff %p type %d order %d handle %llx\n",
 		core_id, __func__, buff, buff->cmdq_buff.codec_type,
 		buff->cmdq_buff.flush_order, buff->cmdq_buff.gce_handle);
 
@@ -1096,6 +1111,24 @@ void vcu_put_file_lock(void)
 }
 EXPORT_SYMBOL_GPL(vcu_put_file_lock);
 
+int vcu_get_sig_lock(unsigned long flags)
+{
+	return spin_trylock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
+}
+EXPORT_SYMBOL_GPL(vcu_get_sig_lock);
+
+void vcu_put_sig_lock(unsigned long flags)
+{
+	spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+}
+EXPORT_SYMBOL_GPL(vcu_put_sig_lock);
+
+int vcu_check_vpud_alive(void)
+{
+	return (vcu_ptr->vpud_is_going_down > 0) ? 0:1;
+}
+EXPORT_SYMBOL_GPL(vcu_check_vpud_alive);
+
 void vcu_get_task(struct task_struct **task, struct files_struct **f,
 		int reset)
 {
@@ -1162,7 +1195,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 		 * to avoid omx release and disable larb
 		 * which may cause smi dump devapc
 		 */
-		smi_debug_bus_hang_detect(0, "VDEC");
+		//smi_debug_bus_hang_detect(0, "VDEC");
 
 		if (vcu->fuse_bypass) {
 			int i;
@@ -1250,6 +1283,8 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_ptr->vpud_killed.count = 0;
 	vcu_ptr->open_cnt++;
 	vcu_ptr->abort = false;
+	vcu_ptr->vpud_is_going_down = 0;
+
 	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
 		current->comm, current->tgid, vcu_ptr->open_cnt);
 
@@ -1260,6 +1295,7 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 {
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
+	unsigned long flags;
 
 	mtk_vcu_dec_release((struct mtk_vcu_queue *)file->private_data);
 	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
@@ -1274,6 +1310,11 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		up(&vcu_ptr->vpud_killed);  /* vdec worker */
 		up(&vcu_ptr->vpud_killed);  /* venc worker */
 	}
+
+	spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
+	vcu_ptr->vpud_is_going_down = 0;
+	spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+
 	return 0;
 }
 
@@ -1774,6 +1815,15 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 	} else
 		return -EFAULT;
 
+	// check if need to enable VCU debug log
+	if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 1")) {
+		vcu_ptr->enable_vcu_dbg_log = 1;
+		return 0;
+	} else if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 0")) {
+		vcu_ptr->enable_vcu_dbg_log = 0;
+		return 0;
+	}
+
 	pr_info("[log wakeup VPUD] log_info %p vcu_ptr %p val %p: %s %lu\n",
 		(char *)vcu_ptr->vdec_log_info->log_info,
 		vcu_ptr, val, val, (unsigned long)strlen(val));
@@ -1882,6 +1932,23 @@ static int mtk_vcu_suspend_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_DONE;
+}
+
+static const char stat_nam[] = "OOXX";
+static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
+		struct task_struct *task, int _group, int result)
+{
+	unsigned long flags;
+
+	if (strstr(task->comm, "vpud") && sig == SIGKILL) {
+		pr_info("[VPUD_PROBE_DEATH][signal][%d:%s]send death sig %d to[%d:%s]\n",
+				current->pid, current->comm,
+				sig, task->pid, task->comm);
+
+		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
+		vcu_ptr->vpud_is_going_down = 1;
+		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+	}
 }
 
 static int mtk_vcu_probe(struct platform_device *pdev)
@@ -2158,6 +2225,12 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		dev_dbg(dev, "[VCU] allocate SHMEM failed\n");
 		goto err_device;
 	}
+
+	register_trace_signal_generate(probe_death_signal, NULL);
+	spin_lock_init(&vcu_ptr->vpud_sig_lock);
+	vcu_ptr->vpud_is_going_down = 0;
+
+	vcu_ptr->enable_vcu_dbg_log = 0;
 
 	dev_dbg(dev, "[VCU] initialization completed\n");
 	return 0;

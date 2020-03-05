@@ -282,6 +282,9 @@ void vcu_get_task(struct task_struct **task, struct files_struct **f,
 		int reset);
 void vcu_get_file_lock(void);
 void vcu_put_file_lock(void);
+int vcu_get_sig_lock(unsigned long flags);
+void vcu_put_sig_lock(unsigned long flags);
+int vcu_check_vpud_alive(void);
 extern void smp_inner_dcache_flush_all(void);
 int vcu_set_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type);

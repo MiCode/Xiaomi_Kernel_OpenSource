@@ -88,7 +88,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	struct files_struct *f = NULL;
 	struct sighand_struct *sighand;
 	spinlock_t      siglock, flock;
-	struct fdtable fdt;
+	unsigned long flags = 0;
 
 	if (dmabuf == NULL || dmabuf->file == NULL)
 		return 0;
@@ -104,12 +104,19 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 		return -EMFILE;
 	}
 
-	task_lock(task);
-	if (probe_kernel_address(files_fdtable(f), fdt)) {
-		task_unlock(task);
+	if (vcu_get_sig_lock(flags) <= 0) {
+		pr_info("%s() Failed to try lock...VPUD may die", __func__);
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
+
+	if (vcu_check_vpud_alive() == 0) {
+		pr_info("%s() Failed to check vpud alive. VPUD died", __func__);
+		vcu_put_file_lock();
+		vcu_put_sig_lock(flags);
+		return -EMFILE;
+	}
+
 	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
 
 	target_fd = __alloc_fd(f, 0, rlim_cur, O_CLOEXEC);
@@ -117,15 +124,15 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	get_file(dmabuf->file);
 
 	if (target_fd < 0) {
-		task_unlock(task);
 		vcu_put_file_lock();
+		vcu_put_sig_lock(flags);
 		return -EMFILE;
 	}
 
 	__fd_install(f, target_fd, dmabuf->file);
 
-	task_unlock(task);
 	vcu_put_file_lock();
+	vcu_put_sig_lock(flags);
 
 	/* pr_info("get_mapped_fd: %d", target_fd); */
 #endif
@@ -137,14 +144,31 @@ inline void close_mapped_fd(unsigned int target_fd)
 #ifndef CONFIG_MTK_IOMMU_V2
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
+	unsigned long flags = 0;
+
 	vcu_get_file_lock();
 	vcu_get_task(&task, &f, 0);
 	if (task == NULL || f == NULL) {
 		vcu_put_file_lock();
 		return;
 	}
+
+	if (vcu_get_sig_lock(flags) <= 0) {
+		pr_info("%s() Failed to try lock...VPUD may die", __func__);
+		vcu_put_file_lock();
+		return;
+	}
+
+	if (vcu_check_vpud_alive() == 0) {
+		pr_info("%s() Failed to check vpud alive. VPUD died", __func__);
+		vcu_put_file_lock();
+		vcu_put_sig_lock(flags);
+		return;
+	}
+
 	__close_fd(f, target_fd);
 	vcu_put_file_lock();
+	vcu_put_sig_lock(flags);
 #endif
 }
 
