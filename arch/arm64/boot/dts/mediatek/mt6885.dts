@@ -4738,6 +4738,21 @@ page_owner=on loop.max_part=7";
 		#clock-cells = <1>;
 	};
 
+	cam1_inner@1a038000 {
+		compatible = "mediatek,cam1_inner";
+		reg = <0 0x1a038000 0 0x8000>;
+	};
+
+	cam2_inner@1a058000 {
+		compatible = "mediatek,cam2_inner";
+		reg = <0 0x1a058000 0 0x8000>;
+	};
+
+	cam3_inner@1a078000 {
+		compatible = "mediatek,cam3_inner";
+		reg = <0 0x1a078000 0 0x8000>;
+	};
+
 	cam1@1a030000 {
 		compatible = "mediatek,cam1";
 		reg = <0 0x1a030000 0 0x8000>;
@@ -4754,21 +4769,6 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,cam3";
 		reg = <0 0x1a070000 0 0x8000>;
 		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	cam1_inner@1a038000 {
-		compatible = "mediatek,cam1_inner";
-		reg = <0 0x1a038000 0 0x8000>;
-	};
-
-	cam2_inner@1a058000 {
-		compatible = "mediatek,cam2_inner";
-		reg = <0 0x1a058000 0 0x8000>;
-	};
-
-	cam3_inner@1a078000 {
-		compatible = "mediatek,cam3_inner";
-		reg = <0 0x1a078000 0 0x8000>;
 	};
 
 	camsv1@1a090000 {
