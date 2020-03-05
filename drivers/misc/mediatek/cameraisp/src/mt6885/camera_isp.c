@@ -1577,15 +1577,15 @@ static void ISP_DumpRawiR2DebugData(enum ISP_IRQ_TYPE_ENUM module)
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
-		regModule = ISP_CAM_A_IDX;
+		regModule = ISP_CAM_A_INNER_IDX;
 		strncpy(cam, "CAM_A", sizeof("CAM_A"));
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
-		regModule = ISP_CAM_B_IDX;
+		regModule = ISP_CAM_B_INNER_IDX;
 		strncpy(cam, "CAM_B", sizeof("CAM_B"));
 		break;
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-		regModule = ISP_CAM_C_IDX;
+		regModule = ISP_CAM_C_INNER_IDX;
 		strncpy(cam, "CAM_C", sizeof("CAM_C"));
 		break;
 	default:
