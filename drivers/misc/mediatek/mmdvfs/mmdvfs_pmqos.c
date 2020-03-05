@@ -536,10 +536,6 @@ void mm_qos_update_larb_bwl(u32 larb_update, bool bw_change)
 				comm_port_limit[comm][comm_port]);
 		}
 		if (larb_bw) {
-#if IS_ENABLED(CONFIG_MACH_MT6873)
-			if (comm == 0 && comm_port == 4)
-				larb_soft_mode = true;
-#endif
 			smi_bwl_update(get_id_by_comm_port(comm, comm_port),
 				larb_bw, (comm_port_hrt[comm][comm_port] > 0) ?
 				true : larb_soft_mode, "MMDVFS");
