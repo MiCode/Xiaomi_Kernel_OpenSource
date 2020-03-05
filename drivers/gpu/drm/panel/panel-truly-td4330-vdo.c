@@ -542,16 +542,23 @@ static int lcm_enable(struct drm_panel *panel)
 	return 0;
 }
 
+#define HFP (24)
+#define HSA (20)
+#define HBP (20)
+#define VFP (20)
+#define VSA (2)
+#define VBP (12)
+
 static const struct drm_display_mode default_mode = {
 	.clock = 163406,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 26,
-	.hsync_end = 1080 + 26 + 20,
-	.htotal = 1080 + 26 + 20 + 20,
+	.hsync_start = 1080 + HFP,
+	.hsync_end = 1080 + HFP + HSA,
+	.htotal = 1080 + HFP + HSA + HBP,
 	.vdisplay = 2280,
-	.vsync_start = 2280 + 10,
-	.vsync_end = 2280 + 10 + 2,
-	.vtotal = 2280 + 10 + 2 + 16,
+	.vsync_start = 2280 + VFP,
+	.vsync_end = 2280 + VFP + VSA,
+	.vtotal = 2280 + VFP + VSA + VBP,
 	.vrefresh = 60,
 };
 
