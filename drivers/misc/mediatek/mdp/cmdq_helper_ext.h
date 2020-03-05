@@ -466,6 +466,7 @@ struct cmdq_core_thread {
 	u32 acquire;	/* acquired ref count */
 	s32 scenario;
 	u32 handle_count;
+	struct mutex thread_mutex;
 };
 
 struct RecordStruct {

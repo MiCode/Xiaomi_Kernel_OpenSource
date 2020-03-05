@@ -4145,9 +4145,10 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 	/* TODO: remove is_secure check */
 	if (handle->thread != CMDQ_INVALID_THREAD &&
 		!handle->secData.is_secure) {
+		ctx = cmdq_core_get_context();
+		mutex_lock(&ctx->thread[handle->thread].thread_mutex);
 		/* PMQoS Implement */
 		mutex_lock(&cmdq_thread_mutex);
-		ctx = cmdq_core_get_context();
 		handle_count =
 			--ctx->thread[handle->thread].handle_count;
 
@@ -4167,6 +4168,7 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 
 		kfree(pmqos_handle_list);
 		mutex_unlock(&cmdq_thread_mutex);
+		mutex_unlock(&ctx->thread[handle->thread].thread_mutex);
 	}
 
 	/* protect multi-thread lock/unlock same time */
@@ -4526,13 +4528,16 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 		handle->thread);
 
 	handle->trigger = sched_clock();
+	ctx = cmdq_core_get_context();
+
+	/* protect qos and communite with mbox */
+	mutex_lock(&ctx->thread[handle->thread].thread_mutex);
 
 	/* TODO: remove pmqos in seure path */
 	if (!handle->secData.is_secure) {
 		/* PMQoS */
 		CMDQ_SYSTRACE_BEGIN("%s_pmqos\n", __func__);
 		mutex_lock(&cmdq_thread_mutex);
-		ctx = cmdq_core_get_context();
 		handle_count = ctx->thread[handle->thread].handle_count;
 
 		pmqos_handle_list = kcalloc(handle_count + 1,
@@ -4568,6 +4573,8 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	wake_up(wait_q);
 
 	CMDQ_SYSTRACE_END();
+
+	mutex_unlock(&ctx->thread[handle->thread].thread_mutex);
 
 	if (err < 0) {
 		CMDQ_ERR("pkt flush failed err:%d pkt:0x%p\n",
@@ -4800,6 +4807,9 @@ void cmdq_core_initialize(void)
 	/* for secure path reserve irq notify thread */
 	cmdq_ctx.thread[CMDQ_SEC_IRQ_THREAD].used = true;
 #endif
+
+	for (index = 0; index < ARRAY_SIZE(cmdq_ctx.thread); index++)
+		mutex_init(&cmdq_ctx.thread[index].thread_mutex);
 
 	cmdq_long_string_init(false, long_msg, &msg_offset, &msg_max_size);
 	for (index = 0; index < max_thread_count; index++) {
