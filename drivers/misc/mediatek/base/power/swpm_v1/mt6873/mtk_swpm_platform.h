@@ -29,6 +29,7 @@
 
 #define POWER_INDEX_CHAR_SIZE			(4096)
 
+#define NR_CORE_VOLT				(4)
 #define NR_CPU_OPP				(16)
 #define NR_CPU_CORE				(8)
 #define NR_CPU_L_CORE				(4)
@@ -182,6 +183,15 @@ enum infra_power_state {
 	NR_INFRA_POWER_STATE
 };
 
+enum core_lkg_type {
+	CORE_LKG_INFRA,
+	CORE_LKG_DRAMC,
+	CORE_LKG_MMSYS,
+	CORE_LKG_CHIP_TOP,
+
+	NR_CORE_LKG_TYPE
+};
+
 /* sync with mt6873 emi in sspm */
 #define MAX_EMI_NUM (1)
 /* TODO: core power index structure */
@@ -277,6 +287,9 @@ struct swpm_rec_data {
 	/* 2(short) * 7(ddr_opp) = 14 bytes */
 	unsigned short ddr_opp_freq[NR_DDR_FREQ];
 
+	/* 2(short) * 4(core_volt) = 8 bytes */
+	unsigned short core_volt_tbl[NR_CORE_VOLT];
+
 	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
@@ -307,13 +320,16 @@ struct swpm_rec_data {
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
 	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
+	/* 4 (int) * 4(core_volt) * 4(core_lkg_type) = 64 bytes */
+	unsigned int core_lkg_pwr[NR_CORE_VOLT][NR_CORE_LKG_TYPE];
+
 	/* 4(int) * 15 = 60 bytes */
 	unsigned int gpu_reserved[GPU_SWPM_RESERVED_SIZE];
 
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 769 bytes */
+	/* remaining size = 697 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;

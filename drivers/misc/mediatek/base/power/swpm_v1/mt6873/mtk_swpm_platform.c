@@ -97,6 +97,16 @@ static struct perf_event_attr cycle_event_attr = {
 	.sample_period  = 0, /* 1000000000, */ /* ns ? */
 };
 
+/* rt => /100000, uA => *1000, res => 100 */
+#define CORE_DEFAULT_LKG (64)
+#define CORE_LKG_RT_RES (100)
+/* infra, dramc, mm and others (%), chip_top include in aphy idle */
+static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
+	11881, 2665, 5386, 7281,
+};
+static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
+	575, 600, 650, 725,
+};
 static unsigned short ddr_opp_freq[NR_DDR_FREQ] = {
 	400, 600, 800, 933, 1200, 1600, 2133,
 };
@@ -806,7 +816,37 @@ static inline void swpm_pass_to_sspm(void)
 
 static inline int swpm_init_pwr_data(void)
 {
+	int i, j;
+#ifdef CONFIG_MTK_STATIC_POWER
+	int lkg, lkg_scaled;
+#endif
+
 	swpm_lock(&swpm_mutex);
+
+	/* copy core volt data */
+	memcpy(swpm_info_ref->core_volt_tbl, core_volt_tbl,
+		sizeof(core_volt_tbl));
+#ifdef CONFIG_MTK_STATIC_POWER
+	/* init core lkg data once */
+	lkg = mt_spower_get_efuse_lkg(MTK_SPOWER_VCORE);
+	/* default 64 mA, efuse default mW to mA */
+	lkg = (lkg <= 0) ? CORE_DEFAULT_LKG
+			: (lkg * 1000 / V_OF_FUSE_VCORE);
+
+	/* efuse lkg unit mW with voltage scaling */
+	for (i = 0; i < NR_CORE_VOLT; i++) {
+		lkg_scaled = lkg * core_volt_tbl[i] / V_OF_FUSE_VCORE;
+		for (j = 0; j < NR_CORE_LKG_TYPE; j++) {
+			/* unit (uA) */
+			swpm_info_ref->core_lkg_pwr[i][j] =
+				lkg_scaled * core_lkg_rt[j] / CORE_LKG_RT_RES;
+		}
+	}
+#else
+	for (i = 0; i < NR_CORE_VOLT; i++)
+		for (j = 0; j < NR_CORE_LKG_TYPE; j++)
+			swpm_info_ref->core_lkg_pwr[i][j] = 0;
+#endif
 
 	/* copy aphy core pwr data */
 	memcpy(swpm_info_ref->aphy_core_bw_tbl, aphy_ref_core_bw_tbl,
