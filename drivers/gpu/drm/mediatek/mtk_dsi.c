@@ -4103,9 +4103,6 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case DSI_VFP_IDLE_MODE:
 	{
-		struct mtk_dsi *dsi =
-			container_of(comp, struct mtk_dsi, ddp_comp);
-
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
 		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
@@ -4122,8 +4119,21 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	}
 		break;
 	case DSI_VFP_DEFAULT_MODE:
+	{
+		unsigned int vfront_porch = 0;
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+
+		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+			&& panel_ext->params->dyn.vfp)
+			vfront_porch = panel_ext->params->dyn.vfp;
+		else
+			vfront_porch = dsi->vm.vfront_porch;
+
+		DDPINFO("vfront_porch=%d\n", vfront_porch);
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
-				dsi->vm.vfront_porch);
+					vfront_porch);
+	}
 		break;
 	case DSI_GET_TIMING:
 		mode = (struct drm_display_mode **)params;
