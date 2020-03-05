@@ -93,6 +93,7 @@ static DEFINE_SPINLOCK(lock);
 struct task_struct *wk_tsk[16] = { 0 };	/* max cpu 16 */
 static unsigned int wk_tsk_bind[16] = { 0 };	/* max cpu 16 */
 static unsigned long long wk_tsk_bind_time[16] = { 0 };	/* max cpu 16 */
+static unsigned long long wk_tsk_kick_time[16] = { 0 };	/* max cpu 16 */
 static char wk_tsk_buf[128] = { 0 };
 
 static unsigned long kick_bit;
@@ -363,10 +364,11 @@ void dump_wdk_bind_info(void)
 			 */
 			memset(wk_tsk_buf, 0, sizeof(wk_tsk_buf));
 			snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
-				"[wdk]CPU %d, %d, %lld, %lu, %d, %ld\n",
+				"[wdk]CPU %d, %d, %lld, %lu, %d, %ld, %lld\n",
 				i, wk_tsk_bind[i], wk_tsk_bind_time[i],
 				wk_tsk[i]->cpus_allowed.bits[0],
-				wk_tsk[i]->on_rq, wk_tsk[i]->state);
+				wk_tsk[i]->on_rq, wk_tsk[i]->state,
+				wk_tsk_kick_time[i]);
 #ifdef CONFIG_MTK_AEE_IPANIC
 			aee_sram_fiq_log(wk_tsk_buf);
 #endif
@@ -508,10 +510,12 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 * do not print message with spinlock held to
 	 *  avoid bulk of delayed printk happens here
 	 */
+	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
 	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
 	 cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
-	 lasthpg_t, lastsuspend_t, lastresume_t, sched_clock(), curInterval);
+	 lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
+	 curInterval);
 
 	if (local_bit == wk_check_kick_bit()) {
 		msg_buf[5] = 'k';
