@@ -468,15 +468,28 @@ void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 
 }
 
+__weak void pm_qos_trace_dbg_dump(int pm_qos_class)
+{
+}
+
 void dvfsrc_suspend_cb(struct helio_dvfsrc *dvfsrc)
 {
+	int sw_req;
+
+	sw_req = dvfsrc_read(DVFSRC_SW_REQ3);
 	pr_info("[DVFSRC] V:%d, F_OPP:%d, RG:%08x, %08x, %08x, %08x\n",
 		get_cur_vcore_uv(),
 		pm_qos_request(PM_QOS_VCORE_DVFS_FORCE_OPP),
 		dvfsrc_read(DVFSRC_CURRENT_LEVEL),
 		dvfsrc_read(DVFSRC_SW_REQ2),
-		dvfsrc_read(DVFSRC_SW_REQ3),
+		sw_req,
 		dvfsrc_read(DVFSRC_DEBUG_STA_0));
+
+	if (sw_req & (DDR_SW_AP_MASK << DDR_SW_AP_SHIFT))
+		pm_qos_trace_dbg_dump(PM_QOS_DDR_OPP);
+
+	if (sw_req & (VCORE_SW_AP_MASK << VCORE_SW_AP_SHIFT))
+		pm_qos_trace_dbg_dump(PM_QOS_VCORE_OPP);
 }
 
 void dvfsrc_resume_cb(struct helio_dvfsrc *dvfsrc)

@@ -129,7 +129,8 @@ extern int vcore_pmic_to_uv(int pmic_val);
 extern int vcore_uv_to_pmic(int vcore_uv);
 extern int helio_dvfsrc_level_mask_get(void);
 extern int helio_dvfsrc_level_mask_set(bool en, int level);
-
+extern void pm_qos_trace_dbg_show_request(int pm_qos_class);
+extern void pm_qos_trace_dbg_dump(int pm_qos_class);
 
 #endif /* __HELIO_DVFSRC_QOS_H */
 

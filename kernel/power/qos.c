@@ -649,6 +649,31 @@ void pm_qos_trace_dbg_show_request(int pm_qos_class)
 	spin_unlock_irqrestore(&pm_qos_lock, flags);
 }
 
+void pm_qos_trace_dbg_dump(int pm_qos_class)
+{
+	struct pm_qos_constraints *c;
+	struct pm_qos_request *req;
+	unsigned long flags;
+	struct list_head *l;
+
+	if (pm_qos_class < PM_QOS_RESERVED
+		|| pm_qos_class >= PM_QOS_NUM_CLASSES)
+		return;
+
+	c = pm_qos_array[pm_qos_class]->constraints;
+
+	spin_lock_irqsave(&pm_qos_lock, flags);
+	/* dump owner information*/
+	list_for_each(l, &c->req_list) {
+		req = list_entry(l, struct pm_qos_request, list_node);
+		if ((req->node).prio != c->default_value)
+			pr_info("[PMQOS] = %d, %s, %d\n",
+				req->pm_qos_class,
+				req->owner,
+				req->node.prio);
+	}
+	spin_unlock_irqrestore(&pm_qos_lock, flags);
+}
 
 
 static inline int pm_qos_get_value(struct pm_qos_constraints *c);

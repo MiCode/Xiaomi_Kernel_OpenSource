@@ -451,7 +451,7 @@ static int dvfsrc_resume(struct helio_dvfsrc *dvfsrc)
 {
 	dvfsrc_get_sys_stamp(sys_stamp);
 #ifdef DVFSRC_SUSPEND_SUPPORT
-	dvfsrc_suspend_cb(dvfsrc);
+	dvfsrc_resume_cb(dvfsrc);
 #endif
 	return 0;
 }
@@ -459,7 +459,7 @@ static int dvfsrc_resume(struct helio_dvfsrc *dvfsrc)
 static int dvfsrc_suspend(struct helio_dvfsrc *dvfsrc)
 {
 #ifdef DVFSRC_SUSPEND_SUPPORT
-	dvfsrc_resume_cb(dvfsrc);
+	dvfsrc_suspend_cb(dvfsrc);
 #endif
 	return 0;
 }
