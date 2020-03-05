@@ -72,6 +72,7 @@ void __iomem *clk_cam_rawc_base;
 void __iomem *clk_msdc_base;
 void __iomem *clk_apu_vcore_base;
 void __iomem *clk_apu_conn_base;
+void __iomem *bcrm_infra_base;
 #endif
 
 /*
@@ -136,7 +137,10 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define INFRACFG_REG(offset)		(infracfg_base + offset)
 #define SPM_REG(offset)			(spm_base + offset)
 #define CKGEN_REG(offset)		(ckgen_base + offset)
+#define BCRMINFRA_REG(offset)		(bcrm_infra_base + offset)
 
+
+#define INFRA_MFG_SECURE_CTRL0	BCRMINFRA_REG(0x0058)
 
 #define POWERON_CONFIG_EN	SPM_REG(0x0000)
 #define PWR_STATUS		SPM_REG(0x016C)
@@ -1371,6 +1375,11 @@ int spm_mtcmos_ctrl_mfg1(int state)
 
 	if (state == STA_POWER_DOWN) {
 		/* TINFO="Start to turn off MFG1" */
+
+		//way_en patch
+		spm_write(INFRA_MFG_SECURE_CTRL0, 0x1000);
+		//way_en patch
+
 		/* TINFO="Set bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_1_SET, MFG1_PROT_STEP1_0_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
@@ -1473,6 +1482,11 @@ int spm_mtcmos_ctrl_mfg1(int state)
 		}
 		INCREASE_STEPS;
 #endif
+
+		//way_en patch
+		spm_write(INFRA_MFG_SECURE_CTRL0, 0x1800);
+		//way_en patch
+
 		/* TINFO="Release bus protect - step2 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_CLR, MFG1_PROT_STEP2_0_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
@@ -4610,6 +4624,9 @@ static void iomap_mm(void)
 		return;
 	clk_apu_conn_base = find_and_iomap("mediatek,apu_conn");
 	if (!clk_apu_conn_base)
+		return;
+	bcrm_infra_base = find_and_iomap("mediatek,bcrm_infra");
+	if (!bcrm_infra_base)
 		return;
 }
 #endif
