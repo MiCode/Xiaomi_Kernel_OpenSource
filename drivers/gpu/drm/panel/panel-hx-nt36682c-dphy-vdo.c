@@ -242,6 +242,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0xFF, 0x10);
 	lcm_dcs_write_seq_static(ctx, 0xFB, 0x01);
 	lcm_dcs_write_seq_static(ctx, 0xB0, 0x00);
+	lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
 #if (!DSC_ENABLE)
 	lcm_dcs_write_seq_static(ctx, 0xC0, 0x00);//DSC OFF
 #else
@@ -463,13 +464,13 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 #if (DSC_ENABLE == 2)
 static struct mtk_panel_params ext_params = {
 	.data_rate = 1080,
-	.vfp_low_power = 1291,
+	.vfp_low_power = 2600,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9c,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dyn_fps = {
@@ -515,13 +516,13 @@ static struct mtk_panel_params ext_params = {
 
 static struct mtk_panel_params ext_params_90hz = {
 	.data_rate = 1080,
-	.vfp_low_power = 1291,
+	.vfp_low_power = 2600,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9c,
 	},
 	.dyn_fps = {
 		.switch_en = 1,
@@ -602,11 +603,11 @@ static struct mtk_panel_params ext_params = {
 	.data_rate = 1080,
 	.pll_clk = 540,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9c,
 	},
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
@@ -650,11 +651,11 @@ static struct mtk_panel_params ext_params = {
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 610,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9c,
 	},
 };
 #endif
