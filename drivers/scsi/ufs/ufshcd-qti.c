@@ -2829,7 +2829,7 @@ static int ufshcd_prepare_req_desc_hdr(struct ufshcd_lrb *lrbp,
 		dword_0 |= UTP_REQ_DESC_INT_CMD;
 
 	/* Transfer request descriptor header fields */
-	if (lrbp->crypto_enable) {
+	if (ufshcd_lrbp_crypto_enabled(lrbp)) {
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO)
 		dword_0 |= UTP_REQ_DESC_CRYPTO_ENABLE_CMD;
 		dword_0 |= lrbp->crypto_key_slot;
