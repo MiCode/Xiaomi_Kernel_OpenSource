@@ -449,7 +449,7 @@ config QCOM_DCC_V2
 
 config QCOM_MINIDUMP
 	tristate "QCOM Minidump Support"
-	depends on QCOM_SMEM && POWER_RESET_QCOM
+	depends on QCOM_SMEM && POWER_RESET_MSM
 	help
 	  This enables minidump feature. It allows various clients to
 	  register to dump their state at system bad state (panic/WDT,etc.,).
