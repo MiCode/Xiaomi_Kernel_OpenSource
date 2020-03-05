@@ -71,8 +71,8 @@
 #if defined(CONFIG_UFSFEATURE)
 #include "ufsfeature.h"
 #endif
-#if defined(CONFIG_UFSHPB)
-#include "ufshpb10.h"
+#if defined(CONFIG_SCSI_SKHPB)
+#include "ufshpb_skh.h"
 #endif
 
 /* MTK PATCH */
@@ -856,17 +856,22 @@ struct ufs_hba {
 	struct ufsf_feature ufsf;
 #endif
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 	/* HPB support */
-	u32 ufshpb_feat;
-	int ufshpb_state;
-	int ufshpb_max_regions;
-	struct delayed_work ufshpb_init_work;
+	u32 skhpb_feat;
+	int skhpb_state;
+	int skhpb_max_regions;
+	struct delayed_work skhpb_init_work;
 	bool issue_ioctl;
-	struct ufshpb10_lu *ufshpb_lup[UFS_UPIU_MAX_GENERAL_LUN];
-	struct work_struct ufshpb_eh_work;
-	u32 ufshpb_quirk;
+	struct skhpb_lu *skhpb_lup[UFS_UPIU_MAX_GENERAL_LUN];
+	struct work_struct skhpb_eh_work;
+	u32 skhpb_quirk;
+	u8 hpb_control_mode;
+#define SKHPB_U8_MAX 0xFF
+	u8 skhpb_quicklist_lu_enable[UFS_UPIU_MAX_GENERAL_LUN];
+#endif
 
+#if defined(CONFIG_SCSI_SKHPB)
 	struct scsi_device *sdev_ufs_lu[UFS_UPIU_MAX_GENERAL_LUN];
 #endif
 };
@@ -1107,7 +1112,7 @@ int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 #endif
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 int ufshcd_query_flag_retry(struct ufs_hba *hba,
 	enum query_opcode opcode, enum flag_idn idn, bool *flag_res);
 #endif

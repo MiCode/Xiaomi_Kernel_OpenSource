@@ -264,8 +264,8 @@ static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 			blk_cnt = cmd->cmnd[15];
 		else
 			blk_cnt = cmd->cmnd[14];  /* JEDEC version */
-#if defined(CONFIG_UFSHPB)
-	} else if (cmd->cmnd[0] == UFSHPB_READ) { /* JEDEC version */
+#if defined(CONFIG_SCSI_SKHPB)
+	} else if (cmd->cmnd[0] == SKHPB_READ) {  /* JEDEC version */
 		blk_cnt = cmd->cmnd[14];
 #endif
 	} else {

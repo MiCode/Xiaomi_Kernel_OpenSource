@@ -922,7 +922,9 @@ static inline int ufstw_probe_lun_done(struct ufsf_feature *ufsf)
 void ufstw_init_work_fn(struct work_struct *work)
 {
 	struct ufsf_feature *ufsf;
+#ifndef UFS_MTK_TW_AWAYS_ON
 	int ret;
+#endif
 
 	ufsf = container_of(work, struct ufsf_feature, tw_init_work);
 
@@ -948,6 +950,7 @@ void ufstw_suspend(struct ufsf_feature *ufsf)
 {
 	struct ufstw_lu *tw;
 	int lun;
+#if 0
 	int ret;
 
 /*
@@ -956,7 +959,6 @@ void ufstw_suspend(struct ufsf_feature *ufsf)
  * pm_runtime_put_sync -> ufstw_suspend -> flush_work
  * Beside, reset work only set tw flag, it can do later after suspend.
  */
-#if 0
 	ret = flush_work(&ufsf->tw_reset_work);
 	TW_DEBUG(ufsf, "flush_work(tw_reset_work) = %d", ret);
 #endif

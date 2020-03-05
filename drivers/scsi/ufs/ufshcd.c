@@ -2644,11 +2644,12 @@ static int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 						lrbp->cmd->sc_data_direction);
 		ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 		if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
-			if (hba->ufshpb_state == HPB_PRESENT &&
-				hba->issue_ioctl == false)
-				ufshpb10_prep_fn(hba, lrbp);
+			if (hba->skhpb_state == SKHPB_PRESENT &&
+				hba->issue_ioctl == false) {
+				skhpb_prep_fn(hba, lrbp);
+			}
 		}
 #endif
 	} else {
@@ -3219,7 +3220,7 @@ static inline void ufshcd_init_query(struct ufs_hba *hba,
 	(*request)->upiu_req.selector = selector;
 }
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 int ufshcd_query_flag_retry(struct ufs_hba *hba,
 	enum query_opcode opcode, enum flag_idn idn, bool *flag_res)
 #else
@@ -5202,7 +5203,7 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 	 */
 	ufshcd_vops_scsi_dev_cfg(sdev, UFS_SCSI_DEV_SLAVE_CONFIGURE);
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
 		if (sdev->lun < UFS_UPIU_MAX_GENERAL_LUN)
 			hba->sdev_ufs_lu[sdev->lun] = sdev;
@@ -5356,11 +5357,11 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 			if (scsi_status == SAM_STAT_GOOD)
 				ufsf_hpb_noti_rb(&hba->ufsf, lrbp);
 #endif
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 			if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
-				if (hba->ufshpb_state == HPB_PRESENT &&
+				if (hba->skhpb_state == SKHPB_PRESENT &&
 						scsi_status == SAM_STAT_GOOD)
-					ufshpb10_rsp_upiu(hba, lrbp);
+					skhpb_rsp_upiu(hba, lrbp);
 			}
 #endif
 
@@ -6643,12 +6644,6 @@ static int ufshcd_eh_device_reset_handler(struct scsi_cmnd *cmd)
 		}
 	}
 	spin_lock_irqsave(host->host_lock, flags);
-#if defined(CONFIG_UFSHPB)
-	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
-		if (hba->ufshpb_state == HPB_PRESENT)
-			hba->ufshpb_state = HPB_RESET;
-	}
-#endif
 	ufshcd_transfer_req_compl(hba);
 	spin_unlock_irqrestore(host->host_lock, flags);
 
@@ -6660,10 +6655,12 @@ out:
 		ufsf_hpb_reset_lu(&hba->ufsf);
 		ufsf_tw_reset_lu(&hba->ufsf);
 #endif
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 		if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
-			schedule_delayed_work(&hba->ufshpb_init_work,
-						msecs_to_jiffies(10));
+			if (hba->skhpb_state == SKHPB_PRESENT)
+				hba->skhpb_state = SKHPB_RESET;
+			schedule_delayed_work(&hba->skhpb_init_work,
+					      msecs_to_jiffies(10));
 		}
 #endif
 		err = SUCCESS;
@@ -7921,9 +7918,9 @@ _link_retry:
 #endif
 		scsi_scan_host(hba->host);
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 		if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
-			schedule_delayed_work(&hba->ufshpb_init_work, 0);
+			schedule_delayed_work(&hba->skhpb_init_work, 0);
 #endif
 		pm_runtime_put_sync(hba->dev);
 	}
@@ -8837,9 +8834,9 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufsf_tw_suspend(&hba->ufsf);
 #endif
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
-		ufshpb10_suspend(hba);
+		skhpb_suspend(hba);
 #endif
 
 	/*
@@ -9513,9 +9510,9 @@ void ufshcd_remove(struct ufs_hba *hba)
 	ufsf_hpb_release(&hba->ufsf);
 	ufsf_tw_release(&hba->ufsf);
 #endif
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
-		ufshpb10_release(hba, HPB_NEED_INIT);
+		skhpb_release(hba, SKHPB_NEED_INIT);
 #endif
 
 	/*
@@ -9791,9 +9788,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	ufsf_tw_set_init_state(&hba->ufsf);
 #endif
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_SKHPB)
 	/* initialize hpb structures */
-	ufshcd10_init_hpb(hba);
+	ufshcd_init_hpb(hba);
 #endif
 	async_schedule(ufshcd_async_scan, hba);
 	ufshcd_add_sysfs_nodes(hba);

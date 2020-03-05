@@ -151,3 +151,9 @@ config UFSTW_IGNORE_GUARANTEE_BIT
 	depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
 	---help---
 	ignore the guarantee bit[31] of dTurboWriteBufferLifeTimeEst for PoC
+
+config SCSI_SKHPB
+	bool "Activate HPB Host-aware Performance Booster"
+	depends on SCSI_UFSHCD
+	help
+	  Activate or deactive SKHPB driver
