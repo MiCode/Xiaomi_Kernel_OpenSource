@@ -858,12 +858,15 @@ void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 #if SUPPORT_VCORE_TO_IPUIF
 void apusys_ipuif_opp_change(void)
 {
+	mutex_lock(&power_dvfs_mtx);
 	//enum DVFS_USER user = MDLA0;	// separate from VPU0 for vcore pm_qos
 
 	if (apusys_opps.qos_apu_vcore == apusys_opps.driver_apu_vcore) {
 		PWR_LOG_INF("%s, qos_apu_vcore=%d, driver_apu_vcore=%d\n",
 			__func__, apusys_opps.qos_apu_vcore,
 			apusys_opps.driver_apu_vcore);
+
+		mutex_unlock(&power_dvfs_mtx);
 		return;
 	}
 
@@ -888,6 +891,7 @@ void apusys_ipuif_opp_change(void)
 		//buck_control
 		//config_vcore(user, volt_to_vcore_opp(VCORE_DEFAULT_VOLT));
 	}
+	mutex_unlock(&power_dvfs_mtx);
 }
 
 void apusys_set_apu_vcore(int target_volt)
