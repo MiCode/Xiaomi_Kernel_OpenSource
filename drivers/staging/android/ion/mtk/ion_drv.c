@@ -1033,7 +1033,6 @@ static int ion_drv_probe(struct platform_device *pdev)
 
 	ion_history_init();
 	ion_profile_init();
-	ion_dmabuf_init();
 
 	IONMSG("%s, done\n", __func__);
 	return 0;

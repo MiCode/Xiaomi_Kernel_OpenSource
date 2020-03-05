@@ -21,7 +21,6 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
-#include <linux/dma-buf.h>
 //#include <mmprofile.h>
 //#include <mmprofile_function.h>
 #include <linux/debugfs.h>
@@ -1361,7 +1360,6 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 		ION_DUMP(s,
 			 "-----orphaned buffer list:------------------\n");
 		ion_dump_all_share_fds(s);
-		ion_dmabuf_dbg_show(s);
 	}
 
 	current_ts = sched_clock();
@@ -1628,7 +1626,6 @@ skip_client_entry:
 		if (has_orphaned) {
 			ION_DUMP(NULL, "-orphaned buffer list:\n");
 			ion_dump_all_share_fds(NULL);
-			ion_dmabuf_dbg_show(NULL);
 		}
 
 		mutex_unlock(&dev->buffer_lock);

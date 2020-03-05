@@ -14,7 +14,6 @@
 #ifndef __ION_DRV_H__
 #define __ION_DRV_H__
 #include <linux/version.h>
-#include <linux/seq_file.h>
 
 #include <ion.h>
 
@@ -302,8 +301,6 @@ int ion_device_destroy_heaps(struct ion_device *dev);
 struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *unused);
 void ion_sec_heap_destroy(struct ion_heap *heap);
 void ion_sec_heap_dump_info(void);
-void ion_dmabuf_init(void);
-void ion_dmabuf_dbg_show(struct seq_file *s);
 #endif
 
 #endif
