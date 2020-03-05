@@ -581,7 +581,26 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 		goto out_put;
 	}
 
-	if (tw->tw_available_buffer_size < tw->flush_th_max) {
+	/* No need flush */
+	if (tw->tw_available_buffer_size >= tw->flush_th_max)
+		goto out_put;
+
+	/* Need flush, check device flush method */
+	if (hba->card->wmanufacturerid == UFS_VENDOR_TOSHIBA) {
+		/* Toshiba device recover WB by toggle fWriteBoosterEn */
+		if (ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_CLEAR_FLAG,
+					  QUERY_FLAG_IDN_TW_EN, idx, NULL)) {
+			ERR_MSG("ERROR: disable tw error");
+			goto out_put;
+		}
+
+		if (ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_SET_FLAG,
+					  QUERY_FLAG_IDN_TW_EN, idx, NULL)) {
+			ERR_MSG("ERROR: enable tw error");
+			goto out_put;
+		}
+	} else {
+		/* Other device recover WB by hibernate */
 		schedule_delayed_work(&tw->tw_flush_h8_work, 0);
 		need_flush = true;
 	}
