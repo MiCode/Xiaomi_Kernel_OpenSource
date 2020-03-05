@@ -155,7 +155,8 @@ static int mtk_dai_gain_hw_params(struct snd_pcm_substream *substream,
 			   dai->id == MT6873_DAI_HW_GAIN_1 ?
 			   AFE_GAIN1_CON0 : AFE_GAIN2_CON0,
 			   GAIN1_SAMPLE_PER_STEP_MASK_SFT,
-			   0x40 << GAIN1_SAMPLE_PER_STEP_SFT);
+			   (dai->id == MT6873_DAI_HW_GAIN_1 ? 0x40 : 0x0) <<
+			   GAIN1_SAMPLE_PER_STEP_SFT);
 
 	return 0;
 }
