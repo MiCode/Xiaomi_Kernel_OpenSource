@@ -72,6 +72,7 @@ struct ion_buffer {
 	struct ion_heap *heap;
 	unsigned long flags;
 	unsigned long private_flags;
+	unsigned long long timestamp;
 	size_t size;
 	void *priv_virt;
 	struct mutex lock; /* mutex */
@@ -85,6 +86,8 @@ struct ion_buffer {
 	int handle_count;
 	char task_comm[TASK_COMM_LEN];
 	pid_t pid;
+	char thread_comm[TASK_COMM_LEN];
+	pid_t tid;
 	char alloc_dbg[ION_MM_DBG_NAME_LEN];
 #ifdef MTK_ION_DMABUF_SUPPORT
 	struct list_head attachments;

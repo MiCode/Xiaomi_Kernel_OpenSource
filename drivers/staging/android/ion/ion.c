@@ -242,6 +242,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		task = current->group_leader;
 		get_task_comm(buffer->task_comm, task);
 		buffer->pid = task_pid_nr(task);
+		buffer->tid = task_pid_nr(current);
+		get_task_comm(buffer->thread_comm, current);
+		buffer->timestamp = sched_clock();
 	}
 
 	kref_init(&buffer->ref);
@@ -2065,7 +2068,8 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		}
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
-			seq_printf(s, "%16.s %16u %16zu %d %d\n",
+			seq_printf(s, "0x%p %16.s %16u %16zu %d %d\n",
+				   buffer,
 				   buffer->task_comm, buffer->pid,
 				   buffer->size, buffer->kmap_cnt,
 				   atomic_read(
