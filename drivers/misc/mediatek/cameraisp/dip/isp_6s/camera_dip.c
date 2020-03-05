@@ -7756,6 +7756,40 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 		pr_info("vipbi:0x%08x, vipci:0x%08x\n",
 			DIP_RD32(DIP_A_BASE + 0x830),
 			DIP_RD32(DIP_A_BASE + 0x860));
+
+		pr_info("imgi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x204),
+			DIP_RD32(DIP_A_BASE + 0x20c),
+			DIP_RD32(DIP_A_BASE + 0x210));
+		pr_info("imgbi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x304),
+			DIP_RD32(DIP_A_BASE + 0x30c),
+			DIP_RD32(DIP_A_BASE + 0x310));
+		pr_info("imgci offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x334),
+			DIP_RD32(DIP_A_BASE + 0x33c),
+			DIP_RD32(DIP_A_BASE + 0x340));
+		pr_info("vipi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x804),
+			DIP_RD32(DIP_A_BASE + 0x80c),
+			DIP_RD32(DIP_A_BASE + 0x810));
+		pr_info("vipbi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x834),
+			DIP_RD32(DIP_A_BASE + 0x83c),
+			DIP_RD32(DIP_A_BASE + 0x840));
+		pr_info("vipci offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x864),
+			DIP_RD32(DIP_A_BASE + 0x86c),
+			DIP_RD32(DIP_A_BASE + 0x870));
+		pr_info("nr3d con:0x%08x, size:0x%08x, tile_xy:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x7000),
+			DIP_RD32(DIP_A_BASE + 0x7004),
+			DIP_RD32(DIP_A_BASE + 0x7008));
+		pr_info("nr3d on_con:0x%08x, on_off:0x%08x, on_size:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x700c),
+			DIP_RD32(DIP_A_BASE + 0x7010),
+			DIP_RD32(DIP_A_BASE + 0x7014));
+
 		pr_info("TDRI:0x%08x, CQ0_EN(0x%08x)_BA(0x%08x),",
 			DIP_RD32(DIP_A_BASE + 0x004),
 			DIP_RD32(DIP_A_BASE + 0x1204),
@@ -7790,12 +7824,12 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 			DIP_RD32(DIP_A_BASE + 0x890),
 			DIP_RD32(DIP_A_BASE + 0x900),
 			DIP_RD32(DIP_A_BASE + 0x970));
-		pr_info("start: 0x%08x, top: 0x%08x, 0x%08x, 0x%08x,",
+		pr_info("start: 0x%08x, top_en: 0x%08x, 0x%08x, 0x%08x,",
 			DIP_RD32(DIP_A_BASE + 0x1000),
 			DIP_RD32(DIP_A_BASE + 0x1010),
 			DIP_RD32(DIP_A_BASE + 0x1014),
 			DIP_RD32(DIP_A_BASE + 0x1018));
-		pr_info("0x%08x, 0x%08x, 0x%08x)\n",
+		pr_info("top_en: 0x%08x, 0x%08x, 0x%08x)\n",
 			DIP_RD32(DIP_A_BASE + 0x101c),
 			DIP_RD32(DIP_A_BASE + 0x1020),
 			DIP_RD32(DIP_A_BASE + 0x1024));
