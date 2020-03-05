@@ -332,21 +332,47 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define IFR_PROT_STEP2_4_ACK_MASK        ((0x1 << 30))
 #define ISP_PROT_STEP1_0_MASK            ((0x1 << 8))
 #define ISP_PROT_STEP1_0_ACK_MASK        ((0x1 << 8))
+#define ISP_PROT_STEP2_0_MASK            ((0x1 << 9))
+#define ISP_PROT_STEP2_0_ACK_MASK        ((0x1 << 9))
 #define ISP2_PROT_STEP1_0_MASK           ((0x1 << 14))
 #define ISP2_PROT_STEP1_0_ACK_MASK       ((0x1 << 14))
+#define ISP2_PROT_STEP2_0_MASK           ((0x1 << 15))
+#define ISP2_PROT_STEP2_0_ACK_MASK       ((0x1 << 15))
 #define IPE_PROT_STEP1_0_MASK            ((0x1 << 16))
 #define IPE_PROT_STEP1_0_ACK_MASK        ((0x1 << 16))
+#define IPE_PROT_STEP2_0_MASK            ((0x1 << 17))
+#define IPE_PROT_STEP2_0_ACK_MASK        ((0x1 << 17))
 #define VDE_PROT_STEP1_0_MASK            ((0x1 << 24))
 #define VDE_PROT_STEP1_0_ACK_MASK        ((0x1 << 24))
+#define VDE_PROT_STEP2_0_MASK            ((0x1 << 25))
+#define VDE_PROT_STEP2_0_ACK_MASK        ((0x1 << 25))
 #define VEN_PROT_STEP1_0_MASK            ((0x1 << 26))
 #define VEN_PROT_STEP1_0_ACK_MASK        ((0x1 << 26))
 #define VEN_PROT_STEP2_0_MASK            ((0x1 << 27))
 #define VEN_PROT_STEP2_0_ACK_MASK        ((0x1 << 27))
 #define MDP_PROT_STEP1_0_MASK            ((0x1 << 12))
 #define MDP_PROT_STEP1_0_ACK_MASK        ((0x1 << 12))
-#define DIS_PROT_STEP1_0_MASK            ((0x1 << 10) \
+#define MDP_PROT_STEP2_0_MASK            ((0x1 << 13))
+#define MDP_PROT_STEP2_0_ACK_MASK        ((0x1 << 13))
+#define DIS_PROT_STEP1_0_MASK            ((0x1 << 0) \
+					  |(0x1 << 2) \
+					  |(0x1 << 10) \
+					  |(0x1 << 12) \
+					  |(0x1 << 14) \
+					  |(0x1 << 16) \
+					  |(0x1 << 24) \
+					  |(0x1 << 26))
+#define DIS_PROT_STEP1_0_ACK_MASK        ((0x1 << 0) \
+					  |(0x1 << 2) \
+					  |(0x1 << 10) \
+					  |(0x1 << 12) \
+					  |(0x1 << 14) \
+					  |(0x1 << 16) \
+					  |(0x1 << 24) \
+					  |(0x1 << 26))
+#define DIS_PROT_STEP1_1_MASK            ((0x1 << 8) \
 					  |(0x1 << 12))
-#define DIS_PROT_STEP1_0_ACK_MASK        ((0x1 << 10) \
+#define DIS_PROT_STEP1_1_ACK_MASK        ((0x1 << 8) \
 					  |(0x1 << 12))
 #define DIS_PROT_STEP2_0_MASK            ((0x1 << 6) \
 					  |(0x1 << 23))
@@ -380,8 +406,12 @@ static void __iomem *ckgen_base;	/*ckgen*/
 					  |(0x1 << 2))
 #define CAM_PROT_STEP2_0_MASK            ((0x1 << 22))
 #define CAM_PROT_STEP2_0_ACK_MASK        ((0x1 << 22))
-#define CAM_PROT_STEP2_1_MASK            ((0x1 << 21))
-#define CAM_PROT_STEP2_1_ACK_MASK        ((0x1 << 21))
+#define CAM_PROT_STEP2_1_MASK            ((0x1 << 1) \
+					  |(0x1 << 3))
+#define CAM_PROT_STEP2_1_ACK_MASK        ((0x1 << 1) \
+					  |(0x1 << 3))
+#define CAM_PROT_STEP2_2_MASK            ((0x1 << 21))
+#define CAM_PROT_STEP2_2_ACK_MASK        ((0x1 << 21))
 #define MCUPM_PROT_STEP1_0_MASK          ((0x1 << 27) \
 					  |(0x1 << 30))
 #define MCUPM_PROT_STEP1_0_ACK_MASK      ((0x1 << 27) \
@@ -1891,6 +1921,17 @@ int spm_mtcmos_ctrl_isp(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Set bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_SET,
+			ISP_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_2_STA1)
+			& ISP_PROT_STEP2_0_ACK_MASK)
+			!= ISP_PROT_STEP2_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(ISP_PWR_CON, spm_read(ISP_PWR_CON) | ISP_SRAM_PDN);
 #ifndef IGNORE_MTCMOS_CHECK
@@ -1953,6 +1994,11 @@ int spm_mtcmos_ctrl_isp(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Release bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_CLR,
+			ISP_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+#endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_CLR,
 			ISP_PROT_STEP1_0_MASK);
@@ -1984,6 +2030,17 @@ int spm_mtcmos_ctrl_isp2(int state)
 		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
 			& ISP2_PROT_STEP1_0_ACK_MASK)
 			!= ISP2_PROT_STEP1_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_SET,
+			ISP2_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
+			& ISP2_PROT_STEP2_0_ACK_MASK)
+			!= ISP2_PROT_STEP2_0_ACK_MASK) {
 			ram_console_update();
 		}
 		INCREASE_STEPS;
@@ -2050,6 +2107,11 @@ int spm_mtcmos_ctrl_isp2(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Release bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR,
+			ISP2_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+#endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR,
 			ISP2_PROT_STEP1_0_MASK);
@@ -2080,6 +2142,16 @@ int spm_mtcmos_ctrl_ipe(int state)
 		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
 			& IPE_PROT_STEP1_0_ACK_MASK)
 			!= IPE_PROT_STEP1_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_SET, IPE_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
+			& IPE_PROT_STEP2_0_ACK_MASK)
+			!= IPE_PROT_STEP2_0_ACK_MASK) {
 			ram_console_update();
 		}
 		INCREASE_STEPS;
@@ -2146,6 +2218,10 @@ int spm_mtcmos_ctrl_ipe(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Release bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, IPE_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+#endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, IPE_PROT_STEP1_0_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
@@ -2175,6 +2251,16 @@ int spm_mtcmos_ctrl_vde(int state)
 		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
 			& VDE_PROT_STEP1_0_ACK_MASK)
 			!= VDE_PROT_STEP1_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_SET, VDE_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
+			& VDE_PROT_STEP2_0_ACK_MASK)
+			!= VDE_PROT_STEP2_0_ACK_MASK) {
 			ram_console_update();
 		}
 		INCREASE_STEPS;
@@ -2240,6 +2326,10 @@ int spm_mtcmos_ctrl_vde(int state)
 			ram_console_update();
 		}
 		INCREASE_STEPS;
+#endif
+		/* TINFO="Release bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, VDE_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
 #endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, VDE_PROT_STEP1_0_MASK);
@@ -2462,6 +2552,17 @@ int spm_mtcmos_ctrl_mdp(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Set bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_SET,
+			MDP_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_2_STA1)
+			& MDP_PROT_STEP2_0_ACK_MASK)
+			!= MDP_PROT_STEP2_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(MDP_PWR_CON, spm_read(MDP_PWR_CON) | MDP_SRAM_PDN);
 #ifndef IGNORE_MTCMOS_CHECK
@@ -2523,6 +2624,11 @@ int spm_mtcmos_ctrl_mdp(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Release bus protect - step2 : 0" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_CLR,
+			MDP_PROT_STEP2_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+#endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_CLR,
 			MDP_PROT_STEP1_0_MASK);
@@ -2553,6 +2659,17 @@ int spm_mtcmos_ctrl_dis(int state)
 		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
 			& DIS_PROT_STEP1_0_ACK_MASK)
 			!= DIS_PROT_STEP1_0_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set bus protect - step1 : 1" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_SET,
+			DIS_PROT_STEP1_1_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_2_STA1)
+			& DIS_PROT_STEP1_1_ACK_MASK)
+			!= DIS_PROT_STEP1_1_ACK_MASK) {
 			ram_console_update();
 		}
 		INCREASE_STEPS;
@@ -2668,6 +2785,12 @@ int spm_mtcmos_ctrl_dis(int state)
 #endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, DIS_PROT_STEP1_0_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+/* Note that this protect ack check after releasing protect has been ignored */
+#endif
+		/* TINFO="Release bus protect - step1 : 1" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_CLR,
+			DIS_PROT_STEP1_1_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
 /* Note that this protect ack check after releasing protect has been ignored */
 #endif
@@ -3044,12 +3167,22 @@ int spm_mtcmos_ctrl_cam(int state)
 		INCREASE_STEPS;
 #endif
 		/* TINFO="Set bus protect - step2 : 1" */
-		spm_write(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_SET,
-			CAM_PROT_STEP2_1_MASK);
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_SET, CAM_PROT_STEP2_1_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
-		while ((spm_read(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA1)
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_MM_STA1)
 			& CAM_PROT_STEP2_1_ACK_MASK)
 			!= CAM_PROT_STEP2_1_ACK_MASK) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+#endif
+		/* TINFO="Set bus protect - step2 : 2" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_SET,
+			CAM_PROT_STEP2_2_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
+		while ((spm_read(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA1)
+			& CAM_PROT_STEP2_2_ACK_MASK)
+			!= CAM_PROT_STEP2_2_ACK_MASK) {
 			ram_console_update();
 		}
 		INCREASE_STEPS;
@@ -3122,10 +3255,13 @@ int spm_mtcmos_ctrl_cam(int state)
 /* Note that this protect ack check after releasing protect has been ignored */
 #endif
 		/* TINFO="Release bus protect - step2 : 1" */
-		spm_write(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_CLR,
-			CAM_PROT_STEP2_1_MASK);
+		spm_write(INFRA_TOPAXI_PROTECTEN_MM_CLR, CAM_PROT_STEP2_1_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
-/* Note that this protect ack check after releasing protect has been ignored */
+#endif
+		/* TINFO="Release bus protect - step2 : 2" */
+		spm_write(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_CLR,
+			CAM_PROT_STEP2_2_MASK);
+#ifndef IGNORE_MTCMOS_CHECK
 #endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_2_CLR, CAM_PROT_STEP1_0_MASK);
