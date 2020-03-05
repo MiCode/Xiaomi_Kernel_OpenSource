@@ -104,7 +104,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.8"
+#define KERNEL_VOW_DRV_VER "2.0.9"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -205,7 +205,7 @@ enum vow_flag_type_t {
 	VOW_FLAG_SWIP_LOG_PRINT,
 	VOW_FLAG_MTKIF_TYPE,
 	VOW_FLAG_SEAMLESS,
-	VOW_FLAG_DUAL_MIC_LCH,
+	VOW_FLAG_DUAL_MIC_SWITCH,
 	VOW_FLAG_MCPS,
 	NUM_OF_VOW_FLAG_TYPE
 };
@@ -263,6 +263,12 @@ enum {
 	VENDOR_ID_AMAZON = 65,  //'A'
 	VENDOR_ID_OTHERS = 71,
 	VENDOR_ID_NONE = 0
+};
+
+enum {
+	VOW_ENABLE_DUAL_MIC = 2,
+	VOW_ENABLE_SINGLE_MAIN_MIC = 1,
+	VOW_ENABLE_SINGLE_REF_MIC = 0
 };
 
 /*****************************************************************************

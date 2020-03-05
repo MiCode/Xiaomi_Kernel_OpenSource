@@ -176,13 +176,13 @@ static struct
 	short                *interleave_pcmdata_ptr;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	bool                 dump_pcm_flag;
-	bool                 scp_vow_lch;
 	bool                 scp_recovering;
 	bool                 vow_recovering;
 	unsigned int         recog_dump_cnt1;
 	unsigned int         recog_dump_cnt2;
 	bool                 split_dumpfile_flag;
 	bool                 mcps_flag;
+	unsigned int         scp_dual_mic_switch;
 } vowserv;
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
@@ -505,7 +505,7 @@ static void vow_service_Init(void)
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 		bargein_dump_info_flag = false;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
-		vowserv.scp_vow_lch = true;
+		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
 	} else {
 		/*Initialization*/
 		vowserv.voicddata_scp_ptr =
@@ -2189,14 +2189,18 @@ static ssize_t VowDrv_GetDualMicDebug(struct device *kobj,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	unsigned int stat;
 	char cstr[35];
 	int size = sizeof(cstr);
 
-	stat = (vowserv.scp_vow_lch == true) ? 1 : 0;
-
-	return snprintf(buf, size, "Dual mic L channel = %s\n",
-			(stat == 0x1) ? "YES" : "NO");
+	if (vowserv.scp_dual_mic_switch == VOW_ENABLE_DUAL_MIC) {
+		return snprintf(buf, size, "use Daul mic\n");
+	} else if (vowserv.scp_dual_mic_switch == VOW_ENABLE_SINGLE_MAIN_MIC) {
+		return snprintf(buf, size, "use Single mic: main mic\n");
+	} else if (vowserv.scp_dual_mic_switch == VOW_ENABLE_SINGLE_REF_MIC) {
+		return snprintf(buf, size, "use Single mic: ref mic\n");
+	} else {
+		return snprintf(buf, size, "set mic error\n");
+	}
 }
 
 static ssize_t VowDrv_SetDualMicDebug(struct device *kobj,
@@ -2209,12 +2213,12 @@ static ssize_t VowDrv_SetDualMicDebug(struct device *kobj,
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
 
-	vowserv.scp_vow_lch = (enable == 1) ? true : false;
+	vowserv.scp_dual_mic_switch = enable;
 
-	VowDrv_SetFlag(VOW_FLAG_DUAL_MIC_LCH, enable);
+	VowDrv_SetFlag(VOW_FLAG_DUAL_MIC_SWITCH, enable);
 	return n;
 }
-DEVICE_ATTR(vow_DualMicLch,
+DEVICE_ATTR(vow_DualMicSwitch,
 	    0644, /*S_IWUSR | S_IRUGO*/
 	    VowDrv_GetDualMicDebug,
 	    VowDrv_SetDualMicDebug);
@@ -3151,7 +3155,7 @@ static int VowDrv_mod_init(void)
 		return ret;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	ret = device_create_file(VowDrv_misc_device.this_device,
-				 &dev_attr_vow_DualMicLch);
+				 &dev_attr_vow_DualMicSwitch);
 	if (unlikely(ret != 0))
 		return ret;
 
