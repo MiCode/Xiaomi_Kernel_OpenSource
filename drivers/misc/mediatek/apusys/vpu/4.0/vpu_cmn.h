@@ -31,6 +31,7 @@
 #include "vpu_dump.h"
 #include "vpu_algo.h"
 #include "vpu_ioctl.h"
+#include "apu_tags.h"
 
 #include <aee.h>
 
@@ -138,6 +139,9 @@ struct vpu_driver {
 	uint32_t ilog;
 	uint32_t met;
 	struct vpu_met_hrt met_hrt;
+
+	/* tags */
+	struct apu_tags *tags;
 };
 
 enum vpu_state {

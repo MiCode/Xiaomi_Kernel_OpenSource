@@ -21,6 +21,8 @@
 #include "vpu_cmn.h"
 #include "vpu_cmd.h"
 #include "vpu_dump.h"
+#include "vpu_tag.h"
+#include "vpu_events.h"
 
 static void vpu_dmp_seq_time(struct seq_file *s, uint64_t t)
 {
@@ -154,11 +156,16 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	if (!vd)
 		return 0;
 
+#define VPU_DMP_TRACE(a) \
+	trace_vpu_dmp(vd->id, a, vpu_reg_read(vd, DEBUG_INFO05))
+
 	ret = vpu_dmp_alloc(vd);
 	if (ret)
 		goto out;
 
+	VPU_DMP_TRACE("alloc");
 	apusys_reg_dump();
+	VPU_DMP_TRACE("apusys_reg_dump");
 
 	d = vd->dmp;
 	d->time = sched_clock();
@@ -168,9 +175,12 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	va_end(args);
 
 	vpu_dmp_reg_file(vd);
+	VPU_DMP_TRACE("reg_file");
 
-#define VPU_DMP_IOMEM(a, A) \
-	vpu_dmp_iomem(d->m_##a, vd->a.m, VPU_DMP_##A##_SZ)
+#define VPU_DMP_IOMEM(a, A) do { \
+		vpu_dmp_iomem(d->m_##a, vd->a.m, VPU_DMP_##A##_SZ); \
+		VPU_DMP_TRACE(#a); \
+	} while (0)
 
 	VPU_DMP_IOMEM(reg, REG);
 
@@ -179,8 +189,10 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 		VPU_DMP_IOMEM(imem, IMEM);
 	}
 
-#define VPU_DMP_IOVA(a, A) \
-	vpu_dmp_iova(d->m_##a, &vd->iova_##a, VPU_DMP_##A##_SZ)
+#define VPU_DMP_IOVA(a, A) do { \
+		vpu_dmp_iova(d->m_##a, &vd->iova_##a, VPU_DMP_##A##_SZ); \
+		VPU_DMP_TRACE(#a); \
+	} while (0)
 
 	VPU_DMP_IOVA(reset, RESET);
 	VPU_DMP_IOVA(main, MAIN);
@@ -209,6 +221,7 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 			vpu_dmp_iova(d->m_pl_iram[i],
 				&d->c_alg[i].iram,
 				VPU_DMP_IRAM_SZ);
+			VPU_DMP_TRACE(d->c_ctl[i].alg->a.name);
 		}
 #endif
 	}
@@ -217,8 +230,11 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	d->c_prio_max = vd->cmd_prio_max;
 	d->c_timeout = vd->cmd_timeout;
 
-	if (req)
+	if (req) {
 		memcpy(&d->req, req, sizeof(struct vpu_request));
+		VPU_DMP_TRACE("req");
+	}
+#undef VPU_DMP_TRACE
 out:
 	return ret;
 }

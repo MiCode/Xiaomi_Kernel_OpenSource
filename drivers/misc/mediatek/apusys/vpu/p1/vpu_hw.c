@@ -32,6 +32,9 @@
 #include "vpu_trace.h"
 #include "vpu_met.h"
 #include <memory/mediatek/emi.h>
+#include "vpu_tag.h"
+#define CREATE_TRACE_POINTS
+#include "vpu_events.h"
 
 #define VPU_TS_INIT(a) \
 	struct timespec a##_s, a##_e
@@ -688,50 +691,20 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int vpu_preempt_test(struct vpu_device *vd, struct vpu_request *req)
-{
-	int ret = 0;
-	int prio;
-	unsigned long flags;
-
-	if (!VPU_REQ_FLAG_TST(req, PREEMPT_TEST))
-		goto out;
-
-	prio = req->prio + 1;
-
-	if (prio >= vd->cmd_prio_max) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = vpu_reg_lock(vd, false, &flags);
-	if (ret)
-		goto out;
-
-	vpu_reg_write(vd, XTENSA_INFO11, prio);
-	vpu_cmd(vd, prio, VPU_CMD_DO_D2D_EXT_TEST);
-	vpu_reg_unlock(vd, &flags);
-	ret = wait_command(vd, prio);
-
-out:
-	if (ret)
-		pr_info("%s: priority %d: failed with %d\n",
-			__func__, prio, ret);
-
-	return ret;
-}
-
 // vd->cmd_lock, should be acquired before calling this function
 int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 {
 	int ret;
 	int result = 0;
-	uint32_t cmd;
+	uint32_t cmd = 0;
 	unsigned long flags;
+	uint64_t start_t;
 
 	VPU_TS_INIT(d2d);
-
+	VPU_TS_START(d2d);
+	start_t = sched_clock();
 	req->busy_time = 0;
+	req->algo_ret = 0;
 
 	vpu_cmd_debug("%s: vpu%d: prio: %d, %s: bw: %d, buf_cnt: %x, sett: %llx +%x\n",
 		__func__, vd->id, req->prio,
@@ -745,10 +718,8 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 		goto out;
 
 	ret = vpu_reg_lock(vd, false, &flags);
-	if (ret) {
-		VPU_TS_START(d2d);
+	if (ret)
 		goto out;
-	}
 
 	/* D2D_EXT: preload algorithm */
 	if (VPU_REQ_FLAG_TST(req, ALG_PRELOAD)) {
@@ -774,16 +745,8 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 		vd->id, req->algo, req->prio);
 	vpu_cmd(vd, req->prio, cmd);
 	vpu_reg_unlock(vd, &flags);
-
-	ret = vpu_preempt_test(vd, req);
-	if (ret)
-		goto err;
-
-	VPU_TS_START(d2d);
-
 	ret = wait_command(vd, req->prio);
 	vpu_stall(vd);
-err:
 	vpu_trace_end("vpu_%d|hw_processing_request(%s),prio:%d",
 			vd->id, req->algo, req->prio);
 
@@ -805,11 +768,13 @@ err:
 	}
 
 err_cmd:
-	VPU_TS_END(d2d);
 	req->algo_ret = vpu_cmd_alg_ret(vd, req->prio);
-	req->busy_time = VPU_TS_NS(d2d);
 
 out:
+	VPU_TS_END(d2d);
+	req->busy_time = VPU_TS_NS(d2d);
+	trace_vpu_cmd(vd->id, req->prio, req->algo, cmd, start_t, ret,
+		req->algo_ret, result);
 	vpu_cmd_debug("%s: vpu%d: prio: %d, %s: time: %llu ns, ret: %d, alg_ret: %d, result: %d\n",
 		__func__, vd->id, req->prio,
 		req->algo, req->busy_time, ret, req->algo_ret, result);
@@ -1019,8 +984,10 @@ int vpu_exit_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 
 int vpu_dev_boot_sequence(struct vpu_device *vd)
 {
+	uint64_t start_t;
 	int ret;
 
+	start_t = sched_clock();
 	/* No need to take vd->reg_lock,
 	 * 1. boot-up may take a while.
 	 * 2. Only one process can do boot sequence, since it'sprotected
@@ -1079,6 +1046,7 @@ err_timeout:
 	}
 
 out:
+	trace_vpu_cmd(vd->id, 0, "", 0, start_t, ret, 0, 0);
 	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 	return ret;
 }
@@ -1090,9 +1058,10 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 	struct timespec now;
 	unsigned int device_version = 0x0;
 	unsigned long flags;
+	uint64_t start_t;
 
 	vpu_cmd_debug("%s: vpu%d\n", __func__, vd->id);
-
+	start_t = sched_clock();
 	getnstimeofday(&now);
 
 	/* SET_DEBUG */
@@ -1157,6 +1126,7 @@ err:
 	ret = vpu_cmd_result(vd, 0);
 
 out:
+	trace_vpu_cmd(vd->id, 0, "", VPU_CMD_SET_DEBUG, start_t, ret, 0, 0);
 	if (ret)
 		pr_info("%s: vpu%d: fail to set debug: %d\n",
 			__func__, vd->id, ret);
@@ -1169,8 +1139,10 @@ int vpu_hw_alg_init(struct vpu_algo_list *al, struct __vpu_algo *algo)
 {
 	struct vpu_device *vd = al->vd;
 	unsigned long flags;
+	uint64_t start_t;
 	int ret;
 
+	start_t = sched_clock();
 	vpu_cmd_debug("%s: vpu%d: %s: mva/length (0x%lx/0x%x)\n",
 		__func__, vd->id, algo->a.name,
 		(unsigned long)algo->a.mva, algo->a.len);
@@ -1204,6 +1176,8 @@ int vpu_hw_alg_init(struct vpu_algo_list *al, struct __vpu_algo *algo)
 	}
 
 out:
+	trace_vpu_cmd(vd->id, 0, algo->a.name, VPU_CMD_DO_LOADER,
+		start_t, ret, 0, 0);
 	vpu_cmd_debug("%s: vpu%d: %s: %d\n",
 		__func__, vd->id, algo->a.name, ret);
 	return ret;
@@ -1213,7 +1187,9 @@ static int vpu_set_ftrace(struct vpu_device *vd)
 {
 	int ret = 0;
 	unsigned long flags;
+	uint64_t start_t;
 
+	start_t = sched_clock();
 	/* SET_FTRACE */
 	ret = vpu_reg_lock(vd, true, &flags);
 	if (ret)
@@ -1241,6 +1217,8 @@ static int vpu_set_ftrace(struct vpu_device *vd)
 	ret = vpu_cmd_result(vd, 0);
 
 out:
+	trace_vpu_cmd(vd->id, 0, "", VPU_CMD_SET_FTRACE_LOG,
+		start_t, ret, 0, 0);
 	if (ret)
 		pr_info("%s: vpu%d: fail to set ftrace: %d\n",
 			__func__, vd->id, ret);

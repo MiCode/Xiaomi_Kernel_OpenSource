@@ -29,6 +29,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(PDIR)/include
 
 # APUSYS
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/1.0
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0
@@ -50,7 +51,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 
 obj-y += vpu.o
 
-vpu-$(CONFIG_MTK_APUSYS_VPU_DEBUG) += $(VDIR)/vpu_debug.o $(IPDIR)/vpu_dump.o $(IPDIR)/vpu_met.o
+vpu-$(CONFIG_MTK_APUSYS_VPU_DEBUG) += $(VDIR)/vpu_debug.o $(VDIR)/vpu_tag.o $(IPDIR)/vpu_dump.o $(IPDIR)/vpu_met.o
 vpu-y += $(VDIR)/vpu_main.o $(VDIR)/vpu_algo.o $(VDIR)/vpu_cmd.o
 vpu-y += $(IPDIR)/vpu_hw.o $(IPDIR)/vpu_mem.o $(IPDIR)/vpu_power.o
 vpu-y += $(PDIR)/vpu_cfg.o

@@ -21,6 +21,7 @@
 #include "vpu_hw.h"
 #include "vpu_power.h"
 #include "vpu_cmd.h"
+#include "apu_tags.h"
 
 enum message_level {
 	VPU_DBG_MSG_LEVEL_NONE,
@@ -518,6 +519,8 @@ out:
 static int vpu_debug_vpu_memory(struct seq_file *s)
 {
 	vpu_debug_info(s);
+	seq_puts(s, "======== Tags ========\n");
+	apu_tags_seq(vpu_drv->tags, s);
 	vpu_dmp_seq(s);
 	return 0;
 }

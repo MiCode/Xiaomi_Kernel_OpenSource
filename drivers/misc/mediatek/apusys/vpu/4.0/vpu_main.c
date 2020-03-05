@@ -37,6 +37,7 @@
 #include "vpu_trace.h"
 #include "vpu_ioctl.h"
 #include "vpu_met.h"
+#include "vpu_tag.h"
 
 static int vpu_suspend(struct vpu_device *vd);
 static int vpu_resume(struct vpu_device *vd);
@@ -834,6 +835,7 @@ static int __init vpu_init(void)
 
 	vpu_init_drv_hw();
 	vpu_init_drv_met();
+	vpu_init_drv_tags();
 
 	ret = platform_driver_register(&vpu_plat_drv);
 
@@ -866,6 +868,7 @@ static void __exit vpu_exit(void)
 	vpu_exit_debug();
 	vpu_exit_drv_met();
 	vpu_exit_drv_hw();
+	vpu_exit_drv_tags();
 
 	if (vpu_drv) {
 		vpu_drv_debug("%s: iounmap\n", __func__);
