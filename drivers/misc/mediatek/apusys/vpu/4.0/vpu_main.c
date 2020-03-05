@@ -123,8 +123,8 @@ int vpu_send_cmd_rt(int op, void *hnd, struct apusys_device *adev)
 		cmd = (struct apusys_cmd_hnd *)hnd;
 		req = (struct vpu_request *)cmd->kva;
 
-		vpu_trace_begin("vpu-%d|%s|cmd execute cmd_id: 0x%08llx",
-			vd->id,	__func__, cmd->cmd_id);
+		vpu_trace_begin("vpu_%d|%s|cmd execute cmd_id: 0x%08llx",
+			vd->id, __func__, cmd->cmd_id);
 		vpu_cmd_debug("%s: vpu%d: EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
 			__func__, vd->id, (unsigned long)cmd->kva,
 			cmd->cmd_id, cmd->subcmd_idx);
@@ -132,22 +132,24 @@ int vpu_send_cmd_rt(int op, void *hnd, struct apusys_device *adev)
 		req->power_param.boost_value = cmd->boost_val;
 		VPU_REQ_FLAG_SET(req, ALG_PRELOAD);
 		ret = vpu_preempt(vd, req);
-		vpu_trace_end("vpu-%d|%s|end", vd->id, __func__);
+		vpu_trace_end("vpu_%d|%s|cmd execute cmd_id: 0x%08llx",
+			vd->id, __func__, cmd->cmd_id);
 		/* report vpu_req exe time to apusy_cmd */
 		cmd->ip_time = req->busy_time / 1000;
 		return ret;
 	case APUSYS_CMD_PREEMPT:
 		pmt = (struct apusys_preempt_hnd *)hnd;
 		req = (struct vpu_request *)pmt->new_cmd->kva;
-		vpu_trace_begin("vpu-%d|%s|cmd preempt cmd_id: 0x%08llx",
-			vd->id,	__func__, pmt->new_cmd->cmd_id);
+		vpu_trace_begin("vpu_%d|%s|cmd preempt cmd_id: 0x%08llx",
+			vd->id, __func__, pmt->new_cmd->cmd_id);
 		vpu_cmd_debug("%s: vpu%d: PREEMPT, new cmd kva: %lx\n",
 			      __func__, vd->id, (unsigned long)req);
 		/* overwrite vpu_req->boost from apusys_cmd */
 		req->power_param.boost_value = pmt->new_cmd->boost_val;
 		VPU_REQ_FLAG_SET(req, ALG_PRELOAD);
 		ret = vpu_preempt(vd, req);
-		vpu_trace_end("vpu-%d|%s|end", vd->id, __func__);
+		vpu_trace_end("vpu_%d|%s|cmd preempt cmd_id: 0x%08llx",
+			vd->id, __func__, pmt->new_cmd->cmd_id);
 		pmt->new_cmd->ip_time = req->busy_time / 1000;
 		return ret;
 
@@ -199,7 +201,7 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		req = (struct vpu_request *)cmd->kva;
 
 		vpu_trace_begin("vpu_%d|%s|cmd execute cmd_id: 0x%08llx",
-			vd->id,	__func__, cmd->cmd_id);
+			vd->id, __func__, cmd->cmd_id);
 		vpu_cmd_debug("%s: vpu%d: EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
 			__func__, vd->id, (unsigned long)cmd->kva,
 			cmd->cmd_id, cmd->subcmd_idx);
@@ -438,7 +440,7 @@ static int vpu_init_bin(void)
 	vpu_drv->bin_head_ofs = bin_head_ofs;
 	vpu_drv->bin_preload_ofs = bin_preload_ofs;
 
-	pr_info("%s: header: 0x%x, preload:0x%x\n",	__func__,
+	pr_info("%s: header: 0x%x, preload:0x%x\n", __func__,
 		vpu_drv->bin_head_ofs, vpu_drv->bin_preload_ofs);
 #endif
 
