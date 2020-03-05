@@ -362,6 +362,7 @@ static struct eemsn_det *id_to_eem_det(enum eemsn_det_id id)
 }
 
 #if SUPPORT_PICACHU
+#ifndef MC50_LOAD
 static void get_picachu_efuse(void)
 {
 	int *val;
@@ -405,7 +406,7 @@ static void get_picachu_efuse(void)
 			/* check efuse data */
 			for (i = 1; i < cnt; i++) {
 				if ((i == 1) || (i == 2) ||
-					(i == 5) || (i == 6) ||
+					(i == 5) || (i == 6) || (i == 8) ||
 					(i == 11) || (i == 12) || (i == 15))
 					continue;
 				else if (eem_read(addr_ptr + i * 4) == 0) {
@@ -421,6 +422,7 @@ static void get_picachu_efuse(void)
 		}
 	}
 }
+#endif
 #endif
 
 static int get_devinfo(void)
@@ -547,7 +549,7 @@ static int get_devinfo(void)
 
 	for (i = 1; i < IDX_HW_RES_SN; i++) {
 		if ((i == 1) || (i == 2) ||
-			(i == 5) || (i == 6) ||
+			(i == 5) || (i == 6) || (i == 8) ||
 			(i == 11) || (i == 12) || (i == 15))
 			continue;
 		else if (val[i] == 0) {
@@ -1758,7 +1760,9 @@ static int eem_probe(struct platform_device *pdev)
 	eem_debug("Set EEM IRQ OK.\n");
 #endif
 #if SUPPORT_PICACHU
+#ifndef MC50_LOAD
 	get_picachu_efuse();
+#endif
 #endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC

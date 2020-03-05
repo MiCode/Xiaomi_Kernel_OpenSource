@@ -175,7 +175,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_5 0x0
 #define DEVINFO_6 0x0
 #define DEVINFO_7 0x4D152457
-#define DEVINFO_8 0x0
+#define DEVINFO_8 0x550055
 #define DEVINFO_9 0x56EC00DC
 #define DEVINFO_10 0x081800A6
 #define DEVINFO_11 0x6F572444
@@ -193,7 +193,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_24 0x38503850
 #define DEVINFO_25 0x37513751
 
-#elif defined(MT6873T) //2.2GH
+#elif defined(MT6875) //2.2GHz
 
 #define SPARE1_VAL 0x404f6050
 
@@ -205,7 +205,37 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_5 0x0
 #define DEVINFO_6 0x0
 #define DEVINFO_7 0x4D152457
-#define DEVINFO_8 0x0
+#define DEVINFO_8 0x550055
+#define DEVINFO_9 0x56EC00DC
+#define DEVINFO_10 0x081800A6
+#define DEVINFO_11 0x6F572444
+#define DEVINFO_12 0x725C244D
+#define DEVINFO_13 0x1B031B03
+#define DEVINFO_14 0x1B031B03
+#define DEVINFO_15 0x0
+#define DEVINFO_16 0x1B031B03
+#define DEVINFO_17 0x1B031B03
+#define DEVINFO_18 0x5D025D02
+
+#define DEVINFO_21 0x70988570
+#define DEVINFO_22 0x00939885
+#define DEVINFO_23 0x00007065
+#define DEVINFO_24 0x38503850
+#define DEVINFO_25 0x37513751
+
+#elif defined(MT6875T) //#2.6GHz
+
+#define SPARE1_VAL 0x374c554c
+
+#define DEVINFO_0 0x00000001
+#define DEVINFO_1 0x0
+#define DEVINFO_2 0x5A1E242A
+#define DEVINFO_3 0x57142876
+#define DEVINFO_4 0x49172854
+#define DEVINFO_5 0x0
+#define DEVINFO_6 0x0
+#define DEVINFO_7 0x4D152857
+#define DEVINFO_8 0x550055
 #define DEVINFO_9 0x56EC00DC
 #define DEVINFO_10 0x081800A6
 #define DEVINFO_11 0x6F572444

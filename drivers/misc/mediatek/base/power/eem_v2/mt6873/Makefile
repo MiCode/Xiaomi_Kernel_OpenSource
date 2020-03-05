@@ -51,7 +51,12 @@ subdir-ccflags-y += -DMC50_LOAD
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6873v1_64_turbo_mcl")
-subdir-ccflags-y += -DMT6873T
+subdir-ccflags-y += -DMT6875
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6875v1_64_mcl")
+subdir-ccflags-y += -DMT6875T
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
