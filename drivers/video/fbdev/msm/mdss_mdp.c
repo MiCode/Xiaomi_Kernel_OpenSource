@@ -5256,7 +5256,7 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 	} __attribute__ ((__packed__)) request;
 	unsigned int resp = -1;
 	int ret = 0;
-	uint32_t sid_info;
+	uint32_t *sid_info = NULL;
 	struct scm_desc desc;
 	bool changed = false;
 
@@ -5286,10 +5286,13 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 		 * between secure and non-secure contexts
 		 */
 		/* MDP secure SID */
-		sid_info = 0x1;
+		sid_info = kzalloc(sizeof(uint32_t), GFP_KERNEL);
+		if (!sid_info)
+			return -ENOMEM;
+		*sid_info = 0x1;
 		desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
 		desc.args[0] = MDP_DEVICE_ID;
-		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
+		desc.args[1] = SCM_BUFFER_PHYS(sid_info);
 		desc.args[2] = sizeof(uint32_t);
 
 
@@ -5318,7 +5321,7 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			/* let the driver think smmu is still attached */
 			mdata->iommu_attached = true;
 
-			dmac_flush_range(&sid_info, &sid_info + 1);
+			dmac_flush_range(sid_info, sid_info + 1);
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				mem_protect_sd_ctrl_id), &desc);
 			if (ret) {
@@ -5338,7 +5341,7 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			else if (flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)
 				mdata->sec_cam_en = 0;
 
-			dmac_flush_range(&sid_info, &sid_info + 1);
+			dmac_flush_range(sid_info, sid_info + 1);
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 				mem_protect_sd_ctrl_id), &desc);
 			if (ret)
@@ -5376,6 +5379,7 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 				enable, ret, resp);
 
 end:
+	kfree(sid_info);
 	mutex_unlock(&mdp_sec_ref_cnt_lock);
 	return ret;
 
