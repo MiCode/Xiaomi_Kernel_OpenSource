@@ -206,35 +206,38 @@ static const struct snd_kcontrol_new mtk_dai_i2s_controls[] = {
 
 /* dai component */
 /* i2s virtual mux to output widget */
-static const char * const i2s_out_mux_map[] = {
-	"Normal", "Output_Widget",
+static const char * const i2s_mux_map[] = {
+	"Normal", "Dummy_Widget",
 };
 
-static int i2s_out_mux_map_value[] = {
+static int i2s_mux_map_value[] = {
 	0, 1,
 };
 
-static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(i2s_out_mux_map_enum,
+static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(i2s_mux_map_enum,
 					      SND_SOC_NOPM,
 					      0,
 					      1,
-					      i2s_out_mux_map,
-					      i2s_out_mux_map_value);
+					      i2s_mux_map,
+					      i2s_mux_map_value);
+
+static const struct snd_kcontrol_new i2s0_in_mux_control =
+	SOC_DAPM_ENUM("I2S0 In Select", i2s_mux_map_enum);
 
 static const struct snd_kcontrol_new i2s1_out_mux_control =
-	SOC_DAPM_ENUM("I2S1 Out Select", i2s_out_mux_map_enum);
+	SOC_DAPM_ENUM("I2S1 Out Select", i2s_mux_map_enum);
 
 static const struct snd_kcontrol_new i2s3_out_mux_control =
-	SOC_DAPM_ENUM("I2S3 Out Select", i2s_out_mux_map_enum);
+	SOC_DAPM_ENUM("I2S3 Out Select", i2s_mux_map_enum);
 
 static const struct snd_kcontrol_new i2s5_out_mux_control =
-	SOC_DAPM_ENUM("I2S5 Out Select", i2s_out_mux_map_enum);
+	SOC_DAPM_ENUM("I2S5 Out Select", i2s_mux_map_enum);
 
 static const struct snd_kcontrol_new i2s7_out_mux_control =
-	SOC_DAPM_ENUM("I2S7 Out Select", i2s_out_mux_map_enum);
+	SOC_DAPM_ENUM("I2S7 Out Select", i2s_mux_map_enum);
 
 static const struct snd_kcontrol_new i2s9_out_mux_control =
-	SOC_DAPM_ENUM("I2S9 Out Select", i2s_out_mux_map_enum);
+	SOC_DAPM_ENUM("I2S9 Out Select", i2s_mux_map_enum);
 
 /* Tinyconn Mux */
 enum {
@@ -928,6 +931,10 @@ static const struct snd_soc_dapm_widget mtk_dai_i2s_widgets[] = {
 	SND_SOC_DAPM_MUX("I2S9_Out_Mux",
 			 SND_SOC_NOPM, 0, 0, &i2s9_out_mux_control),
 
+	SND_SOC_DAPM_INPUT("I2S_DUMMY_IN"),
+	SND_SOC_DAPM_MUX("I2S0_In_Mux",
+			 SND_SOC_NOPM, 0, 0, &i2s0_in_mux_control),
+
 	/* i2s in lpbk */
 	SND_SOC_DAPM_MUX("I2S0_Lpbk_Mux",
 			 SND_SOC_NOPM, 0, 0, &i2s0_lpbk_mux_control),
@@ -1489,19 +1496,22 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	{I2S9_MCLK_EN_W_NAME, NULL, APLL2_W_NAME, mtk_afe_mclk_apll_connect},
 
 	/* allow i2s on without codec on */
-	{"I2S1_Out_Mux", "Output_Widget", "I2S1"},
+	{"I2S0", NULL, "I2S0_In_Mux"},
+	{"I2S0_In_Mux", "Dummy_Widget", "I2S_DUMMY_IN"},
+
+	{"I2S1_Out_Mux", "Dummy_Widget", "I2S1"},
 	{"I2S_DUMMY_OUT", NULL, "I2S1_Out_Mux"},
 
-	{"I2S3_Out_Mux", "Output_Widget", "I2S3"},
+	{"I2S3_Out_Mux", "Dummy_Widget", "I2S3"},
 	{"I2S_DUMMY_OUT", NULL, "I2S3_Out_Mux"},
 
-	{"I2S5_Out_Mux", "Output_Widget", "I2S5"},
+	{"I2S5_Out_Mux", "Dummy_Widget", "I2S5"},
 	{"I2S_DUMMY_OUT", NULL, "I2S5_Out_Mux"},
 
-	{"I2S7_Out_Mux", "Output_Widget", "I2S7"},
+	{"I2S7_Out_Mux", "Dummy_Widget", "I2S7"},
 	{"I2S_DUMMY_OUT", NULL, "I2S7_Out_Mux"},
 
-	{"I2S9_Out_Mux", "Output_Widget", "I2S9"},
+	{"I2S9_Out_Mux", "Dummy_Widget", "I2S9"},
 	{"I2S_DUMMY_OUT", NULL, "I2S9_Out_Mux"},
 
 	/* i2s in lpbk */
