@@ -49,7 +49,6 @@
 #define CMDQ_THR_SLOT_CYCLES		0x30
 #define CMDQ_THR_EXEC_CYCLES		0x34
 #define CMDQ_THR_TIMEOUT_TIMER		0x38
-#define GCE_GCTL_VALUE			0x48
 #define CMDQ_SYNC_TOKEN_ID		0x60
 #define CMDQ_SYNC_TOKEN_VAL		0x64
 #define CMDQ_SYNC_TOKEN_UPD		0x68
@@ -74,6 +73,11 @@
 #define CMDQ_THR_INST_CYCLES		0x50
 #define CMDQ_THR_INST_THRESX		0x54
 #define CMDQ_THR_SPR			0x60
+
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+#define GCE_GCTL_VALUE			0x48
+#define GCE_THR3_SPR3			0x2ec
+#endif
 
 #define CMDQ_THR_ENABLED		0x1
 #define CMDQ_THR_DISABLED		0x0
@@ -282,6 +286,10 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			writel(cmdq->prefetch,
 				cmdq->base + CMDQ_PREFETCH_GSIZE);
 		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+		writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
+		writel(0, cmdq->base + GCE_THR3_SPR3);
+#endif
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
 		cmdq_init(cmdq);
@@ -317,8 +325,9 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
+#if IS_ENABLED(CONFIG_MACH_MT6873)
 		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
-
+#endif
 		/* now allow pm suspend */
 		cmdq_lock_wake_lock(cmdq, false);
 	}
@@ -457,6 +466,16 @@ static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 #endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+	if (cmdq_thread_ddr_user_check(thread->idx)) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&cmdq->lock, flags);
+		writel(readl(cmdq->base + GCE_THR3_SPR3) - 1,
+			cmdq->base + GCE_THR3_SPR3);
+		spin_unlock_irqrestore(&cmdq->lock, flags);
+	}
+#endif
 }
 
 /* notify GCE to re-fetch commands by setting GCE thread PC */
@@ -655,6 +674,18 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			&task->pa_base, pkt->cmd_buf_size, thread->base,
 			thread->idx);
 
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+		if (cmdq_thread_ddr_user_check(thread->idx)) {
+			unsigned long flags;
+
+			spin_lock_irqsave(&cmdq->lock, flags);
+			writel(readl(cmdq->base + GCE_GCTL_VALUE) | (1 << 16),
+				cmdq->base + GCE_GCTL_VALUE);
+			writel(readl(cmdq->base + GCE_THR3_SPR3) + 1,
+				cmdq->base + GCE_THR3_SPR3);
+			spin_unlock_irqrestore(&cmdq->lock, flags);
+		}
+#endif
 		writel(CMDQ_INST_CYCLE_TIMEOUT,
 			thread->base + CMDQ_THR_INST_CYCLES);
 		writel(thread->priority & CMDQ_THR_PRIORITY,
