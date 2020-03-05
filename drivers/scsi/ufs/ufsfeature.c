@@ -344,6 +344,7 @@ out_free_mem:
 	ufsf->tw_dev_info.tw_device = false;
 	atomic_set(&ufsf->tw_state, TW_NOT_SUPPORTED);
 #endif
+	return;
 }
 
 static void ufsf_print_query_buf(unsigned char *field, int size)
