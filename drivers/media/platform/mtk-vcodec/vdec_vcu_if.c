@@ -181,6 +181,7 @@ inline void close_mapped_fd(unsigned int target_fd)
 		vcu_put_sig_lock(flags);
 		return;
 	}
+	vcu_put_sig_lock(flags);
 
 	f = get_files_struct(task);
 	if (!f) {
@@ -192,7 +193,6 @@ inline void close_mapped_fd(unsigned int target_fd)
 
 	put_files_struct(f);
 	vcu_put_file_lock();
-	vcu_put_sig_lock(flags);
 #endif
 }
 
