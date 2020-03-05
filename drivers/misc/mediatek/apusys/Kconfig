@@ -7,6 +7,15 @@ config MTK_APUSYS_SUPPORT
 	  if the APUSYS driver should be
 	  built in or not
 
+config MTK_APUSYS_DEBUG
+	bool "APUSYS debug"
+	depends on MTK_APUSYS_SUPPORT
+	help
+	  Enable debug facilities of APUSYS, including
+	  trace points and trace tags. Recommended for
+	  analysis resource issues, such as starvation.
+	  Disable, if you don't need them.
+
 config MTK_APUSYS_RT_SUPPORT
 	bool "APUSYS Preemption"
 	help
