@@ -567,6 +567,14 @@ out:
 }
 #endif
 
+#ifdef CONFIG_MACH_MT6873
+static int efuse_aware_big_thermal;
+void __init init_efuse_info(void)
+{
+	efuse_aware_big_thermal = (get_devinfo_with_index(7) & 0xFF) == 0x30;
+}
+#endif
+
 int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 {
 	int task_prefer;
@@ -640,7 +648,7 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 out:
 
 #ifdef CONFIG_MACH_MT6873
-	if ((get_devinfo_with_index(7) & 0xFF) == 0x30)
+	if (efuse_aware_big_thermal)
 		new_cpu = aware_big_thermal(new_cpu, p);
 #endif
 

@@ -102,6 +102,10 @@ extern unsigned int hmp_cpu_is_slowest(int cpu);
 static inline unsigned int hmp_cpu_is_slowest(int cpu) { return false; }
 #endif /* CONFIG_SCHED_HMP */
 
+#ifdef CONFIG_MACH_MT6873
+extern void __init init_efuse_info(void);
+#endif
+
 extern unsigned long capacity_curr_of(int cpu);
 
 /* For multi-scheudling support */
