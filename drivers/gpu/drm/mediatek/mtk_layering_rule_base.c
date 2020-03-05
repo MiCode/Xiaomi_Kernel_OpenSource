@@ -54,9 +54,7 @@ static int ext_id_tuning(struct drm_device *dev,
 static unsigned int roll_gpu_for_idle;
 static int g_emi_bound_table[HRT_LEVEL_NUM];
 
-#define MDP_ALIGNMENT_MARGIN 2
-#define RSZ_TILE_LENGTH 1080
-#define RSZ_ALIGNMENT_MARGIN 6
+#define RSZ_TILE_LENGTH 1440
 #define RSZ_IN_MAX_HEIGHT 4096
 #define DISP_RSZ_LAYER_NUM 2
 
@@ -1962,12 +1960,15 @@ static bool is_rsz_valid(struct drm_mtk_layer_config *c)
 	 * TODO: If HWC adjusts MDP layer alignment before
 	 * query_valid_layer, we could remove this if statement.
 	 */
+
+	/* HWC adjusts MDP layer alignment, we remove this if statement */
+#if 0
 	if ((mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER) ||
 	     mtk_has_layer_cap(c, MTK_DISP_RSZ_LAYER)) &&
 	    (c->dst_width - c->src_width <= MDP_ALIGNMENT_MARGIN ||
 	     c->dst_height - c->src_height <= MDP_ALIGNMENT_MARGIN))
 		return false;
-
+#endif
 	return true;
 }
 
@@ -2089,7 +2090,7 @@ static int RPO_rule(struct drm_crtc *crtc,
 			break;
 		}
 
-		if (src_roi.width > RSZ_TILE_LENGTH - RSZ_ALIGNMENT_MARGIN ||
+		if (src_roi.width > RSZ_TILE_LENGTH ||
 		    src_roi.height > RSZ_IN_MAX_HEIGHT)
 			break;
 

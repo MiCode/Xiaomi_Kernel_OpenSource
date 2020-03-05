@@ -76,7 +76,6 @@
 
 struct mtk_disp_rsz_data {
 	unsigned int tile_length;
-	unsigned int alignment_margin;
 	unsigned int in_max_height;
 	bool support_shadow;
 };
@@ -521,8 +520,7 @@ static int mtk_disp_rsz_bind(struct device *dev, struct device *master,
 			dev->of_node->full_name, ret);
 		return ret;
 	}
-	private->rsz_in_max[0] =
-		priv->data->tile_length - priv->data->alignment_margin;
+	private->rsz_in_max[0] = priv->data->tile_length;
 	private->rsz_in_max[1] = priv->data->in_max_height;
 
 	return 0;
@@ -592,17 +590,17 @@ static int mtk_disp_rsz_remove(struct platform_device *pdev)
 }
 
 static const struct mtk_disp_rsz_data mt6779_rsz_driver_data = {
-	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+	.tile_length = 1088, .in_max_height = 4096,
 	.support_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6885_rsz_driver_data = {
-	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+	.tile_length = 1440, .in_max_height = 4096,
 	.support_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6873_rsz_driver_data = {
-	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+	.tile_length = 1440, .in_max_height = 4096,
 	.support_shadow = false,
 };
 
