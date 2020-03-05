@@ -641,6 +641,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	}
 	else if (val == 0x10)
 		lv = CPU_LEVEL_2;
+	else if (val == 0x30)
+		lv = CPU_LEVEL_1;
 
 	turbo_flag = 0;
 

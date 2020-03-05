@@ -143,11 +143,11 @@
 #define CPU_DVFS_FREQ15_LL_TB		500000		/* KHz */
 
 /* for DVFS OPP table B */
-#define CPU_DVFS_FREQ0_L_TB             2300000         /* KHz */
-#define CPU_DVFS_FREQ1_L_TB             2195000         /* KHz */
-#define CPU_DVFS_FREQ2_L_TB             2091000         /* KHz */
-#define CPU_DVFS_FREQ3_L_TB             2008000         /* KHz */
-#define CPU_DVFS_FREQ4_L_TB             1883000         /* KHz */
+#define CPU_DVFS_FREQ0_L_TB             2600000         /* KHz */
+#define CPU_DVFS_FREQ1_L_TB             2433000         /* KHz */
+#define CPU_DVFS_FREQ2_L_TB             2266000         /* KHz */
+#define CPU_DVFS_FREQ3_L_TB             2133000         /* KHz */
+#define CPU_DVFS_FREQ4_L_TB             1933000         /* KHz */
 #define CPU_DVFS_FREQ5_L_TB             1800000         /* KHz */
 #define CPU_DVFS_FREQ6_L_TB             1633000         /* KHz */
 #define CPU_DVFS_FREQ7_L_TB             1548000         /* KHz */
@@ -203,8 +203,8 @@
 #define CPU_DVFS_VOLT3_VPROC2_TB        91250           /* 10uV */
 #define CPU_DVFS_VOLT4_VPROC2_TB        87500           /* 10uV */
 #define CPU_DVFS_VOLT5_VPROC2_TB        85000           /* 10uV */
-#define CPU_DVFS_VOLT6_VPROC2_TB        80625           /* 10uV */
-#define CPU_DVFS_VOLT7_VPROC2_TB        80000           /* 10uV */
+#define CPU_DVFS_VOLT6_VPROC2_TB        80000           /* 10uV */
+#define CPU_DVFS_VOLT7_VPROC2_TB        78750           /* 10uV */
 #define CPU_DVFS_VOLT8_VPROC2_TB        75000           /* 10uV */
 #define CPU_DVFS_VOLT9_VPROC2_TB        73125           /* 10uV */
 #define CPU_DVFS_VOLT10_VPROC2_TB       70000           /* 10uV */
