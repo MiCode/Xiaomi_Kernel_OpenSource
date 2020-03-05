@@ -47,8 +47,6 @@ int mtk_busy_power(int cpu_idx, int cpu, void *argu, int sd_level);
 extern
 const struct sched_group_energy * const cci_energy(void);
 #endif
-static int collect_cluster_info(int cpu, int *total_nr_running, int *cpu_count);
-
 
 /*#define DEBUG_EENV_DECISIONS*/
 

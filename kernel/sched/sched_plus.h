@@ -38,7 +38,7 @@ int task_prefer_fit(struct task_struct *p, int cpu);
 int task_prefer_match(struct task_struct *p, int cpu);
 int
 task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
-inline unsigned long cluster_max_capacity(void);
+unsigned long cluster_max_capacity(void);
 inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p);
 inline unsigned int freq_util(unsigned long util);
 
@@ -53,6 +53,7 @@ inline unsigned int freq_util(unsigned long util);
 #define LB_HINT         (0x10  << LB_POLICY_SHIFT)
 #define LB_EAS_AFFINE   (0x18  << LB_POLICY_SHIFT)
 #define LB_EAS_LB       (0x28  << LB_POLICY_SHIFT)
+#define LB_THERMAL       (0x48  << LB_POLICY_SHIFT)
 
 #define MIGR_LOAD_BALANCE      1
 #define MIGR_UP_MIGRATE        2
