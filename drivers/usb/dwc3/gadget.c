@@ -1679,27 +1679,33 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 	trace_dwc3_ep_dequeue(req);
+	dbg_ep_dequeue(dep->number, req);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	list_for_each_entry(r, &dep->cancelled_list, list) {
-		if (r == req)
-			goto out0;
+		if (r == req) {
+			dbg_log_string("req:%pK found cancelled list",
+							&req->request);
+			goto out;
+		}
 	}
 
 	list_for_each_entry(r, &dep->pending_list, list) {
-		if (r == req)
-			break;
+		if (r == req) {
+			dbg_log_string("req:%pK found pending list",
+							&req->request);
+			dwc3_gadget_giveback(dep, req, -ECONNRESET);
+			goto out;
+		}
 	}
 
-	if (r != req) {
-		list_for_each_entry(r, &dep->started_list, list) {
-			if (r == req)
-				break;
-		}
+	list_for_each_entry(r, &dep->started_list, list) {
 		if (r == req) {
 			struct dwc3_request *t;
 
+			dbg_log_string("req:%pK found started list",
+							&req->request);
 			/* wait until it is processed */
 			dwc3_stop_active_transfer(dep, true, true);
 
@@ -1710,18 +1716,14 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 			list_for_each_entry_safe(r, t, &dep->started_list, list)
 				dwc3_gadget_move_cancelled_request(r);
 
-			goto out0;
+			goto out;
 		}
-		dev_err(dwc->dev, "request %pK was not queued to %s\n",
-				request, ep->name);
-		ret = -EINVAL;
-		goto out0;
 	}
 
-	dbg_ep_dequeue(dep->number, req);
-	dwc3_gadget_giveback(dep, req, -ECONNRESET);
-
-out0:
+	dev_err(dwc->dev, "request %pK was not queued to %s\n",
+			request, ep->name);
+	ret = -EINVAL;
+out:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return ret;
