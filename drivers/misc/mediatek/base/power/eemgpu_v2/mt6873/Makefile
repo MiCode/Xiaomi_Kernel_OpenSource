@@ -47,6 +47,10 @@ ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6873v1_64_turbo_m
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6875v1_64_mcl")
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eemgpu.o
 obj-y += mtk_eemgpu_platform.o
 obj-y += mtk_eemgpu_internal.o
