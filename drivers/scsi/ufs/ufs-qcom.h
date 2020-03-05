@@ -8,6 +8,7 @@
 #include <linux/reset-controller.h>
 #include <linux/reset.h>
 #include <linux/phy/phy.h>
+#include <linux/pm_qos.h>
 #include "ufshcd.h"
 #ifdef CONFIG_SCSI_UFSHCD_QTI
 #include "unipro.h"
@@ -269,6 +270,29 @@ struct qcom_bus_scale_data {
 	const char *name;
 };
 
+struct qos_cpu_group {
+	cpumask_t mask;
+	unsigned int *votes;
+	struct dev_pm_qos_request *qos_req;
+	bool voted;
+	struct work_struct vwork;
+	struct ufs_qcom_host *host;
+	unsigned int curr_vote;
+};
+
+struct ufs_qcom_qos_req {
+	struct qos_cpu_group *qcg;
+	unsigned int num_groups;
+	struct workqueue_struct *workq;
+};
+
+/* Check for QOS_POWER when added to DT */
+enum constraint {
+	QOS_PERF,
+	QOS_POWER,
+	QOS_MAX,
+};
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -341,6 +365,7 @@ struct ufs_qcom_host {
 	/* FlashPVL entries */
 	atomic_t scale_up;
 	atomic_t clks_on;
+	struct ufs_qcom_qos_req *ufs_qos;
 };
 
 static inline u32
