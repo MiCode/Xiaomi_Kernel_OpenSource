@@ -85,9 +85,9 @@
 #define VSRAM_HIGH_VOLT		DVFS_VOLT_00_850000_V
 
 enum SEGMENT_INFO {
-	SEGMENT_0 = 0,	// 5G_A++(defalut)
+	SEGMENT_0 = 0,	// 5G_A++
 	SEGMENT_1 = 1,	// 5G_A
-	SEGMENT_2 = 2,	// 5G_A+
+	SEGMENT_2 = 2,	// 5G_A+(defalut)
 };
 
 
