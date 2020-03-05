@@ -185,6 +185,31 @@ void apu_set_vcore_boost(bool enable)
 }
 EXPORT_SYMBOL(apu_set_vcore_boost);
 
+void apu_qos_set_vcore(int target_volt)
+{
+#ifdef MTK_FPGA_PORTING
+		LOG_WRN("%s FPGA porting bypass DVFS\n", __func__);
+#else
+
+#if !BYPASS_DVFS_CTL
+		mutex_lock(&power_opp_mtx);
+
+#if SUPPORT_VCORE_TO_IPUIF
+		// set opp value
+		apusys_set_apu_vcore(target_volt);
+#endif
+
+		// change regulator and clock if need
+		wake_up_process(power_task_handle);
+
+		mutex_unlock(&power_opp_mtx);
+#else
+		LOG_WRN("%s bypass since not support DVFS\n", __func__);
+#endif
+
+#endif
+}
+EXPORT_SYMBOL(apu_qos_set_vcore);
 
 static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 {
@@ -639,6 +664,9 @@ static int apusys_power_task(void *arg)
 
 			apusys_dvfs_policy(info.id);
 			hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+			#if SUPPORT_VCORE_TO_IPUIF
+			apusys_ipuif_opp_change();
+			#endif
 			#if DVFS_ASSERTION_CHECK
 			apu_power_assert_check(&info);
 			#endif

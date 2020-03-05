@@ -32,4 +32,8 @@ extern int apusys_power_off(enum DVFS_USER user);
 extern enum DVFS_FREQ apusys_get_dvfs_freq(enum DVFS_VOLTAGE_DOMAIN domain);
 extern void event_trigger_dvfs_policy(void);
 extern bool apusys_get_power_on_status(enum DVFS_USER user);
+#if SUPPORT_VCORE_TO_IPUIF
+extern void apusys_set_apu_vcore(int target_volt);
+extern void apusys_ipuif_opp_change(void);
+#endif
 #endif

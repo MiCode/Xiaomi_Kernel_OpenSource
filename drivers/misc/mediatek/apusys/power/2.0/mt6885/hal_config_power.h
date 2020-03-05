@@ -15,8 +15,14 @@
 #define _HAL_CONFIG_POWER_H_
 
 #include "apusys_power_cust.h"
+#include <helio-dvfsrc-opp.h>
+
+extern int conn_mtcmos_on;
 
 extern bool apu_get_power_on_status(enum DVFS_USER user);
+extern enum vcore_opp volt_to_vcore_opp(int target_volt);
+extern enum DVFS_FREQ volt_to_ipuif_freq(int target_volt);
+
 /************************************
  * command base hal interface
  ************************************/

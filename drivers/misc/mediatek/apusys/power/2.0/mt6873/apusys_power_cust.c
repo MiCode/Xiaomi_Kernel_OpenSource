@@ -149,6 +149,29 @@ enum DVFS_VOLTAGE vcore_opp_mapping[] = {
 	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
 
+#if SUPPORT_VCORE_TO_IPUIF
+/**************************************************
+ * IPUIF OPP table definition
+ **************************************************/
+/*
+ *#define NUM_OF_IPUIF_OPP (sizeof(g_ipuif_opp_table) / \
+ *				sizeof(g_ipuif_opp_table[0]))
+ */
+
+#define IPUIFOP(khz, apu_vcore)	\
+{							\
+	.ipuif_khz = khz,				\
+	.ipuif_vcore = apu_vcore,				\
+}
+
+struct ipuif_opp_table g_ipuif_opp_table[] = {
+	IPUIFOP(DVFS_FREQ_00_624000_F, DVFS_VOLT_00_725000_V), /* 0 */
+	IPUIFOP(DVFS_FREQ_00_499200_F, DVFS_VOLT_00_650000_V), /* 1 */
+	IPUIFOP(DVFS_FREQ_00_312000_F, DVFS_VOLT_00_600000_V), /* 2 */
+	IPUIFOP(DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V), /* 3 */
+};
+#endif
+
 // 5G-A++
 //apupll analog divider, need to set double rate to API
 //ex: 1100 -> 2200

@@ -16,24 +16,28 @@
 
 #include "hal_config_power.h"
 #include "apu_power_api.h"
+#include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "apusys_power_reg.h"
 #include "apu_log.h"
 #include "apusys_power_rule_check.h"
-#include <helio-dvfsrc-opp.h>
+//#include <helio-dvfsrc-opp.h>
 
 #define CREATE_TRACE_POINTS
 #include "apu_power_events.h"
 #include "mtk_devinfo.h"
 
+#if SUPPORT_VCORE_TO_IPUIF
+#define NUM_OF_IPUIF_OPP VCORE_OPP_NUM
+#endif
 
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
 static int force_pwr_off;
-static int conn_mtcmos_on;
 static int buck_already_on;
 static int power_on_counter;
 static int hal_cmd_status[APUSYS_POWER_USER_NUM];
+int conn_mtcmos_on;
 
 struct apu_power_info_record power_fail_record;
 
@@ -202,7 +206,7 @@ static void dump_fail_state(void)
 }
 
 // vcore voltage p to vcore opp
-static enum vcore_opp volt_to_vcore_opp(int target_volt)
+enum vcore_opp volt_to_vcore_opp(int target_volt)
 {
 	int opp;
 
@@ -218,6 +222,26 @@ static enum vcore_opp volt_to_vcore_opp(int target_volt)
 	LOG_DBG("%s opp = %d\n", __func__, opp);
 	return (enum vcore_opp)opp;
 }
+
+#if SUPPORT_VCORE_TO_IPUIF
+// vcore voltage p to ipuif freq
+enum DVFS_FREQ volt_to_ipuif_freq(int target_volt)
+{
+	int opp;
+
+	for (opp = 0 ; opp < NUM_OF_IPUIF_OPP ; opp++)
+		if (g_ipuif_opp_table[opp].ipuif_vcore == target_volt)
+			break;
+
+	if (opp >= NUM_OF_IPUIF_OPP) {
+		LOG_ERR("%s failed, force to set min opp\n", __func__);
+		return g_ipuif_opp_table[NUM_OF_IPUIF_OPP - 1].ipuif_khz;
+	}
+
+	LOG_DBG("%s freq = %d\n", __func__, g_ipuif_opp_table[opp].ipuif_khz);
+	return g_ipuif_opp_table[opp].ipuif_khz;
+}
+#endif
 
 static void prepare_apu_regulator(struct device *dev, int prepare)
 {
@@ -941,6 +965,14 @@ static int buck_control(enum DVFS_USER user, int level)
 		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(VPU0, (void *)&vcore_volt_data);
 
+		#if SUPPORT_VCORE_TO_IPUIF
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
+		ret |= set_power_voltage(MDLA0, (void *)&vcore_volt_data);
+		apusys_opps.driver_apu_vcore = VCORE_DEFAULT_VOLT;
+		apusys_opps.qos_apu_vcore = apusys_opps.driver_apu_vcore;
+		#endif
+
 		vpu_volt_data.target_buck = VPU_BUCK;
 		vpu_volt_data.target_volt = VSRAM_TRANS_VOLT;
 		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
@@ -983,6 +1015,15 @@ static int buck_control(enum DVFS_USER user, int level)
 		vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
 		ret |= set_power_voltage(VPU0,
 				(void *)&vcore_volt_data);
+
+		#if SUPPORT_VCORE_TO_IPUIF
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
+		ret |= set_power_voltage(MDLA0,
+				(void *)&vcore_volt_data);
+		apusys_opps.driver_apu_vcore = VCORE_SHUTDOWN_VOLT;
+		apusys_opps.qos_apu_vcore = apusys_opps.driver_apu_vcore;
+		#endif
 
 		if (level == 1) { // buck adjust to low voltage
 			/*

@@ -855,6 +855,53 @@ void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 	}
 }
 
+#if SUPPORT_VCORE_TO_IPUIF
+void apusys_ipuif_opp_change(void)
+{
+	//enum DVFS_USER user = MDLA0;	// separate from VPU0 for vcore pm_qos
+
+	if (apusys_opps.qos_apu_vcore == apusys_opps.driver_apu_vcore) {
+		PWR_LOG_INF("%s, qos_apu_vcore=%d, driver_apu_vcore=%d\n",
+			__func__, apusys_opps.qos_apu_vcore,
+			apusys_opps.driver_apu_vcore);
+		return;
+	}
+
+	if (conn_mtcmos_on == 1) {
+		if (apusys_opps.qos_apu_vcore > apusys_opps.driver_apu_vcore) {
+			config_vcore(MDLA0, (int)volt_to_vcore_opp(
+				apusys_opps.qos_apu_vcore));
+			set_apu_clock_source(
+				volt_to_ipuif_freq(apusys_opps.qos_apu_vcore),
+				V_VCORE);
+		} else {
+			set_apu_clock_source(
+				volt_to_ipuif_freq(apusys_opps.qos_apu_vcore),
+				V_VCORE);
+			config_vcore(MDLA0, (int)volt_to_vcore_opp(
+				apusys_opps.qos_apu_vcore));
+		}
+		apusys_opps.driver_apu_vcore = apusys_opps.qos_apu_vcore;
+	} else {
+		//26M setting in conn_mtcmos off
+		//set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
+		//buck_control
+		//config_vcore(user, volt_to_vcore_opp(VCORE_DEFAULT_VOLT));
+	}
+}
+
+void apusys_set_apu_vcore(int target_volt)
+{
+	if (is_power_debug_lock == false) {
+		if (conn_mtcmos_on == 1) {
+			apusys_opps.qos_apu_vcore = target_volt;
+
+			PWR_LOG_INF("%s, qos_apu_vcore, target_volt=%d\n",
+			__func__, target_volt);
+		}
+	}
+}
+#endif
 
 // this function will be called in DVFS thread and be protected by mutex lock
 bool apusys_check_opp_change(void)
@@ -886,6 +933,14 @@ bool apusys_check_opp_change(void)
 			PWR_LOG_INF("%s DVFS since thermal event\n", __func__);
 			return true;
 		}
+
+#if SUPPORT_VCORE_TO_IPUIF
+		if (apusys_opps.driver_apu_vcore !=
+			apusys_opps.qos_apu_vcore) {
+			PWR_LOG_INF("%s DVFS since qos change\n", __func__);
+			return true;
+		}
+#endif
 	}
 
 	return false;
@@ -977,6 +1032,10 @@ int apusys_power_off(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
+#endif
+#if SUPPORT_VCORE_TO_IPUIF
+			apusys_opps.driver_apu_vcore =
+				VCORE_SHUTDOWN_VOLT;
 #endif
 		}
 

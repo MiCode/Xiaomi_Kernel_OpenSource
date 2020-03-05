@@ -29,6 +29,7 @@
 #include <linux/kthread.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
+#include <linux/random.h>
 
 #include "apusys_power_ctl.h"
 #include "hal_config_power.h"
@@ -48,6 +49,7 @@ int fixed_opp;
 int apu_power_power_stress(int type, int device, int opp)
 {
 	int id = 0;
+	int opp_rand = 0;
 
 	LOG_WRN("%s begin with type %d +++\n", __func__, type);
 
@@ -113,6 +115,23 @@ int apu_power_power_stress(int type, int device, int opp)
 
 	case 5: // dvfs all combination test , opp = run count
 		constraints_check_stress(opp);
+		break;
+
+	case 6:
+		if (opp <= 3) {
+		#if SUPPORT_VCORE_TO_IPUIF
+			apu_qos_set_vcore(g_ipuif_opp_table[opp].ipuif_vcore);
+		#endif
+		} else {
+			while (1) {
+				opp_rand = get_random_int() % 3;
+		#if SUPPORT_VCORE_TO_IPUIF
+				apu_qos_set_vcore(
+				g_ipuif_opp_table[opp_rand].ipuif_vcore);
+		#endif
+				msleep_interruptible(5);
+			}
+		}
 		break;
 
 	case 7: // power on/off suspend stress

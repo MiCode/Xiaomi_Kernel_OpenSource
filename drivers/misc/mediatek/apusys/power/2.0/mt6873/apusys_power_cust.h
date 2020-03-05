@@ -42,6 +42,7 @@
 #define SUPPORT_HW_CONTROL_PMIC	(1)
 #define TIME_PROFILING		(0)
 #define APUSYS_SETTLE_TIME_TEST (0)
+#define SUPPORT_VCORE_TO_IPUIF	(1)
 
 #define APUSYS_MAX_NUM_OPPS                (6)
 #define APUSYS_PATH_USER_NUM               (3)   // num of DVFS_XXX_PATH
@@ -128,6 +129,13 @@ struct apusys_aging_steps {
 	int volt;
 };
 
+#if SUPPORT_VCORE_TO_IPUIF
+struct ipuif_opp_table {
+	unsigned int ipuif_khz;
+	unsigned int ipuif_vcore;
+};
+#endif
+
 struct apusys_dvfs_opps {
 	// map to dvfs_table
 	struct apusys_dvfs_steps (*opps)[APUSYS_BUCK_DOMAIN_NUM];
@@ -149,6 +157,10 @@ struct apusys_dvfs_opps {
 #if APUSYS_SETTLE_TIME_TEST
 	/* Here +1 is due to profile Vsram settle time */
 	struct profiling_timestamp st[APUSYS_BUCK_NUM + 1];
+#endif
+#if SUPPORT_VCORE_TO_IPUIF
+	int qos_apu_vcore;
+	int driver_apu_vcore;
 #endif
 };
 
@@ -179,8 +191,13 @@ extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
+
 extern struct apusys_aging_steps aging_tbl[APUSYS_MAX_NUM_OPPS]
 						[V_APU_CONN];
+
+#if SUPPORT_VCORE_TO_IPUIF
+extern struct ipuif_opp_table g_ipuif_opp_table[];
+#endif
 #ifdef APUPWR_TASK_DEBOUNCE
 static inline void task_debounce(void)
 {

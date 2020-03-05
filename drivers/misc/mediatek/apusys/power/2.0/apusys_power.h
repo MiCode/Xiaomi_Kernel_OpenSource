@@ -50,6 +50,7 @@ extern void apu_power_reg_dump(void);
 extern int apu_power_power_stress(int type, int device, int opp);
 extern bool apusys_power_check(void);
 extern void apu_set_vcore_boost(bool enable);
+extern void apu_qos_set_vcore(int target_volt);
 void apu_profiling(struct profiling_timestamp *profile, const char *tag);
 
 #endif
