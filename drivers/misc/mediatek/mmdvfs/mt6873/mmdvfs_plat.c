@@ -122,4 +122,8 @@ s32 get_md_hrt_bw(void)
 	return 4362;
 }
 
+s32 dram_write_weight(s32 val)
+{
+	return val;
+}
 

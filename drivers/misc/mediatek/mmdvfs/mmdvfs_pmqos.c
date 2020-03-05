@@ -714,7 +714,6 @@ static s32 channel_disp_hrt_cnt[MAX_COMM_NUM][MAX_CH_COUNT] = {};
 
 #define MULTIPLY_BW_THRESH_HIGH(value) ((value)*1/2)
 #define MULTIPLY_BW_THRESHOLD_LOW(value) ((value)*2/5)
-#define MULTIPLY_W_DRAM_WEIGHT(value) ((value)*6/5)	/* Write DRAM Weight*/
 static s32 current_hrt_bw;
 static u32 camera_max_bw;
 static s32 get_cam_hrt_bw(void)
@@ -746,7 +745,7 @@ static bool is_camera_larb(u32 master_id)
 static s32 get_total_used_hrt_bw(void)
 {
 	/* HRT Write BW should multiply a weight */
-	s32 cam_hrt_bw = MULTIPLY_W_DRAM_WEIGHT(get_cam_hrt_bw());
+	s32 cam_hrt_bw = dram_write_weight(get_cam_hrt_bw());
 	s32 disp_hrt_bw =
 		larb_req[SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_DISP)].total_hrt_data;
 	s32 md_hrt_bw =
@@ -1213,7 +1212,7 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 	req = plist_first_entry(owner_list, struct mm_qos_request, owner_node);
 
 	if (is_camera_larb(req->master_id)) {
-		cam_bw = MULTIPLY_W_DRAM_WEIGHT(get_cam_hrt_bw());
+		cam_bw = dram_write_weight(get_cam_hrt_bw());
 		if (cam_bw > camera_max_bw) {
 			pr_notice("cam_bw(%d) > camera_max_bw(%d)\n",
 				cam_bw, camera_max_bw);
@@ -1429,7 +1428,7 @@ s32 mm_hrt_get_available_hrt_bw(u32 master_id)
 		return UNINITIALIZED_VALUE;
 
 	if (is_camera_larb(master_id))
-		src_hrt_bw = MULTIPLY_W_DRAM_WEIGHT(get_cam_hrt_bw());
+		src_hrt_bw = dram_write_weight(get_cam_hrt_bw());
 
 	result = total_hrt_bw - total_used_hrt_bw + src_hrt_bw;
 
@@ -1437,7 +1436,7 @@ s32 mm_hrt_get_available_hrt_bw(u32 master_id)
 			SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_DISP)) {
 		/* Consider worst camera bw if camera is on */
 		if (camera_max_bw > 0) {
-			cam_bw = MULTIPLY_W_DRAM_WEIGHT(get_cam_hrt_bw());
+			cam_bw = dram_write_weight(get_cam_hrt_bw());
 			result = result + cam_bw - camera_max_bw;
 		}
 
@@ -1531,7 +1530,7 @@ void mmdvfs_set_max_camera_hrt_bw(u32 bw)
 
 	cancel_delayed_work_sync(&g_delay_work);
 
-	mw_hrt_bw = MULTIPLY_W_DRAM_WEIGHT(bw);
+	mw_hrt_bw = dram_write_weight(bw);
 	if (mw_hrt_bw < camera_max_bw) {
 		camera_overlap_bw = mw_hrt_bw;
 		schedule_delayed_work(&g_delay_work, 2 * HZ);

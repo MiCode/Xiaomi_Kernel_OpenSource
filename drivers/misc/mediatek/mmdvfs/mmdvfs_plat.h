@@ -64,4 +64,5 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[]);
 
 s32 get_md_hrt_bw(void);
 
+s32 dram_write_weight(s32 val);
 #endif /* __MMDVFS_PLAT_H__ */
