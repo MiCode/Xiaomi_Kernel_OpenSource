@@ -1625,8 +1625,8 @@ static void __exit gt9896s_fwu_module_exit(void)
 	mutex_lock(&gt9896s_fw_update_ctrl.mutex);
 }
 
-late_initcall(gt9896s_fwu_module_init);
-module_exit(gt9896s_fwu_module_exit);
+//late_initcall(gt9896s_fwu_module_init);
+//module_exit(gt9896s_fwu_module_exit);
 
 MODULE_DESCRIPTION("Goodix FWU Module");
 MODULE_AUTHOR("Goodix, Inc.");
