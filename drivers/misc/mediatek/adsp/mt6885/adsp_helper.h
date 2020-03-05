@@ -65,6 +65,7 @@ enum semaphore_3way_flag {
 	SEMA_3WAY_C2C_B = 2,
 	SEMA_3WAY_DVFS =  3,
 	SEMA_3WAY_AUDIO = 4,
+	SEMA_3WAY_AUDIOREG = 5,
 	SEMA_3WAY_NUM =   7,
 };
 

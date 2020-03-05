@@ -147,7 +147,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
-			ret = mtk_memif_set_enable(afe, id);
+			ret = mtk_dsp_memif_set_enable(afe, id);
 #else
 		ret = mtk_memif_set_enable(afe, id);
 #endif
@@ -215,7 +215,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
-			ret = mtk_memif_set_disable(afe, id);
+			ret = mtk_dsp_memif_set_disable(afe, id);
 #else
 		ret = mtk_memif_set_disable(afe, id);
 #endif
