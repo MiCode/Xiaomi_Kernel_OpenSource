@@ -141,7 +141,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 {
 	int i, j;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *state;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	const struct mtk_addon_scenario_data *addon_data;
 	const struct mtk_addon_path_data *addon_path;
@@ -182,6 +182,11 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
 
+	if (!crtc->state) {
+		DDPDUMP("%s dump nothing for null state\n", __func__);
+		return;
+	}
+	state = to_mtk_crtc_state(crtc->state);
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 						state->lye_state.scn[crtc_id]);
 	if (!addon_data)
@@ -252,8 +257,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_dump_analysis(comp);
 
-	if (!crtc->state)
+	if (!crtc->state) {
+		DDPDUMP("%s dump nothing for null state\n", __func__);
 		return;
+	}
 	state = to_mtk_crtc_state(crtc->state);
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 					state->lye_state.scn[crtc_id]);
