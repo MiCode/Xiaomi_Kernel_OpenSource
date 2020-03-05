@@ -1355,7 +1355,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 */
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
-	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
+	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)
+			|| !drvdata->usbch) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
@@ -1495,10 +1496,12 @@ static void _tmc_disable_etr_sink(struct coresight_device *csdev)
 								flags);
 				tmc_etr_bam_disable(drvdata);
 				usb_qdss_close(drvdata->usbch);
+				drvdata->usbch = NULL;
 				drvdata->mode = CS_MODE_DISABLED;
 				goto out;
 			} else {
 				usb_qdss_close(drvdata->usbch);
+				drvdata->usbch = NULL;
 				tmc_etr_disable_hw(drvdata);
 			}
 		} else {

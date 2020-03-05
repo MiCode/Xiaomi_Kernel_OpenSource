@@ -1367,6 +1367,11 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 		MHI_VERB("Processing Event:0x%llx 0x%08x 0x%08x\n",
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
+		mhi_event->last_cached_tre.ptr = local_rp->ptr;
+		mhi_event->last_cached_tre.dword[0] = local_rp->dword[0];
+		mhi_event->last_cached_tre.dword[1] = local_rp->dword[1];
+		mhi_event->last_dev_rp = (u64)dev_rp;
+
 		chan = MHI_TRE_GET_EV_CHID(local_rp);
 		if (chan >= mhi_cntrl->max_chan) {
 			MHI_ERR("invalid channel id %u\n", chan);
@@ -1734,9 +1739,15 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 {
 
 	struct mhi_controller *mhi_cntrl = dev;
+	u32 in_reset = -1;
 
 	/* wake up any events waiting for state change */
 	MHI_VERB("Enter\n");
+	if (unlikely(mhi_cntrl->initiate_mhi_reset)) {
+		mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
+			MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, &in_reset);
+		mhi_cntrl->initiate_mhi_reset = !!in_reset;
+	}
 	wake_up_all(&mhi_cntrl->state_event);
 	MHI_VERB("Exit\n");
 
@@ -2525,13 +2536,13 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	/* not all devices support time feature */
 	if (!mhi_tsync) {
 		ret = -EIO;
-		goto err_unlock;
+		goto error_unlock;
 	}
 
 	/* bring to M0 state */
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
-		goto err_unlock;
+		goto error_unlock;
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
@@ -2544,8 +2555,10 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 
 	/* disable link level low power modes */
 	ret = mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
-	if (ret)
+	if (ret) {
+		read_lock_bh(&mhi_cntrl->pm_lock);
 		goto error_invalid_state;
+	}
 
 	/*
 	 * time critical code to fetch device times,
@@ -2567,7 +2580,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 error_invalid_state:
 	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
-err_unlock:
+error_unlock:
 	mutex_unlock(&mhi_cntrl->tsync_mutex);
 	return ret;
 }

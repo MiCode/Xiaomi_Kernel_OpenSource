@@ -1258,7 +1258,8 @@ static int mmc_select_hs400(struct mmc_card *card)
 		goto out_err;
 
 	val = EXT_CSD_DDR_BUS_WIDTH_8;
-	if (card->ext_csd.strobe_support) {
+	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES
+			&& card->ext_csd.strobe_support) {
 		err = mmc_select_bus_width(card);
 		if (IS_ERR_VALUE((unsigned long)err))
 			return err;
@@ -1293,7 +1294,9 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_bus_speed(card);
 
-	if (card->ext_csd.strobe_support && host->ops->enhanced_strobe) {
+	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES
+			&& card->ext_csd.strobe_support
+			&& host->ops->enhanced_strobe) {
 		err = host->ops->enhanced_strobe(host);
 		if (!err)
 			host->ios.enhanced_strobe = true;
@@ -1611,8 +1614,7 @@ static int mmc_select_timing(struct mmc_card *card)
 		goto bus_speed;
 
 	/* For Enhance Strobe HS400 flow */
-	if (card->ext_csd.strobe_support &&
-	    card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES &&
 	    card->host->caps & MMC_CAP_8_BIT_DATA) {
 		err = mmc_select_hs400(card);
 		if (err) {
