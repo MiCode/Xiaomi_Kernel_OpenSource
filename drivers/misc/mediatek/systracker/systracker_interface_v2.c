@@ -116,15 +116,6 @@ static int systracker_platform_probe_default(struct platform_device *pdev)
 	systracker_irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	pr_notice("%s:%d: irq # %d\n", __func__, __LINE__, systracker_irq);
 
-#ifdef CONFIG_MTK_BUS_TRACER
-	pr_notice("[systracker] register isr for bus tracer\n");
-	if (request_irq(systracker_irq, (irq_handler_t)systracker_isr,
-				IRQF_TRIGGER_NONE, "SYSTRACKER", NULL)) {
-		pr_notice("SYSTRACKER IRQ LINE NOT AVAILABLE!!\n");
-		return -1;
-	}
-#endif
-
 	/* save entry info */
 	save_entry();
 
