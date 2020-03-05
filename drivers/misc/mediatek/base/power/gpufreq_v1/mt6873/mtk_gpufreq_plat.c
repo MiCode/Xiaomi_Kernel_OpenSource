@@ -141,7 +141,7 @@ static unsigned int __mt_gpufreq_get_cur_vgpu(void);
 static unsigned int __mt_gpufreq_get_cur_freq(void);
 static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void);
 static unsigned int __mt_gpufreq_get_segment_id(void);
-static struct opp_table_info *__mt_gpufreq_get_segment_table(void);
+static unsigned int __mt_gpufreq_get_segment_table(void);
 static int __mt_gpufreq_get_opp_idx_by_vgpu(unsigned int vgpu);
 static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu);
 static void __mt_gpufreq_kick_pbm(int enable);
@@ -1007,8 +1007,14 @@ void mt_gpufreq_disable_by_ptpod(void)
  */
 void mt_gpufreq_restore_default_volt(void)
 {
-	struct opp_table_info *opp_table = __mt_gpufreq_get_segment_table();
+	unsigned int segment_table = __mt_gpufreq_get_segment_table();
+	struct opp_table_info *opp_table = NULL;
 	int i;
+
+	if (segment_table == SEGMENT_TABLE_1)
+		opp_table = g_opp_table_segment_1;
+	else if (segment_table == SEGMENT_TABLE_2)
+		opp_table = g_opp_table_segment_2;
 
 	mutex_lock(&mt_gpufreq_lock);
 
@@ -1683,25 +1689,33 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 
 	return segment_id;
 }
-static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
+
+static unsigned int __mt_gpufreq_get_segment_table(void)
 {
-#if 1
-	return g_opp_table_segment_1;
-#else
-
 	unsigned int efuse_id;
+	static int segment_table = -1;
 
-	efuse_id = ((get_devinfo_with_index(72) >> 18) & 0x3);
+	if (segment_table != -1)
+		return segment_table;
+
+	efuse_id = ((get_devinfo_with_index(69) >> 4) & 0x3);
+
 	switch (efuse_id) {
 	case 0x0:
-		return g_opp_table_segment_1;
+		segment_table = SEGMENT_TABLE_1;
+		break;
 	case 0x1:
-		return g_opp_table_segment_2;
+		segment_table = SEGMENT_TABLE_2;
+		break;
 	default:
+		segment_table = SEGMENT_TABLE_1;
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
-		return g_opp_table_segment_1;
 	}
-#endif
+
+	gpufreq_pr_info("@%s: efuse_id: 0x%x, segment_table: %d\n",
+					__func__, efuse_id, segment_table);
+
+	return segment_table;
 }
 
 /**
@@ -1823,27 +1837,29 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 	mtk_get_gpu_loading(&gpu_loading);
 #endif
 
-	seq_printf(m, "idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			g_cur_opp_idx - g_segment_max_opp_idx,
-			g_cur_opp_freq,
-			g_cur_opp_vgpu,
-			g_cur_opp_vsram_gpu);
-	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			mt_get_abist_freq(AD_MFGPLL_CK),
-			__mt_gpufreq_get_cur_freq(),
-			__mt_gpufreq_get_cur_vgpu(),
-			__mt_gpufreq_get_cur_vsram_gpu());
-	seq_printf(m, "segment_id = %d\n", __mt_gpufreq_get_segment_id());
-	seq_printf(m, "g_power_count = %d, g_cg_on = %d, g_mtcmos_on = %d, g_buck_on = %d\n",
-			g_power_count, g_cg_on, g_mtcmos_on, g_buck_on);
-	seq_printf(m, "g_opp_stress_test_state = %d\n",
-			g_opp_stress_test_state);
-	seq_printf(m, "g_max_upper_limited_idx = %d\n",
+	seq_printf(m, "Freq: %d (%d), Vgpu: %d, Vsram_gpu: %d\n\n",
+					mt_get_abist_freq(AD_MFGPLL_CK),
+					__mt_gpufreq_get_cur_freq(),
+					__mt_gpufreq_get_cur_vgpu(),
+					__mt_gpufreq_get_cur_vsram_gpu());
+
+	seq_printf(m, "power_count   : %d\n", g_power_count);
+	seq_printf(m, "cg_on         : %d\n", g_cg_on);
+	seq_printf(m, "mtcmos_on     : %d\n", g_mtcmos_on);
+	seq_printf(m, "buck_on       : %d\n\n", g_buck_on);
+
+	seq_printf(m, "segment_id    : %d\n",
+					__mt_gpufreq_get_segment_id());
+	seq_printf(m, "segment_table : %d\n\n",
+					__mt_gpufreq_get_segment_table());
+
+	seq_printf(m, "max_upper_limited_idx : %d\n",
 			g_max_upper_limited_idx - g_segment_max_opp_idx);
-	seq_printf(m, "g_min_lower_limited_idx = %d\n",
+	seq_printf(m, "min_lower_limited_idx : %d\n\n",
 			g_min_lower_limited_idx - g_segment_max_opp_idx);
-	seq_printf(m, "gpu_loading = %d\n",
-			gpu_loading);
+
+	seq_printf(m, "opp_stress_test_state : %d\n", g_opp_stress_test_state);
+	seq_printf(m, "gpu_loading           : %d\n\n", gpu_loading);
 
 	return 0;
 }
@@ -2879,18 +2895,21 @@ static void __mt_gpufreq_kick_pbm(int enable)
 
 static void __mt_gpufreq_init_table(void)
 {
-	struct opp_table_info *opp_table = __mt_gpufreq_get_segment_table();
+	unsigned int segment_table  = __mt_gpufreq_get_segment_table();
 	unsigned int segment_id = __mt_gpufreq_get_segment_id();
-	unsigned int i = 0;
+	struct opp_table_info *opp_table = NULL;
+	unsigned int i;
 
-	/* determine max_opp/num/segment_table... by segment  */
+	if (segment_table == SEGMENT_TABLE_1)
+		opp_table = g_opp_table_segment_1;
+	else if (segment_table == SEGMENT_TABLE_2)
+		opp_table = g_opp_table_segment_2;
+
 	if (segment_id == MT6873_SEGMENT)
 		g_segment_max_opp_idx = 17;
 	else if (segment_id == MT6875_SEGMENT)
 		g_segment_max_opp_idx = 12;
 	else if (segment_id == MT6875T_SEGMENT)
-		g_segment_max_opp_idx = 4;
-	else
 		g_segment_max_opp_idx = 4;
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
