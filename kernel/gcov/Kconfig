@@ -53,7 +53,6 @@ config GCOV_PROFILE_ALL
 choice
 	prompt "Specify GCOV format"
 	depends on GCOV_KERNEL
-	default GCOV_FORMAT_AUTODETECT
 	---help---
 	The gcov format is usually determined by the GCC version, but there are
 	exceptions where format changes are integrated in lower-version GCCs.
@@ -61,12 +60,6 @@ choice
 	accordingly.
 
 	If unsure, choose "Autodetect".
-
-config GCOV_FORMAT_AUTODETECT
-	bool "Autodetect"
-	---help---
-	Select this option to use the format that corresponds to your GCC
-	version.
 
 config GCOV_FORMAT_3_4
 	bool "GCC 3.4 format"
