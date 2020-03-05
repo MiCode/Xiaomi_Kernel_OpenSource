@@ -589,6 +589,8 @@ int ccu_clock_enable(void)
 	int ret = 0;
 
 	LOG_DBG_MUST("%s, 2 clks, 2 pwr. %d\n", __func__, _clk_count);
+
+	mutex_lock(&g_ccu_device->clk_mutex);
 	_clk_count++;
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	ccu_qos_init();
@@ -610,23 +612,29 @@ int ccu_clock_enable(void)
 	if (ret)
 		LOG_ERR("CCU_CLK_CAM_CCU enable fail.\n");
 #endif
+	mutex_unlock(&g_ccu_device->clk_mutex);
 	return ret;
 }
 
 void ccu_clock_disable(void)
 {
 	LOG_DBG_MUST("%s. %d\n", __func__, _clk_count);
-	_clk_count--;
+
+	mutex_lock(&g_ccu_device->clk_mutex);
 #ifndef CCU_LDVT
-	clk_disable_unprepare(ccu_clk_pwr_ctrl[3]);
-	clk_disable_unprepare(ccu_clk_pwr_ctrl[2]);
-	clk_disable_unprepare(ccu_clk_pwr_ctrl[1]);
-	clk_disable_unprepare(ccu_clk_pwr_ctrl[0]);
+	if (_clk_count > 0) {
+		clk_disable_unprepare(ccu_clk_pwr_ctrl[3]);
+		clk_disable_unprepare(ccu_clk_pwr_ctrl[2]);
+		clk_disable_unprepare(ccu_clk_pwr_ctrl[1]);
+		clk_disable_unprepare(ccu_clk_pwr_ctrl[0]);
+		_clk_count--;
+	}
 #endif
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	ccu_qos_uninit();
 #endif
+	mutex_unlock(&g_ccu_device->clk_mutex);
 }
 
 static long ccu_ioctl(struct file *flip, unsigned int cmd,
@@ -1510,6 +1518,7 @@ static int __init CCU_INIT(void)
 
 	INIT_LIST_HEAD(&g_ccu_device->user_list);
 	mutex_init(&g_ccu_device->user_mutex);
+	mutex_init(&g_ccu_device->clk_mutex);
 	mutex_init(&g_ccu_device->ion_client_mutex);
 	init_waitqueue_head(&g_ccu_device->cmd_wait);
 

@@ -825,7 +825,7 @@ int ccu_run(void)
 	LOG_DBG_MUST("ccu log test stat: %x\n",
 			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
 
-	LOG_DBG_MUST("-:%s(0102)\n", __func__);
+	LOG_DBG_MUST("-:%s(0218)\n", __func__);
 
 	return 0;
 }
