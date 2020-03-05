@@ -1469,6 +1469,8 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 		}
 #endif
 		det->VMAX += det->DVTFIXED;
+		if ((get_devinfo_with_index(DEVINFO_IDX_19) >> 4 & 0x3) == 0x1)
+			det->VMIN = VMIN_VAL_GPU_01;
 		break;
 #if ENABLE_VPU
 	case EEMG_DET_VPU:
@@ -1507,6 +1509,8 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 			det->features = 0;
 			det->loo_role = NO_LOO_BANK;
 		}
+		if ((get_devinfo_with_index(DEVINFO_IDX_19) >> 4 & 0x3) == 0x1)
+			det->VMIN = VMIN_VAL_GH_01;
 		break;
 #endif
 	default:

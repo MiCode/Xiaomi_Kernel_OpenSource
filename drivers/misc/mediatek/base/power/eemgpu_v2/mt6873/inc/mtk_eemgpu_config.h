@@ -84,8 +84,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_15 65
 #define DEVINFO_IDX_16 66
 #define DEVINFO_IDX_17 67
-
-
+#define DEVINFO_IDX_19 69
 
 #if EEMG_FAKE_EFUSE		/* select secure mode based on efuse config */
 #define SEC_MOD_SEL			0x00		/* non secure  mode */
@@ -283,19 +282,21 @@ enum mt_cpu_dvfs_id {
 
 /* different for GPU */
 #define VMAX_VAL_GPU                    (0x60) /* eem domain: 1v*/
-#define VMIN_VAL_GPU                    (0x18) /* eem domain: 0.55v*/
+#define VMIN_VAL_GPU			(0x1A) /* 0.5625v */
+#define VMIN_VAL_GPU_01			(0x1E) /* 0.5875v */
 #define VCO_VAL_GPU                     (0x18) /* eem domain: 0.55v*/
 
 /* different for GPU_L */
 #define VMAX_VAL_GL                     (0x60)
 #define VMIN_VAL_GL                     (0x18)
 #define VCO_VAL_GL                      (0x18)
-#define DVTFIXED_VAL_GL					(0x01)
-#define DVTFIXED_VAL_GPU				(0x06)
+#define DVTFIXED_VAL_GL			(0x01)
+#define DVTFIXED_VAL_GPU		(0x06)
 
 /* different for GPU_H */
 #define VMAX_VAL_GH                     (0x60) /* volt domain: 1.11875v*/
-#define VMIN_VAL_GH                     (0x18)
+#define VMIN_VAL_GH			(0x1A) /* 0.5625v */
+#define VMIN_VAL_GH_01                  (0x1E) /* 0.5875v */
 #define VCO_VAL_GH                      (0x18)
 
 /* different for L_L */
