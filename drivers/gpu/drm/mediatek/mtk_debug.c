@@ -18,6 +18,7 @@
 #include <linux/sched/clock.h>
 #include <linux/of_address.h>
 #include <drm/drmP.h>
+#include <drm/drm_mipi_dsi.h>
 #include "mtk_dump.h"
 #include "mtk_debug.h"
 #include "mtk_drm_crtc.h"
@@ -645,6 +646,467 @@ void dump_fake_engine(void __iomem *config_regs)
 		mtk_serial_dump_reg(config_regs, 0x230, 3);
 }
 
+static void mtk_ddic_send_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+	CRTC_MMP_MARK(0, ddic_send_cmd, 1, 1);
+}
+
+int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
+			bool blocking)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *private;
+	struct mtk_ddp_comp *output_comp;
+	struct cmdq_pkt *cmdq_handle;
+	bool is_frame_mode;
+	struct mtk_cmdq_cb_data *cb_data;
+	int index = 0;
+	int ret = 0;
+
+	DDPMSG("%s +\n", __func__);
+
+	/* This cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, ddic_send_cmd, (unsigned long)crtc,
+				blocking);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 0);
+		return -EINVAL;
+	}
+
+	private = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	mutex_lock(&private->commit.lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!mtk_crtc->enabled) {
+		DDPMSG("crtc%d disable skip %s\n",
+			drm_crtc_index(&mtk_crtc->base), __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
+		return -EINVAL;
+	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		DDPMSG("skip %s, ddp_mode: NO_USE\n",
+			__func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
+		return -EINVAL;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 3);
+		return -EINVAL;
+	}
+
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+
+	CRTC_MMP_MARK(index, ddic_send_cmd, 1, 0);
+
+	/* Kick idle */
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+
+	mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+	if (is_frame_mode) {
+		cmdq_pkt_wfe(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	}
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH, 0);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH, 0);
+
+	/* DSI_SEND_DDIC_CMD */
+	if (output_comp)
+		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+		DSI_SEND_DDIC_CMD, cmd_msg);
+
+	if (is_frame_mode) {
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	}
+
+	if (blocking) {
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	} else {
+		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+		if (!cb_data) {
+			DDPPR_ERR("%s:cb data creation failed\n", __func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
+			return -EINVAL;
+		}
+
+		cb_data->cmdq_handle = cmdq_handle;
+		cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+	}
+	DDPMSG("%s -\n", __func__);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	mutex_unlock(&private->commit.lock);
+	CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
+			blocking);
+
+	return ret;
+}
+
+int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *private;
+	struct mtk_ddp_comp *output_comp;
+	int index = 0;
+	int ret = 0;
+
+	DDPMSG("%s +\n", __func__);
+
+	/* This cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, ddic_read_cmd, (unsigned long)crtc, 0);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 0);
+		return -EINVAL;
+	}
+
+	private = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	mutex_lock(&private->commit.lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!mtk_crtc->enabled) {
+		DDPMSG("crtc%d disable skip %s\n",
+			drm_crtc_index(&mtk_crtc->base), __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 1);
+		return -EINVAL;
+	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		DDPMSG("skip %s, ddp_mode: NO_USE\n",
+			__func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 2);
+		return -EINVAL;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 3);
+		return -EINVAL;
+	}
+
+	CRTC_MMP_MARK(index, ddic_read_cmd, 1, 0);
+
+	/* Kick idle */
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	CRTC_MMP_MARK(index, ddic_read_cmd, 2, 0);
+
+	/* DSI_READ_DDIC_CMD */
+	if (output_comp)
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_READ_DDIC_CMD,
+				cmd_msg);
+
+	CRTC_MMP_MARK(index, ddic_read_cmd, 3, 0);
+
+	DDPMSG("%s -\n", __func__);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	mutex_unlock(&private->commit.lock);
+	CRTC_MMP_EVENT_END(index, ddic_read_cmd, (unsigned long)crtc, 4);
+
+	return ret;
+}
+
+void ddic_dsi_send_cmd_test(unsigned int case_num)
+{
+	unsigned int i = 0, j = 0;
+	int ret;
+	struct mtk_ddic_dsi_msg *cmd_msg =
+		vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	u8 tx[10] = {0};
+	u8 tx_1[10] = {0};
+
+	DDPMSG("%s start case_num:%d\n", __func__, case_num);
+
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+
+	switch (case_num) {
+	case 1:
+	{
+		/* Send 0x34 */
+		cmd_msg->channel = 0;
+		cmd_msg->flags = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x05;
+		tx[0] = 0x34;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		break;
+	}
+	case 2:
+	{
+		/* Send 0x35:0x00 */
+		cmd_msg->channel = 0;
+		cmd_msg->flags = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x15;
+		tx[0] = 0x35;
+		tx[1] = 0x00;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 2;
+
+		break;
+	}
+	case 3:
+	{
+		/* Send 0x28 */
+		cmd_msg->channel = 0;
+		cmd_msg->flags |= MIPI_DSI_MSG_USE_LPM;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x05;
+		tx[0] = 0x28;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		break;
+	}
+	case 4:
+	{
+		/* Send 0x29 */
+		cmd_msg->channel = 0;
+		cmd_msg->flags |= MIPI_DSI_MSG_USE_LPM;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x05;
+		tx[0] = 0x29;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		break;
+	}
+	case 5:
+	{
+		/* Multiple cmd UT case */
+		cmd_msg->channel = 0;
+		cmd_msg->flags = 0;
+		/*	cmd_msg->flags |= MIPI_DSI_MSG_USE_LPM; */
+		cmd_msg->tx_cmd_num = 2;
+
+		/* Send 0x34 */
+		cmd_msg->type[0] = 0x05;
+		tx[0] = 0x34;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		/* Send 0x28 */
+		cmd_msg->type[1] = 0x05;
+		tx_1[0] = 0x28;
+		cmd_msg->tx_buf[1] = tx_1;
+		cmd_msg->tx_len[1] = 1;
+
+		break;
+	}
+	case 6:
+	{
+		/* Multiple cmd UT case */
+		cmd_msg->channel = 0;
+		cmd_msg->flags = 0;
+		/*	cmd_msg->flags |= MIPI_DSI_MSG_USE_LPM; */
+		cmd_msg->tx_cmd_num = 2;
+
+		/* Send 0x35 */
+		cmd_msg->type[0] = 0x15;
+		tx[0] = 0x35;
+		tx[1] = 0x00;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 2;
+
+		/* Send 0x29 */
+		cmd_msg->type[1] = 0x05;
+		tx_1[0] = 0x29;
+		cmd_msg->tx_buf[1] = tx_1;
+		cmd_msg->tx_len[1] = 1;
+
+		break;
+	}
+	default:
+		DDPMSG("%s no this test case:%d\n", __func__, case_num);
+		break;
+	}
+
+	DDPMSG("send lcm tx_cmd_num:%d\n", (int)cmd_msg->tx_cmd_num);
+	for (i = 0; i < (int)cmd_msg->tx_cmd_num; i++) {
+		DDPMSG("send lcm tx_len[%d]=%d\n",
+			i, (int)cmd_msg->tx_len[i]);
+		for (j = 0; j < (int)cmd_msg->tx_len[i]; j++) {
+			DDPMSG(
+				"send lcm type[%d]=0x%x, tx_buf[%d]--byte:%d,val:0x%x\n",
+				i, cmd_msg->type[i], i, j,
+				*(char *)(cmd_msg->tx_buf[i] + j));
+		}
+	}
+
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	if (ret != 0) {
+		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
+		goto  done;
+	}
+done:
+	vfree(cmd_msg);
+
+	DDPMSG("%s end -\n", __func__);
+}
+
+void ddic_dsi_read_cmd_test(unsigned int case_num)
+{
+	unsigned int j = 0;
+	unsigned int ret_dlen = 0;
+	int ret;
+	struct mtk_ddic_dsi_msg *cmd_msg =
+		vmalloc(sizeof(struct mtk_ddic_dsi_msg));
+	u8 tx[10] = {0};
+
+	DDPMSG("%s start case_num:%d\n", __func__, case_num);
+
+	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
+
+	switch (case_num) {
+	case 1:
+	{
+		/* Read 0x0A = 0x1C */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x0A;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_cmd_num = 1;
+		cmd_msg->rx_buf[0] = vmalloc(4 * sizeof(unsigned char));
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 1;
+
+		break;
+	}
+	case 2:
+	{
+		/* Read 0xe8 = 0x00,0x01,0x23,0x00 */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0xe8;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_cmd_num = 1;
+		cmd_msg->rx_buf[0] = vmalloc(8 * sizeof(unsigned char));
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 4;
+
+		break;
+	}
+	case 3:
+	{
+/*
+ * Read 0xb6 =
+ *	0x30,0x6b,0x00,0x06,0x03,0x0A,0x13,0x1A,0x6C,0x18
+ */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0xb6;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_cmd_num = 1;
+		cmd_msg->rx_buf[0] = vmalloc(20 * sizeof(unsigned char));
+		memset(cmd_msg->rx_buf[0], 0, 20);
+		cmd_msg->rx_len[0] = 10;
+
+		break;
+	}
+	case 4:
+	{
+		/* Read 0x0e = 0x80 */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 1;
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x0e;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_cmd_num = 1;
+		cmd_msg->rx_buf[0] = vmalloc(4 * sizeof(unsigned char));
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 1;
+
+		break;
+	}
+	default:
+		DDPMSG("%s no this test case:%d\n", __func__, case_num);
+		break;
+	}
+
+	ret = mtk_ddic_dsi_read_cmd(cmd_msg);
+	if (ret != 0) {
+		DDPPR_ERR("%s error\n", __func__);
+		goto  done;
+	}
+
+	ret_dlen = cmd_msg->rx_len[0];
+	DDPMSG("read lcm addr:0x%x--dlen:%d\n",
+		*(char *)(cmd_msg->tx_buf[0]), ret_dlen);
+	for (j = 0; j < ret_dlen; j++) {
+		DDPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
+			*(char *)(cmd_msg->tx_buf[0]), j,
+			*(char *)(cmd_msg->rx_buf[0] + j));
+	}
+
+done:
+	vfree(cmd_msg->rx_buf[0]);
+	vfree(cmd_msg);
+
+	DDPMSG("%s end -\n", __func__);
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -961,6 +1423,32 @@ static void process_dbg_opt(const char *opt)
 		disp_aal_debug(opt + 4);
 	} else if (strncmp(opt, "aee:", 4) == 0) {
 		DDPAEE("trigger aee dump of mmproile\n");
+	} else if (strncmp(opt, "send_ddic_test:", 15) == 0) {
+		unsigned int case_num, ret;
+
+		ret = sscanf(opt, "send_ddic_test:%d\n", &case_num);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("send_ddic_test:%d\n", case_num);
+
+		ddic_dsi_send_cmd_test(case_num);
+	} else if (strncmp(opt, "read_ddic_test:", 15) == 0) {
+		unsigned int case_num, ret;
+
+		ret = sscanf(opt, "read_ddic_test:%d\n", &case_num);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPMSG("read_ddic_test:%d\n", case_num);
+
+		ddic_dsi_read_cmd_test(case_num);
 	}
 }
 

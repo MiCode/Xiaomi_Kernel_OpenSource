@@ -213,6 +213,7 @@
 #define LONG_PACKET 2
 #define VM_LONG_PACKET BIT(1)
 #define BTA BIT(2)
+#define HSTX BIT(3)
 #define DATA_ID (0xff << 8)
 #define DATA_0 (0xff << 16)
 #define DATA_1 (0xff << 24)
@@ -3160,6 +3161,552 @@ void mipi_dsi_dcs_grp_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 	}
 }
 
+static void _mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
+				struct cmdq_pkt *handle,
+				const struct mipi_dsi_msg *msg)
+{
+	const char *tx_buf = msg->tx_buf;
+	u8 config, cmdq_size, cmdq_off, type = msg->type;
+	u32 reg_val, cmdq_mask, i;
+	unsigned long goto_addr;
+
+	DDPMSG("%s +\n", __func__);
+
+	if (MTK_DSI_HOST_IS_READ(type))
+		config = BTA;
+	else
+		config = (msg->tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
+
+	if (!(msg->flags & MIPI_DSI_MSG_USE_LPM))
+		config |= HSTX;
+
+	if (msg->tx_len > 2) {
+		cmdq_size = 1 + (msg->tx_len + 3) / 4;
+		cmdq_off = 4;
+		cmdq_mask = CONFIG | DATA_ID | DATA_0 | DATA_1;
+		reg_val = (msg->tx_len << 16) | (type << 8) | config;
+	} else {
+		cmdq_size = 1;
+		cmdq_off = 2;
+		cmdq_mask = CONFIG | DATA_ID;
+		reg_val = (type << 8) | config;
+	}
+
+	for (i = 0; i < msg->tx_len; i++) {
+		goto_addr = dsi->driver_data->reg_cmdq_ofs + cmdq_off + i;
+		cmdq_mask = (0xFFu << ((goto_addr & 0x3u) * 8));
+		mtk_ddp_write_mask(&dsi->ddp_comp,
+			tx_buf[i] << ((goto_addr & 0x3u) * 8),
+			goto_addr, (0xFFu << ((goto_addr & 0x3u) * 8)),
+			handle);
+
+		DDPINFO("set cmdqaddr %lx, val:%x, mask %x\n", goto_addr,
+			tx_buf[i] << ((goto_addr & 0x3u) * 8),
+			(0xFFu << ((goto_addr & 0x3u) * 8)));
+	}
+	if (msg->tx_len > 2)
+		cmdq_mask = CONFIG | DATA_ID | DATA_0 | DATA_1;
+	else
+		cmdq_mask = CONFIG | DATA_ID;
+
+	mtk_ddp_write_mask(&dsi->ddp_comp, reg_val,
+				dsi->driver_data->reg_cmdq_ofs,
+				cmdq_mask, handle);
+	DDPINFO("set cmdqaddr %u, val:%x, mask %x\n",
+			dsi->driver_data->reg_cmdq_ofs,
+			reg_val,
+			cmdq_mask);
+	mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_size,
+				DSI_CMDQ_SIZE, CMDQ_SIZE, handle);
+	DDPINFO("set cmdqaddr %u, val:%x, mask %x\n", DSI_CMDQ_SIZE, cmdq_size,
+			CMDQ_SIZE);
+
+	DDPMSG("%s -\n", __func__);
+}
+
+int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
+			struct cmdq_pkt *handle,
+			struct mtk_drm_crtc *mtk_crtc,
+			struct mtk_ddic_dsi_msg *cmd_msg)
+{
+	unsigned int i = 0, j = 0;
+	int dsi_mode = readl(dsi->regs + DSI_MODE_CTRL) & MODE;
+	struct mipi_dsi_msg msg;
+	unsigned int use_lpm = cmd_msg->flags & MIPI_DSI_MSG_USE_LPM;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+
+	DDPMSG("%s +\n", __func__);
+
+	/* Check cmd_msg param */
+	if (cmd_msg->type == 0 ||
+		cmd_msg->tx_cmd_num == 0 ||
+		cmd_msg->tx_cmd_num > MAX_TX_CMD_NUM) {
+		DDPPR_ERR("%s: type is %s, tx_cmd_num is %d\n",
+			__func__, cmd_msg->type, (int)cmd_msg->tx_cmd_num);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+		if (cmd_msg->tx_buf[i] == 0 || cmd_msg->tx_len[i] == 0) {
+			DDPPR_ERR("%s: tx_buf[%d] is %s, tx_len[%d] is %d\n",
+				__func__, i, (char *)cmd_msg->tx_buf[i], i,
+				(int)cmd_msg->tx_len[i]);
+			return -EINVAL;
+		}
+	}
+
+	/* Debug info */
+	DDPINFO("%s: channel=%d, flags=0x%x, tx_cmd_num=%d\n",
+		__func__, cmd_msg->channel,
+		cmd_msg->flags, (int)cmd_msg->tx_cmd_num);
+	for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+		DDPINFO("type[%d]=0x%x, tx_len[%d]=%d\n",
+			i, cmd_msg->type[i], i, (int)cmd_msg->tx_len[i]);
+		for (j = 0; j < cmd_msg->tx_len[i]; j++) {
+			DDPINFO("tx_buf[%d]--byte:%d,val:0x%x\n",
+				i, j, *(char *)(cmd_msg->tx_buf[i] + j));
+		}
+	}
+
+	msg.channel = cmd_msg->channel;
+	msg.flags = cmd_msg->flags;
+
+	if (dsi_mode == 0) { /* CMD mode HS/LP */
+		for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+
+			mtk_dsi_poll_for_idle(dsi, handle);
+
+			_mtk_mipi_dsi_write_gce(dsi, handle, &msg);
+
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+
+			mtk_dsi_poll_for_idle(dsi, handle);
+		}
+	} else if (dsi_mode != 0 && !use_lpm) { /* VDO with VM_CMD */
+		for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+
+			/* build VM cmd */
+			mtk_dsi_vm_cmdq(dsi, &msg, handle);
+
+			/* clear VM_CMD_DONE */
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
+				VM_CMD_DONE_INT_EN);
+
+			/* start to send VM cmd */
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, 0,
+				VM_CMD_START);
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, VM_CMD_START,
+				VM_CMD_START);
+
+			/* poll VM cmd done */
+			mtk_dsi_cmdq_poll(&dsi->ddp_comp, handle,
+				dsi->ddp_comp.regs_pa + DSI_INTSTA,
+				VM_CMD_DONE_INT_EN, VM_CMD_DONE_INT_EN);
+
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, 0,
+				VM_CMD_START);
+
+			/* clear VM_CMD_DONE */
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
+				VM_CMD_DONE_INT_EN);
+		}
+	} else if (dsi_mode != 0 && use_lpm) { /* VDO to CMD with LP */
+		mtk_dsi_stop_vdo_mode(dsi, handle);
+
+		for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+
+			mtk_dsi_poll_for_idle(dsi, handle);
+
+			_mtk_mipi_dsi_write_gce(dsi, handle, &msg);
+
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+
+			mtk_dsi_poll_for_idle(dsi, handle);
+		}
+
+		mtk_dsi_start_vdo_mode(comp, handle);
+		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
+		mtk_dsi_trigger(comp, handle);
+	}
+
+	DDPMSG("%s -\n", __func__);
+	return 0;
+}
+
+static void _mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
+				struct cmdq_pkt *handle,
+				struct mipi_dsi_msg *msg)
+{
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct DSI_T0_INS t0, t1;
+	dma_addr_t read_slot = mtk_crtc->gce_obj.buf.pa_base +
+					DISP_SLOT_READ_DDIC_BASE;
+	const char *tx_buf = msg->tx_buf;
+
+	DDPMSG("%s +\n", __func__);
+
+	DDPINFO("%s type=0x%x, tx_len=%d, tx_buf[0]=0x%x, rx_len=%d\n",
+		__func__, msg->type, (int)msg->tx_len,
+		tx_buf[0], (int)msg->rx_len);
+
+	if (msg->tx_len > 2) {
+		DDPPR_ERR("%s: msg->tx_len is more than 2\n", __func__);
+		goto done;
+	}
+
+	t0.CONFG = 0x00;
+	t0.Data_ID = 0x37;
+	t0.Data0 = msg->rx_len;
+	t0.Data1 = 0;
+
+	t1.CONFG = BTA;
+	t1.Data_ID = msg->type;
+	t1.Data0 = tx_buf[0];
+	if (msg->tx_len == 2)
+		t1.Data1 = tx_buf[1];
+	else
+		t1.Data1 = 0;
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ0,
+		AS_UINT32(&t0), ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ1,
+		AS_UINT32(&t1), ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+		0x2, ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
+		0x0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
+		0x1, ~0);
+
+	mtk_dsi_cmdq_poll(comp, handle, comp->regs_pa + DSI_INTSTA, 0x1, 0x1);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
+		0x0, 0x1);
+
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA0, read_slot,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA1, read_slot + 1 * 0x4,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA2, read_slot + 2 * 0x4,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA3, read_slot + 3 * 0x4,
+		CMDQ_THR_SPR_IDX3);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_RACK,
+		0x1, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
+		0x0, 0x1);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+
+done:
+	DDPMSG("%s -\n", __func__);
+}
+
+static unsigned int read_ddic_chk_sta;
+
+static void ddic_read_timeout_cb(struct cmdq_cb_data data)
+{
+	struct drm_crtc *crtc = data.data;
+
+	if (!crtc) {
+		DDPPR_ERR("%s find crtc fail\n", __func__);
+		return;
+	}
+
+	DDPPR_ERR("%s flush fail\n", __func__);
+	read_ddic_chk_sta = 0xff;
+	mtk_drm_crtc_analysis(crtc);
+	mtk_drm_crtc_dump(crtc);
+}
+
+int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
+			struct cmdq_pkt *handle,
+			struct mtk_drm_crtc *mtk_crtc,
+			struct mtk_ddic_dsi_msg *cmd_msg)
+{
+	unsigned int i = 0, j = 0;
+	int dsi_mode = readl(dsi->regs + DSI_MODE_CTRL) & MODE;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mipi_dsi_msg msg;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
+	int ret = 0;
+	struct DSI_RX_DATA_REG read_data0 = {0, 0, 0, 0};
+	struct DSI_RX_DATA_REG read_data1 = {0, 0, 0, 0};
+	struct DSI_RX_DATA_REG read_data2 = {0, 0, 0, 0};
+	struct DSI_RX_DATA_REG read_data3 = {0, 0, 0, 0};
+	unsigned char packet_type;
+	unsigned int recv_data_cnt = 0;
+
+	DDPMSG("%s +\n", __func__);
+
+	/* Check cmd_msg param */
+	if (cmd_msg->type == 0 ||
+		cmd_msg->tx_cmd_num == 0 ||
+		cmd_msg->rx_cmd_num == 0 ||
+		cmd_msg->tx_cmd_num > MAX_TX_CMD_NUM ||
+		cmd_msg->rx_cmd_num > MAX_RX_CMD_NUM) {
+		DDPPR_ERR(
+			"%s: type is %s, tx_cmd_num is %d, rx_cmd_num is %d\n",
+			__func__, cmd_msg->type,
+			(int)cmd_msg->tx_cmd_num, (int)cmd_msg->rx_cmd_num);
+		return -EINVAL;
+	}
+
+	if (cmd_msg->tx_cmd_num != cmd_msg->rx_cmd_num) {
+		DDPPR_ERR("%s: tx_cmd_num is %d, rx_cmd_num is %d\n",
+			__func__, (int)cmd_msg->tx_cmd_num,
+			(int)cmd_msg->rx_cmd_num);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+		if (cmd_msg->tx_buf[i] == 0 || cmd_msg->tx_len[i] == 0) {
+			DDPPR_ERR("%s: tx_buf[%d] is %s, tx_len[%d] is %d\n",
+				__func__, i, (char *)cmd_msg->tx_buf[i], i,
+				(int)cmd_msg->tx_len[i]);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		if (cmd_msg->rx_buf[i] == 0 || cmd_msg->rx_len[i] == 0) {
+			DDPPR_ERR("%s: rx_buf[%d] is %s, rx_len[%d] is %d\n",
+				__func__, i, (char *)cmd_msg->rx_buf[i], i,
+				(int)cmd_msg->rx_len[i]);
+			return -EINVAL;
+		}
+
+		if (cmd_msg->rx_len[i] > RT_MAX_NUM) {
+			DDPPR_ERR("%s: only supprt read 10 bytes params\n",
+				__func__);
+			cmd_msg->rx_len[i] = RT_MAX_NUM;
+		}
+	}
+
+	/* Debug info */
+	DDPINFO("%s: channel=%d, flags=0x%x, tx_cmd_num=%d, rx_cmd_num=%d\n",
+		__func__, cmd_msg->channel,
+		cmd_msg->flags, (int)cmd_msg->tx_cmd_num,
+		(int)cmd_msg->rx_cmd_num);
+
+	for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+		DDPINFO("type[%d]=0x%x, tx_len[%d]=%d\n",
+			i, cmd_msg->type[i], i, (int)cmd_msg->tx_len[i]);
+		for (j = 0; j < (int)cmd_msg->tx_len[i]; j++) {
+			DDPINFO("tx_buf[%d]--byte:%d,val:0x%x\n",
+				i, j, *(char *)(cmd_msg->tx_buf[i] + j));
+		}
+	}
+
+	msg.channel = cmd_msg->channel;
+	msg.flags = cmd_msg->flags;
+
+	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	cmdq_handle->err_cb.cb = ddic_read_timeout_cb;
+	cmdq_handle->err_cb.data = crtc;
+
+	/* Reset DISP_SLOT_READ_DDIC_BASE to 0xff00ff00 */
+	for (i = 0; i < READ_DDIC_SLOT_NUM; i++) {
+		cmdq_pkt_write(cmdq_handle,
+			mtk_crtc->gce_obj.base,
+			(mtk_crtc->gce_obj.buf.pa_base +
+				DISP_SLOT_READ_DDIC_BASE + i * 0x4),
+			0xff00ff00, ~0);
+	}
+
+	/* Todo: Support read multiple registers */
+	msg.type = cmd_msg->type[0];
+	msg.tx_len = cmd_msg->tx_len[0];
+	msg.tx_buf = cmd_msg->tx_buf[0];
+	msg.rx_len = cmd_msg->rx_len[0];
+	msg.rx_buf = cmd_msg->rx_buf[0];
+
+	if (dsi_mode == 0) { /* CMD mode LP */
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+		cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+
+		_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg);
+
+		cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+	} else { /* VDO to CMD mode LP */
+		cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+
+		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
+
+		_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg);
+
+		mtk_dsi_start_vdo_mode(comp, cmdq_handle);
+		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], cmdq_handle);
+		mtk_dsi_trigger(comp, cmdq_handle);
+	}
+
+	read_ddic_chk_sta = 0;
+	cmdq_pkt_flush(cmdq_handle);
+
+	mtk_dsi_clear_rxrd_irq(dsi);
+
+	if (read_ddic_chk_sta == 0xff) {
+		ret = -EINVAL;
+		/* CMD mode error handle */
+		if (dsi_mode == 0) {
+			/* TODO: set ESD_EOF event through CPU is better */
+			mtk_crtc_pkt_create(&cmdq_handle2, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+			cmdq_pkt_set_event(
+				cmdq_handle2,
+				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+			cmdq_pkt_flush(cmdq_handle2);
+			cmdq_pkt_destroy(cmdq_handle2);
+		}
+		goto done;
+	}
+
+	/* Copy slot data to data array */
+	memcpy((void *)&read_data0,
+		(mtk_crtc->gce_obj.buf.va_base +
+			DISP_SLOT_READ_DDIC_BASE + 0 * 0x4),
+			sizeof(unsigned int));
+	memcpy((void *)&read_data1,
+		(mtk_crtc->gce_obj.buf.va_base +
+			DISP_SLOT_READ_DDIC_BASE + 1 * 0x4),
+			sizeof(unsigned int));
+	memcpy((void *)&read_data2,
+		(mtk_crtc->gce_obj.buf.va_base +
+			DISP_SLOT_READ_DDIC_BASE + 2 * 0x4),
+			sizeof(unsigned int));
+	memcpy((void *)&read_data3,
+		(mtk_crtc->gce_obj.buf.va_base +
+			DISP_SLOT_READ_DDIC_BASE + 3 * 0x4),
+			sizeof(unsigned int));
+
+	DDPINFO("%s: read_data0 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+		__func__, read_data0.byte0, read_data0.byte1
+		, read_data0.byte2, read_data0.byte3);
+	DDPINFO("%s: read_data1 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+		__func__, read_data1.byte0, read_data1.byte1
+		, read_data1.byte2, read_data1.byte3);
+	DDPINFO("%s: read_data2 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+		__func__, read_data2.byte0, read_data2.byte1
+		, read_data2.byte2, read_data2.byte3);
+	DDPINFO("%s: read_data3 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+		__func__, read_data3.byte0, read_data3.byte1
+		, read_data3.byte2, read_data3.byte3);
+
+	/*parse packet*/
+	packet_type = read_data0.byte0;
+		/* 0x02: acknowledge & error report */
+		/* 0x11: generic short read response(1 byte return) */
+		/* 0x12: generic short read response(2 byte return) */
+		/* 0x1a: generic long read response */
+		/* 0x1c: dcs long read response */
+		/* 0x21: dcs short read response(1 byte return) */
+		/* 0x22: dcs short read response(2 byte return) */
+	if (packet_type == 0x1A || packet_type == 0x1C) {
+		recv_data_cnt = read_data0.byte1
+				+ read_data0.byte2 * 16;
+
+		if (recv_data_cnt > RT_MAX_NUM) {
+			DDPMSG("DSI read long packet data exceeds 10 bytes\n");
+				recv_data_cnt = RT_MAX_NUM;
+		}
+		if (recv_data_cnt > msg.rx_len)
+			recv_data_cnt = msg.rx_len;
+
+		DDPINFO("DSI read long packet size: %d\n",
+			recv_data_cnt);
+		if (recv_data_cnt <= 4) {
+			memcpy((void *)msg.rx_buf,
+				(void *)&read_data1, recv_data_cnt);
+		} else if (recv_data_cnt <= 8) {
+			memcpy((void *)msg.rx_buf,
+				(void *)&read_data1, 4);
+			memcpy((void *)(msg.rx_buf + 4),
+				(void *)&read_data2, recv_data_cnt - 4);
+		} else {
+			memcpy((void *)msg.rx_buf,
+					(void *)&read_data1, 4);
+			memcpy((void *)(msg.rx_buf + 4),
+					(void *)&read_data2, 4);
+			memcpy((void *)(msg.rx_buf + 8),
+				(void *)&read_data3, recv_data_cnt - 8);
+		}
+
+	} else if (packet_type == 0x11 || packet_type == 0x21) {
+		recv_data_cnt = 1;
+		memcpy((void *)msg.rx_buf,
+			(void *)&read_data0.byte1, recv_data_cnt);
+
+	} else if (packet_type == 0x12 || packet_type == 0x22) {
+		recv_data_cnt = 2;
+		if (recv_data_cnt > msg.rx_len)
+			recv_data_cnt = msg.rx_len;
+
+		memcpy((void *)msg.rx_buf,
+			(void *)&read_data0.byte1, recv_data_cnt);
+
+	} else if (packet_type == 0x02) {
+		DDPPR_ERR("read return type is 0x02, re-read\n");
+	} else {
+		DDPPR_ERR("read return type is non-recognite, type = 0x%x\n",
+				packet_type);
+	}
+	msg.rx_len = recv_data_cnt;
+	DDPINFO("[DSI]packet_type~recv_data_cnt = 0x%x~0x%x\n",
+			packet_type, recv_data_cnt);
+
+	/* Todo: Support read multiple registers */
+	cmd_msg->rx_len[0] = msg.rx_len;
+	cmd_msg->rx_buf[0] = msg.rx_buf;
+
+	/* Debug info */
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		DDPINFO("rx_len[%d]=%d\n", i, (int)cmd_msg->rx_len[i]);
+		for (j = 0; j < cmd_msg->rx_len[i]; j++) {
+			DDPINFO("rx_buf[%d]--byte:%d,val:0x%x\n",
+				i, j, *(char *)(cmd_msg->rx_buf[i] + j));
+		}
+	}
+
+done:
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDPMSG("%s -\n", __func__);
+	return 0;
+}
+
 static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
 				     const struct mipi_dsi_msg *msg, u8 flag)
 {
@@ -3799,6 +4346,25 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
 	}
 		break;
+	case DSI_SEND_DDIC_CMD:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		struct mtk_ddic_dsi_msg *cmd_msg =
+			(struct mtk_ddic_dsi_msg *)params;
+
+		return mtk_mipi_dsi_write_gce(dsi, handle, crtc, cmd_msg);
+	}
+		break;
+	case DSI_READ_DDIC_CMD:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		struct mtk_ddic_dsi_msg *cmd_msg =
+			(struct mtk_ddic_dsi_msg *)params;
+
+		return mtk_mipi_dsi_read_gce(dsi, handle, crtc, cmd_msg);
+	}
+		break;
+
 	default:
 		break;
 	}

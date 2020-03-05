@@ -18,12 +18,65 @@
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
+#define MAX_TX_CMD_NUM 20
+#define MAX_RX_CMD_NUM 20
+#define READ_DDIC_SLOT_NUM 4
+
 
 struct mtk_dsi;
 struct cmdq_pkt;
 struct mtk_panel_para_table {
 	u8 count;
 	u8 para_list[64];
+};
+
+/*
+ *	DSI data type:
+ *	DSI_DCS_WRITE_SHORT_PACKET_NO_PARAM		0x05
+ *	DSI_DCS_WRITE_SHORT_PACKET_1_PARAM		0x15
+ *	DSI_DCS_WRITE_LONG_PACKET					0x39
+ *	DSI_DCS_READ_NO_PARAM						0x06
+
+ *	DSI_GERNERIC_WRITE_SHORT_NO_PARAM			0x03
+ *	DSI_GERNERIC_WRITE_SHORT_1_PARAM			0x13
+ *	DSI_GERNERIC_WRITE_SHORT_1_PARAM			0x23
+ *	DSI_GERNERIC_WRITE_LONG_PACKET				0x29
+ *	DSI_GERNERIC_READ_NO_PARAM					0x04
+ *	DSI_GERNERIC_READ_1_PARAM					0x14
+ *	DSI_GERNERIC_READ_2_PARAM					0x24
+ */
+
+/**
+ * struct mtk_ddic_dsi_msg - MTK write/read DDIC RG cmd buffer
+ * @channel: virtual channel id
+ * @flags: flags controlling this message transmission
+ * @type: payload data type array
+ * @tx_len: length of @tx_buf
+ * @tx_buf: data array to be written
+ * @tx_cmd_num: tx cmd number
+ * @rx_len: length of @rx_buf
+ * @rx_buf: data array to be read, or NULL
+ * @rx_cmd_num: rx cmd number
+ */
+struct mtk_ddic_dsi_msg {
+	u8 channel;
+	u16 flags;
+
+	u8 type[MAX_TX_CMD_NUM];
+	size_t tx_len[MAX_TX_CMD_NUM];
+	const void *tx_buf[MAX_TX_CMD_NUM];
+	size_t tx_cmd_num;
+
+	size_t rx_len[MAX_RX_CMD_NUM];
+	void *rx_buf[MAX_RX_CMD_NUM];
+	size_t rx_cmd_num;
+};
+
+struct DSI_RX_DATA_REG {
+	unsigned char byte0;
+	unsigned char byte1;
+	unsigned char byte2;
+	unsigned char byte3;
 };
 
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,

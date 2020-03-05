@@ -177,14 +177,15 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 	cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
 	cmdq_handle->err_cb.data = crtc;
-	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-					 DDP_SECOND_PATH, 1);
-	else
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-					 DDP_FIRST_PATH, 1);
 
 	if (mtk_dsi_is_cmd_mode(output_comp)) {
+		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+						 DDP_SECOND_PATH, 0);
+		else
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+						 DDP_FIRST_PATH, 0);
+
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 
@@ -195,6 +196,13 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 	} else { /* VDO mode */
+		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+						 DDP_SECOND_PATH, 1);
+		else
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+						 DDP_FIRST_PATH, 1);
+
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_STOP_VDO_MODE,
 				    NULL);
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
