@@ -172,6 +172,9 @@ int32_t mddp_ipc_send_md(
 
 	ret = mtk_ccci_send_data(mddp_ipc_tty_port_s, (char *)&ctrl_msg,
 			sizeof(struct mddp_md_msg_t) + msg->data_len);
+
+	kfree(msg);
+
 	if (unlikely(ret < 0)) {
 		pr_notice("%s: mtk_ccci_send_data error(%d)!\n",
 				__func__, ret);
@@ -201,6 +204,9 @@ int32_t mddp_ipc_get_md_smem_by_id(enum mddp_md_smem_user_id_e app_id,
 
 	*smem_addr = (uint8_t *)get_smem_start_addr(MD_SYS1,
 		SMEM_USER_RAW_USB, &smem_total_len) + smem_entry->offset;
+
+	if (!(*smem_addr))
+		return -EINVAL;
 
 	return 0;
 }

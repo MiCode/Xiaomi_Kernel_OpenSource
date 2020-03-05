@@ -579,22 +579,31 @@ int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
 	uint8_t                             smem_attr;
 	uint32_t                            smem_size;
 
+	if (!usage) {
+		pr_notice("%s: usage is NULL!\n", __func__);
+		return -EINVAL;
+	}
+	memset(usage, 0, sizeof(struct mddpw_net_stat_t));
+
 	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_WIFI_STATISTICS,
 				(void **)&md_stats, &smem_attr, &smem_size)) {
 		pr_notice("%s: Failed to get smem_id (%d)!\n",
 				__func__, MDDP_MD_SMEM_USER_WIFI_STATISTICS);
-		return -EINVAL;
+		return -EFAULT;
 	}
-	#define DIFF_FROM_SMEM(x) (usage->x = \
-	(md_stats->x > cur_stats.x) ? (md_stats->x - cur_stats.x) : 0)
-	DIFF_FROM_SMEM(tx_packets);
-	DIFF_FROM_SMEM(rx_packets);
-	DIFF_FROM_SMEM(tx_bytes);
-	DIFF_FROM_SMEM(rx_bytes);
-	DIFF_FROM_SMEM(tx_errors);
-	DIFF_FROM_SMEM(rx_errors);
 
-	memcpy(&cur_stats, md_stats, sizeof(struct mddpw_net_stat_t));
+	if (md_stats && smem_size > 0) {
+		#define DIFF_FROM_SMEM(x) (usage->x = \
+		(md_stats->x > cur_stats.x) ? (md_stats->x - cur_stats.x) : 0)
+		DIFF_FROM_SMEM(tx_packets);
+		DIFF_FROM_SMEM(rx_packets);
+		DIFF_FROM_SMEM(tx_bytes);
+		DIFF_FROM_SMEM(rx_bytes);
+		DIFF_FROM_SMEM(tx_errors);
+		DIFF_FROM_SMEM(rx_errors);
+
+		memcpy(&cur_stats, md_stats, sizeof(struct mddpw_net_stat_t));
+	}
 
 	return 0;
 }
