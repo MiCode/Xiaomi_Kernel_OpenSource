@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,8 @@ static const struct nla_policy cld80211_policy[CLD80211_ATTR_MAX + 1] = {
 				 .len = CLD80211_MAX_NL_DATA },
 	[CLD80211_ATTR_META_DATA] = { .type = NLA_BINARY,
 				 .len = CLD80211_MAX_NL_DATA },
+	[CLD80211_ATTR_CMD] = { .type = NLA_U32 },
+	[CLD80211_ATTR_CMD_TAG_DATA] = { .type = NLA_NESTED },
 };
 
 static int cld80211_pre_doit(const struct genl_ops *ops, struct sk_buff *skb,
