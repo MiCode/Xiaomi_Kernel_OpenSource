@@ -576,7 +576,7 @@ static const struct file_operations apusys_power_fail_fops = {
 	.open = apusys_power_fail_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	.write = apusys_power_fail_write,
 };
 
@@ -584,7 +584,7 @@ static const struct file_operations apusys_debug_power_fops = {
 	.open = apusys_debug_power_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	.write = apusys_debug_power_write,
 };
 
