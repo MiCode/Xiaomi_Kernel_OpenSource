@@ -1140,8 +1140,18 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	struct mtk_drm_crtc *mtk_crtc;
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
+	unsigned int ret = 0;
+
+	if (mtk_drm_top_clk_isr_get("dsi_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
 
 	status = readl(dsi->regs + DSI_INTSTA);
+	if (!status) {
+		ret = IRQ_NONE;
+		goto out;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, status);
 
@@ -1236,7 +1246,12 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		}
 	}
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	mtk_drm_top_clk_isr_put("dsi_irq");
+
+	return ret;
 }
 
 static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)

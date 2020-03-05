@@ -545,9 +545,21 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_ovl *priv = dev_id;
 	struct mtk_ddp_comp *ovl = &priv->ddp_comp;
-	unsigned int val = readl(ovl->regs + DISP_REG_OVL_INTSTA);
 	struct mtk_drm_private *drv_priv = NULL;
 	struct mtk_drm_crtc *mtk_crtc = ovl->mtk_crtc;
+	unsigned int val = 0;
+	unsigned int ret = 0;
+
+	if (mtk_drm_top_clk_isr_get("ovl_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	val = readl(ovl->regs + DISP_REG_OVL_INTSTA);
+	if (!val) {
+		ret = IRQ_NONE;
+		goto out;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, val);
 
@@ -610,7 +622,12 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		}
 	}
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	mtk_drm_top_clk_isr_put("ovl_irq");
+
+	return ret;
 }
 
 #if 0

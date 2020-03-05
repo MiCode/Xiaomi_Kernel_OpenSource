@@ -27,6 +27,7 @@
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_drm_trace.h"
+#include "mtk_drm_drv.h"
 
 #define DISP_REG_WDMA_INTEN 0x0000
 #define INTEN_FLD_FME_CPL_INTEN REG_FLD_MSB_LSB(0, 0)
@@ -208,7 +209,19 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_wdma *priv = dev_id;
 	struct mtk_ddp_comp *wdma = &priv->ddp_comp;
-	unsigned int val = readl(wdma->regs + DISP_REG_WDMA_INTSTA);
+	unsigned int val = 0;
+	unsigned int ret = 0;
+
+	if (mtk_drm_top_clk_isr_get("wdma_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	val = readl(wdma->regs + DISP_REG_WDMA_INTSTA);
+	if (!val) {
+		ret = IRQ_NONE;
+		goto out;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, val);
 
@@ -239,7 +252,12 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		DDPPR_ERR("[IRQ] %s: frame underrun!\n",
 			  mtk_dump_comp_str(wdma));
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	mtk_drm_top_clk_isr_put("wdma_irq");
+
+	return ret;
 }
 
 static inline struct mtk_disp_wdma *comp_to_wdma(struct mtk_ddp_comp *comp)

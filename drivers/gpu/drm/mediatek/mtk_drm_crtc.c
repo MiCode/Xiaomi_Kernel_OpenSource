@@ -3493,6 +3493,14 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 
 	/* 8. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
+
+	/* 9. power off mtcmos*/
+	/* Because of align lk hw power status,
+	 * we power on mtcmos at the beginning of the display initialization.
+	 * We power off mtcmos at the end of the display initialization.
+	 * Here we only decrease ref count, the power will hold on.
+	 */
+	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 }
 
 void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)

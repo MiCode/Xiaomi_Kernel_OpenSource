@@ -128,7 +128,19 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_postmask *priv = dev_id;
 	struct mtk_ddp_comp *postmask = &priv->ddp_comp;
-	unsigned int val = readl(postmask->regs + DISP_POSTMASK_INTSTA);
+	unsigned int val = 0;
+	unsigned int ret = 0;
+
+	if (mtk_drm_top_clk_isr_get("postmask_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	val = readl(postmask->regs + DISP_POSTMASK_INTSTA);
+	if (!val) {
+		ret = IRQ_NONE;
+		goto out;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, val);
 	DRM_MMP_MARK(postmask0, val, 0);
@@ -160,7 +172,12 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 		priv->underflow_cnt++;
 	}
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	mtk_drm_top_clk_isr_put("postmask_irq");
+
+	return ret;
 }
 
 static void mtk_postmask_config(struct mtk_ddp_comp *comp,

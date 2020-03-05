@@ -259,7 +259,19 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_rdma *priv = dev_id;
 	struct mtk_ddp_comp *rdma = &priv->ddp_comp;
-	unsigned int val = readl(rdma->regs + DISP_REG_RDMA_INT_STATUS);
+	unsigned int val = 0;
+	unsigned int ret = 0;
+
+	if (mtk_drm_top_clk_isr_get("rdma_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	val = readl(rdma->regs + DISP_REG_RDMA_INT_STATUS);
+	if (!val) {
+		ret = IRQ_NONE;
+		goto out;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, val);
 
@@ -324,7 +336,12 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	/* TODO: check if this is not necessary */
 	/* mtk_crtc_ddp_irq(priv->crtc, rdma); */
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	mtk_drm_top_clk_isr_put("rdma_irq");
+
+	return ret;
 }
 
 #if 0

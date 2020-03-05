@@ -1506,14 +1506,12 @@ int mtk_drm_wait_repaint_ioctl(struct drm_device *dev, void *data,
 	return 0;
 }
 /*---------------- function for repaint end ------------------*/
-
-static void mtk_drm_get_top_clk(struct drm_device *drm)
+static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 {
-	struct device *dev = drm->dev;
-	struct mtk_drm_private *priv = drm->dev_private;
+	struct device *dev = priv->mmsys_dev;
 	struct device_node *node = dev->of_node;
 	struct clk *clk;
-	int i;
+	int ret, i;
 
 	if (of_property_read_u32(node, "clock-num", &priv->top_clk_num)) {
 		priv->top_clk_num = -1;
@@ -1534,12 +1532,23 @@ static void mtk_drm_get_top_clk(struct drm_device *drm)
 		}
 
 		priv->top_clk[i] = clk;
+		/* TODO: check display enable from lk */
+		/* Because of align lk hw power status,
+		 * we power on mtcmos at the beginning of
+		 * the display initialization.
+		 * We will power off mtcmos at the end of
+		 * the display initialization.
+		 */
+		ret = clk_prepare_enable(priv->top_clk[i]);
+		if (ret)
+			DDPPR_ERR("top clk prepare enable failed:%d\n", i);
 	}
 
 	spin_lock_init(&top_clk_lock);
+	/* TODO: check display enable from lk */
 	atomic_set(&top_isr_ref, 0);
-	atomic_set(&top_clk_ref, 0);
-	priv->power_state = false;
+	atomic_set(&top_clk_ref, 1);
+	priv->power_state = true;
 }
 
 void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
@@ -1865,8 +1874,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	ret = component_bind_all(drm->dev, drm);
 	if (ret)
 		goto err_config_cleanup;
-
-	mtk_drm_get_top_clk(drm);
 
 	/*
 	 * We currently support two fixed data streams, each optional,
@@ -2323,6 +2330,10 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	private->config_regs_pa = mem->start;
 	private->mmsys_dev = dev;
+
+	/* Get and enable top clk align to HW */
+	mtk_drm_get_top_clk(private);
+
 #if defined(CONFIG_MTK_IOMMU_V2)
 	private->client = mtk_drm_gem_ion_create_client("disp_mm");
 #endif
@@ -2541,6 +2552,7 @@ static struct platform_driver mtk_drm_platform_driver = {
 };
 
 static struct platform_driver *const mtk_drm_drivers[] = {
+	&mtk_drm_platform_driver,
 	&mtk_ddp_driver,
 	&mtk_disp_color_driver,
 	&mtk_disp_ccorr_driver,
@@ -2553,7 +2565,6 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_rdma_driver,
 	&mtk_disp_wdma_driver,
 	&mtk_disp_rsz_driver,
-	&mtk_drm_platform_driver,
 	&mtk_dsi_driver,
 	&mtk_mipi_tx_driver,
 #ifdef CONFIG_DRM_MEDIATEK_HDMI
