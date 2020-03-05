@@ -4379,7 +4379,7 @@ static signed int MFB_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		g_SuspendCnt++;
 	}
 	bPass1_On_In_Resume_TG1 = 0;
-	LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+	LOG_DBG("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
 				g_u4EnableClockCount, g_SuspendCnt);
 
 
@@ -4396,7 +4396,7 @@ static signed int MFB_resume(struct platform_device *pDev)
 		MFB_EnableClock(MTRUE);
 		g_SuspendCnt--;
 	}
-	LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+	LOG_DBG("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
 				g_u4EnableClockCount, g_SuspendCnt);
 
 	return 0;
