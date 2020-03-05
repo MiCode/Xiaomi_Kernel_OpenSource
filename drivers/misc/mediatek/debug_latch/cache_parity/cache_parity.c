@@ -135,6 +135,11 @@ static void write_ERXSTATUS_EL1(u64 v)
 {
 	__asm__ volatile ("msr s3_0_c5_c4_2, %0" : : "r" (v));
 }
+
+static void write_ERXSELR_EL1(u32 v)
+{
+	__asm__ volatile ("msr s3_0_c5_c3_1, %0" : : "r" (v));
+}
 #else
 /* TODO: aarch32, TBD */
 static u64 read_ERXMISC0_EL1(void)
@@ -148,6 +153,10 @@ static u64 read_ERXSTATUS_EL1(void)
 }
 
 static void write_ERXSTATUS_EL1(u64 v)
+{
+}
+
+static void write_ERXSELR_EL1(u32 v)
 {
 }
 #endif
@@ -189,11 +198,15 @@ static void handle_error(struct work_struct *w)
 
 static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 {
+	u32 hwirq = virq_to_hwirq(irq);
+
 	cache_error_happened = true;
 	cache_error_times++;
 
+	write_ERXSELR_EL1(((hwirq - FAULTIRQ_START) == 0) ? 1 : 0);
+
 	/* collect error status to report later */
-	cache_parity_wd.data.v2.irq_index = virq_to_hwirq(irq);
+	cache_parity_wd.data.v2.irq_index = hwirq;
 	cache_parity_wd.data.v2.misc0_el1 = read_ERXMISC0_EL1();
 	cache_parity_wd.data.v2.status_el1 = read_ERXSTATUS_EL1();
 
@@ -322,20 +335,27 @@ static int cache_parity_probe_v2(struct platform_device *pdev)
 		irq = irq_of_parse_and_map(node, i);
 		pr_debug("irq %d for cpu%d\n", irq, i);
 
-		ret = irq_set_affinity(irq, cpumask_of(i));
-		if (ret)
-			pr_debug("irq target to cpu(%d) fail\n", i);
+		/*
+		 * we only need to bind nFAULTIRQ[n:1] to the
+		 * corressponding cpu, and the end of list is
+		 * dsu, which is able to serve by any core.
+		 */
+		if (i < irq_count - 1) {
+			ret = irq_force_affinity(irq, cpumask_of(i));
+			if (ret)
+				pr_notice("irq target to cpu(%d) fail\n", i);
+		}
 
 		if (custom_parity_isr)
 			ret = request_irq(irq, custom_parity_isr,
-				IRQF_TRIGGER_NONE, "cache_parity",
-				&cache_parity_drv);
+				IRQF_TRIGGER_NONE | IRQF_ONESHOT,
+				"cache_parity", &cache_parity_drv);
 		else
 			ret = request_irq(irq, default_parity_isr_v2,
-				IRQF_TRIGGER_NONE, "cache_parity",
-				&cache_parity_drv);
+				IRQF_TRIGGER_NONE | IRQF_ONESHOT,
+				"cache_parity", &cache_parity_drv);
 		if (ret != 0)
-			pr_debug("request_irq(%d) fail\n", i);
+			pr_notice("request_irq(%d) fail\n", i);
 	}
 
 	return 0;

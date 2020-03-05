@@ -433,6 +433,11 @@ page_owner=on loop.max_part=7";
 		};
 	};
 
+	/*
+	 * dsu ecc irq (nFAULTIRQ[0]) must be at the end of
+	 * the list, due to we shouldn't force set affinity
+	 * in the driver.
+	 */
 	cache_parity {
 		compatible = "mediatek,cache_parity";
 		version = <2>;
