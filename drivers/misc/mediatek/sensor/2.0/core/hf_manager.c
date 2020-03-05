@@ -861,11 +861,13 @@ void hf_client_destroy(struct hf_client *client)
 	kfree(client);
 }
 
-bool hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type)
+int hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type)
 {
 	if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX))
-		return false;
-	return test_bit(sensor_type, sensor_list_bitmap);
+		return -EINVAL;
+	if (!test_bit(sensor_type, sensor_list_bitmap))
+		return -EINVAL;
+	return 0;
 }
 
 int hf_client_get_sensor_info(struct hf_client *client,
@@ -876,6 +878,30 @@ int hf_client_get_sensor_info(struct hf_client *client,
 	if (!test_bit(sensor_type, sensor_list_bitmap))
 		return -EINVAL;
 	return hf_manager_device_info(sensor_type, info);
+}
+
+int hf_client_request_sensor_cali(struct hf_client *client,
+		uint8_t sensor_type, unsigned int cmd, bool status)
+{
+	if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX))
+		return -EINVAL;
+	if (!test_bit(sensor_type, sensor_list_bitmap))
+		return -EINVAL;
+	switch (cmd) {
+	case HF_MANAGER_REQUEST_BIAS_DATA:
+		client->request[sensor_type].bias = status;
+		break;
+	case HF_MANAGER_REQUEST_CALI_DATA:
+		client->request[sensor_type].cali = status;
+		break;
+	case HF_MANAGER_REQUEST_TEMP_DATA:
+		client->request[sensor_type].temp = status;
+		break;
+	case HF_MANAGER_REQUEST_TEST_DATA:
+		client->request[sensor_type].test = status;
+		break;
+	}
+	return 0;
 }
 
 int hf_client_control_sensor(struct hf_client *client,
@@ -902,14 +928,22 @@ static int fetch_next(struct hf_client_fifo *hf_fifo,
 	return have_event;
 }
 
-int hf_client_poll_sensor(struct hf_client *client,
-		struct hf_manager_event *data, int count)
+/* timeout: MAX_SCHEDULE_TIMEOUT or msecs_to_jiffies(ms) */
+int hf_client_poll_sensor_timeout(struct hf_client *client,
+		struct hf_manager_event *data, int count, long timeout)
 {
+	long ret = 0;
 	int read = 0;
 	struct hf_client_fifo *hf_fifo = &client->hf_fifo;
 
-	wait_event_interruptible(hf_fifo->wait,
-		hf_fifo->head != hf_fifo->tail);
+	/* ret must be long to fill timeout(MAX_SCHEDULE_TIMEOUT) */
+	ret = wait_event_interruptible_timeout(hf_fifo->wait,
+		hf_fifo->head != hf_fifo->tail, timeout);
+
+	if (!ret)
+		return -ETIMEDOUT;
+	if (ret < 0)
+		return ret;
 
 	for (;;) {
 		if (hf_fifo->head == hf_fifo->tail)

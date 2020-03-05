@@ -154,13 +154,18 @@ int hf_manager_destroy(struct hf_manager *manager);
 void coordinate_map(unsigned char direction, int32_t *data);
 struct hf_client *hf_client_create(void);
 void hf_client_destroy(struct hf_client *client);
-bool hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type);
+int hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type);
 int hf_client_get_sensor_info(struct hf_client *client,
 		uint8_t sensor_type, struct sensor_info *info);
+int hf_client_request_sensor_cali(struct hf_client *client,
+		uint8_t sensor_type, unsigned int cmd, bool status);
 int hf_client_control_sensor(struct hf_client *client,
 		struct hf_manager_cmd *cmd);
-int hf_client_poll_sensor(struct hf_client *client,
-		struct hf_manager_event *data, int count);
+int hf_client_poll_sensor_timeout(struct hf_client *client,
+		struct hf_manager_event *data, int count, long timeout);
+#define hf_client_poll_sensor(client, data, count)		\
+	hf_client_poll_sensor_timeout(client, data, count,	\
+		MAX_SCHEDULE_TIMEOUT)
 int hf_client_custom_cmd(struct hf_client *client,
 		uint8_t sensor_type, struct custom_cmd *cust_cmd);
 

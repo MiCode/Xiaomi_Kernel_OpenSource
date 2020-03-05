@@ -27,17 +27,37 @@ struct test_device test_driver2;
 struct test_device test_driver3;
 struct test_device test_driver4;
 
-static unsigned char support_sensors1[] = {
-	1,
+static struct sensor_info support_sensors1[] = {
+	{
+		.sensor_type = SENSOR_TYPE_EKG,
+		.gain = 1,
+		.name = {'E', 'K', 'G'},
+		.vendor = {'m', 't', 'k'},
+	},
 };
-static unsigned char support_sensors2[] = {
-	2,
+static struct sensor_info support_sensors2[] = {
+	{
+		.sensor_type = SENSOR_TYPE_PPG1,
+		.gain = 1,
+		.name = {'P', 'P', 'G', '1'},
+		.vendor = {'m', 't', 'k'},
+	},
 };
-static unsigned char support_sensors3[] = {
-	3,
+static struct sensor_info support_sensors3[] = {
+	{
+		.sensor_type = SENSOR_TYPE_PPG2,
+		.gain = 1,
+		.name = {'P', 'P', 'G', '2'},
+		.vendor = {'m', 't', 'k'},
+	},
 };
-static unsigned char support_sensors4[] = {
-	4,
+static struct sensor_info support_sensors4[] = {
+	{
+		.sensor_type = SENSOR_TYPE_OIS,
+		.gain = 1,
+		.name = {'O', 'I', 'S'},
+		.vendor = {'m', 't', 'k'},
+	},
 };
 
 static int test_enable(struct hf_device *hfdev, int sensor_type, int en)
@@ -64,7 +84,7 @@ static int test_sample(struct hf_device *hfdev)
 
 	memset(&event, 0, sizeof(struct hf_manager_event));
 	event.timestamp = get_interrupt_timestamp(manager);
-	event.sensor_type = driver_dev->hf_dev.support_list[0];
+	event.sensor_type = driver_dev->hf_dev.support_list[0].sensor_type;
 	event.accurancy = SENSOR_ACCURANCY_HIGH;
 	event.action = DATA_ACTION;
 	event.word[0] = 0;
