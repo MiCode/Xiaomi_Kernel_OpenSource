@@ -8,6 +8,7 @@
 #include <linux/reset-controller.h>
 #include <linux/reset.h>
 #include <linux/phy/phy.h>
+#include <linux/pm_qos.h>
 #include "ufshcd.h"
 #include "unipro.h"
 
@@ -275,6 +276,29 @@ struct qcom_bus_scale_data {
 	const char *name;
 };
 
+struct qos_cpu_group {
+	cpumask_t mask;
+	unsigned int *votes;
+	struct dev_pm_qos_request *qos_req;
+	bool voted;
+	struct work_struct vwork;
+	struct ufs_qcom_host *host;
+	unsigned int curr_vote;
+};
+
+struct ufs_qcom_qos_req {
+	struct qos_cpu_group *qcg;
+	unsigned int num_groups;
+	struct workqueue_struct *workq;
+};
+
+/* Check for QOS_POWER when added to DT */
+enum constraint {
+	QOS_PERF,
+	QOS_POWER,
+	QOS_MAX,
+};
+
 enum ufs_qcom_therm_lvl {
 	UFS_QCOM_LVL_NO_THERM, /* No thermal mitigation */
 	UFS_QCOM_LVL_AGGR_THERM, /* Aggressive thermal mitigation */
@@ -358,6 +382,7 @@ struct ufs_qcom_host {
 	bool is_phy_pwr_on;
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
+	struct ufs_qcom_qos_req *ufs_qos;
 	struct ufs_qcom_thermal uqt;
 	/* FlashPVL entries */
 	bool err_occurred;
