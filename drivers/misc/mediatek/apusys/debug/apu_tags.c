@@ -324,7 +324,7 @@ static int apu_tags_info_show(struct seq_file *s, void *v)
 {
 	unsigned long flags;
 	struct apu_tags *a, *n;
-	unsigned int total_mem = 0;
+	unsigned long total_mem = 0;
 
 	seq_puts(s, "Name\tCount\tEntry Size\tUsed Memory\n");
 	spin_lock_irqsave(&apu_tags_list_lock, flags);
@@ -372,8 +372,7 @@ static void apu_tags_exit_procfs(void)
 	proot = NULL;
 }
 
-
-#ifndef USER_BUILD_KERNEL
+#if !defined(USER_BUILD_KERNEL) && defined(CONFIG_MTK_ENG_BUILD)
 #define APU_TAG_PROC_MDOE		0660
 #else
 #define APU_TAG_PROC_MDOE		0440

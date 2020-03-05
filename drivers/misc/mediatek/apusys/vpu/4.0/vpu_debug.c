@@ -849,9 +849,15 @@ static struct dentry *vpu_dmesg_level;
 DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_mesg_level_fops, vpu_mesg_level_get,
 			vpu_mesg_level_set, "%lld\n");
 
+#if !defined(USER_BUILD_KERNEL) && defined(CONFIG_MTK_ENG_BUILD)
+#define VPU_DEBUGFS_MDOE		0644
+#else
+#define VPU_DEBUGFS_MDOE		0444
+#endif
+
 #define VPU_DEBUGFS_CREATE(name) \
 { \
-	vpu_d##name = debugfs_create_file(#name, 0644, \
+	vpu_d##name = debugfs_create_file(#name, VPU_DEBUGFS_MDOE, \
 		droot,         \
 			NULL, &vpu_debug_ ## name ## _fops); \
 	if (IS_ERR_OR_NULL(vpu_d##name)) { \
