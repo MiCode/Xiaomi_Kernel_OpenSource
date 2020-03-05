@@ -58,7 +58,8 @@ static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
-static int xgf_dep_frames;
+static int xgf_dep_frames = XGF_DEP_FRAMES_MIN;
+static int xgf_prev_dep_frames = XGF_DEP_FRAMES_MIN;
 static int xgf_spid_sub = XGF_DO_SP_SUB;
 static int xgf_ema_dividend = EMA_DIVIDEND;
 static int xgf_spid_ck_period = NSEC_PER_SEC;
@@ -328,15 +329,6 @@ int xgf_dep_frames_mod(struct xgf_render *render, int pos)
 	int pre_dep_frames;
 
 	xgf_lockprove(__func__);
-
-	if (xgf_dep_frames < XGF_DEP_FRAMES_MIN
-			|| xgf_dep_frames > XGF_DEP_FRAMES_MAX)
-		xgf_dep_frames = XGF_DEP_FRAMES_MIN;
-
-	if (render->dep_frames != xgf_dep_frames) {
-		xgf_clean_deps_list(render, PREVI_DEPS);
-		render->dep_frames = xgf_dep_frames;
-	}
 
 	pre_dep_frames = render->dep_frames - 1;
 
@@ -797,7 +789,7 @@ static int xgf_get_render(pid_t rpid, struct xgf_render **ret, int force)
 		iter->deque.end_ts = 0;
 		iter->ema_runtime = 0;
 		iter->spid = 0;
-		iter->dep_frames = 0;
+		iter->dep_frames = xgf_prev_dep_frames;
 	}
 
 	INIT_HLIST_HEAD(&iter->sector_head);
@@ -1290,6 +1282,15 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 	xgf_lock(__func__);
 
 	if (!fstb_active) {
+		xgf_reset_renders();
+		goto out;
+	}
+
+	if (xgf_prev_dep_frames != xgf_dep_frames) {
+		if (xgf_dep_frames < XGF_DEP_FRAMES_MIN
+			|| xgf_dep_frames > XGF_DEP_FRAMES_MAX)
+			xgf_dep_frames = XGF_DEP_FRAMES_MIN;
+		xgf_prev_dep_frames = xgf_dep_frames;
 		xgf_reset_renders();
 		goto out;
 	}
