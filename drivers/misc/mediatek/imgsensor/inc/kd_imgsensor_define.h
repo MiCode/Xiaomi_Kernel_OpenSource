@@ -134,6 +134,16 @@ enum ACDK_CAMERA_OPERATION_MODE_ENUM {
 #define SENSOR_MASTER_SYNC_MODE 1
 #define SENSOR_SLAVE_SYNC_MODE 2
 
+/* Define for flicker range table */
+#define GEN_FLICKER_TABLE(var) \
+unsigned int ((var)[][2]) = { \
+	{147, 153}, /* 15fps */ \
+	{247, 253}, /* 25fps */ \
+	{297, 305}, /* 30fps */ \
+	{593, 607}, /* 60fps */ \
+	{0, 0} /* end of table */ \
+}
+
 #define SENSOR_FEATURE_START                     3000
 enum ACDK_SENSOR_FEATURE_ENUM {
 	SENSOR_FEATURE_BEGIN = SENSOR_FEATURE_START,
