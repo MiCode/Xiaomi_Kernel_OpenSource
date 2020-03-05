@@ -96,7 +96,7 @@ extern void reset_hal_feature_table(void);
 
 /* If device interrupt is not connected, return -ENOTCONN. */
 extern int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
-			const char *name, void *data);
+				 void *data);
 
 /* semaphore */
 extern int get_adsp_semaphore(unsigned int flags);

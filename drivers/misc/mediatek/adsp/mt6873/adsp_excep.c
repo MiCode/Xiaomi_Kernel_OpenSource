@@ -293,7 +293,7 @@ int init_adsp_exception_control(struct workqueue_struct *workq,
 	return 0;
 }
 
-void adsp_wdt_handler(int irq, void *data)
+void adsp_wdt_handler(int irq, void *data, int cid)
 {
 	struct adsp_priv *pdata = (struct adsp_priv *)data;
 

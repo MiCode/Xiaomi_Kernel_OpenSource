@@ -1447,16 +1447,6 @@ IRQ_ERROR:
 	return;
 }
 
-void audio_irq_a_handler(int irq, void *data)
-{
-	audio_irq_handler(irq, data, ADSP_A_ID);
-}
-
-void audio_irq_b_handler(int irq, void *data)
-{
-	audio_irq_handler(irq, data, ADSP_B_ID);
-}
-
 #ifdef CFG_RECOVERY_SUPPORT
 static int audio_send_reset_event(void)
 {
@@ -1523,10 +1513,10 @@ static int mtk_dsp_probe(struct snd_soc_platform *platform)
 			return ret;
 	}
 
-	adsp_irq_registration(ADSP_A_ID, ADSP_IRQ_AUDIO_ID, audio_irq_a_handler,
-			      "ADSP_A_AUD ", dsp);
-	adsp_irq_registration(ADSP_B_ID, ADSP_IRQ_AUDIO_ID, audio_irq_b_handler,
-			      "ADSP_B_AUD ", dsp);
+	for (id = 0; id < ADSP_CORE_TOTAL; id++)
+		adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID,
+				      audio_irq_handler, dsp);
+
 	adsp_register_notify(&adsp_audio_notifier);
 
 	return ret;

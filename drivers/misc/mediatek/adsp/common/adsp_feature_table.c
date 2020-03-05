@@ -17,7 +17,7 @@ struct adsp_feature_tb {
 static struct adsp_feature_control feature_ctrl[ADSP_CORE_TOTAL];
 /*adsp feature list*/
 static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
-	[SYSTEM_FEATURE_ID]           = {.name = "system", .counter = {2, 1} },
+	[SYSTEM_FEATURE_ID]           = {.name = "system"},
 	[ADSP_LOGGER_FEATURE_ID]      = {.name = "logger"},
 	[AURISYS_FEATURE_ID]          = {.name = "aurisys"},
 	[AUDIO_CONTROLLER_FEATURE_ID] = {.name = "audio_controller"},
@@ -101,7 +101,7 @@ int _adsp_register_feature(u32 cid, u32 fid, u32 opt)
 	if (!item->name)
 		return -EINVAL;
 
-	if (cid == ADSP_B_ID)
+	if (cid != ADSP_A_ID)
 		_adsp_register_feature(ADSP_A_ID, SYSTEM_FEATURE_ID, 0);
 
 	mutex_lock(&ctrl->lock);
@@ -154,7 +154,7 @@ int _adsp_deregister_feature(u32 cid, u32 fid, u32 opt)
 
 	mutex_unlock(&ctrl->lock);
 
-	if (cid == ADSP_B_ID)
+	if (cid != ADSP_A_ID)
 		_adsp_deregister_feature(ADSP_A_ID, SYSTEM_FEATURE_ID, 0);
 
 	return 0;

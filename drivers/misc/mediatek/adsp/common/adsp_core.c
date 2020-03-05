@@ -166,12 +166,11 @@ static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
 	if (!pdata->irq_cb || !pdata->clear_irq)
 		return IRQ_NONE;
 	pdata->clear_irq(pdata->cid);
-	pdata->irq_cb(irq, pdata->data);
+	pdata->irq_cb(irq, pdata->data, pdata->cid);
 	return IRQ_HANDLED;
 }
 
-int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
-			  const char *name, void *data)
+int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler, void *data)
 {
 	int ret;
 	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
@@ -184,7 +183,9 @@ int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
 	pdata->irq[irq_id].data = data;
 	ret = request_irq(pdata->irq[irq_id].seq,
 			  (irq_handler_t)adsp_irq_dispatcher,
-			  IRQF_TRIGGER_HIGH, name, &pdata->irq[irq_id]);
+			  IRQF_TRIGGER_HIGH,
+			  pdata->name,
+			  &pdata->irq[irq_id]);
 	return ret;
 }
 
@@ -404,6 +405,7 @@ static int __init adsp_module_init(void)
 			pdata->ops->after_bootup(pdata);
 	}
 
+	adsp_register_feature(SYSTEM_FEATURE_ID); /* regi for trigger suspend */
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 	pr_info("%s done\n", __func__);
 	return ret;

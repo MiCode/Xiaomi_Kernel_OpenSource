@@ -124,7 +124,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	/* exception init & irq */
 	init_adsp_exception_control(adsp_wq, &adsp_waitq);
 	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler,
-			      "ADSP A WDT", pdata);
+			      pdata);
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID);
@@ -161,7 +161,7 @@ int adsp_core1_init(struct adsp_priv *pdata)
 
 	/* exception irq */
 	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler,
-			      "ADSP B WDT", pdata);
+			      pdata);
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_B_LOGGER_MEM_ID);
