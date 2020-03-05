@@ -728,7 +728,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		return;
 	if (buffer->heap->type == ION_HEAP_TYPE_SYSTEM) {
 		ION_DUMP(s,
-			 "0x%p %8zu %4u %6d %3d %3d (%3d) %3d    (%d-%d) (%d-%d) (%d-%d) (%d-%d) 0x%x, 0x%x, %5d(%5d) %16s\n",
+			 "0x%p %8zu %4u %6d %3d %3d (%3d) %3d    (%d-%d) (%d-%d) (%d-%d) (%d-%d) %d, %d, %5d(%5d) %16s\n",
 			 buffer, buffer->size, buffer->heap->id,
 			 buffer->kmap_cnt,
 			 atomic_read(&buffer->ref.refcount.refs),
@@ -739,8 +739,8 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 			 NON_INFO, NON_INFO,
 			 NON_INFO, NON_INFO,
 			 NON_INFO, NON_INFO,
-			 bug_info->security,
-			 buffer->flags, buffer->pid, NON_INFO,
+			 NON_INFO, NON_INFO,
+			 buffer->pid, NON_INFO,
 			 buffer->task_comm);
 		return;
 	}
