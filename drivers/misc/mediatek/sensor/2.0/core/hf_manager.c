@@ -1232,7 +1232,7 @@ static const struct file_operations hf_manager_fops = {
 
 static int hf_manager_proc_show(struct seq_file *m, void *v)
 {
-	int i = 0, j = 0;
+	int i = 0, j = 0, k = 0;
 	uint8_t sensor_type = 0;
 	unsigned long flags;
 	struct hf_manager *manager = NULL;
@@ -1240,14 +1240,15 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 	struct hf_device *device = NULL;
 
 	seq_puts(m, "**************************************************\n");
+	seq_puts(m, "Manager List:\n");
 	mutex_lock(&hf_manager_list_mtx);
 	j = 1;
+	k = 1;
 	list_for_each_entry(manager, &hf_manager_list, list) {
 		device = READ_ONCE(manager->hf_dev);
 		if (!device || !device->support_list)
 			continue;
-		seq_printf(m, "<%d> Detect:\n", j++);
-		seq_printf(m, "manager: param:[%d,%lld]\n",
+		seq_printf(m, "%d. manager:[%d,%lld]\n", j++,
 			atomic_read(&manager->io_enabled),
 			print_s64((int64_t)atomic64_read(
 				&manager->io_poll_interval)));
@@ -1257,35 +1258,33 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 			device->device_bus ? "io_async" : "io_sync");
 		for (i = 0; i < device->support_size; ++i) {
 			sensor_type = device->support_list[i].sensor_type;
-			seq_printf(m,
-				"  info:[%u,%u,%s,%s] param:[%u,%lld,%lld]\n",
+			seq_printf(m, "  (%d) type:%u info:[%u,%s,%s]\n",
+				k++,
 				sensor_type,
 				device->support_list[i].gain,
 				device->support_list[i].name,
-				device->support_list[i].vendor,
-				prev_request[sensor_type].enable,
-				print_s64(prev_request[sensor_type].delay),
-				print_s64(prev_request[sensor_type].latency));
+				device->support_list[i].vendor);
 		}
 	}
 	mutex_unlock(&hf_manager_list_mtx);
 
 	seq_puts(m, "**************************************************\n");
+	seq_puts(m, "Client List:\n");
 	spin_lock_irqsave(&hf_client_list_lock, flags);
 	j = 1;
+	k = 1;
 	list_for_each_entry(client, &hf_client_list, list) {
-		seq_printf(m, "<%d> Detect:\n", j++);
-		seq_printf(m, "client:%s pid:[%d:%d] online\n",
+		seq_printf(m, "%d. client:%s pid:[%d:%d] online\n",
+			j++,
 			client->proc_comm,
 			client->leader_pid,
 			client->pid);
 		for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
 			if (!client->request[i].enable)
 				continue;
-			seq_printf(m,
-				" request:%d param:[%u,%lld,%lld,%lld]\n",
+			seq_printf(m, " (%d) type:%d param:[%lld,%lld,%lld]\n",
+				k++,
 				i,
-				client->request[i].enable,
 				client->request[i].delay,
 				client->request[i].latency,
 				(int64_t)atomic64_read(
@@ -1293,7 +1292,21 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 		}
 	}
 	spin_unlock_irqrestore(&hf_client_list_lock, flags);
+
 	seq_puts(m, "**************************************************\n");
+	seq_puts(m, "Active List:\n");
+	mutex_lock(&hf_manager_list_mtx);
+	j = 1;
+	for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
+		if (!prev_request[i].enable)
+			continue;
+		seq_printf(m, " (%d) type:%d param:[%lld,%lld]\n",
+			j++,
+			i,
+			prev_request[i].delay,
+			prev_request[i].latency);
+	}
+	mutex_unlock(&hf_manager_list_mtx);
 	return 0;
 }
 
