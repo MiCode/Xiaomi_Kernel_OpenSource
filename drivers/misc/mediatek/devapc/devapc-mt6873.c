@@ -1388,6 +1388,11 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 {
 	int i;
 
+	/* Filter by violation address */
+	if ((vio_addr & 0xFF000000) == CONNSYS_START_ADDR)
+		return "CONNSYS";
+
+	/* Filter by violation index */
 	if (slave_type == SLAVE_TYPE_INFRA &&
 			vio_index < VIO_SLAVE_NUM_INFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_INFRA; i++) {
