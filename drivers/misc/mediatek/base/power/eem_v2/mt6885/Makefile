@@ -80,6 +80,16 @@ subdir-ccflags-y += -DMT6885
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6889v1_64_120hz")
+subdir-ccflags-y += -DMT6889
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6889v1_64_120hz_vdo")
+subdir-ccflags-y += -DMT6889
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
