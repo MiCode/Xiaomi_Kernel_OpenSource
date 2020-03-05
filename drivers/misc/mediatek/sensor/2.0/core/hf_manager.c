@@ -261,7 +261,7 @@ int hf_manager_create(struct hf_device *device)
 
 	if (!device || !device->dev_name ||
 			!device->support_list || !device->support_size)
-		return -EFAULT;
+		return -EINVAL;
 
 	manager = kzalloc(sizeof(*manager), GFP_KERNEL);
 	if (!manager)
@@ -331,7 +331,7 @@ int hf_manager_destroy(struct hf_manager *manager)
 	struct hf_device *device = NULL;
 
 	if (!manager || !manager->hf_dev || !manager->hf_dev->support_list)
-		return -EFAULT;
+		return -EINVAL;
 
 	device = manager->hf_dev;
 	for (i = 0; i < device->support_size; ++i) {
@@ -1150,7 +1150,7 @@ static ssize_t hf_manager_write(struct file *filp,
 	memset(&cmd, 0, sizeof(cmd));
 
 	if (count != sizeof(struct hf_manager_cmd))
-		return -EFAULT;
+		return -EINVAL;
 
 	if (copy_from_user(&cmd, buf, count))
 		return -EFAULT;
