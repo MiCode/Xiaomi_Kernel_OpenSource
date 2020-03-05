@@ -1589,32 +1589,59 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x21cc));
 
-		cmdq_util_err("dip(DCM): 0x%x2138(0x%x)-0x%x213C(0x%x)\n",
+
+		cmdq_util_err("dip(DCM): 0x%x2110(0x%x)-0x%x2114(0x%x)",
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x1138),
+			DIP_RD32(dipRegBasAddr + 0x1110),
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x113C));
-		cmdq_util_err("dip(DCM): 0x%x2140(0x%x)-0x%x2144(0x%x)\n",
+			DIP_RD32(dipRegBasAddr + 0x1114));
+		cmdq_util_err("dip(DCM): 0x%x2118(0x%x)-0x%x211C(0x%x)",
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x1140),
+			DIP_RD32(dipRegBasAddr + 0x1118),
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x1144));
-		cmdq_util_err("dip(DCM): 0x%x2148(0x%x)\n",
+			DIP_RD32(dipRegBasAddr + 0x111C));
+		cmdq_util_err("dip(DCM): 0x%x2120(0x%x)-0x%x2124(0x%x)",
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x1148));
-		cmdq_util_err("dip(Done SEL): 0x%x2030(0x%x)-0x%x2034(0x%x)\n",
+			DIP_RD32(dipRegBasAddr + 0x1120),
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x1030),
+			DIP_RD32(dipRegBasAddr + 0x1124));
+		cmdq_util_err("dip(DCM): 0x%x2128(0x%x)-0x%x212C(0x%x)",
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x1034));
-		cmdq_util_err("dip(Status En): 0x%x20A0(0x%x)-0x%x20B0(0x%x)\n",
+			DIP_RD32(dipRegBasAddr + 0x1128),
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x10A0),
+			DIP_RD32(dipRegBasAddr + 0x112C));
+
+		cmdq_util_err("dip(DCM): 0x%x2130(0x%x)-0x%x2134(0x%x)",
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x10B0));
-		cmdq_util_err("dip(Status En): 0x%x20C0(0x%x)\n",
+			DIP_RD32(dipRegBasAddr + 0x1130),
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(DIP_A_BASE + 0x10C0));
+			DIP_RD32(dipRegBasAddr + 0x1134));
+		cmdq_util_err("dip(DCM): 0x%x2138(0x%x)-0x%x213C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1138),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x113C));
+		cmdq_util_err("dip(DCM): 0x%x2140(0x%x)-0x%x2144(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1140),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1144));
+		cmdq_util_err("dip(DCM): 0x%x2148(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1148));
+		cmdq_util_err("dip(Done SEL): 0x%x2030(0x%x)-0x%x2034(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1030),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1034));
+		cmdq_util_err("dip(Status En): 0x%x20A0(0x%x)-0x%x20B0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10A0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10B0));
+		cmdq_util_err("dip(Status En): 0x%x20C0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10C0));
 
 
 		/*C02_D1 dump*/
@@ -4042,14 +4069,14 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L9_IMG_IMGI_D1+i;
 		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
-		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
 	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 
 		if (ret == 0) {
-			LOG_DBG("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1+i),
-			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_DBG("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1+i),
+			//DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1+i),
@@ -4066,14 +4093,14 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L11_IMG_MFB_RDMA0+i;
 		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
-		LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
 #if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 
 		if (ret == 0) {
-			LOG_DBG("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
-			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_DBG("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
+			//DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
@@ -4089,14 +4116,14 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L11_IMG_IMGI_D1+i;
 		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
-		LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
 	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 
 		if (ret == 0) {
-			LOG_DBG("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1+i),
-			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_DBG("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1+i),
+			//DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1+i),
@@ -4114,14 +4141,14 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L9_IMG_IMGI_D1_MDP+i;
 		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
-		LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
 	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 
 		if (ret == 0) {
-			LOG_DBG("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP+i),
-			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_DBG("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP+i),
+			//DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L9_IMG_IMGI_D1_MDP+i),
@@ -4137,14 +4164,14 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i;
 		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
-		LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
 #if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 
 		if (ret == 0) {
-			LOG_DBG("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
-			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_DBG("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
+			//DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
@@ -4159,14 +4186,14 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L11_IMG_IMGI_D1_DISP+i;
 		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
-		LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_DBG("config M4U Port ePortID=%d\n", sPort.ePortID);
 	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 
 		if (ret == 0) {
-			LOG_DBG("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP+i),
-			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_DBG("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP+i),
+			//DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L11_IMG_IMGI_D1_DISP+i),
