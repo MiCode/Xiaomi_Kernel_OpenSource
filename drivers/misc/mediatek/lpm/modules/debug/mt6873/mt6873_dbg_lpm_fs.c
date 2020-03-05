@@ -97,6 +97,7 @@ static ssize_t mt6873_dbg_lpm_trace_suspend_show(char *ToUserBuf,
 	if (ret || !trace.read)
 		return -ENOENT;
 
+	mt6873_dbg_lpm_trace_log(ToUserBuf, sz, len, "[SUSPEND]\n");
 	while (((offset + sizeof(dump)) < MT6873_DGB_TRACE_SUSPEND_SZ)) {
 		dump[0] = dump[1] = dump[2] = dump[3] = 0;
 		trace.read((MT6873_DGB_TRACE_SUSPEND_BASE + offset),
@@ -123,6 +124,7 @@ static ssize_t mt6873_dbg_lpm_trace_lp_show(char *ToUserBuf,
 	if (ret || !trace.read)
 		return -ENOENT;
 
+	mt6873_dbg_lpm_trace_log(ToUserBuf, sz, len, "[LP]\n");
 	while (((offset + sizeof(dump)) < MT6873_DGB_TRACE_LP_SZ)) {
 		dump[0] = dump[1] = dump[2] = dump[3] = 0;
 		trace.read((MT6873_DGB_TRACE_LP_BASE + offset),
@@ -185,7 +187,7 @@ static ssize_t mt6873_dbg_lpm_trace_comm_show(char *ToUserBuf,
 	}
 
 	kfree(data);
-	return sz;
+	return len;
 }
 
 int mt6873_dbg_lpm_init(void)
@@ -198,7 +200,7 @@ int mt6873_dbg_lpm_init(void)
 				mt6873_dbg_lpm_trace_comm_show,
 				NULL);
 
-	mtk_lpm_sysfs_sub_entry_node_add("common", 0400,
+	mtk_lpm_sysfs_sub_entry_node_add("common", 0444,
 				&mt6873_lpm_trace_node_comm.op,
 				&mt6873_entry_lpm_trace,
 				&mt6873_lpm_trace_node_comm.handle);
@@ -207,7 +209,7 @@ int mt6873_dbg_lpm_init(void)
 				mt6873_dbg_lpm_trace_lp_show,
 				NULL);
 
-	mtk_lpm_sysfs_sub_entry_node_add("lp", 0400,
+	mtk_lpm_sysfs_sub_entry_node_add("lp", 0444,
 				&mt6873_lpm_trace_node_lp.op,
 				&mt6873_entry_lpm_trace,
 				&mt6873_lpm_trace_node_lp.handle);
@@ -216,7 +218,7 @@ int mt6873_dbg_lpm_init(void)
 				mt6873_dbg_lpm_trace_suspend_show,
 				NULL);
 
-	mtk_lpm_sysfs_sub_entry_node_add("suspend", 0400,
+	mtk_lpm_sysfs_sub_entry_node_add("suspend", 0444,
 				&mt6873_lpm_trace_node_suspend.op,
 				&mt6873_entry_lpm_trace,
 				&mt6873_lpm_trace_node_suspend.handle);
