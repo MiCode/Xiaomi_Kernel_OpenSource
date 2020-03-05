@@ -151,6 +151,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 	unsigned long long tf_sum, t_diff, avg_f;
 	int j = 0;
 
+	memset(pwdata, 0, sizeof(pwdata));
 	/* tag_pr_info("CPU DVFS received thread\n"); */
 	if (ret != 0) {
 		tag_pr_notice
