@@ -569,15 +569,8 @@ struct ISP_IRQ_ERR_WAN_CNT_STRUCT {
 };
 
 static int FirstUnusedIrqUserKey = 1;
-#define USERKEY_STR_LEN 32
-
-struct UserKeyInfo {
-	/* name for the user that register a userKey */
-	char userName[USERKEY_STR_LEN];
-	int userKey; /* the user key for that user */
-};
 /* array for recording the user name for a specific user key */
-static struct UserKeyInfo IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
+static struct ISP_REGISTER_USERKEY_STRUCT IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
 
 struct ISP_IRQ_INFO_STRUCT {
 	/* Add an extra index for status type in mt6797 -> signal or dma */
@@ -4276,7 +4269,12 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_REGISTER_IRQ_USER_KEY:
 		if (copy_from_user(&RegUserKey, (void *)Param,
 			    sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
-			RegUserKey.userName[USERKEY_STR_LEN - 1] = '\0';
+			if (strnlen(RegUserKey.userName, USERKEY_STR_LEN) >=
+					USERKEY_STR_LEN) {
+				LOG_NOTICE("userName > Max string size\n");
+				Ret = -1;
+				break;
+			}
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,
