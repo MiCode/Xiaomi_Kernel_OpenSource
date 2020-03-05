@@ -123,7 +123,7 @@ int tfa_set_swprofile(struct tfa_device *tfa, unsigned short new_value)
 
 static int tfa_get_swprofile(struct tfa_device *tfa)
 {
-	return TFA_GET_BF(tfa, SWPROFIL) - 1;
+	return tfa->profile;
 }
 
 static int tfa_set_swvstep(struct tfa_device *tfa, unsigned short new_value)
