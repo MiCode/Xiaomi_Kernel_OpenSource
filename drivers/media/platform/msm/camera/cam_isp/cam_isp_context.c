@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -589,6 +589,10 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 	trace_cam_buf_done("ISP", ctx, req);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+
+	if (ctx_isp->active_req_cnt == 1)
+		ctx_isp->irq_delay_detect = false;
+
 	if (ctx_isp->frame_id == 1)
 		ctx_isp->irq_timestamps = done->irq_mono_boot_time;
 	else if (ctx_isp->fps && ((done->irq_mono_boot_time -
