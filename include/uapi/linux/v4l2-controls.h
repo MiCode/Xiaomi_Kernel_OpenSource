@@ -1002,6 +1002,9 @@ enum v4l2_mpeg_vidc_video_roi_type {
 	V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE = 2,
 };
 
+#define V4L2_CID_MPEG_VIDC_VENC_CHROMA_QP_OFFSET \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 132)
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE	(V4L2_CTRL_CLASS_CAMERA | 0x900)
