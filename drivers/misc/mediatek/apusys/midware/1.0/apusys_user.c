@@ -772,6 +772,7 @@ int apusys_delete_user(struct apusys_user *u)
 	list_for_each_safe(list_ptr, tmp, &u->cmd_list) {
 		cmd = list_entry(list_ptr, struct apusys_cmd, u_list);
 
+		LOG_WARN("del pending cmd(0x%llx)\n", cmd->cmd_id);
 		if (apusys_cmd_delete(cmd))
 			LOG_ERR("delete apusys cmd(%p) fail\n", cmd);
 	}

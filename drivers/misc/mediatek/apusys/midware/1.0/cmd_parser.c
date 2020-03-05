@@ -692,8 +692,11 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 	}
 
 	sc->par_cmd->sc_list[sc->idx] = NULL;
+	if (!test_bit(sc->idx, sc->par_cmd->sc_status))
+		LOG_WARN("sc status already clear(0x%lx/%d)",
+		*sc->par_cmd->sc_status, sc->idx);
+
 	bitmap_clear(sc->par_cmd->sc_status, sc->idx, 1);
-	sc->par_cmd = NULL;
 	kfree(sc->scr_list);
 	kfree(sc->c_hdr);
 	kfree(sc);
@@ -918,6 +921,11 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	}
 
 	mutex_lock(&cmd->mtx);
+
+	/* check sc_status */
+	if (check_cmd_done(cmd))
+		LOG_WARN("cmd(0x%llx) non-cleared(0x%lx)\n",
+			cmd->cmd_id, *cmd->sc_status);
 
 	/* unmap iova/kva */
 	memset(&mem, 0, sizeof(struct apusys_kmem));

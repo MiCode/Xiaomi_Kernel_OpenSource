@@ -1089,13 +1089,12 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 	}
 	mutex_unlock(&cmd->mtx);
 
-	LOG_DEBUG("wait 0x%llx cmd done...\n",
-		cmd->cmd_id);
 
 	mutex_lock(&cmd->mtx);
+	LOG_WARN("wait 0x%llx cmd done...\n",
+		cmd->cmd_id);
 	/* final polling */
 	for (i = 0; i < times; i++) {
-
 		if (check_cmd_done(cmd) == 0) {
 			LOG_WARN("delete cmd safely\n");
 			break;
