@@ -1830,6 +1830,12 @@ static int adreno_init(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
+	if (gpudev->init != NULL) {
+		ret = gpudev->init(adreno_dev);
+		if (ret)
+			return ret;
+	}
+
 	ret = gmu_core_init(device);
 	if (ret)
 		return ret;
@@ -1852,9 +1858,6 @@ static int adreno_init(struct kgsl_device *device)
 	/* Power down the device */
 	if (ADRENO_GPUREV(adreno_dev) < 600)
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	if (gpudev->init != NULL)
-		gpudev->init(adreno_dev);
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -123,6 +123,8 @@ static const unsigned int _a3xx_pwron_fixup_fs_instructions[] = {
 	0x0000003B, 0x80D6003B, 0x0000003F, 0x80D6003F,
 	0x00000000, 0x03000000, 0x00000000, 0x00000000,
 };
+
+static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
 
 static void a3xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 {
@@ -623,28 +625,7 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 	if (cmds == NULL)
 		return -ENOSPC;
 
-	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
-
-	*cmds++ = 0x000003f7;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000080;
-	*cmds++ = 0x00000100;
-	*cmds++ = 0x00000180;
-	*cmds++ = 0x00006600;
-	*cmds++ = 0x00000150;
-	*cmds++ = 0x0000014e;
-	*cmds++ = 0x00000154;
-	*cmds++ = 0x00000001;
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-
-	/* Enable protected mode registers for A3XX */
-	*cmds++ = 0x20000000;
-
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
+	memcpy(cmds, adreno_dev->cp_init_cmds, 18 << 2);
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret) {
@@ -685,13 +666,56 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 	return a3xx_send_me_init(adreno_dev, rb);
 }
 
+static int a3xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 *cmds;
+
+	if (adreno_dev->cp_init_cmds)
+		return 0;
+
+	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 18 << 2,
+			GFP_KERNEL);
+	if (!adreno_dev->cp_init_cmds)
+		return -ENOMEM;
+
+	cmds = (u32 *)adreno_dev->cp_init_cmds;
+
+	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
+
+	*cmds++ = 0x000003f7;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000080;
+	*cmds++ = 0x00000100;
+	*cmds++ = 0x00000180;
+	*cmds++ = 0x00006600;
+	*cmds++ = 0x00000150;
+	*cmds++ = 0x0000014e;
+	*cmds++ = 0x00000154;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+
+	/* Enable protected mode registers for A3XX */
+	*cmds++ = 0x20000000;
+
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+
+	return 0;
+}
+
 /*
  * a3xx_init() - Initialize gpu specific data
  * @adreno_dev: Pointer to adreno device
  */
-static void a3xx_init(struct adreno_device *adreno_dev)
+static int a3xx_init(struct adreno_device *adreno_dev)
 {
 	_a3xx_pwron_fixup(adreno_dev);
+
+	return a3xx_get_cp_init_cmds(adreno_dev);
 }
 
 /*

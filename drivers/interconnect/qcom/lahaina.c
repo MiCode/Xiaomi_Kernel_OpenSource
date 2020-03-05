@@ -234,6 +234,19 @@ DEFINE_QNODE(qxm_pimem, MASTER_PIMEM, 1, 8, &qxm_pimem_qos, 1,
 		SLAVE_SNOC_GEM_NOC_GC);
 DEFINE_QNODE(xm_gic, MASTER_GIC, 1, 8, &xm_gic_qos, 1,
 		SLAVE_SNOC_GEM_NOC_GC);
+DEFINE_QNODE(qnm_mnoc_hf_disp, MASTER_MNOC_HF_MEM_NOC_DISP, 2, 32, NULL, 1,
+		SLAVE_LLCC_DISP);
+DEFINE_QNODE(qnm_mnoc_sf_disp, MASTER_MNOC_SF_MEM_NOC_DISP, 2, 32, NULL, 1,
+		SLAVE_LLCC_DISP);
+DEFINE_QNODE(llcc_mc_disp, MASTER_LLCC_DISP, 4, 4, NULL, 1,
+		SLAVE_EBI1_DISP);
+DEFINE_QNODE(qxm_mdp0_disp, MASTER_MDP0_DISP, 1, 32, NULL, 1,
+		SLAVE_MNOC_HF_MEM_NOC_DISP);
+DEFINE_QNODE(qxm_mdp1_disp, MASTER_MDP1_DISP, 1, 32, NULL, 1,
+		SLAVE_MNOC_HF_MEM_NOC_DISP);
+DEFINE_QNODE(qxm_rot_disp, MASTER_ROTATOR_DISP, 1, 32, NULL, 1,
+		SLAVE_MNOC_SF_MEM_NOC_DISP);
+
 DEFINE_QNODE(qns_a1noc_snoc, SLAVE_A1NOC_SNOC, 1, 16, NULL, 1,
 		MASTER_A1NOC_SNOC);
 DEFINE_QNODE(srvc_aggre1_noc, SLAVE_SERVICE_A1NOC, 1, 4, NULL, 0);
@@ -344,14 +357,21 @@ DEFINE_QNODE(qns_gemnoc_gc, SLAVE_SNOC_GEM_NOC_GC, 1, 8, NULL, 1,
 DEFINE_QNODE(qns_gemnoc_sf, SLAVE_SNOC_GEM_NOC_SF, 1, 16, NULL, 1,
 		MASTER_SNOC_SF_MEM_NOC);
 DEFINE_QNODE(srvc_snoc, SLAVE_SERVICE_SNOC, 1, 4, NULL, 0);
+DEFINE_QNODE(qns_llcc_disp, SLAVE_LLCC_DISP, 4, 16, NULL, 1,
+		MASTER_LLCC_DISP);
+DEFINE_QNODE(ebi_disp, SLAVE_EBI1_DISP, 4, 4, NULL, 0);
+DEFINE_QNODE(qns_mem_noc_hf_disp, SLAVE_MNOC_HF_MEM_NOC_DISP, 2, 32, NULL, 1,
+		MASTER_MNOC_HF_MEM_NOC_DISP);
+DEFINE_QNODE(qns_mem_noc_sf_disp, SLAVE_MNOC_SF_MEM_NOC_DISP, 2, 32, NULL, 1,
+		MASTER_MNOC_SF_MEM_NOC_DISP);
 
-DEFINE_QBCM(bcm_acv, "ACV", false, 1,
+DEFINE_QBCM(bcm_acv, "ACV", false, 0, 1,
 		&ebi);
-DEFINE_QBCM(bcm_ce0, "CE0", false, 1,
+DEFINE_QBCM(bcm_ce0, "CE0", false, 0, 1,
 		&qxm_crypto);
-DEFINE_QBCM(bcm_cn0, "CN0", true, 2,
+DEFINE_QBCM(bcm_cn0, "CN0", true, 0, 2,
 		&qnm_gemnoc_cnoc, &qnm_gemnoc_pcie);
-DEFINE_QBCM(bcm_cn1, "CN1", false, 47,
+DEFINE_QBCM(bcm_cn1, "CN1", false, 0, 47,
 		&xm_qdss_dap, &qhs_ahb2phy0, &qhs_ahb2phy1,
 		&qhs_aoss, &qhs_apss, &qhs_camera_cfg,
 		&qhs_clk_ctl, &qhs_compute_cfg, &qhs_cpr_cx,
@@ -368,56 +388,70 @@ DEFINE_QBCM(bcm_cn1, "CN1", false, 47,
 		&qhs_venus_cfg, &qhs_vsense_ctrl_cfg, &qns_a1_noc_cfg,
 		&qns_a2_noc_cfg, &qns_ddrss_cfg, &qns_mnoc_cfg,
 		&qns_snoc_cfg, &srvc_cnoc);
-DEFINE_QBCM(bcm_cn2, "CN2", false, 5,
+DEFINE_QBCM(bcm_cn2, "CN2", false, 0, 5,
 		&qhs_lpass_cfg, &qhs_pdm, &qhs_qspi,
 		&qhs_sdc2, &qhs_sdc4);
-DEFINE_QBCM(bcm_co0, "CO0", false, 1,
+DEFINE_QBCM(bcm_co0, "CO0", false, 0, 1,
 		&qns_nsp_gemnoc);
-DEFINE_QBCM(bcm_co3, "CO3", false, 1,
+DEFINE_QBCM(bcm_co3, "CO3", false, 0, 1,
 		&qxm_nsp);
-DEFINE_QBCM(bcm_mc0, "MC0", true, 1,
+DEFINE_QBCM(bcm_mc0, "MC0", true, 0, 1,
 		&ebi);
-DEFINE_QBCM(bcm_mm0, "MM0", true, 1,
+DEFINE_QBCM(bcm_mm0, "MM0", true, 0, 1,
 		&qns_mem_noc_hf);
-DEFINE_QBCM(bcm_mm1, "MM1", false, 3,
+DEFINE_QBCM(bcm_mm1, "MM1", false, 0, 3,
 		&qnm_camnoc_hf, &qxm_mdp0, &qxm_mdp1);
-DEFINE_QBCM(bcm_mm4, "MM4", false, 1,
+DEFINE_QBCM(bcm_mm4, "MM4", false, 0, 1,
 		&qns_mem_noc_sf);
-DEFINE_QBCM(bcm_mm5, "MM5", false, 6,
+DEFINE_QBCM(bcm_mm5, "MM5", false, 0, 6,
 		&qnm_camnoc_icp, &qnm_camnoc_sf, &qnm_video0,
 		&qnm_video1, &qnm_video_cvp, &qxm_rot);
-DEFINE_QBCM(bcm_qup0, "QUP0", false, 1,
+DEFINE_QBCM(bcm_qup0, "QUP0", false, 0, 1,
 		&qup0_core_slave);
-DEFINE_QBCM(bcm_qup1, "QUP1", false, 1,
+DEFINE_QBCM(bcm_qup1, "QUP1", false, 0, 1,
 		&qup1_core_slave);
-DEFINE_QBCM(bcm_qup2, "QUP2", false, 1,
+DEFINE_QBCM(bcm_qup2, "QUP2", false, 0, 1,
 		&qup2_core_slave);
-DEFINE_QBCM(bcm_sh0, "SH0", true, 1,
+DEFINE_QBCM(bcm_sh0, "SH0", true, 0, 1,
 		&qns_llcc);
-DEFINE_QBCM(bcm_sh2, "SH2", false, 2,
+DEFINE_QBCM(bcm_sh2, "SH2", false, 0, 2,
 		&alm_gpu_tcu, &alm_sys_tcu);
-DEFINE_QBCM(bcm_sh3, "SH3", false, 1,
+DEFINE_QBCM(bcm_sh3, "SH3", false, 0, 1,
 		&qnm_cmpnoc);
-DEFINE_QBCM(bcm_sh4, "SH4", false, 1,
+DEFINE_QBCM(bcm_sh4, "SH4", false, 0, 1,
 		&chm_apps);
-DEFINE_QBCM(bcm_sn0, "SN0", true, 1,
+DEFINE_QBCM(bcm_sn0, "SN0", true, 0, 1,
 		&qns_gemnoc_sf);
-DEFINE_QBCM(bcm_sn2, "SN2", false, 1,
+DEFINE_QBCM(bcm_sn2, "SN2", false, 0, 1,
 		&qns_gemnoc_gc);
-DEFINE_QBCM(bcm_sn3, "SN3", false, 1,
+DEFINE_QBCM(bcm_sn3, "SN3", false, 0, 1,
 		&qxs_pimem);
-DEFINE_QBCM(bcm_sn4, "SN4", false, 1,
+DEFINE_QBCM(bcm_sn4, "SN4", false, 0, 1,
 		&xs_qdss_stm);
-DEFINE_QBCM(bcm_sn5, "SN5", false, 1,
+DEFINE_QBCM(bcm_sn5, "SN5", false, 0, 1,
 		&xm_pcie3_0);
-DEFINE_QBCM(bcm_sn6, "SN6", false, 1,
+DEFINE_QBCM(bcm_sn6, "SN6", false, 0, 1,
 		&xm_pcie3_1);
-DEFINE_QBCM(bcm_sn7, "SN7", false, 1,
+DEFINE_QBCM(bcm_sn7, "SN7", false, 0, 1,
 		&qnm_aggre1_noc);
-DEFINE_QBCM(bcm_sn8, "SN8", false, 1,
+DEFINE_QBCM(bcm_sn8, "SN8", false, 0, 1,
 		&qnm_aggre2_noc);
-DEFINE_QBCM(bcm_sn14, "SN14", false, 1,
+DEFINE_QBCM(bcm_sn14, "SN14", false, 0, 1,
 		&qns_pcie_mem_noc);
+DEFINE_QBCM(bcm_acv_disp, "ACV", false, 1, 1,
+		&ebi_disp);
+DEFINE_QBCM(bcm_mc0_disp, "MC0", false, 1, 1,
+		&ebi_disp);
+DEFINE_QBCM(bcm_mm0_disp, "MM0", false, 1, 1,
+		&qns_mem_noc_hf_disp);
+DEFINE_QBCM(bcm_mm1_disp, "MM1", false, 1, 2,
+		&qxm_mdp0_disp, &qxm_mdp1_disp);
+DEFINE_QBCM(bcm_mm4_disp, "MM4", false, 1, 1,
+		&qns_mem_noc_sf_disp);
+DEFINE_QBCM(bcm_mm5_disp, "MM5", false, 1, 1,
+		&qxm_rot_disp);
+DEFINE_QBCM(bcm_sh0_disp, "SH0", false, 1, 1,
+		&qns_llcc_disp);
 
 static struct qcom_icc_bcm *aggre1_noc_bcms[] = {
 };
@@ -434,11 +468,17 @@ static struct qcom_icc_node *aggre1_noc_nodes[] = {
 	[SLAVE_SERVICE_A1NOC] = &srvc_aggre1_noc,
 };
 
+static char *aggre1_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_aggre1_noc = {
 	.nodes = aggre1_noc_nodes,
 	.num_nodes = ARRAY_SIZE(aggre1_noc_nodes),
 	.bcms = aggre1_noc_bcms,
 	.num_bcms = ARRAY_SIZE(aggre1_noc_bcms),
+	.voters = aggre1_noc_voters,
+	.num_voters = ARRAY_SIZE(aggre1_noc_voters),
 };
 
 static struct qcom_icc_bcm *aggre2_noc_bcms[] = {
@@ -465,11 +505,17 @@ static struct qcom_icc_node *aggre2_noc_nodes[] = {
 	[SLAVE_SERVICE_A2NOC] = &srvc_aggre2_noc,
 };
 
+static char *aggre2_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_aggre2_noc = {
 	.nodes = aggre2_noc_nodes,
 	.num_nodes = ARRAY_SIZE(aggre2_noc_nodes),
 	.bcms = aggre2_noc_bcms,
 	.num_bcms = ARRAY_SIZE(aggre2_noc_bcms),
+	.voters = aggre2_noc_voters,
+	.num_voters = ARRAY_SIZE(aggre2_noc_voters),
 };
 
 static struct qcom_icc_bcm *clk_virt_bcms[] = {
@@ -487,11 +533,17 @@ static struct qcom_icc_node *clk_virt_nodes[] = {
 	[SLAVE_QUP_CORE_2] = &qup2_core_slave,
 };
 
+static char *clk_virt_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_clk_virt = {
 	.nodes = clk_virt_nodes,
 	.num_nodes = ARRAY_SIZE(clk_virt_nodes),
 	.bcms = clk_virt_bcms,
 	.num_bcms = ARRAY_SIZE(clk_virt_bcms),
+	.voters = clk_virt_voters,
+	.num_voters = ARRAY_SIZE(clk_virt_voters),
 };
 
 static struct qcom_icc_bcm *config_noc_bcms[] = {
@@ -566,11 +618,17 @@ static struct qcom_icc_node *config_noc_nodes[] = {
 	[SLAVE_TCU] = &xs_sys_tcu_cfg,
 };
 
+static char *config_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_config_noc = {
 	.nodes = config_noc_nodes,
 	.num_nodes = ARRAY_SIZE(config_noc_nodes),
 	.bcms = config_noc_bcms,
 	.num_bcms = ARRAY_SIZE(config_noc_bcms),
+	.voters = config_noc_voters,
+	.num_voters = ARRAY_SIZE(config_noc_voters),
 };
 
 static struct qcom_icc_bcm *dc_noc_bcms[] = {
@@ -582,11 +640,17 @@ static struct qcom_icc_node *dc_noc_nodes[] = {
 	[SLAVE_GEM_NOC_CFG] = &qns_gemnoc,
 };
 
+static char *dc_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_dc_noc = {
 	.nodes = dc_noc_nodes,
 	.num_nodes = ARRAY_SIZE(dc_noc_nodes),
 	.bcms = dc_noc_bcms,
 	.num_bcms = ARRAY_SIZE(dc_noc_bcms),
+	.voters = dc_noc_voters,
+	.num_voters = ARRAY_SIZE(dc_noc_voters),
 };
 
 static struct qcom_icc_bcm *gem_noc_bcms[] = {
@@ -594,6 +658,7 @@ static struct qcom_icc_bcm *gem_noc_bcms[] = {
 	&bcm_sh2,
 	&bcm_sh3,
 	&bcm_sh4,
+	&bcm_sh0_disp,
 };
 
 static struct qcom_icc_node *gem_noc_nodes[] = {
@@ -616,6 +681,14 @@ static struct qcom_icc_node *gem_noc_nodes[] = {
 	[SLAVE_SERVICE_GEM_NOC_1] = &srvc_even_gemnoc,
 	[SLAVE_SERVICE_GEM_NOC_2] = &srvc_odd_gemnoc,
 	[SLAVE_SERVICE_GEM_NOC] = &srvc_sys_gemnoc,
+	[MASTER_MNOC_HF_MEM_NOC_DISP] = &qnm_mnoc_hf_disp,
+	[MASTER_MNOC_SF_MEM_NOC_DISP] = &qnm_mnoc_sf_disp,
+	[SLAVE_LLCC_DISP] = &qns_llcc_disp,
+};
+
+static char *gem_noc_voters[] = {
+	"hlos",
+	"disp",
 };
 
 static struct qcom_icc_desc lahaina_gem_noc = {
@@ -623,6 +696,8 @@ static struct qcom_icc_desc lahaina_gem_noc = {
 	.num_nodes = ARRAY_SIZE(gem_noc_nodes),
 	.bcms = gem_noc_bcms,
 	.num_bcms = ARRAY_SIZE(gem_noc_bcms),
+	.voters = gem_noc_voters,
+	.num_voters = ARRAY_SIZE(gem_noc_voters),
 };
 
 static struct qcom_icc_bcm *lpass_ag_noc_bcms[] = {
@@ -638,21 +713,36 @@ static struct qcom_icc_node *lpass_ag_noc_nodes[] = {
 	[SLAVE_SERVICE_LPASS_AG_NOC] = &srvc_niu_lpass_agnoc,
 };
 
+static char *lpass_ag_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_lpass_ag_noc = {
 	.nodes = lpass_ag_noc_nodes,
 	.num_nodes = ARRAY_SIZE(lpass_ag_noc_nodes),
 	.bcms = lpass_ag_noc_bcms,
 	.num_bcms = ARRAY_SIZE(lpass_ag_noc_bcms),
+	.voters = lpass_ag_noc_voters,
+	.num_voters = ARRAY_SIZE(lpass_ag_noc_voters),
 };
 
 static struct qcom_icc_bcm *mc_virt_bcms[] = {
 	&bcm_acv,
 	&bcm_mc0,
+	&bcm_acv_disp,
+	&bcm_mc0_disp,
 };
 
 static struct qcom_icc_node *mc_virt_nodes[] = {
 	[MASTER_LLCC] = &llcc_mc,
 	[SLAVE_EBI1] = &ebi,
+	[MASTER_LLCC_DISP] = &llcc_mc_disp,
+	[SLAVE_EBI1_DISP] = &ebi_disp,
+};
+
+static char *mc_virt_voters[] = {
+	"hlos",
+	"disp",
 };
 
 static struct qcom_icc_desc lahaina_mc_virt = {
@@ -660,6 +750,8 @@ static struct qcom_icc_desc lahaina_mc_virt = {
 	.num_nodes = ARRAY_SIZE(mc_virt_nodes),
 	.bcms = mc_virt_bcms,
 	.num_bcms = ARRAY_SIZE(mc_virt_bcms),
+	.voters = mc_virt_voters,
+	.num_voters = ARRAY_SIZE(mc_virt_voters),
 };
 
 static struct qcom_icc_bcm *mmss_noc_bcms[] = {
@@ -667,6 +759,10 @@ static struct qcom_icc_bcm *mmss_noc_bcms[] = {
 	&bcm_mm1,
 	&bcm_mm4,
 	&bcm_mm5,
+	&bcm_mm0_disp,
+	&bcm_mm1_disp,
+	&bcm_mm4_disp,
+	&bcm_mm5_disp,
 };
 
 static struct qcom_icc_node *mmss_noc_nodes[] = {
@@ -683,6 +779,16 @@ static struct qcom_icc_node *mmss_noc_nodes[] = {
 	[SLAVE_MNOC_HF_MEM_NOC] = &qns_mem_noc_hf,
 	[SLAVE_MNOC_SF_MEM_NOC] = &qns_mem_noc_sf,
 	[SLAVE_SERVICE_MNOC] = &srvc_mnoc,
+	[MASTER_MDP0_DISP] = &qxm_mdp0_disp,
+	[MASTER_MDP1_DISP] = &qxm_mdp1_disp,
+	[MASTER_ROTATOR_DISP] = &qxm_rot_disp,
+	[SLAVE_MNOC_HF_MEM_NOC_DISP] = &qns_mem_noc_hf_disp,
+	[SLAVE_MNOC_SF_MEM_NOC_DISP] = &qns_mem_noc_sf_disp,
+};
+
+static char *mmss_noc_voters[] = {
+	"hlos",
+	"disp",
 };
 
 static struct qcom_icc_desc lahaina_mmss_noc = {
@@ -690,6 +796,8 @@ static struct qcom_icc_desc lahaina_mmss_noc = {
 	.num_nodes = ARRAY_SIZE(mmss_noc_nodes),
 	.bcms = mmss_noc_bcms,
 	.num_bcms = ARRAY_SIZE(mmss_noc_bcms),
+	.voters = mmss_noc_voters,
+	.num_voters = ARRAY_SIZE(mmss_noc_voters),
 };
 
 static struct qcom_icc_bcm *nsp_noc_bcms[] = {
@@ -704,11 +812,17 @@ static struct qcom_icc_node *nsp_noc_nodes[] = {
 	[SLAVE_SERVICE_NSP_NOC] = &service_nsp_noc,
 };
 
+static char *nsp_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_nsp_noc = {
 	.nodes = nsp_noc_nodes,
 	.num_nodes = ARRAY_SIZE(nsp_noc_nodes),
 	.bcms = nsp_noc_bcms,
 	.num_bcms = ARRAY_SIZE(nsp_noc_bcms),
+	.voters = nsp_noc_voters,
+	.num_voters = ARRAY_SIZE(nsp_noc_voters),
 };
 
 static struct qcom_icc_bcm *system_noc_bcms[] = {
@@ -729,14 +843,20 @@ static struct qcom_icc_node *system_noc_nodes[] = {
 	[SLAVE_SERVICE_SNOC] = &srvc_snoc,
 };
 
+static char *system_noc_voters[] = {
+	"hlos",
+};
+
 static struct qcom_icc_desc lahaina_system_noc = {
 	.nodes = system_noc_nodes,
 	.num_nodes = ARRAY_SIZE(system_noc_nodes),
 	.bcms = system_noc_bcms,
 	.num_bcms = ARRAY_SIZE(system_noc_bcms),
+	.voters = system_noc_voters,
+	.num_voters = ARRAY_SIZE(system_noc_voters),
 };
 
-static const struct regmap_config icc_sdm845_regmap_config = {
+static const struct regmap_config icc_regmap_config = {
 	.reg_bits       = 32,
 	.reg_stride     = 4,
 	.val_bits       = 32,
@@ -757,10 +877,8 @@ qcom_icc_map(struct platform_device *pdev, const struct qcom_icc_desc *desc)
 	if (IS_ERR(base))
 		return ERR_CAST(base);
 
-	return devm_regmap_init_mmio(dev, base, &icc_sdm845_regmap_config);
+	return devm_regmap_init_mmio(dev, base, &icc_regmap_config);
 }
-
-
 
 static int qnoc_probe(struct platform_device *pdev)
 {
@@ -801,9 +919,17 @@ static int qnoc_probe(struct platform_device *pdev)
 	qp->bcms = desc->bcms;
 	qp->num_bcms = desc->num_bcms;
 
-	qp->voter = of_bcm_voter_get(qp->dev, NULL);
-	if (IS_ERR(qp->voter))
-		return PTR_ERR(qp->voter);
+	qp->num_voters = desc->num_voters;
+	qp->voters = devm_kcalloc(&pdev->dev, qp->num_voters,
+				  sizeof(*qp->voters), GFP_KERNEL);
+	if (!qp->voters)
+		return -ENOMEM;
+
+	for (i = 0; i < qp->num_voters; i++) {
+		qp->voters[i] = of_bcm_voter_get(qp->dev, desc->voters[i]);
+		if (IS_ERR(qp->voters[i]))
+			return PTR_ERR(qp->voters[i]);
+	}
 
 	qp->regmap = qcom_icc_map(pdev, desc);
 	if (IS_ERR(qp->regmap))
@@ -937,13 +1063,16 @@ static void qnoc_sync_state(struct device *dev)
 	}
 
 	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
-		int i;
+		int i, j;
 
-		for (i = 0; i < qp->num_bcms; i++)
-			qcom_icc_bcm_voter_add(qp->voter, qp->bcms[i]);
+		for (i = 0; i < qp->num_voters; i++) {
+			for (j = 0; j < qp->num_bcms; j++)
+				qcom_icc_bcm_voter_add(qp->voters[i],
+						       qp->bcms[j]);
 
-		qcom_icc_bcm_voter_clear_init(qp->voter);
-		qcom_icc_bcm_voter_commit(qp->voter);
+			qcom_icc_bcm_voter_clear_init(qp->voters[i]);
+			qcom_icc_bcm_voter_commit(qp->voters[i]);
+		}
 	}
 	mutex_unlock(&probe_list_lock);
 }

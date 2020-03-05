@@ -1282,6 +1282,20 @@ static void gmu_acd_probe(struct kgsl_device *device, struct gmu_device *gmu,
 			"AOP mailbox init failed: %d\n", ret);
 }
 
+static int gmu_bus_set(struct kgsl_device *device, int buslevel,
+	u32 ab)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int ret;
+
+	ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
+
+	if (!ret)
+		icc_set_bw(pwr->icc_path, MBps_to_icc(ab), 0);
+
+	return ret;
+}
+
 /* Do not access any GMU registers in GMU probe function */
 static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 {
@@ -1408,6 +1422,9 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 		gmu->idle_level = GPU_HW_ACTIVE;
 
 	gmu_acd_probe(device, gmu, node);
+
+	if (gmu_core_scales_bandwidth(device))
+		pwr->bus_set = gmu_bus_set;
 
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
 	device->gmu_core.dev_ops = &adreno_a6xx_gmudev;

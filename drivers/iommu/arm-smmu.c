@@ -79,6 +79,7 @@
 #define ARM_SMMU_ICC_AVG_BW		0
 #define ARM_SMMU_ICC_PEAK_BW_HIGH	1000
 #define ARM_SMMU_ICC_PEAK_BW_LOW	0
+#define ARM_SMMU_ICC_ACTIVE_ONLY_TAG	0x3
 
 static int force_stage;
 module_param(force_stage, int, S_IRUGO);
@@ -4252,6 +4253,9 @@ static int arm_smmu_init_interconnect(struct arm_smmu_power_resources *pwr)
 				PTR_ERR(pwr->icc_path));
 		return pwr->icc_path ? PTR_ERR(pwr->icc_path) : -EINVAL;
 	}
+
+	if (of_property_read_bool(dev->of_node, "qcom,active-only"))
+		icc_set_tag(pwr->icc_path, ARM_SMMU_ICC_ACTIVE_ONLY_TAG);
 
 	return 0;
 }

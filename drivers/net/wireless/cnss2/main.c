@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -32,6 +32,7 @@
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
 #define COLD_BOOT_CAL_SHUTDOWN_DELAY_MS	50
+#define WLAN_WD_TIMEOUT_MS		60000
 
 #define CNSS_QUIRKS_DEFAULT		BIT(DISABLE_IO_COHERENCY)
 #ifdef CONFIG_CNSS_EMULATION
@@ -628,6 +629,14 @@ int cnss_idle_restart(struct device *dev)
 
 	cnss_pr_dbg("Doing idle restart\n");
 
+	reinit_completion(&plat_priv->power_up_complete);
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore idle restart\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_IDLE_RESTART,
 				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
@@ -640,13 +649,19 @@ int cnss_idle_restart(struct device *dev)
 	}
 
 	timeout = cnss_get_boot_timeout(dev);
-
-	reinit_completion(&plat_priv->power_up_complete);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
-					  msecs_to_jiffies(timeout) << 2);
+					  msecs_to_jiffies((timeout << 1) +
+							   WLAN_WD_TIMEOUT_MS));
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for idle restart to complete\n");
-		ret = -EAGAIN;
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore idle restart\n");
+		del_timer(&plat_priv->fw_boot_timer);
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -1918,6 +1933,23 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 		icc_put(bus_bw_info->cnss_path);
 }
 
+static ssize_t shutdown_store(struct kobject *kobj,
+			      struct kobj_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = cnss_get_plat_priv(NULL);
+
+	if (plat_priv) {
+		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+		del_timer(&plat_priv->fw_boot_timer);
+		complete_all(&plat_priv->power_up_complete);
+	}
+
+	cnss_pr_dbg("Received shutdown notification\n");
+
+	return count;
+}
+
 static ssize_t fs_ready_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -1961,7 +1993,41 @@ static ssize_t fs_ready_store(struct device *dev,
 	return count;
 }
 
+static struct kobj_attribute shutdown_attribute = __ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(fs_ready);
+
+static int cnss_create_shutdown_sysfs(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	plat_priv->shutdown_kobj = kobject_create_and_add("shutdown_wlan",
+							  kernel_kobj);
+	if (!plat_priv->shutdown_kobj) {
+		cnss_pr_err("Failed to create shutdown_wlan kernel object\n");
+		return -ENOMEM;
+	}
+
+	ret = sysfs_create_file(plat_priv->shutdown_kobj,
+				&shutdown_attribute.attr);
+	if (ret) {
+		cnss_pr_err("Failed to create sysfs shutdown file, err = %d\n",
+			    ret);
+		kobject_put(plat_priv->shutdown_kobj);
+		plat_priv->shutdown_kobj = NULL;
+	}
+
+	return ret;
+}
+
+static void cnss_remove_shutdown_sysfs(struct cnss_plat_data *plat_priv)
+{
+	if (plat_priv->shutdown_kobj) {
+		sysfs_remove_file(plat_priv->shutdown_kobj,
+				  &shutdown_attribute.attr);
+		kobject_put(plat_priv->shutdown_kobj);
+		plat_priv->shutdown_kobj = NULL;
+	}
+}
 
 static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 {
@@ -1969,9 +2035,12 @@ static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 
 	ret = device_create_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
 	if (ret) {
-		cnss_pr_err("Failed to create device file, err = %d\n", ret);
+		cnss_pr_err("Failed to create device fs_ready file, err = %d\n",
+			    ret);
 		goto out;
 	}
+
+	cnss_create_shutdown_sysfs(plat_priv);
 
 	return 0;
 out:
@@ -1980,6 +2049,7 @@ out:
 
 static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
 {
+	cnss_remove_shutdown_sysfs(plat_priv);
 	device_remove_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
 }
 
@@ -2063,11 +2133,26 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 {
 	plat_priv->ctrl_params.quirks = CNSS_QUIRKS_DEFAULT;
+	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "cnss-daemon-support"))
+		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
+
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
 	plat_priv->ctrl_params.time_sync_period = CNSS_TIME_SYNC_PERIOD_DEFAULT;
+}
+
+static void cnss_get_wlaon_pwr_ctrl_info(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+
+	plat_priv->set_wlaon_pwr_ctrl =
+		of_property_read_bool(dev->of_node, "qcom,set-wlaon-pwr-ctrl");
+
+	cnss_pr_dbg("set_wlaon_pwr_ctrl is %d\n",
+		    plat_priv->set_wlaon_pwr_ctrl);
 }
 
 static const struct platform_device_id cnss_platform_id_table[] = {
@@ -2094,6 +2179,13 @@ static const struct of_device_id cnss_of_match_table[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, cnss_of_match_table);
+
+static inline bool
+cnss_use_nv_mac(struct cnss_plat_data *plat_priv)
+{
+	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				     "use-nv-mac");
+}
 
 static int cnss_probe(struct platform_device *plat_dev)
 {
@@ -2127,11 +2219,13 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->plat_dev = plat_dev;
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
+	plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
 	INIT_LIST_HEAD(&plat_priv->clk_list);
 
+	cnss_get_wlaon_pwr_ctrl_info(plat_priv);
 	cnss_get_cpr_info(plat_priv);
 	cnss_init_control_params(plat_priv);
 

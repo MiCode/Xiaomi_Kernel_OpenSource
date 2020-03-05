@@ -190,6 +190,10 @@ static const struct of_device_id adc_tm_match_table[] = {
 		.data = &data_adc_tm5,
 	},
 	{
+		.compatible = "qcom,adc-tm7-iio",
+		.data = &data_adc_tm7,
+	},
+	{
 		.compatible = "qcom,adc-tm7",
 		.data = &data_adc_tm7,
 	},
@@ -353,8 +357,14 @@ static int adc_tm_get_dt_data(struct platform_device *pdev,
 
 		while (i < dt_chan_num) {
 			chan_adc = &chan[i];
-			if (chan_adc->channel->channel == channel_num)
+			if (chan_adc->channel->channel == channel_num) {
+				if ((adc_tm->data == &data_adc_tm7) &&
+					(chan_adc->channel->channel2 != sid)) {
+					i++;
+					continue;
+				}
 				adc_tm->sensor[idx].adc = chan_adc;
+			}
 			i++;
 		}
 		idx++;
@@ -432,7 +442,8 @@ static int adc_tm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (of_device_is_compatible(node, "qcom,adc-tm5-iio")) {
+	if (of_device_is_compatible(node, "qcom,adc-tm5-iio") ||
+			of_device_is_compatible(node, "qcom,adc-tm7-iio")) {
 		ret = adc_tm_register_tzd(adc_tm, dt_chan_num, false);
 		if (ret) {
 			dev_err(dev, "adc-tm failed to register with of thermal\n");

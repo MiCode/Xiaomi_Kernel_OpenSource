@@ -73,28 +73,6 @@ static inline bool is_memcg_oom(struct oom_control *oc)
 	return oc->memcg != NULL;
 }
 
-/*
- * If ULMK has killed a process recently,
- * we are making progress.
- */
-
-#ifdef CONFIG_HAVE_USERSPACE_LOW_MEMORY_KILLER
-static atomic64_t ulmk_kill_jiffies = ATOMIC64_INIT(INITIAL_JIFFIES);
-
-
-bool should_ulmk_retry(void)
-{
-	unsigned long j = atomic64_read(&ulmk_kill_jiffies);
-
-	return time_before(jiffies, j + 2 * HZ);
-}
-
-void ulmk_update_last_kill(void)
-{
-	atomic64_set(&ulmk_kill_jiffies, jiffies);
-}
-#endif
-
 #ifdef CONFIG_NUMA
 /**
  * oom_cpuset_eligible() - check task eligiblity for kill

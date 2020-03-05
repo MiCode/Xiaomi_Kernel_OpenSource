@@ -25,6 +25,7 @@ static int _read_fw2_block_header(struct kgsl_device *device,
 		uint32_t id, uint32_t major, uint32_t minor);
 static void a5xx_gpmu_reset(struct work_struct *work);
 static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
+static int a5xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
 
 /**
  * Number of times to check if the regulator enabled before
@@ -185,7 +186,7 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static void a5xx_init(struct adreno_device *adreno_dev)
+static int a5xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
@@ -199,8 +200,9 @@ static void a5xx_init(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
 		a5xx_critical_packet_construct(adreno_dev);
 
-
 	a5xx_crashdump_init(adreno_dev);
+
+	return a5xx_get_cp_init_cmds(adreno_dev);
 }
 
 const static struct {
@@ -1739,42 +1741,6 @@ static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
 		CP_INIT_DEFAULT_RESET_STATE | \
 		CP_INIT_UCODE_WORKAROUND_MASK)
 
-static void _set_ordinals(struct adreno_device *adreno_dev,
-		unsigned int *cmds, unsigned int count)
-{
-	unsigned int *start = cmds;
-
-	/* Enabled ordinal mask */
-	*cmds++ = CP_INIT_MASK;
-
-	if (CP_INIT_MASK & CP_INIT_MAX_CONTEXT)
-		*cmds++ = 0x00000003;
-
-	if (CP_INIT_MASK & CP_INIT_ERROR_DETECTION_CONTROL)
-		*cmds++ = 0x20000000;
-
-	if (CP_INIT_MASK & CP_INIT_HEADER_DUMP) {
-		/* Header dump address */
-		*cmds++ = 0x00000000;
-		/* Header dump enable and dump size */
-		*cmds++ = 0x00000000;
-	}
-
-	if (CP_INIT_MASK & CP_INIT_DRAWCALL_FILTER_RANGE) {
-		/* Start range */
-		*cmds++ = 0x00000000;
-		/* End range (inclusive) */
-		*cmds++ = 0x00000000;
-	}
-
-	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
-		*cmds++ = _me_init_ucode_workarounds(adreno_dev);
-
-	/* Pad rest of the cmds with 0's */
-	while ((unsigned int)(cmds - start) < count)
-		*cmds++ = 0x0;
-}
-
 static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 					struct adreno_ringbuffer *rb)
 {
@@ -1800,6 +1766,53 @@ static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static int a5xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 *cmds, i = 0;
+
+	if (adreno_dev->cp_init_cmds)
+		return 0;
+
+	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 9 << 2,
+				GFP_KERNEL);
+
+	if (!adreno_dev->cp_init_cmds)
+		return -ENOMEM;
+
+	cmds = (u32 *)adreno_dev->cp_init_cmds;
+
+	cmds[i++] = cp_type7_packet(CP_ME_INIT, 8);
+
+	/* Enabled ordinal mask */
+	cmds[i++] = CP_INIT_MASK;
+
+	if (CP_INIT_MASK & CP_INIT_MAX_CONTEXT)
+		cmds[i++] = 0x00000003;
+
+	if (CP_INIT_MASK & CP_INIT_ERROR_DETECTION_CONTROL)
+		cmds[i++] = 0x20000000;
+
+	if (CP_INIT_MASK & CP_INIT_HEADER_DUMP) {
+		/* Header dump address */
+		cmds[i++] = 0x00000000;
+		/* Header dump enable and dump size */
+		cmds[i++] = 0x00000000;
+	}
+
+	if (CP_INIT_MASK & CP_INIT_DRAWCALL_FILTER_RANGE) {
+		/* Start range */
+		cmds[i++] = 0x00000000;
+		/* End range (inclusive) */
+		cmds[i++] = 0x00000000;
+	}
+
+	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
+		cmds[i++] = _me_init_ucode_workarounds(adreno_dev);
+
+	return 0;
+}
+
 /*
  * a5xx_send_me_init() - Initialize ringbuffer
  * @adreno_dev: Pointer to adreno device
@@ -1819,9 +1832,7 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
 	if (cmds == NULL)
 		return -ENOSPC;
 
-	*cmds++ = cp_type7_packet(CP_ME_INIT, 8);
-
-	_set_ordinals(adreno_dev, cmds, 8);
+	memcpy(cmds, adreno_dev->cp_init_cmds, 9 << 2);
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)

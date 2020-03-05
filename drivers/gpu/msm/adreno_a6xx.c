@@ -99,10 +99,11 @@ static u32 a612_pwrup_reglist[] = {
 	A6XX_RBBM_PERFCTR_CNTL,
 };
 
-static void a6xx_init(struct adreno_device *adreno_dev)
+static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
+
+static int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
@@ -111,10 +112,16 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 
 	a6xx_crashdump_init(adreno_dev);
 
-	if (IS_ERR_OR_NULL(adreno_dev->pwrup_reglist))
-		adreno_dev->pwrup_reglist = kgsl_allocate_global(device,
-			PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
-			"powerup_register_list");
+	if (IS_ERR_OR_NULL(adreno_dev->pwrup_reglist)) {
+		adreno_dev->pwrup_reglist =
+				kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
+					PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+					"powerup_register_list");
+		if (IS_ERR(adreno_dev->pwrup_reglist))
+			return PTR_ERR(adreno_dev->pwrup_reglist);
+	}
+
+	return a6xx_get_cp_init_cmds(adreno_dev);
 }
 
 static void a6xx_protect_init(struct adreno_device *adreno_dev)
@@ -445,6 +452,14 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
+	if (adreno_is_a660(adreno_dev)) {
+		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_2,
+						0x00800060);
+		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_1,
+						0x40202016);
+		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000080);
+	}
+
 	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
 		/* For A612 and A610 Mem pool size is reduced to 48 */
 		kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 48);
@@ -663,44 +678,54 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 		CP_INIT_OPERATION_MODE_MASK | \
 		CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK)
 
-static void _set_ordinals(struct adreno_device *adreno_dev,
-		unsigned int *cmds, unsigned int count)
+static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 {
-	unsigned int *start = cmds;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 *cmds, i = 0;
+
+	if (adreno_dev->cp_init_cmds)
+		return 0;
+
+	adreno_dev->cp_init_cmds = devm_kzalloc(&device->pdev->dev, 12 << 2,
+				GFP_KERNEL);
+	if (!adreno_dev->cp_init_cmds)
+		return -ENOMEM;
+
+	cmds = (u32 *)adreno_dev->cp_init_cmds;
+
+	cmds[i++] = cp_type7_packet(CP_ME_INIT, 11);
 
 	/* Enabled ordinal mask */
-	*cmds++ = CP_INIT_MASK;
+	cmds[i++] = CP_INIT_MASK;
 
 	if (CP_INIT_MASK & CP_INIT_MAX_CONTEXT)
-		*cmds++ = 0x00000003;
+		cmds[i++] = 0x00000003;
 
 	if (CP_INIT_MASK & CP_INIT_ERROR_DETECTION_CONTROL)
-		*cmds++ = 0x20000000;
+		cmds[i++] = 0x20000000;
 
 	if (CP_INIT_MASK & CP_INIT_HEADER_DUMP) {
 		/* Header dump address */
-		*cmds++ = 0x00000000;
+		cmds[i++] = 0x00000000;
 		/* Header dump enable and dump size */
-		*cmds++ = 0x00000000;
+		cmds[i++] = 0x00000000;
 	}
 
 	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
-		*cmds++ = 0x00000000;
+		cmds[i++] = 0x00000000;
 
 	if (CP_INIT_MASK & CP_INIT_OPERATION_MODE_MASK)
-		*cmds++ = 0x00000002;
+		cmds[i++] = 0x00000002;
 
 	if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK) {
 		uint64_t gpuaddr = adreno_dev->pwrup_reglist->gpuaddr;
 
-		*cmds++ = lower_32_bits(gpuaddr);
-		*cmds++ = upper_32_bits(gpuaddr);
-		*cmds++ =  0;
+		cmds[i++] = lower_32_bits(gpuaddr);
+		cmds[i++] = upper_32_bits(gpuaddr);
+		cmds[i++] =  0;
 	}
 
-	/* Pad rest of the cmds with 0's */
-	while ((unsigned int)(cmds - start) < count)
-		*cmds++ = 0x0;
+	return 0;
 }
 
 /*
@@ -721,9 +746,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
 
-	*cmds++ = cp_type7_packet(CP_ME_INIT, 11);
-
-	_set_ordinals(adreno_dev, cmds, 11);
+	memcpy(cmds, adreno_dev->cp_init_cmds, 12 << 2);
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret) {

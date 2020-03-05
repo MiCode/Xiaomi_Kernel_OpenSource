@@ -13,11 +13,12 @@
 
 #include "icc-rpmh.h"
 
-#define DEFINE_QBCM(_name, _bcmname, _keepalive, _numnodes, ...)	\
+#define DEFINE_QBCM(_name, _bcmname, _keepalive, _voter_idx, _numnodes, ...)\
 		static struct qcom_icc_bcm _name = {			\
 		.name = _bcmname,					\
 		.keepalive = _keepalive,				\
 		.num_nodes = _numnodes,					\
+		.voter_idx = _voter_idx,				\
 		.nodes = { __VA_ARGS__ },				\
 	}
 

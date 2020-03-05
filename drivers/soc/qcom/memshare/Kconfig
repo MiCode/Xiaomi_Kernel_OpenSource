@@ -3,9 +3,9 @@
 # Shared Heap for external processors
 #
 config MEM_SHARE_QMI_SERVICE
-       depends on QCOM_QMI_HELPERS
-       bool "Shared Heap for external processors"
-       help
+	tristate "Shared Heap for external processors"
+	select QCOM_QMI_HELPERS
+	help
 		Memory Share Kernel QTI Messaging Interface Service
 		receives requests from Modem Processor Sub System
 		for heap alloc/free from Application Processor

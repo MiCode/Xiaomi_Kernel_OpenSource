@@ -5300,8 +5300,15 @@ int qseecom_process_listener_from_smcinvoke(uint32_t *result,
 	}
 
 	memset((void *)&dummy_app_entry, 0, sizeof(dummy_app_entry));
-	resp.result = *result;
-	resp.resp_type = *response_type;
+	/*
+	 * smcinvoke expects result in scm call resp.ret[1] and type in ret[0],
+	 * while qseecom expects result in ret[0] and type in ret[1].
+	 * To simplify API interface and code changes in smcinvoke, here
+	 * internally switch result and resp_type to let qseecom work with
+	 * smcinvoke and upstream scm driver protocol.
+	 */
+	resp.result = *response_type;
+	resp.resp_type = *result;
 	resp.data = *data;
 
 	dummy_private_data.client.app_id = *response_type;
@@ -5318,8 +5325,7 @@ int qseecom_process_listener_from_smcinvoke(uint32_t *result,
 	mutex_unlock(&app_access_lock);
 	if (ret)
 		pr_err("Failed on cmd %d for lsnr %d session %d, ret = %d\n",
-			(int)*result, (int)*response_type,
-			(int)*data, ret);
+			resp.result, resp.data, resp.resp_type, ret);
 	*result = resp.result;
 	*response_type = resp.resp_type;
 	*data = resp.data;
