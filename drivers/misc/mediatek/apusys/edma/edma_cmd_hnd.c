@@ -63,7 +63,8 @@ static void print_error_status(struct edma_sub *edma_sub,
 	unsigned int *ext_reg = NULL;
 
 	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_ERR_STATUS);
-	pr_notice("edma error status %x\n", status);
+	pr_notice("%s error status %x\n", edma_sub->sub_name,
+		status);
 
 	for (i = 0; i < (EDMA_REG_SHOW_RANGE >> 2); i++) {
 		status = edma_read_reg32(edma_sub->base_addr, i*4);
@@ -86,6 +87,12 @@ static void print_error_status(struct edma_sub *edma_sub,
 		else
 			pr_notice("not support ext_reg dump!!\n");
 	}
+	for (i = (EDMA_REG_EX_R1 >> 2); i < (EDMA_REG_EX_R2 >> 2); i++) {
+		status = edma_read_reg32(edma_sub->base_addr, i*4);
+		pr_notice("edma dump extra register[0x%x] = 0x%x\n",
+		i*4, status);
+	}
+	edma_sw_reset(edma_sub);
 }
 
 irqreturn_t edma_isr_handler(int irq, void *edma_sub_info)
@@ -144,6 +151,28 @@ void edma_enable_sequence(struct edma_sub *edma_sub)
 	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
 	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
 }
+
+void edma_sw_reset(struct edma_sub *edma_sub)
+{
+	u32 value = 0;
+
+	LOG_DBG("%s\n", __func__);
+	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, CLK_ENABLE);
+
+	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, AXI_PROT_EN);
+
+	while (!(value & RST_PROT_IDLE))
+		value = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0);
+
+	LOG_DBG("value = 0x%x\n", value);
+
+	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
+	udelay(5);
+	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
+	udelay(5);
+	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, AXI_PROT_EN);
+}
+
 
 int edma_trigger_internal_mode(void __iomem *base_addr,
 				struct edma_request *req)
@@ -1400,7 +1429,14 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret != 0)
 		return ret;
 
-	edma_enable_sequence(edma_sub);
+	//edma_enable_sequence(edma_sub);
+	edma_sw_reset(edma_sub);
+
+	LOG_DBG("%s:ext_reg_addr = 0x%x, desp_iommu_en = %d\n",
+		__func__, req->ext_reg_addr, req->desp_iommu_en);
+
+
+	LOG_DBG("edma_enable_sequence done\n");
 
 	do_gettimeofday(&t1);
 

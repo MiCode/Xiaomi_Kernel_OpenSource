@@ -18,7 +18,12 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 
-#define EDMA_REG_SHOW_RANGE			0X10C
+#define EDMA_REG_SHOW_RANGE			0x10C
+
+#define EDMA_REG_EX_R1			0xC00
+
+#define EDMA_REG_EX_R2			0xC5C
+
 
 #define DESP_WRITE_POINTER_MASK			0x00000030
 #define NUM_DESP_MASK				0x00000007
@@ -32,6 +37,8 @@
 /* APU_EDMA2_CTL_0 */
 #define CLK_ENABLE				BIT(0)
 #define DMA_SW_RST				BIT(4)
+#define AXI_PROT_EN			    BIT(12)
+#define RST_PROT_IDLE			BIT(14)
 #define EDMA_DESCRIPTOR_MODE			BIT(16)
 
 /* APU_EDMA2_CFG_0 */
