@@ -1231,7 +1231,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	u32 copy_size;
 	const u64 inorder_mask = 1ll << CMDQ_ENG_INORDER;
 
-	CMDQ_TRACE_FORCE_BEGIN("%s engine:%#llx\n",
+	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n",
 		__func__, desc->engineFlag);
 
 	cmdq_task_create(desc->scenario, &handle);
@@ -1403,7 +1403,7 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 	u32 i;
 	u64 exec_cost;
 
-	CMDQ_TRACE_FORCE_BEGIN("%s t:%d engine:%#llx\n",
+	CMDQ_TRACE_FORCE_BEGIN("%s %d %llx\n",
 		__func__, handle->thread, handle->engineFlag);
 
 	/* we have to wait handle has valid thread first */
