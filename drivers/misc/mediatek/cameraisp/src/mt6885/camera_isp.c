@@ -1566,6 +1566,80 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
  *
  ******************************************************************************/
 //#define Rdy_ReqDump
+static void ISP_DumpRawiR2DebugData(enum ISP_IRQ_TYPE_ENUM module)
+{
+	unsigned int checksum, data_cnt, lpix_cnt, lpix_cnt_tmp;
+	unsigned int smi_dbg_data_local, smi_dbg_data_case0;
+	unsigned int fifo_dbg_data_case0, fifo_dbg_data_case1;
+	unsigned int fifo_dbg_data_case2, fifo_dbg_data_case3;
+	char cam[10] = {'\0'};
+	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
+
+	switch (module) {
+	case ISP_IRQ_TYPE_INT_CAM_A_ST:
+		regModule = ISP_CAM_A_IDX;
+		strncpy(cam, "CAM_A", sizeof("CAM_A"));
+		break;
+	case ISP_IRQ_TYPE_INT_CAM_B_ST:
+		regModule = ISP_CAM_B_IDX;
+		strncpy(cam, "CAM_B", sizeof("CAM_B"));
+		break;
+	case ISP_IRQ_TYPE_INT_CAM_C_ST:
+		regModule = ISP_CAM_C_IDX;
+		strncpy(cam, "CAM_C", sizeof("CAM_C"));
+		break;
+	default:
+		LOG_NOTICE("unsupported module:0x%x\n", module);
+		return;
+	}
+	ISP_WR32(CAM_REG_DBG_SET(regModule), 0x2);
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x0000080B);
+	checksum = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x0000090B);
+	lpix_cnt_tmp = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00000A0B);
+	lpix_cnt = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00000B0B);
+	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"RAWI_R2 checksum=0x%x,lpix_cnt_tmp=0x%x,lpix_cnt=0x%x,data_cnt=0x%x\n",
+		checksum, lpix_cnt_tmp, lpix_cnt, data_cnt);
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00080102);
+	smi_dbg_data_local = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00000102);
+	smi_dbg_data_case0 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"RAWI_R2 smi_dbg_data_local=0x%x,smi_dbg_data_case0=0x%x\n",
+		smi_dbg_data_local, smi_dbg_data_case0);
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00000202);
+	fifo_dbg_data_case0 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00010202);
+	fifo_dbg_data_case1 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00020202);
+	fifo_dbg_data_case2 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), 0x00030202);
+	fifo_dbg_data_case3 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"RAWI_R2 fifo case0=0x%x,case1=0x%x,case2=0x%x,case3=0x%x\n",
+		fifo_dbg_data_case0, fifo_dbg_data_case1,
+		fifo_dbg_data_case2, fifo_dbg_data_case3);
+}
+
 static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 {
 #ifdef Rdy_ReqDump
@@ -1722,6 +1796,10 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 		"%s:RAWI=0x%x,BPCI:0x%x,LSCI=0x%x,BPCI_R2=0x%x,PDI=0x%x,UFDI_R2=0x%x,\n",
 		cam, dmaerr[_rawi_], dmaerr[_bpci_], dmaerr[_lsci_],
 		dmaerr[_bpci_r2_], dmaerr[_pdi_], dmaerr[_ufdi_r2_]);
+
+	if (dmaerr[_rawi_] != 0xFFFF0000)
+		ISP_DumpRawiR2DebugData(module);
+
 	/* DMAO */
 	g_DmaErr_CAM[module][_imgo_] |= dmaerr[_imgo_];
 	g_DmaErr_CAM[module][_ltmso_] |= dmaerr[_ltmso_];
