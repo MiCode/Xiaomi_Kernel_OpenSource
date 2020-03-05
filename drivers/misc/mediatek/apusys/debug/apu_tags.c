@@ -21,7 +21,7 @@
 #define APU_TAGS_PROC_FS_NAME "aputag"
 
 static struct proc_dir_entry *proot;
-static DEFINE_SPINLOCK(apu_tags_list_lock);
+static DEFINE_MUTEX(apu_tags_list_lock);
 static LIST_HEAD(apu_tags_list);
 
 static int apu_tags_alloc_procfs(struct apu_tags *at);
@@ -38,16 +38,15 @@ static struct apu_tags *apu_tags_find(const char *name)
 {
 	struct apu_tags *a, *n;
 	struct apu_tags *ret = NULL;
-	unsigned long flags;
 
-	spin_lock_irqsave(&apu_tags_list_lock, flags);
+	mutex_lock(&apu_tags_list_lock);
 	list_for_each_entry_safe(a, n, &apu_tags_list, list) {
 		if (!strncmp(a->name, name, APU_TAG_NAME_SZ-1)) {
 			ret = a;
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&apu_tags_list_lock, flags);
+	mutex_unlock(&apu_tags_list_lock);
 	return ret;
 }
 
@@ -322,18 +321,17 @@ static const struct file_operations apu_tags_proc_fops = {
 
 static int apu_tags_info_show(struct seq_file *s, void *v)
 {
-	unsigned long flags;
 	struct apu_tags *a, *n;
 	unsigned long total_mem = 0;
 
 	seq_puts(s, "Name\tCount\tEntry Size\tUsed Memory\n");
-	spin_lock_irqsave(&apu_tags_list_lock, flags);
+	mutex_lock(&apu_tags_list_lock);
 	list_for_each_entry_safe(a, n, &apu_tags_list, list) {
 		seq_printf(s, "%s\t%5d\t%10d\t%11ld\n",
 			a->name, a->cnt, a->ent_sz, a->used_mem);
 		total_mem += a->used_mem;
 	}
-	spin_unlock_irqrestore(&apu_tags_list_lock, flags);
+	mutex_unlock(&apu_tags_list_lock);
 	seq_printf(s, "Total Used Memory: %ld bytes\n", total_mem);
 
 	return 0;
@@ -381,9 +379,8 @@ static void apu_tags_exit_procfs(void)
 static int apu_tags_alloc_procfs(struct apu_tags *at)
 {
 	int ret = 0;
-	unsigned long flags;
 
-	spin_lock_irqsave(&apu_tags_list_lock, flags);
+	mutex_lock(&apu_tags_list_lock);
 	list_add(&at->list, &apu_tags_list);
 	ret = apu_tags_init_procfs();
 	if (ret)
@@ -396,15 +393,13 @@ static int apu_tags_alloc_procfs(struct apu_tags *at)
 		ret = -ENOMEM;
 	}
 out:
-	spin_unlock_irqrestore(&apu_tags_list_lock, flags);
+	mutex_unlock(&apu_tags_list_lock);
 	return ret;
 }
 
 static void apu_tags_free_procfs(struct apu_tags *at)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&apu_tags_list_lock, flags);
+	mutex_lock(&apu_tags_list_lock);
 	list_del(&at->list);
 	if (at->proc && proot) {
 		remove_proc_subtree(at->name, proot);
@@ -412,6 +407,6 @@ static void apu_tags_free_procfs(struct apu_tags *at)
 	}
 	if (list_empty(&apu_tags_list))
 		apu_tags_exit_procfs();
-	spin_unlock_irqrestore(&apu_tags_list_lock, flags);
+	mutex_unlock(&apu_tags_list_lock);
 }
 
