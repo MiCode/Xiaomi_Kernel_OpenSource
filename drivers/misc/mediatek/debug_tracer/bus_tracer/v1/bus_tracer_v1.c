@@ -416,8 +416,8 @@ static int enable(struct bus_tracer_plt *plt, unsigned char force_enable,
 					BUS_TRACE_CON);
 			dsb(sy);
 #endif
-			writel(ret|BUS_TRACE_EN|WDT_RST_EN, plt->tracer[i].base
-					+ BUS_TRACE_CON);
+			writel(ret|BUS_TRACE_EN|WDT_RST_EN|SW_RST_B,
+				plt->tracer[i].base + BUS_TRACE_CON);
 			plt->tracer[i].recording = 1;
 		}
 		dsb(sy);
