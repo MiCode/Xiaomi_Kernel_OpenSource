@@ -1535,6 +1535,20 @@ bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc)
 	return false;
 }
 
+/* sw workaround to fix gce hw bug */
+#if defined(CONFIG_MACH_MT6873)
+bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = NULL;
+
+	priv = mtk_crtc->base.dev->dev_private;
+	if (mtk_crtc->gce_obj.client[CLIENT_SODI_LOOP])
+		return true;
+	return false;
+}
+#endif
+
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 {
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -2231,6 +2245,40 @@ static void mtk_crtc_rec_trig_cnt(struct mtk_drm_crtc *mtk_crtc,
 				CMDQ_CPR_DISP_CNT, U32_MAX);
 }
 
+/* sw workaround to fix gce hw bug */
+#if defined(CONFIG_MACH_MT6873)
+void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc)
+{
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = NULL;
+	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
+
+	if (crtc_id) {
+		DDPDBG("%s:%d invalid crtc:%ld\n",
+			__func__, __LINE__, crtc_id);
+		return;
+	}
+
+	priv = mtk_crtc->base.dev->dev_private;
+	mtk_crtc->sodi_loop_cmdq_handle = cmdq_pkt_create(
+			mtk_crtc->gce_obj.client[CLIENT_SODI_LOOP]);
+	cmdq_handle = mtk_crtc->sodi_loop_cmdq_handle;
+
+	cmdq_pkt_wait_no_clear(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+
+	cmdq_pkt_write(cmdq_handle, NULL,
+		GCE_BASE_ADDR + GCE_GCTL_VALUE, GCE_DDR_EN, GCE_DDR_EN);
+
+	cmdq_pkt_wfe(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_SODI]);
+
+	cmdq_pkt_finalize_loop(cmdq_handle);
+	cmdq_pkt_flush_async(cmdq_handle, NULL, (void *)crtc_id);
+}
+#endif
+
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 {
 	int ret = 0;
@@ -2238,6 +2286,21 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+#if defined(CONFIG_MACH_MT6873)
+	struct cmdq_operand lop, rop;
+
+	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
+	const u16 var1 = CMDQ_THR_SPR_IDX3;
+	const u16 var2 = 0;
+
+	u32 inst_condi_jump;
+	u64 *inst, jump_pa;
+
+	lop.reg = true;
+	lop.idx = var1;
+	rop.reg = false;
+	rop.idx = var2;
+#endif
 
 	if (crtc_id) {
 		DDPPR_ERR("%s:%d invalid crtc:%ld\n",
@@ -2299,8 +2362,33 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	} else {
+
+#if defined(CONFIG_MACH_MT6873)
+		/*mark condition jump */
+		inst_condi_jump = cmdq_handle->cmd_buf_size;
+		cmdq_pkt_assign_command(cmdq_handle, reg_jump, 0);
+#endif
 		cmdq_pkt_wfe(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+
+/* sw workaround to fix gce hw bug */
+#if defined(CONFIG_MACH_MT6873)
+		cmdq_pkt_cond_jump_abs(cmdq_handle, reg_jump, &lop, &rop,
+			CMDQ_NOT_EQUAL);
+
+		/* if condition false, will jump here */
+		cmdq_pkt_write(cmdq_handle, NULL,
+			GCE_BASE_ADDR + GCE_GCTL_VALUE, 0, GCE_DDR_EN);
+
+	      /* if condition true, will jump curreent postzion */
+		inst = cmdq_pkt_get_va_by_offset(cmdq_handle,  inst_condi_jump);
+		jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+					cmdq_handle->cmd_buf_size);
+		*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
+
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_SODI]);
+#endif
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_LAYER_REC)) {
@@ -2350,6 +2438,19 @@ void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc)
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->trig_loop_cmdq_handle);
 }
+
+/* sw workaround to fix gce hw bug */
+#if defined(CONFIG_MACH_MT6873)
+void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = NULL;
+
+	priv = mtk_crtc->base.dev->dev_private;
+	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_SODI_LOOP]);
+	cmdq_pkt_destroy(mtk_crtc->sodi_loop_cmdq_handle);
+}
+#endif
 
 long mtk_crtc_wait_status(struct drm_crtc *crtc, bool status, long timeout)
 {
@@ -2941,8 +3042,14 @@ skip:
 #endif
 
 	/* 6. stop trig loop  */
-	if (mtk_crtc_with_trigger_loop(crtc))
+	if (mtk_crtc_with_trigger_loop(crtc)) {
 		mtk_crtc_stop_trig_loop(crtc);
+#if defined(CONFIG_MACH_MT6873)
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+				(!mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_stop_sodi_loop(crtc);
+#endif
+	}
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
@@ -3032,8 +3139,14 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	}
 
 	/* 4. start trigger loop first to keep gce alive */
-	if (mtk_crtc_with_trigger_loop(crtc))
+	if (mtk_crtc_with_trigger_loop(crtc)) {
+#if defined(CONFIG_MACH_MT6873)
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+			(!mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_start_sodi_loop(crtc);
+#endif
 		mtk_crtc_start_trig_loop(crtc);
+	}
 
 	if (mtk_crtc_is_mem_mode(crtc) || mtk_crtc_is_dc_mode(crtc)) {
 		struct golden_setting_context *ctx =
@@ -3347,8 +3460,14 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
 
 	/* 2. start trigger loop first to keep gce alive */
-	if (mtk_crtc_with_trigger_loop(crtc))
+	if (mtk_crtc_with_trigger_loop(crtc)) {
+#if defined(CONFIG_MACH_MT6873)
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+			(!mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_start_sodi_loop(crtc);
+#endif
 		mtk_crtc_start_trig_loop(crtc);
+	}
 
 	/* 3. Regsister configuration */
 	mtk_crtc_first_enable_ddp_config(mtk_crtc);
@@ -4409,6 +4528,12 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		len = snprintf(buf, buf_len, "disp_token_stream_dirty%d",
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
+#if defined(CONFIG_MACH_MT6873)
+	case EVENT_SYNC_TOKEN_SODI:
+		len = snprintf(buf, buf_len, "disp_token_sodi%d",
+			       drm_crtc_index(&mtk_crtc->base));
+		break;
+#endif
 	case EVENT_STREAM_EOF:
 		len = snprintf(buf, buf_len, "disp_token_stream_eof%d",
 			       drm_crtc_index(&mtk_crtc->base));
