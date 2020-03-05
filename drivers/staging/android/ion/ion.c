@@ -52,7 +52,58 @@
 #include <mach/pseudo_m4u.h>
 #endif
 
+struct ion_dmabuf_list {
+	struct list_head head;
+	struct mutex lock; /* dmabuf lock */
+};
+
+static struct ion_dmabuf_list dmabuf_list;
+
 atomic64_t page_sz_cnt = ATOMIC64_INIT(0);
+
+/* To support  ion_dmabuf_dbg_show, we also need to porting
+ * dma-buf.c . Ref: Change 3094333
+ */
+void ion_dmabuf_init(void)
+{
+	mutex_init(&dmabuf_list.lock);
+	INIT_LIST_HEAD(&dmabuf_list.head);
+}
+
+void ion_dmabuf_dbg_show(struct seq_file *s)
+{
+	struct dma_buf *dmabuf;
+
+	mutex_lock(&dmabuf_list.lock);
+
+	if (s) {
+		seq_puts(s, "\ndmabuf get/put count for orphaned buffer\n");
+		seq_printf(s, "%18.s %8.s %4.s\n",
+			   "buffer", "size", "ref");
+	} else {
+		pr_info("\ndmabuf get/put count for orphaned buffer\n");
+		pr_info("%18.s %8.s %3.s\n",
+			"buffer", "size", "ref");
+	}
+	list_for_each_entry(dmabuf, &dmabuf_list.head, node) {
+		if (atomic_read(&dmabuf->ref) > 0) {
+			struct ion_buffer *buffer = dmabuf->priv;
+
+			if (buffer->handle_count)
+				continue;
+			if (s)
+				seq_printf(s, "0x%p %8zu %3d\n",
+					   buffer, buffer->size,
+					atomic_read(&dmabuf->ref));
+			else
+				pr_info("0x%p %8zu %3d\n",
+					buffer, buffer->size,
+					atomic_read(&dmabuf->ref));
+		}
+	}
+
+	mutex_unlock(&dmabuf_list.lock);
+}
 
 void ion_client_buf_add(struct ion_heap *heap, struct ion_client *client,
 			size_t size)
@@ -1552,6 +1603,9 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 	struct ion_buffer *buffer = dmabuf->priv;
 
 	ion_buffer_put(buffer);
+	mutex_lock(&dmabuf_list.lock);
+	list_del(&dmabuf->node);
+	mutex_unlock(&dmabuf_list.lock);
 }
 
 static void *ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
@@ -1707,6 +1761,10 @@ struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 		ion_buffer_put(buffer);
 		return dmabuf;
 	}
+
+	mutex_lock(&dmabuf_list.lock);
+	list_add(&dmabuf->node, &dmabuf_list.head);
+	mutex_unlock(&dmabuf_list.lock);
 
 	return dmabuf;
 }
@@ -2065,7 +2123,8 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		}
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
-			seq_printf(s, "%16.s %16u %16zu %d %d\n",
+			seq_printf(s, "0x%p %16.s %16u %16zu %d %d\n",
+				   buffer,
 				   buffer->task_comm, buffer->pid,
 				   buffer->size, buffer->kmap_cnt,
 				   atomic_read(

@@ -281,6 +281,7 @@ struct dma_buf_ops {
  * Device DMA access is handled by the separate &struct dma_buf_attachment.
  */
 struct dma_buf {
+	atomic_t ref;
 	size_t size;
 	struct file *file;
 	struct list_head attachments;
@@ -290,6 +291,7 @@ struct dma_buf {
 	void *vmap_ptr;
 	const char *exp_name;
 	struct module *owner;
+	struct list_head node;
 	struct list_head list_node;
 	void *priv;
 	struct reservation_object *resv;
