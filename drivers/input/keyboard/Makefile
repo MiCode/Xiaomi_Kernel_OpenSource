@@ -3,6 +3,10 @@
 # Makefile for the input core drivers.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE := y
+endif
+
 # Each configuration option enables a list of files.
 
 obj-$(CONFIG_KEYBOARD_ADC)		+= adc-keys.o

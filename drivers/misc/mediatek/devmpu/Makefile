@@ -11,6 +11,10 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE := y
+endif
+
 PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 ccflags-y += \

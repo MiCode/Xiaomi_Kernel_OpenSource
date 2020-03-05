@@ -11,6 +11,10 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE := y
+endif
+
 #DRAM_CONTROLLER
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6763"))

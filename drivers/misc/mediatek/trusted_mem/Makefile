@@ -9,6 +9,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE := y
+endif
+
 # Modules Feature Options
 include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.configs
 

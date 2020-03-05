@@ -3,6 +3,10 @@
 # Makefile for nvmem drivers.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE_mtk-efuse.o := y
+endif
+
 obj-$(CONFIG_NVMEM)		+= nvmem_core.o
 nvmem_core-y			:= core.o
 

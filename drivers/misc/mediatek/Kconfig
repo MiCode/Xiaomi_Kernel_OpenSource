@@ -398,6 +398,16 @@ config MTK_DM_VERITY_OFF
 	bool "Disable dm-verity"
 	default n
 
+config MTK_GCOV_KERNEL
+	bool "Enable GCOV on Mediatek Modules"
+	default n
+	select GCOV_KERNEL
+	help
+	  Enable GCOV on Mediatek Modules
+	  It depends on GCOV_KERNEL
+	  Select "Y" if you want to use.
+	  Select "N" if you are not sure.
+
 source "drivers/misc/mediatek/freqhopping/Kconfig"
 source "drivers/misc/mediatek/sspm/Kconfig"
 source "drivers/misc/mediatek/gpu/Kconfig"

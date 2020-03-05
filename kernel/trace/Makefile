@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE_mtk_trace.o := y
+endif
+
 # Do not instrument the tracer itself:
 
 ifdef CONFIG_FUNCTION_TRACER

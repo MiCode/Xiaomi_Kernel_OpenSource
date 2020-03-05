@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0
 # UFSHCD makefile
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE_ufs-mtk.o := y
+GCOV_PROFILE_ufs-mtk-platform.o := y
+GCOV_PROFILE_ufs-mtk-dbg.o := y
+GCOV_PROFILE_ufs-mtk-block.o := y
+endif
 obj-$(CONFIG_SCSI_UFS_DWC_TC_PCI) += tc-dwc-g210-pci.o ufshcd-dwc.o tc-dwc-g210.o
 obj-$(CONFIG_SCSI_UFS_DWC_TC_PLATFORM) += tc-dwc-g210-pltfrm.o ufshcd-dwc.o tc-dwc-g210.o
 

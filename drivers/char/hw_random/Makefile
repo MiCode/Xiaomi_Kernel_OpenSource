@@ -3,6 +3,10 @@
 # Makefile for HW Random Number Generator (RNG) device drivers.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE_mt67xx-rng.o := y
+endif
+
 obj-$(CONFIG_HW_RANDOM) += rng-core.o
 rng-core-y := core.o
 obj-$(CONFIG_HW_RANDOM_TIMERIOMEM) += timeriomem-rng.o

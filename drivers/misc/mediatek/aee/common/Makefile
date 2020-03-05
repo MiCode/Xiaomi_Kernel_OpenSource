@@ -11,6 +11,10 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE := y
+endif
+
 subdir-ccflags-y += -Idrivers/misc/mediatek/mtprof/
 subdir-ccflags-y += -Idrivers/misc/mediatek/aee/mrdump/
 subdir-ccflags-y += -Idrivers/misc/mediatek/aee/ipanic/
