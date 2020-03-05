@@ -1635,6 +1635,7 @@ static unsigned int msdc_command_start(struct msdc_host   *host,
 	}
 
 	dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
+	dbg_add_sd_log(host->mmc, 0, cmd->opcode, cmd->arg);
 
 	sdc_send_cmd(rawcmd, cmd->arg);
 
@@ -1780,6 +1781,7 @@ skip_cmd_resp_polling:
 			break;
 		}
 		dbg_add_host_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
+		dbg_add_sd_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
 	} else if (intsts & MSDC_INT_RSPCRCERR) {
 		cmd->error = (unsigned int)-EILSEQ;
 		if ((cmd->opcode != 19) && (cmd->opcode != 21)) {
@@ -4414,12 +4416,12 @@ static int msdc_ops_get_cd(struct mmc_host *mmc)
  end:
 	/* enable msdc register dump */
 	sd_register_zone[host->id] = 1;
-	INFO_MSG(
-	"Card insert<%d> Block bad card<%d>, mrq<%p> claimed<%d> pwrcnt<%d>",
+	INIT_MSG(
+	"Card insert<%d> Block bad card<%d>, mrq<%p> claimed<%d> pwrcnt<%d> trigger card event<%d>",
 		host->card_inserted,
 		host->block_bad_card,
 		host->mrq, mmc->claimed,
-		host->power_cycle_cnt);
+		host->power_cycle_cnt, mmc->trigger_card_event);
 
 	/* spin_unlock_irqrestore(&host->lock, flags); */
 
