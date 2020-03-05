@@ -117,12 +117,12 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 {
 	struct pt_regs saved_regs;
 
+	bust_spinlocks(1);
 	show_kaslr();
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_exp_type(AEE_EXP_TYPE_NESTED_PANIC);
 #endif
 	aee_nested_printf("minidump\n");
-	bust_spinlocks(1);
 	if (excp_regs != NULL) {
 		__mrdump_create_oops_dump(AEE_REBOOT_MODE_NESTED_EXCEPTION,
 				excp_regs, "Kernel NestedPanic");
