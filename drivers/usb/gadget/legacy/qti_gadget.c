@@ -28,6 +28,10 @@ struct qti_usb_function {
 #define MAX_FUNC_NAME_LEN	48
 #define MAX_CFG_NAME_LEN       128
 
+#define QW_SIGN_LEN		14
+
+char qw_sign[QW_SIGN_LEN] = "MSFT100";
+
 struct qti_usb_config {
 	struct usb_configuration c;
 
@@ -175,6 +179,12 @@ static int qti_composite_bind(struct usb_gadget *gadget,
 		usb_ep_autoconfig_reset(cdev->gadget);
 	}
 
+	if (cdev->use_os_string) {
+		ret = composite_os_desc_req_prepare(cdev, gadget->ep0);
+		if (ret)
+			goto remove_funcs;
+	}
+
 	usb_ep_autoconfig_reset(cdev->gadget);
 
 	return 0;
@@ -261,6 +271,7 @@ static int qti_usb_func_alloc(struct qti_usb_config *qcfg,
 {
 	struct qti_usb_function *qf;
 	struct usb_function_instance *fi;
+	struct usb_composite_dev *cdev = qcfg->c.cdev;
 	struct usb_function *f;
 	char buf[MAX_FUNC_NAME_LEN];
 	char *func_name;
@@ -311,6 +322,13 @@ static int qti_usb_func_alloc(struct qti_usb_config *qcfg,
 
 	/* stash the function until we bind it to the gadget */
 	list_add_tail(&f->list, &qcfg->func_list);
+
+	if (!strcmp(instance_name, "mbim")) {
+		cdev->os_desc_config = &qcfg->c;
+		cdev->use_os_string = true;
+		cdev->b_vendor_code = 0xA5;
+		memcpy(cdev->qw_sign, qw_sign, QW_SIGN_LEN);
+	}
 
 	return 0;
 }
