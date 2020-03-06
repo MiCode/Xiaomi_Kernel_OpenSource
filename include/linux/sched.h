@@ -540,6 +540,15 @@ struct cpu_cycle_counter_cb {
 
 DECLARE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
 
+#ifdef CONFIG_QCOM_HYP_CORE_CTL
+extern int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id);
+#else
+static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
+{
+	return 0;
+}
+#endif /* CONFIG_QCOM_HYP_CORE_CTL */
+
 #ifdef CONFIG_SCHED_WALT
 extern void sched_exit(struct task_struct *p);
 extern int __weak

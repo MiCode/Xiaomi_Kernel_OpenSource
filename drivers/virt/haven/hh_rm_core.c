@@ -16,6 +16,7 @@
 #include <linux/completion.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
+#include <linux/sched.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include <linux/haven/hh_msgq.h>
@@ -666,6 +667,9 @@ static int hh_rm_populate_hyp_res(void)
 		case HH_RM_RES_TYPE_MQ_RX:
 			ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
+			break;
+		case HH_RM_RES_TYPE_VCPU:
+			ret = hh_vcpu_populate_affinity_info(label, cap_id);
 			break;
 		case HH_RM_RES_TYPE_DB_TX:
 			break;
