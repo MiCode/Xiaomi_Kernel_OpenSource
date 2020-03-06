@@ -253,7 +253,7 @@ out:
 static int hh_rm_vm_irq_notify(const hh_vmid_t *vmids, unsigned int num_vmids,
 			       u16 flags, hh_virq_handle_t virq_handle)
 {
-	struct hh_vm_irq_notify_resp_payload *resp_payload;
+	void *resp;
 	struct hh_vm_irq_notify_req_payload *req_payload;
 	size_t resp_payload_size, req_payload_size;
 	int ret = 0, reply_err_code;
@@ -284,24 +284,28 @@ static int hh_rm_vm_irq_notify(const hh_vmid_t *vmids, unsigned int num_vmids,
 	}
 
 
-	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY,
-				req_payload, req_payload_size,
-				&resp_payload_size, &reply_err_code);
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY,
+			  req_payload, req_payload_size,
+			  &resp_payload_size, &reply_err_code);
 	kfree(req_payload);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
-		ret = PTR_ERR(resp_payload);
-		pr_err("%s: VM_IRQ_NOTIFY failed with err: %d\n",
-			__func__, ret);
-		return ret;
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send IRQ_NOTIFY to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
-		pr_err("%s: Invalid size received for VM_IRQ_NOTIFY: %u\n",
+	if (reply_err_code) {
+		pr_err("%s: IRQ_NOTIFY returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for IRQ_NOTIFY: %u\n",
 			__func__, resp_payload_size);
 		ret = -EINVAL;
 	}
 
-	kfree(resp_payload);
 	return ret;
 }
 

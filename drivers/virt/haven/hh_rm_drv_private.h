@@ -196,10 +196,6 @@ struct hh_vm_irq_notify_req_payload {
 	} optional[0];
 } __packed;
 
-struct hh_vm_irq_notify_resp_payload {
-	hh_virq_handle_t virq;
-} __packed;
-
 /* Call: MEM_QCOM_LOOKUP_SGL */
 /*
  * Split up the whole payload into a header and several trailing structs
