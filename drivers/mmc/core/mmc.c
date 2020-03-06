@@ -2942,9 +2942,9 @@ static int _mmc_hw_reset(struct mmc_host *host)
 		return ret;
 	}
 
-	ret = mmc_suspend_clk_scaling(host);
+	ret = mmc_resume_clk_scaling(host);
 	if (ret) {
-		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
 				mmc_hostname(host), __func__, ret);
 	}
 	return ret;
