@@ -179,7 +179,8 @@ int hh_rm_unregister_notifier(struct notifier_block *nb);
 
 /* Client APIs for IRQ management */
 int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq);
-int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label);
+int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label,
+			     hh_virq_handle_t *virq_handle);
 
 /* Client APIs for VM management */
 int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
