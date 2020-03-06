@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1471,7 +1471,7 @@ static int clk_gfx3d_src_determine_rate(struct clk_hw *hw,
 
 	f = qcom_find_freq(rcg->freq_tbl, req->rate);
 	if (!f || (req->rate != f->freq))
-		return -EINVAL;
+		req->rate = f->freq;
 
 	/* Indexes of source from the parent map */
 	p1 = clk_hw_get_parent_by_index(hw, 1);
