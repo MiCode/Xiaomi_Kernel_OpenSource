@@ -559,7 +559,6 @@ config ARCH_QCOM
        select SPARSE_IRQ
        select USE_OF
        select PINCTRL
-       select ARM_HEAVY_MB
        select MFD_CORE
        select SND_SOC_COMPRESS
        select SND_HWDEP
