@@ -338,6 +338,100 @@ int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label,
 }
 
 /**
+ * hh_rm_vm_irq_release: Return a lent IRQ
+ * @virq_handle: IRQ handle to be released
+ */
+static int hh_rm_vm_irq_release(hh_virq_handle_t virq_handle)
+{
+	struct hh_vm_irq_release_req_payload req_payload = {0};
+	void *resp;
+	int ret = 0, reply_err_code;
+	size_t resp_payload_size;
+
+	req_payload.virq_handle = virq_handle;
+
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_RELEASE,
+			  &req_payload, sizeof(req_payload),
+			  &resp_payload_size, &reply_err_code);
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send IRQ_RELEASE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		pr_err("%s: IRQ_RELEASE returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for IRQ_RELEASE: %u\n",
+			__func__, resp_payload_size);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+/**
+ * hh_rm_vm_irq_release_notify: Release IRQ back to a VM and notify that it has
+ * been released.
+ * @vmid: VM to release interrupt to
+ * @virq_handle: Virtual IRQ handle to release
+ */
+int hh_rm_vm_irq_release_notify(hh_vmid_t vmid, hh_virq_handle_t virq_handle)
+{
+	int ret;
+
+	ret = hh_rm_vm_irq_release(virq_handle);
+	if (ret)
+		return ret;
+
+	return hh_rm_vm_irq_notify(NULL, 0, HH_VM_IRQ_NOTIFY_FLAGS_RELEASED,
+				   virq_handle);
+}
+
+/**
+ * hh_rm_vm_irq_reclaim: Return a lent IRQ
+ * @virq_handle: IRQ handle to be reclaimed
+ */
+int hh_rm_vm_irq_reclaim(hh_virq_handle_t virq_handle)
+{
+	struct hh_vm_irq_reclaim_req_payload req_payload = {0};
+	void *resp;
+	int ret = 0, reply_err_code;
+	size_t resp_payload_size;
+
+	req_payload.virq_handle = virq_handle;
+
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_RECLAIM,
+			  &req_payload, sizeof(req_payload),
+			  &resp_payload_size, &reply_err_code);
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send IRQ_RELEASE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		pr_err("%s: IRQ_RELEASE returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for IRQ_RELEASE: %u\n",
+			__func__, resp_payload_size);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+/**
  * hh_rm_vm_alloc_vmid: Return a vmid associated with the vm loaded into
  *			memory. This call should be called only during
 			initialization.

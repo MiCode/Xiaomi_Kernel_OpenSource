@@ -181,6 +181,16 @@ struct hh_vm_irq_lend_resp_payload {
 #define HH_VM_IRQ_NOTIFY_FLAGS_LENT	BIT(0)
 #define HH_VM_IRQ_NOTIFY_FLAGS_RELEASED	BIT(1)
 
+/* Call: VM_IRQ_RELEASE */
+struct hh_vm_irq_release_req_payload {
+	hh_virq_handle_t virq_handle;
+} __packed;
+
+/* Call: VM_IRQ_RECLAIM */
+struct hh_vm_irq_reclaim_req_payload {
+	hh_virq_handle_t virq_handle;
+} __packed;
+
 struct hh_vm_irq_notify_req_payload {
 	hh_virq_handle_t virq;
 	u8 flags;
