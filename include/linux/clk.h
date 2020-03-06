@@ -982,4 +982,11 @@ static inline struct clk *of_clk_get_from_provider(struct of_phandle_args *clksp
 }
 #endif
 
+#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
+/* Debugfs API to print the enabled clocks */
+void clock_debug_print_enabled(void);
+#else
+static inline void clock_debug_print_enabled(void){}
+#endif
+
 #endif
