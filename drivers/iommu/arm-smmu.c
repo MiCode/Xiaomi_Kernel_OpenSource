@@ -2236,6 +2236,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		domain->geometry.aperture_end = (1UL << ias) - 1;
 		if (domain->geometry.aperture_end >= SZ_1G * 4ULL)
 			domain->geometry.aperture_end = (SZ_1G * 4ULL) - 1;
+
 	}
 
 	if (arm_smmu_is_slave_side_secure(smmu_domain)) {
@@ -3038,7 +3039,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 		}
 
 		geometry.aperture_start = of_read_number(ranges, naddr);
-		geometry.aperture_end = of_read_number(ranges + naddr, nsize);
+		geometry.aperture_end = geometry.aperture_start +
+			of_read_number(ranges + naddr, nsize) - 1;
 		__arm_smmu_domain_set_attr(domain, DOMAIN_ATTR_GEOMETRY,
 					   &geometry);
 	}
@@ -4064,17 +4066,23 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 			break;
 		}
 
-		if (geometry->aperture_start
-		    < domain->geometry.aperture_start)
+		if (smmu_domain->attributes & (1 << DOMAIN_ATTR_GEOMETRY)) {
+			if (geometry->aperture_start <
+			    domain->geometry.aperture_start)
+				domain->geometry.aperture_start =
+					geometry->aperture_start;
+
+			if (geometry->aperture_end >
+			    domain->geometry.aperture_end)
+				domain->geometry.aperture_end =
+					geometry->aperture_end;
+		} else {
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
 			domain->geometry.aperture_start =
 				geometry->aperture_start;
+			domain->geometry.aperture_end = geometry->aperture_end;
+		}
 
-		if (geometry->aperture_end
-		    > domain->geometry.aperture_end)
-			domain->geometry.aperture_end =
-				geometry->aperture_end;
-
-		smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
 		ret = 0;
 		break;
 	}
