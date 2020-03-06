@@ -763,4 +763,13 @@ config QCOM_GUESTVM
 	   Resource Manager driver to start the boot of VMs once it has
 	   successfully loaded the VM images in the designated memory.
 
+config QCOM_HYP_CORE_CTL
+	bool "CPU reservation scheme for Hypervisor"
+	depends on QCOM_GUESTVM
+	help
+	  This driver reserve the specified CPUS by isolating them. The reserved
+	  CPUs can be assigned to the other guest OS by the hypervisor.
+	  An offline CPU is considered as a reserved CPU since this OS can't use
+	  it.
+
 endmenu
