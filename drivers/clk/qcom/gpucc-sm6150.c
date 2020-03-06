@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -555,6 +555,7 @@ static int gpu_cc_sm6150_resume(struct device *dev)
 
 static const struct dev_pm_ops gpu_cc_sm6150_pm_ops = {
 	.restore_early = gpu_cc_sm6150_resume,
+	.thaw_early = gpu_cc_sm6150_resume,
 };
 
 static void gpucc_sm6150_fixup_sa6155(struct platform_device *pdev)
