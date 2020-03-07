@@ -73,8 +73,11 @@ int fscrypt_zeroout_range(const struct inode *inode, pgoff_t lblk,
 			err = -ENOMEM;
 			goto errout;
 		}
-		fscrypt_set_bio_crypt_ctx(bio, inode, lblk, GFP_NOIO);
-
+		err = fscrypt_set_bio_crypt_ctx(bio, inode, lblk, GFP_NOIO);
+		if (err) {
+			bio_put(bio);
+			goto errout;
+		}
 		bio_set_dev(bio, inode->i_sb->s_bdev);
 		bio->bi_iter.bi_sector = pblk << (blockbits - 9);
 		bio_set_op_attrs(bio, REQ_OP_WRITE, 0);
