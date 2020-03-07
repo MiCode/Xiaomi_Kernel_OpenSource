@@ -91,33 +91,10 @@ module_param(disable_bypass, bool, S_IRUGO);
 MODULE_PARM_DESC(disable_bypass,
 	"Disable bypass streams such that incoming transactions from devices that are not attached to an iommu domain will report an abort back to the device and will not be allowed to pass through the SMMU.");
 
-/*
- * attach_count
- *	The SMR and S2CR registers are only programmed when the number of
- *	devices attached to the iommu using these registers is > 0. This
- *	is required for the "SID switch" use case for secure display.
- *	Protected by stream_map_mutex.
- */
-struct arm_smmu_s2cr {
-	struct iommu_group		*group;
-	int				count;
-	int				attach_count;
-	enum arm_smmu_s2cr_type		type;
-	enum arm_smmu_s2cr_privcfg	privcfg;
-	u8				cbndx;
-	bool				cb_handoff;
-};
-
 #define s2cr_init_val (struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
 	.cb_handoff = false,						\
 }
-
-struct arm_smmu_smr {
-	u16				mask;
-	u16				id;
-	bool				valid;
-};
 
 struct arm_smmu_cb {
 	u64				ttbr[2];
@@ -613,9 +590,19 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 }
 #endif /* CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS */
 
-static int __arm_smmu_alloc_bitmap(unsigned long *map, int start, int end)
+static int __arm_smmu_alloc_cb(struct arm_smmu_device *smmu, int start,
+			       struct device *dev)
 {
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	unsigned long *map = smmu->context_map;
+	int end = smmu->num_context_banks;
 	int idx;
+	int i;
+
+	for_each_cfg_sme(fwspec, i, idx) {
+		if (smmu->s2crs[idx].pinned)
+			return smmu->s2crs[idx].cbndx;
+	}
 
 	do {
 		idx = find_next_zero_bit(map, end, start);
@@ -2272,7 +2259,9 @@ static void arm_smmu_write_sme(struct arm_smmu_device *smmu, int idx)
 static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 {
 	unsigned long size;
-	u32 smr, id;
+	u32 id;
+	u32 s2cr;
+	u32 smr;
 	int idx;
 
 	/* Check if Stream Match Register support is included */
@@ -2289,9 +2278,15 @@ static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 	 * which is not inuse.
 	 */
 	for (idx = 0; idx < size; idx++) {
-		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(idx));
-		if (!(smr & SMR_VALID))
-			break;
+		if (smmu->features & ARM_SMMU_FEAT_EXIDS) {
+			s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(idx));
+			if (!FIELD_GET(S2CR_EXIDVALID, s2cr))
+				break;
+		} else {
+			smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(idx));
+			if (!FIELD_GET(SMR_VALID, smr))
+				break;
+		}
 	}
 	if (idx == size) {
 		dev_err(smmu->dev,
@@ -2359,12 +2354,19 @@ static int arm_smmu_find_sme(struct arm_smmu_device *smmu, u16 id, u16 mask)
 
 static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 {
+	bool pinned = smmu->s2crs[idx].pinned;
+	u8 cbndx = smmu->s2crs[idx].cbndx;;
+
 	if (--smmu->s2crs[idx].count)
 		return false;
 
 	smmu->s2crs[idx] = s2cr_init_val;
-	if (smmu->smrs)
+	if (pinned) {
+		smmu->s2crs[idx].pinned = true;
+		smmu->s2crs[idx].cbndx = cbndx;
+	} else if (smmu->smrs) {
 		smmu->smrs[idx].valid = false;
+	}
 
 	return true;
 }
@@ -4072,9 +4074,8 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 
 	if (cb < 0) {
 		mutex_unlock(&smmu->stream_map_mutex);
-		return __arm_smmu_alloc_bitmap(smmu->context_map,
-						smmu->num_s2_context_banks,
-						smmu->num_context_banks);
+		return __arm_smmu_alloc_cb(smmu, smmu->num_s2_context_banks,
+					   dev);
 	}
 
 	for (i = 0; i < smmu->num_mapping_groups; i++) {

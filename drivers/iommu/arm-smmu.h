@@ -297,6 +297,30 @@ struct arm_smmu_power_resources {
 	int				regulator_defer;
 };
 
+/*
+ * attach_count
+ *	The SMR and S2CR registers are only programmed when the number of
+ *	devices attached to the iommu using these registers is > 0. This
+ *	is required for the "SID switch" use case for secure display.
+ *	Protected by stream_map_mutex.
+ */
+struct arm_smmu_s2cr {
+	struct iommu_group		*group;
+	int				count;
+	int				attach_count;
+	enum arm_smmu_s2cr_type		type;
+	enum arm_smmu_s2cr_privcfg	privcfg;
+	u8				cbndx;
+	bool				cb_handoff;
+	bool				pinned;
+};
+
+struct arm_smmu_smr {
+	u16				mask;
+	u16				id;
+	bool				valid;
+};
+
 struct arm_smmu_device {
 	struct device			*dev;
 
