@@ -272,3 +272,11 @@
 		};
 	};
 };
+
+&pil_modem {
+	status = "disabled";
+};
+
+&glink_modem {
+	status = "disabled";
+};
