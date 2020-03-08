@@ -1487,6 +1487,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	}
 
 	mhi_dev->dev_type = MHI_CONTROLLER_TYPE;
+	mhi_dev->chan_name = mhi_cntrl->name;
 	mhi_dev->mhi_cntrl = mhi_cntrl;
 	dev_set_name(&mhi_dev->dev, "%04x_%02u.%02u.%02u", mhi_dev->dev_id,
 		     mhi_dev->domain, mhi_dev->bus, mhi_dev->slot);
@@ -1849,10 +1850,6 @@ static int mhi_driver_remove(struct device *dev)
 
 		mutex_unlock(&mhi_chan->mutex);
 	}
-
-
-	if (mhi_cntrl->tsync_dev == mhi_dev)
-		mhi_cntrl->tsync_dev = NULL;
 
 	/* relinquish any pending votes for device */
 	while (atomic_read(&mhi_dev->dev_vote))
