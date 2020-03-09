@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: ISC */
 /*
  * Copyright (c) 2012-2016 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef WIL6210_TXRX_H
 #define WIL6210_TXRX_H
 
+#include <net/ieee80211_radiotap.h>
 #include "wil6210.h"
 #include "txrx_edma.h"
 
@@ -490,6 +491,20 @@ union wil_ring_desc {
 struct packet_rx_info {
 	u8 cid;
 };
+
+struct wil6210_rtap {
+	struct ieee80211_radiotap_header rthdr;
+	/* fields should be in the order of bits in rthdr.it_present */
+	/* flags */
+	u8 flags;
+	/* channel */
+	__le16 chnl_freq __aligned(2);
+	__le16 chnl_flags;
+	/* MCS */
+	u8 mcs_present;
+	u8 mcs_flags;
+	u8 mcs_index;
+} __packed;
 
 /* this struct will be stored in the skb cb buffer
  * max length of the struct is limited to 48 bytes

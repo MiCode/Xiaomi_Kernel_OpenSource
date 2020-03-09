@@ -202,6 +202,14 @@ early_param("sched_predl", set_sched_predl);
 __read_mostly unsigned int walt_scale_demand_divisor;
 #define scale_demand(d) ((d)/walt_scale_demand_divisor)
 
+static inline void walt_irq_work_queue(struct irq_work *work)
+{
+	if (likely(cpu_online(raw_smp_processor_id())))
+		irq_work_queue(work);
+	else
+		irq_work_queue_on(work, cpumask_any(cpu_online_mask));
+}
+
 void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
 	inc_nr_big_task(&rq->walt_stats, p);
@@ -567,7 +575,6 @@ __cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 
 		nl = div64_u64(nl * (100 + boost), walt_cpu_util_freq_divisor);
 
-		walt_load->prev_window_util = util;
 		walt_load->nl = nl;
 		walt_load->pl = pl;
 		walt_load->ws = walt_load_reported_window;
@@ -602,7 +609,6 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		mpct = 100;
 
 	util = ADJUSTED_ASYM_CAP_CPU_UTIL(util, util_other, mpct);
-	walt_load->prev_window_util = util;
 
 	walt_load->nl = ADJUSTED_ASYM_CAP_CPU_UTIL(walt_load->nl, wl_other.nl,
 						   mpct);
@@ -971,7 +977,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (!same_freq_domain(new_cpu, task_cpu(p))) {
 		src_rq->notif_pending = true;
 		dest_rq->notif_pending = true;
-		sched_irq_work_queue(&walt_migration_irq_work);
+		walt_irq_work_queue(&walt_migration_irq_work);
 	}
 
 	if (is_ed_enabled()) {
@@ -2061,7 +2067,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
-		sched_irq_work_queue(&walt_cpufreq_irq_work);
+		walt_irq_work_queue(&walt_cpufreq_irq_work);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */

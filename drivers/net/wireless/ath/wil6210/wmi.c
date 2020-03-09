@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/moduleparam.h>
@@ -4053,8 +4053,10 @@ int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil,
 			       u16 max_rx_pl_per_desc, bool checksum)
 {
 	struct net_device *ndev = wil->main_ndev;
+	struct wireless_dev *wdev = ndev->ieee80211_ptr;
 	struct wil6210_vif *vif = ndev_to_vif(ndev);
 	int rc;
+	u8 edmg_channel = 0;
 	struct wmi_cfg_def_rx_offload_cmd cmd = {
 		.max_msdu_size = cpu_to_le16(wil_mtu2macbuf(WIL_MAX_ETH_MTU)),
 		.max_rx_pl_per_desc = cpu_to_le16(max_rx_pl_per_desc),
@@ -4069,6 +4071,27 @@ int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil,
 	} __packed reply = {
 		.evt = {.status = WMI_FW_STATUS_FAILURE},
 	};
+
+	if (wdev->iftype == NL80211_IFTYPE_MONITOR) {
+		struct ieee80211_channel *ch = wil->monitor_chandef.chan;
+
+		cmd.sniffer_cfg.phy_support =
+			wil->monitor_flags & MONITOR_FLAG_CONTROL ?
+			WMI_SNIFFER_EDMA_CP : WMI_SNIFFER_EDMA_BOTH;
+		if (ch)
+			cmd.sniffer_cfg.channel = ch->hw_value - 1;
+
+		if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING,
+			     wil->fw_capabilities))
+			if (wil->force_edmg_channel) {
+				rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+						     &edmg_channel);
+				if (rc)
+					wil_err(wil, "wmi channel for channel %d not found\n",
+						wil->force_edmg_channel);
+			}
+		cmd.sniffer_cfg.edmg_channel = edmg_channel;
+	}
 
 	rc = wmi_call(wil, WMI_CFG_DEF_RX_OFFLOAD_CMDID, vif->mid, &cmd,
 		      sizeof(cmd), WMI_CFG_DEF_RX_OFFLOAD_DONE_EVENTID, &reply,

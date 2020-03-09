@@ -2119,14 +2119,18 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	val = EN_TRY_SNK_BIT;
+	/* PMI632 doesn't support try snk */
+	if (chg->chg_param.smb_version == PMI632_SUBTYPE)
+		val = 0;
+
 	/* enable try.snk and clear force sink for DRP mode */
 	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 				EN_TRY_SNK_BIT | EN_SNK_ONLY_BIT,
-				EN_TRY_SNK_BIT);
+				val);
 	if (rc < 0) {
 		dev_err(chg->dev,
-			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n",
-				rc);
+			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n", rc);
 		return rc;
 	}
 	chg->typec_try_mode |= EN_TRY_SNK_BIT;

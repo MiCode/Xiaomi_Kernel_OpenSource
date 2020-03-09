@@ -93,7 +93,11 @@ static phys_addr_t cmac_mem_addr;
 #define SPU_PRESENT_IN_EMULATION BIT(2)
 
 /* Events notification */
-struct completion spss_events[SPSS_NUM_EVENTS];
+static struct completion spss_events[SPSS_NUM_EVENTS];
+static bool spss_events_signaled[SPSS_NUM_EVENTS];
+
+/* Protect from ioctl signal func called by multiple-proc at the same time */
+static struct mutex event_lock;
 
 /**
  * struct device state
@@ -418,6 +422,8 @@ static int spss_wait_for_event(struct spss_ioc_wait_for_event *req)
 		pr_err("wait for event [%d] interrupted. ret [%d]\n",
 			event_id, ret);
 		req->status = EVENT_STATUS_ABORTED;
+		if (ret == -ERESTARTSYS)	/* handle LPM event */
+			return ret;
 	} else {
 		pr_debug("wait for event [%d] completed.\n", event_id);
 		req->status = EVENT_STATUS_SIGNALED;
@@ -430,16 +436,52 @@ static int spss_signal_event(struct spss_ioc_signal_event *req)
 {
 	uint32_t event_id;
 
+	mutex_lock(&event_lock);
+
 	event_id = req->event_id;
 
 	if (event_id >= SPSS_NUM_EVENTS) {
 		pr_err("event_id [%d] invalid\n", event_id);
+		mutex_unlock(&event_lock);
+		return -EINVAL;
+	}
+
+	if (spss_events_signaled[event_id]) {
+		pr_err("event_id [%d] already signaled\n", event_id);
+		mutex_unlock(&event_lock);
 		return -EINVAL;
 	}
 
 	pr_debug("signal event [%d]\n", event_id);
 	complete_all(&spss_events[event_id]);
 	req->status = EVENT_STATUS_SIGNALED;
+	spss_events_signaled[event_id] = true;
+
+	mutex_unlock(&event_lock);
+
+	return 0;
+}
+
+static int spss_is_event_signaled(struct spss_ioc_is_signaled *req)
+{
+	uint32_t event_id;
+
+	mutex_lock(&event_lock);
+
+	event_id = req->event_id;
+
+	if (event_id >= SPSS_NUM_EVENTS) {
+		pr_err("event_id [%d] invalid\n", event_id);
+		mutex_unlock(&event_lock);
+		return -EINVAL;
+	}
+
+	if (spss_events_signaled[event_id])
+		req->status = EVENT_STATUS_SIGNALED;
+	else
+		req->status = EVENT_STATUS_NOT_SIGNALED;
+
+	mutex_unlock(&event_lock);
 
 	return 0;
 }
@@ -454,10 +496,7 @@ static long spss_utils_ioctl(struct file *file,
 	u32 i = 0;
 	/* Saved cmacs of spu firmware and UEFI loaded spu apps */
 	u32 fw_and_apps_cmacs[FW_AND_APPS_CMAC_SIZE];
-	struct spss_ioc_wait_for_event *wait_req =
-		(struct spss_ioc_wait_for_event *) data;
-	struct spss_ioc_signal_event *signal_req =
-		(struct spss_ioc_signal_event *) data;
+	void *req = (void *) data;
 
 	if (buf == NULL) {
 		pr_err("invalid ioctl arg\n");
@@ -518,10 +557,10 @@ static long spss_utils_ioctl(struct file *file,
 			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
 			return -EINVAL;
 		}
-		ret = spss_wait_for_event(wait_req);
+		ret = spss_wait_for_event(req);
+		copy_to_user((void __user *)arg, data, size);
 		if (ret < 0)
 			return ret;
-		copy_to_user((void __user *)arg, data, size);
 		break;
 
 	case SPSS_IOC_SIGNAL_EVENT:
@@ -530,10 +569,22 @@ static long spss_utils_ioctl(struct file *file,
 			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
 			return -EINVAL;
 		}
-		ret = spss_signal_event(signal_req);
+		ret = spss_signal_event(req);
+		copy_to_user((void __user *)arg, data, size);
 		if (ret < 0)
 			return ret;
+		break;
+
+	case SPSS_IOC_IS_EVENT_SIGNALED:
+		/* check input params */
+		if (size != sizeof(struct spss_ioc_is_signaled)) {
+			pr_err("cmd [0x%x] invalid size [0x%x]\n", cmd, size);
+			return -EINVAL;
+		}
+		ret = spss_is_event_signaled(req);
 		copy_to_user((void __user *)arg, data, size);
+		if (ret < 0)
+			return ret;
 		break;
 
 	default:
@@ -1010,22 +1061,56 @@ static int spss_utils_pil_callback(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
 {
-	int i;
+	int i, event_id;
 
 	switch (code) {
 	case SUBSYS_BEFORE_SHUTDOWN:
 		pr_debug("[SUBSYS_BEFORE_SHUTDOWN] event.\n");
+		mutex_lock(&event_lock);
+		/* Reset NVM-ready and SPU-ready events */
+		for (i = SPSS_EVENT_ID_NVM_READY;
+			i <= SPSS_EVENT_ID_SPU_READY; i++) {
+			reinit_completion(&spss_events[i]);
+			spss_events_signaled[i] = false;
+		}
+		mutex_unlock(&event_lock);
+		pr_debug("reset spss events.\n");
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
 		pr_debug("[SUBSYS_AFTER_SHUTDOWN] event.\n");
+		mutex_lock(&event_lock);
+		event_id = SPSS_EVENT_ID_SPU_POWER_DOWN;
+		complete_all(&spss_events[event_id]);
+		spss_events_signaled[event_id] = true;
+
+		event_id = SPSS_EVENT_ID_SPU_POWER_UP;
+		reinit_completion(&spss_events[event_id]);
+		spss_events_signaled[event_id] = false;
+		mutex_unlock(&event_lock);
 		break;
 	case SUBSYS_BEFORE_POWERUP:
 		pr_debug("[SUBSYS_BEFORE_POWERUP] event.\n");
-		for (i = 0 ; i < SPSS_NUM_EVENTS; i++)
-			reinit_completion(&spss_events[i]);
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
+		mutex_lock(&event_lock);
+		event_id = SPSS_EVENT_ID_SPU_POWER_UP;
+		complete_all(&spss_events[event_id]);
+		spss_events_signaled[event_id] = true;
+
+		event_id = SPSS_EVENT_ID_SPU_POWER_DOWN;
+		reinit_completion(&spss_events[event_id]);
+		spss_events_signaled[event_id] = false;
+		mutex_unlock(&event_lock);
+		break;
+	case SUBSYS_RAMDUMP_NOTIFICATION:
+		pr_debug("[SUBSYS_RAMDUMP_NOTIFICATION] event.\n");
+		break;
+	case SUBSYS_PROXY_VOTE:
+		pr_debug("[SUBSYS_PROXY_VOTE] event.\n");
+		break;
+	case SUBSYS_PROXY_UNVOTE:
+		pr_debug("[SUBSYS_PROXY_UNVOTE] event.\n");
 		break;
 	case SUBSYS_BEFORE_AUTH_AND_RESET:
 		/* do nothing if IAR is not active */
@@ -1132,8 +1217,11 @@ static int spss_probe(struct platform_device *pdev)
 		kfree(iar_nb);
 	}
 
-	for (i = 0 ; i < SPSS_NUM_EVENTS; i++)
+	for (i = 0 ; i < SPSS_NUM_EVENTS; i++) {
 		init_completion(&spss_events[i]);
+		spss_events_signaled[i] = false;
+	}
+	mutex_init(&event_lock);
 
 	return 0;
 }
