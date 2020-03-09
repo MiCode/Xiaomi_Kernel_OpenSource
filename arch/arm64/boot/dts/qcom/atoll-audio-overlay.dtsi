@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -434,11 +434,14 @@
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&tx_swr_clk_active &tx_swr_data0_active
-			     &tx_swr_data1_active &tx_swr_data2_active>;
+			    &tx_swr_data1_active &tx_swr_data2_active>;
 		pinctrl-1 = <&tx_swr_clk_sleep &tx_swr_data0_sleep
 			    &tx_swr_data1_sleep &tx_swr_data2_sleep>;
 		qcom,lpi-gpios;
-	};
+		qcom,chip-wakeup-reg = <0x01FFB000>;
+		qcom,chip-wakeup-maskbit = <0>;
+		qcom,chip-wakeup-default-val = <0x1>;
+		};
 };
 
 &soc {
