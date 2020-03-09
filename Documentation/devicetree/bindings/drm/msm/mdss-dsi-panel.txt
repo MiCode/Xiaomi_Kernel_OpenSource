@@ -551,6 +551,8 @@ Optional properties:
 					is supported.
 - qcom,dsi-dyn-clk-list:		An u32 array which lists all the supported dsi bit clock
 					frequencies in Hz for the given panel.
+- qcom,dsi-dyn-clk-skip-timing-update:	Boolean to specify whether to skip phy timing parameter
+					update during dynamic clock switch.
 
 Required properties for sub-nodes:	None
 Optional properties:
