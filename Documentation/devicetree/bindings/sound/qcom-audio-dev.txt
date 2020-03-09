@@ -1415,6 +1415,19 @@ Optional properties:
 - qcom,csra-devs : List of phandles of all possible CSRA66x0 devices supported for the target
 - qcom,csra-aux-dev-prefix : Name prefix in multi-channel configuration for CSRA66x0 device
 - qcom,afe-rxtx-lb: AFE RX to TX loopback.
+- qcom,ext-mclk-gpio: pinctrl referring to external mclk
+- qcom,ext-mclk-src: Device tree node referring to external mclk clock
+- #ext-mclk-1-cfg-cells: Number of cells in ext-mclk-1-cfg-* nodes. Must be 6.
+- ext-mclk-1 cfg-11p2896: Frequnency table for 11.2896MHz mclk frequnecy.
+			  Fields are clock rate, div2x, m, n, d and clock root.
+- ext-mclk-1 cfg-12p288: Frequnency table for 12.288MHz mclk frequnecy.
+			 Fields are clock rate, div2x, m, n, d and clock root.
+- ext-mclk-1 cfg-16p384: Frequnency table for 16.384MHz mclk frequnecy.
+			 Fields are clock rate, div2x, m, n, d and clock root.
+- ext-mclk-1-cfg-22p5792: Frequency table for 22.5792MHz mclk frequency.
+                          Fields are clock rate, div2x, m, n, d and clock root.
+- ext-mclk-1 cfg-24p576: Frequnency table for 24.576MHz mclk frequnecy.
+			 Fields are clock rate, div2x, m, n, d and clock root.
 Example:
 
 	qcs405_snd {
