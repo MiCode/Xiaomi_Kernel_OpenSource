@@ -324,6 +324,16 @@ config USB_G_PRINTER
 	  For more information, see Documentation/usb/gadget_printer.txt
 	  which includes sample code for accessing the device file.
 
+config USB_G_QTI
+	tristate "QTI composite gadget"
+	select USB_LIBCOMPOSITE
+	help
+	  This gadget provides support for multi-configuration
+	  composite device.
+	  Functions can be specified via devicetree properties,
+	  along with PID and PID details which can also also be
+	  updated using kernel commandline using module parameters.
+
 if TTY
 
 config USB_CDC_COMPOSITE

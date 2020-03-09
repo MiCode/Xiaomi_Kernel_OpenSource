@@ -1,0 +1,22 @@
+Qualcomm Technologies, Inc's USB Gadget
+
+Required properties:
+- compatible: Should be "qcom,usb-gadget".
+- qcom,composition: List of configurations where each is separated by '|'.
+	And each configuration has comma separated list of functions
+	specified as: <f1_name>.<f1_instance_name>,<f2_name>....
+- qcom,vid: VendorId to be used by composite device.
+- qcom,pid: ProductId to be used by composite device.
+
+Optional properties:
+- qcom,class: Class of composite device.
+- qcom,subclass: SubClass of composite device.
+- qcom,protocol: Protocol of composite device.
+
+Examples:
+	usb_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,composition = "rndis.rndis|ecm.ecm";
+		qcom,vid = <0x05c6>;
+		qcom,pid = <0x9057>;
+	};
