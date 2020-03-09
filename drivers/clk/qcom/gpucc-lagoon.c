@@ -122,7 +122,7 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 
 static struct clk_fixed_factor crc_div = {
 	.mult = 1,
-	.div = 1,
+	.div = 2,
 	.hw.init = &(struct clk_init_data){
 		.name = "crc_div",
 		.parent_names = (const char *[]){ "gpu_cc_pll0" },
