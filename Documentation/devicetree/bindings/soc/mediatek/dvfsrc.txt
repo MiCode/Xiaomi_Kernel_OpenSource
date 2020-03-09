@@ -17,6 +17,11 @@ Required Properties:
 	The provider is able to communicate with the DVFSRC and send the dram
 	bandwidth to it. shall contain only one of the following:
 	"mediatek,mt8183-emi"
+- regulator : The DVFSRC regulator is modelled as a subdevice of the DVFSRC.
+	Because DVFSRC can request power directly via register read/write, likes
+	vcore which is a core power of mt8183. As such, the DVFSRC regulator
+	requires that DVFSRC nodes be present. shall contain only one of the
+	following: "mediatek,mt8183-dvfsrc-regulator"
 
 Example:
 
@@ -28,5 +33,14 @@ Example:
 		ddr_emi: interconnect {
 			compatible = "mediatek,mt8183-emi";
 			#interconnect-cells = <1>;
+		};
+		dvfsrc-regulator {
+			compatible = "mediatek,mt8183-dvfsrc-regulator";
+			dvfsrc_vcore: dvfsrc-vcore {
+				regulator-name = "dvfsrc-vcore";
+				regulator-min-microvolt = <725000>;
+				regulator-max-microvolt = <800000>;
+				regulator-always-on;
+			};
 		};
 	};
