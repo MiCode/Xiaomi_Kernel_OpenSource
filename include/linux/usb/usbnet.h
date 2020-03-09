@@ -86,6 +86,7 @@ struct usbnet {
 #		define EVENT_NO_IP_ALIGN	13
 
 	void			*ipc_log_ctxt;
+	int			netdev_id;
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)
