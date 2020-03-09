@@ -28,6 +28,7 @@
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
 		qcom,clk-div = <192>;
 		qcom,clk-mult = <10>;
+		qcom,cnss-avtimer = <1>;
 	};
 
 	audio_apr: qcom,msm-audio-apr {
