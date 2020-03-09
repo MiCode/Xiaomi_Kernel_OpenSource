@@ -19,11 +19,16 @@
 #include <linux/cpu_cooling.h>
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
+#include <linux/pm_qos.h>
+#include <linux/cpufreq.h>
 
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_errno.h>
 
 #define MAX_RESERVE_CPUS (num_possible_cpus()/2)
+
+static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
+static DEFINE_PER_CPU(unsigned int, qos_min_freq);
 
 /**
  * struct hyp_core_ctl_cpumap - vcpu to pcpu mapping for the other guest
@@ -92,6 +97,7 @@ static inline void hyp_core_ctl_print_status(char *msg)
 static void hyp_core_ctl_undo_reservation(struct hyp_core_ctl_data *hcd)
 {
 	int cpu, ret;
+	struct freq_qos_request *qos_req;
 
 	hyp_core_ctl_print_status("undo_reservation_start");
 
@@ -101,7 +107,15 @@ static void hyp_core_ctl_undo_reservation(struct hyp_core_ctl_data *hcd)
 			pr_err("fail to un-isolate CPU%d. ret=%d\n", cpu, ret);
 			continue;
 		}
+
 		cpumask_clear_cpu(cpu, &hcd->our_isolated_cpus);
+
+		qos_req = &per_cpu(qos_min_req, cpu);
+		ret = freq_qos_update_request(qos_req,
+						FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0)
+			pr_err("fail to update min freq for CPU%d ret=%d\n",
+								cpu, ret);
 	}
 
 	hyp_core_ctl_print_status("undo_reservation_end");
@@ -231,6 +245,8 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 	cpumask_t offline_cpus, iter_cpus, temp_reserved_cpus;
 	int i, ret, iso_required, iso_done;
 	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+	struct freq_qos_request *qos_req;
+	unsigned int min_freq;
 
 	cpumask_clear(&offline_cpus);
 	cpumask_clear(&temp_reserved_cpus);
@@ -257,7 +273,17 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 			pr_debug("fail to isolate CPU%d. ret=%d\n", i, ret);
 			continue;
 		}
+
 		cpumask_set_cpu(i, &hcd->our_isolated_cpus);
+
+		qos_req = &per_cpu(qos_min_req, i);
+		min_freq = per_cpu(qos_min_freq, i);
+		if (min_freq) {
+			ret = freq_qos_update_request(qos_req, min_freq);
+			if (ret < 0)
+				pr_err("fail to update min freq for CPU%d ret=%d\n",
+								i, ret);
+		}
 	}
 
 	cpumask_andnot(&iter_cpus, &hcd->reserve_cpus, &offline_cpus);
@@ -307,7 +333,18 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 						i, ret);
 				continue;
 			}
+
 			cpumask_set_cpu(i, &hcd->our_isolated_cpus);
+
+			qos_req = &per_cpu(qos_min_req, i);
+			min_freq = per_cpu(qos_min_freq, i);
+			if (min_freq) {
+				ret = freq_qos_update_request(qos_req,
+								min_freq);
+				if (ret < 0)
+					pr_err("fail to update min freq for CPU%d ret=%d\n",
+								i, ret);
+			}
 
 			if (--isolate_need == 0)
 				break;
@@ -343,7 +380,16 @@ static void hyp_core_ctl_do_reservation(struct hyp_core_ctl_data *hcd)
 				       i, ret);
 				continue;
 			}
+
 			cpumask_clear_cpu(i, &hcd->our_isolated_cpus);
+
+			qos_req = &per_cpu(qos_min_req, i);
+			ret = freq_qos_update_request(qos_req,
+						FREQ_QOS_MIN_DEFAULT_VALUE);
+			if (ret < 0)
+				pr_err("fail to update min freq for CPU%d ret=%d\n",
+								i, ret);
+
 			if (--unisolate_need == 0)
 				break;
 		}
@@ -454,6 +500,8 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 {
 	int cpu = (long) data;
 	const cpumask_t *thermal_cpus = cpu_cooling_get_max_level_cpumask();
+	struct freq_qos_request *qos_req;
+	int ret;
 
 	if (!the_hcd)
 		return NOTIFY_DONE;
@@ -481,6 +529,12 @@ static int hyp_core_ctl_cpu_cooling_cb(struct notifier_block *nb,
 		if (cpumask_test_cpu(cpu, &the_hcd->our_isolated_cpus)) {
 			sched_unisolate_cpu(cpu);
 			cpumask_clear_cpu(cpu, &the_hcd->our_isolated_cpus);
+			qos_req = &per_cpu(qos_min_req, cpu);
+			ret = freq_qos_update_request(qos_req,
+						FREQ_QOS_MIN_DEFAULT_VALUE);
+			if (ret < 0)
+				pr_err("fail to update min freq for CPU%d ret=%d\n",
+								cpu, ret);
 		}
 	} else {
 		/*
@@ -526,6 +580,9 @@ static struct notifier_block hyp_core_ctl_nb = {
 
 static int hyp_core_ctl_hp_offline(unsigned int cpu)
 {
+	struct freq_qos_request *qos_req;
+	int ret;
+
 	if (!the_hcd || !the_hcd->reservation_enabled)
 		return 0;
 
@@ -537,6 +594,12 @@ static int hyp_core_ctl_hp_offline(unsigned int cpu)
 	 */
 	if (cpumask_test_and_clear_cpu(cpu, &the_hcd->our_isolated_cpus))
 		sched_unisolate_cpu_unlocked(cpu);
+		qos_req = &per_cpu(qos_min_req, cpu);
+		ret = freq_qos_update_request(qos_req,
+					FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0)
+			pr_err("fail to update min freq for CPU%d ret=%d\n",
+								cpu, ret);
 
 	return 0;
 }
@@ -701,9 +764,64 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(status);
 
+static ssize_t hcc_min_freq_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int i, ret, ntokens = 0;
+	unsigned int val, cpu;
+	const char *cp = buf;
+
+	mutex_lock(&the_hcd->reservation_mutex);
+	while ((cp = strpbrk(cp + 1, " :")))
+		ntokens++;
+
+	/* CPU:value pair */
+	if (!(ntokens % 2))
+		goto err_out;
+
+	cp = buf;
+	for (i = 0; i < ntokens; i += 2) {
+		if (sscanf(cp, "%u:%u", &cpu, &val) != 2)
+			goto err_out;
+		if (cpu >= num_possible_cpus())
+			goto err_out;
+
+		per_cpu(qos_min_freq, cpu) = val;
+		cp = strnchr(cp, strlen(cp), ' ');
+		cp++;
+	}
+
+	mutex_unlock(&the_hcd->reservation_mutex);
+	return count;
+
+err_out:
+	ret = -EINVAL;
+	mutex_unlock(&the_hcd->reservation_mutex);
+	return ret;
+}
+
+static ssize_t hcc_min_freq_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	int cnt = 0, cpu;
+
+	for_each_possible_cpu(cpu) {
+		cnt += scnprintf(buf + cnt, PAGE_SIZE - cnt,
+				"%d:%u ", cpu,
+				per_cpu(qos_min_freq, cpu));
+	}
+	cnt += scnprintf(buf + cnt, PAGE_SIZE - cnt, "\n");
+	return cnt;
+}
+
+static DEVICE_ATTR_RW(hcc_min_freq);
+
 static struct attribute *hyp_core_ctl_attrs[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_status.attr,
+	&dev_attr_hcc_min_freq.attr,
 	NULL
 };
 
@@ -784,6 +902,9 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	int ret;
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
+	int cpu;
+	struct cpufreq_policy *policy;
+	struct freq_qos_request *qos_req;
 
 	if (!populated_vcpu_info) {
 		pr_debug("VCPU info isn't populated, retry\n");
@@ -791,10 +912,29 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_err("cpufreq policy not found for cpu%d\n", cpu);
+			ret = -ESRCH;
+			goto remove_qos_req;
+		}
+
+		qos_req = &per_cpu(qos_min_req, cpu);
+		ret = freq_qos_add_request(&policy->constraints, qos_req,
+				FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("Failed to add min freq constraint (%d)\n", ret);
+			cpufreq_cpu_put(policy);
+			goto remove_qos_req;
+		}
+		cpufreq_cpu_put(policy);
+	}
+
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
 	if (!hcd) {
 		ret = -ENOMEM;
-		goto out;
+		goto remove_qos_req;
 	}
 
 	ret = hyp_core_ctl_init_reserve_cpus(hcd);
@@ -841,6 +981,12 @@ stop_task:
 	kthread_stop(hcd->task);
 free_hcd:
 	kfree(hcd);
+remove_qos_req:
+	for_each_possible_cpu(cpu) {
+		qos_req = &per_cpu(qos_min_req, cpu);
+		if (freq_qos_request_active(qos_req))
+			freq_qos_remove_request(qos_req);
+	}
 out:
 	return ret;
 }
