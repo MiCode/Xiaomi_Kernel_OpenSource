@@ -1460,11 +1460,8 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	mhi_cntrl->wake_get(mhi_cntrl, true);
-	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
-		pm_wakeup_event(&mhi_cntrl->mhi_dev->dev, 0);
-		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
-	}
+	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
+		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* for offload write make sure wake DB is set before any MHI reg read */
@@ -1544,10 +1541,9 @@ void mhi_device_put(struct mhi_device *mhi_dev, int vote)
 	if (vote & MHI_VOTE_DEVICE) {
 		atomic_dec(&mhi_dev->dev_vote);
 		read_lock_bh(&mhi_cntrl->pm_lock);
-		if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
-			mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-			mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
-		}
+		if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
+			mhi_trigger_resume(mhi_cntrl);
+
 		mhi_cntrl->wake_put(mhi_cntrl, false);
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
