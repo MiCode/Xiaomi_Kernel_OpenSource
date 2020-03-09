@@ -278,11 +278,11 @@ TRACE_EVENT(sched_load_balance,
 		unsigned long group_mask, int busiest_nr_running,
 		unsigned long imbalance, unsigned int env_flags, int ld_moved,
 		unsigned int balance_interval, int active_balance,
-		int overutilized),
+		int overutilized, int prefer_spread),
 
 	TP_ARGS(cpu, idle, balance, group_mask, busiest_nr_running,
 		imbalance, env_flags, ld_moved, balance_interval,
-		active_balance, overutilized),
+		active_balance, overutilized, prefer_spread),
 
 	TP_STRUCT__entry(
 		__field(int,                    cpu)
@@ -296,6 +296,7 @@ TRACE_EVENT(sched_load_balance,
 		__field(unsigned int,           balance_interval)
 		__field(int,                    active_balance)
 		__field(int,                    overutilized)
+		__field(int,                    prefer_spread)
 	),
 
 	TP_fast_assign(
@@ -310,9 +311,10 @@ TRACE_EVENT(sched_load_balance,
 		__entry->balance_interval       = balance_interval;
 		__entry->active_balance		= active_balance;
 		__entry->overutilized		= overutilized;
+		__entry->prefer_spread		= prefer_spread;
 	),
 
-	TP_printk("cpu=%d state=%s balance=%d group=%#lx busy_nr=%d imbalance=%ld flags=%#x ld_moved=%d bal_int=%d active_balance=%d sd_overutilized=%d",
+	TP_printk("cpu=%d state=%s balance=%d group=%#lx busy_nr=%d imbalance=%ld flags=%#x ld_moved=%d bal_int=%d active_balance=%d sd_overutilized=%d prefer_spread=%d",
 		__entry->cpu,
 		__entry->idle == CPU_IDLE ? "idle" :
 		(__entry->idle == CPU_NEWLY_IDLE ? "newly_idle" : "busy"),
@@ -320,7 +322,7 @@ TRACE_EVENT(sched_load_balance,
 		__entry->group_mask, __entry->busiest_nr_running,
 		__entry->imbalance, __entry->env_flags, __entry->ld_moved,
 		__entry->balance_interval, __entry->active_balance,
-		__entry->overutilized)
+		__entry->overutilized, __entry->prefer_spread)
 );
 
 TRACE_EVENT(sched_load_balance_nohz_kick,
@@ -1213,7 +1215,7 @@ TRACE_EVENT(sched_compute_energy,
 TRACE_EVENT(sched_task_util,
 
 	TP_PROTO(struct task_struct *p, unsigned long candidates,
-		int best_energy_cpu, bool sync, bool need_idle, int fastpath,
+		int best_energy_cpu, bool sync, int need_idle, int fastpath,
 		bool placement_boost, u64 start_t,
 		bool stune_boosted, bool is_rtg, bool rtg_skip_min,
 		int start_cpu),
@@ -1230,7 +1232,7 @@ TRACE_EVENT(sched_task_util,
 		__field(int,		prev_cpu)
 		__field(int,		best_energy_cpu)
 		__field(bool,		sync)
-		__field(bool,		need_idle)
+		__field(int,		need_idle)
 		__field(int,		fastpath)
 		__field(int,		placement_boost)
 		__field(int,		rtg_cpu)
