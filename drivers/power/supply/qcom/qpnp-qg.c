@@ -4217,7 +4217,6 @@ static int process_suspend(struct qpnp_qg *chip)
 		return 0;
 
 	cancel_delayed_work_sync(&chip->ttf->ttf_work);
-	cancel_delayed_work_sync(&chip->qg_sleep_exit_work);
 
 	chip->suspend_data = false;
 
@@ -4383,6 +4382,9 @@ static int qpnp_qg_suspend_noirq(struct device *dev)
 {
 	int rc;
 	struct qpnp_qg *chip = dev_get_drvdata(dev);
+
+	/* cancel any pending sleep_exit work */
+	cancel_delayed_work_sync(&chip->qg_sleep_exit_work);
 
 	mutex_lock(&chip->data_lock);
 
