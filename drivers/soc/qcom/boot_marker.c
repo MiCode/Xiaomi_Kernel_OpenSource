@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,8 +83,30 @@ static void _create_boot_marker(const char *name,
 	spin_unlock(&boot_marker_list.slock);
 }
 
-static void _update_boot_marker(const char *name, const char *new_name,
-				unsigned long long int timer_value)
+static void set_bootloader_stats(bool hibernation_restore)
+{
+	_create_boot_marker("M - APPSBL Start - ",
+		readl_relaxed(&boot_stats->bootloader_start));
+	if (!hibernation_restore) {
+		_create_boot_marker("D - APPSBL Kernel Load Start - ",
+			readl_relaxed(&boot_stats->load_kernel_start));
+		_create_boot_marker("D - APPSBL Kernel Load End - ",
+			readl_relaxed(&boot_stats->load_kernel_done));
+		_create_boot_marker("D - APPSBL Kernel Load Time - ",
+			readl_relaxed(&boot_stats->bootloader_load_kernel));
+		_create_boot_marker("D - APPSBL Kernel Auth Time - ",
+			readl_relaxed(&boot_stats->bootloader_chksum_time));
+	} else {
+		_create_boot_marker("D - APPSBL Hibernation Image Load Start -",
+			readl_relaxed(&boot_stats->load_kernel_start));
+		_create_boot_marker("D - APPSBL Hibernation Image Load End - ",
+			readl_relaxed(&boot_stats->load_kernel_done));
+	}
+	_create_boot_marker("M - APPSBL End - ",
+		readl_relaxed(&boot_stats->bootloader_end));
+}
+
+static void boot_marker_cleanup(void)
 {
 	struct boot_marker *marker;
 	struct boot_marker *temp_addr;
@@ -92,69 +114,22 @@ static void _update_boot_marker(const char *name, const char *new_name,
 	spin_lock(&boot_marker_list.slock);
 	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
 			list) {
-		if (strnstr(marker->marker_name, name,
-			strlen(marker->marker_name))) {
-			if (new_name)
-				strlcpy(marker->marker_name, new_name,
-					sizeof(marker->marker_name));
-			marker->timer_value = timer_value;
-			spin_unlock(&boot_marker_list.slock);
-			return;
-		}
-
-		if (!new_name)
-			continue;
-
-		if (strnstr(marker->marker_name, new_name,
-			strlen(marker->marker_name))) {
-			marker->timer_value = timer_value;
-			spin_unlock(&boot_marker_list.slock);
-			return;
-		}
+		list_del(&marker->list);
+		kfree(marker);
 	}
 	spin_unlock(&boot_marker_list.slock);
-	_create_boot_marker(name, timer_value);
 }
-
-static void set_bootloader_stats(void)
-{
-	_create_boot_marker("M - APPSBL Start - ",
-		readl_relaxed(&boot_stats->bootloader_start));
-	_create_boot_marker("D - APPSBL Kernel Load Start - ",
-		readl_relaxed(&boot_stats->load_kernel_start));
-	_create_boot_marker("D - APPSBL Kernel Load End - ",
-		readl_relaxed(&boot_stats->load_kernel_done));
-	_create_boot_marker("D - APPSBL Kernel Load Time - ",
-		readl_relaxed(&boot_stats->bootloader_load_kernel));
-	_create_boot_marker("D - APPSBL Kernel Auth Time - ",
-		readl_relaxed(&boot_stats->bootloader_chksum_time));
-	_create_boot_marker("M - APPSBL End - ",
-		readl_relaxed(&boot_stats->bootloader_end));
-}
-
-#ifdef CONFIG_HIBERNATION
-static void update_bootloader_stats(void)
-{
-	_update_boot_marker("M - APPSBL Start - ", NULL,
-			readl_relaxed(&boot_stats->bootloader_start));
-	_update_boot_marker("D - APPSBL Kernel Load Start - ",
-		"D - APPSBL Hibernation Image Load Start - ",
-		readl_relaxed(&boot_stats->load_kernel_start));
-	_update_boot_marker("D - APPSBL Kernel Load End - ",
-		"D - APPSBL Hibernation Image Load End - ",
-		readl_relaxed(&boot_stats->load_kernel_done));
-	_update_boot_marker("M - APPSBL End - ", NULL,
-		readl_relaxed(&boot_stats->bootloader_end));
-}
-#endif /* CONFIG_HIBERNATION */
 
 void place_marker(const char *name)
 {
 #ifdef CONFIG_HIBERNATION
-	if (!strcmp(name, "M - Image Kernel Start"))
-		update_bootloader_stats();
+	if (!strcmp(name, "M - Image Kernel Start")) {
+		/* In restore phase, remove Cold Boot KPIs */
+		boot_marker_cleanup();
+		set_bootloader_stats(true);
+	}
 #endif /* CONFIG_HIBERNATION */
-	_update_boot_marker((char *)name, NULL, msm_timer_get_sclk_ticks());
+	_create_boot_marker((char *)name, msm_timer_get_sclk_ticks());
 }
 EXPORT_SYMBOL(place_marker);
 
@@ -318,24 +293,15 @@ static int __init init_bootkpi(void)
 
 	INIT_LIST_HEAD(&boot_marker_list.list);
 	spin_lock_init(&boot_marker_list.slock);
-	set_bootloader_stats();
+	set_bootloader_stats(false);
 	return 0;
 }
 subsys_initcall(init_bootkpi);
 
 static void __exit exit_bootkpi(void)
 {
-	struct boot_marker *marker;
-	struct boot_marker *temp_addr;
-
 	debugfs_remove_recursive(dent_bkpi);
-	spin_lock(&boot_marker_list.slock);
-	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
-			list) {
-		list_del(&marker->list);
-		kfree(marker);
-	}
-	spin_unlock(&boot_marker_list.slock);
+	boot_marker_cleanup();
 	boot_stats_exit();
 }
 module_exit(exit_bootkpi);
