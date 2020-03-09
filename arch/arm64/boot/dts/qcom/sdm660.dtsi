@@ -21,6 +21,8 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/clock/qcom,cpu-osm.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -58,6 +60,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -86,6 +90,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			efficiency = <1024>;
@@ -108,6 +114,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -130,6 +138,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -152,6 +162,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			efficiency = <1638>;
 			next-level-cache = <&L2_1>;
@@ -178,6 +190,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			efficiency = <1638>;
@@ -200,6 +214,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x102>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			efficiency = <1638>;
@@ -222,6 +238,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x103>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			efficiency = <1638>;
@@ -275,6 +293,72 @@
 					cpu = <&CPU7>;
 				};
 			};
+		};
+	};
+
+	energy_costs: energy-costs {
+		compatible = "sched-energy";
+
+		CPU_COST_0: core-cost0 {
+			busy-cost-data = <
+				633600	41
+				902400	70
+				1113600	83
+				1401600	146
+				1536000	158
+				1747200	228
+				1843200	285
+			>;
+			idle-cost-data = <
+				20 16 10 8
+			>;
+		};
+
+		CPU_COST_1: core-cost1 {
+			busy-cost-data = <
+				1113600	307
+				1401600	485
+				1747200	857
+				1804800	883
+				1958400	1222
+				2150400	1592
+				2208000	1632
+				2457600	2080
+			>;
+			idle-cost-data = <
+				100 80 60 40
+			>;
+		};
+
+		CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+				633600	4
+				902400	5
+				1113600	7
+				1401600	9
+				1536000	9
+				1747200	11
+				1843200	13
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
+		};
+
+		CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+				1113600	14
+				1401600	17
+				1747200	25
+				1804800	31
+				1958400	31
+				2150400	37
+				2208000	44
+				2457600	45
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
 		};
 	};
 
@@ -2594,13 +2678,14 @@
 
 &pm660l_gpios {
 	/* GPIO 7 for VOL_UP */
-	gpio@c600 {
-		status = "okay";
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,out-strength = <1>;
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
 	};
 };
 
@@ -2614,8 +2699,9 @@
 		status = "okay";
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
-		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend",
+						"default";
+		pinctrl-0 = <&gpio_key_active &key_vol_up_default>;
 		pinctrl-1 = <&gpio_key_suspend>;
 
 		camera_focus {
@@ -2639,6 +2725,7 @@
 			gpios = <&pm660l_gpios 7 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
+			linux,can-disable;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
