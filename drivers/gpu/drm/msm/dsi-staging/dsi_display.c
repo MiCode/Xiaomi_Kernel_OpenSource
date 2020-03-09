@@ -4175,6 +4175,7 @@ static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 	struct dsi_dyn_clk_delay delay;
 	struct link_clk_freq bkp_freq;
 	bool is_cphy;
+	struct dsi_dyn_clk_caps *dyn_clk_caps;
 
 	dsi_panel_acquire_panel_lock(display->panel);
 
@@ -4190,10 +4191,13 @@ static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 	dsi_display_mask_ctrl_error_interrupts(display, mask, true);
 
 	/* update the phy timings based on new mode */
-	display_for_each_ctrl(i, display) {
-		ctrl = &display->ctrl[i];
-		dsi_phy_update_phy_timings(ctrl->phy, &display->config,
-			is_cphy);
+	dyn_clk_caps = &display->panel->dyn_clk_caps;
+	if (!dyn_clk_caps->skip_phy_timing_update) {
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			dsi_phy_update_phy_timings(ctrl->phy, &display->config,
+				is_cphy);
+		}
 	}
 
 	/* back up existing rates to handle failure case */

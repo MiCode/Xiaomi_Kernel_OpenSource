@@ -1334,7 +1334,7 @@ static int dsi_panel_parse_qsync_caps(struct dsi_panel *panel,
 static int dsi_panel_parse_dyn_clk_caps(struct dsi_panel *panel)
 {
 	int rc = 0;
-	bool supported = false;
+	bool supported = false, skip_phy_timing_update = false;
 	struct dsi_dyn_clk_caps *dyn_clk_caps = &panel->dyn_clk_caps;
 	struct dsi_parser_utils *utils = &panel->utils;
 	const char *name = panel->name;
@@ -1367,6 +1367,13 @@ static int dsi_panel_parse_dyn_clk_caps(struct dsi_panel *panel)
 		pr_err("[%s] failed to parse supported bit clk list\n", name);
 		return -EINVAL;
 	}
+
+	skip_phy_timing_update = utils->read_bool(utils->data,
+				"qcom,dsi-dyn-clk-skip-timing-update");
+	if (!skip_phy_timing_update)
+		dyn_clk_caps->skip_phy_timing_update = false;
+	else
+		dyn_clk_caps->skip_phy_timing_update = true;
 
 	dyn_clk_caps->dyn_clk_support = true;
 
