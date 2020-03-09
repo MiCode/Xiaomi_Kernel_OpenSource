@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1600,7 +1600,7 @@ static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
 		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, value);
 		break;
 	case DP_TEST_PHY_PATTERN_CP2520_PATTERN_3:
-		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, 0x11);
+		dp_write(catalog->exe_mode, io_data, DP_MAINLINK_CTRL, 0x01);
 		dp_write(catalog->exe_mode, io_data, DP_STATE_CTRL, 0x8);
 		break;
 	default:
