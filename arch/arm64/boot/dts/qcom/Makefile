@@ -8,6 +8,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
 
 dtb-$(CONFIG_ARCH_QCS403) += qcs403-iot-sku1.dtb \
+			qcs403-iot-sku2.dtb \
 			qcs403-iot-sku3.dtb \
 			qcs403-iot-sku5.dtb \
 			qcs401-iot-sku5.dtb \
