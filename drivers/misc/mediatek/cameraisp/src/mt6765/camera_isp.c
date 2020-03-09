@@ -6274,6 +6274,7 @@ static signed int ISP_REGISTER_IRQ_USERKEY(char *userName)
 	}
 
 	spin_unlock((spinlock_t *)(&SpinLock_UserKey));
+        userName[31] = 0;
 	pr_info("User(%s)key(%d)\n", userName, key);
 	return key;
 }
