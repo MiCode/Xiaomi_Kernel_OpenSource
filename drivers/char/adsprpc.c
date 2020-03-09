@@ -2892,6 +2892,41 @@ bail:
 	return err;
 }
 
+static int fastrpc_unmap_on_dsp(struct fastrpc_file *fl,
+		uintptr_t raddr, uint64_t phys, size_t size, uint32_t flags)
+{
+	struct fastrpc_ioctl_invoke_crc ioctl;
+	remote_arg_t ra[1] = {};
+	int err = 0;
+	struct {
+		int pid;
+		uintptr_t vaddrout;
+		size_t size;
+	} inargs;
+
+	inargs.pid = fl->tgid;
+	inargs.size = size;
+	inargs.vaddrout = raddr;
+	ra[0].buf.pv = (void *)&inargs;
+	ra[0].buf.len = sizeof(inargs);
+
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	if (fl->apps->compat)
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(5, 1, 0);
+	else
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err)
+		goto bail;
+bail:
+	return err;
+}
+
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 					uintptr_t va, uint64_t phys,
 					size_t size, uintptr_t *raddr)
@@ -2950,6 +2985,13 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 			pr_err("adsprpc: %s: %s: rh hyp assign failed with %d for phys 0x%llx, size %zd\n",
 					__func__, current->comm,
 					err, phys, size);
+			err = fastrpc_unmap_on_dsp(fl,
+				*raddr, phys, size, flags);
+			if (err) {
+				pr_err("adsprpc: %s: %s: failed to unmap %d for phys 0x%llx, size %zd\n",
+					__func__, current->comm,
+					err, phys, size);
+			}
 			goto bail;
 		}
 	}
@@ -3017,32 +3059,10 @@ bail:
 static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl, uintptr_t raddr,
 				uint64_t phys, size_t size, uint32_t flags)
 {
-	struct fastrpc_ioctl_invoke_crc ioctl;
-	remote_arg_t ra[1];
 	int err = 0;
-	struct {
-		int pid;
-		uintptr_t vaddrout;
-		size_t size;
-	} inargs;
 
-	inargs.pid = fl->tgid;
-	inargs.size = size;
-	inargs.vaddrout = raddr;
-	ra[0].buf.pv = (void *)&inargs;
-	ra[0].buf.len = sizeof(inargs);
-
-	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-	if (fl->apps->compat)
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(5, 1, 0);
-	else
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
-	ioctl.inv.pra = ra;
-	ioctl.fds = NULL;
-	ioctl.attrs = NULL;
-	ioctl.crc = NULL;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	VERIFY(err, 0 == (err = fastrpc_unmap_on_dsp(fl, raddr, phys,
+						size, flags)));
 	if (err)
 		goto bail;
 	if (flags == ADSP_MMAP_HEAP_ADDR ||
