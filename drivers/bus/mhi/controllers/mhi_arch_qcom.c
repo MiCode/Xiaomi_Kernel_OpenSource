@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,12 +76,15 @@ void mhi_reg_write_work(struct work_struct *w)
 	if (!info->valid)
 		return;
 
-	if (mhi_is_active(mhi_cntrl->mhi_dev) && msm_pcie_prevent_l1(pci_dev))
+	if (!mhi_is_active(mhi_cntrl->mhi_dev))
+		return;
+
+	if (msm_pcie_prevent_l1(pci_dev))
 		return;
 
 	while (info->valid) {
 		if (!mhi_is_active(mhi_cntrl->mhi_dev))
-			return;
+			break;
 
 		writel_relaxed(info->val, info->reg_addr);
 		info->valid = false;
