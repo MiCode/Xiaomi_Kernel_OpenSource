@@ -40,3 +40,31 @@
 &dsi_rm69299_visionox_amoled_vid_display {
 	qcom,dsi-display-active;
 };
+
+&qupv3_se17_i2c {
+	status = "ok";
+
+	synaptics_tcm@20 {
+		compatible = "synaptics,tcm-i2c";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0x2008>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		vdd-supply = <&pm8150_s4>;
+		avdd-supply = <&pm8150_l17>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,irq-gpio = <&tlmm 122 0x2008>;
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-gpio = <&tlmm 54 0x00>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,ubl-i2c-addr = <0x20>;
+		synaptics,extend_report;
+		synaptics,firmware-name = "synaptics_firmware.img";
+	};
+};
