@@ -321,7 +321,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
-	INIT_MSM_CVP_LIST(&inst->cpusmems);
+	INIT_MSM_CVP_LIST(&inst->dma_cache);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	INIT_MSM_CVP_LIST(&inst->frames);
 
@@ -338,7 +338,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = 0;
-	inst->cpusmems.maxnr = MAX_DMABUF_NUMS;
+	inst->dma_cache.maxnr = MAX_DMABUF_NUMS;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -377,7 +377,7 @@ fail_init:
 	mutex_destroy(&inst->lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cpusmems);
+	DEINIT_MSM_CVP_LIST(&inst->dma_cache);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
@@ -395,7 +395,7 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 		return;
 	}
 
-	if (cvp_comm_release_persist_buffers(inst))
+	if (cvp_release_arp_buffers(inst))
 		dprintk(CVP_ERR,
 			"Failed to release persist buffers\n");
 }
@@ -417,7 +417,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	mutex_unlock(&core->lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cpusmems);
+	DEINIT_MSM_CVP_LIST(&inst->dma_cache);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 

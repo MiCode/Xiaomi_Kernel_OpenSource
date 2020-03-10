@@ -904,7 +904,7 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		msm_cvp_comm_print_inst_info(inst);
+		msm_cvp_print_inst_bufs(inst);
 	}
 	core->smmu_fault_handled = true;
 	msm_cvp_noc_error_info(core);

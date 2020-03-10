@@ -442,20 +442,6 @@ struct cvp_hfi_cmd_sys_test_ssr_packet {
 	u32 trigger_type;
 };
 
-struct cvp_buf_type {
-	s32 fd;
-	u32 size;
-	u32 offset;
-	u32 flags;
-	union {
-		struct dma_buf *dbuf;
-		struct {
-			u32 reserved1;
-			u32 reserved2;
-		};
-	};
-};
-
 struct cvp_hfi_msg_sys_session_flush_done_packet {
 	u32 size;
 	u32 packet_type;
