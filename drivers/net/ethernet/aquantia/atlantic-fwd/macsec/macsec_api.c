@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Atlantic Network Driver
  *
- * Copyright (C) 2020 Marvell International Ltd.
+ * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -2917,3 +2918,59 @@ int aq_mss_set_egress_sa_threshold_expired(struct atl_hw *hw, u32 expired)
 {
 	return AQ_API_CALL_SAFE(set_egress_sa_threshold_expired, hw, expired);
 }
+
+
+static int set_drop_igprc_miss_packets(struct atl_hw *hw, bool drop)
+{
+	struct mss_ingress_ctl_register ctl_reg;
+	int ret;
+
+	memset(&ctl_reg, 0, sizeof(ctl_reg));
+
+	ret = __atl_mdio_read(hw, 0, MDIO_MMD_VEND1,
+			      MSS_INGRESS_CTL_REGISTER_ADDR,
+			      &ctl_reg.word_0);
+	if (unlikely(ret))
+		return ret;
+	ret = __atl_mdio_read(hw, 0, MDIO_MMD_VEND1,
+			      MSS_INGRESS_CTL_REGISTER_ADDR + 1,
+			      &ctl_reg.word_1);
+	if (unlikely(ret))
+		return ret;
+
+	ctl_reg.bits_0.drop_igprc_miss = (drop) ? (1) : (0);
+	ret = __atl_mdio_write(hw, 0, MDIO_MMD_VEND1,
+			       MSS_INGRESS_CTL_REGISTER_ADDR,
+			       ctl_reg.word_0);
+	if (unlikely(ret))
+		return ret;
+	ret = __atl_mdio_write(hw, 0, MDIO_MMD_VEND1,
+			       MSS_INGRESS_CTL_REGISTER_ADDR + 1,
+			       ctl_reg.word_1);
+	if (unlikely(ret))
+		return ret;
+
+	return 0;
+}
+
+int aq_mss_set_drop_igprc_miss_packets(struct atl_hw *hw, bool drop)
+{
+	return AQ_API_CALL_SAFE(set_drop_igprc_miss_packets, hw, drop);
+}
+
+static int set_packet_edit_control(struct atl_hw *hw, u32 control)
+{
+	int ret;
+
+	ret = __atl_mdio_write(hw, 0, MDIO_MMD_VEND1,
+			       SEC_INGRESS_PACKET_EDIT_CTL_REGISTER_ADDR,
+			       control);
+
+	return ret;
+}
+
+int aq_mss_set_packet_edit_control(struct atl_hw *hw, u32 control)
+{
+	return AQ_API_CALL_SAFE(set_packet_edit_control, hw, control);
+}
+

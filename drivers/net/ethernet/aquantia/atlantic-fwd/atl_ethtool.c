@@ -1,10 +1,12 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+// SPDX-License-Identifier: GPL-2.0-only
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/ethtool.h>
@@ -459,9 +461,11 @@ static int atl_get_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	eee->eee_enabled = eee->tx_lpi_enabled = lstate->eee_enabled;
 	eee->eee_active = lstate->eee;
 
-	if (lstate->link)
-		ret = atl_get_lpi_timer(nic, &eee->tx_lpi_timer);
+	ret = atl_get_lpi_timer(nic, &nic->hw.lpi_timer);
+	if (ret == -ENODATA)
+		ret = 0;
 
+	eee->tx_lpi_timer = nic->hw.lpi_timer;
 	return ret;
 }
 
@@ -470,14 +474,12 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
 	struct atl_link_state *lstate = &hw->link_state;
-	uint32_t lpi_timer = 0;
 	unsigned long tmp = 0;
 
 	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
-	atl_get_lpi_timer(nic, &lpi_timer);
-	if (eee->tx_lpi_timer != lpi_timer)
+	if (eee->tx_lpi_timer != nic->hw.lpi_timer)
 		return -EOPNOTSUPP;
 
 	lstate->eee_enabled = eee->eee_enabled;
@@ -575,6 +577,13 @@ struct atl_stat_desc {
 		sizeof(uint64_t),				\
 }
 
+#define ATL_RX_FWD_STAT(_name, _field)				\
+{								\
+	.stat_name = #_name,					\
+	.idx = offsetof(struct atl_rx_fwd_ring_stats, _field) /	\
+		sizeof(uint64_t),				\
+}
+
 #define ATL_ETH_STAT(_name, _field)				\
 {								\
 	.stat_name = #_name,					\
@@ -605,6 +614,11 @@ static const struct atl_stat_desc rx_stat_descs[] = {
 	ATL_RX_STAT(rx_non_eop_descs, non_eop_descs),
 	ATL_RX_STAT(rx_mac_err, mac_err),
 	ATL_RX_STAT(rx_checksum_err, csum_err),
+};
+
+static const struct atl_stat_desc rx_fwd_stat_descs[] = {
+	ATL_RX_FWD_STAT(rx_fwd_packets, packets),
+	ATL_RX_FWD_STAT(rx_fwd_bytes, bytes),
 };
 
 static const struct atl_stat_desc eth_stat_descs[] = {
@@ -733,6 +747,9 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 		return ARRAY_SIZE(tx_stat_descs) * (nic->nvecs + 1) +
 		       ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
 		       ARRAY_SIZE(eth_stat_descs)
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+		       + ARRAY_SIZE(rx_fwd_stat_descs)
+#endif
 #if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 		       + ARRAY_SIZE(tx_stat_descs) *
 				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_TX])
@@ -790,6 +807,10 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 	case ETH_SS_STATS:
 		atl_copy_stats_string_set(&p, "");
 
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+		atl_copy_stats_strings(&p, "", rx_fwd_stat_descs,
+				       ARRAY_SIZE(rx_fwd_stat_descs));
+#endif
 		atl_copy_stats_strings(&p, "", eth_stat_descs,
 				       ARRAY_SIZE(eth_stat_descs));
 
@@ -893,6 +914,9 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 #endif
 	atl_write_stats(&nic->stats.tx, tx_stat_descs, data, uint64_t);
 	atl_write_stats(&nic->stats.rx, rx_stat_descs, data, uint64_t);
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+	atl_write_stats(&nic->stats.rx_fwd, rx_fwd_stat_descs, data, uint64_t);
+#endif
 
 	atl_write_stats(&nic->stats.eth, eth_stat_descs, data, uint64_t);
 
@@ -1035,6 +1059,7 @@ void atl_reset_stats(struct atl_nic *nic)
 		memset(&qvec->rx.stats, 0, sizeof(qvec->rx.stats));
 		memset(&qvec->tx.stats, 0, sizeof(qvec->tx.stats));
 	}
+	memset(&nic->stats.rx_fwd, 0, sizeof(nic->stats.rx_fwd));
 
 	spin_unlock(&nic->stats_lock);
 }
@@ -1137,10 +1162,13 @@ static int atl_set_coalesce(struct net_device *ndev,
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
-	if (ec->use_adaptive_rx_coalesce || ec->use_adaptive_tx_coalesce ||
-		ec->rx_max_coalesced_frames || ec->tx_max_coalesced_frames ||
+	if (ec->rx_max_coalesced_frames ||
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+		ec->use_adaptive_rx_coalesce || ec->use_adaptive_tx_coalesce ||
 		ec->rx_max_coalesced_frames_irq || ec->rx_coalesce_usecs_irq ||
-		ec->tx_max_coalesced_frames_irq || ec->tx_coalesce_usecs_irq)
+		ec->tx_max_coalesced_frames_irq || ec->tx_coalesce_usecs_irq ||
+#endif
+		ec->tx_max_coalesced_frames)
 		return -EOPNOTSUPP;
 
 	if (ec->rx_coalesce_usecs < atl_min_intr_delay ||
@@ -2799,6 +2827,10 @@ static void atl_ethtool_complete(struct net_device *ndev)
 }
 
 const struct ethtool_ops atl_ethtool_ops = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
+				     ETHTOOL_COALESCE_MAX_FRAMES,
+#endif
 	.get_link = atl_ethtool_get_link,
 #ifndef ATL_HAVE_ETHTOOL_KSETTINGS
 	.get_settings = atl_ethtool_get_settings,
