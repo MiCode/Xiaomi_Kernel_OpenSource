@@ -959,10 +959,12 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	 * we need not worry that server_info will be deleted because as long
 	 * as this CBObj is served by this server, srvr_info will be valid.
 	 */
-	wake_up_interruptible(&srvr_info->req_wait_q);
-	ret = wait_event_interruptible(srvr_info->rsp_wait_q,
+	if (wq_has_sleeper(&srvr_info->req_wait_q)) {
+		wake_up_interruptible_all(&srvr_info->req_wait_q);
+		ret = wait_event_interruptible(srvr_info->rsp_wait_q,
 			(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
 			(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT));
+	}
 out:
 	/*
 	 * we could be here because of either: a. Req is PROCESSED
@@ -1497,7 +1499,6 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 						unsigned long arg)
 {
 	int ret = -1;
-	sigset_t pending_sig;
 	struct smcinvoke_file_data *server_obj = filp->private_data;
 	struct smcinvoke_accept user_args = {0};
 	struct smcinvoke_cb_txn *cb_txn = NULL;
@@ -1522,6 +1523,9 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 	mutex_unlock(&g_smcinvoke_lock);
 	if (!server_info)
 		return -EINVAL;
+
+	if (server_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT)
+		server_info->state = 0;
 
 	/* First check if it has response otherwise wait for req */
 	if (user_args.has_resp) {
@@ -1576,17 +1580,12 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 			 * server_info invalid. Other accept/invoke threads are
 			 * using server_info and would crash. So dont do that.
 			 */
-			pending_sig = (&current->pending)->signal;
-			if (sigismember(&pending_sig, SIGKILL)) {
-				mutex_lock(&g_smcinvoke_lock);
-				server_info->state =
-					SMCINVOKE_SERVER_STATE_DEFUNCT;
-				wake_up_interruptible(&server_info->rsp_wait_q);
-				mutex_unlock(&g_smcinvoke_lock);
-			}
+			mutex_lock(&g_smcinvoke_lock);
+			server_info->state = SMCINVOKE_SERVER_STATE_DEFUNCT;
+			mutex_unlock(&g_smcinvoke_lock);
+			wake_up_interruptible(&server_info->rsp_wait_q);
 			goto out;
 		}
-
 		mutex_lock(&g_smcinvoke_lock);
 		cb_txn = find_cbtxn_locked(server_info,
 						SMCINVOKE_NEXT_AVAILABLE_TXN,
