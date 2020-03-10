@@ -371,7 +371,7 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 	ret = request_threaded_irq(cap_table_entry->rx_irq,
 				   NULL,
 				   hh_dbl_rx_callback_thread,
-				   0,
+				   IRQF_ONESHOT,
 				   cap_table_entry->rx_irq_name,
 				   priv);
 
