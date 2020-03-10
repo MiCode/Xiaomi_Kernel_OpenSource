@@ -442,6 +442,7 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 	u8 v_fifo[MAX_FIFO_LENGTH * 2], i_fifo[MAX_FIFO_LENGTH * 2];
 	u32 sample_interval = 0, sample_count = 0, fifo_v = 0, fifo_i = 0;
 	unsigned long rtc_sec = 0;
+	bool qg_v_mode = (chip->qg_mode == QG_V_MODE);
 
 	rc = get_rtc_time(&rtc_sec);
 	if (rc < 0)
@@ -500,7 +501,8 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		fifo_v = v_fifo[i] | (v_fifo[i + 1] << 8);
 		fifo_i = i_fifo[i] | (i_fifo[i + 1] << 8);
 
-		if (fifo_v == FIFO_V_RESET_VAL || fifo_i == FIFO_I_RESET_VAL) {
+		if (fifo_v == FIFO_V_RESET_VAL ||
+			(fifo_i == FIFO_I_RESET_VAL && !qg_v_mode)) {
 			pr_err("Invalid FIFO data V_RAW=%x I_RAW=%x - FIFO rejected\n",
 						fifo_v, fifo_i);
 			return -EINVAL;
@@ -509,7 +511,8 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		temp = sign_extend32(fifo_i, 15);
 
 		chip->kdata.fifo[j].v = V_RAW_TO_UV(fifo_v);
-		chip->kdata.fifo[j].i = qg_iraw_to_ua(chip, temp);
+		chip->kdata.fifo[j].i =
+				qg_v_mode ? 0 : qg_iraw_to_ua(chip, temp);
 		chip->kdata.fifo[j].interval = sample_interval;
 		chip->kdata.fifo[j].count = sample_count;
 
@@ -519,7 +522,7 @@ static int qg_process_fifo(struct qpnp_qg *chip, u32 fifo_length)
 		qg_dbg(chip, QG_DEBUG_FIFO, "FIFO %d raw_v=%d uV=%d raw_i=%d uA=%d interval=%d count=%d\n",
 					j, fifo_v,
 					chip->kdata.fifo[j].v,
-					fifo_i,
+					qg_v_mode ? 0 : fifo_i,
 					(int)chip->kdata.fifo[j].i,
 					chip->kdata.fifo[j].interval,
 					chip->kdata.fifo[j].count);
@@ -537,6 +540,7 @@ static int qg_process_accumulator(struct qpnp_qg *chip)
 	u8 count, index = chip->kdata.fifo_length;
 	u64 acc_v = 0, acc_i = 0;
 	s64 temp = 0;
+	bool qg_v_mode = (chip->qg_mode == QG_V_MODE);
 
 	rc = qg_read(chip, chip->qg_base + QG_ACCUM_CNT_RT_REG,
 			&count, 1);
@@ -573,7 +577,8 @@ static int qg_process_accumulator(struct qpnp_qg *chip)
 	temp = sign_extend64(acc_i, 23);
 
 	chip->kdata.fifo[index].v = V_RAW_TO_UV(div_u64(acc_v, count));
-	chip->kdata.fifo[index].i = qg_iraw_to_ua(chip, div_s64(temp, count));
+	chip->kdata.fifo[index].i = qg_v_mode ?
+				0 : qg_iraw_to_ua(chip, div_s64(temp, count));
 	chip->kdata.fifo[index].interval = sample_interval;
 	chip->kdata.fifo[index].count = count;
 	chip->kdata.fifo_length++;
@@ -1194,6 +1199,9 @@ static void process_udata_work(struct work_struct *work)
 	if (chip->udata.param[QG_FULL_SOC].valid)
 		chip->full_soc = chip->udata.param[QG_FULL_SOC].data;
 
+	if (chip->udata.param[QG_V_IBAT].valid)
+		chip->qg_v_ibat = chip->udata.param[QG_V_IBAT].data;
+
 	if (chip->udata.param[QG_SOC].valid ||
 			chip->udata.param[QG_SYS_SOC].valid) {
 
@@ -1645,9 +1653,9 @@ static int qg_get_cc_soc(void *data, int *cc_soc)
 	}
 
 	if (chip->cc_soc == INT_MIN)
-		return -EINVAL;
-
-	*cc_soc = chip->cc_soc;
+		*cc_soc = -EINVAL;
+	else
+		*cc_soc = chip->cc_soc;
 
 	return 0;
 }
@@ -2232,6 +2240,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		pval->intval = chip->batt_age_level;
 		break;
+	case POWER_SUPPLY_PROP_FG_TYPE:
+		pval->intval = chip->qg_mode;
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -2294,6 +2305,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_POWER_NOW,
 	POWER_SUPPLY_PROP_SCALE_MODE_EN,
 	POWER_SUPPLY_PROP_BATT_AGE_LEVEL,
+	POWER_SUPPLY_PROP_FG_TYPE,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -3297,7 +3309,9 @@ done:
 		return rc;
 	}
 
-	chip->cc_soc = chip->sys_soc = soc_raw;
+	if (chip->qg_mode == QG_V_I_MODE)
+		chip->cc_soc = soc_raw;
+	chip->sys_soc = soc_raw;
 	chip->last_adj_ssoc = chip->catch_up_soc = chip->msoc = soc;
 	chip->kdata.param[QG_PON_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_PON_OCV_UV].valid = true;
@@ -3414,6 +3428,24 @@ static int qg_hw_init(struct qpnp_qg *chip)
 		chip->max_fcc_limit_ma = IBAT_5A_FCC_MA;
 	else
 		chip->max_fcc_limit_ma = IBAT_10A_FCC_MA;
+
+	if (chip->qg_version == QG_LITE) {
+		rc = qg_read(chip, chip->qg_base + QG_MODE_CTL2_REG, &reg, 1);
+		if (rc < 0) {
+			pr_err("Failed to read QG mode rc=%d\n", rc);
+			return rc;
+		}
+		chip->qg_mode = (reg & VI_MODE_BIT) ? QG_V_I_MODE : QG_V_MODE;
+	} else {
+		chip->qg_mode = QG_V_I_MODE;
+	}
+
+	if (chip->qg_mode == QG_V_MODE) {
+		chip->dt.esr_disable = true;
+		chip->dt.cl_disable = true;
+		chip->dt.tcss_enable = false;
+		chip->dt.bass_enable = false;
+	}
 
 	rc = qg_set_wa_flags(chip);
 	if (rc < 0) {
@@ -4794,9 +4826,10 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 
 	qg_get_battery_capacity(chip, &soc);
 
-	pr_info("QG initialized! battery_profile=%s SOC=%d QG_subtype=%d QG_version=%s\n",
+	pr_info("QG initialized! battery_profile=%s SOC=%d QG_subtype=%d QG_version=%s QG_mode=%s\n",
 			qg_get_battery_type(chip), soc, chip->qg_subtype,
-			(chip->qg_version == QG_LITE) ? "QG_LITE" : "QG_PMIC5");
+			(chip->qg_version == QG_LITE) ? "QG_LITE" : "QG_PMIC5",
+			(chip->qg_mode == QG_V_I_MODE) ? "QG_V_I" : "QG_V");
 
 	return rc;
 
