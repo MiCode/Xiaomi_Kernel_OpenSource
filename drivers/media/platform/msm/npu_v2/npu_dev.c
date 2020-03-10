@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1797,17 +1797,20 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 
 	/* Read FMAX info if available */
 	if (npu_dev->qfprom_io.base) {
-		fmax = (npu_qfprom_reg_read(npu_dev,
-			QFPROM_FMAX_REG_OFFSET) & QFPROM_FMAX_BITS_MASK) >>
-			QFPROM_FMAX_BITS_SHIFT;
+		fmax = ((npu_qfprom_reg_read(npu_dev,
+			QFPROM_FMAX_REG_OFFSET_1) & QFPROM_FMAX_BITS_MASK_1) >>
+			QFPROM_FMAX_BITS_SHIFT_1) +
+			((npu_qfprom_reg_read(npu_dev,
+			QFPROM_FMAX_REG_OFFSET_2) & QFPROM_FMAX_BITS_MASK_2) <<
+			QFPROM_FMAX_BITS_SHIFT_2);
+
 		NPU_DBG("fmax %x\n", fmax);
 
 		switch (fmax) {
-		case 1:
-		case 2:
-			fmax_pwrlvl = NPU_PWRLEVEL_NOM;
+		case 0x1F:
+			fmax_pwrlvl = NPU_PWRLEVEL_SVS;
 			break;
-		case 3:
+		case 0x29:
 			fmax_pwrlvl = NPU_PWRLEVEL_SVS_L1;
 			break;
 		default:
@@ -2298,6 +2301,24 @@ static int npu_probe(struct platform_device *pdev)
 	}
 	NPU_DBG("apss_shared phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->apss_shared_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "qfprom_physical");
+	if (!res) {
+		NPU_INFO("unable to get qfprom_physical resource\n");
+	} else {
+		npu_dev->qfprom_io.size = resource_size(res);
+		npu_dev->qfprom_io.phy_addr = res->start;
+		npu_dev->qfprom_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->qfprom_io.size);
+		if (unlikely(!npu_dev->qfprom_io.base)) {
+			NPU_ERR("unable to map qfprom_physical\n");
+			rc = -ENOMEM;
+			goto error_get_dev_num;
+		}
+		NPU_DBG("qfprom_physical phy address=0x%llx virt=%pK\n",
+			res->start, npu_dev->qfprom_io.base);
+	}
 
 	rc = npu_parse_dt_regulator(npu_dev);
 	if (rc)
