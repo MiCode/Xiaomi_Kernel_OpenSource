@@ -386,7 +386,7 @@ alloc_iova(struct iova_domain *iovad, unsigned long size,
 		return NULL;
 
 	if (iovad->best_fit) {
-		ret = __alloc_and_insert_iova_range(iovad, size,
+		ret = __alloc_and_insert_iova_best_fit(iovad, size,
 				limit_pfn + 1, new_iova, size_aligned);
 	} else {
 		ret = __alloc_and_insert_iova_range(iovad, size, limit_pfn + 1,
