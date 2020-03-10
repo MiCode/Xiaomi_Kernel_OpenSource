@@ -478,7 +478,7 @@ static ssize_t tfa98xx_dbgfs_start_set(struct file *file,
 		return -EINVAL;
 
 	mutex_lock(&tfa98xx->dsp_lock);
-	ret = tfa_calibrate(tfa98xx->tfa);
+	ret = (enum tfa_error)tfa_calibrate(tfa98xx->tfa);
 	if (ret == tfa_error_ok) {
 		cal_profile = tfaContGetCalProfile(tfa98xx->tfa);
 		if (cal_profile < 0) {
