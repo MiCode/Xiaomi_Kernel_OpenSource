@@ -11014,7 +11014,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	/* Initialize work queues */
 	snprintf(recovery_wq_name, ARRAY_SIZE(recovery_wq_name), "%s_%d",
 				"ufs_recovery_wq", host->host_no);
-	hba->recovery_wq = create_singlethread_workqueue(recovery_wq_name);
+	hba->recovery_wq = alloc_workqueue("%s",
+			WQ_MEM_RECLAIM|WQ_UNBOUND|WQ_HIGHPRI, 0,
+			recovery_wq_name);
 	if (!hba->recovery_wq) {
 		dev_err(hba->dev, "%s: failed to create the workqueue\n",
 				__func__);
