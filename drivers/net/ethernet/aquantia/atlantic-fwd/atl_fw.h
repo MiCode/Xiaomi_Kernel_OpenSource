@@ -78,6 +78,7 @@ enum atl_fw2_opts {
 	atl_define_bit(atl_fw2_pause, 3)
 	atl_define_bit(atl_fw2_asym_pause, 4)
 	atl_fw2_pause_mask = atl_fw2_pause | atl_fw2_asym_pause,
+	atl_define_bit(atl_fw2_fw_request, 12)
 	atl_define_bit(atl_fw2_macsec, 15)
 	atl_define_bit(atl_fw2_wake_on_link, 16)
 	atl_define_bit(atl_fw2_wake_on_link_force, 17)
@@ -93,6 +94,7 @@ enum atl_fw2_opts {
 enum atl_fw2_ex_caps {
 	atl_define_bit(atl_fw2_ex_caps_wol_ex, 23)
 	atl_define_bit(atl_fw2_ex_caps_mac_heartbeat, 25)
+	atl_define_bit(atl_fw2_ex_caps_msm_settings_apply, 26)
 };
 
 enum atl_fw2_wol_ex {
@@ -117,6 +119,10 @@ enum atl_fw2_settings_offt {
 
 enum atl_fw2_msm_opts {
 	atl_define_bit(atl_fw2_settings_msm_opts_strip_pad, 0)
+};
+
+enum atl_fw2_fw_request {
+	atl_fw2_msm_settings_apply = 0x20,
 };
 
 enum atl_fc_mode {
@@ -207,6 +213,7 @@ struct atl_fw_ops {
 	int (*restore_cfg)(struct atl_hw *hw);
 	int (*set_phy_loopback)(struct atl_nic *nic, u32 mode);
 	int (*set_mediadetect)(struct atl_hw *hw, bool on);
+	int (*set_pad_stripping)(struct atl_hw *hw, bool on);
 	int (*send_macsec_req)(struct atl_hw *hw,
 			       struct macsec_msg_fw_request *msg,
 			       struct macsec_msg_fw_response *resp);

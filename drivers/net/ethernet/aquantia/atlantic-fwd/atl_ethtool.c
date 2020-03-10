@@ -190,9 +190,9 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed,
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-				   &tmp, true);
+				   &tmp, false);
 		/* advertize the supported links */
-		tmp = atl_kernel_to_link(&tmp, true);
+		tmp = atl_kernel_to_link(&tmp, false);
 		lstate->advertized |= tmp << ATL_EEE_BIT_OFFT;
 	}
 
@@ -425,7 +425,7 @@ static int atl_set_pauseparam(struct net_device *ndev,
 	struct atl_link_state *lstate = &hw->link_state;
 	struct atl_fc_state *fc = &lstate->fc;
 
-	if (atl_fw_major(hw) < 2)
+	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
 	if (pause->autoneg)
@@ -459,7 +459,8 @@ static int atl_get_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	eee->eee_enabled = eee->tx_lpi_enabled = lstate->eee_enabled;
 	eee->eee_active = lstate->eee;
 
-	ret = atl_get_lpi_timer(nic, &eee->tx_lpi_timer);
+	if (lstate->link)
+		ret = atl_get_lpi_timer(nic, &eee->tx_lpi_timer);
 
 	return ret;
 }
@@ -469,31 +470,28 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
 	struct atl_link_state *lstate = &hw->link_state;
-	uint32_t tmp = 0;
+	uint32_t lpi_timer = 0;
+	unsigned long tmp = 0;
 
-	if (atl_fw_major(hw) < 2)
+	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
-	atl_get_lpi_timer(nic, &tmp);
-	if (eee->tx_lpi_timer != tmp)
+	atl_get_lpi_timer(nic, &lpi_timer);
+	if (eee->tx_lpi_timer != lpi_timer)
 		return -EOPNOTSUPP;
 
 	lstate->eee_enabled = eee->eee_enabled;
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-			(unsigned long *)&tmp, true);
+				   &tmp, false);
 		if (eee->advertised & ~tmp)
 			return -EINVAL;
 
 		/* advertize the requested link or all supported */
 		if (eee->advertised)
-			tmp = atl_kernel_to_link(
-					(unsigned long *)&eee->advertised,
-					true);
-		else
-			tmp = atl_kernel_to_link(
-					(unsigned long *)&tmp, true);
+			tmp = eee->advertised;
+		tmp = atl_kernel_to_link(&tmp, false);
 	}
 
 	lstate->advertized &= ~ATL_EEE_MASK;
@@ -735,7 +733,7 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 		return ARRAY_SIZE(tx_stat_descs) * (nic->nvecs + 1) +
 		       ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
 		       ARRAY_SIZE(eth_stat_descs)
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 		       + ARRAY_SIZE(tx_stat_descs) *
 				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_TX])
 		       + ARRAY_SIZE(rx_stat_descs) *
@@ -800,7 +798,7 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 			atl_copy_stats_string_set(&p, prefix);
 		}
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 		for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
 			snprintf(prefix, sizeof(prefix), "fwd_ring_%d_", i);
 
@@ -908,7 +906,7 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 		atl_write_stats(&tmp.rx, rx_stat_descs, data, uint64_t);
 	}
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
 		struct atl_ring_stats tmp;
 
@@ -1045,27 +1043,10 @@ static int atl_set_pad_stripping(struct atl_nic *nic, bool on)
 {
 	struct atl_hw *hw = &nic->hw;
 	int ret;
-	uint32_t msm_opts;
 
-	if (hw->mcp.fw_rev < 0x0300008e)
-		return -EOPNOTSUPP;
+	ret = hw->mcp.ops->set_pad_stripping(hw, on);
 
-	ret = atl_read_fwsettings_word(hw, atl_fw2_setings_msm_opts,
-		&msm_opts);
-	if (ret)
-		return ret;
-
-	msm_opts &= ~atl_fw2_settings_msm_opts_strip_pad;
-	msm_opts |= !!on << atl_fw2_settings_msm_opts_strip_pad_shift;
-
-	ret = atl_write_fwsettings_word(hw, atl_fw2_setings_msm_opts,
-		msm_opts);
-	if (ret)
-		return ret;
-
-	/* Restart aneg to make FW apply the new settings */
-	hw->mcp.ops->restart_aneg(hw);
-	return 0;
+	return ret;
 }
 
 int atl_set_media_detect(struct atl_nic *nic, bool on)
@@ -1408,7 +1389,7 @@ static int atl_rxf_check_ring(struct atl_nic *nic, uint32_t ring)
 	if (ring < nic->nvecs || ring == ATL_RXF_RING_ANY)
 		return 0;
 
-#ifdef CONFIG_ATLFWD_FWD
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
 	if (test_bit(ring, &nic->fwd.ring_map[ATL_FWDIR_RX]))
 		return 0;
 #endif
@@ -1791,8 +1772,8 @@ static void atl2_rxf_set_ntuple(struct atl_nic *nic,
 
 	if (ntuple->cmd[idx] & ATL_NTC_PROTO)
 		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
-			  ATL2_NTC_L3_IPV6_PROTO :
-			  ATL2_NTC_L3_IPV4_PROTO;
+			  ATL2_NTC_L3_IPV6_PROTO | ATL2_NTC_L3_IPV6_EN :
+			  ATL2_NTC_L3_IPV4_PROTO | ATL2_NTC_L3_IPV4_EN;
 
 	switch (ntuple->cmd[idx] & ATL_NTC_L4_MASK) {
 	case ATL_NTC_L4_TCP:
@@ -2220,9 +2201,9 @@ static void atl2_update_ntuple_flt(struct atl_nic *nic, int idx)
 			mask |= ATL2_RPF_TAG_L3_V6_MASK;
 			cmd |= (l3_idx + 1) << 0x14;
 
-			if (l3->cmd & ATL2_NTC_L3_IPV4_SA)
+			if (l3->cmd & ATL2_NTC_L3_IPV6_SA)
 				atl2_rpf_l3_v6_sa_set(hw, l3_idx, l3->src_ip6);
-			if (l3->cmd & ATL2_NTC_L3_IPV4_DA)
+			if (l3->cmd & ATL2_NTC_L3_IPV6_DA)
 				atl2_rpf_l3_v6_da_set(hw, l3_idx, l3->dst_ip6);
 		} else {
 			WARN(1, "L3 filter invalid");
@@ -2242,6 +2223,10 @@ static void atl2_update_ntuple_flt(struct atl_nic *nic, int idx)
 			return;
 		}
 		cmd = l4->cmd | (l4_idx + 1) << 0x4;
+		atl_write(hw, ATL_NTUPLE_SPORT(l4_idx),
+			swab16(l4->src_port));
+		atl_write(hw, ATL_NTUPLE_DPORT(l4_idx),
+			swab16(l4->dst_port));
 		atl_write(hw, ATL2_RPF_L4_FLT(l4_idx), cmd);
 	}
 
@@ -2272,7 +2257,8 @@ void atl_update_ntuple_flt(struct atl_nic *nic, int idx)
 	if (!(cmd & ATL_NTC_EN)) {
 		atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
 
-		atl2_update_ntuple_flt(nic, idx);
+		if (nic->hw.new_rpf)
+			atl2_update_ntuple_flt(nic, idx);
 		return;
 	}
 
@@ -2296,13 +2282,18 @@ void atl_update_ntuple_flt(struct atl_nic *nic, int idx)
 				swab32(ntuple->dst_ip4[idx]));
 	}
 
-	if (cmd & ATL_NTC_SP)
-		atl_write(hw, ATL_NTUPLE_SPORT(idx),
-			swab16(ntuple->src_port[idx]));
+	/* ports are used by both new RPF and legacy RPF, but with different
+	 * locations
+	 */
+	if (!nic->hw.new_rpf) {
+		if (cmd & ATL_NTC_SP)
+			atl_write(hw, ATL_NTUPLE_SPORT(idx),
+				swab16(ntuple->src_port[idx]));
 
-	if (cmd & ATL_NTC_DP)
-		atl_write(hw, ATL_NTUPLE_DPORT(idx),
-			swab16(ntuple->dst_port[idx]));
+		if (cmd & ATL_NTC_DP)
+			atl_write(hw, ATL_NTUPLE_DPORT(idx),
+				swab16(ntuple->dst_port[idx]));
+	}
 
 	if (cmd & ATL_NTC_RXQ)
 		cmd |= 1 << ATL_NTC_ACT_SHIFT;
