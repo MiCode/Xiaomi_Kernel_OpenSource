@@ -667,6 +667,16 @@
 #include "sa6155p-vm-pcie.dtsi"
 #include "pm6155-vm.dtsi"
 
+&tdm_quin_rx {
+	qcom,msm-cpudai-tdm-clk-internal = <0>;
+	qcom,msm-cpudai-tdm-sync-src = <0>;
+};
+
+&tdm_quin_tx {
+	qcom,msm-cpudai-tdm-clk-internal = <0>;
+	qcom,msm-cpudai-tdm-sync-src = <0>;
+};
+
 &snd_x155 {
 	qcom,model = "sa6155-adp-star-snd-card";
 };
