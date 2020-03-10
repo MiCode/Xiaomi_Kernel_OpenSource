@@ -1024,7 +1024,7 @@ static inline void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 {
 	writel_relaxed(value, base + offset);
 	/* ensure that changes propagated to the hardware */
-	wmb();
+	readl_relaxed(base + offset);
 }
 
 static inline void msm_pcie_write_reg_field(void __iomem *base, u32 offset,
@@ -1037,7 +1037,7 @@ static inline void msm_pcie_write_reg_field(void __iomem *base, u32 offset,
 	val = tmp | (val << shift);
 	writel_relaxed(val, base + offset);
 	/* ensure that changes propagated to the hardware */
-	wmb();
+	readl_relaxed(base + offset);
 }
 
 static inline void msm_pcie_config_clear_set_dword(struct pci_dev *pdev,
@@ -1086,24 +1086,24 @@ static void msm_pcie_rumi_init(struct msm_pcie_dev_t *pcie_dev)
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: enter.\n", pcie_dev->rc_idx);
 
 	val = readl_relaxed(pcie_dev->rumi + phy_ctrl_offs) | 0x1000;
-	writel_relaxed(val, pcie_dev->rumi + phy_ctrl_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, phy_ctrl_offs, val);
 	usleep_range(10000, 10001);
 
-	writel_relaxed(0x800, pcie_dev->rumi + reset_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, reset_offs, 0x800);
 	usleep_range(50000, 50001);
-	writel_relaxed(0xFFFFFFFF, pcie_dev->rumi + reset_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, reset_offs, 0xFFFFFFFF);
 	usleep_range(50000, 50001);
-	writel_relaxed(0x800, pcie_dev->rumi + reset_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, reset_offs, 0x800);
 	usleep_range(50000, 50001);
-	writel_relaxed(0, pcie_dev->rumi + reset_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, reset_offs, 0);
 	usleep_range(50000, 50001);
 
 	val = readl_relaxed(pcie_dev->rumi + phy_ctrl_offs) & 0xFFFFEFFF;
-	writel_relaxed(val, pcie_dev->rumi + phy_ctrl_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, phy_ctrl_offs, val);
 	usleep_range(10000, 10001);
 
 	val = readl_relaxed(pcie_dev->rumi + phy_ctrl_offs) & 0xFFFFFFFE;
-	writel_relaxed(val, pcie_dev->rumi + phy_ctrl_offs);
+	msm_pcie_write_reg(pcie_dev->rumi, phy_ctrl_offs, val);
 }
 
 static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
@@ -1218,9 +1218,7 @@ static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 				PCIE_DBG3(dev,
 					"PCIe: shadow_dw[%d]:cfg 0x%x:0x%x\n",
 					j, j * 4, val);
-				writel_relaxed(val, cfg + j * 4);
-				/* ensure changes propagated to the hardware */
-				wmb();
+				msm_pcie_write_reg(cfg, j * 4, val);
 				PCIE_DBG3(dev,
 					"PCIe: after recovery:cfg 0x%x:0x%x\n\n",
 					j * 4, readl_relaxed(cfg + j * 4));
@@ -1241,7 +1239,8 @@ static void msm_pcie_write_mask(void __iomem *addr,
 
 	val = (readl_relaxed(addr) & ~clear_mask) | set_mask;
 	writel_relaxed(val, addr);
-	wmb();  /* ensure data is written to hardware register */
+	/* ensure data is written to hardware register */
+	readl_relaxed(addr);
 }
 
 static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
@@ -1261,7 +1260,7 @@ static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 			readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL),
 			readl_relaxed(dev->parf + PCIE20_PARF_TEST_BUS));
 	}
-	writel_relaxed(original, dev->parf + PCIE20_PARF_SYS_CTRL);
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_SYS_CTRL, original);
 
 	PCIE_DUMP(dev, "PCIe: RC%d PARF register dump\n", dev->rc_idx);
 
@@ -2719,33 +2718,23 @@ static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
 	}
 
 	/* select region */
-	if (iatu_viewport_offset) {
-		writel_relaxed(nr, iatu_base + iatu_viewport_offset);
-		/* ensure that hardware locks it */
-		wmb();
-	}
+	if (iatu_viewport_offset)
+		msm_pcie_write_reg(iatu_base, iatu_viewport_offset, nr);
 
 	/* switch off region before changing it */
-	writel_relaxed(0, iatu_base + iatu_ctrl2_offset);
-	/* and wait till it propagates to the hardware */
-	wmb();
+	msm_pcie_write_reg(iatu_base, iatu_ctrl2_offset, 0);
 
-	writel_relaxed(type, iatu_base + iatu_ctrl1_offset);
-	writel_relaxed(lower_32_bits(host_addr),
-		       iatu_base + iatu_lbar_offset);
-	writel_relaxed(upper_32_bits(host_addr),
-		       iatu_base + iatu_ubar_offset);
-	writel_relaxed(host_end, iatu_base + iatu_lar_offset);
-	writel_relaxed(lower_32_bits(target_addr),
-		       iatu_base + iatu_ltar_offset);
-	writel_relaxed(upper_32_bits(target_addr),
-		       iatu_base + iatu_utar_offset);
-	/* ensure that changes propagated to the hardware */
-	wmb();
-	writel_relaxed(BIT(31), iatu_base + iatu_ctrl2_offset);
-
-	/* ensure that changes propagated to the hardware */
-	wmb();
+	msm_pcie_write_reg(iatu_base, iatu_ctrl1_offset, type);
+	msm_pcie_write_reg(iatu_base, iatu_lbar_offset,
+				lower_32_bits(host_addr));
+	msm_pcie_write_reg(iatu_base, iatu_ubar_offset,
+				upper_32_bits(host_addr));
+	msm_pcie_write_reg(iatu_base, iatu_lar_offset, host_end);
+	msm_pcie_write_reg(iatu_base, iatu_ltar_offset,
+				lower_32_bits(target_addr));
+	msm_pcie_write_reg(iatu_base, iatu_utar_offset,
+				upper_32_bits(target_addr));
+	msm_pcie_write_reg(iatu_base, iatu_ctrl2_offset, BIT(31));
 
 	if (dev->enumerated) {
 		PCIE_DBG2(dev, "IATU for Endpoint %02x:%02x.%01x\n",
@@ -2930,8 +2919,7 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		if ((bus->number == 0) && (where == 0x3c))
 			wr_val = wr_val | (3 << 16);
 
-		writel_relaxed(wr_val, config_base + word_offset);
-		wmb(); /* ensure config data is written to hardware register */
+		msm_pcie_write_reg(config_base, word_offset, wr_val);
 
 		if (dev->shadow_en) {
 			if (rd_val == PCIE_LINK_DOWN &&
@@ -4208,9 +4196,9 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, BIT(0), 0);
 
 	/* change DBI base address */
-	writel_relaxed(0, dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_DBI_BASE_ADDR, 0);
 
-	writel_relaxed(0x365E, dev->parf + PCIE20_PARF_SYS_CTRL);
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_SYS_CTRL, 0x365E);
 
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_MHI_CLOCK_RESET_CTRL,
 				0, BIT(4));
@@ -4236,8 +4224,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		dev->rc_idx,
 		readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 
-	writel_relaxed(dev->slv_addr_space_size, dev->parf +
-		PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
+				dev->slv_addr_space_size);
 
 	val = dev->wr_halt_size ? dev->wr_halt_size :
 		readl_relaxed(dev->parf + PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT);
@@ -4543,9 +4531,9 @@ static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 
 	if (dev->enumerated) {
 		for (i = 0; i < dev->sid_info_len; i++)
-			writel_relaxed(dev->sid_info[i].value,
-				bdf_to_sid_base + dev->sid_info[i].hash *
-				sizeof(u32));
+			msm_pcie_write_reg(bdf_to_sid_base,
+					dev->sid_info[i].hash * sizeof(u32),
+					dev->sid_info[i].value);
 		return;
 	}
 
@@ -4571,8 +4559,8 @@ static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 				int j;
 
 				val |= (u32)hash;
-				writel_relaxed(val, bdf_to_sid_base +
-					current_hash * sizeof(u32));
+				msm_pcie_write_reg(bdf_to_sid_base,
+					current_hash * sizeof(u32), val);
 
 				/* sid_info of current hash and update it */
 				for (j = 0; j < dev->sid_info_len; j++) {
@@ -4592,7 +4580,7 @@ static void msm_pcie_config_sid(struct msm_pcie_dev_t *dev)
 
 		/* BDF [31:16] | SID [15:8] | NEXT [7:0] */
 		val = sid_info->bdf << 16 | sid_info->pcie_sid << 8 | 0;
-		writel_relaxed(val, bdf_to_sid_base + hash * sizeof(u32));
+		msm_pcie_write_reg(bdf_to_sid_base, hash * sizeof(u32), val);
 
 		sid_info->hash = hash;
 		sid_info->value = val;
@@ -6669,29 +6657,30 @@ static void __msm_pcie_l1ss_timeout_disable(struct msm_pcie_dev_t *pcie_dev)
 {
 	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN, BIT(0),
 				0);
-	writel_relaxed(0, pcie_dev->parf + PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
+				0);
 }
 
 static void __msm_pcie_l1ss_timeout_enable(struct msm_pcie_dev_t *pcie_dev)
 {
 	u32 val = BIT(31);
 
-	writel_relaxed(val, pcie_dev->parf +
-			PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
+				val);
 
 	/* 3 AUX clock cycles so that RESET will sync with timer logic */
 	usleep_range(3, 4);
 
 	val |= L1SS_TIMEOUT_US_TO_TICKS(L1SS_TIMEOUT_US);
-	writel_relaxed(val, pcie_dev->parf +
-			PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
+				val);
 
 	/* 1 AUX clock cycle so that CNT_MAX will sync with timer logic */
 	usleep_range(1, 2);
 
 	val &= ~BIT(31);
-	writel_relaxed(val, pcie_dev->parf +
-			PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
+				val);
 
 	msm_pcie_write_mask(pcie_dev->parf +
 			PCIE20_PARF_DEBUG_INT_EN, 0, BIT(0));
