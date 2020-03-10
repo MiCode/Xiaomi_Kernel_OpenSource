@@ -1469,8 +1469,8 @@ out:
 	return ret;
 }
 
-static int cnss_wlfw_wfc_call_status_send_sync(struct cnss_plat_data *plat_priv,
-					       u32 data_len, const void *data)
+int cnss_wlfw_wfc_call_status_send_sync(struct cnss_plat_data *plat_priv,
+					u32 data_len, const void *data)
 {
 	struct wlfw_wfc_call_status_req_msg_v01 *req;
 	struct wlfw_wfc_call_status_resp_msg_v01 *resp;
