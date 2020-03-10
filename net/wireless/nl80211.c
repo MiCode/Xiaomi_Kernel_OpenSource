@@ -12876,6 +12876,7 @@ static int nl80211_vendor_check_policy(const struct wiphy_vendor_command *vcmd,
 				       struct nlattr *attr,
 				       struct netlink_ext_ack *extack)
 {
+	return 0;
 	if (vcmd->policy == VENDOR_CMD_RAW_DATA) {
 		if (attr->nla_type & NLA_F_NESTED) {
 			NL_SET_ERR_MSG_ATTR(extack, attr,
