@@ -139,6 +139,7 @@ static LIST_HEAD(g_mem_objs);
 static uint16_t g_last_cb_server_id = CBOBJ_SERVER_ID_START;
 static uint16_t g_last_mem_rgn_id, g_last_mem_map_obj_id;
 static size_t g_max_cb_buf_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
+static unsigned int cb_reqs_inflight;
 
 static long smcinvoke_ioctl(struct file *, unsigned int, unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
@@ -944,6 +945,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	kref_init(&cb_txn->ref_cnt);
 
 	mutex_lock(&g_smcinvoke_lock);
+	++cb_reqs_inflight;
 	srvr_info = get_cb_server_locked(
 				TZHANDLE_GET_SERVER(cb_req->hdr.tzhandle));
 	if (!srvr_info || srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT) {
@@ -985,6 +987,7 @@ out:
 		pr_debug("%s wait_event interrupted ret = %d\n", __func__, ret);
 		cb_req->result = OBJECT_ERROR_ABORT;
 	}
+	--cb_reqs_inflight;
 	memcpy(buf, cb_req, buf_len);
 	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 	if (srvr_info)
@@ -1877,6 +1880,7 @@ static int smcinvoke_probe(struct platform_device *pdev)
 		goto exit_destroy_device;
 	}
 	smcinvoke_pdev = pdev;
+	cb_reqs_inflight = 0;
 
 	return  0;
 
@@ -1900,6 +1904,22 @@ static int smcinvoke_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused smcinvoke_suspend(struct platform_device *pdev,
+					pm_message_t state)
+{
+	if (cb_reqs_inflight) {
+		pr_err("Failed to suspend smcinvoke driver\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int __maybe_unused smcinvoke_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
 static const struct of_device_id smcinvoke_match[] = {
 	{
 		.compatible = "qcom,smcinvoke",
@@ -1910,6 +1930,8 @@ static const struct of_device_id smcinvoke_match[] = {
 static struct platform_driver smcinvoke_plat_driver = {
 	.probe = smcinvoke_probe,
 	.remove = smcinvoke_remove,
+	.suspend = smcinvoke_suspend,
+	.resume = smcinvoke_resume,
 	.driver = {
 		.name = "smcinvoke",
 		.of_match_table = smcinvoke_match,
