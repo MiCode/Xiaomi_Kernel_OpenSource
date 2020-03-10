@@ -1254,6 +1254,12 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 		case MHI_CLIENT_IP_HW_0_IN:
 			connect_params.sys.client = IPA_CLIENT_MHI_CONS;
 			break;
+		case MHI_CLIENT_QMAP_FLOW_CTRL_OUT:
+			connect_params.sys.client = IPA_CLIENT_MHI_LOW_LAT_PROD;
+			break;
+		case MHI_CLIENT_QMAP_FLOW_CTRL_IN:
+			connect_params.sys.client = IPA_CLIENT_MHI_LOW_LAT_CONS;
+			break;
 		default:
 			pr_err("Invalid channel = 0x%x\n", chid);
 			return -EINVAL;
