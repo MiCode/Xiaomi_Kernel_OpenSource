@@ -13,6 +13,7 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
+#include "atl_macsec.h"
 
 #include "atl_qcom.h"
 
@@ -36,8 +37,6 @@ module_param_named(sleep_delay, atl_sleep_delay, uint, 0644);
 static void atl_start_link(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
-
-	atl_set_media_detect(nic, !!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
 
 	hw->link_state.force_off = 0;
 	hw->mcp.ops->set_link(hw, true);
@@ -341,6 +340,18 @@ static int atl_check_reset(struct atl_nic *nic)
 	return atl_do_reset(nic);
 }
 
+int atl_fw_configure(struct atl_hw *hw)
+{
+	struct atl_nic *nic = container_of(hw, struct atl_nic, hw);
+	int ret;
+
+	ret = atl_set_media_detect(nic,
+			!!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
+	ret = hw->mcp.ops->update_thermal(hw);
+
+	return ret;
+}
+
 static void atl_work(struct work_struct *work)
 {
 	struct atl_nic *nic = container_of(work, struct atl_nic, work);
@@ -354,7 +365,7 @@ static void atl_work(struct work_struct *work)
 	if (ret)
 		goto out;
 	atl_refresh_link(nic);
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	atl_macsec_work(nic);
 #endif
 out:
@@ -372,22 +383,28 @@ static void atl_work_timer(struct timer_list *timer)
 
 static const struct pci_device_id atl_pci_tbl[] = {
 	{ PCI_VDEVICE(AQUANTIA, 0x0001), ATL_UNKNOWN},
-	{ PCI_VDEVICE(AQUANTIA, 0xd107), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x07b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x87b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0xd108), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x08b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x88b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0xd109), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x09b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x89b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0xd100), ATL_AQC100},
-	{ PCI_VDEVICE(AQUANTIA, 0x00b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x80b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x11b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x91b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x12b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x92b1), ATL_AQC109},
+	{ PCI_VDEVICE(AQUANTIA, 0xd107), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x07b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x87b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0xd108), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x08b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x88b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0xd109), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x09b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x89b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0xd100), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x00b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x80b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x11b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x91b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x12b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x92b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x00c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x04c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x12c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x14c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x93c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x94c0), ATL_ANTIGUA},
 	{}
 };
 
@@ -524,7 +541,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (pci_64)
 		ndev->features |= NETIF_F_HIGHDMA;
 
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	if (hw->mcp.caps_low & atl_fw2_macsec)
 		ndev->features |= NETIF_F_HW_MACSEC;
 #endif
@@ -537,7 +554,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	hw->non_ring_intr_mask = BIT(ATL_NUM_NON_RING_IRQS) - 1;
 	ndev->netdev_ops = &atl_ndev_ops;
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	if (hw->mcp.caps_low & atl_fw2_macsec)
 		ndev->macsec_ops = &atl_macsec_ops,
 #endif
@@ -651,6 +668,8 @@ static int atl_suspend_common(struct device *dev, unsigned int wol_mode)
 
 	atl_clear_rdm_cache(nic);
 	atl_clear_tdm_cache(nic);
+
+	hw->mcp.ops->deinit(hw);
 
 	if (wol_mode) {
 		ret = hw->mcp.ops->enable_wol(hw, wol_mode);

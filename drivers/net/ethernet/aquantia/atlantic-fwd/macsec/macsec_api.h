@@ -1,9 +1,18 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Atlantic Network Driver
+ *
+ * Copyright (C) 2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
 #ifndef __MACSEC_API_H__
 #define __MACSEC_API_H__
 
 #include "atl_hw.h"
 #include "macsec_struct.h"
-
 
 #define NUMROWS_INGRESSPRECTLFRECORD 24
 #define ROWOFFSET_INGRESSPRECTLFRECORD 0
@@ -16,7 +25,7 @@
 
 #define NUMROWS_INGRESSSCRECORD 32
 #define ROWOFFSET_INGRESSSCRECORD 0
- 
+
 #define NUMROWS_INGRESSSARECORD 32
 #define ROWOFFSET_INGRESSSARECORD 32
 
@@ -42,192 +51,277 @@
 #define ROWOFFSET_EGRESSSAKEYRECORD 96
 
 /*!  Read the raw table data from the specified row of the Egress CTL
-     Filter table, and unpack it into the fields of rec.
-    [OUT] rec - The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 23). */
-int AQ_API_GetEgressCTLFRecord(struct atl_hw *hw, AQ_API_SEC_EgressCTLFRecord* rec, uint16_t tableIndex);
+ *   Filter table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 23).
+ */
+int aq_mss_get_egress_ctlf_record(struct atl_hw *hw,
+				  struct aq_mss_egress_ctlf_record *rec,
+				  u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Egress CTL Filter table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 23).*/
-int AQ_API_SetEgressCTLFRecord(struct atl_hw *hw, const AQ_API_SEC_EgressCTLFRecord* rec, uint16_t tableIndex);
+ *   specified row of the Egress CTL Filter table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 23).
+ */
+int aq_mss_set_egress_ctlf_record(struct atl_hw *hw,
+				  const struct aq_mss_egress_ctlf_record *rec,
+				  u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Egress
-     Packet Classifier table, and unpack it into the fields of rec.
-     [OUT] The raw table row data will be unpacked into the fields of rec.
-     The table row to read (struct atl_hw *hw, max 47).*/
-int AQ_API_GetEgressClassRecord(struct atl_hw *hw, AQ_API_SEC_EgressClassRecord* rec, uint16_t tableIndex);
+ *   Packet Classifier table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 47).
+ */
+int aq_mss_get_egress_class_record(struct atl_hw *hw,
+				   struct aq_mss_egress_class_record *rec,
+				   u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Egress Packet Classifier table.
-     rec - [IN] The bitfield values to write to the table row.
-     tableIndex - The table row to write (struct atl_hw *hw, max 47).*/
-int AQ_API_SetEgressClassRecord(struct atl_hw *hw, const AQ_API_SEC_EgressClassRecord* rec, uint16_t tableIndex);
+ *   specified row of the Egress Packet Classifier table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write (max 47).
+ */
+int aq_mss_set_egress_class_record(struct atl_hw *hw,
+				   const struct aq_mss_egress_class_record *rec,
+				   u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Egress SC
-     Lookup table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetEgressSCRecord(struct atl_hw *hw, AQ_API_SEC_EgressSCRecord* rec, uint16_t tableIndex);
+ *   Lookup table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 31).
+ */
+int aq_mss_get_egress_sc_record(struct atl_hw *hw,
+				struct aq_mss_egress_sc_record *rec,
+				u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Egress SC Lookup table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write (struct atl_hw *hw, max 31).*/
-int AQ_API_SetEgressSCRecord(struct atl_hw *hw, const AQ_API_SEC_EgressSCRecord* rec, uint16_t tableIndex);
+ *   specified row of the Egress SC Lookup table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write (max 31).
+ */
+int aq_mss_set_egress_sc_record(struct atl_hw *hw,
+				const struct aq_mss_egress_sc_record *rec,
+				u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Egress SA
-     Lookup table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetEgressSARecord(struct atl_hw *hw, AQ_API_SEC_EgressSARecord* rec, uint16_t tableIndex);
+ *   Lookup table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 31).
+ */
+int aq_mss_get_egress_sa_record(struct atl_hw *hw,
+				struct aq_mss_egress_sa_record *rec,
+				u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Egress SA Lookup table.
-    rec  - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write (struct atl_hw *hw, max 31).*/
-int AQ_API_SetEgressSARecord(struct atl_hw *hw, const AQ_API_SEC_EgressSARecord* rec, uint16_t tableIndex);
+ *   specified row of the Egress SA Lookup table.
+ *  rec  - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write (max 31).
+ */
+int aq_mss_set_egress_sa_record(struct atl_hw *hw,
+				const struct aq_mss_egress_sa_record *rec,
+				u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Egress SA
-     Key Lookup table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetEgressSAKeyRecord(struct atl_hw *hw, AQ_API_SEC_EgressSAKeyRecord* rec, uint16_t tableIndex); 
+ *   Key Lookup table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 31).
+ */
+int aq_mss_get_egress_sakey_record(struct atl_hw *hw,
+				   struct aq_mss_egress_sakey_record *rec,
+				   u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Egress SA Key Lookup table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write (struct atl_hw *hw, max 31).*/
-int AQ_API_SetEgressSAKeyRecord(struct atl_hw *hw, const AQ_API_SEC_EgressSAKeyRecord* rec, uint16_t tableIndex);
+ *   specified row of the Egress SA Key Lookup table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write (max 31).
+ */
+int aq_mss_set_egress_sakey_record(struct atl_hw *hw,
+				   const struct aq_mss_egress_sakey_record *rec,
+				   u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress
-     Pre-MACSec CTL Filter table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 23).*/
-int AQ_API_GetIngressPreCTLFRecord(struct atl_hw *hw, AQ_API_SEC_IngressPreCTLFRecord* rec, uint16_t);
+ *   Pre-MACSec CTL Filter table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 23).
+ */
+int aq_mss_get_ingress_prectlf_record(struct atl_hw *hw,
+				      struct aq_mss_ingress_prectlf_record *rec,
+				      u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress Pre-MACSec CTL Filter table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 23).*/
-int AQ_API_SetIngressPreCTLFRecord(struct atl_hw *hw, const AQ_API_SEC_IngressPreCTLFRecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress Pre-MACSec CTL Filter table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 23).
+ */
+int aq_mss_set_ingress_prectlf_record(
+	struct atl_hw *hw, const struct aq_mss_ingress_prectlf_record *rec,
+	u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress
-     Pre-MACSec Packet Classifier table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 47).*/
-int AQ_API_GetIngressPreClassRecord(struct atl_hw *hw, AQ_API_SEC_IngressPreClassRecord* rec, uint16_t tableIndex);
+ *   Pre-MACSec Packet Classifier table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 47).
+ */
+int aq_mss_get_ingress_preclass_record(
+	struct atl_hw *hw, struct aq_mss_ingress_preclass_record *rec,
+	u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress Pre-MACSec Packet Classifier table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 47).*/
-int AQ_API_SetIngressPreClassRecord(struct atl_hw *hw, const AQ_API_SEC_IngressPreClassRecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress Pre-MACSec Packet Classifier table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 47).
+ */
+int aq_mss_set_ingress_preclass_record(
+	struct atl_hw *hw, const struct aq_mss_ingress_preclass_record *rec,
+	u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress SC
-     Lookup table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetIngressSCRecord(struct atl_hw *hw, AQ_API_SEC_IngressSCRecord* rec, uint16_t tableIndex);
+ *   Lookup table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 31).
+ */
+int aq_mss_get_ingress_sc_record(struct atl_hw *hw,
+				 struct aq_mss_ingress_sc_record *rec,
+				 u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress SC Lookup table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 31).*/
-int AQ_API_SetIngressSCRecord(struct atl_hw *hw, const AQ_API_SEC_IngressSCRecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress SC Lookup table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 31).
+ */
+int aq_mss_set_ingress_sc_record(struct atl_hw *hw,
+				 const struct aq_mss_ingress_sc_record *rec,
+				 u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress SA
-     Lookup table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetIngressSARecord(struct atl_hw *hw, AQ_API_SEC_IngressSARecord* rec, uint16_t);
+ *   Lookup table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 31).
+ */
+int aq_mss_get_ingress_sa_record(struct atl_hw *hw,
+				 struct aq_mss_ingress_sa_record *rec,
+				 u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress SA Lookup table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 31).*/
-int AQ_API_SetIngressSARecord(struct atl_hw *hw, const AQ_API_SEC_IngressSARecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress SA Lookup table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 31).
+ */
+int aq_mss_set_ingress_sa_record(struct atl_hw *hw,
+				 const struct aq_mss_ingress_sa_record *rec,
+				 u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress SA
-     Key Lookup table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetIngressSAKeyRecord(struct atl_hw *hw, AQ_API_SEC_IngressSAKeyRecord* rec, uint16_t tableIndex);
+ *   Key Lookup table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 31).
+ */
+int aq_mss_get_ingress_sakey_record(struct atl_hw *hw,
+				    struct aq_mss_ingress_sakey_record *rec,
+				    u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress SA Key Lookup table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 31).*/
-int AQ_API_SetIngressSAKeyRecord(struct atl_hw *hw, const AQ_API_SEC_IngressSAKeyRecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress SA Key Lookup table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 31).
+ */
+int aq_mss_set_ingress_sakey_record(
+	struct atl_hw *hw, const struct aq_mss_ingress_sakey_record *rec,
+	u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress
-     Post-MACSec Packet Classifier table, and unpack it into the
-     fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 48).*/
-int AQ_API_GetIngressPostClassRecord(struct atl_hw *hw, AQ_API_SEC_IngressPostClassRecord* rec, uint16_t tableIndex);
+ *   Post-MACSec Packet Classifier table, and unpack it into the
+ *   fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 48).
+ */
+int aq_mss_get_ingress_postclass_record(
+	struct atl_hw *hw, struct aq_mss_ingress_postclass_record *rec,
+	u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress Post-MACSec Packet Classifier table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 48).*/
-int AQ_API_SetIngressPostClassRecord(struct atl_hw *hw, const AQ_API_SEC_IngressPostClassRecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress Post-MACSec Packet Classifier table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 48).
+ */
+int aq_mss_set_ingress_postclass_record(
+	struct atl_hw *hw, const struct aq_mss_ingress_postclass_record *rec,
+	u16 table_index);
 
 /*!  Read the raw table data from the specified row of the Ingress
-     Post-MACSec CTL Filter table, and unpack it into the fields of rec.
-    rec - [OUT] The raw table row data will be unpacked into the fields of rec.
-    tableIndex - The table row to read (struct atl_hw *hw, max 23).*/
-int AQ_API_GetIngressPostCTLFRecord(struct atl_hw *hw, AQ_API_SEC_IngressPostCTLFRecord* rec, uint16_t tableIndex);
+ *   Post-MACSec CTL Filter table, and unpack it into the fields of rec.
+ *  rec - [OUT] The raw table row data will be unpacked into the fields of rec.
+ *  table_index - The table row to read (max 23).
+ */
+int aq_mss_get_ingress_postctlf_record(
+	struct atl_hw *hw, struct aq_mss_ingress_postctlf_record *rec,
+	u16 table_index);
 
 /*!  Pack the fields of rec, and write the packed data into the
-     specified row of the Ingress Post-MACSec CTL Filter table.
-    rec - [IN] The bitfield values to write to the table row.
-    tableIndex - The table row to write(struct atl_hw *hw, max 23).*/
-int AQ_API_SetIngressPostCTLFRecord(struct atl_hw *hw, const AQ_API_SEC_IngressPostCTLFRecord* rec, uint16_t tableIndex);
+ *   specified row of the Ingress Post-MACSec CTL Filter table.
+ *  rec - [IN] The bitfield values to write to the table row.
+ *  table_index - The table row to write(max 23).
+ */
+int aq_mss_set_ingress_postctlf_record(
+	struct atl_hw *hw, const struct aq_mss_ingress_postctlf_record *rec,
+	u16 table_index);
 
 /*!  Read the counters for the specified SC, and unpack them into the
-     fields of counters.
-    counters - [OUT] The raw table row data will be unpacked into the fields of counters.
-    SCIndex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetEgressSCCounters(struct atl_hw *hw, AQ_API_SEC_EgressSCCounters* counters, uint16_t SCIndex);
+ *   fields of counters.
+ *  counters - [OUT] The raw table row data will be unpacked here.
+ *  sc_index - The table row to read (max 31).
+ */
+int aq_mss_get_egress_sc_counters(struct atl_hw *hw,
+				  struct aq_mss_egress_sc_counters *counters,
+				  u16 sc_index);
 
 /*!  Read the counters for the specified SA, and unpack them into the
-     fields of counters.
-    counters - [OUT] The raw table row data will be unpacked into the fields of counters.
-    SAindex - The table row to read (struct atl_hw *hw, max 31). */
-int AQ_API_GetEgressSACounters(struct atl_hw *hw, AQ_API_SEC_EgressSACounters* counters, uint16_t SAindex);
+ *   fields of counters.
+ *  counters - [OUT] The raw table row data will be unpacked here.
+ *  sa_index - The table row to read (max 31).
+ */
+int aq_mss_get_egress_sa_counters(struct atl_hw *hw,
+				  struct aq_mss_egress_sa_counters *counters,
+				  u16 sa_index);
 
 /*!  Read the counters for the common egress counters, and unpack them
-     into the fields of counters.
-     counters - [OUT] The raw table row data will be unpacked into the fields of counters.*/
-int AQ_API_GetEgressCommonCounters(struct atl_hw *hw, AQ_API_SEC_EgressCommonCounters* counters);
+ *   into the fields of counters.
+ *  counters - [OUT] The raw table row data will be unpacked here.
+ */
+int aq_mss_get_egress_common_counters(
+	struct atl_hw *hw, struct aq_mss_egress_common_counters *counters);
 
 /*!  Clear all Egress counters to 0.*/
-int AQ_API_ClearEgressCounters(struct atl_hw *hw);
+int aq_mss_clear_egress_counters(struct atl_hw *hw);
 
 /*!  Read the counters for the specified SA, and unpack them into the
-     fields of counters.
-    counters - [OUT] The raw table row data will be unpacked into the fields of counters.
-    SAindex - The table row to read (struct atl_hw *hw, max 31).*/
-int AQ_API_GetIngressSACounters(struct atl_hw *hw, AQ_API_SEC_IngressSACounters* counters, uint16_t SAindex);
+ *   fields of counters.
+ *  counters - [OUT] The raw table row data will be unpacked here.
+ *  sa_index - The table row to read (max 31).
+ */
+int aq_mss_get_ingress_sa_counters(struct atl_hw *hw,
+				   struct aq_mss_ingress_sa_counters *counters,
+				   u16 sa_index);
 
-/*!  Read the counters for the common ingress counters, and unpack them into the fields of counters.
-    counters - [OUT] The raw table row data will be unpacked into the fields of counters.*/
-int AQ_API_GetIngressCommonCounters(struct atl_hw *hw, AQ_API_SEC_IngressCommonCounters* counters);
-/* Clear all Ingress counters to 0. */
-int AQ_API_ClearIngressCounters(struct atl_hw *hw);
+/*!  Read the counters for the common ingress counters, and unpack them
+ *   into the fields of counters.
+ *  counters - [OUT] The raw table row data will be unpacked here.
+ */
+int aq_mss_get_ingress_common_counters(
+	struct atl_hw *hw, struct aq_mss_ingress_common_counters *counters);
 
+/*!  Clear all Ingress counters to 0. */
+int aq_mss_clear_ingress_counters(struct atl_hw *hw);
 
-/* Get Egress SA expired. */
-int AQ_API_GetEgressSAExpired(struct atl_hw *hw, uint32_t *expired);
-/* Get Egress SA threshold expired. */
-int AQ_API_GetEgressSAThresholdExpired(struct atl_hw *hw, uint32_t *expired);
-/* Set Egress SA expired. */
-int AQ_API_SetEgressSAExpired(struct atl_hw *hw, uint32_t expired);
-/* Set Egress SA threshold expired. */
-int AQ_API_SetEgressSAThresholdExpired(struct atl_hw *hw, uint32_t expired);
-
-
+/*!  Get Egress SA expired. */
+int aq_mss_get_egress_sa_expired(struct atl_hw *hw, u32 *expired);
+/*!  Get Egress SA threshold expired. */
+int aq_mss_get_egress_sa_threshold_expired(struct atl_hw *hw,
+					   u32 *expired);
+/*!  Set Egress SA expired. */
+int aq_mss_set_egress_sa_expired(struct atl_hw *hw, u32 expired);
+/*!  Set Egress SA threshold expired. */
+int aq_mss_set_egress_sa_threshold_expired(struct atl_hw *hw, u32 expired);
 
 #endif /* __MACSEC_API_H__ */
