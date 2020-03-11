@@ -78,19 +78,19 @@
 		};
 
 		mhi_chan@100 {
-			 mhi,event-ring = <6>;
+			mhi,event-ring = <6>;
 		};
 
 		mhi_chan@101 {
-			 mhi,event-ring = <7>;
+			mhi,event-ring = <7>;
 		};
 
 		mhi_chan@102 {
-			 mhi,event-ring = <8>;
+			mhi,event-ring = <8>;
 		};
 
 		mhi_chan@103 {
-			 mhi,event-ring = <9>;
+			mhi,event-ring = <9>;
 		};
 
 		mhi_chan@104 {
