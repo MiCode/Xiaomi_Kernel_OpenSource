@@ -1763,9 +1763,9 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 				uint64_to_ptr(rpra[i].buf.pv))) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 			} else {
 				dmac_flush_range(
 					uint64_to_ptr(rpra[i].buf.pv), (char *)
@@ -1778,9 +1778,9 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (!IS_CACHE_ALIGNED(end)) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 			} else {
 				dmac_flush_range((char *)end,
 					(char *)end + 1);
