@@ -131,8 +131,13 @@ do {\
 #define EMAC_HW_NONE 0
 #define EMAC_HW_v2_0_0 0x20000000
 #define EMAC_HW_v2_1_0 0x20010000
+#define EMAC_HW_v2_1_1 0x20010001
+#define EMAC_HW_v2_1_2 0x20010002
 #define EMAC_HW_v2_2_0 0x20020000
+#define EMAC_HW_v2_3_0 0x20030000
+#define EMAC_HW_v2_3_1 0x20030001
 #define EMAC_HW_v2_3_2 0x20030002
+#define EMAC_HW_vMAX 9
 
 #define MII_BUSY 0x00000001
 #define MII_WRITE 0x00000002
@@ -377,7 +382,6 @@ struct qcom_ethqos {
 	unsigned long avb_class_b_intr_cnt;
 	struct dentry *debugfs_dir;
 
-	int oldlink;
 	/* saving state for Wake-on-LAN */
 	int wolopts;
 	/* state of enabled wol options in PHY*/
@@ -389,7 +393,6 @@ struct qcom_ethqos {
 	/* Structure which holds done and wait members */
 	struct completion clk_enable_done;
 
-	int always_on_phy;
 	/* QMP message for disabling ctile power collapse while XO shutdown */
 	struct mbox_chan *qmp_mbox_chan;
 	struct mbox_client *qmp_mbox_client;
@@ -436,6 +439,8 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 				     struct class **pps_class,
 				     char *pps_dev_node_name);
 void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
+bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
+void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
 
 int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req);
 

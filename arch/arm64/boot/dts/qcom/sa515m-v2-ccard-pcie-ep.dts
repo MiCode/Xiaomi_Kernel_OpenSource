@@ -33,6 +33,7 @@
 &ipa_hw {
 	qcom,use-ipa-in-mhi-mode;
 	qcom,ipa-config-is-auto;
+	qcom,use-xbl-boot;
 	qcom,mhi-event-ring-id-limits = <7 11>; /* start and end */
 };
 

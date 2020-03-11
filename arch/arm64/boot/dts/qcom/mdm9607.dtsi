@@ -19,6 +19,9 @@
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 
+#define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
+#define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
+
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9607";
 	compatible = "qcom,mdm9607";
@@ -71,14 +74,6 @@
 	};
 
 	aliases {
-		/* smdtty devices */
-		smd7 = &smdtty_data1;
-		smd8 = &smdtty_data4;
-		smd9 = &smdtty_data2;
-		smd10 = &smdtty_data3;
-		smd11 = &smdtty_data11;
-		smd21 = &smdtty_data21;
-		smd36 = &smdtty_loopback;
 		/* spi device */
 		spi1  = &spi_1;
 		i2c4 = &i2c_4;
@@ -326,30 +321,33 @@
 		#clock-cells = <1>;
 	};
 
-	cpubw: qcom,cpubw {
-		compatible = "qcom,devbw";
-		governor = "cpufreq";
-		qcom,src-dst-ports = <1 512>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			<  366 /*  48   MHz */>,
-			<  732 /*  96   MHz */>,
-			<  915 /* 120   MHz */>,
-			< 1145 /* 150.15 MHz */>,
-			< 1831 /* 240   MHz */>,
-			< 2291 /* 300.3 MHZ */>;
+	ddr_bw_opp_table: ddr-bw-opp-table {
+		BW_OPP_ENTRY( 48, 4); /*  183 MB/s */
+		BW_OPP_ENTRY( 96, 4); /*  366 MB/s */
+		BW_OPP_ENTRY(120, 4); /*  458 MB/s */
+		BW_OPP_ENTRY(150, 4); /*  572 MB/s */
+		BW_OPP_ENTRY(240, 4); /*  915 MB/s */
+		BW_OPP_ENTRY(300, 4); /* 1144 MB/s */
 	};
 
-	devfreq-cpufreq {
-		cpubw-cpufreq {
-			target-dev = <&cpubw>;
-			cpu-to-dev-map =
-				 <  400000   732>,
-				 <  800000   915>,
-				 <  998400  1145>,
-				 < 1094400  1831>,
-				 < 1305600  2291>;
-		};
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		operating-points-v2 = <&ddr_bw_opp_table>;
+	};
+
+	devfreq_compute: qcom,devfreq-compute {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU0>;
+		qcom,target-dev = <&cpubw>;
+		qcom,core-dev-table =
+				<  400000 MHZ_TO_MBPS( 48, 4) >,
+				<  800000 MHZ_TO_MBPS( 96, 4) >,
+				<  998400 MHZ_TO_MBPS(120, 4) >,
+				< 1094400 MHZ_TO_MBPS(150, 4) >,
+				< 1305600 MHZ_TO_MBPS(300, 4) >;
 	};
 
 	qcom,cpu-bwmon {
@@ -808,6 +806,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<85 512 0 0>,
 				<85 512 60000 800000>;
+		resets = <&clock_gcc GCC_USB_HS_HSIC_BCR>;
+		reset-names = "core_reset";
 		status = "disabled";
 	};
 
@@ -1454,46 +1454,6 @@
 
 	};
 
-	qcom,smdtty {
-		compatible = "qcom,smdtty";
-
-		smdtty_data1: qcom,smdtty-data1 {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DATA1";
-		};
-
-		smdtty_data2: qcom,smdtty-data2 {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DATA2";
-		};
-
-		smdtty_data3: qcom,smdtty-data3 {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DATA3";
-		};
-
-		smdtty_data4: qcom,smdtty-data4 {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DATA4";
-		};
-
-		smdtty_data11: qcom,smdtty-data11 {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DATA11";
-		};
-
-		smdtty_data21: qcom,smdtty-data21 {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "DATA21";
-		};
-
-		smdtty_loopback: smdtty-loopback {
-			qcom,smdtty-remote = "modem";
-			qcom,smdtty-port-name = "LOOPBACK";
-			qcom,smdtty-dev-name = "LOOPBACK_TTY";
-		};
-	};
-
 	qcom,smdpkt {
 		compatible = "qcom,smdpkt";
 
@@ -1525,6 +1485,36 @@
 			qcom,smdpkt-edge = "modem";
 			qcom,smdpkt-ch-name = "apr_apps2";
 			qcom,smdpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,smdpkt-data1 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA1";
+			qcom,smdpkt-dev-name = "smd7";
+		};
+
+		qcom,smdpkt-data3 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA3";
+			qcom,smdpkt-dev-name = "smd10";
+		};
+
+		qcom,smdpkt-data4 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA4";
+			qcom,smdpkt-dev-name = "smd8";
+		};
+
+		qcom,smdpkt-data11 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA11";
+			qcom,smdpkt-dev-name = "smd11";
+		};
+
+		qcom,smdpkt-data21 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA21";
+			qcom,smdpkt-dev-name = "smd21";
 		};
 
 		qcom,smdpkt-loopback {

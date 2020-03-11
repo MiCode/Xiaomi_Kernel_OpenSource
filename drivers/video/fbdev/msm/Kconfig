@@ -118,6 +118,17 @@ config FB_MSM_MDSS_DSI_CTRL_STATUS
 	fails to acknowledge the BTA command, it sends PANEL_ALIVE=0 status
 	to HAL layer to reset the controller.
 
+config FB_MSM_MDSS_DP_PANEL
+        depends on FB_MSM_MDSS
+        select MSM_EXT_DISPLAY
+        bool "MDSS DP Panel"
+        ---help---
+	The MDSS DP Panel provides support for DP host controller driver
+	which runs in Video mode only and is responsible for transmitting
+	frame buffer from host SOC to DP display panel.
+
+	support for DP display panel.
+
 config FB_MSM_MDSS_EDP_PANEL
 	depends on FB_MSM_MDSS
 	bool "MDSS eDP Panel"

@@ -1088,8 +1088,9 @@ static int qcom_smem_restore(struct device *dev)
 }
 
 static const struct dev_pm_ops qcom_smem_pm_ops = {
-	.freeze = qcom_smem_freeze,
-	.restore = qcom_smem_restore,
+	.freeze_late = qcom_smem_freeze,
+	.restore_early = qcom_smem_restore,
+	.thaw_early = qcom_smem_restore,
 };
 
 static const struct of_device_id qcom_smem_of_match[] = {

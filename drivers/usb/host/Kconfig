@@ -234,6 +234,18 @@ config USB_EHCI_MSM
 	  This driver is not supported on boards like trout which
 	  has an external PHY.
 
+config USB_EHCI_MSM_HSIC
+	bool "Support for HSIC based MSM on-chip EHCI USB controller"
+	depends on USB_EHCI_HCD && ARCH_QCOM
+	---help---
+	  Enables support for the HSIC (High Speed Inter-Chip) based
+	  USB Host controller present on the Qualcomm Technologies, Inc.
+	  chipsets.
+
+	  HSIC is a supplement to USB 2.0 specification and is preferred
+	  for chip-to-chip interconnect (having maximum circuit length of
+	  10cm) as it removes the analog transceivers.
+
 config USB_EHCI_TEGRA
        tristate "NVIDIA Tegra HCD support"
        depends on ARCH_TEGRA

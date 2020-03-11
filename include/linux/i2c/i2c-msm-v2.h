@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015,2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015,2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,7 +220,13 @@ enum i2c_msm_clk_path_vec_idx {
 	I2C_MSM_CLK_PATH_RESUME_VEC,
 };
 #define I2C_MSM_CLK_PATH_AVRG_BW(ctrl) (0)
-#define I2C_MSM_CLK_PATH_BRST_BW(ctrl) (ctrl->rsrcs.clk_freq_in * 8)
+/*
+ * Reducing the frequency by 1 to make sure it is less than 19.2MHz
+ * so that we don't need RPM ack to unvote which will work only if vote
+ * is less than or equal to 19.2MHz. To be on the safe side we are decreasing
+ * frequency by 1.
+ */
+#define I2C_MSM_CLK_PATH_BRST_BW(ctrl) ((ctrl->rsrcs.clk_freq_in - 1) * 4)
 
 enum i2c_msm_gpio_name_idx {
 	I2C_MSM_GPIO_SCL,

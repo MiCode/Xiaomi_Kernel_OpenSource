@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -500,7 +500,8 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			binfo->mapped[i] = false;
 			binfo->smem[i] = *same_fd_handle;
 		} else {
-			binfo->smem[i].buffer_type = binfo->type;
+			binfo->smem[i].buffer_type = get_hal_buffer_type(
+							inst, b);
 			binfo->smem[i].fd = binfo->fd[i];
 			binfo->smem[i].offset = binfo->buff_off[i];
 			binfo->smem[i].size = binfo->size[i];
@@ -649,35 +650,132 @@ int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 	return -EINVAL;
 }
 
-int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
+int qbuf_cache_operations(struct msm_vidc_inst *inst,
 				struct buffer_info *binfo)
 {
-	int i = 0;
-	int rc = 0;
+	unsigned long offset, size;
+	enum smem_cache_ops cache_op;
+	bool skip;
+	int i = 0, rc = 0;
+
+	skip = true;
+
+	for (i = 0; i < binfo->num_planes; i++) {
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			if (binfo->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					offset = binfo->buff_off[i];
+					size = binfo->size[i];
+					cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
+				}
+			} else if (binfo->type ==
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = 0;
+					size = binfo->size[i];
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			if (binfo->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = binfo->buff_off[i];
+					size = binfo->size[i];
+					cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
+				}
+			} else if (binfo->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					offset = 0;
+					size = binfo->size[i];
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		}
+		if (!skip) {
+			rc = msm_smem_cache_operations(binfo->smem[i].dma_buf,
+						cache_op, offset, size);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to clean caches: %d\n", rc);
+				return rc;
+			}
+		}
+	}
+	return 0;
+}
+int dqbuf_cache_operations(struct msm_vidc_inst *inst,
+			struct v4l2_buffer *b,
+			struct buffer_info *buffer_info)
+{
+	int i = 0, rc = 0;
+	bool skip = true;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid inst: %pK\n", __func__, inst);
 		return -EINVAL;
 	}
 
-	if (!binfo) {
-		dprintk(VIDC_ERR, "%s: invalid buffer info: %pK\n",
+	if (!b || !buffer_info) {
+		dprintk(VIDC_ERR, "%s: invalid buffer: %pK\n",
 			__func__, inst);
 		return -EINVAL;
 	}
 
-	if (binfo->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return 0;
 
+	for (i = 0; i < b->length; i++) {
+		unsigned long offset, size;
+		enum smem_cache_ops cache_op;
 
-	for (i = 0; i < binfo->num_planes; i++) {
-		rc = msm_comm_smem_cache_operations(inst,
-			&binfo->smem[i], SMEM_CACHE_INVALIDATE);
-		if (rc) {
-			dprintk(VIDC_ERR,
+		skip = true;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				/* bitstream and extradata */
+				/* we do not need cache operations */
+			} else if (b->type ==
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* yuv */
+					skip = false;
+					offset = b->m.planes[i].data_offset;
+					size = b->m.planes[i].bytesused;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				/* yuv and extradata */
+				/* we do not need cache operations */
+			} else if (b->type ==
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				if (!i) { /* bitstream */
+					skip = false;
+					/*
+					 * Include vp8e header bytes as well
+					 * by making offset equal to zero
+					 */
+					offset = 0;
+					size = b->m.planes[i].bytesused+
+						b->m.planes[i].data_offset;
+					cache_op = SMEM_CACHE_INVALIDATE;
+				}
+			}
+		}
+		if (!skip && size > 0) {
+			rc = msm_smem_cache_operations(
+				buffer_info->smem[i].dma_buf,
+				cache_op, offset, size);
+			if (rc) {
+				dprintk(VIDC_ERR,
 				"%s: Failed to clean caches: %d\n",
 				__func__, rc);
-			return -EINVAL;
+				return -EINVAL;
+			}
 		}
 	}
 	return 0;
@@ -849,7 +947,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	for (i = 0; i < b->length; ++i) {
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
-			!b->m.planes[i].length) {
+		!b->m.planes[i].length) {
 			b->m.planes[i].m.userptr = 0;
 			continue;
 		}
@@ -867,29 +965,11 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		b->m.planes[i].m.userptr = binfo->device_addr[i];
 		dprintk(VIDC_DBG, "Queueing device address = %pa\n",
 				&binfo->device_addr[i]);
-
-		if (inst->fmts[OUTPUT_PORT].fourcc ==
-			V4L2_PIX_FMT_HEVC_HYBRID &&
-			b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			rc = msm_comm_smem_cache_operations(inst,
-				&binfo->smem[i], SMEM_CACHE_INVALIDATE);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to inv caches: %d\n", rc);
-				goto err_invalid_buff;
-			}
-		}
-
-		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			rc = msm_comm_smem_cache_operations(inst,
-					&binfo->smem[i], SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to clean caches: %d\n", rc);
-				goto err_invalid_buff;
-			}
-		}
 	}
+
+	rc = qbuf_cache_operations(inst, binfo);
+	if (rc)
+		return rc;
 
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_qbuf(instance, b);
@@ -960,7 +1040,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	rc = output_buffer_cache_invalidate(inst, buffer_info);
+	rc = dqbuf_cache_operations(inst, b, buffer_info);
 	if (rc)
 		return rc;
 

@@ -91,6 +91,37 @@ static int msg_level = -1;
 module_param (msg_level, int, 0);
 MODULE_PARM_DESC (msg_level, "Override default message level");
 
+enum netdev_id {
+	USBNET_ECM_USB0,
+	USBNET_RMMET_USB0,
+	USBNET_RMNET_USB1,
+	NUM_USBNET_IDS,
+};
+
+static const char * const netdev_names[] = {
+	"usb0",
+	"rmnet_usb0",
+	"rmnet_usb1"
+};
+
+static void *usbnet_ipc_log_ctxt[NUM_USBNET_IDS];
+
+static int name_to_netdev_id(char *name)
+{
+	if (!name)
+		goto error;
+
+	if (!strcmp(name, "usb0"))
+		return USBNET_ECM_USB0;
+	if (!strcmp(name, "rmnet_usb0"))
+		return USBNET_RMMET_USB0;
+	if (!strcmp(name, "rmnet_usb1"))
+		return USBNET_RMNET_USB1;
+
+error:
+	return -EINVAL;
+}
+
 /*-------------------------------------------------------------------------*/
 
 /* handles CDC Ethernet and many other network "bulk data" interfaces */
@@ -1652,7 +1683,6 @@ void usbnet_disconnect (struct usb_interface *intf)
 	if (!dev)
 		return;
 
-	ipc_log_context_destroy(dev->ipc_log_ctxt);
 	dev->ipc_log_ctxt = NULL;
 
 	xdev = interface_to_usbdev (intf);
@@ -1716,6 +1746,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	int				status;
 	const char			*name;
 	struct usb_driver 	*driver = to_usb_driver(udev->dev.driver);
+	int				netdev_id;
 
 	/* usbnet already took usb runtime pm, so have to enable the feature
 	 * for usb interface, otherwise usb_autopm_get_interface may return
@@ -1877,10 +1908,9 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		usbnet_link_change(dev, 0, 0);
 
-	dev->ipc_log_ctxt = ipc_log_context_create(IPC_LOG_NUM_PAGES,
-						   dev->net->name, 0);
-	if (!dev->ipc_log_ctxt)
-		pr_err("%s: Error getting ipc_log_ctxt\n", __func__);
+	netdev_id = name_to_netdev_id(dev->net->name);
+	if (netdev_id >= 0)
+		dev->ipc_log_ctxt = usbnet_ipc_log_ctxt[netdev_id];
 
 	return 0;
 
@@ -2244,17 +2274,33 @@ EXPORT_SYMBOL_GPL(usbnet_write_cmd_async);
 
 static int __init usbnet_init(void)
 {
+	int i = 0;
+
 	/* Compiler should optimize this out. */
 	BUILD_BUG_ON(
 		FIELD_SIZEOF(struct sk_buff, cb) < sizeof(struct skb_data));
 
 	eth_random_addr(node_id);
+	for (i = 0; i < NUM_USBNET_IDS; i++) {
+		usbnet_ipc_log_ctxt[i] =
+			ipc_log_context_create(IPC_LOG_NUM_PAGES,
+					       netdev_names[i], 0);
+		if (!usbnet_ipc_log_ctxt[i])
+			pr_err("%s: Error getting ipc_log_ctxt\n", __func__);
+	}
+
 	return 0;
 }
 module_init(usbnet_init);
 
 static void __exit usbnet_exit(void)
 {
+	int i;
+
+	for (i = 0; i < NUM_USBNET_IDS; i++) {
+		ipc_log_context_destroy(usbnet_ipc_log_ctxt[i]);
+		usbnet_ipc_log_ctxt[i] = NULL;
+	}
 }
 module_exit(usbnet_exit);
 

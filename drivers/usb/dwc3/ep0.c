@@ -935,6 +935,19 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 	if (!dwc->gadget_driver)
 		goto out;
 
+	/*
+	 * A SETUP packet from previous session might get completed with delay
+	 * and get inspected before ConnectDone event for the new connection is
+	 * fired. This leads to controller not responding to fresh SETUP packets
+	 * anymore, even after fresh RESET from host.
+	 * Restart USB gadget if such delayed SETUP packet is inspected.
+	 */
+	if (!dwc->connected) {
+		dbg_event(0x0, "Setup_restart", 0);
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_RESTART_USB_SESSION, 0);
+		return;
+	}
+
 	trace_dwc3_ctrl_req(ctrl);
 
 	len = le16_to_cpu(ctrl->wLength);

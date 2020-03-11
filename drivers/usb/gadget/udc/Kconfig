@@ -454,6 +454,18 @@ config USB_CI13XXX_MSM
 	  dynamically linked module called "ci13xxx_msm" and force all
 	  gadget drivers to also be dynamically linked.
 
+config USB_CI13XXX_MSM_HSIC
+	tristate "MIPS HSIC CI13xxx for MSM"
+	depends on ARCH_QCOM
+	select USB_GADGET_DUALSPEED
+	help
+	MSM SoC has chipidea USB controller.  This driver uses
+	ci13xxx_udc core. Support USB-HSIC core.
+
+	Say "y" to link the driver statically, or "m" to build a
+	dynamically linked module called "ci13xxx_msm_hsic" and force all
+	gadget drivers to also be dynamically linked.
+
 #
 # LAST -- dummy/emulated controller
 #

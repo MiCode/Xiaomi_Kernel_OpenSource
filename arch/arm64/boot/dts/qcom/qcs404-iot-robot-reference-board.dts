@@ -67,12 +67,18 @@
 	};
 };
 
-&usb3_extcon {
-	vbus-out-gpio = <&tlmm 37 GPIO_ACTIVE_HIGH>;
+&usb3 {
+	qcom,charging-disabled;
+	/delete-property/ extcon;
+};
+
+&usb2s {
+	qcom,charging-disabled;
 };
 
 &qcs405_snd {
 	qcom,tasha-codec = <0>;
+	qcom,model = "qcs404-wsa-rb1-snd-card";
 };
 
 &wcd9335 {

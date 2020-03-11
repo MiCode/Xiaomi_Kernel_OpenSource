@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,7 +248,8 @@ int32_t habmm_socket_recvfrom(int32_t handle, void *dst_buff,
 /*
  * this flag is used for export from dma_buf fd or import to dma_buf fd
  */
-#define HABMM_EXPIMP_FLAGS_FD  0x00010000
+#define HABMM_EXPIMP_FLAGS_FD     0x00010000
+#define HABMM_EXPIMP_FLAGS_DMABUF 0x00020000
 
 #define HAB_MAX_EXPORT_SIZE 0x8000000
 
@@ -356,13 +357,14 @@ int32_t habmm_unimport(int32_t handle, uint32_t export_id, void *buff_shared,
  * status (success/failure)
  *
  */
+#define VMNAME_SIZE 12
 
 struct hab_socket_info {
 	int32_t vmid_remote; /* habmm's vmid */
 	int32_t vmid_local;
 	/* name from hypervisor framework if available */
-	char    vmname_remote[12];
-	char    vmname_local[12];
+	char    vmname_remote[VMNAME_SIZE];
+	char    vmname_local[VMNAME_SIZE];
 };
 
 int32_t habmm_socket_query(int32_t handle, struct hab_socket_info *info,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,9 +141,10 @@
 		qcom,sde-sspp-linewidth = <4096>;
 		qcom,sde-wb-linewidth = <4096>;
 		qcom,sde-mixer-blendstages = <0xb>;
-		qcom,sde-highest-bank-bit = <0x2>;
+		qcom,sde-highest-bank-bit = <0x3>;
 		qcom,sde-ubwc-version = <0x300>;
 		qcom,sde-ubwc-bw-calc-version = <0x1>;
+		qcom,sde-macrotile-mode = <0x1>;
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
@@ -402,7 +403,7 @@
 		#list-cells = <1>;
 
 		qcom,mdss-rot-mode = <1>;
-		qcom,mdss-highest-bank-bit = <0x2>;
+		qcom,mdss-highest-bank-bit = <0x3>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";

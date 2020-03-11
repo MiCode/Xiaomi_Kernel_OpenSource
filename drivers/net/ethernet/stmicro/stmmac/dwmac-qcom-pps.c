@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,7 +280,7 @@ int ethqos_init_pps(struct stmmac_priv *priv)
 
 	/*Configuaring PPS0 PPS output frequency to default 19.2 Mhz*/
 	eth_pps_cfg.ppsout_ch = 0;
-	eth_pps_cfg.ptpclk_freq = 62500000;
+	eth_pps_cfg.ptpclk_freq = priv->plat->clk_ptp_req_rate;
 	eth_pps_cfg.ppsout_freq = 19200000;
 	eth_pps_cfg.ppsout_start = 1;
 	eth_pps_cfg.ppsout_duty = 50;

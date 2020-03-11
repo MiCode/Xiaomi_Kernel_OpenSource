@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -495,48 +495,18 @@ int habmem_hyp_grant(struct virtual_channel *vchan,
 		int *export_id)
 {
 	int ret = 0;
-	void *kva = (void *)(uintptr_t)address;
-	int is_vmalloc = is_vmalloc_addr(kva);
-	struct page **pages;
-	int i;
 	struct dma_buf *dmabuf = NULL;
-	struct pages_list *pglist = NULL;
-	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 
-	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
-	if (!pages)
-		goto err;
+	if (HABMM_EXPIMP_FLAGS_DMABUF & flags) {
+		dmabuf = (struct dma_buf *)address;
+		if (dmabuf)
+			get_dma_buf(dmabuf);
+	} else if (HABMM_EXPIMP_FLAGS_FD & flags)
+		dmabuf = dma_buf_get(address);
 
-	pglist = kzalloc(sizeof(*pglist), GFP_KERNEL);
-	if (!pglist)
-		goto err;
-
-	pglist->pages = pages;
-	pglist->npages = page_count;
-	pglist->type = HAB_PAGE_LIST_EXPORT;
-	pglist->pchan = vchan->pchan;
-	pglist->vcid = vchan->id;
-
-	kref_init(&pglist->refcount);
-
-	for (i = 0; i < page_count; i++) {
-		kva = (void *)(uintptr_t)(address + i*PAGE_SIZE);
-		if (is_vmalloc)
-			pages[i] = vmalloc_to_page(kva);
-		else
-			pages[i] = virt_to_page(kva);
-
-		get_page(pages[i]);
-	}
-
-	exp_info.ops = &dma_buf_ops;
-	exp_info.size = pglist->npages << PAGE_SHIFT;
-	exp_info.flags = O_RDWR;
-	exp_info.priv = pglist;
-	dmabuf = dma_buf_export(&exp_info);
-	if (IS_ERR(dmabuf)) {
-		pr_err("export to dmabuf failed %d\n", PTR_ERR(dmabuf));
-		goto err;
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		pr_err("failed, invalid input addr: %pK\n", address);
+		return -EINVAL;
 	}
 
 	ret = habmem_add_export_compress(vchan,
@@ -547,10 +517,6 @@ int habmem_hyp_grant(struct virtual_channel *vchan,
 			payload_size,
 			export_id);
 
-	return ret;
-err:
-	kfree(pages);
-	kfree(pglist);
 	return ret;
 }
 

@@ -362,6 +362,11 @@ static inline int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	return -EPERM;
 }
 
+static inline int ipa3_get_wdi_version(void)
+{
+	return -EPERM;
+}
+
 static inline int ipa_wdi_cleanup(void)
 {
 	return -EPERM;

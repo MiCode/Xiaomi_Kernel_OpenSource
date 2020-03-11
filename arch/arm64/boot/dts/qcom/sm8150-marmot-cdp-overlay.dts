@@ -18,10 +18,10 @@
 #include "sm8150-cdp.dtsi"
 
 #include "sdx5xm-external-soc.dtsi"
-#include "sm8150-sdxchitwan.dtsi"
+#include "sm8150-marmot.dtsi"
 
 / {
-	model = "SDXCHITWAN CDP";
+	model = "MARMOT CDP";
 	compatible = "qcom,sm8150-cdp", "qcom,sm8150", "qcom,cdp";
 	qcom,board-id = <0x05010001 0x5>;
 };
