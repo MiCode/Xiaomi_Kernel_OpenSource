@@ -529,6 +529,9 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 	if (attrib->attrib_mask & IPA_FLT_NEXT_HDR)
 		pr_err("next_hdr:%d ", attrib->u.v6.next_hdr);
 
+	if (attrib->ext_attrib_mask & IPA_FLT_EXT_NEXT_HDR)
+		pr_err("next_hdr:%d ", attrib->u.v6.next_hdr);
+
 	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 		pr_err(
 				   "metadata:%x metadata_mask:%x ",
