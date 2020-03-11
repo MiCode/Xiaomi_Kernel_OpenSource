@@ -73,15 +73,14 @@ static inline bool is_mdss_smmu_compatible_device(const char *str)
  * mdss_smmu_is_valid_domain_type()
  *
  * Used to check if rotator smmu domain is defined or not by checking if
- * vbif base is defined and wb rotator exists. As those are associated.
+ * vbif base is defined. As those are associated.
  */
 static inline bool mdss_smmu_is_valid_domain_type(struct mdss_data_type *mdata,
 		int domain_type)
 {
 	if ((domain_type == MDSS_IOMMU_DOMAIN_ROT_UNSECURE ||
 			domain_type == MDSS_IOMMU_DOMAIN_ROT_SECURE) &&
-			(!mdss_mdp_is_wb_rotator_supported(mdata) ||
-			!mdss_mdp_is_nrt_vbif_base_defined(mdata)))
+			!mdss_mdp_is_nrt_vbif_base_defined(mdata))
 		return false;
 	return true;
 }
@@ -132,7 +131,6 @@ static inline struct mdss_smmu_client *mdss_smmu_get_cb(u32 domain)
 static inline int is_mdss_iommu_attached(void)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	return mdata ? mdata->iommu_attached : false;
 }
 
@@ -225,7 +223,6 @@ static inline struct dma_buf_attachment *mdss_smmu_dma_buf_attach(
 		struct dma_buf *dma_buf, struct device *dev, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (!mdata || !mdata->smmu_ops.smmu_dma_buf_attach)
 		return NULL;
 
@@ -237,7 +234,6 @@ static inline int mdss_smmu_map_dma_buf(struct dma_buf *dma_buf,
 		unsigned long *size, int dir)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (!mdata->smmu_ops.smmu_map_dma_buf)
 		return -ENODEV;
 
@@ -250,7 +246,6 @@ static inline void mdss_smmu_unmap_dma_buf(struct sg_table *table, int domain,
 		int dir, struct dma_buf *dma_buf)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (mdata->smmu_ops.smmu_unmap_dma_buf)
 		mdata->smmu_ops.smmu_unmap_dma_buf(table, domain,
 		mdss_smmu_dma_data_direction(dir), dma_buf);
@@ -261,7 +256,6 @@ static inline int mdss_smmu_dma_alloc_coherent(struct device *dev, size_t size,
 		gfp_t gfp, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (!mdata || !mdata->smmu_ops.smmu_dma_alloc_coherent)
 		return -ENODEV;
 
@@ -273,7 +267,6 @@ static inline void mdss_smmu_dma_free_coherent(struct device *dev, size_t size,
 		void *cpu_addr, dma_addr_t phys, dma_addr_t iova, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (mdata && mdata->smmu_ops.smmu_dma_free_coherent)
 		mdata->smmu_ops.smmu_dma_free_coherent(dev, size, cpu_addr,
 			phys, iova, domain);
@@ -283,7 +276,6 @@ static inline int mdss_smmu_map(int domain, phys_addr_t iova, phys_addr_t phys,
 		int gfp_order, int prot)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (!mdata->smmu_ops.smmu_map)
 		return -ENODEV;
 
@@ -294,7 +286,6 @@ static inline void mdss_smmu_unmap(int domain, unsigned long iova,
 		int gfp_order)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (mdata->smmu_ops.smmu_unmap)
 		mdata->smmu_ops.smmu_unmap(domain, iova, gfp_order);
 }
@@ -303,7 +294,6 @@ static inline char *mdss_smmu_dsi_alloc_buf(struct device *dev, int size,
 		dma_addr_t *dmap, gfp_t gfp)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (!mdata->smmu_ops.smmu_dsi_alloc_buf)
 		return NULL;
 
@@ -315,7 +305,6 @@ static inline int mdss_smmu_dsi_map_buffer(phys_addr_t phys,
 		void *cpu_addr, int dir)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (!mdata->smmu_ops.smmu_dsi_map_buffer)
 		return -ENODEV;
 
@@ -328,7 +317,6 @@ static inline void mdss_smmu_dsi_unmap_buffer(dma_addr_t dma_addr, int domain,
 		unsigned long size, int dir)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
 	if (mdata->smmu_ops.smmu_dsi_unmap_buffer)
 		mdata->smmu_ops.smmu_dsi_unmap_buffer(dma_addr, domain,
 			size, mdss_smmu_dma_data_direction(dir));
@@ -338,18 +326,6 @@ static inline void mdss_smmu_deinit(struct mdss_data_type *mdata)
 {
 	if (mdata->smmu_ops.smmu_deinit)
 		mdata->smmu_ops.smmu_deinit(mdata);
-}
-
-static inline struct sg_table *mdss_smmu_sg_table_clone(struct sg_table
-			*orig_table, gfp_t gfp_mask, bool padding)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	if (!mdata || !mdata->smmu_ops.smmu_sg_table_clone)
-		return NULL;
-
-	return mdata->smmu_ops.smmu_sg_table_clone(orig_table,
-				gfp_mask, padding);
 }
 
 #endif /* MDSS_SMMU_H */

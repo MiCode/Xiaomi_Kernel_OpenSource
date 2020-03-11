@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,7 +118,8 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 	if (!mdata || !sinfo->dma_buf)
 		return;
 
-	dma_buf_end_cpu_access(sinfo->dma_buf, DMA_BIDIRECTIONAL);
+	dma_buf_end_cpu_access(sinfo->dma_buf,
+			       DMA_BIDIRECTIONAL);
 	dma_buf_kunmap(sinfo->dma_buf, 0, sinfo->splash_buffer);
 
 	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE, 0,
@@ -148,7 +149,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 		!mdss_mdp_iommu_dyn_attach_supported(mdp5_data->mdata) ||
 		!mdp5_data->splash_mem_addr ||
 		!mdp5_data->splash_mem_size) {
-		pr_err("dynamic attach is not supported\n");
+		pr_debug("dynamic attach is not supported\n");
 		return -EPERM;
 	}
 
@@ -178,11 +179,14 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 	if (ret) {
 		pr_err("iommu memory mapping failed ret=%d\n", ret);
 	} else {
-		pr_err("iommu map passed for PA=VA\n");
+		pr_debug("iommu map passed for PA=VA\n");
 		mfd->splash_info.iommu_dynamic_attached = true;
 	}
 
 	ret = mdss_smmu_set_attribute(MDSS_IOMMU_DOMAIN_UNSECURE, EARLY_MAP, 0);
+	if (ret)
+		pr_err("mdss reset attribute failed for early map\n");
+
 end:
 	mdata->handoff_pending = true;
 
@@ -228,7 +232,6 @@ void mdss_mdp_release_splash_pipe(struct msm_fb_data_type *mfd)
 void mdss_free_bootmem(u32 mem_addr, u32 size)
 {
 	unsigned long pfn_start, pfn_end, pfn_idx;
-
 	pfn_start = mem_addr >> PAGE_SHIFT;
 	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
 	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
@@ -240,10 +243,7 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 {
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_ctl *ctl;
-	static u32 splash_mem_addr;
-	static u32 splash_mem_size;
 	int rc = 0;
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (!mfd)
 		return -EINVAL;
@@ -285,7 +285,7 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 		 */
 		if (mdp5_data->handoff && ctl && ctl->is_video_mode) {
 			rc = mdss_mdp_display_commit(ctl, NULL, NULL);
-			if (!IS_ERR_VALUE((unsigned long)rc)) {
+			if (!IS_ERR_VALUE((unsigned long) rc)) {
 				mdss_mdp_display_wait4comp(ctl);
 			} else {
 				/*
@@ -309,39 +309,8 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_ctl_splash_finish(ctl, mdp5_data->handoff);
 
-	/* If DSI-1 interface is enabled by LK & split dsi is not enabled,
-	 * free cont_splash_mem for dsi during the cleanup for DSI-1.
-	 */
-	if (!mdata->splash_split_disp &&
-		(mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
-		mfd->panel_info->pdest == DISPLAY_1) {
-		pr_debug("delay cleanup for display %d\n",
-						mfd->panel_info->pdest);
-		splash_mem_addr = mdp5_data->splash_mem_addr;
-		splash_mem_size = mdp5_data->splash_mem_size;
-
-		mdss_mdp_footswitch_ctrl_splash(0);
-		goto end;
-	}
-
-	if (!mdata->splash_split_disp &&
-		(mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
-		mfd->panel_info->pdest == DISPLAY_2 &&
-		!mfd->splash_info.iommu_dynamic_attached) {
-		pr_debug("free splash mem for display %d\n",
-						mfd->panel_info->pdest);
-		/* Give back the reserved memory to the system */
-		memblock_free(splash_mem_addr, splash_mem_size);
-		mdss_free_bootmem(splash_mem_addr, splash_mem_size);
-
-		mdss_mdp_footswitch_ctrl_splash(0);
-		goto end;
-	}
-
 	if (mdp5_data->splash_mem_addr &&
 		!mfd->splash_info.iommu_dynamic_attached) {
-		pr_debug("free splash mem for display %d\n",
-						mfd->panel_info->pdest);
 		/* Give back the reserved memory to the system */
 		memblock_free(mdp5_data->splash_mem_addr,
 					mdp5_data->splash_mem_size);
@@ -692,7 +661,6 @@ static __ref int mdss_mdp_splash_parse_dt(struct msm_fb_data_type *mfd)
 		if (pnode != NULL) {
 			const u32 *addr;
 			u64 size;
-
 			addr = of_get_address(pnode, 0, &size, NULL);
 			if (!addr) {
 				pr_err("failed to parse the splash memory address\n");

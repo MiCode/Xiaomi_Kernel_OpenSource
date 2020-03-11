@@ -1,4 +1,4 @@
-/* Copyright (c) 2017,2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
  * @iommu_ctrl:	iommu ctrl function for enable/disable attach.
  * @secure_session_ctrl: ctrl function for enable/disable session.
  * @wait_for_transition:function to wait till secure transtion is complete.
+ * @reg_lock /reg_unlock: Lock to access shared registers.
  */
 struct mdss_smmu_intf {
 	struct device *dev;
@@ -30,6 +31,9 @@ struct mdss_smmu_intf {
 	int (*iommu_ctrl)(int);
 	int (*secure_session_ctrl)(int);
 	int (*wait_for_transition)(int state, int request);
+	void (*reg_lock)(void);
+	void (*reg_unlock)(void);
+	bool (*handoff_pending)(void);
 };
 
 typedef void (*msm_smmu_handler_t) (struct mdss_smmu_intf *smmu);

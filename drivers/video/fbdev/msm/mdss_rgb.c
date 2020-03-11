@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -459,8 +459,8 @@ static int mdss_rgb_ctrl_clock_init(struct platform_device *ctrl_pdev,
 
 	info.core_clks.mdp_core_clk = rgb_data->mdp_core_clk;
 	info.core_clks.mmss_misc_ahb_clk = rgb_data->mmss_misc_ahb_clk;
-	info.link_hs_clks.byte_clk = rgb_data->byte_clk_rgb;
-	info.link_hs_clks.pixel_clk = rgb_data->pixel_clk_rgb;
+	info.link_clks.byte_clk = rgb_data->byte_clk_rgb;
+	info.link_clks.pixel_clk = rgb_data->pixel_clk_rgb;
 
 	info.priv_data = rgb_data;
 	snprintf(info.name, sizeof(info.name), "DSI0");
@@ -1036,8 +1036,7 @@ int rgb_panel_device_register(struct platform_device *ctrl_pdev,
 		return rc;
 	}
 
-	pinfo->panel_max_fps = mdss_panel_get_framerate(pinfo,
-				FPS_RESOLUTION_HZ);
+	pinfo->panel_max_fps = mdss_panel_get_framerate(pinfo);
 	pinfo->panel_max_vtotal = mdss_panel_get_vtotal(pinfo);
 
 	rc = mdss_rgb_parse_gpio_params(ctrl_pdev, rgb_data);

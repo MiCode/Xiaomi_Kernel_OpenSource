@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,13 +38,47 @@
 #define PANEL_TX_MAX_BUF 256
 #define PANEL_CMD_MIN_TX_COUNT 2
 #define PANEL_DATA_NODE_LEN 80
-/* MDP3 HW Version */
-#define MDP_CORE_HW_VERSION 0x03050306
 
 /* Hex number + whitespace */
 #define NEXT_VALUE_OFFSET 3
 
 #define INVALID_XIN_ID     0xFF
+
+static u32 dsi_dbg_bus_sdm660[] = {
+	0x0001, 0x1001, 0x0001, 0x0011,
+	0x1021, 0x0021, 0x0031, 0x0041,
+	0x0051, 0x0061, 0x3061, 0x0061,
+	0x2061, 0x2061, 0x1061, 0x1061,
+	0x1061, 0x0071, 0x0071, 0x0071,
+	0x0081, 0x0081, 0x00A1, 0x00A1,
+	0x10A1, 0x20A1, 0x30A1, 0x10A1,
+	0x10A1, 0x30A1, 0x20A1, 0x00B1,
+	0x00C1, 0x00C1, 0x10C1, 0x20C1,
+	0x30C1, 0x00D1, 0x00D1, 0x20D1,
+	0x30D1, 0x00E1, 0x00E1, 0x00E1,
+	0x00F1, 0x00F1, 0x0101, 0x0101,
+	0x1101, 0x2101, 0x3101, 0x0111,
+	0x0141, 0x1141, 0x0141, 0x1141,
+	0x1141, 0x0151, 0x0151, 0x1151,
+	0x2151, 0x3151, 0x0161, 0x0161,
+	0x1161, 0x0171, 0x0171, 0x0181,
+	0x0181, 0x0191, 0x0191, 0x01A1,
+	0x01A1, 0x01B1, 0x01B1, 0x11B1,
+	0x21B1, 0x01C1, 0x01C1, 0x11C1,
+	0x21C1, 0x31C1, 0x01D1, 0x01D1,
+	0x01D1, 0x01D1, 0x11D1, 0x21D1,
+	0x21D1, 0x01E1, 0x01E1, 0x01F1,
+	0x01F1, 0x0201, 0x0201, 0x0211,
+	0x0221, 0x0231, 0x0241, 0x0251,
+	0x0281, 0x0291, 0x0281, 0x0291,
+	0x02A1, 0x02B1, 0x02C1, 0x0321,
+	0x0321, 0x1321, 0x2321, 0x3321,
+	0x0331, 0x0331, 0x1331, 0x0341,
+	0x0341, 0x1341, 0x2341, 0x3341,
+	0x0351, 0x0361, 0x0361, 0x1361,
+	0x2361, 0x0371, 0x0381, 0x0391,
+	0x03C1, 0x03D1, 0x03E1, 0x03F1,
+};
 
 static DEFINE_MUTEX(mdss_debug_lock);
 
@@ -61,7 +95,6 @@ static int panel_debug_base_open(struct inode *inode, struct file *file)
 static int panel_debug_base_release(struct inode *inode, struct file *file)
 {
 	struct mdss_debug_base *dbg = file->private_data;
-
 	mutex_lock(&mdss_debug_lock);
 	if (dbg && dbg->buf) {
 		kfree(dbg->buf);
@@ -151,10 +184,8 @@ static ssize_t panel_debug_base_reg_write(struct file *file,
 	char *bufp;
 
 	struct mdss_data_type *mdata = mdss_res;
-	struct mdss_mdp_ctl *ctl = mdata->ctl_off + 0;
-	struct mdss_panel_data *panel_data = NULL;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
 	struct dsi_cmd_desc dsi_write_cmd = {
 		{0/*data type*/, 1, 0, 0, 0, 0/* len */}, reg};
 	struct dcs_cmd_req cmdreq;
@@ -168,15 +199,6 @@ static ssize_t panel_debug_base_reg_write(struct file *file,
 
 	if (copy_from_user(buf, user_buf, count))
 		return -EFAULT;
-
-	if ((mdata->mdp_rev <= MDSS_MDP_HW_REV_105) ||
-			(mdata->mdp_rev == MDP_CORE_HW_VERSION))
-		panel_data = mdss_res->pdata;
-	else
-		panel_data = ctl->panel_data;
-
-	ctrl_pdata = container_of(panel_data,
-		struct mdss_dsi_ctrl_pdata, panel_data);
 
 	buf[count] = 0;	/* end of string */
 
@@ -238,8 +260,9 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 	char *panel_reg_buf, *rx_buf;
 	struct mdss_data_type *mdata = mdss_res;
 	struct mdss_mdp_ctl *ctl = mdata->ctl_off + 0;
-	struct mdss_panel_data *panel_data = NULL;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_data *panel_data = ctl->panel_data;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(panel_data,
+					struct mdss_dsi_ctrl_pdata, panel_data);
 	int rc = -EFAULT;
 
 	if (!dbg)
@@ -272,17 +295,8 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 		mdata->debug_inf.debug_enable_clock(1);
 
 	panel_reg[0] = dbg->off;
-	if ((mdata->mdp_rev <= MDSS_MDP_HW_REV_105) ||
-			(mdata->mdp_rev == MDP_CORE_HW_VERSION))
-		panel_data = mdss_res->pdata;
-	else
-		panel_data = ctl->panel_data;
-
-	ctrl_pdata = container_of(panel_data,
-			struct mdss_dsi_ctrl_pdata, panel_data);
-
-	mdss_dsi_panel_cmd_read(ctrl_pdata, panel_reg[0],
-		panel_reg[1], NULL, rx_buf, dbg->cnt);
+	mdss_dsi_panel_cmd_read(ctrl_pdata, panel_reg[0], panel_reg[1],
+				NULL, rx_buf, dbg->cnt);
 
 	len = scnprintf(panel_reg_buf, reg_buf_len, "0x%02zx: ", dbg->off);
 
@@ -409,7 +423,6 @@ static int mdss_debug_base_open(struct inode *inode, struct file *file)
 static int mdss_debug_base_release(struct inode *inode, struct file *file)
 {
 	struct mdss_debug_base *dbg = file->private_data;
-
 	mutex_lock(&mdss_debug_lock);
 	if (dbg && dbg->buf) {
 		kfree(dbg->buf);
@@ -477,9 +490,6 @@ static ssize_t mdss_debug_base_offset_write(struct file *file,
 
 	if (off % sizeof(u32))
 		return -EINVAL;
-
-	if (sscanf(buf, "%5x %x", &off, &cnt) != 2)
-		return -EFAULT;
 
 	if (off > dbg->max_offset)
 		return -EINVAL;
@@ -1011,9 +1021,9 @@ static int mdss_debug_set_panic_signal(struct mdss_mdp_pipe *pipe_pool,
 			mdss_mdp_panic_signal_support_mode(mdata)) {
 			mdss_mdp_pipe_panic_signal_ctrl(pipe, enable);
 			pr_debug("pnum:%d count:%d img:%dx%d ",
-				" src[%d,%d,%d,%d] dst[%d,%d,%d,%d]\n",
 				pipe->num, pipe->play_cnt, pipe->img_width,
-				pipe->img_height,
+				pipe->img_height);
+			pr_debug("src[%d,%d,%d,%d] dst[%d,%d,%d,%d]\n",
 				pipe->src.x, pipe->src.y, pipe->src.w,
 				pipe->src.h, pipe->dst.x, pipe->dst.y,
 				pipe->dst.w, pipe->dst.h);
@@ -1098,7 +1108,7 @@ static int mdss_debugfs_cleanup(struct mdss_debug_data *mdd)
 		kfree(base);
 	}
 
-	if (mdd)
+	if (mdd->root)
 		debugfs_remove_recursive(mdd->root);
 
 	kfree(mdd);
@@ -1175,9 +1185,9 @@ static ssize_t mdss_debug_perf_bw_limit_write(struct file *file,
 		if (mode == temp_settings->mdss_max_bw_mode) {
 			temp_settings->mdss_max_bw_val = val;
 			break;
+		} else {
+			temp_settings++;
 		}
-		temp_settings++;
-
 	}
 
 	if (cnt == 0)
@@ -1193,8 +1203,7 @@ static const struct file_operations mdss_perf_bw_limit_fops = {
 };
 
 static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
-			struct mdss_data_type *mdata)
-{
+			struct mdss_data_type *mdata) {
 
 	debugfs_create_u32("min_mdp_clk", 0644, mdd->perf,
 		(u32 *)&mdata->perf_tune.min_mdp_clk);
@@ -1208,11 +1217,11 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_file("disable_panic", 0644, mdd->perf,
 		(struct mdss_data_type *)mdata, &mdss_perf_panic_enable);
 
-	debugfs_create_bool("enable_bw_release", 0644, mdd->perf,
-		(bool *)&mdata->enable_bw_release);
+	debugfs_create_u32("enable_bw_release", 0644, mdd->perf,
+		(u32 *)&mdata->enable_bw_release);
 
-	debugfs_create_bool("enable_rotator_bw_release", 0644, mdd->perf,
-		(bool *)&mdata->enable_rotator_bw_release);
+	debugfs_create_u32("enable_rotator_bw_release", 0644, mdd->perf,
+		(u32 *)&mdata->enable_rotator_bw_release);
 
 	debugfs_create_file("ab_factor", 0644, mdd->perf,
 		&mdata->ab_factor, &mdss_factor_fops);
@@ -1297,9 +1306,6 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 	mdss_debugfs_perf_init(mdd, mdata);
 
 	if (mdss_create_xlog_debug(mdd))
-		goto err;
-
-	if (mdss_create_frc_debug(mdd))
 		goto err;
 
 	mdata->debug_inf.debug_data = mdd;
@@ -1442,6 +1448,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 					case MDSS_MDP_INTF2:
 						block_id = DISPLAY_MISR_DSI1;
 						break;
+					case MDSS_MDP_INTF3:
+						block_id = DISPLAY_MISR_HDMI;
+						break;
 					default:
 						pr_err("Unmatch INTF for Dual LM single display configuration, INTF:%d\n",
 								ctl->intf_num);
@@ -1472,7 +1481,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 						(mdata->mdp_rev ==
 							MDSS_MDP_HW_REV_301) ||
 						(mdata->mdp_rev ==
-							MDSS_MDP_HW_REV_320)) {
+							MDSS_MDP_HW_REV_320) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_330)) {
 						ctrl_reg += 0x8;
 						value_reg += 0x8;
 					}
@@ -1822,11 +1833,9 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id,
 				}
 				pr_debug("USE BUFF %s\n", map->use_ping ?
 					"PING" : "PONG");
-				pr_debug("%s: PING BUF %s\n",
-					__func__,
+				pr_debug("%s: PING BUF %s\n", __func__,
 					map->is_ping_full ? "FULL" : "EMPTRY");
-				pr_debug("%s: PONG BUF %s\n",
-					__func__,
+				pr_debug("%s: PONG BUF %s\n", __func__,
 					map->is_pong_full ? "FULL" : "EMPTRY");
 			}
 		} else {
@@ -1864,6 +1873,24 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id,
 		vsync_count += 1;
 	}
 
+}
+
+void mdss_dsi_debug_bus_init(struct mdss_dsi_data *sdata)
+{
+	if (!sdata)
+		return;
+
+	sdata->dbg_bus = NULL;
+	sdata->dbg_bus_size = 0;
+
+	switch (sdata->shared_data->hw_rev) {
+	case MDSS_DSI_HW_REV_201:
+		sdata->dbg_bus = dsi_dbg_bus_sdm660;
+		sdata->dbg_bus_size = ARRAY_SIZE(dsi_dbg_bus_sdm660);
+		break;
+	default:
+		break;
+	}
 }
 
 int mdss_dump_misr_data(char **buf, u32 size)
