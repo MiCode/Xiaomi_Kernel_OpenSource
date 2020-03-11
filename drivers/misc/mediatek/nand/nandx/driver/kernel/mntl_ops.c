@@ -860,7 +860,7 @@ static int open_block_init(struct open_block *open)
 	for (i = 0; i < open->max; i++)
 		open->array[i] = -1;
 	spin_lock_init(&open->lock);
-	open->ws = wakeup_source_register("nand");
+	open->ws = wakeup_source_register(NULL, "nand");
 
 	return 0;
 }

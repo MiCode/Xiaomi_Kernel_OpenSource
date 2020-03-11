@@ -4704,10 +4704,10 @@ static int battery_probe(struct platform_device *dev)
 	battery_log(BAT_LOG_CRTI, "[BAT_probe] g_platform_boot_mode = %d\n ",
 		    g_platform_boot_mode);
 
-	battery_fg_lock = wakeup_source_register("battery fg wakelock");
+	battery_fg_lock = wakeup_source_register(NULL, "battery fg wakelock");
 
 	battery_suspend_lock =
-		wakeup_source_register("battery suspend wakelock");
+		wakeup_source_register(NULL, "battery suspend wakelock");
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT)
 	wake_lock_init(&TA_charger_suspend_lock, WAKE_LOCK_SUSPEND,
 		       "TA charger suspend wakelock");

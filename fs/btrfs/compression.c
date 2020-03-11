@@ -43,6 +43,37 @@
 #include "extent_io.h"
 #include "extent_map.h"
 
+static const char* const btrfs_compress_types[] = { "", "zlib", "lzo", "zstd" };
+
+const char* btrfs_compress_type2str(enum btrfs_compression_type type)
+{
+	switch (type) {
+	case BTRFS_COMPRESS_ZLIB:
+	case BTRFS_COMPRESS_LZO:
+	case BTRFS_COMPRESS_ZSTD:
+	case BTRFS_COMPRESS_NONE:
+		return btrfs_compress_types[type];
+	}
+
+	return NULL;
+}
+
+bool btrfs_compress_is_valid_type(const char *str, size_t len)
+{
+	int i;
+
+	for (i = 1; i < ARRAY_SIZE(btrfs_compress_types); i++) {
+		size_t comp_len = strlen(btrfs_compress_types[i]);
+
+		if (len < comp_len)
+			continue;
+
+		if (!strncmp(btrfs_compress_types[i], str, comp_len))
+			return true;
+	}
+	return false;
+}
+
 static int btrfs_decompress_bio(struct compressed_bio *cb);
 
 static inline int compressed_bio_size(struct btrfs_fs_info *fs_info,
