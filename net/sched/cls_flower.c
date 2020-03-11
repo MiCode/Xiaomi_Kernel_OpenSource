@@ -160,6 +160,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
 	if (!atomic_read(&head->ht.nelems))
 		return -1;
 
+	flow_dissector_init_keys(&skb_key.control, &skb_key.basic);
 	fl_clear_masked_range(&skb_key, &head->mask);
 
 	info = skb_tunnel_info(skb);
