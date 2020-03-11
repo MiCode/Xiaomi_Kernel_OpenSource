@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/reboot.h>
 #include <linux/clk.h>
 #include <linux/reset-controller.h>
 #include <soc/qcom/qseecom_scm.h>
@@ -30,6 +31,7 @@ struct qcom_scm {
 	struct clk *iface_clk;
 	struct clk *bus_clk;
 	struct reset_controller_dev reset;
+	struct notifier_block restart_nb;
 
 	u64 dload_mode_addr;
 };
@@ -992,6 +994,17 @@ bool qcom_scm_is_available(void)
 }
 EXPORT_SYMBOL(qcom_scm_is_available);
 
+static int qcom_scm_do_restart(struct notifier_block *this, unsigned long event,
+			      void *ptr)
+{
+	struct qcom_scm *scm = container_of(this, struct qcom_scm, restart_nb);
+
+	if (reboot_mode == REBOOT_WARM)
+		__qcom_scm_reboot(scm->dev);
+
+	return NOTIFY_OK;
+}
+
 static int qcom_scm_find_dload_address(struct device *dev, u64 *addr)
 {
 	struct device_node *tcsr;
@@ -1084,6 +1097,10 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	ret = clk_set_rate(scm->core_clk, INT_MAX);
 	if (ret)
 		return ret;
+
+	scm->restart_nb.notifier_call = qcom_scm_do_restart;
+	scm->restart_nb.priority = 130;
+	register_restart_handler(&scm->restart_nb);
 
 	__scm = scm;
 	__scm->dev = &pdev->dev;
