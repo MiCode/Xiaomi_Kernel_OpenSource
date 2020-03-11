@@ -702,8 +702,8 @@
 			<&clock_gcc GCC_EMAC_PTP_CLK>,
 			<&clock_gcc GCC_EMAC_RGMII_CLK>;
 		clock-names = "stmmaceth", "pclk", "ptp_ref", "rgmii";
-		snps,ptp-ref-clk-rate = <230400000>;
-		snps,ptp-req-clk-rate = <57600000>;
+		snps,ptp-ref-clk-rate = <250000000>;
+		snps,ptp-req-clk-rate = <96000000>;
 		interrupts-extended = <&pdc 0 689 4>, <&pdc 0 699 4>,
 			<&tlmm 124 2>;
 		interrupt-names = "macirq", "eth_lpi",
