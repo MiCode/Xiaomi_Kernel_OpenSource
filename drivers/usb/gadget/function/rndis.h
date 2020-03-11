@@ -174,6 +174,7 @@ typedef struct rndis_params {
 	u32			host_rndis_major_ver;
 	u32			host_rndis_minor_ver;
 	u32			dl_max_xfer_size;
+	u32			ul_max_xfer_size;
 	const char		*vendorDescr;
 	u8			pkt_alignment_factor;
 	void			(*resp_avail)(void *v);
@@ -196,6 +197,8 @@ int  rndis_set_param_vendor(struct rndis_params *params, u32 vendorID,
 int  rndis_set_param_medium(struct rndis_params *params, u32 medium,
 			     u32 speed);
 void rndis_set_max_pkt_xfer(struct rndis_params *params, u8 max_pkt_per_xfer);
+u32  rndis_get_ul_max_xfer_size(struct rndis_params *params);
+u32  rndis_get_dl_max_xfer_size(struct rndis_params *params);
 void rndis_add_hdr(struct sk_buff *skb);
 int rndis_rm_hdr(struct gether *port, struct sk_buff *skb,
 			struct sk_buff_head *list);

@@ -5,7 +5,7 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
-#define MAX_QTI_PKT_SIZE 2048
+#define MAX_QTI_PKT_SIZE 8192
 
 #define QTI_CTRL_IOCTL_MAGIC	'r'
 #define QTI_CTRL_GET_LINE_STATE	_IOR(QTI_CTRL_IOCTL_MAGIC, 2, int)
