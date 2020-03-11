@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -185,9 +185,11 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_QCOM_MINIDUMP
 	ret = pil_mss_debug_reset(&drv->q6->desc);
 	if (ret)
 		return ret;
+#endif
 
 	pil_mss_remove_proxy_votes(&drv->q6->desc);
 	ret = pil_mss_make_proxy_votes(&drv->q6->desc);
@@ -198,8 +200,13 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_QCOM_MINIDUMP
 	ret = pil_do_ramdump(&drv->q6->desc,
 			drv->ramdump_dev, drv->minidump_dev);
+#else
+	ret = pil_do_ramdump(&drv->q6->desc,
+			drv->ramdump_dev, NULL);
+#endif
 	if (ret < 0)
 		pr_err("Unable to dump modem fw memory (rc = %d).\n", ret);
 
@@ -283,6 +290,8 @@ static int pil_subsys_init(struct modem_data *drv,
 		ret = -ENOMEM;
 		goto err_ramdump;
 	}
+
+#ifdef CONFIG_QCOM_MINIDUMP
 	drv->minidump_dev = create_ramdump_device("md_modem", &pdev->dev);
 	if (!drv->minidump_dev) {
 		pr_err("%s: Unable to create a modem minidump device.\n",
@@ -290,11 +299,13 @@ static int pil_subsys_init(struct modem_data *drv,
 		ret = -ENOMEM;
 		goto err_minidump;
 	}
-
+#endif
 	return 0;
 
+#ifdef CONFIG_QCOM_MINIDUMP
 err_minidump:
 	destroy_ramdump_device(drv->ramdump_dev);
+#endif
 err_ramdump:
 	subsys_unregister(drv->subsys);
 err_subsys:
@@ -485,7 +496,9 @@ static int pil_mss_driver_exit(struct platform_device *pdev)
 
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
+#ifdef CONFIG_QCOM_MINIDUMP
 	destroy_ramdump_device(drv->minidump_dev);
+#endif
 	pil_desc_release(&drv->q6->desc);
 	return 0;
 }
