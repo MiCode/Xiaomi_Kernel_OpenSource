@@ -1,7 +1,6 @@
 [abi_whitelist]
 # commonly used symbols
   add_uevent_var
-  alloc_chrdev_region
   __alloc_skb
   alloc_workqueue
   __arch_copy_from_user
@@ -15,25 +14,21 @@
   bt_info
   cancel_delayed_work_sync
   cancel_work_sync
-  cdev_device_add
-  cdev_device_del
-  cdev_init
   __cfi_slowpath
   __check_object_size
-  __class_register
-  class_unregister
-  clk_alpha_pll_regs
-  clk_branch2_ops
   clk_bulk_disable
   clk_bulk_enable
   clk_bulk_prepare
   clk_bulk_unprepare
   clk_disable
   clk_enable
+  clk_fixed_factor_ops
+  clk_fixed_rate_ops
   clk_get_rate
+  clk_hw_get_parent
+  clk_hw_get_rate
   clk_prepare
   clk_put
-  clk_rcg2_ops
   clk_round_rate
   clk_set_rate
   clk_sync_state
@@ -49,7 +44,7 @@
   cpu_number
   __cpu_online_mask
   crc32_le
-  debug_smp_processor_id
+  _ctype
   delayed_work_timer_fn
   del_timer
   del_timer_sync
@@ -58,7 +53,6 @@
   _dev_err
   dev_get_regmap
   device_create_file
-  device_initialize
   device_init_wakeup
   device_property_present
   device_property_read_string
@@ -79,6 +73,7 @@
   devm_ioremap_resource
   devm_kfree
   devm_kmalloc
+  devm_of_clk_add_hw_provider
   __devm_of_phy_provider_register
   devm_of_platform_populate
   devm_phy_create
@@ -92,13 +87,14 @@
   devm_reset_control_array_get
   __devm_reset_control_get
   devm_reset_controller_register
-  devres_add
-  __devres_alloc_node
-  devres_free
+  devm_watchdog_register_device
   dev_set_name
   _dev_warn
   disable_irq
   disable_irq_nosync
+  divider_get_val
+  divider_recalc_rate
+  divider_round_rate_parent
   dma_alloc_attrs
   dma_direct_map_page
   dma_direct_map_sg
@@ -114,6 +110,7 @@
   dma_set_coherent_mask
   dma_set_mask
   do_SAK
+  down_write
   driver_unregister
   drm_add_edid_modes
   drm_atomic_helper_connector_destroy_state
@@ -137,6 +134,7 @@
   extcon_unregister_notifier
   find_next_bit
   finish_wait
+  fput
   free_irq
   generic_handle_irq
   generic_mii_ioctl
@@ -152,7 +150,6 @@
   __hci_cmd_sync
   hci_recv_frame
   hdmi_audio_infoframe_init
-  hrtimer_cancel
   hrtimer_init
   hrtimer_start_range_ns
   i2c_add_adapter
@@ -172,6 +169,7 @@
   irq_set_chip_and_handler_name
   irq_set_chip_data
   irq_set_irq_wake
+  irq_to_desc
   jiffies
   kfree
   kfree_skb
@@ -181,18 +179,15 @@
   kmem_cache_alloc_trace
   kmemdup
   kstrdup
-  kthread_destroy_worker
-  kthread_queue_work
+  kstrtouint
   ktime_get
   ktime_get_mono_fast_ns
   memcpy
   memset
   mii_ethtool_gset
   mii_nway_restart
-  misc_deregister
-  misc_register
   mod_timer
-  module_put
+  module_layout
   __msecs_to_jiffies
   msleep
   msm_pinctrl_probe
@@ -241,7 +236,6 @@
   pci_set_mwi
   pci_unregister_driver
   pci_write_config_byte
-  __per_cpu_offset
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   phy_exit
@@ -279,14 +273,12 @@
   __pm_runtime_set_status
   __pm_runtime_suspend
   __pm_runtime_use_autosuspend
-  preempt_count_sub
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
   printk
   put_device
-  qcom_cc_map
-  qcom_cc_really_probe
+  __put_task_struct
   qcom_scm_is_available
   queue_delayed_work_on
   queue_work_on
@@ -320,7 +312,7 @@
   request_threaded_irq
   reset_control_assert
   reset_control_deassert
-  sched_setscheduler
+  rpmh_write_async
   schedule_timeout
   schedule_timeout_uninterruptible
   scnprintf
@@ -360,7 +352,6 @@
   trace_handle_return
   trace_raw_output_prep
   trace_seq_printf
-  try_module_get
   tty_flip_buffer_push
   __tty_insert_flip_char
   tty_termios_encode_baud_rate
@@ -373,8 +364,8 @@
   uart_unregister_driver
   uart_update_timeout
   uart_write_wakeup
-  unregister_chrdev_region
   unregister_reboot_notifier
+  up_write
   usb_add_hcd
   usb_amd_dev_put
   usb_amd_quirk_pll_check
@@ -432,6 +423,7 @@
   wait_for_completion_timeout
   __wake_up
   __warn_printk
+  watchdog_init_timeout
 
 # required by asix.ko
   eth_mac_addr
@@ -475,19 +467,32 @@
   __hci_cmd_send
   __hci_cmd_sync_ev
 
+# required by clk-qcom.ko
+  __clk_determine_rate
+  __clk_get_name
+  clk_hw_get_flags
+  clk_hw_get_name
+  clk_hw_get_num_parents
+  clk_hw_get_parent_by_index
+  clk_hw_round_rate
+  __clk_is_enabled
+  __clk_mux_determine_rate_closest
+  divider_ro_round_rate_parent
+  of_find_node_opts_by_path
+  of_genpd_add_provider_onecell
+  of_genpd_del_provider
+  of_prop_next_u32
+  pm_genpd_add_subdomain
+  pm_genpd_init
+  pm_genpd_remove_subdomain
+
+# required by clk-rpmh.ko
+  clk_hw_is_prepared
+
 # required by clk-scmi.ko
   clk_hw_set_rate_range
-  devm_of_clk_add_hw_provider
   scmi_driver_register
   scmi_driver_unregister
-
-# required by dispcc-sdm845.ko
-  clk_alpha_pll_fabia_ops
-  clk_byte2_ops
-  clk_fabia_pll_configure
-  clk_pixel_ops
-  clk_rcg2_shared_ops
-  clk_regmap_div_ops
 
 # required by dwc3-qcom.ko
   devm_extcon_register_notifier
@@ -516,11 +521,9 @@
 
 # required by ehci-hcd.ko
   device_remove_file
-  down_write
   ehci_cf_port_reset_rwsem
-  kstrtouint
+  hrtimer_cancel
   ktime_get_with_offset
-  up_write
   usb_for_each_dev
 
 # required by ehci-pci.ko
@@ -541,12 +544,6 @@
   gpiod_to_irq
   system_power_efficient_wq
 
-# required by gcc-msm8998.ko
-  clk_alpha_pll_ops
-  clk_alpha_pll_postdiv_ops
-  clk_fixed_factor_ops
-  clk_rcg2_floor_ops
-
 # required by hci_uart.ko
   bit_wait_timeout
   hci_alloc_dev
@@ -563,7 +560,6 @@
   __percpu_init_rwsem
   __percpu_up_read
   percpu_up_write
-  preempt_count_add
   serdev_device_close
   __serdev_device_driver_register
   serdev_device_open
@@ -573,7 +569,6 @@
   serdev_device_wait_until_sent
   serdev_device_write_buf
   serdev_device_write_flush
-  __this_cpu_preempt_check
   tty_driver_flush_buffer
   tty_ldisc_flush
   tty_register_ldisc
@@ -612,7 +607,6 @@
   request_firmware_into_buf
 
 # required by msm.ko
-  __alloc_pages_nodemask
   __bitmap_andnot
   __bitmap_weight
   bpf_trace_run5
@@ -620,8 +614,6 @@
   bpf_trace_run8
   clk_get
   clk_get_parent
-  clk_hw_get_parent
-  clk_hw_get_rate
   clk_hw_register
   clk_hw_register_divider
   clk_hw_register_fixed_factor
@@ -638,7 +630,6 @@
   component_master_add_with_match
   component_master_del
   component_unbind_all
-  _ctype
   devfreq_recommended_opp
   devfreq_resume_device
   devfreq_suspend_device
@@ -661,9 +652,6 @@
   dev_pm_opp_of_add_table
   dev_pm_opp_put
   dev_pm_opp_set_supported_hw
-  divider_get_val
-  divider_recalc_rate
-  divider_round_rate_parent
   dma_buf_vunmap
   dma_fence_context_alloc
   dma_fence_init
@@ -834,8 +822,6 @@
   fd_install
   find_next_zero_bit
   flush_workqueue
-  fput
-  __free_pages
   get_pid_task
   get_unused_fd_flags
   gpiod_direction_input
@@ -853,17 +839,17 @@
   iommu_detach_device
   iommu_domain_alloc
   iommu_domain_free
-  iommu_map
   iommu_map_sg
   iommu_present
   iommu_set_fault_handler
   iommu_unmap
   irq_domain_xlate_onecell
-  irq_to_desc
   kasprintf
   kstrdup_quotable_cmdline
   kthread_create_on_node
+  kthread_destroy_worker
   __kthread_init_worker
+  kthread_queue_work
   kthread_worker_fn
   ktime_get_real_ts64
   kvfree
@@ -899,7 +885,6 @@
   param_ops_charp
   platform_bus_type
   put_pid
-  __put_task_struct
   put_unused_fd
   qcom_scm_hdcp_available
   qcom_scm_hdcp_req
@@ -916,6 +901,7 @@
   request_firmware_direct
   reservation_ww_class
   round_jiffies_up
+  sched_setscheduler
   sg_free_table
   shmem_truncate_range
   strncpy
@@ -957,7 +943,6 @@
   usb_amd_prefetch_quirk
 
 # required by phy-qcom-qmp.ko
-  clk_fixed_rate_ops
   of_clk_get_by_name
   of_clk_hw_simple_get
   of_iomap
@@ -999,10 +984,12 @@
   of_node_name_eq
   regulator_list_voltage_linear_range
   rpmh_write
-  rpmh_write_async
 
 # required by qcom-spmi-pmic.ko
   __spmi_driver_register
+
+# required by qcom-wdt.ko
+  platform_get_irq_optional
 
 # required by qcom_geni_serial.ko
   console_stop
@@ -1045,6 +1032,8 @@
 
 # required by qrtr-tun.ko
   _copy_to_iter
+  misc_deregister
+  misc_register
   schedule
 
 # required by qrtr.ko
@@ -1088,6 +1077,9 @@
   sock_unregister
 
 # required by reboot-mode.ko
+  devres_add
+  devres_alloc_node
+  devres_free
   devres_release
   kfree_const
   kstrdup_const
@@ -1104,11 +1096,19 @@
   spmi_register_zero_write
 
 # required by rmtfs_mem.ko
+  alloc_chrdev_region
+  cdev_device_add
+  cdev_device_del
+  cdev_init
+  __class_register
+  class_unregister
   default_llseek
+  device_initialize
   devm_memremap
   of_reserved_mem_lookup
   qcom_scm_assign_mem
   remap_pfn_range
+  unregister_chrdev_region
 
 # required by roles.ko
   __class_create
@@ -1122,7 +1122,9 @@
   fwnode_get_parent
   fwnode_property_present
   kstrtobool
+  module_put
   __sysfs_match_string
+  try_module_get
 
 # required by rtc-pm8xxx.ko
   devm_request_any_context_irq
@@ -1131,6 +1133,96 @@
   rtc_tm_to_time64
   rtc_update_irq
   rtc_valid_tm
+
+# required by sdcardfs.ko
+  __break_lease
+  call_rcu
+  clear_inode
+  clear_nlink
+  configfs_register_subsystem
+  configfs_unregister_subsystem
+  config_group_init
+  config_group_init_type_name
+  config_item_init_type_name
+  copy_fs_struct
+  d_drop
+  dentry_open
+  dget_parent
+  d_invalidate
+  d_make_root
+  d_path
+  dput
+  d_rehash
+  d_set_d_op
+  d_splice_alias
+  filemap_write_and_wait
+  filp_close
+  filp_open
+  free_fs_struct
+  fscrypt_register_key_removal_notifier
+  fscrypt_unregister_key_removal_notifier
+  fs_parse
+  fsstack_copy_inode_size
+  generic_delete_inode
+  __generic_file_fsync
+  generic_file_llseek
+  generic_permission
+  generic_read_dir
+  iget5_locked
+  igrab
+  init_special_inode
+  inode_init_once
+  inode_newsize_ok
+  iput
+  iterate_dir
+  kern_path
+  kill_anon_super
+  kmem_cache_alloc
+  kmem_cache_create
+  kmem_cache_destroy
+  kmem_cache_free
+  kstrtoull
+  lockref_get
+  lock_rename
+  lookup_one_len_unlocked
+  mntget
+  names_cachep
+  notify_change2
+  override_creds
+  path_get
+  path_put
+  prepare_creds
+  __put_cred
+  __rcu_read_lock
+  __rcu_read_unlock
+  register_filesystem
+  revert_creds
+  setattr_prepare
+  set_fs_pwd
+  set_nlink
+  shrink_dcache_sb
+  strcasecmp
+  strncasecmp
+  strrchr
+  synchronize_rcu
+  touch_atime
+  truncate_inode_pages
+  truncate_setsize
+  unlock_new_inode
+  unlock_rename
+  unregister_filesystem
+  vfs_create2
+  vfs_fsync_range
+  vfs_getattr
+  vfs_get_super
+  vfs_mkdir2
+  vfs_path_lookup
+  vfs_read
+  vfs_rename2
+  vfs_rmdir2
+  vfs_statfs
+  vfs_unlink2
+  vfs_write
 
 # required by sdhci-msm.ko
   mmc_of_parse
@@ -1206,18 +1298,6 @@
   of_device_request_module
   of_device_uevent_modalias
   __request_module
-
-# required by watchdog.ko
-  devm_register_reboot_notifier
-  ida_alloc_range
-  ida_destroy
-  ida_free
-  kthread_cancel_work_sync
-  kthread_create_worker
-  __module_get
-  register_restart_handler
-  stream_open
-  unregister_restart_handler
 
 # required by xhci-hcd.ko
   add_timer
