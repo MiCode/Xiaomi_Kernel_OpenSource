@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/devfreq.h>
 #include <linux/dma-mapping.h>
 #include <linux/math64.h>
+#include <linux/of_platform.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/io.h>
@@ -505,11 +506,15 @@ static int tz_suspend(struct devfreq *devfreq)
 static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 {
 	int result;
+	struct msm_adreno_extended_profile *gpu_profile;
+	struct device_node *node = devfreq->dev.parent->of_node;
 
-	struct msm_adreno_extended_profile *gpu_profile = container_of(
-					(devfreq->profile),
-					struct msm_adreno_extended_profile,
-					profile);
+	if (!of_device_is_compatible(node, "qcom,kgsl-3d0"))
+		return -EINVAL;
+
+	gpu_profile = container_of((devfreq->profile),
+			struct msm_adreno_extended_profile,
+			profile);
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
