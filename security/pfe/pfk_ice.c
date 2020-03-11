@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,8 +34,8 @@
 
 /* index 0 and 1 is reserved for FDE */
 #define MIN_ICE_KEY_INDEX 2
-
-#define MAX_ICE_KEY_INDEX 31
+#define NUM_ICE_SLOTS     32
+#define MAX_ICE_KEY_INDEX (NUM_ICE_SLOTS - 1)
 
 #define TZ_ES_CONFIG_SET_ICE_KEY_ID \
 	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_ES, \
@@ -210,7 +210,7 @@ int qti_pfk_ice_get_info(uint32_t *min_slot_index, uint32_t *total_num_slots,
 	}
 
 	*min_slot_index = MIN_ICE_KEY_INDEX;
-	*total_num_slots = MAX_ICE_KEY_INDEX + 1;
+	*total_num_slots = NUM_ICE_SLOTS - MIN_ICE_KEY_INDEX;
 
 	return 0;
 }
