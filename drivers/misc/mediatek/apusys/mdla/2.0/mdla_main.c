@@ -208,17 +208,7 @@ void mdla_reset_lock(int core, int res)
 static int mdla_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 
-	unsigned long offset = vma->vm_pgoff;
-	unsigned long size = vma->vm_end - vma->vm_start;
-	/*MDLA early verification*/
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-	if (remap_pfn_range(vma, vma->vm_start, offset, size,
-			vma->vm_page_prot)) {
-		pr_info("%s: remap_pfn_range error: %p\n",
-			__func__, vma);
-		return -EAGAIN;
-	}
-	return 0;
+	return -EPERM;
 }
 #endif
 
