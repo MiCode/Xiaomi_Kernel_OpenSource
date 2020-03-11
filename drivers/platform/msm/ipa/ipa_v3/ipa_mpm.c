@@ -55,12 +55,9 @@
 
 #define IPA_MPM_MAX_MHIP_CHAN 3
 
-#define IPA_MPM_NUM_RING_DESC 6
-#define IPA_MPM_RING_LEN IPA_MPM_NUM_RING_DESC
-
 #define IPA_MPM_MHI_HOST_UL_CHANNEL 4
 #define IPA_MPM_MHI_HOST_DL_CHANNEL  5
-#define TETH_AGGR_TIME_LIMIT 10000 /* 10ms */
+#define TETH_AGGR_TIME_LIMIT 1000 /* 1ms */
 #define TETH_AGGR_BYTE_LIMIT 24
 #define TETH_AGGR_DL_BYTE_LIMIT 16
 #define TRE_BUFF_SIZE 32768
@@ -356,17 +353,17 @@ struct ipa_mpm_clk_cnt_type {
 struct producer_rings {
 	struct mhi_p_desc *tr_va;
 	struct mhi_p_desc *er_va;
-	void *tr_buff_va[IPA_MPM_RING_LEN];
+	void *tr_buff_va[IPA_MPM_MAX_RING_LEN];
 	dma_addr_t tr_pa;
 	dma_addr_t er_pa;
-	dma_addr_t tr_buff_c_iova[IPA_MPM_RING_LEN];
+	dma_addr_t tr_buff_c_iova[IPA_MPM_MAX_RING_LEN];
 	/*
 	 * The iova generated for AP CB,
 	 * used only for dma_map_single to flush the cache.
 	 */
 	dma_addr_t ap_iova_er;
 	dma_addr_t ap_iova_tr;
-	dma_addr_t ap_iova_buff[IPA_MPM_RING_LEN];
+	dma_addr_t ap_iova_buff[IPA_MPM_MAX_RING_LEN];
 };
 
 struct ipa_mpm_mhi_driver {
@@ -406,7 +403,6 @@ struct ipa_mpm_context {
 };
 
 #define IPA_MPM_DESC_SIZE (sizeof(struct mhi_p_desc))
-#define IPA_MPM_RING_TOTAL_SIZE (IPA_MPM_RING_LEN * IPA_MPM_DESC_SIZE)
 /* WA: Make the IPA_MPM_PAGE_SIZE from 16k (next power of ring size) to
  * 32k. This is to make sure IOMMU map happens for the same size
  * for all TR/ER and doorbells.
@@ -665,8 +661,14 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 		cb->next_addr = iova_p + size_p;
 		iova = iova_p;
 	} else {
-		iova = dma_map_single(ipa3_ctx->pdev, va_addr,
-					IPA_MPM_RING_TOTAL_SIZE, dir);
+		if (dir == DMA_TO_HIPA)
+			iova = dma_map_single(ipa3_ctx->pdev, va_addr,
+				ipa3_ctx->mpm_ring_size_dl *
+				IPA_MPM_DESC_SIZE, dir);
+		else
+			iova = dma_map_single(ipa3_ctx->pdev, va_addr,
+				ipa3_ctx->mpm_ring_size_ul *
+				IPA_MPM_DESC_SIZE, dir);
 
 		if (dma_mapping_error(ipa3_ctx->pdev, iova)) {
 			IPA_MPM_ERR("dma_map_single failure for entry\n");
@@ -741,8 +743,14 @@ static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
 			size_p, dir);
 	} else {
-		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
-			IPA_MPM_RING_TOTAL_SIZE, dir);
+		if (dir == DMA_TO_HIPA)
+			dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
+				ipa3_ctx->mpm_ring_size_dl *
+				IPA_MPM_DESC_SIZE, dir);
+		else
+			dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
+				ipa3_ctx->mpm_ring_size_ul *
+				IPA_MPM_DESC_SIZE, dir);
 	}
 }
 
@@ -894,6 +902,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	int i, k;
 	int result;
 	struct ipa3_ep_context *ep;
+	int ring_size;
 
 	if (mhip_client == IPA_CLIENT_MAX)
 		goto fail_gen;
@@ -917,8 +926,17 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 
 	IPA_MPM_FUNC_ENTRY();
 
-	if (IPA_MPM_RING_TOTAL_SIZE > PAGE_SIZE) {
-		IPA_MPM_ERR("Ring Size / allocation mismatch\n");
+	if (IPA_CLIENT_IS_PROD(mhip_client) &&
+		(ipa3_ctx->mpm_ring_size_dl *
+			IPA_MPM_DESC_SIZE > PAGE_SIZE)) {
+		IPA_MPM_ERR("Ring Size dl / allocation mismatch\n");
+		ipa_assert();
+	}
+
+	if (IPA_CLIENT_IS_PROD(mhip_client) &&
+		(ipa3_ctx->mpm_ring_size_ul *
+			IPA_MPM_DESC_SIZE > PAGE_SIZE)) {
+		IPA_MPM_ERR("Ring Size ul / allocation mismatch\n");
 		ipa_assert();
 	}
 
@@ -939,7 +957,12 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		DMA_TO_HIPA : DMA_FROM_HIPA;
 
 	/* allocate transfer ring elements */
-	for (i = 1, k = 1; i < IPA_MPM_RING_LEN; i++, k++) {
+	if (IPA_CLIENT_IS_PROD(mhip_client))
+		ring_size = ipa3_ctx->mpm_ring_size_dl;
+	else
+		ring_size = ipa3_ctx->mpm_ring_size_ul;
+
+	for (i = 1, k = 1; i < ring_size; i++, k++) {
 		buff_va = kzalloc(TRE_BUFF_SIZE, GFP_KERNEL);
 		if (!buff_va)
 			goto fail_buff_alloc;
@@ -1061,7 +1084,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	gsi_params.evt_ring_params.intr = GSI_INTR_MSI;
 	gsi_params.evt_ring_params.re_size = GSI_EVT_RING_RE_SIZE_16B;
 	gsi_params.evt_ring_params.ring_len =
-		(IPA_MPM_RING_LEN) * GSI_EVT_RING_RE_SIZE_16B;
+		(ring_size) * GSI_EVT_RING_RE_SIZE_16B;
 	gsi_params.evt_ring_params.ring_base_vaddr = NULL;
 	gsi_params.evt_ring_params.int_modt = 0;
 	gsi_params.evt_ring_params.int_modc = 0;
@@ -1087,7 +1110,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	/* chan_id is set in ipa3_request_gsi_channel() */
 	gsi_params.chan_params.re_size = GSI_CHAN_RE_SIZE_16B;
 	gsi_params.chan_params.ring_len =
-		(IPA_MPM_RING_LEN) * GSI_EVT_RING_RE_SIZE_16B;
+		(ring_size) * GSI_EVT_RING_RE_SIZE_16B;
 	gsi_params.chan_params.ring_base_vaddr = NULL;
 	gsi_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
 	gsi_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
@@ -1187,6 +1210,7 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 	int i;
 	int ipa_ep_idx;
 	int result;
+	int ring_size;
 
 	IPA_MPM_FUNC_ENTRY();
 
@@ -1274,7 +1298,12 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 	}
 
 	/* deallocate/Unmap transfer ring buffers */
-	for (i = 1; i < IPA_MPM_RING_LEN; i++) {
+	if (IPA_CLIENT_IS_PROD(mhip_client))
+		ring_size = ipa3_ctx->mpm_ring_size_dl_cache;
+	else
+		ring_size = ipa3_ctx->mpm_ring_size_ul_cache;
+
+	for (i = 1; i < ring_size; i++) {
 		if (IPA_CLIENT_IS_PROD(mhip_client)) {
 			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
@@ -2187,13 +2216,13 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			IPA_MPM_MHI_HOST_UL_CHANNEL;
 		ch->chan_props.ch_ctx.erindex =
 			mhi_dev->ul_event_id;
-		ch->chan_props.ch_ctx.rlen = (IPA_MPM_RING_LEN) *
+		ch->chan_props.ch_ctx.rlen = (ipa3_ctx->mpm_ring_size_ul) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		/* Store Event properties */
 		ch->evt_props.ev_ctx.update_rp_modc = 1;
 		ch->evt_props.ev_ctx.update_rp_intmodt = 0;
 		ch->evt_props.ev_ctx.ertype = 1;
-		ch->evt_props.ev_ctx.rlen = (IPA_MPM_RING_LEN) *
+		ch->evt_props.ev_ctx.rlen = (ipa3_ctx->mpm_ring_size_ul) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		ch->evt_props.ev_ctx.buff_size = TRE_BUFF_SIZE;
 		ch->evt_props.device_db =
@@ -2241,13 +2270,13 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		ch->chan_props.ch_ctx.chtype =
 			IPA_MPM_MHI_HOST_DL_CHANNEL;
 		ch->chan_props.ch_ctx.erindex = mhi_dev->dl_event_id;
-		ch->chan_props.ch_ctx.rlen = (IPA_MPM_RING_LEN) *
+		ch->chan_props.ch_ctx.rlen = (ipa3_ctx->mpm_ring_size_dl) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		/* Store Event properties */
 		ch->evt_props.ev_ctx.update_rp_modc = 0;
 		ch->evt_props.ev_ctx.update_rp_intmodt = 0;
 		ch->evt_props.ev_ctx.ertype = 1;
-		ch->evt_props.ev_ctx.rlen = (IPA_MPM_RING_LEN) *
+		ch->evt_props.ev_ctx.rlen = (ipa3_ctx->mpm_ring_size_dl) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		ch->evt_props.ev_ctx.buff_size = TRE_BUFF_SIZE;
 		ch->evt_props.device_db =
@@ -2319,7 +2348,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			(phys_addr_t)(ul_out_params.db_reg_phs_addr_lsb), 4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.tr_pa +
-			((IPA_MPM_RING_LEN - 1) * GSI_CHAN_RE_SIZE_16B);
+			((ipa3_ctx->mpm_ring_size_ul - 1) *
+			GSI_CHAN_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
 
@@ -2352,7 +2382,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		db_addr = ioremap((phys_addr_t)(evt_ring_db_addr_low), 4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.er_pa +
-			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((ipa3_ctx->mpm_ring_size_ul + 1) *
+			GSI_EVT_RING_RE_SIZE_16B);
 		IPA_MPM_DBG("Host UL ER  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
 
@@ -2365,7 +2396,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.tr_pa +
-			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((ipa3_ctx->mpm_ring_size_ul + 1) *
+			GSI_EVT_RING_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
 		iounmap(db_addr);
@@ -2378,7 +2410,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.tr_pa +
-			((IPA_MPM_RING_LEN - 1) * GSI_CHAN_RE_SIZE_16B);
+			((ipa3_ctx->mpm_ring_size_dl - 1) *
+			GSI_CHAN_RE_SIZE_16B);
 
 		IPA_MPM_DBG("Device DL TR  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
@@ -2399,7 +2432,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.er_pa +
-			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((ipa3_ctx->mpm_ring_size_dl + 1) *
+			GSI_EVT_RING_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
 		IPA_MPM_DBG("Device  UL ER  DB = 0X%pK,wp_addr = 0X%0x",
@@ -2422,7 +2456,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		db_addr = ioremap((phys_addr_t)(evt_ring_db_addr_low), 4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.tr_pa +
-			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((ipa3_ctx->mpm_ring_size_dl + 1) *
+			GSI_EVT_RING_RE_SIZE_16B);
 		iowrite32(wp_addr, db_addr);
 		IPA_MPM_DBG("Host  DL ER  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
@@ -2512,7 +2547,9 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
 		ep = &ipa3_ctx->ep[ipa_ep_idx];
 		ret = ipa3_uc_send_enable_flow_control(ep->gsi_chan_hdl,
-			IPA_MPM_RING_LEN / 4);
+			ipa3_ctx->mpm_uc_thresh);
+		IPA_MPM_DBG("Updated uc threshold to %d",
+			ipa3_ctx->mpm_uc_thresh);
 		if (ret) {
 			IPA_MPM_ERR("Err %d flow control enable\n", ret);
 			goto fail_flow_control;
@@ -2528,7 +2565,14 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		}
 		IPA_MPM_DBG("Flow Control updated for %d", probe_id);
 	}
+	/* cache the current ring-size */
+	ipa3_ctx->mpm_ring_size_ul_cache = ipa3_ctx->mpm_ring_size_ul;
+	ipa3_ctx->mpm_ring_size_dl_cache = ipa3_ctx->mpm_ring_size_dl;
+	IPA_MPM_DBG("Mpm ring size ul/dl %d / %d",
+		ipa3_ctx->mpm_ring_size_ul, ipa3_ctx->mpm_ring_size_dl);
+
 	IPA_MPM_FUNC_EXIT();
+
 	return 0;
 
 fail_gsi_setup:
@@ -2557,8 +2601,13 @@ static void ipa_mpm_init_mhip_channel_info(void)
 		IPA_CLIENT_MHI_PRIME_TETH_CONS;
 	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].ul_prod.ep_cfg =
 		mhip_ul_teth_ep_cfg;
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].ul_prod.ep_cfg.aggr.aggr_byte_limit
+			= ipa3_ctx->mpm_teth_aggr_size;
 	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].mhip_client =
 		IPA_MPM_MHIP_TETH;
+
+	IPA_MPM_DBG("Teth Aggregation byte limit =%d\n",
+		ipa3_ctx->mpm_teth_aggr_size);
 
 	/* IPA_MPM_MHIP_CH_ID_1 => MHIP RMNET PIPES */
 	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_1].dl_cons.ipa_client =
