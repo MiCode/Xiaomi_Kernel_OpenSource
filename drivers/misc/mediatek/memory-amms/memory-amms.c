@@ -471,7 +471,7 @@ static int __init memory_ccci_share_init(struct reserved_mem *rmem)
 	return 0;
 }
 
-RESERVEDMEM_OF_DECLARE(memory_ccci_share, "mediatek,md_smem_ncache",
+RESERVEDMEM_OF_DECLARE(memory_ccci_share, "mediatek,ap_md_nc_smem",
 			memory_ccci_share_init);
 static irqreturn_t amms_irq_handler(int irq, void *dev_id)
 {
