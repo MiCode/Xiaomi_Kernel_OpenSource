@@ -420,39 +420,140 @@ config MACH_MT8168
           Support for mt8168 related projects
 
 config MACH_MT6885
-        bool "MediaTek MT6885"
-        select GENERIC_TIME
-        select GENERIC_CLOCKEVENTS
-        select ARCH_HAS_CPUFREQ
-        select ARM_AMBA
-        select CPU_V7
-        select HAVE_SMP
-        select NEED_MACH_MEMORY_H
-        select IRQ_DOMAIN
-        select IRQ_DOMAIN_DEBUG
-        select GENERIC_SCHED_CLOCK
-        select ARMV7_COMPAT
-        select ARMV7_COMPAT_CPUINFO
-        select PINCTRL
-        select PINCTRL_MT6885
-        select MFD_SYSCON
-        select CPU_IDLE
-        select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
-        select MTK_SYSIRQ
-        select ARM64_CRYPTO
-        select CRYPTO_SHA2_ARM64_CE
-        select CRYPTO_AES_ARM64_CE_BLK
-        select MTK_ES_REG
-        select MTK_CQDMA
-        select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
-        select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
-        select MTK_TIMER_APXGPT
+	bool "MediaTek MT6885"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select HIE
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6885
+	select MFD_SYSCON
+	select CPU_IDLE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select ARM64_CRYPTO
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select ARM_DSU_PMU
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_DBGTOP
+	select MTK_L3C_PART
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_TIMER_SYSTIMER
 	select MTK_BASE_POWER
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_LPM_MT6885
+	select MTK_SWPM
+	select COMMON_CLK_MT6885
+	select DEVAPC_MT6885
+	select DEVMPU_MT6885
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_SYSTRACKER_V2
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_PID_MAP
+	select MTK_CACHE_PARITY_CHECK
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select ARM64_ERRATUM_1542418
         help
-          This enables support for MediaTek MT6885
-          Support for aarch64 Architecture
-          Support for fpga_64_mt6885 related projects
-          Support for mt6885 related projects
+	  This enables support for MediaTek MT6885
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6885 related projects
+	  Support for mt6885 related projects
+
+config MACH_MT6873
+	bool "MediaTek MT6873"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select HIE
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_LPM_MT6873
+	select MTK_SWPM
+	select MTK_PID_MAP
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6873
+	select MFD_SYSCON
+	select COMMON_CLK_MT6873
+	select CPU_IDLE
+	select PM_DEVFREQ
+	select ARM_DSU_PMU
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MEDIATEK_MC if MEMORY
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_TIMER_SYSTIMER
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_BASE_POWER
+	select DEVAPC_MT6873
+	select DEVMPU_MT6873
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select MTK_DBGTOP
+	select MTK_SYSTRACKER_V2
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_CACHE_PARITY_CHECK
+	select MTK_DRAMC_WA
+	select MTK_SECURITY_SW_SUPPORT
+	help
+	  This enables support for MediaTek MT6873
+	  Support for aarch64 Architecture
+	  Support for mt6873 related projects
+	  If you need support for MediaTek MT6873, say Y here.
 
 config ARCH_MESON
 	bool "Amlogic Platforms"
