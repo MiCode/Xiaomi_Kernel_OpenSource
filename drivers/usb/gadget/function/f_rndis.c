@@ -70,10 +70,10 @@
  *   - MS-Windows drivers sometimes emit undocumented requests.
  */
 
-static bool rndis_multipacket_dl_disable;
-module_param(rndis_multipacket_dl_disable, bool, 0644);
-MODULE_PARM_DESC(rndis_multipacket_dl_disable,
-	"Disable RNDIS Multi-packet support in DownLink");
+static unsigned int rndis_dl_max_pkt_per_xfer = 3;
+module_param(rndis_dl_max_pkt_per_xfer, uint, 0644);
+MODULE_PARM_DESC(rndis_dl_max_pkt_per_xfer,
+	"Maximum packets per transfer for DL aggregation");
 
 static unsigned int rndis_ul_max_pkt_per_xfer = 3;
 module_param(rndis_ul_max_pkt_per_xfer, uint, 0644);
@@ -116,7 +116,7 @@ static unsigned int bitrate(struct usb_gadget *g)
 
 #define RNDIS_STATUS_INTERVAL_MS	32
 #define STATUS_BYTECOUNT		8	/* 8 bytes data */
-
+#define MAX_TRANSFER_SIZE		0x800
 
 /* interface descriptor: */
 
@@ -462,7 +462,9 @@ static void rndis_response_complete(struct usb_ep *ep, struct usb_request *req)
 static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rndis			*rndis = req->context;
+	struct usb_composite_dev	*cdev = rndis->port.func.config->cdev;
 	int				status;
+	rndis_init_msg_type		*buf;
 
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 //	spin_lock(&dev->lock);
@@ -470,6 +472,21 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 	if (status < 0)
 		pr_err("RNDIS command error %d, %d/%d\n",
 			status, req->actual, req->length);
+
+	buf = (rndis_init_msg_type *)req->buf;
+
+	if (buf->MessageType == cpu_to_le32(RNDIS_MSG_INIT)) {
+		if (le32_to_cpu(buf->MaxTransferSize) > MAX_TRANSFER_SIZE)
+			rndis->port.multi_pkt_xfer = 1;
+		else
+			rndis->port.multi_pkt_xfer = 0;
+		DBG(cdev, "%s: MaxTransferSize: %d : Multi_pkt_txr: %s\n",
+				__func__, buf->MaxTransferSize,
+				rndis->port.multi_pkt_xfer ? "enabled" :
+							    "disabled");
+		if (rndis_dl_max_pkt_per_xfer <= 1)
+			rndis->port.multi_pkt_xfer = 0;
+	}
 //	spin_unlock(&dev->lock);
 }
 
@@ -1057,6 +1074,7 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.wrap = rndis_add_header;
 	rndis->port.unwrap = rndis_rm_hdr;
 	rndis->port.ul_max_pkts_per_xfer = rndis_ul_max_pkt_per_xfer;
+	rndis->port.dl_max_pkts_per_xfer = rndis_dl_max_pkt_per_xfer;
 
 	rndis->port.func.name = "rndis";
 	/* descriptors are per-instance copies */
