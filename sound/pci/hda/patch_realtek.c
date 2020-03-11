@@ -4687,6 +4687,8 @@ static void alc_determine_headset_type(struct hda_codec *codec)
 		is_ctia = (val & 0x1c02) == 0x1c02;
 		break;
 	case 0x10ec0225:
+		codec->power_save_node = 1;
+		/* fall through */
 	case 0x10ec0295:
 	case 0x10ec0299:
 		alc_process_coef_fw(codec, alc225_pre_hsmode);
