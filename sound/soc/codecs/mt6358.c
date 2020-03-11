@@ -9,7 +9,9 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/delay.h>
+#ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#endif
 #include <linux/kthread.h>
 #include <linux/sched.h>
 
@@ -6784,6 +6786,7 @@ static struct snd_soc_codec_driver mt6358_soc_codec_driver = {
 	},
 };
 
+#ifdef CONFIG_DEBUG_FS
 static void debug_write_reg(struct file *file, void *arg)
 {
 	struct mt6358_priv *priv = file->private_data;
@@ -7541,6 +7544,7 @@ static const struct file_operations mt6358_debugfs_ops = {
 	.write = mt6358_debugfs_write,
 	.read = mt6358_debugfs_read,
 };
+#endif
 
 #ifndef CONFIG_MTK_PMIC_WRAP
 #ifdef CONFIG_MTK_PMIC_WRAP_HAL
@@ -7693,11 +7697,12 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
+#ifdef CONFIG_DEBUG_FS
 	/* create debugfs file */
 	priv->debugfs = debugfs_create_file("mtksocanaaudio",
 					    S_IFREG | 0444, NULL,
 					    priv, &mt6358_debugfs_ops);
-
+#endif
 	dev_info(priv->dev, "%s(), dev name %s\n",
 		__func__, dev_name(&pdev->dev));
 
@@ -7709,12 +7714,13 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 
 static int mt6358_platform_driver_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct mt6358_priv *priv = dev_get_drvdata(&pdev->dev);
 
 	dev_info(&pdev->dev, "%s()\n", __func__);
 
 	debugfs_remove(priv->debugfs);
-
+#endif
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }

@@ -84,7 +84,6 @@
 
 #include "mtk-soc-codec-63xx.h"
 #include <linux/clk.h>
-#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
@@ -101,6 +100,9 @@
 #if defined(CONFIG_SND_SOC_CS35L35)
 #include "mtk-cs35l35-machine-ops.h"
 #endif
+
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
 
 static struct dentry *mt_sco_audio_debugfs;
 #define DEBUG_FS_NAME "mtksocaudio"
@@ -304,6 +306,7 @@ static const struct file_operations mtaudio_debug_ops = {
 static const struct file_operations mtaudio_ana_debug_ops = {
 	.open = mt_soc_ana_debug_open, .read = mt_soc_ana_debug_read,
 };
+#endif
 
 /* snd_soc_ops */
 static int mt_machine_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -767,6 +770,7 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
 			__func__, ret);
 
+#ifdef CONFIG_DEBUG_FS
 	/* create debug file */
 	mt_sco_audio_debugfs =
 		debugfs_create_file(DEBUG_FS_NAME, S_IFREG | 0444, NULL,
@@ -776,7 +780,7 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 	mt_sco_audio_debugfs = debugfs_create_file(
 		DEBUG_ANA_FS_NAME, S_IFREG | 0444, NULL,
 		(void *)DEBUG_ANA_FS_NAME, &mtaudio_ana_debug_ops);
-
+#endif
 	return ret;
 }
 
