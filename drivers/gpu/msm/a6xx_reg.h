@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _A6XX_REG_H
@@ -527,6 +527,15 @@
 #define A6XX_RBBM_CLOCK_MODE_HLSQ	 0x0011b
 #define A6XX_RBBM_CLOCK_DELAY_HLSQ       0x0011c
 #define A6XX_RBBM_CLOCK_HYST_HLSQ        0x0011d
+#define A6XX_RBBM_CLOCK_CNTL_FCHE        0x00123
+#define A6XX_RBBM_CLOCK_DELAY_FCHE       0x00124
+#define A6XX_RBBM_CLOCK_HYST_FCHE        0x00125
+#define A6XX_RBBM_CLOCK_CNTL_GLC         0x0012B
+#define A6XX_RBBM_CLOCK_DELAY_GLC        0x00129
+#define A6XX_RBBM_CLOCK_HYST_GLC         0x0012A
+#define A6XX_RBBM_CLOCK_CNTL_MHUB        0x00126
+#define A6XX_RBBM_CLOCK_DELAY_MHUB       0x00127
+#define A6XX_RBBM_CLOCK_HYST_MHUB        0x00128
 
 /* DBGC_CFG registers */
 #define A6XX_DBGC_CFG_DBGBUS_SEL_A                  0x600
