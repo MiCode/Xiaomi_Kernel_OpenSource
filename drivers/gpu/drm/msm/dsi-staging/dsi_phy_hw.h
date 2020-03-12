@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,9 +186,11 @@ struct phy_dyn_refresh_ops {
 	 * @phy:           Pointer to DSI PHY hardware instance.
 	 * @cfg:	   Pointer to DSI PHY timings.
 	 * @is_master:	   Boolean to indicate whether for master or slave.
+	 * @is_cphy:	   Boolean to indicate cphy mode.
 	 */
 	void (*dyn_refresh_config)(struct dsi_phy_hw *phy,
-				   struct dsi_phy_cfg *cfg, bool is_master);
+				struct dsi_phy_cfg *cfg, bool is_master,
+				bool is_cphy);
 
 	/**
 	 * dyn_refresh_pipe_delay - configure pipe delay registers for dynamic
@@ -273,6 +275,21 @@ struct dsi_phy_hw_ops {
 	 *		bitclk or use the existing bitclk(for dynamic clk case).
 	 */
 	int (*calculate_timing_params)(struct dsi_phy_hw *phy,
+				       struct dsi_mode_info *mode,
+				       struct dsi_host_common_cfg *config,
+				       struct dsi_phy_per_lane_cfgs *timing,
+				       bool use_mode_bit_clk, bool is_cphy);
+
+	/**
+	 * calculate_cphy_timing_params() - calculates cphy timing parameters.
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 * @mode:     Mode information for which timing has to be calculated.
+	 * @config:   DSI host configuration for this mode.
+	 * @timing:   Timing parameters for each lane which will be returned.
+	 * @use_mode_bit_clk: Boolean to indicate whether reacalculate dsi
+	 *		bitclk or use the existing bitclk(for dynamic clk case).
+	 */
+	int (*calculate_cphy_timing_params)(struct dsi_phy_hw *phy,
 				       struct dsi_mode_info *mode,
 				       struct dsi_host_common_cfg *config,
 				       struct dsi_phy_per_lane_cfgs *timing,
