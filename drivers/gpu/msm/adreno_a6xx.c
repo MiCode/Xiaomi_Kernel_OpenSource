@@ -1307,6 +1307,9 @@ static const char *uche_client[7][3] = {
 	{"SP | VSC | VPC | HLSQ | PC", "TP | VFD", "LRZ"},
 };
 
+static const char *const uche_client_a660[] = { "VFD", "SP", "VSC", "VPC",
+						"HLSQ", "PC", "LRZ", "TP" };
+
 #define SCOOBYDOO 0x5c00bd00
 
 static const char *a6xx_fault_block_uche(struct kgsl_device *device,
@@ -1337,9 +1340,28 @@ static const char *a6xx_fault_block_uche(struct kgsl_device *device,
 	if (uche_client_id == SCOOBYDOO)
 		return "UCHE: unknown";
 
-	uche_client_id &= A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK;
-	snprintf(str, sizeof(str), "UCHE: %s",
+	if (adreno_is_a660(ADRENO_DEVICE(device))) {
+
+		/* Mask is 7 bits for A660 */
+		uche_client_id &= 0x7F;
+		if (uche_client_id >= ARRAY_SIZE(uche_client_a660) ||
+				(mid == 2))
+			return "UCHE: Unknown";
+
+		if (mid == 1)
+			snprintf(str, sizeof(str), "UCHE: Not %s",
+				uche_client_a660[uche_client_id]);
+		else if (mid == 3)
+			snprintf(str, sizeof(str), "UCHE: %s",
+				uche_client_a660[uche_client_id]);
+	} else {
+		uche_client_id &= A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK;
+		if (uche_client_id >= ARRAY_SIZE(uche_client))
+			return "UCHE: Unknown";
+
+		snprintf(str, sizeof(str), "UCHE: %s",
 			uche_client[uche_client_id][mid - 1]);
+	}
 
 	return str;
 }
