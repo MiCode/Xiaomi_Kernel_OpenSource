@@ -936,7 +936,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 		.bus_width = 32,
 	},
 	.prim_fifo_threshold = 0x0018000,
-	.pdc_address_offset = 0x00030090,
+	.pdc_address_offset = 0x000300a0,
 	.gmu_major = 1,
 	.gmu_minor = 9,
 	.sqefw_name = "a630_sqe.fw",
