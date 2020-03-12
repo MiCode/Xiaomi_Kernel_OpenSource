@@ -1050,6 +1050,23 @@ config QCOM_SOC_INFO
 	  based on the chip ID and querying the SoC revision. This information is
 	  loaded by the bootloader into SMEM during the boot up process.
 
+config QTI_CRYPTO_COMMON
+	tristate "Enable common crypto functionality used for FBE"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	 Say 'Y' to enable the common crypto implementation to be used by
+	 different storage layers such as UFS and EMMC for file based hardware
+	 encryption. This library implements API to program and evict
+	 keys using Trustzone or Hardware Key Manager.
+
+config QTI_CRYPTO_TZ
+	tristate "Enable Trustzone to be used for FBE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable routing crypto requests to Trustzone while
+	 performing hardware based file encryption. This means keys are
+	 programmed and managed through SCM calls to TZ where ICE driver
+	 will configure keys.
 endmenu
 
 config QCOM_HYP_CORE_CTL
