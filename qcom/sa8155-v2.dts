@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sa8155-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155 v2 SoC";
+	compatible = "qcom,sa8155";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
+};
