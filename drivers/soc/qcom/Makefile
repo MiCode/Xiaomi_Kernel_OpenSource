@@ -119,3 +119,5 @@ obj-$(CONFIG_CPU_V7) += idle-v7.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_WCNSS_CORE) += wcnss/
 obj-$(CONFIG_RENAME_BLOCK_DEVICE) += rename_block_device.o
+obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
+obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o

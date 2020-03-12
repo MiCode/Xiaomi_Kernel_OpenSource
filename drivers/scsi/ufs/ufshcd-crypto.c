@@ -128,8 +128,8 @@ static int ufshcd_program_key(struct ufs_hba *hba,
 	pm_runtime_get_sync(hba->dev);
 	ufshcd_hold(hba, false);
 
-	if (hba->vops->program_key) {
-		err = hba->vops->program_key(hba, cfg, slot);
+	if (hba->var->vops->program_key) {
+		err = hba->var->vops->program_key(hba, cfg, slot);
 		goto out;
 	}
 
@@ -154,14 +154,14 @@ static int ufshcd_program_key(struct ufs_hba *hba,
 	wmb();
 	err = 0;
 out:
-	ufshcd_release(hba);
+	ufshcd_release(hba, false);
 	pm_runtime_put_sync(hba->dev);
 	return err;
 }
 
 static void ufshcd_clear_keyslot(struct ufs_hba *hba, int slot)
 {
-	union ufs_crypto_cfg_entry cfg = { 0 };
+	union ufs_crypto_cfg_entry cfg = { {0} };
 	int err;
 
 	err = ufshcd_program_key(hba, &cfg, slot);
