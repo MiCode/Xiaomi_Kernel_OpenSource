@@ -3108,6 +3108,7 @@ static const struct of_device_id ipa_plat_drv_match[] = {
 /*                PCIe Version                           */
 /*********************************************************/
 
+#ifdef CONFIG_PCI
 static const struct of_device_id ipa_pci_drv_match[] = {
 	{ .compatible = "qcom,ipa", },
 	{}
@@ -3154,6 +3155,7 @@ static struct pci_driver ipa_pci_driver = {
 	.shutdown = ipa_pci_shutdown,
 	.err_handler = &ipa_pci_err_handler
 };
+#endif
 
 static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 {
@@ -3755,6 +3757,7 @@ static struct platform_driver ipa_plat_drv = {
 /*                PCIe Version                           */
 /*********************************************************/
 
+#ifdef CONFIG_PCI
 static int ipa_pci_probe(
 	struct pci_dev             *pci_dev,
 	const struct pci_device_id *ent)
@@ -3822,15 +3825,17 @@ static pci_ers_result_t ipa_pci_io_slot_reset(struct pci_dev *pci_dev)
 static void ipa_pci_io_resume(struct pci_dev *pci_dev)
 {
 }
+#endif
 
 static int __init ipa_module_init(void)
 {
 	pr_debug("IPA module init\n");
-
+#ifdef CONFIG_PCI
 	if (running_emulation) {
 		/* Register as a PCI device driver */
 		return pci_register_driver(&ipa_pci_driver);
 	}
+#endif
 	/* Register as a platform device driver */
 	return platform_driver_register(&ipa_plat_drv);
 }

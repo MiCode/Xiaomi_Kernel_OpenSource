@@ -8494,6 +8494,7 @@ void ipa_pc_qmp_enable(void)
  *            PCIe Version
  *************************************************************/
 
+#ifdef CONFIG_PCI
 int ipa3_pci_drv_probe(
 	struct pci_dev            *pci_dev,
 	struct ipa_api_controller *api_ctrl,
@@ -8653,6 +8654,7 @@ int ipa3_pci_drv_probe(
 
 	return result;
 }
+#endif
 
 /*
  * The following returns transport register memory location and
