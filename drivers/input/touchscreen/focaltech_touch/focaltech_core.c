@@ -56,8 +56,9 @@
 #define INTERVAL_READ_REG                   200  /* unit:ms */
 #define TIMEOUT_READ_REG                    1000 /* unit:ms */
 #if FTS_POWER_SOURCE_CUST_EN
-#define FTS_VTG_MIN_UV                      2800000
+#define FTS_VTG_MIN_UV                      3000000
 #define FTS_VTG_MAX_UV                      3300000
+#define FTS_LOAD_MAX_UA                     30000
 #define FTS_I2C_VTG_MIN_UV                  1800000
 #define FTS_I2C_VTG_MAX_UV                  1800000
 #endif
@@ -1011,6 +1012,13 @@ static int fts_power_source_init(struct fts_ts_data *ts_data)
 						FTS_VTG_MAX_UV);
 		if (ret) {
 			FTS_ERROR("vdd regulator set_vtg failed ret=%d", ret);
+			regulator_put(ts_data->vdd);
+			return ret;
+		}
+
+		ret = regulator_set_load(ts_data->vdd, FTS_LOAD_MAX_UA);
+		if (ret) {
+			FTS_ERROR("vdd regulator set_load failed ret=%d", ret);
 			regulator_put(ts_data->vdd);
 			return ret;
 		}
