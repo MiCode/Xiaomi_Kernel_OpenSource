@@ -895,6 +895,13 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	cache-controller@9200000 {
+		compatible = "qcom,shima-llcc", "qcom,llcc-v2";
+		reg = <0x9200000 0xd0000> , <0x9600000 0x50000>;
+		reg-names = "llcc_base", "llcc_broadcast_base";
+		cap-based-alloc-and-pwr-collapse;
+	};
+
 	clk_virt: interconnect {
 		compatible = "qcom,shima-clk_virt";
 		#interconnect-cells = <1>;
