@@ -366,6 +366,16 @@ config ARM64_ERRATUM_858921
 	  The workaround will be dynamically enabled when an affected
 	  core is detected.
 
+config ARM_ERRATUM_858921
+	bool "Workaround for Cortex-A73(AArch32) erratum 858921"
+	default y
+	depends on ARM_ARCH_TIMER && ARM
+	help
+	  This option enables a workaround applicable to AArch32 Cortex-A73
+	  (all versions), whose counter may return incorrect values.
+	  The workaround will be dynamically enabled when an affected
+	  core is detected.
+
 config SUN50I_ERRATUM_UNKNOWN1
 	bool "Workaround for Allwinner A64 erratum UNKNOWN1"
 	default y
