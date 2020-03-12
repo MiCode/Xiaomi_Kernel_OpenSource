@@ -76,3 +76,6 @@ obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
 obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o
 obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
 obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
+obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm_qti.o
+hwkm_qti-y += hwkm.o
+hwkm_qti-y += crypto-qti-hwkm.o
