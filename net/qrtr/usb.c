@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@ struct qrtr_usb_dev {
 	unsigned int in_pipe;
 	unsigned int out_pipe;
 };
+
+static struct qrtr_usb_dev *__qdev;
 
 static void qcom_usb_qrtr_txn_cb(struct urb *urb)
 {
@@ -196,7 +198,7 @@ static int qcom_usb_qrtr_probe(struct usb_interface *interface,
 		return -ENOMEM;
 
 	qdev->udev = udev;
-	qdev->iface = interface;
+	qdev->iface = usb_get_intf(interface);
 	qdev->ep.xmit = qcom_usb_qrtr_send;
 
 	intf_desc = interface->cur_altsetting;
@@ -240,6 +242,7 @@ static int qcom_usb_qrtr_probe(struct usb_interface *interface,
 		return PTR_ERR(qdev->rx_thread);
 	}
 
+	__qdev = qdev;
 	dev_dbg(&qdev->udev->dev, "QTI USB QRTR driver probed\n");
 
 	return 0;
@@ -295,7 +298,10 @@ static void qcom_usb_qrtr_disconnect(struct usb_interface *interface)
 	usb_free_urb(qdev->in_urb);
 	qrtr_endpoint_unregister(&qdev->ep);
 	usb_set_intfdata(interface, NULL);
+	usb_put_intf(interface);
+	qdev->iface = NULL;
 	usb_put_dev(qdev->udev);
+	__qdev = NULL;
 }
 
 static const struct usb_device_id qcom_usb_qrtr_ids[] = {
