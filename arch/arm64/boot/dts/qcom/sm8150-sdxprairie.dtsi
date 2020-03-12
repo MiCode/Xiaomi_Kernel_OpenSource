@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,6 +102,69 @@
 			mhi,ee = <0x4>;
 			mhi,offload-chan;
 			mhi,lpm-notify;
+		};
+	};
+
+	mhi_events {
+		mhi_event@5 {
+			mhi,chan = <100>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@6 {
+			mhi,chan = <101>;
+			mhi,hw-ev;
+			mhi,client-manage;
+		};
+
+		mhi_event@7 {
+			mhi,chan = <102>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@8 {
+			mhi,chan = <103>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@9 {
+			mhi,chan = <105>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@10 {
+			mhi,chan = <106>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@11 {
+			mhi,chan = <107>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@12 {
+			mhi,chan = <108>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+		};
+
+		mhi_event@13 {
+			mhi,chan = <109>;
+			mhi,hw-ev;
+		};
+
+		mhi_event@14 {
+			mhi,chan = <110>;
+			mhi,hw-ev;
 		};
 	};
 
