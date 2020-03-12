@@ -9,11 +9,14 @@
 #define AIS_SENSOR_POWER_DOWN  (AIS_SENSOR_OPCODE_START + 3)
 #define AIS_SENSOR_I2C_READ    (AIS_SENSOR_OPCODE_START + 4)
 #define AIS_SENSOR_I2C_WRITE   (AIS_SENSOR_OPCODE_START + 5)
-#define AIS_SENSOR_I2C_WRITE_ARRAY (AIS_SENSOR_OPCODE_START + 6)
-#define AIS_SENSOR_I2C_POWER_UP    (AIS_SENSOR_OPCODE_START + 7)
-#define AIS_SENSOR_I2C_POWER_DOWN  (AIS_SENSOR_OPCODE_START + 8)
-#define AIS_SENSOR_INTR_INIT      (AIS_SENSOR_OPCODE_START + 9)
-#define AIS_SENSOR_INTR_DEINIT    (AIS_SENSOR_OPCODE_START + 10)
+#define AIS_SENSOR_I2C_WRITE_SYNC (AIS_SENSOR_OPCODE_START + 6)
+#define AIS_SENSOR_I2C_WRITE_ARRAY_SYNC (AIS_SENSOR_OPCODE_START + 7)
+#define AIS_SENSOR_I2C_WRITE_ARRAY (AIS_SENSOR_OPCODE_START + 8)
+#define AIS_SENSOR_I2C_POWER_UP    (AIS_SENSOR_OPCODE_START + 9)
+#define AIS_SENSOR_I2C_POWER_DOWN  (AIS_SENSOR_OPCODE_START + 10)
+#define AIS_SENSOR_INTR_INIT      (AIS_SENSOR_OPCODE_START + 11)
+#define AIS_SENSOR_INTR_DEINIT    (AIS_SENSOR_OPCODE_START + 12)
+#define AIS_SENSOR_I2C_SET_SYNC_PARMS (AIS_SENSOR_OPCODE_START + 13)
 #define AIS_SENSOR_EVENT_BASE      (V4L2_EVENT_PRIVATE_START)
 #define AIS_SENSOR_EVENT_TYPE      (AIS_SENSOR_EVENT_BASE + 1)
 
@@ -160,5 +163,46 @@ struct ais_sensor_cmd_i2c_pwrup {
 	uint8_t     retries;
 	uint16_t     reserved;
 } __attribute__((packed));
+
+struct ais_sensor_cmd_i2c_pwrdown {
+	uint8_t     master;
+	uint8_t     retries;
+	uint16_t     reserved;
+} __attribute__((packed));
+
+
+#define MAX_NUM_I2C_CMDS 32
+
+struct ais_sensor_cmd_i2c_sync_cfg {
+	uint16_t cid;
+	uint16_t csid;
+	uint16_t line;
+	uint16_t delay;
+} __attribute__((packed));
+
+struct ais_sensor_cmd_i2c_cci_client {
+	uint8_t i2c_freq_mode;
+	uint8_t cci_i2c_master;
+	uint32_t timeout;
+	uint16_t retries;
+} __attribute__((packed));
+
+
+struct ais_sensor_wr_sync {
+	struct ais_sensor_cmd_i2c_sync_cfg sync_cfg;
+	struct ais_sensor_cmd_i2c_wr_array wr_cfg[MAX_NUM_I2C_CMDS];
+	uint8_t num_wr_cfg;
+};
+
+struct ais_cci_cmd_t {
+	struct ais_sensor_cmd_i2c_cci_client cci_client;
+	union {
+	struct ais_sensor_cmd_i2c_wr_array wr_cfg;
+	struct ais_sensor_wr_sync wr_sync;
+	struct ais_sensor_cmd_i2c_wr i2c_write;
+	struct ais_sensor_cmd_i2c_read i2c_read;
+	} cmd;
+};
+
 
 #endif
