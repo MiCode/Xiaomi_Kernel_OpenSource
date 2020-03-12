@@ -30,6 +30,7 @@
 #include "ufshci.h"
 #include "ufs-qcom-debugfs.h"
 #include "ufs_quirks.h"
+#include "ufshcd-crypto-qti.h"
 
 #define MAX_PROP_SIZE		   32
 #define VDDP_REF_CLK_MIN_UV        1200000
@@ -2137,6 +2138,12 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	/* restore the secure configuration */
 	ufs_qcom_update_sec_cfg(hba, true);
+
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+	ufshcd_crypto_qti_set_vops(hba);
 
 	err = ufs_qcom_bus_register(host);
 	if (err)
