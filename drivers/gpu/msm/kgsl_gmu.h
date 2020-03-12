@@ -210,6 +210,8 @@ struct gmu_device {
 	unsigned long kmem_bitmap;
 	const struct gmu_vma_entry *vma;
 	unsigned int log_wptr_retention;
+	/** @cm3_fault: whether gmu received a cm3 fault interrupt */
+	atomic_t cm3_fault;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,

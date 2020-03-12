@@ -1104,6 +1104,9 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	/* Populate the GMU version info before GMU boots */
 	load_gmu_version_info(device);
 
+	/* Clear any previously set cm3 fault */
+	atomic_set(&gmu->cm3_fault, 0);
+
 	ret = a6xx_gmu_start(device);
 	if (ret)
 		return ret;

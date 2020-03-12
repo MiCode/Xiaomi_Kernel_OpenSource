@@ -1014,7 +1014,17 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 				ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				(mask | GMU_INT_WDOG_BITE));
 
-		adreno_gmu_send_nmi(adreno_dev);
+		/* make sure we're reading the latest cm3_fault */
+		smp_rmb();
+
+		/*
+		 * We should not send NMI if there was a CM3 fault reported
+		 * because we don't want to overwrite the critical CM3 state
+		 * captured by gmu before it sent the CM3 fault interrupt.
+		 */
+		if (!atomic_read(&gmu->cm3_fault))
+			adreno_gmu_send_nmi(adreno_dev);
+
 		/*
 		 * There is sufficient delay for the GMU to have finished
 		 * handling the NMI before snapshot is taken, as the fault
@@ -1023,8 +1033,6 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
 	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -1530,9 +1538,25 @@ static void gmu_snapshot(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	adreno_gmu_send_nmi(adreno_dev);
-	/* Wait for the NMI to be handled */
-	udelay(100);
+	/* Abstain from sending another nmi or over-writing snapshot */
+	if (test_and_set_bit(GMU_FAULT, &device->gmu_core.flags))
+		return;
+
+	/* make sure we're reading the latest cm3_fault */
+	smp_rmb();
+
+	/*
+	 * We should not send NMI if there was a CM3 fault reported because we
+	 * don't want to overwrite the critical CM3 state captured by gmu before
+	 * it sent the CM3 fault interrupt.
+	 */
+	if (!atomic_read(&gmu->cm3_fault)) {
+		adreno_gmu_send_nmi(adreno_dev);
+
+		/* Wait for the NMI to be handled */
+		udelay(100);
+	}
+
 	kgsl_device_snapshot(device, NULL, true);
 
 	adreno_write_gmureg(adreno_dev,
@@ -1670,6 +1694,12 @@ static void gmu_stop(struct kgsl_device *device)
 	if (!test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return;
 
+	/* Force suspend if gmu is already in fault */
+	if (test_bit(GMU_FAULT, &device->gmu_core.flags)) {
+		gmu_core_suspend(device);
+		return;
+	}
+
 	/* Wait for the lowest idle level we requested */
 	if (gmu_core_dev_wait_for_lowest_idle(device))
 		goto error;
@@ -1695,14 +1725,13 @@ static void gmu_stop(struct kgsl_device *device)
 	return;
 
 error:
-	/*
-	 * The power controller will change state to SLUMBER anyway
-	 * Set GMU_FAULT flag to indicate to power contrller
-	 * that hang recovery is needed to power on GPU
-	 */
-	set_bit(GMU_FAULT, &device->gmu_core.flags);
 	dev_err(&gmu->pdev->dev, "Failed to stop GMU\n");
 	gmu_core_snapshot(device);
+	/*
+	 * We failed to stop the gmu successfully. Force a suspend
+	 * to set things up for a fresh start.
+	 */
+	gmu_core_suspend(device);
 }
 
 static void gmu_remove(struct kgsl_device *device)
