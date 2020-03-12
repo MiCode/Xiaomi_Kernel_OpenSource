@@ -86,7 +86,10 @@ static u32 a6xx_ifpc_pwrup_reglist[] = {
 	A6XX_CP_AHB_CNTL,
 };
 
-/* a620 and a650 need to program A6XX_CP_PROTECT_REG_47 for the infinite span */
+/*
+ * a620, a650 and a660 need to program A6XX_CP_PROTECT_REG_47
+ * for the infinite span
+ */
 static u32 a650_pwrup_reglist[] = {
 	A6XX_CP_PROTECT_REG + 47,
 };
@@ -296,7 +299,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		reglist[items++] = REGLIST(a612_pwrup_reglist);
 	else if (adreno_is_a615_family(adreno_dev))
 		reglist[items++] = REGLIST(a615_pwrup_reglist);
-	else if (adreno_is_a650(adreno_dev) || adreno_is_a620(adreno_dev))
+	else if (adreno_is_a650_family(adreno_dev))
 		reglist[items++] = REGLIST(a650_pwrup_reglist);
 
 	/*
