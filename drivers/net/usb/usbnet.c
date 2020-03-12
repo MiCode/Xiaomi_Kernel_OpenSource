@@ -49,10 +49,6 @@
 
 #define DRIVER_VERSION		"22-Aug-2005"
 
-#define dbg_log_string(fmt, ...) \
-	ipc_log_string(dev->ipc_log_ctxt,\
-			"%s: " fmt, __func__, ##__VA_ARGS__)
-
 /*-------------------------------------------------------------------------*/
 
 /*
@@ -121,6 +117,17 @@ static int name_to_netdev_id(char *name)
 error:
 	return -EINVAL;
 }
+
+static int debug_mask;
+module_param(debug_mask, int, 0644);
+MODULE_PARM_DESC(debug_mask, "Control data packet IPC logging");
+
+#define dbg_log_string(fmt, ...) do { \
+if ((dev->netdev_id == USBNET_RMNET_USB1 && debug_mask == 1) || \
+					debug_mask == 2) \
+	ipc_log_string(dev->ipc_log_ctxt, "%s: " fmt, \
+		       __func__, ##__VA_ARGS__); \
+} while (0)
 
 /*-------------------------------------------------------------------------*/
 
@@ -1746,7 +1753,6 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	int				status;
 	const char			*name;
 	struct usb_driver 	*driver = to_usb_driver(udev->dev.driver);
-	int				netdev_id;
 
 	/* usbnet already took usb runtime pm, so have to enable the feature
 	 * for usb interface, otherwise usb_autopm_get_interface may return
@@ -1908,9 +1914,9 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		usbnet_link_change(dev, 0, 0);
 
-	netdev_id = name_to_netdev_id(dev->net->name);
-	if (netdev_id >= 0)
-		dev->ipc_log_ctxt = usbnet_ipc_log_ctxt[netdev_id];
+	dev->netdev_id = name_to_netdev_id(dev->net->name);
+	if (dev->netdev_id >= 0)
+		dev->ipc_log_ctxt = usbnet_ipc_log_ctxt[dev->netdev_id];
 
 	return 0;
 
