@@ -1180,10 +1180,8 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 
 	/* notify any clients we enter lpm */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
-		mutex_lock(&itr->mutex);
 		if (itr->mhi_dev)
 			mhi_notify(itr->mhi_dev, MHI_CB_LPM_ENTER);
-		mutex_unlock(&itr->mutex);
 	}
 
 	return 0;
@@ -1289,10 +1287,8 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 
 	/* notify any clients we enter lpm */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
-		mutex_lock(&itr->mutex);
 		if (itr->mhi_dev)
 			mhi_notify(itr->mhi_dev, MHI_CB_LPM_ENTER);
-		mutex_unlock(&itr->mutex);
 	}
 
 	return 0;
@@ -1328,10 +1324,8 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 
 	/* notify any clients we enter lpm */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
-		mutex_lock(&itr->mutex);
 		if (itr->mhi_dev)
 			mhi_notify(itr->mhi_dev, MHI_CB_LPM_EXIT);
-		mutex_unlock(&itr->mutex);
 	}
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -1404,10 +1398,8 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	if (notify_client) {
 		list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans,
 					 node) {
-			mutex_lock(&itr->mutex);
 			if (itr->mhi_dev)
 				mhi_notify(itr->mhi_dev, MHI_CB_LPM_EXIT);
-			mutex_unlock(&itr->mutex);
 		}
 	}
 
