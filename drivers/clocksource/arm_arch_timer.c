@@ -31,6 +31,7 @@
 #include <asm/arch_timer.h>
 #include <asm/traps.h>
 #include <asm/virt.h>
+#include <asm/cputype.h>
 
 #include <clocksource/arm_arch_timer.h>
 
@@ -192,6 +193,25 @@ struct ate_acpi_oem_info {
 	char oem_table_id[ACPI_OEM_TABLE_ID_SIZE + 1];
 	u32 oem_revision;
 };
+
+#ifdef CONFIG_ARM_ERRATUM_858921
+DEFINE_PER_CPU(bool, timer_erratum_858921_workaround_enabled);
+EXPORT_PER_CPU_SYMBOL(timer_erratum_858921_workaround_enabled);
+static void arch_timer_check_858921_workaround(void)
+{
+	unsigned int cpuid_part;
+
+	cpuid_part = read_cpuid_part();
+	if (cpuid_part == ARM_CPU_PART_CORTEX_A73 ||
+	    cpuid_part == QCOM_CPU_PART_KRYO2XX_GOLD) {
+		this_cpu_write(timer_erratum_858921_workaround_enabled, true);
+	} else {
+		this_cpu_write(timer_erratum_858921_workaround_enabled, false);
+	}
+}
+#else
+#define arch_timer_check_858921_workaround()	do { } while (0)
+#endif
 
 #ifdef CONFIG_FSL_ERRATUM_A008585
 /*
@@ -803,6 +823,7 @@ static void __arch_timer_setup(unsigned type,
 		}
 
 		arch_timer_check_ool_workaround(ate_match_local_cap_id, NULL);
+		arch_timer_check_858921_workaround();
 	} else {
 		clk->features |= CLOCK_EVT_FEAT_DYNIRQ;
 		clk->name = "arch_mem_timer";
