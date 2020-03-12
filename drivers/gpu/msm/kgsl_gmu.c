@@ -1309,14 +1309,6 @@ static int gmu_probe(struct kgsl_device *device, struct platform_device *pdev)
 
 	gmu->num_clks = ret;
 
-	/* Get a pointer to the GMU clock */
-	gmu->gmu_clk = kgsl_of_clk_by_name(gmu->clks, gmu->num_clks, "gmu_clk");
-	if (!gmu->gmu_clk) {
-		dev_err(&pdev->dev, "Couldn't get gmu_clk\n");
-		ret = -ENODEV;
-		goto error;
-	}
-
 	/* Set up GMU IOMMU and shared memory with GMU */
 	ret = gmu_iommu_init(gmu, pdev->dev.of_node);
 	if (ret)
@@ -1406,14 +1398,32 @@ error:
 	return ret;
 }
 
+static int gmu_clk_set_rate(struct gmu_device *gmu, const char *id,
+	unsigned long rate)
+{
+	struct clk *clk;
+
+	clk = kgsl_of_clk_by_name(gmu->clks, gmu->num_clks, id);
+	if (!clk)
+		return -ENODEV;
+
+	return clk_set_rate(clk, rate);
+}
+
 static int gmu_enable_clks(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int ret;
 
-	ret = clk_set_rate(gmu->gmu_clk, GMU_FREQUENCY);
+	ret = gmu_clk_set_rate(gmu, "gmu_clk", GMU_FREQUENCY);
 	if (ret) {
-		dev_err(&gmu->pdev->dev, "Unable to set GMU clock\n");
+		dev_err(&gmu->pdev->dev, "Unable to set the GMU clock\n");
+		return ret;
+	}
+
+	ret = gmu_clk_set_rate(gmu, "hub_clk", 150000000);
+	if (ret && ret != ENODEV) {
+		dev_err(&gmu->pdev->dev, "Unable to set the HUB clock\n");
 		return ret;
 	}
 
