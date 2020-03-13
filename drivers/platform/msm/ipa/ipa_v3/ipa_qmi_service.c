@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1691,14 +1691,6 @@ static struct qmi_msg_handler server_handlers[] = {
 		.ei = ipa3_config_req_msg_data_v01_ei,
 		.decoded_size = sizeof(struct ipa_config_req_msg_v01),
 		.fn = handle_ipa_config_req,
-	},
-	{
-		.type = QMI_REQUEST,
-		.msg_id = QMI_IPA_INIT_MODEM_DRIVER_CMPLT_REQ_V01,
-		.ei = ipa3_init_modem_driver_cmplt_req_msg_data_v01_ei,
-		.decoded_size = sizeof(
-			struct ipa_init_modem_driver_cmplt_req_msg_v01),
-		.fn = ipa3_handle_modem_init_cmplt_req,
 	},
 	{
 		.type = QMI_REQUEST,
