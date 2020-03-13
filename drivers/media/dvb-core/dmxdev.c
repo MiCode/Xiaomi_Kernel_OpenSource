@@ -135,7 +135,7 @@ static inline void dvb_dmxdev_notify_data_read(
 		feed = list_first_entry(&filter->feed.ts,
 					struct dmxdev_feed, next);
 
-		if (feed->ts->notify_data_read)
+		if (feed->ts && feed->ts->notify_data_read)
 			feed->ts->notify_data_read(
 						feed->ts,
 						bytes_read);
@@ -599,7 +599,8 @@ static void dvb_dvr_oob_cmd(struct dmxdev *dmxdev, struct dmx_oob_command *cmd)
 		case DMXDEV_TYPE_PES:
 			feed = list_first_entry(&filter->feed.ts,
 						struct dmxdev_feed, next);
-			feed->ts->oob_command(feed->ts, cmd);
+			if (feed->ts && feed->ts->oob_command)
+				feed->ts->oob_command(feed->ts, cmd);
 			break;
 		case DMXDEV_TYPE_NONE:
 			break;
@@ -1351,7 +1352,7 @@ static int dvb_dmxdev_flush_data(struct dmxdev_filter *filter,
 		feed = list_first_entry(&filter->feed.ts,
 			struct dmxdev_feed, next);
 
-		if (feed->ts->flush_buffer)
+		if (feed->ts && feed->ts->flush_buffer)
 			return feed->ts->flush_buffer(feed->ts, length);
 	} else if (filter->type == DMXDEV_TYPE_SEC &&
 		filter->feed.sec.feed->flush_buffer) {
@@ -2064,7 +2065,7 @@ static int dvb_dmxdev_set_indexing_params(
 			ts_feed = feed;
 			ts_feed->idx_params = *idx_params;
 			if ((dmxdevfilter->state == DMXDEV_STATE_GO) &&
-				ts_feed->ts->set_idx_params)
+				ts_feed->ts && ts_feed->ts->set_idx_params)
 				ret = ts_feed->ts->set_idx_params(
 						ts_feed->ts, idx_params);
 			break;
@@ -2096,7 +2097,7 @@ static int dvb_dmxdev_get_scrambling_bits(struct dmxdev_filter *filter,
 
 	list_for_each_entry(feed, &filter->feed.ts, next) {
 		if (feed->pid == scrambling_bits->pid) {
-			if (feed->ts->get_scrambling_bits)
+			if (feed->ts && feed->ts->get_scrambling_bits)
 				return feed->ts->get_scrambling_bits(feed->ts,
 						&scrambling_bits->value);
 			return -EINVAL;
@@ -2131,8 +2132,9 @@ static void dvb_dmxdev_ts_insertion_work(struct work_struct *worker)
 	mutex_unlock(&ts_buffer->dmxdevfilter->mutex);
 
 	if (ts_buffer->size < free_bytes)
-		ts->ts_insertion_insert_buffer(ts,
-			ts_buffer->buffer, ts_buffer->size);
+		if (ts && ts->ts_insertion_insert_buffer)
+			ts->ts_insertion_insert_buffer(ts,
+				ts_buffer->buffer, ts_buffer->size);
 
 	if (ts_buffer->repetition_time && !ts_buffer->abort)
 		schedule_delayed_work(&ts_buffer->dwork,
@@ -2242,7 +2244,7 @@ static int dvb_dmxdev_set_ts_insertion(
 	feed = list_first_entry(&dmxdevfilter->feed.ts,
 				struct dmxdev_feed, next);
 
-	if (first_buffer && feed->ts->ts_insertion_init)
+	if (first_buffer && feed->ts && feed->ts->ts_insertion_init)
 		ret = feed->ts->ts_insertion_init(feed->ts);
 
 	if (!ret) {
@@ -2296,7 +2298,7 @@ static int dvb_dmxdev_abort_ts_insertion(struct dmxdev_filter *dmxdevfilter,
 		if (list_empty(&dmxdevfilter->insertion_buffers)) {
 			feed = list_first_entry(&dmxdevfilter->feed.ts,
 						struct dmxdev_feed, next);
-			if (feed->ts->ts_insertion_terminate)
+			if (feed->ts && feed->ts->ts_insertion_terminate)
 				ret = feed->ts->ts_insertion_terminate(
 							feed->ts);
 		}
@@ -2503,7 +2505,7 @@ static int dvb_dmxdev_get_buffer_status(
 					struct dmxdev_feed, next);
 
 		/* Ask for status of decoder's buffer from underlying HW */
-		if (feed->ts->get_decoder_buff_status)
+		if (feed->ts && feed->ts->get_decoder_buff_status)
 			ret = feed->ts->get_decoder_buff_status(
 					feed->ts,
 					dmx_buffer_status);
@@ -3196,7 +3198,8 @@ static int dvb_dmxdev_feed_stop(struct dmxdev_filter *dmxdevfilter)
 				if (!dmxdevfilter->dev->dvr_feeds_count)
 					dmxdevfilter->dev->dvr_feed = NULL;
 			}
-			feed->ts->stop_filtering(feed->ts);
+			if (feed->ts && feed->ts->stop_filtering)
+				feed->ts->stop_filtering(feed->ts);
 		}
 		break;
 	default:
@@ -3219,10 +3222,12 @@ static int dvb_dmxdev_feed_start(struct dmxdev_filter *filter)
 			filter->feed.sec.feed);
 	case DMXDEV_TYPE_PES:
 		list_for_each_entry(feed, &filter->feed.ts, next) {
-			ret = feed->ts->start_filtering(feed->ts);
-			if (ret < 0) {
-				dvb_dmxdev_feed_stop(filter);
-				return ret;
+			if (feed->ts && feed->ts->start_filtering) {
+				ret = feed->ts->start_filtering(feed->ts);
+				if (ret < 0) {
+					dvb_dmxdev_feed_stop(filter);
+					return ret;
+				}
 			}
 		}
 		break;
@@ -3289,7 +3294,7 @@ static int dvb_dmxdev_filter_stop(struct dmxdev_filter *dmxdevfilter)
 			list_for_each_entry(ts_buffer,
 					&dmxdevfilter->insertion_buffers, next)
 				dvb_dmxdev_cancel_ts_insertion(ts_buffer);
-			if (feed->ts->ts_insertion_terminate)
+			if (feed->ts && feed->ts->ts_insertion_terminate)
 				feed->ts->ts_insertion_terminate(feed->ts);
 		}
 
@@ -3754,7 +3759,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			struct dmxdev_feed, next);
 
 		ret = 0;
-		if (feed->ts->ts_insertion_init)
+		if (feed->ts && feed->ts->ts_insertion_init)
 			ret = feed->ts->ts_insertion_init(feed->ts);
 		if (!ret) {
 			list_for_each_entry(ts_buffer,
@@ -3939,7 +3944,7 @@ static int dvb_dmxdev_remove_pid(struct dmxdev *dmxdev,
 
 	list_for_each_entry_safe(feed, tmp, &filter->feed.ts, next) {
 		if (feed->pid == pid) {
-			if (feed->ts != NULL) {
+			if (feed->ts != NULL && feed->ts->stop_filtering) {
 				feed->ts->stop_filtering(feed->ts);
 				filter->dev->demux->release_ts_feed(
 							filter->dev->demux,
@@ -4037,7 +4042,8 @@ static int dvb_dmxdev_set_cipher(struct dmxdev *dmxdev,
 				ts_feed = feed;
 				ts_feed->cipher_ops = *cipher_ops;
 				if (filter->state == DMXDEV_STATE_GO &&
-					ts_feed->ts->set_cipher_ops)
+						ts_feed->ts &&
+						ts_feed->ts->set_cipher_ops)
 					ts_feed->ts->set_cipher_ops(
 						ts_feed->ts, cipher_ops);
 				break;
