@@ -10615,20 +10615,57 @@ EXPORT_SYMBOL(ufshcd_runtime_idle);
 
 int ufshcd_system_freeze(struct ufs_hba *hba)
 {
-	return ufshcd_system_suspend(hba);
+	int ret = 0;
+
+	/*
+	 * Run time resume the controller to make sure
+	 * the PM work queue threads do not try to resume
+	 * the child (scsi host), which leads to errors as
+	 * the controller is not yet resumed.
+	 */
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_system_suspend(hba);
+	pm_runtime_put_sync(hba->dev);
+
+	/*
+	 * Ensure no runtime PM operations take
+	 * place in the hibernation and restore sequence
+	 * on successful freeze operation.
+	 */
+	if (!ret)
+		pm_runtime_disable(hba->dev);
+
+	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_freeze);
 
 int ufshcd_system_restore(struct ufs_hba *hba)
 {
+	int ret = 0;
+
 	hba->restore = true;
-	return ufshcd_system_resume(hba);
+	ret = ufshcd_system_resume(hba);
+
+	/*
+	 * Now any runtime PM operations can be
+	 * allowed on successful restore operation
+	 */
+	if (!ret)
+		pm_runtime_enable(hba->dev);
+
+	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_restore);
 
 int ufshcd_system_thaw(struct ufs_hba *hba)
 {
-	return ufshcd_system_resume(hba);
+	int ret = 0;
+
+	ret = ufshcd_system_resume(hba);
+	if (!ret)
+		pm_runtime_enable(hba->dev);
+
+	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_thaw);
 
