@@ -2187,7 +2187,7 @@ int icnss_smmu_map(struct device *dev,
 	}
 
 	len = roundup(size + paddr - rounddown(paddr, PAGE_SIZE), PAGE_SIZE);
-	iova = roundup(penv->smmu_iova_ipa_start, PAGE_SIZE);
+	iova = roundup(penv->smmu_iova_ipa_current, PAGE_SIZE);
 
 	if (iova >= priv->smmu_iova_ipa_start + priv->smmu_iova_ipa_len) {
 		icnss_pr_err("No IOVA space to map, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu\n",
@@ -2197,6 +2197,8 @@ int icnss_smmu_map(struct device *dev,
 		return -ENOMEM;
 	}
 
+	icnss_pr_dbg("IOMMU Map: iova %lx, len %zu\n", iova, len);
+
 	ret = iommu_map(priv->iommu_domain, iova,
 			rounddown(paddr, PAGE_SIZE), len,
 			IOMMU_READ | IOMMU_WRITE);
@@ -2205,12 +2207,58 @@ int icnss_smmu_map(struct device *dev,
 		return ret;
 	}
 
-	priv->smmu_iova_ipa_start = iova + len;
+	priv->smmu_iova_ipa_current = iova + len;
 	*iova_addr = (uint32_t)(iova + paddr - rounddown(paddr, PAGE_SIZE));
 
+	icnss_pr_dbg("IOVA addr mapped to physical addr %lx\n", *iova_addr);
 	return 0;
 }
 EXPORT_SYMBOL(icnss_smmu_map);
+
+int icnss_smmu_unmap(struct device *dev,
+		     uint32_t iova_addr, size_t size)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	unsigned long iova;
+	size_t len, unmapped_len;
+
+	if (!priv) {
+		icnss_pr_err("Invalid drvdata: dev %pK, data %pK\n",
+			     dev, priv);
+		return -EINVAL;
+	}
+
+	if (!iova_addr) {
+		icnss_pr_err("iova_addr is NULL, size %zu\n",
+			     size);
+		return -EINVAL;
+	}
+
+	len = roundup(size + iova_addr - rounddown(iova_addr, PAGE_SIZE),
+		      PAGE_SIZE);
+	iova = rounddown(iova_addr, PAGE_SIZE);
+
+	if (iova >= priv->smmu_iova_ipa_start + priv->smmu_iova_ipa_len) {
+		icnss_pr_err("Out of IOVA space during unmap, iova %lx, smmu_iova_ipa_start %pad, smmu_iova_ipa_len %zu\n",
+			     iova,
+			     &priv->smmu_iova_ipa_start,
+			     priv->smmu_iova_ipa_len);
+		return -ENOMEM;
+	}
+
+	icnss_pr_dbg("IOMMU Unmap: iova %lx, len %zu\n",
+		     iova, len);
+
+	unmapped_len = iommu_unmap(priv->iommu_domain, iova, len);
+	if (unmapped_len != len) {
+		icnss_pr_err("Failed to unmap, %zu\n", unmapped_len);
+		return -EINVAL;
+	}
+
+	priv->smmu_iova_ipa_current = iova;
+	return 0;
+}
+EXPORT_SYMBOL(icnss_smmu_unmap);
 
 unsigned int icnss_socinfo_get_serial_number(struct device *dev)
 {
@@ -3384,6 +3432,7 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 			icnss_pr_err("SMMU IOVA IPA not found\n");
 		} else {
 			priv->smmu_iova_ipa_start = res->start;
+			priv->smmu_iova_ipa_current = res->start;
 			priv->smmu_iova_ipa_len = resource_size(res);
 			icnss_pr_dbg("SMMU IOVA IPA start: %pa, len: %zx\n",
 				     &priv->smmu_iova_ipa_start,
