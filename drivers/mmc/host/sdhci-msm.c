@@ -2058,6 +2058,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	u32 config;
 	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
 	int ret = 0;
+	struct mmc_host *mmc = host->mmc;
 
 	irq_status = msm_host_readl(msm_host, host,
 			msm_offset->core_pwrctl_status);
@@ -2086,6 +2087,12 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 			msm_offset->core_pwrctl_clear);
 		retry--;
 		udelay(10);
+	}
+
+	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+		irq_status & (CORE_PWRCTL_BUS_ON | CORE_PWRCTL_IO_HIGH |
+			CORE_PWRCTL_IO_LOW)) {
+		return;
 	}
 
 	/* Handle BUS ON/OFF*/
