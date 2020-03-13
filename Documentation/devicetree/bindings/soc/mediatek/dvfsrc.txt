@@ -12,6 +12,11 @@ Required Properties:
 - clock-names: Must include the following entries:
 	"dvfsrc": DVFSRC module clock
 - clocks: Must contain an entry for each entry in clock-names.
+- #interconnect-cells : should contain 1
+- interconnect : interconnect providers support dram bandwidth requirements.
+	The provider is able to communicate with the DVFSRC and send the dram
+	bandwidth to it. shall contain only one of the following:
+	"mediatek,mt8183-emi"
 
 Example:
 
@@ -20,4 +25,8 @@ Example:
 		reg = <0 0x10012000 0 0x1000>;
 		clocks = <&infracfg CLK_INFRA_DVFSRC>;
 		clock-names = "dvfsrc";
+		ddr_emi: interconnect {
+			compatible = "mediatek,mt8183-emi";
+			#interconnect-cells = <1>;
+		};
 	};
