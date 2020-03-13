@@ -592,15 +592,15 @@ redo:
 	val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_NSEC);
 
 	/* Write or Read Access */
-	if (flags & IOMMU_TRANS_WRITE)
+	if (trans_flags & IOMMU_TRANS_WRITE)
 		val |= DEBUG_TXN_WRITE;
 
 	/* Priviledged or Unpriviledged Access */
-	if (flags & IOMMU_TRANS_PRIV)
+	if (trans_flags & IOMMU_TRANS_PRIV)
 		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_PRIV);
 
 	/* Data or Instruction Access */
-	if (flags & IOMMU_TRANS_INST)
+	if (trans_flags & IOMMU_TRANS_INST)
 		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_INST);
 
 	val |= DEBUG_TXN_TRIGGER;
