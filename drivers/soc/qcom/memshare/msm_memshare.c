@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -684,21 +684,21 @@ static struct qmi_msg_handler qmi_memshare_handlers[] = {
 		.type = QMI_REQUEST,
 		.msg_id = MEM_ALLOC_GENERIC_REQ_MSG_V01,
 		.ei = mem_alloc_generic_req_msg_data_v01_ei,
-		.decoded_size = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
+		.decoded_size = sizeof(struct mem_alloc_generic_req_msg_v01),
 		.fn = handle_alloc_generic_req,
 	},
 	{
 		.type = QMI_REQUEST,
 		.msg_id = MEM_FREE_GENERIC_REQ_MSG_V01,
 		.ei = mem_free_generic_req_msg_data_v01_ei,
-		.decoded_size = MEM_FREE_REQ_MAX_MSG_LEN_V01,
+		.decoded_size = sizeof(struct mem_free_generic_req_msg_v01),
 		.fn = handle_free_generic_req,
 	},
 	{
 		.type = QMI_REQUEST,
 		.msg_id = MEM_QUERY_SIZE_REQ_MSG_V01,
 		.ei = mem_query_size_req_msg_data_v01_ei,
-		.decoded_size = MEM_QUERY_MAX_MSG_LEN_V01,
+		.decoded_size = sizeof(struct mem_query_size_req_msg_v01),
 		.fn = handle_query_size_req,
 	},
 };
