@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "bw-hwmon: " fmt
@@ -62,6 +62,7 @@ struct hwmon_node {
 	ktime_t hist_max_ts;
 	bool sampled;
 	bool mon_started;
+	bool init_pending;
 	struct list_head list;
 	void *orig_data;
 	struct bw_hwmon *hw;
@@ -539,8 +540,15 @@ static int start_monitor(struct devfreq *df, bool init)
 	unsigned long mbps;
 	int ret;
 
-	node->prev_ts = ktime_get();
+	if (init && df->dev_suspended) {
+		node->init_pending = true;
+		return 0;
+	} else if (!init && node->init_pending) {
+		init = true;
+		node->init_pending = false;
+	}
 
+	node->prev_ts = ktime_get();
 	if (init) {
 		node->prev_ab = 0;
 		node->resume_freq = 0;
@@ -580,7 +588,8 @@ static void stop_monitor(struct devfreq *df, bool init)
 
 	if (init) {
 		devfreq_monitor_stop(df);
-		hw->stop_hwmon(hw);
+		if (!df->dev_suspended)
+			hw->stop_hwmon(hw);
 	} else {
 		devfreq_monitor_suspend(df);
 		hw->suspend_hwmon(hw);
@@ -705,7 +714,7 @@ static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 	struct hwmon_node *node = df->data;
 
 	/* Suspend/resume sequence */
-	if (node && !node->mon_started) {
+	if ((node && !node->mon_started) || df->dev_suspended) {
 		*freq = node->resume_freq;
 		*node->dev_ab = node->resume_ab;
 		return 0;
@@ -877,6 +886,10 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		 */
 		hw = node->hw;
 
+		if (!node->mon_started || df->dev_suspended) {
+			devfreq_interval_update(df, &sample_ms);
+			break;
+		}
 		mutex_lock(&node->mon_lock);
 		node->mon_started = false;
 		mutex_unlock(&node->mon_lock);

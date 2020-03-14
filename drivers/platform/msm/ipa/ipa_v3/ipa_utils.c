@@ -65,7 +65,7 @@
 
 #define IPA_FILT_ROUT_HASH_REG_VAL_v4_2 (0x00000000)
 #define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
-#define IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC (500)
+#define IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC (20)
 
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
@@ -6205,7 +6205,7 @@ void ipa3_counter_remove_hdl(int hdl)
 	}
 	/* remove counters belong to this hdl, set used back to 0 */
 	offset = counter->hw_counter.start_id - 1;
-	if (offset >= 0 && offset + counter->hw_counter.num_counters
+	if (offset >= 0 && (offset + counter->hw_counter.num_counters)
 		< IPA_FLT_RT_HW_COUNTER) {
 		memset(&ipa3_ctx->flt_rt_counters.used_hw + offset,
 			   0, counter->hw_counter.num_counters * sizeof(bool));
@@ -6214,7 +6214,7 @@ void ipa3_counter_remove_hdl(int hdl)
 		goto err;
 	}
 	offset = counter->sw_counter.start_id - 1 - IPA_FLT_RT_HW_COUNTER;
-	if (offset >= 0 && offset + counter->sw_counter.num_counters
+	if (offset >= 0 && (offset + counter->sw_counter.num_counters)
 		< IPA_FLT_RT_SW_COUNTER) {
 		memset(&ipa3_ctx->flt_rt_counters.used_sw + offset,
 		   0, counter->sw_counter.num_counters * sizeof(bool));
@@ -7744,6 +7744,16 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 			ipa_assert();
 		}
 	} else {
+		if (IPA_CLIENT_IS_APPS_PROD(client) ||
+			(client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_idx != IPA_EP_NOT_ALLOCATED))
+			goto chan_statrt;
+		if (!atomic_read(&ep->sys->curr_polling_state)) {
+			IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+					GSI_CHAN_MODE_CALLBACK);
+		}
+chan_statrt:
 		res = gsi_start_channel(ep->gsi_chan_hdl);
 		if (res) {
 			IPAERR("failed to start LAN channel\n");
@@ -7770,12 +7780,7 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
 		if (!ipa3_gsi_channel_is_quite(ep))
 			return -EAGAIN;
-	} else if (!atomic_read(&ep->sys->curr_polling_state)) {
-		IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
-		gsi_config_channel_mode(ep->gsi_chan_hdl,
-			GSI_CHAN_MODE_CALLBACK);
 	}
-
 	return 0;
 }
 
@@ -7791,7 +7796,8 @@ void ipa3_force_close_coal(void)
 	ipa3_init_imm_cmd_desc(&desc, ipa3_ctx->coal_cmd_pyld);
 
 	IPADBG("Sending 1 descriptor for coal force close\n");
-	if (ipa3_send_cmd(1, &desc))
+	if (ipa3_send_cmd_timeout(1, &desc,
+				IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC))
 		IPADBG("ipa3_send_cmd timedout\n");
 }
 
