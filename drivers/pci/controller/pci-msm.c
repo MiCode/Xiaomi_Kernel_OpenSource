@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
@@ -330,6 +330,7 @@ enum msm_pcie_link_status {
 	MSM_PCIE_LINK_ENABLED,
 	MSM_PCIE_LINK_DISABLED,
 	MSM_PCIE_LINK_DRV,
+	MSM_PCIE_LINK_DOWN,
 };
 
 enum msm_pcie_boot_option {
@@ -4752,7 +4753,7 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 
 		notify->event = event;
 		notify->user = dev->event_reg->user;
-		PCIE_DBG(dev, "PCIe: callback RC%d for event %d\n",
+		PCIE_DUMP(dev, "PCIe: callback RC%d for event %d\n",
 			dev->rc_idx, event);
 		dev->event_reg->callback(notify);
 
@@ -4888,7 +4889,7 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 	msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS, 0,
 				BIT(18)|BIT(17)|BIT(16));
 
-	if (dev->link_status == MSM_PCIE_LINK_DISABLED) {
+	if (dev->link_status != MSM_PCIE_LINK_ENABLED) {
 		PCIE_DBG2(dev, "RC%d link is down\n", dev->rc_idx);
 		goto out;
 	}
@@ -5039,7 +5040,7 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 			"PCIe:the link of RC%d is suspending.\n",
 			dev->rc_idx);
 	} else {
-		dev->link_status = MSM_PCIE_LINK_DISABLED;
+		dev->link_status = MSM_PCIE_LINK_DOWN;
 		dev->shadow_en = false;
 
 		if (dev->linkdown_panic)
@@ -6225,9 +6226,19 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 
 	if (target_link_speed == current_link_speed)
 		set_link_speed = false;
+	else
+		PCIE_DBG(pcie_dev,
+			"PCIe: RC%d: switching from Gen%d to Gen%d\n",
+			pcie_dev->rc_idx, current_link_speed,
+			target_link_speed);
 
 	if (target_link_width == current_link_width)
 		set_link_width = false;
+	else
+		PCIE_DBG(pcie_dev,
+			"PCIe: RC%d: switching from x%d to x%d\n",
+			pcie_dev->rc_idx, current_link_width,
+			target_link_width);
 
 	if (!set_link_speed && !set_link_width)
 		return 0;
@@ -6270,6 +6281,9 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 
 	if (target_link_speed < current_link_speed)
 		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: successfully switched link bandwidth\n",
+		pcie_dev->rc_idx);
 out:
 	msm_pcie_allow_l1(root_pci_dev);
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -319,6 +319,9 @@ static int mhi_fw_load_amss(struct mhi_controller *mhi_cntrl,
 			mhi_buf->len);
 
 	mhi_cntrl->sequence_id = prandom_u32() & BHIE_TXVECSTATUS_SEQNUM_BMSK;
+	if (unlikely(!mhi_cntrl->sequence_id))
+		mhi_cntrl->sequence_id = 1;
+
 	mhi_write_reg_field(mhi_cntrl, base, BHIE_TXVECDB_OFFS,
 			    BHIE_TXVECDB_SEQNUM_BMSK, BHIE_TXVECDB_SEQNUM_SHFT,
 			    mhi_cntrl->sequence_id);
@@ -381,6 +384,9 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 		      lower_32_bits(dma_addr));
 	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
 	mhi_cntrl->session_id = prandom_u32() & BHI_TXDB_SEQNUM_BMSK;
+	if (unlikely(!mhi_cntrl->session_id))
+		mhi_cntrl->session_id = 1;
+
 	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGTXDB,
 			mhi_cntrl->session_id);
 	read_unlock_bh(pm_lock);
@@ -530,7 +536,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
 	const char *fw_name;
-	const struct firmware *firmware;
+	const struct firmware *firmware = NULL;
 	struct image_info *image_info;
 	void *buf;
 	dma_addr_t dma_addr;

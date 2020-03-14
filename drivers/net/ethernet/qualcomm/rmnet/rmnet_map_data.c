@@ -1401,17 +1401,46 @@ static struct sk_buff *rmnet_map_build_skb(struct rmnet_port *port)
 	return skb;
 }
 
+static void rmnet_map_send_agg_skb(struct rmnet_port *port, unsigned long flags)
+{
+	struct sk_buff *agg_skb;
+
+	if (!port->agg_skb) {
+		spin_unlock_irqrestore(&port->agg_lock, flags);
+		return;
+	}
+
+	agg_skb = port->agg_skb;
+	/* Reset the aggregation state */
+	port->agg_skb = NULL;
+	port->agg_count = 0;
+	memset(&port->agg_time, 0, sizeof(struct timespec));
+	port->agg_state = 0;
+	spin_unlock_irqrestore(&port->agg_lock, flags);
+	hrtimer_cancel(&port->hrtimer);
+	dev_queue_xmit(agg_skb);
+}
+
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct timespec diff, last;
-	int size, agg_count = 0;
-	struct sk_buff *agg_skb;
+	int size;
 	unsigned long flags;
 
 new_packet:
 	spin_lock_irqsave(&port->agg_lock, flags);
 	memcpy(&last, &port->agg_last, sizeof(struct timespec));
 	getnstimeofday(&port->agg_last);
+
+	if ((port->data_format & RMNET_EGRESS_FORMAT_PRIORITY) &&
+	    skb->priority) {
+		/* Send out any aggregated SKBs we have */
+		rmnet_map_send_agg_skb(port, flags);
+		/* Send out the priority SKB. Not holding agg_lock anymore */
+		skb->protocol = htons(ETH_P_MAP);
+		dev_queue_xmit(skb);
+		return;
+	}
 
 	if (!port->agg_skb) {
 		/* Check to see if we should agg first. If the traffic is very
@@ -1452,15 +1481,7 @@ new_packet:
 	if (skb->len > size ||
 	    port->agg_count >= port->egress_agg_params.agg_count ||
 	    diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_time_limit) {
-		agg_skb = port->agg_skb;
-		agg_count = port->agg_count;
-		port->agg_skb = 0;
-		port->agg_count = 0;
-		memset(&port->agg_time, 0, sizeof(struct timespec));
-		port->agg_state = 0;
-		spin_unlock_irqrestore(&port->agg_lock, flags);
-		hrtimer_cancel(&port->hrtimer);
-		dev_queue_xmit(agg_skb);
+		rmnet_map_send_agg_skb(port, flags);
 		goto new_packet;
 	}
 

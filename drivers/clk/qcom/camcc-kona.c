@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -181,7 +181,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00003100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -257,7 +257,7 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -326,7 +326,7 @@ static const struct alpha_pll_config cam_cc_pll2_config_sm8250_v2 = {
 	.cal_l = 0x4B,
 	.alpha = 0x0,
 	.config_ctl_val = 0x08200920,
-	.config_ctl_hi_val = 0x05008011,
+	.config_ctl_hi_val = 0x05002015,
 	.config_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000000,
@@ -347,9 +347,9 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 			.vdd_class = &vdd_mx,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
-				[VDD_LOWER] = 1600000000,
-				[VDD_LOW] = 2000000000,
-				[VDD_NOMINAL] = 2900000000,
+				[VDD_LOWER] = 1800000000,
+				[VDD_LOW] = 2400000000,
+				[VDD_NOMINAL] = 3000000000,
 				[VDD_HIGH] = 3600000000},
 		},
 	},
@@ -382,7 +382,7 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.alpha = 0x7555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -437,7 +437,7 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.alpha = 0x7555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000100,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -2803,6 +2803,7 @@ static int cam_cc_kona_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "Registered CAM CC clocks\n");
+
 	return ret;
 }
 

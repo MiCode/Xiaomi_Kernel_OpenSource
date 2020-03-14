@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -126,7 +126,7 @@ static const struct alpha_pll_config video_pll0_config = {
 	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -160,7 +160,7 @@ static const struct alpha_pll_config video_pll1_config = {
 	.alpha = 0xFAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,

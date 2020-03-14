@@ -20,6 +20,7 @@
 
 #include <asm/page.h>
 #include <asm/memory.h>
+#include <asm/mmu_context.h>
 #include <asm/cpufeature.h>
 
 /*
@@ -527,6 +528,20 @@ static inline int hyp_map_aux_data(void)
 #endif
 
 #define kvm_phys_to_vttbr(addr)		phys_to_ttbr(addr)
+
+static inline void kvm_workaround_1542418_vmid_rollover(void)
+{
+	unsigned long flags;
+
+	if (!IS_ENABLED(CONFIG_ARM64_ERRATUM_1542418) ||
+	    !cpus_have_const_cap(ARM64_WORKAROUND_1542418))
+		return;
+
+	local_irq_save(flags);
+	arm64_workaround_1542418_asid_rollover();
+	local_irq_restore(flags);
+
+}
 
 #endif /* __ASSEMBLY__ */
 #endif /* __ARM64_KVM_MMU_H__ */

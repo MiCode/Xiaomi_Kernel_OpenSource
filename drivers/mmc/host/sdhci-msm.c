@@ -4064,6 +4064,8 @@ static void sdhci_msm_reset(struct sdhci_host *host, u8 mask)
 	}
 
 	sdhci_reset(host, mask);
+	if ((host->mmc->caps2 & MMC_CAP2_CQE) && (mask & SDHCI_RESET_ALL))
+		cqhci_suspend(host->mmc);
 }
 
 /*
