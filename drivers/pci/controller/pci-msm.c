@@ -321,6 +321,7 @@ enum msm_pcie_link_status {
 	MSM_PCIE_LINK_ENABLED,
 	MSM_PCIE_LINK_DISABLED,
 	MSM_PCIE_LINK_DRV,
+	MSM_PCIE_LINK_DOWN,
 };
 
 enum msm_pcie_boot_option {
@@ -4840,7 +4841,7 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 	msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS, 0,
 				BIT(18)|BIT(17)|BIT(16));
 
-	if (dev->link_status == MSM_PCIE_LINK_DISABLED) {
+	if (dev->link_status != MSM_PCIE_LINK_ENABLED) {
 		PCIE_DBG2(dev, "RC%d link is down\n", dev->rc_idx);
 		goto out;
 	}
@@ -4991,7 +4992,7 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 			"PCIe:the link of RC%d is suspending.\n",
 			dev->rc_idx);
 	} else {
-		dev->link_status = MSM_PCIE_LINK_DISABLED;
+		dev->link_status = MSM_PCIE_LINK_DOWN;
 		dev->shadow_en = false;
 
 		if (dev->linkdown_panic)
