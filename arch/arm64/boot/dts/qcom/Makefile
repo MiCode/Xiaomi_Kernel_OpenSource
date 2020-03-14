@@ -296,25 +296,26 @@ endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp.dtb \
-	sdxprairie-dsda-cdp.dtb \
-	sdxprairie-mtp.dtb \
-	sdxprairie-pcie-ep-mtp.dtb \
-	sdxprairie-v2-pcie-ep-mtp.dtb \
-	sdxprairie-mtp-cpe.dtb \
-	sdxprairie-cdp-cpe.dtb \
-	sdxprairie-mtp-v1.1-cpe.dtb \
-	sdxprairie-cdp-v1.1-cpe.dtb \
-	sdxprairie-v2-mtp-v1.1-cpe.dtb \
-	sdxprairie-mtp-v1.1.dtb \
-	sdxprairie-v2-mtp-v1.1.dtb \
-	sdxprairie-mtp-le-cpe.dtb \
-	sdxprairie-v2-mtp-le-cpe.dtb \
 	sdxprairie-cdp-256.dtb \
+	sdxprairie-cdp-cpe.dtb \
+	sdxprairie-cdp-v1.1-cpe.dtb \
+	sdxprairie-dsda-cdp.dtb \
+	sdxprairie-v2-cdp.dtb \
+	sdxprairie-mtp.dtb \
 	sdxprairie-mtp-256.dtb \
 	sdxprairie-mtp-aqc.dtb \
+	sdxprairie-mtp-cpe.dtb \
+	sdxprairie-mtp-le-cpe.dtb \
+	sdxprairie-mtp-v1.1.dtb \
+	sdxprairie-mtp-v1.1-cpe.dtb \
 	sdxprairie-dsda-mtp.dtb \
-	sdxprairie-v2-cdp.dtb \
+	sdxprairie-pcie-ep-mtp.dtb \
 	sdxprairie-v2-mtp.dtb \
+	sdxprairie-v2-mtp-cpe.dtb \
+	sdxprairie-v2-mtp-le-cpe.dtb \
+	sdxprairie-v2-mtp-v1.1.dtb \
+	sdxprairie-v2-mtp-v1.1-cpe.dtb \
+	sdxprairie-v2-pcie-ep-mtp.dtb \
 	sa515m-ccard.dtb \
 	sa515m-ccard-pcie-ep.dtb \
 	sa515m-ccard-usb-ep.dtb
