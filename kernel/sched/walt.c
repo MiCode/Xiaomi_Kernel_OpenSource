@@ -3558,6 +3558,9 @@ int walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 	struct rq *rq = cpu_rq(cpumask_first(cpu_possible_mask));
 	unsigned long flags;
 
+	if (unlikely(num_sched_clusters <= 0))
+		return -EPERM;
+
 	mutex_lock(&mutex);
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret || !write) {

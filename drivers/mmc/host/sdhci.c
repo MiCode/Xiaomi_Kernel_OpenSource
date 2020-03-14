@@ -2418,6 +2418,22 @@ static void sdhci_hw_reset(struct mmc_host *mmc)
 		host->ops->hw_reset(host);
 }
 
+static void sdhci_enter_dbg_mode(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->enter_dbg_mode)
+		host->ops->enter_dbg_mode(host);
+}
+
+static void sdhci_exit_dbg_mode(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->exit_dbg_mode)
+		host->ops->exit_dbg_mode(host);
+}
+
 static void sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable)
 {
 	u16 ctrl = 0;
@@ -2968,6 +2984,8 @@ static const struct mmc_host_ops sdhci_ops = {
 	.get_cd		= sdhci_get_cd,
 	.get_ro		= sdhci_get_ro,
 	.hw_reset	= sdhci_hw_reset,
+	.enter_dbg_mode = sdhci_enter_dbg_mode,
+	.exit_dbg_mode = sdhci_exit_dbg_mode,
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.prepare_hs400_tuning		= sdhci_prepare_hs400_tuning,
@@ -3440,9 +3458,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 				intmask, host->data->error,
 				ktime_to_ms(ktime_sub(ktime_get(),
 				host->data_start_time)));
-
-			if (host->mmc->ios.timing != MMC_TIMING_UHS_SDR104)
-				sdhci_dumpregs(host);
+			sdhci_dumpregs(host);
 		}
 		sdhci_finish_data(host);
 	} else {
@@ -3971,9 +3987,12 @@ bool sdhci_cqe_irq(struct sdhci_host *host, u32 intmask, int *cmd_error,
 		*data_error = 0;
 
 	/* Clear selected interrupts. */
+	if (*data_error || *cmd_error)
+		goto skip_intr_clear;
 	mask = intmask & host->cqe_ier;
 	sdhci_writel(host, mask, SDHCI_INT_STATUS);
 
+skip_intr_clear:
 	if (intmask & SDHCI_INT_BUS_POWER)
 		pr_err("%s: Card is consuming too much power!\n",
 		       mmc_hostname(host->mmc));

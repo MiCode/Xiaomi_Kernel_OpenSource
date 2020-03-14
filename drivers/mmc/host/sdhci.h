@@ -747,6 +747,8 @@ struct sdhci_ops {
 	void	(*pre_req)(struct sdhci_host *host, struct mmc_request *req);
 	void	(*post_req)(struct sdhci_host *host, struct mmc_request *req);
 	unsigned int	(*get_current_limit)(struct sdhci_host *host);
+	void	(*enter_dbg_mode)(struct sdhci_host *host);
+	void	(*exit_dbg_mode)(struct sdhci_host *host);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

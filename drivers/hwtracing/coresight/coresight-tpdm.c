@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -4333,8 +4333,10 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	u32 scm_ret = 0;
 
 	pdata = of_get_coresight_platform_data(dev, adev->dev.of_node);
-	if (IS_ERR(pdata))
-		return PTR_ERR(pdata);
+	if (IS_ERR(pdata)) {
+		dev_dbg(dev, "failed to get pdata, defer probe\n");
+		return -EPROBE_DEFER;
+	}
 	adev->dev.platform_data = pdata;
 
 	if (of_property_read_bool(adev->dev.of_node, "qcom,hw-enable-check")) {

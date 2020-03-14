@@ -1258,7 +1258,8 @@ static int mmc_select_hs400(struct mmc_card *card)
 		goto out_err;
 
 	val = EXT_CSD_DDR_BUS_WIDTH_8;
-	if (card->ext_csd.strobe_support) {
+	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES
+			&& card->ext_csd.strobe_support) {
 		err = mmc_select_bus_width(card);
 		if (IS_ERR_VALUE((unsigned long)err))
 			return err;
@@ -1293,7 +1294,9 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_bus_speed(card);
 
-	if (card->ext_csd.strobe_support && host->ops->enhanced_strobe) {
+	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES
+			&& card->ext_csd.strobe_support
+			&& host->ops->enhanced_strobe) {
 		err = host->ops->enhanced_strobe(host);
 		if (!err)
 			host->ios.enhanced_strobe = true;
@@ -1611,8 +1614,7 @@ static int mmc_select_timing(struct mmc_card *card)
 		goto bus_speed;
 
 	/* For Enhance Strobe HS400 flow */
-	if (card->ext_csd.strobe_support &&
-	    card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES &&
 	    card->host->caps & MMC_CAP_8_BIT_DATA) {
 		err = mmc_select_hs400(card);
 		if (err) {
@@ -2304,6 +2306,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	if (!oldcard)
 		host->card = card;
+	if (host->ops->enter_dbg_mode)
+		host->ops->enter_dbg_mode(host);
 
 	return 0;
 
@@ -2554,11 +2558,6 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 
 	if (mmc_card_suspended(host->card))
 		goto out;
-
-	if (host->cqe_enabled) {
-		host->cqe_ops->cqe_disable(host);
-		host->cqe_enabled = false;
-	}
 
 	if (mmc_card_doing_bkops(host->card)) {
 		err = mmc_stop_bkops(host->card);
@@ -2912,6 +2911,11 @@ static int _mmc_hw_reset(struct mmc_host *host)
 		/* If the card accept RST_n signal, send it. */
 		mmc_set_clock(host, host->f_init);
 		host->ops->hw_reset(host);
+		/*
+		 * Do a brute force power cycle as some controller do not
+		 * have gpio support to power cycle card
+		 */
+		mmc_power_cycle(host, card->ocr);
 		/* Set initial state and call mmc_set_ios */
 		mmc_set_initial_state(host);
 	} else {
@@ -2938,9 +2942,9 @@ static int _mmc_hw_reset(struct mmc_host *host)
 		return ret;
 	}
 
-	ret = mmc_suspend_clk_scaling(host);
+	ret = mmc_resume_clk_scaling(host);
 	if (ret) {
-		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
 				mmc_hostname(host), __func__, ret);
 	}
 	return ret;

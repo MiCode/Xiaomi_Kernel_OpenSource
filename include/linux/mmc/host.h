@@ -199,6 +199,8 @@ struct mmc_host_ops {
 					 unsigned int max_dtr, int host_drv,
 					 int card_drv, int *drv_type);
 	void	(*hw_reset)(struct mmc_host *host);
+	void    (*enter_dbg_mode)(struct mmc_host *host);
+	void    (*exit_dbg_mode)(struct mmc_host *host);
 	void	(*card_event)(struct mmc_host *host);
 
 	/*

@@ -1125,6 +1125,7 @@ struct dwc3_scratchpad_array {
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
+ * @last_run_stop: timestamp denoting the last run_stop update
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1359,6 +1360,7 @@ struct dwc3 {
 	u32			gen2_tx_de_emph1;
 	u32			gen2_tx_de_emph2;
 	u32			gen2_tx_de_emph3;
+	ktime_t			last_run_stop;
 };
 
 #define INCRX_BURST_MODE 0

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2015, 2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, 2017, 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -21,7 +21,7 @@ static void def_work_fn(struct work_struct *work)
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int64_t diff;
+	uint64_t diff;
 	unsigned int udiff;
 
 	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
