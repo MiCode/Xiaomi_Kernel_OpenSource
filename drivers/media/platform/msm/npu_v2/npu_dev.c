@@ -1728,13 +1728,73 @@ int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 	return ret;
 }
 
+#define NPU_FMAX_THRESHOLD 1000000
+static int npu_adjust_max_power_level(struct npu_device *npu_dev)
+{
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+	uint32_t fmax_reg_value, fmax, fmax_pwrlvl;
+	struct npu_pwrlevel *level;
+	int i, j;
+
+	if (!npu_dev->qfprom_io.base)
+		return 0;
+
+	/* search for cal clock index */
+	for (j = 0; j < npu_dev->core_clk_num; j++) {
+		if (!strcmp(npu_dev->core_clks[j].clk_name,
+			"cal_hm0_clk"))
+			break;
+	}
+
+	if (j == npu_dev->core_clk_num) {
+		NPU_WARN("can't find clock cal_hm0_clk\n");
+		return 0;
+	}
+
+	/* Read FMAX info if available */
+	fmax_reg_value = ((npu_qfprom_reg_read(npu_dev,
+		QFPROM_FMAX_REG_OFFSET_1) & QFPROM_FMAX_BITS_MASK_1) >>
+		QFPROM_FMAX_BITS_SHIFT_1) +
+		((npu_qfprom_reg_read(npu_dev,
+		QFPROM_FMAX_REG_OFFSET_2) & QFPROM_FMAX_BITS_MASK_2) <<
+		QFPROM_FMAX_BITS_SHIFT_2);
+	NPU_DBG("fmax_reg_value %x\n", fmax_reg_value);
+
+	if (fmax_reg_value == 0)
+		return 0;
+
+	/* calculate fmax and truncate to MHz */
+	fmax = fmax_reg_value * 19200000 / 2;
+
+	/* search for the nearest power level */
+	for (i = 0; i < pwr->num_pwrlevels; i++) {
+		level = &pwr->pwrlevels[i];
+
+		if (level->clk_freq[j] >= fmax ||
+			((fmax - level->clk_freq[j]) < NPU_FMAX_THRESHOLD)) {
+			fmax_pwrlvl = level->pwr_level;
+			break;
+		}
+	}
+
+	if (i == pwr->num_pwrlevels)
+		return 0;
+
+	if (fmax_pwrlvl < pwr->max_pwrlevel) {
+		pwr->max_pwrlevel = fmax_pwrlvl;
+		NPU_INFO("Adjust max_pwrlevel to %d[%x]\n", fmax_pwrlvl,
+			fmax_reg_value);
+	}
+
+	return 0;
+}
+
 static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		struct device_node *node)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct device_node *child;
 	uint32_t init_level_index = 0, init_power_level;
-	uint32_t fmax, fmax_pwrlvl;
 
 	pwr->num_pwrlevels = 0;
 	pwr->min_pwrlevel = NPU_PWRLEVEL_TURBO_L1;
@@ -1795,32 +1855,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		}
 	}
 
-	/* Read FMAX info if available */
-	if (npu_dev->qfprom_io.base) {
-		fmax = ((npu_qfprom_reg_read(npu_dev,
-			QFPROM_FMAX_REG_OFFSET_1) & QFPROM_FMAX_BITS_MASK_1) >>
-			QFPROM_FMAX_BITS_SHIFT_1) +
-			((npu_qfprom_reg_read(npu_dev,
-			QFPROM_FMAX_REG_OFFSET_2) & QFPROM_FMAX_BITS_MASK_2) <<
-			QFPROM_FMAX_BITS_SHIFT_2);
-
-		NPU_DBG("fmax %x\n", fmax);
-
-		switch (fmax) {
-		case 0x1F:
-			fmax_pwrlvl = NPU_PWRLEVEL_SVS;
-			break;
-		case 0x29:
-			fmax_pwrlvl = NPU_PWRLEVEL_SVS_L1;
-			break;
-		default:
-			fmax_pwrlvl = pwr->max_pwrlevel;
-			break;
-		}
-
-		if (fmax_pwrlvl < pwr->max_pwrlevel)
-			pwr->max_pwrlevel = fmax_pwrlvl;
-	}
+	npu_adjust_max_power_level(npu_dev);
 
 	of_property_read_u32(node, "initial-pwrlevel", &init_level_index);
 	NPU_DBG("initial-pwrlevel %d\n", init_level_index);
