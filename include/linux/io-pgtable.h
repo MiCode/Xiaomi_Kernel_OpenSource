@@ -193,8 +193,8 @@ struct io_pgtable_ops {
  * IOMMU drivers, and page table configuration.
  *
  * @map_sg:		Map a scatterlist.  Returns the number of bytes mapped,
- *			or 0 on failure.  The size parameter contains the size
- *			of the partial mapping in case of failure.
+ *			or -ve val on failure.  The size parameter contains the
+ *			size of the partial mapping in case of failure.
  * @is_iova_coherent:	Checks coherency of given IOVA. Returns True if coherent
  *			and False if non-coherent.
  * @iova_to_pte:	Translate iova to Page Table Entry (PTE).
