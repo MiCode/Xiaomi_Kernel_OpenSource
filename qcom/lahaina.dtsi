@@ -3693,7 +3693,7 @@
 		compatible = "qcom,pmic-glink";
 		qcom,pmic-glink-channel = "PMIC_RTR_ADSP_APPS";
 
-		qcom,battery_charger {
+		battery_charger: qcom,battery_charger {
 			compatible = "qcom,battery-charger";
 		};
 
