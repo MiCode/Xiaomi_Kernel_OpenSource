@@ -327,6 +327,31 @@ static int hfi_process_session_set_buf_done(u32 device_id,
 	return 0;
 }
 
+static int hfi_process_session_flush_done(u32 device_id,
+	struct cvp_hfi_msg_sys_session_flush_done_packet *pkt,
+	struct msm_cvp_cb_info *info)
+{
+	struct msm_cvp_cb_cmd_done cmd_done = {0};
+
+	dprintk(CVP_DBG, "RECEIVED: SESSION_FLUSH_DONE[%#x]\n",
+			pkt->session_id);
+
+	if (!pkt || pkt->size <
+		sizeof(struct cvp_hfi_msg_sys_session_flush_done_packet)) {
+		dprintk(CVP_ERR, "%s: bad packet/packet size: %d\n",
+				__func__, pkt ? pkt->size : 0);
+		return -E2BIG;
+	}
+	cmd_done.device_id = device_id;
+	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
+	cmd_done.status = hfi_map_err_status(pkt->error_type);
+	cmd_done.size = 0;
+
+	info->response_type = HAL_SESSION_FLUSH_DONE;
+	info->response.cmd = cmd_done;
+
+	return 0;
+}
 
 static int hfi_process_session_rel_buf_done(u32 device_id,
 		struct cvp_hfi_msg_session_hdr *pkt,
@@ -609,6 +634,9 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		break;
 	case HFI_MSG_SYS_SESSION_ABORT_DONE:
 		pkt_func = (pkt_func_def)hfi_process_session_abort_done;
+		break;
+	case HFI_MSG_SESSION_CVP_FLUSH:
+		pkt_func = (pkt_func_def)hfi_process_session_flush_done;
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
 	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:

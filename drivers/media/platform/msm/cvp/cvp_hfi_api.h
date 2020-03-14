@@ -340,8 +340,8 @@ struct cvp_hfi_device {
 	int (*session_abort)(void *session);
 	int (*session_set_buffers)(void *sess, u32 iova, u32 size);
 	int (*session_release_buffers)(void *sess);
-	int (*session_send)(void *sess,
-		struct cvp_kmd_hfi_packet *in_pkt);
+	int (*session_send)(void *sess, struct cvp_kmd_hfi_packet *in_pkt);
+	int (*session_flush)(void *sess);
 	int (*scale_clocks)(void *dev, u32 freq);
 	int (*vote_bus)(void *dev, struct cvp_bus_vote_data *data,
 			int num_data);

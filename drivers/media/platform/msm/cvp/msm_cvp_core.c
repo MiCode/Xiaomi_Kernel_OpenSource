@@ -232,11 +232,12 @@ static int __init_session_queue(struct msm_cvp_inst *inst)
 
 static void __init_fence_queue(struct msm_cvp_inst *inst)
 {
-	spin_lock_init(&inst->fence_cmd_queue.lock);
+	mutex_init(&inst->fence_cmd_queue.lock);
 	INIT_LIST_HEAD(&inst->fence_cmd_queue.wait_list);
 	INIT_LIST_HEAD(&inst->fence_cmd_queue.sched_list);
 	init_waitqueue_head(&inst->fence_cmd_queue.wq);
 	inst->fence_cmd_queue.state = QUEUE_ACTIVE;
+	inst->fence_cmd_queue.mode = OP_NORMAL;
 
 	spin_lock_init(&inst->session_queue_fence.lock);
 	INIT_LIST_HEAD(&inst->session_queue_fence.msgs);
@@ -245,7 +246,14 @@ static void __init_fence_queue(struct msm_cvp_inst *inst)
 	inst->session_queue_fence.state = QUEUE_ACTIVE;
 }
 
-static void _deinit_session_queue(struct msm_cvp_inst *inst)
+static void __deinit_fence_queue(struct msm_cvp_inst *inst)
+{
+	mutex_destroy(&inst->fence_cmd_queue.lock);
+	inst->fence_cmd_queue.state = QUEUE_INVALID;
+	inst->fence_cmd_queue.mode = OP_INVALID;
+}
+
+static void __deinit_session_queue(struct msm_cvp_inst *inst)
 {
 	struct cvp_session_msg *msg, *tmpmsg;
 
@@ -313,7 +321,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
-	INIT_MSM_CVP_LIST(&inst->cpusmems);
+	INIT_MSM_CVP_LIST(&inst->dma_cache);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	INIT_MSM_CVP_LIST(&inst->frames);
 
@@ -330,7 +338,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = 0;
-	inst->cpusmems.maxnr = MAX_DMABUF_NUMS;
+	inst->dma_cache.maxnr = MAX_DMABUF_NUMS;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -361,7 +369,7 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	return inst;
 fail_init:
-	_deinit_session_queue(inst);
+	__deinit_session_queue(inst);
 	mutex_lock(&core->lock);
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
@@ -369,7 +377,7 @@ fail_init:
 	mutex_destroy(&inst->lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cpusmems);
+	DEINIT_MSM_CVP_LIST(&inst->dma_cache);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
@@ -387,7 +395,7 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 		return;
 	}
 
-	if (cvp_comm_release_persist_buffers(inst))
+	if (cvp_release_arp_buffers(inst))
 		dprintk(CVP_ERR,
 			"Failed to release persist buffers\n");
 }
@@ -409,7 +417,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	mutex_unlock(&core->lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cpusmems);
+	DEINIT_MSM_CVP_LIST(&inst->dma_cache);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
@@ -417,7 +425,9 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	mutex_destroy(&inst->lock);
 
 	msm_cvp_debugfs_deinit_inst(inst);
-	_deinit_session_queue(inst);
+
+	__deinit_session_queue(inst);
+	__deinit_fence_queue(inst);
 	synx_uninitialize(inst->synx_session_id);
 
 	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK session_id = %d\n",

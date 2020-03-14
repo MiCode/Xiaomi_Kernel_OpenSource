@@ -520,7 +520,25 @@ static void handle_release_res_done(enum hal_command_response cmd, void *data)
 
 static void handle_session_flush(enum hal_command_response cmd, void *data)
 {
-	dprintk(CVP_WARN, "%s is not supported on CVP!\n", __func__);
+	struct msm_cvp_cb_cmd_done *response = data;
+	struct msm_cvp_inst *inst;
+
+	if (!response) {
+		dprintk(CVP_ERR,
+			"Failed to get valid response for release resource\n");
+		return;
+	}
+
+	inst = cvp_get_inst(get_cvp_core(response->device_id),
+			response->session_id);
+	if (!inst) {
+		dprintk(CVP_WARN, "%s:Got a response for an inactive session\n",
+				__func__);
+		return;
+	}
+
+	signal_session_msg_receipt(cmd, inst);
+	cvp_put_inst(inst);
 }
 
 static void handle_session_error(enum hal_command_response cmd, void *data)
@@ -653,7 +671,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		}
 
 		if (!core->trigger_ssr)
-			msm_cvp_comm_print_inst_info(inst);
+			msm_cvp_print_inst_bufs(inst);
 	}
 
 	/* handle the hw error before core released to get full debug info */
@@ -1516,47 +1534,6 @@ void msm_cvp_fw_unload_handler(struct work_struct *work)
 	mutex_unlock(&core->lock);
 }
 
-void print_cvp_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
-		struct cvp_internal_buf *cbuf)
-{
-	dprintk(tag, "%s addr: %x size %u\n", str,
-		cbuf->smem->device_addr, cbuf->size);
-}
-
-void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
-{
-	struct cvp_internal_buf *buf;
-	struct msm_cvp_smem *smem;
-
-	if (!inst) {
-		dprintk(CVP_ERR, "%s - invalid param %pK\n",
-			__func__, inst);
-		return;
-	}
-
-	dprintk(CVP_ERR, "active session cmd %d\n", inst->cur_cmd_type);
-	dprintk(CVP_ERR,
-			"---Buffer details for inst: %pK of type: %d---\n",
-			inst, inst->session_type);
-	mutex_lock(&inst->cpusmems.lock);
-	dprintk(CVP_ERR, "smem list:\n");
-	list_for_each_entry(smem, &inst->cpusmems.list, list)
-		print_smem(CVP_ERR, "bufdump", inst, smem);
-	mutex_unlock(&inst->cpusmems.lock);
-
-	mutex_lock(&inst->cvpdspbufs.lock);
-	dprintk(CVP_ERR, "dsp buffer list:\n");
-	list_for_each_entry(buf, &inst->cvpdspbufs.list, list)
-		print_cvp_buffer(CVP_ERR, "bufdump", inst, buf);
-	mutex_unlock(&inst->cvpdspbufs.lock);
-
-	mutex_lock(&inst->persistbufs.lock);
-	dprintk(CVP_ERR, "persist buffer list:\n");
-	list_for_each_entry(buf, &inst->persistbufs.list, list)
-		print_cvp_buffer(CVP_ERR, "bufdump", inst, buf);
-	mutex_unlock(&inst->persistbufs.lock);
-}
-
 static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
 				struct msm_cvp_smem *handle)
 {
@@ -1586,80 +1563,24 @@ static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
 	return 0;
 }
 
-static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
-			u32 buffer_size, struct msm_cvp_list *buf_list)
-{
-	struct cvp_internal_buf *buf;
-	u32 smem_flags = SMEM_UNCACHED;
-	int rc = 0;
-
-	if (!inst || !buf_list) {
-		dprintk(CVP_ERR, "%s Invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-	if (!buffer_size)
-		return 0;
-
-	/* PERSIST buffer requires secure mapping */
-	smem_flags |= SMEM_SECURE | SMEM_NON_PIXEL;
-
-	buf = kmem_cache_zalloc(cvp_driver->buf_cache, GFP_KERNEL);
-	if (!buf) {
-		dprintk(CVP_ERR, "%s Out of memory\n", __func__);
-		rc = -ENOMEM;
-		goto fail_kzalloc;
-	}
-
-	buf->smem = kmem_cache_zalloc(cvp_driver->smem_cache, GFP_KERNEL);
-	if (!buf->smem) {
-		dprintk(CVP_ERR, "%s Out of memory\n", __func__);
-		rc = -ENOMEM;
-		goto fail_kzalloc;
-	}
-
-	rc = msm_cvp_smem_alloc(buffer_size, 1, smem_flags, 0,
-			&(inst->core->resources), buf->smem);
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to allocate ARP memory\n");
-		goto err_no_mem;
-	}
-
-	buf->size = buf->smem->size;
-	buf->type = HFI_BUFFER_INTERNAL_PERSIST_1;
-	buf->ownership = DRIVER;
-
-	rc = set_internal_buf_on_fw(inst, buf->smem);
-	if (rc)
-		goto fail_set_buffers;
-
-	mutex_lock(&buf_list->lock);
-	list_add_tail(&buf->list, &buf_list->list);
-	mutex_unlock(&buf_list->lock);
-	return rc;
-
-fail_set_buffers:
-	msm_cvp_smem_free(buf->smem);
-	kmem_cache_free(cvp_driver->smem_cache, buf->smem);
-err_no_mem:
-	kmem_cache_free(cvp_driver->buf_cache, buf);
-fail_kzalloc:
-	return rc;
-}
-
-
 /* Set ARP buffer for CVP firmware to handle concurrency */
 int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
+	struct cvp_internal_buf *buf;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(CVP_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
-	rc = allocate_and_set_internal_bufs(inst, ARP_BUF_SIZE,
-						&inst->persistbufs);
+	buf = cvp_allocate_arp_bufs(inst, ARP_BUF_SIZE);
+	if (!buf) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	rc = set_internal_buf_on_fw(inst, buf->smem);
 	if (rc)
 		goto error;
 
@@ -1672,109 +1593,10 @@ int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst)
 	return rc;
 
 error:
-	cvp_comm_release_persist_buffers(inst);
+	cvp_release_arp_buffers(inst);
 	return rc;
 }
 
-int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
-{
-	struct msm_cvp_smem *smem;
-	struct list_head *ptr, *next;
-	struct cvp_internal_buf *buf;
-	int rc = 0;
-	struct msm_cvp_core *core;
-	struct cvp_hfi_device *hdev;
-	int all_released;
 
-	if (!inst) {
-		dprintk(CVP_ERR, "Invalid instance pointer = %pK\n", inst);
-		return -EINVAL;
-	}
 
-	core = inst->core;
-	if (!core) {
-		dprintk(CVP_ERR, "Invalid core pointer = %pK\n", core);
-		return -EINVAL;
-	}
-	hdev = core->device;
-	if (!hdev) {
-		dprintk(CVP_ERR, "Invalid device pointer = %pK\n", hdev);
-		return -EINVAL;
-	}
 
-	dprintk(CVP_DBG, "release persist buffer!\n");
-	all_released = 0;
-
-	mutex_lock(&inst->persistbufs.lock);
-	list_for_each_safe(ptr, next, &inst->persistbufs.list) {
-		buf = list_entry(ptr, struct cvp_internal_buf, list);
-		smem = buf->smem;
-		if (!smem) {
-			dprintk(CVP_ERR, "%s invalid smem\n", __func__);
-			mutex_unlock(&inst->persistbufs.lock);
-			return -EINVAL;
-		}
-
-		/* Workaround for FW: release buffer means release all */
-		if (inst->state <= MSM_CVP_CLOSE_DONE && !all_released) {
-			rc = call_hfi_op(hdev, session_release_buffers,
-					(void *)inst->session);
-			if (!rc) {
-				mutex_unlock(&inst->persistbufs.lock);
-				rc = wait_for_sess_signal_receipt(inst,
-					HAL_SESSION_RELEASE_BUFFER_DONE);
-				if (rc)
-					dprintk(CVP_WARN,
-					"%s: wait for signal failed, rc %d\n",
-					__func__, rc);
-				mutex_lock(&inst->persistbufs.lock);
-			} else {
-				dprintk(CVP_WARN,
-						"Rel prst buf fail:%x, %d\n",
-						smem->device_addr,
-						smem->size);
-			}
-			all_released = 1;
-		}
-		list_del(&buf->list);
-
-		if (buf->ownership == DRIVER) {
-			dprintk(CVP_DBG,
-			"%s: %x : fd %d %s size %d",
-			"free arp", hash32_ptr(inst->session), buf->fd,
-			smem->dma_buf->name, buf->size);
-			msm_cvp_smem_free(smem);
-			kmem_cache_free(cvp_driver->smem_cache, smem);
-		} else if (buf->ownership == CLIENT) {
-			dprintk(CVP_DBG,
-			"%s: %x : fd %d %s size %d",
-			"unmap persist", hash32_ptr(inst->session),
-			buf->fd, smem->dma_buf->name, buf->size);
-
-			mutex_lock(&inst->cpusmems.lock);
-			if (atomic_read(&smem->refcount) == 0) {
-				list_del(&smem->list);
-				msm_cvp_unmap_smem(smem);
-				dma_buf_put(smem->dma_buf);
-				kfree(smem);
-				buf->smem = NULL;
-			}
-			mutex_unlock(&inst->cpusmems.lock);
-		}
-		kmem_cache_free(cvp_driver->buf_cache, buf);
-	}
-	mutex_unlock(&inst->persistbufs.lock);
-	return rc;
-}
-
-void print_client_buffer(u32 tag, const char *str,
-		struct msm_cvp_inst *inst, struct cvp_kmd_buffer *cbuf)
-{
-	if (!(tag & msm_cvp_debug) || !inst || !cbuf)
-		return;
-
-	dprintk(tag,
-		"%s: %x : idx %2d fd %d off %d size %d type %d flags 0x%x\n",
-		str, hash32_ptr(inst->session), cbuf->index, cbuf->fd,
-		cbuf->offset, cbuf->size, cbuf->type, cbuf->flags);
-}
