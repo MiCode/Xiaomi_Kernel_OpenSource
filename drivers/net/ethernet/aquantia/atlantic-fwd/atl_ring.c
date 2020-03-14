@@ -253,7 +253,7 @@ netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	if (nic->priv_flags & ATL_PF_BIT(LPB_NET_DMA))
 		return NETDEV_TX_BUSY;
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	/* atl_max_queues is the number of standard queues.
 	 * Extra queue is allocated for FWD processing.
 	 */
@@ -1616,6 +1616,7 @@ static void atl_set_intr_mod_qvec(struct atl_queue_vec *qvec)
 	struct atl_hw *hw = &nic->hw;
 	unsigned int min, max;
 	int idx = qvec->idx;
+	uint32_t reg;
 
 	min = nic->rx_intr_delay - atl_min_intr_delay;
 	max = min + atl_rx_mod_hyst;
@@ -1626,8 +1627,11 @@ static void atl_set_intr_mod_qvec(struct atl_queue_vec *qvec)
 	min = nic->tx_intr_delay - atl_min_intr_delay;
 	max = min + atl_tx_mod_hyst;
 
-	atl_write(hw, ATL_TX_INTR_MOD_CTRL(idx),
-		(max / 2) << 0x10 | (min / 2) << 8 | 2);
+	if (hw->chip_id == ATL_ANTIGUA)
+		reg = ATL2_TX_INTR_MOD_CTRL(idx);
+	else
+		reg = ATL_TX_INTR_MOD_CTRL(idx);
+	atl_write(hw, reg, (max / 2) << 0x10 | (min / 2) << 8 | 2);
 }
 
 void atl_set_intr_mod(struct atl_nic *nic)
@@ -1644,7 +1648,9 @@ int atl_init_rx_ring(struct atl_desc_ring *rx)
 	struct atl_rxbuf *rxbuf;
 	int ret = 0;
 
-	rx->head = rx->tail = atl_read(hw, ATL_RING_HEAD(rx)) & 0x1fff;
+	rx->head = rx->tail = atl_read(hw, ATL_RING_HEAD(rx)) & 0xffff;
+	if (rx->head > 0x1FFF)
+		return -EIO;
 
 	ret = atl_fill_rx(rx, ring_space(rx), false);
 	if (ret)
@@ -1670,7 +1676,9 @@ int atl_init_tx_ring(struct atl_desc_ring *tx)
 {
 	struct atl_hw *hw = &tx->nic->hw;
 
-	tx->head = tx->tail = atl_read(hw, ATL_RING_HEAD(tx)) & 0x1fff;
+	tx->head = tx->tail = atl_read(hw, ATL_RING_HEAD(tx)) & 0xffff;
+	if (tx->head > 0x1FFF)
+		return -EIO;
 
 	return 0;
 }
@@ -1798,7 +1806,9 @@ int atl_start_rings(struct atl_nic *nic)
 	}
 
 	atl_set_lro(nic);
-	atl_set_rss_tbl(hw);
+	ret = atl_set_rss_tbl(hw);
+	if (ret)
+		return ret;
 
 	atl_for_each_qvec(nic, qvec) {
 		ret = atl_start_qvec(qvec);
@@ -1910,7 +1920,7 @@ void atl_update_global_stats(struct atl_nic *nic)
 		atl_add_stats(nic->stats.tx, stats.tx);
 	}
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
 		if (atlfwd_nl_is_tx_fwd_ring_created(nic->ndev, i)) {
 			atl_fwd_get_ring_stats(nic->fwd.rings[ATL_FWDIR_TX][i],
