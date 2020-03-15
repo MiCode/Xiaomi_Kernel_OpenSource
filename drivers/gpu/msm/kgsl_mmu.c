@@ -633,7 +633,7 @@ static struct kgsl_pagetable *nommu_getpagetable(struct kgsl_mmu *mmu,
 
 static int nommu_init(struct kgsl_mmu *mmu)
 {
-	mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
+	set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
 	return 0;
 }
 

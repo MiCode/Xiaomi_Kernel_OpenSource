@@ -107,27 +107,26 @@ struct kgsl_mmu_pt_ops {
 			uint64_t size);
 };
 
-/*
- * MMU_FEATURE - return true if the specified feature is supported by the GPU
- * MMU
- */
-#define MMU_FEATURE(_mmu, _bit) \
-	((_mmu)->features & (_bit))
-
-/* MMU requires the TLB to be flushed on map */
-#define KGSL_MMU_FLUSH_TLB_ON_MAP BIT(2)
-/* MMU uses global pagetable */
-#define KGSL_MMU_GLOBAL_PAGETABLE BIT(3)
-/* Force 32 bit, even if the MMU can do 64 bit */
-#define KGSL_MMU_FORCE_32BIT BIT(4)
-/* 64 bit address is live */
-#define KGSL_MMU_64BIT BIT(5)
-/* The MMU supports non-contigious pages */
-#define KGSL_MMU_PAGED BIT(6)
-/* The device requires a guard page */
-#define KGSL_MMU_NEED_GUARD_PAGE BIT(7)
-/* The device supports IO coherency */
-#define KGSL_MMU_IO_COHERENT BIT(8)
+enum kgsl_mmu_feature {
+	/* @KGSL_MMU_GLOBAL_PAGETABLE: Do not use per process pagetables */
+	KGSL_MMU_GLOBAL_PAGETABLE = 0,
+	/* @KGSL_MMU_64BIT: Use 64 bit virtual address space */
+	KGSL_MMU_64BIT,
+	/* @KGSL_MMU_PAGED: Support paged memory */
+	KGSL_MMU_PAGED,
+	/*
+	 * @KGSL_MMU_NEED_GUARD_PAGE: Set if a guard page is needed for each
+	 * mapped region
+	 */
+	KGSL_MMU_NEED_GUARD_PAGE,
+	/** @KGSL_MMU_IO_COHERENT: Set if a device supports I/O coherency */
+	KGSL_MMU_IO_COHERENT,
+	/**
+	 * @KGSL_MMU_SECURE_CB_ALT: Set if the device should use the
+	 * "alternate" secure context name
+	 */
+	KGSL_MMU_SECURE_CB_ALT,
+};
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices
@@ -304,12 +303,12 @@ static inline void kgsl_mmu_clear_fsr(struct kgsl_mmu *mmu)
 		return mmu->mmu_ops->mmu_clear_fsr(mmu);
 }
 
-static inline int kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
+static inline bool kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
 {
-	return MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) ? 0 : 1;
+	return !test_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
 }
 
-static inline int kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
+static inline bool kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 {
 	return kgsl_mmu_is_perprocess(mmu);
 }

@@ -2656,7 +2656,7 @@ static long _map_usermem_addr(struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable, struct kgsl_mem_entry *entry,
 		unsigned long hostptr, size_t offset, size_t size)
 {
-	if (!MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED))
+	if (!kgsl_mmu_has_feature(device, KGSL_MMU_PAGED))
 		return -EINVAL;
 
 	/* No CPU mapped buffer could ever be secure */

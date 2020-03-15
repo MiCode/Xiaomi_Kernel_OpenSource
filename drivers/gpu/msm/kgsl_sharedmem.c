@@ -677,7 +677,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 
 	/* Disable IO coherence if it is not supported on the chip */
-	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT)) {
+	if (!kgsl_mmu_has_feature(device, KGSL_MMU_IO_COHERENT)) {
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_IOCOHERENT);
 
 		WARN_ONCE(IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT),
@@ -696,7 +696,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		cachemode == KGSL_CACHEMODE_UNCACHED))
 		flags &= ~((u64) KGSL_MEMFLAGS_IOCOHERENT);
 
-	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
+	if (kgsl_mmu_has_feature(device, KGSL_MMU_NEED_GUARD_PAGE))
 		memdesc->priv |= KGSL_MEMDESC_GUARD_PAGE;
 
 	if (flags & KGSL_MEMFLAGS_SECURE)
