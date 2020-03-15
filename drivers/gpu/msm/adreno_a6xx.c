@@ -1208,6 +1208,14 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 		adreno_cx_misc_regrmw(adreno_dev,
 				A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 				A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
+
+	/*
+	 * On A660, the SCID programming for UCHE traffic is done in
+	 * A6XX_GBIF_SCACHE_CNTL0[14:10]
+	 */
+	if (adreno_is_a660(adreno_dev))
+		kgsl_regrmw(device, A6XX_GBIF_SCACHE_CNTL0, 0x1f << 10,
+			gpu_scid << 10);
 }
 
 /*
