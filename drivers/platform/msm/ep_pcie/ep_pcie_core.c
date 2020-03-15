@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2299,6 +2299,10 @@ static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 	}
 
 out:
+	/* Set trigger type based on the next expected value of perst gpio */
+	irq_set_irq_type(gpio_to_irq(dev->gpio[EP_PCIE_GPIO_PERST].num),
+		(perst ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH));
+
 	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
 
 	return IRQ_HANDLED;
@@ -2523,11 +2527,18 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 	}
 
 perst_irq:
+	/*
+	 * Check initial state of perst gpio to set the trigger type
+	 * based on the next expected level of the gpio
+	 */
+	if (gpio_get_value(dev->gpio[EP_PCIE_GPIO_PERST].num) == 1)
+		dev->perst_deast = true;
+
 	/* register handler for PERST interrupt */
 	perst_irq = gpio_to_irq(dev->gpio[EP_PCIE_GPIO_PERST].num);
 	ret = devm_request_irq(pdev, perst_irq,
 		ep_pcie_handle_perst_irq,
-		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+		(dev->perst_deast ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH),
 		"ep_pcie_perst", dev);
 	if (ret) {
 		EP_PCIE_ERR(dev,
