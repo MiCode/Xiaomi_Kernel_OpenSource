@@ -1259,9 +1259,6 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	unsigned long flags;
 	int ret = 0;
 
-	if (prot_id == IPA_USB_DIAG)
-		return -EINVAL;
-
 	pr_debug("%s: Enter %zu\n", __func__, count);
 
 	mutex_lock(&inst_cur->gsi_lock);
