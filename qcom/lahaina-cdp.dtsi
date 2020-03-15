@@ -201,4 +201,8 @@
 	extcon = <&extcon_usb1>;
 };
 
+&wil6210 {
+	status = "ok";
+};
+
 #include "camera/lahaina-camera-sensor-cdp.dtsi"
