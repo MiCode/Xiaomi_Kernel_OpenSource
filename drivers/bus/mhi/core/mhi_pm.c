@@ -1176,6 +1176,9 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 	MHI_LOG("Wait for M3 completion\n");
 
+	/* finish reg writes before D3 cold */
+	mhi_force_reg_write(mhi_cntrl);
+
 	ret = wait_event_timeout(mhi_cntrl->state_event,
 				 mhi_cntrl->dev_state == MHI_STATE_M3 ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
@@ -1289,6 +1292,9 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 	mhi_cntrl->dev_state = MHI_STATE_M3_FAST;
 	mhi_cntrl->M3_FAST++;
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* finish reg writes before DRV hand-off to avoid noc err */
+	mhi_force_reg_write(mhi_cntrl);
 
 	/* now safe to check ctrl event ring */
 	tasklet_enable(&mhi_cntrl->mhi_event->task);
