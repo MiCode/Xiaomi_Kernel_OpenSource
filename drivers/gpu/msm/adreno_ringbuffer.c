@@ -298,7 +298,7 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 		return 0;
 
 	rb->id = id;
-	kgsl_add_event_group(&rb->events, NULL, _rb_readtimestamp, rb,
+	kgsl_add_event_group(device, &rb->events, NULL, _rb_readtimestamp, rb,
 		"rb_events-%d", id);
 
 	rb->timestamp = 0;
@@ -394,12 +394,6 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_ringbuffer *rb;
-	int i;
-
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
-		kgsl_del_event_group(&rb->events);
-
 	adreno_preemption_close(adreno_dev);
 }
 

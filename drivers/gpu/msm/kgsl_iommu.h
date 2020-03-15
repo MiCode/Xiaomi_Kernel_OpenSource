@@ -110,8 +110,6 @@ struct kgsl_iommu {
 	/** @lpac_context: Container for the LPAC iommu context */
 	struct kgsl_iommu_context lpac_context;
 	void __iomem *regbase;
-	unsigned long regstart;
-	unsigned int regsize;
 	struct kgsl_memdesc *setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];

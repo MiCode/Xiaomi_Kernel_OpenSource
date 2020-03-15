@@ -153,9 +153,6 @@
 /* Number of times to try hard reset for pre-a6xx GPUs */
 #define NUM_TIMES_RESET_RETRY 4
 
-/* Number of times to poll the AHB fence in ISR */
-#define FENCE_RETRY_MAX 100
-
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
  */
@@ -229,10 +226,6 @@ struct adreno_gpudev;
 
 /* Time to allow preemption to complete (in ms) */
 #define ADRENO_PREEMPT_TIMEOUT 10000
-
-#define ADRENO_INT_BIT(a, _bit) (((a)->gpucore->gpudev->int_bits) ? \
-		(adreno_get_int(a, _bit) < 0 ? 0 : \
-		BIT(adreno_get_int(a, _bit))) : 0)
 
 /**
  * enum adreno_preempt_states
@@ -431,7 +424,6 @@ struct adreno_gpu_core {
  * @lm_limit: limiting value for LM
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
- * @lm_slope: Slope value in the fused register for LM
  * @ifpc_count: Number of times the GPU went into IFPC
  * @speed_bin: Indicate which power level set to use
  * @highest_bank_bit: Value of the highest bank bit
@@ -506,7 +498,6 @@ struct adreno_device {
 	uint32_t lm_limit;
 	uint32_t lm_threshold_count;
 	uint32_t lm_threshold_cross;
-	u32 lm_slope;
 	uint32_t ifpc_count;
 
 	unsigned int speed_bin;
@@ -536,6 +527,8 @@ struct adreno_device {
 	struct kgsl_memdesc *critpkts_secure;
 	/** @cp_init_cmds: A copy of the CP INIT commands */
 	const void *cp_init_cmds;
+	/** @irq_mask: The current interrupt mask for the GPU device */
+	u32 irq_mask;
 };
 
 /**
@@ -649,7 +642,6 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_INT_0_MASK,
 	ADRENO_REG_RBBM_INT_0_STATUS,
 	ADRENO_REG_RBBM_PM_OVERRIDE2,
-	ADRENO_REG_RBBM_INT_CLEAR_CMD,
 	ADRENO_REG_RBBM_SW_RESET_CMD,
 	ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
 	ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
@@ -674,7 +666,6 @@ enum adreno_regs {
 	ADRENO_REG_VBIF_VERSION,
 	ADRENO_REG_GBIF_HALT,
 	ADRENO_REG_GBIF_HALT_ACK,
-	ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
 	ADRENO_REG_GMU_AO_INTERRUPT_EN,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS,
@@ -693,20 +684,13 @@ enum adreno_regs {
 	ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
 	ADRENO_REG_GMU_NMI_CONTROL_STATUS,
 	ADRENO_REG_GMU_CM3_CFG,
-	ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
 	ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
 	ADRENO_REG_REGISTER_MAX,
-};
-
-enum adreno_int_bits {
-	ADRENO_INT_RBBM_AHB_ERROR,
-	ADRENO_INT_BITS_MAX,
 };
 
 #define ADRENO_REG_UNUSED	0xFFFFFFFF
 #define ADRENO_REG_SKIP	0xFFFFFFFE
 #define ADRENO_REG_DEFINE(_offset, _reg)[_offset] = _reg
-#define ADRENO_INT_DEFINE(_offset, _val) ADRENO_REG_DEFINE(_offset, _val)
 
 /*
  * struct adreno_vbif_snapshot_registers - Holds an array of vbif registers
@@ -727,11 +711,6 @@ struct adreno_irq_funcs {
 	void (*func)(struct adreno_device *adreno_dev, int mask);
 };
 #define ADRENO_IRQ_CALLBACK(_c) { .func = _c }
-
-struct adreno_irq {
-	unsigned int mask;
-	struct adreno_irq_funcs *funcs;
-};
 
 /*
  * struct adreno_debugbus_block - Holds info about debug buses of a chip
@@ -756,7 +735,6 @@ struct adreno_gpudev {
 	 * so define them in the structure and use them as variables.
 	 */
 	unsigned int *const reg_offsets;
-	unsigned int *const int_bits;
 	const struct adreno_ft_perf_counters *ft_perf_counters;
 	unsigned int ft_perf_counters_count;
 
@@ -764,17 +742,15 @@ struct adreno_gpudev {
 
 	struct adreno_coresight *coresight[2];
 
-	struct adreno_irq *irq;
 	unsigned int vbif_xin_halt_ctrl0_mask;
 	unsigned int gbif_client_halt_mask;
 	unsigned int gbif_arb_halt_mask;
 	unsigned int gbif_gx_halt_mask;
 	/* GPU specific function hooks */
-	void (*irq_trace)(struct adreno_device *adreno_dev,
-				unsigned int status);
 	void (*snapshot)(struct adreno_device *adreno_dev,
 				struct kgsl_snapshot *snapshot);
 	void (*platform_setup)(struct adreno_device *adreno_dev);
+	irqreturn_t (*irq_handler)(struct adreno_device *adreno_dev);
 	int (*init)(struct adreno_device *adreno_dev);
 	void (*remove)(struct adreno_device *adreno_dev);
 	int (*rb_start)(struct adreno_device *adreno_dev);
@@ -1209,23 +1185,6 @@ static inline void adreno_write_gmureg(struct adreno_device *adreno_dev,
 	if (adreno_checkreg_off(adreno_dev, offset_name))
 		gmu_core_regwrite(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets[offset_name], val);
-}
-
-/*
- * adreno_get_int() - Returns the offset value of an interrupt bit from
- * the interrupt bit array in the gpudev node
- * @adreno_dev:		Pointer to the the adreno device
- * @bit_name:		The interrupt bit enum whose bit is returned
- */
-static inline unsigned int adreno_get_int(struct adreno_device *adreno_dev,
-				enum adreno_int_bits bit_name)
-{
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	if (bit_name >= ADRENO_INT_BITS_MAX)
-		return -ERANGE;
-
-	return gpudev->int_bits[bit_name];
 }
 
 /**
@@ -1735,4 +1694,17 @@ int adreno_get_firmware(struct adreno_device *adreno_dev,
  */
 int adreno_zap_shader_load(struct adreno_device *adreno_dev,
 		const char *name);
+
+/**
+ * adreno_irq_callbacks - Helper function to handle IRQ callbacks
+ * @adreno_dev: Adreno GPU device handle
+ * @funcs: List of callback functions
+ * @status: Interrupt status
+ *
+ * Walk the bits in the interrupt status and call any applicable callbacks.
+ * Return: IRQ_HANDLED if one or more interrupt callbacks were called.
+ */
+irqreturn_t adreno_irq_callbacks(struct adreno_device *adreno_dev,
+		struct adreno_irq_funcs *funcs, u32 status);
+
 #endif /*__ADRENO_H */

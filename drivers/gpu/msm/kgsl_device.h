@@ -311,6 +311,10 @@ struct kgsl_device {
 	struct kgsl_memdesc *qdss_desc;
 	/* @qtimer_desc: Memory descriptor for the QDSS region if applicable */
 	struct kgsl_memdesc *qtimer_desc;
+	/** @event_groups: List of event groups for this device */
+	struct list_head event_groups;
+	/** @event_groups_lock: A R/W lock for the events group list */
+	rwlock_t event_groups_lock;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -620,11 +624,48 @@ void kgsl_device_snapshot_close(struct kgsl_device *device);
 void kgsl_events_init(void);
 void kgsl_events_exit(void);
 
+/**
+ * kgsl_device_events_probe - Set up events for the KGSL device
+ * @device: A KGSL GPU device handle
+ *
+ * Set up the list and lock for GPU events for this device
+ */
+void kgsl_device_events_probe(struct kgsl_device *device);
+
+/**
+ * kgsl_device_events_remove - Remove all event groups from the KGSL device
+ * @device: A KGSL GPU device handle
+ *
+ * Remove all of the GPU event groups from the device and warn if any of them
+ * still have events pending
+ */
+void kgsl_device_events_remove(struct kgsl_device *device);
+
 void kgsl_context_detach(struct kgsl_context *context);
 
-void kgsl_del_event_group(struct kgsl_event_group *group);
+/**
+ * kgsl_del_event_group - Remove a GPU event group from a device
+ * @device: A KGSL GPU device handle
+ * @group: Event group to be removed
+ *
+ * Remove the specified group from the list of event groups on @device.
+ */
+void kgsl_del_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group);
 
-void kgsl_add_event_group(struct kgsl_event_group *group,
+/**
+ * kgsl_add_event_group - Add a new GPU event group
+ * @device: A KGSL GPU device handle
+ * @group: Pointer to the new group to add to the list
+ * @context: Context that owns the group (or NULL for global)
+ * @readtimestamp: Function pointer to the readtimestamp function to call when
+ * processing events
+ * @priv: Priv member to pass to the readtimestamp function
+ * @fmt: The format string to use to build the event name
+ * @...: Arguments for the format string
+ */
+void kgsl_add_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group,
 		struct kgsl_context *context, readtimestamp_func readtimestamp,
 		void *priv, const char *fmt, ...);
 

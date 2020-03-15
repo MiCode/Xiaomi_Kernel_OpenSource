@@ -644,7 +644,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 		goto out;
 	}
 
-	kgsl_add_event_group(&context->events, context,
+	kgsl_add_event_group(device, &context->events, context,
 		kgsl_readtimestamp, context, "context-%d", id);
 
 out:
@@ -698,7 +698,7 @@ void kgsl_context_detach(struct kgsl_context *context)
 	kgsl_cancel_events(device, &context->events);
 
 	/* Remove the event group from the list */
-	kgsl_del_event_group(&context->events);
+	kgsl_del_event_group(device, &context->events);
 
 	kgsl_sync_timeline_put(context->ktimeline);
 
@@ -4876,6 +4876,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error_close_mmu;
 
+	/* Set up the GPU events for the device */
+	kgsl_device_events_probe(device);
+
 	device->events_wq = alloc_workqueue("kgsl-events",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
@@ -4904,6 +4907,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	kobject_put(device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
+
+	kgsl_device_events_remove(device);
 
 	kgsl_mmu_close(device);
 
