@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight System Trace Macrocell driver
  *
@@ -26,7 +26,6 @@
 #include <linux/perf_event.h>
 #include <linux/pm_runtime.h>
 #include <linux/stm.h>
-#include <linux/nvmem-consumer.h>
 
 #include "coresight-ost.h"
 #include "coresight-priv.h"
@@ -72,9 +71,6 @@
 #define STMTCSR_BUSY_BIT		23
 /* Reserve the first 10 channels for kernel usage */
 #define STM_CHANNEL_OFFSET		0
-
-#define APPS_NIDEN_SHIFT			17
-#define APPS_DBGEN_SHIFT			16
 
 static int boot_nr_channel;
 
@@ -360,9 +356,6 @@ static ssize_t notrace stm_generic_packet(struct stm_data *stm_data,
 
 	if (!(drvdata && local_read(&drvdata->mode)))
 		return -EACCES;
-
-	if (!drvdata->master_enable)
-		return -EPERM;
 
 	if (channel >= drvdata->numsp)
 		return -EINVAL;
@@ -779,13 +772,6 @@ static void stm_init_generic_data(struct stm_drvdata *drvdata)
 	drvdata->stm.set_options = stm_generic_set_options;
 }
 
-static bool is_apps_debug_disabled(u32 val)
-{
-	val &= BIT(APPS_NIDEN_SHIFT);
-
-	return val == 0;
-}
-
 static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret;
@@ -796,11 +782,9 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 	struct stm_drvdata *drvdata;
 	struct resource *res = &adev->res;
 	struct resource ch_res;
-	struct resource debug_ch_res;
 	size_t res_size, bitmap_size;
 	struct coresight_desc desc = { 0 };
 	struct device_node *np = adev->dev.of_node;
-	u32 val;
 
 	if (np) {
 		pdata = of_get_coresight_platform_data(dev, np);
@@ -835,29 +819,6 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 	drvdata->chs.base = base;
-
-	ret = stm_get_resource_byname(np, "stm-debug-status", &debug_ch_res);
-	/*
-	 * By default, master enable is true, means not controlled
-	 * by debug status register
-	 */
-	if (!ret) {
-		drvdata->debug_status_chs.phys = debug_ch_res.start;
-		base = devm_ioremap_resource(dev, &debug_ch_res);
-		if (!IS_ERR(base)) {
-			drvdata->debug_status_chs.base = base;
-			val = readl_relaxed(drvdata->debug_status_chs.base);
-			drvdata->master_enable =
-				!is_apps_debug_disabled(val);
-		}
-	} else {
-		ret = nvmem_cell_read_u32(&adev->dev, "debug_fuse", &val);
-		if (!ret) {
-			drvdata->master_enable =
-				!is_apps_debug_disabled(val);
-		} else
-			drvdata->master_enable = true;
-	}
 
 	drvdata->write_bytes = stm_fundamental_data_size(drvdata);
 
@@ -907,8 +868,7 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 
 	pm_runtime_put(&adev->dev);
 
-	dev_info(dev, "%s initialized with master %s\n", (char *)id->data,
-		       drvdata->master_enable ? "Enabled" : "Disabled");
+	dev_info(dev, "%s initialized\n", (char *)id->data);
 	return 0;
 
 stm_unregister:
