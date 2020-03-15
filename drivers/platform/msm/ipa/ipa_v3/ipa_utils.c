@@ -180,8 +180,11 @@
 #define IPA_v4_7_DST_GROUP_MAX		(1)
 
 #define IPA_v4_9_GROUP_UL_DL		(0)
-#define IPA_v4_9_SRC_GROUP_MAX		(1)
-#define IPA_v4_9_DST_GROUP_MAX		(1)
+#define IPA_v4_9_GROUP_DMA		(1)
+#define IPA_v4_9_GROUP_UC_RX		(2)
+#define IPA_v4_9_GROUP_DRB_IP		(3)
+#define IPA_v4_9_SRC_GROUP_MAX		(3)
+#define IPA_v4_9_DST_GROUP_MAX		(4)
 
 #define IPA_GROUP_MAX IPA_v3_0_GROUP_MAX
 
@@ -428,17 +431,17 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		{15, 15}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
 	[IPA_4_9] = {
-		/* UL_DL   other are invalid */
+		/* UL_DL  DMA  UC_RX_Q  unused  unused  N/A */
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
-		{1, 12}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{1, 12}, {1, 1}, {1, 12}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_LISTS] = {
-		{20, 20}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{20, 20}, {2, 2}, {3, 3}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
-		{38, 38}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{38, 38}, {4, 4}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
-		{0, 4}, {0, 0}, {0, 0},  {0, 0}, {0, 0}, {0, 0} },
+		{0, 4}, {0, 4}, {0, 4},  {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
-		{30, 30}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{30, 30}, {8, 8}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
 	},
 
 };
@@ -532,11 +535,11 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		{2, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
 	[IPA_4_9] = {
-		/* UL/DL/DPL, other are invalid */
+		/*UL/DL/DPL DM  uC  DRB IP unused unused */
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
-		{9, 9}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{9, 9}, {1, 1}, {1, 1}, {39, 39}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
-		{2, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{2, 3}, {1, 2}, {0, 2}, {0, 0}, {0, 0}, {0, 0} },
 	},
 
 };
@@ -606,7 +609,7 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 	[IPA_4_9] = {
 		/* unused  UL_DL  unused unused  UC_RX_Q  N/A */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
-		{3, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+		{3, 3}, {3, 3}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
 	},
 
 };
@@ -7662,8 +7665,14 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 		if (src) {
 			switch (group_index) {
 			case IPA_v4_9_GROUP_UL_DL:
+			case IPA_v4_9_GROUP_DMA:
 				ipahal_write_reg_n_fields(
 					IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_9_GROUP_UC_RX:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_23_RSRC_TYPE_n,
 					n, val);
 				break;
 			default:
@@ -7675,8 +7684,15 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 		} else {
 			switch (group_index) {
 			case IPA_v4_9_GROUP_UL_DL:
+			case IPA_v4_9_GROUP_DMA:
 				ipahal_write_reg_n_fields(
 					IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
+					n, val);
+				break;
+			case IPA_v4_9_GROUP_UC_RX:
+			case IPA_v4_9_GROUP_DRB_IP:
+				ipahal_write_reg_n_fields(
+					IPA_DST_RSRC_GRP_23_RSRC_TYPE_n,
 					n, val);
 				break;
 			default:
