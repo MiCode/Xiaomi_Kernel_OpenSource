@@ -270,4 +270,17 @@ static inline int hh_hcall_msgq_configure_recv(hh_capid_t msgq_capid,
 	return ret;
 }
 
+static inline int hh_hcall_vcpu_affinity_set(hh_capid_t vcpu_capid,
+						uint32_t cpu_index)
+{
+	int ret;
+	struct hh_hcall_resp _resp = {0};
+
+	ret = _hh_hcall(0x603d,
+			(struct hh_hcall_args){ vcpu_capid, cpu_index, -1 },
+			&_resp);
+
+	return ret;
+}
+
 #endif
