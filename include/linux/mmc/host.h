@@ -632,6 +632,7 @@ struct mmc_host {
 	bool inlinecrypt_reset_needed;  /* Inline crypto reset */
 
 	bool crash_on_err;	/* crash the system on error */
+	bool need_hw_reset;
 	atomic_t active_reqs;
 	unsigned long		private[0] ____cacheline_aligned;
 };
