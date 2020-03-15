@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,8 +50,11 @@
 #define CQHCI_IS_TCC			BIT(1)
 #define CQHCI_IS_RED			BIT(2)
 #define CQHCI_IS_TCL			BIT(3)
+#define CQHCI_IS_GCE			BIT(4)
+#define CQHCI_IS_ICCE			BIT(5)
 
-#define CQHCI_IS_MASK (CQHCI_IS_TCC | CQHCI_IS_RED)
+#define CQHCI_IS_MASK (CQHCI_IS_TCC | CQHCI_IS_RED | \
+			CQHCI_IS_GCE | CQHCI_IS_ICCE)
 
 /* interrupt status enable */
 #define CQHCI_ISTE			0x14

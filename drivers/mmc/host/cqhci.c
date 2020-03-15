@@ -790,8 +790,10 @@ static void cqhci_error_irq(struct mmc_host *mmc, u32 status, int cmd_error,
 
 	terri = cqhci_readl(cq_host, CQHCI_TERRI);
 
-	pr_debug("%s: cqhci: error IRQ status: 0x%08x cmd error %d data error %d TERRI: 0x%08x\n",
+	pr_err("%s: cqhci: error IRQ status: 0x%08x cmd error %d data error %d TERRI: 0x%08x\n",
 		 mmc_hostname(mmc), status, cmd_error, data_error, terri);
+	mmc_log_string(mmc, "%s: cqhci: status:0x%08x TERRI:0x%08x\n",
+		 mmc_hostname(mmc), status, terri);
 
 	/* Forget about errors when recovery has already been triggered */
 	if (cq_host->recovery_halt)
@@ -896,20 +898,22 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 irqreturn_t cqhci_irq(struct mmc_host *mmc, u32 intmask, int cmd_error,
 		      int data_error)
 {
-	u32 status;
+	u32 status, ice_err;
 	unsigned long tag = 0, comp_status;
 	struct cqhci_host *cq_host = mmc->cqe_private;
 
 	status = cqhci_readl(cq_host, CQHCI_IS);
+	ice_err = status & (CQHCI_IS_GCE | CQHCI_IS_ICCE);
 
 	pr_debug("%s: cqhci: IRQ status: 0x%08x\n", mmc_hostname(mmc), status);
 	mmc_log_string(mmc, "CQIS: 0x%x cmd_error : %d data_err: %d\n",
 		status, cmd_error, data_error);
 
-	if ((status & CQHCI_IS_RED) || cmd_error || data_error) {
+	if ((status & CQHCI_IS_RED) || cmd_error || data_error || ice_err) {
 		pr_err("%s: cqhci: error IRQ status: 0x%08x cmd error %d data error %d\n",
 			mmc_hostname(mmc), status, cmd_error, data_error);
 		cqhci_dumpregs(cq_host);
+		mmc->need_hw_reset = true;
 		cqhci_writel(cq_host, status, CQHCI_IS);
 		cqhci_error_irq(mmc, status, cmd_error, data_error);
 	} else {
