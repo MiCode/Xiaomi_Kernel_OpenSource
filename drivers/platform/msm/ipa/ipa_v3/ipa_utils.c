@@ -3429,8 +3429,8 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.uc_descriptor_ram_ofst	= 0x3800,
 	.uc_descriptor_ram_size	= 0x1000,
 	.pdn_config_ofst	= 0x4800,
-	.pdn_config_size	= 0x50,
-	.end_ofst		= 0x4850,
+	.pdn_config_size	= 0x70,
+	.end_ofst		= 0x4870,
 };
 
 
