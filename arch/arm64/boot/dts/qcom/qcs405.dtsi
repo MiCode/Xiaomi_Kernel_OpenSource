@@ -300,7 +300,7 @@
 		clock-frequency = <32768>;
 	};
 
-	pdm_pwm0: pdm_pwm_test@600000 {
+	pdm_pwm0: pdm_pwm@600000 {
 		compatible = "qcom,pdm-pwm";
 		reg = <0x600000 0xc000>;
 		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
@@ -349,7 +349,7 @@
 		};
 	};
 
-	pdm_pwm1: pdm_pwm_test@614000 {
+	pdm_pwm1: pdm_pwm@614000 {
 		compatible = "qcom,pdm-pwm";
 		reg = <0x614000 0xc000>;
 		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
@@ -398,7 +398,7 @@
 		};
 	};
 
-	pdm_pwm2: pdm_pwm_test@628000 {
+	pdm_pwm2: pdm_pwm@628000 {
 		compatible = "qcom,pdm-pwm";
 		reg = <0x628000 0xc000>;
 		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
