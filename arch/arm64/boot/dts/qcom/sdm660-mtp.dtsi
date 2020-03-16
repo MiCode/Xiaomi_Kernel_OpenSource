@@ -123,7 +123,7 @@
 };
 
 &pm660l_wled {
-	qcom,string-cfg= <3>;
+	qcom,string-cfg= <6>;
 	status = "ok";
 };
 
