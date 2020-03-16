@@ -847,6 +847,8 @@ config QCOM_HYP_CORE_CTL
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
 
+source "drivers/soc/qcom/icnss2/Kconfig"
+
 config ICNSS
 	tristate "Platform driver for Q6 integrated connectivity"
 	select CNSS_UTILS
