@@ -1057,6 +1057,7 @@
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 		qcom,smmu-s1-enable;
+		qcom,set-wlaon-pwr-ctrl;
 
 		mhi,max-channels = <30>;
 		mhi,buffer-len = <0x8000>;
