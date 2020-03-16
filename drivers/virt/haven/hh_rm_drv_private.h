@@ -94,8 +94,8 @@ struct hh_vm_property {
 
 /* Call: VM_ALLOCATE */
 struct hh_vm_allocate_req_payload {
-	u8 vmid:4;
-	u8 reserved:4;
+	hh_vmid_t vmid;
+	u16 reserved;
 } __packed;
 
 struct hh_vm_allocate_resp_payload {
@@ -104,8 +104,8 @@ struct hh_vm_allocate_resp_payload {
 
 /* Call: VM_START */
 struct hh_vm_start_req_payload {
-	u8 vmid:4;
-	u8 reserved:4;
+	hh_vmid_t vmid;
+	u16 reserved;
 } __packed;
 
 struct hh_vm_start_resp_payload {
@@ -114,14 +114,14 @@ struct hh_vm_start_resp_payload {
 
 /* Call: CONSOLE_OPEN, CONSOLE_CLOSE, CONSOLE_FLUSH */
 struct hh_vm_console_common_req_payload {
-	u32 vmid;
-	u32 reserved0;
+	hh_vmid_t vmid;
+	u16 reserved0;
 } __packed;
 
 /* Call: CONSOLE_WRITE */
 struct hh_vm_console_write_req_payload {
-	u32 vmid;
-	u32 num_bytes;
+	hh_vmid_t vmid;
+	u16 num_bytes;
 	u8 data[0];
 } __packed;
 
@@ -134,14 +134,14 @@ struct hh_vm_console_write_req_payload {
 #define HH_RM_RES_TYPE_VCPU	4
 
 struct hh_vm_get_hyp_res_req_payload {
-	u16 vmid;
+	hh_vmid_t vmid;
 	u16 reserved;
 } __packed;
 
 struct hh_vm_get_hyp_res_resp_entry {
 	u8 res_type;
 	u8 reserved;
-	u16 partner_vmid;
+	hh_vmid_t partner_vmid;
 	u32 resource_handle;
 	u32 resource_label;
 	u32 cap_id_low;
@@ -168,6 +168,7 @@ struct hh_vm_irq_accept_resp_payload {
 /* Call: VM_IRQ_LEND */
 struct hh_vm_irq_lend_req_payload {
 	hh_vmid_t vmid;
+	u16 reserved;
 	s32 virq;
 	s32 label;
 } __packed;
@@ -182,12 +183,16 @@ struct hh_vm_irq_lend_resp_payload {
 
 struct hh_vm_irq_notify_req_payload {
 	hh_virq_handle_t virq;
-	u16 flags;
-	u16 reserved0;
-	u32 reserved1;
-	struct {
-		u32 num_vmids;
-		u64 vmids[0];
+	u8 flags;
+	u8 reserved0;
+	u16 reserved1;
+	struct __packed {
+		u16 num_vmids;
+		u16 reserved;
+		struct __packed {
+			hh_vmid_t vmid;
+			u16 reserved;
+		} vmids[0];
 	} optional[0];
 } __packed;
 

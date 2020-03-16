@@ -263,12 +263,12 @@ static int hh_rm_vm_irq_notify(const hh_vmid_t *vmids, unsigned int num_vmids,
 	if (!(flags & HH_VM_IRQ_NOTIFY_FLAGS_LENT) && num_vmids)
 		return -EINVAL;
 
-	if (num_vmids > U32_MAX)
+	if (num_vmids > U16_MAX)
 		return -EINVAL;
 
 	req_payload_size = sizeof(*req_payload);
 	if (flags & HH_VM_IRQ_NOTIFY_FLAGS_LENT)
-		req_payload_size += sizeof(req_payload->optional) +
+		req_payload_size += sizeof(*(req_payload->optional)) +
 			(sizeof(req_payload->optional->vmids[0]) * num_vmids);
 	req_payload = kzalloc(req_payload_size, GFP_KERNEL);
 
@@ -280,12 +280,12 @@ static int hh_rm_vm_irq_notify(const hh_vmid_t *vmids, unsigned int num_vmids,
 	if (flags & HH_VM_IRQ_NOTIFY_FLAGS_LENT) {
 		req_payload->optional[0].num_vmids = num_vmids;
 		for (i = 0; i < num_vmids; i++)
-			req_payload->optional[0].vmids[i] = vmids[i];
+			req_payload->optional[0].vmids[i].vmid = vmids[i];
 	}
 
 
 	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY,
-				&req_payload, sizeof(req_payload),
+				req_payload, req_payload_size,
 				&resp_payload_size, &reply_err_code);
 	kfree(req_payload);
 	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {

@@ -143,7 +143,7 @@ struct hh_notify_vmid_desc {
 #define HH_RM_OS_STATUS_RUN		4
 
 struct hh_rm_notif_vm_status_payload {
-	u16 vmid;
+	hh_vmid_t vmid;
 	u16 reserved;
 	u8 vm_status;
 	u8 os_status;
@@ -151,20 +151,21 @@ struct hh_rm_notif_vm_status_payload {
 } __packed;
 
 struct hh_rm_notif_vm_irq_lent_payload {
-	u16 owner_vmid;
-	u32 virq_handle;
-	u32 virq_label;
+	hh_vmid_t owner_vmid;
+	u16 reserved;
+	hh_virq_handle_t virq_handle;
+	hh_label_t virq_label;
 } __packed;
 
 struct hh_rm_notif_vm_irq_released_payload {
-	u32 virq_handle;
+	hh_virq_handle_t virq_handle;
 } __packed;
 
 /* VM Services */
 #define HH_RM_NOTIF_VM_CONSOLE_CHARS	0X56100080
 
 struct hh_rm_notif_vm_console_chars {
-	u16 vmid;
+	hh_vmid_t vmid;
 	u16 num_bytes;
 	u8 bytes[0];
 } __packed;
