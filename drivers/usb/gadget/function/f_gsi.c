@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2398,23 +2398,18 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 			}
 
 			/* Configure EPs for GSI */
-			if (gsi->d_port.in_ep &&
-				gsi->prot_id <= USB_PROT_DIAG_IPA) {
-				if (gsi->prot_id == USB_PROT_DIAG_IPA)
-					gsi->d_port.in_ep->ep_intr_num = 3;
-				else
-					gsi->d_port.in_ep->ep_intr_num = 2;
-				usb_gsi_ep_op(gsi->d_port.in_ep,
-					&gsi->d_port.in_request,
-						GSI_EP_OP_CONFIG);
-			}
+			if (gsi->prot_id <= USB_PROT_DIAG_IPA) {
+				if (gsi->d_port.in_ep) {
+					usb_gsi_ep_op(gsi->d_port.in_ep,
+						&gsi->d_port.in_request,
+							GSI_EP_OP_CONFIG);
+				}
 
-			if (gsi->d_port.out_ep &&
-				gsi->prot_id <= USB_PROT_DIAG_IPA) {
-				gsi->d_port.out_ep->ep_intr_num = 1;
-				usb_gsi_ep_op(gsi->d_port.out_ep,
-					&gsi->d_port.out_request,
-						GSI_EP_OP_CONFIG);
+				if (gsi->d_port.out_ep) {
+					usb_gsi_ep_op(gsi->d_port.out_ep,
+						&gsi->d_port.out_request,
+							GSI_EP_OP_CONFIG);
+				}
 			}
 
 			gsi->d_port.gadget = cdev->gadget;
