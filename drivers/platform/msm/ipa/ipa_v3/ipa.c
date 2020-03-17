@@ -6758,6 +6758,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->uc_act_tbl_valid = false;
 	ipa3_ctx->uc_act_tbl_total = 0;
 	ipa3_ctx->uc_act_tbl_next_index = 0;
+	ipa3_ctx->ipa_config_is_auto = resource_p->ipa_config_is_auto;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
