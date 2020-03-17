@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,10 +221,10 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		soc_info->reg_map[camnoc_index].mem_base +
 		camnoc_info->err_logger->errlog3_high);
 
-	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+	CAM_DBG(CAM_CPAS,
 		"Possible memory configuration issue, fault at SMMU raised as CAMNOC SLAVE_IRQ");
 
-	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+	CAM_DBG(CAM_CPAS,
 		"mainctrl[0x%x 0x%x] errvld[0x%x 0x%x] stall_en=%d, fault_en=%d, err_vld=%d",
 		camnoc_info->err_logger->mainctrl,
 		slave_err->mainctrl.value,
@@ -238,7 +238,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 	if (err_code_index > CAMNOC_SLAVE_MAX_ERR_CODE)
 		err_code_index = CAMNOC_SLAVE_MAX_ERR_CODE;
 
-	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+	CAM_DBG(CAM_CPAS,
 		"errlog0 low[0x%x 0x%x] high[0x%x 0x%x] loginfo_vld=%d, word_error=%d, non_secure=%d, device=%d, opc=%d, err_code=%d(%s) sizef=%d, addr_space=%d, len1=%d",
 		camnoc_info->err_logger->errlog0_low,
 		slave_err->errlog0_low.value,
@@ -255,7 +255,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		slave_err->errlog0_low.addr_space,
 		slave_err->errlog0_high.len1);
 
-	CAM_ERR_RATE_LIMIT(CAM_CPAS,
+	CAM_DBG(CAM_CPAS,
 		"errlog1_low[0x%x 0x%x]  errlog1_high[0x%x 0x%x] errlog2_low[0x%x 0x%x]  errlog2_high[0x%x 0x%x] errlog3_low[0x%x 0x%x]  errlog3_high[0x%x 0x%x]",
 		camnoc_info->err_logger->errlog1_low,
 		slave_err->errlog1_low.value,
@@ -284,7 +284,7 @@ static int cam_cpastop_handle_ubwc_enc_err(struct cam_cpas *cpas_core,
 		camnoc_info->irq_err[i].err_status.offset);
 
 	/* Let clients handle the UBWC errors */
-	CAM_DBG(CAM_CPAS,
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
 		"ubwc enc err [%d]: offset[0x%x] value[0x%x]",
 		i, camnoc_info->irq_err[i].err_status.offset,
 		enc_err->encerr_status.value);
@@ -303,7 +303,7 @@ static int cam_cpastop_handle_ubwc_dec_err(struct cam_cpas *cpas_core,
 		camnoc_info->irq_err[i].err_status.offset);
 
 	/* Let clients handle the UBWC errors */
-	CAM_DBG(CAM_CPAS,
+	CAM_ERR_RATE_LIMIT(CAM_CPAS,
 		"ubwc dec err status [%d]: offset[0x%x] value[0x%x] thr_err=%d, fcl_err=%d, len_md_err=%d, format_err=%d",
 		i, camnoc_info->irq_err[i].err_status.offset,
 		dec_err->decerr_status.value,
