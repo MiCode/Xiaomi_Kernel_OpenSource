@@ -16,6 +16,9 @@ typedef u32 hh_memparcel_handle_t;
 typedef u64 hh_capid_t;
 typedef u64 hh_dbl_flags_t;
 
+/* Common Haven macros */
+#define HH_CAPID_INVAL	U64_MAX
+
 enum hh_vm_names {
 	HH_PRIMARY_VM,
 	HH_TRUSTED_VM,
