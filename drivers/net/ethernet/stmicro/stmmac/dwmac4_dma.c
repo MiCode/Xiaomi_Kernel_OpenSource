@@ -367,6 +367,9 @@ static void dwmac4_get_hw_feature(void __iomem *ioaddr,
 
 	/* IEEE 1588-2002 */
 	dma_cap->time_stamp = 0;
+
+	/* Number of PPS outputs */
+	dma_cap->pps_out_num = ((hw_cap >> 24) & GMAC_PPSOUTNUM_MASK);
 }
 
 /* Enable/disable TSO feature and set MSS */

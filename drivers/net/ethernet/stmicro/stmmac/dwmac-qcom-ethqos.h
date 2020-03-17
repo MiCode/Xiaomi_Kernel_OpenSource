@@ -74,6 +74,12 @@ do {\
 #define MAC_PPSX_INTERVAL(x)		(0x00000b88 + ((x) * 0x10))
 #define MAC_PPSX_WIDTH(x)		(0x00000b8c + ((x) * 0x10))
 
+#define PPS_START_DELAY 100000000
+#define ONE_NS 1000000000
+#define PPS_ADJUST_NS 32
+
+#define DWC_ETH_QOS_PPS_CH_0 0
+#define DWC_ETH_QOS_PPS_CH_1 1
 #define DWC_ETH_QOS_PPS_CH_2 2
 #define DWC_ETH_QOS_PPS_CH_3 3
 
@@ -431,6 +437,8 @@ struct pps_cfg {
 	unsigned int ppsout_ch;
 	unsigned int ppsout_duty;
 	unsigned int ppsout_start;
+	unsigned int ppsout_align;
+	unsigned int ppsout_align_ns;
 };
 
 struct ifr_data_struct {
