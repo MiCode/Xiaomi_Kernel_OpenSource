@@ -155,7 +155,7 @@ struct stmmac_priv {
 #endif
 };
 
-struct emac_emb_smmu_cb_ctx {
+struct stmmac_emb_smmu_cb_ctx {
 	bool valid;
 	struct platform_device *pdev_master;
 	struct platform_device *smmu_pdev;
@@ -167,10 +167,10 @@ struct emac_emb_smmu_cb_ctx {
 	int ret;
 };
 
-extern struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx;
+extern struct stmmac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx;
 
-#define GET_MEM_PDEV_DEV (emac_emb_smmu_ctx.valid ? \
-			&emac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
+#define GET_MEM_PDEV_DEV (stmmac_emb_smmu_ctx.valid ? \
+			&stmmac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
 
 int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 int ethqos_init_pps(struct stmmac_priv *priv);

@@ -34,11 +34,12 @@ static unsigned long tlmm_central_base_addr;
 bool phy_intr_en;
 
 struct qcom_ethqos *pethqos;
-struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
+
+struct stmmac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx = {0};
 static unsigned char dev_addr[ETH_ALEN] = {
 	0, 0x55, 0x7b, 0xb5, 0x7d, 0xf7};
 
-void *ipc_emac_log_ctxt;
+void *ipc_stmmac_log_ctxt;
 static struct qmp_pkt pkt;
 static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
 static struct ip_params pparams = {"", "", "", ""};
@@ -1218,22 +1219,22 @@ static void ethqos_emac_mem_base(struct qcom_ethqos *ethqos)
 	ethqos->emac_mem_size = resource_size(resource);
 }
 
-static void emac_emb_smmu_exit(void)
+static void stmmac_emb_smmu_exit(void)
 {
-	if (emac_emb_smmu_ctx.valid) {
-		if (emac_emb_smmu_ctx.smmu_pdev)
+	if (stmmac_emb_smmu_ctx.valid) {
+		if (stmmac_emb_smmu_ctx.smmu_pdev)
 			arm_iommu_detach_device
-			(&emac_emb_smmu_ctx.smmu_pdev->dev);
-		if (emac_emb_smmu_ctx.mapping)
-			arm_iommu_release_mapping(emac_emb_smmu_ctx.mapping);
-		emac_emb_smmu_ctx.valid = false;
-		emac_emb_smmu_ctx.mapping = NULL;
-		emac_emb_smmu_ctx.pdev_master = NULL;
-		emac_emb_smmu_ctx.smmu_pdev = NULL;
+			(&stmmac_emb_smmu_ctx.smmu_pdev->dev);
+		if (stmmac_emb_smmu_ctx.mapping)
+			arm_iommu_release_mapping(stmmac_emb_smmu_ctx.mapping);
+		stmmac_emb_smmu_ctx.valid = false;
+		stmmac_emb_smmu_ctx.mapping = NULL;
+		stmmac_emb_smmu_ctx.pdev_master = NULL;
+		stmmac_emb_smmu_ctx.smmu_pdev = NULL;
 	}
 }
 
-static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
+static int stmmac_emb_smmu_cb_probe(struct platform_device *pdev)
 {
 	int result;
 	u32 iova_ap_mapping[2];
@@ -1250,12 +1251,12 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 		ETHQOSERR("Failed to read EMB start/size iova addresses\n");
 		return result;
 	}
-	emac_emb_smmu_ctx.va_start = iova_ap_mapping[0];
-	emac_emb_smmu_ctx.va_size = iova_ap_mapping[1];
-	emac_emb_smmu_ctx.va_end = emac_emb_smmu_ctx.va_start +
-				   emac_emb_smmu_ctx.va_size;
+	stmmac_emb_smmu_ctx.va_start = iova_ap_mapping[0];
+	stmmac_emb_smmu_ctx.va_size = iova_ap_mapping[1];
+	stmmac_emb_smmu_ctx.va_end = stmmac_emb_smmu_ctx.va_start +
+				   stmmac_emb_smmu_ctx.va_size;
 
-	emac_emb_smmu_ctx.smmu_pdev = pdev;
+	stmmac_emb_smmu_ctx.smmu_pdev = pdev;
 
 	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
 	    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
@@ -1263,18 +1264,18 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 		return -EOPNOTSUPP;
 	}
 
-	emac_emb_smmu_ctx.mapping = arm_iommu_create_mapping
-	(dev->bus, emac_emb_smmu_ctx.va_start, emac_emb_smmu_ctx.va_size);
-	if (IS_ERR_OR_NULL(emac_emb_smmu_ctx.mapping)) {
+	stmmac_emb_smmu_ctx.mapping = arm_iommu_create_mapping
+	(dev->bus, stmmac_emb_smmu_ctx.va_start, stmmac_emb_smmu_ctx.va_size);
+	if (IS_ERR_OR_NULL(stmmac_emb_smmu_ctx.mapping)) {
 		ETHQOSDBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
 	}
 	ETHQOSDBG("Successfully Created SMMU mapping\n");
-	emac_emb_smmu_ctx.valid = true;
+	stmmac_emb_smmu_ctx.valid = true;
 
 	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass")) {
-		if (iommu_domain_set_attr(emac_emb_smmu_ctx.mapping->domain,
+		if (iommu_domain_set_attr(stmmac_emb_smmu_ctx.mapping->domain,
 					  DOMAIN_ATTR_S1_BYPASS,
 					  &bypass)) {
 			ETHQOSERR("Couldn't set SMMU S1 bypass\n");
@@ -1283,7 +1284,7 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 		}
 		ETHQOSDBG("SMMU S1 BYPASS set\n");
 	} else {
-		if (iommu_domain_set_attr(emac_emb_smmu_ctx.mapping->domain,
+		if (iommu_domain_set_attr(stmmac_emb_smmu_ctx.mapping->domain,
 					  DOMAIN_ATTR_ATOMIC,
 					  &atomic_ctx)) {
 			ETHQOSERR("Couldn't set SMMU domain as atomic\n");
@@ -1291,7 +1292,7 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 			goto err_smmu_probe;
 		}
 		ETHQOSDBG("SMMU atomic set\n");
-		if (iommu_domain_set_attr(emac_emb_smmu_ctx.mapping->domain,
+		if (iommu_domain_set_attr(stmmac_emb_smmu_ctx.mapping->domain,
 					  DOMAIN_ATTR_FAST,
 					  &fast)) {
 			ETHQOSERR("Couldn't set FAST SMMU\n");
@@ -1301,27 +1302,27 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 		ETHQOSDBG("SMMU fast map set\n");
 	}
 
-	result = arm_iommu_attach_device(&emac_emb_smmu_ctx.smmu_pdev->dev,
-					 emac_emb_smmu_ctx.mapping);
+	result = arm_iommu_attach_device(&stmmac_emb_smmu_ctx.smmu_pdev->dev,
+					 stmmac_emb_smmu_ctx.mapping);
 	if (result) {
 		ETHQOSERR("couldn't attach to IOMMU ret=%d\n", result);
 		goto err_smmu_probe;
 	}
 
-	emac_emb_smmu_ctx.iommu_domain =
-		iommu_get_domain_for_dev(&emac_emb_smmu_ctx.smmu_pdev->dev);
+	stmmac_emb_smmu_ctx.iommu_domain =
+		iommu_get_domain_for_dev(&stmmac_emb_smmu_ctx.smmu_pdev->dev);
 
 	ETHQOSDBG("Successfully attached to IOMMU\n");
-	if (emac_emb_smmu_ctx.pdev_master)
+	if (stmmac_emb_smmu_ctx.pdev_master)
 		goto smmu_probe_done;
 
 err_smmu_probe:
-	if (emac_emb_smmu_ctx.mapping)
-		arm_iommu_release_mapping(emac_emb_smmu_ctx.mapping);
-	emac_emb_smmu_ctx.valid = false;
+	if (stmmac_emb_smmu_ctx.mapping)
+		arm_iommu_release_mapping(stmmac_emb_smmu_ctx.mapping);
+	stmmac_emb_smmu_ctx.valid = false;
 
 smmu_probe_done:
-	emac_emb_smmu_ctx.ret = result;
+	stmmac_emb_smmu_ctx.ret = result;
 	return result;
 }
 
@@ -1639,16 +1640,16 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	place_marker("M - Ethernet probe start");
 #endif
 
-	ipc_emac_log_ctxt = ipc_log_context_create(IPCLOG_STATE_PAGES,
-						   "emac", 0);
-	if (!ipc_emac_log_ctxt)
-		ETHQOSINFO("Error creating logging context for emac\n");
+	ipc_stmmac_log_ctxt = ipc_log_context_create(IPCLOG_STATE_PAGES,
+						     "emac", 0);
+	if (!ipc_stmmac_log_ctxt)
+		ETHQOSERR("Error creating logging context for emac\n");
 	else
 		ETHQOSINFO("IPC logging has been enabled for emac\n");
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "qcom,emac-smmu-embedded"))
-		return emac_emb_smmu_cb_probe(pdev);
+		return stmmac_emb_smmu_cb_probe(pdev);
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -1721,16 +1722,16 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->early_eth = ethqos->early_eth_enabled;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
-		emac_emb_smmu_ctx.pdev_master = pdev;
+		stmmac_emb_smmu_ctx.pdev_master = pdev;
 		ret = of_platform_populate(pdev->dev.of_node,
 					   qcom_ethqos_match, NULL, &pdev->dev);
 		if (ret)
 			ETHQOSERR("Failed to populate EMAC platform\n");
-		if (emac_emb_smmu_ctx.ret) {
+		if (stmmac_emb_smmu_ctx.ret) {
 			ETHQOSERR("smmu probe failed\n");
 			of_platform_depopulate(&pdev->dev);
-			ret = emac_emb_smmu_ctx.ret;
-			emac_emb_smmu_ctx.ret = 0;
+			ret = stmmac_emb_smmu_ctx.ret;
+			stmmac_emb_smmu_ctx.ret = 0;
 		}
 	}
 
@@ -1843,7 +1844,7 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	if (phy_intr_en)
 		cancel_work_sync(&ethqos->emac_phy_work);
 
-	emac_emb_smmu_exit();
+	stmmac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
 
 	return ret;
@@ -1962,8 +1963,8 @@ static void __exit qcom_ethqos_exit_module(void)
 
 	platform_driver_unregister(&qcom_ethqos_driver);
 
-	if (!ipc_emac_log_ctxt)
-		ipc_log_context_destroy(ipc_emac_log_ctxt);
+	if (!ipc_stmmac_log_ctxt)
+		ipc_log_context_destroy(ipc_stmmac_log_ctxt);
 
 	ETHQOSINFO("\n");
 }
