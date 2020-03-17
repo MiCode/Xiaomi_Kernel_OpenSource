@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -618,9 +618,27 @@ static void isdb_write(void __iomem *base, u32 offset)
 
 static void set_isdb_breakpoint_registers(struct kgsl_device *device)
 {
+	struct clk *clk;
+	int ret;
+
 	if (!device->set_isdb_breakpoint || device->ftbl->is_hwcg_on(device)
 					|| device->qdss_gfx_virt == NULL)
 		return;
+
+	clk = clk_get(&device->pdev->dev, "apb_pclk");
+
+	if (IS_ERR(clk)) {
+		dev_err(device->dev, "Unable to get QDSS clock\n");
+		goto err;
+	}
+
+	ret = clk_prepare_enable(clk);
+
+	if (ret) {
+		dev_err(device->dev, "QDSS Clock enable error: %d\n", ret);
+		clk_put(clk);
+		goto err;
+	}
 
 	/* Issue break command for all six SPs */
 	isdb_write(device->qdss_gfx_virt, 0x0000);
@@ -629,6 +647,15 @@ static void set_isdb_breakpoint_registers(struct kgsl_device *device)
 	isdb_write(device->qdss_gfx_virt, 0x3000);
 	isdb_write(device->qdss_gfx_virt, 0x4000);
 	isdb_write(device->qdss_gfx_virt, 0x5000);
+
+	clk_disable_unprepare(clk);
+	clk_put(clk);
+
+	return;
+
+err:
+	/* Do not force kernel panic if isdb writes did not go through */
+	device->force_panic = false;
 }
 
 /**
