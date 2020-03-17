@@ -141,8 +141,6 @@ struct icc_path;
 /**
  * struct gmu_device - GMU device structure
  * @ver: GMU Version information
- * @reg_phys: GMU CSR physical address
- * @reg_len: GMU CSR range
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
@@ -174,8 +172,6 @@ struct gmu_device {
 		u32 hfi;
 	} ver;
 	struct platform_device *pdev;
-	unsigned long reg_phys;
-	unsigned int reg_len;
 	int gmu_interrupt_num;
 	const struct firmware *fw_image;
 	struct gmu_memdesc *hfi_mem;

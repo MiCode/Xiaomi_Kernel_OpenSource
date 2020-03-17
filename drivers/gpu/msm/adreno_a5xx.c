@@ -89,7 +89,15 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 
 static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 {
-	set_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+	adreno_dev->sptp_pc_enabled =
+		ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC);
+
+	if (adreno_is_a540(adreno_dev))
+		adreno_dev->throttling_enabled = true;
+
+	adreno_dev->hwcg_enabled = true;
+	adreno_dev->lm_enabled =
+		ADRENO_FEATURE(adreno_dev, ADRENO_LM);
 
 	/* Set the GPU busy counter to use for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A5XX_RBBM_PERFCTR_RBBM_0_LO;
@@ -261,8 +269,7 @@ static bool a5xx_is_sptp_idle(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	/* If feature is not supported or enabled, no worry */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->sptp_pc_enabled)
 		return true;
 	kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
 	if (reg & BIT(20))
@@ -404,8 +411,7 @@ static void a5xx_regulator_disable(struct adreno_device *adreno_dev)
 		return;
 
 	/* If feature is not supported or not enabled */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag)) {
+	if (!adreno_dev->sptp_pc_enabled) {
 		/* Set the default register values; set SW_COLLAPSE to 1 */
 		kgsl_regwrite(device, A5XX_GPMU_SP_POWER_CNTL, 0x778001);
 		/*
@@ -456,8 +462,7 @@ static void a5xx_enable_pc(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->sptp_pc_enabled)
 		return;
 
 	kgsl_regwrite(device, A5XX_GPMU_PWR_COL_INTER_FRAME_CTRL, 0x0000007F);
@@ -701,7 +706,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	int i;
 
-	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->hwcg_enabled)
 		return;
 
 	for (i = 0; i < a5xx_core->hwcg_count; i++)
@@ -934,8 +939,7 @@ static void a530_lm_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return;
 
 	/* If something was wrong with the sequence file, return */
@@ -985,8 +989,7 @@ static void a530_lm_enable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return;
 
 	/* If no sequence properly initialized, return */
@@ -1015,10 +1018,10 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 		<< AGC_GPU_VERSION_SHIFT);
 	unsigned int r;
 
-	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->throttling_enabled)
 		agc_lm_config |= AGC_THROTTLE_DISABLE;
 
-	if (lm_on(adreno_dev)) {
+	if (adreno_dev->lm_enabled) {
 		agc_lm_config |=
 			AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE |
 			AGC_LM_CONFIG_ISENSE_ENABLE;
@@ -1096,20 +1099,11 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post)
 {
-	int on = 0;
-
-	/* On pre A540 HW only call through if LMx is supported and enabled */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		on = ADRENO_LM;
-
-	/* On 540+ HW call through unconditionally as long as GPMU is enabled */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
-		if (adreno_is_a540(adreno_dev))
-			on = ADRENO_GPMU;
-	}
-
-	if (!on)
+	/*
+	 * On pre A540 HW only call through if LMx is supported and enabled, and
+	 * always call through for a540
+	 */
+	if (!adreno_is_a540(adreno_dev) && !adreno_dev->lm_enabled)
 		return;
 
 	if (!post) {
@@ -1158,13 +1152,7 @@ static int64_t a5xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	uint32_t th[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!adreno_is_a540(adreno_dev))
-		return 0;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return 0;
-
-	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->throttling_enabled)
 		return 0;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
@@ -2378,10 +2366,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A5XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A5XX_RBBM_CLOCK_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A5XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
-					  A5XX_RBBM_BLOCK_SW_RESET_CMD),
-		ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
-					  A5XX_RBBM_BLOCK_SW_RESET_CMD2),
 	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0, A5XX_UCHE_INVALIDATE0),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_RBBM_0_LO,
 				A5XX_RBBM_PERFCTR_RBBM_0_LO),
@@ -2756,6 +2740,26 @@ static irqreturn_t a5xx_irq_handler(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool a5xx_hw_isidle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status;
+
+	/*
+	 * Due to CRC idle throttling the GPU idle hysteresis on a540 can take
+	 * up to 5uS to expire
+	 */
+	if (adreno_is_a540(adreno_dev))
+		udelay(5);
+
+	kgsl_regread(device, A5XX_RBBM_STATUS, &status);
+
+	if (status & 0xfffffffe)
+		return false;
+
+	return adreno_irq_pending(adreno_dev) ? false : true;
+}
+
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
 	{ A5XX_RBBM_CFG_DBGBUS_SEL_A },
@@ -2982,4 +2986,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_schedule = a5xx_preemption_schedule,
 	.clk_set_options = a5xx_clk_set_options,
 	.read_alwayson = a5xx_read_alwayson,
+	.hw_isidle = a5xx_hw_isidle,
 };

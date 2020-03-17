@@ -1381,6 +1381,19 @@ static irqreturn_t a3xx_irq_handler(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool a3xx_hw_isidle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status;
+
+	kgsl_regread(device, A3XX_RBBM_STATUS, &status);
+
+	if (status & 0x7ffffffe)
+		return false;
+
+	return adreno_irq_pending(adreno_dev) ? false : true;
+}
+
 struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
@@ -1399,4 +1412,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 #endif
 	.clk_set_options = a3xx_clk_set_options,
 	.read_alwayson = a3xx_read_alwayson,
+	.hw_isidle = a3xx_hw_isidle,
 };

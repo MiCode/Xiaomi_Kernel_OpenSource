@@ -653,7 +653,7 @@ static int hfi_send_lm_feature_ctrl(struct gmu_device *gmu,
 	u32 slope = 0;
 	int ret;
 
-	if (!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return 0;
 
 	memset(&req, 0, sizeof(req));
@@ -678,7 +678,7 @@ static int hfi_send_acd_feature_ctrl(struct gmu_device *gmu,
 {
 	int ret = 0;
 
-	if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag)) {
+	if (adreno_dev->acd_enabled) {
 		ret = hfi_send_acd_tbl(gmu);
 		if (!ret)
 			ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ACD, 1, 0);

@@ -97,7 +97,6 @@ struct kgsl_functable {
 	void (*regwrite)(struct kgsl_device *device,
 		unsigned int offsetwords, unsigned int value);
 	int (*idle)(struct kgsl_device *device);
-	bool (*isidle)(struct kgsl_device *device);
 	int (*suspend_context)(struct kgsl_device *device);
 	int (*first_open)(struct kgsl_device *device);
 	int (*last_close)(struct kgsl_device *device);

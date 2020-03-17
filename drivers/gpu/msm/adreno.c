@@ -31,6 +31,7 @@
 #include "adreno-gpulist.h"
 
 static void adreno_input_work(struct work_struct *work);
+static int adreno_soft_reset(struct kgsl_device *device);
 static unsigned int counter_delta(struct kgsl_device *device,
 	unsigned int reg, unsigned int *counter);
 
@@ -500,7 +501,7 @@ static struct input_handler adreno_input_handler = {
  * all the HW logic, restores GPU registers to default state and
  * flushes out pending VBIF transactions.
  */
-static int _soft_reset(struct adreno_device *adreno_dev)
+static void _soft_reset(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -517,8 +518,6 @@ static int _soft_reset(struct adreno_device *adreno_dev)
 
 	if (gpudev->regulator_enable)
 		gpudev->regulator_enable(adreno_dev);
-
-	return 0;
 }
 
 /**
@@ -986,7 +985,7 @@ static void adreno_of_get_limits(struct adreno_device *adreno_dev,
 	pwrctrl->throttle_mask = GENMASK(pwrctrl->num_pwrlevels - 1,
 			pwrctrl->num_pwrlevels - 1 - throttle_level);
 
-	set_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+	adreno_dev->lm_enabled = true;
 }
 
 static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
@@ -1363,13 +1362,6 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	adreno_dev->long_ib_detect = true;
 
 	INIT_WORK(&adreno_dev->input_work, adreno_input_work);
-
-	/*
-	 * Enable SPTP power collapse, throttling and hardware clock gating by
-	 * default where applicable
-	 */
-	adreno_dev->pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) |
-		BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL);
 
 	INIT_LIST_HEAD(&adreno_dev->active_list);
 	spin_lock_init(&adreno_dev->active_list_lock);
@@ -2315,28 +2307,21 @@ no_gx_power:
 int adreno_reset(struct kgsl_device *device, int fault)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret = -EINVAL;
-	int i = 0;
+	int i;
+
+	if (gpudev->reset)
+		return gpudev->reset(device, fault);
 
 	/*
 	 * Try soft reset first Do not do soft reset for a IOMMU fault (because
-	 * the IOMMU hardware needs a reset too) or for the A304 because it
-	 * can't do SMMU programming of any kind after a soft reset
+	 * the IOMMU hardware needs a reset too)
 	 */
 
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) && !adreno_is_a304(adreno_dev)
-		&& !adreno_is_a612(adreno_dev) && !adreno_is_a610(adreno_dev)) {
-		/* Make sure VBIF is cleared before resetting */
-		ret = adreno_clear_pending_transactions(device);
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT))
+		ret = adreno_soft_reset(device);
 
-		if (ret == 0) {
-			ret = adreno_soft_reset(device);
-			if (ret)
-				dev_err(device->dev,
-					"Device soft reset failed: ret=%d\n",
-					ret);
-		}
-	}
 	if (ret) {
 		/* If soft reset failed/skipped, then pull the power */
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
@@ -2346,22 +2331,18 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		/* Try to reset the device */
 		ret = adreno_start(device, 0);
 
-		/* On some GPUS, keep trying until it works */
-		if (ret && ADRENO_GPUREV(adreno_dev) < 600) {
-			for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-				msleep(20);
-				ret = adreno_start(device, 0);
-				if (!ret)
-					break;
-			}
+		for (i = 0; ret && i < NUM_TIMES_RESET_RETRY; i++) {
+			msleep(20);
+			ret = adreno_start(device, 0);
 		}
-	}
-	if (ret)
-		return ret;
 
-	if (i != 0)
-		dev_warn(device->dev,
+		if (ret)
+			return ret;
+
+		if (i != 0)
+			dev_warn(device->dev,
 			      "Device hard reset tried %d tries\n", i);
+	}
 
 	/*
 	 * If active_cnt is non-zero then the system was active before
@@ -2752,7 +2733,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
  *
  * Returns true if interrupts are pending from device else 0.
  */
-inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
+bool adreno_irq_pending(struct adreno_device *adreno_dev)
 {
 	unsigned int status;
 
@@ -2767,67 +2748,37 @@ inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
 	 */
 	if ((status & adreno_dev->irq_mask) ||
 		atomic_read(&adreno_dev->pending_irq_refcnt))
-		return 1;
-	else
-		return 0;
+		return true;
+
+	return false;
 }
 
-
-/**
- * adreno_hw_isidle() - Check if the GPU core is idle
- * @adreno_dev: Pointer to the Adreno device structure for the GPU
- *
- * Return true if the RBBM status register for the GPU type indicates that the
- * hardware is idle
- */
-bool adreno_hw_isidle(struct adreno_device *adreno_dev)
-{
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
-	unsigned int reg_rbbm_status;
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
-
-	/* if hw driver implements idle check - use it */
-	if (gpudev->hw_isidle)
-		return gpudev->hw_isidle(adreno_dev);
-
-	if (adreno_is_a540(adreno_dev))
-		/**
-		 * Due to CRC idle throttling GPU
-		 * idle hysteresys can take up to
-		 * 3usec for expire - account for it
-		 */
-		udelay(5);
-
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
-		&reg_rbbm_status);
-
-	if (reg_rbbm_status & gpucore->busy_mask)
-		return false;
-
-	/* Don't consider ourselves idle if there is an IRQ pending */
-	if (adreno_irq_pending(adreno_dev))
-		return false;
-
-	return true;
-}
-
-/**
- * adreno_soft_reset() -  Do a soft reset of the GPU hardware
+/*
+ * adreno_soft_reset -  Do a soft reset of the GPU hardware
  * @device: KGSL device to soft reset
  *
  * "soft reset" the GPU hardware - this is a fast path GPU reset
  * The GPU hardware is reset but we never pull power so we can skip
  * a lot of the standard adreno_stop/adreno_start sequence
  */
-int adreno_soft_reset(struct kgsl_device *device)
+static int adreno_soft_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
-	ret = gmu_core_dev_oob_set(device, oob_gpu);
-	if (ret)
+	/*
+	 * Don't allow a soft reset for a304 because the SMMU needs to be hard
+	 * reset
+	 */
+	if (adreno_is_a304(adreno_dev))
+		return -ENODEV;
+
+	ret = adreno_clear_pending_transactions(device);
+	if (ret) {
+		dev_err(device->dev, "Timed out while clearing the VBIF\n");
 		return ret;
+	}
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 	adreno_set_active_ctxs_null(adreno_dev);
@@ -2841,15 +2792,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* save physical performance counter values before GPU soft reset */
 	adreno_perfcounter_save(adreno_dev);
 
-	/* Reset the GPU */
-	if (gpudev->soft_reset)
-		ret = gpudev->soft_reset(adreno_dev);
-	else
-		ret = _soft_reset(adreno_dev);
-	if (ret) {
-		gmu_core_dev_oob_clear(device, oob_gpu);
-		return ret;
-	}
+	_soft_reset(adreno_dev);
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
@@ -2889,25 +2832,19 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
 
-	gmu_core_dev_oob_clear(device, oob_gpu);
+	if (ret)
+		dev_err(device->dev, "Device soft reset failed: %d\n", ret);
 
 	return ret;
 }
 
-/*
- * adreno_isidle() - return true if the GPU hardware is idle
- * @device: Pointer to the KGSL device structure for the GPU
- *
- * Return true if the GPU hardware is idle and there are no commands pending in
- * the ringbuffer
- */
-bool adreno_isidle(struct kgsl_device *device)
+static bool adreno_isidle(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
-	if (!kgsl_state_is_awake(device))
+	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
 		return true;
 
 	/*
@@ -2926,7 +2863,7 @@ bool adreno_isidle(struct kgsl_device *device)
 			return false;
 	}
 
-	return adreno_hw_isidle(adreno_dev);
+	return gpudev->hw_isidle(adreno_dev);
 }
 
 /* Print some key registers if a spin-for-idle times out */
@@ -2987,7 +2924,7 @@ int adreno_spin_idle(struct adreno_device *adreno_dev, unsigned int timeout)
 		if (adreno_gpu_fault(adreno_dev) != 0)
 			return -EDEADLK;
 
-		if (adreno_isidle(KGSL_DEVICE(adreno_dev)))
+		if (adreno_isidle(adreno_dev))
 			return 0;
 
 	} while (time_before(jiffies, wait));
@@ -3000,7 +2937,7 @@ int adreno_spin_idle(struct adreno_device *adreno_dev, unsigned int timeout)
 	if (adreno_gpu_fault(adreno_dev) != 0)
 		return -EDEADLK;
 
-	if (adreno_isidle(KGSL_DEVICE(adreno_dev)))
+	if (adreno_isidle(adreno_dev))
 		return 0;
 
 	return -ETIMEDOUT;
@@ -3028,7 +2965,7 @@ int adreno_idle(struct kgsl_device *device)
 		return -EDEADLK;
 
 	/* Check if we are already idle before idling dispatcher */
-	if (adreno_isidle(device))
+	if (adreno_isidle(adreno_dev))
 		return 0;
 	/*
 	 * Wait for dispatcher to finish completing commands
@@ -3725,7 +3662,7 @@ static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 			device->pwrctrl.ctrl_flags)
 		return false;
 
-	return adreno_isidle(device) && (gpudev->is_sptp_idle ?
+	return adreno_isidle(adreno_dev) && (gpudev->is_sptp_idle ?
 				gpudev->is_sptp_idle(adreno_dev) : true);
 }
 
@@ -3789,7 +3726,7 @@ static bool adreno_is_hwcg_on(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->hwcg_enabled;
 }
 
 static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
@@ -3811,7 +3748,6 @@ static const struct kgsl_functable adreno_functable = {
 	.regread = adreno_regread,
 	.regwrite = adreno_regwrite,
 	.idle = adreno_idle,
-	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,
 	.first_open = adreno_first_open,
 	.start = adreno_start,

@@ -206,12 +206,6 @@ enum adreno_gpurev {
 #define ADRENO_CTX_DETATCH_TIMEOUT_FAULT BIT(6)
 #define ADRENO_GMU_FAULT_SKIP_SNAPSHOT BIT(7)
 
-#define ADRENO_SPTP_PC_CTRL 0
-#define ADRENO_LM_CTRL      1
-#define ADRENO_HWCG_CTRL    2
-#define ADRENO_THROTTLING_CTRL 3
-#define ADRENO_ACD_CTRL 4
-
 /* VBIF,  GBIF halt request and ack mask */
 #define GBIF_HALT_REQUEST       0x1E0
 #define VBIF_RESET_ACK_MASK     0x00f0
@@ -340,7 +334,6 @@ struct adreno_reglist {
  * @gpudev: Pointer to the GPU family specific functions for this core
  * @gmem_base: Base address of binning memory (GMEM/OCMEM)
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
- * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
  * @bus_width: Bytes transferred in 1 cycle
  */
 struct adreno_gpu_core {
@@ -350,7 +343,6 @@ struct adreno_gpu_core {
 	struct adreno_gpudev *gpudev;
 	unsigned long gmem_base;
 	size_t gmem_size;
-	unsigned int busy_mask;
 	u32 bus_width;
 	/** @snapshot_size: Size of the static snapshot region in bytes */
 	u32 snapshot_size;
@@ -413,7 +405,6 @@ struct adreno_gpu_core {
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
- * @pwrctrl_flag: Flag to hold adreno specific power attributes
  * @profile_buffer: Memdesc holding the drawobj profiling buffer
  * @profile_index: Index to store the start/stop ticks in the profiling
  * buffer
@@ -485,8 +476,16 @@ struct adreno_device {
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
 	struct dentry *ctx_d_debugfs;
-	unsigned long pwrctrl_flag;
-
+	/** @lm_enabled: True if limits management is enabled for this target */
+	bool lm_enabled;
+	/** @acd_enabled: True if acd is enabled for this target */
+	bool acd_enabled;
+	/** @hwcg_enabled: True if hardware clock gating is enabled */
+	bool hwcg_enabled;
+	/** @throttling_enabled: True if LM throttling is enabled on a5xx */
+	bool throttling_enabled;
+	/** @sptp_pc_enabled: True if SPTP power collapse is enabled on a5xx */
+	bool sptp_pc_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;
@@ -643,8 +642,6 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_INT_0_STATUS,
 	ADRENO_REG_RBBM_PM_OVERRIDE2,
 	ADRENO_REG_RBBM_SW_RESET_CMD,
-	ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
-	ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
 	ADRENO_REG_RBBM_CLOCK_CTL,
 	ADRENO_REG_PA_SC_AA_CONFIG,
 	ADRENO_REG_SQ_GPR_MANAGEMENT,
@@ -789,7 +786,6 @@ struct adreno_gpudev {
 	const char *(*iommu_fault_block)(struct kgsl_device *device,
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *device, int fault);
-	int (*soft_reset)(struct adreno_device *adreno_dev);
 	bool (*sptprac_is_on)(struct adreno_device *adreno_dev);
 	unsigned int (*ccu_invalidate)(struct adreno_device *adreno_dev,
 				unsigned int *cmds);
@@ -871,7 +867,6 @@ extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;
 
 int adreno_start(struct kgsl_device *device, int priority);
-int adreno_soft_reset(struct kgsl_device *device);
 long adreno_ioctl(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg);
 
@@ -893,7 +888,6 @@ int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 void adreno_spin_idle_debug(struct adreno_device *adreno_dev, const char *str);
 int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
-bool adreno_isidle(struct kgsl_device *device);
 
 int adreno_set_constraint(struct kgsl_device *device,
 				struct kgsl_context *context,
@@ -908,8 +902,6 @@ int adreno_reset(struct kgsl_device *device, int fault);
 void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_drawobj *drawobj);
-
-bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
 void adreno_fault_detect_start(struct adreno_device *adreno_dev);
 void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
@@ -950,6 +942,13 @@ void adreno_rscc_regread(struct adreno_device *adreno_dev,
 void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
 
+/**
+ * adreno_irq_pending - Return true if an interrupt is pending
+ * @adreno_dev: An Adreno GPU device handle
+ *
+ * Returns: true if interrupts are pending on the device
+ */
+bool adreno_irq_pending(struct adreno_device *adreno_dev);
 
 #define ADRENO_TARGET(_name, _id) \
 static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \

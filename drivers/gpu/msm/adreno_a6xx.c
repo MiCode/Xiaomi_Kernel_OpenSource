@@ -238,7 +238,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	unsigned int value;
 	int i;
 
-	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->hwcg_enabled)
 		on = false;
 
 	if (gmu_core_isenabled(device)) {
@@ -405,10 +405,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	adreno_dev->irq_mask = A6XX_INT_MASK;
 
-	/* runtime adjust callbacks based on feature sets */
-	if (!gmu_core_isenabled(device))
-		/* Legacy idle management if gmu is disabled */
-		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
 
@@ -986,17 +982,24 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 			ADRENO_REG_GMU_PWR_COL_KEEPALIVE, state);
 }
 
-/* Bitmask for GPU idle status check */
-#define GPUBUSYIGNAHB		BIT(23)
 static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
-	gmu_core_regread(KGSL_DEVICE(adreno_dev),
-		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
-	if (reg & GPUBUSYIGNAHB)
-		return false;
-	return true;
+	/* Non GMU devices monitor the RBBM status */
+	if (!gmu_core_isenabled(device)) {
+		kgsl_regread(device, A6XX_RBBM_STATUS, &reg);
+		if (reg & 0xfffffffe)
+			return false;
+
+		return adreno_irq_pending(adreno_dev) ? false : true;
+	}
+
+	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+
+	/* Bit 23 is GPUBUSYIGNAHB */
+	return (reg & BIT(23)) ? false : true;
 }
 
 /*
@@ -1011,30 +1014,6 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 	return adreno_get_firmware(adreno_dev, a6xx_core->sqefw_name, sqe_fw);
 }
 
-static int a6xx_soft_reset(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int reg;
-
-	if (gmu_core_isenabled(device))
-		return 0;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
-	/*
-	 * Do a dummy read to get a brief read cycle delay for the
-	 * reset to take effect
-	 */
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
-
-	/* Clear GBIF client halt and CX arbiter halt */
-	adreno_deassert_gbif_halt(adreno_dev);
-
-	a6xx_sptprac_enable(adreno_dev);
-
-	return 0;
-}
-
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1042,8 +1021,7 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	u32 a, b, c;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return 0;
 
 	/* The counters are selected in a6xx_gmu_enable_lm() */
@@ -1098,12 +1076,14 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
-	/* Use the regular reset sequence for No GMU */
-	if (!gmu_core_isenabled(device))
-		return adreno_reset(device, fault);
-
-	/* Transition from ACTIVE to RESET state */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
+	/*
+	 * GMU devices transition to KGSL_STATE_RESET, non GMU devices go
+	 * directly to KGSL_STATE_INIT
+	 */
+	if (gmu_core_isenabled(device))
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
+	else
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 
 	/* since device is officially off now clear start bit */
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
@@ -2300,6 +2280,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
+	adreno_dev->hwcg_enabled = true;
+
 	adreno_dev->preempt.preempt_level = 1;
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
@@ -2407,11 +2389,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, A6XX_RBBM_INT_0_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A6XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A6XX_RBBM_CLOCK_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A6XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
-					  A6XX_RBBM_BLOCK_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
-					  A6XX_RBBM_BLOCK_SW_RESET_CMD2),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
@@ -2612,10 +2589,9 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.read_throttling_counters = a6xx_read_throttling_counters,
 	.microcode_read = a6xx_microcode_read,
 	.gpu_keepalive = a6xx_gpu_keepalive,
-	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
+	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,
-	.soft_reset = a6xx_soft_reset,
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
 	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
 	.preemption_init = a6xx_preemption_init,

@@ -175,8 +175,8 @@ static void fault_detect_read(struct adreno_device *adreno_dev)
  */
 static inline bool _isidle(struct adreno_device *adreno_dev)
 {
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	unsigned int reg_rbbm_status;
+	u32 mask;
 
 	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
 		goto ret;
@@ -187,7 +187,12 @@ static inline bool _isidle(struct adreno_device *adreno_dev)
 	/* only check rbbm status to determine if GPU is idle */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
 
-	if (reg_rbbm_status & gpucore->busy_mask)
+	if (adreno_is_a3xx(adreno_dev))
+		mask = 0x7ffffffe;
+	else
+		mask = 0xfffffffe;
+
+	if (reg_rbbm_status & mask)
 		return false;
 
 ret:
@@ -2197,10 +2202,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		kgsl_process_event_group(device, &hung_rb->events);
 	}
 
-	if (gpudev->reset)
-		ret = gpudev->reset(device, fault);
-	else
-		ret = adreno_reset(device, fault);
+	ret = adreno_reset(device, fault);
 
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */
