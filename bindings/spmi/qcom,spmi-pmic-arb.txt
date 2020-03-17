@@ -44,9 +44,14 @@ Optional properties:
     cell 4: interrupt flags indicating level-sense information, as defined in
             dt-bindings/interrupt-controller/irq.h
 
+Consumer node optional properties:
+- qcom,pmic-arb : phandle for an spmi-pmic-arb device.  This can be used by
+		  consumer devices that are not PMIC devices but which need to
+		  reference an spmi-pmic-arb device.
+
 Example:
 
-	spmi {
+	spmi_bus: spmi {
 		compatible = "qcom,spmi-pmic-arb";
 		reg-names = "core", "intr", "cnfg";
 		reg = <0xfc4cf000 0x1000>,
@@ -64,4 +69,8 @@ Example:
 
 		interrupt-controller;
 		#interrupt-cells = <4>;
+	};
+
+	&display {
+		qcom,pmic-arb = <&spmi_bus>;
 	};
