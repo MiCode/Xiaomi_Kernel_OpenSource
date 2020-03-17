@@ -815,4 +815,8 @@
 		compatible = "qcom,msm-dai-q6-dev";
 		qcom,msm-dai-q6-dev-id = <24577>;
 	};
+
+	pcie: qcom,msm-pcm-pcie {
+		compatible = "qcom,msm-pcm-pcie";
+	};
 };
