@@ -141,6 +141,9 @@ static int ten_thousand = 10000;
 #ifdef CONFIG_PERF_EVENTS
 static int six_hundred_forty_kb = 640 * 1024;
 #endif
+static unsigned int __maybe_unused half_million = 500000;
+static unsigned int __maybe_unused one_hundred_million = 100000000;
+static unsigned int __maybe_unused one_million = 1000000;
 #ifdef CONFIG_SCHED_WALT
 static int neg_three = -3;
 static int three = 3;
@@ -355,7 +358,32 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_irqsoff_tracing_threshold_ns,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= &half_million,
+		.extra2		= &one_hundred_million,
+	},
+	{
+		.procname	= "irqsoff_dmesg_output_enabled",
+		.data		= &sysctl_irqsoff_dmesg_output_enabled,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "irqsoff_crash_sentinel_value",
+		.data		= &sysctl_irqsoff_crash_sentinel_value,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "irqsoff_crash_threshold_ns",
+		.data		= &sysctl_irqsoff_crash_threshold_ns,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= &one_million,
+		.extra2		= &one_hundred_million,
 	},
 #endif
 #ifdef CONFIG_SCHED_WALT
