@@ -328,6 +328,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Lagoon ID */
 	[434] = {MSM_CPU_LAGOON, "LAGOON"},
+	[459] = {MSM_CPU_LAGOON, "LAGOON"},
 
 	/* Bengalp ID */
 	[445] = {MSM_CPU_BENGALP, "BENGALP"},
