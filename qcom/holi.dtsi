@@ -858,6 +858,7 @@
 #include "holi-stub-regulator.dtsi"
 #include "holi-gdsc.dtsi"
 #include "holi-ion.dtsi"
+#include "holi-usb.dtsi"
 
 &pmk8350 {
 	reg = <6 SPMI_USID>;
