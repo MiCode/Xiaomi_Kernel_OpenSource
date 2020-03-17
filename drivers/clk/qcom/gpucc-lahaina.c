@@ -635,11 +635,17 @@ static int gpu_cc_lahaina_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static void gpu_cc_lahaina_sync_state(struct device *dev)
+{
+	qcom_cc_sync_state(dev, &gpu_cc_lahaina_desc);
+}
+
 static struct platform_driver gpu_cc_lahaina_driver = {
 	.probe = gpu_cc_lahaina_probe,
 	.driver = {
 		.name = "gpu_cc-lahaina",
 		.of_match_table = gpu_cc_lahaina_match_table,
+		.sync_state = gpu_cc_lahaina_sync_state,
 	},
 };
 
