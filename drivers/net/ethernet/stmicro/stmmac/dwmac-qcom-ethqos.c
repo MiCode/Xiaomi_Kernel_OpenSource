@@ -1006,6 +1006,9 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 			  ethqos->phy_intr);
 		return ret;
 	}
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	place_marker("M - Phy IRQ interrupt enabled");
+#endif
 	phy_intr_en = true;
 	return ret;
 }
@@ -1468,6 +1471,10 @@ static void qcom_ethqos_bringup_iface(struct work_struct *work)
 	if (dev_change_flags(ndev, ndev->flags | IFF_UP) < 0)
 		ETHQOSINFO("ERROR\n");
 
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	place_marker("M - Device flag changed to UP ");
+#endif
+
 	rtnl_unlock();
 
 	ETHQOSINFO("exit\n");
@@ -1590,8 +1597,6 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 		 priv->plat->mdio_bus_data->phy_mask | DUPLEX_FULL | SPEED_100;
 
 	priv->plat->max_speed = SPEED_100;
-	priv->early_eth = ethqos->early_eth_enabled;
-	qcom_ethqos_add_ipaddr(&pparams, priv->dev);
 
 	if (pparams.is_valid_ipv4_addr) {
 		INIT_DELAYED_WORK(&ethqos->ipv4_addr_assign_wq,
@@ -1628,6 +1633,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct stmmac_priv *priv;
 	int ret;
+	struct phy_device *phydev;
 
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe start");
@@ -1712,6 +1718,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+	plat_dat->early_eth = ethqos->early_eth_enabled;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
 		emac_emb_smmu_ctx.pdev_master = pdev;
@@ -1781,7 +1788,16 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ndev = dev_get_drvdata(&ethqos->pdev->dev);
 	priv = netdev_priv(ndev);
-
+	phydev = mdiobus_get_phy(priv->mii, priv->plat->phy_addr);
+	if (phydev && phydev->drv &&
+	    phydev->drv->config_intr &&
+		!phydev->drv->config_intr(phydev)) {
+		qcom_ethqos_request_phy_wol(priv->plat);
+		phydev->irq = PHY_IGNORE_INTERRUPT;
+		phydev->interrupts =  PHY_INTERRUPT_ENABLED;
+	} else {
+		ETHQOSERR("config_phy_intr configuration failed");
+	}
 	if (ethqos->early_eth_enabled) {
 		/* Initialize work*/
 		INIT_WORK(&ethqos->early_eth,

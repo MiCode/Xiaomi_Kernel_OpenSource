@@ -148,7 +148,6 @@ struct stmmac_priv {
 	void __iomem *ptpaddr;
 	u32 mss;
 	bool boot_kpi;
-	bool early_eth;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 	struct dentry *dbgfs_rings_status;
