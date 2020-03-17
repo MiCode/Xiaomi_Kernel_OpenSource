@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,11 +228,16 @@ static void ipa_eth_ep_init_tx_props(
 
 static int ipa_eth_ep_init_tx_intf(
 		struct ipa_eth_device *eth_dev,
-		struct ipa_tx_intf *tx_intf,
 		bool vlan_mode)
 {
 	u32 num_props;
 	struct ipa_eth_channel *ch;
+	struct ipa_tx_intf *tx_intf = &eth_dev->ipa_tx_intf;
+
+	if (tx_intf->prop) {
+		ipa_eth_dev_bug(eth_dev, "IPA interface Tx prop is not empty");
+		return -EFAULT;
+	}
 
 	/* one each for IPv4 and IPv6 */
 	num_props = __list_size(&eth_dev->tx_channels) * 2;
@@ -257,11 +262,16 @@ static int ipa_eth_ep_init_tx_intf(
 
 static int ipa_eth_ep_init_rx_intf(
 		struct ipa_eth_device *eth_dev,
-		struct ipa_rx_intf *rx_intf,
 		bool vlan_mode)
 {
 	u32 num_props;
 	struct ipa_eth_channel *ch;
+	struct ipa_rx_intf *rx_intf = &eth_dev->ipa_rx_intf;
+
+	if (rx_intf->prop) {
+		ipa_eth_dev_bug(eth_dev, "IPA interface Rx prop is not empty");
+		return -EFAULT;
+	}
 
 	/* one each for IPv4 and IPv6 */
 	num_props = __list_size(&eth_dev->rx_channels) * 2;
@@ -284,6 +294,128 @@ static int ipa_eth_ep_init_rx_intf(
 	return 0;
 }
 
+static void ipa_eth_ep_deinit_interfaces(struct ipa_eth_device *eth_dev)
+{
+	kzfree(eth_dev->ipa_tx_intf.prop);
+	memset(&eth_dev->ipa_tx_intf, 0, sizeof(eth_dev->ipa_tx_intf));
+
+	kzfree(eth_dev->ipa_rx_intf.prop);
+	memset(&eth_dev->ipa_rx_intf, 0, sizeof(eth_dev->ipa_rx_intf));
+
+}
+
+static int ipa_eth_ep_init_interfaces(struct ipa_eth_device *eth_dev)
+{
+	int rc;
+	bool vlan_mode;
+
+	if (eth_dev->ipa_rx_intf.num_props || eth_dev->ipa_tx_intf.num_props) {
+		ipa_eth_dev_err(eth_dev, "Interface properties already exist");
+		return -EFAULT;
+	}
+
+	rc = ipa3_is_vlan_mode(IPA_VLAN_IF_ETH, &vlan_mode);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Could not determine IPA VLAN mode");
+		return rc;
+	}
+
+	rc = ipa_eth_ep_init_tx_intf(eth_dev, vlan_mode);
+	if (rc)
+		goto free_and_exit;
+
+	rc = ipa_eth_ep_init_rx_intf(eth_dev, vlan_mode);
+	if (rc)
+		goto free_and_exit;
+
+	return 0;
+
+free_and_exit:
+	ipa_eth_ep_deinit_interfaces(eth_dev);
+
+	return rc;
+}
+
+static int ipa_eth_ep_deregister_ipa_intf(
+	struct net_device *net_dev)
+{
+	int rc;
+
+	ipa_eth_log("Deregistering IPA intf %s", net_dev->name);
+
+	rc = ipa_deregister_intf(net_dev->name);
+	if (rc) {
+		ipa_eth_err("Failed to deregister IPA intf %s", net_dev->name);
+		return rc;
+	}
+
+	rc = ipa_eth_send_msg_disconnect(net_dev);
+	if (rc)
+		ipa_eth_err("Failed to send disconnect message", net_dev->name);
+
+	return rc;
+}
+
+static int ipa_eth_ep_register_ipa_intf(
+	struct net_device *net_dev,
+	struct ipa_tx_intf *tx_intf,
+	struct ipa_rx_intf *rx_intf)
+{
+	int rc;
+
+	ipa_eth_log("Registering IPA intf %s", net_dev->name);
+
+	rc = ipa_register_intf(net_dev->name, tx_intf, rx_intf);
+	if (rc) {
+		ipa_eth_err("Failed to register IPA intf %s", net_dev->name);
+		return rc;
+	}
+
+	rc = ipa_eth_send_msg_connect(net_dev);
+	if (rc) {
+		ipa_eth_err("Failed to send connect message", net_dev->name);
+		(void) ipa_eth_ep_deregister_ipa_intf(net_dev);
+	}
+
+	return rc;
+}
+
+static int ipa_eth_ep_register_alt_interface(
+		struct ipa_eth_device *eth_dev,
+		struct net_device *net_dev)
+{
+	struct ipa_tx_intf *tx_intf = &eth_dev->ipa_tx_intf;
+	struct ipa_rx_intf *rx_intf = &eth_dev->ipa_rx_intf;
+
+	return ipa_eth_ep_register_ipa_intf(net_dev, tx_intf, rx_intf);
+}
+
+static int ipa_eth_ep_deregister_alt_interface(
+		struct ipa_eth_device *eth_dev,
+		struct net_device *net_dev)
+{
+	return ipa_eth_ep_deregister_ipa_intf(net_dev);
+}
+
+static int __ipa_eth_ep_register_interface(
+	struct ipa_eth_device *eth_dev)
+{
+	int rc;
+	struct net_device *net_dev = eth_dev->net_dev;
+	struct ipa_tx_intf *tx_intf = &eth_dev->ipa_tx_intf;
+	struct ipa_rx_intf *rx_intf = &eth_dev->ipa_rx_intf;
+
+	ipa_eth_dev_log(eth_dev, "Registering interface %s", net_dev->name);
+
+	rc = ipa_eth_ep_register_ipa_intf(net_dev, tx_intf, rx_intf);
+	if (rc) {
+		ipa_eth_err("Failed to register IPA interface");
+		return rc;
+	}
+
+	return 0;
+}
+
 /**
  * ipa_eth_ep_register_interface() - Set Rx and Tx properties and register the
  *                                   interface with IPA
@@ -297,36 +429,21 @@ static int ipa_eth_ep_init_rx_intf(
 int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev)
 {
 	int rc;
-	bool vlan_mode;
-	struct ipa_tx_intf tx_intf;
-	struct ipa_rx_intf rx_intf;
 
-	memset(&tx_intf, 0, sizeof(tx_intf));
-	memset(&rx_intf, 0, sizeof(rx_intf));
+	ipa_eth_dev_log(eth_dev, "Registering interface with IPA driver");
 
-	rc = ipa3_is_vlan_mode(IPA_VLAN_IF_ETH, &vlan_mode);
+	rc = ipa_eth_ep_init_interfaces(eth_dev);
+	if (rc)
+		return rc;
+
+	rc = __ipa_eth_ep_register_interface(eth_dev);
 	if (rc) {
-		ipa_eth_dev_err(eth_dev, "Could not determine IPA VLAN mode");
-		goto free_and_exit;
+		ipa_eth_dev_err(eth_dev, "Failed to register IPA interface");
+		ipa_eth_ep_deinit_interfaces(eth_dev);
+		return rc;
 	}
 
-	rc = ipa_eth_ep_init_tx_intf(eth_dev, &tx_intf, vlan_mode);
-	if (rc)
-		goto free_and_exit;
-
-	rc = ipa_eth_ep_init_rx_intf(eth_dev, &rx_intf, vlan_mode);
-	if (rc)
-		goto free_and_exit;
-
-	rc = ipa_register_intf(eth_dev->net_dev->name, &tx_intf, &rx_intf);
-	if (!rc)
-		ipa_eth_send_msg_connect(eth_dev);
-
-free_and_exit:
-	kzfree(tx_intf.prop);
-	kzfree(rx_intf.prop);
-
-	return rc;
+	return 0;
 }
 
 /**
@@ -338,11 +455,77 @@ int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev)
 {
 	int rc;
 
-	rc = ipa_deregister_intf(eth_dev->net_dev->name);
-	if (!rc)
-		ipa_eth_send_msg_disconnect(eth_dev);
+	ipa_eth_dev_log(eth_dev, "Unregistering interface from IPA driver");
 
-	return rc;
+	rc = ipa_eth_ep_deregister_ipa_intf(eth_dev->net_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to de-register one or more interfaces");
+		return rc;
+	}
+
+	ipa_eth_ep_deinit_interfaces(eth_dev);
+
+	return 0;
+}
+
+int ipa_eth_ep_register_upper_interface(
+	struct ipa_eth_upper_device *upper_eth_dev)
+{
+	int rc;
+	struct net_device *net_dev = upper_eth_dev->net_dev;
+	struct ipa_eth_device *eth_dev = upper_eth_dev->eth_dev;
+
+	ipa_eth_dev_log(eth_dev,
+		"Registering upper interface %s", net_dev->name);
+
+	if (upper_eth_dev->registered) {
+		ipa_eth_dev_log(eth_dev,
+			"Upper interface %s is already registered. Skipping.",
+			net_dev->name);
+		return 0;
+	}
+
+	rc = ipa_eth_ep_register_alt_interface(eth_dev, net_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to register upper interface %s", net_dev->name);
+		return rc;
+	}
+
+	upper_eth_dev->registered = true;
+
+	return 0;
+}
+
+int ipa_eth_ep_unregister_upper_interface(
+	struct ipa_eth_upper_device *upper_eth_dev)
+{
+	int rc;
+	struct net_device *net_dev = upper_eth_dev->net_dev;
+	struct ipa_eth_device *eth_dev = upper_eth_dev->eth_dev;
+
+	ipa_eth_dev_log(eth_dev,
+		"Unegistering upper interface %s", net_dev->name);
+
+	if (!upper_eth_dev->registered) {
+		ipa_eth_dev_log(eth_dev,
+			"Upper interface %s is already unregistered. Skipping.",
+			net_dev->name);
+		return 0;
+	}
+
+	rc = ipa_eth_ep_deregister_alt_interface(eth_dev, net_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to unregister upper interface %s",
+			net_dev->name);
+		return rc;
+	}
+
+	upper_eth_dev->registered = false;
+
+	return 0;
 }
 
 /**
