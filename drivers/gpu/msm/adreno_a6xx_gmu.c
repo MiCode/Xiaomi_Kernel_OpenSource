@@ -120,6 +120,13 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	void __iomem *cfg = NULL, *seq = NULL;
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
+	u32 xo_resource_addr = cmd_db_read_addr("xo.lvl");
+
+	if (!xo_resource_addr) {
+		dev_err(&gmu->pdev->dev,
+				"Failed to get 'xo.lvl' addr from cmd_db\n");
+		return -ENOENT;
+	}
 
 	/*
 	 * Older A6x platforms specified PDC registers in the DT using a
@@ -206,7 +213,7 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2,
-			a6xx_core->pdc_address_offset);
+			xo_resource_addr);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 
@@ -237,7 +244,7 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2,
-			a6xx_core->pdc_address_offset);
+			xo_resource_addr);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
