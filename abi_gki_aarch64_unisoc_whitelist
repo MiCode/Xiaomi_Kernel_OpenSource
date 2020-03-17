@@ -61,7 +61,6 @@
   __cpu_possible_mask
   csum_ipv6_magic
   csum_partial
-  debug_smp_processor_id
   default_llseek
   delayed_work_timer_fn
   del_timer
@@ -357,8 +356,6 @@
   power_supply_get_drvdata
   power_supply_get_property
   power_supply_put
-  preempt_count_add
-  preempt_count_sub
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
