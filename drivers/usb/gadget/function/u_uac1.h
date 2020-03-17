@@ -25,6 +25,7 @@
 
 struct f_uac1_opts {
 	struct usb_function_instance	func_inst;
+	struct f_uac1			*uac1;
 	int				c_chmask;
 	int				c_srate;
 	int				c_ssize;
