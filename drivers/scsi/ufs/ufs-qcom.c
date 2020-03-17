@@ -6,6 +6,7 @@
 #include <linux/acpi.h>
 #include <linux/time.h>
 #include <linux/of.h>
+#include <linux/bitfield.h>
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>
 #include <linux/gpio/consumer.h>
@@ -1486,7 +1487,18 @@ out:
 
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
+	unsigned long flags;
 	int err = 0;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	/* Set the rpm auto suspend delay to 3s */
+	hba->host->hostt->rpm_autosuspend_delay = UFS_QCOM_AUTO_SUSPEND_DELAY;
+	/* Set the default auto-hiberate idle timer value to 1ms */
+	hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 1) |
+		    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+	/* Set the clock gating delay to performance mode */
+	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME)
 		err = ufs_qcom_quirk_host_pa_saveconfigtime(hba);
@@ -2352,6 +2364,12 @@ out:
 
 static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 	return 0;
 }
 
@@ -2388,6 +2406,11 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 	struct ufs_clk_info *clki;
 	struct list_head *head = &hba->clk_list_head;
 	u32 curr_freq = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PWR_SAVE;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
