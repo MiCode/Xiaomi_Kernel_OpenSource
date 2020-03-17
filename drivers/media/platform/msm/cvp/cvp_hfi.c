@@ -2930,20 +2930,26 @@ skip_power_off:
 	return -EAGAIN;
 }
 
-static void __process_sys_error(struct iris_hfi_device *device)
+static void print_sfr_message(struct iris_hfi_device *device)
 {
 	struct cvp_hfi_sfr_struct *vsfr = NULL;
+	u32 vsfr_size = 0;
+	void *p = NULL;
 
 	vsfr = (struct cvp_hfi_sfr_struct *)device->sfr.align_virtual_addr;
 	if (vsfr) {
-		void *p = memchr(vsfr->rg_data, '\0', vsfr->bufSize);
+		if (vsfr->bufSize != device->sfr.mem_size) {
+			dprintk(CVP_ERR, "Invalid SFR buf size %d actual %d\n",
+			vsfr->bufSize, device->sfr.mem_size);
+			return;
+		}
+		vsfr_size = vsfr->bufSize - sizeof(u32);
+		p = memchr(vsfr->rg_data, '\0', vsfr_size);
 		/*
 		 * SFR isn't guaranteed to be NULL terminated
-		 * since SYS_ERROR indicates that Iris is in the
-		 * process of crashing.
 		 */
 		if (p == NULL)
-			vsfr->rg_data[vsfr->bufSize - 1] = '\0';
+			vsfr->rg_data[vsfr_size - 1] = '\0';
 
 		dprintk(CVP_ERR, "SFR Message from FW: %s\n",
 				vsfr->rg_data);
@@ -3067,7 +3073,7 @@ static void process_system_msg(struct msm_cvp_cb_info *info,
 
 	switch (info->response_type) {
 	case HAL_SYS_ERROR:
-		__process_sys_error(device);
+		print_sfr_message(device);
 		break;
 	case HAL_SYS_RELEASE_RESOURCE_DONE:
 		dprintk(CVP_DBG, "Received SYS_RELEASE_RESOURCE\n");
@@ -3194,8 +3200,6 @@ static int __response_handler(struct iris_hfi_device *device)
 	}
 
 	if (device->intr_status & CVP_FATAL_INTR_BMSK) {
-		struct cvp_hfi_sfr_struct *vsfr = (struct cvp_hfi_sfr_struct *)
-			device->sfr.align_virtual_addr;
 		struct msm_cvp_cb_info info = {
 			.response_type = HAL_SYS_WATCHDOG_TIMEOUT,
 			.response.cmd = {
@@ -3203,9 +3207,8 @@ static int __response_handler(struct iris_hfi_device *device)
 			}
 		};
 
-		if (vsfr)
-			dprintk(CVP_ERR, "SFR Message from FW: %s\n",
-					vsfr->rg_data);
+		print_sfr_message(device);
+
 		if (device->intr_status & CVP_WRAPPER_INTR_MASK_CPU_NOC_BMSK)
 			dprintk(CVP_ERR, "Received Xtensa NOC error\n");
 
