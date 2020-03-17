@@ -79,6 +79,7 @@
 #define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
+#define PWR_EVNT_IRQ_STAT_REG1   (QSCRATCH_REG_OFFSET + 0x1DC)
 
 #define PWR_EVNT_POWERDOWN_IN_P3_MASK		BIT(2)
 #define PWR_EVNT_POWERDOWN_OUT_P3_MASK		BIT(3)
@@ -185,6 +186,9 @@ enum msm_usb_irq {
 	DP_HS_PHY_IRQ,
 	DM_HS_PHY_IRQ,
 	SS_PHY_IRQ,
+	DP_HS_PHY_IRQ_1,
+	DM_HS_PHY_IRQ_1,
+	SS_PHY_IRQ_1,
 	USB_MAX_IRQ
 };
 
@@ -208,6 +212,9 @@ static const struct usb_irq usb_irq_info[USB_MAX_IRQ] = {
 	{"dp_hs_phy_irq", 0},
 	{"dm_hs_phy_irq", 0},
 	{"ss_phy_irq", 0},
+	{"dp_hs_phy_irq1", 0},
+	{"dm_hs_phy_irq1", 0},
+	{"ss_phy_irq1", 0},
 };
 
 static const char * const gsi_op_strings[] = {
@@ -2246,7 +2253,7 @@ static void dwc3_msm_block_reset(struct dwc3_msm *mdwc, bool core_reset)
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	u32 val;
+	u32 val, val1;
 	int ret;
 
 	/* Configure AHB2PHY for one wait state read/write */
@@ -2269,15 +2276,27 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 							__func__, ret);
 
 	/* Get initial P3 status and enable IN_P3 event */
-	if (dwc3_is_usb31(dwc))
+	if (dwc3_is_usb31(dwc)) {
 		val = dwc3_msm_read_reg_field(mdwc->base,
-			DWC31_LINK_GDBGLTSSM,
+			DWC31_LINK_GDBGLTSSM(0),
 			DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	else
+		if (mdwc->dual_port)
+			val1 = dwc3_msm_read_reg_field(mdwc->base,
+				DWC31_LINK_GDBGLTSSM(1),
+				DWC3_GDBGLTSSM_LINKSTATE_MASK);
+	} else {
 		val = dwc3_msm_read_reg_field(mdwc->base,
 			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	atomic_set(&mdwc->in_p3, val == DWC3_LINK_STATE_U3);
-	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
+	}
+
+	if (!mdwc->dual_port)
+		val1 = DWC3_LINK_STATE_U3;
+
+	atomic_set(&mdwc->in_p3, (val == DWC3_LINK_STATE_U3) &&
+					(val1 == DWC3_LINK_STATE_U3));
+
+	if (!mdwc->dual_port)
+		dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
 				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
 	/* Set the core in host mode if it was in host mode during pm_suspend */
@@ -2288,6 +2307,44 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 }
 
+static void dwc3_msm_dp_ssphy_autosuspend(struct dwc3_msm *mdwc)
+{
+	unsigned long timeout;
+	u32 reg = 0, reg1 = 0;
+
+	/* Clear previous P3 events */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+		PWR_EVNT_POWERDOWN_IN_P3_MASK | PWR_EVNT_POWERDOWN_OUT_P3_MASK);
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1,
+		PWR_EVNT_POWERDOWN_IN_P3_MASK | PWR_EVNT_POWERDOWN_OUT_P3_MASK);
+
+	/* Prepare SSPHYs for suspend */
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(0));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0),
+					reg | DWC3_GUSB3PIPECTL_SUSPHY);
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(1));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(1),
+					reg | DWC3_GUSB3PIPECTL_SUSPHY);
+
+	/* Wait for PHYs to go into P3 */
+	timeout = jiffies + msecs_to_jiffies(5);
+	while (!time_after(jiffies, timeout)) {
+		reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
+		reg1 = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1);
+		if ((reg & PWR_EVNT_POWERDOWN_IN_P3_MASK) &&
+			(reg1 & PWR_EVNT_POWERDOWN_IN_P3_MASK)) {
+			atomic_set(&mdwc->in_p3, 1);
+			break;
+		}
+	}
+
+	/* Clear P3 event bit */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+		PWR_EVNT_POWERDOWN_IN_P3_MASK);
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1,
+		PWR_EVNT_POWERDOWN_IN_P3_MASK);
+}
+
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 {
 	unsigned long timeout;
@@ -2295,6 +2352,9 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 
 	if (!ignore_p3_state && ((mdwc->in_host_mode || mdwc->in_device_mode)
 			&& dwc3_msm_is_superspeed(mdwc) && !mdwc->in_restart)) {
+		/* Allow SSPHYs to go to P3 for dual port controllers */
+		if (mdwc->dual_port)
+			dwc3_msm_dp_ssphy_autosuspend(mdwc);
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev, "Not in P3,aborting LPM sequence\n");
 			return -EBUSY;
@@ -2322,6 +2382,33 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
 
 	/* Clear L2 event bit */
 	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+		PWR_EVNT_LPM_IN_L2_MASK);
+
+	/* Handling for dual port core */
+	if (!mdwc->dual_port)
+		return 0;
+
+	/* Clear previous L2 events */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1,
+		PWR_EVNT_LPM_IN_L2_MASK | PWR_EVNT_LPM_OUT_L2_MASK);
+
+	/* Prepare HSPHY for suspend */
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(1));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(1),
+		reg | DWC3_GUSB2PHYCFG_ENBLSLPM | DWC3_GUSB2PHYCFG_SUSPHY);
+
+	/* Wait for PHY to go into L2 */
+	timeout = jiffies + msecs_to_jiffies(5);
+	while (!time_after(jiffies, timeout)) {
+		reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1);
+		if (reg & PWR_EVNT_LPM_IN_L2_MASK)
+			break;
+	}
+	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK))
+		dev_err(mdwc->dev, "could not transition HS PHY1 to L2\n");
+
+	/* Clear L2 event bit */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG1,
 		PWR_EVNT_LPM_IN_L2_MASK);
 
 	return 0;
@@ -2461,12 +2548,40 @@ static void enable_usb_pdc_interrupt(struct dwc3_msm *mdwc, bool enable)
 			IRQ_TYPE_EDGE_RISING, true);
 	}
 
+	if (mdwc->dual_port) {
+		if (mdwc->hs_phy1->flags & PHY_LS_MODE) {
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DM_HS_PHY_IRQ_1],
+				IRQ_TYPE_EDGE_FALLING, enable);
+		} else if (mdwc->hs_phy1->flags & PHY_HSFS_MODE) {
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DP_HS_PHY_IRQ_1],
+				IRQ_TYPE_EDGE_FALLING, enable);
+		} else {
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DP_HS_PHY_IRQ_1],
+				IRQ_TYPE_EDGE_RISING, true);
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DM_HS_PHY_IRQ_1],
+				IRQ_TYPE_EDGE_RISING, true);
+		}
+	}
+
 	configure_usb_wakeup_interrupt(mdwc,
 		&mdwc->wakeup_irq[SS_PHY_IRQ],
+		IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH, enable);
+	configure_usb_wakeup_interrupt(mdwc,
+		&mdwc->wakeup_irq[SS_PHY_IRQ_1],
 		IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH, enable);
 	return;
 
 disable_usb_irq:
+	configure_usb_wakeup_interrupt(mdwc,
+			&mdwc->wakeup_irq[DP_HS_PHY_IRQ_1], 0, enable);
+	configure_usb_wakeup_interrupt(mdwc,
+			&mdwc->wakeup_irq[DM_HS_PHY_IRQ_1], 0, enable);
+	configure_usb_wakeup_interrupt(mdwc,
+			&mdwc->wakeup_irq[SS_PHY_IRQ_1], 0, enable);
 	configure_usb_wakeup_interrupt(mdwc,
 			&mdwc->wakeup_irq[DP_HS_PHY_IRQ], 0, enable);
 	configure_usb_wakeup_interrupt(mdwc,
@@ -2902,6 +3017,21 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
 				~DWC3_GUSB2PHYCFG_SUSPHY);
 
+	if (mdwc->dual_port)
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(1),
+			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(1)) &
+					~DWC3_GUSB2PHYCFG_SUSPHY);
+
+	if (dwc->dis_u3_susphy_quirk) {
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0),
+			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(0)) &
+					~DWC3_GUSB3PIPECTL_SUSPHY);
+		if (mdwc->dual_port)
+			dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(1),
+			   dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(1)) &
+						~DWC3_GUSB3PIPECTL_SUSPHY);
+	}
+
 	/* Disable wakeup capable for HS_PHY IRQ & SS_PHY_IRQ if enabled */
 	if (mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY) {
 		if (mdwc->use_pdc_interrupts) {
@@ -3078,7 +3208,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 		/* Can't tell if entered or exit P3, so check LINKSTATE */
 		if (dwc3_is_usb31(dwc))
 			ls = dwc3_msm_read_reg_field(mdwc->base,
-				DWC31_LINK_GDBGLTSSM,
+				DWC31_LINK_GDBGLTSSM(0),
 				DWC3_GDBGLTSSM_LINKSTATE_MASK);
 		else
 			ls = dwc3_msm_read_reg_field(mdwc->base,
@@ -3103,7 +3233,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	/* Clear L2 exit */
 	if (irq_stat & PWR_EVNT_LPM_OUT_L2_MASK) {
 		irq_stat &= ~PWR_EVNT_LPM_OUT_L2_MASK;
-		irq_stat |= PWR_EVNT_LPM_OUT_L2_MASK;
+		irq_clear |= PWR_EVNT_LPM_OUT_L2_MASK;
 	}
 
 	/* Handle exit from L1 events */
@@ -3817,9 +3947,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 						IRQF_ONESHOT;
 		mdwc->wakeup_irq[i].irq = platform_get_irq_byname(pdev,
 					mdwc->wakeup_irq[i].name);
+		/* pwr_evnt_irq is only mandatory irq for single port core */
 		if (mdwc->wakeup_irq[i].irq < 0) {
-			/* pwr_evnt_irq is only mandatory irq */
-			if (!strcmp(mdwc->wakeup_irq[i].name,
+			if (!mdwc->dual_port &&
+				!strcmp(mdwc->wakeup_irq[i].name,
 						"pwr_event_irq")) {
 				dev_err(&pdev->dev, "get_irq for %s failed\n\n",
 						mdwc->wakeup_irq[i].name);
@@ -3831,7 +3962,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			irq_set_status_flags(mdwc->wakeup_irq[i].irq,
 						IRQ_NOAUTOEN);
 			/* ss_phy_irq is level trigger interrupt */
-			if (!strcmp(mdwc->wakeup_irq[i].name, "ss_phy_irq"))
+			if (!strncmp(mdwc->wakeup_irq[i].name,
+						"ss_phy_irq", 10))
 				irq_type = IRQF_TRIGGER_HIGH | IRQF_ONESHOT |
 					IRQ_TYPE_LEVEL_HIGH | IRQF_EARLY_RESUME;
 
@@ -3903,7 +4035,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	/* Add power event if the dbm indicates coming out of L1 by interrupt */
 	if (mdwc->dbm && dbm_l1_lpm_interrupt(mdwc->dbm)) {
-		if (!mdwc->wakeup_irq[PWR_EVNT_IRQ].irq) {
+		/* Dual port core does not need pwr_evnt_irq */
+		if (!mdwc->dual_port && !mdwc->wakeup_irq[PWR_EVNT_IRQ].irq) {
 			dev_err(&pdev->dev,
 				"need pwr_event_irq exiting L1\n");
 			ret = -EINVAL;
@@ -4241,6 +4374,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		disable_irq(mdwc->wakeup_irq[DM_HS_PHY_IRQ].irq);
 	if (mdwc->wakeup_irq[SS_PHY_IRQ].irq)
 		disable_irq(mdwc->wakeup_irq[SS_PHY_IRQ].irq);
+	if (mdwc->wakeup_irq[DP_HS_PHY_IRQ_1].irq)
+		disable_irq(mdwc->wakeup_irq[DP_HS_PHY_IRQ_1].irq);
+	if (mdwc->wakeup_irq[DM_HS_PHY_IRQ_1].irq)
+		disable_irq(mdwc->wakeup_irq[DM_HS_PHY_IRQ_1].irq);
+	if (mdwc->wakeup_irq[SS_PHY_IRQ_1].irq)
+		disable_irq(mdwc->wakeup_irq[SS_PHY_IRQ_1].irq);
 	disable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 
 	clk_disable_unprepare(mdwc->utmi_clk);
