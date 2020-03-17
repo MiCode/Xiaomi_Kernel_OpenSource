@@ -204,3 +204,7 @@
 	pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
 			&tert_mi2s_sd0_sleep>;
 };
+
+&wil6210 {
+	status = "ok";
+};
