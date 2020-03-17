@@ -171,13 +171,13 @@
 	};
 
 	pmu-a55 {
-		compatible = "arm,cortex-a53-pmu";
+		compatible = "arm,cortex-a55-pmu";
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
 	};
 
 	pmu-a76 {
-		compatible = "arm,cortex-a73-pmu";
+		compatible = "arm,cortex-a76-pmu";
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster1>;
 	};
