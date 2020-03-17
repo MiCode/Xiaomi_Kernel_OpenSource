@@ -36,6 +36,22 @@ enum smem_prop {
 	SMEM_NON_PIXEL = 0x10
 };
 
+struct msm_cvp_list {
+	struct list_head list;
+	struct mutex lock;
+};
+
+static inline void INIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
+{
+	mutex_init(&mlist->lock);
+	INIT_LIST_HEAD(&mlist->list);
+}
+
+static inline void DEINIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
+{
+	mutex_destroy(&mlist->lock);
+}
+
 struct cvp_dma_mapping_info {
 	struct device *dev;
 	struct iommu_domain *domain;
@@ -53,10 +69,30 @@ struct msm_cvp_smem {
 	u32 device_addr;
 	dma_addr_t dma_handle;
 	u32 size;
+	u32 bitmap_index;
 	u32 flags;
 	u32 ion_flags;
 	struct cvp_dma_mapping_info mapping_info;
 };
+
+struct cvp_dmamap_cache {
+	unsigned long usage_bitmap;
+	struct mutex lock;
+	struct msm_cvp_smem *entries[MAX_DMABUF_NUMS];
+	unsigned int nr;
+};
+
+static inline void INIT_DMAMAP_CACHE(struct cvp_dmamap_cache *cache)
+{
+	mutex_init(&cache->lock);
+	cache->usage_bitmap = 0;
+	cache->nr = 0;
+}
+
+static inline void DEINIT_DMAMAP_CACHE(struct cvp_dmamap_cache *cache)
+{
+	mutex_destroy(&cache->lock);
+}
 
 struct cvp_buf_type {
 	s32 fd;
@@ -141,7 +177,6 @@ void msm_cvp_cache_operations(struct msm_cvp_smem *smem,
 u32 msm_cvp_map_frame_buf(struct msm_cvp_inst *inst,
 			struct cvp_buf_type *buf,
 			struct msm_cvp_frame *frame);
-void msm_cvp_unmap_frame_buf(struct msm_cvp_frame *frame);
 int msm_cvp_mark_user_persist(struct msm_cvp_inst *inst,
 			struct cvp_kmd_hfi_packet *in_pkt,
 			unsigned int offset, unsigned int buf_num);

@@ -80,25 +80,6 @@ enum dsp_state {
 	DSP_SUSPEND,
 };
 
-struct msm_cvp_list {
-	struct list_head list;
-	struct mutex lock;
-	u32 nr;
-	u32 maxnr;
-};
-
-static inline void INIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
-{
-	mutex_init(&mlist->lock);
-	INIT_LIST_HEAD(&mlist->list);
-	mlist->nr = 0;
-}
-
-static inline void DEINIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
-{
-	mutex_destroy(&mlist->lock);
-}
-
 struct msm_cvp_common_data {
 	char key[128];
 	int value;
@@ -321,7 +302,7 @@ struct msm_cvp_inst {
 	enum instance_state state;
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
-	struct msm_cvp_list dma_cache;
+	struct cvp_dmamap_cache dma_cache;
 	struct msm_cvp_list cvpdspbufs;
 	struct msm_cvp_list frames;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
