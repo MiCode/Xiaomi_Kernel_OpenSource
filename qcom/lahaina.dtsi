@@ -1300,8 +1300,8 @@
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
-	dc_noc: interconnect@14e0000 {
-		reg = <0x90C0000 0x4200>;
+	dc_noc: interconnect@90e0000 {
+		reg = <0x90e0000 0x5080>;
 		compatible = "qcom,lahaina-dc_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voter-names = "hlos";
