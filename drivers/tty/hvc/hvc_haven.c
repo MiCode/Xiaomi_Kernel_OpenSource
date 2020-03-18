@@ -205,7 +205,7 @@ static int __init hvc_hh_console_init(void)
 {
 	int ret;
 
-	ret = hvc_instantiate(hh_vm_name_to_vtermno(HH_PRIMARY_VM), 0,
+	ret = hvc_instantiate(hh_vm_name_to_vtermno(HH_SELF_VM), 0,
 			      &hh_hv_ops);
 
 	return ret < 0 ? -ENODEV : 0;

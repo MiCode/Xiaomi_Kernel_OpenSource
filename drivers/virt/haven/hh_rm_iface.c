@@ -48,7 +48,7 @@ int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid)
 {
 	hh_vmid_t _vmid = hh_vm_table[vm_name].vmid;
 
-	if (!_vmid) {
+	if (!_vmid && vm_name != HH_SELF_VM) {
 		pr_err("%s: No vmid associated with the vm\n", __func__);
 		return -EINVAL;
 	}
@@ -346,7 +346,7 @@ int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
 	/* Look up for the vm_name<->vmid pair if already present.
 	 * If so, return.
 	 */
-	if (!hh_vm_table[vm_name].vmid) {
+	if (hh_vm_table[vm_name].vmid || vm_name == HH_SELF_VM) {
 		pr_err("%s: VM_ALLOCATE already called for this VM\n",
 			__func__);
 		return -EINVAL;
