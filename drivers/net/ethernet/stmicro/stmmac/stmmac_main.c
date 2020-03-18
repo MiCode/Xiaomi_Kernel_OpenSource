@@ -949,6 +949,8 @@ static int stmmac_init_phy(struct net_device *dev)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	u32 tx_cnt = priv->plat->tx_queues_to_use;
 	struct phy_device *phydev;
+	char phy_id_fmt[MII_BUS_ID_SIZE + 3];
+	char bus_id[MII_BUS_ID_SIZE];
 	int interface = priv->plat->interface;
 	int max_speed = priv->plat->max_speed;
 	int ret = 0;
@@ -957,35 +959,48 @@ static int stmmac_init_phy(struct net_device *dev)
 	priv->speed = SPEED_UNKNOWN;
 	priv->oldduplex = DUPLEX_UNKNOWN;
 
-	phydev = mdiobus_get_phy(priv->mii, priv->plat->phy_addr);
+	if (priv->plat->early_eth && priv->phydev) {
+		phydev = priv->phydev;
+		phydev->skip_sw_reset = true;
+		ret = phy_connect_direct(dev, phydev,
+					 &stmmac_adjust_link, interface);
+		if (ret) {
+			pr_info("phy_connect_direct failed\n");
+			return ret;
+		}
+	} else {
+		if (priv->plat->phy_node) {
+			phydev = of_phy_connect(dev,
+						priv->plat->phy_node,
+						&stmmac_adjust_link,
+						0, interface);
+		} else {
+			snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
+				 priv->plat->bus_id);
 
+			snprintf(phy_id_fmt,
+				 MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
+				 priv->plat->phy_addr);
 
-	if (IS_ERR_OR_NULL(phydev)) {
-		netdev_err(priv->dev, "Could not attach to PHY\n");
-		if (!phydev)
-			return -ENODEV;
+			netdev_dbg(priv->dev,
+				   "%s: trying to attach to %s\n", __func__,
+				   phy_id_fmt);
 
-		return PTR_ERR(phydev);
+			phydev = phy_connect(dev,
+					     phy_id_fmt,
+					     &stmmac_adjust_link,
+					     interface);
+		}
+
+		if (IS_ERR_OR_NULL(phydev)) {
+			netdev_err(priv->dev, "Could not attach to PHY\n");
+			if (!phydev)
+				return -ENODEV;
+
+			return PTR_ERR(phydev);
+		}
 	}
 
-	phydev->skip_sw_reset = true;
-
-	ret = phy_connect_direct(dev, phydev, &stmmac_adjust_link, interface);
-
-	if (ret) {
-		pr_info("phy_connect_direct failed\n");
-		return ret;
-	}
-	/* Broken HW is sometimes missing the pull-up resistor on the
-	 * MDIO line, which results in reads to non-existent devices returning
-	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
-	 * device as well.
-	 * Note: phydev->phy_id is the result of reading the UID PHY registers.
-	 */
-	if (!priv->plat->phy_node && phydev->phy_id == 0) {
-		phy_disconnect(phydev);
-		return -ENODEV;
-	}
 	pr_info(" qcom-ethqos: %s early eth setting stmmac init\n",
 				 __func__);
 
@@ -1005,9 +1020,6 @@ static int stmmac_init_phy(struct net_device *dev)
 				       SUPPORTED_100baseT_Half |
 				       SUPPORTED_10baseT_Half);
 
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
-place_marker("M - Init Phy device");
-#endif
 	/* Early ethernet settings to bring up link in 100M,
 	 * Auto neg Off with full duplex link.
 	 */
@@ -2694,10 +2706,6 @@ static int stmmac_open(struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int ret;
-
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Stmmac open called");
-#endif
 
 	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
 	    priv->hw->pcs != STMMAC_PCS_TBI &&

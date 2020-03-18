@@ -271,6 +271,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 		if (priv->plat->phy_addr == -1)
 			priv->plat->phy_addr = addr;
 
+		priv->phydev = phydev;
 		phy_attached_info(phydev);
 		found = 1;
 	}
