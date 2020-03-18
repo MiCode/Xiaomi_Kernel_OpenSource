@@ -204,7 +204,10 @@ static int msm_cvp_session_process_hfi(
 		offset = in_offset;
 		buf_num = in_buf_num;
 	}
-
+	if (!is_buf_param_valid(buf_num, offset)) {
+		dprintk(CVP_ERR, "Incorrect buffer num and offset in cmd\n");
+		return -EINVAL;
+	}
 	pkt_type = in_pkt->pkt_data[1];
 	if (pkt_type == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS)
 		rc = msm_cvp_map_user_persist(inst, in_pkt, offset, buf_num);
@@ -741,6 +744,10 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 		buf_num = cvp_hfi_defs[idx].buf_num;
 	}
 
+	if (!is_buf_param_valid(buf_num, offset)) {
+		dprintk(CVP_ERR, "Incorrect buf num and offset in cmd\n");
+		return -EINVAL;
+	}
 	rc = msm_cvp_map_frame(inst, (struct cvp_kmd_hfi_packet *)pkt, offset,
 				buf_num);
 	if (rc)
