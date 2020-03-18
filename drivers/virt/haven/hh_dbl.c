@@ -206,7 +206,7 @@ int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
 
 	ret = hh_remap_error(hh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed ret = %d\n", hh_ret);
+		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
 	else
 		*newflags = send_resp.old_flags;
 
