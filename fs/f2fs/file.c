@@ -646,9 +646,6 @@ static int truncate_partial_data_page(struct inode *inode, u64 from,
 		return 0;
 	}
 
-	if (f2fs_compressed_file(inode))
-		return 0;
-
 	page = f2fs_get_lock_data_page(inode, index, true);
 	if (IS_ERR(page))
 		return PTR_ERR(page) == -ENOENT ? 0 : PTR_ERR(page);
@@ -664,7 +661,7 @@ truncate_out:
 	return 0;
 }
 
-static int do_truncate_blocks(struct inode *inode, u64 from, bool lock)
+int f2fs_do_truncate_blocks(struct inode *inode, u64 from, bool lock)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct dnode_of_data dn;
@@ -732,7 +729,9 @@ free_partial:
 int f2fs_truncate_blocks(struct inode *inode, u64 from, bool lock)
 {
 	u64 free_from = from;
+	int err;
 
+#ifdef CONFIG_F2FS_FS_COMPRESSION
 	/*
 	 * for compressed file, only support cluster size
 	 * aligned truncation.
@@ -747,8 +746,18 @@ int f2fs_truncate_blocks(struct inode *inode, u64 from, bool lock)
 			free_from++;
 		free_from <<= cluster_shift;
 	}
+#endif
 
-	return do_truncate_blocks(inode, free_from, lock);
+	err = f2fs_do_truncate_blocks(inode, free_from, lock);
+	if (err)
+		return err;
+
+#ifdef CONFIG_F2FS_FS_COMPRESSION
+	if (from != free_from)
+		err = f2fs_truncate_partial_cluster(inode, from, lock);
+#endif
+
+	return err;
 }
 
 int f2fs_truncate(struct inode *inode)
