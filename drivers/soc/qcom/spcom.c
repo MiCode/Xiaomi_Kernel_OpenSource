@@ -476,11 +476,9 @@ static int spcom_rx(struct spcom_channel *ch,
 			spcom_pr_warn("rpmsg channel is closing\n");
 			ret = -ERESTART;
 			goto exit_err;
-		} else if (ret < 0 || timeleft == -ERESTARTSYS) {
-			spcom_pr_dbg("wait interrupted: ret=%d, timeleft=%ld\n",
-				 ret, timeleft);
-			if (timeleft == -ERESTARTSYS)
-				ret = -ERESTARTSYS;
+		} else if (ret < 0 || timeleft < 0) {
+			spcom_pr_err("rx wait was interrupted!");
+			ret = -EINTR; /* abort, not restartable */
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
 			spcom_pr_dbg("actual_rx_size is [%zu], txn_id %d\n",
