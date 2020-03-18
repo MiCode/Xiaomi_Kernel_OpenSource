@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __ICNSS_PRIVATE_H__
@@ -292,6 +292,7 @@ struct icnss_priv {
 	void __iomem *mem_base_va;
 	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_ipa_start;
+	dma_addr_t smmu_iova_ipa_current;
 	size_t smmu_iova_ipa_len;
 	struct qmi_handle qmi;
 	struct list_head event_list;
