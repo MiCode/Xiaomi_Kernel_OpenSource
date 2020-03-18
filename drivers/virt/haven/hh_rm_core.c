@@ -726,21 +726,20 @@ static const struct of_device_id hh_rm_drv_of_match[] = {
 
 static int hh_rm_drv_probe(struct platform_device *pdev)
 {
-	struct resource *rm_tx_res, *rm_rx_res;
+	struct device_node *node = pdev->dev.of_node;
+	hh_capid_t tx_cap_id, rx_cap_id;
 	int tx_irq, rx_irq;
 	u32 owner_vmid;
 	int ret;
 
-	rm_tx_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"rm-tx-cap-id");
-	if (!rm_tx_res) {
+	ret = of_property_read_u64(node, "qcom,tx-cap", &tx_cap_id);
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to get the Tx cap-id\n");
 		return -EINVAL;
 	}
 
-	rm_rx_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"rm-rx-cap-id");
-	if (!rm_rx_res) {
+	ret = of_property_read_u64(node, "qcom,rx-cap", &rx_cap_id);
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to get the Rx cap-id\n");
 		return -EINVAL;
 	}
@@ -771,12 +770,12 @@ static int hh_rm_drv_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rm_tx_res->start,
+	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, tx_cap_id,
 					HH_MSGQ_DIRECTION_TX, tx_irq);
 	if (ret)
 		return ret;
 
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rm_rx_res->start,
+	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rx_cap_id,
 					HH_MSGQ_DIRECTION_RX, rx_irq);
 	if (ret)
 		return ret;
