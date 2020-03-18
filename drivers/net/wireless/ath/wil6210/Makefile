@@ -28,3 +28,6 @@ wil6210-y += config.o
 
 # for tracing framework to find trace.h
 CFLAGS_trace.o := -I$(src)
+
+MSM_11AD_PATH = $(srctree)/drivers/platform/msm/msm_11ad/
+CFLAGS_wil_platform.o := -I$(MSM_11AD_PATH)
