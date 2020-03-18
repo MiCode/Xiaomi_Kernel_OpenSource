@@ -17,6 +17,7 @@
 struct mtk_smi_larb_iommu {
 	struct device *dev;
 	unsigned int   mmu;
+	unsigned int   bank[32];
 };
 
 /*
