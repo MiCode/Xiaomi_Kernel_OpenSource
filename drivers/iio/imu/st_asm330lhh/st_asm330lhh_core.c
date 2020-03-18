@@ -26,18 +26,24 @@
 #define ST_ASM330LHH_REG_INT2_ADDR		0x0e
 #define ST_ASM330LHH_REG_FIFO_CTRL4_ADDR	0x0a
 #define ST_ASM330LHH_REG_FIFO_FTH_IRQ_MASK	BIT(3)
+
 #define ST_ASM330LHH_REG_WHOAMI_ADDR		0x0f
 #define ST_ASM330LHH_WHOAMI_VAL			0x6b
 #define ST_ASM330LHH_REG_CTRL1_XL_ADDR		0x10
 #define ST_ASM330LHH_REG_CTRL2_G_ADDR		0x11
+
 #define ST_ASM330LHH_REG_RESET_ADDR		0x12
 #define ST_ASM330LHH_REG_RESET_MASK		BIT(0)
+
 #define ST_ASM330LHH_REG_BDU_ADDR		0x12
 #define ST_ASM330LHH_REG_BDU_MASK		BIT(6)
-#define ST_ASM330LHH_REG_INT2_ON_INT1_ADDR	0x13
-#define ST_ASM330LHH_REG_INT2_ON_INT1_MASK	BIT(5)
+
+#define ST_ASM330LHH_REG_CTRL4_C_ADDR		0x13
+#define ST_ASM330LHH_REG_DRDY_MASK		BIT(3)
+
 #define ST_ASM330LHH_REG_ROUNDING_ADDR		0x14
 #define ST_ASM330LHH_REG_ROUNDING_MASK		GENMASK(6, 5)
+
 #define ST_ASM330LHH_REG_TIMESTAMP_EN_ADDR	0x19
 #define ST_ASM330LHH_REG_TIMESTAMP_EN_MASK	BIT(5)
 
@@ -63,6 +69,8 @@
 #define ST_ASM330LHH_GYRO_FS_1000_GAIN		IIO_DEGREE_TO_RAD(35000)
 #define ST_ASM330LHH_GYRO_FS_2000_GAIN		IIO_DEGREE_TO_RAD(70000)
 #define ST_ASM330LHH_GYRO_FS_4000_GAIN		IIO_DEGREE_TO_RAD(140000)
+
+#define ST_ASM330LHH_INTERNAL_FREQ_FINE		0x63
 
 /* Temperature in uC */
 #define ST_ASM330LHH_TEMP_GAIN			256
@@ -225,6 +233,30 @@ static int st_asm330lhh_check_whoami(struct st_asm330lhh_hw *hw)
 		dev_err(hw->dev, "unsupported whoami [%02x]\n", data);
 		return -ENODEV;
 	}
+
+	return 0;
+}
+
+static int st_asm330lhh_get_odr_calibration(struct st_asm330lhh_hw *hw)
+{
+	s64 odr_calib;
+	int err;
+	s8 data;
+
+	err = hw->tf->read(hw->dev,
+			   ST_ASM330LHH_INTERNAL_FREQ_FINE,
+			   sizeof(data), (u8 *)&data);
+	if (err < 0) {
+		dev_err(hw->dev, "failed to read %d register\n",
+				ST_ASM330LHH_INTERNAL_FREQ_FINE);
+		return err;
+	}
+
+	odr_calib = (data * 37500) / 1000;
+	hw->ts_delta_ns = ST_ASM330LHH_TS_DELTA_NS - odr_calib;
+
+	dev_info(hw->dev, "Freq Fine %lld (ts %lld)\n",
+			odr_calib, hw->ts_delta_ns);
 
 	return 0;
 }
@@ -774,6 +806,12 @@ static int st_asm330lhh_init_device(struct st_asm330lhh_hw *hw)
 	if (err < 0)
 		return err;
 
+	/* enable DRDY MASK for filters settling time */
+	err = st_asm330lhh_write_with_mask(hw, ST_ASM330LHH_REG_CTRL4_C_ADDR,
+					 ST_ASM330LHH_REG_DRDY_MASK, 1);
+	if (err < 0)
+		return err;
+
 	/* enable FIFO watermak interrupt */
 	err = st_asm330lhh_get_drdy_reg(hw, &drdy_int_reg);
 	if (err < 0)
@@ -1146,6 +1184,7 @@ int st_asm330lhh_probe(struct device *dev, int irq,
 
 	mutex_init(&hw->lock);
 	mutex_init(&hw->fifo_lock);
+	mutex_init(&hw->page_lock);
 
 	hw->dev = dev;
 	hw->irq = irq;
@@ -1180,6 +1219,10 @@ int st_asm330lhh_probe(struct device *dev, int irq,
 	err = st_asm330lhh_check_whoami(hw);
 	if (err < 0)
 		goto regulator_shutdown;
+
+	err = st_asm330lhh_get_odr_calibration(hw);
+	if (err < 0)
+		return err;
 
 	err = st_asm330lhh_init_device(hw);
 	if (err < 0)
