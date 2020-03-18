@@ -73,6 +73,7 @@
 #define IPA_MPM_FLOW_CTRL_ADD 1
 #define IPA_MPM_FLOW_CTRL_DELETE 0
 #define IPA_MPM_NUM_OF_INIT_CMD_DESC 2
+#define IPA_UC_FC_DB_ADDR 0x1EC2088
 
 enum mhip_re_type {
 	MHIP_RE_XFER = 0x2,
@@ -403,6 +404,9 @@ struct ipa_mpm_context {
 	struct device *parent_pdev;
 	struct ipa_smmu_cb_ctx carved_smmu_cb;
 	struct device *mhi_parent_dev;
+	/* for ipa_uc_fc_db*/
+	phys_addr_t uc_fc_db;
+	unsigned long uc_fc_db_iova;
 };
 
 #define IPA_MPM_DESC_SIZE (sizeof(struct mhi_p_desc))
@@ -2248,6 +2252,18 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			ipa_mpm_ctx->dev_info.erdb_base +
 			ch->chan_props.ch_ctx.erindex * 8;
 
+		/* Map uc-db and put in reserve2 */
+		if (probe_id == IPA_MPM_MHIP_CH_ID_0) {
+			/* map uc-fc-mb */
+			ipa_mpm_ctx->uc_fc_db_iova =
+				ipa_mpm_smmu_map_doorbell(MHIP_SMMU_DOMAIN_PCIE,
+				ipa_mpm_ctx->uc_fc_db);
+			ch->chan_props.ch_ctx.reserved2 =
+				ipa_mpm_ctx->uc_fc_db_iova;
+			IPA_MPM_DBG("configure reserved2 %lx\n",
+				ch->chan_props.ch_ctx.reserved2);
+		}
+
 		/* connect Host GSI pipes with MHI' protocol */
 		ret = ipa_mpm_connect_mhip_gsi_pipe(ul_prod,
 			probe_id, &ul_out_params);
@@ -2569,8 +2585,9 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	if (probe_id == IPA_MPM_MHIP_CH_ID_0) {
 		ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
 		ep = &ipa3_ctx->ep[ipa_ep_idx];
+		/* not enable threshold based uc-flow-control */
 		ret = ipa3_uc_send_enable_flow_control(ep->gsi_chan_hdl,
-			ipa3_ctx->mpm_uc_thresh);
+			0);
 		IPA_MPM_DBG("Updated uc threshold to %d",
 			ipa3_ctx->mpm_uc_thresh);
 		if (ret) {
@@ -2677,8 +2694,12 @@ static void ipa_mpm_mhi_remove_cb(struct mhi_device *mhi_dev)
 	ipa_mpm_ctx->md[mhip_idx].init_complete = false;
 	mutex_unlock(&ipa_mpm_ctx->md[mhip_idx].mhi_mutex);
 
-	if (mhip_idx == IPA_MPM_MHIP_CH_ID_0)
+	if (mhip_idx == IPA_MPM_MHIP_CH_ID_0) {
 		ipa3_uc_send_disable_flow_control();
+		/* unmap uc-fc-mb */
+		ipa_mpm_smmu_unmap_doorbell(MHIP_SMMU_DOMAIN_PCIE,
+			ipa_mpm_ctx->uc_fc_db_iova);
+	}
 
 	ipa_mpm_mhip_shutdown(mhip_idx);
 
@@ -3175,6 +3196,9 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 
 	ipa_mpm_ctx->dev_info.pdev = pdev;
 	ipa_mpm_ctx->dev_info.dev = &pdev->dev;
+
+	/* uc_fc_fb, might define in dtsi */
+	ipa_mpm_ctx->uc_fc_db = IPA_UC_FC_DB_ADDR;
 
 	ipa_mpm_init_mhip_channel_info();
 
