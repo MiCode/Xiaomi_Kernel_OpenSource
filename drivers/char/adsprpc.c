@@ -80,7 +80,7 @@
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
-#define NUM_SESSIONS	9	/*8 compute, 1 cpz*/
+#define NUM_SESSIONS	13	/* max 12 compute, 1 cpz */
 #define M_FDLIST	(16)
 #define M_CRCLIST	(64)
 #define SESSION_ID_INDEX (30)
