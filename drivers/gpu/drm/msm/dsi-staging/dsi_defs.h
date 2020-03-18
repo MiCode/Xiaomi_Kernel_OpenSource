@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,6 +235,23 @@ enum dsi_dfps_type {
 	DSI_DFPS_IMMEDIATE_HFP,
 	DSI_DFPS_IMMEDIATE_VFP,
 	DSI_DFPS_MAX
+};
+
+/**
+ * enum dsi_dyn_clk_feature_type - Dynamic clock feature support type
+ * @DSI_DYN_CLK_TYPE_LEGACY:	Constant FPS is not supported
+ * @DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP:	Constant FPS supported with
+ *		change in hfp
+ * @DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP:	Constant FPS supported with
+ *		change in vfp
+ * @DSI_DYN_CLK_TYPE_MAX:
+ */
+
+enum dsi_dyn_clk_feature_type {
+	DSI_DYN_CLK_TYPE_LEGACY = 0,
+	DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP,
+	DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP,
+	DSI_DYN_CLK_TYPE_MAX
 };
 
 /**
