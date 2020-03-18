@@ -665,16 +665,16 @@ static void ipa3_get_usb_ep_info(
 		pair_info[i].ep_id = -1;
 	}
 
-	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
+	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB2_PROD);
 
 	if ((ep_index != -1) && ipa3_ctx->ep[ep_index].valid) {
 		pair_info[ep_info->num_ep_pairs].consumer_pipe_num = ep_index;
-		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS);
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB2_CONS);
 		if ((ep_index != -1) && (ipa3_ctx->ep[ep_index].valid)) {
 			pair_info[ep_info->num_ep_pairs].producer_pipe_num =
 				ep_index;
 			pair_info[ep_info->num_ep_pairs].ep_id =
-				IPA_USB0_EP_ID;
+				IPA_USB1_EP_ID;
 
 			IPADBG("ep_pair_info consumer_pipe_num %d",
 			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
@@ -692,16 +692,16 @@ static void ipa3_get_usb_ep_info(
 		}
 	}
 
-	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB2_PROD);
+	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
 
 	if ((ep_index != -1) && ipa3_ctx->ep[ep_index].valid) {
 		pair_info[ep_info->num_ep_pairs].consumer_pipe_num = ep_index;
-		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB2_CONS);
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS);
 		if ((ep_index != -1) && (ipa3_ctx->ep[ep_index].valid)) {
 			pair_info[ep_info->num_ep_pairs].producer_pipe_num =
 				ep_index;
 			pair_info[ep_info->num_ep_pairs].ep_id =
-				IPA_USB1_EP_ID;
+				IPA_USB0_EP_ID;
 
 			IPADBG("ep_pair_info consumer_pipe_num %d",
 			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
@@ -734,16 +734,16 @@ static void ipa3_get_pcie_ep_info(
 		pair_info[i].ep_id = -1;
 	}
 
-	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI_PROD);
+	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI2_PROD);
 
 	if ((ep_index != -1) && ipa3_ctx->ep[ep_index].valid) {
 		pair_info[ep_info->num_ep_pairs].consumer_pipe_num = ep_index;
-		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI_CONS);
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI2_CONS);
 		if ((ep_index != -1) && (ipa3_ctx->ep[ep_index].valid)) {
 			pair_info[ep_info->num_ep_pairs].producer_pipe_num =
 				ep_index;
 			pair_info[ep_info->num_ep_pairs].ep_id =
-				IPA_PCIE0_EP_ID;
+				IPA_PCIE1_EP_ID;
 
 			IPADBG("ep_pair_info consumer_pipe_num %d",
 			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
@@ -761,16 +761,16 @@ static void ipa3_get_pcie_ep_info(
 		}
 	}
 
-	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI2_PROD);
+	ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI_PROD);
 
 	if ((ep_index != -1) && ipa3_ctx->ep[ep_index].valid) {
 		pair_info[ep_info->num_ep_pairs].consumer_pipe_num = ep_index;
-		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI2_CONS);
+		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_MHI_CONS);
 		if ((ep_index != -1) && (ipa3_ctx->ep[ep_index].valid)) {
 			pair_info[ep_info->num_ep_pairs].producer_pipe_num =
 				ep_index;
 			pair_info[ep_info->num_ep_pairs].ep_id =
-				IPA_PCIE1_EP_ID;
+				IPA_PCIE0_EP_ID;
 
 			IPADBG("ep_pair_info consumer_pipe_num %d",
 			pair_info[ep_info->num_ep_pairs].consumer_pipe_num);
