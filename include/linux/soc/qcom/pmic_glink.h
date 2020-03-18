@@ -11,6 +11,11 @@
 struct pmic_glink_client;
 struct device;
 
+enum pmic_glink_state {
+	PMIC_GLINK_STATE_DOWN,
+	PMIC_GLINK_STATE_UP,
+};
+
 /**
  * struct pmic_glink_client_data - pmic_glink client data
  * @name:	Client name
@@ -18,12 +23,15 @@ struct device;
  * @priv:	private data for client
  * @msg_cb:	callback function for client to receive the messages that
  *		are intended to be delivered to it over PMIC Glink
+ * @state_cb:	callback function to notify pmic glink state in the event of
+ *		a subsystem restart (SSR) or a protection domain restart (PDR)
  */
 struct pmic_glink_client_data {
 	const char	*name;
 	u32		id;
 	void		*priv;
 	int		(*msg_cb)(void *priv, void *data, size_t len);
+	void		(*state_cb)(void *priv, enum pmic_glink_state state);
 };
 
 /**
