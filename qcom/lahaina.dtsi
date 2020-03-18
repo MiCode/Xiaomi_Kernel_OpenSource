@@ -3342,6 +3342,7 @@
 		qcom,signal-aop;
 		qcom,complete-ramdump;
 
+		qcom,boot-enabled;
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "spss";
