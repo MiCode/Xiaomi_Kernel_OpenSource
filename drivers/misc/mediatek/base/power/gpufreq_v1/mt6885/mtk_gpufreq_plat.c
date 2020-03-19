@@ -281,6 +281,13 @@ void mt_gpufreq_dump_infra_status(void)
 	unsigned int start, offset;
 
 	gpufreq_pr_info("====\n");
+	gpufreq_pr_info(
+		"clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+		mt_get_ckgen_freq(hf_fmfg_ck),
+		g_cur_opp_freq,
+		g_cur_opp_vgpu,
+		g_cur_opp_vsram_gpu);
+
 	// 0x1020E
 	if (g_infracfg_base) {
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
@@ -2513,6 +2520,9 @@ static void __mt_gpufreq_set(
 
 	/* update "g_cur_opp_idx" when "Vgpu old" and "Vgpu new" is the same */
 	g_cur_opp_idx = idx_new;
+	g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+	g_cur_opp_vgpu = __mt_gpufreq_get_cur_vgpu();
+	g_cur_opp_vsram_gpu = __mt_gpufreq_get_cur_vsram_gpu();
 
 	gpu_dvfs_oppidx_footprint(idx_new);
 
