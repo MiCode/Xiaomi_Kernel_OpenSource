@@ -597,9 +597,9 @@ void apusys_power_debugfs_init(void)
 		return;
 	}
 
-	debugfs_create_file("power", (0744),
+	debugfs_create_file("power", (0644),
 		apusys_power_dir, NULL, &apusys_debug_power_fops);
-	debugfs_create_file("power_dump_fail_log", (0744),
+	debugfs_create_file("power_dump_fail_log", (0644),
 		apusys_power_dir, NULL, &apusys_power_fail_fops);
 }
 

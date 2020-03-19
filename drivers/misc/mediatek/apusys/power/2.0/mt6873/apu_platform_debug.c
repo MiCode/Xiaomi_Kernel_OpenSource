@@ -21,6 +21,9 @@
 #include "apu_power_api.h"
 #include "apusys_power.h"
 #include "apu_platform_debug.h"
+#ifdef APUPWR_TAG_TP
+#include "apu_power_tag.h"
+#endif
 
 void apu_power_dump_opp_table(struct seq_file *s)
 {
@@ -130,5 +133,12 @@ int apusys_power_fail_show(struct seq_file *s, void *unused)
 		power_fail_record.time_sec, power_fail_record.time_nsec);
 
 	seq_printf(s, "%s\n", log_str);
+
+#ifdef APUPWR_TAG_TP
+	seq_puts(s, "\n");
+	seq_puts(s, "======== Tags ========\n");
+	apupwr_tags_show(s);
+#endif
+
 	return 0;
 }

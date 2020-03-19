@@ -57,6 +57,7 @@ struct apupwr_tag {
 #ifdef APUPWR_TAG_TP
 int apupwr_init_drv_tags(void);
 void apupwr_exit_drv_tags(void);
+void apupwr_tags_show(struct seq_file *s);
 #else
 static inline int apupwr_init_drv_tags(void)
 {
@@ -64,6 +65,10 @@ static inline int apupwr_init_drv_tags(void)
 }
 
 static inline void apupwr_exit_drv_tags(void)
+{
+}
+
+static inline void apupwr_tags_show(struct seq_file *s)
 {
 }
 #endif

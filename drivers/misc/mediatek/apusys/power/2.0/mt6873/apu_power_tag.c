@@ -22,7 +22,7 @@
 #include "apu_tp.h"
 
 /* tags */
-struct apu_tags *apupwr_drv_tags;
+static struct apu_tags *apupwr_drv_tags;
 
 enum apupwr_tag_type {
 	APUPWR_TAG_PWR,
@@ -160,6 +160,11 @@ static struct apu_tp_tbl apupwr_tp_tbl[] = {
 	{.name = "apupwr_dvfs", .func = probe_apupwr_dvfs},
 	APU_TP_TBL_END
 };
+
+void apupwr_tags_show(struct seq_file *s)
+{
+	apu_tags_seq(apupwr_drv_tags, s);
+}
 
 int apupwr_init_drv_tags(void)
 {
