@@ -1852,6 +1852,7 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 			struct mhi_chan *mhi_chan)
 {
 	int ret = 0;
+	bool in_mission_mode = false;
 
 	MHI_LOG("Entered: preparing channel:%d\n", mhi_chan->chan);
 
@@ -1890,7 +1891,12 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_pm_state;
 	}
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
+	/* block host low power modes */
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		atomic_inc(&mhi_cntrl->pending_pkts);
+		in_mission_mode = true;
+	}
+
 	mhi_cntrl->wake_toggle(mhi_cntrl);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
@@ -1911,7 +1917,8 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_dec_pendpkt;
 	}
 
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 
 	write_lock_irq(&mhi_chan->lock);
 	mhi_chan->ch_state = MHI_CH_STATE_ENABLED;
@@ -2095,6 +2102,7 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 				    struct mhi_chan *mhi_chan)
 {
 	int ret;
+	bool in_mission_mode = false;
 
 	MHI_LOG("Entered: unprepare channel:%d\n", mhi_chan->chan);
 
@@ -2118,7 +2126,12 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_invalid_state;
 	}
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
+	/* block host low power modes */
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		atomic_inc(&mhi_cntrl->pending_pkts);
+		in_mission_mode = true;
+	}
+
 	mhi_cntrl->wake_toggle(mhi_cntrl);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
@@ -2137,7 +2150,8 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 		MHI_ERR("Failed to receive cmd completion, still resetting\n");
 
 error_dec_pendpkt:
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 error_invalid_state:
 	if (!mhi_chan->offload_ch) {
 		mhi_reset_chan(mhi_cntrl, mhi_chan);
@@ -2346,6 +2360,7 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 				    enum MHI_CMD cmd)
 {
 	int ret = -EIO;
+	bool in_mission_mode = false;
 
 	mutex_lock(&mhi_chan->mutex);
 
@@ -2368,7 +2383,12 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		goto error_chan_state;
 	}
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
+	/* block host low power modes */
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		atomic_inc(&mhi_cntrl->pending_pkts);
+		in_mission_mode = true;
+	}
+
 	mhi_cntrl->wake_toggle(mhi_cntrl);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
@@ -2395,7 +2415,8 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		 mhi_chan->chan, cmd == MHI_CMD_START_CHAN ? "START" : "STOP");
 
 error_dec_pendpkt:
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 error_chan_state:
 	mutex_unlock(&mhi_chan->mutex);
 
