@@ -352,13 +352,13 @@ static const struct file_operations gbe_##name##_fops = { \
 	.release = single_release, \
 }
 
-static int gbe_enable_show(struct seq_file *m, void *unused)
+static int gbe_enable1_show(struct seq_file *m, void *unused)
 {
 	seq_printf(m, "%d\n", gbe_is_enable());
 	return 0;
 }
 
-static ssize_t gbe_enable_write(struct file *flip,
+static ssize_t gbe_enable1_write(struct file *flip,
 		const char *ubuf, size_t cnt, loff_t *data)
 {
 	char buf[64];
@@ -382,7 +382,7 @@ static ssize_t gbe_enable_write(struct file *flip,
 	return cnt;
 }
 
-GBE_DEBUGFS_ENTRY(enable);
+GBE_DEBUGFS_ENTRY(enable1);
 
 static int gbe_boost_list_show(struct seq_file *m, void *unused)
 {
@@ -462,7 +462,7 @@ int init_gbe_common(void)
 			0644,
 			gbe_debugfs_dir,
 			NULL,
-			&gbe_enable_fops);
+			&gbe_enable1_fops);
 
 
 	debugfs_create_file("gbe_boost_list1",

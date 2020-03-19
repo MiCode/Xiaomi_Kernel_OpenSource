@@ -533,7 +533,7 @@ static ssize_t gbe_loading_th_write(struct file *flip,
 
 GBE_DEBUGFS_ENTRY(loading_th);
 
-static int gbe_enable_show(struct seq_file *m, void *unused)
+static int gbe_enable2_show(struct seq_file *m, void *unused)
 {
 	mutex_lock(&gbe_lock);
 	seq_printf(m, "%d\n", gbe_enable);
@@ -541,7 +541,7 @@ static int gbe_enable_show(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static ssize_t gbe_enable_write(struct file *flip,
+static ssize_t gbe_enable2_write(struct file *flip,
 		const char *ubuf, size_t cnt, loff_t *data)
 {
 
@@ -562,7 +562,7 @@ static ssize_t gbe_enable_write(struct file *flip,
 	return cnt;
 }
 
-GBE_DEBUGFS_ENTRY(enable);
+GBE_DEBUGFS_ENTRY(enable2);
 
 static int gbe_fg_pid_show(struct seq_file *m, void *unused)
 {
@@ -644,7 +644,7 @@ int gbe2_init(void)
 			0644,
 			gbe_debugfs_dir,
 			NULL,
-			&gbe_enable_fops);
+			&gbe_enable2_fops);
 
 	debugfs_create_file("gbe2_fg_pid",
 			0644,
