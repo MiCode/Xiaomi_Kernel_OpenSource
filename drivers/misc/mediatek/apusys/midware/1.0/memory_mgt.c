@@ -18,14 +18,14 @@
 
 #include "apusys_dbg.h"
 #include "apusys_plat.h"
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "apusys_options.h"
 #include "apusys_drv.h"
 #include "memory_mgt.h"
 #include "memory_ion.h"
 #include "memory_dma.h"
 
-struct apusys_mem_mgr g_mem_mgr;
+static struct apusys_mem_mgr g_mem_mgr;
 static int g_mem_type = APUSYS_MEM_DRAM_ION;
 
 struct mem_record {
@@ -73,7 +73,7 @@ int apusys_mem_alloc(struct apusys_kmem *mem)
 		ret = dma_mem_alloc(&g_mem_mgr, mem);
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -83,10 +83,8 @@ int apusys_mem_alloc(struct apusys_kmem *mem)
 		/* debug purpose */
 		if (dbg_get_prop(DBG_PROP_QUERY_MEM) > 0) {
 			mr = vmalloc(sizeof(struct mem_record));
-			if (mr == NULL) {
-				LOG_ERR("alloc memory record fail\n");
-			} else {
-				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+			if (mr != NULL) {
+				mdw_mem_debug("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
 					mem->uva,
 					mem->size,
 					mem->iova,
@@ -121,7 +119,7 @@ int apusys_mem_free(struct apusys_kmem *mem)
 		ret = dma_mem_free(&g_mem_mgr, mem);
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -132,7 +130,7 @@ int apusys_mem_free(struct apusys_kmem *mem)
 		list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
 			mr = list_entry(list_ptr, struct mem_record, m_list);
 			if (mr->kmem.iova == mem->iova) {
-				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+				mdw_mem_debug("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
 					mem->uva,
 					mem->size,
 					mem->iova,
@@ -162,7 +160,7 @@ int apusys_mem_import(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -173,10 +171,8 @@ int apusys_mem_import(struct apusys_kmem *mem)
 		/* debug purpose */
 		if (dbg_get_prop(DBG_PROP_QUERY_MEM) > 0) {
 			mr = vmalloc(sizeof(struct mem_record));
-			if (mr == NULL) {
-				LOG_ERR("alloc memory record fail\n");
-			} else {
-				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+			if (mr != NULL) {
+				mdw_mem_debug("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
 					mem->uva,
 					mem->size,
 					mem->iova,
@@ -209,7 +205,7 @@ int apusys_mem_unimport(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -220,7 +216,7 @@ int apusys_mem_unimport(struct apusys_kmem *mem)
 		list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
 			mr = list_entry(list_ptr, struct mem_record, m_list);
 			if (mr->kmem.iova == mem->iova) {
-				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+				mdw_mem_debug("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
 					mem->uva,
 					mem->size,
 					mem->iova,
@@ -249,7 +245,7 @@ int apusys_mem_release(struct apusys_kmem *mem)
 		ret = apusys_mem_unimport(mem);
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -261,7 +257,7 @@ int apusys_mem_flush(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -271,7 +267,7 @@ int apusys_mem_flush(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -283,7 +279,7 @@ int apusys_mem_invalidate(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -293,7 +289,7 @@ int apusys_mem_invalidate(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	default:
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -305,7 +301,7 @@ int apusys_mem_init(struct device *dev)
 {
 	int ret = 0;
 
-	LOG_INFO("+\n");
+	mdw_drv_debug("+\n");
 	g_mem_mgr.dev = dev;
 	INIT_LIST_HEAD(&g_mem_mgr.list);
 	mutex_init(&g_mem_mgr.list_mtx);
@@ -322,7 +318,7 @@ int apusys_mem_init(struct device *dev)
 		break;
 	}
 
-	LOG_INFO("-\n");
+	mdw_drv_debug("-\n");
 	return ret;
 
 }
@@ -332,7 +328,7 @@ int apusys_mem_destroy(void)
 
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
 		ret = ion_mem_destroy(&g_mem_mgr);
@@ -477,7 +473,7 @@ uint64_t apusys_mem_query_kva(uint32_t iova)
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	uint64_t kva = 0;
 
-	MLOG_DEBUG("query kva from iova(0x%x)\n", iova);
+	mdw_mem_debug("query kva from iova(0x%x)\n", iova);
 
 	mutex_lock(&g_mem_mgr.list_mtx);
 	list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
@@ -485,7 +481,7 @@ uint64_t apusys_mem_query_kva(uint32_t iova)
 		if (iova >= mr->kmem.iova &&
 			iova < mr->kmem.iova + mr->kmem.iova_size) {
 			kva = mr->kmem.kva + (uint64_t)(iova - mr->kmem.iova);
-			MLOG_DEBUG("query kva (0x%x->0x%llx)\n", iova, kva);
+			mdw_mem_debug("query kva (0x%x->0x%llx)\n", iova, kva);
 		}
 	}
 	mutex_unlock(&g_mem_mgr.list_mtx);
@@ -500,7 +496,7 @@ uint32_t apusys_mem_query_iova(uint64_t kva)
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	uint32_t iova = 0;
 
-	MLOG_DEBUG("query iova from kva(0x%llx)\n", kva);
+	mdw_mem_debug("query iova from kva(0x%llx)\n", kva);
 
 	mutex_lock(&g_mem_mgr.list_mtx);
 	list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
@@ -508,7 +504,7 @@ uint32_t apusys_mem_query_iova(uint64_t kva)
 		if (mr->kmem.kva >= kva &&
 			mr->kmem.kva + mr->kmem.size < kva) {
 			iova = mr->kmem.iova + (uint32_t)(kva - mr->kmem.kva);
-			MLOG_DEBUG("query iova (0x%llx->0x%x)\n", kva, iova);
+			mdw_mem_debug("query iova (0x%llx->0x%x)\n", kva, iova);
 		}
 	}
 	mutex_unlock(&g_mem_mgr.list_mtx);

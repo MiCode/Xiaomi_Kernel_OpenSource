@@ -66,14 +66,14 @@ static int sample_probe(struct platform_device *pdev)
 	/* get major */
 	ret = alloc_chrdev_region(&sample_devt, 0, 1, APUSYS_SAMPLE_DEV_NAME);
 	if (ret < 0) {
-		LOG_ERR("alloc_chrdev_region failed, %d\n", ret);
+		spl_drv_err("alloc_chrdev_region failed, %d\n", ret);
 		return ret;
 	}
 
 	/* Allocate driver */
 	sample_cdev = cdev_alloc();
 	if (sample_cdev == NULL) {
-		LOG_ERR("cdev_alloc failed\n");
+		spl_drv_err("cdev_alloc failed\n");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -85,7 +85,7 @@ static int sample_probe(struct platform_device *pdev)
 	/* Add to system */
 	ret = cdev_add(sample_cdev, sample_devt, 1);
 	if (ret < 0) {
-		LOG_ERR("Attatch file operation failed, %d\n", ret);
+		spl_drv_err("Attatch file operation failed, %d\n", ret);
 		goto out;
 	}
 
@@ -151,17 +151,17 @@ static struct platform_device sample_device = {
 static int __init sample_init(void)
 {
 	if (!apusys_power_check()) {
-		LOG_ERR("apusys disable\n");
+		spl_drv_err("apusys disable\n");
 		return -ENODEV;
 	}
 
 	if (platform_driver_register(&sample_driver)) {
-		LOG_ERR("failed to register apusys sample driver)\n");
+		spl_drv_err("failed to register apusys sample driver)\n");
 		return -ENODEV;
 	}
 
 	if (platform_device_register(&sample_device)) {
-		LOG_ERR("failed to register apusys sample device\n");
+		spl_drv_err("failed to register apusys sample device\n");
 		platform_driver_unregister(&sample_driver);
 		return -ENODEV;
 	}

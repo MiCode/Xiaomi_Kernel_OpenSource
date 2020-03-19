@@ -25,7 +25,7 @@
 #include <linux/pm_wakeup.h>
 #endif
 
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "resource_mgt.h"
 #include "cmd_parser.h"
 #include "thread_pool.h"
@@ -36,7 +36,7 @@
 extern struct dentry *apusys_dbg_device;
 struct apusys_res_mgr g_res_mgr;
 
-static char dev_type_string[APUSYS_DEVICE_LAST][APUSYS_DEV_NAME_SIZE] = {
+static char dev_type_string[APUSYS_DEVICE_RT][APUSYS_DEV_NAME_SIZE] = {
 	"none",
 	"sample",
 	"mdla",
@@ -59,9 +59,9 @@ static void secure_ws_init(void)
 	mutex_init(&ws_mutex);
 	apusys_secure_ws = wakeup_source_register("apusys_secure");
 	if (!apusys_secure_ws)
-		LOG_ERR("apusys sched wakelock register fail!\n");
+		mdw_drv_err("apusys sched wakelock register fail!\n");
 #else
-	LOG_DEBUG("not support pm wakelock\n");
+	mdw_drv_debug("not support pm wakelock\n");
 #endif
 }
 
@@ -69,15 +69,15 @@ void secure_ws_lock(void)
 {
 #ifdef CONFIG_PM_WAKELOCKS
 	mutex_lock(&ws_mutex);
-	//LOG_INFO("wakelock count(%d)\n", ws_count);
+	//mdw_drv_debug("wakelock count(%d)\n", ws_count);
 	if (apusys_secure_ws && !ws_count) {
-		LOG_DEBUG("lock wakelock\n");
+		mdw_flw_debug("lock wakelock\n");
 		__pm_stay_awake(apusys_secure_ws);
 	}
 	ws_count++;
 	mutex_unlock(&ws_mutex);
 #else
-	LOG_DEBUG("not support pm wakelock\n");
+	mdw_flw_debug("not support pm wakelock\n");
 #endif
 }
 
@@ -85,15 +85,14 @@ void secure_ws_unlock(void)
 {
 #ifdef CONFIG_PM_WAKELOCKS
 	mutex_lock(&ws_mutex);
-	//LOG_INFO("wakelock count(%d)\n", ws_count);
 	ws_count--;
 	if (apusys_secure_ws && !ws_count) {
-		LOG_DEBUG("unlock wakelock\n");
+		mdw_flw_debug("unlock wakelock\n");
 		__pm_relax(apusys_secure_ws);
 	}
 	mutex_unlock(&ws_mutex);
 #else
-	LOG_DEBUG("not support pm wakelock\n");
+	mdw_flw_debug("not support pm wakelock\n");
 #endif
 }
 struct mem_ctx_mgr {
@@ -132,7 +131,7 @@ int res_dbg_tab_init(struct apusys_res_table *tab)
 	/* check queue dir */
 	ret = IS_ERR_OR_NULL(apusys_dbg_device);
 	if (ret) {
-		LOG_ERR("failed to get queue dir.\n");
+		mdw_drv_err("failed to get queue dir.\n");
 		return -EINVAL;
 	}
 
@@ -146,7 +145,7 @@ int res_dbg_tab_init(struct apusys_res_table *tab)
 
 	ret = IS_ERR_OR_NULL(tab->dbg_dir);
 	if (ret) {
-		LOG_ERR("create q len node(%s) fail(%d)\n",
+		mdw_drv_err("create q len node(%s) fail(%d)\n",
 		tab->name, ret);
 	}
 
@@ -155,7 +154,7 @@ int res_dbg_tab_init(struct apusys_res_table *tab)
 		tab->dbg_dir, &tab->normal_task_num);
 	ret = IS_ERR_OR_NULL(res_dbg_devq);
 	if (ret) {
-		LOG_ERR("failed to create debug node(%s/queue)\n",
+		mdw_drv_err("failed to create debug node(%s/queue)\n",
 			tab->name);
 	}
 
@@ -184,7 +183,7 @@ uint64_t res_get_dev_support(void)
 	ret_max = sizeof(uint64_t);
 
 	if (res_max > ret_max)
-		LOG_ERR("device support overflow\n");
+		mdw_drv_err("device support overflow\n");
 
 	memcpy(&ret, g_res_mgr.dev_support,
 		res_max < ret_max ? res_max : ret_max);
@@ -200,11 +199,11 @@ int insert_subcmd(struct apusys_subcmd *sc)
 	/* get resource table */
 	tab = res_get_table(sc->type);
 	if (tab == NULL) {
-		LOG_ERR("no device(%d) available\n", sc->type);
+		mdw_drv_err("no device(%d) available\n", sc->type);
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("insert 0x%llx-#%d to q(%d/%d/%llu)\n",
+	mdw_flw_debug("insert 0x%llx-#%d to q(%d/%d/%llu)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
@@ -219,7 +218,7 @@ int insert_subcmd(struct apusys_subcmd *sc)
 	} else { /* Priority Queue */
 		ret = normal_task_insert(sc);
 		if (ret) {
-			LOG_ERR("insert 0x%llx-#%d to nq(%d/%d/%llu)\n",
+			mdw_drv_err("insert 0x%llx-#%d to nq(%d/%d/%llu)\n",
 				sc->par_cmd->cmd_id,
 				sc->idx,
 				sc->type,
@@ -258,13 +257,13 @@ int pop_subcmd(int type, struct apusys_subcmd **isc)
 	/* get resource table */
 	tab = res_get_table(type);
 	if (tab == NULL) {
-		LOG_ERR("no device(%d) available\n", type);
+		mdw_drv_err("no device(%d) available\n", type);
 		return -EINVAL;
 	}
 
 	sc = deadline_task_pop(type);
 	if (sc) { /* pop cmd from deadline queue */
-		LOG_DEBUG("pop 0x%llx-#%d from deadline_q(%d/%llu)\n",
+		mdw_flw_debug("pop 0x%llx-#%d from deadline_q(%d/%llu)\n",
 				sc->par_cmd->cmd_id,
 				sc->idx,
 				sc->type,
@@ -272,7 +271,7 @@ int pop_subcmd(int type, struct apusys_subcmd **isc)
 	} else { /* deadline queue is empty, pop cmd from priority queue */
 		sc = normal_task_pop(type);
 		if (sc) {
-			LOG_DEBUG("pop 0x%llx-#%d from nq(%d/%d)\n",
+			mdw_flw_debug("pop 0x%llx-#%d from nq(%d/%d)\n",
 				sc->par_cmd->cmd_id,
 				sc->idx,
 				sc->type,
@@ -282,14 +281,14 @@ int pop_subcmd(int type, struct apusys_subcmd **isc)
 
 	/* check if both deadline/priority queue are empty */
 	if (normal_task_empty(type) && deadline_task_empty(type)) {
-		LOG_DEBUG("device(%d) cmd empty\n", type);
+		mdw_flw_debug("device(%d) cmd empty\n", type);
 		bitmap_clear(g_res_mgr.cmd_exist, type, 1);
 	}
 
 	/* assign subcmd */
 	*isc = sc;
 	if (sc == NULL) {
-		LOG_ERR("pop sc(%d) from queue fail\n", type);
+		mdw_drv_err("pop sc(%d) from queue fail\n", type);
 		ret = -ENODATA;
 	}
 
@@ -303,7 +302,7 @@ int delete_subcmd(struct apusys_subcmd *sc)
 	if (sc == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("remove 0x%llx-#%d q(%d/%d)\n",
+	mdw_flw_debug("remove 0x%llx-#%d q(%d/%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
@@ -320,7 +319,7 @@ int delete_subcmd(struct apusys_subcmd *sc)
 		bitmap_clear(g_res_mgr.cmd_exist, sc->type, 1);
 
 	if (ret) {
-		LOG_ERR("remove 0x%llx-#%d nq(%d/%d) fail\n",
+		mdw_drv_err("remove 0x%llx-#%d nq(%d/%d) fail\n",
 			sc->par_cmd->cmd_id,
 			sc->idx,
 			sc->type,
@@ -354,7 +353,7 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 		return -EINVAL;
 
 	if (dev_info->dev->dev_type >= APUSYS_DEVICE_MAX) {
-		LOG_ERR("put dev(%d/%d) invalid\n",
+		mdw_drv_err("put dev(%d/%d) invalid\n",
 			dev_info->dev->dev_type, APUSYS_DEVICE_MAX);
 		return -ENODEV;
 	}
@@ -362,41 +361,41 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 	tab = res_get_table(dev_info->dev->dev_type);
 	/* can't find info, unlock and return fail */
 	if (tab == NULL) {
-		LOG_ERR("no dev(%d) available\n", dev_info->dev->dev_type);
+		mdw_drv_err("no dev(%d) available\n", dev_info->dev->dev_type);
 		return -ENODEV;
 	}
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	/* query list to find mem in apusys user */
 	list_for_each_safe(list_ptr, tmp, &tab->acq_list) {
 		acq = list_entry(list_ptr, struct apusys_dev_aquire, tab_list);
-		LOG_DEBUG("dev(%s-#%d) has acquire(%p/%d), put device\n",
+		mdw_flw_debug("dev(%s-#%d) has acquire(%p/%d), put device\n",
 			dev_info->name, dev_info->dev->idx, acq, acq->is_done);
 		if (acq->is_done == 0) {
-			DEBUG_TAG;
+			mdw_lne_debug();
 
 			dev_info->cmd_id = 0;
 			dev_info->sc_idx = 0;
 			dev_info->cur_owner = acq->owner;
 			acq->acq_num++;
 			acq->acq_bitmap |= (1ULL << dev_info->dev->idx);
-			LOG_DEBUG("dev(%s-#%d) add to acq(%d/%d)\n",
+			mdw_flw_debug("dev(%s-#%d) add to acq(%d/%d)\n",
 				dev_info->name, dev_info->dev->idx,
 				acq->acq_num, acq->target_num);
 			if (acq->acq_num == acq->target_num)
 				acq->is_done = 1;
 			list_add_tail(&dev_info->acq_list, &acq->dev_info_list);
-			DEBUG_TAG;
+			mdw_lne_debug();
 			if (acq->is_done)
 				complete(&acq->comp);
 			complete(&g_res_mgr.sched_comp);
 			return 0;
 		}
-		DEBUG_TAG;
+		mdw_lne_debug();
 	}
 
 	/* get idle device from bitmap */
-	LOG_DEBUG("put dev(%s-#%d/%d) ok\n",
+	mdw_flw_debug("put dev(%s-#%d/%d) ok\n",
 		dev_info->name, dev_info->dev->idx, tab->dev_num);
 	dev_info->cur_owner = APUSYS_DEV_OWNER_NONE;
 	dev_info->cmd_id = 0;
@@ -408,7 +407,7 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 	bitmap_set(g_res_mgr.dev_exist, tab->dev_type, 1);
 	complete(&g_res_mgr.sched_comp);
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	return 0;
 }
@@ -439,7 +438,7 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 
 	/* check arguments */
 	if (acq == NULL || acq->target_num > APUSYS_DEV_TABLE_MAX) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -450,7 +449,7 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 	tab = res_get_table(acq->dev_type);
 	/* can't find info, unlock and return fail */
 	if (tab == NULL) {
-		LOG_ERR("no device(%d) available\n", acq->dev_type);
+		mdw_drv_err("no device(%d) available\n", acq->dev_type);
 		return -EINVAL;
 	}
 
@@ -480,13 +479,13 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 
 	/* check dev num */
 	if (acq->target_num > tab->dev_num) {
-		LOG_ERR("alloc wrong num(%d/%d) device(%d)\n",
+		mdw_drv_err("alloc wrong num(%d/%d) device(%d)\n",
 			acq->target_num, tab->dev_num, acq->dev_type);
 		return -EINVAL;
 	}
 
 	/* get idle device from bitmap */
-	LOG_DEBUG("allocate device(%d) (%d/%d/%d)\n",
+	mdw_flw_debug("allocate device(%d) (%d/%d/%d)\n",
 		acq->dev_type, acq->target_num,
 		tab->available_num, tab->dev_num);
 	for (i = 0; i < ret_num; i++) {
@@ -503,7 +502,7 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 			tab->last_idx = bit_idx;
 		}
 
-		LOG_DEBUG("dev(%d) idx(%lu/%u) available\n",
+		mdw_flw_debug("dev(%d) idx(%lu/%u) available\n",
 			acq->dev_type, bit_idx, tab->dev_num);
 		if (bit_idx < tab->dev_num) {
 			list_add_tail(&tab->dev_list[bit_idx].acq_list,
@@ -516,7 +515,7 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 			acq->acq_num++;
 			acq->acq_bitmap |= (1ULL << bit_idx);
 		} else {
-			LOG_ERR("can't find device(%d)\n", acq->dev_type);
+			mdw_drv_err("can't find device(%d)\n", acq->dev_type);
 		}
 	}
 
@@ -524,7 +523,8 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 	idx = find_next_zero_bit(tab->dev_status, tab->dev_num, 0);
 	if (idx >= tab->dev_num) {
 		bitmap_clear(g_res_mgr.dev_exist, tab->dev_type, 1);
-		LOG_DEBUG("clear res mgr dev(%d) status type\n", tab->dev_type);
+		mdw_flw_debug("clear res mgr dev(%d) status type\n",
+			tab->dev_type);
 	}
 
 	return 0;
@@ -538,19 +538,19 @@ int acq_device_check(struct apusys_dev_aquire **iacq)
 
 	/* TODO, optimize acq list */
 	mutex_lock(&g_res_mgr.mtx);
-	DEBUG_TAG;
+	mdw_lne_debug();
 	for (i = 0; i < APUSYS_DEVICE_MAX; i++) {
 		tab = res_get_table(i);
 		if (tab == NULL)
 			continue;
 
 		if (!list_empty(&tab->acq_list)) {
-			LOG_DEBUG("res tab(%d) has acq_list\n", i);
+			mdw_flw_debug("res tab(%d) has acq_list\n", i);
 			acq = list_first_entry(&tab->acq_list,
 				struct apusys_dev_aquire, tab_list);
 			if (acq->is_done && acq->target_num == acq->acq_num
 				&& acq->owner == APUSYS_DEV_OWNER_SCHEDULER) {
-				LOG_DEBUG("res tab(%d) has acq_list done\n", i);
+				mdw_flw_debug("res tab(%d) acq ready\n", i);
 				list_del(&acq->tab_list);
 				*iacq = acq;
 				mutex_unlock(&g_res_mgr.mtx);
@@ -559,7 +559,7 @@ int acq_device_check(struct apusys_dev_aquire **iacq)
 		}
 	}
 	mutex_unlock(&g_res_mgr.mtx);
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	return -ENODATA;
 }
@@ -595,7 +595,7 @@ int acq_device_cancel(struct apusys_dev_aquire *acq)
 			dev_info = list_entry(list_ptr,
 				struct apusys_dev_info, acq_list);
 			if (put_apusys_device(dev_info)) {
-				LOG_ERR("put dev(%s-#%d) fail\n",
+				mdw_drv_err("put dev(%s-#%d) fail\n",
 					dev_info->name,
 					dev_info->dev->idx);
 				ret = -ENODEV;
@@ -626,7 +626,7 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 	/* can't find info, unlock and return fail */
 	if (tab == NULL || acq->target_num <= 0 ||
 		acq->acq_num != 0) {
-		LOG_ERR("invalid arg, dev(%d) num(%d/%d)\n",
+		mdw_drv_err("invalid arg, dev(%d) num(%d/%d)\n",
 			acq->dev_type,
 			acq->target_num,
 			acq->acq_num);
@@ -657,7 +657,7 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 
 	/* check dev num */
 	if (acq->target_num > tab->dev_num) {
-		LOG_ERR("alloc wrong num(%d/%d) device(%d)\n",
+		mdw_drv_err("alloc wrong num(%d/%d) device(%d)\n",
 			acq->target_num, tab->dev_num, acq->dev_type);
 		return -EINVAL;
 	}
@@ -667,15 +667,15 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 	acq->acq_num = 0;
 	acq->acq_bitmap = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	/* device table's available device is more than acquire target num */
 	for (i = 0; i < num; i++) {
 		bit_idx = find_first_zero_bit(dev_status, tab->dev_num);
-		LOG_DEBUG("dev(%d-#%d/%u) available\n",
+		mdw_flw_debug("dev(%d-#%d/%u) available\n",
 			acq->dev_type, bit_idx, tab->dev_num);
 		if (bit_idx < tab->dev_num) {
-			LOG_DEBUG("add to acquire list\n");
+			mdw_flw_debug("add to acquire list\n");
 			list_add_tail(&tab->dev_list[bit_idx].acq_list,
 				&acq->dev_info_list);
 			bitmap_set(tab->dev_status, bit_idx, 1);
@@ -686,19 +686,19 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 			acq->acq_num++;
 			acq->acq_bitmap |= (1ULL << bit_idx);
 		} else {
-			LOG_ERR("can't find device(%d)\n", acq->dev_type);
+			mdw_drv_err("can't find device(%d)\n", acq->dev_type);
 			return -EINVAL;
 		}
 	}
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	if (acq->acq_num < acq->target_num) {
-		LOG_INFO("acquire device(%d/%d/%d) async...\n",
+		mdw_flw_debug("acquire device(%d/%d/%d) async...\n",
 			acq->dev_type, acq->acq_num, acq->target_num);
-		LOG_DEBUG("add to acquire list\n");
+		mdw_flw_debug("add to acquire list\n");
 		list_add_tail(&acq->tab_list, &tab->acq_list);
 	}
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	return acq->acq_num;
 }
@@ -723,7 +723,7 @@ int acq_device_sync(struct apusys_dev_aquire *acq)
 		return -EINVAL;
 
 	acq->acq_num = 0;
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	mutex_lock(&g_res_mgr.mtx);
 
@@ -732,34 +732,34 @@ int acq_device_sync(struct apusys_dev_aquire *acq)
 		mutex_unlock(&g_res_mgr.mtx);
 		return ret;
 	}
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	/* if acquire == target, return ok */
 	if (acq->acq_num == acq->target_num) {
-		DEBUG_TAG;
+		mdw_lne_debug();
 		mutex_unlock(&g_res_mgr.mtx);
 		return acq->acq_num;
 	}
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	mutex_unlock(&g_res_mgr.mtx);
 
 	ret = wait_for_completion_timeout(&acq->comp, timeout);
 	if (ret == 0) {
-		LOG_WARN("acquire device(%d/%d/%d) timeout(%lu), ret(%d)\n",
+		mdw_drv_warn("acquire device(%d/%d/%d) timeout(%lu), ret(%d)\n",
 			acq->dev_type, acq->acq_num,
 			acq->target_num, timeout/1000/1000, ret);
 	}
 
 	mutex_lock(&g_res_mgr.mtx);
 	if (acq->acq_num == acq->target_num) {
-		LOG_DEBUG("acquire dev(%d/%d/%d) sync ok\n",
+		mdw_flw_debug("acquire dev(%d/%d/%d) sync ok\n",
 		acq->dev_type, acq->acq_num, acq->target_num);
 		list_del(&acq->tab_list);
 	} else {
-		LOG_WARN("cancel acq(%d)...\n", acq->dev_type);
+		mdw_drv_warn("cancel acq(%d)...\n", acq->dev_type);
 		if (acq_device_cancel(acq)) {
-			LOG_ERR("cancel acq(%d) fail\n", acq->dev_type);
+			mdw_drv_err("cancel acq(%d) fail\n", acq->dev_type);
 			acq->acq_num = 0;
 		}
 	}
@@ -776,29 +776,29 @@ int res_power_on(int dev_type, uint32_t idx,
 	struct apusys_power_hnd pwr;
 	int ret = 0;
 
-	LOG_DEBUG("poweron dev(%d-#%u) boost(%u) timeout(%u)\n",
+	mdw_drv_debug("poweron dev(%d-#%u) boost(%u) timeout(%u)\n",
 		dev_type, idx, boost_val, timeout);
 
 	if (boost_val > 100) {
-		LOG_ERR("invalid boost val(%d)\n", boost_val);
+		mdw_drv_err("invalid boost val(%d)\n", boost_val);
 		return -EINVAL;
 	}
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_ERR("invalid device type(%d)\n", dev_type);
+		mdw_drv_err("invalid device type(%d)\n", dev_type);
 		return -EINVAL;
 	}
 
 	if (idx >= tab->dev_num) {
-		LOG_ERR("invalid device idx(%d-#%u/%d)\n",
+		mdw_drv_err("invalid device idx(%d-#%u/%d)\n",
 			dev_type, idx, tab->dev_num);
 		return -EINVAL;
 	}
 
 	info = &tab->dev_list[idx];
 	if (info == NULL) {
-		LOG_ERR("can't find device info(%p) (%d-#%u)\n",
+		mdw_drv_err("can't find device info(%p) (%d-#%u)\n",
 			info, dev_type, idx);
 		return -EINVAL;
 	}
@@ -812,7 +812,7 @@ int res_power_on(int dev_type, uint32_t idx,
 		pwr.timeout = timeout;
 	ret = info->dev->send_cmd(APUSYS_CMD_POWERON, &pwr, info->dev);
 	if (ret) {
-		LOG_ERR("poweron dev(%d-#%u) boostval(%d) fail(%d)\n",
+		mdw_drv_err("poweron dev(%d-#%u) boostval(%d) fail(%d)\n",
 			dev_type, idx, boost_val, ret);
 	}
 
@@ -826,23 +826,23 @@ int res_power_off(int dev_type, uint32_t idx)
 	struct apusys_power_hnd pwr;
 	int ret = 0;
 
-	LOG_DEBUG("powerdown dev(%d-#%u)\n", dev_type, idx);
+	mdw_drv_debug("powerdown dev(%d-#%u)\n", dev_type, idx);
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_ERR("invalid device type(%d)\n", dev_type);
+		mdw_drv_err("invalid device type(%d)\n", dev_type);
 		return -EINVAL;
 	}
 
 	if (idx >= tab->dev_num) {
-		LOG_ERR("invalid device idx(%d-#%u/%d)\n",
+		mdw_drv_err("invalid device idx(%d-#%u/%d)\n",
 			dev_type, idx, tab->dev_num);
 		return -EINVAL;
 	}
 
 	info = &tab->dev_list[idx];
 	if (info == NULL) {
-		LOG_ERR("can't find device info(%p) (%d-#%u)\n",
+		mdw_drv_err("can't find device info(%p) (%d-#%u)\n",
 			info, dev_type, idx);
 		return -EINVAL;
 	}
@@ -850,7 +850,7 @@ int res_power_off(int dev_type, uint32_t idx)
 	memset(&pwr, 0, sizeof(struct apusys_power_hnd));
 	ret = info->dev->send_cmd(APUSYS_CMD_POWERDOWN, &pwr, info->dev);
 	if (ret) {
-		LOG_ERR("powerdown dev(%s-#%u) fail(%d)\n",
+		mdw_drv_err("powerdown dev(%s-#%u) fail(%d)\n",
 			info->name, idx, ret);
 	}
 
@@ -873,7 +873,7 @@ int res_suspend_dev(void)
 
 		tab = res_get_table(dev_type);
 		if (tab == NULL) {
-			LOG_ERR("miss dev(%d)\n", dev_type);
+			mdw_drv_err("miss dev(%d)\n", dev_type);
 			break;
 		}
 
@@ -890,18 +890,17 @@ int res_suspend_dev(void)
 				msleep(wait_ms);
 			}
 			if (j >= times) {
-				LOG_WARN("dev(%s-#%d) busy too long\n",
+				mdw_drv_warn("dev(%s-#%d) busy too long\n",
 					tab->dev_list[i].name, i);
 			}
 		}
 
 		/* call suspend */
 		for (i = 0; i < tab->dev_num; i++) {
-			//LOG_DEBUG("suspend dev(%d-#%d)...\n", dev_type, i);
 			mutex_lock(&g_res_mgr.mtx);
 			if (tab->dev_list[i].cur_owner ==
 				APUSYS_DEV_OWNER_SECURE) {
-				LOG_WARN("dev(%s-#%d) in secure, no poweroff\n",
+				mdw_drv_warn("dev(%s-#%d) in secure, no poweroff\n",
 					tab->dev_list[i].name,
 					tab->dev_list[i].dev->idx);
 				continue;
@@ -909,10 +908,10 @@ int res_suspend_dev(void)
 			ret |= tab->dev_list[i].dev->send_cmd(
 				APUSYS_CMD_SUSPEND, NULL, tab->dev_list[i].dev);
 			if (ret) {
-				LOG_ERR("suspend dev(%s-#%d) fail(%d)\n",
+				mdw_drv_err("suspend dev(%s-#%d) fail(%d)\n",
 					tab->name, i, ret);
 			} else {
-				LOG_DEBUG("suspend dev(%s-#%d) done\n",
+				mdw_drv_debug("suspend dev(%s-#%d) done\n",
 					tab->name, i);
 			}
 			mutex_unlock(&g_res_mgr.mtx);
@@ -938,27 +937,27 @@ int res_resume_dev(void)
 
 		tab = res_get_table(dev_type);
 		if (tab == NULL) {
-			LOG_ERR("miss dev(%d)\n", dev_type);
+			mdw_drv_err("miss dev(%d)\n", dev_type);
 			break;
 		}
 
 		for (i = 0; i < tab->dev_num; i++) {
 			if (tab->dev_list[i].cmd_id != 0) {
-				LOG_WARN("dev(%s-#%d)s(%llu/0x%llx)abnormal\n",
+				mdw_drv_warn("dev(%s-#%d)s(%llu/0x%llx)abnormal\n",
 					tab->dev_list[i].name, i,
 					tab->dev_list[i].cur_owner,
 					tab->dev_list[i].cmd_id);
 			}
 
 			/* call resume */
-			//LOG_DEBUG("resume dev(%d-#%d)...\n", dev_type, i);
+			//mdw_drv_debug("resume dev(%d-#%d)...\n", dev_type, i);
 			ret = tab->dev_list[i].dev->send_cmd(APUSYS_CMD_RESUME,
 				NULL, tab->dev_list[i].dev);
 			if (ret) {
-				LOG_ERR("resume dev(%s-#%d) fail(%d)\n",
+				mdw_drv_err("resume dev(%s-#%d) fail(%d)\n",
 					tab->dev_list[i].name, i, ret);
 			} else {
-				LOG_DEBUG("resume dev(%s-#%d) done\n",
+				mdw_drv_debug("resume dev(%s-#%d) done\n",
 					tab->dev_list[i].name, i);
 			}
 		}
@@ -981,19 +980,19 @@ int res_load_firmware(int dev_type, uint32_t magic, const char *name,
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_ERR("invalid device type(%d)\n", dev_type);
+		mdw_drv_err("invalid device type(%d)\n", dev_type);
 		return -EINVAL;
 	}
 
 	if (idx >= tab->dev_num) {
-		LOG_ERR("invalid device idx(%s-#%d/%d)\n",
+		mdw_drv_err("invalid device idx(%s-#%d/%d)\n",
 			tab->name, idx, tab->dev_num);
 		return -EINVAL;
 	}
 
 	info = &tab->dev_list[idx];
 	if (info == NULL) {
-		LOG_ERR("can't find device info(%p) (%d/%d)\n",
+		mdw_drv_err("can't find device info(%p) (%d/%d)\n",
 			info, dev_type, idx);
 		return -EINVAL;
 	}
@@ -1008,7 +1007,7 @@ int res_load_firmware(int dev_type, uint32_t magic, const char *name,
 
 	ret = info->dev->send_cmd(APUSYS_CMD_FIRMWARE, &hnd, info->dev);
 	if (ret) {
-		LOG_ERR("load(%d) dev(%d-#%d) fw(0x%x/0x%x) fail(%d)",
+		mdw_drv_err("load(%d) dev(%d-#%d) fw(0x%x/0x%x) fail(%d)",
 			op, dev_type, idx, iova, size, ret);
 	}
 
@@ -1025,19 +1024,19 @@ int res_send_ucmd(int dev_type, int idx,
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_ERR("invalid device type(%d)\n", dev_type);
+		mdw_drv_err("invalid device type(%d)\n", dev_type);
 		return -EINVAL;
 	}
 
 	if (idx >= tab->dev_num) {
-		LOG_ERR("invalid device idx(%d-#%d/%d)\n",
+		mdw_drv_err("invalid device idx(%d-#%d/%d)\n",
 			dev_type, idx, tab->dev_num);
 		return -EINVAL;
 	}
 
 	info = &tab->dev_list[idx];
 	if (info == NULL) {
-		LOG_ERR("can't find device info(%p) (%d/%d)\n",
+		mdw_drv_err("can't find device info(%p) (%d/%d)\n",
 			info, dev_type, idx);
 		return -EINVAL;
 	}
@@ -1049,7 +1048,7 @@ int res_send_ucmd(int dev_type, int idx,
 
 	ret = info->dev->send_cmd(APUSYS_CMD_USER, &hnd, info->dev);
 	if (ret) {
-		LOG_WARN("send dev(%s-#%d) ucmd(0x%llx/0x%x/%d) fail(%d)",
+		mdw_drv_warn("send dev(%s-#%d) ucmd(0x%llx/0x%x/%d) fail(%d)",
 			info->name, info->dev->idx,
 			kva, iova, size, ret);
 	}
@@ -1061,10 +1060,10 @@ void res_sched_enable(int enable)
 {
 	mutex_lock(&g_res_mgr.mtx);
 	if (enable) {
-		LOG_INFO("start apusys sched\n");
+		mdw_drv_debug("start apusys sched\n");
 		g_res_mgr.sched_pause = 0;
 	} else {
-		LOG_INFO("pause apusys sched\n");
+		mdw_drv_debug("pause apusys sched\n");
 		g_res_mgr.sched_pause = 1;
 	}
 	mutex_unlock(&g_res_mgr.mtx);
@@ -1077,26 +1076,24 @@ int res_secure_on(int dev_type)
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_ERR("[sec]can't find dev(%d)\n", dev_type);
+		mdw_drv_err("[sec]can't find dev(%d)\n", dev_type);
 		return -ENODEV;
 	}
 
 	switch (dev_type) {
 	case APUSYS_DEVICE_SAMPLE:
 		ret = 0;
-		LOG_INFO("[sec]dev(%d) secure mode on(%d)\n", dev_type, ret);
 		break;
 
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case APUSYS_DEVICE_VPU:
 		ret = mtee_sdsp_enable(1);
-		LOG_WARN("[sec]dev(%d) secure mode on(%d)\n", dev_type, ret);
 		if (!ret)
 			secure_ws_lock();
 		break;
 #endif
 	default:
-		LOG_ERR("[sec]dev(%d) not support secure mode\n", dev_type);
+		mdw_drv_err("[sec]dev(%d) not support secure mode\n", dev_type);
 		ret = -ENODEV;
 		break;
 	}
@@ -1111,25 +1108,25 @@ int res_secure_off(int dev_type)
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
-		LOG_ERR("secure control can't find dev(%d)\n", dev_type);
+		mdw_drv_err("secure control can't find dev(%d)\n", dev_type);
 		return -ENODEV;
 	}
 
 	switch (dev_type) {
 	case APUSYS_DEVICE_SAMPLE:
 		ret = 0;
-		LOG_INFO("dev(%d) secure mode off(%d)\n", dev_type, ret);
+		mdw_drv_debug("dev(%d) secure mode off(%d)\n", dev_type, ret);
 		break;
 
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case APUSYS_DEVICE_VPU:
 		secure_ws_unlock();
 		ret = mtee_sdsp_enable(0);
-		LOG_WARN("dev(%d) secure mode off(%d)\n", dev_type, ret);
+		mdw_drv_warn("dev(%d) secure mode off(%d)\n", dev_type, ret);
 		break;
 #endif
 	default:
-		LOG_ERR("dev(%d) not support secure mode\n", dev_type);
+		mdw_drv_err("dev(%d) not support secure mode\n", dev_type);
 		ret = -ENODEV;
 		break;
 	}
@@ -1192,10 +1189,10 @@ void res_mgt_dump(void *s_file)
 	"|------------------------------------------"\
 	"-------------------|\n"
 
-	LOG_CON(s, LINEBAR);
-	LOG_CON(s, "|%-86s|\n",
+	mdw_con_info(s, LINEBAR);
+	mdw_con_info(s, "|%-86s|\n",
 		" apusys device table");
-	LOG_CON(s, LINEBAR);
+	mdw_con_info(s, LINEBAR);
 
 	mutex_lock(&g_res_mgr.mtx);
 
@@ -1209,102 +1206,101 @@ void res_mgt_dump(void *s_file)
 			info = &tab->dev_list[j];
 			if (info->cur_owner == APUSYS_DEV_OWNER_DISABLE) {
 				if (j != 0) {
-					LOG_CON(s, "|%24s|%-9s#%-4d>%46s|\n",
+					mdw_con_info(s, "|%24s|%-9s#%-4d>%46s|\n",
 						"",
 						" <device ",
 						j,
 						"");
-					LOG_CON(s, "|%24s|-%61s|\n",
+					mdw_con_info(s, "|%24s|-%61s|\n",
 						"",
 						" disable");
-					LOG_CON(s, "\n");
-					LOG_CON(s, "\n");
-					LOG_CON(s, LINEBAR);
+					mdw_con_info(s, "\n");
+					mdw_con_info(s, "\n");
+					mdw_con_info(s, LINEBAR);
 					continue;
-
 				}
 
-				LOG_CON(s, "|%-14s(%7d) |%-9s#%-4d>%46s|\n",
+				mdw_con_info(s, "|%-14s(%7d) |%-9s#%-4d>%46s|\n",
 					" dev type ",
 					tab->dev_type,
 					" <device ",
 					j,
 					"");
-				LOG_CON(s, "|%-14s(%7d) |%-61s|\n",
+				mdw_con_info(s, "|%-14s(%7d) |%-61s|\n",
 					" core num ",
 					tab->dev_num,
 					" disable");
-				LOG_CON(s, "|%-14s(%7u) |%-61s|\n",
+				mdw_con_info(s, "|%-14s(%7u) |%-61s|\n",
 					" available",
 					tab->available_num,
 					"");
-				LOG_CON(s, "|%-14s(%3u/%3u) |%-61s|\n",
+				mdw_con_info(s, "|%-14s(%3u/%3u) |%-61s|\n",
 					" cmd queue",
 					tab->normal_task_num,
 					tab->deadline_task_num,
 					"");
-				LOG_CON(s, LINEBAR);
+				mdw_con_info(s, LINEBAR);
 
 				continue;
 			}
 
 			if (j == 0) {
 				/* print tab info at dev #0 */
-				LOG_CON(s, "|%-14s(%7s) |%-9s#%-4d>%46s|\n",
+				mdw_con_info(s, "|%-14s(%7s) |%-9s#%-4d>%46s|\n",
 					" dev name",
 					tab->name,
 					" <device ",
 					j,
 					"");
-				LOG_CON(s, "|%-14s(%7d) |%-18s= %-41d|\n",
+				mdw_con_info(s, "|%-14s(%7d) |%-18s= %-41d|\n",
 					" dev type ",
 					tab->dev_type,
 					" device idx",
 					info->dev->idx);
-				LOG_CON(s, "|%-14s(%7d) |%-18s= 0x%-39llx|\n",
+				mdw_con_info(s, "|%-14s(%7d) |%-18s= 0x%-39llx|\n",
 					" core num ",
 					tab->dev_num,
 					" cmd id",
 					info->cmd_id);
-				LOG_CON(s, "|%-14s(%7u) |%-18s= 0x%-39d|\n",
+				mdw_con_info(s, "|%-14s(%7u) |%-18s= 0x%-39d|\n",
 					" available",
 					tab->available_num,
 					" subcmd idx",
 					info->sc_idx);
-				LOG_CON(s, "|%-14s(%3u/%3u) |%-18s= %-41llu|\n",
+				mdw_con_info(s, "|%-14s(%3u/%3u) |%-18s= %-41llu|\n",
 					" cmd queue",
 					tab->normal_task_num,
 					tab->deadline_task_num,
 					" current owner",
 					info->cur_owner);
 			} else {
-				LOG_CON(s, "|%-24s|%-9s#%-4d>%-46s|\n",
+				mdw_con_info(s, "|%-24s|%-9s#%-4d>%-46s|\n",
 					"",
 					" <device ",
 					j,
 					"");
-				LOG_CON(s, "|%-24s|%-18s= %-41d|\n",
+				mdw_con_info(s, "|%-24s|%-18s= %-41d|\n",
 					"",
 					" device idx",
 					info->dev->idx);
-				LOG_CON(s, "|%-24s|%-18s= 0x%-39llx|\n",
+				mdw_con_info(s, "|%-24s|%-18s= 0x%-39llx|\n",
 					"",
 					" cmd id",
 					info->cmd_id);
-				LOG_CON(s, "|%-24s|%-18s= 0x%-39d|\n",
+				mdw_con_info(s, "|%-24s|%-18s= 0x%-39d|\n",
 					"",
 					" subcmd idx",
 					info->sc_idx);
-				LOG_CON(s, "|%-24s|%-18s= %-41llu|\n",
+				mdw_con_info(s, "|%-24s|%-18s= %-41llu|\n",
 					"",
 					" current owner",
 					info->cur_owner);
 			}
 
 			if (j >= tab->dev_num-1) {
-				LOG_CON(s, LINEBAR);
+				mdw_con_info(s, LINEBAR);
 			} else {
-				LOG_CON(s, "|%-24s%s",
+				mdw_con_info(s, "|%-24s%s",
 					"",
 					S_LINEBAR);
 			}
@@ -1320,7 +1316,7 @@ void res_mgt_dump(void *s_file)
 //----------------------------------------------
 int res_mgt_init(void)
 {
-	LOG_INFO("%s +\n", __func__);
+	mdw_flw_debug("%s +\n", __func__);
 
 	/* clear global variable */
 	memset(&g_res_mgr, 0, sizeof(g_res_mgr));
@@ -1328,19 +1324,19 @@ int res_mgt_init(void)
 	init_completion(&g_res_mgr.sched_comp);
 	secure_ws_init();
 
-	LOG_INFO("%s done -\n", __func__);
+	mdw_flw_debug("%s done -\n", __func__);
 
 	return 0;
 }
 
 int res_mgt_destroy(void)
 {
-	LOG_INFO("%s +\n", __func__);
+	mdw_flw_debug("%s +\n", __func__);
 
 	/* clear global variable */
 	memset(&g_res_mgr, 0, sizeof(g_res_mgr));
 
-	LOG_INFO("%s done -\n", __func__);
+	mdw_flw_debug("%s done -\n", __func__);
 	return 0;
 }
 
@@ -1351,17 +1347,17 @@ int apusys_register_device(struct apusys_device *dev)
 	struct apusys_res_table *tab = NULL;
 	int i = 0, ret = 0;
 
-	LOG_DEBUG("register apusys device +\n");
+	mdw_flw_debug("register apusys device +\n");
 
 	/* check argument ptr valid */
 	if (dev == NULL) {
-		LOG_ERR("register dev nullptr\n");
+		mdw_drv_err("register dev nullptr\n");
 		return -EINVAL;
 	}
 
 	/* check dev type valid */
 	if (dev->dev_type < 0 || dev->dev_type >= APUSYS_DEVICE_MAX) {
-		LOG_ERR("register dev wrong type(%d)\n", dev->dev_type);
+		mdw_drv_err("register dev wrong type(%d)\n", dev->dev_type);
 		return -EINVAL;
 	};
 
@@ -1369,7 +1365,7 @@ int apusys_register_device(struct apusys_device *dev)
 	tab = res_get_table(dev->dev_type);
 	if (tab != NULL) {
 		/* device type already registered, add directly */
-		LOG_DEBUG("add dev to type(%d) list\n", dev->dev_type);
+		mdw_drv_debug("add dev to type(%d) list\n", dev->dev_type);
 		for (i = 0; i < APUSYS_DEV_TABLE_MAX; i++) {
 			if (tab->dev_list[i].cur_owner
 				!= APUSYS_DEV_OWNER_DISABLE)
@@ -1379,23 +1375,26 @@ int apusys_register_device(struct apusys_device *dev)
 			bitmap_clear(tab->dev_status, i, 1); // setup status
 
 			/* setup devinfo name */
-			strncpy(tab->dev_list[tab->dev_num].name,
-				dev_type_string[tab->dev_type],
-				strlen(dev_type_string[tab->dev_type]));
+			snprintf(tab->dev_list[tab->dev_num].name,
+			APUSYS_DEV_NAME_SIZE-1,
+			"%s%s",
+			dev_type_string[tab->dev_type % APUSYS_DEVICE_RT],
+			tab->dev_type > APUSYS_DEVICE_RT ? "_rt":""
+			);
 
 			if (i >= tab->dev_num)
 				tab->dev_num++;
 
 			/* rewrite device's idx */
 			if (dev->idx != i) {
-				LOG_WARN("over write dev idx(%d->%d)\n",
+				mdw_drv_warn("over write dev idx(%d->%d)\n",
 					dev->idx,
 					i);
 				dev->idx = i;
 			}
 
 			tab->dev_list[i].cur_owner = APUSYS_DEV_OWNER_NONE;
-			LOG_DEBUG("register dev(%d-#%d/%d/%p) ok\n",
+			mdw_drv_debug("register dev(%d-#%d/%d/%p) ok\n",
 				dev->dev_type, i,
 				tab->dev_num, dev);
 
@@ -1403,14 +1402,14 @@ int apusys_register_device(struct apusys_device *dev)
 		}
 
 		if (i >= APUSYS_DEV_TABLE_MAX) {
-			LOG_ERR("register dev(%d) fail(%d/%d), dev list full\n",
+			mdw_drv_err("register dev(%d) fail(%d/%d), dev list full\n",
 				dev->dev_type, i, tab->dev_num);
 			mutex_unlock(&g_res_mgr.mtx);
 			return -ENODEV;
 		}
 	} else {
 		/* device type not registered yet, allocate table first */
-		LOG_DEBUG("register device(%d)\n", dev->dev_type);
+		mdw_drv_debug("register device(%d)\n", dev->dev_type);
 		tab = kzalloc(sizeof(struct apusys_res_table), GFP_KERNEL);
 		tab->dev_list[tab->dev_num].dev = dev; // dev
 		tab->dev_list[tab->dev_num].cur_owner = APUSYS_DEV_OWNER_NONE;
@@ -1419,16 +1418,23 @@ int apusys_register_device(struct apusys_device *dev)
 
 		/* setup devinfo/devtable name */
 		if (tab->dev_type < APUSYS_DEVICE_LAST) {
-			strncpy(tab->name, dev_type_string[tab->dev_type],
-				strlen(dev_type_string[tab->dev_type]));
-			strncpy(tab->dev_list[tab->dev_num].name,
-				dev_type_string[tab->dev_type],
-				strlen(dev_type_string[tab->dev_type]));
+			snprintf(tab->name,
+			APUSYS_DEV_NAME_SIZE-1,
+			"%s%s",
+			dev_type_string[tab->dev_type % APUSYS_DEVICE_RT],
+			tab->dev_type > APUSYS_DEVICE_RT ? "_rt":""
+			);
+			snprintf(tab->dev_list[tab->dev_num].name,
+			APUSYS_DEV_NAME_SIZE-1,
+			"%s%s",
+			dev_type_string[tab->dev_type % APUSYS_DEVICE_RT],
+			tab->dev_type > APUSYS_DEVICE_RT ? "_rt":""
+			);
 		}
 
 		/* check idx */
 		if (dev->idx != tab->dev_num) {
-			LOG_WARN("dev(%d) idx not match(%d/%d)\n",
+			mdw_drv_warn("dev(%d) idx not match(%d/%d)\n",
 				dev->dev_type, dev->idx, tab->dev_num);
 			dev->idx = tab->dev_num;
 		}
@@ -1446,13 +1452,13 @@ int apusys_register_device(struct apusys_device *dev)
 
 		/* create queue length for query */
 		if (res_dbg_tab_init(tab)) {
-			LOG_ERR("create queue length node(%d) fail\n",
+			mdw_drv_err("create queue length node(%d) fail\n",
 			tab->dev_type);
 		}
 
 		deadline_queue_init(tab->dev_type); /* Init deadline queue */
 
-		LOG_DEBUG("register dev(%d-#%d/%d/%p) ok\n",
+		mdw_drv_debug("register dev(%d-#%d/%d/%p) ok\n",
 			dev->dev_type, dev->idx,
 			tab->dev_num, dev);
 	}
@@ -1467,16 +1473,16 @@ int apusys_register_device(struct apusys_device *dev)
 	/* create thread to thread pool */
 	for (i = 0; i <= dev->preempt_level; i++) {
 		if (thread_pool_add_once()) {
-			LOG_ERR("create thread(%d) to pool fail\n", i);
+			mdw_drv_err("create thread(%d) to pool fail\n", i);
 			if (thread_pool_delete(i))
-				LOG_ERR("delete thread(%d) fail\n", i);
+				mdw_drv_err("delete thread(%d) fail\n", i);
 
 			ret = -EINVAL;
 			goto allc_q_fail;
 		}
 	}
 
-	LOG_DEBUG("register apusys device -\n");
+	mdw_flw_debug("register apusys device -\n");
 
 	return 0;
 
@@ -1486,18 +1492,16 @@ allc_q_fail:
 	kfree(tab);
 
 	return ret;
-
 }
-EXPORT_SYMBOL(apusys_register_device);
 
 int apusys_unregister_device(struct apusys_device *dev)
 {
 	struct apusys_res_table *tab = NULL;
 	int ret = 0, i = 0, idx = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	if (dev == NULL) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -1506,17 +1510,17 @@ int apusys_unregister_device(struct apusys_device *dev)
 	/* TODO: should flush cmd from dev */
 	tab = res_get_table(dev->dev_type);
 	if (tab == NULL) {
-		LOG_ERR("can't find dev table(%d)\n", dev->dev_type);
+		mdw_drv_err("can't find dev table(%d)\n", dev->dev_type);
 		ret = -EINVAL;
 		goto out;
 	}
 
 	for (i = 0; i < APUSYS_DEV_TABLE_MAX; i++) {
 		if (tab->dev_list[i].dev == dev) {
-			LOG_DEBUG("get dev(%p)\n", dev);
+			mdw_drv_debug("get dev(%p)\n", dev);
 			if (tab->dev_list[i].cur_owner ==
 				APUSYS_DEV_OWNER_NONE) {
-				LOG_DEBUG("dev(%p) is free, can release\n",
+				mdw_drv_debug("dev(%p) is free, can release\n",
 					tab->dev_list[i].dev);
 
 				/* clear dev info */
@@ -1527,7 +1531,7 @@ int apusys_unregister_device(struct apusys_device *dev)
 				bitmap_set(tab->dev_status, i, 1);
 				tab->available_num--;
 			} else {
-				LOG_ERR("dev(%p) is busy, release fail\n",
+				mdw_drv_err("dev(%p) is busy, release fail\n",
 					dev);
 				ret = -EINVAL;
 			}
@@ -1536,7 +1540,7 @@ int apusys_unregister_device(struct apusys_device *dev)
 	}
 
 	if (i >= APUSYS_DEV_TABLE_MAX) {
-		LOG_ERR("can't find dev, release device fail\n");
+		mdw_drv_err("can't find dev, release device fail\n");
 		ret = -EINVAL;
 	}
 
@@ -1544,12 +1548,11 @@ int apusys_unregister_device(struct apusys_device *dev)
 	idx = find_next_zero_bit(tab->dev_status, tab->dev_num, 0);
 	if (idx >= tab->dev_num) {
 		bitmap_clear(g_res_mgr.dev_exist, tab->dev_type, 1);
-		LOG_DEBUG("clear res mgr dev(%d) status type\n", tab->dev_type);
+		mdw_drv_debug("clear res mgr dev(%d) status type\n",
+			tab->dev_type);
 	}
 
 out:
 	mutex_unlock(&g_res_mgr.mtx);
 	return ret;
 }
-EXPORT_SYMBOL(apusys_unregister_device);
-

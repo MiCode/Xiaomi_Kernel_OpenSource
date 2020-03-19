@@ -21,7 +21,6 @@
 #include <linux/pm_wakeup.h>
 #endif
 
-#include "apusys_cmn.h"
 #include "apusys_options.h"
 #include "apusys_device.h"
 #include "apusys_dbg.h"
@@ -36,6 +35,10 @@
 #include "reviser_export.h"
 #include "apusys_user.h"
 #include "memory_dump.h"
+#include "mdw_cmn.h"
+#include "mdw_tag.h"
+#define CREATE_TRACE_POINTS
+#include "mdw_events.h"
 
 /* init link list head, which link all dev table */
 struct apusys_cmd_table {
@@ -79,9 +82,9 @@ static void sched_ws_init(void)
 	mutex_init(&ws_mutex);
 	apusys_sched_ws = wakeup_source_register("apusys_sched");
 	if (!apusys_sched_ws)
-		LOG_ERR("apusys sched wakelock register fail!\n");
+		mdw_drv_err("apusys sched wakelock register fail!\n");
 #else
-	LOG_DEBUG("not support pm wakelock\n");
+	mdw_flw_debug("not support pm wakelock\n");
 #endif
 }
 
@@ -89,15 +92,14 @@ static void sched_ws_lock(void)
 {
 #ifdef CONFIG_PM_WAKELOCKS
 	mutex_lock(&ws_mutex);
-	//LOG_INFO("wakelock count(%d)\n", ws_count);
 	if (apusys_sched_ws && !ws_count) {
-		LOG_DEBUG("lock wakelock\n");
+		mdw_flw_debug("lock wakelock\n");
 		__pm_stay_awake(apusys_sched_ws);
 	}
 	ws_count++;
 	mutex_unlock(&ws_mutex);
 #else
-	LOG_DEBUG("not support pm wakelock\n");
+	mdw_flw_debug("not support pm wakelock\n");
 #endif
 }
 
@@ -105,15 +107,14 @@ static void sched_ws_unlock(void)
 {
 #ifdef CONFIG_PM_WAKELOCKS
 	mutex_lock(&ws_mutex);
-	//LOG_INFO("wakelock count(%d)\n", ws_count);
 	ws_count--;
 	if (apusys_sched_ws && !ws_count) {
-		LOG_DEBUG("unlock wakelock\n");
+		mdw_flw_debug("unlock wakelock\n");
 		__pm_relax(apusys_sched_ws);
 	}
 	mutex_unlock(&ws_mutex);
 #else
-	LOG_DEBUG("not support pm wakelock\n");
+	mdw_flw_debug("not support pm wakelock\n");
 #endif
 }
 struct mem_ctx_mgr {
@@ -140,7 +141,7 @@ static int mem_alloc_ctx(uint8_t tcm_force, uint32_t req_size,
 #else
 	if (req_size == 0) {
 		req_size = dbg_get_prop(DBG_PROP_TCM_DEFAULT);
-		LOG_INFO("tcm default request size(0x%x)\n", req_size);
+		mdw_flw_debug("tcm default request size(0x%x)\n", req_size);
 	}
 	return reviser_get_vlm(req_size, tcm_force, ctx, allocated_size);
 #endif
@@ -155,13 +156,13 @@ static int mem_free_ctx(int ctx)
 #if 0
 	mutex_lock(&g_ctx_mgr.mtx);
 	if (!test_bit(ctx, g_ctx_mgr.ctx))
-		LOG_ERR("ctx id confuse, idx(%d) is not set\n", ctx);
+		mdw_drv_err("ctx id confuse, idx(%d) is not set\n", ctx);
 	bitmap_clear(g_ctx_mgr.ctx, ctx, 1);
 	mutex_unlock(&g_ctx_mgr.mtx);
 #else
 	ret = reviser_free_vlm((unsigned long)ctx);
 	if (ret)
-		LOG_ERR("free ctx(%d) fail(%d)\n", ctx, ret);
+		mdw_drv_err("free ctx(%d) fail(%d)\n", ctx, ret);
 #endif
 	return ret;
 }
@@ -177,7 +178,7 @@ static int alloc_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 			&ctx_id, &sc->tcm_real_usage))
 			return -EINVAL;
 		sc->ctx_id = ctx_id;
-		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
+		mdw_flw_debug("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 			cmd->cmd_id, sc->idx,
 			sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 	} else {
@@ -189,7 +190,7 @@ static int alloc_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 				return -EINVAL;
 
 			cmd->ctx_list[sc->c_hdr->cmn.mem_ctx] = ctx_id;
-			LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
+			mdw_flw_debug("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 				cmd->cmd_id, sc->idx,
 				sc->c_hdr->cmn.mem_ctx,
 				cmd->ctx_list[sc->c_hdr->cmn.mem_ctx]);
@@ -197,7 +198,7 @@ static int alloc_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 		sc->ctx_id = cmd->ctx_list[sc->c_hdr->cmn.mem_ctx];
 	}
 
-	LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) id(%d)\n",
+	mdw_flw_debug("0x%llx-#%d sc ctx_group(0x%x) id(%d)\n",
 		cmd->cmd_id, sc->idx,
 		sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 
@@ -209,7 +210,7 @@ static int free_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 	int ret = 0;
 
 	if (sc->c_hdr->cmn.mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
-		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
+		mdw_flw_debug("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
 			cmd->cmd_id, sc->idx,
 			sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 		mem_free_ctx(sc->ctx_id);
@@ -217,7 +218,7 @@ static int free_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 	} else {
 		cmd->ctx_ref[sc->c_hdr->cmn.mem_ctx]--;
 		if (cmd->ctx_ref[sc->c_hdr->cmn.mem_ctx] == 0) {
-			LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
+			mdw_flw_debug("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
 				cmd->cmd_id, sc->idx,
 				sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 			mem_free_ctx(cmd->ctx_list[sc->c_hdr->cmn.mem_ctx]);
@@ -239,9 +240,9 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 	if (sc == NULL)
 		return -EINVAL;
 
-	pack_idx = get_pack_idx(sc);
+	pack_idx = sc->pack_id;
 
-	LOG_DEBUG("0x%llx-#%d sc: before pack(%u)(%d/%d)\n",
+	mdw_flw_debug("0x%llx-#%d sc: before pack(%u)(%d/%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		pack_idx,
@@ -254,15 +255,13 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 	bit0 = test_and_change_bit(sc->idx, sc->par_cmd->pc_col.pack_status);
 	bit1 = test_and_change_bit(pack_idx, sc->par_cmd->pc_col.pack_status);
 	if (bit0 && bit1) {
-		LOG_INFO("pack cmd satified(0x%llx/0x%llx)(%d/%d)\n",
+		mdw_flw_debug("pack cmd satified(0x%llx/0x%llx)(%d/%d)\n",
 			sc->par_cmd->hdr->uid,
 			sc->par_cmd->cmd_id,
 			sc->idx,
 			pack_idx);
 		pc = kzalloc(sizeof(struct pack_cmd), GFP_KERNEL);
 		if (pc == NULL) {
-			LOG_ERR("alloc packcmd(0x%llx/%d) for execute fail\n",
-				sc->par_cmd->cmd_id, sc->idx);
 			/* TODO, error handling for cmd list added already */
 			return -ENOMEM;
 		}
@@ -279,10 +278,10 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 			&sc->par_cmd->pc_col.sc_list) {
 			tmp_sc = list_entry(list_ptr,
 				struct apusys_subcmd, pc_list);
-			LOG_DEBUG("find pack idx(%d/%d)\n",
+			mdw_flw_debug("find pack idx(%d/%d)\n",
 				next_idx, tmp_sc->idx);
 			if (tmp_sc->idx == next_idx) {
-				next_idx = get_pack_idx(tmp_sc);
+				next_idx = tmp_sc->pack_id;
 				list_del(&tmp_sc->pc_list);
 				list_add_tail(&tmp_sc->pc_list, &pc->sc_list);
 				tmp_sc->state = CMD_STATE_RUN;
@@ -292,7 +291,7 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 
 		/* TODO: don't show fake error msg */
 		if (tmp_sc->idx != pack_idx) {
-			LOG_DEBUG("pack idx, (%d->%d)\n",
+			mdw_flw_debug("pack idx, (%d->%d)\n",
 				tmp_sc->idx, pack_idx);
 		}
 
@@ -301,7 +300,7 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 		ret = pc->sc_num;
 	}
 
-	LOG_DEBUG("0x%llx-#%d sc: after pack(%u)(%d/%d)\n",
+	mdw_flw_debug("0x%llx-#%d sc: after pack(%u)(%d/%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		pack_idx,
@@ -332,10 +331,10 @@ static int exec_pack_cmd(void *iacq)
 		info = list_entry(list_ptr, struct apusys_dev_info, acq_list);
 		list_del(&info->acq_list);
 		if (list_empty(&pc->sc_list)) {
-			LOG_ERR("pack cmd and device(%d) is not same number!\n",
+			mdw_drv_err("pack cmd and device(%d) is not same number!\n",
 				info->dev->dev_type);
 			if (put_apusys_device(info)) {
-				LOG_ERR("put device(%d/%d) fail\n",
+				mdw_drv_err("put device(%d/%d) fail\n",
 					info->dev->dev_type, info->dev->idx);
 			}
 		} else {
@@ -353,7 +352,7 @@ static int exec_pack_cmd(void *iacq)
 				info->is_deadline = true;
 			/* trigger device by thread pool */
 			if (thread_pool_trigger(sc, info)) {
-				LOG_ERR("tp cmd(0x%llx/%d)dev(%d/%d) fail\n",
+				mdw_drv_err("tp cmd(0x%llx/%d)dev(%d/%d) fail\n",
 					sc->par_cmd->cmd_id, sc->idx,
 					info->dev->dev_type, info->dev->idx);
 			}
@@ -361,7 +360,7 @@ static int exec_pack_cmd(void *iacq)
 	}
 
 	if (count != pc->sc_num) {
-		LOG_ERR("execute pack cmd(%d/%d) number issue\n",
+		mdw_drv_err("execute pack cmd(%d/%d) number issue\n",
 		count, pc->sc_num);
 	}
 
@@ -379,7 +378,7 @@ static int clear_pack_cmd(struct apusys_cmd *cmd)
 	if (cmd == NULL)
 		return -EINVAL;
 
-	LOG_INFO("0x%llx cmd clear pack list\n",
+	mdw_flw_debug("0x%llx cmd clear pack list\n",
 		cmd->cmd_id);
 
 	//list_del(&tmp_sc->pc_list);
@@ -399,30 +398,30 @@ void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
 
 	if (sc == NULL) {
-		LOG_ERR("invalid sc(%p)\n", sc);
+		mdw_drv_err("invalid sc(%p)\n", sc);
 		return;
 	}
 
 	cmd = sc->par_cmd;
 	if (cmd == NULL) {
-		LOG_ERR("invalid cmd(%p)\n", cmd);
+		mdw_drv_err("invalid cmd(%p)\n", cmd);
 		return;
 	}
 
 	/* check sc state and delete */
 	mutex_lock(&cmd->mtx);
 	if (!(sc->exec_core_bitmap & (1ULL << dev_idx))) {
-		LOG_ERR("miss exec cores(0x%llx/%u)",
+		mdw_drv_err("miss exec cores(0x%llx/%u)",
 			sc->exec_core_bitmap,
 			dev_idx);
 	}
 	sc->exec_core_bitmap &= (~(1ULL << dev_idx));
 	if (sc->exec_core_bitmap == 0) {
-		LOG_DEBUG("0x%llx-#%d sc done\n",
+		mdw_flw_debug("0x%llx-#%d sc done\n",
 			cmd->cmd_id, sc->idx);
 		sc->state = CMD_STATE_DONE;
 		if (free_ctx(sc, cmd))
-			LOG_ERR("free memory ctx id fail\n");
+			mdw_drv_err("free memory ctx id fail\n");
 		done_idx = sc->idx;
 	} else {
 		mutex_unlock(&cmd->mtx);
@@ -439,7 +438,7 @@ void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 
 		scr = cmd->sc_list[sc->scr_list[i]];
 		if (scr != NULL) {
-			LOG_DEBUG("0x%llx-#%d sc: dp satified, ins q(%d-#%d)\n",
+			mdw_flw_debug("0x%llx-#%d sc: dp satified, ins q(%d-#%d)\n",
 				cmd->cmd_id,
 				scr->idx,
 				scr->type,
@@ -449,7 +448,7 @@ void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 			mutex_lock(&scr->mtx);
 			ret = insert_subcmd(scr);
 			if (ret) {
-				LOG_ERR("ins 0x%llx-#%d sc to q(%d-#%d) fail\n",
+				mdw_drv_err("ins 0x%llx-#%d sc to q(%d-#%d) fail\n",
 					cmd->cmd_id,
 					scr->idx,
 					scr->type,
@@ -461,7 +460,7 @@ void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 	}
 
 	if (apusys_subcmd_delete(sc)) {
-		LOG_ERR("delete sc(0x%llx/%d) fail\n",
+		mdw_drv_err("delete sc(0x%llx/%d) fail\n",
 			cmd->cmd_id,
 			sc->idx);
 	}
@@ -469,9 +468,9 @@ void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 	/* clear subcmd bit in cmd entry's status */
 	/* if whole apusys cmd done, wakeup user context thread */
 	if (check_cmd_done(cmd) == 0) {
-		LOG_DEBUG("apusys cmd(0x%llx) done\n",
+		mdw_flw_debug("apusys cmd(0x%llx) done\n",
 			cmd->cmd_id);
-		LOG_DEBUG("wakeup user context thread\n");
+		mdw_flw_debug("wakeup user context thread\n");
 		complete(&cmd->comp);
 	}
 
@@ -539,7 +538,7 @@ static int multicore_get_devnum(struct apusys_subcmd *sc)
 		/* CMD_SCHED_FORCE_MULTI: force multicore if codebuf is valid */
 		if (codebuf_valid) {
 			if (dev_num > total_core)
-				LOG_WARN("force multi: dev(%d) core(%d/%d)\n",
+				mdw_drv_warn("force multi: dev(%d) core(%d/%d)\n",
 				sc->type, multicore_num, total_core);
 
 			dev_num = total_core < multicore_num ?
@@ -555,7 +554,7 @@ static int multicore_get_devnum(struct apusys_subcmd *sc)
 		break;
 	}
 
-	LOG_DEBUG("multicore(%d/%d/%d) require dev(%d) %d cores\n",
+	mdw_flw_debug("multicore(%d/%d/%d) require dev(%d) %d cores\n",
 		sc->par_cmd->multicore_sched, queue_empty,
 		codebuf_valid, sc->type, dev_num);
 
@@ -578,12 +577,12 @@ static int multicore_poweron(struct apusys_subcmd *sc,
 				acq_list);
 			pwr_hnd.boost_val = sc->boost_val;
 			pwr_hnd.timeout = APUSYS_SETPOWER_TIMEOUT;
-			LOG_DEBUG("poweron dev(%d-#%d)\n",
+			mdw_flw_debug("poweron dev(%d-#%d)\n",
 				info->dev->dev_type, info->dev->idx);
 			ret = info->dev->send_cmd(APUSYS_CMD_POWERON,
 				&pwr_hnd, info->dev);
 			if (ret) {
-				LOG_ERR("poweron dev(%d-#%d) fail(%d)\n",
+				mdw_drv_err("poweron dev(%d-#%d) fail(%d)\n",
 					info->dev->dev_type,
 					info->dev->idx,
 					ret);
@@ -611,7 +610,7 @@ static int setup_cmn_hnd(struct apusys_subcmd *sc,
 	hnd->cmdbuf = sc->par_cmd->cmdbuf;
 	hnd->cluster_size = sc->cluster_size;
 	if (hnd->kva == 0 || hnd->size == 0) {
-		LOG_ERR("invalid sc(%d)(0x%llx/%d)\n",
+		mdw_drv_err("invalid sc(%d)(0x%llx/%d)\n",
 			sc->idx, hnd->kva, hnd->size);
 		return -EINVAL;
 	}
@@ -620,25 +619,25 @@ static int setup_cmn_hnd(struct apusys_subcmd *sc,
 	if (sc->type == APUSYS_DEVICE_MDLA) {
 		/* setup mdla cmn codebuf info */
 		if (parse_mdla_codebuf_info(sc, hnd)) {
-			LOG_ERR("fill mdla specific info fail\n");
+			mdw_drv_err("fill mdla specific info fail\n");
 			return -EINVAL;
 		}
 		/* setup mdla multicore codebuf info, may overwrite */
 		multicore_cmd_idx = multicore_get_cmd_idx(sc,
 			dev_info->dev->idx);
-		LOG_DEBUG("dev(%d-#%d) cmd idx(%d)\n",
+		mdw_flw_debug("dev(%d-#%d) cmd idx(%d)\n",
 			sc->type, dev_info->dev->idx,
 			multicore_cmd_idx);
 		if (multicore_cmd_idx >= 0) {
 			hnd->multicore_total = sc->exec_core_num;
 			hnd->multicore_idx = multicore_cmd_idx;
 			if (set_multimdla_codebuf(sc, hnd, multicore_cmd_idx))
-				LOG_ERR("set multicore fail(%d)\n",
+				mdw_drv_err("set multicore fail(%d)\n",
 				multicore_cmd_idx);
 		}
 	}
 
-	LOG_DEBUG("0x%llx-#%d sc: exec hnd(%d/0x%llx/%d)\n",
+	mdw_flw_debug("0x%llx-#%d sc: exec hnd(%d/0x%llx/%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
@@ -667,7 +666,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	ret = setup_cmn_hnd(sc, dev_info, &cmd_hnd);
 	if (ret) {
 		sc->par_cmd->cmd_ret = ret;
-		LOG_WARN("setup sc hnd(0x%llx/0x%llx) fail\n",
+		mdw_drv_warn("setup sc hnd(0x%llx/0x%llx) fail\n",
 			sc->par_cmd->hdr->uid,
 			sc->par_cmd->cmd_id);
 		goto out;
@@ -685,7 +684,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	mutex_unlock(&sc->par_cmd->mtx);
 
 	if (ret) {
-		LOG_ERR("allocate memory ctx id(%d) fail\n", sc->ctx_id);
+		mdw_drv_err("allocate memory ctx id(%d) fail\n", sc->ctx_id);
 		sc->par_cmd->cmd_ret = ret;
 		goto out;
 	}
@@ -694,7 +693,6 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	 * Skip set context on preemptive command, context should be set by
 	 * engine driver itself. Give engine a callback to set context id.
 	 */
-
 	if (dev_info->dev->dev_type == APUSYS_DEVICE_MDLA ||
 		dev_info->dev->dev_type == APUSYS_DEVICE_MDLA_RT) {
 		cmd_hnd.ctx_id = sc->ctx_id;
@@ -704,28 +702,25 @@ static int exec_cmd_func(void *isc, void *idev_info)
 				dev_info->dev->idx, sc->ctx_id);
 	}
 
-
-
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 2. start count cmd qos */
-	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%s-#%d)\n",
+	mdw_flw_debug("mnoc: cmd qos start 0x%llx-#%d dev(%s-#%d)\n",
 		sc->par_cmd->cmd_id, sc->idx,
 		dev_info->name, dev_info->dev->idx);
 
 	/* count qos start */
 	if (apu_cmd_qos_start(sc->par_cmd->cmd_id, sc->idx,
 		sc->type, dev_info->dev->idx, sc->boost_val)) {
-		LOG_DEBUG("start qos for 0x%llx-#%d sc fail\n",
+		mdw_flw_debug("start qos for 0x%llx-#%d sc fail\n",
 			sc->par_cmd->cmd_id, sc->idx);
 	}
 #endif
 
 	/* 3. get driver time start */
-#define APUSYS_PRINT_EXECINFO "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx)"\
-	" prio(%d) deadline(%d/%d/%d)"\
-	" ctx(%u/%d/0x%x/0x%x) boost(%u)\n"
-	LOG_INFO(APUSYS_PRINT_EXECINFO,
+#define MDW_EXEC_PRINT " pid(%d/%d) cmd(0x%llx/0x%llx-#%d/%u)"\
+	" dev(%d/%s-#%d) mp(0x%x/%u/%u/0x%llx) sched(%d/%u/%u/%u/%u/%d)"\
+	" mem(%u/%d/0x%x/0x%x) boost(%u) time(%u/%u)"
+	mdw_drv_debug("start:"MDW_EXEC_PRINT"\n",
 		sc->par_cmd->pid,
 		sc->par_cmd->tgid,
 		sc->par_cmd->hdr->uid,
@@ -735,19 +730,53 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		sc->type,
 		dev_info->name,
 		dev_info->dev->idx,
+		sc->pack_id,
 		cmd_hnd.multicore_idx,
 		sc->exec_core_num,
 		sc->exec_core_bitmap,
 		sc->par_cmd->hdr->priority,
 		sc->par_cmd->hdr->soft_limit,
 		sc->par_cmd->hdr->hard_limit,
+		sc->c_hdr->cmn.ip_time,
+		sc->c_hdr->cmn.suggest_time,
 		sc->par_cmd->power_save,
 		sc->ctx_id,
 		sc->c_hdr->cmn.tcm_force,
 		sc->c_hdr->cmn.tcm_usage,
 		sc->tcm_real_usage,
-		cmd_hnd.boost_val);
-#undef APUSYS_PRINT_EXECINFO
+		cmd_hnd.boost_val,
+		cmd_hnd.ip_time,
+		0);
+
+	/* trace cmd start */
+	trace_mdw_cmd(0,
+		sc->par_cmd->pid,
+		sc->par_cmd->tgid,
+		sc->par_cmd->hdr->uid,
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		sc->par_cmd->hdr->num_sc,
+		sc->type,
+		dev_info->name,
+		dev_info->dev->idx,
+		sc->pack_id,
+		cmd_hnd.multicore_idx,
+		sc->exec_core_num,
+		sc->exec_core_bitmap,
+		sc->par_cmd->hdr->priority,
+		sc->par_cmd->hdr->soft_limit,
+		sc->par_cmd->hdr->hard_limit,
+		sc->c_hdr->cmn.ip_time,
+		sc->c_hdr->cmn.suggest_time,
+		sc->par_cmd->power_save,
+		sc->ctx_id,
+		sc->c_hdr->cmn.tcm_force,
+		sc->c_hdr->cmn.tcm_usage,
+		sc->tcm_real_usage,
+		cmd_hnd.boost_val,
+		cmd_hnd.ip_time,
+		ret);
+
 	memset(&driver_time, 0, sizeof(driver_time));
 	t_diff = get_time_diff_from_system(&driver_time);
 
@@ -760,11 +789,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 	/* 6. check execution result */
 	if (ret) {
-#define APUSYS_PRINT_EXECFAIL "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx)"\
-	" prio(%d) deadline(%d/%d/%d)"\
-	" ctx(%u/%d/0x%x/0x%x) time(%u/%u) fail(%d)\n"
-		LOG_ERR(APUSYS_PRINT_EXECFAIL,
+		mdw_drv_err("fail :"MDW_EXEC_PRINT" ret(%d)\n",
 			sc->par_cmd->pid,
 			sc->par_cmd->tgid,
 			sc->par_cmd->hdr->uid,
@@ -774,28 +799,27 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->type,
 			dev_info->name,
 			dev_info->dev->idx,
+			sc->pack_id,
 			cmd_hnd.multicore_idx,
 			sc->exec_core_num,
 			sc->exec_core_bitmap,
 			sc->par_cmd->hdr->priority,
 			sc->par_cmd->hdr->soft_limit,
 			sc->par_cmd->hdr->hard_limit,
+			sc->c_hdr->cmn.ip_time,
+			sc->c_hdr->cmn.suggest_time,
 			sc->par_cmd->power_save,
 			sc->ctx_id,
 			sc->c_hdr->cmn.tcm_force,
 			sc->c_hdr->cmn.tcm_usage,
 			sc->tcm_real_usage,
-					cmd_hnd.ip_time,
+			cmd_hnd.boost_val,
+			cmd_hnd.ip_time,
 			t_diff,
 			ret);
-#undef APUSYS_PRINT_EXECFAIL
 		sc->par_cmd->cmd_ret = ret;
 	} else {
-#define APUSYS_PRINT_EXECOK "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx)"\
-	" prio(%d) deadline(%d/%d/%d)"\
-	" ctx(%u/%d/0x%x/0x%x) time(%u/%u) done\n"
-		LOG_INFO(APUSYS_PRINT_EXECOK,
+		mdw_drv_debug("done :"MDW_EXEC_PRINT"\n",
 			sc->par_cmd->pid,
 			sc->par_cmd->tgid,
 			sc->par_cmd->hdr->uid,
@@ -805,21 +829,54 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->type,
 			dev_info->name,
 			dev_info->dev->idx,
+			sc->pack_id,
 			cmd_hnd.multicore_idx,
 			sc->exec_core_num,
 			sc->exec_core_bitmap,
 			sc->par_cmd->hdr->priority,
 			sc->par_cmd->hdr->soft_limit,
 			sc->par_cmd->hdr->hard_limit,
+			sc->c_hdr->cmn.ip_time,
+			sc->c_hdr->cmn.suggest_time,
 			sc->par_cmd->power_save,
 			sc->ctx_id,
 			sc->c_hdr->cmn.tcm_force,
 			sc->c_hdr->cmn.tcm_usage,
 			sc->tcm_real_usage,
+			cmd_hnd.boost_val,
 			cmd_hnd.ip_time,
 			t_diff);
-#undef APUSYS_PRINT_EXECOK
 	}
+#undef MDW_EXEC_PRINT
+
+	/* trace cmd end */
+	trace_mdw_cmd(1,
+		sc->par_cmd->pid,
+		sc->par_cmd->tgid,
+		sc->par_cmd->hdr->uid,
+		sc->par_cmd->cmd_id,
+		sc->idx,
+		sc->par_cmd->hdr->num_sc,
+		sc->type,
+		dev_info->name,
+		dev_info->dev->idx,
+		sc->pack_id,
+		cmd_hnd.multicore_idx,
+		sc->exec_core_num,
+		sc->exec_core_bitmap,
+		sc->par_cmd->hdr->priority,
+		sc->par_cmd->hdr->soft_limit,
+		sc->par_cmd->hdr->hard_limit,
+		sc->c_hdr->cmn.ip_time,
+		sc->c_hdr->cmn.suggest_time,
+		sc->par_cmd->power_save,
+		sc->ctx_id,
+		sc->c_hdr->cmn.tcm_force,
+		sc->c_hdr->cmn.tcm_usage,
+		sc->tcm_real_usage,
+		cmd_hnd.boost_val,
+		cmd_hnd.ip_time,
+		ret);
 
 	/* 7. setup max ip/driver time into sc */
 	mutex_lock(&sc->mtx);
@@ -833,7 +890,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	/* 8. count qos end */
 	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx,
 		sc->type, dev_info->dev->idx);
-	LOG_DEBUG("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
+	mdw_flw_debug("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
 		sc->par_cmd->cmd_id, dev_info->dev->idx, sc->type,
 		dev_info->dev->idx, sc->bw);
 #endif
@@ -841,7 +898,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 out:
 	/* 9. put device back */
 	if (put_device_lock(dev_info)) {
-		LOG_ERR("return dev(%d-#%d) fail\n",
+		mdw_drv_err("return dev(%d-#%d) fail\n",
 			dev_info->dev->dev_type,
 			dev_info->dev->idx);
 		ret = -EINVAL;
@@ -874,10 +931,10 @@ int sched_routine(void *arg)
 	while (!kthread_should_stop() && !res_mgr->sched_stop) {
 		ret = wait_for_completion_interruptible(&res_mgr->sched_comp);
 		if (ret)
-			LOG_WARN("sched thread(%d)\n", ret);
+			mdw_drv_warn("sched thread(%d)\n", ret);
 
 		if (res_mgr->sched_pause != 0) {
-			LOG_DEBUG("sched pause(%d)\n",
+			mdw_drv_debug("sched pause(%d)\n",
 				res_mgr->sched_pause);
 			continue;
 		}
@@ -893,11 +950,11 @@ int sched_routine(void *arg)
 
 			/* check any device acq ready for packcmd */
 			if (acq_async != NULL) {
-				LOG_DEBUG("get pack cmd(%d) ready",
+				mdw_flw_debug("get pack cmd(%d) ready",
 					acq_async->dev_type);
 				/* exec packcmd */
 				if (exec_pack_cmd(acq_async))
-					LOG_ERR("execute pack cmd fail\n");
+					mdw_drv_err("execute pack cmd fail\n");
 
 				goto sched_retrigger;
 			}
@@ -909,7 +966,7 @@ int sched_routine(void *arg)
 			/* get type from available */
 			type = find_first_bit(available, APUSYS_DEVICE_MAX);
 			if (type >= APUSYS_DEVICE_MAX) {
-				LOG_WARN("find first bit for type(%d) fail\n",
+				mdw_drv_warn("find first bit for type(%d) fail\n",
 					type);
 				goto sched_retrigger;
 			}
@@ -917,16 +974,17 @@ int sched_routine(void *arg)
 			/* pop cmd from priority queue */
 			ret = pop_subcmd(type, &sc);
 			if (ret) {
-				LOG_ERR("pop subcmd for dev(%d) fail\n", type);
+				mdw_drv_err("pop subcmd for dev(%d) fail\n",
+					type);
 				goto sched_retrigger;
 			}
 
 			/* if sc is packed, collect all packed cmd and send */
-			if (get_pack_idx(sc) != VALUE_SUBGRAPH_PACK_ID_NONE) {
+			if (sc->pack_id != VALUE_SUBGRAPH_PACK_ID_NONE) {
 				if (insert_pack_cmd(sc, &pc) <= 0)
 					goto sched_retrigger;
 
-				LOG_DEBUG("packcmd done, insert acq(%d/%d)\n",
+				mdw_flw_debug("packcmd done, insert acq(%d/%d)\n",
 					pc->dev_type,
 					pc->sc_num);
 				pc->acq.target_num = pc->sc_num;
@@ -936,13 +994,13 @@ int sched_routine(void *arg)
 				pc->acq.is_done = 0;
 				ret = acq_device_async(&pc->acq);
 				if (ret < 0) {
-					LOG_ERR("acq dev(%d/%d) fail\n",
+					mdw_drv_err("acq dev(%d/%d) fail\n",
 						pc->acq.dev_type,
 						pc->acq.target_num);
 				} else {
 					if (pc->acq.acq_num ==
 						pc->acq.target_num) {
-						LOG_INFO("execute pack cmd\n");
+						mdw_flw_debug("execute pack cmd\n");
 						exec_pack_cmd(&pc->acq);
 					}
 				}
@@ -961,11 +1019,11 @@ int sched_routine(void *arg)
 			INIT_LIST_HEAD(&acq.tab_list);
 			ret = acq_device_try(&acq);
 			if (ret < 0 || acq.acq_num <= 0) {
-				LOG_INFO("no dev(%d) available\n", type);
+				mdw_flw_debug("no dev(%d) available\n", type);
 				mutex_lock(&sc->mtx);
 				/* can't get device, insert sc back */
 				if (insert_subcmd(sc)) {
-					LOG_ERR("re 0x%llx-#%d sc q(%d-#%d)\n",
+					mdw_drv_err("re 0x%llx-#%d sc q(%d-#%d)\n",
 						sc->par_cmd->cmd_id,
 						sc->idx,
 						type,
@@ -978,13 +1036,13 @@ int sched_routine(void *arg)
 			/* check how many device acquired from resource mgr */
 			sc->exec_core_num = acq.acq_num;
 			sc->exec_core_bitmap = acq.acq_bitmap;
-			LOG_DEBUG("sc exec cores(%u/0x%llx)\n",
+			mdw_flw_debug("sc exec cores(%u/0x%llx)\n",
 				sc->exec_core_num, sc->exec_core_bitmap);
 
 			/* poweron if multicore */
 			if (acq.acq_num >= 2) {
 				if (multicore_poweron(sc, &acq))
-					LOG_ERR("poweron(%d/%u/0x%llx) fail\n",
+					mdw_drv_err("poweron(%d/%u/0x%llx) fail\n",
 					sc->type,
 					sc->exec_core_num,
 					sc->exec_core_bitmap);
@@ -1006,7 +1064,7 @@ int sched_routine(void *arg)
 				/* trigger device by thread pool */
 				ret = thread_pool_trigger(sc, info);
 				if (ret)
-					LOG_ERR("trigger thread pool fail\n");
+					mdw_drv_err("trigger thread pool fail\n");
 			}
 sched_retrigger:
 			bitmap_and(available, res_mgr->cmd_exist,
@@ -1016,7 +1074,7 @@ sched_retrigger:
 		}
 	}
 
-	LOG_WARN("scheduling thread stop\n");
+	mdw_drv_warn("scheduling thread stop\n");
 
 	return 0;
 }
@@ -1028,24 +1086,24 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
 
 	if (cmd->state == CMD_STATE_DONE) {
-		LOG_DEBUG("cmd done already\n");
+		mdw_flw_debug("cmd done already\n");
 		return 0;
 	}
 
-	LOG_WARN("abort cmd(0x%llx)\n",
+	mdw_drv_warn("abort cmd(0x%llx)\n",
 		cmd->cmd_id);
 
 	/* delete all subcmd in cmd */
 	mutex_lock(&cmd->mtx);
 	if (clear_pack_cmd(cmd))
-		LOG_WARN("clear pack cmd list fail\n");
+		mdw_drv_warn("clear pack cmd list fail\n");
 
 	for (i = 0; i < cmd->hdr->num_sc; i++) {
 		sc = cmd->sc_list[i];
 		if (sc == NULL)
 			continue;
 
-		LOG_DEBUG("check 0x%llx-#%d sc status\n",
+		mdw_flw_debug("check 0x%llx-#%d sc status\n",
 			cmd->cmd_id,
 			sc->idx);
 
@@ -1053,12 +1111,12 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 		mutex_lock(&sc->mtx);
 		if (sc->state < CMD_STATE_RUN) {
 			if (free_ctx(sc, cmd))
-				LOG_ERR("free memory ctx id fail\n");
+				mdw_drv_err("free memory ctx id fail\n");
 
 			if (sc->state == CMD_STATE_READY) {
 				/* delete subcmd from q */
 				if (delete_subcmd(sc)) {
-					LOG_ERR(
+					mdw_drv_err(
 					"delete 0x%llx-#%d from q fail\n",
 					sc->par_cmd->cmd_id,
 					sc->idx);
@@ -1071,15 +1129,15 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 			mutex_unlock(&res_mgr->mtx);
 
 			if (apusys_subcmd_delete(sc)) {
-				LOG_ERR("delete 0x%llx-#%d sc fail\n",
+				mdw_drv_err("delete 0x%llx-#%d sc fail\n",
 					cmd->cmd_id, sc->idx);
 			}
 
-			LOG_DEBUG("delete 0x%llx-#%d sc\n",
+			mdw_flw_debug("delete 0x%llx-#%d sc\n",
 					cmd->cmd_id, i);
 
 		} else {
-			LOG_DEBUG("0x%llx-#%d sc already execute(%d)\n",
+			mdw_flw_debug("0x%llx-#%d sc already execute(%d)\n",
 				cmd->cmd_id,
 				i,
 				sc->state);
@@ -1091,15 +1149,15 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 
 
 	mutex_lock(&cmd->mtx);
-	LOG_WARN("wait 0x%llx cmd done...\n",
+	mdw_drv_warn("wait 0x%llx cmd done...\n",
 		cmd->cmd_id);
 	/* final polling */
 	for (i = 0; i < times; i++) {
 		if (check_cmd_done(cmd) == 0) {
-			LOG_WARN("delete cmd safely\n");
+			mdw_drv_warn("delete cmd safely\n");
 			break;
 		}
-		LOG_WARN("sleep 200ms to wait sc done\n");
+		mdw_drv_warn("sleep 200ms to wait sc done\n");
 		mutex_unlock(&cmd->mtx);
 		msleep(wait_ms);
 		mutex_lock(&cmd->mtx);
@@ -1107,7 +1165,7 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 	mutex_unlock(&cmd->mtx);
 
 	if (i >= times) {
-		LOG_ERR("cmd busy\n");
+		mdw_drv_err("cmd busy\n");
 		ret = -EBUSY;
 	}
 
@@ -1138,7 +1196,7 @@ start:
 	if (ret == -ERESTARTSYS) {
 		if (retry) {
 			if (!(retry % 20))
-				LOG_WARN("user int(%d) retry(0x%llx)(%d)...\n",
+				mdw_drv_warn("user int(%d) retry(0x%llx)(%d)...\n",
 					ret,
 					cmd->cmd_id,
 					retry);
@@ -1147,17 +1205,17 @@ start:
 			goto start;
 		}
 	} else if (ret == 0) {
-		LOG_ERR("user ctx int(%d) cmd(0x%llx) timeout(%d)\n",
+		mdw_drv_err("user ctx int(%d) cmd(0x%llx) timeout(%d)\n",
 			ret, cmd->cmd_id,
 			APUSYS_PARAM_WAIT_TIMEOUT/1000/1000);
 		cmd->cmd_ret = -ETIME;
 	} else if (ret < 0) {
-		LOG_ERR("user ctx int(%d) cmd(0x%llx)\n",
+		mdw_drv_err("user ctx int(%d) cmd(0x%llx)\n",
 			ret, cmd->cmd_id);
 	} else {
 		mutex_lock(&cmd->mtx);
 		if (cmd->state != CMD_STATE_DONE) {
-			LOG_WARN("(%d/%d)cmd(0x%llx/0x%llx) not done\n",
+			mdw_drv_warn("(%d/%d)cmd(0x%llx/0x%llx) not done\n",
 				cmd->pid,
 				cmd->tgid,
 				cmd->hdr->uid,
@@ -1190,7 +1248,7 @@ int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 
 		/* allocate subcmd struct */
 		if (apusys_subcmd_create(i, cmd, &sc, dp_ofs)) {
-			LOG_ERR("create sc for cmd(%d/%p) fail\n", i, cmd);
+			mdw_drv_err("create sc for cmd(%d/%p) fail\n", i, cmd);
 			ret = -EINVAL;
 			break;
 		}
@@ -1201,7 +1259,7 @@ int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 		if (check_sc_ready(cmd, i) == 0) {
 			ret = insert_subcmd_lock(sc);
 			if (ret) {
-				LOG_ERR("ins 0x%llx-#%d sc(%p) q(%d-#%d)\n",
+				mdw_drv_err("ins 0x%llx-#%d sc(%p) q(%d-#%d)\n",
 					cmd->cmd_id,
 					sc->idx,
 					sc,
@@ -1232,17 +1290,17 @@ int apusys_sched_pause(void)
 
 	/* pause scheduler */
 	if (res_mgr->sched_pause == 0) {
-		LOG_INFO("scheduler pause\n");
+		mdw_drv_debug("scheduler pause\n");
 		res_mgr->sched_pause = 1;
 	} else {
-		LOG_WARN("scheduler already pause\n");
+		mdw_drv_warn("scheduler already pause\n");
 	}
 
 	/* check all device free */
 	if (res_suspend_dev())
-		LOG_WARN("suspend device fail\n");
+		mdw_drv_warn("suspend device fail\n");
 	else
-		LOG_WARN("suspend device done\n");
+		mdw_drv_warn("suspend device done\n");
 
 	return 0;
 }
@@ -1255,16 +1313,16 @@ int apusys_sched_restart(void)
 		return -EINVAL;
 
 	if (res_mgr->sched_pause == 1) {
-		LOG_INFO("scheduler restart\n");
+		mdw_drv_debug("scheduler restart\n");
 		res_mgr->sched_pause = 0;
 	} else {
-		LOG_WARN("scheduler already resume\n");
+		mdw_drv_warn("scheduler already resume\n");
 	}
 
 	if (res_resume_dev())
-		LOG_WARN("resume device fail\n");
+		mdw_drv_warn("resume device fail\n");
 	else
-		LOG_WARN("resume device done\n");
+		mdw_drv_warn("resume device done\n");
 	/* trigger sched thread */
 	complete(&res_mgr->sched_comp);
 
@@ -1278,7 +1336,7 @@ int apusys_sched_init(void)
 {
 	int ret = 0;
 
-	LOG_INFO("%s +\n", __func__);
+	mdw_flw_debug("%s +\n", __func__);
 	sched_ws_init();
 
 	memset(&g_ctx_mgr, 0, sizeof(struct mem_ctx_mgr));
@@ -1289,18 +1347,18 @@ int apusys_sched_init(void)
 
 	ret = thread_pool_init(exec_cmd_func);
 	if (ret) {
-		LOG_ERR("init thread pool fail(%d)\n", ret);
+		mdw_drv_err("init thread pool fail(%d)\n", ret);
 		return ret;
 	}
 
 	sched_task = kthread_run(sched_routine,
 		(void *)res_get_mgr(), "apusys_sched");
 	if (sched_task == NULL) {
-		LOG_ERR("create kthread(sched) fail\n");
+		mdw_drv_err("create kthread(sched) fail\n");
 		return -ENOMEM;
 	}
 
-	LOG_INFO("%s done -\n", __func__);
+	mdw_flw_debug("%s done -\n", __func__);
 	return 0;
 }
 
@@ -1308,13 +1366,13 @@ int apusys_sched_destroy(void)
 {
 	int ret = 0;
 
-	LOG_INFO("%s +\n", __func__);
+	mdw_flw_debug("%s +\n", __func__);
 
 	/* destroy thread pool */
 	ret = thread_pool_destroy();
 	if (ret)
-		LOG_ERR("destroy thread pool fail(%d)\n", ret);
+		mdw_drv_err("destroy thread pool fail(%d)\n", ret);
 
-	LOG_INFO("%s done -\n", __func__);
+	mdw_flw_debug("%s done -\n", __func__);
 	return 0;
 }

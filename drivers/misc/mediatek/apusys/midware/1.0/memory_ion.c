@@ -26,7 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <asm/mman.h>
 
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "apusys_drv.h"
 #include "memory_mgt.h"
 #include "memory_ion.h"
@@ -50,11 +50,11 @@ static int _ion_mem_ctl_cache(struct apusys_mem_mgr *mem_mgr,
 
 	switch (ctl_data->cache_param.cache_type) {
 	case APUSYS_CACHE_SYNC:
-		LOG_ERR("ION Not Support APUSYS_CACHE_SYNC\n");
+		mdw_drv_err("ION Not Support APUSYS_CACHE_SYNC\n");
 		ret = -1;
 		break;
 	case APUSYS_CACHE_INVALIDATE:
-		LOG_ERR("ION Not Support APUSYS_CACHE_INVALIDATE\n");
+		mdw_drv_err("ION Not Support APUSYS_CACHE_INVALIDATE\n");
 		ret = -1;
 		break;
 	default:
@@ -69,22 +69,23 @@ static int _ion_mem_check_arg(struct apusys_kmem *mem)
 	int ret = 0;
 
 	if (mem == NULL) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
 	if ((mem->align != 0) &&
 		((mem->align > APUSYS_ION_PAGE_SIZE) ||
 		((APUSYS_ION_PAGE_SIZE % mem->align) != 0))) {
-		LOG_ERR("align argument invalid (%d)\n", mem->align);
+		mdw_drv_err("align argument invalid (%d)\n", mem->align);
 		return -EINVAL;
 	}
 	if (mem->cache > 1) {
-		LOG_ERR("Cache argument invalid (%d)\n", mem->cache);
+		mdw_drv_err("Cache argument invalid (%d)\n", mem->cache);
 		return -EINVAL;
 	}
 	if ((mem->iova_size % APUSYS_ION_PAGE_SIZE) != 0) {
-		LOG_ERR("iova_size argument invalid 0x%x\n", mem->iova_size);
+		mdw_drv_err("iova_size argument invalid 0x%x\n",
+			mem->iova_size);
 		return -EINVAL;
 	}
 
@@ -96,10 +97,10 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	struct ion_handle *ion_hnd = NULL;
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -121,7 +122,7 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -130,7 +131,7 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	return 0;
 
 free_import:
-	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_drv_err("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -146,16 +147,16 @@ int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	struct ion_handle *ion_hnd;
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
 	/* check argument */
 	if (mem->khandle == 0) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -176,7 +177,7 @@ int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -185,7 +186,7 @@ int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	return 0;
 
 free_import:
-	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_drv_err("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -200,10 +201,10 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	struct ion_handle *ion_hnd = NULL;
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -228,7 +229,7 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -237,7 +238,7 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	return 0;
 
 free_import:
-	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_drv_err("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -254,16 +255,16 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	struct ion_handle *ion_hnd;
 	int ret = 0;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
 	/* check argument */
 	if (mem->khandle == 0) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -285,7 +286,7 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -293,7 +294,7 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	return 0;
 
 free_import:
-	LOG_ERR("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_drv_err("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -307,14 +308,14 @@ int ion_mem_init(struct apusys_mem_mgr *mem_mgr)
 {
 	/* check init */
 	if (mem_mgr->is_init) {
-		LOG_WARN("apusys memory mgr is already inited\n");
+		mdw_drv_warn("apusys memory mgr is already inited\n");
 		return -EALREADY;
 	}
 
 	/* create ion client */
 	mem_mgr->client = ion_client_create(g_ion_device, "apusys midware");
 	if (IS_ERR_OR_NULL(mem_mgr->client)) {
-		LOG_ERR("create ion client fail\n");
+		mdw_drv_err("create ion client fail\n");
 		return -ENOMEM;
 	}
 
@@ -324,7 +325,7 @@ int ion_mem_init(struct apusys_mem_mgr *mem_mgr)
 
 	mem_mgr->is_init = 1;
 
-	LOG_DEBUG("done\n");
+	mdw_mem_debug("done\n");
 
 	return 0;
 }
@@ -333,14 +334,14 @@ int ion_mem_destroy(struct apusys_mem_mgr *mem_mgr)
 	int ret = 0;
 
 	if (!mem_mgr->is_init) {
-		LOG_WARN("apusys memory mgr is not init, can't destroy\n");
+		mdw_drv_warn("apusys memory mgr is not init, can't destroy\n");
 		return -EALREADY;
 	}
 
 	mem_mgr->is_init = 0;
 	ion_client_destroy(mem_mgr->client);
 	mem_mgr->client = NULL;
-	LOG_DEBUG("done\n");
+	mdw_mem_debug("done\n");
 
 	return ret;
 }
@@ -369,7 +370,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	/* check argument */
 	if (mem == NULL) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -383,7 +384,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* map kernel va*/
 	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
 	if (IS_ERR_OR_NULL(buffer)) {
-		LOG_ERR("map kernel va fail(%p/%p)\n",
+		mdw_drv_err("map kernel va fail(%p/%p)\n",
 			mem_mgr->client, ion_hnd);
 		ret = -ENOMEM;
 		goto free_import;
@@ -393,7 +394,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -414,7 +415,7 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -436,7 +437,7 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	if (ion_kernel_ioctl(mem_mgr->client, ION_CMD_MULTIMEDIA,
 			(unsigned long)&mm_data)) {
-		LOG_ERR("ion_config_buffer: ION_CMD_MULTIMEDIA failed\n");
+		mdw_drv_err("ion_config_buffer: ION_CMD_MULTIMEDIA failed\n");
 		ret = -ENOMEM;
 		goto free_import;
 	}
@@ -447,7 +448,7 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	if (mem->khandle == 0)
 		mem->khandle = (uint64_t)ion_hnd;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -465,19 +466,19 @@ int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
 	/* check argument */
 	if (mem->khandle == 0) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
 	ion_hnd = (struct ion_handle *) mem->khandle;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -493,12 +494,12 @@ int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
-		//LOG_ERR("invalid argument\n");
+		//mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 	/* check argument */
 	if (mem->khandle == 0) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 
@@ -508,7 +509,7 @@ int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_free(mem_mgr->client, ion_hnd);
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova,
 			mem->iova + mem->iova_size - 1,
 			mem->size, mem->iova_size,
@@ -526,10 +527,10 @@ int ion_mem_flush(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	void *va = NULL;
 	struct ion_handle *ion_hnd = NULL;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	if (mem->khandle == 0) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 	ion_hnd = (struct ion_handle *)mem->khandle;
@@ -542,7 +543,7 @@ int ion_mem_flush(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	sys_data.cache_sync_param.size = mem->size;
 	if (ion_kernel_ioctl(mem_mgr->client,
 			ION_CMD_SYSTEM, (unsigned long)&sys_data)) {
-		LOG_ERR("ION_CACHE_FLUSH_BY_RANGE FAIL\n");
+		mdw_drv_err("ION_CACHE_FLUSH_BY_RANGE FAIL\n");
 		ret = -EINVAL;
 	}
 	ion_unmap_kernel(mem_mgr->client, ion_hnd);
@@ -557,10 +558,10 @@ int ion_mem_invalidate(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	void *va = NULL;
 	struct ion_handle *ion_hnd = NULL;
 
-	DEBUG_TAG;
+	mdw_lne_debug();
 
 	if (mem->khandle == 0) {
-		LOG_ERR("invalid argument\n");
+		mdw_drv_err("invalid argument\n");
 		return -EINVAL;
 	}
 	ion_hnd = (struct ion_handle *)mem->khandle;
@@ -574,7 +575,7 @@ int ion_mem_invalidate(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	sys_data.cache_sync_param.size = mem->size;
 	if (ion_kernel_ioctl(mem_mgr->client,
 			ION_CMD_SYSTEM, (unsigned long)&sys_data)) {
-		LOG_ERR("ION_CACHE_INVALID_BY_RANGE FAIL\n");
+		mdw_drv_err("ION_CACHE_INVALID_BY_RANGE FAIL\n");
 		ret = -EINVAL;
 	}
 	ion_unmap_kernel(mem_mgr->client, ion_hnd);

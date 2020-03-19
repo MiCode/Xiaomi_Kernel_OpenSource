@@ -19,7 +19,7 @@
 #include <linux/time.h>
 #include "apusys_drv.h"
 #include "apusys_device.h"
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "cmd_format.h"
 #include "apusys_user.h"
 
@@ -110,6 +110,7 @@ struct apusys_subcmd {
 	uint32_t tcm_real_usage;
 	uint32_t boost_val;       // boost value
 	uint32_t ctx_id;          // allocated from mem mgt
+	uint32_t pack_id;
 
 	struct apusys_cmd *par_cmd; // apusys_cmd ptr
 
@@ -153,6 +154,5 @@ void decrease_pdr_cnt(struct apusys_cmd *cmd, int idx);
 int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	struct apusys_subcmd **isc, unsigned int scr_ofs);
 int apusys_subcmd_delete(struct apusys_subcmd *sc);
-unsigned int get_pack_idx(const struct apusys_subcmd *sc);
 
 #endif

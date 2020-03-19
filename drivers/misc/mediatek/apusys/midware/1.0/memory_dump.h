@@ -22,7 +22,7 @@
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <aee.h>
 #endif
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 
 
 #define AEE_KEY "APUMEM"
@@ -36,13 +36,13 @@
 	snprintf(msg, AEE_LOG_SIZE, string, ##args); \
 	aee_kernel_warning(AEE_KEY, \
 			"\nCRDISPATCH_KEY: " AEE_KEY "\n"string, ##args); \
-	LOG_ERR(string, ##args);  \
+	mdw_drv_err(string, ##args);  \
 	} while (0)
 #else
 #define apusys_aee_print(string, args...) do {\
 		char msg[AEE_LOG_SIZE];\
 		snprintf(msg, AEE_LOG_SIZE, string, ##args); \
-		LOG_ERR(string, ##args);  \
+		mdw_drv_err(string, ##args);  \
 	} while (0)
 #endif
 

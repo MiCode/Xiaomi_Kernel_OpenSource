@@ -17,7 +17,7 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "thread_pool.h"
 #include "cmd_parser.h"
 
@@ -28,11 +28,12 @@ struct thread_pool_inst {
 
 	/* list with thread pool mgr */
 	struct list_head list; // link to thread_pool_mgr's thread_list
-	uint8_t stop;
 
 	void *sc;
 	int idx;
 	int status;
+
+	bool stop;
 };
 
 struct job_inst {
@@ -66,21 +67,21 @@ static int tp_service_routine(void *arg)
 	int ret = 0;
 
 	if (inst == NULL) {
-		LOG_ERR("invalid argument, thread end\n");
+		mdw_drv_err("invalid argument, thread end\n");
 		return -EINVAL;
 	}
 
-	while (!kthread_should_stop() && !inst->stop) {
+	while (!kthread_should_stop() && inst->stop != true) {
 		ret = wait_for_completion_interruptible(&g_pool_mgr.comp);
 		if (ret) {
 			switch (ret) {
 			case -ERESTARTSYS:
-				LOG_ERR("restart...\n");
+				mdw_drv_err("restart...\n");
 				/* TODO: error handle, retry? */
 				msleep(50);
 				break;
 			default:
-				LOG_ERR("thread interruptible(%d)\n", ret);
+				mdw_drv_err("thread interruptible(%d)\n", ret);
 				/* TODO: error handle */
 				break;
 			}
@@ -101,7 +102,7 @@ static int tp_service_routine(void *arg)
 		if (job_arg == NULL)
 			continue;
 
-		LOG_DEBUG("thread(%d) execute sc(%p)\n",
+		mdw_flw_debug("thread(%d) execute sc(%p)\n",
 			inst->idx, job_arg->sc);
 
 		/* 2. execute cmd */
@@ -111,7 +112,7 @@ static int tp_service_routine(void *arg)
 		inst->sc = job_arg->sc;
 		ret = g_pool_mgr.func_ptr(job_arg->sc, job_arg->dev_info);
 		if (ret) {
-			LOG_ERR("process arg(%p/%d) fail\n",
+			mdw_drv_err("process arg(%p/%d) fail\n",
 				job_arg->sc, ret);
 		}
 
@@ -121,7 +122,14 @@ static int tp_service_routine(void *arg)
 		mutex_unlock(&inst->mtx);
 	}
 
-	LOG_INFO("thread(%d) end\n", inst->idx);
+	/* delete itself inst */
+	mutex_lock(&g_pool_mgr.mtx);
+	mdw_drv_info("thread(%d) end\n", inst->idx);
+	list_del(&inst->list);
+	kfree(inst);
+	g_pool_mgr.total--;
+	mutex_unlock(&g_pool_mgr.mtx);
+
 	return 0;
 }
 
@@ -135,25 +143,26 @@ void thread_pool_dump(void)
 
 	mutex_lock(&g_pool_mgr.mtx);
 
-	LOG_INFO("=====================================\n");
-	LOG_INFO("| apusys thread pool status: total(%d)\n", g_pool_mgr.total);
+	mdw_drv_debug("=====================================\n");
+	mdw_drv_debug("| apusys thread pool status: total(%d)\n",
+		g_pool_mgr.total);
 	list_for_each_safe(list_ptr, tmp, &g_pool_mgr.thread_list) {
 		inst = list_entry(list_ptr, struct thread_pool_inst, list);
-		LOG_INFO("-------------------------------------\n");
+		mdw_drv_debug("-------------------------------------\n");
 		sc = (struct apusys_subcmd *)inst->sc;
 		if (sc == NULL)
 			continue;
 		cmd = sc->par_cmd;
 
-		LOG_INFO(" thread idx = %d\n", i);
-		LOG_INFO(" status     = %d\n", inst->status);
+		mdw_drv_debug(" thread idx = %d\n", i);
+		mdw_drv_debug(" status     = %d\n", inst->status);
 		if (sc == NULL || inst->status == APUSYS_THREAD_STATUS_IDLE)
 			continue;
-		LOG_INFO(" cmd        = 0x%llx\n", cmd->cmd_id);
-		LOG_INFO(" subcmd     = %d/%p\n", sc->idx, sc);
-		LOG_INFO(" stop       = %d\n", inst->stop);
+		mdw_drv_debug(" cmd        = 0x%llx\n", cmd->cmd_id);
+		mdw_drv_debug(" subcmd     = %d/%p\n", sc->idx, sc);
+		mdw_drv_debug(" stop       = %d\n", inst->stop);
 	}
-	LOG_INFO("=====================================\n");
+	mdw_drv_debug("=====================================\n");
 
 	mutex_unlock(&g_pool_mgr.mtx);
 
@@ -174,7 +183,7 @@ int thread_pool_trigger(void *sc, void *dev_info)
 
 	job_arg->sc = sc;
 	job_arg->dev_info = dev_info;
-	LOG_DEBUG("add to thread pool's job queue(%p)\n", sc);
+	mdw_flw_debug("add to thread pool's job queue(%p)\n", sc);
 	mutex_lock(&g_pool_mgr.job_mtx);
 	list_add_tail(&job_arg->list, &g_pool_mgr.job_list);
 	mutex_unlock(&g_pool_mgr.job_mtx);
@@ -191,10 +200,8 @@ int thread_pool_add_once(void)
 	char name[32];
 
 	inst = kzalloc(sizeof(struct thread_pool_inst), GFP_KERNEL);
-	if (inst == NULL) {
-		LOG_ERR("alloc thread pool fail\n");
+	if (inst == NULL)
 		return -ENOMEM;
-	}
 
 	mutex_init(&inst->mtx);
 	INIT_LIST_HEAD(&inst->list);
@@ -208,7 +215,7 @@ int thread_pool_add_once(void)
 
 	inst->task = kthread_run(tp_service_routine, inst, name);
 	if (inst->task == NULL) {
-		LOG_ERR("create kthread(%d) fail\n", g_pool_mgr.total);
+		mdw_drv_err("create kthread(%d) fail\n", g_pool_mgr.total);
 		kfree(inst);
 		mutex_unlock(&g_pool_mgr.mtx);
 		return -ENOMEM;
@@ -232,19 +239,17 @@ int thread_pool_delete(int num)
 
 	list_for_each_safe(list_ptr, tmp, &g_pool_mgr.thread_list) {
 		inst = list_entry(list_ptr, struct thread_pool_inst, list);
-		/* delete memory */
-		list_del(&inst->list);
-		kfree(inst);
-		i++;
+		inst->stop = true;
 
 		/* stop thread mechanism */
 		if (i >= num)
 			break;
 	}
 
+	complete_all(&g_pool_mgr.comp);
 	mutex_unlock(&g_pool_mgr.mtx);
 
-	LOG_INFO("delete %d thread from pool\n", i);
+	mdw_drv_debug("delete %d thread from pool\n", i);
 
 	return 0;
 }
@@ -272,7 +277,18 @@ int thread_pool_init(routine_func func_ptr)
 
 int thread_pool_destroy(void)
 {
-	/* TODO delete all thread */
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct thread_pool_inst *inst = NULL;
+
+	mutex_lock(&g_pool_mgr.mtx);
+	/* query all thread inst to mark stop */
+	list_for_each_safe(list_ptr, tmp, &g_pool_mgr.thread_list) {
+		inst = list_entry(list_ptr, struct thread_pool_inst, list);
+		inst->stop = true;
+	}
+
+	complete_all(&g_pool_mgr.comp);
+	mutex_unlock(&g_pool_mgr.mtx);
 
 	return 0;
 }

@@ -32,14 +32,14 @@ int normal_queue_init(int type)
 	for (i = 0; i < APUSYS_PRIORITY_MAX; i++)
 		INIT_LIST_HEAD(&tab->normal_q.prio[i]);
 
-	LOG_DEBUG("normal queue(%d) init done\n", type);
+	mdw_drv_debug("normal queue(%d) init done\n", type);
 
 	return 0;
 }
 
 void normal_queue_destroy(int type)
 {
-	LOG_DEBUG("normal queue(%d) destroy done\n", type);
+	mdw_drv_debug("normal queue(%d) destroy done\n", type);
 }
 
 int normal_task_empty(int type)
@@ -103,7 +103,7 @@ int normal_task_remove(struct apusys_subcmd *sc)
 			if (sc_node != sc)
 				continue;
 
-			LOG_DEBUG("delete 0x%llx-#%d from q(%d/%d)\n",
+			mdw_drv_debug("delete 0x%llx-#%d from q(%d/%d)\n",
 				sc->par_cmd->cmd_id,
 				sc->idx,
 				sc->type,
@@ -134,7 +134,7 @@ struct apusys_subcmd *normal_task_pop(int type)
 	prio = find_last_bit(tab->normal_q.node_exist,
 			APUSYS_PRIORITY_MAX);
 	if (prio >= APUSYS_PRIORITY_MAX) {
-		LOG_ERR("can't find cmd in type(%d) priority queue\n",
+		mdw_drv_err("can't find cmd in type(%d) priority queue\n",
 			type);
 		return NULL;
 	}
@@ -143,7 +143,7 @@ struct apusys_subcmd *normal_task_pop(int type)
 	sc = list_first_entry(&tab->normal_q.prio[prio],
 		struct apusys_subcmd, q_list);
 	if (sc == NULL) {
-		LOG_ERR("get sc from nq(%d/%d) fail\n", type, prio);
+		mdw_drv_err("get sc from nq(%d/%d) fail\n", type, prio);
 		return NULL;
 	}
 	list_del(&sc->q_list);

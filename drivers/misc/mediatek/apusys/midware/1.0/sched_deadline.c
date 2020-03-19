@@ -60,7 +60,7 @@ static void deadline_load_tracing(struct work_struct *data)
 	else
 		root->trace_boost = false;
 
-	LOG_DEBUG("%s: %llu, %llu, %llu, boost: %llu\n",
+	mdw_drv_debug("%s: %llu, %llu, %llu, boost: %llu\n",
 		__func__,
 		root->avg_load[0],
 		root->avg_load[1],
@@ -258,8 +258,9 @@ int deadline_task_start(struct apusys_subcmd *sc)
 
 	if (tab->dev_num <= load && root->load_boost == 0) {
 		root->load_boost = 1;
-		LOG_DEBUG("load_boost: %llu, %llu, %llu, %llu\n", sc->runtime,
-			sc->period, root->total_period, root->total_runtime);
+		mdw_drv_debug("load_boost: %llu, %llu, %llu, %llu\n",
+			sc->runtime, sc->period, root->total_period,
+			root->total_runtime);
 	}
 	/* Enable load tracing timer */
 	if (root->need_timer) {
@@ -299,8 +300,9 @@ int deadline_task_end(struct apusys_subcmd *sc)
 
 	if (tab->dev_num > load && root->load_boost == 1) {
 		root->load_boost = 0;
-		LOG_DEBUG("load_boost: %llu, %llu, %llu, %llu\n", sc->runtime,
-			sc->period, root->total_period, root->total_runtime);
+		mdw_drv_debug("load_boost: %llu, %llu, %llu, %llu\n",
+			sc->runtime, sc->period, root->total_period,
+			root->total_runtime);
 	}
 	trace_deadline_task(tab->name, false, load);
 	mutex_unlock(&root->lock);

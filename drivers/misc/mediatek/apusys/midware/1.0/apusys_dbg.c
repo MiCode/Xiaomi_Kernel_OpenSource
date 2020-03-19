@@ -20,7 +20,8 @@
 #include <linux/uaccess.h>
 
 #include "apusys_drv.h"
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
+#include "mdw_tag.h"
 #include "apusys_dbg.h"
 #include "memory_mgt.h"
 #include "resource_mgt.h"
@@ -28,6 +29,8 @@
 #include "apusys_user.h"
 #include "scheduler.h"
 #include "memory_dump.h"
+
+#include "aee.h"
 
 struct dentry *apusys_dbg_root;
 struct dentry *apusys_dbg_user;
@@ -43,7 +46,7 @@ struct dentry *apusys_dbg_debug_root;
 struct dentry *apusys_dbg_debug_log;
 
 
-u32 g_log_level;
+u32 g_mdw_klog;
 u32 g_dbg_prop[DBG_PROP_MAX];
 
 u8 cfg_apusys_trace;
@@ -57,6 +60,7 @@ enum {
 	APUSYS_DBG_TEST_MULTITEST,
 	APUSYS_DBG_TEST_TCM_DEFAULT,
 	APUSYS_DBG_TEST_QUERY_MEM,
+	APUSYS_DBG_TEST_AEE,
 	APUSYS_DBG_TEST_MAX,
 };
 
@@ -72,7 +76,7 @@ int dbg_get_prop(int idx)
 // loh dump
 static int apusys_dbg_dump_log(struct seq_file *s, void *unused)
 {
-	LOG_CON(s, "not support yet.\n");
+	mdw_tags_show(s);
 	return 0;
 }
 
@@ -156,15 +160,16 @@ static const struct file_operations apusys_dbg_fops_mem = {
 //----------------------------------------------
 static int apusys_dbg_test_dump(struct seq_file *s, void *unused)
 {
-	LOG_CON(s, "-------------------------------------------------\n");
-	LOG_CON(s, " multi policy(%d):\n", g_dbg_prop[DBG_PROP_MULTICORE]);
-	LOG_CON(s, " tcm_default(0x%x):\n", g_dbg_prop[DBG_PROP_TCM_DEFAULT]);
-	LOG_CON(s, "    set indicate default tcm size if user don't set\n");
-	LOG_CON(s, "    1MB: 1048546\n");
-	LOG_CON(s, " query_mem(%d):\n", g_dbg_prop[DBG_PROP_QUERY_MEM]);
-	LOG_CON(s, "    0: disable, can't query kva/iova from code\n");
-	LOG_CON(s, "    1: enable, can query kva/iova from code\n");
-	LOG_CON(s, "-------------------------------------------------\n");
+	mdw_con_info(s, "-------------------------------------------------\n");
+	mdw_con_info(s, " multi policy(%d):\n", g_dbg_prop[DBG_PROP_MULTICORE]);
+	mdw_con_info(s, " tcm_default(0x%x):\n",
+		g_dbg_prop[DBG_PROP_TCM_DEFAULT]);
+	mdw_con_info(s, "    set indicate default tcm size if user don't set\n");
+	mdw_con_info(s, "    1MB: 1048546\n");
+	mdw_con_info(s, " query_mem(%d):\n", g_dbg_prop[DBG_PROP_QUERY_MEM]);
+	mdw_con_info(s, "    0: disable, can't query kva/iova from code\n");
+	mdw_con_info(s, "    1: enable, can query kva/iova from code\n");
+	mdw_con_info(s, "-------------------------------------------------\n");
 
 	return 0;
 }
@@ -174,7 +179,7 @@ static int apusys_dbg_open_test(struct inode *inode, struct file *file)
 	return single_open(file, apusys_dbg_test_dump, inode->i_private);
 }
 
-static void _apusys_dbg_test(int test, int *arg, int count)
+static void apusys_dbg_test_func(int test, int *arg, int count)
 {
 	int mdla_num = 0;
 	unsigned int vlm_start = 0, vlm_size = 0;
@@ -182,7 +187,7 @@ static void _apusys_dbg_test(int test, int *arg, int count)
 	switch (test) {
 	case APUSYS_DBG_TEST_SUSPEND:
 		if (count < 1)
-			LOG_WARN("suspend test need 1 arg\n");
+			mdw_drv_warn("suspend test need 1 arg\n");
 
 		if (arg[0])
 			apusys_sched_pause();
@@ -192,47 +197,58 @@ static void _apusys_dbg_test(int test, int *arg, int count)
 
 	case APUSYS_DBG_TEST_LOCKDEV:
 		if (count < 2)
-			LOG_WARN("lock dev test need 2 args\n");
-		LOG_WARN("todo\n");
+			mdw_drv_warn("lock dev test need 2 args\n");
+		mdw_drv_warn("todo\n");
 		break;
 
 	case APUSYS_DBG_TEST_UNLOCKDEV:
 		if (count < 2)
-			LOG_WARN("lock dev test need 2 args\n");
-		LOG_WARN("todo\n");
+			mdw_drv_warn("lock dev test need 2 args\n");
+		mdw_drv_warn("todo\n");
 		break;
 
 	case APUSYS_DBG_TEST_MULTITEST:
 		mdla_num = res_get_device_num(APUSYS_DEVICE_MDLA);
 		if (arg[0] > mdla_num) {
-			LOG_WARN("multicore not support: too much(%d/%d)\n",
+			mdw_drv_warn("multicore not support: too much(%d/%d)\n",
 				arg[0], mdla_num);
 		} else {
 			g_dbg_prop[DBG_PROP_MULTICORE] = arg[0];
-			LOG_INFO("setup multi test %d\n", arg[0]);
+			mdw_drv_debug("setup multi test %d\n", arg[0]);
 		}
 		break;
 
 	case APUSYS_DBG_TEST_TCM_DEFAULT:
 		if (apusys_mem_get_vlm(&vlm_start, &vlm_size)) {
-			LOG_ERR("get vlm fail\n");
+			mdw_drv_err("get vlm fail\n");
 			break;
 		}
 
 		vlm_size = vlm_size < (unsigned int)arg[0] ?
 			vlm_size : (unsigned int)arg[0];
-		LOG_INFO("tcm default%u/%d)\n", vlm_size, arg[0]);
+		mdw_drv_debug("tcm default%u/%d)\n", vlm_size, arg[0]);
 
 		g_dbg_prop[DBG_PROP_TCM_DEFAULT] = vlm_size;
 		break;
 
 	case APUSYS_DBG_TEST_QUERY_MEM:
-		LOG_INFO("query mem(%d)\n", arg[0]);
+		mdw_drv_debug("query mem(%d)\n", arg[0]);
 		g_dbg_prop[DBG_PROP_QUERY_MEM] = arg[0];
 		break;
 
+	case APUSYS_DBG_TEST_AEE:
+#ifdef CONFIG_MTK_AEE_FEATURE
+		if (arg[0] == 1) {
+			aee_kernel_warning("VPU", "\nCRDISPATCH_KEY:VPU\n",
+				"apusys midware test");
+		}
+#else
+		mdw_drv_info("not support aee\n");
+#endif
+		break;
+
 	default:
-		LOG_WARN("no test(%d/%d/%d)\n", test, arg[0], count);
+		mdw_drv_warn("no test(%d/%d/%d)\n", test, arg[0], count);
 		break;
 	}
 }
@@ -252,7 +268,7 @@ static ssize_t apusys_dbg_write_test(struct file *flip,
 
 	ret = copy_from_user(tmp, buffer, count);
 	if (ret) {
-		LOG_ERR("copy_from_user failed, ret=%d\n", ret);
+		mdw_drv_err("copy_from_user failed, ret=%d\n", ret);
 		goto out;
 	}
 
@@ -273,9 +289,11 @@ static ssize_t apusys_dbg_write_test(struct file *flip,
 		test = APUSYS_DBG_TEST_TCM_DEFAULT;
 	else if (strcmp(token, "query_mem") == 0)
 		test = APUSYS_DBG_TEST_QUERY_MEM;
+	else if (strcmp(token, "aee") == 0)
+		test = APUSYS_DBG_TEST_AEE;
 	else {
 		ret = -EINVAL;
-		LOG_ERR("no test(%s)\n", token);
+		mdw_drv_err("no test(%s)\n", token);
 		goto out;
 	}
 
@@ -283,13 +301,13 @@ static ssize_t apusys_dbg_write_test(struct file *flip,
 	for (i = 0; i < max_arg && (token = strsep(&cursor, " ")); i++) {
 		ret = kstrtouint(token, 10, &args[i]);
 		if (ret) {
-			LOG_ERR("fail to parse args[%d]\n", i);
+			mdw_drv_err("fail to parse args[%d]\n", i);
 			goto out;
 		}
 	}
 
 	/* call test */
-	_apusys_dbg_test(test, args, i);
+	apusys_dbg_test_func(test, args, i);
 
 	ret = count;
 out:
@@ -311,9 +329,9 @@ int apusys_dbg_init(void)
 {
 	int ret = 0;
 
-	LOG_INFO("+\n");
+	mdw_flw_debug("+\n");
 
-	g_log_level = 0;
+	g_mdw_klog = 0;
 	memset(g_dbg_prop, 0, sizeof(g_dbg_prop));
 	//g_dbg_prop[DBG_PROP_MULTICORE] = 1;
 
@@ -321,7 +339,7 @@ int apusys_dbg_init(void)
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_root);
 	if (ret) {
-		LOG_ERR("failed to create debug dir.\n");
+		mdw_drv_err("failed to create debug dir.\n");
 		goto out;
 	}
 
@@ -330,7 +348,7 @@ int apusys_dbg_init(void)
 		apusys_dbg_root, NULL, &apusys_dbg_fops_devinfo);
 	ret = IS_ERR_OR_NULL(apusys_dbg_devinfo);
 	if (ret) {
-		LOG_ERR("failed to create debug node(devinfo).\n");
+		mdw_drv_err("failed to create debug node(devinfo).\n");
 		goto out;
 	}
 
@@ -338,7 +356,7 @@ int apusys_dbg_init(void)
 	apusys_dbg_device = debugfs_create_dir("device", apusys_dbg_root);
 	ret = IS_ERR_OR_NULL(apusys_dbg_device);
 	if (ret) {
-		LOG_ERR("failed to create queue dir(device).\n");
+		mdw_drv_err("failed to create queue dir(device).\n");
 		goto out;
 	}
 
@@ -347,7 +365,7 @@ int apusys_dbg_init(void)
 		apusys_dbg_root, NULL, &apusys_dbg_fops_user);
 	ret = IS_ERR_OR_NULL(apusys_dbg_user);
 	if (ret) {
-		LOG_ERR("failed to create debug node(user).\n");
+		mdw_drv_err("failed to create debug node(user).\n");
 		goto out;
 	}
 
@@ -356,7 +374,7 @@ int apusys_dbg_init(void)
 		apusys_dbg_root, NULL, &apusys_dbg_fops_mem);
 	ret = IS_ERR_OR_NULL(apusys_dbg_mem);
 	if (ret) {
-		LOG_ERR("failed to create debug node(mem).\n");
+		mdw_drv_err("failed to create debug node(mem).\n");
 		goto out;
 	}
 
@@ -365,13 +383,13 @@ int apusys_dbg_init(void)
 		apusys_dbg_root, NULL, &apusys_dbg_fops_test);
 	ret = IS_ERR_OR_NULL(apusys_dbg_test);
 	if (ret) {
-		LOG_ERR("failed to create debug node(test).\n");
+		mdw_drv_err("failed to create debug node(test).\n");
 		goto out;
 	}
 
 	/* create log level */
 	apusys_dbg_log = debugfs_create_u32("klog", 0644,
-		apusys_dbg_root, &g_log_level);
+		apusys_dbg_root, &g_mdw_klog);
 
 	/* create trace enable */
 	apusys_dbg_trace = debugfs_create_u8("trace_en", 0644,
@@ -380,7 +398,7 @@ int apusys_dbg_init(void)
 
 	ret = IS_ERR_OR_NULL(apusys_dbg_trace);
 	if (ret) {
-		LOG_ERR("failed to create debug node(trace_en).\n");
+		mdw_drv_err("failed to create debug node(trace_en).\n");
 		goto out;
 	}
 
@@ -388,7 +406,7 @@ int apusys_dbg_init(void)
 	apusys_dbg_debug_root =  debugfs_create_dir("apusys_debug", NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_debug_root);
 	if (ret) {
-		LOG_ERR("failed to create debug dir(log).\n");
+		mdw_drv_err("failed to create debug dir(log).\n");
 		goto out;
 	}
 
@@ -396,14 +414,14 @@ int apusys_dbg_init(void)
 		apusys_dbg_debug_root, NULL, &apusys_dbg_fops_log);
 	ret = IS_ERR_OR_NULL(apusys_dbg_debug_log);
 	if (ret) {
-		LOG_ERR("failed to create debug node(log).\n");
+		mdw_drv_err("failed to create debug node(log).\n");
 		goto out;
 	}
 
 	apusys_dump_init();
 out:
 
-	LOG_INFO("-\n");
+	mdw_flw_debug("-\n");
 	return ret;
 }
 

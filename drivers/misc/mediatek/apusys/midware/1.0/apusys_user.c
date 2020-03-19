@@ -14,7 +14,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "apusys_user.h"
 #include "apusys_drv.h"
 #include "scheduler.h"
@@ -67,44 +67,44 @@ void apusys_user_dump(void *s_file)
 	"|--------------------------------------------------------"\
 	"---------------------------------------------------------|\n"
 
-	LOG_CON(s, LINEBAR);
-	LOG_CON(s, "|%-113s|\n",
+	mdw_con_info(s, LINEBAR);
+	mdw_con_info(s, "|%-113s|\n",
 		" apusys user table");
-	LOG_CON(s, LINEBAR);
+	mdw_con_info(s, LINEBAR);
 
 	mutex_lock(&g_user_mgr.mtx);
 	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
 		user = list_entry(list_ptr, struct apusys_user, list);
 
-		LOG_CON(s, "| user (#%-3d)%101s|\n",
+		mdw_con_info(s, "| user (#%-3d)%101s|\n",
 			u_count,
 			"");
-		LOG_CON(s, "| id   = 0x%-103llx|\n",
+		mdw_con_info(s, "| id   = 0x%-103llx|\n",
 			user->id);
-		LOG_CON(s, "| pid  = %-105d|\n",
+		mdw_con_info(s, "| pid  = %-105d|\n",
 			user->open_pid);
-		LOG_CON(s, "| tgid = %-105d|\n",
+		mdw_con_info(s, "| tgid = %-105d|\n",
 			user->open_tgid);
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 
 		c_count = 0;
 		d_count = 0;
 		m_count = 0;
 
 		/* cmd */
-		LOG_CON(s, "|%-10s|%-13s|%-33s|%-33s|%-20s|\n",
+		mdw_con_info(s, "|%-10s|%-13s|%-33s|%-33s|%-20s|\n",
 			" cmd",
 			" priority",
 			" uid",
 			" id",
 			" sc num");
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 		list_for_each_safe(c_list_ptr, c_tmp, &user->cmd_list) {
 			cmd = list_entry(c_list_ptr,
 				struct apusys_cmd, u_list);
 			mutex_lock(&cmd->mtx);
 
-			LOG_CON(s,
+			mdw_con_info(s,
 			"| #%-8d| %-12d| 0x%-30llx| 0x%-30llx| %-19u|\n",
 				c_count,
 				cmd->hdr->priority,
@@ -114,10 +114,10 @@ void apusys_user_dump(void *s_file)
 			mutex_unlock(&cmd->mtx);
 			c_count++;
 		}
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 
 		/* mem */
-		LOG_CON(s,
+		mdw_con_info(s,
 		"|%-10s|%-6s|%-6s|%-20s|%-12s|%-20s|%-12s|%-20s|\n",
 			" mem",
 			" type",
@@ -127,12 +127,12 @@ void apusys_user_dump(void *s_file)
 			" iova",
 			" iova size",
 			" kva");
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 		list_for_each_safe(m_list_ptr, m_tmp, &user->mem_list) {
 			u_mem = list_entry(m_list_ptr,
 				struct apusys_user_mem, list);
 
-			LOG_CON(s,
+			mdw_con_info(s,
 			"| #%-8d| %-5u| %-5u| 0x%-17llx| %-11d| 0x%-17x| 0x%-9x| 0x%-17llx|\n",
 				m_count,
 				u_mem->mem.mem_type,
@@ -144,25 +144,25 @@ void apusys_user_dump(void *s_file)
 				u_mem->mem.kva);
 			m_count++;
 		}
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 
 		/* device */
-		LOG_CON(s, "|%-10s|%-6s|%-6s|%-20s|%-67s|\n",
+		mdw_con_info(s, "|%-10s|%-6s|%-6s|%-20s|%-67s|\n",
 			" dev",
 			" type",
 			" idx",
 			" name",
 			" devptr");
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 		list_for_each_safe(d_list_ptr, d_tmp, &user->dev_list) {
 			u_dev = list_entry(d_list_ptr,
 				struct apusys_user_dev, list);
 			tab = res_get_table(u_dev->dev_info->dev->dev_type);
 			if (tab == NULL) {
-				LOG_CON(s, "miss resource table\n");
+				mdw_con_info(s, "miss resource table\n");
 				break;
 			}
-			LOG_CON(s, "| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
+			mdw_con_info(s, "| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
 				d_count,
 				u_dev->dev_info->dev->dev_type,
 				u_dev->dev_info->dev->idx,
@@ -175,10 +175,10 @@ void apusys_user_dump(void *s_file)
 				struct apusys_user_dev, list);
 			tab = res_get_table(u_dev->dev_info->dev->dev_type);
 			if (tab == NULL) {
-				LOG_CON(s, "miss resource table\n");
+				mdw_con_info(s, "miss resource table\n");
 				break;
 			}
-			LOG_CON(s, "| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
+			mdw_con_info(s, "| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
 				d_count,
 				u_dev->dev_info->dev->dev_type,
 				u_dev->dev_info->dev->idx,
@@ -186,7 +186,7 @@ void apusys_user_dump(void *s_file)
 				u_dev->dev_info->dev);
 			d_count++;
 		}
-		LOG_CON(s, LINEBAR);
+		mdw_con_info(s, LINEBAR);
 		u_count++;
 	}
 	mutex_unlock(&g_user_mgr.mtx);
@@ -386,7 +386,7 @@ int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 
 	/* delete all sc */
 	if (apusys_sched_del_cmd(cmd))
-		LOG_ERR("delete cmd(0x%llx) fail\n", cmd->cmd_id);
+		mdw_drv_err("delete cmd(0x%llx) fail\n", cmd->cmd_id);
 
 	list_del(&cmd->u_list);
 	mutex_unlock(&u->cmd_mtx);
@@ -441,7 +441,7 @@ int apusys_user_insert_dev(struct apusys_user *u, void *idev_info)
 	list_add_tail(&user_dev->list, &u->dev_list);
 	mutex_unlock(&u->dev_mtx);
 
-	LOG_DEBUG("insert dev(%p/%p/%d) to user(0x%llx) done\n",
+	mdw_drv_debug("insert dev(%p/%p/%d) to user(0x%llx) done\n",
 		user_dev, dev_info->dev,
 		dev_info->dev->dev_type,
 		u->id);
@@ -459,7 +459,7 @@ int apusys_user_delete_dev(struct apusys_user *u, void *idev_info)
 	if (u == NULL || dev_info == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("delete dev(%p/%d) from user(0x%llx)...\n",
+	mdw_drv_debug("delete dev(%p/%d) from user(0x%llx)...\n",
 		dev_info->dev, dev_info->dev->dev_type, u->id);
 
 	mutex_lock(&u->dev_mtx);
@@ -472,7 +472,7 @@ int apusys_user_delete_dev(struct apusys_user *u, void *idev_info)
 			user_dev->dev_info = NULL;
 			kfree(user_dev);
 			mutex_unlock(&u->dev_mtx);
-			LOG_DEBUG("del dev(%p/%d) u(0x%llx) done\n",
+			mdw_drv_debug("del dev(%p/%d) u(0x%llx) done\n",
 				dev_info->dev, dev_info->dev->dev_type,
 				u->id);
 			return 0;
@@ -481,7 +481,7 @@ int apusys_user_delete_dev(struct apusys_user *u, void *idev_info)
 
 	mutex_unlock(&u->dev_mtx);
 
-	LOG_DEBUG("delete dev(%p/%d) from user(0x%llx) fail\n",
+	mdw_drv_debug("delete dev(%p/%d) from user(0x%llx) fail\n",
 		dev_info->dev, dev_info->dev->dev_type, u->id);
 	return -ENODEV;
 }
@@ -501,7 +501,7 @@ struct apusys_dev_info *apusys_user_get_dev(struct apusys_user *u,
 	list_for_each_safe(list_ptr, tmp, &u->dev_list) {
 		udev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if ((uint64_t)udev->dev_info == hnd) {
-			LOG_DEBUG("get device!!\n");
+			mdw_drv_debug("get device!!\n");
 			mutex_unlock(&u->dev_mtx);
 			return udev->dev_info;
 		}
@@ -534,7 +534,7 @@ int apusys_user_insert_secdev(struct apusys_user *u, void *idev_info)
 	list_add_tail(&user_dev->list, &u->secdev_list);
 	mutex_unlock(&u->secdev_mtx);
 
-	LOG_DEBUG("insert sdev(%p/%p/%d) to user(0x%llx) done\n",
+	mdw_drv_debug("insert sdev(%p/%p/%d) to user(0x%llx) done\n",
 		user_dev, dev_info->dev,
 		dev_info->dev->dev_type,
 		u->id);
@@ -552,7 +552,7 @@ int apusys_user_delete_secdev(struct apusys_user *u, void *idev_info)
 	if (u == NULL || dev_info == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("delete sdev(%p/%d) from user(0x%llx)...\n",
+	mdw_drv_debug("delete sdev(%p/%d) from user(0x%llx)...\n",
 		dev_info->dev, dev_info->dev->dev_type, u->id);
 
 	mutex_lock(&u->secdev_mtx);
@@ -565,7 +565,7 @@ int apusys_user_delete_secdev(struct apusys_user *u, void *idev_info)
 			user_dev->dev_info = NULL;
 			kfree(user_dev);
 			mutex_unlock(&u->secdev_mtx);
-			LOG_DEBUG("del dev(%p/%d) u(0x%llx) done\n",
+			mdw_drv_debug("del dev(%p/%d) u(0x%llx) done\n",
 				dev_info->dev, dev_info->dev->dev_type,
 				u->id);
 			return 0;
@@ -574,7 +574,7 @@ int apusys_user_delete_secdev(struct apusys_user *u, void *idev_info)
 
 	mutex_unlock(&u->secdev_mtx);
 
-	LOG_DEBUG("delete sdev(%p/%d) from user(0x%llx) fail\n",
+	mdw_drv_debug("delete sdev(%p/%d) from user(0x%llx) fail\n",
 		dev_info->dev, dev_info->dev->dev_type, u->id);
 	return -ENODEV;
 }
@@ -589,24 +589,24 @@ int apusys_user_delete_sectype(struct apusys_user *u, int dev_type)
 	if (u == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("delete stype(%d) from user(0x%llx)...\n",
+	mdw_drv_debug("delete stype(%d) from user(0x%llx)...\n",
 		dev_type, u->id);
 
 	mutex_lock(&u->secdev_mtx);
 
 	/* query list to find mem in apusys user */
 	list_for_each_safe(list_ptr, tmp, &u->secdev_list) {
-		DEBUG_TAG;
+		mdw_lne_debug();
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if (user_dev->dev_info->dev->dev_type == dev_type) {
 			list_del(&user_dev->list);
-			LOG_DEBUG("del stype(%p/%d) u(0x%llx) done\n",
+			mdw_drv_debug("del stype(%p/%d) u(0x%llx) done\n",
 				user_dev->dev_info->dev,
 				user_dev->dev_info->dev->dev_type,
 				u->id);
 			/* put device back */
 			if (put_device_lock(user_dev->dev_info)) {
-				LOG_ERR("put dev(%d/%d) fail\n",
+				mdw_drv_err("put dev(%d/%d) fail\n",
 					user_dev->dev_info->dev->dev_type,
 					user_dev->dev_info->dev->idx);
 			}
@@ -638,7 +638,7 @@ int apusys_user_insert_mem(struct apusys_user *u, struct apusys_kmem *mem)
 	list_add_tail(&user_mem->list, &u->mem_list);
 	mutex_unlock(&u->mem_mtx);
 
-	MLOG_DEBUG("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
+	mdw_mem_debug("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
 		user_mem, user_mem->mem.mem_type,
 		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
@@ -655,7 +655,7 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 	if (mem == NULL || u == NULL)
 		return -EINVAL;
 
-	MLOG_DEBUG("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(0x%llx)\n",
+	mdw_mem_debug("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(0x%llx)\n",
 		mem, mem->mem_type, mem->fd,
 		mem->kva, mem->iova, mem->size,
 		u->id);
@@ -673,7 +673,7 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 			list_del(&user_mem->list);
 			kfree(user_mem);
 			mutex_unlock(&u->mem_mtx);
-			//LOG_DEBUG("-\n");
+			//mdw_drv_debug("-\n");
 			return 0;
 		}
 	}
@@ -692,7 +692,7 @@ struct apusys_kmem *apusys_user_get_mem(struct apusys_user *u,
 	if (u == NULL || fd <= 0)
 		return NULL;
 
-	MLOG_DEBUG("fd = %d, u(0x%llx)\n", fd, u->id);
+	mdw_mem_debug("fd = %d, u(0x%llx)\n", fd, u->id);
 
 	mutex_lock(&u->mem_mtx);
 
@@ -700,7 +700,7 @@ struct apusys_kmem *apusys_user_get_mem(struct apusys_user *u,
 	list_for_each_safe(list_ptr, tmp, &u->mem_list) {
 		u_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 		if (u_mem->mem.fd == fd) {
-			MLOG_DEBUG("get kmem from ulist\n");
+			mdw_mem_debug("get kmem from ulist\n");
 			mutex_unlock(&u->mem_mtx);
 			return &u_mem->mem;
 		}
@@ -713,8 +713,6 @@ struct apusys_kmem *apusys_user_get_mem(struct apusys_user *u,
 int apusys_create_user(struct apusys_user **iu)
 {
 	struct apusys_user *u = NULL;
-
-	LOG_DEBUG("+\n");
 
 	if (IS_ERR_OR_NULL(iu))
 		return -EINVAL;
@@ -735,7 +733,7 @@ int apusys_create_user(struct apusys_user **iu)
 	mutex_init(&u->secdev_mtx);
 	INIT_LIST_HEAD(&u->secdev_list);
 
-	LOG_DEBUG("apusys user(0x%llx/%d/%d)\n",
+	mdw_drv_debug("apusys user(0x%llx/%d/%d)\n",
 		u->id,
 		(int)u->open_pid,
 		(int)u->open_tgid);
@@ -746,8 +744,6 @@ int apusys_create_user(struct apusys_user **iu)
 	mutex_lock(&g_user_mgr.mtx);
 	list_add_tail(&u->list, &g_user_mgr.list);
 	mutex_unlock(&g_user_mgr.mtx);
-
-	LOG_DEBUG("-\n");
 
 	return 0;
 }
@@ -761,20 +757,20 @@ int apusys_delete_user(struct apusys_user *u)
 	struct apusys_cmd *cmd = NULL;
 	unsigned long long dev_bit = 0;
 
-	LOG_DEBUG("+\n");
+	mdw_drv_debug("+\n");
 
 	if (IS_ERR_OR_NULL(u))
 		return -EINVAL;
 
 	/* delete residual cmd */
 	mutex_lock(&u->cmd_mtx);
-	DEBUG_TAG;
+	mdw_lne_debug();
 	list_for_each_safe(list_ptr, tmp, &u->cmd_list) {
 		cmd = list_entry(list_ptr, struct apusys_cmd, u_list);
 
-		LOG_WARN("del pending cmd(0x%llx)\n", cmd->cmd_id);
+		mdw_drv_warn("del pending cmd(0x%llx)\n", cmd->cmd_id);
 		if (apusys_cmd_delete(cmd))
-			LOG_ERR("delete apusys cmd(%p) fail\n", cmd);
+			mdw_drv_err("delete apusys cmd(%p) fail\n", cmd);
 	}
 	mutex_unlock(&u->cmd_mtx);
 
@@ -784,7 +780,7 @@ int apusys_delete_user(struct apusys_user *u)
 	list_for_each_safe(list_ptr, tmp, &u->mem_list) {
 		user_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 		/* delete memory */
-		LOG_WARN("undeleted mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
+		mdw_drv_warn("undeleted mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
 		user_mem, user_mem->mem.mem_type,
 		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
@@ -792,9 +788,9 @@ int apusys_delete_user(struct apusys_user *u)
 
 		list_del(&user_mem->list);
 
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (apusys_mem_release(&user_mem->mem)) {
-			LOG_ERR("free fail(%d/0x%llx/0x%x)\n",
+			mdw_drv_err("free fail(%d/0x%llx/0x%x)\n",
 			user_mem->mem.fd,
 			user_mem->mem.kva,
 			user_mem->mem.iova);
@@ -810,7 +806,7 @@ int apusys_delete_user(struct apusys_user *u)
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if (user_dev->dev_info != NULL) {
 			if (put_device_lock(user_dev->dev_info)) {
-				LOG_ERR("put device(%p) user(0x%llx) fail\n",
+				mdw_drv_err("put device(%p) user(0x%llx) fail\n",
 					user_dev->dev_info->dev,
 					u->id);
 			}
@@ -831,21 +827,21 @@ int apusys_delete_user(struct apusys_user *u)
 			if (!(dev_bit & (1ULL << dev_info->dev->dev_type))) {
 				if (res_secure_off(
 					dev_info->dev->dev_type)) {
-					LOG_ERR("dev(%d) secmode off fail\n",
+					mdw_drv_err("dev(%d) secmode off fail\n",
 						dev_info->dev->dev_type);
 				}
 				dev_bit |= (1ULL << dev_info->dev->dev_type);
 			}
 			if (res_power_off(dev_info->dev->dev_type,
 				dev_info->dev->idx)) {
-				LOG_ERR("sec pwroff dev(%d/%d) fail\n",
+				mdw_drv_err("sec pwroff dev(%d/%d) fail\n",
 					dev_info->dev->dev_type,
 					dev_info->dev->idx);
 			}
 
 			/* put device back to table */
 			if (put_device_lock(dev_info)) {
-				LOG_ERR("put device(%p) user(0x%llx) fail\n",
+				mdw_drv_err("put device(%p) user(0x%llx) fail\n",
 					dev_info->dev,
 					u->id);
 			}
@@ -862,7 +858,7 @@ int apusys_delete_user(struct apusys_user *u)
 
 	kfree(u);
 
-	LOG_DEBUG("-\n");
+	mdw_drv_debug("-\n");
 
 	return 0;
 }
@@ -880,5 +876,5 @@ int apusys_user_init(void)
 
 void apusys_user_destroy(void)
 {
-	DEBUG_TAG;
+	mdw_lne_debug();
 }

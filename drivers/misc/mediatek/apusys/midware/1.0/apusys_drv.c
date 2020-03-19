@@ -28,7 +28,8 @@
 
 #include "apusys_drv.h"
 #include "apusys_user.h"
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
+#include "mdw_tag.h"
 #include "scheduler.h"
 #include "resource_mgt.h"
 #include "memory_mgt.h"
@@ -75,13 +76,13 @@ static int apusys_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	if (remap_pfn_range(vma, vma->vm_start, offset, size,
 			vma->vm_page_prot)) {
-		LOG_ERR("remap_pfn_range fail: %p\n", vma);
+		mdw_drv_err("remap_pfn_range fail: %p\n", vma);
 		return -EAGAIN;
 	}
 
 	return 0;
 #else
-	LOG_ERR("not support mmap(%p)(%lu/%lu)\n",
+	mdw_drv_err("not support mmap(%p)(%lu/%lu)\n",
 		filp, vma->vm_start, vma->vm_end);
 	return -EINVAL;
 #endif
@@ -93,19 +94,19 @@ static int apusys_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 
 	if (!apusys_power_check()) {
-		LOG_ERR("apusys disable\n");
+		mdw_drv_err("apusys disable\n");
 		return -ENODEV;
 	}
 
 	ret = apusys_create_user(&u);
 	if (ret) {
-		LOG_ERR("create apusys user fail (%d)\n", ret);
+		mdw_drv_err("create apusys user fail (%d)\n", ret);
 		return -ENOMEM;
 	}
 
 	filp->private_data = u;
 
-	LOG_DEBUG("create user (0x%llx/%d/%d)\n",
+	mdw_drv_debug("create user (0x%llx/%d/%d)\n",
 		u->id,
 		u->open_pid,
 		u->open_tgid);
@@ -119,11 +120,11 @@ static int apusys_release(struct inode *inode, struct file *filp)
 	int ret = 0;
 
 	if (u == NULL) {
-		LOG_ERR("miss apusys user\n");
+		mdw_drv_err("miss apusys user\n");
 		return -ENOMEM;
 	}
 
-	LOG_DEBUG("delete user %p(0x%llx/%d/%d)\n",
+	mdw_drv_debug("delete user %p(0x%llx/%d/%d)\n",
 		u,
 		u->id,
 		(int)u->open_pid,
@@ -131,7 +132,7 @@ static int apusys_release(struct inode *inode, struct file *filp)
 
 	ret = apusys_delete_user(u);
 	if (ret) {
-		LOG_ERR("delete apusys user fail(%d)\n", ret);
+		mdw_drv_err("delete apusys user fail(%d)\n", ret);
 		return -EINVAL;
 	}
 
@@ -143,21 +144,21 @@ static int apusys_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = NULL;
 
-	LOG_INFO("+\n");
+	mdw_flw_debug("+\n");
 
 	g_apusys_device = &pdev->dev;
 
 	/* get major */
 	ret = alloc_chrdev_region(&apusys_devt, 0, 1, APUSYS_DEV_NAME);
 	if (ret < 0) {
-		LOG_ERR("alloc_chrdev_region failed, %d\n", ret);
+		mdw_drv_err("alloc_chrdev_region failed, %d\n", ret);
 		return ret;
 	}
 
 	/* Allocate driver */
 	apusys_cdev = cdev_alloc();
 	if (apusys_cdev == NULL) {
-		LOG_ERR("cdev_alloc failed\n");
+		mdw_drv_err("cdev_alloc failed\n");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -169,7 +170,7 @@ static int apusys_probe(struct platform_device *pdev)
 	/* Add to system */
 	ret = cdev_add(apusys_cdev, apusys_devt, 1);
 	if (ret < 0) {
-		LOG_ERR("attatch file operation failed, %d\n", ret);
+		mdw_drv_err("attatch file operation failed, %d\n", ret);
 		goto out;
 	}
 
@@ -177,7 +178,7 @@ static int apusys_probe(struct platform_device *pdev)
 	apusys_class = class_create(THIS_MODULE, "apusysdrv");
 	if (IS_ERR(apusys_class)) {
 		ret = PTR_ERR(apusys_class);
-		LOG_ERR("unable to create class, err = %d\n", ret);
+		mdw_drv_err("unable to create class, err = %d\n", ret);
 		goto out;
 	}
 
@@ -185,7 +186,7 @@ static int apusys_probe(struct platform_device *pdev)
 		NULL, APUSYS_DEV_NAME);
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
-		LOG_ERR("failed to create device: /dev/%s, err = %d",
+		mdw_drv_err("failed to create device: /dev/%s, err = %d",
 			APUSYS_DEV_NAME, ret);
 		goto out;
 	}
@@ -211,13 +212,19 @@ static int apusys_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto dbg_init_fail;
 	}
+	if (mdw_tags_init()) {
+		ret = -EINVAL;
+		goto tag_init_fail;
+	}
 
 	secure_perf_init();
 
-	LOG_INFO("-\n");
+	mdw_flw_debug("-\n");
 
 	return 0;
 
+tag_init_fail:
+	apusys_dbg_destroy();
 dbg_init_fail:
 	apusys_mem_destroy();
 mem_init_fail:
@@ -248,8 +255,9 @@ out:
 
 static int apusys_remove(struct platform_device *pdev)
 {
-	LOG_DEBUG("+\n");
+	mdw_flw_debug("+\n");
 	/* release logical resource */
+	mdw_tags_destroy();
 	apusys_dbg_destroy();
 	apusys_mem_destroy();
 	apusys_sched_destroy();
@@ -270,7 +278,7 @@ static int apusys_remove(struct platform_device *pdev)
 	}
 	unregister_chrdev_region(apusys_devt, 1);
 	secure_perf_remove();
-	LOG_DEBUG("-\n");
+	mdw_flw_debug("-\n");
 	return 0;
 }
 
@@ -292,7 +300,7 @@ static int apusys_resume(struct platform_device *pdev)
 
 static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0, count = 0, dev_num = 0, val = 0;
+	int ret = 0, count = 0, dev_num = 0, val = 0, sec_ret = 0;
 	struct apusys_user *user = (struct apusys_user *)filp->private_data;
 	struct apusys_mem mem;
 	struct apusys_kmem kmem;
@@ -310,17 +318,17 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	/* check apusys user is available */
 	if (user == NULL) {
-		LOG_ERR("ioctl miss apusys user");
+		mdw_drv_err("ioctl miss apusys user");
 		return -EINVAL;
 	}
 
 	switch (cmd) {
 	case APUSYS_IOCTL_HANDSHAKE:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		/* handshaking, pass kernel apusys information */
 		if (copy_from_user(&hs, (void *)arg,
 			sizeof(struct apusys_ioctl_hs))) {
-			LOG_ERR("copy handshake struct fail\n");
+			mdw_drv_err("copy handshake struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -335,14 +343,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (hs.begin.mem_support & (1UL << APUSYS_MEM_VLM)) {
 				if (apusys_mem_get_vlm(&hs.begin.vlm_start,
 					&hs.begin.vlm_size)) {
-					LOG_WARN("vlm miss start and size\n");
+					mdw_drv_warn("vlm miss start and size\n");
 				}
 			} else {
 				hs.begin.vlm_start = 0;
 				hs.begin.vlm_size = 0;
 			}
 
-			LOG_DEBUG("support dev(0x%llx)mem(0x%x/0x%x/%u)\n",
+			mdw_drv_debug("support dev(0x%llx)mem(0x%x/0x%x/%u)\n",
 				hs.begin.dev_support,
 				hs.begin.mem_support,
 				hs.begin.vlm_start,
@@ -351,7 +359,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		case APUSYS_HANDSHAKE_QUERY_DEV:
 			hs.dev.num = res_get_device_num(hs.dev.type);
-			LOG_DEBUG("device(%d) support(%d) core\n",
+			mdw_drv_debug("device(%d) support(%d) core\n",
 				hs.dev.type, hs.dev.num);
 
 			if (hs.dev.num < 0)
@@ -360,7 +368,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 
 		default:
-			LOG_DEBUG("wrong handshake type(%d)\n",
+			mdw_drv_err("wrong handshake type(%d)\n",
 				hs.type);
 			ret = -EINVAL;
 			break;
@@ -368,16 +376,16 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (copy_to_user((void *)arg, &hs,
 			sizeof(struct apusys_ioctl_hs))) {
-			LOG_ERR("handshake with user fail\n");
+			mdw_drv_err("handshake with user fail\n");
 			ret = -EINVAL;
 		}
 		break;
 
 	case APUSYS_IOCTL_MEM_ALLOC:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&mem, (void *)arg,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct fail\n");
+			mdw_drv_err("copy mem struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -393,14 +401,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (copy_to_user((void *)arg, &mem,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct to user fail\n");
+			mdw_drv_err("copy mem struct to user fail\n");
 			if (apusys_mem_free(&kmem))
-				LOG_ERR("free unused mem fail\n");
+				mdw_drv_err("free unused mem fail\n");
 
 			ret = -EINVAL;
 		} else {
 			if (apusys_user_insert_mem(user, &kmem)) {
-				LOG_ERR("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
+				mdw_drv_err("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
 					user->id,
 					kmem.mem_type,
 					kmem.fd,
@@ -408,17 +416,17 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -EINVAL;
 
 				if (apusys_mem_free(&kmem))
-					LOG_ERR("free unused mem fail\n");
+					mdw_drv_err("free unused mem fail\n");
 			}
 		}
 
 		break;
 
 	case APUSYS_IOCTL_MEM_FREE:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&mem, (void *)arg,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct fail\n");
+			mdw_drv_err("copy mem struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -428,14 +436,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* free memory, free kernel memory ref count */
 		ret = apusys_mem_free(&kmem);
 		if (ret) {
-			LOG_ERR("free apusys mem fail\n");
+			mdw_drv_err("free apusys mem fail\n");
 			break;
 		}
 
 		apusys_mem_copy_to_user(&mem, &kmem);
 
 		if (apusys_user_delete_mem(user, &kmem)) {
-			LOG_ERR("delmem fail(0x%llx/%d/%d/0x%llx)\n",
+			mdw_drv_err("delmem fail(0x%llx/%d/%d/0x%llx)\n",
 				user->id,
 				kmem.mem_type,
 				kmem.fd,
@@ -446,17 +454,17 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (copy_to_user((void *)arg, &mem,
 				sizeof(struct apusys_mem))) {
 
-				LOG_ERR("copy mem struct to user fail\n");
+				mdw_drv_err("copy mem struct to user fail\n");
 				ret = -EINVAL;
 			}
 		}
 
 		break;
 	case APUSYS_IOCTL_MEM_IMPORT:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&mem, (void *)arg,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct fail\n");
+			mdw_drv_err("copy mem struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -472,14 +480,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (copy_to_user((void *)arg, &mem,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct to user fail\n");
+			mdw_drv_err("copy mem struct to user fail\n");
 			if (apusys_mem_unimport(&kmem))
-				LOG_ERR("free unused mem fail\n");
+				mdw_drv_err("free unused mem fail\n");
 
 			ret = -EINVAL;
 		} else {
 			if (apusys_user_insert_mem(user, &kmem)) {
-				LOG_ERR("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
+				mdw_drv_err("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
 					user->id,
 					kmem.mem_type,
 					kmem.fd,
@@ -487,17 +495,17 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -EINVAL;
 
 				if (apusys_mem_unimport(&kmem))
-					LOG_ERR("free unused mem fail\n");
+					mdw_drv_err("free unused mem fail\n");
 			}
 		}
 
 		break;
 
 	case APUSYS_IOCTL_MEM_UNIMPORT:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&mem, (void *)arg,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct fail\n");
+			mdw_drv_err("copy mem struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -508,14 +516,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* free memory, free kernel memory ref count */
 		ret = apusys_mem_unimport(&kmem);
 		if (ret) {
-			LOG_ERR("free apusys mem fail\n");
+			mdw_drv_err("free apusys mem fail\n");
 			break;
 		}
 
 		apusys_mem_copy_to_user(&mem, &kmem);
 
 		if (apusys_user_delete_mem(user, &kmem)) {
-			LOG_ERR("delmem fail(0x%llx/%d/%d/0x%llx)\n",
+			mdw_drv_err("delmem fail(0x%llx/%d/%d/0x%llx)\n",
 				user->id,
 				kmem.mem_type,
 				kmem.fd,
@@ -526,17 +534,17 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (copy_to_user((void *)arg, &mem,
 				sizeof(struct apusys_mem))) {
 
-				LOG_ERR("copy mem struct to user fail\n");
+				mdw_drv_err("copy mem struct to user fail\n");
 				ret = -EINVAL;
 			}
 		}
 
 		break;
 	case APUSYS_IOCTL_MEM_CTL:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&mem, (void *)arg,
 			sizeof(struct apusys_mem))) {
-			LOG_ERR("copy mem struct fail\n");
+			mdw_drv_err("copy mem struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -544,14 +552,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		ret = apusys_mem_ctl(&mem.ctl_data, &kmem);
 		if (ret)
-			LOG_ERR("control apusys mem fail\n");
+			mdw_drv_err("control apusys mem fail\n");
 
 		apusys_mem_copy_to_user(&mem, &kmem);
 
 		if (ret == 0) {
 			if (copy_to_user((void *)arg, &mem,
 				sizeof(struct apusys_mem))) {
-				LOG_ERR("copy mem struct to user fail\n");
+				mdw_drv_err("copy mem struct to user fail\n");
 				ret = -EINVAL;
 			}
 		}
@@ -560,7 +568,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case APUSYS_IOCTL_RUN_CMD_SYNC:
 		if (copy_from_user(&ioctl_cmd, (void *)arg,
 			sizeof(struct apusys_ioctl_cmd))) {
-			LOG_ERR("copy cmd struct fail\n");
+			mdw_drv_err("copy cmd struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -569,7 +577,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = apusys_cmd_create(ioctl_cmd.mem_fd, ioctl_cmd.offset,
 			&a_cmd, user);
 		if (ret || a_cmd == NULL) {
-			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
+			mdw_drv_err("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -577,17 +585,18 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* insert cmd to user list */
 		ret = apusys_user_insert_cmd(user, (void *)a_cmd);
 		if (ret) {
-			LOG_ERR("insert apusys cmd(0x%llx) to user list fail\n",
+			mdw_drv_err("insert apusys cmd(0x%llx) to user list fail\n",
 				a_cmd->cmd_id);
 			if (apusys_cmd_delete(a_cmd))
-				LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
+				mdw_drv_err("delete apusys cmd(%p) fail\n",
+					a_cmd);
 
 			goto out;
 		}
 
 		/* insert cmd to priority queue */
 		if (apusys_sched_add_cmd(a_cmd)) {
-			LOG_ERR("add cmd(0x%llx) to list fail\n",
+			mdw_drv_err("add cmd(0x%llx) to list fail\n",
 				a_cmd->cmd_id);
 			ret = -EINVAL;
 			goto run_sync_add_fail;
@@ -596,12 +605,12 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* wait cmd done */
 		ret = apusys_sched_wait_cmd(a_cmd);
 		if (ret) {
-			LOG_ERR("cmd(0x%llx) wait fail(%d)\n",
+			mdw_drv_err("cmd(0x%llx) wait fail(%d)\n",
 				a_cmd->cmd_id, ret);
 		} else {
 			ret = a_cmd->cmd_ret;
 			if (ret) {
-				LOG_ERR("cmd(0x%llx) exec fail(%d)\n",
+				mdw_drv_err("cmd(0x%llx) exec fail(%d)\n",
 					a_cmd->cmd_id, ret);
 			}
 		}
@@ -609,14 +618,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 run_sync_add_fail:
 		/* delete cmd from user list */
 		if (apusys_user_delete_cmd(user, (void *)a_cmd)) {
-			LOG_ERR("delete cmd(0x%llx) from user fail\n",
+			mdw_drv_err("delete cmd(0x%llx) from user fail\n",
 			a_cmd->cmd_id);
 			ret = -EINVAL;
 		}
 
 		/* delete cmd */
 		if (apusys_cmd_delete(a_cmd)) {
-			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
+			mdw_drv_err("delete apusys cmd(%p) fail\n", a_cmd);
 			ret = -EINVAL;
 		}
 
@@ -625,7 +634,7 @@ run_sync_add_fail:
 	case APUSYS_IOCTL_RUN_CMD_ASYNC:
 		if (copy_from_user(&ioctl_cmd, (void *)arg,
 			sizeof(struct apusys_ioctl_cmd))) {
-			LOG_ERR("copy cmd struct fail\n");
+			mdw_drv_err("copy cmd struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -634,7 +643,7 @@ run_sync_add_fail:
 		ret = apusys_cmd_create(ioctl_cmd.mem_fd, ioctl_cmd.offset,
 			&a_cmd, user);
 		if (ret || a_cmd == NULL) {
-			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
+			mdw_drv_err("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -642,11 +651,11 @@ run_sync_add_fail:
 		/* insert cmd to user list */
 		ret = apusys_user_insert_cmd(user, (void *)a_cmd);
 		if (ret) {
-			LOG_ERR("insert cmd(0x%llx) to user list fail\n",
+			mdw_drv_err("insert cmd(0x%llx) to user list fail\n",
 				a_cmd->cmd_id);
 
 			if (apusys_cmd_delete(a_cmd))
-				LOG_ERR("delete cmd(%p) fail\n", a_cmd);
+				mdw_drv_err("delete cmd(%p) fail\n", a_cmd);
 
 			goto out;
 		}
@@ -654,14 +663,14 @@ run_sync_add_fail:
 		/* insert cmd to priority queue */
 		ret = apusys_sched_add_cmd(a_cmd);
 		if (ret) {
-			LOG_ERR("add cmd(0x%llx) to list fail\n",
+			mdw_drv_err("add cmd(0x%llx) to list fail\n",
 				a_cmd->cmd_id);
 			if (apusys_user_delete_cmd(user, a_cmd))
-				LOG_ERR("delete cmd(0x%llx) from user fail\n",
+				mdw_drv_err("delete cmd(0x%llx) from user fail\n",
 				a_cmd->cmd_id);
 
 			if (apusys_cmd_delete(a_cmd))
-				LOG_ERR("delete cmd(%p) fail\n", a_cmd);
+				mdw_drv_err("delete cmd(%p) fail\n", a_cmd);
 
 			goto out;
 		}
@@ -669,17 +678,17 @@ run_sync_add_fail:
 		ioctl_cmd.cmd_id = a_cmd->cmd_id;
 		if (copy_to_user((void *)arg, &ioctl_cmd,
 			sizeof(struct apusys_ioctl_cmd))) {
-			LOG_ERR("copy cmd struct to user fail\n");
+			mdw_drv_err("copy cmd struct to user fail\n");
 			ret = -EINVAL;
 		}
 
 		break;
 
 	case APUSYS_IOCTL_WAIT_CMD:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_cmd, (void *)arg,
 			sizeof(struct apusys_ioctl_cmd))) {
-			LOG_ERR("copy cmd struct fail\n");
+			mdw_drv_err("copy cmd struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -694,7 +703,7 @@ run_sync_add_fail:
 		ret = apusys_user_get_cmd(user, (void **)&a_cmd,
 		ioctl_cmd.cmd_id);
 		if (ret) {
-			LOG_ERR("get cmd(0x%llx) from user fail\n",
+			mdw_drv_err("get cmd(0x%llx) from user fail\n",
 				ioctl_cmd.cmd_id);
 			goto out;
 		}
@@ -702,41 +711,41 @@ run_sync_add_fail:
 		/* wait cmd done */
 		ret = apusys_sched_wait_cmd(a_cmd);
 		if (ret) {
-			LOG_ERR("cmd(0x%llx) wait fail(%d)\n",
+			mdw_drv_err("cmd(0x%llx) wait fail(%d)\n",
 				a_cmd->cmd_id, ret);
 		} else {
 			ret = a_cmd->cmd_ret;
 			if (ret) {
-				LOG_ERR("cmd(0x%llx) exec fail(%d)\n",
+				mdw_drv_err("cmd(0x%llx) exec fail(%d)\n",
 					a_cmd->cmd_id, ret);
 			}
 		}
 
 		/* delete cmd from user list */
 		if (apusys_user_delete_cmd(user, (void *)a_cmd)) {
-			LOG_ERR("delete cmd(0x%llx) from user fail\n",
+			mdw_drv_err("delete cmd(0x%llx) from user fail\n",
 			a_cmd->cmd_id);
 			ret = -EINVAL;
 		}
 
 		/* delete cmd */
 		if (apusys_cmd_delete(a_cmd)) {
-			LOG_ERR("delete cmd(%p) fail\n", a_cmd);
+			mdw_drv_err("delete cmd(%p) fail\n", a_cmd);
 			ret = -EINVAL;
 		}
 
 		break;
 
 	case APUSYS_IOCTL_SET_POWER:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_pwr, (void *)arg,
 			sizeof(struct apusys_ioctl_power))) {
-			LOG_ERR("copy power struct fail\n");
+			mdw_drv_err("copy power struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
 
-		LOG_DEBUG("set power: device(%d/%d) boost_val(%d)\n",
+		mdw_drv_debug("set power: device(%d/%d) boost_val(%d)\n",
 			ioctl_pwr.dev_type,
 			ioctl_pwr.idx,
 			ioctl_pwr.boost_val);
@@ -745,7 +754,7 @@ run_sync_add_fail:
 		ret = res_power_on(ioctl_pwr.dev_type, ioctl_pwr.idx,
 			ioctl_pwr.boost_val, APUSYS_SETPOWER_TIMEOUT);
 		if (ret) {
-			LOG_ERR("set power: device(%d/%u/%u) (%d)",
+			mdw_drv_err("set power: device(%d/%u/%u) (%d)",
 				ioctl_pwr.dev_type,
 				ioctl_pwr.idx,
 				ioctl_pwr.boost_val,
@@ -755,13 +764,13 @@ run_sync_add_fail:
 		break;
 
 	case APUSYS_IOCTL_DEVICE_ALLOC:
-		DEBUG_TAG;
-		LOG_WARN("not support\n");
+		mdw_lne_debug();
+		mdw_drv_warn("not support\n");
 		return -EINVAL;
 #if 0
 		if (copy_from_user(&dev_alloc, (void *)arg,
 			sizeof(struct apusys_ioctl_dev))) {
-			LOG_ERR("copy dev_alloc struct fail\n");
+			mdw_drv_err("copy dev_alloc struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -773,7 +782,7 @@ run_sync_add_fail:
 		acq.is_done = 0;
 		acq.owner = user->open_pid;
 		if (acq_device_sync(&acq) <= 0) {
-			LOG_ERR("alloc device(%d) by user(%p/0x%llx) fail\n",
+			mdw_drv_err("alloc device(%d) by user(%p/0x%llx) fail\n",
 				dev_alloc.dev_type,
 				user, user->id);
 
@@ -790,9 +799,9 @@ run_sync_add_fail:
 			ret = apusys_user_insert_dev(user,
 				dev_info);
 			if (ret) {
-				LOG_ERR("insert dev list fail\n");
+				mdw_drv_err("insert dev list fail\n");
 				if (put_device_lock(dev_info)) {
-					LOG_ERR("put dev fail\n");
+					mdw_drv_err("put dev fail\n");
 					ret = -ENODEV;
 				}
 				break;
@@ -804,20 +813,20 @@ run_sync_add_fail:
 		dev_alloc.dev_idx = (uint64_t)dev_info->dev->idx;
 		if (copy_to_user((void *)arg, &dev_alloc,
 			sizeof(struct apusys_ioctl_dev))) {
-			LOG_ERR("copy user dev struct to user fail\n");
+			mdw_drv_err("copy user dev struct to user fail\n");
 			ret = -EINVAL;
 		}
 		break;
 #endif
 
 	case APUSYS_IOCTL_DEVICE_FREE:
-		DEBUG_TAG;
-		LOG_WARN("not support\n");
+		mdw_lne_debug();
+		mdw_drv_warn("not support\n");
 		return -EINVAL;
 #if 0
 		if (copy_from_user(&dev_alloc, (void *)arg,
 			sizeof(struct apusys_ioctl_dev))) {
-			LOG_ERR("copy dev_alloc struct fail\n");
+			mdw_drv_err("copy dev_alloc struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -825,7 +834,7 @@ run_sync_add_fail:
 		/* check parameters */
 		if (dev_alloc.num == 0 || dev_alloc.handle == 0 ||
 			dev_alloc.dev_idx < 0) {
-			LOG_ERR("invalid parameter(%d/0x%llx/%d)\n",
+			mdw_drv_err("invalid parameter(%d/0x%llx/%d)\n",
 				dev_alloc.num,
 				dev_alloc.handle,
 				dev_alloc.dev_idx);
@@ -837,20 +846,20 @@ run_sync_add_fail:
 		/* put device back to dev table */
 		dev_info = apusys_user_get_dev(user, dev_alloc.handle);
 		if (dev_info == NULL) {
-			LOG_ERR("can't find device(%d/0x%llx) user(%p)\n",
+			mdw_drv_err("can't find device(%d/0x%llx) user(%p)\n",
 				dev_alloc.dev_type, dev_alloc.handle, user);
 			ret = -ENODEV;
 			goto out;
 		}
 		ret = put_device_lock(dev_info);
 		if (ret) {
-			LOG_ERR("free device(%p) fail(%d)\n",
+			mdw_drv_err("free device(%p) fail(%d)\n",
 				dev_info->dev, ret);
 			ret = -ENODEV;
 		} else {
 			/* delete device from user */
 			if (apusys_user_delete_dev(user, dev_info)) {
-				LOG_ERR("del dev(%p/0x%llx) ret(%d)\n",
+				mdw_drv_err("del dev(%p/0x%llx) ret(%d)\n",
 					dev_info->dev,
 					user->id,
 					ret);
@@ -862,10 +871,10 @@ run_sync_add_fail:
 #endif
 
 	case APUSYS_IOCTL_FW_LOAD:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_fw,
 			(void *)arg, sizeof(struct apusys_ioctl_fw))) {
-			LOG_ERR("copy fw struct fail\n");
+			mdw_drv_err("copy fw struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -875,15 +884,15 @@ run_sync_add_fail:
 		/* ref count++ */
 		kmem.fd = ioctl_fw.mem_fd;
 		if (apusys_mem_map_kva(&kmem)) {
-			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
+			mdw_drv_err("map cmd buffer kva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
 		}
-		LOG_DEBUG("%x\n", ioctl_fw.magic);
+		mdw_drv_debug("%x\n", ioctl_fw.magic);
 
 		if (apusys_mem_map_iova(&kmem)) {
-			LOG_ERR("map cmd buffer iova from fd(%d)fail\n",
+			mdw_drv_err("map cmd buffer iova from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
@@ -891,7 +900,7 @@ run_sync_add_fail:
 
 		/* check size */
 		if (ioctl_fw.size + ioctl_fw.offset > kmem.iova_size) {
-			LOG_ERR("check ucmd size(%u/%u/%u) fail\n",
+			mdw_drv_err("check ucmd size(%u/%u/%u) fail\n",
 				ioctl_fw.size,
 				ioctl_fw.offset,
 				kmem.iova_size);
@@ -905,7 +914,7 @@ run_sync_add_fail:
 			kmem.iova, ioctl_fw.size,
 			APUSYS_FIRMWARE_LOAD);
 		if (ret) {
-			LOG_ERR("load fw to device(%d/%d) fail\n",
+			mdw_drv_err("load fw to device(%d/%d) fail\n",
 				ioctl_fw.dev_type,
 				ioctl_fw.idx);
 		}
@@ -913,41 +922,41 @@ run_sync_add_fail:
 check_unfw_size_fail:
 		/* ref count-- */
 		if (apusys_mem_unmap_iova(&kmem)) {
-			LOG_ERR("uni fw(%d/0x%llx/%s) fail\n",
+			mdw_drv_err("uni fw(%d/0x%llx/%s) fail\n",
 			ioctl_fw.mem_fd, kmem.kva, ioctl_fw.name);
 		}
 
 		/* ref count-- */
 		if (apusys_mem_unmap_kva(&kmem)) {
-			LOG_ERR("unmap fw(%d/0x%llx/%s) fail\n",
+			mdw_drv_err("unmap fw(%d/0x%llx/%s) fail\n",
 			ioctl_fw.mem_fd, kmem.kva, ioctl_fw.name);
 		}
 		break;
 
 	case APUSYS_IOCTL_FW_UNLOAD:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_fw, (void *)arg,
 			sizeof(struct apusys_ioctl_fw))) {
-			LOG_ERR("copy fw struct fail\n");
+			mdw_drv_err("copy fw struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
 		memset(&kmem, 0, sizeof(struct apusys_kmem));
 
-		LOG_DEBUG("fd = %d/%d\n",
+		mdw_flw_debug("fd = %d/%d\n",
 				kmem.fd,
 			ioctl_fw.mem_fd);
 
 		kmem.fd = ioctl_fw.mem_fd;
 		if (apusys_mem_map_kva(&kmem)) {
-			LOG_ERR("map fw buffer kva from fd(%d)fail\n",
+			mdw_drv_err("map fw buffer kva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
 		}
 
 		if (apusys_mem_map_iova(&kmem)) {
-			LOG_ERR("map cmd buffer iovva from fd(%d)fail\n",
+			mdw_drv_err("map cmd buffer iovva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
@@ -960,19 +969,19 @@ check_unfw_size_fail:
 			APUSYS_FIRMWARE_UNLOAD);
 
 		if (ret) {
-			LOG_ERR("load fw to device(%d/%d) fail\n",
+			mdw_drv_err("load fw to device(%d/%d) fail\n",
 				ioctl_fw.dev_type,
 				ioctl_fw.idx);
 		}
 
 		/* ref count-- */
 		if (apusys_mem_unmap_iova(&kmem)) {
-			LOG_ERR("uni fw(%d/0x%llx/%s) fail\n",
+			mdw_drv_err("uni fw(%d/0x%llx/%s) fail\n",
 			ioctl_fw.mem_fd, kmem.kva, ioctl_fw.name);
 		}
 
 		if (apusys_mem_unmap_kva(&kmem)) {
-			LOG_ERR("unmap fw buffer kva from fd(%d)fail\n",
+			mdw_drv_err("unmap fw buffer kva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 		}
@@ -980,10 +989,10 @@ check_unfw_size_fail:
 		break;
 
 	case APUSYS_IOCTL_USER_CMD:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_ucmd, (void *)arg,
 			sizeof(struct apusys_ioctl_ucmd))) {
-			LOG_ERR("copy usercmd struct fail\n");
+			mdw_drv_err("copy usercmd struct fail\n");
 			return -EINVAL;
 		}
 
@@ -992,17 +1001,17 @@ check_unfw_size_fail:
 		kmem.size = ioctl_ucmd.size;
 		kmem.fd = ioctl_ucmd.mem_fd;
 		if (apusys_mem_map_kva(&kmem)) {
-			LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
+			mdw_drv_err("map cmdbuf kva from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
 			return -ENOMEM;
 		}
 
 		/* map iova */
 		if (apusys_mem_map_iova(&kmem)) {
-			LOG_ERR("map cmdbuf iova from fd(%d)fail\n",
+			mdw_drv_err("map cmdbuf iova from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
 			if (apusys_mem_unmap_kva(&kmem)) {
-				LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
+				mdw_drv_err("unmap cmdbuf kva from fd(%d)fail\n",
 					ioctl_ucmd.mem_fd);
 			}
 			return -ENOMEM;
@@ -1010,7 +1019,7 @@ check_unfw_size_fail:
 
 		/* check size */
 		if (ioctl_ucmd.size + ioctl_ucmd.offset > kmem.iova_size) {
-			LOG_ERR("check ucmd size(%u/%u/%u) fail\n",
+			mdw_drv_err("check ucmd size(%u/%u/%u) fail\n",
 				ioctl_ucmd.size,
 				ioctl_ucmd.offset,
 				kmem.iova_size);
@@ -1025,10 +1034,10 @@ check_unfw_size_fail:
 check_ucmd_size_fail:
 		/* unmap iova */
 		if (apusys_mem_unmap_iova(&kmem)) {
-			LOG_ERR("unmap cmdbuf iova from fd(%d)fail\n",
+			mdw_drv_err("unmap cmdbuf iova from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
 			if (apusys_mem_unmap_kva(&kmem)) {
-				LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
+				mdw_drv_err("unmap cmdbuf kva from fd(%d)fail\n",
 					ioctl_ucmd.mem_fd);
 			}
 			return -ENOMEM;
@@ -1036,7 +1045,7 @@ check_ucmd_size_fail:
 
 		/* unmap kva */
 		if (apusys_mem_unmap_kva(&kmem)) {
-			LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
+			mdw_drv_err("unmap cmdbuf kva from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
 			return -ENOMEM;
 		}
@@ -1044,10 +1053,10 @@ check_ucmd_size_fail:
 		break;
 
 	case APUSYS_IOCTL_SEC_DEVICE_LOCK:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_sec, (void *)arg,
 			sizeof(struct apusys_ioctl_sec))) {
-			LOG_ERR("[sec]copy sec struct fail\n");
+			mdw_drv_err("[sec]copy sec struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1055,13 +1064,13 @@ check_ucmd_size_fail:
 		/* check device supported */
 		dev_num = res_get_device_num(ioctl_sec.dev_type);
 		if (dev_num <= 0) {
-			LOG_ERR("[sec]lock: not support dev(%d)\n",
+			mdw_drv_err("[sec]lock: not support dev(%d)\n",
 				ioctl_sec.dev_type);
 			ret = -ENODEV;
 			goto out;
 		}
 
-		LOG_WARN("[sec]lock dev(%d) %d cores\n",
+		mdw_drv_info("[sec]lock dev(%d) %d cores\n",
 			ioctl_sec.dev_type, dev_num);
 
 		/* get type device from resource mgr */
@@ -1071,7 +1080,7 @@ check_ucmd_size_fail:
 		acq.is_done = 0;
 		acq.owner = APUSYS_DEV_OWNER_SECURE;
 		if (acq_device_sync(&acq) <= 0) {
-			LOG_ERR("[sec]lock alloc dev(%d) u(0x%llx) fail\n",
+			mdw_drv_err("[sec]lock alloc dev(%d) u(0x%llx) fail\n",
 				ioctl_sec.dev_type,
 				user->id);
 
@@ -1079,7 +1088,7 @@ check_ucmd_size_fail:
 			goto out;
 		}
 
-		LOG_INFO("[sec]lock dev(%d) %d cores done\n",
+		mdw_drv_debug("[sec]lock dev(%d) %d cores done\n",
 			ioctl_sec.dev_type, dev_num);
 
 		/*
@@ -1094,7 +1103,7 @@ check_ucmd_size_fail:
 			ret = res_power_off(dev_info->dev->dev_type,
 					dev_info->dev->idx);
 			if (ret) {
-				LOG_ERR("[sec]dev(%s-#%d) poweroff fail\n",
+				mdw_drv_err("[sec]dev(%s-#%d) poweroff fail\n",
 					dev_info->name,
 					dev_info->dev->idx);
 				break;
@@ -1105,7 +1114,7 @@ check_ucmd_size_fail:
 					dev_info->dev->idx, 100,
 					APUSYS_SETPOWER_TIMEOUT_ALLON);
 			if (ret) {
-				LOG_ERR("[sec]dev(%s-#%d) poweron fail\n",
+				mdw_drv_err("[sec]dev(%s-#%d) poweron fail\n",
 					dev_info->name,
 					dev_info->dev->idx);
 				break;
@@ -1114,9 +1123,9 @@ check_ucmd_size_fail:
 			/* record sec device acquire */
 			ret = apusys_user_insert_secdev(user, dev_info);
 			if (ret) {
-				LOG_ERR("[sec]insert dev list fail\n");
+				mdw_drv_err("[sec]insert dev list fail\n");
 				if (put_device_lock(dev_info)) {
-					LOG_ERR("put dev fail\n");
+					mdw_drv_err("put dev fail\n");
 					ret = -ENODEV;
 				}
 				break;
@@ -1127,18 +1136,19 @@ check_ucmd_size_fail:
 		}
 
 		if (count != dev_num) {
-			LOG_WARN("[sec]alloc dev num confuse(%d/%d)\n",
+			mdw_drv_warn("[sec]alloc dev num confuse(%d/%d)\n",
 				count, dev_num);
 		}
 
 		/* check success */
 		if (ret == 0) {
-			if (res_secure_on(ioctl_sec.dev_type)) {
-				LOG_ERR("[sec]dev(%d) secure mode on fail\n",
-					ioctl_sec.dev_type);
+			sec_ret = res_secure_on(ioctl_sec.dev_type);
+			if (sec_ret) {
+				mdw_drv_err("[sec]dev(%d) secure mode on fail(%d)\n",
+					ioctl_sec.dev_type, sec_ret);
 				ret = -ENODEV;
 			} else {
-				LOG_INFO("[sec]power on dev(%d) %d cores ok\n",
+				mdw_drv_info("[sec]dev(%d)num(%d) secure mode on\n",
 					ioctl_sec.dev_type, dev_num);
 				secure_perf_raise();
 				break;
@@ -1146,7 +1156,7 @@ check_ucmd_size_fail:
 		}
 
 		/* if fail, need to release power and device */
-		LOG_WARN("[sec]release dev(%d)...\n", ioctl_sec.dev_type);
+		mdw_drv_warn("[sec]release dev(%d)...\n", ioctl_sec.dev_type);
 		val = 0;
 		list_for_each_safe(list_ptr, tmp, &acq.dev_info_list) {
 			dev_info = list_entry(list_ptr,
@@ -1155,14 +1165,14 @@ check_ucmd_size_fail:
 			/* power off */
 			if (res_power_off(dev_info->dev->dev_type,
 					dev_info->dev->idx)) {
-				LOG_ERR("[sec]dev(%s-#%d) poweroff fail\n",
+				mdw_drv_err("[sec]dev(%s-#%d) poweroff fail\n",
 					dev_info->name,
 					dev_info->dev->idx);
 				ret = -ENODEV;
 			}
 
 			if (put_device_lock(dev_info)) {
-				LOG_ERR("[sec]put dev(%s-#%d) fail\n",
+				mdw_drv_err("[sec]put dev(%s-#%d) fail\n",
 					dev_info->name,
 					dev_info->dev->idx);
 				ret = -ENODEV;
@@ -1170,7 +1180,7 @@ check_ucmd_size_fail:
 
 			if (val < count) {
 				if (apusys_user_delete_secdev(user, dev_info)) {
-					LOG_ERR("[sec]del secdev(%s-#%d)fail\n",
+					mdw_drv_err("[sec]del secdev(%s-#%d)fail\n",
 						dev_info->name,
 						dev_info->dev->idx);
 					ret = -ENODEV;
@@ -1179,17 +1189,17 @@ check_ucmd_size_fail:
 			val++;
 		}
 
-		LOG_WARN("[sec]release sec dev(%d) done(%d/%d)\n",
+		mdw_drv_warn("[sec]release sec dev(%d) done(%d/%d)\n",
 			ioctl_sec.dev_type,
 			val, count);
 
 		break;
 
 	case APUSYS_IOCTL_SEC_DEVICE_UNLOCK:
-		DEBUG_TAG;
+		mdw_lne_debug();
 		if (copy_from_user(&ioctl_sec, (void *)arg,
 			sizeof(struct apusys_ioctl_sec))) {
-			LOG_ERR("copy sec struct fail\n");
+			mdw_drv_err("copy sec struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1197,28 +1207,25 @@ check_ucmd_size_fail:
 		/* check device supported */
 		dev_num = res_get_device_num(ioctl_sec.dev_type);
 		if (dev_num <= 0) {
-			LOG_ERR("sec unlock: not support dev(%d)\n",
+			mdw_drv_err("sec unlock: not support dev(%d)\n",
 				ioctl_sec.dev_type);
 			ret = -ENODEV;
 			goto out;
 		}
-
-		LOG_WARN("[sec]unlock dev(%d) %d cores\n",
-			ioctl_sec.dev_type, dev_num);
 
 		secure_perf_restore();
 
 		/* TODO: call mtee enable 0 */
 		ret = res_secure_off(ioctl_sec.dev_type);
 		if (ret) {
-			LOG_ERR("dev(%d) secure mode off fail\n",
+			mdw_drv_err("dev(%d) secure mode off fail\n",
 				ioctl_sec.dev_type);
 		}
 
 		/* power off all device by type */
 		for (count = 0; count < dev_num; count++) {
 			if (res_power_off(ioctl_sec.dev_type, count)) {
-				LOG_ERR("sec unlock poweroff dev(%d/%d) fail\n",
+				mdw_drv_err("sec unlock poweroff dev(%d/%d) fail\n",
 					ioctl_sec.dev_type, count);
 				ret = -ENODEV;
 			}
@@ -1226,12 +1233,12 @@ check_ucmd_size_fail:
 
 		/* delete secure type from user */
 		if (apusys_user_delete_sectype(user, ioctl_sec.dev_type)) {
-			LOG_ERR("sec unlock del stype(%d) from u list fail\n",
+			mdw_drv_err("sec unlock del stype(%d) from u list fail\n",
 				ioctl_sec.dev_type);
 			ret = -EINVAL;
 		}
 
-		LOG_INFO("[sec]unlock dev(%d) %d cores done\n",
+		mdw_drv_info("[sec]unlock dev(%d) %d cores done\n",
 			ioctl_sec.dev_type, dev_num);
 
 		break;
@@ -1333,17 +1340,17 @@ static struct platform_device midware_device = {
 static int __init apusys_init(void)
 {
 	if (!apusys_power_check()) {
-		LOG_ERR("apusys disable\n");
+		mdw_drv_err("apusys disable\n");
 		return -ENODEV;
 	}
 
 	if (platform_driver_register(&midware_driver)) {
-		LOG_ERR("failed to register apusys midware driver");
+		mdw_drv_err("failed to register apusys midware driver");
 		return -ENODEV;
 	}
 
 	if (platform_device_register(&midware_device)) {
-		LOG_ERR("failed to register apusys midware device");
+		mdw_drv_err("failed to register apusys midware device");
 		platform_driver_unregister(&midware_driver);
 		return -ENODEV;
 	}

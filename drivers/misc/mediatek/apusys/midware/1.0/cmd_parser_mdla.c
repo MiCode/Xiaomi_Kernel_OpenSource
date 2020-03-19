@@ -16,7 +16,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 
-#include "apusys_cmn.h"
+#include "mdw_cmn.h"
 #include "apusys_drv.h"
 #include "cmd_parser.h"
 
@@ -59,7 +59,7 @@ int set_multimdla_codebuf(struct apusys_subcmd *sc,
 		return -EINVAL;
 
 	hnd->kva = (uint64_t)cmd->u_hdr + ofs;
-	LOG_DEBUG("set multi-mdla(%d) codebuf(0x%llx/0x%llx/0x%llx)\n",
+	mdw_drv_debug("set multi-mdla(%d) codebuf(0x%llx/0x%llx/0x%llx)\n",
 		idx, hnd->kva, (uint64_t)cmd->u_hdr, ofs);
 
 	return 0;
