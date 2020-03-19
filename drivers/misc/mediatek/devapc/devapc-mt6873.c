@@ -1309,7 +1309,7 @@ static const char *peri_mi_trans(int bus_id)
 }
 
 static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
-		int slave_type, int shift_sta_bit)
+		int slave_type, int shift_sta_bit, int domain)
 {
 	uint8_t h_1byte;
 
@@ -1324,8 +1324,22 @@ static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 	h_1byte = (vio_addr >> 24) & 0xFF;
 
 	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
-			(vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR))
-		pr_info(PFX "[DEVAPC] violation master might be wrong\n");
+	    (vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR)) {
+		pr_info(PFX "[DEVAPC] bus_id might be wrong\n");
+
+		if (domain == 0x1)
+			return "SSPM";
+		else if (domain == 0x2)
+			return "CONNSYS";
+
+	} else if (vio_addr >= CONN_START_ADDR && vio_addr <= CONN_END_ADDR) {
+		pr_info(PFX "[DEVAPC] bus_id might be wrong\n");
+
+		if (domain == 0x1)
+			return "MD";
+		else if (domain == 0x2)
+			return "ADSP";
+	}
 
 	if (slave_type == SLAVE_TYPE_INFRA) {
 		if (vio_addr <= 0x1FFFFF) {
@@ -1388,7 +1402,7 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 	int i;
 
 	/* Filter by violation address */
-	if ((vio_addr & 0xFF000000) == CONNSYS_START_ADDR)
+	if ((vio_addr & 0xFF000000) == CONN_START_ADDR)
 		return "CONNSYS";
 
 	/* Filter by violation index */

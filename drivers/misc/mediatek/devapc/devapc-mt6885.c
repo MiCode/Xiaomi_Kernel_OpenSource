@@ -1413,7 +1413,7 @@ static const char *peri_mi_trans(int bus_id)
 }
 
 static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr,
-		int slave_type, int shift_sta_bit)
+		int slave_type, int shift_sta_bit, int domain)
 {
 	uint16_t h_2byte;
 	uint8_t h_1byte;
@@ -1427,16 +1427,29 @@ static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr,
 	if (bus_id == 0x0 && vio_addr == 0x0)
 		return NULL;
 
-	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
-	    (vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR) ||
-	    (vio_addr >= CONN_START_ADDR && vio_addr <= CONN_END_ADDR))
-		pr_info(PFX "[DEVAPC] violation master might be wrong\n");
-
 	/* bus only reference bit 0~29 */
 	vio_addr = vio_addr & 0x3FFFFFFF;
 
 	h_1byte = (vio_addr >> 24) & 0xFF;
 	h_2byte = (vio_addr >> 16) & 0xFFFF;
+
+	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
+	    (vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR)) {
+		pr_info(PFX "[DEVAPC] bus_id might be wrong\n");
+
+		if (domain == 0x1)
+			return "SSPM";
+		else if (domain == 0x2)
+			return "CONNSYS";
+
+	} else if (vio_addr >= CONN_START_ADDR && vio_addr <= CONN_END_ADDR) {
+		pr_info(PFX "[DEVAPC] bus_id might be wrong\n");
+
+		if (domain == 0x1)
+			return "MD";
+		else if (domain == 0x2)
+			return "ADSP";
+	}
 
 	if (h_2byte < 0x0C51 || (h_2byte >= 0x0C80 && h_2byte < 0x0CC0)) {
 		pr_debug(PFX "vio_addr is from L3C or on-chip SRAMROM\n");

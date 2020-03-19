@@ -889,7 +889,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 				vio_info->master_id,
 				vio_info->vio_addr,
 				slave_type,
-				vio_info->shift_sta_bit);
+				vio_info->shift_sta_bit,
+				vio_info->domain_id);
 
 		if (!vio_master) {
 			pr_warn(PFX "master_get failed\n");
