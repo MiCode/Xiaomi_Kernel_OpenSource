@@ -257,6 +257,44 @@ static int mtk_drm_idlemgr_get_rsz_ratio(struct mtk_crtc_state *state)
 	return ((ratio_w > ratio_h) ? ratio_w : ratio_h);
 }
 
+static bool is_yuv(uint32_t format)
+{
+	switch (format) {
+	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YVU420:
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_YVYU:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
+		return true;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+static bool mtk_planes_is_yuv_fmt(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int i;
+
+	for (i = 0; i < mtk_crtc->layer_nr; i++) {
+		struct drm_plane *plane = &mtk_crtc->planes[i].base;
+		struct mtk_plane_state *plane_state =
+			to_mtk_plane_state(plane->state);
+		struct mtk_plane_pending_state *pending = &plane_state->pending;
+		unsigned int fmt = pending->format;
+
+		if (pending->enable && is_yuv(fmt))
+			return true;
+	}
+
+	return false;
+}
+
 static int mtk_drm_idlemgr_monitor_thread(void *data)
 {
 	int ret = 0;
@@ -302,10 +340,15 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 						__LINE__);
 				continue;
 			}
-			/* do not enter VDO idle when rsz ratio >= 2.5 */
+			/* do not enter VDO idle when rsz ratio >= 2.5;
+			 * And When layer fmt is YUV in VP scenario, it
+			 * will flicker into idle repaint, so let it not
+			 * into idle repaint as workaround.
+			 */
 			if (mtk_crtc_is_frame_trigger_mode(crtc) == 0 &&
-				mtk_drm_idlemgr_get_rsz_ratio(mtk_state) >=
-				MAX_ENTER_IDLE_RSZ_RATIO) {
+				((mtk_drm_idlemgr_get_rsz_ratio(mtk_state) >=
+				MAX_ENTER_IDLE_RSZ_RATIO) ||
+				mtk_planes_is_yuv_fmt(crtc))) {
 				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__,
 						__LINE__);
 				continue;
