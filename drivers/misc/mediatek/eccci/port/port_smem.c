@@ -815,6 +815,7 @@ int port_smem_init(struct port_t *port)
 }
 #endif
 	s_dl_last_w = kmalloc(sizeof(int) * ccb_configs_len, GFP_KERNEL);
+	kmemleak_ignore(s_dl_last_w);
 	return 0;
 }
 
