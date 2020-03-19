@@ -462,6 +462,7 @@ static int idd_tbl_proc_show(struct seq_file *m, void *v)
 		return 0;
 
 	for (i = 0; i < NR_DRAM_PWR_TYPE; i++) {
+#if 0
 		seq_puts(m, "==========================\n");
 		seq_printf(m, "idx %d i_dd0 = %d\n", i,
 			swpm_info_ref->dram_conf[i].i_dd0);
@@ -477,6 +478,7 @@ static int idd_tbl_proc_show(struct seq_file *m, void *v)
 			swpm_info_ref->dram_conf[i].i_dd5);
 		seq_printf(m, "idx %d i_dd6 = %d\n", i,
 			swpm_info_ref->dram_conf[i].i_dd6);
+#endif
 	}
 
 	seq_puts(m, "==========================\n");
@@ -498,11 +500,13 @@ static ssize_t idd_tbl_proc_write(struct file *file,
 		goto end;
 
 	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
+#if 0
 		if (type >= NR_DRAM_PWR_TYPE || idd_idx > 6)
 			goto end;
 		swpm_lock(&swpm_mutex);
 		*(&swpm_info_ref->dram_conf[type].i_dd0 + idd_idx) = val;
 		swpm_unlock(&swpm_mutex);
+#endif
 	} else {
 		swpm_err("echo <type> <idx> <val> > /proc/swpm/idd_tbl\n");
 	}

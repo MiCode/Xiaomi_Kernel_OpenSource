@@ -279,32 +279,13 @@ struct dram_pwr_conf {
 	unsigned int i_dd6;
 };
 
-struct swpm_rec_data {
-	/* 8 bytes */
-	unsigned int cur_idx;
-	unsigned int profile_enable;
+/* numbers of unsigned int for mem reserved memory */
+#define MEM_SWPM_RESERVED_SIZE (425)
 
+/* mem share memory data structure - 1682/1700 bytes */
+struct mem_swpm_rec_data {
 	/* 2(short) * 7(ddr_opp) = 14 bytes */
 	unsigned short ddr_opp_freq[NR_DDR_FREQ];
-
-	/* 2(short) * 4(core_volt) = 8 bytes */
-	unsigned short core_volt_tbl[NR_CORE_VOLT];
-
-	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
-	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
-
-	/* 8(long) * 5(prof_pt) * 3 = 120 bytes */
-	unsigned long long avg_latency[NR_PROFILE_POINT];
-	unsigned long long max_latency[NR_PROFILE_POINT];
-	unsigned long long prof_cnt[NR_PROFILE_POINT];
-
-	/* 2(short) * 12(sample point) * 7(opp_num) = 168 bytes */
-	struct aphy_core_bw_data aphy_core_bw_tbl[NR_DDR_FREQ];
-
-	/* 2(short) * 1(pwr_type) */
-	/* * (12+12)(r/w_coef) * 7(opp) + 7(idle) = 343 bytes */
-	struct aphy_core_pwr_data
-		aphy_core_pwr_tbl[NR_APHY_CORE_PWR_TYPE];
 
 	/* 2(short) * 16(sample point) * 7(opp_num) = 226 bytes */
 	struct aphy_others_bw_data aphy_others_bw_tbl[NR_DDR_FREQ];
@@ -316,12 +297,52 @@ struct swpm_rec_data {
 
 	/* 4(int) * 2(pwr_type) * 7 = 56 bytes */
 	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
+};
+
+/* numbers of unsigned int for core reserved memory */
+#define CORE_SWPM_RESERVED_SIZE (150)
+
+/* core share memory data structure - 594/600 bytes */
+struct core_swpm_rec_data {
+	/* 2(short) * 4(core_volt) = 8 bytes */
+	unsigned short core_volt_tbl[NR_CORE_VOLT];
+
+	/* 2(short) * 12(sample point) * 7(opp_num) = 168 bytes */
+	struct aphy_core_bw_data aphy_core_bw_tbl[NR_DDR_FREQ];
+
+	/* 2(short) * 1(pwr_type) */
+	/* * (12+12)(r/w_coef) * 7(opp) + 7(idle) = 350 bytes */
+	struct aphy_core_pwr_data
+		aphy_core_pwr_tbl[NR_APHY_CORE_PWR_TYPE];
+
+	/* 4 (int) * 4(core_volt) * 4(core_lkg_type) = 64 bytes */
+	unsigned int core_lkg_pwr[NR_CORE_VOLT][NR_CORE_LKG_TYPE];
+
+	/* 4 (int) * 1 = 4 bytes */
+	unsigned int thermal;
+};
+
+struct swpm_rec_data {
+	/* 8 bytes */
+	unsigned int cur_idx;
+	unsigned int profile_enable;
+
+	/* 8(long) * 5(prof_pt) * 3 = 120 bytes */
+	unsigned long long avg_latency[NR_PROFILE_POINT];
+	unsigned long long max_latency[NR_PROFILE_POINT];
+	unsigned long long prof_cnt[NR_PROFILE_POINT];
+
+	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
+	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
 	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
-	/* 4 (int) * 4(core_volt) * 4(core_lkg_type) = 64 bytes */
-	unsigned int core_lkg_pwr[NR_CORE_VOLT][NR_CORE_LKG_TYPE];
+	/* 1682/1700 bytes */
+	unsigned int mem_reserved[MEM_SWPM_RESERVED_SIZE];
+
+	/* 592/600 bytes */
+	unsigned int core_reserved[CORE_SWPM_RESERVED_SIZE];
 
 	/* 4(int) * 15 = 60 bytes */
 	unsigned int gpu_reserved[GPU_SWPM_RESERVED_SIZE];
@@ -329,7 +350,7 @@ struct swpm_rec_data {
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 697 bytes */
+	/* remaining size = 648 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;

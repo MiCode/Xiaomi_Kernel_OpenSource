@@ -67,7 +67,9 @@ static unsigned long long rec_size;
 __weak int mt_spower_get_leakage_uW(int dev, int voltage, int deg)
 {
 	return 0;
-};
+}
+static struct core_swpm_rec_data *core_ptr;
+static struct mem_swpm_rec_data *mem_ptr;
 
 static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
 static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
@@ -98,10 +100,12 @@ static struct perf_event_attr cycle_event_attr = {
 };
 
 /* rt => /100000, uA => *1000, res => 100 */
+#define CORE_DEFAULT_DEG (30)
 #define CORE_DEFAULT_LKG (64)
 #define CORE_LKG_RT_RES (100)
 /* infra, dramc, mm and others (%), chip_top include in aphy idle */
 static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
+	/* 15176, 3141, 9790, 4767, */
 	11881, 2665, 5386, 7281,
 };
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
@@ -687,6 +691,34 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 #endif
 }
 
+static void swpm_core_thermal_cb(void)
+{
+#ifdef CONFIG_THERMAL
+#if CFG_THERM_LVTS
+	int temp, infra_temp, cam_temp;
+
+	if (!core_ptr)
+		return;
+
+	infra_temp = get_immediate_tslvts6_0_wrap();
+	cam_temp = get_immediate_tslvts6_1_wrap();
+
+	temp = (infra_temp + cam_temp) / 2;
+
+	/* truncate negative deg */
+	temp = (temp < 0) ? 0 : temp;
+	core_ptr->thermal = (unsigned int)temp;
+
+#if SWPM_TEST
+	swpm_err("swpm_core infra lvts6_0 = %d\n", infra_temp);
+	swpm_err("swpm_core cam lvts6_1 = %d\n", cam_temp);
+	swpm_err("swpm_core cpuL = %d\n", get_immediate_cpuL_wrap());
+	swpm_err("swpm_core cpuB = %d\n", get_immediate_cpuB_wrap());
+#endif
+#endif /* CFG_THERM_LVTS */
+#endif
+}
+
 static void swpm_update_lkg_table(void)
 {
 	int temp, dev_id, volt, i, j;
@@ -728,6 +760,8 @@ static void swpm_update_lkg_table(void)
 			mt_gpufreq_get_leakage_no_lock();
 #endif
 	}
+
+	swpm_core_thermal_cb();
 }
 
 static int swpm_log_loop(void)
@@ -801,6 +835,77 @@ static int swpm_log_loop(void)
 	return 0;
 }
 
+static void swpm_core_pwr_data_init(void)
+{
+#ifdef CONFIG_MTK_STATIC_POWER
+	int lkg, lkg_scaled;
+#endif
+	int i, j;
+
+	if (!core_ptr)
+		return;
+
+#ifdef CONFIG_MTK_STATIC_POWER
+	/* init core lkg data once */
+	lkg = mt_spower_get_efuse_lkg(MTK_SPOWER_VCORE);
+	/* default 64 mA, efuse default mW to mA */
+	lkg = (lkg <= 0) ? CORE_DEFAULT_LKG
+			: (lkg * 1000 / V_OF_FUSE_VCORE);
+
+	/* efuse lkg unit mW with voltage scaling */
+	for (i = 0; i < NR_CORE_VOLT; i++) {
+		lkg_scaled = lkg * core_volt_tbl[i] / V_OF_FUSE_VCORE;
+		for (j = 0; j < NR_CORE_LKG_TYPE; j++) {
+			/* unit (uA) */
+			core_ptr->core_lkg_pwr[i][j] =
+				lkg_scaled * core_lkg_rt[j] / CORE_LKG_RT_RES;
+		}
+	}
+#else
+	for (i = 0; i < NR_CORE_VOLT; i++)
+		for (j = 0; j < NR_CORE_LKG_TYPE; j++)
+			core_ptr->core_lkg_pwr[i][j] = 0;
+#endif
+	/* default degree setting */
+	core_ptr->thermal = CORE_DEFAULT_DEG;
+	/* copy core volt data */
+	memcpy(core_ptr->core_volt_tbl, core_volt_tbl,
+		sizeof(core_volt_tbl));
+	/* copy aphy core pwr data */
+	memcpy(core_ptr->aphy_core_bw_tbl, aphy_ref_core_bw_tbl,
+		sizeof(aphy_ref_core_bw_tbl));
+	memcpy(core_ptr->aphy_core_pwr_tbl, aphy_def_core_pwr_tbl,
+		sizeof(aphy_def_core_pwr_tbl));
+
+	swpm_info("aphy core_bw[%ld]/core[%ld]/core_volt[%ld]\n",
+		(unsigned long)sizeof(aphy_ref_core_bw_tbl),
+		(unsigned long)sizeof(aphy_def_core_pwr_tbl),
+		(unsigned long)sizeof(core_volt_tbl));
+}
+
+static void swpm_mem_pwr_data_init(void)
+{
+	if (!mem_ptr)
+		return;
+
+	/* copy aphy others pwr data */
+	memcpy(mem_ptr->aphy_others_bw_tbl, aphy_ref_others_bw_tbl,
+		sizeof(aphy_ref_others_bw_tbl));
+	memcpy(mem_ptr->aphy_others_pwr_tbl, aphy_def_others_pwr_tbl,
+		sizeof(aphy_def_others_pwr_tbl));
+	/* copy dram pwr data */
+	memcpy(mem_ptr->dram_conf, dram_def_pwr_conf,
+		sizeof(dram_def_pwr_conf));
+	memcpy(mem_ptr->ddr_opp_freq, ddr_opp_freq,
+		sizeof(ddr_opp_freq));
+
+	swpm_info("aphy others_bw[%ld]/others[%ld]/idd[%ld]/dram_opp[%d]\n",
+		(unsigned long)sizeof(aphy_ref_others_bw_tbl),
+		(unsigned long)sizeof(aphy_def_others_pwr_tbl),
+		(unsigned long)sizeof(dram_def_pwr_conf),
+		(unsigned short)sizeof(ddr_opp_freq));
+}
+
 static inline void swpm_pass_to_sspm(void)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
@@ -814,68 +919,22 @@ static inline void swpm_pass_to_sspm(void)
 #endif
 }
 
-static inline int swpm_init_pwr_data(void)
+static void swpm_init_pwr_data(void)
 {
-	int i, j;
-#ifdef CONFIG_MTK_STATIC_POWER
-	int lkg, lkg_scaled;
-#endif
+	int ret;
+	phys_addr_t *ptr = NULL;
 
-	swpm_lock(&swpm_mutex);
+	ret = swpm_mem_addr_request(CORE_SWPM_TYPE, &ptr);
+	if (!ret)
+		core_ptr = (struct core_swpm_rec_data *)ptr;
 
-	/* copy core volt data */
-	memcpy(swpm_info_ref->core_volt_tbl, core_volt_tbl,
-		sizeof(core_volt_tbl));
-#ifdef CONFIG_MTK_STATIC_POWER
-	/* init core lkg data once */
-	lkg = mt_spower_get_efuse_lkg(MTK_SPOWER_VCORE);
-	/* default 64 mA, efuse default mW to mA */
-	lkg = (lkg <= 0) ? CORE_DEFAULT_LKG
-			: (lkg * 1000 / V_OF_FUSE_VCORE);
 
-	/* efuse lkg unit mW with voltage scaling */
-	for (i = 0; i < NR_CORE_VOLT; i++) {
-		lkg_scaled = lkg * core_volt_tbl[i] / V_OF_FUSE_VCORE;
-		for (j = 0; j < NR_CORE_LKG_TYPE; j++) {
-			/* unit (uA) */
-			swpm_info_ref->core_lkg_pwr[i][j] =
-				lkg_scaled * core_lkg_rt[j] / CORE_LKG_RT_RES;
-		}
-	}
-#else
-	for (i = 0; i < NR_CORE_VOLT; i++)
-		for (j = 0; j < NR_CORE_LKG_TYPE; j++)
-			swpm_info_ref->core_lkg_pwr[i][j] = 0;
-#endif
+	ret = swpm_mem_addr_request(MEM_SWPM_TYPE, &ptr);
+	if (!ret)
+		mem_ptr = (struct mem_swpm_rec_data *)ptr;
 
-	/* copy aphy core pwr data */
-	memcpy(swpm_info_ref->aphy_core_bw_tbl, aphy_ref_core_bw_tbl,
-		sizeof(aphy_ref_core_bw_tbl));
-	memcpy(swpm_info_ref->aphy_core_pwr_tbl, aphy_def_core_pwr_tbl,
-		sizeof(aphy_def_core_pwr_tbl));
-	/* copy aphy others pwr data */
-	memcpy(swpm_info_ref->aphy_others_bw_tbl, aphy_ref_others_bw_tbl,
-		sizeof(aphy_ref_others_bw_tbl));
-	memcpy(swpm_info_ref->aphy_others_pwr_tbl, aphy_def_others_pwr_tbl,
-		sizeof(aphy_def_others_pwr_tbl));
-	/* copy dram pwr data */
-	memcpy(swpm_info_ref->dram_conf, dram_def_pwr_conf,
-		sizeof(dram_def_pwr_conf));
-	memcpy(swpm_info_ref->ddr_opp_freq, ddr_opp_freq,
-		sizeof(ddr_opp_freq));
-
-	swpm_unlock(&swpm_mutex);
-
-	swpm_info("copy aphy pwr data (size: ");
-	swpm_info("core_bw[%ld]/core[%ld]/others_bw[%ld]/others[%ld]/idd[%ld]/dram_opp[%d])\n",
-		(unsigned long)sizeof(aphy_ref_core_bw_tbl),
-		(unsigned long)sizeof(aphy_def_core_pwr_tbl),
-		(unsigned long)sizeof(aphy_ref_others_bw_tbl),
-		(unsigned long)sizeof(aphy_def_others_pwr_tbl),
-		(unsigned long)sizeof(dram_def_pwr_conf),
-		(unsigned short)sizeof(ddr_opp_freq));
-
-	return 0;
+	swpm_core_pwr_data_init();
+	swpm_mem_pwr_data_init();
 }
 
 #if SWPM_TEST
@@ -911,6 +970,12 @@ static inline void swpm_subsys_data_ref_init(void)
 {
 	swpm_lock(&swpm_mutex);
 
+	mem_ref_tbl[MEM_POWER_METER].valid = true;
+	mem_ref_tbl[MEM_POWER_METER].virt =
+		(phys_addr_t *)&swpm_info_ref->mem_reserved;
+	mem_ref_tbl[CORE_POWER_METER].valid = true;
+	mem_ref_tbl[CORE_POWER_METER].virt =
+		(phys_addr_t *)&swpm_info_ref->core_reserved;
 	mem_ref_tbl[GPU_POWER_METER].valid = true;
 	mem_ref_tbl[GPU_POWER_METER].virt =
 		(phys_addr_t *)&swpm_info_ref->gpu_reserved;
@@ -1039,13 +1104,13 @@ static int __init swpm_platform_init(void)
 		goto end;
 	}
 
-	ret = swpm_reserve_mem_init(&rec_virt_addr, &rec_size);
+	ret |= swpm_reserve_mem_init(&rec_virt_addr, &rec_size);
 
 	swpm_subsys_data_ref_init();
 
-	swpm_init_pwr_data();
+	ret |= swpm_interface_manager_init(mem_ref_tbl, NR_SWPM_TYPE);
 
-	ret = swpm_interface_manager_init(mem_ref_tbl, NR_SWPM_TYPE);
+	swpm_init_pwr_data();
 
 #if SWPM_TEST
 	swpm_interface_unit_test();
