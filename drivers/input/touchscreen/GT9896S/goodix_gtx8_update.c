@@ -1116,6 +1116,7 @@ static int gt9896s_fw_update_thread(void *data)
 	struct fw_update_ctrl *fwu_ctrl = data;
 	struct firmware *temp_firmware = NULL;
 	int r = -EINVAL;
+	struct fw_update_ctrl *fw_ctrl = &gt9896s_fw_update_ctrl;
 
 	mutex_lock(&fwu_ctrl->mutex);
 
@@ -1152,7 +1153,9 @@ static int gt9896s_fw_update_thread(void *data)
 		goto out;
 	}
 
-	gt9896s_register_ext_module(&gt9896s_fwu_module);
+	if (!fw_ctrl->initialized)
+		gt9896s_register_ext_module(&gt9896s_fwu_module);
+
 	/* DONT allow reset/irq/suspend/resume during update */
 	fwu_ctrl->allow_irq = false;
 	fwu_ctrl->allow_suspend = false;
@@ -1181,10 +1184,11 @@ static int gt9896s_fw_update_thread(void *data)
 		vfree(fwu_ctrl->fw_data.firmware);
 		fwu_ctrl->fw_data.firmware = NULL;
 	}
-	gt9896s_unregister_ext_module(&gt9896s_fwu_module);
+
 out:
 	fwu_ctrl->mode = UPDATE_MODE_DEFAULT;
 	mutex_unlock(&fwu_ctrl->mutex);
+	gt9896s_unregister_ext_module(&gt9896s_fwu_module);
 
 	if (r) {
 		ts_err("fw update failed, %d", r);
