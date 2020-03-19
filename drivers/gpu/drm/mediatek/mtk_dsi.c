@@ -2606,17 +2606,23 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	bool mod_vfp, mod_vbp, mod_vsa;
 	bool mod_hfp, mod_hbp, mod_hsa;
 	unsigned int data_rate;
 	struct cmdq_pkt *cmdq_handle;
+	int index = drm_crtc_index(crtc);
 
 	dsi->mipi_hopping_sta = en;
 
 	if (!(ext && ext->params &&
 			ext->params->dyn.switch_en == 1))
 		return;
+
+	CRTC_MMP_EVENT_START(index, clk_change,
+			en, (ext->params->data_rate << 16)
+			| ext->params->pll_clk);
 
 	mod_vfp = !!ext->params->dyn.vfp;
 	mod_vbp = !!ext->params->dyn.vbp;
@@ -2642,11 +2648,17 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 	}
 
 	/* implicit way for display power state */
-	if (dsi->clk_refcnt == 0)
-		return;
+	if (dsi->clk_refcnt == 0) {
+		CRTC_MMP_MARK(index, clk_change, 0, 1);
+		goto done;
+	}
 
-	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	else
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		if (mod_vfp)
@@ -2682,6 +2694,12 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
+
+done:
+	CRTC_MMP_EVENT_END(index, clk_change,
+			dsi->mode_flags,
+			(ext->params->dyn.data_rate << 16) |
+			ext->params->dyn.pll_clk);
 }
 
 static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
