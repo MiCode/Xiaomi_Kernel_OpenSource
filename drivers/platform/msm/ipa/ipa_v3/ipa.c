@@ -8415,7 +8415,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;
 
-		if (ipa3_ctx->use_xbl_boot) {
+		if (ipa3_ctx->use_xbl_boot && (gsi_is_mcs_enabled() == 1)) {
 			/* Ensure uC probe is the last. */
 			if (!smmu_info.present[IPA_SMMU_CB_AP] ||
 				!smmu_info.present[IPA_SMMU_CB_WLAN]) {
