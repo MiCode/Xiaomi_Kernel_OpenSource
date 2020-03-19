@@ -32,6 +32,8 @@
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <linux/random.h>
+#include <mt-plat/aee.h>
+#include <aed.h>
 
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
@@ -194,6 +196,8 @@ static bool g_buck_on;
 static bool g_fixed_freq_volt_state;
 static bool g_probe_done;
 static int g_power_count;
+static char g_exception_str[340];
+static unsigned int g_is_need_dump_exception;
 static unsigned int g_opp_stress_test_state;
 static int g_opp_power_test_state;
 static unsigned int g_max_opp_idx_num;
@@ -835,10 +839,49 @@ void mt_gpufreq_software_trigger_dfd(void)
 #endif
 }
 
+/*
+ * general kernelAPI db when dfd is triggerd in probe function
+ * we need dump debug register information
+ */
+static void __mt_gpufreq_dfd_debug_exception(void)
+{
+#if MT_GPUFREQ_DFD_ENABLE
+	// since aee driver is probed after gpufreq driver,
+	// we need call dump after aee deriver init.
+	if (g_is_need_dump_exception &&
+	    aee_mode != AEE_MODE_NOT_INIT) {
+		aee_kernel_warning("GPU_DFD",
+			"\n\n%s\n%s\n%s\n",
+			"[GPU_DFD] gpu dfd is triggered at probe",
+			g_exception_str,
+			"CRDISPATCH_KEY:GPU_DFD_PROBE_TRIGGERED");
+		g_is_need_dump_exception = 0;
+	}
+#endif // MT_GPUFREQ_DFD_ENABLE
+}
+
+static void __mt_gpufreq_dfd_get_exception_string(void)
+{
+#if MT_GPUFREQ_DFD_ENABLE
+	unsigned int status = readl(g_infracfg_ao + 0x600);
+
+	//0x1000700C WDT_STA
+	//0x10007030 WDT_REQ_MODE
+	snprintf(g_exception_str, 340,
+		"[GPU_DFD] dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x",
+		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030));
+
+	__mt_gpufreq_dfd_debug_exception();
+#endif
+}
+
 static int __mt_gpufreq_is_dfd_triggered(void)
 {
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int status = readl(g_infracfg_ao + 0x600);
+
+	if (g_is_need_dump_exception)
+		__mt_gpufreq_dfd_debug_exception();
 
 #if MT_GPUFREQ_DFD_DEBUG
 	gpufreq_pr_debug("[GPU_DFD] @%s: dfd status 0x%x\n",
@@ -3581,6 +3624,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #if MT_GPUFREQ_DFD_ENABLE
 	/* if dfd is triggered, power off BUCK to cleare it */
 	if (__mt_gpufreq_is_dfd_triggered()) {
+		g_is_need_dump_exception = 1;
+		__mt_gpufreq_dfd_get_exception_string();
 		gpufreq_pr_info("[GPU_DFD] gpu dfd is triggered, clear it.\n");
 		__mt_gpufreq_gpu_dfd_clear();
 	}
