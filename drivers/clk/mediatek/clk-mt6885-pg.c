@@ -92,6 +92,8 @@ void __iomem *clk_apu_conn_base;
 #define CAMSYS_RAWC_CG_CLR	(clk_cam_rawc_base + 0x0008)
 #define APU_VCORE_CG_CLR	(clk_apu_vcore_base + 0x0008)
 #define APU_CONN_CG_CLR		(clk_apu_conn_base + 0x0008)
+#define MFG_MISC_CON		INFRACFG_REG(0x0600)
+#define MFG_DFD_TRIGGER (1<<19)
 #endif
 
 /*
@@ -4643,6 +4645,28 @@ int allow[NR_SYSS] = {
 };
 #endif
 
+static int isNeedMfgFakePowerOn(enum subsys_id id)
+{
+	int isGpuDfdTriggered = 0;
+	unsigned int gpu_dfd_status;
+
+	if (id == SYS_MFG0 || id == SYS_MFG1 || id == SYS_MFG2 ||
+	    id == SYS_MFG3 || id == SYS_MFG4 || id == SYS_MFG5 ||
+	    id == SYS_MFG6) {
+		gpu_dfd_status = spm_read(MFG_MISC_CON);
+
+		// if gpu dfd is triggered, the power control will be locked
+		// so we need to do fake power on
+		if (gpu_dfd_status & MFG_DFD_TRIGGER) {
+			pr_info("%s:power on, MFG_MISC_CON(0x%x)\n",
+				__func__, gpu_dfd_status);
+			isGpuDfdTriggered = 1;
+		}
+	}
+
+	return isGpuDfdTriggered;
+}
+
 static int enable_subsys(enum subsys_id id)
 {
 	int r;
@@ -4687,7 +4711,8 @@ static int enable_subsys(enum subsys_id id)
 	mtk_clk_lock(flags);
 
 #if CHECK_PWR_ST
-	if (sys->ops->get_state(sys) == SUBSYS_PWR_ON) {
+	if (sys->ops->get_state(sys) == SUBSYS_PWR_ON &&
+		!isNeedMfgFakePowerOn(id)) {
 		mtk_clk_unlock(flags);
 		return 0;
 	}
