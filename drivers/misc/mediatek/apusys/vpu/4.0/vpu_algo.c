@@ -150,24 +150,6 @@ static void vpu_alg_unload(struct vpu_algo_list *al, int prio)
 }
 
 /**
- * vpu_alg_unload_all() - unload currently loaded algorithms of
- *                        all command priorities from vpu
- * @vd: vpu device
- *
- * vpu_cmd_lock_all() must be locked before calling this function
- */
-static void vpu_alg_unload_all(struct vpu_algo_list *al)
-{
-	int i;
-
-	if (!al || !al->ops || !al->ops->unload)
-		return;
-
-	for (i = 0; i < al->vd->cmd_prio_max ; i++)
-		al->ops->unload(al, i);
-}
-
-/**
  * vpu_alg_load() - load an algortihm for normal priority(0)
  *                  d2d execution
  * @vd: vpu device
@@ -176,8 +158,6 @@ static void vpu_alg_unload_all(struct vpu_algo_list *al)
  * load given one.
  * vpu_cmd_lock() must be locked before calling this function
  */
-
-// TOOD: share with preload with different priority
 static int vpu_alg_load(struct vpu_algo_list *al, const char *name,
 	struct __vpu_algo *alg, int prio)
 {
@@ -382,7 +362,6 @@ int vpu_firmware(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 struct vpu_algo_ops vpu_normal_aops = {
 	.load = vpu_alg_load,
 	.unload = vpu_alg_unload,
-	.unload_all = vpu_alg_unload_all,
 	.get = vpu_alg_get,
 	.put = vpu_alg_put,
 	.release = vpu_alg_release,
@@ -394,7 +373,6 @@ struct vpu_algo_ops vpu_normal_aops = {
 struct vpu_algo_ops vpu_prelaod_aops = {
 	.load = vpu_alg_load,
 	.unload = vpu_alg_unload,
-	.unload_all = vpu_alg_unload_all,
 	.get = vpu_alg_get,
 	.put = vpu_alg_put,
 	.release = vpu_alg_release,

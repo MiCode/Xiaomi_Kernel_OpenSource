@@ -60,7 +60,6 @@ struct vpu_algo_ops {
 	int (*load)(struct vpu_algo_list *al, const char *name,
 		struct __vpu_algo *alg, int prio);
 	void (*unload)(struct vpu_algo_list *al, int prio);
-	void (*unload_all)(struct vpu_algo_list *al);
 	struct __vpu_algo * (*get)(struct vpu_algo_list *al,
 		const char *name, struct __vpu_algo *alg);
 	void (*put)(struct __vpu_algo *alg);

@@ -219,6 +219,7 @@ struct vpu_device {
 	atomic_t cmd_prio;     /* current running command's priority */
 	int cmd_prio_max;      /* eq. VPU_MAX_PRIORITY */
 	struct vpu_cmd_ctl cmd[VPU_MAX_PRIORITY];
+	atomic_t cmd_active;   /* number of active command controls */
 	uint32_t dev_state;    /* last known device state */
 	uint64_t cmd_timeout;  /* ms */
 

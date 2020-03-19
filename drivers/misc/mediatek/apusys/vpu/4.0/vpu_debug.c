@@ -632,7 +632,7 @@ algo:
 }
 
 int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
-	int prio_max, struct vpu_cmd_ctl *c, uint64_t timeout)
+	int prio_max, int active, struct vpu_cmd_ctl *c, uint64_t timeout)
 {
 	int i;
 	uint64_t exe_cnt;
@@ -641,6 +641,7 @@ int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
 	seq_printf(s, "priority: current: %d (highest: %d)\n",
 		prio, prio_max - 1);
 	seq_printf(s, "timeout setting: %llu ms\n", timeout);
+	seq_printf(s, "number of active commands: %d\n", active);
 
 	if (prio_max > VPU_MAX_PRIORITY)
 		prio_max = VPU_MAX_PRIORITY;
@@ -669,7 +670,8 @@ static inline
 int vpu_debug_cmd_dev(struct seq_file *s, struct vpu_device *vd)
 {
 	return vpu_debug_cmd_seq(s, vd, atomic_read(&vd->cmd_prio),
-		vd->cmd_prio_max, vd->cmd, vd->cmd_timeout);
+		vd->cmd_prio_max, atomic_read(&vd->cmd_active),
+		vd->cmd, vd->cmd_timeout);
 }
 
 

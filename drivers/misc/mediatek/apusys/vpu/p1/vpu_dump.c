@@ -221,6 +221,7 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	d->c_prio = atomic_read(&vd->cmd_prio);
 	d->c_prio_max = vd->cmd_prio_max;
 	d->c_timeout = vd->cmd_timeout;
+	d->c_active = atomic_read(&vd->cmd_active);
 
 	if (req) {
 		memcpy(&d->req, req, sizeof(struct vpu_request));
@@ -393,7 +394,7 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 		return;
 	}
 
-	vpu_dmp_seq_bar(s, vd, "device info");
+	vpu_dmp_seq_bar(s, vd, "exception info");
 	seq_printf(s, "exception reason: %s\n", d->info);
 	seq_puts(s, "exception time: [");
 	vpu_seq_time(s, d->time);
@@ -403,7 +404,7 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 
 	vpu_dmp_seq_bar(s, vd, "commands");
 	vpu_debug_cmd_seq(s, vd, d->c_prio,
-		d->c_prio_max, d->c_ctl, d->c_timeout);
+		d->c_prio_max, d->c_active, d->c_ctl, d->c_timeout);
 
 	vpu_dmp_seq_bar(s, vd, "request info");
 	vpu_dmp_seq_req(s, vd);

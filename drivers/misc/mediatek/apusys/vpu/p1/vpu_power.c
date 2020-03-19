@@ -249,12 +249,7 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 	int ret;
 	int adu_id = adu(vd->id);
 
-	if (vd->aln.ops && vd->aln.ops->unload_all)
-		vd->aln.ops->unload_all(&vd->aln);
-
-	if (vd->alp.ops && vd->alp.ops->unload_all)
-		vd->alp.ops->unload_all(&vd->alp);
-
+	vpu_cmd_clear(vd);
 	vpu_met_pm_put(vd);
 
 	if (vd->state <= VS_DOWN) {

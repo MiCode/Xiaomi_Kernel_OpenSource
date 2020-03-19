@@ -18,6 +18,7 @@
 #include "vpu_cfg.h"
 #include "vpu_cmd.h"
 #include "vpu_reg.h"
+#include "vpu_algo.h"
 
 static int vpu_prio(int p)
 {
@@ -41,6 +42,7 @@ int vpu_cmd_init(struct platform_device *pdev, struct vpu_device *vd)
 
 	vd->cmd_timeout = VPU_CMD_TIMEOUT;
 	atomic_set(&vd->cmd_prio, 0);
+	atomic_set(&vd->cmd_active, 0);
 	vd->cmd_prio_max = VPU_MAX_PRIORITY;
 
 	for (i = 0; i < vd->cmd_prio_max; i++) {
@@ -76,6 +78,34 @@ void vpu_cmd_exit(struct vpu_device *vd)
 }
 
 /**
+ * vpu_cmd_clear - clear command control when power down
+ * @vd: vpu_device
+ */
+void vpu_cmd_clear(struct vpu_device *vd)
+{
+	int i;
+	struct vpu_cmd_ctl *c;
+	struct vpu_algo_list *al;
+
+	for (i = 0; i < vd->cmd_prio_max; i++) {
+		c = &vd->cmd[i];
+		c->cmd = 0;
+		c->done = false;
+		c->alg_ret = 0;
+		c->result = 0;
+		c->start_t = 0;
+		c->end_t = 0;
+		c->boost = VPU_PWR_NO_BOOST;
+		if (c->alg && c->alg->al) {
+			al = c->alg->al;
+			if (al->ops->unload)
+				al->ops->unload(al, i);
+		}
+		atomic_set(&vd->cmd_active, 0);
+	}
+}
+
+/**
  * vpu_cmd_lock - Lock command execution for given priority
  * @vd: the pointer of vpu_device.
  * @prio: priority
@@ -83,9 +113,11 @@ void vpu_cmd_exit(struct vpu_device *vd)
 void vpu_cmd_lock(struct vpu_device *vd, int prio)
 {
 	int p = vpu_prio(prio);
+	struct vpu_cmd_ctl *c = &vd->cmd[p];
 
-	mutex_lock_nested(&vd->cmd[p].lock, VPU_MUTEX_CMD + p);
-	vd->cmd[p].start_t = sched_clock();
+	mutex_lock_nested(&c->lock, VPU_MUTEX_CMD + p);
+	c->start_t = sched_clock();
+	c->end_t = 0;
 }
 
 /**
@@ -95,10 +127,10 @@ void vpu_cmd_lock(struct vpu_device *vd, int prio)
  */
 void vpu_cmd_unlock(struct vpu_device *vd, int prio)
 {
-	int p = vpu_prio(prio);
+	struct vpu_cmd_ctl *c = &vd->cmd[vpu_prio(prio)];
 
-	vd->cmd[p].end_t = sched_clock();
-	mutex_unlock(&vd->cmd[p].lock);
+	c->end_t = sched_clock();
+	mutex_unlock(&c->lock);
 }
 
 /**
@@ -145,6 +177,25 @@ void vpu_cmd_run(struct vpu_device *vd, int prio, uint32_t cmd)
 	c->alg_ret = 0;
 	c->result = 0;
 	c->exe_cnt++;
+	atomic_inc(&vd->cmd_active);
+}
+
+/**
+ * vpu_cmd_done - finalize command of given priority when done
+ * @vd: the pointer of vpu_device.
+ * @prio: priority
+ * @result: execution result from INFO00
+ * @alg_ret: algorithm return value from INFO02
+ */
+void vpu_cmd_done(struct vpu_device *vd, int prio,
+	uint32_t result, uint32_t alg_ret)
+{
+	struct vpu_cmd_ctl *c = &vd->cmd[vpu_prio(prio)];
+
+	c->done = true;
+	c->alg_ret = alg_ret;
+	c->result = result;
+	atomic_dec(&vd->cmd_active);
 }
 
 /**
@@ -231,9 +282,8 @@ int vpu_cmd_result(struct vpu_device *vd, int prio)
 	case VPU_STATE_BUSY:
 		return -EBUSY;
 	case VPU_STATE_TERMINATED:
-		return -EBADFD;
 	case VPU_STATE_ABORT:
-		return -EAGAIN;
+		return -EBADFD;
 	default:
 		return -EINVAL;
 	}

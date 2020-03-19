@@ -47,7 +47,7 @@ void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd);
 int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd);
 int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds, int b);
 int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
-	int prio_max, struct vpu_cmd_ctl *c, uint64_t timeout);
+	int prio_max, int active, struct vpu_cmd_ctl *c, uint64_t timeout);
 const char *vpu_debug_cmd_str(int cmd);
 void vpu_seq_time(struct seq_file *s, uint64_t t);
 void vpu_seq_boost(struct seq_file *s, int boost);
@@ -95,7 +95,7 @@ int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds, int b)
 
 static inline
 int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
-	int prio_max, struct vpu_cmd_ctl *c, uint64_t timeout)
+	int prio_max, int active, struct vpu_cmd_ctl *c, uint64_t timeout)
 {
 	return 0;
 }

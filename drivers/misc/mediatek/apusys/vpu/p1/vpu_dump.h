@@ -46,6 +46,7 @@ struct vpu_dmp {
 	struct __vpu_algo c_alg[VPU_MAX_PRIORITY];
 	int c_prio;
 	int c_prio_max;
+	int c_active;
 	uint64_t c_timeout;
 
 	// memory

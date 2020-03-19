@@ -580,16 +580,12 @@ wait_queue_head_t *vpu_isr_check_cmd(struct vpu_device *vd,
 {
 	wait_queue_head_t *wake = NULL;
 	uint32_t ret = 0;
-	struct vpu_cmd_ctl *c;
 
 	if ((DS_PREEMPT_DONE | DS_ALG_DONE | DS_ALG_RDY |
 		 DS_DSP_RDY | DS_DBG_RDY | DS_FTRACE_RDY) & inf) {
 		ret = vpu_reg_read(vd, XTENSA_INFO00);
 		ret = (ret >> (prio * 8)) & 0xFF;
-		c = &vd->cmd[prio];
-		c->result = ret;
-		c->done = true;
-		c->alg_ret = vpu_reg_read(vd, XTENSA_INFO02);
+		vpu_cmd_done(vd, prio, ret, vpu_reg_read(vd, XTENSA_INFO02));
 		wake = vpu_cmd_waitq(vd, prio);
 	}
 
@@ -624,16 +620,12 @@ wait_queue_head_t *vpu_isr_check_cmd(struct vpu_device *vd,
 {
 	wait_queue_head_t *wake = NULL;
 	uint32_t ret = 0;
-	struct vpu_cmd_ctl *c;
 
 	ret = vpu_reg_read(vd, XTENSA_INFO00);
 
 	if (ret != VPU_STATE_BUSY) {
 		ret = vpu_reg_read(vd, XTENSA_INFO00);
-		c = &vd->cmd[prio];
-		c->result = ret;
-		c->done = true;
-		c->alg_ret = vpu_reg_read(vd, XTENSA_INFO02);
+		vpu_cmd_done(vd, prio, ret, vpu_reg_read(vd, XTENSA_INFO02));
 		wake = vpu_cmd_waitq(vd, prio);
 	}
 
@@ -851,6 +843,7 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 	int boost = 0;
 	uint64_t flags;
 	struct vpu_algo_list *al;
+	enum vpu_state state;
 
 	vpu_cmd_lock(vd, req->prio);
 	/* Backup/Restore request flags for elevate to preload algo */
@@ -861,6 +854,8 @@ int vpu_execute(struct vpu_device *vd, struct vpu_request *req)
 	ret_pwr = vpu_pwr_get_locked(vd, boost);
 	if (!ret_pwr)
 		ret = vpu_dev_boot(vd);
+	/* Backup original state */
+	state = vd->state;
 	mutex_unlock(&vd->lock);
 
 	if (ret_pwr || (ret == -ETIMEDOUT))
@@ -904,10 +899,18 @@ err_alg:
 		goto err_remove;
 
 err_boot:
-	vd->state = VS_IDLE;
 	mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
-	boost = vpu_cmd_boost_put(vd, req->prio);
-	vpu_pwr_put_locked(vd, boost);
+	/* Skip, if other priorities had timeout and powered down */
+	if (vd->state != VS_DOWN) {
+		/* There's no more active commands => idle */
+		if (!atomic_read(&vd->cmd_active))
+			vd->state = VS_IDLE;
+		/* Otherwise, restore to original state */
+		else
+			vd->state = state;
+		boost = vpu_cmd_boost_put(vd, req->prio);
+		vpu_pwr_put_locked(vd, boost);
+	}
 	mutex_unlock(&vd->lock);
 
 err_remove:

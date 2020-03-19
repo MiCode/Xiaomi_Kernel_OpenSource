@@ -23,6 +23,8 @@ struct vpu_device;
 
 int vpu_cmd_init(struct platform_device *pdev, struct vpu_device *vd);
 void vpu_cmd_exit(struct vpu_device *vd);
+void vpu_cmd_clear(struct vpu_device *vd);
+
 void vpu_cmd_lock(struct vpu_device *vd, int prio);
 void vpu_cmd_unlock(struct vpu_device *vd, int prio);
 void vpu_cmd_lock_all(struct vpu_device *vd);
@@ -34,7 +36,6 @@ int vpu_cmd_boost_put(struct vpu_device *vd, int prio);
 int vpu_cmd_boost(struct vpu_device *vd, int prio);
 
 /* command algorithm */
-void vpu_cmd_run(struct vpu_device *vd, int prio, uint32_t cmd);
 void vpu_cmd_alg_set(struct vpu_device *vd, int prio, struct __vpu_algo *alg);
 struct __vpu_algo *vpu_cmd_alg(struct vpu_device *vd, int prio);
 const char *vpu_cmd_alg_name(struct vpu_device *vd, int prio);
@@ -44,6 +45,9 @@ static inline void vpu_cmd_alg_clr(struct vpu_device *vd, int prio)
 }
 
 /* command flow control */
+void vpu_cmd_run(struct vpu_device *vd, int prio, uint32_t cmd);
+void vpu_cmd_done(struct vpu_device *vd, int prio,
+	uint32_t result, uint32_t alg_ret);
 int vpu_cmd_result(struct vpu_device *vd, int prio);
 uint32_t vpu_cmd_alg_ret(struct vpu_device *vd, int prio);
 wait_queue_head_t *vpu_cmd_waitq(struct vpu_device *vd, int prio);
