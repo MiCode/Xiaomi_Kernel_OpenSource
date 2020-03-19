@@ -1397,6 +1397,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int alpha_con;
 	unsigned int value = 0, mask = 0, fmt_ex = 0;
 	unsigned long long temp_bw;
+	unsigned int dim_color;
 
 	/* handle buffer de-compression */
 	if (ovl->data->compr_info && ovl->data->compr_info->l_config) {
@@ -1445,7 +1446,11 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		con |= mtk_ovl_yuv_matrix_convert((enum mtk_drm_dataspace)prop);
 	}
-
+	/* add for color dim */
+	if (fmt == DRM_FORMAT_C8)
+		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
+	else
+		dim_color = 0xff000000;
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
 
@@ -1479,7 +1484,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       offset, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_EL0_CLR(id),
-			       0xff000000, ~0);
+			       dim_color, ~0);
 	} else {
 		SET_VAL_MASK(value, mask, fmt_ex, FLD_Ln_CLRFMT_NB(lye_idx));
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1493,7 +1498,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       offset, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_L0_CLR(lye_idx),
-			       0xff000000, ~0);
+			       dim_color, ~0);
 	}
 
 	if (pending->enable) {
