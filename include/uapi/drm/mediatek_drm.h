@@ -469,6 +469,7 @@ struct drm_mtk_layer_config {
 	uint32_t layer_caps;
 	uint32_t clip; /* drv internal use */
 	__u8 compress;
+	__u8 secure;
 };
 
 struct drm_mtk_layering_info {

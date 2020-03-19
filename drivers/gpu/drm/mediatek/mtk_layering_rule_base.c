@@ -384,7 +384,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 #define _HRT_FMT \
 	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
-	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/compr%d\n"
+	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/compr%d/secure%d\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
@@ -421,7 +421,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 				       layer_info->dataspace,
 				       layer_info->ext_sel_layer,
 				       layer_info->layer_caps,
-				       layer_info->compress);
+				       layer_info->compress,
+				       layer_info->secure);
 			}
 		}
 	} else {
@@ -459,7 +460,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 					layer_info->dataspace,
 					layer_info->ext_sel_layer,
 					layer_info->layer_caps,
-					layer_info->compress);
+					layer_info->compress,
+					layer_info->secure);
 			}
 		}
 	}
