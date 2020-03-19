@@ -22,6 +22,9 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/module.h>
 
+//For 120Hz rotation issue
+#include <linux/time.h>
+
 #ifdef CONFIG_LEDS_MTK_DISP
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <mtk_leds_drv.h>
@@ -49,6 +52,9 @@
 
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
+
+//For 120Hz rotation issue
+struct timeval start, end;
 
 /* To enable debug log: */
 /* # echo aal_dbg:1 > /sys/kernel/debug/dispsys */
@@ -1082,9 +1088,25 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct DISP_AAL_PARAM *param)
 {
 	int ret = -EFAULT;
+	u64 time_use = 0;
 
 	if (debug_dump_input_param)
 		dump_param(&g_aal_param);
+	//For 120Hz rotation issue
+	do_gettimeofday(&end);
+	time_use = (end.tv_sec-start.tv_sec) * 1000000
+		+ (end.tv_usec-start.tv_usec);
+	//pr_notice("set_param time_use is %lu us\n",time_use);
+	// tbd. to be fixd
+	if (time_use < 260) {
+		// Workaround for 120hz rotation,do not let
+		//aal command too fast,else it will merged with
+		//DISP commmand and caused trigger loop clear EOF
+		//before config loop.The DSI EOF has 100 us later then
+		//RDMA EOF,and the worst DISP config time is 153us,
+		//so if intervel less than 260 should delay
+		usleep_range(260-time_use, 270-time_use);
+	}
 
 	ret = disp_aal_write_param_to_reg(comp, handle, &g_aal_param);
 
@@ -2064,6 +2086,8 @@ void mtk_aal_dump(struct mtk_ddp_comp *comp)
 
 void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
+	//For 120Hz rotation issue
+	do_gettimeofday(&start);
 
 	if (atomic_read(&g_aal_force_relay) == 1) {
 		disp_aal_clear_irq(comp, true);
