@@ -27,6 +27,14 @@
 #include <mt-plat/aee.h>
 #include <cache_parity.h>
 
+/*
+ * internal weak function, by-chip implemented.
+ */
+void __attribute__((weak)) ecc_dump_debug_info(void)
+{
+	pr_notice("%s is not implemented\n", __func__);
+}
+
 #define ECC_LOG(fmt, ...) \
 	do { \
 		pr_notice(fmt, __VA_ARGS__); \
@@ -237,6 +245,8 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 			cache_parity_wd.data.v2.irq_index,
 			ECC_IRQ_TRIGGER_THRESHOLD);
 	}
+
+	ecc_dump_debug_info();
 
 	return IRQ_HANDLED;
 }
