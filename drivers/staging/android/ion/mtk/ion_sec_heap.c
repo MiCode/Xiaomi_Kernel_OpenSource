@@ -238,7 +238,8 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 		IONMSG(
 			"%s security out of memory, heap:%d\n",
 			__func__, heap->id);
-		heap->debug_show(heap, NULL, NULL);
+		/* avoid recursive deadlock */
+		/* heap->debug_show(heap, NULL, NULL); */
 	}
 	if (sec_handle <= 0) {
 		IONMSG(
