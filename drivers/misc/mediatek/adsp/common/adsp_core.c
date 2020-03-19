@@ -398,6 +398,8 @@ static int __init adsp_module_init(void)
 		}
 	}
 
+	adsp_register_feature(SYSTEM_FEATURE_ID); /* regi for trigger suspend */
+
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
 		pdata = adsp_cores[cid];
 
@@ -405,7 +407,6 @@ static int __init adsp_module_init(void)
 			pdata->ops->after_bootup(pdata);
 	}
 
-	adsp_register_feature(SYSTEM_FEATURE_ID); /* regi for trigger suspend */
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 	pr_info("%s done\n", __func__);
 	return ret;
