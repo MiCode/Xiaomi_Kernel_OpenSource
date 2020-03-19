@@ -1320,12 +1320,12 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 
 		cmdq_util_msg("thd idx:%u pc:%#x end:%#x",
 			thread->idx, curr_pa, end_pa);
-		cmdq_thread_dump(thread->chan, NULL, NULL, NULL);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
 		struct cmdq_task *task;
+		u32 spr[4] = {0};
 
 		if (!thread->occupied || list_empty(&thread->task_busy_list))
 			continue;
@@ -1336,9 +1336,14 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 
 		curr_pa = cmdq_thread_get_pc(thread);
 		end_pa = cmdq_thread_get_end(thread);
+		spr[0] = readl(thread->base + CMDQ_THR_SPR);
+		spr[1] = readl(thread->base + CMDQ_THR_SPR + 4);
+		spr[2] = readl(thread->base + CMDQ_THR_SPR + 8);
+		spr[3] = readl(thread->base + CMDQ_THR_SPR + 12);
 
-		cmdq_util_msg("thd idx:%u pc:%#x end:%#x",
-			thread->idx, curr_pa, end_pa);
+		cmdq_util_msg("thd idx:%u pc:%#x end:%#x spr:%#x %#x %#x %#x",
+			thread->idx, curr_pa, end_pa,
+			spr[0], spr[1], spr[2], spr[3]);
 
 		task = list_first_entry(&thread->task_busy_list,
 			typeof(*task), list_entry);

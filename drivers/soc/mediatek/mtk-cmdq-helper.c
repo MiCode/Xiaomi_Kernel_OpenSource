@@ -1114,7 +1114,6 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	struct cmdq_operand lop, rop;
 	struct cmdq_instruction *inst;
 	bool absolute = true;
-	size_t prev_avail = pkt->avail_buf_size;
 
 	if (pkt->avail_buf_size > PAGE_SIZE)
 		absolute = false;
@@ -1240,8 +1239,6 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
 	}
 
-	if (pkt->avail_buf_size > prev_avail)
-		cmdq_dump_pkt(pkt, ~0, true);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_poll_timeout);
@@ -1454,7 +1451,6 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 	pkt->loop = true;
 
 	cmdq_msg("finalize: add EOC and JUMP begin cmd thrd:%d", id);
-	cmdq_dump_pkt(pkt, ~0, true);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize_loop);
@@ -1540,8 +1536,16 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 
 	if (thread_id == 3) { /* trigger loop */
 		struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+		struct cmdq_thread *thread =
+			(struct cmdq_thread *)client->chan->con_priv;
+		u32 spr[4] = {0};
 
-		cmdq_thread_dump(client->chan, NULL, NULL, NULL);
+		spr[0] = readl(thread->base + 0x60);
+		spr[1] = readl(thread->base + 0x64);
+		spr[2] = readl(thread->base + 0x68);
+		spr[3] = readl(thread->base + 0x6c);
+		cmdq_msg("thrd:%d spr:%#x %#x %#x %#x",
+			thread->idx, spr[0], spr[1], spr[2], spr[3]);
 		cmdq_dump_pkt(pkt, ~0, true);
 	}
 
