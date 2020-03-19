@@ -2043,8 +2043,10 @@ static int speech_property_get(struct snd_kcontrol *kcontrol,
 	}
 	ucontrol->value.integer.value[0] = *sph_property;
 
-	dev_info(afe->dev, "%s(), %s = 0x%x\n", __func__,
-		 kcontrol->id.name, *sph_property);
+	if (strcmp(kcontrol->id.name, "Speech_A2M_Msg_ID") != 0)
+		dev_info(afe->dev, "%s(), %s = 0x%x\n", __func__,
+			 kcontrol->id.name, *sph_property);
+
 	return 0;
 }
 
