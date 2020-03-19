@@ -10884,6 +10884,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	unsigned int i, cardinalNum = 0, IrqStatus, ErrStatus, WarnStatus;
 	unsigned int DmaStatus, WarnStatus_2 = 0, cur_v_cnt = 0;
 	unsigned int cqDoneIndex = 0;
+	unsigned int dma2_en = 0;
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
 
@@ -11021,6 +11022,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	fbc_ctrl2[0].Raw = ISP_RD32(CAM_REG_FBC_IMGO_CTL2(reg_module));
 	fbc_ctrl2[1].Raw = ISP_RD32(CAM_REG_FBC_RRZO_CTL2(reg_module));
 
+	if (sec_on)
+		dma2_en = lock_reg.CAM_REG_CTL_DMA2_EN[reg_module];
+	else
+		dma2_en = ISP_RD32(CAM_REG_CTL_DMA2_EN(reg_module));
+
 #if defined(ISP_MET_READY)
 	if (trace_ISP__Pass1_CAM_enter_enabled()) {
 		/*MET:ISP EOF */
@@ -11107,6 +11113,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					(unsigned int)ISP_RD32(
 						CAM_REG_CTL_RAW_INT_STATUSX(
 						ISP_CAM_B_IDX)));
+
+				if (dma2_en & _RAWI_R2_EN_)
+					ISP_DumpRawiR2DebugData(module);
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
