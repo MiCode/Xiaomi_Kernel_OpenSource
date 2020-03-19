@@ -1500,6 +1500,51 @@ static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
 		addr_dbg_sel_5 = 0x00000404;
 		addr_dbg_sel_6 = 0x00000304;
 		break;
+	case _yuvo_:
+		off_set = 0x8800;
+		addr_dbg_sel_5 = 0x00000424;
+		addr_dbg_sel_6 = 0x00000324;
+		break;
+	case _yuvbo_:
+		off_set = 0x8C00;
+		addr_dbg_sel_5 = 0x00000425;
+		addr_dbg_sel_6 = 0x00000325;
+		break;
+	case _tsfso_:
+		off_set = 0x2C00;
+		addr_dbg_sel_5 = 0x0000040D;
+		addr_dbg_sel_6 = 0x0000020D;
+		break;
+	case _flko_:
+		off_set = 0x3800;
+		addr_dbg_sel_5 = 0x00000410;
+		addr_dbg_sel_6 = 0x00000310;
+		break;
+	case _lcso_:
+		off_set = 0x1C00;
+		addr_dbg_sel_5 = 0x00000407;
+		addr_dbg_sel_6 = 0x00000307;
+		break;
+	case _lcesho_:
+		off_set = 0x6C00;
+		addr_dbg_sel_5 = 0x0000041D;
+		addr_dbg_sel_6 = 0x0000031D;
+		break;
+	case _lmvo_:
+		off_set = 0x3400;
+		addr_dbg_sel_5 = 0x0000040F;
+		addr_dbg_sel_6 = 0x0000030F;
+		break;
+	case _rsso_:
+		off_set = 0x3C00;
+		addr_dbg_sel_5 = 0x00000411;
+		addr_dbg_sel_6 = 0x00000311;
+		break;
+	case _crzo_:
+		off_set = 0x8000;
+		addr_dbg_sel_5 = 0x00000420;
+		addr_dbg_sel_6 = 0x00000320;
+		break;
 	case _ltmso_:
 		off_set = 0x6800;
 		addr_dbg_sel_5 = 0x0000041C;
@@ -1518,6 +1563,7 @@ static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
 	default:
 		break;
 	}
+	//checksum debug
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_1 + off_set);
 	checksum = ISP_RD32(CAM_REG_DBG_PORT(module));
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_2 + off_set);
@@ -1527,9 +1573,12 @@ static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_4 + off_set);
 	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(module));
 
+	//smi debug
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_5);
+	// case 0
 	smi_dbg_data = ISP_RD32(CAM_REG_DBG_PORT(module));
 
+	//fifo debug
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_6 + 0x10000);
 	fifo_case_1 = ISP_RD32(CAM_REG_DBG_PORT(module));
 
@@ -1554,6 +1603,7 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	char cam[10] = {'\0'};
 	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
 	enum ISP_DEV_NODE_ENUM inner_regModule;
+	unsigned int dma_en = 0, dma2_en = 0;
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -1703,19 +1753,41 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 		cam, dmaerr[_rawi_], dmaerr[_bpci_], dmaerr[_lsci_],
 		dmaerr[_bpci_r2_], dmaerr[_pdi_], dmaerr[_ufdi_r2_]);
 
-	if (dmaerr[_imgo_] != 0xFFFF0000)
+	if (sec_on) {
+		dma_en = lock_reg.CAM_REG_CTL_DMA_EN[regModule];
+		dma2_en = lock_reg.CAM_REG_CTL_DMA2_EN[regModule];
+	} else {
+		dma_en = ISP_RD32(CAM_REG_CTL_DMA_EN(regModule));
+		dma2_en = ISP_RD32(CAM_REG_CTL_DMA2_EN(regModule));
+	}
+
+	if (dma_en & _IMGO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _imgo_);
-
-	if (dmaerr[_rrzo_] != 0xFFFF0000)
+	if (dma_en & _RRZO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _rrzo_);
-
-	if (dmaerr[_ltmso_] != 0xFFFF0000)
+	if (dma_en & _YUVO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _yuvo_);
+	if (dma_en & _YUVBO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _yuvbo_);
+	if (dma_en & _TSFSO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _tsfso_);
+	if (dma_en & _FLKO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _flko_);
+	if (dma_en & _LCESO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _lcso_);
+	if (dma_en & _LCESHO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _lcesho_);
+	if (dma_en & _LMVO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _lmvo_);
+	if (dma_en & _RSSO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _rsso_);
+	if (dma_en & _CRZO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _crzo_);
+	if (dma_en & _LTMSO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _ltmso_);
-
-	if (dmaerr[_aao_] != 0xFFFF0000)
+	if (dma_en & _AAO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _aao_);
-
-	if (dmaerr[_afo_] != 0xFFFF0000)
+	if (dma_en & _AFO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _afo_);
 
 	/* DMAO */
