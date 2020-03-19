@@ -103,18 +103,18 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 90,
 	},
 #else
-	.pre = { /* reg_B 4000x3000 @60fps*/
-			.pclk = 1533000000,
-			.linelength = 7872,
-			.framelength = 3252,
-			.startx = 0,
-			.starty = 0,
-			.grabwindow_width = 4000,
-			.grabwindow_height = 3000,
-			.mipi_data_lp2hs_settle_dc = 85,
-			/* following for GetDefaultFramerateByScenario() */
-			.mipi_pixel_rate = 1094400000,
-			.max_framerate = 600, /* 30fps */
+	.pre = { /* reg_J 4000x3000 @59.89fps*/
+		.pclk = 1488000000,
+		.linelength = 7872,
+		.framelength = 3156,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 4000,
+		.grabwindow_height = 3000,
+		.mipi_data_lp2hs_settle_dc = 85,
+		/* following for GetDefaultFramerateByScenario() */
+		.mipi_pixel_rate = 1028570000,
+		.max_framerate = 600, /* 60fps */
 	},
 
 	.cap = { /*reg_A 12M@30fps*/
@@ -1593,7 +1593,7 @@ static kal_uint16 imx586_preview_setting[] = {
 	0x0343, 0xC0,
 	/*Frame Length Lines Setting*/
 	0x0340, 0x0c,
-	0x0341, 0xb4,
+	0x0341, 0x54,
 	/*ROI Setting*/
 	0x0344, 0x00,
 	0x0345, 0x00,
@@ -1635,11 +1635,11 @@ static kal_uint16 imx586_preview_setting[] = {
 	0x0303, 0x02,
 	0x0305, 0x02,
 	0x0306, 0x00,
-	0x0307, 0xa0,
+	0x0307, 0x9B,
 	0x030B, 0x01,
 	0x030D, 0x04,
-	0x030E, 0x01,
-	0x030F, 0x0a,
+	0x030E, 0x00,
+	0x030F, 0xFA,
 	0x0310, 0x01,
 	/*Other Setting*/
 	0x3620, 0x00,
@@ -1659,7 +1659,7 @@ static kal_uint16 imx586_preview_setting[] = {
 	0x3FFF, 0x6C,
 	/*Integration Setting*/
 	0x0202, 0x0c,
-	0x0203, 0x84,
+	0x0203, 0x24,
 	0x0224, 0x01,
 	0x0225, 0xF4,
 	0x3FE0, 0x01,
