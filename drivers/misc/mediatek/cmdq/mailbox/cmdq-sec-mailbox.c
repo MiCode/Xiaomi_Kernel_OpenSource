@@ -188,8 +188,8 @@ static s32 cmdq_sec_clk_enable(struct cmdq_sec *cmdq)
 
 	usage = atomic_inc_return(&cmdq->usage);
 	if (usage == 1)
-		cmdq_log("%s: cmdq startup gce:%#lx",
-			__func__, cmdq->base_pa);
+		cmdq_log("%s: cmdq startup gce:%pa",
+			__func__, &cmdq->base_pa);
 	return err;
 }
 
@@ -205,8 +205,8 @@ static void cmdq_sec_clk_disable(struct cmdq_sec *cmdq)
 
 	usage = atomic_dec_return(&cmdq->usage);
 	if (!usage)
-		cmdq_log("%s: cmdq shutdown gce:%#lx",
-			__func__, cmdq->base_pa);
+		cmdq_log("%s: cmdq shutdown gce:%pa",
+			__func__, &cmdq->base_pa);
 }
 
 void cmdq_sec_mbox_enable(void *chan)
@@ -1327,13 +1327,13 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->base_pa = res->start;
 	cmdq->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (IS_ERR(cmdq->base)) {
-		cmdq_err("base devm_ioremap failed:%d", PTR_ERR(cmdq->base));
+		cmdq_err("base devm_ioremap failed:%ld", PTR_ERR(cmdq->base));
 		return PTR_ERR(cmdq->base);
 	}
 
 	cmdq->clock = devm_clk_get(&pdev->dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
-		cmdq_err("gce devm_clk_get failed:%d", PTR_ERR(cmdq->clock));
+		cmdq_err("gce devm_clk_get failed:%ld", PTR_ERR(cmdq->clock));
 		return PTR_ERR(cmdq->clock);
 	}
 
