@@ -2636,8 +2636,10 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 	dsi->data_rate = data_rate;
 	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
 
-	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		mtk_dsi_phy_timconfig(dsi);
 		mtk_dsi_calc_vdo_timing(dsi);
+	}
 
 	/* implicit way for display power state */
 	if (dsi->clk_refcnt == 0)
@@ -4065,7 +4067,8 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	pixclk = data_rate * dsi->lanes * compress_rate;
 	if (data_rate && ext->params->is_cphy)
 		pixclk = pixclk * 16 / 7;
-	if (ext->params->dsc_params.enable)
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+		ext->params->dsc_params.enable)
 		pixclk = pixclk * hact / htotal;
 	pixclk = pixclk / bpp / 100;
 	DDPINFO("%s,data_rate =%d,clk=%u comparess_rate=%d\n", __func__,
