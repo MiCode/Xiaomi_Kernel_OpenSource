@@ -838,6 +838,7 @@
 #include "shima-stub-regulator.dtsi"
 #include "shima-gdsc.dtsi"
 #include "shima-ion.dtsi"
+#include "shima-usb.dtsi"
 
 &gcc_pcie_0_gdsc {
 	status = "ok";
