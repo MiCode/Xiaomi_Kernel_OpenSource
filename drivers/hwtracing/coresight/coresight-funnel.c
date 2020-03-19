@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2017, 2020, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Funnel driver
  *
@@ -253,6 +253,7 @@ static int funnel_probe(struct amba_device *adev, const struct amba_id *id)
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
+	dev_info(drvdata->dev, "FUNNEL initialized\n");
 	return 0;
 }
 
