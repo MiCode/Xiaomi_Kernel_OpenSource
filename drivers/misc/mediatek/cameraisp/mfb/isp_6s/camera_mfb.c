@@ -3090,6 +3090,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				goto EXIT;
 			}
 
+			mutex_lock(&gMfbMssMutex);/* Protect the Multi Process*/
 			switch (mfb_MssReq.exec) {
 			case EXEC_MODE_NORM:
 				msscfgs = g_MssEnqueReq_Struct.MssFrameConfig;
@@ -3117,7 +3118,6 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			pUserInfo->streamtag = mss_get_reqs(mfb_MssReq.exec,
 									&reqs);
 			pUserInfo->reqs = reqs;
-			mutex_lock(&gMfbMssMutex);/* Protect the Multi Process*/
 
 			spin_lock_irqsave(
 				&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
