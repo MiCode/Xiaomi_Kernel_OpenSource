@@ -33,7 +33,9 @@
 #include <tmp_bts.h>
 #include <linux/slab.h>
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+#include <linux/of.h>
 #include <linux/iio/consumer.h>
+#include <linux/iio/iio.h>
 #endif
 /*=============================================================
  *Weak functions
@@ -103,11 +105,12 @@ do {                                    \
 } while (0)
 
 #define mtkts_btsnrpa_printk(fmt, args...) \
-pr_debug("[Thermal/TZ/BTSNRPA]" fmt, ##args)
+pr_notice("[Thermal/TZ/BTSNRPA]" fmt, ##args)
 
 
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 struct iio_channel *thermistor_ch2;
+static int g_ADC_channel;
 #endif
 
 /* #define INPUT_PARAM_FROM_USER_AP */
@@ -1189,8 +1192,11 @@ static int mtkts_btsnrpa_param_read(struct seq_file *m, void *v)
 	seq_printf(m, "%d\n", g_RAP_pull_up_voltage);
 	seq_printf(m, "%d\n", g_TAP_over_critical_low);
 	seq_printf(m, "%d\n", g_RAP_ntc_table);
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	seq_printf(m, "%d\n", g_ADC_channel);
+#else
 	seq_printf(m, "%d\n", g_RAP_ADC_channel);
-
+#endif
 	return 0;
 }
 
@@ -1431,6 +1437,11 @@ static int mtkts_btsnrpa_probe(struct platform_device *pdev)
 			__func__, ret);
 		return ret;
 	}
+
+	g_ADC_channel = thermistor_ch2->channel->channel;
+	mtkts_btsnrpa_printk("[%s]get auxadc iio ch: %d\n", __func__,
+		thermistor_ch2->channel->channel);
+
 
 	return err;
 }
