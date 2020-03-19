@@ -72,6 +72,19 @@ static void nuke(struct mtu3_ep *mep, const int status)
 	}
 }
 
+static nuke_all_ep(struct mtu3 *mtu)
+{
+	int i;
+
+	dev_info(mtu->dev, "%s\n", __func__);
+
+	nuke(mtu->ep0, -ESHUTDOWN);
+	for (i = 1; i < mtu->num_eps; i++) {
+		nuke(mtu->in_eps + i, -ESHUTDOWN);
+		nuke(mtu->out_eps + i, -ESHUTDOWN);
+	}
+}
+
 static int is_db_ok(struct mtu3_ep *mep)
 {
 	struct mtu3 *mtu = mep->mtu;
@@ -585,6 +598,9 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	} else if (is_on != mtu->softconnect) {
 		mtu->softconnect = is_on;
 		mtu3_dev_on_off(mtu, is_on);
+
+		if (!is_on)
+			nuke_all_ep(mtu);
 	}
 
 	if (is_usb_rdy() == false && is_on)
@@ -652,12 +668,7 @@ static void stop_activity(struct mtu3 *mtu)
 	 * killing any outstanding requests will quiesce the driver;
 	 * then report disconnect
 	 */
-	nuke(mtu->ep0, -ESHUTDOWN);
-	for (i = 1; i < mtu->num_eps; i++) {
-		nuke(mtu->in_eps + i, -ESHUTDOWN);
-		nuke(mtu->out_eps + i, -ESHUTDOWN);
-	}
-
+	nuke_all_ep(mtu);
 	if (driver) {
 		spin_unlock(&mtu->lock);
 		driver->disconnect(&mtu->g);
