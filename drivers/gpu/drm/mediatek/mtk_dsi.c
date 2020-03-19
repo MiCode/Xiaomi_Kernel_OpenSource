@@ -1970,13 +1970,6 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
-		} else if (cmdq_handle1->cl !=
-				mtk_crtc->gce_obj.client[CLIENT_CFG]) {
-			mtk_crtc_pkt_create(&cmdq_handle,
-				&mtk_crtc->base,
-				mtk_crtc->gce_obj.client[CLIENT_CFG]);
-			cmdq_pkt_flush(cmdq_handle);
-			cmdq_pkt_destroy(cmdq_handle);
 		}
 	} else {
 		mtk_crtc_pkt_create(&cmdq_handle,

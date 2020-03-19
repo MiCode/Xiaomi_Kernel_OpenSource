@@ -178,6 +178,8 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
 	cmdq_handle->err_cb.data = crtc;
 
+	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 1);
+
 	if (mtk_dsi_is_cmd_mode(output_comp)) {
 		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
@@ -203,8 +205,14 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 1);
 
+		CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 2);
+
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_STOP_VDO_MODE,
 				    NULL);
+
+		CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 3);
+
+
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
 				    (void *)mtk_crtc->gce_obj.buf.pa_base +
 					    DISP_SLOT_ESD_READ_BASE);
@@ -219,6 +227,10 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
 	cmdq_pkt_flush(cmdq_handle);
+
+	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
+
+
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_READ_EPILOG,
 				    NULL);
 	if (esd_ctx->chk_sta == 0xff) {
