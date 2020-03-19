@@ -4121,7 +4121,9 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	bw_base = data_rate * dsi->lanes * compress_rate * 4;
 	if (data_rate && ext->params->is_cphy)
 		bw_base = bw_base * 16 / 7;
-	if (ext->params->dsc_params.enable)
+	// Cmd mode have no H blanking, No need muliply hact/hotal
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+		ext->params->dsc_params.enable)
 		bw_base = bw_base * hact / htotal;
 	bw_base = bw_base / bpp / 100;
 
