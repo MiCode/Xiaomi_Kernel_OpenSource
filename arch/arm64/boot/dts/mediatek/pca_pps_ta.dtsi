@@ -16,5 +16,6 @@
 		compatible = "richtek,pca_pps_ta";
 		status = "okay";
 		force_cv;
+		ita_min = <1000>;
 	};
 };

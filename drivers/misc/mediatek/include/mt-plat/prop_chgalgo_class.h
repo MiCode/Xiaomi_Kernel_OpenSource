@@ -57,6 +57,7 @@ struct prop_chgalgo_ta_auth_data {
 	int vta_min;
 	int vta_max;
 	int ita_max;
+	int ita_min;
 	bool pwr_lmt;
 	u8 pdp;
 	bool support_meas_cap;

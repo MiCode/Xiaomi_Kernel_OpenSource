@@ -24,7 +24,7 @@
 #include <mt-plat/prop_chgalgo_class.h>
 #include <mt-plat/mtk_battery.h>
 
-#define PCA_DV2_ALGO_VERSION	"1.0.11_G"
+#define PCA_DV2_ALGO_VERSION	"1.0.12_G"
 #define MS_TO_NS(msec) ((msec) * 1000 * 1000)
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
 #define MAX(A, B) (((A) > (B)) ? (A) : (B))
@@ -666,6 +666,11 @@ static inline int __dv2_set_ta_cap_cv(struct dv2_algo_info *info, u32 vta,
 			auth_data->vcap_max);
 		goto stop;
 	}
+	if (ita < auth_data->ita_min) {
+		PCA_INFO("ita(%d) under ita_min(%d)\n", ita,
+			 auth_data->ita_min);
+		ita = auth_data->ita_min;
+	}
 	if (data->vta_setting == vta && data->ita_setting == ita)
 		return 0;
 	vta_gap = abs(data->vta_setting - vta);
@@ -693,7 +698,7 @@ static inline int __dv2_set_ta_cap_cv(struct dv2_algo_info *info, u32 vta,
 		PCA_ERR("set ta cap fail(%d)\n", ret);
 		return ret;
 	}
-	if (vta_gap > auth_data->vta_step)
+	if (vta_gap > auth_data->vta_step || data->state != DV2_ALGO_SS_DVCHG)
 		msleep(desc->ta_blanking);
 
 	/* Get ta cap after setting */
@@ -1223,6 +1228,7 @@ static inline void __dv2_init_algo_data(struct dv2_algo_info *info)
 	u32 *ita_level = desc->ita_level;
 
 	data->ita_lmt = MIN(ita_level[DV2_RCABLE_NORMAL], auth_data->ita_max);
+	data->idvchg_ss_init = MAX(data->idvchg_ss_init, auth_data->ita_min);
 	data->idvchg_ss_init = MIN(data->idvchg_ss_init, data->ita_lmt);
 	data->ita_pwr_lmt = 0;
 	data->idvchg_cc = ita_level[DV2_RCABLE_NORMAL] - desc->swchg_aicr;
@@ -1302,6 +1308,7 @@ static inline int __dv2_start(struct dv2_algo_info *info)
 	int ret, ibus, vbat, vbus, ita;
 	struct dv2_algo_data *data = info->data;
 	struct dv2_algo_desc *desc = info->desc;
+	struct prop_chgalgo_ta_auth_data *auth_data = &data->ta_auth_data;
 	ktime_t ktime = ktime_set(0, MS_TO_NS(DV2_ALGO_INIT_POLLING_INTERVAL));
 
 	PCA_DBG("++\n");
@@ -1352,11 +1359,10 @@ static inline int __dv2_start(struct dv2_algo_info *info)
 			desc->idvchg_term);
 		return -EINVAL;
 	}
-
-	if (ita > desc->idvchg_ss_init) {
-		/* Update idvchg_ss_init */
-		PCA_INFO("set idvchg_ss_init(%d)->(%d)\n",
-			 desc->idvchg_ss_init, ita);
+	/* Update idvchg_ss_init */
+	if (ita >= auth_data->ita_min) {
+		PCA_INFO("set idvchg_ss_init(%d)->(%d)\n", desc->idvchg_ss_init,
+			 ita);
 		data->idvchg_ss_init = ita;
 	}
 start:
@@ -4110,6 +4116,10 @@ MODULE_VERSION(PCA_DV2_ALGO_VERSION);
 MODULE_LICENSE("GPL");
 
 /*
+ * 1.0.12
+ * (1) For TA CV mode, compatible with TA which only accepts request current
+ *     greater than a certain value
+ *
  * 1.0.11
  * (1) Optimize speed of soft start of TA CV mode
  * (2) Average ita_gap only if new one is larger

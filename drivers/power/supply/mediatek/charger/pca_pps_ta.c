@@ -30,10 +30,12 @@
 #endif
 
 struct pca_pps_desc {
+	u32 ita_min;
 	bool force_cv;
 };
 
 static struct pca_pps_desc pca_pps_desc_defval = {
+	.ita_min = 0,
 	.force_cv = false,
 };
 
@@ -299,6 +301,7 @@ static int pca_pps_authenticate_ta(struct prop_chgalgo_device *pca,
 		data->vta_min = selected_apdo_cap.min_mv;
 		data->vta_max = selected_apdo_cap.max_mv;
 		data->ita_max = selected_apdo_cap.ma;
+		data->ita_min = info->desc->ita_min;
 		data->pwr_lmt = selected_apdo_cap.pwr_limit;
 		data->support_cc = true;
 		data->support_meas_cap = true;
@@ -436,6 +439,7 @@ static int pca_pps_parse_dt(struct pca_pps_info *info)
 	info->desc = desc;
 	memcpy(desc, &pca_pps_desc_defval, sizeof(*desc));
 	desc->force_cv = of_property_read_bool(np, "force_cv");
+	of_property_read_u32(np, "ita_min", &desc->ita_min);
 	return 0;
 }
 
@@ -530,6 +534,10 @@ MODULE_VERSION(PCA_PPS_TA_VERSION);
 MODULE_LICENSE("GPL");
 
 /*
+ * 1.0.7_G
+ * (1) Add ita_min option in dtsi to support TA which only accepts
+ *     request with current greater than certain value
+ *
  * 1.0.6_G
  * (1) Move platform device to dtsi
  * (2) Add force_cv option in dtsi
