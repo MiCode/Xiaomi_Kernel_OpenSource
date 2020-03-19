@@ -786,18 +786,7 @@ static int sd_setup_unmap_cmnd(struct scsi_cmnd *cmd)
 
 	cmd->allowed = SD_MAX_RETRIES;
 	cmd->transfersize = data_len;
-
-	/*
-	 * MTK PATCH: extend the time out value of discard
-	 *
-	 * The time of executed unmap command related to the state of UFS.
-	 * From Toshiba and SK-Hynix evaluation, it will take about 60 seconds
-	 * when host execute to unmap UFS 128GB all area.
-	 *
-	 * Therefore, we proposed to modify time out of unmap from 30s
-	 * to 100s.(included safety margin).
-	 */
-	rq->timeout = SD_DISCARD_TIMEOUT;
+	rq->timeout = SD_TIMEOUT;
 
 	scsi_req(rq)->resid_len = data_len;
 
