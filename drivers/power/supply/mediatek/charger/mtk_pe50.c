@@ -37,14 +37,11 @@ static int __pe50_notifier_call(struct notifier_block *nb, unsigned long event,
 
 int pe50_stop(void)
 {
-	chr_err("%s: online = %d\n", __func__, pe5->online);
-
 	if (pe5 == NULL)
 		return -ENODEV;
 
 	if (pe5->online == true) {
 		chr_err("%s\n", __func__);
-		prop_chgalgo_stop_algo(pe5->pca_algo, true);
 		enable_vbus_ovp(true);
 		pe5->online = false;
 		pe5->state = PE50_INIT;

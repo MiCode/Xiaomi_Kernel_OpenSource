@@ -509,10 +509,6 @@ static int mtk_switch_chr_pe50_running(struct charger_manager *info)
 
 	if (!mtk_pe50_is_running(info))
 		goto stop;
-	if (!info->enable_hv_charging) {
-		mtk_pe50_stop_algo(info, true);
-		goto stop;
-	}
 
 	mtk_pe50_thermal_throttling(info,
 				    dvchg_data->thermal_input_current_limit);

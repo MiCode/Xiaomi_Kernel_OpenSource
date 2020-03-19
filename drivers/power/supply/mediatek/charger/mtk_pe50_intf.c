@@ -99,16 +99,7 @@ bool mtk_pe50_is_running(struct charger_manager *chgmgr)
 	bool running;
 	struct mtk_pe50 *pe50 = &chgmgr->pe5;
 
-	/* Stop PE5.0 if HV charging is disabled */
-	if (!chgmgr->enable_hv_charging) {
-		chr_info("%s: stop PE5.0 due to HV disabled\n", __func__);
-		prop_chgalgo_stop_algo(pe50->pca_algo, true);
-		running = false;
-		goto out;
-	}
-
 	running = prop_chgalgo_is_algo_running(pe50->pca_algo);
-out:
 	if (!running)
 		charger_enable_vbus_ovp(chgmgr, true);
 	return running;

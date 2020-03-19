@@ -304,7 +304,9 @@ int charger_manager_enable_high_voltage_charging(
 
 	pr_info("%s: user: %s, en = %d\n", __func__, dev_name(consumer->dev),
 		info->enable_hv_charging);
-	mtk_pe50_stop_algo(info, true);
+
+	if (mtk_pe50_get_is_connect(info) && !info->enable_hv_charging)
+		mtk_pe50_stop_algo(info, true);
 
 	_wake_up_charger(info);
 
