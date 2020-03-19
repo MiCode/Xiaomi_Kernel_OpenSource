@@ -1246,7 +1246,7 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 	struct vb2_v4l2_buffer  *vb2_v4l2;
 
 	if (ctx->state == MTK_STATE_ABORT) {
-		mtk_v4l2_err("[%d] Call on DQBUF after unrecoverable error",
+		mtk_v4l2_debug(4, "[%d] Call on DQBUF after unrecoverable error",
 					 ctx->id);
 		return -EIO;
 	}
