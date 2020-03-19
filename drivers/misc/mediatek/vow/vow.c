@@ -2782,11 +2782,12 @@ static ssize_t VowDrv_read(struct file *fp,
 	}
 	slot = vow_service_SearchSpeakerModelWithUuid(vowserv.scp_command_uuid);
 	if (slot < 0) {
-		/* there is no pair id, so exit */
-		VOWDRV_DEBUG("%s(),search ID fail, exit\n");
-		goto exit;
+		/* there is no pair id */
+		VOWDRV_DEBUG("%s(),search ID fail, exit\n", __func__);
+		vowserv.scp_command_id =  0;
+	} else {
+		vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	}
-	vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	vowserv.vow_eint_data_struct.id = vowserv.scp_command_id;
 	vowserv.vow_eint_data_struct.eint_status = VowDrv_QueryVowEINTStatus();
 	vowserv.vow_eint_data_struct.data[0] = (char)vowserv.confidence_level;
