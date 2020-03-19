@@ -27,20 +27,20 @@ static struct measure_clk_data debug_mux_priv = {
 
 static const char *const cpu_cc_debug_mux_parent_names[] = {
 	"l3_clk",
-	"perfcl_clk",
 	"pwrcl_clk",
+	"perfcl_clk",
 };
 
 static int cpu_cc_debug_mux_sels[] = {
 	0x41,		/* l3_clk */
-	0x21,		/* perf_clk */
-	0x25,		/* pwrcl_clk */
+	0x21,		/* pwrcl_clk */
+	0x25,		/* perfcl_clk */
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
 	0x4,		/* l3_clk */
-	0x4,		/* perfcl_clk */
-	0x8,		/* pwrcl_clk */
+	0x4,		/* pwrcl_clk */
+	0x8,		/* perfcl_clk */
 };
 
 static struct clk_debug_mux cpu_cc_debug_mux = {
@@ -125,7 +125,11 @@ static int cam_cc_debug_mux_sels[] = {
 	0x38,		/* cam_cc_camnoc_axi_clk */
 	0x34,		/* cam_cc_cci_0_clk */
 	0x35,		/* cam_cc_cci_1_clk */
-	0x3B,		/* cam_cc_core_ahb_clk */
+	/*
+	 * 0x3B measures gcc_camera_ahb_clk which is incorrect,
+	 * thus use the other CBC Mux sel to measure cam_cc_core_ahb_clk.
+	 */
+	0x37,		/* cam_cc_core_ahb_clk */
 	0x37,		/* cam_cc_cpas_ahb_clk */
 	0x6,		/* cam_cc_csi0phytimer_clk */
 	0x8,		/* cam_cc_csi1phytimer_clk */
