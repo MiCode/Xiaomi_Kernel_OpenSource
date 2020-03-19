@@ -119,7 +119,7 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
 
 s32 get_md_hrt_bw(void)
 {
-	return 3357;
+	return 3344;
 }
 
 s32 dram_write_weight(s32 val)
