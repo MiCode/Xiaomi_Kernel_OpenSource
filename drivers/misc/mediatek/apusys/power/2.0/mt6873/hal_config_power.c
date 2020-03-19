@@ -24,6 +24,11 @@
 
 #define CREATE_TRACE_POINTS
 #include "apu_power_events.h"
+#ifdef APUPWR_TAG_TP
+#include "apu_power_tag.h"
+#include "apupwr_events.h"
+#endif
+
 #include "mtk_devinfo.h"
 
 #if SUPPORT_VCORE_TO_IPUIF
@@ -979,6 +984,9 @@ static void get_current_power_info(void *param, int force)
 	char log_str[128];
 	unsigned int mdla_0 = 0;
 	unsigned long rem_nsec;
+	#ifdef APUPWR_TAG_TP
+	unsigned long long time_id = info->id;
+	#endif
 
 	info->dump_div = 1000;
 
@@ -1008,6 +1016,18 @@ static void get_current_power_info(void *param, int force)
 			info->vpu0_cg_stat, info->vpu1_cg_stat,
 			info->mdla0_cg_stat,
 			(unsigned long)info->id, rem_nsec / 1000);
+		#ifdef APUPWR_TAG_TP
+		trace_apupwr_pwr(
+			info->vvpu, info->vmdla, info->vcore, info->vsram,
+			info->dsp1_freq, info->dsp2_freq, info->dsp5_freq,
+			info->dsp_freq, info->ipuif_freq,
+			time_id);
+		trace_apupwr_rpc(
+			info->spm_wakeup, info->rpc_intf_rdy,
+			info->vcore_cg_stat, info->conn_cg_stat,
+			info->vpu0_cg_stat, info->vpu1_cg_stat,
+			info->mdla0_cg_stat);
+		#endif
 	} else {
 		snprintf(log_str, sizeof(log_str),
 			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u][%5lu.%06lu]",
@@ -1015,6 +1035,13 @@ static void get_current_power_info(void *param, int force)
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp5_freq, info->ipuif_freq,
 			(unsigned long)info->id, rem_nsec/1000);
+		#ifdef APUPWR_TAG_TP
+		trace_apupwr_pwr(
+			info->vvpu, info->vmdla, info->vcore, info->vsram,
+			info->dsp1_freq, info->dsp2_freq, info->dsp5_freq,
+			info->dsp_freq, info->ipuif_freq,
+			time_id);
+		#endif
 	}
 
 	trace_APUSYS_DFS(info, mdla_0);
@@ -1023,6 +1050,7 @@ static void get_current_power_info(void *param, int force)
 		LOG_ERR("APUPWR %s\n", log_str);
 	else
 		LOG_PM("APUPWR %s\n", log_str);
+
 }
 
 static int uninit_power_resource(void)

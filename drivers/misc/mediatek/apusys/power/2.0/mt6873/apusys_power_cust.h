@@ -27,6 +27,7 @@
 //[Fix me]
 //#define APUSYS_POWER_BRINGUP
 #define APUPWR_TASK_DEBOUNCE
+#define APUPWR_TAG_TP
 
 #define BYPASS_POWER_OFF	(0)	// 1: bypass power off (return directly)
 #define BYPASS_POWER_CTL	(0)	// 1: bypass power on/off feature

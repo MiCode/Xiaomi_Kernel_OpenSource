@@ -36,6 +36,9 @@
 #include "apusys_power_rule_check.h"
 #include "apusys_dbg.h"
 #include "apusys_power.h"
+#ifdef APUPWR_TAG_TP
+#include "apu_power_tag.h"
+#endif
 
 int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
 int g_pm_procedure;
@@ -790,6 +793,9 @@ static int apu_power_probe(struct platform_device *pdev)
 	#endif
 
 	apusys_power_debugfs_init();
+	#ifdef APUPWR_TAG_TP
+	apupwr_init_drv_tags();
+	#endif
 
 	return 0;
 
@@ -863,6 +869,9 @@ static int apu_power_resume(struct platform_device *pdev)
 static int apu_power_remove(struct platform_device *pdev)
 {
 	apusys_power_debugfs_exit();
+	#ifdef APUPWR_TAG_TP
+	apupwr_exit_drv_tags();
+	#endif
 
 	if (power_task_handle)
 		kthread_stop(power_task_handle);

@@ -29,6 +29,9 @@
 #include "apu_power_table.h"
 #include "hal_config_power.h"
 #include "apu_log.h"
+#ifdef APUPWR_TAG_TP
+#include "apupwr_events.h"
+#endif
 
 static struct mutex power_dvfs_mtx;
 struct apusys_dvfs_opps apusys_opps;
@@ -752,6 +755,13 @@ void apusys_dvfs_info(void)
 		apusys_opps.st[div].begin = sched_clock();
 	}
 #endif
+
+#ifdef APUPWR_TAG_TP
+	trace_apupwr_dvfs(log_str);
+	trace_apupwr_dvfs(logv_str);
+	trace_apupwr_dvfs(logf_str);
+#endif
+
 	// debug ring buffer
 	LOG_DUMP("APUPWR DVFS %s\n", log_str);
 	LOG_DUMP("APUPWR DVFS %s\n", logv_str);
