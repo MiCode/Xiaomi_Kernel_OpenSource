@@ -6374,7 +6374,9 @@ static const char * const critical_lock_list[] = {
 	"&(&pool->lock)->rlock",
 	"works_lock",
 	/* the lock is used by console */
-	"&(&port->lock)->rlock"
+	"&(&port->lock)->rlock",
+	/* the lock is used by backtrace */
+	"depot_lock"
 };
 
 static bool is_critical_lock_held(void)
