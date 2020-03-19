@@ -14,7 +14,7 @@
 #define __APUSYS_MNOC_API_H__
 
 int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
-	int dev_type, int dev_core);
+	int dev_type, int dev_core, uint32_t boost_val);
 int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id,
 	int dev_type, int dev_core);
 int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,

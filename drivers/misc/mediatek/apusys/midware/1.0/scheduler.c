@@ -714,7 +714,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 	/* count qos start */
 	if (apu_cmd_qos_start(sc->par_cmd->cmd_id, sc->idx,
-		sc->type, dev_info->dev->idx)) {
+		sc->type, dev_info->dev->idx, sc->boost_val)) {
 		LOG_DEBUG("start qos for 0x%llx-#%d sc fail\n",
 			sc->par_cmd->cmd_id, sc->idx);
 	}

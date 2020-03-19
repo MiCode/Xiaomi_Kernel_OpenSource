@@ -102,7 +102,7 @@ struct qos_counter {
 struct engine_pm_qos_counter {
 	struct pm_qos_request qos_req;
 
-	int32_t last_peak_val;
+	int32_t last_report_bw;
 	unsigned int last_idx;
 	unsigned int core;
 };
@@ -128,6 +128,7 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 /* indicate engine running or not based on cmd cntr for pm qos */
 /* increase 1 when cmd enque, decrease 1 when cmd dequeue */
 static int engine_cmd_cntr[NR_APU_QOS_ENGINE];
+static int engine_boost_val[NR_APU_QOS_ENGINE];
 static bool qos_timer_exist;
 
 #if MNOC_QOS_BOOST_ENABLE
@@ -226,7 +227,7 @@ static void apu_qos_timer_start(void)
 	}
 
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
-		engine_pm_qos_counter[i].last_peak_val = 0;
+		engine_pm_qos_counter[i].last_report_bw = 0;
 		engine_pm_qos_counter[i].last_idx = qos_info->idx;
 	}
 
@@ -332,7 +333,7 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 	while (idx != ((qos_info->idx + 1) % MTK_QOS_BUF_SIZE)) {
 		if (cmd_qos->core < NR_APU_QOS_ENGINE)
 			cmd_qos->total_bw +=
-			qos_info->stats[idx].smibw_mon[qos_smi_idx];
+				qos_info->stats[idx].smibw_mon[qos_smi_idx];
 		cmd_qos->count++;
 		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
 	}
@@ -366,13 +367,25 @@ static int update_cmd_qos_list_locked(struct qos_bound *qos_info)
 }
 
 static int enque_cmd_qos(uint64_t cmd_id,
-	uint64_t sub_cmd_id, int core)
+	uint64_t sub_cmd_id, int core, uint32_t boost_val)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct qos_bound *qos_info = NULL;
 	struct cmd_qos *cmd_qos = NULL;
 
 	LOG_DEBUG("+\n");
+
+	LOG_DEBUG("cmd_qos(0x%llx/0x%llx/%d/%d)\n",
+		cmd_id, sub_cmd_id, core, boost_val);
+
+	/* sample device has no BW */
+	if (core < NR_APU_QOS_ENGINE) {
+		engine_cmd_cntr[core] += 1;
+		/* only allow boost val ascendance for work_func processing */
+		if (engine_cmd_cntr[core] == 0 ||
+			boost_val > engine_boost_val[core])
+			engine_boost_val[core] = boost_val;
+	}
 
 	/* alloc cmd_qos */
 	cmd_qos = kzalloc(sizeof(struct cmd_qos), GFP_KERNEL);
@@ -400,6 +413,7 @@ static int enque_cmd_qos(uint64_t cmd_id,
 	cmd_qos->core = core;
 	cmd_qos->status = CMD_RUNNING;
 	cmd_qos->last_idx = qos_info->idx;
+	cmd_qos->total_bw = 0;
 	mutex_unlock(&cmd_qos->mtx);
 
 	/* add to counter's list */
@@ -427,14 +441,22 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 	LOG_DEBUG("cmd_qos = %p\n", cmd_qos);
 
 	/* average bw */
-	if (cmd_qos->count != 0) {
+	if (cmd_qos->count != 0)
 		avg_bw = cmd_qos->total_bw / cmd_qos->count;
-	} else {
+	else
 		avg_bw = cmd_qos->total_bw;
-	};
 
 	LOG_DEBUG("cmd(0x%llx/0x%llx):bw(%d/%d)\n", cmd_qos->cmd_id,
 		cmd_qos->sub_cmd_id, avg_bw, cmd_qos->total_bw);
+
+	/* sample device has no BW */
+	if (cmd_qos->core < NR_APU_QOS_ENGINE) {
+		engine_cmd_cntr[cmd_qos->core] -= 1;
+		/*
+		 * if (engine_cmd_cntr[cmd_qos->core] == 0)
+		 *	engine_boost_val[cmd_qos->core] = 0;
+		 */
+	}
 
 	/* free cmd_qos */
 	kfree(cmd_qos);
@@ -465,8 +487,9 @@ static void qos_work_func(struct work_struct *work)
 	struct qos_bound *qos_info = NULL;
 	struct engine_pm_qos_counter *counter = NULL;
 	int qos_smi_idx = 0;
-	int i = 0, idx = 0;
-	unsigned int peak_bw = 0;
+	int i = 0, idx = 0, current_idx;
+	unsigned int peak_bw = 0, total_bw = 0, avg_bw = 0;
+	unsigned int cnt = 0, bw = 0, report_bw = 0;
 #ifdef APU_QOS_IPUIF_ADJUST
 	unsigned int total_apu_bw = 0, new_apu_vcore_opp = 0;
 #endif
@@ -488,33 +511,53 @@ static void qos_work_func(struct work_struct *work)
 		return;
 	}
 
+	current_idx = qos_info->idx;
+
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++)	{
 		peak_bw = 0;
+		total_bw = 0;
+		cnt = 0;
 		counter = &engine_pm_qos_counter[i];
 		qos_smi_idx = get_qosbound_enum(i);
 		/* find peak bandwidth consumption */
 		idx = counter->last_idx;
+		/* prevent overflow */
+		if (idx == current_idx)
+			continue;
 		do {
 			idx = (idx + 1) % MTK_QOS_BUF_SIZE;
-			peak_bw = peak_bw >
-				qos_info->stats[idx].smibw_mon[qos_smi_idx] ?
-				peak_bw :
-				qos_info->stats[idx].smibw_mon[qos_smi_idx];
+			bw = qos_info->stats[idx].smibw_mon[qos_smi_idx];
+			total_bw += bw;
+			cnt++;
+			peak_bw = peak_bw > bw ? peak_bw : bw;
 		} while (idx != qos_info->idx);
+
 		LOG_DETAIL("idx[%d](%d ~ %d)\n", i, counter->last_idx, idx);
+
 		counter->last_idx = idx;
+		avg_bw = total_bw/cnt;
+
+#ifdef MNOC_QOS_DEBOUNCE
+		if (engine_boost_val[i] == 0)
+			report_bw = avg_bw;
+		else
+			report_bw = peak_bw;
+#else
+		report_bw = peak_bw;
+#endif
 
 #ifdef APU_QOS_IPUIF_ADJUST
-		peak_bw = apu_bw_round_down(peak_bw);
-		total_apu_bw += peak_bw;
+		report_bw = apu_bw_round_down(report_bw);
+		total_apu_bw += report_bw;
 #endif
 		/* update peak bw */
-		if (counter->last_peak_val != peak_bw) {
-			counter->last_peak_val = peak_bw;
-			update_qos_request(&counter->qos_req, peak_bw);
+		if (counter->last_report_bw != report_bw) {
+			counter->last_report_bw = report_bw;
+			update_qos_request(&counter->qos_req, report_bw);
 		}
 
-		LOG_DETAIL("peakbw[%d]=%d\n", i, peak_bw);
+		LOG_DETAIL("%d: boost_val = %d, bw(%d/%d/%d)\n",
+			i, engine_boost_val[i], report_bw, peak_bw, avg_bw);
 	}
 
 #ifdef APU_QOS_IPUIF_ADJUST
@@ -643,7 +686,7 @@ void apu_qos_resume(void)
  * if list is empty before enqueue, start qos timer
  */
 int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
-	int dev_type, int dev_core)
+	int dev_type, int dev_core, uint32_t boost_val)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *pos;
@@ -698,7 +741,7 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	}
 
 	/* enque cmd to counter's list */
-	if (enque_cmd_qos(cmd_id, sub_cmd_id, core)) {
+	if (enque_cmd_qos(cmd_id, sub_cmd_id, core, boost_val)) {
 		LOG_ERR("enque cmd qos fail\n");
 		mutex_unlock(&counter->list_mtx);
 		return -1;
@@ -1012,7 +1055,7 @@ void apu_qos_counter_init(void)
 			LOG_ERR("get counter(%d) fail\n", i);
 			continue;
 		}
-		counter->last_peak_val = 0;
+		counter->last_report_bw = 0;
 		counter->last_idx = 0;
 		counter->core = i;
 		add_qos_request(&counter->qos_req);
@@ -1130,7 +1173,7 @@ void apu_qos_resume(void)
 }
 
 int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
-	int dev_type, int dev_core)
+	int dev_type, int dev_core, uint32_t boost_val)
 {
 	return 0;
 }
