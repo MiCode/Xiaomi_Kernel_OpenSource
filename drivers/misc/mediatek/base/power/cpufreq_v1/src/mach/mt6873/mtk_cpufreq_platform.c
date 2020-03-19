@@ -632,9 +632,13 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 
 	int val = (get_devinfo_with_index(7) & 0xFF);
 	int ver = (get_devinfo_with_index(141) & 0xFF);
+	int env_bit = get_devinfo_with_index(141);
+
+
+	env_bit = (env_bit >> 31) & 0x1;
 
 	if (val == 0x01) {
-		if (ver < 2)
+		if (ver < 2 && env_bit == 1)
 			lv = CPU_LEVEL_3;
 		else
 			lv = CPU_LEVEL_0;
