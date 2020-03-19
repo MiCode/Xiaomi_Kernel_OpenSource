@@ -335,7 +335,7 @@ static DEFINE_SPINLOCK(meter_lock);
 #define MDP_CG1		0x13FF
 #define MDP_CG2		0x101
 
-#define INFRA_CG0	0x032F8200	/* pwm:21~15,uart:24,25,gce2:9 */
+#define INFRA_CG0	0x03AF8200	/* pwm:21~15,uart:24,25,gce2:9 */
 //#define INFRA_CG1	0x00000800	/* cpum:11 */
 //#define INFRA_CG1	0x000C8844	/* cpum:11,msdc:2,6,pcie:15,18,19 */
 #define INFRA_CG1	0x000D8854	/*cpum:11,msdc:2/6/4/16,pcie:15/18/19*/
