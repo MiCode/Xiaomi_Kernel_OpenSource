@@ -77,12 +77,15 @@
 #define TIME_2MS  2000000
 #define TIME_1MS  1000000
 #define TARGET_UNLIMITED_FPS 120
+#define TARGET_DEFAULT_FPS 60
 #define FBTCPU_SEC_DIVIDER 1000000000
 #define NSEC_PER_HUSEC 100000
 #define BIG_CAP 95
 #define TIME_MS_TO_NS  1000000ULL
 #define MAX_DEP_NUM 30
 #define LOADING_WEIGHT 50
+#define DEF_RESCUE_PERCENT 33
+#define DEF_RESCUE_NS_TH 0
 
 #define SEQ_printf(m, x...)\
 do {\
@@ -140,6 +143,8 @@ static int loading_adj_cnt;
 static int loading_debnc_cnt;
 static int loading_time_diff;
 static int adjust_loading;
+static int rescue_percent_90;
+static int rescue_percent_120;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -162,6 +167,8 @@ module_param(loading_adj_cnt, int, 0644);
 module_param(loading_debnc_cnt, int, 0644);
 module_param(loading_time_diff, int, 0644);
 module_param(adjust_loading, int, 0644);
+module_param(rescue_percent_90, int, 0644);
+module_param(rescue_percent_120, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -193,8 +200,6 @@ static int ultra_rescue;
 static int loading_policy;
 static int llf_task_policy;
 
-static int vsync_period;
-
 static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
 static unsigned int def_capacity_margin;
@@ -212,8 +217,8 @@ static unsigned int last_obv;
 
 static unsigned long long vsync_time;
 
+static int vsync_period;
 static int _gdfrc_fps_limit;
-static int _gdfrc_cpu_target;
 
 static int nsec_to_100usec(unsigned long long nsec)
 {
@@ -1672,8 +1677,36 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 	unsigned long long next_vsync, queue_end, rescue_length;
 	unsigned long long t2wnt = 0ULL;
 	unsigned long long ts = fpsgo_get_time();
+	int fps_rescue_percent, fps_short_rescue_ns, fps_min_rescue_percent;
 
 	mutex_lock(&fbt_mlock);
+
+	switch (_gdfrc_fps_limit) {
+	case 90:
+		fps_rescue_percent = rescue_percent_90;
+		fps_min_rescue_percent = rescue_percent_90;
+		fps_short_rescue_ns =
+			(rescue_percent_90 == DEF_RESCUE_PERCENT)
+			? DEF_RESCUE_NS_TH : vsync_period;
+		break;
+	case 120:
+		fps_rescue_percent = rescue_percent_120;
+		fps_min_rescue_percent = rescue_percent_120;
+		fps_short_rescue_ns =
+			(rescue_percent_120 == DEF_RESCUE_PERCENT)
+			? DEF_RESCUE_NS_TH : vsync_period;
+		break;
+	case 60:
+	default:
+		fps_rescue_percent = rescue_percent;
+		fps_short_rescue_ns = short_rescue_ns;
+		fps_min_rescue_percent = min_rescue_percent;
+		break;
+	}
+
+	xgf_trace("fps=%d, rescue@(%d, %d, %d)", _gdfrc_fps_limit,
+			fps_rescue_percent, fps_min_rescue_percent,
+			fps_short_rescue_ns);
 
 	queue_end = queue_start + t_cpu_target;
 	next_vsync = fbt_get_next_vsync_locked(queue_end);
@@ -1686,7 +1719,7 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 			ts, next_vsync, short_min_rescue_p);
 	else {
 		t2wnt = fbt_cal_t2wnt(t_cpu_target,
-				ts, next_vsync, rescue_percent);
+				ts, next_vsync, fps_rescue_percent);
 		if (t2wnt == 0ULL)
 			goto exit;
 
@@ -1694,10 +1727,10 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 			t2wnt = t_cpu_target;
 
 			rescue_length = next_vsync - t2wnt - queue_start;
-			if (rescue_length <= short_rescue_ns)
+			if (rescue_length <= fps_short_rescue_ns)
 				t2wnt = fbt_cal_t2wnt(t_cpu_target,
 					ts, next_vsync,
-					min_rescue_percent);
+					fps_min_rescue_percent);
 		}
 	}
 
@@ -1823,7 +1856,7 @@ static int fbt_boost_policy(
 
 		t2wnt = (u64) fbt_get_t2wnt(targettime_by_fps, ts,
 			fbt_is_always_running(t_cpu_cur, target_time));
-		fpsgo_systrace_c_fbt_gm(pid, t2wnt, "t2wnt");
+		fpsgo_systrace_c_fbt(pid, t2wnt, "t2wnt");
 
 		if (t2wnt) {
 			if (t2wnt > FBTCPU_SEC_DIVIDER) {
@@ -2298,19 +2331,15 @@ void fpsgo_comp2fbt_bypass_disconnect(void)
 
 void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit)
 {
-	if (!fps_limit)
-		return;
-
-	if (!fbt_is_enable())
+	if (!fps_limit || fps_limit > TARGET_UNLIMITED_FPS)
 		return;
 
 	mutex_lock(&fbt_mlock);
 	_gdfrc_fps_limit = fps_limit;
-	_gdfrc_cpu_target = FBTCPU_SEC_DIVIDER / fps_limit;
-	vsync_period = _gdfrc_cpu_target;
+	vsync_period = FBTCPU_SEC_DIVIDER / fps_limit;
 
 	xgf_trace("_gdfrc_fps_limit %d", _gdfrc_fps_limit);
-	xgf_trace("_gdfrc_cpu_target %d", _gdfrc_cpu_target);
+	xgf_trace("vsync_period %d", vsync_period);
 
 	mutex_unlock(&fbt_mlock);
 }
@@ -2573,8 +2602,6 @@ static void fbt_setting_exit(void)
 {
 	bypass_flag = 0;
 	vsync_time = 0;
-	_gdfrc_fps_limit    = TARGET_UNLIMITED_FPS;
-	_gdfrc_cpu_target = GED_VSYNC_MISS_QUANTUM_NS;
 	memset(base_opp, 0, cluster_num * sizeof(unsigned int));
 	max_blc = 0;
 	max_blc_pid = 0;
@@ -3167,9 +3194,11 @@ int __init fbt_cpu_init(void)
 	bhr_opp = 1;
 	rescue_opp_c = (NR_FREQ_CPU - 1);
 	rescue_opp_f = 5;
-	rescue_percent = 33;
+	rescue_percent = DEF_RESCUE_PERCENT;
 	min_rescue_percent = 10;
-	short_rescue_ns = 0;
+	short_rescue_ns = DEF_RESCUE_NS_TH;
+	rescue_percent_90 = DEF_RESCUE_PERCENT;
+	rescue_percent_120 = DEF_RESCUE_PERCENT;
 	short_min_rescue_p = 0;
 	run_time_percent = 50;
 	deqtime_bound = TIME_3MS;
@@ -3184,8 +3213,7 @@ int __init fbt_cpu_init(void)
 	loading_debnc_cnt = 30;
 	loading_time_diff = TIME_2MS;
 
-	_gdfrc_fps_limit = TARGET_UNLIMITED_FPS;
-	_gdfrc_cpu_target = GED_VSYNC_MISS_QUANTUM_NS;
+	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
 
 	fbt_idleprefer_enable = 1;
