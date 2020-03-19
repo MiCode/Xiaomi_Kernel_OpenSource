@@ -1066,18 +1066,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 
 		map->attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 		map->attach->dma_map_attrs |= DMA_ATTR_EXEC_MAPPING;
-		if (map->attr & FASTRPC_ATTR_NON_COHERENT ||
-			(sess->smmu.coherent && map->uncached))
-			map->attach->dma_map_attrs |=
-				DMA_ATTR_FORCE_NON_COHERENT |
-				DMA_ATTR_SKIP_CPU_SYNC;
-		else if (map->attr & FASTRPC_ATTR_COHERENT)
-			map->attach->dma_map_attrs |= DMA_ATTR_FORCE_COHERENT;
+
 		/*
 		 * Skip CPU sync if IO Cohernecy is not supported
-		 * as we flush later
+		 * or if it is supported but buffer is uncached
 		 */
-		else if (!sess->smmu.coherent)
+		if ((sess->smmu.coherent && map->uncached) ||
+			(!sess->smmu.coherent))
 			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
@@ -1962,10 +1957,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			continue;
 		if (map && map->uncached)
 			continue;
-		if (ctx->fl->sctx->smmu.coherent &&
-			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
-			continue;
-		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+		if (ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOFLUSH))
 			continue;
@@ -2098,10 +2090,7 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!rpra[over].buf.len)
 			continue;
-		if (ctx->fl->sctx->smmu.coherent &&
-			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
-			continue;
-		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+		if (ctx->fl->sctx->smmu.coherent)
 			continue;
 		if (map && (map->attr & FASTRPC_ATTR_FORCE_NOINVALIDATE))
 			continue;
@@ -2781,8 +2770,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 						1024*1024);
 		imem_dma_attr = DMA_ATTR_EXEC_MAPPING |
 						DMA_ATTR_DELAYED_UNMAP |
-						DMA_ATTR_NO_KERNEL_MAPPING |
-						DMA_ATTR_FORCE_NON_COHERENT;
+						DMA_ATTR_NO_KERNEL_MAPPING;
 		err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
 		if (err)
 			goto bail;
@@ -3587,8 +3575,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		}
 		dma_attr = DMA_ATTR_EXEC_MAPPING |
 					DMA_ATTR_DELAYED_UNMAP |
-					DMA_ATTR_NO_KERNEL_MAPPING |
-					DMA_ATTR_FORCE_NON_COHERENT;
+					DMA_ATTR_NO_KERNEL_MAPPING;
 		if (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)
 			dma_attr |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 		err = fastrpc_buf_alloc(fl, ud->size, dma_attr, ud->flags,
@@ -4934,8 +4921,15 @@ static int fastrpc_cb_probe(struct device *dev)
 	}
 	sess = &chan->session[chan->sesscount];
 	sess->used = 0;
+#if IS_ENABLED(CONFIG_ADSPRPC_QGKI)
+	/*
+	 * On a GKI kernel, the DMA driver does not support I/O coherency and
+	 * the fastrpc driver needs to do the cache maintenance. So this
+	 * device-tree property needs to be read only on a QGKI kernel.
+	 */
 	sess->smmu.coherent = of_property_read_bool(dev->of_node,
-						"dma-coherent");
+						"dma-coherent-hint-cached");
+#endif
 	sess->smmu.secure = of_property_read_bool(dev->of_node,
 						"qcom,secure-context-bank");
 	sess->smmu.cb = iommuspec.args[0] & 0xf;
