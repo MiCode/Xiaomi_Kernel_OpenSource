@@ -631,9 +631,10 @@ static int mtu3_gadget_start(struct usb_gadget *gadget,
 
 static void stop_activity(struct mtu3 *mtu)
 {
-#if 0
 	struct usb_gadget_driver *driver = mtu->gadget_driver;
 	int i;
+
+	dev_info(mtu->dev, "%s\n", __func__);
 
 	/* don't disconnect if it's not connected */
 	if (mtu->g.speed == USB_SPEED_UNKNOWN)
@@ -662,7 +663,6 @@ static void stop_activity(struct mtu3 *mtu)
 		driver->disconnect(&mtu->g);
 		spin_lock(&mtu->lock);
 	}
-#endif
 }
 
 static int mtu3_gadget_stop(struct usb_gadget *g)
@@ -693,6 +693,21 @@ static const struct usb_gadget_ops mtu3_gadget_ops = {
 	.udc_start = mtu3_gadget_start,
 	.udc_stop = mtu3_gadget_stop,
 };
+
+static void mtu3_state_reset(struct mtu3 *mtu)
+{
+	struct mtu3_ep *mep;
+
+	mtu->address = 0;
+	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
+	mtu->may_wakeup = 0;
+
+	mep = mtu->ep0;
+	if (!list_empty(&mep->req_list)) {
+		pr_info("%s reinit EP[0] req_list\n", __func__);
+		INIT_LIST_HEAD(&mep->req_list);
+	}
+}
 
 static void init_hw_ep(struct mtu3 *mtu, struct mtu3_ep *mep,
 		u32 epnum, u32 is_in)
@@ -816,26 +831,17 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu)
 		spin_lock(&mtu->lock);
 	}
 
+	mtu3_state_reset(mtu);
 	usb_gadget_set_state(&mtu->g, USB_STATE_NOTATTACHED);
 }
 
 void mtu3_gadget_reset(struct mtu3 *mtu)
 {
-	struct mtu3_ep *mep;
-
 	dev_info(mtu->dev, "gadget RESET\n");
 
 	/* report disconnect, if we didn't flush EP state */
 	if (mtu->g.speed != USB_SPEED_UNKNOWN)
 		mtu3_gadget_disconnect(mtu);
-
-	mtu->address = 0;
-	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
-	mtu->may_wakeup = 0;
-
-	mep = mtu->ep0;
-	if (!list_empty(&mep->req_list)) {
-		pr_info("%s reinit EP[0] req_list\n", __func__);
-		INIT_LIST_HEAD(&mep->req_list);
-	}
+	else
+		mtu3_state_reset(mtu);
 }
