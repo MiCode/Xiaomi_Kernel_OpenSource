@@ -700,9 +700,6 @@ static int __init clkchk_init(void)
 subsys_initcall(clkchk_init);
 
 
-
-
-
 /*
  *	Before MTCMOS off procedure, perform the Subsys CGs sanity check.
  */
@@ -977,4 +974,5 @@ static int __init pg_check_swcg_init_mt6873(void)
 
 	return 0;
 }
-late_initcall(pg_check_swcg_init_mt6873);
+subsys_initcall(pg_check_swcg_init_mt6873);
+
