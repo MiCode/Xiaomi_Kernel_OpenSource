@@ -660,6 +660,7 @@ enum{
 #define CAM_REG_BPCI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x4034)
 #define CAM_REG_UFDI_R2_ERR_STAT(module)        (isp_devs[module].regs + 0x4038)
 #define CAM_REG_LSCI_ERR_STAT(module)           (isp_devs[module].regs + 0x403C)
+#define CAM_REG_RAWI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x5020)
 
 #define CAM_REG_TSFSO_ERR_STAT(module)          (isp_devs[module].regs + 0x4040)
 #define CAM_REG_AAHO_ERR_STAT(module)           (isp_devs[module].regs + 0x4044)
