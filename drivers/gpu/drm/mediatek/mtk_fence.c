@@ -527,6 +527,10 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 			 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);
 	}
 
+	/* print mmp log for primary display */
+	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
+		CRTC_MMP_MARK(0, release_present_fence, 0, fence_idx);
+
 	mutex_unlock(&layer_info->sync_lock);
 	return 0;
 }

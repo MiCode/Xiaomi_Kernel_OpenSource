@@ -61,9 +61,9 @@ void init_drm_mmp_event(void)
 	g_DRM_MMP_Events.dsi1 =
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI1");
 	g_DRM_MMP_Events.pmqos =
-		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "PMQOS");
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =
-		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "HRT_BW");
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT_BW");
 	g_DRM_MMP_Events.mutex_lock =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
 	g_DRM_MMP_Events.layering =
@@ -123,6 +123,12 @@ void init_crtc_mmp_event(void)
 			mmprofile_register_event(crtc_mmp_root, "disable");
 		g_CRTC_MMP_Events[i].release_fence = mmprofile_register_event(
 			crtc_mmp_root, "release_fence");
+		g_CRTC_MMP_Events[i].update_present_fence =
+			mmprofile_register_event(crtc_mmp_root,
+				"update_present_fence");
+		g_CRTC_MMP_Events[i].release_present_fence =
+			mmprofile_register_event(crtc_mmp_root,
+				"release_present_fence");
 		g_CRTC_MMP_Events[i].atomic_begin = mmprofile_register_event(
 			crtc_mmp_root, "atomic_begin");
 		g_CRTC_MMP_Events[i].atomic_flush = mmprofile_register_event(

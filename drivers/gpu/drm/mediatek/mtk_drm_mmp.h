@@ -65,6 +65,8 @@ struct CRTC_MMP_Events {
 	mmp_event enable;
 	mmp_event disable;
 	mmp_event release_fence;
+	mmp_event update_present_fence;
+	mmp_event release_present_fence;
 	mmp_event atomic_begin;
 	mmp_event atomic_flush;
 	mmp_event enable_vblank;

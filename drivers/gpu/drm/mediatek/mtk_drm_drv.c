@@ -1406,6 +1406,8 @@ void mtk_drm_fence_update(unsigned int fence_idx)
 	atomic_set(&_mtk_fence_idx, fence_idx);
 	atomic_set(&_mtk_fence_update_event, 1);
 	wake_up_interruptible(&_mtk_fence_wq);
+
+	CRTC_MMP_MARK(0, update_present_fence, 0, fence_idx);
 }
 
 int mtk_drm_suspend_release_fence(struct device *dev)
