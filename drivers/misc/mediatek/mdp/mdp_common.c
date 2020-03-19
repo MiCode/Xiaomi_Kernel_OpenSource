@@ -755,7 +755,7 @@ static s32 cmdq_mdp_check_engine_waiting_unlock(struct cmdqRecStruct *handle)
 		/* same secure path, can be dispatch */
 		if (mdp_ctx.thread[i].task_count &&
 			handle->secData.is_secure != mdp_ctx.thread[i].secure) {
-			CMDQ_MSG(
+			CMDQ_LOG(
 				"sec engine busy %u count:%u engine:%#llx & %#llx\n",
 				i, mdp_ctx.thread[i].task_count,
 				mdp_ctx.thread[i].engine_flag,
@@ -906,6 +906,7 @@ static s32 cmdq_mdp_consume_handle(void)
 	bool acquired = false;
 	struct CmdqCBkStruct *callback = cmdq_core_get_group_cb();
 	bool force_inorder = false;
+	bool secure_run = false;
 
 	/* operation for tasks_wait list need task mutex */
 	mutex_lock(&mdp_task_mutex);
@@ -914,6 +915,11 @@ static s32 cmdq_mdp_consume_handle(void)
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->consume_done, MMPROFILE_FLAG_START,
 		current->pid, 0);
+
+	handle = list_first_entry_or_null(&mdp_ctx.tasks_wait, typeof(*handle),
+		list_entry);
+	if (handle)
+		secure_run = handle->secData.is_secure;
 
 	/* loop waiting list for pending handles */
 	list_for_each_entry_safe(handle, temp, &mdp_ctx.tasks_wait,
@@ -927,6 +933,13 @@ static s32 cmdq_mdp_consume_handle(void)
 				"skip force inorder handle:0x%p engine:0x%llx\n",
 				handle, handle->engineFlag);
 			continue;
+		}
+
+		if (secure_run != handle->secData.is_secure) {
+			CMDQ_LOG(
+				"skip secure inorder handle:%p engine:%#llx\n",
+				handle, handle->engineFlag);
+			break;
 		}
 
 		handle->thread = cmdq_mdp_find_free_thread(handle);
