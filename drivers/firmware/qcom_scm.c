@@ -940,6 +940,19 @@ int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
 }
 EXPORT_SYMBOL(qcom_scm_register_qsee_log_buf);
 
+int qcom_scm_query_encrypted_log_feature(u64 *enabled)
+{
+	return __qcom_scm_query_encrypted_log_feature(__scm->dev, enabled);
+}
+EXPORT_SYMBOL(qcom_scm_query_encrypted_log_feature);
+
+int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
+						uint32_t log_id)
+{
+	return __qcom_scm_request_encrypted_log(__scm->dev, buf, len, log_id);
+}
+EXPORT_SYMBOL(qcom_scm_request_encrypted_log);
+
 int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *response_type, unsigned int *data)

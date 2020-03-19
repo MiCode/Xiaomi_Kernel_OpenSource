@@ -1918,6 +1918,44 @@ int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_query_encrypted_log_feature(struct device *dev, u64 *enabled)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_QSEELOG,
+		.cmd = QCOM_SCM_QUERY_ENCR_LOG_FEAT_ID,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(0);
+
+	ret = qcom_scm_call(dev, &desc);
+	if (enabled)
+		*enabled = desc.res[0];
+
+	return ret;
+}
+
+int __qcom_scm_request_encrypted_log(struct device *dev, phys_addr_t buf,
+				     size_t len, uint32_t log_id)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_QSEELOG,
+		.cmd = QCOM_SCM_REQUEST_ENCR_LOG_ID,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.args[0] = buf;
+	desc.args[1] = len;
+	desc.args[2] = log_id;
+	desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_RW);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
 int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
 	size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
 	int32_t *result, u64 *response_type, unsigned int *data)
