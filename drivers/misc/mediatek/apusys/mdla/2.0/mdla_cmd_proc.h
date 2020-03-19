@@ -15,16 +15,9 @@
 #define __MDLA_CMD_PROC_H__
 #include "mdla.h"
 void mdla_wakeup_source_init(void);
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#ifdef __APUSYS_PREEMPTION__
-int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
-	  struct apusys_cmd_hnd *apusys_hd, bool enable_preempt);
-#else//__APUSYS_PREEMPTION__
-int mdla_run_command_sync(struct mdla_run_cmd *cd, struct mdla_dev *mdla_info,
-	  struct apusys_cmd_hnd *apusys_hd);
-#endif//__APUSYS_PREEMPTION__
-#else//__APUSYS_MDLA_SW_PORTING_WORKAROUND__
-int mdla_run_command_sync(struct mdla_run_cmd *cd,
-			  struct mdla_dev *mdla_info);
-#endif//__APUSYS_MDLA_SW_PORTING_WORKAROUND__
+int mdla_run_command_sync(
+	struct mdla_run_cmd *cd,
+	struct mdla_dev *mdla_info,
+	struct apusys_cmd_hnd *apusys_hd,
+	bool enable_preempt);
 #endif//__MDLA_CMD_PROC_H__

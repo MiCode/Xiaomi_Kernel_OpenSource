@@ -117,8 +117,8 @@ enum interrupt_error {
 	IRQ_NO_PROCESSING_CE        = 0x2,
 	IRQ_NO_WRONG_DEQUEUE_STATUS = 0x4,
 	IRQ_TWICE                   = 0x8,
-	IRQ_NOT_EMPTY_IN_ISSUE      = 0x10,
-	IRQ_NOT_EMPTY_IN_SCHED      = 0x20,
+	IRQ_N_EMPTY_IN_ISSUE      = 0x10,
+	IRQ_N_EMPTY_IN_SCHED      = 0x20,
 	IRQ_NE_ISSUE_FIRST          = 0x40,
 	IRQ_NE_SCHED_FIRST          = 0x80,
 	IRQ_IN_IRQ                  = 0x100,
@@ -238,10 +238,8 @@ struct mdla_dev {
 	int mdla_power_status;
 	int mdla_sw_power_status;
 	u32 cmd_list_cnt;
-#ifdef __APUSYS_PREEMPTION__
-	struct mdla_scheduler *scheduler;
+	struct mdla_scheduler *sched; //scheduler
 	u32 error_bit;
-#endif
 	struct mdla_pmu_info pmu[PRIORITY_LEVEL];
 	void *cmd_buf_dmp;
 	u32 cmd_buf_len;
@@ -264,7 +262,6 @@ extern struct mdla_reg_ctl mdla_reg_control[];
 extern struct mdla_dev mdla_devices[];
 extern struct mdla_irq_desc mdla_irqdesc[];
 
-#ifdef __APUSYS_PREEMPTION__
 extern struct mutex wake_lock_mutex;
 
 /*
@@ -337,7 +334,7 @@ struct mdla_scheduler {
 	struct list_head active_ce_queue;
 	struct command_entry *pro_ce_normal;
 	struct command_entry *pro_ce_high;
-	struct command_entry *processing_ce;
+	struct command_entry *pro_ce;
 
 	spinlock_t lock;
 
@@ -361,7 +358,6 @@ void mdla_enqueue_ce(unsigned int core_id, struct command_entry *ce);
 unsigned int mdla_process_ce(unsigned int core_id);
 void mdla_issue_ce(unsigned int core_id);
 void mdla_complete_ce(unsigned int core_id);
-#endif // __APUSYS_PREEMPTION__
 
 #endif
 

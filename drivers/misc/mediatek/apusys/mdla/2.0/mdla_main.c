@@ -107,7 +107,6 @@ u32 mdla_poweroff_time = MDLA_POWEROFF_TIME_DEFAULT;
 u32 mdla_dvfs_rand;
 u32 mdla_timeout_dbg;
 
-#ifdef __APUSYS_PREEMPTION__
 u32 mdla_batch_number;
 u32 mdla_preemption_times;
 u32 mdla_preemption_debug;
@@ -117,7 +116,6 @@ struct mdla_dev_worker mdla_dev_workers = {
 	.worker = 0,
 	.worker_lock = __MUTEX_INITIALIZER(mdla_dev_workers.worker_lock),
 };
-#endif
 
 /*MDLA Multi-Core or per command info*/
 struct mdla_dev mdla_devices[] = {
@@ -135,9 +133,7 @@ struct mdla_dev mdla_devices[] = {
 			__MUTEX_INITIALIZER(mdla_devices[0].cmd_buf_dmp_lock),
 		.cmd_buf_len = 0,
 		.cmd_list_cnt = 0,
-#ifdef __APUSYS_PREEMPTION__
 		.error_bit = 0,
-#endif
 	},
 	{
 		.mdlaid = 1,
@@ -153,9 +149,7 @@ struct mdla_dev mdla_devices[] = {
 			__MUTEX_INITIALIZER(mdla_devices[1].cmd_buf_dmp_lock),
 		.cmd_buf_len = 0,
 		.cmd_list_cnt = 0,
-#ifdef __APUSYS_PREEMPTION__
 		.error_bit = 0,
-#endif
 	},
 };
 struct mdla_irq_desc mdla_irqdesc[] = {
@@ -164,7 +158,6 @@ struct mdla_irq_desc mdla_irqdesc[] = {
 };
 
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#if MTK_MDLA_MAX_NUM == 1
 struct apusys_device apusys_mdla_dev[] = {
 	{
 		.dev_type = APUSYS_DEVICE_MDLA,
@@ -173,20 +166,8 @@ struct apusys_device apusys_mdla_dev[] = {
 		.private = 0,
 		.send_cmd =  0,
 	},
-#ifdef __APUSYS_PREEMPTION__
 	{//for preemption virtual device
 		.dev_type = APUSYS_DEVICE_MDLA_RT,
-		.preempt_type = APUSYS_PREEMPT_NONE,
-		.preempt_level = 0,
-		.private = 0,
-		.send_cmd =  0,
-	},
-#endif//__APUSYS_PREEMPTION__
-};
-#else//MTK_MDLA_MAX_NUM
-struct apusys_device apusys_mdla_dev[] = {
-	{
-		.dev_type = APUSYS_DEVICE_MDLA,
 		.preempt_type = APUSYS_PREEMPT_NONE,
 		.preempt_level = 0,
 		.private = 0,
@@ -199,7 +180,6 @@ struct apusys_device apusys_mdla_dev[] = {
 		.private = 0,
 		.send_cmd =  0,
 	},
-#ifdef __APUSYS_PREEMPTION__
 	{//for preemption virtual device
 		.dev_type = APUSYS_DEVICE_MDLA_RT,
 		.preempt_type = APUSYS_PREEMPT_NONE,
@@ -207,16 +187,7 @@ struct apusys_device apusys_mdla_dev[] = {
 		.private = 0,
 		.send_cmd =  0,
 	},
-	{//for preemption virtual device
-		.dev_type = APUSYS_DEVICE_MDLA_RT,
-		.preempt_type = APUSYS_PREEMPT_NONE,
-		.preempt_level = 0,
-		.private = 0,
-		.send_cmd =  0,
-	},
-#endif//__APUSYS_PREEMPTION__
 };
-#endif//MTK_MDLA_MAX_NUM
 #endif
 
 u32 mdla_max_num_core = MTK_MDLA_MAX_NUM;//TODO: core num get from DTS
@@ -288,52 +259,43 @@ static int mdla_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static irqreturn_t mdla_irq0_handler(int irq, void *dev_id)
 {
-#ifndef __APUSYS_PREEMPTION__
-	return mdla_interrupt(0);
-#else
+	//return mdla_interrupt(0);
 	return mdla_scheduler(0);
-#endif
 }
 
 static irqreturn_t mdla_irq1_handler(int irq, void *dev_id)
 {
-#ifndef __APUSYS_PREEMPTION__
-	return mdla_interrupt(1);
-#else
+	//return mdla_interrupt(1);
 	return mdla_scheduler(1);
-#endif
 }
-
-#ifdef __APUSYS_PREEMPTION__
 
 static int mdla_scheduler_init(struct device *dev)
 {
-	struct mdla_scheduler *scheduler;
+	struct mdla_scheduler *sched;
 	size_t i;
 
 	for (i = 0; i < mdla_max_num_core; i++) {
-		mdla_devices[i].scheduler = devm_kzalloc(dev,
-							 sizeof(*scheduler),
+		mdla_devices[i].sched = devm_kzalloc(dev,
+							 sizeof(*sched),
 							 GFP_KERNEL);
-		scheduler = mdla_devices[i].scheduler;
-		if (!scheduler)
+		sched = mdla_devices[i].sched;
+		if (!sched)
 			return -ENOMEM;
 
-		spin_lock_init(&scheduler->lock);
-		INIT_LIST_HEAD(&scheduler->active_ce_queue);
+		spin_lock_init(&sched->lock);
+		INIT_LIST_HEAD(&sched->active_ce_queue);
 
-		scheduler->processing_ce = NULL;
-		scheduler->enqueue_ce = mdla_enqueue_ce;
-		scheduler->dequeue_ce = mdla_dequeue_ce;
-		scheduler->process_ce = mdla_process_ce;
-		scheduler->issue_ce = mdla_issue_ce;
-		scheduler->complete_ce = mdla_complete_ce;
-		scheduler->pro_ce_normal = NULL;
-		scheduler->pro_ce_high = NULL;
+		sched->pro_ce = NULL;
+		sched->enqueue_ce = mdla_enqueue_ce;
+		sched->dequeue_ce = mdla_dequeue_ce;
+		sched->process_ce = mdla_process_ce;
+		sched->issue_ce = mdla_issue_ce;
+		sched->complete_ce = mdla_complete_ce;
+		sched->pro_ce_normal = NULL;
+		sched->pro_ce_high = NULL;
 	}
 	return 0;
 }
-#endif
 
 static int mdla_sw_multi_devices_init(void)
 {
@@ -366,8 +328,7 @@ static int mdla_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	struct apusys_device *apusys_mdla_ptr = NULL;
-	struct mdla_dev *apusys_mdla_dev_ptr = NULL;
+	u32 preempt_level_support = PRIORITY_LEVEL;
 	int i;
 #endif
 
@@ -394,37 +355,45 @@ static int mdla_probe(struct platform_device *pdev)
 #endif
 
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	apusys_mdla_ptr = apusys_mdla_dev;
-	apusys_mdla_dev_ptr = mdla_devices;
+	/*
+	 *        |   normal   |    RT
+	 *  ------|------------|------------
+	 *  core0 | index = 0  | index = 1
+	 *  ------|------------|------------
+	 *  core1 | index = 2  | index = 3
+	 *  ------|------------|------------
+	 *  PRIORITY_LEVEL_MAX = 2
+	 */
 
 	for (i = 0; i < mdla_max_num_core; i++) {
-		apusys_mdla_dev[i].private = apusys_mdla_dev_ptr;
-		apusys_mdla_dev[i].send_cmd = apusys_mdla_handler;
-		if (apusys_register_device(apusys_mdla_ptr)) {
+		int j = i * PRIORITY_LEVEL_MAX;
+
+		apusys_mdla_dev[j].private = &mdla_devices[i];
+		apusys_mdla_dev[j].send_cmd = apusys_mdla_handler;
+		if (apusys_register_device(&(apusys_mdla_dev[j]))) {
 			dev_info(dev, "register apusys mdla %d info\n", i);
 			return -EINVAL;
 		}
-#ifdef __APUSYS_PREEMPTION__
-		apusys_mdla_dev[i+mdla_max_num_core].private =
-			apusys_mdla_dev_ptr;
-		apusys_mdla_dev[i+mdla_max_num_core].send_cmd =
-			apusys_mdla_handler;
-		if (apusys_register_device(
-				apusys_mdla_ptr+mdla_max_num_core)
-		) {
-			dev_info(dev, "register apusys mdla RT %d info\n", i);
-			return -EINVAL;
+		if (preempt_level_support > 1) {
+			apusys_mdla_dev[j + 1].private =
+				&mdla_devices[i];
+			apusys_mdla_dev[j + 1].send_cmd =
+				apusys_mdla_handler;
+			if (apusys_register_device(
+					&(apusys_mdla_dev[j + 1]))
+			) {
+				dev_info(
+					dev,
+					"register apusys mdla RT %d info\n",
+					i);
+				return -EINVAL;
+			}
 		}
-#endif
-		apusys_mdla_ptr++;
-		apusys_mdla_dev_ptr++;
 	}
 #endif
 
-#ifdef __APUSYS_PREEMPTION__
 	if (mdla_scheduler_init(&pdev->dev) < 0)
 		return -ENOMEM;
-#endif
 	dev_info(dev, "%s: done\n", __func__);
 
 	return 0;
@@ -599,30 +568,21 @@ int apusys_mdla_handler(int type,
 {
 	long retval = 0;
 	struct apusys_cmd_hnd *cmd_hnd = hnd;
-#ifdef __APUSYS_PREEMPTION__
 	struct mdla_dev *mdla_info = (struct mdla_dev *)dev->private;
 
-	if (dev->dev_type == APUSYS_DEVICE_MDLA_RT) {
+	if (dev->dev_type == APUSYS_DEVICE_MDLA) {
+		mdla_info = (struct mdla_dev *)dev->private;
+		if (mdla_info->mdlaid >= mdla_max_num_core)
+			return -EINVAL;
+	} else if (dev->dev_type == APUSYS_DEVICE_MDLA_RT) {
 		mdla_info = (struct mdla_dev *)dev->private;
 		if (mdla_info->mdlaid >= mdla_max_num_core)
 			return -EINVAL;
 		if (type != APUSYS_CMD_EXECUTE)
 			return 0;
-	} else if (dev->dev_type == APUSYS_DEVICE_MDLA) {
-		mdla_info = (struct mdla_dev *)dev->private;
-		if (mdla_info->mdlaid >= mdla_max_num_core)
-			return -EINVAL;
-	} else {
+	} else
 		return -EINVAL;
-	}
-#else
-	struct mdla_dev *mdla_info = (struct mdla_dev *)dev->private;
 
-	if ((dev->dev_type != APUSYS_DEVICE_MDLA) ||
-		mdla_info->mdlaid >= mdla_max_num_core) {
-		return -EINVAL;
-	}
-#endif
 	switch (type) {
 	case APUSYS_CMD_POWERON:
 		retval = mdla_pwr_on(mdla_info->mdlaid, true);
@@ -636,25 +596,20 @@ int apusys_mdla_handler(int type,
 		mdla_start_power_off(mdla_info->mdlaid, 1, true);
 		break;
 	case APUSYS_CMD_EXECUTE:
-	{//cmd_hnd error check XXX
+	{
 		struct mdla_run_cmd_sync *cmd_data =
 			(struct mdla_run_cmd_sync *)cmd_hnd->kva;
-#ifdef __APUSYS_PREEMPTION__
 		bool enable_preempt =
 			(dev->dev_type == APUSYS_DEVICE_MDLA_RT) ? false : true;
+		u32 preempt_level_support = PRIORITY_LEVEL;
 
+		if (preempt_level_support == 1)
+			enable_preempt = false;
 		retval = mdla_run_command_sync(
 			&cmd_data->req,
 			mdla_info,
 			cmd_hnd,
 			enable_preempt);
-#else
-
-		retval = mdla_run_command_sync(
-			&cmd_data->req,
-			mdla_info,
-			cmd_hnd);
-#endif
 		break;
 	}
 	case APUSYS_CMD_PREEMPT:
@@ -811,24 +766,11 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 			__func__,
 			cmd_data.req.mva,
 			phys_to_virt(cmd_data.req.mva));
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#ifdef __APUSYS_PREEMPTION__
 		retval = mdla_run_command_sync(
 			&cmd_data.req,
 			&mdla_devices[cmd_data.mdla_id],
 			NULL,
 			false);
-#else//__APUSYS_PREEMPTION__
-		retval = mdla_run_command_sync(
-			&cmd_data.req,
-			&mdla_devices[cmd_data.mdla_id],
-			NULL);
-#endif//__APUSYS_PREEMPTION__
-#else//__APUSYS_MDLA_SW_PORTING_WORKAROUND__
-		retval = mdla_run_command_sync(
-			&cmd_data.req,
-			&mdla_devices[cmd_data.mdla_id]);
-#endif//__APUSYS_MDLA_SW_PORTING_WORKAROUND__
 		if (copy_to_user((void *) arg, &cmd_data, sizeof(cmd_data)))
 			return -EFAULT;
 		break;

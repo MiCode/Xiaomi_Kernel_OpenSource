@@ -361,7 +361,7 @@ int mdla_zero_skip_detect(int core_id)
 	return 0;
 }
 
-#ifndef __APUSYS_PREEMPTION__
+#if 0
 int mdla_process_command(int core_id, struct command_entry *ce)
 {
 	dma_addr_t addr;
@@ -439,7 +439,6 @@ int mdla_run_command_codebuf_check(struct command_entry *ce)
 	return 0;
 }
 
-#ifdef __APUSYS_PREEMPTION__
 static inline u32 mdla_get_swcmd(void *base_kva, u32 offset)
 {
 	return (*(u32 *)(base_kva + offset));
@@ -578,7 +577,7 @@ void mdla_split_command_batch(struct command_entry *ce)
 static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)
 {
 	return (core_id >= MTK_MDLA_MAX_NUM) ?
-		NULL : mdla_devices[core_id].scheduler;
+		NULL : mdla_devices[core_id].sched;
 }
 
 /*
@@ -588,26 +587,26 @@ static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)
  */
 void mdla_enqueue_ce(unsigned int core_id, struct command_entry *ce)
 {
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
 	unsigned long flags;
 
-	if (!scheduler || !ce)
+	if (!sched || !ce)
 		return;
 
-	spin_lock_irqsave(&scheduler->lock, flags);
-	list_add_tail(&ce->node, &scheduler->active_ce_queue);
+	spin_lock_irqsave(&sched->lock, flags);
+	list_add_tail(&ce->node, &sched->active_ce_queue);
 	ce->state |= (1 << CE_QUEUE);
 	/* there are CEs under processing */
-	if (scheduler->processing_ce != NULL) {
-		spin_unlock_irqrestore(&scheduler->lock, flags);
+	if (sched->pro_ce != NULL) {
+		spin_unlock_irqrestore(&sched->lock, flags);
 		return;
 	}
 
 	/* there is no CE under processing: dequeue and trigger engine */
-	scheduler->dequeue_ce(core_id);
+	sched->dequeue_ce(core_id);
 	ce->deadline_t = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
-	scheduler->issue_ce(core_id);
-	spin_unlock_irqrestore(&scheduler->lock, flags);
+	sched->issue_ce(core_id);
+	spin_unlock_irqrestore(&sched->lock, flags);
 }
 
 /*
@@ -620,7 +619,7 @@ void mdla_enqueue_ce(unsigned int core_id, struct command_entry *ce)
  * 2. return CE_RUN if a batch completed, and we can go on to issue the next.
  * 3. return CE_NONE if the batch is still under processing.
  *
- * NOTE: scheduler->lock should be acquired by caller
+ * NOTE: sched->lock should be acquired by caller
  */
 unsigned int mdla_process_ce(unsigned int core_id)
 {
@@ -628,11 +627,11 @@ unsigned int mdla_process_ce(unsigned int core_id)
 	unsigned int ret = CE_NONE;
 	struct command_entry *ce;
 	struct command_batch *cb;
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
 	u32 cmda4;
 	u32 fin_cid, irq_status;
 
-	if (!scheduler)
+	if (!sched)
 		return ret;
 
 	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
@@ -645,7 +644,7 @@ unsigned int mdla_process_ce(unsigned int core_id)
 
 #ifdef __APUSYS_MDLA_PMU_SUPPORT__
 	/* handle PMU */
-	pmu_reg_save(core_id, (u16)scheduler->processing_ce->cmd_batch_en);
+	pmu_reg_save(core_id, (u16)sched->pro_ce->cmd_batch_en);
 #endif
 
 	if (likely(irq_status & MDLA_IRQ_PMU_INTE)) {
@@ -654,7 +653,7 @@ unsigned int mdla_process_ce(unsigned int core_id)
 	}
 	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
 
-	ce = scheduler->processing_ce;
+	ce = sched->pro_ce;
 	if (!ce)
 		return ret;
 
@@ -697,22 +696,22 @@ unsigned int mdla_process_ce(unsigned int core_id)
 
 /*
  * Issue the processing_ce to HW engine
- * NOTE: scheduler->lock should be acquired by caller
+ * NOTE: sched->lock should be acquired by caller
  */
 void mdla_issue_ce(unsigned int core_id)
 {
 	dma_addr_t addr;
 	u32 nr_cmd_to_issue;
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
 	struct command_entry *ce;
 	struct command_batch *cb;
 	unsigned long flags;
 	u32 irq_status;
 
-	if (!scheduler)
+	if (!sched)
 		return;
 
-	ce = scheduler->processing_ce;
+	ce = sched->pro_ce;
 	if (!ce)
 		return;
 
@@ -784,9 +783,9 @@ void mdla_issue_ce(unsigned int core_id)
 			MREG_TOP_G_CDMA3);
 
 	} else {
-		if ((ce->irq_state & IRQ_NOT_EMPTY_IN_SCHED) == 0)
+		if ((ce->irq_state & IRQ_N_EMPTY_IN_SCHED) == 0)
 			ce->irq_state |= IRQ_NE_ISSUE_FIRST;
-		ce->irq_state |= IRQ_NOT_EMPTY_IN_ISSUE;
+		ce->irq_state |= IRQ_N_EMPTY_IN_ISSUE;
 		ce->state |= (1 << CE_SKIP);
 		if (in_interrupt())
 			ce->irq_state |= IRQ_IN_IRQ;
@@ -798,41 +797,41 @@ void mdla_issue_ce(unsigned int core_id)
 
 /*
  * Set the status of completed CE as CE_FIN
- * NOTE: scheduler->lock should be acquired by caller
+ * NOTE: sched->lock should be acquired by caller
  */
 void mdla_complete_ce(unsigned int core_id)
 {
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
 
-	if (!scheduler)
+	if (!sched)
 		return;
 
-	scheduler->processing_ce->req_end_t = sched_clock();
-	scheduler->processing_ce->state |= (1 << CE_FIN);
+	sched->pro_ce->req_end_t = sched_clock();
+	sched->pro_ce->state |= (1 << CE_FIN);
 
-	complete(&scheduler->processing_ce->swcmd_done_wait);
-	scheduler->processing_ce = NULL;
+	complete(&sched->pro_ce->swcmd_done_wait);
+	sched->pro_ce = NULL;
 }
 
 /*
  * Dequeue a prioritized CE from active CE queue, handle the context switch of
  * the original processing_ce, and set the prioritized CE as processing_ce.
  *
- * NOTE: scheduler->lock should be acquired by caller
+ * NOTE: sched->lock should be acquired by caller
  */
 unsigned int mdla_dequeue_ce(unsigned int core_id)
 {
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
 	struct command_entry *prioritized_ce = NULL;
 	unsigned int ret = REASON_QUEUE_NORMALEXE;
 
-	if (!scheduler)
+	if (!sched)
 		return REASON_QUEUE_NULLSCHEDULER;
 
 	/* get one CE from the active CE queue */
 	prioritized_ce =
 		list_first_entry_or_null(
-			&scheduler->active_ce_queue,
+			&sched->active_ce_queue,
 			struct command_entry,
 			node);
 
@@ -843,19 +842,19 @@ unsigned int mdla_dequeue_ce(unsigned int core_id)
 	/* remove prioritized CE from active CE queue */
 	list_del(&prioritized_ce->node);
 	prioritized_ce->state |= (1 << CE_DEQUE);
-	if (scheduler->processing_ce != NULL) {
-		scheduler->processing_ce->req_end_t = sched_clock();
-		scheduler->processing_ce->state |= (1 << CE_PREEMPTED);
+	if (sched->pro_ce != NULL) {
+		sched->pro_ce->req_end_t = sched_clock();
+		sched->pro_ce->state |= (1 << CE_PREEMPTED);
 		mdla_preemption_times++;
 		list_add_tail(
-			&scheduler->processing_ce->node,
-			&scheduler->active_ce_queue);
+			&sched->pro_ce->node,
+			&sched->active_ce_queue);
 		ret = REASON_QUEUE_PREEMPTION;
 		prioritized_ce->state |= (1 << CE_PREEMPTING);
 	}
 	prioritized_ce->deadline_t =
 		get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
-	scheduler->processing_ce = prioritized_ce;
+	sched->pro_ce = prioritized_ce;
 	return ret;
 }
 
@@ -865,11 +864,10 @@ unsigned int mdla_dequeue_ce(unsigned int core_id)
  */
 irqreturn_t mdla_scheduler(unsigned int core_id)
 {
-	struct mdla_scheduler *scheduler = mdla_get_scheduler(core_id);
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
 	unsigned long flags;
 	unsigned int status;
 	struct mdla_dev *mdla_info = &mdla_devices[core_id];
-	struct command_entry *ce = NULL;
 	u32 irq_status = 0;
 
 	/* clear intp0 to avoid irq fire twice */
@@ -882,77 +880,62 @@ irqreturn_t mdla_scheduler(unsigned int core_id)
 		MREG_TOP_G_INTP0);
 	spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
 
-	if (unlikely(scheduler == NULL)) {
+	if (unlikely(sched == NULL)) {
 		mdla_info->error_bit |= IRQ_NO_SCHEDULER;
-		spin_unlock_irqrestore(&scheduler->lock, flags);
-		return IRQ_HANDLED;
+		goto end;
 	}
 
-	spin_lock_irqsave(&scheduler->lock, flags);
+	spin_lock_irqsave(&sched->lock, flags);
 
-	if (unlikely(scheduler->processing_ce == NULL)) {
+	if (unlikely(sched->pro_ce == NULL)) {
 		mdla_info->error_bit |= IRQ_NO_PROCESSING_CE;
-		spin_unlock_irqrestore(&scheduler->lock, flags);
-		return IRQ_HANDLED;
+		goto unlock;
 	}
 
-	ce = scheduler->processing_ce;
-
-	if (unlikely(ce == NULL)) {
-		mdla_info->error_bit |= IRQ_NO_PROCESSING_CE;
-		spin_unlock_irqrestore(&scheduler->lock, flags);
-		return IRQ_HANDLED;
-	}
-
-	if (unlikely(ce->state & (1 << CE_FAIL))) {
+	if (unlikely(sched->pro_ce->state & (1 << CE_FAIL))) {
 		mdla_info->error_bit |= IRQ_TIMEOUT;
-		spin_unlock_irqrestore(&scheduler->lock, flags);
-		return IRQ_HANDLED;
+		goto unlock;
 	}
 
 	if (unlikely(time_after64(
 		get_jiffies_64(),
-		ce->deadline_t)
+		sched->pro_ce->deadline_t)
 		)) {
-		ce->state |= (1 << CE_TIMEOUT);
-		spin_unlock_irqrestore(&scheduler->lock, flags);
-		return IRQ_HANDLED;
+		sched->pro_ce->state |= (1 << CE_TIMEOUT);
+		goto unlock;
 	}
 
-	ce->state |= (1 << CE_SCHED);
+	sched->pro_ce->state |= (1 << CE_SCHED);
 
 	/* process the current CE */
-	status = scheduler->process_ce(core_id);
+	status = sched->process_ce(core_id);
 
 	if (status == CE_DONE) {
-		scheduler->complete_ce(core_id);
+		sched->complete_ce(core_id);
 	} else if (status == CE_NONE) {
 		/* nothing to do but wait for the engine completed */
-		spin_unlock_irqrestore(&scheduler->lock, flags);
-		return IRQ_HANDLED;
+		goto unlock;
 	}
 
-	ce = scheduler->processing_ce;
-	if (ce != NULL) {
-		if ((irq_status&MDLA_IRQ_CDMA_FIFO_EMPTY) == 0) {
-			if ((ce->irq_state & IRQ_NOT_EMPTY_IN_ISSUE) == 0)
-				ce->irq_state |= IRQ_NE_SCHED_FIRST;
-			ce->irq_state |= IRQ_NOT_EMPTY_IN_SCHED;
+	if (sched->pro_ce != NULL) {
+		if ((irq_status & MDLA_IRQ_CDMA_FIFO_EMPTY) == 0) {
+			if ((sched->pro_ce->irq_state & IRQ_N_EMPTY_IN_ISSUE))
+				sched->pro_ce->irq_state |= IRQ_NE_SCHED_FIRST;
+			sched->pro_ce->irq_state |= IRQ_N_EMPTY_IN_SCHED;
 		}
 	}
 
 	/* get the next CE to be processed */
-	status = scheduler->dequeue_ce(core_id);
-	ce = scheduler->processing_ce;
+	status = sched->dequeue_ce(core_id);
 
-	if (likely(ce != NULL))
-		scheduler->issue_ce(core_id);
+	if (likely(sched->pro_ce != NULL))
+		sched->issue_ce(core_id);
 
-	spin_unlock_irqrestore(&scheduler->lock, flags);
-
+unlock:
+	spin_unlock_irqrestore(&sched->lock, flags);
+end:
 	return IRQ_HANDLED;
 }
-#endif
 
 void dump_timeout_debug_info(int core_id)
 {

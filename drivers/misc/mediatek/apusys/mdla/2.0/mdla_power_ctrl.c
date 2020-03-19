@@ -218,9 +218,9 @@ void mdla1_start_power_off(struct work_struct *work)
 int mdla_start_power_off(int core_id, int suspend, bool force)
 {
 	int ret = 0;
-#ifdef __APUSYS_PREEMPTION__
+
 	ret = mdla_pwr_off(core_id, suspend, force);
-#else
+#if 0
 	mutex_lock(&mdla_devices[core_id].cmd_lock);
 	ret = mdla_pwr_off(core_id, suspend, force);
 	mutex_unlock(&mdla_devices[core_id].cmd_lock);
