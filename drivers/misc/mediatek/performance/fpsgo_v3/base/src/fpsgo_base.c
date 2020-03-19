@@ -226,12 +226,12 @@ void fpsgo_add_linger(struct render_info *thr)
 	while (*p) {
 		parent = *p;
 		tmp = rb_entry(parent, struct render_info, linger_node);
-		if (thr->pid < tmp->pid)
+		if ((uintptr_t)thr < (uintptr_t)tmp)
 			p = &(*p)->rb_left;
-		else if (thr->pid > tmp->pid)
+		else if ((uintptr_t)thr > (uintptr_t)tmp)
 			p = &(*p)->rb_right;
 		else {
-			FPSGO_LOGI("linger exist %d(%p)\n", thr->pid, thr);
+			FPSGO_LOGE("linger exist %d(%p)\n", thr->pid, thr);
 			return;
 		}
 	}
