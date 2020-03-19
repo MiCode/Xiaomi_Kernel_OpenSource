@@ -619,11 +619,6 @@ static void write_shutter(kal_uint32 shutter)
 			set_max_framerate(146, 0);
 		else {
 			/* Extend frame length */
-			if (read_cmos_sensor_8(0x0350) != 0x00) {
-				pr_info(
-				"during auto-flicker, disable auto-extend");
-				write_cmos_sensor_8(0x0350, 0x00);
-			}
 			write_cmos_sensor_8(0x0104, 0x01);
 			write_cmos_sensor_8(0x0340,
 					imgsensor.frame_length >> 8);
