@@ -512,6 +512,18 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 static void bl_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
+	struct drm_crtc *crtc = cb_data->crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	int id;
+	unsigned int bl_idx = 0;
+
+	id = drm_crtc_index(crtc);
+	if (id == 0) {
+		bl_idx = *(unsigned int *)(cmdq_buf->va_base +
+			DISP_SLOT_CUR_BL_IDX);
+		CRTC_MMP_MARK(id, bl_cb, bl_idx, 0);
+	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -523,6 +535,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_cmdq_cb_data *cb_data;
+	static unsigned int bl_cnt;
+	struct cmdq_pkt_buffer *cmdq_buf;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
 
@@ -542,7 +556,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	if (!comp) {
 		DDPINFO("%s no output comp\n", __func__);
 		mutex_unlock(&mtk_crtc->lock);
-		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
+		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
 
 		return -EINVAL;
 	}
@@ -554,7 +568,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		DDPPR_ERR("cb data creation failed\n");
-		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
+		CRTC_MMP_EVENT_END(index, backlight, 0, 2);
 
 		return 0;
 	}
@@ -592,6 +606,16 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 	}
 
+	/* add counter to check update frequency */
+	cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+			   cmdq_buf->pa_base +
+				   DISP_SLOT_CUR_BL_IDX,
+			   bl_cnt, ~0);
+	CRTC_MMP_MARK(index, backlight, bl_cnt, 0);
+	bl_cnt++;
+
+	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
 
 	if (cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data) < 0)
@@ -4382,6 +4406,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	mtk_atomic_state_get(old_crtc_state->state);
 #ifdef MTK_DRM_CMDQ_ASYNC
 	mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
+	CRTC_MMP_MARK(index, atomic_flush, (unsigned long)cmdq_handle,
+			(unsigned long)cmdq_handle->cmd_buf_size);
 #else
 	mtk_crtc_gce_flush(crtc, NULL, NULL, cmdq_handle);
 	ddp_cmdq_cb_blocking(cb_data);

@@ -169,6 +169,8 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "atomic_commit");
 		g_CRTC_MMP_Events[i].user_cmd_cb =
 			mmprofile_register_event(crtc_mmp_root, "user_cmd_cb");
+		g_CRTC_MMP_Events[i].bl_cb =
+			mmprofile_register_event(crtc_mmp_root, "bl_cb");
 	}
 }
 
