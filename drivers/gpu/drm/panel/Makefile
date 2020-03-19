@@ -32,3 +32,4 @@ obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672C_CPHY_VDO) += panel-alpha-jdi-nt36672c-
 obj-$(CONFIG_DRM_PANEL_K6873V1_64_ALPHA_VDO_01) += k6873v1_64_alpha/panel-k6873v1-64-alpha-vdo-01.o
 obj-$(CONFIG_DRM_PANEL_K6873V1_64_ALPHA_VDO_02) += k6873v1_64_alpha/panel-k6873v1-64-alpha-vdo-02.o
 obj-$(CONFIG_DRM_PANEL_HX_NT36682C_DPHY_VDO) += panel-hx-nt36682c-dphy-vdo.o
+obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_VDO_120HZ) += panel-tianma-nt36672c-vdo-120hz.o
