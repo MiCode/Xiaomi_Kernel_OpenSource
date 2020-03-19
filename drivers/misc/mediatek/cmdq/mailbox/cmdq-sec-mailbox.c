@@ -141,6 +141,7 @@ struct cmdq_sec {
 	struct iwcCmdqCancelTask_t	cancel;
 	struct cmdq_mmp_event		mmp;
 };
+static atomic_t cmdq_path_res = ATOMIC_INIT(0);
 
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
@@ -1081,12 +1082,12 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	spin_unlock_irqrestore(&task->thread->chan->lock, flags);
 	task->trigger = sched_clock();
 
-	if (!atomic_cmpxchg(&cmdq->path_res, 0, 1)) {
+	if (!atomic_cmpxchg(&cmdq_path_res, 0, 1)) {
 		err = cmdq_sec_task_submit(cmdq, NULL,
 			CMD_CMDQ_TL_PATH_RES_ALLOCATE, CMDQ_INVALID_THREAD,
 			NULL);
 		if (err) {
-			atomic_set(&cmdq->path_res, 0);
+			atomic_set(&cmdq_path_res, 0);
 			goto task_err_callback;
 		}
 	}
