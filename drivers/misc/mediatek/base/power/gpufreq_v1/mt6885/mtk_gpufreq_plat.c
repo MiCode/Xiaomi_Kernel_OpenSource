@@ -851,8 +851,7 @@ static void __mt_gpufreq_dfd_debug_exception(void)
 	if (g_is_need_dump_exception &&
 	    aee_mode != AEE_MODE_NOT_INIT) {
 		aee_kernel_warning("GPU_DFD",
-			"\n\n%s\n%s\n%s\n",
-			"[GPU_DFD] gpu dfd is triggered at probe",
+			"\n%s\n%s\n",
 			g_exception_str,
 			"CRDISPATCH_KEY:GPU_DFD_PROBE_TRIGGERED");
 		g_is_need_dump_exception = 0;
@@ -867,9 +866,27 @@ static void __mt_gpufreq_dfd_get_exception_string(void)
 
 	//0x1000700C WDT_STA
 	//0x10007030 WDT_REQ_MODE
+	//0x100070A8 WDT_DEBUG_CTL3
+	/*
+	 * 0x1000D000
+	 * Offset
+	 * 0x000
+	 * 0x030
+	 * 0x040
+	 * 0x504
+	 * 0x508
+	 * 0x50C
+	 */
 	snprintf(g_exception_str, 340,
-		"[GPU_DFD] dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x",
-		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030));
+		"dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x, WDT_DEBUG_CTL3 0x%x\n"
+		"0x1000D000 0x%x, 0x030 0x%x, 0x040 0x%x\n"
+		"0x504 0x%x, 0x508 0x%x, 0x50C 0x%x\n",
+		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030),
+		readl(g_toprgu + 0x0A8),
+		readl(g_dbgtop + 0x000), readl(g_dbgtop + 0x030),
+		readl(g_dbgtop + 0x040),
+		readl(g_dbgtop + 0x504), readl(g_dbgtop + 0x508),
+		readl(g_dbgtop + 0x50C));
 
 	__mt_gpufreq_dfd_debug_exception();
 #endif
