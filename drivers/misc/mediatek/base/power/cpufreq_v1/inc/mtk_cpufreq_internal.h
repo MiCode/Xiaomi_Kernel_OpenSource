@@ -106,7 +106,7 @@ do {						\
 
 #define cpufreq_deferred(fmt, args...)		\
 do {						\
-	if (func_lv_mask)			\
+	if (0)			\
 		tag_pr_deferred(fmt, ##args);	\
 } while (0)
 
