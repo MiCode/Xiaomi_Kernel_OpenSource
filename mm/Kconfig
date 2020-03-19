@@ -532,7 +532,7 @@ config CMA_AREAS
 
 config CMA_DIRECT_UTILIZATION
 	bool "Allow clients to directly use CMA for page allocations"
-	depends on CMA && QGKI
+	depends on CMA
 	help
 	  CMA pages are currently used as a fallback for moveable page
 	  allocations only when all regular moveable pages have been
@@ -549,7 +549,7 @@ config CMA_DIRECT_UTILIZATION
 
 config CMA_PCP_LISTS
 	bool "Create PCP lists for CMA memory"
-	depends on CMA && CMA_DIRECT_UTILIZATION && QGKI
+	depends on CMA && CMA_DIRECT_UTILIZATION
 	help
 	  Improve memory utilization by creating PCP lists that contain CMA
 	  pages to satisfy order-0 allocations when appropriate. Increased
