@@ -39,9 +39,8 @@
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/atomic.h>
-/* #include <asm/system.h> */
-/* #include <linux/xlog.h> */
 #include <linux/types.h>
+#include <linux/slab.h>
 
 #include "kd_camera_typedef.h"
 #include "kd_imgsensor.h"
@@ -210,7 +209,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.mclk = 24,
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.i2c_addr_table = {0x34, 0x20, 0xff},
-	.i2c_speed = 400, /* i2c read/write speed */
+	.i2c_speed = 1000, /* i2c read/write speed */
 };
 
 
@@ -282,15 +281,6 @@ static kal_uint16 read_cmos_sensor(kal_uint32 addr)
 }
 
 
-static void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
-{
-	char pusendcmd[4] = {(char)(addr >> 8), (char)(addr & 0xFF),
-			     (char)(para >> 8), (char)(para & 0xFF)};
-
-	/* Add this func to set i2c speed by each sensor */
-	iWriteRegI2C(pusendcmd, 4, imgsensor.i2c_write_id);
-}
-
 static kal_uint16 read_cmos_sensor_8(kal_uint16 addr)
 {
 	kal_uint16 get_byte = 0;
@@ -308,6 +298,48 @@ static int write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
 			     (char)(para & 0xFF)};
 
 	return iWriteRegI2C(pusendcmd, 3, imgsensor.i2c_write_id);
+}
+
+static kal_uint16 imx576_seq_write_cmos_sensor(kal_uint16 addr,
+					       kal_uint16 *para,
+					       kal_uint32 len)
+{
+#define MAX_LEN 2047  /* max 4k bytes (MAX_LEN + 1) * 2 in one transmit */
+	kal_uint32 i, tosend, offset = 0;
+	kal_uint16 start_addr = addr;
+	kal_uint32 len_once = (len > MAX_LEN) ? MAX_LEN : len;
+	char *puSendCmd = kmalloc(sizeof(kal_uint16) * (len_once + 1),
+				  GFP_KERNEL);
+
+	if (puSendCmd == NULL) {
+		LOG_INF("puSendCmd allocate fail.\n");
+		return 1;
+	}
+
+	do {
+		start_addr = addr + (offset * 2);
+		tosend = 0;
+
+		puSendCmd[tosend++] = (char)(start_addr >> 8);
+		puSendCmd[tosend++] = (char)(start_addr & 0xFF);
+
+		for (i = offset; (i < len) && (i < (offset + len_once)); i++) {
+			puSendCmd[tosend++] = (char)(para[i] >> 8);
+			puSendCmd[tosend++] = (char)(para[i] & 0xFF);
+		}
+
+		iBurstWriteReg_multi(puSendCmd,
+				     tosend,
+				     imgsensor.i2c_write_id,
+				     tosend,
+				     imgsensor_info.i2c_speed);
+
+		offset += len_once;
+	} while (offset < len);
+
+	kfree(puSendCmd);
+
+	return 0;
 }
 
 static kal_uint16 imx576_table_write_cmos_sensor(kal_uint16 *para,
@@ -563,6 +595,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	return gain;
 }	/*	set_gain  */
 
+#if 0
 static void set_mirror_flip(kal_uint8 image_mirror)
 {
 	kal_uint8 itemp;
@@ -590,6 +623,7 @@ static void set_mirror_flip(kal_uint8 image_mirror)
 	break;
 	}
 }
+#endif
 
 /*************************************************************************
  * FUNCTION
@@ -1645,7 +1679,6 @@ static kal_uint32 preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		spin_unlock(&imgsensor_drv_lock);
 		preview_setting();
 	}
-	set_mirror_flip(imgsensor.mirror);
 	return ERROR_NONE;
 }
 
@@ -1678,7 +1711,6 @@ static kal_uint32 capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	spin_unlock(&imgsensor_drv_lock);
 
 	capture_setting();
-	set_mirror_flip(imgsensor.mirror);
 
 	return ERROR_NONE;
 }	/* capture() */
@@ -1713,7 +1745,6 @@ static kal_uint32 normal_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		normal_video_setting();
 		/* preview_setting(); */
 	}
-	set_mirror_flip(imgsensor.mirror);
 
 	return ERROR_NONE;
 } /* normal_video */
@@ -1736,7 +1767,6 @@ static kal_uint32 hs_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 	hs_video_setting();
-	set_mirror_flip(imgsensor.mirror);
 
 	return ERROR_NONE;
 }	/*	hs_video   */
@@ -1759,7 +1789,6 @@ static kal_uint32 slim_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 	slim_video_setting();
-	set_mirror_flip(imgsensor.mirror);
 
 	return ERROR_NONE;
 } /* slim_video */
@@ -2335,7 +2364,9 @@ static void hdr_write_tri_gain(kal_uint16 lgain, kal_uint16 mg, kal_uint16 sg)
 static void imx576_set_lsc_reg_setting(
 		kal_uint8 index, kal_uint16 *regDa, MUINT32 regNum)
 {
+	#if LSC_DEBUG
 	int i;
+	#endif
 	int startAddr[4] = {0x9D88, 0x9CB0, 0x9BD8, 0x9B00};
 	/*0:B,1:Gb,2:Gr,3:R*/
 
@@ -2366,8 +2397,7 @@ static void imx576_set_lsc_reg_setting(
 	write_cmos_sensor_8(0x9752, 0x01);
 	write_cmos_sensor_8(0x9753, 0x01);
 
-	for (i = 0; i < regNum; i++)
-		write_cmos_sensor(startAddr[index] + 2*i, regDa[i]);
+	imx576_seq_write_cmos_sensor(startAddr[index], regDa, regNum);
 
 	write_cmos_sensor_8(0x0104, 0x00);
 
