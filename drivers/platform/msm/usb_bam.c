@@ -1813,6 +1813,7 @@ static struct platform_driver usb_bam_driver = {
 	.driver = {
 		.name	= "usb_bam",
 		.of_match_table = usb_bam_dt_match,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 
