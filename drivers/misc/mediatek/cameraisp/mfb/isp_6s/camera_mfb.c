@@ -363,6 +363,7 @@ struct  MFB_USER_INFO_STRUCT {
 struct MFB_IRQ_INFO_STRUCT {
 	unsigned int Status[MFB_IRQ_TYPE_AMOUNT];
 	signed int MssIrqCnt[IRQ_USER_NUM_MAX];
+	signed int MssIrqUse[IRQ_USER_NUM_MAX];
 	signed int MsfIrqCnt[IRQ_USER_NUM_MAX];
 	pid_t ProcessID[IRQ_USER_NUM_MAX];
 	pid_t ProcessFD[IRQ_USER_NUM_MAX];
@@ -3748,7 +3749,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 {
 	signed int Ret = 0, i = 0;
 	/*int q = 0, p = 0;*/
-	struct MFB_USER_INFO_STRUCT *pUserInfo;
+	struct MFB_USER_INFO_STRUCT *pUserInfo = NULL;
 	unsigned long flags;
 
 	LOG_DBG("- E. UserCount: %d.", MFBInfo.UserCount);
@@ -3769,13 +3770,18 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		Ret = -ENOMEM;
 	} else {
 		pUserInfo = (struct MFB_USER_INFO_STRUCT *) pFile->private_data;
-		pUserInfo->Pid = MFBInfo.UserCount;
 		pUserInfo->Tid = current->tgid;
 		pUserInfo->streamtag = MFB_PROCESS_ID_NONE;
 	}
 	/*  */
 	if (MFBInfo.UserCount > 0) {
 		MFBInfo.UserCount++;
+		for (i = 0;  i < IRQ_USER_NUM_MAX; i++) {
+			if (MFBInfo.IrqInfo.MssIrqUse[i] == -1)
+				break;
+		}
+		MFBInfo.IrqInfo.MssIrqUse[i] = 1;
+		pUserInfo->Pid = i;
 		mutex_unlock(&(MutexMFBRef));
 		LOG_DBG(
 			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), users exist",
@@ -3788,7 +3794,10 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		for (i = 0; i < IRQ_USER_NUM_MAX; i++) {
 			MFBInfo.IrqInfo.MssIrqCnt[i] = 0;
 			MFBInfo.IrqInfo.MsfIrqCnt[i] = 0;
+			MFBInfo.IrqInfo.MssIrqUse[i] = -1;
 		}
+		MFBInfo.IrqInfo.MssIrqUse[0] = 1;
+		pUserInfo->Pid = 0;
 		/*  */
 		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
 		mfb_set_engine_ops(&mss_reqs, &mss_ops);
@@ -3849,20 +3858,18 @@ EXIT:
  ******************************************************************************/
 static signed int MFB_release(struct inode *pInode, struct file *pFile)
 {
-	struct MFB_USER_INFO_STRUCT *pUserInfo;
+	struct MFB_USER_INFO_STRUCT *pUserInfo = NULL;
 	/*unsigned int Reg;*/
 
 	LOG_DBG("- E. UserCount: %d.", MFBInfo.UserCount);
 
 	/*  */
-	if (pFile->private_data != NULL) {
+	if (pFile->private_data != NULL)
 		pUserInfo = (struct MFB_USER_INFO_STRUCT *) pFile->private_data;
-		kfree(pFile->private_data);
-		pFile->private_data = NULL;
-	}
 	/*  */
 	mutex_lock(&(MutexMFBRef));
 	MFBInfo.UserCount--;
+	MFBInfo.IrqInfo.MssIrqUse[pUserInfo->Pid] = -1;
 
 	if (MFBInfo.UserCount > 0) {
 		mutex_unlock(&(MutexMFBRef));
@@ -3883,10 +3890,12 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 			"%s - last UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
 			__func__, MFBInfo.UserCount, current->comm,
 			current->pid, current->tgid);
-
 	}
 	/*  */
-
+	if (pFile->private_data != NULL) {
+		kfree(pFile->private_data);
+		pFile->private_data = NULL;
+	}
 
 	/* Disable clock. */
 	MFB_EnableClock(MFALSE);
