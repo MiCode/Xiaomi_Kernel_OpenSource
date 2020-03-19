@@ -68,7 +68,6 @@ static int vpu_ucmd_handle(struct vpu_device *vd,
 		/* looping each vpu_device for this algo */
 		list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 			vd = list_entry(ptr, struct vpu_device, list);
-			mutex_lock_nested(&vd->lock, VPU_MUTEX_DEV);
 			/* Normal Algo */
 			alg = vd->aln.ops->get(&vd->aln, palg_cmd->name, NULL);
 			if (alg) {
@@ -85,7 +84,6 @@ static int vpu_ucmd_handle(struct vpu_device *vd,
 				__func__, vd->id, palg_cmd->name);
 			ret = -ENOENT;
 next:
-			mutex_unlock(&vd->lock);
 			if (ret)
 				break;
 		}
