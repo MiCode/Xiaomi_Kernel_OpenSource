@@ -179,7 +179,6 @@ config MEMORY_HOTPLUG_MOVABLE_NODE
         bool "Add hot-added memory blocks to ZONE_MOVABLE type"
         default n
         depends on MEMORY_HOTPLUG
-        depends on QCOM_MEM_OFFLINE
         help
 	  When onlining memory blocks, this option helps to add the target
 	  memory block to ZONE_MOVABLE zone type. For successful offlining,
