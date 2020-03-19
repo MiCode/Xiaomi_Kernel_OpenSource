@@ -324,32 +324,6 @@ static void adreno_preemption_timer(struct timer_list *t)
 	queue_work(system_unbound_wq, &adreno_dev->preempt.work);
 }
 
-static void adreno_preemption_init(struct adreno_device *adreno_dev)
-{
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-	int ret;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		return;
-
-	timer_setup(&preempt->timer, adreno_preemption_timer, 0);
-
-	ret = gpudev->preemption_init(adreno_dev);
-
-	WARN(ret, "adreno GPU preemption is disabled\n");
-}
-
-static void adreno_preemption_close(struct adreno_device *adreno_dev)
-{
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		return;
-
-	del_timer(&preempt->timer);
-}
-
 int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -386,15 +360,30 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 		}
 	}
 
-	adreno_preemption_init(adreno_dev);
-
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+		struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+		struct adreno_preemption *preempt = &adreno_dev->preempt;
+		int ret;
+
+		timer_setup(&preempt->timer, adreno_preemption_timer, 0);
+
+		ret = gpudev->preemption_init(adreno_dev);
+		WARN(ret, "adreno GPU preemption is disabled\n");
+	}
+
 	return 0;
 }
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
-	adreno_preemption_close(adreno_dev);
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		return;
+
+	del_timer(&preempt->timer);
 }
 
 /*
@@ -791,7 +780,7 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
 			(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
 
-		if (!device->l3_clk) {
+		if (IS_ERR_OR_NULL(device->l3_clk)) {
 			dev_err_once(device->dev,
 				"l3_vote clk not available\n");
 			return;

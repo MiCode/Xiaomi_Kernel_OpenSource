@@ -4825,6 +4825,7 @@ int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
 
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
+	struct platform_device *pdev = device->pdev;
 	int status = -EINVAL;
 
 	status = _register_device(device);
@@ -4834,20 +4835,24 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	/* Disable the sparse ioctl invocation as they are not used */
 	device->flags &= ~KGSL_FLAG_SPARSE;
 
-	kgsl_device_debugfs_init(device);
-
+	/* Can return -EPROBE_DEFER */
 	status = kgsl_pwrctrl_init(device);
 	if (status)
 		goto error;
 
-	if (!devm_request_mem_region(device->dev, device->reg_phys,
+	/* This can return -EPROBE_DEFER */
+	status = kgsl_mmu_probe(device);
+	if (status != 0)
+		goto error_pwrctrl_close;
+
+	if (!devm_request_mem_region(&pdev->dev, device->reg_phys,
 				device->reg_len, device->name)) {
 		dev_err(device->dev, "request_mem_region failed\n");
 		status = -ENODEV;
 		goto error_pwrctrl_close;
 	}
 
-	device->reg_virt = devm_ioremap(device->dev, device->reg_phys,
+	device->reg_virt = devm_ioremap(&pdev->dev, device->reg_phys,
 					device->reg_len);
 
 	if (device->reg_virt == NULL) {
@@ -4856,7 +4861,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 	}
 
-	status = kgsl_request_irq(device->pdev, "kgsl_3d0_irq",
+	status = kgsl_request_irq(pdev, "kgsl_3d0_irq",
 		kgsl_irq_handler, device);
 	if (status < 0)
 		goto error_pwrctrl_close;
@@ -4867,14 +4872,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
 
-	status = kgsl_mmu_probe(device);
-	if (status != 0)
-		goto error_pwrctrl_close;
+	kgsl_device_debugfs_init(device);
 
-	/* Check to see if our device can perform DMA correctly */
-	status = dma_set_coherent_mask(&device->pdev->dev, KGSL_DMA_BIT_MASK);
-	if (status)
-		goto error_close_mmu;
+	dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
 
 	/* Set up the GPU events for the device */
 	kgsl_device_events_probe(device);
@@ -4887,13 +4887,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	return 0;
 
-error_close_mmu:
-	kgsl_mmu_close(device);
-	kgsl_free_globals(device);
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
-	kgsl_device_debugfs_close(device);
 	_unregister_device(device);
 	return status;
 }

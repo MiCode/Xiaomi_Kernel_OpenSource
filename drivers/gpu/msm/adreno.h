@@ -416,7 +416,6 @@ struct adreno_gpu_core {
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
  * @ifpc_count: Number of times the GPU went into IFPC
- * @speed_bin: Indicate which power level set to use
  * @highest_bank_bit: Value of the highest bank bit
  * @csdev: Pointer to a coresight device (if applicable)
  * @gpmu_throttle_counters - counteers for number of throttled clocks
@@ -428,7 +427,6 @@ struct adreno_gpu_core {
  * @gpuhtw_llc_slice: GPU pagetables system cache slice descriptor
  * @gpuhtw_llc_slice_enable: To enable the GPUHTW system cache slice or not
  * @zap_loaded: Used to track if zap was successfully loaded or not
- * @soc_hw_rev: Indicate which SOC hardware revision to use
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -499,7 +497,6 @@ struct adreno_device {
 	uint32_t lm_threshold_cross;
 	uint32_t ifpc_count;
 
-	unsigned int speed_bin;
 	unsigned int highest_bank_bit;
 	unsigned int quirks;
 
@@ -515,7 +512,6 @@ struct adreno_device {
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
-	unsigned int soc_hw_rev;
 	/**
 	 * @critpkts: Memory descriptor for 5xx critical packets if applicable
 	 */

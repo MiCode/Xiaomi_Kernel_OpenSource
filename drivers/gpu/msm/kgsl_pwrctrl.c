@@ -1263,9 +1263,9 @@ static int enable_regulators(struct kgsl_device *device)
 	if (test_and_set_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->power_flags))
 		return 0;
 
-	ret = enable_regulator(device->dev, pwr->cx_gdsc, "vddcx");
+	ret = enable_regulator(&device->pdev->dev, pwr->cx_gdsc, "vddcx");
 	if (!ret)
-		ret = enable_regulator(device->dev, pwr->gx_gdsc, "vdd");
+		ret = enable_regulator(&device->pdev->dev, pwr->gx_gdsc, "vdd");
 
 	if (ret) {
 		clear_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->power_flags);
@@ -1488,8 +1488,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
-	pwr->cx_gdsc = devm_regulator_get(&device->pdev->dev, "vddcx");
-	pwr->gx_gdsc = devm_regulator_get(&device->pdev->dev, "vdd");
+	pwr->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
+	pwr->gx_gdsc = devm_regulator_get(&pdev->dev, "vdd");
 
 	pwr->power_flags = 0;
 

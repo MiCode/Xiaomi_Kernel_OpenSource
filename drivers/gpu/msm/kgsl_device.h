@@ -314,6 +314,8 @@ struct kgsl_device {
 	struct list_head event_groups;
 	/** @event_groups_lock: A R/W lock for the events group list */
 	rwlock_t event_groups_lock;
+	/** @speed_bin: Speed bin for the GPU device if applicable */
+	u32 speed_bin;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \

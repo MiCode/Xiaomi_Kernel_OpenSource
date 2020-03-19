@@ -1134,8 +1134,8 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 {
 	device->snapshot_memory.size = size;
 
-	device->snapshot_memory.ptr = kzalloc(device->snapshot_memory.size,
-		GFP_KERNEL);
+	device->snapshot_memory.ptr = devm_kzalloc(&device->pdev->dev,
+		device->snapshot_memory.size, GFP_KERNEL);
 
 	if (!device->snapshot_memory.ptr)
 		return;
@@ -1174,14 +1174,6 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 	sysfs_remove_files(&device->snapshot_kobj, snapshot_attrs);
 
 	kobject_put(&device->snapshot_kobj);
-
-	kfree(device->snapshot_memory.ptr);
-
-	device->snapshot_memory.ptr = NULL;
-	device->snapshot_memory.size = 0;
-	device->snapshot_faultcount = 0;
-	device->force_panic = false;
-	device->snapshot_crashdumper = true;
 }
 
 /**

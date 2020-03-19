@@ -563,10 +563,11 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (a5xx_core->gpmufw_name == NULL)
 		return 0;
 
-	ret = request_firmware(&fw, a5xx_core->gpmufw_name, device->dev);
+	ret = request_firmware(&fw, a5xx_core->gpmufw_name, &device->pdev->dev);
 	if (ret || fw == NULL) {
-		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
-				a5xx_core->gpmufw_name, ret);
+		dev_err(&device->pdev->dev,
+			"request_firmware (%s) failed: %d\n",
+			a5xx_core->gpmufw_name, ret);
 		return ret;
 	}
 
@@ -804,9 +805,9 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 	if (!a5xx_core->regfw_name)
 		return;
 
-	ret = request_firmware(&fw, a5xx_core->regfw_name, device->dev);
+	ret = request_firmware(&fw, a5xx_core->regfw_name, &device->pdev->dev);
 	if (ret) {
-		dev_err(device->dev, "request firmware failed %d, %s\n",
+		dev_err(&device->pdev->dev, "request firmware failed %d, %s\n",
 				ret, a5xx_core->regfw_name);
 		return;
 	}

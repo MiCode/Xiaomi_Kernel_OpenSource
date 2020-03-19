@@ -288,9 +288,13 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 		return -ENODEV;
 
 	pdev = of_find_device_by_node(node);
-	of_dma_configure(&pdev->dev, node, true);
-
+	ret = of_dma_configure(&pdev->dev, node, true);
 	of_node_put(node);
+
+	if (ret) {
+		platform_device_put(pdev);
+		return ret;
+	}
 
 	ctx->pdev = pdev;
 	ctx->domain = iommu_domain_alloc(&platform_bus_type);
