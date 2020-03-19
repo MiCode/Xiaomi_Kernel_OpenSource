@@ -619,6 +619,11 @@ static void write_shutter(kal_uint32 shutter)
 			set_max_framerate(146, 0);
 		else {
 			/* Extend frame length */
+			if (read_cmos_sensor_8(0x0350) != 0x00) {
+				pr_info(
+				"during auto-flicker, disable auto-extend");
+				write_cmos_sensor_8(0x0350, 0x00);
+			}
 			write_cmos_sensor_8(0x0104, 0x01);
 			write_cmos_sensor_8(0x0340,
 					imgsensor.frame_length >> 8);
@@ -628,7 +633,10 @@ static void write_shutter(kal_uint32 shutter)
 		}
 	} else {
 		/* Extend frame length*/
-		write_cmos_sensor_8(0x0350, 0x01); /* Enable auto extend */
+		if (read_cmos_sensor_8(0x0350) != 0x01) {
+			pr_info("single cam scenario enable auto-extend");
+			write_cmos_sensor_8(0x0350, 0x01);
+		}
 		write_cmos_sensor_8(0x0104, 0x01);
 		write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
 		write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
@@ -906,17 +914,7 @@ static void feedback_awbgain(kal_uint32 r_gain, kal_uint32 b_gain)
 
 	r_gain_int = r_gain / 512;
 	b_gain_int = b_gain / 512;
-	#if 0
-	/*write r_gain*/
-	write_cmos_sensor_8(0x0B90, r_gain_int);
-	write_cmos_sensor_8(0x0B91,
-		(((r_gain*100) / 512) - (r_gain_int * 100)) * 2);
 
-	/*write _gain*/
-	write_cmos_sensor_8(0x0B92, b_gain_int);
-	write_cmos_sensor_8(0x0B93,
-		(((b_gain * 100) / 512) - (b_gain_int * 100)) * 2);
-	#else
 	imx586_feedback_awbgain[1] = r_gain_int;
 	imx586_feedback_awbgain[3] = (
 		((r_gain*100) / 512) - (r_gain_int * 100)) * 2;
@@ -925,7 +923,7 @@ static void feedback_awbgain(kal_uint32 r_gain, kal_uint32 b_gain)
 		((b_gain * 100) / 512) - (b_gain_int * 100)) * 2;
 	imx586_table_write_cmos_sensor(imx586_feedback_awbgain,
 		sizeof(imx586_feedback_awbgain)/sizeof(kal_uint16));
-	#endif
+
 }
 
 static void imx586_set_lsc_reg_setting(
