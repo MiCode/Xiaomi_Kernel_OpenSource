@@ -41,7 +41,9 @@ struct apusys_user {
 	uint64_t id;
 	pid_t open_pid;
 	pid_t open_tgid;
-
+	char comm[TASK_COMM_LEN];
+	unsigned int iova_size_max;
+	unsigned int iova_size;
 	//struct completion comp;
 
 	/* relate cmd */
@@ -67,6 +69,7 @@ struct apusys_user {
 void apusys_user_dump(void *s_file);
 void apusys_user_show_log(void *s_file);
 void apusys_user_record_log(void);
+void apusys_user_print_log(void);
 int apusys_user_insert_cmd(struct apusys_user *user, void *icmd);
 int apusys_user_delete_cmd(struct apusys_user *user, void *icmd);
 int apusys_user_get_cmd(struct apusys_user *user, void **icmd, uint64_t cmd_id);

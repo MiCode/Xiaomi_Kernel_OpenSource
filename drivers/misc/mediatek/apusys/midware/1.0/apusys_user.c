@@ -26,6 +26,7 @@
 struct apusys_user_mem {
 	struct apusys_kmem mem;
 	struct list_head list;
+
 };
 
 struct apusys_user_dev {
@@ -358,7 +359,24 @@ void apusys_user_record_log(void)
 #undef LINEBAR
 
 }
+void apusys_user_print_log(void)
+{
 
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_user *user = NULL;
+
+	mutex_lock(&g_user_mgr.mtx);
+	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
+		user = list_entry(list_ptr, struct apusys_user, list);
+
+		mdw_drv_err("user(%s)(%llx)(%d)(%d)(%x)(%x)\n",
+				user->comm, user->id, user->open_pid,
+				user->open_tgid, user->iova_size,
+				user->iova_size_max);
+	}
+	mutex_unlock(&g_user_mgr.mtx);
+
+}
 
 int apusys_user_insert_cmd(struct apusys_user *u, void *icmd)
 {
@@ -638,12 +656,19 @@ int apusys_user_insert_mem(struct apusys_user *u, struct apusys_kmem *mem)
 	list_add_tail(&user_mem->list, &u->mem_list);
 	mutex_unlock(&u->mem_mtx);
 
+	u->iova_size = u->iova_size + user_mem->mem.iova_size;
+	if (u->iova_size_max < u->iova_size)
+		u->iova_size_max = u->iova_size;
+
+
 	mdw_mem_debug("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
 		user_mem, user_mem->mem.mem_type,
 		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
 		user_mem->mem.size, u->id);
-
+	mdw_mem_debug("user(%s)(%llx)(%d)(%d)(%x)(%x)\n",
+			u->comm, u->id, u->open_pid, u->open_tgid,
+			u->iova_size, u->iova_size_max);
 	return 0;
 }
 
@@ -671,8 +696,14 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 			user_mem->mem.mem_type == mem->mem_type) {
 			/* delete memory struct */
 			list_del(&user_mem->list);
+			u->iova_size = u->iova_size - user_mem->mem.iova_size;
 			kfree(user_mem);
+			mdw_mem_debug("user(%s)(%llx)(%d)(%d)(%x)(%x)\n",
+					u->comm, u->id, u->open_pid,
+					u->open_tgid, u->iova_size,
+					u->iova_size_max);
 			mutex_unlock(&u->mem_mtx);
+
 			//mdw_drv_debug("-\n");
 			return 0;
 		}
@@ -723,6 +754,7 @@ int apusys_create_user(struct apusys_user **iu)
 
 	u->open_pid = current->pid;
 	u->open_tgid = current->tgid;
+	get_task_comm(u->comm, current);
 	u->id = (uint64_t)u;
 	mutex_init(&u->cmd_mtx);
 	INIT_LIST_HEAD(&u->cmd_list);
