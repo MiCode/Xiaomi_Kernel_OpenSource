@@ -4956,7 +4956,8 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 	args->fence_fd = fence.fence;
 	args->fence_idx = fence.value;
 
-	DDPFENCE("P+/%d/L%d/idx%d/fd%d\n",
+	DDPFENCE("P+/%s%d/L%d/idx%d/fd%d\n",
+		 mtk_fence_session_mode_spy(private->session_id[0]),
 		 MTK_SESSION_DEV(private->session_id[0]), tl, args->fence_idx,
 		 args->fence_fd);
 	return ret;
@@ -5792,6 +5793,20 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, unsigned int en,
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
+}
+
+char *mtk_crtc_index_spy(int crtc_index)
+{
+	switch (crtc_index) {
+	case 0:
+		return "P";
+	case 1:
+		return "E";
+	case 2:
+		return "M";
+	default:
+		return "Unknown";
+	}
 }
 
 int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, unsigned int en,

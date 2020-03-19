@@ -694,6 +694,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		unsigned int cmd, void *params);
 unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 	char *stringbuf, int buf_len);
+char *mtk_crtc_index_spy(int crtc_index);
 
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void);

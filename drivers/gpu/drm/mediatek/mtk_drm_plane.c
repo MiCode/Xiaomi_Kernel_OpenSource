@@ -377,12 +377,14 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
 	static int cnt;
 	bool skip_update = 0;
+	int crtc_index = 0;
 
 	if (!crtc)
 		return;
 
 	crtc_state = to_mtk_crtc_state(crtc->state);
 	mtk_crtc = to_mtk_crtc(crtc);
+	crtc_index = drm_crtc_index(crtc);
 
 	if ((!fb) || (mtk_crtc->ddp_mode == DDP_NO_USE))
 		return;
@@ -439,7 +441,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	}
 	DDPINFO("\n");
 
-	DDPFENCE("S+/L%d/e%d/id%d/mva0x%08llx/size0x%08lx/S%d\n",
+	DDPFENCE("S+/%sL%d/e%d/id%d/mva0x%08llx/size0x%08lx/S%d\n",
+		mtk_crtc_index_spy(crtc_index),
 		plane_index,
 		state->pending.enable,
 		state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],

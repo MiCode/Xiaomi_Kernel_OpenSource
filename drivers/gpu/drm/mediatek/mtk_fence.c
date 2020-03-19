@@ -148,10 +148,18 @@ _get_session_sync_info(unsigned int session_id)
 
 				if (MTK_SESSION_TYPE(session_id) ==
 				    MTK_SESSION_PRIMARY)
-					sprintf(name, "-pr_%d_%d-",
+					sprintf(name, "-P_%d_%d-",
+						MTK_SESSION_DEV(session_id), j);
+				else if (MTK_SESSION_TYPE(session_id) ==
+				    MTK_SESSION_EXTERNAL)
+					sprintf(name, "-E_%d_%d-",
+						MTK_SESSION_DEV(session_id), j);
+				else if (MTK_SESSION_TYPE(session_id) ==
+				    MTK_SESSION_MEMORY)
+					sprintf(name, "-M_%d_%d-",
 						MTK_SESSION_DEV(session_id), j);
 				else
-					sprintf(name, "-na_%d_%d-",
+					sprintf(name, "-NA_%d_%d-",
 						MTK_SESSION_DEV(session_id), j);
 
 				layer_info =
