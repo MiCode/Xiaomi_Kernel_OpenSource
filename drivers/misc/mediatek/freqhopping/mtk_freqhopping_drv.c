@@ -31,13 +31,15 @@
 #define SUPPORT_SLT_TEST 0
 #define FREQ_HOPPING_DEVICE "mt-freqhopping"
 #define FH_PLL_COUNT (g_p_fh_hal_drv->pll_cnt)
+#define FHCTL_STATUS_PROC 0
 
 static struct mt_fh_hal_driver *g_p_fh_hal_drv;
 static struct fh_pll_t *g_fh_drv_pll;
 static unsigned int g_drv_pll_count;
+#if FHCTL_STATUS_PROC
 static int mt_freqhopping_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg);
-
+#endif
 #ifdef CONFIG_OF
 static const struct of_device_id mt_fhctl_of_match[] = {
 	{ .compatible = "mediatek,fhctl", },
@@ -224,9 +226,7 @@ static ssize_t freqhopping_debug_proc_write(struct file *file,
 		return -1;
 
 
-	if (cmd < FH_CMD_INTERNAL_MAX_CMD)
-		mt_freqhopping_ioctl(NULL, cmd, (unsigned long)(&fh_ctl));
-	else if ((cmd > FH_DCTL_CMD_ID) && (cmd < FH_DCTL_CMD_MAX))
+	if ((cmd > FH_DCTL_CMD_ID) && (cmd < FH_DCTL_CMD_MAX))
 		mt_freqhopping_devctl(cmd, &fh_ctl);
 	else
 		FH_MSG("CMD error!");
@@ -248,6 +248,7 @@ static const struct file_operations freqhopping_debug_fops = {
 	.release = single_release,
 };
 
+#if FHCTL_STATUS_PROC
 #define FH_STATUS_PROC_BANNER \
 	"id == fh_status == pll_status == setting_id" \
 	" == curr_freq == user_defined ==\r\n"
@@ -395,6 +396,7 @@ static int mt_freqhopping_ioctl(struct file *file, unsigned int cmd,
 	/* FH_MSG("Exit"); */
 	return ret;
 }
+#endif /* FHCTL_STATUS_PROC */
 
 int mt_freqhopping_devctl(unsigned int cmd, void *args)
 {
@@ -461,7 +463,9 @@ static int freqhopping_debug_proc_init(void)
 {
 	struct proc_dir_entry *prdumpregentry;
 #ifdef FH_FULL_PROC_INTERFACE_SUPPORT
+#if FHCTL_STATUS_PROC
 	struct proc_dir_entry *prStatusentry;
+#endif
 	struct proc_dir_entry *prDebugentry;
 #endif
 #if SUPPORT_SLT_TEST
@@ -487,6 +491,7 @@ static int freqhopping_debug_proc_init(void)
 	}
 #ifdef FH_FULL_PROC_INTERFACE_SUPPORT
 	/* /proc/freqhopping/status */
+#if FHCTL_STATUS_PROC
 	prStatusentry
 		= proc_create("status", 0664, fh_proc_dir, &status_fops);
 	if (prStatusentry == NULL) {
@@ -494,7 +499,7 @@ static int freqhopping_debug_proc_init(void)
 			, __func__);
 		return -EINVAL;
 	}
-
+#endif
 	/* /proc/freqhopping/ */
 	prDebugentry
 		= proc_create("freqhopping_debug", 0664, fh_proc_dir,
