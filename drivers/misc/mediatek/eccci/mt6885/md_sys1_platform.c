@@ -310,9 +310,9 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 	/* Set MD_PCCIF5_PWR_ON */
 	if (on) {
 		CCCI_NORMAL_LOG(md->index, TAG,
-			"ccif5 %s:  set 0x%lx + 0x30C = 0x1\n",
-			__func__, (unsigned long)pericfg_base);
-		ccif_write32(pericfg_base, 0x30C, 0x1);
+			"ccif5 current base_addr %s:  0x%lx, val:0x%x\n",
+			__func__, (unsigned long)pericfg_base,
+			ccif_read32(pericfg_base, 0x30C));
 	}
 }
 
