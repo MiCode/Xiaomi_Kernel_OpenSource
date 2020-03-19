@@ -620,8 +620,8 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	struct mtk_drm_gem_obj *mtk_gem;
 	int ret;
 	struct scatterlist *s;
-	unsigned int i;
-	dma_addr_t expected;
+	unsigned int i, last_len = 0, error_cnt = 0;
+	dma_addr_t expected, last_iova = 0;
 
 	DDPDBG("%s:%d dev:0x%p, attach:0x%p, sg:0x%p +\n",
 			__func__, __LINE__,
@@ -640,11 +640,22 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	expected = sg_dma_address(sg->sgl);
 	for_each_sg(sg->sgl, s, sg->nents, i) {
 		if (sg_dma_address(s) != expected) {
-			DDPPR_ERR("sg_table is not contiguous");
-			ret = -EINVAL;
-			goto err_gem_free;
+			if (!error_cnt)
+				pr_notice("sg_table is not contiguous %u\n",
+					  sg->nents);
+			pr_notice("exp:0x%llx,cur:0x%llx/%u,last:0x%llx+0x%x\n",
+				  expected, sg_dma_address(s),
+				  i, last_iova, last_len);
+			if (error_cnt++ > 5)
+				break;
 		}
+		last_iova = sg_dma_address(s);
+		last_len = sg_dma_len(s);
 		expected = sg_dma_address(s) + sg_dma_len(s);
+	}
+	if (error_cnt) {
+		ret = -EINVAL;
+		goto err_gem_free;
 	}
 
 	mtk_gem->sec = false;
