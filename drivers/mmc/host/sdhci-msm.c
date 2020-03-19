@@ -5559,6 +5559,19 @@ static int sdhci_msm_suspend_noirq(struct device *dev)
 	return ret;
 }
 
+static int sdhci_msm_freeze(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct mmc_host *mmc = host->mmc;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
+			(msm_host->mmc->slot.cd_irq >= 0))
+		mmc_gpiod_free_cd_irq(mmc);
+	return 0;
+}
+
 static int sdhci_msm_restore(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -5566,6 +5579,8 @@ static int sdhci_msm_restore(struct device *dev)
 
 	if (mmc->inlinecrypt_support)
 		mmc->inlinecrypt_reset_needed = true;
+
+	mmc_gpiod_restore_cd_irq(mmc);
 
 	return 0;
 }
@@ -5576,7 +5591,9 @@ static const struct dev_pm_ops sdhci_msm_pmops = {
 	.runtime_suspend	= sdhci_msm_runtime_suspend,
 	.runtime_resume		= sdhci_msm_runtime_resume,
 	.suspend_noirq		= sdhci_msm_suspend_noirq,
+	.freeze			= sdhci_msm_freeze,
 	.restore		= sdhci_msm_restore,
+	.thaw			= sdhci_msm_restore,
 };
 
 #define SDHCI_MSM_PMOPS (&sdhci_msm_pmops)
