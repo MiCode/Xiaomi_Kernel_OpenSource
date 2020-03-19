@@ -1538,8 +1538,12 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			mod, cmdq_util_hw_name(client->chan), pc, thread_id);
 	}
 
-	if (thread_id == 3) /* trigger loop */
+	if (thread_id == 3) { /* trigger loop */
+		struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+
+		cmdq_thread_dump(client->chan, NULL, NULL, NULL);
 		cmdq_dump_pkt(pkt, ~0, true);
+	}
 
 	cmdq_util_error_disable();
 	cmdq_util_dump_unlock();

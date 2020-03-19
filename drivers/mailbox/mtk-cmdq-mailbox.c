@@ -1320,6 +1320,7 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 
 		cmdq_util_msg("thd idx:%u pc:%#x end:%#x",
 			thread->idx, curr_pa, end_pa);
+		cmdq_thread_dump(thread->chan, NULL, NULL, NULL);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
