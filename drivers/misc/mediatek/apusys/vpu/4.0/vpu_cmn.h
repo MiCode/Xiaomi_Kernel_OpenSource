@@ -123,7 +123,6 @@ struct vpu_driver {
 
 	/* shared */
 	uint64_t mva_algo;
-	uint64_t mva_share;
 
 	/* list of devices */
 	struct list_head devs;

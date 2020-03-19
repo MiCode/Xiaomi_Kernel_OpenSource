@@ -454,11 +454,6 @@ static void vpu_shared_release(struct kref *ref)
 		vpu_iova_free(vpu_drv->iova_dev, &vpu_drv->iova_algo);
 		vpu_drv->mva_algo = 0;
 	}
-
-	if (vpu_drv->mva_share) {
-		vpu_iova_free(vpu_drv->iova_dev, &vpu_drv->iova_share);
-		vpu_drv->mva_share = 0;
-	}
 }
 
 static int vpu_shared_put(struct platform_device *pdev,
@@ -474,7 +469,7 @@ static int vpu_shared_get(struct platform_device *pdev,
 {
 	dma_addr_t iova = 0;
 
-	if (vpu_drv->mva_algo && vpu_drv->mva_share) {
+	if (vpu_drv->mva_algo) {
 		kref_get(&vpu_drv->iova_ref);
 		return 0;
 	}
@@ -489,16 +484,6 @@ static int vpu_shared_get(struct platform_device *pdev,
 			goto error;
 		vpu_drv->mva_algo = iova;
 		vpu_drv->iova_algo.addr = iova;
-	}
-
-	if (!vpu_drv->mva_share) {
-		if (vpu_iova_dts(pdev, "share-data", &vpu_drv->iova_share))
-			goto error;
-		iova = vpu_iova_alloc(pdev,	&vpu_drv->iova_share);
-		if (!iova)
-			goto error;
-		vpu_drv->mva_share = iova;
-		vpu_drv->iova_share.addr = iova;
 	}
 
 	return 0;
@@ -828,7 +813,6 @@ static int __init vpu_init(void)
 	mutex_init(&vpu_drv->lock);
 
 	vpu_drv->mva_algo = 0;
-	vpu_drv->mva_share = 0;
 	vpu_drv->wq = create_workqueue("vpu_wq");
 
 	vpu_init_drv_hw();

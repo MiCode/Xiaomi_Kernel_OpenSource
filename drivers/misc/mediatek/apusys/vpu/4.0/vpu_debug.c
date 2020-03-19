@@ -814,9 +814,7 @@ static int vpu_debug_info(struct seq_file *s)
 	seq_printf(s, "bin_head_ofs: 0x%x\n", vpu_drv->bin_head_ofs);
 	seq_printf(s, "bin_preload_ofs: 0x%x\n", vpu_drv->bin_preload_ofs);
 	seq_printf(s, "mva_algo: 0x%llx\n", vpu_drv->mva_algo);
-	seq_printf(s, "mva_share: 0x%llx\n", vpu_drv->mva_share);
 	vpu_debug_iova_seq(s, &vpu_drv->iova_algo, "algo");
-	vpu_debug_iova_seq(s, &vpu_drv->iova_share, "share");
 
 	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 		vd = list_entry(ptr, struct vpu_device, list);
