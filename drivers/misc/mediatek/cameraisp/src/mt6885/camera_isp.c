@@ -10900,7 +10900,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	unsigned int Irq4StatusX, Irq5StatusX;
 	unsigned int cqDoneIndex = 0;
 	unsigned int dma_en = 0, dma2_en = 0;
-	unsigned int int3_en = 0, int4_en = 0;
+	unsigned int int_en = 0, int3_en = 0, int4_en = 0;
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
 
@@ -10958,7 +10958,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			ISP_RD32(CAM_REG_CTL_RAW_INT6_STATUS(reg_module));
 #endif
 	}
-
+	int_en = IrqStatus;
 	int3_en = ISP_RD32(CAM_REG_CTL_RAW_INT3_EN(reg_module));
 	int4_en = ISP_RD32(CAM_REG_CTL_RAW_INT4_EN(reg_module));
 
@@ -11092,7 +11092,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			IRQ_LOG_KEEPER(
 			       module, m_CurrentPPB, _LOG_INF,
 			       "module:%d, int_st=0x%x,int2_st=0x%x,int3_st=0x%x,int4_st=0x%x,int5_st=0x%x,DmaEn=0x%x,Dma2En=0x%x\n",
-			       module, IrqStatus, DmaStatus, Dma2Status,
+			       module, int_en, DmaStatus, Dma2Status,
 			       DropStatus, WarnStatus, dma_en, dma2_en);
 
 			IRQ_LOG_KEEPER(
