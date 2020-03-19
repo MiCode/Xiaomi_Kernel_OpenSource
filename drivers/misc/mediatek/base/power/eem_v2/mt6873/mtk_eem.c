@@ -1854,6 +1854,14 @@ static int eem_probe(struct platform_device *pdev)
 				det->volt_tbl_pmic);
 			eem_save_final_volt_aee(det);
 		}
+	} else {
+		for_each_det(det) {
+			for (i = 0; i < NR_FREQ; i++)
+				det->volt_tbl_pmic[i] =	(unsigned int)
+					det->volt_tbl_orig[i];
+			eem_update_init2_volt_to_upower(det,
+							det->volt_tbl_pmic);
+		}
 #endif
 	}
 
@@ -2325,8 +2333,8 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 
 		if (i == SN_DET_B)
 			seq_printf(m, "[%d]T_SVT_HV_BCPU:%d %d %d %d\n",
-				seq++, eem_devinfo.T_SVT_HV_LCPU,
-				eem_devinfo.T_SVT_LV_LCPU,
+				seq++, eem_devinfo.T_SVT_HV_BCPU,
+				eem_devinfo.T_SVT_LV_BCPU,
 				eemsn_log->sn_cal_data[i].T_SVT_HV_RT,
 				eemsn_log->sn_cal_data[i].T_SVT_LV_RT);
 		else
@@ -2393,10 +2401,10 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 		eem_devinfo.T_SVT_LV_LCPU_RT);
 
 	seq_printf(m, "T_SVT_HV_BCPU:%d %d %d %d\n",
-		eem_devinfo.T_SVT_HV_LCPU,
-		eem_devinfo.T_SVT_LV_LCPU,
-		eem_devinfo.T_SVT_HV_LCPU_RT,
-		eem_devinfo.T_SVT_LV_LCPU_RT);
+		eem_devinfo.T_SVT_HV_BCPU,
+		eem_devinfo.T_SVT_LV_BCPU,
+		eem_devinfo.T_SVT_HV_BCPU_RT,
+		eem_devinfo.T_SVT_LV_BCPU_RT);
 
 	seq_printf(m, "IN init_det, LCPU_A_T0_SVT:%d, LVT:%d, ",
 		eem_devinfo.LCPU_A_T0_SVT,
