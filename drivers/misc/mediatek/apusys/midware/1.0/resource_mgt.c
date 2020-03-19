@@ -1122,7 +1122,6 @@ int res_secure_off(int dev_type)
 	case APUSYS_DEVICE_VPU:
 		secure_ws_unlock();
 		ret = mtee_sdsp_enable(0);
-		mdw_drv_warn("dev(%d) secure mode off(%d)\n", dev_type, ret);
 		break;
 #endif
 	default:
