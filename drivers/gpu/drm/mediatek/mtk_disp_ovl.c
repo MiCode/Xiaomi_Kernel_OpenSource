@@ -1506,18 +1506,30 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_drm_crtc *mtk_crtc;
 		u32 vrefresh;
 		u32 ratio_tmp = 0;
-		unsigned int hact = 0;
-		unsigned int htotal = 0;
 		unsigned int vact = 0;
 		unsigned int vtotal = 0;
+		struct mtk_ddp_comp *output_comp;
+		struct drm_display_mode *mode = NULL;
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
 
-		hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-		htotal = mtk_crtc->base.state->adjusted_mode.htotal;
-		vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-		vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+		/* ovl -> dsi : vdo mode : blanking ratio = vtotal / vact
+		 * TODO: Need to consider MIPI hopping
+		 * ovl -> dsi : cmd mode : blanking ratio = 125
+		 * ovl -> wdma : cmd & vdo mode : blanking ratio = 125
+		 */
+		output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
+		if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
+				(output_comp->id == DDP_COMPONENT_DSI1))
+				&& !(mtk_dsi_is_cmd_mode(output_comp))) {
+			mtk_ddp_comp_io_cmd(output_comp, NULL,
+				DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
+			vtotal = mode->vtotal;
+			vact = mode->vdisplay;
+			ratio_tmp = vtotal * 100 / vact;
+		} else
+			ratio_tmp = 125;
 
 		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
 			struct mtk_panel_params *params;
@@ -1534,17 +1546,20 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/* TODO: consider FBDC */
+		/* SRT BW (one layer) =
+		 * layer_w * layer_h * bpp * vrefresh * blanking_ratio
+		 * Sum_SRT(all layer) *= 1.33
+		 */
 		temp_bw = (unsigned long long)pending->width * pending->height;
 		temp_bw *= mtk_get_format_bpp(fmt);
 		do_div(temp_bw, 1000);
-		ratio_tmp = ((vtotal*htotal*100)/(vact*hact));
 		temp_bw *= ratio_tmp;
 		do_div(temp_bw, 100);
 		temp_bw = temp_bw * vrefresh;
 		do_div(temp_bw, 1000);
 
-		DDPDBG("comp %d bw %llu vtotal:%d htotal:%d vact:%d hact:%d\n",
-			comp->id, temp_bw, vtotal, htotal, vact, hact);
+		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
+			comp->id, temp_bw, vtotal, vact);
 
 		if (pending->prop_val[PLANE_PROP_COMPRESS])
 			comp->fbdc_bw += temp_bw;

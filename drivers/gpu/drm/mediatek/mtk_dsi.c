@@ -4234,6 +4234,21 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			struct drm_display_mode, head);
 		break;
 
+	case DSI_GET_MODE_BY_MAX_VREFRESH:
+	{
+		struct drm_display_mode *tmp = NULL;
+		unsigned int vrefresh = 0;
+
+		mode = (struct drm_display_mode **)params;
+		list_for_each_entry(tmp, &dsi->conn.modes, head) {
+			if (tmp->vrefresh > vrefresh) {
+				vrefresh = tmp->vrefresh;
+				*mode = tmp;
+			}
+		}
+	}
+		break;
+
 	case IRQ_LEVEL_IDLE:
 	{
 		unsigned int inten;
