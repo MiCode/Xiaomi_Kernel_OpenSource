@@ -386,8 +386,12 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 {
 	struct vpu_dmp *d = vd->dmp;
 
-	if (!d)
+	if (!d) {
+		vpu_dmp_seq_bar(s, vd, "there's no exception");
+		vpu_dmp_seq_bar(s, vd, "current message");
+		vpu_mesg_seq(s, vd);
 		return;
+	}
 
 	vpu_dmp_seq_bar(s, vd, "device info");
 	seq_printf(s, "exception reason: %s\n", d->info);
