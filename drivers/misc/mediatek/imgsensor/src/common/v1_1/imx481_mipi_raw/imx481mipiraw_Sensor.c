@@ -2281,8 +2281,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	#if 0
 		pr_debug("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
 			(UINT32) *feature_data);
+	#endif
 
 		wininfo =
 	(struct SENSOR_WINSIZE_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
