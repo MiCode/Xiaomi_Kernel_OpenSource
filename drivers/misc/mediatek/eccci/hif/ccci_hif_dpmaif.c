@@ -2703,42 +2703,29 @@ static irqreturn_t dpmaif_isr(int irq, void *data)
 }
 
 #ifdef ENABLE_CPU_AFFINITY
-void mtk_ccci_affinity_rta(u64 dl, u64 ul)
+void mtk_ccci_affinity_rta(u32 irq_cpus, u32 push_cpus, int cpu_nr)
 {
-	static int affinity_en;
 	struct cpumask imask, tmask;
-	int en;
+	int i;
 
-	if (affinity_en)
-		en = ((dl + ul) < 800000000LL) ? 0 : 1;
-	else
-		en = ((dl + ul) > 1000000000LL) ? 1 : 0;
+	cpumask_clear(&imask);
+	cpumask_clear(&tmask);
 
-	if (affinity_en == en)
-		return;
-
-	affinity_en = en;
-	if (en) {
-		cpumask_clear(&imask);
-		cpumask_set_cpu(1, &imask);
-
-		cpumask_clear(&tmask);
-		cpumask_set_cpu(4, &tmask);
-		cpumask_set_cpu(5, &tmask);
-		cpumask_set_cpu(6, &tmask);
-		cpumask_set_cpu(7, &tmask);
-		CCCI_REPEAT_LOG(-1, TAG, "%s:en\r\n", __func__);
-	} else {
-		cpumask_setall(&imask);
-		cpumask_setall(&tmask);
-		CCCI_REPEAT_LOG(-1, TAG, "%s:dis\r\n", __func__);
+	for (i = 0; i < cpu_nr; i++) {
+		if (irq_cpus & (1 << i))
+			cpumask_set_cpu(i, &imask);
+		if (push_cpus & (1 << i))
+			cpumask_set_cpu(i, &tmask);
 	}
+	CCCI_REPEAT_LOG(-1, TAG, "%s: i:0x%x t:0x%x\r\n",
+			__func__, irq_cpus, push_cpus);
 
 	if (dpmaif_ctrl->dpmaif_irq_id)
 		irq_force_affinity(dpmaif_ctrl->dpmaif_irq_id, &imask);
 	if (dpmaif_ctrl->rxq[0].rx_thread)
 		sched_setaffinity(dpmaif_ctrl->rxq[0].rx_thread->pid, &tmask);
 }
+
 #endif
 
 /* =======================================================

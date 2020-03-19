@@ -31,6 +31,7 @@
 #define PACKET_HISTORY_DEPTH 16	/* must be power of 2 */
 
 extern void *ccci_hif[CCCI_HIF_NUM];
+extern void set_ccmni_rps(unsigned long value);
 
 struct ccci_log {
 	struct ccci_header msg;
@@ -233,9 +234,18 @@ static inline unsigned int ccci_md_get_seq_num(
 int mtk_ccci_speed_monitor_init(void);
 void mtk_ccci_add_dl_pkt_size(int size);
 void mtk_ccci_add_ul_pkt_size(int size);
-int mtk_ccci_cpu_freq_rta(u64 dl_speed, u64 ul_speed, int ref[], int n);
-int mtk_ccci_dram_freq_rta(u64 dl_speed, u64 ul_speed);
-void mtk_ccci_affinity_rta(u64 dl_speed, u64 ul_speed);
+
+struct dvfs_ref {
+	u64 speed;
+	int c0_freq;
+	int c1_freq;
+	u8 dram_lvl;
+	u8 irq_affinity;
+	u8 task_affinity;
+	u8 rps;
+};
+
+struct dvfs_ref *mtk_ccci_get_dvfs_table(int *tbl_num);
 
 
 #endif

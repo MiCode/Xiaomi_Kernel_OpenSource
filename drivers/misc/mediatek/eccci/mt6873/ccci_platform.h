@@ -16,6 +16,7 @@
 
 #include <mt-plat/sync_write.h>
 #include "ccci_config.h"
+#include "../hif/ccci_hif_internal.h"
 #include "modem_sys.h"
 
 #define ccci_write32(b, a, v)           mt_reg_sync_writel(v, (b)+(a))

@@ -33,7 +33,8 @@
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc.h>
 #include "cpu_ctrl.h"
-
+#include "ccci_hif_internal.h"
+#include "ccci_platform.h"
 #include "ccci_core.h"
 
 #define CALC_DELTA		(1000)
@@ -41,6 +42,8 @@
 
 static struct ppm_limit_data *s_pld;
 static int s_cluster_num;
+static struct dvfs_ref const *s_dvfs_ref_tbl;
+static int s_dvfs_tbl_items_num;
 
 struct speed_mon {
 	u64 curr_bytes;
@@ -73,30 +76,7 @@ void mtk_ccci_add_ul_pkt_size(int size)
 	}
 }
 
-
-int __weak mtk_ccci_cpu_freq_rta(u64 dl_speed, u64 ul_speed, int ref[], int n)
-{
-	static int show_cnt = 10;
-
-	if (show_cnt) {
-		show_cnt--;
-		CCCI_REPEAT_LOG(-1, "Speed", "%s w-\r\n", __func__);
-	}
-	return 0; /* No update */
-}
-
-int __weak mtk_ccci_dram_freq_rta(u64 dl_speed, u64 ul_speed)
-{
-	static int show_cnt = 10;
-
-	if (show_cnt) {
-		show_cnt--;
-		CCCI_REPEAT_LOG(-1, "Speed", "%s w-\r\n", __func__);
-	}
-	return -1; /* No QOS request */
-}
-
-void __weak mtk_ccci_affinity_rta(u64 dl_speed, u64 ul_speed)
+void __weak mtk_ccci_affinity_rta(u32 irq_cpus, u32 task_cpus, int cpu_nr)
 {
 	static int show_cnt = 10;
 
@@ -112,18 +92,9 @@ static void cpu_freq_rta_action(int update, int tbl[], int cnum)
 {
 	int i, num, same;
 
-	if (!update)
-		return;
-
-	if (!s_pld) {
-		CCCI_REPEAT_LOG(-1, "Speed", "%s:s_pld NULL\r\n",
-					__func__);
-		return;
-	}
-
 	num = (s_cluster_num <= cnum) ? s_cluster_num : cnum;
-
 	same = 1;
+
 	for (i = 0; i < num; i++) {
 		if (s_pld[i].min != tbl[i]) {
 			same = 0;
@@ -171,19 +142,47 @@ static void dram_freq_rta_action(int lvl)
 	}
 }
 
-
-static void notify_data_speed_hint(u64 dl_speed, u64 ul_speed)
+static int notify_data_speed_hint(u64 dl_speed, u64 ul_speed, int curr_idx)
 {
-	int ret;
 	int freq_ref[MAX_C_NUM];
+	int i;
+	int new_idx;
+	u64 speed;
 
-	ret = mtk_ccci_cpu_freq_rta(dl_speed, ul_speed, freq_ref, MAX_C_NUM);
-	cpu_freq_rta_action(ret, freq_ref, MAX_C_NUM);
+	if ((!s_dvfs_ref_tbl) || (!s_dvfs_tbl_items_num))
+		return curr_idx;
 
-	ret = mtk_ccci_dram_freq_rta(dl_speed, ul_speed);
-	dram_freq_rta_action(ret);
+	speed = dl_speed + ul_speed;
+	new_idx = s_dvfs_tbl_items_num - 1;
 
-	mtk_ccci_affinity_rta(dl_speed, ul_speed);
+	for (i = 0; i < s_dvfs_tbl_items_num; i++) {
+		if (speed >= s_dvfs_ref_tbl[i].speed) {
+			new_idx = i;
+			break;
+		}
+	}
+
+	if (new_idx == curr_idx)
+		return curr_idx;
+
+	if ((new_idx > curr_idx) &&
+		((speed + 200000000LL) > s_dvfs_ref_tbl[curr_idx].speed))
+		/* avoid pingpang */
+		return curr_idx;
+
+	/* CPU freq */
+	freq_ref[0] = s_dvfs_ref_tbl[new_idx].c0_freq;
+	freq_ref[1] = s_dvfs_ref_tbl[new_idx].c1_freq;
+	cpu_freq_rta_action(1, freq_ref, MAX_C_NUM);
+	/* DRAM freq */
+	dram_freq_rta_action(s_dvfs_ref_tbl[new_idx].dram_lvl);
+	/* CPU affinity */
+	mtk_ccci_affinity_rta(s_dvfs_ref_tbl[new_idx].irq_affinity,
+				s_dvfs_ref_tbl[new_idx].task_affinity, 8);
+	/* RPS */
+	set_ccmni_rps(s_dvfs_ref_tbl[new_idx].rps);
+
+	return new_idx;
 }
 
 static int get_speed_str(u64 speed, char buf[], int size)
@@ -219,6 +218,11 @@ static u64 speed_caculate(u64 delta, struct speed_mon *mon)
 	return speed;
 }
 
+struct dvfs_ref * __weak mtk_ccci_get_dvfs_table(int *tbl_num)
+{
+	*tbl_num = 0;
+	return NULL;
+}
 
 static int speed_monitor_thread(void *arg)
 {
@@ -228,6 +232,11 @@ static int speed_monitor_thread(void *arg)
 	u64 delta, dl_speed, ul_speed;
 	char dl_speed_str[32];
 	char ul_speed_str[32];
+	int idx = -1;
+
+	s_dvfs_ref_tbl = mtk_ccci_get_dvfs_table(&s_dvfs_tbl_items_num);
+	if (s_dvfs_tbl_items_num > 0)
+		idx = s_dvfs_tbl_items_num - 1;
 
 	while (1) {
 		if (kthread_should_stop())
@@ -248,12 +257,11 @@ static int speed_monitor_thread(void *arg)
 
 			dl_speed = speed_caculate(delta, &s_dl_mon);
 			ul_speed = speed_caculate(delta, &s_ul_mon);
+			idx = notify_data_speed_hint(dl_speed, ul_speed, idx);
 			get_speed_str(dl_speed, dl_speed_str, 32);
 			get_speed_str(ul_speed, ul_speed_str, 32);
-			CCCI_REPEAT_LOG(-1, "Speed", "UL:%s, DL:%s\r\n",
-					ul_speed_str, dl_speed_str);
-
-			notify_data_speed_hint(dl_speed, ul_speed);
+			CCCI_REPEAT_LOG(-1, "Speed", "UL:%s, DL:%s[%d]\r\n",
+					ul_speed_str, dl_speed_str, idx);
 
 			if (!ul_speed && !dl_speed)
 				cnt--;
@@ -266,7 +274,6 @@ static int speed_monitor_thread(void *arg)
 
 	return 0;
 }
-
 
 int mtk_ccci_speed_monitor_init(void)
 {

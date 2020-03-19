@@ -48,6 +48,7 @@
 #include <linux/stacktrace.h>
 #include "ccmni.h"
 #include "ccci_debug.h"
+#include "rps_perf.h"
 #if defined(CCMNI_MET_DEBUG)
 #include <mt-plat/met_drv.h>
 #endif
@@ -73,6 +74,16 @@ long int gro_flush_timer;
 #define APP_VIP_MARK		0x80000000
 #define DEV_OPEN                1
 #define DEV_CLOSE               0
+
+void set_ccmni_rps(unsigned long value)
+{
+	int i = 0;
+	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[0];
+
+	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++)
+		set_rps_map(ctlb->ccmni_inst[i]->dev->_rx, value);
+}
+EXPORT_SYMBOL(set_ccmni_rps);
 
 /********************internal function*********************/
 static void ccmni_make_etherframe(int md_id, struct net_device *dev,
@@ -1337,7 +1348,7 @@ int ccmni_header(int md_id, int ccmni_idx, struct sk_buff *skb)
 		else
 			skb->protocol  = htons(ETH_P_IP);
 
-		skb->ip_summed = CHECKSUM_NONE;
+		//skb->ip_summed = CHECKSUM_NONE;
 		skb_len = skb->len;
 #ifdef ENABLE_WQ_GRO
 		is_gro = is_skb_gro(skb);
@@ -1444,7 +1455,7 @@ static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 	else
 		skb->protocol  = htons(ETH_P_IP);
 
-	skb->ip_summed = CHECKSUM_NONE;
+	//skb->ip_summed = CHECKSUM_NONE;
 	skb_len = skb->len;
 
 #if defined(NETDEV_TRACE) && defined(NETDEV_DL_TRACE)

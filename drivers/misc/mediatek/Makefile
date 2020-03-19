@@ -91,6 +91,7 @@ obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp/
 obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += audio_ipi/
 obj-$(CONFIG_MTK_AUDIO_IPI) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += audio_scp/
+obj-$(CONFIG_MTK_NET_CCMNI)	+=  rps/
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
