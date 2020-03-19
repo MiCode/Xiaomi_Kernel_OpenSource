@@ -1294,9 +1294,9 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					BIT(id + EXT_SECURE_OFFSET),
 					BIT(id + EXT_SECURE_OFFSET));
 
-				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+				DDPDBG("%s:%d, addr:(%pad,0x%x), size:%d\n",
 					__func__, __LINE__,
-					pending->addr,
+					&pending->addr,
 					offset,
 					size);
 			} else {
@@ -1350,9 +1350,9 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:(0x%x,0x%x), size:%d\n",
+				DDPDBG("%s:%d, addr:(%pad,0x%x), size:%d\n",
 					__func__, __LINE__,
-					pending->addr,
+					&pending->addr,
 					offset,
 					size);
 			} else {
@@ -1695,9 +1695,9 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 					comp->regs_pa + OVL_SECURE,
 					BIT(id + EXT_SECURE_OFFSET),
 					BIT(id + EXT_SECURE_OFFSET));
-				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+				DDPDBG("%s:%d, addr:%pad, size:%d\n",
 					__func__, __LINE__,
-					pending->addr,
+					&pending->addr,
 					size);
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1749,9 +1749,9 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+				DDPDBG("%s:%d, addr:%pad, size:%d\n",
 					__func__, __LINE__,
-					pending->addr,
+					&pending->addr,
 					size);
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1984,9 +1984,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 					comp->regs_pa + OVL_SECURE,
 					BIT(id + EXT_SECURE_OFFSET),
 					BIT(id + EXT_SECURE_OFFSET));
-				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+				DDPDBG("%s:%d, addr:%pad, size:%d\n",
 					__func__, __LINE__,
-					pending->addr,
+					&pending->addr,
 					size);
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2045,9 +2045,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
 					BIT(lye_idx), BIT(lye_idx));
-				DDPDBG("%s:%d, addr:0x%x, size:%d\n",
+				DDPDBG("%s:%d, addr:%pad, size:%d\n",
 					__func__, __LINE__,
-					pending->addr,
+					&pending->addr,
 					size);
 			} else {
 				cmdq_pkt_write(handle, comp->cmdq_base,
