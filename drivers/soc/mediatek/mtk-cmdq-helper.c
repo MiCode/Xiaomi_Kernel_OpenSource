@@ -1538,14 +1538,8 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 		struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
 		struct cmdq_thread *thread =
 			(struct cmdq_thread *)client->chan->con_priv;
-		u32 spr[4] = {0};
 
-		spr[0] = readl(thread->base + 0x60);
-		spr[1] = readl(thread->base + 0x64);
-		spr[2] = readl(thread->base + 0x68);
-		spr[3] = readl(thread->base + 0x6c);
-		cmdq_msg("thrd:%d spr:%#x %#x %#x %#x",
-			thread->idx, spr[0], spr[1], spr[2], spr[3]);
+		cmdq_thread_dump_spr(thread);
 		cmdq_dump_pkt(pkt, ~0, true);
 	}
 
