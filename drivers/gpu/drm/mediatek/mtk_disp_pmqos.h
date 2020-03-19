@@ -52,6 +52,7 @@ void __mtk_disp_set_module_hrt(struct mm_qos_request *request,
 			       unsigned int bandwidth);
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int overlap_num);
+void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller);
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode);
 int __mtk_disp_pmqos_port_look_up(int comp_id);
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc);

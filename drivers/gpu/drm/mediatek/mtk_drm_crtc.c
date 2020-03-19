@@ -1459,9 +1459,15 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	int crtc_mask = 0x1 << index;
 	unsigned int prop_lye_idx;
+	unsigned int pan_disp_frame_weight = 4;
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
+	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
+	if (index == 0 && prop_lye_idx == 0) {
+		mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight,
+			cmdq_handle);
+	}
 	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
 				 list) {
 		if (lyeblob_ids->lye_idx > prop_lye_idx) {
@@ -3303,6 +3309,10 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 		mtk_ddp_comp_io_cmd(comp, NULL,
 			DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
 		mtk_ddp_comp_io_cmd(comp, NULL, SET_MMCLK_BY_DATARATE, &en);
+		/*need enable hrt_bw for pan display*/
+#ifdef MTK_FB_MMDVFS_SUPPORT
+		mtk_drm_pan_disp_set_hrt_bw(crtc, __func__);
+#endif
 	} else {
 		mtk_crtc->avail_modes_num = 0;
 		mtk_crtc->avail_modes = NULL;

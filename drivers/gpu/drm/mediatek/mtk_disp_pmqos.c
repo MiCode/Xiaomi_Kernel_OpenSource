@@ -195,6 +195,21 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	return ret;
 }
 
+void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller)
+{
+	struct mtk_drm_crtc *mtk_crtc;
+	struct drm_display_mode *mode;
+	unsigned int bw = 0;
+
+	dev_crtc = crtc;
+	mtk_crtc = to_mtk_crtc(dev_crtc);
+	mode = &crtc->state->adjusted_mode;
+
+	bw = _layering_get_frame_bw(crtc, mode);
+	mtk_disp_set_hrt_bw(mtk_crtc, bw);
+	DDPINFO("%s:pan_disp_set_hrt_bw: %u\n", caller, bw);
+}
+
 int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 				void *v)
 {
