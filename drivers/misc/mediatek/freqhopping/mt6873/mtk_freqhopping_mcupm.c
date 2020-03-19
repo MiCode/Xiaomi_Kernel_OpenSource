@@ -274,10 +274,12 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
-		IPI_SEND_WAIT, ipi_data, FHCTL_D_LEN, 3000);
-		if (ret != 0)
+		IPI_SEND_WAIT, ipi_data, FHCTL_D_LEN, 10);
+		if (ret != 0) {
 			FH_MSG(F2M_CMD_ERR_MSG,
 					cmd, ret, ack_data);
+			//BUG();
+		}
 		else if (ack_data < 0)
 			FH_MSG(F2M_ACK_ERR_MSG,
 					cmd, ack_data);
