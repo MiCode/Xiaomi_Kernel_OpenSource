@@ -532,6 +532,10 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 {
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	kfree(pkt->sec_data);
+#endif
 	kfree(pkt);
 }
 EXPORT_SYMBOL(cmdq_pkt_destroy);
