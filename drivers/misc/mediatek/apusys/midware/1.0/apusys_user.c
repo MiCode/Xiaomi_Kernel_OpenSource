@@ -369,7 +369,7 @@ void apusys_user_print_log(void)
 	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
 		user = list_entry(list_ptr, struct apusys_user, list);
 
-		mdw_drv_err("user(%s)(%llx)(%d)(%d)(%x)(%x)\n",
+		mdw_drv_err("user(%s), %llx, %d, %d, %u, %u\n",
 				user->comm, user->id, user->open_pid,
 				user->open_tgid, user->iova_size,
 				user->iova_size_max);
@@ -666,7 +666,7 @@ int apusys_user_insert_mem(struct apusys_user *u, struct apusys_kmem *mem)
 		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
 		user_mem->mem.size, u->id);
-	mdw_mem_debug("user(%s)(%llx)(%d)(%d)(%x)(%x)\n",
+	mdw_mem_debug("user(%s), %llx, %d, %d, %u, %u\n",
 			u->comm, u->id, u->open_pid, u->open_tgid,
 			u->iova_size, u->iova_size_max);
 	return 0;
@@ -698,7 +698,7 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 			list_del(&user_mem->list);
 			u->iova_size = u->iova_size - user_mem->mem.iova_size;
 			kfree(user_mem);
-			mdw_mem_debug("user(%s)(%llx)(%d)(%d)(%x)(%x)\n",
+			mdw_mem_debug("user(%s), %llx, %d, %d, %u, %u\n",
 					u->comm, u->id, u->open_pid,
 					u->open_tgid, u->iova_size,
 					u->iova_size_max);
