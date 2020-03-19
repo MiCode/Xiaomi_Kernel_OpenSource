@@ -27,7 +27,8 @@
 enum message_level {
 	VPU_DBG_MSG_LEVEL_NONE,
 	VPU_DBG_MSG_LEVEL_CTRL,
-	VPU_DBG_MSG_LEVEL_DATA,
+	VPU_DBG_MSG_LEVEL_CTX,
+	VPU_DBG_MSG_LEVEL_INFO,
 	VPU_DBG_MSG_LEVEL_DEBUG,
 	VPU_DBG_MSG_LEVEL_TOTAL,
 };
@@ -274,12 +275,10 @@ static int vpu_mesg_level_set(void *data, u64 val)
 
 static int vpu_mesg_level_get(void *data, u64 *val)
 {
-	u64 log_buf = 0;
 	struct vpu_message_ctrl *msg = vpu_mesg(data);
 
 	if (!msg)
 		return -ENOENT;
-	msg = (struct vpu_message_ctrl *)log_buf;
 	*val = msg->level_mask;
 	return 0;
 }
