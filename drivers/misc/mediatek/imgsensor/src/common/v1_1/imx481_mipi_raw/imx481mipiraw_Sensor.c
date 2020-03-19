@@ -382,10 +382,6 @@ static void set_shutter(kal_uint32 shutter)
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
 
-	pr_debug("Enter! shutter =%d, framelength =%d\n",
-		shutter,
-		imgsensor.frame_length);
-
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
 	imgsensor.shutter = shutter;
 	spin_unlock_irqrestore(&imgsensor_drv_lock, flags);
