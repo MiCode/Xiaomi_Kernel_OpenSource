@@ -4109,6 +4109,8 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
 		cmdq_pkt_destroy(cmdq_handle);
 		kfree(cb_data);
+		cmdq_handle = NULL;
+		cb_data = NULL;
 		DDPPR_ERR("flush check failed\n");
 		return;
 	}
