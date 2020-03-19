@@ -444,10 +444,10 @@ static void ccmni_queue_recv_skb(struct port_t *port, struct sk_buff *skb)
 		ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port),
 					skb, NULL);
 	} else {
+		port_ch_dump(port, 1, skb, skb->len);
 		spin_lock_irqsave(&port->port_rx_list.lock, flags);
 			__skb_queue_tail(&port->port_rx_list, skb);
 		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
-		port_ch_dump(port, 1, skb, skb->len);
 	}
 }
 
