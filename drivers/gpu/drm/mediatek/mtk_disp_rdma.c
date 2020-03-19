@@ -800,13 +800,13 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case PMQOS_SET_HRT_BW: {
 		bool *rdma_memory_mode = comp->comp_mode;
 		u32 bw_val = *(unsigned int *)params;
+		struct mtk_ddp_comp *output_comp;
 
+		output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
 		if (*rdma_memory_mode == true) {
-			struct drm_crtc *crtc = &comp->mtk_crtc->base;
-			struct drm_display_mode *mode =
-				&crtc->state->adjusted_mode;
-
-			bw_val = _layering_get_frame_bw(crtc, mode);
+			if (output_comp)
+				mtk_ddp_comp_io_cmd(output_comp, NULL,
+					GET_FRAME_HRT_BW_BY_DATARATE, &bw_val);
 			ret = RDMA_REQ_HRT;
 		}
 		__mtk_disp_set_module_hrt(&comp->hrt_qos_req, bw_val);

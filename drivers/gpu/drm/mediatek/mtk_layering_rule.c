@@ -487,6 +487,8 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	unsigned long long dvfs_bw = 0;
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long tmp;
+	struct mtk_ddp_comp *output_comp;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	dvfs_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
 	if (dvfs_bw == 0xffffffffffffffff) {
@@ -496,7 +498,10 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 
 	dvfs_bw *= 10000;
 
-	tmp = _layering_get_frame_bw(crtc, mode);
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL,
+			GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
 	dvfs_bw /= tmp * 100;
 
 	/* error handling when requested BW is less than 2 layers */

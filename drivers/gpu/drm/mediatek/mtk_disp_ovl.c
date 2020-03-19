@@ -1500,9 +1500,20 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
 		u32 vrefresh;
+		u32 ratio_tmp = 0;
+		unsigned int hact = 0;
+		unsigned int htotal = 0;
+		unsigned int vact = 0;
+		unsigned int vtotal = 0;
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
+
+		hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+		htotal = mtk_crtc->base.state->adjusted_mode.htotal;
+		vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+		vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+
 		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
 			struct mtk_panel_params *params;
 
@@ -1521,12 +1532,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		temp_bw = (unsigned long long)pending->width * pending->height;
 		temp_bw *= mtk_get_format_bpp(fmt);
 		do_div(temp_bw, 1000);
-		temp_bw *= 1250;
-		do_div(temp_bw, 1000);
+		ratio_tmp = ((vtotal*htotal*100)/(vact*hact));
+		temp_bw *= ratio_tmp;
+		do_div(temp_bw, 100);
 		temp_bw = temp_bw * vrefresh;
 		do_div(temp_bw, 1000);
 
-		DDPDBG("comp %d + bw %llu\n", comp->id, temp_bw);
+		DDPDBG("comp %d bw %llu vtotal:%d htotal:%d vact:%d hact:%d\n",
+			comp->id, temp_bw, vtotal, htotal, vact, hact);
+
 		if (pending->prop_val[PLANE_PROP_COMPRESS])
 			comp->fbdc_bw += temp_bw;
 		else

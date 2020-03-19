@@ -1229,7 +1229,8 @@ unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)
 {
 	unsigned long long bw = 0;
 	struct drm_crtc *crtc = i_crtc;
-	struct drm_display_mode *mode;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
 
 	if (drm_crtc_index(i_crtc) != 0) {
 		DDPPR_ERR("%s no support CRTC%u", __func__,
@@ -1241,8 +1242,10 @@ unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)
 		}
 	}
 
-	mode = &crtc->state->adjusted_mode;
-	bw = _layering_get_frame_bw(crtc, mode);
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL,
+				GET_FRAME_HRT_BW_BY_DATARATE, &bw);
 
 	return (unsigned int)bw;
 }
