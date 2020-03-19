@@ -37,12 +37,8 @@ u32 mtk_jpeg_enc_enum_result(void __iomem *base, u32 irq_status, u32 *fileSize)
 {
 	*fileSize = mtk_jpeg_enc_get_file_size(base);
 
-	pr_info("irq status done file size %d\n", *fileSize);
-
-
-
 	if (irq_status & JPEG_DRV_ENC_INT_STATUS_DONE) {
-		pr_info("irq status done\n");
+		pr_info("irq status done file size %d\n", *fileSize);
 		return 0;
 	} else if (irq_status & JPEG_DRV_ENC_INT_STATUS_STALL) {
 		pr_info("irq status stall\n");

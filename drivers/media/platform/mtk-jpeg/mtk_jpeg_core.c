@@ -1453,7 +1453,7 @@ static int mtk_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
 static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
 	int ret;
-	pr_info("%s +", __func__);
+	pr_info("%s", __func__);
 
 	smi_bus_prepare_enable(jpeg->larb_id[0], "JPEG");
 
@@ -1470,15 +1470,12 @@ static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 		ret = clk_prepare_enable(jpeg->clk_jpeg[0]);
 		if (ret)
 			pr_info("clk_prepare_enable  failed");
-		else
-			pr_info("clk_prepare_enable  pass");
 	}
-	pr_info("%s -", __func__);
 }
 
 static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 {
-	pr_info("%s  +", __func__);
+	pr_info("%s", __func__);
 	if (jpeg->mode == MTK_JPEG_ENC)
 		clk_disable_unprepare(jpeg->clk_jpeg[0]);
 
@@ -1487,8 +1484,6 @@ static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 
 
 	smi_bus_disable_unprepare(jpeg->larb_id[0], "JPEG");
-
-	pr_info("%s  -", __func__);
 }
 
 static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
@@ -1761,9 +1756,9 @@ static int mtk_jpeg_open(struct file *file)
 		}
 
 	}
-	pr_info("%s coreid %d corenum %d, isused(%d %d)\n", __func__,
-		ctx->coreid, jpeg->ncore,
-		jpeg->isused[0], jpeg->isused[1]);
+	//pr_info("%s coreid %d corenum %d, isused(%d %d)\n", __func__,
+	//	ctx->coreid, jpeg->ncore,
+	//	jpeg->isused[0], jpeg->isused[1]);
 
 	if (ctx->coreid == MTK_JPEG_MAX_NCORE) {
 		pr_info("%s invalid coreid something wrong\n", __func__);
@@ -1810,9 +1805,9 @@ static int mtk_jpeg_release(struct file *file)
 	mtk_jpeg_clk_unprepaer(ctx);
 	jpeg->isused[ctx->coreid] = 0;
 
-	pr_info("%s coreid %d released num %d used(%d %d)\n", __func__,
-		ctx->coreid, jpeg->ncore,
-		jpeg->isused[0], jpeg->isused[1]);
+	//pr_info("%s coreid %d released num %d used(%d %d)\n", __func__,
+	//	ctx->coreid, jpeg->ncore,
+	//	jpeg->isused[0], jpeg->isused[1]);
 
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	v4l2_fh_del(&ctx->fh);
