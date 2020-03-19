@@ -1069,12 +1069,12 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 
 #ifdef CONFIG_MTK_IOMMU_V2
 enum mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
-	int port, unsigned int mva, void *data)
+	int port, unsigned long mva, void *data)
 {
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
 	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
+	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%lx", port, mva);
 
 	cmdq_core_dump_tasks_info();
 
