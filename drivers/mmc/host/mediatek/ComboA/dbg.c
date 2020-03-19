@@ -822,6 +822,11 @@ inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
 {
 	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
 }
+inline void dbg_add_sirq_log(struct mmc_host *mmc, int type,
+		int cmd, int arg, int cpu, unsigned long active_reqs)
+{
+	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
+}
 void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 	struct mmc_host *mmc, u32 latest_cnt)
 {
