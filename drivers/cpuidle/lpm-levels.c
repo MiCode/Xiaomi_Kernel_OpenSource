@@ -29,6 +29,7 @@
 #include <linux/cpuhotplug.h>
 #include <linux/regulator/machine.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/idle.h>
 #include <linux/sched/stat.h>
 #include <linux/psci.h>
 #include <soc/qcom/pm.h>
@@ -46,6 +47,7 @@
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
+#define MAX_LPM_CPUS (8)
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
@@ -109,6 +111,13 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 static bool sleep_disabled;
 module_param_named(sleep_disabled, sleep_disabled, bool, 0664);
 
+static int lpm_cpu_qos_notify(struct notifier_block *nb,
+		unsigned long val, void *ptr);
+
+static struct notifier_block dev_pm_qos_nb[MAX_LPM_CPUS] = {
+	[0 ... (MAX_LPM_CPUS - 1)] = { .notifier_call = lpm_cpu_qos_notify },
+};
+
 #ifdef CONFIG_SCHED_WALT
 static bool check_cpu_isolated(int cpu)
 {
@@ -120,6 +129,20 @@ static bool check_cpu_isolated(int cpu)
 	return false;
 }
 #endif
+
+static int lpm_cpu_qos_notify(struct notifier_block *nb,
+		unsigned long val, void *ptr)
+{
+	int cpu = nb - dev_pm_qos_nb;
+
+	preempt_disable();
+	if (cpu != smp_processor_id() && cpu_online(cpu) &&
+	    !check_cpu_isolated(cpu))
+		wake_up_if_idle(cpu);
+	preempt_enable();
+
+	return NOTIFY_OK;
+}
 
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
@@ -171,7 +194,10 @@ static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 static int lpm_dying_cpu(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
+	struct device *dev = get_cpu_device(cpu);
 
+	dev_pm_qos_remove_notifier(dev, &dev_pm_qos_nb[cpu],
+				   DEV_PM_QOS_RESUME_LATENCY);
 	update_debug_pc_event(CPU_HP_DYING, cpu,
 				cluster->num_children_in_sync.bits[0],
 				cluster->child_cpus.bits[0], false);
@@ -182,7 +208,10 @@ static int lpm_dying_cpu(unsigned int cpu)
 static int lpm_starting_cpu(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
+	struct device *dev = get_cpu_device(cpu);
 
+	dev_pm_qos_add_notifier(dev, &dev_pm_qos_nb[cpu],
+				DEV_PM_QOS_RESUME_LATENCY);
 	update_debug_pc_event(CPU_HP_STARTING, cpu,
 				cluster->num_children_in_sync.bits[0],
 				cluster->child_cpus.bits[0], false);
@@ -453,12 +482,26 @@ static inline bool lpm_disallowed(s64 sleep_us, int cpu)
 	return false;
 }
 
+static inline uint32_t get_cpus_qos(const struct cpumask *mask)
+{
+	int cpu;
+	uint32_t n, latency;
+
+	for_each_cpu(cpu, mask) {
+		n = cpuidle_governor_latency_req(cpu);
+		if (n < latency)
+			latency = n;
+	}
+
+	return latency;
+}
+
 static int cpu_power_select(struct cpuidle_device *dev,
 		struct lpm_cpu *cpu)
 {
 	ktime_t delta_next;
 	int best_level = 0;
-	uint32_t latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+	uint32_t latency_us = get_cpus_qos(cpumask_of(dev->cpu));
 	s64 sleep_us = ktime_to_us(tick_nohz_get_sleep_length(&delta_next));
 	int i, idx_restrict;
 	uint32_t lvl_latency_us = 0;
@@ -792,7 +835,7 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 	}
 
 	if (cpumask_and(&mask, cpu_online_mask, &cluster->child_cpus))
-		latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+		latency_us = get_cpus_qos(&mask);
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *level = &cluster->levels[i];
