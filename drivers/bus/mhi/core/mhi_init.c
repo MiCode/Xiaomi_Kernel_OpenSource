@@ -836,7 +836,7 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 
 	/* No ER configured to support BW scale */
 	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_BW_SCALE_ELEMENT_TYPE);
-	if (ret < 0)
+	if (er_index < 0)
 		return er_index;
 
 	bw_cfg_offset += BW_SCALE_CFG_OFFSET;
