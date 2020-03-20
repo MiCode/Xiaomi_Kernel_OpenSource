@@ -6,6 +6,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,videocc-lahaina.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interconnect/qcom,epss-l3.h>
 #include <dt-bindings/interconnect/qcom,lahaina.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
@@ -1762,6 +1763,7 @@
 
 		disp_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
+			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
 		};
 
 	};
