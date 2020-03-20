@@ -24,6 +24,8 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+static void mhi_special_events_pending(struct mhi_controller *mhi_cntrl);
+
 /*
  * Not all MHI states transitions are sync transitions. Linkdown, SSR, and
  * shutdown can happen anytime asynchronously. This function will transition to
@@ -515,6 +517,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		mhi_timesync_log(mhi_cntrl);
 
+	mhi_special_events_pending(mhi_cntrl);
+
 	MHI_LOG("Adding new devices\n");
 
 	/* add supported devices */
@@ -558,20 +562,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		mhi_reset_reg_write_q(mhi_cntrl);
 
 	/* We must notify MHI control driver so it can clean up first */
-	if (transition_state == MHI_PM_SYS_ERR_PROCESS) {
-		/*
-		 * if controller support rddm, we do not process
-		 * sys error state, instead we will jump directly
-		 * to rddm state
-		 */
-		if (mhi_cntrl->rddm_image) {
-			MHI_LOG(
-				"Controller Support RDDM, skipping SYS_ERR_PROCESS\n");
-			return;
-		}
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 				     MHI_CB_SYS_ERROR);
-	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -646,7 +639,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
-	flush_work(&mhi_cntrl->low_priority_worker);
+	flush_work(&mhi_cntrl->special_work);
 
 	if (sfr_info && sfr_info->buf_addr) {
 		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
@@ -740,7 +733,7 @@ int mhi_debugfs_trigger_reset(void *data, u64 val)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	if (cur_state == MHI_PM_SYS_ERR_DETECT)
-		schedule_work(&mhi_cntrl->syserr_worker);
+		mhi_process_sys_err(mhi_cntrl);
 
 	return 0;
 }
@@ -786,18 +779,19 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 	return 0;
 }
 
-static void mhi_low_priority_events_pending(struct mhi_controller *mhi_cntrl)
+static void mhi_special_events_pending(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_event *mhi_event;
 
-	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
+	list_for_each_entry(mhi_event, &mhi_cntrl->sp_ev_rings, node) {
 		struct mhi_event_ctxt *er_ctxt =
 			&mhi_cntrl->mhi_ctxt->er_ctxt[mhi_event->er_index];
 		struct mhi_ring *ev_ring = &mhi_event->ring;
 
 		spin_lock_bh(&mhi_event->lock);
 		if (ev_ring->rp != mhi_to_virtual(ev_ring, er_ctxt->rp)) {
-			schedule_work(&mhi_cntrl->low_priority_worker);
+			queue_work(mhi_cntrl->special_wq,
+				   &mhi_cntrl->special_work);
 			spin_unlock_bh(&mhi_event->lock);
 			break;
 		}
@@ -805,11 +799,11 @@ static void mhi_low_priority_events_pending(struct mhi_controller *mhi_cntrl)
 	}
 }
 
-void mhi_low_priority_worker(struct work_struct *work)
+void mhi_special_purpose_work(struct work_struct *work)
 {
 	struct mhi_controller *mhi_cntrl = container_of(work,
 							struct mhi_controller,
-							low_priority_worker);
+							special_work);
 	struct mhi_event *mhi_event;
 
 	MHI_VERB("Enter with pm_state:%s MHI_STATE:%s ee:%s\n",
@@ -817,20 +811,21 @@ void mhi_low_priority_worker(struct work_struct *work)
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
-	/* check low priority event rings and process events */
-	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node)
+	/* check special purpose event rings and process events */
+	list_for_each_entry(mhi_event, &mhi_cntrl->sp_ev_rings, node)
 		mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
 }
 
-void mhi_pm_sys_err_worker(struct work_struct *work)
+void mhi_process_sys_err(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_controller *mhi_cntrl = container_of(work,
-							struct mhi_controller,
-							syserr_worker);
-
-	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
-		to_mhi_pm_state_str(mhi_cntrl->pm_state),
-		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+	/*
+	 * if controller supports rddm, we do not process sys error state,
+	 * instead we will jump directly to rddm state
+	 */
+	if (mhi_cntrl->rddm_image) {
+		MHI_LOG("Controller supports RDDM, skipping SYS_ERR_PROCESS\n");
+		return;
+	}
 
 	mhi_queue_disable_transition(mhi_cntrl, MHI_PM_SYS_ERR_PROCESS);
 }
@@ -1370,11 +1365,11 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 
 	/*
 	 * If MHI on host is in suspending/suspended state, we do not process
-	 * any low priority requests, for example, bandwidth scaling events
-	 * from the device. Check for low priority event rings and handle the
-	 * pending events upon resume.
+	 * any special purpose requests, for example, bandwidth scaling events
+	 * from the device. Check for special purpose event rings and handle
+	 * the pending events upon resume.
 	 */
-	mhi_low_priority_events_pending(mhi_cntrl);
+	mhi_special_events_pending(mhi_cntrl);
 
 	return 0;
 }
@@ -1444,8 +1439,8 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 		mhi_msi_handlr(0, mhi_event);
 	}
 
-	/* schedules worker if any low priority events need to be handled */
-	mhi_low_priority_events_pending(mhi_cntrl);
+	/* schedules worker if any special purpose events need to be handled */
+	mhi_special_events_pending(mhi_cntrl);
 
 	MHI_LOG("Exit with pm_state:%s dev_state:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
