@@ -54,12 +54,38 @@ static int strlcmp(const char *s, const char *t, size_t n)
 	return ret;
 }
 
+static void align_target_time_reg(u32 ch, void __iomem *ioaddr,
+				  struct pps_cfg *eth_pps_cfg,
+				  unsigned int align_ns)
+{
+	unsigned int system_s, system_ns, temp_system_s;
+
+	system_s = readl_relaxed(ioaddr + 0xb00 + PTP_STSR);
+	system_ns = readl_relaxed(ioaddr + 0xb00 + PTP_STNSR);
+	temp_system_s = readl_relaxed(ioaddr + 0xb00 + PTP_STSR);
+
+	if (temp_system_s != system_s) { // second roll over
+		system_s = readl_relaxed(ioaddr + 0xb00 + PTP_STSR);
+		system_ns = readl_relaxed(ioaddr + 0xb00 + PTP_STNSR);
+	}
+
+	system_ns += PPS_START_DELAY;
+	if (system_ns >= align_ns)
+		system_s += 1;
+
+	writel_relaxed(system_s, ioaddr +
+		       MAC_PPSX_TARGET_TIME_SEC(eth_pps_cfg->ppsout_ch));
+
+	writel_relaxed(align_ns, ioaddr +
+		       MAC_PPSX_TARGET_TIME_NSEC(eth_pps_cfg->ppsout_ch));
+}
+
 static u32 pps_config_sub_second_increment(void __iomem *ioaddr,
 					   u32 ptp_clock, int gmac4)
 {
 	u32 value = readl_relaxed(ioaddr + PTP_TCR);
-	unsigned long data;
-	unsigned int sns_inc = 0;
+	u64 data;
+	u64 sns_inc = 0;
 	u32 reg_value;
 	u32 reg_value2;
 	/* For GMAC3.x, 4.x versions, convert the ptp_clock to nano second
@@ -67,16 +93,16 @@ static u32 pps_config_sub_second_increment(void __iomem *ioaddr,
 	 * where ptp_clock is 50MHz if fine method is used to update system
 	 */
 	if (value & PTP_TCR_TSCFUPDT) {
-		data = (1000000000ULL / ptp_clock);
+		data = div_u64((1000000000ULL), ptp_clock);
 		sns_inc = 1000000000ull - (data * ptp_clock);
-		sns_inc = (sns_inc * 256) / ptp_clock;
+		sns_inc = div_u64((sns_inc * 256), ptp_clock);
 
 	} else {
-		data = (1000000000ULL / ptp_clock);
+		data = div_u64((1000000000ULL), ptp_clock);
 	}
 	/* 0.465ns accuracy */
 	if (!(value & PTP_TCR_TSCTRLSSR))
-		data = (data * 1000) / 465;
+		data = div_u64((data * 1000), 465);
 
 	data &= PTP_SSIR_SSINC_MASK;
 
@@ -171,9 +197,9 @@ static void ethqos_unregister_pps_isr(struct stmmac_priv *priv, int ch)
 int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg)
 {
 	int interval, width;
-	u32 sub_second_inc, value;
+	u32 sub_second_inc;
 	void __iomem *ioaddr = priv->ioaddr;
-	u32 val;
+	u32 val, align_ns = 0;
 	u64 temp;
 
 	if (!eth_pps_cfg->ppsout_start) {
@@ -183,11 +209,6 @@ int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg)
 			ethqos_unregister_pps_isr(priv, eth_pps_cfg->ppsout_ch);
 		return 0;
 	}
-
-	value = (PTP_TCR_TSENA | PTP_TCR_TSCFUPDT | PTP_TCR_TSUPDT);
-	priv->hw->ptp->config_hw_tstamping(priv->ptpaddr, value);
-	priv->hw->ptp->init_systime(priv->ptpaddr, 0, 0);
-	priv->hw->ptp->adjust_systime(priv->ptpaddr, 0, 0, 0, 1);
 
 	val = readl_relaxed(ioaddr + MAC_PPS_CONTROL);
 
@@ -223,6 +244,16 @@ int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg)
 		width = interval - 1;
 	if (width < 0)
 		width = 0;
+
+	if (eth_pps_cfg->ppsout_align == 1) {
+		align_ns = eth_pps_cfg->ppsout_align_ns;
+		if (align_ns < PPS_ADJUST_NS)
+			align_ns += (ONE_NS - PPS_ADJUST_NS);
+		else
+			align_ns -= PPS_ADJUST_NS;
+		align_target_time_reg(eth_pps_cfg->ppsout_ch,
+				      priv->ioaddr, eth_pps_cfg, align_ns);
+	}
 
 	writel_relaxed(interval, ioaddr +
 		       MAC_PPSX_INTERVAL(eth_pps_cfg->ppsout_ch));

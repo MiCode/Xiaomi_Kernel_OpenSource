@@ -192,6 +192,9 @@ enum power_event {
 #define GMAC_HI_DCS_SHIFT		16
 #define GMAC_HI_REG_AE			BIT(31)
 
+/* MAC HW PPS outputs mask */
+#define GMAC_PPSOUTNUM_MASK		0x7
+
 /*  MTL registers */
 #define MTL_OPERATION_MODE		0x00000c00
 #define MTL_OPERATION_SCHALG_MASK	GENMASK(6, 5)
