@@ -2466,7 +2466,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	int ret;
 
 	mutex_lock(&mhi_cntrl->tsync_mutex);
-	/* not all devices support time feature */
+	/* not all devices support time features */
 	if (!mhi_tsync) {
 		ret = -EIO;
 		goto err_unlock;
@@ -2537,9 +2537,9 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	struct tsync_node *tsync_node;
 	int ret;
 
-	/* not all devices support time feature */
+	/* not all devices support all time features */
 	mutex_lock(&mhi_cntrl->tsync_mutex);
-	if (!mhi_tsync) {
+	if (!mhi_tsync || !mhi_tsync->db_support) {
 		ret = -EIO;
 		goto error_unlock;
 	}
