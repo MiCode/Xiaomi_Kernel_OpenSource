@@ -158,8 +158,8 @@ static const unsigned int sdio_d0_pins[] = { PIN(GPIOX_0, EE_OFF) };
 static const unsigned int sdio_d1_pins[] = { PIN(GPIOX_1, EE_OFF) };
 static const unsigned int sdio_d2_pins[] = { PIN(GPIOX_2, EE_OFF) };
 static const unsigned int sdio_d3_pins[] = { PIN(GPIOX_3, EE_OFF) };
-static const unsigned int sdio_cmd_pins[] = { PIN(GPIOX_4, EE_OFF) };
-static const unsigned int sdio_clk_pins[] = { PIN(GPIOX_5, EE_OFF) };
+static const unsigned int sdio_clk_pins[] = { PIN(GPIOX_4, EE_OFF) };
+static const unsigned int sdio_cmd_pins[] = { PIN(GPIOX_5, EE_OFF) };
 static const unsigned int sdio_irq_pins[] = { PIN(GPIOX_7, EE_OFF) };
 
 static const unsigned int nand_ce0_pins[]	= { PIN(BOOT_8, EE_OFF) };
