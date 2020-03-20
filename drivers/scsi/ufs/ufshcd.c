@@ -7822,12 +7822,24 @@ static int ufshcd_config_vreg_load(struct device *dev, struct ufs_vreg *vreg,
 
 	return ret;
 }
-
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
 static inline int ufshcd_config_vreg_lpm(struct ufs_hba *hba,
 					 struct ufs_vreg *vreg)
 {
+	if (!vreg)
+		return 0;
+	else if (vreg->unused)
+		return 0;
+	else
+		return ufshcd_config_vreg_load(hba->dev, vreg, vreg->min_uA);
+}
+#else
+static inline int ufshcd_config_vreg_lpm(struct ufs_hba *hba,
+					struct ufs_vreg *vreg)
+{
 	return ufshcd_config_vreg_load(hba->dev, vreg, UFS_VREG_LPM_LOAD_UA);
 }
+#endif
 
 static inline int ufshcd_config_vreg_hpm(struct ufs_hba *hba,
 					 struct ufs_vreg *vreg)
