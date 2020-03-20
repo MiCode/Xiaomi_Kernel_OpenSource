@@ -1032,7 +1032,7 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 		return -EINVAL;
 	}
 
-	ret = qcom_scm_call_atomic(dev, &desc);
+	ret = qcom_scm_call(dev, &desc);
 
 	return ret ? : desc.res[0];
 }
