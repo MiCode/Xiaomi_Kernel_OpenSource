@@ -394,6 +394,8 @@ enum atl_fwd_notify {
 				  /* disable rings */
     ATL_FWD_NOTIFY_RESET_COMPLETE, /* receiver shall refill descriptors and  */
 				   /* enable rings */
+    ATL_FWD_NOTIFY_MACSEC_ON,
+    ATL_FWD_NOTIFY_MACSEC_OFF,
 };
 
 enum atl_fwd_ring_state {

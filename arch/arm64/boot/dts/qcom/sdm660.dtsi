@@ -21,6 +21,8 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/clock/qcom,cpu-osm.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -31,7 +33,7 @@
 	model = "Qualcomm Technologies, Inc. SDM 660";
 	compatible = "qcom,sdm660";
 	qcom,msm-id = <317 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	aliases {
 		serial0 = &uartblsp1dm1;
@@ -58,6 +60,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -86,6 +90,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			efficiency = <1024>;
@@ -108,6 +114,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -130,6 +138,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -152,6 +162,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			efficiency = <1638>;
 			next-level-cache = <&L2_1>;
@@ -178,6 +190,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			efficiency = <1638>;
@@ -200,6 +214,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x102>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			efficiency = <1638>;
@@ -222,6 +238,8 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x103>;
 			enable-method = "psci";
+			capacity-dmips-mhz = <1638>;
+			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			efficiency = <1638>;
@@ -275,6 +293,72 @@
 					cpu = <&CPU7>;
 				};
 			};
+		};
+	};
+
+	energy_costs: energy-costs {
+		compatible = "sched-energy";
+
+		CPU_COST_0: core-cost0 {
+			busy-cost-data = <
+				633600	41
+				902400	70
+				1113600	83
+				1401600	146
+				1536000	158
+				1747200	228
+				1843200	285
+			>;
+			idle-cost-data = <
+				20 16 10 8
+			>;
+		};
+
+		CPU_COST_1: core-cost1 {
+			busy-cost-data = <
+				1113600	307
+				1401600	485
+				1747200	857
+				1804800	883
+				1958400	1222
+				2150400	1592
+				2208000	1632
+				2457600	2080
+			>;
+			idle-cost-data = <
+				100 80 60 40
+			>;
+		};
+
+		CLUSTER_COST_0: cluster-cost0 {
+			busy-cost-data = <
+				633600	4
+				902400	5
+				1113600	7
+				1401600	9
+				1536000	9
+				1747200	11
+				1843200	13
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
+		};
+
+		CLUSTER_COST_1: cluster-cost1 {
+			busy-cost-data = <
+				1113600	14
+				1401600	17
+				1747200	25
+				1804800	31
+				1958400	31
+				2150400	37
+				2208000	44
+				2457600	45
+			>;
+			idle-cost-data = <
+				4 3 2 1
+			>;
 		};
 	};
 
@@ -475,6 +559,7 @@
 		#size-cells = <1>;
 		ranges;
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
 		interrupts = <1 9 4>;
@@ -648,6 +733,26 @@
 	qcom,sps {
 		compatible = "qcom,msm-sps-4k";
 		qcom,pipe-attr-ee;
+	};
+
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic-sdm660", "qcom,mpm-gic";
+		interrupts-extended = <&wakegic GIC_SPI 171
+			IRQ_TYPE_EDGE_RISING>;
+		reg = <0x7781b8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+			<0x17911008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <96>;
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <3>;
+	};
+
+	wakegpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-sdm660", "qcom,mpm-gpio";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
 	};
 
 	qcom,memshare {
@@ -1941,7 +2046,6 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x15700000 0x00100>;
 		reg-names = "base_reg";
-		interrupts = <0 162 1>;
 
 		vdd_cx-supply = <&pm660l_l9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
@@ -1961,16 +2065,16 @@
 		memory-region = <&adsp_fw_mem>;
 
 		/* GPIO inputs from lpass */
-/*		 interrupts-extended = <&wakegic 0 396 1>, */
-		interrupts-extended = <&adsp_smp2p_in 0 0>,
+		interrupts-extended = <&wakegic 0 162 1>,
+					<&adsp_smp2p_in 0 0>,
 					<&adsp_smp2p_in 2 0>,
 					<&adsp_smp2p_in 1 0>,
 					<&adsp_smp2p_in 3 0>;
 
-/*		interrupt-names = "qcom,wdog", */
-		interrupt-names = "qcom,err-fatal",
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
 				"qcom,proxy-unvote",
-				 "qcom,err-ready",
+				"qcom,err-ready",
 				"qcom,stop-ack";
 
 		/* GPIO output to lpass */
@@ -1983,7 +2087,6 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x1a300000 0x00100>;
 		reg-names = "base_reg";
-		interrupts = <0 518 1>;
 
 		vdd_cx-supply = <&pm660l_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
@@ -2003,17 +2106,17 @@
 		memory-region = <&cdsp_fw_mem>;
 
 		/* Inputs from turing */
-		/*interrupts-extended = <&wakegic 0 265 1>,*/
-		interrupts-extended = <&cdsp_smp2p_in 0 0>,
-				      <&cdsp_smp2p_in 2 0>,
-				      <&cdsp_smp2p_in 1 0>,
-				      <&cdsp_smp2p_in 3 0>;
+		interrupts-extended = <&wakegic 0 518 1>,
+					<&cdsp_smp2p_in 0 0>,
+					<&cdsp_smp2p_in 2 0>,
+					<&cdsp_smp2p_in 1 0>,
+					<&cdsp_smp2p_in 3 0>;
 
-/*		interrupt-names = "qcom,wdog",*/
-		interrupt-names =  "qcom,err-fatal",
-				  "qcom,proxy-unvote",
-				  "qcom,err-ready",
-				  "qcom,stop-ack";
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack";
 
 		/* Outputs to turing */
 		qcom,smem-states = <&cdsp_smp2p_out 0>;
@@ -2050,7 +2153,6 @@
 					 "gpll0_mss_clk", "snoc_axi_clk",
 					 "mnoc_axi_clk";
 
-		interrupts = <0 448 1>;
 		qcom,sequential-fw-load;
 		vdd_cx-supply = <&pm660l_s3_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
@@ -2068,15 +2170,15 @@
 		qcom,cx-ipeak-vote;
 
 		/* Inputs from mss */
-		/*interrupts-extended = <&wakegic 0 307 1>,*/
-		interrupts-extended = <&modem_smp2p_in 0 0>,
+		interrupts-extended = <&wakegic 0 448 1>,
+				<&modem_smp2p_in 0 0>,
 				<&modem_smp2p_in 2 0>,
 				<&modem_smp2p_in 1 0>,
 				<&modem_smp2p_in 3 0>,
 				<&modem_smp2p_in 7 0>;
 
-		/*interrupt-names = "qcom,wdog",*/
-		interrupt-names = "qcom,err-fatal",
+		interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
 				"qcom,proxy-unvote",
 				"qcom,err-ready",
 				"qcom,stop-ack",
@@ -2594,13 +2696,14 @@
 
 &pm660l_gpios {
 	/* GPIO 7 for VOL_UP */
-	gpio@c600 {
-		status = "okay";
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,out-strength = <1>;
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
 	};
 };
 
@@ -2614,8 +2717,9 @@
 		status = "okay";
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
-		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend",
+						"default";
+		pinctrl-0 = <&gpio_key_active &key_vol_up_default>;
 		pinctrl-1 = <&gpio_key_suspend>;
 
 		camera_focus {
@@ -2639,6 +2743,7 @@
 			gpios = <&pm660l_gpios 7 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
+			linux,can-disable;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};

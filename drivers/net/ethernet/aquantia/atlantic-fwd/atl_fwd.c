@@ -231,9 +231,13 @@ static void atl_fwd_update_im(struct atl_fwd_ring *ring)
 {
 	struct atl_hw *hw = &ring->nic->hw;
 	int idx = ring->idx;
-	uint32_t addr;
+	uint32_t addr, tx_reg;
 
-	addr = atl_fwd_ring_tx(ring) ? ATL_TX_INTR_MOD_CTRL(idx) :
+	if (hw->chip_id == ATL_ANTIGUA)
+		tx_reg = ATL2_TX_INTR_MOD_CTRL(idx);
+	else
+		tx_reg = ATL_TX_INTR_MOD_CTRL(idx);
+	addr = atl_fwd_ring_tx(ring) ? tx_reg :
 		ATL_RX_INTR_MOD_CTRL(idx);
 
 	atl_write(hw, addr, (ring->intr_mod_max / 2) << 0x10 |
@@ -821,9 +825,9 @@ int atl_fwd_unregister_notifier(struct net_device *ndev,
 }
 EXPORT_SYMBOL(atl_fwd_unregister_notifier);
 
-void atl_fwd_notify(struct atl_nic *nic, enum atl_fwd_notify notif)
+void atl_fwd_notify(struct atl_nic *nic, enum atl_fwd_notify notif, void *data)
 {
-	blocking_notifier_call_chain(&nic->fwd.nh_clients, notif, NULL);
+	blocking_notifier_call_chain(&nic->fwd.nh_clients, notif, data);
 }
 
 int atl_fwd_reconfigure_rings(struct atl_nic *nic)
@@ -858,7 +862,7 @@ int atl_fwd_reconfigure_rings(struct atl_nic *nic)
 
 int atl_fwd_suspend_rings(struct atl_nic *nic)
 {
-	atl_fwd_notify(nic, ATL_FWD_NOTIFY_RESET_PREPARE);
+	atl_fwd_notify(nic, ATL_FWD_NOTIFY_RESET_PREPARE, NULL);
 
 	return 0;
 }
@@ -873,7 +877,7 @@ int atl_fwd_resume_rings(struct atl_nic *nic)
 	if (ret)
 		goto err;
 
-	atl_fwd_notify(nic, ATL_FWD_NOTIFY_RESET_COMPLETE);
+	atl_fwd_notify(nic, ATL_FWD_NOTIFY_RESET_COMPLETE, NULL);
 
 	for (i = 0; i < ATL_NUM_FWD_RINGS * ATL_FWDIR_NUM; i++) {
 		ring = nic->fwd.rings[i % ATL_FWDIR_NUM][i / ATL_FWDIR_NUM];

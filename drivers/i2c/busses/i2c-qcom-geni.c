@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1165,6 +1165,7 @@ static const struct dev_pm_ops geni_i2c_pm_ops = {
 	.runtime_resume		= geni_i2c_runtime_resume,
 	.freeze			= geni_i2c_suspend_noirq,
 	.restore		= geni_i2c_hib_resume_noirq,
+	.thaw		= geni_i2c_hib_resume_noirq,
 };
 
 static int ssr_i2c_force_suspend(struct device *dev)

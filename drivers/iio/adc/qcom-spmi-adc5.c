@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1140,6 +1140,7 @@ static int adc_freeze(struct device *dev)
 static const struct dev_pm_ops adc_pm_ops = {
 	.freeze = adc_freeze,
 	.restore = adc_restore,
+	.thaw = adc_restore,
 };
 
 static struct platform_driver adc_driver = {

@@ -5,4 +5,4 @@ obj-$(CONFIG_QTI_PDC_SDMMAGPIE)		+= pdc-sdmmagpie.o
 obj-$(CONFIG_QTI_PDC_SDXPRAIRIE)	+= pdc-sdxprairie.o
 obj-$(CONFIG_QTI_PDC_ATOLL)		+= pdc-atoll.o
 obj-$(CONFIG_QTI_MPM)			+= mpm.o mpm-8937.o mpm-qcs405.o mpm-trinket.o \
-					   mpm-9607.o
+					   mpm-9607.o mpm-sdm660.o

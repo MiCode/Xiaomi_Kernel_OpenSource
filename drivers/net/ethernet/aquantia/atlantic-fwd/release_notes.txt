@@ -1,3 +1,44 @@
+Version 1.1.4
+==============
+[ATLDRV-1371] - Add supported eee with 2.5G and 5G
+[ATLDRV-1376] - Send notification when macsec offload turned on/off
+[ATLDRV-1378] - check FW capability instead of FW version for MSM Apply Settings
+
+Version 1.1.3
+==============
+[ATLDRV-1185] - Enable stripping of padding doesnt work on Felicity card
+[ATLDRV-1351] - Problem with setting mtu
+[ATLDRV-1352] - Implement stripping of padding
+[ATLDRV-1354] - Incorrect thermal thresholds
+[ATLDRV-1359] - Secure all packets when macsec service ON
+
+Version 1.1.2
+==============
+[ATLDRV-1348] - FWD: IPv6 and L4 ntuple filters not work 
+
+Version 1.1.1
+==============
+[ATLDRV-1315] - driver 1.1.0 crashes at start on A1
+[ATLDRV-1317] - A2: Incorrect ntuple L4 filter behavior
+[ATLDRV-1325] - A2: can not turn off flow control on Antigua
+[ATLDRV-1326] - A2: Cannot get EEE settings on Antigua
+[ATLDRV-1331] - A2: update reset sequence
+
+Version 1.1.0
+==============
+[ATLDRV-1210] - A2: FWD: Basic functionality and bringup
+[ATLDRV-1212] - A2: FWD: RX flow filters infrastructure
+
+
+Version 1.0.31
+==============
+[ATLDRV-1243] - Clean up MACsec implementation
+[ATLDRV-1135] - ethtool shows incorrect Flow Control information
+[ATLDRV-1229] - HW access on mdo_dev_stop(ctx->prepare)
+[ATLDRV-1256] - AQ072: Static analysis error in atl_setup_datapath()
+[ATLDRV-1303] - Make driver C90 compilable
+[ATLDRV-1064] - Fwd: Software flowcontrol workaround adaptations
+
 Version 1.0.30
 ==============
 [ATLDRV-1217] - FWD driver refactoring for unit tests

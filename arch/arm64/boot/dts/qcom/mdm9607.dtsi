@@ -322,12 +322,12 @@
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
-		BW_OPP_ENTRY( 48, 4); /*  183 MB/s */
-		BW_OPP_ENTRY( 96, 4); /*  366 MB/s */
-		BW_OPP_ENTRY(120, 4); /*  458 MB/s */
-		BW_OPP_ENTRY(150, 4); /*  572 MB/s */
-		BW_OPP_ENTRY(240, 4); /*  915 MB/s */
-		BW_OPP_ENTRY(300, 4); /* 1144 MB/s */
+		BW_OPP_ENTRY( 48, 8); /*  366 MB/s */
+		BW_OPP_ENTRY( 96, 8); /*  732 MB/s */
+		BW_OPP_ENTRY(120, 8); /*  915 MB/s */
+		BW_OPP_ENTRY(150, 8); /* 1145 MB/s */
+		BW_OPP_ENTRY(240, 8); /* 1831 MB/s */
+		BW_OPP_ENTRY(300, 8); /* 2291 MB/s */
 	};
 
 	cpubw: qcom,cpubw {
@@ -343,11 +343,11 @@
 		qcom,cpulist = <&CPU0>;
 		qcom,target-dev = <&cpubw>;
 		qcom,core-dev-table =
-				<  400000 MHZ_TO_MBPS( 48, 4) >,
-				<  800000 MHZ_TO_MBPS( 96, 4) >,
-				<  998400 MHZ_TO_MBPS(120, 4) >,
-				< 1094400 MHZ_TO_MBPS(150, 4) >,
-				< 1305600 MHZ_TO_MBPS(300, 4) >;
+				<  400000 MHZ_TO_MBPS( 48, 8) >,
+				<  800000 MHZ_TO_MBPS( 96, 8) >,
+				<  998400 MHZ_TO_MBPS(120, 8) >,
+				< 1094400 MHZ_TO_MBPS(150, 8) >,
+				< 1305600 MHZ_TO_MBPS(300, 8) >;
 	};
 
 	qcom,cpu-bwmon {

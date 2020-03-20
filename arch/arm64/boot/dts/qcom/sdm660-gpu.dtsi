@@ -75,6 +75,7 @@
 
 		/* size in bytes */
 		qcom,snapshot-size = <1048576>;
+		#cooling-cells = <2>;
 
 		clocks = <&clock_gfx GPUCC_GFX3D_CLK>,
 			<&clock_gcc GCC_GPU_CFG_AHB_CLK>,

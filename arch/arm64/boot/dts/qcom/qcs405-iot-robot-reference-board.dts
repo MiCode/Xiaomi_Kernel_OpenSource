@@ -23,8 +23,20 @@
 	qcom,board-id = <0x010020 3>;
 };
 
+&mdss_rgb {
+	status = "disabled";
+};
+
 &i2c_5 {
 	status = "ok";
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&smp2p_sleepstate {
+	status = "disabled";
 };
 
 &smb1351_otg_supply {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
 		mhi,name = "esoc0";
+		mhi,buffer-len = <0x8000>;
 
 		mhi_channels {
 			#address-cells = <1>;
@@ -429,7 +430,7 @@
 
 			mhi_event@0 {
 				mhi,num-elements = <32>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <1>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
@@ -438,7 +439,7 @@
 
 			mhi_event@1 {
 				mhi,num-elements = <256>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <2>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
@@ -446,7 +447,7 @@
 
 			mhi_event@2 {
 				mhi,num-elements = <256>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <3>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
@@ -454,15 +455,15 @@
 
 			mhi_event@3 {
 				mhi,num-elements = <256>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <4>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
 			};
 
 			mhi_event@4 {
-				mhi,num-elements = <32>;
-				mhi,intmod = <1>;
+				mhi,num-elements = <64>;
+				mhi,intmod = <0>;
 				mhi,msi = <0>;
 				mhi,priority = <2>;
 				mhi,brstmode = <2>;
@@ -630,6 +631,7 @@
 		/* mhi bus specific settings */
 		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
+		mhi,buffer-len = <0x8000>;
 
 		mhi_channels {
 			#address-cells = <1>;
@@ -1032,7 +1034,7 @@
 
 				mhi_event@0 {
 				mhi,num-elements = <32>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <1>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
@@ -1041,7 +1043,7 @@
 
 			mhi_event@1 {
 				mhi,num-elements = <256>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <2>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
@@ -1049,7 +1051,7 @@
 
 			mhi_event@2 {
 				mhi,num-elements = <256>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <3>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
@@ -1057,15 +1059,15 @@
 
 			mhi_event@3 {
 				mhi,num-elements = <256>;
-				mhi,intmod = <1>;
+				mhi,intmod = <0>;
 				mhi,msi = <4>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
 			};
 
 			mhi_event@4 {
-				mhi,num-elements = <32>;
-				mhi,intmod = <1>;
+				mhi,num-elements = <64>;
+				mhi,intmod = <0>;
 				mhi,msi = <0>;
 				mhi,priority = <2>;
 				mhi,brstmode = <2>;

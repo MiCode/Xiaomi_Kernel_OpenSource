@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -255,6 +255,8 @@ static void _sde_shd_flush_hw_ctl(struct sde_hw_ctl *ctx)
 	int i;
 
 	hw_ctl = container_of(ctx, struct sde_shd_hw_ctl, base);
+
+	hw_ctl->old_mask = hw_ctl->flush_mask;
 
 	hw_ctl->flush_mask = ctx->flush.pending_flush_mask;
 

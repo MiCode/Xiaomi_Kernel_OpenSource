@@ -349,6 +349,8 @@ static int rmnet_usb_bind(struct usbnet *dev, struct usb_interface *iface)
 	rmnet_usb_manage_power(dev, 1);
 	rmnet_usb_change_dtr(dev, true);
 
+	dev->hard_mtu = 2048;
+
 out:
 	return status;
 }

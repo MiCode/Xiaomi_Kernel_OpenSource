@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,21 +139,19 @@
 		status = "ok";
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
-		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
-			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+		clocks =<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 			<&clock_camcc CAM_CC_CCI_CLK>,
 			<&clock_camcc CAM_CC_CCI_CLK_SRC>;
-		clock-names = "camnoc_axi_clk",
-			"soc_ahb_clk",
+		clock-names ="soc_ahb_clk",
 			"slow_ahb_src_clk",
 			"cpas_ahb_clk",
 			"cci_clk",
 			"cci_clk_src";
 		src-clock-name = "cci_clk_src";
 		clock-cntl-level = "lowsvs";
-		clock-rates = <0 0 0 0 0 37500000>;
+		clock-rates = <0 0 0 0 37500000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cci0_active &cci1_active>;
 		pinctrl-1 = <&cci0_suspend &cci1_suspend>;

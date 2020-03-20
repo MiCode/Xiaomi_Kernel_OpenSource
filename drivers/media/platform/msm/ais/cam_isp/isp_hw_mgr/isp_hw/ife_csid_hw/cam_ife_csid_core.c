@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -477,10 +477,12 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		CAM_ERR(CAM_ISP, "CSID:%d IRQ value after reset rc = %d",
 			csid_hw->hw_intf->hw_idx, val);
 	csid_hw->error_irq_count = 0;
-	csid_hw->prev_boot_timestamp = 0;
 
-	for (i = 0 ; i < CAM_IFE_PIX_PATH_RES_MAX; i++)
+
+	for (i = 0 ; i < CAM_IFE_PIX_PATH_RES_MAX; i++) {
 		csid_hw->res_sof_cnt[i] = 0;
+		csid_hw->prev_boot_timestamp[i] = 0;
+	}
 
 	return rc;
 }
@@ -1167,18 +1169,21 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 	spin_lock_irqsave(&csid_hw->lock_state, flags);
 	csid_hw->device_enabled = 0;
 	spin_unlock_irqrestore(&csid_hw->lock_state, flags);
-	for (i = 0; i < CAM_IFE_PIX_PATH_RES_MAX; i++)
+	for (i = 0; i < CAM_IFE_PIX_PATH_RES_MAX; i++) {
 		csid_hw->res_sof_cnt[i] = 0;
+		csid_hw->prev_boot_timestamp[i] = 0;
+	}
 
 	csid_hw->ipp_path_config.measure_enabled = 0;
 	csid_hw->ppp_path_config.measure_enabled = 0;
 	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++)
 		csid_hw->rdi_path_config[i].measure_enabled = 0;
 
+
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
 	csid_hw->error_irq_count = 0;
 	csid_hw->fatal_err_detected = false;
-	csid_hw->prev_boot_timestamp = 0;
+
 
 	return rc;
 }
@@ -2530,6 +2535,8 @@ static int cam_ife_csid_get_time_stamp(
 		return -EINVAL;
 	}
 
+	id = res->res_id;
+
 	if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP) {
 		time_32 = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csid_reg->ipp_reg->csid_pxl_timestamp_curr1_sof_addr);
@@ -2545,7 +2552,6 @@ static int cam_ife_csid_get_time_stamp(
 		time_32 = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			csid_reg->ppp_reg->csid_pxl_timestamp_curr0_sof_addr);
 	} else {
-		id = res->res_id;
 		rdi_reg = csid_reg->rdi_reg[id];
 		time_32 = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 			rdi_reg->csid_rdi_timestamp_curr1_sof_addr);
@@ -2562,30 +2568,31 @@ static int cam_ife_csid_get_time_stamp(
 		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 
-	if (!csid_hw->prev_boot_timestamp) {
+
+	if (!csid_hw->prev_boot_timestamp[id]) {
 		get_monotonic_boottime64(&ts);
 		time_stamp->boot_timestamp =
 			(uint64_t)((ts.tv_sec * 1000000000) +
 			ts.tv_nsec);
-		csid_hw->prev_qtimer_ts = 0;
+		csid_hw->prev_qtimer_ts[id] = 0;
 		CAM_DBG(CAM_ISP, "timestamp:%lld",
 			time_stamp->boot_timestamp);
 	} else {
 		time_delta = time_stamp->time_stamp_val -
-			csid_hw->prev_qtimer_ts;
+			csid_hw->prev_qtimer_ts[id];
 
-		if (csid_hw->prev_boot_timestamp >
+		if (csid_hw->prev_boot_timestamp[id] >
 			U64_MAX - time_delta) {
 			CAM_WARN(CAM_ISP, "boottimestamp reached maximum");
 			return -EINVAL;
 		}
 
 		time_stamp->boot_timestamp =
-			csid_hw->prev_boot_timestamp + time_delta;
+			csid_hw->prev_boot_timestamp[id] + time_delta;
 	}
 
-	csid_hw->prev_qtimer_ts = time_stamp->time_stamp_val;
-	csid_hw->prev_boot_timestamp = time_stamp->boot_timestamp;
+	csid_hw->prev_qtimer_ts[id] = time_stamp->time_stamp_val;
+	csid_hw->prev_boot_timestamp[id] = time_stamp->boot_timestamp;
 
 
 	return 0;
@@ -4206,11 +4213,15 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 
 	ife_csid_hw->csid_debug = 0;
 	ife_csid_hw->error_irq_count = 0;
-	ife_csid_hw->prev_boot_timestamp = 0;
+
 	ife_csid_hw->ipp_path_config.measure_enabled = 0;
 	ife_csid_hw->ppp_path_config.measure_enabled = 0;
 	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++)
 		ife_csid_hw->rdi_path_config[i].measure_enabled = 0;
+
+
+	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_MAX; i++)
+		ife_csid_hw->prev_boot_timestamp[i] = 0;
 
 	scnprintf(worker_name, sizeof(worker_name),
 		"csid%u_worker", ife_csid_hw->hw_intf->hw_idx);
