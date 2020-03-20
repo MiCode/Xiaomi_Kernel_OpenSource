@@ -1704,7 +1704,7 @@ static int fts_ts_check_dt(struct device_node *np)
 		}
 	}
 
-	return -ENODEV;
+	return PTR_ERR(panel);
 }
 
 static int fts_ts_check_default_tp(struct device_node *dt, const char *prop)
@@ -1764,7 +1764,11 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 		return -ENODEV;
 	}
 
-	if (fts_ts_check_dt(dp)) {
+	ret = fts_ts_check_dt(dp);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	if (ret) {
 		if (!fts_ts_check_default_tp(dp, "qcom,i2c-touch-active"))
 			ret = -EPROBE_DEFER;
 		else
