@@ -78,8 +78,8 @@ DECLARE_UAC_AC_HEADER_DESCRIPTOR(2);
 #define UAC_DT_AC_HEADER_LENGTH	UAC_DT_AC_HEADER_SIZE(F_AUDIO_NUM_INTERFACES)
 /* 2 input terminals and 2 output terminals */
 #define UAC_DT_TOTAL_LENGTH (UAC_DT_AC_HEADER_LENGTH \
-	+ 3*UAC_DT_INPUT_TERMINAL_SIZE + 2*UAC_DT_OUTPUT_TERMINAL_SIZE \
-	+ 3*UAC_DT_FEATURE_UNIT_SIZE(0) + UAC_DT_MIXER_UNIT_SIZE)
+	+ 2*UAC_DT_INPUT_TERMINAL_SIZE + 2*UAC_DT_OUTPUT_TERMINAL_SIZE \
+	+ 2*UAC_DT_FEATURE_UNIT_SIZE(0) + UAC_DT_MIXER_UNIT_SIZE)
 /* B.3.2  Class-Specific AC Interface Descriptor */
 static struct uac1_ac_header_descriptor_2 ac_header_desc = {
 	.bLength =		UAC_DT_AC_HEADER_LENGTH,
@@ -149,39 +149,16 @@ static struct uac_feature_unit_descriptor_0 feature_unit_desc = {
 	.bmaControls[0]		= cpu_to_le16(UAC_FU_MUTE | UAC_FU_VOLUME),
 };
 
-#define MIC_IO_IN_IT_ID	7
-static struct uac_input_terminal_descriptor mic_io_in_it_desc = {
-	.bLength		= UAC_DT_INPUT_TERMINAL_SIZE,
-	.bDescriptorType	= USB_DT_CS_INTERFACE,
-	.bDescriptorSubtype	= UAC_INPUT_TERMINAL,
-	.bTerminalID		= MIC_IO_IN_IT_ID,
-	.wTerminalType		= cpu_to_le16(UAC_INPUT_TERMINAL_MICROPHONE),
-	.bAssocTerminal		= 0,
-	.bNrChannels		= 2,
-	.wChannelConfig		= cpu_to_le16(0x3),
-};
-
-#define MID_FEATURE_UNIT_ID 10
-static struct uac_feature_unit_descriptor_0 mid_feature_unit_desc = {
-	.bLength		= UAC_DT_FEATURE_UNIT_SIZE(0),
-	.bDescriptorType	= USB_DT_CS_INTERFACE,
-	.bDescriptorSubtype	= UAC_FEATURE_UNIT,
-	.bUnitID		= MID_FEATURE_UNIT_ID,
-	.bSourceID		= MIC_IO_IN_IT_ID,
-	.bControlSize		= 0x2,
-	.bmaControls[0]		= cpu_to_le16(UAC_FU_MUTE | UAC_FU_VOLUME),
-};
-
-static struct uac_mixer_unit_descriptor mixer_unit_desc = {
+static struct uac1_mixer_unit_descriptor mixer_unit_desc = {
 	.bLength = UAC_DT_MIXER_UNIT_SIZE,
 	.bDescriptorType = USB_DT_CS_INTERFACE,
 	.bDescriptorSubtype = UAC_MIXER_UNIT,
 	.bUnitID = MIXER_UNIT_ID,
 	.bNrInPins = 2,
 	.baSourceID[0] = USB_OUT_IT_ID,
-	.baSourceID[1] = MID_FEATURE_UNIT_ID,
-	.bNrChannels = 2,
-	.wChannelConfig		= cpu_to_le16(0x3),
+	.baSourceID[1] = MIC_FEATURE_UNIT_ID,
+	.bNrChannels = 1,
+	.wChannelConfig		= cpu_to_le16(0x1),
 };
 
 static struct uac_feature_unit_descriptor_0 mic_feature_unit_desc = {
@@ -391,9 +368,7 @@ static struct usb_descriptor_header *f_audio_desc[] = {
 
 	(struct usb_descriptor_header *)&feature_unit_desc,
 	(struct usb_descriptor_header *)&mic_feature_unit_desc,
-	(struct usb_descriptor_header *)&mic_io_in_it_desc,
 	(struct usb_descriptor_header *)&mixer_unit_desc,
-	(struct usb_descriptor_header *)&mid_feature_unit_desc,
 
 	(struct usb_descriptor_header *)&as_out_interface_alt_0_desc,
 	(struct usb_descriptor_header *)&as_out_interface_alt_1_desc,
@@ -426,9 +401,7 @@ static struct usb_descriptor_header *f_audio_ss_desc[] = {
 
 	(struct usb_descriptor_header *)&feature_unit_desc,
 	(struct usb_descriptor_header *)&mic_feature_unit_desc,
-	(struct usb_descriptor_header *)&mic_io_in_it_desc,
 	(struct usb_descriptor_header *)&mixer_unit_desc,
-	(struct usb_descriptor_header *)&mid_feature_unit_desc,
 
 	(struct usb_descriptor_header *)&as_out_interface_alt_0_desc,
 	(struct usb_descriptor_header *)&as_out_interface_alt_1_desc,
