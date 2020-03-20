@@ -243,7 +243,6 @@ config ENABLE_MUST_CHECK
 config FRAME_WARN
 	int "Warn for stack frames larger than (needs gcc 4.4)"
 	range 0 8192
-	default 3072 if KASAN_EXTRA
 	default 2048 if GCC_PLUGIN_LATENT_ENTROPY
 	default 1280 if (!64BIT && PARISC)
 	default 1024 if (!64BIT && !PARISC)
@@ -2060,6 +2059,14 @@ config TEST_DEBUG_VIRTUAL
 	  Test the kernel's ability to detect incorrect calls to
 	  virt_to_phys() done against the non-linear part of the
 	  kernel's virtual address map.
+
+	  If unsure, say N.
+
+config TEST_MEMINIT
+	tristate "Test heap/page initialization"
+	help
+	  Test if the kernel is zero-initializing heap and page allocations.
+	  This can be useful to test init_on_alloc and init_on_free features.
 
 	  If unsure, say N.
 
