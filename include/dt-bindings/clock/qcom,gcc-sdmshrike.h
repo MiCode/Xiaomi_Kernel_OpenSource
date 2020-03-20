@@ -308,6 +308,10 @@
 #define GCC_VIDEO_AXIC_CLK_BCR				41
 #define GCC_VIDEO_AXI0_CLK_BCR				42
 #define GCC_VIDEO_AXI1_CLK_BCR				43
+#define GCC_USB3_UNIPHY_MP0_BCR			44
+#define GCC_USB3_UNIPHY_MP1_BCR			45
+#define GCC_USB3UNIPHY_PHY_MP0_BCR			46
+#define GCC_USB3UNIPHY_PHY_MP1_BCR			47
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK				0
