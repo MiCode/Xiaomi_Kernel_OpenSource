@@ -54,6 +54,7 @@ static struct hh_msgq_desc *hh_rm_msgq_desc;
 static DEFINE_MUTEX(hh_rm_call_idr_lock);
 static DEFINE_IDR(hh_rm_call_idr);
 static struct hh_rm_connection *curr_connection;
+static DEFINE_MUTEX(hh_rm_send_lock);
 
 static DEFINE_IDA(hh_rm_free_virq_ida);
 static struct device_node *hh_rm_intc;
@@ -501,6 +502,10 @@ static int hh_rm_send_request(u32 message_id,
 		return -E2BIG;
 	}
 
+	if (mutex_lock_interruptible(&hh_rm_send_lock)) {
+		return -ERESTARTSYS;
+	}
+
 	/* Consider also the 'request' packet for the loop count */
 	for (i = 0; i <= num_fragments; i++) {
 		if (buff_size_remaining > HH_RM_MAX_MSG_SIZE_BYTES) {
@@ -511,8 +516,10 @@ static int hh_rm_send_request(u32 message_id,
 		}
 
 		send_buff = kzalloc(sizeof(*hdr) + payload_size, GFP_KERNEL);
-		if (!send_buff)
+		if (!send_buff) {
+			mutex_unlock(&hh_rm_send_lock);
 			return -ENOMEM;
+		}
 
 		hdr = send_buff;
 		hdr->version = HH_RM_RPC_HDR_VERSION_ONE;
@@ -541,10 +548,13 @@ static int hh_rm_send_request(u32 message_id,
 		 */
 		kfree(send_buff);
 
-		if (ret)
+		if (ret) {
+			mutex_unlock(&hh_rm_send_lock);
 			return ret;
+		}
 	}
 
+	mutex_unlock(&hh_rm_send_lock);
 	return 0;
 }
 
