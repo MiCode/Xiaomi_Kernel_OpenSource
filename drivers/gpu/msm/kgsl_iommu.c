@@ -1249,12 +1249,17 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	if (ret) {
 		dev_err(device->dev, "set DOMAIN_ATTR_SECURE_VMID failed: %d\n",
 			ret);
-		goto done;
+		_free_pt(ctx, pt);
+		return ret;
 	}
 
 	_enable_gpuhtw_llc(mmu, iommu_pt->domain);
 
 	ret = _attach_pt(iommu_pt, ctx);
+	if (ret) {
+		_free_pt(ctx, pt);
+		return ret;
+	}
 
 	iommu_set_fault_handler(iommu_pt->domain,
 				kgsl_iommu_fault_handler, pt);
@@ -1265,10 +1270,7 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 			kgsl_iommu_map_secure_global(mmu, &md->memdesc);
 	}
 
-done:
-	if (ret)
-		_free_pt(ctx, pt);
-	return ret;
+	return 0;
 }
 #else
 static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
