@@ -105,7 +105,6 @@ static struct arm_smmu_device *cavium_smmu_impl_init(struct arm_smmu_device *smm
 
 #define ARM_MMU500_ACTLR_CPRE		(1 << 1)
 
-#define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 #define ARM_MMU500_ACR_S2CRB_TLBEN	(1 << 10)
 #define ARM_MMU500_ACR_SMTNMB_TLBEN	(1 << 8)
 
@@ -162,6 +161,8 @@ struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu)
 		break;
 	case CAVIUM_SMMUV2:
 		return cavium_smmu_impl_init(smmu);
+	case QCOM_SMMUV500:
+		return qsmmuv500_impl_init(smmu);
 	default:
 		break;
 	}
