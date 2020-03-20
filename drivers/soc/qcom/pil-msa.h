@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,9 @@ struct modem_data {
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	void *ramdump_dev;
+#ifdef CONFIG_QCOM_MINIDUMP
 	void *minidump_dev;
+#endif
 	bool crash_shutdown;
 	u32 pas_id;
 	bool ignore_errors;
@@ -47,5 +49,7 @@ int pil_mss_deinit_image(struct pil_desc *pil);
 int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path);
 int pil_mss_assert_resets(struct q6v5_data *drv);
 int pil_mss_deassert_resets(struct q6v5_data *drv);
+#ifdef CONFIG_QCOM_MINIDUMP
 int pil_mss_debug_reset(struct pil_desc *pil);
+#endif
 #endif
