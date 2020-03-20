@@ -1415,7 +1415,6 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
 		MHI_ERR("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
 
