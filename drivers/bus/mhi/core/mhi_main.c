@@ -1355,7 +1355,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 	struct mhi_chan *mhi_chan;
 
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
-		MHI_ERR("No EV access, PM_STATE:%s\n",
+		MHI_LOG("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		return -EIO;
 	}
@@ -1413,7 +1413,7 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 	u64 remote_time;
 
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
-		MHI_ERR("No EV access, PM_STATE:%s\n",
+		MHI_LOG("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		return -EIO;
 	}
