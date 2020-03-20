@@ -449,6 +449,11 @@
 		interrupt-names = "l1-l2-faultirq","l3-scu-faultirq";
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
+
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
