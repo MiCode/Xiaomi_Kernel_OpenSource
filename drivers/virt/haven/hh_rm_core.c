@@ -35,6 +35,7 @@
 	(HH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct hh_rm_rpc_hdr))
 
 struct hh_rm_connection {
+	u32 msg_id;
 	u16 seq;
 	void *recv_buff;
 	u32 reply_err_code;
@@ -52,6 +53,7 @@ static struct hh_msgq_desc *hh_rm_msgq_desc;
 
 static DEFINE_MUTEX(hh_rm_call_idr_lock);
 static DEFINE_IDR(hh_rm_call_idr);
+static struct hh_rm_connection *curr_connection;
 
 static DEFINE_IDA(hh_rm_free_virq_ida);
 static struct device_node *hh_rm_intc;
@@ -64,7 +66,7 @@ static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
 
 static int hh_rm_populate_hyp_res(void);
 
-static struct hh_rm_connection *hh_rm_alloc_connection(int seq)
+static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
 {
 	struct hh_rm_connection *connection;
 
@@ -74,20 +76,7 @@ static struct hh_rm_connection *hh_rm_alloc_connection(int seq)
 
 	init_completion(&connection->seq_done);
 
-	if (seq > 0) {
-		connection->seq = seq;
-		return connection;
-	}
-
-	/* Allocate a new seq number for this connection */
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
-		kfree(connection);
-		return ERR_PTR(-ERESTARTSYS);
-	}
-
-	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
-					0, U16_MAX, GFP_KERNEL);
-	mutex_unlock(&hh_rm_call_idr_lock);
+	connection->msg_id = msg_id;
 
 	return connection;
 }
@@ -156,11 +145,12 @@ hh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
-	connection = hh_rm_alloc_connection(hdr->seq);
+	connection = hh_rm_alloc_connection(hdr->msg_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
 	payload_size = recv_buff_size - sizeof(*hdr);
+	curr_connection = connection;
 
 	ret = hh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*hdr), payload_size);
@@ -188,6 +178,11 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 	int ret = 0;
 
 	pr_debug("Notification received from RM-VM: %x\n", notification);
+
+	if (curr_connection) {
+		pr_err("Received new notification from RM-VM before completing last connection\n");
+		return -EINVAL;
+	}
 
 	if (recv_buff_size > sizeof(*hdr))
 		payload = recv_buff + sizeof(*hdr);
@@ -300,6 +295,11 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
+	if (curr_connection) {
+		pr_err("Received new reply from RM-VM before completing last connection\n");
+		return -EINVAL;
+	}
+
 	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
 		ret = -ERESTARTSYS;
 		goto out;
@@ -308,7 +308,8 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	connection = idr_find(&hh_rm_call_idr, hdr->seq);
 	mutex_unlock(&hh_rm_call_idr_lock);
 
-	if (!connection || connection->seq != hdr->seq) {
+	if (!connection || connection->seq != hdr->seq ||
+	    connection->msg_id != hdr->msg_id) {
 		pr_err("%s: Failed to get the connection info for seq: %d\n",
 			__func__, hdr->seq);
 		ret = -EINVAL;
@@ -316,6 +317,7 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	}
 
 	payload_size = recv_buff_size - sizeof(*reply_hdr);
+	curr_connection = connection;
 
 	ret = hh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*reply_hdr), payload_size);
@@ -332,8 +334,10 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	 * this buffer as and when the fragments arrive, and finally
 	 * wakeup the receiver upon reception of the last fragment.
 	 */
-	if (!hdr->fragments)
+	if (!hdr->fragments) {
+		curr_connection = NULL;
 		complete(&connection->seq_done);
+	}
 out:
 	return ret;
 }
@@ -341,20 +345,18 @@ out:
 static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 {
 	struct hh_rm_rpc_hdr *hdr = recv_buff;
-	struct hh_rm_connection *connection;
+	struct hh_rm_connection *connection = curr_connection;
 	size_t payload_size;
 
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock))
-		return -ERESTARTSYS;
-
-	connection = idr_find(&hh_rm_call_idr, hdr->seq);
-	mutex_unlock(&hh_rm_call_idr_lock);
-
-	/* The seq number should be the same for all the fragments */
-	if (!connection || connection->seq != hdr->seq) {
-		pr_err("%s: Failed to get the connection info for seq: %d\n",
-			__func__, hdr->seq);
+	if (!connection) {
+		pr_err("%s: not processing a fragmented connection\n",
+			__func__);
 		return -EINVAL;
+	}
+
+	if (connection->msg_id != hdr->msg_id) {
+		pr_err("%s: got message id %x when expecting %x\n",
+			__func__, hdr->msg_id, connection->msg_id);
 	}
 
 	/*
@@ -376,8 +378,10 @@ static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 	connection->recv_buff_size += payload_size;
 
 	connection->fragments_received++;
-	if (connection->fragments_received == connection->num_fragments)
+	if (connection->fragments_received == connection->num_fragments) {
+		curr_connection = NULL;
 		complete(&connection->seq_done);
+	}
 
 	return 0;
 }
@@ -571,9 +575,19 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 	if (!message_id || !req_buff || !resp_buff_size || !reply_err_code)
 		return ERR_PTR(-EINVAL);
 
-	connection = hh_rm_alloc_connection(-1);
+	connection = hh_rm_alloc_connection(message_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
+
+	/* Allocate a new seq number for this connection */
+	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
+		kfree(connection);
+		return ERR_PTR(-ERESTARTSYS);
+	}
+
+	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
+					0, U16_MAX, GFP_KERNEL);
+	mutex_unlock(&hh_rm_call_idr_lock);
 
 	pr_debug("%s TX msg_id: %x\n", __func__, message_id);
 	print_hex_dump_debug("hh_rm_call TX: ", DUMP_PREFIX_OFFSET, 4, 1,
@@ -604,6 +618,10 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 	print_hex_dump_debug("hh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
 			     connection->recv_buff, connection->recv_buff_size,
 			     false);
+
+	mutex_lock(&hh_rm_call_idr_lock);
+	idr_remove(&hh_rm_call_idr, connection->seq);
+	mutex_unlock(&hh_rm_call_idr_lock);
 
 	ret = connection->recv_buff;
 	*resp_buff_size = connection->recv_buff_size;
