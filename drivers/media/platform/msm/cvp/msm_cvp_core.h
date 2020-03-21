@@ -15,6 +15,7 @@
 #include <media/msm_cvp_private.h>
 #include <media/msm_cvp_vidc.h>
 #include "msm_cvp_buf.h"
+#include "msm_cvp_synx.h"
 
 enum core_id {
 	MSM_CORE_CVP = 0,

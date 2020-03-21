@@ -40,9 +40,9 @@ set_default_pkt_hdr:
 static int _get_fence_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 		struct cvp_hal_session_cmd_pkt *pkt_hdr)
 {
-	struct cvp_kmd_hfi_fence_packet *u;
+	struct cvp_kmd_hfi_synx_packet __user *u;
 
-	u = &up->data.hfi_fence_pkt;
+	u = &up->data.hfi_synx_pkt;
 
 	if (get_user(pkt_hdr->size, &u->pkt_data[0]))
 		return -EFAULT;
@@ -73,21 +73,27 @@ static int _copy_pkt_from_user(struct cvp_kmd_arg *kp,
 	return 0;
 }
 
-/* Size is in unit of u32 */
-static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
-		struct cvp_kmd_arg __user *up,
-		unsigned int size)
+static int _copy_synx_data_from_user(
+	struct cvp_kmd_hfi_synx_packet *k,
+	struct cvp_kmd_hfi_synx_packet __user *u)
 {
-	struct cvp_kmd_hfi_fence_packet *k;
-	struct cvp_kmd_hfi_fence_packet __user *u;
 	int i;
 
-	k = &kp->data.hfi_fence_pkt;
-	u = &up->data.hfi_fence_pkt;
-	for (i = 0; i < MAX_HFI_FENCE_OFFSET; i++) {
-		if (get_user(k->pkt_data[i], &u->pkt_data[i]))
+	for (i = 0; i < MAX_FENCE_DATA_SIZE; i++) {
+		if (get_user(k->fence_data[i], &u->fence_data[i]))
 			return -EFAULT;
 	}
+
+	return 0;
+}
+
+/* Size is in unit of u32 */
+static int _copy_fence_data_from_user_deprecate(
+	struct cvp_kmd_hfi_fence_packet *k,
+	struct cvp_kmd_hfi_fence_packet __user *u)
+{
+	int i;
+
 	for (i = 0; i < MAX_HFI_FENCE_SIZE; i++) {
 		if (get_user(k->fence_data[i], &u->fence_data[i]))
 			return -EFAULT;
@@ -98,8 +104,32 @@ static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
 		return -EFAULT;
 	}
 
-
 	return 0;
+}
+
+static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up)
+{	struct cvp_kmd_hfi_synx_packet *k;
+	struct cvp_kmd_hfi_synx_packet __user *u;
+	struct cvp_kmd_hfi_fence_packet __user *u1;
+	int i;
+
+	k = &kp->data.hfi_synx_pkt;
+	u = &up->data.hfi_synx_pkt;
+	u1 = &up->data.hfi_fence_pkt;
+
+	for (i = 0; i < MAX_HFI_PKT_SIZE; i++)
+		if (get_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+
+	if (get_user(k->fence_data[0], &u->fence_data[0]))
+		return -EFAULT;
+
+	if (k->fence_data[0] == 0xFEEDFACE)
+		return _copy_synx_data_from_user(k, u);
+	else
+		return _copy_fence_data_from_user_deprecate(
+				(struct cvp_kmd_hfi_fence_packet *)k, u1);
 }
 
 static int _copy_frameid_from_user(struct cvp_kmd_arg *kp,
@@ -150,35 +180,35 @@ static int _copy_pkt_to_user(struct cvp_kmd_arg *kp,
 }
 
 static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
-		struct cvp_kmd_arg __user *up,
-		unsigned int size)
+		struct cvp_kmd_arg __user *up)
 {
-	struct cvp_kmd_hfi_fence_packet *k, *u;
+	struct cvp_kmd_hfi_synx_packet *k;
+	struct cvp_kmd_hfi_synx_packet __user *u;
 	int i;
 
-	k = &kp->data.hfi_fence_pkt;
-	u = &up->data.hfi_fence_pkt;
-	for (i = 0; i < MAX_HFI_FENCE_OFFSET; i++) {
+	k = &kp->data.hfi_synx_pkt;
+	u = &up->data.hfi_synx_pkt;
+	for (i = 0; i < MAX_HFI_PKT_SIZE; i++) {
 		if (put_user(k->pkt_data[i], &u->pkt_data[i]))
 			return -EFAULT;
 	}
-	for (i = 0; i < MAX_HFI_FENCE_SIZE; i++) {
-		if (put_user(k->fence_data[i], &u->fence_data[i]))
-			return -EFAULT;
-	}
+
 	return 0;
 }
 
 static int _copy_sysprop_to_user(struct cvp_kmd_arg *kp,
 		struct cvp_kmd_arg __user *up)
 {
-	struct cvp_kmd_sys_properties *k, *u;
+	struct cvp_kmd_sys_properties *k;
+	struct cvp_kmd_sys_properties __user *u;
+	int i;
 
 	k = &kp->data.sys_properties;
 	u = &up->data.sys_properties;
 
-	if (put_user(k->prop_data.data, &u->prop_data.data))
-		return -EFAULT;
+	for (i = 0; i < 8; i++)
+		if (put_user(k->prop_data[i].data, &u->prop_data[i].data))
+			return -EFAULT;
 
 	return 0;
 
@@ -245,26 +275,6 @@ static int _get_session_info_from_user(
 	return 0;
 }
 
-static int _get_power_request(
-		struct cvp_kmd_request_power *k,
-		struct cvp_kmd_request_power __user *u)
-{
-	int i;
-
-	if (get_user(k->clock_cycles_a, &u->clock_cycles_a) ||
-			get_user(k->clock_cycles_b, &u->clock_cycles_b) ||
-			get_user(k->ddr_bw, &u->ddr_bw) ||
-			get_user(k->sys_cache_bw, &u->sys_cache_bw))
-		return -EFAULT;
-
-	for (i = 0; i < 8; i++)
-		if (get_user(k->reserved[i], &u->reserved[i]))
-			return -EFAULT;
-
-	return 0;
-
-}
-
 static int convert_from_user(struct cvp_kmd_arg *kp,
 		unsigned long arg,
 		struct msm_cvp_inst *inst)
@@ -299,20 +309,6 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		u = &up->data.session;
 		if (_get_session_info_from_user(k, u)) {
 			dprintk(CVP_ERR, "fail to get sess info\n");
-			return -EFAULT;
-		}
-
-		break;
-	}
-	case CVP_KMD_REQUEST_POWER:
-	{
-		struct cvp_kmd_request_power *k;
-		struct cvp_kmd_request_power __user *u;
-
-		k = &kp->data.req_power;
-		u = &up->data.req_power;
-		if (_get_power_request(k, u)) {
-			dprintk(CVP_ERR, "fail to get power request\n");
 			return -EFAULT;
 		}
 
@@ -386,7 +382,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 			return -EFAULT;
 		}
 
-		rc = _copy_fence_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
+		rc = _copy_fence_pkt_from_user(kp, up);
 		break;
 	}
 	case CVP_KMD_RECEIVE_MSG_PKT:
@@ -452,26 +448,6 @@ static int _put_user_session_info(
 	return 0;
 }
 
-
-static int _put_power_request(
-		struct cvp_kmd_request_power *k,
-		struct cvp_kmd_request_power __user *u)
-{
-	int i;
-
-	if (put_user(k->clock_cycles_a, &u->clock_cycles_a) ||
-		put_user(k->clock_cycles_b, &u->clock_cycles_b) ||
-		put_user(k->ddr_bw, &u->ddr_bw) ||
-		put_user(k->sys_cache_bw, &u->sys_cache_bw))
-		return -EFAULT;
-
-	for (i = 0; i < 8; i++)
-		if (put_user(k->reserved[i], &u->reserved[i]))
-			return -EFAULT;
-
-	return 0;
-}
-
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
@@ -508,20 +484,6 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		u = &up->data.session;
 		if (_put_user_session_info(k, u)) {
 			dprintk(CVP_ERR, "fail to copy sess info to user\n");
-			return -EFAULT;
-		}
-
-		break;
-	}
-	case CVP_KMD_REQUEST_POWER:
-	{
-		struct cvp_kmd_request_power *k;
-		struct cvp_kmd_request_power __user *u;
-
-		k = &kp->data.req_power;
-		u = &up->data.req_power;
-		if (_put_power_request(k, u)) {
-			dprintk(CVP_ERR, "fail to copy power to user\n");
 			return -EFAULT;
 		}
 
@@ -583,7 +545,7 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
 
-		rc = _copy_fence_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
+		rc = _copy_fence_pkt_to_user(kp, up);
 		break;
 	}
 	case CVP_KMD_SESSION_CONTROL:
