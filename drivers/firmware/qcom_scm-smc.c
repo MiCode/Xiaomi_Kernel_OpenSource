@@ -1059,6 +1059,7 @@ int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id, u64 *version)
 
 void __qcom_scm_halt_spmi_pmic_arbiter(struct device *dev)
 {
+	int ret;
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_PWR,
 		.cmd = QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER,
@@ -1068,11 +1069,14 @@ void __qcom_scm_halt_spmi_pmic_arbiter(struct device *dev)
 	desc.args[0] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(1);
 
-	qcom_scm_call_atomic(dev, &desc);
+	ret = qcom_scm_call_atomic(dev, &desc);
+	if (ret)
+		pr_err("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
 }
 
 void __qcom_scm_deassert_ps_hold(struct device *dev)
 {
+	int ret;
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_PWR,
 		.cmd = QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD,
@@ -1082,7 +1086,9 @@ void __qcom_scm_deassert_ps_hold(struct device *dev)
 	desc.args[0] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(1);
 
-	qcom_scm_call_atomic(dev, &desc);
+	ret = qcom_scm_call_atomic(dev, &desc);
+	if (ret)
+		pr_err("Failed to deassert_ps_hold=0x%x\n", ret);
 }
 
 void __qcom_scm_mmu_sync(struct device *dev, bool sync)
