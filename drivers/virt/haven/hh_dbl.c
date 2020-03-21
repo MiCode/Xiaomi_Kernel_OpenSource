@@ -206,7 +206,7 @@ int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
 
 	ret = hh_remap_error(hh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed ret = %d\n", hh_ret);
+		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
 	else
 		*newflags = send_resp.old_flags;
 
@@ -247,17 +247,14 @@ int hh_dbl_reset(void *dbl_client_desc)
 }
 EXPORT_SYMBOL(hh_dbl_reset);
 
-static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *rx_priv_data)
+static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *data)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-
-	cap_table_entry = container_of(rx_priv_data,
-				struct hh_dbl_cap_table, rx_priv_data);
+	struct hh_dbl_cap_table *cap_table_entry = data;
 
 	if (!cap_table_entry->rx_callback)
 		return IRQ_HANDLED;
 
-	cap_table_entry->rx_callback(irq, rx_priv_data);
+	cap_table_entry->rx_callback(irq, cap_table_entry->rx_priv_data);
 	return IRQ_HANDLED;
 }
 
@@ -371,9 +368,9 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 	ret = request_threaded_irq(cap_table_entry->rx_irq,
 				   NULL,
 				   hh_dbl_rx_callback_thread,
-				   0,
+				   IRQF_ONESHOT,
 				   cap_table_entry->rx_irq_name,
-				   priv);
+				   cap_table_entry);
 
 	if (ret < 0) {
 		pr_err("%s: IRQ registration failed\n", __func__);
