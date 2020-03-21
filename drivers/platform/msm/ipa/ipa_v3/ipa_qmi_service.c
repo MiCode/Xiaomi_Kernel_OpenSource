@@ -2061,6 +2061,7 @@ int ipa3_qmi_set_aggr_info(enum ipa_aggr_enum_type_v01 aggr_enum_type)
 
 	/* replace to right qmap format */
 	aggr_req.aggr_info[1].aggr_type = aggr_enum_type;
+	aggr_req.aggr_info[1].bytes_count = ipa3_ctx->mpm_teth_aggr_size;
 	aggr_req.aggr_info[2].aggr_type = aggr_enum_type;
 	aggr_req.aggr_info[3].aggr_type = aggr_enum_type;
 	aggr_req.aggr_info[4].aggr_type = aggr_enum_type;

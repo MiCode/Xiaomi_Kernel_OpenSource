@@ -24,7 +24,7 @@
 #include "clk-regmap-mux.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level-lito.h"
+#include "vdd-level-lagoon.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_cx_ao, VDD_NUM, 1, vdd_corner);

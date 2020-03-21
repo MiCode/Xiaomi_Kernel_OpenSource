@@ -1120,10 +1120,8 @@ bool try_online_one_block(int nid)
 {
 	struct zone *zone = &NODE_DATA(nid)->node_zones[ZONE_MOVABLE];
 	bool onlined_block = false;
-	int ret = lock_device_hotplug_sysfs();
 
-	if (ret)
-		return false;
+	lock_device_hotplug();
 
 	walk_memory_range(zone->zone_start_pfn, zone_end_pfn(zone),
 			  &onlined_block, online_memory_one_block);

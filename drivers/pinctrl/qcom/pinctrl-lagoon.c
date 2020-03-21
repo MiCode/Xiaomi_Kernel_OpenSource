@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019,2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -474,7 +474,8 @@ enum lagoon_functions {
 	msm_mux_gcc_gp2,
 	msm_mux_gcc_gp3,
 	msm_mux_edp_lcd,
-	msm_mux_qup13,
+	msm_mux_qup13_f1,
+	msm_mux_qup13_f2,
 	msm_mux_qup11,
 	msm_mux_PLL_BIST,
 	msm_mux_qdss_gpio14,
@@ -729,8 +730,11 @@ static const char * const gcc_gp3_groups[] = {
 static const char * const edp_lcd_groups[] = {
 	"gpio23",
 };
-static const char * const qup13_groups[] = {
-	"gpio25", "gpio25", "gpio26", "gpio26",
+static const char * const qup13_f1_groups[] = {
+	"gpio25", "gpio26",
+};
+static const char * const qup13_f2_groups[] = {
+	"gpio25", "gpio26",
 };
 static const char * const qup11_groups[] = {
 	"gpio27", "gpio27", "gpio28", "gpio28",
@@ -1196,7 +1200,8 @@ static const struct msm_function lagoon_functions[] = {
 	FUNCTION(gcc_gp2),
 	FUNCTION(gcc_gp3),
 	FUNCTION(edp_lcd),
-	FUNCTION(qup13),
+	FUNCTION(qup13_f1),
+	FUNCTION(qup13_f2),
 	FUNCTION(qup11),
 	FUNCTION(PLL_BIST),
 	FUNCTION(qdss_gpio14),
@@ -1394,9 +1399,10 @@ static const struct msm_pingroup lagoon_groups[] = {
 			0x9C008, 13),
 	[24] = PINGROUP(24, MDP_VSYNC, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x9C008, 14),
-	[25] = PINGROUP(25, qup13, qup13, NA, NA, NA, NA, NA, NA, NA,
+	[25] = PINGROUP(25, qup13_f1, qup13_f2, NA, NA, NA, NA, NA, NA, NA,
 			0x9C008, 15),
-	[26] = PINGROUP(26, qup13, qup13, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[26] = PINGROUP(26, qup13_f1, qup13_f2, NA, NA, NA, NA, NA, NA, NA,
+			0, -1),
 	[27] = PINGROUP(27, qup11, qup11, MDP_VSYNC, PLL_BIST, NA, qdss_gpio14,
 			NA, NA, NA, 0x9C00C, 0),
 	[28] = PINGROUP(28, qup11, qup11, MDP_VSYNC, NA, qdss_gpio15, NA, NA,
