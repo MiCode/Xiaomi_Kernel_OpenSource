@@ -151,6 +151,7 @@ x509.genkey
 arch/*/configs/vendor/*-gki_defconfig
 arch/*/configs/vendor/*-qgki_defconfig
 arch/*/configs/vendor/*-qgki-debug_defconfig
+arch/*/configs/vendor/*-qgki-consolidate_defconfig
 
 # vendor device tree directories
 arch/arm64/boot/dts/vendor
