@@ -27,7 +27,7 @@
 			compatible = "qcom,lpi-pinctrl";
 			reg = <0x33c0000 0x0>;
 			qcom,slew-reg = <0x355a000 0x0>;
-			qcom,num-gpios = <15>;
+			qcom,gpios-count = <15>;
 			gpio-controller;
 			#gpio-cells = <2>;
 			qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,
