@@ -770,7 +770,6 @@ static int f2fs_submit_page_read(struct inode *inode, struct page *page,
 
 	ClearPageError(page);
 	inc_page_count(sbi, F2FS_RD_DATA);
-	f2fs_set_bio_ctx(inode, bio);
 	__f2fs_submit_read_bio(sbi, bio, DATA);
 	return 0;
 }
@@ -1771,8 +1770,6 @@ zero_out:
 	if (bio && !page_is_mergeable(F2FS_I_SB(inode), bio,
 				*last_block_in_bio, block_nr)) {
 submit_and_realloc:
-		/* need set ctx, make sure ?? */
-		f2fs_set_bio_ctx(inode, bio);
 		__f2fs_submit_read_bio(F2FS_I_SB(inode), bio, DATA);
 		bio = NULL;
 	}
@@ -1863,7 +1860,6 @@ next_page:
 	}
 	BUG_ON(pages && !list_empty(pages));
 	if (bio)
-		f2fs_set_bio_ctx(inode, bio);
 		__f2fs_submit_read_bio(F2FS_I_SB(inode), bio, DATA);
 	return pages ? 0 : ret;
 }
