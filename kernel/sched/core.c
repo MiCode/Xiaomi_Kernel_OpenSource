@@ -50,6 +50,7 @@
 #if defined(CONFIG_MTK_GIC_V3_EXT)
 #include <linux/irqchip/mtk-gic-extend.h>
 #endif
+#include <mt-plat/l3cc_common.h>
 #ifdef CONFIG_MTK_SCHED_MONITOR
 #include "mtk_sched_mon.h"
 enum ipi_msg_type {
@@ -3852,6 +3853,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 {
 	sched_info_switch(rq, prev, next);
 	perf_event_task_sched_out(prev, next);
+	hook_ca_context_switch(rq, prev, next);
 	fire_sched_out_preempt_notifiers(prev, next);
 	prepare_lock_switch(rq, next);
 	prepare_arch_switch(next);
@@ -4300,6 +4302,9 @@ void scheduler_tick(void)
 	perf_event_task_tick();
 #ifdef CONFIG_MTK_SCHED_MONITOR
 	mt_save_irq_counts(SCHED_TICK);
+#endif
+#ifdef CONFIG_MTK_CACHE_CONTROL
+	hook_ca_scheduler_tick(cpu);
 #endif
 #ifdef CONFIG_MTK_PERF_TRACKER
 	perf_tracker(sched_ktime_clock());

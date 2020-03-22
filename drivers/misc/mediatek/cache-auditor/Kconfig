@@ -1,0 +1,9 @@
+config MTK_CACHE_CONTROL
+	bool "Support MTK cache control"
+	help
+	  Cache profiling and enforcement module.
+	  Cache control will protect important tasks cache utility
+	  by stall ratio.
+	  For none important tasks, we apply two stage enforcement
+	  to mitigate important tasks cache been evicted.
+	  If unsure, say N
