@@ -1762,6 +1762,11 @@ static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)
 	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
 }
 
+static u64 a6xx_gmu_read_alwayson(struct kgsl_device *device)
+{
+	return a6xx_read_alwayson(ADRENO_DEVICE(device));
+}
+
 struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.load_firmware = a6xx_gmu_load_firmware,
 	.oob_set = a6xx_gmu_oob_set,
@@ -1779,6 +1784,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.snapshot = a6xx_gmu_snapshot,
 	.cooperative_reset = a6xx_gmu_cooperative_reset,
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
+	.read_alwayson = a6xx_gmu_read_alwayson,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
 	.scales_bandwidth = a6xx_gmu_scales_bandwidth,

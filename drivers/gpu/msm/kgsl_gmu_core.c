@@ -355,3 +355,13 @@ int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 
 	return 0;
 }
+
+u64 gmu_core_dev_read_alwayson(struct kgsl_device *device)
+{
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+
+	if (ops && ops->read_alwayson)
+		return ops->read_alwayson(device);
+
+	return 0;
+}

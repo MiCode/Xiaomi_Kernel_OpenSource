@@ -559,6 +559,11 @@ static void a6xx_rgmu_snapshot(struct kgsl_device *device,
 					ARRAY_SIZE(a6xx_rgmu_registers) / 2);
 }
 
+static u64 a6xx_rgmu_read_alwayson(struct kgsl_device *device)
+{
+	return a6xx_read_alwayson(ADRENO_DEVICE(device));
+}
+
 struct gmu_dev_ops adreno_a6xx_rgmudev = {
 	.load_firmware = a6xx_rgmu_load_firmware,
 	.oob_set = a6xx_rgmu_oob_set,
@@ -573,6 +578,7 @@ struct gmu_dev_ops adreno_a6xx_rgmudev = {
 	.ifpc_show = a6xx_rgmu_ifpc_show,
 	.snapshot = a6xx_rgmu_snapshot,
 	.halt_execution = a6xx_rgmu_halt_execution,
+	.read_alwayson = a6xx_rgmu_read_alwayson,
 	.gmu2host_intr_mask = RGMU_OOB_IRQ_MASK,
 	.gmu_ao_intr_mask = RGMU_AO_IRQ_MASK,
 };
