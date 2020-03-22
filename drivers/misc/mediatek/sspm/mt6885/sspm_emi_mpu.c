@@ -17,24 +17,35 @@
 
 
 #if SSPM_EMI_PROTECTION_SUPPORT
-#include <mt_emi_api.h>
+#include <memory/mediatek/emi.h>
+
+static unsigned long long sspm_start;
+static unsigned long long sspm_end;
 
 void sspm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
 {
-	struct emi_region_info_t region_info;
-
-	region_info.region = SSPM_MPU_REGION_ID;
-	region_info.start = base;
-	region_info.end = base + size - 1;
-	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, NO_PROTECTION,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, NO_PROTECTION);
-	pr_debug("[SSPM] MPU SSPM Share region<%d:%08llx:%08llx> %x, %x\n",
-			region_info.region, region_info.start, region_info.end,
-			region_info.apc[1], region_info.apc[0]);
-
-	emi_mpu_set_protection(&region_info);
+	sspm_start = base;
+	sspm_end = base + size - 1;
 }
+
+static int __init post_sspm_set_emi_mpu(void)
+{
+	struct emimpu_region_t rg_info;
+
+	mtk_emimpu_init_region(&rg_info, SSPM_MPU_REGION_ID);
+
+	mtk_emimpu_set_addr(&rg_info, sspm_start, sspm_end);
+
+	mtk_emimpu_set_apc(&rg_info, 0, MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&rg_info, 8, MTK_EMIMPU_NO_PROTECTION);
+
+	mtk_emimpu_set_protection(&rg_info);
+
+	mtk_emimpu_free_region(&rg_info);
+
+	return 0;
+}
+
+late_initcall(post_sspm_set_emi_mpu);
+
 #endif

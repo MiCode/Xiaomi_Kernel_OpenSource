@@ -28,19 +28,18 @@
 
 #define SSPM_PLT_SERV_SUPPORT       (1)
 #define SSPM_LOGGER_SUPPORT         (1)
-#define SSPM_LASTK_SUPPORT          (0)
-#define SSPM_COREDUMP_SUPPORT       (0)
-#define SSPM_EMI_PROTECTION_SUPPORT (0)
-#define SSPM_TIMESYNC_SUPPORT       (0)
-
-#define TIMESYNC_TIMEOUT	(60 * 60 * HZ)
+#define SSPM_EMI_PROTECTION_SUPPORT (1)
 
 #define PLT_INIT		0x504C5401
 #define PLT_LOG_ENABLE		0x504C5402
+/* Legacy magic code define
+ * Should avoid to use duplicate definitions
+#define PLT_LASTK_READY	0x504C5403
+#define PLT_COREDUMP_READY	0x504C5404
 #define PLT_TIMESYNC_SYNC	0x504C5405
+*/
 #define PLT_TIMESYNC_SRAM_TEST	0x504C5406
 
-#define mtk_timer_src_count(...)    arch_counter_get_cntvct(__VA_ARGS__)
 
 struct plt_ipi_data_s {
 	unsigned int cmd;
