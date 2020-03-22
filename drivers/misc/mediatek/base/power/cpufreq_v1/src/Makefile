@@ -29,6 +29,11 @@ obj-y += mtk_cpufreq_api.o
 obj-y += mtk_cpufreq_debug.o
 obj-y += mtk_cpufreq_hybrid.o
 
+ifeq ($(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
+endif
+
 # platform dependent files
 obj-y += mach/
 
