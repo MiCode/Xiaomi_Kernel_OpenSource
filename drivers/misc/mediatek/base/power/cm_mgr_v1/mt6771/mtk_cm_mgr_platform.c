@@ -587,7 +587,7 @@ static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 	case FB_BLANK_POWERDOWN:
 		pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
 		cm_mgr_blank_status = 1;
-		cm_mgr_set_dram_level(0);
+		cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 1);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
@@ -657,9 +657,9 @@ struct timer_list cm_mgr_ratio_timer;
 
 static void cm_mgr_ratio_timer_fn(unsigned long data)
 {
-	trace_CM_MGR__stall_raio_0(
+	trace_CM_MGR__stall_ratio_0(
 			(unsigned int)cm_mgr_read(MP0_CPU_AVG_STALL_RATIO));
-	trace_CM_MGR__stall_raio_1(
+	trace_CM_MGR__stall_ratio_1(
 			(unsigned int)cm_mgr_read(CPU_AVG_STALL_RATIO));
 
 	cm_mgr_ratio_timer.expires = jiffies + CM_MGR_RATIO_TIMER_MS;
@@ -861,7 +861,7 @@ void cm_mgr_set_dram_level(int level)
 {
 	int dram_level;
 
-	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1 && level != 0)
+	if ((cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1) || (level < 0))
 		dram_level = 0;
 	else
 		dram_level = level;

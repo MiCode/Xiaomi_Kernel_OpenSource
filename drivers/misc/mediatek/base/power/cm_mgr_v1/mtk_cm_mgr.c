@@ -77,10 +77,8 @@ spinlock_t cm_mgr_lock;
 static unsigned long long test_diff;
 static unsigned long long cnt;
 static unsigned int test_max;
-#ifdef CONFIG_MTK_CPU_FREQ
 static unsigned int prev_freq_idx[CM_MGR_CPU_CLUSTER];
 static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
-#endif /* CONFIG_MTK_CPU_FREQ */
 /* 0: < 50us */
 /* 1: 50~100us */
 /* 2: 100~200us */
@@ -405,9 +403,7 @@ void check_cm_mgr_status_internal(void)
 	}
 
 	if (spin_trylock_irqsave(&cm_mgr_lock, flags)) {
-#ifdef CONFIG_MTK_CPU_FREQ
 		int ret;
-#endif /* CONFIG_MTK_CPU_FREQ */
 		int max_ratio_idx[CM_MGR_CPU_CLUSTER];
 #if defined(LIGHT_LOAD) && defined(CONFIG_MTK_SCHED_RQAVG_US)
 		unsigned int cpu;
@@ -674,7 +670,7 @@ void cm_mgr_enable_fn(int enable)
 {
 	cm_mgr_enable = enable;
 	if (!cm_mgr_enable)
-		cm_mgr_set_dram_level(0);
+		cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
@@ -818,6 +814,12 @@ static int dbg_cm_mgr_status_proc_show(struct seq_file *m, void *v)
 
 PROC_FOPS_RO(dbg_cm_mgr_status);
 
+void __weak dbg_cm_mgr_platform_show(struct seq_file *m) {}
+
+void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
+{}
+
+
 static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -848,6 +850,16 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "cm_mgr_loading_enable %d\n", cm_mgr_loading_enable);
 	seq_printf(m, "cm_mgr_emi_demand_check %d\n", cm_mgr_emi_demand_check);
 
+#ifdef DEBUG_CM_PERF_OPP
+	seq_printf(m, "perfx cm_mgr_dram_opp %d (base: %d)\n",
+		cm_mgr_dram_opp_base, cm_mgr_dram_opp);
+	seq_printf(m, "perfx debounce_time_down_local %d (force: %d)\n",
+		debounce_times_perf_down_local,
+		debounce_times_perf_down_force_local);
+	seq_printf(m, "perfx pm_qos_update_request_status %d\n",
+		pm_qos_update_request_status);
+	seq_printf(m, "perfx cm_mgr_blank_status %d\n", cm_mgr_blank_status);
+#endif
 	seq_puts(m, "cpu_power_ratio_up");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
 		seq_printf(m, " %d", cpu_power_ratio_up[i]);
@@ -961,6 +973,8 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	}
 
 	seq_puts(m, "\n");
+
+	dbg_cm_mgr_platform_show(m);
 
 	return 0;
 }
@@ -1125,7 +1139,7 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	if (!strcmp(cmd, "cm_mgr_opp_enable")) {
 		cm_mgr_opp_enable = val_1;
 		if (!cm_mgr_opp_enable)
-			cm_mgr_set_dram_level(0);
+			cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_ENABLE,
 				cm_mgr_opp_enable);
@@ -1133,7 +1147,7 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_enable")) {
 		cm_mgr_enable = val_1;
 		if (!cm_mgr_enable)
-			cm_mgr_set_dram_level(0);
+			cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 				cm_mgr_enable);
@@ -1160,7 +1174,7 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_disable_fb")) {
 		cm_mgr_disable_fb = val_1;
 		if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
-			cm_mgr_set_dram_level(0);
+			cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DISABLE_FB,
 				cm_mgr_disable_fb);
@@ -1260,6 +1274,8 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+	} else {
+		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
 
 out:
@@ -1310,9 +1326,10 @@ static int create_cm_mgr_debug_fs(void)
 
 int __weak cm_mgr_platform_init(void)
 {
-
 	return 0;
 }
+
+void __weak cm_mgr_setup_cpu_dvfs_info(void) {}
 
 int __init cm_mgr_module_init(void)
 {
@@ -1367,6 +1384,8 @@ int __init cm_mgr_module_init(void)
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
+
+	cm_mgr_setup_cpu_dvfs_info();
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);

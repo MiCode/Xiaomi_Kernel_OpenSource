@@ -19,7 +19,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(CM_MGR__stall_raio,
+TRACE_EVENT(CM_MGR__stall_ratio,
 	TP_PROTO(int _id,
 		unsigned int _ratio),
 	TP_ARGS(_id,

@@ -11,6 +11,8 @@
 # GNU General Public License for more details.
 #
 
+SSPM_VER := v1
+
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met_drv/),)
 ccflags-y += -DMET_SUPPORT
 ccflags-y += -DMET_USER_EVENT_SUPPORT

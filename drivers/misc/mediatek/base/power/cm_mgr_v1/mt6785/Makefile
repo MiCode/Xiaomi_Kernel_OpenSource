@@ -10,6 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+SSPM_VER := v1
 
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met_drv/),)
 ccflags-y += -DMET_SUPPORT
