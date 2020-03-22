@@ -68,14 +68,14 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 300,
 	},
 	.cap = {
-		.pclk = 481930000,
+		.pclk = 482000000,
 		.linelength = 4848,
-		.framelength = 3312,
+		.framelength = 3314,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 4208,
 		.grabwindow_height = 3120,
-		.mipi_pixel_rate = 578568000,
+		.mipi_pixel_rate = 576000000,
 		.mipi_data_lp2hs_settle_dc = 85,
 		.max_framerate = 300,
 	},
@@ -1187,7 +1187,7 @@ static kal_uint16 capture_setting_array[] = {
 	0x034A, 0x0C37,
 	0x034C, 0x1070,
 	0x034E, 0x0C30,
-	0x0340, 0x0CF0,
+	0x0340, 0x0CF2,
 	0x0342, 0x12F0,
 	0x0900, 0x0011,
 	0x0380, 0x0001,
@@ -1198,17 +1198,17 @@ static kal_uint16 capture_setting_array[] = {
 	0x0404, 0x1000,
 	0x0350, 0x0008,
 	0x0352, 0x0000,
-	0x0136, 0x1333,
-	0x013E, 0x0001,
+	0x0136, 0x1800,
+	0x013E, 0x0000,
 	0x0300, 0x0008,
 	0x0302, 0x0001,
-	0x0304, 0x0005,
-	0x0306, 0x00FB,
+	0x0304, 0x0006,
+	0x0306, 0x00F1,
 	0x0308, 0x0008,
 	0x030A, 0x0001,
 	0x030C, 0x0000,
 	0x030E, 0x0003,
-	0x0310, 0x0071,
+	0x0310, 0x005A,
 	0x0312, 0x0000,
 	0x0B06, 0x0101,
 	0x6028, 0x2000,
@@ -1217,8 +1217,8 @@ static kal_uint16 capture_setting_array[] = {
 	0x021E, 0x0000,
 	0x0202, 0x0100,
 	0x0204, 0x0020,
-	0x0D00, 0x0101,
-	0x0D02, 0x0101,
+	0x0D00, 0x0100,
+	0x0D02, 0x0001,
 	0x0114, 0x0301,
 	0x0D06, 0x0208,
 	0x0D08, 0x0300,
@@ -1229,6 +1229,9 @@ static kal_uint16 capture_setting_array[] = {
 	0x6F12, 0x0200,
 	0x602A, 0x2BC0,
 	0x6F12, 0x0001,
+	0x0B30, 0x0000,
+	0x0B32, 0x0000,
+	0x0B34, 0x0001,
 };
 
 static kal_uint16 normal_video_setting_array[] = {
@@ -1692,7 +1695,7 @@ static struct SENSOR_VC_INFO_STRUCT vc_info_capture = {
 	0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
 	0x00, 0x2b, 0x1070, 0x0c30, /* VC0 */
 	0x00, 0x00, 0x0000, 0x0000, /* VC1 */
-	0x01, 0x30, 0x0208, 0x0300, /* VC2 */
+	0x00, 0x00, 0x0000, 0x0000, /* VC2 */
 	0x00, 0x00, 0x0000, 0x0000, /* VC3 */
 };
 
@@ -2179,12 +2182,16 @@ static void check_streamoff(void)
 
 static kal_uint32 streaming_control(kal_bool enable)
 {
+	unsigned int tmp;
+
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
 	if (enable)
 		write_cmos_sensor_8(0x0100, 0X01);
 	else {
-		write_cmos_sensor_8(0x0100, 0x00);
-		check_streamoff();
+		tmp = read_cmos_sensor_8(0x0100);
+		if (tmp)
+			write_cmos_sensor_8(0x0100, 0x00);
+		//check_streamoff();
 	}
 	return ERROR_NONE;
 }
@@ -2879,6 +2886,10 @@ static kal_uint32 control(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.current_scenario_id = scenario_id;
 	spin_unlock(&imgsensor_drv_lock);
+
+	/* streamoff should be finished before mode changes */
+	check_streamoff();
+
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		preview(image_window, sensor_config_data);
