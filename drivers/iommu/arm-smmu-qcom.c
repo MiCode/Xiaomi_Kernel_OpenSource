@@ -850,16 +850,13 @@ static int qsmmuv500_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
-	.device_group = qsmmuv500_device_group,
-	.device_remove = qsmmuv500_device_remove,
-};
-
 static const struct arm_smmu_impl qsmmuv500_impl = {
 	.cfg_probe = qsmmuv500_cfg_probe,
 	.init_context_bank = qsmmuv500_init_cb,
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
 	.tlb_sync_timeout = qsmmuv500_tlb_sync_timeout,
+	.device_remove = qsmmuv500_device_remove,
+	.device_group = qsmmuv500_device_group,
 };
 
 struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
