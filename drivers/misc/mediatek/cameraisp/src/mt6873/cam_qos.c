@@ -30,7 +30,7 @@
 #ifndef EP_STAGE
 #include <mmdvfs_pmqos.h>
 #include <linux/pm_qos.h>
-#include <mt6885-larb-port.h>
+#include <mt6873-larb-port.h>
 #endif
 #else
 #ifndef EP_STAGE
@@ -148,12 +148,12 @@ case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L14_CAM_CAMSV0_DISP);
+				   M4U_PORT_L14_CAM_CAMSV0);
 		break;
 	case _camsv_ufeo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV1_MDP);
+				   M4U_PORT_L13_CAM_CAMSV1);
 		break;
 	default:
 		LOG_NOTICE("unsupported port:%d\n", portID);
@@ -165,12 +165,12 @@ case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV2_MDP);
+				   M4U_PORT_L13_CAM_CAMSV2);
 		break;
 	case _camsv_ufeo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV3_MDP);
+				   M4U_PORT_L13_CAM_CAMSV3);
 		break;
 	default:
 		LOG_NOTICE("unsupported port:%d\n", portID);
@@ -183,7 +183,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV4_MDP);
+				   M4U_PORT_L13_CAM_CAMSV4);
 		break;
 	default:
 		LOG_NOTICE("unsupported port:%d\n", portID);
@@ -196,7 +196,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV5_MDP);
+				   M4U_PORT_L13_CAM_CAMSV5);
 		break;
 	}
 	break;
@@ -206,7 +206,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV6_MDP);
+				   M4U_PORT_L13_CAM_CAMSV6);
 		break;
 	}
 	break;
@@ -217,17 +217,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_IMGO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_IMGO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_IMGO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_IMGO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_IMGO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_IMGO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -241,17 +241,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_LTMSO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_LTMSO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_LTMSO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_LTMSO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_LTMSO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_LTMSO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -263,17 +263,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_RRZO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_RRZO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_RRZO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_RRZO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_RRZO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_RRZO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -285,17 +285,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_LCESO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_LCESO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_LCESO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_LCESO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_LCESO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_LCESO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -307,17 +307,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_AAHO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_AAHO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_AAHO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_AAHO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_AAHO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_AAHO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -329,17 +329,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_AAO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_AAO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_AAO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_AAO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_AAO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_AAO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -352,17 +352,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_FLKO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_FLKO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_FLKO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_FLKO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_FLKO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_FLKO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -375,17 +375,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_AFO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_AFO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_AFO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_AFO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_AFO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_AFO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -400,17 +400,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_RSSO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_RSSO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_RSSO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_RSSO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_RSSO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_RSSO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -424,17 +424,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_CRZO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_CRZO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_CRZO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_CRZO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_CRZO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_CRZO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -448,17 +448,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_YUVO_R1_A_MDP);
+				   M4U_PORT_L16_CAM_YUVO_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_YUVO_R1_B_DISP);
+				   M4U_PORT_L17_CAM_YUVO_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_YUVO_R1_C_MDP);
+				   M4U_PORT_L18_CAM_YUVO_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -470,17 +470,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_RAWI_R2_A_MDP);
+				   M4U_PORT_L16_CAM_RAWI_R2_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_RAWI_R2_B_DISP);
+				   M4U_PORT_L17_CAM_RAWI_R2_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_RAWI_R2_C_MDP);
+				   M4U_PORT_L18_CAM_RAWI_R2_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -492,17 +492,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_RAWI_R3_A_MDP);
+				   M4U_PORT_L16_CAM_RAWI_R3_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_RAWI_R3_B_DISP);
+				   M4U_PORT_L17_CAM_RAWI_R3_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_RAWI_R3_C_MDP);
+				   M4U_PORT_L18_CAM_RAWI_R3_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -517,17 +517,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_BPCI_R1_A_MDP);
+				   M4U_PORT_L16_CAM_BPCI_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_BPCI_R1_B_DISP);
+				   M4U_PORT_L17_CAM_BPCI_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_BPCI_R1_C_MDP);
+				   M4U_PORT_L18_CAM_BPCI_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -540,17 +540,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_CQI_R1_A_MDP);
+				   M4U_PORT_L16_CAM_CQI_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_CQI_R1_B_DISP);
+				   M4U_PORT_L17_CAM_CQI_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_CQI_R1_C_MDP);
+				   M4U_PORT_L18_CAM_CQI_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -562,17 +562,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_LSCI_R1_A_MDP);
+				   M4U_PORT_L16_CAM_LSCI_R1_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_LSCI_R1_B_DISP);
+				   M4U_PORT_L17_CAM_LSCI_R1_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_LSCI_R1_C_MDP);
+				   M4U_PORT_L18_CAM_LSCI_R1_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
@@ -584,17 +584,17 @@ default:
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L16_CAM_UFDI_R2_A_MDP);
+				   M4U_PORT_L16_CAM_UFDI_R2_A);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_B_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L17_CAM_UFDI_R2_B_DISP);
+				   M4U_PORT_L17_CAM_UFDI_R2_B);
 			break;
 		case ISP_IRQ_TYPE_INT_CAM_C_ST:
 			mm_qos_add_request(&gBW_LIST[module],
 				   &gCAM_BW_REQ[module][portID],
-				   M4U_PORT_L18_CAM_UFDI_R2_C_MDP);
+				   M4U_PORT_L18_CAM_UFDI_R2_C);
 			break;
 		default:
 			LOG_NOTICE("unsupported module:%d\n", module);
