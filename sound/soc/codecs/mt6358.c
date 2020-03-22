@@ -2673,6 +2673,8 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* add delay for RC Calibration */
+		usleep_range(1000, 1200);
 		/* Enable audio uplink LPW mode */
 		/* Enable Audio ADC 1st Stage LPW */
 		/* Enable Audio ADC 2nd & 3rd LPW */
