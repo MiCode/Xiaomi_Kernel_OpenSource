@@ -19,6 +19,6 @@ ccflags-y += -Idrivers/misc/mediatek/mtprof
 LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 
 obj-y := bootprof.o common.o mtprof.o
-obj-$(CONFIG_MTK_SCHED_MONITOR) += sched_monitor.o monitor_debug_out.o sched_monitor_test.o
+obj-$(CONFIG_MTK_SCHED_MONITOR) += sched_monitor.o sched_monitor_test.o
 obj-$(CONFIG_MTK_WQ_DEBUG) += mtk_wq_debug.o
 mtprof-y += prof_main.o

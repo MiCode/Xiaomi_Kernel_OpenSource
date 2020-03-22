@@ -18,10 +18,6 @@
 #include <mt-plat/aee.h>
 #endif
 
-#ifdef CONFIG_MTK_SCHED_MONITOR
-#include "mtk_sched_mon.h"
-#endif
-
 #if defined(MTK_DEBUG_SPINLOCK_V1) || defined(MTK_DEBUG_SPINLOCK_V2)
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
@@ -461,9 +457,6 @@ void do_raw_spin_lock(raw_spinlock_t *lock)
 #ifdef MTK_DEBUG_SPINLOCK_V2
 	unsigned long long ts = 0;
 #endif
-#ifdef CONFIG_MTK_SCHED_MONITOR
-	mt_trace_lock_spinning_start(lock);
-#endif
 	debug_spin_lock_before(lock);
 #ifdef MTK_DEBUG_SPINLOCK_V1
 	if (unlikely(!arch_spin_trylock(&lock->raw_lock)))
@@ -474,9 +467,6 @@ void do_raw_spin_lock(raw_spinlock_t *lock)
 	spin_lock_check_spinning_time(lock, ts);
 #endif
 	debug_spin_lock_after(lock);
-#ifdef CONFIG_MTK_SCHED_MONITOR
-	mt_trace_lock_spinning_end(lock);
-#endif
 }
 
 int do_raw_spin_trylock(raw_spinlock_t *lock)
