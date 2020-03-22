@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include "cmdq_mmp.h"
@@ -22,7 +14,7 @@ struct CMDQ_MMP_events_t *cmdq_mmp_get_event(void)
 
 void cmdq_mmp_init(void)
 {
-#if IS_ENABLED(CONFIG_MMPROFILE)
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_enable(1);
 	if (CMDQ_MMP_events.CMDQ == 0) {
 		CMDQ_MMP_events.CMDQ = mmprofile_register_event(

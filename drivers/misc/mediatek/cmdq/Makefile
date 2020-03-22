@@ -12,7 +12,7 @@
 #
 
 # common driver code for CMDQ
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6768" "mt6771" "mt6885" "mt8168" "mt6785" "mt6765"))
+ifeq ($(CONFIG_MTK_CMDQ_V3),y)
 	obj-y += v3/
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8167"))
 	obj-y += v2/

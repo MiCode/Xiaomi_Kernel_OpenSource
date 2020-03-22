@@ -1,17 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
-#include <mt-plat/mtk_lpae.h>
 #include <linux/sched/clock.h>
 
 #include "cmdq_record.h"
@@ -1168,8 +1159,6 @@ static void cmdq_task_release_buffer(struct cmdqRecStruct *handle)
 
 s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 {
-	s32 err;
-
 	if (!handle)
 		return -EFAULT;
 
@@ -1214,42 +1203,15 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 	/* we should have new buffers for new commands */
 	cmdq_task_release_buffer(handle);
 
-	/* TODO: support user space buffer */
-#if 0
-	if (cmdq_core_is_request_from_user_space(handle->scenario)) {
-		/* for user space command will copy from desc directly */
-		handle->pkt = NULL;
-		handle->user_req = kzalloc(sizeof(*handle->user_req),
-			GFP_KERNEL);
-		if (!handle->user_req)
-			return -ENOMEM;
-	} else {
-		handle->user_req = NULL;
-		err = cmdq_pkt_create(&handle->pkt);
-		if (err < 0) {
-			handle->pkt = NULL;
-			return err;
-		}
-	}
-#else
-	err = cmdq_pkt_create(&handle->pkt);
-	if (err < 0) {
-		handle->pkt = NULL;
-		return err;
-	}
-
-	if (handle->thread != CMDQ_INVALID_THREAD) {
-		struct cmdq_client *cl =
-			cmdq_helper_mbox_client(handle->thread);
-
-		if (cl)
-			cmdq_pkt_set_client(handle->pkt, cl);
-	}
+	if (handle->thread != CMDQ_INVALID_THREAD)
+		handle->pkt = cmdq_pkt_create(
+			cmdq_helper_mbox_client(handle->thread));
+	else
+		handle->pkt = cmdq_pkt_create(NULL);
 
 	/* assign client or dev fail, assign cmdq dev directly */
 	if (!handle->pkt->dev)
 		handle->pkt->dev = cmdq_dev_get();
-#endif
 
 	/* assign handle to pkt */
 	handle->pkt->user_data = (void *)handle;
@@ -2556,11 +2518,6 @@ static s32 cmdq_append_logic_command(struct cmdqRecStruct *handle,
 	s32 status = 0;
 	u32 arg_a_i, arg_b_i, arg_c_i;
 	u32 arg_a_type, arg_b_type, arg_c_type, arg_abc_type;
-
-#if 0
-	if (handle->thread == CMDQ_INVALID_THREAD)
-		return -EINVAL;
-#endif
 
 	status = cmdq_check_before_append(handle);
 	if (status < 0) {

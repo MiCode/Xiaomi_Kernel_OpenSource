@@ -1,14 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2015 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #ifndef __MTK_CMDQ_H__
@@ -17,16 +9,19 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
 
-#define CMDQ_SPR_FOR_TEMP		(0)
+#define CMDQ_SPR_FOR_TEMP		0
 #define CMDQ_THR_SPR_IDX0		0
 #define CMDQ_THR_SPR_IDX1		1
 #define CMDQ_THR_SPR_IDX2		2
 #define CMDQ_THR_SPR_IDX3		3
-#define CMDQ_THR_SPR_MAX		(4)
+#define CMDQ_THR_SPR_MAX		4
 
-#define CMDQ_TPR_ID			(56)
-#define CMDQ_GPR_CNT_ID			(32)
-#define CMDQ_CPR_STRAT_ID		(0x8000)
+#define CMDQ_TPR_ID			56
+#define CMDQ_HANDSHAKE_REG		59
+#define CMDQ_GPR_CNT_ID			32
+#define CMDQ_CPR_STRAT_ID		0x8000
+#define CMDQ_CPR_TPR_MASK		0x8000
+#define CMDQ_CPR_DISP_CNT		0x8001
 #define CMDQ_EVENT_MAX			0x3FF
 #define SUBSYS_NO_SUPPORT		99
 
@@ -36,16 +31,10 @@
 #define CMDQ_US_TO_TICK(_t)		(_t * 26)
 #define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
-#if IS_ENABLED(CONFIG_MACH_MT6771) || IS_ENABLED(CONFIG_MACH_MT8168) || \
-	IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6739) || \
-	IS_ENABLED(CONFIG_MACH_MT8167) || IS_ENABLED(CONFIG_MACH_MT6765)
-#define CMDQ_REG_SHIFT_ADDR(addr)	(addr)
-#define CMDQ_REG_REVERT_ADDR(addr)	(addr)
-#elif IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785) || \
-	IS_ENABLED(CONFIG_MACH_MT6789) || IS_ENABLED(CONFIG_MACH_MT6885)
-#define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> 3)
-#define CMDQ_REG_REVERT_ADDR(addr)	((addr) << 3)
-#endif
+extern int gce_shift_bit;
+
+#define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> gce_shift_bit)
+#define CMDQ_REG_REVERT_ADDR(addr)	((addr) << gce_shift_bit)
 
 /* GCE provide 32/64 bit General Purpose Register (GPR)
  * use as data cache or address register
@@ -87,8 +76,14 @@ enum cmdq_gpr {
 
 /* Define GCE tokens which not change by platform */
 enum gce_event {
+	/* GCE handshake event 768~783 */
+	CMDQ_EVENT_HANDSHAKE = 768,
+
+	CMDQ_TOKEN_SECURE_THR_EOF = 647,
+	CMDQ_TOKEN_TPR_LOCK = 652,
+
 	/* GPR timer token, 994 to 994+23 */
-	GCE_TOKEN_GPR_TIMER = 994,
+	CMDQ_EVENT_GPR_TIMER = 994,
 };
 
 struct cmdq_pkt;
@@ -109,12 +104,7 @@ struct cmdq_client {
 	struct mbox_client client;
 	struct mbox_chan *chan;
 	void *cl_priv;
-};
-
-struct cmdq_buf_pool {
-	struct dma_pool *pool;
-	atomic_t cnt;
-	u32 limit;
+	struct mutex chan_mutex;
 };
 
 struct cmdq_operand {
@@ -212,15 +202,11 @@ void cmdq_mbox_destroy(struct cmdq_client *client);
 
 /**
  * cmdq_pkt_create() - create a CMDQ packet
- * @pkt_ptr:	CMDQ packet pointer to retrieve cmdq_pkt
+ * @client:	the CMDQ mailbox client
  *
- * Return: 0 for success; else the error code is returned
+ * Return: CMDQ packet pointer
  */
-int cmdq_pkt_create(struct cmdq_pkt **pkt_ptr);
-
-void cmdq_pkt_set_client(struct cmdq_pkt *pkt, struct cmdq_client *cl);
-
-s32 cmdq_pkt_cl_create(struct cmdq_pkt **pkt_ptr, struct cmdq_client *cl);
+struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client);
 
 /**
  * cmdq_pkt_destroy() - destroy the CMDQ packet
@@ -292,6 +278,12 @@ s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset);
 
 s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, u32 addr);
 
+s32 cmdq_pkt_cond_jump_abs(struct cmdq_pkt *pkt,
+	u16 addr_reg_idx,
+	struct cmdq_operand *left_operand,
+	struct cmdq_operand *right_operand,
+	enum CMDQ_CONDITION_ENUM condition_operator);
+
 s32 cmdq_pkt_poll_addr(struct cmdq_pkt *pkt, u32 value, u32 addr, u32 mask,
 	u8 reg_gpr);
 
@@ -311,6 +303,8 @@ s32 cmdq_pkt_poll_reg(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	u32 value, u32 addr, u32 mask, u8 reg_gpr);
 
+int cmdq_pkt_timer_en(struct cmdq_pkt *pkt);
+
 /* cmdq_pkt_sleep() - append commands to wait a short time in microsecond
  * @pkt:	the CMDQ packet
  * @tick:	sleep time in tick, use CMDQ_MS_TO_TICK to translate into ms
@@ -318,7 +312,7 @@ s32 cmdq_pkt_poll(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
  *
  * Return 0 for success; else the error code is returned
  */
-s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr);
+s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr);
 
 s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr);
@@ -338,6 +332,8 @@ int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event);
 
 int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event);
 
+int cmdq_pkt_acquire_event(struct cmdq_pkt *pkt, u16 event);
+
 /**
  * cmdq_pkt_clear_event() - append clear event command to the CMDQ packet
  * @pkt:	the CMDQ packet
@@ -348,6 +344,8 @@ int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event);
 s32 cmdq_pkt_clear_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event);
+
+s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt);
 
@@ -367,15 +365,16 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt);
  * at the end of done packet. Note that this is an ASYNC function. When the
  * function returned, it may or may not be finished.
  */
-s32 cmdq_pkt_flush_async(struct cmdq_client *client, struct cmdq_pkt *pkt,
+s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
 
-s32 cmdq_pkt_flush_threaded(struct cmdq_client *client, struct cmdq_pkt *pkt,
+int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt);
+
+s32 cmdq_pkt_flush_threaded(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
 
 /**
  * cmdq_pkt_flush() - trigger CMDQ to execute the CMDQ packet
- * @client:	the CMDQ mailbox client
  * @pkt:	the CMDQ packet
  *
  * Return: 0 for success; else the error code is returned
@@ -384,12 +383,20 @@ s32 cmdq_pkt_flush_threaded(struct cmdq_client *client, struct cmdq_pkt *pkt,
  * synchronous flush function. When the function returned, the recorded
  * commands have been done.
  */
-s32 cmdq_pkt_flush(struct cmdq_client *client, struct cmdq_pkt *pkt);
+s32 cmdq_pkt_flush(struct cmdq_pkt *pkt);
 
-s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, u32 curr_pa);
+void cmdq_buf_print_wfe(char *text, u32 txt_sz,
+	u32 offset, void *inst);
 
-int cmdq_dump_pkt(struct cmdq_pkt *pkt);
+void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
+	dma_addr_t cur_pa, const char *info);
 
+s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
+
+int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_inst);
+
+void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
+	cmdq_async_flush_cb cb, void *data);
 
 struct cmdq_thread_task_info {
 	dma_addr_t		pa_base;

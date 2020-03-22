@@ -7,9 +7,49 @@
 
 #include "../cmdq-util.h"
 
-const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
+#define GCE_D_PA	0x10228000
+#define GCE_M_PA	0x10318000
+
+const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 {
-	if (gce_pa == 0x10228000) // GCE-D
+	if (gce_pa == GCE_D_PA) {
+		switch (thread) {
+		case 0 ... 9:
+			return "DISP";
+		case 16:
+			return "VDEC";
+		case 17 ... 18:
+			return "VENC";
+		case 23:
+			return "CMDQ-TEST";
+		default:
+			return "CMDQ";
+		}
+	}
+
+	return "CMDQ";
+}
+
+const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
+	s32 thread)
+{
+	switch (event) {
+	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
+	case CMDQ_SYNC_TOKEN_STREAM_EOF:
+	case CMDQ_SYNC_TOKEN_ESD_EOF:
+	case CMDQ_SYNC_TOKEN_STREAM_BLOCK:
+	case CMDQ_SYNC_TOKEN_CABC_EOF:
+		return "DISP";
+	case CMDQ_SYNC_TOKEN_MSS:
+		return "MSS";
+	case CMDQ_SYNC_TOKEN_MSF:
+		return "MSF";
+
+	case CMDQ_EVENT_GPR_TIMER ... CMDQ_EVENT_GPR_TIMER+32:
+		return cmdq_thread_module_dispatch(gce_pa, thread);
+	}
+
+	if (gce_pa == GCE_D_PA) // GCE-D
 		switch (event) {
 		case CMDQ_EVENT_DISP_OVL0_SOF ... CMDQ_EVENT_DP_INTF_SOF:
 		case CMDQ_EVENT_DISP_RDMA4_SOF
@@ -57,7 +97,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 			return "CMDQ";
 		}
 
-	if (gce_pa == 0x10318000) // GCE-M
+	if (gce_pa == GCE_M_PA) // GCE-M
 		switch (event) {
 		case CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_0
 			... CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23:
@@ -89,3 +129,51 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 	return "CMDQ";
 }
 EXPORT_SYMBOL(cmdq_event_module_dispatch);
+
+u32 cmdq_util_hw_id(u32 pa)
+{
+	switch (pa) {
+	case GCE_D_PA:
+		return 0;
+	case GCE_M_PA:
+		return 1;
+	default:
+		cmdq_err("unknown addr:%x", pa);
+	}
+
+	return 0;
+}
+
+u32 cmdq_test_get_subsys_list(u32 **regs_out)
+{
+	static u32 regs[] = {
+		0x1f016f00,	/* VIDO_BASE_ADDR */
+		0x14116100,	/* MMSYS_CG_CON0 */
+		0x1602f10c,	/* VDEC_AXI_ASIF_CFG0 */
+		0x17000104,	/* Reserved (venc_top) */
+		0x17800104,	/* Reserved (venc_core1) */
+		0x1a000370,	/* CAMSYS_APB3_SPARE */
+		0x15020000,	/* IMGSYS1 */
+		0x15820000,	/* IMGSYS2 */
+		0x1B000000,	/* IPESYS */
+		0x112300A0,	/* perisys apb msdc0 SW_DBG_SEL */
+		0x1121004C,	/* perisys apb audio0 AFE_I2S_CON3_OFFSET */
+		0x110020BC,	/* perisys apb uart0 UART */
+	};
+
+	*regs_out = regs;
+	return ARRAY_SIZE(regs);
+}
+
+const char *cmdq_util_hw_name(void *chan)
+{
+	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+
+	if (hw_id == 0)
+		return "GCE-D";
+
+	if (hw_id == 1)
+		return "GCE-M";
+
+	return "CMDQ";
+}

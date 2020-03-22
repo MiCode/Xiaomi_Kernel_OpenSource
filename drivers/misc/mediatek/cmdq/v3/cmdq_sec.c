@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include <linux/slab.h>
@@ -773,10 +765,6 @@ int32_t cmdq_sec_handle_session_reply_unlocked(
 		/* note we etnry SWd to config GCE, and wait execution result
 		 * in NWd update taskState only if config failed
 		 */
-#if 0
-		if (pTask && iwcRsp < 0)
-			pTask->state = TASK_STATE_ERROR;
-#endif
 	}
 
 	/* log print */
@@ -1876,13 +1864,6 @@ static s32 cmdq_sec_exec_task_async_work(struct cmdqRecStruct *handle,
 	struct cmdq_task *task;
 
 	/* TODO: check suspend? */
-#if 0
-	struct cmdq *cmdq;
-
-	cmdq = dev_get_drvdata(thread->chan->mbox->dev);
-	/* not allow to send task when cmdq is suspend */
-	WARN_ON(cmdq->suspended);
-#endif
 	CMDQ_MSG("[SEC]%s handle:0x%p pkt:0x%p thread:%d\n",
 		__func__, handle, handle->pkt, thread->idx);
 
@@ -2170,9 +2151,6 @@ static void cmdq_mbox_shutdown(struct mbox_chan *chan)
 	struct cmdq_sec_thread *thread = chan->con_priv;
 
 	thread->occupied = false;
-#if 0
-	cmdq_thread_stop(chan->con_priv);
-#endif
 }
 
 static bool cmdq_mbox_last_tx_done(struct mbox_chan *chan)
@@ -2221,10 +2199,6 @@ void cmdq_sec_thread_irq_handler(struct cmdq *cmdq,
 	struct cmdq_sec_thread *thread)
 {
 	u32 cookie;
-#if 0
-	s32 err = 0;
-	u32 irq_flag;
-#endif
 
 	cookie = cmdq_sec_get_secure_thread_exec_counter(thread->idx);
 	if (cookie < thread->wait_cookie || !thread->task_cnt)
@@ -2234,83 +2208,8 @@ void cmdq_sec_thread_irq_handler(struct cmdq *cmdq,
 		__func__, thread->idx, cookie, thread->wait_cookie,
 		thread->task_cnt);
 
-#if 0
-	irq_flag = readl(thread->base + CMDQ_THR_IRQ_STATUS);
-	writel(~irq_flag, thread->base + CMDQ_THR_IRQ_STATUS);
-	CMDQ_MSG("CMDQ_THR_IRQ_STATUS:%u thread idx:%u cookie:%u\n",
-		irq_flag, thread->idx, cookie);
-
-	/*
-	 * When ISR call this function, another CPU core could run
-	 * "release task" right before we acquire the spin lock, and thus
-	 * reset / disable this GCE thread, so we need to check the enable
-	 * bit of this GCE thread.
-	 */
-	if (!(readl(thread->base + CMDQ_THR_ENABLE_TASK) & CMDQ_THR_ENABLED)) {
-		CMDQ_MSG("[warn]not enable thread:%u cookie:%u wait:%u\n",
-			thread->idx, cookie, thread->wait_cookie);
-	}
-
-	if (irq_flag & CMDQ_THR_IRQ_ERROR) {
-		err = -EINVAL;
-		cookie += 1;
-	} else if (irq_flag & CMDQ_THR_IRQ_DONE) {
-		err = 0;
-	}
-
-	if (err)
-		CMDQ_ERR("%s err:%d thread:%d cookie:%d\n",
-			__func__, err, thread->idx, cookie);
-
-	cmdq_sec_thread_irq_handle_by_cookie(thread, err, cookie);
-#else
 	cmdq_sec_thread_irq_handle_by_cookie(thread, 0, cookie);
-#endif
 }
-
-#if 0
-static irqreturn_t cmdq_sec_irq_handler(int irq, void *dev)
-{
-	struct cmdq *cmdq = dev;
-	unsigned long irq_status;
-	u32 loaded_thd;
-	int bit;
-	bool normal_irq = false;
-
-	if (!cmdq_thread_in_use())
-		return IRQ_HANDLED;
-
-	clk_enable(cmdq->clock);
-	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;
-	clk_disable(cmdq->clock);
-
-	CMDQ_MSG("%s CMDQ_CURR_IRQ_STATUS: 0x%x 0x%x load:0x%x\n", __func__,
-		(u32)irq_status, (u32)(irq_status ^ CMDQ_IRQ_MASK),
-		loaded_thd);
-	if (!(irq_status ^ CMDQ_IRQ_MASK))
-		return IRQ_HANDLED;
-
-	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
-		struct cmdq_sec_thread *thread = &cmdq->thread[bit];
-
-		if (bit == CMDQ_SEC_IRQ_THREAD) {
-			cmdq_sec_handle_irq_notify(cmdq, thread);
-			continue;
-		}
-
-		if (!thread->occupied) {
-			normal_irq = true;
-			continue;
-		}
-
-		CMDQ_LOG("secure thread irq:%d\n", bit);
-		cmdq_sec_thread_irq_handler(cmdq, thread);
-	}
-
-	/* let normal controller handle if normal irq coming  */
-	return normal_irq ? IRQ_NONE : IRQ_HANDLED;
-}
-#endif
 
 static int cmdq_probe(struct platform_device *pdev)
 {
@@ -2331,20 +2230,6 @@ static int cmdq_probe(struct platform_device *pdev)
 		return PTR_ERR(cmdq->base);
 	}
 
-#if 0
-	cmdq->irq = platform_get_irq(pdev, 0);
-	if (!cmdq->irq) {
-		CMDQ_ERR("failed to get irq\n");
-		return -EINVAL;
-	}
-
-	err = devm_request_irq(dev, cmdq->irq, cmdq_sec_irq_handler,
-		IRQF_SHARED, "mtk_cmdq", cmdq);
-	if (err < 0) {
-		CMDQ_ERR("failed to register ISR (%d)\n", err);
-		return err;
-	}
-#endif
 	dev_dbg(dev, "cmdq device: addr:0x%p va:0x%p irq:%d mask:%#x",
 		dev, cmdq->base, cmdq->irq, (u32)CMDQ_IRQ_MASK);
 

@@ -114,6 +114,7 @@ obj-$(CONFIG_USB_MU3D_DRV)  += mu3d/
 obj-$(CONFIG_MTK_RTC)	+= rtc/
 obj-$(CONFIG_MTK_XO)	+= xo/
 obj-$(CONFIG_MTK_CMDQ) += cmdq/
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mdp/
 obj-$(CONFIG_MTK_SMI_EXT) += smi/
 obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/

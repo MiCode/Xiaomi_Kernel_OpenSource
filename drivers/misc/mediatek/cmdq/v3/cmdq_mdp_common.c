@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include "cmdq_mdp_common.h"
@@ -147,6 +139,8 @@ struct mdp_context {
 };
 static struct mdp_context mdp_ctx;
 static struct cmdq_buf_pool mdp_pool;
+atomic_t mdp_pool_cnt;
+static u32 mdp_pool_limit = 256;
 
 static DEFINE_MUTEX(mdp_clock_mutex);
 static DEFINE_MUTEX(mdp_task_mutex);
@@ -570,7 +564,7 @@ void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 	struct ResourceUnitStruct *res = NULL;
 
 	CMDQ_VERBOSE(
-		"[Res]Set resource callback with event:%d available:%pf release:%pf\n",
+		"[Res]Set resource callback with event:%d available:%ps release:%ps\n",
 		res_event, res_available, res_release);
 	list_for_each_entry(res, &mdp_ctx.resource_list, list_entry) {
 		if (res_event != res->lockEvent)
@@ -1112,7 +1106,12 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	CMDQ_TRACE_FORCE_BEGIN("%s\n", __func__);
 
 	cmdq_task_create(desc->scenario, &handle);
-	handle->pkt->buf_pool = &mdp_pool;
+	/* force assign buffer pool since mdp task assign clients later
+	 * but allocate instruction buffer before do it.
+	 */
+	handle->pkt->cur_pool.pool = mdp_pool.pool;
+	handle->pkt->cur_pool.cnt = mdp_pool.cnt;
+	handle->pkt->cur_pool.limit = mdp_pool.limit;
 
 	/* set secure data */
 	handle->secStatus = NULL;
@@ -1379,16 +1378,15 @@ static void cmdq_mdp_pool_create(void)
 
 	mdp_pool.pool = dma_pool_create("mdp", cmdq_dev_get(),
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
-	atomic_set(&mdp_pool.cnt, 0);
-	mdp_pool.limit = CMDQ_DMA_POOL_COUNT;
+	atomic_set(mdp_pool.cnt, 0);
 }
 
 static void cmdq_mdp_pool_clear(void)
 {
 	/* check pool still in use */
-	if (unlikely((atomic_read(&mdp_pool.cnt)))) {
+	if (unlikely((atomic_read(mdp_pool.cnt)))) {
 		cmdq_msg("mdp buffers still in use:%d",
-			atomic_read(&mdp_pool.cnt));
+			atomic_read(mdp_pool.cnt));
 		return;
 	}
 
@@ -1663,6 +1661,9 @@ void cmdq_mdp_init(void)
 	/* MDP initialization setting */
 	cmdq_mdp_get_func()->mdpInitialSet();
 	cmdq_mdp_init_pmqos();
+
+	mdp_pool.limit = &mdp_pool_limit;
+	mdp_pool.cnt = &mdp_pool_cnt;
 
 	cmdq_mdp_pool_create();
 }
@@ -2330,11 +2331,6 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	} while (0);
 #endif	/* MDP_MMPATH */
 
-#if 0
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
-	smi_larb_mon_act_cnt();
-#endif
-#endif
 #endif	/* CONFIG_MTK_SMI_EXT */
 }
 
@@ -2378,11 +2374,6 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	bool update_isp_throughput = false;
 	bool update_isp_bandwidth = false;
 
-#if 0
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
-	smi_larb_mon_act_cnt();
-#endif
-#endif
 	do_gettimeofday(&curr_time);
 	CMDQ_LOG_PMQOS("enter %s with handle:0x%p engine:0x%llx\n", __func__,
 		handle, handle->engineFlag);
