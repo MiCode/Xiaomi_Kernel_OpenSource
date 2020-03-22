@@ -76,6 +76,8 @@
 #define DVFSRC_BW_MON_THRES_1            (0xD4)
 #define DVFSRC_BW_MON_THRES_2            (0xD8)
 #define DVFSRC_MD_TURBO                  (0xDC)
+#define DVFSRC_PCIE_VCORE_REQ            (0xE0)
+#define DVFSRC_VCORE_USER_REQ            (0xE4)
 #define DVFSRC_DEBOUNCE_FOUR             (0xF0)
 #define DVFSRC_DEBOUNCE_RISE_FALL        (0xF4)
 #define DVFSRC_TIMEOUT_NEXTREQ           (0xF8)
@@ -121,6 +123,7 @@
 #define DVFSRC_QOS_EN                    (0x280)
 #define DVFSRC_MD_BW_URG                 (0x284)
 #define DVFSRC_ISP_HRT                   (0x290)
+#define DVFSRC_HRT_BW_BASE               (0x294)
 #define DVFSRC_SEC_SW_REQ                (0x304)
 #define DVFSRC_EMI_MON_DEBOUNCE_TIME     (0x308)
 #define DVFSRC_MD_LATENCY_IMPROVE        (0x30C)
@@ -158,6 +161,7 @@
 #define DVFSRC_DEBUG_STA_2               (0x708)
 #define DVFSRC_DEBUG_STA_3               (0x70C)
 #define DVFSRC_DEBUG_STA_4               (0x710)
+#define DVFSRC_DEBUG_STA_5               (0x714)
 #define DVFSRC_EMI_REQUEST7              (0x800)
 #define DVFSRC_EMI_HRT_1                 (0x804)
 #define DVFSRC_EMI_HRT2_1                (0x808)
@@ -363,8 +367,15 @@
 /* DVFSRC_DEBUG_STA_0 */
 #define MD_EMI_URG_DEBUG_SHIFT	16
 #define MD_EMI_URG_DEBUG_MASK	0x1
+#define MD_SRC_CLK_DEBUG_SHIFT	17
+#define MD_SRC_CLK_DEBUG_MASK	0x1
 #define MD_EMI_VAL_DEBUG_SHIFT	0
 #define MD_EMI_VAL_DEBUG_MASK	0xFFFF
+
+/* DVFSRC_DEBUG_STA_4 */
+#define MD_EMI_MD_IMP_SHIFT	19
+#define MD_EMI_MD_IMP_MASK	0x7
+
 
 /* DVSFRC_HRT_REQ_MD_URG */
 #define MD_HRT_BW_URG_SHIFT     0
@@ -390,6 +401,9 @@
 
 #define DEBUG_STA2_SCP_SHIFT 14
 #define DEBUG_STA2_SCP_MASK  0x1
+
+#define DEBUG_STA2_PCIE_SHIFT 27
+#define DEBUG_STA2_PCIE_MASK  0x1
 
 #define DEBUG_STA2_MD_EMI_LATENCY_SHIFT 12
 #define DEBUG_STA2_MD_EMI_LATENCY_MASK  0x3

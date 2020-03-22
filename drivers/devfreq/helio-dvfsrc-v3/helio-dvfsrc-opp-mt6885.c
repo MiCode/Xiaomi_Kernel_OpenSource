@@ -18,13 +18,15 @@
 #include <helio-dvfsrc-opp.h>
 #include <helio-dvfsrc-qos.h>
 
-#ifdef CONFIG_MTK_DRAMC
-#include <mtk_dramc.h>
+#ifdef CONFIG_MEDIATEK_DRAMC
+#include <dramc.h>
 #endif
 #define SOC_CPE_DETECT
 
-#ifndef CONFIG_MTK_DRAMC
-static int dram_steps_freq(unsigned int step)
+#define AGING_VALUE 12500
+
+#ifndef CONFIG_MEDIATEK_DRAMC
+static int mtk_dramc_get_steps_freq(unsigned int step)
 {
 	pr_info("get dram steps_freq fail\n");
 	return 4266;
@@ -34,8 +36,10 @@ static int dram_steps_freq(unsigned int step)
 int ddr_level_to_step(int opp)
 {
 /* TODO check later  */
-	return 0;
+	unsigned int step[] = {0, 1, 3, 6, 10, 14, 18};
+	return step[opp];
 }
+
 
 void dvfsrc_opp_level_mapping(void)
 {
@@ -101,7 +105,7 @@ void dvfsrc_opp_table_init(void)
 			continue;
 		}
 		set_opp_table(i, get_vcore_uv_table(vcore_opp),
-		dram_steps_freq(ddr_level_to_step(ddr_opp)) * 1000);
+		mtk_dramc_get_steps_freq(ddr_opp) * 1000);
 	}
 }
 
@@ -117,17 +121,15 @@ static int is_aging_test(void)
 	int ret = 0;
 
 #if defined(CONFIG_ARM64) && \
-	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+			defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+		int len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 
-	pr_info("[VcoreFS] flavor name: %s\n",
-		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-
-	if ((strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k85v1_64_aging") != NULL)) {
-		pr_info("[VcoreFS]: AGING flavor !!!\n");
-		return 1;
-	}
+		if (strncmp(
+			&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 7],
+				"_aging", 7) == 0)
+			return 1;
 #endif
+
 	return ret;
 }
 
@@ -147,18 +149,22 @@ static int __init dvfsrc_opp_init(void)
 	int is_vcore_ct = is_ct_support();
 	int is_vcore_aging = is_aging_test();
 	int doe_ct = 0;
-	int doe_vcore_mode = 0;
 	int dvfs_v_mode = 0;
+	int val = (get_devinfo_with_index(134) & 7);
 
 	set_pwrap_cmd(VCORE_OPP_0, 0);
 	set_pwrap_cmd(VCORE_OPP_1, 1);
 	set_pwrap_cmd(VCORE_OPP_2, 2);
 	set_pwrap_cmd(VCORE_OPP_3, 3);
+	if (val > 2)
+		val = 2;
+
+	val = val * 25000;
 
 	vcore_opp_0_uv = 725000;
-	vcore_opp_1_uv = 650000;
-	vcore_opp_2_uv = 600000;
-	vcore_opp_3_uv = 550000;
+	vcore_opp_1_uv = 650000 + val;
+	vcore_opp_2_uv = 600000 + val;
+	vcore_opp_3_uv = 575000 + val;
 
 	dvfsrc_node =
 		of_find_compatible_node(NULL, NULL, "mediatek,dvfsrc");
@@ -175,46 +181,45 @@ static int __init dvfsrc_opp_init(void)
 			pr_info("%s: DOE DVFS_V_MODE = %d\n",
 				__func__, dvfs_v_mode);
 
-		if (of_property_read_u32(dvfsrc_node, "doe_vcore_mode",
-			(u32 *) &doe_vcore_mode) == 0) {
-			pr_info("%s: DOE DRAM_VCORE_MODE = %d\n",
-				__func__, doe_vcore_mode);
-#if 0 /* TODO: fill when LV/HV setting*/
-			if (doe_vcore_mode == 1) {
-				/*Doe HV */
-				doe_vcore_mode = 1;
-			} else if (doe_vcore_mode == 3)  {
-				/*Doe LV */
-				doe_vcore_mode = 3;
-			} else {
-				/*Doe NV */
-				doe_vcore_mode = 0;
-			}
-#endif
-		}
 	}
-#if 0 /* TODO: fill when LV/HV setting*/
-
-	if (doe_vcore_mode == 0) {
-		if (is_vcore_qea || (dvfs_v_mode == 3)) {
-			/* LV */
-			doe_vcore_mode = 3;
-		} else if (dvfs_v_mode == 1) {
-			/* HV */
-			doe_vcore_mode = 1;
-		} else if (is_vcore_aging) {
-			/*Doe NV */
-			doe_vcore_mode = 0;
+#if 1 /* TODO: fill when LV/HV setting*/
+	if (is_vcore_qea || (dvfs_v_mode == 3)) {
+		/* LV */
+		vcore_opp_0_uv = 687500;
+		if (val == 0) {
+			vcore_opp_1_uv = 612500;
+			vcore_opp_2_uv = 568750;
+			vcore_opp_3_uv = 543750;
+		} else if (val == 25000) {
+			vcore_opp_1_uv = 637500;
+			vcore_opp_2_uv = 593750;
+			vcore_opp_3_uv = 568750;
+		} else if (val == 50000) {
+			vcore_opp_1_uv = 662500;
+			vcore_opp_2_uv = 612500;
+			vcore_opp_3_uv = 593750;
 		}
+	} else if (dvfs_v_mode == 1) {
+		/* HV */
+		vcore_opp_0_uv = 761250;
+		vcore_opp_1_uv = 682500;
+		vcore_opp_2_uv = 630000;
+		vcore_opp_3_uv = 603750;
+	} else if (is_vcore_aging) {
+		vcore_opp_0_uv -= AGING_VALUE;
+		vcore_opp_1_uv -= AGING_VALUE;
+		vcore_opp_2_uv -= AGING_VALUE;
+		vcore_opp_3_uv -= AGING_VALUE;
 	}
 #endif
 
-	pr_info("%s: CT=%d, AGING=%d, QEA=%d, VMODE=%d\n",
+	pr_info("%s: CT=%d, AGING=%d, QEA=%d, VMODE=%d val=%d\n",
 		__func__,
 		is_vcore_ct,
 		is_vcore_aging,
 		is_vcore_qea,
-		dvfs_v_mode);
+		dvfs_v_mode,
+		val);
 
 	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d %d\n",
 		__func__,
@@ -230,11 +235,11 @@ static int __init dvfsrc_opp_init(void)
 
 	for (i = 0; i < DDR_OPP_NUM; i++) {
 		set_opp_ddr_freq(i,
-			dram_steps_freq(ddr_level_to_step(i)) * 1000);
+			mtk_dramc_get_steps_freq(i) * 1000);
 	}
 
 	return 0;
 }
 
-fs_initcall_sync(dvfsrc_opp_init)
+device_initcall_sync(dvfsrc_opp_init)
 
