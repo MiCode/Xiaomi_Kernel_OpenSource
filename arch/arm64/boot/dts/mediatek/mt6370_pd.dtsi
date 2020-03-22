@@ -28,7 +28,8 @@
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x5081>;
-			pd,source-cap-ext = <0x171129cf 0x00000000 0x00000102 0x00000000 0x00000000 0x02000000>;
+			pd,source-cap-ext = <0x508129cf 0x00000000 0x00000000
+					     0x00000000 0x00000000 0x02000000>;
 			pd,mfrs = "RichtekTCPC";
 
 			/*
@@ -36,7 +37,7 @@
 			 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
 			 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 			 */
-			pd,charging_policy= <0x21>;
+			pd,charging_policy= <0x31>;
 
 			/*
 			 * Fixed 5V, 500 mA <0x00019032>
@@ -60,21 +61,21 @@
 			/*
 			 * No DP, host + device
 			 *	pd,id-vdo-size = <3>;
-			 *	pd,id-vdo-data = <0xd10029cf 0x0 0x00010000>;
+			 *	pd,id-vdo-data = <0xd10029cf 0x0 0x50810000>;
 			 * With DP
-			 *	pd,id-vdo-size = <4>;
-			 *	pd,id-vdo-data = <0xed0029cf 0x0 0x00010000 0x11000001>;
+			 *	pd,id-vdo-size = <3>;
+			 *	pd,id-vdo-data = <0xd60029cf 0x0 0x50810000>;
 			 */
 
 			pd,id-vdo-size = <3>;
-			pd,id-vdo-data = <0xd10029cf 0x00000000 0x00010000>;
+			pd,id-vdo-data = <0xd10029cf 0x0 0x50810000>;
 
 			bat,nr = <1>;
 			pd,country_nr = <0>;
 
 			bat-info0 {
 				bat,vid = <0x29cf>;
-				bat,pid = <0x1711>;
+				bat,pid = <0x5081>;
 				bat,mfrs = "bat1";
 				bat,design_cap = <3000>;
 			};
@@ -114,11 +115,12 @@
 			attemp_enter_dp_mode;
 			attemp_discover_cable;
 			attemp_discover_id;
+
 			/* 0: disable, 1: prefer_snk, 2: prefer_src */
 			pr_check = <0>;
 			//pr_reject_as_source;
 			//pr_reject_as_sink;
-			pr_check_gp_source;
+			//pr_check_gp_source;
 			//pr_check_gp_sink;
 
 			/* 0: disable, 1: prefer_ufp, 2: prefer_dfp */

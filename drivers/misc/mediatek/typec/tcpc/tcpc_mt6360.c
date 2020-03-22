@@ -52,7 +52,7 @@
 
 /* #define DEBUG_GPIO	66 */
 
-#define MT6360_DRV_VERSION	"2.0.2_MTK"
+#define MT6360_DRV_VERSION	"2.0.3_MTK"
 
 #define MT6360_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -1029,7 +1029,7 @@ static int mt6360_init_alert(struct tcpc_device *tcpc)
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) */
 
 	chip->irq_worker_task = kthread_run(kthread_worker_fn,
-					    &chip->irq_worker,
+					    &chip->irq_worker, "%s",
 					    chip->tcpc_desc->name);
 	if (IS_ERR(chip->irq_worker_task)) {
 		dev_err(chip->dev, "%s could not create tcpc task\n", __func__);
@@ -1292,7 +1292,7 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 {
 	int ret;
 	u8 data;
-	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
+	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull), pull1, pull2;
 #ifdef CONFIG_WD_SBU_POLLING
 	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
 #endif /* CONFIG_WD_SBU_POLLING */
@@ -1330,7 +1330,18 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 		cancel_delayed_work(&chip->usbid_poll_work);
 		mt6360_enable_usbid_polling(chip, false);
 #endif /* CONFIG_WD_POLLING_ONLY */
-		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull, pull);
+
+		pull1 = pull2 = pull;
+
+		if ((pull == TYPEC_CC_RP_DFT || pull == TYPEC_CC_RP_1_5 ||
+			pull == TYPEC_CC_RP_3_0) &&
+			tcpc->typec_is_attached_src) {
+			if (tcpc->typec_polarity)
+				pull1 = TYPEC_CC_RD;
+			else
+				pull2 = TYPEC_CC_RD;
+		}
+		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull1, pull2);
 		ret = mt6360_i2c_write8(tcpc, TCPC_V10_REG_ROLE_CTRL, data);
 		mt6360_enable_auto_rpconnect(tcpc, false);
 		mt6360_enable_oneshot_rpconnect(tcpc, true);
@@ -2732,6 +2743,9 @@ MODULE_DESCRIPTION("MT6360 TCPC Driver");
 MODULE_VERSION(MT6360_DRV_VERSION);
 
 /**** Release Note ****
+ * 2.0.3_MTK
+ *	(1) Single Rp as Attatched.SRC for Ellisys TD.4.9.4
+ *
  * 2.0.2_MTK
  *	(1) Add vendor defined irq handler
  *	(2) Remove init_cc_param

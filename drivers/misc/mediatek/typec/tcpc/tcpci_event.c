@@ -301,6 +301,9 @@ static inline bool pd_is_init_attention_event(
 {
 	uint32_t vdm_hdr = pd_event->pd_msg->payload[0];
 
+	if (!PD_VDO_SVDM(vdm_hdr))
+		return false;
+
 	if ((PD_VDO_CMDT(vdm_hdr) == CMDT_INIT) &&
 			PD_VDO_CMD(vdm_hdr) == CMD_ATTENTION) {
 		return true;
@@ -699,7 +702,7 @@ static inline bool __pd_put_pe_event(
 	return __pd_put_event(tcpc_dev, &evt, false);
 }
 
-bool pd_put_cc_attached_event(
+bool __pd_put_cc_attached_event(
 		struct tcpc_device *tcpc_dev, uint8_t type)
 {
 	struct pd_event evt = {
@@ -725,12 +728,47 @@ bool pd_put_cc_attached_event(
 		break;
 	}
 
-	return pd_put_event(tcpc_dev, &evt, false);
+	return __pd_put_event(tcpc_dev, &evt, false);
+}
+
+bool pd_put_cc_attached_event(
+		struct tcpc_device *tcpc_dev, uint8_t type)
+{
+	bool ret = false;
+
+	mutex_lock(&tcpc_dev->access_lock);
+
+#ifdef CONFIG_USB_POWER_DELIVERY
+#ifdef CONFIG_TYPEC_WAIT_BC12
+	if (type == TYPEC_ATTACHED_SNK &&
+		mt_get_charger_type() == CHARGER_UNKNOWN) {
+		tcpc_dev->sink_wait_bc12_count = 1;
+		tcpc_enable_timer(tcpc_dev, TYPEC_RT_TIMER_SINK_WAIT_BC12);
+		mutex_unlock(&tcpc_dev->access_lock);
+		return ret;
+	}
+	tcpc_dev->sink_wait_bc12_count = 0;
+	tcpc_disable_timer(tcpc_dev, TYPEC_RT_TIMER_SINK_WAIT_BC12);
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
+#endif /* CONFIG_USB_POWER_DELIVERY */
+
+	ret = __pd_put_cc_attached_event(tcpc_dev, type);
+
+	mutex_unlock(&tcpc_dev->access_lock);
+
+	return ret;
 }
 
 void pd_put_cc_detached_event(struct tcpc_device *tcpc_dev)
 {
 	mutex_lock(&tcpc_dev->access_lock);
+
+#ifdef CONFIG_USB_POWER_DELIVERY
+#ifdef CONFIG_TYPEC_WAIT_BC12
+	tcpc_dev->sink_wait_bc12_count = 0;
+	tcpc_disable_timer(tcpc_dev, TYPEC_RT_TIMER_SINK_WAIT_BC12);
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
+#endif /* CONFIG_USB_POWER_DELIVERY */
 
 	tcpci_notify_hard_reset_state(
 		tcpc_dev, TCP_HRESET_RESULT_FAIL);

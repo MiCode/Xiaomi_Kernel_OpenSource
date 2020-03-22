@@ -195,9 +195,9 @@ static inline bool dpm_is_valid_pdo_pair(struct dpm_pdo_info_t *sink,
 		return false;
 
 	if (policy & DPM_CHARGING_POLICY_IGNORE_MISMATCH_CURR)
-		return sink->ma <= source->ma;
+		return true;
 
-	return true;
+	return sink->ma <= source->ma;
 }
 
 static bool dpm_select_pdo_from_max_power(
@@ -228,10 +228,10 @@ static bool dpm_select_pdo_from_max_power(
 	if ((!overload) && (uw == select_info->max_uw)) {
 		if (select_info->policy &
 			DPM_CHARGING_POLICY_PREFER_LOW_VOLTAGE)
-			overload |= (source->vmax < select_info->cur_mv);
+			overload = (source->vmax < select_info->cur_mv);
 		else if (select_info->policy &
 			DPM_CHARGING_POLICY_PREFER_HIGH_VOLTAGE)
-			overload |= (source->vmax > select_info->cur_mv);
+			overload = (source->vmax > select_info->cur_mv);
 	}
 
 	if (overload) {

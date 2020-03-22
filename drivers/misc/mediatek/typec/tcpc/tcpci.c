@@ -42,7 +42,7 @@ int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc)
 
 	if (tcpci_get_power_status(tcpc, &power_status) == 0) {
 		if (vbus_level != tcpc->vbus_level) {
-			TCPC_INFO("[Warning] ps_chagned %d ->%d\r\n",
+			TCPC_INFO("[Warning] ps_changed %d ->%d\r\n",
 				vbus_level, tcpc->vbus_level);
 		}
 	}

@@ -29,6 +29,9 @@
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 #include "pd_core.h"
+#ifdef CONFIG_TYPEC_WAIT_BC12
+#include <mt-plat/charger_type.h>
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
 #endif
 
 /* The switch of log message */
@@ -351,6 +354,7 @@ struct tcpc_device {
 	bool typec_power_ctrl;
 	bool typec_watchdog;
 	bool typec_reach_vsafe0v;
+	bool typec_is_attached_src;
 
 	int typec_usb_sink_curr;
 
@@ -475,6 +479,9 @@ struct tcpc_device {
 	uint8_t charging_status;
 	int bat_soc;
 #endif /* CONFIG_USB_PD_REV30 */
+#ifdef CONFIG_TYPEC_WAIT_BC12
+	uint8_t sink_wait_bc12_count;
+#endif /* CONFIG_TYPEC_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 	u8 vbus_level:2;
 	bool vbus_safe0v;

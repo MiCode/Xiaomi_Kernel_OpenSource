@@ -1163,11 +1163,14 @@ void pd_dpm_dfp_inform_id(struct pd_port *pd_port, bool ack)
 	if (!pd_port->pe_data.vdm_discard_retry_flag) {
 		/*
 		 * For PD compliance test,
-		 * If device doesn't reply discoverID,
+		 * If device doesn't reply discoverID
+		 * or doesn't support modal operation,
 		 * then don't send discoverSVID
 		 */
-		if (!ack)
+		if (!ack || !(payload[0] & PD_IDH_MODAL_SUPPORT))
 			dpm_reaction_clear(pd_port, DPM_REACTION_DISCOVER_SVID);
+		else
+			dpm_reaction_set(pd_port, DPM_REACTION_DISCOVER_SVID);
 
 		svdm_dfp_inform_id(pd_port, ack);
 		dpm_reaction_clear(pd_port, DPM_REACTION_DISCOVER_ID);
@@ -1545,14 +1548,14 @@ void pd_dpm_prs_evaluate_swap(struct pd_port *pd_port, uint8_t role)
 	int good_power;
 	bool sink, accept = true;
 
-	bool check_src =
-		(pd_port->dpm_caps & DPM_CAP_PR_SWAP_CHECK_GP_SRC) ? 1 : 0;
-	bool check_snk =
-		(pd_port->dpm_caps & DPM_CAP_PR_SWAP_CHECK_GP_SNK) ? 1 : 0;
+	bool check_src = (pd_port->dpm_caps & DPM_CAP_PR_SWAP_CHECK_GP_SRC) ?
+		true : false;
+	bool check_snk = (pd_port->dpm_caps & DPM_CAP_PR_SWAP_CHECK_GP_SNK) ?
+		true : false;
 
 #ifdef CONFIG_USB_PD_SRC_REJECT_PR_SWAP_IF_GOOD_PW
 	bool check_ext =
-		(pd_port->dpm_caps & DPM_CAP_CHECK_EXT_POWER) ? 1 : 0;
+		(pd_port->dpm_caps & DPM_CAP_CHECK_EXT_POWER) ? true : false;
 
 	if (check_ext)
 		check_src = true;
@@ -1691,7 +1694,7 @@ int pd_dpm_send_source_cap_ext(struct pd_port *pd_port)
 
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_LOCAL
 
-const struct pd_battery_capabilities c_invalid_bcdb = {
+static const struct pd_battery_capabilities c_invalid_bcdb = {
 	0, 0, 0, 0, PD_BCDB_BAT_TYPE_INVALID
 };
 
@@ -1715,7 +1718,7 @@ int pd_dpm_send_battery_cap(struct pd_port *pd_port)
 		bcdb = &c_invalid_bcdb;
 
 	return pd_send_sop_ext_msg(pd_port, PD_EXT_BAT_CAP,
-		PD_BCDB_SIZE,  bcdb);
+		PD_BCDB_SIZE, bcdb);
 }
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_LOCAL */
 
@@ -1734,7 +1737,7 @@ void pd_dpm_inform_battery_cap(struct pd_port *pd_port)
 
 #ifdef CONFIG_USB_PD_REV30_BAT_STATUS_LOCAL
 
-const uint32_t c_invalid_bsdo =
+static const uint32_t c_invalid_bsdo =
 	BSDO(0xffff, BSDO_BAT_INFO_INVALID_REF);
 
 int pd_dpm_send_battery_status(struct pd_port *pd_port)
@@ -1778,11 +1781,11 @@ void pd_dpm_inform_battery_status(struct pd_port *pd_port)
 }
 #endif	/* CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE */
 
+static const struct pd_manufacturer_info c_invalid_mfrs = {
+	.vid = 0, .pid = 0, .mfrs_string = "Not Supported",
+};
 
 #ifdef CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL
-
-const struct pd_manufacturer_info c_invalid_mfrs = {0};
-
 int pd_dpm_send_mfrs_info(struct pd_port *pd_port)
 {
 	uint8_t len = 0;
@@ -1804,7 +1807,9 @@ int pd_dpm_send_mfrs_info(struct pd_port *pd_port)
 	if (midb == NULL)
 		midb = &c_invalid_mfrs;
 
-	len = strlen((char *)midb->mfrs_string);
+	len = strnlen((char *)midb->mfrs_string, sizeof(midb->mfrs_string));
+	if (len < sizeof(midb->mfrs_string))
+		len++;
 	return pd_send_sop_ext_msg(pd_port, PD_EXT_MFR_INFO,
 		PD_MIDB_MIN_SIZE + len, midb);
 }
