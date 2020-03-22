@@ -37,7 +37,7 @@ static int mtk_qos_probe(struct platform_device *pdev)
 	qos_add_interface(&pdev->dev);
 	qos_ipi_init();
 	qos_bound_init();
-
+	qos_ipi_recv_init();
 	return 0;
 }
 

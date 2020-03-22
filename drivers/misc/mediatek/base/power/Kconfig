@@ -80,7 +80,6 @@ config MTK_SWPM
 
 config MTK_QOS_FRAMEWORK
 	bool "MTK QOS FRAMEWORK"
-	default n
 	---help---
 	  This kernel config can be used to enable MTK QOS FRAMEWORK.
 	  When enabling this option, BW Limiter and BW Bound Detector
@@ -99,6 +98,8 @@ config MTK_QOS_V1
 config MTK_QOS_V2
 	bool "MTK QOS Framework Ver 2.0"
 	default y if MACH_MT6785
+	default y if MACH_MT6885
+	default y if MACH_MT6873
 	select MTK_QOS_FRAMEWORK
 	---help---
 	  This version support QOS version 2.0 feature sets.
