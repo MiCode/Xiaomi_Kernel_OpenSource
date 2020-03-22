@@ -203,6 +203,8 @@ extern struct eem_det eem_detectors[NR_EEM_DET];
 extern struct eem_det eem_detector_cci;
 #endif
 extern struct eem_det_ops eem_det_base_ops;
+extern unsigned int gpu_vb_turn_pt;
+
 
 /* define common operations in mtk_eem_internal.c */
 extern int base_ops_volt_2_pmic(struct eem_det *det, int volt);
