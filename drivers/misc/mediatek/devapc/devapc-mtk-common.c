@@ -752,6 +752,8 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			DT_DEVAPC_PD_IDX);
 	mtk_devapc_ctx->devapc_ao_base = of_iomap(node,
 			DT_DEVAPC_AO_IDX);
+	mtk_devapc_ctx->sramrom_base = of_iomap(node,
+			DT_SRAMROM_IDX);
 	mtk_devapc_ctx->devapc_irq = irq_of_parse_and_map(node,
 			DT_DEVAPC_PD_IDX);
 
