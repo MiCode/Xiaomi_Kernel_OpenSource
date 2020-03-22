@@ -21,8 +21,9 @@ obj-y += base/
 ifeq (,$(findstring mt8,$(CONFIG_MTK_PLATFORM)))
 	obj-$(CONFIG_MTK_PERF_OBSERVER) += observer/
 	obj-$(CONFIG_MTK_RESYM) += resym/
-	obj-$(CONFIG_MTK_BASE_POWER) += boost_ctrl/
-	obj-$(CONFIG_MTK_BASE_POWER) += tchbst/
+	obj-y += boost_ctrl/
+	obj-y += syslimiter/
+	obj-y += tchbst/
 endif
 
 obj-y += perf_ioctl/

@@ -468,9 +468,9 @@ static int init_cpu_loading_kobj(void)
 	/* dev init */
 
 	cpu_loading_object.name = "cpu_loading";
+	cpu_loading_object.minor = MISC_DYNAMIC_MINOR;
 	ret = misc_register(&cpu_loading_object);
 	if (ret) {
-		ret = -ENODEV;
 		pr_debug("misc_register error:%d\n", ret);
 		return ret;
 	}

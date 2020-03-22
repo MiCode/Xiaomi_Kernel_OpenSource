@@ -22,6 +22,8 @@
 #include "mtk_perfmgr_internal.h"
 #include "topo_ctrl.h"
 #include "uload_ind.h"
+#include "syslimiter.h"
+
 
 int clstr_num;
 
@@ -49,14 +51,13 @@ static int perfmgr_resume(struct device *dev)
 }
 static int perfmgr_remove(struct platform_device *dev)
 {
-#ifdef CONFIG_MTK_BASE_POWER
 	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
 		/*TODO: workaround for k414
 		 * topo_ctrl_exit();
 		 */
 		cpu_ctrl_exit();
+		syslimiter_exit();
 	}
-#endif
 	return 0;
 }
 static struct platform_driver perfmgr_driver = {
@@ -73,12 +74,10 @@ static struct platform_driver perfmgr_driver = {
 
 static int perfmgr_main_data_init(void)
 {
-#ifdef CONFIG_MTK_BASE_POWER
 	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
 		/* get cluster number from topo_ctrl */
 		clstr_num = topo_ctrl_get_nr_clusters();
 	}
-#endif
 	return 0;
 }
 
@@ -105,6 +104,7 @@ static int __init init_perfmgr(void)
 	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
 		init_tchbst(perfmgr_root);
 		init_boostctrl(perfmgr_root);
+		syslimiter_init(perfmgr_root);
 	}
 #endif
 	init_perfctl(perfmgr_root);
