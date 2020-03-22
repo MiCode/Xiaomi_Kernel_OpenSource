@@ -38,6 +38,8 @@
 #include "sspm_sysfs.h"
 #include "sspm_logger.h"
 
+#if SSPM_PLT_SERV_SUPPORT
+
 #ifdef SSPM_PLT_LOGGER_BUF_LEN
 /* use platform-defined buffer length */
 #define BUF_LEN				SSPM_PLT_LOGGER_BUF_LEN
@@ -56,11 +58,6 @@ struct log_ctrl_s {
 	unsigned int info_ofs;
 	unsigned int buff_ofs;
 	unsigned int buff_size;
-#if SSPM_LASTK_SUPPORT
-	unsigned int linfo_ofs;
-	unsigned int lbuff_ofs;
-	unsigned int lbuff_size;
-#endif
 };
 
 struct buffer_info_s {
@@ -72,9 +69,7 @@ static unsigned int sspm_logger_inited;
 static struct log_ctrl_s *log_ctl;
 static struct buffer_info_s *buf_info, *lbuf_info;
 static struct timer_list sspm_log_timer;
-#if SSPM_LASTK_SUPPORT
-static unsigned int sspm_logger_lastk_exists;
-#endif
+
 static DEFINE_MUTEX(sspm_log_mutex);
 
 static inline void sspm_log_timer_add(void)
@@ -193,37 +188,6 @@ error:
 	return 0;
 }
 
-#if SSPM_LASTK_SUPPORT
-static unsigned int sspm_log_lastk_get(char *buf)
-{
-	unsigned int ret, w_pos;
-	char *lbuf;
-
-	ret = 0;
-
-	if (sspm_logger_inited && sspm_logger_lastk_exists) {
-		w_pos = lbuf_info->w_pos;
-
-		lbuf = ((char *) log_ctl) + log_ctl->lbuff_ofs;
-
-		ret = w_pos;
-
-#if 0	/* TODO: memcpy ? */
-		while (w_pos-- > 0)
-			*(buf++) = *(lbuf++);
-#endif
-		memcpy_fromio(buf, lbuf, w_pos);
-	}
-
-	return ret;
-}
-
-void sspm_log_lastk_recv(unsigned int exists)
-{
-	sspm_logger_lastk_exists = exists;
-}
-#endif
-
 static ssize_t sspm_mobile_log_show(struct device *kobj,
 	struct device_attribute *attr, char *buf)
 {
@@ -252,20 +216,6 @@ static ssize_t sspm_mobile_log_store(struct device *kobj,
 
 DEVICE_ATTR(sspm_mobile_log, 0644, sspm_mobile_log_show, sspm_mobile_log_store);
 
-#if SSPM_LASTK_SUPPORT
-static ssize_t sspm_log_lastk_show(struct device *kobj,
-	struct device_attribute *attr, char *buf)
-{
-	unsigned int ret;
-
-	ret = sspm_log_lastk_get(buf);
-
-	return ret;
-}
-
-DEVICE_ATTR(sspm_log_lastk, 0444, sspm_log_lastk_show, NULL);
-#endif
-
 unsigned int __init sspm_logger_init(phys_addr_t start, phys_addr_t limit)
 {
 	unsigned int last_ofs;
@@ -292,22 +242,6 @@ unsigned int __init sspm_logger_init(phys_addr_t start, phys_addr_t limit)
 
 	last_ofs += log_ctl->buff_size;
 
-#if SSPM_LASTK_SUPPORT
-	log_ctl->linfo_ofs = last_ofs;
-
-	last_ofs += sizeof(*lbuf_info);
-	last_ofs = ROUNDUP(last_ofs, 4);
-	log_ctl->lbuff_ofs = last_ofs;
-	log_ctl->lbuff_size = LBUF_LEN;
-
-	lbuf_info = (struct buffer_info_s *) (((unsigned char *) log_ctl) +
-						log_ctl->linfo_ofs);
-	lbuf_info->r_pos = 0;
-	lbuf_info->w_pos = 0;
-
-	last_ofs += log_ctl->lbuff_size;
-#endif
-
 	if (last_ofs >= limit) {
 		pr_err("SSPM:%s() initial fail, last_ofs=%u, limit=%u\n",
 			__func__, last_ofs, (unsigned int) limit);
@@ -333,13 +267,6 @@ int __init sspm_logger_init_done(void)
 		if (unlikely(ret != 0))
 			return ret;
 
-#if SSPM_LASTK_SUPPORT
-		ret = sspm_sysfs_create_file(&dev_attr_sspm_log_lastk);
-
-		if (unlikely(ret != 0))
-			return ret;
-#endif
-
 		setup_timer(&sspm_log_timer, &sspm_log_timeout, 0);
 		sspm_log_timer.expires = 0;
 
@@ -348,3 +275,5 @@ int __init sspm_logger_init_done(void)
 
 	return 0;
 }
+
+#endif
