@@ -22,41 +22,39 @@
 #define LIGHT_LOAD
 /* #define USE_AVG_PMU */
 /* #define DEBUG_CM_MGR */
-#define USE_TIMER_CHECK
+/* #define USE_TIMER_CHECK */
 /* #define USE_IDLE_NOTIFY */
-/* #define USE_NEW_CPU_OPP */
-/* #define USE_CM_MGR_AT_SSPM */
+#define USE_NEW_CPU_OPP
+#define USE_CM_MGR_AT_SSPM
 /* #define USE_SINGLE_CLUSTER */
+/* #define USE_CPU_TO_DRAM_MAP */
 
-#define CM_MGR_EMI_OPP	2
-#define CM_MGR_LOWER_OPP 10
+#define CM_MGR_EMI_OPP 5
+#define CM_MGR_LOWER_OPP 6
 #define CM_MGR_CPU_CLUSTER 2
 #define CM_MGR_CPU_COUNT 8
 #define CM_MGR_CPU_LIMIT 4
 
-#define CLUSTER0_MASK   0x0f
-#define CLUSTER1_MASK   0xf0
+#define CLUSTER0_MASK   0xff
+
+#define CM_MGR_CPU_OPP_SIZE 16
 
 #define VCORE_ARRAY_SIZE CM_MGR_EMI_OPP
 #define CM_MGR_CPU_ARRAY_SIZE (CM_MGR_CPU_CLUSTER * CM_MGR_EMI_OPP)
 #define RATIO_COUNT (100 / 5 - 1)
 #define IS_UP 1
 #define IS_DOWN 0
-#define USE_TIMER_CHECK_TIME msecs_to_jiffies(100)
+#define USE_TIMER_CHECK_TIME msecs_to_jiffies(50)
 #define CM_MGR_INIT_DELAY_MS 1
 #define CM_MGR_BW_VALUE 0
+#define CM_MGR_VCORE_OPP_COUNT 22
 
 enum {
-	CM_MGR_LP4X_2CH_3600 = 0,
-	CM_MGR_LP4X_2CH_3200,
-	CM_MGR_LP3_1CH_1866,
+	CM_MGR_LP4 = 0,
 	CM_MGR_MAX,
 };
 
-extern spinlock_t sw_zq_tx_lock;
-
 extern void __iomem *mcucfg_mp0_counter_base;
-extern void __iomem *mcucfg_mp2_counter_base;
 
 extern unsigned int cpu_power_up_array[CM_MGR_CPU_CLUSTER];
 extern unsigned int cpu_power_down_array[CM_MGR_CPU_CLUSTER];
@@ -84,6 +82,13 @@ extern int cpu_load[NR_CPUS];
 extern int loading_acc[NR_CPUS];
 extern int loading_cnt;
 
+#define DEBUG_CM_PERF_OPP
+extern int debounce_times_perf_down_local;
+extern int debounce_times_perf_down_force_local;
+extern int pm_qos_update_request_status;
+extern int cm_mgr_dram_opp_base;
+extern int cm_mgr_dram_opp;
+
 extern void cm_mgr_update_met(void);
 extern int cm_mgr_get_idx(void);
 extern int cm_mgr_get_stall_ratio(int cpu);
@@ -99,5 +104,12 @@ extern void cm_mgr_set_dram_level(int level);
 extern int cm_mgr_get_dram_opp(void);
 extern int cm_mgr_check_bw_status(void);
 extern int cm_mgr_get_bw(void);
+
+extern void dbg_cm_mgr_platform_show(struct seq_file *m);
+extern void dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2);
+extern int x_ratio_enable;
+extern int cm_mgr_camera_enable;
+extern int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP];
+extern int cpu_power_ratio_up_x[CM_MGR_EMI_OPP];
 
 #endif	/* __MTK_CM_MGR_PLATFORM_H__ */
