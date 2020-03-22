@@ -69,6 +69,28 @@ TRACE_EVENT(mmqos__update_larb,
 		(s32)__entry->soft_mode)
 );
 
+TRACE_EVENT(mmqos__update_qosbw,
+	TP_PROTO(u32 larb_id, u32 port_id, u32 req_id, s32 bw),
+	TP_ARGS(larb_id, port_id, req_id, bw),
+	TP_STRUCT__entry(
+		__field(u32, larb_id)
+		__field(u32, port_id)
+		__field(u32, req_id)
+		__field(s32, bw)
+	),
+	TP_fast_assign(
+		__entry->larb_id = larb_id;
+		__entry->port_id = port_id;
+		__entry->req_id = req_id;
+		__entry->bw = bw;
+	),
+	TP_printk("larb_id=%u port_id=%u req_id=%u bw=%d",
+		(u32)__entry->larb_id,
+		(u32)__entry->port_id,
+		(u32)__entry->req_id,
+		(s32)__entry->bw)
+);
+
 #endif /* _TRACE_MMDVFS_EVENTS_H */
 
 #undef TRACE_INCLUDE_FILE
