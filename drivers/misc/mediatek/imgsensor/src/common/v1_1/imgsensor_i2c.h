@@ -48,6 +48,7 @@ struct IMGSENSOR_I2C_INST {
 struct IMGSENSOR_I2C_CFG {
 	struct IMGSENSOR_I2C_INST *pinst;
 	struct i2c_driver         *pi2c_driver;
+	struct i2c_msg             msg[IMGSENSOR_I2C_CMD_LENGTH_MAX];
 	struct mutex               i2c_mutex;
 };
 
@@ -82,6 +83,7 @@ void imgsensor_i2c_filter_msg(struct IMGSENSOR_I2C_CFG *pi2c_cfg, bool en);
 #ifdef IMGSENSOR_LEGACY_COMPAT
 void imgsensor_i2c_set_device(struct IMGSENSOR_I2C_CFG *pi2c_cfg);
 extern struct IMGSENSOR_I2C_CFG *pgi2c_cfg_legacy;
+struct IMGSENSOR_I2C_CFG *imgsensor_i2c_get_device(void);
 #endif
 
 #endif
