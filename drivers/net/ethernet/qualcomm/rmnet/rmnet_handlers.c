@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/if_arp.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <net/ip6_checksum.h>
 #include <net/sock.h>
 #include <linux/tracepoint.h>
 #include "rmnet_private.h"
@@ -213,7 +214,12 @@ static void rmnet_deliver_skb_list(struct sk_buff_head *head,
 static void rmnet_ip_route_rcv(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct rmnet_endpoint *ep;
-
+	struct ipv6hdr *ip6h;
+	int ip_len;
+	__sum16 pseudo;
+	__be16 frag_off;
+	u16 pkt_len;
+	u8 proto;
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
 
@@ -229,10 +235,38 @@ static void rmnet_ip_route_rcv(struct sk_buff *skb, struct rmnet_port *port)
 		break;
 	case RMNET_IP_VERSION_6:
 		skb->protocol = htons(ETH_P_IPV6);
-		ep = rmnet_get_ip6_route_endpoint(port,
-						  &(ipv6_hdr(skb)->daddr));
+		ip6h = ipv6_hdr(skb);
+		ep = rmnet_get_ip6_route_endpoint(port, &ip6h->daddr);
 		if (!ep)
 			goto drop_skb;
+
+		proto = ip6h->nexthdr;
+		ip_len = ipv6_skip_exthdr(skb, sizeof(*ip6h), &proto,
+					  &frag_off);
+		if (ip_len < 0 || frag_off)
+			break;
+
+		pkt_len = skb->len - ip_len;
+		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr, pkt_len,
+					proto, 0);
+		if (proto == IPPROTO_UDP) {
+			struct udphdr *up = (struct udphdr *)
+					(rmnet_map_data_ptr(skb) + ip_len);
+
+			up->check = pseudo;
+			skb->csum_offset = offsetof(struct udphdr, check);
+		} else if (proto == IPPROTO_TCP) {
+			struct tcphdr *tp = (struct tcphdr *)
+					(rmnet_map_data_ptr(skb) + ip_len);
+
+			tp->check = pseudo;
+			skb->csum_offset = offsetof(struct tcphdr, check);
+		} else {
+			break;
+		}
+
+		skb->ip_summed = CHECKSUM_PARTIAL;
+		skb->csum_start = skb->data + ip_len - skb->head;
 		break;
 	default:
 		goto drop_skb;
