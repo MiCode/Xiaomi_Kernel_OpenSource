@@ -10,8 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef __MT6785_THERMAL_H__
-#define __MT6785_THERMAL_H__
+#ifndef __MT6885_THERMAL_H__
+#define __MT6885_THERMAL_H__
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -218,10 +218,8 @@ extern int get_cpu_target_tj(void);
 
 extern int get_cpu_target_offset(void);
 
-#if 0
 extern int mtk_gpufreq_register(
 	struct mt_gpufreq_power_table_info *freqs, int num);
-#endif
 
 extern int get_target_tj(void);
 
