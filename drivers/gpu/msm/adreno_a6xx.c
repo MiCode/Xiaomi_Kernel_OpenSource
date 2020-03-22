@@ -774,7 +774,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
-		kgsl_sharedmem_writel(device, device->scratch,
+		kgsl_sharedmem_writel(device->scratch,
 			SCRATCH_RPTR_OFFSET(rb->id), 0);
 		rb->wptr = 0;
 		rb->_wptr = 0;
@@ -855,27 +855,43 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
  */
 static int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
 	uint64_t addr;
-	int ret;
+	int ret, i;
+
+	/* Clear all the ringbuffers */
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		memset(rb->buffer_desc->hostptr, 0xaa, KGSL_RB_SIZE);
+		kgsl_sharedmem_writel(device->scratch,
+			SCRATCH_RPTR_OFFSET(rb->id), 0);
+
+		rb->wptr = 0;
+		rb->_wptr = 0;
+		rb->wptr_preempt_end = ~0;
+	}
 
 	a6xx_preemption_start(adreno_dev);
 
+	/* Set up the current ringbuffer */
+	rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	addr = SCRATCH_RPTR_GPU_ADDR(device, rb->id);
 
-	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_RPTR_ADDR_LO,
-				ADRENO_REG_CP_RB_RPTR_ADDR_HI, addr);
+	kgsl_regwrite(device, A6XX_CP_RB_RPTR_ADDR_LO, lower_32_bits(addr));
+	kgsl_regwrite(device, A6XX_CP_RB_RPTR_ADDR_HI, upper_32_bits(addr));
 
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
 	 * representation of the size in quadwords (sizedwords / 2).
 	 */
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
+	kgsl_regwrite(device, A6XX_CP_RB_CNTL,
 					A6XX_CP_RB_CNTL_DEFAULT);
 
-	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc->gpuaddr);
+	kgsl_regwrite(device, A6XX_CP_RB_BASE,
+		lower_32_bits(rb->buffer_desc->gpuaddr));
+
+	kgsl_regwrite(device, A6XX_CP_RB_BASE_HI,
+		upper_32_bits(rb->buffer_desc->gpuaddr));
 
 	ret = a6xx_microcode_load(adreno_dev);
 	if (ret)
@@ -975,11 +991,12 @@ unsigned int a6xx_set_marker(
 static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
-	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!gmu_core_isenabled(device))
 		return;
 
-	adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_PWR_COL_KEEPALIVE, state);
+	gmu_core_regwrite(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, state);
 }
 
 static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)

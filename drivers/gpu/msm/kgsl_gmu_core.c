@@ -16,27 +16,6 @@ static const struct of_device_id gmu_match_table[] = {
 	{},
 };
 
-struct oob_entry {
-	enum oob_request req;
-	const char *str;
-};
-
-const char *gmu_core_oob_type_str(enum oob_request req)
-{
-	int i;
-	struct oob_entry table[] =  {
-			{ oob_gpu, "oob_gpu"},
-			{ oob_perfcntr, "oob_perfcntr"},
-			{ oob_boot_slumber, "oob_boot_slumber"},
-			{ oob_dcvs, "oob_dcvs"},
-	};
-
-	for (i = 0; i < ARRAY_SIZE(table); i++)
-		if (req == table[i].req)
-			return table[i].str;
-	return "UNKNOWN";
-}
-
 void __init gmu_core_register(void)
 {
 	const struct of_device_id *match;

@@ -1782,6 +1782,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb;
 	bool sptprac_on;
 	unsigned int i, roq_size;
+	u32 hi, lo;
 
 	/* GMU TCM data dumped through AHB */
 	gmu_core_dev_snapshot(device, snapshot);
@@ -1829,6 +1830,19 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
+
+	kgsl_regread(device, A6XX_CP_IB1_BASE, &lo);
+	kgsl_regread(device, A6XX_CP_IB1_BASE_HI, &hi);
+
+	snapshot->ib1base = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, A6XX_CP_IB2_BASE, &lo);
+	kgsl_regread(device, A6XX_CP_IB2_BASE_HI, &hi);
+
+	snapshot->ib2base = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, A6XX_CP_IB1_REM_SIZE, &snapshot->ib1size);
+	kgsl_regread(device, A6XX_CP_IB2_REM_SIZE, &snapshot->ib2size);
 
 	/* Assert the isStatic bit before triggering snapshot */
 	if (adreno_is_a660(adreno_dev))

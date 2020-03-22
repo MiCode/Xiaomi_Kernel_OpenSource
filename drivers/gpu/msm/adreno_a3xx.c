@@ -602,7 +602,13 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev);
 
 static int a3xx_rb_start(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
+
+	memset(rb->buffer_desc->hostptr, 0xaa, KGSL_RB_SIZE);
+	rb->wptr = 0;
+	rb->_wptr = 0;
+	rb->wptr_preempt_end = ~0;
 
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
@@ -611,17 +617,16 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 	 * in certain circumstances.
 	 */
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
+	kgsl_regwrite(device, A3XX_CP_RB_CNTL,
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F) |
 		(1 << 27));
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			rb->buffer_desc->gpuaddr);
+	kgsl_regwrite(device, A3XX_CP_RB_BASE, rb->buffer_desc->gpuaddr);
 
 	a3xx_microcode_load(adreno_dev);
 
 	/* clear ME_HALT to start micro engine */
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
+	kgsl_regwrite(device, A3XX_CP_ME_CNTL, 0);
 
 	return a3xx_send_me_init(adreno_dev, rb);
 }

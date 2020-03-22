@@ -1860,9 +1860,8 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
 
-		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
-			rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
-			0);
+		kgsl_sharedmem_writel(rb->pagetable_desc,
+			PT_INFO_OFFSET(current_rb_ptname), 0);
 	}
 }
 
@@ -1877,8 +1876,7 @@ static int adreno_first_open(struct kgsl_device *device)
 	 */
 	atomic_inc(&device->active_cnt);
 
-	kgsl_sharedmem_set(device, device->memstore, 0, 0,
-		device->memstore->size);
+	memset(device->memstore->hostptr, 0, device->memstore->size);
 
 	ret = adreno_init(device);
 	if (ret)
@@ -2120,7 +2118,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Clear FSR here in case it is set from a previous pagefault */
 	kgsl_mmu_clear_fsr(&device->mmu);
 
-	status = adreno_ringbuffer_start(adreno_dev);
+	status = gpudev->rb_start(adreno_dev);
 	if (status)
 		goto error_oob_clear;
 
@@ -2782,12 +2780,9 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* stop all ringbuffers to cancel RB events */
 	adreno_ringbuffer_stop(adreno_dev);
-	/*
-	 * If we have offsets for the jump tables we can try to do a warm start,
-	 * otherwise do a full ringbuffer restart
-	 */
 
-	ret = adreno_ringbuffer_start(adreno_dev);
+	/* Start the ringbuffer(s) again */
+	ret = gpudev->rb_start(adreno_dev);
 	if (ret == 0) {
 		device->reset_counter++;
 		set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
