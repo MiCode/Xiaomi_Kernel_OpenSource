@@ -15,8 +15,11 @@
 #include "ccci_fsm_internal.h"
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
-#include <scp_ipi.h>
-
+#if (MD_GENERATION >= 6297)
+#include "scp_ipi_pin.h"
+#else
+#include "scp_ipi.h"
+#endif
 
 static atomic_t scp_state = ATOMIC_INIT(SCP_CCCI_STATE_INVALID);
 static struct ccci_ipi_msg scp_ipi_tx_msg;
@@ -24,6 +27,9 @@ static struct mutex scp_ipi_tx_mutex;
 static struct work_struct scp_ipi_rx_work;
 static wait_queue_head_t scp_ipi_rx_wq;
 static struct ccci_skb_queue scp_ipi_rx_skb_list;
+#if (MD_GENERATION >= 6297)
+static struct ccci_ipi_msg scp_ipi_rx_msg;
+#endif
 
 static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 {
@@ -45,11 +51,20 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 		"IPI send %d/0x%x, %d\n",
 		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
 		(int)sizeof(struct ccci_ipi_msg));
-	if (scp_ipi_send(IPI_APCCCI, &scp_ipi_tx_msg,
-			sizeof(scp_ipi_tx_msg), 1, SCP_A_ID) != SCP_IPI_DONE) {
+#if (MD_GENERATION >= 6297)
+	if (mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0, 0,
+		&scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4),
+				1) != IPI_ACTION_DONE) {
 		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
+#else
+	if (scp_ipi_send(IPI_APCCCI, &scp_ipi_tx_msg,
+		sizeof(scp_ipi_tx_msg), 1, SCP_A_ID) != SCP_IPI_DONE) {
+		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
+		ret = -CCCI_ERR_MD_NOT_READY;
+	}
+#endif
 	mutex_unlock(&scp_ipi_tx_mutex);
 	return ret;
 }
@@ -171,7 +186,19 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 	}
 }
 
+#if (MD_GENERATION >= 6297)
+/*
+ * IPI for logger init
+ * @param id:   IPI id
+ * @param prdata: callback function parameter
+ * @param data:  IPI data
+ * @param len: IPI data length
+ */
+static void ccci_scp_ipi_handler(int id, void *prdata, void *data,
+			unsigned int len)
+#else
 static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
+#endif
 {
 	struct ccci_ipi_msg *ipi_msg_ptr = (struct ccci_ipi_msg *)data;
 	struct sk_buff *skb = NULL;
@@ -231,9 +258,17 @@ void fsm_scp_init0(void)
 {
 	mutex_init(&scp_ipi_tx_mutex);
 	CCCI_NORMAL_LOG(-1, FSM, "register IPI\n");
+
+#if (MD_GENERATION >= 6297)
+	if (mtk_ipi_register(&scp_ipidev, IPI_IN_APCCCI_0,
+		(void *)ccci_scp_ipi_handler, NULL,
+		&scp_ipi_rx_msg) != IPI_ACTION_DONE)
+		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
+#else
 	if (scp_ipi_registration(IPI_APCCCI, ccci_scp_ipi_handler,
 		"AP CCCI") != SCP_IPI_DONE)
 		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
+#endif
 	INIT_WORK(&scp_ipi_rx_work, ccci_scp_ipi_rx_work);
 	init_waitqueue_head(&scp_ipi_rx_wq);
 	ccci_skb_queue_init(&scp_ipi_rx_skb_list, 16, 16, 0);
