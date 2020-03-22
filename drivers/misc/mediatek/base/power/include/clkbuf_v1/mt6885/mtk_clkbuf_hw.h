@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,12 +25,26 @@ enum MTK_CLK_BUF_STATUS {
 	CLOCK_BUFFER_HW_CONTROL,
 };
 
-enum MTK_CLK_BUF_DRIVING_CURR {
-	CLK_BUF_DRIVING_CURR_AUTO_K = -1,
-	CLK_BUF_DRIVING_CURR_0,
-	CLK_BUF_DRIVING_CURR_1,
-	CLK_BUF_DRIVING_CURR_2,
-	CLK_BUF_DRIVING_CURR_3
+enum MTK_CLK_BUF_OUTPUT_IMPEDANCE {
+	CLK_BUF_OUTPUT_IMPEDANCE_0,
+	CLK_BUF_OUTPUT_IMPEDANCE_1,
+	CLK_BUF_OUTPUT_IMPEDANCE_2,
+	CLK_BUF_OUTPUT_IMPEDANCE_3,
+	CLK_BUF_OUTPUT_IMPEDANCE_4,
+	CLK_BUF_OUTPUT_IMPEDANCE_5,
+	CLK_BUF_OUTPUT_IMPEDANCE_6,
+	CLK_BUF_OUTPUT_IMPEDANCE_7,
+};
+
+enum MTK_CLK_BUF_CONTROLS_FOR_DESENSE {
+	CLK_BUF_CONTROLS_FOR_DESENSE_0,
+	CLK_BUF_CONTROLS_FOR_DESENSE_1,
+	CLK_BUF_CONTROLS_FOR_DESENSE_2,
+	CLK_BUF_CONTROLS_FOR_DESENSE_3,
+	CLK_BUF_CONTROLS_FOR_DESENSE_4,
+	CLK_BUF_CONTROLS_FOR_DESENSE_5,
+	CLK_BUF_CONTROLS_FOR_DESENSE_6,
+	CLK_BUF_CONTROLS_FOR_DESENSE_7,
 };
 
 /* clk_buf_id: users of clock buffer */
@@ -39,9 +53,7 @@ enum clk_buf_id {
 	CLK_BUF_CONN,
 	CLK_BUF_NFC,
 	CLK_BUF_RF,
-	CLK_BUF_AUDIO,
-	CLK_BUF_CHG,
-	CLK_BUF_UFS,
+	CLK_BUF_UFS		= 6,
 	CLK_BUF_INVALID
 };
 
@@ -55,6 +67,12 @@ enum xo_id {
 	XO_PD,		/* Disabled */
 	XO_EXT,		/* UFS */
 	XO_NUMBER
+};
+
+enum clk_buf_onff {
+	CLK_BUF_FORCE_OFF,
+	CLK_BUF_FORCE_ON,
+	CLK_BUF_INIT_SETTING
 };
 
 enum {
@@ -105,7 +123,13 @@ enum {
 	EXT_BUF247_EN,
 };
 
-#define CLKBUF_USE_BBLPM
+enum {
+	INF_ERROR = 0,
+	INF_RC,
+	INF_DCXO,
+};
+
+/*#define CLKBUF_USE_BBLPM*/
 
 void clk_buf_post_init(void);
 void clk_buf_init_pmic_clkbuf(void);

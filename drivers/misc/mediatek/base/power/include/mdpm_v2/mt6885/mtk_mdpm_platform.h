@@ -14,7 +14,11 @@
 #ifndef _MTK_MDPM_PLATFORM_H_
 #define _MTK_MDPM_PLATFORM_H_
 
+#ifdef DISABLE_DLPT_FEATURE
+#define MD_POWER_METER_ENABLE 0
+#else
 #define MD_POWER_METER_ENABLE 1
+#endif
 
 #if MD_POWER_METER_ENABLE
 #define GET_MD_SCEANRIO_BY_SHARE_MEMORY
@@ -30,6 +34,9 @@
 /* 4bytes each dbm table size=1, 8 bytes each dbm table size=2 */
 #define DBM_SECTION_MASK	0x1F
 /* each section is 0x1F = bit(11111) */
+
+/* actual used dbm offset from start address, 84 * 4 = 336 bytes */
+#define DBM_RESERVE_OFFSET 86
 
 #define MDPM_SHARE_MEMORY_MASK		0xFFFFFFFF
 #define MDPM_SHARE_MEMORY_SHIFT		0
@@ -87,6 +94,8 @@ enum md_scenario {
 	S_4G_4CC,
 	S_4G_5CC,
 	S_5G_1CC_2CC,
+	S_5G_1CC_2CC_4G_4CC,
+	S_5G_1CC_2CC_4G_1CC,
 	S_4G_POS_URGENT,
 	SCENARIO_NUM
 };
@@ -97,8 +106,8 @@ enum tx_rat_type {
 	RAT_3GTDD,
 	RAT_4G,
 	RAT_C2K,
-	RAT_NR,
-	RAT_NUM = RAT_NR,
+	RAT_5G,
+	RAT_NUM = RAT_5G,
 };
 
 enum tx_power_table {
@@ -209,6 +218,7 @@ struct mdpm_scenario {
 	char scenario_name[MAX_MDPM_NAME_LEN];
 	struct scenario_power_type_t *scenario_power;
 	enum tx_rat_type tx_power_rat[MAX_DBM_FUNC_NUM];
+	int tx_power_rat_sum;
 	int (*tx_power_func)(u32 *dbm_mem, u32 *old_dbm_mem, unsigned int rat,
 		unsigned int power_type, struct md_power_status *md_power_s);
 };
