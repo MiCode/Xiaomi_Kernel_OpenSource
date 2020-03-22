@@ -16,6 +16,7 @@
 
 #ifndef _MTK_DSP_CORE_H_
 #define _MTK_DSP_CORE_H_
+#include <adsp_platform.h>
 
 bool is_adsp_core_ready(void);
 bool is_adsp_feature_registered(void);

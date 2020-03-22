@@ -15,7 +15,7 @@
  */
 
 #include <adsp_helper.h>
-
+#include <adsp_platform.h>
 bool is_adsp_core_ready(void)
 {
 	return is_adsp_ready(ADSP_A_ID);
