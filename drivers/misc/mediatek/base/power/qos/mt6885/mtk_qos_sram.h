@@ -33,7 +33,7 @@
 
 #define DVFSRC_TIMESTAMP_OFFSET		0x50
 #define CM_STALL_RATIO_OFFSET		0x60
-#define QOS_SRAM_MAX_SIZE		0x80
+#define QOS_SRAM_MAX_SIZE		0x100
 
 extern u32 qos_sram_read(u32 offset);
 extern void qos_sram_write(u32 offset, u32 val);

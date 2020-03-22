@@ -93,9 +93,11 @@ struct qos_ipi_data {
 
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 extern void qos_ipi_init(void);
+extern void qos_ipi_recv_init(void);
 extern int qos_ipi_to_sspm_command(void *buffer, int slot);
 #else
 __weak void qos_ipi_init(void) { }
+__weak void qos_ipi_recv_init(void) { }
 __weak int qos_ipi_to_sspm_comman(void *buffer, int slot) { return 0; }
 #endif
 #endif
