@@ -611,6 +611,37 @@ static ssize_t proc_generate_scp_write(struct file *file,
 	return 0;
 }
 
+static ssize_t proc_generate_adsp_read(struct file *file,
+					char __user *buf, size_t size,
+					loff_t *ppos)
+{
+#define TEST_ADSP_PHY_SIZE	65536
+	char buffer[BUFSIZE];
+	int i;
+	char *ptr;
+
+	if ((*ppos)++)
+		return 0;
+	ptr = kmalloc(TEST_ADSP_PHY_SIZE, GFP_KERNEL);
+	if (ptr == NULL)
+		return sprintf(buffer, "kmalloc fail\n");
+	for (i = 0; i < TEST_ADSP_PHY_SIZE; i++)
+		ptr[i] = (i % 26) + 'a';
+
+	sprintf(buffer, "ADSP EE log here\n");
+	aed_common_exception("adsp", (int *)buffer, (int)sizeof(buffer),
+				(int *)ptr, TEST_ADSP_PHY_SIZE, __FILE__);
+	kfree(ptr);
+
+	return sprintf(buffer, "ADSP EE Generated\n");
+}
+
+static ssize_t proc_generate_adsp_write(struct file *file,
+					const char __user *buf, size_t size,
+					loff_t *ppos)
+{
+	return 0;
+}
 
 static ssize_t proc_generate_kernel_notify_read(struct file *file,
 						char __user *buf, size_t size,
@@ -711,6 +742,7 @@ AED_FILE_OPS(generate_ee);
 AED_FILE_OPS(generate_combo);
 AED_FILE_OPS(generate_md32);
 AED_FILE_OPS(generate_scp);
+AED_FILE_OPS(generate_adsp);
 AED_FILE_OPS(generate_dal);
 
 int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
@@ -727,6 +759,7 @@ int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
 	AED_PROC_ENTRY(generate-combo, generate_combo, 0400);
 	AED_PROC_ENTRY(generate-md32, generate_md32, 0400);
 	AED_PROC_ENTRY(generate-scp, generate_scp, 0400);
+	AED_PROC_ENTRY(generate-adsp, generate_adsp, 0400);
 	AED_PROC_ENTRY(generate-dal, generate_dal, 0400);
 
 	return 0;
@@ -741,6 +774,7 @@ int aed_proc_debug_done(struct proc_dir_entry *aed_proc_dir)
 	remove_proc_entry("generate-combo", aed_proc_dir);
 	remove_proc_entry("generate-md32", aed_proc_dir);
 	remove_proc_entry("generate-scp", aed_proc_dir);
+	remove_proc_entry("generate-adsp", aed_proc_dir);
 	remove_proc_entry("generate-wdt", aed_proc_dir);
 	remove_proc_entry("generate-dal", aed_proc_dir);
 	return 0;
