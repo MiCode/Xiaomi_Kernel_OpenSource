@@ -662,8 +662,8 @@ out:
 
 }
 
-#define hmp_fast_cpu_has_spare_cycles(B, cpu_load) (cpu_load * 1280 < \
-		(SCHED_CAPACITY_SCALE * 1024))
+#define hmp_fast_cpu_has_spare_cycles(B, cpu_load) \
+		(cpu_load * capacity_margin < (SCHED_CAPACITY_SCALE * 1024))
 
 #define hmp_task_fast_cpu_afford(B, se, cpu) \
 		(B->acap > 0 && hmp_fast_cpu_has_spare_cycles(B, \
