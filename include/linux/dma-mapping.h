@@ -305,6 +305,19 @@ static inline void dma_direct_sync_sg_for_cpu(struct device *dev,
 
 size_t dma_direct_max_mapping_size(struct device *dev);
 
+#ifdef CONFIG_DMA_COHERENT_HINT_CACHED
+static inline void dma_set_coherent_hint_cached(struct device *dev,
+						bool hint_cached)
+{
+	dev->dma_coherent_hint_cached = hint_cached;
+}
+#else
+static inline void dma_set_coherent_hint_cached(struct device *dev,
+						bool hint_cached)
+{
+}
+#endif
+
 #ifdef CONFIG_HAS_DMA
 #include <asm/dma-mapping.h>
 

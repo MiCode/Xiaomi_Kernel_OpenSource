@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-noncoherent.h>
 #include <linux/err.h>
 #include <linux/export.h>
 #include <linux/file.h>
@@ -163,6 +164,20 @@ static struct sg_table
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
+	if ((buffer->flags & ION_FLAG_CACHED) &&
+	    hlos_accessible_buffer(buffer) &&
+	    dev_is_dma_coherent_hint_cached(attachment->dev))
+		map_attrs |= DMA_ATTR_FORCE_COHERENT;
+
+	if (((dev_is_dma_coherent(attachment->dev) &&
+	      !(map_attrs & DMA_ATTR_FORCE_NON_COHERENT)) ||
+	     (map_attrs & DMA_ATTR_FORCE_COHERENT)) &&
+	    !(buffer->flags & ION_FLAG_CACHED)) {
+		pr_warn_ratelimited("dev:%s Cannot DMA map uncached buffer as IO-coherent attrs:0x%lx\n",
+				    dev_name(attachment->dev), map_attrs);
+		return ERR_PTR(-EINVAL);
+	}
+
 	mutex_lock(&buffer->lock);
 	if (map_attrs & DMA_ATTR_SKIP_CPU_SYNC)
 		trace_ion_dma_map_cmo_skip(attachment->dev,
@@ -232,6 +247,11 @@ static void msm_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	if (!(buffer->flags & ION_FLAG_CACHED) ||
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
+	if ((buffer->flags & ION_FLAG_CACHED) &&
+	    hlos_accessible_buffer(buffer) &&
+	    dev_is_dma_coherent_hint_cached(attachment->dev))
+		map_attrs |= DMA_ATTR_FORCE_COHERENT;
 
 	mutex_lock(&buffer->lock);
 	if (map_attrs & DMA_ATTR_SKIP_CPU_SYNC)

@@ -58,6 +58,16 @@ extern struct of_pci_range *of_pci_range_parser_one(
 extern int of_dma_get_range(struct device_node *np, u64 *dma_addr,
 				u64 *paddr, u64 *size);
 extern bool of_dma_is_coherent(struct device_node *np);
+
+#if defined(CONFIG_DMA_COHERENT_HINT_CACHED)
+extern bool of_dma_is_coherent_hint_cached(struct device_node *np);
+#else /* CONFIG_DMA_COHERENT_HINT_CACHED */
+static inline bool of_dma_is_coherent_hint_cached(struct device_node *np)
+{
+	return false;
+}
+#endif /* CONFIG_DMA_COHERENT_HINT_CACHED */
+
 #else /* CONFIG_OF_ADDRESS */
 static inline void __iomem *of_io_request_and_map(struct device_node *device,
 						  int index, const char *name)
@@ -114,6 +124,12 @@ static inline bool of_dma_is_coherent(struct device_node *np)
 {
 	return false;
 }
+
+static inline bool of_dma_is_coherent_hint_cached(struct device_node *np)
+{
+	return false;
+}
+
 #endif /* CONFIG_OF_ADDRESS */
 
 #ifdef CONFIG_OF
