@@ -43,6 +43,12 @@ enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_CUSTOM4,
 };
 
+enum {
+	OTP_QSC_NONE = 0x0,
+	OTP_QSC_INTERNAL,
+	OTP_QSC_CUSTOM,
+};
+
 struct imgsensor_mode_struct {
 	kal_uint32 pclk; /* record different mode's pclk */
 	kal_uint32 linelength; /* record different mode's linelength */
@@ -109,7 +115,7 @@ struct imgsensor_info_struct {
 	kal_uint8 ae_ispGain_delay_frame;
 	kal_uint8 ihdr_support; /* 1, support; 0,not support */
 	kal_uint8 ihdr_le_firstline; /* 1,le first ; 0, se first */
-	kal_uint8 temperature_support;
+	kal_uint8 temperature_support;	/* 1, support; 0,not support */
 	kal_uint8 sensor_mode_num; /* support sensor mode num */
 
 	kal_uint8 cap_delay_frame; /* enter capture delay frame num */
@@ -125,6 +131,12 @@ struct imgsensor_info_struct {
 	kal_uint8 margin; /* sensor framelength & shutter margin */
 	kal_uint32 min_shutter; /* min shutter */
 	kal_uint32 max_frame_length;
+	kal_uint32 min_gain;
+	kal_uint32 max_gain;
+	kal_uint32 min_gain_iso;
+	kal_uint32 gain_step;
+	kal_uint32 exp_step;
+	kal_uint32 gain_type;
 	kal_uint8 isp_driving_current; /* mclk driving current */
 	kal_uint8 sensor_interface_type; /* sensor_interface_type */
 	kal_uint8 mipi_sensor_type;

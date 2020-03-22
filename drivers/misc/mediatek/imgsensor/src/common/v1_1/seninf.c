@@ -150,10 +150,8 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 {
 #if SENINF_CLK_CONTROL
 	struct SENINF *pseninf = &gseninf;
-#endif
 
 	mutex_lock(&pseninf->seninf_mutex);
-#if SENINF_CLK_CONTROL
 	if (atomic_dec_and_test(&pseninf->seninf_open_cnt))
 		seninf_clk_release(&pseninf->clk);
 #endif
@@ -161,9 +159,12 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 		imgsensor_dfs_ctrl(DFS_RELEASE, NULL);
 #endif
+
+#if SENINF_CLK_CONTROL
 	PK_DBG("%s %d\n", __func__,
 	       atomic_read(&pseninf->seninf_open_cnt));
 	mutex_unlock(&pseninf->seninf_mutex);
+#endif
 
 	return 0;
 }

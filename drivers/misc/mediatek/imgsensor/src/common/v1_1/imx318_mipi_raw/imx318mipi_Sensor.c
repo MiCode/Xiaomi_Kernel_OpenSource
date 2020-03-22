@@ -3470,6 +3470,9 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			break;
 		}
 		break;
+	case SENSOR_FEATURE_GET_AWB_REQ_BY_SCENARIO:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1;
+		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		imx318_awb_gain(pSetSensorAWB);
 		break;

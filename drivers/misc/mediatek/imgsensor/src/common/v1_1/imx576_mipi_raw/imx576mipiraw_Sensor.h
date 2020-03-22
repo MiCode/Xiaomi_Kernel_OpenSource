@@ -14,8 +14,6 @@
 #ifndef _IMX576MIPI_SENSOR_H
 #define _IMX576MIPI_SENSOR_H
 
-/*#define VENDOR_EDIT*/
-
 enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_INIT,
 	IMGSENSOR_MODE_PREVIEW,
@@ -70,23 +68,16 @@ struct imgsensor_struct {
 	/* HDR mODE : 0: disable HDR, 1:IHDR, 2:HDR, 9:ZHDR */
 	kal_uint8 hdr_mode;
 	kal_uint8 i2c_write_id; /* record current sensor's i2c write id */
-	kal_uint8  AE_binning_type;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
 struct imgsensor_info_struct {
 	kal_uint16 sensor_id; /* record sensor id defined in Kd_imgsensor.h */
-/*#ifdef VENDOR_EDIT*/
-/*zhaozhengtao 2016/02/19,modify for different module*/
-	kal_uint16 module_id;
-/*#endif*/
 	kal_uint16 sensor_ver;
 	kal_uint32 checksum_value; /* checksum value for Camera Auto Test */
 	struct imgsensor_mode_struct pre;
 	struct imgsensor_mode_struct pre_3HDR;
 	struct imgsensor_mode_struct cap;
-	struct imgsensor_mode_struct cap1;
-	struct imgsensor_mode_struct cap2;
 	struct imgsensor_mode_struct normal_video;
 	struct imgsensor_mode_struct hs_video;
 	struct imgsensor_mode_struct slim_video;
@@ -96,6 +87,7 @@ struct imgsensor_info_struct {
 	kal_uint8  ae_ispGain_delay_frame;
 	kal_uint8  ihdr_support; /* 1, support; 0,not support */
 	kal_uint8  ihdr_le_firstline; /* 1,le first ; 0, se first */
+	kal_uint8  temperature_support;	/* 1, support; 0,not support */
 	kal_uint8  sensor_mode_num; /* support sensor mode num */
 
 	kal_uint8  cap_delay_frame; /* enter capture delay frame num */
@@ -106,6 +98,11 @@ struct imgsensor_info_struct {
 
 	kal_uint8  margin; /* sensor framelength & shutter margin */
 	kal_uint32 min_shutter;	 /* min shutter */
+	kal_uint32 min_gain;
+	kal_uint32 max_gain;
+	kal_uint32 min_gain_iso;
+	kal_uint32 gain_step;
+	kal_uint32 gain_type;
 	kal_uint32 max_frame_length;
 
 	kal_uint8  isp_driving_current;	/* mclk driving current */
@@ -122,24 +119,10 @@ struct imgsensor_info_struct {
 	kal_uint8  i2c_addr_table[5];
 };
 
-/* SENSOR READ/WRITE ID */
-#if 0
-#define IMGSENSOR_WRITE_ID_1 (0x6c)
-#define IMGSENSOR_READ_ID_1  (0x6d)
-#define IMGSENSOR_WRITE_ID_2 (0x20)
-#define IMGSENSOR_READ_ID_2  (0x21)
-#endif
-
-extern void kdSetI2CSpeed(u16 i2cSpeed);
 extern int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
 		       u8 *a_pRecvData, u16 a_sizeRecvData, u16 i2cId);
 extern int iWriteRegI2C(u8 *a_pSendData, u16 a_sizeSendData, u16 i2cId);
-extern int iReadReg(u16 a_u2Addr, u8 *a_puBuff, u16 i2cId);
-extern int iWriteReg(u16 a_u2Addr, u32 a_u4Data, u32 a_u4Bytes, u16 i2cId);
 int iBurstWriteReg_multi(u8 *pData, u32 bytes, u16 i2cId,
 			 u16 transfer_length, u16 timing);
-extern void kdSetI2CSpeed(u16 i2cSpeed);
-
-extern struct mutex sensor_eeprom_lock;
 
 #endif
