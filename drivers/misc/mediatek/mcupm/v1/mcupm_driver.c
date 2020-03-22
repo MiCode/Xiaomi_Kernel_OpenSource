@@ -21,6 +21,8 @@
 #include <linux/of.h>
 #include <linux/io.h>
 #include <linux/miscdevice.h>   /* needed by miscdevice* */
+#include <linux/delay.h>
+#include <linux/kthread.h>
 #include "mcupm_ipi_id.h"
 #include "mcupm_ipi_table.h"
 #include "mcupm_driver.h"
@@ -40,7 +42,7 @@ struct plt_ctrl_s {
 	unsigned int magic;
 	unsigned int size;
 	unsigned int mem_sz;
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	unsigned int logger_ofs;
 #endif
 };
@@ -63,6 +65,14 @@ static struct log_ctrl_s *log_ctl;
 static struct buffer_info_s *buf_info, *lbuf_info;
 static struct timer_list mcupm_log_timer;
 static DEFINE_MUTEX(mcupm_log_mutex);
+
+static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
+	{
+		.num = MCUPM_MEM_ID,
+		.size = 0x100 + MCUPM_PLT_LOGGER_BUF_LEN,
+		/* logger header + 1M log buffer */
+	},
+};
 
 /* MCUPM RESERVED MEM */
 #ifdef CONFIG_OF_RESERVED_MEM
@@ -339,9 +349,9 @@ static unsigned int mcupm_log_enable_set(unsigned int enable)
 		mcupm_plt_ackdata = -1;
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-					IPI_SEND_WAIT, &ipi_data,
-					sizeof(ipi_data) / MCUPM_MBOX_SLOT_SIZE,
-					0);
+			IPI_SEND_WAIT, &ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			2000);
 		if (ret) {
 			pr_err("MCUPM: logger IPI fail ret=%d\n", ret);
 			goto error;
@@ -376,8 +386,7 @@ static ssize_t mcupm_mobile_log_show(struct device *kobj,
 static ssize_t mcupm_mobile_log_store(struct device *kobj,
 	struct device_attribute *attr, const char *buf, size_t n)
 {
-	unsigned int enable;
-
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -465,7 +474,9 @@ static ssize_t mcupm_alive_show(struct device *kobj,
 	mcupm_plt_ackdata = 0;
 
 	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_WAIT,
-		&ipi_data, sizeof(ipi_data) / MCUPM_MBOX_SLOT_SIZE, 10);
+		&ipi_data,
+		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+		2000);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			mcupm_plt_ackdata ? "Alive" : "Dead");
@@ -474,21 +485,24 @@ DEVICE_ATTR(mcupm_alive, 0444, mcupm_alive_show, NULL);
 
 int __init mcupm_plt_init(void)
 {
+	int ret, i;
+#if MCUPM_ACCESS_DRAM_SUPPORT
 	phys_addr_t phys_addr, virt_addr, mem_sz;
 	struct mcupm_ipi_data_s ipi_data;
 	struct plt_ctrl_s *plt_ctl;
-	int ret, i;
 	unsigned int last_ofs;
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	unsigned int last_sz;
 #endif
 	unsigned int *mark;
 	unsigned char *b;
+#endif //MCUPM_ACCESS_DRAM_SUPPORT
 
 	ret = mcupm_sysfs_create_file(&dev_attr_mcupm_alive);
 	if (unlikely(ret != 0))
 		goto error;
 
+#if MCUPM_ACCESS_DRAM_SUPPORT
 	phys_addr = mcupm_reserve_mem_get_phys(MCUPM_MEM_ID);
 	if (phys_addr == 0) {
 		pr_err("MCUPM: Can't get logger phys mem\n");
@@ -525,9 +539,9 @@ int __init mcupm_plt_init(void)
 	last_ofs = plt_ctl->size;
 
 
-	pr_debug("MCUPM: %s(): after plt, ofs=%u\n", __func__, last_ofs);
+	pr_debug("MCUPM: %s(): after plt, ofs=0x%x\n", __func__, last_ofs);
 
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	plt_ctl->logger_ofs = last_ofs;
 	last_sz = mcupm_logger_init(virt_addr + last_ofs, mem_sz - last_ofs);
 
@@ -538,7 +552,7 @@ int __init mcupm_plt_init(void)
 	}
 
 	last_ofs += last_sz;
-	pr_debug("MCUPM: %s(): after logger, ofs=%u\n", __func__, last_ofs);
+	pr_debug("MCUPM: %s(): after logger, ofs=0x%x\n", __func__, last_ofs);
 #endif
 
 	ipi_data.cmd = MCUPM_PLT_INIT;
@@ -546,9 +560,10 @@ int __init mcupm_plt_init(void)
 	ipi_data.u.ctrl.size = mem_sz;
 	mcupm_plt_ackdata = 0;
 
-	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
-				 IPI_SEND_POLLING, &ipi_data,
-				 sizeof(ipi_data) / MCUPM_MBOX_SLOT_SIZE, 10);
+	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_POLLING,
+		&ipi_data,
+		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+		2000);
 	if (ret) {
 		pr_err("MCUPM: plt IPI fail ret=%d, ackdata=%d\n",
 			ret, mcupm_plt_ackdata);
@@ -564,10 +579,11 @@ int __init mcupm_plt_init(void)
 	pr_info("MCUPM: plt IPI success ret=%d, ackdata=%d\n",
 		ret, mcupm_plt_ackdata);
 
-#if MCUPM_LOGGER_SUPPORT
+#if (MCUPM_LOGGER_SUPPORT && MCUPM_ACCESS_DRAM_SUPPORT)
 	mcupm_logger_init_done();
 #endif
 
+#endif //MCUPM_ACCESS_DRAM_SUPPORT
 	for (i = 0; i < MCUPM_MBOX_TOTAL; i++)
 		spin_lock_init(&mcupm_mbox_lock[i]);
 
@@ -644,7 +660,7 @@ static int mcupm_device_probe(struct platform_device *pdev)
 			ret = mtk_mbox_probe(pdev, mcupm_mbox_table[i].mbdev,
 						i);
 			if (ret) {
-				pr_err("[MCUPM] mbox probe fail on mbox-0, ret %d\n",
+				pr_err("[MCUPM] mbox(%d) probe fail on mbox-0, ret %d\n",
 					i, ret);
 				return -1;
 			}
@@ -688,6 +704,35 @@ static int mcupm_device_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#if MCUPM_ALIVE_THREAD
+static struct task_struct *mcupm_task;
+int mcupm_thread(void *data)
+{
+	struct  mcupm_ipi_data_s ipi_data;
+	int ret;
+
+	ipi_data.cmd = 0xDEAD;
+	mcupm_plt_ackdata = 0;
+
+	/* an endless loop in which we are doing our work */
+	do {
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
+			IPI_SEND_WAIT, &ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			2000);
+		if (ret) {
+			pr_info("MCUPM: alive ret=%d, ackdata=%d\n",
+				ret, mcupm_plt_ackdata);
+		} else {
+			pr_info("MCUPM is %s\n",
+				mcupm_plt_ackdata ? "Alive" : "Dead");
+		}
+		msleep(20000);
+	} while (!kthread_should_stop());
+	return 0;
+}
+#endif
+
 static const struct of_device_id mcupm_of_match[] = {
 	{ .compatible = "mediatek,mcupm", },
 	{},
@@ -730,6 +775,11 @@ static int __init mcupm_init(void)
 		pr_err("[MCUPM] Reserved Memory Failed\n");
 		goto error;
 	}
+#endif
+
+#if MCUPM_ALIVE_THREAD
+	mcupm_task = kthread_run(mcupm_thread, NULL,
+					"mcupm_task");
 #endif
 
 	pr_debug("[MCUPM] Helper Init\n");

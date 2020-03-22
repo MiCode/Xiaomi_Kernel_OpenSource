@@ -17,8 +17,10 @@
 #define MCUPM_MBOX_SLOT_SIZE		0x4
 
 #define MCUPM_PLT_SERV_SUPPORT		(1)
-#define MCUPM_LOGGER_SUPPORT		(1)
+#define MCUPM_ACCESS_DRAM_SUPPORT	(0)
+#define MCUPM_LOGGER_SUPPORT		(0) //need MCUPM_ACCESS_DRAM_SUPPORT
 #define MCUPM_COREDUMP_SUPPORT		(1)
+#define MCUPM_ALIVE_THREAD		(0)
 
 #define MCUPM_MBOX_NO_SUSPEND		4
 
@@ -49,14 +51,6 @@ struct mcupm_reserve_mblock {
 	u64 start_phys;
 	u64 start_virt;
 	u64 size;
-};
-
-static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
-	{
-		.num = MCUPM_MEM_ID,
-		.size = 0x100 + MCUPM_PLT_LOGGER_BUF_LEN,
-		/* logger header + 1M log buffer */
-	},
 };
 
 /* MCUPM LOGGER */
