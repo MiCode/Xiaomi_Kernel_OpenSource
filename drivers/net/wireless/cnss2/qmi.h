@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_QMI_H
 #define _CNSS_QMI_H
@@ -61,6 +61,8 @@ int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_dynamic_feature_mask_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
 				 void *cmd, int cmd_len);
+int cnss_wlfw_wfc_call_status_send_sync(struct cnss_plat_data *plat_priv,
+					u32 data_len, const void *data);
 int cnss_register_coex_service(struct cnss_plat_data *plat_priv);
 void cnss_unregister_coex_service(struct cnss_plat_data *plat_priv);
 int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv);
@@ -171,6 +173,20 @@ int cnss_wlfw_antenna_grant_send_sync(struct cnss_plat_data *plat_priv)
 
 static inline
 int cnss_wlfw_dynamic_feature_mask_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline
+int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
+				 void *cmd, int cmd_len)
+{
+	return 0;
+}
+
+static inline
+int cnss_wlfw_wfc_call_status_send_sync(struct cnss_plat_data *plat_priv,
+					u32 data_len, const void *data);
 {
 	return 0;
 }
