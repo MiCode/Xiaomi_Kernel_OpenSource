@@ -94,6 +94,7 @@ struct FDVT_WAIT_IRQ_STRUCT {
 	int user_key;		/* user key for doing interrupt operation */
 	int process_id;		/* user process_id (will filled in kernel) */
 	unsigned int dump_reg;	/* check dump register or not */
+	bool isSecure;
 };
 #define FDVT_WAIT_IRQ_STRUCT struct FDVT_WAIT_IRQ_STRUCT
 
@@ -104,16 +105,79 @@ struct FDVT_CLEAR_IRQ_STRUCT {
 };
 #define FDVT_CLEAR_IRQ_STRUCT struct FDVT_CLEAR_IRQ_STRUCT
 
+struct FDVT_ROI // AIE2.0
+{
+	unsigned int x1;
+	unsigned int y1;
+	unsigned int x2;
+	unsigned int y2;
+};
+
+struct FDVT_PADDING // AIE2.0
+{
+	unsigned int left;
+	unsigned int right;
+	unsigned int down;
+	unsigned int up;
+};
+
+struct FDVT_MetaDataToGCE {
+	unsigned int ImgSrcY_Handler;
+	unsigned int ImgSrcUV_Handler;
+	unsigned int YUVConfig_Handler;
+	//unsigned int YUVOutBuf_Handler;
+	unsigned int RSConfig_Handler;
+	unsigned int RSOutBuf_Handler;
+	unsigned int FDConfig_Handler;
+	unsigned int FDOutBuf_Handler;
+	unsigned int FD_POSE_Config_Handler;
+	unsigned int FDResultBuf_MVA;
+	unsigned int ImgSrc_Y_Size;
+	unsigned int ImgSrc_UV_Size;
+	unsigned int YUVConfigSize;
+	unsigned int YUVOutBufSize;
+	unsigned int RSConfigSize;
+	unsigned int RSOutBufSize;
+	unsigned int FDConfigSize;
+	unsigned int FD_POSE_ConfigSize;
+	unsigned int FDOutBufSize;
+	unsigned int FDResultBufSize;
+	unsigned int FDMode;
+	unsigned int srcImgFmt;
+	unsigned int srcImgWidth;
+	unsigned int srcImgHeight;
+	unsigned int maxWidth;
+	unsigned int maxHeight;
+	unsigned int rotateDegree;
+	unsigned short featureTH;
+	unsigned short SecMemType;
+	unsigned int enROI;
+	struct FDVT_ROI src_roi;
+	unsigned int enPadding;
+	struct FDVT_PADDING src_padding;
+	unsigned int SRC_IMG_STRIDE;
+	unsigned int pyramid_width;
+	unsigned int pyramid_height;
+};
+#define FDVT_MetaDataToGCE struct FDVT_MetaDataToGCE
+
 struct fdvt_config {
 	/*fdvt_reg_t REG_STRUCT;*/
 	unsigned int FDVT_RSCON_BASE_ADR;
 	unsigned int FDVT_YUV2RGB;
 	unsigned int FDVT_YUV2RGBCON_BASE_ADR;
 	unsigned int FDVT_FD_CON_BASE_ADR;
+	unsigned int FDVT_FD_POSE_CON_BASE_ADR;
 	unsigned int FDVT_YUV_SRC_WD_HT;
 	unsigned int FD_MODE;
 	unsigned int RESULT;
 	unsigned int RESULT1;
+	unsigned int FDVT_IS_SECURE;
+	unsigned int FDVT_RSCON_BUFSIZE;
+	unsigned int FDVT_YUV2RGBCON_BUFSIZE;
+	unsigned int FDVT_FD_CON_BUFSIZE;
+	unsigned int FDVT_FD_POSE_CON_BUFSIZE;
+	FDVT_MetaDataToGCE FDVT_METADATA_TO_GCE;
 };
 #define FDVT_Config struct fdvt_config
 
