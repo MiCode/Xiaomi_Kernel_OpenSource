@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
 
 #include "wlan_firmware_service_v01.h"
 
@@ -423,6 +423,32 @@ static struct qmi_elem_info wlfw_fw_version_info_s_v01_ei[] = {
 		.tlv_type       = 0,
 		.offset         = offsetof(struct wlfw_fw_version_info_s_v01,
 					   fw_build_timestamp),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct qmi_elem_info wlfw_host_ddr_range_s_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_host_ddr_range_s_v01,
+					   start),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_host_ddr_range_s_v01,
+					   size),
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -2558,6 +2584,25 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.tlv_type       = 0x1D,
 		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
 					   cal_duration),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x1E,
+		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
+					   ddr_range_valid),
+	},
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01,
+		.elem_size      = sizeof(struct wlfw_host_ddr_range_s_v01),
+		.array_type       = STATIC_ARRAY,
+		.tlv_type       = 0x1E,
+		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
+					   ddr_range),
+		.ei_array      = wlfw_host_ddr_range_s_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
