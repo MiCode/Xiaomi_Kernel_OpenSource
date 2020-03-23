@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,7 @@ enum ipa_fltrt_equations {
 #define IPA3_0_HW_TBL_ADDR_MASK (127)
 #define IPA3_0_HW_RULE_BUF_SIZE (256)
 #define IPA3_0_HW_RULE_START_ALIGNMENT (7)
+#define IPA3_0_HW_RULE_PREFETCH_BUF_SIZE (128)
 
 
 /*
