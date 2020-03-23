@@ -46,6 +46,8 @@
 			0x144 /* GSI_RING_BASE_ADDR_H */
 			0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+		usb-role-switch;
+		extcon = <&eud>;
 
 		interconnect-names = "usb-ddr", "usb-ipa", "ddr-usb";
 		interconnects = <&aggre1_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
@@ -68,7 +70,7 @@
 			usb-core-id = <0>;
 			tx-fifo-resize;
 			maximum-speed = "super-speed-plus";
-			dr_mode = "peripheral";
+			dr_mode = "otg";
 		};
 
 		qcom,usbbam@a704000 {
@@ -97,6 +99,12 @@
 				qcom,data-fifo-size = <0x1800>;
 				qcom,descriptor-fifo-offset = <0x1800>;
 				qcom,descriptor-fifo-size = <0x800>;
+			};
+		};
+
+		port {
+			usb_port0: endpoint {
+				remote-endpoint = <&usb_port0_connector>;
 			};
 		};
 	};
