@@ -17,6 +17,7 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/component.h>
+#include <linux/workqueue.h>
 #include <linux/of_gpio.h>
 #include <linux/of_graph.h>
 #include <linux/of_irq.h>
@@ -39,7 +40,6 @@
 #define EDID_SEG_SIZE 256
 #define READ_BUF_MAX_SIZE 64
 #define WRITE_BUF_MAX_SIZE 64
-#define HPD_UEVENT_BUFFER_SIZE 30
 
 struct lt9611_reg_cfg {
 	u8 reg;
@@ -118,6 +118,9 @@ struct lt9611 {
 	struct drm_display_mode curr_mode;
 	struct lt9611_video_cfg video_cfg;
 
+	struct workqueue_struct *wq;
+	struct work_struct work;
+
 	u8 edid_buf[EDID_SEG_SIZE];
 	u8 i2c_wbuf[WRITE_BUF_MAX_SIZE];
 	u8 i2c_rbuf[READ_BUF_MAX_SIZE];
@@ -144,6 +147,41 @@ static struct lt9611_timing_info lt9611_supp_timing_cfg[] = {
 	{640, 480, 24, 60, 2, 1},
 	{0xffff, 0xffff, 0xff, 0xff, 0xff},
 };
+
+void lt9611_hpd_work(struct work_struct *work)
+{
+	char name[32], status[32];
+	char *envp[5];
+	char *event_string = "HOTPLUG=1";
+	enum drm_connector_status last_status;
+	struct drm_device *dev = NULL;
+	struct lt9611 *pdata = container_of(work, struct lt9611, work);
+
+	if (!pdata || !pdata->connector.funcs ||
+		!pdata->connector.funcs->detect)
+		return;
+
+	dev = pdata->connector.dev;
+	last_status = pdata->connector.status;
+	pdata->connector.status =
+		pdata->connector.funcs->detect(&pdata->connector, true);
+
+	if (last_status == pdata->connector.status)
+		return;
+
+	scnprintf(name, 32, "name=%s",
+		  pdata->connector.name);
+	scnprintf(status, 32, "status=%s",
+		  drm_get_connector_status_name(pdata->connector.status));
+	pr_debug("[%s]:[%s]\n", name, status);
+	envp[0] = name;
+	envp[1] = status;
+	envp[2] = event_string;
+	envp[3] = NULL;
+	envp[4] = NULL;
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+			   envp);
+}
 
 static struct lt9611 *bridge_to_lt9611(struct drm_bridge *bridge)
 {
@@ -289,6 +327,7 @@ u8 lt9611_get_version(struct lt9611 *pdata)
 
 	lt9611_write_byte(pdata, 0xFF, 0x80);
 	lt9611_write_byte(pdata, 0xEE, 0x00);
+	msleep(50);
 
 	return revison;
 }
@@ -812,13 +851,35 @@ static int lt9611_read_device_id(struct lt9611 *pdata)
 
 	lt9611_write_byte(pdata, 0xFF, 0x80);
 	lt9611_write_byte(pdata, 0xEE, 0x00);
+	msleep(50);
 
 	return ret;
 }
 
 static irqreturn_t lt9611_irq_thread_handler(int irq, void *dev_id)
 {
-	pr_debug("irq_thread_handler\n");
+	u8 irq_status = 0, hpd_status = 0;
+	struct lt9611 *pdata = (struct lt9611 *)dev_id;
+
+	lt9611_write_byte(pdata, 0xFF, 0x80);
+	lt9611_write_byte(pdata, 0xEE, 0x01);
+	lt9611_write_byte(pdata, 0xFF, 0xB0);
+	if (!lt9611_read(pdata, 0x22, &irq_status, 1)) {
+		pr_debug("irq status 0x%x\n", irq_status);
+		if (irq_status) {
+			lt9611_write_byte(pdata, 0x22, 0);
+			lt9611_read(pdata, 0x23, &hpd_status, 1);
+			pr_debug("irq hpd status 0x%x\n", hpd_status);
+		}
+	} else
+		pr_err("get irq status failed\n");
+	lt9611_write_byte(pdata, 0xFF, 0x80);
+	lt9611_write_byte(pdata, 0xEE, 0x00);
+
+	msleep(50);
+	if (irq_status & (BIT(0) | BIT(1)))
+		queue_work(pdata->wq, &pdata->work);
+
 	return IRQ_HANDLED;
 }
 
@@ -831,7 +892,7 @@ static void lt9611_reset(struct lt9611 *pdata, bool on_off)
 		gpio_set_value(pdata->reset_gpio, 0);
 		msleep(20);
 		gpio_set_value(pdata->reset_gpio, 1);
-		msleep(20);
+		msleep(300);
 	} else {
 		gpio_set_value(pdata->reset_gpio, 0);
 	}
@@ -1237,7 +1298,24 @@ static void lt9611_get_video_cfg(struct lt9611 *pdata,
 static enum drm_connector_status
 lt9611_connector_detect(struct drm_connector *connector, bool force)
 {
+	u8 hpd_status = 0;
 	struct lt9611 *pdata = connector_to_lt9611(connector);
+
+	pdata->status = connector_status_disconnected;
+	if (force) {
+		lt9611_write_byte(pdata, 0xFF, 0x80);
+		lt9611_write_byte(pdata, 0xEE, 0x01);
+		lt9611_write_byte(pdata, 0xFF, 0xB0);
+		if (!lt9611_read(pdata, 0x23, &hpd_status, 1)) {
+			if (hpd_status & BIT(1))
+				pdata->status = connector_status_connected;
+			pr_debug("hpd status %x\n", hpd_status);
+		} else
+			pr_err("read hpd status failed\n");
+		lt9611_write_byte(pdata, 0xFF, 0x80);
+		lt9611_write_byte(pdata, 0xEE, 0x00);
+		msleep(50);
+	} else
 		pdata->status = connector_status_connected;
 
 	return pdata->status;
@@ -1637,21 +1715,11 @@ static int lt9611_probe(struct i2c_client *client,
 
 	lt9611_reset(pdata, true);
 
-	pdata->irq = gpio_to_irq(pdata->irq_gpio);
-	ret = request_threaded_irq(pdata->irq, NULL, lt9611_irq_thread_handler,
-		IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "lt9611", pdata);
-	if (ret) {
-		pr_err("failed to request irq\n");
-		goto err_i2c_prog;
-	}
-
 	ret = lt9611_read_device_id(pdata);
 	if (ret) {
 		pr_err("failed to read chip rev\n");
-		goto err_sysfs_init;
+		goto err_i2c_prog;
 	}
-
-	msleep(200);
 
 	i2c_set_clientdata(client, pdata);
 	dev_set_drvdata(&client->dev, pdata);
@@ -1659,7 +1727,7 @@ static int lt9611_probe(struct i2c_client *client,
 	ret = lt9611_sysfs_init(&client->dev);
 	if (ret) {
 		pr_err("sysfs init failed\n");
-		goto err_sysfs_init;
+		goto err_i2c_prog;
 	}
 
 	if (lt9611_get_version(pdata)) {
@@ -1671,7 +1739,7 @@ static int lt9611_probe(struct i2c_client *client,
 		if (ret) {
 			dev_err(&client->dev,
 				"Failed to invoke firmware loader: %d\n", ret);
-			goto err_sysfs_init;
+			goto err_i2c_prog;
 		} else
 			return 0;
 	}
@@ -1683,11 +1751,23 @@ static int lt9611_probe(struct i2c_client *client,
 	pdata->bridge.funcs = &lt9611_bridge_funcs;
 	drm_bridge_add(&pdata->bridge);
 
+	pdata->wq = create_singlethread_workqueue("lt9611_wk");
+	if (!pdata->wq) {
+		pr_err("Error creating lt9611 wq\n");
+		goto err_i2c_prog;
+	}
+	INIT_WORK(&pdata->work, lt9611_hpd_work);
+
+	pdata->irq = gpio_to_irq(pdata->irq_gpio);
+	ret = request_threaded_irq(pdata->irq, NULL, lt9611_irq_thread_handler,
+		IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "lt9611_irq", pdata);
+	if (ret) {
+		pr_err("failed to request irq\n");
+		goto err_i2c_prog;
+	}
+
 	return 0;
 
-err_sysfs_init:
-	disable_irq(pdata->irq);
-	free_irq(pdata->irq, pdata);
 err_i2c_prog:
 	lt9611_gpio_configure(pdata, false);
 err_dt_supply:
@@ -1728,7 +1808,8 @@ static int lt9611_remove(struct i2c_client *client)
 	}
 
 	devm_kfree(&client->dev, pdata);
-
+	if (pdata->wq)
+		destroy_workqueue(pdata->wq);
 end:
 	return ret;
 }
