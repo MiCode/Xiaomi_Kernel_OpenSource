@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
 #define WLAN_FIRMWARE_SERVICE_V01_H
@@ -91,6 +91,7 @@
 #define QMI_WLFW_MAX_DATA_SIZE_V01 6144
 #define QMI_WLFW_FUNCTION_NAME_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_CE_V01 12
+#define QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01 3
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
 #define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 6144
 #define QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01 256
@@ -244,6 +245,11 @@ struct wlfw_soc_info_s_v01 {
 struct wlfw_fw_version_info_s_v01 {
 	u32 fw_version;
 	char fw_build_timestamp[QMI_WLFW_MAX_TIMESTAMP_LEN_V01 + 1];
+};
+
+struct wlfw_host_ddr_range_s_v01 {
+	u64 start;
+	u64 size;
 };
 
 struct wlfw_ind_register_req_msg_v01 {
@@ -663,9 +669,12 @@ struct wlfw_host_cap_req_msg_v01 {
 	u8 mem_cfg_mode;
 	u8 cal_duration_valid;
 	u16 cal_duration;
+	u8 ddr_range_valid;
+	struct wlfw_host_ddr_range_s_v01
+		ddr_range[QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01];
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 194
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 245
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
