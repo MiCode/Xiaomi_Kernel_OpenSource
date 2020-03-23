@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2017 Keith Packard <keithp@keithp.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -322,7 +322,7 @@ static long msm_lease_ioctl(struct file *filp,
 }
 
 static int msm_lease_add_connector(struct drm_device *dev, const char *name,
-		u32 *object_ids, int *object_count, struct drm_plane *primary)
+		u32 *object_ids, int *object_count)
 {
 	struct drm_connector *connector;
 	struct drm_encoder *encoder;
@@ -373,10 +373,6 @@ static int msm_lease_add_connector(struct drm_device *dev, const char *name,
 		if (_obj_is_leased(crtc->base.id, object_ids, *object_count))
 			continue;
 
-		/* re-initialize crtc primary for legacy set_mode */
-		crtc->primary = primary;
-		primary->crtc = crtc;
-
 		crtc_id = crtc->base.id;
 		break;
 	}
@@ -397,8 +393,7 @@ out:
 }
 
 static int msm_lease_add_plane(struct drm_device *dev, const char *name,
-		u32 *object_ids, int *object_count,
-		struct drm_plane **planes, int *plane_count)
+		u32 *object_ids, int *object_count)
 {
 	struct drm_plane *plane, *added_plane;
 	int plane_id = -1;
@@ -429,9 +424,75 @@ static int msm_lease_add_plane(struct drm_device *dev, const char *name,
 	}
 
 	object_ids[(*object_count)++] = plane_id;
-	planes[(*plane_count)++] = added_plane;
 
 	return 0;
+}
+
+static void msm_lease_fixup_crtc_primary(struct drm_device *dev,
+	u32 *object_ids, int object_count)
+{
+	struct drm_mode_object *obj;
+	struct drm_plane *planes[MAX_LEASE_OBJECT_COUNT];
+	struct drm_crtc *crtcs[MAX_LEASE_OBJECT_COUNT];
+	struct drm_plane *plane;
+	struct drm_crtc *crtc;
+	int i, plane_count = 0, crtc_count = 0;
+
+	/* get all the leased crtcs and planes */
+	for (i = 0; i < object_count; i++) {
+		obj = drm_mode_object_find(dev, NULL, object_ids[i],
+				DRM_MODE_OBJECT_ANY);
+		if (!obj)
+			continue;
+
+		if (obj->type == DRM_MODE_OBJECT_PLANE)
+			planes[plane_count++] = obj_to_plane(obj);
+		else if (obj->type == DRM_MODE_OBJECT_CRTC)
+			crtcs[crtc_count++] = obj_to_crtc(obj);
+	}
+
+	/* reset previous primary planes */
+	for (i = 0; i < plane_count; i++) {
+		if (planes[i]->type == DRM_PLANE_TYPE_PRIMARY) {
+			drm_for_each_crtc(crtc, dev) {
+				if (crtc->primary == planes[i]) {
+					crtc->primary = NULL;
+					planes[i]->crtc = NULL;
+					break;
+				}
+			}
+			planes[i]->type = DRM_PLANE_TYPE_OVERLAY;
+			dev->mode_config.num_overlay_plane++;
+		}
+	}
+
+	/* setup new primary planes */
+	for (i = 0; i < crtc_count; i++) {
+		if (crtcs[i]->primary) {
+			crtcs[i]->primary->type = DRM_PLANE_TYPE_OVERLAY;
+			dev->mode_config.num_overlay_plane++;
+		}
+		crtcs[i]->primary = planes[i];
+		planes[i]->crtc = crtcs[i];
+		planes[i]->type = DRM_PLANE_TYPE_PRIMARY;
+		dev->mode_config.num_overlay_plane--;
+	}
+
+	/* assign primary planes for reset crtcs */
+	drm_for_each_crtc(crtc, dev) {
+		if (crtc->primary)
+			continue;
+
+		drm_for_each_plane(plane, dev) {
+			if (plane->type == DRM_PLANE_TYPE_OVERLAY) {
+				crtc->primary = plane;
+				plane->type = DRM_PLANE_TYPE_PRIMARY;
+				plane->crtc = crtc;
+				dev->mode_config.num_overlay_plane--;
+				break;
+			}
+		}
+	}
 }
 
 static int msm_lease_parse_objs(struct drm_device *dev,
@@ -439,8 +500,7 @@ static int msm_lease_parse_objs(struct drm_device *dev,
 		u32 *object_ids, int *object_count)
 {
 	const char *name;
-	struct drm_plane *planes[MAX_LEASE_OBJECT_COUNT];
-	int count, rc, i, plane_count = 0;
+	int count, rc, i;
 
 	count = of_property_count_strings(of_node, "qcom,lease-planes");
 	if (!count) {
@@ -452,8 +512,7 @@ static int msm_lease_parse_objs(struct drm_device *dev,
 		of_property_read_string_index(of_node, "qcom,lease-planes",
 				i, &name);
 		rc = msm_lease_add_plane(dev, name,
-				object_ids, object_count,
-				planes, &plane_count);
+				object_ids, object_count);
 		if (rc)
 			return rc;
 	}
@@ -464,12 +523,16 @@ static int msm_lease_parse_objs(struct drm_device *dev,
 		return -EINVAL;
 	}
 
+	if (count > *object_count) {
+		DRM_ERROR("connectors are more than planes\n");
+		return -EINVAL;
+	}
+
 	for (i = 0; i < count; i++) {
 		of_property_read_string_index(of_node, "qcom,lease-connectors",
 				i, &name);
 		rc = msm_lease_add_connector(dev, name,
-				object_ids, object_count,
-				i < plane_count ? planes[i] : planes[0]);
+				object_ids, object_count);
 		if (rc)
 			return rc;
 	}
@@ -576,6 +639,9 @@ static int msm_lease_probe(struct platform_device *pdev)
 	lease_drv->obj_cnt = object_count;
 	memcpy(lease_drv->object_ids, object_ids, sizeof(u32) * object_count);
 	list_add_tail(&lease_drv->head, &g_lease_list);
+
+	/* fixup crtcs' primary planes */
+	msm_lease_fixup_crtc_primary(master_ddev, object_ids, object_count);
 
 	/* hook open/close function */
 	if (!g_master_open && !g_master_postclose) {
