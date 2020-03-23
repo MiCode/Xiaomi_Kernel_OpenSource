@@ -2325,6 +2325,9 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 		adreno_dev->perfctr_ifpc_lo =
 			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+
 	/* Check efuse bits for various capabilties */
 	a6xx_check_features(adreno_dev);
 }
