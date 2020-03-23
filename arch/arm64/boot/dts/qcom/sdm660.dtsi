@@ -1016,6 +1016,20 @@
 		reg = <0xc8c0900 0x4>;
 	};
 
+	clock_debug: qcom,cc-debug@62000 {
+		compatible = "qcom,gcc-debug-sdm660";
+		reg = <0x62000 0x4>;
+		reg-names = "dbg_offset";
+		clocks = <&clock_rpmcc  RPM_SMD_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		qcom,cc-count = <8>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,cpu = <&cpu_debug>;
+		qcom,mmss = <&mmss_debug>;
+		qcom,gpu = <&gpu_debug>;
+		#clock-cells = <1>;
+	};
+
 	generic_bw_opp_table: generic-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY( 100, 4); /*  381 MB/s */
