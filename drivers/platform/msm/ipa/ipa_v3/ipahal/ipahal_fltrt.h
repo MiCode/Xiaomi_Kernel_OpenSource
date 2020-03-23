@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPAHAL_FLTRT_H_
@@ -139,6 +139,9 @@ u32 ipahal_get_hw_tbl_hdr_width(void);
  * This function return the alignment of the offset that IPA expects
  */
 u32 ipahal_get_lcl_tbl_addr_alignment(void);
+
+/* Get the H/W (flt/rt) prefetch buf size */
+u32 ipahal_get_hw_prefetch_buf_size(void);
 
 /*
  * Rule priority is used to distinguish rules order
