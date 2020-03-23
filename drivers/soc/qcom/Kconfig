@@ -148,6 +148,16 @@ config QCOM_IPCC
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config QCOM_RIMPS
+	tristate "Qualcomm Technologies, Inc. Rimps driver"
+	depends on MAILBOX
+	help
+	 Qualcomm Technologies, Inc. RIMPS driver for MSM devices. This driver
+	 acts as a mailbox controller to do doorbell between Apss and Rimps
+	 subsystem. Say yes here to enable rx and tx channel between both
+	 the subsystems.
+	 If unsure, say n.
+
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
