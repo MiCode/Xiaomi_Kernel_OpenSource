@@ -93,6 +93,7 @@
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 	};
 
+	VDD_LPI_MX_LEVEL:
 	L4B_LEVEL:
 	pm8350_l4_level: regulator-pm8350-l4-level {
 		compatible = "qcom,stub-regulator";
@@ -102,6 +103,7 @@
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 	};
 
+	VDD_LPI_CX_LEVEL:
 	L5B_LEVEL:
 	pm8350_l5_level: regulator-pm8350-l5-level {
 		compatible = "qcom,stub-regulator";
