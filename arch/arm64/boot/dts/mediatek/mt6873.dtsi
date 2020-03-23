@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6873-pinfunc.h>
+#include <dt-bindings/power/mt6873-power.h>
 
 / {
 	compatible = "mediatek,mt6873";
@@ -298,6 +299,63 @@
 			interrupt-controller;
 			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH 0>;
 			#interrupt-cells = <2>;
+		};
+
+		scpsys: power-controller@10006000 {
+			compatible = "mediatek,mt6873-scpsys", "syscon";
+			reg = <0 0x10006000 0 0x1000>;
+			#power-domain-cells = <1>;
+			clocks = <&topckgen CLK_TOP_MFG_PLL_SEL>,
+				 <&topckgen CLK_TOP_IMG1_SEL>,
+				 <&topckgen CLK_TOP_IMG2_SEL>,
+				 <&topckgen CLK_TOP_IPE_SEL>,
+				 <&topckgen CLK_TOP_VDEC_SEL>,
+				 <&topckgen CLK_TOP_VENC_SEL>,
+				 <&topckgen CLK_TOP_MDP_SEL>,
+				 <&topckgen CLK_TOP_DISP_SEL>,
+				 <&topckgen CLK_TOP_AUD_INTBUS_SEL>,
+				 <&infracfg CLK_INFRA_AUDIO_26M_B>,
+				 <&infracfg CLK_INFRA_AUDIO>,
+				 <&topckgen CLK_TOP_ADSP_SEL>,
+				 <&topckgen CLK_TOP_CAM_SEL>,
+				 <&imgsys CLK_IMG_LARB9>,
+				 <&imgsys CLK_IMG_GALS>,
+				 <&imgsys2 CLK_IMG2_LARB11>,
+				 <&imgsys2 CLK_IMG2_GALS>,
+				 <&ipesys CLK_IPE_LARB19>,
+				 <&ipesys CLK_IPE_LARB20>,
+				 <&ipesys CLK_IPE_SMI_SUBCOM>,
+				 <&ipesys CLK_IPE_GALS>,
+				 <&vdecsys_soc CLK_VDEC_SOC_VDEC>,
+				 <&vdecsys_soc CLK_VDEC_SOC_LAT>,
+				 <&vdecsys_soc CLK_VDEC_SOC_LARB1>,
+				 <&vdecsys CLK_VDEC_VDEC>,
+				 <&vdecsys CLK_VDEC_LAT>,
+				 <&vdecsys CLK_VDEC_LARB1>,
+				 <&vencsys CLK_VENC_SET1_VENC>,
+				 <&mdpsys CLK_MDP_SMI0>,
+				 <&mmsys CLK_MM_SMI_INFRA>,
+				 <&mmsys CLK_MM_SMI_COMMON>,
+				 <&mmsys CLK_MM_SMI_GALS>,
+				 <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&camsys CLK_CAM_LARB13>,
+				 <&camsys CLK_CAM_LARB14>,
+				 <&camsys CLK_CAM_CCU_GALS>,
+				 <&camsys CLK_CAM_CAM2MM_GALS>,
+				 <&camsys_rawa CLK_CAM_RAWA_LARBX>,
+				 <&camsys_rawb CLK_CAM_RAWB_LARBX>,
+				 <&camsys_rawc CLK_CAM_RAWC_LARBX>;
+			clock-names = "mfg", "isp", "isp2", "ipe",
+				      "vdec", "venc", "mdp", "disp",
+				      "audio2", "adsp", "cam", "isp-0", "isp-1",
+				      "audio", "audio1", "isp2-0", "isp2-1",
+				      "ipe-0", "ipe-1", "ipe-2", "ipe-3",
+				      "vdec-0", "vdec-1", "vdec-2", "vdec2-0",
+				      "vdec2-1", "vdec2-2", "venc-0", "mdp-0",
+				      "disp-0", "disp-1", "disp-2", "disp-3",
+				      "cam-0", "cam-1", "cam-2", "cam-3",
+				      "cam_rawa-0", "cam_rawb-0", "cam_rawc-0";
+			infracfg = <&infracfg>;
 		};
 
 		watchdog: watchdog@10007000 {
