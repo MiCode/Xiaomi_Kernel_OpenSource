@@ -566,7 +566,7 @@ struct ufs_query_res {
  * VCCQ & VCCQ2 current requirement when UFS device is in sleep state
  * and link is in Hibern8 state.
  */
-#define UFS_VREG_LPM_LOAD_UA	1000 /* uA */
+#define UFS_VREG_LPM_LOAD_UA	9900 /* uA */
 
 struct ufs_vreg {
 	struct regulator *reg;
