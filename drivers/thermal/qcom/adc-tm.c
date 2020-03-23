@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +170,10 @@ static const struct of_device_id adc_tm_match_table[] = {
 	{
 		.compatible = "qcom,adc-tm5",
 		.data = &data_adc_tm5,
+	},
+	{
+		.compatible = "qcom,adc-tm-rev2",
+		.data = &data_adc_tm_rev2,
 	},
 	{
 		.compatible = "qcom,adc-tm5-iio",
