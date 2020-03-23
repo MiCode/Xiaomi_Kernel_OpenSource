@@ -4167,6 +4167,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mutex_init(&mdwc->suspend_resume_mutex);
 
+	if (of_property_read_bool(node, "usb-role-switch")) {
+		role_desc.fwnode = dev_fwnode(&pdev->dev);
+		mdwc->role_switch = usb_role_switch_register(mdwc->dev,
+								&role_desc);
+		if (IS_ERR(mdwc->role_switch)) {
+			ret = PTR_ERR(mdwc->role_switch);
+			goto put_dwc3;
+		}
+	}
+
 	if (of_property_read_bool(node, "extcon")) {
 		ret = dwc3_msm_extcon_register(mdwc);
 		if (ret)
@@ -4193,16 +4203,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			regulator_register_notifier(mdwc->dpdm_reg,
 					&mdwc->dpdm_nb);
 		} else {
-			queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
+			if (!mdwc->role_switch)
+				queue_delayed_work(mdwc->sm_usb_wq,
+							&mdwc->sm_work, 0);
 		}
-	}
-
-	if (of_property_read_bool(node, "usb-role-switch")) {
-		role_desc.fwnode = dev_fwnode(&pdev->dev);
-		mdwc->role_switch = usb_role_switch_register(mdwc->dev,
-								&role_desc);
-		if (IS_ERR(mdwc->role_switch))
-			return PTR_ERR(mdwc->role_switch);
 	}
 
 	if (!mdwc->role_switch && !mdwc->extcon) {
@@ -4244,6 +4248,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	return 0;
 
 put_dwc3:
+	usb_role_switch_unregister(mdwc->role_switch);
 	platform_device_put(mdwc->dwc3);
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++)
 		icc_put(mdwc->icc_paths[i]);
