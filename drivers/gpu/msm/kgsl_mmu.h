@@ -126,6 +126,8 @@ enum kgsl_mmu_feature {
 	KGSL_MMU_SECURE_CB_ALT,
 	/** @KGSL_MMU_LLC_ENABLE: Set if LLC is activated for the target */
 	KGSL_MMU_LLCC_ENABLE,
+	/** @KGSL_MMU_SMMU_APERTURE: Set the SMMU aperture */
+	KGSL_MMU_SMMU_APERTURE,
 };
 
 /**
