@@ -557,8 +557,10 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 	if (!(flags & CNSS_EVENT_SYNC))
 		goto out;
 
-	if (flags & CNSS_EVENT_UNINTERRUPTIBLE)
+	if (flags & CNSS_EVENT_UNKILLABLE)
 		wait_for_completion(&event->complete);
+	else if (flags & CNSS_EVENT_UNINTERRUPTIBLE)
+		ret = wait_for_completion_killable(&event->complete);
 	else
 		ret = wait_for_completion_interruptible(&event->complete);
 
@@ -2112,6 +2114,8 @@ static int cnss_reboot_notifier(struct notifier_block *nb,
 		container_of(nb, struct cnss_plat_data, reboot_nb);
 
 	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+	del_timer(&plat_priv->fw_boot_timer);
+	complete_all(&plat_priv->power_up_complete);
 	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
 
 	return NOTIFY_DONE;
