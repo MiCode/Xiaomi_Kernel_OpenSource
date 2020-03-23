@@ -2676,6 +2676,11 @@
 
 			label = "spss";
 			qcom,glink-label = "spss";
+
+			qcom,spss_glink_ssr {
+				qcom,glink-channels = "glink_ssr";
+				qcom,notify-edges = <&glink_modem>;
+			};
 		};
 	};
 
