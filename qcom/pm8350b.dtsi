@@ -60,6 +60,10 @@
 			qcom,brake-sig-shape = <WF_SINE>;
 			status = "disabled";
 
+			hap_swr_slave_reg: qcom,hap-swr-slave-reg {
+				regulator-name = "hap-swr-slave-reg";
+			};
+
 			effect_0 {
 				/* CLICK */
 				qcom,effect-id = <0>;

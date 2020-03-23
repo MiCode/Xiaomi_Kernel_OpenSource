@@ -108,6 +108,12 @@ The following properties are only required when LRA actuator is used:
 		is selected. Please refer to:
 		include/dt-bindings/input/qcom,hv-haptics.h.
 
+A child node named "qcom,hap-swr-slave-reg" can be defined to export a regulator
+device which is used for swr-haptics module to control the online status of SWR
+slave. The child node should have following property for this regulator device:
+
+- regulator-name: Please refer to: bindings/regulator/regulator.txt.
+
 The following properties should be specified in child nodes for defining
 different vibration effects:
 
@@ -221,6 +227,10 @@ Example:
 		qcom,lra-period-us = <5880>;
 		qcom,drv-sig-shape = <WF_SINE>;
 		qcom,brake-sig-shape = <WF_SINE>;
+
+		qcom,hap-swr-slave-reg {
+			regulator-name = "hap-swr-slave-reg";
+		};
 
 		effect_0 {
 			/* CLICK effect */
