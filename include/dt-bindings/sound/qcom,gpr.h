@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved. */
 #ifndef __DT_BINDINGS_QCOM_GPR_H
 #define __DT_BINDINGS_QCOM_GPR_H
 
 /* Domain IDs */
-#define GPR_DOMAIN_SIM		0x1
-#define GPR_DOMAIN_PC		0x2
-#define GPR_DOMAIN_MODEM	0x3
-#define GPR_DOMAIN_ADSP		0x4
-#define GPR_DOMAIN_APPS		0x5
+#define GPR_DOMAIN_SIM		0x0
+#define GPR_DOMAIN_MODEM	0x1
+#define GPR_DOMAIN_ADSP		0x2
+#define GPR_DOMAIN_APPS		0x3
+#define GPR_DOMAIN_SDSP		0x4
+#define GPR_DOMAIN_CDSP		0x5
 #define GPR_DOMAIN_MAX		0x6
 
 /* ADSP service IDs */
