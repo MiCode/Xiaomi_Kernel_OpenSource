@@ -13,9 +13,10 @@
 		compatible = "qcom,kgsl-3d0";
 		status = "ok";
 		reg = <0x3d00000 0x40000>, <0x3d61000 0x800>,
-			<0x3de0000 0x10000>, <0x3d8b000 0x2000>;
+			<0x3de0000 0x10000>, <0x3d8b000 0x2000>,
+			<0x06900000 0x80000>;
 		reg-names = "kgsl_3d0_reg_memory", "cx_dbgc", "rscc",
-			"isense_cntl";
+			"isense_cntl", "qdss_gfx";
 		interrupts = <0 300 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "kgsl_3d0_irq";
 
