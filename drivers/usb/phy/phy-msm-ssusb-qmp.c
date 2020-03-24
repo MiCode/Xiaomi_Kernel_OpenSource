@@ -528,7 +528,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	ret = configure_phy_regs(uphy, reg);
 	if (ret) {
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
-		return ret;
+		goto fail;
 	}
 
 	/* perform software reset of PCS/Serdes */
@@ -553,8 +553,17 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		dev_err(uphy->dev, "USB3_PHY_PCS_STATUS:%x\n",
 				readl_relaxed(phy->base +
 					phy->phy_reg[USB3_PHY_PCS_STATUS]));
-		return -EBUSY;
+		ret = -EBUSY;
+		goto fail;
 	}
+
+	return ret;
+fail:
+	phy->in_suspend = true;
+	writel_relaxed(0x00,
+		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+	msm_ssphy_qmp_enable_clks(phy, false);
+	msm_ssusb_qmp_ldo_enable(phy, 0);
 
 	return ret;
 }
