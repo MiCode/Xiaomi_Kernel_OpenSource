@@ -21,7 +21,7 @@ enum mem_buf_mem_type {
 };
 
 /* The mem-buf values that represent VMIDs for an ACL. */
-#define MEM_BUF_VMID_HLOS 0
+#define MEM_BUF_VMID_PRIMARY_VM 0
 #define	MEM_BUF_VMID_TRUSTED_UI 1
 
 #define MEM_BUF_PERM_FLAG_READ (1U << 0)
