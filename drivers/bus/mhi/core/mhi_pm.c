@@ -635,6 +635,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->low_priority_worker);
 
+	/* remove support for time sync */
+	mhi_destroy_timesync(mhi_cntrl);
+
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
 	MHI_ASSERT(atomic_read(&mhi_cntrl->dev_wake), "dev_wake != 0");
@@ -668,9 +671,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		er_ctxt->rp = er_ctxt->rbase;
 		er_ctxt->wp = er_ctxt->rbase;
 	}
-
-	/* remove support for time sync */
-	mhi_destroy_timesync(mhi_cntrl);
 
 	if (cur_state == MHI_PM_SYS_ERR_PROCESS) {
 		mhi_ready_state_transition(mhi_cntrl);
