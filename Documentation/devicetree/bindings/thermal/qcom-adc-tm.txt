@@ -13,6 +13,8 @@ ADC_TM node
     Value type: <string>
     Definition: Should contain "qcom,adc-tm5" or "qcom,adc-tm5-iio"
                 for PMIC5 ADC TM driver.
+		Should contain "qcom,adc-tm-rev2" for PMIC refresh
+		ADC_TM driver.
 
 - reg:
     Usage: required
