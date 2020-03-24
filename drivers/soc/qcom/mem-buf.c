@@ -1079,7 +1079,7 @@ static int mem_buf_remove_mem(struct mem_buf_desc *membuf)
 static bool is_valid_mem_buf_vmid(u32 mem_buf_vmid)
 {
 	if ((mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM) ||
-	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_UI))
+	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM))
 		return true;
 
 	return false;
@@ -1098,7 +1098,7 @@ static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 
 	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
 		vm_name = HH_PRIMARY_VM;
-	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_UI)
+	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM)
 		vm_name = HH_TRUSTED_VM;
 	else
 		return -EINVAL;
