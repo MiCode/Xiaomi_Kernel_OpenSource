@@ -786,12 +786,19 @@ static int mem_buf_msgq_recv_fn(void *unused)
 	int ret;
 
 	while (!kthread_should_stop()) {
-		ret = hh_msgq_recv(mem_buf_hh_msgq_hdl, &buf, &size, 0);
-		if (ret < 0)
+		buf = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+		if (!buf)
+			continue;
+
+		ret = hh_msgq_recv(mem_buf_hh_msgq_hdl, buf,
+					HH_MSGQ_MAX_MSG_SIZE_BYTES, &size, 0);
+		if (ret < 0) {
+			kfree(buf);
 			pr_err_ratelimited("%s failed to receive message rc: %d\n",
 					   __func__, ret);
-		else
+		} else {
 			mem_buf_process_msg(buf, size);
+		}
 	}
 
 	return 0;

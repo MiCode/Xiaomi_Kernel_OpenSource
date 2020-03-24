@@ -417,6 +417,7 @@ static void hh_rm_process_recv_work(struct work_struct *work)
 	 * to release the original packet that arrived.
 	 */
 	kfree(recv_buff);
+	kfree(msgq_data);
 }
 
 static int hh_rm_recv_task_fn(void *data)
@@ -427,12 +428,18 @@ static int hh_rm_recv_task_fn(void *data)
 	int ret;
 
 	while (!kthread_should_stop()) {
+		recv_buff = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+		if (!recv_buff)
+			continue;
+
 		/* Block until a new message is received */
-		ret = hh_msgq_recv(hh_rm_msgq_desc, &recv_buff,
+		ret = hh_msgq_recv(hh_rm_msgq_desc, recv_buff,
+					HH_MSGQ_MAX_MSG_SIZE_BYTES,
 					&recv_buff_size, 0);
 		if (ret < 0) {
 			pr_err("%s: Failed to receive the message: %d\n",
 				__func__, ret);
+			kfree(recv_buff);
 			continue;
 		} else if (recv_buff_size <= sizeof(struct hh_rm_rpc_hdr)) {
 			pr_err("%s: Invalid message size received\n", __func__);
