@@ -1513,7 +1513,7 @@
 		snps,reset-gpio = <&tlmm 91 GPIO_ACTIVE_LOW>;
 
 		snps,reset-active-low;
-		snps,reset-delays-us = <0 10000 100000>;
+		snps,reset-delays-us = <0 10000 70000>;
 		phy-mode = "rgmii";
 
 		ethqos_emb_smmu: ethqos_emb_smmu {
