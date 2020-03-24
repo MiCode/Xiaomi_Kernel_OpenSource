@@ -3590,7 +3590,12 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 	data.cfg.cmd = MSM_NAND_CMD_BLOCK_ERASE;
 	data.cfg.addr0 = page;
 	data.cfg.addr1 = 0;
-	data.cfg.cfg0 = chip->cfg0 & (~(7 << CW_PER_PAGE));
+	data.cfg.cfg0 = chip->cfg0 & (~((7 << CW_PER_PAGE)
+					| (7 << NUM_ADDR_CYCLES)));
+	if (mtd->size >= SZ_256M)
+		data.cfg.cfg0 = data.cfg.cfg0 | (3 << NUM_ADDR_CYCLES);
+	else
+		data.cfg.cfg0 = data.cfg.cfg0 | (2 << NUM_ADDR_CYCLES);
 	data.cfg.cfg1 = chip->cfg1;
 	data.exec = 1;
 	dma_buffer->flash_status = 0xeeeeeeee;
