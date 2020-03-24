@@ -23,7 +23,11 @@
 #define RMNET_MAX_VEID 4
 
 struct rmnet_endpoint {
-	u8 mux_id;
+	union {
+		u8 mux_id;
+		__be32 ifa_address;
+		struct in6_addr in6addr;
+	};
 	struct net_device *egress_dev;
 	struct hlist_node hlnode;
 };
@@ -31,6 +35,11 @@ struct rmnet_endpoint {
 struct rmnet_agg_stats {
 	u64 ul_agg_reuse;
 	u64 ul_agg_alloc;
+};
+
+struct rmnet_ip_route_endpoint {
+	struct in6_addr addr;
+	struct net_device *egress_dev;
 };
 
 struct rmnet_port_priv_stats {
@@ -196,4 +205,9 @@ int rmnet_add_bridge(struct net_device *rmnet_dev,
 		     struct net_device *slave_dev);
 int rmnet_del_bridge(struct net_device *rmnet_dev,
 		     struct net_device *slave_dev);
+
+struct rmnet_endpoint *rmnet_get_ip6_route_endpoint(struct rmnet_port *port,
+						    struct in6_addr *addr);
+struct rmnet_endpoint *rmnet_get_ip4_route_endpoint(struct rmnet_port *port,
+						    __be32 *ifa_address);
 #endif /* _RMNET_CONFIG_H_ */

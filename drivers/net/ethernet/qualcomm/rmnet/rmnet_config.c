@@ -14,9 +14,11 @@
  */
 
 #include <net/sock.h>
+#include <net/addrconf.h>
 #include <linux/module.h>
 #include <linux/netlink.h>
 #include <linux/netdevice.h>
+#include <linux/inetdevice.h>
 #include "rmnet_config.h"
 #include "rmnet_handlers.h"
 #include "rmnet_vnd.h"
@@ -177,6 +179,9 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 	u32 data_format;
 	int err = 0;
 	u16 mux_id;
+
+	data_format = RMNET_INGRESS_FORMAT_IP_ROUTE |
+		      RMNET_EGRESS_FORMAT_IP_ROUTE;
 
 	real_dev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
 	if (!real_dev || !dev)
@@ -739,6 +744,132 @@ EXPORT_SYMBOL(rmnet_get_dlmarker_info);
 
 #endif
 
+struct rmnet_endpoint *rmnet_get_ip6_route_endpoint(struct rmnet_port *port,
+						    struct in6_addr *addr)
+{
+	struct rmnet_endpoint *ep, *tmp = NULL;
+
+	hlist_for_each_entry_rcu(ep, &port->muxed_ep[0], hlnode) {
+		if (!memcmp(&ep->in6addr, addr, sizeof(struct in6_addr)))
+			return ep;
+
+		tmp = ep;
+	}
+
+	return tmp;
+}
+
+struct rmnet_endpoint *rmnet_get_ip4_route_endpoint(struct rmnet_port *port,
+						    __be32 *ifa_address)
+{
+	struct rmnet_endpoint *ep, *tmp = NULL;
+
+	hlist_for_each_entry_rcu(ep, &port->muxed_ep[0], hlnode) {
+		if (!memcmp(&ep->ifa_address, ifa_address, sizeof(__be32)))
+			return ep;
+
+		tmp = ep;
+	}
+
+	return tmp;
+}
+
+static int rmnet_addr6_event(struct notifier_block *unused,
+			     unsigned long event, void *ptr)
+{
+	struct inet6_ifaddr *if6 = (struct inet6_ifaddr *)ptr;
+	struct net_device *dev = (struct net_device *)if6->idev->dev;
+	struct rmnet_endpoint *ep;
+	struct net_device *real_dev;
+	struct rmnet_priv *priv;
+	struct rmnet_port *port;
+
+	if (!netif_is_rmnet(dev))
+		return NOTIFY_OK;
+
+	priv = netdev_priv(dev);
+	real_dev = priv->real_dev;
+	port = rmnet_get_port_rtnl(real_dev);
+
+	if (!port || port->data_format & ~(RMNET_INGRESS_FORMAT_IP_ROUTE |
+					  RMNET_EGRESS_FORMAT_IP_ROUTE))
+		return NOTIFY_OK;
+
+	switch (event) {
+	case NETDEV_UP:
+		ep = kzalloc(sizeof(*ep), GFP_ATOMIC);
+		if (!ep)
+			return NOTIFY_OK;
+
+		memcpy(&ep->in6addr, &if6->addr, sizeof(struct in6_addr));
+		ep->egress_dev = dev;
+
+		hlist_add_head_rcu(&ep->hlnode, &port->muxed_ep[0]);
+		break;
+	case NETDEV_DOWN:
+		ep = rmnet_get_ip6_route_endpoint(port, &if6->addr);
+		if (!ep)
+			return NOTIFY_OK;
+
+		hlist_del_init_rcu(&ep->hlnode);
+		kfree(ep);
+	}
+
+	return NOTIFY_OK;
+}
+
+static int rmnet_addr4_event(struct notifier_block *unused,
+			     unsigned long event, void *ptr)
+{
+	struct in_ifaddr *if4 = (struct in_ifaddr *)ptr;
+	struct net_device *dev = (struct net_device *)if4->ifa_dev->dev;
+	struct rmnet_endpoint *ep;
+	struct net_device *real_dev;
+	struct rmnet_priv *priv;
+	struct rmnet_port *port;
+
+	if (!netif_is_rmnet(dev))
+		return NOTIFY_OK;
+
+	priv = netdev_priv(dev);
+	real_dev = priv->real_dev;
+	port = rmnet_get_port_rtnl(real_dev);
+
+	if (!port || port->data_format & ~(RMNET_INGRESS_FORMAT_IP_ROUTE |
+					  RMNET_EGRESS_FORMAT_IP_ROUTE))
+		return NOTIFY_OK;
+
+	switch (event) {
+	case NETDEV_UP:
+		ep = kzalloc(sizeof(*ep), GFP_ATOMIC);
+		if (!ep)
+			return NOTIFY_OK;
+
+		memcpy(&ep->ifa_address, &if4->ifa_address, sizeof(__be32));
+		ep->egress_dev = dev;
+
+		hlist_add_head_rcu(&ep->hlnode, &port->muxed_ep[0]);
+		break;
+	case NETDEV_DOWN:
+		ep = rmnet_get_ip4_route_endpoint(port, &if4->ifa_address);
+		if (!ep)
+			return NOTIFY_OK;
+
+		hlist_del_init_rcu(&ep->hlnode);
+		kfree(ep);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block rmnet_addr6_notifier_block __read_mostly = {
+	.notifier_call = rmnet_addr6_event,
+};
+
+static struct notifier_block rmnet_addr4_notifier_block __read_mostly = {
+	.notifier_call = rmnet_addr4_event,
+};
+
 /* Startup/Shutdown */
 
 static int __init rmnet_init(void)
@@ -750,15 +881,34 @@ static int __init rmnet_init(void)
 		return rc;
 
 	rc = rtnl_link_register(&rmnet_link_ops);
-	if (rc != 0) {
-		unregister_netdevice_notifier(&rmnet_dev_notifier);
-		return rc;
-	}
+	if (rc != 0)
+		goto err0;
+
+	rc = register_inet6addr_notifier(&rmnet_addr6_notifier_block);
+	if (rc != 0)
+		goto err1;
+
+	rc = register_inetaddr_notifier(&rmnet_addr4_notifier_block);
+	if (rc != 0)
+		goto err2;
+
+	return 0;
+
+err2:
+	unregister_inet6addr_notifier(&rmnet_addr6_notifier_block);
+
+err1:
+	rtnl_link_unregister(&rmnet_link_ops);
+
+err0:
+	unregister_netdevice_notifier(&rmnet_dev_notifier);
 	return rc;
 }
 
 static void __exit rmnet_exit(void)
 {
+	unregister_inetaddr_notifier(&rmnet_addr4_notifier_block);
+	unregister_inet6addr_notifier(&rmnet_addr6_notifier_block);
 	unregister_netdevice_notifier(&rmnet_dev_notifier);
 	rtnl_link_unregister(&rmnet_link_ops);
 }

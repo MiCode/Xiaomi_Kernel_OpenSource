@@ -36,6 +36,10 @@ RMNET_INGRESS_FORMAT_DL_MARKER_V2)
 /* UL Aggregation parameters */
 #define RMNET_PAGE_RECYCLE                      BIT(0)
 
+/* IP-Mux feature */
+#define RMNET_INGRESS_FORMAT_IP_ROUTE           BIT(25)
+#define RMNET_EGRESS_FORMAT_IP_ROUTE            BIT(24)
+
 /* Replace skb->dev to a virtual rmnet device and pass up the stack */
 #define RMNET_EPMODE_VND (1)
 /* Pass the frame directly to another device with dev_queue_xmit() */

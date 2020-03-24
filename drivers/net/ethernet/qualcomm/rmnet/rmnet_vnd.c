@@ -411,3 +411,8 @@ int rmnet_vnd_do_flow_control(struct net_device *rmnet_dev, int enable)
 
 	return 0;
 }
+
+int netif_is_rmnet(const struct net_device *dev)
+{
+	return dev->netdev_ops == &rmnet_vnd_ops;
+}
