@@ -3051,8 +3051,6 @@ static inline bool task_sched_boost(struct task_struct *p)
 }
 
 extern int sync_cgroup_colocation(struct task_struct *p, bool insert);
-extern void update_cgroup_boost_settings(void);
-extern void restore_cgroup_boost_settings(void);
 #else
 static inline bool
 same_schedtg(struct task_struct *tsk1, struct task_struct *tsk2)
@@ -3065,8 +3063,6 @@ static inline bool task_sched_boost(struct task_struct *p)
 	return true;
 }
 
-static inline void update_cgroup_boost_settings(void) { }
-static inline void restore_cgroup_boost_settings(void) { }
 #endif
 
 extern int alloc_related_thread_groups(void);
@@ -3363,3 +3359,9 @@ extern struct task_struct *find_process_by_pid(pid_t pid);
 
 extern void enqueue_task_core(struct rq *rq, struct task_struct *p, int flags);
 extern void dequeue_task_core(struct rq *rq, struct task_struct *p, int flags);
+
+#if defined(CONFIG_SCHED_WALT) && defined(CONFIG_UCLAMP_TASK_GROUP)
+extern void walt_init_sched_boost(struct task_group *tg);
+#else
+static inline void walt_init_sched_boost(struct task_group *tg) {}
+#endif

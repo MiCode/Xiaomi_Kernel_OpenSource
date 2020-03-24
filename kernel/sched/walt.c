@@ -216,4 +216,9 @@ void __weak update_cluster_topology(void) { }
 void __weak init_clusters(void) { }
 
 void __weak walt_sched_init_rq(struct rq *rq) { }
+
 void __weak walt_update_cluster_topology(void) { }
+
+#if defined(CONFIG_UCLAMP_TASK_GROUP)
+void __weak walt_init_sched_boost(struct task_group *tg) { }
+#endif
