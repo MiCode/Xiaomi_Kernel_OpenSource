@@ -5873,6 +5873,33 @@ static void typec_ra_ra_insertion(struct smb_charger *chg)
 	smblib_hvdcp_detect_enable(chg, true);
 }
 
+static int smblib_role_switch_failure(struct smb_charger *chg)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chg->use_extcon)
+		return 0;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/*
+	 * When role switch fails notify the
+	 * current charger state to usb driver.
+	 */
+	if (pval.intval) {
+		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
+		smblib_notify_device_mode(chg, true);
+	}
+
+	return rc;
+}
+
 static int typec_partner_register(struct smb_charger *chg)
 {
 	int typec_mode, rc = 0;
@@ -5903,6 +5930,15 @@ static int typec_partner_register(struct smb_charger *chg)
 
 	if (typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
 			|| typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+
+		if (chg->typec_role_swap_failed) {
+			rc = smblib_role_switch_failure(chg);
+			if (rc < 0)
+				smblib_err(chg, "Failed to role switch rc=%d\n",
+					rc);
+			chg->typec_role_swap_failed = false;
+		}
+
 		typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
 		typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
 	} else {
@@ -6014,34 +6050,6 @@ unlock:
 	return rc;
 }
 
-static int smblib_role_switch_failure(struct smb_charger *chg, int mode)
-{
-	int rc = 0;
-	union power_supply_propval pval = {0, };
-
-	if (!chg->use_extcon)
-		return 0;
-
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	/*
-	 * When role switch fails notify the
-	 * current charger state to usb driver.
-	 */
-	if (pval.intval && (mode == TYPEC_PORT_SRC) &&
-				(chg->typec_mode == POWER_SUPPLY_TYPEC_NONE)) {
-		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
-		smblib_notify_device_mode(chg, true);
-	}
-
-	return rc;
-}
-
 static void smblib_typec_role_check_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -6071,13 +6079,11 @@ static void smblib_typec_role_check_work(struct work_struct *work)
 			|| chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
 			smblib_dbg(chg, PR_MISC, "Role reversal not latched to DFP in %d msecs. Resetting to DRP mode\n",
 						ROLE_REVERSAL_DELAY_MS);
+			chg->pr_swap_in_progress = false;
+			chg->typec_role_swap_failed = true;
 			rc = smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
 			if (rc < 0)
 				smblib_err(chg, "Failed to set DRP mode, rc=%d\n",
-					rc);
-			rc = smblib_role_switch_failure(chg, TYPEC_PORT_SRC);
-			if (rc < 0)
-				smblib_err(chg, "Failed to role switch rc=%d\n",
 					rc);
 		} else {
 			chg->power_role = POWER_SUPPLY_TYPEC_PR_SOURCE;
@@ -6478,6 +6484,11 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			schedule_delayed_work(&chg->pr_swap_detach_work,
 				msecs_to_jiffies(TYPEC_DETACH_DETECT_DELAY_MS));
 			smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
+			/*
+			 * To handle cable removal during role
+			 * swap failure.
+			 */
+			chg->typec_role_swap_failed = false;
 		}
 
 		mutex_unlock(&chg->typec_lock);
