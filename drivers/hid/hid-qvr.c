@@ -498,6 +498,14 @@ static int qvr_external_sensor_probe(struct hid_device *hdev,
 	struct qvr_external_sensor *sensor = &qvr_external_sensor;
 	int ret;
 	char *node_name = "qcom,smp2p-interrupt-qvrexternal-5-out";
+
+	//For devices with non-standard HID report descriptors, it is
+	//required to force the registration of an input device.
+	hdev->quirks |= HID_QUIRK_HIDINPUT_FORCE;
+
+	//Devices with non-standard incoming events need to use this quirk.
+	hdev->quirks |= HID_QUIRK_INCREMENT_USAGE_ON_DUPLICATE;
+
 	sensor->hdev = hdev;
 
 	ret = register_smp2p(&hdev->dev, node_name, &sensor->gpio_info_out);

@@ -258,6 +258,9 @@ enum arm_smmu_s2cr_privcfg {
 					 FSR_EF | FSR_PF | FSR_TF | FSR_IGN)
 
 #define FSYNR0_WNR			(1 << 4)
+#define FSYNR0_PNU			(1 << 5)
+#define FSYNR0_IND			(1 << 6)
+#define FSYNR0_NSATTR			(1 << 8)
 
 #define IMPL_DEF1_MICRO_MMU_CTRL	0
 #define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)

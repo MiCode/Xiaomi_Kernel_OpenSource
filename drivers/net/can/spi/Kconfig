@@ -14,4 +14,14 @@ config CAN_MCP251X
 	  Driver for the Microchip MCP251x and MCP25625 SPI CAN
 	  controllers.
 
+config CAN_MCP25XXFD
+	tristate "Microchip MCP25xxFD SPI CAN controllers"
+	depends on HAS_DMA
+	help
+	  The driver for the Microchip MCP25XXFD SPI FD-CAN
+	  controller family.
+	  Say yes here to build support for SPI to CAN devices
+	  mcp25xxfd. To compilethis driver as a module, choose
+	  M here: the module will be called mcp25xxfd.
+
 endmenu

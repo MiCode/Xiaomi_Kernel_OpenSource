@@ -1270,8 +1270,10 @@ static int context_build_overlap(struct smq_invoke_ctx *ctx)
 			if (ctx->overps[i]->end > max.end) {
 				max.end = ctx->overps[i]->end;
 			} else {
-				if (max.raix + 1 <= inbufs &&
-				ctx->overps[i]->raix + 1 > inbufs)
+				if ((max.raix < inbufs &&
+					ctx->overps[i]->raix + 1 > inbufs) ||
+					(ctx->overps[i]->raix < inbufs &&
+					max.raix + 1 > inbufs))
 					ctx->overps[i]->do_cmo = 1;
 				ctx->overps[i]->mend = 0;
 				ctx->overps[i]->mstart = 0;
@@ -1865,37 +1867,54 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (rpra && rpra[i].buf.len && (ctx->overps[oix]->mstart ||
 		ctx->overps[oix]->do_cmo == 1)) {
 			if (map && map->buf) {
-				if (((buf_page_size(ctx->overps[oix]->mend -
-				ctx->overps[oix]->mstart)) == map->size) ||
-				ctx->overps[oix]->do_cmo) {
+				if ((buf_page_size(ctx->overps[oix]->mend -
+				ctx->overps[oix]->mstart)) == map->size) {
 					dma_buf_begin_cpu_access(map->buf,
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
 						DMA_TO_DEVICE);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					rpra[i].buf.pv, ctx->overps[oix]->mend,
+					ctx->overps[oix]->mstart,
+					rpra[i].buf.len, map->size);
 				} else {
 					uintptr_t offset;
+					uint64_t flush_len;
 					struct vm_area_struct *vma;
 
 					down_read(&current->mm->mmap_sem);
 					VERIFY(err, NULL != (vma = find_vma(
-						current->mm,
-						ctx->overps[oix]->mstart)));
+						current->mm, rpra[i].buf.pv)));
 					if (err) {
 						up_read(&current->mm->mmap_sem);
 						goto bail;
 					}
-					offset = buf_page_start(
-						rpra[i].buf.pv) -
-						vma->vm_start;
+					if (ctx->overps[oix]->do_cmo) {
+						offset = rpra[i].buf.pv -
+								vma->vm_start;
+						flush_len = rpra[i].buf.len;
+					} else {
+						offset =
+						ctx->overps[oix]->mstart
+						- vma->vm_start;
+						flush_len =
+						ctx->overps[oix]->mend -
+						ctx->overps[oix]->mstart;
+					}
 					up_read(&current->mm->mmap_sem);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[oix]->mend -
-						ctx->overps[oix]->mstart);
+						flush_len);
 					dma_buf_end_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[oix]->mend -
-						ctx->overps[oix]->mstart);
+						flush_len);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x vm_start 0x%llx pv 0x%llx, offset 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					vma->vm_start, rpra[i].buf.pv, offset,
+					ctx->overps[oix]->mend,
+					ctx->overps[oix]->mstart,
+					rpra[i].buf.len, map->size);
 				}
 			} else
 				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
@@ -2007,37 +2026,55 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 		}
 		if (ctx->overps[i]->mstart || ctx->overps[i]->do_cmo == 1) {
 			if (map && map->buf) {
-				if (((buf_page_size(ctx->overps[i]->mend -
-				ctx->overps[i]->mstart)) == map->size) ||
-				ctx->overps[i]->do_cmo) {
+				if ((buf_page_size(ctx->overps[i]->mend -
+				ctx->overps[i]->mstart)) == map->size) {
 					dma_buf_begin_cpu_access(map->buf,
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
 						DMA_FROM_DEVICE);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					rpra[over].buf.pv, ctx->overps[i]->mend,
+					ctx->overps[i]->mstart,
+					rpra[over].buf.len, map->size);
 				} else {
 					uintptr_t offset;
+					uint64_t inv_len;
 					struct vm_area_struct *vma;
 
 					down_read(&current->mm->mmap_sem);
 					VERIFY(err, NULL != (vma = find_vma(
 						current->mm,
-						ctx->overps[i]->mstart)));
+						rpra[over].buf.pv)));
 					if (err) {
 						up_read(&current->mm->mmap_sem);
 						goto bail;
 					}
-					offset = buf_page_start(
-						rpra[over].buf.pv) -
-						vma->vm_start;
+					if (ctx->overps[i]->do_cmo) {
+						offset = rpra[over].buf.pv -
+								vma->vm_start;
+						inv_len = rpra[over].buf.len;
+					} else {
+						offset =
+							ctx->overps[i]->mstart -
+							vma->vm_start;
+						inv_len =
+							ctx->overps[i]->mend -
+							ctx->overps[i]->mstart;
+					}
 					up_read(&current->mm->mmap_sem);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[i]->mend -
-						ctx->overps[i]->mstart);
+						inv_len);
 					dma_buf_end_cpu_access_partial(map->buf,
 						DMA_FROM_DEVICE, offset,
-						ctx->overps[i]->mend -
-						ctx->overps[i]->mstart);
+						inv_len);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x vm_start 0x%llx pv 0x%llx, offset 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					vma->vm_start, rpra[over].buf.pv,
+					offset, ctx->overps[i]->mend,
+					ctx->overps[i]->mstart,
+					rpra[over].buf.len, map->size);
 			}
 		} else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[over].buf.pv),
@@ -3426,10 +3463,9 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rspFlags = 0, earlyWakeTime = 0;
-	int err = 0, cid;
-	struct fastrpc_channel_ctx *chan = 0;
+	int err = 0, cid = -1;
+	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
-	bool is_ctxtable_locked = false;
 
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
@@ -3463,31 +3499,28 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	if (rspFlags == COMPLETE_SIGNAL) {
-		spin_lock_irqsave(&chan->ctxlock, irq_flags);
-		is_ctxtable_locked = true;
-	}
+	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	VERIFY(err, !IS_ERR_OR_NULL(chan->ctxtable[index]));
 	if (err)
-		goto bail;
+		goto bail_unlock;
 
 	VERIFY(err, ((chan->ctxtable[index]->ctxid ==
 		(rsp->ctx & ~CONTEXT_PD_CHECK)) &&
 			chan->ctxtable[index]->magic ==
 				FASTRPC_CTX_MAGIC));
 	if (err)
-		goto bail;
+		goto bail_unlock;
 
 	if (rspv2) {
 		VERIFY(err, rspv2->version == FASTRPC_RSP_VERSION2);
 		if (err)
-			goto bail;
+			goto bail_unlock;
 	}
 	context_notify_user(chan->ctxtable[index], rsp->retval,
 				 rspFlags, earlyWakeTime);
+bail_unlock:
+	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 bail:
-	if (rspFlags == COMPLETE_SIGNAL && is_ctxtable_locked)
-		spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 	if (err)
 		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
 				__func__, data, len, err);

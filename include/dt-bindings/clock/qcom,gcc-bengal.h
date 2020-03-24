@@ -185,5 +185,6 @@
 #define GCC_VIDEO_INTERFACE_BCR					8
 #define GCC_USB3PHY_PHY_PRIM_SP0_BCR				9
 #define GCC_USB3_PHY_PRIM_SP0_BCR				10
+#define GCC_SDCC2_BCR						11
 
 #endif

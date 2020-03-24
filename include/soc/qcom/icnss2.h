@@ -69,6 +69,14 @@ struct icnss_shadow_reg_cfg {
 	u16 reg_offset;
 };
 
+struct icnss_shadow_reg_v2_cfg {
+	u32 addr;
+};
+
+struct icnss_rri_over_ddr_cfg {
+	u32 base_addr_low;
+	u32 base_addr_high;
+};
 /* CE configuration to target */
 struct icnss_wlan_enable_cfg {
 	u32 num_ce_tgt_cfg;
@@ -77,6 +85,10 @@ struct icnss_wlan_enable_cfg {
 	struct ce_svc_pipe_cfg *ce_svc_cfg;
 	u32 num_shadow_reg_cfg;
 	struct icnss_shadow_reg_cfg *shadow_reg_cfg;
+	u32 num_shadow_reg_v2_cfg;
+	struct icnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
+	bool rri_over_ddr_cfg_valid;
+	struct icnss_rri_over_ddr_cfg rri_over_ddr_cfg;
 };
 
 /* driver modes */
