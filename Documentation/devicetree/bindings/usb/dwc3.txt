@@ -68,6 +68,7 @@ Optional properties:
  - snps,usb3-u1u2-disable: If present, disable U1U2 low power modes in Superspeed mode
  - snps,disable-clk-gating: If present, disable controller's internal clock gating.
    Default it is enabled.
+ - num-gsi-eps: Number of GSI based hardware accelerated endpoints
 
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well
