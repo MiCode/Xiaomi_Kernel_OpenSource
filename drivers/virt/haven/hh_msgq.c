@@ -239,15 +239,12 @@ static int __hh_msgq_send(struct hh_msgq_cap_table *cap_table_entry,
 /**
  * hh_msgq_send: Send a message to the client on a different VM
  * @client_desc: The client descriptor that was obtained via hh_msgq_register()
- * @buff: Pointer to the buffer that needs to be sent. The buffer should be
- *        dynamically allocated via kmalloc/kzalloc.
+ * @buff: Pointer to the buffer that needs to be sent
  * @size: The size of the buffer
  * @flags: Optional flags to pass to send the data. For the list of flags,
  *         see linux/haven/hh_msgq.h
  *
- * The function would free the buffer upon success, and returns 0. The caller
- * should not be referencing the buffer anymore.
- * On the other hand, it returns -EINVAL if the caller passes invalid arguments,
+ * The function returns -EINVAL if the caller passes invalid arguments,
  * -EAGAIN if the message queue is not yet ready to communicate, and -EPERM if
  * the caller doesn't have permissions to send the data.
  *
@@ -311,12 +308,6 @@ int hh_msgq_send(void *msgq_client_desc,
 
 		ret = __hh_msgq_send(cap_table_entry, buff, size, flags);
 	} while (ret == -EAGAIN);
-
-	/* If the send is success, hypervisor should not be holding any
-	 * references to 'buff', and hence, can be released.
-	 */
-	if (!ret)
-		kfree(buff);
 
 	return ret;
 err:

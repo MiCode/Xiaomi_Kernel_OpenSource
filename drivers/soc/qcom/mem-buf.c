@@ -662,10 +662,16 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 
 	resp_msg->ret = ret;
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, resp_msg, sizeof(*resp_msg), 0);
+
+	/*
+	 * Free the buffer regardless of the return value as the hypervisor
+	 * would have consumed the data in the case of a success.
+	 */
+	kfree(resp_msg);
+
 	if (ret < 0) {
 		pr_err("%s: failed to send memory allocation response rc: %d\n",
 		       __func__, ret);
-		kfree(resp_msg);
 		mutex_lock(&mem_buf_xfer_mem_list_lock);
 		list_del(&xfer_mem->entry);
 		mutex_unlock(&mem_buf_xfer_mem_list_lock);
@@ -868,10 +874,15 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	}
 
 	ret = mem_buf_msg_send(alloc_req_msg, msg_size);
-	if (ret < 0) {
-		kfree(alloc_req_msg);
+
+	/*
+	 * Free the buffer regardless of the return value as the hypervisor
+	 * would have consumed the data in the case of a success.
+	 */
+	kfree(alloc_req_msg);
+
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = mem_buf_txn_wait(&txn);
 	if (ret < 0)
@@ -897,11 +908,16 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 	msg->hdl = membuf->memparcel_hdl;
 
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, msg, sizeof(*msg), 0);
-	if (ret < 0) {
+
+	/*
+	 * Free the buffer regardless of the return value as the hypervisor
+	 * would have consumed the data in the case of a success.
+	 */
+	kfree(msg);
+
+	if (ret < 0)
 		pr_err("%s failed to send memory relinquish message rc: %d\n",
 		       __func__, ret);
-		kfree(msg);
-	}
 }
 
 static int mem_buf_map_mem_s2(struct mem_buf_desc *membuf)
