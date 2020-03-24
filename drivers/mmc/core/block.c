@@ -3963,7 +3963,6 @@ static void mmc_blk_remove_req(struct mmc_blk_data *md)
 		queue_flag_set(QUEUE_FLAG_BYPASS, md->queue.queue);
 		spin_unlock_irq(md->queue.queue->queue_lock);
 		blk_set_queue_dying(md->queue.queue);
-		mmc_cleanup_queue(&md->queue);
 
 		if (md->flags & MMC_BLK_CMD_QUEUE)
 			mmc_cmdq_clean(&md->queue, card);
@@ -3984,6 +3983,7 @@ static void mmc_blk_remove_req(struct mmc_blk_data *md)
 
 			del_gendisk(md->disk);
 		}
+		mmc_cleanup_queue(&md->queue);
 		mmc_blk_put(md);
 	}
 }
