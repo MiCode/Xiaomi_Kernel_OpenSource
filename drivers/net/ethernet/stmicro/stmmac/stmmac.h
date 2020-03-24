@@ -102,7 +102,7 @@ struct stmmac_priv {
 	struct net_device *dev;
 	struct device *device;
 	struct mac_device_info *hw;
-
+	struct phy_device *phydev;
 	/* Mutex lock */
 	struct mutex lock;
 
