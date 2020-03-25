@@ -518,15 +518,20 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	int ret;
 	phys_addr_t phys = 0;
 	u64 val, fsr;
+	long iova_ext_bits = (s64)iova >> smmu->va_size;
+	bool split_tables = test_bit(DOMAIN_ATTR_SPLIT_TABLES,
+				     smmu_domain->attributes);
 	unsigned long flags;
 	int idx = cfg->cbndx;
 	u32 sctlr_orig, sctlr;
 	int needs_redo = 0;
 	ktime_t timeout;
 
-	/* only 36 bit iova is supported */
-	if (iova >= (1ULL << 36)) {
-		dev_err_ratelimited(smmu->dev, "ECATS: address too large: %pad\n",
+	if (iova_ext_bits && split_tables)
+		iova_ext_bits = ~iova_ext_bits;
+
+	if (iova_ext_bits) {
+		dev_err_ratelimited(smmu->dev, "ECATS: address out of bounds: %pad\n",
 					&iova);
 		return 0;
 	}
@@ -769,7 +774,7 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	if (!iommudata->has_actlr)
 		return;
 
-	tlb = smmu_domain->pgtbl_info.pgtbl_cfg.tlb;
+	tlb = smmu_domain->pgtbl_info[0].pgtbl_cfg.tlb;
 
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_ACTLR, iommudata->actlr);
 
