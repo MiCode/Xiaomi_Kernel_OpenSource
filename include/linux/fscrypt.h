@@ -16,10 +16,10 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <uapi/linux/fscrypt.h>
 
 #define FS_CRYPTO_BLOCK_SIZE		16
 
+struct fscrypt_ctx;
 struct fscrypt_info;
 
 struct fscrypt_str {
@@ -42,7 +42,7 @@ struct fscrypt_name {
 #define fname_len(p)		((p)->disk_name.len)
 
 /* Maximum value for the third parameter of fscrypt_operations.set_context(). */
-#define FSCRYPT_SET_CONTEXT_MAX_SIZE	40
+#define FSCRYPT_SET_CONTEXT_MAX_SIZE	28
 
 #ifdef CONFIG_FS_ENCRYPTION
 /*
@@ -61,10 +61,18 @@ struct fscrypt_operations {
 	bool (*dummy_context)(struct inode *);
 	bool (*empty_dir)(struct inode *);
 	unsigned int max_namelen;
-	bool (*has_stable_inodes)(struct super_block *sb);
-	void (*get_ino_and_lblk_bits)(struct super_block *sb,
-				      int *ino_bits_ret, int *lblk_bits_ret);
-	bool (*inline_crypt_enabled)(struct super_block *sb);
+};
+
+/* Decryption work */
+struct fscrypt_ctx {
+	union {
+		struct {
+			struct bio *bio;
+			struct work_struct work;
+		};
+		struct list_head free_list;	/* Free list */
+	};
+	u8 flags;				/* Flags */
 };
 
 static inline bool fscrypt_has_encryption_key(const struct inode *inode)
@@ -93,6 +101,8 @@ static inline void fscrypt_handle_d_move(struct dentry *dentry)
 
 /* crypto.c */
 extern void fscrypt_enqueue_decrypt_work(struct work_struct *);
+extern struct fscrypt_ctx *fscrypt_get_ctx(gfp_t);
+extern void fscrypt_release_ctx(struct fscrypt_ctx *);
 
 extern struct page *fscrypt_encrypt_pagecache_blocks(struct page *page,
 						     unsigned int len,
@@ -124,25 +134,13 @@ extern void fscrypt_free_bounce_page(struct page *bounce_page);
 /* policy.c */
 extern int fscrypt_ioctl_set_policy(struct file *, const void __user *);
 extern int fscrypt_ioctl_get_policy(struct file *, void __user *);
-extern int fscrypt_ioctl_get_policy_ex(struct file *, void __user *);
 extern int fscrypt_has_permitted_context(struct inode *, struct inode *);
 extern int fscrypt_inherit_context(struct inode *, struct inode *,
 					void *, bool);
-/* keyring.c */
-extern void fscrypt_sb_free(struct super_block *sb);
-extern int fscrypt_ioctl_add_key(struct file *filp, void __user *arg);
-extern int fscrypt_ioctl_remove_key(struct file *filp, void __user *arg);
-extern int fscrypt_ioctl_remove_key_all_users(struct file *filp,
-					      void __user *arg);
-extern int fscrypt_ioctl_get_key_status(struct file *filp, void __user *arg);
-extern int fscrypt_register_key_removal_notifier(struct notifier_block *nb);
-extern int fscrypt_unregister_key_removal_notifier(struct notifier_block *nb);
-
-/* keysetup.c */
+/* keyinfo.c */
 extern int fscrypt_get_encryption_info(struct inode *);
 extern void fscrypt_put_encryption_info(struct inode *);
 extern void fscrypt_free_inode(struct inode *);
-extern int fscrypt_drop_inode(struct inode *inode);
 
 /* fname.c */
 extern int fscrypt_setup_filename(struct inode *, const struct qstr *,
@@ -235,6 +233,8 @@ static inline bool fscrypt_match_name(const struct fscrypt_name *fname,
 
 /* bio.c */
 extern void fscrypt_decrypt_bio(struct bio *);
+extern void fscrypt_enqueue_decrypt_bio(struct fscrypt_ctx *ctx,
+					struct bio *bio);
 extern int fscrypt_zeroout_range(const struct inode *, pgoff_t, sector_t,
 				 unsigned int);
 
@@ -277,6 +277,16 @@ static inline void fscrypt_handle_d_move(struct dentry *dentry)
 /* crypto.c */
 static inline void fscrypt_enqueue_decrypt_work(struct work_struct *work)
 {
+}
+
+static inline struct fscrypt_ctx *fscrypt_get_ctx(gfp_t gfp_flags)
+{
+	return ERR_PTR(-EOPNOTSUPP);
+}
+
+static inline void fscrypt_release_ctx(struct fscrypt_ctx *ctx)
+{
+	return;
 }
 
 static inline struct page *fscrypt_encrypt_pagecache_blocks(struct page *page,
@@ -338,12 +348,6 @@ static inline int fscrypt_ioctl_get_policy(struct file *filp, void __user *arg)
 	return -EOPNOTSUPP;
 }
 
-static inline int fscrypt_ioctl_get_policy_ex(struct file *filp,
-					      void __user *arg)
-{
-	return -EOPNOTSUPP;
-}
-
 static inline int fscrypt_has_permitted_context(struct inode *parent,
 						struct inode *child)
 {
@@ -357,46 +361,7 @@ static inline int fscrypt_inherit_context(struct inode *parent,
 	return -EOPNOTSUPP;
 }
 
-/* keyring.c */
-static inline void fscrypt_sb_free(struct super_block *sb)
-{
-}
-
-static inline int fscrypt_ioctl_add_key(struct file *filp, void __user *arg)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline int fscrypt_ioctl_remove_key(struct file *filp, void __user *arg)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline int fscrypt_ioctl_remove_key_all_users(struct file *filp,
-						     void __user *arg)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline int fscrypt_ioctl_get_key_status(struct file *filp,
-					       void __user *arg)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline int fscrypt_register_key_removal_notifier(
-						struct notifier_block *nb)
-{
-	return 0;
-}
-
-static inline int fscrypt_unregister_key_removal_notifier(
-						struct notifier_block *nb)
-{
-	return 0;
-}
-
-/* keysetup.c */
+/* keyinfo.c */
 static inline int fscrypt_get_encryption_info(struct inode *inode)
 {
 	return -EOPNOTSUPP;
@@ -409,11 +374,6 @@ static inline void fscrypt_put_encryption_info(struct inode *inode)
 
 static inline void fscrypt_free_inode(struct inode *inode)
 {
-}
-
-static inline int fscrypt_drop_inode(struct inode *inode)
-{
-	return 0;
 }
 
  /* fname.c */
@@ -467,6 +427,11 @@ static inline bool fscrypt_match_name(const struct fscrypt_name *fname,
 
 /* bio.c */
 static inline void fscrypt_decrypt_bio(struct bio *bio)
+{
+}
+
+static inline void fscrypt_enqueue_decrypt_bio(struct fscrypt_ctx *ctx,
+					       struct bio *bio)
 {
 }
 
@@ -532,65 +497,6 @@ static inline const char *fscrypt_get_symlink(struct inode *inode,
 	return ERR_PTR(-EOPNOTSUPP);
 }
 #endif	/* !CONFIG_FS_ENCRYPTION */
-
-/* inline_crypt.c */
-#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
-extern bool fscrypt_inode_uses_inline_crypto(const struct inode *inode);
-
-extern bool fscrypt_inode_uses_fs_layer_crypto(const struct inode *inode);
-
-extern int fscrypt_set_bio_crypt_ctx(struct bio *bio, const struct inode *inode,
-				     u64 first_lblk, gfp_t gfp_mask);
-
-extern int fscrypt_set_bio_crypt_ctx_bh(struct bio *bio,
-					const struct buffer_head *first_bh,
-					gfp_t gfp_mask);
-
-extern bool fscrypt_mergeable_bio(struct bio *bio, const struct inode *inode,
-				  u64 next_lblk);
-
-extern bool fscrypt_mergeable_bio_bh(struct bio *bio,
-				     const struct buffer_head *next_bh);
-
-#else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
-static inline bool fscrypt_inode_uses_inline_crypto(const struct inode *inode)
-{
-	return false;
-}
-
-static inline bool fscrypt_inode_uses_fs_layer_crypto(const struct inode *inode)
-{
-	return IS_ENCRYPTED(inode) && S_ISREG(inode->i_mode);
-}
-
-static inline int fscrypt_set_bio_crypt_ctx(struct bio *bio,
-					    const struct inode *inode,
-					    u64 first_lblk, gfp_t gfp_mask)
-{
-	return 0;
-}
-
-static inline int fscrypt_set_bio_crypt_ctx_bh(
-					struct bio *bio,
-					const struct buffer_head *first_bh,
-					gfp_t gfp_mask)
-{
-	return 0;
-}
-
-static inline bool fscrypt_mergeable_bio(struct bio *bio,
-					 const struct inode *inode,
-					 u64 next_lblk)
-{
-	return true;
-}
-
-static inline bool fscrypt_mergeable_bio_bh(struct bio *bio,
-					    const struct buffer_head *next_bh)
-{
-	return true;
-}
-#endif /* !CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 
 /**
  * fscrypt_require_key - require an inode's encryption key
