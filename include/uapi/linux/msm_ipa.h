@@ -403,8 +403,8 @@ enum ipa_client_type {
 	IPA_CLIENT_Q6_CV2X_PROD	= 106,
 	IPA_CLIENT_Q6_CV2X_CONS	= 107,
 
-	IPA_CLIENT_MHI_QMAP_PROD = 108,
-	IPA_CLIENT_MHI_QMAP_CONS = 109,
+	IPA_CLIENT_MHI_LOW_LAT_PROD = 108,
+	IPA_CLIENT_MHI_LOW_LAT_CONS = 109,
 
 	/* RESERVERD PROD					= 110, */
 	IPA_CLIENT_MHI_QDSS_CONS = 111,
@@ -526,8 +526,8 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_MHI_PROD || \
 	(client) == IPA_CLIENT_MHI2_PROD || \
 	(client) == IPA_CLIENT_MHI2_CONS || \
-	(client) == IPA_CLIENT_MHI_QMAP_PROD || \
-	(client) == IPA_CLIENT_MHI_QMAP_CONS || \
+	(client) == IPA_CLIENT_MHI_LOW_LAT_PROD || \
+	(client) == IPA_CLIENT_MHI_LOW_LAT_CONS || \
 	(client) == IPA_CLIENT_MHI_DPL_CONS || \
 	(client) == IPA_CLIENT_MHI_QDSS_CONS)
 
