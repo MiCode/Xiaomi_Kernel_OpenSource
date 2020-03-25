@@ -216,4 +216,6 @@ static inline int cpuhp_smt_disable(enum cpuhp_smt_control ctrlval) { return 0; 
 extern bool cpu_mitigations_off(void);
 extern bool cpu_mitigations_auto_nosmt(void);
 
+extern unsigned int logical_bootcpu_id;
+
 #endif /* _LINUX_CPU_H_ */

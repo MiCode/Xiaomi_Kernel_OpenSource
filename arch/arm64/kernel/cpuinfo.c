@@ -387,7 +387,7 @@ void cpuinfo_store_cpu(void)
 
 void __init cpuinfo_store_boot_cpu(void)
 {
-	struct cpuinfo_arm64 *info = &per_cpu(cpu_data, 0);
+	struct cpuinfo_arm64 *info = &per_cpu(cpu_data, logical_bootcpu_id);
 	__cpuinfo_store_cpu(info);
 
 	boot_cpu_data = *info;
