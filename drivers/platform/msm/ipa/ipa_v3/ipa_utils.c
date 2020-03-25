@@ -2602,6 +2602,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 10, 13, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_MHI][IPA_CLIENT_MHI_QMAP_PROD] = {
+			true, IPA_v4_5_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_PCIE,
+			{ 3, 5, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	/* Only for test purpose */
 	[IPA_4_5_MHI][IPA_CLIENT_TEST_PROD]           = {
 			true, QMB_MASTER_SELECT_DDR,
@@ -2688,7 +2694,18 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
 			{ 22, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
-
+	[IPA_4_5_MHI][IPA_CLIENT_MHI_QMAP_CONS] = {
+			true, IPA_v4_5_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 30, 6, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+	[IPA_4_5_MHI][IPA_CLIENT_MHI_QDSS_CONS] = {
+			true, IPA_v4_5_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 24, 3, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_5_MHI][IPA_CLIENT_DUMMY_CONS]          = {
 			true, QMB_MASTER_SELECT_DDR,
@@ -3527,6 +3544,7 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	if (client == IPA_CLIENT_USB_CONS     ||
 		client == IPA_CLIENT_USB2_CONS    ||
 	    client == IPA_CLIENT_USB_DPL_CONS ||
+	    client == IPA_CLIENT_MHI_QDSS_CONS ||
 	    client == IPA_CLIENT_MHI_CONS     ||
 	    client == IPA_CLIENT_MHI_DPL_CONS ||
 	    client == IPA_CLIENT_HSIC1_CONS   ||
