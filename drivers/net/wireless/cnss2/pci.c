@@ -1881,7 +1881,7 @@ static int cnss_qca6290_ramdump(struct cnss_pci_data *pci_priv)
 	struct ramdump_segment *ramdump_segs, *s;
 	int i, ret = 0;
 
-	if (!info_v2->dump_data_valid ||
+	if (!info_v2->dump_data_valid || !dump_seg ||
 	    dump_data->nentries == 0)
 		return 0;
 
@@ -3926,6 +3926,11 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	rddm_image = pci_priv->mhi_ctrl->rddm_image;
 	dump_data->nentries = 0;
 
+	if (!dump_seg) {
+		cnss_pr_warn("FW image dump collection not setup");
+		goto skip_dump;
+	}
+
 	cnss_pr_dbg("Collect FW image dump segment, nentries %d\n",
 		    fw_image->entries);
 
@@ -3971,6 +3976,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	if (dump_data->nentries > 0)
 		plat_priv->ramdump_info_v2.dump_data_valid = true;
 
+skip_dump:
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_DONE);
 	complete(&plat_priv->rddm_complete);
 }
@@ -3983,6 +3989,9 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 	struct image_info *fw_image, *rddm_image;
 	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
 	int i, j;
+
+	if (!dump_seg)
+		return;
 
 	fw_image = pci_priv->mhi_ctrl->fbc_image;
 	rddm_image = pci_priv->mhi_ctrl->rddm_image;
