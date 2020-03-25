@@ -49,7 +49,7 @@ struct arch_info {
 #define DLOG "Dev->Host: "
 #define HLOG "Host: "
 
-#define MHI_TSYNC_LOG_PAGES (10)
+#define MHI_TSYNC_LOG_PAGES (2)
 
 #ifdef CONFIG_MHI_DEBUG
 
@@ -416,7 +416,7 @@ static int mhi_bl_probe(struct mhi_device *mhi_device,
 		 mhi_device->slot);
 
 	arch_info->boot_dev = mhi_device;
-	arch_info->boot_ipc_log = ipc_log_context_create(MHI_IPC_LOG_PAGES,
+	arch_info->boot_ipc_log = ipc_log_context_create(MHI_CNTRL_LOG_PAGES,
 							 node_name, 0);
 	ipc_log_string(arch_info->boot_ipc_log, HLOG
 		       "Entered SBL, Session ID:0x%x\n", mhi_cntrl->session_id);
