@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012,2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012,2017-2018,2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -131,7 +131,8 @@ of_coresight_get_reg_clk(struct device *dev, const struct device_node *node)
 
 	nr_reg = of_property_count_strings(node, "qcom,proxy-regs");
 	nr_clk = of_property_count_strings(node, "qcom,proxy-clks");
-	if (!nr_reg && !nr_clk)
+
+	if (nr_reg <= 0 && nr_clk <= 0)
 		return NULL;
 
 	reg_clk = devm_kzalloc(dev, sizeof(*reg_clk), GFP_KERNEL);
