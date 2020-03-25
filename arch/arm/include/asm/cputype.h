@@ -80,6 +80,7 @@
 #define ARM_CPU_PART_CORTEX_A72		0x4100d080
 #define ARM_CPU_PART_CORTEX_A73		0x4100d090
 #define ARM_CPU_PART_CORTEX_A75		0x4100d0a0
+#define QCOM_CPU_PART_KRYO2XX_GOLD	0x51008000
 #define ARM_CPU_PART_MASK		0xff00fff0
 
 /* Broadcom implemented processors */
