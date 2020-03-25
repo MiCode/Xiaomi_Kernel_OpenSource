@@ -70,6 +70,18 @@
 			regulator-name = "pcie_0_gdsc";
 		};
 
+		pcie_1_gdsc: pcie_1_gdsc {
+			regulator-name = "pcie_1_gdsc";
+		};
+
+		pcie_2_gdsc: pcie_2_gdsc {
+			regulator-name = "pcie_2_gdsc";
+		};
+
+		pcie_3_gdsc: pcie_3_gdsc {
+			regulator-name = "pcie_3_gdsc";
+		};
+
 		L2A: pm8195_1_l2: regulator-pm8195-1-l2 {
 			regulator-name = "ldoa2";
 			regulator-min-microvolt = <1800000>;
