@@ -460,7 +460,8 @@ static void usb_notifier(void *priv, unsigned int event,
 		break;
 
 	case USB_QDSS_DISCONNECT:
-		/* Leave MHI/USB open.Only close on MHI disconnect */
+		if (drvdata->opened == ENABLE)
+			usb_qdss_free_req(drvdata->usb_ch);
 		break;
 
 	case USB_QDSS_DATA_WRITE_DONE:
