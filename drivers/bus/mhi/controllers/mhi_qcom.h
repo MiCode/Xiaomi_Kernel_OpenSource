@@ -48,9 +48,12 @@ enum mhi_suspend_mode {
 	MHI_DEFAULT_SUSPEND,
 	MHI_FAST_LINK_OFF,
 	MHI_FAST_LINK_ON,
+	MHI_SUSPEND_MODE_MAX,
 };
 
-#define MHI_IS_SUSPENDED(mode) (mode)
+extern const char * const mhi_suspend_mode_str[MHI_SUSPEND_MODE_MAX];
+#define TO_MHI_SUSPEND_MODE_STR(mode) \
+	(mode >= MHI_SUSPEND_MODE_MAX ? "Invalid" : mhi_suspend_mode_str[mode])
 
 struct mhi_dev {
 	struct pci_dev *pci_dev;
