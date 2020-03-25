@@ -95,18 +95,23 @@
 #define GSI_TRB_ADDR_BIT_53_MASK	(1 << 21)
 #define GSI_TRB_ADDR_BIT_55_MASK	(1 << 23)
 
-#define	GSI_GENERAL_CFG_REG(offset) (QSCRATCH_REG_OFFSET + offset)
+#define	GSI_GENERAL_CFG_REG(reg)	(QSCRATCH_REG_OFFSET + \
+						reg[GENERAL_CFG_REG])
 #define	GSI_RESTART_DBL_PNTR_MASK	BIT(20)
 #define	GSI_CLK_EN_MASK			BIT(12)
 #define	BLOCK_GSI_WR_GO_MASK		BIT(1)
 #define	GSI_EN_MASK			BIT(0)
 
-#define GSI_DBL_ADDR_L(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
-#define GSI_DBL_ADDR_H(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
-#define GSI_RING_BASE_ADDR_L(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
-#define GSI_RING_BASE_ADDR_H(offset, n)	((QSCRATCH_REG_OFFSET + offset) + (n*4))
+#define GSI_DBL_ADDR_L(reg, n)		(QSCRATCH_REG_OFFSET + \
+						reg[DBL_ADDR_L] + (n*4))
+#define GSI_DBL_ADDR_H(reg, n)		(QSCRATCH_REG_OFFSET + \
+						reg[DBL_ADDR_H] + (n*4))
+#define GSI_RING_BASE_ADDR_L(reg, n)	(QSCRATCH_REG_OFFSET + \
+						reg[RING_BASE_ADDR_L] + (n*4))
+#define GSI_RING_BASE_ADDR_H(reg, n)	(QSCRATCH_REG_OFFSET + \
+						reg[RING_BASE_ADDR_H] + (n*4))
 
-#define	GSI_IF_STS(offset)	(QSCRATCH_REG_OFFSET + offset)
+#define	GSI_IF_STS(reg)			(QSCRATCH_REG_OFFSET + reg[IF_STS])
 #define	GSI_WR_CTRL_STATE_MASK	BIT(15)
 
 #define DWC3_GEVNTCOUNT_EVNTINTRPTMASK		(1 << 31)
@@ -985,8 +990,7 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	int n = ep->ep_intr_num - 1;
 
-	dwc3_msm_write_reg(mdwc->base,
-		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
+	dwc3_msm_write_reg(mdwc->base, GSI_RING_BASE_ADDR_L(mdwc->gsi_reg, n),
 		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
 	if (!request->mapped_db_reg_phs_addr_lsb) {
@@ -1011,20 +1015,17 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 	 * Replace dummy doorbell address with real one as IPA connection
 	 * is setup now and GSI must be ready to handle doorbell updates.
 	 */
-	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_DBL_ADDR_H(mdwc->gsi_reg[DBL_ADDR_H], (n)),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_DBL_ADDR_H(mdwc->gsi_reg, n),
 			~0x0, 0x0);
 
-	dwc3_msm_write_reg(mdwc->base,
-		GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
+	dwc3_msm_write_reg(mdwc->base, GSI_DBL_ADDR_L(mdwc->gsi_reg, n),
 		(u32)request->mapped_db_reg_phs_addr_lsb);
 	dev_dbg(mdwc->dev, "Ring Base Addr %d: %x (LSB)\n", n,
 		dwc3_msm_read_reg(mdwc->base,
-			GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L],
-								(n))));
+			GSI_RING_BASE_ADDR_L(mdwc->gsi_reg, n)));
 	dev_dbg(mdwc->dev, "GSI DB Addr %d: %x (LSB)\n", n,
 		dwc3_msm_read_reg(mdwc->base,
-			GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n))));
+			GSI_DBL_ADDR_L(mdwc->gsi_reg, n)));
 }
 
 /**
@@ -1045,17 +1046,20 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 	int num_trbs = (dep->direction) ? (2 * (request->num_bufs) + 2)
 					: (request->num_bufs + 2);
 
-	gsi_dbl_address_lsb = devm_ioremap_nocache(mdwc->dev,
-				request->db_reg_phs_addr_lsb, sizeof(u32));
+	gsi_dbl_address_lsb = ioremap_nocache(request->db_reg_phs_addr_lsb,
+				sizeof(u32));
 	if (!gsi_dbl_address_lsb) {
-		dev_err(mdwc->dev, "Failed to get GSI DBL address LSB\n");
+		dev_err(mdwc->dev, "Failed to map GSI DBL address LSB 0x%x\n",
+				request->db_reg_phs_addr_lsb);
 		return;
 	}
 
-	gsi_dbl_address_msb = devm_ioremap_nocache(mdwc->dev,
-			request->db_reg_phs_addr_msb, sizeof(u32));
+	gsi_dbl_address_msb = ioremap_nocache(request->db_reg_phs_addr_msb,
+				sizeof(u32));
 	if (!gsi_dbl_address_msb) {
-		dev_err(mdwc->dev, "Failed to get GSI DBL address MSB\n");
+		dev_err(mdwc->dev, "Failed to map GSI DBL address MSB 0x%x\n",
+				request->db_reg_phs_addr_msb);
+		iounmap(gsi_dbl_address_lsb);
 		return;
 	}
 
@@ -1071,6 +1075,9 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 	readl_relaxed(gsi_dbl_address_lsb);
 	writel_relaxed(0, gsi_dbl_address_msb);
 	readl_relaxed(gsi_dbl_address_msb);
+
+	iounmap(gsi_dbl_address_lsb);
+	iounmap(gsi_dbl_address_msb);
 }
 
 /**
@@ -1335,12 +1342,10 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	int ret;
 
 	/* setup dummy doorbell as IPA connection isn't setup yet */
-	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_DBL_ADDR_H(mdwc->gsi_reg[DBL_ADDR_H], (n)),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_DBL_ADDR_H(mdwc->gsi_reg, n),
 			~0x0, (u32)((u64)mdwc->dummy_gsi_db_dma >> 32));
 
-	dwc3_msm_write_reg_field(mdwc->base,
-			GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_DBL_ADDR_L(mdwc->gsi_reg, n),
 			~0x0, (u32)mdwc->dummy_gsi_db_dma);
 	dev_dbg(mdwc->dev, "Dummy DB Addr %pK: %llx %llx (LSB)\n",
 		&mdwc->dummy_gsi_db, mdwc->dummy_gsi_db_dma,
@@ -1423,18 +1428,14 @@ static void gsi_enable(struct usb_ep *ep)
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
-	dwc3_msm_write_reg_field(mdwc->base,
-		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
 		GSI_CLK_EN_MASK, 1);
-	dwc3_msm_write_reg_field(mdwc->base,
-		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
 		GSI_RESTART_DBL_PNTR_MASK, 1);
-	dwc3_msm_write_reg_field(mdwc->base,
-		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
 		GSI_RESTART_DBL_PNTR_MASK, 0);
 	dev_dbg(mdwc->dev, "%s: Enable GSI\n", __func__);
-	dwc3_msm_write_reg_field(mdwc->base,
-		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
 		GSI_EN_MASK, 1);
 }
 
@@ -1454,8 +1455,7 @@ static void gsi_set_clear_dbell(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	dbg_log_string("block_db(%d)", block_db);
-	dwc3_msm_write_reg_field(mdwc->base,
-		GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+	dwc3_msm_write_reg_field(mdwc->base, GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
 		BLOCK_GSI_WR_GO_MASK, block_db);
 }
 
@@ -1469,7 +1469,7 @@ static bool gsi_check_ready_to_suspend(struct dwc3_msm *mdwc)
 	u32	timeout = 1500;
 
 	while (dwc3_msm_read_reg_field(mdwc->base,
-		GSI_IF_STS(mdwc->gsi_reg[IF_STS]), GSI_WR_CTRL_STATE_MASK)) {
+		GSI_IF_STS(mdwc->gsi_reg), GSI_WR_CTRL_STATE_MASK)) {
 		if (!timeout--) {
 			dev_err(mdwc->dev,
 			"Unable to suspend GSI ch. WR_CTRL_STATE != 0\n");
@@ -2156,7 +2156,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 	case DWC3_CONTROLLER_NOTIFY_CLEAR_DB:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
 		dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
 			BLOCK_GSI_WR_GO_MASK, true);
 		break;
 	default:
