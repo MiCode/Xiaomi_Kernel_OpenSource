@@ -576,7 +576,6 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 {
 	struct f_qdss *qdss;
 	int status;
-	unsigned long flags;
 
 	qdss = container_of(work, struct f_qdss, disconnect_w);
 	pr_debug("%s\n", __func__);
@@ -598,14 +597,6 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		status = set_qdss_data_connection(qdss, 0);
 		if (status)
 			pr_err("qdss_disconnect error\n");
-
-		spin_lock_irqsave(&qdss->lock, flags);
-		if (qdss->endless_req) {
-			usb_ep_free_request(qdss->port.data,
-					qdss->endless_req);
-			qdss->endless_req = NULL;
-		}
-		spin_unlock_irqrestore(&qdss->lock, flags);
 	}
 
 	/*
