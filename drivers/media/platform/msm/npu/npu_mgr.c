@@ -85,6 +85,7 @@ static void npu_dequeue_misc_cmd(struct npu_host_ctx *ctx,
 	struct npu_misc_cmd *cmd);
 static struct npu_misc_cmd *npu_find_misc_cmd(struct npu_host_ctx *ctx,
 	uint32_t trans_id);
+static int npu_get_fw_caps(struct npu_device *npu_dev);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -211,6 +212,37 @@ load_fw_fail:
 	return ret;
 }
 
+static int npu_get_fw_caps(struct npu_device *npu_dev)
+{
+	int ret = 0, i;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	if (host_ctx->fw_caps_valid) {
+		NPU_DBG("cached fw caps available\n");
+		return ret;
+	}
+
+	memset(&host_ctx->fw_caps, 0, sizeof(host_ctx->fw_caps));
+	host_ctx->fw_caps.prop_id = MSM_NPU_PROP_ID_FW_GETCAPS;
+	host_ctx->fw_caps.num_of_params = PROP_PARAM_MAX_SIZE;
+
+	ret = npu_host_get_fw_property(npu_dev, &host_ctx->fw_caps);
+	if (!ret) {
+		NPU_DBG("Get fw caps successfully\n");
+		host_ctx->fw_caps_valid = true;
+
+		for (i = 0; i < host_ctx->fw_caps.num_of_params; i++)
+			NPU_INFO("fw caps %d:%x\n", i,
+				host_ctx->fw_caps.prop_param[i]);
+	} else {
+		/* save the return code */
+		host_ctx->fw_caps_err_code = ret;
+		NPU_ERR("get fw caps failed %d\n", ret);
+	}
+
+	return ret;
+}
+
 static void npu_load_fw_work(struct work_struct *work)
 {
 	int ret;
@@ -224,8 +256,12 @@ static void npu_load_fw_work(struct work_struct *work)
 	ret = load_fw_nolock(npu_dev, false);
 	mutex_unlock(&host_ctx->lock);
 
-	if (ret)
+	if (ret) {
 		NPU_ERR("load fw failed %d\n", ret);
+		return;
+	}
+
+	npu_get_fw_caps(npu_dev);
 }
 
 int load_fw(struct npu_device *npu_dev)
@@ -265,6 +301,8 @@ int unload_fw(struct npu_device *npu_dev)
 
 	subsystem_put_local(host_ctx->subsystem_handle);
 	host_ctx->fw_state = FW_UNLOADED;
+	host_ctx->fw_caps_valid = false;
+	host_ctx->fw_caps_err_code = 0;
 	NPU_DBG("fw is unloaded\n");
 	mutex_unlock(&host_ctx->lock);
 
@@ -736,6 +774,8 @@ int npu_host_init(struct npu_device *npu_dev)
 
 	INIT_LIST_HEAD(&host_ctx->misc_cmd_list);
 	host_ctx->auto_pil_disable = false;
+	host_ctx->fw_caps_valid = false;
+	host_ctx->fw_caps_err_code = 0;
 
 	return 0;
 
@@ -2125,7 +2165,13 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 		break;
 	default:
 		NPU_ERR("unsupported property %d\n", property->prop_id);
-		goto set_prop_exit;
+		goto free_prop_packet;
+	}
+
+	ret = enable_fw(npu_dev);
+	if (ret) {
+		NPU_ERR("failed to enable fw\n");
+		goto free_prop_packet;
 	}
 
 	prop_packet->header.cmd_type = NPU_IPC_CMD_SET_PROPERTY;
@@ -2140,16 +2186,17 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 	for (i = 0; i < num_of_params; i++)
 		prop_packet->prop_param[i] = property->prop_param[i];
 
-	mutex_lock(&host_ctx->lock);
 	misc_cmd = npu_alloc_misc_cmd(host_ctx);
 	if (!misc_cmd) {
 		NPU_ERR("Can't allocate misc_cmd\n");
 		ret = -ENOMEM;
-		goto set_prop_exit;
+		goto disable_fw;
 	}
 
 	misc_cmd->cmd_type = NPU_IPC_CMD_SET_PROPERTY;
 	misc_cmd->trans_id = prop_packet->header.trans_id;
+
+	mutex_lock(&host_ctx->lock);
 	npu_queue_misc_cmd(host_ctx, misc_cmd);
 
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
@@ -2183,10 +2230,13 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 
 free_misc_cmd:
 	npu_dequeue_misc_cmd(host_ctx, misc_cmd);
-	npu_free_misc_cmd(host_ctx, misc_cmd);
-set_prop_exit:
 	mutex_unlock(&host_ctx->lock);
+	npu_free_misc_cmd(host_ctx, misc_cmd);
+disable_fw:
+	disable_fw(npu_dev);
+free_prop_packet:
 	kfree(prop_packet);
+
 	return ret;
 }
 
@@ -2204,6 +2254,15 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 		NPU_ERR("Not supproted fw property id %x\n",
 			property->prop_id);
 		return -EINVAL;
+	} else if (property->prop_id == MSM_NPU_PROP_ID_FW_GETCAPS) {
+		if (host_ctx->fw_caps_valid) {
+			NPU_DBG("return cached fw_caps\n");
+			memcpy(property, &host_ctx->fw_caps, sizeof(*property));
+			return 0;
+		} else if (host_ctx->fw_caps_err_code) {
+			NPU_DBG("return cached error code\n");
+			return host_ctx->fw_caps_err_code;
+		}
 	}
 
 	num_of_params = min_t(uint32_t, property->num_of_params,
@@ -2213,6 +2272,12 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 
 	if (!prop_packet)
 		return -ENOMEM;
+
+	ret = enable_fw(npu_dev);
+	if (ret) {
+		NPU_ERR("failed to enable fw\n");
+		goto free_prop_packet;
+	}
 
 	prop_packet->header.cmd_type = NPU_IPC_CMD_GET_PROPERTY;
 	prop_packet->header.size = pkt_size;
@@ -2226,16 +2291,17 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 	for (i = 0; i < num_of_params; i++)
 		prop_packet->prop_param[i] = property->prop_param[i];
 
-	mutex_lock(&host_ctx->lock);
 	misc_cmd = npu_alloc_misc_cmd(host_ctx);
 	if (!misc_cmd) {
 		NPU_ERR("Can't allocate misc_cmd\n");
 		ret = -ENOMEM;
-		goto get_prop_exit;
+		goto disable_fw;
 	}
 
 	misc_cmd->cmd_type = NPU_IPC_CMD_GET_PROPERTY;
 	misc_cmd->trans_id = prop_packet->header.trans_id;
+
+	mutex_lock(&host_ctx->lock);
 	npu_queue_misc_cmd(host_ctx, misc_cmd);
 
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
@@ -2264,26 +2330,43 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 	}
 
 	ret = misc_cmd->ret_status;
+	prop_from_fw = &misc_cmd->u.prop;
 	if (!ret) {
 		/* Return prop data retrieved from fw to user */
-		prop_from_fw = &misc_cmd->u.prop;
 		if (property->prop_id == prop_from_fw->prop_id &&
 			property->network_hdl == prop_from_fw->network_hdl) {
+			num_of_params = min_t(uint32_t,
+				prop_from_fw->num_of_params,
+				(uint32_t)PROP_PARAM_MAX_SIZE);
 			property->num_of_params = num_of_params;
 			for (i = 0; i < num_of_params; i++)
 				property->prop_param[i] =
 					prop_from_fw->prop_param[i];
+		} else {
+			NPU_WARN("Not Match: id %x:%x hdl %x:%x\n",
+				property->prop_id, prop_from_fw->prop_id,
+				property->network_hdl,
+				prop_from_fw->network_hdl);
+			property->num_of_params = 0;
 		}
 	} else {
 		NPU_ERR("get fw property failed %d\n", ret);
+		NPU_ERR("prop_id: %x\n", prop_from_fw->prop_id);
+		NPU_ERR("network_hdl: %x\n", prop_from_fw->network_hdl);
+		NPU_ERR("param_num: %x\n", prop_from_fw->num_of_params);
+		for (i = 0; i < prop_from_fw->num_of_params; i++)
+			NPU_ERR("%x\n", prop_from_fw->prop_param[i]);
 	}
 
 free_misc_cmd:
 	npu_dequeue_misc_cmd(host_ctx, misc_cmd);
-	npu_free_misc_cmd(host_ctx, misc_cmd);
-get_prop_exit:
 	mutex_unlock(&host_ctx->lock);
+	npu_free_misc_cmd(host_ctx, misc_cmd);
+disable_fw:
+	disable_fw(npu_dev);
+free_prop_packet:
 	kfree(prop_packet);
+
 	return ret;
 }
 
