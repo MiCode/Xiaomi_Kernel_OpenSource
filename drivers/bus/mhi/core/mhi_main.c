@@ -2105,9 +2105,10 @@ error_invalid_state:
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 {
 	struct mhi_controller *mhi_cntrl = m->private;
+	struct mhi_link_info *cur_info = &mhi_cntrl->mhi_link_info;
 
 	seq_printf(m,
-		   "[%llu ns]: pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
+		   "[%llu ns]: pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u last_requested_bw:GEN%dx%d\n",
 		   sched_clock(),
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
@@ -2116,7 +2117,9 @@ int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 		   mhi_cntrl->M3_FAST, mhi_cntrl->wake_set,
 		   atomic_read(&mhi_cntrl->dev_wake),
 		   atomic_read(&mhi_cntrl->alloc_size),
-		   atomic_read(&mhi_cntrl->pending_pkts));
+		   atomic_read(&mhi_cntrl->pending_pkts),
+		   cur_info->target_link_speed,
+		   cur_info->target_link_width);
 	return 0;
 }
 
@@ -2232,7 +2235,7 @@ int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d)
 
 	mhi_dev = mhi_cntrl->mhi_dev;
 
-	seq_printf(m, "At %llu ns:\n", sched_clock());
+	seq_printf(m, "[%llu ns]:\n", sched_clock());
 	seq_printf(m, "%s: device:%u, bus:%u\n", mhi_dev->chan_name,
 		   atomic_read(&mhi_dev->dev_vote),
 		   atomic_read(&mhi_dev->bus_vote));
