@@ -405,6 +405,10 @@ int mmc_clk_update_freq_deferred(struct mmc_host *host,
 	else
 		pr_err("%s: %s: failed (%d) at freq=%lu\n",
 			mmc_hostname(host), __func__, err, freq);
+
+	mmc_log_string(host,
+			"deferred clock scale state %d freq %lu done with err %d\n",
+			state, freq, err);
 	/*
 	 * CQE would be enabled as part of CQE issueing path
 	 * So no need to unhalt it explicitly
@@ -613,6 +617,8 @@ void mmc_deferred_scaling(struct mmc_host *host)
 	pr_debug("%s: doing deferred frequency change (%lu) (%s)\n",
 				mmc_hostname(host),
 				target_freq, current->comm);
+	mmc_log_string(host, "doing deferred frequency change (%lu) (%s)\n",
+			target_freq, current->comm);
 
 	err = mmc_clk_update_freq_deferred(host, target_freq,
 		clk_scaling.state);
