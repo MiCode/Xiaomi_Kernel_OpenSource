@@ -3517,8 +3517,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
 							   &priv->xstats,
 							   rx_q->dma_erx +
 							   entry);
-		if (unlikely(status == discard_frame)) {
-			priv->dev->stats.rx_errors++;
+		if (unlikely(status & discard_frame)) {
+			if (!(status & ctxt_desc))
+				priv->dev->stats.rx_errors++;
 			if (priv->hwts_rx_en && !priv->extend_desc) {
 				/* DESC2 & DESC3 will be overwritten by device
 				 * with timestamp value, hence reinitialize
