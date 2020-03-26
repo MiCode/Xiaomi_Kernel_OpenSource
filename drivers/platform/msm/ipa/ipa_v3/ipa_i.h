@@ -1791,6 +1791,7 @@ struct ipa3_app_clock_vote {
  * @logbuf_low: ipc log buffer for low priority messages
  * @ipa_wdi2: using wdi-2.0
  * @ipa_fltrt_not_hashable: filter/route rules not hashable
+ * @use_xbl_boot: use xbl loading for IPA FW
  * @use_64_bit_dma_mask: using 64bits dma mask
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
@@ -1902,6 +1903,7 @@ struct ipa3_context {
 	bool ipa_wdi3_over_gsi;
 	bool ipa_endp_delay_wa;
 	bool ipa_fltrt_not_hashable;
+	bool use_xbl_boot;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
@@ -2015,6 +2017,7 @@ struct ipa3_plat_drv_res {
 	bool ipa_wdi2_over_gsi;
 	bool ipa_wdi3_over_gsi;
 	bool ipa_fltrt_not_hashable;
+	bool use_xbl_boot;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
 	u32 wan_rx_ring_size;
