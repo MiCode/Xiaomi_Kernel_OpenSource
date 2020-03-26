@@ -223,6 +223,7 @@
 #define IPA_FLT_EXT_L2TP_UDP_INNER_ETHER_TYPE       (1ul << 1)
 #define IPA_FLT_EXT_MTU     (1ul << 2)
 #define IPA_FLT_EXT_L2TP_UDP_INNER_NEXT_HDR		(1ul << 3)
+#define IPA_FLT_EXT_NEXT_HDR				(1ul << 4)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -2286,6 +2287,7 @@ enum ipa_l2tp_tunnel_type {
  * @tunnel_type: l2tp tunnel type
  * @src_port: UDP source port
  * @dst_port: UDP destination port
+ * @mtu: MTU of the L2TP interface
  */
 struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_ip_type iptype;
@@ -2295,6 +2297,7 @@ struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_l2tp_tunnel_type tunnel_type;
 	uint16_t src_port;
 	uint16_t dst_port;
+	uint16_t mtu;
 };
 
 /**

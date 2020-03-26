@@ -1398,6 +1398,17 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip6(u16 *en_rule,
 		extra = ipa_write_8(attrib->u.v6.next_hdr, extra);
 	}
 
+	if (attrib->ext_attrib_mask & IPA_FLT_EXT_NEXT_HDR) {
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+		/* 134  => offset of Next header after v6 header. */
+		extra = ipa_write_8(134, extra);
+		rest = ipa_write_32(0xFF000000, rest);
+		rest = ipa_write_32(attrib->u.v6.next_hdr << 24, rest);
+		extra = ipa_write_8(attrib->u.v6.next_hdr, extra);
+		ihl_ofst_meq32++;
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_TC) {
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_TC_EQ);
 		extra = ipa_write_8(attrib->u.v6.tc, extra);
