@@ -38,6 +38,10 @@
 #include <backend/gpu/mali_kbase_devfreq.h>
 #include <mali_kbase_dummy_job_wa.h>
 
+#ifdef ENABLE_COMMON_DVFS
+extern unsigned int (*mtk_get_gpu_loading_fp)(void);
+#endif /* ENABLE_COMMON_DVFS */
+
 static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data);
 static void kbase_pm_hwcnt_disable_worker(struct work_struct *data);
 static void kbase_pm_gpu_clock_control_worker(struct work_struct *data);
@@ -143,6 +147,11 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 	kbdev->pm.backend.driver_ready_for_irqs = false;
 #endif /* CONFIG_MALI_DEBUG */
 	init_waitqueue_head(&kbdev->pm.backend.gpu_in_desired_state_wait);
+
+#ifdef ENABLE_COMMON_DVFS
+	/* MTK MET use */
+	mtk_get_gpu_loading_fp = kbasep_get_gl_utilization;
+#endif /* ENABLE_COMMON_DVFS */
 
 	/* Initialise the metrics subsystem */
 	ret = kbasep_pm_metrics_init(kbdev);
