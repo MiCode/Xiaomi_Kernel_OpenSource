@@ -44,6 +44,11 @@
 /* Timeout Delay */
 #define TIMEOUT_US		100
 
+struct collapse_vote {
+	struct regmap	*regmap;
+	u32		vote_bit;
+};
+
 struct gdsc {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
@@ -52,6 +57,7 @@ struct gdsc {
 	struct regmap           *domain_addr;
 	struct regmap           *hw_ctrl;
 	struct regmap           *sw_reset;
+	struct collapse_vote	collapse_vote;
 	struct clk		**clocks;
 	struct reset_control	**reset_clocks;
 	bool			toggle_logic;
@@ -123,7 +129,8 @@ static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 
 static int gdsc_init_is_enabled(struct gdsc *sc)
 {
-	uint32_t regval;
+	struct regmap *regmap;
+	uint32_t regval, mask;
 	int ret;
 
 	if (!sc->toggle_logic) {
@@ -131,11 +138,19 @@ static int gdsc_init_is_enabled(struct gdsc *sc)
 		return 0;
 	}
 
-	ret = regmap_read(sc->regmap, REG_OFFSET, &regval);
+	if (sc->collapse_vote.regmap) {
+		regmap = sc->collapse_vote.regmap;
+		mask = BIT(sc->collapse_vote.vote_bit);
+	} else {
+		regmap = sc->regmap;
+		mask = SW_COLLAPSE_MASK;
+	}
+
+	ret = regmap_read(regmap, REG_OFFSET, &regval);
 	if (ret < 0)
 		return ret;
 
-	sc->is_gdsc_enabled = !(regval & SW_COLLAPSE_MASK);
+	sc->is_gdsc_enabled = !(regval & mask);
 
 	return 0;
 }
@@ -220,9 +235,16 @@ static int gdsc_enable(struct regulator_dev *rdev)
 			gdsc_mb(sc);
 		}
 
-		regmap_read(sc->regmap, REG_OFFSET, &regval);
-		regval &= ~SW_COLLAPSE_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		/* Enable gdsc */
+		if (sc->collapse_vote.regmap) {
+			regmap_update_bits(sc->collapse_vote.regmap, REG_OFFSET,
+					   BIT(sc->collapse_vote.vote_bit),
+					   ~BIT(sc->collapse_vote.vote_bit));
+		} else {
+			regmap_read(sc->regmap, REG_OFFSET, &regval);
+			regval &= ~SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+		}
 
 		/* Wait for 8 XO cycles before polling the status bit. */
 		gdsc_mb(sc);
@@ -327,9 +349,16 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	udelay(1);
 
 	if (sc->toggle_logic) {
-		regmap_read(sc->regmap, REG_OFFSET, &regval);
-		regval |= SW_COLLAPSE_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		/* Disable gdsc */
+		if (sc->collapse_vote.regmap) {
+			regmap_update_bits(sc->collapse_vote.regmap, REG_OFFSET,
+					   BIT(sc->collapse_vote.vote_bit),
+					   BIT(sc->collapse_vote.vote_bit));
+		} else {
+			regmap_read(sc->regmap, REG_OFFSET, &regval);
+			regval |= SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+		}
 
 		/* Wait for 8 XO cycles before polling the status bit. */
 		gdsc_mb(sc);
@@ -561,6 +590,28 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 	sc->retain_ff_enable = of_property_read_bool(dev->of_node,
 						"qcom,retain-regs");
 
+	if (of_find_property(dev->of_node, "qcom,collapse-vote", NULL)) {
+		ret = of_property_count_u32_elems(dev->of_node,
+						  "qcom,collapse-vote");
+		if (ret != 2) {
+			dev_err(dev, "qcom,collapse-vote needs two values\n");
+			return -EINVAL;
+		}
+
+		sc->collapse_vote.regmap =
+			syscon_regmap_lookup_by_phandle(dev->of_node,
+							"qcom,collapse-vote");
+		if (IS_ERR(sc->collapse_vote.regmap))
+			return PTR_ERR(sc->collapse_vote.regmap);
+		ret = of_property_read_u32_index(dev->of_node,
+						 "qcom,collapse-vote", 1,
+						 &sc->collapse_vote.vote_bit);
+		if (ret || sc->collapse_vote.vote_bit > 31) {
+			dev_err(dev, "qcom,collapse-vote vote_bit error\n");
+			return ret;
+		}
+	}
+
 	sc->toggle_logic = !of_property_read_bool(dev->of_node,
 						"qcom,skip-logic-collapse");
 	if (!sc->toggle_logic) {
@@ -755,7 +806,7 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sc);
 
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id gdsc_match_table[] = {
