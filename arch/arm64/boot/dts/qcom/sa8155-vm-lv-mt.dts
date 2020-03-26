@@ -16,7 +16,7 @@
 #include "sa8155-vm-lv-mt.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA8155 Virtual Machine";
+	model = "Qualcomm Technologies, Inc. SA8155 Multi LV Virtual Machine";
 	compatible = "qcom,sa8155";
 	qcom,pmic-name = "PM8150";
 	qcom,board-id = <0 0>;
