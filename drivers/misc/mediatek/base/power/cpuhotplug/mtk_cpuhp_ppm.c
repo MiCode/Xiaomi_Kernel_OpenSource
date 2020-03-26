@@ -17,7 +17,7 @@
 #include <linux/cpumask.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
-
+#include <linux/of.h>
 #include <mtk_ppm_api.h>
 #include <linux/nmi.h>
 
@@ -137,7 +137,21 @@ static void ppm_limit_callback(struct ppm_client_req req)
 
 void ppm_notifier(void)
 {
+	unsigned int cpu;
+	struct device_node *dn = 0;
+	const char *smp_method = 0;
 	cpumask_copy(&ppm_online_cpus, cpu_online_mask);
+
+	for_each_present_cpu(cpu) {
+		dn = of_get_cpu_node(cpu, NULL);
+		smp_method = of_get_property(dn, "smp-method", NULL);
+		if (smp_method != NULL) {
+			if (!strcmp("disabled", smp_method)) {
+				pr_info("[ENTER Hotplug DEBUG MODE!!!]\n");
+				return;
+			}
+		}
+	}
 
 	/* register PPM callback */
 	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
