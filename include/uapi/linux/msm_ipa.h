@@ -380,9 +380,13 @@ enum ipa_client_type {
 	IPA_CLIENT_MHI_PRIME_RMNET_PROD		= 100,
 	IPA_CLIENT_MHI_PRIME_RMNET_CONS		= 101,
 	IPA_CLIENT_MHI_PRIME_DPL_PROD		= 102,
+	/* RESERVERD CONS»       »       »       »       »       = 103, */
+	IPA_CLIENT_MHI_LOW_LAT_PROD = 104,
+	IPA_CLIENT_MHI_LOW_LAT_CONS = 105,
+
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_PRIME_DPL_PROD + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_LOW_LAT_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -486,12 +490,15 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_MHI_CONS(client) \
 	((client) == IPA_CLIENT_MHI_CONS || \
-	(client) == IPA_CLIENT_MHI_DPL_CONS)
+	(client) == IPA_CLIENT_MHI_DPL_CONS || \
+	(client) == IPA_CLIENT_MHI_LOW_LAT_CONS)
 
 #define IPA_CLIENT_IS_MHI(client) \
 	((client) == IPA_CLIENT_MHI_CONS || \
 	(client) == IPA_CLIENT_MHI_PROD || \
-	(client) == IPA_CLIENT_MHI_DPL_CONS)
+	(client) == IPA_CLIENT_MHI_DPL_CONS || \
+	(client) == IPA_CLIENT_MHI_LOW_LAT_PROD)
+
 
 #define IPA_CLIENT_IS_TEST_PROD(client) \
 	((client) == IPA_CLIENT_TEST_PROD || \
