@@ -1491,6 +1491,7 @@
 #include "shima-usb.dtsi"
 #include "ipcc-test-shima.dtsi"
 #include "msm-arm-smmu-shima.dtsi"
+#include "shima-vidc.dtsi"
 
 &gcc_pcie_0_gdsc {
 	status = "ok";
