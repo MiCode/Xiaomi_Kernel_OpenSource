@@ -1036,6 +1036,7 @@
 		qcom,gds-timeout = <500>;
 		parent-supply = <&VDD_CX_LEVEL>;
 		qcom,retain-regs;
+		qcom,no-status-check-on-disable;
 	};
 
 	gcc_pcie_1_gdsc: qcom,gdsc@18d004 {
@@ -1045,6 +1046,7 @@
 		qcom,gds-timeout = <500>;
 		parent-supply = <&VDD_CX_LEVEL>;
 		qcom,retain-regs;
+		qcom,no-status-check-on-disable;
 	};
 
 	gcc_ufs_card_gdsc: qcom,gdsc@175004 {
