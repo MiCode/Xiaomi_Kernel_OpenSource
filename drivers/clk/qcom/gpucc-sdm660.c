@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,7 +142,7 @@ static struct clk_init_data gpu_clks_init[] = {
 		.parent_names = gpucc_parent_names_1,
 		.num_parents = 3,
 		.ops = &clk_gfx3d_src_ops,
-		.flags = CLK_SET_RATE_PARENT,
+		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
 	},
 	[1] = {
 		.name = "gpucc_gfx3d_clk",
