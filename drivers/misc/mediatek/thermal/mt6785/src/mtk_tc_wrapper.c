@@ -1075,30 +1075,3 @@ int tscpu_thermal_clock_off(void)
 	return ret;
 }
 
-#if defined(THERMAL_AEE_SELECTED_TS)
-int (*get_aee_selected_tsX[THERMAL_AEE_MAX_SELECTED_TS])(void) = {
-#if CFG_LVTS_DOMINATOR
-	get_immediate_ts0_wrap,
-#if CFG_THERM_LVTS
-	get_immediate_tslvts3_1_wrap,
-	get_immediate_tslvts3_0_wrap,
-	get_immediate_tslvts4_0_wrap,
-	get_immediate_tslvts2_0_wrap,
-	get_immediate_tslvts2_1_wrap,
-	get_immediate_tslvts2_2_wrap,
-	get_immediate_tslvts1_0_wrap,
-	get_immediate_tslvts1_1_wrap,
-#endif
-#else
-	get_immediate_ts0_wrap,
-	get_immediate_ts1_wrap,
-	get_immediate_ts2_wrap,
-	get_immediate_ts4_wrap,
-	get_immediate_ts5_wrap,
-	get_immediate_ts6_wrap,
-	get_immediate_ts7_wrap,
-	get_immediate_ts8_wrap,
-	get_immediate_ts9_wrap,
-#endif
-};
-#endif

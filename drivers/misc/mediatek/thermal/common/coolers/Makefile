@@ -14,6 +14,7 @@
 THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/ppm_v3/src/mach/$(MTK_PLATFORM)
@@ -27,6 +28,7 @@ ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
 endif
 ifeq ($(CONFIG_MTK_APUSYS_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)
@@ -207,7 +209,7 @@ endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
-    obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
+    obj-$(CONFIG_THERMAL) += mtk_cooler_mutt_gen97.o
 endif
 #obj-$(CONFIG_THERMAL) += mtk_cooler_fps.o
 ifeq ($(CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT),y)
@@ -218,8 +220,8 @@ else
 		ifeq ($(CONFIG_MTK_DUAL_CHARGER_SUPPORT),y)
 			obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
 		endif
-	#else
-	#	obj-$(CONFIG_THERMAL) += mtk_cooler_bcct.o
+	else
+		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct.o
 	endif
 endif
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
@@ -228,3 +230,4 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 #obj-$(CONFIG_THERMAL) += mtk_cooler_NR.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 endif
+

@@ -27,6 +27,7 @@
 #include <linux/uaccess.h>
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
+#include "mtk_cooler_setting.h"
 
 #define MAX_NUM_INSTANCE_MTK_COOLER_CAM  3
 
@@ -56,6 +57,9 @@ static unsigned long cl_cam_urgent_state;
 static unsigned int _cl_cam_urgent;
 static unsigned int _cl_cam_status;
 static unsigned int _cl_cam_dual_off;
+#if defined(THERMAL_APU_UNLIMIT)
+static unsigned int _cl_apu_status;
+#endif
 /* < 20C: DualCam off, >= 20C: DualCam on */
 static int dualcam_Tj_jump_threshold = 10000;
 /*single cam = 1, dual cam = 0, default = 0*/
@@ -73,6 +77,28 @@ enum {
 	CL_CAM_ACTIVE = 1,
 	CL_CAM_URGENT = 2
 };
+
+#if defined(THERMAL_APU_UNLIMIT)
+void cl_set_apu_status(int vv)
+{
+
+	mtk_cooler_cam_dprintk("[Thermal/TC/cam]%s %d\n", __func__,
+		_cl_apu_status);
+	_cl_apu_status = vv;
+
+}
+EXPORT_SYMBOL(cl_set_apu_status);
+unsigned int cl_get_apu_status(void)
+{
+	//if(_cl_apu_status == 1)
+	//	mtk_cooler_cam_dprintk_always("%s %d\n", __func__,
+	//_cl_apu_status);
+	return _cl_apu_status;
+
+}
+EXPORT_SYMBOL(cl_get_apu_status);
+
+#endif
 
 int cl_cam_dualcam_off(void)
 {
@@ -221,6 +247,55 @@ static int mtk_cl_cam_set_cur_state
 
 	return 0;
 }
+
+#if defined(THERMAL_APU_UNLIMIT)
+static ssize_t _cl_apu_status_write
+	(struct file *filp, const char __user *buf, size_t len, loff_t *data)
+{
+	int ret = 0;
+	char tmp[128] = { 0 };
+
+	len = (len < (128 - 1)) ? len : (128 - 1);
+	/* write data to the buffer */
+	if (copy_from_user(tmp, buf, len))
+		return -EFAULT;
+
+	ret = kstrtouint(tmp, 10, &_cl_apu_status);
+	if (ret)
+		WARN_ON_ONCE(1);
+
+	mtk_cooler_cam_dprintk_always(
+		"%s %s = %d\n", __func__, tmp, _cl_apu_status);
+
+	return len;
+}
+
+static int _cl_apu_status_read(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", _cl_apu_status);
+
+	if (_cl_apu_status)
+		mtk_cooler_cam_dprintk_always(
+			"%s: %d\n", __func__, _cl_apu_status);
+
+	return 0;
+}
+
+static int _cl_apu_status_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, _cl_apu_status_read, PDE_DATA(inode));
+}
+
+static const struct file_operations _cl_apu_status_fops = {
+	.owner = THIS_MODULE,
+	.open = _cl_apu_status_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = _cl_apu_status_write,
+	.release = single_release,
+};
+#endif
+
 
 /* bind fan callbacks to fan device */
 static struct thermal_cooling_device_ops mtk_cl_cam_ops = {
@@ -513,6 +588,16 @@ static int __init mtk_cooler_cam_init(void)
 		entry->read_proc = _cl_cam_read;
 		entry->write_proc = _cl_cam_write;
 	}
+#endif
+#if defined(THERMAL_APU_UNLIMIT)
+	entry = proc_create("driver/cl_apu_status", 0664,
+				NULL, &_cl_apu_status_fops);
+	if (entry)
+		proc_set_user(entry, uid, gid);
+	else
+		mtk_cooler_cam_dprintk(
+			"%s driver/cl_apu_status creation failed\n",
+			__func__);
 #endif
 	entry = proc_create("driver/cl_cam", 0644, NULL, &_cl_cam_fops);
 
