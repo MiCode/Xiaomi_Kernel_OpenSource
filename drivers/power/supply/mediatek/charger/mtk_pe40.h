@@ -56,6 +56,10 @@ struct pe40_data {
 	int pe40_max_vbus;
 	int pe40_max_ibus;
 	int ibus_err;
+	int high_temp_to_enter_pe40;
+	int low_temp_to_enter_pe40;
+	int high_temp_to_leave_pe40;
+	int low_temp_to_leave_pe40;
 	int pe40_r_cable_3a_lower;
 	int pe40_r_cable_2a_lower;
 	int pe40_r_cable_1a_lower;
