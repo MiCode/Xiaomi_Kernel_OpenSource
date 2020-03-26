@@ -592,6 +592,12 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 static int hlosvm[1] = {VMID_HLOS};
 static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
+static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
+					FASTRPC_MAX_DSP_ATTRIBUTES] = {
+	1
+	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
+};
+
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
 
 static inline int64_t getnstimediff(struct timespec64 *start)
@@ -3202,31 +3208,37 @@ bail:
 }
 
 static int fastrpc_get_info_from_kernel(
-		struct fastrpc_ioctl_remote_dsp_capability *dsp_cap,
+		struct fastrpc_ioctl_capability *cap,
 		struct fastrpc_file *fl)
 {
 	int err = 0;
 	uint32_t domain_support;
-	uint32_t domain = dsp_cap->domain;
+	uint32_t domain = cap->domain;
 	uint32_t async_capability = IS_ASYNC_FASTRPC_AVAILABLE;
 	struct fastrpc_dsp_capabilities *dsp_cap_ptr;
 
-	VERIFY(err, dsp_cap->domain < NUM_CHANNELS);
+	VERIFY(err, cap->domain < NUM_CHANNELS);
 
 	/*
 	 * Check if number of attribute IDs obtained from userspace
 	 * is less than the number of attribute IDs supported by
 	 * kernel
 	 */
-	if (dsp_cap->attribute_ID >= FASTRPC_MAX_DSP_ATTRIBUTES) {
+	if (cap->attribute_ID >= FASTRPC_MAX_ATTRIBUTES) {
 		err = EOVERFLOW;
-		dsp_cap->capability = 0;
+		cap->capability = 0;
 		goto bail;
 	}
 
 	dsp_cap_ptr = &gcinfo[domain].dsp_cap_kernel;
 
-	if (!dsp_cap_ptr->is_cached) {
+	if (cap->attribute_ID >= FASTRPC_MAX_DSP_ATTRIBUTES) {
+		// Driver capability, pass it to user
+		memcpy(&cap->capability,
+			&kernel_capabilities[cap->attribute_ID -
+			FASTRPC_MAX_DSP_ATTRIBUTES],
+			sizeof(cap->capability));
+	} else if (!dsp_cap_ptr->is_cached) {
 		/*
 		 * Information not on kernel, query device for information
 		 * and cache on kernel
@@ -3246,8 +3258,8 @@ static int fastrpc_get_info_from_kernel(
 			memset(&dsp_cap_ptr->dsp_attributes,
 				0,
 				sizeof(dsp_cap_ptr->dsp_attributes));
-			memset(&dsp_cap->capability,
-				0, sizeof(dsp_cap->capability));
+			memset(&cap->capability,
+				0, sizeof(cap->capability));
 			break;
 		case 1:
 			async_capability =
@@ -3255,9 +3267,9 @@ static int fastrpc_get_info_from_kernel(
 				dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP];
 			dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP] =
 				async_capability;
-			memcpy(&dsp_cap->capability,
-			&dsp_cap_ptr->dsp_attributes[dsp_cap->attribute_ID],
-			sizeof(dsp_cap->capability));
+			memcpy(&cap->capability,
+			&dsp_cap_ptr->dsp_attributes[cap->attribute_ID],
+			sizeof(cap->capability));
 			break;
 		default:
 			err = -1;
@@ -3275,9 +3287,9 @@ static int fastrpc_get_info_from_kernel(
 		dsp_cap_ptr->is_cached = 1;
 	} else {
 		// Information on Kernel, pass it to user
-		memcpy(&dsp_cap->capability,
-			&dsp_cap_ptr->dsp_attributes[dsp_cap->attribute_ID],
-			sizeof(dsp_cap->capability));
+		memcpy(&cap->capability,
+			&dsp_cap_ptr->dsp_attributes[cap->attribute_ID],
+			sizeof(cap->capability));
 	}
 bail:
 	return err;
@@ -4677,27 +4689,27 @@ bail:
 }
 
 static int fastrpc_get_dsp_info(
-		struct fastrpc_ioctl_remote_dsp_capability *dsp_cap,
+		struct fastrpc_ioctl_capability *cap,
 		void *param, struct fastrpc_file *fl)
 {
 	int err = 0;
 
-	K_COPY_FROM_USER(err, 0, dsp_cap, param,
-			sizeof(struct fastrpc_ioctl_remote_dsp_capability));
-	VERIFY(err, dsp_cap->domain < NUM_CHANNELS);
+	K_COPY_FROM_USER(err, 0, cap, param,
+			sizeof(struct fastrpc_ioctl_capability));
+	VERIFY(err, cap->domain < NUM_CHANNELS);
 	if (err)
 		goto bail;
 
-	err = fastrpc_get_info_from_kernel(dsp_cap, fl);
+	err = fastrpc_get_info_from_kernel(cap, fl);
 	if (err)
 		goto bail;
 	K_COPY_TO_USER(
 			err,
 			0,
-			&((struct fastrpc_ioctl_remote_dsp_capability *)
+			&((struct fastrpc_ioctl_capability *)
 				param)->capability,
-			&dsp_cap->capability,
-			sizeof(dsp_cap->capability));
+			&cap->capability,
+			sizeof(cap->capability));
 bail:
 	return err;
 }
@@ -4715,7 +4727,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
 		struct fastrpc_ioctl_control cp;
-		struct fastrpc_ioctl_remote_dsp_capability dsp_cap;
+		struct fastrpc_ioctl_capability cap;
 		struct fastrpc_ioctl_invoke2 inv2;
 	} p;
 	union {
@@ -4871,7 +4883,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_GET_DSP_INFO:
-		err = fastrpc_get_dsp_info(&p.dsp_cap, param, fl);
+		err = fastrpc_get_dsp_info(&p.cap, param, fl);
 		break;
 	default:
 		err = -ENOTTY;
