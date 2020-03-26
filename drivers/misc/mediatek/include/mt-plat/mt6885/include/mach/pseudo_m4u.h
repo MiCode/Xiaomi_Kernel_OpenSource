@@ -29,8 +29,6 @@
 #define PSEUDO_M4U_TEE_SERVICE_ENABLE
 #elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define PSEUDO_M4U_TEE_SERVICE_ENABLE
-#elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
-#define PSEUDO_M4U_TEE_SERVICE_ENABLE
 #endif
 #endif
 
@@ -39,15 +37,8 @@
 #define M4U_MTEE_SERVICE_ENABLE
 #elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define M4U_MTEE_SERVICE_ENABLE
-#elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
-#define M4U_MTEE_SERVICE_ENABLE
 #endif
 #endif
-
-/* Notice: mt6885 can use it in normal world, but from mt6873,
- * 0xf80 is not support in normal world.
- */
-#define SMI_LARB_SEC_CON_EN
 
 #define M4U_PAGE_SIZE	0x1000
 
@@ -83,7 +74,7 @@ struct M4U_PORT_STRUCT {
 	unsigned int domain;            /*domain : 0 1 2 3*/
 	unsigned int Distance;
 	unsigned int Direction;         /* 0:- 1:+*/
-	char name[128];
+	char *name;
 };
 
 /* module related:  alloc/dealloc MVA buffer */
@@ -135,7 +126,6 @@ struct m4u_client_t {
 	pid_t open_pid;
 	pid_t open_tgid;
 	struct list_head mvaList;
-	unsigned long count;
 };
 
 struct port_mva_info_t {
@@ -184,9 +174,8 @@ int m4u_dealloc_mva_sg(int eModuleID,
 int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 		     struct sg_table *sg_table);
 
-int m4u_mva_map_kernel(unsigned long mva,
-	unsigned long size, unsigned long *map_va,
-	unsigned long *map_size, struct sg_table *table);
+int m4u_mva_map_kernel(unsigned long mva, unsigned long size,
+		       unsigned long *map_va, unsigned long *map_size);
 int m4u_mva_unmap_kernel(unsigned long mva, unsigned long size,
 		       unsigned long va);
 #ifndef IOVA_PFN
@@ -201,9 +190,6 @@ int m4u_get_boundary(int port);
 int pseudo_config_port_tee(int kernelport);
 int m4u_switch_acp(unsigned int port,
 		unsigned long iova, size_t size, bool is_acp);
-void pseudo_m4u_db_debug(unsigned int m4uid,
-		struct seq_file *s);
-int m4u_get_dma_buf_port(struct device *dev);
 
 static inline bool m4u_enable_4G(void)
 {
@@ -223,28 +209,13 @@ void __iommu_dma_unmap(struct iommu_domain *domain, dma_addr_t dma_addr);
 #define MTK_M4U_T_DUMP_INFO           _IOW(MTK_M4U_MAGICNO, 3, int)
 #define MTK_M4U_T_ALLOC_MVA           _IOWR(MTK_M4U_MAGICNO, 4, int)
 #define MTK_M4U_T_DEALLOC_MVA         _IOW(MTK_M4U_MAGICNO, 5, int)
-#define MTK_M4U_T_INSERT_TLB_RANGE    _IOW(MTK_M4U_MAGICNO, 6, int)
-#define MTK_M4U_T_INVALID_TLB_RANGE   _IOW(MTK_M4U_MAGICNO, 7, int)
-#define MTK_M4U_T_INVALID_TLB_ALL     _IOW(MTK_M4U_MAGICNO, 8, int)
-#define MTK_M4U_T_MANUAL_INSERT_ENTRY _IOW(MTK_M4U_MAGICNO, 9, int)
-#define MTK_M4U_T_CACHE_SYNC          _IOW(MTK_M4U_MAGICNO, 10, int)
-#define MTK_M4U_T_CONFIG_PORT         _IOW(MTK_M4U_MAGICNO, 11, int)
-#define MTK_M4U_T_CONFIG_ASSERT       _IOW(MTK_M4U_MAGICNO, 12, int)
-#define MTK_M4U_T_INSERT_WRAP_RANGE   _IOW(MTK_M4U_MAGICNO, 13, int)
-#define MTK_M4U_T_MONITOR_START       _IOW(MTK_M4U_MAGICNO, 14, int)
-#define MTK_M4U_T_MONITOR_STOP        _IOW(MTK_M4U_MAGICNO, 15, int)
-#define MTK_M4U_T_RESET_MVA_RELEASE_TLB  _IOW(MTK_M4U_MAGICNO, 16, int)
-#define MTK_M4U_T_CONFIG_PORT_ROTATOR _IOW(MTK_M4U_MAGICNO, 17, int)
-#define MTK_M4U_T_QUERY_MVA           _IOW(MTK_M4U_MAGICNO, 18, int)
-#define MTK_M4U_T_M4UDrv_CONSTRUCT    _IOW(MTK_M4U_MAGICNO, 19, int)
-#define MTK_M4U_T_M4UDrv_DECONSTRUCT  _IOW(MTK_M4U_MAGICNO, 20, int)
-#define MTK_M4U_T_DUMP_PAGETABLE      _IOW(MTK_M4U_MAGICNO, 21, int)
-#define MTK_M4U_T_REGISTER_BUFFER     _IOW(MTK_M4U_MAGICNO, 22, int)
-#define MTK_M4U_T_CACHE_FLUSH_ALL     _IOW(MTK_M4U_MAGICNO, 23, int)
-#define MTK_M4U_T_CONFIG_PORT_ARRAY   _IOW(MTK_M4U_MAGICNO, 26, int)
-#define MTK_M4U_T_CONFIG_MAU          _IOW(MTK_M4U_MAGICNO, 27, int)
-#define MTK_M4U_T_CONFIG_TF           _IOW(MTK_M4U_MAGICNO, 28, int)
-#define MTK_M4U_T_DMA_OP              _IOW(MTK_M4U_MAGICNO, 29, int)
+#define MTK_M4U_T_CONFIG_PORT         _IOW(MTK_M4U_MAGICNO, 6, int)
+#define MTK_M4U_T_MONITOR_START       _IOW(MTK_M4U_MAGICNO, 7, int)
+#define MTK_M4U_T_MONITOR_STOP        _IOW(MTK_M4U_MAGICNO, 8, int)
+#define MTK_M4U_T_DUMP_PAGETABLE      _IOW(MTK_M4U_MAGICNO, 9, int)
+#define MTK_M4U_T_CONFIG_PORT_ARRAY   _IOW(MTK_M4U_MAGICNO, 10, int)
+#define MTK_M4U_T_CONFIG_MAU          _IOW(MTK_M4U_MAGICNO, 11, int)
+#define MTK_M4U_T_CONFIG_TF           _IOW(MTK_M4U_MAGICNO, 12, int)
 #define MTK_M4U_T_SEC_INIT            _IOW(MTK_M4U_MAGICNO, 50, int)
 
 #if IS_ENABLED(CONFIG_COMPAT)
@@ -276,10 +247,10 @@ int pseudo_get_iova_space(int port,
 		struct list_head *list);
 void pseudo_put_iova_space(int port,
 		struct list_head *list);
-void m4u_dump_pgtable(unsigned int level, unsigned long target);
+void m4u_dump_pgtable(unsigned int level);
 void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
-		bool lock, unsigned long target);
-int pseudo_dump_port(int port, bool ignore_power);
+		bool lock);
+int pseudo_dump_port(int port);
 int pseudo_dump_all_port_status(struct seq_file *s);
 int pseudo_dump_iova_reserved_region(struct seq_file *s);
 
@@ -298,11 +269,10 @@ int pseudo_dump_iova_reserved_region(struct seq_file *s);
 #define F_SMI_ADDR_BIT32	F_MSK(15, 8)
 #define F_SMI_ADDR_BIT32_VAL(regval) F_MSK_SHIFT(regval, 15, 8)
 
-#ifdef SMI_LARB_SEC_CON_EN
 #define SMI_LARB_SEC_CONx(larb_port)	(0xf80 + ((larb_port)<<2))
 #define F_SMI_SEC_MMU_EN(en)	F_BIT_VAL(en, 0)
 #define F_SMI_SEC_EN(sec)	F_BIT_VAL(sec, 1)
 #define F_SMI_DOMN(domain)	F_VAL(domain, 8, 4)
 #define F_SMI_DOMN_VAL(regval)	F_MSK_SHIFT(regval, 8, 4)
-#endif
+
 #endif

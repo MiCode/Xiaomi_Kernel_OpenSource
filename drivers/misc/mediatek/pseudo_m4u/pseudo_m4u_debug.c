@@ -34,10 +34,6 @@
 #include "trusted_mem_api.h"
 #endif
 
-#define M4U_MAGIC_KEY	(0x14045a)
-#define M4U_CMD_SHIFT	(8)
-#define M4U_CMD_MASK	(0xff)
-
 int test_mva;
 
 unsigned int gM4U_seed_mva;
@@ -45,9 +41,9 @@ unsigned int gM4U_seed_mva;
 int pseudo_test_alloc_dealloc(int port, unsigned long va,
 		unsigned int size, struct sg_table *sg_table)
 {
-	struct m4u_client_t *client = NULL;
-	unsigned long mva = 0;
-	int ret = 0;
+	struct m4u_client_t *client;
+	unsigned long mva;
+	int ret;
 
 	M4U_INFO("test va=0x%lx,size=0x%x\n", va, size);
 
@@ -60,20 +56,18 @@ int pseudo_test_alloc_dealloc(int port, unsigned long va,
 	if (ret) {
 		M4U_MSG("alloc mva fail:va=0x%lx,size=0x%x,ret=%d\n",
 			va, size, ret);
-		pseudo_put_m4u_client();
 		return ret;
 	}
-	__m4u_dump_pgtable(NULL, 1, true, 0);
+	m4u_dump_pgtable(0);
 	ret = m4u_switch_acp(port, mva, size, 1);
 	if (!ret) {
-		__m4u_dump_pgtable(NULL, 1, true, 0);
+		m4u_dump_pgtable(0);
 		ret = m4u_switch_acp(port, mva, size, 0);
 		if (!ret)
-			__m4u_dump_pgtable(NULL, 1, true, 0);
+			m4u_dump_pgtable(0);
 	}
 	ret = pseudo_dealloc_mva(client, port, mva);
-	__m4u_dump_pgtable(NULL, 1, true, 0);
-	pseudo_put_m4u_client();
+	m4u_dump_pgtable(0);
 
 	return 0;
 }
@@ -81,8 +75,8 @@ int pseudo_test_alloc_dealloc(int port, unsigned long va,
 int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
 	unsigned long va = 0;
-	int ret = 0;
-	unsigned long populate = 0;
+	int ret;
+	unsigned long populate;
 
 	if (id == 1) {
 		va = (unsigned long)kmalloc(size, GFP_KERNEL);
@@ -127,15 +121,15 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 
 static int m4u_test_map_kernel(void)
 {
-	struct m4u_client_t *client = NULL;
-	unsigned long va = 0;
+	struct m4u_client_t *client;
+	unsigned long va;
 	unsigned int size = 1024 * 1024;
-	unsigned long mva = 0;
-	unsigned long kernel_va = 0;
-	unsigned long kernel_size = 0;
-	int i = 0;
-	int ret = 0;
-	unsigned long populate = 0;
+	unsigned long mva;
+	unsigned long kernel_va;
+	unsigned long kernel_size;
+	int i;
+	int ret;
+	unsigned long populate;
 
 	down_write(&current->mm->mmap_sem);
 	va = do_mmap_pgoff(NULL, 0, size,
@@ -157,14 +151,12 @@ static int m4u_test_map_kernel(void)
 	if (ret) {
 		M4U_MSG("alloc using kmalloc fail:va=0x%lx,size=0x%x\n",
 			va, size);
-		pseudo_put_m4u_client();
 		return -1;
 	}
 
-	ret = m4u_mva_map_kernel(mva, size, &kernel_va, &kernel_size, NULL);
+	ret = m4u_mva_map_kernel(mva, size, &kernel_va, &kernel_size);
 	if (ret) {
 		M4U_MSG("map kernel fail!\n");
-		pseudo_put_m4u_client();
 		return -1;
 	}
 	for (i = 0; i < size; i += 4) {
@@ -182,7 +174,6 @@ static int m4u_test_map_kernel(void)
 	up_read(&current->mm->mmap_sem);
 	if (ret)
 		M4U_MSG("do_munmap failed\n");
-	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -191,10 +182,10 @@ int m4u_test_fake_engine(void)
 {
 	unsigned char *pSrc = NULL;
 	unsigned char *pDst = NULL;
-	unsigned long mva_rd = 0;
-	unsigned long mva_wr = 0;
+	unsigned long mva_rd;
+	unsigned long mva_wr;
 	unsigned int allocated_size = 1024;
-	unsigned int i = 0;
+	unsigned int i;
 	struct m4u_client_t *client = pseudo_get_m4u_client();
 
 	iommu_perf_monitor_start(0);
@@ -202,7 +193,6 @@ int m4u_test_fake_engine(void)
 	pSrc = vmalloc(allocated_size);
 	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
-		pseudo_put_m4u_client();
 		return -1;
 	}
 	memset(pSrc, 0xFF, allocated_size);
@@ -212,7 +202,6 @@ int m4u_test_fake_engine(void)
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
 		vfree(pSrc);
-		pseudo_put_m4u_client();
 		return -1;
 	}
 	memset(pDst, 0xFF, allocated_size);
@@ -229,11 +218,11 @@ int m4u_test_fake_engine(void)
 		(unsigned long)*pDst,
 		allocated_size, NULL, 0, &mva_wr);
 
-	__m4u_dump_pgtable(NULL, 1, true, 0);
+	m4u_dump_pgtable(0);
 
 	m4u_display_fake_engine_test(mva_rd, mva_wr);
 
-	M4U_MSG("(2) mva_wr:0x%lx\n", mva_wr);
+	M4U_MSG("(2) mva_wr:0x%x\n", mva_wr);
 
 	pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_rd);
 	pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva_wr);
@@ -250,7 +239,6 @@ int m4u_test_fake_engine(void)
 				*(pDst+i));
 			vfree(pSrc);
 			vfree(pDst);
-			pseudo_put_m4u_client();
 			return -2;
 		}
 	}
@@ -261,7 +249,6 @@ int m4u_test_fake_engine(void)
 	vfree(pDst);
 
 	iommu_perf_monitor_stop(0);
-	pseudo_put_m4u_client();
 	return 0;
 }
 
@@ -278,7 +265,6 @@ int m4u_test_ddp(void)
 	pSrc = vmalloc(size);
 	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
-		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -286,7 +272,6 @@ int m4u_test_ddp(void)
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
 		vfree(pSrc);
-		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -296,7 +281,7 @@ int m4u_test_ddp(void)
 	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG, *pDst,
 		      size, NULL, 0, &dst_pa);
 
-	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%lx, dst_pa=0x%lx\n",
+	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%x, dst_pa=0x%x\n",
 		pSrc, pDst, src_pa, dst_pa);
 
 	port.ePortID = M4U_PORT_OVL_DEBUG;
@@ -316,7 +301,6 @@ int m4u_test_ddp(void)
 
 	vfree(pSrc);
 	vfree(pDst);
-	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -356,7 +340,6 @@ int m4u_test_tf(void)
 	pSrc = vmalloc(size);
 	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
-		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -364,7 +347,6 @@ int m4u_test_tf(void)
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
 		vfree(pSrc);
-		pseudo_put_m4u_client();
 		return -1;
 	}
 
@@ -374,7 +356,7 @@ int m4u_test_tf(void)
 	__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG, *pDst,
 		      size / 2, NULL, 0, &dst_pa);
 
-	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%lx, dst_pa=0x%lx\n",
+	M4U_INFO("pSrc=0x%p, pDst=0x%p, src_pa=0x%x, dst_pa=0x%x\n",
 		pSrc, pDst, src_pa, dst_pa);
 
 	port.ePortID = M4U_PORT_OVL_DEBUG;
@@ -397,7 +379,6 @@ int m4u_test_tf(void)
 
 	vfree(pSrc);
 	vfree(pDst);
-	pseudo_put_m4u_client();
 
 	return 0;
 }
@@ -410,14 +391,16 @@ void m4u_test_ion(void)
 {
 	unsigned long *pSrc = NULL;
 	unsigned long *pDst = NULL;
-	unsigned int size = 64 * 64 * 3;
-	struct ion_mm_data mm_data[2];
-	struct ion_client *ion_client = NULL;
-	struct ion_handle *src_handle = NULL, *dst_handle = NULL;
+	unsigned long src_pa, dst_pa;
+	unsigned int size = 64 * 64 * 3, tmp_size;
+	struct M4U_PORT_STRUCT port;
+	struct ion_mm_data mm_data;
+	struct ion_client *ion_client;
+	struct ion_handle *src_handle, *dst_handle;
 
 	/* FIX-ME: modified for linux-3.10 early porting */
 	/* ion_client = ion_client_create(g_ion_device, 0xffffffff, "test"); */
-	ion_client = ion_client_create(g_ion_device, "m4u_test_ion");
+	ion_client = ion_client_create(g_ion_device, "test");
 
 	src_handle = ion_alloc(ion_client,
 		size, 0, ION_HEAP_MULTIMEDIA_MASK, 0);
@@ -427,7 +410,7 @@ void m4u_test_ion(void)
 	pSrc = ion_map_kernel(ion_client, src_handle);
 	if (!pSrc) {
 		M4U_MSG("ion map kernel failed!\n");
-		goto out1;
+		goto out;
 	}
 	pDst = ion_map_kernel(ion_client, dst_handle);
 	if (!pDst) {
@@ -435,34 +418,42 @@ void m4u_test_ion(void)
 		goto out;
 	}
 
-	mm_data[0].get_phys_param.kernel_handle = src_handle;
-	mm_data[0].get_phys_param.module_id = M4U_PORT_OVL_DEBUG;
-	mm_data[0].get_phys_param.security = 0;
-	mm_data[0].get_phys_param.coherent = 0;
-	mm_data[0].mm_cmd = ION_MM_GET_IOVA;
+	mm_data.config_buffer_param.kernel_handle = src_handle;
+	mm_data.config_buffer_param.module_id = M4U_PORT_OVL_DEBUG;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	if (ion_kernel_ioctl(ion_client,
-		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data[0]) < 0)
-		M4U_MSG("ion_test_drv0: GET_IOVA failed.\n");
+		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data) < 0)
+		M4U_MSG("ion_test_drv: Config buffer failed.\n");
 
-	mm_data[1].get_phys_param.kernel_handle = dst_handle;
-	mm_data[1].get_phys_param.module_id = M4U_PORT_OVL_DEBUG;
-	mm_data[1].get_phys_param.security = 0;
-	mm_data[1].get_phys_param.coherent = 0;
-	mm_data[1].mm_cmd = ION_MM_GET_IOVA;
+	mm_data.config_buffer_param.kernel_handle = dst_handle;
 	if (ion_kernel_ioctl(ion_client,
-		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data[1]) < 0)
-		M4U_MSG("ion_test_drv1: GET_IOVA failed.\n");
+		ION_CMD_MULTIMEDIA, (unsigned long)&mm_data) < 0)
+		M4U_MSG("ion_test_drv: Config buffer failed.\n");
 
-	M4U_MSG(
-		"ion alloced: pSrc=0x%p, pDst=0x%p, src_pa=0x%llx, dst_pa=0x%llx\n",
-		pSrc, pDst,
-		mm_data[0].get_phys_param.phy_addr,
-		mm_data[1].get_phys_param.phy_addr);
+	ion_phys(ion_client, src_handle, &src_pa, (size_t *)&tmp_size);
+	ion_phys(ion_client, dst_handle, &dst_pa, (size_t *)&tmp_size);
 
-	ion_unmap_kernel(ion_client, dst_handle);
+	M4U_MSG("ion alloced: pSrc=0x%p, pDst=0x%p, src_pa=%lu, dst_pa=%lu\n",
+		pSrc, pDst, src_pa, dst_pa);
+
+	port.ePortID = M4U_PORT_OVL_DEBUG;
+	port.Direction = 0;
+	port.Distance = 1;
+	port.domain = 3;
+	port.Security = 0;
+	port.Virtuality = 1;
+	m4u_config_port(&port);
+
+	port.ePortID = M4U_PORT_MDP_DEBUG;
+	m4u_config_port(&port);
+
+	iommu_perf_monitor_start(0);
+	__ddp_mem_test(pSrc, src_pa, pDst, dst_pa, 0);
+	iommu_perf_monitor_stop(0);
+
 out:
-	ion_unmap_kernel(ion_client, src_handle);
-out1:
 	ion_free(ion_client, src_handle);
 	ion_free(ion_client, dst_handle);
 
@@ -476,7 +467,7 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 	enum dma_data_direction dir)
 {
 	struct device *dev = pseudo_get_larbdev(port);
-	int ret = 0;
+	int ret;
 
 	if (!dev) {
 		pr_notice("%s, %d, invalid port:%d\n",
@@ -493,35 +484,29 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 			  __func__, __LINE__, ret);
 		return -1;
 	}
-	__m4u_dump_pgtable(NULL, 1, true, 0);
+	m4u_dump_pgtable(1);
 
 	dma_unmap_sg_attrs(dev, table->sgl,
 			table->orig_nents, dir,
 			DMA_ATTR_SKIP_CPU_SYNC);
-	__m4u_dump_pgtable(NULL, 1, true, 0);
+	m4u_dump_pgtable(1);
 	return 0;
 }
 #endif
 
 static int m4u_debug_set(void *data, u64 val)
 {
-	u64 value;
 
-	if ((val >> M4U_CMD_SHIFT) == M4U_MAGIC_KEY) {
-		value = val & M4U_CMD_MASK;
-		M4U_MSG("%s:val=%llu\n", __func__, value);
-	} else {
-		M4U_MSG("%s fail:val=0x%llx\n", __func__, val);
-		return 0;
-	}
-	switch (value) {
+	M4U_MSG("%s:val=%llu\n", __func__, val);
+
+	switch (val) {
 	case 1:
 	{ /* map4kpageonly */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i = 0;
-		struct page *page = NULL;
+		int i;
+		struct page *page;
 		int page_num = 512;
 		unsigned int id = M4U_PORT_BOUNDARY0_DEBUG;
 		unsigned long size = page_num * PAGE_SIZE;
@@ -542,12 +527,12 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i = 0;
+		int i;
 		int page_num = 51;
 		unsigned long page_size = SZ_64K;
 		unsigned int id = M4U_PORT_BOUNDARY1_DEBUG;
 		unsigned long size = page_num * page_size;
-		struct page *page = NULL;
+		struct page *page;
 
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
@@ -566,12 +551,12 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i = 0;
+		int i;
 		int page_num = 37;
 		unsigned long page_size = SZ_1M;
 		unsigned int id = M4U_PORT_BOUNDARY2_DEBUG;
 		unsigned long size = page_num * page_size;
-		struct page *page = NULL;
+		struct page *page;
 
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 
@@ -591,12 +576,12 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i = 0;
+		int i;
 		int page_num = 2;
 		unsigned long page_size = SZ_16M;
 		unsigned int id = M4U_PORT_BOUNDARY3_DEBUG;
 		unsigned long size = page_num * page_size;
-		struct page *page = NULL;
+		struct page *page;
 
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
@@ -616,7 +601,7 @@ static int m4u_debug_set(void *data, u64 val)
 		struct scatterlist *sg;
 		unsigned int size = SZ_16M * 2;
 		unsigned int id = M4U_PORT_UNKNOWN;
-		struct page *page = NULL;
+		struct page *page;
 
 		sg_alloc_table(sg_table, 1, GFP_KERNEL);
 		sg = sg_table->sgl;
@@ -643,8 +628,8 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i = 0;
-		struct page *page = NULL;
+		int i;
+		struct page *page;
 		int page_num = 512;
 		unsigned int id = M4U_PORT_CCU;
 		unsigned long size = page_num * PAGE_SIZE;
@@ -665,8 +650,8 @@ static int m4u_debug_set(void *data, u64 val)
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i = 0;
-		struct page *page = NULL;
+		int i;
+		struct page *page;
 		int page_num = 512;
 		unsigned int id = M4U_PORT_APU_CODE;
 		unsigned long size = page_num * PAGE_SIZE;
@@ -703,7 +688,7 @@ static int m4u_debug_set(void *data, u64 val)
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mtk_dump_main_tlb(i, j, NULL);
+				mtk_dump_main_tlb(i, j);
 	}
 	break;
 	case 17:
@@ -711,27 +696,22 @@ static int m4u_debug_set(void *data, u64 val)
 		int i;
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_dump_pfh_tlb(i, NULL);
+			mtk_dump_pfh_tlb(i);
 	}
 	break;
 	case 18:
 	{
 		int i, j;
-		struct mau_config_info mau_cfg = {
-			.start = 0x1000,
-			.end = 0xffffffff,
-			.port_mask = 0xffffffff,
-			.larb_mask = 0xffffffff,
-			.wr = 0x1,
-			.virt = 0x1,
-			.io = 0x0,
-			.start_bit32 = 0x0,
-			.end_bit32 = 0x0
-			};
+		unsigned int wr = 1, vir = 1, io = 0, bit32 = 0;
+		unsigned int start = 0x1000, end = 0xffffffff;
+		unsigned int port_mask = 0xffffffff;
+		unsigned int larb_mask = 0xffffffff;
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mau_start_monitor(i, j, 0, &mau_cfg);
+				mau_start_monitor(i, j, 0, wr, vir,
+					io, bit32, start, end,
+					port_mask, larb_mask);
 		}
 	}
 	break;
@@ -741,7 +721,7 @@ static int m4u_debug_set(void *data, u64 val)
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mau_stop_monitor(i, j, 0, false);
+				mau_stop_monitor(i, j, 0);
 	}
 	break;
 	case 20:
@@ -777,101 +757,42 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 22:
-	{
-		unsigned int err_port = 0, err_size = 0;
-
-		__m4u_dump_pgtable(NULL, 1, true, 0);
-
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		pr_notice(" >> boundary 0 top 5 user\n");
-		m4u_find_max_port_size(0, (1UL << 32) - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-
-		pr_notice(" >> boundary 1 top 5 user\n");
-		m4u_find_max_port_size(1UL << 32, (2UL << 32) - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-
-		pr_notice(" >> boundary 2 top 5 user\n");
-		m4u_find_max_port_size(2UL << 32, (3UL << 32) - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-
-		pr_notice(" >> boundary 3 top 5 user\n");
-		m4u_find_max_port_size(3UL << 32, (4UL << 32) - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-
-		pr_notice(" >> CCU domain top 5 user\n");
-		m4u_find_max_port_size(0x240000000UL,
-					0x248000000UL - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-#else
-		pr_notice(" >> boundary 0 top 5 user\n");
-		m4u_find_max_port_size(0, (1UL << 32) - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-
-		pr_notice(" >> CCU domain top 5 user\n");
-		m4u_find_max_port_size(0x40000000UL,
-					0x48000000UL - 1,
-					&err_port, &err_size);
-		report_custom_iommu_leakage(
-					    iommu_get_port_name(err_port),
-					    err_size);
-#endif
-	}
 	break;
 	case 23:
 	{
-		unsigned long pgd_pa = 0;
+		unsigned int pgd_pa = 0;
 
 		if (mtk_iommu_get_pgtable_base_addr(&pgd_pa)) {
 			M4U_MSG("failed to get pgd info\n");
 			break;
 		}
-		M4U_MSG("pgd_pa:0x%lx\n", pgd_pa);
+		M4U_MSG("pgd_pa:0x%x\n", pgd_pa);
 	}
 	break;
 	case 24:
 	{
 		unsigned int *pSrc = NULL;
-		unsigned long mva = 0;
-		unsigned long pa = 0;
+		unsigned long mva;
+		unsigned long pa;
 		struct m4u_client_t *client = pseudo_get_m4u_client();
 		struct device *dev = pseudo_get_larbdev(M4U_PORT_UNKNOWN);
 
 		pSrc = vmalloc(128);
 		if (!pSrc) {
 			M4U_MSG("vmalloc failed!\n");
-			pseudo_put_m4u_client();
 			return -1;
 		}
 
 		__pseudo_alloc_mva(client, M4U_PORT_OVL_DEBUG,
 			(unsigned long)*pSrc, 128, NULL, 0, &mva);
 
-		__m4u_dump_pgtable(NULL, 1, true, 0);
+		m4u_dump_pgtable(1);
 
 		mtk_iommu_iova_to_pa(dev, mva, &pa);
-		M4U_MSG("(1) mva:0x%lx pa:0x%lx\n", mva, pa);
+		M4U_MSG("(1) mva:0x%x pa:0x%lx\n", mva, pa);
 			pseudo_dealloc_mva(client, M4U_PORT_OVL_DEBUG, mva);
 		mtk_iommu_iova_to_pa(dev, mva, &pa);
-		M4U_MSG("(2) mva:0x%lx pa:0x%lx\n", mva, pa);
+		M4U_MSG("(2) mva:0x%x pa:0x%lx\n", mva, pa);
 	}
 	break;
 	case 25:
@@ -892,8 +813,7 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 27:
 	{
-		mtk_dump_reg_for_hang_issue(0);
-		mtk_dump_reg_for_hang_issue(1);
+		mtk_dump_reg_for_hang_issue();
 	}
 	break;
 	case 28:
@@ -909,87 +829,6 @@ static int m4u_debug_set(void *data, u64 val)
 	case 30:
 	{
 		mtk_iommu_switch_tf_test(false, __func__);
-	}
-	break;
-	case 31:
-	{
-		int i;
-
-		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_iommu_power_switch_by_id(i, true, "pseudo_debug");
-		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_iommu_power_switch_by_id(i, false, "pseudo_debug");
-	}
-	break;
-	case 33:
-	{
-		int i, j;
-
-		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mau_stop_monitor(i, j, 0, true);
-	}
-	break;
-	case 34:
-	{
-		mtk_iommu_tlb_flush_all(NULL);
-	}
-	break;
-	case 35:
-	{
-		pseudo_m4u_bank_irq_debug(2);
-	}
-	break;
-	case 36:
-	{
-		pseudo_m4u_bank_irq_debug(0);
-	}
-	break;
-	case 37: /* dump mau register */
-	{
-		int i, j, ret;
-
-		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
-			ret = mtk_iommu_power_switch_by_id(i, true, "dump_mau");
-			if (ret) {
-				pr_notice("%s, m4u%d open clk failed\n",
-					      __func__, i);
-				continue;
-			}
-			ret = mtk_switch_secure_debug_func(i, 1);
-			if (ret) {
-				pr_notice("%s, m4u%d failed to enable secure debug signal\n",
-					      __func__, i);
-				mtk_iommu_power_switch_by_id(i,
-						false, "dump_mau");
-				continue;
-			}
-			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++) {
-				struct mau_config_info cfg;
-
-				cfg.m4u_id = i;
-				cfg.slave = j;
-				cfg.mau = 0;
-				mau_get_config_info(&cfg);
-				pr_notice("%s, m4u:%d,slave:%d,mau:%d,s:0x%x(0x%x),e:0x%x(0x%x),io:0x%x,wr:0x%x,virt:0x%x,larb:0x%x,port:0x%x\n",
-					__func__,
-					i, j, cfg.mau,
-					cfg.start, cfg.start_bit32,
-					cfg.end, cfg.end_bit32,
-					cfg.io, cfg.wr, cfg.virt,
-					cfg.larb_mask, cfg.port_mask);
-			}
-			ret = mtk_iommu_power_switch_by_id(i,
-						false, "dump_mau");
-			if (ret) {
-				pr_notice("%s, m4u%d close clk failed\n",
-					      __func__, i);
-			}
-			ret = mtk_switch_secure_debug_func(i, 0);
-			if (ret)
-				pr_notice("%s, m4u%d failed to disable secure debug signal\n",
-					      __func__, i);
-		}
 	}
 	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
@@ -1020,7 +859,15 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 #endif
-	case 51:/* must open iommu clk first */
+	case 51:
+	{
+		int i;
+
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+			mtk_iommu_atf_test(i, 100);
+	}
+	break;
+	case 52:
 	{
 		int i, ret = 0;
 
@@ -1078,85 +925,69 @@ DEFINE_SIMPLE_ATTRIBUTE(m4u_log_level_fops,
 int m4u_debug_help_show(struct seq_file *s, void *unused)
 {
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd1 > /d/m4u/debug:	boundary0 domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 1 > /d/m4u/debug:	boundary0 domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd2 > /d/m4u/debug:	boundary1 domain: map/unmap the sg table(51 count of 64KB pages) to IOVA(aligned of 0x10000)\n");
+		      "echo 2 > /d/m4u/debug:	boundary1 domain: map/unmap the sg table(51 count of 64KB pages) to IOVA(aligned of 0x10000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd3 > /d/m4u/debug:	boundary2 domain: map/unmap the sg table(37 count of 1MB pages) to IOVA(aligned of 0x100000)\n");
+		      "echo 3 > /d/m4u/debug:	boundary2 domain: map/unmap the sg table(37 count of 1MB pages) to IOVA(aligned of 0x100000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd4 > /d/m4u/debug:	boundary3 domain: map/unmap the sg table(2 count of 16MB pages) to IOVA(aligned of 0x1000000)\n");
+		      "echo 4 > /d/m4u/debug:	boundary3 domain: map/unmap the sg table(2 count of 16MB pages) to IOVA(aligned of 0x1000000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd5 > /d/m4u/debug:	unknown domain: map/unmap the sg table(1 count of 32MB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 5 > /d/m4u/debug:	unknown domain: map/unmap the sg table(1 count of 32MB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd6 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(kmalloc) to IOVA\n");
+		      "echo 6 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(kmalloc) to IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd7 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(vmalloc) to IOVA\n");
+		      "echo 7 > /d/m4u/debug:	map/unmap 4MB kernel space virtual buffer(vmalloc) to IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd8 > /d/m4u/debug:	map/unmap 4MB user space virtual buffer(do_mmap_pgoff) to IOVA\n");
+		      "echo 8 > /d/m4u/debug:	map/unmap 4MB user space virtual buffer(do_mmap_pgoff) to IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd9 > /d/m4u/debug:	CCU domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 9 > /d/m4u/debug:	CCU domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd10 > /d/m4u/debug:	APU CODE domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
+		      "echo 10 > /d/m4u/debug:	APU CODE domain: map/unmap the sg table(512 count of 4KB pages) to IOVA(aligned of 0x4000)\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd11 > /d/m4u/debug:	map userspace VA to IOVA / map IOVA to kernel VA / unmap kernel VA / unmap IOVA / unmap userspace VA\n");
+		      "echo 11 > /d/m4u/debug:	map userspace VA to IOVA / map IOVA to kernel VA / unmap kernel VA / unmap IOVA / unmap userspace VA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd12 > /d/m4u/debug:	do display memory test\n");
+		      "echo 12 > /d/m4u/debug:	do display memory test\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd13 > /d/m4u/debug:	do IOVA mapping of OVL, start performance monitor of OVL, trigger OVL read/write\n");
+		      "echo 13 > /d/m4u/debug:	do IOVA mapping of OVL, start performance monitor of OVL, trigger OVL read/write\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd14 > /d/m4u/debug:	register the fault callback of OVL and MDP, check if it works well\n");
+		      "echo 14 > /d/m4u/debug:	register the fault callback of OVL and MDP, check if it works well\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd15 > /d/m4u/debug:	ION test: alloc / config port / IOVA mapping / performance monitor\n");
+		      "echo 15 > /d/m4u/debug:	ION test: alloc / config port / IOVA mapping / performance monitor\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd16 > /d/m4u/debug:	dump main TLB\n");
+		      "echo 16 > /d/m4u/debug:	dump main TLB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd17 > /d/m4u/debug:	dump prefetch TLB\n");
+		      "echo 17 > /d/m4u/debug:	dump prefetch TLB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd18 > /d/m4u/debug:	start MAU monitor of 4KB~4GB\n");
+		      "echo 18 > /d/m4u/debug:	start MAU monitor of 4KB~4GB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd19 > /d/m4u/debug:	stop MAU monitor of 4KB~4GB\n");
+		      "echo 19 > /d/m4u/debug:	stop MAU monitor of 4KB~4GB\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd20 > /d/m4u/debug:	config all ports of IOVA path\n");
+		      "echo 20 > /d/m4u/debug:	config all ports of IOVA path\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd21 > /d/m4u/debug:	config all ports of PA path\n");
+		      "echo 21 > /d/m4u/debug:	config all ports of PA path\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd22 > /d/m4u/debug:	aee dump of the top 5 users of IOVA space\n");
+		      "echo 23 > /d/m4u/debug:	dump IOVA page table base address\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd23 > /d/m4u/debug:	dump IOVA page table base address\n");
+		      "echo 24 > /d/m4u/debug:	dump the PA addr mapped by the target IOVA\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd24 > /d/m4u/debug:	dump the PA addr mapped by the target IOVA\n");
+		      "echo 25 > /d/m4u/debug:	start performance monitor\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd25 > /d/m4u/debug:	start performance monitor\n");
+		      "echo 26 > /d/m4u/debug:	stop performance monitor\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd26 > /d/m4u/debug:	stop performance monitor\n");
+		      "echo 27 > /d/m4u/debug:	dump the debug registers of SMI bus hang\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd27 > /d/m4u/debug:	dump the debug registers of SMI bus hang\n");
+		      "echo 28 > /d/m4u/debug:	test display fake engine read/write\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd28 > /d/m4u/debug:	test display fake engine read/write\n");
+		      "echo 29 > /d/m4u/debug:	enable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd29 > /d/m4u/debug:	enable translation fault debug\n");
+		      "echo 30 > /d/m4u/debug:	disable translation fault debug\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd30 > /d/m4u/debug:	disable translation fault debug\n");
+		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd31 > /d/m4u/debug:	iommu power on/off test\n");
+		      "echo 51 > /d/m4u/debug:	IOMMU ATF command list test\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 8'd33 > /d/m4u/debug:	disable mau monitor interrupt\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 8'd34 > /d/m4u/debug:	TLB flush All\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 8'd35 > /d/m4u/debug:	enable iommu bank irq test\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 8'd36 > /d/m4u/debug:	disable iommu bank irq test\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 8'd37 > /d/m4u/debug:	dump iommu mau info\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 8'd50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
-	M4U_PRINT_SEQ(s,
-		      "echo 8'd51 > /d/m4u/debug:	IOMMU ATF (all) command test\n");
-
-	M4U_PRINT_SEQ(s, "\nM4U_MAGIC_KEY:0x%x(bit31~bit8)\n", M4U_MAGIC_KEY);
-	M4U_PRINT_SEQ(s, "ex: adb shell \"echo 0x%xxx > /d/m4u/debug\"\n",
-			M4U_MAGIC_KEY);
+		      "echo 52 > /d/m4u/debug:	dump secure port configuration\n");
 	return 0;
 }
 
@@ -1174,7 +1005,6 @@ const struct file_operations m4u_debug_help_fops = {
 
 int m4u_debug_domain_show(struct seq_file *s, void *unused)
 {
-	pr_notice("[iommu][debug]: %s\n", __func__);
 	pseudo_dump_iova_reserved_region(s);
 	return 0;
 }
@@ -1193,7 +1023,6 @@ const struct file_operations m4u_debug_domain_fops = {
 
 int m4u_debug_port_show(struct seq_file *s, void *unused)
 {
-	pr_notice("[iommu][debug]: %s\n", __func__);
 	pseudo_dump_all_port_status(s);
 	return 0;
 }
@@ -1212,8 +1041,7 @@ const struct file_operations m4u_debug_port_fops = {
 
 int m4u_debug_buf_show(struct seq_file *s, void *unused)
 {
-	pr_notice("[iommu][debug]: %s\n", __func__);
-	__m4u_dump_pgtable(s, 1, true, 0);
+	__m4u_dump_pgtable(s, 1, true);
 	return 0;
 }
 
@@ -1233,7 +1061,6 @@ int m4u_debug_monitor_show(struct seq_file *s, void *unused)
 {
 	int i, j;
 
-	pr_notice("[iommu][debug]: %s\n", __func__);
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 		for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
 			iommu_perf_print_counter(i, j, "monitor");
@@ -1256,9 +1083,8 @@ int m4u_debug_register_show(struct seq_file *s, void *unused)
 {
 	int i;
 
-	pr_notice("[iommu][debug]: %s\n", __func__);
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-		mtk_iommu_dump_reg(i, 0, 400, "/d/m4u/register");
+		mtk_iommu_dump_reg(i, 0, 400);
 
 	return 0;
 }
@@ -1270,25 +1096,6 @@ int m4u_debug_register_open(struct inode *inode, struct file *file)
 
 const struct file_operations m4u_debug_register_fops = {
 	.open = m4u_debug_register_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-int m4u_debug_db_show(struct seq_file *s, void *unused)
-{
-	pr_debug("[iommu][debug]: %s\n", __func__);
-	pseudo_m4u_db_debug(MTK_IOMMU_M4U_COUNT, s);
-	return 0;
-}
-
-int m4u_debug_db_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, m4u_debug_db_show, inode->i_private);
-}
-
-const struct file_operations m4u_debug_db_fops = {
-	.open = m4u_debug_db_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -1342,11 +1149,6 @@ int pseudo_debug_init(struct m4u_device *m4u_dev)
 		0644, m4u_dev->debug_root, NULL, &m4u_debug_domain_fops);
 	if (IS_ERR_OR_NULL(debug_file))
 		M4U_MSG("m4u: failed to create debug files 8.\n");
-
-	debug_file = debugfs_create_file("iommu_db_dump",
-		0644, m4u_dev->debug_root, NULL, &m4u_debug_db_fops);
-	if (IS_ERR_OR_NULL(debug_file))
-		M4U_MSG("m4u: failed to create debug files 9.\n");
 
 	return 0;
 }
