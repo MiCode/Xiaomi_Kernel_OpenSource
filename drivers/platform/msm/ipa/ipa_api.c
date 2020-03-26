@@ -220,8 +220,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_MHI2_CONS),
 	__stringify(IPA_CLIENT_Q6_CV2X_PROD),
 	__stringify(IPA_CLIENT_Q6_CV2X_CONS),
-	__stringify(IPA_CLIENT_MHI_QMAP_PROD),
-	__stringify(IPA_CLIENT_MHI_QMAP_CONS),
+	__stringify(IPA_CLIENT_MHI_LOW_LAT_PROD),
+	__stringify(IPA_CLIENT_MHI_LOW_LAT_CONS),
 	__stringify(RESERVERD_PROD_110),
 	__stringify(IPA_CLIENT_MHI_QDSS_CONS),
 };
