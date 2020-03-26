@@ -27,7 +27,8 @@ subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery/
 
 obj-y += charger_class.o mtk_charger.o mtk_switch_charging.o mtk_pdc_intf.o\
 	 mtk_chg_type_det.o mtk_pe40_intf.o mtk_linear_charging.o\
-	 adapter_class.o mtk_pd_adapter.o
+	 adapter_class.o mtk_pd_adapter.o\
+	 mtk_switch_charging2.o mtk_intf.o mtk_pe40.o mtk_pdc.o
 
 obj-$(CONFIG_MTK_DUAL_CHARGER_SUPPORT) += mtk_dual_switch_charging.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT) += mtk_pe_intf.o
