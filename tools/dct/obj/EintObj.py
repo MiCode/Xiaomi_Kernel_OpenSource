@@ -483,3 +483,41 @@ class EintObj_MT6885(EintObj_MT6739):
             gen_str += '''};\n'''
             gen_str += '''\n'''
         return gen_str
+
+class EintObj_MT6853(EintObj_MT6885):
+    def fill_dtsiFile(self):
+        gen_str = '''#include <dt-bindings/interrupt-controller/irq.h>\n'''
+        gen_str += '''#include <dt-bindings/interrupt-controller/arm-gic.h>\n'''
+        gen_str += '''\n'''
+
+        gen_str += self.fill_mappingTable()
+
+        sorted_list = sorted(ModuleObj.get_data(self).keys(), key=compare)
+        for key in sorted_list:
+            value = ModuleObj.get_data(self)[key]
+            gen_str += '''&%s {\n''' % (value.get_varName().lower())
+            gen_str += '''\tinterrupt-parent = <&pio>;\n'''
+
+            temp = ''
+            polarity = value.get_polarity()
+            sensitive = value.get_sensitiveLevel()
+
+            if cmp(polarity, 'High') == 0 and cmp(sensitive, 'Edge') == 0:
+                temp = 'IRQ_TYPE_EDGE_RISING'
+            elif cmp(polarity, 'Low') == 0 and cmp(sensitive, 'Edge') == 0:
+                temp = 'IRQ_TYPE_EDGE_FALLING'
+            elif cmp(polarity, 'High') == 0 and cmp(sensitive, 'Level') == 0:
+                temp = 'IRQ_TYPE_LEVEL_HIGH'
+            elif cmp(polarity, 'Low') == 0 and cmp(sensitive, 'Level') == 0:
+                temp = 'IRQ_TYPE_LEVEL_LOW'
+
+            gen_str += '''\tinterrupts = <%s %s>;\n''' % (key[4:], temp)
+            if cmp(value.get_debounceEnable(), 'Enable') == 0:
+                gen_str += '''\tdeb-gpios = <&pio %s 0>;\n''' % (self.refGpio(key[4:], True)[0])
+                # from MT6885, only 0 ~ 31 eint gen debounce time item
+                if int(key[4:]) < 32:
+                    gen_str += '''\tdebounce = <%d>;\n''' % (string.atoi(value.get_debounceTime()) * 1000)
+            gen_str += '''\tstatus = \"okay\";\n'''
+            gen_str += '''};\n'''
+            gen_str += '''\n'''
+        return gen_str
