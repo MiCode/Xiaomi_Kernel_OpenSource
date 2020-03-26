@@ -5,6 +5,7 @@
 
 #ifndef __MTK_LP_SYSFS__
 #define __MTK_LP_SYSFS__
+#include <linux/list.h>
 
 typedef ssize_t (*f_mtk_idle_sysfs_show)(char *ToUserBuf
 			, size_t sz, void *priv);
