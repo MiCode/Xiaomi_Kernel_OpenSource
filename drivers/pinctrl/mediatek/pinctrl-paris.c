@@ -63,8 +63,11 @@ static int mtk_pinmux_gpio_request_enable(struct pinctrl_dev *pctldev,
 	if (err)
 		return err;
 
-	if (hw->soc->eh_pin_pinmux)
-		mtk_eh_ctrl(hw, desc, hw->soc->gpio_m);
+	if (hw->soc->eh_pin_pinmux) {
+		err = mtk_eh_ctrl(hw, desc, hw->soc->gpio_m);
+		if (err)
+			return err;
+	}
 
 	return 0;
 }
@@ -714,8 +717,11 @@ static int mtk_pmx_set_mux(struct pinctrl_dev *pctldev,
 	if (ret)
 		return ret;
 
-	if (hw->soc->eh_pin_pinmux)
-		mtk_eh_ctrl(hw, desc, desc_func->muxval);
+	if (hw->soc->eh_pin_pinmux) {
+		ret = mtk_eh_ctrl(hw, desc, desc_func->muxval);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }

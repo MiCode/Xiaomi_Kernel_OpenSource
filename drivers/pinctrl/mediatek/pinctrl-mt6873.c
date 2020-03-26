@@ -1332,7 +1332,6 @@ static const struct mtk_eh_pin_pinmux mt6873_eh_pin_pinmux_list[] = {
 	{203, 1},
 	{204, 1},
 	{205, 1},
-	{0xffff, 0}, /* indicate end of array */
 };
 
 static const char * const mt6873_pinctrl_register_base_names[] = {
@@ -1377,6 +1376,7 @@ static const struct mtk_pin_soc mt6873_data = {
 	.gpio_m = 0,
 	.race_free_access = true,
 	.eh_pin_pinmux = mt6873_eh_pin_pinmux_list,
+	.neh_pins = ARRAY_SIZE(mt6873_eh_pin_pinmux_list),
 	.bias_disable_set = mtk_pinconf_bias_disable_set,
 	.bias_disable_get = mtk_pinconf_bias_disable_get,
 	.bias_set = mtk_pinconf_bias_set,
@@ -1401,7 +1401,7 @@ static struct platform_driver mt6873_pinctrl_driver = {
 	.driver = {
 		.name = "mt6873-pinctrl",
 		.of_match_table = mt6873_pinctrl_of_match,
-		//.pm = &mtk_eint_pm_ops_v2,
+		.pm = &mtk_paris_pinctrl_pm_ops,
 	},
 	.probe = mt6873_pinctrl_probe,
 };

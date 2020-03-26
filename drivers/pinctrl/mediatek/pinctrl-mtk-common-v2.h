@@ -219,6 +219,7 @@ struct mtk_pin_soc {
 	const char * const		*base_names;
 	unsigned int			nbase_names;
 	const struct mtk_eh_pin_pinmux  *eh_pin_pinmux;
+	unsigned int			neh_pins;
 
 	/* Specific pinconfig operations */
 	int (*bias_disable_set)(struct mtk_pinctrl *hw,
@@ -274,7 +275,7 @@ int mtk_hw_set_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 int mtk_hw_get_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		     int field, int *value);
 
-void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
+int mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		 u16 mode);
 
 int mtk_build_eint(struct mtk_pinctrl *hw, struct platform_device *pdev);
