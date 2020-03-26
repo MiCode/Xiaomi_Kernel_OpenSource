@@ -79,6 +79,7 @@ config ARM_MVEBU_V7_CPUIDLE
 config ARM_MTK_CPUIDLE
 	bool "CPU Idle drivers for Mediatek processors"
 	default y if !ARM_MTK_NEW_ARCH_CPUIDLE
+	depends on !ARM_MTK_NEW_ARCH_CPUIDLE
 	select CPU_IDLE_MULTIPLE_DRIVERS
 	help
 	  Select this to enable cpuidle for Mediatek processors
