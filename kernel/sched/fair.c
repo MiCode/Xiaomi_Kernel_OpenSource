@@ -3718,7 +3718,7 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 static inline unsigned long task_util_est(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
-	return p->ravg.demand_scaled;
+	return p->wts.demand_scaled;
 #endif
 	return max(task_util(p), _task_util_est(p));
 }
@@ -5436,7 +5436,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	if (!se) {
 		add_nr_running(rq, 1);
 #ifdef CONFIG_SCHED_WALT
-		p->misfit = !task_fits_max(p, rq->cpu);
+		p->wts.misfit = !task_fits_max(p, rq->cpu);
 #endif
 		inc_rq_walt_stats(rq, p);
 		/*
@@ -6434,7 +6434,7 @@ static inline bool walt_get_rtg_status(struct task_struct *p)
 static inline bool walt_task_skip_min_cpu(struct task_struct *p)
 {
 	return sched_boost() != CONSERVATIVE_BOOST &&
-		walt_get_rtg_status(p) && p->unfilter;
+		walt_get_rtg_status(p) && p->wts.unfilter;
 }
 
 static inline bool walt_is_many_wakeup(int sibling_count_hint)
@@ -6849,7 +6849,7 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 #ifdef CONFIG_SCHED_WALT
 static inline int wake_to_idle(struct task_struct *p)
 {
-	return (current->wake_up_idle || p->wake_up_idle);
+	return (current->wts.wake_up_idle || p->wts.wake_up_idle);
 }
 #else
 static inline int wake_to_idle(struct task_struct *p)
@@ -11411,7 +11411,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &curr->se;
 #ifdef CONFIG_SCHED_WALT
-	bool old_misfit = curr->misfit;
+	bool old_misfit = curr->wts.misfit;
 	bool misfit;
 #endif
 
@@ -11430,7 +11430,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 
 	if (old_misfit != misfit) {
 		walt_adjust_nr_big_tasks(rq, 1, misfit);
-		curr->misfit = misfit;
+		curr->wts.misfit = misfit;
 	}
 #endif
 

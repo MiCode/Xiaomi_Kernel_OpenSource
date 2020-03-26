@@ -35,8 +35,8 @@ fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
 static inline void
 walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	fixup_cumulative_runnable_avg(&rq->walt_stats, p->ravg.demand_scaled,
-				      p->ravg.pred_demand_scaled);
+	fixup_cumulative_runnable_avg(&rq->walt_stats, p->wts.demand_scaled,
+					p->wts.pred_demand_scaled);
 
 	/*
 	 * Add a task's contribution to the cumulative window demand when
@@ -45,16 +45,16 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	 *     prio/cgroup/class change.
 	 * (2) task is waking for the first time in this window.
 	 */
-	if (p->on_rq || (p->last_sleep_ts < rq->window_start))
-		walt_fixup_cum_window_demand(rq, p->ravg.demand_scaled);
+	if (p->on_rq || (p->wts.last_sleep_ts < rq->window_start))
+		walt_fixup_cum_window_demand(rq, p->wts.demand_scaled);
 }
 
 static inline void
 walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
 	fixup_cumulative_runnable_avg(&rq->walt_stats,
-				      -(s64)p->ravg.demand_scaled,
-				      -(s64)p->ravg.pred_demand_scaled);
+				      -(s64)p->wts.demand_scaled,
+				      -(s64)p->wts.pred_demand_scaled);
 
 	/*
 	 * on_rq will be 1 for sleeping tasks. So check if the task
@@ -62,7 +62,7 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	 * prio/cgroup/class.
 	 */
 	if (task_on_rq_migrating(p) || p->state == TASK_RUNNING)
-		walt_fixup_cum_window_demand(rq, -(s64)p->ravg.demand_scaled);
+		walt_fixup_cum_window_demand(rq, -(s64)p->wts.demand_scaled);
 }
 
 static inline void walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
@@ -75,7 +75,7 @@ static inline void walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
 
 static inline void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
-	if (p->misfit)
+	if (p->wts.misfit)
 		rq->walt_stats.nr_big_tasks++;
 
 	walt_inc_cumulative_runnable_avg(rq, p);
@@ -83,7 +83,7 @@ static inline void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 
 static inline void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
-	if (p->misfit)
+	if (p->wts.misfit)
 		rq->walt_stats.nr_big_tasks--;
 
 	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
@@ -128,7 +128,7 @@ static inline int sched_cpu_high_irqload(int cpu)
 
 static inline int exiting_task(struct task_struct *p)
 {
-	return (p->ravg.sum_history[0] == EXITING_TASK_MARKER);
+	return (p->wts.sum_history[0] == EXITING_TASK_MARKER);
 }
 
 static inline u64
@@ -159,7 +159,7 @@ void walt_sched_init_rq(struct rq *rq);
 
 static inline void walt_update_last_enqueue(struct task_struct *p)
 {
-	p->last_enqueued_ts = sched_ktime_clock();
+	p->wts.last_enqueued_ts = sched_ktime_clock();
 }
 
 static inline bool is_suh_max(void)
@@ -170,10 +170,10 @@ static inline bool is_suh_max(void)
 #define DEFAULT_CGROUP_COLOC_ID 1
 static inline bool walt_should_kick_upmigrate(struct task_struct *p, int cpu)
 {
-	struct related_thread_group *rtg = p->grp;
+	struct related_thread_group *rtg = p->wts.grp;
 
 	if (is_suh_max() && rtg && rtg->id == DEFAULT_CGROUP_COLOC_ID &&
-			    rtg->skip_min && p->unfilter)
+			    rtg->skip_min && p->wts.unfilter)
 		return is_min_capacity_cpu(cpu);
 
 	return false;
