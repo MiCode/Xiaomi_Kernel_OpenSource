@@ -469,6 +469,7 @@ enum {
 	MHI_PM_BIT_M3,
 	MHI_PM_BIT_M3_EXIT,
 	MHI_PM_BIT_FW_DL_ERR,
+	MHI_PM_BIT_DEVICE_ERR_DETECT,
 	MHI_PM_BIT_SYS_ERR_DETECT,
 	MHI_PM_BIT_SYS_ERR_PROCESS,
 	MHI_PM_BIT_SHUTDOWN_PROCESS,
@@ -488,6 +489,8 @@ enum MHI_PM_STATE {
 	MHI_PM_M3_EXIT = BIT(MHI_PM_BIT_M3_EXIT),
 	/* firmware download failure state */
 	MHI_PM_FW_DL_ERR = BIT(MHI_PM_BIT_FW_DL_ERR),
+	/* error or shutdown detected or processing state */
+	MHI_PM_DEVICE_ERR_DETECT = BIT(MHI_PM_BIT_DEVICE_ERR_DETECT),
 	MHI_PM_SYS_ERR_DETECT = BIT(MHI_PM_BIT_SYS_ERR_DETECT),
 	MHI_PM_SYS_ERR_PROCESS = BIT(MHI_PM_BIT_SYS_ERR_PROCESS),
 	MHI_PM_SHUTDOWN_PROCESS = BIT(MHI_PM_BIT_SHUTDOWN_PROCESS),
@@ -498,8 +501,9 @@ enum MHI_PM_STATE {
 
 #define MHI_REG_ACCESS_VALID(pm_state) ((pm_state & (MHI_PM_POR | MHI_PM_M0 | \
 		MHI_PM_M2 | MHI_PM_M3_ENTER | MHI_PM_M3_EXIT | \
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SYS_ERR_PROCESS | \
-		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_FW_DL_ERR)))
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT | \
+		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS | \
+		MHI_PM_FW_DL_ERR)))
 #define MHI_PM_IN_ERROR_STATE(pm_state) (pm_state >= MHI_PM_FW_DL_ERR)
 #define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state >= MHI_PM_LD_ERR_FATAL_DETECT)
 #define MHI_DB_ACCESS_VALID(mhi_cntrl) (mhi_cntrl->pm_state & \
@@ -725,6 +729,7 @@ struct tsync_node {
 struct mhi_timesync {
 	void __iomem *time_reg;
 	u32 int_sequence;
+	bool db_support;
 	spinlock_t lock; /* list protection */
 	struct list_head head;
 };
