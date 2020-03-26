@@ -27,12 +27,6 @@ endif
 GZFLAGS		:=-9
 #KBUILD_CFLAGS	+=-pipe
 
-# field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension
-KBUILD_CFLAGS	+= -Wno-gnu-variable-sized-type-not-at-end
-
-# assigning to 'char *' from 'unsigned char *' converts between pointers to integer types with different sign
-KBUILD_CFLAGS	+= -Wno-pointer-sign
-
 # Never generate .eh_frame
 KBUILD_CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
 
