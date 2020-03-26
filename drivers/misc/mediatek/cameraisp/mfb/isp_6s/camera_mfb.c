@@ -3878,6 +3878,11 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), users exist",
 			MFBInfo.UserCount, current->comm,
 			current->pid, current->tgid);
+		/*  */
+		if (pFile->private_data != NULL) {
+			kfree(pFile->private_data);
+			pFile->private_data = NULL;
+		}
 		goto EXIT;
 	} else {
 		/*  */
@@ -3891,11 +3896,11 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 			"%s - last UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
 			__func__, MFBInfo.UserCount, current->comm,
 			current->pid, current->tgid);
-	}
-	/*  */
-	if (pFile->private_data != NULL) {
-		kfree(pFile->private_data);
-		pFile->private_data = NULL;
+		/*  */
+		if (pFile->private_data != NULL) {
+			kfree(pFile->private_data);
+			pFile->private_data = NULL;
+		}
 	}
 
 	/* Disable clock. */
