@@ -886,10 +886,6 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&otm1906a_fhd_dsi_cmd_auto_lcm_drv,
 #endif
 
-#if defined(NT35532_FHD_DSI_VDO_SHARP)
-	&nt35532_fhd_dsi_vdo_sharp_lcm_drv,
-#endif
-
 #if defined(CLAP070WP03XG_LVDS)
 	&clap070wp03xg_lvds_lcm_drv,
 #endif
@@ -1253,16 +1249,16 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&otm1287_wxga_dsi_vdo_auo_guoxian_lcm_drv,
 #endif
 
-#if defined(NT35532_FHD_DSI_VDO_SHARP)
-	&nt35532_fhd_dsi_vdo_sharp_lcm_drv,
-#endif
-
 #if defined(OTM1901A_FHD_DSI_VDO_TPV)
 	&otm1901a_fhd_dsi_vdo_tpv_lcm_drv,
 #endif
 
 #if defined(R63350A_FHD_DSI_VDO_TRULY)
 	&r63350a_fhd_dsi_vdo_truly_lcm_drv,
+#endif
+
+#if defined(NT35532_FHD_DSI_VDO_SHARP)
+	&nt35532_fhd_dsi_vdo_sharp_lcm_drv,
 #endif
 
 #if defined(TD4320_FHDP_DSI_VDO_AUO_RT5081)

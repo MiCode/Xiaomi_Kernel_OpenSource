@@ -235,7 +235,6 @@ extern struct LCM_DRIVER otm1906b_fhd_dsi_vdo_jdi_tps65132_mt6797_lcm_drv;
 extern struct LCM_DRIVER s6e3fa2_fhd1080_dsi_vdo_lcm_drv;
 extern struct LCM_DRIVER nt35523_wsvga_dsi_vdo_boe_lcm_drv;
 extern struct LCM_DRIVER ek79023_dsi_wsvga_vdo_lcm_drv;
-extern struct LCM_DRIVER nt35532_fhd_dsi_vdo_sharp_lcm_drv;
 extern struct LCM_DRIVER s6d7aa0_wxga_dsi_vdo_lcm_drv;
 extern struct LCM_DRIVER hx8394c_wxga_dsi_vdo_lcm_drv;
 extern struct LCM_DRIVER it6151_lp079qx1_edp_dsi_video_8163evb_lcm_drv;
