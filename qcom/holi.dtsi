@@ -536,6 +536,7 @@
 #include "holi-pinctrl.dtsi"
 #include "holi-stub-regulator.dtsi"
 #include "holi-gdsc.dtsi"
+#include "holi-ion.dtsi"
 
 &gcc_camss_top_gdsc {
 	status = "ok";
