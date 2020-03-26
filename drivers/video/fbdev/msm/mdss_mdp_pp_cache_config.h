@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,4 +48,7 @@ int pp_copy_layer_igc_payload(struct mdp_overlay_pp_params *pp_info);
 int pp_copy_layer_hist_lut_payload(struct mdp_overlay_pp_params *pp_info);
 int pp_copy_layer_pa_payload(struct mdp_overlay_pp_params *pp_info);
 int pp_copy_layer_pcc_payload(struct mdp_overlay_pp_params *pp_info);
+int pp_pa_dither_cache_params(struct mdp_dither_cfg_data *config,
+			 struct mdp_pp_cache_res *res_cache);
+
 #endif

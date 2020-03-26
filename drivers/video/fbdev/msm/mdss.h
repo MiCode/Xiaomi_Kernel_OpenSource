@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018,2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/msm-bus.h>
 #include <linux/file.h>
 #include <linux/dma-direction.h>
+#include <soc/qcom/cx_ipeak.h>
 #include <linux/dma-buf.h>
 
 #include "mdss_panel.h"
@@ -166,8 +167,9 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_FMT_PACK_PATTERN,
 	MDSS_QUIRK_NEED_SECURE_MAP,
 	MDSS_QUIRK_SRC_SPLIT_ALWAYS,
-	MDSS_QUIRK_HDR_SUPPORT_ENABLED,
+	MDSS_QUIRK_MMSS_GDSC_COLLAPSE,
 	MDSS_QUIRK_MDP_CLK_SET_RATE,
+	MDSS_QUIRK_HDR_SUPPORT_ENABLED,
 	MDSS_QUIRK_MAX,
 };
 
@@ -179,6 +181,9 @@ enum mdss_hw_capabilities {
 	MDSS_CAPS_QSEED3,
 	MDSS_CAPS_DEST_SCALER,
 	MDSS_CAPS_10_BIT_SUPPORTED,
+	MDSS_CAPS_CWB_SUPPORTED,
+	MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
+	MDSS_CAPS_AVR_SUPPORTED,
 	MDSS_CAPS_SEC_DETACH_SMMU,
 	MDSS_CAPS_MAX,
 };
@@ -194,6 +199,8 @@ enum mdss_qos_settings {
 	MDSS_QOS_TS_PREFILL,
 	MDSS_QOS_REMAPPER,
 	MDSS_QOS_IB_NOCR,
+	MDSS_QOS_WB2_WRITE_GATHER_EN,
+	MDSS_QOS_WB_QOS,
 	MDSS_QOS_MAX,
 };
 
@@ -204,6 +211,15 @@ enum mdss_mdp_pipe_type {
 	MDSS_MDP_PIPE_TYPE_DMA,
 	MDSS_MDP_PIPE_TYPE_CURSOR,
 	MDSS_MDP_PIPE_TYPE_MAX,
+};
+
+enum mdss_mdp_intf_index {
+	MDSS_MDP_NO_INTF,
+	MDSS_MDP_INTF0,
+	MDSS_MDP_INTF1,
+	MDSS_MDP_INTF2,
+	MDSS_MDP_INTF3,
+	MDSS_MDP_MAX_INTF
 };
 
 struct reg_bus_client {
@@ -219,9 +235,9 @@ struct mdss_smmu_client {
 	struct dss_module_power mp;
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
+	bool domain_reattach;
 	bool handoff_pending;
-	char __iomem *mmu_base;
-	int domain;
+	void __iomem *mmu_base;
 	struct list_head _client;
 };
 
@@ -281,22 +297,21 @@ struct mdss_smmu_ops {
 	void (*smmu_dsi_unmap_buffer)(dma_addr_t dma_addr, int domain,
 			unsigned long size, int dir);
 	void (*smmu_deinit)(struct mdss_data_type *mdata);
-	struct sg_table * (*smmu_sg_table_clone)(struct sg_table *orig_table,
-			gfp_t gfp_mask, bool padding);
 };
 
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
-	struct regulator *venus;
+	struct regulator *core_gdsc;
 	struct regulator *vdd_cx;
+	u32 vdd_cx_min_uv;
+	u32 vdd_cx_max_uv;
 	bool batfet_required;
 	struct regulator *batfet;
 	bool en_svs_high;
 	u32 max_mdp_clk_rate;
 	struct mdss_util_intf *mdss_util;
-	struct mdss_panel_data *pdata;
 	unsigned long mdp_clk_rate;
 
 	struct platform_device *pdev;
@@ -354,6 +369,8 @@ struct mdss_data_type {
 	u32 default_ot_wr_limit;
 
 	struct irq_domain *irq_domain;
+	u32 *mdp_irq_raw;
+	u32 *mdp_irq_export;
 	u32 *mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 	u32 mdp_intf_irq_mask;
@@ -406,8 +423,6 @@ struct mdss_data_type {
 	u32 *vbif_rt_qos;
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
-	u32 rot_dwnscale_min;
-	u32 rot_dwnscale_max;
 
 	struct mult_factor ab_factor;
 	struct mult_factor ib_factor;
@@ -483,6 +498,7 @@ struct mdss_data_type {
 
 	int iommu_attached;
 
+	u32 dbg_bus_flags;
 	struct debug_bus *dbg_bus;
 	u32 dbg_bus_size;
 	struct vbif_debug_bus *vbif_dbg_bus;
@@ -531,13 +547,15 @@ struct mdss_data_type {
 	u32 bcolor2;
 	struct mdss_scaler_block *scaler_off;
 
-	u32 splash_intf_sel;
-	u32 splash_split_disp;
-	struct mult_factor bus_throughput_factor;
+	u32 max_dest_scaler_input_width;
+	u32 max_dest_scaler_output_width;
+	struct mdss_mdp_destination_scaler *ds;
 	u32 sec_disp_en;
 	u32 sec_cam_en;
 	u32 sec_session_cnt;
 	wait_queue_head_t secure_waitq;
+	struct cx_ipeak_client *mdss_cx_ipeak;
+	struct mult_factor bus_throughput_factor;
 };
 
 extern struct mdss_data_type *mdss_res;
@@ -581,14 +599,15 @@ struct mdss_util_intf {
 	int (*iommu_ctrl)(int enable);
 	void (*iommu_lock)(void);
 	void (*iommu_unlock)(void);
+	void (*vbif_reg_lock)(void);
+	void (*vbif_reg_unlock)(void);
 	int (*secure_session_ctrl)(int enable);
 	void (*bus_bandwidth_ctrl)(int enable);
 	int (*bus_scale_set_quota)(int client, u64 ab_quota, u64 ib_quota);
 	int (*panel_intf_status)(u32 disp_num, u32 intf_type);
 	struct mdss_panel_cfg* (*panel_intf_type)(int intf_val);
 	int (*dyn_clk_gating_ctrl)(int enable);
-	bool (*param_check)(char *param_string);
-	bool display_disabled;
+	bool (*mdp_handoff_pending)(void);
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,10 @@ static u32 dither_matrix[DITHER_MATRIX_LEN] = {
 static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
 	0, 0, 0, 0, 0, 1, 2, 3, 3};
 
+#define PA_DITHER_REG_OFF 0x2C
+
+#define IGC_DITHER_STRENGTH_REG_OFF 0x7E0
+
 /* histogram prototypes */
 static int pp_get_hist_offset(u32 block, u32 *ctl_off);
 static int pp_hist_set_config(char __iomem *base_addr,
@@ -82,13 +86,7 @@ static int pp_hist_lut_get_version(u32 *version);
 static void pp_hist_lut_opmode_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts);
 
-static int pp_pa_set_config(char __iomem *base_addr,
-		struct pp_sts_type *pp_sts, void *cfg_data,
-		u32 block_type);
-static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
-		u32 block_type, u32 disp_num);
-static int pp_pa_get_version(u32 *version);
-
+/* dither prototypes */
 static int pp_dither_get_config(char __iomem *base_addr, void *cfg_data,
 		u32 block_type, u32 disp_num);
 static int pp_dither_set_config(char __iomem *base_addr,
@@ -96,34 +94,76 @@ static int pp_dither_set_config(char __iomem *base_addr,
 		u32 block_type);
 static int pp_dither_get_version(u32 *version);
 
-static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
-		u32 *opmode, int side);
-
+/* PA prototypes */
+static int pp_pa_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
+		u32 block_type, u32 disp_num);
+static int pp_pa_get_version(u32 *version);
 static void pp_pa_set_global_adj_regs(char __iomem *base_addr,
 		struct mdp_pa_data_v1_7 *pa_data, u32 flag);
-
 static void pp_pa_set_mem_col(char __iomem *base_addr,
 		struct mdp_pa_data_v1_7 *pa_data, u32 flags);
-
 static void pp_pa_set_six_zone(char __iomem *base_addr,
 		struct mdp_pa_data_v1_7 *pa_data,
 		u32 flags);
-
 static void pp_pa_opmode_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts);
 
+/* PA dither prototypes */
+static int pp_pa_dither_get_version(u32 *version);
+static int pp_pa_dither_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+
+/* IGC prototypes */
+static int pp_igc_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
+		u32 block_type, u32 disp_num);
+static int pp_igc_get_version(u32 *version);
+static int pp_igc_dither_set_strength(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+
+static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
+		u32 *opmode, int side);
+static int pp_driver_init(struct mdp_pp_driver_ops *ops);
+
+static struct mdss_pp_res_type_v3 config_data;
+
+static int pp_driver_init(struct mdp_pp_driver_ops *ops)
+{
+	int i = 0;
+
+	if (!ops->pp_ops[IGC].pp_set_config) {
+		pr_err("IGC function is not set\n");
+		return -EINVAL;
+	}
+	config_data.igc_set_config = ops->pp_ops[IGC].pp_set_config;
+	for (i = 0; i < MDSS_BLOCK_DISP_NUM; i++) {
+		config_data.igc_v3_data[i].c0_c1_data =
+			&config_data.igc_table_c0_c1[i][0];
+		config_data.igc_v3_data[i].c2_data =
+			&config_data.igc_table_c2[i][0];
+		config_data.igc_v3_data[i].len = IGC_LUT_ENTRIES;
+		config_data.igc_v3_data[i].strength = 0;
+		config_data.igc_v3_data[i].table_fmt = mdp_igc_rec_max;
+	}
+	return 0;
+}
+
 void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops)
 {
-	void *pp_cfg = NULL;
-
 	if (!ops) {
 		pr_err("PP driver ops invalid %pK\n", ops);
 		return ERR_PTR(-EINVAL);
 	}
 
-	pp_cfg = pp_get_driver_ops_v1_7(ops);
-	if (IS_ERR_OR_NULL(pp_cfg))
-		return NULL;
+	if (pp_driver_init(ops))
+		return ERR_PTR(-EINVAL);
 	/* PA ops */
 	ops->pp_ops[PA].pp_set_config = pp_pa_set_config;
 	ops->pp_ops[PA].pp_get_config = pp_pa_get_config;
@@ -144,13 +184,22 @@ void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[DITHER].pp_get_config = pp_dither_get_config;
 	ops->pp_ops[DITHER].pp_get_version = pp_dither_get_version;
 
+	ops->pp_ops[PA_DITHER].pp_get_version = pp_pa_dither_get_version;
+	ops->pp_ops[PA_DITHER].pp_set_config = pp_pa_dither_set_config;
+	ops->pp_ops[PA_DITHER].pp_get_config = NULL;
+
+	ops->pp_ops[IGC].pp_get_config = pp_igc_get_config;
+	ops->pp_ops[IGC].pp_get_version = pp_igc_get_version;
+	ops->pp_ops[IGC].pp_set_config = pp_igc_set_config;
+
 	/* Set opmode pointers */
 	ops->pp_opmode_config = pp_opmode_config;
 
 	ops->get_hist_offset = pp_get_hist_offset;
 	ops->gamut_clk_gate_en = NULL;
+	ops->igc_set_dither_strength = pp_igc_dither_set_strength;
 
-	return pp_cfg;
+	return &config_data;
 }
 
 static int pp_get_hist_offset(u32 block, u32 *ctl_off)
@@ -811,7 +860,7 @@ static void pp_pa_opmode_config(char __iomem *base_addr,
 	}
 
 	/* reset hist_en, hist_lutv_en and hist_lutv_first_en
-	 *  bits based on the pp_sts
+	   bits based on the pp_sts
 	 */
 	if (pp_sts->hist_sts & PP_STS_ENABLE)
 		opmode |= BIT(16);
@@ -822,3 +871,157 @@ static void pp_pa_opmode_config(char __iomem *base_addr,
 
 	writel_relaxed(opmode, base_addr + PA_OP_MODE_REG_OFF);
 }
+
+static int pp_pa_dither_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version");
+		return -EINVAL;
+	}
+	*version = mdp_dither_pa_v1_7;
+	return 0;
+}
+
+static int pp_pa_dither_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	struct mdp_dither_cfg_data *dither_cfg_data = NULL;
+	struct mdp_pa_dither_res_data_v1_7 *dither_data = NULL;
+	u32 *pdata;
+	u32 opmode = 0, data = 0, i = 0;
+	char __iomem *opmode_addr = NULL, *matrix_addr = NULL;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
+				base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+	if (block_type != DSPP) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	dither_cfg_data = (struct mdp_dither_cfg_data *) cfg_data;
+	if (dither_cfg_data->version != mdp_dither_pa_v1_7) {
+		pr_err("invalid pa dither version %d\n",
+			dither_cfg_data->version);
+		return -EINVAL;
+	}
+	if (!(dither_cfg_data->flags & ~(MDP_PP_OPS_READ))) {
+		pr_debug("only read ops is set %d", dither_cfg_data->flags);
+		return 0;
+	}
+	opmode_addr = base_addr + PA_DSPP_BLOCK_REG_OFF + PA_DITHER_REG_OFF;
+	if (dither_cfg_data->flags & MDP_PP_OPS_DISABLE ||
+	    !(dither_cfg_data->flags & MDP_PP_OPS_WRITE)) {
+		pr_debug("Disable pa dither/No write ops set flags %x",
+			dither_cfg_data->flags);
+		goto dither_set_sts;
+	}
+	matrix_addr = opmode_addr + 4;
+	dither_data = (struct mdp_pa_dither_res_data_v1_7 *)
+		dither_cfg_data->cfg_payload;
+	if (!dither_data) {
+		pr_err("invalid payload for dither\n");
+		return -EINVAL;
+	}
+	pdata = dither_data->matrix_data;
+	for (i = 0; i < MDP_DITHER_DATA_V1_7_SZ; i += 4) {
+		data = (pdata[i] & REG_MASK(4)) |
+			((pdata[i + 1] & REG_MASK(4)) << 4) |
+			((pdata[i + 2] & REG_MASK(4)) << 8) |
+			((pdata[i + 3] & REG_MASK(4)) << 12);
+		writel_relaxed(data, matrix_addr);
+		matrix_addr += 4;
+	}
+	opmode = BIT(0);
+	opmode |= (dither_data->offset_en) ? BIT(1) : 0;
+	opmode |= ((dither_data->strength) & REG_MASK(4)) << 4;
+
+dither_set_sts:
+	if (dither_cfg_data->flags & MDP_PP_OPS_DISABLE) {
+		pp_sts->pa_dither_sts &= ~PP_STS_ENABLE;
+		writel_relaxed(0, opmode_addr);
+	} else if (dither_cfg_data->flags & MDP_PP_OPS_ENABLE) {
+		pp_sts->pa_dither_sts |= PP_STS_ENABLE;
+		writel_relaxed(opmode, opmode_addr);
+	}
+	return 0;
+}
+
+static int pp_igc_dither_set_strength(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	struct mdp_igc_lut_data *lut_cfg_data = cfg_data;
+	struct mdp_igc_lut_data_config *v3_data = NULL;
+
+	if (!base_addr || !cfg_data || (block_type != DSPP) || !pp_sts
+		|| (lut_cfg_data->version != mdp_igc_v3)) {
+		pr_err("invalid params base_addr %pK cfg_data %pK block_type %d igc version %d\n",
+			base_addr, cfg_data, block_type, (lut_cfg_data ?
+			lut_cfg_data->version : mdp_pp_unknown));
+		return -EINVAL;
+	}
+
+	if ((lut_cfg_data->ops & MDP_PP_OPS_DISABLE) ||
+		!(lut_cfg_data->ops & MDP_PP_OPS_WRITE))
+		return 0;
+
+	if (!lut_cfg_data->cfg_payload) {
+		pr_err("invalid payload igc dither strenth\n");
+		return -EINVAL;
+	}
+	v3_data = lut_cfg_data->cfg_payload;
+	writel_relaxed(v3_data->strength,
+			base_addr + IGC_DITHER_STRENGTH_REG_OFF);
+	return 0;
+}
+
+static int pp_igc_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	struct mdp_igc_lut_data *lut_cfg_data = NULL, v17_cfg_data = {0};
+	struct mdp_igc_lut_data_config *v3_data = NULL;
+	struct mdp_igc_lut_data_v1_7 v17_lut_data = {0};
+	int ret = 0;
+
+	if (!base_addr || !pp_sts || !cfg_data || !config_data.igc_set_config) {
+		pr_err("invalid payload base_addr %pK pp_sts %pK cfg_data %pK igc_set_config %pK\n",
+			base_addr, pp_sts, cfg_data,
+			config_data.igc_set_config);
+		return -EINVAL;
+	}
+	lut_cfg_data = cfg_data;
+	v3_data = lut_cfg_data->cfg_payload;
+	if (v3_data) {
+		v17_lut_data.c0_c1_data = v3_data->c0_c1_data;
+		v17_lut_data.c2_data = v3_data->c2_data;
+		v17_lut_data.len = v3_data->len;
+		v17_lut_data.table_fmt = v3_data->table_fmt;
+	}
+	memcpy(&v17_cfg_data, lut_cfg_data, sizeof(v17_cfg_data));
+	v17_cfg_data.version = mdp_igc_v1_7;
+	ret = config_data.igc_set_config(base_addr, pp_sts, &v17_cfg_data,
+					 block_type);
+	return ret;
+}
+
+static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
+		u32 block_type, u32 disp_num)
+{
+	return -EINVAL;
+}
+
+static int pp_igc_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version");
+		return -EINVAL;
+	}
+	*version = mdp_igc_v3;
+	return 0;
+}
+

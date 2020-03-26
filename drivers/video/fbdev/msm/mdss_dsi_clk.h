@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,6 @@
 #include <linux/list.h>
 
 #define DSI_CLK_NAME_LEN 20
-#define MAX_CLIENT_NAME_LEN 20
 
 #define MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON 0x1
 
@@ -37,14 +36,8 @@ enum mdss_dsi_link_clk_type {
 	MDSS_DSI_LINK_ESC_CLK,
 	MDSS_DSI_LINK_BYTE_CLK,
 	MDSS_DSI_LINK_PIX_CLK,
+	MDSS_DSI_LINK_BYTE_INTF_CLK,
 	MDSS_DSI_LINK_CLK_MAX,
-};
-
-enum mdss_dsi_link_clk_op_type {
-	MDSS_DSI_LINK_CLK_SET_RATE = BIT(0),
-	MDSS_DSI_LINK_CLK_PREPARE = BIT(1),
-	MDSS_DSI_LINK_CLK_ENABLE = BIT(2),
-	MDSS_DSI_LINK_CLK_START = BIT(0) | BIT(1) | BIT(2),
 };
 
 enum mdss_dsi_clk_type {
@@ -54,85 +47,67 @@ enum mdss_dsi_clk_type {
 	MDSS_DSI_CLKS_MAX = BIT(2),
 };
 
-enum mdss_dsi_lclk_type {
-	MDSS_DSI_LINK_NONE = 0,
-	MDSS_DSI_LINK_LP_CLK = BIT(0),
-	MDSS_DSI_LINK_HS_CLK = BIT(1),
-};
-
 /**
  * typedef *pre_clockoff_cb() - Callback before clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which is being turned off.
- * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @new_state: next state for the clock.
  *
  * @return: error code.
  */
 typedef int (*pre_clockoff_cb)(void *priv,
-				enum mdss_dsi_clk_type clk_type,
-				enum mdss_dsi_lclk_type l_type,
-				enum mdss_dsi_clk_state new_state);
+			       enum mdss_dsi_clk_type clk_type,
+			       enum mdss_dsi_clk_state new_state);
 
 /**
  * typedef *post_clockoff_cb() - Callback after clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which was turned off.
- * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @curr_state: current state for the clock.
  *
  * @return: error code.
  */
 typedef int (*post_clockoff_cb)(void *priv,
 				enum mdss_dsi_clk_type clk_type,
-				enum mdss_dsi_lclk_type l_type,
 				enum mdss_dsi_clk_state curr_state);
 
 /**
  * typedef *post_clockon_cb() - Callback after clock is turned on
  * @priv: private data pointer.
  * @clk_type: clock which was turned on.
- * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @curr_state: current state for the clock.
  *
  * @return: error code.
  */
 typedef int (*post_clockon_cb)(void *priv,
-				enum mdss_dsi_clk_type clk_type,
-				enum mdss_dsi_lclk_type l_type,
-				enum mdss_dsi_clk_state curr_state);
+			       enum mdss_dsi_clk_type clk_type,
+			       enum mdss_dsi_clk_state curr_state);
 
 /**
  * typedef *pre_clockon_cb() - Callback before clock is turned on
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.
- * @l_type: specifies if the clock is HS or LP type. Valid only for link clocks.
  * @new_state: next state for the clock.
  *
  * @return: error code.
  */
 typedef int (*pre_clockon_cb)(void *priv,
-				enum mdss_dsi_clk_type clk_type,
-				enum mdss_dsi_lclk_type l_type,
-				enum mdss_dsi_clk_state new_state);
+			      enum mdss_dsi_clk_type clk_type,
+			      enum mdss_dsi_clk_state new_state);
 
 struct mdss_dsi_core_clk_info {
 	struct clk *mdp_core_clk;
+	struct clk *mnoc_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *mmss_misc_ahb_clk;
 };
 
-struct mdss_dsi_link_hs_clk_info {
+struct mdss_dsi_link_clk_info {
+	struct clk *esc_clk;
 	struct clk *byte_clk;
 	struct clk *pixel_clk;
-	u32 byte_clk_rate;
-	u32 pix_clk_rate;
-};
-
-struct mdss_dsi_link_lp_clk_info {
-	struct clk *esc_clk;
-	u32 esc_clk_rate;
+	struct clk *byte_intf_clk;
 };
 
 struct dsi_panel_clk_ctrl {
@@ -154,8 +129,7 @@ struct dsi_panel_clk_ctrl {
 struct mdss_dsi_clk_info {
 	char name[DSI_CLK_NAME_LEN];
 	struct mdss_dsi_core_clk_info core_clks;
-	struct mdss_dsi_link_hs_clk_info link_hs_clks;
-	struct mdss_dsi_link_lp_clk_info link_lp_clks;
+	struct mdss_dsi_link_clk_info link_clks;
 	pre_clockoff_cb pre_clkoff_cb;
 	post_clockoff_cb post_clkoff_cb;
 	post_clockon_cb post_clkon_cb;
@@ -165,47 +139,6 @@ struct mdss_dsi_clk_info {
 
 struct mdss_dsi_clk_client {
 	char *client_name;
-};
-
-struct dsi_core_clks {
-	struct mdss_dsi_core_clk_info clks;
-	u32 current_clk_state;
-};
-
-struct dsi_link_clks {
-	struct mdss_dsi_link_hs_clk_info hs_clks;
-	struct mdss_dsi_link_lp_clk_info lp_clks;
-	u32 current_clk_state;
-};
-
-struct mdss_dsi_clk_mngr {
-	char name[DSI_CLK_NAME_LEN];
-	struct dsi_core_clks core_clks;
-	struct dsi_link_clks link_clks;
-
-	struct reg_bus_client *reg_bus_clt;
-
-	pre_clockoff_cb pre_clkoff_cb;
-	post_clockoff_cb post_clkoff_cb;
-	post_clockon_cb post_clkon_cb;
-	pre_clockon_cb pre_clkon_cb;
-
-	struct list_head client_list;
-	struct mutex clk_mutex;
-
-	void *priv_data;
-};
-
-struct mdss_dsi_clk_client_info {
-	char name[MAX_CLIENT_NAME_LEN];
-	u32 core_refcount;
-	u32 link_refcount;
-	u32 core_clk_state;
-	u32 link_clk_state;
-
-	struct list_head list;
-
-	struct mdss_dsi_clk_mngr *mngr;
 };
 
 /**

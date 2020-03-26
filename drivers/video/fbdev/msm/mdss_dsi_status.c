@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,6 @@
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
-#include <linux/interrupt.h>
 
 #include "mdss_fb.h"
 #include "mdss_dsi.h"
@@ -39,6 +38,35 @@
 static uint32_t interval = STATUS_CHECK_INTERVAL_MS;
 static int32_t dsi_status_disable = DSI_STATUS_CHECK_INIT;
 struct dsi_status_data *pstatus_data;
+
+int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
+{
+	struct mdss_mdp_ctl *ctl = NULL;
+	struct msm_fb_data_type *mfd = arg;
+	int ret = 0;
+
+	if (!mfd)
+		return -EINVAL;
+
+	ctl = mfd_to_ctl(mfd);
+
+	if (!ctl || !ctrl)
+		return -EINVAL;
+
+	mutex_lock(&ctl->offlock);
+	/*
+	 * if check_status method is not defined
+	 * then no need to fail this function,
+	 * instead return a positive value.
+	 */
+	if (ctrl->check_status)
+		ret = ctrl->check_status(ctrl);
+	else
+		ret = 1;
+	mutex_unlock(&ctl->offlock);
+
+	return ret;
+}
 
 /*
  * check_dsi_ctrl_status() - Reads MFD structure and
@@ -95,10 +123,8 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 	else
 		pr_err("Pstatus data is NULL\n");
 
-	if (!atomic_read(&ctrl_pdata->te_irq_ready)) {
-		complete_all(&ctrl_pdata->te_irq_comp);
+	if (!atomic_read(&ctrl_pdata->te_irq_ready))
 		atomic_inc(&ctrl_pdata->te_irq_ready);
-	}
 
 	return IRQ_HANDLED;
 }
@@ -109,7 +135,7 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 void disable_esd_thread(void)
 {
 	if (pstatus_data &&
-		cancel_delayed_work_sync(&pstatus_data->check_status))
+	    cancel_delayed_work(&pstatus_data->check_status))
 		pr_debug("esd thread killed\n");
 }
 
@@ -173,12 +199,10 @@ static int fb_event_callback(struct notifier_block *self,
 			schedule_delayed_work(&pdata->check_status,
 				msecs_to_jiffies(interval));
 			break;
-		case FB_BLANK_VSYNC_SUSPEND:
-		case FB_BLANK_NORMAL:
-			pr_debug("%s : ESD thread running\n", __func__);
-			break;
 		case FB_BLANK_POWERDOWN:
 		case FB_BLANK_HSYNC_SUSPEND:
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_NORMAL:
 			cancel_delayed_work(&pdata->check_status);
 			break;
 		default:

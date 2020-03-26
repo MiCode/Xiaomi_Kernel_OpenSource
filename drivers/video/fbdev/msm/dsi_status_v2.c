@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,8 +119,7 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 	if (mipi->mode == DSI_CMD_MODE &&
 		mipi->hw_vsync_mode &&
 		mdss_dsi_is_te_based_esd(ctrl_pdata)) {
-		uint32_t fps = mdss_panel_get_framerate(&pdata->panel_info,
-					FPS_RESOLUTION_HZ);
+		uint32_t fps = mdss_panel_get_framerate(&pdata->panel_info);
 		uint32_t timeout = ((1000 / fps) + 1) *
 					MDSS_STATUS_TE_WAIT_MAX;
 
