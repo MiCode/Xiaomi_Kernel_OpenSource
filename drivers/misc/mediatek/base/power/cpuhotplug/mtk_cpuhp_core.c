@@ -23,7 +23,7 @@
 
 static int is_multi_cluster(void)
 {
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	return 0;
 #else
 	struct device_node *cn, *map;
