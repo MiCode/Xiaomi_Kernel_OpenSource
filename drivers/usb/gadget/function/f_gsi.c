@@ -76,6 +76,7 @@ static void ipa_disconnect_handler(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi);
 static struct gsi_ctrl_pkt *gsi_ctrl_pkt_alloc(unsigned int len, gfp_t flags);
 static void gsi_ctrl_pkt_free(struct gsi_ctrl_pkt *pkt);
+static int gsi_ctrl_send_cpkt_tomodem(struct f_gsi *gsi, void *buf, size_t len);
 
 static inline bool is_ext_prot_ether(int prot_id)
 {
@@ -742,6 +743,12 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		d_port->out_request.db_reg_phs_addr_msb =
 			ipa_out_channel_out_params.db_reg_phs_addr_msb;
 	}
+
+	/* Send 0 byte packet to QTI only if DTR linetstate is HIGH already */
+	if (gsi->rmnet_dtr_status &&
+			(gsi->prot_id == USB_PROT_RMNET_IPA ||
+			 gsi->prot_id == USB_PROT_RMNET_V2X_IPA))
+		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 
 	return ret;
 
@@ -2226,7 +2233,14 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			queue_work(gsi->c_port.uevent_wq,
 					&gsi->c_port.uevent_work);
 
-		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
+		/* Send 0 byte packet to QTI only if IPA connect is done */
+		if (gsi->rmnet_dtr_status) {
+			if (gsi->prot_id == USB_PROT_RMNET_ETHER)
+				gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
+			else if (gsi->d_port.in_channel_handle != -EINVAL)
+				gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
+		}
+
 		value = 0;
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
