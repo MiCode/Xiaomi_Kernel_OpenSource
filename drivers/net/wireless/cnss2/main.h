@@ -232,6 +232,7 @@ enum cnss_debug_quirks {
 	ENABLE_PCI_LINK_DOWN_PANIC,
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
+	IGNORE_PCI_LINK_FAILURE,
 };
 
 enum cnss_bdf_type {
