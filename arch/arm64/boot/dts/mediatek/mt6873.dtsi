@@ -230,7 +230,7 @@
 			#gpio-cells = <2>;
 			gpio-ranges = <&pio 0 0 220>;
 			interrupt-controller;
-			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH 0>;
 			#interrupt-cells = <2>;
 		};
 
