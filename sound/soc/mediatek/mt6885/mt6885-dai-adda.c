@@ -63,7 +63,7 @@ enum {
 	MTK_AFE_ADDA_UL_RATE_48K_HD = 6,
 };
 
-#define SDM_AUTO_RESET_THRESHOLD 0x400
+#define SDM_AUTO_RESET_THRESHOLD 0x190000
 
 struct mtk_afe_adda_priv {
 	int dl_rate;
@@ -153,6 +153,9 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN3_1, I_DL4_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH1", AFE_CONN3_1, I_DL5_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH1", AFE_CONN3_1, I_DL6_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL8_CH1", AFE_CONN3_1, I_DL8_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN3,
+				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN3,
 				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN3,
@@ -180,6 +183,9 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch2_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN4_1, I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH2", AFE_CONN4_1, I_DL5_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH2", AFE_CONN4_1, I_DL6_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL8_CH2", AFE_CONN4_1, I_DL8_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN4,
+				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN4,
 				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN4,
@@ -208,6 +214,8 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch3_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN52_1, I_DL4_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH1", AFE_CONN52_1, I_DL5_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH1", AFE_CONN52_1, I_DL6_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN52,
+				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN52,
 				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN52,
@@ -231,6 +239,8 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch4_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN53_1, I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH2", AFE_CONN53_1, I_DL5_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH2", AFE_CONN53_1, I_DL6_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN53,
+				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN53,
 				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN53,
@@ -1043,7 +1053,6 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("STF_OUTPUT"),
 
 	/* clock */
-	SND_SOC_DAPM_CLOCK_SUPPLY("mtkaif_26m_clk"),
 	SND_SOC_DAPM_CLOCK_SUPPLY("top_mux_audio_h"),
 
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_dac_clk"),
@@ -1107,6 +1116,9 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 
 	{"ADDA_DL_CH1", "DL6_CH1", "DL6"},
 	{"ADDA_DL_CH2", "DL6_CH2", "DL6"},
+
+	{"ADDA_DL_CH1", "DL8_CH1", "DL8"},
+	{"ADDA_DL_CH2", "DL8_CH2", "DL8"},
 
 	{"ADDA_DL_CH1", "DL2_CH1", "DL2"},
 	{"ADDA_DL_CH2", "DL2_CH1", "DL2"},
@@ -1202,22 +1214,18 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"ADDA CH34 Playback", NULL, "Sidetone Filter"},
 
 	/* clk */
-	{"ADDA Playback", NULL, "mtkaif_26m_clk"},
 	{"ADDA Playback", NULL, "aud_dac_clk"},
 	{"ADDA Playback", NULL, "aud_dac_predis_clk"},
 	{"ADDA Playback", NULL, "aud_dac_hires_clk", mtk_afe_dac_hires_connect},
 
-	{"ADDA CH34 Playback", NULL, "mtkaif_26m_clk"},
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_clk"},
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_predis_clk"},
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_hires_clk",
 	 mtk_afe_dac_hires_connect},
 
-	{"ADDA Capture Enable", NULL, "mtkaif_26m_clk"},
 	{"ADDA Capture Enable", NULL, "aud_adc_clk"},
 	{"ADDA Capture Enable", NULL, "aud_adc_hires_clk",
 	 mtk_afe_adc_hires_connect},
-	{"ADDA CH34 Capture Enable", NULL, "mtkaif_26m_clk"},
 	{"ADDA CH34 Capture Enable", NULL, "aud_adda6_adc_clk"},
 	{"ADDA CH34 Capture Enable", NULL, "aud_adda6_adc_hires_clk",
 	 mtk_afe_adc_hires_connect},

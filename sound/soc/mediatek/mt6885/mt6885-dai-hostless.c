@@ -24,12 +24,16 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	/* Hostless ADDA Loopback */
 	{"ADDA_DL_CH1", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"ADDA_DL_CH1", "ADDA_UL_CH2", "Hostless LPBK DL"},
+	{"ADDA_DL_CH1", "ADDA_UL_CH3", "Hostless LPBK DL"},
 	{"ADDA_DL_CH2", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"ADDA_DL_CH2", "ADDA_UL_CH2", "Hostless LPBK DL"},
+	{"ADDA_DL_CH2", "ADDA_UL_CH3", "Hostless LPBK DL"},
 	{"ADDA_DL_CH3", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"ADDA_DL_CH3", "ADDA_UL_CH2", "Hostless LPBK DL"},
+	{"ADDA_DL_CH3", "ADDA_UL_CH3", "Hostless LPBK DL"},
 	{"ADDA_DL_CH4", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"ADDA_DL_CH4", "ADDA_UL_CH2", "Hostless LPBK DL"},
+	{"ADDA_DL_CH4", "ADDA_UL_CH3", "Hostless LPBK DL"},
 	{"I2S1_CH1", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"I2S1_CH2", "ADDA_UL_CH2", "Hostless LPBK DL"},
 	{"I2S3_CH1", "ADDA_UL_CH1", "Hostless LPBK DL"},
@@ -41,6 +45,7 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"I2S5_CH1", "ADDA_UL_CH1", "Hostless LPBK DL"},
 	{"I2S5_CH2", "ADDA_UL_CH2", "Hostless LPBK DL"},
 	{"Hostless LPBK UL", NULL, "ADDA_UL_Mux"},
+	{"Hostless LPBK UL", NULL, "ADDA_CH34_UL_Mux"},
 
 	/* Hostless Speech */
 	{"ADDA_DL_CH1", "PCM_1_CAP_CH1", "Hostless Speech DL"},
@@ -77,8 +82,10 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"PCM_1_PB_CH2", "ADDA_UL_CH2", "Hostless Speech DL"},
 	{"PCM_2_PB_CH1", "ADDA_UL_CH1", "Hostless Speech DL"},
 	{"PCM_2_PB_CH1", "ADDA_UL_CH2", "Hostless Speech DL"},
+	{"PCM_2_PB_CH1", "ADDA_UL_CH3", "Hostless Speech DL"},
 	{"PCM_2_PB_CH2", "ADDA_UL_CH1", "Hostless Speech DL"},
 	{"PCM_2_PB_CH2", "ADDA_UL_CH2", "Hostless Speech DL"},
+	{"PCM_2_PB_CH2", "ADDA_UL_CH3", "Hostless Speech DL"},
 	{"PCM_2_PB_CH3", "ADDA_UL_CH3", "Hostless Speech DL"},
 
 	{"Hostless Speech UL", NULL, "PCM 1 Capture"},
@@ -96,6 +103,8 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"PCM_2_PB_CH4", "I2S0_CH2", "Hostless_Sph_Echo_Ref_DL"},
 	{"PCM_2_PB_CH4", "I2S2_CH1", "Hostless_Sph_Echo_Ref_DL"},
 	{"PCM_2_PB_CH4", "I2S2_CH2", "Hostless_Sph_Echo_Ref_DL"},
+	{"PCM_2_PB_CH5", "I2S0_CH2", "Hostless_Sph_Echo_Ref_DL"},
+	{"PCM_2_PB_CH5", "I2S2_CH2", "Hostless_Sph_Echo_Ref_DL"},
 
 	{"Hostless_Sph_Echo_Ref_UL", NULL, "I2S0"},
 	{"Hostless_Sph_Echo_Ref_UL", NULL, "I2S2"},
@@ -142,8 +151,13 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	/* Hostless_SRC_bargein */
 	{"HW_SRC_1_IN_CH1", "I2S0_CH1", "Hostless_SRC_Bargein_DL"},
 	{"HW_SRC_1_IN_CH2", "I2S0_CH2", "Hostless_SRC_Bargein_DL"},
-
 	{"Hostless_SRC_Bargein_UL", NULL, "I2S0"},
+
+	/* Hostless AAudio */
+	{"Hostless HW Gain AAudio In", NULL, "HW Gain 2 In"},
+	{"Hostless SRC AAudio UL", NULL, "HW Gain 2 Out"},
+	{"HW_SRC_2_IN_CH1", "HW_GAIN_2_CH1", "Hostless SRC AAudio DL"},
+	{"HW_SRC_2_IN_CH2", "HW_GAIN_2_CH2", "Hostless SRC AAudio DL"},
 };
 
 /* dai ops */
@@ -378,6 +392,37 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 		.id = MT6885_DAI_HOSTLESS_UL6,
 		.capture = {
 			.stream_name = "Hostless_UL6 UL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.ops = &mtk_dai_hostless_ops,
+	},
+	{
+		.name = "Hostless HW Gain AAudio DAI",
+		.id = MT6873_DAI_HOSTLESS_HW_GAIN_AAUDIO,
+		.capture = {
+			.stream_name = "Hostless HW Gain AAudio In",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.ops = &mtk_dai_hostless_ops,
+	},
+	{
+		.name = "Hostless SRC AAudio DAI",
+		.id = MT6873_DAI_HOSTLESS_SRC_AAUDIO,
+		.playback = {
+			.stream_name = "Hostless SRC AAudio DL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Hostless SRC AAudio UL",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_HOSTLESS_RATES,

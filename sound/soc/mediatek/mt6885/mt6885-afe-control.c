@@ -12,9 +12,6 @@
 #include "../common/mtk-sp-afe-external.h"
 #include "../common/mtk-sram-manager.h"
 
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-#include "../audio_dsp/mtk-dsp-core.h"
-#endif
 
 /* don't use this directly if not necessary */
 static struct mtk_base_afe *local_afe;
@@ -302,25 +299,6 @@ void mtk_audio_free_sram(void *user)
 		 __func__, request_sram_count);
 }
 EXPORT_SYMBOL(mtk_audio_free_sram);
-
-bool mtk_audio_condition_enter_suspend(void)
-{
-	struct mt6885_afe_private *afe_priv = local_afe->platform_priv;
-
-	if (afe_priv->dai_on[MT6885_DAI_CONNSYS_I2S])
-		return false;
-
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	if (is_adsp_feature_registered() || is_adsp_core_ready())
-		return false;
-#endif
-
-	if (request_sram_count)
-		return false;
-
-	return true;
-}
-EXPORT_SYMBOL(mtk_audio_condition_enter_suspend);
 
 bool mtk_get_speech_status(void)
 {

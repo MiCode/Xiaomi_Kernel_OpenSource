@@ -9,22 +9,26 @@
 #ifndef _MT6885_AFE_CLOCK_CTRL_H_
 #define _MT6885_AFE_CLOCK_CTRL_H_
 
-#define AP_PLL_CON5 0x0014
-#define APLL1_CON0 0x02c0
-#define APLL1_CON1 0x02c4
-#define APLL1_CON2 0x02c8
-#define APLL1_CON3 0x02cc
-#define APLL1_PWR_CON0 0x02d0
+#define AP_PLL_CON3 0x0014
+#define APLL1_CON0 0x0318
+#define APLL1_CON1 0x031c
+#define APLL1_CON2 0x0320
+#define APLL1_CON4 0x0328
+#define APLL1_TUNER_CON0 0x0040
 
-#define APLL2_CON0 0x02d4
-#define APLL2_CON1 0x02d8
-#define APLL2_CON2 0x02dc
-#define APLL2_CON3 0x02e0
-#define APLL2_PWR_CON0 0x02e4
+#define APLL2_CON0 0x032c
+#define APLL2_CON1 0x0330
+#define APLL2_CON2 0x0334
+#define APLL2_CON4 0x033c
+#define APLL2_TUNER_CON0 0x0044
 
-#define APMIXEDSYS_MAX_LENGTH APLL2_PWR_CON0
+#define CLK_CFG_7 0x0080
+#define CLK_CFG_8 0x0090
+#define CLK_CFG_11 0x00c0
+#define CLK_CFG_12 0x00d0
+#define CLK_CFG_13 0x00e0
+#define CLK_CFG_15 0x0100
 
-#define CLK_CFG_6 0x0080
 #define CLK_AUDDIV_0 0x0320
 #define CLK_AUDDIV_1 0x0324
 #define CLK_AUDDIV_2 0x0328
@@ -33,12 +37,9 @@
 #define CKSYS_AUD_TOP_CFG 0x032c
 #define CKSYS_AUD_TOP_MON 0x0330
 
-#define CLK_MAX_LENGTH CLK_AUDDIV_4
-
-/* CLK_CFG_6 */
-#define CLK_AUD_INTBUS_SEL_SFT              16
-#define CLK_AUD_INTBUS_SEL_MASK             0x3
-#define CLK_AUD_INTBUS_SEL_MASK_SFT         (0x3 << 16)
+#define PERI_BUS_DCM_CTRL 0x0074
+#define MODULE_SW_CG_1_STA 0x0094
+#define MODULE_SW_CG_2_STA 0x00ac
 
 /* CLK_AUDDIV_0 */
 #define APLL_PDN_RESERVE0_SFT              0
@@ -232,14 +233,63 @@ enum {
 	MT6885_APLL2,
 };
 
+enum {
+	CLK_AFE = 0,
+	/*CLK_DAC,*/
+	/*CLK_DAC_PREDIS,*/
+	/*CLK_ADC,*/
+	CLK_TML,
+	CLK_APLL22M,
+	CLK_APLL24M,
+	CLK_APLL1_TUNER,
+	CLK_APLL2_TUNER,
+	CLK_NLE,
+	CLK_SCP_SYS_AUD,
+	CLK_INFRA_SYS_AUDIO,
+	CLK_INFRA_AUDIO_26M,
+	CLK_MUX_AUDIO,
+	CLK_MUX_AUDIOINTBUS,
+	CLK_TOP_MAINPLL_D4_D4,
+	/* apll related mux */
+	CLK_TOP_MUX_AUD_1,
+	CLK_TOP_APLL1_CK,
+	CLK_TOP_MUX_AUD_2,
+	CLK_TOP_APLL2_CK,
+	CLK_TOP_MUX_AUD_ENG1,
+	CLK_TOP_APLL1_D4,
+	CLK_TOP_MUX_AUD_ENG2,
+	CLK_TOP_APLL2_D4,
+	CLK_TOP_MUX_AUDIO_H,
+	CLK_TOP_I2S0_M_SEL,
+	CLK_TOP_I2S1_M_SEL,
+	CLK_TOP_I2S2_M_SEL,
+	CLK_TOP_I2S3_M_SEL,
+	CLK_TOP_I2S4_M_SEL,
+	CLK_TOP_I2S5_M_SEL,
+	CLK_TOP_I2S6_M_SEL,
+	CLK_TOP_I2S7_M_SEL,
+	CLK_TOP_I2S8_M_SEL,
+	CLK_TOP_I2S9_M_SEL,
+	CLK_TOP_APLL12_DIV0,
+	CLK_TOP_APLL12_DIV1,
+	CLK_TOP_APLL12_DIV2,
+	CLK_TOP_APLL12_DIV3,
+	CLK_TOP_APLL12_DIV4,
+	CLK_TOP_APLL12_DIVB,
+	CLK_TOP_APLL12_DIV5,
+	CLK_TOP_APLL12_DIV6,
+	CLK_TOP_APLL12_DIV7,
+	CLK_TOP_APLL12_DIV8,
+	CLK_TOP_APLL12_DIV9,
+	CLK_CLK26M,
+	CLK_NUM
+};
+
 struct mtk_base_afe;
 
 int mt6885_init_clock(struct mtk_base_afe *afe);
 int mt6885_afe_enable_clock(struct mtk_base_afe *afe);
 void mt6885_afe_disable_clock(struct mtk_base_afe *afe);
-
-int mt6885_afe_suspend_clock(struct mtk_base_afe *afe);
-int mt6885_afe_resume_clock(struct mtk_base_afe *afe);
 
 int mt6885_afe_dram_request(struct device *dev);
 int mt6885_afe_dram_release(struct device *dev);
@@ -260,8 +310,7 @@ extern void aud_intbus_mux_sel(unsigned int aud_idx);
 int mt6885_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate);
 void mt6885_mck_disable(struct mtk_base_afe *afe, int mck_id);
 
-unsigned int get_cksys_reg(unsigned int offset);
-void set_cksys_reg(unsigned int offset, unsigned int value, unsigned int mask);
+int mt6885_set_audio_int_bus_parent(struct mtk_base_afe *afe,
+				    int clk_id);
 
-unsigned int get_apmixed_reg(unsigned int offset);
 #endif

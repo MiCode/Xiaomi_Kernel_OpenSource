@@ -382,8 +382,12 @@ static int mtk_hw_src_event(struct snd_soc_dapm_widget *w,
 
 	src_priv = afe_priv->dai_priv[id];
 
-	dev_info(afe->dev, "%s(), name %s, event 0x%x, id %d, src_priv %p\n",
-		 __func__, w->name, event, id, src_priv);
+	dev_info(afe->dev, "%s(), name %s, event 0x%x, id %d, src_priv %p, dl_rate %d, ul_rate %d\n",
+		 __func__,
+		 w->name, event,
+		 id, src_priv,
+		 src_priv->dl_rate,
+		 src_priv->ul_rate);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -476,6 +480,8 @@ static const struct snd_kcontrol_new mtk_hw_src_2_in_ch1_mix[] = {
 				    I_DL5_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH1", AFE_CONN42_1,
 				    I_DL6_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN_2_CH1", AFE_CONN42,
+				    I_GAIN2_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_hw_src_2_in_ch2_mix[] = {
@@ -491,6 +497,8 @@ static const struct snd_kcontrol_new mtk_hw_src_2_in_ch2_mix[] = {
 				    I_DL5_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH2", AFE_CONN43_1,
 				    I_DL6_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN_2_CH2", AFE_CONN43,
+				    I_GAIN2_OUT_CH2, 1, 0),
 };
 
 static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
@@ -521,6 +529,11 @@ static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMU |
 			    SND_SOC_DAPM_POST_PMU |
 			    SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_INPUT("HW SRC 1 Out Endpoint"),
+	SND_SOC_DAPM_INPUT("HW SRC 2 Out Endpoint"),
+	SND_SOC_DAPM_OUTPUT("HW SRC 1 In Endpoint"),
+	SND_SOC_DAPM_OUTPUT("HW SRC 2 In Endpoint"),
 };
 
 static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
@@ -536,6 +549,11 @@ static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
 		src_priv = afe_priv->dai_priv[MT6885_DAI_SRC_1];
 	else
 		src_priv = afe_priv->dai_priv[MT6885_DAI_SRC_2];
+
+	dev_info(afe->dev,
+		 "%s(), source %s, sink %s, dl_rate %d, ul_rate %d\n",
+		 __func__, source->name, sink->name,
+		 src_priv->dl_rate, src_priv->ul_rate);
 
 	return (src_priv->dl_rate > 0 && src_priv->ul_rate > 0) ? 1 : 0;
 }
@@ -576,6 +594,11 @@ static const struct snd_soc_dapm_route mtk_dai_src_routes[] = {
 	{"HW_SRC_1_Out", NULL, HW_SRC_1_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_In", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_Out", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
+
+	{"HW SRC 1 In Endpoint", NULL, "HW_SRC_1_In"},
+	{"HW SRC 2 In Endpoint", NULL, "HW_SRC_2_In"},
+	{"HW_SRC_1_Out", NULL, "HW SRC 1 Out Endpoint"},
+	{"HW_SRC_2_Out", NULL, "HW SRC 2 Out Endpoint"},
 };
 
 /* dai ops */

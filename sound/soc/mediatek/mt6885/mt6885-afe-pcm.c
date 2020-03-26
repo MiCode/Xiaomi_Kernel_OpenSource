@@ -13,6 +13,8 @@
 #include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
 
 #ifdef CONFIG_MTK_ACAO_SUPPORT
 #include "mtk_mcdi_governor_hint.h"
@@ -47,7 +49,7 @@ static const struct snd_pcm_hardware mt6885_afe_hardware = {
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
 		    SNDRV_PCM_FMTBIT_S24_LE |
 		    SNDRV_PCM_FMTBIT_S32_LE),
-	.period_bytes_min = 256,
+	.period_bytes_min = 96,
 	.period_bytes_max = 4 * 48 * 1024,
 	.periods_min = 2,
 	.periods_max = 256,
@@ -139,13 +141,18 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT) ||\
 	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		/* with dsp enable, not to set when stop_threshold = ~(0U) */
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
+/* only when adsp enable using hw semaphore to set memif */
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+			ret = mtk_dsp_memif_set_enable(afe, id);
+#else
 			ret = mtk_memif_set_enable(afe, id);
+#endif
 #else
 		ret = mtk_memif_set_enable(afe, id);
 #endif
@@ -213,7 +220,12 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
+/* only when adsp enable using hw semaphore to set memif */
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+			ret = mtk_dsp_memif_set_disable(afe, id);
+#else
 			ret = mtk_memif_set_disable(afe, id);
+#endif
 #else
 		ret = mtk_memif_set_disable(afe, id);
 #endif
@@ -1150,7 +1162,7 @@ static int mt6885_adsp_call_final_mem_get(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
+	int memif_num = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
 					  ADSP_TASK_ATTR_MEMDL);
 	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
 
@@ -1164,11 +1176,51 @@ static int mt6885_adsp_call_final_mem_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_numdl = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
+	int memif_numdl = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
 					    ADSP_TASK_ATTR_MEMDL);
-	int memif_numul = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
+	int memif_numul = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
 					    ADSP_TASK_ATTR_MEMUL);
-	int memif_numref = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
+	int memif_numref = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+					    ADSP_TASK_ATTR_MEMREF);
+	struct mtk_base_afe_memif *memifdl = &afe->memif[memif_numdl];
+	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
+	struct mtk_base_afe_memif *memifref;
+
+	memifdl->use_adsp_share_mem = ucontrol->value.integer.value[0];
+	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
+
+	if (memif_numref > 0) {
+		memifref = &afe->memif[memif_numref];
+		memifref->use_adsp_share_mem = ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
+static int mt6885_adsp_ktv_mem_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_num = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
+					  ADSP_TASK_ATTR_MEMDL);
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
+	return 0;
+
+}
+
+static int mt6885_adsp_ktv_mem_set(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_numdl = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
+					    ADSP_TASK_ATTR_MEMDL);
+	int memif_numul = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
+					    ADSP_TASK_ATTR_MEMUL);
+	int memif_numref = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
 					    ADSP_TASK_ATTR_MEMREF);
 	struct mtk_base_afe_memif *memifdl = &afe->memif[memif_numdl];
 	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
@@ -1292,6 +1344,33 @@ static int mt6885_adsp_a2dp_mem_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mt6885_adsp_fast_mem_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_num = get_dsp_task_attr(AUDIO_TASK_FAST_ID,
+					  ADSP_TASK_ATTR_MEMUL);
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
+	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
+	return 0;
+
+}
+
+static int mt6885_adsp_fast_mem_set(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int memif_numul = get_dsp_task_attr(AUDIO_TASK_FAST_ID,
+					    ADSP_TASK_ATTR_MEMUL);
+	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
+
+	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
+	return 0;
+}
+
 #endif
 
 static int mt6885_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
@@ -1381,7 +1460,7 @@ static int mt6885_mmap_ion_set(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	/* for bring up */
-#if 0
+#if 1
 	mtk_get_ion_buffer();
 #endif
 	return 0;
@@ -1397,7 +1476,7 @@ static int mt6885_dl_mmap_fd_get(struct snd_kcontrol *kcontrol,
 
 	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 1) ?
 					    mtk_get_mmap_dl_fd() : 0;
-	dev_info(afe->dev, "%s, fd %d\n", __func__,
+	dev_info(afe->dev, "%s, fd %ld\n", __func__,
 		 ucontrol->value.integer.value[0]);
 	return 0;
 }
@@ -1418,7 +1497,7 @@ static int mt6885_ul_mmap_fd_get(struct snd_kcontrol *kcontrol,
 
 	ucontrol->value.integer.value[0] = (memif->use_mmap_share_mem == 2) ?
 					    mtk_get_mmap_ul_fd() : 0;
-	dev_info(afe->dev, "%s, fd %d\n", __func__,
+	dev_info(afe->dev, "%s, fd %ld\n", __func__,
 		 ucontrol->value.integer.value[0]);
 	return 0;
 }
@@ -1479,6 +1558,10 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_adsp_call_final_mem_get,
 		       mt6885_adsp_call_final_mem_set),
+	SOC_SINGLE_EXT("adsp_ktv_sharemem_scenario",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6885_adsp_ktv_mem_get,
+		       mt6885_adsp_ktv_mem_set),
 	SOC_SINGLE_EXT("adsp_offload_sharemem_scenario",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_adsp_offload_mem_get,
@@ -1495,6 +1578,10 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_adsp_a2dp_mem_get,
 		       mt6885_adsp_a2dp_mem_set),
+	SOC_SINGLE_EXT("adsp_fast_sharemem_scenario",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6885_adsp_fast_mem_get,
+		       mt6885_adsp_fast_mem_set),
 #endif
 	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_mmap_dl_scene_get, mt6885_mmap_dl_scene_set),
@@ -1513,6 +1600,52 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       mt6885_ul_mmap_fd_get,
 		       mt6885_ul_mmap_fd_set),
 };
+
+static int ul_tinyconn_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *kcontrol,
+			     int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int reg_shift;
+	unsigned int reg_mask_shift;
+
+	dev_info(afe->dev, "%s(), event 0x%x\n", __func__, event);
+
+	if (strstr(w->name, "UL1")) {
+		reg_shift = VUL1_USE_TINY_SFT;
+		reg_mask_shift = VUL1_USE_TINY_MASK_SFT;
+	} else if (strstr(w->name, "UL2")) {
+		reg_shift = VUL2_USE_TINY_SFT;
+		reg_mask_shift = VUL2_USE_TINY_MASK_SFT;
+	} else if (strstr(w->name, "UL3")) {
+		reg_shift = VUL12_USE_TINY_SFT;
+		reg_mask_shift = VUL12_USE_TINY_MASK_SFT;
+	} else if (strstr(w->name, "UL4")) {
+		reg_shift = AWB2_USE_TINY_SFT;
+		reg_mask_shift = AWB2_USE_TINY_MASK_SFT;
+	} else {
+		reg_shift = AWB2_USE_TINY_SFT;
+		reg_mask_shift = AWB2_USE_TINY_MASK_SFT;
+		pr_err("%s(), error widget name %s, default use UL4",
+		       __func__, w->name);
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		regmap_update_bits(afe->regmap, AFE_MEMIF_CONN, reg_mask_shift,
+				   0x1 << reg_shift);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		regmap_update_bits(afe->regmap, AFE_MEMIF_CONN, reg_mask_shift,
+				   0x0 << reg_shift);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
 
 /* dma widget & routes*/
 static const struct snd_kcontrol_new memif_ul1_ch1_mix[] = {
@@ -1696,11 +1829,19 @@ static const struct snd_kcontrol_new memif_ul6_ch2_mix[] = {
 static const struct snd_kcontrol_new memif_ul7_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN48,
 				    I_ADDA_UL_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN2_OUT_CH1", AFE_CONN48,
+				    I_GAIN2_OUT_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_2_OUT_CH1", AFE_CONN48_1,
+				    I_SRC_2_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul7_ch2_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN49,
 				    I_ADDA_UL_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN2_OUT_CH2", AFE_CONN49,
+				    I_GAIN2_OUT_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_2_OUT_CH2", AFE_CONN49_1,
+				    I_SRC_2_OUT_CH2, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul8_ch1_mix[] = {
@@ -1739,21 +1880,49 @@ static const struct snd_kcontrol_new mtk_dsp_dl_playback_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL4", SND_SOC_NOPM, 0, 1, 0),
 };
 
-/* TINYCONN CH1 MUX */
+/* TINYCONN MUX */
+enum {
+	TINYCONN_CH1_MUX_I2S0 = 0x14,
+	TINYCONN_CH2_MUX_I2S0 = 0x15,
+	TINYCONN_CH1_MUX_I2S6 = 0x1a,
+	TINYCONN_CH2_MUX_I2S6 = 0x1b,
+	TINYCONN_CH1_MUX_I2S8 = 0x1c,
+	TINYCONN_CH2_MUX_I2S8 = 0x1d,
+	TINYCONN_MUX_NONE = 0x1f,
+};
+
+static const char * const tinyconn_mux_map[] = {
+	"NONE",
+	"I2S0_CH1",
+	"I2S0_CH2",
+	"I2S6_CH1",
+	"I2S6_CH2",
+	"I2S8_CH1",
+	"I2S8_CH2",
+};
+
+static int tinyconn_mux_map_value[] = {
+	TINYCONN_MUX_NONE,
+	TINYCONN_CH1_MUX_I2S0,
+	TINYCONN_CH2_MUX_I2S0,
+	TINYCONN_CH1_MUX_I2S6,
+	TINYCONN_CH2_MUX_I2S6,
+	TINYCONN_CH1_MUX_I2S8,
+	TINYCONN_CH2_MUX_I2S8,
+};
+
 static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch1_mux_map_enum,
 				  AFE_TINY_CONN0,
 				  O_2_CFG_SFT,
 				  O_2_CFG_MASK,
-				  tinyconn_ch1_mux_map,
-				  tinyconn_ch1_mux_map_value);
-
-/* TINYCONN CH2 MUX */
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
 static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch2_mux_map_enum,
 				  AFE_TINY_CONN0,
 				  O_3_CFG_SFT,
 				  O_3_CFG_MASK,
-				  tinyconn_ch2_mux_map,
-				  tinyconn_ch2_mux_map_value);
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
 
 static const struct snd_kcontrol_new ul4_tinyconn_ch1_mux_control =
 	SOC_DAPM_ENUM("UL4_TINYCONN_CH1_MUX", ul4_tinyconn_ch1_mux_map_enum);
@@ -1785,10 +1954,14 @@ static const struct snd_soc_dapm_widget mt6885_memif_widgets[] = {
 			   memif_ul4_ch1_mix, ARRAY_SIZE(memif_ul4_ch1_mix)),
 	SND_SOC_DAPM_MIXER("UL4_CH2", SND_SOC_NOPM, 0, 0,
 			   memif_ul4_ch2_mix, ARRAY_SIZE(memif_ul4_ch2_mix)),
-	SND_SOC_DAPM_MUX("UL4_TINYCONN_CH1_MUX", SND_SOC_NOPM, 0, 0,
-			 &ul4_tinyconn_ch1_mux_control),
-	SND_SOC_DAPM_MUX("UL4_TINYCONN_CH2_MUX", SND_SOC_NOPM, 0, 0,
-			 &ul4_tinyconn_ch2_mux_control),
+	SND_SOC_DAPM_MUX_E("UL4_TINYCONN_CH1_MUX", SND_SOC_NOPM, 0, 0,
+			   &ul4_tinyconn_ch1_mux_control,
+			   ul_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MUX_E("UL4_TINYCONN_CH2_MUX", SND_SOC_NOPM, 0, 0,
+			   &ul4_tinyconn_ch2_mux_control,
+			   ul_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_MIXER("UL5_CH1", SND_SOC_NOPM, 0, 0,
 			   memif_ul5_ch1_mix, ARRAY_SIZE(memif_ul5_ch1_mix)),
@@ -1907,11 +2080,14 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 
 	{"UL4", NULL, "UL4_CH1"},
 	{"UL4", NULL, "UL4_CH2"},
-
+	{"UL4", NULL, "UL4_TINYCONN_CH1_MUX"},
+	{"UL4", NULL, "UL4_TINYCONN_CH2_MUX"},
 	{"UL4_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL4_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 	{"UL4_CH1", "I2S0_CH1", "I2S0"},
 	{"UL4_CH2", "I2S0_CH2", "I2S0"},
+	{"UL4_TINYCONN_CH1_MUX", "I2S0_CH1", "I2S0"},
+	{"UL4_TINYCONN_CH2_MUX", "I2S0_CH2", "I2S0"},
 
 	{"UL5", NULL, "UL5_CH1"},
 	{"UL5", NULL, "UL5_CH2"},
@@ -1945,6 +2121,10 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 	{"UL7", NULL, "UL7_CH2"},
 	{"UL7_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL7_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+	{"UL7_CH1", "HW_GAIN2_OUT_CH1", "HW Gain 2 Out"},
+	{"UL7_CH2", "HW_GAIN2_OUT_CH2", "HW Gain 2 Out"},
+	{"UL7_CH1", "HW_SRC_2_OUT_CH1", "HW_SRC_2_Out"},
+	{"UL7_CH2", "HW_SRC_2_OUT_CH2", "HW_SRC_2_Out"},
 
 	{"UL8", NULL, "UL8_CH1"},
 	{"UL8", NULL, "UL8_CH2"},
@@ -1961,10 +2141,8 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 	{"DSP_DL", "DSP_DL3", "DL3"},
 	{"DSP_DL", "DSP_DL4", "DL4"},
 
-	{"UL4_TINYCONN_CH1_MUX", "I2S0_CH1", "I2S0"},
-	{"UL4_TINYCONN_CH2_MUX", "I2S0_CH2", "I2S0"},
-	{"UL4", NULL, "UL4_TINYCONN_CH1_MUX"},
-	{"UL4", NULL, "UL4_TINYCONN_CH2_MUX"},
+	{"HW_GAIN2_IN_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
+	{"HW_GAIN2_IN_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 };
 
 static const struct mtk_base_memif_data memif_data[MT6885_MEMIF_NUM] = {
@@ -3412,6 +3590,7 @@ skip_regmap:
 static int mt6885_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
+	struct mt6885_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
 	dev_info(afe->dev, "%s()\n", __func__);
@@ -3427,6 +3606,8 @@ static int mt6885_afe_runtime_resume(struct device *dev)
 	regcache_sync(afe->regmap);
 
 	/* enable audio sys DCM for power saving */
+	regmap_update_bits(afe_priv->infracfg_ao,
+			   PERI_BUS_DCM_CTRL, 0x1 << 29, 0x1 << 29);
 	regmap_update_bits(afe->regmap, AUDIO_TOP_CON0, 0x1 << 29, 0x1 << 29);
 
 	/* force cpu use 8_24 format when writing 32bit data */
@@ -3442,6 +3623,24 @@ static int mt6885_afe_runtime_resume(struct device *dev)
 
 skip_regmap:
 	return 0;
+}
+
+static int mt6885_afe_pcm_copy(struct snd_pcm_substream *substream,
+			       int channel, unsigned long hwoff,
+			       void *buf, unsigned long bytes,
+			       mtk_sp_copy_f sp_copy)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
+	int ret = 0;
+
+	mt6885_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D4_D4);
+
+	ret = sp_copy(substream, channel, hwoff, buf, bytes);
+
+	mt6885_set_audio_int_bus_parent(afe, CLK_CLK26M);
+
+	return ret;
 }
 
 static int mt6885_set_memif_sram_mode(struct device *dev,
@@ -3603,37 +3802,80 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 			       i, afe->memif[i].irq_usage);
 	}
 
+	regmap_read(afe_priv->topckgen, CLK_CFG_7, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_6 = 0x%x\n",
-		       get_cksys_reg(CLK_CFG_6));
+		       "CLK_CFG_7 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_8, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_0 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_0));
+		       "CLK_CFG_8 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_11, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_1 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_1));
+		       "CLK_CFG_11 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_12, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_2 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_2));
+		       "CLK_CFG_12 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_13, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_AUDDIV_3 = 0x%x\n",
-		       get_cksys_reg(CLK_AUDDIV_3));
+		       "CLK_CFG_13 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_15, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_CFG_15 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_0 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_1 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_2 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_3, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_3 = 0x%x\n", value);
 
+	regmap_read(afe_priv->apmixed, AP_PLL_CON3, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "AP_PLL_CON5 = 0x%x\n",
-		       get_apmixed_reg(AP_PLL_CON5));
+		       "AP_PLL_CON3 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL1_CON1 = 0x%x\n",
-		       get_apmixed_reg(APLL1_CON1));
+		       "APLL1_CON0 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON1, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL1_CON2 = 0x%x\n",
-		       get_apmixed_reg(APLL1_CON2));
+		       "APLL1_CON1 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON2, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL2_CON1 = 0x%x\n",
-		       get_apmixed_reg(APLL2_CON1));
+		       "APLL1_CON2 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_CON4, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "APLL2_CON2 = 0x%x\n",
-		       get_apmixed_reg(APLL2_CON2));
+		       "APLL1_CON4 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON0 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON1 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON2 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_CON4, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_CON4 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL1_TUNER_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL1_TUNER_CON0 = 0x%x\n", value);
+	regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "APLL2_TUNER_CON0 = 0x%x\n", value);
+
+	regmap_read(afe_priv->infracfg_ao, PERI_BUS_DCM_CTRL, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "PERI_BUS_DCM_CTRL = 0x%x\n", value);
+	regmap_read(afe_priv->infracfg_ao, MODULE_SW_CG_1_STA, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MODULE_SW_CG_1_STA = 0x%x\n", value);
+	regmap_read(afe_priv->infracfg_ao, MODULE_SW_CG_2_STA, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MODULE_SW_CG_2_STA = 0x%x\n", value);
 
 	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
@@ -3931,6 +4173,9 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_SINEGEN_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_MON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_I2S_MON2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SINEGEN_CON_TDM, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_SINEGEN_CON_TDM = 0x%x\n", value);
@@ -5980,6 +6225,7 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct mt6885_afe_private *afe_priv;
 	struct resource *res;
 	struct device *dev;
+	struct arm_smccc_res smccc_res;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 	if (ret)
@@ -6082,12 +6328,17 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 		return irq_id < 0 ? irq_id : -ENXIO;
 	}
 	ret = devm_request_irq(dev, irq_id, mt6885_afe_irq_handler,
-			       IRQF_TRIGGER_LOW, "Afe_ISR_Handle", (void *)afe);
+			       IRQF_TRIGGER_NONE,
+			       "Afe_ISR_Handle", (void *)afe);
 	if (ret) {
 		dev_err(dev, "could not request_irq for Afe_ISR_Handle\n");
 		return ret;
 	}
 #endif
+
+	/* init arm_smccc_smc call */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
+		      0, 0, 0, 0, 0, 0, &smccc_res);
 
 	/* init sub_dais */
 	INIT_LIST_HEAD(&afe->sub_dais);
@@ -6122,6 +6373,8 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 	afe->request_dram_resource = mt6885_afe_dram_request;
 	afe->release_dram_resource = mt6885_afe_dram_release;
 
+	afe->copy = mt6885_afe_pcm_copy;
+
 #ifdef CONFIG_DEBUG_FS
 	/* debugfs */
 	afe->debug_cmds = mt6885_debug_cmds;
@@ -6129,6 +6382,7 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 					   S_IFREG | 0444, NULL,
 					   afe, &mt6885_debugfs_ops);
 #endif
+
 	/* register platform */
 	ret = devm_snd_soc_register_platform(&pdev->dev,
 					     &mt6885_afe_pcm_platform);
@@ -6184,31 +6438,7 @@ static const struct of_device_id mt6885_afe_pcm_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mt6885_afe_pcm_dt_match);
 
-static int mt6885_afe_suspend(struct device *dev)
-{
-	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-
-	dev_info(afe->dev, "%s()\n", __func__);
-
-	mt6885_afe_suspend_clock(afe);
-
-	return 0;
-}
-
-static int mt6885_afe_resume(struct device *dev)
-{
-	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-
-	dev_info(afe->dev, "%s()\n", __func__);
-
-	mt6885_afe_resume_clock(afe);
-
-	return 0;
-}
-
 static const struct dev_pm_ops mt6885_afe_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(mt6885_afe_suspend,
-				mt6885_afe_resume)
 	SET_RUNTIME_PM_OPS(mt6885_afe_runtime_suspend,
 			   mt6885_afe_runtime_resume, NULL)
 };

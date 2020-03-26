@@ -64,6 +64,8 @@ enum {
 	MT6885_DAI_TDM_DPTX,
 	MT6885_DAI_HOSTLESS_LPBK,
 	MT6885_DAI_HOSTLESS_FM,
+	MT6873_DAI_HOSTLESS_HW_GAIN_AAUDIO,
+	MT6873_DAI_HOSTLESS_SRC_AAUDIO,
 	MT6885_DAI_HOSTLESS_SPEECH,
 	MT6885_DAI_HOSTLESS_SPH_ECHO_REF,
 	MT6885_DAI_HOSTLESS_SPK_INIT,
@@ -156,12 +158,27 @@ enum {
 	MT6885_MCK_NUM,
 };
 
+/* SMC CALL Operations */
+enum mtk_audio_smc_call_op {
+	MTK_AUDIO_SMC_OP_INIT = 0,
+	MTK_AUDIO_SMC_OP_DRAM_REQUEST,
+	MTK_AUDIO_SMC_OP_DRAM_RELEASE,
+	MTK_AUDIO_SMC_OP_FM_REQUEST,
+	MTK_AUDIO_SMC_OP_FM_RELEASE,
+	MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+	MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+	MTK_AUDIO_SMC_OP_NUM
+};
+
 struct snd_pcm_substream;
 struct mtk_base_irq_data;
 struct clk;
 
 struct mt6885_afe_private {
 	struct clk **clk;
+	struct regmap *topckgen;
+	struct regmap *apmixed;
+	struct regmap *infracfg_ao;
 	int irq_cnt[MT6885_MEMIF_NUM];
 	int stf_positive_gain_db;
 	int dram_resource_counter;
@@ -219,6 +236,9 @@ struct mt6885_afe_private {
 	int speech_shm_init;
 	int speech_shm_usip;
 	int speech_shm_widx;
+	int speech_md_headversion;
+	int speech_md_version;
+	int speech_cust_param_init;
 };
 
 int mt6885_dai_adda_register(struct mtk_base_afe *afe);

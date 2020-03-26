@@ -132,11 +132,6 @@ struct dc_trim_data {
 	int pre_comp_value[NUM_CH];
 	int mic_vinp_mv;
 #ifdef ANALOG_HPTRIM
-	int dc_compensation_disabled;
-	unsigned int hp_3_pole_trim_setting;
-	unsigned int hp_4_pole_trim_setting;
-	unsigned int spk_hp_3_pole_trim_setting;
-	unsigned int spk_hp_4_pole_trim_setting;
 	struct ana_offset hp_3_pole_ana_offset;
 	struct ana_offset hp_4_pole_ana_offset;
 	struct ana_offset spk_3_pole_ana_offset;
@@ -595,9 +590,6 @@ static void playback_gpio_set(struct mt6358_priv *priv)
 			   0xffff, 0x0249);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_MODE2,
 			   0xffff, 0x0249);
-	/* reset GPIO SMT mode */
-	regmap_update_bits(priv->regmap, MT6358_SMT_CON1,
-			   0x0ff0, 0x0ff0);
 }
 
 static void playback_gpio_reset(struct mt6358_priv *priv)
@@ -613,9 +605,6 @@ static void playback_gpio_reset(struct mt6358_priv *priv)
 			   0x01f8, 0x0000);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_DIR0,
 			   0xf << 8, 0x0);
-	/* reset GPIO SMT mode */
-	regmap_update_bits(priv->regmap, MT6358_SMT_CON1,
-			   0x0ff0, 0x0000);
 }
 
 static void capture_gpio_set(struct mt6358_priv *priv)
@@ -1520,38 +1509,45 @@ static void set_speaker_gain(struct mt6358_priv *priv, int spk_gain)
 
 static int mtk_hp_enable(struct mt6358_priv *priv)
 {
-#ifdef ANALOG_HPTRIM
-	unsigned int trim_setting = 0;
+	int enable = 0;
+	int trim_code_l = 0;
+	int fine_trim_l = 0;
+	int trim_code_r = 0;
+	int fine_trim_r = 0;
 	unsigned int reg_value = 0;
+	struct ana_offset *offset = NULL;
 
+#ifdef ANALOG_HPTRIM
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
 	dev_info(priv->dev, "%s(), mic_vinp_mv = %d, Result AUDDEC_ELR_0 = 0x%x\n",
 			__func__, priv->dc_trim.mic_vinp_mv, reg_value);
 
 	if (priv->dc_trim.mic_vinp_mv > MIC_VINP_4POLE_THRES_MV &&
 			((priv->debug_flag & DBG_DCTRIM_BYPASS_4POLE) == 0)) {
-		trim_setting = priv->dc_trim.hp_4_pole_trim_setting;
+		offset = &(priv->dc_trim.hp_4_pole_ana_offset);
+
 		dev_info(priv->dev, "%s(), set 4 pole mic_vinp_mv = %d\n",
 				__func__, priv->dc_trim.mic_vinp_mv);
 	} else {
-		trim_setting = priv->dc_trim.hp_3_pole_trim_setting;
+		offset = &(priv->dc_trim.hp_3_pole_ana_offset);
 	}
+	enable = offset->enable;
+	fine_trim_r = offset->hp_fine_trim[CH_R];
+	fine_trim_l = offset->hp_fine_trim[CH_L];
+	trim_code_r = offset->hp_trim_code[CH_R];
+	trim_code_l = offset->hp_trim_code[CH_L];
 
-	dev_info(priv->dev, "%s(), trim_setting = %d",
-			__func__, trim_setting);
-
-	if (!priv->dc_trim.dc_compensation_disabled) {
-		regmap_write(priv->regmap, MT6358_AUDDEC_ELR_0, trim_setting);
-		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-		dev_info(priv->dev, "%s(), new AUDDEC_ELR_0 = 0x%x\n",
-			 __func__, reg_value);
-	} else {
-		regmap_write(priv->regmap, MT6358_AUDDEC_ELR_0, 0x0);
-		dev_info(priv->dev, "%s(), priv->dc_trim.compensation_disabled = true\n",
-			 __func__);
-	}
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
+			(enable << HPTRIM_EN_SHIFT) |
+			(fine_trim_r << HPFINETRIM_R_SHIFT) |
+			(fine_trim_l << HPFINETRIM_L_SHIFT) |
+			(trim_code_r << HPTRIM_R_SHIFT) |
+			(trim_code_l << HPTRIM_L_SHIFT),
+			0xffff);
+	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
+	dev_info(priv->dev, "%s(), new AUDDEC_ELR_0 = 0x%x\n",
+			__func__, reg_value);
 #endif
-	dev_info(priv->dev, "+%s()\n", __func__);
 
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
@@ -1682,8 +1678,6 @@ static int mtk_hp_enable(struct mt6358_priv *priv)
 
 static int mtk_hp_disable(struct mt6358_priv *priv)
 {
-	dev_info(priv->dev, "+%s()\n", __func__);
-
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
 
@@ -1783,7 +1777,12 @@ static int mtk_hp_disable(struct mt6358_priv *priv)
 
 static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 {
-	unsigned int trim_setting = 0;
+	int enable = 0;
+	int trim_code_l = 0;
+	int fine_trim_l = 0;
+	int trim_code_r = 0;
+	int fine_trim_r = 0;
+	struct ana_offset *offset = NULL;
 	unsigned int reg_value = 0;
 #ifdef ANALOG_HPTRIM
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
@@ -1792,23 +1791,31 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 
 	if (priv->dc_trim.mic_vinp_mv > MIC_VINP_4POLE_THRES_MV &&
 		((priv->debug_flag & DBG_DCTRIM_BYPASS_4POLE) == 0)) {
-		trim_setting = priv->dc_trim.spk_hp_4_pole_trim_setting;
+		offset = &(priv->dc_trim.spk_4_pole_ana_offset);
+		enable = offset->enable;
+		fine_trim_r = offset->hp_fine_trim[CH_R];
+		fine_trim_l = offset->hp_fine_trim[CH_L];
+		trim_code_r = offset->hp_trim_code[CH_R];
+		trim_code_l = offset->hp_trim_code[CH_L];
 	} else {
-		trim_setting = priv->dc_trim.spk_hp_3_pole_trim_setting;
+		offset = &(priv->dc_trim.spk_3_pole_ana_offset);
+		enable = offset->enable;
+		fine_trim_r = offset->hp_fine_trim[CH_R];
+		fine_trim_l = offset->hp_fine_trim[CH_L];
+		trim_code_r = offset->hp_trim_code[CH_R];
+		trim_code_l = offset->hp_trim_code[CH_L];
 	}
-
-	if (!priv->dc_trim.dc_compensation_disabled) {
-		regmap_write(priv->regmap, MT6358_AUDDEC_ELR_0, trim_setting);
-		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-		dev_info(priv->dev, "%s(), new AUDDEC_ELR_0 = 0x%x\n",
-			 __func__, reg_value);
-	} else {
-		regmap_write(priv->regmap, MT6358_AUDDEC_ELR_0, 0x0);
-		dev_info(priv->dev, "%s(), priv->dc_trim.compensation_disabled = true\n",
-			 __func__);
-	}
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
+			(enable << HPTRIM_EN_SHIFT) |
+			(fine_trim_r << HPFINETRIM_R_SHIFT) |
+			(fine_trim_l << HPFINETRIM_L_SHIFT) |
+			(trim_code_r << HPTRIM_R_SHIFT) |
+			(trim_code_l << HPTRIM_L_SHIFT),
+			0xffff);
+	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
+	dev_info(priv->dev, "%s(), new AUDDEC_ELR_0 = 0x%x\n",
+			__func__, reg_value);
 #endif
-	dev_info(priv->dev, "+%s()\n", __func__);
 
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
@@ -1931,7 +1938,7 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 
 	/* Enable LO main output stage */
 	enable_lo_buffer(priv, true);
-	set_speaker_gain(priv, priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL]);
+	set_speaker_gain(priv, DL_GAIN_0DB);
 
 	/* Enable HP main output stage */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1,
@@ -1976,10 +1983,15 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 
 static int mtk_hp_spk_disable(struct mt6358_priv *priv)
 {
-	dev_info(priv->dev, "+%s()\n", __func__);
-
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
+
+	/* HPR/HPL mux to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+			0xf << 8, 0x0 << 8);
+	/* LOL mux to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
+			0x3 << 2, 0x0 << 2);
 
 	/* Disable low-noise mode of DAC */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x1, 0x0);
@@ -2002,24 +2014,19 @@ static int mtk_hp_spk_disable(struct mt6358_priv *priv)
 	/* decrease LOL gain to minimum gain step by step */
 	regmap_write(priv->regmap, MT6358_ZCD_CON1, DL_GAIN_N_10DB_REG);
 
+	set_hp_l_input_mux(priv, HP_INPUT_MUX_OPEN);
+
 	/* set HP aux feedback loop gain to max */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9,
 			0xff00, 0xf200);
 	/* Enable HP aux feedback loop */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1,
-			   0xff, 0xff);
+			0xff, 0x3c);
 	/* Reduce HP aux feedback loop gain */
 	hp_aux_feedback_loop_gain_ramp(priv, false);
 
 	/* decrease HPR/L main output stage step by step */
 	hp_main_output_ramp(priv, false);
-
-	/* HPR/HPL mux to open */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			   0xf << 8, 0x0 << 8);
-	/* LOL mux to open */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-			   0x3 << 2, 0x0 << 2);
 
 	/* Disable HP main output stage */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0x3, 0x0);
@@ -2256,147 +2263,6 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 			mtk_hp_impedance_disable(priv);
 
 		priv->mux_select[MUX_HP_L] = mux;
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static int mt_lo_event(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *kcontrol,
-			int event)
-{
-	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
-	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n",
-		 __func__,
-		 event,
-		 dapm_kcontrol_get_value(w->kcontrols[0]));
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		/* Reduce ESD resistance of AU_REFN */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON2, 0x4000);
-
-		/* Turn on DA_600K_NCP_VA18 */
-		regmap_write(priv->regmap, MT6358_AUDNCP_CLKDIV_CON1, 0x0001);
-		/* Set NCP clock as 604kHz // 26MHz/43 = 604KHz */
-		regmap_write(priv->regmap, MT6358_AUDNCP_CLKDIV_CON2, 0x002c);
-		/* Toggle RG_DIVCKS_CHG */
-		regmap_write(priv->regmap, MT6358_AUDNCP_CLKDIV_CON0, 0x0001);
-		/* Set NCP soft start mode as default mode: 100us */
-		regmap_write(priv->regmap, MT6358_AUDNCP_CLKDIV_CON4, 0x0003);
-		/* Enable NCP */
-		regmap_write(priv->regmap, MT6358_AUDNCP_CLKDIV_CON3, 0x0000);
-		usleep_range(250, 270);
-
-		/* Enable cap-less LDOs (1.5V) */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON14,
-				   0x1055, 0x1055);
-		/* Enable NV regulator (-1.2V) */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON15, 0x0001);
-		usleep_range(100, 120);
-
-		/* Disable AUD_ZCD */
-		hp_zcd_disable(priv);
-
-		/* Disable lineout short-ckt protection */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x1 << 4, 0x1 << 4);
-
-		/* Set LOLR/LOLL gain to -10dB */
-		regmap_write(priv->regmap, MT6358_ZCD_CON1, DL_GAIN_N_10DB_REG);
-
-		/* Enable IBIST */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON12, 0x0055);
-		/* Set HP DR bias current optimization, 010: 6uA */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON11, 0x4900);
-		/* Set HP & ZCD bias current optimization */
-		/* 01: ZCD: 4uA, HP/HS/LO: 5uA */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON12, 0x0055);
-		/* Set LO STB enhance circuits */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x1 << 8, 0x1 << 8);
-
-		/* Disable HP main CMFB loop */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0000);
-		/* Select CMFB resistor bulk to AC mode */
-		/* Selec HS/LO cap size (6.5pF default) */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON10, 0x0000);
-
-		/* Enable LO driver bias circuits */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x1 << 1, 0x1 << 1);
-		/* Enable LO driver core circuits */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x1, 0x1);
-
-		/* Set LO gain to normal gain step by step */
-		set_speaker_gain(priv,
-				 priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL]);
-
-		/* Enable AUD_CLK */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
-				   0x1, 0x1);
-
-		/* Enable Audio DAC  */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x0009);
-		/* Enable low-noise mode of DAC */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0001);
-	    /* Switch LOL MUX to audio DAC */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x3 << 2, 0x2 << 2);
-
-		break;
-	case SND_SOC_DAPM_PRE_PMD:
-		/* Switch LOL MUX to open */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x3 << 2, 0x0 << 2);
-
-		/* Disable Audio DAC */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-				   0x000f, 0x0000);
-
-		/* Disable AUD_CLK */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
-				   0x1, 0x0);
-
-		/* decrease LO gain to minimum gain step by step */
-		regmap_write(priv->regmap, MT6358_ZCD_CON1,
-			     DL_GAIN_N_40DB_REG);
-
-		/* Disable LO driver core circuits */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x1, 0x0);
-
-		/* Disable LO driver bias circuits */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x1 << 1, 0x0 << 1);
-
-		/* Disable HP aux CMFB loop */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9,
-				   0xff << 8, 0x0);
-
-		/* Enable HP main CMFB Switch */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9,
-				   0xff << 8, 0x2 << 8);
-
-		/* Disable IBIST */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON12,
-				   0x1 << 8, 0x1 << 8);
-
-		/* Disable NV regulator (-1.2V) */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON15,
-				   0x1, 0x0);
-		/* Disable cap-less LDOs (1.5V) */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON14,
-				   0x1055, 0x0);
-		/* Disable NCP */
-		regmap_update_bits(priv->regmap, MT6358_AUDNCP_CLKDIV_CON3,
-				   0x1, 0x1);
 		break;
 	default:
 		break;
@@ -2673,8 +2539,6 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* add delay for RC Calibration */
-		usleep_range(1000, 1200);
 		/* Enable audio uplink LPW mode */
 		/* Enable Audio ADC 1st Stage LPW */
 		/* Enable Audio ADC 2nd & 3rd LPW */
@@ -3535,11 +3399,7 @@ static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC("DACR", NULL, SND_SOC_NOPM, 0, 0),
 
 	/* LOL */
-	SND_SOC_DAPM_MUX_E("LOL Mux", SND_SOC_NOPM, 0, 0,
-			   &lo_in_mux_control,
-			   mt_lo_event,
-			   SND_SOC_DAPM_PRE_PMU |
-			   SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MUX("LOL Mux", SND_SOC_NOPM, 0, 0, &lo_in_mux_control),
 
 	SND_SOC_DAPM_SUPPLY("LO Stability Enh", MT6358_AUDDEC_ANA_CON7,
 			    RG_LOOUTPUTSTBENH_VAUDP15_SFT, 0, NULL, 0),
@@ -4666,6 +4526,13 @@ static void stop_trim_hardware_with_lo(struct mt6358_priv *priv)
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
 
+	/* Switch HPL/HPR MUX to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+			0xf << 8, 0x0 << 8);
+	/* Switch LOL MUX to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
+			0x3 << 2, 0x0 << 2);
+
 	/* Disable low-noise mode of DAC */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x1, 0x0);
 	/* Disable Audio DAC */
@@ -4677,33 +4544,22 @@ static void stop_trim_hardware_with_lo(struct mt6358_priv *priv)
 	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0x3fc3);
 	/* Enable HP aux output stage*/
 	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0x3fcf);
-
 	/* decrease HPL/R gain to normal gain step by step */
 	headset_volume_ramp(priv,
-			    priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL],
-			    DL_GAIN_N_10DB);
+			priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL],
+			DL_GAIN_N_10DB);
 	regmap_write(priv->regmap, MT6358_ZCD_CON1, DL_GAIN_N_10DB_REG);
+	set_hp_l_input_mux(priv, HP_INPUT_MUX_OPEN);
 
 	/* set HP aux feedback loop gain to max */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9,
-			   0xff00, 0xf200);
-
+			0xff00, 0xf200);
 	/* Enable HP aux feedback loop */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0xff, 0xff);
-
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0xff, 0x3c);
 	/* Reduce HP aux feedback loop gain */
 	hp_aux_feedback_loop_gain_ramp(priv, false);
-
 	/* decrease HPR/L main output stage step by step */
 	hp_main_output_ramp(priv, false);
-
-	/* Switch HPL/HPR MUX to open */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			   0xf << 8, 0x0 << 8);
-	/* Switch LOL MUX to open */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-			   0x3 << 2, 0x0 << 2);
-
 	/* Disable HP main output stage */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0x3, 0x0);
 	/* Enable HP aux CMFB loop */
@@ -4789,6 +4645,7 @@ static void stop_trim_hardware_with_lo(struct mt6358_priv *priv)
 
 	/* Reset playback gpio (mosi/clk/sync) */
 	playback_gpio_reset(priv);
+
 }
 #endif
 
@@ -5010,66 +4867,21 @@ static int spk_trim_offset(struct mt6358_priv *priv, int channel)
 }
 
 #ifdef ANALOG_HPTRIM
-static int pick_hp_finetrim(int offset_base,
-				int offset_finetrim_1,
-				int offset_finetrim_3)
-{
-	if (abs(offset_base) < abs(offset_finetrim_1)) {
-		if (abs(offset_base) < abs(offset_finetrim_3))
-			return 0x0;
-		else
-			return 0x3;
-	} else {
-		if (abs(offset_finetrim_1) < abs(offset_finetrim_3))
-			return 0x1;
-		else
-			return 0x3;
-	}
-}
-
-static int pick_spk_finetrim(int offset_base,
-				 int offset_finetrim_2,
-				 int offset_finetrim_3)
-{
-	if (abs(offset_base) < abs(offset_finetrim_2)) {
-		if (abs(offset_base) < abs(offset_finetrim_3))
-			return 0x0;
-		else
-			return 0x3;
-	} else {
-		if (abs(offset_finetrim_2) < abs(offset_finetrim_3))
-			return 0x2;
-		else
-			return 0x3;
-	}
-}
-
 static void set_lr_trim_code(struct mt6358_priv *priv)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	int hpl_base = 0, hpr_base = 0;
 	int hpl_min = 0, hpr_min = 0;
-	int hpl_ceiling = 0, hpr_ceiling = 0;
-	int hpl_floor = 0, hpr_floor = 0;
-	int hpl_finetrim_1 = 0, hpr_finetrim_1 = 0;
-	int hpl_finetrim_3 = 0, hpr_finetrim_3 = 0;
 	int trimcodel = 0, trimcoder = 0;
-	int trimcodel_ceiling = 0, trimcoder_ceiling = 0;
-	int trimcodel_floor = 0, trimcoder_floor = 0;
 	int finetriml = 0, finetrimr = 0;
 	int trimcode_tmpl = 0, trimcode_tmpr = 0;
-	int tmp = 0;
-	unsigned int hp_3_pole_trim_setting = 0;
-	unsigned int hp_4_pole_trim_setting = 0;
+	int tmp = 0, hp_3pole_offset = 0, hp_4pole_offset = 0;
 	bool code_change = false;
 	unsigned int reg_value = 0;
 	struct ana_offset *offset_3_pole = NULL;
 	struct ana_offset *offset_4_pole = NULL;
 
-	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), Start DCtrim Calibrating, AUDDEC_ELR_0 = 0x%x\n",
-		 __func__, reg_value);
-
+	dev_info(priv->dev, "%s(), Start DC calibration\n", __func__);
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 			HPTRIM_EN_MASK, 0x1 << HPTRIM_EN_SHIFT);
 	priv->dc_trim.hp_3_pole_ana_offset.enable = 1;
@@ -5109,7 +4921,7 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			code_change = true;
 		}
 		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-		dev_info(priv->dev, "%s(), step1 > 0 set 4 level AUDDEC_ELR_0 = 0x%x, trimcode(L/R) = %d / %d\n",
+		dev_info(priv->dev, "%s(), step1 > 0 set 4 level AUDDEC_ELR_0 = 0x%x, trimcode = %d \t %d\n",
 				__func__, reg_value, trimcodel, trimcoder);
 		if (code_change) {
 			hp_trim_offset(priv);
@@ -5121,18 +4933,12 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_R_MASK, 0x0 << HPTRIM_R_SHIFT);
 			mdelay(10);
-
-			/* Check floor & ceiling to avoid rounding error */
-			if (hpl_base > 0) {
-				trimcodel_floor = (abs(hpl_base)*3) /
-						(abs(hpl_base-hpl_min));
-				trimcodel_ceiling = trimcodel_floor + 1;
-			}
-			if (hpr_base > 0) {
-				trimcoder_floor = (abs(hpr_base)*3) /
-						(abs(hpr_base-hpr_min));
-				trimcoder_ceiling = trimcoder_floor + 1;
-			}
+			if (hpl_base > 0)
+				trimcodel = DIV_ROUND_CLOSEST((abs(hpl_base)*3),
+						abs(hpl_base-hpl_min));
+			if (hpr_base > 0)
+				trimcoder = DIV_ROUND_CLOSEST((abs(hpr_base)*3),
+						abs(hpr_base-hpr_min));
 		}
 	}
 	if (hpl_base < 0 || hpr_base < 0) {
@@ -5147,7 +4953,7 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			code_change = true;
 		}
 		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-		dev_info(priv->dev, "%s(), step1 < 0, set 4 level AUDDEC_ELR_0 = 0x%x, trimcode(L/R) = %d / %d\n",
+		dev_info(priv->dev, "%s(), step1 < 0, set 4 level AUDDEC_ELR_0 = 0x%x, trimcode = %d \t %d\n",
 				__func__, reg_value, trimcodel, trimcoder);
 		if (code_change) {
 			hp_trim_offset(priv);
@@ -5159,74 +4965,26 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_R_MASK, 0x0 << HPTRIM_R_SHIFT);
 			mdelay(10);
-			/* Check floor & ceiling to avoid rounding error */
-			if (hpl_base < 0) {
-				trimcodel_floor = (abs(hpl_base)*3) /
-						(abs(hpl_base-hpl_min)) + 8;
-				trimcodel_ceiling = trimcodel_floor + 1;
-			}
-			if (hpr_base < 0) {
-				trimcoder_floor = (abs(hpr_base)*3) /
-						(abs(hpr_base-hpr_min)) + 8;
-				trimcoder_ceiling = trimcoder_floor + 1;
-			}
+			if (hpl_base < 0)
+				trimcodel = DIV_ROUND_CLOSEST((abs(hpl_base)*3),
+						abs(hpl_base-hpl_min)) + 8;
+			if (hpr_base < 0)
+				trimcoder = DIV_ROUND_CLOSEST((abs(hpr_base)*3),
+						abs(hpr_base-hpr_min)) + 8;
 		}
 	}
-	/* Get the best trim code from floor and ceiling value */
-	/* Get floor trim code */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   HPTRIM_L_MASK, trimcodel_floor << HPTRIM_L_SHIFT);
+			HPTRIM_L_MASK, trimcodel << HPTRIM_L_SHIFT);
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   HPTRIM_R_MASK, trimcoder_floor << HPTRIM_R_SHIFT);
+			HPTRIM_R_MASK, trimcoder << HPTRIM_R_SHIFT);
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step1 floor AUDDEC_ELR_0 = 0x%x, trimcode(L/R) = %d / %d\n",
-		 __func__, reg_value,
-		 trimcodel_floor, trimcoder_floor);
-
-	hp_trim_offset(priv);
-	hpl_floor = priv->dc_trim.hp_trim_offset[CH_L];
-	hpr_floor = priv->dc_trim.hp_trim_offset[CH_R];
-	mdelay(10);
-	/* Get ceiling trim code */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   HPTRIM_L_MASK, trimcodel_ceiling << HPTRIM_L_SHIFT);
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   HPTRIM_R_MASK, trimcoder_ceiling << HPTRIM_R_SHIFT);
-	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step1 ceiling AUDDEC_ELR_0 = 0x%x, trimcode(L/R) = %d / %d\n",
-		 __func__, reg_value,
-		 trimcodel_ceiling, trimcoder_ceiling);
-
-	hp_trim_offset(priv);
-	hpl_ceiling = priv->dc_trim.hp_trim_offset[CH_L];
-	hpr_ceiling = priv->dc_trim.hp_trim_offset[CH_R];
-	mdelay(10);
-	/* Choose the best */
-	if (abs(hpl_ceiling) < abs(hpl_floor)) {
-		hpl_base = hpl_ceiling;
-		trimcodel = trimcodel_ceiling;
-	} else {
-		hpl_base = hpl_floor;
-		trimcodel = trimcodel_floor;
-	}
-	if (abs(hpr_ceiling) < abs(hpr_floor)) {
-		hpr_base = hpr_ceiling;
-		trimcoder = trimcoder_ceiling;
-	} else {
-		hpr_base = hpr_floor;
-		trimcoder = trimcoder_floor;
-	}
-
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   HPTRIM_L_MASK, trimcodel << HPTRIM_L_SHIFT);
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   HPTRIM_R_MASK, trimcoder << HPTRIM_R_SHIFT);
-	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step1 result: AUDDEC_ELR_0 = 0x%x, hp_base(L/R) = %d / %d, trimcode(L/R) = %d / %d\n",
-		 __func__, reg_value,
-		 hpl_base, hpr_base, trimcodel, trimcoder);
+	dev_info(priv->dev, "%s(), step1 result AUDDEC_ELR_0 = 0x%x, trimcode = %d \t %d\n",
+			__func__, reg_value, trimcodel, trimcoder);
 
 	/* Step2: Trim code refine +1/0/-1 */
+	hp_trim_offset(priv);
+	hpl_base = priv->dc_trim.hp_trim_offset[CH_L];
+	hpr_base = priv->dc_trim.hp_trim_offset[CH_R];
 	trimcode_tmpl = trimcodel;
 	trimcode_tmpr = trimcoder;
 	mdelay(10);
@@ -5235,15 +4993,13 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 	if (hpr_base == 0)
 		goto EXIT;
 	if (hpl_base > 0 || hpr_base > 0) {
-		if ((hpl_base > 0) &&
-		    (trimcodel != 0x7) && (trimcodel != 0x8)) {
+		if (hpl_base > 0) {
 			tmp = trimcodel + ((trimcodel > 7) ? -1 : 1);
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_L_MASK, tmp << HPTRIM_L_SHIFT);
 			code_change = true;
 		}
-		if ((hpr_base > 0) &&
-		    (trimcoder != 0x7) && (trimcoder != 0x8)) {
+		if (hpr_base > 0) {
 			tmp = trimcoder + ((trimcoder > 7) ? -1 : 1);
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_R_MASK, tmp << HPTRIM_R_SHIFT);
@@ -5258,30 +5014,16 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			hpl_min = priv->dc_trim.hp_trim_offset[CH_L];
 			hpr_min = priv->dc_trim.hp_trim_offset[CH_R];
 			mdelay(10);
-			if ((hpl_base > 0) &&
-			    (hpl_min >= 0 || abs(hpl_min) < abs(hpl_base))) {
-				if ((trimcodel != 0x7) && (trimcodel != 0x8)) {
-					trimcode_tmpl =
-						trimcodel +
-						((trimcodel > 7) ? -1 : 1);
-				} else {
-					trimcode_tmpl = trimcodel;
-					dev_info(priv->dev, "%s(), [Step2][L > 0, bit-overflow!!], don't refine, trimcodel = %d\n",
-						 __func__, trimcodel);
-				}
-			}
-			if ((hpr_base > 0) &&
-			    (hpr_min >= 0 || abs(hpr_min) < abs(hpr_base))) {
-				if ((trimcoder != 0x7) && (trimcoder != 0x8)) {
-					trimcode_tmpr =
-						trimcoder +
-						((trimcoder > 7) ? -1 : 1);
-				} else {
-					trimcode_tmpr = trimcoder;
-					dev_info(priv->dev, "%s(), [Step2][R > 0, bit-overflow!!], don't refine, trimcoder = %d\n",
-						 __func__, trimcoder);
-				}
-			}
+			if (hpl_base > 0 && (hpl_min >= 0 ||
+					abs(hpl_min) < abs(hpl_base)))
+				trimcode_tmpl =
+					trimcodel +
+					((trimcodel > 7) ? -1 : 1);
+			if (hpr_base > 0 && (hpr_min >= 0 ||
+					abs(hpr_min) < abs(hpr_base)))
+				trimcode_tmpr =
+					trimcoder +
+					((trimcoder > 7) ? -1 : 1);
 		}
 	}
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
@@ -5289,20 +5031,20 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 			HPTRIM_R_MASK, trimcoder << HPTRIM_R_SHIFT);
 	if (hpl_base < 0 || hpr_base < 0) {
-		if ((hpl_base < 0) && (trimcodel != 0) && (trimcodel != 0xf)) {
+		if (hpl_base < 0 && trimcodel != 0) {
 			tmp = trimcodel - ((trimcodel > 7) ? -1 : 1);
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_L_MASK, tmp << HPTRIM_L_SHIFT);
 			code_change = true;
 		}
-		if ((hpr_base < 0) && (trimcoder != 0) && (trimcoder != 0xf)) {
+		if (hpr_base < 0 && trimcoder != 0) {
 			tmp = trimcoder - ((trimcoder > 7) ? -1 : 1);
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPTRIM_R_MASK, tmp << HPTRIM_R_SHIFT);
 			code_change = true;
 		}
 		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-		dev_info(priv->dev, "%s(), step2 < 0 AUDDEC_ELR_0 = 0x%x, trimcode_tmp(L/R) = %d / %d\n",
+		dev_info(priv->dev, "%s(), step2 < 0 AUDDEC_ELR_0 = 0x%x, trimcode_tmp = %d \t %d\n",
 				__func__,
 				reg_value, trimcode_tmpl, trimcode_tmpr);
 		if (code_change) {
@@ -5311,30 +5053,14 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			hpl_min = priv->dc_trim.hp_trim_offset[CH_L];
 			hpr_min = priv->dc_trim.hp_trim_offset[CH_R];
 			mdelay(10);
-			if ((hpl_base < 0) &&
-			    (hpl_min <= 0 || abs(hpl_min) < abs(hpl_base))) {
-				if ((trimcodel != 0) && (trimcodel != 0xf)) {
-					trimcode_tmpl =
-						trimcodel -
-						((trimcodel > 7) ? -1 : 1);
-				} else {
-					trimcode_tmpl = trimcodel;
-					pr_debug("%s(), [Step2][L < 0, bit-overflow!!], don't refine, trimcodel = %d\n",
-						 __func__, trimcodel);
-				}
-			}
-			if ((hpr_base < 0) &&
-			    (hpr_min <= 0 || abs(hpr_min) < abs(hpr_base))) {
-				if ((trimcoder != 0) && (trimcoder != 0xf)) {
-					trimcode_tmpr =
-						trimcoder -
-						((trimcoder > 7) ? -1 : 1);
-				} else {
-					trimcode_tmpr = trimcoder;
-					pr_debug("%s(), [Step2][R < 0, bit-overflow!!], don't refine, trimcoder = %d\n",
-						 __func__, trimcoder);
-				}
-			}
+			if (hpl_base < 0 && (hpl_min <= 0
+					|| abs(hpl_min) < abs(hpl_base)))
+				trimcode_tmpl =
+					trimcodel - ((trimcodel > 7) ? -1 : 1);
+			if (hpr_base < 0 && (hpr_min <= 0 ||
+					abs(hpr_min) < abs(hpr_base)))
+				trimcode_tmpr =
+					trimcoder - ((trimcoder > 7) ? -1 : 1);
 		}
 	}
 	trimcodel = trimcode_tmpl;
@@ -5346,7 +5072,7 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 			HPTRIM_R_MASK, trimcoder << HPTRIM_R_SHIFT);
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step2 result AUDDEC_ELR_0 = 0x%x, trimcode(L/R) = %d / %d\n",
+	dev_info(priv->dev, "%s(), step2 result AUDDEC_ELR_0 = 0x%x, trimcode = %d \t %d\n",
 			__func__, reg_value, trimcode_tmpl, trimcode_tmpr);
 
 	/*Step3: Trim code fine tune*/
@@ -5372,15 +5098,13 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 			code_change = true;
 		}
 		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-		dev_info(priv->dev, "%s(), step3 > 0, AUDDEC_ELR_0 = 0x%x, hp_base(L/R) = %d / %d\n",
-				__func__, reg_value, hpl_base, hpr_base);
+		dev_info(priv->dev, "%s(), step3 > 0, AUDDEC_ELR_0 = 0x%x\n",
+				__func__, reg_value);
 		if (code_change) {
 			hp_trim_offset(priv);
 			code_change = false;
-			/* HP finetrim=3 compensates negative DC value */
-			/* Choose the best fine trim */
-			hpl_finetrim_1 = priv->dc_trim.hp_trim_offset[CH_L];
-			hpr_finetrim_1 = priv->dc_trim.hp_trim_offset[CH_R];
+			hpl_min = priv->dc_trim.hp_trim_offset[CH_L];
+			hpr_min = priv->dc_trim.hp_trim_offset[CH_R];
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					HPFINETRIM_L_MASK,
 					0x0 << HPFINETRIM_L_SHIFT);
@@ -5388,18 +5112,14 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 					HPFINETRIM_R_MASK,
 					0x0 << HPFINETRIM_R_SHIFT);
 			mdelay(10);
-			if ((hpl_base > 0) &&
-			    ((hpl_finetrim_1 >= 0) &&
-			    (abs(hpl_finetrim_1) < abs(hpl_base))))
+			if (hpl_base > 0 && (hpl_min >= 0 ||
+					abs(hpl_min) < abs(hpl_base)))
 				finetriml = 0x1;
-			if ((hpr_base > 0) &&
-			    ((hpr_finetrim_1 >= 0) &&
-			    (abs(hpr_finetrim_1) < abs(hpr_base))))
+			if (hpr_base > 0 && (hpr_min >= 0 ||
+					abs(hpr_min) < abs(hpr_base)))
 				finetrimr = 0x1;
-			if (hpl_finetrim_1 < 0 || hpr_finetrim_1 < 0) {
-				/* base and finetrim=1 across zero. */
-				/* Choose base, finetrim=1, and finetrim=3 */
-				if (hpl_finetrim_1 < 0 && hpl_base > 0) {
+			if (hpl_min < 0 || hpr_min < 0) {
+				if (hpl_min < 0  && hpl_base > 0) {
 					/* channel L */
 					regmap_update_bits(priv->regmap,
 						MT6358_AUDDEC_ELR_0,
@@ -5407,7 +5127,7 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 						0x3 << HPFINETRIM_L_SHIFT);
 					code_change = true;
 				}
-				if (hpr_finetrim_1 < 0 && hpr_base > 0) {
+				if (hpr_min < 0  && hpr_base > 0) {
 					/* channel R */
 					regmap_update_bits(priv->regmap,
 						MT6358_AUDDEC_ELR_0,
@@ -5417,16 +5137,15 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 				}
 				regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0,
 						&reg_value);
-				dev_info(priv->dev, "%s(), step3_2 > 0, AUDDEC_ELR_0 = 0x%x, code_change = %d\n",
-						__func__,
-						reg_value, code_change);
+				dev_info(priv->dev, "%s(), step3_2 > 0, AUDDEC_ELR_0 = 0x%x\n",
+						__func__, reg_value);
 				if (code_change) {
 					hp_trim_offset(priv);
 					code_change = false;
-					hpl_finetrim_3 =
+					hpl_min =
 						priv->dc_trim.hp_trim_offset
 							[CH_L];
-					hpr_finetrim_3 =
+					hpr_min =
 						priv->dc_trim.hp_trim_offset
 							[CH_R];
 					regmap_update_bits(priv->regmap,
@@ -5438,23 +5157,12 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 						HPFINETRIM_R_MASK,
 						0x0 << HPFINETRIM_R_SHIFT);
 					mdelay(10);
-
-					if (hpl_base > 0) {
-						finetriml =
-						pick_hp_finetrim(hpl_base,
-							hpl_finetrim_1,
-							hpl_finetrim_3);
-						dev_info(priv->dev, "%s(), [Step3] refine finetriml = %d\n",
-							 __func__, finetriml);
-					}
-					if (hpr_base > 0) {
-						finetrimr =
-						pick_hp_finetrim(hpr_base,
-							hpr_finetrim_1,
-							hpr_finetrim_3);
-						dev_info(priv->dev, "%s(), [Step3] refine finetrimr = %d\n",
-							 __func__, finetrimr);
-					}
+					if (hpl_base > 0 && (hpl_min >= 0 ||
+						abs(hpl_min) < abs(hpl_base)))
+						finetriml = 0x3;
+					if (hpr_base > 0 && (hpr_min >= 0 ||
+						abs(hpr_min) < abs(hpr_base)))
+						finetrimr = 0x3;
 				}
 			}
 		}
@@ -5492,11 +5200,11 @@ static void set_lr_trim_code(struct mt6358_priv *priv)
 					HPFINETRIM_R_MASK,
 					0x0 << HPFINETRIM_R_SHIFT);
 			mdelay(10);
-			if ((hpl_base < 0) &&
-			    (hpl_min <= 0 || abs(hpl_min) < abs(hpl_base)))
+			if (hpl_base < 0 && (hpl_min <= 0 ||
+					abs(hpl_min) < abs(hpl_base)))
 				finetriml = 0x2;
-			if ((hpr_base < 0) &&
-			    (hpr_min <= 0 || abs(hpr_min) < abs(hpr_base)))
+			if (hpr_base < 0 && (hpr_min <= 0 ||
+					abs(hpr_min) < abs(hpr_base)))
 				finetrimr = 0x2;
 		}
 	}
@@ -5519,75 +5227,44 @@ EXIT:
 	priv->dc_trim.hp_3_pole_ana_offset.hp_trim_code[CH_R] = trimcoder;
 	priv->dc_trim.hp_3_pole_ana_offset.hp_fine_trim[CH_R] = finetrimr;
 
-	/* check trimcode is valid */
-	if ((trimcodel < 0 || trimcodel > 0xf) ||
-		(finetriml < 0 || finetriml > 0x3) ||
-		(trimcoder < 0 || trimcoder > 0xf) ||
-		(finetrimr < 0 || finetrimr > 0x3))
-		dev_info(priv->dev, "%s(), [Warning], invalid trimcode(3 pole), trimcodel = %d, finetriml = %d, trimcoder = %d, finetrimr = %d\n",
-			 __func__, trimcodel, finetriml, trimcoder, finetrimr);
-
 	if ((hpl_min < 0) && (finetriml == 0x0)) {
 		finetriml = 0x2;
 	} else if ((hpl_min < 0) && (finetriml == 0x2)) {
-		if ((trimcodel != 0) && (trimcodel != 0xf)) {
-			finetriml = 0x0;
-			trimcodel = trimcodel - ((trimcodel > 7) ? -1 : 1);
-		} else {
-			dev_info(priv->dev, "%s(), [Step4][bit-overflow!!], don't refine, trimcodel = %d, finetriml = %d\n",
-				 __func__, trimcodel, finetriml);
-		}
+		finetriml = 0x0;
+		trimcodel = trimcodel - ((trimcodel > 7) ? -1 : 1);
 	}
 	if ((hpr_min < 0) && (finetrimr == 0x0)) {
 		finetrimr = 0x2;
 	} else if ((hpr_min < 0) && (finetrimr == 0x2)) {
-		if ((trimcoder != 0) && (trimcoder != 0xf)) {
-			finetrimr = 0x0;
-			trimcoder = trimcoder - ((trimcoder > 7) ? -1 : 1);
-		} else {
-			dev_info(priv->dev, "%s(), [Step4][bit-overflow!!], don't refine, trimcoder = %d, finetrimr = %d\n",
-				 __func__, trimcoder, finetrimr);
-		}
+		finetrimr = 0x0;
+		trimcoder = trimcoder - ((trimcoder > 7) ? -1 : 1);
 	}
 	priv->dc_trim.hp_4_pole_ana_offset.hp_trim_code[CH_L] = trimcodel;
 	priv->dc_trim.hp_4_pole_ana_offset.hp_fine_trim[CH_L] = finetriml;
 	priv->dc_trim.hp_4_pole_ana_offset.hp_trim_code[CH_R] = trimcoder;
 	priv->dc_trim.hp_4_pole_ana_offset.hp_fine_trim[CH_R] = finetrimr;
 
-	/* check trimcode is valid */
-	if ((trimcodel < 0 || trimcodel > 0xf) ||
-		(finetriml < 0 || finetriml > 0x3) ||
-		(trimcoder < 0 || trimcoder > 0xf) ||
-		(finetrimr < 0 || finetrimr > 0x3))
-		dev_info(priv->dev, "%s(), [Warning], invalid trimcode(4 pole), trimcodel = %d, finetriml = %d, trimcoder = %d, finetrimr = %d\n",
-			 __func__, trimcodel, finetriml, trimcoder, finetrimr);
-
 	offset_3_pole = &(priv->dc_trim.hp_3_pole_ana_offset);
 	offset_4_pole = &(priv->dc_trim.hp_4_pole_ana_offset);
-	hp_3_pole_trim_setting =
-		(offset_3_pole->enable << HPTRIM_EN_SHIFT) |
+
+	hp_3pole_offset = (offset_3_pole->enable << HPTRIM_EN_SHIFT) |
 		(offset_3_pole->hp_fine_trim[CH_R] << HPFINETRIM_R_SHIFT) |
 		(offset_3_pole->hp_fine_trim[CH_L] << HPFINETRIM_L_SHIFT) |
 		(offset_3_pole->hp_trim_code[CH_R] << HPTRIM_R_SHIFT) |
 		(offset_3_pole->hp_trim_code[CH_L] << HPTRIM_L_SHIFT);
-	hp_4_pole_trim_setting =
-		(offset_4_pole->enable << HPTRIM_EN_SHIFT) |
+	hp_4pole_offset = (offset_4_pole->enable << HPTRIM_EN_SHIFT) |
 		(offset_4_pole->hp_fine_trim[CH_R] << HPFINETRIM_R_SHIFT) |
 		(offset_4_pole->hp_fine_trim[CH_L] << HPFINETRIM_L_SHIFT) |
 		(offset_4_pole->hp_trim_code[CH_R] << HPTRIM_R_SHIFT) |
 		(offset_4_pole->hp_trim_code[CH_L] << HPTRIM_L_SHIFT);
-	priv->dc_trim.hp_3_pole_trim_setting = hp_3_pole_trim_setting;
-	priv->dc_trim.hp_4_pole_trim_setting = hp_4_pole_trim_setting;
-
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), Final result AUDDEC_ELR_0 = 0x%x, hp_3_pole_trim_setting = 0x%x, hp_4_pole_trim_setting = 0x%x\n",
-		 __func__,
-		 reg_value,
-		 hp_3_pole_trim_setting, hp_4_pole_trim_setting);
-	dev_info(priv->dev, "%s(), get hp offset L = %d, R = %d\n",
-		 __func__,
-		 priv->dc_trim.hp_trim_offset[CH_L],
-		 priv->dc_trim.hp_trim_offset[CH_R]);
+	dev_info(priv->dev, "%s(), Result AUDDEC_ELR_0 = 0x%x, hp_3pole_anaoffset = 0x%x, hp_4pole_anaoffset = 0x%x\n",
+			__func__,
+			reg_value, hp_3pole_offset, hp_4pole_offset);
+	dev_info(priv->dev, "%s(), Result get_offset L = %d, R = %d\n",
+			__func__,
+			priv->dc_trim.hp_trim_offset[CH_L],
+			priv->dc_trim.hp_trim_offset[CH_R]);
 #endif
 }
 
@@ -5596,17 +5273,10 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	int hpl_base = 0;
 	int hpl_min = 0;
-	int hpl_ceiling = 0;
-	int hpl_floor = 0;
-	int hpl_finetrim_2 = 0;
-	int hpl_finetrim_3 = 0;
 	int trimcode = 0;
-	int trimcode_ceiling = 0;
-	int trimcode_floor = 0;
 	int finetrim = 0;
 	int trimcode_tmp = 0;
-	unsigned int spk_hp_3_pole_trim_setting = 0;
-	unsigned int spk_hp_4_pole_trim_setting = 0;
+	int spk_3pole_offset = 0, spk_4pole_offset = 0;
 	int trim_shift = 0, trim_mask = 0;
 	int fine_shift = 0, fine_mask = 0;
 	struct ana_offset *offset_3_pole = NULL;
@@ -5624,10 +5294,8 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 		fine_shift = HPFINETRIM_R_SHIFT;
 		fine_mask = HPFINETRIM_R_MASK;
 	}
-
-	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), Start DCtrim Calibrating, channel = %d, AUDDEC_ELR_0 = 0x%x\n",
-		 __func__, channel, reg_value);
+	dev_info(priv->dev, "%s(), Start DC calibration, channel = %d\n",
+			__func__, channel);
 
 	/* Step1: get trim code */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
@@ -5643,7 +5311,6 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 	dev_info(priv->dev, "%s(), AUDDEC_ELR_0 = 0x%x\n", __func__, reg_value);
 	hpl_base = spk_trim_offset(priv, channel);
 	mdelay(10);
-
 	if (hpl_base == 0)
 		goto EXIT;
 
@@ -5655,11 +5322,7 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 				__func__, reg_value, trimcode);
 		hpl_min = spk_trim_offset(priv, channel);
 		mdelay(10);
-		/* Check floor and ceiling value to avoid rounding error */
-		trimcode_floor = (abs(hpl_base)*3)/abs(hpl_base-hpl_min);
-		trimcode_ceiling = trimcode_floor + 1;
-		dev_info(priv->dev, "%s(), step1 > 0, get trim level trimcode_floor = %d, trimcode_ceiling = %d\n",
-				__func__, trimcode_floor, trimcode_ceiling);
+		trimcode = (((abs(hpl_base)*3)/abs(hpl_base-hpl_min))+1)/2;
 	} else {
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 				trim_mask, 0xa << trim_shift);
@@ -5668,43 +5331,16 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 				__func__, reg_value, trimcode);
 		hpl_min = spk_trim_offset(priv, channel);
 		mdelay(10);
-		/* Check floor and ceiling value to avoid rounding error */
-		trimcode_floor = (abs(hpl_base)*3)/abs(hpl_base-hpl_min) + 8;
-		trimcode_ceiling = trimcode_floor + 1;
-		dev_info(priv->dev, "%s(), step1 < 0, get trim level trimcode_floor = %d, trimcode_ceiling = %d\n",
-				__func__, trimcode_floor, trimcode_ceiling);
-	}
-	/* Get the best trim code from floor and ceiling value */
-	/* Get floor trim code */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			trim_mask, trimcode_floor << trim_shift);
-	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step1 floor AUDDEC_ELR_0 = 0x%x, trimcode_floor = %d\n",
-			__func__, reg_value, trimcode_floor);
-	hpl_floor = spk_trim_offset(priv, channel);
-	mdelay(10);
-	/* Get ceiling trim code */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			trim_mask, trimcode_ceiling << trim_shift);
-	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step1 ceiling AUDDEC_ELR_0 = 0x%x, trimcode_ceiling = %d\n",
-			__func__, reg_value, trimcode_ceiling);
-	hpl_ceiling = spk_trim_offset(priv, channel);
-	mdelay(10);
-	/* Choose the best */
-	if (abs(hpl_ceiling) < abs(hpl_floor)) {
-		hpl_base = hpl_ceiling;
-		trimcode = trimcode_ceiling;
-	} else {
-		hpl_base = hpl_floor;
-		trimcode = trimcode_floor;
+		trimcode = (((abs(hpl_base)*3)/abs(hpl_base-hpl_min))+1)/2 + 8;
+		dev_info(priv->dev, "%s(), step1 < 0, get trim level trimcode = %d\n",
+				__func__, trimcode);
 	}
 
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-			   trim_mask, trimcode << trim_shift);
+			trim_mask, trimcode << trim_shift);
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), step1 result: AUDDEC_ELR_0 = 0x%x, hp_base = %d, trimcode = %d\n",
-		 __func__, reg_value, hpl_base, trimcode);
+	dev_info(priv->dev, "%s(), step1 result AUDDEC_ELR_0 = 0x%x, trimcode = %d\n",
+			__func__, reg_value, trimcode);
 
 	/* Step2: Trim code refine +1/0/-1 */
 	hpl_base = spk_trim_offset(priv, channel);
@@ -5714,28 +5350,25 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 		goto EXIT;
 
 	if (hpl_base > 0) {
-		if ((trimcode != 0x7) && (trimcode != 0x8)) {
-			trimcode_tmp = trimcode + ((trimcode > 7) ? -1 : 1);
-			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
-					   trim_mask,
-					   trimcode_tmp << trim_shift);
-			regmap_read(priv->regmap,
-				    MT6358_AUDDEC_ELR_0, &reg_value);
-			dev_info(priv->dev, "%s(), step2 > 0, AUDDEC_ELR_0 = 0x%x, trimcode_tmp = %d\n",
-				 __func__, reg_value, trimcode_tmp);
-			hpl_min = spk_trim_offset(priv, channel);
-			mdelay(10);
-			if (hpl_min >= 0 || abs(hpl_min) < abs(hpl_base)) {
-				trimcode = trimcode_tmp;
-				hpl_base = hpl_min;
-			}
+		trimcode_tmp = trimcode + ((trimcode > 7) ? -1 : 1);
+		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
+				trim_mask, trimcode_tmp << trim_shift);
+		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
+		dev_info(priv->dev, "%s(), step2 > 0, AUDDEC_ELR_0 = 0x%x, trimcode_tmp = %d\n",
+				__func__, reg_value, trimcode_tmp);
+		hpl_min = spk_trim_offset(priv, channel);
+		mdelay(10);
+		if (hpl_min >= 0 || abs(hpl_min) < abs(hpl_base)) {
+			trimcode = trimcode_tmp;
+			hpl_base = hpl_min;
 		}
 	} else {
-		if ((trimcode != 0) && (trimcode != 0xf)) {
+		if (trimcode != 0) {
 			trimcode_tmp = trimcode - ((trimcode > 7) ? -1 : 1);
 			regmap_update_bits(priv->regmap,
 					MT6358_AUDDEC_ELR_0,
 					trim_mask, trimcode_tmp << trim_shift);
+
 			regmap_read(priv->regmap,
 					MT6358_AUDDEC_ELR_0, &reg_value);
 			dev_info(priv->dev, "%s(), step2 < 0, AUDDEC_ELR_0 = 0x%x, trimcode_tmp = %d\n",
@@ -5789,45 +5422,32 @@ static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 				hpl_base = hpl_min;
 			}
 		}
-	} else {
-		/* SPK+HP finetrim=3 compensates positive DC value */
-		/* choose the best fine trim */
+	}	else {
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 				fine_mask, 0x2 << fine_shift);
 		regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
 		dev_info(priv->dev, "%s(), step3 < 0, AUDDEC_ELR_0 = 0x%x\n",
 				__func__, reg_value);
-		hpl_finetrim_2 = spk_trim_offset(priv, channel);
+		hpl_min = spk_trim_offset(priv, channel);
 		mdelay(10);
-		if ((hpl_finetrim_2 <= 0) &&
-		    (abs(hpl_finetrim_2) < abs(hpl_base))) {
+		if (hpl_min <= 0 || abs(hpl_min) < abs(hpl_base)) {
 			finetrim = 0x2;
-			hpl_base = hpl_finetrim_2;
+			hpl_base = hpl_min;
 		} else {
-			/* base and finetrim=2 across zero */
-			/* Choose best from base, finetrim=2, and finetrim=3 */
 			regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 					fine_mask, 0x3 << fine_shift);
 			regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0,
 					&reg_value);
-			dev_info(priv->dev, "%s(), step3_2 < 0, AUDDEC_ELR_0 = 0x%x\n",
+			dev_info(priv->dev, "%s(), step3_2 < 0, AUDDEC_ELR_0 = 0x%x\n ",
 					__func__, reg_value);
-			hpl_finetrim_3 = spk_trim_offset(priv, channel);
+			hpl_min = spk_trim_offset(priv, channel);
 			mdelay(10);
-
-			finetrim = pick_spk_finetrim(hpl_base,
-						     hpl_finetrim_2,
-						     hpl_finetrim_3);
-			if (finetrim == 0x2)
-				hpl_base = hpl_finetrim_2;
-			else if (finetrim == 0x3)
-				hpl_base = hpl_finetrim_3;
+			if (hpl_min <= 0 && abs(hpl_min) < abs(hpl_base)) {
+				finetrim = 0x3;
+				hpl_base = hpl_min;
+			}
 		}
 	}
-
-	dev_info(priv->dev, "%s(), refine finetrim = %d\n",
-		 __func__, finetrim);
-
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ELR_0,
 			fine_mask, finetrim << fine_shift);
 EXIT:
@@ -5839,13 +5459,7 @@ EXIT:
 			priv->dc_trim.hp_3_pole_ana_offset.hp_fine_trim[CH_R];
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
 	dev_info(priv->dev, "%s(), step3 result AUDDEC_ELR_0 = 0x%x\n",
-		 __func__, reg_value);
-
-	/* check trimcode is valid */
-	if ((trimcode < 0 || trimcode > 0xf) ||
-	    (finetrim < 0 || finetrim > 0x3))
-		dev_info(priv->dev, "%s(), [Warning], invalid trimcode(3pole), trimcode = %d, finetrim = %d\n",
-			 __func__, trimcode, finetrim);
+			__func__, reg_value);
 
 	/* 4 pole fine trim */
 	hpl_base = spk_trim_offset(priv, channel);
@@ -5854,10 +5468,8 @@ EXIT:
 	if ((hpl_base < 0) && (finetrim == 0x0)) {
 		finetrim = 0x2;
 	} else if ((hpl_base < 0) && (finetrim == 0x2)) {
-		if ((trimcode != 0) && (trimcode != 0xf)) {
-			finetrim = 0x0;
-			trimcode = trimcode - ((trimcode > 7) ? -1 : 1);
-		}
+		finetrim = 0x0;
+		trimcode = trimcode - ((trimcode > 7) ? -1 : 1);
 	}
 
 	priv->dc_trim.spk_4_pole_ana_offset.hp_trim_code[CH_L] = trimcode;
@@ -5867,35 +5479,25 @@ EXIT:
 	priv->dc_trim.spk_4_pole_ana_offset.hp_fine_trim[CH_R] =
 			priv->dc_trim.hp_4_pole_ana_offset.hp_fine_trim[CH_R];
 
-	/* check trimcode is valid */
-	if ((trimcode < 0 || trimcode > 0xf) ||
-	    (finetrim < 0 || finetrim > 0x3))
-		dev_info(priv->dev, "%s(), [Warning], invalid trimcode(4 pole), trimcode = %d, finetrim = %d\n",
-			 __func__, trimcode, finetrim);
-
 	offset_3_pole = &(priv->dc_trim.spk_3_pole_ana_offset);
 	offset_4_pole = &(priv->dc_trim.spk_4_pole_ana_offset);
-	spk_hp_3_pole_trim_setting =
-		(offset_3_pole->enable << HPTRIM_EN_SHIFT) |
+
+	spk_3pole_offset = (offset_3_pole->enable << HPTRIM_EN_SHIFT) |
 		(offset_3_pole->hp_fine_trim[CH_R] << HPFINETRIM_R_SHIFT) |
 		(offset_3_pole->hp_fine_trim[CH_L] << HPFINETRIM_L_SHIFT) |
 		(offset_3_pole->hp_trim_code[CH_R] << HPTRIM_R_SHIFT) |
 		(offset_3_pole->hp_trim_code[CH_L] << HPTRIM_L_SHIFT);
-	spk_hp_4_pole_trim_setting =
-		(offset_4_pole->enable << HPTRIM_EN_SHIFT) |
+	spk_4pole_offset = (offset_4_pole->enable << HPTRIM_EN_SHIFT) |
 		(offset_4_pole->hp_fine_trim[CH_R] << HPFINETRIM_R_SHIFT) |
 		(offset_4_pole->hp_fine_trim[CH_L] << HPFINETRIM_L_SHIFT) |
 		(offset_4_pole->hp_trim_code[CH_R]) |
 		(offset_4_pole->hp_trim_code[CH_L] << HPTRIM_L_SHIFT);
-	priv->dc_trim.spk_hp_3_pole_trim_setting = spk_hp_3_pole_trim_setting;
-	priv->dc_trim.spk_hp_4_pole_trim_setting = spk_hp_4_pole_trim_setting;
 
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
-	dev_info(priv->dev, "%s(), Final result AUDDEC_ELR_0 = 0x%x, spk_hp_3_pole_trim_setting = 0x%x, spk_hp_4_pole_trim_setting = 0x%x\n",
+	dev_info(priv->dev, "%s(), Result AUDDEC_ELR_0 = 0x%x, spk_3pole_anaoffset = 0x%x, spk_4pole_anaoffset = 0x%x\n",
 			__func__,
-			reg_value,
-			spk_hp_3_pole_trim_setting, spk_hp_4_pole_trim_setting);
-	dev_info(priv->dev, "%s(), get spkl offset = %d, channel = %d\n",
+			reg_value, spk_3pole_offset, spk_4pole_offset);
+	dev_info(priv->dev, "%s(), spk_trim_offset = %d, channel = %d\n",
 			__func__, spk_trim_offset(priv, channel), channel);
 #endif
 }
@@ -5913,15 +5515,9 @@ static void get_hp_trim_offset(struct mt6358_priv *priv, bool force)
 	set_lr_trim_code(priv);
 	priv->dc_trim.hp_offset[CH_L] = priv->dc_trim.hp_trim_offset[CH_L];
 	priv->dc_trim.hp_offset[CH_R] = priv->dc_trim.hp_trim_offset[CH_R];
-	dev_info(priv->dev, "%s(), priv->dc_trim.hp_offset[CH_L]: %d, priv->dc_trim.hp_offset[CH_R]: %d\n",
-		 __func__,
-		 priv->dc_trim.hp_offset[CH_L],
-		 priv->dc_trim.hp_offset[CH_R]);
 
 	set_lr_trim_code_spk(priv, TRIM_BUF_MUX_HPL);
 	priv->dc_trim.spk_l_offset = spk_trim_offset(priv, TRIM_BUF_MUX_HPL);
-	dev_info(priv->dev, "%s(), priv->spkl_dc_offset: %d\n", __func__,
-		 priv->dc_trim.spk_l_offset);
 #else
 	dc_trim->hp_offset[CH_L] = hp_trim_offset(priv, TRIM_BUF_MUX_HPL);
 	dc_trim->hp_offset[CH_R] = hp_trim_offset(priv, TRIM_BUF_MUX_HPR);
@@ -5953,9 +5549,7 @@ static int mtk_calculate_impedance_formula(int pcm_offset, int aux_diff)
 	/* R = V /I */
 	/* V = auxDiff * (1800mv /auxResolution)  /TrimBufGain */
 	/* I =  pcmOffset * DAC_constant * Gsdm * Gibuf */
-	long mul_val = pcm_offset * aux_diff;
-
-	return DIV_ROUND_CLOSEST(3600000 / mul_val, 7832);
+	return DIV_ROUND_CLOSEST(3600000 / pcm_offset * aux_diff, 7832);
 }
 
 static int calculate_impedance(struct mt6358_priv *priv,
@@ -6302,38 +5896,6 @@ static int hp_plugged_in_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#ifdef ANALOG_HPTRIM
-static int disable_analog_dc_compensation_get(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	ucontrol->value.integer.value[0] =
-			priv->dc_trim.dc_compensation_disabled;
-
-	return 0;
-}
-
-static int disable_analog_dc_compensation_set(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	if (ucontrol->value.enumerated.item[0] > ARRAY_SIZE(off_on_function)) {
-		dev_warn(priv->dev, "%s(), return -EINVAL\n",
-			 __func__);
-		return -EINVAL;
-	}
-
-	priv->dc_trim.dc_compensation_disabled =
-			ucontrol->value.integer.value[0];
-
-	return 0;
-}
-#endif
-
 static int mt6358_codec_debug_get(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
@@ -6624,11 +6186,6 @@ static const struct snd_kcontrol_new mt6358_snd_misc_controls[] = {
 	SOC_SINGLE_EXT("Audio HP ImpeDance Setting",
 		       SND_SOC_NOPM, 0, 0x10000, 0,
 		       hp_impedance_get, NULL),
-#ifdef ANALOG_HPTRIM
-	SOC_ENUM_EXT("Disable Analog DC Compensation", misc_control_enum[0],
-		     disable_analog_dc_compensation_get,
-		     disable_analog_dc_compensation_set),
-#endif
 	SOC_ENUM_EXT("Audio_Codec_Debug_Setting", misc_control_enum[0],
 		     mt6358_codec_debug_get, mt6358_codec_debug_set),
 	SOC_ENUM_EXT("PMIC_REG_CLEAR", rcv_mic_enum[0],
@@ -6770,8 +6327,6 @@ static int mt6358_codec_probe(struct snd_soc_codec *codec)
 
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] = 8;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTR] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTR] = 8;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 3;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 3;
 
@@ -6829,7 +6384,24 @@ static void debug_re_trim_offset(struct file *file,
 	struct mt6358_priv *priv = file->private_data;
 
 	dev_info(priv->dev, "start %s\n", __func__);
+#ifndef ANALOG_HPTRIM
 	get_hp_trim_offset(priv, true);
+#else
+	/* HP Trim */
+	set_lr_trim_code(priv);
+	priv->dc_trim.hp_offset[CH_L] = priv->dc_trim.hp_trim_offset[CH_L];
+	priv->dc_trim.hp_offset[CH_R] = priv->dc_trim.hp_trim_offset[CH_R];
+	dev_info(priv->dev, "%s(), hp_offset[CH_L]: %d, hp_offset[CH_R]: %d\n",
+			__func__,
+			priv->dc_trim.hp_offset[CH_L],
+			priv->dc_trim.hp_offset[CH_R]);
+
+	/* HP + SPK Trim */
+	set_lr_trim_code_spk(priv, TRIM_BUF_MUX_HPL);
+	priv->dc_trim.spk_l_offset = spk_trim_offset(priv, TRIM_BUF_MUX_HPL);
+	dev_info(priv->dev, "%s(), dc_trim.spk_l_offset: %d\n",
+			__func__, priv->dc_trim.spk_l_offset);
+#endif
 	dev_info(priv->dev, "end %s\n", __func__);
 }
 
@@ -6901,14 +6473,6 @@ static ssize_t mt6358_debugfs_read(struct file *file, char __user *buf,
 		       priv->dc_trim.hp_offset[CH_R]);
 	n += scnprintf(buffer + n, size - n, "\tmic_vinp_mv = %d\n",
 		       priv->dc_trim.mic_vinp_mv);
-	n += scnprintf(buffer + n, size - n,
-		       "\thp_3_pole_trim_setting = 0x%x, hp_4_pole_trim_setting = 0x%x\n",
-		       priv->dc_trim.hp_3_pole_trim_setting,
-		       priv->dc_trim.hp_4_pole_trim_setting);
-	n += scnprintf(buffer + n, size - n,
-		       "\tspk_hp_3_pole_trim_setting = 0x%x, spk_hp_4_pole_trim_setting = 0x%x\n",
-		       priv->dc_trim.spk_hp_3_pole_trim_setting,
-		       priv->dc_trim.spk_hp_4_pole_trim_setting);
 
 	n += scnprintf(buffer + n, size - n, "codec_ops:\n");
 	n += scnprintf(buffer + n, size - n, "\tenable_dc_compensation = %p\n",
