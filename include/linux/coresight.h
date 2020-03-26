@@ -185,6 +185,7 @@ struct coresight_connection {
 		happens when a source has been selected for that it.
  * @abort:     captures sink trace on abort.
  * @reg_clk:	as defined by @coresight_reg_clk.
+ * @ea:		Device attribute for sink representation under PMU directory.
  */
 struct coresight_device {
 	struct coresight_connection *conns;
@@ -198,7 +199,9 @@ struct coresight_device {
 	struct coresight_path *node;
 	bool orphan;
 	bool enable;	/* true only if configured as part of a path */
+	/* sink specific fields */
 	bool activated;	/* true only if a sink is part of a path */
+	struct dev_ext_attribute *ea;
 	struct coresight_reg_clk *reg_clk;
 };
 
@@ -216,23 +219,16 @@ struct coresight_device {
  * @disable:		disables the sink.
  * @alloc_buffer:	initialises perf's ring buffer for trace collection.
  * @free_buffer:	release memory allocated in @get_config.
- * @set_buffer:		initialises buffer mechanic before a trace session.
- * @reset_buffer:	finalises buffer mechanic after a trace session.
  * @update_buffer:	update buffer pointers after a trace session.
  */
 struct coresight_ops_sink {
-	int (*enable)(struct coresight_device *csdev, u32 mode);
-	void (*disable)(struct coresight_device *csdev);
-	void *(*alloc_buffer)(struct coresight_device *csdev, int cpu,
-			      void **pages, int nr_pages, bool overwrite);
+	int (*enable)(struct coresight_device *csdev, u32 mode, void *data);
+	int (*disable)(struct coresight_device *csdev);
+	void *(*alloc_buffer)(struct coresight_device *csdev,
+			      struct perf_event *event, void **pages,
+			      int nr_pages, bool overwrite);
 	void (*free_buffer)(void *config);
-	int (*set_buffer)(struct coresight_device *csdev,
-			  struct perf_output_handle *handle,
-			  void *sink_config);
-	unsigned long (*reset_buffer)(struct coresight_device *csdev,
-				      struct perf_output_handle *handle,
-				      void *sink_config);
-	void (*update_buffer)(struct coresight_device *csdev,
+	unsigned long (*update_buffer)(struct coresight_device *csdev,
 			      struct perf_output_handle *handle,
 			      void *sink_config);
 };
@@ -308,6 +304,14 @@ static inline bool coresight_link_late_disable(void)
 }
 extern void coresight_disable_all_source_link(void);
 extern void coresight_enable_all_source_link(void);
+
+extern int coresight_claim_device(void __iomem *base);
+extern int coresight_claim_device_unlocked(void __iomem *base);
+
+extern void coresight_disclaim_device(void __iomem *base);
+extern void coresight_disclaim_device_unlocked(void __iomem *base);
+
+extern bool coresight_loses_context_with_cpu(struct device *dev);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -323,6 +327,23 @@ static inline int coresight_enable_reg_clk(struct coresight_device *csdev)
 { return -EINVAL; }
 static void coresight_disable_all_source_link(void) {};
 static void coresight_enable_all_source_link(void) {};
+static inline int coresight_claim_device_unlocked(void __iomem *base)
+{
+	return -EINVAL;
+}
+
+static inline int coresight_claim_device(void __iomem *base)
+{
+	return -EINVAL;
+}
+
+static inline void coresight_disclaim_device(void __iomem *base) {}
+static inline void coresight_disclaim_device_unlocked(void __iomem *base) {}
+
+static inline bool coresight_loses_context_with_cpu(struct device *dev)
+{
+	return false;
+}
 #endif
 
 #if defined(CONFIG_OF) && defined(CONFIG_CORESIGHT)
