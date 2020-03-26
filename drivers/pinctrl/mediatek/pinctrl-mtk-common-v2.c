@@ -19,7 +19,7 @@
 #include "pinctrl-mtk-common-v2.h"
 
 /* Some SOC provide more control register other than value register.
- * Generanll, a value register need read-modify-write is at offset 0xXXXXXXXX0.
+ * In general, a value register need read-modify-write is at offset 0xXXXXXXXX0.
  * A corresponding SET register is at offset 0xXXXXXXX4. Write 1s' to some bits
  *  of SET register will set same bits in value register.
  * A corresponding CLR register is at offset 0xXXXXXXX8. Write 1s' to some bits
@@ -79,7 +79,7 @@ void mtk_rmw(struct mtk_pinctrl *pctl, u8 i, u32 reg, u32 mask, u32 set)
 	mtk_w32(pctl, i, reg, val);
 }
 
-void mtk_hw_set_value_race_free(struct mtk_pinctrl *pctl,
+static void mtk_hw_set_value_race_free(struct mtk_pinctrl *pctl,
 		struct mtk_pin_field *pf, u32 value)
 {
 	unsigned int set, clr;
@@ -95,7 +95,7 @@ void mtk_hw_set_value_race_free(struct mtk_pinctrl *pctl,
 			clr << pf->bitpos);
 }
 
-void mtk_hw_set_mode_race_free(struct mtk_pinctrl *pctl,
+static void mtk_hw_set_mode_race_free(struct mtk_pinctrl *pctl,
 		struct mtk_pin_field *pf, u32 value)
 {
 	unsigned int value_new;
@@ -279,31 +279,24 @@ int mtk_hw_get_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 }
 EXPORT_SYMBOL_GPL(mtk_hw_get_value);
 
-void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
+/* The eh register determines the selection of the driving control
+ * of the i2c pins.
+ * eh = 0: select the normal driving register for non-i2c mode.
+ * eh = 1: select the special driving register for i2c mode.
+ */
+int mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		 u16 mode)
 {
 	const struct mtk_eh_pin_pinmux *p = hw->soc->eh_pin_pinmux;
-	u32 val = 0, on = 0;
+	u32 eh_info_num = hw->soc->neh_pins;
+	u32 val = 0, on = 0, found = 0, i = 0;
+	int err;
 
-	while (p->pin != 0xffff) {
-		if (desc->number == p->pin) {
-			if (mode == p->pinmux) {
+	while (i < eh_info_num) {
+		if (desc->number == p[i].pin) {
+			found = 1;
+			if (mode == p[i].pinmux) {
 				on = 1;
-				break;
-			} else if (desc->number != (p + 1)->pin) {
-				/*
-				 * If the target mode does not match
-				 * the mode in current entry.
-				 *
-				 * Check the next entry if the pin
-				 * number is the same.
-				 * Yes: target pin have more than one
-				 *    pinmux shall enable eh. Check the
-				 *    next entry.
-				 * No: target pin do not have other
-				 *    pinmux shall enable eh. Just disable
-				 *    the EH function.
-				 */
 				break;
 			}
 		}
@@ -314,22 +307,25 @@ void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		 * So when desc->number < p->pin, it mean no match will be
 		 *   found and we can leave.
 		 */
-		if (desc->number < p->pin)
-			return;
+		if (desc->number < p[i].pin)
+			break;
 
-		p++;
+		i++;
 	}
 
 	/* If pin not found, just return */
-	if (p->pin == 0xffff)
-		return;
+	if (!found)
+		return 0;
 
-	(void)mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, &val);
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, &val);
+	if (err)
+		return err;
+
 	if (on)
 		val |= on;
 	else
 		val &= 0xfffffffe;
-	(void)mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, val);
+	return mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, val);
 }
 
 static int mtk_xt_find_eint_num(struct mtk_pinctrl *hw, unsigned long eint_n)
@@ -433,9 +429,11 @@ static int mtk_xt_set_gpio_as_eint(void *data, unsigned long eint_n)
 	if (err)
 		return err;
 
-	if (hw->soc->eh_pin_pinmux)
-		mtk_eh_ctrl(hw, desc, desc->eint.eint_m);
-
+	if (hw->soc->eh_pin_pinmux) {
+		err = mtk_eh_ctrl(hw, desc, desc->eint.eint_m);
+		if (err)
+			return err;
+	}
 	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR, MTK_INPUT);
 	if (err)
 		return err;
