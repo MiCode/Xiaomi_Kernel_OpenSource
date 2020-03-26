@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_BLUETOOTH_POWER_H
@@ -43,6 +43,7 @@ struct bluetooth_power_platform_data {
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
 	int (*bt_power_setup)(int id); /* Bluetooth power setup function */
+	const char *compatible_chipset_version; /*Bluetooth chipset version */
 };
 
 int btpower_register_slimdev(struct device *dev);
@@ -51,4 +52,5 @@ int btpower_get_chipset_version(void);
 #define BT_CMD_SLIM_TEST		0xbfac
 #define BT_CMD_PWR_CTRL			0xbfad
 #define BT_CMD_CHIPSET_VERS		0xbfae
+#define BT_CMD_GET_CHIPSET_ID		0xbfaf
 #endif /* __LINUX_BLUETOOTH_POWER_H */
