@@ -2495,10 +2495,8 @@ static int arm_iommu_init_mapping(struct device *dev,
 	u64 size = mapping->bits << PAGE_SHIFT;
 	int is_fast = 0;
 
-	if (mapping->init) {
-		kref_get(&mapping->kref);
+	if (mapping->init)
 		return 0;
-	}
 
 	/* currently only 32-bit DMA address space is supported */
 	if (size > DMA_BIT_MASK(32) + 1) {
