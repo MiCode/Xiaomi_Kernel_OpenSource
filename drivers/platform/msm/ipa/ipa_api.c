@@ -98,7 +98,7 @@
 
 #if defined(CONFIG_IPA_EMULATION)
 static bool running_emulation = true;
-#else
+#elif defined(CONFIG_PCI)
 static bool running_emulation;
 #endif
 
