@@ -355,6 +355,14 @@ static int ipa_eth_net_unlink_upper(struct ipa_eth_device *eth_dev,
 	return rc;
 }
 
+static bool ipa_eth_net_update_link(struct ipa_eth_device *eth_dev)
+{
+	return netif_carrier_ok(eth_dev->net_dev) ?
+		!test_and_set_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state) :
+		test_and_clear_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state);
+
+}
+
 static bool ipa_eth_net_event_up(struct ipa_eth_device *eth_dev,
 		unsigned long event, void *ptr)
 {
@@ -370,10 +378,7 @@ static bool ipa_eth_net_event_down(struct ipa_eth_device *eth_dev,
 static bool ipa_eth_net_event_change(struct ipa_eth_device *eth_dev,
 		unsigned long event, void *ptr)
 {
-	return netif_carrier_ok(eth_dev->net_dev) ?
-		!test_and_set_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state) :
-		test_and_clear_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state);
-
+	return ipa_eth_net_update_link(eth_dev);
 }
 
 static bool ipa_eth_net_event_pre_change_upper(struct ipa_eth_device *eth_dev,
@@ -463,6 +468,13 @@ int ipa_eth_net_open_device(struct ipa_eth_device *eth_dev)
 		ipa_eth_dev_err(eth_dev, "Failed to register netdev notifier");
 		goto err_register;
 	}
+
+	/* When registering with netdevice notifier, only REGISTER and UP events
+	 * are replayed. Fetch current link state; future link state updates
+	 * will be processed through CHANGE event.
+	 */
+	if (ipa_eth_net_update_link(eth_dev))
+		ipa_eth_device_refresh_sched(eth_dev);
 
 	return 0;
 
