@@ -84,9 +84,11 @@ Optional properties :
 	are supported. If omitted, assume HW supports "1.5".
 - qcom,reset-ep-after-lpm-resume: If present, dbm requires ep reset after
 	going to lpm
-- qcom,host-poweroff-in-pm-suspend: If present, allow PM suspend to happen
-	irrespective of runtimePM state of host and power collapse the core.
-	This also leads to reset-resume of connected devices on PM resume.
+- qcom,ignore-wakeup-src-in-hostmode: If present, PM suspend/freeze allowed
+	irrespective of host runtimePM state. In PM suspend/resume case, core
+	will stay powered and connected devices will just be suspended/resumed.
+	In hibernation, core will power collapse and connected devices will
+	reset-resume on PM restore.
 - qcom,default-mode-none: If present, do not start any mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
 - qcom,default-mode-host: If present, start host mode on probe for an OTG
