@@ -2213,7 +2213,7 @@ static ssize_t ver_info_show(struct device *dev,
 static DEVICE_ATTR_RO(ver_info);
 
 #if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
-static int __init msm_geni_console_setup(struct console *co, char *options)
+static int msm_geni_console_setup(struct console *co, char *options)
 {
 	struct uart_port *uport;
 	struct msm_geni_serial_port *dev_port;
