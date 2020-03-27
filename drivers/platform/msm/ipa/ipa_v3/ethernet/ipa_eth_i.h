@@ -118,8 +118,12 @@ struct ipa_eth_upper_device {
 };
 
 struct ipa_eth_device_private {
+	struct ipa_eth_device *eth_dev;
+
 	struct mutex upper_mutex;
 	struct list_head upper_devices;
+
+	struct notifier_block panic_nb;
 };
 
 struct ipa_eth_bus {
