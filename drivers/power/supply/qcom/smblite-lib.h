@@ -85,6 +85,7 @@ enum sink_src_mode {
 enum {
 	BOOST_BACK_WA			= BIT(0),
 	WEAK_ADAPTER_WA			= BIT(1),
+	FLASH_DIE_TEMP_DERATE_WA	= BIT(2),
 };
 
 enum jeita_cfg_stat {
