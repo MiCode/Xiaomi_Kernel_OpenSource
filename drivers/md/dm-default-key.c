@@ -133,6 +133,22 @@ static int default_key_ctr_optional(struct dm_target *ti,
 	return 0;
 }
 
+void default_key_adjust_sector_size_and_iv(char **argv, struct dm_target *ti,
+					   struct default_key_c **dkc)
+{
+	struct dm_dev *dev;
+
+	dev = (*dkc)->dev;
+
+	if (!strcmp(argv[0], "AES-256-XTS")) {
+		if (ti->len & (((*dkc)->sector_size >> SECTOR_SHIFT) - 1))
+			(*dkc)->sector_size = SECTOR_SIZE;
+
+		if (dev->bdev->bd_part)
+			(*dkc)->iv_offset += dev->bdev->bd_part->start_sect;
+	}
+}
+
 /*
  * Construct a default-key mapping:
  * <cipher> <key> <iv_offset> <dev_path> <start>
@@ -223,6 +239,9 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		if (err)
 			goto bad;
 	}
+
+	default_key_adjust_sector_size_and_iv(argv, ti, &dkc);
+
 	dkc->sector_bits = ilog2(dkc->sector_size);
 	if (ti->len & ((dkc->sector_size >> SECTOR_SHIFT) - 1)) {
 		ti->error = "Device size is not a multiple of sector_size";
