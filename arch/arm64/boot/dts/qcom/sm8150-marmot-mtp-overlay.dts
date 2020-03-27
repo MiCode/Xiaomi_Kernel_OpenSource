@@ -68,3 +68,15 @@
 		synaptics,firmware-name = "synaptics_firmware.img";
 	};
 };
+
+&snd_9360 {
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_0212>, <&wsa881x_0214>;
+	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+};
+
+&snd_934x {
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_70212>, <&wsa881x_70214>;
+	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+};
