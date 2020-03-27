@@ -67,7 +67,7 @@ struct hfi_queue_table;
 #define DCVS_ACK_BLOCK 1
 
 #define HFI_FEATURE_DCVS	0
-#define HFI_FEATURE_ECP		1
+#define HFI_FEATURE_HWSCHED	1
 #define HFI_FEATURE_PREEMPTION	2
 #define HFI_FEATURE_CLOCKS_ON	3
 #define HFI_FEATURE_BUS_ON	4

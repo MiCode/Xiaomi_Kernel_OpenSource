@@ -97,14 +97,12 @@
  * for droop mitigation
  */
 #define ADRENO_ACD BIT(17)
-/* ECP enabled GMU */
-#define ADRENO_ECP BIT(18)
 /* Cooperative reset enabled GMU */
-#define ADRENO_COOP_RESET BIT(19)
+#define ADRENO_COOP_RESET BIT(18)
 /* Indicates that the specific target is no longer supported */
-#define ADRENO_DEPRECATED BIT(20)
+#define ADRENO_DEPRECATED BIT(19)
 /* The target supports ringbuffer level APRIV */
-#define ADRENO_APRIV BIT(21)
+#define ADRENO_APRIV BIT(20)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */

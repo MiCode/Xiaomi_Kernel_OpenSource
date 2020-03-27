@@ -403,7 +403,6 @@ static int a6xx_hfi_send_core_fw_start(struct a6xx_gmu_device *gmu)
 }
 
 static const char * const a6xx_hfi_features[] = {
-	[HFI_FEATURE_ECP] = "ECP",
 	[HFI_FEATURE_ACD] = "ACD",
 	[HFI_FEATURE_LM] = "LM",
 };
@@ -755,12 +754,6 @@ int a6xx_hfi_start(struct kgsl_device *device,
 	 * send H2F_MSG_CORE_FW_START and features for A640 devices
 	 */
 	if (GMU_VER_MAJOR(gmu->ver.hfi) >= 2) {
-		if (ADRENO_FEATURE(adreno_dev, ADRENO_ECP)) {
-			result = a6xx_hfi_send_feature_ctrl(gmu,
-					HFI_FEATURE_ECP, 1, 0);
-			if (result)
-				return result;
-		}
 
 		result = a6xx_hfi_send_acd_feature_ctrl(gmu, adreno_dev);
 		if (result)

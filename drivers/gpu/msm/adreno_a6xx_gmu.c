@@ -1416,15 +1416,6 @@ static int a6xx_gmu_cache_finalize(struct adreno_device *adreno_dev,
 	if (IS_ERR(md))
 		return PTR_ERR(md);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_ECP)) {
-		/* Allocation to account for future MEM_ALLOC buffers */
-		md = a6xx_gmu_kmem_allocate(gmu, GMU_NONCACHED_KERNEL,
-				0, SZ_32K,
-				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-		if (IS_ERR(md))
-			return PTR_ERR(md);
-	}
-
 	gmu->preallocations = true;
 
 	return 0;
