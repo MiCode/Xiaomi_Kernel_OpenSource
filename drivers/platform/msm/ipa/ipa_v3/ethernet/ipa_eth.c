@@ -430,6 +430,28 @@ static int ipa_eth_device_complete_reset(
 	return rc;
 }
 
+static int ipa_eth_device_event_add_macsec(
+	struct ipa_eth_device *eth_dev, void *data)
+{
+	struct net_device *net_dev = data;
+
+	ipa_eth_dev_log(eth_dev,
+		"Network device added MACSec interface %s", net_dev->name);
+
+	return 0;
+}
+
+static int ipa_eth_device_event_del_macsec(
+	struct ipa_eth_device *eth_dev, void *data)
+{
+	struct net_device *net_dev = data;
+
+	ipa_eth_dev_log(eth_dev,
+		"Network device removed MACSec interface %s", net_dev->name);
+
+	return 0;
+}
+
 /**
  * ipa_eth_device_notify() - Notifies a device event to the offload sub-system
  * @eth_dev: Device for which the event is generated
@@ -453,8 +475,14 @@ int ipa_eth_device_notify(struct ipa_eth_device *eth_dev,
 	case IPA_ETH_DEV_RESET_COMPLETE:
 		rc = ipa_eth_device_complete_reset(eth_dev, data);
 		break;
+	case IPA_ETH_DEV_ADD_MACSEC_IF:
+		rc = ipa_eth_device_event_add_macsec(eth_dev, data);
+		break;
+	case IPA_ETH_DEV_DEL_MACSEC_IF:
+		rc = ipa_eth_device_event_del_macsec(eth_dev, data);
+		break;
 	default:
-		ipa_eth_dev_log(eth_dev, "Skipped event processing");
+		ipa_eth_dev_log(eth_dev, "Unknown event %d", event);
 		break;
 	}
 
