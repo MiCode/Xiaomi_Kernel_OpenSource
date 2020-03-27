@@ -26,29 +26,20 @@
 #include <linux/ratelimit.h>
 #include <linux/dcache.h>
 #include <linux/namei.h>
-#include <crypto/aes.h>
 #include <crypto/skcipher.h>
 #include "fscrypt_private.h"
 
 static unsigned int num_prealloc_crypto_pages = 32;
-static unsigned int num_prealloc_crypto_ctxs = 128;
 
 module_param(num_prealloc_crypto_pages, uint, 0444);
 MODULE_PARM_DESC(num_prealloc_crypto_pages,
 		"Number of crypto pages to preallocate");
-module_param(num_prealloc_crypto_ctxs, uint, 0444);
-MODULE_PARM_DESC(num_prealloc_crypto_ctxs,
-		"Number of crypto contexts to preallocate");
 
 static mempool_t *fscrypt_bounce_page_pool = NULL;
-
-static LIST_HEAD(fscrypt_free_ctxs);
-static DEFINE_SPINLOCK(fscrypt_ctx_lock);
 
 static struct workqueue_struct *fscrypt_read_workqueue;
 static DEFINE_MUTEX(fscrypt_init_mutex);
 
-static struct kmem_cache *fscrypt_ctx_cachep;
 struct kmem_cache *fscrypt_info_cachep;
 
 void fscrypt_enqueue_decrypt_work(struct work_struct *work)
@@ -56,62 +47,6 @@ void fscrypt_enqueue_decrypt_work(struct work_struct *work)
 	queue_work(fscrypt_read_workqueue, work);
 }
 EXPORT_SYMBOL(fscrypt_enqueue_decrypt_work);
-
-/**
- * fscrypt_release_ctx() - Release a decryption context
- * @ctx: The decryption context to release.
- *
- * If the decryption context was allocated from the pre-allocated pool, return
- * it to that pool.  Else, free it.
- */
-void fscrypt_release_ctx(struct fscrypt_ctx *ctx)
-{
-	unsigned long flags;
-
-	if (ctx->flags & FS_CTX_REQUIRES_FREE_ENCRYPT_FL) {
-		kmem_cache_free(fscrypt_ctx_cachep, ctx);
-	} else {
-		spin_lock_irqsave(&fscrypt_ctx_lock, flags);
-		list_add(&ctx->free_list, &fscrypt_free_ctxs);
-		spin_unlock_irqrestore(&fscrypt_ctx_lock, flags);
-	}
-}
-EXPORT_SYMBOL(fscrypt_release_ctx);
-
-/**
- * fscrypt_get_ctx() - Get a decryption context
- * @gfp_flags:   The gfp flag for memory allocation
- *
- * Allocate and initialize a decryption context.
- *
- * Return: A new decryption context on success; an ERR_PTR() otherwise.
- */
-struct fscrypt_ctx *fscrypt_get_ctx(gfp_t gfp_flags)
-{
-	struct fscrypt_ctx *ctx;
-	unsigned long flags;
-
-	/*
-	 * First try getting a ctx from the free list so that we don't have to
-	 * call into the slab allocator.
-	 */
-	spin_lock_irqsave(&fscrypt_ctx_lock, flags);
-	ctx = list_first_entry_or_null(&fscrypt_free_ctxs,
-					struct fscrypt_ctx, free_list);
-	if (ctx)
-		list_del(&ctx->free_list);
-	spin_unlock_irqrestore(&fscrypt_ctx_lock, flags);
-	if (!ctx) {
-		ctx = kmem_cache_zalloc(fscrypt_ctx_cachep, gfp_flags);
-		if (!ctx)
-			return ERR_PTR(-ENOMEM);
-		ctx->flags |= FS_CTX_REQUIRES_FREE_ENCRYPT_FL;
-	} else {
-		ctx->flags &= ~FS_CTX_REQUIRES_FREE_ENCRYPT_FL;
-	}
-	return ctx;
-}
-EXPORT_SYMBOL(fscrypt_get_ctx);
 
 struct page *fscrypt_alloc_bounce_page(gfp_t gfp_flags)
 {
@@ -137,14 +72,17 @@ EXPORT_SYMBOL(fscrypt_free_bounce_page);
 void fscrypt_generate_iv(union fscrypt_iv *iv, u64 lblk_num,
 			 const struct fscrypt_info *ci)
 {
+	u8 flags = fscrypt_policy_flags(&ci->ci_policy);
+
 	memset(iv, 0, ci->ci_mode->ivsize);
-	iv->lblk_num = cpu_to_le64(lblk_num);
 
-	if (ci->ci_flags & FS_POLICY_FLAG_DIRECT_KEY)
+	if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64) {
+		WARN_ON_ONCE((u32)lblk_num != lblk_num);
+		lblk_num |= (u64)ci->ci_inode->i_ino << 32;
+	} else if (flags & FSCRYPT_POLICY_FLAG_DIRECT_KEY) {
 		memcpy(iv->nonce, ci->ci_nonce, FS_KEY_DERIVATION_NONCE_SIZE);
-
-	if (ci->ci_essiv_tfm != NULL)
-		crypto_cipher_encrypt_one(ci->ci_essiv_tfm, iv->raw, iv->raw);
+	}
+	iv->lblk_num = cpu_to_le64(lblk_num);
 }
 
 /* Encrypt or decrypt a single filesystem block of file contents */
@@ -187,10 +125,8 @@ int fscrypt_crypt_block(const struct inode *inode, fscrypt_direction_t rw,
 		res = crypto_wait_req(crypto_skcipher_encrypt(req), &wait);
 	skcipher_request_free(req);
 	if (res) {
-		fscrypt_err(inode->i_sb,
-			    "%scryption failed for inode %lu, block %llu: %d",
-			    (rw == FS_DECRYPT ? "de" : "en"),
-			    inode->i_ino, lblk_num, res);
+		fscrypt_err(inode, "%scryption failed for block %llu: %d",
+			    (rw == FS_DECRYPT ? "De" : "En"), lblk_num, res);
 		return res;
 	}
 	return 0;
@@ -397,17 +333,6 @@ const struct dentry_operations fscrypt_d_ops = {
 	.d_revalidate = fscrypt_d_revalidate,
 };
 
-static void fscrypt_destroy(void)
-{
-	struct fscrypt_ctx *pos, *n;
-
-	list_for_each_entry_safe(pos, n, &fscrypt_free_ctxs, free_list)
-		kmem_cache_free(fscrypt_ctx_cachep, pos);
-	INIT_LIST_HEAD(&fscrypt_free_ctxs);
-	mempool_destroy(fscrypt_bounce_page_pool);
-	fscrypt_bounce_page_pool = NULL;
-}
-
 /**
  * fscrypt_initialize() - allocate major buffers for fs encryption.
  * @cop_flags:  fscrypt operations flags
@@ -415,11 +340,11 @@ static void fscrypt_destroy(void)
  * We only call this when we start accessing encrypted files, since it
  * results in memory getting allocated that wouldn't otherwise be used.
  *
- * Return: Zero on success, non-zero otherwise.
+ * Return: 0 on success; -errno on failure
  */
 int fscrypt_initialize(unsigned int cop_flags)
 {
-	int i, res = -ENOMEM;
+	int err = 0;
 
 	/* No need to allocate a bounce page pool if this FS won't use it. */
 	if (cop_flags & FS_CFLG_OWN_PAGES)
@@ -427,32 +352,21 @@ int fscrypt_initialize(unsigned int cop_flags)
 
 	mutex_lock(&fscrypt_init_mutex);
 	if (fscrypt_bounce_page_pool)
-		goto already_initialized;
+		goto out_unlock;
 
-	for (i = 0; i < num_prealloc_crypto_ctxs; i++) {
-		struct fscrypt_ctx *ctx;
-
-		ctx = kmem_cache_zalloc(fscrypt_ctx_cachep, GFP_NOFS);
-		if (!ctx)
-			goto fail;
-		list_add(&ctx->free_list, &fscrypt_free_ctxs);
-	}
-
+	err = -ENOMEM;
 	fscrypt_bounce_page_pool =
 		mempool_create_page_pool(num_prealloc_crypto_pages, 0);
 	if (!fscrypt_bounce_page_pool)
-		goto fail;
+		goto out_unlock;
 
-already_initialized:
+	err = 0;
+out_unlock:
 	mutex_unlock(&fscrypt_init_mutex);
-	return 0;
-fail:
-	fscrypt_destroy();
-	mutex_unlock(&fscrypt_init_mutex);
-	return res;
+	return err;
 }
 
-void fscrypt_msg(struct super_block *sb, const char *level,
+void fscrypt_msg(const struct inode *inode, const char *level,
 		 const char *fmt, ...)
 {
 	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
@@ -466,8 +380,9 @@ void fscrypt_msg(struct super_block *sb, const char *level,
 	va_start(args, fmt);
 	vaf.fmt = fmt;
 	vaf.va = &args;
-	if (sb)
-		printk("%sfscrypt (%s): %pV\n", level, sb->s_id, &vaf);
+	if (inode)
+		printk("%sfscrypt (%s, inode %lu): %pV\n",
+		       level, inode->i_sb->s_id, inode->i_ino, &vaf);
 	else
 		printk("%sfscrypt: %pV\n", level, &vaf);
 	va_end(args);
@@ -478,6 +393,8 @@ void fscrypt_msg(struct super_block *sb, const char *level,
  */
 static int __init fscrypt_init(void)
 {
+	int err = -ENOMEM;
+
 	/*
 	 * Use an unbound workqueue to allow bios to be decrypted in parallel
 	 * even when they happen to complete on the same CPU.  This sacrifices
@@ -492,39 +409,21 @@ static int __init fscrypt_init(void)
 	if (!fscrypt_read_workqueue)
 		goto fail;
 
-	fscrypt_ctx_cachep = KMEM_CACHE(fscrypt_ctx, SLAB_RECLAIM_ACCOUNT);
-	if (!fscrypt_ctx_cachep)
-		goto fail_free_queue;
-
 	fscrypt_info_cachep = KMEM_CACHE(fscrypt_info, SLAB_RECLAIM_ACCOUNT);
 	if (!fscrypt_info_cachep)
-		goto fail_free_ctx;
+		goto fail_free_queue;
+
+	err = fscrypt_init_keyring();
+	if (err)
+		goto fail_free_info;
 
 	return 0;
 
-fail_free_ctx:
-	kmem_cache_destroy(fscrypt_ctx_cachep);
+fail_free_info:
+	kmem_cache_destroy(fscrypt_info_cachep);
 fail_free_queue:
 	destroy_workqueue(fscrypt_read_workqueue);
 fail:
-	return -ENOMEM;
+	return err;
 }
-module_init(fscrypt_init)
-
-/**
- * fscrypt_exit() - Shutdown the fs encryption system
- */
-static void __exit fscrypt_exit(void)
-{
-	fscrypt_destroy();
-
-	if (fscrypt_read_workqueue)
-		destroy_workqueue(fscrypt_read_workqueue);
-	kmem_cache_destroy(fscrypt_ctx_cachep);
-	kmem_cache_destroy(fscrypt_info_cachep);
-
-	fscrypt_essiv_cleanup();
-}
-module_exit(fscrypt_exit);
-
-MODULE_LICENSE("GPL");
+late_initcall(fscrypt_init)
