@@ -603,6 +603,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case ENABLE_DAEMON_SUPPORT:
 			seq_puts(s, "DAEMON_SUPPORT");
 			continue;
+		case IGNORE_PCI_LINK_FAILURE:
+			seq_puts(s, "IGNORE_PCI_LINK_FAILURE");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
