@@ -118,7 +118,7 @@ static int fsa4480_usbc_event_changed(struct notifier_block *nb,
 		dev_dbg(dev, "%s: queueing usbc_analog_work\n",
 			__func__);
 		pm_stay_awake(fsa_priv->dev);
-		schedule_work(&fsa_priv->usbc_analog_work);
+		queue_work(system_freezable_wq, &fsa_priv->usbc_analog_work);
 		break;
 	default:
 		break;
@@ -254,7 +254,7 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 		goto done;
 	}
 	/* Do not reset switch settings for usb digital hs */
-	if (mode.intval != POWER_SUPPLY_TYPEC_SINK)
+	if (mode.intval == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER)
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 	rc = blocking_notifier_chain_unregister
 					(&fsa_priv->fsa4480_notifier, nb);

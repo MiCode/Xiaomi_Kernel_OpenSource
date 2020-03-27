@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -40,7 +40,6 @@
 #define READ_BUF_MAX_SIZE 64
 #define WRITE_BUF_MAX_SIZE 64
 #define HPD_UEVENT_BUFFER_SIZE 30
-#define VERSION_NUM	0x32
 
 struct lt9611_reg_cfg {
 	u8 reg;
@@ -1657,7 +1656,13 @@ static int lt9611_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, pdata);
 	dev_set_drvdata(&client->dev, pdata);
 
-	if (lt9611_get_version(pdata) == VERSION_NUM) {
+	ret = lt9611_sysfs_init(&client->dev);
+	if (ret) {
+		pr_err("sysfs init failed\n");
+		goto err_sysfs_init;
+	}
+
+	if (lt9611_get_version(pdata)) {
 		pr_info("LT9611 works, no need to upgrade FW\n");
 	} else {
 		ret = request_firmware_nowait(THIS_MODULE, true,
@@ -1669,12 +1674,6 @@ static int lt9611_probe(struct i2c_client *client,
 			goto err_sysfs_init;
 		} else
 			return 0;
-	}
-
-	ret = lt9611_sysfs_init(&client->dev);
-	if (ret) {
-		pr_err("sysfs init failed\n");
-		goto err_sysfs_init;
 	}
 
 #if IS_ENABLED(CONFIG_OF)

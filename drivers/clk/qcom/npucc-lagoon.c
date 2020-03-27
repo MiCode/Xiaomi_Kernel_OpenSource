@@ -585,10 +585,6 @@ static struct clk_branch npu_cc_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_xo_clk",
-			.parent_names = (const char *[]){
-				"npu_cc_xo_clk_src",
-			},
-			.num_parents = 1,
 			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},

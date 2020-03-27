@@ -423,6 +423,7 @@ static void usb_read_work_fn(struct work_struct *work)
 						sizeof(*usb_req), GFP_KERNEL);
 			if (!usb_req)
 				return;
+			init_completion(&usb_req->write_done);
 			usb_req->sg = devm_kzalloc(tmcdrvdata->dev,
 					sizeof(*(usb_req->sg)) * req_sg_num,
 					GFP_KERNEL);

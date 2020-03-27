@@ -20,6 +20,7 @@
 #define ESR_MEAS_DONE_BIT			BIT(4)
 
 #define QG_STATUS2_REG				0x09
+#define BATTERY_MISSING_BIT			BIT(3)
 #define GOOD_OCV_BIT				BIT(1)
 
 #define QG_STATUS3_REG				0x0A

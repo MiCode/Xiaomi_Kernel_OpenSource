@@ -50,6 +50,10 @@
 
 /* #define FORCE_RUN_APPLICATION_FIRMWARE */
 
+#define SYNA_VTG_MIN_UV	2800000
+
+#define SYNA_VTG_MAX_UV	3300000
+
 #define NOTIFIER_PRIORITY 2
 
 #define RESPONSE_TIMEOUT_MS 3000
@@ -1920,6 +1924,16 @@ static int syna_tcm_enable_regulator(struct syna_tcm_hcd *tcm_hcd, bool en)
 	}
 
 	if (tcm_hcd->pwr_reg) {
+		if (regulator_count_voltages(tcm_hcd->pwr_reg) > 0) {
+			retval = regulator_set_voltage(tcm_hcd->pwr_reg,
+				SYNA_VTG_MIN_UV, SYNA_VTG_MAX_UV);
+			if (retval) {
+				LOGE(tcm_hcd->pdev->dev.parent,
+					"set power regulator voltage failed\n");
+				goto disable_bus_reg;
+			}
+		}
+
 		retval = regulator_enable(tcm_hcd->pwr_reg);
 		if (retval < 0) {
 			LOGE(tcm_hcd->pdev->dev.parent,
@@ -1932,8 +1946,13 @@ static int syna_tcm_enable_regulator(struct syna_tcm_hcd *tcm_hcd, bool en)
 	return 0;
 
 disable_pwr_reg:
-	if (tcm_hcd->pwr_reg)
+	if (tcm_hcd->pwr_reg) {
+		if (regulator_count_voltages(tcm_hcd->pwr_reg) > 0) {
+			regulator_set_voltage(tcm_hcd->pwr_reg, 0,
+							SYNA_VTG_MAX_UV);
+		}
 		regulator_disable(tcm_hcd->pwr_reg);
+	}
 
 disable_bus_reg:
 	if (tcm_hcd->bus_reg)
