@@ -20,6 +20,8 @@
 #include "ufs-qcom.h"
 #include "ufshci.h"
 #include "ufs_quirks.h"
+#include "ufshcd-crypto-qti.h"
+
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
@@ -2148,6 +2150,12 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 			dev_err(dev, "failed to acquire reset gpio: %d\n", err);
 		goto out_variant_clear;
 	}
+
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+	ufshcd_crypto_qti_set_vops(hba);
 
 	err = ufs_qcom_bus_register(host);
 	if (err)
