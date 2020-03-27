@@ -90,14 +90,19 @@
  * Fastrpc context ID bit-map:
  *
  * bits 0-3   : type of remote PD
- * bits 4-12  : index in context table
- * bits 13-63 : incrementing context ID
+ * bit  4     : type of job (sync/async)
+ * bit  5     : reserved
+ * bits 6-14  : index in context table
+ * bits 15-63 : incrementing context ID
  */
 #define FASTRPC_CTX_MAX (512)
 
-#define FASTRPC_CTX_TABLE_IDX_POS (4)
-#define FASTRPC_CTX_JOBID_POS (13)
-#define FASTRPC_CTXID_MASK ((FASTRPC_CTX_MAX - 1) << FASTRPC_CTX_TABLE_IDX_POS)
+#define FASTRPC_CTX_JOB_TYPE_POS (4)
+#define FASTRPC_CTX_TABLE_IDX_POS (6)
+#define FASTRPC_CTX_JOBID_POS (15)
+#define FASTRPC_CTX_TABLE_IDX_MASK \
+	((FASTRPC_CTX_MAX - 1) << FASTRPC_CTX_TABLE_IDX_POS)
+#define FASTRPC_ASYNC_JOB_MASK   (1)
 
 /* Reserve few entries in context table for critical kernel RPC calls
  * to avoid user invocations from exhausting all entries.
@@ -1439,7 +1444,9 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		if (!chan->ctxtable[ii]) {
 			chan->ctxtable[ii] = ctx;
 			ctx->ctxid = (me->jobid[cid] << FASTRPC_CTX_JOBID_POS)
-					| (ii << FASTRPC_CTX_TABLE_IDX_POS);
+			  | (ii << FASTRPC_CTX_TABLE_IDX_POS)
+			  | ((ctx->asyncjob.isasyncjob &&
+			  FASTRPC_ASYNC_JOB_MASK) << FASTRPC_CTX_JOB_TYPE_POS);
 			break;
 		}
 	}
@@ -3784,7 +3791,8 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
 		rsp->retval, rsp_flags, early_wake_time);
 
-	index = (uint32_t)((rsp->ctx & FASTRPC_CTXID_MASK) >> 4);
+	index = (uint32_t)((rsp->ctx & FASTRPC_CTX_TABLE_IDX_MASK)
+					>> FASTRPC_CTX_TABLE_IDX_POS);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
 	if (err)
 		goto bail;
