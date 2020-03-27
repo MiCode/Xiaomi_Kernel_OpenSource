@@ -218,6 +218,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(RESERVERD_CONS_103),
 	__stringify(IPA_CLIENT_MHI_LOW_LAT_PROD),
 	__stringify(IPA_CLIENT_MHI_LOW_LAT_CONS),
+	__stringify(RESERVERD_PROD_106),
+	__stringify(IPA_CLIENT_MHI_QDSS_CONS),
 };
 
 /**
