@@ -343,6 +343,10 @@ static int cvp_fence_dme(struct msm_cvp_inst *inst, u32 *synx,
 		dprintk(CVP_DBG, "%s %s: cvp_wait_process_message flushed\n",
 			current->comm, __func__);
 		synx_state = SYNX_STATE_SIGNALED_CANCEL;
+	} else if (hfi_err == HFI_ERR_SESSION_STREAM_CORRUPT) {
+		dprintk(CVP_ERR, "%s %s: cvp_wait_process_msg non-fatal %d\n",
+		current->comm, __func__, hfi_err);
+		synx_state = SYNX_STATE_SIGNALED_SUCCESS;
 	} else if (hfi_err != HFI_ERR_NONE) {
 		dprintk(CVP_ERR, "%s %s: cvp_wait_process_message hfi err %d\n",
 			current->comm, __func__, hfi_err);
@@ -511,7 +515,7 @@ static int cvp_import_synx(struct msm_cvp_inst *inst, u32 type, u32 *fence,
 	switch (type) {
 	case HFI_CMD_SESSION_CVP_DME_FRAME:
 	{
-		start = 1;
+		start = 0;
 		end = HFI_DME_BUF_NUM;
 		break;
 	}
