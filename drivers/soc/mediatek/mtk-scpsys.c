@@ -296,15 +296,22 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 en_ofs = bp->en_ofs;
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
+	int ret;
 
 	if (set_ofs)
 		regmap_write(map, set_ofs, mask);
 	else
 		regmap_update_bits(map, en_ofs, mask, mask);
 
-	return regmap_read_poll_timeout(map, sta_ofs,
+	ret = regmap_read_poll_timeout(map, sta_ofs,
 			val, (val & mask) == mask,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+
+	if (ret < 0) {
+		pr_notice("%s val=%x, mask=%x, (val & mask)=%x\n",
+			__func__, val, mask, (val & mask));
+	}
+	return 0;
 }
 
 static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
@@ -315,6 +322,7 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
 	bool ignore_ack = bp->ignore_clr_ack;
+	int ret;
 
 	if (clr_ofs)
 		regmap_write(map, clr_ofs, mask);
@@ -324,9 +332,15 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	if (ignore_ack)
 		return 0;
 
-	return regmap_read_poll_timeout(map, sta_ofs,
+	ret = regmap_read_poll_timeout(map, sta_ofs,
 			val, !(val & mask),
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+
+	if (ret < 0) {
+		pr_notice("%s val=%x, mask=%x, (val & mask)=%x\n",
+			__func__, val, mask, (val & mask));
+	}
+	return 0;
 }
 
 static int scpsys_bus_protect_enable(struct scp_domain *scpd)
