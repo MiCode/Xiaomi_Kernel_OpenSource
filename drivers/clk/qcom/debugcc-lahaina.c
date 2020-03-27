@@ -454,6 +454,14 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_ipa_2x_clk",
 	"measure_only_memnoc_clk",
 	"measure_only_snoc_clk",
+	"pcie_0_pipe_clk",
+	"pcie_1_pipe_clk",
+	"ufs_card_rx_symbol_0_clk",
+	"ufs_card_rx_symbol_1_clk",
+	"ufs_card_tx_symbol_0_clk",
+	"ufs_phy_rx_symbol_0_clk",
+	"ufs_phy_rx_symbol_1_clk",
+	"ufs_phy_tx_symbol_0_clk",
 	"usb3_phy_wrapper_gcc_usb30_pipe_clk",
 	"usb3_uni_phy_sec_gcc_usb30_pipe_clk",
 	"video_cc_debug_mux",
@@ -591,6 +599,14 @@ static int gcc_debug_mux_sels[] = {
 	0x140,		/* measure_only_ipa_2x_clk */
 	0xCF,		/* measure_only_memnoc_clk */
 	0x9,		/* measure_only_snoc_clk */
+	0xFB,		/* pcie_0_pipe_clk */
+	0x104,		/* pcie_1_pipe_clk */
+	0x10B,		/* ufs_card_rx_symbol_0_clk */
+	0x110,		/* ufs_card_rx_symbol_1_clk */
+	0x10A,		/* ufs_card_tx_symbol_0_clk */
+	0x117,		/* ufs_phy_rx_symbol_0_clk */
+	0x11C,		/* ufs_phy_rx_symbol_1_clk */
+	0x116,		/* ufs_phy_tx_symbol_0_clk */
 	0x7C,		/* usb3_phy_wrapper_gcc_usb30_pipe_clk */
 	0x7D,		/* usb3_uni_phy_sec_gcc_usb30_pipe_clk */
 	0x5A,		/* video_cc_debug_mux */
