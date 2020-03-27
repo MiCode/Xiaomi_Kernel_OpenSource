@@ -1383,7 +1383,8 @@ static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 {
 	struct kgsl_pagetable *pt;
 
-	if (!kgsl_mmu_is_perprocess(mmu) && (name != KGSL_MMU_SECURE_PT)) {
+	if (!kgsl_mmu_is_perprocess(mmu) && (name != KGSL_MMU_SECURE_PT) &&
+		(name != KGSL_MMU_GLOBAL_LPAC_PT)) {
 		name = KGSL_MMU_GLOBAL_PT;
 		if (mmu->defaultpagetable != NULL)
 			return mmu->defaultpagetable;
