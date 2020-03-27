@@ -9546,6 +9546,9 @@ static int ufshcd_config_vreg_load(struct device *dev, struct ufs_vreg *vreg,
 	if (!vreg->max_uA)
 		return 0;
 
+	if (!strcmp(vreg->name, "vccq2") && !ua)
+		ua = UFS_VREG_LPM_LOAD_UA;
+
 	ret = regulator_set_load(vreg->reg, ua);
 	if (ret < 0) {
 		dev_err(dev, "%s: %s set load (ua=%d) failed, err=%d\n",
