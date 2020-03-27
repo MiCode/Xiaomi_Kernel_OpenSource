@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,8 +60,8 @@
 #define IPA_MHI_FUNC_EXIT() \
 	IPA_MHI_DBG("EXIT\n")
 
-#define IPA_MHI_MAX_UL_CHANNELS 1
-#define IPA_MHI_MAX_DL_CHANNELS 2
+#define IPA_MHI_MAX_UL_CHANNELS 2
+#define IPA_MHI_MAX_DL_CHANNELS 3
 
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_HOST_ADDR_COND(addr) \
@@ -104,6 +104,33 @@ bool ipa3_mhi_stop_gsi_channel(enum ipa_client_type client)
 	}
 
 	return false;
+}
+
+static int ipa3_mhi_send_endp_ind_to_modem(void)
+{
+	struct ipa_endp_desc_indication_msg_v01 req;
+	struct ipa_ep_id_type_v01 *ep_info;
+	int ipa_mhi_prod_ep_idx =
+		ipa3_get_ep_mapping(IPA_CLIENT_MHI_LOW_LAT_PROD);
+	int ipa_mhi_cons_ep_idx =
+		ipa3_get_ep_mapping(IPA_CLIENT_MHI_LOW_LAT_CONS);
+
+	memset(&req, 0, sizeof(struct ipa_endp_desc_indication_msg_v01));
+	req.ep_info_len = 2;
+	req.ep_info_valid = true;
+	req.num_eps_valid = true;
+	req.num_eps = 2;
+	ep_info = &req.ep_info[0];
+	ep_info->ep_id = ipa_mhi_cons_ep_idx;
+	ep_info->ic_type = DATA_IC_TYPE_MHI_V01;
+	ep_info->ep_type = DATA_EP_DESC_TYPE_EMB_FLOW_CTL_PROD_V01;
+	ep_info->ep_status = DATA_EP_STATUS_CONNECTED_V01;
+	ep_info = &req.ep_info[1];
+	ep_info->ep_id = ipa_mhi_prod_ep_idx;
+	ep_info->ic_type = DATA_IC_TYPE_MHI_V01;
+	ep_info->ep_type = DATA_EP_DESC_TYPE_EMB_FLOW_CTL_CONS_V01;
+	ep_info->ep_status = DATA_EP_STATUS_CONNECTED_V01;
+	return ipa3_qmi_send_endp_desc_indication(&req);
 }
 
 static int ipa3_mhi_reset_gsi_channel(enum ipa_client_type client)
@@ -532,6 +559,10 @@ int ipa3_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
 	int ipa_ep_idx;
 	int res;
 	enum ipa_client_type client;
+	int ipa_mhi_prod_ep_idx =
+		ipa3_get_ep_mapping(IPA_CLIENT_MHI_LOW_LAT_PROD);
+	int ipa_mhi_cons_ep_idx =
+		ipa3_get_ep_mapping(IPA_CLIENT_MHI_LOW_LAT_CONS);
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -576,6 +607,14 @@ int ipa3_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
 	*clnt_hdl = ipa_ep_idx;
 	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	IPA_MHI_DBG("client %d (ep: %d) connected\n", client, ipa_ep_idx);
+
+	if ((client == IPA_CLIENT_MHI_LOW_LAT_PROD ||
+		client == IPA_CLIENT_MHI_LOW_LAT_CONS) &&
+		ipa_mhi_prod_ep_idx != -1 &&
+		ipa3_ctx->ep[ipa_mhi_prod_ep_idx].valid &&
+		ipa_mhi_cons_ep_idx != -1 &&
+		ipa3_ctx->ep[ipa_mhi_cons_ep_idx].valid)
+		ipa3_mhi_send_endp_ind_to_modem();
 
 	IPA_MHI_FUNC_EXIT();
 
