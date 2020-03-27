@@ -1042,6 +1042,8 @@ static void qnoc_sync_state(struct device *dev)
 	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
 	struct icc_provider *provider = &qp->provider;
 	struct qcom_icc_node *qnode;
+	struct qcom_icc_bcm *bcm;
+	struct bcm_voter *voter;
 	struct icc_node *node;
 
 	mutex_lock(&probe_list_lock);
@@ -1064,17 +1066,22 @@ static void qnoc_sync_state(struct device *dev)
 	}
 
 	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
-		int i, j;
+		int i;
 
-		for (i = 0; i < qp->num_voters; i++) {
-			for (j = 0; j < qp->num_bcms; j++)
-				qcom_icc_bcm_voter_add(qp->voters[i],
-						       qp->bcms[j]);
-
+		for (i = 0; i < qp->num_voters; i++)
 			qcom_icc_bcm_voter_clear_init(qp->voters[i]);
-			qcom_icc_bcm_voter_commit(qp->voters[i]);
+
+		for (i = 0; i < qp->num_bcms; i++) {
+			bcm = qp->bcms[i];
+			if (!bcm->keepalive)
+				continue;
+
+			voter = qp->voters[bcm->voter_idx];
+			qcom_icc_bcm_voter_add(voter, bcm);
+			qcom_icc_bcm_voter_commit(voter);
 		}
 	}
+
 	mutex_unlock(&probe_list_lock);
 }
 
