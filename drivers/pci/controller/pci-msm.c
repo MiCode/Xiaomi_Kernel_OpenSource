@@ -6728,8 +6728,8 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	spin_unlock_irqrestore(&pcie_dev->cfg_lock,
 				pcie_dev->irqsave_flags);
 
-	msm_pcie_write_mask(pcie_dev->elbi + PCIE20_ELBI_SYS_CTRL, 0,
-				BIT(4));
+	writel_relaxed(BIT(4), pcie_dev->elbi + PCIE20_ELBI_SYS_CTRL);
+	wmb(); /* ensure changes propagated to the hardware */
 
 	PCIE_DBG(pcie_dev, "RC%d: PME_TURNOFF_MSG is sent out\n",
 		pcie_dev->rc_idx);
