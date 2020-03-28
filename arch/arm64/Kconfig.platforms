@@ -539,6 +539,7 @@ config MACH_MT6853
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_TIMER_SYSTIMER
 	select MTK_BASE_POWER
+	select DEVAPC_MT6853
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
