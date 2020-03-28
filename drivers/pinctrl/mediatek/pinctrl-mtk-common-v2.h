@@ -219,7 +219,7 @@ struct mtk_pin_soc {
 	bool                            race_free_access;
 	const char * const              *base_names;
 	unsigned int                    nbase_names;
-	const struct mtk_eh_pin_pinmux  *eh_pin_pinmux;
+	const struct mtk_eh_pin_pinmux	*eh_pin_pinmux;
 
 	/* Specific pinconfig operations */
 	int (*bias_disable_set)(struct mtk_pinctrl *hw,
@@ -251,6 +251,9 @@ struct mtk_pin_soc {
 			const struct mtk_pin_desc *desc, u32 pullup, u32 arg);
 	int (*bias_get_combo)(struct mtk_pinctrl *hw,
 			const struct mtk_pin_desc *desc, u32 *pullup, u32 *arg);
+
+	void (*ctrl_eh_on_change_mode)(struct mtk_pinctrl *hw,
+			const struct mtk_pin_desc *desc, int mode, bool eh_en);
 
 	/* Specific driver data */
 	void                            *driver_data;

@@ -3270,7 +3270,8 @@ static const struct mtk_gate infra_clks[] __initconst = {
 			 infracfg_ao_module_sw_cg_2_regs, 27, 0),
 	GATE(INFRACFG_AO_UFS_CG, "infracfg_ao_ufs_cg", "ufs_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 28, 0),
-	GATE(INFRACFG_AO_AES_UFSFDE_CG, "infracfg_ao_aes_cg", "aes_ufsfde_sel",
+	GATE(INFRACFG_AO_AES_UFSFDE_CG, "infracfg_ao_aes_ufsde_cg",
+			 "aes_ufsfde_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 29, 0),
 	GATE(INFRACFG_AO_UFS_TICK_CG, "infracfg_ao_ufs_tick_cg", "ufs_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 30, 0),
@@ -3358,26 +3359,31 @@ static const struct mtk_gate infra_clks[] __initconst = {
 			 infracfg_ao_module_sw_cg_3_regs, 31, 0),
 
 	/* MODULE_SW_CG_4 */
-	GATE(INFRACFG_AO_HF133M_MCLK_PERI_CG, "infracfg_ao_spi7_ck_cg",
+	GATE(INFRACFG_AO_HF133M_MCLK_PERI_CG, "infracfg_ao_hf133m_mclk_peri_cg",
 		"axi_sel", infracfg_ao_module_sw_cg_4_regs, 0, 0),
-	GATE(INFRACFG_AO_HF66M_MCLK_PERI_CG, "infracfg_ao_spi7_ck_cg",
+	GATE(INFRACFG_AO_HF66M_MCLK_PERI_CG, "infracfg_ao_hf66m_mclk_peri_cg",
 		"axi_sel", infracfg_ao_module_sw_cg_4_regs, 1, 0),
-	GATE(INFRACFG_AO_HD66M_PERIBUS_MCLK_PERI_CG, "infracfg_ao_spi7_ck_cg",
+	GATE(INFRACFG_AO_HD66M_PERIBUS_MCLK_PERI_CG,
+		"infracfg_ao_hd66m_peribus_mclk_peri_cg",
 		"axi_sel", infracfg_ao_module_sw_cg_4_regs, 2, 0),
-	GATE(INFRACFG_AO_FREE_DCM_133M_CG, "infracfg_ao_spi7_ck_cg", "axi_sel",
+	GATE(INFRACFG_AO_FREE_DCM_133M_CG, "infracfg_ao_free_dcm_133m_cg",
+			 "axi_sel",
 			 infracfg_ao_module_sw_cg_4_regs, 3, 0),
-	GATE(INFRACFG_AO_FREE_DCM_66M_CG, "infracfg_ao_spi7_ck_cg", "axi_sel",
+	GATE(INFRACFG_AO_FREE_DCM_66M_CG, "infracfg_ao_free_dcm_66m_cg",
+			 "axi_sel",
 			 infracfg_ao_module_sw_cg_4_regs, 4, 0),
-	GATE(INFRACFG_AO_PERIBUS_DCM_133M_CG, "infracfg_ao_spi7_ck_cg",
+	GATE(INFRACFG_AO_PERIBUS_DCM_133M_CG, "infracfg_ao_peribus_dcm_133m_cg",
 			"axi_sel",
 			infracfg_ao_module_sw_cg_4_regs, 5, 0),
-	GATE(INFRACFG_AO_PERIBUS_DCM_66M_CG, "infracfg_ao_spi7_ck_cg",
+	GATE(INFRACFG_AO_PERIBUS_DCM_66M_CG, "infracfg_ao_peribus_dcm_66m_cg",
 			"axi_sel",
 			infracfg_ao_module_sw_cg_4_regs, 6, 0),
 
-	GATE(INFRACFG_AO_FLASHIF_PERI_CLK26M_CG, "infracfg_ao_spi7_ck_cg",
+	GATE(INFRACFG_AO_FLASHIF_PERI_CLK26M_CG,
+		"infracfg_ao_flashif_peri_clk26m_cg",
 		"axi_sel", infracfg_ao_module_sw_cg_4_regs, 30, 0),
-	GATE(INFRACFG_AO_FLASHIF_SFLASH_CG, "infracfg_ao_spi7_ck_cg", "axi_sel",
+	GATE(INFRACFG_AO_FLASHIF_SFLASH_CG, "infracfg_ao_flashif_sflash_cg",
+			 "axi_sel",
 			 infracfg_ao_module_sw_cg_4_regs, 31, 0),
 
 	/*
@@ -4131,15 +4137,17 @@ static const struct mtk_gate apmixed_clks[] __initconst = {
 #define PLL_CFLAGS		(0)
 #endif
 
-#define PLL(_id, _name, _reg, _pwr_reg, _en_mask, _flags,	\
-			_rst_bar_mask, _pcwbits, _pd_reg, _pd_shift,	\
-			_tuner_reg, _tuner_en_reg, _tuner_en_bit,	\
-			_pcw_reg, _pcw_shift) {				\
+#define PLL(_id, _name, _reg, _pwr_reg, _en_mask, _iso_mask,		\
+			_pwron_mask, _flags, _rst_bar_mask, _pcwbits,	\
+			_pd_reg, _pd_shift, _tuner_reg, _tuner_en_reg,	\
+			_tuner_en_bit, _pcw_reg, _pcw_shift, _en_reg) {	\
 		.id = _id,						\
 		.name = _name,						\
 		.reg = _reg,						\
 		.pwr_reg = _pwr_reg,					\
 		.en_mask = _en_mask,					\
+		.iso_mask = _iso_mask,					\
+		.pwron_mask = _pwron_mask,				\
 		.flags = _flags,					\
 		.rst_bar_mask = _rst_bar_mask,				\
 		.fmax = MT6873_PLL_FMAX,				\
@@ -4153,60 +4161,73 @@ static const struct mtk_gate apmixed_clks[] __initconst = {
 		.tuner_en_bit = _tuner_en_bit,				\
 		.pcw_reg = _pcw_reg,					\
 		.pcw_shift = _pcw_shift,				\
+		.en_reg = _en_reg,					\
 		.div_table = NULL,					\
 	}
 
 
 static const struct mtk_pll_data plls[] = {
 	PLL(APMIXED_USBPLL, "usbpll", 0x03c4 /*con0*/, 0x03cc /*con2*/,
-		BIT(2)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x03c4, 24/*pd*/, 0, 0, 0/* tuner*/, 0x03c4, 0/* pcw */),
+		BIT(2)/*enmsk*/, BIT(1)/*isomask*/, BIT(0)/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x03c4, 24/*pd*/,
+		0, 0, 0/* tuner*/, 0x03c4, 0/* pcw */, 0x03cc/*enreg*/),
 
 	PLL(APMIXED_NPUPLL, "npupll", 0x03b4 /*con0*/, 0x03c0 /*con3*/,
-		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x03b8, 24/*pd*/, 0, 0, 0/* tuner*/, 0x03b8, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x03b8, 24/*pd*/,
+		0, 0, 0/* tuner*/, 0x03b8, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_MAINPLL, "mainpll", 0x0340 /*con0*/, 0x034c /*con3*/,
-		BIT(0)/*enmsk*/, PLL_AO, 0/*rstb*/, 22/*pcwbits*/,
-		0x0344, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0344, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_AO, 0/*rstb*/, 22/*pcwbits*/, 0x0344, 24/*pd*/,
+		0, 0, 0/* tuner*/, 0x0344, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_UNIVPLL, "univpll", 0x0308 /*con0*/, 0x0314 /*con3*/,
-		BIT(0)/*enmsk*/, (HAVE_RST_BAR | PLL_CFLAGS), BIT(23)/*rstb*/,
-		22/*pcwbits*/,
-		0x030c, 24/*pd*/, 0, 0, 0/* tuner*/, 0x030c, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		(HAVE_RST_BAR | PLL_CFLAGS), BIT(23)/*rstb*/, 22/*pcwbits*/,
+		0x030c, 24/*pd*/, 0, 0, 0/* tuner*/, 0x030c, 0/* pcw */,
+		0/*enreg*/),
 
 	PLL(APMIXED_MSDCPLL, "msdcpll", 0x0350 /*con0*/, 0x035c /*con3*/,
-		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x0354, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0354, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x0354, 24/*pd*/,
+		0, 0, 0/* tuner*/, 0x0354, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_MMPLL, "mmpll", 0x0360 /*con0*/, 0x036c /*con3*/,
-		BIT(0)/*enmsk*/, (HAVE_RST_BAR | PLL_CFLAGS), BIT(23)/*rstb*/,
-		22/*pcwbits*/,
-		0x0364, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0364, 0/*pcw*/),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		(HAVE_RST_BAR | PLL_CFLAGS), BIT(23)/*rstb*/, 22/*pcwbits*/,
+		0x0364, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0364, 0/*pcw*/,
+		0/*enreg*/),
 
 	PLL(APMIXED_ADSPPLL, "adsppll", 0x0370 /*con0*/, 0x037c /*con3*/,
-		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x0374, 24/* pd */, 0, 0, 0/* tuner*/, 0x0374, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x0374, 24/* pd */,
+		0, 0, 0/* tuner*/, 0x0374, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_MFGPLL, "mfgpll", 0x0268 /*con0*/, 0x0274 /*con3*/,
-		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x026C, 24/*pd*/, 0, 0, 0/* tuner*/, 0x026C, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x026C, 24/*pd*/,
+		0, 0, 0/* tuner*/, 0x026C, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_TVDPLL, "tvdpll", 0x0380 /*con0*/, 0x038c /*con3*/,
-		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x0384, 24/* pd */, 0, 0, 0/* tuner*/, 0x0384, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x0384, 24/* pd */,
+		0, 0, 0/* tuner*/, 0x0384, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_APUPLL, "apupll", 0x03A0 /*con0*/, 0x03AC /*con3*/,
-		BIT(0)/*enmask*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
-		0x03A4, 24/* pd */, 0, 0, 0/* tuner*/, 0x03A4, 0/* pcw */),
+		BIT(0)/*enmask*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/, 0x03A4, 24/* pd */,
+		0, 0, 0/* tuner*/, 0x03A4, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_APLL1, "apll1", 0x0318 /*con0*/, 0x0328 /*con4*/,
-		BIT(0)/*enmask*/, PLL_CFLAGS, 0/*rstb*/, 32/*pcwbits*/,
-		0x031C, 24/* pd */, 0, 0xc, 0/* tuner*/, 0x0320, 0/* pcw */),
+		BIT(0)/*enmask*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 32/*pcwbits*/, 0x031C, 24/* pd */,
+		0, 0xc, 0/* tuner*/, 0x0320, 0/* pcw */, 0/*enreg*/),
 
 	PLL(APMIXED_APLL2, "apll2", 0x032c /*con0*/, 0x033c /*con4*/,
-		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 32/*pcwbits*/,
-		0x0330, 24/* pd */, 0, 0, 0/* tuner*/, 0x0334, 0/* pcw */),
+		BIT(0)/*enmsk*/, 0/*isomask*/, 0/*pwronmask*/,
+		PLL_CFLAGS, 0/*rstb*/, 32/*pcwbits*/, 0x0330, 24/* pd */,
+		0, 0, 0/* tuner*/, 0x0334, 0/* pcw */, 0/*enreg*/),
 };
 
 static void __iomem *apmixed_base;

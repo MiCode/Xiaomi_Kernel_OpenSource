@@ -49,7 +49,12 @@ struct mtk_clk_pll {
 	void __iomem	*tuner_addr;
 	void __iomem	*tuner_en_addr;
 	void __iomem	*pcw_addr;
+	void __iomem	*en_addr;
+	void __iomem	*rst_bar_addr;
 	const struct mtk_pll_data *data;
+	uint32_t	en_mask;
+	uint32_t	iso_mask;
+	uint32_t	pwron_mask;
 };
 
 static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
@@ -61,7 +66,7 @@ static int mtk_pll_is_prepared(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 
-	return (readl(pll->base_addr + REG_CON0) & CON0_BASE_EN) != 0;
+	return (readl(pll->en_addr) & pll->data->en_mask) != 0;
 }
 
 static unsigned long __mtk_pll_recalc_rate(struct mtk_clk_pll *pll, u32 fin,
@@ -244,36 +249,18 @@ static int mtk_pll_prepare(struct clk_hw *hw)
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 	u32 r;
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#if (defined(CONFIG_MACH_MT6873))
-	if (!strcmp(__clk_get_name(hw->clk), "usbpll")) {
-		r = readl(pll->pwr_addr) | CON0_PWR_ON;
-		writel(r, pll->pwr_addr);
-		udelay(1);
+	r = readl(pll->pwr_addr) | pll->pwron_mask;
 
-		r = readl(pll->pwr_addr) & ~CON0_ISO_EN;
-		writel(r, pll->pwr_addr);
-		udelay(1);
-
-		r = readl(pll->pwr_addr);
-		r |= pll->data->en_mask;
-		writel(r, pll->pwr_addr);
-		udelay(20);
-		return 0;
-	}
-#endif
-#endif
-	r = readl(pll->pwr_addr) | CON0_PWR_ON;
 	writel(r, pll->pwr_addr);
 	udelay(1);
 
-	r = readl(pll->pwr_addr) & ~CON0_ISO_EN;
+	r = readl(pll->pwr_addr) & ~pll->iso_mask;
+
 	writel(r, pll->pwr_addr);
 	udelay(1);
 
-	r = readl(pll->base_addr + REG_CON0);
-	r |= pll->data->en_mask;
-	writel(r, pll->base_addr + REG_CON0);
+	r = readl(pll->en_addr) | pll->en_mask;
+	writel(r, pll->en_addr);
 
 	if (pll->tuner_en_addr) {
 		r = readl(pll->tuner_en_addr) | BIT(pll->data->tuner_en_bit);
@@ -286,9 +273,9 @@ static int mtk_pll_prepare(struct clk_hw *hw)
 	udelay(20);
 
 	if (pll->data->flags & HAVE_RST_BAR) {
-		r = readl(pll->base_addr + REG_CON0);
+		r = readl(pll->rst_bar_addr);
 		r |= pll->data->rst_bar_mask;
-		writel(r, pll->base_addr + REG_CON0);
+		writel(r, pll->rst_bar_addr);
 	}
 
 	return 0;
@@ -299,26 +286,10 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 	u32 r;
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#if (defined(CONFIG_MACH_MT6873))
-	if (!strcmp(__clk_get_name(hw->clk), "usbpll")) {
-		r = readl(pll->pwr_addr);
-		r &= ~pll->data->en_mask;
-		writel(r, pll->pwr_addr);
-
-		r = readl(pll->pwr_addr) | CON0_ISO_EN;
-		writel(r, pll->pwr_addr);
-
-		r = readl(pll->pwr_addr) & ~CON0_PWR_ON;
-		writel(r, pll->pwr_addr);
-		return;
-	}
-#endif
-#endif
 	if (pll->data->flags & HAVE_RST_BAR) {
-		r = readl(pll->base_addr + REG_CON0);
+		r = readl(pll->rst_bar_addr);
 		r &= ~pll->data->rst_bar_mask;
-		writel(r, pll->base_addr + REG_CON0);
+		writel(r, pll->rst_bar_addr);
 	}
 
 	if (pll->tuner_en_addr) {
@@ -329,27 +300,18 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 		writel(r, pll->tuner_addr);
 	}
 
-	r = readl(pll->base_addr + REG_CON0);
-	r &= ~CON0_BASE_EN;
-	writel(r, pll->base_addr + REG_CON0);
+	r = readl(pll->en_addr) & ~pll->en_mask;
+	writel(r, pll->en_addr);
 
-	r = readl(pll->pwr_addr) | CON0_ISO_EN;
+	r = readl(pll->pwr_addr) | pll->iso_mask;
+
 	writel(r, pll->pwr_addr);
 
-	r = readl(pll->pwr_addr) & ~CON0_PWR_ON;
+	r = readl(pll->pwr_addr) & ~pll->pwron_mask;
+
 	writel(r, pll->pwr_addr);
 }
 
-#if (defined(CONFIG_MACH_MT6771))
-static const struct clk_ops mtk_pll_ops = {
-	.is_enabled	= mtk_pll_is_prepared,
-	.enable		= mtk_pll_prepare,
-	.disable	= mtk_pll_unprepare,
-	.recalc_rate	= mtk_pll_recalc_rate,
-	.round_rate	= mtk_pll_round_rate,
-	.set_rate	= mtk_pll_set_rate,
-};
-#else
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_pll_prepare,
@@ -358,7 +320,6 @@ static const struct clk_ops mtk_pll_ops = {
 	.round_rate	= mtk_pll_round_rate,
 	.set_rate	= mtk_pll_set_rate,
 };
-#endif
 
 static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 		void __iomem *base)
@@ -374,12 +335,32 @@ static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 
 	pll->base_addr = base + data->reg;
 	pll->pwr_addr = base + data->pwr_reg;
+	if (data->en_reg)
+		pll->en_addr = base + data->en_reg;
+	else
+		pll->en_addr = pll->base_addr + REG_CON0;
 	pll->pd_addr = base + data->pd_reg;
 	pll->pcw_addr = base + data->pcw_reg;
+	if (data->rst_bar_reg)
+		pll->rst_bar_addr = base + data->rst_bar_reg;
+	else
+		pll->rst_bar_addr = pll->base_addr + REG_CON0;
 	if (data->tuner_reg)
 		pll->tuner_addr = base + data->tuner_reg;
 	if (data->tuner_en_reg)
 		pll->tuner_en_addr = base + data->tuner_en_reg;
+	if (data->en_mask)
+		pll->en_mask = data->en_mask;
+	else
+		pll->en_mask = CON0_BASE_EN;
+	if (data->iso_mask)
+		pll->iso_mask = data->iso_mask;
+	else
+		pll->iso_mask = CON0_ISO_EN;
+	if (data->pwron_mask)
+		pll->pwron_mask = data->pwron_mask;
+	else
+		pll->pwron_mask = CON0_PWR_ON;
 	pll->hw.init = &init;
 	pll->data = data;
 

@@ -44,19 +44,19 @@ __weak void aee_oops_free(struct aee_oops *oops)
 {
 }
 
-__weak void aee_kernel_exception_api(const char *file, const int line,
+__weak void aee_kernel_exception_api_func(const char *file, const int line,
 				const int db_opt,
 				const char *module, const char *msg, ...)
 {
 }
-EXPORT_SYMBOL(aee_kernel_exception_api);
+EXPORT_SYMBOL(aee_kernel_exception_api_func);
 
-__weak void aee_kernel_warning_api(const char *file, const int line,
+__weak void aee_kernel_warning_api_func(const char *file, const int line,
 				const int db_opt,
 				const char *module, const char *msg, ...)
 {
 }
-EXPORT_SYMBOL(aee_kernel_warning_api);
+EXPORT_SYMBOL(aee_kernel_warning_api_func);
 
 __weak void aee_kernel_reminding_api(const char *file, const int line,
 				const int db_opt,
@@ -105,6 +105,12 @@ __weak void aed_common_exception_api(const char *assert_type, const int *log,
 {
 }
 EXPORT_SYMBOL(aed_common_exception_api);
+
+__weak int aee_is_printk_too_much(const char *module)
+{
+	return 0;
+}
+EXPORT_SYMBOL(aee_is_printk_too_much);
 
 __weak void mt_fiq_printf(const char *fmt, ...)
 {

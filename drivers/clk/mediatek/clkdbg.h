@@ -22,7 +22,8 @@ struct seq_file;
 enum FMETER_TYPE {
 	FT_NULL,
 	ABIST,
-	CKGEN
+	CKGEN,
+	ABIST_2,
 };
 
 struct fmeter_clk {

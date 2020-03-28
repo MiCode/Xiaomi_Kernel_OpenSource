@@ -821,7 +821,7 @@ void i2c_gpio_dump_info(struct mt_i2c *i2c)
 #ifndef CONFIG_MT_I2C_FPGA_ENABLE
 	if (i2c->gpiobase) {
 		dev_info(i2c->dev, "%s +++++++++++++++++++\n", __func__);
-		gpio_dump_regs_range(i2c->scl_gpio_id, i2c->sda_gpio_id);
+		//gpio_dump_regs_range(i2c->scl_gpio_id, i2c->sda_gpio_id);
 		dev_info(i2c->dev, "I2C gpio structure:\n"
 		       I2CTAG "EH_CFG=0x%x,PU_CFG=0x%x,RSEL_CFG=0x%x\n",
 		       readl(i2c->gpiobase + i2c->offset_eh_cfg),

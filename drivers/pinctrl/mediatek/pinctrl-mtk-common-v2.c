@@ -309,7 +309,8 @@ void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 		 u16 mode)
 {
 	const struct mtk_eh_pin_pinmux *p = hw->soc->eh_pin_pinmux;
-	u32 val = 0, on = 0;
+	int on = 0;
+	u32 val;
 
 	while (p->pin != 0xffff) {
 		if (desc->number == p->pin) {
@@ -318,16 +319,15 @@ void mtk_eh_ctrl(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 				break;
 			} else if (desc->number != (p + 1)->pin) {
 				/*
-				 * If the target mode does not match
-				 * the mode in current entry.
-				 *
-				 * Check the next entry if the pin
-				 * number is the same.
-				 * Yes: target pin have more than one
-				 *    pinmux shall enable eh. Check the
+				 * When the target mode does not match
+				 * the mode in current entry,
+				 * check if pin number of next entry is
+				 * the same.
+				 * Yes: target pin have more entry(s) with other
+				 *    pinmux that shall enable eh --> check the
 				 *    next entry.
-				 * No: target pin do not have other
-				 *    pinmux shall enable eh. Just disable
+				 * No: target pin do not have no more entry with
+				 *    pinmux that shall enable eh --> disable
 				 *    the EH function.
 				 */
 				break;
