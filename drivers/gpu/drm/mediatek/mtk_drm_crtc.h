@@ -656,7 +656,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc);
 bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status);
 void mtk_crtc_connect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
-void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
+int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle);
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc);
 void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,

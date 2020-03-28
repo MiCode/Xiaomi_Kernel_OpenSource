@@ -4105,7 +4105,7 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 		DDPPR_ERR("Cannot not find DDP_COMPONENT_CCORR0\n");
 }
 
-void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
+int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	void *cb_data, struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -4115,10 +4115,8 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
 		cmdq_pkt_destroy(cmdq_handle);
 		kfree(cb_data);
-		cmdq_handle = NULL;
-		cb_data = NULL;
 		DDPPR_ERR("flush check failed\n");
-		return;
+		return -1;
 	}
 
 	/* apply color matrix if crtc0 is DL */
@@ -4174,6 +4172,8 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 #else
 	cmdq_pkt_flush(cmdq_handle);
 #endif
+
+	return 0;
 }
 
 static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
@@ -4322,6 +4322,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	unsigned int pending_planes = 0;
 	unsigned int i, j;
+	unsigned int ret = 0;
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
@@ -4406,11 +4407,19 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	/* This refcnt would be release in ddp_cmdq_cb */
 	mtk_atomic_state_get(old_crtc_state->state);
 #ifdef MTK_DRM_CMDQ_ASYNC
-	mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
+	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
+	if (ret) {
+		DDPPR_ERR("mtk_crtc_gce_flush failed!\n");
+		goto end;
+	}
 	CRTC_MMP_MARK(index, atomic_flush, (unsigned long)cmdq_handle,
 			(unsigned long)cmdq_handle->cmd_buf_size);
 #else
-	mtk_crtc_gce_flush(crtc, NULL, NULL, cmdq_handle);
+	ret = mtk_crtc_gce_flush(crtc, NULL, NULL, cmdq_handle);
+	if (ret) {
+		DDPPR_ERR("mtk_crtc_gce_flush failed!\n");
+		goto end;
+	}
 	ddp_cmdq_cb_blocking(cb_data);
 #endif
 
