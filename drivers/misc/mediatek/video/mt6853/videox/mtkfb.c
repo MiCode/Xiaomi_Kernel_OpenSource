@@ -835,8 +835,10 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 		var->red.length = var->green.length =
 			var->blue.length = var->transp.length = 8;
 
-		ASSERT(var->red.offset + var->blue.offset == 16);
-		ASSERT((var->red.offset == 16 || var->red.offset == 0));
+		ASSERT((var->red.offset + var->blue.offset == 16) ||
+			(var->red.offset + var->blue.offset == 32));
+		ASSERT((var->red.offset == 16 || var->red.offset == 0) ||
+			(var->red.offset == 24 || var->red.offset == 8));
 	}
 
 	var->red.msb_right = var->green.msb_right =

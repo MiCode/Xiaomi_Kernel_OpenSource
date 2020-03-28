@@ -1948,6 +1948,13 @@
 		clock-names = "conn", "ccif";
 	};
 
+	disp_pwm: disp_pwm0@1100e000 {
+		compatible = "mediatek,disp_pwm0",
+				"mediatek,mt6853-disp-pwm";
+		reg = <0 0x1100e000 0 0x1000>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 	audio: audio@11210000 {
 		compatible = "mediatek,audio",
 			"mediatek,mt6853-audio", "syscon";
