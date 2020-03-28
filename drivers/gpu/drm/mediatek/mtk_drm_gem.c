@@ -641,9 +641,9 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	for_each_sg(sg->sgl, s, sg->nents, i) {
 		if (sg_dma_address(s) != expected) {
 			if (!error_cnt)
-				pr_notice("sg_table is not contiguous %u\n",
+				DDPPR_ERR("sg_table is not contiguous %u\n",
 					  sg->nents);
-			pr_notice("exp:0x%llx,cur:0x%llx/%u,last:0x%llx+0x%x\n",
+			DDPPR_ERR("exp:0x%llx,cur:0x%llx/%u,last:0x%llx+0x%x\n",
 				  expected, sg_dma_address(s),
 				  i, last_iova, last_len);
 			if (error_cnt++ > 5)
