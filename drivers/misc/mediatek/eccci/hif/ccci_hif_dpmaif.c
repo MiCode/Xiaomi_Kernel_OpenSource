@@ -167,8 +167,6 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 		hif_ctrl->dpmaif_pd_md_misc_base + 0x100,
 		0xCC);
 
-	/* open sram clock for debug sram needs sram clock. */
-	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_CG_EN, 0x36);
 	CCCI_BUF_LOG_TAG(hif_ctrl->md_id, buf_type, TAG,
 		"dump AP DPMAIF SRAM pdn register\n");
 	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
