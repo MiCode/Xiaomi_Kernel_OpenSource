@@ -28,7 +28,7 @@
 #endif /* CONFIG_RT_REGMAP */
 
 /* Information */
-#define RT9759_DRV_VERSION	"1.0.6_MTK"
+#define RT9759_DRV_VERSION	"1.0.7_MTK"
 #define RT9759_DEVID		0x08
 
 /* Registers */
@@ -216,6 +216,7 @@ struct rt9759_desc {
 	u32 vacovp;
 	u32 wdt;
 	u32 ibat_rsense;
+	u32 ibusucpf_deglitch;
 	bool vbatovp_dis;
 	bool vbatovp_alm_dis;
 	bool ibatocp_dis;
@@ -257,6 +258,7 @@ static const struct rt9759_desc rt9759_desc_defval = {
 	.vacovp = 11000000,
 	.wdt = 500000,
 	.ibat_rsense = 0,	/* 2mohm */
+	.ibusucpf_deglitch = 0,	/* 10us */
 	.vbatovp_dis = false,
 	.vbatovp_alm_dis = false,
 	.ibatocp_dis = false,
@@ -1685,6 +1687,8 @@ static const struct rt9759_dtprop rt9759_dtprops_u32[] = {
 	RT9759_DT_VALPROP(vacovp, RT9759_REG_ACPROTECT, 0, 0x07,
 			  rt9759_vacovp_toreg, 0),
 	RT9759_DT_VALPROP(ibat_rsense, RT9759_REG_REGCTRL, 1, 0x02, NULL, 0),
+	RT9759_DT_VALPROP(ibusucpf_deglitch, RT9759_REG_BUSDEGLH, 3, 0x08, NULL,
+			  0),
 };
 
 static const struct rt9759_dtprop rt9759_dtprops_bool[] = {
@@ -1969,6 +1973,9 @@ MODULE_AUTHOR("ShuFan Lee<shufan_lee@richtek.com>");
 MODULE_VERSION(RT9759_DRV_VERSION);
 
 /*
+ * 1.0.7_MTK
+ * (1) Add ibusucpf_deglitch in dtsi
+ *
  * 1.0.6_MTK
  * (1) Add ibat_rsense in dtsi
  *
