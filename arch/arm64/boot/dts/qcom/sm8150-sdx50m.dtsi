@@ -107,35 +107,61 @@
 			mhi,offload;
 		};
 
-		mhi_events@7 {
+		mhi_event@7 {
+			mhi,chan = <102>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@8 {
+		mhi_event@8 {
+			mhi,chan = <103>;
+			mhi,hw-ev;
 			status = "disabled";
 		};
 
-		mhi_events@9 {
+		mhi_event@9 {
+			mhi,chan = <105>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@10 {
+		mhi_event@10 {
+			mhi,chan = <106>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@11 {
+		mhi_event@11 {
+			mhi,chan = <107>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@12 {
+		mhi_event@12 {
+			mhi,chan = <108>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@13 {
+		mhi_event@13 {
+			mhi,chan = <109>;
+			mhi,hw-ev;
 			status = "disabled";
 		};
 
-		mhi_events@14 {
+		mhi_event@14 {
+			mhi,chan = <110>;
+			mhi,hw-ev;
 			status = "disabled";
 		};
 	};
@@ -213,35 +239,35 @@
 			mhi,offload;
 		};
 
-		mhi_events@7 {
+		mhi_event@7 {
 			status = "disabled";
 		};
 
-		mhi_events@8 {
+		mhi_event@8 {
 			status = "disabled";
 		};
 
-		mhi_events@9 {
+		mhi_event@9 {
 			status = "disabled";
 		};
 
-		mhi_events@10 {
+		mhi_event@10 {
 			status = "disabled";
 		};
 
-		mhi_events@11 {
+		mhi_event@11 {
 			status = "disabled";
 		};
 
-		mhi_events@12 {
+		mhi_event@12 {
 			status = "disabled";
 		};
 
-		mhi_events@13 {
+		mhi_event@13 {
 			status = "disabled";
 		};
 
-		mhi_events@14 {
+		mhi_event@14 {
 			status = "disabled";
 		};
 	};
