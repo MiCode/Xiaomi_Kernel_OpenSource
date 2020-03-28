@@ -59,6 +59,10 @@ extern "C" {
 #include "mtk_unified_power_mt6873.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6853)
+#include "mtk_unified_power_mt6853.h"
+#endif
+
 #define UPOWER_TAG "[UPOWER]"
 
 #define upower_error(fmt, args...) pr_debug(UPOWER_TAG fmt, ##args)
@@ -152,6 +156,11 @@ extern void upower_get_start_time_us(unsigned int type);
 extern void upower_get_diff_time_us(unsigned int type);
 extern void print_diff_results(unsigned int type);
 #endif
+
+#ifdef SUPPORT_UPOWER_DCONFIG
+extern void upower_by_doe(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

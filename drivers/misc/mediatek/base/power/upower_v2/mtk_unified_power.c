@@ -505,7 +505,8 @@ static void get_LL_pwr_efficiency(void)
 	for (i = 0; i < UPOWER_OPP_NUM; i++) {
 		LL_pwr = (unsigned long long)(tbl->row[i].lkg_pwr[LKG_IDX] +
 				tbl->row[i].dyn_pwr);
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+	|| defined(CONFIG_MACH_MT6853)
 		CCI_pwr = 0;
 #else
 		CCI_pwr = (unsigned long long)(ctbl->row[i].lkg_pwr[LKG_IDX] +
@@ -791,6 +792,10 @@ static int __init upower_init(void)
 	int turn;
 #ifdef UPOWER_NOT_READY
 	return 0;
+#endif
+
+#ifdef SUPPORT_UPOWER_DCONFIG
+	upower_by_doe();
 #endif
 
 /* PTP has no efuse, so volt will be set to orig data
