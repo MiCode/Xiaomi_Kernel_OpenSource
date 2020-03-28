@@ -40,7 +40,7 @@ ifeq ($(CONFIG_MTK_GZ_SUPPORT_SDSP),y)
 endif
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/arch/arm/include
-ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6758" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873"))
+ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6758" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873" "mt6853"))
 obj-y += pseudo_m4u_v2.o pseudo_m4u_debug.o
 ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
 ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)

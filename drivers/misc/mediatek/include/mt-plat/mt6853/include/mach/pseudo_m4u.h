@@ -17,7 +17,7 @@
 #include <linux/ioctl.h>
 #include <linux/fs.h>
 #include <linux/debugfs.h>
-#include <dt-bindings/memory/mt6873-larb-port.h>
+#include <dt-bindings/memory/mt6853-larb-port.h>
 #include <linux/list.h>
 #include <linux/iova.h>
 #include <linux/iommu.h>
@@ -29,6 +29,8 @@
 #define PSEUDO_M4U_TEE_SERVICE_ENABLE
 #elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define PSEUDO_M4U_TEE_SERVICE_ENABLE
+#elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
+#define PSEUDO_M4U_TEE_SERVICE_ENABLE
 #endif
 #endif
 
@@ -36,6 +38,8 @@
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define M4U_MTEE_SERVICE_ENABLE
 #elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#define M4U_MTEE_SERVICE_ENABLE
+#elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
 #define M4U_MTEE_SERVICE_ENABLE
 #endif
 #endif
@@ -49,6 +53,8 @@
 #ifndef SMI_LARB_NR
 #define SMI_LARB_NR		(21)
 #endif
+#define ONE_SMI_PORT_NR		(32)
+
 
 #define M4U_PAGE_MASK		(0xfff)
 
@@ -175,8 +181,9 @@ int m4u_dealloc_mva_sg(int eModuleID,
 int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 		     struct sg_table *sg_table);
 
-int m4u_mva_map_kernel(unsigned long mva, unsigned long size,
-		       unsigned long *map_va, unsigned long *map_size);
+int m4u_mva_map_kernel(unsigned long mva,
+	unsigned long size, unsigned long *map_va,
+	unsigned long *map_size, struct sg_table *table);
 int m4u_mva_unmap_kernel(unsigned long mva, unsigned long size,
 		       unsigned long va);
 #ifndef IOVA_PFN
