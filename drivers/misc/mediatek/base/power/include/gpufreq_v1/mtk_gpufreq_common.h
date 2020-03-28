@@ -14,17 +14,17 @@
 #ifndef __MTK_GPUFREQ_COMMON_H__
 #define __MTK_GPUFREQ_COMMON_H__
 
-// GPU_OPP_PTOPD_SLOPE's owner is ptpod driver
+// GPU_OPP_PTPOD_SLOPE's owner is ptpod driver
 enum g_exception_enum  {
 	GPU_FREQ_EXCEPTION,
 	GPU_DFD_PROBE_TRIGGERED,
-	GPU_OPP_PTOPD_SLOPE,
+	GPU_OPP_PTPOD_SLOPE,
 };
 
 static const char * const g_exception_string[] = {
 	"GPU_FREQ_EXCEPTION",
 	"GPU_DFD_PROBE_TRIGGERED",
-	"GPU_OPP_PTOPD_SLOPE",
+	"GPU_OPP_PTPOD_SLOPE",
 };
 
 struct gpu_assert_info {

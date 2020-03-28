@@ -1142,7 +1142,7 @@ void mt_gpufreq_update_volt_interpolation(void)
 		if (slope < 0) {
 			dump_stack();
 
-			gpu_assert(slope >= 0, GPU_OPP_PTOPD_SLOPE,
+			gpu_assert(slope >= 0, GPU_OPP_PTPOD_SLOPE,
 				"i %d, slope %d, largeOppIndex %d, smallOppIndex %d\n"
 				"large_vgpu %d, large_freq %d\n"
 				"small_vgpu %d, small_freq %d\n",
