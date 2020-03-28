@@ -271,7 +271,6 @@ EXPORT_SYMBOL(aed_common_exception_api);
 int aee_is_printk_too_much(const char *module)
 {
 #ifdef CONFIG_MTK_AEE_AED
-	pr_debug("%s\n", __func__);
 	if (strstr(module, "intk too much"))
 		return 1;
 	return 0;
