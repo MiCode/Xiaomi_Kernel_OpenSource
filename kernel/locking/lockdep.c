@@ -1501,6 +1501,7 @@ static noinline int print_circular_bug(struct lock_list *this,
 	int depth;
 
 	if (is_log_lock_held(current)) {
+		tracing_on();
 		trace_circular_bug(this, target, check_src, check_tgt, trace);
 		return 0;
 	}
