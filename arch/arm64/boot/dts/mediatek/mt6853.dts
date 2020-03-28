@@ -1590,6 +1590,17 @@
 		compatible = "mediatek,atf_logger";
 	};
 
+	/* Trustonic Mobicore SW IRQ number 115 = 32 + 83 */
+	mobicore {
+		compatible = "trustonic,mobicore";
+		interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	tee_sanity {
+		compatible = "mediatek,tee_sanity";
+		interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	mm_vpu_m0_sub_common@10309000 {
 		compatible = "mediatek,mm_vpu_m0_sub_common";
 		reg = <0 0x10309000 0 0x1000>;
