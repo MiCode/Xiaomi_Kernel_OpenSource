@@ -1830,15 +1830,17 @@ int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	int ret = 0;
-	/* TODO */
-	/*
-	 * struct mtk_drm_private *private = dev->dev_private;
-	 * struct mtk_panel_params *params =
-	 *			mtk_drm_get_lcm_ext_params(private->crtc[0]);
-	 */
+	unsigned int *info = data;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_panel_params *params =
+		mtk_drm_get_lcm_ext_params(private->crtc[0]);
 
-	/* wait for member of mtk_panel_params include lcm index */
-	/* *data = params->xxx; */
+	if (params) {
+		*info = params->lcm_index;
+	} else {
+		*info = 0;
+		pr_info("Cannot get lcm_ext_params\n");
+	}
 
 	return ret;
 }
@@ -2047,7 +2049,7 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_READ_SW_REG, mtk_drm_ioctl_read_sw_reg,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_GET_LCM_INDEX, mtk_drm_ioctl_get_lcm_index,
-			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_INIT_REG, mtk_drm_ioctl_aal_init_reg,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_HIST, mtk_drm_ioctl_aal_get_hist,

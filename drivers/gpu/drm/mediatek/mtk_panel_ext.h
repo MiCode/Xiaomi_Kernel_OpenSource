@@ -231,6 +231,7 @@ struct mtk_panel_params {
 	unsigned int output_mode;
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
+	unsigned int lcm_index;
 };
 
 struct mtk_panel_ext {
