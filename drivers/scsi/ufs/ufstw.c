@@ -586,7 +586,7 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 		goto out_put;
 
 	/* Need flush, check device flush method */
-	if (hba->card->wmanufacturerid == UFS_VENDOR_TOSHIBA) {
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_WRITE_BOOSETER_FLUSH) {
 		/* Toshiba device recover WB by toggle fWriteBoosterEn */
 		if (ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_CLEAR_FLAG,
 					  QUERY_FLAG_IDN_TW_EN, idx, NULL)) {
