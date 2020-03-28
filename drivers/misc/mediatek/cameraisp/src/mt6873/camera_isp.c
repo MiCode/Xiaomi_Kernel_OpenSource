@@ -10750,6 +10750,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	unsigned int i, cardinalNum = 0, IrqStatus, ErrStatus, WarnStatus;
 	unsigned int DmaStatus, WarnStatus_2 = 0, cur_v_cnt = 0;
 	unsigned int cqDoneIndex = 0;
+	unsigned int dmaiStatus, dropStatus;
 
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
@@ -10809,6 +10810,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	}
 
 	WarnStatus = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUS(reg_module));
+	dmaiStatus = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUS(reg_module));
+	dropStatus = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUS(reg_module));
 
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 
