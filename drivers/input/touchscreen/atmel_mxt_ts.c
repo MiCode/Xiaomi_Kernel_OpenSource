@@ -3428,7 +3428,7 @@ static int mxt_check_dt(struct device_node *np)
 			return 0;
 	}
 
-	return -ENODEV;
+	return PTR_ERR(panel);
 }
 #endif
 
@@ -3528,7 +3528,11 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 #ifdef CONFIG_OF
 #ifdef CONFIG_DRM
-	if (mxt_check_dt(dt)) {
+	error = mxt_check_dt(dt);
+	if (error == -EPROBE_DEFER)
+		return error;
+
+	if (error) {
 		if (!(mxt_check_dedicated_touch(dt, "compatible",
 			"qcom,i2c-touch-active")))
 			return -EPROBE_DEFER;
