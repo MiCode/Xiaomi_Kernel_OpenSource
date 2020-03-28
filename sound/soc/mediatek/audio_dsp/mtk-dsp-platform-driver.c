@@ -30,6 +30,7 @@ static DEFINE_SPINLOCK(dsp_ringbuf_lock);
 static DEFINE_MUTEX(adsp_wakelock_lock);
 
 #define IPIMSG_SHARE_MEM (1024)
+#define DSP_IRQ_LOOP_COUNT (3)
 static int adsp_wakelock_count;
 static struct wakeup_source adsp_audio_wakelock;
 static int ktv_status;
@@ -801,12 +802,12 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
 
 	if (!dsp->dsp_mem[id].substream) {
-		pr_info("%s substream NULL\n", __func__);
+		pr_info_ratelimited("%s substream NULL\n", __func__);
 		return;
 	}
 
 	if (!snd_pcm_running(dsp->dsp_mem[id].substream)) {
-		pr_info("%s = state[%d]\n", __func__,
+		pr_info_ratelimited("%s = state[%d]\n", __func__,
 			 dsp->dsp_mem[id].substream->runtime->status->state);
 		return;
 	}
@@ -1391,7 +1392,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 {
 	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)data;
 	unsigned long task_value;
-	int dsp_scene, task_id;
+	int dsp_scene, task_id, loop_count;
 	unsigned long *pdtoa;
 
 	if (!dsp) {
@@ -1418,6 +1419,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 		pr_info("%s get semaphore fail\n", __func__);
 	pdtoa = (unsigned long *)
 		&dsp->core_share_mem.ap_adsp_core_mem[core_id]->dtoa_flag;
+	loop_count = DSP_IRQ_LOOP_COUNT;
 	/* read dram data need mb()  */
 	mb();
 	do {
@@ -1436,7 +1438,8 @@ void audio_irq_handler(int irq, void *data, int core_id)
 			if (task_id >= 0)
 				mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
 		}
-	} while (*pdtoa && task_value);
+		loop_count--;
+	} while (*pdtoa && task_value && loop_count > 0);
 	release_adsp_semaphore(SEMA_3WAY_AUDIO);
 	return;
 IRQ_ERROR:
