@@ -43,7 +43,7 @@ static void dump_except(enum g_exception_enum except_type, char *except_str)
 			"\n\n%s\nCRDISPATCH_KEY:%s\n",
 			except_str,
 			g_exception_string[except_type]);
-	} else {
+	} else if (g_have_pending_info == 0) {
 		/* the aee driver is not ready
 		 * we will call kernel api later
 		 */
