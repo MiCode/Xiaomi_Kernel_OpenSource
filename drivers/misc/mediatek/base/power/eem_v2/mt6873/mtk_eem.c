@@ -405,11 +405,8 @@ static void get_picachu_efuse(void)
 
 			/* check efuse data */
 			for (i = 1; i < cnt; i++) {
-				if ((i == 1) || (i == 2) ||
-					(i == 5) || (i == 6) || (i == 8) ||
-					(i == 11) || (i == 12) || (i == 15))
-					continue;
-				else if (eem_read(addr_ptr + i * 4) == 0) {
+				if (((i == 3) || (i == 4) || (i == 7)) &&
+				(eem_read(addr_ptr + i * 4) == 0)) {
 					eem_error("Wrong PI-OD%d: 0x%x\n",
 						i, eem_read(addr_ptr + i * 4));
 					return;
@@ -548,11 +545,8 @@ static int get_devinfo(void)
 #endif
 
 	for (i = 1; i < IDX_HW_RES_SN; i++) {
-		if ((i == 1) || (i == 2) ||
-			(i == 5) || (i == 6) || (i == 8) ||
-			(i == 11) || (i == 12) || (i == 15))
-			continue;
-		else if (val[i] == 0) {
+		if (((i == 3) || (i == 4) || (i == 7)) &&
+			(val[i] == 0)) {
 			ret = 1;
 			safeEfuse = 1;
 			eem_error("No EFUSE (val[%d]), use safe efuse\n", i);
@@ -560,12 +554,9 @@ static int get_devinfo(void)
 		}
 	}
 
-	for (i = IDX_HW_RES_SN; i < NR_HW_RES_FOR_BANK; i++) {
-		if (val[i] == 0) {
-			sn_safeEfuse = 1;
-			eem_error("No SN EFUSE (val[%d])\n", i);
-			break;
-		}
+	if (val[IDX_HW_RES_SN] == 0) {
+		sn_safeEfuse = 1;
+		eem_error("No SN EFUSE (val[%d])\n", i);
 	}
 
 #if (EEM_FAKE_EFUSE)
@@ -1748,7 +1739,7 @@ static int eem_probe(struct platform_device *pdev)
 #endif
 #endif
 
-	informEEMisReady = 1;
+
 #if 0
 	/* set EEM IRQ */
 	ret = request_irq(eem_irq_number, eem_isr,
@@ -1809,6 +1800,15 @@ static int eem_probe(struct platform_device *pdev)
 	ctrl_EEMSN_Enable = 0;
 	ctrl_SN_Enable = 0;
 #endif
+
+	for_each_det(det) {
+		if ((det->num_freq_tbl < 8) ||
+			(det->volt_tbl_orig[0] == 0) ||
+			(det->freq_tbl[0] == 0)) {
+			ctrl_EEMSN_Enable = 0;
+			ctrl_SN_Enable = 0;
+		}
+	}
 
 	eemsn_log->eemsn_enable = ctrl_EEMSN_Enable;
 	eemsn_log->sn_enable = ctrl_SN_Enable;
@@ -1871,6 +1871,8 @@ static int eem_probe(struct platform_device *pdev)
 
 	if (ctrl_EEMSN_Enable == 0)
 		return 0;
+
+	informEEMisReady = 1;
 
 	for_each_det(det) {
 		cpudvfsindex = detid_to_dvfsid(det);
@@ -2500,7 +2502,7 @@ static int eem_sn_sram_proc_show(struct seq_file *m, void *v)
 #endif
 	if ((void __iomem *)(sn_mem_base_virt) != NULL) {
 		for (addr_ptr = (void __iomem *)(sn_mem_base_virt);
-			addr_ptr < ((void __iomem *)(sn_mem_base_virt) +
+			addr_ptr <= ((void __iomem *)(sn_mem_base_virt) +
 			OFFS_SN_VOLT_E_4B - OFFS_SN_VOLT_S_4B);
 			(addr_ptr += 4))
 			seq_printf(m, "0x%08X\n",
@@ -2677,7 +2679,7 @@ static int eem_log_en_proc_show(struct seq_file *m, void *v)
 	FUNC_ENTER(FUNC_LV_HELP);
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	ipi_ret = eem_to_cpueb(IPI_EEMSN_LOGEN_PROC_SHOW, &eem_data);
-	seq_printf(m, "%d\n", ipi_ret);
+	seq_printf(m, "kernel:%d, EB:%d\n", eem_log_en, ipi_ret);
 	FUNC_EXIT(FUNC_LV_HELP);
 
 
@@ -3185,6 +3187,16 @@ struct eemsn_det *det;
 			det->volt_tbl_orig, sizeof(det->volt_tbl_orig));
 	}
 
+#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+						"aging") != NULL) {
+		eem_error("@%s: AGING flavor name: %s\n",
+			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+		ctrl_agingload_enable = 1;
+		eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
+	}
+#endif
+
 	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);
 #else
 	return 0;
@@ -3214,15 +3226,6 @@ struct eemsn_det *det;
 		FUNC_EXIT(FUNC_LV_MODULE);
 		return err;
 	}
-#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-						"aging") != NULL) {
-		eem_error("@%s: AGING flavor name: %s\n",
-			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		ctrl_agingload_enable = 1;
-		eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
-	}
-#endif
 
 	return 0;
 }
