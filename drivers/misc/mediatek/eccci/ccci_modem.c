@@ -49,6 +49,33 @@ static atomic_t md1_md3_smem_clear = ATOMIC_INIT(0);
 #define DBM_S (CCCI_SMEM_SIZE_DBM + CCCI_SMEM_SIZE_DBM_GUARD * 2)
 #define CCB_CACHE_MIN_SIZE    (2 * 1024 * 1024)
 
+#ifdef CCCI_USE_DFD_OFFSET_0
+struct ccci_smem_region md1_6297_noncacheable_fat[] = {
+		{SMEM_USER_RAW_DFD,	        0,	0,		 0, },
+		{SMEM_USER_RAW_UDC_DATA,	0,	0,		 0, },
+		{SMEM_USER_MD_WIFI_PROXY,	0,	0,		 0,},
+		{SMEM_USER_RAW_AMMS_POS,	0,	0,
+			SMF_NCLR_FIRST, },
+
+		{SMEM_USER_RAW_MDCCCI_DBG,	0,	2*1024,	 0, },
+		{SMEM_USER_RAW_MDSS_DBG,	0,	14*1024, 0, },
+		{SMEM_USER_RAW_RESERVED,	0,	42*1024, 0, },
+		{SMEM_USER_RAW_RUNTIME_DATA,	0,	4*1024,	 0, },
+		{SMEM_USER_RAW_FORCE_ASSERT,	0,	1*1024,	 0, },
+		{SMEM_USER_LOW_POWER,		0,	512,	 0, },
+		{SMEM_USER_RAW_DBM,		0,	512,	 0, },
+		{SMEM_USER_CCISM_SCP,		0,	32*1024, 0, },
+		{SMEM_USER_RAW_CCB_CTRL,	0,	4*1024,
+			SMF_NCLR_FIRST, },
+		{SMEM_USER_RAW_NETD,		0,	8*1024,	 0, },
+		{SMEM_USER_RAW_USB,	        0,	4*1024,	 0, },
+		{SMEM_USER_RAW_AUDIO,		0,	52*1024,
+			SMF_NCLR_FIRST, },
+		{SMEM_USER_CCISM_MCU,		0,	(720+1)*1024,	0, },
+		{SMEM_USER_CCISM_MCU_EXP,	0,	(120+1)*1024,	0, },
+		{SMEM_USER_MAX, }, /* tail guard */
+};
+#else
 struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 {SMEM_USER_RAW_MDCCCI_DBG,	0,		2*1024,		0, },
 {SMEM_USER_RAW_MDSS_DBG,	2*1024,		14*1024,	0, },
@@ -72,7 +99,7 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 {SMEM_USER_RAW_AMMS_POS,	0,		0, SMF_NCLR_FIRST, },
 {SMEM_USER_MAX, }, /* tail guard */
 };
-
+#endif
 
 struct ccci_smem_region md1_6297_cacheable[] = {
 /*
@@ -381,10 +408,23 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 
 	/* non-cacheable start */
 	get_md_resv_mem_info(md->index, NULL, NULL, &md_resv_smem_addr, NULL);
-	for (i = 1; i < (sizeof(md1_6297_noncacheable_fat)/
+
+#ifdef CCCI_USE_DFD_OFFSET_0
+	for (i = 0; i < (sizeof(md1_6297_noncacheable_fat)/
 		sizeof(struct ccci_smem_region)); i++) {
+
+		update_smem_region(&md1_6297_noncacheable_fat[i]);
+		if (i == 0)
+			continue;
+
+		if (md1_6297_noncacheable_fat[i].offset == 0)
+#else
+	for (i = 1; i < (sizeof(md1_6297_noncacheable_fat)/
+			sizeof(struct ccci_smem_region)); i++) {
+
 		update_smem_region(&md1_6297_noncacheable_fat[i]);
 		if (md1_6297_noncacheable_fat[i].size == 0)
+#endif
 			/* update offset */
 			md1_6297_noncacheable_fat[i].offset =
 				md1_6297_noncacheable_fat[i-1].offset

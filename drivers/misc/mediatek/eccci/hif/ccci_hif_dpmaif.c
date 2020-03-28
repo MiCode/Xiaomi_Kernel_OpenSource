@@ -3621,15 +3621,10 @@ void dpmaif_hw_reset(unsigned char md_id)
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	/* reset dpmaif hw: PD Domain */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST0_REG_PD);
-	reg_value &= ~(DPMAIF_PD_RST_MASK);
-	reg_value |= (DPMAIF_PD_RST_MASK);
+	reg_value = DPMAIF_PD_RST_MASK;
 	ccci_write32(infra_ao_base, INFRA_RST0_REG_PD, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST1_REG_PD);
-	reg_value &= ~(DPMAIF_PD_RST_MASK);
-	reg_value |= (DPMAIF_PD_RST_MASK);
 	ccci_write32(infra_ao_base, INFRA_RST1_REG_PD, reg_value);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 
