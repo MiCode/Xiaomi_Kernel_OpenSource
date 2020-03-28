@@ -4255,7 +4255,7 @@
 		compatible = "mediatek,mt6362";
 		reg = <0x9 SPMI_USID 0x0 SPMI_GSID>;
 		interrupt-parent = <&pio>;
-		interrupts = <10 IRQ_TYPE_LEVEL_HIGH 10 0>;
+		interrupts = <10 IRQ_TYPE_LEVEL_LOW 10 0>;
 		interrupt-names = "IRQB";
 		#address-cells = <1>;
 		#size-cells = <0>;
