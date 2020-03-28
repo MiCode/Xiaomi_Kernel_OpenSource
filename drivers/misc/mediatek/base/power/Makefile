@@ -119,3 +119,6 @@ obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 endif
 obj-$(CONFIG_MACH_MT6885) += dvfsrc/
 obj-$(CONFIG_MACH_MT6873) += dvfsrc/
+ifeq ($(CONFIG_MTK_GPU_SUPPORT), y)
+obj-$(CONFIG_MACH_MT6853) += gpufreq_v1/
+endif
