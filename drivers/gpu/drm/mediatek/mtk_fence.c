@@ -30,6 +30,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_gem.h"
+#include "mtk_drm_trace.h"
 
 /************************* log*********************/
 static bool mtk_fence_on;
@@ -401,6 +402,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 	int ion_release_count = 0;
 	struct mtk_fence_info *layer_info = NULL;
 	struct mtk_fence_session_sync_info *session_info = NULL;
+	char tag_name[40] = {'\0'};
 
 	session_info = _get_session_sync_info(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, layer_id);
@@ -417,6 +419,12 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 	current_timeline_idx = layer_info->timeline_idx;
 	num_fence = fence - layer_info->timeline_idx;
 	if (num_fence > 0) {
+		sprintf(tag_name, "%d|layer_fence_release-%s-%d|%d",
+			DRM_TRACE_FENCE_ID,
+			mtk_fence_session_mode_spy(session_id),
+			layer_id, fence);
+		mtk_drm_trace_c("%s", tag_name);
+
 		mtk_sync_timeline_inc(layer_info->timeline, num_fence);
 		layer_info->timeline_idx = fence;
 
@@ -427,10 +435,16 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 				MTK_SESSION_DEV(session_id), layer_id,
 				current_timeline_idx, fence);
 
+		sprintf(tag_name, "%d|layer_fence_release-%s-%d|%d",
+			DRM_TRACE_FENCE_ID,
+			mtk_fence_session_mode_spy(session_id),
+			layer_id, 0);
+		mtk_drm_trace_c("%s", tag_name);
 	} else {
 		mutex_unlock(&layer_info->sync_lock);
 		return;
 	}
+
 
 	list_for_each_entry_safe(buf, n, &layer_info->buf_list, list) {
 		if (buf->idx > fence)
@@ -469,7 +483,6 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
 			CRTC_MMP_MARK(0, release_fence, layer_id, buf->idx);
 	}
-
 	mutex_unlock(&layer_info->sync_lock);
 
 	if (ion_release_count != num_fence)
@@ -503,6 +516,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	struct mtk_fence_info *layer_info = NULL;
 	unsigned int timeline_id = 0;
 	int fence_increment = 0;
+	char tag_name[30] = {'\0'};
 
 	timeline_id = mtk_fence_get_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);
@@ -512,6 +526,11 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	}
 
 	mutex_lock(&layer_info->sync_lock);
+
+	sprintf(tag_name, "present_fence_release:%s-%d",
+		mtk_fence_session_mode_spy(session_id), fence_idx);
+	mtk_drm_trace_begin("%s", tag_name);
+
 	fence_increment = fence_idx - layer_info->timeline->value;
 
 	if (fence_increment >= 2)
@@ -531,6 +550,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
 		CRTC_MMP_MARK(0, release_present_fence, 0, fence_idx);
 
+	mtk_drm_trace_end();
 	mutex_unlock(&layer_info->sync_lock);
 	return 0;
 }

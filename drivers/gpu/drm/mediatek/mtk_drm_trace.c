@@ -24,10 +24,7 @@
 #include "mmpath.h"
 #endif
 
-#define DRM_TRACE_ID 0xFFFF0000
-#define DRM_TRACE_FPS_ID (DRM_TRACE_ID + 1)
-
-static unsigned long get_tracing_mark(void)
+unsigned long mtk_drm_get_tracing_mark(void)
 {
 	static unsigned long addr;
 
@@ -40,8 +37,8 @@ static unsigned long get_tracing_mark(void)
 static void drm_print_trace(const char *tag, int value)
 {
 	preempt_disable();
-	event_trace_printk(get_tracing_mark(), "C|%d|%s|%d\n", DRM_TRACE_ID,
-			   tag, value);
+	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+		DRM_TRACE_ID, tag, value);
 	preempt_enable();
 }
 
@@ -58,10 +55,10 @@ void drm_trace_tag_end(const char *tag)
 void drm_trace_tag_mark(const char *tag)
 {
 	preempt_disable();
-	event_trace_printk(get_tracing_mark(), "C|%d|%s|%d\n", DRM_TRACE_ID,
-			   tag, 1);
-	event_trace_printk(get_tracing_mark(), "C|%d|%s|%d\n", DRM_TRACE_ID,
-			   tag, 0);
+	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+		DRM_TRACE_ID, tag, 1);
+	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+		DRM_TRACE_ID, tag, 0);
 	preempt_enable();
 }
 
@@ -99,7 +96,7 @@ void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 		sprintf(tag_name,
 			crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
 		preempt_disable();
-		event_trace_printk(get_tracing_mark(), "C|%d|%s|%d\n",
+		event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
 				   DRM_TRACE_FPS_ID, tag_name, 1);
 		preempt_enable();
 	}
@@ -122,8 +119,8 @@ void mtk_drm_refresh_tag_end(struct mtk_ddp_comp *ddp_comp)
 	crtc_idx = drm_crtc_index(&mtk_crtc->base);
 	sprintf(tag_name, crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
 	preempt_disable();
-	event_trace_printk(get_tracing_mark(), "C|%d|%s|%d\n", DRM_TRACE_FPS_ID,
-			   tag_name, 0);
+	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+				DRM_TRACE_FPS_ID, tag_name, 0);
 	preempt_enable();
 }
 

@@ -55,6 +55,7 @@ bool g_mobile_log;
 bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
+bool g_trace_log;
 
 struct logger_buffer {
 	char **buffer_ptr;
@@ -1160,6 +1161,11 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_detail_log = 0;
+	} else if (strncmp(opt, "trace:", 6) == 0) {
+		if (strncmp(opt + 6, "on", 2) == 0)
+			g_trace_log = 1;
+		else if (strncmp(opt + 6, "off", 3) == 0)
+			g_trace_log = 0;
 	} else if (strncmp(opt, "diagnose", 8) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
