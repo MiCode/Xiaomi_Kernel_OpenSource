@@ -23,7 +23,7 @@
 
 #define MT6362_CHG_DRV_VERSION		"1.0.1_MTK"
 
-static bool dbg_log_en = true;
+static bool dbg_log_en;
 #define mt_dbg(dev, fmt, ...) \
 	do { \
 		if (dbg_log_en) \
@@ -415,7 +415,7 @@ static int mt6362_enable_hidden_mode(struct charger_device *chg_dev, bool en)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	int ret;
 
-	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	mt_dbg(data->dev, "%s: en = %d\n", __func__, en);
 	mutex_lock(&data->hidden_mode_lock);
 	if (en) {
 		if (data->hidden_mode_cnt == 0) {
@@ -446,7 +446,7 @@ static int mt6362_enable_wdt(struct mt6362_chg_data *data, bool en)
 {
 	struct mt6362_chg_platform_data *pdata = dev_get_platdata(data->dev);
 
-	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	mt_dbg(data->dev, "%s: en = %d\n", __func__, en);
 	if (!pdata->en_wdt)
 		return 0;
 	return regmap_update_bits(data->regmap,
@@ -1242,7 +1242,7 @@ static int mt6362_enable_charging(struct charger_device *chg_dev, bool en)
 	int ret;
 	u32 ichg_ramp_t = 0;
 
-	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	mt_dbg(data->dev, "%s: en = %d\n", __func__, en);
 
 	/* Workaround for vsys overshoot */
 	mutex_lock(&data->ichg_lock);
@@ -1288,7 +1288,7 @@ static int mt6362_set_ichg(struct charger_device *chg_dev, u32 uA)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	int ret;
 
-	dev_info(data->dev, "%s: ichg = %d\n", __func__, uA);
+	mt_dbg(data->dev, "%s: ichg = %d\n", __func__, uA);
 	mutex_lock(&data->ichg_lock);
 	ret = __mt6362_set_ichg(data, uA);
 	mutex_unlock(&data->ichg_lock);
@@ -1305,7 +1305,7 @@ static int mt6362_get_ichg(struct charger_device *chg_dev, u32 *uA)
 	if (ret < 0)
 		return ret;
 	*uA = val.intval;
-	dev_info(data->dev, "%s: ichg = %d\n", __func__, *uA);
+	mt_dbg(data->dev, "%s: ichg = %d\n", __func__, *uA);
 	return 0;
 }
 
@@ -1320,7 +1320,7 @@ static int mt6362_set_cv(struct charger_device *chg_dev, u32 uV)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	union power_supply_propval val;
 
-	dev_info(data->dev, "%s: cv = %d\n", __func__, uV);
+	mt_dbg(data->dev, "%s: cv = %d\n", __func__, uV);
 	val.intval = uV;
 	return mt6362_charger_set_cv(data, &val);
 }
@@ -1335,7 +1335,7 @@ static int mt6362_get_cv(struct charger_device *chg_dev, u32 *uV)
 	if (ret < 0)
 		return ret;
 	*uV = val.intval;
-	dev_info(data->dev, "%s: cv = %d\n", __func__, *uV);
+	mt_dbg(data->dev, "%s: cv = %d\n", __func__, *uV);
 	return 0;
 }
 
@@ -1344,7 +1344,7 @@ static int mt6362_set_aicr(struct charger_device *chg_dev, u32 uA)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	union power_supply_propval val;
 
-	dev_info(data->dev, "%s: aicr = %d\n", __func__, uA);
+	mt_dbg(data->dev, "%s: aicr = %d\n", __func__, uA);
 	val.intval = uA;
 	return mt6362_charger_set_aicr(data, &val);
 }
@@ -1359,7 +1359,7 @@ static int mt6362_get_aicr(struct charger_device *chg_dev, u32 *uA)
 	if (ret < 0)
 		return ret;
 	*uA = val.intval;
-	dev_info(data->dev, "%s: aicr = %d\n", __func__, *uA);
+	mt_dbg(data->dev, "%s: aicr = %d\n", __func__, *uA);
 	return 0;
 }
 
@@ -1380,7 +1380,7 @@ static int mt6362_get_ieoc(struct mt6362_chg_data *data, u32 *uA)
 	regval = (regval & MT6362_MASK_IEOC) >> MT6362_SHFT_IEOC;
 	*uA = mt6362_map_real_val(regval, MT6362_IEOC_MIN, MT6362_IEOC_MAX,
 				  MT6362_IEOC_STEP);
-	dev_info(data->dev, "%s: ieoc = %d\n", __func__, *uA);
+	mt_dbg(data->dev, "%s: ieoc = %d\n", __func__, *uA);
 	return 0;
 }
 
@@ -1389,7 +1389,7 @@ static int mt6362_set_ieoc(struct charger_device *chg_dev, u32 uA)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	union power_supply_propval val;
 
-	dev_info(data->dev, "%s: ieoc = %d\n", __func__, uA);
+	mt_dbg(data->dev, "%s: ieoc = %d\n", __func__, uA);
 	val.intval = uA;
 	return mt6362_charger_set_ieoc(data, &val);
 }
@@ -1399,7 +1399,7 @@ static int mt6362_set_mivr(struct charger_device *chg_dev, u32 uV)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	u8 sel;
 
-	dev_info(data->dev, "%s: mivr = %d\n", __func__, uV);
+	mt_dbg(data->dev, "%s: mivr = %d\n", __func__, uV);
 	sel = mt6362_map_reg_sel(uV, MT6362_MIVR_MIN, MT6362_MIVR_MAX,
 				 MT6362_MIVR_STEP);
 	return regmap_update_bits(data->regmap,
@@ -1420,7 +1420,7 @@ static inline int mt6362_get_mivr(struct charger_device *chg_dev, u32 *uV)
 	regval = (regval & MT6362_MASK_MIVR) >> MT6362_SHFT_MIVR;
 	*uV = mt6362_map_real_val(regval, MT6362_MIVR_MIN, MT6362_MIVR_MAX,
 				  MT6362_MIVR_STEP);
-	dev_info(data->dev, "%s: mivr = %d\n", __func__, *uV);
+	mt_dbg(data->dev, "%s: mivr = %d\n", __func__, *uV);
 	return 0;
 }
 
@@ -1434,7 +1434,7 @@ static int mt6362_get_mivr_state(struct charger_device *chg_dev, bool *in_loop)
 	if (ret < 0)
 		return ret;
 	*in_loop = (regval & MT6362_MASK_MIVR_STAT) ? true : false;
-	dev_info(data->dev, "%s: in_loop = %d\n", __func__, *in_loop);
+	mt_dbg(data->dev, "%s: in_loop = %d\n", __func__, *in_loop);
 	return 0;
 }
 
@@ -1443,7 +1443,7 @@ static int mt6362_enable_te(struct charger_device *chg_dev, bool en)
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	struct mt6362_chg_platform_data *pdata = dev_get_platdata(data->dev);
 
-	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	mt_dbg(data->dev, "%s: en = %d\n", __func__, en);
 	if (!pdata->en_te)
 		return 0;
 	return regmap_update_bits(data->regmap,
@@ -1646,11 +1646,11 @@ static int mt6362_run_aicc(struct charger_device *chg_dev, u32 *uA)
 	if (ret < 0)
 		return ret;
 	if (!mivr_loop) {
-		dev_info(data->dev, "%s: mivr loop not act\n", __func__);
+		mt_dbg(data->dev, "%s: mivr loop not act\n", __func__);
 		return ret;
 	}
 
-	dev_info(data->dev,
+	mt_dbg(data->dev,
 		 "%s: aicc_oneshot = %d\n", __func__, pdata->aicc_oneshot);
 	/* Auto run AICC */
 	if (!pdata->aicc_oneshot) {
@@ -1883,14 +1883,14 @@ static int mt6362_get_adc(struct charger_device *chg_dev, u32 chan,
 	default:
 		return -ENOTSUPP;
 	}
-	dev_info(data->dev, "%s: read channel(%d)\n", __func__, channel);
+	mt_dbg(data->dev, "%s: read channel(%d)\n", __func__, channel);
 	ret = iio_read_channel_processed(&data->iio_ch[channel], min);
 	if (ret < 0) {
 		dev_info(data->dev, "%s: fail(%d)\n", __func__, ret);
 		return ret;
 	}
 	*max = *min;
-	dev_info(data->dev, "%s: chan[%s] = %d\n",
+	mt_dbg(data->dev, "%s: chan[%s] = %d\n",
 		 __func__, mt6362_adcch_list[channel], *min);
 	return 0;
 }
@@ -1951,7 +1951,7 @@ static int mt6362_kick_wdt(struct charger_device *chg_dev)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 
-	dev_info(data->dev, "%s\n", __func__);
+	mt_dbg(data->dev, "%s\n", __func__);
 	return regmap_update_bits(data->regmap, MT6362_REG_CHG_WDT,
 				  MT6362_MASK_WDT_CNT_RST, 0xff);
 }
@@ -2004,7 +2004,7 @@ static int mt6362_is_charging_done(struct charger_device *chg_dev, bool *done)
 	if (ret < 0)
 		return ret;
 	*done = (ic_stat == MT6362_STAT_CHG_DONE) ? true : false;
-	dev_info(data->dev, "%s: done = %d\n", __func__, *done);
+	mt_dbg(data->dev, "%s: done = %d\n", __func__, *done);
 	return 0;
 }
 
