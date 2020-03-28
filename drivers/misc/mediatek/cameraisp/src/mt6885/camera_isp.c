@@ -651,6 +651,7 @@ static struct ISP_RAW_INT_STATUS g_ISPIntStatus_SMI[ISP_IRQ_TYPE_AMOUNT];
 
 /* ISP_CAM_A_IDX-ISP_CAM_C_IDX, each has 25 CQ thread. */
 static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][25] = {{0} };
+static unsigned int g_cq0NextBA[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][1] = {{0} };
 #if Lafi_WAM_CQ_ERR
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1] = {0};
 static union FBC_CTRL_2 g_fbc_ctrl2[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
@@ -4961,11 +4962,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 	} break;
 	case ISP_NOTE_CQTHR0_BASE: {
-		unsigned int cq0_data[CAM_MAX][2];
+		unsigned int cq0_data[CAM_MAX][3];
 		unsigned int index = 0;
 
 		if (copy_from_user(&cq0_data, (void *)Param,
-				   sizeof(unsigned int) * CAM_MAX * 2) != 0) {
+				   sizeof(unsigned int) * CAM_MAX * 3) != 0) {
 			LOG_NOTICE("copy to user fail");
 			Ret = -EFAULT;
 			break;
@@ -4974,8 +4975,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_A][1] != 0) {
 				g_cqBaseAddr[index][0] = cq0_data[CAM_A][1];
-				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1]);
+				g_cq0NextBA[index][0] = cq0_data[CAM_A][2];
+				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x, 0x%x",
+				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1],
+				 * cq0_data[CAM_A][2]);
 				 */
 			}
 		}
@@ -4983,8 +4986,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_B][1] != 0) {
 				g_cqBaseAddr[index][0] = cq0_data[CAM_B][1];
-				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1]);
+				g_cq0NextBA[index][0] = cq0_data[CAM_B][2];
+				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x, 0x%x",
+				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1],
+				 *cq0_data[CAM_B][2]);
 				 */
 			}
 		}
@@ -4992,8 +4997,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_C][1] != 0) {
 				g_cqBaseAddr[index][0] = cq0_data[CAM_C][1];
-				/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_C][0], cq0_data[CAM_C][1]);
+				g_cq0NextBA[index][0] = cq0_data[CAM_C][2];
+				/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x, 0x%x",
+				 *cq0_data[CAM_C][0], cq0_data[CAM_C][1],
+				 *cq0_data[CAM_C][2]);
 				 */
 			}
 		}
@@ -10909,6 +10916,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	unsigned long usec = 0;
 	ktime_t time;
 	unsigned int IrqEnableOrig, IrqEnableNew;
+	union CAMCTL_TWIN_STATUS_ twinStatus;
 
 	/* Avoid touch hwmodule when clock is disable. */
 	/* DEVAPC will moniter this kind of err */
@@ -10975,7 +10983,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 
 	ErrStatus = IrqStatus & IspInfo.IrqInfo.ErrMask[module][SIGNAL_INT];
-
+#if Lafi_WAM_CQ_ERR
 	if (((IrqStatus & SOF_INT_ST) == 0) && (IrqStatus & VS_INT_ST)) {
 		if ((ISP_RD32(CAMX_REG_TG_VF_CON(reg_module)) == 0x1) &&
 		    (g1stSof[module] == MFALSE)) {
@@ -10984,6 +10992,54 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			ErrStatus |= CQ_VS_ERR_ST;
 		}
 	}
+
+	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(reg_module));
+
+	if ((IrqStatus & SOF_INT_ST) &&
+		(((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
+				0x00040000) >> 18) == 0x1) &&
+			(twinStatus.Bits.TWIN_EN == MTRUE)) {
+		if (CAM_FST_LAST_WORKING_FRAME ==
+				Irq_CAM_FrameStatus(reg_module, module, 0)) {
+			if (g_cq0NextBA[CAM_A][0] != 0 &&
+				twinStatus.Bits.SLAVE_CAM_NUM == 0x1) {
+				if (ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					reg_module)) !=
+					g_cq0NextBA[CAM_A][0] ||
+					ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_B_IDX)) !=
+					g_cq0NextBA[CAM_B][0]) {
+					IRQ_LOG_KEEPER(module,
+					m_CurrentPPB, _LOG_ERR,
+						"[Twin]CQ Pages wrong...CQ Recovery\n");
+					ErrStatus |= CQ_VS_ERR_ST;
+				}
+			} else if (g_cq0NextBA[CAM_A][0] != 0
+					&& twinStatus.Bits.SLAVE_CAM_NUM
+								== 0x2) {
+				if ((ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					reg_module)) !=
+					g_cq0NextBA[CAM_A][0]) ||
+					(ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_B_IDX)) !=
+					g_cq0NextBA[CAM_B][0]) ||
+					(ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(
+					ISP_CAM_C_IDX)) !=
+					g_cq0NextBA[CAM_C][0])) {
+					IRQ_LOG_KEEPER(module,
+					m_CurrentPPB, _LOG_ERR,
+						"[Triple]CQ Pages wrong...CQ Recovery\n");
+					ErrStatus |= CQ_VS_ERR_ST;
+				}
+			}
+		}
+	}
+#endif
 	WarnStatus_2 =
 		IrqStatus & IspInfo.IrqInfo.Warn2Mask[module][SIGNAL_INT];
 
