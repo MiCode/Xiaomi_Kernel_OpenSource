@@ -873,28 +873,48 @@ static int mtk_jpeg_g_selection(struct file *file, void *priv,
 				struct v4l2_selection *s)
 {
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
+	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		return -EINVAL;
+	if (jpeg->mode == MTK_JPEG_ENC) {
+		if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+			return -EINVAL;
 
-	switch (s->target) {
-	case V4L2_SEL_TGT_COMPOSE:
-	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
-		s->r.width = ctx->out_q.w;
-		s->r.height = ctx->out_q.h;
-		s->r.left = 0;
-		s->r.top = 0;
-		break;
-	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
-	case V4L2_SEL_TGT_COMPOSE_PADDED:
-		s->r.width = ctx->cap_q.w;
-		s->r.height = ctx->cap_q.h;
-		s->r.left = 0;
-		s->r.top = 0;
-		break;
-	default:
-		return -EINVAL;
+		switch (s->target) {
+		case V4L2_SEL_TGT_CROP:
+		case V4L2_SEL_TGT_CROP_BOUNDS:
+		case V4L2_SEL_TGT_CROP_DEFAULT:
+			s->r.width = ctx->out_q.w;
+			s->r.height = ctx->out_q.h;
+			s->r.left = 0;
+			s->r.top = 0;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else {
+		if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			return -EINVAL;
+
+		switch (s->target) {
+		case V4L2_SEL_TGT_COMPOSE:
+		case V4L2_SEL_TGT_COMPOSE_DEFAULT:
+			s->r.width = ctx->out_q.w;
+			s->r.height = ctx->out_q.h;
+			s->r.left = 0;
+			s->r.top = 0;
+			break;
+		case V4L2_SEL_TGT_COMPOSE_BOUNDS:
+		case V4L2_SEL_TGT_COMPOSE_PADDED:
+			s->r.width = ctx->cap_q.w;
+			s->r.height = ctx->cap_q.h;
+			s->r.left = 0;
+			s->r.top = 0;
+			break;
+		default:
+			return -EINVAL;
+		}
 	}
+
 	return 0;
 }
 
@@ -902,20 +922,41 @@ static int mtk_jpeg_s_selection(struct file *file, void *priv,
 				struct v4l2_selection *s)
 {
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
+	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		return -EINVAL;
+	if (jpeg->mode == MTK_JPEG_ENC) {
+		if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+			return -EINVAL;
 
-	switch (s->target) {
-	case V4L2_SEL_TGT_COMPOSE:
-		s->r.left = 0;
-		s->r.top = 0;
-		s->r.width = ctx->out_q.w;
-		s->r.height = ctx->out_q.h;
-		break;
-	default:
-		return -EINVAL;
+		switch (s->target) {
+		case V4L2_SEL_TGT_CROP:
+			s->r.left = 0;
+			s->r.top = 0;
+			ctx->out_q.w = s->r.width;
+			ctx->out_q.h = s->r.height;
+
+			pr_info("%s crop width %d height %d",
+				 __func__, ctx->out_q.w, ctx->out_q.h);
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else {
+		if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			return -EINVAL;
+
+		switch (s->target) {
+		case V4L2_SEL_TGT_COMPOSE:
+			s->r.left = 0;
+			s->r.top = 0;
+			ctx->out_q.w = s->r.width;
+			ctx->out_q.h = s->r.height;
+			break;
+		default:
+			return -EINVAL;
+		}
 	}
+
 	return 0;
 }
 
@@ -1100,6 +1141,11 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 	}
 	param->enc_w = q_data_src->w;
 	param->enc_h = q_data_src->h;
+
+	pr_info("%s crop width %d height %d",
+		 __func__, param->enc_w, param->enc_h);
+
+
 	if (jpeg_params->enc_quality >= 97)
 		param->enc_quality = JPEG_ENCODE_QUALITY_Q97;
 	else if (jpeg_params->enc_quality >= 95)
@@ -1132,7 +1178,12 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 	if (!Is420)
 		width_even = width_even << 1;
 	param->img_stride = mtk_jpeg_align(width_even, (Is420 ? 16 : 32));
-	param->mem_stride = mtk_jpeg_align(width_even, (Is420 ? 16 : 32));
+
+
+	param->mem_stride = q_data_src->bytesperline[0];
+	pr_info("%s mem_stride %d img_stride %d",
+		 __func__, param->mem_stride, param->img_stride);
+
 	param->total_encdu =
 		((padding_width >> 4) * (padding_height >> (Is420 ? 4 : 3)) *
 						 (Is420 ? 6 : 4)) - 1;
@@ -1143,6 +1194,12 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 		param->enc_format, param->enc_w, param->enc_h,
 		param->enable_exif, param->enc_quality, param->restart_interval,
 		param->img_stride, param->mem_stride, param->total_encdu);
+
+	pr_info("fmt %d, w,h %d,%d, enable_exif %d, enc_quality %d, restart_interval %d,img_stride %d, mem_stride %d, totalEncDu %d\n",
+		param->enc_format, param->enc_w, param->enc_h,
+		param->enable_exif, param->enc_quality, param->restart_interval,
+		param->img_stride, param->mem_stride, param->total_encdu);
+
 }
 static void mtk_jpeg_buf_queue(struct vb2_buffer *vb)
 {
