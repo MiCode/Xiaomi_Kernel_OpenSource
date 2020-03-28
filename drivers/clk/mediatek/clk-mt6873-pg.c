@@ -820,13 +820,21 @@ static struct subsys syss[] =	/* NR_SYSS */
 			},
 };
 
+spinlock_t pgcb_lock;
 LIST_HEAD(pgcb_list);
+
 
 struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 {
+	unsigned long spinlock_save_flags;
+
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
+
 	INIT_LIST_HEAD(&pgcb->list);
 
 	list_add(&pgcb->list, &pgcb_list);
+
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return pgcb;
 }
@@ -885,6 +893,7 @@ static void ram_console_update(void)
 {
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	struct pg_callbacks *pgcb;
+	unsigned long spinlock_save_flags;
 	u32 data[8] = {0x0};
 	u32 i = 0, j = 0;
 	static u32 pre_data;
@@ -1077,10 +1086,16 @@ static void ram_console_update(void)
 			}
 		}
 
+		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-			if (pgcb->debug_dump)
+			if (!pgcb) {
+				pr_notice("pgcb(%d) null\r\n", DBG_ID);
+				WARN_ON(1);
+			}
+			if (pgcb && pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
+		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
 	for (j = 0; j < ARRAY_SIZE(data); j++)
 		aee_rr_rec_clk(j, data[j]);
@@ -4164,6 +4179,7 @@ static int enable_subsys(enum subsys_id id)
 	unsigned long flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
+	unsigned long spinlock_save_flags;
 
 	if (!sys) {
 		WARN_ON(!sys);
@@ -4217,10 +4233,16 @@ static int enable_subsys(enum subsys_id id)
 
 	mtk_clk_unlock(flags);
 
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 	list_for_each_entry(pgcb, &pgcb_list, list) {
-		if (pgcb->after_on)
+		if (!pgcb) {
+			pr_notice("pgcb(%d) null\r\n", id);
+			WARN_ON(1);
+		}
+		if (pgcb && pgcb->after_on)
 			pgcb->after_on(id);
 	}
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return r;
 }
@@ -4231,6 +4253,7 @@ static int disable_subsys(enum subsys_id id)
 	unsigned long flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
+	unsigned long spinlock_save_flags;
 
 	if (!sys) {
 		WARN_ON(!sys);
@@ -4269,10 +4292,16 @@ static int disable_subsys(enum subsys_id id)
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 	list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-		if (pgcb->before_off)
+		if (!pgcb) {
+			pr_notice("pgcb(%d) null\r\n", id);
+			WARN_ON(1);
+		}
+		if (pgcb && pgcb->before_off)
 			pgcb->before_off(id);
 	}
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	mtk_clk_lock(flags);
 
@@ -4837,6 +4866,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 #endif /* !MT_CCF_BRINGUP */
 	init_regbase_mt6873();
+	spin_lock_init(&pgcb_lock);
 }
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
 
