@@ -33,7 +33,9 @@ struct gpu_assert_info {
 };
 
 // to check if aee service is running
+#ifdef CONFIG_MTK_AEE_AED
 extern int aee_mode;
+#endif
 
 void gpu_assert(bool cond, enum g_exception_enum except_type,
 	const char *except_str, ...);

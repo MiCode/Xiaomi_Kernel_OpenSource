@@ -26,11 +26,14 @@
 #include <aed.h>
 #include "mtk_gpufreq_common.h"
 
+#ifdef CONFIG_MTK_AEE_AED
 static struct gpu_assert_info g_pending_info;
 static int g_have_pending_info;
+#endif
 
 static void dump_except(enum g_exception_enum except_type, char *except_str)
 {
+#ifdef CONFIG_MTK_AEE_AED
 	if (except_str == NULL) {
 		pr_info("%s: NULL string\n", __func__);
 		return;
@@ -48,6 +51,10 @@ static void dump_except(enum g_exception_enum except_type, char *except_str)
 		strncpy(g_pending_info.exception_string, except_str, 1024);
 		g_have_pending_info = 1;
 	}
+#else
+	(void)except_type;
+	(void)except_str;
+#endif
 }
 
 void gpu_assert(bool cond, enum g_exception_enum except_type,
@@ -74,6 +81,7 @@ void gpu_assert(bool cond, enum g_exception_enum except_type,
  */
 void check_pending_info(void)
 {
+#ifdef CONFIG_MTK_AEE_AED
 	if (g_have_pending_info &&
 		aee_mode != AEE_MODE_NOT_INIT) {
 		g_have_pending_info = 0;
@@ -81,5 +89,6 @@ void check_pending_info(void)
 			g_pending_info.exception_type,
 			g_pending_info.exception_string);
 	}
+#endif
 }
 
