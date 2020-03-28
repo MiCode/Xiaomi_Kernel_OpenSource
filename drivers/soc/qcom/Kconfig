@@ -386,7 +386,7 @@ config QCOM_SMD_RPM
 	  module. This will build a module called "qcom-smd-rpm".
 
 config QCOM_MEMORY_DUMP_V2
-	bool "QCOM Memory Dump V2 Support"
+	tristate "QCOM Memory Dump V2 Support"
 	help
 	  This enables memory dump feature. It allows various client
 	  subsystems to register respective dump regions. At the time
