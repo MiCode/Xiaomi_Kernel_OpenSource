@@ -394,7 +394,6 @@ initcall_debug=1";
 };
 /* TOUCH end */
 
-#include "cust_mt6853_camera.dtsi"
 #include <k6853v1_64/cust.dtsi>
 /* DISPSYS GPIO standardization */
 
@@ -453,12 +452,12 @@ initcall_debug=1";
 		};
 	};
 };
-
+/*
 &camera_af_hw_node {
 	vcamaf-supply = <&mt_pmic_vcamio_ldo_reg>;
 	status = "okay";
 };
-
+*/
 &mtkfb {
 	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
 		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
@@ -505,12 +504,14 @@ initcall_debug=1";
 /* accdet end */
 
 /* IRTX GPIO Start */
+/*
 &irtx_pwm {
 	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
 	pinctrl-0 = <&irtx_gpio_led_default>;
 	pinctrl-1 = <&irtx_gpio_led_set>;
 	status = "okay";
 };
+*/
 &pio {
 	/* IRTX GPIO Settings -Start */
 	/* default: GPIO0, output, high */
