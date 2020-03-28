@@ -688,7 +688,6 @@ static int start_kicker(void)
 
 	int i;
 
-	wk_cpu_update_bit_flag(0, 1);
 	for (i = 0; i < CPU_NR; i++) {
 		wk_tsk[i] = kthread_create(kwdt_thread,
 			(void *)(unsigned long)i, "wdtk-%d", i);

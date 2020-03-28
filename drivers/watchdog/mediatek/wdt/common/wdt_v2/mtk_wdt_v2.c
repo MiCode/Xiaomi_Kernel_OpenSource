@@ -32,8 +32,9 @@
 #include <linux/types.h>
 #include <mtk_wdt.h>
 #include <linux/delay.h>
+#if 0
 #include <mtk_cpufreq_api.h>
-
+#endif
 #include <linux/device.h>
 #include <linux/kdev_t.h>
 #include <linux/fs.h>
@@ -50,7 +51,9 @@
 #include <mt-plat/upmu_common.h>
 #endif
 #include <dbgtop.h>
+#if 0
 #include <mtk_koro.h>
+#endif
 
 void __iomem *toprgu_base;
 int	wdt_irq_id;
