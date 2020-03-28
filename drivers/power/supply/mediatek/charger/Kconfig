@@ -135,6 +135,15 @@ config RT_PROP_CHGALGO
 	  Say N to disable
 	  Richtek Proprietary charging algorithm
 
+config CHARGER_MT6362
+	tristate "MT6362 SPMI CHG driver"
+	depends on MFD_MT6362
+	help
+	  Say yes here to have support for the MT6362 CHG
+	  It supports BC1.2 and OTG boost.
+	  The driver can also be build as a module.
+	  If so, the module will be called mt6362_chg
+
 config MTK_CHARGER_UNLIMITED
 	bool "MediaTek Charger Unlimited"
 	depends on MTK_CHARGER

@@ -155,12 +155,13 @@ struct tcpc_desc {
 #define TCPC_FLAGS_CHECK_RA_DETACHE		(1<<4)
 #define TCPC_FLAGS_PREFER_LEGACY2		(1<<5)
 #define TCPC_FLAGS_DISABLE_LEGACY		(1<<6)
-
 #define TCPC_FLAGS_PD_REV30			(1<<7)
-
 #define TCPC_FLAGS_WATCHDOG_EN			(1<<8)
 #define TCPC_FLAGS_WATER_DETECTION		(1<<9)
 #define TCPC_FLAGS_CABLE_TYPE_DETECTION		(1<<10)
+#define TCPC_FLAGS_FOREIGN_OBJECT_DETECTION	(1<<11)
+#define TCPC_FLAGS_TYPEC_OTP			(1<<12)
+#define TCPC_FLAGS_FLOATING_GROUND		(1<<13)
 
 enum tcpc_cc_pull {
 	TYPEC_CC_RA = 0,
@@ -197,6 +198,7 @@ struct tcpc_ops {
 	int (*alert_status_clear)(struct tcpc_device *tcpc, uint32_t mask);
 	int (*fault_status_clear)(struct tcpc_device *tcpc, uint8_t status);
 	int (*get_alert_mask)(struct tcpc_device *tcpc, uint32_t *mask);
+	int (*set_alert_mask)(struct tcpc_device *tcpc, uint32_t mask);
 	int (*get_alert_status)(struct tcpc_device *tcpc, uint32_t *alert);
 	int (*get_power_status)(struct tcpc_device *tcpc, uint16_t *pwr_status);
 	int (*get_fault_status)(struct tcpc_device *tcpc, uint8_t *status);
@@ -217,6 +219,14 @@ struct tcpc_ops {
 	int (*set_water_protection)(struct tcpc_device *tcpc, bool en);
 	int (*set_usbid_polling)(struct tcpc_device *tcpc, bool en);
 #endif /* CONFIG_WATER_DETECTION */
+
+#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
+	int (*set_cc_hidet)(struct tcpc_device *tcpc, bool en);
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPE_OTP */
+
+#ifdef CONFIG_FLOATING_GROUND
+	int (*set_floating_ground)(struct tcpc_device *tcpc, bool en);
+#endif /* CONFIG_FLOATING_GROUND */
 
 #ifdef CONFIG_TCPC_LOW_POWER_MODE
 	int (*is_low_power_mode)(struct tcpc_device *tcpc);
@@ -486,9 +496,16 @@ struct tcpc_device {
 #ifdef CONFIG_WATER_DETECTION
 	int usbid_calib;
 #endif /* CONFIG_WATER_DETECTION */
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+	enum tcpc_fod_status typec_fod;
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	enum tcpc_cable_type typec_cable_type;
+	enum tcpc_cable_type pre_typec_cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
+#ifdef CONFIG_TYPEC_OTP
+	bool typec_otp;
+#endif /* CONFIG_TYPEC_OTP */
 };
 
 

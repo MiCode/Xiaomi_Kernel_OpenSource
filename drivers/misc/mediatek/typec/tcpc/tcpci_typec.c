@@ -221,6 +221,14 @@ enum TYPEC_CONNECTION_STATE {
 	typec_water_protection,
 #endif /* CONFIG_WATER_DETECTION */
 
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+	typec_foreign_object_protection,
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
+
+#ifdef CONFIG_TYPEC_OTP
+	typec_otp,
+#endif /* CONFIG_TYPEC_OTP */
+
 	typec_unattachwait_pe,	/* Wait Policy Engine go to Idle */
 };
 
@@ -272,6 +280,14 @@ static const char *const typec_state_name[] = {
 	"WaterProtection.Wait",
 	"WaterProtection",
 #endif /* CONFIG_WATER_DETECTION */
+
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+	"ForeignObjectProtection",
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
+
+#ifdef CONFIG_TYPEC_OTP
+	"TypeC.OTP",
+#endif /* CONFIG_TYPEC_OTP */
 
 	"UnattachWait.PE",
 };
@@ -539,6 +555,9 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc_dev)
 		return;
 	}
 #endif	/* CONFIG_TYPEC_CAP_ROLE_SWAP */
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+	tcpc_typec_handle_fod(tcpc_dev, TCPC_FOD_NONE);
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	tcpc_typec_handle_ctd(tcpc_dev, TCPC_CABLE_TYPE_NONE);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
@@ -571,7 +590,11 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc_dev)
 			break;
 		default:
 			TYPEC_NEW_STATE(typec_unattached_snk);
+#ifdef CONFIG_FLOATING_GROUND
+			tcpci_set_floating_ground(tcpc_dev, true);
+#else
 			tcpci_set_cc(tcpc_dev, TYPEC_CC_DRP);
+#endif /* CONFIG_FLOATING_GROUND */
 			typec_enable_low_power_mode(tcpc_dev, TYPEC_CC_DRP);
 			break;
 		}
@@ -1928,6 +1951,12 @@ static bool typec_is_cc_open_state(struct tcpc_device *tcpc_dev)
 		return true;
 #endif /* CONFIG_WATER_DETECTION */
 
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+	if ((tcpc_dev->tcpc_flags & TCPC_FLAGS_FOREIGN_OBJECT_DETECTION) &&
+	    tcpc_dev->typec_state == typec_foreign_object_protection)
+		return true;
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
+
 	return false;
 }
 
@@ -1976,6 +2005,14 @@ static inline bool typec_is_ignore_cc_change(
 	}
 #endif	/* CONFIG_TYPEC_CAP_TRY_SOURCE */
 
+#ifdef CONFIG_TYPEC_OTP
+	if ((tcpc_dev->tcpc_flags & TCPC_FLAGS_TYPEC_OTP) &&
+	    tcpc_dev->typec_otp) {
+		TYPEC_INFO("[TypeC.OTP] Ignore CC_Alert\r\n");
+		return true;
+	}
+#endif /* CONFIG_TYPEC_OTP */
+
 	return false;
 }
 
@@ -2018,6 +2055,9 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc_dev)
 		typec_wait_ps_change(tcpc_dev, TYPEC_WAIT_PS_DISABLE);
 
 	if (typec_is_cc_attach(tcpc_dev)) {
+#ifdef CONFIG_FLOATING_GROUND
+		tcpci_set_floating_ground(tcpc_dev, false);
+#endif /* CONFIG_FLOATING_GROUND */
 		typec_attach_wait_entry(tcpc_dev);
 #ifdef CONFIG_WATER_DETECTION
 		if (typec_state_old == typec_unattached_snk ||
@@ -2089,6 +2129,14 @@ static inline int typec_handle_drp_try_timeout(struct tcpc_device *tcpc_dev)
 
 static inline int typec_handle_debounce_timeout(struct tcpc_device *tcpc_dev)
 {
+#ifdef CONFIG_TYPEC_OTP
+	if ((tcpc_dev->tcpc_flags & TCPC_FLAGS_TYPEC_OTP) &&
+	    tcpc_dev->typec_state == typec_otp) {
+		TYPEC_DBG("%s TypeC.OTP not to handle cc change\n", __func__);
+		return 0;
+	}
+#endif /* CONFIG_TYPEC_OTP */
+
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
 	if (typec_is_cc_no_res() && tcpci_check_vbus_valid(tcpc_dev)
 		&& (tcpc_dev->typec_state == typec_unattached_snk))
@@ -2796,6 +2844,102 @@ out:
 }
 #endif /* CONFIG_WATER_DETECTION */
 
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+int tcpc_typec_handle_fod(struct tcpc_device *tcpc_dev,
+			  enum tcpc_fod_status fod)
+{
+	int ret;
+	enum tcpc_fod_status fod_old = tcpc_dev->typec_fod;
+
+	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_FOREIGN_OBJECT_DETECTION))
+		return 0;
+
+	TCPC_INFO("%s fod (%d, %d)\n", __func__, tcpc_dev->typec_fod, fod);
+	if (tcpc_dev->typec_fod == fod)
+		return 0;
+	if (tcpc_dev->typec_fod != TCPC_FOD_NONE && fod != TCPC_FOD_NONE) {
+		TCPC_INFO("%s fod done once %d\n", __func__,
+			  tcpc_dev->typec_fod);
+		return 0;
+	}
+	tcpc_dev->typec_fod = fod;
+
+#ifdef CONFIG_CABLE_TYPE_DETECTION
+	if (tcpc_dev->typec_cable_type == TCPC_CABLE_TYPE_C2C)
+		tcpc_typec_handle_ctd(tcpc_dev, tcpc_dev->typec_cable_type);
+#endif /* CONFIG_CABLE_TYPE_DETECTION */
+
+	if ((fod_old == TCPC_FOD_LR) && (fod == TCPC_FOD_NONE)) {
+		tcpci_set_cc_hidet(tcpc_dev, false);
+		tcpc_typec_error_recovery(tcpc_dev);
+		goto out;
+	}
+	if (fod != TCPC_FOD_LR)
+		goto out;
+
+#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
+	ret = get_boot_mode();
+	if (ret == KERNEL_POWER_OFF_CHARGING_BOOT ||
+	    ret == LOW_POWER_OFF_CHARGING_BOOT) {
+		TYPEC_INFO("Not to do foreign object protection in KPOC\r\n");
+		goto out;
+	}
+#endif /* CONFIG_MTK_KERNEL_POWER_OFF_CHARGING */
+
+	TYPEC_NEW_STATE(typec_foreign_object_protection);
+	tcpc_dev->typec_attach_new = TYPEC_UNATTACHED;
+	ret = tcpci_set_cc(tcpc_dev, TYPEC_CC_OPEN);
+	ret = tcpci_set_cc_hidet(tcpc_dev, true);
+out:
+	tcpci_notify_fod_status(tcpc_dev);
+	if (tcpc_dev->typec_state == typec_foreign_object_protection) {
+		typec_alert_attach_state_change(tcpc_dev);
+		tcpc_dev->typec_attach_old = tcpc_dev->typec_attach_new;
+	}
+	return 0;
+}
+
+bool tcpc_typec_ignore_fod(struct tcpc_device *tcpc_dev)
+{
+	return (tcpc_dev->typec_state == typec_attached_snk ||
+		tcpc_dev->typec_state == typec_attached_src ||
+		tcpc_dev->typec_state == typec_try_snk ||
+		tcpc_dev->typec_fod != TCPC_FOD_NONE);
+}
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
+
+#ifdef CONFIG_TYPEC_OTP
+int tcpc_typec_handle_otp(struct tcpc_device *tcpc_dev, bool otp)
+{
+	TCPC_INFO("%s otp (%d, %d)\n", __func__, tcpc_dev->typec_otp, otp);
+
+	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_TYPEC_OTP))
+		return 0;
+
+	if (tcpc_dev->typec_otp == otp)
+		return 0;
+	tcpc_dev->typec_otp = otp;
+	if (!otp) {
+		tcpci_set_cc_hidet(tcpc_dev, false);
+		tcpc_typec_error_recovery(tcpc_dev);
+		goto out;
+	}
+
+	TYPEC_NEW_STATE(typec_otp);
+	tcpc_dev->typec_attach_new = TYPEC_UNATTACHED;
+	tcpci_set_cc(tcpc_dev, TYPEC_CC_OPEN);
+	tcpci_set_cc_hidet(tcpc_dev, true);
+
+out:
+	tcpci_notify_typec_otp(tcpc_dev);
+	if (tcpc_dev->typec_state == typec_otp) {
+		typec_alert_attach_state_change(tcpc_dev);
+		tcpc_dev->typec_attach_old = tcpc_dev->typec_attach_new;
+	}
+	return 0;
+}
+#endif /* CONFIG_TYPEC_OTP */
+
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 			  enum tcpc_cable_type cable_type)
@@ -2805,6 +2949,14 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION))
 		return 0;
 
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+	if (tcpc_dev->tcpc_flags & TCPC_FLAGS_FOREIGN_OBJECT_DETECTION) {
+		if ((cable_type == TCPC_CABLE_TYPE_C2C) &&
+		    (tcpc_dev->typec_fod == TCPC_FOD_DISCHG_FAIL ||
+		     tcpc_dev->typec_fod == TCPC_FOD_OV))
+			cable_type = TCPC_CABLE_TYPE_A2C;
+	}
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 
 	/* Filter out initial no cable */
 	if (cable_type == TCPC_CABLE_TYPE_C2C) {
@@ -2819,6 +2971,18 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 		}
 	}
 
+	if (tcpc_dev->typec_state == typec_attachwait_snk) {
+		TCPC_INFO("%s during attachwait_snk\n", __func__);
+		tcpc_dev->pre_typec_cable_type = cable_type;
+	} else if (tcpc_dev->typec_state == typec_try_snk ||
+		   tcpc_dev->typec_state == typec_attached_snk) {
+		if (tcpc_dev->pre_typec_cable_type != TCPC_CABLE_TYPE_NONE) {
+			TCPC_INFO("%s try_snk cable(%d, %d)\n", __func__,
+				  tcpc_dev->pre_typec_cable_type, cable_type);
+			cable_type = tcpc_dev->pre_typec_cable_type;
+			tcpc_dev->pre_typec_cable_type = TCPC_CABLE_TYPE_NONE;
+		}
+	}
 	TCPC_INFO("%s cable (%d, %d)\n", __func__, tcpc_dev->typec_cable_type,
 		  cable_type);
 

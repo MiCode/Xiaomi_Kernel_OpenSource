@@ -58,6 +58,16 @@ extern int tcpc_typec_swap_role(struct tcpc_device *tcpc_dev);
 extern int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd);
 #endif /* CONFIG_WATER_DETECTION */
 
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+extern int tcpc_typec_handle_fod(struct tcpc_device *tcpc_dev,
+				 enum tcpc_fod_status);
+extern bool tcpc_typec_ignore_fod(struct tcpc_device *tcpc_dev);
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
+
+#ifdef CONFIG_TYPEC_OTP
+extern int tcpc_typec_handle_otp(struct tcpc_device *tcpc_dev, bool otp);
+#endif /* CONFIG_TYPEC_OTP */
+
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 				 enum tcpc_cable_type cable_type);

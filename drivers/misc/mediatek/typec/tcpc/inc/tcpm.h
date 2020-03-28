@@ -144,7 +144,9 @@ enum {
 	TCP_NOTIFY_STATUS,
 	TCP_NOTIFY_REQUEST_BAT_INFO,
 	TCP_NOTIFY_WD_STATUS,
+	TCP_NOTIFY_FOD_STATUS,
 	TCP_NOTIFY_CABLE_TYPE,
+	TCP_NOTIFY_TYPEC_OTP,
 	TCP_NOTIFY_PLUG_OUT,
 	TCP_NOTIFY_MISC_END = TCP_NOTIFY_PLUG_OUT,
 };
@@ -293,6 +295,16 @@ struct tcp_ny_wd_status {
 	bool water_detected;
 };
 
+enum tcpc_fod_status {
+	TCPC_FOD_NONE = 0,
+	TCPC_FOD_NORMAL,
+	TCPC_FOD_OV,
+	TCPC_FOD_DISCHG_FAIL,
+	TCPC_FOD_LR,
+	TCPC_FOD_HR,
+	TCPC_FOD_STAT_MAX,
+};
+
 enum tcpc_cable_type {
 	TCPC_CABLE_TYPE_NONE = 0,
 	TCPC_CABLE_TYPE_A2C,
@@ -300,8 +312,16 @@ enum tcpc_cable_type {
 	TCPC_CABLE_TYPE_MAX,
 };
 
+struct tcp_ny_fod_status {
+	enum tcpc_fod_status fod;
+};
+
 struct tcp_ny_cable_type {
 	enum tcpc_cable_type type;
+};
+
+struct tcp_ny_typec_otp {
+	bool otp;
 };
 
 struct tcp_notify {
@@ -321,7 +341,9 @@ struct tcp_notify {
 		struct tcp_ny_status status_msg;
 		struct tcp_ny_request_bat request_bat;
 		struct tcp_ny_wd_status wd_status;
+		struct tcp_ny_fod_status fod_status;
 		struct tcp_ny_cable_type cable_type;
+		struct tcp_ny_typec_otp typec_otp;
 	};
 };
 

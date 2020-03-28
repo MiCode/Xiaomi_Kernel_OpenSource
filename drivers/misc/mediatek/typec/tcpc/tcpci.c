@@ -80,6 +80,16 @@ int tcpci_fault_status_clear(
 	return tcpc->ops->fault_status_clear(tcpc, status);
 }
 
+int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_alert_mask)
+		return tcpc->ops->set_alert_mask(tcpc, mask);
+
+	return rv;
+}
+
 int tcpci_get_alert_mask(
 	struct tcpc_device *tcpc, uint32_t *mask)
 {
@@ -364,6 +374,17 @@ int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected)
 }
 #endif /* CONFIG_WATER_DETECTION */
 
+#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
+int tcpci_notify_fod_status(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.fod_status.fod = tcpc->typec_fod;
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_FOD_STATUS);
+}
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
+
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 int tcpci_notify_cable_type(struct tcpc_device *tcpc)
 {
@@ -374,6 +395,49 @@ int tcpci_notify_cable_type(struct tcpc_device *tcpc)
 				      TCP_NOTIFY_CABLE_TYPE);
 }
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
+
+#ifdef CONFIG_TYPEC_OTP
+int tcpci_notify_typec_otp(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.typec_otp.otp = tcpc->typec_otp;
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_TYPEC_OTP);
+}
+#endif /* CONFIG_TYPEC_OTP */
+
+#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
+int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_cc_hidet)
+		rv = tcpc->ops->set_cc_hidet(tcpc, en);
+
+	return rv;
+}
+
+int tcpci_notify_plug_out(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti;
+
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_PLUG_OUT);
+}
+#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
+
+#ifdef CONFIG_FLOATING_GROUND
+int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_floating_ground)
+		rv = tcpc->ops->set_floating_ground(tcpc, en);
+
+	return rv;
+}
+#endif /* CONFIG_FLOATING_GROUND */
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 

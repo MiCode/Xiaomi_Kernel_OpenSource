@@ -40,3 +40,4 @@ obj-$(CONFIG_CHARGER_RT9759) += rt9759.o
 obj-$(CONFIG_RT_PROP_CHGALGO) += prop_chgalgo_class.o pca_pps_ta.o \
 				 pca_mtk_chg.o pca_dv2_algo.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_50_SUPPORT)	+= mtk_pe50_intf.o mtk_pe50.o
+obj-$(CONFIG_CHARGER_MT6362) += mt6362-chg.o
