@@ -49,6 +49,7 @@ struct GBE_NOTIFIER_PUSH_TAG {
 };
 
 static struct mutex gbe_list_lock;
+static struct mutex gbe_enable1_lock;
 static struct workqueue_struct *g_psNotifyWorkQueue;
 static int gbe_enable;
 
@@ -57,18 +58,19 @@ int gbe_is_enable(void)
 {
 	int enable;
 
-	mutex_lock(&gbe_list_lock);
+	mutex_lock(&gbe_enable1_lock);
 	enable = gbe_enable;
-	mutex_unlock(&gbe_list_lock);
+	mutex_unlock(&gbe_enable1_lock);
 
 	return enable;
 }
 
 void enable_gbe(int enable)
 {
-	mutex_lock(&gbe_list_lock);
+	pr_debug("[GBE] enable:%d %p\n", enable, &gbe_enable1_lock);
+	mutex_lock(&gbe_enable1_lock);
 	gbe_enable = !!enable;
-	mutex_unlock(&gbe_list_lock);
+	mutex_unlock(&gbe_enable1_lock);
 }
 
 static unsigned long long gbe_get_time(void)
