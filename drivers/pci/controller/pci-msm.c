@@ -1176,7 +1176,7 @@ static void msm_pcie_write_mask(void __iomem *addr,
 
 static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 {
-	int i, size;
+	int i;
 	u32 original;
 
 	PCIE_DUMP(dev, "PCIe: RC%d PARF testbus\n", dev->rc_idx);
@@ -1195,8 +1195,7 @@ static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
 
 	PCIE_DUMP(dev, "PCIe: RC%d PARF register dump\n", dev->rc_idx);
 
-	size = resource_size(dev->res[MSM_PCIE_RES_PARF].resource);
-	for (i = 0; i < size; i += 32) {
+	for (i = 0; i < PCIE20_PARF_BDF_TO_SID_TABLE_N; i += 32) {
 		PCIE_DUMP(dev,
 			"RC%d: 0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
 			dev->rc_idx, i,
