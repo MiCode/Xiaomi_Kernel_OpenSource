@@ -1423,7 +1423,7 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 	if (err < 0)
 		return err;
 
-	cmdq_log("finalize: add EOC and JUMP cmd");
+	cmdq_msg("finalize: add EOC and JUMP cmd");
 
 	return 0;
 }
