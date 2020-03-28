@@ -1534,7 +1534,6 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 
 			buf_att = dma_buf_attach(vb->planes[i].dbuf,
 				&ctx->dev->plat_dev->dev);
-			mtk_venc_ion_config_buff(vb->planes[i].dbuf);
 			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
 			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
 				sgt->sgl,
@@ -1576,7 +1575,6 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 
 			buf_att = dma_buf_attach(vb->planes[0].dbuf,
 				&ctx->dev->plat_dev->dev);
-			mtk_venc_ion_config_buff(vb->planes[0].dbuf);
 			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
 			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, sgt->sgl,
 				sgt->orig_nents, DMA_FROM_DEVICE);
@@ -2589,9 +2587,6 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 #ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
 static int venc_dc_ion_map_dmabuf(void *mem_priv)
 {
-	struct vb2_dc_buf *buf = mem_priv;
-
-	mtk_venc_ion_config_buff(buf->db_attach->dmabuf);
 	return mtk_dma_contig_memops.map_dmabuf(mem_priv);
 }
 #endif
