@@ -35,6 +35,7 @@
 
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
+#include "mtk_gpufreq_common.h"
 
 #include "clk-fmeter.h"
 
@@ -962,8 +963,12 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 	if (power == POWER_ON)
 		g_power_count++;
 	else {
+		check_pending_info();
+
 		g_power_count--;
-		gpu_assert(g_power_count >= 0);
+		gpu_assert(g_power_count >= 0, GPU_FREQ_EXCEPTION,
+			"power=%d g_power_count=%d (todo cg: %d, mtcmos: %d, buck: %d)\n",
+			power, g_power_count, cg, mtcmos, buck);
 	}
 	gpu_dvfs_power_count_footprint(g_power_count);
 
@@ -1135,22 +1140,26 @@ void mt_gpufreq_update_volt_interpolation(void)
 		slope = (large_vgpu - small_vgpu) / (large_freq - small_freq);
 
 		if (slope < 0) {
-			gpufreq_pr_info("i %d, slope %d, largeOppIndex %d, smallOppIndex %d",
-				i, slope, largeOppIndex, smallOppIndex);
-			gpufreq_pr_info("large_vgpu %d, large_freq %d",
-				large_vgpu, large_freq);
-			gpufreq_pr_info("small_vgpu %d, small_freq %d",
-				small_vgpu, small_freq);
 			dump_stack();
+
+			gpu_assert(slope >= 0, GPU_OPP_PTOPD_SLOPE,
+				"i %d, slope %d, largeOppIndex %d, smallOppIndex %d\n"
+				"large_vgpu %d, large_freq %d\n"
+				"small_vgpu %d, small_freq %d\n",
+				i, slope, largeOppIndex, smallOppIndex,
+				large_vgpu, large_freq,
+				small_vgpu, small_freq);
 		}
-		gpu_assert(slope >= 0);
 
 		for (j = 1; j < range; j++) {
 			freq = g_opp_table[largeOppIndex + j].gpufreq_khz
 				/ 1000;
 			vnew = small_vgpu + slope * (freq - small_freq);
 			vnew = VOLT_NORMALIZATION(vnew);
-			gpu_assert(vnew >= small_vgpu && vnew <= large_vgpu);
+			gpu_assert(vnew >= small_vgpu && vnew <= large_vgpu,
+				GPU_FREQ_EXCEPTION,
+				"j %d, vnew %d, small_vgpu %d, large_vgpu %d\n",
+				j, vnew, small_vgpu, large_vgpu);
 
 			g_opp_table[largeOppIndex + j].gpufreq_vgpu = vnew;
 			g_opp_table[largeOppIndex + j].gpufreq_vsram =

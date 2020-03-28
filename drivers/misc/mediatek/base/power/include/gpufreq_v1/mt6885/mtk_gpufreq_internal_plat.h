@@ -116,9 +116,6 @@
 #define MT_GPUFREQ_DFD_ENABLE 1
 #define MT_GPUFREQ_DFD_DEBUG 0
 
-// to check if aee service is running
-extern int aee_mode;
-
 /**************************************************
  * Register Manipulations
  **************************************************/

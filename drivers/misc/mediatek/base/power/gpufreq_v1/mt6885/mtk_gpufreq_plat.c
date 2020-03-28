@@ -32,11 +32,10 @@
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 #include <linux/random.h>
-#include <mt-plat/aee.h>
-#include <aed.h>
 
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
+#include "mtk_gpufreq_common.h"
 
 #include "clk-fmeter.h"
 
@@ -196,8 +195,6 @@ static bool g_buck_on;
 static bool g_fixed_freq_volt_state;
 static bool g_probe_done;
 static int g_power_count;
-static char g_exception_str[340];
-static unsigned int g_is_need_dump_exception;
 static unsigned int g_opp_stress_test_state;
 static int g_opp_power_test_state;
 static unsigned int g_max_opp_idx_num;
@@ -853,59 +850,22 @@ void mt_gpufreq_software_trigger_dfd(void)
 static void __mt_gpufreq_dfd_debug_exception(void)
 {
 #if MT_GPUFREQ_DFD_ENABLE
-	// since aee driver is probed after gpufreq driver,
-	// we need call dump after aee deriver init.
-	if (g_is_need_dump_exception &&
-	    aee_mode != AEE_MODE_NOT_INIT) {
-		aee_kernel_warning("GPU_DFD",
-			"\n%s\n%s\n",
-			g_exception_str,
-			"CRDISPATCH_KEY:GPU_DFD_PROBE_TRIGGERED");
-		g_is_need_dump_exception = 0;
-	}
-#endif // MT_GPUFREQ_DFD_ENABLE
-}
-
-static void __mt_gpufreq_dfd_get_exception_string(void)
-{
-#if MT_GPUFREQ_DFD_ENABLE
 	unsigned int status = readl(g_infracfg_ao + 0x600);
 
 	//0x1000700C WDT_STA
 	//0x10007030 WDT_REQ_MODE
-	//0x100070A8 WDT_DEBUG_CTL3
-	/*
-	 * 0x1000D000
-	 * Offset
-	 * 0x000
-	 * 0x030
-	 * 0x040
-	 * 0x504
-	 * 0x508
-	 * 0x50C
-	 */
-	snprintf(g_exception_str, 340,
-		"dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x, WDT_DEBUG_CTL3 0x%x\n"
-		"0x1000D000 0x%x, 0x030 0x%x, 0x040 0x%x\n"
-		"0x504 0x%x, 0x508 0x%x, 0x50C 0x%x\n",
-		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030),
-		readl(g_toprgu + 0x0A8),
-		readl(g_dbgtop + 0x000), readl(g_dbgtop + 0x030),
-		readl(g_dbgtop + 0x040),
-		readl(g_dbgtop + 0x504), readl(g_dbgtop + 0x508),
-		readl(g_dbgtop + 0x50C));
+	gpu_assert(!(status & 0x80000), GPU_DFD_PROBE_TRIGGERED,
+		"[GPU_DFD] gpu dfd is triggered at probe\n"
+		"[GPU_DFD] dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x\n",
+		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030));
 
-	__mt_gpufreq_dfd_debug_exception();
-#endif
+#endif // MT_GPUFREQ_DFD_ENABLE
 }
 
 static int __mt_gpufreq_is_dfd_triggered(void)
 {
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int status = readl(g_infracfg_ao + 0x600);
-
-	if (g_is_need_dump_exception)
-		__mt_gpufreq_dfd_debug_exception();
 
 #if MT_GPUFREQ_DFD_DEBUG
 	gpufreq_pr_debug("[GPU_DFD] @%s: dfd status 0x%x\n",
@@ -1030,8 +990,12 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 	if (power == POWER_ON)
 		g_power_count++;
 	else {
+		check_pending_info();
+
 		g_power_count--;
-		gpu_assert(g_power_count >= 0);
+		gpu_assert(g_power_count >= 0, GPU_FREQ_EXCEPTION,
+			"power=%d g_power_count=%d (todo cg: %d, mtcmos: %d, buck: %d)\n",
+			power, g_power_count, cg, mtcmos, buck);
 	}
 	gpu_dvfs_power_count_footprint(g_power_count);
 
@@ -1199,34 +1163,32 @@ void mt_gpufreq_update_volt_interpolation(void)
 		slope = (large_vgpu - small_vgpu) / (large_freq - small_freq);
 
 		if (slope < 0) {
-			gpufreq_pr_info("i %d, slope %d, largeOppIndex %d, smallOppIndex %d",
-				i, slope, largeOppIndex, smallOppIndex);
-			gpufreq_pr_info("large_vgpu %d, large_freq %d",
-				large_vgpu, large_freq);
-			gpufreq_pr_info("small_vgpu %d, small_freq %d",
-				small_vgpu, small_freq);
 			dump_stack();
+
+			gpu_assert(slope >= 0, GPU_OPP_PTOPD_SLOPE,
+				"i %d, slope %d, largeOppIndex %d, smallOppIndex %d\n"
+				"large_vgpu %d, large_freq %d\n"
+				"small_vgpu %d, small_freq %d\n",
+				i, slope, largeOppIndex, smallOppIndex,
+				large_vgpu, large_freq,
+				small_vgpu, small_freq);
 		}
-		gpu_assert(slope >= 0);
 
 		for (j = 1; j < range; j++) {
 			freq = g_opp_table[largeOppIndex + j].gpufreq_khz
 				/ 1000;
 			vnew = small_vgpu + slope * (freq - small_freq);
 			vnew = VOLT_NORMALIZATION(vnew);
-			gpu_assert(vnew >= small_vgpu);
+			gpu_assert(vnew >= small_vgpu && vnew <= large_vgpu,
+				GPU_FREQ_EXCEPTION,
+				"j %d, vnew %d, small_vgpu %d, large_vgpu %d\n",
+				j, vnew, small_vgpu, large_vgpu);
 
 			g_opp_table[largeOppIndex + j].gpufreq_vgpu = vnew;
 			g_opp_table[largeOppIndex + j].gpufreq_vsram =
 				__mt_gpufreq_get_vsram_gpu_by_vgpu(vnew);
 		}
 	}
-
-	// check all voltage >= lower bound
-	lower_bound = opp_table[NUM_OF_OPP_IDX - 1].gpufreq_vgpu;
-	for (i = 0; i < NUM_OF_OPP_IDX; i++)
-		gpu_assert(g_opp_table[i].gpufreq_vgpu >= lower_bound);
-
 }
 
 void mt_gpufreq_apply_aging(bool apply)
@@ -3651,8 +3613,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #if MT_GPUFREQ_DFD_ENABLE
 	/* if dfd is triggered, power off BUCK to cleare it */
 	if (__mt_gpufreq_is_dfd_triggered()) {
-		g_is_need_dump_exception = 1;
-		__mt_gpufreq_dfd_get_exception_string();
+		__mt_gpufreq_dfd_debug_exception();
 		gpufreq_pr_info("[GPU_DFD] gpu dfd is triggered, clear it.\n");
 		__mt_gpufreq_gpu_dfd_clear();
 	}
