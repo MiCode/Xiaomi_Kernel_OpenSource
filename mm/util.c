@@ -482,6 +482,12 @@ struct address_space *page_mapping(struct page *page)
 		swp_entry_t entry;
 
 		entry.val = page_private(page);
+		/*
+		 * debug:
+		 * to trap incorrect page_private
+		 */
+		if (swp_type(entry) == 0x7f)
+			dump_page(page, "debug");
 		return swap_address_space(entry);
 	}
 
