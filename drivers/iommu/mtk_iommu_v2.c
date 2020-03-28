@@ -4620,6 +4620,11 @@ static int mtk_iommu_suspend(struct device *dev)
 	 * for IOMMU of DISP and MDP, do power off at suspend
 	 * for IOMMU of APU, power off is controlled by APU
 	 */
+	if (!data) {
+		pr_notice("%s, data is NULL\n", __func__);
+		return 0;
+	}
+
 	spin_lock_irqsave(&data->reg_lock, flags);
 	ret = mtk_iommu_reg_backup(data);
 	if (ret)
@@ -4631,6 +4636,10 @@ static int mtk_iommu_suspend(struct device *dev)
 	if (ret)
 		pr_notice("%s, failed to power switch off\n", __func__);
 #else
+	if (!data) {
+		pr_notice("%s, data is NULL\n", __func__);
+		return 0;
+	}
 	if (data->poweron)
 		pr_notice("%s, iommu:%d user did not power off\n",
 			  __func__, data->m4uid);
@@ -4649,6 +4658,11 @@ static int mtk_iommu_resume(struct device *dev)
 	 * for IOMMU of DISP and MDP, do power on at suspend
 	 * for IOMMU of APU, power on is controlled by APU
 	 */
+	if (!data) {
+		pr_notice("%s, data is NULL\n", __func__);
+		return 0;
+	}
+
 	ret = mtk_iommu_power_switch(data, true, "iommu_resume");
 	if (ret)
 		pr_notice("%s, failed to power switch on\n", __func__);
