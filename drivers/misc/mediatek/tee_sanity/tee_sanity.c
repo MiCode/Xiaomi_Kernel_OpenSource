@@ -142,7 +142,6 @@ static uint32_t tee_sanity_hwirq;
 static void tee_ut(uint32_t cmd)
 {
 	struct arm_smccc_res res;
-	uint32_t ret;
 
 	pr_info(PFX "%s, cmd=0x%x\n", __func__, cmd);
 	if (cmd == TEE_UT_READ_INTR) {
@@ -155,12 +154,7 @@ static void tee_ut(uint32_t cmd)
 		arm_smccc_smc(MTK_SIP_KERNEL_TEE_CONTROL, TEE_OP_ID_SET_PENDING,
 				0, 0, 0, 0, 0, 0, &res);
 
-		ret = res.a0;
-		if (ret)
-			pr_err(PFX "trigger interrupt failed, ret: 0x%x\n",
-					ret);
-		else
-			pr_info(PFX "trigger interrupt done!\n");
+		pr_info(PFX "trigger interrupt done!\n");
 
 	} else {
 		pr_err(PFX "%s, cmd=0x%x is not supported\n", __func__, cmd);
