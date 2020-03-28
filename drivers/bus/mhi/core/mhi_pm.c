@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -167,8 +167,8 @@ void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 		mhi_write_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
 				    MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, 1);
 	} else {
-		mhi_write_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
-			MHICTRL_MHISTATE_MASK, MHICTRL_MHISTATE_SHIFT, state);
+		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
+				(state << MHICTRL_MHISTATE_SHIFT));
 	}
 }
 
@@ -481,6 +481,12 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	wake_up_all(&mhi_cntrl->state_event);
 
+	/* offload register write if supported */
+	if (mhi_cntrl->offload_wq) {
+		mhi_reset_reg_write_q(mhi_cntrl);
+		mhi_cntrl->write_reg = mhi_write_reg_offload;
+	}
+
 	/* force MHI to be in M0 state before continuing */
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
@@ -556,6 +562,12 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		to_mhi_pm_state_str(transition_state));
 
+	/* restore async write call back */
+	mhi_cntrl->write_reg = mhi_write_reg;
+
+	if (mhi_cntrl->offload_wq)
+		mhi_reset_reg_write_q(mhi_cntrl);
+
 	/* We must notify MHI control driver so it can clean up first */
 	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
@@ -609,7 +621,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		 * device cleares INTVEC as part of RESET processing,
 		 * re-program it
 		 */
-		mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
+		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	}
 
 	MHI_LOG("Waiting for all pending event ring processing to complete\n");
@@ -932,7 +944,7 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->bhie = mhi_cntrl->regs + val;
 	}
 
-	mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
+	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	mhi_cntrl->pm_state = MHI_PM_POR;
 	mhi_cntrl->ee = MHI_EE_MAX;
 	current_ee = mhi_get_exec_env(mhi_cntrl);
@@ -1000,6 +1012,8 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 			to_mhi_pm_state_str(cur_state));
 		goto exit_control_error;
 	}
+
+	mhi_cntrl->dev_state = MHI_STATE_SYS_ERR;
 
 	/* notify waiters to bail out early since MHI has entered ERROR state */
 	wake_up_all(&mhi_cntrl->state_event);
@@ -1146,6 +1160,9 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 	MHI_LOG("Wait for M3 completion\n");
 
+	/* finish reg writes before D3 cold */
+	mhi_force_reg_write(mhi_cntrl);
+
 	ret = wait_event_timeout(mhi_cntrl->state_event,
 				 mhi_cntrl->dev_state == MHI_STATE_M3 ||
 				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
@@ -1271,6 +1288,9 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 	mhi_cntrl->dev_state = MHI_STATE_M3_FAST;
 	mhi_cntrl->M3_FAST++;
 	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* finish reg writes before DRV hand-off to avoid noc err */
+	mhi_force_reg_write(mhi_cntrl);
 
 	/* now safe to check ctrl event ring */
 	tasklet_enable(&mhi_cntrl->mhi_event->task);
@@ -1476,6 +1496,8 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	mhi_force_reg_write(mhi_cntrl);
 
 	ret = wait_event_timeout(mhi_cntrl->state_event,
 				 mhi_cntrl->pm_state == MHI_PM_M0 ||
