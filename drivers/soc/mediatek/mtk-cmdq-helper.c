@@ -1423,7 +1423,7 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 	if (err < 0)
 		return err;
 
-	cmdq_msg("finalize: add EOC and JUMP cmd");
+	cmdq_log("finalize: add EOC and JUMP cmd");
 
 	return 0;
 }
@@ -1454,7 +1454,7 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 	/* mark pkt as loop */
 	pkt->loop = true;
 
-	cmdq_msg("finalize: add EOC and JUMP begin cmd thrd:%d", id);
+	cmdq_log("finalize: add EOC and JUMP begin cmd thrd:%d", id);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize_loop);
