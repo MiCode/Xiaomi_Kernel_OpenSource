@@ -1541,10 +1541,9 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 	#else
 		if (jpeg_isr_hybrid_dec_lisr(hwid) < 0) {
 			long ret = 0;
+			int waitfailcnt = 0;
 
 			do {
-				JPEG_MSG("JPEG Hybrid Dec wait irq %d\n",
-							hwid);
 				ret = wait_event_interruptible_timeout(
 					hybrid_dec_wait_queue[hwid],
 					_jpeg_hybrid_dec_int_status[hwid],
@@ -1552,7 +1551,13 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 				if (ret == 0)
 					JPEG_MSG(
 					"JPEG Hybrid Dec Wait timeout!\n");
-			} while (ret < 0);
+				if (ret < 0) {
+					waitfailcnt++;
+					JPEG_ERR(
+					"JPEG Hybrid Dec Wait Error %d",
+					waitfailcnt);
+				}
+			} while (ret < 0 && waitfailcnt < 5);
 		} else
 			JPEG_MSG("JPEG Hybrid Dec IRQ Wait Already Done!\n");
 		_jpeg_hybrid_dec_int_status[hwid] = 0;
