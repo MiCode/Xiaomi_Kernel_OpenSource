@@ -23,6 +23,7 @@
 #include <mtk_qos_ipi.h>
 #endif
 #include <mtk_gpu_utility.h>
+#include <mtk_gpufreq.h>
 
 struct v1_data {
 	unsigned int version;
@@ -148,9 +149,11 @@ static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 static void bw_v1_gpu_power_change_notify(int power_on)
 {
 	static int ctx;
-	unsigned int loading;
+	unsigned int loading, idx, min_idx;
 
 	mtk_get_gpu_loading(&loading);
+	idx = mt_gpufreq_get_cur_freq_index();
+	min_idx = mt_gpufreq_get_dvfs_table_num()-1;
 
 	if (!power_on) {
 		ctx = gpu_info_buf->ctx;
@@ -159,9 +162,10 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 		gpu_info_buf->ctx = ctx;
 
 		/*
-		 * if gpu loading < 15%, don't do GPU QoS prediction.
+		 * if gpu loading < 40% and gpu freq is lowest,
+		 * don't do GPU QoS prediction.
 		 */
-		if (loading < 15)
+		if ((idx == min_idx) && (loading < 40))
 			gpu_info_buf->freq = 5566;
 		else
 			gpu_info_buf->freq = 0;
