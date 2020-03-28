@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
-//
-// mtk-mmap-ion.c  --  Mediatek Audio MMAP Get ION Buffer
-//
-// Copyright (c) 2017 MediaTek Inc.
-// Author: Kai Chieh Chuang <kaichieh.chuang@mediatek.com>
+/*
+ *  mtk-mmap-ion.c  --  Mediatek Audio MMAP Get ION Buffer
+ *
+ *  Copyright (c) 2017 MediaTek Inc.
+ *  Author: Kai Chieh Chuang <kaichieh.chuang@mediatek.com>
+ */
 
 #include <linux/io.h>
 #include <linux/module.h>
@@ -17,11 +18,15 @@
 
 #define ION_HEAP_CARVEOUT_MASK (1 << ION_HEAP_TYPE_CARVEOUT)
 
-
+#ifdef CONFIG_ION
 static struct ion_client *ion_client;
 
 static struct ion_handle *dl_ion_handle;
 static struct ion_handle *ul_ion_handle;
+
+static size_t dl_size;
+static size_t ul_size;
+#endif
 
 static unsigned long dl_phy_addr;
 static unsigned long ul_phy_addr;
@@ -29,13 +34,11 @@ static unsigned long ul_phy_addr;
 static void *dl_vir_addr;
 static void *ul_vir_addr;
 
-static size_t dl_size;
-static size_t ul_size;
-
 static int dl_fd;
 static int ul_fd;
 
 
+#ifdef CONFIG_ION
 int mtk_free_ion_buffer(struct ion_handle *handle, int *fd,
 			unsigned long *phy_addr,  void **vir_addr,
 			size_t *size)
@@ -112,10 +115,11 @@ exit:
 	pr_debug("-%s(), fail\n", __func__);
 	return -1;
 }
-
+#endif
 
 int mtk_get_ion_buffer(void)
 {
+#ifdef CONFIG_ION
 	int ret;
 
 	pr_debug("+%s()\n", __func__);
@@ -163,6 +167,7 @@ exit:
 		ion_client = NULL;
 	}
 	pr_debug("-%s(), fail\n", __func__);
+#endif
 	return -1;
 }
 
