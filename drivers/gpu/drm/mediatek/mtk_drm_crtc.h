@@ -76,8 +76,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_CONFIG_FENCE_BASE 0x0000
 #define DISP_SLOT_CUR_CONFIG_FENCE(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE_BASE + (0x4 * (n)))
-#define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
+#define DISP_SLOT_PRESENT_FENCE                                          \
 	DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR)
+#define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
+	(DISP_SLOT_PRESENT_FENCE + 0x4)
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE(n)                                      \
 	(DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE + (0x4 * (n)))
 #define DISP_SLOT_ESD_READ_BASE DISP_SLOT_SUBTRACTOR_WHEN_FREE(OVL_LAYER_NR)

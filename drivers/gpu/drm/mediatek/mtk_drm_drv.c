@@ -62,8 +62,10 @@
 #define DRIVER_MINOR 0
 
 atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
 wait_queue_head_t _mtk_fence_wq;
+#endif
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -1371,6 +1373,7 @@ static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 static int mtk_drm_fence_release_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -1395,6 +1398,7 @@ static int mtk_drm_fence_release_thread(void *data)
 
 	return 0;
 }
+#endif
 
 void mtk_drm_fence_update(unsigned int fence_idx)
 {
@@ -1404,8 +1408,10 @@ void mtk_drm_fence_update(unsigned int fence_idx)
 		return;
 
 	atomic_set(&_mtk_fence_idx, fence_idx);
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	atomic_set(&_mtk_fence_update_event, 1);
 	wake_up_interruptible(&_mtk_fence_wq);
+#endif
 
 	CRTC_MMP_MARK(0, update_present_fence, 0, fence_idx);
 }
@@ -1935,6 +1941,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	INIT_LIST_HEAD(&private->repaint_data.job_pool);
 
 #ifdef MTK_DRM_FENCE_SUPPORT
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	/* fence release kthread */
 	init_waitqueue_head(&_mtk_fence_wq);
 	private->fence_release_thread =
@@ -1944,6 +1951,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		DDPPR_ERR("Failed to create fence release thread\n");
 		goto err_kms_helper_poll_fini;
 	}
+#endif
 #endif
 
 #ifdef CONFIG_DRM_MEDIATEK_DEBUG_FS

@@ -2052,6 +2052,17 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
+#ifdef MTK_DRM_DELAY_PRESENT_FENCE
+	// release present fence
+	if (drm_crtc_index(crtc) == 0) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		unsigned int fence_idx = *(unsigned int *)(cmdq_buf->va_base +
+				DISP_SLOT_PRESENT_FENCE);
+
+		mtk_release_present_fence(session_id, fence_idx);
+	}
+#endif
+
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
@@ -4403,6 +4414,20 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				BACKUP_OVL_STATUS, NULL);
 	}
+
+#ifdef MTK_DRM_DELAY_PRESENT_FENCE
+	/* backup present fence */
+	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		dma_addr_t addr =
+			cmdq_buf->pa_base +
+			DISP_SLOT_PRESENT_FENCE;
+
+		cmdq_pkt_write(cmdq_handle,
+			mtk_crtc->gce_obj.base, addr,
+			state->prop_val[CRTC_PROP_PRES_FENCE_IDX], ~0);
+	}
+#endif
 
 	atomic_set(&mtk_crtc->delayed_trig, 1);
 	cb_data->state = old_crtc_state;
