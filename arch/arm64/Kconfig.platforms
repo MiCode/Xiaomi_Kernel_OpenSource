@@ -515,6 +515,7 @@ config MACH_MT6853
 	select GENERIC_CLOCKEVENTS
 	select ARCH_HAS_CPUFREQ
 	select ARM_AMBA
+	select ARM_DSU_PMU
 	select CPU_V7
 	select HAVE_SMP
 	select HIE
