@@ -936,9 +936,11 @@ static s32 cmdq_mdp_consume_handle(void)
 		}
 
 		if (secure_run != handle->secData.is_secure) {
+			mutex_unlock(&mdp_thread_mutex);
 			CMDQ_LOG(
-				"skip secure inorder handle:%p engine:%#llx\n",
-				handle, handle->engineFlag);
+				"skip secure inorder handle:%p engine:%#llx sec:%s\n",
+				handle, handle->engineFlag,
+				handle->secData.is_secure ? "true" : "false");
 			break;
 		}
 
