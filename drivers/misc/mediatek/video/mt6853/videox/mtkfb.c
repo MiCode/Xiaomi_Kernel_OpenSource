@@ -2713,8 +2713,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 	wake_up_process(test_task);
 #endif
 
-	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		primary_display_diagnose(__func__, __LINE__);
+//	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
+//		primary_display_diagnose(__func__, __LINE__);
 
 
 	/* this function will get fb_heap base address to ion
