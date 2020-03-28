@@ -31,7 +31,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/include/ \
              -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
 
 # mdp platform code
@@ -45,7 +44,7 @@ ccflags-y += -DCMDQ_COMMON_ENG_SUPPORT
 endif
 
 ifeq ($(CONFIG_MTK_ENG_BUILD),y)
-ccflags-y += -DCMDQ_TEST_PROC
+#ccflags-y += -DCMDQ_TEST_PROC
 ccflags-y += -DCMDQ_PROFILE_LOCK
 ccflags-y += -DCMDQ_DEBUG_LOOP_IRQ
 endif
@@ -86,25 +85,23 @@ ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
 endif
 
 # driver module
-obj-y += cmdq_record.o
-obj-y += cmdq_virtual.o
-obj-y += cmdq_device.o
+#obj-y += cmdq_record.o
+#obj-y += cmdq_virtual.o
+#obj-y += cmdq_device.o
 obj-y += cmdq_driver.o
-obj-y += cmdq_mdp_common.o
+#obj-y += cmdq_mdp_common.o
 #obj-y += cmdq_prof.o
-obj-y += cmdq_test.o
-obj-y += cmdq_event_common.o
-obj-y += cmdq_subsys_common.o
-obj-y += cmdq_helper_ext.o
-obj-y += mtk-cmdq-helper.o
-obj-y += mtk-cmdq-mailbox.o
+#obj-y += cmdq_test.o
+#obj-y += cmdq_event_common.o
+#obj-y += cmdq_subsys_common.o
+#obj-y += cmdq_helper_ext.o
 
 ifeq ($(strip $(CONFIG_MMPROFILE)),y)
-obj-y += cmdq_mmp.o
+#obj-y += cmdq_mmp.o
 endif
 
 ifeq ($(platformdir_exists), y)
-obj-y += $(subst ",,$(MTK_PLATFORM))/
+#obj-y += $(subst ",,$(MTK_PLATFORM))/
 endif
 
 ifneq ($(CONFIG_MTK_CMDQ_MBOX_EXT),y)
