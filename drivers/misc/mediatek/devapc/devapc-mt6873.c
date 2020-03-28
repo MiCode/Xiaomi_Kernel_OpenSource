@@ -1681,6 +1681,8 @@ static struct mtk_devapc_vio_info mt6873_devapc_vio_info = {
 	.mdp_vio_idx = MDP_VIO_INDEX,
 	.disp2_vio_idx = MDP_VIO_INDEX,
 	.mmsys_vio_idx = MMSYS_VIO_INDEX,
+	.sramrom_slv_type = SRAMROM_SLAVE_TYPE,
+	.mm2nd_slv_type = MM2ND_SLAVE_TYPE,
 };
 
 static const struct mtk_infra_vio_dbg_desc mt6873_vio_dbgs = {

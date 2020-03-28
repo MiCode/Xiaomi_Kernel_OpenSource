@@ -95,3 +95,15 @@ config DEVAPC_MT6873
 	  Device APC driver.
 	  This driver is combined with DEVAPC_ARCH_V2 for
 	  common handle flow.
+
+config DEVAPC_MT6853
+	bool "Mediatek MT6853 Device APC driver"
+	depends on MACH_MT6853 || COMPILE_TEST
+	select DEVAPC_ARCH_V2
+	select MTK_DEVAPC
+	select DEVAPC_MMAP_DEBUG
+	help
+	  Say yes here to enable support Mediatek MT6853
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_V2 for
+	  common handle flow.

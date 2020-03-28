@@ -70,11 +70,6 @@ enum SRAMROM_VIO {
 	SRAM_VIOLATION,
 };
 
-enum DEVAPC_TYPE2_SLAVE_TYPE {
-	SRAMROM_SLAVE_TYPE = 0,	/* Infra */
-	MM2ND_SLAVE_TYPE = 1, /* Peri */
-};
-
 struct mtk_devapc_dbg_status {
 	bool enable_ut;
 	bool enable_KE;
@@ -104,7 +99,9 @@ struct mtk_devapc_vio_info {
 	uint32_t master_id;
 	uint32_t domain_id;
 	int *vio_mask_sta_num;
+	int sramrom_slv_type;
 	int sramrom_vio_idx;
+	int mm2nd_slv_type;
 	int mdp_vio_idx;
 	int disp2_vio_idx;
 	int mmsys_vio_idx;
