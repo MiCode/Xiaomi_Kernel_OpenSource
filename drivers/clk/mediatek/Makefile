@@ -6,6 +6,7 @@ endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+subdir-ccflags-y += -I$(srctree)/drivers/devfreq/
 
 obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-mtk.o clk-pll.o clk-gate.o clk-apmixed.o clk-cpumux.o clk-mux.o
 obj-$(CONFIG_RESET_CONTROLLER) += reset.o
@@ -44,6 +45,31 @@ obj-$(CONFIG_COMMON_CLK_MT8183_MMSYS) += clk-mt8183-mm.o
 obj-$(CONFIG_COMMON_CLK_MT8183_VDECSYS) += clk-mt8183-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT8183_VENCSYS) += clk-mt8183-venc.o
 obj-$(CONFIG_COMMON_CLK_MT6739) += clk-mt6739.o clk-mt6739-pg.o mt6739_clkmgr.o clk-mtk-v1.o clk-fixed-factor.o
+obj-$(CONFIG_COMMON_CLK_MT6853) += clk-mt6853.o clk-mt6853-pg.o clk-mtk-v1.o clkdbg.o clkdbg-mt6853.o clkchk.o clkchk-mt6853.o clk-bringup.o
+obj-$(CONFIG_COMMON_CLK_MT6853_APU0) += clk-mt6853-apu0.o
+obj-$(CONFIG_COMMON_CLK_MT6853_APU1) += clk-mt6853-apu1.o
+obj-$(CONFIG_COMMON_CLK_MT6853_APU_VCORE) += clk-mt6853-apuv.o
+obj-$(CONFIG_COMMON_CLK_MT6853_APU_CONN) += clk-mt6853-apuc.o
+obj-$(CONFIG_COMMON_CLK_MT6853_AUDIO) += clk-mt6853-audsys.o
+obj-$(CONFIG_COMMON_CLK_MT6853_CAMSYS_MAIN) += clk-mt6853-cam_m.o
+obj-$(CONFIG_COMMON_CLK_MT6853_CAMSYS_RAWA) += clk-mt6853-cam_ra.o
+obj-$(CONFIG_COMMON_CLK_MT6853_CAMSYS_RAWB) += clk-mt6853-cam_rb.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMGSYS1) += clk-mt6853-imgsys1.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMGSYS2) += clk-mt6853-imgsys2.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMP_IIC_WRAP_C) += clk-mt6853-impc.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMP_IIC_WRAP_E) += clk-mt6853-impe.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMP_IIC_WRAP_N) += clk-mt6853-impn.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMP_IIC_WRAP_S) += clk-mt6853-imps.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMP_IIC_WRAP_W) += clk-mt6853-impw.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IMP_IIC_WRAP_WS) += clk-mt6853-impws.o
+obj-$(CONFIG_COMMON_CLK_MT6853_IPESYS) += clk-mt6853-ipe.o
+obj-$(CONFIG_COMMON_CLK_MT6853_MDPSYS_CONFIG) += clk-mt6853-mdp.o
+obj-$(CONFIG_COMMON_CLK_MT6853_MFGSYS) += clk-mt6853-mfgcfg.o
+obj-$(CONFIG_COMMON_CLK_MT6853_MMSYS_CONFIG) += clk-mt6853-mm.o
+obj-$(CONFIG_COMMON_CLK_MT6853_MSDC0SYS) += clk-mt6853-msdc0.o
+obj-$(CONFIG_COMMON_CLK_MT6853_SCP) += clk-mt6853-scp_par.o
+obj-$(CONFIG_COMMON_CLK_MT6853_VDEC_GCON) += clk-mt6853-vdec.o
+obj-$(CONFIG_COMMON_CLK_MT6853_VENC_GCON) += clk-mt6853-venc.o
 
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MT6768) +=  clkchk-mt6768.o clkdbg-mt6768.o mt6768_clkmgr.o
