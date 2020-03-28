@@ -448,6 +448,20 @@ int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 		}
 	}
 
+		/* Distinguish mmc by timing */
+	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200) {
+#ifdef MSDC_HQA
+		msdc_HQA_set_voltage(host);
+#endif
+		if (opcode == MMC_SEND_STATUS) {
+			pr_notice("[AUTOK]MMC HS200 Tune CMD only\n");
+			ret = hs200_execute_tuning_cmd(host, res);
+		} else {
+			pr_notice("[AUTOK]MMC HS200 Tune\n");
+			ret = hs200_execute_tuning(host, res);
+		}
+	}
+
 	return ret;
 }
 

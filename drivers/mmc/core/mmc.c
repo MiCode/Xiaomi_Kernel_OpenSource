@@ -475,7 +475,8 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 * There are two boot regions of equal size, defined in
 		 * multiples of 128K.
 		 */
-		if (ext_csd[EXT_CSD_BOOT_MULT] &&
+		if (!(card->host->caps2 & MMC_CAP2_NMCARD) &&
+				ext_csd[EXT_CSD_BOOT_MULT] &&
 				mmc_boot_partition_access(card->host)) {
 			for (idx = 0; idx < MMC_NUM_BOOT_PARTITION; idx++) {
 				part_size = ext_csd[EXT_CSD_BOOT_MULT] << 17;
@@ -597,7 +598,9 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 * RPMB regions are defined in multiples of 128K.
 		 */
 		card->ext_csd.raw_rpmb_size_mult = ext_csd[EXT_CSD_RPMB_MULT];
-		if (ext_csd[EXT_CSD_RPMB_MULT] && mmc_host_cmd23(card->host)) {
+		if (!(card->host->caps2 & MMC_CAP2_NMCARD) &&
+				ext_csd[EXT_CSD_RPMB_MULT] &&
+				mmc_host_cmd23(card->host)) {
 			mmc_part_add(card, ext_csd[EXT_CSD_RPMB_MULT] << 17,
 				EXT_CSD_PART_CONFIG_ACC_RPMB,
 				"rpmb", 0, false,
@@ -650,7 +653,8 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	/* eMMC v5 or later */
-	if (card->ext_csd.rev >= 7) {
+	if (!(card->host->caps2 & MMC_CAP2_NMCARD) &&
+			(card->ext_csd.rev >= 7)) {
 		if ((ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) &&
 		    !card->ext_csd.man_bkops_en) {
 			card->ext_csd.auto_bkops = 1;
@@ -677,7 +681,9 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 #if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 	/* eMMC v5.1 or later */
-	if (card->ext_csd.rev >= 8) {
+	if (!(card->host->caps2 & MMC_CAP2_NMCARD) &&
+			card->ext_csd.rev >= 8) {
+
 		card->ext_csd.cmdq_support = ext_csd[EXT_CSD_CMDQ_SUPPORT] &
 					     EXT_CSD_CMDQ_SUPPORTED;
 		card->ext_csd.cmdq_depth = (ext_csd[EXT_CSD_CMDQ_DEPTH] &
@@ -1181,8 +1187,10 @@ static int mmc_select_hs_ddr(struct mmc_card *card)
 			return 0;
 	}
 
-	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_DDR_1_8V &&
-	    host->caps & MMC_CAP_1_8V_DDR)
+	if (host->caps2 & MMC_CAP2_NMCARD)
+		err = 0;
+	else if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_DDR_1_8V &&
+				host->caps & MMC_CAP_1_8V_DDR)
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180);
 
 	/* make sure vccq is 3.3v after switching disaster */
@@ -1467,7 +1475,10 @@ static int mmc_select_hs200(struct mmc_card *card)
 	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200_1_2V)
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_120);
 
-	if (err && card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200_1_8V)
+
+	if (host->caps2 & MMC_CAP2_NMCARD)
+		err = 0;
+	else if (err && card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200_1_8V)
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180);
 
 	/* If fails try again during next card power cycle */

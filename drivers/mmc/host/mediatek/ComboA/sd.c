@@ -3671,8 +3671,14 @@ start_tune:
 				emmc_execute_dvfs_autok(host, MMC_SEND_STATUS);
 			else
 #endif
-				emmc_execute_dvfs_autok(host,
-					MMC_SEND_TUNING_BLOCK_HS200);
+			{
+				if (host->hw->host_function == MSDC_EMMC)
+					emmc_execute_dvfs_autok(host,
+						MMC_SEND_TUNING_BLOCK_HS200);
+				else if (host->hw->host_function == MSDC_SD)
+					sd_execute_dvfs_autok(host,
+						MMC_SEND_TUNING_BLOCK_HS200);
+			}
 			break;
 		}
 		/* fall through */
@@ -4269,7 +4275,9 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * Save timing setting if leaving current timing for restore
 	 * using.
 	 */
-	if (host->hw->host_function == MSDC_EMMC && host->timing != ios->timing
+	if ((host->hw->host_function == MSDC_EMMC ||
+		(mmc->caps2 & MMC_CAP2_NMCARD))
+			&& host->timing != ios->timing
 			&& ios->timing == MMC_TIMING_LEGACY)
 		msdc_save_timing_setting(host);
 
@@ -4336,6 +4344,9 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			} else if (host->timing == MMC_TIMING_UHS_DDR50) {
 				host->hw->driving_applied =
 					&host->hw->driving_ddr50;
+			} else if (host->timing == MMC_TIMING_MMC_HS200) {
+				host->hw->driving_applied =
+					&host->hw->driving_hs200;
 			}
 			msdc_set_driving(host, host->hw->driving_applied);
 		}
@@ -4357,7 +4368,8 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		 * Only restore tune setting on resumming for saving
 		 * time.
 		 */
-		if (host->hw->host_function == MSDC_EMMC
+		if ((host->hw->host_function == MSDC_EMMC ||
+			(mmc->caps2 & MMC_CAP2_NMCARD))
 		&& mmc->card && mmc_card_suspended(mmc->card)
 		&& ios->timing != MMC_TIMING_LEGACY) {
 			msdc_restore_timing_setting(host);
@@ -4409,6 +4421,7 @@ static int msdc_ops_get_cd(struct mmc_host *mmc)
 		level = __gpio_get_value(cd_gpio);
 #endif
 		host->card_inserted = (host->hw->cd_level == level) ? 1 : 0;
+
 	}
 
 	if (host->block_bad_card)
@@ -5215,13 +5228,16 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (host->hw->host_function == MSDC_EMMC)
 		mmc->caps |= MMC_CAP_CMD23;
 #endif
-	if (host->hw->host_function == MSDC_SD)
+	if (host->hw->host_function == MSDC_SD) {
 		mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
-
+#ifdef NMCARD_SUPPORT
+		mmc->caps2 |= MMC_CAP2_NMCARD;
+#endif
+	}
 	mmc->caps |= MMC_CAP_ERASE;
 
 #ifdef CONFIG_MTK_EMMC_HW_CQ
-	if (check_enable_cqe())
+	if (check_enable_cqe() && host->hw->host_function == MSDC_EMMC)
 		mmc->caps2 |= MMC_CAP2_CQE;
 #endif
 

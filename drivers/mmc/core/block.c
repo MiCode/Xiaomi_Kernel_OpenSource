@@ -909,7 +909,11 @@ static int mmc_blk_check_disk_range_wp(struct gendisk *disk,
 	}
 
 	card = md->queue.card;
+	/* NMCARD use a eMMC4.5-like protocol but it is extern storage,
+	 * no need check WP status.
+	 */
 	if (!mmc_card_mmc(card) ||
+		(card->host->caps2 & MMC_CAP2_NMCARD) ||
 		md->part_type == EXT_CSD_PART_CONFIG_ACC_RPMB) {
 		err = MMC_BLK_NO_WP;
 		goto out2;

@@ -574,6 +574,9 @@
 /* #define MSDC_HQA */
 /* #define SDIO_HQA */
 
+/* nano memory card support flag by platform */
+#define NMCARD_SUPPORT
+
 /* sd read/write crc error happen in mt6885 when vcore changes,
  * sd can't support autok merge by fix vcore(like emmc),
  * so add runtime autok merge function
