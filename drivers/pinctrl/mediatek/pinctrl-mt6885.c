@@ -736,6 +736,33 @@ static const struct mtk_pin_reg_calc mt6885_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_DRV_EH] = MTK_RANGE(mt6885_pin_eh_range),
 };
 
+static const struct mtk_eh_pin_pinmux mt6885_eh_pin_pinmux_list[] = {
+	/* pin number, pinmux number */
+	{89, 2},
+	{90, 2},
+	{118, 1},
+	{119, 1},
+	{120, 1},
+	{121, 1},
+	{122, 1},
+	{123, 1},
+	{124, 1},
+	{125, 1},
+	{139, 1},
+	{140, 1},
+	{141, 1},
+	{142, 1},
+	{160, 1},
+	{161, 1},
+	{200, 1},
+	{201, 1},
+	{202, 1},
+	{203, 1},
+	{204, 1},
+	{205, 1},
+	{0xffff, 0}, /* indicate end of array */
+};
+
 static const struct mtk_eint_hw mt6885_eint_hw = {
 	.port_mask = 7,
 	.ports     = 7,
@@ -751,6 +778,7 @@ static const struct mtk_pin_soc mt6885_data = {
 	.eint_hw = &mt6885_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
+	.eh_pin_pinmux = mt6885_eh_pin_pinmux_list,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
 	.drive_set = mtk_pinconf_drive_set_direct_val,
