@@ -76,7 +76,7 @@
 #define TIME_3MS  3000000
 #define TIME_2MS  2000000
 #define TIME_1MS  1000000
-#define TARGET_UNLIMITED_FPS 120
+#define TARGET_UNLIMITED_FPS 240
 #define TARGET_DEFAULT_FPS 60
 #define FBTCPU_SEC_DIVIDER 1000000000
 #define NSEC_PER_HUSEC 100000
@@ -1682,6 +1682,11 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 	mutex_lock(&fbt_mlock);
 
 	switch (_gdfrc_fps_limit) {
+	case 60:
+		fps_rescue_percent = rescue_percent;
+		fps_short_rescue_ns = short_rescue_ns;
+		fps_min_rescue_percent = min_rescue_percent;
+		break;
 	case 90:
 		fps_rescue_percent = rescue_percent_90;
 		fps_min_rescue_percent = rescue_percent_90;
@@ -1690,17 +1695,12 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 			? DEF_RESCUE_NS_TH : vsync_period;
 		break;
 	case 120:
+	default:
 		fps_rescue_percent = rescue_percent_120;
 		fps_min_rescue_percent = rescue_percent_120;
 		fps_short_rescue_ns =
 			(rescue_percent_120 == DEF_RESCUE_PERCENT)
 			? DEF_RESCUE_NS_TH : vsync_period;
-		break;
-	case 60:
-	default:
-		fps_rescue_percent = rescue_percent;
-		fps_short_rescue_ns = short_rescue_ns;
-		fps_min_rescue_percent = min_rescue_percent;
 		break;
 	}
 

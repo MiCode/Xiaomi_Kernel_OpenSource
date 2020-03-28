@@ -23,7 +23,7 @@
 #include <linux/sched.h>
 
 #define DEFAULT_DFPS 60
-#define CFG_MAX_FPS_LIMIT	120
+#define CFG_MAX_FPS_LIMIT	240
 #define CFG_MIN_FPS_LIMIT	10
 #define FRAME_TIME_BUFFER_SIZE 200
 #define MAX_NR_FPS_LEVELS	1
