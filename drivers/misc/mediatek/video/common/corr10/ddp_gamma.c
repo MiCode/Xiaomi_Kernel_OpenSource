@@ -27,7 +27,7 @@
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 #include <ddp_clkmgr.h>
 #endif
@@ -45,7 +45,7 @@
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 #include <disp_helper.h>
 #endif
@@ -86,7 +86,8 @@ static DEFINE_MUTEX(g_gamma_global_lock);
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 
 #define GAMMA0_MODULE_NAMING (DISP_MODULE_GAMMA0)
 #else
@@ -99,7 +100,7 @@ static DEFINE_MUTEX(g_gamma_global_lock);
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 #define GAMMA0_CLK_NAMING (DISP0_DISP_GAMMA0)
 #else
@@ -114,7 +115,8 @@ static DEFINE_MUTEX(g_gamma_global_lock);
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 
 #define GAMMA_SUPPORT_PARTIAL_UPDATE
 #endif
@@ -401,7 +403,7 @@ static int disp_gamma_power_on(enum DISP_MODULE_ENUM module, void *handle)
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #else
@@ -436,7 +438,7 @@ static int disp_gamma_power_off(enum DISP_MODULE_ENUM module, void *handle)
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 #else
@@ -491,7 +493,8 @@ struct DDP_MODULE_DRIVER ddp_driver_gamma = {
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 
 #define CCORR0_BASE_NAMING (DISPSYS_CCORR0_BASE)
 #define CCORR0_MODULE_NAMING (DISP_MODULE_CCORR0)
@@ -505,7 +508,8 @@ struct DDP_MODULE_DRIVER ddp_driver_gamma = {
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 
 
 #define CCORR0_CLK_NAMING (DISP0_DISP_CCORR0)
@@ -521,7 +525,8 @@ struct DDP_MODULE_DRIVER ddp_driver_gamma = {
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 
 #define CCORR_SUPPORT_PARTIAL_UPDATE
 #endif
@@ -1172,7 +1177,7 @@ static int disp_ccorr_power_on(enum DISP_MODULE_ENUM module, void *handle)
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #else
@@ -1209,7 +1214,7 @@ static int disp_ccorr_power_off(enum DISP_MODULE_ENUM module, void *handle)
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 #else
