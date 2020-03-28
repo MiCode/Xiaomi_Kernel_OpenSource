@@ -50,15 +50,15 @@
 #define TS_REG_COORDS_BASE	0x4100
 
 /*
- * struct goodix_tools_data - goodix tools data message used in sync read
+ * struct gt9896s_tools_data - gt9896s tools data message used in sync read
  * @data: The buffer into which data is written
  * @reg_addr: Slave device register start address to start read data
  * @length: Number of data bytes in @data being read from slave device
  * @filled: When buffer @data be filled will set this flag with 1, outhrwise 0
- * @list_head:Eonnet every goodix_tools_data struct into a list
+ * @list_head:Eonnet every gt9896s_tools_data struct into a list
  */
 
-struct goodix_tools_data {
+struct gt9896s_tools_data {
 	u32 reg_addr;
 	u32 length;
 	u8 *data;
@@ -68,37 +68,37 @@ struct goodix_tools_data {
 
 
 /*
- * struct goodix_tools_dev - goodix tools device struct
+ * struct gt9896s_tools_dev - gt9896s tools device struct
  * @ts_core: The core data struct of ts driver
  * @ops_mode: represent device work mode
  * @rawdiffcmd: Set slave device into rawdata mode
  * @normalcmd: Set slave device into normal mode
  * @wq: Wait queue struct use in synchronous data read
- * @mutex: Protect goodix_tools_dev
+ * @mutex: Protect gt9896s_tools_dev
  */
-struct goodix_tools_dev {
-	struct goodix_ts_core *ts_core;
+struct gt9896s_tools_dev {
+	struct gt9896s_ts_core *ts_core;
 	struct list_head head;
 	unsigned int ops_mode;
-	struct goodix_ts_cmd rawdiffcmd, normalcmd;
+	struct gt9896s_ts_cmd rawdiffcmd, normalcmd;
 	wait_queue_head_t wq;
 	struct mutex mutex;
 	atomic_t t_count;
-	struct goodix_ext_module module;
-} *goodix_tools_dev;
+	struct gt9896s_ext_module module;
+} *gt9896s_tools_dev;
 
 
 /* read data from i2c asynchronous,
  * success return bytes read, else return <= 0
  */
-static int async_read(struct goodix_tools_dev *dev, void __user *arg)
+static int async_read(struct gt9896s_tools_dev *dev, void __user *arg)
 {
 	u8 *databuf = NULL;
 	int ret = 0;
 	u32 reg_addr, length;
 	u8 i2c_msg_head[I2C_MSG_HEAD_LEN];
-	struct goodix_ts_device *ts_dev = dev->ts_core->ts_dev;
-	const struct goodix_ts_hw_ops *hw_ops = ts_dev->hw_ops;
+	struct gt9896s_ts_device *ts_dev = dev->ts_core->ts_dev;
+	const struct gt9896s_ts_hw_ops *hw_ops = ts_dev->hw_ops;
 
 	ret = copy_from_user(&i2c_msg_head, arg, I2C_MSG_HEAD_LEN);
 	if (ret) {
@@ -133,7 +133,7 @@ err_out:
 }
 
 /* if success return config data length */
-static int read_config_data(struct goodix_ts_device *ts_dev, void __user *arg)
+static int read_config_data(struct gt9896s_ts_device *ts_dev, void __user *arg)
 {
 	int ret = 0;
 	u32 reg_addr, length;
@@ -182,11 +182,11 @@ err_out:
 /* read data from i2c synchronous,
  * success return bytes read, else return <= 0
  */
-static int sync_read(struct goodix_tools_dev *dev, void __user *arg)
+static int sync_read(struct gt9896s_tools_dev *dev, void __user *arg)
 {
 	int ret = 0;
 	u8 i2c_msg_head[I2C_MSG_HEAD_LEN];
-	struct goodix_tools_data tools_data;
+	struct gt9896s_tools_data tools_data;
 
 	ret = copy_from_user(&i2c_msg_head, arg, I2C_MSG_HEAD_LEN);
 	if (ret) {
@@ -234,14 +234,14 @@ static int sync_read(struct goodix_tools_dev *dev, void __user *arg)
 /* write data to i2c asynchronous,
  * success return bytes write, else return <= 0
  */
-static int async_write(struct goodix_tools_dev *dev, void __user *arg)
+static int async_write(struct gt9896s_tools_dev *dev, void __user *arg)
 {
 	u8 *databuf;
 	int ret = 0;
 	u32 reg_addr, length;
 	u8 i2c_msg_head[I2C_MSG_HEAD_LEN];
-	struct goodix_ts_device *ts_dev = dev->ts_core->ts_dev;
-	const struct goodix_ts_hw_ops *hw_ops = ts_dev->hw_ops;
+	struct gt9896s_ts_device *ts_dev = dev->ts_core->ts_dev;
+	const struct gt9896s_ts_hw_ops *hw_ops = ts_dev->hw_ops;
 
 	ret = copy_from_user(&i2c_msg_head, arg, I2C_MSG_HEAD_LEN);
 	if (ret) {
@@ -277,7 +277,7 @@ err_out:
 	return ret;
 }
 
-static int init_cfg_data(struct goodix_ts_config *cfg, void __user *arg)
+static int init_cfg_data(struct gt9896s_ts_config *cfg, void __user *arg)
 {
 	int ret = 0;
 	u32 reg_addr, length;
@@ -313,22 +313,22 @@ err_out:
 	return ret;
 }
 /**
- * goodix_tools_ioctl - ioctl implementation
+ * gt9896s_tools_ioctl - ioctl implementation
  *
  * @filp: Pointer to file opened
  * @cmd: Ioctl opertion command
  * @arg: Command data
  * Returns >=0 - succeed, else failed
  */
-static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
+static long gt9896s_tools_ioctl(struct file *filp, unsigned int cmd,
 					unsigned long arg)
 {
 	int ret = 0;
-	struct goodix_tools_dev *dev = filp->private_data;
-	struct goodix_ts_device *ts_dev;
-	const struct goodix_ts_hw_ops *hw_ops;
-	struct goodix_ts_cmd temp_cmd;
-	struct goodix_ts_config *temp_cfg = NULL;
+	struct gt9896s_tools_dev *dev = filp->private_data;
+	struct gt9896s_ts_device *ts_dev;
+	const struct gt9896s_ts_hw_ops *hw_ops;
+	struct gt9896s_ts_cmd temp_cmd;
+	struct gt9896s_ts_config *temp_cfg = NULL;
 
 	if (dev->ts_core == NULL) {
 		ts_err("Tools module not register");
@@ -350,13 +350,13 @@ static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
 	switch (cmd & NEGLECT_SIZE_MASK) {
 	case GTP_IRQ_ENABLE:
 		if (arg == 1) {
-			goodix_ts_irq_enable(dev->ts_core, true);
+			gt9896s_ts_irq_enable(dev->ts_core, true);
 			mutex_lock(&dev->mutex);
 			dev->ops_mode |= IRQ_FALG;
 			mutex_unlock(&dev->mutex);
 			ts_info("IRQ enabled");
 		} else if (arg == 0) {
-			goodix_ts_irq_enable(dev->ts_core, false);
+			gt9896s_ts_irq_enable(dev->ts_core, false);
 			mutex_lock(&dev->mutex);
 			dev->ops_mode &= ~IRQ_FALG;
 			mutex_unlock(&dev->mutex);
@@ -368,16 +368,16 @@ static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
 		break;
 	case GTP_ESD_ENABLE:
 		if (arg == 0)
-			goodix_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
+			gt9896s_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
 		else
-			goodix_ts_blocking_notify(NOTIFY_ESD_ON, NULL);
+			gt9896s_ts_blocking_notify(NOTIFY_ESD_ON, NULL);
 		break;
 	case GTP_DEV_RESET:
 		hw_ops->reset(ts_dev);
 		break;
 	case GTP_SEND_COMMAND:
 		ret = copy_from_user(&temp_cmd, (void __user *)arg,
-					sizeof(struct goodix_ts_cmd));
+					sizeof(struct gt9896s_ts_cmd));
 		if (ret) {
 			ret = -EINVAL;
 			goto err_out;
@@ -390,7 +390,8 @@ static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
 		}
 		break;
 	case GTP_SEND_CONFIG:
-		temp_cfg = kzalloc(sizeof(struct goodix_ts_config), GFP_KERNEL);
+		temp_cfg =
+		kzalloc(sizeof(struct gt9896s_ts_config), GFP_KERNEL);
 		if (temp_cfg == NULL) {
 			ts_err("Memory allco err");
 			ret = -ENOMEM;
@@ -458,7 +459,7 @@ err_out:
 }
 
 #ifdef CONFIG_COMPAT
-static long goodix_tools_compat_ioctl(struct file *file, unsigned int cmd,
+static long gt9896s_tools_compat_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
 {
 	void __user *arg32 = compat_ptr(arg);
@@ -469,14 +470,14 @@ static long goodix_tools_compat_ioctl(struct file *file, unsigned int cmd,
 }
 #endif
 
-static int goodix_tools_open(struct inode *inode, struct file *filp)
+static int gt9896s_tools_open(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
 
-	filp->private_data = goodix_tools_dev;
+	filp->private_data = gt9896s_tools_dev;
 	ts_info("tools open");
 	/* Only the first time open device need to register module */
-	ret = goodix_register_ext_module(&goodix_tools_dev->module);
+	ret = gt9896s_register_ext_module(&gt9896s_tools_dev->module);
 	if (ret) {
 		ts_info("failed register to core module");
 	}
@@ -484,29 +485,29 @@ static int goodix_tools_open(struct inode *inode, struct file *filp)
 	return ret;
 }
 
-static int goodix_tools_release(struct inode *inode, struct file *filp)
+static int gt9896s_tools_release(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
 	/* when the last close this dev node unregister the module */
-	ret = goodix_unregister_ext_module(&goodix_tools_dev->module);
+	ret = gt9896s_unregister_ext_module(&gt9896s_tools_dev->module);
 	return ret;
 }
 
 /**
- * goodix_tools_module_irq - goodix tools Irq handle
+ * gt9896s_tools_module_irq - gt9896s tools Irq handle
  * This functions is excuted when interrupt happended
  *
  * @core_data: pointer to touch core data
- * @module: pointer to goodix_ext_module struct
+ * @module: pointer to gt9896s_ext_module struct
  * return: EVT_CONTINUE let other module handle this irq
  */
-static int goodix_tools_module_irq(struct goodix_ts_core *core_data,
-	struct goodix_ext_module *module)
+static int gt9896s_tools_module_irq(struct gt9896s_ts_core *core_data,
+	struct gt9896s_ext_module *module)
 {
-	struct goodix_tools_dev *dev = module->priv_data;
-	struct goodix_ts_device *ts_dev = dev->ts_core->ts_dev;
-	const struct goodix_ts_hw_ops *hw_ops = ts_dev->hw_ops;
-	struct goodix_tools_data *tools_data, *next;
+	struct gt9896s_tools_dev *dev = module->priv_data;
+	struct gt9896s_ts_device *ts_dev = dev->ts_core->ts_dev;
+	const struct gt9896s_ts_hw_ops *hw_ops = ts_dev->hw_ops;
+	struct gt9896s_tools_data *tools_data, *next;
 	int r = 0;
 	u8 evt_sta = 0;
 
@@ -531,10 +532,10 @@ static int goodix_tools_module_irq(struct goodix_ts_core *core_data,
 	return EVT_CONTINUE;
 }
 
-static int goodix_tools_module_init(struct goodix_ts_core *core_data,
-			struct goodix_ext_module *module)
+static int gt9896s_tools_module_init(struct gt9896s_ts_core *core_data,
+			struct gt9896s_ext_module *module)
 {
-	struct goodix_tools_dev *tools_dev = module->priv_data;
+	struct gt9896s_tools_dev *tools_dev = module->priv_data;
 
 	if (core_data)
 		tools_dev->ts_core = core_data;
@@ -544,70 +545,71 @@ static int goodix_tools_module_init(struct goodix_ts_core *core_data,
 	return 0;
 }
 
-static const struct file_operations goodix_tools_fops = {
+static const struct file_operations gt9896s_tools_fops = {
 	.owner		= THIS_MODULE,
-	.open		= goodix_tools_open,
-	.release	= goodix_tools_release,
-	.unlocked_ioctl	= goodix_tools_ioctl,
+	.open		= gt9896s_tools_open,
+	.release	= gt9896s_tools_release,
+	.unlocked_ioctl	= gt9896s_tools_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = goodix_tools_compat_ioctl,
+	.compat_ioctl = gt9896s_tools_compat_ioctl,
 #endif
 };
 
-static struct miscdevice goodix_tools_miscdev = {
+static struct miscdevice gt9896s_tools_miscdev = {
 	.minor	= MISC_DYNAMIC_MINOR,
 	.name	= GOODIX_TOOLS_NAME,
-	.fops	= &goodix_tools_fops,
+	.fops	= &gt9896s_tools_fops,
 };
 
-static struct goodix_ext_module_funcs goodix_tools_module_funcs = {
-	.irq_event = goodix_tools_module_irq,
-	.init = goodix_tools_module_init,
+static struct gt9896s_ext_module_funcs gt9896s_tools_module_funcs = {
+	.irq_event = gt9896s_tools_module_irq,
+	.init = gt9896s_tools_module_init,
 };
 
 /**
- * goodix_tools_init - init goodix tools device and register a miscdevice
+ * gt9896s_tools_init - init gt9896s tools device and register a miscdevice
  *
  * return: 0 success, else failed
  */
-static int __init goodix_tools_init(void)
+static int __init gt9896s_tools_init(void)
 {
 	int ret;
 
-	goodix_tools_dev = kzalloc(sizeof(struct goodix_tools_dev), GFP_KERNEL);
-	if (goodix_tools_dev == NULL) {
+	gt9896s_tools_dev =
+	kzalloc(sizeof(struct gt9896s_tools_dev), GFP_KERNEL);
+	if (gt9896s_tools_dev == NULL) {
 		ts_err("Memory allco err");
 		return -ENOMEM;
 	}
 
-	INIT_LIST_HEAD(&goodix_tools_dev->head);
-	goodix_tools_dev->ops_mode = 0;
-	goodix_tools_dev->ops_mode |= IRQ_FALG;
-	init_waitqueue_head(&goodix_tools_dev->wq);
-	mutex_init(&goodix_tools_dev->mutex);
-	atomic_set(&goodix_tools_dev->t_count, 0);
+	INIT_LIST_HEAD(&gt9896s_tools_dev->head);
+	gt9896s_tools_dev->ops_mode = 0;
+	gt9896s_tools_dev->ops_mode |= IRQ_FALG;
+	init_waitqueue_head(&gt9896s_tools_dev->wq);
+	mutex_init(&gt9896s_tools_dev->mutex);
+	atomic_set(&gt9896s_tools_dev->t_count, 0);
 
-	goodix_tools_dev->module.funcs = &goodix_tools_module_funcs;
-	goodix_tools_dev->module.name = GOODIX_TOOLS_NAME;
-	goodix_tools_dev->module.priv_data = goodix_tools_dev;
-	goodix_tools_dev->module.priority = EXTMOD_PRIO_DBGTOOL;
+	gt9896s_tools_dev->module.funcs = &gt9896s_tools_module_funcs;
+	gt9896s_tools_dev->module.name = GOODIX_TOOLS_NAME;
+	gt9896s_tools_dev->module.priv_data = gt9896s_tools_dev;
+	gt9896s_tools_dev->module.priority = EXTMOD_PRIO_DBGTOOL;
 
-	ret = misc_register(&goodix_tools_miscdev);
+	ret = misc_register(&gt9896s_tools_miscdev);
 	if (ret)
 		ts_err("Debug tools miscdev register failed");
 
 	return ret;
 }
 
-static void __exit goodix_tools_exit(void)
+static void __exit gt9896s_tools_exit(void)
 {
-	misc_deregister(&goodix_tools_miscdev);
-	kfree(goodix_tools_dev);
+	misc_deregister(&gt9896s_tools_miscdev);
+	kfree(gt9896s_tools_dev);
 	ts_info("Goodix tools miscdev exit");
 }
 
-module_init(goodix_tools_init);
-module_exit(goodix_tools_exit);
+module_init(gt9896s_tools_init);
+module_exit(gt9896s_tools_exit);
 
 MODULE_DESCRIPTION("Goodix tools Module");
 MODULE_AUTHOR("Goodix, Inc.");
