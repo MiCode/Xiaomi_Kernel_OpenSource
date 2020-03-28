@@ -403,9 +403,8 @@
 
 /* SCP */
 
-#define CLK_SCP_ADSP_PLL		0
-#define CLK_SCP_ADSP_26M		1
-#define CLK_SCP_NR_CLK			2
+#define CLK_SCP_PAR_ADSP_PLL		0
+#define CLK_SCP_PAR_NR_CLK		1
 
 /* IMP_IIC_WRAP_C */
 
@@ -661,7 +660,9 @@
 #define CLK_MDP_AAL0			15
 #define CLK_MDP_AAL1			16
 #define CLK_MDP_COLOR0			17
-#define CLK_MDP_NR_CLK			18
+#define CLK_MDP_IMG_DL_RELAY0_ASYNC0	18
+#define CLK_MDP_IMG_DL_RELAY1_ASYNC1	19
+#define CLK_MDP_NR_CLK			20
 
 /* SCP_SYS */
 #define SCP_SYS_MD1	0
