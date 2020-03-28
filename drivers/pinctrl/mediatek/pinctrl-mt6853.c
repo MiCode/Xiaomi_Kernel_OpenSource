@@ -1230,7 +1230,7 @@ static const struct mtk_eh_pin_pinmux mt6853_eh_pin_pinmux_list[] = {
 static const struct mtk_eint_hw mt6853_eint_hw = {
 	.port_mask = 7,
 	.ports     = 7,
-	.ap_num    = 224,
+	.ap_num    = 128,
 	.db_cnt    = 32,
 };
 
