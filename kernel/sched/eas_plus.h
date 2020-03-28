@@ -141,6 +141,8 @@ inline int hinted_cpu_prefer(int task_prefer);
 int cpu_prefer(struct task_struct *p);
 extern unsigned int hmp_cpu_is_fastest(int cpu);
 
+int get_sched_rm_util(void);
+
 static int check_freq_turning(void);
 struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				struct task_struct *p, int dest_cpu);

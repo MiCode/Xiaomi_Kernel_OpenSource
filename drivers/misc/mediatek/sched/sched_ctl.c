@@ -69,6 +69,8 @@ static struct kobj_attribute sched_boost_attr;
 static struct kobj_attribute sched_cpu_prefer_attr;
 #endif
 
+static int sched_rm_util;/*0 means disable*/
+
 static int sched_hint_status(int util, int cap)
 {
 	enum sched_status_t status;
@@ -258,6 +260,33 @@ static ssize_t show_sched_info(struct kobject *kobj,
 	return len;
 }
 
+static ssize_t show_sched_rm_rq_util(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+
+	len += snprintf(buf, max_len, "%s\n",
+			sched_rm_util ? "enable" : "disable");
+	return len;
+}
+
+static ssize_t store_sched_rm_rq_util(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val = 0;
+
+	if (sscanf(buf, "%iu", &val) != 0)
+		sched_rm_util = val ? 1 : 0;
+
+	return count;
+}
+
+int get_sched_rm_util(void)
+{
+	return sched_rm_util;
+}
+
 static ssize_t show_walt_info(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf);
 
@@ -277,6 +306,9 @@ static struct kobj_attribute sched_walt_info_attr =
 __ATTR(walt_debug, 0600 /* S_IWUSR | S_IRUSR */,
 			show_walt_info, store_walt_info);
 
+static struct kobj_attribute sched_rm_rq_util_attr =
+__ATTR(sched_rm_rq_util, 0644, show_sched_rm_rq_util, store_sched_rm_rq_util);
+
 static struct attribute *sched_attrs[] = {
 	&sched_info_attr.attr,
 	&sched_load_thresh_attr.attr,
@@ -289,6 +321,7 @@ static struct attribute *sched_attrs[] = {
 	&sched_iso_attr.attr,
 	&set_sched_iso_attr.attr,
 	&set_sched_deiso_attr.attr,
+	&sched_rm_rq_util_attr.attr,
 	NULL,
 };
 
