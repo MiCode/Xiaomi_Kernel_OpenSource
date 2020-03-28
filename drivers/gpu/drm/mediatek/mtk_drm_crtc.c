@@ -339,6 +339,7 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
+
 	if (!crtc) {
 		DDPPR_ERR("NULL crtc\n");
 		kfree(state);
@@ -369,8 +370,12 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 static void mtk_drm_crtc_destroy_state(struct drm_crtc *crtc,
 				       struct drm_crtc_state *state)
 {
+	struct mtk_crtc_state *s;
+
+	s = to_mtk_crtc_state(state);
+
 	__drm_atomic_helper_crtc_destroy_state(state);
-	kfree(to_mtk_crtc_state(state));
+	kfree(s);
 }
 
 static int mtk_drm_crtc_set_property(struct drm_crtc *crtc,

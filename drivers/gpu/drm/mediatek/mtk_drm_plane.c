@@ -205,8 +205,11 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 static void mtk_drm_plane_destroy_state(struct drm_plane *plane,
 					struct drm_plane_state *state)
 {
+	struct mtk_plane_state *s;
+
+	s = to_mtk_plane_state(state);
 	__drm_atomic_helper_plane_destroy_state(state);
-	kfree(to_mtk_plane_state(state));
+	kfree(s);
 }
 
 static int mtk_plane_atomic_set_property(struct drm_plane *plane,
