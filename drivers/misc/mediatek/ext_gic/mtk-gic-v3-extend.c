@@ -568,7 +568,8 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 }
 #endif
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 #define GIC_INT_MASK (MCUSYS_BASE_SWMODE + 0xaa88)
 #define GIC500_ACTIVE_CPU_SHIFT 0
 #define GIC500_ACTIVE_CPU_MASK (0xff << GIC500_ACTIVE_CPU_SHIFT)
@@ -587,6 +588,9 @@ int add_cpu_to_prefer_schedule_domain(unsigned int cpu)
 	unsigned long domain;
 
 	if (irq_sw_mode_support() != 1)
+		return 0;
+
+	if (!MCUSYS_BASE_SWMODE)
 		return 0;
 
 	spin_lock(&domain_lock);
@@ -648,8 +652,13 @@ void irq_sw_mode_init(void)
 		pr_notice("### IRQ SW mode not support ###\n");
 		return;
 	}
+
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mcucfg");
-	MCUSYS_BASE_SWMODE = of_iomap(node, 0);
+	if (node)
+		MCUSYS_BASE_SWMODE = of_iomap(node, 0);
+	else
+		pr_info("[gic_ext] fail to find mcucfg node\n");
+
 	spin_lock_init(&domain_lock);
 	gic_sched_pm_init();
 
