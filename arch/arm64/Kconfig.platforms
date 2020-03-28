@@ -520,7 +520,6 @@ config MACH_MT6853
 	select HAVE_SMP
 	select HIE
 	select NEED_MACH_MEMORY_H
-	select MTK_SYSIRQ
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG
 	select GENERIC_SCHED_CLOCK
