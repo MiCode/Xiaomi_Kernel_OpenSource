@@ -163,6 +163,10 @@ struct mtk_iommu_iova_region {
 	size_t			size;
 };
 
+static const struct mtk_iommu_iova_region single_domain[] = {
+	{.iova_base = 0, .size = SZ_4G},
+};
+
 /*
  * There may be 1 or 2 M4U HWs, But we always expect they are in the same domain
  * for the performance.
@@ -891,6 +895,8 @@ static const struct mtk_iommu_plat_data mt2712_data = {
 	.flags        = HAS_4GB_MODE | HAS_BCLK | HAS_VLD_PA_RNG,
 	.inv_sel_reg  = REG_MMU_INV_SEL_GEN1,
 	.larbid_remap = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
+	.iova_region  = single_domain,
+	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct mtk_iommu_plat_data mt6779_data = {
@@ -909,6 +915,8 @@ static const struct mtk_iommu_plat_data mt6873_data_mm = {
 	.has_misc_ctrl = true,
 	.has_bclk     = true,
 	.inv_sel_reg = REG_MMU_INV_SEL_GEN2,
+	.iova_region  = single_domain,
+	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct mtk_iommu_plat_data mt8173_data = {
@@ -916,6 +924,8 @@ static const struct mtk_iommu_plat_data mt8173_data = {
 	.flags	      = HAS_4GB_MODE | HAS_BCLK | RESET_AXI,
 	.inv_sel_reg  = REG_MMU_INV_SEL_GEN1,
 	.larbid_remap = {{0}, {1}, {2}, {3}, {4}, {5}}, /* Linear mapping. */
+	.iova_region  = single_domain,
+	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct mtk_iommu_plat_data mt8183_data = {
@@ -923,6 +933,8 @@ static const struct mtk_iommu_plat_data mt8183_data = {
 	.flags        = RESET_AXI,
 	.inv_sel_reg  = REG_MMU_INV_SEL_GEN1,
 	.larbid_remap = {{0}, {4}, {5}, {6}, {7}, {2}, {3}, {1}},
+	.iova_region  = single_domain,
+	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct of_device_id mtk_iommu_of_ids[] = {
