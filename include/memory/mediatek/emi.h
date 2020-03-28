@@ -35,6 +35,9 @@
 #define MTK_EMI_MAX_TOKEN		4
 #define MTK_EMI_MAX_CMD_LEN		256
 
+#define MTK_EMIISU_CON_SAVE_DEF		0xFFFFFFFF
+#define MTK_EMIISU_CON_DUMP_MASK	0xFFF0FFF0
+
 struct reg_info_t {
 	unsigned int offset;
 	unsigned int value;
@@ -78,6 +81,7 @@ struct emiisu_dev_t {
 	struct dentry *dump_dir;
 	struct dentry *dump_buf;
 	unsigned int ctrl_intf;
+	unsigned int con_save;
 };
 
 struct emimpu_region_t {
@@ -114,6 +118,9 @@ int mtk_emimpu_postclear_register(void (*clear_func)
 int mtk_emimpu_md_handling_register(void (*md_handling_func)
 	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
 void mtk_clear_md_violation(void);
+
+/* mtk emiisu api */
+void mtk_suspend_emiisu(void);
 
 #endif /* __EMI_H__ */
 

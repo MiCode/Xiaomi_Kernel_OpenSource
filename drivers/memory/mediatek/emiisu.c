@@ -132,6 +132,9 @@ static ssize_t dump_buf_read
 		if (copy_to_user(data, (char *)(emiisu_dev_ptr->buf_addr) +
 			*ppos, bytes))
 			return -EFAULT;
+	} else if (emiisu_dev_ptr->con_save != MTK_EMIISU_CON_SAVE_DEF) {
+		writel(emiisu_dev_ptr->con_save, emiisu_dev_ptr->con_addr);
+		emiisu_dev_ptr->con_save = MTK_EMIISU_CON_SAVE_DEF;
 	}
 
 	*ppos += bytes;
@@ -236,6 +239,8 @@ static int emiisu_probe(struct platform_device *pdev)
 		"con_addr", (unsigned long)(emiisu_dev_ptr->con_addr),
 		"ctrl_intf", emiisu_dev_ptr->ctrl_intf);
 
+	emiisu_dev_ptr->con_save = MTK_EMIISU_CON_SAVE_DEF;
+
 	emiisu_dev_ptr->dump_dir = debugfs_create_dir("emi_mbw", NULL);
 	if (!emiisu_dev_ptr->dump_dir) {
 		pr_info("%s: fail to create dump_dir\n", __func__);
@@ -279,6 +284,32 @@ static void __exit emiisu_drv_exit(void)
 
 module_init(emiisu_drv_init);
 module_exit(emiisu_drv_exit);
+
+/*
+ * mtk_suspend_emiisu - suspend emiisu recording behavior
+ *
+ * No return
+ */
+
+void mtk_suspend_emiisu(void)
+{
+	struct emiisu_dev_t *emiisu_dev_ptr;
+	unsigned int state;
+
+	if (!emiisu_pdev)
+		return;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+
+	if (emiisu_dev_ptr->con_save != MTK_EMIISU_CON_SAVE_DEF)
+		return;
+
+	state = readl(emiisu_dev_ptr->con_addr);
+	emiisu_dev_ptr->con_save = state;
+	writel(state & MTK_EMIISU_CON_DUMP_MASK, emiisu_dev_ptr->con_addr);
+}
+EXPORT_SYMBOL(mtk_suspend_emiisu);
 
 MODULE_DESCRIPTION("MediaTek EMIISU Driver v0.1");
 

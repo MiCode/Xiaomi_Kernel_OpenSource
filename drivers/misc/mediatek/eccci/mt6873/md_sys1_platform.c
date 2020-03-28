@@ -25,9 +25,7 @@
 #ifdef FEATURE_CLK_BUF
 #include <mtk_clkbuf_ctl.h>
 #endif
-#ifdef CONFIG_MTK_EMI_BWL
-#include <emi_mbw.h>
-#endif
+#include <memory/mediatek/emi.h>
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 #include <mach/mt6605.h>
@@ -454,55 +452,7 @@ void md_cd_get_md_bootup_status(
 
 }
 
-static int dump_emi_last_bm(struct ccci_modem *md)
-{
-	u32 buf_len = 1024;
-	u32 i, j;
-	char temp_char;
-	char *buf = NULL;
-	char *temp_buf = NULL;
-
-	buf = kzalloc(buf_len, GFP_ATOMIC);
-	if (!buf) {
-		CCCI_MEM_LOG_TAG(md->index, TAG,
-			"alloc memory failed for emi last bm\n");
-		return -1;
-	}
-#ifdef CONFIG_MTK_EMI_BWL
-	dump_last_bm(buf, buf_len);
-#endif
-	CCCI_MEM_LOG_TAG(md->index, TAG, "Dump EMI last bm\n");
-	buf[buf_len - 1] = '\0';
-	temp_buf = buf;
-	for (i = 0, j = 1; i < buf_len - 1; i++, j++) {
-		if (buf[i] == 0x0) /* 0x0 end of hole string. */
-			break;
-		if (buf[i] == 0x0A && j < 256) {
-			/* 0x0A stands for end of string, no 0x0D */
-			buf[i] = '\0';
-			CCCI_MEM_LOG(md->index, TAG,
-				"%s\n", temp_buf);/* max 256 bytes */
-			temp_buf = buf + i + 1;
-			j = 0;
-		} else if (unlikely(j >= 255)) {
-			/* ccci_mem_log max buffer length: 256,
-			 * but dm log maybe only less than 50 bytes.
-			 */
-			temp_char = buf[i];
-			buf[i] = '\0';
-			CCCI_MEM_LOG(md->index, TAG, "%s\n", temp_buf);
-			temp_buf = buf + i;
-			j = 0;
-			buf[i] = temp_char;
-		}
-	}
-
-	kfree(buf);
-
-	return 0;
-}
-
-void __weak dump_emi_outstanding(void)
+void __weak mtk_suspend_emiisu(void)
 {
 	CCCI_DEBUG_LOG(-1, TAG, "No %s\n", __func__);
 }
@@ -514,9 +464,8 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 	unsigned int ccif_sram[
 		CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
 
-	/*dump_emi_latency();*/
-	dump_emi_outstanding();
-	dump_emi_last_bm(md);
+	/* EMI debug feature */
+	mtk_suspend_emiisu();
 
 	md_cd_get_md_bootup_status(md, reg_value, 2);
 	md->ops->dump_info(md, DUMP_FLAG_CCIF, ccif_sram, 0);
