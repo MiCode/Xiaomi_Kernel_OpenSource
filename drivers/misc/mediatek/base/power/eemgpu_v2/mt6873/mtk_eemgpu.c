@@ -113,6 +113,10 @@ static unsigned int arrtype[CORN_SIZE] = {0, DCCONFIG_VAL, 0xaaaaaa, 0xffffff};
 static unsigned int final_corner_flag;
 #endif
 static unsigned int final_init01_flag;
+#if ENABLE_LOO_G
+unsigned int gpu_final_init02_flag;
+#endif
+unsigned int gpu_cur_init02_flag;
 
 #if ENABLE_LOO_G
 DEFINE_MUTEX(gpu_mutex_g);
@@ -1027,6 +1031,7 @@ static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 static void get_volt_table_in_thread(struct eemg_det *det)
 {
 #if ENABLE_LOO
+	unsigned int init2chk = 0;
 	struct eemg_det *highdet;
 #endif
 	struct eemg_det *ndet = det;
@@ -1049,6 +1054,14 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	/* Copy volt to volt_tbl_init2 */
 	if (det->init2_done == 0) {
+		/* To check BCPU banks init2 isr */
+		if (det->ctrl_id == EEMG_CTRL_GPU)
+			gpu_cur_init02_flag |= BIT(det->ctrl_id);
+#if ENABLE_LOO_G
+		else if (det->ctrl_id == EEMG_CTRL_GPU_HI)
+			gpu_cur_init02_flag |= BIT(det->ctrl_id);
+#endif
+
 #if ENABLE_LOO
 		/* Receive init2 isr and update init2 volt_table */
 		if (det->loo_role == HIGH_BANK) {
@@ -1295,7 +1308,31 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	eemg_save_final_volt_aee(ndet);
 
-	if (0 == (ndet->disabled % 2))
+#if ENABLE_LOO_G
+		if (ndet->set_volt_to_upower == 0) {
+			if (((ndet->ctrl_id == EEMG_CTRL_GPU) &&
+				(gpu_cur_init02_flag !=
+				gpu_final_init02_flag)))
+				init2chk = 0;
+			else
+				init2chk = 1;
+			eemg_error("cur_flag:0x%x, g_flag:0x%x\n",
+				gpu_cur_init02_flag, gpu_final_init02_flag);
+			/* only when set_volt_to_upower == 0,
+			 * the volt will be apply to upower
+			 */
+			if (init2chk)
+				ndet->set_volt_to_upower = 1;
+		}
+#else
+		/* only when set_volt_to_upower == 0,
+		 * the volt will be apply to upower
+		 */
+		if (ndet->set_volt_to_upower == 0)
+			ndet->set_volt_to_upower = 1;
+#endif
+
+	if (0 == (ndet->disabled % 2) && ndet->set_volt_to_upower)
 		ndet->ops->set_volt_gpu(ndet);
 #if 0
 skip_update:
@@ -1430,6 +1467,7 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 	switch (det_id) {
 	case EEMG_DET_GPU:
 #if ENABLE_LOO_G
+		gpu_final_init02_flag |= BIT(det_id);
 		if (gpu_2line) {
 			det->MDES	= devinfo->GPU_LO_MDES;
 			det->BDES	= devinfo->GPU_LO_BDES;
@@ -1535,6 +1573,17 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 	/* get DVFS frequency table */
 	if (det->ops->get_freq_table_gpu)
 		det->ops->get_freq_table_gpu(det);
+
+#if ENABLE_LOO_G
+	if ((gpu_2line) &&
+		(det_id == EEMG_DET_GPU_HI)) {
+		if (det->turn_pt != 0)
+			gpu_final_init02_flag |= BIT(det_id);
+		else
+			det->features = 0;
+	}
+#endif
+
 	eemg_debug("END init_det %s, turn_pt:%d\n",
 		det->name, det->turn_pt);
 	FUNC_EXIT(FUNC_LV_HELP);
