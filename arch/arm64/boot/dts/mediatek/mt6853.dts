@@ -324,9 +324,9 @@
 		reg = <0 0x10002000 0 0x1000>;
 	};
 
-	iocfg_rb: iocfg_rb@11c00000 {
+	iocfg_rb: iocfg_rb@11c30000 {
 		compatible = "mediatek,iocfg_rb";
-		reg = <0 0x11c00000 0 0x1000>;
+		reg = <0 0x11c30000 0 0x1000>;
 	};
 
 	iocfg_rm: iocfg_rm@11c20000 {
@@ -357,6 +357,11 @@
 	iocfg_rt: iocfg_rt@11ea0000 {
 		compatible = "mediatek,iocfg_rt";
 		reg = <0 0x11ea0000 0 0x1000>;
+	};
+
+	iocfg_tl: iocfg_tl@11f30000 {
+		compatible = "mediatek,iocfg_tl";
+		reg = <0 0x11f30000 0 0x1000>;
 	};
 
 	dcm: dcm@10001000 {
@@ -395,11 +400,6 @@
 			"audio",
 			"mp_cpusys_top",
 			"cpccfg_reg";
-	};
-
-	iocfg_tl: iocfg_tl@11f30000 {
-		compatible = "mediatek,iocfg_tl";
-		reg = <0 0x11f30000 0 0x1000>;
 	};
 
 	pericfg: pericfg@10003000 {
