@@ -1604,6 +1604,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
 	enum ISP_DEV_NODE_ENUM inner_regModule;
 	unsigned int dma_en = 0, dma2_en = 0;
+	unsigned int int3_en = 0, int4_en = 0;
+	unsigned int Irq3StatusX = 0, Irq4StatusX = 0;
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -1715,6 +1717,18 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	dmaerr[_ufdi_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFDI_R2_ERR_STAT(regModule));
 
+	int3_en = ISP_RD32(CAM_REG_CTL_RAW_INT3_EN(regModule));
+	int4_en = ISP_RD32(CAM_REG_CTL_RAW_INT4_EN(regModule));
+
+	Irq3StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUSX(inner_regModule));
+	Irq4StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUSX(inner_regModule));
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"int3_en:0x%x|0x%x,int4_en:0x%x|0x%x\n",
+		       int3_en, Irq3StatusX,
+		       int4_en, Irq4StatusX);
+
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "camsys:0x%x",
 		       ISP_RD32(ISP_CAMSYS_CONFIG_BASE));
 
@@ -1825,14 +1839,14 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	/* Module DebugInfo when no p1_done */
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00FC0101 + (i * 0x100)));
+			 (0x00040101 + (i * 0x100)));
 		moduleReqStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00FC1101 + (i * 0x100)));
+			 (0x00041101 + (i * 0x100)));
 		moduleRdyStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
 	}
@@ -7971,8 +7985,11 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ErrStatus, WarnStatus, warnTwo);
 
 			/* TG ERR print */
-			if (ErrStatus & TG_ERR_ST)
-				ISP_DumpDmaDeepDbg(module);
+			if (ErrStatus & TG_ERR_ST) {
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_A_ST);
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_B_ST);
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_C_ST);
+			}
 
 			/* DMA ERR print */
 			if (ErrStatus & DMA_ERR_ST)
