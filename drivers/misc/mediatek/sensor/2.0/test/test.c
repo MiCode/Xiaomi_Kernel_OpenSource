@@ -29,33 +29,33 @@ struct test_device test_driver4;
 
 static struct sensor_info support_sensors1[] = {
 	{
-		.sensor_type = SENSOR_TYPE_EKG,
+		.sensor_type = SENSOR_TYPE_ACCELEROMETER,
 		.gain = 1,
-		.name = {'E', 'K', 'G'},
+		.name = {'a', 'c', 'c', 'e', 'l'},
 		.vendor = {'m', 't', 'k'},
 	},
 };
 static struct sensor_info support_sensors2[] = {
 	{
-		.sensor_type = SENSOR_TYPE_PPG1,
+		.sensor_type = SENSOR_TYPE_MAGNETIC_FIELD,
 		.gain = 1,
-		.name = {'P', 'P', 'G', '1'},
+		.name = {'m', 'a', 'g'},
 		.vendor = {'m', 't', 'k'},
 	},
 };
 static struct sensor_info support_sensors3[] = {
 	{
-		.sensor_type = SENSOR_TYPE_PPG2,
+		.sensor_type = SENSOR_TYPE_GYROSCOPE,
 		.gain = 1,
-		.name = {'P', 'P', 'G', '2'},
+		.name = {'g', 'y', 'r', 'o'},
 		.vendor = {'m', 't', 'k'},
 	},
 };
 static struct sensor_info support_sensors4[] = {
 	{
-		.sensor_type = SENSOR_TYPE_OIS,
+		.sensor_type = SENSOR_TYPE_PRESSURE,
 		.gain = 1,
-		.name = {'O', 'I', 'S'},
+		.name = {'p', 'r', 'e', 's', 's'},
 		.vendor = {'m', 't', 'k'},
 	},
 };
@@ -188,7 +188,6 @@ static void __exit test_exit(void)
 module_init(test_init);
 module_exit(test_exit);
 
-
-MODULE_AUTHOR("Mediatek");
-MODULE_DESCRIPTION("test driver");
-MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("high frequency manager test");
+MODULE_AUTHOR("Hongxu Zhao <hongxu.zhao@mediatek.com>");
+MODULE_LICENSE("GPL v2");

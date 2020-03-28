@@ -145,6 +145,6 @@ static int __init test_app_init(void)
 
 module_init(test_app_init);
 
-MODULE_AUTHOR("Mediatek");
-MODULE_DESCRIPTION("test app 1");
-MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("high frequency manager test");
+MODULE_AUTHOR("Hongxu Zhao <hongxu.zhao@mediatek.com>");
+MODULE_LICENSE("GPL v2");

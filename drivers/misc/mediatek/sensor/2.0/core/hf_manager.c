@@ -11,7 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#define pr_fmt(fmt) "[hf_manager] " fmt
+#define pr_fmt(fmt) "[hf_manager]" fmt
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -115,14 +115,14 @@ static int hf_manager_report_event(struct hf_client *client,
 			hf_fifo->buffull = false;
 			hf_fifo->head = 0;
 			hf_fifo->tail = 0;
-			pr_err_ratelimited("%s [%s][%d:%d] reset, [%lld]\n",
-				__func__, client->proc_comm,
-				client->leader_pid, client->pid, hang_time);
+			pr_err_ratelimited("[%s][%d:%d] buffer reset %lld\n",
+				client->proc_comm, client->leader_pid,
+				client->ppid, hang_time);
 		} else {
-			pr_err_ratelimited("%s [%s][%d:%d] full, [%d,%lld]\n",
-				__func__, client->proc_comm,
-				client->leader_pid, client->pid,
-				event->sensor_type, event->timestamp);
+			pr_err_ratelimited("[%s][%d:%d] buffer full %d %lld\n",
+				client->proc_comm, client->leader_pid,
+				client->ppid, event->sensor_type,
+				event->timestamp);
 			spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 			wake_up_interruptible(&hf_fifo->wait);
 			/*
@@ -135,9 +135,9 @@ static int hf_manager_report_event(struct hf_client *client,
 	/* only data action run filter event */
 	if (likely(event->action == DATA_ACTION) &&
 			unlikely(filter_event_by_timestamp(hf_fifo, event))) {
-		pr_err_ratelimited("%s [%s][%d:%d] filter, [%d,%lld]\n",
-			__func__, client->proc_comm, client->leader_pid,
-			client->pid, event->sensor_type, event->timestamp);
+		pr_err_ratelimited("[%s][%d:%d] buffer filter %d %lld\n",
+			client->proc_comm, client->leader_pid,
+			client->ppid, event->sensor_type, event->timestamp);
 		spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 		/*
 		 * must return 0 when timestamp filtered, tell caller data
@@ -185,7 +185,7 @@ static int hf_manager_io_report(struct hf_manager *manager,
 {
 	/* must return 0 when sensor_type exceed and no need to retry */
 	if (unlikely(event->sensor_type >= SENSOR_TYPE_SENSOR_MAX)) {
-		pr_err_ratelimited("%s %u exceed max sensor type\n", __func__,
+		pr_err_ratelimited("Report failed, %u exceed max\n",
 			event->sensor_type);
 		return 0;
 	}
@@ -298,13 +298,13 @@ int hf_manager_create(struct hf_device *device)
 		sensor_type = device->support_list[i].sensor_type;
 		gain = device->support_list[i].gain;
 		if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX || !gain)) {
-			pr_err("%s %s sensor info wrong [%u,%u]\n", __func__,
-				device->dev_name, sensor_type, gain);
+			pr_err("Device:%s register failed, %u invalid gain\n",
+				device->dev_name, sensor_type);
 			err = -EINVAL;
 			goto out_err;
 		}
 		if (test_and_set_bit(sensor_type, sensor_list_bitmap)) {
-			pr_err("%s %s %u repeat\n", __func__,
+			pr_err("Device:%s register failed, %u repeat\n",
 				device->dev_name, sensor_type);
 			err = -EBUSY;
 			goto out_err;
@@ -337,7 +337,7 @@ int hf_manager_destroy(struct hf_manager *manager)
 	for (i = 0; i < device->support_size; ++i) {
 		sensor_type = device->support_list[i].sensor_type;
 		if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX)) {
-			pr_err("%s %s %u exceed max sensor type\n", __func__,
+			pr_err("Device:%s unregister failed, %u exceed max\n",
 				device->dev_name, sensor_type);
 			continue;
 		}
@@ -428,6 +428,12 @@ static int hf_manager_distinguish_event(struct hf_client *client,
 		if (READ_ONCE(request->raw))
 			hf_manager_report_event(client, event);
 		break;
+	default:
+		pr_err("Report %u failed, unknown action %u\n",
+			event->sensor_type, event->action);
+		/* unknown action must return 0 */
+		err = 0;
+		break;
 	}
 	return err;
 }
@@ -465,6 +471,7 @@ static struct hf_manager *hf_manager_find_manager(struct hf_core *core,
 				return manager;
 		}
 	}
+	pr_err("Failed to find manager, %u unregistered\n", sensor_type);
 	return NULL;
 }
 
@@ -548,10 +555,11 @@ static void hf_manager_find_best_param(struct hf_core *core,
 
 #ifdef HF_MANAGER_DEBUG
 	if (tmp_enable)
-		pr_notice("%s: %u,%u,%lld,%lld\n", __func__,
+		pr_notice("Find best command %u %u %lld %lld\n",
 			sensor_type, tmp_enable, tmp_delay, tmp_latency);
 	else
-		pr_notice("%s: %u,%u\n", __func__, sensor_type, tmp_enable);
+		pr_notice("Find best command %u %u\n",
+			sensor_type, tmp_enable);
 #endif
 }
 
@@ -632,9 +640,9 @@ static void device_poll_trigger(struct hf_device *device, bool enable)
 	int64_t min_interval = S64_MAX;
 	struct hf_manager *manager = device->manager;
 
-	BUG_ON(enable && !atomic_read(&manager->io_enabled));
+	WARN_ON(enable && !atomic_read(&manager->io_enabled));
 	min_interval = device_poll_min_interval(device);
-	BUG_ON(atomic_read(&manager->io_enabled) && min_interval == S64_MAX);
+	WARN_ON(atomic_read(&manager->io_enabled) && min_interval == S64_MAX);
 	if (atomic64_read(&manager->io_poll_interval) == min_interval)
 		return;
 	atomic64_set(&manager->io_poll_interval, min_interval);
@@ -854,21 +862,19 @@ static int hf_manager_drive_device(struct hf_client *client,
 	mutex_lock(&core->manager_lock);
 	manager = hf_manager_find_manager(core, sensor_type);
 	if (!manager) {
-		pr_err("%s: no manager finded\n", __func__);
 		mutex_unlock(&core->manager_lock);
 		return -EINVAL;
 	}
 	device = manager->hf_dev;
 	if (!device || !device->dev_name) {
-		pr_err("%s: no hf device or important param finded\n",
-			__func__);
 		mutex_unlock(&core->manager_lock);
 		return -EINVAL;
 	}
 
 #ifdef HF_MANAGER_DEBUG
-	pr_notice("%s: %s: %u,%u,%lld,%lld\n", __func__, device->dev_name,
-		cmd->sensor_type, cmd->action, cmd->delay, cmd->latency);
+	pr_notice("Drive device:%s command %u %u %lld %lld\n",
+		device->dev_name, cmd->sensor_type, cmd->action,
+		cmd->delay, cmd->latency);
 #endif
 
 	switch (cmd->action) {
@@ -903,6 +909,10 @@ static int hf_manager_drive_device(struct hf_client *client,
 		if (err < 0)
 			client->request[sensor_type].raw = false;
 		break;
+	default:
+		pr_err("Unknown action %u\n", cmd->action);
+		err = -EINVAL;
+		break;
 	}
 	mutex_unlock(&core->manager_lock);
 	return err;
@@ -930,8 +940,9 @@ struct hf_client *hf_client_create(void)
 	client->pid = current->pid;
 	client->core = &hfcore;
 
-	pr_notice("%s: [%s][%d:%d]\n", __func__, current->comm,
-		current->group_leader->pid, current->pid);
+#ifdef HF_MANAGER_DEBUG
+	pr_notice("Client create\n");
+#endif
 
 	INIT_LIST_HEAD(&client->list);
 
@@ -965,8 +976,9 @@ void hf_client_destroy(struct hf_client *client)
 {
 	unsigned long flags;
 
-	pr_notice("%s: [%s][%d:%d]\n", __func__, current->comm,
-		current->group_leader->pid, current->pid);
+#ifdef HF_MANAGER_DEBUG
+	pr_notice("Client destroy\n");
+#endif
 
 	spin_lock_irqsave(&client->core->client_lock, flags);
 	list_del(&client->list);
@@ -1018,6 +1030,9 @@ int hf_client_request_sensor_cali(struct hf_client *client,
 	case HF_MANAGER_REQUEST_TEST_DATA:
 		client->request[sensor_type].test = status;
 		break;
+	default:
+		pr_err("Unknown command %u\n", cmd);
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -1165,6 +1180,8 @@ static unsigned int hf_manager_poll(struct file *filp,
 	struct hf_client_fifo *hf_fifo = &client->hf_fifo;
 	unsigned int mask = 0;
 
+	client->ppid = current->pid;
+
 	poll_wait(filp, &hf_fifo->wait, wait);
 
 	if (hf_fifo->head != hf_fifo->tail)
@@ -1237,6 +1254,9 @@ static long hf_manager_ioctl(struct file *filp,
 		if (copy_to_user(ubuf, &packet, sizeof(packet)))
 			return -EFAULT;
 		break;
+	default:
+		pr_err("Unknown command %u\n", cmd);
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -1297,11 +1317,12 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 	j = 1;
 	k = 1;
 	list_for_each_entry(client, &core->client_list, list) {
-		seq_printf(m, "%d. client:%s pid:[%d:%d] online\n",
+		seq_printf(m, "%d. client:%s pid:[%d:%d,%d] online\n",
 			j++,
 			client->proc_comm,
 			client->leader_pid,
-			client->pid);
+			client->pid,
+			client->ppid);
 		for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
 			if (!client->request[i].enable)
 				continue;
@@ -1357,29 +1378,29 @@ static int __init hf_manager_init(void)
 
 	major = register_chrdev(0, "hf_manager", &hf_manager_fops);
 	if (major < 0) {
-		pr_err("%s unable to get major\n", __func__);
+		pr_err("Unable to get major\n");
 		return major;
 	}
 	hf_manager_class = class_create(THIS_MODULE, "hf_manager");
 	if (IS_ERR(hf_manager_class)) {
-		pr_err("%s failed to create class\n", __func__);
+		pr_err("Failed to create class\n");
 		return PTR_ERR(hf_manager_class);
 	}
 	dev = device_create(hf_manager_class, NULL, MKDEV(major, 0),
 		NULL, "hf_manager");
 	if (IS_ERR(dev)) {
-		pr_err("%s failed to create device\n", __func__);
+		pr_err("Failed to create device\n");
 		return PTR_ERR(dev);
 	}
 
 	if (!proc_create_data("hf_manager", 0444, NULL,
 			&hf_manager_proc_fops, &hfcore))
-		pr_err("%s failed to create proc\n", __func__);
+		pr_err("Failed to create proc\n");
 
 	task = kthread_run(kthread_worker_fn,
 			&hfcore.kworker, "hf_manager");
 	if (IS_ERR(task)) {
-		pr_err("%s failed to create kthread\n", __func__);
+		pr_err("Failed to create kthread\n");
 		return PTR_ERR(task);
 	}
 	sched_setscheduler(task, SCHED_FIFO, &param);
@@ -1387,6 +1408,6 @@ static int __init hf_manager_init(void)
 }
 subsys_initcall(hf_manager_init);
 
-MODULE_AUTHOR("Mediatek");
 MODULE_DESCRIPTION("high frequency manager");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Hongxu Zhao <hongxu.zhao@mediatek.com>");
+MODULE_LICENSE("GPL v2");

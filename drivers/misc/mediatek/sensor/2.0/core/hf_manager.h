@@ -143,9 +143,10 @@ struct hf_client {
 	struct hf_core *core;
 
 	/* record process info */
-	char proc_comm[TASK_COMM_LEN];
-	pid_t leader_pid;
-	pid_t pid;
+	char proc_comm[TASK_COMM_LEN]; /* process name */
+	pid_t leader_pid;              /* process pid */
+	pid_t pid;                     /* control thread pid */
+	pid_t ppid;                    /* poll thread pid */
 };
 
 #define set_interrupt_timestamp(m, t) (atomic64_set(&m->timestamp, t))
