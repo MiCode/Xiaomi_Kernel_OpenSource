@@ -78,7 +78,8 @@ int ufsf_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	ufshcd_hold(hba, false);
 	mutex_lock(&hba->dev_cmd.lock);
 
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG ||
+		hba->card->wmanufacturerid == UFS_VENDOR_MICRON)
 		selector = UFSFEATURE_SELECTOR;
 	else
 		selector = 0;
@@ -161,7 +162,8 @@ int ufsf_query_attr_retry(struct ufs_hba *hba, enum query_opcode opcode,
 	int retries;
 	u8 selector;
 
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG ||
+		hba->card->wmanufacturerid == UFS_VENDOR_MICRON)
 		selector = UFSFEATURE_SELECTOR;
 	else
 		selector = 0;
@@ -204,7 +206,7 @@ static int ufsf_read_desc(struct ufs_hba *hba, u8 desc_id, u8 desc_index,
 
 static int ufsf_read_dev_desc(struct ufsf_feature *ufsf, u8 selector)
 {
-	u8 desc_buf[UFSF_QUERY_DESC_DEVICE_MAX_SIZE];
+	u8 desc_buf[UFSF_QUERY_DESC_DEVICE_MAX_SIZE] = {0};
 	int ret;
 
 	ret = ufsf_read_desc(ufsf->hba, QUERY_DESC_IDN_DEVICE, 0, selector,
@@ -300,9 +302,11 @@ void ufsf_device_check(struct ufs_hba *hba)
 
 	ufsf->hba = hba;
 
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG ||
+		hba->card->wmanufacturerid == UFS_VENDOR_MICRON)
 		selector = UFSFEATURE_SELECTOR;
-	else
+
+	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
 		goto skip_vendor;
 
 	ret = ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
@@ -688,7 +692,8 @@ inline void ufsf_tw_reset_lu(struct ufsf_feature *ufsf)
 	INFO_MSG("run reset_lu.. tw_state(%d) -> TW_RESET",
 		 atomic_read(&ufsf->tw_state));
 	atomic_set(&ufsf->tw_state, TW_RESET);
-	schedule_work(&ufsf->tw_reset_work);
+	if (ufsf->tw_dev_info.tw_device)
+		schedule_work(&ufsf->tw_reset_work);
 }
 
 inline void ufsf_tw_reset_host(struct ufsf_feature *ufsf)

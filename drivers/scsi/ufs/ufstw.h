@@ -131,6 +131,7 @@ struct ufstw_lu {
 	/* Attributes */
 	unsigned int tw_flush_status;
 	unsigned int tw_available_buffer_size;
+	unsigned int tw_current_tw_buffer_size;
 
 	/* mode manual/fs */
 	atomic_t tw_mode;

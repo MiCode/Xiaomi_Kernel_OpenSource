@@ -896,6 +896,12 @@ int ufs_mtk_perf_setup(struct ufs_mtk_host *host,
 		return 0;
 	}
 
+#ifdef CONFIG_UFSTW
+	/* Turbo write may disable or not support */
+	if (!host->hba->ufsf.tw_lup[2] || !host->hba->ufsf.tw_lup[2]->tw_enable)
+		return 0;
+#endif
+
 	err = ufs_mtk_perf_setup_req(host, perf);
 	if (!err)
 		host->perf_en = perf;
@@ -1935,7 +1941,8 @@ int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 	}
 
 #if defined(CONFIG_UFSFEATURE)
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG ||
+		hba->card->wmanufacturerid == UFS_VENDOR_MICRON)
 		selector = UFSFEATURE_SELECTOR;
 	else
 		selector = 0;

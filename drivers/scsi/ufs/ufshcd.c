@@ -2645,7 +2645,7 @@ static int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 
 #if defined(CONFIG_SCSI_SKHPB)
-		if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
+		if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX) {
 			if (hba->skhpb_state == SKHPB_PRESENT &&
 				hba->issue_ioctl == false) {
 				skhpb_prep_fn(hba, lrbp);
@@ -5204,7 +5204,7 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 	ufshcd_vops_scsi_dev_cfg(sdev, UFS_SCSI_DEV_SLAVE_CONFIGURE);
 
 #if defined(CONFIG_SCSI_SKHPB)
-	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX) {
 		if (sdev->lun < UFS_UPIU_MAX_GENERAL_LUN)
 			hba->sdev_ufs_lu[sdev->lun] = sdev;
 	}
@@ -5358,7 +5358,7 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 				ufsf_hpb_noti_rb(&hba->ufsf, lrbp);
 #endif
 #if defined(CONFIG_SCSI_SKHPB)
-			if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
+			if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX) {
 				if (hba->skhpb_state == SKHPB_PRESENT &&
 						scsi_status == SAM_STAT_GOOD)
 					skhpb_rsp_upiu(hba, lrbp);
@@ -6656,7 +6656,7 @@ out:
 		ufsf_tw_reset_lu(&hba->ufsf);
 #endif
 #if defined(CONFIG_SCSI_SKHPB)
-		if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG) {
+		if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX) {
 			if (hba->skhpb_state == SKHPB_PRESENT)
 				hba->skhpb_state = SKHPB_RESET;
 			schedule_delayed_work(&hba->skhpb_init_work,
@@ -7919,7 +7919,7 @@ _link_retry:
 		scsi_scan_host(hba->host);
 
 #if defined(CONFIG_SCSI_SKHPB)
-		if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
+		if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
 			schedule_delayed_work(&hba->skhpb_init_work, 0);
 #endif
 		pm_runtime_put_sync(hba->dev);
@@ -8835,7 +8835,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 #endif
 
 #if defined(CONFIG_SCSI_SKHPB)
-	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
 		skhpb_suspend(hba);
 #endif
 
@@ -9511,7 +9511,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	ufsf_tw_release(&hba->ufsf);
 #endif
 #if defined(CONFIG_SCSI_SKHPB)
-	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
 		skhpb_release(hba, SKHPB_NEED_INIT);
 #endif
 
