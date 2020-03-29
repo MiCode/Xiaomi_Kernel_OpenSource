@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
@@ -163,6 +163,8 @@ struct kgsl_pwrctrl {
 	const char *tzone_name;
 	/** @icc_path: Interconnect path for the GPU (if applicable) */
 	struct icc_path *icc_path;
+	/** cur_ab: The last ab voted by the driver */
+	u32 cur_ab;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
