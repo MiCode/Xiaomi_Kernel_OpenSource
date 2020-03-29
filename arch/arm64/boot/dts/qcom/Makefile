@@ -468,6 +468,24 @@ dtb-$(CONFIG_ARCH_SDM660) += sdm660-sim.dtb \
 	sdm660-usbc-audio-rcm.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+        dtbo-$(CONFIG_ARCH_SDM429W) += sdm429-wtp-overlay.dtbo\
+		sdm429-wdp-overlay.dtbo\
+		sda429-wdp-overlay.dtbo\
+		sda429-wtp-overlay.dtbo
+
+sdm429-wtp-overlay.dtbo-base := sdm429.dtb
+sdm429-wdp-overlay.dtbo-base := sdm429.dtb
+sda429-wtp-overlay.dtbo-base := sda429.dtb
+sda429-wdp-overlay.dtbo-base := sda429.dtb
+else
+dtb-$(CONFIG_ARCH_SDM429W) += sdm429-wtp.dtb\
+	sdm429-wdp.dtb\
+	sda429-wtp.dtb\
+	sda429-wdp.dtb
+endif
+
+
 endif
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)
