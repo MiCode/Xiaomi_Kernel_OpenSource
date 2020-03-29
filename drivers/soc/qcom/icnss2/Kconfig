@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config ICNSS2
+	tristate "Platform driver for Wi-Fi Module module"
+	select CNSS_UTILS
+	help
+	  This module adds support for Q6 integrated WLAN connectivity
+	  subsystem with iWCN architecture. This module is responsible for
+	  communicating WLAN on/off control messages to FW over QMI channel.
+	  It is also responsible for handling WLAN PD restart notifications.
+
+config ICNSS2_DEBUG
+	bool "ICNSS2 Platform Driver Debug Support"
+	depends on ICNSS2
+	help
+	  Say 'Y' here to enable ICNSS driver debug support. Debug support
+	  primarily consists of logs consisting of information related to
+	  hardware register access and enabling BUG_ON for certain cases to aid
+	  the debugging.
+
+config ICNSS2_QMI
+	bool "ICNSS2 Platform Driver QMI support"
+	select CNSS_QMI_SVC
+	depends on ICNSS2
+	help
+	  Say 'Y' here to enable ICNSS QMI support. ICNSS driver will use
+	  QMI framework to communicate with WLAN FW. It will send coldboot
+	  handshake messages to WLAN FW, which includes hardware capabilities
+	  and configurations. It also send WLAN on/off control message to FW
+	  over QMI channel.
+
+config CNSS_QCA6750
+	bool "Enable ICNSS QCA6750 chipset specific changes"
+	depends on ICNSS2
+	help
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6750 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6750 chipset.

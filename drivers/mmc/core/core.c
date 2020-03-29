@@ -1836,6 +1836,12 @@ static inline void mmc_set_ios(struct mmc_host *host)
 				mmc_hostname(host), ios->old_rate / 1000,
 				ios->clock / 1000, jiffies_to_msecs(
 					(long)jiffies - (long)ios->clk_ts));
+			trace_mmc_clk(trace_info);
+			mmc_log_string(host,
+				"freq_KHz %d --> %d | t = %d",
+				ios->old_rate / 1000,
+				ios->clock / 1000, jiffies_to_msecs(
+					(long)jiffies - (long)ios->clk_ts));
 		}
 		ios->old_rate = ios->clock;
 		ios->clk_ts = jiffies;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -443,6 +443,36 @@ retry:
 
 }
 
+static int __dme_output_cache_operation(struct cvp_hfi_msg_session_hdr *pkt)
+{
+	struct cvp_hfi_msg_dme_pkt *dme_pkt;
+	int rc;
+
+	if (!pkt) {
+		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
+		return -EINVAL;
+	} else if (pkt->size < get_msg_size()) {
+		dprintk(CVP_ERR, "%s: bad_pkt_size %d\n", __func__, pkt->size);
+		return -E2BIG;
+	}
+
+	dme_pkt = (struct cvp_hfi_msg_dme_pkt *)pkt;
+	rc = dma_buf_begin_cpu_access_partial(dme_pkt->statsbuffer.dbuf,
+						DMA_TO_DEVICE, 0,
+						dme_pkt->statsbuffer.size);
+	if (rc) {
+		dprintk(CVP_ERR, "%s: begin_cpu_access failed\n", __func__);
+		return rc;
+	}
+	rc = dma_buf_end_cpu_access_partial(dme_pkt->statsbuffer.dbuf,
+						DMA_FROM_DEVICE, 0,
+						dme_pkt->statsbuffer.size);
+	if (rc)
+		dprintk(CVP_ERR, "%s: end_cpu_access failed\n", __func__);
+
+	return rc;
+}
+
 static int hfi_process_session_cvp_msg(u32 device_id,
 	struct cvp_hfi_msg_session_hdr *pkt,
 	struct msm_cvp_cb_info *info)
@@ -478,6 +508,11 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 			kdata1 = pkt->client_data.kdata1;
 			kdata2 = pkt->client_data.kdata2;
 			ktid = ((u64)kdata2 << 32) | kdata1;
+
+
+			if (pkt->packet_type == HFI_MSG_SESSION_CVP_DME)
+				__dme_output_cache_operation(pkt);
+
 			msm_cvp_unmap_buf_cpu(inst, ktid);
 
 			return _deprecated_hfi_msg_process(device_id,
