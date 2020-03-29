@@ -196,7 +196,7 @@ static void ipa_uc_ntn_loaded_handler(void)
 
 int ipa_ntn_init(void)
 {
-	struct ipa_uc_hdlrs uc_ntn_cbs = { 0 };
+	struct ipa_uc_hdlrs uc_ntn_cbs = { NULL };
 
 	uc_ntn_cbs.ipa_uc_event_hdlr = ipa_uc_ntn_event_handler;
 	uc_ntn_cbs.ipa_uc_event_log_info_hdlr =

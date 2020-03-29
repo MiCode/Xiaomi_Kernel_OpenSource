@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -381,7 +381,7 @@ static inline int ipa3_qmi_add_offload_request_send(
 }
 
 static inline int ipa3_qmi_rmv_offload_request_send(
-	struct ipa_rmv_offload_connection_req_msg_v01 *req)
+	struct ipa_remove_offload_connection_req_msg_v01 *req)
 {
 	return -EPERM;
 }
@@ -494,11 +494,13 @@ static inline int ipa3_qmi_send_mhi_ready_indication(
 	return -EPERM;
 }
 
+#ifdef CONFIG_RMNET_IPA3
 static int ipa3_qmi_send_rsc_pipe_indication(
 	struct ipa_endp_desc_indication_msg_v01 *req)
 {
 	return -EPERM;
 }
+#endif /* CONFIG_RMNET_IPA3 */
 
 static inline int ipa3_qmi_send_mhi_cleanup_request(
 	struct ipa_mhi_cleanup_req_msg_v01 *req)

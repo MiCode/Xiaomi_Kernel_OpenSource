@@ -1169,6 +1169,15 @@ struct gsi_chan_info {
 int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl);
 
 /**
+ * gsi_is_mcs_enabled - Peripheral should call this function to
+ * check if MCS is already loaded.
+ *
+ * @Return -GSI_STATUS_NODEV if node is already created.
+ *	   other error codes for failure
+ */
+int gsi_is_mcs_enabled(void);
+
+/**
  * gsi_complete_clk_grant - Peripheral should call this function to
  * grant the clock resource requested by GSI previously that could not
  * be granted synchronously. GSI will release the clock resource using
@@ -1818,6 +1827,11 @@ int gsi_enable_flow_control_ee(unsigned int chan_idx, unsigned int ee,
 #else
 static inline int gsi_register_device(struct gsi_per_props *props,
 		unsigned long *dev_hdl)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_is_mcs_enabled(void)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

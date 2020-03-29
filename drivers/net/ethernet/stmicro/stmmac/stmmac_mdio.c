@@ -139,9 +139,6 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	unsigned int mii_address = priv->hw->mii.addr;
 	struct stmmac_mdio_bus_data *data = priv->plat->mdio_bus_data;
 
-	if (priv->early_eth)
-		return 0;
-
 #ifdef CONFIG_OF
 	if (priv->device->of_node) {
 		if (data->reset_gpio < 0) {
@@ -253,7 +250,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
 
-		if (!phydev)
+		if (!phydev || phydev->phy_id == 0xffff)
 			continue;
 
 		/*

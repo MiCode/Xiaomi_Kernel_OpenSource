@@ -302,7 +302,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 	u16 sps_flags = SPS_IOVEC_FLAG_EOT;
 	dma_addr_t dma_address;
 	u16 len;
-	u32 mem_flag = GFP_ATOMIC;
+	gfp_t mem_flag = GFP_ATOMIC;
 	struct sps_iovec iov;
 	int ret;
 
@@ -955,7 +955,7 @@ void ipa_sps_irq_control_all(bool enable)
 
 		ipa_ep_idx = ipa_get_ep_mapping(client_num);
 		if (ipa_ep_idx == -1) {
-			IPAERR("Invalid client.\n");
+			IPADBG_LOW("Invalid client.\n");
 			continue;
 		}
 		ep = &ipa_ctx->ep[ipa_ep_idx];
@@ -2158,10 +2158,10 @@ static void ipa_replenish_rx_cache_recycle(struct ipa_sys_context *sys)
 	rx_len_cached = sys->len;
 
 	while (rx_len_cached < sys->rx_pool_sz) {
-		spin_lock_bh(&sys->spinlock);
 		if (list_empty(&sys->rcycl_list))
 			goto fail_kmem_cache_alloc;
 
+		spin_lock_bh(&sys->spinlock);
 		rx_pkt = list_first_entry(&sys->rcycl_list,
 				struct ipa_rx_pkt_wrapper, link);
 		list_del(&rx_pkt->link);
@@ -2204,7 +2204,6 @@ fail_dma_mapping:
 	INIT_LIST_HEAD(&rx_pkt->link);
 	spin_unlock_bh(&sys->spinlock);
 fail_kmem_cache_alloc:
-	spin_unlock_bh(&sys->spinlock);
 	if (rx_len_cached == 0)
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
 		msecs_to_jiffies(1));
@@ -2673,7 +2672,7 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 	int rc = 0;
 	struct ipa_hw_pkt_status *status;
 	struct sk_buff *skb2;
-	u16 pkt_len_with_pad;
+	__be16 pkt_len_with_pad;
 	u32 qmap_hdr;
 	int checksum_trailer_exists;
 	int frame_len;
@@ -2839,10 +2838,6 @@ static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
 	mux_hdr = (struct ipa_a5_mux_hdr *)rx_skb->data;
 
 	src_pipe = mux_hdr->src_pipe_index;
-
-	IPADBG("RX pkt len=%d IID=0x%x src=%d, flags=0x%x, meta=0x%x\n",
-		rx_skb->len, ntohs(mux_hdr->interface_id),
-		src_pipe, mux_hdr->flags, ntohl(mux_hdr->metadata));
 
 	IPA_DUMP_BUFF(rx_skb->data, 0, rx_skb->len);
 
@@ -3082,35 +3077,6 @@ static void ipa_wq_rx_avail(struct work_struct *work)
 		WARN_ON(1);
 	sys = rx_pkt->sys;
 	ipa_wq_rx_common(sys, 0);
-}
-
-/**
- * ipa_sps_irq_rx_no_aggr_notify() - Callback function which will be called by
- * the SPS driver after a Rx operation is complete.
- * Called in an interrupt context.
- * @notify:	SPS driver supplied notification struct
- *
- * This function defer the work for this event to a workqueue.
- */
-void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
-{
-	struct ipa_rx_pkt_wrapper *rx_pkt;
-
-	switch (notify->event_id) {
-	case SPS_EVENT_EOT:
-		rx_pkt = notify->data.transfer.user;
-		if (IPA_CLIENT_IS_APPS_CONS(rx_pkt->sys->ep->client))
-			atomic_set(&ipa_ctx->sps_pm.eot_activity, 1);
-		rx_pkt->len = notify->data.transfer.iovec.size;
-		IPADBG_LOW
-			("event %d notified sys=%p len=%u\n", notify->event_id,
-				notify->user, rx_pkt->len);
-		queue_work(rx_pkt->sys->wq, &rx_pkt->work);
-		break;
-	default:
-		IPAERR("received unexpected event id %d sys=%p\n",
-				notify->event_id, notify->user);
-	}
 }
 
 static int ipa_odu_rx_pyld_hdlr(struct sk_buff *rx_skb,

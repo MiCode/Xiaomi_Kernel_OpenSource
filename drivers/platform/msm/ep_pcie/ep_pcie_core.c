@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2783,7 +2783,7 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 					msi->start, 0, msi->end,
 					lower, upper);
 
-		if (ep_pcie_dev.active_config) {
+		if (ep_pcie_dev.active_config || ep_pcie_dev.pcie_edma) {
 			cfg->lower = lower;
 			cfg->upper = upper;
 		} else {

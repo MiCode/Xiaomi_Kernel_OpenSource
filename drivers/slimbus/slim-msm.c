@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -243,8 +243,11 @@ int msm_slim_sps_mem_alloc(
 void
 msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 {
+	struct device *dma_dev = dev->iommu_desc.cb_dev ?
+					dev->iommu_desc.cb_dev : dev->dev;
+
 	if (mem->base && mem->phys_base)
-		dma_free_coherent(dev->dev, mem->size, mem->base,
+		dma_free_coherent(dma_dev, mem->size, mem->base,
 							mem->phys_base);
 	else
 		dev_err(dev->dev, "cant dma free. they are NULL\n");

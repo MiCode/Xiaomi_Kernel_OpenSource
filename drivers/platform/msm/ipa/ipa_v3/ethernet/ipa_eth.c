@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,6 +190,13 @@ static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
+	/* We cannot register the interface during offload init phase because
+	 * it will cause IPACM to install IPA filter rules when it receives a
+	 * link-up netdev event, even if offload path is not started and/or no
+	 * ECM_CONNECT event is received from the driver. Since installing IPA
+	 * filter rules while offload path is stopped can cause DL data stall,
+	 * register the interface only after the offload path is started.
+	 */
 	rc = ipa_eth_ep_register_interface(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to register EP interface");
@@ -299,11 +306,19 @@ static void ipa_eth_device_refresh(struct ipa_eth_device *eth_dev)
 			return;
 		}
 
+		if (ipa_eth_net_watch_upper(eth_dev))
+			ipa_eth_dev_err(eth_dev,
+					"Failed to watch upper interfaces");
+
 		if (ipa_eth_pm_vote_bw(eth_dev))
 			ipa_eth_dev_err(eth_dev,
 					"Failed to vote for required BW");
 	} else {
 		ipa_eth_dev_log(eth_dev, "Start is disallowed for the device");
+
+		if (ipa_eth_net_unwatch_upper(eth_dev))
+			ipa_eth_dev_err(eth_dev,
+					"Failed to unwatch upper interfaces");
 
 		if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
 			IPA_ACTIVE_CLIENTS_INC_SIMPLE();
@@ -439,7 +454,7 @@ int ipa_eth_device_notify(struct ipa_eth_device *eth_dev,
 		rc = ipa_eth_device_complete_reset(eth_dev, data);
 		break;
 	default:
-		ipa_eth_dev_bug(eth_dev, "Unknown event");
+		ipa_eth_dev_log(eth_dev, "Skipped event processing");
 		break;
 	}
 
@@ -504,15 +519,22 @@ struct ipa_eth_device *ipa_eth_alloc_device(
 	struct ipa_eth_net_driver *nd)
 {
 	struct ipa_eth_device *eth_dev;
+	struct ipa_eth_device_private *ipa_priv;
 
 	if (!dev || !nd) {
 		ipa_eth_err("Invalid device or net driver");
 		return NULL;
 	}
 
-	eth_dev = devm_kzalloc(dev, sizeof(*eth_dev), GFP_KERNEL);
+	eth_dev = kzalloc(sizeof(*eth_dev), GFP_KERNEL);
 	if (!eth_dev)
 		return NULL;
+
+	ipa_priv = kzalloc(sizeof(*ipa_priv), GFP_KERNEL);
+	if (!ipa_priv) {
+		kfree(eth_dev);
+		return NULL;
+	}
 
 	eth_dev->dev = dev;
 	eth_dev->nd = nd;
@@ -531,6 +553,13 @@ struct ipa_eth_device *ipa_eth_alloc_device(
 
 	eth_dev->init = eth_dev->start = !ipa_eth_noauto;
 
+	/* Initialize private data */
+
+	mutex_init(&ipa_priv->upper_mutex);
+	INIT_LIST_HEAD(&ipa_priv->upper_devices);
+
+	eth_dev->ipa_priv = ipa_priv;
+
 	return eth_dev;
 }
 
@@ -541,10 +570,8 @@ struct ipa_eth_device *ipa_eth_alloc_device(
  */
 void ipa_eth_free_device(struct ipa_eth_device *eth_dev)
 {
-	struct device *dev = eth_dev->dev;
-
-	memset(eth_dev, 0, sizeof(*eth_dev));
-	devm_kfree(dev, eth_dev);
+	kzfree(eth_dev->ipa_priv);
+	kzfree(eth_dev);
 }
 
 /*

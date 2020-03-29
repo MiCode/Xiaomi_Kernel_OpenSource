@@ -391,7 +391,7 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 		return;
 
 	getnstimeofday64(&now);
-	dbg_log_string("skb %pK, time %lu.%lu", skb, now.tv_sec, now.tv_nsec);
+	dbg_log_string("skb %pK, time %lu.%09lu", skb, now.tv_sec, now.tv_nsec);
 	status = netif_rx (skb);
 	if (status != NET_RX_SUCCESS)
 		netif_dbg(dev, rx_err, dev->net,
@@ -657,7 +657,7 @@ static void rx_complete (struct urb *urb)
 	entry->urb = NULL;
 
 	getnstimeofday64(&now);
-	dbg_log_string("skb %pK, urb %pK, time %lu.%lu",
+	dbg_log_string("skb %pK, urb %pK, time %lu.%09lu",
 		       skb, urb, now.tv_sec, now.tv_nsec);
 	switch (urb_status) {
 	/* success */
@@ -1329,7 +1329,7 @@ static void tx_complete (struct urb *urb)
 	struct timespec64 now;
 
 	getnstimeofday64(&now);
-	dbg_log_string("skb %pK, urb %pK, time %lu.%lu",
+	dbg_log_string("skb %pK, urb %pK, time %lu.%09lu",
 		       skb, urb, now.tv_sec, now.tv_nsec);
 	if (urb->status == 0) {
 		struct pcpu_sw_netstats *stats64 = this_cpu_ptr(dev->stats64);
@@ -1449,7 +1449,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 		skb_tx_timestamp(skb);
 
 	getnstimeofday64(&now);
-	dbg_log_string("skb %pK, time %lu.%lu", skb, now.tv_sec, now.tv_nsec);
+	dbg_log_string("skb %pK, time %lu.%09lu", skb, now.tv_sec, now.tv_nsec);
 	// some devices want funky USB-level framing, for
 	// win32 driver (usually) and/or hardware quirks
 	if (info->tx_fixup) {

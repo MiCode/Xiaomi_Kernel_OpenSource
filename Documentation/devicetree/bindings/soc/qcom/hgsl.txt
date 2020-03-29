@@ -1,0 +1,30 @@
+* HGSL
+
+HGSL(Hypervisor Graphics system layer) is graphics driver under the hypervisor system.
+
+Required properties:
+- compatible : Must be "qcom,hgsl"
+
+- reg : physical base address and length of the register set(s).
+
+- reg-names : names corresponding to each reg property value.
+	      reg_hwver: HW version registers
+	      reg_doorbell_idx: address of GMUAO_DOORBELL_IDX
+
+Optional properties:
+- qcom,glb-db-senders : Point to possible nodes of HGSL TCSR sender. The user will select
+		        which sender to use. The driver will use TCSR compute signal to
+		        send signal to GPU.
+- qcom,glb-db-receivers : Point to possible nodes of HGSL TCSR receiver. The user will
+			  select which receiver to use. The driver will use TCSR compute
+			  signal to receive signal from GPU.
+
+Example:
+	msm_gpu_hyp {
+		compatible = "qcom,hgsl";
+		reg = <0x2c00000 0x8>, <0x2c8f000 0x4>;
+		reg-names = "hgsl_reg_hwinf", "hgsl_reg_gmucx";
+
+		qcom,glb-db-senders = <&hgsl_tcsr_sender0 &hgsl_tcsr_sender1>;
+		qcom,glb-db-receivers = <&hgsl_tcsr_receiver0 &hgsl_tcsr_receiver1>;
+	};

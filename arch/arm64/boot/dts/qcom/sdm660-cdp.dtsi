@@ -98,7 +98,12 @@
 };
 
 &pm660l_wled {
-	qcom,led-strings-list = [01 02];
+	qcom,string-cfg= <6>;
+	status = "ok";
+};
+
+&pm660l_lcdb {
+	status = "ok";
 };
 
 &dsi_dual_nt35597_truly_video {

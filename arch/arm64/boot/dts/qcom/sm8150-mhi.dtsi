@@ -474,111 +474,80 @@
 				mhi,num-elements = <1024>;
 				mhi,intmod = <5>;
 				mhi,msi = <5>;
-				mhi,chan = <100>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
 			};
 
 			mhi_event@6 {
 				mhi,num-elements = <2048>;
 				mhi,intmod = <5>;
 				mhi,msi = <6>;
-				mhi,chan = <101>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
 			};
 
 			mhi_event@7 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
 				mhi,msi = <7>;
-				mhi,chan = <102>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
-				mhi,offload;
 			};
 
 			mhi_event@8 {
 				mhi,num-elements = <1024>;
 				mhi,intmod = <5>;
 				mhi,msi = <8>;
-				mhi,chan = <103>;
 				mhi,priority = <1>;
 				mhi,brstmode = <2>;
-				mhi,hw-ev;
 			};
 
 			mhi_event@9 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
 				mhi,msi = <9>;
-				mhi,chan = <105>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
-				mhi,offload;
 			};
 
 			mhi_event@10 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
 				mhi,msi = <10>;
-				mhi,chan = <106>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
-				mhi,offload;
 			};
 
 			mhi_event@11 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
 				mhi,msi = <11>;
-				mhi,chan = <107>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
-				mhi,offload;
 			};
 
 			mhi_event@12 {
 				mhi,num-elements = <0>;
 				mhi,intmod = <0>;
 				mhi,msi = <12>;
-				mhi,chan = <108>;
 				mhi,priority = <1>;
 				mhi,brstmode = <3>;
-				mhi,hw-ev;
-				mhi,client-manage;
-				mhi,offload;
 			};
 
 			mhi_event@13 {
 				mhi,num-elements = <1024>;
 				mhi,intmod = <1>;
 				mhi,msi = <13>;
-				mhi,chan = <109>;
 				mhi,priority = <0>;
 				mhi,brstmode = <2>;
-				mhi,hw-ev;
 			};
 
 			mhi_event@14 {
 				mhi,num-elements = <1024>;
 				mhi,intmod = <0>;
 				mhi,msi = <14>;
-				mhi,chan = <110>;
 				mhi,priority = <0>;
 				mhi,brstmode = <2>;
-				mhi,hw-ev;
 			};
 		};
 

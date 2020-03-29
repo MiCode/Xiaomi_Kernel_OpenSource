@@ -14,13 +14,12 @@
 #define _UAPI_MACSEC_H
 
 #include <linux/types.h>
+#include <net/macsec.h>
 
 #define MACSEC_GENL_NAME "macsec"
 #define MACSEC_GENL_VERSION 1
 
 #define MACSEC_MAX_KEY_LEN 128
-
-#define MACSEC_KEYID_LEN 16
 
 #define MACSEC_DEFAULT_CIPHER_ID   0x0080020001000001ULL
 #define MACSEC_DEFAULT_CIPHER_ALT  0x0080C20001000001ULL

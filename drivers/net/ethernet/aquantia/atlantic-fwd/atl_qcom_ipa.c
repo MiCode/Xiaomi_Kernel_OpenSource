@@ -119,6 +119,14 @@ static int atl_ipa_fwd_notification(struct notifier_block *nb,
 		ipa_eth_device_notify(ai_dev->eth_dev,
 				      IPA_ETH_DEV_RESET_COMPLETE, NULL);
 		break;
+	case ATL_FWD_NOTIFY_MACSEC_ON:
+		ipa_eth_device_notify(ai_dev->eth_dev,
+				      IPA_ETH_DEV_ADD_MACSEC_IF, data);
+		break;
+	case ATL_FWD_NOTIFY_MACSEC_OFF:
+		ipa_eth_device_notify(ai_dev->eth_dev,
+				      IPA_ETH_DEV_DEL_MACSEC_IF, data);
+		break;
 	default:
 		return NOTIFY_DONE;
 	}

@@ -603,7 +603,7 @@ int ipa2_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 
 void ipa2_uc_mhi_cleanup(void)
 {
-	struct ipa_uc_hdlrs null_hdlrs = { 0 };
+	struct ipa_uc_hdlrs null_hdlrs = { NULL };
 
 	IPADBG("Enter\n");
 

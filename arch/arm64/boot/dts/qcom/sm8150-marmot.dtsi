@@ -17,6 +17,10 @@
 	qcom,mdm-link-info = "0307_01.01.00";
 };
 
+&wil6210 {
+	status = "disabled";
+};
+
 &pcie1 {
 	dma-coherent;
 };
@@ -78,19 +82,19 @@
 		};
 
 		mhi_chan@100 {
-			 mhi,event-ring = <6>;
+			mhi,event-ring = <6>;
 		};
 
 		mhi_chan@101 {
-			 mhi,event-ring = <7>;
+			mhi,event-ring = <7>;
 		};
 
 		mhi_chan@102 {
-			 mhi,event-ring = <8>;
+			mhi,event-ring = <8>;
 		};
 
 		mhi_chan@103 {
-			 mhi,event-ring = <9>;
+			mhi,event-ring = <9>;
 		};
 
 		mhi_chan@104 {
@@ -271,4 +275,36 @@
 			qcom,net-id = <3>;
 		};
 	};
+};
+
+&pil_modem_mem {
+	reg = <0x0 0x8d800000 0x0 0x3200000>;
+};
+
+&pil_video_mem {
+	reg = <0x0 0x90a00000 0x0 0x500000>;
+};
+
+&pil_slpi_mem {
+	reg = <0x0 0x90f00000 0x0 0x1500000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0x0 0x92400000 0x0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0x0 0x92410000 0x0 0xa000>;
+};
+
+&pil_gpu_mem {
+	reg = <0x0 0x9241a000 0x0 0x2000>;
+};
+
+&pil_spss_mem {
+	reg = <0x0 0x92500000 0x0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0x0 0x92600000 0x0 0x1400000>;
 };

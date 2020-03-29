@@ -22,6 +22,8 @@ Optional:
 qcom,bus-vector-names: specifies string IDs for the corresponding bus vectors
                        in the same order as qcom,msm-bus,vectors-KBps property.
 - qcom,arm-smmu: Boolean, if present enables EMAC SMMU support in sdxpoorwills.
+- qcom,phy-rxc-skew-ps: PHY skew control of RXC pad.
+- qcom,phy-txc-skew-ps: PHY skew control of RXC pad.
 
 Internal io-macro-info:
 - io-macro-bypass-mode: <0 or 1> internal or external delay configuration
@@ -69,6 +71,8 @@ soc {
 				"emac_rgmii_clk", "emac_slv_ahb_clk";
 			qcom,phy-reset = <&tlmm 79 GPIO_ACTIVE_HIGH>;
 			qcom,phy-intr-redirect = <&tlmm 124 GPIO_ACTIVE_LOW>;
+			qcom,phy-rxc-skew-ps = <1860>;
+			qcom,phy-txc-skew-ps = <1860>;
 			gdsc_emac-supply = <&emac_gdsc>;
 
 			io-macro-info {

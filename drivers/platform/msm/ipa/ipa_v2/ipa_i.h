@@ -1813,19 +1813,22 @@ void _ipa_enable_clks_v1_1(void);
 void _ipa_enable_clks_v2_0(void);
 void _ipa_disable_clks_v1_1(void);
 void _ipa_disable_clks_v2_0(void);
+void ipa_suspend_handler(enum ipa_irq_type interrupt,
+		void *private_data,
+		void *interrupt_data);
 
-static inline u32 ipa_read_reg(void *base, u32 offset)
+static inline u32 ipa_read_reg(void __iomem *base, u32 offset)
 {
 	return ioread32(base + offset);
 }
 
-static inline u32 ipa_read_reg_field(void *base, u32 offset,
+static inline u32 ipa_read_reg_field(void __iomem *base, u32 offset,
 		u32 mask, u32 shift)
 {
 	return (ipa_read_reg(base, offset) & mask) >> shift;
 }
 
-static inline void ipa_write_reg(void *base, u32 offset, u32 val)
+static inline void ipa_write_reg(void __iomem *base, u32 offset, u32 val)
 {
 	iowrite32(val, base + offset);
 }
@@ -1957,6 +1960,7 @@ struct iommu_domain *ipa2_get_wlan_smmu_domain(void);
 int ipa2_ap_suspend(struct device *dev);
 int ipa2_ap_resume(struct device *dev);
 struct iommu_domain *ipa2_get_smmu_domain(void);
+struct iommu_domain *ipa2_get_uc_smmu_domain(void);
 struct device *ipa2_get_dma_dev(void);
 int ipa2_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa2_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);

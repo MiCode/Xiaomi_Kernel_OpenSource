@@ -96,7 +96,9 @@ struct pil_tz_data {
 	int proxy_clk_count;
 	int smem_id;
 	void *ramdump_dev;
+#ifdef CONFIG_QCOM_MINIDUMP
 	void *minidump_dev;
+#endif
 	u32 pas_id;
 	u32 bus_client;
 	bool enable_bus_scaling;
@@ -912,7 +914,11 @@ static int subsys_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
+#ifdef CONFIG_QCOM_MINIDUMP
 	return pil_do_ramdump(&d->desc, d->ramdump_dev, d->minidump_dev);
+#else
+	return pil_do_ramdump(&d->desc, d->ramdump_dev, NULL);
+#endif
 }
 
 static void subsys_free_memory(const struct subsys_desc *subsys)
@@ -1082,7 +1088,9 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	struct device_node *crypto_node;
 	u32 proxy_timeout, crypto_id;
 	int len, rc;
+#ifdef CONFIG_QCOM_MINIDUMP
 	char md_node[20];
+#endif
 
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
@@ -1255,6 +1263,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		goto err_ramdump;
 	}
 
+#ifdef CONFIG_QCOM_MINIDUMP
 	scnprintf(md_node, sizeof(md_node), "md_%s", d->subsys_desc.name);
 
 	d->minidump_dev = create_ramdump_device(md_node, &pdev->dev);
@@ -1264,7 +1273,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto err_minidump;
 	}
-
+#endif
 	d->subsys = subsys_register(&d->subsys_desc);
 	if (IS_ERR(d->subsys)) {
 		rc = PTR_ERR(d->subsys);
@@ -1273,8 +1282,10 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 
 	return 0;
 err_subsys:
+#ifdef CONFIG_QCOM_MINIDUMP
 	destroy_ramdump_device(d->minidump_dev);
 err_minidump:
+#endif
 	destroy_ramdump_device(d->ramdump_dev);
 err_ramdump:
 	pil_desc_release(&d->desc);
@@ -1291,7 +1302,9 @@ static int pil_tz_driver_exit(struct platform_device *pdev)
 
 	subsys_unregister(d->subsys);
 	destroy_ramdump_device(d->ramdump_dev);
+#ifdef CONFIG_QCOM_MINIDUMP
 	destroy_ramdump_device(d->minidump_dev);
+#endif
 	pil_desc_release(&d->desc);
 
 	return 0;

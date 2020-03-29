@@ -23,6 +23,7 @@
 #include <linux/netdevice.h>
 #include <linux/netdev_features.h>
 
+#include <linux/ipa.h>
 #include <linux/msm_ipa.h>
 #include <linux/msm_gsi.h>
 
@@ -45,9 +46,10 @@
  *                  mapping memory to GSI and IPA uC IOMMU CBs.
  *           6    - Added ipa_eth_ep_deinit()
  *           7    - ipa_eth_net_ops.receive_skb() now accepts in_napi parameter
+ *           8    - Added IPA rx/tx intf properties to ipa_eth_device
  */
 
-#define IPA_ETH_API_VER 7
+#define IPA_ETH_API_VER 8
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -434,6 +436,8 @@ struct ipa_eth_channel {
  * @od_priv: Private field for use by offload driver
  * @rx_channels: Rx channels allocated for the offload path
  * @tx_channels: Tx channels allocated for the offload path
+ * @ipa_rx_intf: IPA properties Rx interface
+ * @ipa_tx_intf: IPA properties Tx interface
  * @of_state: Offload state of the device
  * @dev: Pointer to struct device
  * @nd: IPA offload net driver associated with the device
@@ -471,6 +475,9 @@ struct ipa_eth_device {
 	struct list_head rx_channels;
 	struct list_head tx_channels;
 
+	struct ipa_rx_intf ipa_rx_intf;
+	struct ipa_tx_intf ipa_tx_intf;
+
 	enum ipa_eth_offload_state of_state;
 
 	struct device *dev;
@@ -507,10 +514,14 @@ struct ipa_eth_device {
  *                             offload path to stop using the device
  * @IPA_ETH_DEV_RESET_COMPLETE: Device has completed resetting and is
  *                              requesting offload path to resume its operations
+ * @IPA_ETH_DEV_ADD_MACSEC_IF: A MACSec interface is coming up
+ * @IPA_ETH_DEV_DEL_MACSEC_IF: A MACSec interface is going down
  */
 enum ipa_eth_device_event {
 	IPA_ETH_DEV_RESET_PREPARE,
 	IPA_ETH_DEV_RESET_COMPLETE,
+	IPA_ETH_DEV_ADD_MACSEC_IF,
+	IPA_ETH_DEV_DEL_MACSEC_IF,
 	IPA_ETH_DEV_EVENT_COUNT,
 };
 

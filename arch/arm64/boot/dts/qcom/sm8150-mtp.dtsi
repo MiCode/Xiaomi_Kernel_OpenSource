@@ -106,6 +106,13 @@
 	};
 };
 
+&dsi_panel_pwr_supply_vdd_no_labibb {
+	qcom,panel-supply-entry@1 {
+		qcom,supply-min-voltage = <1800000>;
+		qcom,supply-max-voltage = <1800000>;
+	};
+};
+
 &dsi_sharp_4k_dsc_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";

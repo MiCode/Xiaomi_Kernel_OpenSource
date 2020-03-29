@@ -265,9 +265,11 @@ static void mhi_dev_event_rd_offset_completion_cb(void *req)
 	/* rp update in host memory should be flushed before sending an MSI */
 	wmb();
 	ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[ereq->event_ring];
-	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
-	if (rc)
-		pr_err("%s: error sending in msi\n", __func__);
+	if (mhi_ctx->use_ipa) {
+		rc = ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
+		if (rc)
+			pr_err("%s: error sending in msi\n", __func__);
+	}
 
 	/* Add back the flushed events space to the event buffer */
 	ch->evt_buf_wp = ereq->start + ereq->num_events;
@@ -280,6 +282,55 @@ static void mhi_dev_event_rd_offset_completion_cb(void *req)
 	else
 		list_add_tail(&ereq->list, &ch->event_req_buffers);
 	spin_unlock_irqrestore(&mhi->lock, flags);
+}
+
+static void msi_trigger_completion_cb(void *data)
+{
+	mhi_log(MHI_MSG_VERBOSE,
+			"%s invoked\n", __func__);
+}
+
+static int mhi_trigger_msi_edma(struct mhi_dev_ring *ring, u32 idx)
+{
+	struct dma_async_tx_descriptor *descriptor;
+	struct ep_pcie_msi_config cfg;
+	struct msi_buf_cb_data *msi_buf;
+	int rc;
+	unsigned long flags;
+
+	if (!mhi_ctx->msi_lower) {
+		rc = ep_pcie_get_msi_config(mhi_ctx->phandle, &cfg);
+		if (rc) {
+			pr_err("Error retrieving pcie msi logic\n");
+			return rc;
+		}
+
+		mhi_ctx->msi_data = cfg.data;
+		mhi_ctx->msi_lower = cfg.lower;
+	}
+
+	mhi_log(MHI_MSG_VERBOSE,
+		"Trigger MSI via edma, MSI lower:%x IRQ:%d idx:%d\n",
+		mhi_ctx->msi_lower, mhi_ctx->msi_data + idx, idx);
+
+	spin_lock_irqsave(&mhi_ctx->msi_lock, flags);
+
+	msi_buf = &ring->msi_buf;
+	msi_buf->buf[0] = (mhi_ctx->msi_data + idx);
+
+	descriptor = dmaengine_prep_dma_memcpy(mhi_ctx->tx_dma_chan,
+				(dma_addr_t)(mhi_ctx->msi_lower),
+				msi_buf->dma_addr,
+				sizeof(u32),
+				DMA_PREP_INTERRUPT);
+
+	descriptor->callback_param = msi_buf;
+	descriptor->callback = msi_trigger_completion_cb;
+	dma_async_issue_pending(mhi_ctx->tx_dma_chan);
+
+	spin_unlock_irqrestore(&mhi_ctx->msi_lock, flags);
+
+	return 0;
 }
 
 static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
@@ -302,8 +353,9 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 		return -EINVAL;
 	}
 
+	ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[evnt_ring];
+
 	if (mhi_ring_get_state(ring) == RING_STATE_UINT) {
-		ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[evnt_ring];
 		rc = mhi_ring_start(ring, ctx, mhi);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
@@ -369,6 +421,13 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 	ereq->event_ring = evnt_ring;
 	mhi_ctx->write_to_host(mhi, &transfer_addr, ereq, MHI_DEV_DMA_ASYNC);
 	mutex_unlock(&ring->event_lock);
+
+	if (mhi_ctx->use_edma) {
+		rc = mhi_trigger_msi_edma(ring, ctx->ev.msivec);
+		if (rc)
+			pr_err("%s: error sending in msi\n", __func__);
+	}
+
 	return rc;
 }
 
@@ -751,9 +810,9 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 	}
 
 	mhi_log(MHI_MSG_VERBOSE,
-		"device 0x%llx --> host 0x%llx, size %d\n",
+		"device 0x%llx --> host 0x%llx, size %d, type = %d\n",
 		mhi->cache_dma_handle, host_addr_pa,
-		(int) transfer->size);
+		(int) transfer->size, tr_type);
 	if (tr_type == MHI_DEV_DMA_ASYNC) {
 		/*
 		 * Event read pointer memory is dma_alloc_coherent memory
@@ -1393,7 +1452,12 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	mhi_log(MHI_MSG_VERBOSE, "evnt type :0x%x\n", el->evt_tr_comp.type);
 	mhi_log(MHI_MSG_VERBOSE, "evnt chid :0x%x\n", el->evt_tr_comp.chid);
 
-	return ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
+	if (mhi_ctx->use_edma)
+		rc = mhi_trigger_msi_edma(ring, ctx->ev.msivec);
+	else
+		rc = ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
+
+	return rc;
 }
 
 static int mhi_dev_send_completion_event_async(struct mhi_dev_channel *ch,
@@ -3479,6 +3543,11 @@ static int mhi_deinit(struct mhi_dev *mhi)
 			sizeof(union mhi_dev_ring_element_type),
 			ring->ring_cache,
 			ring->ring_cache_dma_handle);
+
+		if (mhi->use_edma)
+			dma_free_coherent(mhi->dev, sizeof(u32),
+				ring->msi_buf.buf,
+				ring->msi_buf.dma_addr);
 	}
 
 	devm_kfree(&pdev->dev, mhi->mmio_backup);
@@ -3527,6 +3596,7 @@ static int mhi_init(struct mhi_dev *mhi)
 	}
 
 	spin_lock_init(&mhi->lock);
+	spin_lock_init(&mhi->msi_lock);
 	mhi->mmio_backup = devm_kzalloc(&pdev->dev,
 			MHI_DEV_MMIO_RANGE, GFP_KERNEL);
 	if (!mhi->mmio_backup)
@@ -3834,7 +3904,7 @@ static int mhi_edma_init(struct device *dev)
 			mhi_ctx->tx_dma_chan);
 
 	mhi_ctx->rx_dma_chan = dma_request_slave_channel(dev, "rx");
-	if (IS_ERR_OR_NULL(mhi_ctx->tx_dma_chan)) {
+	if (IS_ERR_OR_NULL(mhi_ctx->rx_dma_chan)) {
 		pr_err("%s(): request for RX chan failed\n", __func__);
 		return -EIO;
 	}

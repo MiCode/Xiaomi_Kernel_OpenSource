@@ -205,7 +205,15 @@ static int hid_add_usage(struct hid_parser *parser, unsigned usage, u8 size)
 		hid_err(parser->device, "usage index exceeded\n");
 		return -1;
 	}
-	parser->local.usage[parser->local.usage_index] = usage;
+	if (!parser->local.usage_index && parser->global.usage_page)
+		parser->local.usage_page_preceding = 1;
+	if (parser->local.usage_page_preceding == 2)
+		parser->local.usage_page_preceding = 3;
+	if (size <= 2 && parser->global.usage_page)
+		parser->local.usage[parser->local.usage_index] =
+			(usage & 0xffff) + (parser->global.usage_page << 16);
+	else
+		parser->local.usage[parser->local.usage_index] = usage;
 	parser->local.usage_size[parser->local.usage_index] = size;
 	parser->local.collection_index[parser->local.usage_index] =
 		parser->collection_stack_ptr ?
@@ -345,6 +353,8 @@ static int hid_parser_global(struct hid_parser *parser, struct hid_item *item)
 
 	case HID_GLOBAL_ITEM_TAG_USAGE_PAGE:
 		parser->global.usage_page = item_udata(item);
+		if (parser->local.usage_page_preceding == 1)
+			parser->local.usage_page_preceding = 2;
 		return 0;
 
 	case HID_GLOBAL_ITEM_TAG_LOGICAL_MINIMUM:
@@ -526,9 +536,16 @@ static void hid_concatenate_usage_page(struct hid_parser *parser)
 {
 	int i;
 
+	if (parser->local.usage_page_preceding == 3) {
+		dbg_hid("Using preceding usage page for final usage\n");
+		return;
+	}
+
 	for (i = 0; i < parser->local.usage_index; i++)
 		if (parser->local.usage_size[i] <= 2)
-			parser->local.usage[i] += parser->global.usage_page << 16;
+			parser->local.usage[i] =
+				(parser->global.usage_page << 16)
+				+ (parser->local.usage[i] & 0xffff);
 }
 
 /*

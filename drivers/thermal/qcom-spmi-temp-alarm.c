@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2017-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,6 +445,7 @@ static int qpnp_tm_freeze(struct device *dev)
 static const struct dev_pm_ops qpnp_tm_pm_ops = {
 	.freeze = qpnp_tm_freeze,
 	.restore = qpnp_tm_restore,
+	.thaw = qpnp_tm_restore,
 };
 
 static const struct of_device_id qpnp_tm_match_table[] = {

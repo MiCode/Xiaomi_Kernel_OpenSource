@@ -150,6 +150,52 @@ struct image_info {
 	u32 entries;
 };
 
+/* rddm header info */
+
+#define MAX_RDDM_TABLE_SIZE 6
+
+/**
+ * struct rddm_table_info - rddm table info
+ * @base_address - Start offset of the file
+ * @actual_phys_address - phys addr offset of file
+ * @size - size of file
+ * @description - file description
+ * @file_name - name of file
+ */
+struct rddm_table_info {
+	u64 base_address;
+	u64 actual_phys_address;
+	u64 size;
+	char description[20];
+	char file_name[20];
+};
+
+/**
+ * struct rddm_header - rddm header
+ * @version - header ver
+ * @header_size - size of header
+ * @rddm_table_info - array of rddm table info
+ */
+struct rddm_header {
+	u32 version;
+	u32 header_size;
+	struct rddm_table_info table_info[MAX_RDDM_TABLE_SIZE];
+};
+
+/**
+ * struct file_info - keeping track of file info while traversing the rddm
+ * table header
+ * @file_offset - current file offset
+ * @seg_idx - mhi buf seg array index
+ * @rem_seg_len - remaining length of the segment containing current file
+ */
+struct file_info {
+	u8 *file_offset;
+	u32 file_size;
+	u32 seg_idx;
+	u32 rem_seg_len;
+};
+
 /**
  * struct reg_write_info - offload reg write info
  * @reg_addr - register address
@@ -225,6 +271,7 @@ struct mhi_controller {
 	void __iomem *bhi;
 	void __iomem *bhie;
 	void __iomem *wake_db;
+	void __iomem *tsync_db;
 	void __iomem *bw_scale_db;
 
 	/* device topology */
@@ -268,7 +315,7 @@ struct mhi_controller {
 	u32 msi_allocated;
 	int *irq; /* interrupt table */
 	struct mhi_event *mhi_event;
-	struct list_head lp_ev_rings; /* low priority event rings */
+	struct list_head sp_ev_rings; /* special purpose event rings */
 
 	/* cmd rings */
 	struct mhi_cmd *mhi_cmd;
@@ -277,6 +324,7 @@ struct mhi_controller {
 	struct mhi_ctxt *mhi_ctxt;
 
 	u32 timeout_ms;
+	u32 m2_timeout_ms; /* wait time for host to continue suspend after m2 */
 
 	/* caller should grab pm_mutex for suspend/resume operations */
 	struct mutex pm_mutex;
@@ -306,9 +354,9 @@ struct mhi_controller {
 
 	/* worker for different state transitions */
 	struct work_struct st_worker;
-	struct work_struct fw_worker;
-	struct work_struct syserr_worker;
-	struct work_struct low_priority_worker;
+	struct work_struct special_work;
+	struct workqueue_struct *special_wq;
+
 	wait_queue_head_t state_event;
 
 	/* shadow functions */
@@ -341,7 +389,6 @@ struct mhi_controller {
 
 	/* supports time sync feature */
 	struct mhi_timesync *mhi_tsync;
-	struct mhi_device *tsync_dev;
 	u64 local_timer_freq;
 	u64 remote_timer_freq;
 
@@ -358,6 +405,7 @@ struct mhi_controller {
 	/* controller specific data */
 	const char *name;
 	bool power_down;
+	bool initiate_mhi_reset;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
@@ -581,6 +629,22 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev);
 void mhi_unprepare_from_transfer(struct mhi_device *mhi_dev);
 
 /**
+ * mhi_pause_transfer - Pause the current transfe
+ * Moves both UL and DL channels to STOP state to halt
+ * pending transfers.
+ * @mhi_dev: Device associated with the channels
+ */
+int mhi_pause_transfer(struct mhi_device *mhi_dev);
+
+/**
+ * mhi_resume_transfer - resume current transfer
+ * Moves both UL and DL channels to START state to
+ * resume transfer.
+ * @mhi_dev: Device associated with the channels
+ */
+int mhi_resume_transfer(struct mhi_device *mhi_dev);
+
+/**
  * mhi_get_no_free_descriptors - Get transfer ring length
  * Get # of TD available to queue buffers
  * @mhi_dev: Device associated with the channels
@@ -709,6 +773,29 @@ int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
  * @mhi_cntrl: MHI controller
  */
 int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_dump_sfr - Print SFR string from RDDM table.
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_dump_sfr(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_remote_time - Get external modem time relative to host time
+ * Trigger event to capture modem time, also capture host time so client
+ * can do a relative drift comparision.
+ * Recommended only tsync device calls this method and do not call this
+ * from atomic context
+ * @mhi_dev: Device associated with the channels
+ * @sequence:unique sequence id track event
+ * @cb_func: callback function to call back
+ */
+int mhi_get_remote_time(struct mhi_device *mhi_dev,
+			u32 sequence,
+			void (*cb_func)(struct mhi_device *mhi_dev,
+					u32 sequence,
+					u64 local_time,
+					u64 remote_time));
 
 /**
  * mhi_get_remote_time_sync - Get external soc time relative to local soc time

@@ -1246,7 +1246,7 @@ static struct msm_usb_bam_data *usb_bam_dt_to_data(
 	struct device_node *node = pdev->dev.of_node;
 	int rc = 0;
 	u8 i = 0;
-	u32 bam;
+	u32 bam = DWC3_CTRL;
 	u32 addr = 0;
 	u32 threshold, max_connections = 0;
 	static struct usb_bam_pipe_connect *usb_bam_connections;
@@ -1256,12 +1256,9 @@ static struct msm_usb_bam_data *usb_bam_dt_to_data(
 	if (!usb_bam_data)
 		return NULL;
 
-	rc = of_property_read_u32(node, "qcom,bam-type", &bam);
-	if (rc) {
-		log_event_err("%s: bam type is missing in device tree\n",
-			__func__);
-		return NULL;
-	}
+	/* override bam-type if specified, default is dwc3 */
+	of_property_read_u32(node, "qcom,bam-type", &bam);
+
 	if (bam >= MAX_BAMS) {
 		log_event_err("%s: Invalid bam type %d in device tree\n",
 			__func__, bam);
@@ -1816,6 +1813,7 @@ static struct platform_driver usb_bam_driver = {
 	.driver = {
 		.name	= "usb_bam",
 		.of_match_table = usb_bam_dt_match,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 
