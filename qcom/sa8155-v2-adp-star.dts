@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sa8155-v2.dtsi"
+#include "sa8155-adp-star.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155 V2 ADP STAR";
+	compatible = "qcom,sa8155-adp-star", "qcom,sa8155", "qcom,adp-star";
+	qcom,board-id = <25 0>;
+};
