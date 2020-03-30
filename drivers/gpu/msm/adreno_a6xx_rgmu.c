@@ -367,12 +367,6 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 		for (i = 0; i < rgmu->fw_size; i++)
 			gmu_core_regwrite(device, A6XX_GMU_CM3_ITCM_START + i,
 					rgmu->fw_hostptr[i]);
-		/*
-		 * Enable power counter because it was disabled before
-		 * slumber.
-		 */
-		gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE,
-				1);
 		break;
 	}
 

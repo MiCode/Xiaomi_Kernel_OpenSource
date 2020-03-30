@@ -517,9 +517,6 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	/* Clear sleep sequence flag as wakeup sequence is successful */
 	clear_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags);
 
-	/* Enable the power counter because it was disabled before slumber */
-	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
-
 	return 0;
 error_rsc:
 	dev_err(dev, "GPU RSC sequence stuck in waking up GPU\n");
