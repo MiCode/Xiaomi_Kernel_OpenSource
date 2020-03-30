@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * RMNET Data configuration engine
  *
@@ -145,7 +146,6 @@ struct rmnet_priv_stats {
 	u64 csum_sw;
 	u64 csum_hw;
 	struct rmnet_coal_stats coal;
-	u64 ul_prio;
 };
 
 struct rmnet_priv {

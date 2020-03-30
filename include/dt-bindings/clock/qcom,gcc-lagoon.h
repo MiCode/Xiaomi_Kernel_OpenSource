@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_LAGOON_H
@@ -150,8 +151,6 @@
 #define GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK	140
 #define GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK	141
 #define GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK		142
-#define GCC_RX5_PCIE_CLKREF_CLK			143
-#define GCC_GPU_GPLL0_MAIN_DIV_CLK_SRC		144
 
 /* GCC resets */
 #define GCC_QUSB2PHY_PRIM_BCR			0
@@ -164,7 +163,5 @@
 #define GCC_PCIE_0_PHY_BCR			7
 #define GCC_QUPV3_WRAPPER_0_BCR			8
 #define GCC_QUPV3_WRAPPER_1_BCR			9
-#define GCC_USB3_PHY_PRIM_BCR			10
-#define GCC_USB3_DP_PHY_PRIM_BCR		11
 
 #endif

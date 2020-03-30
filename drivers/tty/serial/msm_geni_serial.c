@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/bitmap.h>
@@ -23,6 +24,7 @@
 #include <linux/tty_flip.h>
 #include <linux/ioctl.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/dma-mapping.h>
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
@@ -197,8 +199,6 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport);
 static int msm_geni_serial_runtime_resume(struct device *dev);
 static int msm_geni_serial_runtime_suspend(struct device *dev);
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
-static void msm_geni_serial_set_manual_flow(bool enable,
-				struct msm_geni_serial_port *port);
 static int uart_line_id;
 
 #define GET_DEV_PORT(uport) \
@@ -625,7 +625,6 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 static void msm_geni_serial_abort_rx(struct uart_port *uport)
 {
 	unsigned int irq_clear = S_CMD_DONE_EN;
-	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	geni_abort_s_cmd(uport->membase);
 	/* Ensure this goes through before polling. */
@@ -634,8 +633,6 @@ static void msm_geni_serial_abort_rx(struct uart_port *uport)
 	msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
 					S_GENI_CMD_ABORT, false);
 	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
-	/* FORCE_DEFAULT makes RFR default high, hence set manually Low */
-	msm_geni_serial_set_manual_flow(true, port);
 	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
 }
 
@@ -1085,7 +1082,6 @@ static void start_rx_sequencer(struct uart_port *uport)
 	unsigned int geni_m_irq_en;
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
-	int ret;
 	u32 geni_se_param = UART_PARAM_RFR_OPEN;
 
 	if (port->startup_in_progress)
@@ -1093,17 +1089,11 @@ static void start_rx_sequencer(struct uart_port *uport)
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	if (geni_status & S_GENI_CMD_ACTIVE) {
-		if (port->xfer_mode == SE_DMA && !port->rx_dma) {
+		if (port->xfer_mode == SE_DMA) {
 			IPC_LOG_MSG(port->ipc_log_misc,
 				"%s: GENI: 0x%x\n", __func__, geni_status);
-			ret = geni_se_rx_dma_prep(port->wrapper_dev,
-				uport->membase, port->rx_buf, DMA_RX_BUF_SIZE,
-				&port->rx_dma);
-			if (ret) {
-				IPC_LOG_MSG(port->ipc_log_misc,
-					"%s: RX buff Fail %d\n", __func__, ret);
-				goto exit_start_rx_sequencer;
-			}
+			geni_se_rx_dma_start(uport->membase, DMA_RX_BUF_SIZE,
+								&port->rx_dma);
 		}
 		msm_geni_serial_stop_rx(uport);
 	}
@@ -1125,21 +1115,14 @@ static void start_rx_sequencer(struct uart_port *uport)
 		geni_write_reg_nolog(geni_m_irq_en, uport->membase,
 							SE_GENI_M_IRQ_EN);
 	} else if (port->xfer_mode == SE_DMA) {
-		ret = geni_se_rx_dma_prep(port->wrapper_dev, uport->membase,
-				port->rx_buf, DMA_RX_BUF_SIZE, &port->rx_dma);
-		if (ret) {
-			dev_err(uport->dev, "%s: RX Prep dma failed %d\n",
-				__func__, ret);
-			msm_geni_serial_stop_rx(uport);
-			goto exit_start_rx_sequencer;
-		}
+		geni_se_rx_dma_start(uport->membase, DMA_RX_BUF_SIZE,
+							&port->rx_dma);
 	}
 	/*
 	 * Ensure the writes to the secondary sequencer and interrupt enables
 	 * go through.
 	 */
 	mb();
-exit_start_rx_sequencer:
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: 0x%x, dma_dbg:0x%x\n", __func__,
 		geni_status, geni_read_reg(uport->membase, SE_DMA_DEBUG_REG0));
@@ -1266,12 +1249,9 @@ static void stop_rx_sequencer(struct uart_port *uport)
 		msm_geni_serial_abort_rx(uport);
 	}
 exit_rx_seq:
-	if (port->xfer_mode == SE_DMA && port->rx_dma) {
+	if (port->xfer_mode == SE_DMA && port->rx_dma)
 		msm_geni_serial_rx_fsm_rst(uport);
-		geni_se_rx_dma_unprep(port->wrapper_dev, port->rx_dma,
-						      DMA_RX_BUF_SIZE);
-		port->rx_dma = (dma_addr_t)NULL;
-	}
+
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: 0x%x\n", __func__, geni_status);
 }
@@ -1461,16 +1441,13 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	if (!(geni_status & S_GENI_CMD_ACTIVE))
 		return 0;
 
-	geni_se_rx_dma_unprep(msm_port->wrapper_dev, msm_port->rx_dma,
-			      DMA_RX_BUF_SIZE);
-	msm_port->rx_dma = (dma_addr_t)NULL;
-
-	rx_bytes = geni_read_reg_nolog(uport->membase, SE_DMA_RX_LEN_IN);
 	if (unlikely(!msm_port->rx_buf)) {
 		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: NULL Rx_buf\n",
 								__func__);
 		return 0;
 	}
+
+	rx_bytes = geni_read_reg_nolog(uport->membase, SE_DMA_RX_LEN_IN);
 	if (unlikely(!rx_bytes)) {
 		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: Size %d\n",
 					__func__, rx_bytes);
@@ -1492,10 +1469,9 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	dump_ipc(msm_port->ipc_log_rx, "DMA Rx", (char *)msm_port->rx_buf, 0,
 								rx_bytes);
 exit_handle_dma_rx:
-	ret = geni_se_rx_dma_prep(msm_port->wrapper_dev, uport->membase,
-			msm_port->rx_buf, DMA_RX_BUF_SIZE, &msm_port->rx_dma);
-	if (ret)
-		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: %d\n", __func__, ret);
+	geni_se_rx_dma_start(uport->membase, DMA_RX_BUF_SIZE,
+							&msm_port->rx_dma);
+
 	return ret;
 }
 
@@ -1781,6 +1757,7 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	int ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	unsigned long cfg0, cfg1;
+	dma_addr_t dma_address;
 	unsigned int rxstale = DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT;
 
 	set_rfr_wm(msm_port);
@@ -1806,14 +1783,15 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 			goto exit_portsetup;
 		}
 
-		msm_port->rx_buf = devm_kzalloc(uport->dev, DMA_RX_BUF_SIZE,
-								GFP_KERNEL);
+		msm_port->rx_buf = dma_alloc_coherent(msm_port->wrapper_dev,
+				DMA_RX_BUF_SIZE, &dma_address, GFP_KERNEL);
 		if (!msm_port->rx_buf) {
 			devm_kfree(uport->dev, msm_port->rx_fifo);
 			msm_port->rx_fifo = NULL;
 			ret = -ENOMEM;
 			goto exit_portsetup;
 		}
+		msm_port->rx_dma = dma_address;
 	} else {
 		/*
 		 * Make an unconditional cancel on the main sequencer to reset
@@ -1835,12 +1813,12 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	ret = geni_se_init(uport->membase, msm_port->rx_wm, msm_port->rx_rfr);
 	if (ret) {
 		dev_err(uport->dev, "%s: Fail\n", __func__);
-		goto exit_portsetup;
+		goto free_dma;
 	}
 
 	ret = geni_se_select_mode(uport->membase, msm_port->xfer_mode);
 	if (ret)
-		goto exit_portsetup;
+		goto free_dma;
 
 	msm_port->port_setup = true;
 	/*
@@ -1848,6 +1826,14 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	 * framework.
 	 */
 	mb();
+
+	return 0;
+free_dma:
+	if (msm_port->rx_dma) {
+		dma_free_coherent(msm_port->wrapper_dev, DMA_RX_BUF_SIZE,
+					msm_port->rx_buf, msm_port->rx_dma);
+		msm_port->rx_dma = (dma_addr_t)NULL;
+	}
 exit_portsetup:
 	return ret;
 }
@@ -2373,10 +2359,23 @@ OF_EARLYCON_DECLARE(msm_geni_serial, "qcom,msm-geni-console",
 
 static int console_register(struct uart_driver *drv)
 {
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	if (!is_early_cons_enabled) {
+		pr_info("ignore console register\n");
+		return 0;
+	}
+#endif
+
 	return uart_register_driver(drv);
 }
 static void console_unregister(struct uart_driver *drv)
 {
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	if (!is_early_cons_enabled) {
+		pr_info("ignore console unregister\n");
+		return;
+	}
+#endif
 	uart_unregister_driver(drv);
 }
 
@@ -2589,6 +2588,16 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+		/*if earlycon is not enabled, we should ignore console
+		  driver prob*/
+	if (!is_early_cons_enabled &&
+		(!strcmp(id->compatible, "qcom,msm-geni-console"))) {
+			pr_info("ignore cons prob\n");
+		return -ENODEV;
+	}
+#endif
+
 	if (pdev->dev.of_node) {
 		if (drv->cons) {
 			line = of_alias_get_id(pdev->dev.of_node, "serial");
@@ -2799,6 +2808,11 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 
 	wakeup_source_trash(&port->geni_wake);
 	uart_remove_one_port(drv, &port->uport);
+	if (port->rx_dma) {
+		dma_free_coherent(port->wrapper_dev, DMA_RX_BUF_SIZE,
+					port->rx_buf, port->rx_dma);
+		port->rx_dma = (dma_addr_t)NULL;
+	}
 	return 0;
 }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -36,7 +37,7 @@ static int lmh_cpu_vdd_set_cur_state(struct thermal_cooling_device *cdev,
 	struct lmh_cpu_vdd_cdev *vdd_cdev = cdev->devdata;
 
 	if (state > LMH_CPU_VDD_MAX_LVL)
-		return -EINVAL;
+		state = LMH_CPU_VDD_MAX_LVL;
 
 	state = !!state;
 	/* Check if the old cooling action is same as new cooling action */

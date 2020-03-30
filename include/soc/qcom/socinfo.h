@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _ARCH_ARM_MACH_MSM_SOCINFO_H_
@@ -58,8 +59,6 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,lito")
 #define early_machine_is_bengal()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,bengal")
-#define early_machine_is_lagoon()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,lagoon")
 #define early_machine_is_sdmshrike()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmshrike")
 #define early_machine_is_sm6150()	\
@@ -93,7 +92,6 @@
 #define early_machine_is_kona()		0
 #define early_machine_is_lito()		0
 #define early_machine_is_bengal()	0
-#define early_machine_is_lagoon()	0
 #define early_machine_is_sdmshrike()	0
 #define early_machine_is_sm6150()	0
 #define early_machine_is_qcs405()	0
@@ -107,6 +105,7 @@
 
 #define SMEM_IMAGE_VERSION_TABLE	469
 #define SMEM_HW_SW_BUILD_ID		137
+#define SMEM_ID_VENDOR1                 135
 enum msm_cpu {
 	MSM_CPU_UNKNOWN = 0,
 	MSM_CPU_8960,
@@ -124,7 +123,6 @@ enum msm_cpu {
 	MSM_CPU_KONA,
 	MSM_CPU_LITO,
 	MSM_CPU_BENGAL,
-	MSM_CPU_LAGOON,
 	MSM_CPU_SDMSHRIKE,
 	MSM_CPU_SM6150,
 	MSM_CPU_QCS405,
@@ -153,6 +151,39 @@ enum pmic_model {
 	PMIC_MODEL_PM8917	= 25,
 	PMIC_MODEL_UNKNOWN	= 0xFFFFFFFF
 };
+
+#define HARDWARE_PLATFORM_UNKNOWN 0
+#define HARDWARE_PLATFORM_CMI  1
+#define HARDWARE_PLATFORM_UMI  2
+#define HARDWARE_PLATFORM_LMI  3
+#define HARDWARE_PLATFORM_VERTHANDI  5
+
+#define HW_MAJOR_VERSION_B  9
+#define HW_MINOR_VERSION_B  1
+
+
+#define HW_MAJOR_VERSION_SHIFT 16
+#define HW_MAJOR_VERSION_MASK  0xFFFF0000
+#define HW_MINOR_VERSION_SHIFT 0
+#define HW_MINOR_VERSION_MASK  0x0000FFFF
+#define HW_COUNTRY_VERSION_MASK 0xFFF00000
+#define HW_COUNTRY_VERSION_SHIFT 20
+#define HW_BUILD_VERSION_MASK 0x000F0000
+#define HW_BUILD_VERSION_SHIFT 16
+
+typedef enum {
+  CountryCN = 0,
+  CountryGlobal = 1,
+  CountryIndia = 2,
+  INVALID,
+} CountryType;
+
+uint32_t get_hw_version_platform(void);
+uint32_t get_hw_country_version(void);
+uint32_t get_hw_version_major(void);
+uint32_t get_hw_version_minor(void);
+uint32_t get_hw_version_build(void);
+const char *product_name_get(void);
 
 enum msm_cpu socinfo_get_msm_cpu(void);
 uint32_t socinfo_get_id(void);

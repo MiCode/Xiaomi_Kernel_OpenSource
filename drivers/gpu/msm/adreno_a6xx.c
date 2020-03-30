@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/firmware.h>
@@ -2278,7 +2279,7 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	adreno_dev->perfctr_pwr_lo = A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L;
 
 	/* Set the counter for IFPC */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+	if (gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
 		adreno_dev->perfctr_ifpc_lo =
 			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
 

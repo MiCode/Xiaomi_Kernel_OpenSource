@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -265,12 +266,7 @@ static int poll_adreno_gmu_reg(struct adreno_device *adreno_dev,
 	unsigned int mask, unsigned int timeout_ms)
 {
 	unsigned int val;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
-	u64 ao_pre_poll, ao_post_poll;
-
-	ao_pre_poll = gmu_core_dev_read_ao_counter(device);
 
 	while (time_is_after_jiffies(timeout)) {
 		adreno_read_gmureg(adreno_dev, offset_name, &val);
@@ -279,15 +275,10 @@ static int poll_adreno_gmu_reg(struct adreno_device *adreno_dev,
 		usleep_range(10, 100);
 	}
 
-	ao_post_poll = gmu_core_dev_read_ao_counter(device);
-
 	/* Check one last time */
 	adreno_read_gmureg(adreno_dev, offset_name, &val);
 	if ((val & mask) == expected_val)
 		return 0;
-
-	dev_err(&gmu->pdev->dev, "kgsl hfi poll timeout: always on: %lld ms\n",
-		div_u64((ao_post_poll - ao_pre_poll) * 52, USEC_PER_SEC));
 
 	return -ETIMEDOUT;
 }

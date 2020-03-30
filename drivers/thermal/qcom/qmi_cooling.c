@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -266,7 +267,7 @@ static int qmi_set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 
 	if (state > qmi_cdev->max_level)
-		return -EINVAL;
+		state = qmi_cdev->max_level;
 
 	return qmi_set_cur_or_min_state(qmi_cdev, state);
 }
@@ -283,7 +284,7 @@ static int qmi_set_min_state(struct thermal_cooling_device *cdev,
 		return 0;
 
 	if (state > qmi_cdev->max_level)
-		return -EINVAL;
+		state = qmi_cdev->max_level;
 
 	/* Convert state into QMI client expects for min state */
 	state = qmi_cdev->max_level - state;

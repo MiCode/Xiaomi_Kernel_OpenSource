@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -1264,6 +1265,35 @@ int geni_se_tx_dma_prep(struct device *wrapper_dev, void __iomem *base,
 EXPORT_SYMBOL(geni_se_tx_dma_prep);
 
 /**
+ * geni_se_rx_dma_start() - Prepare the Serial Engine registers for RX DMA
+				transfers.
+ * @base:		Base address of the SE register block.
+ * @rx_len:		Length of the RX buffer.
+ * @rx_dma:		Pointer to store the mapped DMA address.
+ *
+ * This function is used to prepare the Serial Engine registers for DMA RX.
+ *
+ * Return:	None.
+ */
+void geni_se_rx_dma_start(void __iomem *base, int rx_len, dma_addr_t *rx_dma)
+{
+
+	if (!*rx_dma || !base || !rx_len)
+		return;
+
+	geni_write_reg(7, base, SE_DMA_RX_IRQ_EN_SET);
+	geni_write_reg(GENI_SE_DMA_PTR_L(*rx_dma), base, SE_DMA_RX_PTR_L);
+	geni_write_reg(GENI_SE_DMA_PTR_H(*rx_dma), base, SE_DMA_RX_PTR_H);
+	/* RX does not have EOT bit */
+	geni_write_reg(0, base, SE_DMA_RX_ATTR);
+
+	/* Ensure that above register writes went through */
+	mb();
+	geni_write_reg(rx_len, base, SE_DMA_RX_LEN);
+}
+EXPORT_SYMBOL(geni_se_rx_dma_start);
+
+/**
  * geni_se_rx_dma_prep() - Prepare the Serial Engine for RX DMA transfer
  * @wrapper_dev:	QUPv3 Wrapper Device to which the RX buffer is mapped.
  * @base:		Base address of the SE register block.
@@ -1288,12 +1318,8 @@ int geni_se_rx_dma_prep(struct device *wrapper_dev, void __iomem *base,
 	if (ret)
 		return ret;
 
-	geni_write_reg(7, base, SE_DMA_RX_IRQ_EN_SET);
-	geni_write_reg(GENI_SE_DMA_PTR_L(*rx_dma), base, SE_DMA_RX_PTR_L);
-	geni_write_reg(GENI_SE_DMA_PTR_H(*rx_dma), base, SE_DMA_RX_PTR_H);
-	/* RX does not have EOT bit */
-	geni_write_reg(0, base, SE_DMA_RX_ATTR);
-	geni_write_reg(rx_len, base, SE_DMA_RX_LEN);
+	geni_se_rx_dma_start(base, rx_len, rx_dma);
+
 	return 0;
 }
 EXPORT_SYMBOL(geni_se_rx_dma_prep);

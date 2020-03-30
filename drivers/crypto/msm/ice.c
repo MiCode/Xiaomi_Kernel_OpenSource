@@ -3,6 +3,7 @@
  * QTI Inline Crypto Engine (ICE) driver
  *
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -20,8 +21,7 @@
 #include <soc/qcom/qseecomi.h>
 #include "iceregs.h"
 #include <linux/pfk.h>
-#include <linux/atomic.h>
-#include <linux/wait.h>
+
 
 #define TZ_SYSCALL_CREATE_SMC_ID(o, s, f) \
 	((uint32_t)((((o & 0x3f) << 24) | (s & 0xff) << 8) | (f & 0xff)))
@@ -801,28 +801,6 @@ static int qcom_ice_remove(struct platform_device *pdev)
 
 static int  qcom_ice_suspend(struct platform_device *pdev)
 {
-	struct ice_device *ice_dev;
-	int ret;
-
-	ice_dev = (struct ice_device *)platform_get_drvdata(pdev);
-
-	if (!ice_dev)
-		return -EINVAL;
-	if (atomic_read(&ice_dev->is_ice_busy) != 0) {
-		ret = wait_event_interruptible_timeout(
-			ice_dev->block_suspend_ice_queue,
-			atomic_read(&ice_dev->is_ice_busy) == 0,
-			msecs_to_jiffies(1000));
-
-		if (!ret) {
-			pr_err("%s: Suspend ICE during an ongoing operation\n",
-				__func__);
-			atomic_set(&ice_dev->is_ice_suspended, 0);
-			return ret;
-		}
-	}
-
-	atomic_set(&ice_dev->is_ice_suspended, 1);
 	return 0;
 }
 
@@ -1053,7 +1031,7 @@ static int qcom_ice_finish_init(struct ice_device *ice_dev)
 		err = -EFAULT;
 		goto out;
 	}
-	init_waitqueue_head(&ice_dev->block_suspend_ice_queue);
+
 	qcom_ice_low_power_mode_enable(ice_dev);
 	qcom_ice_optimization_enable(ice_dev);
 	qcom_ice_config_proc_ignore(ice_dev);
@@ -1061,8 +1039,7 @@ static int qcom_ice_finish_init(struct ice_device *ice_dev)
 	qcom_ice_enable(ice_dev);
 	ice_dev->is_ice_enabled = true;
 	qcom_ice_enable_intr(ice_dev);
-	atomic_set(&ice_dev->is_ice_suspended, 0);
-	atomic_set(&ice_dev->is_ice_busy, 0);
+
 out:
 	return err;
 }
@@ -1169,7 +1146,7 @@ static int qcom_ice_resume(struct platform_device *pdev)
 		 */
 		qcom_ice_enable(ice_dev);
 	}
-	atomic_set(&ice_dev->is_ice_suspended, 0);
+
 	return 0;
 }
 
@@ -1439,20 +1416,8 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		return 0;
 	}
 
-	if (atomic_read(&ice_dev->is_ice_suspended) == 1)
-		return -EINVAL;
-
-	if (async)
-		atomic_set(&ice_dev->is_ice_busy, 1);
-
 	ret = pfk_load_key_start(req->bio, ice_dev, &pfk_crypto_data,
 			&is_pfe, async);
-
-	if (async) {
-		atomic_set(&ice_dev->is_ice_busy, 0);
-		wake_up_interruptible(&ice_dev->block_suspend_ice_queue);
-	}
-
 	if (is_pfe) {
 		if (ret) {
 			if (ret != -EBUSY && ret != -EAGAIN)

@@ -11,6 +11,7 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/goodix_driver_gt9886/Kconfig"
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
@@ -1322,11 +1323,14 @@ config TOUCHSCREEN_ST
 	  module will be called st.
 
 source "drivers/input/touchscreen/st/Kconfig"
+source "drivers/input/touchscreen/fts_521/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+
 
 config TOUCHSCREEN_SYNAPTICS_DSX
 	bool "Synaptics DSX Touchscreen Driver"
 	depends on I2C
-	default y
+	default n 
 	help
 	  Say Y here if you have a Synaptics Touchscreen.
 
@@ -1337,18 +1341,12 @@ config TOUCHSCREEN_SYNAPTICS_DSX
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
-config TOUCHSCREEN_SYNAPTICS_TCM
-	bool "Synaptics TCM Touchscreen Driver"
-	depends on I2C
-	default y
+config I2C_STATUS_FOR_TOUCH
+	bool "I2C Status for touch"
 	help
-	  Say Y here if you have a Synaptics Touchscreen.
+		Say Y here if you use touch driver detect system i2c status when exit suspend state.
+		If unsure, say N.
 
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_tcm.
-
-source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 endif

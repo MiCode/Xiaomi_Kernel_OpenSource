@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * RMNET Data MAP protocol
  *
@@ -481,20 +482,7 @@ sw_csum:
 	priv->stats.csum_sw++;
 }
 
-static void rmnet_map_v5_check_priority(struct sk_buff *skb,
-					struct net_device *orig_dev,
-					struct rmnet_map_v5_csum_header *hdr)
-{
-	struct rmnet_priv *priv = netdev_priv(orig_dev);
-
-	if (skb->priority) {
-		priv->stats.ul_prio++;
-		hdr->priority = 1;
-	}
-}
-
 void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
-					 struct rmnet_port *port,
 					 struct net_device *orig_dev)
 {
 	struct rmnet_priv *priv = netdev_priv(orig_dev);
@@ -504,13 +492,6 @@ void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
 		    skb_push(skb, sizeof(*ul_header));
 	memset(ul_header, 0, sizeof(*ul_header));
 	ul_header->header_type = RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD;
-
-	if (port->data_format & RMNET_EGRESS_FORMAT_PRIORITY)
-		rmnet_map_v5_check_priority(skb, orig_dev, ul_header);
-
-	/* Allow priority w/o csum offload */
-	if (!(port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV5))
-		return;
 
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
 		void *iph = (char *)ul_header + sizeof(*ul_header);
@@ -552,7 +533,6 @@ sw_csum:
  * packets that are supported for UL checksum offload.
  */
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-				      struct rmnet_port *port,
 				      struct net_device *orig_dev,
 				      int csum_type)
 {
@@ -561,7 +541,7 @@ void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 		rmnet_map_v4_checksum_uplink_packet(skb, orig_dev);
 		break;
 	case RMNET_FLAGS_EGRESS_MAP_CKSUMV5:
-		rmnet_map_v5_checksum_uplink_packet(skb, port, orig_dev);
+		rmnet_map_v5_checksum_uplink_packet(skb, orig_dev);
 		break;
 	default:
 		break;

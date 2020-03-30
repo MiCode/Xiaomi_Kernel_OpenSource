@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #ifndef ADSPRPC_SHARED_H
 #define ADSPRPC_SHARED_H
@@ -45,16 +46,6 @@
 
 /* Fastrpc attribute for no mapping of fd  */
 #define FASTRPC_ATTR_NOMAP (16)
-
-/*
- * Fastrpc attribute to skip flush by fastrpc
- */
-#define FASTRPC_ATTR_FORCE_NOFLUSH  (32)
-
-/*
- * Fastrpc attribute to skip invalidate by fastrpc
- */
-#define FASTRPC_ATTR_FORCE_NOINVALIDATE (64)
 
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0

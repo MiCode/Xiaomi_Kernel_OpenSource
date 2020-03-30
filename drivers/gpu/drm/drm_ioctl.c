@@ -502,6 +502,31 @@ int drm_version(struct drm_device *dev, void *data,
 	return err;
 }
 
+const char *support_list[] = {
+	"displayfeature",
+	"DisplayFeature",
+	"disp_pcc",
+	"displayeffect",
+	"factoryreset",
+	"recovery",
+	NULL
+};
+
+static bool drm_master_filter(char *task_name)
+{
+	unsigned int i = 0;
+	bool ret = false;
+
+	for (i = 0; support_list[i] != NULL; i++) {
+		if (!strncmp(task_name, support_list[i], strlen(support_list[i]))) {
+			ret = true;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 /**
  * drm_ioctl_permit - Check ioctl permissions against caller
  *
@@ -516,6 +541,7 @@ int drm_version(struct drm_device *dev, void *data,
  */
 int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 {
+	struct task_struct *task = get_current();
 	/* ROOT_ONLY is only for CAP_SYS_ADMIN */
 	if (unlikely((flags & DRM_ROOT_ONLY) && !capable(CAP_SYS_ADMIN)))
 		return -EACCES;
@@ -527,8 +553,11 @@ int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 
 	/* MASTER is only for master or control clients */
 	if (unlikely((flags & DRM_MASTER) &&
-		     !drm_is_current_master(file_priv)))
-		return -EACCES;
+		     !drm_is_current_master(file_priv))) {
+		if (!drm_master_filter(task->comm)) {
+			return -EACCES;
+		}
+	}
 
 	/* Render clients must be explicitly allowed */
 	if (unlikely(!(flags & DRM_RENDER_ALLOW) &&

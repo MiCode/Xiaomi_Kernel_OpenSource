@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef __STEP_CHG_H__
 #define __STEP_CHG_H__
 
-#define MAX_STEP_CHG_ENTRIES	8
+#define MAX_STEP_CHG_ENTRIES	6
+#define MAX_COLD_STEP_CHG_ENTRIES	2
+#define BATT_COOL_THRESHOLD		150
+#define BATT_WARM_THRESHOLD		450
 
 struct step_chg_jeita_param {
 	u32			psy_prop;

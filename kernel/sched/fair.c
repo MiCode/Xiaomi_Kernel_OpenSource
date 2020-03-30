@@ -61,6 +61,11 @@ walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
 
 #endif
 
+unsigned int super_big_cpu = 7;
+
+#include <linux/kperfevents.h>
+#include <trace/events/kperfevents_sched.h>
+
 /*
  * Targeted preemption latency for CPU-bound tasks:
  *
@@ -165,6 +170,12 @@ unsigned int sysctl_sched_cfs_bandwidth_slice		= 5000UL;
  * (default: ~20%)
  */
 unsigned int capacity_margin				= 1280;
+
+/* Migration margins */
+unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
+			[0 ... MAX_MARGIN_LEVELS-1] = 1078}; /* ~5% margin */
+unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
+			[0 ... MAX_MARGIN_LEVELS-1] = 1205}; /* ~15% margin */
 unsigned int sched_capacity_margin_up[NR_CPUS] = {
 			[0 ... NR_CPUS-1] = 1078}; /* ~5% margin */
 unsigned int sched_capacity_margin_down[NR_CPUS] = {
@@ -966,6 +977,9 @@ update_stats_enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		if (tsk) {
 			account_scheduler_latency(tsk, delta >> 10, 1);
 			trace_sched_stat_sleep(tsk, delta);
+			if (unlikely(is_above_kperfevents_threshold_nanos(delta))) {
+				trace_kperfevents_sched_wait(tsk, delta, true);
+			}
 		}
 	}
 	if (block_start) {
@@ -989,6 +1003,9 @@ update_stats_enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 
 			trace_sched_stat_blocked(tsk, delta);
 			trace_sched_blocked_reason(tsk);
+			if (unlikely(is_above_kperfevents_threshold_nanos(delta))) {
+				trace_kperfevents_sched_wait(tsk, delta, false);
+			}
 
 			/*
 			 * Blocking time is in units of nanosecs, so shift by
@@ -6872,6 +6889,7 @@ enum fastpaths {
 	NONE = 0,
 	SYNC_WAKEUP,
 	PREV_CPU_FASTPATH,
+	SCHED_BIG_TOP,
 	MANY_WAKEUP,
 };
 
@@ -6902,6 +6920,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	int prev_cpu = task_cpu(p);
 	bool next_group_higher_cap = false;
 	int isolated_candidate = -1;
+	struct root_domain *rd;
 
 	/*
 	 * In most cases, target_capacity tracks capacity_orig of the most
@@ -6920,14 +6939,14 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
+	rd = cpu_rq(start_cpu)->rd;
 	/* Find SD for the start CPU */
 	start_sd = rcu_dereference(per_cpu(sd_asym_cpucapacity, start_cpu));
 	if (!start_sd)
 		goto out;
 
 	/* fast path for prev_cpu */
-	if (((capacity_orig_of(prev_cpu) == capacity_orig_of(start_cpu)) ||
-		asym_cap_siblings(prev_cpu, start_cpu)) &&
+	if ((capacity_orig_of(prev_cpu) == capacity_orig_of(start_cpu)) &&
 		!cpu_isolated(prev_cpu) && cpu_online(prev_cpu) &&
 		idle_cpu(prev_cpu)) {
 
@@ -6970,6 +6989,11 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 			if (fbt_env->skip_cpu == i)
 				continue;
+
+			if (sched_boost_top_app() && rd->mid_cap_orig_cpu != -1 &&
+				((i < rd->mid_cap_orig_cpu && MAX_USER_RT_PRIO <= p->prio && p->prio < DEFAULT_PRIO) ||
+				(i >= rd->mid_cap_orig_cpu && p->prio > DEFAULT_PRIO)))
+				break;
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -7657,6 +7681,13 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 				bias_to_this_cpu(p, prev_cpu, start_cpu)) {
 		best_energy_cpu = prev_cpu;
 		fbt_env.fastpath = MANY_WAKEUP;
+		goto done;
+	}
+
+	if (sched_boost_top_app() && is_top_app(p) && cpu_online(super_big_cpu) &&
+		!cpu_isolated(super_big_cpu) && cpumask_test_cpu(super_big_cpu, &p->cpus_allowed)) {
+		best_energy_cpu = super_big_cpu;
+		fbt_env.fastpath = SCHED_BIG_TOP;
 		goto done;
 	}
 
@@ -8790,6 +8821,10 @@ redo:
 			env->loop_break += sched_nr_migrate_break;
 			env->flags |= LBF_NEED_BREAK;
 			break;
+		}
+
+		if (sched_boost_top_app() && super_big_cpu == env->src_cpu && is_top_app(p)) {
+			goto next;
 		}
 
 		if (!can_migrate_task(p, env))

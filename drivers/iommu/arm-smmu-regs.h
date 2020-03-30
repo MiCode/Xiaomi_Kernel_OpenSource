@@ -15,6 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  */
@@ -192,21 +193,8 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x25dc
-#define TBU_SYNC_ACK_MASK		0x1ff
-#define TBU_SYNC_ACK_SHIFT		17
-#define TBU_SYNC_REQ_MASK		0x1
-#define TBU_SYNC_REQ_SHIFT		16
-#define TBU_INV_ACK_MASK		0x1ff
-#define TBU_INV_ACK_SHIFT		1
-#define TBU_INV_REQ_MASK		0x1
-#define TBU_INV_REQ_SHIFT		0
 #define ARM_SMMU_TBU_PWR_STATUS         0x2204
 #define ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR 0x2670
-#define TCU_SYNC_IN_PRGSS_MASK		0x1
-#define TCU_SYNC_IN_PRGSS_SHIFT		20
-#define TCU_INV_IN_PRGSS_MASK		0x1
-#define TCU_INV_IN_PRGSS_SHIFT		16
-#define TBUID_SHIFT			10
 
 #define SCTLR_MEM_ATTR_SHIFT		16
 #define SCTLR_SHCFG_SHIFT		22
@@ -258,19 +246,5 @@ enum arm_smmu_s2cr_privcfg {
 					 FSR_EF | FSR_PF | FSR_TF | FSR_IGN)
 
 #define FSYNR0_WNR			(1 << 4)
-
-#define IMPL_DEF1_MICRO_MMU_CTRL	0
-#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
-#define MICRO_MMU_CTRL_IDLE		(1 << 3)
-
-/* Definitions for implementation-defined registers */
-#define ACTLR_QCOM_OSH_SHIFT		28
-#define ACTLR_QCOM_OSH			1
-
-#define ACTLR_QCOM_ISH_SHIFT		29
-#define ACTLR_QCOM_ISH			1
-
-#define ACTLR_QCOM_NSH_SHIFT		30
-#define ACTLR_QCOM_NSH			1
 
 #endif /* _ARM_SMMU_REGS_H */

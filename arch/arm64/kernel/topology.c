@@ -2,6 +2,7 @@
  * arch/arm64/kernel/topology.c
  *
  * Copyright (C) 2011,2013,2014 Linaro Limited.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Based on the arm32 version written by Vincent Guittot in turn based on
  * arch/sh/kernel/topology.c
@@ -340,6 +341,7 @@ static void __init reset_cpu_topology(void)
 		cpu_topo->llc_id = -1;
 
 		clear_cpu_topology(cpu);
+		cpumask_set_cpu(cpu, &cpu_topo->core_possible_sibling);
 	}
 }
 

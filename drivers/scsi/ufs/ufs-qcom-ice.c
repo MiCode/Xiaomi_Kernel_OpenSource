@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,8 +181,7 @@ static void ufs_qcom_ice_cfg_work(struct work_struct *work)
 		return;
 
 	spin_lock_irqsave(&qcom_host->ice_work_lock, flags);
-	if (!qcom_host->req_pending ||
-			ufshcd_is_shutdown_ongoing(qcom_host->hba)) {
+	if (!qcom_host->req_pending) {
 		qcom_host->work_pending = false;
 		spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
 		return;
@@ -229,7 +229,7 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 	qcom_host->dbg_print_en |= UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN;
 	if (!ice_workqueue) {
 		ice_workqueue = alloc_workqueue("ice-set-key",
-			WQ_MEM_RECLAIM | WQ_HIGHPRI | WQ_FREEZABLE, 0);
+			WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 		if (!ice_workqueue) {
 			dev_err(ufs_dev, "%s: workqueue allocation failed.\n",
 			__func__);
@@ -658,28 +658,6 @@ int ufs_qcom_ice_resume(struct ufs_qcom_host *qcom_host)
 	qcom_host->ice.state = UFS_QCOM_ICE_STATE_ACTIVE;
 out:
 	return err;
-}
-
-/**
- * ufs_qcom_is_ice_busy() - lets the caller of the function know if
- * there is any ongoing operation in ICE in workqueue context.
- * @qcom_host:	Pointer to a UFS QCom internal host structure.
- *		qcom_host should be a valid pointer.
- *
- * Return:	1 if ICE is busy, 0 if it is free.
- *		-EINVAL in case of error.
- */
-int ufs_qcom_is_ice_busy(struct ufs_qcom_host *qcom_host)
-{
-	if (!qcom_host) {
-		pr_err("%s: invalid qcom_host\n", __func__);
-		return -EINVAL;
-	}
-
-	if (qcom_host->req_pending)
-		return 1;
-	else
-		return 0;
 }
 
 /**

@@ -3,43 +3,20 @@ cc_binary_host {
     srcs: ["scripts/unifdef.c"],
     sanitize: {
         never: true,
-    },
-}
-
-gensrcs {
-    name: "gen-headers_install.sh",
-    srcs: ["scripts/headers_install.sh"],
-    tools: ["unifdef"],
-    cmd: "sed 's+scripts/unifdef+$(location unifdef)+g' $(in) > $(out)",
-    output_extension: "sh",
-}
-
-cc_prebuilt_binary {
-    name: "headers_install.sh",
-    device_supported: false,
-    host_supported: true,
-    srcs: [":gen-headers_install.sh"],
-}
-
-gensrcs {
-    name: "qcom-kernel-includes",
-    cmd: "$(location headers_install.sh) `dirname $(out)` `dirname $(in)` `basename $(in)`",
-    tools: ["headers_install.sh"],
-    export_include_dirs: ["include/uapi"],
-    srcs: [
-        "include/uapi/**/*.h",
-    ],
-    output_extension: "h",
+    }
 }
 
 gensrcs {
     name: "qseecom-kernel-includes",
-    cmd: "$(location headers_install.sh) `dirname $(out)` `dirname $(in)` `basename $(in)`",
-    tools: ["headers_install.sh"],
+
+    // move to out/ as root for header generation because of scripts/unifdef
+    // storage - at the expense of extra ../ references
+    cmd: "pushd out && mkdir -p scripts && rm -f scripts/unifdef && ln -s ../../$(location unifdef) scripts/unifdef && ../$(location scripts/headers_install.sh) `dirname ../$(out)` ../ $(in) && popd",
+
+    tools: ["unifdef"],
+    tool_files: ["scripts/headers_install.sh"],
     export_include_dirs: ["include/uapi"],
-    srcs: [
-        "include/uapi/linux/qseecom.h",
-    ],
+    srcs: ["include/uapi/linux/qseecom.h"],
     output_extension: "h",
 }
 
@@ -47,12 +24,4 @@ cc_library_headers {
     name: "qseecom-kernel-headers",
     generated_headers: ["qseecom-kernel-includes"],
     export_generated_headers: ["qseecom-kernel-includes"],
-}
-
-cc_library_headers {
-    name: "qcom_kernel_headers",
-    generated_headers: ["qcom-kernel-includes"],
-    export_generated_headers: ["qcom-kernel-includes"],
-    vendor: true,
-    recovery_available: true,
 }

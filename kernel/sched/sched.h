@@ -2689,6 +2689,7 @@ extern void add_new_task_to_grp(struct task_struct *new);
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2
 #define RESTRAINED_BOOST 3
+#define MI_BOOST         4
 #define FULL_THROTTLE_BOOST_DISABLE -1
 #define CONSERVATIVE_BOOST_DISABLE -2
 #define RESTRAINED_BOOST_DISABLE -3
@@ -2830,6 +2831,7 @@ static inline bool is_full_throttle_boost(void)
 	return sched_boost() == FULL_THROTTLE_BOOST;
 }
 
+extern bool sched_boost_top_app(void);
 extern int preferred_cluster(struct sched_cluster *cluster,
 						struct task_struct *p);
 extern struct sched_cluster *rq_cluster(struct rq *rq);
@@ -2860,6 +2862,8 @@ static inline void restore_cgroup_boost_settings(void) { }
 #endif
 
 extern int alloc_related_thread_groups(void);
+
+extern unsigned long all_cluster_ids[];
 
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
 
@@ -2942,7 +2946,11 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 
 static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
-	return is_min_capacity_cpu(cluster_first_cpu(cluster));
+	int cpu = cluster_first_cpu(cluster);
+
+	if (cpu >= num_possible_cpus())
+		return false;
+	return is_min_capacity_cpu(cpu);
 }
 
 #else	/* CONFIG_SCHED_WALT */
@@ -2974,6 +2982,11 @@ static inline bool rt_boost_on_big(void)
 }
 
 static inline bool is_full_throttle_boost(void)
+{
+	return false;
+}
+
+static inline bool sched_boost_top_app(void)
 {
 	return false;
 }
@@ -3096,13 +3109,3 @@ struct sched_avg_stats {
 	int nr_scaled;
 };
 extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
-
-#ifdef CONFIG_SMP
-static inline void sched_irq_work_queue(struct irq_work *work)
-{
-	if (likely(cpu_online(raw_smp_processor_id())))
-		irq_work_queue(work);
-	else
-		irq_work_queue_on(work, cpumask_any(cpu_online_mask));
-}
-#endif

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _RMNET_PRIVATE_H_
@@ -17,9 +18,6 @@
 
 #define RMNET_INGRESS_FORMAT_DL_MARKER  (RMNET_INGRESS_FORMAT_DL_MARKER_V1 |\
 RMNET_INGRESS_FORMAT_DL_MARKER_V2)
-
-/* UL Packet prioritization */
-#define RMNET_EGRESS_FORMAT_PRIORITY            BIT(28)
 
 /* Power save feature*/
 #define RMNET_INGRESS_FORMAT_PS                 BIT(27)

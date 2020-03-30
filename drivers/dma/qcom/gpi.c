@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/atomic.h>
@@ -1834,12 +1835,12 @@ static int gpi_alloc_chan(struct gpii_chan *gpii_chan, bool send_alloc_cmd)
 		{
 			gpii_chan->ch_cntxt_base_reg,
 			CNTXT_3_RING_BASE_MSB,
-			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
+			(u32)(ring->phys_addr >> 32),
 		},
 		{ /* program MSB of DB register with ring base */
 			gpii_chan->ch_cntxt_db_reg,
 			CNTXT_5_RING_RP_MSB - CNTXT_4_RING_RP_LSB,
-			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
+			(u32)(ring->phys_addr >> 32),
 		},
 		{
 			gpii->regs,
@@ -1928,13 +1929,13 @@ static int gpi_alloc_ev_chan(struct gpii *gpii)
 		{
 			gpii->ev_cntxt_base_reg,
 			CNTXT_3_RING_BASE_MSB,
-			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
+			(u32)(ring->phys_addr >> 32),
 		},
 		{
 			/* program db msg with ring base msb */
 			gpii->ev_cntxt_db_reg,
 			CNTXT_5_RING_RP_MSB - CNTXT_4_RING_RP_LSB,
-			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
+			(u32)(ring->phys_addr >> 32),
 		},
 		{
 			gpii->ev_cntxt_base_reg,

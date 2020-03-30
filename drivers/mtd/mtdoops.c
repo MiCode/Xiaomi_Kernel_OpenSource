@@ -2,6 +2,7 @@
  * MTD Oops/Panic logger
  *
  * Copyright © 2007 Nokia Corporation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Author: Richard Purdie <rpurdie@openedhand.com>
  *
@@ -214,9 +215,9 @@ static void mtdoops_write(struct mtdoops_context *cxt, int panic)
 		printk(KERN_ERR "mtdoops: write failure at %ld (%td of %ld written), error %d\n",
 		       cxt->nextpage * record_size, retlen, record_size, ret);
 	mark_page_used(cxt, cxt->nextpage);
-	memset(cxt->oops_buf, 0xff, record_size);
 
-	mtdoops_inc_counter(cxt);
+	if (!panic)
+		mtdoops_inc_counter(cxt);
 }
 
 static void mtdoops_workfunc_write(struct work_struct *work)

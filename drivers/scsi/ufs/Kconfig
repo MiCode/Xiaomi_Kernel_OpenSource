@@ -3,6 +3,7 @@
 #
 # This code is based on drivers/scsi/ufs/Kconfig
 # Copyright (C) 2011-2013 Samsung India Software Operations
+# Copyright (C) 2020 XiaoMi, Inc.
 #
 # Authors:
 #	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -92,6 +93,8 @@ config SCSI_UFS_QCOM
 	tristate "QCOM specific hooks to UFS controller platform driver"
 	depends on SCSI_UFSHCD_PLATFORM && ARCH_QCOM
 	select PHY_QCOM_UFS
+	select EXTCON
+	select EXTCON_STORAGE_CD_GPIO
 	help
 	  This selects the QCOM specific additions to UFSHCD platform driver.
 	  UFS host on QCOM needs some vendor specific configuration before

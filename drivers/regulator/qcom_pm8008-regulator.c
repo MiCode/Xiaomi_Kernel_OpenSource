@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #define pr_fmt(fmt) "PM8008: %s: " fmt, __func__
 
@@ -30,14 +31,10 @@
 #define MISC_CHIP_ENABLE_REG		(MISC_BASE + 0x50)
 #define CHIP_ENABLE_BIT			BIT(0)
 
-#define MISC_SHUTDOWN_CTRL_REG		(MISC_BASE + 0x59)
-#define IGNORE_LDO_OCP_SHUTDOWN		BIT(3)
-
 #define LDO_ENABLE_REG(base)		(base + 0x46)
 #define ENABLE_BIT			BIT(7)
 
 #define LDO_STATUS1_REG(base)		(base + 0x08)
-#define VREG_OCP_BIT			BIT(5)
 #define VREG_READY_BIT			BIT(7)
 #define MODE_STATE_MASK			GENMASK(1, 0)
 #define MODE_STATE_NPM			3
@@ -54,10 +51,6 @@
 #define LDO_MODE_LPM			4
 #define FORCED_BYPASS			2
 
-#define LDO_OCP_CTL1_REG(base)		(base + 0x88)
-#define VREG_OCP_STATUS_CLR		BIT(1)
-#define LDO_OCP_BROADCAST_EN_BIT	BIT(2)
-
 #define LDO_STEPPER_CTL_REG(base)	(base + 0x3b)
 #define STEP_RATE_MASK			GENMASK(1, 0)
 
@@ -72,7 +65,7 @@ struct pm8008_chip {
 	struct regmap		*regmap;
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
-	int			ocp_irq;
+
 };
 
 struct regulator_data {
@@ -90,12 +83,10 @@ struct pm8008_regulator {
 	struct regulator	*parent_supply;
 	struct regulator	*en_supply;
 	struct device_node	*of_node;
-	struct notifier_block	nb;
 	u16			base;
 	int			hpm_min_load_ua;
 	int			min_dropout_uv;
 	int			step_rate;
-	bool			enable_ocp_broadcast;
 };
 
 static struct regulator_data reg_data[] = {
@@ -443,60 +434,6 @@ static struct regulator_ops pm8008_regulator_ops = {
 	.set_voltage_time	= pm8008_regulator_set_voltage_time,
 };
 
-static int pm8008_ldo_cb(struct notifier_block *nb, ulong event, void *data)
-{
-	struct pm8008_regulator *pm8008_reg = container_of(nb,
-						struct pm8008_regulator, nb);
-	u8 val;
-	int rc;
-
-	if (event != REGULATOR_EVENT_OVER_CURRENT)
-		return NOTIFY_OK;
-
-	rc = pm8008_read(pm8008_reg->regmap,
-			 LDO_STATUS1_REG(pm8008_reg->base), &val, 1);
-	if (rc < 0) {
-		pm8008_err(pm8008_reg,
-			"failed to read regulator status rc=%d\n", rc);
-		goto error;
-	}
-
-	if (!(val & VREG_OCP_BIT))
-		return NOTIFY_OK;
-
-	pr_err("OCP triggered on %s\n", pm8008_reg->rdesc.name);
-	/*
-	 * Toggle the OCP_STATUS_CLR bit to re-arm the OCP status for
-	 * the next OCP event
-	 */
-	rc = pm8008_masked_write(pm8008_reg->regmap,
-				 LDO_OCP_CTL1_REG(pm8008_reg->base),
-				 VREG_OCP_STATUS_CLR, VREG_OCP_STATUS_CLR);
-	if (rc < 0) {
-		pm8008_err(pm8008_reg, "failed to write OCP_STATUS_CLR rc=%d\n",
-			   rc);
-		goto error;
-	}
-
-	rc = pm8008_masked_write(pm8008_reg->regmap,
-				 LDO_OCP_CTL1_REG(pm8008_reg->base),
-				 VREG_OCP_STATUS_CLR, 0);
-	if (rc < 0) {
-		pm8008_err(pm8008_reg, "failed to write OCP_STATUS_CLR rc=%d\n",
-			   rc);
-		goto error;
-	}
-
-	/* Notify the consumers about the OCP event */
-	mutex_lock(&pm8008_reg->rdev->mutex);
-	regulator_notifier_call_chain(pm8008_reg->rdev,
-				REGULATOR_EVENT_OVER_CURRENT, NULL);
-	mutex_unlock(&pm8008_reg->rdev->mutex);
-
-error:
-	return NOTIFY_OK;
-}
-
 static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 						const char *name)
 {
@@ -545,17 +482,6 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		}
 	}
 
-	if (pm8008_reg->enable_ocp_broadcast) {
-		rc = pm8008_masked_write(pm8008_reg->regmap,
-				LDO_OCP_CTL1_REG(pm8008_reg->base),
-				LDO_OCP_BROADCAST_EN_BIT,
-				LDO_OCP_BROADCAST_EN_BIT);
-		if (rc < 0) {
-			pr_err("%s: failed to configure ocp broadcast rc=%d\n",
-				name, rc);
-			return rc;
-		}
-	}
 
 	/* get slew rate */
 	rc = pm8008_read(pm8008_reg->regmap,
@@ -633,17 +559,6 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		return rc;
 	}
 
-	if (pm8008_reg->enable_ocp_broadcast) {
-		pm8008_reg->nb.notifier_call = pm8008_ldo_cb;
-		rc = devm_regulator_register_notifier(pm8008_reg->en_supply,
-						 &pm8008_reg->nb);
-		if (rc < 0) {
-			pr_err("Failed to register a regulator notifier rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
 	pr_debug("%s regulator registered\n", name);
 
 	return 0;
@@ -656,9 +571,6 @@ static int pm8008_parse_regulator(struct regmap *regmap, struct device *dev)
 	const char *name;
 	struct device_node *child;
 	struct pm8008_regulator *pm8008_reg;
-	bool ocp;
-
-	ocp = of_property_read_bool(dev->of_node, "qcom,enable-ocp-broadcast");
 
 	/* parse each subnode and register regulator for regulator child */
 	for_each_available_child_of_node(dev->of_node, child) {
@@ -669,7 +581,6 @@ static int pm8008_parse_regulator(struct regmap *regmap, struct device *dev)
 		pm8008_reg->regmap = regmap;
 		pm8008_reg->of_node = child;
 		pm8008_reg->dev = dev;
-		pm8008_reg->enable_ocp_broadcast = ocp;
 
 		rc = of_property_read_string(child, "regulator-name", &name);
 		if (rc)
@@ -784,18 +695,6 @@ static int pm8008_init_enable_regulator(struct pm8008_chip *chip)
 	return 0;
 }
 
-static irqreturn_t pm8008_ocp_irq(int irq, void *_chip)
-{
-	struct pm8008_chip *chip = _chip;
-
-	mutex_lock(&chip->rdev->mutex);
-	regulator_notifier_call_chain(chip->rdev, REGULATOR_EVENT_OVER_CURRENT,
-				      NULL);
-	mutex_unlock(&chip->rdev->mutex);
-
-	return IRQ_HANDLED;
-}
-
 static int pm8008_chip_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -817,29 +716,6 @@ static int pm8008_chip_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		pr_err("Failed to register chip enable regulator rc=%d\n", rc);
 		return rc;
-	}
-
-	chip->ocp_irq = of_irq_get_byname(chip->dev->of_node, "ocp");
-	if (chip->ocp_irq < 0) {
-		pr_debug("Failed to get pm8008-ocp-irq\n");
-	} else {
-		rc = devm_request_threaded_irq(chip->dev, chip->ocp_irq, NULL,
-				pm8008_ocp_irq, IRQF_ONESHOT,
-				"ocp", chip);
-		if (rc < 0) {
-			pr_err("Failed to request 'pm8008-ocp-irq' rc=%d\n",
-				rc);
-			return rc;
-		}
-
-		/* Ignore PMIC shutdown for LDO OCP event */
-		rc = pm8008_masked_write(chip->regmap, MISC_SHUTDOWN_CTRL_REG,
-			IGNORE_LDO_OCP_SHUTDOWN, IGNORE_LDO_OCP_SHUTDOWN);
-		if (rc < 0) {
-			pr_err("Failed to write MISC_SHUTDOWN register rc=%d\n",
-				rc);
-			return rc;
-		}
 	}
 
 	pr_debug("PM8008 chip registered\n");

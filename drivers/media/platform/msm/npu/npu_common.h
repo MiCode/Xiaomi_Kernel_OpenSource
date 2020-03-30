@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef _NPU_COMMON_H
@@ -109,18 +110,14 @@ struct npu_debugfs_ctx {
 	struct dentry *root;
 	uint32_t reg_off;
 	uint32_t reg_cnt;
+	char *buf;
+	size_t buf_len;
 	uint8_t *log_buf;
 	struct mutex log_lock;
 	uint32_t log_num_bytes_buffered;
 	uint32_t log_read_index;
 	uint32_t log_write_index;
 	uint32_t log_buf_size;
-};
-
-struct npu_debugfs_reg_ctx {
-	char *buf;
-	size_t buf_len;
-	struct npu_device *npu_dev;
 };
 
 struct npu_mbox {

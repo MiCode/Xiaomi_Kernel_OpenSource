@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <asm/dma-iommu.h>
 #include <linux/async.h>
@@ -17,6 +18,12 @@
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/mhi.h>
+
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+
 #include "mhi_qcom.h"
 
 struct arch_info {
@@ -272,6 +279,65 @@ static void mhi_arch_esoc_ops_mdm_error(void *priv)
 	MHI_LOG("Exit\n");
 }
 
+#define SERIAL_NUM_LEN 64
+static char sdx55m_cpuid[SERIAL_NUM_LEN] = {"\0"};
+static char sdx55m_fuse[64] = {"\0"};
+
+
+static int secureboot_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", sdx55m_cpuid);
+	return 0;
+}
+
+static int sdx55m_cpuid_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, secureboot_proc_show, NULL);
+}
+
+static const struct file_operations proc_sdx55m_cpuid_operations = {
+	.open		= sdx55m_cpuid_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static int __init proc_sdx55m_cpuid_init(void)
+{
+	proc_create("sdx55m_cpuid", 0, NULL, &proc_sdx55m_cpuid_operations);
+	return 0;
+}
+fs_initcall(proc_sdx55m_cpuid_init);
+
+
+static int fuse_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", sdx55m_fuse);
+	return 0;
+}
+
+static int sdx55m_fuse_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fuse_proc_show, NULL);
+}
+
+static const struct file_operations proc_sdx55m_fuse_operations = {
+	.open		= sdx55m_fuse_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static int __init proc_sdx55m_fuse_init(void)
+{
+	proc_create("sdx55m_secureboot", 0, NULL, &proc_sdx55m_fuse_operations);
+	return 0;
+}
+fs_initcall(proc_sdx55m_fuse_init);
+
+
+
+
 static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 			 struct mhi_result *mhi_result)
 {
@@ -279,9 +345,24 @@ static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	char *buf = mhi_result->buf_addr;
+	char *const_serial_number = "0x00786134 = ";
+	char *const_sdx55m_fuse = "Secure Boot: ";
+	char *pSerial_number = NULL;
+
 
 	/* force a null at last character */
 	buf[mhi_result->bytes_xferd - 1] = 0;
+
+	pSerial_number = strstr(buf, const_serial_number);
+	if (pSerial_number != NULL) {
+		strncpy(sdx55m_cpuid, pSerial_number + strlen(const_serial_number), strlen("0x3de665bd"));
+	}
+
+	pSerial_number = strstr(buf, const_sdx55m_fuse);
+	if (pSerial_number != NULL) {
+		strncpy(sdx55m_fuse, pSerial_number + strlen(const_sdx55m_fuse), strlen("Off"));
+	}
+
 
 	ipc_log_string(arch_info->boot_ipc_log, "%s %s", DLOG, buf);
 }
@@ -307,7 +388,6 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 	struct mhi_controller *mhi_cntrl = data;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
-	struct mhi_device *boot_dev;
 	/* 15 sec timeout for booting device */
 	const u32 timeout = msecs_to_jiffies(15000);
 
@@ -322,10 +402,6 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 
 	/* if we successfully booted to amss disable boot log channel */
 	if (mhi_cntrl->ee == MHI_EE_AMSS) {
-		boot_dev = arch_info->boot_dev;
-		if (boot_dev)
-			mhi_unprepare_from_transfer(boot_dev);
-
 		if (!mhi_dev->drv_supported || arch_info->drv_connected)
 			pm_runtime_allow(&mhi_dev->pci_dev->dev);
 	}
@@ -341,6 +417,17 @@ int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 		arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
 
 	return 0;
+}
+
+void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+{
+       struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+       struct arch_info *arch_info = mhi_dev->arch_info;
+       struct mhi_device *boot_dev = arch_info->boot_dev;
+
+       /* disable boot logger channel */
+       if (boot_dev)
+               mhi_unprepare_from_transfer(boot_dev);
 }
 
 static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
@@ -722,6 +809,7 @@ int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 	}
 
 	msm_pcie_l1ss_timeout_enable(pci_dev);
+	mhi_cntrl->force_m3_done = true;
 
 	MHI_LOG("Exited\n");
 
