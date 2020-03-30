@@ -85,6 +85,20 @@ Properties:
   Definition:	Specifies if the hardware is driving an ERM actuator. If it's
 		not defined, then LRA actuator is used.
 
+- nvmem-cell-names:
+  Usage:	optional
+  Value type:	<string>
+  Definition:	The nvmem cell name of the SDAM module where the closed-loop
+		brake calibration settings can be stored. It must be
+		"hap_cl_brake".
+
+- nvmem-cells:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the nvmem cell to store the closed-loop brake
+		calibration settings. Please refer to nvmem bindings as
+		described in bindings/nvmem/nvmem.txt.
+
 The following properties are only required when LRA actuator is used:
 
 - qcom,lra-period-us:
@@ -231,6 +245,8 @@ Example:
 		reg = <0xf000>, <0xf100>;
 		interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_BOTH>;
 		interrupt-names = "fifo-empty";
+		nvmem-cell-names = "hap_cl_brake";
+		nvmem-cells = <&hap_cl_brake>;
 		qcom,vmax-mv = <900>;
 		qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
 		qcom,brake-pattern = /bits/ 8 <0xff 0x3f 0x1f>;
