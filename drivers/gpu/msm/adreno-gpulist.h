@@ -1531,7 +1531,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_512K,
 		.bus_width = 32,
-		.snapshot_size = SZ_1M,
+		.snapshot_size = SZ_2M,
 	},
 	.prim_fifo_threshold = 0x00300000,
 	.gmu_major = 2,

@@ -1137,8 +1137,21 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 	device->snapshot_memory.ptr = devm_kzalloc(&device->pdev->dev,
 		device->snapshot_memory.size, GFP_KERNEL);
 
-	if (!device->snapshot_memory.ptr)
+	/*
+	 * If we fail to allocate more than 1MB for snapshot fall back
+	 * to 1MB
+	 */
+	if (WARN_ON((!device->snapshot_memory.ptr) && size > SZ_1M)) {
+		device->snapshot_memory.size = SZ_1M;
+		device->snapshot_memory.ptr = devm_kzalloc(&device->pdev->dev,
+			device->snapshot_memory.size, GFP_KERNEL);
+	}
+
+	if (!device->snapshot_memory.ptr) {
+		dev_err(device->dev,
+			"KGSL failed to allocate memory for snapshot\n");
 		return;
+	}
 
 	device->snapshot = NULL;
 	device->snapshot_faultcount = 0;
