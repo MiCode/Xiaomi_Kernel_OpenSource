@@ -1148,61 +1148,23 @@ static void a6xx_gmu_enable_lm(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 }
 
-/*
- * a6xx_gmu_fw_start() - set up GMU and start FW
- * @device: Pointer to KGSL device
- * @boot_state: State of the GMU being started
- */
-static int a6xx_gmu_fw_start(struct kgsl_device *device,
-		unsigned int boot_state)
+static void a6xx_gmu_register_config(struct kgsl_device *device)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = A6XX_GMU_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	uint32_t gmu_log_info;
-	int ret;
-	unsigned int chipid = 0;
+	u32 gmu_log_info, chipid = 0;
 
 	/* Vote veto for FAL10 feature if supported*/
 	if (a6xx_core->veto_fal10)
 		gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
 
-	switch (boot_state) {
-	case GMU_COLD_BOOT:
-		/* Turn on TCM retention */
-		gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
-
-		if (!test_and_set_bit(GMU_BOOT_INIT_DONE,
-			&device->gmu_core.flags))
-			ret = _load_gmu_rpmh_ucode(device);
-		else
-			ret = a6xx_rpmh_power_on_gpu(device);
-		if (ret)
-			return ret;
-
-		if (gmu->load_mode == TCM_BOOT) {
-			/* Load GMU image via AHB bus */
-			ret = load_gmu_fw(device);
-			if (ret)
-				return ret;
-		} else {
-			dev_err(&gmu->pdev->dev, "Unsupported GMU load mode %d\n",
-					gmu->load_mode);
-			return -EINVAL;
-		}
-		break;
-	case GMU_WARM_BOOT:
-		ret = a6xx_rpmh_power_on_gpu(device);
-		if (ret)
-			return ret;
-		break;
-	default:
-		break;
-	}
+	/* Turn on TCM retention */
+	gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
 	/* Clear init result to make sure we are getting fresh value */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_FW_INIT_RESULT, 0);
-	gmu_core_regwrite(device, A6XX_GMU_CM3_BOOT_CONFIG, gmu->load_mode);
+	gmu_core_regwrite(device, A6XX_GMU_CM3_BOOT_CONFIG, 0x2);
 
 	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_ADDR,
 			gmu->hfi_mem->gmuaddr);
@@ -1223,7 +1185,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	 * not get cleared if the gdsc was not reset. So clear it before
 	 * attempting GMU boot.
 	 */
-	if (!adreno_is_a630(ADRENO_DEVICE(device)))
+	if (!adreno_is_a630(adreno_dev))
 		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
 
 	/* Set the log wptr index */
@@ -1254,10 +1216,37 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
 
+	a6xx_gmu_enable_lm(device);
+}
+
+/*
+ * a6xx_gmu_fw_start() - set up GMU and start FW
+ * @device: Pointer to KGSL device
+ */
+static int a6xx_gmu_fw_start(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct a6xx_gmu_device *gmu = A6XX_GMU_DEVICE(device);
+	int ret;
+
+	/* Do the necessary register programming */
+	a6xx_gmu_register_config(device);
+
+	if (!test_and_set_bit(GMU_BOOT_INIT_DONE,
+		&device->gmu_core.flags))
+		ret = _load_gmu_rpmh_ucode(device);
+	else
+		ret = a6xx_rpmh_power_on_gpu(device);
+	if (ret)
+		return ret;
+
+	/* Load GMU image via AHB bus */
+	ret = load_gmu_fw(device);
+	if (ret)
+		return ret;
+
 	/* Populate the GMU version info before GMU boots */
 	load_gmu_version_info(device);
-
-	a6xx_gmu_enable_lm(device);
 
 	/* Clear any previously set cm3 fault */
 	atomic_set(&gmu->cm3_fault, 0);
@@ -1782,7 +1771,7 @@ static int a6xx_gmu_rpmh_gpu_pwrctrl(struct kgsl_device *device,
 
 	switch (mode) {
 	case GMU_FW_START:
-		ret = a6xx_gmu_fw_start(device, arg1);
+		ret = a6xx_gmu_fw_start(device);
 		break;
 	case GMU_SUSPEND:
 		ret = a6xx_gmu_pwrctrl_suspend(device);
@@ -3398,7 +3387,6 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 
 	device->gmu_core.ptr = gmu;
 	hfi = &gmu->hfi;
-	gmu->load_mode = TCM_BOOT;
 
 	dma_set_coherent_mask(&gmu->pdev->dev, DMA_BIT_MASK(64));
 	gmu->pdev->dev.dma_mask = &gmu->pdev->dev.coherent_dma_mask;

@@ -122,14 +122,6 @@ struct rpmh_votes_t {
 	uint32_t cx_votes[MAX_CX_LEVELS];
 };
 
-enum gmu_load_mode {
-	CACHED_LOAD_BOOT,
-	CACHED_BOOT,
-	TCM_BOOT,
-	TCM_LOAD_BOOT,
-	INVALID_LOAD
-};
-
 struct kgsl_mailbox {
 	struct mbox_client client;
 	struct mbox_chan *channel;
@@ -154,7 +146,6 @@ struct icc_path;
 		subsystem peripherals
  * @gx_gdsc: GX headswitch that controls power of GPU subsystem
  * @clks: GPU subsystem clocks required for GMU functionality
- * @load_mode: GMU FW load/boot mode
  * @wakeup_pwrlevel: GPU wake up power/DCVS level in case different
  *		than default power level
  * @idle_level: Minimal GPU idle power level
@@ -193,7 +184,6 @@ struct a6xx_gmu_device {
 	struct clk_bulk_data *clks;
 	/** @num_clks: Number of entries in the @clks array */
 	int num_clks;
-	enum gmu_load_mode load_mode;
 	unsigned int wakeup_pwrlevel;
 	unsigned int idle_level;
 	unsigned int fault_count;
