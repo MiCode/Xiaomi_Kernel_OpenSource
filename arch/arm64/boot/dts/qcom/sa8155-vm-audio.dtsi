@@ -13,6 +13,10 @@
 
 #include "msm-audio-lpass.dtsi"
 
+&msm_audio_ion {
+	/delete-property/ iommus;
+};
+
 &soc {
 	qcom,msm-dai-tdm-pri-rx {
 		compatible = "qcom,msm-dai-tdm";
