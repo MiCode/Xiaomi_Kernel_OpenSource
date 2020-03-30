@@ -63,7 +63,8 @@ struct pmic_glink_dev {
  * @id:		Unique id for client for communication
  * @lock:	lock for sending data
  * @priv:	private data for client
- * @callback:	callback function for client
+ * @msg_cb:	callback function for client to receive the messages that
+ *		are intended to be delivered to it over PMIC Glink
  */
 struct pmic_glink_client {
 	struct pmic_glink_dev	*pgdev;
@@ -71,7 +72,7 @@ struct pmic_glink_client {
 	u32			id;
 	struct mutex		lock;
 	void			*priv;
-	int			(*callback)(void *priv, void *data, size_t len);
+	int			(*msg_cb)(void *priv, void *data, size_t len);
 };
 
 struct pmic_glink_buf {
@@ -177,7 +178,7 @@ struct pmic_glink_client *pmic_glink_register_client(struct device *dev,
 	if (!dev || !dev->parent)
 		return ERR_PTR(-ENODEV);
 
-	if (!client_data->id || !client_data->callback || !client_data->name)
+	if (!client_data->id || !client_data->msg_cb || !client_data->name)
 		return ERR_PTR(-EINVAL);
 
 	pgdev = get_pmic_glink_from_dev(dev->parent);
@@ -204,7 +205,7 @@ struct pmic_glink_client *pmic_glink_register_client(struct device *dev,
 
 	mutex_init(&client->lock);
 	client->id = client_data->id;
-	client->callback = client_data->callback;
+	client->msg_cb = client_data->msg_cb;
 	client->priv = client_data->priv;
 	client->pgdev = pgdev;
 
@@ -263,7 +264,7 @@ static void pmic_glink_rx_callback(struct pmic_glink_dev *pgdev,
 	client = idr_find(&pgdev->client_idr, hdr->owner);
 	mutex_unlock(&pgdev->client_lock);
 
-	if (!client || !client->callback) {
+	if (!client || !client->msg_cb) {
 		pr_err("No client present for %u\n", hdr->owner);
 		return;
 	}
@@ -276,7 +277,7 @@ static void pmic_glink_rx_callback(struct pmic_glink_dev *pgdev,
 				pbuf->buf);
 	}
 
-	client->callback(client->priv, pbuf->buf, pbuf->len);
+	client->msg_cb(client->priv, pbuf->buf, pbuf->len);
 }
 
 static void pmic_glink_rx_work(struct work_struct *work)

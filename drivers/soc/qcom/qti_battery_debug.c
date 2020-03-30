@@ -683,7 +683,7 @@ static int battery_dbg_probe(struct platform_device *pdev)
 	bd->dev = &pdev->dev;
 	client_data.id = MSG_OWNER_BD;
 	client_data.name = "battery_debug";
-	client_data.callback = battery_dbg_callback;
+	client_data.msg_cb = battery_dbg_callback;
 	client_data.priv = bd;
 
 	bd->client = pmic_glink_register_client(bd->dev, &client_data);

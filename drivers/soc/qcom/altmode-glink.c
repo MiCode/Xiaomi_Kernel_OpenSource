@@ -497,7 +497,7 @@ static int altmode_probe(struct platform_device *pdev)
 
 	pgclient_data.id = MSG_OWNER_USBC_PAN;
 	pgclient_data.name = "altmode";
-	pgclient_data.callback = altmode_callback;
+	pgclient_data.msg_cb = altmode_callback;
 	pgclient_data.priv = amdev;
 
 	amdev->pgclient = pmic_glink_register_client(amdev->dev,

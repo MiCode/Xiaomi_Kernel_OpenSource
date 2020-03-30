@@ -1016,7 +1016,7 @@ static int battery_chg_probe(struct platform_device *pdev)
 
 	client_data.id = MSG_OWNER_BC;
 	client_data.name = "battery_charger";
-	client_data.callback = battery_chg_callback;
+	client_data.msg_cb = battery_chg_callback;
 	client_data.priv = bcdev;
 
 	bcdev->client = pmic_glink_register_client(dev, &client_data);

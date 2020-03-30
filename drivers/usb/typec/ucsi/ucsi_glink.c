@@ -464,7 +464,7 @@ static int ucsi_probe(struct platform_device *pdev)
 
 	client_data.id = MSG_OWNER_UC;
 	client_data.name = "ucsi";
-	client_data.callback = ucsi_callback;
+	client_data.msg_cb = ucsi_callback;
 	client_data.priv = udev;
 
 	udev->client = pmic_glink_register_client(dev, &client_data);
