@@ -185,6 +185,8 @@
   kstrtouint
   ktime_get
   ktime_get_mono_fast_ns
+  __list_add_valid
+  __list_del_entry_valid
   memcpy
   memset
   mii_ethtool_gset
@@ -1147,6 +1149,7 @@
   radix_tree_maybe_preload
   sg_pcopy_from_buffer
   sg_pcopy_to_buffer
+  trace_print_symbols_seq
   usb_amd_pt_check_port
   usb_asmedia_modifyflowcontrol
   usb_disable_xhci_ports
