@@ -141,7 +141,7 @@ int hh_msgq_recv(void *msgq_client_desc,
 		goto err;
 	}
 
-	if (!cap_table_entry->rx_cap_id) {
+	if (cap_table_entry->rx_cap_id == HH_CAPID_INVAL) {
 		pr_err("%s: Recv info for label %d not yet initialized\n",
 			__func__, client_desc->label);
 		ret = -EAGAIN;
@@ -263,7 +263,7 @@ int hh_msgq_send(void *msgq_client_desc,
 		goto err;
 	}
 
-	if (!cap_table_entry->tx_cap_id) {
+	if (cap_table_entry->tx_cap_id == HH_CAPID_INVAL) {
 		pr_err("%s: Send info for label %d not yet initialized\n",
 			__func__, client_desc->label);
 		ret = -EAGAIN;
@@ -482,6 +482,8 @@ static int __init hh_msgq_init(void)
 	for (i = 0; i < HH_MSGQ_LABEL_MAX; i++) {
 		cap_table_entry = &hh_msgq_cap_table[i];
 
+		cap_table_entry->tx_cap_id = HH_CAPID_INVAL;
+		cap_table_entry->rx_cap_id = HH_CAPID_INVAL;
 		cap_table_entry->tx_full = false;
 		cap_table_entry->rx_empty = true;
 		init_waitqueue_head(&cap_table_entry->tx_wq);
