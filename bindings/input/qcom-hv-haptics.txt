@@ -70,6 +70,15 @@ Properties:
 		or if it's defined as an array with all zeros, then manual
 		brake is disabled.
 
+- qcom,fifo-empty-threshold:
+  Usage:	optional
+  Value type:	<u32>
+  Definition:	Specifies the FIFO empty threshold. The "fifo-empty" IRQ will be
+		triggered when the number of the samples in the FIFO is less
+		than the threshold. For PM8350B v1, allowed value is 1 - 103
+		and the default value is 48. For PM8350B v2, allowed value is
+		1 - 639 and the default value is 280.
+
 - qcom,use-erm:
   Usage:	optional
   Value type:	<bool>
