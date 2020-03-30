@@ -617,7 +617,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	 * 3. HFI
 	 * At this point, we are guaranteed all.
 	 */
-	gmu_core_dev_enable_lm(device);
 
 	/* Configure LLCC */
 	a6xx_llc_configure_gpu_scid(adreno_dev);

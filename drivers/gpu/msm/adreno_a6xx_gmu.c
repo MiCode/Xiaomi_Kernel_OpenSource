@@ -1117,6 +1117,40 @@ static void a6xx_gmu_mem_free(struct a6xx_gmu_device *gmu,
 	memset(md, 0, sizeof(*md));
 }
 
+static void a6xx_gmu_enable_lm(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 val;
+
+	memset(adreno_dev->busy_data.throttle_cycles, 0,
+		sizeof(adreno_dev->busy_data.throttle_cycles));
+
+	if (!adreno_dev->lm_enabled)
+		return;
+
+	/*
+	 * For throttling, use the following counters for throttled cycles:
+	 * XOCLK1: countable: 0x10
+	 * XOCLK2: countable: 0x16 for newer hardware / 0x15 for others
+	 * XOCLK3: countable: 0xf for newer hardware / 0x19 for others
+	 *
+	 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
+	 * is 8 bits wide.
+	 */
+
+	if (adreno_is_a620(adreno_dev) || adreno_is_a650(adreno_dev))
+		val = (0x10 << 8) | (0x16 << 16) | (0x0f << 24);
+	else
+		val = (0x10 << 8) | (0x15 << 16) | (0x19 << 24);
+
+
+	/* Make sure not to write over XOCLK0 */
+	gmu_core_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+		0xffffff00, val);
+
+	gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
+}
+
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1225,6 +1259,8 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 	/* Populate the GMU version info before GMU boots */
 	load_gmu_version_info(device);
+
+	a6xx_gmu_enable_lm(device);
 
 	/* Clear any previously set cm3 fault */
 	atomic_set(&gmu->cm3_fault, 0);
@@ -1880,40 +1916,6 @@ static int a6xx_gmu_dcvs_set(struct kgsl_device *device,
 	/* indicate actual clock change */
 	clear_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags);
 	return ret;
-}
-
-static void a6xx_gmu_enable_lm(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	u32 val;
-
-	memset(adreno_dev->busy_data.throttle_cycles, 0,
-		sizeof(adreno_dev->busy_data.throttle_cycles));
-
-	if (!adreno_dev->lm_enabled)
-		return;
-
-	/*
-	 * For throttling, use the following counters for throttled cycles:
-	 * XOCLK1: countable: 0x10
-	 * XOCLK2: countable: 0x16 for newer hardware / 0x15 for others
-	 * XOCLK3: countable: 0xf for newer hardware / 0x19 for others
-	 *
-	 * POWER_CONTROL_SELECT_0 controls counters 0 - 3, each selector
-	 * is 8 bits wide.
-	 */
-
-	if (adreno_is_a620(adreno_dev) || adreno_is_a650(adreno_dev))
-		val = (0x10 << 8) | (0x16 << 16) | (0x0f << 24);
-	else
-		val = (0x10 << 8) | (0x15 << 16) | (0x19 << 24);
-
-
-	/* Make sure not to write over XOCLK0 */
-	gmu_core_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
-		0xffffff00, val);
-
-	gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 }
 
 static int a6xx_gmu_ifpc_store(struct kgsl_device *device,
@@ -2618,7 +2620,6 @@ static struct gmu_dev_ops a6xx_gmudev = {
 	.irq_enable = a6xx_gmu_irq_enable,
 	.irq_disable = a6xx_gmu_irq_disable,
 	.hfi_start_msg = a6xx_gmu_hfi_start_msg,
-	.enable_lm = a6xx_gmu_enable_lm,
 	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
 	.gx_is_on = a6xx_gmu_gx_is_on,
 	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,

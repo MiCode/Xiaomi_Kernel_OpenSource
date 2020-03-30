@@ -251,14 +251,6 @@ int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device)
 	return 0;
 }
 
-void gmu_core_dev_enable_lm(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->enable_lm)
-		ops->enable_lm(device);
-}
-
 void gmu_core_dev_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
