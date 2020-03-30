@@ -78,6 +78,8 @@ extern int migrate_huge_page_move_mapping(struct address_space *mapping,
 				  struct page *newpage, struct page *page);
 extern int migrate_page_move_mapping(struct address_space *mapping,
 		struct page *newpage, struct page *page, int extra_count);
+extern void split_map_pages(struct list_head *list);
+extern unsigned long release_freepages(struct list_head *freelist);
 #else
 
 static inline void putback_movable_pages(struct list_head *l) {}
@@ -104,6 +106,11 @@ static inline int migrate_huge_page_move_mapping(struct address_space *mapping,
 	return -ENOSYS;
 }
 
+static inline void split_map_pages(struct list_head *list) { }
+static inline unsigned long release_freepages(struct list_head *freelist)
+{
+	return 0;
+}
 #endif /* CONFIG_MIGRATION */
 
 #ifdef CONFIG_COMPACTION

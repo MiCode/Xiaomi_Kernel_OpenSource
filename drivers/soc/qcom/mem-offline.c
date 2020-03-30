@@ -15,6 +15,10 @@
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/rmap.h>
+#include <linux/swap.h>
+#include <linux/migrate.h>
+#include <linux/vmstat.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
 #include <asm/tlbflush.h>
@@ -29,9 +33,13 @@
 static unsigned long start_section_nr, end_section_nr;
 static struct kobject *kobj;
 static unsigned int sections_per_block;
+static atomic_t target_migrate_pages = ATOMIC_INIT(0);
 static u32 offline_granule;
 static bool is_rpm_controller;
+static bool has_pend_offline_req;
+
 #define MODULE_CLASS_NAME	"mem-offline"
+#define MIGRATE_TIMEOUT_SEC	(20)
 
 struct section_stat {
 	unsigned long success_count;
@@ -68,6 +76,21 @@ struct memory_refresh_request {
 };
 
 static struct section_stat *mem_info;
+
+struct movable_zone_fill_control {
+	struct list_head freepages;
+	unsigned long start_pfn;
+	unsigned long end_pfn;
+	unsigned long nr_migrate_pages;
+	unsigned long nr_free_pages;
+	unsigned long limit;
+	int target;
+	struct zone *zone;
+};
+
+static void fill_movable_zone_fn(struct work_struct *work);
+static DECLARE_WORK(fill_movable_zone_work, fill_movable_zone_fn);
+static DEFINE_MUTEX(page_migrate_lock);
 
 static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
 {
@@ -355,6 +378,238 @@ out:
 	return 0;
 }
 
+static inline void reset_page_order(struct page *page)
+{
+	__ClearPageBuddy(page);
+	set_page_private(page, 0);
+}
+
+static int isolate_free_page(struct page *page, unsigned int order)
+{
+	struct zone *zone;
+
+	zone = page_zone(page);
+	list_del(&page->lru);
+	zone->free_area[order].nr_free--;
+	reset_page_order(page);
+
+	return 1UL << order;
+}
+
+static void isolate_free_pages(struct movable_zone_fill_control *fc)
+{
+	struct page *page;
+	unsigned long flags;
+	unsigned int order;
+	unsigned long start_pfn = fc->start_pfn;
+	unsigned long end_pfn = fc->end_pfn;
+
+	spin_lock_irqsave(&fc->zone->lock, flags);
+	for (; start_pfn < end_pfn; start_pfn++) {
+		unsigned long isolated;
+
+		if (!pfn_valid(start_pfn))
+			continue;
+
+		page = pfn_to_page(start_pfn);
+		if (!page)
+			continue;
+
+		if (PageCompound(page)) {
+			struct page *head = compound_head(page);
+			int skip;
+
+			skip = (1 << compound_order(head)) - (page - head);
+			start_pfn += skip - 1;
+			continue;
+		}
+
+		if (!PageBuddy(page))
+			continue;
+
+		order = page_private(page);
+		isolated = isolate_free_page(page, order);
+		set_page_private(page, order);
+		list_add_tail(&page->lru, &fc->freepages);
+		fc->nr_free_pages += isolated;
+		__mod_zone_page_state(fc->zone, NR_FREE_PAGES, -isolated);
+		start_pfn += isolated - 1;
+
+		/*
+		 * Make sure that the zone->lock is not held for long by
+		 * returning once we have SWAP_CLUSTER_MAX pages in the
+		 * free list for migration.
+		 */
+		if (fc->nr_free_pages >= SWAP_CLUSTER_MAX ||
+			has_pend_offline_req)
+			break;
+	}
+	fc->start_pfn = start_pfn + 1;
+	spin_unlock_irqrestore(&fc->zone->lock, flags);
+
+	split_map_pages(&fc->freepages);
+}
+
+static struct page *movable_page_alloc(struct page *page, unsigned long data)
+{
+	struct movable_zone_fill_control *fc;
+	struct page *freepage;
+
+	fc = (struct movable_zone_fill_control *)data;
+	if (list_empty(&fc->freepages)) {
+		isolate_free_pages(fc);
+		if (list_empty(&fc->freepages))
+			return NULL;
+	}
+
+	freepage = list_entry(fc->freepages.next, struct page, lru);
+	list_del(&freepage->lru);
+	fc->nr_free_pages--;
+
+	return freepage;
+}
+
+static void movable_page_free(struct page *page, unsigned long data)
+{
+	struct movable_zone_fill_control *fc;
+
+	fc = (struct movable_zone_fill_control *)data;
+	list_add(&page->lru, &fc->freepages);
+	fc->nr_free_pages++;
+}
+
+static unsigned long get_anon_movable_pages(
+			struct movable_zone_fill_control *fc,
+			unsigned long start_pfn,
+			unsigned long end_pfn, struct list_head *list)
+{
+	int found = 0, pfn, ret;
+	int limit = min_t(int, fc->target, (int)pageblock_nr_pages);
+
+	fc->nr_migrate_pages = 0;
+	for (pfn = start_pfn; pfn < end_pfn && found < limit; ++pfn) {
+		struct page *page = pfn_to_page(pfn);
+
+		if (!pfn_valid(pfn))
+			continue;
+
+		if (PageCompound(page)) {
+			struct page *head = compound_head(page);
+			int skip;
+
+			skip = (1 << compound_order(head)) - (page - head);
+			pfn += skip - 1;
+			continue;
+		}
+
+		if (PageBuddy(page)) {
+			unsigned long freepage_order;
+
+			freepage_order = READ_ONCE(page_private(page));
+			if (freepage_order > 0 && freepage_order < MAX_ORDER)
+				pfn += (1 << page_private(page)) - 1;
+			continue;
+		}
+
+		if (!(pfn % pageblock_nr_pages) &&
+			get_pageblock_migratetype(page) == MIGRATE_CMA) {
+			pfn += pageblock_nr_pages - 1;
+			continue;
+		}
+
+		if (!PageLRU(page) || !PageAnon(page))
+			continue;
+
+		if (!get_page_unless_zero(page))
+			continue;
+
+		found++;
+		ret = isolate_lru_page(page);
+		if (!ret) {
+			list_add_tail(&page->lru, list);
+			++fc->nr_migrate_pages;
+		}
+
+		put_page(page);
+	}
+
+	return pfn;
+}
+
+static void prepare_fc(struct movable_zone_fill_control *fc)
+{
+	struct zone *zone;
+
+	zone = &(NODE_DATA(0)->node_zones[ZONE_MOVABLE]);
+	fc->zone = zone;
+	fc->start_pfn = zone->zone_start_pfn;
+	fc->end_pfn = zone_end_pfn(zone);
+	fc->limit = atomic64_read(&zone->managed_pages);
+	INIT_LIST_HEAD(&fc->freepages);
+}
+
+static void fill_movable_zone_fn(struct work_struct *work)
+{
+	unsigned long start_pfn, end_pfn;
+	unsigned long movable_highmark;
+	struct zone *normal_zone = &(NODE_DATA(0)->node_zones[ZONE_NORMAL]);
+	struct zone *movable_zone = &(NODE_DATA(0)->node_zones[ZONE_MOVABLE]);
+	LIST_HEAD(source);
+	int ret, free;
+	struct movable_zone_fill_control fc = { {0} };
+	unsigned long timeout = MIGRATE_TIMEOUT_SEC * HZ, expire;
+
+	start_pfn = normal_zone->zone_start_pfn;
+	end_pfn = zone_end_pfn(normal_zone);
+	movable_highmark = high_wmark_pages(movable_zone);
+
+	if (has_pend_offline_req)
+		return;
+	lru_add_drain_all();
+	drain_all_pages(normal_zone);
+	if (!mutex_trylock(&page_migrate_lock))
+		return;
+	prepare_fc(&fc);
+	if (!fc.limit)
+		goto out;
+	expire = jiffies + timeout;
+restart:
+	fc.target = atomic_xchg(&target_migrate_pages, 0);
+	if (!fc.target)
+		goto out;
+repeat:
+	cond_resched();
+	if (time_after(jiffies, expire))
+		goto out;
+	free = zone_page_state(movable_zone, NR_FREE_PAGES);
+	if (free - fc.target <= movable_highmark)
+		fc.target = free - movable_highmark;
+	if (fc.target <= 0)
+		goto out;
+
+	start_pfn = get_anon_movable_pages(&fc, start_pfn, end_pfn, &source);
+	if (list_empty(&source) && start_pfn < end_pfn)
+		goto repeat;
+
+	ret = migrate_pages(&source, movable_page_alloc, movable_page_free,
+			(unsigned long) &fc,
+			MIGRATE_ASYNC, MR_MEMORY_HOTPLUG);
+	if (ret)
+		putback_movable_pages(&source);
+
+	fc.target -= fc.nr_migrate_pages;
+	if (ret == -ENOMEM || start_pfn >= end_pfn || has_pend_offline_req)
+		goto out;
+	else if (fc.target <= 0)
+		goto restart;
+
+	goto repeat;
+out:
+	mutex_unlock(&page_migrate_lock);
+	if (fc.nr_free_pages > 0)
+		release_freepages(&fc.freepages);
+}
+
 static int mem_event_callback(struct notifier_block *self,
 				unsigned long action, void *arg)
 {
@@ -415,6 +670,8 @@ static int mem_event_callback(struct notifier_block *self,
 				start_addr, end_addr);
 		++mem_info[(sec_nr - start_section_nr + MEMORY_OFFLINE *
 			   idx) / sections_per_block].fail_count;
+		has_pend_offline_req = true;
+		cancel_work_sync(&fill_movable_zone_work);
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
@@ -431,6 +688,7 @@ static int mem_event_callback(struct notifier_block *self,
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
 		cur = 0;
+		has_pend_offline_req = false;
 		pr_info("mem-offline: Offlined memory block mem%pK\n",
 			(void *)sec_nr);
 		break;
@@ -665,12 +923,34 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 static struct kobj_attribute stats_attr =
 		__ATTR(stats, 0444, show_mem_stats, NULL);
 
+static ssize_t store_anon_migrate(struct kobject *kobj,
+				struct kobj_attribute *attr, const char *buf,
+				size_t size)
+{
+	int val = 0, ret;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	atomic_add(val, &target_migrate_pages);
+
+	if (!work_pending(&fill_movable_zone_work))
+		queue_work(system_unbound_wq, &fill_movable_zone_work);
+
+	return size;
+}
+
 static struct kobj_attribute offline_granule_attr =
 		__ATTR(offline_granule, 0444, show_mem_offline_granule, NULL);
+
+static struct kobj_attribute anon_migration_size_attr =
+		__ATTR(anon_migrate, 0220, NULL, store_anon_migrate);
 
 static struct attribute *mem_root_attrs[] = {
 		&stats_attr.attr,
 		&offline_granule_attr.attr,
+		&anon_migration_size_attr.attr,
 		NULL,
 };
 
