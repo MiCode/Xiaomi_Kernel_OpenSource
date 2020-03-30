@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, 2019, Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, 2020, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -987,6 +987,18 @@ static const struct usb_device_id bridge_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9106, 6),
 	.driver_info = (kernel_ulong_t)("dpl"), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9107, 5),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x910A, 2),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x910A, 3),
+	.driver_info = (kernel_ulong_t)("qdss"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x910B, 2),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x910C, 1),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x910C, 2),
+	.driver_info = (kernel_ulong_t)("qdss"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x910D, 1),
 	.driver_info = (kernel_ulong_t)("dpl"), },
 
 	{ } /* Terminating entry */
