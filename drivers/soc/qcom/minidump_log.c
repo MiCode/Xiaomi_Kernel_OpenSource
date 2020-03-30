@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -11,6 +11,7 @@
 #include <linux/thread_info.h>
 #include <soc/qcom/minidump.h>
 #include <asm/sections.h>
+#include <asm/stacktrace.h>
 #include <linux/mm.h>
 #include <linux/sched/task.h>
 #include <linux/vmalloc.h>
@@ -156,9 +157,46 @@ void dump_stack_minidump(u64 sp)
 		pr_err("Failed to add current task %d in Minidump\n", cpu);
 }
 
+#ifdef CONFIG_ARM64
+static void register_irq_stack(void)
+{
+	int cpu;
+	unsigned int i;
+	int irq_stack_pages_count;
+	u64 irq_stack_base;
+	struct md_region irq_sp_entry;
+	u64 sp;
+
+	for_each_possible_cpu(cpu) {
+		irq_stack_base = (u64)per_cpu(irq_stack_ptr, cpu);
+		if (IS_ENABLED(CONFIG_VMAP_STACK)) {
+			irq_stack_pages_count = IRQ_STACK_SIZE / PAGE_SIZE;
+			sp = irq_stack_base & ~(PAGE_SIZE - 1);
+			for (i = 0; i < irq_stack_pages_count; i++) {
+				scnprintf(irq_sp_entry.name,
+					  sizeof(irq_sp_entry.name),
+					  "KISTACK%d_%d", cpu, i);
+				register_stack_entry(&irq_sp_entry, sp,
+						     PAGE_SIZE, cpu);
+				sp += PAGE_SIZE;
+			}
+		} else {
+			sp = irq_stack_base;
+			scnprintf(irq_sp_entry.name, sizeof(irq_sp_entry.name),
+				  "KISTACK%d", cpu);
+			register_stack_entry(&irq_sp_entry, sp, IRQ_STACK_SIZE,
+					     cpu);
+		}
+	}
+}
+#else
+static inline void register_irq_stack(void) {}
+#endif
+
 static int __init msm_minidump_log_init(void)
 {
 	register_kernel_sections();
+	register_irq_stack();
 	register_log_buf();
 	return 0;
 }
