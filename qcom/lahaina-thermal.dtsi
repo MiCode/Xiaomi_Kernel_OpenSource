@@ -661,17 +661,10 @@
 		};
 
 		cooling-maps {
-			pop_cdev4 {
+			pop_cdev {
 				trip = <&pop_trip>;
 				cooling-device =
-					<&CPU4 THERMAL_NO_LIMIT
-						THERMAL_NO_LIMIT>;
-			};
-
-			pop_cdev7 {
-				trip = <&pop_trip>;
-				cooling-device =
-					<&CPU7 THERMAL_NO_LIMIT
+					<&apc1_cluster THERMAL_NO_LIMIT
 						THERMAL_NO_LIMIT>;
 			};
 		};
