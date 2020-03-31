@@ -66,6 +66,9 @@
 #define IPA_MPM_MAX_RING_LEN 64
 #define IPA_MAX_TETH_AGGR_BYTE_LIMIT 24
 #define IPA_MPM_MAX_UC_THRESH 4
+
+#define IPA_HOLB_TMR_DIS 0x0
+#define IPA_HOLB_TMR_EN 0x1
 /*
  * The transport descriptor size was changed to GSI_CHAN_RE_SIZE_16B, but
  * IPA users still use sps_iovec size as FIFO element size.
@@ -214,6 +217,7 @@
 #define IPA3_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
 #define IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN 40
 #define SMEM_IPA_FILTER_TABLE 497
+
 
 enum {
 	SMEM_APPS,
