@@ -978,6 +978,7 @@
 		vdd_dig_gfx-supply = <&pm660l_s3_level>;
 		vdd_mx_gfx-supply = <&pm660l_s5_level>;
 		vdd_gfx-supply = <&gfx_vreg_corner>;
+		qcom,gpucc_gfx3d_clk-opp-handle = <&msm_gpu>;
 		qcom,gfxfreq-corner =
 			< 0         0>,
 			< 160000000 1>,  /* MinSVS */
