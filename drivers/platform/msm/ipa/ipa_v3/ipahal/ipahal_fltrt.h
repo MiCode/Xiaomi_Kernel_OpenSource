@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,6 +146,9 @@ u32 ipahal_get_hw_tbl_hdr_width(void);
  * This function return the alignment of the offset that IPA expects
  */
 u32 ipahal_get_lcl_tbl_addr_alignment(void);
+
+/* Get the H/W (flt/rt) prefetch buf size */
+u32 ipahal_get_hw_prefetch_buf_size(void);
 
 /*
  * Rule priority is used to distinguish rules order
