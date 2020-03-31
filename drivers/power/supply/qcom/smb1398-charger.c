@@ -123,6 +123,9 @@
 #define SMB_EN_NEG_TRIGGER		BIT(1)
 #define SMB_EN_POS_TRIGGER		BIT(0)
 
+#define PERPH0_DIV2_SLAVE		0x2652
+#define CFG_DIV2_SYNC_CLK_PHASE_90		BIT(0)
+
 #define DIV2_LCM_CFG_REG		0x2653
 #define DIV2_LCM_REFRESH_TIMER_SEL_MASK	GENMASK(5, 4)
 #define DIV2_WIN_BURST_HIGH_REF_MASK	GENMASK(3, 2)
@@ -682,7 +685,9 @@ static int smb1398_div2_cp_get_master_isns(
 	 * Follow this procedure to read master CP ISNS:
 	 *   set slave CP TEMP_MUX to HighZ;
 	 *   set master CP TEMP_MUX to IIN_FB;
+	 *   set DIV2_CP switch phase-shift to 0 deg;
 	 *   read corresponding ADC channel in Kekaha;
+	 *   set DIV2_CP switch phase-shif back to 90 deg;
 	 *   set master CP TEMP_MUX to VTEMP;
 	 */
 	mutex_lock(&chip->die_chan_lock);
@@ -704,9 +709,28 @@ static int smb1398_div2_cp_get_master_isns(
 		goto unlock;
 	}
 
+	rc = smb1398_masked_write(chip, PERPH0_DIV2_SLAVE,
+					CFG_DIV2_SYNC_CLK_PHASE_90, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set PERPH0_DIV2_SLAVE, rc=%d\n",
+				rc);
+		goto unlock;
+	}
+
+	/* Delay for the phase switch to take effect */
+	msleep(20);
+
 	rc = iio_read_channel_processed(chip->die_temp_chan, &temp);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read die_temp_chan, rc=%d\n", rc);
+		goto unlock;
+	}
+
+	rc = smb1398_masked_write(chip, PERPH0_DIV2_SLAVE,
+			CFG_DIV2_SYNC_CLK_PHASE_90, CFG_DIV2_SYNC_CLK_PHASE_90);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set PERPH0_DIV2_SLAVE, rc=%d\n",
+				rc);
 		goto unlock;
 	}
 
@@ -749,7 +773,9 @@ static int smb1398_div2_cp_get_slave_isns(
 	 * Follow this procedure to read slave CP ISNS:
 	 *   set master CP TEMP_MUX to HighZ;
 	 *   set slave CP TEMP_MUX to IIN_FB;
+	 *   set DIV2_CP switch phase-shift to 0 deg;
 	 *   read corresponding ADC channel in Kekaha;
+	 *   set DIV2_CP switch phase-shif back to 90 deg;
 	 *   set master CP TEMP_MUX to VTEMP;
 	 */
 	mutex_lock(&chip->die_chan_lock);
@@ -769,9 +795,28 @@ static int smb1398_div2_cp_get_slave_isns(
 		goto unlock;
 	}
 
+	rc = smb1398_masked_write(chip, PERPH0_DIV2_SLAVE,
+					CFG_DIV2_SYNC_CLK_PHASE_90, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set PERPH0_DIV2_SLAVE, rc=%d\n",
+				rc);
+		goto unlock;
+	}
+
+	/* Delay for the phase switch to take effect */
+	msleep(20);
+
 	rc = iio_read_channel_processed(chip->die_temp_chan, &temp);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't get die_temp_chan, rc=%d\n", rc);
+		goto unlock;
+	}
+
+	rc = smb1398_masked_write(chip, PERPH0_DIV2_SLAVE,
+			CFG_DIV2_SYNC_CLK_PHASE_90, CFG_DIV2_SYNC_CLK_PHASE_90);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set PERPH0_DIV2_SLAVE, rc=%d\n",
+				rc);
 		goto unlock;
 	}
 
