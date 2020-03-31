@@ -69,7 +69,7 @@ struct eud_chip {
 	struct extcon_dev		*extcon;
 	struct uart_port		port;
 	struct work_struct		eud_work;
-	struct power_supply		*batt_psy;
+	struct power_supply		*usb_psy;
 	bool				secure_eud_en;
 	bool				need_phy_clk_vote;
 	phys_addr_t			eud_mode_mgr2_phys_base;
@@ -176,12 +176,12 @@ static const struct kernel_param_ops eud_param_ops = {
 
 module_param_cb(enable, &eud_param_ops, &enable, 0644);
 
-static bool is_batt_available(struct eud_chip *chip)
+static bool is_usb_psy_available(struct eud_chip *chip)
 {
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
 
-	if (!chip->batt_psy)
+	if (!chip->usb_psy)
 		return false;
 
 	return true;
@@ -197,11 +197,17 @@ static void eud_event_notifier(struct work_struct *eud_work)
 		extcon_set_state_sync(chip->extcon, chip->extcon_id,
 					chip->usb_attach);
 	else if (chip->int_status == EUD_INT_CHGR) {
-		if (is_batt_available(chip)) {
+		if (is_usb_psy_available(chip)) {
+			int ret;
+
 			pval.intval = chip->chgr_enable ? -EINVAL :
 				chip->chgr_enable;
-			power_supply_set_property(chip->batt_psy,
+			ret = power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &pval);
+			if (ret < 0)
+				dev_err(chip->dev,
+				"Failed to set the powersupply property: %d\n",
+				ret);
 		}
 	}
 }
@@ -649,6 +655,9 @@ static int msm_eud_remove(struct platform_device *pdev)
 {
 	struct eud_chip *chip = platform_get_drvdata(pdev);
 	struct uart_port *port = &chip->port;
+
+	if (chip->usb_psy)
+		power_supply_put(chip->usb_psy);
 
 	uart_remove_one_port(&eud_uart_driver, port);
 	device_init_wakeup(chip->dev, false);
