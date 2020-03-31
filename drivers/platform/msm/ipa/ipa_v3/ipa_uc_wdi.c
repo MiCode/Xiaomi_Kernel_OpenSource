@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,6 @@
 #include <linux/delay.h>
 #include <linux/mm.h>
 #include "ipa_qmi_service.h"
-
-#define IPA_HOLB_TMR_DIS 0x0
 
 #define IPA_HW_INTERFACE_WDI_VERSION 0x0001
 #define IPA_HW_WDI_RX_MBOX_START_INDEX 48
