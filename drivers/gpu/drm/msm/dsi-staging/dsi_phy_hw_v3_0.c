@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -627,14 +627,14 @@ int dsi_phy_hw_timing_val_v3_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
 }
 
 void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
-					struct dsi_phy_cfg *cfg, bool is_master)
+			struct dsi_phy_cfg *cfg, bool is_master, bool is_cphy)
 {
 	u32 reg;
 
 	if (is_master) {
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL9,
 			  DSIPHY_CMN_GLBL_CTRL, DSIPHY_CMN_VREG_CTRL,
-			  0x10, 0x59);
+			  is_cphy ? 0x40 : 0x10, 0x59);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL10,
 			  DSIPHY_CMN_TIMING_CTRL_0, DSIPHY_CMN_TIMING_CTRL_1,
 			  cfg->timing.lane_v3[0], cfg->timing.lane_v3[1]);
@@ -655,7 +655,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 			  cfg->timing.lane_v3[10], cfg->timing.lane_v3[11]);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL16,
 			  DSIPHY_CMN_CTRL_0, DSIPHY_CMN_LANE_CTRL0,
-			  0x7f, 0x1f);
+			  0x7f, is_cphy ? 0x07 : 0x1f);
 	} else {
 		reg = DSI_R32(phy, DSIPHY_CMN_CLK_CFG0);
 		reg &= ~BIT(5);
@@ -664,7 +664,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 			  reg, 0x0);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL1,
 			  DSIPHY_CMN_RBUF_CTRL, DSIPHY_CMN_GLBL_CTRL,
-			  0x0, 0x10);
+			  0x0, is_cphy ? 0x40 : 0x10);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL2,
 			  DSIPHY_CMN_VREG_CTRL, DSIPHY_CMN_TIMING_CTRL_0,
 			  0x59, cfg->timing.lane_v3[0]);
@@ -688,7 +688,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 			  cfg->timing.lane_v3[11], 0x7f);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL9,
 			  DSIPHY_CMN_LANE_CTRL0, DSIPHY_CMN_CTRL_2,
-			  0x1f, 0x40);
+			  is_cphy ? 0x07 : 0x1f, 0x40);
 		/*
 		 * fill with dummy register writes since controller will blindly
 		 * send these values to DSI PHY.
@@ -697,7 +697,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 		while (reg <= DSI_DYN_REFRESH_PLL_CTRL29) {
 			DSI_DYN_REF_REG_W(phy->dyn_pll_base, reg,
 				  DSIPHY_CMN_LANE_CTRL0, DSIPHY_CMN_CTRL_0,
-				  0x1f, 0x7f);
+				  is_cphy ? 0x07 : 0x1f, 0x7f);
 			reg += 0x4;
 		}
 

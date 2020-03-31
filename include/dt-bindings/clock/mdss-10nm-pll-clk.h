@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,30 +40,38 @@
 #define SHADOW_POST_VCO_DIV_0_CLK	19
 #define SHADOW_PCLK_SRC_MUX_0_CLK	20
 #define SHADOW_PCLK_SRC_0_CLK		21
-#define VCO_CLK_1		22
-#define PLL_OUT_DIV_1_CLK	23
-#define BITCLK_SRC_1_CLK	24
-#define BYTECLK_SRC_1_CLK	25
-#define POST_BIT_DIV_1_CLK	26
-#define POST_VCO_DIV_1_CLK	27
-#define BYTECLK_MUX_1_CLK	28
-#define PCLK_SRC_MUX_1_CLK	29
-#define PCLK_SRC_1_CLK		30
-#define PCLK_MUX_1_CLK		31
+#define SHADOW_CPHY_BYTECLK_SRC_0_CLK	22
+#define SHADOW_POST_VCO_DIV3_5_0_CLK	23
+#define SHADOW_CPHY_PCLK_SRC_MUX_0_CLK	24
+#define SHADOW_CPHY_PCLK_SRC_0_CLK	25
+#define VCO_CLK_1		26
+#define PLL_OUT_DIV_1_CLK	27
+#define BITCLK_SRC_1_CLK	28
+#define BYTECLK_SRC_1_CLK	29
+#define POST_BIT_DIV_1_CLK	30
+#define POST_VCO_DIV_1_CLK	31
+#define BYTECLK_MUX_1_CLK	32
+#define PCLK_SRC_MUX_1_CLK	33
+#define PCLK_SRC_1_CLK		34
+#define PCLK_MUX_1_CLK		35
 /* CPHY clocks for DSI-1 PLL */
-#define CPHY_BYTECLK_SRC_1_CLK	32
-#define POST_VCO_DIV3_5_1_CLK	33
-#define CPHY_PCLK_SRC_MUX_1_CLK	34
-#define CPHY_PCLK_SRC_1_CLK	35
+#define CPHY_BYTECLK_SRC_1_CLK	36
+#define POST_VCO_DIV3_5_1_CLK	37
+#define CPHY_PCLK_SRC_MUX_1_CLK	38
+#define CPHY_PCLK_SRC_1_CLK	39
 
-#define SHADOW_VCO_CLK_1		36
-#define SHADOW_PLL_OUT_DIV_1_CLK	37
-#define SHADOW_BITCLK_SRC_1_CLK		38
-#define SHADOW_BYTECLK_SRC_1_CLK	39
-#define SHADOW_POST_BIT_DIV_1_CLK	40
-#define SHADOW_POST_VCO_DIV_1_CLK	41
-#define SHADOW_PCLK_SRC_MUX_1_CLK	42
-#define SHADOW_PCLK_SRC_1_CLK		43
+#define SHADOW_VCO_CLK_1		40
+#define SHADOW_PLL_OUT_DIV_1_CLK	41
+#define SHADOW_BITCLK_SRC_1_CLK		42
+#define SHADOW_BYTECLK_SRC_1_CLK	43
+#define SHADOW_POST_BIT_DIV_1_CLK	44
+#define SHADOW_POST_VCO_DIV_1_CLK	45
+#define SHADOW_PCLK_SRC_MUX_1_CLK	46
+#define SHADOW_PCLK_SRC_1_CLK		47
+#define SHADOW_CPHY_BYTECLK_SRC_1_CLK	48
+#define SHADOW_POST_VCO_DIV3_5_1_CLK	49
+#define SHADOW_CPHY_PCLK_SRC_MUX_1_CLK	50
+#define SHADOW_CPHY_PCLK_SRC_1_CLK	51
 
 /* DP PLL clocks */
 #define	DP_VCO_CLK	0
