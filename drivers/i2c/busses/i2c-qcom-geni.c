@@ -139,8 +139,8 @@ struct geni_i2c_dev {
 	struct geni_i2c_ssr i2c_ssr;
 };
 
-static int ssr_i2c_force_suspend(struct device *dev);
-static int ssr_i2c_force_resume(struct device *dev);
+static void ssr_i2c_force_suspend(struct device *dev);
+static void ssr_i2c_force_resume(struct device *dev);
 
 struct geni_i2c_err_log {
 	int err;
@@ -876,8 +876,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (!res)
 		return -EINVAL;
 
-	gi2c->i2c_rsc.rsc_ssr.ssr_enable = of_property_read_bool(
-		pdev->dev.of_node, "ssr-enable");
 	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
 				"qcom,wrapper-core", 0);
 	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
@@ -1053,15 +1051,20 @@ static int geni_i2c_hib_resume_noirq(struct device *device)
 static int geni_i2c_runtime_suspend(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
+	int ret = 0;
 
 	if (gi2c->se_mode == FIFO_SE_DMA) {
 		disable_irq(gi2c->irq);
-		se_geni_resources_off(&gi2c->i2c_rsc);
+		ret = se_geni_resources_off(&gi2c->i2c_rsc);
 	} else {
 		/* GPIO is set to sleep state already. So just clocks off */
-		se_geni_clks_off(&gi2c->i2c_rsc);
+		ret = se_geni_clks_off(&gi2c->i2c_rsc);
 	}
-	return 0;
+	if (ret)
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s failed ret:%d\n", __func__, ret);
+
+	return ret;
 }
 
 static int geni_i2c_runtime_resume(struct device *dev)
@@ -1168,7 +1171,7 @@ static const struct dev_pm_ops geni_i2c_pm_ops = {
 	.thaw		= geni_i2c_hib_resume_noirq,
 };
 
-static int ssr_i2c_force_suspend(struct device *dev)
+static void ssr_i2c_force_suspend(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 	int ret = 0;
@@ -1178,7 +1181,7 @@ static int ssr_i2c_force_suspend(struct device *dev)
 	if (!pm_runtime_status_suspended(gi2c->dev)) {
 		ret =  geni_i2c_runtime_suspend(gi2c->dev);
 		if (ret) {
-			dev_err(gi2c->dev, "runtime suspend failed\n");
+			dev_err(gi2c->dev, "%s failed ret:%d\n", __func__, ret);
 		} else {
 			pm_runtime_disable(gi2c->dev);
 			pm_runtime_set_suspended(gi2c->dev);
@@ -1188,11 +1191,9 @@ static int ssr_i2c_force_suspend(struct device *dev)
 
 	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s done\n", __func__);
 	mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
-
-	return ret;
 }
 
-static int ssr_i2c_force_resume(struct device *dev)
+static void ssr_i2c_force_resume(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 
@@ -1201,8 +1202,6 @@ static int ssr_i2c_force_resume(struct device *dev)
 	gi2c->se_mode = UNINITIALIZED;
 	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s done\n", __func__);
 	mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
-
-	return 0;
 }
 
 static const struct of_device_id geni_i2c_dt_match[] = {
