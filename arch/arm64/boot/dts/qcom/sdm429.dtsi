@@ -132,6 +132,7 @@
 
 #include "sdm429-bus.dtsi"
 #include "sdm429-pinctrl.dtsi"
+#include "sdm429-blsp.dtsi"
 #include "sdm429-cpu.dtsi"
 #include "sdm429-ion.dtsi"
 
@@ -753,6 +754,19 @@
 				<&modem_smsm 11 IRQ_TYPE_EDGE_BOTH>;
 
 		interrupt-names = "dmux", "ctrl", "ack";
+	};
+
+	slim_msm: slim@c140000{
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc140000 0x2c000>,
+			<0xc104000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0x230>;
+		status = "disabled";
 	};
 };
 
