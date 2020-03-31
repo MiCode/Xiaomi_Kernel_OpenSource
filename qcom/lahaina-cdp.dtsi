@@ -33,6 +33,12 @@
 		};
 	};
 
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 38 0>;
+		qcom,finger-detect-gpio = <&tlmm 39 0>;
+	};
+
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
 		vbus-gpio =  <&pm8350_gpios 9 GPIO_ACTIVE_HIGH>;
@@ -69,11 +75,6 @@
 		st,regulator_avdd = "avdd";
 		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
 			 &dsi_sw43404_amoled_fhd_plus_cmd>;
-	};
-	qcom,qbt_handler {
-		compatible = "qcom,qbt-handler";
-		qcom,ipc-gpio = <&tlmm 38 0>;
-		qcom,finger-detect-gpio = <&tlmm 39 0>;
 	};
 
 	focaltech@38 {
