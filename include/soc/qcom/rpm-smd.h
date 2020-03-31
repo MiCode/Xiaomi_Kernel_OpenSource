@@ -25,7 +25,7 @@ struct msm_rpm_kvp {
 	uint32_t length;
 	uint8_t *data;
 };
-#ifdef CONFIG_MSM_RPM_SMD
+#if IS_ENABLED(CONFIG_MSM_RPM_SMD)
 /**
  * msm_rpm_request() - Creates a parent element to identify the
  * resource on the RPM, that stores the KVPs for different fields modified
