@@ -68,7 +68,7 @@ config RPMSG_VIRTIO
 	select VIRTIO
 
 config MSM_RPM_SMD
-	bool "RPM driver using SMD protocol"
+	tristate "RPM driver using SMD protocol"
 	help
 	  RPM is the dedicated hardware engine for managing shared SoC
 	  resources. This config adds driver support for using SMD as a
