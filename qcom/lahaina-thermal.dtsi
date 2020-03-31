@@ -52,6 +52,14 @@
 		isens_vref_1p8-supply = <&pm8350c_l1_ao>;
 		isens-vref-1p8-settings = <1800000 1800000 20000>;
 	};
+
+	qcom,cpu-voltage-cdev {
+		compatible = "qcom,cc-cooling-devices";
+		apc1_cluster: qcom,apc1-cluster {
+			qcom,cpus = <&CPU4 &CPU7>;
+			#cooling-cells = <2>;
+		};
+	};
 };
 
 &msm_gpu {
