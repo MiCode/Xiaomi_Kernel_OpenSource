@@ -12,11 +12,11 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/io-pgtable.h>
 #include <linux/mm.h>
 #include <asm/cacheflush.h>
 #include <linux/vmalloc.h>
 
-#include "io-pgtable.h"
 
 #define AV8L_FAST_MAX_ADDR_BITS		48
 

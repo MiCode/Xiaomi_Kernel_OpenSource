@@ -41,6 +41,7 @@
 #include <linux/io.h>
 #include <linux/io-64-nonatomic-hi-lo.h>
 #include <linux/iommu.h>
+#include <linux/io-pgtable.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -64,7 +65,6 @@
 #include <soc/qcom/msm_tz_smmu.h>
 #include <soc/qcom/scm.h>
 #include <asm/dma-iommu.h>
-#include "io-pgtable.h"
 #include "arm-smmu-regs.h"
 #include "arm-smmu-debug.h"
 #include "iommu-logger.h"
