@@ -1541,10 +1541,13 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		 * invoke thread died while server was processing cb req.
 		 * if invoke thread dies, it would remove req from Q. So
 		 * no matching cb_txn would be on Q and hence NULL cb_txn.
+		 * In this case, we want this thread to come back and start
+		 * waiting for new cb requests, hence return EAGAIN here
 		 */
 		if (!cb_txn) {
 			pr_err("%s txn %d either invalid or removed from Q\n",
 					__func__, user_args.txn_id);
+			ret = -EAGAIN;
 			goto out;
 		}
 		ret = marshal_out_tzcb_req(&user_args, cb_txn,
