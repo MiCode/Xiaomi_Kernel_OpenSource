@@ -1208,18 +1208,19 @@ static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct device *dev = &pci_priv->pci_dev->dev;
 	unsigned long flags = 0;
 	u64 host_time_us, device_time_us, offset;
 	u32 low, high;
 	int ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
+	ret = cnss_pci_prevent_l1(dev);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = cnss_pci_force_wake_get(pci_priv);
 	if (ret)
-		return ret;
+		goto allow_l1;
 
 	spin_lock_irqsave(&time_sync_lock, flags);
 	cnss_pci_clear_time_sync_counter(pci_priv);
@@ -1256,7 +1257,9 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 
 force_wake_put:
 	cnss_pci_force_wake_put(pci_priv);
-
+allow_l1:
+	cnss_pci_allow_l1(dev);
+out:
 	return ret;
 }
 
