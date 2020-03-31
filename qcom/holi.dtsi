@@ -498,6 +498,18 @@
 		qcom,wakeup-enable;
 	};
 
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic-holi", "qcom,mpm";
+		interrupts = <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x45f01b8 0x1000>,
+			<0x0f40000c 0x4>;  /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <96>;
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
