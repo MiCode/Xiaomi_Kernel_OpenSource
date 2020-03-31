@@ -1462,7 +1462,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a702 = {
 		.features = ADRENO_64BIT | ADRENO_CONTENT_PROTECTION |
 			ADRENO_APRIV,
 		.gpudev = &adreno_a6xx_gpudev,
-		.gmem_size = (SZ_128K + SZ_4K),
+		.gmem_size = SZ_128K,
 		.busy_mask = 0xfffffffe,
 		.bus_width = 32,
 	},
