@@ -43,3 +43,6 @@ null_blk-$(CONFIG_BLK_DEV_ZONED) += null_blk_zoned.o
 
 skd-y		:= skd_main.o
 swim_mod-y	:= swim.o swim_asm.o
+
+obj-$(CONFIG_NEURON_APP_BLOCK_CLIENT) += neuron_block_client.o
+obj-$(CONFIG_NEURON_APP_BLOCK_SERVER) += neuron_block_server.o

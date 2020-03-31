@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config NEURON_PROT_BLOCK_CLIENT
+	tristate "Protocol block client driver"
+	help
+	  This option enables a Neuron block protocol client driver. It
+	  contains the commands to virtualize a block device. This driver
+	  will read from a block device being virtualized by a server.
+
+	  If unsure, say N.
+
+config NEURON_PROT_BLOCK_SERVER
+	tristate "Protocol block server driver"
+	help
+	  This option enables a Neuron block protocol server driver. It
+	  contains the commands to virtualize a block device. This driver
+	  will send commands to virtualize a block device owned by this
+	  virtual machine.
+
+	  If unsure, say N.
