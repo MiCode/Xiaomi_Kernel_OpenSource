@@ -16,8 +16,6 @@
 
 #define IPA_USB_DEV_READY_TIMEOUT_MSEC 10000
 
-#define IPA_HOLB_TMR_EN 0x1
-
 /* GSI channels weights */
 #define IPA_USB_DL_CHAN_LOW_WEIGHT 0x5
 #define IPA_USB_UL_CHAN_LOW_WEIGHT 0x4
