@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/compat.h>
@@ -1203,8 +1203,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) &&
-		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
+	if (kgsl_mmu_is_perprocess(mmu) && MMU_FEATURE(mmu,
+				KGSL_MMU_SMMU_APERTURE)) {
 		struct scm_desc desc = {0};
 
 		desc.args[0] = 0xFFFF0000 | ((CP_APERTURE_REG & 0xff) << 8) |
@@ -1222,7 +1222,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 			dev_err(device->dev,
 				"SMMU aperture programming call failed with error %d\n",
 				ret);
-			return ret;
+			goto done;
 		}
 	}
 
