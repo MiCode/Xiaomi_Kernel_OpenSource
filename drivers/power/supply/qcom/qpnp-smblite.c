@@ -19,7 +19,7 @@
 #include <linux/usb/typec.h>
 #include "smblite-reg.h"
 #include "smblite-lib.h"
-#include "schgm-flash.h"
+#include "schgm-flashlite.h"
 
 static struct smb_params smblite_params = {
 	.fcc			= {
@@ -146,6 +146,18 @@ static int smblite_chg_config_init(struct smblite *chip)
 		goto out;
 	}
 
+	switch (pmic_rev_id->pmic_subtype) {
+	case PM2250_SUBTYPE:
+		chg->wa_flags |= WEAK_ADAPTER_WA;
+		if (pmic_rev_id->rev4 < 2)
+			chg->wa_flags |= FLASH_DIE_TEMP_DERATE_WA;
+		break;
+	default:
+		pr_err("Unsupported PMIC subtype=%d\n",
+				pmic_rev_id->pmic_subtype);
+		break;
+	}
+
 	rc = smblite_lib_read(chg, DCDC_LDO_CFG_REG, &val);
 	if (rc < 0) {
 		pr_err("Couldn't read LDO config reg rc=%d\n", rc);
@@ -154,7 +166,6 @@ static int smblite_chg_config_init(struct smblite *chip)
 	chg->ldo_mode = !!(val & LDO_MODE_BIT);
 
 	chip->chg.chg_param.smb_version = 0;
-	chg->wa_flags |= WEAK_ADAPTER_WA;
 	chg->param = smblite_params;
 	chg->name = "PM2250_charger";
 
@@ -1174,7 +1185,7 @@ static int smblite_init_hw(struct smblite *chip)
 		return rc;
 	}
 
-	rc = schgm_flash_init(chg);
+	rc = schgm_flashlite_init(chg);
 	if (rc < 0) {
 		pr_err("Couldn't configure flash rc=%d\n", rc);
 		return rc;
@@ -1538,14 +1549,14 @@ static struct smb_irq_info smblite_irqs[] = {
 	},
 	[ILIM_S2_IRQ] = {
 		.name		= "ilim2-s2",
-		.handler	= schgm_flash_ilim2_irq_handler,
+		.handler	= schgm_flashlite_ilim2_irq_handler,
 	},
 	[ILIM_S1_IRQ] = {
 		.name		= "ilim1-s1",
 	},
 	[FLASH_STATE_CHANGE_IRQ] = {
 		.name		= "flash-state-change",
-		.handler	= schgm_flash_state_change_irq_handler,
+		.handler	= schgm_flashlite_state_change_irq_handler,
 	},
 	[TORCH_REQ_IRQ] = {
 		.name		= "torch-req",
