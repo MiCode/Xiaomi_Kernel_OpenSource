@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss: " fmt
@@ -571,6 +571,27 @@ int icnss_power_off(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_power_off);
 
+int icnss_update_fw_down_params(struct icnss_priv *priv,
+				struct icnss_uevent_fw_down_data *fw_down_data,
+				bool crashed)
+{
+	fw_down_data->crashed = crashed;
+
+	if (!priv->hang_event_data_va)
+		return -EINVAL;
+
+	priv->hang_event_data = kmemdup(priv->hang_event_data_va,
+					priv->hang_event_data_len,
+					GFP_ATOMIC);
+	if (!priv->hang_event_data)
+		return -ENOMEM;
+
+	// Update the hang event params
+	fw_down_data->hang_event_data = priv->hang_event_data;
+	fw_down_data->hang_event_data_len = priv->hang_event_data_len;
+	return 0;
+}
+
 static irqreturn_t fw_error_fatal_handler(int irq, void *ctx)
 {
 	struct icnss_priv *priv = ctx;
@@ -587,6 +608,7 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 {
 	struct icnss_priv *priv = ctx;
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
+	int ret = 0;
 
 	icnss_pr_err("Received early crash indication from FW\n");
 
@@ -595,9 +617,18 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 		icnss_ignore_fw_timeout(true);
 
 		if (test_bit(ICNSS_FW_READY, &priv->state)) {
-			fw_down_data.crashed = true;
+			ret = icnss_update_fw_down_params(priv, &fw_down_data,
+							  true);
+			if (ret)
+				icnss_pr_err("Unable to allocate memory for Hang event data\n");
+
 			icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
+
+			if (!ret) {
+				kfree(priv->hang_event_data);
+				priv->hang_event_data = NULL;
+			}
 		}
 	}
 
@@ -1425,7 +1456,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	struct notif_data *notif = data;
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       modem_ssr_nb);
-	struct icnss_uevent_fw_down_data fw_down_data;
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
@@ -1448,11 +1479,12 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
 
-		fw_down_data.crashed = !!notif->crashed;
-		if (test_bit(ICNSS_FW_READY, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state)) {
+			fw_down_data.crashed = !!notif->crashed;
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
+		}
 		return NOTIFY_OK;
 	}
 
@@ -1475,12 +1507,12 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	event_data->crashed = notif->crashed;
 
-	fw_down_data.crashed = !!notif->crashed;
-	if (test_bit(ICNSS_FW_READY, &priv->state))
+	if (test_bit(ICNSS_FW_READY, &priv->state)) {
+		fw_down_data.crashed = !!notif->crashed;
 		icnss_call_driver_uevent(priv,
 					 ICNSS_UEVENT_FW_DOWN,
 					 &fw_down_data);
-
+	}
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 
@@ -1544,7 +1576,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 					       service_notifier_nb);
 	enum pd_subsys_state *state = data;
 	struct icnss_event_pd_service_down_data *event_data;
-	struct icnss_uevent_fw_down_data fw_down_data;
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
 	enum icnss_pdr_cause_index cause = ICNSS_ROOT_PD_CRASH;
 
 	icnss_pr_dbg("PD service notification: 0x%lx state: 0x%lx\n",
@@ -1597,11 +1629,12 @@ event_post:
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
 
-		fw_down_data.crashed = event_data->crashed;
-		if (test_bit(ICNSS_FW_READY, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state)) {
+			fw_down_data.crashed = event_data->crashed;
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
+		}
 	}
 
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
