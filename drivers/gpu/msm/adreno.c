@@ -764,17 +764,12 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static const struct platform_device_id adreno_id_table[] = {
-	{ "kgsl-3d0", (unsigned long) &device_3d0, },
-	{},
-};
-
-MODULE_DEVICE_TABLE(platform, adreno_id_table);
-
 static const struct of_device_id adreno_match_table[] = {
 	{ .compatible = "qcom,kgsl-3d0", .data = &device_3d0 },
-	{}
+	{ },
 };
+
+MODULE_DEVICE_TABLE(of, adreno_match_table);
 
 /* Dynamically build the OPP table for the GPU device */
 static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
@@ -1311,18 +1306,13 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 static int adreno_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	const struct of_device_id *of_id;
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	int status;
 	unsigned int priv = 0;
 	u32 size, hwrev;
 
-	of_id = of_match_device(adreno_match_table, &pdev->dev);
-	if (!of_id)
-		return -EINVAL;
-
-	adreno_dev = (struct adreno_device *) of_id->data;
+	adreno_dev = (struct adreno_device *) of_device_get_match_data(dev);
 
 	/* Initialize the adreno device structure */
 	adreno_setup_device(adreno_dev);
@@ -1499,17 +1489,12 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 
 static void adreno_unbind(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	const struct of_device_id *of_id;
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	struct adreno_gpudev *gpudev;
 
-	of_id = of_match_device(adreno_match_table, &pdev->dev);
-	if (!of_id)
-		return;
+	adreno_dev = (struct adreno_device *) of_device_get_match_data(dev);
 
-	adreno_dev = (struct adreno_device *) of_id->data;
 	device = KGSL_DEVICE(adreno_dev);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
@@ -3781,11 +3766,10 @@ static const struct dev_pm_ops adreno_pm_ops = {
 static struct platform_driver adreno_platform_driver = {
 	.probe = adreno_probe,
 	.remove = adreno_remove,
-	.id_table = adreno_id_table,
 	.driver = {
 		.name = "kgsl-3d",
 		.pm = &adreno_pm_ops,
-		.of_match_table = adreno_match_table,
+		.of_match_table = of_match_ptr(adreno_match_table),
 	}
 };
 
