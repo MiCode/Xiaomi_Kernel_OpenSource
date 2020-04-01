@@ -95,7 +95,7 @@ static int ufs_qcom_phy_qrbtc_sdm845_init(struct phy *generic_phy)
 	if (ret)
 		dev_err(phy_common->dev, "Failed to get reset control\n", ret);
 
-	return 0;
+	return ret;
 }
 
 static int ufs_qcom_phy_qrbtc_sdm845_exit(struct phy *generic_phy)
