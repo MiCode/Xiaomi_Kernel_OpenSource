@@ -102,6 +102,7 @@
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
 #define QMI_WLFW_MAC_ADDR_SIZE_V01 6
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01 36
+#define QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01 64
 #define QMI_WLFW_MAX_NUM_SVC_V01 24
 
 enum wlfw_driver_mode_enum_v01 {
@@ -669,12 +670,14 @@ struct wlfw_host_cap_req_msg_v01 {
 	u8 mem_cfg_mode;
 	u8 cal_duration_valid;
 	u16 cal_duration;
+	u8 platform_name_valid;
+	char platform_name[QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01 + 1];
 	u8 ddr_range_valid;
 	struct wlfw_host_ddr_range_s_v01
 		ddr_range[QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01];
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 245
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 312
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
