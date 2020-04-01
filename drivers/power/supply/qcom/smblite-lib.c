@@ -16,10 +16,9 @@
 #include <linux/ktime.h>
 #include "smblite-lib.h"
 #include "smblite-reg.h"
-#include "schgm-flash.h"
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
-#include "schgm-flash.h"
+#include "schgm-flashlite.h"
 
 #define smblite_lib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
@@ -433,7 +432,7 @@ static void smblite_lib_uusb_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-			is_flash_active(chg) ? USBIN_500UA : USBIN_100UA);
+			is_flashlite_active(chg) ? USBIN_500UA : USBIN_100UA);
 
 	/* Remove SW thermal regulation votes */
 	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
@@ -522,7 +521,7 @@ int smblite_lib_set_icl_current(struct smb_charger *chg, int icl_ua)
 	/* suspend if 25mA or less is requested */
 	bool suspend = (icl_ua <= USBIN_25UA);
 
-	schgm_flash_torch_priority(chg, suspend ? TORCH_BOOST_MODE :
+	schgm_flashlite_torch_priority(chg, suspend ? TORCH_BOOST_MODE :
 							TORCH_BUCK_MODE);
 	/* Do not configure ICL from SW for DAM */
 	if (smblite_lib_get_prop_typec_mode(chg) ==
@@ -2017,7 +2016,7 @@ irqreturn_t smblite_usbin_uv_irq_handler(int irq, void *data)
 
 unsuspend_input:
 		/* Force torch in boost mode to ensure it works with low ICL */
-		schgm_flash_torch_priority(chg, TORCH_BOOST_MODE);
+		schgm_flashlite_torch_priority(chg, TORCH_BOOST_MODE);
 
 		if (chg->aicl_max_reached) {
 			smblite_lib_dbg(chg, PR_MISC,
@@ -2210,7 +2209,7 @@ static void update_sw_icl_max(struct smb_charger *chg,
 						USB_PSY_VOTER)) {
 			/* if flash is active force 500mA */
 			vote(chg->usb_icl_votable, USB_PSY_VOTER, true,
-					is_flash_active(chg) ?
+					is_flashlite_active(chg) ?
 					USBIN_500UA : USBIN_100UA);
 		}
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
@@ -2516,7 +2515,7 @@ static void typec_src_removal(struct smb_charger *chg)
 
 	/* reset input current limit voters */
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-			is_flash_active(chg) ? USBIN_500UA : USBIN_100UA);
+			is_flashlite_active(chg) ? USBIN_500UA : USBIN_100UA);
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 
 	/* reset parallel voters */
