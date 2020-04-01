@@ -608,16 +608,16 @@ struct a6xx_hfi {
 	struct hfi_acd_table_cmd acd_tbl_cmd;
 };
 
-struct gmu_device;
+struct a6xx_gmu_device;
 struct gmu_memdesc;
 
 irqreturn_t a6xx_hfi_irq_handler(int irq, void *data);
-int a6xx_hfi_start(struct kgsl_device *device, struct gmu_device *gmu,
+int a6xx_hfi_start(struct kgsl_device *device, struct a6xx_gmu_device *gmu,
 		uint32_t boot_state);
-void a6xx_hfi_stop(struct gmu_device *gmu);
+void a6xx_hfi_stop(struct a6xx_gmu_device *gmu);
 void a6xx_hfi_receiver(unsigned long data);
-void a6xx_hfi_init(struct gmu_device *gmu);
+void a6xx_hfi_init(struct a6xx_gmu_device *gmu);
 
 /* hfi_send_req is only for external (to HFI) requests */
-int a6xx_hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data);
+int a6xx_hfi_send_req(struct a6xx_gmu_device *gmu, unsigned int id, void *data);
 #endif  /* __ADRENO_A6XX_HFI_H */

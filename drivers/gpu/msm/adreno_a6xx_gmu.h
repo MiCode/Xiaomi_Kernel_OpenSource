@@ -2,8 +2,8 @@
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
-#ifndef __KGSL_GMU_H
-#define __KGSL_GMU_H
+#ifndef __ADRENO_A6XX_GMU_H
+#define __ADRENO_A6XX_GMU_H
 
 #include <linux/mailbox_client.h>
 
@@ -81,7 +81,7 @@ struct gmu_block_header {
 /* GMU memdesc entries */
 #define GMU_KERNEL_ENTRIES		16
 
-#define KGSL_GMU_DEVICE(_a)  ((struct gmu_device *)((_a)->gmu_core.ptr))
+#define A6XX_GMU_DEVICE(_a)  ((struct a6xx_gmu_device *)((_a)->gmu_core.ptr))
 
 enum gmu_mem_type {
 	GMU_ITCM = 0,
@@ -138,7 +138,7 @@ struct kgsl_mailbox {
 struct icc_path;
 
 /**
- * struct gmu_device - GMU device structure
+ * struct a6xx_gmu_device - GMU device structure
  * @ver: GMU Version information
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: GMU FW image
@@ -162,7 +162,7 @@ struct icc_path;
  * @mailbox: Messages to AOP for ACD enable/disable go through this
  * @log_wptr_retention: Store the log wptr offset on slumber
  */
-struct gmu_device {
+struct a6xx_gmu_device {
 	struct {
 		u32 core;
 		u32 core_dev;
@@ -207,4 +207,4 @@ struct gmu_device {
 	atomic_t cm3_fault;
 };
 
-#endif /* __KGSL_GMU_H */
+#endif
