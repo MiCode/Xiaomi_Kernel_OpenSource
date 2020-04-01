@@ -8,6 +8,7 @@
 #define __HH_RM_DRV_H
 
 #include <linux/types.h>
+#include <linux/notifier.h>
 
 #include "hh_common.h"
 
