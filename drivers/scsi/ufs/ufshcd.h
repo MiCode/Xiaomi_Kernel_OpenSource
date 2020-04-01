@@ -524,7 +524,8 @@ struct ufs_uic_err_reg_hist {
 
 #endif
 
-#if defined(CONFIG_SCSI_UFSHCD_QTI) && defined(CONFIG_DEBUG_FS)
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+#ifdef CONFIG_DEBUG_FS
 /**
  * struct ufshcd_req_stat - statistics for request handling times (in usec)
  * @min: shortest time measured
@@ -550,6 +551,7 @@ enum ts_types {
 	TS_FLUSH = 5,
 	TS_NUM_STATS = 6,
 };
+#endif
 
 enum ufshcd_ctx {
 	QUEUE_CMD,
@@ -609,12 +611,14 @@ struct ufs_stats {
 	ktime_t last_hibern8_exit_tstamp;
 
 #ifdef CONFIG_SCSI_UFSHCD_QTI
+#ifdef CONFIG_DEBUG_FS
 	bool enabled;
 	u64 **tag_stats;
 	int q_depth;
 	int err_stats[UFS_ERR_MAX];
 	struct ufshcd_req_stat req_stats[TS_NUM_STATS];
 	int query_stats_arr[UPIU_QUERY_OPCODE_MAX][MAX_QUERY_IDN];
+#endif
 	u32 pa_err_cnt_total;
 	u32 pa_err_cnt[UFS_EC_PA_MAX];
 	u32 dl_err_cnt_total;
