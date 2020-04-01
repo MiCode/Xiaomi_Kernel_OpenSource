@@ -601,9 +601,19 @@ int qti_flash_led_prepare(struct led_trigger *trig, int options,
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 
 	if (options & QUERY_MAX_AVAIL_CURRENT) {
+		if (!max_current) {
+			pr_err("Invalid max_current pointer\n");
+			return -EINVAL;
+		}
 		*max_current = snode->led->max_current;
 		return 0;
 	}
+
+	if (options & ENABLE_REGULATOR)
+		return 0;
+
+	if (options & DISABLE_REGULATOR)
+		return 0;
 
 	return -EINVAL;
 }
