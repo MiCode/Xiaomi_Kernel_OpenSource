@@ -1114,13 +1114,14 @@ static int ethqos_ipa_offload_init(struct qcom_ethqos *pdata)
 		eth_l2_hdr_v6.h_proto = htons(ETH_P_IPV6);
 		in.hdr_info[0].hdr = (u8 *)&eth_l2_hdr_v4;
 		in.hdr_info[0].hdr_len = ETH_HLEN;
+		in.hdr_info[0].hdr_type = IPA_HDR_L2_ETHERNET_II;
 		in.hdr_info[1].hdr = (u8 *)&eth_l2_hdr_v6;
 		in.hdr_info[1].hdr_len = ETH_HLEN;
+		in.hdr_info[1].hdr_type = IPA_HDR_L2_ETHERNET_II;
 	}
 
 #ifdef ETHQOS_IPA_OFFLOAD_VLAN
-	if ((eth_ipa_ctx.vlan_id > MIN_VLAN_ID && eth_ipa_ctx.vlan_id <=
-	    MAX_VLAN_ID) || ipa_vlan_mode) {
+	if (ipa_vlan_mode) {
 		memset(&eth_vlan_hdr_v4, 0, sizeof(eth_vlan_hdr_v4));
 		memset(&eth_vlan_hdr_v6, 0, sizeof(eth_vlan_hdr_v6));
 		memcpy(&eth_vlan_hdr_v4.h_source, ndev->dev_addr, ETH_ALEN);
@@ -1144,9 +1145,7 @@ static int ethqos_ipa_offload_init(struct qcom_ethqos *pdata)
 	in.notify = ntn_ipa_notify_cb;
 	in.proto = IPA_UC_NTN;
 	in.hdr_info[0].dst_mac_addr_offset = 0;
-	in.hdr_info[0].hdr_type = IPA_HDR_L2_ETHERNET_II;
 	in.hdr_info[1].dst_mac_addr_offset = 0;
-	in.hdr_info[1].hdr_type = IPA_HDR_L2_ETHERNET_II;
 
 	ret = ipa_uc_offload_reg_intf(&in, &out);
 	if (ret) {
