@@ -195,7 +195,7 @@ static unsigned int msm_geni_serial_tx_empty(struct uart_port *port);
 static int msm_geni_serial_power_on(struct uart_port *uport);
 static void msm_geni_serial_power_off(struct uart_port *uport);
 static int msm_geni_serial_poll_bit(struct uart_port *uport,
-				int offset, u32 bit_field, bool set);
+				int offset, int bit_field, bool set);
 static void msm_geni_serial_stop_rx(struct uart_port *uport);
 static int msm_geni_serial_runtime_resume(struct device *dev);
 static int msm_geni_serial_runtime_suspend(struct device *dev);
@@ -562,7 +562,7 @@ static void msm_geni_serial_power_off(struct uart_port *uport)
 }
 
 static int msm_geni_serial_poll_bit(struct uart_port *uport,
-				int offset, u32 bit_field, bool set)
+				int offset, int bit_field, bool set)
 {
 	int iter = 0;
 	unsigned int reg;
@@ -572,7 +572,6 @@ static int msm_geni_serial_poll_bit(struct uart_port *uport,
 	unsigned int baud = 115200;
 	unsigned int fifo_bits = DEF_FIFO_DEPTH_WORDS * DEF_FIFO_WIDTH_BITS;
 	unsigned long total_iter = 1000;
-	u32 set_bits = 0;
 
 
 	if (uport->private_data && !uart_console(uport)) {
@@ -589,8 +588,7 @@ static int msm_geni_serial_poll_bit(struct uart_port *uport,
 
 	while (iter < total_iter) {
 		reg = geni_read_reg_nolog(uport->membase, offset);
-		set_bits = reg & bit_field;
-		cond = (set_bits == bit_field);
+		cond = reg & bit_field;
 		if (cond == set) {
 			met = true;
 			break;
@@ -648,6 +646,26 @@ static void msm_geni_serial_abort_rx(struct uart_port *uport)
 	/* FORCE_DEFAULT makes RFR default high, hence set manually Low */
 	msm_geni_serial_set_manual_flow(true, port);
 	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
+}
+
+static void msm_geni_serial_complete_rx_eot(struct uart_port *uport)
+{
+	int poll_done = 0, tries = 0;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+
+	do {
+		poll_done = msm_geni_serial_poll_bit(uport, SE_DMA_RX_IRQ_STAT,
+								RX_EOT, true);
+		tries++;
+	} while (!poll_done && tries < 5);
+
+	if (!poll_done)
+		IPC_LOG_MSG(port->ipc_log_misc,
+		"%s: RX_EOT, GENI:0x%x, DMA_DEBUG:0x%x\n", __func__,
+		geni_read_reg_nolog(uport->membase, SE_GENI_STATUS),
+		geni_read_reg_nolog(uport->membase, SE_DMA_DEBUG_REG0));
+	else
+		geni_write_reg_nolog(RX_EOT, uport->membase, SE_DMA_RX_IRQ_CLR);
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -1239,10 +1257,8 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	unsigned int geni_m_irq_en;
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+	u32 irq_clear = S_CMD_CANCEL_EN;
 	bool done;
-	u32 geni_s_irq_status;
-	u32 dma_rx_irq_stat;
-	u32 DMA_RX_CANCEL_BIT;
 
 	if (port->xfer_mode == FIFO_MODE) {
 		geni_s_irq_en = geni_read_reg_nolog(uport->membase,
@@ -1263,22 +1279,6 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	if (!(geni_status & S_GENI_CMD_ACTIVE))
 		goto exit_rx_seq;
 
-	/*
-	 * Clear previous unhandled interrupts, because in VI experiment it's
-	 * observed that previous interrupts bits can cause problem to
-	 * successive commands given to sequencers.
-	 * To do: Handle RX EOT bit properly by restarting the DMA engine.
-	 */
-	geni_s_irq_status = geni_read_reg_nolog(uport->membase,
-					SE_GENI_S_IRQ_STATUS);
-	geni_write_reg_nolog(geni_s_irq_status, uport->membase,
-					SE_GENI_S_IRQ_CLEAR);
-	if (port->xfer_mode == SE_DMA) {
-		dma_rx_irq_stat = geni_read_reg_nolog(uport->membase,
-				SE_DMA_RX_IRQ_STAT);
-		geni_write_reg_nolog(dma_rx_irq_stat,
-				uport->membase, SE_DMA_RX_IRQ_CLR);
-	}
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Start 0x%x\n",
 		    __func__, geni_status);
@@ -1288,58 +1288,18 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	 * cancel control bit.
 	 */
 	mb();
-	if (port->xfer_mode == SE_DMA) {
-		/*
-		 * QUPS which has HW version <= 1.2 11th bit of
-		 * SE_DMA_RX_IRQ_STAT register denotes DMA_RX_CANCEL_BIT.
-		 */
-		DMA_RX_CANCEL_BIT = ((port->ver_info.hw_major_ver <= 1)
-			&& (port->ver_info.hw_minor_ver <= 2)) ?
-			BIT(11) : BIT(14);
+	if (!uart_console(uport))
+		msm_geni_serial_complete_rx_eot(uport);
 
-		done = msm_geni_serial_poll_bit(uport, SE_DMA_RX_IRQ_STAT,
-				DMA_RX_CANCEL_BIT | RX_EOT | RX_DMA_DONE, true);
-		if (done) {
-			dma_rx_irq_stat = geni_read_reg_nolog(uport->membase,
-						SE_DMA_RX_IRQ_STAT);
-			geni_write_reg_nolog(dma_rx_irq_stat,
-				uport->membase, SE_DMA_RX_IRQ_CLR);
-			geni_s_irq_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_S_IRQ_STATUS);
-			geni_write_reg_nolog(geni_s_irq_status, uport->membase,
+	done = msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
+					S_GENI_CMD_CANCEL, false);
+	if (done) {
+		geni_write_reg_nolog(irq_clear, uport->membase,
 						SE_GENI_S_IRQ_CLEAR);
-		} else {
-			geni_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_STATUS);
-			dma_rx_irq_stat = geni_read_reg_nolog(uport->membase,
-						SE_DMA_RX_IRQ_STAT);
-			geni_s_irq_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_S_IRQ_STATUS);
-			IPC_LOG_MSG(port->ipc_log_misc,
-			"%s: Cancel fail: dma_irq_sts: 0x%x s_irq_sts: 0x%x\n",
-				__func__, dma_rx_irq_stat, geni_s_irq_status);
-			geni_se_dump_dbg_regs(&port->serial_rsc, uport->membase,
-					port->ipc_log_misc);
-		}
+		goto exit_rx_seq;
 	} else {
-		done = msm_geni_serial_poll_bit(uport, SE_GENI_S_IRQ_STATUS,
-					S_CMD_CANCEL_EN | S_CMD_DONE_EN, true);
-		if (done) {
-			geni_s_irq_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_S_IRQ_STATUS);
-			geni_write_reg_nolog(geni_s_irq_status, uport->membase,
-						SE_GENI_S_IRQ_CLEAR);
-		} else {
-			geni_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_STATUS);
-			geni_s_irq_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_S_IRQ_STATUS);
-			IPC_LOG_MSG(port->console_log,
-				"%s Cancel fail s_irq_status: 0x%x\n", __func__,
-				geni_s_irq_status);
-			geni_se_dump_dbg_regs(&port->serial_rsc, uport->membase,
-					port->console_log);
-		}
+		IPC_LOG_MSG(port->ipc_log_misc, "%s Cancel fail 0x%x\n",
+						__func__, geni_status);
 	}
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
