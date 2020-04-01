@@ -5,7 +5,7 @@
  *
  * Copyright 2017 Martin Sperl <kernel@xxxxxxxxxxxxxxxx>
  *
- * SPDX-License-Identifier: GPL-2.0-only
+ * SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
  *
  * Based on Microchip MCP251x CAN controller driver written by
  * David Vrabel, Copyright 2006 Arcom Control Systems Ltd.
