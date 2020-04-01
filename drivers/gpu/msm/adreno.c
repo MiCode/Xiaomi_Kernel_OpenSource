@@ -1458,21 +1458,13 @@ int adreno_target_probe(struct platform_device *pdev,
 {
 	struct adreno_device *adreno_dev = &device_3d0;
 	struct adreno_gpudev *gpudev = gpucore->gpudev;
-	int i;
 
 	memset(adreno_dev, 0, sizeof(*adreno_dev));
 
 	adreno_dev->gpucore = gpucore;
 	adreno_dev->chipid = chipid;
 
-	/*
-	 * Initialize uninitialzed gpu registers, only needs to be done once
-	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
-	 */
-	for (i = 0; i < ADRENO_REG_REGISTER_MAX; i++) {
-		if (!gpudev->reg_offsets[i])
-			gpudev->reg_offsets[i] = ADRENO_REG_UNUSED;
-	}
+	adreno_reg_offset_init(gpudev->reg_offsets);
 
 	/* Do target specific identification */
 	if (gpudev->platform_setup)

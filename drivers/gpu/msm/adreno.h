@@ -1662,6 +1662,28 @@ static inline bool adreno_move_preempt_state(struct adreno_device *adreno_dev,
 	return (atomic_cmpxchg(&adreno_dev->preempt.state, old, new) == old);
 }
 
+/**
+ * adreno_reg_offset_init - Helper function to initialize reg_offsets
+ * @reg_offsets: Pointer to an array of register offsets
+ *
+ * Helper function to setup register_offsets for a target. Go through
+ * and set ADRENO_REG_UNUSED for all unused entries in the list.
+ */
+static inline void adreno_reg_offset_init(u32 *reg_offsets)
+{
+	int i;
+
+	/*
+	 * Initialize uninitialzed gpu registers, only needs to be done once.
+	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
+	 */
+	for (i = 0; i < ADRENO_REG_REGISTER_MAX; i++) {
+		if (!reg_offsets[i])
+			reg_offsets[i] = ADRENO_REG_UNUSED;
+	}
+}
+
+
 void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
 void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
