@@ -198,6 +198,7 @@
 				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <5400000>;
 				qcom,swire-control;
+				regulator-allow-set-load;
 			};
 		};
 	};
