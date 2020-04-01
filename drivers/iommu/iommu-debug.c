@@ -1521,7 +1521,7 @@ static ssize_t iommu_debug_atos_write(struct file *file,
 		return -EINVAL;
 	}
 
-	phys = iommu_iova_to_phys(ddev->domain, ddev->iova);
+	phys = iommu_iova_to_phys(ddev->domain, iova);
 	pfn = __phys_to_pfn(phys);
 	if (!pfn_valid(pfn)) {
 		dev_err(ddev->dev, "Invalid ATOS operation page %pa\n", &phys);
