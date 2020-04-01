@@ -1453,26 +1453,6 @@ err:
 	return status;
 }
 
-int adreno_target_probe(struct platform_device *pdev,
-		u32 chipid, const struct adreno_gpu_core *gpucore)
-{
-	struct adreno_device *adreno_dev = &device_3d0;
-	struct adreno_gpudev *gpudev = gpucore->gpudev;
-
-	memset(adreno_dev, 0, sizeof(*adreno_dev));
-
-	adreno_dev->gpucore = gpucore;
-	adreno_dev->chipid = chipid;
-
-	adreno_reg_offset_init(gpudev->reg_offsets);
-
-	/* Do target specific identification */
-	if (gpudev->platform_setup)
-		gpudev->platform_setup(adreno_dev);
-
-	return adreno_device_probe(pdev, adreno_dev);
-}
-
 static int adreno_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);

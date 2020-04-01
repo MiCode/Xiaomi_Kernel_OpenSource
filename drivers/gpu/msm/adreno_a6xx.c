@@ -5,6 +5,7 @@
 
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <linux/of_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
 
 #include "adreno.h"
@@ -2333,9 +2334,21 @@ static struct adreno_perfcounters a6xx_perfcounters = {
 	ARRAY_SIZE(a6xx_perfcounter_groups),
 };
 
-static void a6xx_platform_setup(struct adreno_device *adreno_dev)
+static int a6xx_probe(struct platform_device *pdev,
+		u32 chipid, const struct adreno_gpu_core *gpucore)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_device *adreno_dev;
+	struct adreno_gpudev *gpudev = gpucore->gpudev;
+
+	adreno_dev = (struct adreno_device *)
+		of_device_get_match_data(&pdev->dev);
+
+	memset(adreno_dev, 0, sizeof(*adreno_dev));
+
+	adreno_dev->gpucore = gpucore;
+	adreno_dev->chipid = chipid;
+
+	adreno_reg_offset_init(gpudev->reg_offsets);
 
 	adreno_dev->hwcg_enabled = true;
 
@@ -2372,6 +2385,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
 		adreno_dev->perfctr_ifpc_lo =
 			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
+
+	return adreno_device_probe(pdev, adreno_dev);
 }
 
 
@@ -2635,10 +2650,9 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
-	.probe = adreno_target_probe,
+	.probe = a6xx_probe,
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
-	.platform_setup = a6xx_platform_setup,
 	.init = a6xx_init,
 	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
