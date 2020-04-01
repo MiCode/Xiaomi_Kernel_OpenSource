@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menu "Neuron Device-sharing Framework"
+
+config NEURON
+	tristate "Support for Neuron device-sharing framework"
+	help
+	  This option enables the Neuron device-sharing framework. It is used
+	  by guests of the haven hypervisors to serve or access shared I/O
+	  devices and other inter-VM services. The Neuron framework is composed
+	  of three buses that represent different layers in the framework
+	  (channel, protocol, application).
+
+config NEURON_SERVICE
+	tristate "Static configuration of services from the device tree"
+	depends on OF
+	select NEURON
+	help
+	  This option enables a platform driver that can construct a Neuron
+	  service stack from a description in a device tree. The device tree
+	  node should contain a channel, application and protocol subnode.
+	  Multiple services can run on a system.
+
+source "net/neuron/channel/Kconfig"
+source "net/neuron/protocol/Kconfig"
+
+endmenu
