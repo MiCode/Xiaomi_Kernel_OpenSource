@@ -2635,6 +2635,7 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
+	.probe = adreno_target_probe,
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
 	.platform_setup = a6xx_platform_setup,

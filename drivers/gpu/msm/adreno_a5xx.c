@@ -2970,6 +2970,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a5xx_coresight},
 #endif
+	.probe = adreno_target_probe,
 	.start = a5xx_start,
 	.snapshot = a5xx_snapshot,
 	.platform_setup = a5xx_platform_setup,

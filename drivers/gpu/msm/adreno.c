@@ -691,26 +691,64 @@ adreno_get_soc_hw_revision_node(struct platform_device *pdev, u32 hwrev)
 	return NULL;
 }
 
+static u32 adreno_efuse_read_soc_hw_rev(struct platform_device *pdev)
+{
+	unsigned int val;
+	unsigned int soc_hw_rev[3];
+	int ret;
+
+	if (of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,soc-hw-rev-efuse", soc_hw_rev, 3))
+		return 0;
+
+	ret = adreno_efuse_map(pdev);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Unable to map hardware revision fuse: ret=%d\n", ret);
+		return 0;
+	}
+
+	ret = adreno_efuse_read_u32(soc_hw_rev[0], &val);
+	adreno_efuse_unmap();
+
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Unable to read hardware revision fuse: ret=%d\n", ret);
+		return 0;
+	}
+
+	return (val >> soc_hw_rev[1]) & soc_hw_rev[2];
+}
+
+static int adreno_get_chipid(struct platform_device *pdev, u32 *chipid)
+{
+	u32 hwrev = adreno_efuse_read_soc_hw_rev(pdev);
+	struct device_node *node;
+	int ret;
+
+	node = adreno_get_soc_hw_revision_node(pdev, hwrev);
+	if (!node)
+		node = of_node_get(pdev->dev.of_node);
+
+	ret = of_property_read_u32(node, "qcom,chipid", chipid);
+
+	of_node_put(node);
+	return ret;
+}
+
 static void
 adreno_update_soc_hw_revision_quirks(struct adreno_device *adreno_dev,
-		struct platform_device *pdev, u32 hwrev)
+		struct platform_device *pdev)
 {
 	struct device_node *node;
 	int i;
+	u32 hwrev;
+
+	hwrev = adreno_efuse_read_soc_hw_rev(pdev);
 
 	node = adreno_get_soc_hw_revision_node(pdev, hwrev);
 	if (node == NULL)
-		node = pdev->dev.of_node;
-
-	/* get chip id, fall back to parent if revision node does not have it */
-	if (of_property_read_u32(node, "qcom,chipid", &adreno_dev->chipid)) {
-		if (of_property_read_u32(pdev->dev.of_node,
-				"qcom,chipid", &adreno_dev->chipid)) {
-			dev_crit(&pdev->dev, "No GPU chip ID was specified\n");
-			BUG();
-			return;
-		}
-	}
+		node = of_node_get(pdev->dev.of_node);
 
 	/* update quirk */
 	for (i = 0; i < ARRAY_SIZE(adreno_quirks); i++) {
@@ -723,55 +761,40 @@ adreno_update_soc_hw_revision_quirks(struct adreno_device *adreno_dev,
 		kgsl_mmu_set_feature(KGSL_DEVICE(adreno_dev),
 			KGSL_MMU_SECURE_CB_ALT);
 
-
-	if (node != pdev->dev.of_node)
-		of_node_put(node);
+	of_node_put(node);
 }
 
-static int adreno_identify_gpu(struct platform_device *pdev,
-		struct adreno_device *adreno_dev)
+static const struct adreno_gpu_core *
+adreno_identify_gpu(struct platform_device *pdev, u32 *chipid)
 {
-	struct adreno_gpudev *gpudev;
-	int i;
+	const struct adreno_gpu_core *gpucore;
 
-	adreno_dev->gpucore = _get_gpu_core(pdev, adreno_dev->chipid);
+	if (adreno_get_chipid(pdev, chipid)) {
+		dev_crit(&pdev->dev, "Unable to get the GPU chip ID\n");
+		return ERR_PTR(-ENODEV);
+	}
 
-	if (adreno_dev->gpucore == NULL) {
-		dev_crit(&pdev->dev,
-			"Unknown GPU chip ID %8.8X\n", adreno_dev->chipid);
-		return -ENODEV;
+	gpucore = _get_gpu_core(pdev, *chipid);
+	if (!gpucore) {
+		dev_crit(&pdev->dev, "Unknown GPU chip ID %8.8x\n", *chipid);
+		return ERR_PTR(-ENODEV);
 	}
 
 	/*
 	 * Identify non-longer supported targets and spins and print a helpful
 	 * message
 	 */
-	if (adreno_dev->gpucore->features & ADRENO_DEPRECATED) {
+	if (gpucore->features & ADRENO_DEPRECATED) {
 		dev_err(&pdev->dev,
 			"Support for GPU %d.%d.%d.%d has been deprecated\n",
-			adreno_dev->gpucore->core,
-			adreno_dev->gpucore->major,
-			adreno_dev->gpucore->minor,
-			adreno_dev->gpucore->patchid);
-		return -ENODEV;
+			gpucore->core,
+			gpucore->major,
+			gpucore->minor,
+			gpucore->patchid);
+		return ERR_PTR(-ENODEV);
 	}
 
-	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	/*
-	 * Initialize uninitialzed gpu registers, only needs to be done once
-	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
-	 */
-	for (i = 0; i < ADRENO_REG_REGISTER_MAX; i++) {
-		if (!gpudev->reg_offsets[i])
-			gpudev->reg_offsets[i] = ADRENO_REG_UNUSED;
-	}
-
-	/* Do target specific identification */
-	if (gpudev->platform_setup != NULL)
-		gpudev->platform_setup(adreno_dev);
-
-	return 0;
+	return gpucore;
 }
 
 static const struct of_device_id adreno_match_table[] = {
@@ -1132,50 +1155,20 @@ static void adreno_isense_probe(struct kgsl_device *device)
 		dev_warn(device->dev, "isense ioremap failed\n");
 }
 
-static u32 adreno_efuse_read_soc_hw_rev(struct platform_device *pdev)
-{
-	unsigned int val;
-	unsigned int soc_hw_rev[3];
-	int ret;
-
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,soc-hw-rev-efuse", soc_hw_rev, 3))
-		return 0;
-
-	ret = adreno_efuse_map(pdev);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Unable to map hardware revision fuse: ret=%d\n", ret);
-		return 0;
-	}
-
-	ret = adreno_efuse_read_u32(soc_hw_rev[0], &val);
-	adreno_efuse_unmap();
-
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Unable to read hardware revision fuse: ret=%d\n", ret);
-		return 0;
-	}
-
-	return (val >> soc_hw_rev[1]) & soc_hw_rev[2];
-}
-
-static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
+static bool adreno_is_gpu_disabled(struct platform_device *pdev)
 {
 	unsigned int row0;
 	unsigned int pte_row0_msb[3];
 	int ret;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
+	if (of_property_read_u32_array(pdev->dev.of_node,
 		"qcom,gpu-disable-fuse", pte_row0_msb, 3))
 		return false;
 	/*
 	 * Read the fuse value to disable GPU driver if fuse
 	 * is blown. By default(fuse value is 0) GPU is enabled.
 	 */
-	if (adreno_efuse_map(device->pdev))
+	if (adreno_efuse_map(pdev))
 		return false;
 
 	ret = adreno_efuse_read_u32(pte_row0_msb[0], &row0);
@@ -1278,8 +1271,6 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 {
 	u32 i;
 
-	memset(adreno_dev, 0, sizeof(*adreno_dev));
-
 	adreno_dev->dev.name = "kgsl-3d0";
 	adreno_dev->dev.ftbl = &adreno_functable;
 
@@ -1310,45 +1301,29 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	}
 }
 
-static int adreno_bind(struct device *dev)
+int adreno_device_probe(struct platform_device *pdev,
+		struct adreno_device *adreno_dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct adreno_device *adreno_dev;
-	struct kgsl_device *device;
-	int status;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct device *dev = &pdev->dev;
 	unsigned int priv = 0;
-	u32 size, hwrev;
-
-	adreno_dev = (struct adreno_device *) of_device_get_match_data(dev);
+	int status;
+	u32 size;
 
 	/* Initialize the adreno device structure */
 	adreno_setup_device(adreno_dev);
-
-	device = KGSL_DEVICE(adreno_dev);
 
 	dev_set_drvdata(dev, device);
 
 	device->pdev = pdev;
 
-	if (adreno_is_gpu_disabled(adreno_dev)) {
-		dev_err(&pdev->dev, "adreno: GPU is disabled on this device\n");
-		return -ENODEV;
-	}
-
-	/* Identify SOC hardware revision to be used */
-	hwrev = adreno_efuse_read_soc_hw_rev(pdev);
-
-	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev, hwrev);
+	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
 
 	status = adreno_read_speed_bin(pdev);
 	if (status < 0)
 		return status;
 
 	device->speed_bin = status;
-
-	/* Get the chip ID from the DT and set up target specific parameters */
-	if (adreno_identify_gpu(pdev, adreno_dev))
-		return -ENODEV;
 
 	status = adreno_of_get_power(adreno_dev, pdev);
 	if (status)
@@ -1478,6 +1453,52 @@ err:
 	return status;
 }
 
+int adreno_target_probe(struct platform_device *pdev,
+		u32 chipid, const struct adreno_gpu_core *gpucore)
+{
+	struct adreno_device *adreno_dev = &device_3d0;
+	struct adreno_gpudev *gpudev = gpucore->gpudev;
+	int i;
+
+	memset(adreno_dev, 0, sizeof(*adreno_dev));
+
+	adreno_dev->gpucore = gpucore;
+	adreno_dev->chipid = chipid;
+
+	/*
+	 * Initialize uninitialzed gpu registers, only needs to be done once
+	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
+	 */
+	for (i = 0; i < ADRENO_REG_REGISTER_MAX; i++) {
+		if (!gpudev->reg_offsets[i])
+			gpudev->reg_offsets[i] = ADRENO_REG_UNUSED;
+	}
+
+	/* Do target specific identification */
+	if (gpudev->platform_setup)
+		gpudev->platform_setup(adreno_dev);
+
+	return adreno_device_probe(pdev, adreno_dev);
+}
+
+static int adreno_bind(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	const struct adreno_gpu_core *gpucore;
+	u32 chipid;
+
+	if (adreno_is_gpu_disabled(pdev)) {
+		dev_err(&pdev->dev, "adreno: GPU is disabled on this device\n");
+		return -ENODEV;
+	}
+
+	gpucore = adreno_identify_gpu(pdev, &chipid);
+	if (IS_ERR(gpucore))
+		return PTR_ERR(gpucore);
+
+	return gpucore->gpudev->probe(pdev, chipid, gpucore);
+}
+
 static void _adreno_free_memories(struct adreno_device *adreno_dev)
 {
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
@@ -1500,9 +1521,11 @@ static void adreno_unbind(struct device *dev)
 	struct kgsl_device *device;
 	struct adreno_gpudev *gpudev;
 
-	adreno_dev = (struct adreno_device *) of_device_get_match_data(dev);
+	device = dev_get_drvdata(dev);
+	if (!device)
+		return;
 
-	device = KGSL_DEVICE(adreno_dev);
+	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->remove != NULL)

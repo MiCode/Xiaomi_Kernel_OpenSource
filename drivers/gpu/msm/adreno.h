@@ -746,6 +746,8 @@ struct adreno_gpudev {
 	unsigned int gbif_arb_halt_mask;
 	unsigned int gbif_gx_halt_mask;
 	/* GPU specific function hooks */
+	int (*probe)(struct platform_device *pdev, u32 chipid,
+		const struct adreno_gpu_core *gpucore);
 	void (*snapshot)(struct adreno_device *adreno_dev,
 				struct kgsl_snapshot *snapshot);
 	void (*platform_setup)(struct adreno_device *adreno_dev);
@@ -1705,5 +1707,34 @@ int adreno_zap_shader_load(struct adreno_device *adreno_dev,
  */
 irqreturn_t adreno_irq_callbacks(struct adreno_device *adreno_dev,
 		struct adreno_irq_funcs *funcs, u32 status);
+
+
+/**
+ * adreno_device_probe - Generic adreno device probe function
+ * @pdev: Pointer to the platform device
+ * @adreno_dev: Adreno GPU device handle
+ *
+ * Do the generic setup for the Adreno device. Called from the target specific
+ * probe functions.
+ *
+ * Return: 0 on success or negative on failure
+ */
+int adreno_device_probe(struct platform_device *pdev,
+		struct adreno_device *adreno_dev);
+
+/**
+ * adreno_target_probe - Helper function for target specific probe
+ * @pdev: Pointer to the platform device
+ * @chipid: Chipid for the target
+ * @gpucore: Pointer to the GPU core definition for this target
+ *
+ * This is a generic probe function for targets that don't need any special
+ * setup. This function sets up the reg_offsets and platform setup and then
+ * calls the generic device probe.
+ *
+ * Return: 0 on success or negative on failure
+ */
+int adreno_target_probe(struct platform_device *pdev,
+		u32 chipid, const struct adreno_gpu_core *gpucore);
 
 #endif /*__ADRENO_H */
