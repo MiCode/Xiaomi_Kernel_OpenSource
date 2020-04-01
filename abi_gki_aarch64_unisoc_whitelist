@@ -31,6 +31,8 @@
   cancel_work_sync
   cdev_add
   cdev_del
+  cdev_device_add
+  cdev_device_del
   cdev_init
   __cfi_slowpath
   __check_object_size
@@ -91,6 +93,7 @@
   __dev_kfree_skb_any
   devm_add_action
   devm_backlight_device_register
+  devm_clk_bulk_get_all
   devm_clk_get
   devm_free_irq
   devm_gpiochip_add_data
@@ -114,6 +117,8 @@
   devm_regulator_register
   devm_request_threaded_irq
   devm_spi_register_controller
+  devm_usb_get_phy
+  devm_usb_get_phy_by_phandle
   dev_queue_xmit
   dev_set_name
   _dev_warn
@@ -179,10 +184,12 @@
   __get_free_pages
   get_random_bytes
   gpiochip_get_data
+  gpiochip_line_is_irq
   gpiod_direction_input
   gpiod_direction_output_raw
   gpiod_get_raw_value
   gpiod_set_raw_value
+  gpiod_to_chip
   gpiod_to_irq
   gpio_free
   gpio_request
@@ -568,9 +575,11 @@
   usb_gadget_udc_reset
   usb_get_dr_mode
   usb_get_intf
-  usb_hcd_is_primary_hcdi
+  usb_hcd_is_primary_hcd
   usb_interface_id
   usb_kill_urb
+  usb_phy_get_charger_current
+  usb_phy_set_charger_current
   usb_put_function_instance
   usb_put_intf
   usb_register_driver
@@ -861,6 +870,11 @@
   pci_stop_and_remove_bus_device
   pci_unlock_rescan_remove
 
+# required by phy-sprd-sharkl3.ko
+  usb_add_phy_dev
+  usb_phy_set_charger_state
+  usb_remove_phy
+
 # required by pinctrl-sprd.ko
   devm_platform_ioremap_resource
   of_property_read_string_helper
@@ -967,6 +981,15 @@
 # required by pwm-sprd.ko
   pwmchip_add
   pwmchip_remove
+
+# required by pwm_bl.ko
+  backlight_device_register
+  backlight_device_unregister
+  devm_pwm_get
+  gpiod_get_direction
+  int_pow
+  pwm_free
+  pwm_request
 
 # required by roles.ko
   fwnode_connection_find_match
@@ -1310,12 +1333,14 @@
   drm_atomic_helper_async_commit
   drm_atomic_helper_check
   drm_atomic_helper_cleanup_planes
+  drm_atomic_helper_commit
   drm_atomic_helper_commit_cleanup_done
   drm_atomic_helper_commit_hw_done
   drm_atomic_helper_commit_modeset_disables
   drm_atomic_helper_commit_modeset_enables
   drm_atomic_helper_commit_planes
   drm_atomic_helper_commit_tail
+  drm_atomic_helper_commit_tail_rpm
   drm_atomic_helper_connector_destroy_state
   drm_atomic_helper_connector_duplicate_state
   drm_atomic_helper_connector_reset
