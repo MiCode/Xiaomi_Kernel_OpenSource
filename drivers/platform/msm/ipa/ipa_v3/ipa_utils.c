@@ -7608,6 +7608,7 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 	struct ipa3_ep_context *ep;
 	enum ipa_client_type client_type;
 	struct IpaHwOffloadStatsAllocCmdData_t *gsi_info;
+	struct ipa_ep_cfg_holb holb_cfg;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -7662,6 +7663,24 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 		default:
 			IPADBG("client_type %d not supported\n",
 				client_type);
+		}
+	}
+
+	/* Enable HOLB on MHIP RMNET CONS before stopping
+	 * USB PROD pipe
+	 */
+	if (ipa3_is_mhip_offload_enabled() &&
+		client_type == IPA_CLIENT_USB_PROD) {
+		memset(&holb_cfg, 0, sizeof(struct ipa_ep_cfg_holb));
+		holb_cfg.en = IPA_HOLB_TMR_EN;
+		holb_cfg.tmr_val = 0;
+		IPADBG("Enabling HOLB on RMNET CONS pipe");
+		res = ipa3_cfg_ep_holb(ipa3_get_ep_mapping(
+				IPA_CLIENT_MHI_PRIME_RMNET_CONS), &holb_cfg);
+		if (res) {
+			IPAERR("Enable HOLB failed ep:%lu\n",
+				ipa3_get_ep_mapping(
+					IPA_CLIENT_MHI_PRIME_RMNET_CONS));
 		}
 	}
 

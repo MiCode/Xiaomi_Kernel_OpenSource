@@ -1629,6 +1629,8 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
 	enum ipa_client_type client_type;
+	struct ipa_ep_cfg_holb holb_cfg;
+	int res = 0;
 
 	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes  ||
@@ -1639,6 +1641,23 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 	client_type = ipa3_get_client_mapping(clnt_hdl);
+	/* Disable HOLB on MHIP RMNET CONS before starting
+	 * USB PROD pipe
+	 */
+	if (ipa3_is_mhip_offload_enabled() &&
+		client_type == IPA_CLIENT_USB_PROD) {
+		memset(&holb_cfg, 0, sizeof(struct ipa_ep_cfg_holb));
+		holb_cfg.en = IPA_HOLB_TMR_DIS;
+		holb_cfg.tmr_val = 0;
+		IPADBG("Disabling HOLB on RMNET CONS pipe");
+		res = ipa3_cfg_ep_holb(ipa3_get_ep_mapping(
+				IPA_CLIENT_MHI_PRIME_RMNET_CONS), &holb_cfg);
+		if (res) {
+			IPAERR("Disable HOLB failed ep:%lu\n",
+				ipa3_get_ep_mapping(
+					IPA_CLIENT_MHI_PRIME_RMNET_CONS));
+		}
+	}
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_INC_EP(client_type);
 
