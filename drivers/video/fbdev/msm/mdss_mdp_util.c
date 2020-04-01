@@ -948,6 +948,8 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 				data->mapped = false;
 			}
 			if (!data->skip_detach) {
+				data->srcp_attachment->dma_map_attrs
+						 |= DMA_ATTR_SKIP_CPU_SYNC;
 				dma_buf_unmap_attachment(data->srcp_attachment,
 					data->srcp_table,
 					mdss_smmu_dma_data_direction(dir));
@@ -1182,6 +1184,7 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 	return ret;
 
 err_unmap:
+	data->srcp_attachment->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
 		mdss_smmu_dma_data_direction(dir));
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
