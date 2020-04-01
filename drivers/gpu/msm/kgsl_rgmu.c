@@ -399,13 +399,6 @@ static int rgmu_dcvs_set(struct kgsl_device *device,
 	return ret;
 }
 
-static bool rgmu_regulator_isenabled(struct kgsl_device *device)
-{
-	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
-
-	return (rgmu->gx_gdsc && regulator_is_enabled(rgmu->gx_gdsc));
-}
-
 static void rgmu_remove(struct kgsl_device *device)
 {
 	rgmu_stop(device);
@@ -419,7 +412,6 @@ static struct gmu_core_ops rgmu_ops = {
 	.stop = rgmu_stop,
 	.dcvs_set = rgmu_dcvs_set,
 	.snapshot = rgmu_snapshot,
-	.regulator_isenabled = rgmu_regulator_isenabled,
 	.suspend = rgmu_suspend,
 };
 

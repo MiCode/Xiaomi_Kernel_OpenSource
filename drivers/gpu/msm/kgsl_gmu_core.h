@@ -107,7 +107,6 @@ struct gmu_core_ops {
 	int (*start)(struct kgsl_device *device);
 	void (*stop)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device);
-	bool (*regulator_isenabled)(struct kgsl_device *device);
 	int (*suspend)(struct kgsl_device *device);
 	int (*acd_set)(struct kgsl_device *device, bool val);
 };
@@ -181,7 +180,6 @@ bool gmu_core_isenabled(struct kgsl_device *device);
 int gmu_core_dcvs_set(struct kgsl_device *device, int gpu_pwrlevel,
 		int bus_level);
 int gmu_core_acd_set(struct kgsl_device *device, bool val);
-bool gmu_core_regulator_isenabled(struct kgsl_device *device);
 bool gmu_core_is_register_offset(struct kgsl_device *device,
 				unsigned int offsetwords);
 void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,

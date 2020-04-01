@@ -131,16 +131,6 @@ int gmu_core_acd_set(struct kgsl_device *device, bool val)
 	return -EINVAL;
 }
 
-bool gmu_core_regulator_isenabled(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->regulator_isenabled)
-		return gmu_core_ops->regulator_isenabled(device);
-
-	return false;
-}
-
 bool gmu_core_is_register_offset(struct kgsl_device *device,
 				unsigned int offsetwords)
 {
