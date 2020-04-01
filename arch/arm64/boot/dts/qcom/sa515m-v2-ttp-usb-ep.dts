@@ -25,3 +25,7 @@
 	qcom,ipa-config-is-auto;
 	qcom,use-xbl-boot;
 };
+
+&usb {
+	qcom,num-gsi-evt-buffs = <0x5>;
+};
