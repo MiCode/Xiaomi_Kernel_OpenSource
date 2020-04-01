@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
-#ifndef __KGSL_HFI_H
-#define __KGSL_HFI_H
+#ifndef __ADRENO_A6XX_HFI_H
+#define __ADRENO_A6XX_HFI_H
 
 #define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
@@ -588,7 +588,7 @@ struct pending_cmd {
 };
 
 /**
- * struct kgsl_hfi - HFI control structure
+ * struct a6xx_hfi - HFI control structure
  * @kgsldev: Point to the kgsl device
  * @hfi_interrupt_num: number of GMU asserted HFI interrupt
  * @cmdq_mutex: mutex to protect command queue access from multiple senders
@@ -598,7 +598,7 @@ struct pending_cmd {
  * @bwtbl_cmd: HFI BW table buffer
  * @acd_tbl_cmd: HFI table for ACD data
  */
-struct kgsl_hfi {
+struct a6xx_hfi {
 	struct kgsl_device *kgsldev;
 	int hfi_interrupt_num;
 	struct mutex cmdq_mutex;
@@ -611,13 +611,13 @@ struct kgsl_hfi {
 struct gmu_device;
 struct gmu_memdesc;
 
-irqreturn_t hfi_irq_handler(int irq, void *data);
-int hfi_start(struct kgsl_device *device, struct gmu_device *gmu,
+irqreturn_t a6xx_hfi_irq_handler(int irq, void *data);
+int a6xx_hfi_start(struct kgsl_device *device, struct gmu_device *gmu,
 		uint32_t boot_state);
-void hfi_stop(struct gmu_device *gmu);
-void hfi_receiver(unsigned long data);
-void hfi_init(struct gmu_device *gmu);
+void a6xx_hfi_stop(struct gmu_device *gmu);
+void a6xx_hfi_receiver(unsigned long data);
+void a6xx_hfi_init(struct gmu_device *gmu);
 
 /* hfi_send_req is only for external (to HFI) requests */
-int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data);
-#endif  /* __KGSL_HFI_H */
+int a6xx_hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data);
+#endif  /* __ADRENO_A6XX_HFI_H */

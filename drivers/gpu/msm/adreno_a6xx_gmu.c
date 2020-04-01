@@ -744,7 +744,7 @@ static void a6xx_gmu_oob_clear(struct kgsl_device *device,
 static void a6xx_gmu_irq_enable(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct a6xx_hfi *hfi = &gmu->hfi;
 
 	/* Clear pending IRQs and Unmask needed IRQs */
 	adreno_gmu_clear_and_unmask_irqs(ADRENO_DEVICE(device));
@@ -757,7 +757,7 @@ static void a6xx_gmu_irq_enable(struct kgsl_device *device)
 static void a6xx_gmu_irq_disable(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	struct kgsl_hfi *hfi = &gmu->hfi;
+	struct a6xx_hfi *hfi = &gmu->hfi;
 
 	/* Disable all IRQs on host */
 	disable_irq(gmu->gmu_interrupt_num);
@@ -778,7 +778,7 @@ static int a6xx_gmu_hfi_start_msg(struct kgsl_device *device)
 	 * legacy firmware.
 	 */
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		return hfi_send_req(KGSL_GMU_DEVICE(device),
+		return a6xx_hfi_send_req(KGSL_GMU_DEVICE(device),
 					 H2F_MSG_START, &req);
 
 	return 0;
@@ -1571,7 +1571,7 @@ static int a6xx_gmu_init(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	hfi_init(gmu);
+	a6xx_hfi_init(gmu);
 
 	return 0;
 }
@@ -1714,7 +1714,7 @@ static int a6xx_gmu_notify_slumber(struct kgsl_device *device)
 			.bw = bus_level,
 		};
 
-		ret = hfi_send_req(gmu, H2F_MSG_PREPARE_SLUMBER, &req);
+		ret = a6xx_hfi_send_req(gmu, H2F_MSG_PREPARE_SLUMBER, &req);
 		goto out;
 	}
 
@@ -1795,7 +1795,7 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 
 	/* Pending message in all queues are abandoned */
 	a6xx_gmu_irq_disable(device);
-	hfi_stop(gmu);
+	a6xx_hfi_stop(gmu);
 
 	if (a6xx_gmu_rpmh_gpu_pwrctrl(device, GMU_SUSPEND, 0, 0))
 		return -EINVAL;
@@ -1863,7 +1863,7 @@ static int a6xx_gmu_dcvs_set(struct kgsl_device *device,
 		ret = a6xx_gmu_rpmh_gpu_pwrctrl(device,
 			GMU_DCVS_NOHFI, req.freq, req.bw);
 	else if (test_bit(GMU_HFI_ON, &device->gmu_core.flags))
-		ret = hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
+		ret = a6xx_hfi_send_req(gmu, H2F_MSG_GX_BW_PERF_VOTE, &req);
 
 	if (ret) {
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -2381,7 +2381,7 @@ static void a6xx_gmu_stop(struct kgsl_device *device)
 
 	/* Pending message in all queues are abandoned */
 	a6xx_gmu_irq_disable(device);
-	hfi_stop(gmu);
+	a6xx_hfi_stop(gmu);
 
 	a6xx_gmu_rpmh_gpu_pwrctrl(device, GMU_FW_STOP, 0, 0);
 
@@ -2507,7 +2507,7 @@ static int a6xx_gmu_start_from_init(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+	ret = a6xx_hfi_start(device, gmu, GMU_COLD_BOOT);
 	if (ret)
 		return ret;
 
@@ -2531,7 +2531,7 @@ static int a6xx_gmu_start_from_slumber(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+	ret = a6xx_hfi_start(device, gmu, GMU_COLD_BOOT);
 	if (ret)
 		return ret;
 
@@ -2553,7 +2553,7 @@ static int a6xx_gmu_start_from_reset(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+	ret = a6xx_hfi_start(device, gmu, GMU_COLD_BOOT);
 	if (ret)
 		return ret;
 
@@ -3397,7 +3397,7 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 		struct platform_device *pdev)
 {
 	struct gmu_device *gmu;
-	struct kgsl_hfi *hfi;
+	struct a6xx_hfi *hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i = 0, ret = -ENXIO, index;
@@ -3447,8 +3447,8 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 		goto error;
 
 	/* Initialize HFI and GMU interrupts */
-	ret = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq", hfi_irq_handler,
-		device);
+	ret = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
+		a6xx_hfi_irq_handler, device);
 	if (ret < 0)
 		goto error;
 
@@ -3466,7 +3466,7 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 	disable_irq(gmu->gmu_interrupt_num);
 	disable_irq(hfi->hfi_interrupt_num);
 
-	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
+	tasklet_init(&hfi->tasklet, a6xx_hfi_receiver, (unsigned long) gmu);
 	hfi->kgsldev = device;
 
 	if (WARN(pwr->num_pwrlevels + 1 > ARRAY_SIZE(gmu->pwrlevels),

@@ -7,8 +7,8 @@
 
 #include <linux/mailbox_client.h>
 
+#include "adreno_a6xx_hfi.h"
 #include "kgsl_gmu_core.h"
-#include "kgsl_hfi.h"
 
 #define GMU_PWR_LEVELS  2
 #define GMU_FREQUENCY   200000000
@@ -176,7 +176,7 @@ struct gmu_device {
 	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
-	struct kgsl_hfi hfi;
+	struct a6xx_hfi hfi;
 	/** @pwrlevels: Array of GMU power levels */
 	struct {
 		/** @freq: GPU frequency */
