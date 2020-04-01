@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -955,9 +955,13 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(gi2c->dev, I2C_AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(gi2c->dev);
 	pm_runtime_enable(gi2c->dev);
-	i2c_add_adapter(&gi2c->adap);
+	ret = i2c_add_adapter(&gi2c->adap);
+	if (ret) {
+		dev_err(gi2c->dev, "Add adapter failed, ret=%d\n", ret);
+		return ret;
+	}
 
-	dev_dbg(gi2c->dev, "I2C probed\n");
+	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }
 
