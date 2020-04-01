@@ -230,7 +230,6 @@
   jiffies
   jiffies_to_msecs
   kernel_kobj
-  kernel_read
   __kfifo_alloc
   __kfifo_free
   __kfifo_in
@@ -1205,7 +1204,6 @@
   iio_device_alloc
   iio_device_free
   iio_device_unregister
-  kernel_write
   ktime_get_with_offset
   param_array_ops
   unregister_pm_notifier

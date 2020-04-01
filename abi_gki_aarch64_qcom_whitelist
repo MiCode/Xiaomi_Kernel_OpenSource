@@ -1052,11 +1052,9 @@
   kernel_connect
   kernel_getsockname
   kernel_kobj
-  kernel_read
   kernel_recvmsg
   kernel_sendmsg
   kernel_sigaction
-  kernel_write
   kernfs_find_and_get_ns
   kernfs_notify
   kernfs_put
