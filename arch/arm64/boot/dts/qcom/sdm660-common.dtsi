@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -312,7 +312,7 @@
 	};
 
 	ssphy: ssphy@c010000 {
-		compatible = "qcom,usb-ssphy-qmp-v2";
+		compatible = "qcom,usb-ssphy-qmp-usb3-or-dp";
 		reg = <0xc010000 0xe18>,
 			<0x01fcb244 0x4>,
 			<0x01fcb248 0x4>;
