@@ -2881,7 +2881,6 @@ struct related_thread_group {
 
 extern struct sched_cluster *sched_cluster[NR_CPUS];
 
-extern unsigned int __weak sched_disable_window_stats;
 extern unsigned int max_possible_capacity;
 extern unsigned int __weak min_max_possible_capacity;
 extern unsigned int __read_mostly __weak sched_init_task_load_windows;

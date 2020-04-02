@@ -25,9 +25,6 @@ fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
 			      s64 demand_scaled_delta,
 			      s64 pred_demand_scaled_delta)
 {
-	if (sched_disable_window_stats)
-		return;
-
 	stats->cumulative_runnable_avg_scaled += demand_scaled_delta;
 	BUG_ON((s64)stats->cumulative_runnable_avg_scaled < 0);
 
@@ -38,9 +35,6 @@ fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
 static inline void
 walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	if (sched_disable_window_stats)
-		return;
-
 	fixup_cumulative_runnable_avg(&rq->walt_stats, p->ravg.demand_scaled,
 				      p->ravg.pred_demand_scaled);
 
@@ -58,9 +52,6 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 static inline void
 walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	if (sched_disable_window_stats)
-		return;
-
 	fixup_cumulative_runnable_avg(&rq->walt_stats,
 				      -(s64)p->ravg.demand_scaled,
 				      -(s64)p->ravg.pred_demand_scaled);
