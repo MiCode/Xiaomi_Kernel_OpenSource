@@ -49,7 +49,8 @@ int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid)
 	hh_vmid_t _vmid = hh_vm_table[vm_name].vmid;
 
 	if (!_vmid && vm_name != HH_SELF_VM) {
-		pr_err("%s: No vmid associated with the vm\n", __func__);
+		pr_err("%s: No vmid associated with the vm%d\n", __func__,
+			vm_name);
 		return -EINVAL;
 	}
 
@@ -163,7 +164,7 @@ out:
 int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq)
 {
 	struct hh_vm_irq_accept_resp_payload *resp_payload;
-	struct hh_vm_irq_accept_req_payload req_payload;
+	struct hh_vm_irq_accept_req_payload req_payload = {0};
 	size_t resp_payload_size;
 	int ret, reply_err_code;
 
@@ -209,7 +210,7 @@ static int hh_rm_vm_irq_lend(hh_vmid_t vmid, int virq, int label,
 			     hh_virq_handle_t *virq_handle)
 {
 	struct hh_vm_irq_lend_resp_payload *resp_payload;
-	struct hh_vm_irq_lend_req_payload req_payload;
+	struct hh_vm_irq_lend_req_payload req_payload = {0};
 	size_t resp_payload_size;
 	int ret = 0, reply_err_code;
 
@@ -338,7 +339,7 @@ int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label)
 int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
 {
 	struct hh_vm_allocate_resp_payload *resp_payload;
-	struct hh_vm_allocate_req_payload req_payload;
+	struct hh_vm_allocate_req_payload req_payload = {0};
 	size_t resp_payload_size;
 	struct hh_vm_property vm_prop;
 	int err, reply_err_code;
@@ -393,7 +394,7 @@ EXPORT_SYMBOL(hh_rm_vm_alloc_vmid);
 int hh_rm_vm_start(int vmid)
 {
 	struct hh_vm_start_resp_payload *resp_payload;
-	struct hh_vm_start_req_payload req_payload;
+	struct hh_vm_start_req_payload req_payload = {0};
 	size_t resp_payload_size;
 	int err, reply_err_code;
 

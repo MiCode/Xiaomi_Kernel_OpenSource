@@ -414,7 +414,7 @@ static void hh_rm_process_recv_work(struct work_struct *work)
 
 	/* All the processing functions would have trimmed-off the header
 	 * and copied the data to connection->recv_buff. Hence, it's okay
-	 * to release the original packet that arrived.
+	 * to release the original packet that arrived and free the msgq_data.
 	 */
 	kfree(recv_buff);
 	kfree(msgq_data);
@@ -455,6 +455,9 @@ static int hh_rm_recv_task_fn(void *data)
 			kfree(recv_buff);
 			continue;
 		}
+
+		print_hex_dump_debug("hh_rm_recv: ", DUMP_PREFIX_OFFSET,
+				     4, 1, recv_buff, recv_buff_size, false);
 
 		msgq_data->recv_buff = recv_buff;
 		msgq_data->recv_buff_size = recv_buff_size;
@@ -572,6 +575,9 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
+	pr_debug("%s TX msg_id: %x\n", __func__, message_id);
+	print_hex_dump_debug("hh_rm_call TX: ", DUMP_PREFIX_OFFSET, 4, 1,
+			     req_buff, req_buff_size, false);
 	/* Send the request to the Resource Manager VM */
 	req_ret = hh_rm_send_request(message_id,
 					req_buff, req_buff_size,
@@ -589,11 +595,15 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 
 	*reply_err_code = connection->reply_err_code;
 	if (connection->reply_err_code) {
-		pr_err("%s: Reply for seq:%d failed with err: %d\n",
+		pr_err("%s: Reply for seq:%d failed with RM err: %d\n",
 			__func__, connection->seq, connection->reply_err_code);
 		ret = ERR_PTR(hh_remap_error(connection->reply_err_code));
 		goto out;
 	}
+
+	print_hex_dump_debug("hh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
+			     connection->recv_buff, connection->recv_buff_size,
+			     false);
 
 	ret = connection->recv_buff;
 	*resp_buff_size = connection->recv_buff_size;
