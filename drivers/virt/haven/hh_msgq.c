@@ -89,6 +89,7 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
 	switch (hh_ret) {
 	case HH_ERROR_OK:
 		*recv_size = resp.recv_size;
+		cap_table_entry->rx_empty = !resp.not_empty;
 		ret = 0;
 		break;
 	case HH_ERROR_MSGQUEUE_EMPTY:
@@ -213,6 +214,10 @@ static int __hh_msgq_send(struct hh_msgq_cap_table *cap_table_entry,
 					size, buff, tx_flags, &resp);
 
 	switch (hh_ret) {
+	case HH_ERROR_OK:
+		cap_table_entry->tx_full = !resp.not_full;
+		ret = 0;
+		break;
 	case HH_ERROR_MSGQUEUE_FULL:
 		cap_table_entry->tx_full = true;
 		ret = -EAGAIN;
