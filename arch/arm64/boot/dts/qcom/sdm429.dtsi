@@ -339,7 +339,89 @@
 
 	rpm_bus: qcom,rpm-smd { };
 
-	usb_otg: usb@78db000 { };
+	usb_otg: usb@78db000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0x78db000 0x400>, <0x6c000 0x200>;
+		reg-names = "core", "phy_csr";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupts = <0 134 0>,<0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+
+		hsusb_vdd_dig-supply = <&L6A>;
+		HSUSB_1p8-supply = <&L12A>;
+		HSUSB_3p3-supply = <&L16A>;
+		qcom,vdd-voltage-level = <0 928000 928000>;
+		vbus_otg-supply = <&smb2_vbus>;
+
+		qcom,hsusb-otg-phy-init-seq = <0x43 0x80 0x06 0x82 0xffffffff>;
+		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
+		qcom,hsusb-otg-mode = <3>; /* OTG mode */
+		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
+		qcom,dp-manual-pullup;
+		qcom,phy-dvdd-always-on;
+		qcom,boost-sysclk-with-streaming;
+		qcom,axi-prefetch-enable;
+		qcom,hsusb-otg-delay-lpm;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 80000 0>,
+				<87 512 6000  6000>;
+		clocks = <&gcc GCC_USB_HS_AHB_CLK>,
+			 <&gcc GCC_USB_HS_SYSTEM_CLK>,
+			 <&gcc GCC_USB2A_PHY_SLEEP_CLK>,
+			 <&rpmcc BIMC_USB_A_CLK>,
+			 <&rpmcc SNOC_USB_A_CLK>,
+			 <&rpmcc PNOC_USB_A_CLK>,
+			 <&gcc GCC_USB_HS_PHY_CFG_AHB_CLK>,
+			 <&rpmcc CXO_SMD_OTG_CLK>;
+		clock-names = "iface_clk", "core_clk", "sleep_clk",
+				"bimc_clk", "snoc_clk", "pcnoc_clk",
+				"phy_csr_clk", "xo";
+		qcom,bus-clk-rate = <748800000 200000000 100000000>;
+		qcom,max-nominal-sysclk-rate = <133330000>;
+
+		resets = <&gcc GCC_USB_HS_BCR>,
+			 <&gcc GCC_QUSB2_PHY_BCR>,
+			 <&gcc GCC_USB2_HS_PHY_ONLY_BCR>;
+		reset-names = "core_reset", "phy_reset", "phy_por_reset";
+
+		qcom,usbbam@78c4000 {
+			compatible = "qcom,usb-bam-msm";
+			reg = <0x78c4000 0x17000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 135 0>;
+
+			qcom,bam-type = <1>;
+			qcom,usb-bam-num-pipes = <4>;
+			qcom,usb-bam-fifo-baseaddr = <0x08605000>;
+			qcom,ignore-core-reset-ack;
+			qcom,disable-clk-gating;
+			qcom,usb-bam-max-mbps-highspeed = <400>;
+			qcom,reset-bam-on-disconnect;
+
+			qcom,pipe0 {
+				label = "hsusb-qdss-in-0";
+				qcom,usb-bam-mem-type = <2>;
+				qcom,dir = <1>;
+				qcom,pipe-num = <0>;
+				qcom,peer-bam = <0>;
+				qcom,peer-bam-physical-address = <0x6044000>;
+				qcom,src-bam-pipe-index = <0>;
+				qcom,dst-bam-pipe-index = <0>;
+				qcom,data-fifo-offset = <0x0>;
+				qcom,data-fifo-size = <0xe00>;
+				qcom,descriptor-fifo-offset = <0xe00>;
+				qcom,descriptor-fifo-size = <0x200>;
+			};
+		};
+	};
 
 	spmi_bus: qcom,spmi@200f000 {
 		compatible = "qcom,spmi-pmic-arb";

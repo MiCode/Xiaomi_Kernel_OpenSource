@@ -246,3 +246,7 @@
 		};
 	};
 };
+
+&usb_otg {
+	extcon = &pm660_charger;
+};
