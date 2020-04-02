@@ -20,12 +20,25 @@
 
 #include "hvc_console.h"
 
+/*
+ * Note: hvc_alloc follows first-come, first-served for assigning
+ * numbers to registered hvc instances. Thus, the following assignments occur
+ * when both DCC and HAVEN consoles are compiled:
+ *            | DCC connected | DCC not connected
+ *      (dcc) |      hvc0     | (not present)
+ *       SELF |      hvc1     | hvc0
+ * PRIMARY_VM |      hvc2     | hvc1
+ * TRUSTED_VM |      hvc3     | hvc2
+ * "DCC connected" means a DCC terminal is open with device
+ */
+
 #define HVC_HH_VTERM_COOKIE	0x474E5948
 /* # of payload bytes that can fit in a 1-fragment CONSOLE_WRITE message */
 #define HH_HVC_WRITE_MSG_SIZE	((1 * (HH_MSGQ_MAX_MSG_SIZE_BYTES - 8)) - 4)
 
 struct hh_hvc_prv {
 	struct hvc_struct *hvc;
+	enum hh_vm_names vm_name;
 	DECLARE_KFIFO(get_fifo, char, 1024);
 	DECLARE_KFIFO(put_fifo, char, 1024);
 	struct work_struct put_work;
@@ -82,12 +95,11 @@ static void hh_hvc_put_work_fn(struct work_struct *ws)
 	char buf[HH_HVC_WRITE_MSG_SIZE];
 	int count, ret;
 	struct hh_hvc_prv *prv = container_of(ws, struct hh_hvc_prv, put_work);
-	enum hh_vm_names vm_name = vtermno_to_hh_vm_name(prv->hvc->vtermno);
 
-	ret = hh_rm_get_vmid(vm_name, &vmid);
+	ret = hh_rm_get_vmid(prv->vm_name, &vmid);
 	if (ret) {
-		pr_warn_once("hh_rm_get_vmid failed for %d: %d\n",
-			     vm_name, ret);
+		pr_warn_once("%s: hh_rm_get_vmid failed for %d: %d\n",
+			     __func__, prv->vm_name, ret);
 		return;
 	}
 
@@ -99,8 +111,8 @@ static void hh_hvc_put_work_fn(struct work_struct *ws)
 
 		ret = hh_rm_console_write(vmid, buf, count);
 		if (ret) {
-			pr_warn_once("hh_rm_console_write failed for %d: %d\n",
-				vm_name, ret);
+			pr_warn_once("%s hh_rm_console_write failed for %d: %d\n",
+				__func__, prv->vm_name, ret);
 			break;
 		}
 	}
@@ -136,6 +148,11 @@ static int hh_hvc_flush(uint32_t vtermno, bool wait)
 	int ret, vm_name = vtermno_to_hh_vm_name(vtermno);
 	hh_vmid_t vmid;
 
+	/* RM calls will all sleep. A flush without waiting isn't possible */
+	if (!wait)
+		return 0;
+	might_sleep();
+
 	if (vm_name < 0 || vm_name >= HH_VM_MAX)
 		return -EINVAL;
 
@@ -157,8 +174,11 @@ static int hh_hvc_notify_add(struct hvc_struct *hp, int vm_name)
 	hh_vmid_t vmid;
 
 	ret = hh_rm_get_vmid(vm_name, &vmid);
-	if (ret)
+	if (ret) {
+		pr_err("%s: hh_rm_get_vmid failed for %d: %d\n", __func__,
+			vm_name, ret);
 		return ret;
+	}
 
 	return hh_rm_console_open(vmid);
 }
@@ -183,7 +203,8 @@ static void hh_hvc_notify_del(struct hvc_struct *hp, int vm_name)
 	ret = hh_rm_console_close(vmid);
 
 	if (ret)
-		pr_err("Failed close VM%d console - %d\n", vm_name, ret);
+		pr_err("%s: failed close VM%d console - %d\n", __func__,
+			vm_name, ret);
 
 	kfifo_reset(&hh_hvc_data[vm_name].get_fifo);
 }
@@ -210,7 +231,19 @@ static int __init hvc_hh_console_init(void)
 
 	return ret < 0 ? -ENODEV : 0;
 }
-console_initcall(hvc_hh_console_init);
+
+static void __init hh_hvc_console_post_init(void)
+{
+	/* Need to call RM CONSOLE_OPEN before console can be used */
+	hh_hvc_notify_add(hh_hvc_data[HH_SELF_VM].hvc, HH_SELF_VM);
+}
+#else
+static int __init hvc_hh_console_init(void)
+{
+	return 0;
+}
+
+static void __init hh_hvc_console_post_init(void) { }
 #endif /* CONFIG_HVC_HAVEN_CONSOLE */
 
 static int __init hvc_hh_init(void)
@@ -218,11 +251,20 @@ static int __init hvc_hh_init(void)
 	int i, ret = 0;
 	struct hh_hvc_prv *prv;
 
+	/* Must initialize fifos and work before calling hvc_hh_console_init */
 	for (i = 0; i < HH_VM_MAX; i++) {
 		prv = &hh_hvc_data[i];
+		prv->vm_name = i;
 		INIT_KFIFO(prv->get_fifo);
 		INIT_KFIFO(prv->put_fifo);
 		INIT_WORK(&prv->put_work, hh_hvc_put_work_fn);
+	}
+
+	/* Must instantiate console before calling hvc_alloc */
+	hvc_hh_console_init();
+
+	for (i = 0; i < HH_VM_MAX; i++) {
+		prv = &hh_hvc_data[i];
 		prv->hvc = hvc_alloc(hh_vm_name_to_vtermno(i), i, &hh_hv_ops,
 				     256);
 		ret = PTR_ERR_OR_ZERO(prv->hvc);
@@ -234,27 +276,29 @@ static int __init hvc_hh_init(void)
 	if (ret)
 		goto bail;
 
+	hh_hvc_console_post_init();
+
 	return 0;
 bail:
-	for (; i >= 0; i--) {
+	for (--i; i >= 0; i--) {
 		hvc_remove(hh_hvc_data[i].hvc);
 		hh_hvc_data[i].hvc = NULL;
 	}
 	return ret;
 }
-device_initcall(hvc_hh_init);
+late_initcall(hvc_hh_init);
 
 static __exit void hvc_hh_exit(void)
 {
 	int i;
+
+	hh_rm_unregister_notifier(&hh_hvc_nb);
 
 	for (i = 0; i < HH_VM_MAX; i++)
 		if (hh_hvc_data[i].hvc) {
 			hvc_remove(hh_hvc_data[i].hvc);
 			hh_hvc_data[i].hvc = NULL;
 		}
-
-	hh_rm_unregister_notifier(&hh_hvc_nb);
 }
 module_exit(hvc_hh_exit);
 
