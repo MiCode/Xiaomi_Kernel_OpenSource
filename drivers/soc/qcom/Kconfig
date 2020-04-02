@@ -725,6 +725,16 @@ config QCOM_SOC_SLEEP_STATS
 	  various SoC level low power modes statistics and export to sysfs
 	  interface.
 
+config QCOM_CDSP_RM
+	tristate "CDSP request manager"
+	depends on QCOM_GLINK
+	help
+	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
+	  improving CDSP performance. Using this driver, CDSP can set appropriate
+	  CPU L3 clock for improving IO-Coherent throughput and opt for QoS mode
+	  to improve RPC latency. The driver also registers cooling devices for
+	  CDSP subsystem and implements Cx ipeak limit management.
+
 config QCOM_WATCHDOG
 	tristate "Qualcomm Watchdog Support"
 	depends on ARCH_QCOM
