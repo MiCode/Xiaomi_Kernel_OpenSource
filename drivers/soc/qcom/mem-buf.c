@@ -1524,8 +1524,10 @@ static int mem_buf_probe(struct platform_device *pdev)
 	mem_buf_hh_msgq_hdl = hh_msgq_register(HH_MSGQ_LABEL_MEMBUF);
 	if (IS_ERR(mem_buf_hh_msgq_hdl)) {
 		ret = PTR_ERR(mem_buf_hh_msgq_hdl);
-		dev_err(&pdev->dev,
-			"Message queue registration failed: rc: %d\n", ret);
+		if (ret != EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"Message queue registration failed: rc: %d\n",
+				ret);
 		goto err_msgq_register;
 	}
 
