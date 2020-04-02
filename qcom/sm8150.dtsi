@@ -579,10 +579,11 @@
 		interrupt-parent = <&intc>;
 	};
 
-	pdc: interrupt-controller@0xb220000 {
-		compatible = "qcom,pdc-sm8150";
-		reg = <0xb220000 0x400>;
-		#interrupt-cells = <3>;
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,sm8150-pdc";
+		reg = <0xb220000 0x30000>, <0x17c000f0 0x64>;
+		qcom,pdc-ranges = <0 480 94>, <94 609 31>, <125 63 1>;
+		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
 		interrupt-controller;
 	};
