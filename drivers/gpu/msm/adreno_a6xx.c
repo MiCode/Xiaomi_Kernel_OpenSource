@@ -226,9 +226,10 @@ __get_rbbm_clock_cntl_on(struct adreno_device *adreno_dev)
 {
 	if (adreno_is_a630(adreno_dev))
 		return 0x8AA8AA02;
-	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev) ||
-		adreno_is_a702(adreno_dev))
+	else if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev))
 		return 0xAAA8AA82;
+	else if (adreno_is_a702(adreno_dev))
+		return 0xAAAAAA82;
 	else
 		return 0x8AA8AA82;
 }
