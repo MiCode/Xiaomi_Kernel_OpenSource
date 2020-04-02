@@ -1084,13 +1084,15 @@ static int set_smmu_aperture(struct kgsl_device *device, int cb_num)
 {
 	int ret;
 
-	if (!qcom_scm_kgsl_set_smmu_aperture_available())
+	if (!test_bit(KGSL_MMU_SMMU_APERTURE, &device->mmu.features))
 		return 0;
 
 	ret = qcom_scm_kgsl_set_smmu_aperture(cb_num);
+	if (ret == -EBUSY)
+		ret = qcom_scm_kgsl_set_smmu_aperture(cb_num);
 
 	if (ret)
-		dev_err(device->dev, "Unable to set the SMMU aperture: %d\n",
+		dev_err(device->dev, "Unable to set the SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
 			ret);
 
 	return ret;

@@ -1412,6 +1412,12 @@ static int adreno_bind(struct device *dev)
 	if (adreno_support_64bit(adreno_dev))
 		kgsl_mmu_set_feature(device, KGSL_MMU_64BIT);
 
+	/*
+	 * Set the SMMU aperture on A6XX targets to use per-process pagetables.
+	 */
+	if (adreno_is_a6xx(adreno_dev))
+		kgsl_mmu_set_feature(device, KGSL_MMU_SMMU_APERTURE);
+
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
 	device->mmu.secured = (IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER) &&
