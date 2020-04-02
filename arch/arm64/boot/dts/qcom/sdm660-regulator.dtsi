@@ -98,7 +98,7 @@
 			qcom,use-voltage-level;
 		};
 
-		cx_cdev: regulator-cx-cdev {
+		cx_cdev: cx-cdev {
 			compatible = "qcom,regulator-cooling-device";
 			regulator-cdev-supply = <&pm660l_s3_floor_level>;
 			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_NOM
