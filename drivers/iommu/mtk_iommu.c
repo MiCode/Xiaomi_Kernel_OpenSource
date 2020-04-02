@@ -201,7 +201,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 					   size_t granule, void *cookie)
 {
 	struct mtk_iommu_data *data = cookie;
-	unsigned long flags;
+	unsigned long flags, end;
 	int ret;
 	u32 tmp;
 
@@ -210,9 +210,11 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
 
-		writel_relaxed(iova, data->base + REG_MMU_INVLD_START_A);
-		writel_relaxed(iova + size - 1,
-			       data->base + REG_MMU_INVLD_END_A);
+		tmp = lower_32_bits(iova) | upper_32_bits(iova);
+		writel_relaxed(tmp, data->base + REG_MMU_INVLD_START_A);
+		end = iova + size - 1;
+		tmp = lower_32_bits(end) | upper_32_bits(end);
+		writel_relaxed(tmp, data->base + REG_MMU_INVLD_END_A);
 		writel_relaxed(F_MMU_INV_RANGE,
 			       data->base + REG_MMU_INVALIDATE);
 
