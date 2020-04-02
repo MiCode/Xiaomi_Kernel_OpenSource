@@ -2433,6 +2433,7 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
+		status = "disabled";
 		qcom,msr-fix-req;
 
 		out-ports {
