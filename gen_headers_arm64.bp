@@ -964,6 +964,9 @@ gen_headers_out_arm64 = [
     "media/cam_req_mgr.h",
     "media/cam_sensor.h",
     "media/cam_sync.h",
+    "media/cam_tfe.h",
+    "media/cam_ope.h",
+    "media/cam_isp_tfe.h",
 ]
 
 genrule {
