@@ -8,8 +8,7 @@
   __arch_copy_from_user
   __arch_copy_to_user
   arm64_const_caps_ready
-  bus_register
-  bus_unregister
+  bcmp
   cancel_delayed_work_sync
   capable
   __cfi_slowpath
@@ -18,15 +17,10 @@
   consume_skb
   cpu_hwcap_keys
   cpu_hwcaps
-  cpumask_next
   cpu_number
   __cpu_online_mask
-  cpus_read_lock
-  cpus_read_unlock
-  debug_smp_processor_id
   delayed_work_timer_fn
   destroy_workqueue
-  dev_driver_string
   _dev_err
   device_register
   device_unregister
@@ -36,15 +30,12 @@
   dev_queue_xmit
   dev_set_name
   _dev_warn
-  dma_alloc_attrs
-  dma_direct_map_page
-  dma_direct_unmap_page
   dma_fence_release
   dma_fence_wait_timeout
-  dma_free_attrs
   dma_resv_add_excl_fence
   dma_set_coherent_mask
   dma_set_mask
+  down_write
   ethtool_op_get_link
   eth_validate_addr
   event_triggers_call
@@ -55,11 +46,13 @@
   free_irq
   free_netdev
   __free_pages
+  get_device
   get_random_bytes
   get_unused_fd_flags
+  hwrng_register
+  hwrng_unregister
   ida_alloc_range
   ida_free
-  init_net
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
@@ -68,15 +61,26 @@
   kfree_skb
   __kmalloc
   kmalloc_caches
+  kmem_cache_alloc
   kmem_cache_alloc_trace
+  kmem_cache_create
+  kmem_cache_destroy
+  kmem_cache_free
   kmemdup
+  kstrdup
   kvfree
   kvmalloc_node
+  __list_add_valid
+  __list_del_entry_valid
   __local_bh_enable_ip
   lock_sock_nested
   memcpy
   memset
+  misc_deregister
+  misc_register
+  mod_timer
   __module_get
+  module_layout
   module_put
   msleep
   __mutex_init
@@ -94,6 +98,7 @@
   netif_device_detach
   netif_tx_stop_all_queues
   netif_tx_wake_queue
+  no_llseek
   noop_llseek
   nr_cpu_ids
   param_ops_bool
@@ -103,11 +108,11 @@
   passthru_features_check
   pci_disable_device
   pci_enable_device
+  pci_iomap
   pci_read_config_dword
   __pci_register_driver
   pci_set_master
   pci_unregister_driver
-  __per_cpu_offset
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   platform_device_add
@@ -117,18 +122,16 @@
   platform_device_unregister
   __platform_driver_register
   platform_driver_unregister
-  preempt_count_add
-  preempt_count_sub
-  preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
   printk
+  __put_cred
   put_device
   __put_page
+  __put_task_struct
+  put_unused_fd
   queue_delayed_work_on
   queue_work_on
-  _raw_read_lock
-  _raw_read_unlock
   _raw_spin_lock
   _raw_spin_lock_bh
   _raw_spin_lock_irq
@@ -143,6 +146,8 @@
   refcount_inc_checked
   register_netdev
   register_netdevice_notifier
+  register_virtio_device
+  register_virtio_driver
   release_sock
   remove_wait_queue
   request_threaded_irq
@@ -151,10 +156,10 @@
   schedule
   schedule_timeout
   schedule_timeout_uninterruptible
+  scnprintf
   seq_printf
   sg_init_one
   sg_init_table
-  sg_next
   skb_clone
   skb_put
   sk_free
@@ -172,6 +177,7 @@
   strstr
   synchronize_irq
   synchronize_net
+  synchronize_rcu
   system_wq
   trace_define_field
   trace_event_buffer_commit
@@ -185,7 +191,34 @@
   unregister_netdev
   unregister_netdevice_notifier
   unregister_netdevice_queue
+  unregister_virtio_device
+  unregister_virtio_driver
+  up_read
+  up_write
+  usleep_range
+  virtio_check_driver_offered_feature
+  virtio_config_changed
+  virtio_max_dma_size
+  virtqueue_add_inbuf
+  virtqueue_add_outbuf
+  virtqueue_add_sgs
+  virtqueue_detach_unused_buf
+  virtqueue_disable_cb
+  virtqueue_enable_cb
+  virtqueue_get_avail_addr
+  virtqueue_get_buf
+  virtqueue_get_desc_addr
+  virtqueue_get_used_addr
+  virtqueue_get_vring_size
+  virtqueue_is_broken
+  virtqueue_kick
+  virtqueue_kick_prepare
+  virtqueue_notify
   vmemmap
+  vring_create_virtqueue
+  vring_del_virtqueue
+  vring_interrupt
+  vring_transport_features
   wait_woken
   __wake_up
   __warn_printk
@@ -193,56 +226,9 @@
   ww_mutex_lock_interruptible
   ww_mutex_unlock
 
-# required by binfmt_misc.ko
-  bin2hex
-  bprm_change_interp
-  clear_inode
-  __close_fd
-  copy_strings_kernel
-  _ctype
-  current_time
-  d_drop
-  default_llseek
-  dentry_open
-  d_instantiate
-  down_write
-  dput
-  drop_nlink
-  filp_close
-  free_pages
-  __get_free_pages
-  get_next_ino
-  get_tree_single
-  iput
-  kernel_read
-  kill_litter_super
-  kstrtoint
-  lockref_get
-  lookup_one_len
-  new_inode
-  open_exec
-  prepare_binprm
-  _raw_write_lock
-  _raw_write_unlock
-  __register_binfmt
-  register_filesystem
-  remove_arg_zero
-  search_binary_handler
-  simple_fill_super
-  simple_pin_fs
-  simple_read_from_buffer
-  simple_release_fs
-  simple_statfs
-  strchr
-  string_unescape
-  strrchr
-  unregister_binfmt
-  unregister_filesystem
-  up_write
-  would_dump
-
-# required by blk-mq-virtio.ko
-  blk_mq_map_queues
+# required by ac97_bus.ko
+  bus_register
+  bus_unregister
 
 # required by dummy-cpufreq.ko
   cpufreq_generic_attr
@@ -253,9 +239,7 @@
   device_create_file
   device_remove_file
   ktime_get_ts64
-  mod_timer
   platform_device_add_data
-  scnprintf
   sg_miter_next
   sg_miter_start
   sg_miter_stop
@@ -279,7 +263,6 @@
   usb_put_dev
   usb_put_hcd
   usb_remove_hcd
-  usleep_range
 
 # required by failover.ko
   netdev_master_upper_dev_link
@@ -289,7 +272,6 @@
   bus_find_device
   device_find_child
   device_match_name
-  kstrdup
   platform_bus_type
   strsep
 
@@ -347,6 +329,92 @@
   rtc_tm_to_time64
   rtc_update_irq
 
+# required by sdcardfs.ko
+  __break_lease
+  call_rcu
+  clear_inode
+  clear_nlink
+  configfs_register_subsystem
+  configfs_unregister_subsystem
+  config_group_init
+  config_group_init_type_name
+  config_item_init_type_name
+  copy_fs_struct
+  _ctype
+  d_drop
+  dentry_open
+  dget_parent
+  d_invalidate
+  d_make_root
+  d_path
+  dput
+  d_rehash
+  d_set_d_op
+  d_splice_alias
+  filemap_write_and_wait
+  filp_close
+  filp_open
+  free_fs_struct
+  fscrypt_register_key_removal_notifier
+  fscrypt_unregister_key_removal_notifier
+  fs_parse
+  fsstack_copy_inode_size
+  generic_delete_inode
+  __generic_file_fsync
+  generic_file_llseek
+  generic_permission
+  generic_read_dir
+  iget5_locked
+  igrab
+  init_special_inode
+  inode_init_once
+  inode_newsize_ok
+  iput
+  iterate_dir
+  kern_path
+  kill_anon_super
+  kstrtouint
+  kstrtoull
+  lockref_get
+  lock_rename
+  lookup_one_len_unlocked
+  mntget
+  names_cachep
+  notify_change2
+  override_creds
+  path_get
+  path_put
+  prepare_creds
+  ___ratelimit
+  register_filesystem
+  revert_creds
+  seq_puts
+  setattr_prepare
+  set_fs_pwd
+  set_nlink
+  shrink_dcache_sb
+  strcasecmp
+  strncasecmp
+  strrchr
+  touch_atime
+  truncate_inode_pages
+  truncate_setsize
+  unlock_new_inode
+  unlock_rename
+  unregister_filesystem
+  vfs_create2
+  vfs_fsync_range
+  vfs_getattr
+  vfs_get_super
+  vfs_mkdir2
+  vfs_path_lookup
+  vfs_read
+  vfs_rename2
+  vfs_rmdir2
+  vfs_statfs
+  vfs_unlink2
+  vfs_write
+
 # required by snd-ac97-codec.ko
   pci_read_config_word
   simple_strtoul
@@ -369,7 +437,6 @@
 # required by snd-intel8x0.ko
   ktime_get
   param_ops_bint
-  pci_iomap
   pci_release_regions
   pci_request_regions
   pci_write_config_dword
@@ -394,15 +461,73 @@
   snd_pcm_period_elapsed
   snd_pcm_set_ops
 
+# required by test_meminit.ko
+  kmem_cache_alloc_bulk
+  kmem_cache_free_bulk
+  vfree
+  vmalloc
+
+# required by tpm.ko
+  alloc_chrdev_region
+  cdev_device_add
+  cdev_device_del
+  cdev_init
+  __class_create
+  class_destroy
+  __compat_only_sysfs_link_entry_to_kobj
+  del_timer_sync
+  device_initialize
+  devm_add_action
+  down_read
+  efi
+  efi_tpm_final_log_size
+  hash_digest_size
+  idr_alloc
+  idr_destroy
+  idr_get_next
+  idr_remove
+  idr_replace
+  __init_rwsem
+  jiffies_to_msecs
+  jiffies_to_usecs
+  krealloc
+  memchr_inv
+  memremap
+  memunmap
+  of_find_property
+  of_get_property
+  of_property_match_string
+  physvirt_offset
+  securityfs_create_dir
+  securityfs_create_file
+  securityfs_remove
+  seq_lseek
+  seq_open
+  seq_putc
+  seq_read
+  seq_release
+  seq_write
+  sysfs_remove_link
+  unregister_chrdev_region
+  __usecs_to_jiffies
+
+# required by tpm_vtpm_proxy.ko
+  anon_inode_getfile
+
 # required by ttm.ko
   clear_page
   copy_page
+  dev_driver_string
   devres_add
-  __devres_alloc_node
+  devres_alloc_node
   devres_destroy
   devres_free
+  dma_alloc_attrs
+  dma_direct_map_page
+  dma_direct_unmap_page
   dma_fence_enable_sw_signaling
   dma_fence_signal
+  dma_free_attrs
   dma_resv_add_shared_fence
   dma_resv_copy_fences
   dma_resv_fini
@@ -438,6 +563,9 @@
   __memset_io
   mutex_is_locked
   nr_swap_pages
+  preempt_schedule
+  _raw_read_lock
+  _raw_read_unlock
   refcount_inc_not_zero_checked
   register_shrinker
   reservation_ww_class
@@ -448,7 +576,6 @@
   si_meminfo
   unmap_mapping_range
   unregister_shrinker
-  up_read
   vmalloc_to_page
   vmap
   vmf_insert_mixed
@@ -565,14 +692,10 @@
   drm_universal_plane_init
   __get_task_comm
   kmalloc_order_trace
-  kmem_cache_alloc
-  kmem_cache_create
-  kmem_cache_destroy
-  kmem_cache_free
   memdup_user
-  put_unused_fd
   __sg_alloc_table_from_pages
   sg_free_table
+  sg_next
   strncpy
   sync_file_create
   sync_file_get_fence
@@ -580,19 +703,8 @@
 
 # required by virtio-rng.ko
   complete
-  hwrng_register
-  hwrng_unregister
   wait_for_completion
   wait_for_completion_killable
-
-# required by virtio.ko
-  add_uevent_var
-  device_add
-  device_initialize
-  driver_register
-  driver_unregister
-  ida_destroy
-  panic
 
 # required by virtio_blk.ko
   __alloc_disk_node
@@ -609,6 +721,7 @@
   blk_mq_start_stopped_hw_queues
   blk_mq_stop_hw_queue
   blk_mq_unquiesce_queue
+  blk_mq_virtio_map_queues
   blk_put_request
   blk_queue_alignment_offset
   blk_queue_flag_set
@@ -639,23 +752,6 @@
   __sysfs_match_string
   unregister_blkdev
 
-# required by virtio_crypto.ko
-  cpu_bit_bitmap
-  cpu_topology
-  crypto_ablkcipher_type
-  crypto_engine_alloc_init
-  crypto_engine_exit
-  crypto_engine_start
-  crypto_finalize_ablkcipher_request
-  crypto_register_alg
-  crypto_transfer_ablkcipher_request_to_engine
-  crypto_unregister_alg
-  kzfree
-  scatterwalk_map_and_copy
-  sg_nents
-  sg_nents_for_len
-  try_module_get
-
 # required by virtio_input.ko
   input_alloc_absinfo
   input_allocate_device
@@ -679,7 +775,6 @@
 
 # required by virtio_net.ko
   arch_bpf_jit_check_func
-  bcmp
   bpf_prog_add
   bpf_prog_put
   bpf_prog_sub
@@ -690,7 +785,10 @@
   __cpuhp_setup_state
   __cpuhp_state_add_instance
   __cpuhp_state_remove_instance
+  cpumask_next
   cpumask_next_wrap
+  cpus_read_lock
+  cpus_read_unlock
   eth_commit_mac_addr_change
   eth_prepare_mac_addr_change
   ethtool_op_get_ts_info
@@ -727,8 +825,12 @@
   skb_to_sgvec
   skb_tstamp_tx
   softnet_data
-  __this_cpu_preempt_check
   __tracepoint_xdp_exception
+  virtqueue_add_inbuf_ctx
+  virtqueue_enable_cb_delayed
+  virtqueue_enable_cb_prepare
+  virtqueue_get_buf_ctx
+  virtqueue_poll
   xdp_convert_zc_to_xdp_frame
   xdp_do_flush_map
   xdp_do_redirect
@@ -739,7 +841,6 @@
   xdp_rxq_info_unreg
 
 # required by virtio_pci.ko
-  get_device
   irq_set_affinity_hint
   pci_alloc_irq_vectors_affinity
   pci_find_capability
@@ -750,24 +851,17 @@
   pci_irq_get_affinity
   pci_irq_vector
   pci_read_config_byte
+  pci_release_region
   pci_release_selected_regions
+  pci_request_region
   pci_request_selected_regions
+  virtio_device_freeze
+  virtio_device_restore
 
 # required by virtio_pmem.ko
   nvdimm_bus_register
   nvdimm_bus_unregister
   nvdimm_pmem_region_create
-
-# required by virtio_ring.ko
-  alloc_pages_exact
-  dma_max_mapping_size
-  free_pages_exact
-  kimage_voffset
-  physvirt_offset
-  vabits_actual
-
-# required by vmw_vsock_virtio_transport.ko
-  synchronize_rcu
 
 # required by vmw_vsock_virtio_transport_common.ko
   bpf_trace_run10
@@ -779,14 +873,11 @@
 
 # required by vsock.ko
   autoremove_wake_function
-  misc_deregister
-  misc_register
   nonseekable_open
   prandom_u32
   prepare_to_wait
   proto_register
   proto_unregister
-  __put_cred
   _raw_write_lock_bh
   _raw_write_unlock_bh
   security_sock_graft

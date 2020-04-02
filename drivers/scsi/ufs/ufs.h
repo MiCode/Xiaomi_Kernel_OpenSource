@@ -531,20 +531,11 @@ struct ufs_dev_info {
 	bool f_power_on_wp_en;
 	/* Keeps information if any of the LU is power on write protected */
 	bool is_lu_power_on_wp;
-	u16 spec_version;
-	u32 clk_gating_wait_us;
-};
-
-#define MAX_MODEL_LEN 16
-/**
- * ufs_dev_desc - ufs device details from the device descriptor
- *
- * @wmanufacturerid: card details
- * @model: card model
- */
-struct ufs_dev_desc {
 	u16 wmanufacturerid;
+	/*UFS device Product Name */
 	u8 *model;
+	u16 wspecversion;
+	u32 clk_gating_wait_us;
 };
 
 /**

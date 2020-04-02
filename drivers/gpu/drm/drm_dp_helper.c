@@ -341,17 +341,27 @@ EXPORT_SYMBOL(drm_dp_dpcd_read_link_status);
  * @aux: DisplayPort AUX channel
  * @real_edid_checksum: real edid checksum for the last block
  *
- * Returns true on success
+ * Returns:
+ * True on success
  */
 bool drm_dp_send_real_edid_checksum(struct drm_dp_aux *aux,
 				    u8 real_edid_checksum)
 {
 	u8 link_edid_read = 0, auto_test_req = 0, test_resp = 0;
 
-	drm_dp_dpcd_read(aux, DP_DEVICE_SERVICE_IRQ_VECTOR, &auto_test_req, 1);
+	if (drm_dp_dpcd_read(aux, DP_DEVICE_SERVICE_IRQ_VECTOR,
+			     &auto_test_req, 1) < 1) {
+		DRM_ERROR("DPCD failed read at register 0x%x\n",
+			  DP_DEVICE_SERVICE_IRQ_VECTOR);
+		return false;
+	}
 	auto_test_req &= DP_AUTOMATED_TEST_REQUEST;
 
-	drm_dp_dpcd_read(aux, DP_TEST_REQUEST, &link_edid_read, 1);
+	if (drm_dp_dpcd_read(aux, DP_TEST_REQUEST, &link_edid_read, 1) < 1) {
+		DRM_ERROR("DPCD failed read at register 0x%x\n",
+			  DP_TEST_REQUEST);
+		return false;
+	}
 	link_edid_read &= DP_TEST_LINK_EDID_READ;
 
 	if (!auto_test_req || !link_edid_read) {
@@ -359,13 +369,27 @@ bool drm_dp_send_real_edid_checksum(struct drm_dp_aux *aux,
 		return false;
 	}
 
-	drm_dp_dpcd_write(aux, DP_DEVICE_SERVICE_IRQ_VECTOR, &auto_test_req, 1);
+	if (drm_dp_dpcd_write(aux, DP_DEVICE_SERVICE_IRQ_VECTOR,
+			      &auto_test_req, 1) < 1) {
+		DRM_ERROR("DPCD failed write at register 0x%x\n",
+			  DP_DEVICE_SERVICE_IRQ_VECTOR);
+		return false;
+	}
 
 	/* send back checksum for the last edid extension block data */
-	drm_dp_dpcd_write(aux, DP_TEST_EDID_CHECKSUM, &real_edid_checksum, 1);
+	if (drm_dp_dpcd_write(aux, DP_TEST_EDID_CHECKSUM,
+			      &real_edid_checksum, 1) < 1) {
+		DRM_ERROR("DPCD failed write at register 0x%x\n",
+			  DP_TEST_EDID_CHECKSUM);
+		return false;
+	}
 
 	test_resp |= DP_TEST_EDID_CHECKSUM_WRITE;
-	drm_dp_dpcd_write(aux, DP_TEST_RESPONSE, &test_resp, 1);
+	if (drm_dp_dpcd_write(aux, DP_TEST_RESPONSE, &test_resp, 1) < 1) {
+		DRM_ERROR("DPCD failed write at register 0x%x\n",
+			  DP_TEST_RESPONSE);
+		return false;
+	}
 
 	return true;
 }
