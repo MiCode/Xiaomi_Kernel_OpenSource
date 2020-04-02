@@ -6,6 +6,9 @@
 #ifndef _IPA_FMWK_H_
 #define _IPA_FMWK_H_
 
+#include <linux/types.h>
+#include <linux/ipa_usb.h>
+
 struct ipa_core_data {
 	int (*ipa_tx_dp)(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *metadata);

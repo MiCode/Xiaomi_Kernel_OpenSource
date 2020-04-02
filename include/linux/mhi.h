@@ -1,8 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
+
+#include <linux/device.h>
+#include <linux/dma-direction.h>
+#include <linux/mutex.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/types.h>
 
 struct mhi_chan;
 struct mhi_event;

@@ -169,6 +169,8 @@ struct hh_rm_notif_vm_console_chars {
 	u8 bytes[0];
 } __packed;
 
+struct notifier_block;
+
 /* End Notification type APIs */
 
 int hh_rm_register_notifier(struct notifier_block *nb);
