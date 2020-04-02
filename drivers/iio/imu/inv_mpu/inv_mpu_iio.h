@@ -873,6 +873,8 @@ struct inv_mpu_state {
 	struct input_dev *accbuf_dev;
 	struct input_dev *gyrobuf_dev;
 	int report_evt_cnt;
+	struct mutex acc_sensor_buff;
+	struct mutex gyro_sensor_buff;
 #endif
 
 };
