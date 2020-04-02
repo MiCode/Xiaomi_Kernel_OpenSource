@@ -225,6 +225,7 @@
 		interrupts = <84 IRQ_TYPE_EDGE_RISING>;
 		st,drdy-int-pin= <2>;
 		qcom,regulator_check = <0>; /* 0:Disable 1:Enable */
+		qcom,asm330_hrtimer;
 	};
 
 };
