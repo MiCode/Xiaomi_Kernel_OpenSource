@@ -609,7 +609,7 @@ static void hh_rm_populate_mem_attr_desc(struct hh_mem_attr_desc *dst_desc,
 {
 	u32 n_mem_attr_entries = src_desc ? src_desc->n_mem_attr_entries : 0;
 
-	dst_desc->n_mem_attr_entries = src_desc->n_mem_attr_entries;
+	dst_desc->n_mem_attr_entries = n_mem_attr_entries;
 	if (n_mem_attr_entries)
 		memcpy(dst_desc->attr_entries, src_desc->attr_entries,
 		       sizeof(*dst_desc->attr_entries) * n_mem_attr_entries);
