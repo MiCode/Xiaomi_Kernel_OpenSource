@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,7 +44,7 @@ enum vmid {
 	VMID_CP_CDSP = 0x2A,
 	VMID_CP_DSP_EXT = 0x2E,
 	VMID_NAV = 0x2B,
-	VMID_LAST,
+	VMID_LAST = 0x2F,
 	VMID_INVAL = -1
 };
 
