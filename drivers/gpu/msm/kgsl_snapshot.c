@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -117,7 +117,8 @@ static size_t snapshot_os(struct kgsl_device *device,
 	/* Remember the power information */
 	header->power_flags = pwr->power_flags;
 	header->power_level = pwr->active_pwrlevel;
-	header->power_interval_timeout = pwr->interval_timeout;
+	header->power_interval_timeout =
+		jiffies_to_msecs(pwr->interval_timeout);
 	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
 
 	/*
@@ -204,7 +205,8 @@ static size_t snapshot_os_no_ctxt(struct kgsl_device *device,
 	/* Remember the power information */
 	header->power_flags = pwr->power_flags;
 	header->power_level = pwr->active_pwrlevel;
-	header->power_interval_timeout = pwr->interval_timeout;
+	header->power_interval_timeout =
+		jiffies_to_msecs(pwr->interval_timeout);
 	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
 
 	/* Return the size of the data segment */
