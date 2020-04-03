@@ -237,7 +237,10 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 	}
 
 	hba->ksm = keyslot_manager_create(hba->dev, ufshcd_num_keyslots(hba),
-					  ksm_ops, crypto_modes_supported, hba);
+					  ksm_ops,
+					  BLK_CRYPTO_FEATURE_STANDARD_KEYS |
+					  BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
+					  crypto_modes_supported, hba);
 
 	if (!hba->ksm) {
 		err = -ENOMEM;
