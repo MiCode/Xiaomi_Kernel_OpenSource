@@ -48,8 +48,6 @@
 
 #define LDO_VSET_LB_REG(base)		(base + 0x40)
 
-#define LDO_VSET_VALID_LB_REG(base)	(base + 0x42)
-
 #define LDO_MODE_CTL1_REG(base)		(base + 0x45)
 #define MODE_PRIMARY_MASK		GENMASK(2, 0)
 #define LDO_MODE_NPM			7
@@ -66,7 +64,6 @@
 #define LDO_PD_CTL_REG(base)		(base + 0xA0)
 #define STRONG_PD_EN_BIT		BIT(7)
 
-#define MAX_REG_NAME			20
 #define PM8008_MAX_LDO			7
 
 struct pm8008_chip {
@@ -80,6 +77,8 @@ struct pm8008_chip {
 struct regulator_data {
 	char		*name;
 	char		*supply_name;
+	int		min_uv;
+	int		max_uv;
 	int		hpm_min_load_ua;
 	int		min_dropout_uv;
 };
@@ -89,26 +88,24 @@ struct pm8008_regulator {
 	struct regmap		*regmap;
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
-	struct regulator	*parent_supply;
 	struct regulator	*en_supply;
 	struct device_node	*of_node;
 	struct notifier_block	nb;
 	u16			base;
 	int			hpm_min_load_ua;
-	int			min_dropout_uv;
 	int			step_rate;
 	bool			enable_ocp_broadcast;
 };
 
 static struct regulator_data reg_data[PM8008_MAX_LDO] = {
-			/* name,        parent,  min load, headroom */
-			{"l1", "vdd_l1_l2", 10000, 225000},
-			{"l2", "vdd_l1_l2", 10000, 225000},
-			{"l3", "vdd_l3_l4", 10000, 200000},
-			{"l4", "vdd_l3_l4", 10000, 200000},
-			{"l5", "vdd_l5", 10000, 300000},
-			{"l6", "vdd_l6", 10000, 300000},
-			{"l7", "vdd_l7", 10000, 300000},
+	/* name  parent      min_uv  max_uv  hpm_load  headroom_uv */
+	{"l1", "vdd_l1_l2",  528000, 1504000, 30000, 225000},
+	{"l2", "vdd_l1_l2",  528000, 1504000, 30000, 225000},
+	{"l3", "vdd_l3_l4", 1504000, 3400000, 10000, 200000},
+	{"l4", "vdd_l3_l4", 1504000, 3400000, 10000, 200000},
+	{"l5", "vdd_l5",    1504000, 3400000, 10000, 300000},
+	{"l6", "vdd_l6",    1504000, 3400000, 10000, 300000},
+	{"l7", "vdd_l7",    1504000, 3400000, 10000, 300000},
 };
 
 /* common functions */
@@ -157,7 +154,7 @@ static int pm8008_regulator_get_voltage(struct regulator_dev *rdev)
 	int rc;
 
 	rc = pm8008_read(pm8008_reg->regmap,
-			LDO_VSET_VALID_LB_REG(pm8008_reg->base),
+			LDO_VSET_LB_REG(pm8008_reg->base),
 			vset_raw, 2);
 	if (rc < 0) {
 		pm8008_err(pm8008_reg,
@@ -206,33 +203,13 @@ static int pm8008_regulator_enable(struct regulator_dev *rdev)
 		return rc;
 	}
 
-	if (pm8008_reg->parent_supply) {
-		rc = regulator_set_voltage(pm8008_reg->parent_supply,
-					current_uv + pm8008_reg->min_dropout_uv,
-					INT_MAX);
-		if (rc < 0) {
-			pm8008_err(pm8008_reg, "failed to request parent supply voltage rc=%d\n",
-				rc);
-			goto remove_en;
-		}
-
-		rc = regulator_enable(pm8008_reg->parent_supply);
-		if (rc < 0) {
-			pm8008_err(pm8008_reg,
-				"failed to enable parent rc=%d\n", rc);
-			regulator_set_voltage(pm8008_reg->parent_supply, 0,
-						INT_MAX);
-			goto remove_en;
-		}
-	}
-
 	rc = pm8008_masked_write(pm8008_reg->regmap,
 				LDO_ENABLE_REG(pm8008_reg->base),
 				ENABLE_BIT, ENABLE_BIT);
 	if (rc < 0) {
 		pm8008_err(pm8008_reg,
 			"failed to enable regulator rc=%d\n", rc);
-		goto remove_vote;
+		goto remove_en;
 	}
 
 	/*
@@ -270,19 +247,6 @@ disable_ldo:
 	pm8008_masked_write(pm8008_reg->regmap,
 			LDO_ENABLE_REG(pm8008_reg->base), ENABLE_BIT, 0);
 
-remove_vote:
-	if (pm8008_reg->parent_supply) {
-		rc2 = regulator_disable(pm8008_reg->parent_supply);
-		if (rc2 < 0)
-			pm8008_err(pm8008_reg, "failed to disable parent supply rc=%d\n",
-				rc2);
-		rc2 = regulator_set_voltage(pm8008_reg->parent_supply, 0,
-						INT_MAX);
-		if (rc2 < 0)
-			pm8008_err(pm8008_reg, "failed to remove voltage vote for parent supply rc=%d\n",
-				rc2);
-	}
-
 remove_en:
 	rc2 = regulator_disable(pm8008_reg->en_supply);
 	if (rc2 < 0)
@@ -304,23 +268,6 @@ static int pm8008_regulator_disable(struct regulator_dev *rdev)
 		pm8008_err(pm8008_reg,
 			"failed to disable regulator rc=%d\n", rc);
 		return rc;
-	}
-
-	/* remove voltage vote from parent regulator */
-	if (pm8008_reg->parent_supply) {
-		rc = regulator_disable(pm8008_reg->parent_supply);
-		if (rc < 0) {
-			pm8008_err(pm8008_reg, "failed to disable parent rc=%d\n",
-				rc);
-			return rc;
-		}
-		rc = regulator_set_voltage(pm8008_reg->parent_supply,
-					0, INT_MAX);
-		if (rc < 0) {
-			pm8008_err(pm8008_reg, "failed to remove parent voltage rc=%d\n",
-				rc);
-			return rc;
-		}
 	}
 
 	/* remove vote from chip enable regulator */
@@ -380,68 +327,17 @@ static int pm8008_regulator_set_voltage(struct regulator_dev *rdev,
 				int min_uv, int max_uv, unsigned int *selector)
 {
 	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
-	int rc = 0, current_uv = 0, rounded_uv = 0, enabled = 0;
-
-	if (pm8008_reg->parent_supply) {
-		enabled = pm8008_regulator_is_enabled(rdev);
-		if (enabled < 0) {
-			return enabled;
-		} else if (enabled) {
-			current_uv = pm8008_regulator_get_voltage(rdev);
-			if (current_uv < 0)
-				return current_uv;
-			rounded_uv = roundup(min_uv, VSET_STEP_UV);
-		}
-	}
-
-	/*
-	 * Set the parent_supply voltage before changing the LDO voltage when
-	 * the LDO voltage is being increased.
-	 */
-	if (pm8008_reg->parent_supply && enabled && rounded_uv >= current_uv) {
-		/* Request parent voltage with headroom */
-		rc = regulator_set_voltage(pm8008_reg->parent_supply,
-					rounded_uv + pm8008_reg->min_dropout_uv,
-					INT_MAX);
-		if (rc < 0) {
-			pm8008_err(pm8008_reg, "failed to request parent supply voltage rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
+	int rc;
 
 	rc = pm8008_write_voltage(pm8008_reg, min_uv, max_uv);
 	if (rc < 0)
 		return rc;
 
-	/*
-	 * Set the parent_supply voltage after changing the LDO voltage when
-	 * the LDO voltage is being reduced.
-	 */
-	if (pm8008_reg->parent_supply && enabled && rounded_uv < current_uv) {
-		/*
-		 * Ensure sufficient time for the LDO voltage to slew down
-		 * before reducing the parent supply voltage.  The regulator
-		 * framework will add the same delay after this function returns
-		 * in all cases (i.e. enabled/disabled and increasing/decreasing
-		 * voltage).
-		 */
-		udelay(pm8008_regulator_set_voltage_time(rdev, rounded_uv,
-							current_uv));
-
-		/* Request parent voltage with headroom */
-		rc = regulator_set_voltage(pm8008_reg->parent_supply,
-					rounded_uv + pm8008_reg->min_dropout_uv,
-					INT_MAX);
-		if (rc < 0) {
-			pm8008_err(pm8008_reg, "failed to request parent supply voltage rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
+	*selector = DIV_ROUND_UP(min_uv - pm8008_reg->rdesc.min_uV,
+				VSET_STEP_UV);
 
 	pm8008_debug(pm8008_reg, "voltage set to %d\n", min_uv);
-	return rc;
+	return 0;
 }
 
 static int pm8008_regulator_set_mode(struct regulator_dev *rdev,
@@ -501,6 +397,7 @@ static const struct regulator_ops pm8008_regulator_ops = {
 	.is_enabled		= pm8008_regulator_is_enabled,
 	.set_voltage		= pm8008_regulator_set_voltage,
 	.get_voltage		= pm8008_regulator_get_voltage,
+	.list_voltage		= regulator_list_voltage_linear,
 	.set_mode		= pm8008_regulator_set_mode,
 	.get_mode		= pm8008_regulator_get_mode,
 	.set_load		= pm8008_regulator_set_load,
@@ -568,7 +465,6 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	struct regulator_init_data *init_data;
 	struct device *dev = pm8008_reg->dev;
 	struct device_node *reg_node = pm8008_reg->of_node;
-	char buff[MAX_REG_NAME];
 	int rc, i, init_voltage;
 	u32 base = 0;
 	u8 reg;
@@ -589,10 +485,6 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		return rc;
 	}
 	pm8008_reg->base = base;
-
-	pm8008_reg->min_dropout_uv = reg_data[i].min_dropout_uv;
-	of_property_read_u32(reg_node, "qcom,min-dropout-voltage",
-						&pm8008_reg->min_dropout_uv);
 
 	pm8008_reg->hpm_min_load_ua = reg_data[i].hpm_min_load_ua;
 	of_property_read_u32(reg_node, "qcom,hpm-min-load",
@@ -632,19 +524,6 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		return rc;
 	}
 	pm8008_reg->step_rate = 38400 >> (reg & STEP_RATE_MASK);
-
-	scnprintf(buff, MAX_REG_NAME, "%s-supply", reg_data[i].supply_name);
-	if (of_find_property(dev->of_node, buff, NULL)) {
-		pm8008_reg->parent_supply = devm_regulator_get(dev,
-						reg_data[i].supply_name);
-		if (IS_ERR(pm8008_reg->parent_supply)) {
-			rc = PTR_ERR(pm8008_reg->parent_supply);
-			if (rc != -EPROBE_DEFER)
-				pr_err("%s: failed to get parent regulator rc=%d\n",
-					name, rc);
-			return rc;
-		}
-	}
 
 	/* pm8008_en should be present otherwise fail the regulator probe */
 	pm8008_reg->en_supply = devm_regulator_get(dev, "pm8008_en");
@@ -687,7 +566,16 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	pm8008_reg->rdesc.type = REGULATOR_VOLTAGE;
 	pm8008_reg->rdesc.ops = &pm8008_regulator_ops;
 	pm8008_reg->rdesc.name = init_data->constraints.name;
-	pm8008_reg->rdesc.n_voltages = 1;
+	pm8008_reg->rdesc.supply_name = reg_data[i].supply_name;
+	pm8008_reg->rdesc.uV_step = VSET_STEP_UV;
+	pm8008_reg->rdesc.min_uV = reg_data[i].min_uv;
+	pm8008_reg->rdesc.n_voltages
+		= ((reg_data[i].max_uv - reg_data[i].min_uv)
+			/ pm8008_reg->rdesc.uV_step) + 1;
+
+	pm8008_reg->rdesc.min_dropout_uV = reg_data[i].min_dropout_uv;
+	of_property_read_u32(reg_node, "qcom,min-dropout-voltage",
+			     &pm8008_reg->rdesc.min_dropout_uV);
 
 	pm8008_reg->rdev = devm_regulator_register(dev, &pm8008_reg->rdesc,
 						&reg_config);
