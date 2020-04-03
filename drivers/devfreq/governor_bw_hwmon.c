@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -718,6 +718,8 @@ static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 		*node->dev_ab = node->resume_ab;
 		return 0;
 	}
+	if (!node)
+		return -ENODEV;
 
 	get_bw_and_set_irq(node, freq, node->dev_ab);
 
