@@ -1225,7 +1225,7 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			mhi_event->process_event = mhi_process_ctrl_ev_ring;
 			break;
 		case MHI_ER_TSYNC_ELEMENT_TYPE:
-			mhi_event->process_event = mhi_process_tsync_event_ring;
+			mhi_event->process_event = mhi_process_tsync_ev_ring;
 			break;
 		case MHI_ER_BW_SCALE_ELEMENT_TYPE:
 			mhi_event->process_event = mhi_process_bw_scale_ev_ring;
