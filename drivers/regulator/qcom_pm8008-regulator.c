@@ -8,6 +8,7 @@
 #include <linux/regmap.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -71,7 +72,11 @@ struct pm8008_chip {
 	struct regmap		*regmap;
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
+	struct mutex		lock;
 	int			ocp_irq;
+	unsigned int		internal_enable_count;
+	bool			framework_enabled;
+	bool			aggr_enabled;
 };
 
 struct regulator_data {
@@ -90,11 +95,13 @@ struct pm8008_regulator {
 	struct regulator_dev	*rdev;
 	struct regulator	*en_supply;
 	struct device_node	*of_node;
+	struct pm8008_chip	*chip;
 	struct notifier_block	nb;
 	u16			base;
 	int			hpm_min_load_ua;
 	int			step_rate;
 	bool			enable_ocp_broadcast;
+	bool			chip_enabled;
 };
 
 static struct regulator_data reg_data[PM8008_MAX_LDO] = {
@@ -146,6 +153,83 @@ static int pm8008_masked_write(struct regmap *regmap, u16 reg, u8 mask,
 	return rc;
 }
 
+static int pm8008_chip_aggregate(struct pm8008_chip *chip)
+{
+	bool enable;
+	int rc;
+
+	lockdep_assert_held_once(&chip->lock);
+
+	enable = chip->framework_enabled || chip->internal_enable_count;
+	if (enable == chip->aggr_enabled)
+		return 0;
+
+	rc = pm8008_masked_write(chip->regmap, MISC_CHIP_ENABLE_REG,
+				 CHIP_ENABLE_BIT, enable ? CHIP_ENABLE_BIT : 0);
+	if (rc  < 0) {
+		pm8008_err(chip, "failed to %s chip rc=%d\n",
+			   enable ? "enable" : "disable", rc);
+		return rc;
+	}
+
+	chip->aggr_enabled = enable;
+	pm8008_debug(chip, "chip %s\n", enable ? "enabled" : "disabled");
+
+	return 0;
+}
+
+static int pm8008_chip_internal_enable(struct pm8008_regulator *pm8008_reg)
+{
+	struct pm8008_chip *chip = pm8008_reg->chip;
+	int rc;
+
+	if (pm8008_reg->chip_enabled)
+		return 0;
+
+	mutex_lock(&pm8008_reg->chip->lock);
+	chip->internal_enable_count++;
+	rc = pm8008_chip_aggregate(chip);
+	if (rc < 0) {
+		chip->internal_enable_count--;
+		goto done;
+	}
+
+	pm8008_reg->chip_enabled = true;
+
+done:
+	mutex_unlock(&pm8008_reg->chip->lock);
+	return rc;
+}
+
+static int pm8008_chip_internal_disable(struct pm8008_regulator *pm8008_reg)
+{
+	struct pm8008_chip *chip = pm8008_reg->chip;
+	int rc;
+
+	if (!pm8008_reg->chip_enabled)
+		return 0;
+
+	mutex_lock(&pm8008_reg->chip->lock);
+	if (chip->internal_enable_count == 0) {
+		pm8008_err(chip, "unbalanced disable\n");
+		rc = -EINVAL;
+		goto done;
+	}
+
+	chip->internal_enable_count--;
+	rc = pm8008_chip_aggregate(chip);
+	if (rc < 0) {
+		chip->internal_enable_count++;
+		goto done;
+	}
+
+	pm8008_reg->chip_enabled = false;
+
+done:
+	mutex_unlock(&pm8008_reg->chip->lock);
+	return rc;
+}
+
 /* PM8008 LDO Regulator callbacks */
 static int pm8008_regulator_get_voltage(struct regulator_dev *rdev)
 {
@@ -167,9 +251,8 @@ static int pm8008_regulator_get_voltage(struct regulator_dev *rdev)
 	return (vset_raw[1] << 8 | vset_raw[0]) * 1000;
 }
 
-static int pm8008_regulator_is_enabled(struct regulator_dev *rdev)
+static int _pm8008_regulator_is_enabled(struct pm8008_regulator *pm8008_reg)
 {
-	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
 	int rc;
 	u8 reg;
 
@@ -181,6 +264,13 @@ static int pm8008_regulator_is_enabled(struct regulator_dev *rdev)
 	}
 
 	return !!(reg & ENABLE_BIT);
+}
+
+static int pm8008_regulator_is_enabled(struct regulator_dev *rdev)
+{
+	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
+
+	return _pm8008_regulator_is_enabled(pm8008_reg);
 }
 
 static int pm8008_regulator_enable(struct regulator_dev *rdev)
@@ -196,10 +286,9 @@ static int pm8008_regulator_enable(struct regulator_dev *rdev)
 		return current_uv;
 	}
 
-	rc = regulator_enable(pm8008_reg->en_supply);
+	rc = pm8008_chip_internal_enable(pm8008_reg);
 	if (rc < 0) {
-		pm8008_err(pm8008_reg,
-			"failed to enable en_supply rc=%d\n", rc);
+		pm8008_err(pm8008_reg, "failed to enable chip rc=%d\n", rc);
 		return rc;
 	}
 
@@ -248,9 +337,9 @@ disable_ldo:
 			LDO_ENABLE_REG(pm8008_reg->base), ENABLE_BIT, 0);
 
 remove_en:
-	rc2 = regulator_disable(pm8008_reg->en_supply);
+	rc2 = pm8008_chip_internal_disable(pm8008_reg);
 	if (rc2 < 0)
-		pm8008_err(pm8008_reg, "failed to disable en_supply rc=%d\n",
+		pm8008_err(pm8008_reg, "failed to disable chip rc=%d\n",
 			rc2);
 
 	return rc;
@@ -271,9 +360,9 @@ static int pm8008_regulator_disable(struct regulator_dev *rdev)
 	}
 
 	/* remove vote from chip enable regulator */
-	rc = regulator_disable(pm8008_reg->en_supply);
+	rc = pm8008_chip_internal_disable(pm8008_reg);
 	if (rc < 0) {
-		pm8008_err(pm8008_reg, "failed to disable en_supply rc=%d\n",
+		pm8008_err(pm8008_reg, "failed to disable chip rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -465,7 +554,7 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	struct regulator_init_data *init_data;
 	struct device *dev = pm8008_reg->dev;
 	struct device_node *reg_node = pm8008_reg->of_node;
-	int rc, i, init_voltage;
+	int rc, i, init_voltage, is_enabled;
 	u32 base = 0;
 	u8 reg;
 
@@ -525,14 +614,6 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	}
 	pm8008_reg->step_rate = 38400 >> (reg & STEP_RATE_MASK);
 
-	/* pm8008_en should be present otherwise fail the regulator probe */
-	pm8008_reg->en_supply = devm_regulator_get(dev, "pm8008_en");
-	if (IS_ERR(pm8008_reg->en_supply)) {
-		rc = PTR_ERR(pm8008_reg->en_supply);
-		pr_err("%s: failed to get chip_en supply\n", name);
-		return rc;
-	}
-
 	init_data = of_get_regulator_init_data(dev, reg_node,
 						&pm8008_reg->rdesc);
 	if (init_data == NULL) {
@@ -577,6 +658,15 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 	of_property_read_u32(reg_node, "qcom,min-dropout-voltage",
 			     &pm8008_reg->rdesc.min_dropout_uV);
 
+	is_enabled = _pm8008_regulator_is_enabled(pm8008_reg);
+	if (is_enabled < 0) {
+		return is_enabled;
+	} else if (is_enabled) {
+		rc = pm8008_chip_internal_enable(pm8008_reg);
+		if (rc)
+			return rc;
+	}
+
 	pm8008_reg->rdev = devm_regulator_register(dev, &pm8008_reg->rdesc,
 						&reg_config);
 	if (IS_ERR(pm8008_reg->rdev)) {
@@ -609,9 +699,24 @@ static int pm8008_parse_regulator(struct regmap *regmap, struct device *dev)
 	const char *name;
 	struct device_node *child;
 	struct pm8008_regulator *pm8008_reg;
+	struct regulator *en_supply;
+	struct pm8008_chip *chip;
 	bool ocp;
 
 	ocp = of_property_read_bool(dev->of_node, "qcom,enable-ocp-broadcast");
+
+	en_supply = devm_regulator_get(dev, "pm8008_en");
+	if (IS_ERR(en_supply)) {
+		rc = PTR_ERR(en_supply);
+		dev_err(dev, "failed to get pm8008_en supply\n");
+		return rc;
+	}
+
+	chip = regulator_get_drvdata(en_supply);
+	if (!chip) {
+		dev_err(dev, "failed to get pm8008_en supply data\n");
+		return -ENODATA;
+	}
 
 	/* parse each subnode and register regulator for regulator child */
 	for_each_available_child_of_node(dev->of_node, child) {
@@ -623,6 +728,8 @@ static int pm8008_parse_regulator(struct regmap *regmap, struct device *dev)
 		pm8008_reg->of_node = child;
 		pm8008_reg->dev = dev;
 		pm8008_reg->enable_ocp_broadcast = ocp;
+		pm8008_reg->en_supply = en_supply;
+		pm8008_reg->chip = chip;
 
 		rc = of_property_read_string(child, "regulator-name", &name);
 		if (rc)
@@ -660,46 +767,56 @@ static int pm8008_regulator_probe(struct platform_device *pdev)
 }
 
 /* PM8008 chip enable regulator callbacks */
-static int pm8008_enable_regulator_enable(struct regulator_dev *rdev)
+static int pm8008_chip_enable(struct regulator_dev *rdev)
 {
 	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
-	rc = pm8008_masked_write(chip->regmap, MISC_CHIP_ENABLE_REG,
-				CHIP_ENABLE_BIT, CHIP_ENABLE_BIT);
-	if (rc  < 0) {
-		pm8008_err(chip, "failed to enable chip rc=%d\n", rc);
-		return rc;
-	}
+	mutex_lock(&chip->lock);
+	chip->framework_enabled = true;
+	rc = pm8008_chip_aggregate(chip);
+	if (rc < 0)
+		chip->framework_enabled = false;
+	mutex_unlock(&chip->lock);
 
-	pm8008_debug(chip, "regulator enabled\n");
-	return 0;
+	return rc;
 }
 
-static int pm8008_enable_regulator_disable(struct regulator_dev *rdev)
+static int pm8008_chip_disable(struct regulator_dev *rdev)
 {
 	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
-	rc = pm8008_masked_write(chip->regmap, MISC_CHIP_ENABLE_REG,
-				CHIP_ENABLE_BIT, 0);
-	if (rc  < 0) {
-		pm8008_err(chip, "failed to disable chip rc=%d\n", rc);
-		return rc;
-	}
+	mutex_lock(&chip->lock);
+	chip->framework_enabled = false;
+	rc = pm8008_chip_aggregate(chip);
+	if (rc < 0)
+		chip->framework_enabled = true;
+	mutex_unlock(&chip->lock);
 
-	pm8008_debug(chip, "regulator disabled\n");
-	return 0;
+	return rc;
 }
 
-static int pm8008_enable_regulator_is_enabled(struct regulator_dev *rdev)
+static int pm8008_chip_is_enabled(struct regulator_dev *rdev)
 {
 	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
+
+	return chip->framework_enabled;
+}
+
+static const struct regulator_ops pm8008_chip_ops = {
+	.enable = pm8008_chip_enable,
+	.disable = pm8008_chip_disable,
+	.is_enabled = pm8008_chip_is_enabled,
+};
+
+static int _pm8008_chip_is_enabled(struct pm8008_chip *chip)
+{
 	int rc;
 	u8 reg;
 
 	rc = pm8008_read(chip->regmap, MISC_CHIP_ENABLE_REG, &reg, 1);
-	if (rc  < 0) {
+	if (rc < 0) {
 		pm8008_err(chip, "failed to get chip state rc=%d\n", rc);
 		return rc;
 	}
@@ -707,13 +824,7 @@ static int pm8008_enable_regulator_is_enabled(struct regulator_dev *rdev)
 	return !!(reg & CHIP_ENABLE_BIT);
 }
 
-static const struct regulator_ops pm8008_enable_reg_ops = {
-	.enable = pm8008_enable_regulator_enable,
-	.disable = pm8008_enable_regulator_disable,
-	.is_enabled = pm8008_enable_regulator_is_enabled,
-};
-
-static int pm8008_init_enable_regulator(struct pm8008_chip *chip)
+static int pm8008_chip_init_regulator(struct pm8008_chip *chip)
 {
 	struct regulator_config cfg = {};
 	int rc = 0;
@@ -722,9 +833,20 @@ static int pm8008_init_enable_regulator(struct pm8008_chip *chip)
 	cfg.driver_data = chip;
 
 	chip->rdesc.type = REGULATOR_VOLTAGE;
-	chip->rdesc.ops = &pm8008_enable_reg_ops;
+	chip->rdesc.ops = &pm8008_chip_ops;
 	chip->rdesc.of_match = "qcom,pm8008-chip-en";
 	chip->rdesc.name = "qcom,pm8008-chip-en";
+
+	/*
+	 * Cache the physical hardware state in framework_enabled and
+	 * aggr_enabled so that the regulator is automatically disabled if no
+	 * framework or internal enable requests are made.
+	 */
+	rc = _pm8008_chip_is_enabled(chip);
+	if (rc < 0)
+		return rc;
+	chip->framework_enabled = rc;
+	chip->aggr_enabled = chip->framework_enabled;
 
 	chip->rdev = devm_regulator_register(chip->dev, &chip->rdesc, &cfg);
 	if (IS_ERR(chip->rdev)) {
@@ -763,9 +885,10 @@ static int pm8008_chip_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	chip->dev = &pdev->dev;
+	mutex_init(&chip->lock);
 
 	/* Register chip enable regulator */
-	rc = pm8008_init_enable_regulator(chip);
+	rc = pm8008_chip_init_regulator(chip);
 	if (rc < 0) {
 		pr_err("Failed to register chip enable regulator rc=%d\n", rc);
 		return rc;
