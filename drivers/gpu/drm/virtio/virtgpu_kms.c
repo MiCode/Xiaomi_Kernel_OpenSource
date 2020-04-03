@@ -44,6 +44,8 @@ static void virtio_gpu_config_changed_work_func(struct work_struct *work)
 	virtio_cread(vgdev->vdev, struct virtio_gpu_config,
 		     events_read, &events_read);
 	if (events_read & VIRTIO_GPU_EVENT_DISPLAY) {
+		if (vgdev->has_edid)
+			virtio_gpu_cmd_get_edids(vgdev);
 		virtio_gpu_cmd_get_display_info(vgdev);
 		drm_helper_hpd_irq_event(vgdev->ddev);
 		events_clear |= VIRTIO_GPU_EVENT_DISPLAY;
@@ -174,6 +176,10 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 #else
 	DRM_INFO("virgl 3d acceleration not supported by guest\n");
 #endif
+	if (virtio_has_feature(vgdev->vdev, VIRTIO_GPU_F_EDID)) {
+		vgdev->has_edid = true;
+		DRM_INFO("EDID support available.\n");
+	}
 
 	ret = virtio_find_vqs(vgdev->vdev, 2, vqs, callbacks, names, NULL);
 	if (ret) {
@@ -219,6 +225,8 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 
 	if (num_capsets)
 		virtio_gpu_get_capsets(vgdev, num_capsets);
+	if (vgdev->has_edid)
+		virtio_gpu_cmd_get_edids(vgdev);
 	virtio_gpu_cmd_get_display_info(vgdev);
 	wait_event_timeout(vgdev->resp_wq, !vgdev->display_info_pending,
 			   5 * HZ);
@@ -257,6 +265,7 @@ void virtio_gpu_driver_unload(struct drm_device *dev)
 	flush_work(&vgdev->ctrlq.dequeue_work);
 	flush_work(&vgdev->cursorq.dequeue_work);
 	flush_work(&vgdev->config_changed_work);
+	vgdev->vdev->config->reset(vgdev->vdev);
 	vgdev->vdev->config->del_vqs(vgdev->vdev);
 
 	virtio_gpu_modeset_fini(vgdev);
@@ -272,21 +281,23 @@ int virtio_gpu_driver_open(struct drm_device *dev, struct drm_file *file)
 	struct virtio_gpu_device *vgdev = dev->dev_private;
 	struct virtio_gpu_fpriv *vfpriv;
 	uint32_t id;
-	char dbgname[64], tmpname[TASK_COMM_LEN];
+	char dbgname[TASK_COMM_LEN];
 
 	/* can't create contexts without 3d renderer */
 	if (!vgdev->has_virgl_3d)
 		return 0;
 
-	get_task_comm(tmpname, current);
-	snprintf(dbgname, sizeof(dbgname), "%s", tmpname);
-	dbgname[63] = 0;
 	/* allocate a virt GPU context for this opener */
 	vfpriv = kzalloc(sizeof(*vfpriv), GFP_KERNEL);
 	if (!vfpriv)
 		return -ENOMEM;
 
+	get_task_comm(dbgname, current);
 	virtio_gpu_context_create(vgdev, strlen(dbgname), dbgname, &id);
+	if (id < 0) {
+		kfree(vfpriv);
+		return id;
+	}
 
 	vfpriv->ctx_id = id;
 	file->driver_priv = vfpriv;

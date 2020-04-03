@@ -17,8 +17,20 @@
  */
 #define __UNIQUE_ID(prefix) __PASTE(__PASTE(__UNIQUE_ID_, prefix), __COUNTER__)
 
+/* all clang versions usable with the kernel support KASAN ABI version 5 */
+#define KASAN_ABI_VERSION 5
+
+/* __no_sanitize_address has been already defined compiler-gcc.h */
 #undef __no_sanitize_address
-#define __no_sanitize_address __attribute__((no_sanitize("address")))
+
+#if __has_feature(address_sanitizer) || __has_feature(hwaddress_sanitizer)
+/* emulate gcc's __SANITIZE_ADDRESS__ flag */
+#define __SANITIZE_ADDRESS__
+#define __no_sanitize_address \
+		__attribute__((no_sanitize("address", "hwaddress")))
+#else
+#define __no_sanitize_address
+#endif
 
 /* Clang doesn't have a way to turn it off per-function, yet. */
 #ifdef __noretpoline
