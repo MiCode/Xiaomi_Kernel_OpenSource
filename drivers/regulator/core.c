@@ -235,7 +235,6 @@ static void regulator_list_unlock(void)
  */
 void regulator_lock(struct regulator_dev *rdev)
 {
-	regulator_list_lock();
 	regulator_lock_nested(rdev, NULL);
 }
 EXPORT_SYMBOL_GPL(regulator_lock);
@@ -259,7 +258,6 @@ void regulator_unlock(struct regulator_dev *rdev)
 	WARN_ON_ONCE(rdev->ref_cnt < 0);
 
 	mutex_unlock(&regulator_nesting_mutex);
-	regulator_list_unlock();
 }
 EXPORT_SYMBOL_GPL(regulator_unlock);
 
@@ -361,7 +359,6 @@ static void regulator_unlock_dependent(struct regulator_dev *rdev,
 {
 	regulator_unlock_recursive(rdev, rdev->coupling_desc.n_coupled);
 	ww_acquire_fini(ww_ctx);
-	regulator_list_unlock();
 }
 
 /**
@@ -401,6 +398,8 @@ static void regulator_lock_dependent(struct regulator_dev *rdev,
 	} while (err == -EDEADLK);
 
 	ww_acquire_done(ww_ctx);
+
+	regulator_list_unlock();
 }
 
 /**
@@ -1801,7 +1800,7 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 	if (dev)
 		devname = dev_name(dev);
 
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	list_for_each_entry(map, &regulator_map_list, list) {
 		/* If the mapping has a device set up it must match */
 		if (map->dev_name &&
@@ -1814,7 +1813,7 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 			break;
 		}
 	}
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 
 	if (r)
 		return r;
@@ -1974,9 +1973,9 @@ struct regulator *_regulator_get(struct device *dev, const char *id,
 		return regulator;
 	}
 
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	ret = (rdev->coupling_desc.n_resolved != rdev->coupling_desc.n_coupled);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 
 	if (ret != 0) {
 		regulator = ERR_PTR(-EPROBE_DEFER);
@@ -2144,9 +2143,9 @@ static void _regulator_put(struct regulator *regulator)
  */
 void regulator_put(struct regulator *regulator)
 {
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	_regulator_put(regulator);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 }
 EXPORT_SYMBOL_GPL(regulator_put);
 
@@ -5239,9 +5238,9 @@ static int regulator_register_resolve_supply(struct device *dev, void *data)
 
 int regulator_coupler_register(struct regulator_coupler *coupler)
 {
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	list_add_tail(&coupler->list, &regulator_coupler_list);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 
 	return 0;
 }
@@ -5563,9 +5562,9 @@ regulator_register(const struct regulator_desc *regulator_desc,
 	}
 
 	if (config->ena_gpiod) {
-		regulator_list_lock();
+		mutex_lock(&regulator_list_mutex);
 		ret = regulator_ena_gpio_request(rdev, config);
-		regulator_list_unlock();
+		mutex_unlock(&regulator_list_mutex);
 		if (ret != 0) {
 			rdev_err(rdev, "Failed to request enable GPIO: %d\n",
 				 ret);
@@ -5603,27 +5602,27 @@ regulator_register(const struct regulator_desc *regulator_desc,
 	if (ret < 0)
 		goto wash;
 
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	ret = regulator_init_coupling(rdev);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 	if (ret < 0)
 		goto wash;
 
 	/* add consumers devices */
 	if (init_data) {
-		regulator_list_lock();
+		mutex_lock(&regulator_list_mutex);
 		for (i = 0; i < init_data->num_consumer_supplies; i++) {
 			ret = set_consumer_device_supply(rdev,
 				init_data->consumer_supplies[i].dev_name,
 				init_data->consumer_supplies[i].supply);
 			if (ret < 0) {
-				regulator_list_unlock();
+				mutex_unlock(&regulator_list_mutex);
 				dev_err(dev, "Failed to set supply %s\n",
 					init_data->consumer_supplies[i].supply);
 				goto unset_supplies;
 			}
 		}
-		regulator_list_unlock();
+		mutex_unlock(&regulator_list_mutex);
 	}
 
 	if (!rdev->desc->ops->get_voltage &&
@@ -5641,9 +5640,9 @@ regulator_register(const struct regulator_desc *regulator_desc,
 	rdev_init_debugfs(rdev);
 
 	/* try to resolve regulators coupling since a new one was registered */
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	regulator_resolve_coupling(rdev);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 
 	/* try to resolve regulators supply since a new one was registered */
 	class_for_each_device(&regulator_class, NULL, NULL,
@@ -5652,16 +5651,16 @@ regulator_register(const struct regulator_desc *regulator_desc,
 	return rdev;
 
 unset_supplies:
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	unset_regulator_supplies(rdev);
 	regulator_remove_coupling(rdev);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 wash:
 	kfree(rdev->coupling_desc.coupled_rdevs);
 	kfree(rdev->constraints);
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 	regulator_ena_gpio_free(rdev);
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 clean:
 	if (dangling_of_gpiod)
 		gpiod_put(config->ena_gpiod);
@@ -5693,7 +5692,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 
 	flush_work(&rdev->disable_work.work);
 
-	regulator_list_lock();
+	mutex_lock(&regulator_list_mutex);
 
 	debugfs_remove_recursive(rdev->debugfs);
 	rdev_free_qti_debugfs(rdev);
@@ -5704,7 +5703,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 	regulator_ena_gpio_free(rdev);
 	device_unregister(&rdev->dev);
 
-	regulator_list_unlock();
+	mutex_unlock(&regulator_list_mutex);
 }
 EXPORT_SYMBOL_GPL(regulator_unregister);
 
