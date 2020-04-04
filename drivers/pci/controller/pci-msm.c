@@ -3146,11 +3146,11 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 				clk_disable_unprepare(hdl);
 		}
 
-		regulator_disable(dev->gdsc);
-
-		/* switch pipe clock mux after gdsc is turned off */
+		/* switch pipe clock mux to xo before turning off gdsc */
 		if (dev->pipe_clk_mux && dev->ref_clk_src)
 			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
+
+		regulator_disable(dev->gdsc);
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_RESET; i++) {
@@ -3212,11 +3212,11 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 				dev->rc_idx);
 	}
 
-	regulator_disable(dev->gdsc);
-
-	/* switch pipe clock mux after gdsc is turned off */
+	/* switch pipe clock mux to xo before turning off gdsc */
 	if (dev->pipe_clk_mux && dev->ref_clk_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
+
+	regulator_disable(dev->gdsc);
 
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
