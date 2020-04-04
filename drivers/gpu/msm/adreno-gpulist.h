@@ -782,7 +782,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a630v2 = {
 		.features = ADRENO_RPMH | ADRENO_IFPC |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IOCOHERENT | ADRENO_PREEMPTION,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_1M,
 		.bus_width = 32,
@@ -881,7 +881,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a615 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -908,7 +908,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a618 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -935,7 +935,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
 	},
@@ -1080,7 +1080,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
 			ADRENO_APRIV,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -1170,7 +1170,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a640 = {
 		.features = ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC | ADRENO_PREEMPTION,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_1M, //Verified 1MB
 		.bus_width = 32,
@@ -1250,7 +1250,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 		.features = ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IFPC | ADRENO_APRIV,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_128K, /* verified 1152kB */
 		.bus_width = 32,
@@ -1279,7 +1279,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650v2 = {
 			ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
 			ADRENO_LM | ADRENO_APRIV,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_128K, /* verified 1152kB */
 		.bus_width = 32,
@@ -1305,7 +1305,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a680 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A680, 6, 8, 0, ANY_ID),
 		.features = ADRENO_RPMH | ADRENO_GPMU,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_2M,
 		.bus_width = 32,
@@ -1407,7 +1407,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a616 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -1548,7 +1548,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
 		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 				ADRENO_IFPC,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_512K,
 		.bus_width = 32,

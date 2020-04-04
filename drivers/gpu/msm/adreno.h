@@ -905,6 +905,7 @@ extern unsigned int *adreno_ft_regs_val;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
 extern struct adreno_gpudev adreno_a5xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gpudev;
+extern struct adreno_gpudev adreno_a6xx_gmu_gpudev;
 
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;
@@ -1758,7 +1759,6 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
 int adreno_clear_pending_transactions(struct kgsl_device *device);
-void adreno_gmu_send_nmi(struct adreno_device *adreno_dev);
 
 
 /**
@@ -1857,6 +1857,15 @@ int adreno_power_cycle_bool(struct adreno_device *adreno_dev,
  */
 int adreno_power_cycle_u32(struct adreno_device *adreno_dev,
 	u32 *flag, u32 val);
+
+/**
+ * adreno_set_active_ctxs_null - Give up active context refcount
+ * @adreno_dev: Adreno GPU device handle
+ *
+ * This puts back the reference for that last active context on
+ * each ringbuffer when going in and out of slumber.
+ */
+void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev);
 
 /**
  * adreno_get_bus_counters - Allocate the bus dcvs counters

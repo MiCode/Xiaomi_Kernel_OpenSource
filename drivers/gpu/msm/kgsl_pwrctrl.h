@@ -211,6 +211,16 @@ int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device);
 void kgsl_pwrctrl_request_state(struct kgsl_device *device, u32 state);
 
 /**
+ * kgsl_pwrctrl_axi - Propagate bus votes during slumber entry and exit
+ * @device: Pointer to the kgsl device
+ * @state: Whether we are going to slumber or coming out of slumber
+ *
+ * This function will propagate the default bus vote when coming out of
+ * slumber and set bus bandwidth to 0 when going into slumber
+ */
+void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
+
+/**
  * kgsl_idle_check - kgsl idle function
  * @work: work item being run by the function
  *

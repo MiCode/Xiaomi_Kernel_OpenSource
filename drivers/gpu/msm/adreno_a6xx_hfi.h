@@ -10,17 +10,6 @@
 #define MAX_RCVD_SIZE			(MAX_RCVD_PAYLOAD_SIZE + 3) /* dwords */
 #define HFI_MAX_MSG_SIZE		(SZ_1K>>2)	/* dwords */
 
-/* Below section is for all structures related to HFI queues */
-#define HFI_QUEUE_DEFAULT_CNT 3
-#define HFI_QUEUE_DISPATCH_CNT 1
-#define HFI_QUEUE_MAX (HFI_QUEUE_DEFAULT_CNT + HFI_QUEUE_DISPATCH_CNT)
-
-struct hfi_queue_table;
-
-/* Total header sizes + queue sizes + 16 for alignment */
-#define HFIMEM_SIZE (sizeof(struct hfi_queue_table) + 16 + \
-		(HFI_QUEUE_SIZE * HFI_QUEUE_MAX))
-
 #define HFI_CMD_ID 0
 #define HFI_MSG_ID 1
 #define HFI_DBG_ID 2
@@ -47,7 +36,6 @@ struct hfi_queue_table;
 #define HFI_DSP_PRI_0 20
 
 #define HFI_RSP_TIMEOUT 100 /* msec */
-#define HFI_H2F_CMD_IRQ_MASK BIT(0)
 
 #define HFI_IRQ_MSGQ_MASK		BIT(0)
 #define HFI_IRQ_SIDEMSGQ_MASK		BIT(1)
@@ -57,11 +45,6 @@ struct hfi_queue_table;
 #define HFI_IRQ_MASK			(HFI_IRQ_SIDEMSGQ_MASK |\
 					HFI_IRQ_DBGQ_MASK |\
 					HFI_IRQ_CM3_FAULT_MASK)
-
-#define CLKSET_OPTION_DEFAULT 0
-#define CLKSET_OPTION_CLOSEST 1
-#define CLKSET_OPTION_ATMOST 2
-#define CLKSET_OPTION_ATLEAST 3
 
 #define DCVS_ACK_NONBLOCK 0
 #define DCVS_ACK_BLOCK 1
@@ -144,17 +127,16 @@ struct hfi_queue_header {
 	uint32_t write_index;
 };
 
-struct hfi_queue_table {
-	struct hfi_queue_table_header qtbl_hdr;
-	struct hfi_queue_header qhdr[HFI_QUEUE_MAX];
-};
+#define HFI_MSG_CMD 0 /* V1 and V2 */
+#define HFI_MSG_ACK 1 /* V2 only */
+#define HFI_V1_MSG_POST 1 /* V1 only */
+#define HFI_V1_MSG_ACK 2/* V1 only */
 
-enum hfi_msg_type {
-	HFI_MSG_CMD = 0, /* V1 and V2 */
-	HFI_MSG_ACK = 1, /* V2 only */
-	HFI_V1_MSG_POST = 1, /* V1 only */
-	HFI_V1_MSG_ACK = 2, /* V1 only */
-};
+/* Size is converted from Bytes to DWords */
+#define CREATE_MSG_HDR(id, size, type) \
+	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
+#define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
+#define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
 
 #define H2F_MSG_INIT		0
 #define H2F_MSG_FW_VER		1
@@ -174,6 +156,7 @@ enum hfi_msg_type {
 #define H2F_MSG_PREPARE_SLUMBER	33
 #define F2H_MSG_ERR		100
 #define F2H_MSG_DEBUG		101
+#define F2H_MSG_LOG_BLOCK       102
 #define F2H_MSG_GMU_CNTR_REGISTER	110
 #define F2H_MSG_GMU_CNTR_RELEASE	111
 #define F2H_MSG_ACK		126 /* Deprecated for v2.0*/
@@ -195,20 +178,13 @@ struct hfi_gmu_init_cmd {
 	uint32_t dbg_buffer_addr;
 	uint32_t dbg_buffer_size;
 	uint32_t boot_state;
-};
+} __packed;
 
 /* H2F */
 struct hfi_fw_version_cmd {
 	uint32_t hdr;
 	uint32_t supported_ver;
-};
-
-#define ARC_VOTE_GET_PRI(_v) ((_v) & 0xFF)
-#define ARC_VOTE_GET_SEC(_v) (((_v) >> 8) & 0xFF)
-#define ARC_VOTE_GET_VLVL(_v) (((_v) >> 16) & 0xFFFF)
-
-#define ARC_VOTE_SET(pri, sec, vlvl) \
-	((((vlvl) & 0xFFFF) << 16) | (((sec) & 0xFF) << 8) | ((pri) & 0xFF))
+} __packed;
 
 /* H2F */
 struct hfi_bwtable_cmd {
@@ -222,7 +198,7 @@ struct hfi_bwtable_cmd {
 	uint32_t cnoc_cmd_data[MAX_CNOC_LEVELS][MAX_CNOC_CMDS];
 	uint32_t ddr_cmd_addrs[MAX_BW_CMDS];
 	uint32_t ddr_cmd_data[MAX_GX_LEVELS][MAX_BW_CMDS];
-};
+} __packed;
 
 struct opp_gx_desc {
 	uint32_t vote;
@@ -242,7 +218,7 @@ struct hfi_dcvstable_v1_cmd {
 	uint32_t gmu_level_num;
 	struct opp_desc gx_votes[MAX_GX_LEVELS];
 	struct opp_desc cx_votes[MAX_CX_LEVELS];
-};
+} __packed;
 
 /* H2F */
 struct hfi_dcvstable_cmd {
@@ -251,9 +227,8 @@ struct hfi_dcvstable_cmd {
 	uint32_t gmu_level_num;
 	struct opp_gx_desc gx_votes[MAX_GX_LEVELS];
 	struct opp_desc cx_votes[MAX_CX_LEVELS];
-};
+} __packed;
 
-#define HFI_ACD_INIT_VERSION 1
 #define MAX_ACD_STRIDE 2
 #define MAX_ACD_NUM_LEVELS 6
 
@@ -265,18 +240,18 @@ struct hfi_acd_table_cmd {
 	uint32_t stride;
 	uint32_t num_levels;
 	uint32_t data[MAX_ACD_NUM_LEVELS * MAX_ACD_STRIDE];
-};
+} __packed;
 
 /* H2F */
 struct hfi_test_cmd {
 	uint32_t hdr;
 	uint32_t data;
-};
+} __packed;
 
 /* H2F */
 struct hfi_start_cmd {
 	uint32_t hdr;
-};
+} __packed;
 
 /* H2F */
 struct hfi_feature_ctrl_cmd {
@@ -284,27 +259,27 @@ struct hfi_feature_ctrl_cmd {
 	uint32_t feature;
 	uint32_t enable;
 	uint32_t data;
-};
+} __packed;
 
 /* H2F */
 struct hfi_get_value_cmd {
 	uint32_t hdr;
 	uint32_t type;
 	uint32_t subtype;
-};
+} __packed;
 
 /* Internal */
 struct hfi_get_value_req {
 	struct hfi_get_value_cmd cmd;
 	uint32_t data[16];
-};
+} __packed;
 
 /* F2H */
 struct hfi_get_value_reply_cmd {
 	uint32_t hdr;
 	uint32_t req_hdr;
 	uint32_t data[16];
-};
+} __packed;
 
 /* H2F */
 struct hfi_set_value_cmd {
@@ -312,53 +287,13 @@ struct hfi_set_value_cmd {
 	uint32_t type;
 	uint32_t subtype;
 	uint32_t data;
-};
+} __packed;
 
 /* H2F */
 struct hfi_core_fw_start_cmd {
 	uint32_t hdr;
 	uint32_t handle;
-};
-
-/* CP/GFX pipeline can access, The mem_kind may imply restrictions for non-CP */
-#define MEMFLAG_GFX_ACC                  BIT(0)
-/* Buffer has APRIV protection in GFX PTEs */
-#define MEMFLAG_GFX_PRIV                 BIT(1)
-/* Buffer is read-write for GFX PTEs. A 0 indicates read-only */
-#define MEMFLAG_GFX_WRITEABLE            BIT(2)
-/* GMU can access */
-#define MEMFLAG_GMU_ACC                  BIT(3)
-/* Buffer has APRIV protection in GMU PTEs */
-#define MEMFLAG_GMU_PRIV                 BIT(4)
-/* Buffer is read-write for GMU PTEs. A 0 indicates read-only */
-#define MEMFLAG_GMU_WRITEABLE            BIT(5)
-/* Buffer is located in GMU's non-cached bufferable VA range */
-#define MEMFLAG_GMU_BUFFERABLE           BIT(6)
-/* Buffer is located in GMU's cacheable VA range */
-#define MEMFLAG_GMU_CACHEABLE            BIT(7)
-/* Host can access */
-#define MEMFLAG_HOST_ACC                 BIT(8)
-/*
- * Request that Host initialize the buffer.
- * Implies zero-init, unless Memkind implies otherwise
- */
-#define MEMFLAG_HOST_INIT                BIT(9)
-
-#define HFI_MEMKIND_GENERIC		0
-#define HFI_MEMKIND_RB			1
-#define HFI_MEMKIND_MEMSTORE		2
-#define HFI_MEMKIND_CSW_SMMU_INFO	3
-#define HFI_MEMKIND_CSW_PRIV_NON_SECURE	4
-#define HFI_MEMKIND_CSW_PRIV_SECURE	5
-#define HFI_MEMKIND_CSW_NON_PRIV	6
-#define HFI_MEMKIND_CSW_COUNTER		7
-#define HFI_MEMKIND_CTXTREC_PERF_CNTR_SAVE_RESTORE	8
-#define HFI_MEMKIND_CTXTREC_PREEMPT_CNTR	9
-#define HFI_MEMKIND_SYS_LOG		10
-#define HFI_MEMKIND_CRASH_DUMP		11
-#define HFI_MEMKIND_MMIO_DPU		12
-#define HFI_MEMKIND_MMIO_TCSR		13
-#define HFI_MEMKIND_MMIO_QDSS_STM	14
+} __packed;
 
 struct hfi_mem_alloc_desc {
 	uint64_t gpu_addr;
@@ -368,21 +303,21 @@ struct hfi_mem_alloc_desc {
 	uint32_t gmu_mem_handle;
 	uint32_t gmu_addr;
 	uint32_t size; /* Bytes */
-};
+} __packed;
 
 /* F2H */
 struct hfi_mem_alloc_cmd {
 	uint32_t hdr;
 	uint32_t reserved; /* Padding to ensure alignment of 'desc' below */
 	struct hfi_mem_alloc_desc desc;
-};
+} __packed;
 
 /* H2F */
 struct hfi_mem_alloc_reply_cmd {
 	uint32_t hdr;
 	uint32_t req_hdr;
 	struct hfi_mem_alloc_desc desc;
-};
+} __packed;
 
 /* H2F */
 struct hfi_gx_bw_perf_vote_cmd {
@@ -390,27 +325,27 @@ struct hfi_gx_bw_perf_vote_cmd {
 	uint32_t ack_type;
 	uint32_t freq;
 	uint32_t bw;
-};
+} __packed;
 
 /* H2F */
 struct hfi_fw_halt_cmd {
 	uint32_t hdr;
 	uint32_t en_halt;
-};
+} __packed;
 
 /* H2F */
 struct hfi_prep_slumber_cmd {
 	uint32_t hdr;
 	uint32_t bw;
 	uint32_t freq;
-};
+} __packed;
 
 /* F2H */
 struct hfi_err_cmd {
 	uint32_t hdr;
 	uint32_t error_code;
 	uint32_t data[16];
-};
+} __packed;
 
 /* F2H */
 struct hfi_debug_cmd {
@@ -418,14 +353,14 @@ struct hfi_debug_cmd {
 	uint32_t type;
 	uint32_t timestamp;
 	uint32_t data;
-};
+} __packed;
 
 /* F2H */
 struct hfi_gmu_cntr_register_cmd {
 	uint32_t hdr;
 	uint32_t group_id;
 	uint32_t countable;
-};
+} __packed;
 
 /* H2F */
 struct hfi_gmu_cntr_register_reply_cmd {
@@ -434,37 +369,14 @@ struct hfi_gmu_cntr_register_reply_cmd {
 	uint32_t group_id;
 	uint32_t countable;
 	uint64_t counter_addr;
-};
+} __packed;
 
 /* F2H */
 struct hfi_gmu_cntr_release_cmd {
 	uint32_t hdr;
 	uint32_t group_id;
 	uint32_t countable;
-};
-
-#define CTXT_FLAG_PMODE			0x00000001
-#define CTXT_FLAG_SWITCH_INTERNAL	0x00000002
-#define CTXT_FLAG_SWITCH		0x00000008
-#define CTXT_FLAG_NOTIFY		0x00000020
-#define CTXT_FLAG_NO_FAULT_TOLERANCE	0x00000200
-#define CTXT_FLAG_PWR_RULE		0x00000800
-#define CTXT_FLAG_PRIORITY_MASK		0x0000F000
-#define CTXT_FLAG_IFH_NOP		0x00010000
-#define CTXT_FLAG_SECURE		0x00020000
-#define CTXT_FLAG_TYPE_MASK		0x01F00000
-#define CTXT_FLAG_TYPE_SHIFT		20
-#define CTXT_FLAG_TYPE_ANY		0
-#define CTXT_FLAG_TYPE_GL		1
-#define CTXT_FLAG_TYPE_CL		2
-#define CTXT_FLAG_TYPE_C2D		3
-#define CTXT_FLAG_TYPE_RS		4
-#define CTXT_FLAG_TYPE_UNKNOWN		0x1E
-#define CTXT_FLAG_PREEMPT_STYLE_MASK	0x0E000000
-#define CTXT_FLAG_PREEMPT_STYLE_SHIFT	25
-#define CTXT_FLAG_PREEMPT_STYLE_ANY	0
-#define CTXT_FLAG_PREEMPT_STYLE_RB	1
-#define CTXT_FLAG_PREEMPT_STYLE_FG	2
+} __packed;
 
 /* H2F */
 struct hfi_register_ctxt_cmd {
@@ -474,25 +386,19 @@ struct hfi_register_ctxt_cmd {
 	uint64_t pt_addr;
 	uint32_t ctxt_idr;
 	uint32_t ctxt_bank;
-};
+} __packed;
 
 /* H2F */
 struct hfi_unregister_ctxt_cmd {
 	uint32_t hdr;
 	uint32_t ctxt_id;
 	uint32_t ts;
-};
-
-#define CMDBATCH_SWITCH		CTXT_FLAG_SWITCH
-#define CMDBATCH_NOTIFY		CTXT_FLAG_NOTIFY
-#define CMDBATCH_PROFILING	0x00000010
-#define CMDBATCH_EOF		0x00000100
-#define CMDBATCH_PWR_STRICT	CTXT_FLAG_PWR_RULE
+} __packed;
 
 struct hfi_issue_ib {
 	uint64_t addr;
 	uint32_t size;
-};
+} __packed;
 
 /* H2F */
 struct hfi_issue_cmd_cmd {
@@ -502,21 +408,21 @@ struct hfi_issue_cmd_cmd {
 	uint32_t ts;
 	uint32_t count;
 	struct hfi_issue_ib *ibs[];
-};
+} __packed;
 
 /* Internal */
 struct hfi_issue_cmd_req {
 	uint32_t queue;
 	uint32_t ctxt_id;
 	struct hfi_issue_cmd_cmd cmd;
-};
+} __packed;
 
 /* H2F */
 /* The length of *buf will be embedded in the hdr */
 struct hfi_issue_cmd_raw_cmd {
 	uint32_t hdr;
 	uint32_t *buf;
-};
+} __packed;
 
 /* Internal */
 struct hfi_issue_cmd_raw_req {
@@ -524,27 +430,27 @@ struct hfi_issue_cmd_raw_req {
 	uint32_t ctxt_id;
 	uint32_t len;
 	uint32_t *buf;
-};
+} __packed;
 
 /* H2F */
 struct hfi_ts_notify_cmd {
 	uint32_t hdr;
 	uint32_t ctxt_id;
 	uint32_t ts;
-};
+} __packed;
 
-#define TS_RETIRE_FLUSH	1
-#define TS_RETIRE_ERROR	2
-#define TS_RETIRE_PAST	3
-#define TS_RETIRE_DONE	4
+#define CMDBATCH_SUCCESS    0
+#define CMDBATCH_RETIRED    1
+#define CMDBATCH_ERROR      2
+#define CMDBATCH_SKIP       3
 
 /* F2H */
 struct hfi_ts_retire_cmd {
 	uint32_t hdr;
 	uint32_t ctxt_id;
 	uint32_t ts;
-	uint32_t type;
-};
+	uint32_t ret;
+} __packed;
 
 /* H2F */
 struct hfi_context_pointers_cmd {
@@ -552,7 +458,7 @@ struct hfi_context_pointers_cmd {
 	uint32_t ctxt_id;
 	uint64_t sop_addr;
 	uint64_t eop_addr;
-};
+} __packed;
 
 /* H2F */
 struct hfi_context_rule_cmd {
@@ -560,7 +466,7 @@ struct hfi_context_rule_cmd {
 	uint32_t ctxt_id;
 	uint32_t type;
 	uint32_t status;
-};
+} __packed;
 
 /* F2H */
 struct hfi_context_bad_cmd {
@@ -568,13 +474,13 @@ struct hfi_context_bad_cmd {
 	uint32_t ctxt_id;
 	uint32_t status;
 	uint32_t error;
-};
+} __packed;
 
 /* H2F */
 struct hfi_context_bad_reply_cmd {
 	uint32_t hdr;
 	uint32_t req_hdr;
-};
+} __packed;
 
 /**
  * struct pending_cmd - data structure to track outstanding HFI
@@ -589,35 +495,63 @@ struct pending_cmd {
 
 /**
  * struct a6xx_hfi - HFI control structure
- * @kgsldev: Point to the kgsl device
- * @hfi_interrupt_num: number of GMU asserted HFI interrupt
- * @cmdq_mutex: mutex to protect command queue access from multiple senders
- * @tasklet: the thread handling received messages from GMU
  * @seqnum: atomic counter that is incremented for each message sent. The
  *	value of the counter is used as sequence number for HFI message
- * @bwtbl_cmd: HFI BW table buffer
- * @acd_tbl_cmd: HFI table for ACD data
+ * @bw_table: HFI BW table buffer
+ * @acd_table: HFI table for ACD data
  */
 struct a6xx_hfi {
-	struct kgsl_device *kgsldev;
-	int hfi_interrupt_num;
-	struct mutex cmdq_mutex;
-	struct tasklet_struct tasklet;
+	/** @irq: HFI interrupt line */
+	int irq;
 	atomic_t seqnum;
-	struct hfi_bwtable_cmd bwtbl_cmd;
-	struct hfi_acd_table_cmd acd_tbl_cmd;
+	/** @hfi_mem: Memory descriptor for the hfi memory */
+	struct gmu_memdesc *hfi_mem;
+	struct hfi_bwtable_cmd bw_table;
+	struct hfi_acd_table_cmd acd_table;
+	/** @dcvs_table: HFI table for gpu dcvs levels */
+	struct hfi_dcvstable_cmd dcvs_table;
 };
 
 struct a6xx_gmu_device;
-struct gmu_memdesc;
 
+/* a6xx_hfi_irq_handler - IRQ handler for HFI interripts */
 irqreturn_t a6xx_hfi_irq_handler(int irq, void *data);
-int a6xx_hfi_start(struct kgsl_device *device, struct a6xx_gmu_device *gmu,
-		uint32_t boot_state);
-void a6xx_hfi_stop(struct a6xx_gmu_device *gmu);
-void a6xx_hfi_receiver(unsigned long data);
-void a6xx_hfi_init(struct a6xx_gmu_device *gmu);
 
-/* hfi_send_req is only for external (to HFI) requests */
-int a6xx_hfi_send_req(struct a6xx_gmu_device *gmu, unsigned int id, void *data);
-#endif  /* __ADRENO_A6XX_HFI_H */
+/**
+ * a6xx_hfi_start - Send the various HFIs during device boot up
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_start - Send the various HFIs during device boot up
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+void a6xx_hfi_stop(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_init - Initialize hfi resources
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * This function allocates and sets up hfi queues
+ * when a process creates the very first kgsl instance
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_init(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_req - Send an HFI packet to GMU
+ * @adreno_dev: Pointer to the adreno device
+ * @id: Packet id to be sent
+ * @data: Container for the data sent as part of this pcket
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_req(struct adreno_device *adreno_dev,
+	unsigned int id, void *data);
+#endif

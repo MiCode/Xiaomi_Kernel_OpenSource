@@ -42,7 +42,6 @@ static const char * const clocks[] = {
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
-static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
 static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
 static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 				unsigned int state);
@@ -1276,7 +1275,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	}
 }
 
-static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
+void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 

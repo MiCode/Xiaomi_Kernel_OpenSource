@@ -10,11 +10,10 @@
 #include "adreno_a6xx_hfi.h"
 #include "kgsl_gmu_core.h"
 
-#define GMU_PWR_LEVELS  2
 #define GMU_FREQUENCY   200000000
-#define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
-#define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
+#define GMU_PWR_LEVELS  2
+#define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
 #define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
 #define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
@@ -81,8 +80,6 @@ struct gmu_block_header {
 /* GMU memdesc entries */
 #define GMU_KERNEL_ENTRIES		16
 
-#define A6XX_GMU_DEVICE(_a)  ((struct a6xx_gmu_device *)((_a)->gmu_core.ptr))
-
 enum gmu_mem_type {
 	GMU_ITCM = 0,
 	GMU_ICACHE,
@@ -105,16 +102,12 @@ enum gmu_context_index {
  * @gmuaddr: GPU virtual address
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
- * @mem_type: memory type for this memory
- * @ctx_idx: GMU IOMMU context idx
  */
 struct gmu_memdesc {
 	void *hostptr;
-	uint64_t gmuaddr;
+	u32 gmuaddr;
 	phys_addr_t physaddr;
-	uint64_t size;
-	enum gmu_mem_type mem_type;
-	enum gmu_context_index ctx_idx;
+	u32 size;
 };
 
 struct rpmh_votes_t {
@@ -129,10 +122,26 @@ struct kgsl_mailbox {
 
 struct icc_path;
 
+struct gmu_vma_entry {
+	/** @start: Starting virtual address of the vma */
+	u32 start;
+	/** @size: Size of this vma */
+	u32 size;
+	/** @next_va: Next available virtual address in this vma */
+	u32 next_va;
+};
+
+enum {
+	GMU_PRIV_FIRST_BOOT_DONE = 0,
+	GMU_PRIV_GPU_STARTED,
+	GMU_PRIV_HFI_STARTED,
+	GMU_PRIV_RSCC_SLEEP_DONE,
+};
+
 /**
  * struct a6xx_gmu_device - GMU device structure
  * @ver: GMU Version information
- * @gmu_interrupt_num: GMU interrupt number
+ * @irq: GMU interrupt number
  * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
  * @dump_mem: pointer to GMU debug dump memory
@@ -162,39 +171,98 @@ struct a6xx_gmu_device {
 		u32 hfi;
 	} ver;
 	struct platform_device *pdev;
-	int gmu_interrupt_num;
+	int irq;
 	const struct firmware *fw_image;
-	struct gmu_memdesc *hfi_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct a6xx_hfi hfi;
 	/** @pwrlevels: Array of GMU power levels */
-	struct {
-		/** @freq: GPU frequency */
-		unsigned long freq;
-		/** @level: Voltage level */
-		u32 level;
-	} pwrlevels[MAX_GX_LEVELS];
-	unsigned int num_gpupwrlevels;
-	unsigned int num_bwlevels;
-	unsigned int num_cnocbwlevels;
-	struct rpmh_votes_t rpmh_votes;
 	struct regulator *cx_gdsc;
 	struct regulator *gx_gdsc;
 	struct clk_bulk_data *clks;
 	/** @num_clks: Number of entries in the @clks array */
 	int num_clks;
-	unsigned int wakeup_pwrlevel;
 	unsigned int idle_level;
-	unsigned int fault_count;
 	struct kgsl_mailbox mailbox;
 	bool preallocations;
-	struct gmu_memdesc kmem_entries[GMU_KERNEL_ENTRIES];
-	unsigned long kmem_bitmap;
-	const struct gmu_vma_entry *vma;
+	/** @gmu_globals: Array to store gmu global buffers */
+	struct gmu_memdesc gmu_globals[GMU_KERNEL_ENTRIES];
+	/** @global_entries: To keep track of number of gmu buffers */
+	u32 global_entries;
+	struct gmu_vma_entry *vma;
 	unsigned int log_wptr_retention;
 	/** @cm3_fault: whether gmu received a cm3 fault interrupt */
 	atomic_t cm3_fault;
+	/**
+	 * @itcm_shadow: Copy of the itcm block in firmware binary used for
+	 * snapshot
+	 */
+	void *itcm_shadow;
+	/** @flags: Internal gmu flags */
+	unsigned long flags;
+	/** @fault: To track if we hit a gmu fault */
+	bool fault;
 };
 
+/* Helper function to get to a6xx gmu device from adreno device */
+struct a6xx_gmu_device *to_a6xx_gmu(struct adreno_device *adreno_dev);
+
+/* Helper function to get to adreno device from a6xx gmu device */
+struct adreno_device *a6xx_gmu_to_adreno(struct a6xx_gmu_device *gmu);
+
+/**
+ * reserve_gmu_kernel_block() - Allocate a gmu buffer
+ * @gmu: Pointer to the a6xx gmu device
+ * @addr: Desired gmu virtual address
+ * @size: Size of the buffer in bytes
+ * @vma_id: Target gmu vma where this bufer should be mapped
+ *
+ * This function allocates a buffer and maps it in
+ * the desired gmu vma
+ *
+ * Return: Pointer to the memory descriptor or error pointer on failure
+ */
+struct gmu_memdesc *reserve_gmu_kernel_block(struct a6xx_gmu_device *gmu,
+	u32 addr, u32 size, u32 vma_id);
+
+/**
+ * a6xx_build_rpmh_tables - Build the rpmh tables
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * This function creates the gpu dcvs and bw tables
+ *
+ * Return: 0 on success and negative error on failure
+ */
+int a6xx_build_rpmh_tables(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_gx_is_on - Check if GX is on
+ * @device: Pointer to KGSL device
+ *
+ * This function reads pwr status registers to check if GX
+ * is on or off
+ */
+bool a6xx_gmu_gx_is_on(struct kgsl_device *device);
+
+/**
+ * a6xx_gmu_device_snapshot - A6XX GMU snapshot function
+ * @device: Device being snapshotted
+ * @snapshot: Pointer to the snapshot instance
+ *
+ * This is where all of the A6XX GMU specific bits and pieces are grabbed
+ * into the snapshot memory
+ */
+void a6xx_gmu_device_snapshot(struct kgsl_device *device,
+	struct kgsl_snapshot *snapshot);
+
+/**
+ * a6xx_gmu_device_probe - A6XX GMU snapshot function
+ * @pdev: Pointer to the platform device
+ * @chipid: Chipid of the target
+ * @gpucore: Pointer to the gpucore
+ *
+ * The target specific probe function for gmu based a6xx targets.
+ */
+int a6xx_gmu_device_probe(struct platform_device *pdev,
+	u32 chipid, const struct adreno_gpu_core *gpucore);
 #endif
