@@ -5,7 +5,10 @@ dtbo-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi-overlay.dtbo \
 	lahaina-cdp-overlay.dtbo \
 	lahaina-qrd-overlay.dtbo \
 	lahaina-qrd-hsp-overlay.dtbo \
-	lahaina-qrd-module-overlay.dtbo
+	lahaina-qrd-module-overlay.dtbo \
+	lahainap-mtp-overlay.dtbo \
+	lahainap-cdp-overlay.dtbo \
+	lahainap-qrd-overlay.dtbo
 
 lahaina-rumi-overlay.dtbo-base := lahaina.dtb
 lahaina-mtp-hsp-overlay.dtbo-base := lahaina.dtb
@@ -14,6 +17,9 @@ lahaina-cdp-overlay.dtbo-base := lahaina.dtb
 lahaina-qrd-hsp-overlay.dtbo-base := lahaina.dtb
 lahaina-qrd-overlay.dtbo-base := lahaina.dtb
 lahaina-qrd-module-overlay.dtbo-base := lahaina.dtb
+lahainap-mtp-overlay.dtbo-base := lahainap.dtb
+lahainap-cdp-overlay.dtbo-base := lahainap.dtb
+lahainap-qrd-overlay.dtbo-base := lahainap.dtb
 else
 dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-mtp-hsp.dtb \
@@ -21,7 +27,10 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-cdp.dtb \
 	lahaina-qrd-hsp.dtb \
 	lahaina-qrd.dtb \
-	lahaina-qrd-module.dtb
+	lahaina-qrd-module.dtb \
+	lahainap-mtp.dtb \
+	lahainap-cdp.dtb \
+	lahainap-qrd.dtb
 endif
 
 dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
