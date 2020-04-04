@@ -609,7 +609,7 @@ static void hh_rm_populate_mem_attr_desc(struct hh_mem_attr_desc *dst_desc,
 {
 	u32 n_mem_attr_entries = src_desc ? src_desc->n_mem_attr_entries : 0;
 
-	dst_desc->n_mem_attr_entries = src_desc->n_mem_attr_entries;
+	dst_desc->n_mem_attr_entries = n_mem_attr_entries;
 	if (n_mem_attr_entries)
 		memcpy(dst_desc->attr_entries, src_desc->attr_entries,
 		       sizeof(*dst_desc->attr_entries) * n_mem_attr_entries);
@@ -629,6 +629,10 @@ static void hh_rm_populate_mem_request(void *req_buf, u32 fn_id,
 	u32 n_sgl_entries = src_sgl_desc ? src_sgl_desc->n_sgl_entries : 0;
 
 	switch (fn_id) {
+	case HH_RM_RPC_MSG_ID_CALL_MEM_LEND:
+	case HH_RM_RPC_MSG_ID_CALL_MEM_SHARE:
+		req_hdr_size = sizeof(struct hh_mem_share_req_payload_hdr);
+		break;
 	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
 		req_hdr_size =
 			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
@@ -663,6 +667,10 @@ static void *hh_rm_alloc_mem_request_buf(u32 fn_id, size_t n_acl_entries,
 
 
 	switch (fn_id) {
+	case HH_RM_RPC_MSG_ID_CALL_MEM_LEND:
+	case HH_RM_RPC_MSG_ID_CALL_MEM_SHARE:
+		req_payload_size = sizeof(struct hh_mem_share_req_payload_hdr);
+		break;
 	case HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
 		req_payload_size =
 			sizeof(struct hh_mem_qcom_lookup_sgl_req_payload_hdr);
