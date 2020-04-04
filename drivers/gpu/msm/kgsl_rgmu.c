@@ -4,6 +4,7 @@
  */
 
 #include <linux/clk-provider.h>
+#include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -22,88 +23,65 @@ static int rgmu_irq_probe(struct kgsl_device *device)
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	int ret;
 
-	rgmu->oob_interrupt_num = platform_get_irq_byname(rgmu->pdev,
-					"kgsl_oob");
-
-	ret = devm_request_irq(&rgmu->pdev->dev,
-				rgmu->oob_interrupt_num,
-				oob_irq_handler, IRQF_TRIGGER_HIGH,
-				"kgsl-oob", device);
-	if (ret) {
-		dev_err(&rgmu->pdev->dev,
-				"Request kgsl-oob interrupt failed:%d\n", ret);
+	ret = kgsl_request_irq(rgmu->pdev, "kgsl_oob", oob_irq_handler, device);
+	if (ret < 0)
 		return ret;
-	}
 
-	rgmu->rgmu_interrupt_num = platform_get_irq_byname(rgmu->pdev,
-			"kgsl_rgmu");
+	rgmu->oob_interrupt_num  = ret;
 
-	ret = devm_request_irq(&rgmu->pdev->dev,
-			rgmu->rgmu_interrupt_num,
-			rgmu_irq_handler, IRQF_TRIGGER_HIGH,
-			"kgsl-rgmu", device);
-	if (ret)
-		dev_err(&rgmu->pdev->dev,
-				"Request kgsl-rgmu interrupt failed:%d\n", ret);
+	ret = kgsl_request_irq(rgmu->pdev,
+		"kgsl_rgmu", rgmu_irq_handler, device);
+	if (ret < 0)
+		return ret;
 
-	return ret;
+	rgmu->rgmu_interrupt_num = ret;
+	return 0;
 }
 
-static int rgmu_regulators_probe(struct rgmu_device *rgmu,
-		struct device_node *node)
+static int rgmu_regulators_probe(struct rgmu_device *rgmu)
 {
-	int ret;
+	int ret = 0;
 
 	rgmu->cx_gdsc = devm_regulator_get(&rgmu->pdev->dev, "vddcx");
-	if (IS_ERR_OR_NULL(rgmu->cx_gdsc)) {
+	if (IS_ERR(rgmu->cx_gdsc)) {
 		ret = PTR_ERR(rgmu->cx_gdsc);
-		dev_err(&rgmu->pdev->dev,
+		if (ret != -EPROBE_DEFER)
+			dev_err(&rgmu->pdev->dev,
 				"Couldn't get CX gdsc error:%d\n", ret);
-		rgmu->cx_gdsc = NULL;
 		return ret;
 	}
 
 	rgmu->gx_gdsc = devm_regulator_get(&rgmu->pdev->dev, "vdd");
-	if (IS_ERR_OR_NULL(rgmu->gx_gdsc)) {
+	if (IS_ERR(rgmu->gx_gdsc)) {
 		ret = PTR_ERR(rgmu->gx_gdsc);
-		dev_err(&rgmu->pdev->dev,
+		if (ret != -EPROBE_DEFER)
+			dev_err(&rgmu->pdev->dev,
 				"Couldn't get GX gdsc error:%d\n", ret);
-		rgmu->gx_gdsc = NULL;
-		return ret;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int rgmu_clocks_probe(struct rgmu_device *rgmu, struct device_node *node)
 {
-	const char *cname;
-	struct property *prop;
-	struct clk *c;
-	int i = 0;
+	int ret;
 
-	of_property_for_each_string(node, "clock-names", prop, cname) {
+	ret = devm_clk_bulk_get_all(&rgmu->pdev->dev, &rgmu->clks);
+	if (ret < 0)
+		return ret;
 
-		if (i >= ARRAY_SIZE(rgmu->clks)) {
-			dev_err(&rgmu->pdev->dev,
-				"dt: too many RGMU clocks defined\n");
-			return -EINVAL;
-		}
+	rgmu->num_clks = ret;
 
-		c = devm_clk_get(&rgmu->pdev->dev, cname);
-		if (IS_ERR_OR_NULL(c)) {
-			dev_err(&rgmu->pdev->dev,
-				"dt: Couldn't get clock: %s\n", cname);
-			return PTR_ERR(c);
-		}
+	rgmu->gpu_clk = kgsl_of_clk_by_name(rgmu->clks, ret, "core");
+	if (!rgmu->gpu_clk) {
+		dev_err(&rgmu->pdev->dev, "The GPU clock isn't defined\n");
+		return -ENODEV;
+	}
 
-		/* Remember the key clocks that we need to control later */
-		if (!strcmp(cname, "core"))
-			rgmu->gpu_clk = c;
-		else if (!strcmp(cname, "gmu"))
-			rgmu->rgmu_clk = c;
-
-		rgmu->clks[i++] = c;
+	rgmu->rgmu_clk = kgsl_of_clk_by_name(rgmu->clks, ret, "gmu");
+	if (!rgmu->rgmu_clk) {
+		dev_err(&rgmu->pdev->dev, "The RGMU clock isn't defined\n");
+		return -ENODEV;
 	}
 
 	return 0;
@@ -113,7 +91,7 @@ static void rgmu_disable_clks(struct kgsl_device *device)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-	int j = 0, ret;
+	int  ret;
 
 	/* Check GX GDSC is status */
 	if (gmu_dev_ops->gx_is_on(device)) {
@@ -140,21 +118,16 @@ static void rgmu_disable_clks(struct kgsl_device *device)
 			dev_err(&rgmu->pdev->dev, "gx is stuck on\n");
 	}
 
-	for (j = 0; j < ARRAY_SIZE(rgmu->clks); j++)
-		clk_disable_unprepare(rgmu->clks[j]);
+	clk_bulk_disable_unprepare(rgmu->num_clks, rgmu->clks);
 
 	clear_bit(GMU_CLK_ON, &device->gmu_core.flags);
 }
 
 static int rgmu_enable_clks(struct kgsl_device *device)
 {
-	int ret, j = 0;
+	int ret;
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	if (IS_ERR_OR_NULL(rgmu->rgmu_clk) ||
-			IS_ERR_OR_NULL(rgmu->gpu_clk))
-		return -EINVAL;
 
 	ret = clk_set_rate(rgmu->rgmu_clk, RGMU_CLK_FREQ);
 	if (ret) {
@@ -169,14 +142,10 @@ static int rgmu_enable_clks(struct kgsl_device *device)
 		return ret;
 	}
 
-	for (j = 0; j < ARRAY_SIZE(rgmu->clks); j++) {
-		ret = clk_prepare_enable(rgmu->clks[j]);
-		if (ret) {
-			dev_err(&rgmu->pdev->dev,
-					"Fail(%d) to enable gpucc clk idx %d\n",
-					ret, j);
-			return ret;
-		}
+	ret = clk_bulk_prepare_enable(rgmu->num_clks, rgmu->clks);
+	if (ret) {
+		dev_err(&rgmu->pdev->dev, "Failed to enable RGMU clocks\n");
+		return ret;
 	}
 
 	set_bit(GMU_CLK_ON, &device->gmu_core.flags);
@@ -271,11 +240,12 @@ error:
 	rgmu_snapshot(device);
 }
 
+static struct gmu_core_ops rgmu_ops;
+
 /* Do not access any RGMU registers in RGMU probe function */
-static int rgmu_probe(struct kgsl_device *device, struct device_node *node)
+static int rgmu_probe(struct kgsl_device *device, struct platform_device *pdev)
 {
 	struct rgmu_device *rgmu;
-	struct platform_device *pdev = of_find_device_by_node(node);
 	struct resource *res;
 	int ret = -ENXIO;
 
@@ -287,43 +257,31 @@ static int rgmu_probe(struct kgsl_device *device, struct device_node *node)
 	rgmu->pdev = pdev;
 
 	/* Set up RGMU regulators */
-	ret = rgmu_regulators_probe(rgmu, node);
+	ret = rgmu_regulators_probe(rgmu);
 	if (ret)
 		return ret;
 
 	/* Set up RGMU clocks */
-	ret = rgmu_clocks_probe(rgmu, node);
+	ret = rgmu_clocks_probe(rgmu, pdev->dev.of_node);
 	if (ret)
 		return ret;
 
 	/* Map and reserve RGMU CSRs registers */
-	res = platform_get_resource_byname(rgmu->pdev,
-			IORESOURCE_MEM, "kgsl_rgmu");
-	if (res == NULL) {
-		dev_err(&rgmu->pdev->dev,
-				"platform_get_resource failed\n");
-		return -EINVAL;
-	}
-
-	if (res->start == 0 || resource_size(res) == 0) {
-		dev_err(&rgmu->pdev->dev,
-				"Register region is invalid\n");
-		return -EINVAL;
-	}
-
-	rgmu->reg_phys = res->start;
-	rgmu->reg_len = resource_size(res);
-	device->gmu_core.reg_virt = devm_ioremap(&rgmu->pdev->dev, res->start,
-			resource_size(res));
-
-	if (device->gmu_core.reg_virt == NULL) {
-		dev_err(&rgmu->pdev->dev, "Unable to remap rgmu registers\n");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "kgsl_rgmu");
+	if (!res) {
+		dev_err(&pdev->dev, "The RGMU register region isn't defined\n");
 		return -ENODEV;
 	}
 
-	device->gmu_core.gmu2gpu_offset =
-			(rgmu->reg_phys - device->reg_phys) >> 2;
-	device->gmu_core.reg_len = rgmu->reg_len;
+	device->gmu_core.gmu2gpu_offset = (res->start - device->reg_phys) >> 2;
+	device->gmu_core.reg_len = resource_size(res);
+	device->gmu_core.reg_virt = devm_ioremap_resource(&pdev->dev, res);
+
+	if (IS_ERR(device->gmu_core.reg_virt)) {
+		dev_err(&pdev->dev, "Unable to map the RGMU registers\n");
+		return PTR_ERR(device->gmu_core.reg_virt);
+	}
+
 	device->gmu_core.ptr = (void *)rgmu;
 
 	/* Initialize OOB and RGMU interrupts */
@@ -343,6 +301,7 @@ static int rgmu_probe(struct kgsl_device *device, struct device_node *node)
 		rgmu->idle_level = GPU_HW_ACTIVE;
 
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
+	device->gmu_core.core_ops = &rgmu_ops;
 	device->gmu_core.dev_ops = &adreno_a6xx_rgmudev;
 
 	return 0;
@@ -447,9 +406,14 @@ static bool rgmu_regulator_isenabled(struct kgsl_device *device)
 	return (rgmu->gx_gdsc && regulator_is_enabled(rgmu->gx_gdsc));
 }
 
-struct gmu_core_ops rgmu_ops = {
-	.probe = rgmu_probe,
-	.remove = rgmu_stop,
+static void rgmu_remove(struct kgsl_device *device)
+{
+	rgmu_stop(device);
+
+	memset(&device->gmu_core, 0, sizeof(device->gmu_core));
+}
+
+static struct gmu_core_ops rgmu_ops = {
 	.init = rgmu_init,
 	.start = rgmu_start,
 	.stop = rgmu_stop,
@@ -457,4 +421,49 @@ struct gmu_core_ops rgmu_ops = {
 	.snapshot = rgmu_snapshot,
 	.regulator_isenabled = rgmu_regulator_isenabled,
 	.suspend = rgmu_suspend,
+};
+
+static int kgsl_rgmu_bind(struct device *dev, struct device *master, void *data)
+{
+	struct kgsl_device *device = dev_get_drvdata(master);
+
+	return rgmu_probe(device, to_platform_device(dev));
+}
+
+static void kgsl_rgmu_unbind(struct device *dev, struct device *master,
+		void *data)
+{
+	struct kgsl_device *device = dev_get_drvdata(master);
+
+	rgmu_remove(device);
+}
+
+static const struct component_ops kgsl_rgmu_ops = {
+	.bind = kgsl_rgmu_bind,
+	.unbind = kgsl_rgmu_unbind,
+};
+
+static int kgsl_rgmu_probe(struct platform_device *pdev)
+{
+	return component_add(&pdev->dev, &kgsl_rgmu_ops);
+}
+
+static int kgsl_rgmu_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &kgsl_rgmu_ops);
+	return 0;
+}
+
+static const struct of_device_id kgsl_rgmu_match_table[] = {
+	{ .compatible = "qcom,gpu-rgmu" },
+	{ },
+};
+
+struct platform_driver kgsl_rgmu_driver = {
+	.probe = kgsl_rgmu_probe,
+	.remove = kgsl_rgmu_remove,
+	.driver = {
+		.name = "kgsl-rgmu",
+		.of_match_table = kgsl_rgmu_match_table,
+	},
 };

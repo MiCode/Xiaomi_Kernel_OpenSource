@@ -32,6 +32,9 @@ struct freq_tbl *qcom_find_freq(const struct freq_tbl *f, unsigned long rate)
 	if (!f)
 		return NULL;
 
+	if (!f->freq)
+		return f;
+
 	for (; f->freq; f++)
 		if (rate <= f->freq)
 			return f;
@@ -350,5 +353,12 @@ int qcom_cc_probe_by_index(struct platform_device *pdev, int index,
 	return qcom_cc_really_probe(pdev, desc, regmap);
 }
 EXPORT_SYMBOL_GPL(qcom_cc_probe_by_index);
+
+void qcom_cc_sync_state(struct device *dev, const struct qcom_cc_desc *desc)
+{
+	dev_info(dev, "sync-state\n");
+	clk_sync_state(dev);
+}
+EXPORT_SYMBOL(qcom_cc_sync_state);
 
 MODULE_LICENSE("GPL v2");

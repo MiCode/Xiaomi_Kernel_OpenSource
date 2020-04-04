@@ -12,8 +12,8 @@ KERN_SRC=`pwd`
 : ${CLANG_TRIPLE:=aarch64-linux-gnu-}
 : ${REAL_CC:=clang}
 : ${HOSTCC:=gcc}
-: ${HOSTLD:ld}
-: ${HOSTAR:ar}
+: ${HOSTLD:=ld}
+: ${HOSTAR:=ar}
 : ${KERN_OUT:=}
 
 CONFIGS_DIR=${KERN_SRC}/arch/${ARCH}/configs/vendor

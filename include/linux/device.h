@@ -1245,7 +1245,9 @@ struct dev_links_info {
  *		  sync_state() callback.
  * @dma_coherent: this particular device is dma coherent, even if the
  *		architecture supports non-coherent devices.
- *
+ * @dma_coherent_hint_cached: Tell the framework to try and treat the device
+ *			      as DMA coherent when working with CPU cached
+ *			      buffers.
  * At the lowest level, every device in a Linux system is represented by an
  * instance of struct device. The device structure contains the information
  * that the device model core needs to model the system. Most subsystems,
@@ -1345,6 +1347,10 @@ struct device {
     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU_ALL)
 	bool			dma_coherent:1;
 #endif
+#if defined(CONFIG_DMA_COHERENT_HINT_CACHED)
+	bool			dma_coherent_hint_cached:1;
+#endif
+
 };
 
 static inline struct device *kobj_to_dev(struct kobject *kobj)
@@ -1516,6 +1522,17 @@ static inline struct device_node *dev_of_node(struct device *dev)
 	if (!IS_ENABLED(CONFIG_OF) || !dev)
 		return NULL;
 	return dev->of_node;
+}
+
+static inline bool dev_has_sync_state(struct device *dev)
+{
+	if (!dev)
+		return false;
+	if (dev->driver && dev->driver->sync_state)
+		return true;
+	if (dev->bus && dev->bus->sync_state)
+		return true;
+	return false;
 }
 
 void driver_init(void);

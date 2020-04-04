@@ -151,8 +151,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 int adreno_ringbuffer_init(struct adreno_device *adreno_dev);
 
-int adreno_ringbuffer_start(struct adreno_device *adreno_dev);
-
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev);
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev);

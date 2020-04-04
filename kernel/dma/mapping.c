@@ -46,6 +46,18 @@ static int dmam_match(struct device *dev, void *res, void *match_data)
 	return 0;
 }
 
+static bool is_dma_coherent(struct device *dev, unsigned long attrs)
+{
+	if (attrs & DMA_ATTR_FORCE_COHERENT)
+		return true;
+	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
+		return false;
+	else if (dev_is_dma_coherent(dev))
+		return true;
+	else
+		return false;
+}
+
 /**
  * dmam_free_coherent - Managed dma_free_coherent()
  * @dev: Device to free coherent memory for
@@ -116,7 +128,7 @@ int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
 	struct page *page;
 	int ret;
 
-	if (!dev_is_dma_coherent(dev)) {
+	if (!is_dma_coherent(dev, attrs)) {
 		unsigned long pfn;
 
 		if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_COHERENT_TO_PFN))
@@ -154,6 +166,9 @@ int dma_get_sgtable_attrs(struct device *dev, struct sg_table *sgt,
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 
+	if (dev_is_dma_coherent_hint_cached(dev))
+		attrs |= DMA_ATTR_FORCE_COHERENT;
+
 	if (dma_is_direct(ops))
 		return dma_common_get_sgtable(dev, sgt, cpu_addr, dma_addr,
 				size, attrs);
@@ -164,18 +179,6 @@ int dma_get_sgtable_attrs(struct device *dev, struct sg_table *sgt,
 EXPORT_SYMBOL(dma_get_sgtable_attrs);
 
 #ifdef CONFIG_MMU
-static bool is_dma_coherent(struct device *dev, unsigned long attrs)
-{
-	if (attrs & DMA_ATTR_FORCE_COHERENT)
-		return true;
-	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
-		return false;
-	else if (dev_is_dma_coherent(dev))
-		return true;
-	else
-		return false;
-}
-
 /*
  * Return the page attributes used for mapping dma_alloc_* memory, either in
  * kernel space if remapping is needed, or to userspace through dma_mmap_*.
@@ -216,7 +219,7 @@ int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
 	if (off >= count || user_count > count - off)
 		return -ENXIO;
 
-	if (!dev_is_dma_coherent(dev)) {
+	if (!is_dma_coherent(dev, attrs)) {
 		if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_COHERENT_TO_PFN))
 			return -ENXIO;
 
@@ -275,6 +278,9 @@ int dma_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 
+	if (dev_is_dma_coherent_hint_cached(dev))
+		attrs |= DMA_ATTR_FORCE_COHERENT;
+
 	if (dma_is_direct(ops))
 		return dma_common_mmap(dev, vma, cpu_addr, dma_addr, size,
 				attrs);
@@ -315,6 +321,9 @@ void *dma_alloc_attrs(struct device *dev, size_t size, dma_addr_t *dma_handle,
 
 	WARN_ON(!of_reserved_mem_device_is_init(dev));
 
+	if (dev_is_dma_coherent_hint_cached(dev))
+		attrs |= DMA_ATTR_FORCE_COHERENT;
+
 	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr))
 		return cpu_addr;
 
@@ -337,6 +346,9 @@ void dma_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 		dma_addr_t dma_handle, unsigned long attrs)
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
+
+	if (dev_is_dma_coherent_hint_cached(dev))
+		attrs |= DMA_ATTR_FORCE_COHERENT;
 
 	if (dma_release_from_dev_coherent(dev, get_order(size), cpu_addr))
 		return;

@@ -106,7 +106,6 @@ struct qvr_external_sensor {
 
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 static struct qvr_external_sensor qvr_external_sensor;
-static uint8_t DEBUG_ORIENTATION;
 
 static int read_calibration_len(void)
 {
@@ -256,10 +255,6 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	memcpy((void *)&imuData, (void *)message,
 		sizeof(struct external_imu_format));
 	if (!sensor->ts_base) {
-		if (imuData.gNumerator == 1 && imuData.aNumerator == 1)
-			DEBUG_ORIENTATION = 1;
-		else
-			DEBUG_ORIENTATION = 0;
 		pr_debug("qvr msize = %d reportID=%d padding=%d\n"
 			"qvr version=%d numImu=%d nspip=%d pSize=%d\n"
 			"qvr imuID=%d sampleID=%d temp=%d\n",
@@ -303,27 +298,24 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 		data->mts = data->ats;
 	data->gts = data->ats;
 
-	if (DEBUG_ORIENTATION == 1) {
-		data->ax = -imuData.ax0;
-		data->ay = imuData.ay0;
-		data->az = -imuData.az0;
-		data->gx = -imuData.gx0;
-		data->gy = imuData.gy0;
-		data->gz = -imuData.gz0;
-		data->mx = -imuData.my0;
-		data->my = -imuData.mx0;
-		data->mz = -imuData.mz0;
-	} else {
-		data->ax = -imuData.ay0;
-		data->ay = -imuData.ax0;
-		data->az = -imuData.az0;
-		data->gx = -imuData.gy0;
-		data->gy = -imuData.gx0;
-		data->gz = -imuData.gz0;
-		data->mx = -imuData.my0;
-		data->my = -imuData.mx0;
-		data->mz = -imuData.mz0;
-	}
+	data->ax = imuData.ax0;
+	data->ay = imuData.ay0;
+	data->az = imuData.az0;
+	data->gx = imuData.gx0;
+	data->gy = imuData.gy0;
+	data->gz = imuData.gz0;
+	data->mx = imuData.my0;
+	data->my = imuData.mx0;
+	data->mz = imuData.mz0;
+	data->ax = imuData.ax0;
+	data->ay = imuData.ay0;
+	data->az = imuData.az0;
+	data->gx = imuData.gx0;
+	data->gy = imuData.gy0;
+	data->gz = imuData.gz0;
+	data->mx = imuData.my0;
+	data->my = imuData.mx0;
+	data->mz = imuData.mz0;
 
 	trace_qvr_recv_sensor("gyro", data->gts, data->gx, data->gy, data->gz);
 	trace_qvr_recv_sensor("accel", data->ats, data->ax, data->ay, data->az);
@@ -415,7 +407,9 @@ static ssize_t fd_show(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	char *buf)
 {
-	return snprintf(buf, 16, "%d\n", fd);
+	struct qvr_external_sensor *sensor = &qvr_external_sensor;
+
+	return scnprintf(buf, 16, "%d\n", sensor->fd);
 }
 
 static ssize_t fd_store(struct kobject *kobj,
@@ -619,6 +613,8 @@ static void qvr_external_sensor_device_remove(struct hid_device *hdev)
 
 static struct hid_device_id qvr_external_sensor_table[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR5, USB_DEVICE_ID_QVR5) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_QVR32A, USB_DEVICE_ID_QVR32A) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_NREAL, USB_DEVICE_ID_NREAL) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, qvr_external_sensor_table);

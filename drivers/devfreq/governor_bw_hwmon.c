@@ -153,6 +153,9 @@ out:									\
 #define MIN_MS	10U
 #define MAX_MS	500U
 
+#define SAMPLE_MIN_MS	1U
+#define SAMPLE_MAX_MS	50U
+
 /* Returns MBps of read/writes for the sampling window. */
 static unsigned long bytes_to_mbps(unsigned long long bytes, unsigned int us)
 {
@@ -739,10 +742,42 @@ static ssize_t throttle_adj_show(struct device *dev,
 	else
 		val = node->hw->get_throttle_adj(node->hw);
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", val);
+	return scnprintf(buf, PAGE_SIZE, "%u\n", val);
 }
 
 static DEVICE_ATTR_RW(throttle_adj);
+
+static ssize_t sample_ms_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct hwmon_node *hw = df->data;
+	int ret;
+	unsigned int val;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	val = max(val, SAMPLE_MIN_MS);
+	val = min(val, SAMPLE_MAX_MS);
+	if (val > df->profile->polling_ms)
+		return -EINVAL;
+
+	hw->sample_ms = val;
+	return count;
+}
+
+static ssize_t sample_ms_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct hwmon_node *node = df->data;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", node->sample_ms);
+}
+
+static DEVICE_ATTR_RW(sample_ms);
 
 show_attr(guard_band_mbps);
 store_attr(guard_band_mbps, 0U, 2000U);
@@ -756,9 +791,6 @@ static DEVICE_ATTR_RW(io_percent);
 show_attr(bw_step);
 store_attr(bw_step, 50U, 1000U);
 static DEVICE_ATTR_RW(bw_step);
-show_attr(sample_ms);
-store_attr(sample_ms, 1U, 50U);
-static DEVICE_ATTR_RW(sample_ms);
 show_attr(up_scale);
 store_attr(up_scale, 0U, 500U);
 static DEVICE_ATTR_RW(up_scale);
@@ -841,7 +873,13 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 			"Disabled dev BW HW monitor governor\n");
 		break;
 	case DEVFREQ_GOV_INTERVAL:
+		node = df->data;
 		sample_ms = *(unsigned int *)data;
+		if (sample_ms < node->sample_ms) {
+			ret = -EINVAL;
+			goto out;
+		}
+
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
 		/*
@@ -850,7 +888,6 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		 * stop/start the delayed workqueue while the interval update
 		 * is happening.
 		 */
-		node = df->data;
 		hw = node->hw;
 		hw->suspend_hwmon(hw);
 		devfreq_interval_update(df, &sample_ms);

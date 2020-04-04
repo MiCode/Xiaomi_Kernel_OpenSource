@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016, 2019, Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019-2020, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,18 +18,21 @@
 #define UFS_PHY_NAME "ufs_phy_qrbtc_sdm845"
 
 static
-int ufs_qcom_phy_qrbtc_sdm845_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B, bool is_g4)
+int ufs_qcom_phy_qrbtc_sdm845_phy_calibrate(struct phy *generic_phy)
 {
 	int err;
 	int tbl_size_A, tbl_size_B;
 	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+	bool is_rate_B;
 
 	tbl_A = phy_cal_table_rate_A;
 	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
 
 	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	tbl_B = phy_cal_table_rate_B;
+
+	is_rate_B = (ufs_qcom_phy->mode == PHY_MODE_UFS_HS_B) ? true : false;
 
 	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
 				     tbl_A, tbl_size_A,
@@ -85,6 +88,13 @@ static void ufs_qcom_phy_qrbtc_sdm845_start_serdes(struct ufs_qcom_phy *phy)
 
 static int ufs_qcom_phy_qrbtc_sdm845_init(struct phy *generic_phy)
 {
+	struct ufs_qcom_phy *phy_common = get_ufs_qcom_phy(generic_phy);
+	int ret;
+
+	ret = ufs_qcom_phy_get_reset(phy_common);
+	if (ret)
+		dev_err(phy_common->dev, "Failed to get reset control\n", ret);
+
 	return 0;
 }
 
@@ -96,11 +106,11 @@ static int ufs_qcom_phy_qrbtc_sdm845_exit(struct phy *generic_phy)
 static struct phy_ops ufs_qcom_phy_qrbtc_sdm845_phy_ops = {
 	.init		= ufs_qcom_phy_qrbtc_sdm845_init,
 	.exit		= ufs_qcom_phy_qrbtc_sdm845_exit,
+	.calibrate	= ufs_qcom_phy_qrbtc_sdm845_phy_calibrate,
 	.owner		= THIS_MODULE,
 };
 
 static struct ufs_qcom_phy_specific_ops phy_qrbtc_sdm845_ops = {
-	.calibrate		= ufs_qcom_phy_qrbtc_sdm845_phy_calibrate,
 	.start_serdes		= ufs_qcom_phy_qrbtc_sdm845_start_serdes,
 	.is_physical_coding_sublayer_ready =
 				ufs_qcom_phy_qrbtc_sdm845_is_pcs_ready,

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_RGMU_H
 #define __KGSL_RGMU_H
@@ -18,9 +18,6 @@
 /**
  * struct rgmu_device - rGMU device structure
  * @ver: RGMU firmware version
- * @reg_phys: RGMU CSR physical address
- * @reg_virt: RGMU CSR virtual address
- * @reg_len: RGMU CSR range
  * @rgmu_interrupt_num: RGMU interrupt number
  * @oob_interrupt_num: number of RGMU asserted OOB interrupt
  * @fw_hostptr: Buffer which holds the RGMU firmware
@@ -37,15 +34,15 @@
 struct rgmu_device {
 	u32 ver;
 	struct platform_device *pdev;
-	unsigned long reg_phys;
-	unsigned int reg_len;
 	unsigned int rgmu_interrupt_num;
 	unsigned int oob_interrupt_num;
 	unsigned int *fw_hostptr;
 	uint32_t fw_size;
 	struct regulator *cx_gdsc;
 	struct regulator *gx_gdsc;
-	struct clk *clks[MAX_RGMU_CLKS];
+	struct clk_bulk_data *clks;
+	/** @num_clks: Number of clocks in @clks */
+	int num_clks;
 	struct clk *gpu_clk;
 	struct clk *rgmu_clk;
 	unsigned int idle_level;

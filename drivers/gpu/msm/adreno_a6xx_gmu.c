@@ -487,8 +487,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (adreno_dev->lm_enabled)
 		gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
 	set_bit(GMU_RSCC_SLEEP_SEQ_DONE, &device->gmu_core.flags);
@@ -564,6 +563,19 @@ static int load_gmu_fw(struct kgsl_device *device)
 	return 0;
 }
 
+static const char *oob_to_str(enum oob_request req)
+{
+	if (req == oob_gpu)
+		return "oob_gpu";
+	else if (req == oob_perfcntr)
+		return "oob_perfcntr";
+	else if (req == oob_boot_slumber)
+		return "oob_boot_slumber";
+	else if (req == oob_dcvs)
+		return "oob_dcvs";
+	return "unknown";
+}
+
 /*
  * a6xx_gmu_oob_set() - Set OOB interrupt to GMU.
  * @device: Pointer to kgsl device
@@ -577,30 +589,31 @@ static int a6xx_gmu_oob_set(struct kgsl_device *device,
 	int ret = 0;
 	int set, check;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
-		set = BIT(30 - req * 2);
-		check = BIT(31 - req);
-
-		if (req >= 6) {
-			dev_err(&gmu->pdev->dev,
-					"OOB_set(0x%x) invalid\n", set);
-			return -EINVAL;
-		}
-	} else {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
 		set = BIT(req + 16);
 		check = BIT(req + 24);
+	} else {
+		/*
+		 * The legacy targets have special bits that aren't supported on
+		 * newer implementations
+		 */
+		if (req >= oob_boot_slumber) {
+			dev_err(&gmu->pdev->dev,
+				"Unsupported OOB request %s\n",
+				oob_to_str(req));
+			return -EINVAL;
+		}
+
+		set = BIT(30 - req * 2);
+		check = BIT(31 - req);
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set);
 
-	if (timed_poll_check(device,
-			A6XX_GMU_GMU2HOST_INTR_INFO,
-			check,
-			GPU_START_TIMEOUT,
-			check)) {
+	if (timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO, check,
+		GPU_START_TIMEOUT, check)) {
 		ret = -ETIMEDOUT;
-		dev_err(&gmu->pdev->dev,
-			"OOB_set(0x%x) timed out\n", set);
+		WARN(1, "OOB request %s timed out\n", oob_to_str(req));
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, check);
@@ -621,15 +634,16 @@ static void a6xx_gmu_oob_clear(struct kgsl_device *device,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int clear;
 
-	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
+		clear = BIT(req + 24);
+	} else {
 		clear = BIT(31 - req * 2);
-		if (req >= 6) {
-			dev_err(&gmu->pdev->dev,
-					"OOB_clear(0x%x) invalid\n", clear);
+		if (req >= oob_boot_slumber) {
+			dev_err(&gmu->pdev->dev, "Unsupported OOB clear %s\n",
+				oob_to_str(req));
 			return;
 		}
-	} else
-		clear = BIT(req + 24);
+	}
 
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, clear);
 	trace_kgsl_gmu_oob_clear(clear);
@@ -920,12 +934,9 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
-	kgsl_regread(device, A6XX_CP_STATUS_1, &reg3);
-	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg4);
-	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg5);
-	kgsl_regread(device, A6XX_CP_CP2GMU_STATUS, &reg6);
-	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg7);
-	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg8);
+	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg3);
+	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg4);
+	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg5);
 
 	dev_err(&gmu->pdev->dev,
 		"----------------------[ GMU error ]----------------------\n");
@@ -939,14 +950,23 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 		ts3-ts2);
 	dev_err(&gmu->pdev->dev,
 		"RPMH_POWER_STATE=%x SPTPRAC_PWR_CLK_STATUS=%x\n", reg, reg1);
-	dev_err(&gmu->pdev->dev,
-		"CX_BUSY_STATUS=%x CP_STATUS_1=%x\n", reg2, reg3);
+	dev_err(&gmu->pdev->dev, "CX_BUSY_STATUS=%x\n", reg2);
 	dev_err(&gmu->pdev->dev,
 		"RBBM_INT_UNMASKED_STATUS=%x PWR_COL_KEEPALIVE=%x\n",
-		reg4, reg5);
-	dev_err(&gmu->pdev->dev,
-		"CP2GMU_STATUS=%x CONTEXT_SWITCH_CNTL=%x AO_SPARE_CNTL=%x\n",
-		reg6, reg7, reg8);
+		reg3, reg4);
+	dev_err(&gmu->pdev->dev, "A6XX_GMU_AO_SPARE_CNTL=%x\n", reg5);
+
+	/* Access GX registers only when GX is ON */
+	if (is_on(reg1)) {
+		kgsl_regread(device, A6XX_CP_STATUS_1, &reg6);
+		kgsl_regread(device, A6XX_CP_CP2GMU_STATUS, &reg7);
+		kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg8);
+
+		dev_err(&gmu->pdev->dev, "A6XX_CP_STATUS_1=%x\n", reg6);
+		dev_err(&gmu->pdev->dev,
+			"CP2GMU_STATUS=%x CONTEXT_SWITCH_CNTL=%x\n",
+			reg7, reg8);
+	}
 
 	WARN_ON(1);
 	return -ETIMEDOUT;
@@ -1104,6 +1124,9 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	/* Populate the GMU version info before GMU boots */
 	load_gmu_version_info(device);
 
+	/* Clear any previously set cm3 fault */
+	atomic_set(&gmu->cm3_fault, 0);
+
 	ret = a6xx_gmu_start(device);
 	if (ret)
 		return ret;
@@ -1151,9 +1174,9 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 		return -EINVAL;
 
 	ret = request_firmware(&gmu->fw_image, a6xx_core->gmufw_name,
-			device->dev);
+			&gmu->pdev->dev);
 	if (ret) {
-		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
+		dev_err(&gmu->pdev->dev, "request_firmware (%s) failed: %d\n",
 				a6xx_core->gmufw_name, ret);
 		return ret;
 	}
@@ -1406,8 +1429,7 @@ static void a6xx_gmu_enable_lm(struct kgsl_device *device)
 	memset(adreno_dev->busy_data.throttle_cycles, 0,
 		sizeof(adreno_dev->busy_data.throttle_cycles));
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return;
 
 	/*
@@ -1748,6 +1770,18 @@ static int a6xx_gmu_wait_for_active_transition(
 	return -ETIMEDOUT;
 }
 
+static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
+}
+
+static u64 a6xx_gmu_read_alwayson(struct kgsl_device *device)
+{
+	return a6xx_read_alwayson(ADRENO_DEVICE(device));
+}
+
 struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.load_firmware = a6xx_gmu_load_firmware,
 	.oob_set = a6xx_gmu_oob_set,
@@ -1765,6 +1799,8 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.snapshot = a6xx_gmu_snapshot,
 	.cooperative_reset = a6xx_gmu_cooperative_reset,
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
+	.read_alwayson = a6xx_gmu_read_alwayson,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
+	.scales_bandwidth = a6xx_gmu_scales_bandwidth,
 };

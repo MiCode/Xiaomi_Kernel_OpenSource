@@ -892,9 +892,7 @@ static struct platform_driver mem_dump_driver = {
 	},
 };
 
-static int __init mem_dump_init(void)
-{
-	return platform_driver_register(&mem_dump_driver);
-}
+module_platform_driver(mem_dump_driver);
 
-pure_initcall(mem_dump_init);
+MODULE_DESCRIPTION("Memory Dump V2 Driver");
+MODULE_LICENSE("GPL v2");

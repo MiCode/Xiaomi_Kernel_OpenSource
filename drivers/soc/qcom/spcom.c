@@ -502,11 +502,9 @@ static int spcom_rx(struct spcom_channel *ch,
 			spcom_pr_warn("rpmsg channel is closing\n");
 			ret = -ERESTART;
 			goto exit_err;
-		} else if (ret < 0 || timeleft == -ERESTARTSYS) {
-			spcom_pr_dbg("wait interrupted: ret=%d, timeleft=%ld\n",
-				 ret, timeleft);
-			if (timeleft == -ERESTARTSYS)
-				ret = -ERESTARTSYS;
+		} else if (ret < 0 || timeleft < 0) {
+			spcom_pr_err("rx wait was interrupted!");
+			ret = -EINTR; /* abort, not restartable */
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
 			spcom_pr_dbg("actual_rx_size is [%zu], txn_id %d\n",
@@ -1298,6 +1296,13 @@ static int spcom_handle_write(struct spcom_channel *ch,
 		return -EINVAL;
 	}
 
+	if (cmd_id == SPCOM_CMD_SEND || cmd_id == SPCOM_CMD_SEND_MODIFIED) {
+		if (!spcom_is_channel_connected(ch)) {
+			pr_err("ch [%s] remote side not connected\n", ch->name);
+			return -ENOTCONN;
+		}
+	}
+
 	switch (cmd_id) {
 	case SPCOM_CMD_SEND:
 		if (ch->is_sharable) {
@@ -1760,12 +1765,6 @@ static ssize_t spcom_device_write(struct file *filp,
 			return -EINVAL;
 		}
 		spcom_pr_dbg("control device - no channel context\n");
-	} else {
-		/* Check if remote side connect */
-		if (!spcom_is_channel_connected(ch)) {
-			spcom_pr_err("ch [%s] not connected\n", ch->name);
-			return -ENOTCONN;
-		}
 	}
 	buf_size = size; /* explicit casting size_t to int */
 	buf = kzalloc(size, GFP_KERNEL);
@@ -1943,7 +1942,8 @@ static inline int handle_poll(struct file *file,
 		mutex_unlock(&ch->lock);
 		break;
 	default:
-		spcom_pr_err("ch [%s] unsupported ioctl:%u\n", op->cmd_id);
+		spcom_pr_err("ch [%s] unsupported ioctl:%u\n",
+			name, op->cmd_id);
 		ret = -EINVAL;
 	}
 	spcom_pr_dbg("name=%s, retval=%d\n", name, op->retval);

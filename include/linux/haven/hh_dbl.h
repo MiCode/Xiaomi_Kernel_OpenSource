@@ -13,6 +13,9 @@ typedef void (*dbl_rx_cb_t)(int irq, void *priv_data);
 
 enum hh_dbl_label {
 	HH_DBL_TUI_LABEL,
+	HH_DBL_TUI_NEURON_BLK0,
+	HH_DBL_TUI_NEURON_BLK1,
+	HH_DBL_TUI_QRTR,
 	HH_DBL_LABEL_MAX
 };
 

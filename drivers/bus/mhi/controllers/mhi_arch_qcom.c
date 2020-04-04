@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <asm/dma-iommu.h>
 #include <linux/async.h>
@@ -310,7 +310,6 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 	struct mhi_controller *mhi_cntrl = data;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
-	struct mhi_device *boot_dev;
 	/* 15 sec timeout for booting device */
 	const u32 timeout = msecs_to_jiffies(15000);
 
@@ -323,15 +322,10 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 	ipc_log_string(arch_info->boot_ipc_log, HLOG "Device current ee = %s\n",
 		       TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
-	/* if we successfully booted to amss disable boot log channel */
-	if (mhi_cntrl->ee == MHI_EE_AMSS) {
-		boot_dev = arch_info->boot_dev;
-		if (boot_dev)
-			mhi_unprepare_from_transfer(boot_dev);
-
+	/* if we successfully booted to amss, enable runtime pm */
+	if (mhi_cntrl->ee == MHI_EE_AMSS)
 		if (!mhi_dev->drv_supported || arch_info->drv_connected)
 			pm_runtime_allow(&mhi_dev->pci_dev->dev);
-	}
 }
 
 int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
@@ -344,6 +338,17 @@ int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 		arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
 
 	return 0;
+}
+
+void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct mhi_device *boot_dev = arch_info->boot_dev;
+
+	/* disable boot logger channel */
+	if (boot_dev)
+		mhi_unprepare_from_transfer(boot_dev);
 }
 
 static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
@@ -596,7 +601,8 @@ static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
 
 	/* do a drv hand off */
 	ret = msm_pcie_pm_control(MSM_PCIE_DRV_SUSPEND, mhi_cntrl->bus,
-				  pci_dev, NULL, 0);
+				  pci_dev, NULL, mhi_cntrl->wake_set ?
+				  MSM_PCIE_CONFIG_NO_L1SS_TO : 0);
 
 	/*
 	 * we failed to suspend and scaled down pcie bw.. need to scale up again

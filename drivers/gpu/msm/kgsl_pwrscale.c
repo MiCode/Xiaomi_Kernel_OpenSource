@@ -709,6 +709,61 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	pwrscale->gpu_profile.bus_devfreq = bus_devfreq;
 }
 
+static void pwrscale_of_get_ca_target_pwrlevel(struct kgsl_device *device,
+		struct device_node *node)
+{
+	u32 pwrlevel = 1;
+
+	of_property_read_u32(node, "qcom,ca-target-pwrlevel", &pwrlevel);
+
+	if (pwrlevel >= device->pwrctrl.num_pwrlevels)
+		pwrlevel = 1;
+
+	device->pwrscale.ctxt_aware_target_pwrlevel = pwrlevel;
+}
+
+/* Get context aware properties */
+static void pwrscale_of_ca_aware(struct kgsl_device *device)
+{
+	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
+	struct device_node *parent = device->pdev->dev.of_node;
+	struct device_node *node, *child;
+
+	pwrscale->ctxt_aware_enable =
+		of_property_read_bool(parent, "qcom,enable-ca-jump");
+
+	if (!pwrscale->ctxt_aware_enable)
+		return;
+
+	pwrscale->ctxt_aware_busy_penalty = 12000;
+	of_property_read_u32(parent, "qcom,ca-busy-penalty",
+		&pwrscale->ctxt_aware_busy_penalty);
+
+
+	pwrscale->ctxt_aware_target_pwrlevel = 1;
+
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevel-bins");
+	if (node == NULL) {
+		pwrscale_of_get_ca_target_pwrlevel(device, parent);
+		return;
+	}
+
+	for_each_child_of_node(node, child) {
+		u32 bin;
+
+		if (of_property_read_u32(child, "qcom,speed-bin", &bin))
+			continue;
+
+		if (bin == device->speed_bin) {
+			pwrscale_of_get_ca_target_pwrlevel(device, child);
+			of_node_put(child);
+			break;
+		}
+	}
+
+	of_node_put(node);
+}
+
 int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 		const char *governor)
 {
@@ -733,6 +788,8 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	gpu_profile->profile.polling_ms = 10;
 
 	pwr->nb.notifier_call = opp_notify;
+
+	pwrscale_of_ca_aware(device);
 
 	dev_pm_opp_register_notifier(&pdev->dev, &pwr->nb);
 

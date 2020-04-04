@@ -49,6 +49,9 @@ struct oom_control {
 	unsigned long totalpages;
 	struct task_struct *chosen;
 	unsigned long chosen_points;
+#ifdef CONFIG_PRIORITIZE_OOM_TASKS
+	short min_kill_adj;
+#endif
 
 	/* Used to print the constraint info. */
 	enum oom_constraint constraint;
@@ -130,4 +133,6 @@ extern int sysctl_reap_mem_on_sigkill;
 
 /* calls for LMK reaper */
 extern void add_to_oom_reaper(struct task_struct *p);
+extern void check_panic_on_foreground_kill(struct task_struct *p);
+#define ULMK_MAGIC "lmkd"
 #endif /* _INCLUDE_LINUX_OOM_H */

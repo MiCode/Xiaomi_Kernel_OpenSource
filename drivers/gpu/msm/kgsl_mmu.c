@@ -301,7 +301,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name)
 
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
 {
-	if (pagetable)
+	if (!IS_ERR_OR_NULL(pagetable))
 		kref_put(&pagetable->refcount, kgsl_destroy_pagetable);
 }
 
@@ -631,55 +631,28 @@ static struct kgsl_pagetable *nommu_getpagetable(struct kgsl_mmu *mmu,
 	return pagetable;
 }
 
-static int nommu_init(struct kgsl_mmu *mmu)
-{
-	mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
-	return 0;
-}
-
-static int nommu_probe(struct kgsl_device *device)
-{
-	/* NOMMU always exists */
-	return 0;
-}
-
 static struct kgsl_mmu_ops kgsl_nommu_ops = {
-	.mmu_init = nommu_init,
 	.mmu_init_pt = nommu_init_pt,
 	.mmu_getpagetable = nommu_getpagetable,
-	.probe = nommu_probe,
-};
-
-static struct {
-	const char *name;
-	unsigned int type;
-	struct kgsl_mmu_ops *ops;
-} kgsl_mmu_subtypes[] = {
-#if IS_ENABLED(CONFIG_ARM_SMMU)
-	{ "iommu", KGSL_MMU_TYPE_IOMMU, &kgsl_iommu_ops },
-#endif
-	{ "nommu", KGSL_MMU_TYPE_NONE, &kgsl_nommu_ops },
 };
 
 int kgsl_mmu_probe(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
-	int ret, i;
+	int ret;
 
-	for (i = 0; i < ARRAY_SIZE(kgsl_mmu_subtypes); i++) {
-		ret = kgsl_mmu_subtypes[i].ops->probe(device);
+	/*
+	 * Try to probe for the IOMMU and if it doesn't exist for some reason
+	 * go for the NOMMU option instead
+	 */
+	ret = kgsl_iommu_probe(device);
+	if (!ret || ret == -EPROBE_DEFER)
+		return ret;
 
-		if (ret == 0) {
-			mmu->type = kgsl_mmu_subtypes[i].type;
-			mmu->mmu_ops = kgsl_mmu_subtypes[i].ops;
+	/* set up for NOMMU */
+	set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
 
-			if (MMU_OP_VALID(mmu, mmu_init))
-				return mmu->mmu_ops->mmu_init(mmu);
-
-			return 0;
-		}
-	}
-
-	dev_err(device->dev, "mmu: couldn't detect any known MMU types\n");
-	return -ENODEV;
+	mmu->mmu_ops = &kgsl_nommu_ops;
+	mmu->type = KGSL_MMU_TYPE_NONE;
+	return 0;
 }

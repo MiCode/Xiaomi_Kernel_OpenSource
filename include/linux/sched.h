@@ -540,15 +540,25 @@ struct cpu_cycle_counter_cb {
 
 DECLARE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
 
+#ifdef CONFIG_QCOM_HYP_CORE_CTL
+extern int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id);
+#else
+static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
+{
+	return 0;
+}
+#endif /* CONFIG_QCOM_HYP_CORE_CTL */
+
 #ifdef CONFIG_SCHED_WALT
 extern void sched_exit(struct task_struct *p);
-extern int __weak
+extern int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
-extern void __weak
+extern void
 sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax);
 extern void free_task_load_ptrs(struct task_struct *p);
 extern void sched_set_refresh_rate(enum fps fps);
 extern int set_task_boost(int boost, u64 period);
+extern void walt_update_cluster_topology(void);
 
 #define RAVG_HIST_SIZE_MAX  5
 #define NUM_BUSY_BUCKETS 10
@@ -618,6 +628,7 @@ static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
 static inline void sched_set_refresh_rate(enum fps fps) { }
 
 static inline void set_task_boost(int boost, u64 period) { }
+static inline void walt_update_cluster_topology(void) { }
 #endif /* CONFIG_SCHED_WALT */
 
 struct sched_rt_entity {
@@ -1065,8 +1076,10 @@ struct task_struct {
 	struct sysv_shm			sysvshm;
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK
+	/* hung task detection */
 	unsigned long			last_switch_count;
 	unsigned long			last_switch_time;
+	bool hang_detection_enabled;
 #endif
 	/* Filesystem information: */
 	struct fs_struct		*fs;
@@ -1372,6 +1385,8 @@ struct task_struct {
 #endif /* CONFIG_TRACING */
 
 #ifdef CONFIG_KCOV
+	/* See kernel/kcov.c for more details. */
+
 	/* Coverage collection mode enabled for this task (0 if disabled): */
 	unsigned int			kcov_mode;
 
@@ -1383,6 +1398,12 @@ struct task_struct {
 
 	/* KCOV descriptor wired with this task or NULL: */
 	struct kcov			*kcov;
+
+	/* KCOV common handle for remote coverage collection: */
+	u64				kcov_handle;
+
+	/* KCOV sequence number: */
+	int				kcov_sequence;
 #endif
 
 #ifdef CONFIG_MEMCG

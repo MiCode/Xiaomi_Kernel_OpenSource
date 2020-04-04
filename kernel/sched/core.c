@@ -5627,6 +5627,7 @@ unsigned int sched_lib_mask_force;
 bool is_sched_lib_based_app(pid_t pid)
 {
 	const char *name = NULL;
+	char *lib_list, *libname;
 	struct vm_area_struct *vma;
 	char path_buf[LIB_PATH_LENGTH];
 	bool found = false;
@@ -5636,11 +5637,14 @@ bool is_sched_lib_based_app(pid_t pid)
 	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
 		return false;
 
+	lib_list = kstrdup(sched_lib_name, GFP_KERNEL);
+
 	rcu_read_lock();
 
 	p = find_process_by_pid(pid);
 	if (!p) {
 		rcu_read_unlock();
+		kfree(lib_list);
 		return false;
 	}
 
@@ -5660,10 +5664,12 @@ bool is_sched_lib_based_app(pid_t pid)
 			if (IS_ERR(name))
 				goto release_sem;
 
-			if (strnstr(name, sched_lib_name,
+			while ((libname = strsep(&lib_list, ","))) {
+				if (strnstr(name, libname,
 					strnlen(name, LIB_PATH_LENGTH))) {
-				found = true;
-				break;
+					found = true;
+					break;
+				}
 			}
 		}
 	}
@@ -5673,6 +5679,7 @@ release_sem:
 	mmput(mm);
 put_task_struct:
 	put_task_struct(p);
+	kfree(lib_list);
 	return found;
 }
 
@@ -6755,8 +6762,6 @@ void __init sched_init_smp(void)
 	sched_init_domains(cpu_active_mask);
 	mutex_unlock(&sched_domains_mutex);
 
-	update_cluster_topology();
-
 	/* Move init over to a non-isolated CPU */
 	if (set_cpus_allowed_ptr(current, housekeeping_cpumask(HK_FLAG_DOMAIN)) < 0)
 		BUG();
@@ -6974,6 +6979,8 @@ void __init sched_init(void)
 
 	init_uclamp();
 
+	walt_init_sched_boost(&root_task_group);
+
 	scheduler_running = 1;
 }
 
@@ -7180,38 +7187,6 @@ static inline struct task_group *css_tg(struct cgroup_subsys_state *css)
 }
 
 #if defined(CONFIG_SCHED_WALT) && defined(CONFIG_UCLAMP_TASK_GROUP)
-static inline void walt_init_sched_boost(struct task_group *tg)
-{
-	tg->sched_boost_no_override = false;
-	tg->sched_boost_enabled = true;
-	tg->colocate = false;
-	tg->colocate_update_disabled = false;
-}
-
-void update_cgroup_boost_settings(void)
-{
-	struct task_group *tg;
-
-	rcu_read_lock();
-	list_for_each_entry_rcu(tg, &task_groups, list) {
-		if (tg->sched_boost_no_override)
-			continue;
-
-		tg->sched_boost_enabled = false;
-	}
-	rcu_read_unlock();
-}
-
-void restore_cgroup_boost_settings(void)
-{
-	struct task_group *tg;
-
-	rcu_read_lock();
-	list_for_each_entry_rcu(tg, &task_groups, list)
-		tg->sched_boost_enabled = true;
-	rcu_read_unlock();
-}
-
 static void walt_schedgp_attach(struct cgroup_taskset *tset)
 {
 	struct task_struct *task;
@@ -7267,7 +7242,6 @@ static int sched_colocate_write(struct cgroup_subsys_state *css,
 	return 0;
 }
 #else
-static inline void walt_init_sched_boost(struct task_group *tg) { }
 static void walt_schedgp_attach(struct cgroup_taskset *tset) { }
 #endif /* CONFIG_SCHED_WALT */
 

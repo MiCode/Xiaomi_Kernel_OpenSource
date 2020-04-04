@@ -209,8 +209,6 @@ static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
 		iommu_domain_set_attr(domain,
 			DOMAIN_ATTR_SECURE_VMID, &attrs->vmid);
 
-	iommu_domain_set_attr(domain, DOMAIN_ATTR_DEBUG, &val);
-
 	return 0;
 }
 
@@ -237,6 +235,7 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 
 	const struct iommu_ops *iommu;
 	struct iommu_domain *domain;
+	struct msm_iommu_domain *msm_domain;
 	struct device *dev = ddev->dev;
 	int is_fast;
 	bool coherent;
@@ -275,6 +274,9 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 		dev_err_ratelimited(dev, "Allocating iommu domain failed\n");
 		return -EINVAL;
 	}
+
+	msm_domain = to_msm_iommu_domain(domain);
+	msm_domain->is_debug_domain = true;
 
 	if (iommu_debug_set_attrs(ddev, domain, attrs)) {
 		dev_err_ratelimited(dev, "Setting attrs failed\n");
@@ -900,7 +902,8 @@ out:
 static int __check_mapping(struct device *dev, struct iommu_domain *domain,
 			   dma_addr_t iova, phys_addr_t expected)
 {
-	phys_addr_t res = iommu_iova_to_phys_hard(domain, iova);
+	phys_addr_t res = iommu_iova_to_phys_hard(domain, iova,
+						  IOMMU_TRANS_DEFAULT);
 	phys_addr_t res2 = iommu_iova_to_phys(domain, iova);
 
 	WARN(res != res2, "hard/soft iova_to_phys fns don't agree...");
@@ -1125,7 +1128,8 @@ static int __functional_dma_api_basic_test(struct device *dev,
 		memset(data, 0xa5, size);
 		iova = dma_map_single(dev, data, size, DMA_TO_DEVICE);
 		pa = iommu_iova_to_phys(domain, iova);
-		pa2 = iommu_iova_to_phys_hard(domain, iova);
+		pa2 = iommu_iova_to_phys_hard(domain, iova,
+					      IOMMU_TRANS_DEFAULT);
 		if (pa != pa2) {
 			dev_err_ratelimited(dev,
 				"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
@@ -1198,7 +1202,8 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 		for_each_sg(table.sgl, sg, count, i) {
 			iova = sg_dma_address(sg);
 			pa = iommu_iova_to_phys(domain, iova);
-			pa2 = iommu_iova_to_phys_hard(domain, iova);
+			pa2 = iommu_iova_to_phys_hard(domain, iova,
+						      IOMMU_TRANS_DEFAULT);
 			if (pa != pa2) {
 				dev_err_ratelimited(dev,
 					"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
@@ -1209,7 +1214,8 @@ static int __functional_dma_api_map_sg_test(struct device *dev,
 			/* check mappings at end of buffer */
 			iova += sg_dma_len(sg) - 1;
 			pa = iommu_iova_to_phys(domain, iova);
-			pa2 = iommu_iova_to_phys_hard(domain, iova);
+			pa2 = iommu_iova_to_phys_hard(domain, iova,
+						      IOMMU_TRANS_DEFAULT);
 			if (pa != pa2) {
 				dev_err_ratelimited(dev,
 					"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
@@ -1551,7 +1557,8 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 
 	memset(buf, 0, 100);
 
-	phys = iommu_iova_to_phys_hard(ddev->domain, ddev->iova);
+	phys = iommu_iova_to_phys_hard(ddev->domain, ddev->iova,
+				       IOMMU_TRANS_DEFAULT);
 	if (!phys) {
 		strlcpy(buf, "FAIL\n", 100);
 		phys = iommu_iova_to_phys(ddev->domain, ddev->iova);
@@ -1594,7 +1601,7 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 	memset(buf, 0, sizeof(buf));
 
 	phys = iommu_iova_to_phys_hard(ddev->domain,
-			ddev->iova);
+			ddev->iova, IOMMU_TRANS_DEFAULT);
 	if (!phys)
 		strlcpy(buf, "FAIL\n", sizeof(buf));
 	else

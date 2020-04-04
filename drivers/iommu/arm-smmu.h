@@ -209,6 +209,9 @@ enum arm_smmu_cbar_type {
 
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define FSYNR0_WNR			BIT(4)
+#define FSYNR0_PNU			BIT(5)
+#define FSYNR0_IND			BIT(6)
+#define FSYNR0_NSATTR			BIT(8)
 
 #define ARM_SMMU_CB_FSYNR1		0x6c
 #define FSYNR1_BID			GENMASK(15, 13)
@@ -297,6 +300,30 @@ struct arm_smmu_power_resources {
 	int				regulator_defer;
 };
 
+/*
+ * attach_count
+ *	The SMR and S2CR registers are only programmed when the number of
+ *	devices attached to the iommu using these registers is > 0. This
+ *	is required for the "SID switch" use case for secure display.
+ *	Protected by stream_map_mutex.
+ */
+struct arm_smmu_s2cr {
+	struct iommu_group		*group;
+	int				count;
+	int				attach_count;
+	enum arm_smmu_s2cr_type		type;
+	enum arm_smmu_s2cr_privcfg	privcfg;
+	u8				cbndx;
+	bool				cb_handoff;
+	bool				pinned;
+};
+
+struct arm_smmu_smr {
+	u16				mask;
+	u16				id;
+	bool				valid;
+};
+
 struct arm_smmu_device {
 	struct device			*dev;
 
@@ -367,17 +394,41 @@ struct arm_smmu_device {
 
 	struct arm_smmu_power_resources *pwr;
 
-	spinlock_t			atos_lock;
-
 	/* protects idr */
 	struct mutex			idr_mutex;
 	struct idr			asid_idr;
 
-	struct arm_smmu_arch_ops	*arch_ops;
-	void				*archdata;
-	struct work_struct		outstanding_tnx_work;
 	unsigned long			sync_timed_out;
 };
+
+struct qsmmuv500_tbu_device {
+	struct list_head		list;
+	struct device			*dev;
+	struct arm_smmu_device		*smmu;
+	void __iomem			*base;
+	void __iomem			*status_reg;
+
+	struct arm_smmu_power_resources *pwr;
+	u32				sid_start;
+	u32				num_sids;
+
+	/* Protects halt count */
+	spinlock_t			halt_lock;
+	u32				halt_count;
+};
+
+struct arm_smmu_master_cfg {
+	struct arm_smmu_device		*smmu;
+	s16				smendx[];
+};
+
+#define INVALID_SMENDX			-1
+#define __fwspec_cfg(fw) ((struct arm_smmu_master_cfg *)fw->iommu_priv)
+#define fwspec_smmu(fw)  (__fwspec_cfg(fw)->smmu)
+#define fwspec_smendx(fw, i) \
+	(i >= fw->num_ids ? INVALID_SMENDX : __fwspec_cfg(fw)->smendx[i])
+#define for_each_cfg_sme(fw, i, idx) \
+	for (i = 0; idx = fwspec_smendx(fw, i), i < fw->num_ids; ++i)
 
 enum arm_smmu_context_fmt {
 	ARM_SMMU_CTX_FMT_NONE,
@@ -439,6 +490,7 @@ struct arm_smmu_domain {
 
 
 /* Implementation details, yay! */
+
 struct arm_smmu_impl {
 	u32 (*read_reg)(struct arm_smmu_device *smmu, int page, int offset);
 	void (*write_reg)(struct arm_smmu_device *smmu, int page, int offset,
@@ -449,6 +501,14 @@ struct arm_smmu_impl {
 	int (*cfg_probe)(struct arm_smmu_device *smmu);
 	int (*reset)(struct arm_smmu_device *smmu);
 	int (*init_context)(struct arm_smmu_domain *smmu_domain);
+	void (*init_context_bank)(struct arm_smmu_domain *smmu_domain,
+				  struct device *dev);
+	phys_addr_t (*iova_to_phys_hard)(struct arm_smmu_domain *smmu_domain,
+					 dma_addr_t iova,
+					 unsigned long trans_flags);
+	void (*tlb_sync_timeout)(struct arm_smmu_device *smmu);
+	void (*device_remove)(struct arm_smmu_device *smmu);
+	int (*device_group)(struct device *dev, struct iommu_group *group);
 };
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
@@ -514,10 +574,16 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu);
+struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu);
 
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
+int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
+void arm_smmu_power_off(struct arm_smmu_device *smmu,
+			struct arm_smmu_power_resources *pwr);
+
 /* Misc. constants */
 #define TBUID_SHIFT                     10
+#define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 
 #endif /* _ARM_SMMU_H */

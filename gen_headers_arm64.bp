@@ -999,6 +999,7 @@ gen_headers_out_arm64 = [
     "display/drm/sde_drm.h",
     "display/media/mmm_color_fmt.h",
     "display/media/msm_sde_rotator.h",
+    "display/hdcp/msm_hdmi_hdcp_mgr.h",
     "vidc/media/msm_media_info.h",
     "vidc/media/msm_vidc_utils.h",
 ]

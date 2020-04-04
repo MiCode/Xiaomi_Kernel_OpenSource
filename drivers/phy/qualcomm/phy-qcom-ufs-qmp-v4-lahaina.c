@@ -1,16 +1,32 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, Linux Foundation. All rights reserved.
  */
 
 #include "phy-qcom-ufs-qmp-v4-lahaina.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_v4_lahaina"
 
-static
-int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B, bool is_g4)
+static inline void ufs_qcom_phy_qmp_v4_start_serdes(struct ufs_qcom_phy *phy);
+static int ufs_qcom_phy_qmp_v4_is_pcs_ready(struct ufs_qcom_phy *phy_common);
+
+static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 {
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+	struct device *dev = ufs_qcom_phy->dev;
+	bool is_g4, is_rate_B;
+	int err;
+
+	err = reset_control_assert(ufs_qcom_phy->ufs_reset);
+	if (err) {
+		dev_err(dev, "Failed to assert UFS PHY reset %d\n", err);
+		goto out;
+	}
+
+	/* For UFS PHY's submode, 1 = G4, 0 = non-G4 */
+	is_g4 = !!ufs_qcom_phy->submode;
+	is_rate_B = (ufs_qcom_phy->mode == PHY_MODE_UFS_HS_B) ? true : false;
+
 	writel_relaxed(0x01, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
 	/* Ensure PHY is in reset before writing PHY calibration data */
 	wmb();
@@ -43,7 +59,18 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	/* flush buffered writes */
 	wmb();
 
-	return 0;
+	err = reset_control_deassert(ufs_qcom_phy->ufs_reset);
+	if (err) {
+		dev_err(dev, "Failed to deassert UFS PHY reset %d\n", err);
+		goto out;
+	}
+
+	ufs_qcom_phy_qmp_v4_start_serdes(ufs_qcom_phy);
+
+	err = ufs_qcom_phy_qmp_v4_is_pcs_ready(ufs_qcom_phy);
+
+out:
+	return err;
 }
 
 static int ufs_qcom_phy_qmp_v4_init(struct phy *generic_phy)
@@ -65,6 +92,9 @@ static int ufs_qcom_phy_qmp_v4_init(struct phy *generic_phy)
 			__func__, err);
 		goto out;
 	}
+
+	/* Optional */
+	ufs_qcom_phy_get_reset(phy_common);
 
 out:
 	return err;
@@ -200,6 +230,7 @@ out:
 	return err;
 }
 
+
 static void ufs_qcom_phy_qmp_v4_dbg_register_dump(struct ufs_qcom_phy *phy)
 {
 	ufs_qcom_phy_dump_regs(phy, COM_BASE, COM_SIZE,
@@ -222,11 +253,11 @@ static const struct phy_ops ufs_qcom_phy_qmp_v4_phy_ops = {
 	.power_on	= ufs_qcom_phy_power_on,
 	.power_off	= ufs_qcom_phy_power_off,
 	.set_mode	= ufs_qcom_phy_qmp_v4_set_mode,
+	.calibrate	= ufs_qcom_phy_qmp_v4_phy_calibrate,
 	.owner		= THIS_MODULE,
 };
 
 static struct ufs_qcom_phy_specific_ops phy_v4_ops = {
-	.calibrate		= ufs_qcom_phy_qmp_v4_phy_calibrate,
 	.start_serdes		= ufs_qcom_phy_qmp_v4_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_v4_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_v4_set_tx_lane_enable,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -374,7 +374,7 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 	 */
 	if (drvdata->refcnt == 0) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			goto err1;
 		ret = coresight_enable_reg_clk(drvdata->csdev);
 		if (ret)
@@ -465,7 +465,7 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 	 */
 	if (drvdata->refcnt == 0) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			goto err1;
 		ret = coresight_enable_reg_clk(drvdata->csdev);
 		if (ret)
@@ -1459,7 +1459,7 @@ static int cti_init_save(struct cti_drvdata *drvdata,
 	}
 	if (drvdata->cti_save && !drvdata->cti_hwclk) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			return ret;
 	}
 

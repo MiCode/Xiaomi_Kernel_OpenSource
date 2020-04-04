@@ -141,8 +141,6 @@ struct icc_path;
 /**
  * struct gmu_device - GMU device structure
  * @ver: GMU Version information
- * @reg_phys: GMU CSR physical address
- * @reg_len: GMU CSR range
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
@@ -174,8 +172,6 @@ struct gmu_device {
 		u32 hfi;
 	} ver;
 	struct platform_device *pdev;
-	unsigned long reg_phys;
-	unsigned int reg_len;
 	int gmu_interrupt_num;
 	const struct firmware *fw_image;
 	struct gmu_memdesc *hfi_mem;
@@ -198,8 +194,6 @@ struct gmu_device {
 	struct clk_bulk_data *clks;
 	/** @num_clks: Number of entries in the @clks array */
 	int num_clks;
-	/** @gmu_clk: Pointer to the core GMU clock */
-	struct clk *gmu_clk;
 	enum gmu_load_mode load_mode;
 	unsigned int wakeup_pwrlevel;
 	unsigned int idle_level;
@@ -210,6 +204,8 @@ struct gmu_device {
 	unsigned long kmem_bitmap;
 	const struct gmu_vma_entry *vma;
 	unsigned int log_wptr_retention;
+	/** @cm3_fault: whether gmu received a cm3 fault interrupt */
+	atomic_t cm3_fault;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,

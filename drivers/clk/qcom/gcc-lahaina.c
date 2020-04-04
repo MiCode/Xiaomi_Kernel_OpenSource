@@ -4498,11 +4498,17 @@ static int gcc_lahaina_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static void gcc_lahaina_sync_state(struct device *dev)
+{
+	qcom_cc_sync_state(dev, &gcc_lahaina_desc);
+}
+
 static struct platform_driver gcc_lahaina_driver = {
 	.probe = gcc_lahaina_probe,
 	.driver = {
 		.name = "lahaina-gcc",
 		.of_match_table = gcc_lahaina_match_table,
+		.sync_state = gcc_lahaina_sync_state,
 	},
 };
 

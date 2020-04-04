@@ -891,7 +891,7 @@ err_wqueue:
 err_rds:
 	kfree(radio->buffer);
 err:
-	video_device_release(&radio->videodev);
+	video_device_release_empty(&radio->videodev);
 err_v4l2:
 	v4l2_device_unregister(v4l2_dev);
 err_vreg:
@@ -920,9 +920,10 @@ static int rtc6226_i2c_remove(struct i2c_client *client)
 
 	free_irq(client->irq, radio);
 	kfree(radio->buffer);
-	video_device_release(&radio->videodev);
 	v4l2_ctrl_handler_free(&radio->ctrl_handler);
-	video_unregister_device(&radio->videodev);
+	if (video_is_registered(&radio->videodev))
+		video_unregister_device(&radio->videodev);
+	video_device_release_empty(&radio->videodev);
 	v4l2_device_unregister(&radio->v4l2_dev);
 	kfree(radio);
 	FMDBG("%s exit\n", __func__);

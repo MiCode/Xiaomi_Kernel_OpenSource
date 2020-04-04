@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -892,12 +892,26 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int i;
-	u32 roq, meq;
+	u32 roq, meq, hi, lo;
 	struct adreno_ringbuffer *rb;
 	struct registers regs;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
 	a5xx_hwcg_set(adreno_dev, false);
+
+	/* Save some CP information that the generic snapshot uses */
+	kgsl_regread(device, A5XX_CP_IB1_BASE, &lo);
+	kgsl_regread(device, A5XX_CP_IB1_BASE_HI, &hi);
+
+	snapshot->ib1base = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, A5XX_CP_IB2_BASE, &lo);
+	kgsl_regread(device, A5XX_CP_IB2_BASE_HI, &hi);
+
+	snapshot->ib2base = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, A5XX_CP_IB1_BUFSZ, &snapshot->ib1size);
+	kgsl_regread(device, A5XX_CP_IB2_BUFSZ, &snapshot->ib2size);
 
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,

@@ -20,8 +20,6 @@
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
 
-#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
-
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
 #define CLK_DIS_WAIT_MASK	(0xF << 12)
@@ -137,19 +135,8 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 		if (regulator_is_enabled(sc->parent_regulator) <= 0)
 			return false;
 
-		/*
-		 * Place an explicit vote on the parent rail to cover cases when
-		 * it might be disabled between this point and reading the GDSC
-		 * registers.
-		 */
-		if (regulator_set_voltage(sc->parent_regulator,
-					RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX))
+		if (regulator_enable(sc->parent_regulator))
 			return false;
-
-		if (regulator_enable(sc->parent_regulator)) {
-			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-			return false;
-		}
 	}
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
@@ -161,19 +148,16 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 		 * determine if HLOS has voted for it.
 		 */
 		if (!(regval & SW_COLLAPSE_MASK)) {
-			if (sc->parent_regulator) {
+			if (sc->parent_regulator)
 				regulator_disable(sc->parent_regulator);
-				regulator_set_voltage(sc->parent_regulator, 0,
-							INT_MAX);
-			}
+
 			return true;
 		}
 	}
 
-	if (sc->parent_regulator) {
+	if (sc->parent_regulator)
 		regulator_disable(sc->parent_regulator);
-		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-	}
+
 	return false;
 }
 
@@ -183,13 +167,6 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
 
-	if (sc->parent_regulator) {
-		ret = regulator_set_voltage(sc->parent_regulator,
-				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret)
-			return ret;
-	}
-
 	if (sc->root_en || sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
 
@@ -197,8 +174,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	if (regval & HW_CONTROL_MASK) {
 		dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
 				sc->rdesc.name);
-		ret = -EBUSY;
-		goto end;
+		return -EBUSY;
 	}
 
 	if (sc->toggle_logic) {
@@ -281,7 +257,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 					dev_err(&rdev->dev, "%s final state (after additional %d us timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
 						sc->rdesc.name, sc->gds_timeout,
 						regval, hw_ctrl_regval);
-					goto end;
+					return ret;
 				}
 			} else {
 				dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
@@ -293,7 +269,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
 					sc->rdesc.name, regval,
 					sc->gds_timeout);
-				goto end;
+				return ret;
 			}
 		}
 
@@ -322,9 +298,6 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	sc->is_gdsc_enabled = true;
-end:
-	if (sc->parent_regulator)
-		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	return ret;
 }
@@ -334,13 +307,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
-
-	if (sc->parent_regulator) {
-		ret = regulator_set_voltage(sc->parent_regulator,
-				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret)
-			return ret;
-	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -390,9 +356,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
-	if (sc->parent_regulator)
-		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-
 	sc->is_gdsc_enabled = false;
 
 	return ret;
@@ -405,24 +368,15 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 	int ret;
 
 	if (sc->parent_regulator) {
-		ret = regulator_set_voltage(sc->parent_regulator,
-					RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		ret = regulator_enable(sc->parent_regulator);
 		if (ret)
 			return ret;
-
-		ret = regulator_enable(sc->parent_regulator);
-		if (ret) {
-			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-			return ret;
-		}
 	}
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 
-	if (sc->parent_regulator) {
+	if (sc->parent_regulator)
 		regulator_disable(sc->parent_regulator);
-		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-	}
 
 	if (regval & HW_CONTROL_MASK)
 		return REGULATOR_MODE_FAST;
@@ -437,16 +391,9 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	int ret = 0;
 
 	if (sc->parent_regulator) {
-		ret = regulator_set_voltage(sc->parent_regulator,
-				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
+		ret = regulator_enable(sc->parent_regulator);
 		if (ret)
 			return ret;
-
-		ret = regulator_enable(sc->parent_regulator);
-		if (ret) {
-			regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-			return ret;
-		}
 	}
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
@@ -486,10 +433,8 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		break;
 	}
 
-	if (sc->parent_regulator) {
+	if (sc->parent_regulator)
 		regulator_disable(sc->parent_regulator);
-		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
-	}
 
 	return ret;
 }

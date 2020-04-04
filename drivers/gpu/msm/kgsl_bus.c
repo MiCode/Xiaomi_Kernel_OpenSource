@@ -15,8 +15,16 @@ static int interconnect_bus_set(struct kgsl_device *device, int level,
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
+	if ((level == pwr->cur_buslevel) && (ab == pwr->cur_ab))
+		return 0;
+
+	pwr->cur_buslevel = level;
+	pwr->cur_ab = ab;
+
 	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
 		kBps_to_icc(pwr->ddr_table[level]));
+
+	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level);
 
 	return 0;
 }
@@ -63,8 +71,6 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 		pwr->bus_percent_ab = 0;
 		pwr->bus_ab_mbytes = 0;
 	}
-	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
-	pwr->cur_buslevel = buslevel;
 
 	/* buslevel is the IB vote, update the AB */
 	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
@@ -118,7 +124,7 @@ u32 *kgsl_bus_get_table(struct platform_device *pdev,
 	if (num <= 0)
 		return ERR_PTR(-EINVAL);
 
-	levels = kcalloc(num, sizeof(*levels), GFP_KERNEL);
+	levels = devm_kcalloc(&pdev->dev, num, sizeof(*levels), GFP_KERNEL);
 	if (!levels)
 		return ERR_PTR(-ENOMEM);
 
@@ -172,10 +178,5 @@ done:
 
 void kgsl_bus_close(struct kgsl_device *device)
 {
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	kfree(pwr->ddr_table);
-
-	/* FIXME: Make sure icc put can handle NULL or IS_ERR */
-	icc_put(pwr->icc_path);
+	icc_put(device->pwrctrl.icc_path);
 }

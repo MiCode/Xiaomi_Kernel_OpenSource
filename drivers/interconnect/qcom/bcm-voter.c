@@ -26,6 +26,7 @@ static LIST_HEAD(bcm_voters);
  * @commit_list: list containing bcms to be committed to hardware
  * @ws_list: list containing bcms that have different wake/sleep votes
  * @voter_node: list of bcm voters
+ * @tcs_wait: mask for which buckets require TCS completion
  * @init: flag to determine when init has completed.
  */
 struct bcm_voter {
@@ -35,6 +36,7 @@ struct bcm_voter {
 	struct list_head commit_list;
 	struct list_head ws_list;
 	struct list_head voter_node;
+	u32 tcs_wait;
 	bool init;
 };
 
@@ -107,6 +109,8 @@ static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
 	if (!cmd)
 		return;
 
+	memset(cmd, 0, sizeof(*cmd));
+
 	if (vote_x == 0 && vote_y == 0)
 		valid = false;
 
@@ -123,15 +127,15 @@ static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
 	 * Set the wait for completion flag on command that need to be completed
 	 * before the next command.
 	 */
-	if (commit)
-		cmd->wait = true;
+	cmd->wait = commit;
 }
 
-static void tcs_list_gen(struct list_head *bcm_list, int bucket,
+static void tcs_list_gen(struct bcm_voter *voter, int bucket,
 			 struct tcs_cmd tcs_list[MAX_VCD],
 			 int n[MAX_VCD])
 {
 	struct qcom_icc_bcm *bcm;
+	struct list_head *bcm_list = &voter->commit_list;
 	bool commit;
 	size_t idx = 0, batch = 0, cur_vcd_size = 0;
 
@@ -143,8 +147,9 @@ static void tcs_list_gen(struct list_head *bcm_list, int bucket,
 		if ((list_is_last(&bcm->list, bcm_list)) ||
 		    bcm->aux_data.vcd !=
 			list_next_entry(bcm, list)->aux_data.vcd) {
-			commit = true;
 			cur_vcd_size = 0;
+			if (voter->tcs_wait & BIT(bucket))
+				commit = true;
 		}
 		tcs_cmd_gen(&tcs_list[idx], bcm->vote_x[bucket],
 			    bcm->vote_y[bucket], bcm->addr, commit);
@@ -271,9 +276,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 	 * Construct the command list based on a pre ordered list of BCMs
 	 * based on VCD.
 	 */
-	tcs_list_gen(&voter->commit_list, QCOM_ICC_BUCKET_AMC, cmds,
-			commit_idx);
-
+	tcs_list_gen(voter, QCOM_ICC_BUCKET_AMC, cmds, commit_idx);
 	if (!commit_idx[0])
 		goto out;
 
@@ -285,7 +288,19 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 
 	ret = rpmh_write_batch(voter->dev, RPMH_ACTIVE_ONLY_STATE,
 			       cmds, commit_idx);
-	if (ret) {
+
+	/*
+	 * Ignore -EBUSY for AMC requests, since this can only happen for AMC
+	 * requests when the RSC is in solver mode. We can only be in solver
+	 * mode at the time of request for secondary RSCs (e.g. Display RSC),
+	 * since the primary Apps RSC is only in solver mode while
+	 * entering/exiting power collapse when SW isn't running. The -EBUSY
+	 * response is expected in solver and is a non-issue, since we just
+	 * want the request to apply to the WAKE set in that case instead.
+	 * Interconnect doesn't know when the RSC is in solver, so just always
+	 * send AMC and ignore the harmless error response.
+	 */
+	if (ret && ret != -EBUSY) {
 		pr_err("Error sending AMC RPMH requests (%d)\n", ret);
 		goto out;
 	}
@@ -315,8 +330,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 
 	list_sort(NULL, &voter->commit_list, cmp_vcd);
 
-	tcs_list_gen(&voter->commit_list, QCOM_ICC_BUCKET_WAKE, cmds,
-			commit_idx);
+	tcs_list_gen(voter, QCOM_ICC_BUCKET_WAKE, cmds, commit_idx);
 
 	ret = rpmh_write_batch(voter->dev, RPMH_WAKE_ONLY_STATE, cmds,
 				commit_idx);
@@ -325,8 +339,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 		goto out;
 	}
 
-	tcs_list_gen(&voter->commit_list, QCOM_ICC_BUCKET_SLEEP, cmds,
-			commit_idx);
+	tcs_list_gen(voter, QCOM_ICC_BUCKET_SLEEP, cmds, commit_idx);
 
 	ret = rpmh_write_batch(voter->dev, RPMH_SLEEP_STATE, cmds, commit_idx);
 	if (ret) {
@@ -361,6 +374,7 @@ EXPORT_SYMBOL(qcom_icc_bcm_voter_clear_init);
 
 static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct bcm_voter *voter;
 
 	voter = devm_kzalloc(&pdev->dev, sizeof(*voter), GFP_KERNEL);
@@ -368,8 +382,12 @@ static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	voter->dev = &pdev->dev;
-	voter->np = pdev->dev.of_node;
+	voter->np = np;
 	voter->init = true;
+
+	if (of_property_read_u32(np, "qcom,tcs-wait", &voter->tcs_wait))
+		voter->tcs_wait = QCOM_ICC_TAG_ACTIVE_ONLY;
+
 	mutex_init(&voter->lock);
 	INIT_LIST_HEAD(&voter->commit_list);
 	INIT_LIST_HEAD(&voter->ws_list);

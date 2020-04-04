@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2020, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Replicator driver
  */
@@ -240,6 +240,8 @@ static int replicator_probe(struct device *dev, struct resource *res)
 	}
 
 	dev_set_drvdata(dev, drvdata);
+
+	spin_lock_init(&drvdata->spinlock);
 
 	pdata = coresight_get_platform_data(dev);
 	if (IS_ERR(pdata)) {

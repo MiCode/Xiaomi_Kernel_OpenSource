@@ -12,6 +12,7 @@ extern unsigned int  sysctl_hung_task_panic;
 extern unsigned long sysctl_hung_task_timeout_secs;
 extern unsigned long sysctl_hung_task_check_interval_secs;
 extern int sysctl_hung_task_warnings;
+extern int sysctl_hung_task_selective_monitoring;
 extern int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
 					 void __user *buffer,
 					 size_t *lenp, loff_t *ppos);
@@ -53,6 +54,7 @@ extern unsigned int __weak sysctl_sched_window_stats_policy;
 extern unsigned int __weak sysctl_sched_ravg_window_nr_ticks;
 extern unsigned int __weak sysctl_sched_many_wakeup_threshold;
 extern unsigned int __weak sysctl_sched_dynamic_ravg_window_enable;
+extern unsigned int sysctl_sched_prefer_spread;
 
 extern int
 walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
@@ -82,6 +84,9 @@ extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
 #endif
 #if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER)
 extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
+extern unsigned int sysctl_irqsoff_dmesg_output_enabled;
+extern unsigned int sysctl_irqsoff_crash_sentinel_value;
+extern unsigned int sysctl_irqsoff_crash_threshold_ns;
 #endif
 
 enum sched_tunable_scaling {

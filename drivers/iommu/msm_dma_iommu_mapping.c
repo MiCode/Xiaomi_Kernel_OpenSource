@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-noncoherent.h>
@@ -251,7 +251,8 @@ static inline int __msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 				dma_sync_sg_for_device(dev, iommu_map->sgl,
 					iommu_map->nents, iommu_map->dir);
 
-			if (dev_is_dma_coherent(dev))
+			if (dev_is_dma_coherent(dev) ||
+			    (attrs & DMA_ATTR_FORCE_COHERENT))
 				/*
 				 * Ensure all outstanding changes for coherent
 				 * buffers are applied to the cache before any
