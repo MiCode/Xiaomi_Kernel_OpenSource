@@ -102,12 +102,14 @@ static u32 a6xx_ifpc_pwrup_reglist[] = {
 	A6XX_CP_AHB_CNTL,
 };
 
-/*
- * a620, a650 and a660 need to program A6XX_CP_PROTECT_REG_47
- * for the infinite span
- */
+/* a620 and a650 need to program A6XX_CP_PROTECT_REG_47 for the infinite span */
 static u32 a650_pwrup_reglist[] = {
 	A6XX_CP_PROTECT_REG + 47,
+};
+
+static u32 a660_pwrup_reglist[] = {
+	A6XX_CP_PROTECT_REG + 47,
+	A6XX_UCHE_CMDQ_CONFIG,
 };
 
 static u32 a615_pwrup_reglist[] = {
@@ -317,8 +319,10 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		reglist[items++] = REGLIST(a612_pwrup_reglist);
 	else if (adreno_is_a615_family(adreno_dev))
 		reglist[items++] = REGLIST(a615_pwrup_reglist);
-	else if (adreno_is_a650_family(adreno_dev))
+	else if (adreno_is_a650(adreno_dev) || adreno_is_a620(adreno_dev))
 		reglist[items++] = REGLIST(a650_pwrup_reglist);
+	else if (adreno_is_a660(adreno_dev))
+		reglist[items++] = REGLIST(a660_pwrup_reglist);
 
 	/*
 	 * For each entry in each of the lists, write the offset and the current
@@ -602,12 +606,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
 	a6xx_protect_init(adreno_dev);
-
-	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
-		a6xx_patch_pwrup_reglist(adreno_dev);
-		patch_reglist = true;
-	}
-
 	/*
 	 * We start LM here because we want all the following to be up
 	 * 1. GX HS
@@ -623,8 +621,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_llc_enable_overrides(adreno_dev);
 
-	if (adreno_is_a660(adreno_dev))
+	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
+		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x6632f);
+	}
 
 	if (adreno_is_a660v1(adreno_dev))
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
@@ -633,6 +633,16 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
 
 	a6xx_set_secvid(device);
+
+	/*
+	 * All registers must be written before this point so that we don't
+	 * miss any register programming when we patch the power up register
+	 * list.
+	 */
+	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
+		a6xx_patch_pwrup_reglist(adreno_dev);
+		patch_reglist = true;
+	}
 }
 
 /*
