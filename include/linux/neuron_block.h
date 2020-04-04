@@ -3,6 +3,7 @@
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
  */
 
+#include <linux/neuron.h>
 #include <linux/skbuff.h>
 #include <linux/uuid.h>
 

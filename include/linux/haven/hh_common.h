@@ -7,6 +7,8 @@
 #ifndef __HH_COMMON_H
 #define __HH_COMMON_H
 
+#include <linux/types.h>
+
 /* Common Haven types */
 typedef u16 hh_vmid_t;
 typedef u32 hh_rm_msgid_t;
