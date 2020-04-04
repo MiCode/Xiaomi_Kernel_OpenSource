@@ -356,7 +356,7 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
 
-static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
+int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
 
