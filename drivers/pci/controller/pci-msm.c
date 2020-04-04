@@ -152,9 +152,6 @@
 #define LINK_WIDTH_MASK (0x3f)
 #define LINK_WIDTH_SHIFT (16)
 
-#define RATE_CHANGE_19P2MHZ (19200000)
-#define RATE_CHANGE_100MHZ (100000000)
-
 #define MSM_PCIE_LTSSM_MASK (0x3f)
 
 #define MSM_PCIE_DRV_MAJOR_VERSION (1)
@@ -667,7 +664,6 @@ struct msm_pcie_dev_t {
 	unsigned long irqsave_flags;
 	struct mutex enumerate_lock;
 	struct mutex setup_lock;
-	struct mutex clk_lock;
 
 	struct irq_domain *irq_domain;
 
@@ -789,7 +785,6 @@ static struct pcie_drv_sta {
 	struct msm_pcie_dev_t *msm_pcie_dev;
 	struct rpmsg_device *rpdev;
 	struct work_struct drv_connect; /* connect worker */
-	u32 rate_change_vote; /* each bit corresponds to RC vote for 100MHz */
 	struct mutex drv_lock;
 } pcie_drv;
 
@@ -3118,12 +3113,6 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 			continue;
 
 		if (info->freq) {
-			if (!strcmp(info->name, "pcie_phy_refgen_clk")) {
-				mutex_lock(&dev->clk_lock);
-				pcie_drv.rate_change_vote |= BIT(dev->rc_idx);
-				mutex_unlock(&dev->clk_lock);
-			}
-
 			rc = clk_set_rate(info->hdl, info->freq);
 			if (rc) {
 				PCIE_ERR(dev,
@@ -3207,17 +3196,6 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++)
 		if (dev->clk[i].hdl)
 			clk_disable_unprepare(dev->clk[i].hdl);
-
-	if (dev->rate_change_clk) {
-		mutex_lock(&dev->clk_lock);
-
-		pcie_drv.rate_change_vote &= ~BIT(dev->rc_idx);
-		if (!pcie_drv.rate_change_vote)
-			clk_set_rate(dev->rate_change_clk->hdl,
-					RATE_CHANGE_19P2MHZ);
-
-		mutex_unlock(&dev->clk_lock);
-	}
 
 	if (dev->icc_path) {
 		PCIE_DBG(dev, "PCIe: RC%d: removing ICC path vote\n",
@@ -3976,25 +3954,9 @@ static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,
 					bw_scale->cx_vreg_min,
 					pcie_dev->cx_vreg->max_v);
 
-	if (pcie_dev->rate_change_clk) {
-		mutex_lock(&pcie_dev->clk_lock);
-
-		/* it is okay to always scale up */
+	if (pcie_dev->rate_change_clk)
 		clk_set_rate(pcie_dev->rate_change_clk->hdl,
-				RATE_CHANGE_100MHZ);
-
-		if (bw_scale->rate_change_freq == RATE_CHANGE_100MHZ)
-			pcie_drv.rate_change_vote |= BIT(pcie_dev->rc_idx);
-		else
-			pcie_drv.rate_change_vote &= ~BIT(pcie_dev->rc_idx);
-
-		/* scale down to 19.2MHz if no one needs 100MHz */
-		if (!pcie_drv.rate_change_vote)
-			clk_set_rate(pcie_dev->rate_change_clk->hdl,
-					RATE_CHANGE_19P2MHZ);
-
-		mutex_unlock(&pcie_dev->clk_lock);
-	}
+				bw_scale->rate_change_freq);
 }
 
 static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
@@ -6537,7 +6499,6 @@ static int __init pcie_init(void)
 		msm_pcie_dev[i].cfg_access = true;
 		mutex_init(&msm_pcie_dev[i].enumerate_lock);
 		mutex_init(&msm_pcie_dev[i].setup_lock);
-		mutex_init(&msm_pcie_dev[i].clk_lock);
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		mutex_init(&msm_pcie_dev[i].aspm_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
