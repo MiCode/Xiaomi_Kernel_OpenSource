@@ -6,6 +6,7 @@
 #define pr_fmt(fmt)	"PMIC_GLINK: %s: " fmt, __func__
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/list.h>
@@ -16,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <linux/soc/qcom/pmic_glink.h>
 
 /**
@@ -33,9 +35,16 @@
  * @rx_list:		list for rx messages
  * @dev_list:		list for pmic_glink_dev_list
  * @state:		indicates when remote subsystem is up/down
+ * @prev_state:		previous state of remote subsystem
  * @child_probed:	indicates when the children are probed
  * @log_filter:		message owner filter for logging
  * @log_enable:		enables message logging
+ * @client_dev_list:	list of client devices to be notified on state
+ *			transition during an SSR or PDR
+ * @ssr_nb:		notifier block for subsystem notifier
+ * @subsys_name:	subsystem name from which SSR notifications should
+ *			be handled and notified to the clients
+ * @subsys_handle:	handle to subsystem notifier
  */
 struct pmic_glink_dev {
 	struct rpmsg_device	*rpdev;
@@ -51,9 +60,14 @@ struct pmic_glink_dev {
 	struct list_head	rx_list;
 	struct list_head	dev_list;
 	atomic_t		state;
+	atomic_t		prev_state;
 	bool			child_probed;
 	u32			log_filter;
 	bool			log_enable;
+	struct list_head	client_dev_list;
+	struct notifier_block	ssr_nb;
+	const char		*subsys_name;
+	void			*subsys_handle;
 };
 
 /**
@@ -63,7 +77,11 @@ struct pmic_glink_dev {
  * @id:		Unique id for client for communication
  * @lock:	lock for sending data
  * @priv:	private data for client
- * @callback:	callback function for client
+ * @msg_cb:	callback function for client to receive the messages that
+ *		are intended to be delivered to it over PMIC Glink
+ * @node:	list node to be added in client_dev_list of pmic_glink device
+ * @state_cb:	callback function to notify pmic glink state in the event of
+ *		a subsystem restart (SSR) or a protection domain restart (PDR)
  */
 struct pmic_glink_client {
 	struct pmic_glink_dev	*pgdev;
@@ -71,7 +89,10 @@ struct pmic_glink_client {
 	u32			id;
 	struct mutex		lock;
 	void			*priv;
-	int			(*callback)(void *priv, void *data, size_t len);
+	int			(*msg_cb)(void *priv, void *data, size_t len);
+	struct list_head	node;
+	void			(*state_cb)(void *priv,
+					  enum pmic_glink_state state);
 };
 
 struct pmic_glink_buf {
@@ -82,6 +103,50 @@ struct pmic_glink_buf {
 
 static LIST_HEAD(pmic_glink_dev_list);
 static DEFINE_MUTEX(pmic_glink_dev_lock);
+
+static void pmic_glink_notify_clients(struct pmic_glink_dev *pgdev,
+					enum pmic_glink_state state)
+{
+	struct pmic_glink_client *pos;
+
+	pm_stay_awake(pgdev->dev);
+
+	mutex_lock(&pgdev->client_lock);
+	list_for_each_entry(pos, &pgdev->client_dev_list, node)
+		pos->state_cb(pos->priv, state);
+	mutex_unlock(&pgdev->client_lock);
+
+	pm_relax(pgdev->dev);
+
+	pr_debug("state_cb done %d\n", state);
+}
+
+static int pmic_glink_ssr_notifier_cb(struct notifier_block *nb,
+				unsigned long code, void *data)
+{
+	struct pmic_glink_dev *pgdev = container_of(nb, struct pmic_glink_dev,
+						ssr_nb);
+
+	pr_debug("code: %lu\n", code);
+
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		atomic_set(&pgdev->prev_state, code);
+		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_DOWN);
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		/*
+		 * Do not notify PMIC Glink clients here but rather from
+		 * pmic_glink_init_work which will be run only after rpmsg
+		 * driver is probed and Glink communication is up.
+		 */
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
 
 static struct pmic_glink_dev *get_pmic_glink_from_dev(struct device *dev)
 {
@@ -177,7 +242,7 @@ struct pmic_glink_client *pmic_glink_register_client(struct device *dev,
 	if (!dev || !dev->parent)
 		return ERR_PTR(-ENODEV);
 
-	if (!client_data->id || !client_data->callback || !client_data->name)
+	if (!client_data->id || !client_data->msg_cb || !client_data->name)
 		return ERR_PTR(-EINVAL);
 
 	pgdev = get_pmic_glink_from_dev(dev->parent);
@@ -204,9 +269,10 @@ struct pmic_glink_client *pmic_glink_register_client(struct device *dev,
 
 	mutex_init(&client->lock);
 	client->id = client_data->id;
-	client->callback = client_data->callback;
+	client->msg_cb = client_data->msg_cb;
 	client->priv = client_data->priv;
 	client->pgdev = pgdev;
+	client->state_cb = client_data->state_cb;
 
 	mutex_lock(&pgdev->client_lock);
 	rc = idr_alloc(&pgdev->client_idr, client, client->id, client->id + 1,
@@ -220,6 +286,10 @@ struct pmic_glink_client *pmic_glink_register_client(struct device *dev,
 		return ERR_PTR(rc);
 	}
 
+	if (client->state_cb) {
+		INIT_LIST_HEAD(&client->node);
+		list_add_tail(&client->node, &pgdev->client_dev_list);
+	}
 	mutex_unlock(&pgdev->client_lock);
 
 	return client;
@@ -238,10 +308,17 @@ EXPORT_SYMBOL(pmic_glink_register_client);
  */
 int pmic_glink_unregister_client(struct pmic_glink_client *client)
 {
+	struct pmic_glink_client *pos, *tmp;
+
 	if (!client || !client->pgdev)
 		return -ENODEV;
 
 	mutex_lock(&client->pgdev->client_lock);
+	list_for_each_entry_safe(pos, tmp, &client->pgdev->client_dev_list,
+				node) {
+		if (pos == client)
+			list_del(&client->node);
+	}
 	idr_remove(&client->pgdev->client_idr, client->id);
 	mutex_unlock(&client->pgdev->client_lock);
 
@@ -263,7 +340,7 @@ static void pmic_glink_rx_callback(struct pmic_glink_dev *pgdev,
 	client = idr_find(&pgdev->client_idr, hdr->owner);
 	mutex_unlock(&pgdev->client_lock);
 
-	if (!client || !client->callback) {
+	if (!client || !client->msg_cb) {
 		pr_err("No client present for %u\n", hdr->owner);
 		return;
 	}
@@ -276,7 +353,7 @@ static void pmic_glink_rx_callback(struct pmic_glink_dev *pgdev,
 				pbuf->buf);
 	}
 
-	client->callback(client->priv, pbuf->buf, pbuf->len);
+	client->msg_cb(client->priv, pbuf->buf, pbuf->len);
 }
 
 static void pmic_glink_rx_work(struct work_struct *work)
@@ -411,6 +488,11 @@ static void pmic_glink_init_work(struct work_struct *work)
 	struct device *dev = pgdev->dev;
 	int rc;
 
+	if (atomic_read(&pgdev->prev_state) == SUBSYS_BEFORE_SHUTDOWN) {
+		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_UP);
+		atomic_set(&pgdev->prev_state, SUBSYS_AFTER_POWERUP);
+	}
+
 	if (pgdev->child_probed)
 		return;
 
@@ -463,34 +545,60 @@ static int pmic_glink_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	of_property_read_string(dev->of_node, "qcom,subsys-name",
+				&pgdev->subsys_name);
+
 	pgdev->rx_wq = create_singlethread_workqueue("pmic_glink_rx");
 	if (!pgdev->rx_wq) {
 		pr_err("Failed to create pmic_glink_rx wq\n");
 		return -ENOMEM;
 	}
 
-	dev_set_drvdata(dev, pgdev);
-
 	INIT_WORK(&pgdev->rx_work, pmic_glink_rx_work);
 	INIT_WORK(&pgdev->init_work, pmic_glink_init_work);
+	INIT_LIST_HEAD(&pgdev->client_dev_list);
 	INIT_LIST_HEAD(&pgdev->rx_list);
 	INIT_LIST_HEAD(&pgdev->dev_list);
 	spin_lock_init(&pgdev->rx_lock);
 	mutex_init(&pgdev->client_lock);
 	idr_init(&pgdev->client_idr);
+	atomic_set(&pgdev->prev_state, SUBSYS_BEFORE_POWERUP);
+
+	if (pgdev->subsys_name) {
+		pgdev->ssr_nb.notifier_call = pmic_glink_ssr_notifier_cb;
+		pgdev->subsys_handle = subsys_notif_register_notifier(
+							pgdev->subsys_name,
+							&pgdev->ssr_nb);
+		if (IS_ERR(pgdev->subsys_handle)) {
+			rc = PTR_ERR(pgdev->subsys_handle);
+			pr_err("Failed in subsys_notif_register_notifier %d\n",
+				rc);
+			goto error_subsys;
+		}
+	}
+
+	dev_set_drvdata(dev, pgdev);
 	pgdev->dev = dev;
 
 	pmic_glink_dev_add(pgdev);
 	pmic_glink_add_debugfs(pgdev);
+	device_init_wakeup(pgdev->dev, true);
 
 	pr_debug("%s probed successfully\n", pgdev->channel_name);
 	return 0;
+
+error_subsys:
+	idr_destroy(&pgdev->client_idr);
+	destroy_workqueue(pgdev->rx_wq);
+	return rc;
 }
 
 static int pmic_glink_remove(struct platform_device *pdev)
 {
 	struct pmic_glink_dev *pgdev = dev_get_drvdata(&pdev->dev);
 
+	subsys_notif_unregister_notifier(pgdev->subsys_handle, &pgdev->ssr_nb);
+	device_init_wakeup(pgdev->dev, false);
 	debugfs_remove_recursive(pgdev->debugfs_dir);
 	flush_workqueue(pgdev->rx_wq);
 	destroy_workqueue(pgdev->rx_wq);
