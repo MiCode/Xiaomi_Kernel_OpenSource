@@ -11,6 +11,8 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 #include <linux/debugfs.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
@@ -68,6 +70,9 @@
 #define UTMI_ULPI_SEL			BIT(7)
 #define UTMI_TEST_MUX_SEL		BIT(6)
 
+#define QUSB2PHY_PLL_AUTOPGM_CTL1	0x1C
+#define QUSB2PHY_PLL_PWR_CTL		0x18
+
 #define QUSB2PHY_PLL_TEST		0x04
 #define CLK_REF_SEL			BIT(7)
 
@@ -87,6 +92,9 @@
 #define DPSE_INTR_HIGH_SEL              BIT(1)
 #define DPSE_INTR_EN                    BIT(0)
 
+#define QUSB2PHY_PORT_INTR_STATUS	0xF0
+#define DPSE_INTR_HIGH			BIT(0)
+
 #define QUSB2PHY_PORT_UTMI_STATUS	0xF4
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
@@ -103,6 +111,23 @@
 #define QUSB2PHY_REFCLK_ENABLE		BIT(0)
 
 #define HSTX_TRIMSIZE			4
+
+enum port_state {
+	PORT_UNKNOWN,
+	PORT_DISCONNECTED,
+	PORT_DCD_IN_PROGRESS,
+	PORT_PRIMARY_IN_PROGRESS,
+	PORT_SECONDARY_IN_PROGRESS,
+	PORT_CHG_DET_DONE,
+	PORT_HOST_MODE,
+};
+
+enum chg_det_state {
+	STATE_UNKNOWN,
+	STATE_DCD,
+	STATE_PRIMARY,
+	STATE_SECONDARY,
+};
 
 struct qusb_phy {
 	struct usb_phy		phy;
@@ -147,6 +172,14 @@ struct qusb_phy {
 
 	bool			put_into_high_z_state;
 	struct mutex		phy_lock;
+
+	struct extcon_dev	*usb_extcon;
+	bool			vbus_active;
+	bool			id_state;
+	struct power_supply	*usb_psy;
+	struct delayed_work	port_det_w;
+	enum port_state		port_state;
+	unsigned int		dcd_timeout;
 
 	/* debugfs entries */
 	struct dentry		*root;
@@ -970,6 +1003,388 @@ static void qusb_phy_create_debugfs(struct qusb_phy *qphy)
 	debugfs_create_x8("tune5", 0644, qphy->root, &qphy->tune5);
 }
 
+static int qusb_phy_vbus_notifier(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct usb_phy *phy = container_of(nb, struct usb_phy, vbus_nb);
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+
+	if (!qphy || !data) {
+		pr_err("Failed to get PHY for vbus_notifier\n");
+		return NOTIFY_DONE;
+	}
+
+	qphy->vbus_active = !!event;
+	dev_dbg(qphy->phy.dev, "Got VBUS notification: %u\n", event);
+	queue_delayed_work(system_freezable_wq, &qphy->port_det_w, 0);
+
+	return NOTIFY_DONE;
+}
+
+static int qusb_phy_id_notifier(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct usb_phy *phy = container_of(nb, struct usb_phy, id_nb);
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+
+	if (!qphy || !data) {
+		pr_err("Failed to get PHY for vbus_notifier\n");
+		return NOTIFY_DONE;
+	}
+
+	qphy->id_state = !event;
+	dev_dbg(qphy->phy.dev, "Got id notification: %u\n", event);
+	queue_delayed_work(system_freezable_wq, &qphy->port_det_w, 0);
+
+	return NOTIFY_DONE;
+}
+
+static const unsigned int qusb_phy_extcon_cable[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_NONE,
+};
+
+static int qusb_phy_notify_charger(struct qusb_phy *qphy,
+					enum power_supply_type charger_type)
+{
+	union power_supply_propval pval = {0};
+
+	dev_dbg(qphy->phy.dev, "Notify charger type: %d\n", charger_type);
+
+	if (!qphy->usb_psy) {
+		qphy->usb_psy = power_supply_get_by_name("usb");
+		if (!qphy->usb_psy) {
+			dev_err(qphy->phy.dev, "Could not get usb psy\n");
+			return -ENODEV;
+		}
+	}
+
+	pval.intval = charger_type;
+	power_supply_set_property(qphy->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE,
+									&pval);
+	return 0;
+}
+
+static void qusb_phy_notify_extcon(struct qusb_phy *qphy,
+						int extcon_id, int event)
+{
+	struct extcon_dev *edev = qphy->phy.edev;
+	union extcon_property_value val;
+	int ret;
+
+	dev_dbg(qphy->phy.dev, "Notify event: %d for extcon_id: %d\n",
+					event, extcon_id);
+
+	if (event) {
+		ret = extcon_get_property(edev, extcon_id,
+					EXTCON_PROP_USB_TYPEC_POLARITY, &val);
+		if (ret)
+			dev_err(qphy->phy.dev, "Failed to get TYPEC POLARITY\n");
+
+		extcon_set_property(qphy->usb_extcon, extcon_id,
+					EXTCON_PROP_USB_TYPEC_POLARITY, val);
+
+		ret = extcon_get_property(edev, extcon_id,
+						EXTCON_PROP_USB_SS, &val);
+		if (ret)
+			dev_err(qphy->phy.dev, "Failed to get USB_SS property\n");
+
+		extcon_set_property(qphy->usb_extcon, extcon_id,
+						EXTCON_PROP_USB_SS, val);
+	}
+
+	extcon_set_state_sync(qphy->usb_extcon, extcon_id, event);
+}
+
+static bool qusb_phy_chg_det_status(struct qusb_phy *qphy,
+						enum chg_det_state state)
+{
+	u32 reg, status;
+
+	reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_INTR_STATUS);
+	dev_dbg(qphy->phy.dev, "state: %d reg: 0x%x\n", state, reg);
+
+	status = reg & 0xff;
+
+	switch (state) {
+	case STATE_DCD:
+		return (status != DPSE_INTR_HIGH);
+	case STATE_PRIMARY:
+		return (status && (status != DPSE_INTR_HIGH));
+	case STATE_SECONDARY:
+		return status;
+	case STATE_UNKNOWN:
+	default:
+		break;
+	}
+
+	return false;
+}
+
+/*
+ * Different circuit blocks are enabled on DP and DM lines as part
+ * of different phases of charger detection. Then the state of
+ * DP and DM lines are monitored to identify different type of
+ * chargers.
+ * These circuit blocks can be enabled with the configuration of
+ * the QUICKCHARGE1 and QUICKCHARGE2 registers and the DP/DM lines
+ * can be monitored with the status of the INTR_STATUS register.
+ */
+static void qusb_phy_chg_det_enable_seq(struct qusb_phy *qphy, int state)
+{
+	dev_dbg(qphy->phy.dev, "state: %d\n", state);
+	/* Power down the PHY*/
+	writel_relaxed(0x23, qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	/* Put the PHY in non driving mode */
+	writel_relaxed(0x35, qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+
+	/* Set the PHY to register mode */
+	writel_relaxed(0xC0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+	/* Keep PLL in reset */
+	writel_relaxed(0x05, qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	/* Enable  PHY */
+	writel_relaxed(0x22, qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	writel_relaxed(0x17, qphy->base + QUSB2PHY_PLL_PWR_CTL);
+
+	usleep_range(5, 10);
+
+	writel_relaxed(0x15, qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC1);
+	writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC2);
+
+	usleep_range(50, 60);
+
+	switch (state) {
+	case STATE_DCD:
+		/* Enable IDP_SRC */
+		writel_relaxed(0x08, qphy->base + QUSB2PHY_PORT_QC1);
+		/* Enable RDM_UP */
+		writel_relaxed(0x01, qphy->base + QUSB2PHY_PORT_QC2);
+
+		writel_relaxed(0x1F, qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+		break;
+	case STATE_PRIMARY:
+		/* Enable VDAT_REF_DM, VDP_SRC and IDM_SINK */
+		writel_relaxed(0x25, qphy->base + QUSB2PHY_PORT_QC1);
+		writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC2);
+
+		writel_relaxed(0x1F, qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+		break;
+	case STATE_SECONDARY:
+		/* Enable VDAT_REF_DP, VDAT_REF_DM, VDP_SRC and IDM_SINK */
+		writel_relaxed(0x72, qphy->base + QUSB2PHY_PORT_QC1);
+		writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC2);
+
+		writel_relaxed(0x1F, qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+		break;
+	case STATE_UNKNOWN:
+	default:
+		break;
+	}
+}
+
+#define CHG_DCD_TIMEOUT_MSEC		750
+#define CHG_DCD_POLL_TIME_MSEC		50
+#define CHG_PRIMARY_DET_TIME_MSEC	100
+#define CHG_SECONDARY_DET_TIME_MSEC	100
+
+static int qusb_phy_enable_phy(struct qusb_phy *qphy)
+{
+	int ret;
+
+	ret = qusb_phy_enable_power(qphy, true);
+	if (ret)
+		return ret;
+
+	if (qphy->tcsr_clamp_dig_n)
+		writel_relaxed(0x1, qphy->tcsr_clamp_dig_n);
+	qusb_phy_enable_clocks(qphy, true);
+
+	return 0;
+}
+
+static void qusb_phy_disable_phy(struct qusb_phy *qphy)
+{
+	int ret;
+
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "phyassert failed\n");
+
+	usleep_range(100, 150);
+
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "deassert failed\n");
+
+	qusb_phy_enable_clocks(qphy, false);
+	if (qphy->tcsr_clamp_dig_n)
+		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+	qusb_phy_enable_power(qphy, false);
+}
+
+static void qusb_phy_port_state_work(struct work_struct *w)
+{
+	struct qusb_phy *qphy = container_of(w, struct qusb_phy,
+							port_det_w.work);
+	unsigned long delay = 0;
+	int status, ret;
+
+	dev_dbg(qphy->phy.dev, "state: %d\n", qphy->port_state);
+
+	switch (qphy->port_state) {
+	case PORT_UNKNOWN:
+		if (!qphy->id_state) {
+			qphy->port_state = PORT_HOST_MODE;
+			qusb_phy_notify_extcon(qphy, EXTCON_USB_HOST, 1);
+			return;
+		}
+
+		if (qphy->vbus_active) {
+			/* Enable DCD sequence */
+			ret = qusb_phy_enable_phy(qphy);
+			if (ret)
+				return;
+
+			qusb_phy_chg_det_enable_seq(qphy, STATE_DCD);
+			qphy->port_state = PORT_DCD_IN_PROGRESS;
+			qphy->dcd_timeout = 0;
+			delay = CHG_DCD_POLL_TIME_MSEC;
+			break;
+		}
+		return;
+	case PORT_DISCONNECTED:
+		qusb_phy_disable_phy(qphy);
+		qphy->port_state = PORT_UNKNOWN;
+		break;
+	case PORT_DCD_IN_PROGRESS:
+		if (!qphy->vbus_active) {
+			/* Disable PHY sequence */
+			qphy->port_state = PORT_DISCONNECTED;
+			break;
+		}
+
+		status = qusb_phy_chg_det_status(qphy, STATE_DCD);
+		if (!status && qphy->dcd_timeout < CHG_DCD_TIMEOUT_MSEC) {
+			delay = CHG_DCD_POLL_TIME_MSEC;
+			qphy->dcd_timeout += delay;
+		} else if (status) {
+			qusb_phy_chg_det_enable_seq(qphy, STATE_PRIMARY);
+			qphy->port_state = PORT_PRIMARY_IN_PROGRESS;
+			delay = CHG_PRIMARY_DET_TIME_MSEC;
+		} else if (qphy->dcd_timeout >= CHG_DCD_TIMEOUT_MSEC) {
+			qusb_phy_notify_charger(qphy,
+						POWER_SUPPLY_TYPE_USB_DCP);
+			qusb_phy_disable_phy(qphy);
+			qphy->port_state = PORT_CHG_DET_DONE;
+		}
+		break;
+	case PORT_PRIMARY_IN_PROGRESS:
+		if (!qphy->vbus_active) {
+			qphy->port_state = PORT_DISCONNECTED;
+			break;
+		}
+
+		status = qusb_phy_chg_det_status(qphy, STATE_PRIMARY);
+		if (status) {
+			qusb_phy_chg_det_enable_seq(qphy, STATE_SECONDARY);
+			qphy->port_state = PORT_SECONDARY_IN_PROGRESS;
+			delay = CHG_SECONDARY_DET_TIME_MSEC;
+
+		} else {
+			qusb_phy_disable_phy(qphy);
+			qusb_phy_notify_charger(qphy, POWER_SUPPLY_TYPE_USB);
+			qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
+			qphy->port_state = PORT_CHG_DET_DONE;
+		}
+		break;
+	case PORT_SECONDARY_IN_PROGRESS:
+		if (!qphy->vbus_active) {
+			qphy->port_state = PORT_DISCONNECTED;
+			break;
+		}
+
+		status = qusb_phy_chg_det_status(qphy, STATE_SECONDARY);
+		if (status) {
+			qusb_phy_notify_charger(qphy,
+						POWER_SUPPLY_TYPE_USB_DCP);
+		} else {
+			qusb_phy_notify_charger(qphy,
+						POWER_SUPPLY_TYPE_USB_CDP);
+			qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
+		}
+
+		qusb_phy_disable_phy(qphy);
+		qphy->port_state = PORT_CHG_DET_DONE;
+		/*
+		 * Fall through to check if cable got disconnected
+		 * during detection.
+		 */
+	case PORT_CHG_DET_DONE:
+		if (!qphy->vbus_active) {
+			qphy->port_state = PORT_UNKNOWN;
+			qusb_phy_notify_extcon(qphy, EXTCON_USB, 0);
+		}
+
+		return;
+	case PORT_HOST_MODE:
+		if (qphy->id_state) {
+			qphy->port_state = PORT_UNKNOWN;
+			qusb_phy_notify_extcon(qphy, EXTCON_USB_HOST, 0);
+		}
+
+		if (!qphy->vbus_active)
+			return;
+
+		break;
+	default:
+		return;
+	}
+
+	queue_delayed_work(system_freezable_wq,
+			&qphy->port_det_w, msecs_to_jiffies(delay));
+}
+
+static int qusb_phy_extcon_register(struct qusb_phy *qphy)
+{
+	int ret;
+
+	/* Register extcon for notifications from charger driver */
+	qphy->phy.vbus_nb.notifier_call = qusb_phy_vbus_notifier;
+
+	qphy->phy.id_nb.notifier_call = qusb_phy_id_notifier;
+
+	/* Register extcon to notify USB driver */
+	qphy->usb_extcon = devm_extcon_dev_allocate(qphy->phy.dev,
+						qusb_phy_extcon_cable);
+	if (IS_ERR(qphy->usb_extcon)) {
+		dev_err(qphy->phy.dev, "failed to allocate extcon device\n");
+		return PTR_ERR(qphy->usb_extcon);
+	}
+
+	ret = devm_extcon_dev_register(qphy->phy.dev, qphy->usb_extcon);
+	if (ret) {
+		dev_err(qphy->phy.dev, "failed to register extcon device\n");
+		return ret;
+	}
+
+	extcon_set_property_capability(qphy->usb_extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_POLARITY);
+	extcon_set_property_capability(qphy->usb_extcon, EXTCON_USB,
+			EXTCON_PROP_USB_SS);
+	extcon_set_property_capability(qphy->usb_extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_TYPEC_POLARITY);
+	extcon_set_property_capability(qphy->usb_extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_SS);
+	return 0;
+}
+
 static int qusb_phy_probe(struct platform_device *pdev)
 {
 	struct qusb_phy *qphy;
@@ -1234,6 +1649,15 @@ static int qusb_phy_probe(struct platform_device *pdev)
 			dev_err(dev, "%s:phy_reset assert failed\n", __func__);
 	}
 
+	if (of_property_read_bool(dev->of_node, "extcon")) {
+		INIT_DELAYED_WORK(&qphy->port_det_w, qusb_phy_port_state_work);
+
+		ret = qusb_phy_extcon_register(qphy);
+		if (ret)
+			return ret;
+
+	}
+
 	ret = usb_add_phy_dev(&qphy->phy);
 	if (ret)
 		return ret;
@@ -1258,6 +1682,19 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	qphy->suspended = true;
+
+	if (of_property_read_bool(dev->of_node, "extcon")) {
+		qphy->id_state = true;
+		qphy->vbus_active = false;
+
+		if (extcon_get_state(qphy->phy.edev, EXTCON_USB_HOST)) {
+			qusb_phy_id_notifier(&qphy->phy.id_nb,
+							1, qphy->phy.edev);
+		} else if (extcon_get_state(qphy->phy.edev, EXTCON_USB)) {
+			qusb_phy_vbus_notifier(&qphy->phy.vbus_nb,
+							1, qphy->phy.edev);
+		}
+	}
 
 	qusb_phy_create_debugfs(qphy);
 

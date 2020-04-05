@@ -253,6 +253,7 @@ struct icnss_stats {
 #define WLFW_MAX_NUM_CE 12
 #define WLFW_MAX_NUM_SVC 24
 #define WLFW_MAX_NUM_SHADOW_REG 24
+#define WLFW_MAX_HANG_EVENT_DATA_SIZE 400
 
 struct service_notifier_context {
 	void *handle;
@@ -350,7 +351,10 @@ struct icnss_priv {
 	bool is_ssr;
 	struct kobject *icnss_kobject;
 	atomic_t is_shutdown;
-
+	phys_addr_t hang_event_data_pa;
+	void __iomem *hang_event_data_va;
+	uint16_t hang_event_data_len;
+	void *hang_event_data;
 };
 
 struct icnss_reg_info {

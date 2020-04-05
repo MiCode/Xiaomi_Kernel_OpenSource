@@ -12,6 +12,7 @@ gen_headers_srcs_arm64 = [
 
 gen_headers_exclude_srcs_arm64 = [
     "include/uapi/linux/a.out.h",
+    "include/uapi/linux/kvm_para.h",
 ]
 
 gen_headers_out_arm64 = [
@@ -228,6 +229,7 @@ gen_headers_out_arm64 = [
     "linux/fsi.h",
     "linux/fsl_hypervisor.h",
     "linux/fsmap.h",
+    "linux/fsverity.h",
     "linux/fuse.h",
     "linux/futex.h",
     "linux/gameport.h",
@@ -704,6 +706,7 @@ gen_headers_out_arm64 = [
     "xen/gntdev.h",
     "xen/privcmd.h",
     "linux/android/binder.h",
+    "linux/android/binderfs.h",
     "linux/byteorder/big_endian.h",
     "linux/byteorder/little_endian.h",
     "linux/caif/caif_socket.h",

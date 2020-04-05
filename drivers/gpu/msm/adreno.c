@@ -59,8 +59,7 @@ static struct adreno_device device_3d0 = {
 	.long_ib_detect = 1,
 	.input_work = __WORK_INITIALIZER(device_3d0.input_work,
 		adreno_input_work),
-	.pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) |
-		BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL),
+	.pwrctrl_flag = BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL),
 	.profile.enabled = false,
 	.active_list = LIST_HEAD_INIT(device_3d0.active_list),
 	.active_list_lock = __SPIN_LOCK_UNLOCKED(device_3d0.active_list_lock),
@@ -1439,6 +1438,9 @@ static int adreno_probe(struct platform_device *pdev)
 	 */
 	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
+
+	if (adreno_is_a6xx(adreno_dev))
+		device->mmu.features |= KGSL_MMU_SMMU_APERTURE;
 
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 

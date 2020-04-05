@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_BUS_H
 #define _CNSS_BUS_H
@@ -52,5 +52,7 @@ int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
 			    u32 *val);
 int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
 			     u32 val);
-
+int cnss_bus_get_iova(struct cnss_plat_data *plat_priv, u64 *addr, u64 *size);
+int cnss_bus_get_iova_ipa(struct cnss_plat_data *plat_priv, u64 *addr,
+			  u64 *size);
 #endif /* _CNSS_BUS_H */

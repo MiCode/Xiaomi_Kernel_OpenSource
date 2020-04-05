@@ -783,75 +783,6 @@ static void mhi_assign_of_node(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-static ssize_t time_show(struct device *dev,
-			 struct device_attribute *attr,
-			 char *buf)
-{
-	struct mhi_device *mhi_dev = to_mhi_device(dev);
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	u64 t_host, t_device;
-	int ret;
-
-	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
-	if (ret) {
-		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
-	}
-
-	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (ticks)\n",
-			 t_host, t_device);
-}
-static DEVICE_ATTR_RO(time);
-
-static ssize_t time_us_show(struct device *dev,
-			    struct device_attribute *attr,
-			    char *buf)
-{
-	struct mhi_device *mhi_dev = to_mhi_device(dev);
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	u64 t_host, t_device;
-	int ret;
-
-	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
-	if (ret) {
-		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
-	}
-
-	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
-			 LOCAL_TICKS_TO_US(t_host),
-			 REMOTE_TICKS_TO_US(t_device));
-}
-static DEVICE_ATTR_RO(time_us);
-
-static struct attribute *mhi_tsync_attrs[] = {
-	&dev_attr_time.attr,
-	&dev_attr_time_us.attr,
-	NULL,
-};
-
-static const struct attribute_group mhi_tsync_group = {
-	.attrs = mhi_tsync_attrs,
-};
-
-void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl)
-{
-	if (mhi_cntrl->mhi_tsync) {
-		mutex_lock(&mhi_cntrl->tsync_mutex);
-		sysfs_remove_group(&mhi_cntrl->mhi_dev->dev.kobj,
-				   &mhi_tsync_group);
-		kfree(mhi_cntrl->mhi_tsync);
-		mhi_cntrl->mhi_tsync = NULL;
-		mutex_unlock(&mhi_cntrl->tsync_mutex);
-	}
-}
-
-int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl)
-{
-	return sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
-				  &mhi_tsync_group);
-}
-
 /* bind mhi channels into mhi devices */
 void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 {
@@ -2163,18 +2094,22 @@ error_invalid_state:
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 {
 	struct mhi_controller *mhi_cntrl = m->private;
+	struct mhi_link_info *cur_info = &mhi_cntrl->mhi_link_info;
 
 	seq_printf(m,
-		   "[%llu ns]: pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
+		   "[%llu ns]: pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d ignore_override:%d dev_wake:%u alloc_size:%u pending_pkts:%u last_requested_bw:GEN%dx%d\n",
 		   sched_clock(),
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		   TO_MHI_EXEC_STR(mhi_cntrl->ee),
 		   mhi_cntrl->M0, mhi_cntrl->M2, mhi_cntrl->M3,
 		   mhi_cntrl->M3_FAST, mhi_cntrl->wake_set,
+		   mhi_cntrl->ignore_override,
 		   atomic_read(&mhi_cntrl->dev_wake),
 		   atomic_read(&mhi_cntrl->alloc_size),
-		   atomic_read(&mhi_cntrl->pending_pkts));
+		   atomic_read(&mhi_cntrl->pending_pkts),
+		   cur_info->target_link_speed,
+		   cur_info->target_link_width);
 	return 0;
 }
 
@@ -2290,7 +2225,7 @@ int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d)
 
 	mhi_dev = mhi_cntrl->mhi_dev;
 
-	seq_printf(m, "At %llu ns:\n", sched_clock());
+	seq_printf(m, "[%llu ns]:\n", sched_clock());
 	seq_printf(m, "%s: device:%u, bus:%u\n", mhi_dev->chan_name,
 		   atomic_read(&mhi_dev->dev_vote),
 		   atomic_read(&mhi_dev->bus_vote));
@@ -2553,7 +2488,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	int ret;
 
 	mutex_lock(&mhi_cntrl->tsync_mutex);
-	/* not all devices support time feature */
+	/* not all devices support time features */
 	if (!mhi_tsync) {
 		ret = -EIO;
 		goto error_unlock;
@@ -2628,9 +2563,9 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	struct tsync_node *tsync_node;
 	int ret;
 
-	/* not all devices support time feature */
+	/* not all devices support all time features */
 	mutex_lock(&mhi_cntrl->tsync_mutex);
-	if (!mhi_tsync) {
+	if (!mhi_tsync || !mhi_tsync->db_support) {
 		ret = -EIO;
 		goto error_unlock;
 	}

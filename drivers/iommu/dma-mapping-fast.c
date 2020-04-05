@@ -17,7 +17,8 @@
 #include <linux/dma-iommu.h>
 #include <linux/iova.h>
 #include <trace/events/iommu.h>
-#include "io-pgtable.h"
+
+#include <linux/io-pgtable.h>
 
 /* some redundant definitions... :( TODO: move to io-pgtable-fast.h */
 #define FAST_PAGE_SHIFT		12

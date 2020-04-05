@@ -22,6 +22,8 @@ enum icnss_uevent {
 
 struct icnss_uevent_fw_down_data {
 	bool crashed;
+	void *hang_event_data;
+	uint16_t hang_event_data_len;
 };
 
 struct icnss_uevent_data {

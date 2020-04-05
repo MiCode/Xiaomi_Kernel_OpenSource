@@ -112,6 +112,7 @@ struct qpnp_qg {
 	struct votable		*good_ocv_irq_disable_votable;
 	u32			qg_base;
 	u8			qg_subtype;
+	u8			qg_mode;
 
 	/* local data variables */
 	u32			batt_id_ohm;
@@ -158,6 +159,7 @@ struct qpnp_qg {
 	int			tcss_entry_count;
 	int			max_fcc_limit_ma;
 	int			bsoc_bass_entry;
+	int			qg_v_ibat;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
@@ -259,6 +261,11 @@ enum qg_wa_flags {
 enum qg_version {
 	QG_PMIC5,
 	QG_LITE,
+};
+
+enum qg_mode {
+	QG_V_I_MODE,
+	QG_V_MODE,
 };
 
 #endif /* __QG_CORE_H__ */

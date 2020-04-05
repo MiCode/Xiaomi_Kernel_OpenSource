@@ -21,14 +21,13 @@
 #define pr_fmt(fmt)	"io-pgtable: " fmt
 
 #include <linux/bug.h>
+#include <linux/iommu.h>
+#include <linux/io-pgtable.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
-#include <linux/iommu.h>
 #include <linux/debugfs.h>
 #include <linux/atomic.h>
 #include <linux/module.h>
-
-#include "io-pgtable.h"
 
 static const struct io_pgtable_init_fns *
 io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
@@ -72,6 +71,7 @@ struct io_pgtable_ops *alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 
 	return &iop->ops;
 }
+EXPORT_SYMBOL_GPL(alloc_io_pgtable_ops);
 
 /*
  * It is the IOMMU driver's responsibility to ensure that the page table
@@ -88,6 +88,7 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops)
 	io_pgtable_tlb_flush_all(iop);
 	io_pgtable_init_table[iop->fmt]->free(iop);
 }
+EXPORT_SYMBOL_GPL(free_io_pgtable_ops);
 
 static atomic_t pages_allocated;
 

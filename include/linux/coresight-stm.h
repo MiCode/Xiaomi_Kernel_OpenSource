@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2011-2012, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, 2017, 2020 The Linux Foundation. All rights reserved.
  */
 #ifndef __LINUX_CORESIGHT_STM_H_
 #define __LINUX_CORESIGHT_STM_H_
@@ -84,8 +84,6 @@ struct stm_drvdata {
 	spinlock_t		spinlock;
 	struct channel_space	chs;
 	bool			enable;
-	struct channel_space	debug_status_chs;
-	bool			master_enable;
 	DECLARE_BITMAP(entities, OST_ENTITY_MAX);
 	struct stm_data		stm;
 	local_t			mode;
