@@ -501,6 +501,14 @@
 			size = <0x0 0x5c00000>;
 		};
 
+		video_mem: video_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xC0000000>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x9800000>;
+		};
+
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";

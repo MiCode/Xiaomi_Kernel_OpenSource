@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,5 +43,12 @@
 			reg = <9>;
 			qcom,ion-heap-type = "SYSTEM_SECURE";
 		};
+
+		qcom,ion-heap@12 { /* VIDEO HEAP */
+			reg = <12>;
+			memory-region = <&video_mem>;
+			qcom,ion-heap-type = "HYP_CMA";
+		};
+
 	};
 };
