@@ -1030,6 +1030,7 @@ static void gbam_port_free(enum bam_dmux_func_type func)
 		platform_driver_unregister(pdrv);
 
 	kfree(port);
+	bam_ports[func].port = NULL;
 }
 
 static int gbam_port_alloc(enum bam_dmux_func_type func)
@@ -1217,6 +1218,8 @@ static void gbam_debugfs_init(void)
 static void gbam_debugfs_remove(void)
 {
 	debugfs_remove_recursive(gbam_dent);
+	debugfs_remove(gbam_dent);
+	gbam_dent = NULL;
 }
 #else
 static inline void gbam_debugfs_init(void) {}
