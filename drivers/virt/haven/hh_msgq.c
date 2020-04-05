@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
+#include <linux/ratelimit.h>
 
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_msgq.h>
@@ -40,6 +41,7 @@ struct hh_msgq_cap_table {
 	wait_queue_head_t rx_wq;
 };
 
+static bool hh_msgq_initialized;
 static struct hh_msgq_cap_table hh_msgq_cap_table[HH_MSGQ_LABEL_MAX];
 
 static irqreturn_t hh_msgq_rx_isr(int irq, void *dev)
@@ -118,6 +120,9 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
  * if the message queue is not yet ready to communicate, and -EPERM if the
  * caller doesn't have permissions to receive the data. 0 is the data is
  * successfully received.
+ *
+ * Note: this function may sleep and should not be called from interrupt
+ *       context
  */
 int hh_msgq_recv(void *msgq_client_desc,
 			void **buff, size_t *size, unsigned long flags)
@@ -139,15 +144,25 @@ int hh_msgq_recv(void *msgq_client_desc,
 		goto err;
 	}
 
-	if (cap_table_entry->rx_cap_id == HH_CAPID_INVAL) {
-		pr_err("%s: Recv info for label %d not yet initialized\n",
+	if ((cap_table_entry->rx_cap_id == HH_CAPID_INVAL) &&
+		(flags & HH_MSGQ_NONBLOCK)) {
+		pr_err_ratelimited(
+			"%s: Recv info for label %d not yet initialized\n",
 			__func__, client_desc->label);
 		ret = -EAGAIN;
 		goto err;
 	}
 
+	spin_unlock(&cap_table_entry->cap_entry_lock);
+
+	if (wait_event_interruptible(cap_table_entry->rx_wq,
+				cap_table_entry->rx_cap_id != HH_CAPID_INVAL))
+		return -ERESTARTSYS;
+
+	spin_lock(&cap_table_entry->cap_entry_lock);
+
 	if (!cap_table_entry->rx_irq) {
-		pr_err("%s: Rx IRQ for label %d not yet setup\n",
+		pr_err_ratelimited("%s: Rx IRQ for label %d not yet setup\n",
 			__func__, client_desc->label);
 		ret = -EAGAIN;
 		goto err;
@@ -224,15 +239,12 @@ static int __hh_msgq_send(struct hh_msgq_cap_table *cap_table_entry,
 /**
  * hh_msgq_send: Send a message to the client on a different VM
  * @client_desc: The client descriptor that was obtained via hh_msgq_register()
- * @buff: Pointer to the buffer that needs to be sent. The buffer should be
- *        dynamically allocated via kmalloc/kzalloc.
+ * @buff: Pointer to the buffer that needs to be sent
  * @size: The size of the buffer
  * @flags: Optional flags to pass to send the data. For the list of flags,
  *         see linux/haven/hh_msgq.h
  *
- * The function would free the buffer upon success, and returns 0. The caller
- * should not be referencing the buffer anymore.
- * On the other hand, it returns -EINVAL if the caller passes invalid arguments,
+ * The function returns -EINVAL if the caller passes invalid arguments,
  * -EAGAIN if the message queue is not yet ready to communicate, and -EPERM if
  * the caller doesn't have permissions to send the data.
  *
@@ -260,15 +272,25 @@ int hh_msgq_send(void *msgq_client_desc,
 		goto err;
 	}
 
-	if (cap_table_entry->tx_cap_id == HH_CAPID_INVAL) {
-		pr_err("%s: Send info for label %d not yet initialized\n",
+	if ((cap_table_entry->tx_cap_id == HH_CAPID_INVAL) &&
+		(flags & HH_MSGQ_NONBLOCK)) {
+		pr_err_ratelimited(
+			"%s: Send info for label %d not yet initialized\n",
 			__func__, client_desc->label);
 		ret = -EAGAIN;
 		goto err;
 	}
 
+	spin_unlock(&cap_table_entry->cap_entry_lock);
+
+	if (wait_event_interruptible(cap_table_entry->tx_wq,
+				cap_table_entry->tx_cap_id != HH_CAPID_INVAL))
+		return -ERESTARTSYS;
+
+	spin_lock(&cap_table_entry->cap_entry_lock);
+
 	if (!cap_table_entry->tx_irq) {
-		pr_err("%s: Tx IRQ for label %d not yet setup\n",
+		pr_err_ratelimited("%s: Tx IRQ for label %d not yet setup\n",
 			__func__, client_desc->label);
 		ret = -EAGAIN;
 		goto err;
@@ -286,12 +308,6 @@ int hh_msgq_send(void *msgq_client_desc,
 
 		ret = __hh_msgq_send(cap_table_entry, buff, size, flags);
 	} while (ret == -EAGAIN);
-
-	/* If the send is success, hypervisor should not be holding any
-	 * references to 'buff', and hence, can be released.
-	 */
-	if (!ret)
-		kfree(buff);
 
 	return ret;
 err:
@@ -315,6 +331,9 @@ void *hh_msgq_register(enum hh_msgq_label label)
 {
 	struct hh_msgq_cap_table *cap_table_entry;
 	struct hh_msgq_desc *client_desc;
+
+	if (!hh_msgq_initialized)
+		return ERR_PTR(-EPROBE_DEFER);
 
 	if (label < 0 || label >= HH_MSGQ_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
@@ -393,6 +412,9 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 	struct hh_msgq_cap_table *cap_table_entry;
 	int ret;
 
+	if (!hh_msgq_initialized)
+		return -EPROBE_DEFER;
+
 	if (label < 0 || label >= HH_MSGQ_LABEL_MAX) {
 		pr_err("%s: Invalid label passed\n", __func__);
 		return -EINVAL;
@@ -415,6 +437,8 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 
 		cap_table_entry->tx_irq = irq;
 		cap_table_entry->tx_cap_id = cap_id;
+
+		wake_up_interruptible(&cap_table_entry->tx_wq);
 	} else if (direction == HH_MSGQ_DIRECTION_RX) {
 		ret = request_irq(irq, hh_msgq_rx_isr, 0,
 				cap_table_entry->rx_irq_name, cap_table_entry);
@@ -423,6 +447,8 @@ int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 
 		cap_table_entry->rx_cap_id = cap_id;
 		cap_table_entry->rx_irq = irq;
+
+		wake_up_interruptible(&cap_table_entry->rx_wq);
 	} else {
 		pr_err("%s: Invalid direction passed\n", __func__);
 		ret = -EINVAL;
@@ -493,6 +519,7 @@ static int __init hh_msgq_init(void)
 		}
 	}
 
+	hh_msgq_initialized = true;
 	return 0;
 
 err:

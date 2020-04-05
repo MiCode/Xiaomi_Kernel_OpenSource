@@ -518,10 +518,17 @@ static int hh_rm_send_request(u32 message_id,
 
 		ret = hh_msgq_send(hh_rm_msgq_desc, send_buff,
 					sizeof(*hdr) + payload_size, tx_flags);
-		if (ret) {
-			kfree(send_buff);
+
+		/*
+		 * In the case of a success, the hypervisor would have consumed
+		 * the buffer. While in the case of a failure, we are going to
+		 * quit anyways. Hence, free the buffer regardless of the
+		 * return value.
+		 */
+		kfree(send_buff);
+
+		if (ret)
 			return ret;
-		}
 	}
 
 	return 0;
