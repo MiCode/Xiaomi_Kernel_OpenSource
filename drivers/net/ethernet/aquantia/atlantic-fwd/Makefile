@@ -30,6 +30,7 @@
 obj-$(CONFIG_AQFWD) += atlantic-fwd.o
 
 atlantic-fwd-objs := atl_fw.o \
+		     atl2_fw.o \
 		     atl_hw.o \
 		     atl_main.o \
 		     atl_ring.o \

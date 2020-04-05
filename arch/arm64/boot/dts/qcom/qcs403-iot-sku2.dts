@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +16,12 @@
 #include "qcs403.dtsi"
 #include "qcs405-audio-overlay.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
+#include "qcs405-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS403 RCM IOT";
 	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
 	qcom,board-id = <0x010015 0x0>;
-
 };
 
 #include "qcs405-mdss-panels.dtsi"
@@ -51,6 +51,10 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&smb1351_otg_supply {
+	status = "disabled";
+};
+
 &usb3 {
 	status = "disabled";
 };
@@ -64,6 +68,10 @@
 	status = "disabled";
 };
 
-&qnand_1 {
-	status = "ok";
+&emac_hw {
+	status = "disabled";
+};
+
+&qcom_seecom {
+	qcom,appsbl-qseecom-support;
 };

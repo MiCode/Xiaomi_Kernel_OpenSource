@@ -39,7 +39,7 @@ struct atl_desc_ring {
 	struct atl_queue_vec *qvec;
 	struct u64_stats_sync syncp;
 	struct atl_ring_stats stats;
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 	u32 tx_hw_head;
 	union {
 		struct atl_fwd_event *tx_evt;

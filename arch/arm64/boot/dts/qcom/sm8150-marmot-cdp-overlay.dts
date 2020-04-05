@@ -26,3 +26,15 @@
 	qcom,board-id = <0x05010001 0x5>;
 };
 
+&dsi_dual_nt35597_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 9 0>;
+};
+
+&dsi_dual_nt35597_truly_cmd_display {
+	qcom,dsi-display-active;
+};

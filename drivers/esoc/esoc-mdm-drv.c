@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -619,6 +619,10 @@ static struct esoc_compat compat_table[] = {
 	},
 	{
 		.name = "SDXPRAIRIE",
+		.data = NULL,
+	},
+	{
+		.name = "SDXMARMOT",
 		.data = NULL,
 	},
 };

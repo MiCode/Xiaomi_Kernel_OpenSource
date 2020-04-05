@@ -27,6 +27,59 @@ struct atl_nic;
 /* clock is 3.2 ns*/
 #define ATL_HW_CLOCK_TO_US(clk)  (clk * 32 / 10000)
 
+#define ATL2_ACTION(ACTION, RSS, INDEX, VALID, TS_VALID) \
+	((((ACTION & 0x3U) << 8) | \
+	((RSS & 0x1U) << 7) | \
+	((INDEX & 0x3FU) << 2) | \
+	((TS_VALID & 0x1U) << 1)) | \
+	((VALID & 0x1U) << 0))
+
+#define ATL2_ACTION_DROP ATL2_ACTION(0, 0, 0, 1, 0)
+#define ATL2_ACTION_DISABLE ATL2_ACTION(0, 0, 0, 0, 0)
+#define ATL2_ACTION_ASSIGN_QUEUE(QUEUE) ATL2_ACTION(1, 0, (QUEUE), 1, 0)
+#define ATL2_ACTION_ASSIGN_TC(TC) ATL2_ACTION(1, 1, (TC), 1, 0)
+
+#define ATL2_RPF_L2_PROMISC_OFF_INDEX   0
+#define ATL2_RPF_VLAN_PROMISC_OFF_INDEX 1
+#define ATL2_RPF_L3L4_USER_INDEX        48
+#define ATL2_RPF_ET_PCP_USER_INDEX      64
+#define ATL2_RPF_VLAN_USER_INDEX        80
+#define ATL2_RPF_FLEX_USER_INDEX        96
+#define ATL2_RPF_VLAN_INDEX             122
+#define ATL2_RPF_MAC_INDEX              123
+#define ATL2_RPF_ALLMC_INDEX            124
+#define ATL2_RPF_UNTAG_INDEX            125
+#define ATL2_RPF_VLAN_PROMISC_ON_INDEX  126
+#define ATL2_RPF_L2_PROMISC_ON_INDEX    127
+
+#define ATL2_RPF_TAG_UC_OFFSET      0x0
+#define ATL2_RPF_TAG_ALLMC_OFFSET   0x6
+#define ATL2_RPF_TAG_ET_OFFSET      0x7
+#define ATL2_RPF_TAG_VLAN_OFFSET    0xA
+#define ATL2_RPF_TAG_UNTAG_OFFSET   0xE
+#define ATL2_RPF_TAG_L3_V4_OFFSET   0xF
+#define ATL2_RPF_TAG_L3_V6_OFFSET   0x12
+#define ATL2_RPF_TAG_L4_OFFSET      0x15
+#define ATL2_RPF_TAG_L4_FLEX_OFFSET 0x18
+#define ATL2_RPF_TAG_FLEX_OFFSET    0x1B
+#define ATL2_RPF_TAG_PCP_OFFSET     0x1D
+
+#define ATL2_RPF_TAG_UC_MASK    (0x0000003F << ATL2_RPF_TAG_UC_OFFSET)
+#define ATL2_RPF_TAG_ALLMC_MASK (0x00000001 << ATL2_RPF_TAG_ALLMC_OFFSET)
+#define ATL2_RPF_TAG_UNTAG_MASK (0x00000001 << ATL2_RPF_TAG_UNTAG_OFFSET)
+#define ATL2_RPF_TAG_VLAN_MASK  (0x0000000F << ATL2_RPF_TAG_VLAN_OFFSET)
+#define ATL2_RPF_TAG_ET_MASK    (0x00000007 << ATL2_RPF_TAG_ET_OFFSET)
+#define ATL2_RPF_TAG_L3_V4_MASK (0x00000007 << ATL2_RPF_TAG_L3_V4_OFFSET)
+#define ATL2_RPF_TAG_L3_V6_MASK (0x00000007 << ATL2_RPF_TAG_L3_V6_OFFSET)
+#define ATL2_RPF_TAG_L4_MASK    (0x00000007 << ATL2_RPF_TAG_L4_OFFSET)
+#define ATL2_RPF_TAG_FLEX_MASK  (0x00000003 << ATL2_RPF_TAG_FLEX_OFFSET)
+#define ATL2_RPF_TAG_PCP_MASK   (0x00000007 << ATL2_RPF_TAG_PCP_OFFSET)
+
+#define ATL2_RPF_TAG_BASE_UC    (1 << ATL2_RPF_TAG_UC_OFFSET)
+#define ATL2_RPF_TAG_BASE_ALLMC (1 << ATL2_RPF_TAG_ALLMC_OFFSET)
+#define ATL2_RPF_TAG_BASE_UNTAG (1 << ATL2_RPF_TAG_UNTAG_OFFSET)
+#define ATL2_RPF_TAG_BASE_VLAN  (1 << ATL2_RPF_TAG_VLAN_OFFSET)
+
 #define busy_wait(tries, wait, lvalue, fetch, cond)	\
 ({							\
 	uint32_t _dummy = 0;				\
@@ -40,12 +93,10 @@ struct atl_nic;
 	(orig - i);					\
 })
 
-enum atl_board {
+enum atl_chip {
 	ATL_UNKNOWN,
-	ATL_AQC107,
-	ATL_AQC108,
-	ATL_AQC109,
-	ATL_AQC100,
+	ATL_ATLANTIC,
+	ATL_ANTIGUA,
 };
 
 struct atl_thermal {
@@ -77,6 +128,8 @@ struct atl_hw {
 	uint8_t __iomem *regs;
 	struct pci_dev *pdev;
 	unsigned long state;
+	enum atl_chip chip_id;
+	bool new_rpf;
 	struct atl_link_state link_state;
 	unsigned wol_mode;
 	struct atl_mcp mcp;
@@ -89,7 +142,7 @@ struct atl_hw {
 	struct atl_thermal thermal;
 #define ATL_FW_CFG_DUMP_SIZE 2
 	uint32_t fw_cfg_dump[ATL_FW_CFG_DUMP_SIZE];
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	struct atl_macsec_cfg macsec_cfg;
 #endif
 };
@@ -208,17 +261,66 @@ static inline void atl_init_rss_table(struct atl_hw *hw, int nvecs)
 		hw->rss_tbl[i] = i % nvecs;
 }
 
-static inline void atl_set_vlan_promisc(struct atl_hw *hw, int promisc)
+int atl2_act_rslvr_table_set(struct atl_hw *hw, u8 location,
+			     u32 tag, u32 mask, u32 action);
+static inline void atl2_rpf_vlan_flr_tag_set(struct atl_hw *hw, u32 tag,
+					     u32 filter)
 {
-	atl_write_bit(hw, ATL_RX_VLAN_FLT_CTRL1, 1, !!promisc);
+	atl_write_bits(hw, ATL_RX_VLAN_FLT(filter), 12, 4, tag);
+}
+
+static inline void atl2_rpf_etht_flr_tag_set(struct atl_hw *hw, u32 tag,
+					     u32 filter)
+{
+	atl_write_bits(hw, ATL2_RX_ETYPE_TAG(filter), 0, 3, tag);
+}
+
+static inline void atl2_rpf_l3_v4_da_set(struct atl_hw *hw, u32 filter, u32 val)
+{
+	u32 dword = filter % 4;
+	u32 addr_set = 6 + ((filter < 4) ? (0) :  (1));
+
+	atl_write(hw, ATL2_RPF_L3_DA(addr_set) + 4 * dword, swab32(val));
+}
+
+static inline void atl2_rpf_l3_v4_sa_set(struct atl_hw *hw, u32 filter, u32 val)
+{
+	u32 dword = filter % 4;
+	u32 addr_set = 6 + ((filter < 4) ? (0) :  (1));
+
+	atl_write(hw, ATL2_RPF_L3_SA(addr_set) + 4 * dword, swab32(val));
+}
+
+static inline void atl2_rpf_l3_v6_sa_set(struct atl_hw *hw, u32 filter,
+					 u32 val[4])
+{
+	int i;
+
+	for (i = 0; i < 4; i++)
+		atl_write(hw, ATL2_RPF_L3_SA(filter) + 4 * i, swab32(val[i]));
+}
+
+static inline void atl2_rpf_l3_v6_da_set(struct atl_hw *hw, u32 filter,
+					 u32 val[4])
+{
+	int i;
+
+	for (i = 0; i < 4; i++)
+		atl_write(hw, ATL2_RPF_L3_DA(filter) + 4 * i, swab32(val[i]));
+}
+
+static inline void atl2_rpf_flex_flr_tag_set(struct atl_hw *hw, u32 tag,
+					     u32 filter)
+{
+	atl_write_bits(hw, ATL_RX_FLEX_FLT_CTRL(filter), 0x19, 2, tag);
 }
 
 int atl_read_mcp_mem(struct atl_hw *hw, uint32_t mcp_addr, void *host_addr,
 	unsigned size);
-int atl_hwinit(struct atl_hw *hw, enum atl_board brd_id);
+int atl_hwinit(struct atl_hw *hw, enum atl_chip chip_id);
 void atl_refresh_link(struct atl_nic *nic);
 void atl_set_rss_key(struct atl_hw *hw);
-void atl_set_rss_tbl(struct atl_hw *hw);
+int atl_set_rss_tbl(struct atl_hw *hw);
 void atl_set_uc_flt(struct atl_hw *hw, int idx, uint8_t mac_addr[ETH_ALEN]);
 
 int atl_alloc_descs(struct atl_nic *nic, struct atl_hw_ring *ring);

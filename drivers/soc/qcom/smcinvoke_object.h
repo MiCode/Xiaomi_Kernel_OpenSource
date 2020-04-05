@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #define OBJECT_OP_RELEASE       (OBJECT_OP_METHOD_MASK - 0)
 #define OBJECT_OP_RETAIN        (OBJECT_OP_METHOD_MASK - 1)
 #define OBJECT_OP_MAP_REGION    0
+#define OBJECT_OP_YIELD 1
 
 #define OBJECT_COUNTS_MAX_BI   0xF
 #define OBJECT_COUNTS_MAX_BO   0xF

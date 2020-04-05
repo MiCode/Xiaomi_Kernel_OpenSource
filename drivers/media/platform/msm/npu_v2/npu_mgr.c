@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,11 +157,10 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	}
 
 	/* Keep reading ctrl status until NPU is ready */
-	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false)) {
-		ret = -EPERM;
+	ret = wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false);
+	if (ret)
 		goto load_fw_fail;
-	}
 
 	npu_host_ipc_post_init(npu_dev);
 	NPU_DBG("firmware init complete\n");
@@ -428,7 +427,7 @@ static int disable_fw_nolock(struct npu_device *npu_dev)
 		msleep(500);
 	}
 
-	if (!host_ctx->auto_pil_disable) {
+	if (!ret && !host_ctx->auto_pil_disable) {
 		ret = wait_for_completion_timeout(
 			&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
 		if (!ret) {
@@ -530,7 +529,7 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 			reg_val = REGR(npu_dev, REG_NPU_FW_CTRL_STATUS);
 			if (reg_val & FW_CTRL_STATUS_PWR_NOTIFY_ERR_VAL) {
 				NPU_ERR("NOTIfY_PWR failed\n");
-				ret = -EPERM;
+				ret = -EIO;
 			}
 		}
 	}
@@ -694,7 +693,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	host_ctx->wq_pri =
 		alloc_workqueue("npu_ipc_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
 	if (!host_ctx->wq || !host_ctx->wq_pri) {
-		ret = -EPERM;
+		ret = -ENOMEM;
 		goto fail;
 	} else {
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
@@ -918,10 +917,10 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	host_ctx->err_irq_sts = 0;
 
 	/* Keep reading ctrl status until NPU is ready */
-	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false)) {
+	ret = wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false);
+	if (ret) {
 		NPU_ERR("wait for fw status ready timedout\n");
-		ret = -EPERM;
 		goto fw_start_done;
 	}
 

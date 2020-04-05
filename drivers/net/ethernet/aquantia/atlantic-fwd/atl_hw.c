@@ -13,28 +13,7 @@
 #include "atl_common.h"
 #include "atl_hw.h"
 #include "atl_ring.h"
-
-struct atl_board_info {
-	unsigned int link_mask;
-};
-
-static struct atl_board_info atl_boards[] = {
-	[ATL_UNKNOWN] = {
-		.link_mask = 0x1f,
-	},
-	[ATL_AQC107] = {
-		.link_mask = 0x1f,
-	},
-	[ATL_AQC108] = {
-		.link_mask = 0xf,
-	},
-	[ATL_AQC109] = {
-		.link_mask = 7,
-	},
-	[ATL_AQC100] = {
-		.link_mask = 0x1f,
-	},
-};
+#include "atl2_fw.h"
 
 static void atl_unplugged(struct atl_hw *hw)
 {
@@ -101,12 +80,30 @@ static inline void atl_glb_soft_reset_full(struct atl_hw *hw)
 	atl_glb_soft_reset(hw);
 }
 
+static void atl2_hw_new_rx_filter_vlan_promisc(struct atl_hw *hw, bool promisc);
+static void atl2_hw_new_rx_filter_promisc(struct atl_hw *hw, bool promisc);
+static void atl2_hw_init_new_rx_filters(struct atl_hw *hw);
+
+static void atl_set_promisc(struct atl_hw *hw, bool enabled)
+{
+	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, enabled);
+	if (hw->new_rpf)
+		atl2_hw_new_rx_filter_promisc(hw, enabled);
+}
+
+void atl_set_vlan_promisc(struct atl_hw *hw, int promisc)
+{
+	atl_write_bit(hw, ATL_RX_VLAN_FLT_CTRL1, 1, !!promisc);
+	if (hw->new_rpf)
+		atl2_hw_new_rx_filter_vlan_promisc(hw, !!promisc);
+}
+
 static inline void atl_enable_dma_net_lpb_mode(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
 
 	atl_set_vlan_promisc(hw, 1);
-	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, 1);
+	atl_set_promisc(hw, 1);
 	atl_write_bit(hw, ATL_TX_PBUF_CTRL1, 4, 0);
 	atl_write_bit(hw, ATL_TX_CTRL1, 4, 1);
 	atl_write_bit(hw, ATL_RX_CTRL1, 4, 1);
@@ -174,9 +171,117 @@ unlock:
 	return ret;
 }
 
-/* Must be called either during early init when netdev isn't yet
- * registered, or with RTNL lock held */
-int atl_hw_reset(struct atl_hw *hw)
+
+#define ATL2_BOOT_STARTED         BIT(0x18)
+#define ATL2_CRASH_INIT           BIT(0x1B)
+#define ATL2_BOOT_CODE_FAILED     BIT(0x1C)
+#define ATL2_FW_INIT_FAILED       BIT(0x1D)
+#define ATL2_FW_INIT_COMP_SUCCESS BIT(0x1F)
+#define ATL2_FW_BOOT_FAILED_MASK (ATL2_CRASH_INIT | \
+				  ATL2_BOOT_CODE_FAILED | \
+				  ATL2_FW_INIT_FAILED)
+#define ATL2_FW_BOOT_COMPLETE_MASK (ATL2_FW_BOOT_FAILED_MASK | \
+				    ATL2_FW_INIT_COMP_SUCCESS)
+
+#define ATL2_FW_BOOT_REQ_REBOOT        BIT(0x0)
+#define ATL2_FW_BOOT_REQ_HOST_BOOT     BIT(0x8)
+#define ATL2_FW_BOOT_REQ_MAC_FAST_BOOT BIT(0xA)
+#define ATL2_FW_BOOT_REQ_PHY_FAST_BOOT BIT(0xB)
+
+static bool atl2_mcp_boot_complete(struct atl_hw *hw)
+{
+	u32 rbl_status;
+
+	rbl_status = atl_read(hw, ATL2_MIF_BOOT_REG_ADR);
+	if (rbl_status & ATL2_FW_BOOT_COMPLETE_MASK)
+		return true;
+
+	/* Host boot requested */
+	if (atl_read(hw, ATL2_MCP_HOST_REQ_INT) & 0x1)
+		return true;
+
+	return false;
+}
+
+static int atl2_hw_reset(struct atl_hw *hw)
+{
+	bool rbl_complete = false;
+	u32 rbl_status = 0;
+	u32 rbl_request;
+	int err = 0;
+
+	atl_lock_fw(hw);
+
+	busy_wait(50, mdelay(1), rbl_status,
+		  atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
+		  ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
+		  (rbl_status == 0xffffffff));
+	if (!(rbl_status & ATL2_BOOT_STARTED))
+		atl_dev_dbg("Boot code probably hanged, reboot anyway");
+
+
+	atl_write(hw, ATL2_MCP_HOST_REQ_INT_CLR, 0x01);
+	rbl_request = ATL2_FW_BOOT_REQ_REBOOT;
+#ifdef AQ_CFG_FAST_START
+	rbl_request |= ATL2_FW_BOOT_REQ_MAC_FAST_BOOT;
+#endif
+
+/*
+	atl_set_bits(hw, 0x404, 1);
+*/
+	atl_write(hw, ATL2_MIF_BOOT_REG_ADR, rbl_request);
+/*
+	if (hw->mcp.ops)
+		hw->mcp.ops->restore_cfg(hw);
+	atl_clear_bits(hw, 0x404, 1);
+*/
+	/* Wait for RBL boot */
+	busy_wait(200, mdelay(1), rbl_status,
+		  atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
+		  ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
+		  (rbl_status == 0xffffffff));
+	if (!(rbl_status & ATL2_BOOT_STARTED)) {
+		err = -ETIME;
+		atl_dev_err("Boot code hanged");
+		goto unlock;
+	}
+
+	busy_wait(100, mdelay(1), rbl_complete,
+		  atl2_mcp_boot_complete(hw),
+		  !rbl_complete);
+	if (!rbl_complete) {
+		err = -ETIME;
+		atl_dev_err("FW Restart timed out");
+		goto unlock;
+	}
+
+	rbl_status = atl_read(hw, ATL2_MIF_BOOT_REG_ADR);
+
+	if (rbl_status & ATL2_FW_BOOT_FAILED_MASK) {
+		err = -EIO;
+		atl_dev_err("FW Restart failed, status  = %#x", rbl_status);
+		goto unlock;
+	}
+
+	if (atl_read(hw, ATL2_MCP_HOST_REQ_INT) & 0x1) {
+		err = -EIO;
+		atl_dev_err("No FW detected. Dynamic FW load not implemented");
+		goto unlock;
+	}
+
+	err = atl2_fw_init(hw);
+
+unlock:
+	atl_unlock_fw(hw);
+
+	if (err)
+		set_bit(ATL_ST_RESET_NEEDED, &hw->state);
+	else
+		set_bit(ATL_ST_GLOBAL_CONF_NEEDED, &hw->state);
+	return err;
+}
+
+static int atl1_hw_reset(struct atl_hw *hw)
 {
 	uint32_t reg;
 	uint32_t flb_stat;
@@ -265,30 +370,44 @@ unlock:
 	return ret;
 }
 
-static int atl_get_mac_addr(struct atl_hw *hw, uint8_t *buf)
+/* Must be called either during early init when netdev isn't yet
+ * registered, or with RTNL lock held
+ */
+int atl_hw_reset(struct atl_hw *hw)
 {
-	uint32_t efuse_shadow_addr =
-		atl_read(hw, hw->mcp.ops->efuse_shadow_addr_reg);
-	uint8_t tmp[8];
 	int ret;
 
-	if (!efuse_shadow_addr)
-		return false;
+	if (hw->chip_id == ATL_ANTIGUA)
+		ret = atl2_hw_reset(hw);
+	else
+		ret = atl1_hw_reset(hw);
+	if (ret)
+		return ret;
 
-	ret = atl_read_mcp_mem(hw, efuse_shadow_addr + 40 * 4, tmp, 8);
-	*(uint32_t *)buf = htonl(*(uint32_t *)tmp);
-	*(uint16_t *)&buf[4] = (uint16_t)htonl(*(uint32_t *)&tmp[4]);
+	ret = atl_fw_configure(hw);
 
 	return ret;
 }
 
-int atl_hwinit(struct atl_hw *hw, enum atl_board brd_id)
+static int atl_get_mac_addr(struct atl_hw *hw, uint8_t *buf)
 {
-	struct atl_board_info *brd = &atl_boards[brd_id];
 	int ret;
 
-	/* Default supported speed set based on device id. */
-	hw->link_state.supported = brd->link_mask;
+	ret = hw->mcp.ops->get_mac_addr(hw, buf);
+
+	return ret;
+}
+
+static unsigned int atl_newrpf = 1;
+atl_module_param(newrpf, uint, 0644);
+
+int atl_hwinit(struct atl_hw *hw, enum atl_chip chip_id)
+{
+	int ret;
+
+	hw->chip_id = chip_id;
+	if (chip_id == ATL_ANTIGUA && atl_newrpf)
+		hw->new_rpf = 1;
 
 	hw->thermal = atl_def_thermal;
 
@@ -297,7 +416,7 @@ int atl_hwinit(struct atl_hw *hw, enum atl_board brd_id)
 	atl_dev_info("rev 0x%x chip 0x%x FW img 0x%x\n",
 		 atl_read(hw, ATL_GLOBAL_CHIP_REV) & 0xffff,
 		 atl_read(hw, ATL_GLOBAL_CHIP_ID) & 0xffff,
-		 atl_read(hw, ATL_GLOBAL_FW_IMAGE_ID));
+		 hw->mcp.fw_rev);
 
 	if (ret)
 		return ret;
@@ -331,7 +450,7 @@ void atl_refresh_link(struct atl_nic *nic)
 			atl_nic_info("Link up: %s\n", link->name);
 			netif_carrier_on(nic->ndev);
 			pm_runtime_get_sync(&nic->hw.pdev->dev);
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 			atl_init_macsec(hw);
 #endif
 		}
@@ -353,6 +472,9 @@ static irqreturn_t atl_link_irq(int irq, void *priv)
 
 	set_bit(ATL_ST_UPDATE_LINK, &nic->hw.state);
 	atl_schedule_work(nic);
+	if (nic->hw.chip_id == ATL_ANTIGUA)
+		atl_write(&nic->hw, ATL2_MCP_HOST_REQ_INT_CLR, 0xffff);
+
 	return IRQ_HANDLED;
 }
 
@@ -436,6 +558,7 @@ void atl_set_uc_flt(struct atl_hw *hw, int idx, uint8_t mac_addr[ETH_ALEN])
 	atl_write(hw, ATL_RX_UC_FLT_REG2(idx),
 		(uint32_t)be16_to_cpu(*(uint16_t *)mac_addr) |
 		1 << 16 | 1 << 31);
+	atl_write_bits(hw, ATL_RX_UC_FLT_REG2(idx), 22, 6, ATL2_RPF_TAG_BASE_UC);
 }
 
 static void atl_disable_uc_flt(struct atl_hw *hw, int idx)
@@ -463,10 +586,17 @@ void atl_set_rss_key(struct atl_hw *hw)
 	}
 }
 
-void atl_set_rss_tbl(struct atl_hw *hw)
+int atl_set_rss_tbl(struct atl_hw *hw)
 {
 	int i, shift = 0, addr = 0;
 	uint32_t val = 0, stat;
+	uint32_t tc = 0;
+
+	if (hw->new_rpf)
+		for (i = ATL_RSS_TBL_SIZE; i--;) {
+			atl_write_bits(hw, ATL2_RPF_RSS_REDIR(tc, i),
+				       5 * ((tc) % 4), 5, hw->rss_tbl[i]);
+		}
 
 	for (i = 0; i < ATL_RSS_TBL_SIZE; i++) {
 		val |= (uint32_t)(hw->rss_tbl[i]) << shift;
@@ -483,13 +613,14 @@ void atl_set_rss_tbl(struct atl_hw *hw)
 		if (stat & BIT(4)) {
 			atl_dev_err("Timeout writing RSS redir table[%d] (addr %d): %#x\n",
 				    i, addr, stat);
-			return;
+			return -ETIME;
 		}
 
 		shift -= 16;
 		val >>= 16;
 		addr++;
 	}
+	return 0;
 }
 
 unsigned int atl_fwd_rx_buf_reserve =
@@ -514,6 +645,7 @@ module_param_named(fwd_rx_buf_reserve, atl_fwd_rx_buf_reserve, uint, 0444);
 void atl_start_hw_global(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
+	int rpb_size = 320, tpb_size = 160;
 
 	if (!test_and_clear_bit(ATL_ST_GLOBAL_CONF_NEEDED, &hw->state))
 		return;
@@ -526,13 +658,26 @@ void atl_start_hw_global(struct atl_nic *nic)
 	/* Enable RPF2, filter logic 3 */
 	atl_write(hw, 0x5040, BIT(16) | (3 << 17));
 
+	if (hw->chip_id == ATL_ANTIGUA) {
+		rpb_size = 192;
+		tpb_size = 128;
+	}
 	/* Alloc TPB */
 	/* TC1: space for offload engine iface */
 	atl_write(hw, ATL_TX_PBUF_REG1(1), atl_fwd_tx_buf_reserve);
+	atl_write(hw, ATL_TX_PBUF_REG2(1),
+		(atl_fwd_tx_buf_reserve * 32 * 66 / 100) << 16 |
+		(atl_fwd_tx_buf_reserve * 32 * 50 / 100));
 	/* TC0: 160k minus TC1 size */
-	atl_write(hw, ATL_TX_PBUF_REG1(0), 160 - atl_fwd_tx_buf_reserve);
+	atl_write(hw, ATL_TX_PBUF_REG1(0), tpb_size - atl_fwd_tx_buf_reserve);
+	atl_write(hw, ATL_TX_PBUF_REG2(0),
+		((tpb_size - atl_fwd_tx_buf_reserve) * 32 * 66 / 100) << 16 |
+		((tpb_size - atl_fwd_tx_buf_reserve) * 32 * 50 / 100));
 	/* 4-TC | Enable TPB */
 	atl_set_bits(hw, ATL_TX_PBUF_CTRL1, BIT(8) | BIT(0));
+	/* TX Buffer clk gate  off */
+	if (hw->chip_id == ATL_ANTIGUA)
+		atl_clear_bits(hw, ATL_TX_PBUF_CTRL1, BIT(5));
 
 	/* Alloc RPB */
 	/* TC1: space for offload engine iface */
@@ -541,10 +686,10 @@ void atl_start_hw_global(struct atl_nic *nic)
 		(atl_fwd_rx_buf_reserve * 32 * 66 / 100) << 16 |
 		(atl_fwd_rx_buf_reserve * 32 * 50 / 100));
 	/* TC1: 320k minus TC1 size */
-	atl_write(hw, ATL_RX_PBUF_REG1(0), 320 - atl_fwd_rx_buf_reserve);
+	atl_write(hw, ATL_RX_PBUF_REG1(0), rpb_size - atl_fwd_rx_buf_reserve);
 	atl_write(hw, ATL_RX_PBUF_REG2(0), BIT(31) |
-		((320 - atl_fwd_rx_buf_reserve) * 32 * 66 / 100) << 16 |
-		((320 - atl_fwd_rx_buf_reserve) * 32 * 50 / 100));
+		((rpb_size - atl_fwd_rx_buf_reserve) * 32 * 66 / 100) << 16 |
+		((rpb_size - atl_fwd_rx_buf_reserve) * 32 * 50 / 100));
 	/* 4-TC | Enable RPB */
 	atl_set_bits(hw, ATL_RX_PBUF_CTRL1, BIT(8) | BIT(4) | BIT(0));
 
@@ -581,6 +726,31 @@ void atl_start_hw_global(struct atl_nic *nic)
 	/* Enable untagged packets */
 	atl_write(hw, ATL_RX_VLAN_FLT_CTRL1, 1 << 2 | 1 << 3);
 
+	if (hw->chip_id == ATL_ANTIGUA) {
+		/* RSS hash type */
+		atl_set_bits(hw, ATL2_RX_RSS_HASH_TYPE_ADR, BIT(9) - 1);
+
+		/* ATL2 Apply legacy ring to TC mapping */
+		atl_write(hw, ATL2_RX_Q_TO_TC_MAP(0), 0x00000000);
+		atl_write(hw, ATL2_RX_Q_TO_TC_MAP(1), 0x11111111);
+		atl_write(hw, ATL2_RX_Q_TO_TC_MAP(2), 0x22222222);
+		atl_write(hw, ATL2_RX_Q_TO_TC_MAP(3), 0x33333333);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(0), 0x00000000);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(1), 0x00000000);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(2), 0x01010101);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(3), 0x01010101);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(4), 0x02020202);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(5), 0x02020202);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(6), 0x03030303);
+		atl_write(hw, ATL2_TX_Q_TO_TC_MAP(7), 0x03030303);
+
+	}
+	/* Turn new filters on*/
+	if (hw->new_rpf) {
+		atl_set_bits(hw, ATL_RX_FLT_CTRL2, BIT(0xB));
+		atl2_hw_init_new_rx_filters(hw);
+	}
+
 	/* Reprogram ethtool Rx filters */
 	atl_refresh_rxfs(nic);
 
@@ -613,8 +783,15 @@ void atl_start_hw_global(struct atl_nic *nic)
 		atl_write(hw, ATL_INTR_AUTO_CLEAR, 0);
 	}
 
-	/* Map link interrupt to cause 0 */
+	/* Map MCP 4 interrupt to cause 0 */
 	atl_write(hw, ATL_INTR_GEN_INTR_MAP4, BIT(7) | (0 << 0));
+
+	if (hw->chip_id == ATL_ANTIGUA) {
+		atl_set_bits(hw, ATL_GLOBAL_CTRL2, BIT(3) << 0xA);
+		atl_write(hw, ATL2_MCP_HOST_REQ_INT_MASK(3),
+			  ATL2_FW_HOST_INTERRUPT_LINK_UP |
+			  ATL2_FW_HOST_INTERRUPT_LINK_DOWN);
+	}
 
 	atl_write(hw, ATL_TX_INTR_CTRL, BIT(4));
 	atl_write(hw, ATL_RX_INTR_CTRL, BIT(3));
@@ -663,7 +840,7 @@ void atl_set_rx_mode(struct net_device *ndev)
 		ndev->flags & IFF_PROMISC || nic->rxf_vlan.promisc_count ||
 		!nic->rxf_vlan.vlans_active);
 
-	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, promisc_needed);
+	atl_set_promisc(hw, promisc_needed);
 	if (promisc_needed)
 		return;
 
@@ -754,45 +931,6 @@ void atl_set_loopback(struct atl_nic *nic, int idx, bool on)
 		atl_reconfigure(nic);
 		break;
 	}
-}
-
-void atl_update_ntuple_flt(struct atl_nic *nic, int idx)
-{
-	struct atl_hw *hw = &nic->hw;
-	struct atl_rxf_ntuple *ntuple = &nic->rxf_ntuple;
-	uint32_t cmd = ntuple->cmd[idx];
-	int i, len = 1;
-
-	if (!(cmd & ATL_NTC_EN)) {
-		atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
-		return;
-	}
-
-	if (cmd & ATL_NTC_V6)
-		len = 4;
-
-	for (i = idx; i < idx + len; i++) {
-		if (cmd & ATL_NTC_SA)
-			atl_write(hw, ATL_NTUPLE_SADDR(i),
-				swab32(ntuple->src_ip4[i]));
-
-		if (cmd & ATL_NTC_DA)
-			atl_write(hw, ATL_NTUPLE_DADDR(i),
-				swab32(ntuple->dst_ip4[i]));
-	}
-
-	if (cmd & ATL_NTC_SP)
-		atl_write(hw, ATL_NTUPLE_SPORT(idx),
-			swab16(ntuple->src_port[idx]));
-
-	if (cmd & ATL_NTC_DP)
-		atl_write(hw, ATL_NTUPLE_DPORT(idx),
-			swab16(ntuple->dst_port[idx]));
-
-	if (cmd & ATL_NTC_RXQ)
-		cmd |= 1 << ATL_NTC_ACT_SHIFT;
-
-	atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
 }
 
 int atl_hwsem_get(struct atl_hw *hw, int idx)
@@ -1162,3 +1300,204 @@ int atl_write_mcp_mem(struct atl_hw *hw, uint32_t offt, void *host_addr,
 
 	return 0;
 }
+
+void atl_thermal_check(struct atl_hw *hw, bool alarm)
+{
+	int temp, ret;
+	struct atl_link_state *lstate = &hw->link_state;
+	struct atl_link_type *link = lstate->link;
+	int lowest;
+
+	if (link) {
+		/* ffs() / fls() number bits starting at 1 */
+		lowest = ffs(lstate->lp_advertized) - 1;
+		if (lowest < lstate->lp_lowest) {
+			lstate->lp_lowest = lowest;
+			if (lowest < lstate->throttled_to &&
+				lstate->thermal_throttled && alarm)
+				/* We're still thermal-throttled, and
+				 * just found out we can lower the
+				 * speed even more, so renegotiate.
+				 */
+				goto relink;
+		}
+	} else
+		lstate->lp_lowest = fls(lstate->supported) - 1;
+
+	if (alarm == lstate->thermal_throttled)
+		return;
+
+	lstate->thermal_throttled = alarm;
+
+	ret = hw->mcp.ops->get_phy_temperature(hw, &temp);
+	if (ret)
+		temp = 0;
+	else
+		/* Temperature is in millidegrees C */
+		temp = (temp + 50) / 100;
+
+	if (alarm) {
+		if (temp)
+			atl_dev_warn("PHY temperature above threshold: %d.%d\n",
+				temp / 10, temp % 10);
+		else
+			atl_dev_warn("PHY temperature above threshold\n");
+	} else {
+		if (temp)
+			atl_dev_warn("PHY temperature back in range: %d.%d\n",
+				temp / 10, temp % 10);
+		else
+			atl_dev_warn("PHY temperature back in range\n");
+	}
+
+relink:
+	if (hw->thermal.flags & atl_thermal_throttle) {
+		/* If throttling is enabled, renegotiate link */
+		lstate->link = 0;
+		lstate->throttled_to = lstate->lp_lowest;
+		hw->mcp.ops->set_link(hw, true);
+	}
+}
+
+/* Atlanic2 new filters implementation */
+
+/* set action resolver record */
+static void atl2_rpf_act_rslvr_record_set(struct atl_hw *hw, u8 location,
+				   u32 tag, u32 mask, u32 action)
+{
+	atl_write(hw, ATL2_RPF_ACT_RSLVR_REQ_TAG(location), tag);
+	atl_write(hw, ATL2_RPF_ACT_RSLVR_TAG_MASK(location), mask);
+	atl_write(hw, ATL2_RPF_ACT_RSLVR_ACTN(location), action);
+}
+
+int atl2_act_rslvr_table_set(struct atl_hw *hw, u8 location,
+			     u32 tag, u32 mask, u32 action)
+{
+	static char action_str[][32] = {"Drop", "Host", "Management",
+					"Host & Management"};
+	static char valid_str[][32] = {"Not Valid", "Valid"};
+	static char rss_str[][32] = {"Queue", "TC"};
+	int err = 0;
+
+	dev_dbg(&hw->pdev->dev, "ACTRSLVR[%d] TAG %#x MASK %#x ACTION %#x (%s, %s %d, %s)",
+		location, tag, mask, action,
+		action_str[(action >> 8) & 3], rss_str[!!(action & BIT(7))],
+		(action >> 2) & 0x1f,
+		valid_str[action & 1]);
+
+	err = atl_hwsem_get(hw, ATL2_MCP_SEM_ACT_RSLVR);
+	if (err)
+		return err;
+
+	atl2_rpf_act_rslvr_record_set(hw, location, tag, mask, action);
+
+	atl_hwsem_put(hw, ATL2_MCP_SEM_ACT_RSLVR);
+
+	return err;
+}
+
+/** Initialise new rx filters
+ * L2 promisc OFF
+ * VLAN promisc OFF
+ *
+ * VLAN
+ * MAC
+ * ALLMULTI
+ * UT
+ * VLAN promisc ON
+ * L2 promisc ON
+ */
+static void atl2_hw_init_new_rx_filters(struct atl_hw *hw)
+{
+	atl_write(hw, ATL2_RPF_REC_TAB_EN, 0xFFFF);
+	atl_write_bits(hw, ATL_RX_UC_FLT_REG2(0), 22, 6, ATL2_RPF_TAG_BASE_UC);
+	atl_write_bits(hw, ATL2_RX_FLT_L2_BC_TAG, 0, 6, ATL2_RPF_TAG_BASE_UC);
+	atl_set_bits(hw, ATL2_RPF_L3_FLT(0), BIT(0x17));
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_L2_PROMISC_OFF_INDEX,
+				 0,
+				 ATL2_RPF_TAG_UC_MASK | ATL2_RPF_TAG_ALLMC_MASK,
+				 ATL2_ACTION_DROP);
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_VLAN_PROMISC_OFF_INDEX,
+				 0,
+				 ATL2_RPF_TAG_VLAN_MASK | ATL2_RPF_TAG_UNTAG_MASK,
+				 ATL2_ACTION_DROP);
+
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_VLAN_INDEX,
+				 ATL2_RPF_TAG_BASE_VLAN,
+				 ATL2_RPF_TAG_VLAN_MASK,
+				 ATL2_ACTION_ASSIGN_TC(0));
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_MAC_INDEX,
+				 ATL2_RPF_TAG_BASE_UC,
+				 ATL2_RPF_TAG_UC_MASK,
+				 ATL2_ACTION_ASSIGN_TC(0));
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_ALLMC_INDEX,
+				 ATL2_RPF_TAG_BASE_ALLMC,
+				 ATL2_RPF_TAG_ALLMC_MASK,
+				 ATL2_ACTION_ASSIGN_TC(0));
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_UNTAG_INDEX,
+				 ATL2_RPF_TAG_UNTAG_MASK,
+				 ATL2_RPF_TAG_UNTAG_MASK,
+				 ATL2_ACTION_ASSIGN_TC(0));
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_VLAN_PROMISC_ON_INDEX,
+				 0,
+				 ATL2_RPF_TAG_VLAN_MASK,
+				 ATL2_ACTION_DISABLE);
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_L2_PROMISC_ON_INDEX,
+				 0,
+				 ATL2_RPF_TAG_UC_MASK,
+				 ATL2_ACTION_DISABLE);
+}
+
+
+static void atl2_hw_new_rx_filter_vlan_promisc(struct atl_hw *hw, bool promisc)
+{
+	u16 on_action = promisc ? ATL2_ACTION_ASSIGN_TC(0) : ATL2_ACTION_DISABLE;
+	u16 off_action = !promisc ? ATL2_ACTION_DROP : ATL2_ACTION_DISABLE;
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_VLAN_PROMISC_ON_INDEX,
+				 0,
+				 ATL2_RPF_TAG_VLAN_MASK,
+				 on_action);
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_VLAN_PROMISC_OFF_INDEX,
+				 0,
+				 ATL2_RPF_TAG_VLAN_MASK | ATL2_RPF_TAG_UNTAG_MASK,
+				 off_action);
+}
+
+static void atl2_hw_new_rx_filter_promisc(struct atl_hw *hw, bool promisc)
+{
+	u16 on_action = promisc ? ATL2_ACTION_ASSIGN_TC(0) : ATL2_ACTION_DISABLE;
+	u16 off_action = promisc ? ATL2_ACTION_DISABLE : ATL2_ACTION_DROP;
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_L2_PROMISC_OFF_INDEX,
+				 0,
+				 ATL2_RPF_TAG_UC_MASK | ATL2_RPF_TAG_ALLMC_MASK,
+				 off_action);
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_L2_PROMISC_ON_INDEX,
+				 0,
+				 ATL2_RPF_TAG_UC_MASK,
+				 on_action);
+}
+
