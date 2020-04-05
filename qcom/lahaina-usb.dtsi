@@ -56,7 +56,7 @@
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
-			reg = <0xa600000 0xcd00>;
+			reg = <0xa600000 0xd93c>;
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
 			usb-phy = <&usb2_phy0>, <&usb_qmp_dp_phy>;
 			linux,sysdev_is_parent;
@@ -376,7 +376,7 @@
 
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
-			reg = <0xa800000 0xcd00>;
+			reg = <0xa800000 0xd93c>;
 			interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
 			usb-phy = <&usb2_phy1>, <&usb_qmp_phy>;
 			linux,sysdev_is_parent;
