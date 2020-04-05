@@ -7,6 +7,9 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/sort.h>
+#include <linux/kernel_stat.h>
+#include <linux/irq_cpustat.h>
 #include <linux/slab.h>
 #include <linux/jiffies.h>
 #include <linux/kthread.h>
@@ -47,10 +50,20 @@
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
 #define MAX_CPU_CTX_SIZE	2048
+#define NR_TOP_HITTERS		10
+#define COMPARE_RET		-1
+
+typedef int (*compare_t) (const void *lhs, const void *rhs);
 
 static struct msm_watchdog_data *wdog_data;
 
 static int cpu_idle_pc_state[NR_CPUS];
+
+struct irq_info {
+	unsigned int irq;
+	unsigned int total_count;
+	unsigned int irq_counter[NR_CPUS];
+};
 
 /*
  * user_pet_enable:
@@ -92,6 +105,9 @@ struct msm_watchdog_data {
 	unsigned long long thread_start;
 	unsigned long long ping_start[NR_CPUS];
 	unsigned long long ping_end[NR_CPUS];
+	struct irq_info irq_counts[NR_TOP_HITTERS];
+	struct irq_info ipi_counts[NR_IPI];
+	unsigned int tot_irq_count[NR_CPUS];
 };
 
 /*
@@ -404,6 +420,170 @@ static void pet_task_wakeup(struct timer_list *t)
 	wake_up(&wdog_dd->pet_complete);
 }
 
+static int cmp_irq_info_fn(const void *a, const void *b)
+{
+	struct irq_info *lhs = (struct irq_info *)a;
+	struct irq_info *rhs = (struct irq_info *)b;
+
+	if (lhs->total_count < rhs->total_count)
+		return 1;
+
+	if (lhs->total_count > rhs->total_count)
+		return COMPARE_RET;
+
+	return 0;
+}
+
+static void swap_irq_info_fn(void *a, void *b, int size)
+{
+	struct irq_info temp;
+	struct irq_info *lhs = (struct irq_info *)a;
+	struct irq_info *rhs = (struct irq_info *)b;
+
+	temp = *lhs;
+	*lhs = *rhs;
+	*rhs = temp;
+}
+
+static struct irq_info *search(struct irq_info *key, struct irq_info *base,
+			       size_t num, compare_t cmp)
+{
+	struct irq_info *pivot;
+	int result;
+
+	while (num > 0) {
+		pivot = base + (num >> 1);
+		result = cmp(key, pivot);
+
+		if (result == 0)
+			goto out;
+
+		if (result > 0) {
+			base = pivot + 1;
+			num--;
+		}
+
+		if (num)
+			num >>= 1;
+	}
+
+out:
+	return pivot;
+}
+
+static void print_irq_stat(struct msm_watchdog_data *wdog_dd)
+{
+	int index;
+	int cpu;
+	struct irq_info *info;
+
+
+	pr_info("(virq:irq_count)- ");
+	for (index = 0; index < NR_TOP_HITTERS; index++) {
+		info = &wdog_dd->irq_counts[index];
+		pr_cont("%u:%u ", info->irq, info->total_count);
+	}
+	pr_cont("\n");
+
+	pr_info("(cpu:irq_count)- ");
+	for_each_possible_cpu(cpu)
+		pr_cont("%u:%u ", cpu, wdog_dd->tot_irq_count[cpu]);
+	pr_cont("\n");
+
+	pr_info("(ipi:irq_count)- ");
+	for (index = 0; index < NR_IPI; index++) {
+		info = &wdog_dd->ipi_counts[index];
+		pr_cont("%u:%u ", info->irq, info->total_count);
+	}
+	pr_cont("\n");
+}
+
+static void compute_irq_stat(struct msm_watchdog_data *wdog_dd)
+{
+	unsigned int count;
+	int index = 0, cpu, irq;
+	struct irq_desc *desc;
+	struct irq_info *pos;
+	struct irq_info *start;
+	struct irq_info key = {0};
+	size_t arr_size = ARRAY_SIZE(wdog_dd->irq_counts);
+
+	/* per irq counts */
+	rcu_read_lock();
+	for_each_irq_nr(irq) {
+		desc = irq_to_desc(irq);
+		if (!desc)
+			continue;
+
+		count = kstat_irqs_usr(irq);
+		if (!count)
+			continue;
+
+		if (index < arr_size) {
+			wdog_dd->irq_counts[index].irq = irq;
+			wdog_dd->irq_counts[index].total_count = count;
+			for_each_possible_cpu(cpu)
+				wdog_dd->irq_counts[index].irq_counter[cpu] =
+					*per_cpu_ptr(desc->kstat_irqs, cpu);
+
+			index++;
+			if (index == arr_size)
+				sort(wdog_dd->irq_counts, arr_size,
+				     sizeof(*pos), cmp_irq_info_fn,
+				     swap_irq_info_fn);
+
+			continue;
+		}
+
+		key.total_count = count;
+		start = wdog_dd->irq_counts + (arr_size - 1);
+		pos = search(&key, wdog_dd->irq_counts,
+			     arr_size, cmp_irq_info_fn);
+		pr_debug("*pos:%u key:%u\n",
+				pos->total_count, key.total_count);
+		if (pos->total_count >= key.total_count) {
+			if (pos < start)
+				pos++;
+			else
+				pos = NULL;
+		}
+
+		pr_debug("count :%u irq:%u\n", count, irq);
+		if (pos && pos < start) {
+			start--;
+			for (; start >= pos ; start--)
+				*(start + 1) = *start;
+		}
+
+		if (pos) {
+			pos->irq = irq;
+			pos->total_count = count;
+			for_each_possible_cpu(cpu)
+				pos->irq_counter[cpu] =
+					*per_cpu_ptr(desc->kstat_irqs, cpu);
+		}
+	}
+	rcu_read_unlock();
+
+	/* per cpu total irq counts */
+	for_each_possible_cpu(cpu)
+		wdog_dd->tot_irq_count[cpu] = kstat_cpu_irqs_sum(cpu);
+
+	/* per IPI counts */
+	for (index = 0; index < NR_IPI; index++) {
+		wdog_dd->ipi_counts[index].total_count = 0;
+		wdog_dd->ipi_counts[index].irq = index;
+		for_each_possible_cpu(cpu) {
+			wdog_dd->ipi_counts[index].irq_counter[cpu] =
+				__IRQ_STAT(cpu, ipi_irqs[index]);
+			wdog_dd->ipi_counts[index].total_count +=
+				wdog_dd->ipi_counts[index].irq_counter[cpu];
+		}
+	}
+
+	print_irq_stat(wdog_dd);
+}
+
 static __ref int watchdog_kthread(void *arg)
 {
 	struct msm_watchdog_data *wdog_dd =
@@ -442,6 +622,7 @@ static __ref int watchdog_kthread(void *arg)
 		 * Could have been changed on other cpu
 		 */
 		mod_timer(&wdog_dd->pet_timer, jiffies + delay_time);
+		compute_irq_stat(wdog_dd);
 	}
 	return 0;
 }
@@ -497,6 +678,8 @@ void msm_trigger_wdog_bite(void)
 {
 	if (!wdog_data)
 		return;
+
+	compute_irq_stat(wdog_data);
 	pr_info("Causing a watchdog bite!");
 	__raw_writel(1, wdog_data->base + WDT0_BITE_TIME);
 	/* Mke sure bite time is written before we reset */
