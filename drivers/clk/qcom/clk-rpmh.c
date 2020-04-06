@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -312,6 +312,7 @@ static const struct clk_rpmh_desc clk_rpmh_lito = {
 };
 
 DEFINE_CLK_RPMH_ARC(lagoon, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 4);
+DEFINE_CLK_RPMH_ARC(lagoon, qlink, qlink_ao, "qphy.lvl", 0x1, 4);
 DEFINE_CLK_RPMH_VRM(lagoon, ln_bb_clk2, ln_bb_clk2_ao, "lnbclkg2", 4);
 DEFINE_CLK_RPMH_VRM(lagoon, ln_bb_clk3, ln_bb_clk3_ao, "lnbclkg3", 4);
 
@@ -322,6 +323,8 @@ static struct clk_hw *lagoon_rpmh_clocks[] = {
 	[RPMH_LN_BB_CLK2_A]	= &lagoon_ln_bb_clk2_ao.hw,
 	[RPMH_LN_BB_CLK3]	= &lagoon_ln_bb_clk3.hw,
 	[RPMH_LN_BB_CLK3_A]	= &lagoon_ln_bb_clk3_ao.hw,
+	[RPMH_QLINK_CLK]	= &lagoon_qlink.hw,
+	[RPMH_QLINK_CLK_A]	= &lagoon_qlink_ao.hw,
 };
 
 static const struct clk_rpmh_desc clk_rpmh_lagoon = {
