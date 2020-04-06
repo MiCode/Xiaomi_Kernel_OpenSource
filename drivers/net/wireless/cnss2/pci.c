@@ -2071,6 +2071,10 @@ register_driver:
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
 				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE,
 				     driver_ops);
+	if (ret == -EINTR) {
+		cnss_pr_dbg("Register driver work is killed\n");
+		del_timer(&plat_priv->fw_boot_timer);
+	}
 
 	return ret;
 }
@@ -2125,6 +2129,11 @@ int cnss_pci_register_driver_hdlr(struct cnss_pci_data *pci_priv,
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore register driver\n");
+		return -EINVAL;
+	}
 
 	set_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 	pci_priv->driver_ops = data;
