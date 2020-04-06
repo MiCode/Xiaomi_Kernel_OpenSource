@@ -12,7 +12,7 @@
 
 static const struct of_device_id gmu_match_table[] = {
 	{ .compatible = "qcom,gpu-gmu", .data = &a6xx_gmu_driver },
-	{ .compatible = "qcom,gpu-rgmu", .data = &kgsl_rgmu_driver },
+	{ .compatible = "qcom,gpu-rgmu", .data = &a6xx_rgmu_driver },
 	{},
 };
 

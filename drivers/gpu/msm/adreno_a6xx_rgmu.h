@@ -2,8 +2,8 @@
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
-#ifndef __KGSL_RGMU_H
-#define __KGSL_RGMU_H
+#ifndef __ADRENO_A6XX_RGMU_H
+#define __ADRENO_A6XX_RGMU_H
 
 #define RGMU_AO_IRQ_FENCE_ERR		BIT(3)
 #define RGMU_AO_IRQ_MASK			RGMU_AO_IRQ_FENCE_ERR
@@ -16,7 +16,7 @@
 #define MAX_RGMU_CLKS  8
 
 /**
- * struct rgmu_device - rGMU device structure
+ * struct a6xx_rgmu_device - rGMU device structure
  * @ver: RGMU firmware version
  * @rgmu_interrupt_num: RGMU interrupt number
  * @oob_interrupt_num: number of RGMU asserted OOB interrupt
@@ -31,7 +31,7 @@
  * @idle_level: Minimal GPU idle power level
  * @fault_count: RGMU fault count
  */
-struct rgmu_device {
+struct a6xx_rgmu_device {
 	u32 ver;
 	struct platform_device *pdev;
 	unsigned int rgmu_interrupt_num;
@@ -49,9 +49,6 @@ struct rgmu_device {
 	unsigned int fault_count;
 };
 
-extern struct gmu_dev_ops adreno_a6xx_rgmudev;
-#define KGSL_RGMU_DEVICE(_a)  ((struct rgmu_device *)((_a)->gmu_core.ptr))
+#define A6XX_RGMU_DEVICE(_a)  ((struct a6xx_rgmu_device *)((_a)->gmu_core.ptr))
 
-irqreturn_t rgmu_irq_handler(int irq, void *data);
-irqreturn_t oob_irq_handler(int irq, void *data);
-#endif /* __KGSL_RGMU_H */
+#endif /* __ADRENO_A6XX_RGMU_H */

@@ -14,7 +14,6 @@ msm_kgsl-y = \
 	kgsl_pool.o \
 	kgsl_pwrctrl.o \
 	kgsl_pwrscale.o \
-	kgsl_rgmu.o \
 	kgsl_sharedmem.o \
 	kgsl_snapshot.o \
 	kgsl_trace.o \
