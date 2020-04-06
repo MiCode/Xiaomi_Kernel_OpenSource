@@ -172,8 +172,8 @@ struct hh_rm_notif_vm_console_chars {
 
 struct notifier_block;
 
-/* End Notification type APIs */
-
+#if IS_ENABLED(CONFIG_HH_RM_DRV)
+/* RM client registration APIs */
 int hh_rm_register_notifier(struct notifier_block *nb);
 int hh_rm_unregister_notifier(struct notifier_block *nb);
 
@@ -218,5 +218,133 @@ int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
 		   hh_memparcel_handle_t *handle);
 int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
 		     struct hh_notify_vmid_desc *vmid_desc);
+#else
+/* RM client register notifications APIs */
+static inline int hh_rm_register_notifier(struct notifier_block *nb)
+{
+	return -ENODEV;
+}
 
+static inline int hh_rm_unregister_notifier(struct notifier_block *nb)
+{
+	return -ENODEV;
+}
+
+/* Client APIs for IRQ management */
+static inline int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_vm_irq_release_notify(hh_vmid_t vmid,
+	hh_virq_handle_t virq_handle)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_vm_irq_reclaim(hh_virq_handle_t virq_handle)
+{
+	return -EINVAL;
+}
+
+/* Client APIs for VM management */
+static inline int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_vm_start(int vmid)
+{
+	return -EINVAL;
+}
+
+/* Client APIs for VM Services */
+static inline int hh_rm_console_open(hh_vmid_t vmid)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_console_close(hh_vmid_t vmid)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_console_write(hh_vmid_t vmid, const char *buf,
+					size_t size)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_console_flush(hh_vmid_t vmid)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_mem_qcom_lookup_sgl(u8 mem_type, hh_label_t label,
+			      struct hh_acl_desc *acl_desc,
+			      struct hh_sgl_desc *sgl_desc,
+			      struct hh_mem_attr_desc *mem_attr_desc,
+			      hh_memparcel_handle_t *handle)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_mem_release(hh_memparcel_handle_t handle, u8 flags)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_mem_reclaim(hh_memparcel_handle_t handle, u8 flags)
+{
+	return -EINVAL;
+}
+
+static inline struct hh_sgl_desc *hh_rm_mem_accept(hh_memparcel_handle_t handle,
+				     u8 mem_type,
+				     u8 trans_type, u8 flags, hh_label_t label,
+				     struct hh_acl_desc *acl_desc,
+				     struct hh_sgl_desc *sgl_desc,
+				     struct hh_mem_attr_desc *mem_attr_desc,
+				     u16 map_vmid)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline int hh_rm_mem_share(u8 mem_type, u8 flags, hh_label_t label,
+		    struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		    struct hh_mem_attr_desc *mem_attr_desc,
+		    hh_memparcel_handle_t *handle)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
+		   struct hh_acl_desc *acl_desc, struct hh_sgl_desc *sgl_desc,
+		   struct hh_mem_attr_desc *mem_attr_desc,
+		   hh_memparcel_handle_t *handle)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     struct hh_notify_vmid_desc *vmid_desc)
+{
+	return -EINVAL;
+}
+#endif
 #endif

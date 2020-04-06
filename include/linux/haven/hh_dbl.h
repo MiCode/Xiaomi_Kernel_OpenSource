@@ -19,6 +19,7 @@ enum hh_dbl_label {
 	HH_DBL_LABEL_MAX
 };
 
+#if IS_ENABLED(CONFIG_HH_DBL)
 void *hh_dbl_tx_register(enum hh_dbl_label label);
 void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb,
 			 void *priv);
@@ -33,5 +34,56 @@ int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags);
 int hh_dbl_reset(void *dbl_client_desc);
 int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 						int direction, int rx_irq);
+#else
+static inline void *hh_dbl_tx_register(enum hh_dbl_label label)
+{
+	return ERR_PTR(-ENODEV);
+}
 
+static inline void *hh_dbl_rx_register(enum hh_dbl_label label,
+			 dbl_rx_cb_t rx_cb,
+			 void *priv)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline int hh_dbl_tx_unregister(void *dbl_client_desc)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline int hh_dbl_rx_unregister(void *dbl_client_desc)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline int hh_dbl_send(void *dbl_client_desc, uint64_t *newflags)
+{
+	return -EINVAL;
+}
+
+static inline int hh_dbl_set_mask(void *dbl_client_desc,
+		    hh_dbl_flags_t enable_mask,
+		    hh_dbl_flags_t ack_mask)
+{
+	return -EINVAL;
+}
+
+static inline int hh_dbl_read_and_clean(void *dbl_client_desc,
+					hh_dbl_flags_t *clear_flags)
+{
+	return -EINVAL;
+}
+
+static inline int hh_dbl_reset(void *dbl_client_desc)
+{
+	return -EINVAL;
+}
+
+static inline int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
+						int direction, int rx_irq)
+{
+	return -EINVAL;
+}
+#endif
 #endif
