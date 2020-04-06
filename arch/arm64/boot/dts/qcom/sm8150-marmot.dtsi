@@ -17,6 +17,10 @@
 	qcom,mdm-link-info = "0307_01.01.00";
 };
 
+&wil6210 {
+	status = "disabled";
+};
+
 &pcie1 {
 	dma-coherent;
 };
@@ -271,4 +275,12 @@
 			qcom,net-id = <3>;
 		};
 	};
+};
+
+&pil_modem {
+	status = "disabled";
+};
+
+&glink_modem {
+	status = "disabled";
 };

@@ -71,7 +71,7 @@ struct atl_global_stats {
 
 struct atl_fwd_ring;
 
-#ifdef CONFIG_ATLFWD_FWD_NETLINK
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
 void atl_fwd_get_ring_stats(struct atl_fwd_ring *ring,
 			    struct atl_ring_stats *stats);
 #endif

@@ -1808,7 +1808,7 @@ static int msm_nand_is_erased_page_ps(struct mtd_info *mtd, loff_t from,
 			/* This extra +1 is for oobbuf case */
 		} result[MAX_CW_PER_PAGE + 1];
 	} *dma_buffer;
-	uint8_t *ecc;
+	uint8_t *ecc, *ecc_temp;
 
 	total_ecc_byte_cnt = (chip->ecc_parity_bytes * cwperpage);
 	memcpy(&raw_ops, ops, sizeof(struct mtd_oob_ops));
@@ -1981,8 +1981,8 @@ free_dma:
 	dma_unmap_single(chip->dev, rw_params->ecc_dma_addr,
 			total_ecc_byte_cnt, DMA_FROM_DEVICE);
 	/* check for bit flips in ecc data */
+	ecc_temp = ecc;
 	for (n = rw_params->start_sector; n < cwperpage; n++) {
-		uint8_t *ecc_temp = ecc;
 		int last_pos = 0, next_pos = 0;
 		int ecc_bytes_percw_in_bits = (chip->ecc_parity_bytes * 8);
 
@@ -2475,7 +2475,7 @@ static int msm_nand_is_erased_page(struct mtd_info *mtd, loff_t from,
 			uint32_t erased_cw_status;
 		} result[MAX_CW_PER_PAGE];
 	} *dma_buffer;
-	uint8_t *ecc;
+	uint8_t *ecc, *ecc_temp;
 
 	pr_debug("========================================================\n");
 	total_ecc_byte_cnt = (chip->ecc_parity_bytes * cwperpage);
@@ -2621,8 +2621,8 @@ free_dma:
 	dma_unmap_single(chip->dev, rw_params->ecc_dma_addr,
 			total_ecc_byte_cnt, DMA_FROM_DEVICE);
 	/* check for bit flips in ecc data */
+	ecc_temp = ecc;
 	for (n = rw_params->start_sector; n < cwperpage; n++) {
-		uint8_t *ecc_temp = ecc;
 		int last_pos = 0, next_pos = 0;
 		int ecc_bytes_percw_in_bits = (chip->ecc_parity_bytes * 8);
 

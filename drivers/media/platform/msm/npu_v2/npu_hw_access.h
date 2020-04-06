@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,9 +24,14 @@
 #define IPC_MEM_OFFSET_FROM_SSTCM 0x00018000
 #define SYS_CACHE_SCID 23
 
-#define QFPROM_FMAX_REG_OFFSET 0x000001C8
-#define QFPROM_FMAX_BITS_MASK  0x0000000C
-#define QFPROM_FMAX_BITS_SHIFT 2
+#define QFPROM_FMAX_REG_OFFSET_1 0x00006014
+#define QFPROM_FMAX_BITS_MASK_1  0xF8000000
+#define QFPROM_FMAX_BITS_SHIFT_1 27
+
+#define QFPROM_FMAX_REG_OFFSET_2 0x00006018
+#define QFPROM_FMAX_BITS_MASK_2  0x00000007
+#define QFPROM_FMAX_BITS_SHIFT_2 5
+
 
 #define REGW(npu_dev, off, val) npu_core_reg_write(npu_dev, off, val)
 #define REGR(npu_dev, off) npu_core_reg_read(npu_dev, off)
