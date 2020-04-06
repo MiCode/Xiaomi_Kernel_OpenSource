@@ -176,26 +176,6 @@
 	};
 };
 
-&i3c3 {
-	se-clock-frequency = <19200000>;
-	i3c-scl-hz = <3500000>;
-	i2c-scl-hz = <400000>;
-	status = "ok";
-
-	sn@0,23600000000 {
-		compatible = "qcom,sn-nci-i3c";
-		reg = <0x0 0x236 0x00000000>;
-		qcom,sn-ven = <&tlmm 62 0x00>;
-		qcom,sn-firm = <&tlmm 86 0x00>;
-		qcom,sn-clkreq = <&tlmm 63 0x00>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&nfc_enable_active &nfc_fwdl_active
-					&nfc_clk_req_active>;
-		pinctrl-1 = <&nfc_enable_suspend &nfc_fwdl_suspend
-					&nfc_clk_req_suspend>;
-	};
-};
-
 &dai_mi2s2 {
 	qcom,msm-mi2s-tx-lines = <1>;
 	pinctrl-names = "default", "sleep";
