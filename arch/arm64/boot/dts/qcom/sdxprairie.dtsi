@@ -1526,6 +1526,7 @@
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
+		emac-phy-addr = <7>;
 		reg = <0x20000 0x10000>,
 		   <0x36000 0x100>,
 		   <0xf100000 0x300000>;
