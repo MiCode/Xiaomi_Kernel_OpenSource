@@ -30,9 +30,6 @@
 #define LOG_MSG_TOTAL_SIZE_INDEX 0
 #define LOG_MSG_MSG_ID_INDEX     1
 
-#define NPU_FW_TIMEOUT_POLL_INTERVAL_MS  10
-#define NPU_FW_TIMEOUT_MS                5000
-
 /*
  * File Scope Function Prototypes
  */
@@ -43,7 +40,8 @@ static void npu_disable_fw_work(struct work_struct *work);
 static void npu_update_pwr_work(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
-	uint32_t status_reg, uint32_t status_bits, bool poll);
+	uint32_t status_reg, uint32_t status_bits, uint32_t timeout_ms,
+	bool poll);
 static int wait_npu_cpc_power_off(struct npu_device *npu_dev);
 static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	struct npu_client *client);
@@ -102,7 +100,7 @@ static int wait_npu_cpc_power_off(struct npu_device *npu_dev)
 	uint32_t wait_cnt = 0, max_wait_ms;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
-	max_wait_ms = NPU_FW_TIMEOUT_MS;
+	max_wait_ms = NPU_FW_ACK_TIMEOUT_MS;
 
 	do {
 		reg_val = npu_tcsr_reg_read(npu_dev, TCSR_NPU_CPC_PWR_ON);
@@ -158,7 +156,8 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 
 	/* Keep reading ctrl status until NPU is ready */
 	ret = wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false);
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL,
+		NPU_FW_BRINGUP_TIMEOUT_MS, false);
 	if (ret)
 		goto load_fw_fail;
 
@@ -524,7 +523,8 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 		NPU_ERR("NPU_IPC_CMD_NOTIFY_PWR sent failed: %d\n", ret);
 	} else {
 		ret = wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-			FW_CTRL_STATUS_PWR_NOTIFY_DONE_VAL, true);
+			FW_CTRL_STATUS_PWR_NOTIFY_DONE_VAL,
+			NPU_FW_ACK_TIMEOUT_MS, true);
 		if (!ret) {
 			reg_val = REGR(npu_dev, REG_NPU_FW_CTRL_STATUS);
 			if (reg_val & FW_CTRL_STATUS_PWR_NOTIFY_ERR_VAL) {
@@ -918,7 +918,8 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 
 	/* Keep reading ctrl status until NPU is ready */
 	ret = wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false);
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL,
+		NPU_FW_BRINGUP_TIMEOUT_MS, false);
 	if (ret) {
 		NPU_ERR("wait for fw status ready timedout\n");
 		goto fw_start_done;
@@ -1124,14 +1125,15 @@ static void turn_off_fw_logging(struct npu_device *npu_dev)
 }
 
 static int wait_for_status_ready(struct npu_device *npu_dev,
-	uint32_t status_reg, uint32_t status_bits, bool poll)
+	uint32_t status_reg, uint32_t status_bits, uint32_t timeout_ms,
+	bool poll)
 {
 	uint32_t ctrl_sts = 0;
 	uint32_t wait_cnt = 0, max_wait_ms;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	max_wait_ms = (host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
-		NW_DEBUG_TIMEOUT_MS : NPU_FW_TIMEOUT_MS;
+		NW_DEBUG_TIMEOUT_MS : timeout_ms;
 	if (poll)
 		wait_cnt = max_wait_ms * 10;
 	else
