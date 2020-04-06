@@ -1881,6 +1881,9 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		dev->iommu_desc.s1_bypass = of_property_read_bool(
 							pdev->dev.of_node,
 							"qcom,iommu-s1-bypass");
+		dev->iommu_desc.atomic_ctx = of_property_read_bool(
+							pdev->dev.of_node,
+							"qcom,iommu-atomic-ctx");
 		ret = of_platform_populate(pdev->dev.of_node, ngd_slim_dt_match,
 					   NULL, &pdev->dev);
 		if (ret) {
