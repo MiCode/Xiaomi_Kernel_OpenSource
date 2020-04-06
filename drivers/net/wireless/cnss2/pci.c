@@ -2047,6 +2047,12 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EEXIST;
 	}
 
+	if (!driver_ops->id_table || !pci_dev_present(driver_ops->id_table)) {
+		cnss_pr_err("PCIe device id is %x, not supported by loading driver\n",
+			    pci_priv->device_id);
+		return -ENODEV;
+	}
+
 	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
 		goto register_driver;
 
