@@ -372,6 +372,7 @@
 	qcom,dsi-dyn-clk-skip-timing-update;
 	qcom,dsi-dyn-clk-list =
 		<1052068500 1047684883 1043301259 1038917642 1034534025>;
+	qcom,dsi-dyn-clk-type = "constant-fps-adjust-hfp";
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 23 09 09 26 24 09
