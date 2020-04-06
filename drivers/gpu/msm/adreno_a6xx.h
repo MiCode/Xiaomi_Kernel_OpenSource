@@ -16,6 +16,7 @@
 extern const struct adreno_power_ops a6xx_gmu_power_ops;
 extern const struct adreno_power_ops a6xx_rgmu_power_ops;
 extern const struct adreno_power_ops a630_gmu_power_ops;
+extern const struct adreno_power_ops a6xx_hwsched_power_ops;
 
 /**
  * struct a6xx_device - Container for the a6xx_device
@@ -320,4 +321,12 @@ int a6xx_microcode_read(struct adreno_device *adreno_dev);
 int a6xx_probe_common(struct platform_device *pdev,
 	struct  adreno_device *adreno_dev, u32 chipid,
 	const struct adreno_gpu_core *gpucore);
+
+/**
+ * a6xx_hw_isidle - Check whether a6xx gpu is idle or not
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * Return: True if gpu is idle, otherwise false
+ */
+bool a6xx_hw_isidle(struct adreno_device *adreno_dev);
 #endif

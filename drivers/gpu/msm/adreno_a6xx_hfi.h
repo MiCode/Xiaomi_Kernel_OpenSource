@@ -138,6 +138,27 @@ struct hfi_queue_header {
 #define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
 #define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
 
+#define HFI_QUEUE_DEFAULT_CNT 3
+#define HFI_QUEUE_DISPATCH_MAX_CNT 14
+#define HFI_QUEUE_HDR_MAX (HFI_QUEUE_DEFAULT_CNT + HFI_QUEUE_DISPATCH_MAX_CNT)
+
+struct hfi_queue_table {
+	struct hfi_queue_table_header qtbl_hdr;
+	struct hfi_queue_header qhdr[HFI_QUEUE_HDR_MAX];
+};
+
+#define HFI_QUEUE_OFFSET(i)             \
+		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
+		((i) * HFI_QUEUE_SIZE))
+
+#define GMU_QUEUE_START_ADDR(gmuaddr, i) \
+	(gmuaddr + HFI_QUEUE_OFFSET(i))
+
+#define MSG_HDR_GET_ID(hdr) ((hdr) & 0xFF)
+#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
+#define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
+#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
+
 #define H2F_MSG_INIT		0
 #define H2F_MSG_FW_VER		1
 #define H2F_MSG_LM_CFG		2
@@ -554,4 +575,7 @@ int a6xx_hfi_init(struct adreno_device *adreno_dev);
  */
 int a6xx_hfi_send_req(struct adreno_device *adreno_dev,
 	unsigned int id, void *data);
+
+/* Helper function to get to a6xx hfi struct from adreno device */
+struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev);
 #endif

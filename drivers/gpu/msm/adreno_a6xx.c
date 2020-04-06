@@ -12,6 +12,7 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_a6xx_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
@@ -1085,7 +1086,7 @@ static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
 	return (reg & BIT(23)) ? false : true;
 }
 
-static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
+bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -2802,6 +2803,24 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
+};
+
+struct adreno_gpudev adreno_a6xx_hwsched_gpudev = {
+	.reg_offsets = a6xx_register_offsets,
+	.probe = a6xx_hwsched_probe,
+	.snapshot = a6xx_gmu_snapshot,
+	.irq_handler = a6xx_irq_handler,
+	.perfcounters = &a6xx_perfcounters,
+	.read_throttling_counters = a6xx_read_throttling_counters,
+	.iommu_fault_block = a6xx_iommu_fault_block,
+	.preemption_context_init = a6xx_preemption_context_init,
+	.preemption_context_destroy = a6xx_preemption_context_destroy,
+	.perfcounter_update = a6xx_perfcounter_update,
+#ifdef CONFIG_QCOM_KGSL_CORESIGHT
+	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+#endif
+	.read_alwayson = a6xx_read_alwayson,
+	.power_ops = &a6xx_hwsched_power_ops,
 };
 
 struct adreno_gpudev adreno_a6xx_gmu_gpudev = {

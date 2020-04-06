@@ -12,36 +12,24 @@
 #include "kgsl_trace.h"
 
 /* Below section is for all structures related to HFI queues */
-#define HFI_QUEUE_DEFAULT_CNT 3
-#define HFI_QUEUE_DISPATCH_CNT 1
-#define HFI_QUEUE_MAX (HFI_QUEUE_DEFAULT_CNT + HFI_QUEUE_DISPATCH_CNT)
-
-struct hfi_queue_table {
-	struct hfi_queue_table_header qtbl_hdr;
-	struct hfi_queue_header qhdr[HFI_QUEUE_MAX];
-};
+#define HFI_QUEUE_MAX HFI_QUEUE_DEFAULT_CNT
 
 /* Total header sizes + queue sizes + 16 for alignment */
 #define HFIMEM_SIZE (sizeof(struct hfi_queue_table) + 16 + \
 		(HFI_QUEUE_SIZE * HFI_QUEUE_MAX))
 
-#define HFI_QUEUE_OFFSET(i)		\
-		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
-		 ((i) * HFI_QUEUE_SIZE))
-
 #define HOST_QUEUE_START_ADDR(hfi_mem, i) \
 	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
 
-#define GMU_QUEUE_START_ADDR(hfi_mem, i) \
-	((hfi_mem)->gmuaddr + HFI_QUEUE_OFFSET(i))
-
-#define MSG_HDR_GET_ID(hdr) ((hdr) & 0xFF)
-#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
-#define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
-#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
-
 static int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 		uint32_t queue_idx, struct pending_cmd *ret_cmd);
+
+struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	return &gmu->hfi;
+}
 
 /* Size in below functions are in unit of dwords */
 static int a6xx_hfi_queue_read(struct a6xx_gmu_device *gmu, uint32_t queue_idx,
@@ -187,7 +175,6 @@ static void init_queues(struct adreno_device *adreno_dev)
 		{ HFI_CMD_IDX, HFI_CMD_PRI, HFI_QUEUE_STATUS_ENABLED },
 		{ HFI_MSG_IDX, HFI_MSG_PRI, HFI_QUEUE_STATUS_ENABLED },
 		{ HFI_DBG_IDX, HFI_DBG_PRI, HFI_QUEUE_STATUS_ENABLED },
-		{ HFI_DSP_IDX_0, HFI_DSP_PRI_0, HFI_QUEUE_STATUS_DISABLED },
 	};
 
 	/*
@@ -215,7 +202,7 @@ static void init_queues(struct adreno_device *adreno_dev)
 	/* Fill Individual Queue Headers */
 	for (i = 0; i < HFI_QUEUE_MAX; i++) {
 		hdr = &tbl->qhdr[i];
-		hdr->start_addr = GMU_QUEUE_START_ADDR(mem_addr, i);
+		hdr->start_addr = GMU_QUEUE_START_ADDR(mem_addr->gmuaddr, i);
 		hdr->type = QUEUE_HDR_TYPE(queue[i].idx, queue[i].pri, 0,  0);
 		hdr->status = queue[i].status;
 		hdr->queue_size = HFI_QUEUE_SIZE >> 2; /* convert to dwords */
