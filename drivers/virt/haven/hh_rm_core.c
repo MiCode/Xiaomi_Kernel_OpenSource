@@ -747,66 +747,71 @@ static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 	hh_rm_populate_hyp_res();
 }
 
+static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)
+{
+	struct device_node *node;
+	struct hh_vm_property temp_property;
+	int vmid, owner_vmid, ret;
+
+	node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
+	if (IS_ERR_OR_NULL(node)) {
+		dev_err(dev, "Could not find vm-id node\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(node, "qcom,vmid", &vmid);
+	if (ret) {
+		dev_err(dev, "Could not read vmid: %d\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_u32(node, "qcom,owner-vmid", &owner_vmid);
+	if (ret) {
+		/* We must be HH_PRIMARY_VM */
+		temp_property.vmid = vmid;
+		hh_update_vm_prop_table(HH_PRIMARY_VM, &temp_property);
+	} else {
+		/* We must be HH_TRUSTED_VM */
+		temp_property.vmid = vmid;
+		hh_update_vm_prop_table(HH_TRUSTED_VM, &temp_property);
+		temp_property.vmid = owner_vmid;
+		hh_update_vm_prop_table(HH_PRIMARY_VM, &temp_property);
+
+		/* Query RM for available resources */
+		schedule_work(&hh_rm_get_svm_res_work);
+	}
+
+	return 0;
+}
+
 static const struct of_device_id hh_rm_drv_of_match[] = {
-	{ .compatible = "qcom,haven-resource-manager-1-0" },
+	{ .compatible = "qcom,resource-manager-1-0" },
 	{ }
 };
 
 static int hh_rm_drv_probe(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
-	hh_capid_t tx_cap_id, rx_cap_id;
-	int tx_irq, rx_irq;
-	u32 owner_vmid;
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 	int ret;
 
-	ret = of_property_read_u64(node, "qcom,tx-cap", &tx_cap_id);
+	ret = hh_msgq_probe(pdev, HH_MSGQ_LABEL_RM);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to get the Tx cap-id\n");
-		return -EINVAL;
+		dev_err(dev, "Failed to probe message queue: %d\n", ret);
+		return ret;
 	}
 
-	ret = of_property_read_u64(node, "qcom,rx-cap", &rx_cap_id);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to get the Rx cap-id\n");
-		return -EINVAL;
-	}
-
-	tx_irq = platform_get_irq_byname(pdev, "rm-tx-irq");
-	if (tx_irq < 0) {
-		dev_err(&pdev->dev, "Failed to get the Tx IRQ. ret: %d\n",
-			tx_irq);
-		return tx_irq;
-	}
-
-	rx_irq = platform_get_irq_byname(pdev, "rm-rx-irq");
-	if (rx_irq < 0) {
-		dev_err(&pdev->dev, "Failed to get the Rx IRQ. ret: %d\n",
-			rx_irq);
-		return rx_irq;
-	}
-
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,virq-base",
-				&hh_rm_base_virq)) {
-		dev_err(&pdev->dev, "Failed to get the vIRQ base\n");
+	if (of_property_read_u32(node, "qcom,free-irq-start",
+				 &hh_rm_base_virq)) {
+		dev_err(dev, "Failed to get the vIRQ base\n");
 		return -ENXIO;
 	}
 
-	hh_rm_intc = of_irq_find_parent(pdev->dev.of_node);
+	hh_rm_intc = of_irq_find_parent(node);
 	if (!hh_rm_intc) {
-		dev_err(&pdev->dev, "Failed to get the IRQ parent node\n");
+		dev_err(dev, "Failed to get the IRQ parent node\n");
 		return -ENXIO;
 	}
-
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, tx_cap_id,
-					HH_MSGQ_DIRECTION_TX, tx_irq);
-	if (ret)
-		return ret;
-
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rx_cap_id,
-					HH_MSGQ_DIRECTION_RX, rx_irq);
-	if (ret)
-		return ret;
 
 	hh_rm_msgq_desc = hh_msgq_register(HH_MSGQ_LABEL_RM);
 	if (IS_ERR_OR_NULL(hh_rm_msgq_desc))
@@ -822,14 +827,10 @@ static int hh_rm_drv_probe(struct platform_device *pdev)
 		goto err_recv_task;
 	}
 
-	/* If the node has a "qcom,owner-vmid" property, it means that it's
-	 * a secondary-VM. Gain the info about it's resources here as there
-	 * won't be any explicit notification from the primary-VM.
-	 */
-	if (!of_property_read_u32(pdev->dev.of_node, "qcom,owner-vmid",
-				&owner_vmid)) {
-		schedule_work(&hh_rm_get_svm_res_work);
-	}
+	/* Probe the vmid */
+	ret = hh_vm_probe(dev, node->parent);
+	if (ret < 0 && ret != -ENODEV)
+		goto err_recv_task;
 
 	return 0;
 
