@@ -840,7 +840,6 @@ struct mdp_hdr_stream {
  * hdr_meta: Metadata sent by the userspace for the HDR clip.
  */
 
-#define DRM_MSM_EXT_PANEL_HDR_CTRL
 struct mdp_hdr_stream_ctrl {
 	__u8 hdr_state;                   /* HDR state */
 	struct mdp_hdr_stream hdr_stream; /* HDR metadata */
