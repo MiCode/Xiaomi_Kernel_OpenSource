@@ -222,6 +222,9 @@ conditions.
 		Optional, String.
 		Enables coherency for the IOMMU device, but not for the Client.
 --- "default":
+		Pagetable coherency defaults to the coherency setting of the
+		IOMMU device.
+--- "non-coherent":
 		Pagetables are not coherent nor cached in the system cache..
 --- "coherent"
 		Pagetables are io-coherent.
