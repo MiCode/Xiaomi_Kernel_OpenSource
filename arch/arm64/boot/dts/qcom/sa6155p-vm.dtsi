@@ -41,6 +41,82 @@
 };
 
 &soc {
+	hsi2s: qcom,hsi2s {
+		compatible = "qcom,sa6155-hsi2s", "qcom,hsi2s";
+		number-of-interfaces = <2>;
+		reg = <0x1B40000 0x28000>;
+		reg-names = "lpa_if";
+		interrupts = <GIC_SPI 267 0>;
+		clocks = <&clock_virt GCC_SDR_CORE_CLK>,
+			 <&clock_virt GCC_SDR_WR0_MEM_CLK>,
+			 <&clock_virt GCC_SDR_WR1_MEM_CLK>,
+			 <&clock_virt GCC_SDR_WR2_MEM_CLK>,
+			 <&clock_virt GCC_SDR_CSR_HCLK>;
+		clock-names = "core_clk", "wr0_mem_clk",
+			      "wr1_mem_clk", "wr2_mem_clk",
+			      "csr_hclk";
+		number-of-rate-detectors = <2>;
+		rate-detector-interfaces = <0 1>;
+
+		sdr0: qcom,hs0_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <0>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs0_i2s_sck_active &hs0_i2s_data0_active
+				     &hs0_i2s_data1_active>;
+			pinctrl-1 = <&hs0_i2s_sck_sleep &hs0_i2s_data0_sleep
+				     &hs0_i2s_data1_sleep>;
+			clocks = <&clock_virt GCC_SDR_PRI_MI2S_CLK>;
+			clock-names = "pri_mi2s_clk";
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+
+		sdr1: qcom,hs1_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <1>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs1_i2s_sck_active &hs1_i2s_data0_active
+				     &hs1_i2s_data1_active>;
+			pinctrl-1 = <&hs1_i2s_sck_sleep &hs1_i2s_data0_sleep
+				     &hs1_i2s_data1_sleep>;
+			clocks = <&clock_virt GCC_SDR_SEC_MI2S_CLK>;
+			clock-names = "sec_mi2s_clk";
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+	};
+
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;
@@ -657,6 +733,7 @@
 		clocks = <&clock_virt GCC_PRNG_AHB_CLK>;
 		clock-names = "iface_clk";
 	};
+
 };
 
 #include "sa6155p-vm-pinctrl.dtsi"
