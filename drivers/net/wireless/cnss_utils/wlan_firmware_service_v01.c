@@ -2617,7 +2617,7 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.elem_len       = QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01,
 		.elem_size      = sizeof(struct wlfw_host_ddr_range_s_v01),
 		.array_type       = STATIC_ARRAY,
-		.tlv_type       = 0x1E,
+		.tlv_type       = 0x1F,
 		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
 					   ddr_range),
 		.ei_array      = wlfw_host_ddr_range_s_v01_ei,
