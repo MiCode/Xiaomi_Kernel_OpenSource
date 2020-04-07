@@ -223,6 +223,7 @@
 #define IPA_FLT_EXT_L2TP_UDP_INNER_ETHER_TYPE       (1ul << 1)
 #define IPA_FLT_EXT_MTU     (1ul << 2)
 #define IPA_FLT_EXT_L2TP_UDP_INNER_NEXT_HDR		(1ul << 3)
+#define IPA_FLT_EXT_NEXT_HDR				(1ul << 4)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -402,9 +403,15 @@ enum ipa_client_type {
 
 	IPA_CLIENT_Q6_CV2X_PROD	= 106,
 	IPA_CLIENT_Q6_CV2X_CONS	= 107,
+
+	IPA_CLIENT_MHI_LOW_LAT_PROD = 108,
+	IPA_CLIENT_MHI_LOW_LAT_CONS = 109,
+
+	/* RESERVERD PROD					= 110, */
+	IPA_CLIENT_MHI_QDSS_CONS = 111,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_Q6_CV2X_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_QDSS_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -425,6 +432,7 @@ enum ipa_client_type {
 #define IPA_CLIENT_MHI_PRIME_RMNET_PROD IPA_CLIENT_MHI_PRIME_RMNET_PROD
 #define IPA_CLIENT_MHI_PRIME_RMNET_CONS IPA_CLIENT_MHI_PRIME_RMNET_CONS
 #define IPA_CLIENT_MHI_PRIME_DPL_PROD IPA_CLIENT_MHI_PRIME_DPL_PROD
+#define IPA_CLIENT_MHI_QDSS_CONS IPA_CLIENT_MHI_QDSS_CONS
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -519,7 +527,10 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_MHI_PROD || \
 	(client) == IPA_CLIENT_MHI2_PROD || \
 	(client) == IPA_CLIENT_MHI2_CONS || \
-	(client) == IPA_CLIENT_MHI_DPL_CONS)
+	(client) == IPA_CLIENT_MHI_LOW_LAT_PROD || \
+	(client) == IPA_CLIENT_MHI_LOW_LAT_CONS || \
+	(client) == IPA_CLIENT_MHI_DPL_CONS || \
+	(client) == IPA_CLIENT_MHI_QDSS_CONS)
 
 #define IPA_CLIENT_IS_TEST_PROD(client) \
 	((client) == IPA_CLIENT_TEST_PROD || \
@@ -2276,6 +2287,7 @@ enum ipa_l2tp_tunnel_type {
  * @tunnel_type: l2tp tunnel type
  * @src_port: UDP source port
  * @dst_port: UDP destination port
+ * @mtu: MTU of the L2TP interface
  */
 struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_ip_type iptype;
@@ -2285,6 +2297,7 @@ struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_l2tp_tunnel_type tunnel_type;
 	uint16_t src_port;
 	uint16_t dst_port;
+	uint16_t mtu;
 };
 
 /**

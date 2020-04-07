@@ -818,3 +818,19 @@ int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 
 	return 0;
 }
+
+int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	return msm_pcie_prevent_l1(mhi_dev->pci_dev);
+}
+
+int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+
+	msm_pcie_allow_l1(mhi_dev->pci_dev);
+
+	return 0;
+}

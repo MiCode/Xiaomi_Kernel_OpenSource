@@ -15,7 +15,7 @@
 #include "sa8195-vm.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA8195 Virtual Machine";
+	model = "Qualcomm Technologies, Inc. SA8195 Multi LV Virtual Machine";
 	compatible = "qcom,sa8195p";
 	qcom,pmic-name = "PM8195";
 	qcom,board-id = <0 0>;

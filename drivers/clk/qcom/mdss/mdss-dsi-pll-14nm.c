@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016,2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016,2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,13 @@ static struct regmap_bus dsi_mux_regmap_bus = {
 	.reg_read = dsi_mux_get_parent_14nm,
 };
 
+static const char * const dsi_vco_clk_parent_names[] = {
+#ifdef CONFIG_FB_MSM_MDSS
+	"xo_board"
+#else
+	"bi_tcxo"
+#endif
+};
 /* Op structures */
 static const struct clk_ops clk_ops_dsi_vco = {
 	.recalc_rate = pll_vco_recalc_rate_14nm,
@@ -78,7 +85,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = dsi_vco_clk_parent_names,
 			.num_parents = 1,
 			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_dsi_vco,
@@ -91,7 +98,7 @@ static struct dsi_pll_vco_clk dsi0pll_shadow_vco_clk = {
 	.max_rate = 2600000000u,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_shadow_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = dsi_vco_clk_parent_names,
 			.num_parents = 1,
 			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_shadow_dsi_vco,
@@ -106,7 +113,7 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = dsi_vco_clk_parent_names,
 			.num_parents = 1,
 			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_dsi_vco,
@@ -121,7 +128,7 @@ static struct dsi_pll_vco_clk dsi1pll_shadow_vco_clk = {
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_14nm,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_shadow_vco_clk_14nm",
-			.parent_names = (const char *[]){ "bi_tcxo" },
+			.parent_names = dsi_vco_clk_parent_names,
 			.num_parents = 1,
 			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_shadow_dsi_vco,
@@ -342,7 +349,7 @@ static struct clk_regmap_mux dsi1pll_pixel_clk_mux = {
 
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi1pll_pixel_clk_mux",
+			.name = "dsi1_phy_pll_out_dsiclk",
 			.parent_names =
 				(const char *[]){ "dsi1pll_pixel_clk_src",
 					"dsi1pll_shadow_pixel_clk_src"},
@@ -434,7 +441,7 @@ static struct clk_regmap_mux dsi1pll_byte_clk_mux = {
 
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi1pll_byte_clk_mux",
+			.name = "dsi1_phy_pll_out_byteclk",
 			.parent_names =
 				(const char *[]){"dsi1pll_byte_clk_src",
 					"dsi1pll_shadow_byte_clk_src"},

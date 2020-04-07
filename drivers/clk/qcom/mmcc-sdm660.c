@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,8 +113,8 @@ static const struct parent_map mmcc_parent_map_1[] = {
 
 static const char * const mmcc_parent_names_1[] = {
 	"xo",
-	"dsi0pll_byte_clk_mux",
-	"dsi1pll_byte_clk_mux",
+	"dsi0_phy_pll_out_byteclk",
+	"dsi1_phy_pll_out_byteclk",
 	"core_bi_pll_test_se",
 };
 
@@ -241,8 +241,8 @@ static const struct parent_map mmcc_parent_map_8[] = {
 
 static const char * const mmcc_parent_names_8[] = {
 	"xo",
-	"dsi0pll_pixel_clk_mux",
-	"dsi1pll_pixel_clk_mux",
+	"dsi0_phy_pll_out_dsiclk",
+	"dsi1_phy_pll_out_dsiclk",
 	"core_bi_pll_test_se",
 };
 

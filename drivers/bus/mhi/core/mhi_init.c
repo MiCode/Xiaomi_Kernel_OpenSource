@@ -18,6 +18,7 @@
 #include <linux/list.h>
 #include <linux/of.h>
 #include <linux/module.h>
+#include <linux/random.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/mhi.h>
@@ -73,6 +74,7 @@ static const char * const mhi_pm_state_str[] = {
 	[MHI_PM_BIT_M3] = "M3",
 	[MHI_PM_BIT_M3_EXIT] = "M3->M0",
 	[MHI_PM_BIT_FW_DL_ERR] = "FW DL Error",
+	[MHI_PM_BIT_DEVICE_ERR_DETECT] = "Device Error Detect",
 	[MHI_PM_BIT_SYS_ERR_DETECT] = "SYS_ERR Detect",
 	[MHI_PM_BIT_SYS_ERR_PROCESS] = "SYS_ERR Process",
 	[MHI_PM_BIT_SHUTDOWN_PROCESS] = "SHUTDOWN Process",
@@ -105,6 +107,25 @@ const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 	return mhi_pm_state_str[index];
 }
 
+static void mhi_time_async_cb(struct mhi_device *mhi_dev, u32 sequence,
+			      u64 local_time, u64 remote_time)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (ticks)\n",
+		sequence, local_time, remote_time);
+}
+
+static void mhi_time_us_async_cb(struct mhi_device *mhi_dev, u32 sequence,
+				 u64 local_time, u64 remote_time)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (us)\n",
+		sequence, LOCAL_TICKS_TO_US(local_time),
+		REMOTE_TICKS_TO_US(remote_time));
+}
+
 static ssize_t time_show(struct device *dev,
 			 struct device_attribute *attr,
 			 char *buf)
@@ -117,7 +138,8 @@ static ssize_t time_show(struct device *dev,
 	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
 	if (ret) {
 		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (ticks)\n",
@@ -137,7 +159,8 @@ static ssize_t time_us_show(struct device *dev,
 	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
 	if (ret) {
 		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
@@ -146,9 +169,59 @@ static ssize_t time_us_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(time_us);
 
+static ssize_t time_async_show(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u32 seq = prandom_u32();
+	int ret;
+
+	if (!seq)
+		seq = 1;
+
+	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_async_cb);
+	if (ret) {
+		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "Requested time asynchronously with seq:%llx\n", seq);
+}
+static DEVICE_ATTR_RO(time_async);
+
+static ssize_t time_us_async_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u32 seq = prandom_u32();
+	int ret;
+
+	if (!seq)
+		seq = 1;
+
+	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_us_async_cb);
+	if (ret) {
+		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "Requested time asynchronously with seq:%llx\n", seq);
+}
+static DEVICE_ATTR_RO(time_us_async);
+
 static struct attribute *mhi_tsync_attrs[] = {
 	&dev_attr_time.attr,
 	&dev_attr_time_us.attr,
+	&dev_attr_time_async.attr,
+	&dev_attr_time_us_async.attr,
 	NULL,
 };
 
@@ -701,6 +774,8 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 		return er_index;
 	}
 
+	mhi_tsync->db_support = true;
+
 	time_cfg_offset = time_offset + TIMESYNC_CFG_OFFSET;
 
 	/* advertise host support */
@@ -762,7 +837,7 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 
 	/* No ER configured to support BW scale */
 	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_BW_SCALE_ELEMENT_TYPE);
-	if (ret < 0)
+	if (er_index < 0)
 		return er_index;
 
 	bw_cfg_offset += BW_SCALE_CFG_OFFSET;

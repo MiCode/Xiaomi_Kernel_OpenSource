@@ -2651,8 +2651,8 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 
 /* -------------------------------------------------------------------------- */
 
-#define NUM_GSI_OUT_EPS	1
-#define NUM_GSI_IN_EPS	2
+#define NUM_GSI_OUT_EPS(dwc)	(dwc->num_gsi_eps / 2)
+#define NUM_GSI_IN_EPS(dwc)	((dwc->num_gsi_eps + 1) / 2)
 
 static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 {
@@ -2660,6 +2660,7 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 	u8				epnum;
 	u8				out_count;
 	u8				in_count;
+	u8				ep_interrupt_num = 1;
 
 	INIT_LIST_HEAD(&dwc->gadget.ep_list);
 
@@ -2681,14 +2682,17 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 		dwc->eps[epnum] = dep;
 
 		/* Reserve EPs at the end for GSI */
-		if (!direction && num > out_count - NUM_GSI_OUT_EPS - 1) {
+		if (!direction && num > out_count - NUM_GSI_OUT_EPS(dwc) - 1) {
 			snprintf(dep->name, sizeof(dep->name), "gsi-epout%d",
 					num);
 			dep->endpoint.ep_type = EP_TYPE_GSI;
-		} else if (direction && num > in_count - NUM_GSI_IN_EPS - 1) {
+			dep->endpoint.ep_intr_num = ep_interrupt_num++;
+		} else if (direction &&
+				num > in_count - NUM_GSI_IN_EPS(dwc) - 1) {
 			snprintf(dep->name, sizeof(dep->name), "gsi-epin%d",
 					num);
 			dep->endpoint.ep_type = EP_TYPE_GSI;
+			dep->endpoint.ep_intr_num = ep_interrupt_num++;
 		} else {
 			snprintf(dep->name, sizeof(dep->name), "ep%u%s", num,
 					direction ? "in" : "out");

@@ -86,6 +86,7 @@ struct stmmac_priv {
 	u32 tx_count_frames;
 	u32 tx_coal_frames;
 	u32 tx_coal_timer;
+	bool tx_coal_timer_disable;
 
 	int tx_coalesce;
 	int hwts_tx_en;
@@ -102,7 +103,7 @@ struct stmmac_priv {
 	struct net_device *dev;
 	struct device *device;
 	struct mac_device_info *hw;
-
+	struct phy_device *phydev;
 	/* Mutex lock */
 	struct mutex lock;
 

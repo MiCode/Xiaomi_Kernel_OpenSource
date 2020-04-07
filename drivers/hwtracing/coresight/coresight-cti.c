@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -380,7 +380,7 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 	 */
 	if (drvdata->refcnt == 0) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			goto err1;
 		ret = coresight_enable_reg_clk(drvdata->csdev);
 		if (ret)
@@ -471,7 +471,7 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 	 */
 	if (drvdata->refcnt == 0) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			goto err1;
 		ret = coresight_enable_reg_clk(drvdata->csdev);
 		if (ret)
@@ -1492,7 +1492,7 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 	if (drvdata->cti_save && !drvdata->cti_hwclk) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			return ret;
 	}
 

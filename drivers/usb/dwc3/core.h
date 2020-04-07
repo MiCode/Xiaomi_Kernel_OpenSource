@@ -994,6 +994,7 @@ struct dwc3_scratchpad_array {
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @last_run_stop: timestamp denoting the last run_stop update
+ * @num_gsi_eps: number of GSI based hardware accelerated endpoints
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1205,13 +1206,16 @@ struct dwc3 {
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	unsigned int		softconnect:1;
 	/*
-	 * If true, PM suspend allowed irrespective of host runtimePM state
-	 * and core will power collapse. This also leads to reset-resume of
-	 * connected devices on PM resume.
+	 * If true, PM suspend/freeze allowed irrespective of host runtimePM
+	 * state. In PM suspend/resume case, core will stay powered and
+	 * connected devices will just be suspended/resumed.
+	 * In hibernation, core will power collapse and connected devices will
+	 * reset-resume on PM restore.
 	 */
-	bool			host_poweroff_in_pm_suspend;
+	bool			ignore_wakeup_src_in_hostmode;
 	int			retries_on_error;
 	ktime_t			last_run_stop;
+	u32			num_gsi_eps;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))

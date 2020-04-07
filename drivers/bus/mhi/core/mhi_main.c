@@ -791,75 +791,6 @@ static void mhi_assign_of_node(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-static ssize_t time_show(struct device *dev,
-			 struct device_attribute *attr,
-			 char *buf)
-{
-	struct mhi_device *mhi_dev = to_mhi_device(dev);
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	u64 t_host, t_device;
-	int ret;
-
-	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
-	if (ret) {
-		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
-	}
-
-	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (ticks)\n",
-			 t_host, t_device);
-}
-static DEVICE_ATTR_RO(time);
-
-static ssize_t time_us_show(struct device *dev,
-			    struct device_attribute *attr,
-			    char *buf)
-{
-	struct mhi_device *mhi_dev = to_mhi_device(dev);
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	u64 t_host, t_device;
-	int ret;
-
-	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
-	if (ret) {
-		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
-	}
-
-	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
-			 LOCAL_TICKS_TO_US(t_host),
-			 REMOTE_TICKS_TO_US(t_device));
-}
-static DEVICE_ATTR_RO(time_us);
-
-static struct attribute *mhi_tsync_attrs[] = {
-	&dev_attr_time.attr,
-	&dev_attr_time_us.attr,
-	NULL,
-};
-
-static const struct attribute_group mhi_tsync_group = {
-	.attrs = mhi_tsync_attrs,
-};
-
-void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl)
-{
-	if (mhi_cntrl->mhi_tsync) {
-		mutex_lock(&mhi_cntrl->tsync_mutex);
-		sysfs_remove_group(&mhi_cntrl->mhi_dev->dev.kobj,
-				   &mhi_tsync_group);
-		kfree(mhi_cntrl->mhi_tsync);
-		mhi_cntrl->mhi_tsync = NULL;
-		mutex_unlock(&mhi_cntrl->tsync_mutex);
-	}
-}
-
-int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl)
-{
-	return sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
-				  &mhi_tsync_group);
-}
-
 /* bind mhi channels into mhi devices */
 void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 {
@@ -1297,6 +1228,10 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				TO_MHI_EXEC_STR(event));
 			switch (event) {
 			case MHI_EE_SBL:
+				write_lock_irq(&mhi_cntrl->pm_lock);
+				mhi_cntrl->ee = MHI_EE_SBL;
+				write_unlock_irq(&mhi_cntrl->pm_lock);
+				wake_up_all(&mhi_cntrl->state_event);
 				st = MHI_ST_TRANSITION_SBL;
 				break;
 			case MHI_EE_WFW:
@@ -1304,13 +1239,6 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				st = MHI_ST_TRANSITION_MISSION_MODE;
 				break;
 			case MHI_EE_RDDM:
-				mhi_cntrl->status_cb(mhi_cntrl,
-						     mhi_cntrl->priv_data,
-						     MHI_CB_EE_RDDM);
-				write_lock_irq(&mhi_cntrl->pm_lock);
-				mhi_cntrl->ee = event;
-				write_unlock_irq(&mhi_cntrl->pm_lock);
-				wake_up_all(&mhi_cntrl->state_event);
 				break;
 			default:
 				MHI_ERR("Unhandled EE event:%s\n",
@@ -1355,7 +1283,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 	struct mhi_chan *mhi_chan;
 
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
-		MHI_ERR("No EV access, PM_STATE:%s\n",
+		MHI_LOG("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		return -EIO;
 	}
@@ -1413,9 +1341,8 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 	u64 remote_time;
 
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
-		MHI_ERR("No EV access, PM_STATE:%s\n",
+		MHI_LOG("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		read_unlock_bh(&mhi_cntrl->pm_lock);
 		return -EIO;
 	}
 
@@ -1676,12 +1603,16 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	}
 
 	state = mhi_get_mhi_state(mhi_cntrl);
-	ee = mhi_cntrl->ee;
-	mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
-	MHI_LOG("local ee: %s device ee:%s dev_state:%s\n",
-		TO_MHI_EXEC_STR(ee),
+	ee = mhi_get_exec_env(mhi_cntrl);
+	MHI_LOG("local ee:%s device ee:%s dev_state:%s\n",
 		TO_MHI_EXEC_STR(mhi_cntrl->ee),
+		TO_MHI_EXEC_STR(ee),
 		TO_MHI_STATE_STR(state));
+
+	if (mhi_cntrl->power_down) {
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		goto exit_intvec;
+	}
 
 	if (state == MHI_STATE_SYS_ERR) {
 		MHI_ERR("MHI system error detected\n");
@@ -1690,17 +1621,28 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	}
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	/* if device in rddm don't bother processing sys error */
-	if (mhi_cntrl->ee == MHI_EE_RDDM) {
-		if (mhi_cntrl->ee != ee) {
-			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
-					     MHI_CB_EE_RDDM);
-			wake_up_all(&mhi_cntrl->state_event);
+	if (ee == MHI_EE_RDDM) {
+		write_lock_irq(&mhi_cntrl->pm_lock);
+		if (mhi_cntrl->ee == MHI_EE_RDDM) {
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			goto exit_intvec;
 		}
+		mhi_cntrl->ee = MHI_EE_RDDM;
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+
+		MHI_ERR("RDDM event occurred!\n");
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_EE_RDDM);
+		wake_up_all(&mhi_cntrl->state_event);
+
+		/* notify critical clients with early notifications */
+		mhi_control_error(mhi_cntrl);
+
 		goto exit_intvec;
 	}
 
-	if (pm_state == MHI_PM_SYS_ERR_DETECT) {
+	/* if device is in RDDM, don't bother processing SYS_ERR */
+	if (ee != MHI_EE_RDDM && pm_state == MHI_PM_SYS_ERR_DETECT) {
 		wake_up_all(&mhi_cntrl->state_event);
 
 		/* for fatal errors, we let controller decide next step */
@@ -1834,6 +1776,7 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 			struct mhi_chan *mhi_chan)
 {
 	int ret = 0;
+	bool in_mission_mode = false;
 
 	MHI_LOG("Entered: preparing channel:%d\n", mhi_chan->chan);
 
@@ -1872,7 +1815,12 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_pm_state;
 	}
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
+	/* block host low power modes */
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		atomic_inc(&mhi_cntrl->pending_pkts);
+		in_mission_mode = true;
+	}
+
 	mhi_cntrl->wake_toggle(mhi_cntrl);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
@@ -1893,7 +1841,8 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_dec_pendpkt;
 	}
 
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 
 	write_lock_irq(&mhi_chan->lock);
 	mhi_chan->ch_state = MHI_CH_STATE_ENABLED;
@@ -2077,6 +2026,7 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 				    struct mhi_chan *mhi_chan)
 {
 	int ret;
+	bool in_mission_mode = false;
 
 	MHI_LOG("Entered: unprepare channel:%d\n", mhi_chan->chan);
 
@@ -2100,7 +2050,12 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_invalid_state;
 	}
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
+	/* block host low power modes */
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		atomic_inc(&mhi_cntrl->pending_pkts);
+		in_mission_mode = true;
+	}
+
 	mhi_cntrl->wake_toggle(mhi_cntrl);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
@@ -2119,7 +2074,8 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 		MHI_ERR("Failed to receive cmd completion, still resetting\n");
 
 error_dec_pendpkt:
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 error_invalid_state:
 	if (!mhi_chan->offload_ch) {
 		mhi_reset_chan(mhi_cntrl, mhi_chan);
@@ -2328,6 +2284,7 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 				    enum MHI_CMD cmd)
 {
 	int ret = -EIO;
+	bool in_mission_mode = false;
 
 	mutex_lock(&mhi_chan->mutex);
 
@@ -2350,7 +2307,12 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		goto error_chan_state;
 	}
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
+	/* block host low power modes */
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
+		atomic_inc(&mhi_cntrl->pending_pkts);
+		in_mission_mode = true;
+	}
+
 	mhi_cntrl->wake_toggle(mhi_cntrl);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
@@ -2377,7 +2339,8 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		 mhi_chan->chan, cmd == MHI_CMD_START_CHAN ? "START" : "STOP");
 
 error_dec_pendpkt:
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 error_chan_state:
 	mutex_unlock(&mhi_chan->mutex);
 
@@ -2515,7 +2478,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	int ret;
 
 	mutex_lock(&mhi_cntrl->tsync_mutex);
-	/* not all devices support time feature */
+	/* not all devices support time features */
 	if (!mhi_tsync) {
 		ret = -EIO;
 		goto err_unlock;
@@ -2586,9 +2549,9 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	struct tsync_node *tsync_node;
 	int ret;
 
-	/* not all devices support time feature */
+	/* not all devices support all time features */
 	mutex_lock(&mhi_cntrl->tsync_mutex);
-	if (!mhi_tsync) {
+	if (!mhi_tsync || !mhi_tsync->db_support) {
 		ret = -EIO;
 		goto error_unlock;
 	}

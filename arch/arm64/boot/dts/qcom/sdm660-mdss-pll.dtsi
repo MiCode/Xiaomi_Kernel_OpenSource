@@ -12,7 +12,7 @@
 
 &soc {
 	mdss_dsi0_pll: qcom,mdss_dsi_pll@c994400 {
-		compatible = "qcom,mdss_dsi_pll_14nm";
+		compatible = "qcom,mdss_dsi_pll_sdm660";
 		status = "ok";
 		label = "MDSS DSI 0 PLL";
 		cell-index = <0>;
@@ -49,7 +49,7 @@
 	};
 
 	mdss_dsi1_pll: qcom,mdss_dsi_pll@c996400 {
-		compatible = "qcom,mdss_dsi_pll_14nm";
+		compatible = "qcom,mdss_dsi_pll_sdm660";
 		status = "ok";
 		label = "MDSS DSI 1 PLL";
 		cell-index = <1>;

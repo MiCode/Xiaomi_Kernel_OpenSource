@@ -657,6 +657,7 @@ int qbuf_cache_operations(struct msm_vidc_inst *inst,
 	enum smem_cache_ops cache_op;
 	bool skip;
 	int i = 0, rc = 0;
+	unsigned int rate;
 
 	skip = true;
 
@@ -679,7 +680,10 @@ int qbuf_cache_operations(struct msm_vidc_inst *inst,
 				}
 			}
 		} else if (inst->session_type == MSM_VIDC_ENCODER) {
-			if (binfo->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+
+			rate = inst->prop.operating_rate >> 16;
+			if (binfo->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+				rate == 0) {
 				if (!i) { /* yuv */
 					skip = false;
 					offset = binfo->buff_off[i];

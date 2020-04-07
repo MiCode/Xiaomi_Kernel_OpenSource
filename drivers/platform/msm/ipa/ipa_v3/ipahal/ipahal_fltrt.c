@@ -51,6 +51,7 @@
  * @flt_parse_hw_rule: Parse flt rule read from H/W
  * @eq_bitfield: Array of the bit fields of the support equations.
  *	0xFF means the equation is not supported
+ * @prefetech_buf_size: Prefetch buf size;
  */
 struct ipahal_fltrt_obj {
 	bool support_hash;
@@ -80,6 +81,7 @@ struct ipahal_fltrt_obj {
 	int (*rt_parse_hw_rule)(u8 *addr, struct ipahal_rt_rule_entry *rule);
 	int (*flt_parse_hw_rule)(u8 *addr, struct ipahal_flt_rule_entry *rule);
 	u8 eq_bitfield[IPA_EQ_MAX];
+	u32 prefetech_buf_size;
 };
 
 
@@ -663,6 +665,7 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 			[IPA_IS_FRAG]			= 15,
 			[IPA_IS_PURE_ACK]		= 0xFF,
 		},
+		IPA3_0_HW_RULE_PREFETCH_BUF_SIZE,
 	},
 
 	/* IPAv4 */
@@ -708,6 +711,7 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 			[IPA_IS_FRAG]			= 15,
 			[IPA_IS_PURE_ACK]		= 0xFF,
 		},
+		IPA3_0_HW_RULE_PREFETCH_BUF_SIZE,
 	},
 
 	/* IPAv4.2 */
@@ -753,6 +757,7 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 			[IPA_IS_FRAG]			= 15,
 			[IPA_IS_PURE_ACK]		= 0xFF,
 		},
+		IPA3_0_HW_RULE_PREFETCH_BUF_SIZE,
 	},
 
 	/* IPAv4.5 */
@@ -798,6 +803,7 @@ static struct ipahal_fltrt_obj ipahal_fltrt_objs[IPA_HW_MAX] = {
 			[IPA_IS_FRAG]			= 15,
 			[IPA_IS_PURE_ACK]		= 0,
 		},
+		IPA3_0_HW_RULE_PREFETCH_BUF_SIZE,
 	},
 };
 
@@ -1396,6 +1402,17 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip6(u16 *en_rule,
 	if (attrib->attrib_mask & IPA_FLT_NEXT_HDR) {
 		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(IPA_PROTOCOL_EQ);
 		extra = ipa_write_8(attrib->u.v6.next_hdr, extra);
+	}
+
+	if (attrib->ext_attrib_mask & IPA_FLT_EXT_NEXT_HDR) {
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ihl_ofst_meq32[ihl_ofst_meq32]);
+		/* 134  => offset of Next header after v6 header. */
+		extra = ipa_write_8(134, extra);
+		rest = ipa_write_32(0xFF000000, rest);
+		rest = ipa_write_32(attrib->u.v6.next_hdr << 24, rest);
+		extra = ipa_write_8(attrib->u.v6.next_hdr, extra);
+		ihl_ofst_meq32++;
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_TC) {
@@ -3905,6 +3922,12 @@ u32 ipahal_get_hw_tbl_hdr_width(void)
 u32 ipahal_get_lcl_tbl_addr_alignment(void)
 {
 	return ipahal_fltrt_objs[ipahal_ctx->hw_type].lcladdr_alignment;
+}
+
+/* Get the H/W (flt/rt) prefetch buf size */
+u32 ipahal_get_hw_prefetch_buf_size(void)
+{
+	return ipahal_fltrt_objs[ipahal_ctx->hw_type].prefetech_buf_size;
 }
 
 /*

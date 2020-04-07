@@ -15,8 +15,6 @@
 #include <linux/mm.h>
 #include "ipa_qmi_service.h"
 
-#define IPA_HOLB_TMR_DIS 0x0
-
 #define IPA_HW_INTERFACE_WDI_VERSION 0x0001
 #define IPA_HW_WDI_RX_MBOX_START_INDEX 48
 #define IPA_HW_WDI_TX_MBOX_START_INDEX 50

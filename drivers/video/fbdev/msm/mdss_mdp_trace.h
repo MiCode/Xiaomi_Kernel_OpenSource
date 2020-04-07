@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,7 @@ DECLARE_EVENT_CLASS(mdp_sspp_template,
 			__entry->dst_h = pipe->dst.h;
 	),
 
-	TP_printk("%d %d %d %x %d img:%dx%d srcXdst[%d,%d,%d,%d][%d,%d,%d,%d]",
+	TP_printk("pnum=%d mixer=%d play_cnt=%d flags=0x%x stage=%d format=%d img=%dx%d src=[%d,%d,%d,%d] dst=[%d,%d,%d,%d]",
 			__entry->num, __entry->mixer, __entry->play_cnt,
 			__entry->flags, __entry->stage,
 			__entry->format, __entry->img_w, __entry->img_h,
@@ -162,7 +162,7 @@ TRACE_EVENT(mdp_perf_set_wm_levels,
 			__entry->mb_cnt = mb_cnt;
 			__entry->mb_size = mb_size;
 	),
-	TP_printk("pnum:%d space:%d bytes:%d wm:[%d|%d|%d] nmb=%d mb_size=%d",
+	TP_printk("pnum:%d useable_space:%d priority_bytes:%d watermark:[%d | %d | %d] nmb=%d mb_size=%d",
 			__entry->pnum, __entry->use_space,
 			__entry->priority_bytes, __entry->wm0, __entry->wm1,
 			__entry->wm2, __entry->mb_cnt, __entry->mb_size)
@@ -218,7 +218,7 @@ TRACE_EVENT(mdp_perf_prefill_calc,
 			__entry->fbc_bytes = fbc_bytes;
 			__entry->prefill_bytes = prefill_bytes;
 	),
-	TP_printk("pn:%d lb:%d ot:%d yb:%d ys:%d pl:%d pb:%d ps:%d fb:%d pf:%d",
+	TP_printk("pnum:%d latency_buf:%d ot:%d y_buf:%d y_scaler:%d pp_lines:%d, pp_bytes=%d post_sc:%d fbc_bytes:%d prefill:%d",
 			__entry->pnum, __entry->latency_buf, __entry->ot,
 			__entry->y_buf, __entry->y_scaler, __entry->pp_lines,
 			__entry->pp_bytes, __entry->post_sc,
@@ -428,7 +428,7 @@ TRACE_EVENT(mdp_cmd_wait_pingpong,
 			__entry->kickoff_cnt)
 );
 
-TRACE_EVENT(mdss_mark_write,
+TRACE_EVENT(tracing_mark_write,
 	TP_PROTO(int pid, const char *name, bool trace_begin),
 	TP_ARGS(pid, name, trace_begin),
 	TP_STRUCT__entry(

@@ -144,6 +144,10 @@
 	};
 };
 
+&usb3 {
+	qcom,ignore-wakeup-src-in-hostmode;
+};
+
 &usb3_extcon {
 	id-gpio = <&tlmm 113 GPIO_ACTIVE_HIGH>;
 };
@@ -157,7 +161,7 @@
 	vreg_emac_phy-supply = <&vreg_emac_phy>;
 	vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
 	qcom,phy-reset-delay-msecs = <10>;
-	qcom,phy-rxc-skew-ps = <0>;
+	rxc-skew-ps = <0>;
 
 	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
 		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",

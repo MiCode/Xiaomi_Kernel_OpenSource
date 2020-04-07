@@ -221,76 +221,6 @@
 };
 
 &thermal_zones {
-	aoss0-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-0-0-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-0-1-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-0-2-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-0-3-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpuss-0-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpuss-1-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-0-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-1-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-2-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-3-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-4-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-5-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cpu-1-6-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
 	cpu-1-7-lowf {
 		cooling-maps {
 			/delete-node/ mmcx_vdd_cdev;
@@ -301,62 +231,12 @@
 			/delete-node/ mmcx_vdd_cdev;
 		};
 	};
-	aoss-1-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	cwlan-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	video-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	ddr-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	q6-hvx-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
 	camera-lowf {
 		cooling-maps {
 			/delete-node/ mmcx_vdd_cdev;
 		};
 	};
-	cmpss-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	mdm-core-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	npu-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	mdm-vec-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
 	mdm-scl-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	gpuss-1-lowf {
 		cooling-maps {
 			/delete-node/ mmcx_vdd_cdev;
 		};
@@ -389,6 +269,10 @@
 	};
 
 	pop-mem-step {
+		status = "disabled";
+	};
+
+	pop-mem-test {
 		status = "disabled";
 	};
 

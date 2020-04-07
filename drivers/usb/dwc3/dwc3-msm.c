@@ -330,6 +330,9 @@ struct dwc3_msm {
 
 	u64			dummy_gsi_db;
 	dma_addr_t		dummy_gsi_db_dma;
+
+	struct device_node *dwc3_node;
+	struct property *num_gsi_eps;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3599,6 +3602,62 @@ static int dwc_dpdm_cb(struct notifier_block *nb, unsigned long evt, void *p)
 
 	return NOTIFY_OK;
 }
+
+static int dwc3_msm_populate_gsi_params(struct dwc3_msm *mdwc)
+{
+	struct device_node *node = mdwc->dev->of_node;
+	struct device *dev = mdwc->dev;
+	struct property *prop = NULL;
+	const void *p_val;
+	void *value;
+	int size = 0;
+
+	p_val = of_get_property(node, "qcom,num-gsi-evt-buffs", &size);
+	if (!size) {
+		dev_dbg(dev, "GSI EPs not being used\n");
+		return 0;
+	}
+
+	of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
+				&mdwc->num_gsi_event_buffers);
+	value = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!value)
+		return -ENOMEM;
+
+	memcpy(value, p_val, size);
+	prop = devm_kzalloc(dev, sizeof(*prop), GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	prop->name = "num-gsi-eps";
+	prop->value = value;
+	prop->length = size;
+	mdwc->num_gsi_eps = prop;
+
+	of_get_property(node, "qcom,gsi-reg-offset", &size);
+	if (!size) {
+		dev_err(dev, "err provide qcom,gsi-reg-offset\n");
+		return -EINVAL;
+	}
+
+	mdwc->gsi_reg = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!mdwc->gsi_reg)
+		return -ENOMEM;
+
+	mdwc->gsi_reg_offset_cnt =
+			(size / sizeof(*mdwc->gsi_reg));
+	if (mdwc->gsi_reg_offset_cnt != GSI_REG_MAX) {
+		dev_err(dev, "invalid reg offset count\n");
+		return -EINVAL;
+	}
+
+	of_property_read_u32_array(dev->of_node,
+		"qcom,gsi-reg-offset", mdwc->gsi_reg,
+		mdwc->gsi_reg_offset_cnt);
+
+	return 0;
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -3606,7 +3665,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
-	int ret = 0, size = 0, i;
+	int ret = 0, i;
 	u32 val;
 	unsigned long irq_type;
 
@@ -3768,31 +3827,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"unable to read platform data tx fifo size\n");
 
-	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
-				&mdwc->num_gsi_event_buffers);
-
-	if (mdwc->num_gsi_event_buffers) {
-		of_get_property(node, "qcom,gsi-reg-offset", &size);
-		if (size) {
-			mdwc->gsi_reg = devm_kzalloc(dev, size, GFP_KERNEL);
-			if (!mdwc->gsi_reg)
-				return -ENOMEM;
-
-			mdwc->gsi_reg_offset_cnt =
-					(size / sizeof(*mdwc->gsi_reg));
-			if (mdwc->gsi_reg_offset_cnt != GSI_REG_MAX) {
-				dev_err(dev, "invalid reg offset count\n");
-				return -EINVAL;
-			}
-
-			of_property_read_u32_array(dev->of_node,
-				"qcom,gsi-reg-offset", mdwc->gsi_reg,
-				mdwc->gsi_reg_offset_cnt);
-		} else {
-			dev_err(dev, "err provide qcom,gsi-reg-offset\n");
-			return -EINVAL;
-		}
-	}
+	ret = dwc3_msm_populate_gsi_params(mdwc);
+	if (ret)
+		goto err;
 
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
@@ -3823,10 +3860,23 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto uninit_iommu;
 	}
 
+	if (mdwc->num_gsi_eps) {
+		mdwc->dwc3_node = dwc3_node;
+		ret = of_add_property(dwc3_node, mdwc->num_gsi_eps);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to add 'num-gsi-eps' prop: %d\n",
+						ret);
+			of_node_put(dwc3_node);
+			goto uninit_iommu;
+		}
+	}
+
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev,
 				"failed to add create dwc3 core\n");
+		if (mdwc->num_gsi_eps)
+			of_remove_property(dwc3_node, mdwc->num_gsi_eps);
 		of_node_put(dwc3_node);
 		goto uninit_iommu;
 	}
@@ -3908,8 +3958,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->pm_qos_latency = 0;
 	}
 
-	if (of_property_read_bool(node, "qcom,host-poweroff-in-pm-suspend")) {
-		dwc->host_poweroff_in_pm_suspend = true;
+	if (of_property_read_bool(node, "qcom,ignore-wakeup-src-in-hostmode")) {
+		dwc->ignore_wakeup_src_in_hostmode = true;
 		dev_dbg(mdwc->dev, "%s: Core power collapse on host PM suspend\n",
 								__func__);
 	}
@@ -3990,6 +4040,11 @@ put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
+	if (mdwc->num_gsi_eps) {
+		of_node_get(mdwc->dwc3_node);
+		of_remove_property(mdwc->dwc3_node, mdwc->num_gsi_eps);
+		of_node_put(mdwc->dwc3_node);
+	}
 
 uninit_iommu:
 	of_platform_depopulate(&pdev->dev);
@@ -4047,6 +4102,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	dbg_event(0xFF, "Remov put", 0);
 	platform_device_put(mdwc->dwc3);
 	of_platform_depopulate(&pdev->dev);
+
+	if (mdwc->num_gsi_eps) {
+		of_node_get(mdwc->dwc3_node);
+		of_remove_property(mdwc->dwc3_node, mdwc->num_gsi_eps);
+		of_node_put(mdwc->dwc3_node);
+	}
 
 	pm_runtime_disable(mdwc->dev);
 	pm_runtime_barrier(mdwc->dev);
@@ -4775,7 +4836,71 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	 * Check if pm_suspend can proceed irrespective of runtimePM state of
 	 * host.
 	 */
-	if (!dwc->host_poweroff_in_pm_suspend || !mdwc->in_host_mode) {
+	if (!dwc->ignore_wakeup_src_in_hostmode || !mdwc->in_host_mode) {
+		if (!atomic_read(&dwc->in_lpm)) {
+			dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
+			return -EBUSY;
+		}
+
+		atomic_set(&mdwc->pm_suspended, 1);
+
+		return 0;
+	}
+
+	ret = dwc3_msm_suspend(mdwc, false);
+	if (!ret)
+		atomic_set(&mdwc->pm_suspended, 1);
+
+	return ret;
+}
+
+static int dwc3_msm_pm_resume(struct device *dev)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dev_dbg(dev, "dwc3-msm PM resume\n");
+	dbg_event(0xFF, "PM Res", 0);
+
+	/* flush to avoid race in read/write of pm_suspended */
+	flush_workqueue(mdwc->dwc3_wq);
+	atomic_set(&mdwc->pm_suspended, 0);
+
+	if (!dwc->ignore_wakeup_src_in_hostmode || !mdwc->in_host_mode) {
+		/* kick in otg state machine */
+		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+
+		return 0;
+	}
+
+	/* Resume dwc to avoid unclocked access by xhci_plat_resume */
+	dwc3_msm_resume(mdwc);
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	/* kick in otg state machine */
+	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+
+	return 0;
+}
+
+static int dwc3_msm_pm_freeze(struct device *dev)
+{
+	int ret = 0;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dev_dbg(dev, "dwc3-msm PM freeze\n");
+	dbg_event(0xFF, "PM Freeze", 0);
+
+	flush_workqueue(mdwc->dwc3_wq);
+
+	/*
+	 * Check if pm_freeze can proceed irrespective of runtimePM state of
+	 * host.
+	 */
+	if (!dwc->ignore_wakeup_src_in_hostmode || !mdwc->in_host_mode) {
 		if (!atomic_read(&dwc->in_lpm)) {
 			dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
 			return -EBUSY;
@@ -4806,19 +4931,19 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	return ret;
 }
 
-static int dwc3_msm_pm_resume(struct device *dev)
+static int dwc3_msm_pm_restore(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	dev_dbg(dev, "dwc3-msm PM resume\n");
-	dbg_event(0xFF, "PM Res", 0);
+	dev_dbg(dev, "dwc3-msm PM restore\n");
+	dbg_event(0xFF, "PM Restore", 0);
 
 	/* flush to avoid race in read/write of pm_suspended */
 	flush_workqueue(mdwc->dwc3_wq);
 	atomic_set(&mdwc->pm_suspended, 0);
 
-	if (!dwc->host_poweroff_in_pm_suspend || !mdwc->in_host_mode) {
+	if (!dwc->ignore_wakeup_src_in_hostmode || !mdwc->in_host_mode) {
 		/* kick in otg state machine */
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
@@ -4883,7 +5008,12 @@ static int dwc3_msm_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops dwc3_msm_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(dwc3_msm_pm_suspend, dwc3_msm_pm_resume)
+	.suspend	= dwc3_msm_pm_suspend,
+	.resume		= dwc3_msm_pm_resume,
+	.freeze		= dwc3_msm_pm_freeze,
+	.thaw		= dwc3_msm_pm_restore,
+	.poweroff	= dwc3_msm_pm_suspend,
+	.restore	= dwc3_msm_pm_restore,
 	SET_RUNTIME_PM_OPS(dwc3_msm_runtime_suspend, dwc3_msm_runtime_resume,
 				dwc3_msm_runtime_idle)
 };

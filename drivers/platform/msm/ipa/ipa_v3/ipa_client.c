@@ -19,8 +19,6 @@
  * These values were determined empirically and shows good E2E bi-
  * directional throughputs
  */
-#define IPA_HOLB_TMR_EN 0x1
-#define IPA_HOLB_TMR_DIS 0x0
 #define IPA_POLL_AGGR_STATE_RETRIES_NUM 3
 #define IPA_POLL_AGGR_STATE_SLEEP_MSEC 1
 
@@ -69,7 +67,8 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		 * on other end from IPA hw.
 		 */
 		if ((ep->client == IPA_CLIENT_USB_DPL_CONS) ||
-				(ep->client == IPA_CLIENT_MHI_DPL_CONS))
+				(ep->client == IPA_CLIENT_MHI_DPL_CONS) ||
+				(ep->client == IPA_CLIENT_MHI_QDSS_CONS))
 			holb_cfg.en = IPA_HOLB_TMR_EN;
 		else
 			holb_cfg.en = IPA_HOLB_TMR_DIS;

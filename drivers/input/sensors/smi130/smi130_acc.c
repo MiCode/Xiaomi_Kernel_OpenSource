@@ -1609,6 +1609,7 @@ struct smi130_acc_data {
 	int max_buffer_time;
 	struct input_dev *accbuf_dev;
 	int report_evt_cnt;
+	struct mutex acc_sensor_buff;
 #endif
 #ifdef SMI130_HRTIMER
 	struct hrtimer smi130_hrtimer;
@@ -6553,8 +6554,9 @@ static int smi_acc_read_bootsampl(struct smi130_acc_data *client_data,
 {
 	int i = 0;
 
+	client_data->acc_buffer_smi130_samples = false;
+
 	if (enable_read) {
-		client_data->acc_buffer_smi130_samples = false;
 		for (i = 0; i < client_data->acc_bufsample_cnt; i++) {
 			if (client_data->debug_level & 0x08)
 				PINFO("acc=%d,x=%d,y=%d,z=%d,sec=%d,ns=%lld\n",
@@ -6621,7 +6623,9 @@ static ssize_t read_acc_boot_sample_store(struct device *dev,
 		PERR("Invalid value of input, input=%ld\n", enable);
 		return -EINVAL;
 	}
+	mutex_lock(&smi130_acc->acc_sensor_buff);
 	err = smi_acc_read_bootsampl(smi130_acc, enable);
+	mutex_unlock(&smi130_acc->acc_sensor_buff);
 	if (err)
 		return err;
 
@@ -6961,6 +6965,7 @@ static void smi130_acc_slope_interrupt_handle(struct smi130_acc_data *smi130_acc
 static void store_acc_boot_sample(struct smi130_acc_data *client_data,
 				int x, int y, int z, struct timespec ts)
 {
+	mutex_lock(&client_data->acc_sensor_buff);
 	if (false == client_data->acc_buffer_smi130_samples)
 		return;
 	if (ts.tv_sec <  client_data->max_buffer_time) {
@@ -6985,6 +6990,7 @@ static void store_acc_boot_sample(struct smi130_acc_data *client_data,
 			smi130_acc_set_mode(client_data->smi130_acc_client,
 					SMI_ACC2X2_MODE_SUSPEND, 1);
 	}
+	mutex_unlock(&client_data->acc_sensor_buff);
 }
 #else
 static void store_acc_boot_sample(struct smi130_acc_data *client_data,
@@ -7054,6 +7060,8 @@ static int smi130_acc_early_buff_init(struct i2c_client *client,
 	client_data->acc_enable = false;
 
 	smi130_set_cpu_idle_state(true);
+
+	mutex_init(&client_data->acc_sensor_buff);
 
 	smi130_acc_set_mode(client, SMI_ACC2X2_MODE_NORMAL, 1);
 	smi130_acc_set_bandwidth(client, SMI_ACC2X2_BW_62_50HZ);

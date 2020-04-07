@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -316,4 +316,16 @@ int ep_pcie_configure_inactivity_timer(struct ep_pcie_hw *phandle,
  * Return: 0 on success, negative value on error
  */
 int ep_pcie_core_l1ss_sleep_config_enable(void);
+
+#if IS_ENABLED(CONFIG_QCOM_PCI_EDMA)
+int qcom_edma_init(struct device *dev);
+void edma_dump(void);
+#else
+static inline int qcom_edma_init(struct device *dev)
+{
+	return 0;
+}
+static inline void edma_dump(void) {}
+#endif
+
 #endif

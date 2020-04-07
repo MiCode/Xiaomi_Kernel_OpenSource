@@ -43,6 +43,9 @@
 
 #define ST_ASM330LHH_MAX_ODR			416
 
+/* Timestamp Tick 25us/LSB */
+#define ST_ASM330LHH_TS_DELTA_NS		25000ULL
+
 /* Define Custom events for FIFO flush */
 #define CUSTOM_IIO_EV_DIR_FIFO_EMPTY (IIO_EV_DIR_NONE + 1)
 #define CUSTOM_IIO_EV_DIR_FIFO_DATA (IIO_EV_DIR_NONE + 2)
@@ -82,8 +85,8 @@ static const struct iio_event_spec st_asm330lhh_flush_event = {
 	.num_event_specs = 1,				\
 }
 
-#define ST_ASM330LHH_RX_MAX_LENGTH	8
-#define ST_ASM330LHH_TX_MAX_LENGTH	8
+#define ST_ASM330LHH_RX_MAX_LENGTH	64
+#define ST_ASM330LHH_TX_MAX_LENGTH	16
 
 #ifdef CONFIG_ENABLE_ASM_ACC_GYRO_BUFFERING
 #define ASM_MAXSAMPLE        4000
@@ -188,6 +191,7 @@ struct st_asm330lhh_sensor {
 	int max_buffer_time;
 	struct input_dev *buf_dev;
 	int report_evt_cnt;
+	struct mutex sensor_buff;
 #endif
 };
 
@@ -197,6 +201,7 @@ struct st_asm330lhh_sensor {
  * @irq: Device interrupt line (I2C or SPI).
  * @lock: Mutex to protect read and write operations.
  * @fifo_lock: Mutex to prevent concurrent access to the hw FIFO.
+ * @page_lock: Mutex to prevent concurrent memory page configuration.
  * @fifo_mode: FIFO operating mode supported by the device.
  * @state: hw operational state.
  * @enable_mask: Enabled sensor bitmask.
@@ -204,6 +209,13 @@ struct st_asm330lhh_sensor {
  * @hw_ts: Latest hw timestamp from the sensor.
  * @ts: Latest timestamp from irq handler.
  * @delta_ts: Delta time between two consecutive interrupts.
+ * @ts_delta_ns: Calibrate delta time tick.
+ * @hw_ts: Latest hw timestamp from the sensor.
+ * @val_ts_old: Hold hw timestamp for timer rollover.
+ * @hw_ts_high: Save MSB hw timestamp.
+ * @tsample: Timestamp for each sensor sample.
+ * @delta_ts: Delta time between two consecutive interrupts.
+ * @ts: Latest timestamp from irq handler.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  * @tf: Transfer function structure used by I/O operations.
  * @tb: Transfer buffers used by SPI I/O operations.
@@ -214,34 +226,44 @@ struct st_asm330lhh_hw {
 
 	struct mutex lock;
 	struct mutex fifo_lock;
+	struct mutex page_lock;
 
 	enum st_asm330lhh_fifo_mode fifo_mode;
 	unsigned long state;
 	u8 enable_mask;
 
 	s64 ts_offset;
-	u32 hw_val;
-	u32 hw_val_old;
+	u64 ts_delta_ns;
 	s64 hw_ts;
-	s64 hw_ts_high;
+	u32 val_ts_old;
+	u32 hw_ts_high;
+	s64 tsample;
 	s64 delta_ts;
 	s64 ts;
-	s64 tsample;
-	s64 hw_ts_old;
-	s64 delta_hw_ts;
-
-	/* Timestamp sample ODR */
-	u16 odr;
-
 	struct iio_dev *iio_devs[ST_ASM330LHH_ID_MAX];
 
 	const struct st_asm330lhh_transfer_function *tf;
 	struct st_asm330lhh_transfer_buffer tb;
 	struct regulator *vdd;
 	struct regulator *vio;
+	int enable_gpio;
+	bool asm330_hrtimer;
+	struct hrtimer st_asm330lhh_hrtimer;
 };
 
 extern const struct dev_pm_ops st_asm330lhh_pm_ops;
+
+static inline int st_asm330lhh_read_atomic(struct st_asm330lhh_hw *hw, u8 addr,
+					 int len, u8 *data)
+{
+	int err;
+
+	mutex_lock(&hw->page_lock);
+	err = hw->tf->read(hw->dev, addr, len, data);
+	mutex_unlock(&hw->page_lock);
+
+	return err;
+}
 
 int st_asm330lhh_probe(struct device *dev, int irq,
 		       const struct st_asm330lhh_transfer_function *tf_ops);
@@ -269,4 +291,6 @@ int st_asm330lhh_update_watermark(struct st_asm330lhh_sensor *sensor,
 int st_asm330lhh_update_fifo(struct iio_dev *iio_dev, bool enable);
 int asm330_check_acc_gyro_early_buff_enable_flag(
 		struct st_asm330lhh_sensor *sensor);
+void st_asm330lhh_set_cpu_idle_state(bool value);
+void st_asm330lhh_hrtimer_reset(struct st_asm330lhh_hw *hw, s64 irq_delta_ts);
 #endif /* ST_ASM330LHH_H */

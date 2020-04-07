@@ -285,16 +285,21 @@
 };
 
 &usb0 {
-	qcom,host-poweroff-in-pm-suspend;
+	qcom,ignore-wakeup-src-in-hostmode;
 };
 
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
-	qcom,host-poweroff-in-pm-suspend;
+	qcom,ignore-wakeup-src-in-hostmode;
 };
 
 &qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_i2c {
+	qcom,clk-freq-out = <400000>;
 	status = "ok";
 };
 

@@ -1016,9 +1016,7 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 			  ethqos->phy_intr);
 		return ret;
 	}
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Phy IRQ interrupt enabled");
-#endif
+
 	phy_intr_en = true;
 	return ret;
 }
@@ -1481,10 +1479,6 @@ static void qcom_ethqos_bringup_iface(struct work_struct *work)
 	if (dev_change_flags(ndev, ndev->flags | IFF_UP) < 0)
 		ETHQOSINFO("ERROR\n");
 
-#ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	place_marker("M - Device flag changed to UP ");
-#endif
-
 	rtnl_unlock();
 
 	ETHQOSINFO("exit\n");
@@ -1493,24 +1487,23 @@ static void qcom_ethqos_bringup_iface(struct work_struct *work)
 void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
 {
 	struct qcom_ethqos *ethqos = plat->bsp_priv;
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
 
 	ethqos->phy_wol_supported = 0;
 	ethqos->phy_wol_wolopts = 0;
 	/* Check if phydev is valid*/
 	/* Check and enable Wake-on-LAN functionality in PHY*/
 
-	if (ndev->phydev) {
+	if (priv->phydev) {
 		struct ethtool_wolinfo wol = {.cmd = ETHTOOL_GWOL};
 
 		wol.supported = 0;
 		wol.wolopts = 0;
-		ETHQOSINFO("phydev addr: 0x%pK\n", ndev->phydev);
-		phy_ethtool_get_wol(ndev->phydev, &wol);
+		ETHQOSINFO("phydev addr: 0x%pK\n", priv->phydev);
+		phy_ethtool_get_wol(priv->phydev, &wol);
 		ethqos->phy_wol_supported = wol.supported;
 		ETHQOSINFO("Get WoL[0x%x] in %s\n", wol.supported,
-			   ndev->phydev->drv->name);
+			   priv->phydev->drv->name);
 
 	/* Try to enable supported Wake-on-LAN features in PHY*/
 		if (wol.supported) {
@@ -1519,7 +1512,7 @@ void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
 			wol.cmd = ETHTOOL_SWOL;
 			wol.wolopts = wol.supported;
 
-			if (!phy_ethtool_set_wol(ndev->phydev, &wol)) {
+			if (!phy_ethtool_set_wol(priv->phydev, &wol)) {
 				ethqos->phy_wol_wolopts = wol.wolopts;
 
 				enable_irq_wake(ethqos->phy_intr);
@@ -1527,11 +1520,11 @@ void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
 
 				ETHQOSINFO("Enabled WoL[0x%x] in %s\n",
 					   wol.wolopts,
-					   ndev->phydev->drv->name);
+					   priv->phydev->drv->name);
 			} else {
 				ETHQOSINFO("Disabled WoL[0x%x] in %s\n",
 					   wol.wolopts,
-					   ndev->phydev->drv->name);
+					   priv->phydev->drv->name);
 			}
 		}
 	}
@@ -1643,7 +1636,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct stmmac_priv *priv;
 	int ret;
-	struct phy_device *phydev;
 
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe start");
@@ -1725,6 +1717,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
 	plat_dat->tx_select_queue = dwmac_qcom_select_queue;
+	plat_dat->get_plat_tx_coal_frames =  dwmac_qcom_get_plat_tx_coal_frames;
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
@@ -1798,13 +1791,13 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ndev = dev_get_drvdata(&ethqos->pdev->dev);
 	priv = netdev_priv(ndev);
-	phydev = mdiobus_get_phy(priv->mii, priv->plat->phy_addr);
-	if (phydev && phydev->drv &&
-	    phydev->drv->config_intr &&
-		!phydev->drv->config_intr(phydev)) {
+
+	if (priv->phydev && priv->phydev->drv &&
+	    priv->phydev->drv->config_intr &&
+		!priv->phydev->drv->config_intr(priv->phydev)) {
 		qcom_ethqos_request_phy_wol(priv->plat);
-		phydev->irq = PHY_IGNORE_INTERRUPT;
-		phydev->interrupts =  PHY_INTERRUPT_ENABLED;
+		priv->phydev->irq = PHY_IGNORE_INTERRUPT;
+		priv->phydev->interrupts =  PHY_INTERRUPT_ENABLED;
 	} else {
 		ETHQOSERR("config_phy_intr configuration failed");
 	}
@@ -1823,6 +1816,10 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	priv->tx_queue[IPA_DMA_TX_CH].skip_sw = true;
 	ethqos_ipa_offload_event_handler(ethqos, EV_PROBE_INIT);
 	priv->hw->mac->map_mtl_to_dma(priv->hw, 0, 1); //change
+#endif
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	place_marker("M - Ethernet probe end");
 #endif
 	return ret;
 

@@ -19,8 +19,8 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/clk.h>
 #include <linux/module.h>
+#include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/of_platform.h>
@@ -36,12 +36,12 @@
 #include "mdss_smmu.h"
 #include "mdss_debug.h"
 
-#define SZ_4G 0xF0000000
-
+#define SZ_4G		0xF0000000
 static inline struct bus_type *mdss_mmu_get_bus(struct device *dev)
 {
 	return &platform_bus_type;
 }
+
 static inline struct device *mdss_mmu_get_ctx(const char *name)
 {
 	return NULL;
@@ -330,7 +330,6 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
 			continue;
-
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu && mdss_smmu->base.dev) {
 			if (!mdss_smmu->handoff_pending) {
@@ -357,6 +356,14 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 					goto err;
 				}
 				mdss_smmu->domain_attached = true;
+				if (mdss_smmu->domain_reattach) {
+					pr_debug("iommu v2 domain[%i] remove extra vote\n",
+							i);
+					/* remove extra power vote */
+					mdss_smmu_enable_power(mdss_smmu,
+						false);
+					mdss_smmu->domain_reattach = false;
+				}
 				pr_debug("iommu v2 domain[%i] attached\n", i);
 			}
 		} else {
@@ -412,6 +419,11 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 				 */
 				arm_iommu_detach_device(mdss_smmu->base.dev);
 				mdss_smmu->domain_attached = false;
+				/*
+				 * since we are leaving clocks on, on
+				 * re-attach do not vote for clocks
+				 */
+				mdss_smmu->domain_reattach = true;
 				pr_debug("iommu v2 domain[%i] detached\n", i);
 			} else {
 				mdss_smmu_enable_power(mdss_smmu, false);
@@ -437,7 +449,6 @@ static struct dma_buf_attachment *mdss_smmu_dma_buf_attach_v2(
 		struct dma_buf *dma_buf, struct device *dev, int domain)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return NULL;
@@ -510,7 +521,6 @@ static int mdss_smmu_dma_alloc_coherent_v2(struct device *dev, size_t size,
 		gfp_t gfp, int domain)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return -EINVAL;
@@ -530,7 +540,6 @@ static void mdss_smmu_dma_free_coherent_v2(struct device *dev, size_t size,
 		void *cpu_addr, dma_addr_t phys, dma_addr_t iova, int domain)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return;
@@ -549,7 +558,6 @@ static int mdss_smmu_map_v2(int domain, phys_addr_t iova, phys_addr_t phys,
 		int gfp_order, int prot)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return -EINVAL;
@@ -562,7 +570,6 @@ static int mdss_smmu_map_v2(int domain, phys_addr_t iova, phys_addr_t phys,
 static void mdss_smmu_unmap_v2(int domain, unsigned long iova, int gfp_order)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return;
@@ -600,7 +607,6 @@ static int mdss_smmu_dsi_map_buffer_v2(phys_addr_t phys, unsigned int domain,
 		int dir)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return -EINVAL;
@@ -618,7 +624,6 @@ static void mdss_smmu_dsi_unmap_buffer_v2(dma_addr_t dma_addr, int domain,
 		unsigned long size, int dir)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
-
 	if (!mdss_smmu) {
 		pr_err("not able to get smmu context\n");
 		return;
@@ -675,134 +680,6 @@ static void mdss_smmu_deinit_v2(struct mdss_data_type *mdata)
 	}
 }
 
-/*
- * sg_clone -	Duplicate an existing chained sgl
- * @orig_sgl:	Original sg list to be duplicated
- * @len:	Total length of sg while taking chaining into account
- * @gfp_mask:	GFP allocation mask
- * @padding:	specifies if padding is required
- *
- * Description:
- *   Clone a chained sgl. This cloned copy may be modified in some ways while
- *   keeping the original sgl in tact. Also allow the cloned copy to have
- *   a smaller length than the original which may reduce the sgl total
- *   sg entries and also allows cloned copy to have one extra sg  entry on
- *   either sides of sgl.
- *
- * Returns:
- *   Pointer to new kmalloced sg list, ERR_PTR() on error
- *
- */
-static struct scatterlist *sg_clone(struct scatterlist *orig_sgl, u64 len,
-				gfp_t gfp_mask, bool padding)
-{
-	int nents;
-	bool last_entry;
-	struct scatterlist *sgl, *head;
-
-	nents = sg_nents(orig_sgl);
-	if (nents < 0)
-		return ERR_PTR(-EINVAL);
-	if (padding)
-		nents += 2;
-
-	head = kmalloc_array(nents, sizeof(struct scatterlist), gfp_mask);
-	if (!head)
-		return ERR_PTR(-ENOMEM);
-
-	sgl = head;
-
-	sg_init_table(sgl, nents);
-
-	if (padding) {
-		*sgl = *orig_sgl;
-		if (sg_is_chain(orig_sgl)) {
-			orig_sgl = sg_next(orig_sgl);
-			*sgl = *orig_sgl;
-		}
-		sgl->page_link &= (unsigned long)(~0x03);
-		sgl = sg_next(sgl);
-	}
-
-	for (; sgl; orig_sgl = sg_next(orig_sgl), sgl = sg_next(sgl)) {
-
-		last_entry = sg_is_last(sgl);
-
-		/*
-		 * * If page_link is pointing to a chained sgl then set
-		 * the sg entry in the cloned list to the next sg entry
-		 * in the original sg list as chaining is already taken
-		 * care.
-		 */
-
-		if (sg_is_chain(orig_sgl))
-			orig_sgl = sg_next(orig_sgl);
-
-		if (padding)
-			last_entry = sg_is_last(orig_sgl);
-
-		*sgl = *orig_sgl;
-		sgl->page_link &= (unsigned long)(~0x03);
-
-		if (last_entry) {
-			if (padding) {
-				len -= sg_dma_len(sgl);
-				sgl = sg_next(sgl);
-				*sgl = *orig_sgl;
-			}
-			sg_dma_len(sgl) = len ? len : SZ_4K;
-			/* Set bit 1 to indicate end of sgl */
-			sgl->page_link |= 0x02;
-		} else {
-			len -= sg_dma_len(sgl);
-		}
-	}
-
-	return head;
-}
-
-/*
- * sg_table_clone - Duplicate an existing sg_table including chained sgl
- * @orig_table:     Original sg_table to be duplicated
- * @len:            Total length of sg while taking chaining into account
- * @gfp_mask:       GFP allocation mask
- * @padding:	    specifies if padding is required
- *
- * Description:
- *   Clone a sg_table along with chained sgl. This cloned copy may be
- *   modified in some ways while keeping the original table and sgl in tact.
- *   Also allow the cloned sgl copy to have a smaller length than the original
- *   which may reduce the sgl total sg entries.
- *
- * Returns:
- *   Pointer to new kmalloced sg_table, ERR_PTR() on error
- *
- */
-static struct sg_table *sg_table_clone(struct sg_table *orig_table,
-				gfp_t gfp_mask, bool padding)
-{
-	struct sg_table *table;
-	struct scatterlist *sg = orig_table->sgl;
-	u64 len = 0;
-
-	for (len = 0; sg; sg = sg_next(sg))
-		len += sg->length;
-
-	table = kmalloc(sizeof(struct sg_table), gfp_mask);
-	if (!table)
-		return ERR_PTR(-ENOMEM);
-
-	table->sgl = sg_clone(orig_table->sgl, len, gfp_mask, padding);
-	if (IS_ERR(table->sgl)) {
-		kfree(table);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	table->nents = table->orig_nents = sg_nents(table->sgl);
-
-	return table;
-}
-
 static void mdss_smmu_ops_init(struct mdss_data_type *mdata)
 {
 	mdata->smmu_ops.smmu_attach = mdss_smmu_attach_v2;
@@ -824,7 +701,6 @@ static void mdss_smmu_ops_init(struct mdss_data_type *mdata)
 	mdata->smmu_ops.smmu_dsi_unmap_buffer =
 				mdss_smmu_dsi_unmap_buffer_v2;
 	mdata->smmu_ops.smmu_deinit = mdss_smmu_deinit_v2;
-	mdata->smmu_ops.smmu_sg_table_clone = sg_table_clone;
 }
 
 /*
@@ -1000,7 +876,6 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	if (smmu_domain.domain == MDSS_IOMMU_DOMAIN_SECURE ||
 		smmu_domain.domain == MDSS_IOMMU_DOMAIN_ROT_SECURE) {
 		int secure_vmid = VMID_CP_PIXEL;
-
 		rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
 			DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
 		if (rc) {
@@ -1029,9 +904,12 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	mdss_smmu->base.iommu_ctrl = mdata->mdss_util->iommu_ctrl;
+	mdss_smmu->base.reg_lock = mdata->mdss_util->vbif_reg_lock;
+	mdss_smmu->base.reg_unlock = mdata->mdss_util->vbif_reg_unlock;
 	mdss_smmu->base.secure_session_ctrl =
 		mdata->mdss_util->secure_session_ctrl;
 	mdss_smmu->base.wait_for_transition = mdss_smmu_secure_wait;
+	mdss_smmu->base.handoff_pending = mdata->mdss_util->mdp_handoff_pending;
 
 	list_add(&mdss_smmu->_client, &prv->smmu_device_list);
 
@@ -1096,7 +974,6 @@ static int mdss_smmu_register_driver(void)
 static int __init mdss_smmu_driver_init(void)
 {
 	int ret;
-
 	ret = mdss_smmu_register_driver();
 	if (ret)
 		pr_err("mdss_smmu_register_driver() failed!\n");

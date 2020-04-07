@@ -29,9 +29,11 @@ Optional properties:
   - clocks: reference to a clock
   - usb3-lpm-capable: determines if platform is USB3 LPM capable
   - quirk-broken-port-ped: set if the controller has broken port disable mechanism
-  - host-poweroff-in-pm-suspend: If set, allow PM suspend to happen irrespective
-    of runtimePM state of host and power collapse the core. This also leads to
-    reset-resume of connected devices on PM resume.
+  - ignore-wakeup-src-in-hostmode: If set, PM suspend/freeze allowed
+    irrespective of host runtimePM state. In PM suspend/resume case, core will
+    stay powered and connected devices will just be suspended/resumed. In
+    hibernation, core will power collapse and connected devices will
+    reset-resume on PM restore.
 
 Example:
 	usb@f0931000 {

@@ -481,7 +481,7 @@ def find_out(verbose, module_dir, prefix, rel_glob, excludes, outs):
 
 def gen_blueprints(
     verbose, header_arch, gen_dir, arch_asm_kbuild, asm_generic_kbuild, module_dir,
-    rel_arch_asm_kbuild, rel_asm_generic_kbuild, arch_include_uapi, techpack_include_uapi):
+    rel_arch_asm_kbuild, rel_asm_generic_kbuild, arch_include_uapi):
   """Generate a blueprints file containing modules that invoke this script.
 
   This function generates a blueprints file that contains modules that
@@ -522,7 +522,6 @@ def gen_blueprints(
   arch_prefix = os.path.join('arch', header_arch, generic_prefix)
   generic_src = os.path.join(generic_prefix, rel_glob)
   arch_src = os.path.join(arch_prefix, rel_glob)
-  techpack_src = os.path.join('techpack/*',generic_prefix, '*',rel_glob)
 
   # Excluded sources, architecture specific.
   exclude_srcs = []
@@ -546,8 +545,6 @@ def gen_blueprints(
   arch_out = []
   error_count += find_out(
       verbose, module_dir, arch_prefix, rel_glob, None, arch_out)
-
-  techpack_out = [x.split('include/uapi/')[1] for x in techpack_include_uapi]
 
   if error_count != 0:
     return error_count
@@ -616,13 +613,6 @@ def gen_blueprints(
       f.write('    // From %s\n' % arch_src)
       f.write('\n')
       for h in arch_out:
-        f.write('    "%s",\n' % h)
-
-    if techpack_out:
-      f.write('\n')
-      f.write('    // From %s\n' % techpack_src)
-      f.write('\n')
-      for h in techpack_out:
         f.write('    "%s",\n' % h)
 
     f.write(']\n')
@@ -744,7 +734,7 @@ def gen_headers(
     verbose, header_arch, gen_dir, arch_asm_kbuild, asm_generic_kbuild, module_dir,
     old_gen_headers_bp, new_gen_headers_bp, version_makefile,
     arch_syscall_tool, arch_syscall_tbl, headers_install, include_uapi,
-    arch_include_uapi, techpack_include_uapi):
+    arch_include_uapi):
   """Generate the kernel headers.
 
   This script generates the version.h file, the arch-specific headers including
@@ -802,59 +792,7 @@ def gen_headers(
         arch_uapi_include_prefix, h):
       error_count += 1
 
-  for h in techpack_include_uapi:
-    techpack_uapi_include_prefix = os.path.join(h.split('/include/uapi')[0], 'include', 'uapi') + os.sep
-    if not run_headers_install(
-        verbose, gen_dir, headers_install,
-        techpack_uapi_include_prefix, h):
-      error_count += 1
-
   return error_count
-
-def extract_techpack_uapi_headers(verbose, module_dir):
-
-  """EXtract list of uapi headers from techpack/* directories. We need to export
-     these headers to userspace.
-
-  Args:
-      verbose: Verbose option is provided to script
-      module_dir: Base directory
-  Returs:
-      List of uapi headers
-  """
-
-  techpack_subdir = []
-  techpack_dir = os.path.join(module_dir,'techpack')
-  techpack_uapi = []
-  techpack_uapi_sub = []
-
-  #get list of techpack directories under techpack/
-  if os.path.isdir(techpack_dir):
-    items = sorted(os.listdir(techpack_dir))
-    for x in items:
-      p = os.path.join(techpack_dir, x)
-      if os.path.isdir(p):
-        techpack_subdir.append(p)
-
-  #Print list of subdirs obtained
-  if (verbose):
-    for x in techpack_subdir:
-      print(x)
-
-  #For every subdirectory get list of .h files under include/uapi and append to techpack_uapi list
-  for x in techpack_subdir:
-    techpack_uapi_path = os.path.join(x, 'include/uapi')
-    if (os.path.isdir(techpack_uapi_path)):
-      techpack_uapi_sub = []
-      find_out(verbose, x, 'include/uapi', '**/*.h', None, techpack_uapi_sub)
-      tmp = [os.path.join(techpack_uapi_path, y) for y in techpack_uapi_sub]
-      techpack_uapi = techpack_uapi + tmp
-
-  if (verbose):
-    for x in techpack_uapi:
-      print(x)
-
-  return techpack_uapi
 
 def main():
   """Parse command line arguments and perform top level control."""
@@ -961,13 +899,10 @@ def main():
   if args.verbose:
     print('module_dir [%s]' % module_dir)
 
-  techpack_include_uapi = []
-
-
   if args.mode == 'blueprints':
     return gen_blueprints(
         args.verbose, args.header_arch, args.gen_dir, args.arch_asm_kbuild,
-        args.asm_generic_kbuild, module_dir, rel_arch_asm_kbuild, rel_asm_generic_kbuild, args.arch_include_uapi, techpack_include_uapi)
+        args.asm_generic_kbuild, module_dir, rel_arch_asm_kbuild, rel_asm_generic_kbuild, args.arch_include_uapi)
 
   if args.mode == 'headers':
     if args.verbose:
@@ -982,7 +917,7 @@ def main():
         args.verbose, args.header_arch, args.gen_dir, args.arch_asm_kbuild,
         args.asm_generic_kbuild, module_dir, args.old_gen_headers_bp, args.new_gen_headers_bp,
         args.version_makefile, args.arch_syscall_tool, args.arch_syscall_tbl,
-        args.headers_install, args.include_uapi, args.arch_include_uapi, techpack_include_uapi)
+        args.headers_install, args.include_uapi, args.arch_include_uapi)
 
   print('error: unknown mode: %s' % args.mode)
   return 1

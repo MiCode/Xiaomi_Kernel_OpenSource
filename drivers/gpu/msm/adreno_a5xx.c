@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +181,9 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	/* Setup defaults that might get changed by the fuse bits */
 	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;
 	adreno_dev->speed_bin = 0;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
 
 	/* Check efuse bits for various capabilties */
 	a5xx_check_features(adreno_dev);
