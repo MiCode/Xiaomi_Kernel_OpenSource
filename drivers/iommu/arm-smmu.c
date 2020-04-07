@@ -3674,22 +3674,18 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
 		int force_coherent = *((int *)data);
 
-		if (IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS)) {
-			if (smmu_domain->smmu != NULL) {
-				dev_err(smmu_domain->smmu->dev,
-				  "cannot change force coherent attribute while attached\n");
-				ret = -EBUSY;
-			} else if (force_coherent) {
-				set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					smmu_domain->attributes);
-				ret = 0;
-			} else {
-				clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					  smmu_domain->attributes);
-				ret = 0;
-			}
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force coherent attribute while attached\n");
+			ret = -EBUSY;
+		} else if (force_coherent) {
+			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				smmu_domain->attributes);
+			ret = 0;
 		} else {
-			ret = -ENOTSUPP;
+			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				  smmu_domain->attributes);
+			ret = 0;
 		}
 		break;
 	}
