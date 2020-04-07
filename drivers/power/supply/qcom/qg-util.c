@@ -450,6 +450,15 @@ int qg_get_ibat_avg(struct qpnp_qg *chip, int *ibat_ua)
 		return rc;
 	}
 
+	if (last_ibat == FIFO_I_RESET_VAL) {
+		/* First FIFO is not complete, read instantaneous IBAT */
+		rc = qg_get_battery_current(chip, ibat_ua);
+		if (rc < 0)
+			pr_err("Failed to read inst. IBAT rc=%d\n", rc);
+
+		return rc;
+	}
+
 	last_ibat = sign_extend32(last_ibat, 15);
 	*ibat_ua = qg_iraw_to_ua(chip, last_ibat);
 
