@@ -340,6 +340,8 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 			goto out;
 		}
 
+		init_completion(&usb_req->write_done);
+
 		actual = tmc_etr_buf_get_data(etr_buf, drvdata->offset,
 					req_size, &usb_req->buf);
 		usb_req->length = actual;
