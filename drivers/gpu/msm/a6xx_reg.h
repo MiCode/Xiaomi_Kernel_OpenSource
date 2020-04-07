@@ -1112,6 +1112,7 @@
 /* GPUCC registers */
 #define A6XX_GPU_CC_GX_GDSCR                   0x24403
 #define A6XX_GPU_CC_GX_DOMAIN_MISC		0x24542
+#define A6XX_GPU_CC_CX_GDSCR                   0x2441B
 
 /* GPU RSC sequencer registers */
 #define A6XX_GPU_RSCC_RSC_STATUS0_DRV0			0x00004
