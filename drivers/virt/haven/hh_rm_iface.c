@@ -48,11 +48,8 @@ int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid)
 {
 	hh_vmid_t _vmid = hh_vm_table[vm_name].vmid;
 
-	if (!_vmid && vm_name != HH_SELF_VM) {
-		pr_err("%s: No vmid associated with the vm%d\n", __func__,
-			vm_name);
+	if (!_vmid && vm_name != HH_SELF_VM)
 		return -EINVAL;
-	}
 
 	if (vmid)
 		*vmid = _vmid;
