@@ -36,6 +36,11 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_DSP_EXT);
 }
 
+bool is_secure_allocation(unsigned long flags)
+{
+	return !!(flags & (ION_FLAGS_CP_MASK | ION_FLAG_SECURE));
+}
+
 int get_secure_vmid(unsigned long flags)
 {
 	if (flags & ION_FLAG_CP_TOUCH)
