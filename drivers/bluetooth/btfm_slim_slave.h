@@ -103,6 +103,12 @@ enum {
 	QCA_HASTINGS_SOC_ID_0200 = 0x400A0200,
 };
 
+enum {
+	QCA_HSP_SOC_ID_0100 = 0x400C0100,
+	QCA_HSP_SOC_ID_0110 = 0x400C0110,
+	QCA_HSP_SOC_ID_0200 = 0x400C0200,
+};
+
 /* Function Prototype */
 
 /*
