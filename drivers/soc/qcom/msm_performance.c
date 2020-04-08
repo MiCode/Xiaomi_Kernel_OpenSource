@@ -482,6 +482,8 @@ static int __init msm_performance_init(void)
 		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
 		req = &per_cpu(qos_req_min, cpu);
 		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			continue;
 		ret = freq_qos_add_request(&policy->constraints, req,
 			FREQ_QOS_MIN, policy->min);
 		if (ret < 0) {
