@@ -353,15 +353,6 @@
 			   "swr-dmic.03", "swr-dmic.04",
 			   "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa883x_0221>, <&wsa883x_0222>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight";
-	qcom,codec-max-aux-devs = <1>;
-	qcom,codec-aux-devs = <&wcd938x_codec>;
-	qcom,swr-dmic-max-devs = <4>;
-	qcom,swr-dmic-devs = <&swr_dmic_01>, <&swr_dmic_02>,
-			     <&swr_dmic_03>, <&swr_dmic_04>;
-	qcom,swr-dmic-prefix = "SWR_MIC0", "SWR_MIC1",
-				"SWR_MIC2", "SWR_MIC3";
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
 				  <&bolero>;
 };
