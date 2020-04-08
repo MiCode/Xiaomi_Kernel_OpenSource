@@ -71,7 +71,8 @@ static irqreturn_t hh_msgq_tx_isr(int irq, void *dev)
 }
 
 static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
-				void *buff, size_t *size, u64 rx_flags)
+				void *buff, size_t buff_size,
+				size_t *recv_size, u64 rx_flags)
 {
 	struct hh_hcall_msgq_recv_resp resp = {};
 	unsigned long flags;
@@ -83,11 +84,11 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
 
 	spin_lock_irqsave(&cap_table_entry->rx_lock, flags);
 	hh_ret = hh_hcall_msgq_recv(cap_table_entry->rx_cap_id, buff,
-					HH_MSGQ_MAX_MSG_SIZE_BYTES, &resp);
+					buff_size, &resp);
 
 	switch (hh_ret) {
 	case HH_ERROR_OK:
-		*size = resp.recv_size;
+		*recv_size = resp.recv_size;
 		ret = 0;
 		break;
 	case HH_ERROR_MSGQUEUE_EMPTY:
@@ -110,29 +111,35 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
 /**
  * hh_msgq_recv: Receive a message from the client running on a different VM
  * @client_desc: The client descriptor that was obtained via hh_msgq_register()
- * @buff: Pointer to the buffer where the received data must be placed. Note
- *        that the caller is responsible to free the data contained in buff
- * @size: The size of the buffer received
+ * @buff: Pointer to the buffer where the received data must be placed
+ * @buff_size: The size of the buffer space available
+ * @recv_size: The actual amount of data that is copied into buff
  * @flags: Optional flags to pass to receive the data. For the list of flags,
  *         see linux/haven/hh_msgq.h
  *
- * The function returns -EINVAL if the caller passes invalid arguments, -EAGAIN
+ * The function returns 0 if the data is successfully received and recv_size
+ * would contain the actual amount of data copied into buff.
+ * It returns -EINVAL if the caller passes invalid arguments, -EAGAIN
  * if the message queue is not yet ready to communicate, and -EPERM if the
- * caller doesn't have permissions to receive the data. 0 is the data is
- * successfully received.
+ * caller doesn't have permissions to receive the data. In all these failure
+ * cases, recv_size is unmodified.
  *
  * Note: this function may sleep and should not be called from interrupt
  *       context
  */
 int hh_msgq_recv(void *msgq_client_desc,
-			void **buff, size_t *size, unsigned long flags)
+			void *buff, size_t buff_size,
+			size_t *recv_size, unsigned long flags)
 {
 	struct hh_msgq_desc *client_desc = msgq_client_desc;
 	struct hh_msgq_cap_table *cap_table_entry;
 	int ret;
 
-	if (!client_desc || !(*buff) || !size)
+	if (!client_desc || !buff || !buff_size || !recv_size)
 		return -EINVAL;
+
+	if (buff_size > HH_MSGQ_MAX_MSG_SIZE_BYTES)
+		return -E2BIG;
 
 	cap_table_entry = &hh_msgq_cap_table[client_desc->label];
 
@@ -170,30 +177,17 @@ int hh_msgq_recv(void *msgq_client_desc,
 
 	spin_unlock(&cap_table_entry->cap_entry_lock);
 
-	*buff = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
-	if (!(*buff))
-		return -ENOMEM;
-
 	do {
-		if (cap_table_entry->rx_empty && (flags & HH_MSGQ_NONBLOCK)) {
-			ret = -EAGAIN;
-			goto buff_free;
-		}
+		if (cap_table_entry->rx_empty && (flags & HH_MSGQ_NONBLOCK))
+			return -EAGAIN;
 
 		if (wait_event_interruptible(cap_table_entry->rx_wq,
-					!cap_table_entry->rx_empty)) {
-			ret = -ERESTARTSYS;
-			goto buff_free;
-		}
+					!cap_table_entry->rx_empty))
+			return -ERESTARTSYS;
 
-		ret = __hh_msgq_recv(cap_table_entry, *buff, size, flags);
+		ret = __hh_msgq_recv(cap_table_entry, buff, buff_size,
+					recv_size, flags);
 	} while (ret == -EAGAIN);
-
-buff_free:
-	if (ret < 0) {
-		kfree(*buff);
-		*buff = NULL;
-	}
 
 	return ret;
 

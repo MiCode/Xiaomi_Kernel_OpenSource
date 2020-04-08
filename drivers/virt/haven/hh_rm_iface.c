@@ -426,33 +426,35 @@ EXPORT_SYMBOL(hh_rm_vm_start);
  */
 int hh_rm_console_open(hh_vmid_t vmid)
 {
-	struct hh_vm_console_common_resp_payload *resp_payload;
+	void *resp;
 	struct hh_vm_console_common_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int err = 0, reply_err_code = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = vmid;
 
-	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_OPEN,
-				&req_payload, sizeof(req_payload),
-				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
-		err = PTR_ERR(resp_payload);
-		pr_err("%s: CONSOLE_OPEN failed with err: %d\n",
-			__func__, err);
-		goto out;
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_OPEN,
+			  &req_payload, sizeof(req_payload),
+			  &resp_payload_size, &reply_err_code);
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_OPEN to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (reply_err_code) {
+		pr_err("%s: CONSOLE_OPEN returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_OPEN: %u\n",
 			__func__, resp_payload_size);
-		err = -EINVAL;
+		return -EINVAL;
 	}
 
-	err = err ? : resp_payload->response;
-	kfree(resp_payload);
-out:
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_console_open);
 
@@ -462,33 +464,35 @@ EXPORT_SYMBOL(hh_rm_console_open);
  */
 int hh_rm_console_close(hh_vmid_t vmid)
 {
-	struct hh_vm_console_common_resp_payload *resp_payload;
+	void *resp;
 	struct hh_vm_console_common_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int err = 0, reply_err_code = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = vmid;
 
-	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_CLOSE,
-				&req_payload, sizeof(req_payload),
-				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
-		err = PTR_ERR(resp_payload);
-		pr_err("%s: CONSOLE_CLOSE failed with err: %d\n",
-			__func__, err);
-		goto out;
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_CLOSE,
+			  &req_payload, sizeof(req_payload),
+			  &resp_payload_size, &reply_err_code);
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_CLOSE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (reply_err_code) {
+		pr_err("%s: CONSOLE_CLOSE returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_CLOSE: %u\n",
 			__func__, resp_payload_size);
-		err = -EINVAL;
+		return -EINVAL;
 	}
 
-	err = err ? : resp_payload->response;
-	kfree(resp_payload);
-out:
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_console_close);
 
@@ -500,10 +504,10 @@ EXPORT_SYMBOL(hh_rm_console_close);
  */
 int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size)
 {
-	struct hh_vm_console_write_resp_payload *resp_payload;
+	void *resp;
 	struct hh_vm_console_write_req_payload *req_payload;
 	size_t resp_payload_size;
-	int err = 0, reply_err_code = 0;
+	int reply_err_code = 0;
 	size_t req_payload_size = sizeof(*req_payload) + size;
 
 	if (size < 1 || size > U32_MAX)
@@ -518,27 +522,30 @@ int hh_rm_console_write(hh_vmid_t vmid, const char *buf, size_t size)
 	req_payload->num_bytes = size;
 	memcpy(req_payload->data, buf, size);
 
-	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE,
-				req_payload, req_payload_size,
-				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
-		err = PTR_ERR(resp_payload);
-		pr_err("%s: CONSOLE_WRITE failed with err: %d\n",
-			__func__, err);
-		goto out;
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE,
+		   req_payload, req_payload_size,
+		   &resp_payload_size, &reply_err_code);
+	kfree(req_payload);
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_WRITE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (reply_err_code) {
+		pr_err("%s: CONSOLE_WRITE returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_WRITE: %u\n",
 			__func__, resp_payload_size);
-		err = -EINVAL;
+		return -EINVAL;
 	}
 
-	err = err ? : resp_payload->response;
-	kfree(resp_payload);
-out:
-	kfree(req_payload);
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_console_write);
 
@@ -548,33 +555,36 @@ EXPORT_SYMBOL(hh_rm_console_write);
  */
 int hh_rm_console_flush(hh_vmid_t vmid)
 {
-	struct hh_vm_console_common_resp_payload *resp_payload;
+	void *resp;
 	struct hh_vm_console_common_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int err = 0, reply_err_code = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = vmid;
 
-	resp_payload = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH,
+	resp = hh_rm_call(HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH,
 				&req_payload, sizeof(req_payload),
 				&resp_payload_size, &reply_err_code);
-	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
-		err = PTR_ERR(resp_payload);
-		pr_err("%s: CONSOLE_FLUSH failed with err: %d\n",
-			__func__, err);
-		goto out;
+
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_FLUSH to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
 	}
 
-	if (resp_payload_size != sizeof(*resp_payload)) {
+	if (reply_err_code) {
+		pr_err("%s: CONSOLE_FLUSH returned error: %d\n", __func__,
+			reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_FLUSH: %u\n",
 			__func__, resp_payload_size);
-		err = -EINVAL;
+		return -EINVAL;
 	}
 
-	err = err ? : resp_payload->response;
-	kfree(resp_payload);
-out:
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(hh_rm_console_flush);
 

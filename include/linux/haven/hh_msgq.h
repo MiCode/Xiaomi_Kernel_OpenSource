@@ -31,7 +31,8 @@ int hh_msgq_unregister(void *msgq_client_desc);
 int hh_msgq_send(void *msgq_client_desc,
 			void *buff, size_t size, unsigned long flags);
 int hh_msgq_recv(void *msgq_client_desc,
-			void **buff, size_t *size, unsigned long flags);
+			void *buff, size_t buff_size,
+			size_t *recv_size, unsigned long flags);
 
 int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 				int direction, int irq);
