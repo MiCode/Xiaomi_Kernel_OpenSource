@@ -1182,7 +1182,7 @@ config REGULATOR_RPMH
 	  processors within the SoC.
 
 config REGULATOR_RPM_SMD
-	bool "RPM SMD regulator driver"
+	tristate "RPM SMD regulator driver"
 	depends on OF
 	depends on MSM_RPM_SMD
 	help
