@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -457,7 +457,7 @@ static int dp_parser_regulator(struct dp_parser *parser)
 	struct platform_device *pdev = parser->pdev;
 
 	/* Parse the regulator information */
-	for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
+	for (i = DP_CORE_PM; i <= DP_PHY_PM; i++) {
 		rc = dp_parser_get_vreg(parser, i);
 		if (rc) {
 			pr_err("get_dt_vreg_data failed for %s. rc=%d\n",
