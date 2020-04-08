@@ -114,7 +114,8 @@ struct dsi_display_boot_param {
  * struct dsi_display_clk_info - dsi display clock source information
  * @src_clks:          Source clocks for DSI display.
  * @mux_clks:          Mux clocks used for DFPS.
- * @shadow_clks:       Used for DFPS.
+ * @shadow_clks:       Used for D-phy clock switch
+ * @shadow_cphy_clks:  Used for C-phy clock switch
  * @xo_clks:           XO clocks for DSI display
  */
 struct dsi_display_clk_info {
@@ -122,6 +123,7 @@ struct dsi_display_clk_info {
 	struct dsi_clk_link_set mux_clks;
 	struct dsi_clk_link_set cphy_clks;
 	struct dsi_clk_link_set shadow_clks;
+	struct dsi_clk_link_set shadow_cphy_clks;
 	struct dsi_clk_link_set xo_clks;
 };
 

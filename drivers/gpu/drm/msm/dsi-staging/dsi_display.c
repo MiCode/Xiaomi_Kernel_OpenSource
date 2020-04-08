@@ -3018,11 +3018,15 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	const char *mux_byte = "mux_byte", *mux_pixel = "mux_pixel";
 	const char *cphy_byte = "cphy_byte", *cphy_pixel = "cphy_pixel";
 	const char *shadow_byte = "shadow_byte", *shadow_pixel = "shadow_pixel";
+	const char *shadow_cphybyte = "shadow_cphybyte",
+				*shadow_cphypixel = "shadow_cphypixel";
 	struct clk *dsi_clk;
 	struct dsi_clk_link_set *src = &display->clock_info.src_clks;
 	struct dsi_clk_link_set *mux = &display->clock_info.mux_clks;
 	struct dsi_clk_link_set *cphy = &display->clock_info.cphy_clks;
 	struct dsi_clk_link_set *shadow = &display->clock_info.shadow_clks;
+	struct dsi_clk_link_set *shadow_cphy =
+					&display->clock_info.shadow_cphy_clks;
 	struct dsi_clk_link_set *xo = &display->clock_info.xo_clks;
 	struct dsi_dyn_clk_caps *dyn_clk_caps = &(display->panel->dyn_clk_caps);
 
@@ -3079,6 +3083,12 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 				if (dsi_display_check_prefix(shadow_pixel,
 							clk_name))
 					shadow->pixel_clk = NULL;
+				if (dsi_display_check_prefix(shadow_cphybyte,
+							clk_name))
+					shadow_cphy->byte_clk = NULL;
+				if (dsi_display_check_prefix(shadow_cphypixel,
+							clk_name))
+					shadow_cphy->pixel_clk = NULL;
 
 				dyn_clk_caps->dyn_clk_support = false;
 			}
@@ -3121,6 +3131,16 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 
 		if (dsi_display_check_prefix(shadow_pixel, clk_name)) {
 			shadow->pixel_clk = dsi_clk;
+			continue;
+		}
+
+		if (dsi_display_check_prefix(shadow_cphybyte, clk_name)) {
+			shadow_cphy->byte_clk = dsi_clk;
+			continue;
+		}
+
+		if (dsi_display_check_prefix(shadow_cphypixel, clk_name)) {
+			shadow_cphy->pixel_clk = dsi_clk;
 			continue;
 		}
 	}
@@ -3943,12 +3963,11 @@ static int dsi_display_update_dsi_bitrate(struct dsi_display *display,
 			byte_intf_clk_rate = byte_clk_rate;
 			do_div(byte_intf_clk_rate, 2);
 		} else {
-			do_div(bit_rate, bits_per_symbol);
-			bit_rate *= num_of_symbols;
-			bit_rate_per_lane = bit_rate;
-			do_div(bit_rate_per_lane, num_of_lanes);
-			byte_clk_rate = bit_rate_per_lane;
-			do_div(byte_clk_rate, 7);
+			bit_rate_per_lane = bit_clk_rate;
+			pclk_rate *= bits_per_symbol;
+			do_div(pclk_rate, num_of_symbols);
+			byte_clk_rate = bit_clk_rate;
+			do_div(byte_clk_rate, num_of_symbols);
 			/* For CPHY, byte_intf_clk is same as byte_clk */
 			byte_intf_clk_rate = byte_clk_rate;
 		}
@@ -4040,13 +4059,25 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 
 	m_ctrl = &display->ctrl[display->clk_master_idx];
 
-	dsi_clk_prepare_enable(&display->clock_info.src_clks);
+	if (display->panel->host_config.phy_type == DSI_PHY_TYPE_CPHY) {
+		dsi_clk_prepare_enable(&display->clock_info.cphy_clks);
 
-	rc = dsi_clk_update_parent(&display->clock_info.shadow_clks,
-			      &display->clock_info.mux_clks);
-	if (rc) {
-		pr_err("failed update mux parent to shadow\n");
-		goto exit;
+		rc = dsi_clk_update_parent(
+					&display->clock_info.shadow_cphy_clks,
+					&display->clock_info.mux_clks);
+		if (rc) {
+			pr_err("failed update mux parent to shadow\n");
+			goto exit;
+		}
+	} else {
+		dsi_clk_prepare_enable(&display->clock_info.src_clks);
+
+		rc = dsi_clk_update_parent(&display->clock_info.shadow_clks,
+					&display->clock_info.mux_clks);
+		if (rc) {
+			pr_err("failed update mux parent to shadow\n");
+			goto exit;
+		}
 	}
 
 	display_for_each_ctrl(i, display) {
@@ -4093,13 +4124,21 @@ static int _dsi_display_dyn_update_clks(struct dsi_display *display,
 		ctrl = &display->ctrl[i];
 		dsi_phy_dynamic_refresh_clear(ctrl->phy);
 	}
+	if (display->panel->host_config.phy_type == DSI_PHY_TYPE_CPHY) {
+		rc = dsi_clk_update_parent(&display->clock_info.cphy_clks,
+				&display->clock_info.mux_clks);
+		if (rc)
+			pr_err("could not switch back to src clks %d\n", rc);
 
-	rc = dsi_clk_update_parent(&display->clock_info.src_clks,
-			      &display->clock_info.mux_clks);
-	if (rc)
-		pr_err("could not switch back to src clks %d\n", rc);
+		dsi_clk_disable_unprepare(&display->clock_info.cphy_clks);
+	} else {
+		rc = dsi_clk_update_parent(&display->clock_info.src_clks,
+				&display->clock_info.mux_clks);
+		if (rc)
+			pr_err("could not switch back to src clks %d\n", rc);
 
-	dsi_clk_disable_unprepare(&display->clock_info.src_clks);
+		dsi_clk_disable_unprepare(&display->clock_info.src_clks);
+	}
 
 	return rc;
 
@@ -4135,10 +4174,14 @@ static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 	struct dsi_dyn_clk_delay delay;
 	struct link_clk_freq bkp_freq;
+	bool is_cphy;
+	struct dsi_dyn_clk_caps *dyn_clk_caps;
 
 	dsi_panel_acquire_panel_lock(display->panel);
 
 	m_ctrl = &display->ctrl[display->clk_master_idx];
+	is_cphy = (display->panel->host_config.phy_type == DSI_PHY_TYPE_CPHY) ?
+			true : false;
 
 	dsi_display_clk_ctrl(display->dsi_clk_handle, DSI_ALL_CLKS, DSI_CLK_ON);
 
@@ -4148,9 +4191,13 @@ static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 	dsi_display_mask_ctrl_error_interrupts(display, mask, true);
 
 	/* update the phy timings based on new mode */
-	display_for_each_ctrl(i, display) {
-		ctrl = &display->ctrl[i];
-		dsi_phy_update_phy_timings(ctrl->phy, &display->config);
+	dyn_clk_caps = &display->panel->dyn_clk_caps;
+	if (!dyn_clk_caps->skip_phy_timing_update) {
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			dsi_phy_update_phy_timings(ctrl->phy, &display->config,
+				is_cphy);
+		}
 	}
 
 	/* back up existing rates to handle failure case */
@@ -4174,10 +4221,11 @@ static int dsi_display_dynamic_clk_switch_vid(struct dsi_display *display,
 		if (!ctrl->phy)
 			continue;
 		if (ctrl == m_ctrl)
-			dsi_phy_config_dynamic_refresh(ctrl->phy, &delay, true);
+			dsi_phy_config_dynamic_refresh(ctrl->phy, &delay,
+				true, is_cphy);
 		else
 			dsi_phy_config_dynamic_refresh(ctrl->phy, &delay,
-						       false);
+				false, is_cphy);
 	}
 
 	rc = _dsi_display_dyn_update_clks(display, &bkp_freq);
