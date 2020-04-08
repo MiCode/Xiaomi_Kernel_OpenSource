@@ -896,13 +896,12 @@ static int enable_tx_dma_interrupts(unsigned int QINX,
 	/* NIE - Normal Interrupt Summary Enable */
 	/* AIE - Abnormal Interrupt Summary Enable */
 	/* FBE - Fatal Bus Error Enable */
-	/* TXSE - Transmit Stopped Enable */
 	DMA_IER_RGRD(QINX, VARDMA_IER);
 	/* Reset all Tx interrupt bits */
 	VARDMA_IER = VARDMA_IER & DMA_TX_INT_RESET_MASK;
 
-	VARDMA_IER = VARDMA_IER | ((0x1) << 1) |
-	     ((0x1) << 12) | ((0x1) << 14) | ((0x1) << 15);
+	VARDMA_IER = VARDMA_IER | ((0x1) << 12) | ((0x1) << 14) |
+		     ((0x1) << 15);
 
 	DMA_IER_RGWR(QINX, VARDMA_IER);
 
