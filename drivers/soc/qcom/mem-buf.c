@@ -1101,8 +1101,8 @@ static int mem_buf_remove_mem(struct mem_buf_desc *membuf)
 
 static bool is_valid_mem_buf_vmid(u32 mem_buf_vmid)
 {
-	if ((mem_buf_vmid == MEM_BUF_VMID_HLOS) ||
-	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_UI))
+	if ((mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM) ||
+	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM))
 		return true;
 
 	return false;
@@ -1115,11 +1115,21 @@ static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 
 static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 {
-	if (mem_buf_vmid == MEM_BUF_VMID_HLOS)
-		return VMID_HLOS;
-	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_UI)
-		return VMID_TRUSTED_UI;
-	return -EINVAL;
+	int ret;
+	hh_vmid_t vmid;
+	enum hh_vm_names vm_name;
+
+	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
+		vm_name = HH_PRIMARY_VM;
+	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM)
+		vm_name = HH_TRUSTED_VM;
+	else
+		return -EINVAL;
+
+	ret = hh_rm_get_vmid(vm_name, &vmid);
+	if (!ret)
+		return vmid;
+	return ret;
 }
 
 static int mem_buf_perms_to_perms(u32 mem_buf_perms)

@@ -60,7 +60,7 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_HLOS_SHARED;
 	if (flags & ION_FLAG_CP_CDSP)
 		return VMID_CP_CDSP;
-	if (flags & ION_FLAG_CP_TRUSTED_UI) {
+	if (flags & ION_FLAG_CP_TRUSTED_VM) {
 		ret = hh_rm_get_vmid(HH_TRUSTED_VM, &vmid);
 		if (!ret)
 			return vmid;
@@ -103,7 +103,7 @@ int get_ion_flags(u32 vmid)
 
 	ret = hh_rm_get_vmid(HH_TRUSTED_VM, &trusted_vm_vmid);
 	if (!ret && vmid == trusted_vm_vmid)
-		return ION_FLAG_CP_TRUSTED_UI;
+		return ION_FLAG_CP_TRUSTED_VM;
 	return -EINVAL;
 }
 EXPORT_SYMBOL(get_ion_flags);
