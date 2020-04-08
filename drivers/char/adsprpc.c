@@ -77,6 +77,9 @@
 #define SENSORS_PDR_SLPI_SERVICE_NAME            SENSORS_PDR_ADSP_SERVICE_NAME
 #define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
 
+#define FASTRPC_SECURE_WAKE_SOURCE_CLIENT_NAME		"adsprpc-secure"
+#define FASTRPC_NON_SECURE_WAKE_SOURCE_CLIENT_NAME	"adsprpc-non_secure"
+
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
@@ -410,6 +413,10 @@ struct fastrpc_apps {
 	struct gid_list gidlist;
 	struct device *secure_dev;
 	struct device *non_secure_dev;
+	/* Secure subsystems like ADSP/SLPI will use secure client */
+	struct wakeup_source *wake_source_secure;
+	/* Non-secure subsystem like CDSP will use regular client */
+	struct wakeup_source *wake_source;
 };
 
 struct fastrpc_mmap {
@@ -500,10 +507,6 @@ struct fastrpc_file {
 	wait_queue_head_t async_wait_queue;
 	/* IRQ safe spin lock for protecting async queue */
 	spinlock_t aqlock;
-	/* Secure subsystems like ADSP/SLPI will use secure client */
-	struct wakeup_source *wake_source_secure;
-	/* Non-secure subsystem like CDSP will use regular client */
-	struct wakeup_source *wake_source;
 	uint32_t ws_timeout;
 };
 
@@ -2214,20 +2217,22 @@ static void fastrpc_init(struct fastrpc_apps *me)
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type)
 {
+	struct fastrpc_apps *me = &gfa;
 	struct wakeup_source *wake_source = NULL;
 
-	if (!fl->wake_enable || !fl->wake_source || !fl->wake_source_secure)
+	if (!fl->wake_enable)
 		return;
 	/*
 	 * Vote with PM to abort any suspend in progress and
 	 * keep system awake for specified timeout
 	 */
 	if (channel_type == SECURE_CHANNEL)
-		wake_source = fl->wake_source_secure;
+		wake_source = me->wake_source_secure;
 	else if (channel_type == NON_SECURE_CHANNEL)
-		wake_source = fl->wake_source;
+		wake_source = me->wake_source;
 
-	pm_wakeup_ws_event(wake_source, fl->ws_timeout, true);
+	if (wake_source)
+		pm_wakeup_ws_event(wake_source, fl->ws_timeout, true);
 }
 
 static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
@@ -3845,8 +3850,6 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
-	wakeup_source_unregister(fl->wake_source);
-	wakeup_source_unregister(fl->wake_source_secure);
 	kfree(fl->debug_buf);
 	kfree(fl->gidlist.gids);
 
@@ -4194,11 +4197,11 @@ bail:
 static inline void fastrpc_register_wakeup_source(struct device *dev,
 	const char *client_name, struct wakeup_source **device_wake_source)
 {
-	struct wakeup_source *wake_source;
+	struct wakeup_source *wake_source = NULL;
 
 	wake_source = wakeup_source_register(dev, client_name);
 	if (IS_ERR_OR_NULL(wake_source)) {
-		pr_err("adsprpc: Error: %s: %s: wakeup_source_register failed for %s (%s) with err %ld\n",
+		pr_err("adsprpc: Error: %s: %s: wakeup_source_register failed for dev %s, client %s with err %ld\n",
 			__func__, current->comm, dev_name(dev),
 			client_name, PTR_ERR(wake_source));
 		return;
@@ -4229,10 +4232,6 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	if (err)
 		return err;
 
-	fastrpc_register_wakeup_source(me->non_secure_dev, "adsprpc-non_secure",
-						&fl->wake_source);
-	fastrpc_register_wakeup_source(me->secure_dev, "adsprpc-secure",
-						&fl->wake_source_secure);
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	spin_lock_init(&fl->aqlock);
@@ -5325,6 +5324,13 @@ static int __init fastrpc_device_init(void)
 	}
 	me->rpmsg_register = 1;
 
+	fastrpc_register_wakeup_source(me->non_secure_dev,
+		FASTRPC_NON_SECURE_WAKE_SOURCE_CLIENT_NAME,
+		&me->wake_source);
+	fastrpc_register_wakeup_source(me->secure_dev,
+		FASTRPC_SECURE_WAKE_SOURCE_CLIENT_NAME,
+		&me->wake_source_secure);
+
 	return 0;
 device_create_bail:
 	for (i = 0; i < NUM_CHANNELS; i++) {
@@ -5356,6 +5362,8 @@ static void __exit fastrpc_device_exit(void)
 
 	fastrpc_file_list_dtor(me);
 	fastrpc_deinit();
+	wakeup_source_unregister(me->wake_source);
+	wakeup_source_unregister(me->wake_source_secure);
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
 			continue;
