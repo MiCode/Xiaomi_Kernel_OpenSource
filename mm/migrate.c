@@ -1653,7 +1653,7 @@ static int do_pages_move(struct mm_struct *mm, nodemask_t task_nodes,
 			err = -EFAULT;
 			if (get_user(p, pages + j + chunk_start))
 				goto out_pm;
-			pm[j].addr = (unsigned long) p;
+			pm[j].addr = (unsigned long)untagged_addr(p);
 
 			if (get_user(node, nodes + j + chunk_start))
 				goto out_pm;
