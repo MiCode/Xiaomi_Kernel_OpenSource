@@ -64,6 +64,7 @@ obj-$(CONFIG_SDM_VIDEOCC_845) += videocc-sdm845.o
 obj-$(CONFIG_SM_GCC_8150) += gcc-sm8150.o
 obj-$(CONFIG_SM_GCC_HOLI) += gcc-holi.o
 obj-$(CONFIG_SM_GCC_SHIMA) += gcc-shima.o
+obj-$(CONFIG_SM_VIDEOCC_SHIMA) += videocc-shima.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_KPSS_XCC) += kpss-xcc.o
 obj-$(CONFIG_QCOM_HFPLL) += hfpll.o
