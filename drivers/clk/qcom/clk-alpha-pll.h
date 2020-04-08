@@ -22,6 +22,7 @@ enum {
 	CLK_ALPHA_PLL_TYPE_LUCID_5LPE,
 	CLK_ALPHA_PLL_TYPE_ZONDA_5LPE,
 	CLK_ALPHA_PLL_TYPE_REGERA,
+	CLK_ALPHA_PLL_TYPE_AGERA,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
@@ -156,6 +157,7 @@ extern const struct clk_ops clk_trion_pll_postdiv_ops;
 extern const struct clk_ops clk_trion_pll_ops;
 
 extern const struct clk_ops clk_regera_pll_ops;
+extern const struct clk_ops clk_agera_pll_ops;
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
@@ -175,4 +177,6 @@ int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
 int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
+int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+					const struct alpha_pll_config *config);
 #endif
