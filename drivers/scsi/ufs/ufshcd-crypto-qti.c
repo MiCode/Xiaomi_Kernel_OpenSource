@@ -284,8 +284,9 @@ int ufshcd_crypto_qti_debug(struct ufs_hba *hba)
 
 void ufshcd_crypto_qti_set_vops(struct ufs_hba *hba)
 {
-	return ufshcd_crypto_set_vops(hba, &ufshcd_crypto_qti_variant_ops);
+	hba->crypto_vops = &ufshcd_crypto_qti_variant_ops;
 }
+EXPORT_SYMBOL(ufshcd_crypto_qti_set_vops);
 
 int ufshcd_crypto_qti_resume(struct ufs_hba *hba,
 			     enum ufs_pm_op pm_op)
