@@ -6965,9 +6965,9 @@ static void smi130_acc_slope_interrupt_handle(struct smi130_acc_data *smi130_acc
 static void store_acc_boot_sample(struct smi130_acc_data *client_data,
 				int x, int y, int z, struct timespec ts)
 {
-	mutex_lock(&client_data->acc_sensor_buff);
 	if (false == client_data->acc_buffer_smi130_samples)
 		return;
+	mutex_lock(&client_data->acc_sensor_buff);
 	if (ts.tv_sec <  client_data->max_buffer_time) {
 		if (client_data->acc_bufsample_cnt < SMI_ACC_MAXSAMPLE) {
 			client_data->smi130_acc_samplist[client_data

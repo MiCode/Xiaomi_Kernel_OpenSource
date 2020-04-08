@@ -228,10 +228,10 @@ static void store_acc_gyro_boot_sample(struct st_asm330lhh_sensor *sensor,
 {
 	int x, y, z;
 
-	mutex_lock(&sensor->sensor_buff);
 	if (false == sensor->buffer_asm_samples)
 		return;
 
+	mutex_lock(&sensor->sensor_buff);
 	sensor->timestamp = (ktime_t)tsample;
 	x = iio_buf[1]<<8|iio_buf[0];
 	y = iio_buf[3]<<8|iio_buf[2];
