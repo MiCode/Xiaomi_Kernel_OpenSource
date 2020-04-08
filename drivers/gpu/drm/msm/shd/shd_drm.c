@@ -170,6 +170,7 @@ static int shd_display_init_base_crtc(struct drm_device *dev,
 {
 	struct drm_crtc *crtc = NULL;
 	struct msm_drm_private *priv;
+	struct drm_plane *primary;
 	int crtc_idx;
 	int i;
 
@@ -192,6 +193,23 @@ static int shd_display_init_base_crtc(struct drm_device *dev,
 		if (!crtc)
 			return -ENOENT;
 	}
+
+	if (priv->num_planes >= MAX_PLANES)
+		return -ENOENT;
+
+	/* create dummy primary plane for base crtc */
+	primary = sde_plane_init(dev, SSPP_DMA0, true, 0, 0);
+	if (IS_ERR(primary))
+		return -ENOMEM;
+	priv->planes[priv->num_planes++] = primary;
+	if (primary->funcs->reset)
+		primary->funcs->reset(primary);
+
+	SDE_DEBUG("create dummay plane%d free plane%d\n",
+			DRMID(primary), DRMID(crtc->primary));
+
+	crtc->primary = primary;
+	primary->crtc = crtc;
 
 	/* disable crtc from other encoders */
 	for (i = 0; i < priv->num_encoders; i++) {
@@ -721,6 +739,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 	struct msm_drm_private *priv;
 	struct drm_device *dev;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	struct sde_crtc *sde_crtc;
@@ -751,6 +770,35 @@ static int shd_drm_obj_init(struct shd_display *display)
 		rc = -ENOENT;
 		goto end;
 	}
+
+	/* search plane that doesn't belong to any crtc */
+	primary = NULL;
+	for (i = 0; i < priv->num_planes; i++) {
+		bool found = false;
+
+		drm_for_each_crtc(crtc, dev) {
+			if (crtc->primary == priv->planes[i]) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			primary = priv->planes[i];
+			if (primary->type == DRM_PLANE_TYPE_OVERLAY)
+				dev->mode_config.num_overlay_plane--;
+			primary->type = DRM_PLANE_TYPE_PRIMARY;
+			break;
+		}
+	}
+
+	if (!primary) {
+		SDE_ERROR("failed to find primary plane\n");
+		rc = -ENOENT;
+		goto end;
+	}
+
+	SDE_DEBUG("find primary plane %d\n", DRMID(primary));
 
 	memset(&info, 0x0, sizeof(info));
 	rc = shd_connector_get_info(NULL, &info, display);
@@ -795,7 +843,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 
 	SDE_DEBUG("create connector %d\n", DRMID(connector));
 
-	crtc = sde_crtc_init(dev, priv->planes[0]);
+	crtc = sde_crtc_init(dev, primary);
 	if (IS_ERR(crtc)) {
 		rc = PTR_ERR(crtc);
 		goto end;
