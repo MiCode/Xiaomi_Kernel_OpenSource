@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -225,6 +225,7 @@
 	qcom,fullsize-va-map;
 	qcom,sde-min-core-ib-kbps = <0>;
 	qcom,sde-min-llcc-ib-kbps = <0>;
+	/delete-property/ qcom,sde-has-dest-scaler;
 };
 
 &clock_npucc {
