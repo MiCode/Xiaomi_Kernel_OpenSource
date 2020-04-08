@@ -531,17 +531,20 @@ enum drm_connector_status shd_connector_detect(struct drm_connector *conn,
 {
 	struct shd_display *disp = display;
 	struct sde_connector *sde_conn;
+	struct drm_connector *b_conn;
 	enum drm_connector_status status = connector_status_disconnected;
 
 	if (!conn || !display || !disp->base) {
 		SDE_ERROR("invalid params\n");
 		goto end;
 	}
-
-	if (disp->base->connector) {
-		sde_conn = to_sde_connector(disp->base->connector);
-		status = disp->base->ops.detect(disp->base->connector,
+	b_conn =  disp->base->connector;
+	if (b_conn) {
+		sde_conn = to_sde_connector(b_conn);
+		status = disp->base->ops.detect(b_conn,
 						force, sde_conn->display);
+		conn->display_info.width_mm = b_conn->display_info.width_mm;
+		conn->display_info.height_mm = b_conn->display_info.height_mm;
 	}
 
 end:
