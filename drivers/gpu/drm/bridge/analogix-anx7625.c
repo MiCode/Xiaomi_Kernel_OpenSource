@@ -1392,7 +1392,7 @@ static int anx7625_i2c_probe(struct i2c_client *client,
 	err = Read_Reg(TCPC_INTERFACE, PRODUCT_ID_L, &idl);
 	if (err) {
 		anx7625->skip_enable = false;
-		DRM_ERROR("ANX7625 Bridge Not powered in Bootloader");
+		DRM_DEBUG("ANX7625 Bridge Not powered in Bootloader");
 	} else {
 		/* Match software state */
 		anx7625->powered = true;
