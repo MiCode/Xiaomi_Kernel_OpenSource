@@ -144,6 +144,14 @@ config DEBUG_MODULE_LOAD_INFO
 
 	  If unsure, say N.
 
+config DEBUG_CONSOLE_UNHASHED_POINTERS
+	bool "Display unhashed kernel pointers"
+	depends on DEBUG_KERNEL
+	help
+	  Pointers %p and %pK are normally hashed prior to being displayed to
+	  prevent leaking kernel addresses. On debug builds, always print
+	  actual pointer values, ignoring the kptr_restrict setting.
+	  Not to be enabled on production builds.
 
 endmenu # "printk and dmesg options"
 
