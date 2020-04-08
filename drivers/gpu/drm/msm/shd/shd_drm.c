@@ -550,13 +550,58 @@ enum drm_connector_status shd_connector_detect(struct drm_connector *conn,
 end:
 	return status;
 }
+static int shd_drm_update_edid_name(struct edid *edid, const char *name)
+{
+	u8 *dtd = (u8 *)&edid->detailed_timings[3];
+	u8 standard_header[] = {0x00, 0x00, 0x00, 0xFE, 0x00};
+	u32 dtd_size = 18;
+	u32 header_size = sizeof(standard_header);
+
+	if (!name)
+		return -EINVAL;
+
+	/* Fill standard header */
+	memcpy(dtd, standard_header, header_size);
+
+	dtd_size -= header_size;
+	dtd_size = min_t(u32, dtd_size, strlen(name));
+
+	memcpy(dtd + header_size, name, dtd_size);
+
+	return 0;
+}
+
+static void shd_drm_update_checksum(struct edid *edid)
+{
+	u8 *data = (u8 *)edid;
+	u32 i, sum = 0;
+
+	for (i = 0; i < EDID_LENGTH - 1; i++)
+		sum += data[i];
+
+	edid->checksum = 0x100 - (sum & 0xFF);
+}
 
 static int shd_connector_get_modes(struct drm_connector *connector,
-		void *display)
+		void *data)
 {
 	struct drm_display_mode drm_mode;
-	struct shd_display *disp = display;
+	struct shd_display *disp = data;
 	struct drm_display_mode *m;
+	u32 count = 0;
+	int rc;
+	u32 edid_size;
+	struct edid edid;
+	const u8 edid_buf[EDID_LENGTH] = {
+		0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x44, 0x6D,
+		0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1B, 0x10, 0x01, 0x03,
+		0x80, 0x50, 0x2D, 0x78, 0x0A, 0x0D, 0xC9, 0xA0, 0x57, 0x47,
+		0x98, 0x27, 0x12, 0x48, 0x4C, 0x00, 0x00, 0x00, 0x01, 0x01,
+		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+		0x01, 0x01, 0x01, 0x01,
+	};
+	edid_size = min_t(u32, sizeof(edid), EDID_LENGTH);
+	memcpy(&edid, edid_buf, edid_size);
 
 	memcpy(&drm_mode, &disp->base->mode, sizeof(drm_mode));
 
@@ -573,7 +618,15 @@ static int shd_connector_get_modes(struct drm_connector *connector,
 	m = drm_mode_duplicate(disp->drm_dev, &drm_mode);
 	drm_mode_set_name(m);
 	drm_mode_probed_add(connector, m);
-
+	rc = shd_drm_update_edid_name(&edid, disp->name);
+	if (rc) {
+		count = 0;
+		return count;
+	}
+	shd_drm_update_checksum(&edid);
+	rc = drm_mode_connector_update_edid_property(connector, &edid);
+	if (rc)
+		count = 0;
 	return 1;
 }
 
@@ -980,7 +1033,6 @@ static int shd_parse_display(struct shd_display *display)
 	u32 range[2];
 	int rc;
 
-	display->name = of_node->full_name;
 
 	display->base_of = of_parse_phandle(of_node,
 		"qcom,shared-display-base", 0);
@@ -1050,6 +1102,11 @@ static int shd_parse_display(struct shd_display *display)
 		range, 2);
 	if (rc)
 		SDE_ERROR("Failed to parse blend stage range\n");
+
+	display->name = of_get_property(of_node,
+		"qcom,shared-display-name", NULL);
+	if (!display->name)
+		display->name = of_node->full_name;
 
 	display->src.w = src_w;
 	display->src.h = src_h;
