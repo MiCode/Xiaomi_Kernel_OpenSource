@@ -1886,6 +1886,29 @@ static inline void smi_control_clock_mtcmos(bool en)
 		"ccui_disp",
 		"ccuo_disp"};
 
+	static const char *larb16_port_Name[LARB16PORTSIZE] = {
+		"imgo_r1_a",  "rrzo_r1_a",  "cqi_r1_a",  "bpci_r1_a",
+		"yuvo_r1_a",  "ufdi_r2_a",  "rawi_r2_a", "rawi_r3_a",
+		"aao_r1_a",   "afo_r1_a",   "flko_r1_a", "lceso_r1_a",
+		"crzo_r1_a",  "ltmso_r1_a", "rsso_r1_a", "aaho_r1_a",
+		"lsci_r1_a"};
+
+	static const char *larb17_port_Name[LARB16PORTSIZE] = {
+		"imgo_r1_b",  "rrzo_r1_b",  "cqi_r1_b",  "bpci_r1_b",
+		"yuvo_r1_b",  "ufdi_r2_b",  "rawi_r2_b", "rawi_r3_b",
+		"aao_r1_b",   "afo_r1_b",   "flko_r1_b", "lceso_r1_b",
+		"crzo_r1_b",  "ltmso_r1_b", "rsso_r1_b", "aaho_r1_b",
+		"lsci_r1_b"};
+
+	static const char *larb18_port_Name[LARB18PORTSIZE] = {
+		"imgo_r1_c",  "rrzo_r1_c",	"cqi_r1_c",  "bpci_r1_c",
+		"yuvo_r1_c",  "ufdi_r2_c",	"rawi_r2_c", "rawi_r3_c",
+		"aao_r1_c",   "afo_r1_c",	"flko_r1_c", "lceso_r1_c",
+		"crzo_r1_c",  "ltmso_r1_c", "rsso_r1_c", "aaho_r1_c",
+		"lsci_r1_c"};
+
+#endif
+
 	static const int larb13_support_port_map[LARB13PORTSIZE] = {
 		false,   /* MRAWI */
 		false,   /* MRAWO0 */
@@ -1909,29 +1932,6 @@ static inline void smi_control_clock_mtcmos(bool en)
 		false,   /* CCUI */
 		false,   /* CCUO */
 	};
-
-	static const char *larb16_port_Name[LARB16PORTSIZE] = {
-		"imgo_r1_a",  "rrzo_r1_a",  "cqi_r1_a",  "bpci_r1_a",
-		"yuvo_r1_a",  "ufdi_r2_a",  "rawi_r2_a", "rawi_r3_a",
-		"aao_r1_a",   "afo_r1_a",   "flko_r1_a", "lceso_r1_a",
-		"crzo_r1_a",  "ltmso_r1_a", "rsso_r1_a", "aaho_r1_a",
-		"lsci_r1_a"};
-
-	static const char *larb17_port_Name[LARB16PORTSIZE] = {
-		"imgo_r1_b",  "rrzo_r1_b",  "cqi_r1_b",  "bpci_r1_b",
-		"yuvo_r1_b",  "ufdi_r2_b",  "rawi_r2_b", "rawi_r3_b",
-		"aao_r1_b",   "afo_r1_b",   "flko_r1_b", "lceso_r1_b",
-		"crzo_r1_b",  "ltmso_r1_b", "rsso_r1_b", "aaho_r1_b",
-		"lsci_r1_b"};
-
-	static const char *larb18_port_Name[LARB18PORTSIZE] = {
-		"imgo_r1_c",  "rrzo_r1_c",	"cqi_r1_c",  "bpci_r1_c",
-		"yuvo_r1_c",  "ufdi_r2_c",	"rawi_r2_c", "rawi_r3_c",
-		"aao_r1_c",   "afo_r1_c",	"flko_r1_c", "lceso_r1_c",
-		"crzo_r1_c",  "ltmso_r1_c", "rsso_r1_c", "aaho_r1_c",
-		"lsci_r1_c"};
-
-#endif
 
 	if (en == CAMERA_SMI_ENABLE) {
 		LOG_INF("enable CG/MTCMOS through SMI CLK API\n");
@@ -2594,14 +2594,16 @@ static inline void ISP_Reset(int module)
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 				//dump smi for debugging
-#ifndef EP_MARK_SMI
+#ifdef CONFIG_MTK_SMI_EXT
 				if (smi_debug_bus_hang_detect(
 					false, "camera_isp") != 0)
-					LOG_INF(
+					LOG_NOTICE(
 					"ERR:smi_debug_bus_hang_detect");
+#else
+				smi_debug_bus_hang_detect(false, "camera_isp");
+#endif
 				bDumped = MTRUE;
 				break;
-#endif
 			}
 		}
 #else
@@ -5979,11 +5981,15 @@ RESET:
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 			//dump smi for debugging
-#ifndef EP_MARK_SMI
-			if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
-				LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
-			break;
+#ifdef CONFIG_MTK_SMI_EXT
+			if (smi_debug_bus_hang_detect(
+				false, "camera_isp") != 0)
+				LOG_NOTICE(
+				"ERR:smi_debug_bus_hang_detect");
+#else
+			smi_debug_bus_hang_detect(false, "camera_isp");
 #endif
+			break;
 		}
 		//add "regTGSt == 0" for workaround
 		if (regTGSt == 0)
