@@ -1437,13 +1437,14 @@ static uint32_t mt6853_shift_group_get(int slave_type, uint32_t vio_idx)
 			return 3;
 		else if ((vio_idx >= 39 && vio_idx <= 42) || vio_idx == 139)
 			return 4;
-		else if (vio_idx >= 43 || vio_idx == 140)
+		else if (vio_idx == 43 || vio_idx == 140)
 			return 5;
 		else if ((vio_idx >= 44 && vio_idx <= 86) || vio_idx == 141)
 			return 6;
 		else if ((vio_idx >= 87 && vio_idx <= 89) || vio_idx == 142)
 			return 7;
-		else if ((vio_idx >= 90 && vio_idx <= 144) || vio_idx == 187)
+		else if (vio_idx == 90 || vio_idx == 143 ||
+			 vio_idx == 144 || vio_idx == 187)
 			return 8;
 		if (vio_idx >= 91 && vio_idx <= 92)
 			return 9;
@@ -1493,11 +1494,11 @@ static uint32_t mt6853_shift_group_get(int slave_type, uint32_t vio_idx)
 			 vio_idx == 217)
 			return 7;
 		else if ((vio_idx >= 75 && vio_idx <= 94) ||
-			 (vio_idx >= 180 && vio_idx <= 199) ||
+			 (vio_idx >= 179 && vio_idx <= 199) ||
 			 vio_idx == 218)
 			return 8;
 		else if ((vio_idx >= 95 && vio_idx <= 105) ||
-			 (vio_idx >= 201 && vio_idx <= 211) ||
+			 (vio_idx >= 200 && vio_idx <= 211) ||
 			 vio_idx == 219)
 			return 9;
 
