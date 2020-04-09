@@ -744,58 +744,36 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 
 #define IOMMU_SECURITY_DBG_SUPPORT
-
-struct mau_config_info mt6885_mau_info[MTK_IOMMU_M4U_COUNT] = {
+/* check 17GB~32GB-1 PA for out of range */
+struct mau_config_info mt6853_mau_info[MTK_IOMMU_M4U_COUNT] = {
 	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
+		.start = 0x40000000,
+		.end = 0xffffffff,
 		.port_mask = 0xffffffff,
 		.larb_mask = 0xffffffff,
 		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
+		.virt = 0x0,
+		.io = 0x1,
+		.start_bit32 = 0x4,
+		.end_bit32 = 0x7,
 	},
 	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
+		.start = 0x40000000,
+		.end = 0xffffffff,
 		.port_mask = 0xffffffff,
 		.larb_mask = 0xffffffff,
 		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
-	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
-		.port_mask = 0xffffffff,
-		.larb_mask = 0xffffffff,
-		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
-	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
-		.port_mask = 0xffffffff,
-		.larb_mask = 0xffffffff,
-		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
+		.virt = 0x0,
+		.io = 0x1,
+		.start_bit32 = 0x4,
+		.end_bit32 = 0x7,
+	}
 };
 
 struct mau_config_info *get_mau_info(int m4u_id)
 {
 	if (m4u_id < MTK_IOMMU_M4U_COUNT)
-		return &mt6885_mau_info[m4u_id];
+		return &mt6853_mau_info[m4u_id];
 	else
 		return NULL;
 }
