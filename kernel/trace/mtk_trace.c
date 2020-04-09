@@ -266,7 +266,7 @@ static void ftrace_events_enable(int enable)
 #endif
 #ifdef CONFIG_LOCKDEP
 			trace_set_clr_event(NULL, "lock_dbg", 1);
-			trace_set_clr_event(NULL, "lock_monitor_msg", 1);
+			trace_set_clr_event(NULL, "lock_monitor", 1);
 #endif
 			trace_set_clr_event("met_bio", NULL, 1);
 			trace_set_clr_event("met_fuse", NULL, 1);

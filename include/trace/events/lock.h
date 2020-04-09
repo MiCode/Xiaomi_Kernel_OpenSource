@@ -97,7 +97,7 @@ TRACE_EVENT(lock_dbg,
 	TP_printk("%s", __get_str(mbuf))
 );
 
-TRACE_EVENT(lock_monitor_msg,
+TRACE_EVENT(lock_monitor,
 
 	TP_PROTO(const char *buf),
 

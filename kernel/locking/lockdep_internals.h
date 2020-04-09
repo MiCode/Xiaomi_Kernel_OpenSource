@@ -69,7 +69,7 @@ enum {
 #else
 #define MAX_LOCKDEP_ENTRIES	32768UL
 
-#define MAX_LOCKDEP_CHAINS_BITS	16
+#define MAX_LOCKDEP_CHAINS_BITS	17
 
 /*
  * Stack-trace: tightly packed array of stack backtrace

@@ -22,7 +22,9 @@ else
 ccflags-y += -DMTK_DEBUG_SPINLOCK_V1
 endif
 ccflags-y += -DMTK_LOCK_DEBUG_NEW_DEPENDENCY
+ifneq (y, $(filter y, $(CONFIG_KASAN) $(CONFIG_UBSAN)))
 ccflags-y += -DMTK_LOCK_MONITOR
+endif
 endif
 
 ifeq ($(CONFIG_LOCKDEP),y)
