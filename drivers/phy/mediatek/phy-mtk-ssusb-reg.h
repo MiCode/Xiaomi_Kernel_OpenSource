@@ -488,6 +488,7 @@
 #define U3D_PHYD_PIPE0		(SSUSB_SIFSLV_U3PHYD_BASE + 0x40)
 #define U3D_PHYD_CDR0		(SSUSB_SIFSLV_U3PHYD_BASE + 0x58)
 #define U3D_PHYD_CDR1		(SSUSB_SIFSLV_U3PHYD_BASE + 0x5c)
+#define U3D_PHYD_MIX6		(SSUSB_SIFSLV_U3PHYD_BASE + 0xe8)
 
 
 
@@ -543,6 +544,16 @@
 #define RG_SSUSB_CDR_BW_SEL_OFST           (6)
 #define RG_SSUSB_CDR_BIC_LTD1_OFST         (0)
 
+/* U3D_PHYD_MIX6 */
+#define RG_SSUSB_IDEMSEL                   (0x1f<<21)
+#define RG_SSUSB_FORCE_IDEMSEL             (0x1<<20)
+#define RG_SSUSB_IDRVSEL                   (0x1f<<15)
+#define RG_SSUSB_FORCE_IDRVSEL             (0x1<<14)
+
+#define RG_SSUSB_IDEMSEL_OFST              (21)
+#define RG_SSUSB_FORCE_IDEMSEL_OFST        (20)
+#define RG_SSUSB_IDRVSEL_OFST              (15)
+#define RG_SSUSB_FORCE_IDRVSEL_OFST        (14)
 
 
 /* ///////////////////////////////////////////// */
