@@ -677,6 +677,14 @@
 		reg = <0 0x10016000 0 0x1000>;
 	};
 
+	chipid@08000000 {
+		compatible = "mediatek,chipid";
+		reg = <0 0x08000000 0 0x0004>,
+		      <0 0x08000004 0 0x0004>,
+		      <0 0x08000008 0 0x0004>,
+		      <0 0x0800000c 0 0x0004>;
+	};
+
 	sys_timer@10017000 {
 		compatible = "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
