@@ -686,8 +686,9 @@ GED_ERROR ged_dvfs_vsync_offset_event_switch(GED_DVFS_VSYNC_OFFSET_SWITCH_CMD eE
 		ret = GED_ERROR_INVALID_PARAMS;
 		goto CHECK_OUT;
 	}
-
+#ifdef GED_DEBUG_FS
 	mtk_ged_event_notify(g_ui32EventStatus);
+#endif
 
 	if ((ui32BeforeSwitchInterpret != g_ui32EventStatus) ||
 		(ui32BeforeDebugInterpret != g_ui32EventDebugStatus) ||

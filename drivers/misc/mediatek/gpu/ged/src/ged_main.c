@@ -221,10 +221,12 @@ static long ged_dispatch(struct file *pFile, GED_BRIDGE_PACKAGE *psBridgePackage
 			SET_FUNC_AND_CHECK(ged_bridge_gpu_timestamp,
 				GPU_TIMESTAMP);
 			break;
+#ifdef GED_DEBUG_FS
 		case GED_BRIDGE_COMMAND_GPU_TUNER_STATUS:
 			SET_FUNC_AND_CHECK(ged_bridge_gpu_tuner_status,
 			GPU_TUNER_STATUS);
 			break;
+#endif
 		default:
 			GED_LOGE("Unknown Bridge ID: %u\n", GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
 			break;
@@ -368,15 +370,15 @@ static void ged_exit(void)
 
 	ged_notify_sw_vsync_system_exit();
 
-	ged_hal_exit();
-
 	ged_log_system_exit();
 #ifdef GED_DEBUG_FS
+	ged_hal_exit();
+
 	ged_debugFS_exit();
-#endif
-	ged_ge_exit();
 
 	ged_gpu_tuner_exit();
+#endif
+	ged_ge_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
 
@@ -397,6 +399,18 @@ static int ged_init(void)
 		GED_LOGE("ged: failed to init debug FS!\n");
 		goto ERROR;
 	}
+
+	err = ged_hal_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create hal entry!\n");
+		goto ERROR;
+	}
+
+	err = ged_gpu_tuner_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to init GPU Tuner!\n");
+		goto ERROR;
+	}
 #endif
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
@@ -404,11 +418,6 @@ static int ged_init(void)
 		goto ERROR;
 	}
 
-	err = ged_hal_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create hal entry!\n");
-		goto ERROR;
-	}
 
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {
@@ -486,11 +495,6 @@ static int ged_init(void)
 	gpufreq_ged_log = ged_log_buf_alloc(1024, 64 * 1024,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
 
-	err = ged_gpu_tuner_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init GPU Tuner!\n");
-		goto ERROR;
-	}
 
 	return 0;
 
