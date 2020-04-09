@@ -1212,18 +1212,9 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 		/* Add low temp offset for each bank if temp inverse */
 		if (ndet->isTempInv) {
-#if ENABLE_LOO
-			if ((ndet->loo_role != NO_LOO_BANK) &&
-				(i < det->turn_pt)) {
-				highdet = id_to_eemg_det(ndet->loo_couple);
-				low_temp_offset =
-				(highdet->isTempInv == EEM_HIGH_T) ?
-				highdet->high_temp_off : highdet->low_temp_off;
-			} else
-#endif
-				low_temp_offset =
-				(ndet->isTempInv == EEM_HIGH_T) ?
-				ndet->high_temp_off : ndet->low_temp_off;
+			low_temp_offset =
+			(ndet->isTempInv == EEM_HIGH_T) ?
+			ndet->high_temp_off : ndet->low_temp_off;
 		}
 
 		switch (ndet->ctrl_id) {
