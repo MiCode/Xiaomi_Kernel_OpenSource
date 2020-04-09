@@ -23,11 +23,4 @@ endif
       # increase number of 'maybe-uninitialized false-positives
       CFLAGS_UBSAN += $(call cc-option, -Wno-maybe-uninitialized)
 
-      CFLAGS_UBSAN += $(call cc-option, -Wno-format)
-      CFLAGS_UBSAN += $(call cc-option, -Wno-format-extra-args)
-      CFLAGS_UBSAN += $(call cc-option, -Wno-unused-variable)
-      CFLAGS_UBSAN += $(call cc-option, -Wno-unused-value)
-      CFLAGS_UBSAN += $(call cc-option, -Wno-pointer-to-int-cast)
-      CFLAGS_UBSAN += $(call cc-option, -Wno-enum-compare)
-
 endif
