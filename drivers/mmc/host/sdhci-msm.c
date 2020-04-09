@@ -43,6 +43,7 @@
 
 #include "sdhci-msm.h"
 #include "cmdq_hci.h"
+#include "cmdq_hci-crypto-qti.h"
 
 #define QOS_REMOVE_DELAY_MS	10
 #define CORE_POWER		0x0
@@ -4644,6 +4645,13 @@ static void sdhci_msm_cmdq_init(struct sdhci_host *host,
 	} else {
 		msm_host->mmc->caps2 |= MMC_CAP2_CMD_QUEUE;
 	}
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+#ifdef CONFIG_MMC_CQ_HCI_CRYPTO_QTI
+	cmdq_crypto_qti_set_vops(host->cq_host);
+#endif
 }
 #else
 static void sdhci_msm_cmdq_init(struct sdhci_host *host,
