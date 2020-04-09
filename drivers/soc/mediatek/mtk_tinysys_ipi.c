@@ -18,14 +18,127 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
+#include <linux/sched/clock.h>
 #include <linux/rpmsg.h>
 #include <linux/rpmsg/mtk_rpmsg.h>
 #include <mt-plat/mtk-mbox.h>
 #include <mt-plat/mtk_tinysys_ipi.h>
 
 #define IPI_POLLING_INTERVAL_US    10
+#define MS_TO_US(x) ((x)*1000)
+
+#define ipi_echo(en, fmt, args...) \
+	({ if (en) pr_info(fmt, ##args); })
 
 static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin_recv);
+static void ipi_monitor(struct mtk_ipi_device *ipidev, int id, int stage)
+{
+	unsigned long flags = 0;
+	struct mtk_ipi_chan_table *chan;
+
+	chan = &ipidev->table[id];
+
+	spin_lock_irqsave(&ipidev->lock_monitor, flags);
+	switch (stage) {
+	case SEND_MSG:
+		chan->ipi_seqno++;
+		chan->ipi_record[0].idx = 0;
+		chan->ipi_record[0].ts = cpu_clock(0);
+		chan->ipi_record[1].idx = 4;
+		chan->ipi_record[1].ts = 0;
+		chan->ipi_record[2].idx = 5;
+		chan->ipi_record[2].ts = 0;
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d send msg (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
+		break;
+	case ISR_RECV_MSGV:
+		chan->ipi_seqno++;
+		chan->ipi_record[0].idx = 1;
+		chan->ipi_record[0].ts = cpu_clock(0);
+		chan->ipi_record[1].idx = 2;
+		chan->ipi_record[1].ts = 0;
+		chan->ipi_record[2].idx = 3;
+		chan->ipi_record[2].ts = 0;
+		break;
+	case RECV_MSG:
+		chan->ipi_record[1].ts = cpu_clock(0);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d recv msg (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
+		break;
+	case RECV_ACK:
+		chan->ipi_record[2].ts = cpu_clock(0);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d recv ack (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
+		break;
+	case ISR_RECV_ACK:
+		chan->ipi_record[1].ts = cpu_clock(0);
+		break;
+	case SEND_ACK:
+		chan->ipi_record[2].ts = cpu_clock(0);
+		ipi_echo(ipidev->mbdev->log_enable,
+			"%s: IPI_%d send ack (#%d)\n",
+			ipidev->name, id, chan->ipi_seqno);
+		break;
+	default:
+		break;
+	}
+
+	chan->ipi_stage = stage;
+
+	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
+}
+
+static void ipi_timeout_dump(struct mtk_ipi_device *ipidev, int ipi_id)
+{
+	unsigned long flags = 0;
+	struct mtk_ipi_chan_table *chan;
+
+	chan = &ipidev->table[ipi_id];
+
+	spin_lock_irqsave(&ipidev->lock_monitor, flags);
+
+	pr_err("Error: %s IPI %d timeout at %lld (last done is IPI %d)\n",
+		 ipidev->name, ipi_id, cpu_clock(0), ipidev->ipi_last_done);
+
+	pr_err("IPI %d: seqno=%d, state=%d, t%d=%lld, t%d=%lld, t%d=%lld (trysend %d, polling %d\n",
+		ipi_id, chan->ipi_seqno, chan->ipi_stage,
+		chan->ipi_record[0].idx, chan->ipi_record[0].ts,
+		chan->ipi_record[1].idx, chan->ipi_record[1].ts,
+		chan->ipi_record[2].idx, chan->ipi_record[2].ts,
+		chan->trysend_count, chan->polling_count);
+
+	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
+}
+
+void ipi_monitor_dump(struct mtk_ipi_device *ipidev)
+{
+	int i;
+	unsigned int ipi_chan_count;
+	unsigned long flags = 0;
+	struct mtk_ipi_chan_table *chan;
+
+	ipi_chan_count = ipidev->mrpdev->rpdev.src;
+
+	pr_info("%s dump IPIMonitor:\n", ipidev->name);
+
+	spin_lock_irqsave(&ipidev->lock_monitor, flags);
+
+	for (i = 0; i < ipi_chan_count; i++) {
+		chan = &ipidev->table[i];
+		if (chan->ipi_stage == UNUSED)
+			continue;
+		pr_info("IPI %d: seqno=%d, state=%d, t%d=%lld, t%d=%lld, t%d=%lld\n",
+			i, chan->ipi_seqno, chan->ipi_stage,
+			chan->ipi_record[0].idx, chan->ipi_record[0].ts,
+			chan->ipi_record[1].idx, chan->ipi_record[1].ts,
+			chan->ipi_record[2].idx, chan->ipi_record[2].ts);
+	}
+
+	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
+}
 
 int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		struct platform_device *pdev, struct mtk_mbox_device *mbox,
@@ -328,6 +441,12 @@ int mtk_ipi_recv_reply(struct mtk_ipi_device *ipidev, int ipi_id,
 	return ret;
 }
 EXPORT_SYMBOL(mtk_ipi_recv_reply);
+
+void mtk_ipi_tracking(struct mtk_ipi_device *ipidev, bool en)
+{
+	ipidev->mbdev->log_enable = en;
+	pr_info("%s IPI tracking %s\n", ipidev->name, en ? "on" : "off");
+}
 
 static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin_recv)
 {
