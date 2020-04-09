@@ -23,6 +23,12 @@
 
 #define MT_CCF_BRINGUP			1
 
+#define INV_OFS			-1
+
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status pwr_stat = GATE_PWR_STAT(INV_OFS,
+		INV_OFS, 0x0178, BIT(5));
+
 static const struct mtk_gate_regs apuv_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -36,6 +42,7 @@ static const struct mtk_gate_regs apuv_cg_regs = {
 		.regs = &apuv_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &pwr_stat,			\
 	}
 
 static const struct mtk_gate apuv_clks[] = {
@@ -107,6 +114,6 @@ static int __init clk_mt6853_apuv_platform_init(void)
 {
 	return platform_driver_register(&clk_mt6853_apuv_drv);
 }
-arch_initcall_sync(clk_mt6853_apuv_platform_init);
+arch_initcall(clk_mt6853_apuv_platform_init);
 
 #endif	/* MT_CLKMGR_MODULE_INIT */

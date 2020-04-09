@@ -23,17 +23,26 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
+#define INV_OFS		-1
+
 static int is_subsys_pwr_on(struct mtk_clk_gate *cg)
 {
 	struct pwr_status *pwr = cg->pwr_stat;
 	u32 val, val2;
 
 	if (pwr != NULL && cg->pwr_regmap != NULL) {
-		regmap_read(cg->pwr_regmap, pwr->pwr_ofs, &val);
-		regmap_read(cg->pwr_regmap, pwr->pwr2_ofs, &val2);
+		if (pwr->pwr_ofs != INV_OFS && pwr->pwr2_ofs != INV_OFS) {
+			regmap_read(cg->pwr_regmap, pwr->pwr_ofs, &val);
+			regmap_read(cg->pwr_regmap, pwr->pwr2_ofs, &val2);
 
-		if ((val & pwr->mask) == 0 || (val2 & pwr->mask) == 0)
-			return false;
+			if ((val & pwr->mask) == 0 || (val2 & pwr->mask) == 0)
+				return false;
+		} else if (pwr->other_ofs != INV_OFS) {
+			regmap_read(cg->pwr_regmap, pwr->other_ofs, &val);
+
+			if ((val & pwr->mask) == 0)
+				return false;
+		}
 	}
 
 	return true;

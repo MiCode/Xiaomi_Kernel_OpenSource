@@ -40,7 +40,6 @@ enum dbg_sys_id {
 	camsys,
 	cam_rawa_sys,
 	cam_rawb_sys,
-	msdc0,
 	pericfg,
 	vencsys,
 	vdecsys,

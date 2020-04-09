@@ -21,6 +21,7 @@
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
+#include <linux/platform_device.h>
 
 #include "clk-mtk-v1.h"
 #include "clk-mt6853-pg.h"
@@ -4338,11 +4339,15 @@ int pg_prepare(struct clk_hw *hw)
 
 		if (clk)
 			ret1 = clk_prepare_enable(clk);
-		else
+		else {
+			if (pg->pre_clk1_list->cg[i])
+				pr_notice("[CCF] cannot find pre_clk(%s)\n",
+					pg->pre_clk1_list->cg[i]);
 			break;
+		}
+
 		if (ret1)
 			break;
-
 #if MT_CCF_DEBUG
 		pr_notice("[CCF] %s 1: sys=%s, pre_clk=%s\n", __func__,
 			__clk_get_name(hw->clk),
@@ -4365,11 +4370,15 @@ int pg_prepare(struct clk_hw *hw)
 			__clk_lookup(pg->pre_clk2_list->cg[i]) : NULL;
 		if (clk)
 			ret3 = clk_prepare_enable(clk);
-		else
+		else {
+			if (pg->pre_clk2_list->cg[i])
+				pr_notice("[CCF] cannot find pre_clk(%s)\n",
+					pg->pre_clk2_list->cg[i]);
 			break;
+		}
+
 		if (ret3)
 			break;
-
 #if MT_CCF_DEBUG
 		pr_notice("[CCF] %s 2: sys=%s, pre_clk=%s\n", __func__,
 			__clk_get_name(hw->clk),
@@ -4424,8 +4433,12 @@ void pg_unprepare(struct clk_hw *hw)
 
 		if (clk)
 			clk_disable_unprepare(clk);
-		else
+		else {
+			if (pg->pre_clk2_list->cg[i])
+				pr_notice("[CCF] cannot find pre_clk(%s)\n",
+					pg->pre_clk2_list->cg[i]);
 			break;
+		}
 #if MT_CCF_DEBUG
 		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n", __func__,
 			__clk_get_name(hw->clk),
@@ -4448,8 +4461,12 @@ void pg_unprepare(struct clk_hw *hw)
 
 		if (clk)
 			clk_disable_unprepare(clk);
-		else
+		else {
+			if (pg->pre_clk1_list->cg[i])
+				pr_notice("[CCF] cannot find pre_clk(%s)\n",
+					pg->pre_clk1_list->cg[i]);
 			break;
+		}
 #if MT_CCF_DEBUG
 		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n", __func__,
 			__clk_get_name(hw->clk),
@@ -4509,15 +4526,15 @@ struct cg_list audio_cg2 = {
 
 struct cg_list adsp_cg = {.cg = {"adsp_sel"},};
 
-struct cg_list mfg_cg = {.cg = {"mfg_sel"},};
+struct cg_list mfg_cg = {.cg = {"mfg_pll_sel", "mfg_ref_sel"},};
 
-struct cg_list mm_cg1 = {.cg = {"mm_sel", "mdp_sel"},};
+struct cg_list mm_cg1 = {.cg = {"disp_sel", "mdp_sel"},};
 
 struct cg_list mm_cg2 = {
 	.cg = {
 		"mm_smi_common",
 		"mm_smi_infra",
-		"mm_smi_iommpu",
+		"mm_smi_iommu",
 		"mm_smi_gals",
 		"mdp_smi0"
 	},
@@ -4525,11 +4542,17 @@ struct cg_list mm_cg2 = {
 
 struct cg_list isp_cg1 = {.cg = {"img1_sel"},};
 
-struct cg_list isp_cg2 = {.cg = {"imgsys1_larb9"},};
+struct cg_list isp_cg2 = {.cg = {"imgsys1_larb9", "imgsys1_gals"},};
 
 struct cg_list isp2_cg1 = {.cg = {"img2_sel"},};
 
-struct cg_list isp2_cg2 = {.cg = {"imgsys2_larb9"},};
+struct cg_list isp2_cg2 = {
+	.cg = {
+		"imgsys2_larb9",
+		"imgsys2_larb10",
+		"imgsys2_gals"
+	},
+};
 
 struct cg_list ipe_cg1 = {.cg = {"ipe_sel"},};
 
@@ -4537,7 +4560,8 @@ struct cg_list ipe_cg2 = {
 	.cg = {
 		"ipe_larb19",
 		"ipe_larb20",
-		"ipe_smi_subcom"
+		"ipe_smi_subcom",
+		"ipe_gals",
 	},
 };
 
@@ -4547,11 +4571,18 @@ struct cg_list ven_cg2 = {.cg = {"venc_set1_venc"},};
 
 struct cg_list vde_cg1 = {.cg = {"vdec_sel"},};
 
-struct cg_list vde_cg2 = {.cg = {"vdec_cken", "vdec_lat_cken"},};
+struct cg_list vde_cg2 = {.cg = {"vdec_cken", "vdec_larb1_cken"},};
 
 struct cg_list cam_cg1 = {.cg = {"cam_sel"},};
 
-struct cg_list cam_cg2 = {.cg = {"cam_m_larb13"},};
+struct cg_list cam_cg2 = {
+	.cg = {
+		"cam_m_larb13",
+		"cam_m_larb14",
+		"cam_m_ccu_gals",
+		"cam_m_cam2mm_gals"
+	},
+};
 
 struct cg_list cam_ra_cg = {.cg = {"cam_ra_larbx"},};
 
@@ -4590,7 +4621,7 @@ struct mtk_power_gate {
 	}
 
 /* FIXME: all values needed to be verified */
-struct mtk_power_gate scp_clks[] __initdata = {
+struct mtk_power_gate scp_clks[] = {
 	PGATE(SCP_SYS_MD1, "PG_MD1", NULL, NULL, NULL, SYS_MD1),
 	PGATE(SCP_SYS_CONN, "PG_CONN", NULL, NULL, NULL, SYS_CONN),
 	PGATE(SCP_SYS_DIS, "PG_DIS", NULL, &mm_cg1, &mm_cg2, SYS_DIS),
@@ -4617,7 +4648,7 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, &vpu_cg1, &vpu_cg2, SYS_VPU),
 };
 
-static void __init init_clk_scpsys(struct clk_onecell_data *clk_data)
+static void init_clk_scpsys(struct clk_onecell_data *clk_data)
 {
 	int i;
 	struct clk *clk;
@@ -4693,6 +4724,7 @@ static void __iomem *get_reg(struct device_node *np, int index)
 #endif
 }
 
+#if 0
 static void __init mt_scpsys_init(struct device_node *node)
 {
 	struct clk_onecell_data *clk_data;
@@ -4723,6 +4755,61 @@ static void __init mt_scpsys_init(struct device_node *node)
 	pr_notice("%s init end\n", __func__);
 #endif
 }
+CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,mt6853-scpsys", mt_scpsys_init);
+
+#else
+
+static int clk_mt6853_scpsys_probe(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct clk_onecell_data *clk_data;
+	int r;
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s init begin\n", __func__);
+#endif
+	infracfg_base = get_reg(node, 0);
+	spm_base = get_reg(node, 1);
+	infra_base = get_reg(node, 2);
+	infra_pdn_base = get_reg(node, 3);
+
+	if (!infracfg_base || !spm_base || !infra_base || !infra_pdn_base) {
+		pr_err("clk-pg-mt6853: missing reg\n");
+		return -ENODEV;
+	}
+
+	syss[SYS_VPU].sta_addr = OTHER_PWR_STATUS;
+	clk_data = alloc_clk_data(SCP_NR_SYSS);
+	init_clk_scpsys(clk_data);
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (r)
+		pr_err("[CCF] %s:could not register clock provide\n",
+			__func__);
+
+#if MT_CCF_BRINGUP
+	pr_notice("%s init end\n", __func__);
+#endif
+	return r;
+}
+
+static const struct of_device_id of_match_clk_mt6853_scpsys[] = {
+	{ .compatible = "mediatek,mt6853-scpsys", },
+	{}
+};
+
+static struct platform_driver clk_mt6853_scpsys_drv = {
+	.probe = clk_mt6853_scpsys_probe,
+	.driver = {
+		.name = "clk-mt6853-scpsys",
+		.of_match_table = of_match_clk_mt6853_scpsys,
+	},
+};
+static int __init clk_mt6853_scpsys_init(void)
+{
+	return platform_driver_register(&clk_mt6853_scpsys_drv);
+}
+arch_initcall_sync(clk_mt6853_scpsys_init);
+#endif
 
 /* for suspend LDVT only */
 void mtcmos_force_off(void)
@@ -4789,5 +4876,3 @@ void mtcmos_force_off(void)
 	spm_mtcmos_ctrl_conn_bus_prot(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_conn_pwr(STA_POWER_DOWN);
 }
-
-CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,mt6853-scpsys", mt_scpsys_init);

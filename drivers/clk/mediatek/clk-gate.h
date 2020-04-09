@@ -25,8 +25,9 @@ struct clk;
  * including offsets/mask.
  */
 struct pwr_status {
-	u32 pwr_ofs;
-	u32 pwr2_ofs;
+	s32 pwr_ofs;
+	s32 pwr2_ofs;
+	s32 other_ofs;
 	u32 mask;
 };
 
@@ -64,9 +65,10 @@ struct clk *mtk_clk_register_gate(
 		struct pwr_status *pwr_stat,
 		struct regmap *pwr_regmap);
 
-#define GATE_PWR_STAT(_pwr_ofs, _pwr2_ofs, _mask) {		\
+#define GATE_PWR_STAT(_pwr_ofs, _pwr2_ofs, _other_ofs, _mask) {		\
 		.pwr_ofs = _pwr_ofs,				\
 		.pwr2_ofs = _pwr2_ofs,				\
+		.other_ofs = _other_ofs,			\
 		.mask = _mask}
 
 #endif /* __DRV_CLK_GATE_H */

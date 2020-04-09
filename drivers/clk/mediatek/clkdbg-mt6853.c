@@ -37,7 +37,8 @@ int __attribute__((weak)) get_sw_req_vcore_opp(void)
  * clkdbg dump_regs
  */
 
-#define REGBASE_V(_phys, _id_name) { .phys = _phys, .name = #_id_name }
+#define REGBASE_V(_phys, _id_name, _pg) { .phys = _phys,	\
+		.name = #_id_name, .pg = _pg}
 
 static DEFINE_SPINLOCK(meter_lock);
 #define fmeter_lock(flags)   spin_lock_irqsave(&meter_lock, flags)
@@ -50,37 +51,36 @@ static DEFINE_SPINLOCK(meter_lock);
  */
 
 static struct regbase rb[] = {
-	[topckgen] = REGBASE_V(0x10000000, topckgen),
-	[infracfg_ao] = REGBASE_V(0x10001000, infracfg_ao),
-	[scpsys]   = REGBASE_V(0x10006000, scpsys),
-	[apmixed]  = REGBASE_V(0x1000c000, apmixed),
-	[apu0]    = REGBASE_V(0x19030000, apu0),
-	[apu1]    = REGBASE_V(0x19031000, apu1),
-	[apuvc]    = REGBASE_V(0x19029000, apuvc),
-	[apuc]    = REGBASE_V(0x19020000, apuc),
-	[audio]    = REGBASE_V(0x11210000, audio),
-	[mfgsys]   = REGBASE_V(0x13fbf000, mfgsys),
-	[mmsys]    = REGBASE_V(0x14116000, mmsys),
-	[mdpsys]    = REGBASE_V(0x1F000000, mdpsys),
-	[img1sys]   = REGBASE_V(0x15020000, img1sys),
-	[img2sys]   = REGBASE_V(0x15820000, img2sys),
-	[i2c_c] = REGBASE_V(0x11007000, i2c_c),
-	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e),
-	[i2c_n] = REGBASE_V(0x11f01000, i2c_n),
-	[i2c_s] = REGBASE_V(0x11d04000, i2c_s),
-	[i2c_w] = REGBASE_V(0x11e01000, i2c_w),
-	[i2c_ws] = REGBASE_V(0x11d23000, i2c_ws),
-	[infracfg] = REGBASE_V(0x1020E000, infracfg),
-	[ipesys]   = REGBASE_V(0x1b000000, ipesys),
-	[camsys]   = REGBASE_V(0x1a000000, camsys),
-	[cam_rawa_sys]   = REGBASE_V(0x1a04f000, cam_rawa_sys),
-	[cam_rawb_sys]   = REGBASE_V(0x1a06f000, cam_rawb_sys),
-	[msdc0] = REGBASE_V(0x11230000, msdc0),
-	[pericfg] = REGBASE_V(0x10003000, pericfg),
-	[vencsys]  = REGBASE_V(0x17000000, vencsys),
-	[vdecsys]  = REGBASE_V(0x1602f000, vdecsys),
-	[infracfg_dbg]  = REGBASE_V(0x10001000, infracfg_dbg),
-	[infrapdn_dbg]  = REGBASE_V(0x10215000, infrapdn_dbg),
+	[topckgen] = REGBASE_V(0x10000000, topckgen, NULL),
+	[infracfg_ao] = REGBASE_V(0x10001000, infracfg_ao, NULL),
+	[scpsys]   = REGBASE_V(0x10006000, scpsys, NULL),
+	[apmixed]  = REGBASE_V(0x1000c000, apmixed, NULL),
+	[apu0]    = REGBASE_V(0x19030000, apu0, "PG_VPU"),
+	[apu1]    = REGBASE_V(0x19031000, apu1, "PG_VPU"),
+	[apuvc]    = REGBASE_V(0x19029000, apuvc, "PG_VPU"),
+	[apuc]    = REGBASE_V(0x19020000, apuc, "PG_VPU"),
+	[audio]    = REGBASE_V(0x11210000, audio, "PG_AUDIO"),
+	[mfgsys]   = REGBASE_V(0x13fbf000, mfgsys, "PG_MFG5"),
+	[mmsys]    = REGBASE_V(0x14116000, mmsys, "PG_DIS"),
+	[mdpsys]    = REGBASE_V(0x1F000000, mdpsys, "PG_DIS"),
+	[img1sys]   = REGBASE_V(0x15020000, img1sys, "PG_ISP"),
+	[img2sys]   = REGBASE_V(0x15820000, img2sys, "PG_ISP2"),
+	[i2c_c] = REGBASE_V(0x11007000, i2c_c, NULL),
+	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e, NULL),
+	[i2c_n] = REGBASE_V(0x11f01000, i2c_n, NULL),
+	[i2c_s] = REGBASE_V(0x11d04000, i2c_s, NULL),
+	[i2c_w] = REGBASE_V(0x11e01000, i2c_w, NULL),
+	[i2c_ws] = REGBASE_V(0x11d23000, i2c_ws, NULL),
+	[infracfg] = REGBASE_V(0x1020E000, infracfg, NULL),
+	[ipesys]   = REGBASE_V(0x1b000000, ipesys, "PG_IPE"),
+	[camsys]   = REGBASE_V(0x1a000000, camsys, "PG_CAM"),
+	[cam_rawa_sys]   = REGBASE_V(0x1a04f000, cam_rawa_sys, "PG_CAM_RAWA"),
+	[cam_rawb_sys]   = REGBASE_V(0x1a06f000, cam_rawb_sys, "PG_CAM_RAWB"),
+	[pericfg] = REGBASE_V(0x10003000, pericfg, NULL),
+	[vencsys]  = REGBASE_V(0x17000000, vencsys, "PG_VENC"),
+	[vdecsys]  = REGBASE_V(0x1602f000, vdecsys, "PG_VDEC"),
+	[infracfg_dbg]  = REGBASE_V(0x10001000, infracfg_dbg, NULL),
+	[infrapdn_dbg]  = REGBASE_V(0x10215000, infrapdn_dbg, NULL),
 };
 
 #define REGNAME(_base, _ofs, _name)	\
@@ -105,6 +105,9 @@ static struct regname rn[] = {
 	REGNAME(topckgen,  0x100, CLK_CFG_15),
 	REGNAME(topckgen,  0x110, CLK_CFG_16),
 	REGNAME(topckgen,  0x320, CLK_AUDDIV_0),
+	REGNAME(topckgen,  0x328, CLK_AUDDIV_2),
+	REGNAME(topckgen,  0x334, CLK_AUDDIV_3),
+	REGNAME(topckgen,  0x338, CLK_AUDDIV_4),
 
 	REGNAME(apmixed, 0x00C, AP_PLL_CON3),
 	REGNAME(apmixed, 0x014, AP_PLL_CON5),
@@ -280,8 +283,6 @@ static struct regname rn[] = {
 	REGNAME(mmsys, 0x110, MM_CG_CON1),
 	REGNAME(mmsys, 0x1a0, MM_CG_CON2),
 
-	REGNAME(msdc0, 0x0B4, PATCH_BIT1),
-
 	REGNAME(pericfg, 0x20C, PERIAXI_SI0_CTL),
 
 	REGNAME(mdpsys, 0x100, MDP_CG_CON0),
@@ -304,8 +305,12 @@ static void __init init_regbase(void)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(rb); i++)
-		rb[i].virt = ioremap(rb[i].phys, PAGE_SIZE);
+	for (i = 0; i < ARRAY_SIZE(rb); i++) {
+		if (!rb[i].phys)
+			continue;
+
+		rb[i].virt = ioremap_nocache(rb[i].phys, 0x1000);
+	}
 }
 
 /*
@@ -870,32 +875,33 @@ static const char * const *get_pwr_names(void)
 		[3] = "MFG1",
 		[4] = "MFG2",
 		[5] = "MFG3",
-		[6] = "MFG4",
+		[6] = "(Reserved)",
 		[7] = "MFG5",
-		[8] = "MFG6",
-		[9] = "INFRA",
-		[10] = "SUB_INFRA",
-		[11] = "DDRPHY",
+		[8] = "(Reserved)",
+		[9] = "(Reserved)",
+		[10] = "(Reserved)",
+		[11] = "(Reserved)",
 		[12] = "ISP",
 		[13] = "ISP2",
 		[14] = "IPE",
 		[15] = "VDEC",
-		[16] = "VDEC2",
+		[16] = "(Reserved)",
 		[17] = "VEN",
-		[18] = "VEN_CORE1",
-		[19] = "MDP",
+		[18] = "(Reserved)",
+		[19] = "(Reserved)",
 		[20] = "DISP",
 		[21] = "AUDIO",
 		[22] = "ADSP",
 		[23] = "CAM",
 		[24] = "CAM_RAWA",
 		[25] = "CAM_RAWB",
-		[26] = "CAM_RAWC",
-		[27] = "DP_TX",
-		[28] = "DDRPHY2",
+		[26] = "(Reserved)",
+		[27] = "(Reserved)",
+		[28] = "(Reserved)",
 		[29] = "(Reserved)",
 		[30] = "(Reserved)",
 		[31] = "(Reserved)",
+		[32] = "VPU",
 	};
 
 	return pwr_names;
@@ -925,6 +931,17 @@ void setup_provider_clk(struct provider_clk *pvdck)
 			return;
 		}
 	}
+}
+
+/*
+ * pwr stat check functions
+ */
+static  bool is_pwr_on(struct provider_clk *pvdck)
+{
+	struct clk *c = pvdck->ck;
+	struct clk_hw *c_hw = __clk_get_hw(c);
+
+	return clk_hw_is_prepared(c_hw);
 }
 
 /*
@@ -958,6 +975,7 @@ static struct clkdbg_ops clkdbg_mt6853_ops = {
 	.get_all_clk_names = get_all_clk_names,
 	.get_pwr_names = get_pwr_names,
 	.setup_provider_clk = setup_provider_clk,
+	.is_pwr_on = is_pwr_on,
 };
 
 static void __init init_custom_cmds(void)

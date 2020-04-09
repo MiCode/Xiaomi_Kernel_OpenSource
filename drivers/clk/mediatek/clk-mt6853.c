@@ -2108,7 +2108,7 @@ static const struct mtk_gate ifrao_clks[] = {
 			"f26m_ck"/* parent */, 31),
 	/* IFRAO4 */
 	GATE_IFRAO4(CLK_IFRAO_SSUSB, "ifrao_ssusb",
-			"axi_ck"/* parent */, 1),
+			"fusb_ck"/* parent */, 1),
 	GATE_IFRAO4(CLK_IFRAO_DISP_PWM, "ifrao_disp_pwm",
 			"fdisp_pwm_ck"/* parent */, 2),
 	GATE_IFRAO4(CLK_IFRAO_CLDMA_BCLK, "ifrao_cldmabclk",
@@ -2661,5 +2661,5 @@ static int __init clk_mt6853_init(void)
 	return platform_driver_register(&clk_mt6853_drv);
 }
 
-arch_initcall(clk_mt6853_init);
+arch_initcall_sync(clk_mt6853_init);
 
