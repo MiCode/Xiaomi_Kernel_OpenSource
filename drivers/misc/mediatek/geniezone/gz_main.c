@@ -31,6 +31,9 @@
 #include "gz_ut.h"
 #include "unittest.h"
 #include <mtk_mcdi_api.h>
+#ifdef CONFIG_MTK_DEVAPC
+#include <mt-plat/devapc_public.h>
+#endif
 
 /* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
 #ifdef MTK_PPM_SUPPORT
@@ -1538,6 +1541,27 @@ static int find_big_core(int *big_core_first, int *big_core_last)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_DEVAPC
+static void gz_devapc_vio_dump(void)
+{
+	pr_debug("%s:%d GZ devapc is triggered!\n", __func__, __LINE__);
+
+	if (IS_ERR_OR_NULL(tz_system_dev)) {
+		pr_err("GZ KREE is still not initialized!\n");
+		return;
+	}
+
+	trusty_fast_call32(tz_system_dev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_DEVAPC_VIO, tz_system_dev->dev.parent),
+		0, 0, 0);
+}
+
+static struct devapc_vio_callbacks gz_devapc_vio_handle = {
+	.id = INFRA_SUBSYS_GZ,
+	.debug_dump = gz_devapc_vio_dump,
+};
+#endif
+
 /************ kernel module init entry ***************/
 static int __init gz_init(void)
 {
@@ -1601,6 +1625,10 @@ static int __init gz_init(void)
 	}
 
 	mutex_init(&fp_mcdi_state_mux);
+
+#ifdef CONFIG_MTK_DEVAPC
+	register_devapc_vio_callback(&gz_devapc_vio_handle);
+#endif
 	return res;
 }
 
