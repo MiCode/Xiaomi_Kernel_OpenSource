@@ -22,7 +22,10 @@
 #define UFS_IOCTL_FFU           0x5389  /* Do firmware upgrade */
 #define UFS_IOCTL_GET_FW_VER    0x5390  /* Query production revision level */
 #define UFS_IOCTL_RPMB          0x5391  /* For RPMB access */
-#define HPB_QUERY_OPCODE        0x5500
+
+#if defined(CONFIG_UFSFEATURE)
+#define UFSFEATURE_QUERY_OPCODE		0x5500
+#endif
 
 #define UFS_IOCTL_FFU_MAX_FW_SIZE_BYTES             (512L * 1024)
 #define UFS_IOCTL_FFU_MAX_FW_VER_BYTES              (4)

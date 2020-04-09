@@ -331,6 +331,12 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
 	return 0;
 }
 
+int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
+{
+	/* No Need for MT6785 */
+	return 0;
+}
+
 /**
  * ufs_mtk_deepidle_hibern8_check - callback function for Deepidle & SODI.
  * Release all resources: DRAM/26M clk/Main PLL and dsiable 26M ref clk if
