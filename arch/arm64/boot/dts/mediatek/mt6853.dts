@@ -820,39 +820,9 @@
 		reg = <0 0x10040000 0 0x1000>;
 	};
 
-	sys_cirq@10204000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10204000 0 0x1000>;
-		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	mcucfg1: mcucfg1@0c530000 {
 		compatible = "mediatek,mcucfg-dvfs";
 		reg = <0 0x0c530000 0 0x10000>;
-	};
-
-	mcucfg@10200000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10200000 0 0x1000>;
-		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	mcucfg@10201000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10201000 0 0x1000>;
-		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	mcucfg@10202000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10202000 0 0x1000>;
-		interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	mcucfg@10203000 {
-		compatible = "mediatek,mcucfg";
-		reg = <0 0x10203000 0 0x1000>;
-		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	m4u@10205000 {
@@ -1698,21 +1668,6 @@
 	mm_vpu_m1_sub_common@1030d000 {
 		compatible = "mediatek,mm_vpu_m1_sub_common";
 		reg = <0 0x1030d000 0 0x1000>;
-	};
-
-	sys_cirq@10312000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10312000 0 0x1000>;
-	};
-
-	sys_cirq@10313000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10313000 0 0x1000>;
-	};
-
-	sys_cirq@10314000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10314000 0 0x1000>;
 	};
 
 	scp@10500000 {
@@ -3172,6 +3127,11 @@
 	reserved@14015000 {
 		compatible = "mediatek,reserved";
 		reg = <0 0x14015000 0 0x1000>;
+	};
+
+	mcucfg: mcucfg@0c530000 {
+		compatible = "mediatek,mcucfg";
+		reg = <0 0x0c530000 0 0x10000>;
 	};
 
 	ion: iommu {
