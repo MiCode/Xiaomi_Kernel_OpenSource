@@ -119,6 +119,21 @@ int upower_get_turn_point(void)
 }
 EXPORT_SYMBOL(upower_get_turn_point);
 
+__weak int cpu_cluster_mapping(unsigned int cpu)
+{
+	enum upower_bank bank = UPOWER_BANK_LL;
+
+	if (cpu < 4) /* cpu 0-3 */
+		bank = UPOWER_BANK_LL;
+	else if (cpu < 8) /* cpu 4-7 */
+		bank = UPOWER_BANK_LL + 1;
+	else if (cpu < 10) /* cpu 8-9 */
+		bank = UPOWER_BANK_LL + 2;
+
+	return bank;
+}
+
+
 /* for EAS to get pointer of core's tbl */
 struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 {
@@ -136,12 +151,7 @@ struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 	else if (cpu < 8) /* cpu 4-7 */
 		bank = UPOWER_BANK_B;
 #else
-	if (cpu < 4) /* cpu 0-3 */
-		bank = UPOWER_BANK_LL;
-	else if (cpu < 8) /* cpu 4-7 */
-		bank = UPOWER_BANK_LL + 1;
-	else if (cpu < 10) /* cpu 8-9 */
-		bank = UPOWER_BANK_LL + 2;
+	bank = cpu_cluster_mapping(cpu);
 #endif
 
 #ifdef UPOWER_L_PLUS
