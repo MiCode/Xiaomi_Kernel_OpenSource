@@ -18,11 +18,9 @@
 	bus-width = <8>;
 	max-frequency = <200000000>;
 	cap-mmc-highspeed;
-#if 0
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-#endif
 	no-sd;
 	no-sdio;
 	non-removable;
@@ -35,10 +33,8 @@
 	status = "okay";
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#if 0
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
-#endif
 	clocks = <&infracfg_ao CLK_IFRAO_MSDC0_SRC>,
 		<&infracfg_ao CLK_IFRAO_MSDC0>,
 		<&infracfg_ao CLK_IFRAO_MSDC0_AES>;
@@ -70,15 +66,13 @@
 	host_function = /bits/ 8 <MSDC_SD>;
 
 	cd_level = /bits/ 8 <MSDC_CD_LOW>;
-	cd-gpios = <&pio 23 0>;
+	cd-gpios = <&pio 4 0>;
 
-	status = "disabled";
+	status = "okay";
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#if 0
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
-#endif
 
 	clocks = <&infracfg_ao CLK_IFRAO_MSDC1_SRC>,
 			<&infracfg_ao CLK_IFRAO_MSDC1>;

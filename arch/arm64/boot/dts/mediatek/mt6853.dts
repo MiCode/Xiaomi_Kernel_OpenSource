@@ -24,6 +24,7 @@
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/memory/mt6853-larb-port.h>
 #include <dt-bindings/gce/mt6853-gce.h>
+#include <dt-bindings/mmc/mt6853-msdc.h>
 
 #ifdef CONFIG_MFD_MT6360_PMU
 #include "mt6360.dtsi"
@@ -646,9 +647,8 @@
 		interrupt-parent = <&gic>;
 	};
 
-	msdc0: msdc0@11230000 {
-		compatible = "mediatek,msdc",
-			"mediatek,mt6853-msdc0sys", "syscon";
+	msdc0: msdc@11230000 {
+		compatible = "mediatek,msdc";
 		reg = <0 0x11230000 0 0x10000>;
 		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
 	};
@@ -5681,6 +5681,7 @@
 
 #include "mt6359p.dtsi"
 #include "mt6853-clkitg.dtsi"
+#include "cust_mt6853_msdc.dtsi"
 
 &spmi_bus {
 	grpid = <11>;
