@@ -91,10 +91,14 @@ static int mtk_smi_debug_res_init(struct mtk_smi_dbg *dbgmng)
 			break;
 		pdev = of_find_device_by_node(m4u_dev_node);
 		of_node_put(m4u_dev_node);
+		if (!pdev)
+			return -ENODEV;
 		m4u = &dbgmng->m4u[m4uidx];
 
 		m4u->dev = &pdev->dev;
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			return -ENODEV;
 		m4u->base = devm_ioremap_nocache(m4u->dev, res->start,
 						 0x1000);
 		if (IS_ERR(m4u->base))
