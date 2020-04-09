@@ -432,35 +432,32 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 
 static struct dram_pwr_conf dram_def_pwr_conf[] = {
 	[DRAM_VDD1_1P8V] = {
-		.i_dd0 = 12342,
-		.i_dd2p = 475,
-		.i_dd2n = 475,
-		.i_dd4r = 9837,
-		.i_dd4w = 7620,
-		.i_dd5 = 2250,
+		.i_dd0 = 13000,
+		.i_dd2p = 1000,
+		.i_dd2n = 3000,
+		.i_dd4r = 9000,
+		.i_dd4w = 10000,
+		.i_dd5 = 5000,
 		.i_dd6 = 475,
 	},
 	[DRAM_VDD2_1P1V] = {
-		.i_dd0 = 47445,
-		.i_dd2p = 625,
-		.i_dd2n = 7375,
-		.i_dd4r = 134588,
-		.i_dd4w = 149243,
-		.i_dd5 = 12750,
+		.i_dd0 = 50000,
+		.i_dd2p = 8000,
+		.i_dd2n = 13500,
+		.i_dd4r = 147000,
+		.i_dd4w = 151000,
+		.i_dd5 = 25000,
 		.i_dd6 = 625,
 	},
-#if 0 /* co-relation coverage by APHY_VDDQ_0P6V */
 	[DRAM_VDDQ_0P6V] = {
-		/* SW co-relation workaround not used */
-		.i_dd0 = 154,
-		.i_dd2p = 65,
-		.i_dd2n = 65,
-		.i_dd4r = 80983,
-		.i_dd4w = 84,
-		.i_dd5 = 195,
+		.i_dd0 = 9000,
+		.i_dd2p = 11250,
+		.i_dd2n = 7500,
+		.i_dd4r = 38000,
+		.i_dd4w = 10000,
+		.i_dd5 = 8000,
 		.i_dd6 = 65,
 	},
-#endif
 };
 
 /* subsys share mem reference table */

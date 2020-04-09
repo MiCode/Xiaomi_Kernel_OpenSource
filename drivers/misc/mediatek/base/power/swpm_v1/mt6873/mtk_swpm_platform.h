@@ -100,7 +100,7 @@ enum aphy_other_pwr_type {
 enum dram_pwr_type {
 	DRAM_VDD1_1P8V,
 	DRAM_VDD2_1P1V,
-	/* DRAM_VDDQ_0P6V, coverage by APHY_VDDQ_0P6V */
+	DRAM_VDDQ_0P6V,
 
 	NR_DRAM_PWR_TYPE
 };
@@ -280,9 +280,9 @@ struct dram_pwr_conf {
 };
 
 /* numbers of unsigned int for mem reserved memory */
-#define MEM_SWPM_RESERVED_SIZE (425)
+#define MEM_SWPM_RESERVED_SIZE (430)
 
-/* mem share memory data structure - 1682/1700 bytes */
+/* mem share memory data structure - 1710/1720 bytes */
 struct mem_swpm_rec_data {
 	/* 2(short) * 7(ddr_opp) = 14 bytes */
 	unsigned short ddr_opp_freq[NR_DDR_FREQ];
@@ -295,7 +295,7 @@ struct mem_swpm_rec_data {
 	struct aphy_others_pwr_data
 		aphy_others_pwr_tbl[NR_APHY_OTHERS_PWR_TYPE];
 
-	/* 4(int) * 2(pwr_type) * 7 = 56 bytes */
+	/* 4(int) * 3(pwr_type) * 7 = 84 bytes */
 	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
 };
 
