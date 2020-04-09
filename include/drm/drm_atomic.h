@@ -152,6 +152,14 @@ struct __drm_crtcs_state {
 struct __drm_connnectors_state {
 	struct drm_connector *ptr;
 	struct drm_connector_state *state, *old_state, *new_state;
+	/**
+	 * @out_fence_ptr:
+	 *
+	 * User-provided pointer which the kernel uses to return a sync_file
+	 * file descriptor. Used by writeback connectors to signal completion of
+	 * the writeback.
+	 */
+	s32 __user *out_fence_ptr;
 };
 
 struct drm_private_obj;
@@ -211,6 +219,7 @@ struct __drm_private_objs_state {
  * @dev: parent DRM device
  * @allow_modeset: allow full modeset
  * @legacy_cursor_update: hint to enforce legacy cursor IOCTL semantics
+ * @legacy_set_config: Disable conflicting encoders instead of failing with -EINVAL.
  * @async_update: hint for asynchronous plane update
  * @planes: pointer to array of structures with per-plane data
  * @crtcs: pointer to array of CRTC pointers
@@ -226,6 +235,7 @@ struct drm_atomic_state {
 	struct drm_device *dev;
 	bool allow_modeset : 1;
 	bool legacy_cursor_update : 1;
+	bool legacy_set_config : 1;
 	bool async_update : 1;
 	struct __drm_planes_state *planes;
 	struct __drm_crtcs_state *crtcs;
@@ -538,6 +548,9 @@ void drm_atomic_set_fence_for_plane(struct drm_plane_state *plane_state,
 int __must_check
 drm_atomic_set_crtc_for_connector(struct drm_connector_state *conn_state,
 				  struct drm_crtc *crtc);
+int drm_atomic_set_writeback_fb_for_connector(
+		struct drm_connector_state *conn_state,
+		struct drm_framebuffer *fb);
 int __must_check
 drm_atomic_add_affected_connectors(struct drm_atomic_state *state,
 				   struct drm_crtc *crtc);

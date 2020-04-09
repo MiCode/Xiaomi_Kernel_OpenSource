@@ -18,7 +18,7 @@ drm-y       :=	drm_auth.o drm_bufs.o drm_cache.o \
 		drm_encoder.o drm_mode_object.o drm_property.o \
 		drm_plane.o drm_color_mgmt.o drm_print.o \
 		drm_dumb_buffers.o drm_mode_config.o drm_vblank.o \
-		drm_syncobj.o
+		drm_syncobj.o drm_writeback.o
 
 drm-$(CONFIG_DRM_LIB_RANDOM) += lib/drm_random.o
 drm-$(CONFIG_DRM_VM) += drm_vm.o
@@ -101,3 +101,16 @@ obj-$(CONFIG_DRM_ZTE)	+= zte/
 obj-$(CONFIG_DRM_MXSFB)	+= mxsfb/
 obj-$(CONFIG_DRM_TINYDRM) += tinydrm/
 obj-$(CONFIG_DRM_PL111) += pl111/
+
+ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/			\
+             -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
+             -I$(srctree)/drivers/misc/mediatek/smi/			\
+             -I$(srctree)/drivers/misc/mediatek/mmp/			\
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs/			\
+             -I$(srctree)/drivers/iommu/				\
+             -I$(srctree)/drivers/devfreq/				\
+             -I$(srctree)/drivers/gpu/drm/				\
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/				\
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat \
+             -I$(srctree)/drivers/misc/mediatek/leds/ \
+             -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM)
