@@ -4761,3 +4761,7 @@
 		};
 	};
 };
+
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+#include "trusty.dtsi"
+#endif
