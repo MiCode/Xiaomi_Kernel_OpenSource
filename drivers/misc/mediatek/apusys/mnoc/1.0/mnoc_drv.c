@@ -48,6 +48,9 @@
 #include "mnoc_pmu.h"
 #include "mnoc_option.h"
 
+#ifdef MNOC_TAG_TP
+#include "mnoc_tag.h"
+#endif
 
 DEFINE_SPINLOCK(mnoc_spinlock);
 
@@ -257,6 +260,10 @@ static int mnoc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+#ifdef MNOC_TAG_TP
+	mnoc_init_drv_tags();
+#endif
+
 	LOG_DEBUG("-\n");
 
 	return ret;
@@ -312,6 +319,10 @@ static int mnoc_remove(struct platform_device *pdev)
 	iounmap(mnoc_apu_conn_base);
 	iounmap(mnoc_slp_prot_base1);
 	iounmap(mnoc_slp_prot_base2);
+
+#ifdef MNOC_TAG_TP
+	mnoc_exit_drv_tags();
+#endif
 
 	LOG_DEBUG("-\n");
 

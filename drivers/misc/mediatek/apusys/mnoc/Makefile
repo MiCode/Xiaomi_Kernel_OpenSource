@@ -21,6 +21,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/$(POWER_VER)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/$(POWER_VER)/$(PDIR)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(MIDWARE_VER)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug
 
 # MTK platform
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(PDIR)
@@ -34,4 +35,5 @@ obj-y += apusys_mnoc.o
 
 apusys_mnoc-y += $(MNOC_VER)/mnoc_drv.o $(MNOC_VER)/mnoc_dbg.o
 apusys_mnoc-y += $(MNOC_VER)/mnoc_qos.o $(MNOC_VER)/mnoc_pmu.o
+apusys_mnoc-y += $(MNOC_VER)/mnoc_tag.o
 apusys_mnoc-y += $(PDIR)/mnoc_hw.o

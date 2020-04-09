@@ -170,6 +170,7 @@ out:
 	return count;
 }
 
+#ifndef MNOC_MET_PMU_FTRACE
 static int mnoc_pmu_reg_show(struct seq_file *m, void *v)
 {
 	seq_puts(m, "Print pmu_reg list\n");
@@ -235,6 +236,7 @@ out:
 	free_page((unsigned long)buf);
 	return count;
 }
+#endif /* MNOC_MET_PMU_FTRACE */
 
 static int mnoc_pmu_timer_en_show(struct seq_file *m, void *v)
 {
@@ -248,6 +250,9 @@ static ssize_t mnoc_pmu_timer_en_write(struct file *file,
 {
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int val;
+#ifdef MNOC_MET_PMU_FTRACE
+	unsigned long flags;
+#endif
 
 	if (!buf)
 		return -ENOMEM;
@@ -261,10 +266,22 @@ static ssize_t mnoc_pmu_timer_en_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtoint(buf, 10, &val) == 0) {
-		if (val == 0)
+		if (val == 0) {
 			mnoc_cfg_timer_en = false;
-		else if (val == 1) {
+#ifdef MNOC_MET_PMU_FTRACE
+			spin_lock_irqsave(&mnoc_spinlock, flags);
+			if (mnoc_reg_valid)
+				mnoc_met_pmu_reg_uninit();
+			spin_unlock_irqrestore(&mnoc_spinlock, flags);
+#endif
+		} else if (val == 1) {
 			mnoc_cfg_timer_en = true;
+#ifdef MNOC_MET_PMU_FTRACE
+			spin_lock_irqsave(&mnoc_spinlock, flags);
+			if (mnoc_reg_valid)
+				mnoc_met_pmu_reg_init();
+			spin_unlock_irqrestore(&mnoc_spinlock, flags);
+#endif
 			mnoc_pmu_timer_start();
 		}
 	}
@@ -334,7 +351,7 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 {
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int cmd_id, sub_cmd_id;
-	unsigned int dev_type, devcore;
+	unsigned int dev_type, devcore, boost_val;
 
 	if (!buf)
 		return -ENOMEM;
@@ -347,10 +364,10 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
-		&dev_type, &devcore) == 4)
+	if (sscanf(buf, "%d %d %d %d %d", &cmd_id, &sub_cmd_id,
+		&dev_type, &devcore, &boost_val) == 5)
 		apu_cmd_qos_start((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore);
+			(uint64_t) sub_cmd_id, dev_type, devcore, boost_val);
 
 out:
 	free_page((unsigned long)buf);
@@ -532,7 +549,9 @@ static int mnoc_int_sta_dump_show(struct seq_file *m, void *v)
 
 DBG_FOPS_RW(mnoc_log_level);
 DBG_FOPS_RW(mnoc_reg_rw);
+#ifndef MNOC_MET_PMU_FTRACE
 DBG_FOPS_RW(mnoc_pmu_reg);
+#endif
 DBG_FOPS_RW(mnoc_pmu_timer_en);
 #if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
 DBG_FOPS_RW(mnoc_apu_qos_boost);
@@ -563,7 +582,9 @@ int create_debugfs(void)
 
 	CREATE_DBGFS(mnoc_log_level);
 	CREATE_DBGFS(mnoc_reg_rw);
+#ifndef MNOC_MET_PMU_FTRACE
 	CREATE_DBGFS(mnoc_pmu_reg);
+#endif
 	CREATE_DBGFS(mnoc_pmu_timer_en);
 #if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
 	CREATE_DBGFS(mnoc_apu_qos_boost);
