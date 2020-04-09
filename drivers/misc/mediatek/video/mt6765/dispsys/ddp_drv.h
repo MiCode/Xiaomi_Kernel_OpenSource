@@ -46,7 +46,6 @@ struct DISP_EXEC_COMMAND {
 
 /* PQ */
 #define COLOR_TUNING_INDEX 19
-#define THSHP_TUNING_INDEX 12
 #define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
 #define PARTIAL_Y_INDEX 10
 
