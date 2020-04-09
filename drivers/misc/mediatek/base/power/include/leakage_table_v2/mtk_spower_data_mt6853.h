@@ -1263,21 +1263,6 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.print_leakage = true,
 	},
 
-	[MTK_ADSP_LEAKAGE] = {
-		.vsize = VSIZE,
-		.tsize = TSIZE,
-		.table_size = MAX_TABLE_SIZE,
-		.table = {
-			(int *)&vpu_leakage_data[0],
-			(int *)&vpu_leakage_data[1],
-			(int *)&vpu_leakage_data[2]
-		},
-		.devinfo_domain = ADSP_DEVINFO_DOMAIN,
-		.leakage_id = MTK_ADSP_LEAKAGE,
-		.instance = DEFAULT_INSTANCE,
-		.print_leakage = true,
-	},
-
 	[MTK_VSRAM_VPU_MDLA_LEAKAGE] = {
 		.vsize = VSIZE,
 		.tsize = TSIZE,
