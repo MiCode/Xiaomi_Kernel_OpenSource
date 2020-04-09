@@ -23,6 +23,7 @@
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
+#include "cqhci-crypto-qti.h"
 #if defined(CONFIG_SDC_QTI)
 #include "../core/core.h"
 #endif
@@ -3102,6 +3103,14 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 	cq_host->offset_changed = msm_host->cqhci_offset_changed;
 
 	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
+
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+#ifdef CONFIG_MMC_CQHCI_CRYPTO_QTI
+	cqhci_crypto_qti_set_vops(cq_host);
+#endif
 
 	ret = cqhci_init(cq_host, host->mmc, dma64);
 	if (ret) {
