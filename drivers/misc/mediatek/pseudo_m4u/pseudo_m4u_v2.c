@@ -1695,13 +1695,18 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 					    err_size);
 		goto ERR_EXIT;
 	}
+	/* local table should copy to buffer->sg_table */
 	if (sg_table) {
 		orig_addr = sg_dma_address(sg_table->sgl);
-		if (orig_addr != dma_addr) {
-			for_each_sg(sg_table->sgl, s, sg_table->nents, i) {
-				sg_dma_address(s) = dma_addr + offset;
-				offset += s->length;
-			}
+		if (orig_addr == dma_addr)
+			M4U_ERR("Warning, iova_s=pa, %pa/0x%lx, 0x%p--0x%p\n",
+				&dma_addr,
+				(unsigned long)sg_phys(sg_table->sgl),
+				sg_table, table);
+
+		for_each_sg(sg_table->sgl, s, sg_table->nents, i) {
+			sg_dma_address(s) = dma_addr + offset;
+			offset += s->length;
 		}
 	}
 	*retmva = dma_addr;
