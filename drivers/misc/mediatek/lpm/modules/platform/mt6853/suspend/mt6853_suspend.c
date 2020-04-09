@@ -52,13 +52,7 @@ void mtk_suspend_gpio_dbg(void)
 }
 EXPORT_SYMBOL(mtk_suspend_gpio_dbg);
 
-void mtk_suspend_clk_dbg(void)
-{
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-	pll_if_on();
-	subsys_if_on();
-#endif /* CONFIG_FPGA_EARLY_PORTING */
-}
+void mtk_suspend_clk_dbg(void){}
 EXPORT_SYMBOL(mtk_suspend_clk_dbg);
 
 #define MD_SLEEP_INFO_SMEM_OFFEST (4)
@@ -83,15 +77,7 @@ static u64 get_md_sleep_time(void)
 
 static inline int mt6853_suspend_common_enter(unsigned int *susp_status)
 {
-	unsigned int status = PLAT_VCORE_LP_MODE
-				| PLAT_PMIC_VCORE_SRCLKEN0
-				| PLAT_SUSPEND;
-
-	/* maybe need to stop sspm/mcupm mcdi task here */
-	if (susp_status)
-		*susp_status = status;
-
-	return 0;
+	return -1;
 }
 
 

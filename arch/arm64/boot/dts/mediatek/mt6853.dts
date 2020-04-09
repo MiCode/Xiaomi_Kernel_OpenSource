@@ -135,6 +135,14 @@
 		};
 	};
 
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		suspend-method = "system";
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
