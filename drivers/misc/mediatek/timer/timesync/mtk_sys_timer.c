@@ -33,12 +33,24 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_sys_timer.h>
 #include <mtk_sys_timer_typedefs.h>
+#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) || \
+defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#include <mtk_sys_timer_mbox.h>
+#endif
+
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <mtk_sys_timer_mbox.h>
 #include <sspm_define.h>
-#include <v1/sspm_ipi.h>
-#include <v1/sspm_mbox.h>
+
+#ifndef SSPM_V2
+#include <sspm_ipi.h>
+#include <sspm_mbox.h>
+#else
+#include <sspm_ipi_id.h>
+#include <sspm_mbox_pin.h>
+#endif
+
 #endif
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
@@ -85,16 +97,34 @@ void sys_timer_timesync_print_base(void)
 	pr_info(" base_ver : %d\n", timesync_cxt.base_ver);
 }
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) || \
+defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 static int sys_timer_mbox_write(unsigned int id, unsigned int val)
 {
-	return sspm_mbox_write(SYS_TIMER_MBOX, id, (void *)&val, 1);
+	int res;
+#ifndef SSPM_V2
+	res = sspm_mbox_write(SYS_TIMER_MBOX, id, (void *)&val, 1);
+#else
+#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+	res = mcupm_mbox_write(SYS_TIMER_MCUPM_MBOX,
+			 SYS_TIMER_MCUPM_MBOX_OFFSET_BASE + id,
+			 (void *)&val, 1);
+#endif
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	res = mtk_mbox_write(&sspm_mboxdev, SYS_TIMER_MBOX,
+		       SYS_TIMER_MBOX_OFFSET_BASE + id,
+		       (void *)&val, 1);
+#endif
+#endif
+	return res;
 }
 
+#ifndef SSPM_V2
 static int sys_timer_mbox_read(unsigned int id, unsigned int *val)
 {
 	return sspm_mbox_read(SYS_TIMER_MBOX, id, val, 1);
 }
+#endif
 
 static u8 sys_timer_timesync_inc_ver(void)
 {
@@ -161,7 +191,9 @@ static void sys_timer_timesync_update_sspm(int suspended,
 void sys_timer_timesync_verify_sspm(void)
 {
 	struct plt_ipi_data_s ipi_data;
+#ifndef SSPM_V2
 	int ackdata = 0;
+#endif
 	u32 ts_h = 0, ts_l = 0;
 	u64 ts_sspm, ts_ap1, ts_ap2, temp_u64[2];
 
@@ -178,6 +210,7 @@ void sys_timer_timesync_verify_sspm(void)
 	/* send ipi to sspm to trigger test */
 	ipi_data.cmd = PLT_TIMESYNC_SRAM_TEST;
 
+#ifndef SSPM_V2
 	sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_WAIT,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, &ackdata, 1);
 
@@ -192,6 +225,7 @@ void sys_timer_timesync_verify_sspm(void)
 		pr_info("verify-sspm:polling sspm mbox ...\n");
 		cpu_relax();
 	}
+#endif
 
 	ts_ap2 = sched_clock();
 
