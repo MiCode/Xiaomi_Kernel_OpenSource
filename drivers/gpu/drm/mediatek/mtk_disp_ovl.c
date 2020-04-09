@@ -1514,12 +1514,10 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
 
-		/* ovl -> dsi : vdo mode : blanking ratio = vtotal / vact
-		 * TODO: Need to consider MIPI hopping
-		 * ovl -> dsi : cmd mode : blanking ratio = 125
-		 * ovl -> wdma : cmd & vdo mode : blanking ratio = 125
-		 */
 		output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
+
+		vrefresh = crtc->state->adjusted_mode.vrefresh;
+
 		if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
 				(output_comp->id == DDP_COMPONENT_DSI1))
 				&& !(mtk_dsi_is_cmd_mode(output_comp))) {
@@ -1531,23 +1529,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		} else
 			ratio_tmp = 125;
 
-		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
-			struct mtk_panel_params *params;
-
-			params = mtk_crtc->panel_ext->params;
-			if (params->dyn_fps.switch_en == 1 &&
-				params->dyn_fps.vact_timing_fps != 0)
-				vrefresh = params->dyn_fps.vact_timing_fps;
-			else
-				vrefresh = crtc->state->adjusted_mode.vrefresh;
-		} else
-			vrefresh = crtc->state->adjusted_mode.vrefresh;
-		DDPINFO("%s,vrefresh = %d", __func__, vrefresh);
+		DDPDBG("%s, vrefresh=%d, ratio_tmp=%d\n",
+			__func__, vrefresh, ratio_tmp);
+		DDPDBG("%s, vtotal=%d, vact=%d\n",
+			__func__, vtotal, vact);
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/* TODO: consider FBDC */
 		/* SRT BW (one layer) =
-		 * layer_w * layer_h * bpp * vrefresh * blanking_ratio
+		 * layer_w * layer_h * bpp * vrefresh * max fps blanking_ratio
 		 * Sum_SRT(all layer) *= 1.33
 		 */
 		temp_bw = (unsigned long long)pending->width * pending->height;
