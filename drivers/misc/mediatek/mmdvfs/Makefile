@@ -66,6 +66,9 @@ ccflags-y += -DPMQOS_USE_IOMMU_PORT
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DCHECK_OSTD_UPDATE
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
+BUILD_MMDVFS := true
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)

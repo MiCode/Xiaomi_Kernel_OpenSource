@@ -49,7 +49,11 @@ endif
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
 ccflags-y += -DSMI_5G
 ccflags-y += -DSMI_SSPM
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885" "mt6853"))
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
+
 obj-y += smi_drv.o
 endif

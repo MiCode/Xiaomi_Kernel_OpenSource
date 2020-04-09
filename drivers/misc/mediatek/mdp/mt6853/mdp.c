@@ -31,7 +31,7 @@
 #include "smi_public.h"
 #include "smi_port.h"
 
-#include <dt-bindings/memory/mt6873-larb-port.h>
+#include <dt-bindings/memory/mt6853-larb-port.h>
 
 /* mdp */
 struct mm_qos_request mdp_rdma0_request[MDP_TOTAL_THREAD];
