@@ -50,6 +50,9 @@
 #if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
 #include <mtk_pmic_api_buck.h>
 #endif
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+#include <pmic_api_buck.h>
+#endif
 #include <upmu_common.h>
 
 /* MMC */
@@ -92,6 +95,11 @@ EXPORT_SYMBOL(gWifiRsvMemPhyBase);
 unsigned long long gWifiRsvMemSize;
 EXPORT_SYMBOL(gWifiRsvMemSize);
 
+phys_addr_t gGpsRsvMemPhyBase;
+EXPORT_SYMBOL(gGpsRsvMemPhyBase);
+unsigned long long gGpsRsvMemSize;
+EXPORT_SYMBOL(gGpsRsvMemSize);
+
 /*Reserved memory by device tree!*/
 
 int reserve_memory_consys_fn(struct reserved_mem *rmem)
@@ -118,6 +126,18 @@ int reserve_memory_wifi_fn(struct reserved_mem *rmem)
 }
 RESERVEDMEM_OF_DECLARE(reserve_memory_wifi, "mediatek,wifi-reserve-memory",
 		       reserve_memory_wifi_fn);
+
+int reserve_memory_gps_fn(struct reserved_mem *rmem)
+{
+	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
+		__func__, rmem->name, (unsigned long long)rmem->base,
+		(unsigned long long)rmem->size);
+	gGpsRsvMemPhyBase = rmem->base;
+	gGpsRsvMemSize = rmem->size;
+	return 0;
+}
+RESERVEDMEM_OF_DECLARE(reserve_memory_gps, "mediatek,gps-reserve-memory",
+			reserve_memory_gps_fn);
 
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {
@@ -187,7 +207,9 @@ void connectivity_export_clk_buf_show_status_info(void)
 #if defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6785) || \
 	defined(CONFIG_MACH_MT6771) || \
-	defined(CONFIG_MACH_MT6739)
+	defined(CONFIG_MACH_MT6739) || \
+	defined(CONFIG_MACH_MT6785) || \
+	defined(CONFIG_MACH_MT6873)
 	clk_buf_show_status_info();
 #endif
 }
@@ -270,7 +292,8 @@ void connectivity_export_upmu_set_reg_value(unsigned int reg,
 }
 EXPORT_SYMBOL(connectivity_export_upmu_set_reg_value);
 
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) || \
+	defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 int connectivity_export_pmic_ldo_vcn13_lp(int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg)
 {

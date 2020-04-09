@@ -31,6 +31,11 @@
 #define CONNADP_LOG_WARN    1
 #define CONNADP_LOG_ERR     0
 
+#if defined(CONFIG_MACH_MT6873)
+#include <clk-mt6873-pg.h>
+#define DUMP_CLOCK_FAIL_CALLBACK 1
+#endif
+
 /*******************************************************************************
  * Connsys adaptation layer logging utility
  ******************************************************************************/
@@ -67,6 +72,18 @@ do { \
  * Bridging from platform -> wmt_drv.ko
  ******************************************************************************/
 static struct wmt_platform_bridge bridge;
+
+#ifdef DUMP_CLOCK_FAIL_CALLBACK
+static void wmt_clock_debug_dump(enum subsys_id sys)
+{
+	if (sys == SYS_CONN)
+		mtk_wcn_cmb_stub_clock_fail_dump();
+}
+
+static struct pg_callbacks wmt_clk_subsys_handle = {
+	.debug_dump = wmt_clock_debug_dump
+};
+#endif
 
 void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 {
