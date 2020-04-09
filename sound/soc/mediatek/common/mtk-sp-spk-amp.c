@@ -148,6 +148,120 @@ void mtk_ext_spk_enable(int enable)
 }
 EXPORT_SYMBOL(mtk_ext_spk_enable);
 
+int mtk_spk_update_info(struct snd_soc_card *card,
+			struct platform_device *pdev,
+			int *spk_out_dai_link_idx, int *spk_ref_dai_link_idx,
+			const struct snd_soc_ops *i2s_ops)
+{
+	int ret, i, mck_num;
+	struct snd_soc_dai_link *dai_link;
+	int i2s_out_dai_link_idx = -1;
+	int i2s_in_dai_link_idx = -1;
+
+	/* get spk i2s out number */
+	ret = of_property_read_u32(pdev->dev.of_node,
+				   "mtk_spk_i2s_out", &mtk_spk_i2s_out);
+	if (ret) {
+		mtk_spk_i2s_out = MTK_SPK_I2S_3;
+		dev_err(&pdev->dev,
+			"%s(), get mtk_spk_i2s_out fail, use defalut i2s3\n",
+			__func__);
+	}
+
+	/* get spk i2s in number */
+	ret = of_property_read_u32(pdev->dev.of_node,
+				   "mtk_spk_i2s_in", &mtk_spk_i2s_in);
+	if (ret) {
+		mtk_spk_i2s_in = MTK_SPK_I2S_0;
+		dev_err(&pdev->dev,
+			"%s(), get mtk_spk_i2s_in fail, use defalut i2s0\n",
+			 __func__);
+	}
+
+	if (mtk_spk_i2s_out > MTK_SPK_I2S_TYPE_NUM ||
+	    mtk_spk_i2s_in > MTK_SPK_I2S_TYPE_NUM) {
+		dev_err(&pdev->dev, "%s(), get mtk spk i2s fail\n",
+			__func__);
+		return -ENODEV;
+	}
+
+	/* get spk i2s mck number */
+	ret = of_property_read_u32(pdev->dev.of_node,
+				   "mtk_spk_i2s_mck", &mck_num);
+	if (ret) {
+		mck_num = MTK_SPK_I2S_TYPE_INVALID;
+		dev_warn(&pdev->dev, "%s(), mtk_spk_i2s_mck no use\n",
+			 __func__);
+	}
+
+	/* find dai link of i2s in and i2s out */
+	for (i = 0; i < card->num_links; i++) {
+		dai_link = &card->dai_link[i];
+
+		if (i2s_out_dai_link_idx < 0 &&
+		    strcmp(dai_link->cpu_dai_name, "I2S1") == 0 &&
+		    mtk_spk_i2s_out == MTK_SPK_I2S_1) {
+			i2s_out_dai_link_idx = i;
+		} else if (i2s_out_dai_link_idx < 0 &&
+			   strcmp(dai_link->cpu_dai_name, "I2S3") == 0 &&
+			   mtk_spk_i2s_out == MTK_SPK_I2S_3) {
+			i2s_out_dai_link_idx = i;
+		} else if (i2s_out_dai_link_idx < 0 &&
+			   strcmp(dai_link->cpu_dai_name, "I2S5") == 0 &&
+			   mtk_spk_i2s_out == MTK_SPK_I2S_5) {
+			i2s_out_dai_link_idx = i;
+		}
+
+		if (i2s_in_dai_link_idx < 0 &&
+		    strcmp(dai_link->cpu_dai_name, "I2S0") == 0 &&
+		    (mtk_spk_i2s_in == MTK_SPK_I2S_0 ||
+		     mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_0)) {
+			i2s_in_dai_link_idx = i;
+		} else if (i2s_in_dai_link_idx < 0 &&
+			   strcmp(dai_link->cpu_dai_name, "I2S2") == 0 &&
+			   (mtk_spk_i2s_in == MTK_SPK_I2S_2 ||
+			    mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_2)) {
+			i2s_in_dai_link_idx = i;
+		}
+
+		if (i2s_out_dai_link_idx >= 0 && i2s_in_dai_link_idx >= 0)
+			break;
+	}
+
+	if (i2s_out_dai_link_idx < 0 || i2s_in_dai_link_idx < 0) {
+		dev_err(&pdev->dev,
+			"%s(), i2s cpu dai name error, i2s_out_dai_link_idx = %d, i2s_in_dai_link_idx = %d",
+			__func__, i2s_out_dai_link_idx, i2s_in_dai_link_idx);
+		return -ENODEV;
+	}
+
+	*spk_out_dai_link_idx = i2s_out_dai_link_idx;
+	*spk_ref_dai_link_idx = i2s_in_dai_link_idx;
+
+	if (mtk_spk_type != MTK_SPK_NOT_SMARTPA) {
+		dai_link = &card->dai_link[i2s_out_dai_link_idx];
+		dai_link->codec_name = NULL;
+		dai_link->codec_dai_name = NULL;
+		if (mck_num == mtk_spk_i2s_out)
+			dai_link->ops = i2s_ops;
+
+		dai_link = &card->dai_link[i2s_in_dai_link_idx];
+		dai_link->codec_name = NULL;
+		dai_link->codec_dai_name = NULL;
+		if (mck_num == mtk_spk_i2s_in)
+			dai_link->ops = i2s_ops;
+	}
+
+	dev_info(&pdev->dev,
+		 "%s(), mtk_spk_type %d, spk_out_dai_link_idx %d, spk_out_dai_link_idx %d, mck: %d\n",
+		 __func__,
+		 mtk_spk_type, *spk_ref_dai_link_idx,
+		 *spk_out_dai_link_idx, mck_num);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_spk_update_info);
+
 int mtk_spk_update_dai_link(struct snd_soc_card *card,
 			    struct platform_device *pdev,
 			    const struct snd_soc_ops *i2s_ops)
