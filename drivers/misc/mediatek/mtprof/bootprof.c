@@ -189,6 +189,9 @@ static void bootup_finish(void)
 	mt_disable_uart();
 #endif
 	set_logtoomuch_enable(1);
+#ifdef BOOT_UP_DISABLE_MRDUMPKEY
+	mrdump_key_shutdown(NULL);
+#endif
 }
 
 static void mt_bootprof_switch(int on)
