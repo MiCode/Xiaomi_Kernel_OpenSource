@@ -1305,7 +1305,7 @@ static struct platform_driver gCmdqDriver = {
 	}
 };
 
-int __init cmdq_init(void)
+int __init _cmdq_init(void)
 {
 	int status;
 	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
