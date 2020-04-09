@@ -22,6 +22,7 @@ obj-$(CONFIG_MACH_MT6873) += drcc_v1/
 obj-$(CONFIG_MACH_MT6885) += drcc_v1/
 obj-$(CONFIG_MACH_MT6885) += koro/
 obj-$(CONFIG_MACH_MT6873) += koro/
+obj-$(CONFIG_MACH_MT6853) += koro/
 obj-$(CONFIG_MACH_MT6768) += spm/
 obj-$(CONFIG_MACH_MT6768) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6785) += spm/

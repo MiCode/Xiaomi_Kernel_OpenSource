@@ -49,9 +49,7 @@
 #include <mt-plat/upmu_common.h>
 #endif
 #include <dbgtop.h>
-#if 0
 #include <mtk_koro.h>
-#endif
 
 void __iomem *toprgu_base;
 int	wdt_irq_id;
