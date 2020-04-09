@@ -165,7 +165,7 @@ int __init mrdump_hw_init(void)
 #ifdef CONFIG_MTK_DBGTOP
 	mrdump_dbgtop_dram_reserved(true);
 #else
-#if CONFIG_MTK_WATCHDOG
+#ifdef CONFIG_MTK_WATCHDOG
 	mrdump_wd_dram_reserved_mode(true);
 #ifdef CONFIG_MTK_LASTPC_V2
 	mrdump_wd_mcu_cache_preserve(true);
