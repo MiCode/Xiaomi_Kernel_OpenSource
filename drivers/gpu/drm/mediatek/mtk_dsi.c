@@ -18,6 +18,8 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/clk.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/component.h>
 #include <linux/irq.h>
 #include <linux/of.h>
@@ -1232,6 +1234,11 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		if (status & TE_RDY_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
 
+			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+				unsigned long long ext_te_time = sched_clock();
+
+				lcm_fps_ctx_update(ext_te_time, 0, 0);
+			}
 			mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 			if (mtk_crtc && mtk_crtc->base.dev)

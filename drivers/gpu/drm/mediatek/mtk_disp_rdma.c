@@ -13,6 +13,8 @@
 
 #include <drm/drmP.h>
 #include <linux/clk.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/component.h>
 #include <linux/iommu.h>
 #include <linux/of_device.h>
@@ -293,6 +295,13 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	if (val & (1 << 2)) {
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
+		if (rdma->id == DDP_COMPONENT_RDMA0) {
+			unsigned long long rdma_end_time = sched_clock();
+
+			lcm_fps_ctx_update(rdma_end_time,
+					   priv->ddp_comp.mtk_crtc->base.index,
+					   1);
+		}
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
 

@@ -81,6 +81,8 @@ unsigned long long mutex_nested_time_end;
 long long mutex_nested_time_period;
 const char *mutex_nested_locker;
 
+struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
+
 static inline struct mtk_atomic_state *to_mtk_state(struct drm_atomic_state *s)
 {
 	return container_of(s, struct mtk_atomic_state, base);
@@ -1662,6 +1664,7 @@ static void mtk_drm_first_enable(struct drm_device *drm)
 	drm_for_each_crtc(crtc, drm) {
 		if (mtk_drm_is_enable_from_lk(crtc))
 			mtk_drm_crtc_first_enable(crtc);
+		lcm_fps_ctx_init(crtc);
 	}
 }
 
@@ -1767,6 +1770,193 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
+/* runtime calculate vsync fps*/
+int lcm_fps_ctx_init(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
+	unsigned int index;
+
+	if (!crtc || crtc->index >= MAX_CRTC) {
+		DDPPR_ERR("%s:invalid crtc:%d\n",
+			  __func__, crtc->base.id);
+		return -EINVAL;
+	}
+	index = crtc->index;
+
+	if (atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:CRTC:%d invalid output comp\n",
+			  __func__, index);
+		return -EINVAL;
+	}
+
+	memset(&lcm_fps_ctx[index], 0, sizeof(struct lcm_fps_ctx_t));
+	spin_lock_init(&lcm_fps_ctx[index].lock);
+	atomic_set(&lcm_fps_ctx[index].skip_update, 0);
+	if (!mtk_dsi_is_cmd_mode(output_comp))
+		lcm_fps_ctx[index].dsi_mode = 1;
+	else
+		lcm_fps_ctx[index].dsi_mode = 0;
+	atomic_set(&lcm_fps_ctx[index].is_inited, 1);
+
+	DDPINFO("%s CRTC:%d done\n", __func__, index);
+	return 0;
+}
+
+int lcm_fps_ctx_reset(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
+	unsigned long flags = 0;
+	unsigned int index;
+
+	if (!crtc || crtc->index >= MAX_CRTC)
+		return -EINVAL;
+	index = crtc->index;
+
+	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	if (atomic_read(&lcm_fps_ctx[index].skip_update))
+		return 0;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:CRTC:%d invalid output comp\n",
+			  __func__, index);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+	if (!mtk_dsi_is_cmd_mode(output_comp))
+		lcm_fps_ctx[index].dsi_mode = 1;
+	else
+		lcm_fps_ctx[index].dsi_mode = 0;
+	lcm_fps_ctx[index].head_idx = 0;
+	lcm_fps_ctx[index].num = 0;
+	lcm_fps_ctx[index].last_ns = 0;
+	memset(&lcm_fps_ctx[index].array, 0, sizeof(lcm_fps_ctx[index].array));
+	atomic_set(&lcm_fps_ctx[index].skip_update, 0);
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+
+	DDPINFO("%s CRTC:%d done\n", __func__, index);
+
+	return 0;
+}
+
+int lcm_fps_ctx_update(unsigned long long cur_ns,
+		unsigned int crtc_id, unsigned int mode)
+{
+	unsigned int idx, index = crtc_id;
+	unsigned long long delta;
+	unsigned long flags = 0;
+
+	if (index > MAX_CRTC)
+		return -EINVAL;
+
+	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	if (lcm_fps_ctx[index].dsi_mode != mode)
+		return 0;
+
+	if (atomic_read(&lcm_fps_ctx[index].skip_update))
+		return 0;
+
+	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+
+	delta = cur_ns - lcm_fps_ctx[index].last_ns;
+	if (delta == 0 || lcm_fps_ctx[index].last_ns == 0) {
+		lcm_fps_ctx[index].last_ns = cur_ns;
+		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+		return 0;
+	}
+
+	idx = (lcm_fps_ctx[index].head_idx +
+		lcm_fps_ctx[index].num) % LCM_FPS_ARRAY_SIZE;
+	lcm_fps_ctx[index].array[idx] = delta;
+
+	if (lcm_fps_ctx[index].num < LCM_FPS_ARRAY_SIZE)
+		lcm_fps_ctx[index].num++;
+	else
+		lcm_fps_ctx[index].head_idx = (lcm_fps_ctx[index].head_idx +
+			 1) % LCM_FPS_ARRAY_SIZE;
+
+	lcm_fps_ctx[index].last_ns = cur_ns;
+
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+
+	DDPINFO("%s CRTC:%d update %lld to index %d\n",
+		__func__, index, delta, idx);
+
+	return 0;
+}
+
+unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
+{
+	unsigned int i;
+	unsigned long long duration_avg = 0;
+	unsigned long long duration_min = (1ULL << 63) - 1ULL;
+	unsigned long long duration_max = 0;
+	unsigned long long duration_sum = 0;
+	unsigned long long fps = 100000000000;
+	unsigned long flags = 0;
+	unsigned int index = crtc_id;
+
+	if (crtc_id >= MAX_CRTC) {
+		DDPPR_ERR("%s:invalid crtc:%u\n",
+			  __func__, crtc_id);
+		return 0;
+	}
+
+	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+	if (atomic_read(&lcm_fps_ctx[index].skip_update) &&
+	    lcm_fps_ctx[index].fps) {
+		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+		return lcm_fps_ctx[index].fps;
+	}
+
+	if (lcm_fps_ctx[index].num <= 6) {
+		unsigned int ret = (lcm_fps_ctx[index].fps ?
+			lcm_fps_ctx[index].fps : 0);
+
+		DDPINFO("%s CRTC:%d num %d < 6, return fps:%u\n",
+			__func__, index, lcm_fps_ctx[index].num, ret);
+		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+		return ret;
+	}
+
+
+	for (i = 0; i < lcm_fps_ctx[index].num; i++) {
+		duration_sum += lcm_fps_ctx[index].array[i];
+		duration_min = min(duration_min, lcm_fps_ctx[index].array[i]);
+		duration_max = max(duration_max, lcm_fps_ctx[index].array[i]);
+	}
+	duration_sum -= duration_min + duration_max;
+	duration_avg = duration_sum / (lcm_fps_ctx[index].num - 2);
+	do_div(fps, duration_avg);
+	lcm_fps_ctx[index].fps = (unsigned int)fps;
+
+	DDPMSG("%s CRTC:%d max=%lld, min=%lld, sum=%lld, num=%d, fps=%u\n",
+		__func__, index, duration_max, duration_min,
+		duration_sum, lcm_fps_ctx[index].num, (unsigned int)fps);
+
+	if (lcm_fps_ctx[index].num >= LCM_FPS_ARRAY_SIZE) {
+		atomic_set(&lcm_fps_ctx[index].skip_update, 1);
+		DDPINFO("%s set skip_update\n", __func__);
+	}
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+
+	return (unsigned int)fps;
+}
+
 int mtk_drm_primary_get_info(struct drm_device *dev,
 			     struct drm_mtk_session_info *info)
 {
@@ -1783,8 +1973,11 @@ int mtk_drm_primary_get_info(struct drm_device *dev,
 	} else
 		DDPPR_ERR("Cannot get lcm_ext_params\n");
 
-	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
-	info->vsyncFPS = fps;
+	info->vsyncFPS = lcm_fps_ctx_get(0);
+	if (!info->vsyncFPS) {
+		_parse_tag_videolfb(&vramsize, &fb_base, &fps);
+		info->vsyncFPS = fps;
+	}
 
 	return ret;
 }

@@ -61,11 +61,13 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
+	lcm_fps_ctx_reset(crtc);
 }
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 {
 	mtk_drm_idlemgr_disable_crtc(crtc);
+	lcm_fps_ctx_reset(crtc);
 }
 
 static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
@@ -92,11 +94,13 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
+	lcm_fps_ctx_reset(crtc);
 }
 
 static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 {
 	mtk_drm_idlemgr_enable_crtc(crtc);
+	lcm_fps_ctx_reset(crtc);
 }
 
 static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
