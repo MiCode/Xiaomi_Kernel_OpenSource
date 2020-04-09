@@ -67,7 +67,7 @@ static void __iomem *gpio_base;
 #endif	/* CONFIG_OF */
 
 /* TODO: marked this after driver is ready */
-#define SRCLKEN_RC_BRINGUP			1
+#define SRCLKEN_RC_BRINGUP			0
 /* Pwrap Register */
 #define SRCLKEN_RCINF_STA_0			(0x1C4)
 #define SRCLKEN_RCINF_STA_1			(0x1C8)

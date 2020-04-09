@@ -131,7 +131,7 @@ static void __iomem *spm_base;
 #define XO_BUF7_BBLPM_EN_MASK	(0x1 << 7)
 
 /* TODO: marked this after driver is ready */
-#define CLKBUF_BRINGUP
+/* #define CLKBUF_BRINGUP */
 /* #define CLKBUF_CONN_SUPPORT_CTRL_FROM_I1 */
 
 #define BUF_MAN_M				0
