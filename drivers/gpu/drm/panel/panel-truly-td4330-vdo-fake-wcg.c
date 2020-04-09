@@ -84,7 +84,7 @@ static void lcm_dcs_write(struct lcm *ctx, const void *data, size_t len)
 	else
 		ret = mipi_dsi_generic_write(dsi, data, len);
 	if (ret < 0) {
-		pr_notice("error %zd writing seq: %ph\n", ret, data);
+		dev_err(ctx->dev, "error %zd writing seq: %ph\n", ret, data);
 		ctx->error = ret;
 	}
 }
@@ -100,7 +100,7 @@ static int lcm_dcs_read(struct lcm *ctx, u8 cmd, void *data, size_t len)
 
 	ret = mipi_dsi_dcs_read(dsi, cmd, data, len);
 	if (ret < 0) {
-		pr_notice("error %d reading dcs seq:(%#x)\n", ret, cmd);
+		dev_err(ctx->dev, "error %d reading dcs seq:(%#x)\n", ret, cmd);
 		ctx->error = ret;
 	}
 
@@ -137,14 +137,14 @@ static int lcm_panel_bias_regulator_init(void)
 	disp_bias_pos = regulator_get(NULL, "dsv_pos");
 	if (IS_ERR(disp_bias_pos)) { /* handle return value */
 		ret = PTR_ERR(disp_bias_pos);
-		pr_notice("get dsv_pos fail, error: %d\n", ret);
+		pr_err("get dsv_pos fail, error: %d\n", ret);
 		return ret;
 	}
 
 	disp_bias_neg = regulator_get(NULL, "dsv_neg");
 	if (IS_ERR(disp_bias_neg)) { /* handle return value */
 		ret = PTR_ERR(disp_bias_neg);
-		pr_notice("get dsv_neg fail, error: %d\n", ret);
+		pr_err("get dsv_neg fail, error: %d\n", ret);
 		return ret;
 	}
 
@@ -163,25 +163,23 @@ static int lcm_panel_bias_enable(void)
 	/* set voltage with min & max*/
 	ret = regulator_set_voltage(disp_bias_pos, 5400000, 5400000);
 	if (ret < 0)
-		pr_notice("set voltage disp_bias_pos fail, ret = %d\n", ret);
+		pr_err("set voltage disp_bias_pos fail, ret = %d\n", ret);
 	retval |= ret;
 
 	ret = regulator_set_voltage(disp_bias_neg, 5400000, 5400000);
 	if (ret < 0)
-		pr_notice("set voltage disp_bias_neg fail, ret = %d\n", ret);
+		pr_err("set voltage disp_bias_neg fail, ret = %d\n", ret);
 	retval |= ret;
 
 	/* enable regulator */
 	ret = regulator_enable(disp_bias_pos);
 	if (ret < 0)
-		pr_notice("enable regulator disp_bias_pos fail, ret = %d\n",
-			ret);
+		pr_err("enable regulator disp_bias_pos fail, ret = %d\n", ret);
 	retval |= ret;
 
 	ret = regulator_enable(disp_bias_neg);
 	if (ret < 0)
-		pr_notice("enable regulator disp_bias_neg fail, ret = %d\n",
-			ret);
+		pr_err("enable regulator disp_bias_neg fail, ret = %d\n", ret);
 	retval |= ret;
 
 	return retval;
@@ -196,14 +194,12 @@ static int lcm_panel_bias_disable(void)
 
 	ret = regulator_disable(disp_bias_neg);
 	if (ret < 0)
-		pr_notice("disable regulator disp_bias_neg fail, ret = %d\n"
-			ret);
+		pr_err("disable regulator disp_bias_neg fail, ret = %d\n", ret);
 	retval |= ret;
 
 	ret = regulator_disable(disp_bias_pos);
 	if (ret < 0)
-		pr_notice("disable regulator disp_bias_pos fail, ret = %d\n",
-			ret);
+		pr_err("disable regulator disp_bias_pos fail, ret = %d\n", ret);
 	retval |= ret;
 
 	return retval;
@@ -214,6 +210,11 @@ static void lcm_panel_init(struct lcm *ctx)
 {
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->reset_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get reset_gpio %ld\n",
+			__func__, PTR_ERR(ctx->reset_gpio));
+		return;
+	}
 	gpiod_set_value(ctx->reset_gpio, 0);
 	udelay(15 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
@@ -466,12 +467,22 @@ static int lcm_unprepare(struct drm_panel *panel)
 #else
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->reset_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get reset_gpio %ld\n",
+			__func__, PTR_ERR(ctx->reset_gpio));
+		return PTR_ERR(ctx->reset_gpio);
+	}
 	gpiod_set_value(ctx->reset_gpio, 0);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 
 	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
 		"bias", 1, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_neg)) {
+		dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
+			__func__, PTR_ERR(ctx->bias_neg));
+		return PTR_ERR(ctx->bias_neg);
+	}
 	gpiod_set_value(ctx->bias_neg, 0);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
@@ -479,6 +490,11 @@ static int lcm_unprepare(struct drm_panel *panel)
 
 	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
 		"bias", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_pos)) {
+		dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
+			__func__, PTR_ERR(ctx->bias_pos));
+		return PTR_ERR(ctx->bias_pos);
+	}
 	gpiod_set_value(ctx->bias_pos, 0);
 	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 #endif
@@ -500,6 +516,11 @@ static int lcm_prepare(struct drm_panel *panel)
 #else
 	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
 		"bias", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_pos)) {
+		dev_err(ctx->dev, "%s: cannot get bias_pos %ld\n",
+			__func__, PTR_ERR(ctx->bias_pos));
+		return PTR_ERR(ctx->bias_pos);
+	}
 	gpiod_set_value(ctx->bias_pos, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
@@ -507,6 +528,11 @@ static int lcm_prepare(struct drm_panel *panel)
 
 	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
 		"bias", 1, GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->bias_neg)) {
+		dev_err(ctx->dev, "%s: cannot get bias_neg %ld\n",
+			__func__, PTR_ERR(ctx->bias_neg));
+		return PTR_ERR(ctx->bias_neg);
+	}
 	gpiod_set_value(ctx->bias_neg, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 #endif
@@ -573,6 +599,11 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->reset_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get reset_gpio %ld\n",
+			__func__, PTR_ERR(ctx->reset_gpio));
+		return PTR_ERR(ctx->reset_gpio);
+	}
 	gpiod_set_value(ctx->reset_gpio, on);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
@@ -589,7 +620,7 @@ static int panel_ata_check(struct drm_panel *panel)
 
 	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
 	if (ret < 0) {
-		pr_notice("%s error\n", __func__);
+		pr_err("%s error\n", __func__);
 		return 0;
 	}
 
@@ -667,7 +698,7 @@ static int lcm_get_modes(struct drm_panel *panel)
 
 	mode = drm_mode_duplicate(panel->drm, &default_mode);
 	if (!mode) {
-		pr_notice("failed to add mode %ux%ux@%u\n",
+		dev_err(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
 			default_mode.hdisplay, default_mode.vdisplay,
 			default_mode.vrefresh);
 		return -ENOMEM;
@@ -722,24 +753,24 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 
 	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
-		pr_notice("cannot get reset-gpios %ld\n",
-			PTR_ERR(ctx->reset_gpio));
+		dev_err(dev, "%s: cannot get reset-gpios %ld\n",
+			__func__, PTR_ERR(ctx->reset_gpio));
 		return PTR_ERR(ctx->reset_gpio);
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
 
 	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->bias_pos)) {
-		dev_err(dev, "cannot get bias-gpios 0 %ld\n",
-			PTR_ERR(ctx->bias_pos));
+		dev_err(dev, "%s: cannot get bias-pos 0 %ld\n",
+			__func__, PTR_ERR(ctx->bias_pos));
 		return PTR_ERR(ctx->bias_pos);
 	}
 	devm_gpiod_put(dev, ctx->bias_pos);
 
 	ctx->bias_neg = devm_gpiod_get_index(dev, "bias", 1, GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->bias_neg)) {
-		dev_err(dev, "cannot get bias-gpios 1 %ld\n",
-			PTR_ERR(ctx->bias_neg));
+		dev_err(dev, "%s: cannot get bias-neg 1 %ld\n",
+			__func__, PTR_ERR(ctx->bias_neg));
 		return PTR_ERR(ctx->bias_neg);
 	}
 	devm_gpiod_put(dev, ctx->bias_neg);
