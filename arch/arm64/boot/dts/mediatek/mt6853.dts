@@ -5277,8 +5277,8 @@
 			flash@0 {
 				reg = <0>;
 				label = "mt6362_flash_ch1";
-				led-max-microamp = <200000>;
-				flash-max-microamp = <750000>;
+				led-max-microamp = <400000>;
+				flash-max-microamp = <1500000>;
 				flash-max-timeout-us = <1248000>;
 				type = <0>;
 				ct = <0>;
@@ -5292,8 +5292,8 @@
 			flash@1 {
 				reg = <1>;
 				label = "mt6362_flash_ch2";
-				led-max-microamp = <200000>;
-				flash-max-microamp = <750000>;
+				led-max-microamp = <400000>;
+				flash-max-microamp = <1500000>;
 				flash-max-timeout-us = <1248000>;
 				type = <0>;
 				ct = <1>;
