@@ -6,9 +6,6 @@
 #ifndef __ADSP_FEATURE_DEFINE_H__
 #define __ADSP_FEATURE_DEFINE_H__
 
-/* adsp bringup */
-#define BRINGUP_ADSP
-
 /* reset recovery feature kernel option*/
 #define CFG_RECOVERY_SUPPORT
 
