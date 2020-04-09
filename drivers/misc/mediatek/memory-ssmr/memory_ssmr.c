@@ -140,6 +140,8 @@ static void __init finalize_scenario_size(void)
 	for (; i < __MAX_NR_SCHEME; i++) {
 		u64 total_size = 0;
 		int j = 0;
+		if (__MAX_NR_SSMR_FEATURES <= 0)
+			break;
 		for (; j < __MAX_NR_SSMR_FEATURES; j++) {
 			if (_ssmr_feats[j].scheme_flag & _ssmrscheme[i].flags)
 				total_size += _ssmr_feats[j].req_size;
@@ -424,6 +426,9 @@ static bool has_dedicate_resvmem_region(void)
 {
 	bool ret = false;
 	int i = 0;
+
+	if (__MAX_NR_SSMR_FEATURES <= 0)
+		return ret;
 
 	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
 		if (_ssmr_feats[i].use_cache_memory) {
@@ -993,6 +998,8 @@ static void show_scheme_status(u64 size)
 	for (; i < __MAX_NR_SCHEME; i++) {
 		int j = 0;
 
+		if (__MAX_NR_SSMR_FEATURES <= 0)
+			break;
 		pr_info("**** %s  (size: %pa)****\n",  _ssmrscheme[i].name,
 						&_ssmrscheme[i].usable_size);
 		for (; j < __MAX_NR_SSMR_FEATURES; j++) {
