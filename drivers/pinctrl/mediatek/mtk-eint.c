@@ -450,8 +450,9 @@ int mtk_eint_set_debounce(struct mtk_eint *eint, unsigned long eint_num,
 	int virq, eint_offset;
 	unsigned int set_offset, bit, clr_bit, clr_offset, rst, i, unmask,
 		     dbnc;
-	static const unsigned int debounce_time[] = {500, 1000, 16000, 32000,
-						     64000, 128000, 256000};
+	static const unsigned int debounce_time[] = {
+		156, 313, 625, 1250, 20000, 40000,
+		80000, 160000, 320000, 640000 };
 	struct irq_data *d;
 
 	virq = irq_find_mapping(eint->domain, eint_num);
@@ -490,17 +491,15 @@ int mtk_eint_set_debounce(struct mtk_eint *eint, unsigned long eint_num,
 			MTK_EINT_DBNC_SET_EN) << eint_offset;
 		rst = MTK_EINT_DBNC_RST_BIT << eint_offset;
 		writel(rst | bit, eint->base + set_offset);
-	}
 
-	/*
-	 * Delay a while (more than 2T) to wait for hw debounce counter reset
-	 * work correctly.
-	 */
-	udelay(1);
-	if (unmask == 1)
-		mtk_eint_unmask(d);
-
-	if (eint_num >= eint->hw->db_cnt)
+		/*
+		 * Delay should be (8T @ 32k) + de-bounce count-down time
+		 * from dbc rst to work correctly.
+		 */
+		udelay(debounce_time[dbnc]+250);
+		if (unmask == 1)
+			mtk_eint_unmask(d);
+	} else
 		mtk_eint_set_sw_debounce(d, eint, debounce);
 
 	return 0;
