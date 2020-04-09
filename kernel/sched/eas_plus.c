@@ -366,7 +366,7 @@ migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
 }
 #endif
 
-inline unsigned long cluster_max_capacity(void)
+unsigned long cluster_max_capacity(void)
 {
 	struct hmp_domain *domain;
 	unsigned int max_capacity = 0;
@@ -1363,13 +1363,14 @@ static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
 
 	cpu = (*result & LB_CPU_MASK);
 
-	if (task_prefer_match(p, cpu))
-		return;
-
 	new_cpu = select_task_prefer_cpu(p, cpu);
 
-	if ((new_cpu >= 0)  && (new_cpu != cpu))
-		*result = new_cpu | LB_HINT;
+	if ((new_cpu >= 0)  && (new_cpu != cpu)) {
+		if (task_prefer_match(p, cpu))
+			*result = new_cpu | LB_THERMAL;
+		else
+			*result = new_cpu | LB_HINT;
+	}
 }
 
 #else
@@ -1414,30 +1415,6 @@ static int check_freq_turning(void)
 		return true;
 
 	return false;
-}
-
-static int collect_cluster_info(int cpu, int *total_nr_running, int *cpu_count)
-{
-	struct sched_domain *sd;
-	struct sched_group *sg;
-	int i;
-
-	/* Find SD for the start CPU */
-	sd = rcu_dereference(per_cpu(sd_ea, cpu));
-	if (!sd)
-		return 0;
-
-	*total_nr_running = 0;
-	/* Scan CPUs in all SDs */
-	sg = sd->groups;
-
-	*cpu_count = cpumask_weight(sched_group_span(sg));
-	for_each_cpu(i, sched_group_span(sg)) {
-		struct rq *rq = cpu_rq(i);
-		*total_nr_running += rq->nr_running;
-	}
-
-	return 1;
 }
 
 struct task_rotate_work {

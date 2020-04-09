@@ -3754,7 +3754,7 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 	return max(ue.ewma, ue.enqueued);
 }
 
-static inline unsigned long task_util_est(struct task_struct *p)
+unsigned long task_util_est(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
 	if (likely(!walt_disabled && sysctl_sched_use_walt_task_util))
@@ -6058,7 +6058,7 @@ static inline unsigned long cpu_util_freq(int cpu)
  * utilization of the specified task, whenever the task is currently
  * contributing to the CPU utilization.
  */
-static unsigned long cpu_util_without(int cpu, struct task_struct *p)
+unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	struct cfs_rq *cfs_rq;
 	unsigned int util;
@@ -6995,7 +6995,7 @@ void get_task_util(struct task_struct *p, unsigned long *util,
 	*util = task_util(p);
 }
 
-static unsigned long cpu_util_without(int cpu, struct task_struct *p);
+unsigned long cpu_util_without(int cpu, struct task_struct *p);
 
 unsigned long capacity_spare_without(int cpu, struct task_struct *p)
 {
