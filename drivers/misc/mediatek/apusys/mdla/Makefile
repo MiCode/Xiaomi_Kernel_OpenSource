@@ -16,30 +16,37 @@ PDIR = $(MTK_PLATFORM)
 VDIR = 2.0
 PMU_DIR = ../pmu
 PMU_VDIR = 1.0
-PMU_PDIR = mt6779
+PMU_PDIR = $(MTK_PLATFORM)
 MEM_DIR = ../mem
 MEM_VDIR = 1.0
 UTIL_DIR = ../util
-APUSYS_QOS_DIR = ../apusys_qos
-APUSYS_QOS_PDIR = mt6779
 POWER_DIR = ../power
 POWER_VDIR = 2.0
+MIDWARE_DIR = ../midware
+MIDWARE_VDIR = 1.0
 
 ccflags-y += -I$(obj)/$(VDIR)
 ccflags-y += -I$(obj)/$(PDIR)
 ccflags-y += -I$(obj)/$(UTIL_DIR)
+
+#APUSYS PMU
 ccflags-y += -I$(obj)/$(PMU_DIR)/$(PMU_PDIR)
 ccflags-y += -I$(obj)/$(PMU_DIR)/$(PMU_VDIR)
-ccflags-y += -I$(obj)/$(APUSYS_QOS_DIR)/$(APUSYS_QOS_PDIR)
 ccflags-y += -I$(obj)/$(MEM_DIR)/$(MEM_VDIR)
+
+#Power
 ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)
 ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)/$(MTK_PLATFORM)
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/arch/arm64/include/asm/
 
+#APUSYS
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
+ccflags-y += -I$(obj)/$(MIDWARE_DIR)/$(MIDWARE_VDIR)
 
-obj-m += mdla.o
+obj-y += mdla.o
 mdla-y += $(VDIR)/mdla_main.o $(VDIR)/mdla_debug.o $(VDIR)/mdla_util.o $(VDIR)/mdla_power_ctrl.o $(VDIR)/mdla_cmd_proc.o
 mdla-y += $(VDIR)/mdla_debug.o
 mdla-y += $(PDIR)/mdla_plat.o

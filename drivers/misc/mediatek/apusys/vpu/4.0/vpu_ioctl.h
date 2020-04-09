@@ -19,16 +19,14 @@
 #define VPU_MAX_NUM_CORES 3
 
 #define ALGO_NAMELEN 32
-
-// #define VPU_TRYLOCK_CORENUM 0x87
-
-// extern unsigned int efuse_data;
-// extern struct ion_client *my_ion_client; // moved to vpu_driver->ion_client;
+/* for vpu4.0, apusys needs to input
+ * device magic while load/unload fw
+ * here we use magic as ascii code of
+ * "MTKV"
+ */
+#define VPU_FW_MAGIC      0x4D544B56
 
 typedef uint8_t vpu_id_t;
-
-/* the last byte of string must be '/0' */
-//typedef char vpu_name_t[32];
 
 /**
  * Documentation index:
@@ -91,7 +89,7 @@ typedef uint8_t vpu_id_t;
  *     strncpy(algo_n->name, "algo_name", sizeof(algo_n->name));
  *     ioctl(fd, VPU_IOCTL_GET_ALGO_INFO, algo);
  *
- * - VPU_IOCTL_ENQUE_REQUEST: enque a request to user?s own queue.
+ * - VPU_IOCTL_ENQUE_REQUEST: enque a request to user's own queue.
  *
  *     struct vpu_request req;
  *     struct vpu_buffer *buf;
@@ -238,6 +236,11 @@ struct vpu_algo {
 
 	uint32_t len;     /* binary length */
 	uint64_t mva;     /* mapped mva address to the binary */
+
+	/* preload algo */
+	uint32_t entry_off;  /* algo entry offset */
+	uint32_t iram_len;   /* iram data length */
+	uint64_t iram_mva;   /* iram data iova */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -331,6 +334,8 @@ enum vpu_req_status {
 
 #define VPU_REQ_F_ALG_RELOAD 0x1LL  /* reload algo */
 #define VPU_REQ_F_ALG_CUSTOM 0x2LL  /* use the given algo at priv */
+#define VPU_REQ_F_ALG_PRELOAD 0x4LL  /* using preloaded algo */
+#define VPU_REQ_F_PREEMPT_TEST 0x8LL  /* preempt test mode */
 
 /* 3 prioritys of req */
 #define VPU_REQ_MAX_NUM_PRIORITY 21
@@ -349,9 +354,9 @@ struct vpu_request {
 	/* driver usage only, fd in user space / ion handle in kernel */
 	uint64_t buf_ion_infos[VPU_MAX_NUM_PORTS * 3];
 	struct vpu_power power_param;
-	uint64_t busy_time;
-	uint32_t bandwidth;
-	uint8_t priority;
+	uint64_t busy_time;      /* ns */
+	int prio;  /* exection priority assigned by driver */
+	uint32_t algo_ret;       /* algorithm return value */
 };
 
 struct vpu_status {
@@ -367,7 +372,7 @@ struct vpu_dev_debug_info {
 	pid_t open_tgid;
 };
 
-enum VPU_OPP_PRIORIYY {  // TODO: move to power headers
+enum VPU_OPP_PRIORIYY {
 	DEBUG = 0,
 	THERMAL = 1,
 	POWER_HAL = 2,
@@ -390,31 +395,25 @@ extern int mtee_sdsp_enable(u32 on);
 #endif
 
 /*---------------------------------------------------------------------------*/
-/*  IOCTL Command                                                            */
+/*  VPU Customer Cmd                                                         */
 /*---------------------------------------------------------------------------*/
-#define VPU_MAGICNO                 'v'
-#define VPU_IOCTL_SET_POWER         _IOW(VPU_MAGICNO,   0, int)
-#define VPU_IOCTL_ENQUE_REQUEST     _IOW(VPU_MAGICNO,   1, int)
-#define VPU_IOCTL_DEQUE_REQUEST     _IOWR(VPU_MAGICNO,  2, int)
-#define VPU_IOCTL_FLUSH_REQUEST     _IOW(VPU_MAGICNO,   3, int)
-#define VPU_IOCTL_GET_ALGO_INFO     _IOWR(VPU_MAGICNO,  4, int)
-#define VPU_IOCTL_LOCK              _IOW(VPU_MAGICNO,   5, int)
-#define VPU_IOCTL_UNLOCK            _IOW(VPU_MAGICNO,   6, int)
-#define VPU_IOCTL_LOAD_ALG_TO_POOL  _IOW(VPU_MAGICNO,   7, int)
-#define VPU_IOCTL_REG_WRITE         _IOW(VPU_MAGICNO,   8, int)
-#define VPU_IOCTL_REG_READ          _IOWR(VPU_MAGICNO,  9, int)
-#define VPU_IOCTL_GET_CORE_STATUS   _IOWR(VPU_MAGICNO,  10, int)
-#define VPU_IOCTL_OPEN_DEV_NOTICE   _IOWR(VPU_MAGICNO,  11, int)
-#define VPU_IOCTL_CLOSE_DEV_NOTICE  _IOWR(VPU_MAGICNO,  12, int)
-#define VPU_IOCTL_EARA_LOCK_POWER         _IOW(VPU_MAGICNO,   13, int)
-#define VPU_IOCTL_POWER_HAL_LOCK_POWER         _IOW(VPU_MAGICNO,   14, int)
-#define VPU_IOCTL_EARA_UNLOCK_POWER         _IOW(VPU_MAGICNO,   15, int)
-#define VPU_IOCTL_POWER_HAL_UNLOCK_POWER         _IOW(VPU_MAGICNO,   16, int)
+enum vpu_user_cmd {
+	VPU_UCMD_GET_ALGO = 0x8001,
+	VPU_UCMD_GET_OPPTABLE,
+	VPU_UCMD_MAX,
+};
 
-#define VPU_IOCTL_CREATE_ALGO       _IOWR(VPU_MAGICNO,  17, int)
-#define VPU_IOCTL_FREE_ALGO         _IOWR(VPU_MAGICNO,  18, int)
+/* Here using macro for feature possible
+ * increasing user cmds requsts
+ */
+#define VPU_UCMD_CHECK(va, flag) \
+	(*(uint32_t *)(va) == VPU_UCMD_##flag)
+#define VPU_UCMD_SET(va, flag) \
+	(*(uint32_t *)(va) = VPU_UCMD_##flag)
 
-#define VPU_IOCTL_SDSP_SEC_LOCK     _IOW(VPU_MAGICNO,   60, int)
-#define VPU_IOCTL_SDSP_SEC_UNLOCK   _IOW(VPU_MAGICNO,   61, int)
+struct vpu_uget_algo {
+	enum vpu_user_cmd cmd;
+	char name[ALGO_NAMELEN];
+};
 
 #endif
