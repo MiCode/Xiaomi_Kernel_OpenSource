@@ -2411,6 +2411,39 @@
 		mediatek,larb-id = <20>;
 	};
 
+	dvs@1b100000 {
+		compatible = "mediatek,dvs";
+		reg = <0 0x1b100000 0 0x1000>;
+		interrupts = <GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>;
+		EVENT_IPE_DVS_DONE = <CMDQ_EVENT_DVS_DONE_ASYNC_SHOT>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L19_IPE_DVS_RDMA>;
+#endif
+		clocks =
+				<&topckgen CLK_TOP_DPE_SEL>,
+				<&ipesys CLK_IPE_DPE>;
+		clock-names =
+				"DPE_TOP_MUX",
+				"DPE_CLK_IPE_DPE";
+	};
+
+	dvp@1b100800 {
+		compatible = "mediatek,dvp";
+		reg = <0 0x1b100000 0 0x1000>;
+		interrupts = <GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>;
+		EVENT_IPE_DVP_DONE = <CMDQ_EVENT_DVP_DONE_ASYNC_SHOT>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L19_IPE_DVS_RDMA>;
+#endif
+		clocks =
+				<&topckgen CLK_TOP_DPE_SEL>,
+				<&ipesys CLK_IPE_DPE>;
+		clock-names =
+				"DPE_TOP_MUX",
+				"DPE_CLK_IPE_DPE";
+	};
+
 	disp_ovl0@14005000 {
 		compatible = "mediatek,disp_ovl0";
 		reg = <0 0x14005000 0 0x1000>;
