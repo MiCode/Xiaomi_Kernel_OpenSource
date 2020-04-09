@@ -1300,7 +1300,9 @@
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 		clocks = <&clock_gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
-			<&clock_gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>;
+			<&clock_gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_CARD_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>;
 	};
 
 	clk_virt: interconnect {
