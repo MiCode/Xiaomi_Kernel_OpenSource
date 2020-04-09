@@ -1319,8 +1319,10 @@ static int context_build_overlap(struct smq_invoke_ctx *ctx)
 			if (ctx->overps[i]->end > max.end) {
 				max.end = ctx->overps[i]->end;
 			} else {
-				if (max.raix + 1 <= inbufs &&
-				ctx->overps[i]->raix + 1 > inbufs)
+				if ((max.raix < inbufs &&
+					ctx->overps[i]->raix + 1 > inbufs) ||
+					(ctx->overps[i]->raix < inbufs &&
+					max.raix + 1 > inbufs))
 					ctx->overps[i]->do_cmo = 1;
 				ctx->overps[i]->mend = 0;
 				ctx->overps[i]->mstart = 0;
@@ -1979,30 +1981,48 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
 						DMA_TO_DEVICE);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					rpra[i].buf.pv, ctx->overps[oix]->mend,
+					ctx->overps[oix]->mstart,
+					rpra[i].buf.len, map->size);
 				} else {
 					uintptr_t offset;
+					uint64_t flush_len;
 					struct vm_area_struct *vma;
 
 					down_read(&current->mm->mmap_sem);
 					VERIFY(err, NULL != (vma = find_vma(
-						current->mm,
-						ctx->overps[oix]->mstart)));
+						current->mm, rpra[i].buf.pv)));
 					if (err) {
 						up_read(&current->mm->mmap_sem);
 						goto bail;
 					}
-					offset = buf_page_start(
-						rpra[i].buf.pv) -
-						vma->vm_start;
+					if (ctx->overps[oix]->do_cmo) {
+						offset = rpra[i].buf.pv -
+								vma->vm_start;
+						flush_len = rpra[i].buf.len;
+					} else {
+						offset =
+						ctx->overps[oix]->mstart
+						- vma->vm_start;
+						flush_len =
+						ctx->overps[oix]->mend -
+						ctx->overps[oix]->mstart;
+					}
 					up_read(&current->mm->mmap_sem);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[oix]->mend -
-						ctx->overps[oix]->mstart);
+						flush_len);
 					dma_buf_end_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[oix]->mend -
-						ctx->overps[oix]->mstart);
+						flush_len);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x vm_start 0x%llx pv 0x%llx, offset 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					vma->vm_start, rpra[i].buf.pv, offset,
+					ctx->overps[oix]->mend,
+					ctx->overps[oix]->mstart,
+					rpra[i].buf.len, map->size);
 				}
 			}
 		}
@@ -2115,30 +2135,49 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 						DMA_TO_DEVICE);
 					dma_buf_end_cpu_access(map->buf,
 						DMA_FROM_DEVICE);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					rpra[over].buf.pv, ctx->overps[i]->mend,
+					ctx->overps[i]->mstart,
+					rpra[over].buf.len, map->size);
 				} else {
 					uintptr_t offset;
+					uint64_t inv_len;
 					struct vm_area_struct *vma;
 
 					down_read(&current->mm->mmap_sem);
 					VERIFY(err, NULL != (vma = find_vma(
 						current->mm,
-						ctx->overps[i]->mstart)));
+						rpra[over].buf.pv)));
 					if (err) {
 						up_read(&current->mm->mmap_sem);
 						goto bail;
 					}
-					offset = buf_page_start(
-						rpra[over].buf.pv) -
-						vma->vm_start;
+					if (ctx->overps[i]->do_cmo) {
+						offset = rpra[over].buf.pv -
+								vma->vm_start;
+						inv_len = rpra[over].buf.len;
+					} else {
+						offset =
+							ctx->overps[i]->mstart -
+							vma->vm_start;
+						inv_len =
+							ctx->overps[i]->mend -
+							ctx->overps[i]->mstart;
+					}
 					up_read(&current->mm->mmap_sem);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
-						ctx->overps[i]->mend -
-						ctx->overps[i]->mstart);
+						inv_len);
 					dma_buf_end_cpu_access_partial(map->buf,
 						DMA_FROM_DEVICE, offset,
-						ctx->overps[i]->mend -
-						ctx->overps[i]->mstart);
+						inv_len);
+					pr_debug("Debug: adsprpc: %s: %s: sc 0x%x vm_start 0x%llx pv 0x%llx, offset 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
+					current->comm, __func__, sc,
+					vma->vm_start, rpra[over].buf.pv,
+					offset, ctx->overps[i]->mend,
+					ctx->overps[i]->mstart,
+					rpra[over].buf.len, map->size);
 				}
 			}
 		}
@@ -3188,6 +3227,41 @@ bail:
 	return err;
 }
 
+static int fastrpc_unmap_on_dsp(struct fastrpc_file *fl,
+		uintptr_t raddr, uint64_t phys, size_t size, uint32_t flags)
+{
+	struct fastrpc_ioctl_invoke_async ioctl;
+	remote_arg_t ra[1] = {};
+	int err = 0;
+	struct {
+		int pid;
+		uintptr_t vaddrout;
+		size_t size;
+	} inargs;
+
+	inargs.pid = fl->tgid;
+	inargs.size = size;
+	inargs.vaddrout = raddr;
+	ra[0].buf.pv = (void *)&inargs;
+	ra[0].buf.len = sizeof(inargs);
+
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	if (fl->apps->compat)
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(5, 1, 0);
+	else
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err)
+		goto bail;
+bail:
+	return err;
+}
+
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 					uintptr_t va, uint64_t phys,
 					size_t size, uintptr_t *raddr)
@@ -3247,6 +3321,13 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 			pr_err("adsprpc: %s: %s: rh hyp assign failed with %d for phys 0x%llx, size %zd\n",
 					__func__, current->comm,
 					err, phys, size);
+			err = fastrpc_unmap_on_dsp(fl,
+				*raddr, phys, size, flags);
+			if (err) {
+				pr_err("adsprpc: %s: %s: failed to unmap %d for phys 0x%llx, size %zd\n",
+					__func__, current->comm,
+					err, phys, size);
+			}
 			goto bail;
 		}
 	}
@@ -3315,33 +3396,10 @@ bail:
 static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl, uintptr_t raddr,
 				uint64_t phys, size_t size, uint32_t flags)
 {
-	struct fastrpc_ioctl_invoke_async ioctl;
-	remote_arg_t ra[1];
 	int err = 0;
-	struct {
-		int pid;
-		uintptr_t vaddrout;
-		size_t size;
-	} inargs;
 
-	inargs.pid = fl->tgid;
-	inargs.size = size;
-	inargs.vaddrout = raddr;
-	ra[0].buf.pv = (void *)&inargs;
-	ra[0].buf.len = sizeof(inargs);
-
-	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-	if (fl->apps->compat)
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(5, 1, 0);
-	else
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
-	ioctl.inv.pra = ra;
-	ioctl.fds = NULL;
-	ioctl.attrs = NULL;
-	ioctl.crc = NULL;
-	ioctl.job = NULL;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	VERIFY(err, 0 == (err = fastrpc_unmap_on_dsp(fl, raddr, phys,
+						size, flags)));
 	if (err)
 		goto bail;
 	if (flags == ADSP_MMAP_HEAP_ADDR ||
