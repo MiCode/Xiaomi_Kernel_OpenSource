@@ -409,7 +409,7 @@ int mtk_iommu_set_sec_larb(int larb, int port,
 int mtk_iommu_dump_sec_larb(int larb, int port)
 {
 	unsigned int atf_cmd = 0;
-	int ret;
+	int ret = 0;
 
 	if (larb >= SMI_LARB_NR ||
 	    port >= ONE_SMI_PORT_NR) {
@@ -423,10 +423,11 @@ int mtk_iommu_dump_sec_larb(int larb, int port)
 				atf_cmd, MTK_M4U_ID(larb, port), 0, 0,
 				0, 0, 0);
 
+#ifdef IOMMU_DESIGN_OF_BANK
 	if (!ret)
 		pr_notice("%s, fail!! larb:%d, port:%d\n",
 			  __func__,  larb, port);
-
+#endif
 	return ret;
 }
 #endif

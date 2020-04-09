@@ -3631,6 +3631,9 @@
 				<&smi_larb16 &smi_larb17 &smi_larb18>,
 				<&smi_larb19 &smi_larb20>;
 		interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&mmsys_config CLK_MM_SMI_IOMMU>,
+			 <&scpsys SCP_SYS_DIS>;
+		clock-names = "disp-iommu-ck", "power";
 		#iommu-cells = <1>;
 	};
 
@@ -3667,6 +3670,9 @@
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x19010000 0 0x1000>;
 		interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&apu_conn CLK_APUC_IOMMU_0>,
+			 <&scpsys SCP_SYS_VPU>;
+		clock-names = "clock", "power";
 		#iommu-cells = <1>;
 	};
 
