@@ -414,6 +414,11 @@ static s32 cmdq_driver_copy_meta(void *src, void **dest, size_t copy_size,
 }
 #endif
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#include <linux/atomic.h>
+static atomic_t m4u_init = ATOMIC_INIT(0);
+#endif
+
 static long cmdq_driver_create_secure_medadata(
 	struct cmdqCommandStruct *pCommand)
 {
@@ -509,6 +514,10 @@ static long cmdq_driver_create_secure_medadata(
 			pCommand->secData.ispMeta.ispBufs[i].size = 0;
 		}
 	}
+
+	/* do m4u sec init */
+	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0)
+		m4u_sec_init();
 #endif
 	return 0;
 }

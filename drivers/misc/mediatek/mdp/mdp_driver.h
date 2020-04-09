@@ -107,4 +107,6 @@ struct cmdqWriteAddressStruct {
 /*  */
 #define CMDQ_IOCTL_NOTIFY_ENGINE _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 12, uint64_t)
 
+int m4u_sec_init(void);
+
 #endif				/* __MDP_DRIVER_H__ */
