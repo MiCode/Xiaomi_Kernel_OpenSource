@@ -4784,7 +4784,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	} break;
 	case ISP_GET_CUR_ISP_CLOCK: {
 		struct ISP_GET_CLK_INFO getclk;
-		unsigned int clk[2];
+		unsigned int clk[2] = {0};
 
 		ISP_SetPMQOS(E_CLK_CUR, ISP_IRQ_TYPE_INT_CAM_A_ST, clk);
 		getclk.curClk = clk[0];
@@ -8346,7 +8346,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_yuvco_]].Raw = 0x0;
 	}
 
-	if (dma2_en & _CRZO_R2_EN_) {
+	if (dma_en & _CRZO_R2_EN_) {
 		fbc_ctrl1[dma_arry_map[_crzo_r2_]].Raw =
 			ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL1(module));
 
@@ -8357,7 +8357,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_crzo_r2_]].Raw = 0x0;
 	}
 
-	if (dma2_en & _RSSO_R2_EN_) {
+	if (dma_en & _RSSO_R2_EN_) {
 		fbc_ctrl1[dma_arry_map[_rsso_r2_]].Raw =
 			ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL1(module));
 
@@ -8368,7 +8368,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_rsso_r2_]].Raw = 0x0;
 	}
 
-	if (dma2_en & _YUVO_R1_EN_) {
+	if (dma_en & _YUVO_R1_EN_) {
 		fbc_ctrl1[dma_arry_map[_yuvo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_YUVO_CTL1(module));
 

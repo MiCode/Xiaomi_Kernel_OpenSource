@@ -4792,7 +4792,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	} break;
 	case ISP_GET_CUR_ISP_CLOCK: {
 		struct ISP_GET_CLK_INFO getclk;
-		unsigned int clk[2];
+		unsigned int clk[2] = {0};
 
 		ISP_SetPMQOS(E_CLK_CUR, ISP_IRQ_TYPE_INT_CAM_A_ST, clk);
 		getclk.curClk = clk[0];
