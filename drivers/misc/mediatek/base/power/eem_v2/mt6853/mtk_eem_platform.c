@@ -45,10 +45,6 @@ unsigned int detid_to_dvfsid(struct eemsn_det *det)
 		cpudvfsindex = MT_CPU_DVFS_LL;
 	else if (detid == EEMSN_DET_B)
 		cpudvfsindex = MT_CPU_DVFS_L;
-#if ENABLE_LOO_B
-	else if (detid == EEMSN_DET_B_HI)
-		cpudvfsindex = MT_CPU_DVFS_L;
-#endif
 	else
 		cpudvfsindex = MT_CPU_DVFS_CCI;
 

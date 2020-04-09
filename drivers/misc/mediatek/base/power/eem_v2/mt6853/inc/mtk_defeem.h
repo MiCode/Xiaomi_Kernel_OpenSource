@@ -15,7 +15,7 @@
 #define _MTK_DEFEEM_
 
 #include <linux/kernel.h>
-#define USE_EEMSN_PHYSICAL_ADDR	(0) /* set 0 for debug log */
+#define USE_EEMSN_PHYSICAL_ADDR	(1) /* set 0 for debug log */
 
 extern void __iomem *eem_base;
 #define EEM_BASEADDR eem_base

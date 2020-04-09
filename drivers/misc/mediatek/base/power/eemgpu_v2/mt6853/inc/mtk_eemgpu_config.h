@@ -14,11 +14,11 @@
 #define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-#define EEMG_NOT_READY		(1)
+/* #define EEMG_NOT_READY		(1) */
 #define CONFIG_EEMG_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEMG_BANK_SOC		(0) /* use voltage bin, so disable it */
-#define EARLY_PORTING		(0)
+#define EARLY_PORTING		(1)
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
 #define EEMG_FAKE_EFUSE		(0)
@@ -41,10 +41,10 @@
 
 
 #define EEMG_OFFSET
-#define SET_PMIC_VOLT		(1)
-#define SET_PMIC_VOLT_TO_DVFS	(1)
+#define SET_PMIC_VOLT		(0)
+#define SET_PMIC_VOLT_TO_DVFS	(0)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
-#define DVT			(0)
+#define DVT			(1)
 #define SUPPORT_DCONFIG		(1)
 #define ENABLE_HT_FT		(1)
 //#define EARLY_PORTING_VPU

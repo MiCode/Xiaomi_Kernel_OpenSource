@@ -238,18 +238,26 @@ struct eemsn_devinfo {
 	/* M_HW_RES22 */
 	unsigned int LCPU_A_T0_LVT:8;
 	unsigned int LCPU_A_T0_ULVT:8;
-	unsigned int DELTA_VC_BCPU:4;
-	unsigned int DELTA_VC_LCPU:4;
-	unsigned int DELTA_VC_RT_BCPU:4;
-	unsigned int DELTA_VC_RT_LCPU:4;
+	unsigned int RES22_RSV:16;
 
 	/* M_HW_RES23 */
-	unsigned int DELTA_VDPPM_BCPU:5;
-	unsigned int DELTA_VDPPM_LCPU:5;
-	unsigned int ATE_TEMP:3;
-	unsigned int SN_PATTERN:3;
-	unsigned int A_T0_SVT_BCPU_0P95V:8;
-	unsigned int A_T0_SVT_LCPU_0P95V:8;
+	unsigned int FINAL_VMIN_BCPU:8;
+	unsigned int FINAL_VMIN_LCPU:8;
+	unsigned int ATE_TEMP:8;
+	unsigned int SN_PATTERN:4;
+	unsigned int SN_VERSION:4;
+
+	//unsigned int DELTA_VDPPM_BCPU:5;
+	//unsigned int DELTA_VDPPM_LCPU:5;
+	//unsigned int A_T0_SVT_BCPU_0P95V:8;
+	//unsigned int A_T0_SVT_LCPU_0P95V:8;
+
+
+	//unsigned int DELTA_VC_BCPU:4;
+	//unsigned int DELTA_VC_LCPU:4;
+	//unsigned int DELTA_VC_RT_BCPU:4;
+	//unsigned int DELTA_VC_RT_LCPU:4;
+
 
 	/* M_HW_RES24 */
 	unsigned int T_SVT_HV_BCPU:8;
@@ -262,6 +270,13 @@ struct eemsn_devinfo {
 	unsigned int T_SVT_LV_BCPU_RT:8;
 	unsigned int T_SVT_HV_LCPU_RT:8;
 	unsigned int T_SVT_LV_LCPU_RT:8;
+
+	/* M_HW_RES26 */
+	unsigned int FPC_RECORVERY_BCPU:8;
+	unsigned int CPE_VMIN_BCPU:8;
+	unsigned int FPC_RECORVERY_LCPU:8;
+	unsigned int CPE_VMIN_LCPU:8;
+
 };
 
 
@@ -437,27 +452,23 @@ struct sn_ring_buf {
  * a mem block for vcore dvfs to store voltages
  */
 struct eemsn_log {
-#if 0
-	unsigned int efuse_workaround;
-	unsigned int hw_res[NR_HW_RES];
-	unsigned short sn_sndata_reg_dump_off[SIZE_SN_DUMP_SENSOR];
-	unsigned int sn_lcpu_coef[SIZE_SN_COEF];
-	unsigned int sn_bcpu_coef[SIZE_SN_COEF];
-	struct sn_param sn_lcpu_param;
-	struct sn_param sn_bcpu_param;
-#endif
 	struct eemsn_log_det det_log[NR_EEMSN_DET_LOG_ID];
 	struct sn_log_data sn_log;
 	struct sn_log_cal_data sn_cal_data[NR_SN_DET];
 	struct sn_param sn_cpu_param[NR_SN_DET];
 	struct eemsn_devinfo efuse_devinfo;
 	unsigned int efuse_sv;
+	unsigned int picachu_sn_mem_base_phys;
 	unsigned char init2_v_ready;
+	unsigned char init_vboot_done;
 	unsigned char eemsn_enable;
 	unsigned char sn_enable;
 	unsigned char ctrl_aging_Enable;
 	unsigned char segCode;
 	unsigned char lock;
+#if ENABLE_COUNT_SNTEMP
+	unsigned int sn_temp_cnt[NR_SN_DET][5];
+#endif
 };
 
 
