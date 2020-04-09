@@ -15,7 +15,9 @@
 
 
 /* CONFIG (SW related) */
-/* #define EEM_NOT_READY		(1) */
+#ifdef CONFIG_MT6360_PMIC
+#define EEM_NOT_READY		(1)
+#endif
 #define CONFIG_EEM_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define FULL_REG_DUMP_SNDATA	(0)
