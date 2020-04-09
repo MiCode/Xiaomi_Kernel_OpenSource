@@ -65,6 +65,11 @@ static const struct of_device_id rgu_of_match[] = {
 	{},
 };
 
+__weak int mtk_dbgtop_dfd_timeout_reset(void)
+{
+	return 0;
+};
+
 __weak int mtk_dbgtop_dram_reserved(int enable)
 {
 	return 0;
@@ -675,6 +680,7 @@ void wdt_arch_reset(char mode)
 	 *   4: mrdump key
 	 */
 	if (!(mode & WD_SW_RESET_KEEP_DDR_RESERVE)) {
+		mtk_dbgtop_dfd_timeout_reset();
 		mtk_rgu_dram_reserved(0);
 		mtk_dbgtop_dram_reserved(0);
 	} else {

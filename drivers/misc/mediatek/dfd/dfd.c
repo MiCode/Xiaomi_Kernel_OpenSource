@@ -24,7 +24,7 @@
 #include "dfd.h"
 
 #ifdef CONFIG_MTK_DBGTOP
-extern int mtk_dbgtop_dfd_timeout(int value);
+extern int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal);
 #endif
 
 static struct dfd_drv *drv;
@@ -47,7 +47,7 @@ int dfd_setup(int version)
 			return ret;
 
 #ifdef CONFIG_MTK_DBGTOP
-		mtk_dbgtop_dfd_timeout(drv->rg_dfd_timeout);
+		mtk_dbgtop_dfd_timeout(drv->rg_dfd_timeout, 0);
 #else
 		wd_api->wd_dfd_count_en(1);
 		wd_api->wd_dfd_thermal1_dis(1);
