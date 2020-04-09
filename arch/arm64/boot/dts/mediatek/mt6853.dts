@@ -4191,9 +4191,10 @@
 		reg = <0 0x17010000 0 0x1000>;
 		mediatek,larb-id = <7>;
 		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&venc_gcon CLK_VENC_SET1_VENC>,
-					<&venc_gcon CLK_VENC_SET2_JPGENC>;
-		clock-names = "venc-set1", "venc-set2";
+		clocks = <&scpsys SCP_SYS_VENC>,
+			<&venc_gcon CLK_VENC_SET1_VENC>,
+			<&venc_gcon CLK_VENC_SET2_JPGENC>;
+		clock-names = "scp-venc", "venc-set1", "venc-set2";
 		mediatek,smi-id = <7>;
 	};
 
@@ -4201,8 +4202,8 @@
 		compatible = "mediatek,smi_larb8", "mediatek,smi_larb";
 		reg = <0 0x17011000 0 0x1000>;
 		mediatek,larb-id = <8>;
-		clocks = <&venc_gcon CLK_VENC_SET1_VENC>;
-		clock-names = "venc-set1";
+		clocks = <&scpsys SCP_SYS_VENC>;
+		clock-names = "scp-venc";
 		mediatek,smi-id = <8>;
 	};
 
