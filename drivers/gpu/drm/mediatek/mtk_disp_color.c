@@ -2673,7 +2673,8 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 			__func__, __LINE__);
 		rParams->val = readl(va) & rParams->mask;
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 	// For 6885 CCORR COEF, real values need to right shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
@@ -2713,7 +2714,8 @@ int mtk_drm_ioctl_write_reg(struct drm_device *dev, void *data,
 		return -EFAULT;
 	}
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 	// For 6885 CCORR COEF, real values need to left shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
@@ -2930,7 +2932,7 @@ static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 			DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, COLOR_BYPASS_SHADOW,
 		DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);

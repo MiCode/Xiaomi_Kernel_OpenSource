@@ -1106,6 +1106,69 @@ static const struct mtk_addon_scenario_data mt6873_addon_ext[ADDON_SCN_NR] = {
 		.hrt_type = HRT_TB_TYPE_GENERAL0,
 	},
 };
+static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main[] = {
+	DDP_COMPONENT_OVL0_2L,
+	DDP_COMPONENT_OVL0, DDP_COMPONENT_RDMA0,
+#ifndef DRM_BYPASS_PQ
+	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
+	DDP_COMPONENT_CCORR1,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+#endif
+	DDP_COMPONENT_DSI0,
+	DDP_COMPONENT_PWM0,
+};
+
+static const enum mtk_ddp_comp_id mt6853_mtk_ddp_third[] = {
+	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_WDMA0,
+};
+
+static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_minor[] = {
+	DDP_COMPONENT_OVL0_2L,       DDP_COMPONENT_OVL0,
+	DDP_COMPONENT_WDMA0,
+};
+
+static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_minor_sub[] = {
+	DDP_COMPONENT_RDMA0,
+	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
+	DDP_COMPONENT_CCORR1,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
+};
+
+static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_wb_path[] = {
+	DDP_COMPONENT_OVL0, DDP_COMPONENT_WDMA0,
+};
+
+static const struct mtk_addon_scenario_data mt6853_addon_main[ADDON_SCN_NR] = {
+		[NONE] = {
+				.module_num = 0,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[ONE_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data),
+				.module_data = addon_rsz_data,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
+		[TWO_SCALING] = {
+				.module_num = ARRAY_SIZE(addon_rsz_data),
+				.module_data = addon_rsz_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+};
+
+static const struct mtk_addon_scenario_data mt6853_addon_ext[ADDON_SCN_NR] = {
+	[NONE] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[TRIPLE_DISP] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+};
+
 
 static const struct mtk_crtc_path_data mt6779_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6779_mtk_ddp_main,
@@ -1227,6 +1290,28 @@ static const struct mtk_crtc_path_data mt6873_mtk_third_path_data = {
 	.addon_data = mt6873_addon_ext,
 };
 
+static const struct mtk_crtc_path_data mt6853_mtk_main_path_data = {
+	.path[DDP_MAJOR][0] = mt6853_mtk_ddp_main,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6853_mtk_ddp_main),
+	.path_req_hrt[DDP_MAJOR][0] = true,
+	.wb_path[DDP_MAJOR] = mt6853_mtk_ddp_main_wb_path,
+	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6853_mtk_ddp_main_wb_path),
+	.path[DDP_MINOR][0] = mt6853_mtk_ddp_main_minor,
+	.path_len[DDP_MINOR][0] = ARRAY_SIZE(mt6853_mtk_ddp_main_minor),
+	.path_req_hrt[DDP_MINOR][0] = false,
+	.path[DDP_MINOR][1] = mt6853_mtk_ddp_main_minor_sub,
+	.path_len[DDP_MINOR][1] = ARRAY_SIZE(mt6853_mtk_ddp_main_minor_sub),
+	.path_req_hrt[DDP_MINOR][1] = true,
+	.addon_data = mt6853_addon_main,
+};
+
+static const struct mtk_crtc_path_data mt6853_mtk_third_path_data = {
+	.path[DDP_MAJOR][0] = mt6853_mtk_ddp_third,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6853_mtk_ddp_third),
+	.addon_data = mt6853_addon_ext,
+};
+
+
 const struct mtk_session_mode_tb mt6779_mode_tb[MTK_DRM_SESSION_NUM] = {
 		[MTK_DRM_SESSION_DL] = {
 
@@ -1305,6 +1390,29 @@ const struct mtk_session_mode_tb mt6873_mode_tb[MTK_DRM_SESSION_NUM] = {
 				.ddp_mode = {DDP_MAJOR, DDP_MINOR, DDP_MAJOR},
 			},
 };
+const struct mtk_session_mode_tb mt6853_mode_tb[MTK_DRM_SESSION_NUM] = {
+		[MTK_DRM_SESSION_DL] = {
+
+				.en = 1,
+				.ddp_mode = {DDP_MAJOR, DDP_NO_USE, DDP_MAJOR},
+			},
+		[MTK_DRM_SESSION_DOUBLE_DL] = {
+
+				.en = 0,
+				.ddp_mode = {DDP_MAJOR, DDP_MAJOR, DDP_MAJOR},
+			},
+		[MTK_DRM_SESSION_DC_MIRROR] = {
+
+				.en = 1,
+				.ddp_mode = {DDP_MINOR, DDP_MAJOR, DDP_NO_USE},
+			},
+		[MTK_DRM_SESSION_TRIPLE_DL] = {
+
+				.en = 0,
+				.ddp_mode = {DDP_MAJOR, DDP_MINOR, DDP_MAJOR},
+			},
+};
+
 static const struct mtk_fake_eng_reg mt6885_fake_eng_reg[] = {
 		{.CG_idx = 0, .CG_bit = 14, .share_port = true},
 		{.CG_idx = 0, .CG_bit = 15, .share_port = true},
@@ -1324,6 +1432,16 @@ static const struct mtk_fake_eng_data mt6873_fake_eng_data = {
 	.fake_eng_num =  ARRAY_SIZE(mt6873_fake_eng_reg),
 	.fake_eng_reg = mt6873_fake_eng_reg,
 };
+static const struct mtk_fake_eng_reg mt6853_fake_eng_reg[] = {
+		{.CG_idx = 0, .CG_bit = 20, .share_port = true},
+		{.CG_idx = 0, .CG_bit = 21, .share_port = true},
+};
+
+static const struct mtk_fake_eng_data mt6853_fake_eng_data = {
+	.fake_eng_num =  ARRAY_SIZE(mt6853_fake_eng_reg),
+	.fake_eng_reg = mt6853_fake_eng_reg,
+};
+
 
 static const struct mtk_mmsys_driver_data mt2701_mmsys_driver_data = {
 	.main_path_data = &mt2701_mtk_main_path_data,
@@ -1373,6 +1491,17 @@ static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {
 	.mode_tb = mt6873_mode_tb,
 	.sodi_config = mt6873_mtk_sodi_config,
 };
+
+static const struct mtk_mmsys_driver_data mt6853_mmsys_driver_data = {
+	.main_path_data = &mt6853_mtk_main_path_data,
+	.ext_path_data = NULL,
+	.third_path_data = &mt6853_mtk_third_path_data,
+	.fake_eng_data = &mt6853_fake_eng_data,
+	.mmsys_id = MMSYS_MT6853,
+	.mode_tb = mt6853_mode_tb,
+	.sodi_config = mt6853_mtk_sodi_config,
+};
+
 
 #ifdef MTK_DRM_FENCE_SUPPORT
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
@@ -2086,6 +2215,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	ret = mtk_drm_crtc_create(drm, private->data->main_path_data);
 	if (ret < 0)
 		goto err_component_unbind;
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* ... and OVL1 -> COLOR1 -> GAMMA -> RDMA1 -> DPI0. */
 	ret = mtk_drm_crtc_create(drm, private->data->ext_path_data);
 	if (ret < 0)
@@ -2094,7 +2224,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
 	if (ret < 0)
 		goto err_component_unbind;
-
+#endif
 	/* Use OVL device for all DMA memory allocations */
 	np = private->comp_node[private->data->main_path_data
 					->path[DDP_MAJOR][0][0]];
@@ -2153,9 +2283,9 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	mtk_drm_debugfs_init(drm, private);
 #endif
 	disp_dbg_init(drm);
-
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_drm_mmdvfs_init();
-
+#endif
 	DDPINFO("%s-\n", __func__);
 
 	ret = mtk_fbdev_init(drm);
@@ -2337,7 +2467,9 @@ static int mtk_drm_bind(struct device *dev)
 	crtc = list_first_entry(&(drm)->mode_config.crtc_list, typeof(*crtc),
 				head);
 	mtk_drm_assert_layer_init(crtc);
-
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	pan_display_test(1, 32);
+#endif
 	DDPINFO("%s-\n", __func__);
 
 	return 0;
@@ -2369,6 +2501,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_OVL},
 	{.compatible = "mediatek,mt6873-disp-ovl",
 	 .data = (void *)MTK_DISP_OVL},
+	{.compatible = "mediatek,mt6853-disp-ovl",
+	 .data = (void *)MTK_DISP_OVL},
 	{.compatible = "mediatek,mt8173-disp-ovl",
 	 .data = (void *)MTK_DISP_OVL},
 	{.compatible = "mediatek,mt6885-disp-ovl",
@@ -2378,6 +2512,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	{.compatible = "mediatek,mt6779-disp-rdma",
 	 .data = (void *)MTK_DISP_RDMA},
 	{.compatible = "mediatek,mt6873-disp-rdma",
+	 .data = (void *)MTK_DISP_RDMA},
+	{.compatible = "mediatek,mt6853-disp-rdma",
 	 .data = (void *)MTK_DISP_RDMA},
 	{.compatible = "mediatek,mt8173-disp-rdma",
 	 .data = (void *)MTK_DISP_RDMA},
@@ -2391,17 +2527,23 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_WDMA},
 	{.compatible = "mediatek,mt6873-disp-wdma",
 	 .data = (void *)MTK_DISP_WDMA},
+	{.compatible = "mediatek,mt6853-disp-wdma",
+	 .data = (void *)MTK_DISP_WDMA},
 	{.compatible = "mediatek,mt6779-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6885-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt6873-disp-ccorr",
 	 .data = (void *)MTK_DISP_CCORR},
+	{.compatible = "mediatek,mt6853-disp-ccorr",
+	 .data = (void *)MTK_DISP_CCORR},
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
 	{.compatible = "mediatek,mt6779-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
 	{.compatible = "mediatek,mt6873-disp-color",
+	 .data = (void *)MTK_DISP_COLOR},
+	{.compatible = "mediatek,mt6853-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
 	{.compatible = "mediatek,mt8173-disp-color",
 	 .data = (void *)MTK_DISP_COLOR},
@@ -2410,6 +2552,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	{.compatible = "mediatek,mt6779-disp-aal",
 	 .data = (void *)MTK_DISP_AAL},
 	{.compatible = "mediatek,mt6873-disp-aal",
+	 .data = (void *)MTK_DISP_AAL},
+	{.compatible = "mediatek,mt6853-disp-aal",
 	 .data = (void *)MTK_DISP_AAL},
 	{.compatible = "mediatek,mt8173-disp-aal",
 	 .data = (void *)MTK_DISP_AAL},
@@ -2423,11 +2567,15 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_GAMMA},
 	{.compatible = "mediatek,mt6873-disp-gamma",
 	 .data = (void *)MTK_DISP_GAMMA},
+	{.compatible = "mediatek,mt6853-disp-gamma",
+	 .data = (void *)MTK_DISP_GAMMA},
 	{.compatible = "mediatek,mt6779-disp-dither",
 	 .data = (void *)MTK_DISP_DITHER},
 	{.compatible = "mediatek,mt6885-disp-dither",
 	 .data = (void *)MTK_DISP_DITHER},
 	{.compatible = "mediatek,mt6873-disp-dither",
+	 .data = (void *)MTK_DISP_DITHER},
+	{.compatible = "mediatek,mt6853-disp-dither",
 	 .data = (void *)MTK_DISP_DITHER},
 	{.compatible = "mediatek,mt8173-disp-ufoe",
 	 .data = (void *)MTK_DISP_UFOE},
@@ -2440,6 +2588,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	{.compatible = "mediatek,mt6885-dsi",
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt6873-dsi",
+	 .data = (void *)MTK_DSI},
+	{.compatible = "mediatek,mt6853-dsi",
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt2712-dpi",
 	 .data = (void *)MTK_DPI},
@@ -2459,6 +2609,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_MUTEX},
 	{.compatible = "mediatek,mt6873-disp-mutex",
 	 .data = (void *)MTK_DISP_MUTEX},
+	{.compatible = "mediatek,mt6853-disp-mutex",
+	 .data = (void *)MTK_DISP_MUTEX},
 	{.compatible = "mediatek,mt2701-disp-pwm",
 	 .data = (void *)MTK_DISP_BLS},
 	{.compatible = "mediatek,mt6779-disp-pwm",
@@ -2469,6 +2621,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_PWM},
 	{.compatible = "mediatek,mt6873-disp-pwm",
 	 .data = (void *)MTK_DISP_PWM},
+	{.compatible = "mediatek,mt6853-disp-pwm",
+	 .data = (void *)MTK_DISP_PWM},
 	{.compatible = "mediatek,mt8173-disp-od",
 	 .data = (void *)MTK_DISP_OD},
 	{.compatible = "mediatek,mt6779-disp-rsz",
@@ -2477,15 +2631,21 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6873-disp-rsz",
 	 .data = (void *)MTK_DISP_RSZ},
+	{.compatible = "mediatek,mt6853-disp-rsz",
+	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6779-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6885-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6873-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
+	{.compatible = "mediatek,mt6853-disp-postmask",
+	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6885-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
 	{.compatible = "mediatek,mt6873-disp-dsc",
+	 .data = (void *)MTK_DISP_DSC},
+	{.compatible = "mediatek,mt6853-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
 	{.compatible = "mediatek,mt6885-dmdp-aal",
 	 .data = (void *)MTK_DMDP_AAL},
@@ -2584,6 +2744,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		}
 		DDPINFO("%s line:%d, comp_id:%d\n", __func__, __LINE__,
 			comp_id);
+		/*comp node is registered here including PQ module*/
 		private->comp_node[comp_id] = of_node_get(node);
 
 		/*
@@ -2591,15 +2752,19 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		 * separate component platform drivers and initialize their own
 		 * DDP component structure. The others are initialized here.
 		 */
-		if (comp_type == MTK_DISP_COLOR ||
-		    comp_type == MTK_DISP_CCORR ||
-		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
-		    comp_type == MTK_DISP_DITHER || comp_type == MTK_DISP_OVL ||
+		if (comp_type == MTK_DISP_OVL ||
 		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_WDMA ||
 		    comp_type == MTK_DISP_RSZ ||
-		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI ||
+		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
+#ifndef DRM_BYPASS_PQ
+		    || comp_type == MTK_DISP_COLOR ||
+		    comp_type == MTK_DISP_CCORR ||
+		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
+		    comp_type == MTK_DISP_DITHER ||
 		    comp_type == MTK_DPI || comp_type == MTK_DISP_DSC ||
-		    comp_type == MTK_DMDP_AAL) {
+		    comp_type == MTK_DMDP_AAL
+#endif
+		    ) {
 			dev_info(dev, "Adding component match for %s\n",
 				 node->full_name);
 			component_match_add(dev, &match, compare_of, node);
@@ -2742,6 +2907,8 @@ static const struct of_device_id mtk_drm_of_ids[] = {
 	 .data = &mt6885_mmsys_driver_data},
 	{.compatible = "mediatek,mt6873-mmsys",
 	 .data = &mt6873_mmsys_driver_data},
+	{.compatible = "mediatek,mt6853-mmsys",
+	 .data = &mt6853_mmsys_driver_data},
 	{} };
 
 static struct platform_driver mtk_drm_platform_driver = {

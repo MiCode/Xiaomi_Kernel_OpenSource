@@ -330,7 +330,7 @@ static void mtk_wdma_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, WDMA_BYPASS_SHADOW,
 		DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
@@ -361,7 +361,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int fifo_size = 325;
 	unsigned int fifo_size_uv = 31;
 #endif
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	unsigned int fifo_size = 578;
 	unsigned int fifo_size_uv = 29;
 #endif
@@ -398,7 +398,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 		fifo_size = 228;
 		fifo_size_uv = 50;
 #endif
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		fifo_size = 402;
 		fifo_size_uv = 99;
 #endif
@@ -415,7 +415,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 		fifo_size = 228;
 		fifo_size_uv = 109;
 #endif
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		fifo_size = 402;
 		fifo_size_uv = 201;
 #endif
@@ -1300,6 +1300,11 @@ static const struct mtk_disp_wdma_data mt6873_wdma_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_wdma_data mt6853_wdma_driver_data = {
+	.sodi_config = mt6853_mtk_sodi_config,
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-wdma"},
 	{.compatible = "mediatek,mt6779-disp-wdma",
@@ -1309,6 +1314,8 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	 .data = &mt6885_wdma_driver_data},
 	{.compatible = "mediatek,mt6873-disp-wdma",
 	 .data = &mt6873_wdma_driver_data},
+	{.compatible = "mediatek,mt6853-disp-wdma",
+	 .data = &mt6853_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);

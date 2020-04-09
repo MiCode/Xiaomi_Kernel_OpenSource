@@ -948,7 +948,8 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	const int *gain;
 
 	gain = param->DREGainFltStatus;
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
@@ -1973,7 +1974,7 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 			DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
 		DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);

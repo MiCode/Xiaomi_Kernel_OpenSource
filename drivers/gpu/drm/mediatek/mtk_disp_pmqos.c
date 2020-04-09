@@ -132,6 +132,18 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 	case DDP_COMPONENT_WDMA0:
 		return M4U_PORT_L0_DISP_WDMA0;
 #endif
+
+#if defined(CONFIG_MACH_MT6853)
+	case DDP_COMPONENT_OVL0:
+		return M4U_PORT_L0_OVL_RDMA0;
+	case DDP_COMPONENT_OVL0_2L:
+		return M4U_PORT_L1_OVL_2L_RDMA0;
+	case DDP_COMPONENT_RDMA0:
+		return M4U_PORT_L1_DISP_RDMA0;
+	case DDP_COMPONENT_WDMA0:
+		return M4U_PORT_L1_DISP_WDMA0;
+#endif
+
 	default:
 		DDPPR_ERR("%s, unknown comp %d\n", __func__, comp_id);
 		break;
@@ -282,7 +294,7 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 
 	return 0;
 }
-
+#ifdef MTK_FB_MMDVFS_SUPPORT
 void mtk_drm_mmdvfs_init(void)
 {
 
@@ -291,7 +303,7 @@ void mtk_drm_mmdvfs_init(void)
 
 	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, g_freq_steps, &step_size);
 }
-
+#endif
 static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {

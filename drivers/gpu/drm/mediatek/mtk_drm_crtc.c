@@ -149,7 +149,6 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
-
 	if (!priv->power_state) {
 		DDPDUMP("DRM dev is not in power on state, skip %s\n",
 			__func__);
@@ -171,6 +170,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
 		break;
 	case MMSYS_MT6873:
+	case MMSYS_MT6853:
 		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
 		break;
@@ -223,12 +223,13 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	enum addon_module module;
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	if (!priv->power_state) {
 		DDPDUMP("DRM dev is not in power on state, skip %s\n",
 			__func__);
 		return;
 	}
+#endif
 	DDPINFO("%s\n", __func__);
 
 	switch (priv->data->mmsys_id) {
@@ -247,6 +248,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6873:
 		mmsys_config_dump_analysis_mt6873(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6873(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6853:
+		mmsys_config_dump_analysis_mt6853(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6853(mtk_crtc->mutex[0]);
 		break;
 	default:
 		pr_info("%s mtk drm not support mmsys id %d\n",
@@ -1524,6 +1529,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }
 
+#ifdef MTK_DRM_FENCE_SUPPORT
 static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 {
 	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
@@ -1562,6 +1568,7 @@ static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 	}
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }
+#endif
 #endif
 
 bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc)
@@ -2040,7 +2047,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		if (ovl_status & 1)
 			DDPPR_ERR("ovl status error\n");
 #endif
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error\n");
 			mtk_drm_crtc_analysis(crtc);
@@ -2364,6 +2371,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 		cmdq_pkt_wfe(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 				       mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 		cmdq_pkt_clear_event(cmdq_handle,
@@ -2380,6 +2388,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		cmdq_pkt_wait_no_clear(
 			cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+#endif
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 		cmdq_pkt_clear_event(
@@ -2576,6 +2585,9 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 #if defined(CONFIG_MACH_MT6873)
 		mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
 #endif
+#if defined(CONFIG_MACH_MT6853)
+		//TODO
+#endif
 		mtk_disp_mutex_remove_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			handle, 0);
 		mtk_ddp_comp_stop(dsc_comp, handle);
@@ -2641,6 +2653,9 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 #endif
 #if defined(CONFIG_MACH_MT6873)
 		mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
+#endif
+#if defined(CONFIG_MACH_MT6853)
+		//TODO
 #endif
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
@@ -3174,12 +3189,13 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 
 	/* attach the crtc to each componet */
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* 1. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
 
 	/* 2. prepare modules would be used in this CRTC */
 	mtk_crtc_ddp_prepare(mtk_crtc);
+#endif
 
 	/* 3. power on cmdq client */
 	if (crtc_id == 2) {
@@ -3500,8 +3516,9 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-
+#endif
 	mtk_drm_crtc_init_para(crtc);
 
 	if (mtk_crtc->enabled) {
@@ -3525,7 +3542,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 
 	/* 3. Regsister configuration */
 	mtk_crtc_first_enable_ddp_config(mtk_crtc);
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* 4. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
 
@@ -3541,6 +3558,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 			priv->data->sodi_config(crtc->dev, comp->id, NULL, &en);
 	}
+#endif
 
 	/* 7. set vblank*/
 	drm_crtc_vblank_on(crtc);

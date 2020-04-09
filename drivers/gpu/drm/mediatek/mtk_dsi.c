@@ -30,7 +30,7 @@
 #include <video/mipi_display.h>
 #include <video/videomode.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 #include <linux/ratelimit.h>
 #endif
 
@@ -721,7 +721,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 			DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_dsi_mask(dsi, DSI_SHADOW_DEBUG,
 		DSI_BYPASS_SHADOW, DSI_BYPASS_SHADOW);
@@ -831,7 +831,8 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 	val = (val & ~mask) | (value & mask);
 	writel(val, dsi->regs + DSI_PSCTRL);
 
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) && \
+	!defined(CONFIG_MACH_MT6853)
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
 #endif
@@ -862,7 +863,8 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	}
 
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) && \
+	!defined(CONFIG_MACH_MT6853)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
 	tmp_reg |= HSTX_CKLP_EN;
@@ -1146,7 +1148,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
 #endif
 
@@ -1203,7 +1205,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				}
 			}
 
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
 				"[IRQ] %s: buffer underrun\n",
 				mtk_dump_comp_str(&dsi->ddp_comp));
@@ -4471,10 +4473,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case SET_MMCLK_BY_DATARATE:
 	{
+#ifndef CONFIG_FPGA_EARLY_PORTING
+
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
 
 		mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
+#endif
 	}
 		break;
 	case GET_FRAME_HRT_BW_BY_DATARATE:
@@ -4593,6 +4598,14 @@ static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
+	.reg_cmdq_ofs = 0x200,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+};
+
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x180, .irq_handler = mtk_dsi_irq,
 	.support_shadow = false,
@@ -4604,6 +4617,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data},
 	{.compatible = "mediatek,mt6885-dsi", .data = &mt6885_dsi_driver_data},
 	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
+	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
 	{},
 };
 
@@ -4664,21 +4678,27 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->engine_clk)) {
 		ret = PTR_ERR(dsi->engine_clk);
 		dev_err(dev, "Failed to get engine clock: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	dsi->digital_clk = devm_clk_get(dev, "digital");
 	if (IS_ERR(dsi->digital_clk)) {
 		ret = PTR_ERR(dsi->digital_clk);
 		dev_err(dev, "Failed to get digital clock: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	dsi->hs_clk = devm_clk_get(dev, "hs");
 	if (IS_ERR(dsi->hs_clk)) {
 		ret = PTR_ERR(dsi->hs_clk);
 		dev_err(dev, "Failed to get hs clock: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -4686,7 +4706,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->regs)) {
 		ret = PTR_ERR(dsi->regs);
 		dev_err(dev, "Failed to ioremap memory: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	dsi->phy = devm_phy_get(dev, "dphy");
@@ -4733,7 +4755,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	}
 
 	init_waitqueue_head(&dsi->irq_wait_queue);
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* set ccf reference cnt = 1 */
 	phy_power_on(dsi->phy);
 	ret = clk_prepare_enable(dsi->engine_clk);
@@ -4745,7 +4767,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (ret < 0)
 		pr_info("%s Failed to enable digital clock: %d\n",
 			__func__, ret);
-
+#endif
 	dsi->output_en = true;
 	dsi->clk_refcnt = 1;
 
