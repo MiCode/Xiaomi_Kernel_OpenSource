@@ -503,14 +503,12 @@ initcall_debug=1";
 /* accdet end */
 
 /* IRTX GPIO Start */
-/*
 &irtx_pwm {
 	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
 	pinctrl-0 = <&irtx_gpio_led_default>;
 	pinctrl-1 = <&irtx_gpio_led_set>;
 	status = "okay";
 };
-*/
 &pio {
 	/* IRTX GPIO Settings -Start */
 	/* default: GPIO0, output, high */
