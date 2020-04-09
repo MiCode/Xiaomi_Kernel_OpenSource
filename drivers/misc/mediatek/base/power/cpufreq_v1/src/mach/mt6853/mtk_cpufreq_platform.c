@@ -36,8 +36,8 @@ static struct regulator *regulator_sram2;
 static unsigned long apmixed_base	= 0x1000c000;
 static unsigned long mcucfg_base	= 0x0c530000;
 
-#define APMIXED_NODE	"mediatek,apmixed"
-#define MCUCFG_NODE		"mediatek,mcucfg"
+#define APMIXED_NODE	"mediatek,mt6853-apmixedsys"
+#define MCUCFG_NODE		"mediatek,mcucfg-dvfs"
 #define ARMPLL_LL_CON1		(apmixed_base + 0x20c)	/* ARMPLL1 */
 #define ARMPLL_L_CON1		(apmixed_base + 0x21c)	/* ARMPLL2 */
 #define CCIPLL_CON1			(apmixed_base + 0x25c)
@@ -626,23 +626,24 @@ int mt_cpufreq_dts_map(void)
 
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
-	unsigned int lv = CPU_LEVEL_0;
+	unsigned int lv = CPU_LEVEL_1;
 #if 0
 	int val = (get_devinfo_with_index(7) & 0xFF);
-	int ver = (get_devinfo_with_index(141) & 0xFF);
 
-	if (val == 0x01) {
-		if (ver < 2)
-			lv = CPU_LEVEL_3;
-		else
-			lv = CPU_LEVEL_0;
-	} else if (val == 0x10)
-		lv = CPU_LEVEL_2;
-#endif
+	switch (val) {
+	case 0:
+		lv = CPU_LEVEL_0;
+		break;
+	case 1:
+		lv = CPU_LEVEL_1;
+		break;
+	default:
+		lv = CPU_LEVEL_0;
+		break;
+	}
 	turbo_flag = 0;
-#if 0
-	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x ver = %d\n",
-		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val, ver);
+	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
+		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 #endif
 	return lv;
 }

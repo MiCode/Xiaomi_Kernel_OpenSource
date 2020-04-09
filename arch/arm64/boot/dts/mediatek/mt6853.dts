@@ -779,6 +779,11 @@
 		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	mcucfg1: mcucfg1@0c530000 {
+		compatible = "mediatek,mcucfg-dvfs";
+		reg = <0 0x0c530000 0 0x10000>;
+	};
+
 	mcucfg@10200000 {
 		compatible = "mediatek,mcucfg";
 		reg = <0 0x10200000 0 0x1000>;
