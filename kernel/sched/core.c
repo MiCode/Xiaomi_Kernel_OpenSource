@@ -7477,6 +7477,9 @@ void __init sched_init_smp(void)
 	cpumask_var_t non_isolated_cpus;
 
 	init_hmp_domains();
+#ifdef CONFIG_MACH_MT6873
+	init_efuse_info();
+#endif
 	alloc_cpumask_var(&non_isolated_cpus, GFP_KERNEL);
 
 	sched_init_numa();
