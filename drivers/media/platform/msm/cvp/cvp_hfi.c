@@ -2980,10 +2980,10 @@ static int __response_handler(struct iris_hfi_device *device)
 
 		print_msg_hdr(hdr);
 		rc = cvp_hfi_process_msg_packet(device->device_id,
-			(struct cvp_hal_msg_pkt_hdr *)raw_packet, info);
+					raw_packet, info);
 		if (rc) {
 			dprintk(CVP_WARN,
-					"Corrupt/unknown packet found, discarding\n");
+				"Corrupt/unknown packet found, discarding\n");
 			--packet_count;
 			continue;
 		} else if (info->response_type == HAL_NO_RESP) {
@@ -3101,6 +3101,7 @@ err_no_work:
 	for (i = 0; !IS_ERR_OR_NULL(device->response_pkt) &&
 		i < num_responses; ++i) {
 		struct msm_cvp_cb_info *r = &device->response_pkt[i];
+		void *rsp = (void *)&r->response;
 
 		if (!__core_in_valid_state(device)) {
 			dprintk(CVP_ERR,
@@ -3109,7 +3110,7 @@ err_no_work:
 		}
 		dprintk(CVP_DBG, "Processing response %d of %d, type %d\n",
 			(i + 1), num_responses, r->response_type);
-		device->callback(r->response_type, &r->response);
+		device->callback(r->response_type, rsp);
 	}
 
 	/* We need re-enable the irq which was disabled in ISR handler */
