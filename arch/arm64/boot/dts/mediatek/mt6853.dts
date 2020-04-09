@@ -4342,6 +4342,10 @@
 			<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_17>;
 		dip_cq_thread18_frame_done =
 			<CMDQ_EVENT_IMG1_DIP_FRAME_DONE_P2_18>;
+		dip2_cq_thread21_frame_done =
+			<CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
+		dip2_cq_thread23_frame_done =
+			<CMDQ_EVENT_IMG2_MSS_DONE_LINK_MISC>;
 		mdp_rdma0_sof = <256>;
 		mdp_rdma1_sof = <257>;
 		mdp_aal_sof = <258>;
