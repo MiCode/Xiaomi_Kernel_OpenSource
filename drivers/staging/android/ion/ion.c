@@ -412,6 +412,9 @@ void ion_buffer_destroy(struct ion_buffer *buffer)
 	trace_ion_heap_shrink(buffer->heap->name,  buffer->size,
 			      atomic_long_read(&buffer->heap->total_allocated));
 	atomic_long_sub(buffer->size, &buffer->heap->total_allocated);
+#if defined(ION_PROCESS_INFO_DUMP)
+	record_process_info(buffer, false);
+#endif
 	buffer->heap->ops->free(buffer);
 	vfree(buffer->pages);
 	kfree(buffer);
@@ -735,7 +738,9 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	handle->dbg.user_ts = end;
 	do_div(handle->dbg.user_ts, 1000000);
 	memcpy(buffer->alloc_dbg, client->dbg_name, ION_MM_DBG_NAME_LEN);
-
+#if defined(ION_PROCESS_INFO_DUMP)
+	record_process_info(buffer, true);
+#endif
 	return handle;
 }
 EXPORT_SYMBOL(ion_alloc);
@@ -2170,6 +2175,11 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			total_orphaned_size += buffer->size;
 		}
 	}
+#if defined(ION_PROCESS_INFO_DUMP)
+	dump_process_info(s, false);
+	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA)
+		dump_process_info(s, true);
+#endif
 	mutex_unlock(&dev->buffer_lock);
 	seq_puts(s, "----------------------------------------------------\n");
 	seq_printf(s, "%16.s %16zu\n", "total orphaned",

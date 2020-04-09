@@ -74,6 +74,9 @@ struct ion_mm_buffer_info {
 	struct ion_mm_buf_debug_info dbg_info;
 	ion_mm_buf_destroy_callback_t *destroy_fn;
 	pid_t pid;
+#if defined(ION_PROCESS_INFO_DUMP)
+	char task_comm[TASK_COMM_LEN];
+#endif
 	struct mutex lock;/* buffer lock */
 };
 
@@ -114,6 +117,131 @@ static unsigned int order_to_size(int order)
 {
 	return PAGE_SIZE << order;
 }
+
+#if defined(ION_PROCESS_INFO_DUMP)
+struct process_info {
+	pid_t pid;
+	char task_comm[TASK_COMM_LEN];
+	struct ion_buffer *buf;
+	struct list_head node;
+	unsigned long total_size;
+	unsigned long peak_size;
+	unsigned long long peak_time;
+};
+
+struct ion_process_list {
+	struct list_head head;
+	struct mutex lock; /* dmabuf lock */
+};
+
+static struct ion_process_list pro_list;
+
+void process_list_init(void)
+{
+	mutex_init(&pro_list.lock);
+	INIT_LIST_HEAD(&pro_list.head);
+}
+
+int is_same_info(struct process_info *pro_info, struct ion_buffer *buf)
+{
+	struct ion_mm_buffer_info *buf_info =
+		(struct ion_mm_buffer_info *)buf->priv_virt;
+
+	if (pro_info->pid == buf_info->pid &&
+	    !strcmp(pro_info->task_comm, buf_info->task_comm))
+		return 1;
+	else
+		return 0;
+}
+
+void alloc_process_info(struct ion_buffer *buf)
+{
+	struct process_info *info;
+	struct task_struct *task = current->group_leader;
+
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		IONMSG("%s kzalloc failed, info is null.\n", __func__);
+		return;
+	}
+
+	info->pid = task_pid_nr(task);
+	get_task_comm(info->task_comm, task);
+	INIT_LIST_HEAD(&info->node);
+	info->total_size += buf->size;
+	if (info->total_size > info->peak_size) {
+		info->peak_time = sched_clock();
+		do_div(info->peak_time, 1000000);
+		info->peak_size = info->total_size;
+	}
+	list_add(&info->node, &pro_list.head);
+}
+
+void record_process_info(struct ion_buffer *buf, bool add)
+{
+	struct list_head *list;
+	struct process_info *plist = NULL;
+	struct ion_mm_buffer_info *buf_info =
+			(struct ion_mm_buffer_info *)buf->priv_virt;
+
+	if (buf->heap->id != ION_HEAP_TYPE_MULTIMEDIA)
+		return;
+
+	mutex_lock(&pro_list.lock);
+	list_for_each(list, &pro_list.head) {
+		plist = container_of(list, struct process_info, node);
+		if (is_same_info(plist, buf) && add) {
+			plist->total_size += buf->size;
+			if (plist->total_size > plist->peak_size) {
+				plist->peak_time = sched_clock();
+				do_div(plist->peak_time, 1000000);
+				plist->peak_size = plist->total_size;
+			}
+			break;
+		} else if (is_same_info(plist, buf) && !add) {
+			plist->total_size -= buf->size;
+			if (plist->total_size < 0)
+				IONMSG("%s warning, underflow\n", __func__);
+			break;
+		}
+	}
+
+	if (list == &pro_list.head && add)
+		alloc_process_info(buf);
+	else if (list == &pro_list.head && !add)
+		IONMSG(
+		       "Delete process info fail, buf:0x%p, pid:%d--%d, name:%s\n",
+			buf, buf->pid, buf_info->pid,
+			buf_info->task_comm);
+
+	mutex_unlock(&pro_list.lock);
+}
+
+void dump_process_info(struct seq_file *s, bool clean)
+{
+	struct process_info *plist = NULL;
+	struct process_info *n = NULL;
+
+	if (!clean) {
+		seq_puts(s, "\n----------------------------------------------------\n");
+		seq_puts(s, "dump all the process ion peak\n");
+		seq_printf(s, "%6.s %18.s %16.s %16.s %16.s\n",
+			   "pid", "process name", "ion peak",
+			   "peak_time(ms)", "total size");
+	}
+	mutex_lock(&pro_list.lock);
+	list_for_each_entry(plist, &pro_list.head, node) {
+		if (clean)
+			plist->peak_size = 0;
+		else
+			seq_printf(s, "%6d %18.s %16d %16d %16d\n",
+				   plist->pid, plist->task_comm,
+				   plist->peak_size, plist->peak_time,
+				   plist->total_size);
+	}
+	mutex_unlock(&pro_list.lock);
+}
+#endif
 
 struct ion_system_heap {
 	struct ion_heap heap;
@@ -508,6 +636,10 @@ map_mva_exit:
 	buffer_info->dbg_info.value4 = 0;
 	buffer_info->pid = buffer->pid;
 	mutex_init(&buffer_info->lock);
+#if defined(ION_PROCESS_INFO_DUMP)
+	strncpy(buffer_info->task_comm, buffer->task_comm,
+		TASK_COMM_LEN);
+#endif
 	strncpy((buffer_info->dbg_info.dbg_name), "nothing",
 		ION_MM_DBG_NAME_LEN);
 	buffer->size = size;

@@ -26,6 +26,8 @@
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 #define ION_NOT_SUPPORT_RETRY
 #endif
+/* default off for performance */
+/* #define ION_PROCESS_INFO_DUMP */
 #endif
 
 #define CLIENT_THRESHOLD_SIZE		(1024 * 1024 * 1024)
@@ -304,6 +306,11 @@ void ion_sec_heap_destroy(struct ion_heap *heap);
 void ion_sec_heap_dump_info(void);
 void ion_dmabuf_init(void);
 void ion_dmabuf_dbg_show(struct seq_file *s);
+#if defined(ION_PROCESS_INFO_DUMP)
+void process_list_init(void);
+void record_process_info(struct ion_buffer *buf, bool add);
+void dump_process_info(struct seq_file *s, bool clean);
+#endif
 #endif
 
 #endif
