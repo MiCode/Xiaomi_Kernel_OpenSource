@@ -544,6 +544,12 @@ config MACH_MT6853
 	select MTK_LOW_POWER_MODULE
 	select MTK_LPM_MT6853
 	select MTK_TIMER_SYSTIMER
+	select OVERLAY_FS
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
 	select MTK_BASE_POWER
 	select PM_DEVFREQ
 	select DEVAPC_MT6853
