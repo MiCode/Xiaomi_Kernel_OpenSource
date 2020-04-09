@@ -62,7 +62,8 @@ EXPORT_SYMBOL(ged_kpi_PushAppSelfFcFp_fbt);
 #define GED_KPI_MSEC_DIVIDER 1000000
 #define GED_KPI_SEC_DIVIDER 1000000000
 #define GED_KPI_MAX_FPS 60
-#define GED_KPI_DEFAULT_FPS_MARGIN 3
+/* set default margin to be distinct from FPSGO(0 or 3) */
+#define GED_KPI_DEFAULT_FPS_MARGIN 4
 
 typedef enum {
 	GED_TIMESTAMP_TYPE_D		= 0x1,
@@ -98,6 +99,7 @@ typedef struct GED_KPI_HEAD_TAG {
 	unsigned long long last_TimeStamp2;
 	unsigned long long last_TimeStampS;
 	unsigned long long last_TimeStampH;
+	unsigned long long pre_TimeStamp2;
 	long long t_cpu_remained;
 	long long t_gpu_remained;
 	long long t_cpu_latest;
@@ -135,14 +137,14 @@ struct GED_GPU_INFO {
 	/* bit0~bit9: headroom ratio:10-bias */
 	/* bit15: is frame base? */
 	/* bit16~bit23: dvfs_margin_mode */
-	unsigned long gpu_res1;
-	unsigned long gpu_res2;
-	unsigned long gpu_res3;
-	unsigned long gpu_res4;
-	unsigned long gpu_res5;
-	unsigned int gpu_res6;
-	unsigned int gpu_res7;
-	unsigned int gpu_res8;
+	unsigned long tb_dvfs_mode;
+	unsigned long tb_dvfs_margin;
+	unsigned long t_gpu_real;
+	unsigned long limit_upper;
+	unsigned long limit_lower;
+	unsigned int dvfs_loading_mode;
+	unsigned int gpu_util;
+	unsigned int gpu_power;
 };
 
 union _cpu_gpu_info {
@@ -229,6 +231,9 @@ static long long vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 static GED_LOG_BUF_HANDLE ghLogBuf;
 static struct workqueue_struct *g_psWorkQueue;
 static GED_HASHTABLE_HANDLE gs_hashtable;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+static spinlock_t gs_hashtableLock;
+#endif
 static GED_KPI g_asKPI[GED_KPI_TOTAL_ITEMS];
 static int g_i32Pos;
 static GED_THREAD_HANDLE ghThread;
@@ -242,6 +247,8 @@ static unsigned int is_GED_KPI_enabled = 1;
 static unsigned int ap_self_frc_detection_rate = 20;
 #ifdef GED_ENABLE_FB_DVFS
 static unsigned int g_force_gpu_dvfs_fallback;
+static int g_fb_dvfs_threshold = 80;
+module_param(g_fb_dvfs_threshold, int, 0644);
 #endif
 module_param(gx_dfps, uint, 0644);
 module_param(gx_frc_mode, uint, 0644);
@@ -357,6 +364,17 @@ static void ged_kpi_output_gfx_info(long long t_gpu, unsigned int cur_freq
 	if (ged_kpi_output_gfx_info_fp)
 		ged_kpi_output_gfx_info_fp(t_gpu, cur_freq, cur_max_freq);
 }
+
+/* ------------------------------------------------------------------------- */
+unsigned int (*ged_kpi_get_limit_user_fp)(unsigned int limit_user);
+
+static unsigned int ged_kpi_get_limit_user(unsigned int limit_user)
+{
+	if (ged_kpi_get_limit_user_fp)
+		return ged_kpi_get_limit_user_fp(limit_user);
+	return -1;
+}
+EXPORT_SYMBOL(ged_kpi_get_limit_user_fp);
 
 /* ------------------------------------------------------------------------- */
 #ifdef GED_ENABLE_FB_DVFS
@@ -708,6 +726,12 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 	unsigned long frame_attr = 0;
 	unsigned long gpu_info = 0;
 
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	struct GpuUtilization_Ex util_ex;
+	unsigned int dvfs_loading_mode = 0;
+
+	memset(&util_ex, 0, sizeof(util_ex));
+#endif
 	ged_kpi_calc_kpi_info(ulID, psKPI, psHead);
 	frame_attr |= ((psHead->isSF & GED_KPI_IS_SF_MASK) << GED_KPI_IS_SF_SHIFT);
 	frame_attr |= ((psKPI->i32QedBuffer_length & GED_KPI_QBUFFER_LEN_MASK) << GED_KPI_QBUFFER_LEN_SHIFT);
@@ -723,6 +747,24 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		((psKPI->gpu_freq_max & GED_KPI_GPU_FREQ_MAX_INFO_MASK)
 		<< GED_KPI_GPU_FREQ_MAX_INFO_SHIFT);
 	psKPI->frame_attr = frame_attr;
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	psKPI->cpu_gpu_info.gpu.gpu_power =
+		mt_gpufreq_get_power_by_idx(
+		mt_gpufreq_get_opp_idx_by_freq(psKPI->gpu_freq*1000));
+
+	ged_get_gpu_utli_ex(&util_ex);
+
+	psKPI->cpu_gpu_info.gpu.gpu_util =
+		(util_ex.util_active&0xff)|
+		((util_ex.util_3d&0xff)<<8)|
+		((util_ex.util_ta&0xff)<<16)|
+		((util_ex.util_compute&0xff)<<24);
+
+	mtk_get_dvfs_loading_mode(&dvfs_loading_mode);
+
+	psKPI->cpu_gpu_info.gpu.dvfs_loading_mode = dvfs_loading_mode;
+#endif
 
 	/* statistics */
 	ged_log_buf_print(ghLogBuf,
@@ -748,14 +790,14 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		psKPI->QedBufferDelay,
 #ifdef GED_ENABLE_FB_DVFS
 		psKPI->cpu_gpu_info.gpu.gpu_dvfs,
-		psKPI->cpu_gpu_info.gpu.gpu_res1,
-		psKPI->cpu_gpu_info.gpu.gpu_res2,
-		psKPI->cpu_gpu_info.gpu.gpu_res3,
-		psKPI->cpu_gpu_info.gpu.gpu_res4,
-		psKPI->cpu_gpu_info.gpu.gpu_res5,
-		psKPI->cpu_gpu_info.gpu.gpu_res6,
-		psKPI->cpu_gpu_info.gpu.gpu_res7,
-		psKPI->cpu_gpu_info.gpu.gpu_res8
+		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
+		psKPI->cpu_gpu_info.gpu.tb_dvfs_margin,
+		psKPI->cpu_gpu_info.gpu.t_gpu_real,
+		psKPI->cpu_gpu_info.gpu.limit_upper,
+		psKPI->cpu_gpu_info.gpu.limit_lower,
+		psKPI->cpu_gpu_info.gpu.dvfs_loading_mode,
+		psKPI->cpu_gpu_info.gpu.gpu_util,
+		psKPI->cpu_gpu_info.gpu.gpu_power
 #else
 		psKPI->cpu_gpu_info.cpu.cpu_max_freq_LL,
 		psKPI->cpu_gpu_info.cpu.cpu_max_freq_L,
@@ -1116,6 +1158,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 	u64 ulID;
 	unsigned long long phead_last1;
 	int target_FPS;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	unsigned long ulIRQFlags;
+#endif
 
 #ifdef GED_KPI_DEBUG
 	GED_LOGE("[GED_KPI] ts type = %d, pid = %d, wnd = %llu, frame = %lu\n",
@@ -1139,8 +1184,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			if (psHead->i32Count < 1 && (psHead->sList.next == &(psHead->sList))) {
 				if (psHead == main_head)
 					main_head = NULL;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_lock_irqsave(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 				ged_hashtable_remove(gs_hashtable
 					, (unsigned long)ulID);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_unlock_irqrestore(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 				ged_free(psHead, sizeof(GED_KPI_HEAD));
 			}
 		} else {
@@ -1161,6 +1214,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		if (!psHead) {
 			psHead = (GED_KPI_HEAD *)ged_alloc_atomic(sizeof(GED_KPI_HEAD));
 			if (psHead) {
+				memset(psHead, 0, sizeof(GED_KPI_HEAD));
 				psHead->pid = psTimeStamp->pid;
 				psHead->ullWnd = psTimeStamp->ullWnd;
 				psHead->i32Count = 0;
@@ -1173,8 +1227,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					GED_KPI_DEFAULT_FPS_MARGIN,
 					GED_KPI_FRC_DEFAULT_MODE, -1);
 				INIT_LIST_HEAD(&psHead->sList);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_lock_irqsave(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 				ged_hashtable_set(gs_hashtable
 				, (unsigned long)ulID, (void *)psHead);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_unlock_irqrestore(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 			} else {
 				GED_PR_DEBUG(
 				"[GED_KPI][Exception] ged_alloc_atomic");
@@ -1401,6 +1463,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			if (psKPI) {
 				psKPI->ulMask |= GED_TIMESTAMP_TYPE_2;
 				psKPI->ullTimeStamp2 = psTimeStamp->ullTimeStamp;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				psKPI->cpu_gpu_info.gpu.tb_dvfs_mode =
+					ged_dvfs_get_tb_dvfs_margin_mode();
+				psKPI->cpu_gpu_info.gpu.tb_dvfs_margin =
+					ged_dvfs_get_tb_dvfs_margin_cur();
+#endif
 				/* calculate gpu time */
 				if (psKPI->ullTimeStamp1 > psHead->last_TimeStamp2
 					&& psKPI->ullTimeStamp1 > psKPI->ullTimeStampP)
@@ -1426,19 +1494,51 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					(long long)psKPI->gpu_freq,
 					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
+				psHead->pre_TimeStamp2 =
+					psHead->last_TimeStamp2;
 				psHead->last_TimeStamp2 = psTimeStamp->ullTimeStamp;
 				psHead->i32Gpu_uncompleted--;
 				psKPI->gpu_loading = psTimeStamp->i32GPUloading;
 				if (psKPI->gpu_loading == 0)
 				mtk_get_gpu_loading(&psKPI->gpu_loading);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				psKPI->cpu_gpu_info.gpu.t_gpu_real =
+					((unsigned int)
+					(psHead->last_TimeStamp2
+					- psHead->pre_TimeStamp2))
+					* psKPI->gpu_loading / 100U;
+#endif
 				ged_log_perf_trace_counter("gpu_loading",
 					(long long)psKPI->gpu_loading,
 					psTimeStamp->pid
 					, psTimeStamp->i32FrameID, ulID);
+				psKPI->cpu_gpu_info.gpu.limit_upper =
+					ged_kpi_get_limit_user(1);
+				psKPI->cpu_gpu_info.gpu.limit_lower =
+					ged_kpi_get_limit_user(0);
 #ifdef GED_ENABLE_FB_DVFS
 				cur_3D_done = psKPI->ullTimeStamp2;
 				if (psTimeStamp->i32GPUloading) {
 					/* not fallback mode */
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+					struct GpuUtilization_Ex util_ex;
+					unsigned int mode = 0;
+
+					memset(&util_ex, 0, sizeof(util_ex));
+
+					mtk_get_dvfs_loading_mode(&mode);
+					ged_get_gpu_utli_ex(&util_ex);
+
+					if (mode == LOADING_MAX_3DTA_COM)
+						psTimeStamp->i32GPUloading =
+						MAX(util_ex.util_3d,
+							util_ex.util_ta) +
+						util_ex.util_compute;
+					else if (mode == LOADING_MAX_3DTA)
+						psTimeStamp->i32GPUloading =
+						MAX(util_ex.util_3d,
+						util_ex.util_ta);
+#endif
 					time_spent =
 					(int)(cur_3D_done - last_3D_done)
 					/ 100 * psTimeStamp->i32GPUloading;
@@ -1459,7 +1559,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				 * resource monopoly
 				 */
 				if (main_head && main_head->i32Count * 100
-					/ GED_KPI_TOTAL_ITEMS > 80)
+					/ GED_KPI_TOTAL_ITEMS
+					> g_fb_dvfs_threshold)
 					g_force_gpu_dvfs_fallback = 0;
 				else
 					g_force_gpu_dvfs_fallback = 1;
@@ -1474,9 +1575,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			/* bit16~bit23: dvfs_margin_mode */
 
 			psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
-			(((unsigned long) gx_fb_dvfs_margin) & 0x3FF);
+			(((unsigned long) ged_get_dvfs_margin()) & 0x3FF);
 			psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
-			((((unsigned long) dvfs_margin_mode) & 0xFF) << 16);
+			((((unsigned long) ged_get_dvfs_margin_mode()) & 0xFF)
+				<< 16);
 
 			if (!g_force_gpu_dvfs_fallback)
 				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
@@ -1486,7 +1588,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						time_spent, psKPI->t_gpu_target
 						, psKPI->target_fps_margin
 						, g_force_gpu_dvfs_fallback);
-				else
+				else if (g_force_gpu_dvfs_fallback)
 					gpu_freq_pre = ged_kpi_gpu_dvfs(
 						time_spent, psKPI->t_gpu_target
 						, psKPI->target_fps_margin
@@ -1705,10 +1807,19 @@ static GED_ERROR ged_kpi_push_timestamp(
 			spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 			if (!ged_kpi_check_if_fallback_mode()
 				&& !g_force_gpu_dvfs_fallback) {
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+				struct GpuUtilization_Ex util_ex;
+#endif
 				ged_kpi_trigger_fb_dvfs();
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+				ged_dvfs_cal_gpu_utilization_ex(
+					&(psTimeStamp->i32GPUloading),
+					&pui32Block, &pui32Idle, &util_ex);
+#else
 				ged_dvfs_cal_gpu_utilization(
 					&(psTimeStamp->i32GPUloading),
 					&pui32Block, &pui32Idle);
+#endif
 			} else {
 				psTimeStamp->i32GPUloading = 0;
 			}
@@ -2060,6 +2171,9 @@ GED_ERROR ged_kpi_system_init(void)
 		for (i = 0; i < GED_KPI_TOTAL_ITEMS; i++)
 			g_asKPI[i].ullWnd = 0x0 - 1;
 		gs_hashtable = ged_hashtable_create(10);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+		spin_lock_init(&gs_hashtableLock);
+#endif
 		return gs_hashtable ? GED_OK : GED_ERROR_FAIL;
 	}
 	return GED_ERROR_FAIL;
@@ -2071,7 +2185,15 @@ GED_ERROR ged_kpi_system_init(void)
 void ged_kpi_system_exit(void)
 {
 #ifdef MTK_GED_KPI
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	unsigned long ulIRQFlags;
+
+	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+#endif
 	ged_hashtable_iterator_delete(gs_hashtable, ged_kpi_iterator_delete_func, NULL);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
+#endif
 	destroy_workqueue(g_psWorkQueue);
 	ged_thread_destroy(ghThread);
 	ged_log_buf_free(ghLogBuf);
@@ -2172,3 +2294,85 @@ void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 #endif
 }
 EXPORT_SYMBOL(ged_kpi_set_target_FPS_margin);
+/* ------------------------------------------------------------------- */
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,
+	void *pvoid, void *pvParam)
+{
+	GED_KPI_HEAD *psHead = (GED_KPI_HEAD *)pvoid;
+	GED_KPI_HEAD *psRiskyBQ = (GED_KPI_HEAD *)pvParam;
+
+	if (psRiskyBQ && psHead
+			&& psHead->t_gpu_latest > 0
+			&& psHead->t_gpu_target > 0) {
+		int t_gpu_latest;
+		int t_gpu_target;
+		int risk;
+		int maxRisk;
+
+		/* FPSGO skip this BQ, we should skip */
+		if ((psHead->target_fps == GED_KPI_MAX_FPS)
+			&& (psHead->target_fps_margin
+			== GED_KPI_DEFAULT_FPS_MARGIN))
+			return GED_TRUE;
+
+		t_gpu_latest = ((int)psHead->t_gpu_latest) / 1000; // ns -> ms
+		t_gpu_target = psHead->t_gpu_target / 1000;
+		risk = t_gpu_latest * 100 / t_gpu_target;
+		t_gpu_latest = ((int)psRiskyBQ->t_gpu_latest) / 1000;
+		t_gpu_target = psRiskyBQ->t_gpu_target / 1000;
+		maxRisk = (t_gpu_target > 0) ?
+			(t_gpu_latest * 100 / t_gpu_target) : 0;
+
+		if (risk > maxRisk)
+			*psRiskyBQ = *psHead;
+	}
+	return GED_TRUE;
+}
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
+	int *pT_gpu_target, unsigned long long *pullWnd)
+{
+	GED_ERROR ret = GED_ERROR_FAIL;
+	GED_KPI_HEAD sRiskyBQ = {0};
+	unsigned int deltaTime = 0;
+	unsigned int loading = 0;
+	int i;
+	unsigned long ulIRQFlags;
+
+	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+	ged_hashtable_iterator(gs_hashtable,
+		ged_kpi_find_riskyBQ_func, (void *)&sRiskyBQ);
+	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
+
+	if (sRiskyBQ.ullWnd == 0
+			|| sRiskyBQ.last_TimeStamp2 == 0
+			|| sRiskyBQ.pre_TimeStamp2 == 0
+			|| sRiskyBQ.t_gpu_latest <= 0
+			|| sRiskyBQ.t_gpu_target <= 0)
+		return ret;
+
+	deltaTime = ((unsigned int)
+		(sRiskyBQ.last_TimeStamp2 - sRiskyBQ.pre_TimeStamp2))
+		/ 1000U; // ns -> ms
+
+	for (i = 0; i < GED_KPI_TOTAL_ITEMS; ++i) {
+		if (g_asKPI[i].ullTimeStamp2 == sRiskyBQ.last_TimeStamp2
+			&& g_asKPI[i].ullWnd == sRiskyBQ.ullWnd) {
+			loading = g_asKPI[i].gpu_loading;
+			break;
+		}
+	}
+	if (loading == 0)
+		mtk_get_gpu_loading(&loading);
+
+	*pT_gpu_real = deltaTime * loading / 100U;
+	*pT_gpu_pipe = ((int)sRiskyBQ.t_gpu_latest) / 1000; // ns -> ms
+	*pT_gpu_target = sRiskyBQ.t_gpu_target / 1000;
+	*pullWnd = sRiskyBQ.ullWnd;
+	ret = GED_OK;
+
+	return ret;
+}
+EXPORT_SYMBOL(ged_kpi_timer_based_pick_riskyBQ);
+#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */

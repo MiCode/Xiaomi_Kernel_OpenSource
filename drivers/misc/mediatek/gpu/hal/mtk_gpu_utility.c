@@ -883,3 +883,32 @@ bool mtk_gpu_tuner_get_stauts_by_packagename(char *packagename, int *feature)
 	return err;
 }
 EXPORT_SYMBOL(mtk_gpu_tuner_get_stauts_by_packagename);
+
+/* ------------------------------------------------------------------------ */
+void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode) = NULL;
+EXPORT_SYMBOL(mtk_dvfs_loading_mode_fp);
+
+bool mtk_dvfs_loading_mode(int i32LoadingMode)
+{
+	if (mtk_dvfs_loading_mode_fp != NULL) {
+		mtk_dvfs_loading_mode_fp(i32LoadingMode);
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_dvfs_loading_mode);
+
+int (*mtk_get_dvfs_loading_mode_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_dvfs_loading_mode_fp);
+
+bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode)
+{
+	if ((mtk_get_dvfs_loading_mode_fp != NULL) &&
+		(pui32LoadingMode != NULL)) {
+
+		*pui32LoadingMode = mtk_get_dvfs_loading_mode_fp();
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_dvfs_loading_mode);
