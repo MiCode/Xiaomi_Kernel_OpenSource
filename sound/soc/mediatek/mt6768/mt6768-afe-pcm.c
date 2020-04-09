@@ -3342,6 +3342,7 @@ static int mt6768_afe_pcm_dev_probe(struct platform_device *pdev)
 	}
 
 	/* init memif */
+	afe->memif_32bit_supported = 0;
 	afe->memif_size = MT6768_MEMIF_NUM;
 	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
 				  GFP_KERNEL);
