@@ -1079,6 +1079,42 @@
 		mediatek,perf-crypto-vcore = <2>;
 	};
 
+	eem_fsm: eem_fsm@11278000 {
+		compatible = "mediatek,eem_fsm";
+		reg = <0 0x11278000 0 0x1000>;
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+		eem-status = <1>;
+		sn-status = <1>;
+		eem-initmon-little = <0xff>;
+		eem-initmon-big = <0xff>;
+		eem-initmon-cci = <0xff>;
+		eem-initmon-gpu = <0xff>;
+		eem-clamp-little = <0>;
+		eem-clamp-big = <0>;
+		eem-clamp-cci = <0>;
+		eem-clamp-gpu = <0>;
+		eem-offset-little = <0xff>;
+		eem-offset-big = <0xff>;
+		eem-offset-cci = <0xff>;
+		eem-offset-gpu = <0xff>;
+		proc1-supply = <&mt_pmic_vgpu11_buck_reg>;
+#ifndef CONFIG_MT6360_PMIC
+		proc2-supply = <&mt_pmic_vmodem_buck_reg>;
+#else
+		proc2-supply = <&mt_pmic_vproc2_buck_reg>;
+#endif
+	};
+
+	eemgpu_fsm: eemgpu_fsm@1100b000 {
+		compatible = "mediatek,eemgpu_fsm";
+		reg = <0 0x1100b000 0 0x1000>;
+		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
+		eemg-status = <1>;
+		eemg-initmon-gpu = <0xf>;
+		eemg-clamp-gpu = <0>;
+		eemg-offset-gpu = <0xff>;
+	};
+
 	md_auxadc:md_auxadc {
 		compatible = "mediatek,md_auxadc";
 		io-channels = <&auxadc 2>;
@@ -1444,7 +1480,11 @@
 		compatible = "mediatek,mt-cpufreq";
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		proc1-supply = <&mt_pmic_vgpu11_buck_reg>;
+#ifndef CONFIG_MT6360_PMIC
 		proc2-supply = <&mt_pmic_vmodem_buck_reg>;
+#else
+		proc2-supply = <&mt_pmic_vproc2_buck_reg>;
+#endif
 		sram_proc1-supply = <&mt_pmic_vsram_proc1_ldo_reg>;
 		sram_proc2-supply = <&mt_pmic_vsram_proc2_ldo_reg>;
 #endif
