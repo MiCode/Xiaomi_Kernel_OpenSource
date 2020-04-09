@@ -135,8 +135,6 @@ static void tianma_panel_init(struct tianma *ctx)
 {
 	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	usleep_range(10 * 1000, 15 * 1000);
-	ctx->reset_gpio =
-		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->reset_gpio, 0);
 	udelay(11 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
@@ -475,8 +473,8 @@ static const struct drm_display_mode performance_mode_90hz = {
 	.hsync_end = 1080 + 80 + 20,
 	.htotal = 1080 + 80 + 20 + 80,
 	.vdisplay = 2340,
-	.vsync_start = 2340 + 16,
-	.vsync_end = 2340 + 16 + 10,
+	.vsync_start = 2340 + 790,
+	.vsync_end = 2340 + 790 + 10,
 	.vtotal = 2340 + 790 + 10 + 25,
 	.vrefresh = 90,
 
@@ -490,8 +488,8 @@ static const struct drm_display_mode performance_mode_60hz = {
 	.hsync_end = 1080 + 80 + 20,
 	.htotal = 1080 + 80 + 20 + 80,
 	.vdisplay = 2340,
-	.vsync_start = 2340 + 16,
-	.vsync_end = 2340 + 16 + 10,
+	.vsync_start = 2340 + 2378,
+	.vsync_end = 2340 + 2378 + 10,
 	.vtotal = 2340 + 2378 + 10 + 25,
 	.vrefresh = 60,
 
