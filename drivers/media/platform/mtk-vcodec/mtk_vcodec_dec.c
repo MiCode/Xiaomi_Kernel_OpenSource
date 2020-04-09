@@ -410,7 +410,7 @@ static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int dpbsize = 0;
 	int ret;
-	struct mtk_color_desc color_desc;
+	struct mtk_color_desc color_desc = {.is_hdr = 0};
 
 	if (vdec_if_get_param(ctx,
 						  GET_PARAM_PIC_INFO,
@@ -539,7 +539,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	unsigned int dpbsize = 0;
 	struct timeval timestamp;
-	struct mtk_color_desc color_desc;
+	struct mtk_color_desc color_desc = {.is_hdr = 0};
 
 	mutex_lock(&ctx->worker_lock);
 	if (ctx->state != MTK_STATE_HEADER) {
