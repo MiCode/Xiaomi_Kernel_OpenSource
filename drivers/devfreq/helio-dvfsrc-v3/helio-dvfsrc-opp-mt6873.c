@@ -33,7 +33,6 @@
 
 static int opp_min_bin_opp0;
 static int opp_min_bin_opp3;
-static int opp_min_bin_opp3_1;
 static int is_vcore_ct;
 static int dvfsrc_rsrv;
 
@@ -139,8 +138,6 @@ static int get_vb_volt(int vcore_opp)
 		idx = ptpod & 0xF;
 		if (idx > 10)
 			ret = 0;
-		else if (idx >= opp_min_bin_opp3_1)
-			ret = 2;
 		else if (idx >= opp_min_bin_opp3)
 			ret = 1;
 		break;
@@ -206,13 +203,11 @@ static int __init dvfsrc_opp_init(void)
 
 	if (is_vcore_ct) {
 		if (ct_test) {
-			opp_min_bin_opp0 = 2;
-			opp_min_bin_opp3 = 2;
-			opp_min_bin_opp3_1 = 5;
+			opp_min_bin_opp0 = 3;
+			opp_min_bin_opp3 = 3;
 		} else {
 			opp_min_bin_opp0 = 3;
 			opp_min_bin_opp3 = 3;
-			opp_min_bin_opp3_1 = 6;
 		}
 		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
 		if (ct_opp3_en)
@@ -237,9 +232,7 @@ static int __init dvfsrc_opp_init(void)
 		else
 			vcore_opp_2_uv = 568750;
 
-		if (vcore_opp_3_uv == 525000)
-			vcore_opp_3_uv = 493750;
-		else if (vcore_opp_3_uv == 550000)
+		if (vcore_opp_3_uv == 550000)
 			vcore_opp_3_uv = 518750;
 		else if (vcore_opp_3_uv == 600000)
 			vcore_opp_3_uv = 568750;
@@ -258,9 +251,7 @@ static int __init dvfsrc_opp_init(void)
 		else
 			vcore_opp_2_uv = 631250;
 
-		if (vcore_opp_3_uv == 525000)
-			vcore_opp_3_uv = 556250;
-		else if (vcore_opp_3_uv == 550000)
+		if (vcore_opp_3_uv == 550000)
 			vcore_opp_3_uv = 581250;
 		else if (vcore_opp_3_uv == 600000)
 			vcore_opp_3_uv = 631250;
