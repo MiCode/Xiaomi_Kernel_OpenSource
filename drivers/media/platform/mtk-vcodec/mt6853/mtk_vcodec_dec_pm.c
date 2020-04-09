@@ -33,7 +33,7 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VDEC_FREQ 312
+#define STD_VDEC_FREQ 218
 static struct pm_qos_request vdec_qos_req_f;
 static u64 vdec_freq;
 static u32 vdec_freq_step_size;
@@ -210,19 +210,24 @@ void mtk_prepare_vdec_emi_bw(void)
 {
 #if DEC_EMI_BW
 	plist_head_init(&vdec_rlist);
-	mm_qos_add_request(&vdec_rlist, &vdec_mc, SMI_HW_VDEC_MC_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_ufo, SMI_HW_VDEC_UFO_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_pp, SMI_HW_VDEC_PP_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_pred_rd, SMI_HW_VDEC_PRED_RD_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_pred_wr, SMI_HW_VDEC_PRED_WR_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_ppwrap, SMI_HW_VDEC_PPWRAP_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_tile, SMI_HW_VDEC_TILE_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_vld, SMI_HW_VDEC_VLD_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_vld2, SMI_HW_VDEC_VLD2_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_avc_mv, SMI_HW_VDEC_AVC_MV_EXT);
-	mm_qos_add_request(&vdec_rlist, &vdec_ufo_enc, SMI_HW_VDEC_UFO_ENC_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_mc, M4U_PORT_L4_VDEC_MC_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_ufo, M4U_PORT_L4_VDEC_UFO_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_pp, M4U_PORT_L4_VDEC_PP_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_pred_rd,
+					M4U_PORT_L4_VDEC_PRED_RD_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_pred_wr,
+					M4U_PORT_L4_VDEC_PRED_WR_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_ppwrap,
+					M4U_PORT_L4_VDEC_PPWRAP_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_tile, M4U_PORT_L4_VDEC_TILE_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_vld, M4U_PORT_L4_VDEC_VLD_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_vld2, M4U_PORT_L4_VDEC_VLD2_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_avc_mv,
+					M4U_PORT_L4_VDEC_AVC_MV_EXT);
+	mm_qos_add_request(&vdec_rlist, &vdec_ufo_enc,
+					M4U_PORT_L4_VDEC_UFO_ENC_EXT);
 	mm_qos_add_request(&vdec_rlist, &vdec_rg_ctrl_dma,
-					SMI_HW_VDEC_RG_CTRL_DMA_EXT);
+					M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT);
 #endif
 }
 
@@ -296,13 +301,14 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	long emi_bw = 0;
 	long emi_bw_input = 0;
 	long emi_bw_output = 0;
+	int is_ufo_on = 0;
 
 	if (vdec_freq_step_size > 1)
 		b_freq_idx = vdec_freq_step_size - 1;
 
-	emi_bw = 8L * 1920 * 1080 * 3 * 10 * vdec_freq;
+	emi_bw = 8L * 1920 * 1080 * 2 * 10 * vdec_freq;
 	emi_bw_input = 8 * vdec_freq / STD_VDEC_FREQ;
-	emi_bw_output = 1920 * 1088 * 3 * 30 * 10 * vdec_freq /
+	emi_bw_output = 1920 * 1088 * 3 * 20 * 10 * vdec_freq /
 			2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
 
 	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
@@ -332,10 +338,20 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		break;
 	}
 
+	is_ufo_on = (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_H264 ||
+			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_H265 ||
+			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_VP9) &&
+			((ctx->q_data[MTK_Q_DATA_DST].coded_width *
+			ctx->q_data[MTK_Q_DATA_DST].coded_height) >=
+			(1920 * 1080)) ? 1 : 0;
+
 	/* bits/s to MBytes/s */
 	emi_bw = emi_bw / (1024 * 1024) / 8;
 
-	if (0) {    /* UFO */
+	if (is_ufo_on == 1) {    /* UFO */
 		emi_bw = emi_bw * 6 / 10;
 		emi_bw_output = emi_bw_output * 6 / 10;
 	}
@@ -344,7 +360,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	if (emi_bw < 0)
 		emi_bw = 0;
 
-	if (0) {    /* UFO */
+	if (is_ufo_on == 1) {    /* UFO */
 		mm_qos_set_request(&vdec_ufo, emi_bw, 0, BW_COMP_DEFAULT);
 		mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
 					BW_COMP_DEFAULT);

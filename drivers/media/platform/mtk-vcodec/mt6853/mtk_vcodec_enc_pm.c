@@ -33,9 +33,9 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VENC_FREQ 364
-#define STD_LUMA_BW 100
-#define STD_CHROMA_BW 50
+#define STD_VENC_FREQ 249
+#define STD_LUMA_BW 70
+#define STD_CHROMA_BW 35
 static struct pm_qos_request venc_qos_req_f;
 static u64 venc_freq;
 static u32 venc_freq_step_size;
@@ -210,15 +210,21 @@ void mtk_prepare_venc_emi_bw(void)
 {
 #if ENC_EMI_BW
 	plist_head_init(&venc_rlist);
-	mm_qos_add_request(&venc_rlist, &venc_rcpu, SMI_VENC_RCPU);
-	mm_qos_add_request(&venc_rlist, &venc_rec, SMI_VENC_REC);
-	mm_qos_add_request(&venc_rlist, &venc_bsdma, SMI_VENC_BSDMA);
-	mm_qos_add_request(&venc_rlist, &venc_sv_comv, SMI_VENC_SV_COMV);
-	mm_qos_add_request(&venc_rlist, &venc_rd_comv, SMI_VENC_RD_COMV);
-	mm_qos_add_request(&venc_rlist, &venc_cur_luma, SMI_VENC_CUR_LUMA);
-	mm_qos_add_request(&venc_rlist, &venc_cur_chroma, SMI_VENC_CUR_CHROMA);
-	mm_qos_add_request(&venc_rlist, &venc_ref_luma, SMI_VENC_REF_LUMA);
-	mm_qos_add_request(&venc_rlist, &venc_ref_chroma, SMI_VENC_REF_CHROMA);
+	mm_qos_add_request(&venc_rlist, &venc_rcpu, M4U_PORT_L7_VENC_RCPU);
+	mm_qos_add_request(&venc_rlist, &venc_rec, M4U_PORT_L7_VENC_REC);
+	mm_qos_add_request(&venc_rlist, &venc_bsdma, M4U_PORT_L7_VENC_BSDMA);
+	mm_qos_add_request(&venc_rlist, &venc_sv_comv,
+					M4U_PORT_L7_VENC_SV_COMV);
+	mm_qos_add_request(&venc_rlist, &venc_rd_comv,
+					M4U_PORT_L7_VENC_RD_COMV);
+	mm_qos_add_request(&venc_rlist, &venc_cur_luma,
+					M4U_PORT_L7_VENC_CUR_LUMA);
+	mm_qos_add_request(&venc_rlist, &venc_cur_chroma,
+					M4U_PORT_L7_VENC_CUR_CHROMA);
+	mm_qos_add_request(&venc_rlist, &venc_ref_luma,
+					M4U_PORT_L7_VENC_REF_LUMA);
+	mm_qos_add_request(&venc_rlist, &venc_ref_chroma,
+					M4U_PORT_L7_VENC_REF_CHROMA);
 #endif
 }
 
@@ -246,8 +252,8 @@ void mtk_venc_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		target_freq_64 = match_freq(target_freq, &venc_freq_steps[0],
 					venc_freq_step_size);
 
-		if (ctx->async_mode == 1 && target_freq_64 > 450)
-			target_freq_64 = 450;
+		if (ctx->async_mode == 1 && target_freq_64 > 458)
+			target_freq_64 = 458;
 
 		if (target_freq > 0) {
 			venc_freq = target_freq;
