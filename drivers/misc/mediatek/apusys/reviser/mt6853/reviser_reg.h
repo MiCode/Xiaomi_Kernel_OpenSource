@@ -18,12 +18,12 @@
 
 #define VLM_BASE                 (0x1D800000)
 #define TCM_BASE                 (0x1D000000)
-#define TCM_SIZE                 (0x100000)
+#define TCM_SIZE                 (0x000000)
 #define VLM_SIZE                 (0x200000)
 #define VLM_BANK_SIZE            (0x40000)
 #define REMAP_DRAM_SIZE          (0x4000000)
 #define VLM_DRAM_BANK_MAX        (8)
-#define VLM_TCM_BANK_MAX         (4)
+#define VLM_TCM_BANK_MAX         (0)
 #define VLM_CTXT_DRAM_OFFSET     (0x200000)
 
 #define REVISER_BASE             (0x19021000)
@@ -65,7 +65,7 @@
 
 #define VLM_CTXT_BASE            (0x0300)
 
-#define VLM_CTXT_MDLA_MAX        (1)
+#define VLM_CTXT_MDLA_MAX        (0)
 #define VLM_CTXT_MDLA_0          (VLM_CTXT_BASE + 0x08)
 #define VLM_CTXT_MDLA_1          (VLM_CTXT_BASE + 0x0C)
 
@@ -74,7 +74,7 @@
 #define VLM_CTXT_VPU_1           (VLM_CTXT_BASE + 0x14)
 #define VLM_CTXT_VPU_2           (VLM_CTXT_BASE + 0x18)
 
-#define VLM_CTXT_EDMA_MAX        (1)
+#define VLM_CTXT_EDMA_MAX        (0)
 #define VLM_CTXT_EDMA_0          (VLM_CTXT_BASE + 0x1C)
 #define VLM_CTXT_EDMA_1          (VLM_CTXT_BASE + 0x20)
 
