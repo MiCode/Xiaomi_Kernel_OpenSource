@@ -14,8 +14,7 @@
 #define _CCU_QOS_H_
 #include "ccu_reg.h"
 
-// #define CONFIG_MTK_QOS_SUPPORT_ENABLE
-#undef CONFIG_MTK_QOS_SUPPORT_ENABLE
+#define CONFIG_MTK_QOS_SUPPORT_ENABLE 1
 
 void ccu_qos_init(void);
 void ccu_qos_update_req(uint32_t *ccu_bw);
