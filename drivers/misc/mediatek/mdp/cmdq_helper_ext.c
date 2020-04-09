@@ -126,10 +126,12 @@ static bool cmdq_core_check_dma_addr_valid(const unsigned long pa)
 	phys_addr_t start = memblock_start_of_DRAM();
 	bool ret = false;
 
+	if (pa < start)
+		return true;
+
 	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
 	list_for_each_entry(waddr, &cmdq_ctx.writeAddrList, list_node)
-		if (pa < start || pa - (unsigned long)waddr->pa <
-			waddr->count << 2) {
+		if (pa - (unsigned long)waddr->pa < waddr->count << 2) {
 			ret = true;
 			break;
 		}
