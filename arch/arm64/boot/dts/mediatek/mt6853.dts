@@ -3510,6 +3510,23 @@
 		reg = <0 0x1401f000 0 0xe1000>;
 	};
 
+	imgsys_config: imgsys_config@15020000 {
+		compatible = "mediatek,imgsys","syscon";
+		reg = <0 0x15020000 0 0x1000>;
+		clocks =
+				<&imgsys1 CLK_IMGSYS1_LARB9>,
+				<&imgsys1 CLK_IMGSYS1_DIP>,
+				<&imgsys2 CLK_IMGSYS2_LARB9>,
+				<&imgsys2 CLK_IMGSYS2_MSS>,
+				<&imgsys2 CLK_IMGSYS2_MFB>;
+		clock-names =
+				"DIP_CG_IMG_LARB9",
+				"DIP_CG_IMG_DIP",
+				"DIP_CG_IMG_LARB11",
+				"DIP_CG_IMG_DIP_MSS",
+				"DIP_CG_IMG_MFB_DIP";
+	};
+
 	imgsys1: imgsys1@15020000 {
 		compatible = "mediatek,mt6853-imgsys1", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
@@ -3518,8 +3535,8 @@
 	};
 
 	dip_a0@15021000 {
-		compatible = "mediatek,dip_a0";
-		reg = <0 0x15021000 0 0x1000>;
+		compatible = "mediatek,dip1";
+		reg = <0 0x15021000 0 0xc000>;
 		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
@@ -3733,6 +3750,18 @@
 	wpe_b@15811000 {
 		compatible = "mediatek,wpe_b";
 		reg = <0 0x15811000 0 0x1000>;
+	};
+
+	msfdl@15810000 {
+		compatible = "mediatek,msfdl";
+		reg = <0 15810000 0 0x1000>;
+		interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	mssdl@15812000 {
+		compatible = "mediatek,mssdl";
+		reg = <0 0x15812000 0 0x1000>;
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	mss_b@15812000 {

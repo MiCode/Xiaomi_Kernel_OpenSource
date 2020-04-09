@@ -1187,7 +1187,7 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x1208),
 			DipDumpTL[DIPNo].region,
-			DIP_RD32(dipRegBasAddr + 0x120C));
+			DIP_RD32(dipRegBasAddr + 0x1210));
 		cmdq_util_err("dip: 0x%x221C(0x%x)-0x%x2220(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x121C),
@@ -2003,7 +2003,7 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x1194));
 
-		cmdqdebugcmd = 0x1006;
+		cmdqdebugcmd = 0x10006;
 		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
 		cmdq_util_err("cq state:0x%x : dip: 0x%x2194(0x%x)",
 			cmdqdebugcmd,
