@@ -342,6 +342,8 @@ config MTK_LOWMEM_HINT
 	  is occurs via uevent per second. The system in
 	  userspace can use the hint to make memory health
 	  improvement immediately.
+
+source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # PPT
 
 menu "Memory configs"

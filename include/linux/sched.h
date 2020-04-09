@@ -1368,6 +1368,10 @@ struct task_struct {
 	/* Used by LSM modules for access restriction: */
 	void				*security;
 #endif
+#ifdef CONFIG_MTK_TASK_TURBO
+	unsigned char turbo:1;
+	unsigned char render:1;
+#endif
 
 	/*
 	 * New fields for task_struct should be added above here, so that
