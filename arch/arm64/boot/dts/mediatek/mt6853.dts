@@ -280,6 +280,11 @@
 		reg = <0 0x0c53a000 0 0x1000>;
 	};
 
+	mcucfg_mp0_counter {
+		compatible = "mediatek,mcucfg_mp0_counter";
+		reg_mp0_counter_base = <&mcucfg>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
