@@ -252,7 +252,6 @@ dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
 {
 	int ret = 0;
 	dma_addr_t iova = 0;
-	/* mt6885, mt6873 maps va to iova */
 	unsigned long base = (unsigned long)vpu_drv->bin_va;
 
 	if (!pdev || !i || !i->size)
