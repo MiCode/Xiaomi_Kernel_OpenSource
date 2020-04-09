@@ -121,6 +121,14 @@ Optional properties:
 - qcom,dp-aux-bridge:		phandle for dp aux bridge module, for 3rd party dp bridge only.
 - qcom,dp-aux-bridge-sim:	phandle for dp aux bridge module, for internal mst debug simulation only.
 - qcom,dp-force-bond-mode:	Ignore tile information from EDID and force DP to work in bond mode.
+- qcom,bond-dual-ctrl:		u32 array to specify the cell-index of the two DP controllers that support bond mode.
+				The first controller in the array is the bond master. Driver will switch to bond mode
+				if both DP controllers are connected to the same dual DP input monitor.
+				e.g. <1, 0> will bond DP0 and DP1, and DP1 is the master, and DP0 is the salve.
+- qcom,bond-tri-ctrl:		u32 array to specify the cell-index of the three DP controllers that support bond mode.
+				The first controller in the array is the bond master. Driver will switch to bond mode
+				if all three DP controllers are connected to the same triple DP input monitor.
+				e.g. <2, 0, 1> will bond DP0, DP1 and DP2 together, and DP2 is the master, DP0/DP1 are the slaves.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then
