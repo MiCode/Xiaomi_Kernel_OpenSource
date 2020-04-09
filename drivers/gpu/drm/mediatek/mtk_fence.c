@@ -517,6 +517,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	unsigned int timeline_id = 0;
 	int fence_increment = 0;
 	char tag_name[30] = {'\0'};
+	int n;
 
 	timeline_id = mtk_fence_get_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);
@@ -527,8 +528,11 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 
 	mutex_lock(&layer_info->sync_lock);
 
-	sprintf(tag_name, "present_fence_release:%s-%d",
+	n = snprintf(tag_name, sizeof(*tag_name), "present_fence_rel:%s-%d",
 		mtk_fence_session_mode_spy(session_id), fence_idx);
+	if (n < 0 || n >= 30)
+		DDPFENCE("Warning, trace fence name too long\n");
+
 	mtk_drm_trace_begin("%s", tag_name);
 
 	fence_increment = fence_idx - layer_info->timeline->value;
