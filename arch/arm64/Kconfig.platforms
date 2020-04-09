@@ -547,6 +547,7 @@ config MACH_MT6853
 	select PM_DEVFREQ
 	select DEVAPC_MT6853
 	select MTK_SECURITY_SW_SUPPORT
+	select MTK_SYSTRACKER_V2
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture

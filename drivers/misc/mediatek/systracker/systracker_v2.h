@@ -40,7 +40,7 @@
 #elif defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761)
 	#define BUS_DBG_BUS_MHZ             (156)
 #elif defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	#define BUS_DBG_BUS_MHZ             (156)
 #elif defined(CONFIG_MACH_MT6779)
 	#define BUS_DBG_BUS_MHZ             (273)
