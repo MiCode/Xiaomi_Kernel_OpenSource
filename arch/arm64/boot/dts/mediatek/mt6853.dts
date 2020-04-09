@@ -996,6 +996,11 @@
 		interrupt = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	dbgtop@1000d000 {
+		compatible = "mediatek,dbgtop";
+		reg = <0 0x1000d000 0 0x1000>;
+	};
+
 	ufshci:ufshci@11270000 {
 		compatible = "mediatek,ufshci";
 		reg = <0 0x11270000 0 0x2300>;
