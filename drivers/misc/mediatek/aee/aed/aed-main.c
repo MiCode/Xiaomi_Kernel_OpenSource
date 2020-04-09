@@ -2324,6 +2324,7 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 				pr_info(
 				  "%s: oops->userthread_maps.Userthread_maps Vmalloc fail"
 				  , __func__);
+				vfree(oops->userthread_stack.Userthread_Stack);
 				kfree(oops);
 				return;
 			}
