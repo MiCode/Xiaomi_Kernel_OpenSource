@@ -36,31 +36,29 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_MDP_RSZ1,  /* 15 */
 	CMDQ_ENG_MDP_TDSHP0,    /* 16 */
 	CMDQ_ENG_MDP_TDSHP1,    /* 17 */
-	CMDQ_ENG_MDP_PQ0_SOUT,  /* 18 */
-	CMDQ_ENG_MDP_PQ1_SOUT,  /* 19 */
-	CMDQ_ENG_MDP_WROT0, /* 20 */
-	CMDQ_ENG_MDP_WROT1, /* 21 */
+	CMDQ_ENG_MDP_WROT0, /* 18 */
+	CMDQ_ENG_MDP_WROT1, /* 19 */
 
 	/* DPE */
-	CMDQ_ENG_DPE,       /* 22 */
-	CMDQ_ENG_RSC,       /* 23 */
-	CMDQ_ENG_GEPF,      /* 24 */
-	CMDQ_ENG_EAF,       /* 25 */
-	CMDQ_ENG_OWE,       /* 26 */
-	CMDQ_ENG_MFB,       /* 27 */
-	CMDQ_ENG_FDVT,       /* 28 */
+	CMDQ_ENG_DPE,       /* 20 */
+	CMDQ_ENG_RSC,       /* 21 */
+	CMDQ_ENG_GEPF,      /* 22 */
+	CMDQ_ENG_EAF,       /* 23 */
+	CMDQ_ENG_OWE,       /* 24 */
+	CMDQ_ENG_MFB,       /* 25 */
+	CMDQ_ENG_FDVT,       /* 26 */
 
 	/* ISP sec */
-	CMDQ_ENG_ISP_VIPI,  /* 29 */
-	CMDQ_ENG_ISP_LCEI,  /* 30 */
-	CMDQ_ENG_ISP_IMG3O, /* 31 */
-	CMDQ_ENG_ISP_SMXIO, /* 32 */
-	CMDQ_ENG_ISP_DMGI_DEPI, /* 33 */
-	CMDQ_ENG_ISP_IMGCI, /* 34 */
-	CMDQ_ENG_ISP_UFBCI, /* 35 */
-	CMDQ_ENG_ISP_UFBCO, /* 36 */
+	CMDQ_ENG_ISP_VIPI,  /* 27 */
+	CMDQ_ENG_ISP_LCEI,  /* 28 */
+	CMDQ_ENG_ISP_IMG3O, /* 29 */
+	CMDQ_ENG_ISP_SMXIO, /* 30 */
+	CMDQ_ENG_ISP_DMGI_DEPI, /* 31 */
+	CMDQ_ENG_ISP_IMGCI, /* 32 */
+	CMDQ_ENG_ISP_UFBCI, /* 33 */
+	CMDQ_ENG_ISP_UFBCO, /* 34 */
 
-	CMDQ_ENG_INORDER,   /*37 */
+	CMDQ_ENG_INORDER,   /*35 */
 
 	/* Dummy Engine */
 	CMDQ_ENG_ISP_TIMGO = 63,

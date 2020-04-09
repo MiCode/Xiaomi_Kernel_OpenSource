@@ -3485,9 +3485,13 @@
 		reg = <0 0x1f000000 0 0x1000>;
 		clocks = <&mdpsys_clk CLK_MDP_IMG_DL_ASYNC0>,
 			<&mdpsys_clk CLK_MDP_IMG_DL_ASYNC1>,
+			<&mdpsys_clk CLK_MDP_IMG_DL_RELAY0_ASYNC0>,
+			<&mdpsys_clk CLK_MDP_IMG_DL_RELAY1_ASYNC1>,
 			<&mdpsys_clk CLK_MDP_APB_BUS>;
 		clock-names = "MDP_IMG_DL_ASYNC0",
 			"MDP_IMG_DL_ASYNC1",
+			"MDP_IMG_DL_RELAY0_ASYNC0",
+			"MDP_IMG_DL_RELAY1_ASYNC1",
 			"MDP_APB_BUS";
 	};
 
