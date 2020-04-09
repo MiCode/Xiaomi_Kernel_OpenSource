@@ -75,7 +75,7 @@
 #define SCP_VCORE_REQ_TO_DVFSRC		1
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
-int scp_dvfs_flag = -1;
+int scp_dvfs_flag = 1;
 
 /*
  * -1: SCP Debug CMD: off,
@@ -936,9 +936,20 @@ static struct platform_driver mt_scp_dvfs_pdrv = {
 /**********************************
  * mediatek scp dvfs initialization
  ***********************************/
+void mt_pmic_sshub_init(void)
+{
+	pmic_buck_vcore_lp(SRCLKEN11, 0, 1, HW_OFF);
+
+	pr_debug("BUCK_VCORE_HW11_OP: MODE=0x%x, CFG=0x%x, EN=0x%x\n",
+		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_MODE),
+		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_CFG),
+		(int)pmic_get_register_value(PMIC_RG_BUCK_VCORE_HW11_OP_EN));
+}
+
 #ifdef CONFIG_PM
 static int mt_scp_dump_sleep_count(void)
 {
+#if 0
 	int ret;
 	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
 
@@ -953,15 +964,7 @@ static int mt_scp_dump_sleep_count(void)
 	else
 		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_0 = %d\n",
 		__func__, __LINE__, slp_ipi_ackdata0);
-
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
-	if (ret != IPI_ACTION_DONE)
-		printk_deferred("[name:scp&][%s:%d] - scp ipi fail, ret = %d\\n",
-		__func__, __LINE__, ret);
-	else
-		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_1 = %d\n",
-		__func__, __LINE__, slp_ipi_ackdata1);
+#endif
 
 	return 0;
 }
@@ -1016,6 +1019,8 @@ int __init scp_dvfs_init(void)
 	}
 
 	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
+
+	mt_pmic_sshub_init();
 
 #if SCP_VCORE_REQ_TO_DVFSRC
 	pm_qos_add_request(&dvfsrc_scp_vcore_req,
