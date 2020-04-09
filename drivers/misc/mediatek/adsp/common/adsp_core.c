@@ -50,10 +50,10 @@ int get_adsp_state(struct adsp_priv *pdata)
 int is_adsp_ready(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
-		return 0;
+		return -EINVAL;
 
 	if (unlikely(!adsp_cores[cid]))
-		return 0;
+		return -EINVAL;
 
 	return (adsp_cores[cid]->state == ADSP_RUNNING);
 }
@@ -63,7 +63,7 @@ bool is_adsp_system_running(void)
 	unsigned int id;
 
 	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
-		if (is_adsp_ready(id))
+		if (is_adsp_ready(id) > 0)
 			return true;
 	}
 	return false;
