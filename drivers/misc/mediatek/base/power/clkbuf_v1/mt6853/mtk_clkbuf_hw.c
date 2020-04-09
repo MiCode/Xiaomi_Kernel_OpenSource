@@ -1712,7 +1712,6 @@ void clk_buf_post_init(void)
 #endif
 #endif
 
-#define CONFIG_MTK_NFC_CLKBUF_ENABLE
 #ifndef CONFIG_MTK_NFC_CLKBUF_ENABLE
 	/* no need to use XO_NFC if no NFC */
 	clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_OFF);
