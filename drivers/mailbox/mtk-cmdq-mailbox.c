@@ -120,6 +120,27 @@ struct cmdq_buf_dump {
 	u32			pa_offset; /* pa_curr - pa_base */
 };
 
+#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#include "../misc/mediatek/mmp/mmprofile.h"
+
+#define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
+#endif
+
+#define mmp_event unsigned int
+struct cmdq_mmp_event {
+	mmp_event cmdq;
+	mmp_event cmdq_irq;
+	mmp_event loop_irq;
+	mmp_event thread_en;
+	mmp_event thread_suspend;
+	mmp_event submit;
+	mmp_event wait;
+	mmp_event wait_done;
+	mmp_event warning;
+};
+
+struct cmdq_mmp_event	cmdq_mmp;
+
 struct cmdq {
 	struct mbox_controller	mbox;
 	void __iomem		*base;
@@ -139,31 +160,15 @@ struct cmdq {
 	spinlock_t		lock;
 	u32			token_cnt;
 	u16			*tokens;
+	struct cmdq_mmp_event	mmp;
+	void			*init_cmds_base;
+	dma_addr_t		init_cmds;
 };
 
 struct gce_plat {
 	u32 thread_nr;
 	u8 shift;
 };
-
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
-#include "../misc/mediatek/mmp/mmprofile.h"
-
-struct cmdq_mmp_event {
-	mmp_event cmdq;
-	mmp_event cmdq_irq;
-	mmp_event loop_irq;
-	mmp_event thread_en;
-	mmp_event thread_suspend;
-	mmp_event submit;
-	mmp_event wait;
-	mmp_event warning;
-};
-
-struct cmdq_mmp_event	cmdq_mmp;
-
-#define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
-#endif
 
 static void cmdq_init(struct cmdq *cmdq)
 {

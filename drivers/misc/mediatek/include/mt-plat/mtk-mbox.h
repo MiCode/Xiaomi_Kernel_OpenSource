@@ -303,9 +303,7 @@ int mtk_mbox_clr_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int irq);
 int mtk_mbox_trigger_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int irq);
-unsigned int mtk_mbox_read_irq_status(struct mtk_mbox_device *mbdev,
-		unsigned int mbox);
-unsigned int mtk_mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
+unsigned int mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
 		unsigned int mbox);
 int mtk_mbox_set_base_addr(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int addr);
