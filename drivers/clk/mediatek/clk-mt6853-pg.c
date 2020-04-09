@@ -30,7 +30,7 @@
 #include <dt-bindings/clock/mt6853-clk.h>
 
 #define MT_CCF_DEBUG	1
-#define MT_CCF_BRINGUP	0
+#define MT_CCF_BRINGUP	1
 #define CONTROL_LIMIT	1
 #define	CHECK_PWR_ST	1
 

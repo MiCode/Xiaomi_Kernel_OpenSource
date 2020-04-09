@@ -30,8 +30,8 @@
 
 /* bringup config */
 #define MT_CCF_BRINGUP		1
-#define MT_CCF_MUX_DISABLE	0
-#define MT_CCF_PLL_DISABLE	0
+#define MT_CCF_MUX_DISABLE	1
+#define MT_CCF_PLL_DISABLE	1
 
 /* Regular Number Definition */
 #define INV_OFS	-1
