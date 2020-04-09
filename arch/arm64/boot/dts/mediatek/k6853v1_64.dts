@@ -440,6 +440,7 @@ initcall_debug=1";
 };
 /* TOUCH end */
 
+#include "cust_mt6853_camera.dtsi"
 #include <k6853v1_64/cust.dtsi>
 /* DISPSYS GPIO standardization */
 
