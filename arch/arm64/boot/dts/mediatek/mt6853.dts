@@ -917,7 +917,8 @@
 	touch:touch {
 	};
 
-	accdet:accdet {
+	accdet: accdet {
+		compatible = "mediatek,pmic-accdet";
 	};
 
 	mt6359_gauge {
