@@ -233,10 +233,12 @@ static int is_skb_gro(struct sk_buff *skb)
 
 	packet_type = skb->data[0] & 0xF0;
 	if (packet_type == IPV4_VERSION &&
-		ip_hdr(skb)->protocol == IPPROTO_TCP)
+		(ip_hdr(skb)->protocol == IPPROTO_TCP ||
+		ip_hdr(skb)->protocol == IPPROTO_UDP))
 		return 1;
 	else if (packet_type == IPV6_VERSION &&
-		ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+		(ipv6_hdr(skb)->nexthdr == IPPROTO_TCP ||
+		ipv6_hdr(skb)->nexthdr == IPPROTO_UDP))
 		return 1;
 	else
 		return 0;
@@ -1396,12 +1398,14 @@ static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 	switch (state) {
 #ifdef ENABLE_WQ_GRO
 	case RX_FLUSH:
-		preempt_disable();
-		spin_lock_bh(ccmni->spinlock);
-		ccmni->rx_gro_cnt++;
-		napi_gro_flush(ccmni->napi, false);
-		spin_unlock_bh(ccmni->spinlock);
-		preempt_enable();
+		if (!list_empty(&ccmni->napi->gro_list)) {
+			preempt_disable();
+			spin_lock_bh(ccmni->spinlock);
+			ccmni->rx_gro_cnt++;
+			napi_gro_flush(ccmni->napi, false);
+			spin_unlock_bh(ccmni->spinlock);
+			preempt_enable();
+		}
 		break;
 #else
 	case RX_IRQ:
