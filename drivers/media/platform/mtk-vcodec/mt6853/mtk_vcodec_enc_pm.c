@@ -22,7 +22,12 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 #include "smi_public.h"
-//#include "mt6853/smi_port.h"
+#include "mt6853/smi_port.h"
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#endif
 
 #if ENC_DVFS
 #include <linux/pm_qos.h>
@@ -116,6 +121,10 @@ void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 {
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	int i, larb_port_num, larb_id;
+	struct M4U_PORT_STRUCT port;
+#endif
 #ifndef FPGA_PWRCLK_API_DISABLE
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 	int ret;
@@ -124,6 +133,30 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	ret = clk_prepare_enable(pm->clk_MT_CG_VENC);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
+#endif
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	time_check_start(MTK_FMT_ENC, core_id);
+	if (core_id == MTK_VENC_CORE_0) {
+		larb_port_num = SMI_LARB7_PORT_NUM;
+		larb_id = 7;
+	} else {
+		larb_port_num = 0;
+		larb_id = 0;
+		mtk_v4l2_err("invalid core_id %d", core_id);
+	}
+
+	//enable 34bits port configs & sram settings
+	for (i = 0; i < larb_port_num; i++) {
+		port.ePortID = MTK_M4U_ID(larb_id, i);
+		port.Direction = 0;
+		port.Distance = 1;
+		port.domain = 0;
+		port.Security = 0;
+		port.Virtuality = 1;
+		m4u_config_port(&port);
+	}
+	time_check_end(MTK_FMT_ENC, core_id, 50);
 #endif
 }
 

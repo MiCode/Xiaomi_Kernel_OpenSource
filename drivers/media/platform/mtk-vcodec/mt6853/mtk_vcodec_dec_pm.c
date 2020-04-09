@@ -19,10 +19,15 @@
 #include <soc/mediatek/smi.h>
 #include <linux/slab.h>
 #include "smi_public.h"
-// #include "mt6853/smi_port.h"
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
+#include "mt6853/smi_port.h"
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#endif
 
 #if DEC_DVFS
 #include <linux/pm_qos.h>
@@ -64,7 +69,7 @@ static struct mm_qos_request vdec_rg_ctrl_dma;
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
-	ctx->user_lock_hw = 0;
+	ctx->user_lock_hw = 1;
 }
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
@@ -126,6 +131,11 @@ void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	int i, larb_port_num, larb_id;
+	struct M4U_PORT_STRUCT port;
+#endif
 #ifndef FPGA_PWRCLK_API_DISABLE
 	int ret;
 
@@ -133,6 +143,30 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	ret = clk_prepare_enable(pm->clk_MT_CG_VDEC);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VDEC fail %d", ret);
+#endif
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	time_check_start(MTK_FMT_DEC, hw_id);
+	if (hw_id == MTK_VDEC_CORE) {
+		larb_port_num = SMI_LARB4_PORT_NUM;
+		larb_id = 4;
+	}  else {
+		larb_port_num = 0;
+		larb_id = 0;
+		mtk_v4l2_err("invalid hw_id %d", hw_id);
+	}
+
+	//enable 34bits port configs & sram settings
+	for (i = 0; i < larb_port_num; i++) {
+		port.ePortID = MTK_M4U_ID(larb_id, i);
+		port.Direction = 0;
+		port.Distance = 1;
+		port.domain = 0;
+		port.Security = 0;
+		port.Virtuality = 1;
+		m4u_config_port(&port);
+	}
+	time_check_end(MTK_FMT_DEC, hw_id, 50);
 #endif
 }
 
