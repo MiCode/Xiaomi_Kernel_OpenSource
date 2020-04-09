@@ -1131,6 +1131,10 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			get_md_dtsi_val(input, output);
 			break;
 		}
+	case IPC_RPC_QUERY_CARD_TYPE:
+		CCCI_NORMAL_LOG(md_id, RPC,
+			"enter QUERY CARD_TYPE operation in ccci_rpc_work\n");
+		break;
 	case IPC_RPC_IT_OP:
 		{
 			int i;
