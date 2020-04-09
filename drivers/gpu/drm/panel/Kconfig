@@ -360,3 +360,14 @@ config DRM_PANEL_TIANMA_NT36672C_VDO_120HZ
 	  vdo mode Full HD Plus 120HZ panel. The panel has a 1080x2340
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_NT36672C_VDO_144HZ
+	tristate "TIANMA FHD+ vdo mode 144 HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode Full HD Plus 144HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
