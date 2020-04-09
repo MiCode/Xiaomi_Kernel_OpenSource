@@ -2045,6 +2045,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	u32 fourcc;
 	int last_frame_type = 0;
 	struct mtk_color_desc color_desc;
+	struct vb2_queue *dst_vq;
 
 	mtk_v4l2_debug(4, "[%d] (%d) id=%d, vb=%p",
 				   ctx->id, vb->vb2_queue->type,
@@ -2180,20 +2181,21 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 					ctx->id);
 	}
 
-	if (vdec_if_get_param(ctx, GET_PARAM_PIC_INFO, &ctx->picinfo)) {
+	ret = vdec_if_get_param(ctx, GET_PARAM_PIC_INFO,
+		&ctx->last_decoded_picinfo);
+	if (ret) {
 		mtk_v4l2_err("[%d]Error!! Cannot get param : GET_PARAM_PICTURE_INFO ERR",
 					 ctx->id);
 		return;
 	}
 
 	dst_q_data = &ctx->q_data[MTK_Q_DATA_DST];
-	ctx->last_decoded_picinfo = ctx->picinfo;
-	fourcc = ctx->picinfo.fourcc;
+	fourcc = ctx->last_decoded_picinfo.fourcc;
 	dst_q_data->fmt = mtk_find_fmt_by_pixel(fourcc);
 
 	for (i = 0; i < dst_q_data->fmt->num_planes; i++) {
-		dst_q_data->sizeimage[i] = ctx->picinfo.fb_sz[i];
-		dst_q_data->bytesperline[i] = ctx->picinfo.buf_w;
+		dst_q_data->sizeimage[i] = ctx->last_decoded_picinfo.fb_sz[i];
+		dst_q_data->bytesperline[i] = ctx->last_decoded_picinfo.buf_w;
 	}
 
 	bs_fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
@@ -2201,10 +2203,12 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	mtk_v4l2_debug(0,
 				   "[%d] Init Vdec OK wxh=%dx%d pic wxh=%dx%d bitdepth:%d lo:%d sz[0]=0x%x sz[1]=0x%x",
 				   ctx->id,
-				   ctx->picinfo.buf_w, ctx->picinfo.buf_h,
-				   ctx->picinfo.pic_w, ctx->picinfo.pic_h,
-				   ctx->picinfo.bitdepth,
-				   ctx->picinfo.layout_mode,
+				   ctx->last_decoded_picinfo.buf_w,
+				   ctx->last_decoded_picinfo.buf_h,
+				   ctx->last_decoded_picinfo.pic_w,
+				   ctx->last_decoded_picinfo.pic_h,
+				   ctx->last_decoded_picinfo.bitdepth,
+				   ctx->last_decoded_picinfo.layout_mode,
 				   dst_q_data->sizeimage[0],
 				   dst_q_data->sizeimage[1]);
 
@@ -2217,27 +2221,34 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 				   (fm_fourcc >> 16) & 0xFF,
 				   (fm_fourcc >> 24) & 0xFF,
 				   dst_q_data->fmt->num_planes,
-				   ctx->picinfo.fb_sz[0],
-				   ctx->picinfo.fb_sz[1]);
+				   ctx->last_decoded_picinfo.fb_sz[0],
+				   ctx->last_decoded_picinfo.fb_sz[1]);
 
 	ret = vdec_if_get_param(ctx, GET_PARAM_DPB_SIZE, &dpbsize);
 	if (dpbsize == 0)
 		mtk_v4l2_err("[%d] GET_PARAM_DPB_SIZE fail=%d", ctx->id, ret);
 
-	ctx->dpb_size = dpbsize;
 	ctx->last_dpb_size = dpbsize;
 
 	ret = vdec_if_get_param(ctx, GET_PARAM_COLOR_DESC, &color_desc);
 	if (ret == 0) {
-		ctx->is_hdr = color_desc.is_hdr;
 		ctx->last_is_hdr = color_desc.is_hdr;
 	} else {
 		mtk_v4l2_err("[%d] GET_PARAM_COLOR_DESC fail=%d",
 		ctx->id, ret);
 	}
 
+	dst_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
+		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+
+	if (!vb2_is_streaming(dst_vq)) {
+		ctx->picinfo = ctx->last_decoded_picinfo;
+		ctx->dpb_size = dpbsize;
+		ctx->is_hdr = color_desc.is_hdr;
+	}
+
 	ctx->state = MTK_STATE_HEADER;
-	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->dpb_size);
+	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->last_dpb_size);
 
 }
 
