@@ -3032,6 +3032,24 @@
 		reg = <0 0x1502c000 0 0x1000>;
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+		port@0 {
+			flashlight_0: endpoint {
+			remote-endpoint = <&fl_core_0>;
+			};
+		};
+		port@1 {
+			flashlight_1: endpoint {
+			remote-endpoint = <&fl_core_1>;
+			};
+		};
+	};
+
 	smi_larb9: smi_larb9@1502e000 {
 		compatible = "mediatek,smi_larb9", "mediatek,smi_larb";
 		reg = <0 0x1502e000 0 0x1000>;
@@ -4507,6 +4525,14 @@
 				led-max-microamp = <200000>;
 				flash-max-microamp = <750000>;
 				flash-max-timeout-us = <1248000>;
+				type = <0>;
+				ct = <0>;
+				part = <0>;
+				port@0 {
+					fl_core_0: endpoint {
+					remote-endpoint = <&flashlight_0>;
+					};
+				};
 			};
 			flash@1 {
 				reg = <1>;
@@ -4514,6 +4540,14 @@
 				led-max-microamp = <200000>;
 				flash-max-microamp = <750000>;
 				flash-max-timeout-us = <1248000>;
+				type = <0>;
+				ct = <1>;
+				part = <0>;
+				port@1 {
+					fl_core_1: endpoint {
+					remote-endpoint = <&flashlight_1>;
+					};
+				};
 			};
 		};
 		/* BUCK LDO */
