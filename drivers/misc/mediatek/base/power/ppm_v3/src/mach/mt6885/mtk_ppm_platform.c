@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,8 +34,8 @@ unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
 {
 	return 0;
 }
-int __attribute__((weak))
-	mt_spower_get_leakage(int dev, unsigned int voltage, int degree)
+int __attribute__((weak)) mt_spower_get_leakage(
+	int dev, unsigned int voltage, int degree)
 {
 	return 0;
 }
@@ -49,13 +49,15 @@ static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
 	int i;
 
 	for_each_ppm_clusters(i) {
-		arch_get_cluster_cpus(&cluster_cpu, i);
+		ppm_get_cl_cpus(&cluster_cpu, i);
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
 
 		cl_status[i].core_num = cpumask_weight(&online_cpu);
 		cl_status[i].volt = mt_cpufreq_get_cur_volt(i) / 100;
-		cl_status[i].freq_idx = ppm_main_freq_to_idx(i,
-		mt_cpufreq_get_cur_phy_freq_no_lock(i), CPUFREQ_RELATION_L);
+		cl_status[i].freq_idx =
+			ppm_main_freq_to_idx(i,
+					mt_cpufreq_get_cur_phy_freq_no_lock(i),
+					CPUFREQ_RELATION_L);
 	}
 }
 
@@ -103,7 +105,7 @@ static int ppm_cpu_dead(unsigned int cpu)
 {
 	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
 #ifdef PPM_SSPM_SUPPORT
-	int i;
+	int i = 0;
 #endif
 
 	ppm_dbg(DLPT, "action = %s\n", __func__);
@@ -121,7 +123,7 @@ static int ppm_cpu_up(unsigned int cpu)
 {
 	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
 #ifdef PPM_SSPM_SUPPORT
-	int i;
+	int i = 0;
 #endif
 
 	ppm_dbg(DLPT, "action = %s\n", __func__);
@@ -142,10 +144,10 @@ static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
 
 	switch (cluster) {
 	case PPM_CLUSTER_L:
-		temp = get_immediate_cpuLL_wrap() / 1000;
+		temp = get_immediate_cpuL_wrap() / 1000;
 		break;
 	case PPM_CLUSTER_B:
-		temp = get_immediate_cpuL_wrap() / 1000;
+		temp = get_immediate_cpuB_wrap() / 1000;
 		break;
 	default:
 		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
@@ -184,8 +186,8 @@ int ppm_platform_init(void)
 {
 #ifdef PPM_SSPM_SUPPORT
 	/* map sram to update online core */
-	online_core = ioremap_nocache
-			(PPM_ONLINE_CORE_SRAM_ADDR, 4 * NR_PPM_CLUSTERS);
+	online_core = ioremap_nocache(
+		PPM_ONLINE_CORE_SRAM_ADDR, 4 * NR_PPM_CLUSTERS);
 	if (!online_core) {
 		ppm_err("remap online_core failed!\n");
 		WARN_ON(1);
@@ -193,8 +195,8 @@ int ppm_platform_init(void)
 	}
 #endif
 #ifdef CONFIG_CPU_FREQ
-	cpufreq_register_notifier
-		(&ppm_cpu_freq_notifier, CPUFREQ_TRANSITION_NOTIFIER);
+	cpufreq_register_notifier(
+		&ppm_cpu_freq_notifier, CPUFREQ_TRANSITION_NOTIFIER);
 #endif
 	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
 			"ppm/cpuhp", ppm_cpu_up,
@@ -224,8 +226,22 @@ int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 
 #ifdef CONFIG_MTK_UNIFY_POWER
 		if (core > 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
+#if 1
+			pwr_idx += cobra_tbl->basic_pwr_tbl
+				[CORE_NUM_L*i+core-1][opp].power_idx;
+#else
 			pwr_idx +=
-			cobra_tbl->basic_pwr_tbl[4*i+core-1][opp].power_idx;
+				((upower_get_power(i, opp, UPOWER_DYN) +
+				upower_get_power(i, opp, UPOWER_LKG)) * core +
+				(upower_get_power(
+					i + NR_PPM_CLUSTERS,
+					opp,
+					UPOWER_DYN) +
+				upower_get_power(
+					i + NR_PPM_CLUSTERS,
+					opp,
+					UPOWER_LKG))) / 1000;
+#endif
 		}
 #else
 		pwr_idx += 100;
@@ -272,7 +288,7 @@ int ppm_get_max_pwr_idx(void)
 }
 
 unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
-			unsigned int cluster_num, unsigned int percentage)
+	unsigned int cluster_num, unsigned int percentage)
 {
 	unsigned int dynamic, lkg, total, budget = 0;
 	int i;
@@ -285,12 +301,14 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 		if (core != 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 			now = ktime_get();
 #ifdef CONFIG_MTK_UNIFY_POWER
-			dynamic = upower_get_power(i, opp, UPOWER_DYN) / 1000;
-			lkg = mt_ppm_get_leakage_mw((enum ppm_cluster_lkg)i);
+			dynamic =
+				upower_get_power(i, opp, UPOWER_DYN) / 1000;
+			lkg =
+				mt_ppm_get_leakage_mw((enum ppm_cluster_lkg)i);
 			total =
-				((((dynamic * 100 + (percentage - 1)) /
-					percentage) + lkg) * core)
-				+ ((upower_get_power(
+				((((dynamic * 100 + percentage - 1) /
+					percentage) + lkg) * core) +
+				((upower_get_power(
 					i + NR_PPM_CLUSTERS,
 					opp,
 					UPOWER_DYN) +
@@ -322,29 +340,6 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 	ppm_dbg(DLPT, "@%s: total budget = %d\n", __func__, budget);
 
 	return budget;
-}
-
-unsigned int mt_ppm_thermal_get_power_big_max_opp(unsigned int opp)
-{
-	struct ppm_cluster_status status[NR_PPM_CLUSTERS];
-	int i;
-	int power;
-
-	if (opp >= DVFS_OPP_NUM)
-		return (unsigned int)ppm_get_max_pwr_idx();
-
-	for_each_ppm_clusters(i) {
-		status[i].core_num = get_cluster_max_cpu_core(i);
-		status[i].freq_idx = (i == PPM_CLUSTER_B) ? opp
-			: get_cluster_max_cpufreq_idx(i);
-
-		ppm_ver("[%d] core = %d, freq_idx = %d\n",
-			i, status[i].core_num, status[i].freq_idx);
-	}
-
-	power = ppm_find_pwr_idx(status);
-	return (power == -1)
-		? (unsigned int)ppm_get_max_pwr_idx() : (unsigned int)power;
 }
 
 unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
