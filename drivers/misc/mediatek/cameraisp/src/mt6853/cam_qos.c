@@ -22,9 +22,9 @@
 #include <linux/types.h>
 #include "inc/cam_qos.h"
 
-//#define CONFIG_MTK_QOS_SUPPORT_ENABLE
-#define EP_STAGE
-#define EP_PMQOS
+#define CONFIG_MTK_QOS_SUPPORT_ENABLE
+//#define EP_STAGE
+//#define EP_PMQOS
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 #ifndef EP_STAGE
