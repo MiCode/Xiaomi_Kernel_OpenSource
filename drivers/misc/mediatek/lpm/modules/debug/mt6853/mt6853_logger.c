@@ -86,32 +86,14 @@ struct spm_wakesrc_irq_list mt6853_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_KP_IRQ_B, "mediatek,kp", 0, 0},
 	/* mt_wdt */
 	{ WAKE_SRC_STA1_APWDT_EVENT_B, "mediatek,toprgu", 0, 0},
-	/* BTCVSD_ISR_Handle */
+	/* bt_cvsd_int */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mtk-btcvsd-snd", 0, 0},
-	/* BTIF_WAKEUP_IRQ */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 0, 0},
-	/* BGF_SW_IRQ */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 1, 0},
-	/* wlan0 */
+	/* wf_hif_int */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
-	/* wlan0 */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 1, 0},
-	/* fm */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,fm", 0, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 0, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 1, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 2, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 3, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 4, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 5, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-gps", 6, 0},
+	/* conn2ap_btif_wakeup_out */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-consys", 0, 0},
+	/* conn2ap_sw_irq */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-consys", 2, 0},
 	/* mt6358-irq */
 	{ WAKE_SRC_STA1_EINT_EVENT_B, "mediatek,apirq", 0, 0},
 	/* CCIF_AP_DATA */
@@ -330,11 +312,10 @@ static void mt6853_suspend_show_detailed_wakeup_reason
 		if (mt6853_spm_wakesrc_irqs[i].name == NULL ||
 			!mt6853_spm_wakesrc_irqs[i].irq_no)
 			continue;
-		if (mt6853_spm_wakesrc_irqs[i].wakesrc == wakesta->r12) {
+		if (mt6853_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
 			irq_no = mt6853_spm_wakesrc_irqs[i].irq_no;
-			/* FIXME */
-			/* if (mt_irq_get_pending(irq_no)) */
-			/*	log_wakeup_reason(irq_no);   */
+			if (mt_irq_get_pending(irq_no))
+				log_wakeup_reason(irq_no);
 		}
 	}
 }
