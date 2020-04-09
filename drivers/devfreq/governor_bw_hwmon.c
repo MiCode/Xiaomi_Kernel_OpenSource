@@ -462,6 +462,14 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 				*freq,
 				hw->up_wake_mbps,
 				hw->down_wake_mbps);
+
+	trace_bw_hwmon_debug(dev_name(node->hw->df->dev.parent),
+				req_mbps,
+				meas_mbps_zone,
+				node->hist_max_mbps,
+				node->hist_mem,
+				node->hyst_mbps,
+				node->hyst_en);
 	return req_mbps;
 }
 

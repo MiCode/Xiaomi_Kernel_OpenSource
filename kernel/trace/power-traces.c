@@ -25,3 +25,4 @@ EXPORT_TRACEPOINT_SYMBOL(cache_hwmon_update);
 EXPORT_TRACEPOINT_SYMBOL(cache_hwmon_meas);
 EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_update);
 EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_meas);
+EXPORT_TRACEPOINT_SYMBOL(bw_hwmon_debug);
