@@ -31,6 +31,7 @@ DECLARE_PER_CPU(struct ca_pmu_stats, ca_pmu_stats);
 #define GROUP_BG   3
 #define GROUP_TA   4
 
+#define CORTEX_A76 76
 #define CORTEX_A75 75
 #define CORTEX_A55 55
 struct cpu_config_node {
@@ -59,6 +60,7 @@ enum CA55_PMU_EVENT {
 };
 extern int ca55_register[];
 extern int ca75_register[];
+extern int ca76_register[];
 
 enum setting_type {
 	DISABLE_TYPE,
