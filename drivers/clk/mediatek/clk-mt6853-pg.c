@@ -30,7 +30,7 @@
 #include <dt-bindings/clock/mt6853-clk.h>
 
 #define MT_CCF_DEBUG	1
-#define MT_CCF_BRINGUP	1
+#define MT_CCF_BRINGUP	0
 #define CONTROL_LIMIT	1
 #define	CHECK_PWR_ST	1
 
@@ -246,8 +246,12 @@ static void __iomem *infra_pdn_base;/* infra_pdn */
 #define CONN_PROT_STEP2_0_ACK_MASK		((0x1 << 14))
 #define CONN_PROT_STEP2_1_MASK			((0x1 << 10))
 #define CONN_PROT_STEP2_1_ACK_MASK		((0x1 << 10))
-#define MFG1_PROT_STEP0_WAY_EN_MASK		((0x1 << 11))
-#define MFG1_PROT_STEP0_WAY_EN_MASK_ACK		((0x1 << 11))
+#define MFG1_PROT_STEP0_WAY_EN_ON_MASK		((0x1 << 11) \
+						|(0x1 << 12))
+#define MFG1_PROT_STEP0_WAY_EN_OFF_MASK		((0x1 << 12))
+#define MFG1_PROT_STEP0_WAY_EN_ON_MASK_ACK	((0x1 << 11) \
+						|(0x1 << 12))
+#define MFG1_PROT_STEP0_WAY_EN_OFF_MASK_ACK	((0x1 << 12))
 #define MFG1_PROT_STEP1_0_MASK			((0x1 << 21))
 #define MFG1_PROT_STEP1_0_ACK_MASK		((0x1 << 21))
 #define MFG1_PROT_STEP1_1_MASK			((0x1 << 5) \
@@ -745,7 +749,7 @@ static void ram_console_update(void)
 		print_subsys_reg(apmixed);
 
 		if (DBG_STA == STA_POWER_DOWN) {
-			u32 id;
+			u32 id = DBG_ID;
 
 			if (DBG_ID >= (DBG_ID_NUM / 2))
 				id = DBG_ID - (DBG_ID_NUM / 2);
@@ -776,46 +780,46 @@ static void ram_console_update(void)
 			}
 
 			/* ipe */
-			if (DBG_ID == SYS_IPE) {
+			if (id == SYS_IPE) {
 				print_subsys_reg(mmsys);
 				print_subsys_reg(mdpsys);
 				print_subsys_reg(ipesys);
 			}
 
 			/* venc */
-			if (DBG_ID == SYS_VEN) {
+			if (id == SYS_VEN) {
 				print_subsys_reg(mmsys);
 				print_subsys_reg(vencsys);
 			}
 
 			/* vdec */
-			if (DBG_ID == SYS_VDE) {
+			if (id == SYS_VDE) {
 				print_subsys_reg(mmsys);
 				print_subsys_reg(vdecsys);
 			}
 
 			/* cam */
-			if (DBG_ID == SYS_CAM) {
+			if (id == SYS_CAM) {
 				print_subsys_reg(mmsys);
 				print_subsys_reg(mdpsys);
 				print_subsys_reg(camsys);
 			}
 
-			if (DBG_ID == SYS_CAM_RAWA) {
+			if (id == SYS_CAM_RAWA) {
 				print_subsys_reg(mmsys);
 				print_subsys_reg(mdpsys);
 				print_subsys_reg(camsys);
 				print_subsys_reg(cam_rawa_sys);
 			}
 
-			if (DBG_ID == SYS_CAM_RAWB) {
+			if (id == SYS_CAM_RAWB) {
 				print_subsys_reg(mmsys);
 				print_subsys_reg(mdpsys);
 				print_subsys_reg(camsys);
 				print_subsys_reg(cam_rawb_sys);
 			}
 
-			if (DBG_ID == SYS_VPU) {
+			if (id == SYS_VPU) {
 				print_subsys_reg(apu0);
 				print_subsys_reg(apu1);
 				print_subsys_reg(apuvc);
@@ -1230,11 +1234,10 @@ int spm_mtcmos_ctrl_mfg1_bus_prot(int state)
 	if (state == STA_POWER_DOWN) {
 		/* TINFO="Set way_en=0" */
 		spm_write(INFRA_PDN_MFG1_WAY_EN,
-				spm_read(MFG1_PWR_CON)
-				& ~MFG1_PROT_STEP0_WAY_EN_MASK);
+				MFG1_PROT_STEP0_WAY_EN_OFF_MASK);
 		while ((spm_read(INFRA_PDN_MFG1_WAY_EN)
-				& MFG1_PROT_STEP0_WAY_EN_MASK)
-				== MFG1_PROT_STEP0_WAY_EN_MASK)
+				& MFG1_PROT_STEP0_WAY_EN_OFF_MASK)
+				!= MFG1_PROT_STEP0_WAY_EN_OFF_MASK_ACK)
 			ram_console_update();
 
 		INCREASE_STEPS;
@@ -1307,6 +1310,16 @@ int spm_mtcmos_ctrl_mfg1_bus_prot(int state)
 		}
 		INCREASE_STEPS;
 #endif
+		/* TINFO="Finish to release MFG1 bus protect" */
+		/* TINFO="Set way_en=1" */
+		spm_write(INFRA_PDN_MFG1_WAY_EN,
+				MFG1_PROT_STEP0_WAY_EN_ON_MASK);
+		while ((spm_read(INFRA_PDN_MFG1_WAY_EN)
+				& MFG1_PROT_STEP0_WAY_EN_ON_MASK)
+				!= MFG1_PROT_STEP0_WAY_EN_ON_MASK_ACK)
+			ram_console_update();
+
+		INCREASE_STEPS;
 		/* TINFO="Release bus protect - step2 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_CLR,
 				MFG1_PROT_STEP2_0_MASK);
@@ -1339,17 +1352,6 @@ int spm_mtcmos_ctrl_mfg1_bus_prot(int state)
 		 * releasing protect has been ignored
 		 */
 #endif
-		/* TINFO="Finish to release MFG1 bus protect" */
-		/* TINFO="Set way_en=1" */
-		spm_write(INFRA_PDN_MFG1_WAY_EN,
-				spm_read(MFG1_PWR_CON)
-				| MFG1_PROT_STEP0_WAY_EN_MASK);
-		while ((spm_read(INFRA_PDN_MFG1_WAY_EN)
-				& MFG1_PROT_STEP0_WAY_EN_MASK)
-				!= MFG1_PROT_STEP0_WAY_EN_MASK)
-			ram_console_update();
-
-		INCREASE_STEPS;
 	}
 	INCREASE_STEPS;
 	ram_console_update();
@@ -4231,13 +4233,14 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	mtk_clk_unlock(flags);
 
+#if 1
 	if (action == MTCMOS_BUS_PROT) {
 		list_for_each_entry(pgcb, &pgcb_list, list) {
 			if (pgcb->after_on)
 				pgcb->after_on(id);
 		}
 	}
-
+#endif
 	return r;
 }
 
@@ -4268,13 +4271,14 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
+#if 1
 	if (action == MTCMOS_BUS_PROT) {
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->before_off)
 				pgcb->before_off(id);
 		}
 	}
-
+#endif
 	mtk_clk_lock(flags);
 
 	if (action == MTCMOS_BUS_PROT)
@@ -4404,6 +4408,7 @@ int pg_prepare(struct clk_hw *hw)
 	}
 
 	mtk_mtcmos_unlock(flags);
+
 	return ret1;
 }
 
@@ -4588,13 +4593,6 @@ struct cg_list cam_ra_cg = {.cg = {"cam_ra_larbx"},};
 
 struct cg_list cam_rb_cg = {.cg = {"cam_rb_larbx"},};
 
-struct cg_list vpu_cg1 = {
-	.cg = {
-		"ipu_if_sel",
-		"dsp_sel",
-	},
-};
-
 struct cg_list vpu_cg2 = {
 	.cg = {
 		"apu0_jtag",
@@ -4641,11 +4639,11 @@ struct mtk_power_gate scp_clks[] = {
 	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, &adsp_cg, NULL, SYS_ADSP),
 	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", &cam_cg1, &cam_cg2, SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL,
-			NULL, SYS_CAM_RAWA),
+			&cam_ra_cg, SYS_CAM_RAWA),
 	PGATE(SCP_SYS_CAM_RAWB, "PG_CAM_RAWB", "PG_CAM", NULL,
-			NULL, SYS_CAM_RAWB),
+			&cam_rb_cg, SYS_CAM_RAWB),
 	/* Gary Wang: no need to turn on disp mtcmos*/
-	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, &vpu_cg1, &vpu_cg2, SYS_VPU),
+	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, NULL, &vpu_cg2, SYS_VPU),
 };
 
 static void init_clk_scpsys(struct clk_onecell_data *clk_data)

@@ -509,7 +509,9 @@
 #define CLK_MM_DISP_FAKE_ENG1		21
 #define CLK_MM_SMI_GALS			22
 #define CLK_MM_SMI_IOMMU		23
-#define CLK_MM_NR_CLK			24
+#define CLK_MM_DSI0_DSI_CK_DOMAIN	24
+#define CLK_MM_DISP_26M			25
+#define CLK_MM_NR_CLK			26
 
 /* IMGSYS1 */
 

@@ -30,8 +30,8 @@
 
 /* bringup config */
 #define MT_CCF_BRINGUP		1
-#define MT_CCF_MUX_DISABLE	1
-#define MT_CCF_PLL_DISABLE	1
+#define MT_CCF_MUX_DISABLE	0
+#define MT_CCF_PLL_DISABLE	0
 
 /* Regular Number Definition */
 #define INV_OFS	-1
@@ -410,7 +410,7 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"scam_sel", 1, 1),
 	FACTOR(CLK_TOP_FDISP_PWM, "fdisp_pwm_ck",
 			"disp_pwm_sel", 1, 1),
-	FACTOR(CLK_TOP_FUSB_TOP, "fusb_ck",
+	FACTOR(CLK_TOP_FUSB_TOP, "fusb_top_ck",
 			"usb_sel", 1, 1),
 	FACTOR(CLK_TOP_FSSUSB_XHCI, "fssusb_xhci_ck",
 			"ssusb_xhci_sel", 1, 1),
@@ -2023,12 +2023,8 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 10),
 	GATE_IFRAO2(CLK_IFRAO_I2C0, "ifrao_i2c0",
 			"i2c_ck"/* parent */, 11),
-	GATE_IFRAO2(CLK_IFRAO_I2C1, "ifrao_i2c1",
-			"i2c_ck"/* parent */, 12),
-	GATE_IFRAO2(CLK_IFRAO_I2C2, "ifrao_i2c2",
-			"i2c_ck"/* parent */, 13),
 	GATE_IFRAO2(CLK_IFRAO_I2C3, "ifrao_i2c3",
-			"i2c_ck"/* parent */, 14),
+			"axi_ck"/* parent */, 14),
 	GATE_IFRAO2(CLK_IFRAO_PWM_HCLK, "ifrao_pwm_hclk",
 			"axi_ck"/* parent */, 15),
 	GATE_IFRAO2(CLK_IFRAO_PWM1, "ifrao_pwm1",
@@ -2108,7 +2104,7 @@ static const struct mtk_gate ifrao_clks[] = {
 			"f26m_ck"/* parent */, 31),
 	/* IFRAO4 */
 	GATE_IFRAO4(CLK_IFRAO_SSUSB, "ifrao_ssusb",
-			"fusb_ck"/* parent */, 1),
+			"fusb_top_ck"/* parent */, 1),
 	GATE_IFRAO4(CLK_IFRAO_DISP_PWM, "ifrao_disp_pwm",
 			"fdisp_pwm_ck"/* parent */, 2),
 	GATE_IFRAO4(CLK_IFRAO_CLDMA_BCLK, "ifrao_cldmabclk",
@@ -2119,8 +2115,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"f26m_ck"/* parent */, 5),
 	GATE_IFRAO4(CLK_IFRAO_SPI1, "ifrao_spi1",
 			"spi_ck"/* parent */, 6),
-	GATE_IFRAO4(CLK_IFRAO_I2C4, "ifrao_i2c4",
-			"i2c_ck"/* parent */, 7),
 	GATE_IFRAO4(CLK_IFRAO_SPI2, "ifrao_spi2",
 			"spi_ck"/* parent */, 9),
 	GATE_IFRAO4(CLK_IFRAO_SPI3, "ifrao_spi3",
@@ -2135,20 +2129,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"sspm_ck"/* parent */, 15),
 	GATE_IFRAO4(CLK_IFRAO_SSPM_BUS_HCLK, "ifrao_sspm_hclk",
 			"axi_ck"/* parent */, 17),
-	GATE_IFRAO4(CLK_IFRAO_I2C5, "ifrao_i2c5",
-			"i2c_ck"/* parent */, 18),
-	GATE_IFRAO4(CLK_IFRAO_I2C5_ARBITER, "ifrao_i2c5a",
-			"i2c_ck"/* parent */, 19),
-	GATE_IFRAO4(CLK_IFRAO_I2C5_IMM, "ifrao_i2c5_imm",
-			"i2c_ck"/* parent */, 20),
-	GATE_IFRAO4(CLK_IFRAO_I2C1_ARBITER, "ifrao_i2c1a",
-			"i2c_ck"/* parent */, 21),
-	GATE_IFRAO4(CLK_IFRAO_I2C1_IMM, "ifrao_i2c1_imm",
-			"i2c_ck"/* parent */, 22),
-	GATE_IFRAO4(CLK_IFRAO_I2C2_ARBITER, "ifrao_i2c2a",
-			"i2c_ck"/* parent */, 23),
-	GATE_IFRAO4(CLK_IFRAO_I2C2_IMM, "ifrao_i2c2_imm",
-			"i2c_ck"/* parent */, 24),
 	GATE_IFRAO4(CLK_IFRAO_SPI4, "ifrao_spi4",
 			"spi_ck"/* parent */, 25),
 	GATE_IFRAO4(CLK_IFRAO_SPI5, "ifrao_spi5",
@@ -2174,8 +2154,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"f26m_ck"/* parent */, 3),
 	GATE_IFRAO5(CLK_IFRAO_SSPM_32K_SELF, "ifrao_sspm_32k",
 			"frtc_ck"/* parent */, 4),
-	GATE_IFRAO5(CLK_IFRAO_I2C6, "ifrao_i2c6",
-			"i2c_ck"/* parent */, 6),
 	GATE_IFRAO5(CLK_IFRAO_AP_MSDC0, "ifrao_ap_msdc0",
 			"msdc50_0_ck"/* parent */, 7),
 	GATE_IFRAO5(CLK_IFRAO_MD_MSDC0, "ifrao_md_msdc0",
@@ -2196,10 +2174,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 19),
 	GATE_IFRAO5(CLK_IFRAO_SEJ_F13M, "ifrao_sej_f13m",
 			"f26m_ck"/* parent */, 20),
-	GATE_IFRAO5(CLK_IFRAO_I2C7, "ifrao_i2c7",
-			"i2c_ck"/* parent */, 22),
-	GATE_IFRAO5(CLK_IFRAO_I2C8, "ifrao_i2c8",
-			"i2c_ck"/* parent */, 23),
 	GATE_IFRAO5(CLK_IFRAO_FBIST2FPC, "ifrao_fbist2fpc",
 			"msdc50_0_ck"/* parent */, 24),
 	GATE_IFRAO5(CLK_IFRAO_DEVICE_APC_SYNC, "ifrao_dapc_sync",
@@ -2476,6 +2450,7 @@ static int clk_mt6853_apmixed_probe(struct platform_device *pdev)
 			__func__, r);
 
 	apmixed_base = base;
+
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif
@@ -2590,13 +2565,19 @@ static int clk_mt6853_peri_probe(struct platform_device *pdev)
 /* for suspend LDVT only */
 void pll_force_off(void)
 {
-	void __iomem *en_reg, *pwr_reg;
+	void __iomem *rst_reg, *en_reg, *pwr_reg;
 	u32 i;
 
 	for (i = 0; i < ARRAY_SIZE(plls); i++) {
 		/* do not pwrdn the AO PLLs */
 		if ((plls[i].flags & PLL_AO) == PLL_AO)
 			continue;
+
+		if ((plls[i].flags & HAVE_RST_BAR) == HAVE_RST_BAR) {
+			rst_reg = apmixed_base + plls[i].rst_bar_reg;
+			writel(readl(rst_reg) & ~plls[i].rst_bar_mask,
+				rst_reg);
+		}
 
 		en_reg = apmixed_base + plls[i].en_reg;
 

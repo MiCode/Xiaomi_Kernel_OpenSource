@@ -27,7 +27,7 @@
 
 /* get spm power status struct to register inside clk_data */
 static struct pwr_status pwr_stat = GATE_PWR_STAT(INV_OFS,
-		INV_OFS, 0x0178, BIT(5));
+		INV_OFS, 0x0178, BIT(5), BIT(5));
 
 static const struct mtk_gate_regs apu10_cg_regs = {
 	.set_ofs = 0x104,

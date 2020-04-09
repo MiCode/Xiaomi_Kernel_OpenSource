@@ -41,6 +41,7 @@ enum dbg_sys_id {
 	cam_rawa_sys,
 	cam_rawb_sys,
 	pericfg,
+	scp_par,
 	vencsys,
 	vdecsys,
 	infracfg_dbg,

@@ -65,7 +65,7 @@ static struct regbase rb[] = {
 	[mdpsys]    = REGBASE_V(0x1F000000, mdpsys, "PG_DIS"),
 	[img1sys]   = REGBASE_V(0x15020000, img1sys, "PG_ISP"),
 	[img2sys]   = REGBASE_V(0x15820000, img2sys, "PG_ISP2"),
-	[i2c_c] = REGBASE_V(0x11007000, i2c_c, NULL),
+	[i2c_c] = REGBASE_V(0x11007000, i2c_c, "i2c_sel"),
 	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e, NULL),
 	[i2c_n] = REGBASE_V(0x11f01000, i2c_n, NULL),
 	[i2c_s] = REGBASE_V(0x11d04000, i2c_s, NULL),
@@ -77,6 +77,7 @@ static struct regbase rb[] = {
 	[cam_rawa_sys]   = REGBASE_V(0x1a04f000, cam_rawa_sys, "PG_CAM_RAWA"),
 	[cam_rawb_sys]   = REGBASE_V(0x1a06f000, cam_rawb_sys, "PG_CAM_RAWB"),
 	[pericfg] = REGBASE_V(0x10003000, pericfg, NULL),
+	[scp_par] = REGBASE_V(0x10720000, scp_par, NULL),
 	[vencsys]  = REGBASE_V(0x17000000, vencsys, "PG_VENC"),
 	[vdecsys]  = REGBASE_V(0x1602f000, vdecsys, "PG_VDEC"),
 	[infracfg_dbg]  = REGBASE_V(0x10001000, infracfg_dbg, NULL),
@@ -212,7 +213,9 @@ static struct regname rn[] = {
 	REGNAME(scpsys, 0x368, CAM_RAWC_PWR_CON),
 	REGNAME(scpsys, 0x3AC, DP_TX_PWR_CON),
 	REGNAME(scpsys, 0x3C4, DPY2_PWR_CON),
+	REGNAME(scpsys, 0x670, SPM_CROSS_WAKE_M01_REQ),
 	REGNAME(scpsys, 0x398, MD_EXT_BUCK_ISO_CON),
+	REGNAME(scpsys, 0x39C, EXT_BUCK_ISO),
 
 	REGNAME(apu0, 0x0100, CORE_CG),
 	REGNAME(apu0, 0x0910, CORE_CTRL),
@@ -228,7 +231,7 @@ static struct regname rn[] = {
 	REGNAME(audio, 0x0004, AUDIO_TOP_CON1),
 	REGNAME(audio, 0x0008, AUDIO_TOP_CON2),
 
-	REGNAME(scpsys, 0x20180, ADSP_SW_CG),
+	REGNAME(scp_par, 0x0180, ADSP_SW_CG),
 
 	REGNAME(camsys, 0x0000, CAMSYS_CG_CON),
 	REGNAME(cam_rawa_sys, 0x0000, CAMSYS_RAWA_CG_CON),
@@ -238,7 +241,6 @@ static struct regname rn[] = {
 	REGNAME(img2sys, 0x0000, IMG2_CG_CON),
 	REGNAME(ipesys, 0x0000, IPE_CG_CON),
 
-	REGNAME(i2c_c,  0xe00, AP_CLOCK_CG_RO_CEN),
 	REGNAME(i2c_e,  0xe00, AP_CLOCK_CG_RO_EST),
 	REGNAME(i2c_n,  0xe00, AP_CLOCK_CG_RO_NOR),
 	REGNAME(i2c_s,  0xe00, AP_CLOCK_CG_RO_SOU),
@@ -588,6 +590,12 @@ static void devapc_dump_regs(void)
 		pr_notice("[%d]0x%08x\r\n", i, clk_readl(CLK_CFG_0 + (i << 4)));
 	pr_notice("[devapc] PWR_STATUS(0x160,0x164) = 0x%08x 0x%08x\n",
 		clk_readl(SPM_PWR_STATUS), clk_readl(SPM_PWR_STATUS_2ND));
+	print_subsys_reg(mfgsys);
+	print_subsys_reg(infracfg_ao);
+	print_subsys_reg(infracfg);
+	print_subsys_reg(infracfg_dbg);
+	print_subsys_reg(infrapdn_dbg);
+	print_subsys_reg(apmixed);
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
