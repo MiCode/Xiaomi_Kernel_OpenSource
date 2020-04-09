@@ -285,6 +285,7 @@ struct venc_frm_buf {
 	unsigned int roimap;
 	bool has_meta;
 	struct dma_buf *meta_dma;
+	dma_addr_t meta_addr;
 };
 
 /**
@@ -431,6 +432,7 @@ struct mtk_vcodec_dev {
 	struct v4l2_device v4l2_dev;
 	struct video_device *vfd_dec;
 	struct video_device *vfd_enc;
+	struct iommu_domain *io_domain;
 
 	struct v4l2_m2m_dev *m2m_dev_dec;
 	struct v4l2_m2m_dev *m2m_dev_enc;

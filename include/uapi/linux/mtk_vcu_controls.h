@@ -30,7 +30,7 @@
  * @va: kernel virtual address
  */
 struct mem_obj {
-	u32 iova;
+	u64 iova;
 	u32 len;
 	u64 pa;
 	u64 va;
@@ -186,7 +186,7 @@ enum gce_event_id {
 
 #if IS_ENABLED(CONFIG_COMPAT)
 struct compat_mem_obj {
-	u32 iova;
+	u64 iova;
 	u32 len;
 	compat_u64 pa;
 	compat_u64 va;

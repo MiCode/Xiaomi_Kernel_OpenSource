@@ -364,6 +364,22 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
 				   vfd_enc->num);
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
+	if (dev->io_domain == NULL) {
+		mtk_v4l2_err("Failed to get io_domain\n");
+		return -EPROBE_DEFER;
+	}
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_info(&pdev->dev, "64-bit DMA enable failed\n");
+			return ret;
+		}
+	}
+#endif
+
 	mtk_prepare_venc_dvfs();
 	mtk_prepare_venc_emi_bw();
 	pm_notifier(mtk_vcodec_enc_suspend_notifier, 0);

@@ -217,8 +217,6 @@ struct venc_ap_ipi_msg_enc {
 	__s16 bs_fd;
 	__u8 fb_num_planes;
 	__u8 bs_mode;
-	__u32 meta_size;
-	__s16 meta_fd;
 };
 
 /**
@@ -476,6 +474,9 @@ struct venc_vsi {
 	struct ring_input_list list_free;
 	struct venc_info       venc;
 	__u32 sync_mode;
+	__u32 meta_size;
+	__u64 meta_addr;
+	__s16 meta_fd;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */

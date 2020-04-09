@@ -374,6 +374,7 @@ struct vdec_vsi {
 	__u8 golden_path[256];
 	__u8 input_driven;
 	__s32 general_buf_fd;
+	__u64 general_buf_dma;
 	__u32 general_buf_size;
 };
 

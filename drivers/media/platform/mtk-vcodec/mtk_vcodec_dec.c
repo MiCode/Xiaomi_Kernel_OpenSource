@@ -608,18 +608,19 @@ static void mtk_vdec_worker(struct work_struct *work)
 			pfb->fb_base[i].length = dst_buf->planes[i].length;
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
 		}
-		if (dst_buf_info->dma_general_buf != 0)
-			pfb->dma_general_buf = dst_buf_info->dma_general_buf;
 		pfb->status = 0;
 
 		mtk_v4l2_debug(1,
-				"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%pad C_DMA=%pad ion_buffer=(%p %p) Size=%zx, dma_general_buf = %p, general_buf_fd = %d",
+				"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%lx C_DMA=%lx ion_buffer=(%p %p) Size=%zx, general_buf DMA=%lx fd=%d ",
 			dst_buf->index, pfb,
-			pfb->fb_base[0].va, &pfb->fb_base[0].dma_addr,
-			&pfb->fb_base[1].dma_addr, pfb->fb_base[0].dmabuf,
+			pfb->fb_base[0].va,
+			(unsigned long)pfb->fb_base[0].dma_addr,
+			(unsigned long)pfb->fb_base[1].dma_addr,
+			pfb->fb_base[0].dmabuf,
 			pfb->fb_base[1].dmabuf, pfb->fb_base[0].size,
-			dst_buf_info->dma_general_buf,
-			dst_buf_info->general_buf_fd);
+			(unsigned long)
+			dst_buf_info->frame_buffer.dma_general_addr,
+			dst_buf_info->general_user_fd);
 	}
 
 	mtk_v4l2_debug(4, "===>[%d] vdec_if_decode() ===>", ctx->id);
@@ -660,9 +661,10 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 	ctx->dec_params.timestamp = src_buf_info->vb.vb2_buf.timestamp;
 	mtk_v4l2_debug(1,
-	"[%d] Bs VA=%p DMA=%p Size=%zx Len=%zx ion_buf = %p vb=%p eos=%d pts=%llu",
-		ctx->id, buf->va, &buf->dma_addr, buf->size,
-		buf->length, buf->dmabuf, src_buf,
+	"[%d] Bs VA=%p DMA=%lx Size=%zx Len=%zx ion_buf = %p vb=%p eos=%d pts=%llu",
+		ctx->id, buf->va, (unsigned long)buf->dma_addr,
+		buf->size, buf->length,
+		buf->dmabuf, src_buf,
 		src_buf_info->lastframe,
 		src_buf_info->vb.vb2_buf.timestamp);
 	if (!ctx->input_driven) {
@@ -1198,13 +1200,13 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 		}
 	} else {
 		if (buf->reserved2 == 0xFFFFFFFF)
-			mtkbuf->general_buf_fd = -1;
+			mtkbuf->general_user_fd = -1;
 		else
-			mtkbuf->general_buf_fd = (int)buf->reserved2;
+			mtkbuf->general_user_fd = (int)buf->reserved2;
 		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p, general_buf_fd=%d, mtkbuf->general_buf_fd = %d",
 				ctx->id, buf->index,
 				buf->length, mtkbuf,
-				buf->reserved2, mtkbuf->general_buf_fd);
+				buf->reserved2, mtkbuf->general_user_fd);
 	}
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {
@@ -1252,13 +1254,13 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 			buf->flags |= V4L2_BUF_FLAG_CROP_CHANGED;
 		if (mtkbuf->flags & REF_FREED)
 			buf->flags |= V4L2_BUF_FLAG_REF_FREED;
-		if (mtkbuf->general_buf_fd < 0)
+		if (mtkbuf->general_user_fd < 0)
 			buf->reserved2 = 0xFFFFFFFF;
 		else
-			buf->reserved2 = mtkbuf->general_buf_fd;
+			buf->reserved2 = mtkbuf->general_user_fd;
 		mtk_v4l2_debug(2,
 			"dqbuf mtkbuf->general_buf_fd = %d",
-			mtkbuf->general_buf_fd);
+			mtkbuf->general_user_fd);
 	}
 
 	return ret;
@@ -1933,18 +1935,32 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (mtkbuf->general_buf_fd > -1) {
-			mtkbuf->dma_general_buf =
-				dma_buf_get(mtkbuf->general_buf_fd);
+		if (mtkbuf->general_user_fd > -1) {
+			struct dma_buf_attachment *buf_att;
+			struct sg_table *sgt;
+
+			mtkbuf->frame_buffer.dma_general_buf =
+				dma_buf_get(mtkbuf->general_user_fd);
+			buf_att = dma_buf_attach(
+				mtkbuf->frame_buffer.dma_general_buf,
+				&ctx->dev->plat_dev->dev);
+			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+			mtkbuf->frame_buffer.dma_general_addr =
+				sg_dma_address(sgt->sgl);
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+			dma_buf_detach(mtkbuf->frame_buffer.dma_general_buf,
+				buf_att);
+
 			/* general buf ref is hold by user */
-			dma_buf_put(mtkbuf->dma_general_buf);
+			dma_buf_put(mtkbuf->frame_buffer.dma_general_buf);
 		}
 		else
-			mtkbuf->dma_general_buf = 0;
+			mtkbuf->frame_buffer.dma_general_buf = 0;
 		mtk_v4l2_debug(4,
-			"general_buf_fd = %d, dma_general_buf = %p",
-			mtkbuf->general_buf_fd,
-			mtkbuf->dma_general_buf);
+			"general_buf fd=%d, dma_buf=%p, DMA=%lx",
+			mtkbuf->general_user_fd,
+			mtkbuf->frame_buffer.dma_general_buf,
+			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
 	}
 	if (!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
 		!(ctx->dec_params.svp_mode)) {
@@ -2080,9 +2096,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	src_mem.index = vb->index;
 
 	mtk_v4l2_debug(2,
-		"[%d] buf id=%d va=%p dma=%p size=%zx length=%zu dmabuf=%p",
+		"[%d] buf id=%d va=%p dma=%lx size=%zx length=%zu dmabuf=%p",
 		ctx->id, src_buf->index,
-		src_mem.va, &src_mem.dma_addr,
+		src_mem.va, (unsigned long)src_mem.dma_addr,
 		src_mem.size, src_mem.length,
 		src_mem.dmabuf);
 
@@ -2268,14 +2284,12 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
-				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p, general_buf_fd = %d, dma_general_buf = %p",
+				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p",
 				ctx->id,
 				(void *)dst_mem.fb_base[plane].dma_addr,
 				(unsigned int)dst_mem.fb_base[plane].size,
 				&ctx->dev->plat_dev->dev,
-				&buf->frame_buffer,
-				mtkbuf->general_buf_fd,
-				mtkbuf->dma_general_buf);
+				&buf->frame_buffer);
 		}
 	}
 }

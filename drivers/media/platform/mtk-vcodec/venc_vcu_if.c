@@ -411,6 +411,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 {
 
 	struct venc_ap_ipi_msg_enc out;
+	struct venc_vsi *vsi = (struct venc_vsi *)vcu->vsi;
 	unsigned int i, ret;
 
 	mtk_vcodec_debug(vcu, "bs_mode %d ->", bs_mode);
@@ -438,18 +439,21 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				frm_buf->fb_addr[i].data_offset;
 		}
 		if (frm_buf->has_meta) {
-			out.meta_fd =
+			vsi->meta_fd =
 				get_mapped_fd(frm_buf->meta_dma);
-			out.meta_size = sizeof(struct mtk_hdr_dynamic_info);
+			vsi->meta_size = sizeof(struct mtk_hdr_dynamic_info);
+			vsi->meta_addr = frm_buf->meta_addr;
 		} else {
-			out.meta_fd = 0;
-			out.meta_size = 0;
+			vsi->meta_fd = 0;
+			vsi->meta_size = 0;
+			vsi->meta_addr = 0;
 		}
 
-		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%x), metafd %x metasize %d",
+		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%d), meta fd %d size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0], out.meta_fd, out.meta_size);
+			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
+			vsi->meta_addr);
 	}
 
 	if (bs_buf) {
@@ -474,7 +478,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				close_mapped_fd(out.input_fd[i]);
 		}
 		if (frm_buf->has_meta) {
-			close_mapped_fd(out.meta_fd);
+			close_mapped_fd(vsi->meta_fd);
 			dma_buf_put(frm_buf->meta_dma);
 		}
 	}
@@ -519,7 +523,8 @@ int vcu_enc_set_ctx_for_gce(struct venc_vcu_inst *vcu)
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, VCU_VENC);
+		(void *)vcu->ctx, (void *)&vcu->ctx->dev->plat_dev->dev,
+		VCU_VENC);
 
 	return err;
 }

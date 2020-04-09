@@ -40,14 +40,10 @@
 #include <linux/pm_wakeup.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
+#include <linux/mailbox_controller.h>
 #include <linux/signal.h>
 #include <trace/events/signal.h>
 #include <linux/string.h>
-
-// ALWAYS disable IOMMU_V2 before IT done
-#ifdef CONFIG_MTK_IOMMU_V2
-#undef CONFIG_MTK_IOMMU_V2
-#endif
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <linux/iommu.h>
@@ -58,9 +54,12 @@
 #include "smi_public.h"
 
 /*
- * #undef pr_debug
- * #define pr_debug pr_info
- */
+#undef pr_debug
+#define pr_debug pr_info
+
+#undef dev_dbg
+#define dev_dbg dev_info
+*/
 
 /**
  * VCU (Video Communication/Controller Unit) is a tiny processor
@@ -111,10 +110,10 @@
 #define MAP_SHMEM_COMMIT_RANGE  VCU_SHMEM_SIZE
 #define MAP_SHMEM_COMMIT_END    (MAP_SHMEM_COMMIT_BASE + MAP_SHMEM_COMMIT_RANGE)
 
-#define MAP_SHMEM_MM_BASE       0x90000000UL
-#define MAP_SHMEM_MM_CACHEABLE_BASE     0x190000000UL
-#define MAP_SHMEM_PA_BASE       0x290000000UL
-#define MAP_SHMEM_MM_RANGE      0xFFFFFFFFUL
+#define MAP_SHMEM_MM_BASE       0x200000000UL
+#define MAP_SHMEM_MM_CACHEABLE_BASE     0x400000000UL
+#define MAP_SHMEM_PA_BASE       0x800000000UL
+#define MAP_SHMEM_MM_RANGE      0x1FFFFFFFFUL
 #define MAP_SHMEM_MM_END        (MAP_SHMEM_MM_BASE + MAP_SHMEM_MM_RANGE)
 #define MAP_SHMEM_MM_CACHEABLE_END (MAP_SHMEM_MM_CACHEABLE_BASE \
 + MAP_SHMEM_MM_RANGE)
@@ -298,6 +297,8 @@ struct mtk_vcu {
 	struct mutex vcu_share;
 	struct file *file;
 	struct iommu_domain *io_domain;
+	bool   iommu_padding;
+	/* temp for 33bits larb adding bits "1" iommu */
 	struct map_hw_reg map_base[VCU_MAP_HW_REG_NUM];
 	bool   is_open;
 	wait_queue_head_t ack_wq[VCU_CODEC_MAX];
@@ -325,6 +326,7 @@ struct mtk_vcu {
 	int gce_codec_eid[GCE_EVENT_MAX];
 	struct gce_cmds *gce_cmds[VCU_CODEC_MAX];
 	void *curr_ctx[VCU_CODEC_MAX];
+	void *curr_ctx_dev[VCU_CODEC_MAX];
 	wait_queue_head_t gce_wq[VCU_CODEC_MAX];
 	struct gce_ctx_info gce_info[VCODEC_INST_MAX];
 	atomic_t gce_job_cnt[VCU_CODEC_MAX][GCE_THNUM_MAX];
@@ -668,7 +670,6 @@ static void vcu_gce_clear_inst_id(void *ctx)
 		}
 	}
 	mutex_unlock(&vcu_ptr->vcu_share);
-	pr_info("[VCU] %s fail %p\n", __func__, ctx);
 }
 
 
@@ -946,11 +947,12 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 }
 
 int vcu_set_codec_ctx(struct platform_device *pdev,
-		 void *codec_ctx, unsigned long type)
+		 void *codec_ctx, void *codec_dev, unsigned long type)
 {
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
 
 	vcu->curr_ctx[type] = codec_ctx;
+	vcu->curr_ctx_dev[type] = codec_dev;
 
 	return 0;
 }
@@ -1411,7 +1413,9 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 #ifdef CONFIG_MTK_IOMMU_V2
 		while (length > 0) {
 			vma->vm_pgoff = iommu_iova_to_phys(vcu_dev->io_domain,
-							   pa_start + pos);
+				(vcu_ptr->iommu_padding) ?
+				((pa_start + pos) | 0x100000000UL) :
+				(pa_start + pos));
 			vma->vm_pgoff >>= PAGE_SHIFT;
 			if (pa_start_base < MAP_SHMEM_MM_CACHEABLE_BASE) {
 				vma->vm_page_prot =
@@ -1527,7 +1531,9 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			}
 		} else {
 			mem_priv =
-				cmdq_mbox_buf_alloc(dev, &temp_pa);
+				cmdq_mbox_buf_alloc(
+					vcu_dev->clt_vdec[0]->chan->mbox->dev,
+					&temp_pa);
 			mem_buff_data.va = (unsigned long)mem_priv;
 			mem_buff_data.pa = (unsigned long)temp_pa;
 			mem_buff_data.iova = 0;
@@ -1548,7 +1554,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			list_add_tail(&tmp->list, &vcu_dev->pa_pages.list);
 		}
 
-		pr_debug("[VCU] VCU_ALLOCATION %d va %llx, pa %llx, iova %x\n",
+		pr_debug("[VCU] VCU_ALLOCATION %d va %llx, pa %llx, iova %llx\n",
 			cmd == VCU_MVA_ALLOCATION, mem_buff_data.va,
 			mem_buff_data.pa, mem_buff_data.iova);
 
@@ -1580,10 +1586,13 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return PTR_ERR(mem_priv);
 		}
 
-		if (cmd == VCU_MVA_FREE)
+		if (cmd == VCU_MVA_FREE) {
+			if (vcu_ptr->iommu_padding)
+				mem_buff_data.iova |= 0x100000000UL;
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
-		else {
-			cmdq_mbox_buf_free(dev,
+		} else {
+			cmdq_mbox_buf_free(
+				vcu_dev->clt_vdec[0]->chan->mbox->dev,
 				(void *)(unsigned long)mem_buff_data.va,
 				(dma_addr_t)mem_buff_data.pa);
 			list_for_each_safe(p, q, &vcu_dev->pa_pages.list) {
@@ -1595,7 +1604,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			}
 		}
 
-		pr_debug("[VCU] VCU_FREE %d va %llx, pa %llx, iova %x\n",
+		pr_debug("[VCU] VCU_FREE %d va %llx, pa %llx, iova %llx\n",
 			cmd == VCU_MVA_FREE, mem_buff_data.va,
 			mem_buff_data.pa, mem_buff_data.iova);
 
@@ -1626,14 +1635,15 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
 			(unsigned long)sizeof(struct mem_obj));
-
+		if (vcu_ptr->iommu_padding)
+			mem_buff_data.iova |= 0x100000000UL;
 		vcu_buffer_cache_sync(dev, vcu_queue,
 			(dma_addr_t)mem_buff_data.iova,
 			(size_t)mem_buff_data.len,
 			(cmd == VCU_CACHE_FLUSH_BUFF) ?
 			DMA_TO_DEVICE : DMA_FROM_DEVICE);
 
-		dev_dbg(dev, "[VCU] Cache flush buffer pa = %x, size = %d\n",
+		dev_dbg(dev, "[VCU] Cache flush buffer pa = %llx, size = %d\n",
 			mem_buff_data.iova, (unsigned int)mem_buff_data.len);
 
 		ret = (long)copy_to_user(user_data_addr, &mem_buff_data,
@@ -1983,6 +1993,16 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	dev_dbg(dev, "vcu io_domain: %p,vcuid:%d\n",
 		vcu_mtkdev[vcuid]->io_domain,
 		vcuid);
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_info(&pdev->dev, "64-bit DMA enable failed\n");
+			return ret;
+		}
+		vcu->iommu_padding = 0;
+	} else
+		vcu->iommu_padding = 1;
 #endif
 
 #ifdef CONFIG_VIDEO_MEDIATEK_VCU_WO_FUSE
@@ -2215,8 +2235,10 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	}
 	sema_init(&vcu->vpud_killed, 1);
 
-	for (i = 0; i < (int)VCU_CODEC_MAX; i++)
+	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
 		vcu->curr_ctx[i] = NULL;
+		vcu->curr_ctx_dev[i] = NULL;
+	}
 	vcu->is_entering_suspend = 0;
 	pm_notifier(mtk_vcu_suspend_notifier, 0);
 

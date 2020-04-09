@@ -201,7 +201,7 @@ static void vdec_deinit(unsigned long h_vdec)
 
 	vcu_dec_deinit(&inst->vcu);
 
-	vcu_dec_clear_ctx_for_gce(&inst->vcu);
+	vcu_dec_clear_ctx(&inst->vcu);
 
 	kfree(inst);
 }
@@ -249,7 +249,7 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	inst->vsi->dec.bs_fd = (uint64_t)get_mapped_fd(bs->dmabuf);
 
 	if (fb != NULL) {
-		vcu_dec_set_ctx_for_gce(&inst->vcu);
+		vcu_dec_set_ctx(&inst->vcu);
 		inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 		inst->vsi->dec.index = fb->index;
 		for (i = 0; i < num_planes; i++) {
@@ -261,12 +261,15 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 				(uint32_t)get_mapped_fd(fb->dma_general_buf);
 			inst->vsi->general_buf_fd = fb->general_buf_fd;
 			inst->vsi->general_buf_size = fb->dma_general_buf->size;
-			mtk_vcodec_debug(inst, "get_mapped_fd fb->dma_general_buf = %p, mapped fd = %d, size = %lu",
+			inst->vsi->general_buf_dma = fb->dma_general_addr;
+			mtk_vcodec_debug(inst, "dma_general_buf dma_buf=%p fd=%d dma=%llx size=%lu",
 			    fb->dma_general_buf, inst->vsi->general_buf_fd,
+			    inst->vsi->general_buf_dma,
 			    fb->dma_general_buf->size);
 		} else {
 			fb->general_buf_fd = -1;
 			inst->vsi->general_buf_fd = -1;
+			inst->vsi->general_buf_size = 0;
 			mtk_vcodec_debug(inst, "no general buf dmabuf");
 		}
 	} else {

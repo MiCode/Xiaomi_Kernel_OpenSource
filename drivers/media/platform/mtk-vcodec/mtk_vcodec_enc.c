@@ -1344,10 +1344,20 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 		mtkbuf->frm_buf.roimap = buf->reserved2;
 	}
 	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved2 != 0) {
+		struct dma_buf_attachment *buf_att;
+		struct sg_table *sgt;
+
+		mtkbuf->frm_buf.has_meta = 1;
+		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved2);
+		buf_att = dma_buf_attach(mtkbuf->frm_buf.meta_dma,
+			&ctx->dev->plat_dev->dev);
+		sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+		mtkbuf->frm_buf.meta_addr = sg_dma_address(sgt->sgl);
+		dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+		dma_buf_detach(mtkbuf->frm_buf.meta_dma, buf_att);
+
 		mtk_v4l2_debug(1, "[%d] Have HDR info meta fd, buf->index:%d. mtkbuf:%p, fd:%u",
 			ctx->id, buf->index, mtkbuf, buf->reserved2);
-		mtkbuf->has_meta = 1;
-		mtkbuf->meta_dma = dma_buf_get(buf->reserved2);
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
@@ -2190,9 +2200,6 @@ static void mtk_venc_worker(struct work_struct *work)
 			src_buf->planes[2].data_offset);
 
 	pfrm_buf->roimap = src_buf_info->roimap;
-	pfrm_buf->has_meta = src_buf_info->has_meta;
-	pfrm_buf->meta_dma = src_buf_info->meta_dma;
-
 	ret = venc_if_encode(ctx, VENC_START_OPT_ENCODE_FRAME,
 				 pfrm_buf, pbs_buf, &enc_result);
 	if (ret) {

@@ -27,11 +27,6 @@
 #include "vdec_drv_if.h"
 #include "smi_public.h"
 
-// ALWAYS disable IOMMU_V2 before IT done
-#ifdef CONFIG_MTK_IOMMU_V2
-#undef CONFIG_MTK_IOMMU_V2
-#endif
-
 static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
 {
 	struct vdec_vcu_inst *vcu = (struct vdec_vcu_inst *)
@@ -81,8 +76,7 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 inline int get_mapped_fd(struct dma_buf *dmabuf)
 {
 	int target_fd = 0;
-
-#ifndef CONFIG_MTK_IOMMU_V2
+#ifndef VIDEO_USE_IOVA
 	unsigned long rlim_cur;
 	unsigned long irqs;
 	struct task_struct *task = NULL;
@@ -149,7 +143,6 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	put_files_struct(f);
 	vcu_put_file_lock();
 
-
 	/* pr_info("get_mapped_fd: %d", target_fd); */
 #endif
 	return target_fd;
@@ -157,7 +150,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 
 inline void close_mapped_fd(unsigned int target_fd)
 {
-#ifndef CONFIG_MTK_IOMMU_V2
+#ifndef VIDEO_USE_IOVA
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
 	unsigned long flags = 0;
@@ -331,6 +324,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 						i, vsi->dec.fb_fd[i]);
 				}
 				if (pfb->dma_general_buf != 0) {
+					vsi->general_buf_dma =
+						pfb->dma_general_addr;
 					pfb->general_buf_fd =
 						(uint32_t)get_mapped_fd(
 							pfb->dma_general_buf);
@@ -594,17 +589,18 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 	return err;
 }
 
-int vcu_dec_set_ctx_for_gce(struct vdec_vcu_inst *vcu)
+int vcu_dec_set_ctx(struct vdec_vcu_inst *vcu)
 {
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, VCU_VDEC);
+		(void *)vcu->ctx, (void *)&vcu->ctx->dev->plat_dev->dev,
+		VCU_VDEC);
 
 	return err;
 }
 
-int vcu_dec_clear_ctx_for_gce(struct vdec_vcu_inst *vcu)
+int vcu_dec_clear_ctx(struct vdec_vcu_inst *vcu)
 {
 	int err = 0;
 

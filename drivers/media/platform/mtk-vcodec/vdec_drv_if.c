@@ -105,14 +105,14 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 	int ret = 0;
 	unsigned int i = 0;
 
-	if (bs) {
+	if (bs && !ctx->dec_params.svp_mode) {
 		if ((bs->dma_addr & 63UL) != 0UL) {
 			mtk_v4l2_err("bs dma_addr should 64 byte align");
 			return -EINVAL;
 		}
 	}
 
-	if (fb) {
+	if (fb && !ctx->dec_params.svp_mode) {
 		for (i = 0; i < fb->num_planes; i++) {
 			if ((fb->fb_base[i].dma_addr & 511UL) != 0UL) {
 				mtk_v4l2_err("fb addr should 512 byte align");
