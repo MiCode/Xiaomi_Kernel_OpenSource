@@ -37,36 +37,22 @@ enum scp_state_enum {
 	IN_ACTIVE = 16,
 };
 
-enum {
-	CLK_SYS_EN_BIT = 0,
-	CLK_HIGH_EN_BIT = 1,
-	CLK_HIGH_CG_BIT = 2,
-	CLK_SYS_IRQ_EN_BIT = 16,
-	CLK_HIGH_IRQ_EN_BIT = 17,
-};
-/*#ifdef CONFIG_PINCTRL_MT6797*/
-
 enum clk_opp_enum {
 	CLK_26M	 = 26,
-	CLK_OPP0 = 125,
-	CLK_OPP1 = 330,
-	CLK_OPP2 = 416,
+	CLK_OPP0 = 196,
+	CLK_OPP1 = 260,
+	CLK_OPP2 = 280,
+	CLK_OPP3 = 360,
+	CLK_OPP4 = 416,
+	CLK_UNINIT = 0xffff,
 };
 
-enum clk_div_enum {
-	CLK_DIV_1 = 0,
-	CLK_DIV_2 = 1,
-	CLK_DIV_4  = 2,
-	CLK_DIV_8  = 3,
-	CLK_DIV_UNKNOWN,
-};
-
-enum voltage_enum {
-	SPM_VOLTAGE_800_D = 0,
-	SPM_VOLTAGE_800,
-	SPM_VOLTAGE_900,
-	SPM_VOLTAGE_1000,
-	SPM_VOLTAGE_TYPE_NUM,
+enum scp_req_r {
+	SCP_REQ_RELEASE = 0,
+	SCP_REQ_26M = 1 << 0,
+	SCP_REQ_IFR = 1 << 1,
+	SCP_REQ_SYSPLL1 = 1 << 2,
+	SCP_REQ_MAX = 0xffff,
 };
 
 struct mt_scp_pll_t {
@@ -90,10 +76,13 @@ extern void scp_pll_mux_set(unsigned int pll_ctrl_flag);
 extern void wait_scp_dvfs_init_done(void);
 extern int __init scp_dvfs_init(void);
 extern void __exit scp_dvfs_exit(void);
+extern int scp_resource_req(unsigned int req_type);
+extern void scp_vcore_request(unsigned int clk_opp);
 
 /* scp dvfs variable*/
 extern unsigned int scp_expected_freq;
 extern unsigned int scp_current_freq;
 extern spinlock_t scp_awake_spinlock;
+extern int scp_dvfs_flag;
 
 #endif  /* __SCP_DVFS_H__ */

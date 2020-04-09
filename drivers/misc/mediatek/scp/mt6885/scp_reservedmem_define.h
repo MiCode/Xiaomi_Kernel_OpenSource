@@ -21,14 +21,14 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.num = VOW_MEM_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
-		.size = 0x49200,  /* 292KB (2 model size)*/
+		.size = 0x49300,  /* 292KB (2 model size)*/
 	},
 #else
 	{
 		.num = VOW_MEM_ID,
 		.start_phys = 0x0,
 		.start_virt = 0x0,
-		.size = 0x38200,  /* 224KB (1 model size)*/
+		.size = 0x38300,  /* 224KB (1 model size)*/
 	},
 #endif
 #endif

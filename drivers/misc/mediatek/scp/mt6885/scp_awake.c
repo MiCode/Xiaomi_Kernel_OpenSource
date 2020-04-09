@@ -53,8 +53,9 @@ struct mutex scp_awake_mutexs[SCP_CORE_TOTAL];
  * return  0 :get lock success
  *        -1 :get lock timeout
  */
-int scp_awake_lock(enum scp_core_id scp_id)
+int scp_awake_lock(void *_scp_id)
 {
+	enum scp_core_id scp_id = (enum scp_core_id) _scp_id;
 	unsigned long spin_flags;
 	char *core_id;
 	int *scp_awake_count;
@@ -89,6 +90,13 @@ int scp_awake_lock(enum scp_core_id scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
+#if SCP_RECOVERY_SUPPORT
+		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
+			pr_notice("%s: resetting scp, break\n", __func__);
+			break;
+		}
+#endif  // SCP_RECOVERY_SUPPORT
+
 		tmp = readl(INFRA_IRQ_SET);
 		if ((tmp & 0xf0) != 0xA0) {
 			pr_notice("%s: INFRA_IRQ_SET %x\n", __func__, tmp);
@@ -113,6 +121,8 @@ int scp_awake_lock(enum scp_core_id scp_id)
 #if SCP_RECOVERY_SUPPORT
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
 			pr_notice("%s: start to reset scp...\n", __func__);
+			/* trigger halt isr, force scp enter wfi */
+			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
 			scp_send_reset_wq(RESET_TYPE_AWAKE);
 		} else
 			pr_notice("%s: scp resetting\n", __func__);
@@ -131,8 +141,9 @@ EXPORT_SYMBOL_GPL(scp_awake_lock);
  * return  0 :release lock success
  *        -1 :release lock fail
  */
-int scp_awake_unlock(enum scp_core_id scp_id)
+int scp_awake_unlock(void *_scp_id)
 {
+	enum scp_core_id scp_id = (enum scp_core_id) _scp_id;
 	unsigned long spin_flags;
 	int *scp_awake_count;
 	char *core_id;
@@ -167,6 +178,12 @@ int scp_awake_unlock(enum scp_core_id scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
+#if SCP_RECOVERY_SUPPORT
+		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
+			pr_notice("%s: scp is being reset, break\n", __func__);
+			break;
+		}
+#endif  // SCP_RECOVERY_SUPPORT
 		tmp = readl(INFRA_IRQ_SET);
 		if ((tmp & 0xf0) != 0xA0) {
 			pr_notice("%s: INFRA7_IRQ_SET %x\n", __func__, tmp);
@@ -205,7 +222,8 @@ void scp_enable_sram(void)
 	/*enable sram, enable 1 block per time*/
 	for (reg_temp = 0xffffffff; reg_temp != 0;) {
 		reg_temp = reg_temp >> 1;
-		writel(reg_temp, SCP_SRAM_PDN);
+		writel(reg_temp, SCP_CPU0_SRAM_PD);
+		writel(reg_temp, SCP_CPU1_SRAM_PD);
 	}
 	/*enable scp all TCM*/
 	writel(0, SCP_CLK_CTRL_L1_SRAM_PD);
@@ -217,13 +235,39 @@ void scp_enable_sram(void)
  */
 int scp_sys_full_reset(void)
 {
-	pr_debug("[SCP]reset\n");
+	void *tmp;
+
+	pr_notice("[SCP] %s\n", __func__);
+	/* clear whole TCM */
+	memset_io(SCP_TCM, 0, SCP_TCM_SIZE);
 	/*copy loader to scp sram*/
-	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_base_virt
+	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_virt
 		, scp_region_info_copy.ap_loader_size);
 	/*set info to sram*/
 	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy
 			, sizeof(scp_region_info_copy));
+
+	/* reset dram from dram back */
+	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
+		tmp = (void *)(scp_ap_dram_virt +
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+		memset(scp_ap_dram_virt, 0,
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+		memcpy(scp_ap_dram_virt, tmp,
+			scp_region_info_copy.ap_dram_size);
+	}
 	return 0;
 }
+
+int scp_clr_spm_reg(void *unused)
+{
+	/* AP side write 0x1 to SCP2SPM_IPC_CLR to clear
+	 * scp side write 0x1 to SCP2SPM_IPC_SET to set SPM reg
+	 * scp set        bit[0]
+	 */
+	writel(0x1, SCP_TO_SPM_REG);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(scp_clr_spm_reg);
 
