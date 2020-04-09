@@ -500,7 +500,7 @@
 		gpio-ranges = <&pio 0 0 203>;
 		#gpio-cells = <2>;
 		interrupt-controller;
-		#interrupt-cells = <4>;
+		#interrupt-cells = <2>;
 		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
 	};
