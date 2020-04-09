@@ -5649,6 +5649,18 @@
 
 &spmi_bus {
 	grpid = <11>;
+	mt6315_3: mt6315@3 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x3 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_3_regulator: mt6315_3_regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <0 IRQ_TYPE_LEVEL_HIGH 0 0>;
+		};
+	};
+
 	mt6362_9: mt6362@9 {
 		compatible = "mediatek,mt6362";
 		reg = <0x9 SPMI_USID 0x0 SPMI_GSID>;
@@ -6082,6 +6094,7 @@
 	};
 };
 
+#include "mt6315_s3.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "trusty.dtsi"
 #endif
