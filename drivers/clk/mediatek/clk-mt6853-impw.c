@@ -39,7 +39,7 @@ static const struct mtk_gate_regs impw_cg_regs = {
 	}
 
 static const struct mtk_gate impw_clks[] = {
-	GATE_IMPW(CLK_IMPW_AP_CLOCK_RO_I2C6, "impw_ap_i2c6",
+	GATE_IMPW(CLK_IMPW_AP_CLOCK_RO_I2C0, "impw_ap_i2c0",
 			"i2c_pseudo"/* parent */, 0),
 };
 
