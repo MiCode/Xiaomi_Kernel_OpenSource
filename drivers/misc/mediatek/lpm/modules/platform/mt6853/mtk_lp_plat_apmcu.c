@@ -217,14 +217,21 @@ static void mtk_lp_plat_cpuhp_init(void)
 				mtk_lp_cpuhp_notify_enter);
 }
 
-static int mtk_lp_plat_wait_depd_condition(void *arg)
+
+#define DEPD_COND_TYPE_BOOTIME	(1<<0u)
+#define DEPD_COND_TYPE_MCU	(1<<1u)
+
+static __mtk_lp_plat_wait_depd_condition(int type, void *arg)
 {
 	struct timespec uptime;
 	bool mcupm_rdy = false;
 	bool boot_time_pass = false;
 
-	mtk_wait_mbox_init_done();
-	mtk_notify_subsys_ap_ready();
+	if (type & DEPD_COND_TYPE_MCU) {
+		mtk_wait_mbox_init_done();
+		mtk_notify_subsys_ap_ready();
+	} else
+		mcupm_rdy = true;
 
 	do {
 		msleep(1000);
@@ -232,7 +239,8 @@ static int mtk_lp_plat_wait_depd_condition(void *arg)
 		if (!mcupm_rdy && mtk_mcupm_is_ready())
 			mcupm_rdy = true;
 
-		if (!boot_time_pass) {
+		if ((type & DEPD_COND_TYPE_BOOTIME) &&
+		     !boot_time_pass) {
 			get_monotonic_boottime(&uptime);
 
 			if ((unsigned int)uptime.tv_sec > BOOT_TIME_LIMIT)
@@ -245,6 +253,16 @@ static int mtk_lp_plat_wait_depd_condition(void *arg)
 	mtk_lp_plat_cpuhp_init();
 
 	return 0;
+}
+
+static int mtk_lp_plat_wait_depd_condition_nonmcu(void *arg)
+{
+	return __mtk_lp_plat_wait_depd_condition(DEPD_COND_TYPE_BOOTIME, arg);
+}
+static int mtk_lp_plat_wait_depd_condition(void *arg)
+{
+	return __mtk_lp_plat_wait_depd_condition((DEPD_COND_TYPE_BOOTIME
+						| DEPD_COND_TYPE_MCU), arg);
 }
 
 static void __init mtk_lp_plat_pwr_dev_init(void)
@@ -300,6 +318,9 @@ static int __init mtk_lp_plat_mcusys_ctrl_init(void)
 
 int __init mtk_lp_plat_apmcu_init(void)
 {
+	struct device_node *node = NULL;
+	unsigned int is_mcu_mode = 0;
+
 	if (!plat_node_ready()) {
 		mtk_lp_plat_qos_uninit();
 		return 0;
@@ -307,7 +328,24 @@ int __init mtk_lp_plat_apmcu_init(void)
 
 	mtk_lp_plat_pwr_dev_init();
 
-	mtk_lp_plat_task = kthread_create(mtk_lp_plat_wait_depd_condition,
+	node = of_find_compatible_node(NULL, NULL, MTK_LPM_DTS_COMPATIBLE);
+	if (node) {
+		const char *method = NULL;
+
+		of_property_read_string(node, "cpupm-method", &method);
+
+		if (method && !strcmp(method, "mcu"))
+			is_mcu_mode = 1;
+		of_node_put(node);
+	}
+
+	if (is_mcu_mode)
+		mtk_lp_plat_task =
+			kthread_create(mtk_lp_plat_wait_depd_condition,
+					NULL, "mtk_lp_plat_wait_rdy");
+	else
+		mtk_lp_plat_task =
+			kthread_create(mtk_lp_plat_wait_depd_condition_nonmcu,
 					NULL, "mtk_lp_plat_wait_rdy");
 
 	if (!IS_ERR(mtk_lp_plat_task))

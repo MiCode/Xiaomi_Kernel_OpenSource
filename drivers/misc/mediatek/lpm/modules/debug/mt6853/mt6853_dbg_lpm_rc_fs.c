@@ -146,6 +146,7 @@ static char *mt6853_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 	[PLAT_SPM_COND_CG_MMSYS_0]	= "MMSYS_0",
 	[PLAT_SPM_COND_CG_MMSYS_1]	= "MMSYS_1",
 	[PLAT_SPM_COND_CG_MMSYS_2]	= "MMSYS_2",
+	[PLAT_SPM_COND_CG_MMSYS_3]	= "MMSYS_3",
 };
 
 static char *mt6853_spm_cond_pll_str[PLAT_SPM_COND_PLL_MAX] = {
