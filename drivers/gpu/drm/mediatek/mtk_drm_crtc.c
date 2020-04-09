@@ -3427,7 +3427,7 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	crtc->state->adjusted_mode.vdisplay = timing->vdisplay;
 	crtc->state->adjusted_mode.vrefresh = timing->vrefresh;
 	crtc->state->adjusted_mode.htotal = timing->htotal;
-
+	drm_invoke_fps_chg_callbacks(timing->vrefresh);
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 
 	/* backup display context */
