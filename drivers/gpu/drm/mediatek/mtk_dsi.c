@@ -898,7 +898,7 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 
 	t_vsa = (dsi->mipi_hopping_sta) ?
 			((dyn && !!dyn->vsa) ?
-			 dyn->vfp : vm->vsync_len) :
+			 dyn->vsa : vm->vsync_len) :
 			vm->vsync_len;
 
 	t_hfp = (dsi->mipi_hopping_sta) ?
