@@ -93,7 +93,7 @@ int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff)
 			freq_steps, (u32 *)&pIspclks->clklevelcnt);
 
 		if (result < 0) {
-			pre_debug(
+			pr_debug(
 				"ERR: get MMDVFS freq steps failed, result: %d\n",
 				result);
 			i4RetValue = -EFAULT;
@@ -101,7 +101,7 @@ int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff)
 		}
 
 		if (pIspclks->clklevelcnt > ISP_CLK_LEVEL_CNT) {
-			pre_debug("ERR: clklevelcnt is exceeded");
+			pr_debug("ERR: clklevelcnt is exceeded");
 			i4RetValue = -EFAULT;
 			break;
 		}
