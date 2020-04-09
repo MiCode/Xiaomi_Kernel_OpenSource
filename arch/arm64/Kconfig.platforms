@@ -542,6 +542,7 @@ config MACH_MT6853
 	select MTK_TIMER_SYSTIMER
 	select MTK_BASE_POWER
 	select PM_DEVFREQ
+	select DEVAPC_MT6853
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
