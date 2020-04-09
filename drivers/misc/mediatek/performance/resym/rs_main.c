@@ -23,6 +23,7 @@
 #include "rs_log.h"
 #include "rs_trace.h"
 #include "rs_usage.h"
+#include "rs_state.h"
 
 struct dentry *rsm_debugfs_dir;
 
@@ -43,7 +44,9 @@ static int __init rs_init(void)
 
 	rs_init_trace(rs_debugfs_dir);
 	rs_usage_init(rs_debugfs_dir, hps_dir);
-
+#ifdef RS_STATE_SUPPORT
+	rs_state_init(rs_debugfs_dir);
+#endif
 	return 0;
 err:
 	return -EFAULT;
