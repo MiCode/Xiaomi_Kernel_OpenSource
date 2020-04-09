@@ -19,6 +19,7 @@
 #include <linux/interrupt.h>
 #include "ccu_drv.h"
 
+//#define CCU_LDVT
 #define CCU_I2C_DMA_BUF_SIZE (4*PAGE_SIZE)
 
 /* Common Structure */
@@ -38,6 +39,7 @@ struct ccu_device_s {
 	unsigned long n3d_a_base;
 	unsigned int irq_num;
 	struct mutex user_mutex;
+	struct mutex clk_mutex;
 	struct mutex ion_client_mutex;
 	u8 *i2c_dma_vaddr;
 	dma_addr_t i2c_dma_paddr;
@@ -115,7 +117,7 @@ struct ccu_cmd_s_list {
 	struct list_head link;
 };
 
-/* ========================= define in ccu_hw.c  ========================= */
+/* ================= define in ccu_hw.c  =================== */
 
 /**
  * ccu_init_hw - init the procedure related to hw,
@@ -180,7 +182,7 @@ int ccu_read_info_reg(int regNo);
 int ccu_query_power_status(void);
 
 
-/* ========================= define in ccu_drv.c  ========================= */
+/* ================ define in ccu_drv.c  ================ */
 
 /**
  * ccu_create_user - create ccu user, and add to user list
@@ -207,7 +209,8 @@ int ccu_unlock_ion_client_mutex(void);
  * @user:       the pointer to user.
  * @cmd:        the command to be added to user's queue.
  */
-int ccu_push_command_to_queue(struct ccu_user_s *user, struct ccu_cmd_s *cmd);
+int ccu_push_command_to_queue(struct ccu_user_s *user,
+	struct ccu_cmd_s *cmd);
 
 
 /**
@@ -245,8 +248,18 @@ void ccu_clock_disable(void);
 	pr_debug(CCU_TAG "[%s] " format, __func__, ##args)
 #define LOG_INF_MUST(format, args...) \
 	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
+#ifdef CCU_LDVT
+#define LOG_DBG(format, args...) \
+	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
+#else
 #define LOG_DBG(format, args...)
+#endif
+#ifdef CCU_LDVT
+#define LOG_INF(format, args...) \
+	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
+#else
 #define LOG_INF(format, args...)
+#endif
 #define LOG_WARN(format, args...) \
 	pr##_##warn(CCU_TAG "[%s] " format, __func__, ##args)
 #define LOG_ERR(format, args...) \
