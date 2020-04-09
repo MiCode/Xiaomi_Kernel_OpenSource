@@ -72,7 +72,11 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 	int ret = 0;
 
 	if (buck == VPU_BUCK) {
+#ifdef CONFIG_REGULATOR_MT6315
+		vvpu_reg_id = regulator_get(dev, "vvpu_6315");
+#else
 		vvpu_reg_id = regulator_get(dev, "vvpu");
+#endif
 		if (!vvpu_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vvpu_reg_id failed\n");
