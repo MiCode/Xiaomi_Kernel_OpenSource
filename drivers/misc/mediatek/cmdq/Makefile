@@ -20,5 +20,7 @@ else
 	obj-y += mailbox/
 endif
 # mdp_sw_sync
-obj-y += mdp_sync/
+ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873"))
+	obj-y += mdp_sync/
+endif
 # EOF
