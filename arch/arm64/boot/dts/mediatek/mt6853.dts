@@ -2898,11 +2898,12 @@
 		compatible = "mediatek,disp_smi_common", "mediatek,smi_common";
 		reg = <0 0x14002000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_DIS>,
-			<&mmsys_config CLK_MM_SMI_COMMON>,
-			<&mmsys_config CLK_MM_SMI_GALS>,
-			<&mmsys_config CLK_MM_SMI_INFRA>;
+			 <&mmsys_config CLK_MM_SMI_COMMON>,
+			 <&mmsys_config CLK_MM_SMI_GALS>,
+			 <&mmsys_config CLK_MM_SMI_INFRA>,
+			 <&mmsys_config CLK_MM_SMI_IOMMU>;
 		clock-names = "scp-dis",
-				"mm-comm", "mm-gals", "mm-iommu";
+			      "mm-comm", "mm-gals", "mm-infra", "mm-iommu";
 		mediatek,smi-id = <21>;
 		mediatek,smi-cnt = <29>;
 		mmsys_config = <&mmsys_config>;
