@@ -5349,12 +5349,18 @@ int ipa3_cfg_ep_deaggr(u32 clnt_hdl,
 		clnt_hdl,
 		ep_deaggr->deaggr_hdr_len);
 
+	IPADBG("syspipe_err_detection=%d\n",
+		ep_deaggr->syspipe_err_detection);
+
 	IPADBG("packet_offset_valid=%d\n",
 		ep_deaggr->packet_offset_valid);
 
 	IPADBG("packet_offset_location=%d max_packet_len=%d\n",
 		ep_deaggr->packet_offset_location,
 		ep_deaggr->max_packet_len);
+
+	IPADBG("ignore_min_pkt_err=%d\n",
+		ep_deaggr->ignore_min_pkt_err);
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
