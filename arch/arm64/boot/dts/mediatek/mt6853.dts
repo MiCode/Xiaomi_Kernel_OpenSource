@@ -3264,6 +3264,12 @@
 		mediatek,smi-id = <18>;
 	};
 
+	ipesys_config: ipesys_config@1b000000 {
+		compatible = "mediatek,ipesys_config", "syscon";
+		reg = <0 0x1b000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	smi_larb19: smi_larb19@1b10f000 {
 		compatible = "mediatek,smi_larb19", "mediatek,smi_larb";
 		reg = <0 0x1b10f000 0 0x1000>;
