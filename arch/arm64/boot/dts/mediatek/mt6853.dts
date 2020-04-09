@@ -5562,6 +5562,11 @@
 		sdsp-firmware-size = <0 0x1000000>;
 	};
 
+	slbc: slbc {
+		compatible = "mediatek,slbc";
+		status = "enable";
+	};
+
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
 	};
