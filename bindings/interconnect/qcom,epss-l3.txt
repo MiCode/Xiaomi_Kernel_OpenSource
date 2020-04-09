@@ -7,7 +7,9 @@ performance states of the CPU subsystem.
 Required properties :
 - compatible : shall contain only one of the following:
 			"qcom,lahaina-epss-l3-shared",
-			"qcom,lahaina-epss-l3-cpu";
+			"qcom,lahaina-epss-l3-cpu",
+			"qcom,shima-epss-l3-cpu",
+			"qcom,shima-epss-l3-shared";
 - reg : Address and length of the register set for the device
 - clock-names: should contain "xo", "alternate"
 - clocks: list of phandle and clock specifier pairs corresponding to
