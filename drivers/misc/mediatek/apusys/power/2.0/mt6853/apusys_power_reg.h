@@ -61,7 +61,6 @@ extern void *g_APU_INFRA_BCRM_BASE;
 extern void *g_APU_CONN_BASE;
 extern void *g_APU_VPU0_BASE;
 extern void *g_APU_VPU1_BASE;
-extern void *g_APU_MDLA0_BASE;
 extern void *g_APU_SPM_BASE;
 extern void *g_APU_APMIXED_BASE;
 
@@ -143,9 +142,6 @@ extern void *g_APU_APMIXED_BASE;
 #define	APU1_BASE			(g_APU_VPU1_BASE)
 #define APU1_APU_CG_CON			(void *)(APU1_BASE+0x100)
 
-#define	APU_MDLA0_BASE			(g_APU_MDLA0_BASE)
-#define APU_MDLA0_APU_MDLA_CG_CON	(void *)(APU_MDLA0_BASE+0x000)
-
 /**************************************************
  * Clock Setting
  **************************************************/
@@ -160,9 +156,7 @@ extern void *g_APU_APMIXED_BASE;
 #define TO_MHZ_TAIL                     (10)
 #define ROUNDING_VALUE                  (5)
 #define PLL_FIN                      (26)            /* MHz */
-#define APUPLL_FH_PLL                   FH_PLL13
 #define NPUPLL_FH_PLL                   FH_PLL4
-#define APUPLL_CON1                     (void *)(APU_APMIXED_BASE + 0x03A4)
 #define NPUPLL_CON1                     (void *)(APU_APMIXED_BASE + 0x03B8)
 
 /**************************************************

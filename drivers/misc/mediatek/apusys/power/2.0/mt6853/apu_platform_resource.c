@@ -38,7 +38,10 @@ struct hal_param_init_power *init_power_data)
 	struct device_node *apusys_conn_node = NULL;
 	struct device_node *apusys_vpu0_node = NULL;
 	struct device_node *apusys_vpu1_node = NULL;
-	struct device_node *apusys_mdla0_node = NULL;
+
+#ifdef APUSYS_POWER_BRINGUP
+	g_pwr_log_level = APUSYS_PWR_LOG_VERBOSE;
+#endif
 
 	LOG_INF("%s pdev id = %d name = %s, name = %s\n", __func__,
 						pdev->id, pdev->name,
@@ -54,6 +57,10 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap spm_base_addr\n");
 			goto err_exit;
 		}
+	} else {
+		LOG_ERR("No \"mediatek,sleep\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	// infra ao
@@ -67,6 +74,10 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap infracfg_ao_base_addr\n");
 			goto err_exit;
 		}
+	} else {
+		LOG_ERR("No \"mediatek,infracfg_ao\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	// infra bcrm
@@ -80,11 +91,15 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap infra_bcrm_base_addr\n");
 			goto err_exit;
 		}
+	} else {
+		LOG_ERR("No \"mediatek,infra_bcrm\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	/* APUPLL is from APMIXED and its parent clock is from XTAL(26MHz); */
 	apmixed_node = of_find_compatible_node(NULL, NULL,
-						"mediatek,apmixed");
+						"mediatek,mt6853-apmixedsys");
 	if (apmixed_node) {
 		init_power_data->apmixed_base_addr = of_iomap(
 							apmixed_node, 0);
@@ -93,6 +108,10 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap apmixed\n");
 			goto err_exit;
 		}
+	} else {
+		LOG_ERR("No \"mediatek,mt6853-apmixedsys\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	// apusys rpc
@@ -151,6 +170,10 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap conn_base_addr\n");
 			goto err_exit;
 		}
+	} else {
+		LOG_ERR("No \"apusys_conn_node\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	// apusys vpu0
@@ -164,6 +187,10 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap vpu0_base_addr\n");
 			goto err_exit;
 		}
+	} else {
+		LOG_ERR("No \"mediatek,apu0\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	// apusys vpu1
@@ -177,19 +204,10 @@ struct hal_param_init_power *init_power_data)
 			LOG_ERR("Unable to iomap vpu1_base_addr\n");
 			goto err_exit;
 		}
-	}
-
-	// apusys mdla0
-	apusys_mdla0_node = of_find_compatible_node(NULL, NULL,
-							"mediatek,apu_mdla0");
-	if (apusys_mdla0_node) {
-		init_power_data->mdla0_base_addr = of_iomap(
-							apusys_mdla0_node, 0);
-
-		if (IS_ERR((void *)init_power_data->mdla0_base_addr)) {
-			LOG_ERR("Unable to iomap mdla0_base_addr\n");
-			goto err_exit;
-		}
+	} else {
+		LOG_ERR("No \"mediatek,apu1\" dts node\n");
+		err = -ENODEV;
+		goto err_exit;
 	}
 
 	return 0;
@@ -204,7 +222,6 @@ err_exit:
 	init_power_data->conn_base_addr = NULL;
 	init_power_data->vpu0_base_addr = NULL;
 	init_power_data->vpu1_base_addr = NULL;
-	init_power_data->mdla0_base_addr = NULL;
 
 	return err;
 }

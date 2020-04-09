@@ -26,8 +26,7 @@
 static bool apusys_get_conn_power_on_status(void)
 {
 	if (apusys_get_power_on_status(VPU0) == true ||
-		apusys_get_power_on_status(VPU1) == true ||
-		apusys_get_power_on_status(MDLA0) == true)
+		apusys_get_power_on_status(VPU1) == true)
 		return true;
 
 	return false;
@@ -38,13 +37,15 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int dsp_freq;
 	int dsp1_freq;
 	int dsp2_freq;
-	int dsp5_freq;
 	int default_freq;
 	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
 
+	/* TODO for MOUTON */
+	/* need to add Vvpu, Vsram anad Vcore's constrain */
+#if 0
 	int vvpu = info->vvpu * info->dump_div;
-	int vmdla = info->vmdla * info->dump_div;
 	int vsram = info->vsram * info->dump_div;
+#endif
 
 #if 1
 	/* Get VPU0/1 default freq */
@@ -96,18 +97,6 @@ void apu_power_assert_check(struct apu_power_info *info)
 	}
 #endif
 
-	if (apusys_get_power_on_status(MDLA0) == true && info->dsp5_freq != 0) {
-		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
-		if ((abs(dsp5_freq - info->dsp5_freq) * 100) >
-			dsp5_freq * ASSERTION_PERCENTAGE &&
-			(dsp5_freq != BUCK_VMDLA_DOMAIN_DEFAULT_FREQ/
-			info->dump_div)) {
-			LOG_WRN("ASSERT dsp5=%d, info->dsp5_freq=%d\n",
-					dsp5_freq, info->dsp5_freq);
-		}
-	}
-
-
 	if (apusys_get_conn_power_on_status() == true) {
 		if (info->dsp_freq != 0) {
 			dsp_freq =
@@ -131,6 +120,9 @@ void apu_power_assert_check(struct apu_power_info *info)
 	}
 #endif
 
+	/* TODO for MOUTON */
+	/* need to add Vvpu, Vsram anad Vcore's constrain */
+#if 0
 	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
 			&& vsram == VSRAM_LOW_VOLT) {
 		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
@@ -142,6 +134,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
 				vvpu, vmdla, vsram);
 	}
+#endif
 }
 
 void constraints_check_stress(int opp)
@@ -187,7 +180,9 @@ void voltage_constraint_check(void)
 	struct apu_power_info info = {0};
 
 	dump_voltage(&info);
-
+	/* TODO for MOUTON */
+	/* need to add Vvpu, Vsram anad Vcore's constrain */
+#if 0
 	if ((info.vvpu > VSRAM_TRANS_VOLT || info.vmdla > VSRAM_TRANS_VOLT)
 			&& info.vsram == VSRAM_LOW_VOLT) {
 		apu_aee_warn("APU PWR Constraint",
@@ -201,5 +196,6 @@ void voltage_constraint_check(void)
 				"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
 				info.vvpu, info.vmdla, info.vsram);
 	}
+#endif
 }
 

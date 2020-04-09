@@ -18,28 +18,24 @@
 #include <linux/tracepoint.h>
 #include "apu_power_api.h"
 TRACE_EVENT(APUSYS_DFS,
-	TP_PROTO(struct apu_power_info *pwr_info,
-		 unsigned int mdla0),
-	TP_ARGS(pwr_info, mdla0),
+	TP_PROTO(struct apu_power_info *pwr_info),
+	TP_ARGS(pwr_info),
 	TP_STRUCT__entry(
 		__field(int, dsp_freq)
 		__field(int, dsp1_freq)
 		__field(int, dsp2_freq)
-		__field(int, mdla0_freq)
 		__field(int, ipuif_freq)
 	),
 	TP_fast_assign(
 		__entry->dsp_freq = pwr_info->dsp_freq;
 		__entry->dsp1_freq = pwr_info->dsp1_freq;
 		__entry->dsp2_freq = pwr_info->dsp2_freq;
-		__entry->mdla0_freq = mdla0;
 		__entry->ipuif_freq = pwr_info->ipuif_freq;
 	),
-	TP_printk("conn=%d,vpu0=%d,vpu1=%d,mdla0=%d,ipuif=%d",
-		__entry->dsp_freq, __entry->dsp1_freq,
-		__entry->dsp2_freq,
-		__entry->mdla0_freq,
-		__entry->ipuif_freq)
+	TP_printk("conn=%d,vpu0=%d,vpu1=%d,ipuif=%d",
+		  __entry->dsp_freq, __entry->dsp1_freq,
+		  __entry->dsp2_freq,
+		  __entry->ipuif_freq)
 );
 
 #endif /* _TRACE_APUSYS_FREQ_EVENTS_H */

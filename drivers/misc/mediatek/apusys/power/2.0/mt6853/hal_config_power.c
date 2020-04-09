@@ -53,7 +53,6 @@ void *g_APU_INFRA_BCRM_BASE;
 void *g_APU_CONN_BASE;
 void *g_APU_VPU0_BASE;
 void *g_APU_VPU1_BASE;
-void *g_APU_MDLA0_BASE;
 void *g_APU_SPM_BASE;
 void *g_APU_APMIXED_BASE;
 
@@ -92,7 +91,7 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn) {}
  *
  * Comparing whether freq of opp on the buck domain matches aging freq.
  * If yes, voltage of opp on the buck domain will minus aging voltage.
- * (so far only support vpu/mdla buck domains)
+ * (so far only support vpu buck domains)
  *
  * Return void.
  */
@@ -104,8 +103,8 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 	int ag_volt = 0;
 	int ag_opp_idx = 0;
 
-	/* only support VPU/MDLA for aging */
-	if (bk_dmn > V_MDLA0)
+	/* only support VPU for aging */
+	if (bk_dmn > V_VPU1)
 		LOG_ERR("%s %s opp %d not support aging volt\n",
 				__func__, buck_domain_str[bk_dmn], opp);
 
@@ -235,15 +234,13 @@ static void dump_fail_state(void)
 	char log_str[128];
 
 	snprintf(log_str, sizeof(log_str),
-		"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x]t[%lu.%06lu]",
+		"v[%u,%u,%u]f[%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x]t[%lu.%06lu]",
 		power_fail_record.pwr_info.vvpu,
-		power_fail_record.pwr_info.vmdla,
 		power_fail_record.pwr_info.vcore,
 		power_fail_record.pwr_info.vsram,
 		power_fail_record.pwr_info.dsp_freq,
 		power_fail_record.pwr_info.dsp1_freq,
 		power_fail_record.pwr_info.dsp2_freq,
-		power_fail_record.pwr_info.dsp5_freq,
 		power_fail_record.pwr_info.ipuif_freq,
 		power_fail_record.pwr_info.spm_wakeup,
 		power_fail_record.pwr_info.rpc_intf_rdy,
@@ -251,7 +248,6 @@ static void dump_fail_state(void)
 		power_fail_record.pwr_info.conn_cg_stat,
 		power_fail_record.pwr_info.vpu0_cg_stat,
 		power_fail_record.pwr_info.vpu1_cg_stat,
-		power_fail_record.pwr_info.mdla0_cg_stat,
 		power_fail_record.time_sec, power_fail_record.time_nsec);
 
 	LOG_ERR("APUPWR err %s\n", log_str);
@@ -302,14 +298,12 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 		prepare_regulator(VCORE_BUCK, dev);
 		prepare_regulator(SRAM_BUCK, dev);
 		prepare_regulator(VPU_BUCK, dev);
-		prepare_regulator(MDLA_BUCK, dev);
 
 		// register pm_qos notifier here,
 		// vcore need to use pm_qos for voltage voting
 		pm_qos_register();
 	} else {
 		// release regulator handle
-		unprepare_regulator(MDLA_BUCK);
 		unprepare_regulator(VPU_BUCK);
 		unprepare_regulator(SRAM_BUCK);
 		unprepare_regulator(VCORE_BUCK);
@@ -334,8 +328,6 @@ static void hw_init_setting(void)
 	DRV_WriteReg32(APU_RPC_SW_TYPE0, 0xFF);	// APUTOP
 	DRV_WriteReg32(APU_RPC_SW_TYPE2, 0x7);	// VPU0
 	DRV_WriteReg32(APU_RPC_SW_TYPE3, 0x7);	// VPU1
-	DRV_WriteReg32(APU_RPC_SW_TYPE6, 0x3);	// MDLA0
-
 
 	// mask RPC IRQ and bypass WFI
 	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
@@ -363,10 +355,6 @@ static int init_power_resource(void *param)
 	struct hal_param_init_power *init_data = NULL;
 	struct device *dev = NULL;
 
-#ifdef APUSYS_POWER_BRINGUP
-	g_pwr_log_level = APUSYS_PWR_LOG_DEBUG;
-#endif
-
 	init_data = (struct hal_param_init_power *)param;
 
 	dev = init_data->dev;
@@ -381,7 +369,6 @@ static int init_power_resource(void *param)
 	g_APU_CONN_BASE = init_data->conn_base_addr;
 	g_APU_VPU0_BASE = init_data->vpu0_base_addr;
 	g_APU_VPU1_BASE = init_data->vpu1_base_addr;
-	g_APU_MDLA0_BASE = init_data->mdla0_base_addr;
 
 	LOG_DBG("%s , g_APU_RPCTOP_BASE 0x%p\n", __func__, g_APU_RPCTOP_BASE);
 	LOG_DBG("%s , g_APU_PCUTOP_BASE 0x%p\n", __func__, g_APU_PCUTOP_BASE);
@@ -394,7 +381,6 @@ static int init_power_resource(void *param)
 	LOG_DBG("%s , g_APU_CONN_BASE 0x%p\n", __func__, g_APU_CONN_BASE);
 	LOG_DBG("%s , g_APU_VPU0_BASE 0x%p\n", __func__, g_APU_VPU0_BASE);
 	LOG_DBG("%s , g_APU_VPU1_BASE 0x%p\n", __func__, g_APU_VPU1_BASE);
-	LOG_DBG("%s , g_APU_MDLA0_BASE 0x%p\n", __func__, g_APU_MDLA0_BASE);
 	LOG_DBG("%s , g_APU_SPM_BASE 0x%p\n", __func__, g_APU_SPM_BASE);
 
 	if (!is_apu_power_initilized) {
@@ -451,14 +437,10 @@ static int binning_support_check(void)
 	int opp = 0;
 #if BINNING_VOLTAGE_SUPPORT
 	unsigned int vpu_efuse_val = 0;
-	unsigned int mdla_efuse_val = 0;
 
 	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
-	mdla_efuse_val = GET_BITS_VAL(13:11,
-		get_devinfo_with_index(EFUSE_INDEX));
-	LOG_DBG("Vol bin: vpu_efuse=%d, mdla_efuse=%d, efuse: 0x%x\n",
-		vpu_efuse_val, mdla_efuse_val,
-		get_devinfo_with_index(EFUSE_INDEX));
+	LOG_DBG("Vol bin: vpu_efuse=%d, efuse: 0x%x\n",
+		vpu_efuse_val, get_devinfo_with_index(EFUSE_INDEX));
 
 	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 		if ((vpu_efuse_val >= 2 && vpu_efuse_val <= 4) &&
@@ -484,31 +466,12 @@ static int binning_support_check(void)
 				vpu_efuse_val,
 				apusys_opps.opps[opp][V_VPU0].voltage);
 		}
-
-		if ((mdla_efuse_val >= 2 && mdla_efuse_val <= 4) &&
-				(apusys_opps.opps[opp][V_MDLA0].voltage ==
-				DVFS_VOLT_00_800000_V)) {
-			if (mdla_efuse_val == 2)
-				apusys_opps.opps[opp][V_MDLA0].voltage =
-					DVFS_VOLT_00_775000_V;
-			else if (mdla_efuse_val == 3)
-				apusys_opps.opps[opp][V_MDLA0].voltage =
-					DVFS_VOLT_00_762500_V;
-			else if (mdla_efuse_val == 4)
-				apusys_opps.opps[opp][V_MDLA0].voltage =
-					DVFS_VOLT_00_750000_V;
-
-			LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
-				mdla_efuse_val,
-				apusys_opps.opps[opp][V_MDLA0].voltage);
-		}
 	}
 #endif
 	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-		/* Minus VPU/MDLA aging voltage if need */
+		/* Minus VPU aging voltage if need */
 		aging_support_check(opp, V_VPU0);
 		aging_support_check(opp, V_VPU1);
-		aging_support_check(opp, V_MDLA0);
 	}
 	return 0;
 }
@@ -654,7 +617,7 @@ static int check_if_rpc_alive(void)
 }
 
 /*
- * domain_idx : 0 (conn), 2 (vpu0), 3 (vpu1), 4 (vpu2), 6 (mdla0), 7 (mdla1)
+ * domain_idx : 0 (conn), 2 (vpu0), 3 (vpu1)
  * mode : 0 (disable), 1 (enable), 2 (disable mid stage)
  * explain :
  *	conn enable - check SPM flag to 0x1 only
@@ -772,10 +735,8 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
  *  0 --> EDMA or REVISER
  *  2 --> VPU0
  *  3 --> VPU1
- *  6 --> MDLA0
  *
  * set V_APU_CONN to 208Mhz and park to system clk
- * set V_MDLA0    to 312Mhz
  * set V_VPU0     to 273Mhz and part to system clk
  * set V_VPU1     to 273Mhz and part to system clk
  *
@@ -791,8 +752,6 @@ static int set_domain_to_default_clk(int domain_idx)
 	else if (domain_idx == 3)
 		ret = set_apu_clock_source(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
 								V_VPU1);
-	else if (domain_idx == 6)
-		ret = config_apupll(BUCK_VMDLA_DOMAIN_DEFAULT_FREQ, V_MDLA0);
 	else {
 		ret = set_apu_clock_source(BUCK_VCONN_DOMAIN_DEFAULT_FREQ,
 								V_APU_CONN);
@@ -818,8 +777,6 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		domain_idx = 2;
 	else if (user == VPU1)
 		domain_idx = 3;
-	else if (user == MDLA0)
-		domain_idx = 6;
 	else
 		LOG_WRN("%s not support user : %d\n", __func__, user);
 
@@ -962,9 +919,7 @@ static int set_power_frequency(void *param)
 	domain = ((struct hal_param_freq *)param)->target_volt_domain;
 
 	if (domain < APUSYS_BUCK_DOMAIN_NUM) {
-		if (domain == V_MDLA0)
-			ret = config_apupll(freq, domain);
-		else if ((domain == V_VPU0) || (domain == V_VPU1))
+		if (domain == V_VPU0 || domain == V_VPU1)
 			ret = config_npupll(freq, domain);
 		else
 			ret = set_apu_clock_source(freq, domain);
@@ -974,7 +929,7 @@ static int set_power_frequency(void *param)
 
 	if (ret)
 		LOG_ERR("%s failed(%d), domain:%d, freq:%d\n",
-					__func__, ret, domain, freq);
+			__func__, ret, domain, freq);
 	return ret;
 }
 
@@ -982,7 +937,6 @@ static void get_current_power_info(void *param, int force)
 {
 	struct apu_power_info *info = ((struct apu_power_info *)param);
 	char log_str[128];
-	unsigned int mdla_0 = 0;
 	unsigned long rem_nsec;
 	#ifdef APUPWR_TAG_TP
 	unsigned long long time_id = info->id;
@@ -996,7 +950,6 @@ static void get_current_power_info(void *param, int force)
 	// including APUsys related freq
 	dump_frequency(info);
 
-	mdla_0 = (apu_get_power_on_status(MDLA0)) ? info->dsp5_freq : 0;
 	rem_nsec = do_div(info->id, 1000000000);
 
 	if (info->type == 1) {
@@ -1007,44 +960,42 @@ static void get_current_power_info(void *param, int force)
 		check_spm_register(info, 0);
 
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x][%5lu.%06lu]",
-			info->vvpu, info->vmdla, info->vcore, info->vsram,
+			"v[%u,%u,%u]f[%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x][%5lu.%06lu]",
+			info->vvpu, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
-			info->dsp5_freq, info->ipuif_freq,
+			info->ipuif_freq,
 			info->spm_wakeup, info->rpc_intf_rdy,
 			info->vcore_cg_stat, info->conn_cg_stat,
 			info->vpu0_cg_stat, info->vpu1_cg_stat,
-			info->mdla0_cg_stat,
 			(unsigned long)info->id, rem_nsec / 1000);
 		#ifdef APUPWR_TAG_TP
 		trace_apupwr_pwr(
-			info->vvpu, info->vmdla, info->vcore, info->vsram,
-			info->dsp1_freq, info->dsp2_freq, info->dsp5_freq,
+			info->vvpu, info->vcore, info->vsram,
+			info->dsp1_freq, info->dsp2_freq,
 			info->dsp_freq, info->ipuif_freq,
 			time_id);
 		trace_apupwr_rpc(
 			info->spm_wakeup, info->rpc_intf_rdy,
 			info->vcore_cg_stat, info->conn_cg_stat,
-			info->vpu0_cg_stat, info->vpu1_cg_stat,
-			info->mdla0_cg_stat);
+			info->vpu0_cg_stat, info->vpu1_cg_stat);
 		#endif
 	} else {
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u][%5lu.%06lu]",
-			info->vvpu, info->vmdla, info->vcore, info->vsram,
+			"v[%u,%u,%u]f[%u,%u,%u,%u][%5lu.%06lu]",
+			info->vvpu, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
-			info->dsp5_freq, info->ipuif_freq,
+			info->ipuif_freq,
 			(unsigned long)info->id, rem_nsec/1000);
 		#ifdef APUPWR_TAG_TP
 		trace_apupwr_pwr(
-			info->vvpu, info->vmdla, info->vcore, info->vsram,
-			info->dsp1_freq, info->dsp2_freq, info->dsp5_freq,
+			info->vvpu, info->vcore, info->vsram,
+			info->dsp1_freq, info->dsp2_freq,
 			info->dsp_freq, info->ipuif_freq,
 			time_id);
 		#endif
 	}
 
-	trace_APUSYS_DFS(info, mdla_0);
+	trace_APUSYS_DFS(info);
 
 	if (info->force_print)
 		LOG_ERR("APUPWR %s\n", log_str);
@@ -1079,7 +1030,6 @@ static int uninit_power_resource(void)
 static int buck_control(enum DVFS_USER user, int level)
 {
 	struct hal_param_volt vpu_volt_data;
-	struct hal_param_volt mdla_volt_data;
 	struct hal_param_volt vcore_volt_data;
 	struct hal_param_volt sram_volt_data;
 	struct apu_power_info info = {0};
@@ -1087,13 +1037,11 @@ static int buck_control(enum DVFS_USER user, int level)
 
 	LOG_DBG("%s begin, level = %d\n", __func__, level);
 
-	if (level == 3) { // buck ON
-		// just turn on buck
-		enable_regulator(VPU_BUCK);
-		enable_regulator(MDLA_BUCK);
-		enable_regulator(SRAM_BUCK);
-
-		// release buck isolation
+	if (level == 3) {
+		/*
+		 * Release buck isolation and since mt6853 vvpu/vsrarm
+		 * are always on no need to turn on/off them
+		 */
 		DRV_ClearBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
 
 	} else if (level == 2) { // default voltage
@@ -1114,10 +1062,6 @@ static int buck_control(enum DVFS_USER user, int level)
 		vpu_volt_data.target_volt = VSRAM_TRANS_VOLT;
 		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
 
-		mdla_volt_data.target_buck = MDLA_BUCK;
-		mdla_volt_data.target_volt = VSRAM_TRANS_VOLT;
-		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
-
 		sram_volt_data.target_buck = SRAM_BUCK;
 		sram_volt_data.target_volt = VSRAM_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&sram_volt_data);
@@ -1126,19 +1070,12 @@ static int buck_control(enum DVFS_USER user, int level)
 		vpu_volt_data.target_volt = VVPU_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
 
-		mdla_volt_data.target_buck = MDLA_BUCK;
-		mdla_volt_data.target_volt = VMDLA_DEFAULT_VOLT;
-		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
-
 	} else {
 
 		/*
-		 * to avoid vmdla/vvpu constraint,
+		 * to avoid vvpu constraint,
 		 * adjust to transition voltage first.
 		 */
-		mdla_volt_data.target_buck = MDLA_BUCK;
-		mdla_volt_data.target_volt = VSRAM_TRANS_VOLT;
-		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
 
 		vpu_volt_data.target_buck = VPU_BUCK;
 		vpu_volt_data.target_volt = VSRAM_TRANS_VOLT;
@@ -1164,24 +1101,18 @@ static int buck_control(enum DVFS_USER user, int level)
 
 		if (level == 1) { // buck adjust to low voltage
 			/*
-			 * then adjust vmdla/vvpu again to real default voltage
+			 * then adjust vvpu again to real default voltage
 			 */
-			mdla_volt_data.target_buck = MDLA_BUCK;
-			mdla_volt_data.target_volt = VMDLA_SHUTDOWN_VOLT;
-			ret |= set_power_voltage(user, (void *)&mdla_volt_data);
-
 			vpu_volt_data.target_buck = VPU_BUCK;
 			vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
 			ret |= set_power_voltage(user, (void *)&vpu_volt_data);
 
-		} else { // buck OFF
-			// enable buck isolation
+		} else {
+			/*
+			 * Enable buck isolation and since mt6853 vvpu/vsrarm
+			 * are always on no need to turn on/off them
+			 */
 			DRV_SetBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
-
-			// just turn off buck and don't release regulator handle
-			disable_regulator(SRAM_BUCK);
-			disable_regulator(VPU_BUCK);
-			disable_regulator(MDLA_BUCK);
 		}
 	}
 
@@ -1295,7 +1226,6 @@ static int apusys_power_reg_dump(struct apu_power_info *info, int force)
 			info->conn_cg_stat = 0xdb;
 			info->vpu0_cg_stat = 0xdb;
 			info->vpu1_cg_stat = 0xdb;
-			info->mdla0_cg_stat = 0xdb;
 		}
 		return -1;
 	}
@@ -1363,22 +1293,6 @@ static int apusys_power_reg_dump(struct apu_power_info *info, int force)
 		else
 			LOG_WRN(
 			"APUREG vpu1 mtcmos not ready, bypass CG dump\n");
-	}
-
-	if (((regVal & BIT(6)) >> 6) == 0x1) {
-		tmpVal = DRV_Reg32(APU_MDLA0_APU_MDLA_CG_CON);
-		if (info != NULL)
-			info->mdla0_cg_stat = tmpVal;
-		else
-			LOG_WRN("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
-									tmpVal);
-
-	} else {
-		if (info != NULL)
-			info->mdla0_cg_stat = 0xdb;
-		else
-			LOG_WRN(
-			"APUREG mdla0 mtcmos not ready, bypass CG dump\n");
 	}
 
 	return 0;
