@@ -2274,11 +2274,6 @@
                 <channel>I2C_CHANNEL_5</channel>
                 <address>0x64</address>
             </device18>
-            <device19>
-                <varName>SPEAKER_AMP</varName>
-                <channel>I2C_CHANNEL_6</channel>
-                <address>0x34</address>
-            </device19>
             <device20>
                 <varName>I2C_LCD_BIAS</varName>
                 <channel>I2C_CHANNEL_6</channel>

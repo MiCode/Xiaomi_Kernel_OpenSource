@@ -2778,6 +2778,9 @@ page_owner=on loop.max_part=7";
 		mtk_spk_i2s_out = <3>;
 		mtk_spk_i2s_in = <0>;
 		/* mtk_spk_i2s_mck = <3>; */
+		mediatek,speaker-codec {
+			sound-dai = <&speaker_amp>;
+		};
 	};
 
 	/* feature : $enable $dl_mem $ul_mem $ref_mem */
@@ -5310,6 +5313,15 @@ page_owner=on loop.max_part=7";
 	};
 
 	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint{
+	};
+};
+
+&i2c6 {
+	speaker_amp: speaker_amp@34 {
+		compatible = "mediatek,speaker_amp";
+		#sound-dai-cells = <0>;
+		reg = <0x34>;
+		status = "okay";
 	};
 };
 
