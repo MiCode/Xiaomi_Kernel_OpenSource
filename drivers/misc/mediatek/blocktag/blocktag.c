@@ -1335,29 +1335,26 @@ int mtk_btag_mictx_get_data(
 
 void mtk_btag_mictx_enable(int enable)
 {
-	if (enable && mtk_btag_mictx)
+	if (enable && mtk_btag_mictx_ready)
 		return;
 
 	if (enable) {
-		mtk_btag_mictx =
-			kzalloc(sizeof(struct mtk_btag_mictx_struct), GFP_NOFS);
 		if (!mtk_btag_mictx) {
-			pr_info("[BLOCK_TAG] mtk_btag_mictx allocation fail, disabled.\n");
-			return;
-		}
+			mtk_btag_mictx =
+				kzalloc(sizeof(struct mtk_btag_mictx_struct),
+					GFP_NOFS);
+			if (!mtk_btag_mictx) {
+				pr_info("[BLOCK_TAG] mtk_btag_mictx allocation fail, disabled.\n");
+				return;
+			}
 
-		spin_lock_init(&mtk_btag_mictx->lock);
+			spin_lock_init(&mtk_btag_mictx->lock);
+		}
 		mtk_btag_mictx_reset(mtk_btag_mictx, 0);
 		mtk_btag_mictx_ready = 1;
 
-	} else {
-		if (!mtk_btag_mictx)
-			return;
-
+	} else
 		mtk_btag_mictx_ready = 0;
-		kfree(mtk_btag_mictx);
-		mtk_btag_mictx = NULL;
-	}
 }
 
 static int __init mtk_btag_init(void)
