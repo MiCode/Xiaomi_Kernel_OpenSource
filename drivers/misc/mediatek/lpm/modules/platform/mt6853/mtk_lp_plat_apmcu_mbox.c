@@ -180,7 +180,11 @@ void mtk_wait_mbox_init_done(void)
 
 void mtk_notify_subsys_ap_ready(void)
 {
+#ifdef CONFIG_MFD_MT6360_PMU
+	int ready = 0x6360;
+#else
 	int ready = 1;
+#endif
 
 	mbox[MBOX_SSPM].write(APMCU_SSPM_MBOX_AP_READY, &ready, 1);
 	mbox[MBOX_MCUPM].write(APMCU_MCUPM_MBOX_AP_READY, &ready, 1);
