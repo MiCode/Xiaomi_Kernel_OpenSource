@@ -2011,8 +2011,7 @@ void m4u_print_perf_counter(int m4u_index, int m4u_slave_id, const char *msg)
 }
 
 
-#define M4U_REG_BACKUP_CNT      (110)
-#define M4U_REG_BACKUP_SIZE     (M4U_REG_BACKUP_CNT*sizeof(unsigned int))
+#define M4U_REG_BACKUP_SIZE     (100*sizeof(unsigned int))
 static unsigned int *pM4URegBackUp;
 static unsigned int gM4u_reg_backup_real_size;
 
@@ -2087,14 +2086,11 @@ int m4u_reg_backup(void)
 		}
 	}
 
-	/* check register size (to prevent overflow)
-	 * Notice: real_size equals to count,
-	 *         NOT "count*sizeof(unsigned int)" !!
-	 */
+	/* check register size (to prevent overflow) */
 	real_size = (pReg - pM4URegBackUp) * sizeof(unsigned int);
-	if (real_size > M4U_REG_BACKUP_CNT)
+	if (real_size > M4U_REG_BACKUP_SIZE)
 		m4u_aee_print("m4u_reg overflow! %d>%d\n",
-			real_size, (int)M4U_REG_BACKUP_CNT);
+			real_size, (int)M4U_REG_BACKUP_SIZE);
 
 	gM4u_reg_backup_real_size = real_size;
 
