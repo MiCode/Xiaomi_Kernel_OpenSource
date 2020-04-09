@@ -818,17 +818,15 @@ err_exit:
 static int apu_power_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	struct hal_param_pm pm;
+	enum DVFS_USER user;
 
 	LOG_PM("%s begin\n", __func__);
 
 	if (power_on_off_stress) {
 		LOG_PM("%s, power_on_off_stress: %d\n",
 				__func__, power_on_off_stress);
-		apu_device_power_suspend(0, 1);
-		apu_device_power_suspend(1, 1);
-		apu_device_power_suspend(2, 1);
-		apu_device_power_suspend(3, 1);
-		apu_device_power_suspend(4, 1);
+		for (user = VPU0; user < APUSYS_DVFS_USER_NUM; user++)
+			apu_device_power_suspend(user, 1);
 	}
 
 	mutex_lock(&power_ctl_mtx);
@@ -843,6 +841,7 @@ static int apu_power_suspend(struct platform_device *pdev, pm_message_t mesg)
 static int apu_power_resume(struct platform_device *pdev)
 {
 	struct hal_param_pm pm;
+	enum DVFS_USER user;
 
 	LOG_PM("%s begin\n", __func__);
 
@@ -855,11 +854,8 @@ static int apu_power_resume(struct platform_device *pdev)
 	if (power_on_off_stress) {
 		LOG_PM("%s, power_on_off_stress: %d\n",
 				__func__, power_on_off_stress);
-		apu_device_power_on(0);
-		apu_device_power_on(1);
-		apu_device_power_on(2);
-		apu_device_power_on(3);
-		apu_device_power_on(4);
+		for (user = VPU0; user < APUSYS_DVFS_USER_NUM; user++)
+			apu_device_power_on(user);
 	}
 
 	LOG_PM("%s end\n", __func__);
