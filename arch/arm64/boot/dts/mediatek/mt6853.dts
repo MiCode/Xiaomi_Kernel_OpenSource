@@ -3871,7 +3871,7 @@
 		compatible = "mediatek,flashlight_core";
 	};
 
-#ifndef CONFIG_MFD_MT6360_PMU
+#ifdef CONFIG_MFD_MT6362
 	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
 		compatible = "mediatek,mtk_composite_v4l2_1";
 		port@0 {
@@ -5662,7 +5662,6 @@
 #include "mt6359p.dtsi"
 #include "mt6853-clkitg.dtsi"
 
-#ifndef CONFIG_MFD_MT6360_PMU
 &spmi_bus {
 	grpid = <11>;
 	mt6315_3: mt6315@3 {
@@ -5677,6 +5676,7 @@
 		};
 	};
 
+#ifdef CONFIG_MFD_MT6362
 	mt6362_9: mt6362@9 {
 		compatible = "mediatek,mt6362";
 		reg = <0x9 SPMI_USID 0x0 SPMI_GSID>;
@@ -6108,8 +6108,8 @@
 			status = "disabled";
 		};
 	};
-};
 #endif
+};
 
 #include "mt6315_s3.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
