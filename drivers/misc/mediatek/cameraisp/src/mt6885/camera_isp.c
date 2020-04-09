@@ -10903,7 +10903,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	unsigned int i, cardinalNum = 0, IrqStatus, ErrStatus, WarnStatus;
 	unsigned int DmaStatus, WarnStatus_2 = 0, cur_v_cnt = 0;
 	unsigned int Dma2Status = 0, DropStatus = 0;
-	unsigned int IrqStatusX, Irq2StatusX, Irq3StatusX;
+	unsigned int IrqStatusX = 0, Irq2StatusX = 0, Irq3StatusX;
 	unsigned int Irq4StatusX, Irq5StatusX;
 	unsigned int cqDoneIndex = 0;
 	unsigned int dma_en = 0, dma2_en = 0;
@@ -10973,12 +10973,6 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	Dma2Status = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUS(reg_module));
 	DropStatus = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUS(reg_module));
 	WarnStatus = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUS(reg_module));
-
-	IrqStatusX = ISP_RD32(CAM_REG_CTL_RAW_INT_STATUSX(inner_reg_module));
-	Irq2StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT2_STATUSX(inner_reg_module));
-	Irq3StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUSX(inner_reg_module));
-	Irq4StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUSX(inner_reg_module));
-	Irq5StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUSX(inner_reg_module));
 
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 
@@ -11144,6 +11138,15 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		if (HwP1Done_cnt[module] > 255)
 			HwP1Done_cnt[module] -= 256;
 
+	/* these INT should read once per frame, correct timing is p1 done */
+	spin_lock(&(IspInfo.SpinLockIrq[module]));
+	IrqStatusX = ISP_RD32(CAM_REG_CTL_RAW_INT_STATUSX(inner_reg_module));
+	Irq2StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT2_STATUSX(inner_reg_module));
+	Irq3StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUSX(inner_reg_module));
+	Irq4StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUSX(inner_reg_module));
+	Irq5StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUSX(inner_reg_module));
+	spin_unlock(&(IspInfo.SpinLockIrq[module]));
+
 		if (dma2_en & _RAWI_R2_EN_) {
 			IRQ_LOG_KEEPER(
 			       module, m_CurrentPPB, _LOG_INF,
@@ -11161,13 +11164,37 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		}
 	}
 
-	if ((IrqStatus & HW_PASS1_DON_ST) &&
-	    (IspInfo.DebugMask & ISP_DBG_HW_DON)) {
-
-		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-			       "CAM%c P1_HW_DON_%d\n", 'A' + cardinalNum,
-			       (sof_count[module]) ? (sof_count[module] - 1)
-						   : (sof_count[module]));
+	if (IrqStatus & HW_PASS1_DON_ST) {
+		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
+			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+		"CAM%c P1_HW_DON_%d dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)\n",
+		'A' + cardinalNum,
+		(sof_count[module]) ? (sof_count[module] - 1)
+		: (sof_count[module]),
+		Irq2StatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		IrqStatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_C_INNER_IDX)));
+		}
 	}
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
@@ -11193,28 +11220,39 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			/*SW p1_don is not reliable */
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				IRQ_LOG_KEEPER(
-					module, m_CurrentPPB, _LOG_INF,
-					"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x)int(0x%x,0x%x)\n",
-					'A' + cardinalNum,
-					(sof_count[module])
-						? (sof_count[module] - 1)
-						: (sof_count[module]),
-					(unsigned int)(fbc_ctrl1[0].Raw),
-					(unsigned int)(fbc_ctrl2[0].Raw),
-					(unsigned int)(fbc_ctrl1[1].Raw),
-					(unsigned int)(fbc_ctrl2[1].Raw),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT2_STATUSX(
-						ISP_CAM_A_IDX)),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT2_STATUSX(
-						ISP_CAM_B_IDX)),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT_STATUSX(
-						ISP_CAM_A_IDX)),
-					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT_STATUSX(
-						ISP_CAM_B_IDX)));
+		module, m_CurrentPPB, _LOG_INF,
+		"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)\n",
+		'A' + cardinalNum,
+		(sof_count[module])
+			? (sof_count[module] - 1)
+			: (sof_count[module]),
+		(unsigned int)(fbc_ctrl1[0].Raw),
+		(unsigned int)(fbc_ctrl2[0].Raw),
+		(unsigned int)(fbc_ctrl1[1].Raw),
+		(unsigned int)(fbc_ctrl2[1].Raw),
+		Irq2StatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT2_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		IrqStatusX,
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_B_INNER_IDX)),
+		(unsigned int)ISP_RD32(
+		CAM_REG_CTL_RAW_INT_STATUSX(
+		ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_C_INNER_IDX)));
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
@@ -12013,7 +12051,7 @@ LB_CAM_SOF_IGNORE:
 	wake_up_interruptible(&IspInfo.WaitQueueHead[module]);
 
 	/* dump log, use workq */
-	if ((IrqStatus & (SOF_INT_ST | SW_PASS1_DON_ST | VS_INT_ST)) ||
+	if ((IrqStatus & (SOF_INT_ST | HW_PASS1_DON_ST | VS_INT_ST)) ||
 		ErrStatus) {
 #if (ISP_BOTTOMHALF_WORKQ == 1)
 		schedule_work(&isp_workque[module].isp_bh_work);
