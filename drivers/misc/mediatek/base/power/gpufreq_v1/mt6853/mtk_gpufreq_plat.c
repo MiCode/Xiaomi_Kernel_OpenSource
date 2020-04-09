@@ -308,7 +308,7 @@ void mt_gpufreq_dump_infra_status(void)
 	gpufreq_pr_info("====\n");
 	gpufreq_pr_info(
 		"clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-		mt_get_abist_freq(FM_MFGPLL_CK),
+		mt_get_abist_freq(FM_MGPLL_CK),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -908,10 +908,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 	if (power == POWER_ON) {
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_1);
-
+/*
 		if (buck == BUCK_ON)
 			mt_gpufreq_buck_control(power);
-
+*/
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_2);
 
 		if (mtcmos == MTCMOS_ON)
@@ -954,10 +954,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			mt_gpufreq_mtcmos_control(power);
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_7);
-
+/*
 		if (buck == BUCK_OFF)
 			mt_gpufreq_buck_control(power);
-
+*/
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_8);
 	}
 
@@ -1834,7 +1834,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
 	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			mt_get_abist_freq(FM_MFGPLL_CK),
+			mt_get_abist_freq(FM_MGPLL_CK),
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
@@ -2349,7 +2349,7 @@ static void __mt_gpufreq_set(
 	gpufreq_pr_logbuf(
 		"done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
-		mt_get_abist_freq(FM_MFGPLL_CK),
+		mt_get_abist_freq(FM_MGPLL_CK),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -3049,6 +3049,7 @@ static void __mt_gpufreq_init_volt_by_freq(void)
 	if (!mt_gpufreq_get_dvfs_en() && !mt_gpufreq_get_cust_init_en()) {
 		gpufreq_pr_info("GPU DVFS and CUST INIT Disabled !!!\n");
 	} else {
+		gpufreq_pr_info("GPU DVFS and CUST INIT Enable !!!\n");
 		mutex_lock(&mt_gpufreq_lock);
 		__mt_gpufreq_set(g_cur_opp_idx, idx,
 			g_cur_opp_freq, opp_table[idx].gpufreq_khz,
@@ -3087,15 +3088,18 @@ static int __mt_gpufreq_init_pmic(struct platform_device *pdev)
 static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 {
 	/* MFGPLL is from APMIXED and its parent clock is from XTAL(26MHz); */
-	g_apmixed_base = __mt_gpufreq_of_ioremap("mediatek,apmixed", 0);
+
+	g_apmixed_base =
+			__mt_gpufreq_of_ioremap(
+				"mediatek,mt6853-apmixedsys", 0);
 	if (!g_apmixed_base) {
 		gpufreq_pr_info("@%s: ioremap failed at APMIXED", __func__);
 		return -ENOENT;
 	}
 
-	g_mfg_base = __mt_gpufreq_of_ioremap("mediatek,g3d_config", 0);
+	g_mfg_base = __mt_gpufreq_of_ioremap("mediatek,mfgcfg", 0);
 	if (!g_mfg_base) {
-		gpufreq_pr_info("@%s: ioremap failed at g3d_config",
+		gpufreq_pr_info("@%s: ioremap failed at mfgcfg",
 			__func__);
 		return -ENOENT;
 	}
@@ -3153,22 +3157,10 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return PTR_ERR(g_clk->mtcmos_mfg3);
 	}
 
-	g_clk->mtcmos_mfg4 = devm_clk_get(&pdev->dev, "mtcmos_mfg4");
-	if (IS_ERR(g_clk->mtcmos_mfg4)) {
-		gpufreq_pr_info("@%s: cannot get mtcmos_mfg4\n", __func__);
-		return PTR_ERR(g_clk->mtcmos_mfg4);
-	}
-
 	g_clk->mtcmos_mfg5 = devm_clk_get(&pdev->dev, "mtcmos_mfg5");
 	if (IS_ERR(g_clk->mtcmos_mfg5)) {
 		gpufreq_pr_info("@%s: cannot get mtcmos_mfg5\n", __func__);
 		return PTR_ERR(g_clk->mtcmos_mfg5);
-	}
-
-	g_clk->mtcmos_mfg6 = devm_clk_get(&pdev->dev, "mtcmos_mfg6");
-	if (IS_ERR(g_clk->mtcmos_mfg6)) {
-		gpufreq_pr_info("@%s: cannot get mtcmos_mfg6\n", __func__);
-		return PTR_ERR(g_clk->mtcmos_mfg6);
 	}
 
 	// 0x1020E000
@@ -3179,7 +3171,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
-
+/*
 	// 0x10023000
 	g_infra_peri_debug1 = __mt_gpufreq_of_ioremap(
 		"mediatek,debug_ao_peri", 0);
@@ -3224,7 +3216,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
-
+*/
 	// 0x10006000
 	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
 	if (!g_sleep) {

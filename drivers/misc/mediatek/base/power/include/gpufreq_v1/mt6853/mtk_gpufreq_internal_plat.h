@@ -18,7 +18,7 @@
  *  0:     all on when mtk probe init (freq/ Vgpu/ Vsram_gpu)
  *         disable DDK power on/off callback
  **************************************************/
-#define MT_GPUFREQ_POWER_CTL_ENABLE	1
+#define MT_GPUFREQ_POWER_CTL_ENABLE	0
 
 /**************************************************
  * (DVFS_ENABLE, CUST_CONFIG)
@@ -28,8 +28,8 @@
  * (0, 0) -> DVFS disable
  **************************************************/
 #define MT_GPUFREQ_DVFS_ENABLE          1
-#define MT_GPUFREQ_CUST_CONFIG          0
-#define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment_1[0].gpufreq_khz)
+#define MT_GPUFREQ_CUST_CONFIG          1
+#define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment_1[8].gpufreq_khz)
 
 /**************************************************
  * DVFS Setting
