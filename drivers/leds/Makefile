@@ -75,6 +75,9 @@ obj-$(CONFIG_LEDS_NIC78BX)		+= leds-nic78bx.o
 obj-$(CONFIG_LEDS_MT6323)		+= leds-mt6323.o
 obj-$(CONFIG_LEDS_MT6362)		+= leds-mt6362.o
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/flashlight \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat
+
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 

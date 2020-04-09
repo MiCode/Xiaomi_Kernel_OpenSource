@@ -15,6 +15,12 @@
 #include <mt-plat/charger_class.h>
 #endif
 
+#ifdef CONFIG_MTK_FLASHLIGHT
+#include "flashlight-core.h"
+
+#include "mtk_charger.h"
+#endif
+
 enum {
 	MT6362_INDICATOR_LED1 = 0,
 	MT6362_INDICATOR_LED4,
@@ -111,7 +117,25 @@ struct mt6362_flash_cdev {
 	u32 strobe_bright_reg;
 	u32 strobe_bright_mask;
 	u32 faults;
+#ifdef CONFIG_MTK_FLASHLIGHT
+	struct flashlight_device_id dev_id;
+#endif
 };
+
+#ifdef CONFIG_MTK_FLASHLIGHT
+static struct led_classdev_flash *mt6362_flash_class[MT6362_FLASH_LEDMAX];
+
+/* define charger consumer */
+static struct charger_consumer *flashlight_charger_consumer;
+#define CHARGER_SUPPLY_NAME "charger_port1"
+
+/* is decrease voltage */
+static int is_decrease_voltage;
+static DEFINE_MUTEX(mt6362_mutex);
+
+/* define usage count */
+static int fd_use_count;
+#endif
 
 struct mt6362_leds_data {
 	struct device *dev;
@@ -238,6 +262,7 @@ static int mt6362_fled_brightness_set(struct led_classdev *cdev,
 	struct mt6362_flash_cdev *mtcdev = (void *)lcdev_to_flcdev(cdev);
 	int shift = ffs(mtcdev->torch_bright_mask) - 1, rv;
 
+	dev_info(cdev->dev, "%s brightness:%d\n", __func__, brightness);
 	if (data->fl_strb_flags) {
 		dev_err(cdev->dev,
 			"Disable all leds strobe [%lu]\n", data->fl_strb_flags);
@@ -262,6 +287,16 @@ static int mt6362_fled_brightness_set(struct led_classdev *cdev,
 
 		return 0;
 	}
+
+#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
+	flashlight_kicker_pbm(1);
+#endif
+#ifdef CONFIG_MTK_FLASHLIGHT_PT
+	if (flashlight_pt_is_low()) {
+		dev_info(cdev->dev, "pt is low\n");
+		return 0;
+	}
+#endif
 
 	brightness -= 1;
 
@@ -316,6 +351,7 @@ static int mt6362_fled_flash_brightness_set(struct led_classdev_flash *flcdev,
 	const struct led_flash_setting *fs = &flcdev->brightness;
 	int shift = ffs(mtcdev->strobe_bright_mask) - 1, val;
 
+	dev_info(lcdev->dev, "%s brightness:%d\n", __func__, brightness);
 	if (brightness > fs->max)
 		brightness = fs->max;
 
@@ -358,6 +394,7 @@ static int mt6362_fled_strobe_set(struct led_classdev_flash *flcdev, bool state)
 	struct mt6362_flash_cdev *mtcdev = (void *)flcdev;
 	int rv;
 
+	dev_info(lcdev->dev, "%s state:%d\n", __func__, state);
 	if (!(state ^ test_bit(mtcdev->idx, &data->fl_strb_flags))) {
 		dev_dbg(lcdev->dev,
 			"strobe no change [%lu]\n", data->fl_strb_flags);
@@ -369,6 +406,16 @@ static int mt6362_fled_strobe_set(struct led_classdev_flash *flcdev, bool state)
 			"Disable all leds torch [%lu]\n", data->fl_torch_flags);
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
+	flashlight_kicker_pbm(state);
+#endif
+#ifdef CONFIG_MTK_FLASHLIGHT_PT
+	if (flashlight_pt_is_low()) {
+		dev_info(lcdev->dev, "pt is low\n");
+		return 0;
+	}
+#endif
 
 	rv = regmap_update_bits(data->regmap, mtcdev->source_enable_reg,
 				mtcdev->source_enable_mask,
@@ -424,6 +471,7 @@ static int mt6362_fled_timeout_set(struct led_classdev_flash *flcdev,
 	const struct led_flash_setting *fs = &flcdev->timeout;
 	int shift = ffs(MT6362_FLEDSTRBTO_MASK) - 1, val;
 
+	dev_info(lcdev->dev, "%s timeout:%u\n", __func__, timeout);
 	if (timeout > fs->max)
 		timeout = fs->max;
 
@@ -681,6 +729,140 @@ static enum led_brightness mt6362_torch_brightness_level(unsigned int id,
 	return (max_uA - MT6362_TORCHCURR_MIN) / MT6362_TORCHCURR_STEP + 1;
 }
 
+
+#ifdef CONFIG_MTK_FLASHLIGHT
+static int mt6362_set_scenario(int scenario)
+{
+	/* notify charger to increase or decrease voltage */
+	if (!flashlight_charger_consumer) {
+		pr_info("Failed with no charger consumer handler.\n");
+		return -1;
+	}
+
+	mutex_lock(&mt6362_mutex);
+	if (scenario & FLASHLIGHT_SCENARIO_CAMERA_MASK) {
+		if (!is_decrease_voltage) {
+#ifdef CONFIG_MTK_CHARGER
+			pr_info("Decrease voltage level.\n");
+			charger_manager_enable_high_voltage_charging(
+					flashlight_charger_consumer, false);
+#endif
+			is_decrease_voltage = 1;
+		}
+	} else {
+		if (is_decrease_voltage) {
+#ifdef CONFIG_MTK_CHARGER
+			pr_info("Increase voltage level.\n");
+			charger_manager_enable_high_voltage_charging(
+					flashlight_charger_consumer, true);
+#endif
+			is_decrease_voltage = 0;
+		}
+	}
+	mutex_unlock(&mt6362_mutex);
+
+	return 0;
+}
+
+static int mt6362_open(void)
+{
+	mutex_lock(&mt6362_mutex);
+	fd_use_count++;
+	pr_debug("open driver: %d\n", fd_use_count);
+	mutex_unlock(&mt6362_mutex);
+	return 0;
+}
+
+static int mt6362_release(void)
+{
+	mutex_lock(&mt6362_mutex);
+	fd_use_count--;
+	pr_debug("close driver: %d\n", fd_use_count);
+	/* If camera NE, we need to enable pe by ourselves*/
+	if (fd_use_count == 0 && is_decrease_voltage) {
+#ifdef CONFIG_MTK_CHARGER
+		pr_info("Increase voltage level.\n");
+		charger_manager_enable_high_voltage_charging(
+				flashlight_charger_consumer, true);
+#endif
+		is_decrease_voltage = 0;
+	}
+	mutex_unlock(&mt6362_mutex);
+	return 0;
+}
+
+static int mt6362_ioctl(unsigned int cmd, unsigned long arg)
+{
+	struct flashlight_dev_arg *fl_arg;
+	int channel;
+	struct led_classdev_flash *flcdev;
+	struct mt6362_flash_cdev *mtcdev;
+	struct led_classdev *lcdev;
+	struct mt6362_leds_data *data;
+
+	fl_arg = (struct flashlight_dev_arg *)arg;
+	channel = fl_arg->channel;
+
+	if (channel >= MT6362_FLASH_LEDMAX || channel < 0) {
+		pr_info("Failed with error channel\n");
+		return -EINVAL;
+	}
+
+	flcdev = mt6362_flash_class[channel];
+	mtcdev = (void *)flcdev;
+	data = dev_get_drvdata(lcdev->dev->parent);
+	lcdev = &flcdev->led_cdev;
+
+	switch (cmd) {
+	case FLASH_IOC_SET_ONOFF:
+		pr_info("FLASH_IOC_SET_ONOFF(%d): %d\n",
+		//dev_info(lcdev->dev, "FLASH_IOC_SET_ONOFF(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		mt6362_fled_brightness_set(lcdev, (int)fl_arg->arg);
+		break;
+
+	case FLASH_IOC_SET_SCENARIO:
+		pr_debug("FLASH_IOC_SET_SCENARIO(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		mt6362_set_scenario(fl_arg->arg);
+		break;
+
+	default:
+		dev_info(lcdev->dev, "No such command and arg(%d): (%d, %d)\n",
+				channel, _IOC_NR(cmd), (int)fl_arg->arg);
+		return -ENOTTY;
+
+	}
+	return 0;
+}
+
+static ssize_t mt6362_strobe_store(struct flashlight_arg arg)
+{
+	struct led_classdev_flash *flcdev;
+	struct led_classdev *lcdev;
+
+	flcdev = mt6362_flash_class[arg.channel];
+	lcdev = &flcdev->led_cdev;
+	mt6362_fled_brightness_set(lcdev, 1);
+	msleep(arg.dur);
+	mt6362_fled_brightness_set(lcdev, 0);
+	return 0;
+}
+
+static int mt6362_set_driver(int set)
+{
+	return 0;
+}
+
+static struct flashlight_operations mt6362_ops = {
+	mt6362_open,
+	mt6362_release,
+	mt6362_ioctl,
+	mt6362_strobe_store,
+	mt6362_set_driver
+};
+#endif
+
 static int mt6362_leds_parse_dt(struct platform_device *pdev,
 				struct mt6362_leds_data *data)
 {
@@ -688,6 +870,7 @@ static int mt6362_leds_parse_dt(struct platform_device *pdev,
 	const char *iled_name = "indicator", *fled_name = "flash";
 	int rv;
 
+	dev_info(&pdev->dev, "mt6362 led parse dt\n");
 	if (!np)
 		return 0;
 
@@ -744,8 +927,28 @@ static int mt6362_leds_parse_dt(struct platform_device *pdev,
 				     &flcdev->brightness.max);
 		of_property_read_u32(child, "flash-max-timeout-us",
 				     &flcdev->timeout.max);
+#ifdef CONFIG_MTK_FLASHLIGHT
+		of_property_read_u32(child, "type", &mtcdev->dev_id.type);
+		of_property_read_u32(child, "ct", &mtcdev->dev_id.ct);
+		of_property_read_u32(child, "part", &mtcdev->dev_id.part);
+		snprintf(mtcdev->dev_id.name, FLASHLIGHT_NAME_SIZE,
+				flcdev->led_cdev.name);
+		mtcdev->dev_id.channel = reg;
+		mt6362_flash_class[reg] = flcdev;
+		mtcdev->dev_id.decouple = 0;
+		dev_info(&pdev->dev,
+				"Parse dt (type,ct,part,name,channel,decouple)=(%d,%d,%d,%s,%d,%d).\n",
+				mtcdev->dev_id.type, mtcdev->dev_id.ct,
+				mtcdev->dev_id.part, mtcdev->dev_id.name,
+				mtcdev->dev_id.channel,
+				mtcdev->dev_id.decouple);
+		if (flashlight_dev_register_by_device_id(&mtcdev->dev_id,
+			&mt6362_ops))
+			return -EFAULT;
+#endif
 	}
 
+	dev_info(&pdev->dev, "mt6362 led parse dt done\n");
 	return 0;
 }
 
@@ -754,6 +957,7 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 	struct mt6362_leds_data *data;
 	int i, rv;
 
+	dev_info(&pdev->dev, "mt6362 led probe\n");
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
@@ -815,6 +1019,20 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_MTK_FLASHLIGHT
+	/* clear attributes */
+	fd_use_count = 0;
+	is_decrease_voltage = 0;
+
+	/* get charger consumer manager */
+	flashlight_charger_consumer = charger_manager_get_by_name(
+			&pdev->dev, CHARGER_SUPPLY_NAME);
+	if (!flashlight_charger_consumer) {
+		pr_info("Failed to get charger manager.\n");
+		return -EFAULT;
+	}
+#endif
+
 	rv = mt6362_leds_irq_register(pdev, data);
 	if (rv) {
 		dev_err(&pdev->dev, "failed to register led irqs\n");
@@ -828,6 +1046,7 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 			"%s: can't find primary charger\n", __func__);
 #endif
 
+	dev_info(&pdev->dev, "mt6362 probe done\n");
 	return 0;
 }
 
