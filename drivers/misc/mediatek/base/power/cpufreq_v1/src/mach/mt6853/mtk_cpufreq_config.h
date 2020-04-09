@@ -24,9 +24,9 @@ enum mt_cpu_dvfs_id {
 
 enum cpu_level {
 	CPU_LEVEL_0, /* FY */
-	CPU_LEVEL_1, /* TURBO */
+	CPU_LEVEL_1, /* MT6853 */
+	CPU_LEVEL_2, /* MT6853 w MT6360 */
 #if 0
-	CPU_LEVEL_2, /* 6853T */
 	CPU_LEVEL_3, /* 6853_v1 */
 #endif
 	NUM_CPU_LEVEL,

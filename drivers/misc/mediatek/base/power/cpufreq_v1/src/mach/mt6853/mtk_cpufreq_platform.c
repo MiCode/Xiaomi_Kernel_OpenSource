@@ -626,7 +626,11 @@ int mt_cpufreq_dts_map(void)
 
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
+#ifndef CONFIG_MT6360_PMIC
 	unsigned int lv = CPU_LEVEL_1;
+#else
+	unsigned int lv = CPU_LEVEL_2;
+#endif
 #if 0
 	int val = (get_devinfo_with_index(7) & 0xFF);
 

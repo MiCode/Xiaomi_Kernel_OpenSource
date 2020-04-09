@@ -285,6 +285,8 @@ static struct opp_tbl_info opp_tbls[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 			ARRAY_SIZE(opp_tbl_LL_e0_0) },
 		[CPU_LEVEL_1] = { opp_tbl_LL_e1_0,
 			ARRAY_SIZE(opp_tbl_LL_e1_0) },
+		[CPU_LEVEL_2] = { opp_tbl_LL_e1_0,
+			ARRAY_SIZE(opp_tbl_LL_e1_0) },
 
 	},
 	/* L */
@@ -293,6 +295,8 @@ static struct opp_tbl_info opp_tbls[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 			ARRAY_SIZE(opp_tbl_L_e0_0) },
 		[CPU_LEVEL_1] = { opp_tbl_L_e1_0,
 			ARRAY_SIZE(opp_tbl_L_e1_0) },
+		[CPU_LEVEL_2] = { opp_tbl_L_e1_0,
+			ARRAY_SIZE(opp_tbl_L_e1_0) },
 
 	},
 	/* CCI */
@@ -300,6 +304,8 @@ static struct opp_tbl_info opp_tbls[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 		[CPU_LEVEL_0] = { opp_tbl_CCI_e0_0,
 			ARRAY_SIZE(opp_tbl_CCI_e0_0) },
 		[CPU_LEVEL_1] = { opp_tbl_CCI_e1_0,
+			ARRAY_SIZE(opp_tbl_CCI_e1_0) },
+		[CPU_LEVEL_2] = { opp_tbl_CCI_e1_0,
 			ARRAY_SIZE(opp_tbl_CCI_e1_0) },
 	},
 };
@@ -431,16 +437,19 @@ struct opp_tbl_m_info opp_tbls_m[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 	{
 		[CPU_LEVEL_0] = { opp_tbl_method_LL_FY },
 		[CPU_LEVEL_1] = { opp_tbl_method_LL_6853 },
+		[CPU_LEVEL_2] = { opp_tbl_method_LL_6853 },
 
 	},
 	/* L */
 	{
 		[CPU_LEVEL_0] = { opp_tbl_method_L_FY },
 		[CPU_LEVEL_1] = { opp_tbl_method_L_6853 },
+		[CPU_LEVEL_2] = { opp_tbl_method_L_6853 },
 	},
 	/* CCI */
 	{
 		[CPU_LEVEL_0] = { opp_tbl_method_CCI_FY },
 		[CPU_LEVEL_1] = { opp_tbl_method_CCI_6853 },
+		[CPU_LEVEL_2] = { opp_tbl_method_L_6853 },
 	},
 };

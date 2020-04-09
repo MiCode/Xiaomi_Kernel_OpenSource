@@ -83,7 +83,7 @@ int degree_set[NR_UPOWER_DEGREE] = {
 #define INIT_UPOWER_TBL_INFOS(name, tbl) {__stringify(name), &tbl}
 struct upower_tbl_info
 	upower_tbl_infos_list[NR_UPOWER_TBL_LIST][NR_UPOWER_BANK] = {
-	/* 6853 */
+	/* FY */
 	[0] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_FY),
@@ -97,8 +97,22 @@ struct upower_tbl_info
 				upower_tbl_cci_FY),
 	},
 
-	/* 6853 (Turbo Mode) */
+	/* 6853 */
 	[1] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_MT6853),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_MT6853),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_MT6853),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_MT6853),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_MT6853),
+	},
+
+	/* 6853 w MT6360*/
+	[2] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_MT6853),
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
