@@ -125,12 +125,13 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int disp_idx = 0, i = 0;
 	struct drm_mtk_layer_config *info;
-	unsigned int yuv_cnt, yuv_nosec_cnt;
-	unsigned int yuv_layer_idx[12];
+	unsigned int yuv_gpu_cnt;
+	unsigned int yuv_layer_gpu[12];
+	int yuv_layer_ovl = -1;
 
 	for (disp_idx = 0 ; disp_idx < HRT_TYPE_NUM ; disp_idx++) {
-		yuv_cnt = 0;
-		yuv_nosec_cnt = 0;
+		yuv_layer_ovl = -1;
+		yuv_gpu_cnt = 0;
 
 		/* cal gpu_layer_cnt & yuv_layer_cnt */
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
@@ -139,26 +140,31 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 				continue;
 
 			if (mtk_is_yuv(info->src_fmt)) {
-				yuv_cnt++;
-				if (info->secure != 1) {
-					yuv_layer_idx[yuv_nosec_cnt] = i;
-					yuv_nosec_cnt++;
+				if (info->secure == 1 &&
+				    yuv_layer_ovl < 0) {
+					yuv_layer_ovl = i;
+				} else {
+					yuv_layer_gpu[yuv_gpu_cnt] = i;
+					yuv_gpu_cnt++;
 				}
 			}
 		}
 
-		if ((yuv_cnt >= 2) && (yuv_nosec_cnt == yuv_cnt - 1)) {
-			//if have sec layer
-			//rollback nonsec yuv layer to gpu
-			for (i = 0; i < yuv_nosec_cnt; i++)
+		if (yuv_gpu_cnt == 0)
+			continue;
+
+		if (yuv_layer_ovl >= 0) {
+			//if have sec layer, rollback the others to gpu
+			for (i = 0; i < yuv_gpu_cnt; i++)
 				mtk_rollback_layer_to_GPU(disp_info,
-					disp_idx, yuv_layer_idx[i]);
-		} else if (yuv_cnt >= 2) {
-			// if no sec & yuv_cnt>= 2,
-			//rollback  second yuv layer to gpu
-			for (i = 1; i < yuv_nosec_cnt; i++)
+					disp_idx, yuv_layer_gpu[i]);
+		} else {
+			/* keep the 1st normal yuv layer,
+			 * rollback the others to gpu
+			 */
+			for (i = 1; i < yuv_gpu_cnt; i++)
 				mtk_rollback_layer_to_GPU(disp_info,
-					disp_idx, yuv_layer_idx[i]);
+					disp_idx, yuv_layer_gpu[i]);
 		}
 	}
 }
