@@ -4382,6 +4382,28 @@
 #endif
 	};
 
+	ptp3: ptp3 {
+		compatible = "mediatek,ptp3";
+		fll_doe_pllclken = <256>;
+		fll_doe_bren = <256>;
+		fll_doe_fll05 = <0>;
+		fll_doe_fll06 = <0>;
+		fll_doe_fll07 = <0>;
+		fll_doe_fll08 = <0>;
+		fll_doe_fll09 = <0>;
+		cinst_doe_enable = <65536>;
+		cinst_doe_const_mode = <256>;
+		cinst_doe_ls_idx_sel = <256>;
+		cinst_doe_ls_period = <8>;
+		cinst_doe_ls_credit = <32>;
+		cinst_doe_ls_low_freq_period = <8>;
+		cinst_doe_ls_low_freq_enable = <2>;
+		cinst_doe_vx_period = <8>;
+		cinst_doe_vx_credit = <32>;
+		cinst_doe_vx_low_freq_period = <8>;
+		cinst_doe_vx_low_freq_enable = <2>;
+	};
+
 	camsys_main: camsys_main@1a000000 {
 		compatible = "mediatek,camsys_main",
 			"mediatek,mt6853-camsys_main", "syscon";
