@@ -47,12 +47,13 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 
 irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv);
 irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv);
-irqreturn_t mtk_vcodec_enc_lt_irq_handler(int irq, void *priv);
 int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 	struct mtk_vcodec_dev *dev);
 int mtk_vcodec_enc_irq_setup(struct platform_device *pdev,
 	struct mtk_vcodec_dev *dev);
 
 void mtk_vcodec_gce_timeout_dump(void *ctx);
+void mtk_vcodec_enc_timeout_dump(void *ctx);
+void mtk_vcodec_dec_timeout_dump(void *ctx);
 
 #endif /* _MTK_VCODEC_INTR_H_ */

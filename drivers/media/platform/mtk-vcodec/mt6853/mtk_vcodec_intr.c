@@ -166,36 +166,6 @@ irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
 }
 EXPORT_SYMBOL(mtk_vcodec_enc_irq_handler);
 
-irqreturn_t mtk_vcodec_enc_lt_irq_handler(int irq, void *priv)
-{
-#ifndef FPGA_INTERRUPT_API_DISABLE
-	struct mtk_vcodec_dev *dev = priv;
-	struct mtk_vcodec_ctx *ctx;
-	unsigned long flags;
-	void __iomem *addr;
-
-	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_enc_ctx[0];
-	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	if (!ctx)
-		return IRQ_HANDLED;
-
-	mtk_v4l2_debug(1, "id=%d", ctx->id);
-	ctx->irq_status = readl(dev->enc_reg_base[VENC_LT_SYS] +
-		(MTK_VENC_IRQ_STATUS_OFFSET));
-
-	addr = dev->enc_reg_base[VENC_LT_SYS] + MTK_VENC_IRQ_ACK_OFFSET;
-
-	clean_irq_status(ctx->irq_status, addr);
-
-	wake_up_enc_ctx(ctx, MTK_INST_IRQ_RECEIVED);
-#endif
-	return IRQ_HANDLED;
-}
-EXPORT_SYMBOL(mtk_vcodec_enc_lt_irq_handler);
-
-
 
 int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 	struct mtk_vcodec_dev *dev)
@@ -246,5 +216,77 @@ EXPORT_SYMBOL(mtk_vcodec_enc_irq_setup);
 
 void mtk_vcodec_gce_timeout_dump(void *ctx)
 {
+	struct mtk_vcodec_ctx *curr_ctx = ctx;
+
+	if (curr_ctx->type == MTK_INST_ENCODER)
+		mtk_vcodec_enc_timeout_dump(ctx);
+	else if (curr_ctx->type == MTK_INST_DECODER)
+		mtk_vcodec_dec_timeout_dump(ctx);
 }
 EXPORT_SYMBOL(mtk_vcodec_gce_timeout_dump);
+
+void mtk_vcodec_enc_timeout_dump(void *ctx)
+{
+	unsigned long value;
+	int i = 0, j = 0;
+
+	struct mtk_vcodec_ctx *curr_ctx = ctx;
+	struct mtk_vcodec_dev *dev = NULL;
+
+	#define REG1_COUNT 13
+	#define REG2_COUNT 46
+
+	unsigned int Reg_1[REG1_COUNT] = {
+		0x14, 0xEC, 0x1C0, 0x1168, 0x11C0,
+		0x11C4, 0xF4, 0x5C, 0x60, 0x130,
+		0x24, 0x114C, 0x1164};
+	unsigned int Reg_2[REG2_COUNT] = {
+		0xEC, 0x200, 0x204, 0x208, 0x20C,
+		0x210, 0x214, 0x218, 0x21C,
+		0x220, 0x224, 0x228, 0x22C,
+		0x230, 0x234, 0x238, 0x23C,
+		0x240, 0x244, 0x248, 0x24C,
+		0x250, 0x254, 0x258, 0x25C,
+		0x260, 0x264, 0x268, 0x26C,
+		0x270, 0x274, 0x278, 0x27C,
+		0x280,
+		0x22C, 0x230, 0xF4, 0x1168,
+		0x11C0, 0x11C4, 0x1030, 0x240,
+		0x248, 0x250, 0x130, 0x140};
+
+	if (ctx == NULL) {
+		mtk_v4l2_debug(0, "can't dump venc for NULL ctx");
+		return;
+	}
+
+	dev = curr_ctx->dev;
+
+	mtk_v4l2_debug(0, "ctx: %p, is_codec_suspending: %d",
+	    ctx, dev->is_codec_suspending);
+
+	for (j = 0; j < MTK_VENC_CORE_1; j++) {
+		for (i = 0; i < REG1_COUNT; i++) {
+			value = readl(dev->enc_reg_base[j] + Reg_1[i]);
+			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
+			    j, Reg_1[i], value);
+		}
+	}
+
+
+	writel(1, dev->enc_reg_base[0] + 0xEC);
+	writel(0, dev->enc_reg_base[0] + 0xF4);
+
+	for (j = 0; j < MTK_VENC_CORE_1; j++) {
+		for (i = 0; i < REG2_COUNT; i++) {
+			value = readl(dev->enc_reg_base[j] + Reg_2[i]);
+			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
+			    j, Reg_2[i], value);
+		}
+	}
+
+}
+
+void mtk_vcodec_dec_timeout_dump(void *ctx)
+{
+
+}
