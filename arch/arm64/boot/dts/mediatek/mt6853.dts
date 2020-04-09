@@ -1865,6 +1865,12 @@
 		compatible = "mediatek,atf_logger";
 	};
 
+	/* AMMS SW IRQ number GIC:327 DTS:295 */
+	amms_control {
+		compatible = "mediatek,amms";
+		interrupts = <GIC_SPI 295 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	/* Trustonic Mobicore SW IRQ number 115 = 32 + 83 */
 	mobicore {
 		compatible = "trustonic,mobicore";
