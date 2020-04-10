@@ -235,6 +235,8 @@ static void ufs_qcom_phy_qmp_v4_dbg_register_dump(struct ufs_qcom_phy *phy)
 {
 	ufs_qcom_phy_dump_regs(phy, COM_BASE, COM_SIZE,
 					"PHY QSERDES COM Registers ");
+	ufs_qcom_phy_dump_regs(phy, PCS2_BASE, PCS2_SIZE,
+					"PHY PCS2 Registers ");
 	ufs_qcom_phy_dump_regs(phy, PHY_BASE, PHY_SIZE,
 					"PHY Registers ");
 	ufs_qcom_phy_dump_regs(phy, RX_BASE(0), RX_SIZE,
