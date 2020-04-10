@@ -860,7 +860,7 @@ static const struct rpm_smd_clk_desc rpm_clk_bengal = {
 DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, ln_bb_clk2, ln_bb_clk2_a, 0x2);
 DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, rf_clk3, rf_clk3_a, 6);
 
-DEFINE_CLK_SMD_RPM(scuba, qpic_clk, qpic_a_clk, RPM_SMD_QPIC_CLK, 0);
+DEFINE_CLK_SMD_RPM(scuba, qpic_clk, qpic_a_clk, QCOM_SMD_RPM_QPIC_CLK, 0);
 
 /* Scuba */
 static struct clk_hw *scuba_clks[] = {
@@ -950,7 +950,7 @@ static struct clk_hw *scuba_clks[] = {
 
 static const struct rpm_smd_clk_desc rpm_clk_scuba = {
 	.clks = scuba_clks,
-	.num_rpm_clks = RPM_SMD_QPIC_A_CLK,
+	.num_rpm_clks = RPM_SMD_CE1_A_CLK,
 	.num_clks = ARRAY_SIZE(scuba_clks),
 };
 

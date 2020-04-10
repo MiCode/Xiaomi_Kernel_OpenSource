@@ -15,6 +15,18 @@ config QPNP_SMB5
 	  VBUS and VCONN regulators are registered for supporting OTG,
 	  and powered Type-C cables respectively.
 
+config QPNP_SMBLITE
+	tristate "SMBLITE Battery Charger"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y to enables support for the SMBLITE charging peripheral.
+	  The QPNP SMBLITE charger driver supports the charger peripheral
+	  present in the chip.
+	  The power supply framework is used to communicate battery and
+	  usb properties to userspace and other driver consumers such
+	  as fuel gauge and USB.
+	  VBUS regulator is registered for supporting OTG.
+
 config SMB1390_CHARGE_PUMP_PSY
 	tristate "SMB1390 power supply framework based driver"
 	depends on MFD_I2C_PMIC

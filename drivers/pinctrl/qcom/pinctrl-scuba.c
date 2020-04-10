@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -540,6 +540,8 @@ enum scuba_functions {
 	msm_mux_uim1_present,
 	msm_mux_dac_calib19,
 	msm_mux_mdp_vsync,
+	msm_mux_mdp_vsync_out_0,
+	msm_mux_mdp_vsync_out_1,
 	msm_mux_dac_calib20,
 	msm_mux_dac_calib21,
 	msm_mux_pwm_6,
@@ -1077,6 +1079,12 @@ static const char * const dac_calib19_groups[] = {
 static const char * const mdp_vsync_groups[] = {
 	"gpio81", "gpio96", "gpio97",
 };
+static const char * const mdp_vsync_out_0_groups[] = {
+	"gpio81",
+};
+static const char * const mdp_vsync_out_1_groups[] = {
+	"gpio81",
+};
 static const char * const dac_calib20_groups[] = {
 	"gpio81",
 };
@@ -1328,6 +1336,8 @@ static const struct msm_function scuba_functions[] = {
 	FUNCTION(uim1_present),
 	FUNCTION(dac_calib19),
 	FUNCTION(mdp_vsync),
+	FUNCTION(mdp_vsync_out_0),
+	FUNCTION(mdp_vsync_out_1),
 	FUNCTION(dac_calib20),
 	FUNCTION(dac_calib21),
 	FUNCTION(pwm_6),
@@ -1498,8 +1508,8 @@ static const struct msm_pingroup scuba_groups[] = {
 			0x7F010, 5),
 	[80] = PINGROUP(80, qup2, dac_calib19, NA, NA, NA, NA, NA, NA, NA,
 			0x7F000, 12),
-	[81] = PINGROUP(81, mdp_vsync, mdp_vsync, mdp_vsync, dac_calib20, NA,
-			NA, NA, NA, NA, 0x7F000, 13),
+	[81] = PINGROUP(81, mdp_vsync_out_0, mdp_vsync_out_1, mdp_vsync,
+			dac_calib20, NA, NA, NA, NA, NA, 0x7F000, 13),
 	[82] = PINGROUP(82, qup0, dac_calib21, NA, pwm_6, NA, NA, NA, NA, NA,
 			0, -1),
 	[83] = PINGROUP(83, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x7F000, 14),

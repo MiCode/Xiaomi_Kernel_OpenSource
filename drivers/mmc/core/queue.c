@@ -103,6 +103,9 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 	enum mmc_issue_type issue_type = mmc_issue_type(mq, req);
 	bool recovery_needed = false;
 
+	mmc_log_string(host,
+			"Request timed out! Active reqs: %d Req: %p Tag: %d\n",
+			mmc_cqe_qcnt(mq), req, req->tag);
 	switch (issue_type) {
 	case MMC_ISSUE_ASYNC:
 	case MMC_ISSUE_DCMD:
@@ -112,6 +115,13 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 			return BLK_EH_RESET_TIMER;
 		}
 		/* No timeout (XXX: huh? comment doesn't make much sense) */
+
+		pr_info("%s: %s: Timeout even before req reaching LDD, completing the req. Active reqs: %d Req: %p Tag: %d\n",
+				mmc_hostname(host), __func__,
+				mmc_cqe_qcnt(mq), req, req->tag);
+		mmc_log_string(host,
+				"Timeout even before req reaching LDD,completing the req. Active reqs: %d Req: %p Tag: %d\n",
+				mmc_cqe_qcnt(mq), req, req->tag);
 		blk_mq_complete_request(req);
 		return BLK_EH_DONE;
 	default:

@@ -8,7 +8,10 @@
 
 #include <linux/leds.h>
 
-#define QUERY_MAX_AVAIL_CURRENT		BIT(0)
+#define ENABLE_REGULATOR		BIT(0)
+#define DISABLE_REGULATOR		BIT(1)
+#define QUERY_MAX_AVAIL_CURRENT		BIT(2)
+#define QUERY_MAX_CURRENT		BIT(3)
 
 int qpnp_flash_register_led_prepare(struct device *dev, void *data);
 

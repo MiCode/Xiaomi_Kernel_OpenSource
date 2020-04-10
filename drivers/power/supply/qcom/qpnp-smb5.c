@@ -1283,7 +1283,9 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		val->intval = chg->flash_active;
 		break;
 	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
-		rc = schgm_flash_get_vreg_ok(chg, &val->intval);
+		val->intval = 0;
+		if (chg->chg_param.smb_version == PMI632_SUBTYPE)
+			rc = schgm_flash_get_vreg_ok(chg, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_TOGGLE_STAT:
 		val->intval = 0;
@@ -2119,15 +2121,10 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	val = EN_TRY_SNK_BIT;
-	/* PMI632 doesn't support try snk */
-	if (chg->chg_param.smb_version == PMI632_SUBTYPE)
-		val = 0;
-
 	/* enable try.snk and clear force sink for DRP mode */
 	rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 				EN_TRY_SNK_BIT | EN_SNK_ONLY_BIT,
-				val);
+				EN_TRY_SNK_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n", rc);
@@ -2148,18 +2145,21 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		}
 	}
 
-	/* Enable detection of unoriented debug accessory in source mode */
-	rc = smblib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
-				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
-				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure TYPE_C_DEBUG_ACCESS_SRC_CFG_REG rc=%d\n",
-				rc);
-		return rc;
-	}
-
 	if (chg->chg_param.smb_version != PMI632_SUBTYPE) {
+		/*
+		 * Enable detection of unoriented debug
+		 * accessory in source mode.
+		 */
+		rc = smblib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
+					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
+					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure TYPE_C_DEBUG_ACCESS_SRC_CFG_REG rc=%d\n",
+					rc);
+			return rc;
+		}
+
 		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
 				USBIN_IN_COLLAPSE_GF_SEL_MASK |
 				USBIN_AICL_STEP_TIMING_SEL_MASK,

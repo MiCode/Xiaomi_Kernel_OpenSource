@@ -2696,7 +2696,6 @@ static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		return false;
 	}
 
-	kref_get(&mapping->kref);
 	to_dma_iommu_mapping(dev) = mapping;
 
 	return true;
@@ -2711,12 +2710,13 @@ static void arm_teardown_iommu_dma_ops(struct device *dev)
 	if (!mapping)
 		return;
 
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+			&s1_bypass);
+
 	kref_put(&mapping->kref, arm_iommu_dma_release_mapping);
 	to_dma_iommu_mapping(dev) = NULL;
 
 	/* Let arch_setup_dma_ops() start again from scratch upon re-probe */
-	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
-			&s1_bypass);
 	if (!s1_bypass)
 		set_dma_ops(dev, NULL);
 

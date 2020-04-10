@@ -409,9 +409,10 @@ static void cqhci_off(struct mmc_host *mmc)
 
 	if (timed_out && !(reg & CQHCI_HALT))
 		pr_err("%s: cqhci: CQE stuck on\n", mmc_hostname(mmc));
-	else
+	else {
 		pr_debug("%s: cqhci: CQE off\n", mmc_hostname(mmc));
-
+		mmc_log_string(mmc, "cqhci: CQE off\n");
+	}
 	mmc->cqe_on = false;
 }
 
@@ -663,6 +664,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (!mmc->cqe_on) {
 		cqhci_writel(cq_host, 0, CQHCI_CTL);
 		mmc->cqe_on = true;
+		mmc_log_string(mmc, "cqhci: CQE on\n");
 		pr_debug("%s: cqhci: CQE on\n", mmc_hostname(mmc));
 		if (cqhci_readl(cq_host, CQHCI_CTL) && CQHCI_HALT) {
 			pr_err("%s: cqhci: CQE failed to exit halt state\n",

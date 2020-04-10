@@ -20,6 +20,7 @@
 #define ESR_MEAS_DONE_BIT			BIT(4)
 
 #define QG_STATUS2_REG				0x09
+#define BATTERY_MISSING_BIT			BIT(3)
 #define GOOD_OCV_BIT				BIT(1)
 
 #define QG_STATUS3_REG				0x0A
@@ -47,6 +48,9 @@
 
 #define QG_MODE_CTL1_REG			0x43
 #define PARALLEL_IBAT_SENSE_EN_BIT		BIT(7)
+
+#define QG_MODE_CTL2_REG			0x44
+#define VI_MODE_BIT				BIT(0)
 
 #define QG_VBAT_EMPTY_THRESHOLD_REG		0x4B
 #define QG_VBAT_LOW_THRESHOLD_REG		0x4C
