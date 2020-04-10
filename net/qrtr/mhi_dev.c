@@ -223,8 +223,11 @@ static int qrtr_mhi_dev_probe(struct platform_device *pdev)
 	mutex_init(&qep->out_lock);
 	init_completion(&qep->out_tre);
 	qep->ep.xmit = qrtr_mhi_dev_send;
+	/* HOST init TX first followed by RX, so register for endpoint TX
+	 * which makes both channel ready by checking one channel state.
+	 */
 	rc = mhi_register_state_cb(qrtr_mhi_dev_state_cb, qep,
-				   QRTR_MHI_DEV_IN);
+				   QRTR_MHI_DEV_OUT);
 	if (rc)
 		return rc;
 
