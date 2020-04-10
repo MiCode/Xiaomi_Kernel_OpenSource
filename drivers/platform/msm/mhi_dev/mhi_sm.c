@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1014,7 +1014,7 @@ static void mhi_sm_pcie_event_manager(struct work_struct *work)
 		spin_unlock_irqrestore(&mhi_sm_ctx->mhi_dev->lock, flags);
 
 		res = ep_pcie_enable_endpoint(mhi_sm_ctx->mhi_dev->phandle,
-			EP_PCIE_OPT_ENUM);
+			EP_PCIE_OPT_ENUM | EP_PCIE_OPT_ENUM_ASYNC);
 		if (res) {
 			MHI_SM_ERR("ep-pcie failed to link train, return %d\n",
 				res);

@@ -1915,16 +1915,10 @@ checkbme:
 		ep_pcie_bar0_address =
 			readl_relaxed(dev->dm_core + PCIE20_BAR0);
 	} else {
-		if (!(opt & EP_PCIE_OPT_ENUM_ASYNC))
-			EP_PCIE_ERR(dev,
-				"PCIe V%d: PCIe link is up but BME is still disabled after max waiting time\n",
-				dev->rev);
-		if (!ep_pcie_debug_keep_resource &&
-				!(opt&EP_PCIE_OPT_ENUM_ASYNC)) {
-			ret = EP_PCIE_ERROR;
-			dev->link_status = EP_PCIE_LINK_DISABLED;
-			goto link_fail;
-		}
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PCIe link is up but BME is disabled; current SW link status:%d\n",
+			dev->rev, dev->link_status);
+		dev->link_status = EP_PCIE_LINK_UP;
 	}
 
 	dev->suspending = false;
