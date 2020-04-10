@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef _ICNSS_WLAN_H_
 #define _ICNSS_WLAN_H_
@@ -22,6 +22,8 @@ enum icnss_uevent {
 
 struct icnss_uevent_fw_down_data {
 	bool crashed;
+	void *hang_event_data;
+	uint16_t hang_event_data_len;
 };
 
 struct icnss_uevent_data {

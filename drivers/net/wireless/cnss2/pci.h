@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_PCI_H
 #define _CNSS_PCI_H
@@ -162,6 +162,7 @@ static inline int cnss_pci_get_drv_connected(void *bus_priv)
 	return atomic_read(&pci_priv->drv_connected);
 }
 
+int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv);
 int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_pci_init(struct cnss_plat_data *plat_priv);
@@ -206,5 +207,8 @@ int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
 			    u32 *val);
 int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 			     u32 val);
+int cnss_pci_get_iova(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size);
+int cnss_pci_get_iova_ipa(struct cnss_pci_data *pci_priv, u64 *addr,
+			  u64 *size);
 
 #endif /* _CNSS_PCI_H */

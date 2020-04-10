@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -549,7 +549,8 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		 */
 		if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 			gmu_core_snapshot(device);
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT |
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+			adreno_set_gpu_fault(adreno_dev,
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 			adreno_dispatcher_schedule(device);
 		}

@@ -1381,7 +1381,7 @@ static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	int state)
 {
 	/* only set the fault bit w/o overwriting other bits */
-	atomic_add(state, &adreno_dev->dispatcher.fault);
+	atomic_or(state, &adreno_dev->dispatcher.fault);
 
 	/* make sure other CPUs see the update */
 	smp_wmb();

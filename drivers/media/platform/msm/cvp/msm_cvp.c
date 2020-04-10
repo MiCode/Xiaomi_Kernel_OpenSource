@@ -7,6 +7,7 @@
 #include "cvp_hfi.h"
 #include <synx_api.h>
 #include "cvp_core_hfi.h"
+#include "cvp_hfi_helper.h"
 
 struct cvp_power_level {
 	unsigned long core_sum;

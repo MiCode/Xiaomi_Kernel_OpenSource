@@ -537,6 +537,7 @@ static int diag_remove_client_entry(struct file *file)
 		return -EINVAL;
 	}
 
+	mutex_lock(&driver->diagchar_mutex);
 	diagpriv_data = file->private_data;
 	for (i = 0; i < driver->num_clients; i++)
 		if (diagpriv_data && diagpriv_data->pid ==
@@ -546,11 +547,13 @@ static int diag_remove_client_entry(struct file *file)
 		DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"pid %d, not present in client map\n",
 			diagpriv_data->pid);
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_unlock(&driver->diag_file_mutex);
 		return -EINVAL;
 	}
 	DIAG_LOG(DIAG_DEBUG_USERSPACE, "diag: %s process exit with pid = %d\n",
 		driver->client_map[i].name, diagpriv_data->pid);
+	mutex_unlock(&driver->diagchar_mutex);
 	/*
 	 * clean up any DCI registrations, if this is a DCI client
 	 * This will specially help in case of ungraceful exit of any DCI client
@@ -2060,6 +2063,9 @@ static int diag_ioctl_lsm_deinit(void)
 	if (!(driver->data_ready[i] & DEINIT_TYPE)) {
 		driver->data_ready[i] |= DEINIT_TYPE;
 		atomic_inc(&driver->data_ready_notif[i]);
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"Setting DEINIT_TYPE for pid: %d\n",
+			current->tgid);
 	}
 	mutex_unlock(&driver->diagchar_mutex);
 	wake_up_interruptible(&driver->wait_q);
@@ -3754,6 +3760,9 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_ERR(buf, data_type, 4);
 		if (ret == -EFAULT)
 			goto exit;
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"Copied DEINIT_TYPE pkt current->tgid: %d\n",
+			current->tgid);
 		driver->data_ready[index] ^= DEINIT_TYPE;
 		atomic_dec(&driver->data_ready_notif[index]);
 		mutex_unlock(&driver->diagchar_mutex);

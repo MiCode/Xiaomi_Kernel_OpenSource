@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __H_CVP_HFI_HELPER_H__
 #define __H_CVP_HFI_HELPER_H__
+
+#include <linux/dma-mapping.h>
 
 #define HFI_COMMON_BASE				(0)
 #define HFI_DOMAIN_BASE_COMMON		(HFI_COMMON_BASE + 0)
@@ -494,5 +496,39 @@ struct cvp_hfi_cmd_sys_test_ssr_packet {
 	u32 packet_type;
 	u32 trigger_type;
 };
+
+struct cvp_buf_type {
+	s32 fd;
+	u32 size;
+	u32 offset;
+	u32 flags;
+	union {
+		struct dma_buf *dbuf;
+		struct {
+			u32 reserved1;
+			u32 reserved2;
+		};
+	} __packed;
+} __packed;
+
+struct cvp_hfi_msg_dme_pkt {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	u32 error_type;
+	struct cvp_hfi_client client_data;
+	u32 stream_idx;
+	u32 skipmv;
+	struct cvp_buf_type srcbuffer;
+	struct cvp_buf_type srcctxbuffer;
+	struct cvp_buf_type refbuffer;
+	struct cvp_buf_type refctxbuffer;
+	struct cvp_buf_type statsbuffer;
+	u32 fullreswidth;
+	u32 fullresheight;
+	u32 processwidth;
+	u32 processheight;
+	u32 confidence;
+} __packed;
 
 #endif
