@@ -349,8 +349,8 @@ static int inode_test(struct inode *inode, void *opaque)
 
 		return (node->n_backing_inode == backing_inode) &&
 			inode->i_ino == search->ino;
-	}
-	return 1;
+	} else
+		return inode->i_ino == search->ino;
 }
 
 static int inode_set(struct inode *inode, void *opaque)
@@ -896,6 +896,7 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
 	}
 
 	bfc = incfs_alloc_bfc(new_file);
+	fput(new_file);
 	if (IS_ERR(bfc)) {
 		error = PTR_ERR(bfc);
 		bfc = NULL;
@@ -1446,6 +1447,9 @@ static long ioctl_get_filled_blocks(struct file *f, void __user *arg)
 	if (!df)
 		return -EINVAL;
 
+	if ((uintptr_t)f->private_data != CAN_FILL)
+		return -EPERM;
+
 	if (copy_from_user(&args, args_usr_ptr, sizeof(args)) > 0)
 		return -EINVAL;
 
@@ -1678,6 +1682,7 @@ static int final_file_delete(struct mount_info *mi,
 	if (d_really_is_positive(index_file_dentry))
 		error = incfs_unlink(index_file_dentry);
 out:
+	dput(index_file_dentry);
 	if (error)
 		pr_debug("incfs: delete_file_from_index err:%d\n", error);
 	return error;
@@ -1980,6 +1985,7 @@ static void dentry_release(struct dentry *d)
 
 	if (di)
 		path_put(&di->backing_path);
+	kfree(d->d_fsdata);
 	d->d_fsdata = NULL;
 }
 
@@ -2191,7 +2197,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	path_put(&backing_dir_path);
 	sb->s_flags |= SB_ACTIVE;
 
-	pr_debug("infs: mount\n");
+	pr_debug("incfs: mount\n");
 	return dget(sb->s_root);
 err:
 	sb->s_fs_info = NULL;
@@ -2212,12 +2218,11 @@ static int incfs_remount_fs(struct super_block *sb, int *flags, char *data)
 	if (err)
 		return err;
 
-	if (mi->mi_options.read_timeout_ms != options.read_timeout_ms) {
-		mi->mi_options.read_timeout_ms = options.read_timeout_ms;
-		pr_debug("incfs: new timeout_ms=%d", options.read_timeout_ms);
-	}
+	err = incfs_realloc_mount_info(mi, &options);
+	if (err)
+		return err;
 
-	pr_debug("infs: remount\n");
+	pr_debug("incfs: remount\n");
 	return 0;
 }
 
@@ -2225,7 +2230,7 @@ void incfs_kill_sb(struct super_block *sb)
 {
 	struct mount_info *mi = sb->s_fs_info;
 
-	pr_debug("infs: unmount\n");
+	pr_debug("incfs: unmount\n");
 	incfs_free_mount_info(mi);
 	generic_shutdown_super(sb);
 }
