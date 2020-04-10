@@ -78,12 +78,11 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 
 	req->client_id_valid = 1;
 	req->client_id = WLFW_CLIENT_ID;
-	req->fw_ready_enable_valid = 1;
-	req->fw_ready_enable = 1;
 	req->request_mem_enable_valid = 1;
 	req->request_mem_enable = 1;
 	req->fw_mem_ready_enable_valid = 1;
 	req->fw_mem_ready_enable = 1;
+	/* fw_ready indication is replaced by fw_init_done in HST/HSP */
 	req->fw_init_done_enable_valid = 1;
 	req->fw_init_done_enable = 1;
 	req->pin_connect_result_enable_valid = 1;
@@ -1776,6 +1775,12 @@ static void cnss_wlfw_fw_mem_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 			       0, NULL);
 }
 
+/**
+ * cnss_wlfw_fw_ready_ind_cb: FW ready indication handler (Helium arch)
+ *
+ * This event is not required for HST/ HSP as FW calibration done is
+ * provided in QMI_WLFW_CAL_DONE_IND_V01
+ */
 static void cnss_wlfw_fw_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 				      struct sockaddr_qrtr *sq,
 				      struct qmi_txn *txn, const void *data)
@@ -1784,13 +1789,18 @@ static void cnss_wlfw_fw_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
 	struct cnss_cal_info *cal_info;
 
-	cnss_pr_dbg("Received QMI WLFW FW ready indication\n");
-
 	if (!txn) {
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
 
+	if (plat_priv->device_id == QCA6390_DEVICE_ID ||
+	    plat_priv->device_id == QCA6490_DEVICE_ID) {
+		cnss_pr_dbg("Ignore FW Ready Indication for HST/HSP");
+		return;
+	}
+
+	cnss_pr_dbg("Received QMI WLFW FW ready indication.\n");
 	cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 	if (!cal_info)
 		return;
