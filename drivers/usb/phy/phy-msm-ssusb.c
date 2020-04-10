@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014,2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014,2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,7 @@ struct msm_ssphy {
 	struct clk		*cfg_ahb_clk;
 	struct clk		*pipe_clk;
 	bool			clocks_enabled;
+	bool			cable_connected;
 
 	struct reset_control	*phy_com_reset;
 	struct reset_control	*phy_reset;
@@ -354,24 +355,34 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 		msm_usb_write_readback(phy->base, SS_PHY_CTRL2,
 					REF_SS_PHY_EN, 0);
 		msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
-					TEST_POWERDOWN, TEST_POWERDOWN);
+					REF_USE_PAD, 0);
+		if (!phy->cable_connected)
+			msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
+						TEST_POWERDOWN, TEST_POWERDOWN);
 
 		msm_ssusb_disable_clocks(phy);
-		msm_ssusb_ldo_enable(phy, 0);
-		msm_ssusb_config_vdd(phy, 0);
+		if (!phy->cable_connected) {
+			msm_ssusb_ldo_enable(phy, 0);
+			msm_ssusb_config_vdd(phy, 0);
+		}
 		phy->suspended = true;
 	} else {
 
-		rc = msm_ssusb_config_vdd(phy, 1);
-		if (rc)
-			return rc;
-		msm_ssusb_ldo_enable(phy, 1);
+		if (!phy->cable_connected) {
+			rc = msm_ssusb_config_vdd(phy, 1);
+			if (rc)
+				return rc;
+			msm_ssusb_ldo_enable(phy, 1);
+		}
 		msm_ssusb_enable_clocks(phy);
 
+		msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
+					REF_USE_PAD, REF_USE_PAD);
 		msm_usb_write_readback(phy->base, SS_PHY_CTRL2,
 					REF_SS_PHY_EN, REF_SS_PHY_EN);
-		msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
-					TEST_POWERDOWN, 0);
+		if (!phy->cable_connected)
+			msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
+						TEST_POWERDOWN, 0);
 
 		phy->suspended = false;
 	}
@@ -384,6 +395,7 @@ static int msm_ssphy_notify_connect(struct usb_phy *uphy,
 {
 	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
 
+	phy->cable_connected = true;
 	if (uphy->flags & PHY_HOST_MODE)
 		return 0;
 
@@ -400,6 +412,7 @@ static int msm_ssphy_notify_disconnect(struct usb_phy *uphy,
 {
 	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
 
+	phy->cable_connected = false;
 	if (uphy->flags & PHY_HOST_MODE)
 		return 0;
 
