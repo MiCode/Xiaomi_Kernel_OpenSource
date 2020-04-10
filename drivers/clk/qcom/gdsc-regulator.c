@@ -74,6 +74,7 @@ struct gdsc {
 	int			reset_count;
 	int			root_clk_idx;
 	u32			gds_timeout;
+	bool			skip_disable_before_enable;
 };
 
 enum gdscr_status {
@@ -313,6 +314,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	}
 
 	sc->is_gdsc_enabled = true;
+	sc->skip_disable_before_enable = false;
 
 	return ret;
 }
@@ -322,6 +324,16 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0, parent_enabled;
+
+	/*
+	 * Protect GDSC against late_init disabling when the GDSC is enabled
+	 * by an entity outside external to HLOS.
+	 */
+	if (sc->skip_disable_before_enable) {
+		dev_dbg(&rdev->dev, "Skip Disabling: %s\n", sc->rdesc.name);
+		sc->skip_disable_before_enable = false;
+		return 0;
+	}
 
 	if (rdev->supply) {
 		regulator_lock(rdev->supply->rdev);
@@ -606,6 +618,8 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 					"qcom,no-status-check-on-disable");
 	sc->retain_ff_enable = of_property_read_bool(dev->of_node,
 						"qcom,retain-regs");
+	sc->skip_disable_before_enable = of_property_read_bool(dev->of_node,
+					"qcom,skip-disable-before-sw-enable");
 
 	if (of_find_property(dev->of_node, "qcom,collapse-vote", NULL)) {
 		ret = of_property_count_u32_elems(dev->of_node,
