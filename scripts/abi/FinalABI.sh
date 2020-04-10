@@ -17,7 +17,7 @@ FINAL_ABI_REPORT=abi-report-final.out
 #include abi_white_list to bypass violations
 source $ABI_DIR/abi_white_list
 #Find Delete/Changed/Added and leaf type change
-check_arr=("\[D\]" "\[C\]" "\[A\]" "^'.*' changed:$")
+#check_arr=("\[D\]" "\[C\]" "\[A\]" "^'.*' changed:$")
 #Find Delete/Changed and leaf type change coz
 #diff_abi default report Added symbol since:
 #https://sourceware.org/git/?p=\
@@ -25,7 +25,7 @@ check_arr=("\[D\]" "\[C\]" "\[A\]" "^'.*' changed:$")
 #And our target.xml contains both vmlinux and kernel module exported symbols.
 #Kernel module exported symbols will not in ori.xml should not take into account
 #as an abi violation symbol.
-#check_arr=("\[D\]" "\[C\]" "^'.*' changed:$")
+check_arr=("\[D\]" "\[C\]" "^'.*' changed:$")
 
 is_abi_violation_bypass=0
 declare -i abi_violation_count=0
