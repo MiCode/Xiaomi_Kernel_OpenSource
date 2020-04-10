@@ -1556,6 +1556,7 @@ static signed int DIP_WriteRegToHw(
 			(unsigned long)(pReg[i].Addr),
 			(unsigned int)(pReg[i].Val));
 		if (((regBase + pReg[i].Addr) < (regBase + PAGE_SIZE))
+                        && (pReg [i] .Addr <= 0xeafddfff)
 			&& ((pReg[i].Addr & 0x3) == 0))
 			DIP_WR32(regBase + pReg[i].Addr, pReg[i].Val);
 		else
