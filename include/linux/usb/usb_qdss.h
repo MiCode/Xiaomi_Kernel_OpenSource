@@ -20,7 +20,6 @@ struct qdss_request {
 	struct scatterlist *sg;
 	unsigned int num_sgs;
 	unsigned int num_mapped_sgs;
-	struct completion write_done;
 };
 
 struct usb_qdss_ch {
@@ -39,6 +38,13 @@ enum qdss_state {
 	USB_QDSS_CTRL_READ_DONE,
 	USB_QDSS_DATA_WRITE_DONE,
 	USB_QDSS_CTRL_WRITE_DONE,
+};
+
+struct qdss_req {
+	struct usb_request *usb_req;
+	struct completion write_done;
+	struct qdss_request *qdss_req;
+	struct list_head list;
 };
 
 #if IS_ENABLED(CONFIG_USB_F_QDSS)

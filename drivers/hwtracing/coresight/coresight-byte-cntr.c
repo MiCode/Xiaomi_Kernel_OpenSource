@@ -340,8 +340,6 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 			goto out;
 		}
 
-		init_completion(&usb_req->write_done);
-
 		actual = tmc_etr_buf_get_data(etr_buf, drvdata->offset,
 					req_size, &usb_req->buf);
 		usb_req->length = actual;
@@ -425,7 +423,6 @@ static void usb_read_work_fn(struct work_struct *work)
 						sizeof(*usb_req), GFP_KERNEL);
 			if (!usb_req)
 				return;
-			init_completion(&usb_req->write_done);
 			usb_req->sg = devm_kzalloc(tmcdrvdata->dev,
 					sizeof(*(usb_req->sg)) * req_sg_num,
 					GFP_KERNEL);

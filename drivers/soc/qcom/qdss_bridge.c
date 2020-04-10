@@ -108,7 +108,6 @@ static int qdss_create_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 
 		buf = kzalloc(drvdata->mtu, GFP_KERNEL);
 		usb_req = kzalloc(sizeof(*usb_req), GFP_KERNEL);
-		init_completion(&usb_req->write_done);
 
 		entry->buf = buf;
 		entry->usb_req = usb_req;
