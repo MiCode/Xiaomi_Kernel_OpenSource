@@ -47,4 +47,13 @@ config HH_DBL
 	  these doorbells by calling send and/or a receive primitives exposed by
 	  driver and trigger an interrupt to each other and exchange the data.
 
+config HH_IRQ_LEND
+	tristate "Haven IRQ Lending Framework"
+	depends on HH_RM_DRV
+	help
+	  Haven Resource Manager permits interrupts to be shared between
+	  virtual machines. This config enables a framework which
+	  supports sharing these interrupts. The follows RM recommended
+	  protocol.
+
 endif

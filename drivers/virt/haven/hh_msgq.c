@@ -89,6 +89,7 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
 	switch (hh_ret) {
 	case HH_ERROR_OK:
 		*recv_size = resp.recv_size;
+		cap_table_entry->rx_empty = !resp.not_empty;
 		ret = 0;
 		break;
 	case HH_ERROR_MSGQUEUE_EMPTY:
@@ -102,7 +103,7 @@ static int __hh_msgq_recv(struct hh_msgq_cap_table *cap_table_entry,
 	spin_unlock_irqrestore(&cap_table_entry->rx_lock, flags);
 
 	if (ret != 0 && ret != -EAGAIN)
-		pr_err("%s: Failed to recv the message. Error: %d\n",
+		pr_err("%s: Failed to recv from msgq. Hypercall error: %d\n",
 			__func__, hh_ret);
 
 	return ret;
@@ -189,6 +190,10 @@ int hh_msgq_recv(void *msgq_client_desc,
 					recv_size, flags);
 	} while (ret == -EAGAIN);
 
+	if (!ret)
+		print_hex_dump_debug("hh_msgq_recv: ", DUMP_PREFIX_OFFSET,
+				     4, 1, buff, *recv_size, false);
+
 	return ret;
 
 err:
@@ -208,11 +213,18 @@ static int __hh_msgq_send(struct hh_msgq_cap_table *cap_table_entry,
 	/* Discard the driver specific flags, and keep only HVC specifics */
 	tx_flags &= HH_MSGQ_HVC_FLAGS_MASK;
 
+	print_hex_dump_debug("hh_msgq_send: ", DUMP_PREFIX_OFFSET,
+			     4, 1, buff, size, false);
+
 	spin_lock_irqsave(&cap_table_entry->tx_lock, flags);
 	hh_ret = hh_hcall_msgq_send(cap_table_entry->tx_cap_id,
 					size, buff, tx_flags, &resp);
 
 	switch (hh_ret) {
+	case HH_ERROR_OK:
+		cap_table_entry->tx_full = !resp.not_full;
+		ret = 0;
+		break;
 	case HH_ERROR_MSGQUEUE_FULL:
 		cap_table_entry->tx_full = true;
 		ret = -EAGAIN;
@@ -224,7 +236,7 @@ static int __hh_msgq_send(struct hh_msgq_cap_table *cap_table_entry,
 	spin_unlock_irqrestore(&cap_table_entry->tx_lock, flags);
 
 	if (ret != 0 && ret != -EAGAIN)
-		pr_err("%s: Failed to send the message. Error: %d\n",
+		pr_err("%s: Failed to send on msgq. Hypercall error: %d\n",
 			__func__, hh_ret);
 
 	return ret;

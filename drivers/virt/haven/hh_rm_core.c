@@ -35,6 +35,7 @@
 	(HH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct hh_rm_rpc_hdr))
 
 struct hh_rm_connection {
+	u32 msg_id;
 	u16 seq;
 	void *recv_buff;
 	u32 reply_err_code;
@@ -52,6 +53,8 @@ static struct hh_msgq_desc *hh_rm_msgq_desc;
 
 static DEFINE_MUTEX(hh_rm_call_idr_lock);
 static DEFINE_IDR(hh_rm_call_idr);
+static struct hh_rm_connection *curr_connection;
+static DEFINE_MUTEX(hh_rm_send_lock);
 
 static DEFINE_IDA(hh_rm_free_virq_ida);
 static struct device_node *hh_rm_intc;
@@ -64,7 +67,7 @@ static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
 
 static int hh_rm_populate_hyp_res(void);
 
-static struct hh_rm_connection *hh_rm_alloc_connection(int seq)
+static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
 {
 	struct hh_rm_connection *connection;
 
@@ -74,20 +77,7 @@ static struct hh_rm_connection *hh_rm_alloc_connection(int seq)
 
 	init_completion(&connection->seq_done);
 
-	if (seq > 0) {
-		connection->seq = seq;
-		return connection;
-	}
-
-	/* Allocate a new seq number for this connection */
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
-		kfree(connection);
-		return ERR_PTR(-ERESTARTSYS);
-	}
-
-	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
-					0, U16_MAX, GFP_KERNEL);
-	mutex_unlock(&hh_rm_call_idr_lock);
+	connection->msg_id = msg_id;
 
 	return connection;
 }
@@ -156,11 +146,12 @@ hh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
-	connection = hh_rm_alloc_connection(hdr->seq);
+	connection = hh_rm_alloc_connection(hdr->msg_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
 	payload_size = recv_buff_size - sizeof(*hdr);
+	curr_connection = connection;
 
 	ret = hh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*hdr), payload_size);
@@ -188,6 +179,11 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 	int ret = 0;
 
 	pr_debug("Notification received from RM-VM: %x\n", notification);
+
+	if (curr_connection) {
+		pr_err("Received new notification from RM-VM before completing last connection\n");
+		return -EINVAL;
+	}
 
 	if (recv_buff_size > sizeof(*hdr))
 		payload = recv_buff + sizeof(*hdr);
@@ -300,6 +296,11 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
+	if (curr_connection) {
+		pr_err("Received new reply from RM-VM before completing last connection\n");
+		return -EINVAL;
+	}
+
 	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
 		ret = -ERESTARTSYS;
 		goto out;
@@ -308,7 +309,8 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	connection = idr_find(&hh_rm_call_idr, hdr->seq);
 	mutex_unlock(&hh_rm_call_idr_lock);
 
-	if (!connection || connection->seq != hdr->seq) {
+	if (!connection || connection->seq != hdr->seq ||
+	    connection->msg_id != hdr->msg_id) {
 		pr_err("%s: Failed to get the connection info for seq: %d\n",
 			__func__, hdr->seq);
 		ret = -EINVAL;
@@ -316,6 +318,7 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	}
 
 	payload_size = recv_buff_size - sizeof(*reply_hdr);
+	curr_connection = connection;
 
 	ret = hh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*reply_hdr), payload_size);
@@ -332,8 +335,10 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	 * this buffer as and when the fragments arrive, and finally
 	 * wakeup the receiver upon reception of the last fragment.
 	 */
-	if (!hdr->fragments)
+	if (!hdr->fragments) {
+		curr_connection = NULL;
 		complete(&connection->seq_done);
+	}
 out:
 	return ret;
 }
@@ -341,20 +346,18 @@ out:
 static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 {
 	struct hh_rm_rpc_hdr *hdr = recv_buff;
-	struct hh_rm_connection *connection;
+	struct hh_rm_connection *connection = curr_connection;
 	size_t payload_size;
 
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock))
-		return -ERESTARTSYS;
-
-	connection = idr_find(&hh_rm_call_idr, hdr->seq);
-	mutex_unlock(&hh_rm_call_idr_lock);
-
-	/* The seq number should be the same for all the fragments */
-	if (!connection || connection->seq != hdr->seq) {
-		pr_err("%s: Failed to get the connection info for seq: %d\n",
-			__func__, hdr->seq);
+	if (!connection) {
+		pr_err("%s: not processing a fragmented connection\n",
+			__func__);
 		return -EINVAL;
+	}
+
+	if (connection->msg_id != hdr->msg_id) {
+		pr_err("%s: got message id %x when expecting %x\n",
+			__func__, hdr->msg_id, connection->msg_id);
 	}
 
 	/*
@@ -376,8 +379,10 @@ static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 	connection->recv_buff_size += payload_size;
 
 	connection->fragments_received++;
-	if (connection->fragments_received == connection->num_fragments)
+	if (connection->fragments_received == connection->num_fragments) {
+		curr_connection = NULL;
 		complete(&connection->seq_done);
+	}
 
 	return 0;
 }
@@ -414,7 +419,7 @@ static void hh_rm_process_recv_work(struct work_struct *work)
 
 	/* All the processing functions would have trimmed-off the header
 	 * and copied the data to connection->recv_buff. Hence, it's okay
-	 * to release the original packet that arrived.
+	 * to release the original packet that arrived and free the msgq_data.
 	 */
 	kfree(recv_buff);
 	kfree(msgq_data);
@@ -456,6 +461,9 @@ static int hh_rm_recv_task_fn(void *data)
 			continue;
 		}
 
+		print_hex_dump_debug("hh_rm_recv: ", DUMP_PREFIX_OFFSET,
+				     4, 1, recv_buff, recv_buff_size, false);
+
 		msgq_data->recv_buff = recv_buff;
 		msgq_data->recv_buff_size = recv_buff_size;
 		INIT_WORK(&msgq_data->recv_work, hh_rm_process_recv_work);
@@ -494,6 +502,10 @@ static int hh_rm_send_request(u32 message_id,
 		return -E2BIG;
 	}
 
+	if (mutex_lock_interruptible(&hh_rm_send_lock)) {
+		return -ERESTARTSYS;
+	}
+
 	/* Consider also the 'request' packet for the loop count */
 	for (i = 0; i <= num_fragments; i++) {
 		if (buff_size_remaining > HH_RM_MAX_MSG_SIZE_BYTES) {
@@ -504,8 +516,10 @@ static int hh_rm_send_request(u32 message_id,
 		}
 
 		send_buff = kzalloc(sizeof(*hdr) + payload_size, GFP_KERNEL);
-		if (!send_buff)
+		if (!send_buff) {
+			mutex_unlock(&hh_rm_send_lock);
 			return -ENOMEM;
+		}
 
 		hdr = send_buff;
 		hdr->version = HH_RM_RPC_HDR_VERSION_ONE;
@@ -534,10 +548,13 @@ static int hh_rm_send_request(u32 message_id,
 		 */
 		kfree(send_buff);
 
-		if (ret)
+		if (ret) {
+			mutex_unlock(&hh_rm_send_lock);
 			return ret;
+		}
 	}
 
+	mutex_unlock(&hh_rm_send_lock);
 	return 0;
 }
 
@@ -568,10 +585,23 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 	if (!message_id || !req_buff || !resp_buff_size || !reply_err_code)
 		return ERR_PTR(-EINVAL);
 
-	connection = hh_rm_alloc_connection(-1);
+	connection = hh_rm_alloc_connection(message_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
+	/* Allocate a new seq number for this connection */
+	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
+		kfree(connection);
+		return ERR_PTR(-ERESTARTSYS);
+	}
+
+	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
+					0, U16_MAX, GFP_KERNEL);
+	mutex_unlock(&hh_rm_call_idr_lock);
+
+	pr_debug("%s TX msg_id: %x\n", __func__, message_id);
+	print_hex_dump_debug("hh_rm_call TX: ", DUMP_PREFIX_OFFSET, 4, 1,
+			     req_buff, req_buff_size, false);
 	/* Send the request to the Resource Manager VM */
 	req_ret = hh_rm_send_request(message_id,
 					req_buff, req_buff_size,
@@ -589,11 +619,19 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 
 	*reply_err_code = connection->reply_err_code;
 	if (connection->reply_err_code) {
-		pr_err("%s: Reply for seq:%d failed with err: %d\n",
+		pr_err("%s: Reply for seq:%d failed with RM err: %d\n",
 			__func__, connection->seq, connection->reply_err_code);
 		ret = ERR_PTR(hh_remap_error(connection->reply_err_code));
 		goto out;
 	}
+
+	print_hex_dump_debug("hh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
+			     connection->recv_buff, connection->recv_buff_size,
+			     false);
+
+	mutex_lock(&hh_rm_call_idr_lock);
+	idr_remove(&hh_rm_call_idr, connection->seq);
+	mutex_unlock(&hh_rm_call_idr_lock);
 
 	ret = connection->recv_buff;
 	*resp_buff_size = connection->recv_buff_size;
@@ -716,21 +754,20 @@ static const struct of_device_id hh_rm_drv_of_match[] = {
 
 static int hh_rm_drv_probe(struct platform_device *pdev)
 {
-	struct resource *rm_tx_res, *rm_rx_res;
+	struct device_node *node = pdev->dev.of_node;
+	hh_capid_t tx_cap_id, rx_cap_id;
 	int tx_irq, rx_irq;
 	u32 owner_vmid;
 	int ret;
 
-	rm_tx_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"rm-tx-cap-id");
-	if (!rm_tx_res) {
+	ret = of_property_read_u64(node, "qcom,tx-cap", &tx_cap_id);
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to get the Tx cap-id\n");
 		return -EINVAL;
 	}
 
-	rm_rx_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"rm-rx-cap-id");
-	if (!rm_rx_res) {
+	ret = of_property_read_u64(node, "qcom,rx-cap", &rx_cap_id);
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to get the Rx cap-id\n");
 		return -EINVAL;
 	}
@@ -761,12 +798,12 @@ static int hh_rm_drv_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rm_tx_res->start,
+	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, tx_cap_id,
 					HH_MSGQ_DIRECTION_TX, tx_irq);
 	if (ret)
 		return ret;
 
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rm_rx_res->start,
+	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rx_cap_id,
 					HH_MSGQ_DIRECTION_RX, rx_irq);
 	if (ret)
 		return ret;
