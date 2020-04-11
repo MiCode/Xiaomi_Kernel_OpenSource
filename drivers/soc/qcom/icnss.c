@@ -571,26 +571,6 @@ int icnss_power_off(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_power_off);
 
-int icnss_update_fw_down_params(struct icnss_priv *priv,
-				struct icnss_uevent_fw_down_data *fw_down_data,
-				bool crashed)
-{
-	fw_down_data->crashed = crashed;
-
-	if (!priv->hang_event_data_va)
-		return -EINVAL;
-
-	priv->hang_event_data = kmemdup(priv->hang_event_data_va,
-					priv->hang_event_data_len,
-					GFP_ATOMIC);
-	if (!priv->hang_event_data)
-		return -ENOMEM;
-
-	// Update the hang event params
-	fw_down_data->hang_event_data = priv->hang_event_data;
-	fw_down_data->hang_event_data_len = priv->hang_event_data_len;
-	return 0;
-}
 
 static irqreturn_t fw_error_fatal_handler(int irq, void *ctx)
 {
@@ -608,7 +588,6 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 {
 	struct icnss_priv *priv = ctx;
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
-	int ret = 0;
 
 	icnss_pr_err("Received early crash indication from FW\n");
 
@@ -617,18 +596,9 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 		icnss_ignore_fw_timeout(true);
 
 		if (test_bit(ICNSS_FW_READY, &priv->state)) {
-			ret = icnss_update_fw_down_params(priv, &fw_down_data,
-							  true);
-			if (ret)
-				icnss_pr_err("Unable to allocate memory for Hang event data\n");
-
+			fw_down_data.crashed = true;
 			icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
-
-			if (!ret) {
-				kfree(priv->hang_event_data);
-				priv->hang_event_data = NULL;
-			}
 		}
 	}
 
@@ -1231,6 +1201,46 @@ static int icnss_fw_crashed(struct icnss_priv *priv,
 	return 0;
 }
 
+int icnss_update_hang_event_data(struct icnss_priv *priv,
+				 struct icnss_uevent_hang_data *hang_data)
+{
+	if (!priv->hang_event_data_va)
+		return -EINVAL;
+
+	priv->hang_event_data = kmemdup(priv->hang_event_data_va,
+					priv->hang_event_data_len,
+					GFP_ATOMIC);
+	if (!priv->hang_event_data)
+		return -ENOMEM;
+
+	// Update the hang event params
+	hang_data->hang_event_data = priv->hang_event_data;
+	hang_data->hang_event_data_len = priv->hang_event_data_len;
+
+	return 0;
+}
+
+int icnss_send_hang_event_data(struct icnss_priv *priv)
+{
+	struct icnss_uevent_hang_data hang_data = {0};
+	int ret = 0xFF;
+
+	if (priv->early_crash_ind) {
+		ret = icnss_update_hang_event_data(priv, &hang_data);
+		if (ret)
+			icnss_pr_err("Unable to allocate memory for Hang event data\n");
+	}
+	icnss_call_driver_uevent(priv, ICNSS_UEVENT_HANG_DATA,
+				 &hang_data);
+
+	if (!ret) {
+		kfree(priv->hang_event_data);
+		priv->hang_event_data = NULL;
+	}
+
+	return 0;
+}
+
 static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 					      void *data)
 {
@@ -1243,6 +1253,8 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
+
+	icnss_send_hang_event_data(priv);
 
 	if (priv->early_crash_ind) {
 		icnss_pr_dbg("PD Down ignored as early indication is processed: %d, state: 0x%lx\n",
