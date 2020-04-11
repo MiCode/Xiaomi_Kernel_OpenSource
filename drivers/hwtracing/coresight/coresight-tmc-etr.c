@@ -1513,11 +1513,12 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	    (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
 	     && drvdata->byte_cntr->sw_usb)) {
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
-		if (!ret) {
-			drvdata->mode = CS_MODE_SYSFS;
-			atomic_inc(csdev->refcnt);
-		}
+		if (ret)
+			goto out;
 	}
+
+	drvdata->mode = CS_MODE_SYSFS;
+	atomic_inc(csdev->refcnt);
 
 	drvdata->enable = true;
 out:
@@ -1527,11 +1528,11 @@ out:
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
-		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
-
-	if (!ret)
+	if (!ret) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 		dev_info(drvdata->dev, "TMC-ETR enabled\n");
+	}
 
 	return ret;
 }
