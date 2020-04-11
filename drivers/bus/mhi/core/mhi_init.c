@@ -9,6 +9,7 @@
 #include <linux/list.h>
 #include <linux/of.h>
 #include <linux/module.h>
+#include <linux/random.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/mhi.h>
@@ -96,6 +97,25 @@ const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 	return mhi_pm_state_str[index];
 }
 
+void mhi_time_async_cb(struct mhi_device *mhi_dev, u32 sequence,
+		       u64 local_time, u64 remote_time)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (ticks)\n",
+		sequence, local_time, remote_time);
+}
+
+void mhi_time_us_async_cb(struct mhi_device *mhi_dev, u32 sequence,
+			  u64 local_time, u64 remote_time)
+{
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (us)\n",
+		sequence, LOCAL_TICKS_TO_US(local_time),
+		REMOTE_TICKS_TO_US(remote_time));
+}
+
 static ssize_t time_show(struct device *dev,
 			 struct device_attribute *attr,
 			 char *buf)
@@ -108,7 +128,8 @@ static ssize_t time_show(struct device *dev,
 	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
 	if (ret) {
 		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (ticks)\n",
@@ -128,7 +149,8 @@ static ssize_t time_us_show(struct device *dev,
 	ret = mhi_get_remote_time_sync(mhi_dev, &t_host, &t_device);
 	if (ret) {
 		MHI_ERR("Failed to obtain time, ret:%d\n", ret);
-		return ret;
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
@@ -137,9 +159,59 @@ static ssize_t time_us_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(time_us);
 
+static ssize_t time_async_show(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u32 seq = prandom_u32();
+	int ret;
+
+	if (!seq)
+		seq = 1;
+
+	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_async_cb);
+	if (ret) {
+		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "Requested time asynchronously with seq:%llx\n", seq);
+}
+static DEVICE_ATTR_RO(time_async);
+
+static ssize_t time_us_async_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	u32 seq = prandom_u32();
+	int ret;
+
+	if (!seq)
+		seq = 1;
+
+	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_us_async_cb);
+	if (ret) {
+		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		return scnprintf(buf, PAGE_SIZE,
+				 "Request failed or feature unsupported\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "Requested time asynchronously with seq:%llx\n", seq);
+}
+static DEVICE_ATTR_RO(time_us_async);
+
 static struct attribute *mhi_tsync_attrs[] = {
 	&dev_attr_time.attr,
 	&dev_attr_time_us.attr,
+	&dev_attr_time_async.attr,
+	&dev_attr_time_us_async.attr,
 	NULL,
 };
 
@@ -358,8 +430,8 @@ int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl)
 				  mhi_msi_handlr, IRQF_SHARED | IRQF_NO_SUSPEND,
 				  "mhi", mhi_event);
 		if (ret) {
-			MHI_ERR("Error requesting irq:%d for ev:%d\n",
-				mhi_cntrl->irq[mhi_event->msi], i);
+			MHI_CNTRL_ERR("Error requesting irq:%d for ev:%d\n",
+					mhi_cntrl->irq[mhi_event->msi], i);
 			goto error_request;
 		}
 	}
@@ -695,7 +767,7 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	ret = mhi_get_capability_offset(mhi_cntrl, TIMESYNC_CAP_ID,
 					&time_offset);
 	if (ret) {
-		MHI_LOG("No timesync capability found\n");
+		MHI_CNTRL_LOG("No timesync capability found\n");
 		return ret;
 	}
 
@@ -710,7 +782,7 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	INIT_LIST_HEAD(&mhi_tsync->head);
 
 	/* save time_offset for obtaining time */
-	MHI_LOG("TIME OFFS:0x%x\n", time_offset);
+	MHI_CNTRL_LOG("TIME OFFS:0x%x\n", time_offset);
 	mhi_tsync->time_reg = mhi_cntrl->regs + time_offset
 			      + TIMESYNC_TIME_LOW_OFFSET;
 
@@ -719,9 +791,11 @@ static int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	/* get timesync event ring configuration */
 	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_TSYNC_ELEMENT_TYPE);
 	if (er_index < 0) {
-		MHI_LOG("Could not find timesync event ring\n");
+		MHI_CNTRL_LOG("Could not find timesync event ring\n");
 		return er_index;
 	}
+
+	mhi_tsync->db_support = true;
 
 	time_cfg_offset = time_offset + TIMESYNC_CFG_OFFSET;
 
@@ -746,7 +820,7 @@ int mhi_init_sfr(struct mhi_controller *mhi_cntrl)
 	sfr_info->buf_addr = mhi_alloc_coherent(mhi_cntrl, sfr_info->len,
 					&sfr_info->dma_addr, GFP_KERNEL);
 	if (!sfr_info->buf_addr) {
-		MHI_ERR("Failed to allocate memory for sfr\n");
+		MHI_CNTRL_ERR("Failed to allocate memory for sfr\n");
 		return -ENOMEM;
 	}
 
@@ -754,14 +828,14 @@ int mhi_init_sfr(struct mhi_controller *mhi_cntrl)
 
 	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_SFR_CFG);
 	if (ret) {
-		MHI_ERR("Failed to send sfr cfg cmd\n");
+		MHI_CNTRL_ERR("Failed to send sfr cfg cmd\n");
 		return ret;
 	}
 
 	ret = wait_for_completion_timeout(&sfr_info->completion,
 			msecs_to_jiffies(mhi_cntrl->timeout_ms));
 	if (!ret || sfr_info->ccs != MHI_EV_CC_SUCCESS) {
-		MHI_ERR("Failed to get sfr cfg cmd completion\n");
+		MHI_CNTRL_ERR("Failed to get sfr cfg cmd completion\n");
 		return -EIO;
 	}
 
@@ -784,12 +858,12 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 
 	/* No ER configured to support BW scale */
 	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_BW_SCALE_ELEMENT_TYPE);
-	if (ret < 0)
+	if (er_index < 0)
 		return er_index;
 
 	bw_cfg_offset += BW_SCALE_CFG_OFFSET;
 
-	MHI_LOG("BW_CFG OFFSET:0x%x\n", bw_cfg_offset);
+	MHI_CNTRL_LOG("BW_CFG OFFSET:0x%x\n", bw_cfg_offset);
 
 	/* advertise host support */
 	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
@@ -878,7 +952,7 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 		{ 0, 0, 0 }
 	};
 
-	MHI_LOG("Initializing MMIO\n");
+	MHI_CNTRL_LOG("Initializing MMIO\n");
 
 	/* set up DB register for all the chan rings */
 	ret = mhi_read_reg_field(mhi_cntrl, base, CHDBOFF, CHDBOFF_CHDBOFF_MASK,
@@ -886,7 +960,7 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 	if (ret)
 		return -EIO;
 
-	MHI_LOG("CHDBOFF:0x%x\n", val);
+	MHI_CNTRL_LOG("CHDBOFF:0x%x\n", val);
 
 	/* setup wake db */
 	mhi_cntrl->wake_db = base + val + (8 * MHI_DEV_WAKE_DB);
@@ -909,7 +983,7 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 	if (ret)
 		return -EIO;
 
-	MHI_LOG("ERDBOFF:0x%x\n", val);
+	MHI_CNTRL_LOG("ERDBOFF:0x%x\n", val);
 
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, val += 8, mhi_event++) {
@@ -922,7 +996,7 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 	/* set up DB register for primary CMD rings */
 	mhi_cntrl->mhi_cmd[PRIMARY_CMD_RING].ring.db_addr = base + CRDB_LOWER;
 
-	MHI_LOG("Programming all MMIO values.\n");
+	MHI_CNTRL_LOG("Programming all MMIO values.\n");
 	for (i = 0; reg_info[i].offset; i++)
 		mhi_write_reg_field(mhi_cntrl, base, reg_info[i].offset,
 				    reg_info[i].mask, reg_info[i].shift,
@@ -1655,7 +1729,7 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 
 	ret = mhi_init_dev_ctxt(mhi_cntrl);
 	if (ret) {
-		MHI_ERR("Error with init dev_ctxt\n");
+		MHI_CNTRL_ERR("Error with init dev_ctxt\n");
 		goto error_dev_ctxt;
 	}
 
@@ -1675,7 +1749,7 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 			ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
 					   &bhie_off);
 			if (ret) {
-				MHI_ERR("Error getting bhie offset\n");
+				MHI_CNTRL_ERR("Error getting bhie offset\n");
 				goto bhie_error;
 			}
 

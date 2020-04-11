@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, 2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -171,9 +171,6 @@ static inline int __stm_trace(uint32_t flags, uint8_t entity_id,
 	int len = 0;
 	uint32_t ch;
 	void __iomem *ch_addr;
-
-	if (!(drvdata && drvdata->master_enable))
-		return 0;
 
 	/* allocate channel and get the channel address */
 	ch = stm_channel_alloc();

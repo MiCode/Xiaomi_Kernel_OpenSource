@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
 #define WLAN_FIRMWARE_SERVICE_V01_H
@@ -211,9 +211,12 @@ struct wlfw_fw_ready_ind_msg_v01 {
 extern struct qmi_elem_info wlfw_fw_ready_ind_msg_v01_ei[];
 
 struct wlfw_msa_ready_ind_msg_v01 {
-	char placeholder;
+	u8 hang_data_addr_offset_valid;
+	u32 hang_data_addr_offset;
+	u8 hang_data_length_valid;
+	u16 hang_data_length;
 };
-#define WLFW_MSA_READY_IND_MSG_V01_MAX_MSG_LEN 0
+#define WLFW_MSA_READY_IND_MSG_V01_MAX_MSG_LEN 12
 extern struct qmi_elem_info wlfw_msa_ready_ind_msg_v01_ei[];
 
 struct wlfw_pin_connect_result_ind_msg_v01 {

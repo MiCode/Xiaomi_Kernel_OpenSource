@@ -1108,7 +1108,7 @@ static void ipa3_nat_create_init_cmd(
 	IPADBG("return\n");
 }
 
-static void ipa3_nat_create_modify_pdn_cmd(
+static int ipa3_nat_create_modify_pdn_cmd(
 	struct ipahal_imm_cmd_dma_shared_mem *mem_cmd, bool zero_mem)
 {
 	size_t pdn_entry_size, mem_size;
@@ -1117,6 +1117,10 @@ static void ipa3_nat_create_modify_pdn_cmd(
 
 	ipahal_nat_entry_size(IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
 	mem_size = pdn_entry_size * IPA_MAX_PDN_NUM;
+
+	/* Before providing physical base address check pointer exist or not*/
+	if (!ipa3_ctx->nat_mem.pdn_mem.base)
+		return -EFAULT;
 
 	if (zero_mem && ipa3_ctx->nat_mem.pdn_mem.base)
 		memset(ipa3_ctx->nat_mem.pdn_mem.base, 0, mem_size);
@@ -1131,6 +1135,7 @@ static void ipa3_nat_create_modify_pdn_cmd(
 		IPA_MEM_PART(pdn_config_ofst);
 
 	IPADBG("return\n");
+	return 0;
 }
 
 static int ipa3_nat_send_init_cmd(struct ipahal_imm_cmd_ip_v4_nat_init *cmd,
@@ -1202,7 +1207,12 @@ static int ipa3_nat_send_init_cmd(struct ipahal_imm_cmd_ip_v4_nat_init *cmd,
 		}
 
 		/* Copy the PDN config table to SRAM */
-		ipa3_nat_create_modify_pdn_cmd(&mem_cmd, zero_pdn_table);
+		result = ipa3_nat_create_modify_pdn_cmd(&mem_cmd,
+							zero_pdn_table);
+		if (result) {
+			IPAERR(" Fail to create modify pdn command\n");
+			goto destroy_imm_cmd;
+		}
 		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
 		if (!cmd_pyld[num_cmd]) {
@@ -1694,7 +1704,12 @@ int ipa3_nat_mdfy_pdn(
 	/*
 	 * Copy the PDN config table to SRAM
 	 */
-	ipa3_nat_create_modify_pdn_cmd(&mem_cmd, false);
+	result = ipa3_nat_create_modify_pdn_cmd(&mem_cmd, false);
+
+	if (result) {
+		IPAERR(" Fail to create modify pdn command\n");
+		goto bail;
+	}
 
 	cmd_pyld = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
@@ -2094,6 +2109,8 @@ static void ipa3_nat_ipv6ct_free_mem(
 				mld_ptr->index_table_addr           = NULL;
 				mld_ptr->index_table_expansion_addr = NULL;
 			}
+			dev->is_hw_init           = false;
+			dev->is_mapped            = false;
 
 			memset(nm_ptr->mem_loc, 0, sizeof(nm_ptr->mem_loc));
 		}

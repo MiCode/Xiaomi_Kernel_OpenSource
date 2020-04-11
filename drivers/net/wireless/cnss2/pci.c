@@ -356,7 +356,7 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
 
-static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
+int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
 
@@ -775,6 +775,22 @@ out:
 int cnss_pci_prevent_l1(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("PCIe link is suspended\n");
+		return -EIO;
+	}
+
+	if (pci_priv->pci_link_down_ind) {
+		cnss_pr_err("PCIe link is down\n");
+		return -EIO;
+	}
 
 	return msm_pcie_prevent_l1(pci_dev);
 }
@@ -783,6 +799,22 @@ EXPORT_SYMBOL(cnss_pci_prevent_l1);
 void cnss_pci_allow_l1(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return;
+	}
+
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("PCIe link is suspended\n");
+		return;
+	}
+
+	if (pci_priv->pci_link_down_ind) {
+		cnss_pr_err("PCIe link is down\n");
+		return;
+	}
 
 	msm_pcie_allow_l1(pci_dev);
 }
@@ -1208,18 +1240,19 @@ static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct device *dev = &pci_priv->pci_dev->dev;
 	unsigned long flags = 0;
 	u64 host_time_us, device_time_us, offset;
 	u32 low, high;
 	int ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
+	ret = cnss_pci_prevent_l1(dev);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = cnss_pci_force_wake_get(pci_priv);
 	if (ret)
-		return ret;
+		goto allow_l1;
 
 	spin_lock_irqsave(&time_sync_lock, flags);
 	cnss_pci_clear_time_sync_counter(pci_priv);
@@ -1256,7 +1289,9 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 
 force_wake_put:
 	cnss_pci_force_wake_put(pci_priv);
-
+allow_l1:
+	cnss_pci_allow_l1(dev);
+out:
 	return ret;
 }
 
@@ -3196,6 +3231,34 @@ static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
 	pci_priv->iommu_domain = NULL;
 }
 
+int cnss_pci_get_iova(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!pci_priv->smmu_iova_len)
+		return -EINVAL;
+
+	*addr = pci_priv->smmu_iova_start;
+	*size = pci_priv->smmu_iova_len;
+
+	return 0;
+}
+
+int cnss_pci_get_iova_ipa(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!pci_priv->smmu_iova_ipa_len)
+		return -EINVAL;
+
+	*addr = pci_priv->smmu_iova_ipa_start;
+	*size = pci_priv->smmu_iova_ipa_len;
+
+	return 0;
+}
+
 struct iommu_domain *cnss_smmu_get_domain(struct device *dev)
 {
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
@@ -4067,6 +4130,11 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	if (!mhi_ctrl->log_buf)
 		cnss_pr_err("Unable to create CNSS MHI IPC log context\n");
 
+	mhi_ctrl->cntrl_log_buf = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
+							 "cnss-mhi-cntrl", 0);
+	if (!mhi_ctrl->cntrl_log_buf)
+		cnss_pr_err("Unable to create CNSS MHICNTRL IPC log context\n");
+
 	ret = of_register_mhi_controller(mhi_ctrl);
 	if (ret) {
 		cnss_pr_err("Failed to register to MHI bus, err = %d\n", ret);
@@ -4084,6 +4152,8 @@ unreg_mhi:
 destroy_ipc:
 	if (mhi_ctrl->log_buf)
 		ipc_log_context_destroy(mhi_ctrl->log_buf);
+	if (mhi_ctrl->cntrl_log_buf)
+		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
 	kfree(mhi_ctrl->irq);
 free_mhi_ctrl:
 	mhi_free_controller(mhi_ctrl);
@@ -4098,6 +4168,8 @@ static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 	mhi_unregister_mhi_controller(mhi_ctrl);
 	if (mhi_ctrl->log_buf)
 		ipc_log_context_destroy(mhi_ctrl->log_buf);
+	if (mhi_ctrl->cntrl_log_buf)
+		ipc_log_context_destroy(mhi_ctrl->cntrl_log_buf);
 	kfree(mhi_ctrl->irq);
 	mhi_free_controller(mhi_ctrl);
 }

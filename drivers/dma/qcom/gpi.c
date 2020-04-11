@@ -2363,7 +2363,7 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 		tre = sg_virt(sg);
 
 		/* Check if last tre has ieob set */
-		if (sg_len != 1 && i == sg_len - 1) {
+		if (i == sg_len - 1) {
 			if ((((struct msm_gpi_tre *)tre)->dword[3] &
 					GPI_IEOB_BMSK) >> GPI_IEOB_BMSK_SHIFT)
 				gpii->ieob_set = true;

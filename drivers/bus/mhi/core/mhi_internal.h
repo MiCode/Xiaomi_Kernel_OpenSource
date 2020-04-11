@@ -728,6 +728,7 @@ struct tsync_node {
 struct mhi_timesync {
 	void __iomem *time_reg;
 	u32 int_sequence;
+	bool db_support;
 	spinlock_t lock; /* list protection */
 	struct list_head head;
 };
