@@ -381,6 +381,12 @@ static int pmic_glink_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct pmic_glink_buf *pbuf;
 	unsigned long flags;
 
+	if (len < sizeof(struct pmic_glink_hdr)) {
+		pr_err("Received length %d less than header size: %zu\n", len,
+			sizeof(struct pmic_glink_hdr));
+		return -EINVAL;
+	}
+
 	pbuf = kzalloc(sizeof(*pbuf) + len, GFP_ATOMIC);
 	if (!pbuf)
 		return -ENOMEM;
