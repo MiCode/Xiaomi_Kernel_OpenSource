@@ -1,3 +1,4 @@
+ifneq ($(CONFIG_ARCH_QTI_VM), y)
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi-overlay.dtbo \
 	lahaina-mtp-overlay.dtbo \
@@ -33,8 +34,6 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahainap-qrd.dtb
 endif
 
-dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
-
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_SHIMA) += \
 	shima-rumi-overlay.dtbo
@@ -65,6 +64,13 @@ dtb-$(CONFIG_ARCH_SM8150)       += sm8150-cdp.dtb \
         sa8155p-v2-adp-star.dtb \
         sa8155-v2-adp-air.dtb \
         sa8155p-v2-adp-air.dtb
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_LAHAINA), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
+endif
 endif
 
 always		:= $(dtb-y)
