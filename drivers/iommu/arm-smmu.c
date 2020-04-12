@@ -214,6 +214,9 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 	if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
 		     smmu_domain->attributes))
 		return true;
+	else if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+			  smmu_domain->attributes))
+		return false;
 	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
 		return dev_is_dma_coherent(smmu_domain->smmu->dev);
 	else
@@ -2673,6 +2676,9 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (!strcmp(str, "coherent"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
+	else if (!strcmp(str, "non-coherent"))
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT, &attr);
 	else if (!strcmp(str, "LLC"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
@@ -3449,6 +3455,12 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					  smmu_domain->attributes);
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT:
+		*((int *)data) =
+			test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+				 smmu_domain->attributes);
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_CB_STALL_DISABLE:
 		*((int *)data) = test_bit(DOMAIN_ATTR_CB_STALL_DISABLE,
 					  smmu_domain->attributes);
@@ -3674,22 +3686,36 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
 		int force_coherent = *((int *)data);
 
-		if (IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS)) {
-			if (smmu_domain->smmu != NULL) {
-				dev_err(smmu_domain->smmu->dev,
-				  "cannot change force coherent attribute while attached\n");
-				ret = -EBUSY;
-			} else if (force_coherent) {
-				set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					smmu_domain->attributes);
-				ret = 0;
-			} else {
-				clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					  smmu_domain->attributes);
-				ret = 0;
-			}
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force coherent attribute while attached\n");
+			ret = -EBUSY;
+		} else if (force_coherent) {
+			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				smmu_domain->attributes);
+			ret = 0;
 		} else {
-			ret = -ENOTSUPP;
+			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				  smmu_domain->attributes);
+			ret = 0;
+		}
+		break;
+	}
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT: {
+		int force_non_coherent = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+				"cannot change force non-coherent attribute while attached\n");
+			ret = -EBUSY;
+		} else if (force_non_coherent) {
+			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+				smmu_domain->attributes);
+			ret = 0;
+		} else {
+			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+				  smmu_domain->attributes);
+			ret = 0;
 		}
 		break;
 	}
