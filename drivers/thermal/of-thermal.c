@@ -829,7 +829,7 @@ thermal_zone_of_add_sensor(struct device_node *zone,
 	tz_list_new = krealloc(sens_param->tz_list,
 			sens_param->tz_cnt * sizeof(struct __thermal_zone *),
 			GFP_KERNEL);
-	if (!tz_list_new[0])
+	if (!tz_list_new)
 		goto add_sensor_exit;
 	sens_param->tz_list = tz_list_new;
 	sens_param->tz_list[sens_param->tz_cnt - 1] = tz;
@@ -961,7 +961,7 @@ thermal_zone_of_sensor_register(struct device *dev, int sensor_id, void *data,
 	of_node_put(sensor_np);
 	of_node_put(np);
 
-	if (!sens_param->tz_cnt) {
+	if (!sens_param->tz_cnt || !sens_param->tz_list) {
 		devm_kfree(dev, sens_param);
 		return ERR_PTR(-ENODEV);
 	}
