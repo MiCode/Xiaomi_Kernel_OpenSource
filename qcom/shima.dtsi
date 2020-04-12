@@ -529,32 +529,9 @@
 		};
 	};
 
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
 	aopcc: qcom,aopcc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "aopcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
-
-	rpmhcc: qcom,rpmhcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmhcc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -880,6 +857,11 @@
 				  <SLEEP_TCS   3>,
 				  <WAKE_TCS    3>,
 				  <CONTROL_TCS 1>;
+
+		rpmhcc: qcom,rpmhclk {
+			compatible = "qcom,shima-rpmh-clk";
+			#clock-cells = <1>;
+		};
 	};
 
 	disp_rsc: rsc@af20000 {
