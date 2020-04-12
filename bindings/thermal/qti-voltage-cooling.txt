@@ -11,7 +11,7 @@ cluster voltage. This is achieved by building a mitigation table mapping
 the CPU frequency levels to a voltage.
 
 Required Parameters:
-- compatible: must be 'qti,cc-cooling-devices' for cpu voltage cooling device
+- compatible: must be 'qcom,cc-cooling-devices' for cpu voltage cooling device
   driver.
 
 	voltage cooling device node properties:
@@ -34,7 +34,7 @@ Optional Parameters:
 
 Example:
 	qcom,cpu-voltage-cdev {
-		compatible = "qti,cc-cooling-devices";
+		compatible = "qcom,cc-cooling-devices";
 		apc1_cluster: qcom,apc1-cluster {
 			qcom,cpus = <&CPU4 &CPU7>;
 			#cooling-cells = <2>;
