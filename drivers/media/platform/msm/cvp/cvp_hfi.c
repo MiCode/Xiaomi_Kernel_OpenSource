@@ -2575,7 +2575,10 @@ static void iris_hfi_pm_handler(struct work_struct *work)
 	}
 
 	mutex_lock(&device->lock);
-	rc = __power_collapse(device, false);
+	if (gfa_cv.state == DSP_SUSPEND)
+		rc = __power_collapse(device, true);
+	else
+		rc = __power_collapse(device, false);
 	mutex_unlock(&device->lock);
 	switch (rc) {
 	case 0:
@@ -2693,7 +2696,7 @@ exit:
 	return rc;
 
 skip_power_off:
-	dprintk(CVP_WARN, "Skip PC(%#x, %#x, %#x)\n",
+	dprintk(CVP_PWR, "Skip PC(%#x, %#x, %#x)\n",
 		wfi_status, idle_status, pc_ready);
 	__flush_debug_queue(device, device->raw_packet);
 	return -EAGAIN;
