@@ -5,6 +5,8 @@
 #include <dt-bindings/clock/qcom,gpucc-shima.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,videocc-shima.h>
+#include <dt-bindings/interconnect/qcom,epss-l3.h>
+#include <dt-bindings/interconnect/qcom,shima.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
@@ -891,6 +893,71 @@
 		compatible = "qcom,pshold";
 		reg = <0xc264000 0x4>, <0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
+	clk_virt: interconnect {
+		compatible = "qcom,shima-clk_virt";
+		#interconnect-cells = <1>;
+	};
+
+	config_noc: interconnect@1500000 {
+		compatible = "qcom,shima-config_noc";
+		#interconnect-cells = <1>;
+	};
+
+	mc_virt: interconnect@1580000 {
+		compatible = "qcom,shima-mc_virt";
+		#interconnect-cells = <1>;
+	};
+
+	system_noc: interconnect@1680000 {
+		compatible = "qcom,shima-system_noc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		compatible = "qcom,shima-aggre1_noc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		compatible = "qcom,shima-aggre2_noc";
+		#interconnect-cells = <1>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,shima-mmss_noc";
+		#interconnect-cells = <1>;
+	};
+
+	lpass_ag_noc: interconnect@3c40000 {
+		compatible = "qcom,shima-lpass_ag_noc";
+		#interconnect-cells = <1>;
+	};
+
+	dc_noc: interconnect@90e0000 {
+		compatible = "qcom,shima-dc_noc";
+		#interconnect-cells = <1>;
+	};
+
+	gem_noc: interconnect@9100000 {
+		compatible = "qcom,shima-gem_noc";
+		#interconnect-cells = <1>;
+	};
+
+	nsp_noc: interconnect@a0c0000 {
+		compatible = "qcom,shima-nsp_noc";
+		#interconnect-cells = <1>;
+	};
+
+	epss_l3_cpu: l3_cpu@18590000 {
+		compatible = "qcom,shima-epss-l3-cpu";
+		#interconnect-cells = <1>;
+	};
+
+	epss_l3_shared: l3_shared@18590000 {
+		compatible = "qcom,shima-epss-l3-shared";
+		#interconnect-cells = <1>;
 	};
 };
 
