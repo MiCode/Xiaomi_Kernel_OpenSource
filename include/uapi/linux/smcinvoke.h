@@ -11,14 +11,14 @@
 #define SMCINVOKE_USERSPACE_OBJ_NULL	-1
 
 struct smcinvoke_buf {
-	uint64_t addr;
-	uint64_t size;
+	__u64 addr;
+	__u64 size;
 };
 
 struct smcinvoke_obj {
-	int64_t fd;
-	int32_t cb_server_fd;
-	int32_t reserved;
+	__s64 fd;
+	__s32 cb_server_fd;
+	__s32 reserved;
 };
 
 union smcinvoke_arg {
@@ -35,11 +35,11 @@ union smcinvoke_arg {
  * @args - args is pointer to buffer having all arguments
  */
 struct smcinvoke_cmd_req {
-	uint32_t op;
-	uint32_t counts;
-	int32_t result;
-	uint32_t argsize;
-	uint64_t args;
+	__u32 op;
+	__u32 counts;
+	__s32 result;
+	__u32 argsize;
+	__u64 args;
 };
 
 /*
@@ -59,23 +59,23 @@ struct smcinvoke_cmd_req {
  *                to complete operation op
  */
 struct smcinvoke_accept {
-	uint32_t has_resp;
-	uint32_t txn_id;
-	int32_t result;
-	int32_t cbobj_id;
-	uint32_t op;
-	uint32_t counts;
-	int32_t reserved;
-	uint32_t argsize;
-	uint64_t buf_len;
-	uint64_t buf_addr;
+	__u32 has_resp;
+	__u32 txn_id;
+	__s32 result;
+	__s32 cbobj_id;
+	__u32 op;
+	__u32 counts;
+	__s32 reserved;
+	__u32 argsize;
+	__u64 buf_len;
+	__u64 buf_addr;
 };
 
 /*
  * @cb_buf_size: IN: Max buffer size for any callback obj implemented by client
  */
 struct smcinvoke_server {
-	uint32_t cb_buf_size;
+	__u32 cb_buf_size;
 };
 
 #define SMCINVOKE_IOC_MAGIC    0x98
@@ -90,6 +90,6 @@ struct smcinvoke_server {
 	_IOWR(SMCINVOKE_IOC_MAGIC, 3, struct smcinvoke_server)
 
 #define SMCINVOKE_IOCTL_ACK_LOCAL_OBJ \
-	_IOWR(SMCINVOKE_IOC_MAGIC, 4, int32_t)
+	_IOWR(SMCINVOKE_IOC_MAGIC, 4, __s32)
 
 #endif /* _UAPI_SMCINVOKE_H_ */
