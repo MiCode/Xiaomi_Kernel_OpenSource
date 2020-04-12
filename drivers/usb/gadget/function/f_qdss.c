@@ -1001,7 +1001,7 @@ EXPORT_SYMBOL(usb_qdss_open);
 
 void usb_qdss_close(struct usb_qdss_ch *ch)
 {
-	struct f_qdss *qdss = ch->priv_usb;
+	struct f_qdss *qdss;
 	struct usb_gadget *gadget;
 	unsigned long flags;
 	int status;
@@ -1009,6 +1009,14 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	pr_debug("%s\n", __func__);
 
 	spin_lock_irqsave(&qdss_lock, flags);
+	if (!ch->priv_usb) {
+		spin_unlock_irqrestore(&qdss_lock, flags);
+		pr_err("%s is called for %s without calling usb_qdss_open()\n",
+						__func__, ch->name);
+		return;
+	}
+
+	qdss = ch->priv_usb;
 	ch->priv_usb = NULL;
 	if (!qdss || !qdss->usb_connected ||
 			!strcmp(qdss->ch.name, USB_QDSS_CH_MDM)) {
