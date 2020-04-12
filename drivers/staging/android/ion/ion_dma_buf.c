@@ -45,12 +45,6 @@ static void free_duped_table(struct sg_table *table)
 	kfree(table);
 }
 
-struct ion_dma_buf_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-};
-
 static int ion_dma_buf_attach(struct dma_buf *dmabuf,
 			      struct dma_buf_attachment *attachment)
 {
@@ -293,11 +287,16 @@ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
+	void *vaddr;
 
-	if (!heap->buf_ops.vmap)
-		return ERR_PTR(-EOPNOTSUPP);
+	if (heap->buf_ops.vmap)
+		return heap->buf_ops.vmap(dmabuf);
 
-	return heap->buf_ops.vmap(dmabuf);
+	mutex_lock(&buffer->lock);
+	vaddr = ion_buffer_kmap_get(buffer);
+	mutex_unlock(&buffer->lock);
+
+	return vaddr;
 }
 
 static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
@@ -305,10 +304,14 @@ static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
 
-	if (!heap->buf_ops.vunmap)
+	if (heap->buf_ops.vunmap) {
+		heap->buf_ops.vunmap(dmabuf, vaddr);
 		return;
+	}
 
-	return heap->buf_ops.vunmap(dmabuf, vaddr);
+	mutex_lock(&buffer->lock);
+	ion_buffer_kmap_put(buffer);
+	mutex_unlock(&buffer->lock);
 }
 
 static int ion_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
