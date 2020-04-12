@@ -1418,6 +1418,9 @@ static int adreno_bind(struct device *dev)
 	if (adreno_is_a6xx(adreno_dev))
 		kgsl_mmu_set_feature(device, KGSL_MMU_SMMU_APERTURE);
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
+		kgsl_mmu_set_feature(device, KGSL_MMU_IO_COHERENT);
+
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
 	device->mmu.secured = (IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER) &&
@@ -1448,9 +1451,6 @@ static int adreno_bind(struct device *dev)
 	adreno_rscc_probe(device);
 
 	adreno_isense_probe(device);
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
-		kgsl_mmu_set_feature(device, KGSL_MMU_IO_COHERENT);
 
 	/* Allocate the memstore for storing timestamps and other useful info */
 

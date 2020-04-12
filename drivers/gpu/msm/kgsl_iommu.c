@@ -842,7 +842,7 @@ static void kgsl_iommu_enable_clk(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 
 	if (!IS_ERR_OR_NULL(iommu->cx_gdsc))
-		regulator_enable(iommu->cx_gdsc);
+		WARN_ON(regulator_enable(iommu->cx_gdsc));
 
 	for (j = 0; j < KGSL_IOMMU_MAX_CLKS; j++) {
 		if (iommu->clks[j])
