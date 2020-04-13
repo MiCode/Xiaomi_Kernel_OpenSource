@@ -194,13 +194,6 @@ struct cvp_session_msg {
 	struct cvp_hfi_msg_session_hdr pkt;
 };
 
-enum queue_state {
-	QUEUE_INIT,
-	QUEUE_ACTIVE = 1,
-	QUEUE_STOP = 2,
-	QUEUE_INVALID,
-};
-
 struct cvp_session_queue {
 	spinlock_t lock;
 	enum queue_state state;
@@ -230,22 +223,6 @@ struct cvp_session_prop {
 	u32 ddr_op_bw;
 	u32 ddr_cache;
 	u32 ddr_op_cache;
-};
-
-enum op_mode {
-	OP_NORMAL,
-	OP_DRAINING,
-	OP_FLUSH,
-	OP_INVALID,
-};
-
-struct cvp_fence_queue {
-	struct mutex lock;
-	enum queue_state state;
-	enum op_mode mode;
-	struct list_head wait_list;
-	wait_queue_head_t wq;
-	struct list_head sched_list;
 };
 
 enum cvp_event_t {
@@ -312,25 +289,10 @@ struct msm_cvp_inst {
 	enum msm_cvp_modes flags;
 	struct msm_cvp_capability capability;
 	struct kref kref;
-	struct cvp_kmd_request_power power;
 	struct cvp_session_prop prop;
 	u32 cur_cmd_type;
 	struct synx_session synx_session_id;
 	struct cvp_fence_queue fence_cmd_queue;
-};
-
-struct cvp_fence_type {
-	s32 h_synx;
-	u32 secure_key;
-};
-
-struct cvp_fence_command {
-	struct list_head list;
-	u64 frame_id;
-	enum op_mode mode;
-	u32 type;
-	u32 synx[MAX_HFI_FENCE_SIZE/2];
-	struct cvp_hfi_cmd_session_hdr *pkt;
 };
 
 extern struct msm_cvp_drv *cvp_driver;
