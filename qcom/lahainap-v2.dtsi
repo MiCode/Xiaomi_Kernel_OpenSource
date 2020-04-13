@@ -1,0 +1,15 @@
+#include "lahaina-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. LahainaP v2";
+	compatible = "qcom,lahainap";
+	qcom,msm-id = <439 0x20000>;
+};
+
+&pil_modem {
+	status = "disabled";
+};
+
+&ipa_hw {
+	status = "disabled";
+};
