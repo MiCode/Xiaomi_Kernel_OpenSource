@@ -46,6 +46,7 @@ struct qti_usb_gadget {
 	struct device *dev;
 };
 
+extern char *saved_command_line;
 static char manufacturer_string[256] = "Qualcomm Technologies, Inc";
 module_param_string(manufacturer, manufacturer_string,
 		    sizeof(manufacturer_string), 0644);
@@ -57,9 +58,6 @@ module_param_string(product, product_string,
 MODULE_PARM_DESC(quirks, "String representing product name");
 
 static char serialno_string[256] = "12345";
-module_param_string(serialno, serialno_string,
-		    sizeof(serialno_string), 0644);
-MODULE_PARM_DESC(quirks, "String representing name of manufacturer");
 
 static char usb_pid_string[256];
 module_param_string(usb_pid, usb_pid_string, sizeof(usb_pid_string), 0644);
@@ -476,6 +474,7 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 	struct device *dev = gadget->dev;
 	struct device_node *child = NULL;
 	int ret = 0, val = 0, pid = 0;
+	char *start = NULL, *end = NULL;
 
 	ret = device_property_read_u32(dev, "qcom,vid", &val);
 	if (ret) {
@@ -510,6 +509,18 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 	}
 
 	pid = val;
+
+	/* Extract serial # from kernel cmdline */
+	start = strnstr(saved_command_line, "androidboot.serialno=",
+			strlen(saved_command_line));
+	if (start) {
+		/* If serial # is at the end of the kernel cmdline
+		 * it will be terminated by NULL character
+		 */
+		end = strchrnul(start, ' ');
+		start += strlen("androidboot.serialno=");
+		strlcpy(serialno_string, start, (end - start)+1);
+	}
 
 	/* Go through all the child nodes and find matching pid */
 	while ((child = of_get_next_child(dev->of_node, child)) != NULL) {
