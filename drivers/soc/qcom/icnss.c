@@ -1186,32 +1186,6 @@ out:
 	return 0;
 }
 
-static int icnss_call_driver_remove(struct icnss_priv *priv)
-{
-	icnss_pr_dbg("Calling driver remove state: 0x%lx\n", priv->state);
-
-	clear_bit(ICNSS_FW_READY, &priv->state);
-
-	if (test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
-		return 0;
-
-	if (!test_bit(ICNSS_DRIVER_PROBED, &priv->state))
-		return 0;
-
-	if (!priv->ops || !priv->ops->remove)
-		return 0;
-
-	set_bit(ICNSS_DRIVER_UNLOADING, &priv->state);
-	priv->ops->remove(&priv->pdev->dev);
-
-	clear_bit(ICNSS_DRIVER_UNLOADING, &priv->state);
-	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
-
-	icnss_hw_power_off(priv);
-
-	return 0;
-}
-
 static int icnss_fw_crashed(struct icnss_priv *priv,
 			    struct icnss_event_pd_service_down_data *event_data)
 {
@@ -1431,7 +1405,11 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 			if (!test_bit(ICNSS_PD_RESTART, &priv->state) &&
 				!test_bit(ICNSS_SHUTDOWN_DONE, &priv->state) &&
 				!test_bit(ICNSS_BLOCK_SHUTDOWN, &priv->state)) {
-				icnss_call_driver_remove(priv);
+				clear_bit(ICNSS_FW_READY, &priv->state);
+				icnss_driver_event_post(
+					  ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
+					  ICNSS_EVENT_SYNC_UNINTERRUPTIBLE,
+					  NULL);
 			}
 		}
 
