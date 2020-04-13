@@ -25,6 +25,7 @@ enum {
 };
 
 enum {
+	PLL_OFF_MODE,
 	PLL_OFF_L_VAL,
 	PLL_OFF_CAL_L_VAL,
 	PLL_OFF_ALPHA_VAL,
