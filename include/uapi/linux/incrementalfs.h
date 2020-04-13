@@ -150,13 +150,10 @@ struct incfs_fill_block {
 	/* Values from enum incfs_block_flags */
 	__u8 flags;
 
-	/* Reserved - must be 0 */
 	__u16 reserved1;
 
-	/* Reserved - must be 0 */
 	__u32 reserved2;
 
-	/* Reserved - must be 0 */
 	__aligned_u64 reserved3;
 };
 
@@ -206,10 +203,8 @@ struct incfs_new_file_args {
 	 */
 	__u16 mode;
 
-	/* Reserved - must be 0 */
 	__u16 reserved1;
 
-	/* Reserved - must be 0 */
 	__u32 reserved2;
 
 	/*
@@ -242,7 +237,6 @@ struct incfs_new_file_args {
 	 */
 	__u32 file_attr_len;
 
-	/* Reserved - must be 0 */
 	__u32 reserved4;
 
 	/*
@@ -270,7 +264,6 @@ struct incfs_new_file_args {
 	/* Size of signature_info */
 	__aligned_u64 signature_size;
 
-	/* Reserved - must be 0 */
 	__aligned_u64 reserved6;
 };
 
