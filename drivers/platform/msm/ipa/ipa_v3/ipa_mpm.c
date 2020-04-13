@@ -2779,12 +2779,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 			IPA_MPM_DBG("Already out of lpm\n");
 		}
 		break;
-	case MHI_CB_EE_RDDM:
-	case MHI_CB_PENDING_DATA:
-	case MHI_CB_SYS_ERROR:
-	case MHI_CB_FATAL_ERROR:
-	case MHI_CB_EE_MISSION_MODE:
-	case MHI_CB_DTR_SIGNAL:
+	default:
 		IPA_MPM_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}
