@@ -1912,6 +1912,7 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 	struct usb_request *req = dev->not_port.notify_req;
 	int ret = 0;
 	unsigned long flags;
+	struct usb_cdc_notification	*event;
 
 	pr_debug("Enter(%zu)\n", count);
 
@@ -1976,11 +1977,23 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 		mbim_unlock(&dev->write_excl);
 		return count;
 	}
+
+	dev->not_port.notify_req->context = dev;
+	dev->not_port.notify_req->complete = mbim_notify_complete;
+	dev->not_port.notify_req->length = sizeof(*event);
+	event = dev->not_port.notify_req->buf;
+	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
+			| USB_RECIP_INTERFACE;
+	event->bNotificationType = USB_CDC_NOTIFY_RESPONSE_AVAILABLE;
+	event->wValue = cpu_to_le16(0);
+	event->wIndex = cpu_to_le16(dev->ctrl_id);
+	event->wLength = cpu_to_le16(0);
+
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
 			   req, GFP_ATOMIC);
-	if (ret == -ENOTSUPP || (ret < 0 && ret != -EAGAIN)) {
+	if (ret == -ENOTSUPP || (ret < 0 && ret != -EAGAIN && ret != EBUSY)) {
 		spin_lock_irqsave(&dev->lock, flags);
 		/* check if device disconnected while we dropped lock */
 		if (atomic_read(&dev->online)) {
