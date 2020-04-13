@@ -152,7 +152,7 @@
 
 		mhi_event@5 {
 			mhi,num-elements = <32>;
-			mhi,intmod = <1>;
+			mhi,intmod = <0>;
 			mhi,msi = <0>;
 			mhi,priority = <2>;
 			mhi,brstmode = <2>;
