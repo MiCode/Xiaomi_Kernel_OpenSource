@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -3530,6 +3530,14 @@ static inline void clk_debug_reparent(struct clk_core *core,
 {
 }
 static inline void clk_debug_unregister(struct clk_core *core)
+{
+}
+
+void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
+{
+}
+
+void clock_debug_print_enabled(bool print_parent)
 {
 }
 #endif
