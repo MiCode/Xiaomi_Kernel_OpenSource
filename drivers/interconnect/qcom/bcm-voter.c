@@ -76,11 +76,11 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm, bool init)
 			agg_peak[bucket] = max(agg_peak[bucket], temp);
 		}
 
-		temp = agg_avg[bucket] * 1000ULL;
+		temp = agg_avg[bucket] * bcm->vote_scale;
 		do_div(temp, le32_to_cpu(bcm->aux_data.unit));
 		bcm->vote_x[bucket] = temp;
 
-		temp = agg_peak[bucket] * 1000ULL;
+		temp = agg_peak[bucket] * bcm->vote_scale;
 		do_div(temp, le32_to_cpu(bcm->aux_data.unit));
 		bcm->vote_y[bucket] = temp;
 	}
