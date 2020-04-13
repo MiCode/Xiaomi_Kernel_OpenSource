@@ -279,11 +279,6 @@ enum arm_smmu_implementation {
 	QCOM_SMMUV500,
 };
 
-struct arm_smmu_impl_def_reg {
-	u32 offset;
-	u32 value;
-};
-
 /*
  * Describes resources required for on/off power operation.
  * Separate reference count is provided for atomic/nonatomic
@@ -399,10 +394,6 @@ struct arm_smmu_device {
 
 	/* IOMMU core code handle */
 	struct iommu_device		iommu;
-
-	/* Specific to QCOM */
-	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
-	unsigned int			num_impl_def_attach_registers;
 
 	struct arm_smmu_power_resources *pwr;
 
@@ -587,6 +578,7 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qcom_smmu_impl_init(struct arm_smmu_device *smmu);
 struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu);
+struct arm_smmu_device *qsmmuv2_impl_init(struct arm_smmu_device *smmu);
 
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
