@@ -6,6 +6,7 @@
 
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <linux/vmalloc.h>
 
 #include "synx_api.h"
 #include "synx_util.h"
@@ -975,7 +976,7 @@ static void synx_client_destroy(struct kref *kref)
 
 	pr_info("[sess: %u] session destroyed %s\n",
 		client->id, client->name);
-	kfree(client);
+	vfree(client);
 }
 
 void synx_put_client(struct synx_client *client)

@@ -9,6 +9,7 @@
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/vmalloc.h>
 
 #include "synx_api.h"
 #include "synx_util.h"
@@ -1435,7 +1436,7 @@ int synx_initialize(struct synx_session *session_id,
 		bit = test_and_set_bit(idx, synx_dev->bitmap);
 	} while (bit);
 
-	client = kzalloc(sizeof(*client), GFP_KERNEL);
+	client = vzalloc(sizeof(*client));
 	if (!client) {
 		clear_bit(idx, synx_dev->bitmap);
 		return -ENOMEM;
