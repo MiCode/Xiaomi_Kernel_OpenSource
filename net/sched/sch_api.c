@@ -1405,6 +1405,40 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n,
 }
 
 /*
+ * enable/disable flow on qdisc.
+ */
+int
+tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle, int enable_flow)
+{
+	struct Qdisc *q;
+	int qdisc_len = 0;
+	struct __qdisc_change_req {
+		struct nlattr attr;
+		struct tc_prio_qopt data;
+	} req =	{
+		.attr = {sizeof(struct __qdisc_change_req), TCA_OPTIONS},
+		.data = {3, {1, 2, 2, 2, 1, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1}, 1}
+		};
+
+	/* override flow bit */
+	req.data.enable_flow = enable_flow;
+
+	/* look up using tcm handle */
+	q = qdisc_lookup(dev, tcm_handle);
+
+	/* call registered change function */
+	if (likely(q && q->ops)) {
+		if (likely(q->ops->change)) {
+			qdisc_len = q->q.qlen;
+			if (q->ops->change(q, &req.attr, NULL))
+				pr_err("%s(): qdisc change failed\n", __func__);
+		}
+	}
+	return qdisc_len;
+}
+EXPORT_SYMBOL(tc_qdisc_flow_control);
+
+/*
  * Create/change qdisc.
  */
 
