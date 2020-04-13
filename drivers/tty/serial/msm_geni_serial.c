@@ -709,7 +709,8 @@ static void msm_geni_serial_poll_put_char(struct uart_port *uport,
 }
 #endif
 
-#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
+					IS_ENABLED(CONFIG_CONSOLE_POLL)
 static void msm_geni_serial_wr_char(struct uart_port *uport, int ch)
 {
 	geni_write_reg_nolog(ch, uport->membase, SE_GENI_TX_FIFOn);
@@ -2212,8 +2213,9 @@ static ssize_t ver_info_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(ver_info);
 
-#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
-static int msm_geni_console_setup(struct console *co, char *options)
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
+						IS_ENABLED(CONFIG_CONSOLE_POLL)
+static int __init msm_geni_console_setup(struct console *co, char *options)
 {
 	struct uart_port *uport;
 	struct msm_geni_serial_port *dev_port;
@@ -2406,7 +2408,8 @@ static const struct uart_ops msm_geni_serial_pops = {
 };
 
 static const struct of_device_id msm_geni_device_tbl[] = {
-#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
+						IS_ENABLED(CONFIG_CONSOLE_POLL)
 	{ .compatible = "qcom,msm-geni-console",
 			.data = (void *)&msm_geni_console_driver},
 #endif
