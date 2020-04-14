@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __FG_CORE_H__
@@ -175,6 +175,7 @@ enum fg_sram_param_id {
 	FG_SRAM_VBAT_FINAL,
 	FG_SRAM_IBAT_FINAL,
 	FG_SRAM_IBAT_FLT,
+	FG_SRAM_RCONN,
 	FG_SRAM_ESR,
 	FG_SRAM_ESR_MDL,
 	FG_SRAM_ESR_ACT,
