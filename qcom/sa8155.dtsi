@@ -49,5 +49,9 @@
 	/delete-node/ rpmh-regulator-ldof6;
 };
 
+&slpi_tlmm {
+	status = "ok";
+};
+
 /* Add regulator nodes specific to SA8155 */
 #include "sa8155-regulator.dtsi"
