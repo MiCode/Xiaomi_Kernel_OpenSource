@@ -126,7 +126,7 @@ int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst, struct cvp_kmd_buffer *buf)
 
 	smem->dma_buf = dma_buf;
 	smem->bitmap_index = MAX_DMABUF_NUMS;
-	dprintk(CVP_ERR, "%s: dma_buf = %llx\n", __func__, dma_buf);
+	dprintk(CVP_DSP, "%s: dma_buf = %llx\n", __func__, dma_buf);
 	rc = msm_cvp_map_smem(inst, smem);
 	if (rc) {
 		print_client_buffer(CVP_ERR, "map failed", inst, buf);
@@ -234,7 +234,7 @@ void msm_cvp_cache_operations(struct msm_cvp_smem *smem, u32 type,
 	enum smem_cache_ops cache_op;
 
 	if (!msm_cvp_cacheop_enabled) {
-		dprintk(CVP_DBG, "%s: cache operation not enabled\n", __func__);
+		dprintk(CVP_MEM, "%s: cache operation not enabled\n", __func__);
 		return;
 	}
 
@@ -280,7 +280,7 @@ static struct msm_cvp_smem *msm_cvp_session_find_smem(struct msm_cvp_inst *inst,
 			 */
 			msm_cvp_smem_put_dma_buf(smem->dma_buf);
 			mutex_unlock(&inst->dma_cache.lock);
-			print_smem(CVP_DBG, "found", inst, smem);
+			print_smem(CVP_MEM, "found", inst, smem);
 			return smem;
 		}
 
@@ -408,7 +408,7 @@ static u32 msm_cvp_map_user_persist_buf(struct msm_cvp_inst *inst,
 	list_add_tail(&pbuf->list, &inst->persistbufs.list);
 	mutex_unlock(&inst->persistbufs.lock);
 
-	print_internal_buffer(CVP_DBG, "map persist", inst, pbuf);
+	print_internal_buffer(CVP_MEM, "map persist", inst, pbuf);
 
 	iova = smem->device_addr + buf->offset;
 
@@ -448,7 +448,7 @@ u32 msm_cvp_map_frame_buf(struct msm_cvp_inst *inst,
 	frame->bufs[nr].size = buf->size;
 	frame->bufs[nr].offset = buf->offset;
 
-	print_internal_buffer(CVP_DBG, "map cpu", inst, &frame->bufs[nr]);
+	print_internal_buffer(CVP_MEM, "map cpu", inst, &frame->bufs[nr]);
 
 	frame->nr++;
 
@@ -501,7 +501,7 @@ void msm_cvp_unmap_frame(struct msm_cvp_inst *inst, u64 ktid)
 	}
 
 	ktid &= (FENCE_BIT - 1);
-	dprintk(CVP_DBG, "%s: unmap frame %llu\n", __func__, ktid);
+	dprintk(CVP_MEM, "%s: unmap frame %llu\n", __func__, ktid);
 
 	found = false;
 	mutex_lock(&inst->frames.lock);
@@ -544,7 +544,7 @@ int msm_cvp_unmap_user_persist(struct msm_cvp_inst *inst,
 				list_del(&pbuf->list);
 				smem = pbuf->smem;
 
-				dprintk(CVP_DBG, "unmap persist: %x %d %d %#x",
+				dprintk(CVP_MEM, "unmap persist: %x %d %d %#x",
 					hash32_ptr(inst->session), pbuf->fd,
 					pbuf->size, smem->device_addr);
 
@@ -698,7 +698,7 @@ int msm_cvp_map_frame(struct msm_cvp_inst *inst,
 	mutex_lock(&inst->frames.lock);
 	list_add_tail(&frame->list, &inst->frames.list);
 	mutex_unlock(&inst->frames.lock);
-	dprintk(CVP_DBG, "%s: map frame %llu\n", __func__, ktid);
+	dprintk(CVP_MEM, "%s: map frame %llu\n", __func__, ktid);
 
 	return 0;
 }
@@ -724,7 +724,7 @@ int msm_cvp_session_deinit_buffers(struct msm_cvp_inst *inst)
 	for (i = 0; i < inst->dma_cache.nr; i++) {
 		smem = inst->dma_cache.entries[i];
 		if (atomic_read(&smem->refcount) == 0) {
-			print_smem(CVP_DBG, "free", inst, smem);
+			print_smem(CVP_MEM, "free", inst, smem);
 		} else {
 			print_smem(CVP_WARN, "in use", inst, smem);
 		}
@@ -738,7 +738,7 @@ int msm_cvp_session_deinit_buffers(struct msm_cvp_inst *inst)
 	mutex_lock(&inst->cvpdspbufs.lock);
 	list_for_each_entry_safe(cbuf, dummy, &inst->cvpdspbufs.list,
 			list) {
-		print_internal_buffer(CVP_DBG, "remove dspbufs", inst, cbuf);
+		print_internal_buffer(CVP_MEM, "remove dspbufs", inst, cbuf);
 		rc = cvp_dsp_deregister_buffer(hash32_ptr(session),
 			cbuf->fd, cbuf->smem->dma_buf->size, cbuf->size,
 			cbuf->offset, cbuf->index,
@@ -874,7 +874,7 @@ int cvp_release_arp_buffers(struct msm_cvp_inst *inst)
 		return -EINVAL;
 	}
 
-	dprintk(CVP_DBG, "release persist buffer!\n");
+	dprintk(CVP_MEM, "release persist buffer!\n");
 
 	mutex_lock(&inst->persistbufs.lock);
 	/* Workaround for FW: release buffer means release all */
@@ -907,14 +907,14 @@ int cvp_release_arp_buffers(struct msm_cvp_inst *inst)
 		list_del(&buf->list);
 
 		if (buf->ownership == DRIVER) {
-			dprintk(CVP_DBG,
+			dprintk(CVP_MEM,
 			"%s: %x : fd %d %s size %d",
 			"free arp", hash32_ptr(inst->session), buf->fd,
 			smem->dma_buf->name, buf->size);
 			msm_cvp_smem_free(smem);
 			kmem_cache_free(cvp_driver->smem_cache, smem);
 		} else if (buf->ownership == CLIENT) {
-			dprintk(CVP_DBG,
+			dprintk(CVP_MEM,
 			"%s: %x : fd %d %s size %d",
 			"unmap persist", hash32_ptr(inst->session),
 			buf->fd, smem->dma_buf->name, buf->size);

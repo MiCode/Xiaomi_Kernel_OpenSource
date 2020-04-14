@@ -32,7 +32,7 @@ static int cvp_dsp_send_cmd(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
 	int rc = 0;
 	struct cvp_dsp_apps *me = &gfa_cv;
 
-	dprintk(CVP_DBG, "%s: cmd = %d\n", __func__, cmd->type);
+	dprintk(CVP_DSP, "%s: cmd = %d\n", __func__, cmd->type);
 
 	if (IS_ERR_OR_NULL(me->chan)) {
 		dprintk(CVP_ERR, "%s: DSP GLink is not ready\n", __func__);
@@ -55,7 +55,7 @@ static int cvp_dsp_send_cmd_sync(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
 	int rc = 0;
 	struct cvp_dsp_apps *me = &gfa_cv;
 
-	dprintk(CVP_DBG, "%s: cmd = %d\n", __func__, cmd->type);
+	dprintk(CVP_DSP, "%s: cmd = %d\n", __func__, cmd->type);
 
 	rc = cvp_dsp_send_cmd(cmd, len);
 	if (rc) {
@@ -92,7 +92,7 @@ static int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 		return -EINVAL;
 	}
 
-	dprintk(CVP_DBG,
+	dprintk(CVP_DSP,
 		"%s: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
 		__func__, phys_addr, size_in_bytes, cmd.ddr_type);
 
@@ -190,7 +190,7 @@ static int cvp_dsp_rpmsg_callback(struct rpmsg_device *rpdev,
 	struct cvp_dsp_rsp_msg *rsp = (struct cvp_dsp_rsp_msg *)data;
 	struct cvp_dsp_apps *me = &gfa_cv;
 
-	dprintk(CVP_DBG, "%s: type = 0x%x ret = 0x%x\n",
+	dprintk(CVP_DSP, "%s: type = 0x%x ret = 0x%x\n",
 		__func__, rsp->type, rsp->ret);
 
 	if (rsp->type >= CVP_DSP_MAX_CMD) {
@@ -306,11 +306,11 @@ int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
 	cmd.buff_index = buff_index;
 	cmd.buff_fd_iova = buff_fd_iova;
 
-	dprintk(CVP_DBG,
+	dprintk(CVP_DSP,
 		"%s: type=0x%x, buff_fd_iova=0x%x buff_index=0x%x\n",
 		__func__, cmd.type, buff_fd_iova,
 		cmd.buff_index);
-	dprintk(CVP_DBG, "%s: buff_size=0x%x session_id=0x%x\n",
+	dprintk(CVP_DSP, "%s: buff_size=0x%x session_id=0x%x\n",
 		__func__, cmd.buff_size, cmd.session_id);
 
 	mutex_lock(&me->lock);
@@ -344,11 +344,11 @@ int cvp_dsp_deregister_buffer(uint32_t session_id, uint32_t buff_fd,
 	cmd.buff_index = buff_index;
 	cmd.buff_fd_iova = buff_fd_iova;
 
-	dprintk(CVP_DBG,
+	dprintk(CVP_DSP,
 		"%s: type=0x%x, buff_fd_iova=0x%x buff_index=0x%x\n",
 		__func__, cmd.type, buff_fd_iova,
 		cmd.buff_index);
-	dprintk(CVP_DBG, "%s: buff_size=0x%x session_id=0x%x\n",
+	dprintk(CVP_DSP, "%s: buff_size=0x%x session_id=0x%x\n",
 		__func__, cmd.buff_size, cmd.session_id);
 
 	mutex_lock(&me->lock);
@@ -399,7 +399,7 @@ void cvp_dsp_send_hfi_queue(void)
 		return;
 	}
 
-	dprintk(CVP_DBG, "Entering %s\n", __func__);
+	dprintk(CVP_DSP, "Entering %s\n", __func__);
 
 	mutex_lock(&device->lock);
 	mutex_lock(&me->lock);
@@ -408,7 +408,7 @@ void cvp_dsp_send_hfi_queue(void)
 	size = device->dsp_iface_q_table.mem_data.size;
 
 	if (!addr || !size) {
-		dprintk(CVP_DBG, "%s: HFI queue is not ready\n", __func__);
+		dprintk(CVP_DSP, "%s: HFI queue is not ready\n", __func__);
 		goto exit;
 	}
 
@@ -431,7 +431,7 @@ void cvp_dsp_send_hfi_queue(void)
 		goto exit;
 	}
 
-	dprintk(CVP_DBG, "%s: dsp initialized\n", __func__);
+	dprintk(CVP_DSP, "%s: dsp initialized\n", __func__);
 	me->state = DSP_READY;
 
 exit:

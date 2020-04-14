@@ -154,7 +154,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	}
 
 	if (!core->resources.auto_pil && session_type == MSM_CVP_BOOT) {
-		dprintk(CVP_DBG, "Auto PIL disabled, bypass CVP init at boot");
+		dprintk(CVP_SESS, "Auto PIL disabled, bypass CVP init at boot");
 		goto err_invalid_core;
 	}
 
@@ -178,7 +178,7 @@ void *msm_cvp_open(int core_id, int session_type)
 		goto err_invalid_core;
 	}
 
-	pr_info(CVP_DBG_TAG "Opening cvp instance: %pK\n", "info", inst);
+	pr_info(CVP_DBG_TAG "Opening cvp instance: %pK\n", "sess", inst);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
 	spin_lock_init(&inst->event_handler.lock);
@@ -293,7 +293,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	synx_uninitialize(inst->synx_session_id);
 
 	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK session_id = %d\n",
-		"info", inst, hash32_ptr(inst->session));
+		"sess", inst, hash32_ptr(inst->session));
 	if (inst->cur_cmd_type)
 		dprintk(CVP_ERR, "deleted instance has pending cmd %d\n",
 				inst->cur_cmd_type);

@@ -421,7 +421,7 @@ static int cvp_wait_fd_synx_deprecate(struct synx_session ssid, u32 *synx,
 			if (rc) {
 				*synx_state = synx_get_status(ssid, h_synx);
 				if (*synx_state == SYNX_STATE_SIGNALED_CANCEL) {
-					dprintk(CVP_DBG,
+					dprintk(CVP_SYNX,
 					"%s: synx_wait %d cancel %d state %d\n",
 					current->comm, i, rc, *synx_state);
 				} else {
@@ -479,7 +479,7 @@ static int cvp_wait_synx(struct synx_session ssid, u32 *synx, u32 num_synx,
 			if (rc) {
 				*synx_state = synx_get_status(ssid, h_synx);
 				if (*synx_state == SYNX_STATE_SIGNALED_CANCEL) {
-					dprintk(CVP_DBG,
+					dprintk(CVP_SYNX,
 					"%s: synx_wait %d cancel %d state %d\n",
 					current->comm, i, rc, *synx_state);
 				} else {
