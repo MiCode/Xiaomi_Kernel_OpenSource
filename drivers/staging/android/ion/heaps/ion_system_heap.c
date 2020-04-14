@@ -288,7 +288,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		return -ENOMEM;
 
 	if (ion_heap_is_system_heap_type(buffer->heap->type) &&
-	    is_secure_vmid_valid(vmid)) {
+	    is_secure_allocation(buffer->flags)) {
 		pr_info("%s: System heap doesn't support secure allocations\n",
 			__func__);
 		return -EINVAL;
