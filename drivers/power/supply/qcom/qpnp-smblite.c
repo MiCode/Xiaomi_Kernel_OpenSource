@@ -433,6 +433,9 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblite_lib_get_prop_scope(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		rc = schgm_flashlite_get_vreg_ok(chg, &val->intval);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -526,6 +529,7 @@ static enum power_supply_property smblite_usb_main_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_FLASH_TRIGGER,
 };
 
 static int smblite_usb_main_get_prop(struct power_supply *psy,
