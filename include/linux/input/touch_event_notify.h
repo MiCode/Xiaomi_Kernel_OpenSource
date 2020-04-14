@@ -11,6 +11,8 @@
 #ifndef _TOUCHEVENTNOTIFY_H
 #define _TOUCHEVENTNOTIFY_H
 
+#include <linux/time.h>
+
 struct touch_event {
 	struct timeval time;
 	int x;
@@ -22,6 +24,8 @@ struct touch_event {
 #define EVENT_TYPE_DOWN    'D'
 #define EVENT_TYPE_MOVE    'M'
 #define EVENT_TYPE_UP      'U'
+
+struct notifier_block;
 
 /* caller API */
 int touch_event_register_notifier(struct notifier_block *nb);
