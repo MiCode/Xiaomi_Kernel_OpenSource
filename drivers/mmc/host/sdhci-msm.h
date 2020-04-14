@@ -207,6 +207,7 @@ struct sdhci_msm_pltfm_data {
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
 	int sdiowakeup_irq;
+	int testbus_trigger_irq;
 	struct sdhci_msm_pm_qos_data pm_qos_data;
 	u32 *bus_clk_table;
 	unsigned char bus_clk_cnt;
