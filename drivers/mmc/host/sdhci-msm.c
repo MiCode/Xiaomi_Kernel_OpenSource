@@ -163,6 +163,8 @@
 
 #define INVALID_TUNING_PHASE	-1
 #define sdhci_is_valid_gpio_wakeup_int(_h) ((_h)->pdata->sdiowakeup_irq >= 0)
+#define sdhci_is_valid_gpio_testbus_trigger_int(_h) \
+	((_h)->pdata->testbus_trigger_irq >= 0)
 
 #define NUM_TUNING_PHASES		16
 #define MAX_DRV_TYPES_SUPPORTED_HS200	4
@@ -2969,6 +2971,16 @@ static void sdhci_msm_cfg_sdiowakeup_gpio_irq(struct sdhci_host *host,
 	msm_host->is_sdiowakeup_enabled = enable;
 }
 
+static irqreturn_t sdhci_msm_testbus_trigger_irq(int irq, void *data)
+{
+	struct sdhci_host *host = (struct sdhci_host *)data;
+
+	pr_info("%s: match happened against mask\n",
+				mmc_hostname(host->mmc));
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
 {
 	struct sdhci_host *host = (struct sdhci_host *)data;
@@ -5669,6 +5681,22 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
 			msm_host->sdio_pending_processing = false;
 			spin_unlock_irqrestore(&host->lock, flags);
+		}
+	}
+
+	msm_host->pdata->testbus_trigger_irq = platform_get_irq_byname(pdev,
+							  "tb_trig_irq");
+	if (sdhci_is_valid_gpio_testbus_trigger_int(msm_host)) {
+		dev_info(&pdev->dev, "%s: testbus_trigger_irq = %d\n", __func__,
+				msm_host->pdata->testbus_trigger_irq);
+		ret = request_irq(msm_host->pdata->testbus_trigger_irq,
+				  sdhci_msm_testbus_trigger_irq,
+				  IRQF_SHARED | IRQF_TRIGGER_RISING,
+				  "sdhci-msm tb_trig", host);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: request tb_trig IRQ %d: failed: %d\n",
+				__func__, msm_host->pdata->testbus_trigger_irq,
+				ret);
 		}
 	}
 
