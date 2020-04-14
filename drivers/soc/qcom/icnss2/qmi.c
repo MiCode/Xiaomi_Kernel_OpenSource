@@ -36,7 +36,9 @@
 #define MAX_BDF_FILE_NAME		13
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
+#define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
+#define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
@@ -549,24 +551,26 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 			snprintf(filename, filename_len, ELF_BDF_FILE_NAME);
 		else if (priv->board_id < 0xFF)
 			snprintf(filename, filename_len,
-				 BDF_FILE_NAME_PREFIX "e%02x",
+				 ELF_BDF_FILE_NAME_PREFIX "%02x",
 				 priv->board_id);
 		else
 			snprintf(filename, filename_len,
-				 BDF_FILE_NAME_PREFIX "%03x",
-				 priv->board_id);
+				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
+				 priv->board_id >> 8 & 0xFF,
+				 priv->board_id & 0xFF);
 		break;
 	case ICNSS_BDF_BIN:
 		if (priv->board_id == 0xFF)
 			snprintf(filename, filename_len, BIN_BDF_FILE_NAME);
 		else if (priv->board_id < 0xFF)
 			snprintf(filename, filename_len,
-				 BDF_FILE_NAME_PREFIX "b%02x",
+				 BIN_BDF_FILE_NAME_PREFIX "%02x",
 				 priv->board_id);
 		else
 			snprintf(filename, filename_len,
-				 BDF_FILE_NAME_PREFIX "%03x",
-				 priv->board_id);
+				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
+				 priv->board_id >> 8 & 0xFF,
+				 priv->board_id & 0xFF);
 		break;
 	case ICNSS_BDF_REGDB:
 		snprintf(filename, filename_len, REGDB_FILE_NAME);
