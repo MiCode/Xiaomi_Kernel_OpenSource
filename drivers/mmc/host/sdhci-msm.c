@@ -1210,7 +1210,76 @@ static void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
 			drv_type);
 }
 
+#define MAX_TESTBUS 127
 #define IPCAT_MINOR_MASK(val) ((val & 0x0fff0000) >> 0x10)
+#define TB_CONF_MASK 0x7f
+#define TB_TRIG_CONF 0xff80ffff
+#define TB_WRITE_STATUS BIT(8)
+
+/*
+ * This function needs to be used when getting mask and
+ * match pattern either from cmdline or sysfs
+ */
+void sdhci_msm_mm_dbg_configure(struct sdhci_host *host, u32 mask,
+			u32 match, u32 bit_shift, u32 testbus)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct platform_device *pdev = msm_host->pdev;
+	u32 val;
+	u32 enable_dbg_feature = 0;
+	int ret = 0;
+
+	if (testbus > MAX_TESTBUS) {
+		dev_err(&pdev->dev, "%s: testbus should be less than 128.\n",
+						__func__);
+		return;
+	}
+
+	/* Enable debug mode */
+	writel_relaxed(ENABLE_DBG,
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+	writel_relaxed(DUMMY,
+			host->ioaddr + SDCC_DEBUG_EN_DIS_REG);
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			SDCC_TESTBUS_CONFIG) | TESTBUS_EN),
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+
+	/* Enable particular feature */
+	enable_dbg_feature |= MM_TRIGGER_DISABLE;
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_FEATURE_CFG_REG) | enable_dbg_feature),
+			host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
+
+	/* Configure Mask & Match pattern*/
+	writel_relaxed((mask << bit_shift),
+			host->ioaddr + SDCC_DEBUG_MASK_PATTERN_REG);
+	writel_relaxed((match << bit_shift),
+			host->ioaddr + SDCC_DEBUG_MATCH_PATTERN_REG);
+
+	/* Configure test bus for above mm */
+	writel_relaxed((testbus & TB_CONF_MASK), host->ioaddr +
+			SDCC_DEBUG_MM_TB_CFG_REG);
+	/* Initiate conf shifting */
+	writel_relaxed(BIT(8),
+			host->ioaddr + SDCC_DEBUG_MM_TB_CFG_REG);
+
+	/* Wait for test bus to be configured */
+	ret = readl_poll_timeout(host->ioaddr + SDCC_DEBUG_MM_TB_CFG_REG,
+			val, !(val & TB_WRITE_STATUS), 50, 1000);
+	if (ret == -ETIMEDOUT)
+		pr_err("%s: Unable to set mask & match\n",
+				mmc_hostname(host->mmc));
+
+	/* Direct test bus to GPIO */
+	writel_relaxed(((readl_relaxed(host->ioaddr +
+				SDCC_TESTBUS_CONFIG) & TB_TRIG_CONF)
+				| (testbus << 16)), host->ioaddr +
+				SDCC_TESTBUS_CONFIG);
+
+	/* Read back to ensure write went through */
+	readl_relaxed(host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
+}
 
 /* Enter sdcc debug mode */
 void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
