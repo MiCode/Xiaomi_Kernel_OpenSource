@@ -2350,6 +2350,7 @@ out_clear_smmu:
 	smmu_domain->smmu = NULL;
 out_logger:
 	iommu_logger_unregister(smmu_domain->logger);
+	smmu_domain->logger = NULL;
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
