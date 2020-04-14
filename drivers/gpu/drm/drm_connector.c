@@ -891,8 +891,7 @@ static const struct drm_prop_enum_list dp_colorspaces[] = {
 	{ DRM_MODE_COLORIMETRY_DEFAULT, "Default" },
 	{ DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED, "RGB_Wide_Gamut_Fixed_Point" },
 	/* Colorimetry based on scRGB (IEC 61966-2-2) */
-	{ DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT,
-				"RGB_Wide_Gamut_Floating_Point" },
+	{ DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT, "RGB_Wide_Gamut_Floating_Point" },
 	/* Colorimetry based on IEC 61966-2-5 */
 	{ DRM_MODE_COLORIMETRY_OPRGB, "opRGB" },
 	/* Colorimetry based on SMPTE RP 431-2 */

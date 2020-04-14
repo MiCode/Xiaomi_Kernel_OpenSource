@@ -3891,7 +3891,6 @@ static struct msm_iommu_ops arm_smmu_ops = {
 		.put_resv_regions	= arm_smmu_put_resv_regions,
 		/* Restricted during device attach */
 		.pgsize_bitmap		= -1UL,
-		.owner			= THIS_MODULE,
 	}
 };
 

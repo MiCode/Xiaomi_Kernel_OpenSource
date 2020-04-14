@@ -337,6 +337,41 @@ int drm_dp_dpcd_read_link_status(struct drm_dp_aux *aux,
 EXPORT_SYMBOL(drm_dp_dpcd_read_link_status);
 
 /**
+ * drm_dp_send_real_edid_checksum() - send back real edid checksum value
+ * @aux: DisplayPort AUX channel
+ * @real_edid_checksum: real edid checksum for the last block
+ *
+ * Returns true on success
+ */
+bool drm_dp_send_real_edid_checksum(struct drm_dp_aux *aux,
+				    u8 real_edid_checksum)
+{
+	u8 link_edid_read = 0, auto_test_req = 0, test_resp = 0;
+
+	drm_dp_dpcd_read(aux, DP_DEVICE_SERVICE_IRQ_VECTOR, &auto_test_req, 1);
+	auto_test_req &= DP_AUTOMATED_TEST_REQUEST;
+
+	drm_dp_dpcd_read(aux, DP_TEST_REQUEST, &link_edid_read, 1);
+	link_edid_read &= DP_TEST_LINK_EDID_READ;
+
+	if (!auto_test_req || !link_edid_read) {
+		DRM_DEBUG_KMS("Source DUT does not support TEST_EDID_READ\n");
+		return false;
+	}
+
+	drm_dp_dpcd_write(aux, DP_DEVICE_SERVICE_IRQ_VECTOR, &auto_test_req, 1);
+
+	/* send back checksum for the last edid extension block data */
+	drm_dp_dpcd_write(aux, DP_TEST_EDID_CHECKSUM, &real_edid_checksum, 1);
+
+	test_resp |= DP_TEST_EDID_CHECKSUM_WRITE;
+	drm_dp_dpcd_write(aux, DP_TEST_RESPONSE, &test_resp, 1);
+
+	return true;
+}
+EXPORT_SYMBOL(drm_dp_send_real_edid_checksum);
+
+/**
  * drm_dp_link_probe() - probe a DisplayPort link for capabilities
  * @aux: DisplayPort AUX channel
  * @link: pointer to structure in which to return link capabilities

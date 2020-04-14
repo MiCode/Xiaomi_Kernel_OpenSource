@@ -326,8 +326,8 @@ struct rpcrdma_mr_seg *frwr_map(struct rpcrdma_xprt *r_xprt,
 {
 	struct rpcrdma_ia *ia = &r_xprt->rx_ia;
 	struct ib_reg_wr *reg_wr;
+	int i, n, dma_nents;
 	struct ib_mr *ibmr;
-	int i, n;
 	u8 key;
 
 	if (nsegs > ia->ri_max_frwr_depth)
@@ -351,15 +351,16 @@ struct rpcrdma_mr_seg *frwr_map(struct rpcrdma_xprt *r_xprt,
 			break;
 	}
 	mr->mr_dir = rpcrdma_data_dir(writing);
+	mr->mr_nents = i;
 
-	mr->mr_nents =
-		ib_dma_map_sg(ia->ri_id->device, mr->mr_sg, i, mr->mr_dir);
-	if (!mr->mr_nents)
+	dma_nents = ib_dma_map_sg(ia->ri_id->device, mr->mr_sg, mr->mr_nents,
+				  mr->mr_dir);
+	if (!dma_nents)
 		goto out_dmamap_err;
 
 	ibmr = mr->frwr.fr_mr;
-	n = ib_map_mr_sg(ibmr, mr->mr_sg, mr->mr_nents, NULL, PAGE_SIZE);
-	if (unlikely(n != mr->mr_nents))
+	n = ib_map_mr_sg(ibmr, mr->mr_sg, dma_nents, NULL, PAGE_SIZE);
+	if (n != dma_nents)
 		goto out_mapmr_err;
 
 	ibmr->iova &= 0x00000000ffffffff;
@@ -570,7 +571,6 @@ void frwr_unmap_sync(struct rpcrdma_xprt *r_xprt, struct rpcrdma_req *req)
 	 */
 	bad_wr = NULL;
 	rc = ib_post_send(r_xprt->rx_ia.ri_id->qp, first, &bad_wr);
-	trace_xprtrdma_post_send(req, rc);
 
 	/* The final LOCAL_INV WR in the chain is supposed to
 	 * do the wake. If it was never posted, the wake will
@@ -583,6 +583,7 @@ void frwr_unmap_sync(struct rpcrdma_xprt *r_xprt, struct rpcrdma_req *req)
 
 	/* Recycle MRs in the LOCAL_INV chain that did not get posted.
 	 */
+	trace_xprtrdma_post_linv(req, rc);
 	while (bad_wr) {
 		frwr = container_of(bad_wr, struct rpcrdma_frwr,
 				    fr_invwr);
@@ -673,12 +674,12 @@ void frwr_unmap_async(struct rpcrdma_xprt *r_xprt, struct rpcrdma_req *req)
 	 */
 	bad_wr = NULL;
 	rc = ib_post_send(r_xprt->rx_ia.ri_id->qp, first, &bad_wr);
-	trace_xprtrdma_post_send(req, rc);
 	if (!rc)
 		return;
 
 	/* Recycle MRs in the LOCAL_INV chain that did not get posted.
 	 */
+	trace_xprtrdma_post_linv(req, rc);
 	while (bad_wr) {
 		frwr = container_of(bad_wr, struct rpcrdma_frwr, fr_invwr);
 		mr = container_of(frwr, struct rpcrdma_mr, frwr);

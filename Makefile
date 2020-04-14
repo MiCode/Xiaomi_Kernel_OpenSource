@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 4
-SUBLEVEL = 12
+SUBLEVEL = 24
 EXTRAVERSION =
 NAME = Kleptomaniac Octopus
 
@@ -630,7 +630,6 @@ ifeq ($(KBUILD_EXTMOD),)
 init-y		:= init/
 drivers-y	:= drivers/ sound/ techpack/
 drivers-$(CONFIG_SAMPLES) += samples/
-drivers-$(CONFIG_KERNEL_HEADER_TEST) += include/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
@@ -1135,9 +1134,12 @@ endif
 
 autoksyms_h := $(if $(CONFIG_TRIM_UNUSED_KSYMS), include/generated/autoksyms.h)
 
+quiet_cmd_autoksyms_h = GEN     $@
+      cmd_autoksyms_h = mkdir -p $(dir $@); $(CONFIG_SHELL) \
+			$(srctree)/scripts/gen_autoksyms.sh $@
+
 $(autoksyms_h):
-	$(Q)mkdir -p $(dir $@)
-	$(Q)touch $@
+	$(call cmd,autoksyms_h)
 
 ARCH_POSTLINK := $(wildcard $(srctree)/arch/$(SRCARCH)/Makefile.postlink)
 
@@ -1275,20 +1277,16 @@ headers: $(version_h) scripts_unifdef uapi-asm-generic archheaders archscripts
 		$(MAKE) $(hdr-inst)=$$d/include/uapi; \
 	done
 
+# Deprecated. It is no-op now.
 PHONY += headers_check
-headers_check: headers
-	$(Q)$(MAKE) $(hdr-inst)=include/uapi HDRCHECK=1
-	$(Q)$(MAKE) $(hdr-inst)=arch/$(SRCARCH)/include/uapi HDRCHECK=1
+headers_check:
+	@:
 	$(Q)for d in $(techpack-dirs); do \
 		$(MAKE) $(hdr-inst)=$$d/include/uapi HDRCHECK=1; \
 	done
 
 ifdef CONFIG_HEADERS_INSTALL
 prepare: headers
-endif
-
-ifdef CONFIG_HEADERS_CHECK
-all: headers_check
 endif
 
 PHONY += scripts_unifdef
@@ -1558,7 +1556,6 @@ help:
 	@echo  '  versioncheck    - Sanity check on version.h usage'
 	@echo  '  includecheck    - Check for duplicate included header files'
 	@echo  '  export_report   - List the usages of all exported symbols'
-	@echo  '  headers_check   - Sanity check on exported headers'
 	@echo  '  headerdep       - Detect inclusion cycles in headers'
 	@echo  '  coccicheck      - Check with Coccinelle'
 	@echo  ''
@@ -1723,6 +1720,50 @@ help:
 PHONY += prepare
 endif # KBUILD_EXTMOD
 
+# Single targets
+# ---------------------------------------------------------------------------
+# To build individual files in subdirectories, you can do like this:
+#
+#   make foo/bar/baz.s
+#
+# The supported suffixes for single-target are listed in 'single-targets'
+#
+# To build only under specific subdirectories, you can do like this:
+#
+#   make foo/bar/baz/
+
+ifdef single-build
+
+# .ko is special because modpost is needed
+single-ko := $(sort $(filter %.ko, $(MAKECMDGOALS)))
+single-no-ko := $(sort $(patsubst %.ko,%.mod, $(MAKECMDGOALS)))
+
+$(single-ko): single_modpost
+	@:
+$(single-no-ko): descend
+	@:
+
+ifeq ($(KBUILD_EXTMOD),)
+# For the single build of in-tree modules, use a temporary file to avoid
+# the situation of modules_install installing an invalid modules.order.
+MODORDER := .modules.tmp
+endif
+
+PHONY += single_modpost
+single_modpost: $(single-no-ko)
+	$(Q){ $(foreach m, $(single-ko), echo $(extmod-prefix)$m;) } > $(MODORDER)
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
+
+KBUILD_MODULES := 1
+
+export KBUILD_SINGLE_TARGETS := $(addprefix $(extmod-prefix), $(single-no-ko))
+
+# trim unrelated directories
+build-dirs := $(foreach d, $(build-dirs), \
+			$(if $(filter $(d)/%, $(KBUILD_SINGLE_TARGETS)), $(d)))
+
+endif
+
 # Handle descending into subdirectories listed in $(build-dirs)
 # Preset locale variables to speed up the build process. Limit locale
 # tweaks to this spot to avoid wrong language settings when running
@@ -1731,7 +1772,9 @@ endif # KBUILD_EXTMOD
 PHONY += descend $(build-dirs)
 descend: $(build-dirs)
 $(build-dirs): prepare
-	$(Q)$(MAKE) $(build)=$@ single-build=$(single-build) need-builtin=1 need-modorder=1
+	$(Q)$(MAKE) $(build)=$@ \
+	single-build=$(if $(filter-out $@/, $(single-no-ko)),1) \
+	need-builtin=1 need-modorder=1
 
 clean-dirs := $(addprefix _clean_, $(clean-dirs))
 PHONY += $(clean-dirs) clean
@@ -1835,50 +1878,6 @@ tools/: FORCE
 tools/%: FORCE
 	$(Q)mkdir -p $(objtree)/tools
 	$(Q)$(MAKE) LDFLAGS= MAKEFLAGS="$(tools_silent) $(filter --j% -j,$(MAKEFLAGS))" O=$(abspath $(objtree)) subdir=tools -C $(srctree)/tools/ $*
-
-# Single targets
-# ---------------------------------------------------------------------------
-# To build individual files in subdirectories, you can do like this:
-#
-#   make foo/bar/baz.s
-#
-# The supported suffixes for single-target are listed in 'single-targets'
-#
-# To build only under specific subdirectories, you can do like this:
-#
-#   make foo/bar/baz/
-
-ifdef single-build
-
-single-all := $(filter $(single-targets), $(MAKECMDGOALS))
-
-# .ko is special because modpost is needed
-single-ko := $(sort $(filter %.ko, $(single-all)))
-single-no-ko := $(sort $(patsubst %.ko,%.mod, $(single-all)))
-
-$(single-ko): single_modpost
-	@:
-$(single-no-ko): descend
-	@:
-
-ifeq ($(KBUILD_EXTMOD),)
-# For the single build of in-tree modules, use a temporary file to avoid
-# the situation of modules_install installing an invalid modules.order.
-MODORDER := .modules.tmp
-endif
-
-PHONY += single_modpost
-single_modpost: $(single-no-ko)
-	$(Q){ $(foreach m, $(single-ko), echo $(extmod-prefix)$m;) } > $(MODORDER)
-	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
-
-KBUILD_MODULES := 1
-
-export KBUILD_SINGLE_TARGETS := $(addprefix $(extmod-prefix), $(single-no-ko))
-
-single-build = $(if $(filter-out $@/, $(single-no-ko)),1)
-
-endif
 
 # FIXME Should go into a make.lib or something
 # ===========================================================================

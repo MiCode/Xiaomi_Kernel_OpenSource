@@ -680,7 +680,7 @@ int b53_configure_vlan(struct dsa_switch *ds)
 		b53_do_vlan_op(dev, VTA_CMD_CLEAR);
 	}
 
-	b53_enable_vlan(dev, false, ds->vlan_filtering);
+	b53_enable_vlan(dev, dev->vlan_enabled, ds->vlan_filtering);
 
 	b53_for_each_port(dev, i)
 		b53_write16(dev, B53_VLAN_PAGE,
@@ -1352,6 +1352,9 @@ void b53_vlan_add(struct dsa_switch *ds, int port,
 		vl = &dev->vlans[vid];
 
 		b53_get_vlan_entry(dev, vid, vl);
+
+		if (vid == 0 && vid == b53_default_pvid(dev))
+			untagged = true;
 
 		vl->members |= BIT(port);
 		if (untagged && !dsa_is_cpu_port(ds, port))

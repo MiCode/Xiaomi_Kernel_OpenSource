@@ -859,6 +859,7 @@ static inline int idx_from_vl(int vl)
 enum {
 	C_RCV_OVF = 0,
 	C_RX_LEN_ERR,
+	C_RX_SHORT_ERR,
 	C_RX_ICRC_ERR,
 	C_RX_EBP,
 	C_RX_TID_FULL,
@@ -926,6 +927,7 @@ enum {
 	C_DC_PG_STS_TX_MBE_CNT,
 	C_SW_CPU_INTR,
 	C_SW_CPU_RCV_LIM,
+	C_SW_CTX0_SEQ_DROP,
 	C_SW_VTX_WAIT,
 	C_SW_PIO_WAIT,
 	C_SW_PIO_DRAIN,

@@ -93,8 +93,7 @@ static struct heap_types_info {
 	int heap_type;
 } heap_types_info[] = {
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM),
-	MAKE_HEAP_TYPE_MAPPING(SYSTEM_CONTIG),
-	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
+	MAKE_HEAP_TYPE_MAPPING(MSM_CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(SECURE_CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM_SECURE),
@@ -151,14 +150,10 @@ static struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	int heap_type = heap_data->type;
 
 	switch (heap_type) {
-	case ION_HEAP_TYPE_SYSTEM_CONTIG:
-		pr_err("%s: Heap type is disabled: %d\n", __func__,
-		       heap_data->type);
-		break;
 	case ION_HEAP_TYPE_SYSTEM:
 		heap = ion_system_heap_create(heap_data);
 		break;
-	case ION_HEAP_TYPE_CARVEOUT:
+	case ION_HEAP_TYPE_MSM_CARVEOUT:
 		heap = ion_carveout_heap_create(heap_data);
 		break;
 #ifdef CONFIG_CMA
