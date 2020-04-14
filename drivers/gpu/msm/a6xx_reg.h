@@ -119,8 +119,6 @@
 #define A6XX_VSC_ADDR_MODE_CNTL          0xC01
 
 /* LPAC registers */
-#define A6XX_CP_LPAC_ROQ_THRESHOLDS_1    0xB32
-#define A6XX_CP_LPAC_ROQ_THRESHOLDS_2    0xB33
 #define A6XX_CP_LPAC_PROG_FIFO_SIZE      0xB34
 
 /* RBBM registers */
