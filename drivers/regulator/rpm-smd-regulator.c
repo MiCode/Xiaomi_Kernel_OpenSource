@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012-2015, 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012-2015, 2018-2020, The Linux Foundation. All rights reserved. */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
@@ -28,7 +28,10 @@ enum {
 };
 
 static int rpm_vreg_debug_mask;
+
+#ifdef CONFIG_DEBUG_FS
 static bool is_debugfs_created;
+#endif
 
 #define vreg_err(req, fmt, ...) \
 	pr_err("%s: " fmt, req->rdesc.name, ##__VA_ARGS__)
@@ -1661,6 +1664,7 @@ static int rpm_vreg_device_set_voltage_index(struct device *dev,
 	return rc;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static void rpm_vreg_create_debugfs(struct rpm_regulator *reg)
 {
 	struct dentry *entry;
@@ -1682,6 +1686,7 @@ static void rpm_vreg_create_debugfs(struct rpm_regulator *reg)
 		is_debugfs_created = true;
 	}
 }
+#endif
 
 /*
  * This probe is called for child rpm-regulator devices which have
