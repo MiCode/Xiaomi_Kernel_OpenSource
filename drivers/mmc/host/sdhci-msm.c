@@ -5977,8 +5977,7 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 		goto skip_ice_resume;
 	}
 
-	if (host->mmc &&
-			(host->mmc->ios.timing == MMC_TIMING_MMC_HS400))
+	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400)
 		sdhci_msm_toggle_fifo_write_clk(host);
 
 	if (host->is_crypto_en) {
