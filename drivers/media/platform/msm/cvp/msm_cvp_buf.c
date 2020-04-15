@@ -448,7 +448,7 @@ u32 msm_cvp_map_frame_buf(struct msm_cvp_inst *inst,
 	frame->nr++;
 
 	type = CVP_KMD_BUFTYPE_INPUT | CVP_KMD_BUFTYPE_OUTPUT;
-	msm_cvp_cache_operations(smem, type, buf->size, buf->offset);
+	msm_cvp_cache_operations(smem, type, buf->offset, buf->size);
 
 	iova = smem->device_addr + buf->offset;
 
@@ -468,7 +468,7 @@ static void msm_cvp_unmap_frame_buf(struct msm_cvp_inst *inst,
 	for (i = 0; i < frame->nr; ++i) {
 		buf = &frame->bufs[i];
 		smem = buf->smem;
-		msm_cvp_cache_operations(smem, type, buf->size, buf->offset);
+		msm_cvp_cache_operations(smem, type, buf->offset, buf->size);
 
 		if (smem->bitmap_index >= MAX_DMABUF_NUMS) {
 			/* smem not in dmamap cache */
