@@ -1302,9 +1302,14 @@
 			     "mediatek,common-emiisu";
 		ctrl_intf = <1>;
 	};
-	infra_device_mpu@1021a000 {
-		compatible = "mediatek,infra_device_mpu";
+
+	device_mpu_low@1021a000 {
+		compatible = "mediatek,device_mpu_low";
 		reg = <0 0x1021a000 0 0x1000>;
+		prot-base = <0x0 0x40000000>;
+		prot-size = <0x4 0x00000000>;
+		page-size = <0x200000>;
+		interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	infra_device_mpu@1021b000 {
@@ -1913,9 +1918,13 @@
 		reg = <0 0x1030c000 0 0x1000>;
 	};
 
-	mm_vpu_m1_sub_common@1030d000 {
-		compatible = "mediatek,mm_vpu_m1_sub_common";
+	device_mpu_acp@1030d000 {
+		compatible = "mediatek,device_mpu_acp";
 		reg = <0 0x1030d000 0 0x1000>;
+		prot-base = <0x0 0x40000000>;
+		prot-size = <0x4 0x00000000>;
+		page-size = <0x200000>;
+		interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	scp@10500000 {
