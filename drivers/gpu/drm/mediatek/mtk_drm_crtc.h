@@ -30,11 +30,8 @@
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_wakeup.h>
 
-#if defined(CONFIG_MACH_MT6853)
-#define OVL_LAYER_NR 9L
-#else
+
 #define OVL_LAYER_NR 12L
-#endif
 #define OVL_PHY_LAYER_NR 4L
 #define RDMA_LAYER_NR 1UL
 #define EXTERNAL_INPUT_LAYER_NR 2UL
@@ -50,11 +47,7 @@
 
 #define PRIMARY_OVL_PHY_LAYER_NR 6L
 
-#if defined(CONFIG_MACH_MT6853)
-#define PRIMARY_OVL_EXT_LAYER_NR 3L
-#else
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
-#endif
 
 
 #define pgc	_get_context()
