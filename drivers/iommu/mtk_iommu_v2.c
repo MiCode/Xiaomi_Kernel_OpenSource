@@ -584,6 +584,8 @@ static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu,
 	mmu_seq_print(s,
 		      "------ iommu:%d mmu%d: RS status register ------\n",
 		      data->m4uid, mmu);
+	mmu_seq_print(s,
+		      "--<0x0>iova/bank --<0x4>descriptor --<0x8>2nd-base --<0xc>status\n");
 	return mtk_dump_reg(data,
 			    REG_MMU_RS_VA(mmu, 0),
 			    MTK_IOMMU_RS_COUNT * 4, s);
@@ -598,7 +600,7 @@ int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
 	unsigned long flags;
 
 	mmu_seq_print(s,
-		      "====== dump hang debug reg of iommu:%d =======>\n",
+		      "==== hang debug reg iommu%d ====\n",
 		      m4u_id);
 
 	if (!data || data->base == 0) {
@@ -665,7 +667,7 @@ int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
 	}
 
 	mmu_seq_print(s,
-		      "============ dump hang reg end =============>\n");
+		      "========== dump hang reg end ========\n");
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);
 	if (ret)
@@ -728,7 +730,7 @@ int mtk_iommu_dump_reg(int m4u_id, unsigned int start,
 	}
 #endif
 
-	pr_notice("====== [%s] dump reg of iommu:%d from 0x%x to 0x%x =======>\n",
+	pr_notice("====== [%s] dump reg of iommu:%d from 0x%x to 0x%x =======\n",
 		  user, m4u_id, start, end);
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 1);
@@ -740,7 +742,7 @@ int mtk_iommu_dump_reg(int m4u_id, unsigned int start,
 	}
 
 	mtk_dump_reg(data, start, (end - start + 4) / 4, NULL);
-	pr_notice("============= dump end ===============>\n");
+	pr_notice("============= dump end ===============\n");
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);
 	if (ret)
@@ -2681,6 +2683,16 @@ unsigned int mtk_get_main_tag(const struct mtk_iommu_data *data,
 	return readl_relaxed(base + REG_MMU_MAIN_TAG(m4u_slave_id, idx));
 }
 
+static unsigned long imu_main_tag_to_va(unsigned int tag)
+{
+	unsigned long tmp;
+
+	tmp = ((unsigned long)tag & F_MAIN_TLB_VA_MSK) |
+	      (((unsigned long)tag & F_MAIN_TLB_VA_BIT32) << 32);
+
+	return tmp;
+}
+
 void mtk_get_main_tlb(const struct mtk_iommu_data *data,
 		int m4u_slave_id, int idx,
 		struct mmu_tlb_t *pTlb)
@@ -2772,14 +2784,18 @@ int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id,
 	}
 
 	mmu_seq_print(s,
-		       "dump main tlb of iommu:%d mmu:%d ====>\n",
+		       "==== main tlb iommu%d mmu%d ====\n",
 		       m4u_id, m4u_slave_id);
 	for (i = 0; i < g_tag_count[m4u_id]; i++) {
 		mtk_get_main_tlb(data, m4u_slave_id, i, &tlb);
 		mmu_seq_print(s,
-			       "%d:0x%x:0x%x  ", i, tlb.tag, tlb.desc);
-		if ((i + 1) % 8 == 0)
-			mmu_seq_print(s, "===\n");
+			       "%d v:%d va:0x%lx bank%d layer%d sec:%d <0x%x-0x%x>\n",
+				   i, !!(tlb.tag & F_MAIN_TLB_VALID_BIT),
+			       imu_main_tag_to_va(tlb.tag),
+			       F_MAIN_TLB_TABLE_ID_BIT(tlb.tag),
+				   !!(tlb.tag & F_MAIN_TLB_LAYER_BIT),
+				   !!(tlb.tag & F_MAIN_TLB_SEC_BIT),
+			       tlb.tag, tlb.desc);
 	}
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);
@@ -2794,6 +2810,7 @@ int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id,
 	return 0;
 }
 
+#if 0
 int mtk_dump_valid_main0_tlb(
 	const struct mtk_iommu_data *data, int m4u_slave_id)
 {
@@ -2811,6 +2828,7 @@ int mtk_dump_valid_main0_tlb(
 
 	return 0;
 }
+#endif
 
 int dump_fault_mva_pfh_tlb(const struct mtk_iommu_data *data, unsigned int mva)
 {
@@ -2852,7 +2870,6 @@ static unsigned long imu_pfh_tag_to_va(int mmu,
 	}
 
 	return tmp;
-
 }
 
 int mtk_dump_pfh_tlb(int m4u_id,
@@ -2890,7 +2907,7 @@ int mtk_dump_pfh_tlb(int m4u_id,
 	way_nr = MTK_IOMMU_WAY_NR;
 
 	mmu_seq_print(s,
-		       "dump pfh_tlb: m4u %d  ====>\n", m4u_id);
+		       "==== prefetch tlb iommu%d  ====\n", m4u_id);
 
 	for (way = 0; way < way_nr; way++) {
 		for (set = 0; set < set_nr; set++) {
@@ -2902,19 +2919,20 @@ int mtk_dump_pfh_tlb(int m4u_id,
 			valid = !!(regval & F_MMU_PFH_VLD_BIT(set, way));
 			mtk_get_pfh_tlb(data, set, 0, way, &tlb);
 			mmu_seq_print(s,
-				       "va(0x%lx) lay(%d) bank(%d) sec(%d) pfh(%d) v(%d),set(%d),way(%d), 0x%x:",
+				       "%d-%d v:%d va:0x%lx layer%d bank%d sec:%d pfh:%d tag:0x%x <0x%x ",
+			 way, set, valid,
 			 imu_pfh_tag_to_va(m4u_id, set, way, tlb.tag),
 			 !!(tlb.tag & F_PFH_TAG_LAYER_BIT),
-			 !!(tlb.tag & F_PFH_PT_BANK_BIT),
+			 (tlb.tag & F_PFH_PT_BANK_BIT),
 			 !!(tlb.tag & F_PFH_TAG_SEC_BIT),
 			 !!(tlb.tag & F_PFH_TAG_AUTO_PFH),
-			 valid, set, way, tlb.desc);
+			 tlb.tag, tlb.desc);
 
 			for (page = 1; page < MMU_PAGE_PER_LINE; page++) {
 				mtk_get_pfh_tlb(data, set, page, way, &tlb);
-				mmu_seq_print(s, "0x%x:", tlb.desc);
+				mmu_seq_print(s, "0x%x ", tlb.desc);
 			}
-			mmu_seq_print(s, "\n");
+			mmu_seq_print(s, ">\n");
 		}
 	}
 
@@ -2982,7 +3000,7 @@ int mtk_get_pfh_tlb_all(const struct mtk_iommu_data *data,
 #endif
 
 unsigned int mtk_get_victim_tlb(const struct mtk_iommu_data *data, int page,
-			int way, struct mmu_tlb_t *pTlb)
+			int entry, struct mmu_tlb_t *pTlb)
 {
 	unsigned int regValue = 0;
 	void __iomem *base = data->base;
@@ -2991,8 +3009,11 @@ unsigned int mtk_get_victim_tlb(const struct mtk_iommu_data *data, int page,
 
 	regValue = F_READ_ENTRY_EN
 		   | F_READ_ENTRY_VICT_TLB_SEL
+#if (MMU_ENTRY_PER_VICTIM == 16)
+		   | F_READ_ENTRY_PFH_IDX((entry & 0xc) >> 2)
+#endif
 		   | F_READ_ENTRY_PFH_PAGE_IDX(page)
-		   | F_READ_ENTRY_PFH_WAY(way);
+		   | F_READ_ENTRY_PFH_WAY(entry & 0x3);
 
 	writel_relaxed(regValue,
 		   base + REG_MMU_READ_ENTRY);
@@ -3013,17 +3034,13 @@ unsigned int mtk_get_victim_tlb(const struct mtk_iommu_data *data, int page,
 	return 0;
 }
 
-static unsigned long imu_victim_tag_to_va(int mmu, int way, unsigned int tag)
+static unsigned long imu_victim_tag_to_va(int mmu, unsigned int tag)
 {
 	unsigned long tmp;
 
 	tmp = F_PFH_TAG_VA_GET(mmu, tag);
 	if (tag & F_PFH_TAG_LAYER_BIT)
 		tmp |= F_VIC_TAG_VA_GET_L1(mmu, tag);
-	else {
-		//tmp &= F_MMU_PFH_TAG_VA_LAYER0_MSK(mmu);
-		tmp |= F_VIC_TAG_VA_GET_L0(mmu, tag);
-	}
 
 	return tmp;
 
@@ -3036,7 +3053,7 @@ int mtk_dump_victim_tlb(int m4u_id,
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 	void __iomem *base = data->base;
 	int result = 0;
-	int way_nr, way;
+	int entry, entry_nr;
 	int valid;
 	unsigned long flags;
 	int ret;
@@ -3060,34 +3077,32 @@ int mtk_dump_victim_tlb(int m4u_id,
 		return 0;
 	}
 
-	way_nr = MTK_IOMMU_WAY_NR;
+	entry_nr = MMU_ENTRY_PER_VICTIM;
 
 	mmu_seq_print(s,
-		       "dump victim_tlb: m4u %d  ====>\n", m4u_id);
+		       "==== victim tlb iommu%d  ====\n", m4u_id);
 
-	for (way = 0; way < way_nr; way++) {
+	for (entry = 0; entry < entry_nr; entry++) {
 		int page;
 		struct mmu_tlb_t tlb;
 
 		regval = readl_relaxed(base + REG_MMU_VICT_VLD);
-		valid = !!(regval & F_MMU_VICT_VLD_BIT(way));
-		mtk_get_victim_tlb(data, 0, way, &tlb);
+		valid = !!(regval & F_MMU_VICT_VLD_BIT(entry));
+		mtk_get_victim_tlb(data, 0, entry, &tlb);
 		mmu_seq_print(s,
-			       "way(%d), v(%d),:\n", way, valid);
-
-		for (page = 0; page < MMU_PAGE_PER_LINE; page++) {
-			mtk_get_victim_tlb(data, page, way, &tlb);
-			mmu_seq_print(s,
-				       "page:%d va:0x%lx lay:%d bank:%d sec:%d pfh:%d tag:0x%x desc:0x%x\n",
-			page,
-			imu_victim_tag_to_va(m4u_id, way, tlb.tag),
-			!!(tlb.tag & F_PFH_TAG_LAYER_BIT),
-			!!(tlb.tag & F_PFH_PT_BANK_BIT),
-			!!(tlb.tag & F_PFH_TAG_SEC_BIT),
-			!!(tlb.tag & F_PFH_TAG_AUTO_PFH),
-			tlb.tag, tlb.desc);
-
+			       "%d v:%d va:0x%lx layer%d bank%d sec:%d pfh:%d tag:0x%x <0x%x ",
+			       entry, valid,
+			       imu_victim_tag_to_va(m4u_id, tlb.tag),
+			       !!(tlb.tag & F_PFH_TAG_LAYER_BIT),
+			       (tlb.tag & F_PFH_PT_BANK_BIT),
+			       !!(tlb.tag & F_PFH_TAG_SEC_BIT),
+			       !!(tlb.tag & F_PFH_TAG_AUTO_PFH),
+			       tlb.tag, tlb.desc);
+		for (page = 1; page < MMU_PAGE_PER_LINE; page++) {
+			mtk_get_victim_tlb(data, page, entry, &tlb);
+			mmu_seq_print(s, "0x%x ", tlb.desc);
 		}
+		mmu_seq_print(s, ">\n");
 	}
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);

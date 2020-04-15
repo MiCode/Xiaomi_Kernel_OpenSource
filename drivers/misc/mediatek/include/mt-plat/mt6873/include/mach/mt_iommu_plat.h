@@ -407,8 +407,9 @@ static inline unsigned int iommu_get_field_by_mask(
 #define F_MMU_RS_STA_TO				BIT(8)
 #define F_MMU_RS_STA_ID				F_MSK(31, 16)
 
-#define REG_MMU_MAIN_TAG(MMU, TAG)		(0x500 + MMU * 300 + TAG * 0x4)
+#define REG_MMU_MAIN_TAG(MMU, TAG)	(0x500 + MMU * 0x300 + TAG * 0x4)
 #define F_MAIN_TLB_VA_MSK			F_MSK(31, 12)
+#define F_MAIN_TLB_VA_BIT32			F_MSK(1, 0)
 #define F_MAIN_TLB_LOCK_BIT			(1<<11)
 #define F_MAIN_TLB_VALID_BIT			(1<<10)
 #define F_MAIN_TLB_LAYER_BIT			F_BIT_SET(9)
