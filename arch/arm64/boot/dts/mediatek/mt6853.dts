@@ -225,6 +225,29 @@
 		ccorr1 = &disp_ccorr1;
 	};
 
+	disp_leds {
+		compatible = "mediatek,disp-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			max-brightness = <255>;
+			led-bits = <8>;
+			default-state = "on";
+		};
+	};
+
+	pwmleds {
+		compatible = "mediatek,pwm-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			pwms = <&disp_pwm 0 39385>;
+			max-brightness = <255>;
+			led-bits = <8>;
+			pwm-names = "lcd-backlight";
+		};
+	};
+
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
 		#address-cells = <2>;
