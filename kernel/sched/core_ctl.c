@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"core_ctl: " fmt
@@ -77,7 +77,6 @@ ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
 static unsigned int last_nr_big;
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
-static void cpuset_next(struct cluster_data *cluster);
 
 /* ========================= sysfs interface =========================== */
 
@@ -90,7 +89,6 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 		return -EINVAL;
 
 	state->min_cpus = min(val, state->max_cpus);
-	cpuset_next(state);
 	wake_up_core_ctl_thread(state);
 
 	return count;
@@ -112,7 +110,6 @@ static ssize_t store_max_cpus(struct cluster_data *state,
 	val = min(val, state->num_cpus);
 	state->max_cpus = val;
 	state->min_cpus = min(state->min_cpus, state->max_cpus);
-	cpuset_next(state);
 	wake_up_core_ctl_thread(state);
 
 	return count;
@@ -989,8 +986,6 @@ static void move_cpu_lru(struct cpu_data *cpu_data)
 	list_add_tail(&cpu_data->sib, &cpu_data->cluster->lru);
 	spin_unlock_irqrestore(&state_lock, flags);
 }
-
-static void cpuset_next(struct cluster_data *cluster) { }
 
 static bool should_we_isolate(int cpu, struct cluster_data *cluster)
 {
