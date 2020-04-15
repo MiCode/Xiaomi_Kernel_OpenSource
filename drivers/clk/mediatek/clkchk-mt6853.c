@@ -502,7 +502,6 @@ static const char * const off_pll_names[] = {
 	"msdcpll",
 	"mmpll",
 	"adsppll",
-	"mfgpll",
 	"tvdpll",
 	"apll1",
 	"apll2",
@@ -513,11 +512,6 @@ static const char * const off_pll_names[] = {
 
 static const char * const off_mtcmos_names[] = {
 	"PG_DIS",
-	"PG_MFG0",
-	"PG_MFG1",
-	"PG_MFG2",
-	"PG_MFG3",
-	"PG_MFG5",
 	"PG_ISP",
 	"PG_ISP2",
 	"PG_IPE",
@@ -535,6 +529,11 @@ static const char * const off_mtcmos_names[] = {
 static const char * const notice_mtcmos_names[] = {
 	"PG_MD1",
 	"PG_CONN",
+	"PG_MFG0",
+	"PG_MFG1",
+	"PG_MFG2",
+	"PG_MFG3",
+	"PG_MFG5",
 	NULL
 };
 
@@ -629,15 +628,13 @@ static void check_pll_off(void)
 		if (!clk_hw_is_enabled(c_hw))
 			continue;
 
-		n += snprintf(buf + n, sizeof(buf) - n, "%s ",
+		pr_notice("suspend warning[0m: %s is on\n",
 				clk_hw_get_name(c_hw));
 
 		invalid++;
 	}
 
 	if (invalid) {
-		pr_notice("unexpected unclosed PLL: %s\n", buf);
-
 		print_enabled_clks();
 
 
@@ -682,15 +679,13 @@ static void check_mtcmos_off(void)
 		if (!clk_hw_is_prepared(c_hw) && !clk_hw_is_enabled(c_hw))
 			continue;
 
-		n += snprintf(buf + n, sizeof(buf) - n, "%s ",
+		pr_notice("suspend warning[0m: %s is on\n",
 				clk_hw_get_name(c_hw));
 
 		invalid++;
 	}
 
 	if (invalid) {
-		pr_notice("unexpected unclosed MTCMOS: %s\n", buf);
-
 #ifdef CONFIG_MTK_ENG_BUILD
 #if BUG_ON_CHK_ENABLE
 		BUG_ON(1);
@@ -733,14 +728,8 @@ static void check_mtcmos_notice(void)
 		if (!clk_hw_is_prepared(c_hw) && !clk_hw_is_enabled(c_hw))
 			continue;
 
-		n += snprintf(buf + n, sizeof(buf) - n, "%s ",
-				clk_hw_get_name(c_hw));
-
-		invalid++;
+		pr_notice("suspend warning[0m: %s\n", clk_hw_get_name(c_hw));
 	}
-
-	if (invalid)
-		pr_notice("unclosed MTCMOS: %s\n", buf);
 }
 
 void print_enabled_clks_once(void)
