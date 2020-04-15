@@ -3439,10 +3439,19 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 
 	crtc->mode.hdisplay = timing->hdisplay;
 	crtc->mode.vdisplay = timing->vdisplay;
-	crtc->state->adjusted_mode.hdisplay = timing->hdisplay;
-	crtc->state->adjusted_mode.vdisplay = timing->vdisplay;
-	crtc->state->adjusted_mode.vrefresh = timing->vrefresh;
-	crtc->state->adjusted_mode.htotal = timing->htotal;
+	crtc->state->adjusted_mode.clock        = timing->clock;
+	crtc->state->adjusted_mode.hdisplay     = timing->hdisplay;
+	crtc->state->adjusted_mode.hsync_start  = timing->hsync_start;
+	crtc->state->adjusted_mode.hsync_end    = timing->hsync_end;
+	crtc->state->adjusted_mode.htotal       = timing->htotal;
+	crtc->state->adjusted_mode.hskew        = timing->hskew;
+	crtc->state->adjusted_mode.vdisplay     = timing->vdisplay;
+	crtc->state->adjusted_mode.vsync_start  = timing->vsync_start;
+	crtc->state->adjusted_mode.vsync_end    = timing->vsync_end;
+	crtc->state->adjusted_mode.vtotal       = timing->vtotal;
+	crtc->state->adjusted_mode.vscan        = timing->vscan;
+	crtc->state->adjusted_mode.vrefresh     = timing->vrefresh;
+
 	drm_invoke_fps_chg_callbacks(timing->vrefresh);
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 

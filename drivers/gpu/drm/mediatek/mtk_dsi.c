@@ -4060,6 +4060,47 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 	return compress_rate;
 }
 
+
+/******************************************************************************
+ * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * MM Clock
+ * DSC on:  vact x hact x vrefresh x  (vtotal / vact)
+ * DSC off: vact x hact x vrefresh x (vtotal x htotal) / (vact x hact)
+ ******************************************************************************/
+void mtk_dsi_set_mmclk_by_datarate_refined(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
+{
+	unsigned int compress_rate;
+	struct mtk_panel_ext *ext = dsi->ext;
+	unsigned int data_rate;
+	unsigned int pixclk = 0;
+	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
+	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	unsigned int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
+
+	if (!en) {
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
+					__func__);
+		return;
+	}
+	//for FPS change,update dsi->ext
+	dsi->ext = find_panel_ext(dsi->panel);
+	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
+	data_rate = mtk_dsi_default_rate(dsi);
+
+	if (ext->params->dsc_params.enable)
+		pixclk = vrefresh * vtotal * hact;
+
+	else
+		pixclk = vrefresh * vtotal * htotal;
+
+	pixclk = (unsigned int)(pixclk / 1000000);
+	DDPINFO("%s,data_rate =%d,clk=%u comparess_rate=%d\n", __func__,
+			data_rate, pixclk, compress_rate);
+	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+}
+
 /******************************************************************************
  * PHY Type | DSC | MM Clock (unit: Pixel)
  * CPHY     | OFF | data_rate x (16/7) x lane_num x compress_ratio / bpp
@@ -4477,8 +4518,11 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
-
+#if defined(CONFIG_MACH_MT6885)
+	mtk_dsi_set_mmclk_by_datarate_refined(dsi, crtc, *pixclk);
+#else
 		mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
+#endif
 #endif
 	}
 		break;
