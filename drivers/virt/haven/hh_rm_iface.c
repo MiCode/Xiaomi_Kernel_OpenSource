@@ -1206,6 +1206,9 @@ EXPORT_SYMBOL(hh_rm_mem_lend);
  * out
  * @flags: Flags to determine if the notification is for notifying that memory
  *         has been shared to another VM, or that a VM has released memory
+ * @mem_info_tag: A 32-bit value that is attached to the MEM_SHARED/MEM_RELEASED
+ *                notifications to aid in distinguishing different resources
+ *                from one another.
  * @vmid_desc: A list of VMIDs to notify that memory has been shared with them.
  *             This parameter should only be non-NULL if other VMs are being
  *             notified (i.e. it is invalid to specify this parameter when the
@@ -1215,6 +1218,7 @@ EXPORT_SYMBOL(hh_rm_mem_lend);
  * returned.
  */
 int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     hh_label_t mem_info_tag,
 		     struct hh_notify_vmid_desc *vmid_desc)
 {
 	struct hh_mem_notify_req_payload *req_payload_hdr;
@@ -1246,6 +1250,7 @@ int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
 	req_payload_hdr = req_buf;
 	req_payload_hdr->memparcel_handle = handle;
 	req_payload_hdr->flags = flags;
+	req_payload_hdr->mem_info_tag = mem_info_tag;
 
 	if (flags & HH_RM_MEM_NOTIFY_RECIPIENT) {
 		dst_vmid_desc = req_buf + sizeof(*req_payload_hdr);

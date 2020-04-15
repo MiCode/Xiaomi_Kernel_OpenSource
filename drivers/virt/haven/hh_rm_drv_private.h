@@ -274,6 +274,7 @@ struct hh_mem_notify_req_payload {
 	hh_memparcel_handle_t memparcel_handle;
 	u32 flags:8;
 	u32 reserved1:24;
+	hh_label_t mem_info_tag;
 } __packed;
 
 /* End Message ID headers */
