@@ -66,6 +66,7 @@ static struct clk *clk_apusys_vcore_qos_cg;
 
 /* for dvfs clock parent */
 static struct clk *clk_top_clk26m;		//  26
+static struct clk *clk_top_mainpll_d9;		/* 242.7 Mhz */
 static struct clk *clk_top_mainpll_d4_d2;	// 273
 static struct clk *clk_top_univpll_d4_d2;	// 312
 static struct clk *clk_top_univpll_d6_d2;	// 208
@@ -73,6 +74,7 @@ static struct clk *clk_top_univpll_d6_d2;	// 208
 //static struct clk *clk_top_mmpll_d5;		// 550 for dsp7_sel (no use)
 static struct clk *clk_top_mmpll_d4;		// 687
 static struct clk *clk_top_univpll_d5;		// 499
+static struct clk *clk_top_univpll_d6;		/* 412 Mhz */
 static struct clk *clk_top_univpll_d4;		// 624
 static struct clk *clk_top_univpll_d3;		// 832
 //static struct clk *clk_top_mainpll_d6;	// 364 for dsp7_sel (no use)
@@ -141,12 +143,14 @@ int prepare_apu_clock(struct device *dev)
 	PREPARE_CLK(clk_top_ipu_if_sel);
 
 	PREPARE_CLK(clk_top_clk26m);
+	PREPARE_CLK(clk_top_mainpll_d9);
 	PREPARE_CLK(clk_top_mainpll_d4_d2);
 	PREPARE_CLK(clk_top_univpll_d4_d2);
 	PREPARE_CLK(clk_top_univpll_d6_d2);
 	PREPARE_CLK(clk_top_mmpll_d4);
 	PREPARE_CLK(clk_top_univpll_d5);
 	PREPARE_CLK(clk_top_univpll_d4);
+	PREPARE_CLK(clk_top_univpll_d6);
 	PREPARE_CLK(clk_top_univpll_d3);
 	PREPARE_CLK(clk_top_mainpll_d4);
 	PREPARE_CLK(clk_top_mainpll_d3);
@@ -422,12 +426,20 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		clk_src = clk_top_univpll_d6_d2;
 		break;
 
+	case DVFS_FREQ_00_242700_F:
+		clk_src = clk_top_mainpll_d9;
+		break;
+
 	case DVFS_FREQ_00_273000_F:
 		clk_src = clk_top_mainpll_d4_d2;
 		break;
 
 	case DVFS_FREQ_00_312000_F:
 		clk_src = clk_top_univpll_d4_d2;
+		break;
+
+	case DVFS_FREQ_00_416000_F:
+		clk_src = clk_top_univpll_d6;
 		break;
 
 	case DVFS_FREQ_00_499200_F:
