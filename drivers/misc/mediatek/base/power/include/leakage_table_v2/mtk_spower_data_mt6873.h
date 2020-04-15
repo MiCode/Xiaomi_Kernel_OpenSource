@@ -1103,9 +1103,9 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.tsize = TSIZE,
 		.table_size = MAX_TABLE_SIZE,
 		.table = {
-			(int *)&cpul_leakage_data[0],
-			(int *)&cpul_leakage_data[1],
-			(int *)&cpul_leakage_data[2]
+			(int *)&cpull_leakage_data[0],
+			(int *)&cpull_leakage_data[1],
+			(int *)&cpull_leakage_data[2]
 		},
 		.devinfo_domain = LL_DEVINFO_DOMAIN,
 		.leakage_id = MTK_LL_LEAKAGE,
@@ -1118,9 +1118,9 @@ struct spower_raw_t spower_raw[MTK_SPOWER_MAX] = {
 		.tsize = TSIZE,
 		.table_size = MAX_TABLE_SIZE,
 		.table = {
-			(int *)&cpull_leakage_data[0],
-			(int *)&cpull_leakage_data[1],
-			(int *)&cpull_leakage_data[2]
+			(int *)&cpul_leakage_data[0],
+			(int *)&cpul_leakage_data[1],
+			(int *)&cpul_leakage_data[2]
 		},
 		.devinfo_domain = L_DEVINFO_DOMAIN,
 		.leakage_id = MTK_L_LEAKAGE,

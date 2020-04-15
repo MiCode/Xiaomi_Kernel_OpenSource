@@ -152,10 +152,10 @@ int upower_bank_to_spower_bank(int upower_bank)
 
 	switch (upower_bank) {
 	case UPOWER_BANK_LL:
-		ret = MTK_SPOWER_CPUL;
+		ret = MTK_SPOWER_CPULL;
 		break;
 	case UPOWER_BANK_L:
-		ret = MTK_SPOWER_CPULL;
+		ret = MTK_SPOWER_CPUL;
 		break;
 #if 0
 	case UPOWER_BANK_CLS_LL:

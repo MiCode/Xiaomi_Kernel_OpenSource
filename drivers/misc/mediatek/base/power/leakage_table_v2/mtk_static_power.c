@@ -270,7 +270,12 @@ int mtk_spower_make_table(struct sptab_s *spt, int voltage, int degree,
 		SPOWER_INFO("sptab interpolate tab:%d/%d, i:%d\n", wat, c[i],
 			    i);
 	}
-
+	if (wat == 0) {
+		/* force mc50 */
+		tab1 = tab2 = tab[1];
+		tspt = tab1;
+		SPOWER_INFO("@@~ force mc50\n");
+	}
 	/** sptab needs to interpolate 2 tables. **/
 	if (tab1 != tab2)
 		interpolate_table(tspt, c[i - 1], c[i], wat, tab1, tab2);
