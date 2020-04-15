@@ -121,7 +121,13 @@ static void phy_advance_settings(struct mtk_phy_instance *instance)
 		U3D_USBPHYACR2, 11, (0x3<<11), 0x3);
 
 	u3phywrite32(U3D_USBPHYACR6, RG_USB20_SQTH_OFST,
-		RG_USB20_SQTH, 0x1);
+		RG_USB20_SQTH, 0x5);
+
+	u3phywrite32(U3D_USBPHYACR6, (28),
+		(0x1<<28), 0x1);
+
+	u3phywrite32(U3D_PHYD_EQ_EYE3, (24),
+		(0x7<<24), 0x1);
 }
 
 static void phy_efuse_settings(struct mtk_phy_instance *instance)
