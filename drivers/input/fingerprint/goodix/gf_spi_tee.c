@@ -315,6 +315,48 @@ static int gf_get_gpio_dts_info(struct gf_device *gf_dev)
 	gf_debug(DEBUG_LOG, "%s, get pinctrl success!\n", __func__);
 
 #endif
+
+	/* set fingerprint spi gpio */
+	gf_dev->pin_spi_clk =
+	pinctrl_lookup_state(gf_dev->pinctrl_gpio, "pin_spi_clk");
+	if (IS_ERR(gf_dev->pin_spi_clk)) {
+		ret = PTR_ERR(gf_dev->pin_spi_clk);
+		gf_debug(ERR_LOG,
+			"%s pinctrl pin_spi_clk get fail\n", __func__);
+		return ret;
+	}
+	pinctrl_select_state(gf_dev->pinctrl_gpio, gf_dev->pin_spi_clk);
+
+	gf_dev->pin_spi_cs =
+	pinctrl_lookup_state(gf_dev->pinctrl_gpio, "pin_spi_cs");
+	if (IS_ERR(gf_dev->pin_spi_cs)) {
+		ret = PTR_ERR(gf_dev->pin_spi_cs);
+		gf_debug(ERR_LOG,
+			"%s pinctrl pin_spi_cs get fail\n", __func__);
+		return ret;
+	}
+	pinctrl_select_state(gf_dev->pinctrl_gpio, gf_dev->pin_spi_cs);
+
+	gf_dev->pin_spi_miso =
+	pinctrl_lookup_state(gf_dev->pinctrl_gpio, "pin_spi_miso");
+	if (IS_ERR(gf_dev->pin_spi_miso)) {
+		ret = PTR_ERR(gf_dev->pin_spi_miso);
+		gf_debug(ERR_LOG,
+			"%s pinctrl pin_spi_miso get fail\n", __func__);
+		return ret;
+	}
+	pinctrl_select_state(gf_dev->pinctrl_gpio, gf_dev->pin_spi_miso);
+
+	gf_dev->pin_spi_mosi =
+	pinctrl_lookup_state(gf_dev->pinctrl_gpio, "pin_spi_mosi");
+	if (IS_ERR(gf_dev->pin_spi_mosi)) {
+		ret = PTR_ERR(gf_dev->pin_spi_mosi);
+		gf_debug(ERR_LOG,
+			"%s pinctrl pin_spi_mosi get fail\n", __func__);
+		return ret;
+	}
+	pinctrl_select_state(gf_dev->pinctrl_gpio, gf_dev->pin_spi_mosi);
+
 	return 0;
 }
 
@@ -1245,6 +1287,8 @@ static ssize_t gf_debug_store(struct device *dev,
 #ifndef CONFIG_TRUSTONIC_TEE_SUPPORT
 	u16 chip_id;
 #endif
+#else
+	u8 id_tmp[4] = {0};
 #endif
 #endif
 
@@ -1342,6 +1386,11 @@ static ssize_t gf_debug_store(struct device *dev,
 			gf_milan_a_series_init_process(gf_dev);
 		}
 #endif
+#else
+		gf_spi_read_bytes_ree(gf_dev, 0x0, 4, id_tmp);
+		gf_debug(INFO_LOG, "%s line:%d ChipID:0x%x	0x%x\n",
+			__func__, __LINE__, id_tmp[3], id_tmp[0]);
+
 #endif
 #endif
 	} else {
