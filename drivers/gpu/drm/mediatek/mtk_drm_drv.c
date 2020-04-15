@@ -412,7 +412,7 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 
 		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
 		mtk_crtc_stop_trig_loop(crtc);
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		if (!mtk_crtc_is_frame_trigger_mode(crtc))
 			mtk_crtc_stop_sodi_loop(crtc);
 #endif
@@ -452,7 +452,7 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 			mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
 			mtk_disp_mutex_src_set(mtk_crtc, true);
 		}
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		if (!mtk_crtc_is_frame_trigger_mode(crtc))
 			mtk_crtc_start_sodi_loop(crtc);
 #endif
