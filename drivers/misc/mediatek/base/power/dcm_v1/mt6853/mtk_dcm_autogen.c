@@ -136,10 +136,11 @@ bool dcm_infracfg_ao_infra_conn_bus_dcm_is_on(void)
 {
 	bool ret = true;
 
-	ret &= ((reg_read(MODULE_SW_CG_2_SET) &
+	ret &= ((reg_read(MODULE_SW_CG_2_STA) &
 		INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_MASK) ==
 		(unsigned int) INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_ON);
-	ret &= ((reg_read(MODULE_SW_CG_2_CLR) &
+
+	ret &= ((reg_read(MODULE_SW_CG_2_STA) &
 		INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_MASK) ==
 		(unsigned int) INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_ON);
 
@@ -151,22 +152,14 @@ void dcm_infracfg_ao_infra_conn_bus_dcm(int on)
 	if (on) {
 		/* TINFO = "Turn ON DCM 'infracfg_ao_infra_conn_bus_dcm'" */
 		reg_write(MODULE_SW_CG_2_SET,
-			(reg_read(MODULE_SW_CG_2_SET) &
-			~INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_MASK) |
 			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_ON);
 		reg_write(MODULE_SW_CG_2_CLR,
-			(reg_read(MODULE_SW_CG_2_CLR) &
-			~INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_MASK) |
-			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_ON);
+			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_OFF);
 	} else {
 		/* TINFO = "Turn OFF DCM 'infracfg_ao_infra_conn_bus_dcm'" */
-		reg_write(MODULE_SW_CG_2_SET,
-			(reg_read(MODULE_SW_CG_2_SET) &
-			~INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_MASK) |
-			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_OFF);
 		reg_write(MODULE_SW_CG_2_CLR,
-			(reg_read(MODULE_SW_CG_2_CLR) &
-			~INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_MASK) |
+			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG0_ON);
+		reg_write(MODULE_SW_CG_2_SET,
 			INFRACFG_AO_INFRA_CONN_BUS_DCM_REG1_OFF);
 	}
 }
