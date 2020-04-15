@@ -65,7 +65,7 @@ struct sugov_cpu {
 	unsigned int		iowait_boost;
 	u64			last_update;
 
-	struct sched_walt_cpu_load walt_load;
+	struct walt_cpu_load	walt_load;
 
 	unsigned long util;
 	unsigned int flags;

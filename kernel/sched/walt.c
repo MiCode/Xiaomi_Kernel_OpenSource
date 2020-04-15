@@ -132,23 +132,23 @@ int __weak sched_busy_hyst_handler(struct ctl_table *table, int write,
 u64 __weak sched_ktime_clock(void) { return 0; }
 
 unsigned long __weak
-cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
+cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load)
 {
 	return cpu_util(cpu);
 }
 
-int __weak update_preferred_cluster(struct related_thread_group *grp,
+int __weak update_preferred_cluster(struct walt_related_thread_group *grp,
 			struct task_struct *p, u32 old_load, bool from_tick)
 {
 	return 0;
 }
 
-void __weak set_preferred_cluster(struct related_thread_group *grp) { }
+void __weak set_preferred_cluster(struct walt_related_thread_group *grp) { }
 
 void __weak add_new_task_to_grp(struct task_struct *new) { }
 
 int __weak
-preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
+preferred_cluster(struct walt_sched_cluster *cluster, struct task_struct *p)
 {
 	return -1;
 }

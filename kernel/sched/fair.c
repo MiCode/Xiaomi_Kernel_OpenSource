@@ -6417,7 +6417,7 @@ unsigned long capacity_curr_of(int cpu)
 #ifdef CONFIG_SCHED_WALT
 static inline bool walt_get_rtg_status(struct task_struct *p)
 {
-	struct related_thread_group *grp;
+	struct walt_related_thread_group *grp;
 	bool ret = false;
 
 	rcu_read_lock();
@@ -6708,7 +6708,7 @@ static inline unsigned long
 cpu_util_next_walt(int cpu, struct task_struct *p, int dst_cpu)
 {
 	unsigned long util =
-			cpu_rq(cpu)->walt_stats.cumulative_runnable_avg_scaled;
+		cpu_rq(cpu)->wrq.walt_stats.cumulative_runnable_avg_scaled;
 	bool queued = task_on_rq_queued(p);
 
 	/*
@@ -8106,7 +8106,8 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	}
 
 	if (env->flags & LBF_IGNORE_PREFERRED_CLUSTER_TASKS &&
-			 !preferred_cluster(cpu_rq(env->dst_cpu)->cluster, p))
+			 !preferred_cluster(
+				cpu_rq(env->dst_cpu)->wrq.cluster, p))
 		return 0;
 
 	/* Don't detach task if it doesn't fit on the destination */
@@ -8115,7 +8116,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 
 	/* Don't detach task if it is under active migration */
-	if (env->src_rq->push_task == p)
+	if (env->src_rq->wrq.push_task == p)
 		return 0;
 #endif
 
@@ -10418,7 +10419,7 @@ int active_load_balance_cpu_stop(void *data)
 	BUG_ON(busiest_rq == target_rq);
 
 #ifdef CONFIG_SCHED_WALT
-	push_task = busiest_rq->push_task;
+	push_task = busiest_rq->wrq.push_task;
 	target_cpu = busiest_rq->push_cpu;
 	if (push_task) {
 		if (task_on_rq_queued(push_task) &&
@@ -10474,14 +10475,14 @@ int active_load_balance_cpu_stop(void *data)
 out_unlock:
 	busiest_rq->active_balance = 0;
 #ifdef CONFIG_SCHED_WALT
-	push_task = busiest_rq->push_task;
+	push_task = busiest_rq->wrq.push_task;
 #endif
 	target_cpu = busiest_rq->push_cpu;
 	clear_reserved(target_cpu);
 
 #ifdef CONFIG_SCHED_WALT
 	if (push_task)
-		busiest_rq->push_task = NULL;
+		busiest_rq->wrq.push_task = NULL;
 #endif
 
 	rq_unlock(busiest_rq, &rf);
@@ -11180,7 +11181,7 @@ static bool silver_has_big_tasks(void)
 	for_each_possible_cpu(cpu) {
 		if (!is_min_capacity_cpu(cpu))
 			break;
-		if (cpu_rq(cpu)->walt_stats.nr_big_tasks)
+		if (cpu_rq(cpu)->wrq.walt_stats.nr_big_tasks)
 			return true;
 	}
 

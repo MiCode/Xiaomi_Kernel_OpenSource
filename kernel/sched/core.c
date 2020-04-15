@@ -1338,7 +1338,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	uclamp_rq_dec(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
 #ifdef CONFIG_SCHED_WALT
-	if (p == rq->ed_task)
+	if (p == rq->wrq.ed_task)
 		early_detection_notify(rq, sched_ktime_clock());
 #endif
 	trace_sched_enq_deq_task(p, 0, cpumask_bits(&p->cpus_mask)[0]);
@@ -3697,7 +3697,7 @@ void scheduler_tick(void)
 	u64 wallclock;
 	bool early_notif;
 	u32 old_load;
-	struct related_thread_group *grp;
+	struct walt_related_thread_group *grp;
 	unsigned int flag = 0;
 
 	sched_clock_tick();
@@ -7202,7 +7202,7 @@ static void walt_schedgp_attach(struct cgroup_taskset *tset)
 	cgroup_taskset_first(tset, &css);
 	tg = css_tg(css);
 
-	colocate = tg->colocate;
+	colocate = tg->wtg.colocate;
 
 	cgroup_taskset_for_each(task, css, tset)
 		sync_cgroup_colocation(task, colocate);
@@ -7214,7 +7214,7 @@ sched_boost_override_read(struct cgroup_subsys_state *css,
 {
 	struct task_group *tg = css_tg(css);
 
-	return (u64) tg->sched_boost_no_override;
+	return (u64) tg->wtg.sched_boost_no_override;
 }
 
 static int sched_boost_override_write(struct cgroup_subsys_state *css,
@@ -7222,7 +7222,7 @@ static int sched_boost_override_write(struct cgroup_subsys_state *css,
 {
 	struct task_group *tg = css_tg(css);
 
-	tg->sched_boost_no_override = !!override;
+	tg->wtg.sched_boost_no_override = !!override;
 	return 0;
 }
 
@@ -7231,7 +7231,7 @@ static u64 sched_colocate_read(struct cgroup_subsys_state *css,
 {
 	struct task_group *tg = css_tg(css);
 
-	return (u64) tg->colocate;
+	return (u64) tg->wtg.colocate;
 }
 
 static int sched_colocate_write(struct cgroup_subsys_state *css,
@@ -7239,11 +7239,11 @@ static int sched_colocate_write(struct cgroup_subsys_state *css,
 {
 	struct task_group *tg = css_tg(css);
 
-	if (tg->colocate_update_disabled)
+	if (tg->wtg.colocate_update_disabled)
 		return -EPERM;
 
-	tg->colocate = !!colocate;
-	tg->colocate_update_disabled = true;
+	tg->wtg.colocate = !!colocate;
+	tg->wtg.colocate_update_disabled = true;
 	return 0;
 }
 #else
@@ -8412,25 +8412,25 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 		walt_update_task_ravg(curr, rq, IRQ_UPDATE, sched_ktime_clock(),
 								delta);
 
-	nr_ticks = cur_jiffies_ts - rq->irqload_ts;
+	nr_ticks = cur_jiffies_ts - rq->wrq.irqload_ts;
 
 	if (nr_ticks) {
 		if (nr_ticks < 10) {
 			/* Decay CPU's irqload by 3/4 for each window. */
-			rq->avg_irqload *= (3 * nr_ticks);
-			rq->avg_irqload = div64_u64(rq->avg_irqload,
+			rq->wrq.avg_irqload *= (3 * nr_ticks);
+			rq->wrq.avg_irqload = div64_u64(rq->wrq.avg_irqload,
 							4 * nr_ticks);
 		} else {
-			rq->avg_irqload = 0;
+			rq->wrq.avg_irqload = 0;
 		}
-		rq->avg_irqload += rq->cur_irqload;
-		rq->high_irqload = (rq->avg_irqload >=
+		rq->wrq.avg_irqload += rq->wrq.cur_irqload;
+		rq->wrq.high_irqload = (rq->wrq.avg_irqload >=
 				    sysctl_sched_cpu_high_irqload);
-		rq->cur_irqload = 0;
+		rq->wrq.cur_irqload = 0;
 	}
 
-	rq->cur_irqload += delta;
-	rq->irqload_ts = cur_jiffies_ts;
+	rq->wrq.cur_irqload += delta;
+	rq->wrq.irqload_ts = cur_jiffies_ts;
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 }
 #endif

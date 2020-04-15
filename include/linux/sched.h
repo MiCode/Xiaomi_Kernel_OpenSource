@@ -619,7 +619,7 @@ struct walt_task_struct {
 	u32				unfilter;
 	u64				last_wake_ts;
 	u64				last_enqueued_ts;
-	struct related_thread_group __rcu *grp;
+	struct walt_related_thread_group __rcu	*grp;
 	struct list_head		grp_list;
 	u64				cpu_cycles;
 	cpumask_t			cpus_requested;
