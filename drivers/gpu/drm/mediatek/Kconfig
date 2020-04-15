@@ -48,3 +48,12 @@ config DRM_MTK_SHADOW_REGISTER_SUPPORT
 	  please make sure it is Y in xxx_defconfig.
 	  This feature depends on Mediatek SoCs HW spec.
 	  If unsure, set N.
+
+config DRM_MTK_DISABLE_AEE_LAYER
+	bool "Disable AEE Layer for the customer who don't want to produce AEE"
+	help
+	  Disable AEE Layer if you do not want to produce AEE.
+	  Default Mediatek SoCs will produce AEE when exception occurred.
+	  if this value is y, will not produce AEE.
+	  if this value is n, will produce AEE.
+	  If you do not produce AEE, please set it to Y in xxx_defconfig.

@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/gfp.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
@@ -272,7 +273,6 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			*fps = videolfb_tag->fps;
 			if (*fps == 0)
 				*fps = 6000;
-
 			return 0;
 		}
 
@@ -288,6 +288,31 @@ found:
 	DDPINFO("[DT][videolfb] vram       = 0x%x (%d)\n", *vramsize,
 		*vramsize);
 	DDPINFO("[DT][videolfb] fps	   = %d\n", *fps);
+
+	return 0;
+}
+
+int free_fb_buf(void)
+{
+	unsigned long va_start = 0;
+	unsigned long va_end = 0;
+	phys_addr_t fb_base;
+	unsigned int vramsize, fps;
+
+	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
+
+	if (!fb_base) {
+		DDPINFO("%s:get fb pa error\n", __func__);
+		return -1;
+	}
+
+	va_start = (unsigned long)__va(fb_base);
+	va_end = (unsigned long)__va(fb_base + (unsigned long)vramsize);
+	if (va_start)
+		free_reserved_area((void *)va_start,
+				   (void *)va_end, 0xff, "fbmem");
+	else
+		DDPINFO("%s:va invalid\n", __func__);
 
 	return 0;
 }
@@ -370,9 +395,10 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	info->fix.smem_start = fb_base;
 	debug_info = info;
 
-	mtk_drm_assert_fb_init(mtk_gem->kvaddr, mtk_gem->dma_addr,
+#if !defined(CONFIG_DRM_MTK_DISABLE_AEE_LAYER)
+	mtk_drm_assert_fb_init(dev,
 			       sizes->surface_width, sizes->surface_height);
-
+#endif
 	DRM_DEBUG_KMS("FB [%ux%u]-%u size=%zd\n", fb->width,
 		      fb->height, fb->format->depth, size);
 

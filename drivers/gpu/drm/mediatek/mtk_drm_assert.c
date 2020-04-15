@@ -116,6 +116,9 @@ int DAL_SetScreenColor(enum DAL_COLOR color)
 	uint32_t offset;
 	unsigned int *addr;
 
+	if (!mfc_handle)
+		return -1;
+
 	color = RGB888_To_RGB565(color);
 	bg_color = MAKE_TWO_RGB565_COLOR(color, color);
 
@@ -393,18 +396,21 @@ int mtk_drm_dal_enable(void)
 	return drm_dal_enable;
 }
 
-void mtk_drm_assert_fb_init(void *va, u32 pa, u32 width, u32 height)
+void mtk_drm_assert_fb_init(struct drm_device *dev, u32 width, u32 height)
 {
-	unsigned int offset = ALIGN_TO(width, MTK_FB_ALIGNMENT) *
-			      ALIGN_TO(height, MTK_FB_ALIGNMENT) * 4 * 3;
+	struct mtk_drm_gem_obj *mtk_gem;
+	u32 size = width * height * DAL_BPP;
 
-	DDPINFO("init DAL buffer va: %p, pa: %x, w %u h %u\n", va, pa, width,
-		height);
+	mtk_gem = mtk_drm_gem_create(dev, size, true);
+	if (IS_ERR(mtk_gem)) {
+		DDPINFO("alloc buffer fail\n");
+		return;
+	}
 
-	dal_va = va + offset;
-	dal_pa = pa + offset;
+	dal_va = mtk_gem->kvaddr;
+	dal_pa = mtk_gem->dma_addr;
 
-	MFC_Open(&mfc_handle, (u32 *)dal_va, width, height, DAL_BPP,
+	MFC_Open(&mfc_handle, mtk_gem->kvaddr, width, height, DAL_BPP,
 		 RGB888_To_RGB565(DAL_COLOR_WHITE),
 		 RGB888_To_RGB565(DAL_COLOR_RED));
 }

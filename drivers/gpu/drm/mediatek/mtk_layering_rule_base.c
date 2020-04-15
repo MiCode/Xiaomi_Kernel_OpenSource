@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/file.h>
 #include <linux/string.h>
+#include <linux/mm.h>
 #include <mt-plat/mtk_chip.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_property.h>
@@ -38,7 +39,7 @@
 #include "mtk_drm_assert.h"
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
-
+#include "mtk_drm_fbdev.h"
 #define CREATE_TRACE_POINTS
 #include "mtk_layer_layout_trace.h"
 
@@ -2764,6 +2765,9 @@ static int gen_hrt_pattern(struct drm_device *dev)
 }
 #endif
 
+bool already_free;
+bool second_query;
+
 /**** UT Program end ****/
 int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_priv)
@@ -2771,9 +2775,18 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_layering_info *disp_info_user = data;
 	int ret;
 
+	/*free fb buf in second query valid*/
+	if (second_query && !already_free) {
+		free_fb_buf();
+		already_free = true;
+	}
+
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
 		DDPPR_ERR("layering_rule_start error:%d\n", ret);
+
+	if (!second_query)
+		second_query = true;
 
 	return 0;
 }
