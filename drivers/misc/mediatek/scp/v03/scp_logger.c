@@ -32,7 +32,7 @@
 #define SCP_TIMER_TIMEOUT	        (1 * HZ) /* 1 seconds*/
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
 #define PLT_LOG_ENABLE              0x504C5402 /*magic*/
-#define SCP_IPI_RETRY_TIMES         (5000)
+#define SCP_IPI_RETRY_TIMES         (5)
 
 /* bit0 = 1, logger is on, else off*/
 #define SCP_LOGGER_ON_BIT       (1<<0)
