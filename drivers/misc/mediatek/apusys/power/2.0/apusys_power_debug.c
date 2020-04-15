@@ -193,6 +193,12 @@ void fix_dvfs_debug(void)
 	is_power_debug_lock = true;
 	apusys_dvfs_policy(0);
 
+#if SUPPORT_VCORE_TO_IPUIF
+	apusys_opps.qos_apu_vcore =
+		apusys_opps.opps[fixed_opp][V_VCORE].voltage;
+	apusys_ipuif_opp_change();
+#endif
+
 	mutex_unlock(&power_fix_dvfs_mtx);
 }
 
@@ -236,6 +242,11 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		switch (args[0]) {
 		case 0:
 			is_power_debug_lock = false;
+
+#if SUPPORT_VCORE_TO_IPUIF
+			apusys_opps.qos_apu_vcore =
+				VCORE_SHUTDOWN_VOLT;
+#endif
 			break;
 		case 1:
 			is_power_debug_lock = true;
