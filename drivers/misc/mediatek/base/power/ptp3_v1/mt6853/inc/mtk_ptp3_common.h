@@ -82,6 +82,7 @@ enum PTP3_FEATURE {
 	PTP3_FEATURE_PTP3,
 	PTP3_FEATURE_FLL,
 	PTP3_FEATURE_CINST,
+	PTP3_FEATURE_DRCC,
 
 	NR_PTP3_FEATURE,
 };
@@ -95,6 +96,7 @@ enum {
 	/* magic enum init to avoid conflict with other feature */
 	PTP3_IPI_FLL = 0xFF,
 	PTP3_IPI_CINST,
+	PTP3_IPI_DRCC,
 
 	NR_PTP3_IPI
 };
@@ -113,6 +115,10 @@ struct ptp3_ipi_data {
 			unsigned int cfg;
 			unsigned int val;
 		} cinst;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} drcc;
 	} u;
 };
 

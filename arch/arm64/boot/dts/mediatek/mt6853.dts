@@ -4887,6 +4887,31 @@
 		cinst_doe_vx_credit = <32>;
 		cinst_doe_vx_low_freq_period = <8>;
 		cinst_doe_vx_low_freq_enable = <2>;
+		drcc_state = <0>;
+		drcc0_Vref = <255>;
+		drcc1_Vref = <255>;
+		drcc2_Vref = <255>;
+		drcc3_Vref = <255>;
+		drcc4_Vref = <255>;
+		drcc5_Vref = <255>;
+		drcc6_Vref = <255>;
+		drcc7_Vref = <255>;
+		drcc0_Hwgatepct = <255>;
+		drcc1_Hwgatepct = <255>;
+		drcc2_Hwgatepct = <255>;
+		drcc3_Hwgatepct = <255>;
+		drcc4_Hwgatepct = <255>;
+		drcc5_Hwgatepct = <255>;
+		drcc6_Hwgatepct = <255>;
+		drcc7_Hwgatepct = <255>;
+		drcc0_Code = <255>;
+		drcc1_Code = <255>;
+		drcc2_Code = <255>;
+		drcc3_Code = <255>;
+		drcc4_Code = <255>;
+		drcc5_Code = <255>;
+		drcc6_Code = <255>;
+		drcc7_Code = <255>;
 	};
 
 	camsys_main: camsys_main@1a000000 {

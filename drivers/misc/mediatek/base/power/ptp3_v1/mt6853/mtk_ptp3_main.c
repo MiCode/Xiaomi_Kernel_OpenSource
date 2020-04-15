@@ -57,6 +57,7 @@
 	#include "mtk_ptp3_common.h"
 	#include "mtk_ptp3_fll.h"
 	#include "mtk_ptp3_cinst.h"
+	#include "mtk_ptp3_drcc.h"
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -109,6 +110,7 @@
 #define PTP3_MEM_SIZE 0x80000
 #define PTP3_FLL_MEM_OFFSET 0x0
 #define PTP3_CINST_MEM_OFFSET 0x10000
+#define PTP3_DRCC_MEM_OFFSET 0x20000
 
 static unsigned long long ptp3_reserve_memory_init(void)
 {
@@ -382,6 +384,7 @@ static int create_procfs(void)
 
 	fll_create_procfs(proc_name, dir);
 	cinst_create_procfs(proc_name, dir);
+	drcc_create_procfs(proc_name, dir);
 	return 0;
 }
 
@@ -404,12 +407,18 @@ static int ptp3_probe(struct platform_device *pdev)
 			(char *)(uintptr_t)
 			(ptp3_mem_base_virt+PTP3_CINST_MEM_OFFSET),
 			ptp3_mem_size);
+		/* DRCC: save register status for reserved memory */
+		drcc_save_memory_info(
+			(char *)(uintptr_t)
+			(ptp3_mem_base_virt+PTP3_DRCC_MEM_OFFSET),
+			ptp3_mem_size);
 	} else
 		ptp3_err("ptp3_mem_base_virt is null !\n");
 
 	/* probe trigger for ptp3 features */
 	fll_probe(pdev);
 	cinst_probe(pdev);
+	drcc_probe(pdev);
 
 	return 0;
 }
