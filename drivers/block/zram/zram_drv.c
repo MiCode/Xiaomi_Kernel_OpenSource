@@ -1218,6 +1218,13 @@ out:
 		~(1UL << ZRAM_LOCK | 1UL << ZRAM_UNDER_WB));
 }
 
+static void dump_object(u8 *src, unsigned int slen)
+{
+	pr_info("0x%lx(%u):\n", (unsigned long)src, slen);
+	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET,
+		       32, 4, src, slen, false);
+}
+
 static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 				struct bio *bio, bool partial_io)
 {
@@ -1268,6 +1275,10 @@ static int __zram_bvec_read(struct zram *zram, struct page *page, u32 index,
 		ret = zcomp_decompress(zstrm, src, size, dst);
 		kunmap_atomic(dst);
 		zcomp_stream_put(zram->comp);
+
+		/* Should NEVER happen. */
+		if (unlikely(ret))
+			dump_object(src, size);
 	}
 	zs_unmap_object(zram->mem_pool, handle);
 	zram_slot_unlock(zram, index);
