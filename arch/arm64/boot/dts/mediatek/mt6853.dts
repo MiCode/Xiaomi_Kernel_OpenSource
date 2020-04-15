@@ -757,24 +757,6 @@
 		interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	sleep1@10006000 {
-		compatible = "mediatek,sleep1";
-		reg = <0 0x10006000 0 0xa00>;
-		interrupts = <GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	sleep2@10006a00 {
-		compatible = "mediatek,sleep2";
-		reg = <0 0x10006a00 0 0x400>;
-		interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	sleep3@10006e00 {
-		compatible = "mediatek,sleep3";
-		reg = <0 0x10006e00 0 0x200>;
-		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	toprgu: toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
