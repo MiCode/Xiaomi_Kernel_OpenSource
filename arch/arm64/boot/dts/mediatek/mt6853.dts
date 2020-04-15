@@ -4490,11 +4490,13 @@
 		clocks =
 				<&imgsys2 CLK_IMGSYS2_LARB9>,
 				<&imgsys2 CLK_IMGSYS2_MSS>,
-				<&imgsys2 CLK_IMGSYS2_MFB>;
+				<&imgsys2 CLK_IMGSYS2_MFB>,
+				<&scpsys SCP_SYS_ISP>;
 		clock-names =
 				"MFB_CG_IMG2_LARB11",
 				"MFB_CG_IMG2_MSS",
-				"MFB_CG_IMG2_MFB";
+				"MFB_CG_IMG2_MFB",
+				"MFB_CG_IMG1_GALS";
 	};
 
 	imgsys_mfb_b@15820000 {

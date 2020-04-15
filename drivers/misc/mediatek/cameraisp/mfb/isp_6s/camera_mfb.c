@@ -72,10 +72,7 @@
 #include <cmdq-util.h>
 #endif
 
-#if (MTK_MFB_REG_VERSION != 3) /*wait pmqos ready*/
 #define MFB_PMQOS
-#endif
-
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -114,7 +111,15 @@
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
-#if (MTK_MFB_REG_VERSION >= 2)
+#if (MTK_MFB_REG_VERSION == 3)
+struct MFB_CLK_STRUCT {
+	struct clk *CG_IMG2_LARB11;
+	struct clk *CG_IMG2_MSS;
+	struct clk *CG_IMG2_MFB;
+	struct clk *CG_IMG1_GALS;
+};
+struct MFB_CLK_STRUCT mfb_clk;
+#elif (MTK_MFB_REG_VERSION == 2)
 struct MFB_CLK_STRUCT {
 	struct clk *CG_IMG2_LARB11;
 	struct clk *CG_IMG2_MSS;
@@ -1685,7 +1690,24 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> MFB clk
 	 */
-#if (MTK_MFB_REG_VERSION >= 2)
+#if (MTK_MFB_REG_VERSION == 3)
+	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MSS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_MSS clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MFB);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG1_GALS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG1_GALS clock\n");
+#elif (MTK_MFB_REG_VERSION == 2)
 	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
 	if (ret)
@@ -1719,7 +1741,13 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
-#if (MTK_MFB_REG_VERSION >= 2)
+#if (MTK_MFB_REG_VERSION == 3)
+	clk_disable_unprepare(mfb_clk.CG_IMG1_GALS);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
+	smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);
+#elif (MTK_MFB_REG_VERSION == 2)
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
@@ -4196,7 +4224,33 @@ static signed int MFB_probe(struct platform_device *pDev)
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 		    /*CCF: Grab clock pointer (struct clk*) */
-#if (MTK_MFB_REG_VERSION >= 2)
+#if (MTK_MFB_REG_VERSION == 3)
+		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_LARB11");
+		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_MSS");
+		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_MFB");
+		mfb_clk.CG_IMG1_GALS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG1_GALS");
+
+		if (IS_ERR(mfb_clk.CG_IMG2_LARB11)) {
+			LOG_ERR("cannot get CG_IMG2_LARB11 clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_LARB11);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_MSS)) {
+			LOG_ERR("cannot get CG_IMG2_MSS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_MSS);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
+			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG1_GALS)) {
+			LOG_ERR("cannot get CG_IMG1_GALS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG1_GALS);
+		}
+#elif (MTK_MFB_REG_VERSION == 2)
 		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
 				"MFB_CG_IMG2_LARB11");
 		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
