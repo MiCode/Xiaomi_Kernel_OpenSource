@@ -4603,9 +4603,25 @@ void mtk_crtc_ddp_irq(struct drm_crtc *crtc, struct mtk_ddp_comp *comp)
 void mtk_crtc_vblank_irq(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	char tag_name[100] = {'\0'};
+	ktime_t ktime = ktime_get();
 
-	mtk_crtc->vblank_time = ktime_to_timeval(ktime_get());
+	mtk_crtc->vblank_time = ktime_to_timeval(ktime);
+
+	sprintf(tag_name, "%d|HW_VSYNC|%lld",
+		DRM_TRACE_VSYNC_ID, ktime);
+	mtk_drm_trace_c("%s", tag_name);
+
+/*
+ *	DDPMSG("%s CRTC%d %s\n", __func__,
+ *			drm_crtc_index(crtc), tag_name);
+ */
 	drm_crtc_handle_vblank(&mtk_crtc->base);
+
+	sprintf(tag_name, "%d|HW_VSYNC|%d",
+		DRM_TRACE_VSYNC_ID, 0);
+	mtk_drm_trace_c("%s", tag_name);
+
 }
 
 static void mtk_crtc_get_output_comp_name(struct mtk_drm_crtc *mtk_crtc,

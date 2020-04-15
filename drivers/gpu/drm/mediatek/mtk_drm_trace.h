@@ -19,6 +19,8 @@
 #define DRM_TRACE_ID 0xFFFF0000
 #define DRM_TRACE_FPS_ID (DRM_TRACE_ID + 1)
 #define DRM_TRACE_FENCE_ID (DRM_TRACE_ID + 2)
+#define DRM_TRACE_VSYNC_ID (DRM_TRACE_ID + 3)
+
 
 /* MTK_DRM FTRACE */
 extern bool g_trace_log;

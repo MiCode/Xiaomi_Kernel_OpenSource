@@ -575,7 +575,7 @@ static int lcm_enable(struct drm_panel *panel)
 #define HFP (24)
 #define HSA (20)
 #define HBP (20)
-#define VFP (20)
+#define VFP (75)
 #define VSA (2)
 #define VBP (12)
 
