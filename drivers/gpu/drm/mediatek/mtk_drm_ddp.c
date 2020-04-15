@@ -617,9 +617,12 @@ same with 6873
 	#define SOUT_TO_DISP_DSI0_SEL     (0)
 	#define RDMA0_SOUT_TO_DISP_COLOR0     (1)
 #define MT6853_DISP_REG_CONFIG_DISP_SPR0_MOUT_EN 0xF10
+	#define SPR0_MOUT_TO_DISP_DSI0_SEL     BIT(0)
+	#define SPR0_MOUT_TO_DISP_WDMA0_SEL     BIT(1)
+	#define SPR0_MOUT_TO_DISP_DSC0_SEL     BIT(2)
 #define MT6853_DISP_REG_CONFIG_DISP_TOVL0_OUT0_MOUT_EN 0xF14
-	#define OVL0_2L_MOUT_TO_DISP_RSZ0_SEL     BIT(0)
-	#define OVL0_2L_MOUT_TO_DISP_RDMA0_SEL     BIT(1)
+	#define OVL0_2L_MOUT_TO_DISP_RDMA0_SEL     BIT(0)
+	#define OVL0_2L_MOUT_TO_DISP_RSZ0_SEL     BIT(1)
 	#define OVL0_2L_MOUT_TO_DISP_WDMA0_SEL     BIT(2)
 #define MT6853_DISP_REG_CONFIG_DISP_TOVL0_OUT1_MOUT_EN    0xF18
 	#define OVL0_MOUT_TO_DISP_RDMA0_SEL    BIT(0)
@@ -632,6 +635,7 @@ same with 6873
 #define MT6853_DISP_REG_CONFIG_DISP_DITHER0_MOUT_EN 0xF20
 	#define DITHER0_MOUT_TO_DISP_DISP_BYPASS_SPR0_SEL     BIT(0)
 	#define DITHER0_MOUT_TO_DISP_DISP_CM0       BIT(1)
+	#define DITHER0_MOUT_TO_DISP_DISP_WDMA0       BIT(2)
 #define MT6853_DISP_REG_CONFIG_DISP_RSZ0_SEL_IN 0xF24
 	#define RSZ0_FROM_DISP_OVL0_2L     (0)
 	#define RSZ0_FROM_DISP_OVL0        (1)
@@ -3515,9 +3519,13 @@ static int mtk_ddp_mout_en_MT6853(const struct mtk_mmsys_reg_data *data,
 		value = RSZ0_MOUT_TO_DISP_RDMA2_RSZ0_RSZ1_SOUT;
 	/*DISP_DITHER0_MOUT*/
 	} else if (cur == DDP_COMPONENT_DITHER0 &&
-		next == DDP_COMPONENT_DSI0) {
+		next == DDP_COMPONENT_DSI0_VIRTUAL) {
 		*addr = MT6853_DISP_REG_CONFIG_DISP_DITHER0_MOUT_EN;
 		value = DITHER0_MOUT_TO_DISP_DISP_BYPASS_SPR0_SEL;
+	} else if (cur == DDP_COMPONENT_DSI0_VIRTUAL &&
+		next == DDP_COMPONENT_DSI0) {
+		*addr = MT6853_DISP_REG_CONFIG_DISP_SPR0_MOUT_EN;
+		value = SPR0_MOUT_TO_DISP_DSI0_SEL;
 	/*No cur or next component*/
 	} else {
 		value = -1;
@@ -3538,7 +3546,7 @@ static int mtk_ddp_sel_in_MT6853(const struct mtk_mmsys_reg_data *data,
 		value = SEL_IN_RDMA0_FROM_DISP_OVL0;
 	} else if (cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_RSZ0) {
-		*addr = MT6853_DISP_REG_CONFIG_DISP_RDMA0_SEL_IN;
+		*addr = MT6853_DISP_REG_CONFIG_DISP_RSZ0_SEL_IN;
 		value = SEL_IN_RDMA0_FROM_DISP_OVL0_2L;
 	/*DISP_DSI0_SEL*/
 	} else if (cur == DDP_COMPONENT_RDMA0 &&
@@ -3571,6 +3579,10 @@ static int mtk_ddp_sel_in_MT6853(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RSZ0) {
 		*addr = MT6853_DISP_REG_CONFIG_DISP_RSZ0_SEL_IN;
 		value = RSZ0_FROM_DISP_OVL0;
+	} else if (cur == DDP_COMPONENT_DSI0_VIRTUAL &&
+		next == DDP_COMPONENT_DSI0) {
+		*addr = MT6853_DISP_REG_CONFIG_DSI0_SEL_IN;
+		value = SEL_IN_FROM_DISP_SPR0_MOUT;
 	/*No cur or next component*/
 	} else {
 		value = -1;

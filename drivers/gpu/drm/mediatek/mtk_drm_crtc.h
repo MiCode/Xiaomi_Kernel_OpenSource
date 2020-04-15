@@ -52,7 +52,6 @@
 
 #if defined(CONFIG_MACH_MT6853)
 #define PRIMARY_OVL_EXT_LAYER_NR 3L
-#define DRM_BYPASS_PQ
 #else
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
 #endif

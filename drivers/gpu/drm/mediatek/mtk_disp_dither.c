@@ -466,6 +466,11 @@ static const struct mtk_disp_dither_data mt6873_dither_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_dither_data mt6853_dither_driver_data = {
+	.support_shadow = false,
+};
+
+
 static const struct of_device_id mtk_disp_dither_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-dither",
 	  .data = &mt6779_dither_driver_data},
@@ -473,6 +478,8 @@ static const struct of_device_id mtk_disp_dither_driver_dt_match[] = {
 	  .data = &mt6885_dither_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-dither",
 	  .data = &mt6873_dither_driver_data},
+	{ .compatible = "mediatek,mt6853-disp-dither",
+	  .data = &mt6853_dither_driver_data},
 	{},
 };
 

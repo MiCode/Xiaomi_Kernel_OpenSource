@@ -2927,7 +2927,8 @@
 			<&mmsys_config CLK_MM_DISP_POSTMASK0>,
 			<&mmsys_config CLK_MM_DISP_DITHER0>,
 			<&mmsys_config CLK_MM_DSI0>,
-			<&mmsys_config CLK_TOP_F26M>,
+			<&mmsys_config CLK_MM_DSI0_DSI_CK_DOMAIN>,
+			<&mmsys_config CLK_MM_DISP_26M>,
 			<&mmsys_config CLK_MM_DISP_MUTEX0>,
 			<&mmsys_config CLK_MM_APB_BUS>,
 			<&mmsys_config CLK_MM_DISP_RSZ0>,
@@ -2954,6 +2955,7 @@
 			"MMSYS_DISP_POSTMASK0",
 			"MMSYS_DISP_DITHER0",
 			"MMSYS_DSI0",
+			"MMSYS_DSI0_IF_CK",
 			"MMSYS_26M",
 			"MMSYS_DISP_MUTEX0",
 			"MMSYS_DISP_CONFIG",
@@ -2984,9 +2986,10 @@
 				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
 
 		clocks = <&scpsys SCP_SYS_DIS>,
+			    <&mmsys_config CLK_MM_DISP_26M>,
 			   <&mmsys_config CLK_MM_APB_BUS>,
 			   <&mmsys_config CLK_MM_DISP_MUTEX0>;
-		clock-num = <3>;
+		clock-num = <4>;
 
 		/* define threads, see mt6853-gce.h */
 		mediatek,mailbox-gce = <&gce_mbox>;
@@ -3088,33 +3091,33 @@
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
 			<1>, /*MTK_DRM_OPT_USE_M4U*/
 			<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
-			<0>, /*MTK_DRM_OPT_IDLE_MGR*/
+			<1>, /*MTK_DRM_OPT_IDLE_MGR*/
 			<0>, /*MTK_DRM_OPT_IDLEMGR_SWTCH_DECOUPLE*/
-			<0>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
+			<1>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
 			<0>, /*MTK_DRM_OPT_IDLEMGR_ENTER_ULPS*/
 			<0>, /*MTK_DRM_OPT_IDLEMGR_KEEP_LP11*/
 			<0>, /*MTK_DRM_OPT_DYNAMIC_RDMA_GOLDEN_SETTING*/
-			<0>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
+			<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
 			<0>, /*MTK_DRM_OPT_MET_LOG*/
 			<0>, /*MTK_DRM_OPT_USE_PQ*/
-			<0>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
-			<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+			<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+			<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
 			<1>, /*MTK_DRM_OPT_HRT*/
 			<1>, /*MTK_DRM_OPT_HRT_MODE*/
 			<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
-			<0>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
+			<1>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
 			<0>, /*MTK_DRM_OPT_AOD*/
-			<0>, /*MTK_DRM_OPT_RPO*/
+			<1>, /*MTK_DRM_OPT_RPO*/
 			<0>, /*MTK_DRM_OPT_DUAL_PIPE*/
 			<0>, /*MTK_DRM_OPT_DC_BY_HRT*/
 			<0>, /*MTK_DRM_OPT_OVL_WCG*/
 			<0>, /*MTK_DRM_OPT_OVL_SBCH*/
 			<1>, /*MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK*/
 			<0>, /*MTK_DRM_OPT_MET*/
-			<1>, /*MTK_DRM_OPT_REG_PARSER_RAW_DUMP*/
+			<0>, /*MTK_DRM_OPT_REG_PARSER_RAW_DUMP*/
 			<0>, /*MTK_DRM_OPT_VP_PQ*/
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
@@ -3537,7 +3540,7 @@
 		compatible = "mediatek,disp_color0",
 					"mediatek,mt6853-disp-color";
 		reg = <0 0x14009000 0 0x1000>;
-		interrupts = <GIC_SPI 268 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&mmsys_config CLK_MM_DISP_COLOR0>;
 	};
 
@@ -3545,13 +3548,15 @@
 		compatible = "mediatek,disp_ccorr1",
 					"mediatek,mt6853-disp-ccorr";
 		reg = <0 0x1400a000 0 0x1000>;
+		interrupts = <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&mmsys_config CLK_MM_DISP_CCORR1>;
 	};
 
 	disp_ccorr0: disp_ccorr0@1400b000 {
 		compatible = "mediatek,disp_ccorr0",
 					"mediatek,mt6853-disp-ccorr";
 		reg = <0 0x1400b000 0 0x1000>;
-		interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&mmsys_config CLK_MM_DISP_CCORR0>;
 	};
 
@@ -3626,7 +3631,7 @@
 		reg = <0 0x14013000 0 0x1000>;
 		interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&mmsys_config CLK_MM_DSI0>,
-			<&mmsys_config CLK_MM_DSI0>,
+			<&mmsys_config CLK_MM_DSI0_DSI_CK_DOMAIN>,
 			<&mipi_tx_config0>;
 		clock-names = "engine", "digital", "hs";
 		phys = <&mipi_tx_config0>;
