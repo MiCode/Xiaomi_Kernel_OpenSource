@@ -414,7 +414,7 @@ static inline u32 mt6362_map_real_val(u32 sel, u32 min, u32 max, u32 step)
 static int mt6362_enable_hidden_mode(struct charger_device *chg_dev, bool en)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
-	int ret;
+	int ret = 0;
 
 	mt_dbg(data->dev, "%s: en = %d\n", __func__, en);
 	mutex_lock(&data->hidden_mode_lock);
@@ -813,7 +813,7 @@ out:
 
 static int mt6362_enable_otg_parameter(struct mt6362_chg_data *data, bool en)
 {
-	int ret;
+	int ret = 0;
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
 	mutex_lock(&data->otg_lock);
@@ -907,7 +907,7 @@ static int mt6362_charger_get_charge_type(struct mt6362_chg_data *data,
 					  union power_supply_propval *val)
 {
 	enum mt6362_ic_stat ic_stat;
-	int ret, type;
+	int ret, type = 0;
 
 	ret = mt6362_get_charging_status(data, &ic_stat);
 	if (ret < 0)
@@ -1112,7 +1112,6 @@ static int mt6362_charger_get_property(struct power_supply *psy,
 	struct mt6362_chg_data *data = power_supply_get_drvdata(psy);
 	int ret = 0;
 
-	mt_dbg(data->dev, "%s: prop = %d, val = %d\n", __func__, psp, *val);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6362_charger_get_online(data, val);
@@ -1153,6 +1152,8 @@ static int mt6362_charger_get_property(struct power_supply *psy,
 	default:
 		ret = -ENODATA;
 	}
+	mt_dbg(data->dev, "%s: prop = %d, val = %d\n", __func__,
+	       psp, val->intval);
 	return ret;
 }
 
@@ -1163,7 +1164,8 @@ static int mt6362_charger_set_property(struct power_supply *psy,
 	struct mt6362_chg_data *data = power_supply_get_drvdata(psy);
 	int ret;
 
-	mt_dbg(data->dev, "%s: prop = %d, val = %d\n", __func__, psp, *val);
+	mt_dbg(data->dev, "%s: prop = %d, val = %d\n", __func__,
+	       psp, val->intval);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6362_charger_set_online(data, val);

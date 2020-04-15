@@ -159,7 +159,7 @@ static int mt6362_buck_manager_probe(struct platform_device *pdev)
 	struct mt6362_buck_manager_data *data;
 	struct md_oc_info *oc_info;
 	struct regulator *reg;
-	int i, ret;
+	int i, ret = 0;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 	if (!of_device_is_available(pdev->dev.of_node)) {
