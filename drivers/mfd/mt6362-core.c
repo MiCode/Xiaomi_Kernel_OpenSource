@@ -158,7 +158,8 @@ static int mt6362_spmi_reg_read(void *context,
 		current_time = ktime_get();
 		if (ktime_before(current_time, avail_access_time)) {
 			/* used for usec time ceil */
-			ktime_add_ns(avail_access_time, NSEC_PER_USEC - 1);
+			avail_access_time = ktime_add_ns(avail_access_time,
+							     NSEC_PER_USEC - 1);
 			udelay(ktime_us_delta(avail_access_time, current_time));
 		}
 	}
