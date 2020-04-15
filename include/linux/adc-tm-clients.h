@@ -6,6 +6,7 @@
 #ifndef __QCOM_ADC_TM_H_CLIENTS__
 #define __QCOM_ADC_TM_H_CLIENTS__
 
+#include <linux/err.h>
 #include <linux/types.h>
 
 struct adc_tm_chip;
