@@ -208,6 +208,8 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 {
 	u32 hwirq = virq_to_hwirq(irq);
 
+	ecc_dump_debug_info();
+
 	cache_error_happened = true;
 	cache_error_times++;
 
@@ -245,8 +247,6 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 			cache_parity_wd.data.v2.irq_index,
 			ECC_IRQ_TRIGGER_THRESHOLD);
 	}
-
-	ecc_dump_debug_info();
 
 	return IRQ_HANDLED;
 }
