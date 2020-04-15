@@ -88,7 +88,7 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
 
-	state->min_cpus = min(val, state->max_cpus);
+	state->min_cpus = min(val, state->num_cpus);
 	wake_up_core_ctl_thread(state);
 
 	return count;
@@ -109,7 +109,6 @@ static ssize_t store_max_cpus(struct cluster_data *state,
 
 	val = min(val, state->num_cpus);
 	state->max_cpus = val;
-	state->min_cpus = min(state->min_cpus, state->max_cpus);
 	wake_up_core_ctl_thread(state);
 
 	return count;
