@@ -290,8 +290,9 @@ void ssusb_gadget_disconnect(struct mtu3 *mtu)
 
 static void ssusb_set_mode(struct work_struct *work)
 {
-	struct otg_switch_mtk *otg_sx = container_of(to_delayed_work(work),
+	struct otg_switch_mtk *__otg_sx = container_of(to_delayed_work(work),
 				struct otg_switch_mtk, dr_work);
+	struct otg_switch_mtk *otg_sx = g_otg_sx;
 	struct ssusb_mtk *ssusb =
 		container_of(otg_sx, struct ssusb_mtk, otg_switch);
 	struct mtu3 *mtu = ssusb->u3d;
@@ -299,7 +300,7 @@ static void ssusb_set_mode(struct work_struct *work)
 	unsigned int usb_mode;
 
 	spin_lock_irqsave(&otg_sx->dr_lock, flags);
-	usb_mode = otg_sx->desire_usb_mode;
+	usb_mode = __otg_sx->desire_usb_mode;
 	spin_unlock_irqrestore(&otg_sx->dr_lock, flags);
 
 	if (otg_sx->usb_mode != usb_mode) {
@@ -329,6 +330,8 @@ static void ssusb_set_mode(struct work_struct *work)
 			dev_info(ssusb->dev, "invalid state\n");
 		}
 	}
+
+	kfree(__otg_sx);
 }
 
 
@@ -341,6 +344,7 @@ void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 {
 	struct ssusb_mtk *ssusb =
 		container_of(otg_sx, struct ssusb_mtk, otg_switch);
+	struct otg_switch_mtk *__otg_sx;
 	unsigned long flags;
 	int i;
 
@@ -351,18 +355,25 @@ void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		return;
 	}
 
+	__otg_sx = kzalloc(sizeof(struct otg_switch_mtk), GFP_KERNEL);
+
+	if (!__otg_sx)
+		return;
+
+	INIT_DELAYED_WORK(&__otg_sx->dr_work, ssusb_set_mode);
+
 	spin_lock_irqsave(&otg_sx->dr_lock, flags);
 	switch (status) {
 	case MTU3_ID_GROUND:
-		otg_sx->desire_usb_mode = DUAL_PROP_HOST;
+		__otg_sx->desire_usb_mode = DUAL_PROP_HOST;
 		break;
 	case MTU3_VBUS_VALID:
 	case MTU3_CMODE_VBUS_VALID:
-		otg_sx->desire_usb_mode = DUAL_PROP_DEVICE;
+		__otg_sx->desire_usb_mode = DUAL_PROP_DEVICE;
 		break;
 	case MTU3_ID_FLOAT:
 	case MTU3_VBUS_OFF:
-		otg_sx->desire_usb_mode = DUAL_PROP_NONE;
+		__otg_sx->desire_usb_mode = DUAL_PROP_NONE;
 		break;
 	default:
 		dev_info(ssusb->dev, "invalid state\n");
@@ -374,9 +385,8 @@ void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 			mtu3_printk(K_CRIT, "dr_wq not ready\n");
 			msleep(500);
 		} else {
-			mtu3_printk(K_CRIT, "dr_wq is ready\n");
 			queue_delayed_work(otg_sx->dr_workq,
-				&otg_sx->dr_work, 0);
+				&__otg_sx->dr_work, 0);
 			break;
 		}
 	}
