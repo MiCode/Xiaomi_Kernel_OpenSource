@@ -870,6 +870,8 @@ static int goodix_read_pid(struct goodix_ts_device *dev,
 
 	if (strcmp(buffer, GOODIX_TS_PID_GT9886) == 0)
 		ts_info("Touch id = GT9886");
+	else if (strcmp(buffer, GOODIX_TS_PID_GT9885) == 0)
+		ts_info("Touch id = GT9885");
 	else {
 		ts_err("Touch id = %s", buffer);
 		return -EINVAL;
