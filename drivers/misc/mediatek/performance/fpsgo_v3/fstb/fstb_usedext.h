@@ -68,6 +68,7 @@ struct FSTB_FRAME_INFO {
 	long long m_m_time;
 	unsigned int m_m_cap;
 
+	long long cpu_time;
 	long long gpu_time;
 	int gpu_freq;
 
@@ -105,4 +106,3 @@ struct FSTB_FTEH_LIST {
 };
 
 #endif
-
