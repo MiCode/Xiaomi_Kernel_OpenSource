@@ -252,9 +252,10 @@ int scp_sys_full_reset(void)
 	/* reset dram from dram back */
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		tmp = (void *)(scp_ap_dram_virt +
-			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024));
+		/* mt6853 don't have core1 only dram region, remove *2 */
 		memset(scp_ap_dram_virt, 0,
-			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*2);
+			ROUNDUP(scp_region_info_copy.ap_dram_size, 1024));
 		memcpy(scp_ap_dram_virt, tmp,
 			scp_region_info_copy.ap_dram_size);
 	}

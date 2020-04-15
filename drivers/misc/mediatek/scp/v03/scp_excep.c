@@ -43,12 +43,9 @@ struct reg_save_st reg_save_list[] = {
 	/* size must 16 byte alignment */
 	{0x10721000, 0x120},
 	{0x10724000, 0x170},
-	{0x10730000, 0x120},
+	{0x10730000, 0x180},
 	{0x10732000, 0x260},
 	{0x10733000, 0x120},
-	{0x10740000, 0x120},
-	{0x10742000, 0x260},
-	{0x10743000, 0x120},
 	{0x10750000, 0x330},
 	{0x10751000, 0x10},
 	{0x10751400, 0x70},
@@ -234,13 +231,11 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		(SCP_A_TCM_SIZE));
 	scp_do_l1cdump((void *)&(pMemoryDump->l1c),
 		(void *)&(pMemoryDump->regdump));
-
 	/* dump sys registers */
 	scp_do_regdump((void *)&(pMemoryDump->regdump),
 		(void *)&(pMemoryDump->tbuf));
 	scp_do_tbufdump((void *)&(pMemoryDump->tbuf),
 		(void *)&(pMemoryDump->dram));
-
 	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_L1C_SIZE
 		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
 
