@@ -3984,6 +3984,18 @@ static int CAM_RAWB_sys_disable_op(struct subsys *sys)
 	return spm_mtcmos_ctrl_cam_rawb_pwr(STA_POWER_DOWN);
 }
 
+static int VPU_sys_prepare_op(struct subsys *sys)
+{
+	/*pr_debug("[CCF] %s\r\n", __func__); */
+	return 0;
+}
+
+static int VPU_sys_unprepare_op(struct subsys *sys)
+{
+	/*pr_debug("[CCF] %s\r\n", __func__); */
+	return 0;
+}
+
 static int VPU_sys_enable_op(struct subsys *sys)
 {
 	/*pr_debug("[CCF] %s\r\n", __func__); */
@@ -4146,6 +4158,8 @@ static struct subsys_ops CAM_RAWB_sys_ops = {
 	.get_state = sys_get_state_op,
 };
 static struct subsys_ops VPU_sys_ops = {
+	.prepare =  VPU_sys_prepare_op,
+	.unprepare =  VPU_sys_unprepare_op,
 	.enable = VPU_sys_enable_op,
 	.disable = VPU_sys_disable_op,
 	.get_state = sys_get_state_op,
@@ -4224,23 +4238,22 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	mtk_clk_lock(flags);
 
-	if (action == MTCMOS_BUS_PROT)
+	if (action == MTCMOS_BUS_PROT && sys->ops->prepare)
 		r = sys->ops->prepare(sys);
-	else if (action == MTCMOS_PWR)
+	else if (action == MTCMOS_PWR && sys->ops->enable)
 		r = sys->ops->enable(sys);
 
 	WARN_ON(r);
 
 	mtk_clk_unlock(flags);
 
-#if 1
 	if (action == MTCMOS_BUS_PROT) {
 		list_for_each_entry(pgcb, &pgcb_list, list) {
 			if (pgcb->after_on)
 				pgcb->after_on(id);
 		}
 	}
-#endif
+
 	return r;
 }
 
@@ -4271,19 +4284,18 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
-#if 1
 	if (action == MTCMOS_BUS_PROT) {
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->before_off)
 				pgcb->before_off(id);
 		}
 	}
-#endif
+
 	mtk_clk_lock(flags);
 
-	if (action == MTCMOS_BUS_PROT)
+	if (action == MTCMOS_BUS_PROT && sys->ops->unprepare)
 		r = sys->ops->unprepare(sys);
-	else if (action == MTCMOS_PWR)
+	else if (action == MTCMOS_PWR && sys->ops->disable)
 		r = sys->ops->disable(sys);
 
 	WARN_ON(r);
@@ -4392,7 +4404,7 @@ int pg_prepare(struct clk_hw *hw)
 		i++;
 	} while (i < CLK_NUM);
 
-	if (!skip_pg && sys->ops->prepare)
+	if (!skip_pg)
 		ret4 = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
 	if (ret2) {
 		mtk_mtcmos_unlock(flags);
@@ -4426,7 +4438,7 @@ void pg_unprepare(struct clk_hw *hw)
 	if (pg_is_enabled(hw) == SUBSYS_PWR_DOWN)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
-	if (!skip_pg && sys->ops->unprepare)
+	if (!skip_pg)
 		disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
 
 	do {
