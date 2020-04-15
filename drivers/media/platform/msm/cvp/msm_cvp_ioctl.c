@@ -227,7 +227,7 @@ static void print_hfi_short(struct cvp_kmd_arg __user *up)
 			get_user(words[4], &pkt->pkt_data[1]))
 		dprintk(CVP_ERR, "Failed to print ioctl cmd\n");
 
-	dprintk(CVP_DBG, "IOCTL cmd type %#x, offset %d, num %d, pkt %d %#x\n",
+	dprintk(CVP_HFI, "IOCTL cmd type %#x, offset %d, num %d, pkt %d %#x\n",
 			words[0], words[1], words[2], words[3], words[4]);
 }
 
@@ -370,7 +370,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 				kp->type, pkt_hdr.size, pkt_hdr.packet_type);
 			return -EFAULT;
 		}
-		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
+		dprintk(CVP_HFI, "system call cmd pkt: %d 0x%x\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
 
 		pkt_idx = get_pkt_index(&pkt_hdr);
@@ -532,7 +532,7 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		if (_get_pkt_hdr_from_user(up, &pkt_hdr))
 			return -EFAULT;
 
-		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
+		dprintk(CVP_HFI, "Send user cmd pkt: %d %d\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
 		rc = _copy_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
 		break;
@@ -542,7 +542,7 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr))
 			return -EFAULT;
 
-		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
+		dprintk(CVP_HFI, "Send user cmd pkt: %d %d\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
 
 		rc = _copy_fence_pkt_to_user(kp, up);

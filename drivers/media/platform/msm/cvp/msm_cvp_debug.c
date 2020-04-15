@@ -382,7 +382,7 @@ static int inst_info_open(struct inode *inode, struct file *file)
 static int publish_unreleased_reference(struct msm_cvp_inst *inst,
 		char **dbuf, char *end)
 {
-	dprintk(CVP_DBG, "%s deprecated function\n", __func__);
+	dprintk(CVP_SESS, "%s deprecated function\n", __func__);
 	return 0;
 }
 
