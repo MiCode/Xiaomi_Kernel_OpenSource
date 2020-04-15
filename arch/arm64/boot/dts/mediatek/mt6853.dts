@@ -2878,7 +2878,9 @@
 			<&topckgen CLK_TOP_UNIVPLL_192M_D4>,
 			<&topckgen CLK_TOP_CSW_F26M_CK_D2>,
 			<&topckgen CLK_TOP_UNIVPLL_192M_D16>,
-			<&topckgen CLK_TOP_UNIVPLL_192M_D32>;
+			<&topckgen CLK_TOP_UNIVPLL_192M_D32>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D2>,
+			<&topckgen CLK_TOP_UNIVPLL_D5>;
 		clock-names = "SCP_SYS_CAM",
 			"CAMSYS_SENINF_CGPDN",
 			"TOP_MUX_SENINF",
@@ -2895,7 +2897,9 @@
 			"TOP_UNIVP_192M_D4",
 			"TOP_F26M_CK_D2",
 			"TOP_UNIVP_192M_D16",
-			"TOP_UNIVP_192M_D32";
+			"TOP_UNIVP_192M_D32",
+			"TOP_UNIVP_D4_D2",
+			"TOP_MAINP_D5";
 	};
 
 	kd_camera_hw1:kd_camera_hw1@1a004000 {

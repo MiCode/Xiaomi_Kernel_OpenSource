@@ -21,6 +21,8 @@ static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
 	{"TOP_MUX_SENINF"},
 	{"TOP_MUX_SENINF1"},
 	{"TOP_MUX_SENINF2"},
+	{"TOP_UNIVP_D4_D2"},
+	{"TOP_MAINP_D5"},
 	{"TOP_MUX_CAMTG"},
 	{"TOP_MUX_CAMTG2"},
 	{"TOP_MUX_CAMTG3"},
@@ -200,14 +202,6 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 		;
 
 	if (pmclk->on) {
-		/* Workaround for timestamp: TG1 always ON */
-		if (clk_prepare_enable(
-			pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]))
-			pr_debug("[CAMERA SENSOR] failed tg=%d\n",
-				  SENINF_CLK_IDX_TG_TOP_MUX_CAMTG);
-		else
-			atomic_inc(
-			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
 
 		if (clk_prepare_enable(
 			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]))
@@ -215,27 +209,10 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 		else
 			atomic_inc(
 		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
-
-		if (clk_prepare_enable(
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]))
-			pr_debug("[CAMERA SENSOR] failed freq idx= %d\n", i);
-		else
-			atomic_inc(&pclk->enable_cnt[i
-					+ SENINF_CLK_IDX_FREQ_MIN_NUM]);
-
 		ret = clk_set_parent(
 			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM],
 			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
 	} else {
-		if (atomic_read
-			(&pclk->enable_cnt[i + SENINF_CLK_IDX_FREQ_MIN_NUM])
-			> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
-			atomic_dec(
-			&pclk->enable_cnt[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
-		}
-
 		if (atomic_read(
 		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM])
 		> 0) {
@@ -244,16 +221,6 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 			atomic_dec(
 		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
 		}
-
-		/* Workaround for timestamp: TG1 always ON */
-		if (atomic_read(
-			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG])
-			> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
-			atomic_dec(
-			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
-		}
 	}
 
 	return ret;
@@ -261,7 +228,8 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 
 void seninf_clk_open(struct SENINF_CLK *pclk)
 {
-	MINT32 i;
+	MINT32 i = 0;
+	MINT32 j = 0;
 
 	PK_DBG("open\n");
 #ifdef PREVENT_SUSPEND
@@ -283,6 +251,24 @@ void seninf_clk_open(struct SENINF_CLK *pclk)
 			pr_debug("[CAMERA SENSOR] failed sys idx= %d\n", i);
 		else
 			atomic_inc(&pclk->enable_cnt[i]);
+	}
+	for (i = SENINF_CLK_IDX_SENINF_CK_MIN_NUM;
+		i < SENINF_CLK_IDX_SENINF_CK_MAX_NUM;
+		i++) {
+		if (clk_prepare_enable(pclk->mclk_sel[i]))
+			pr_debug(
+			"[CAMERA SENSOR] failed to enable seninf_ck idx= %d\n"
+			, i);
+		else {
+			atomic_inc(&pclk->enable_cnt[i]);
+			j = SENINF_CLK_SENINF_CK_273;
+			if (!clk_set_parent(pclk->mclk_sel[i],
+				pclk->mclk_sel[j]))
+				pr_debug(
+				"[CAMERA SENSOR] failed to set seninf_ck idx= %d source =%d\n",
+				i, j);
+
+		}
 	}
 }
 
@@ -329,7 +315,10 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 	else
 		return 0;
 #else
-	return 0;
+	if (clk < 64)
+		return mt_get_ckgen_freq(clk);
+	else
+		return 0;
 #endif
 }
 
