@@ -51,12 +51,15 @@
 
 /* macros definition */
 /* mtk touch factory test: "mtk-tpd2" */
-#define GOODIX_CORE_DRIVER_NAME	"mtk-tpd2"
+#define GOODIX_CORE_DRIVER_NAME	"gt9886"
+#define GOODIX_INPUT_DEV_NAME	"mtk-tpd2"
 #define GOODIX_DRIVER_VERSION	"v1.2.0.1"
+#define GOODIX_TS_PID_GT9886	"9886"
 #define GOODIX_BUS_RETRY_TIMES	3
+#define GOODIX_CHIPID_RETRY_TIMES	1
 #define GOODIX_MAX_TOUCH	10
 #define GOODIX_MAX_PEN		1
-#define GOODIX_MAX_KEY	3
+#define GOODIX_MAX_KEY		3
 #define GOODIX_PEN_MAX_KEY	2
 #define GOODIX_CFG_MAX_SIZE	1024
 #define GOODIX_ESD_TICK_WRITE_DATA 0xAA
@@ -74,7 +77,7 @@
 #define PINCTRL_STATE_INT_SUSPEND   "ts_int_suspend"
 #define PINCTRL_STATE_RST_SUSPEND   "ts_reset_suspend"
 
-#define GOODIX_TOUCH_EVENT	    0x80
+#define GOODIX_TOUCH_EVENT	0x80
 #define GOODIX_REQUEST_EVENT	0x40
 #define GOODIX_GESTURE_EVENT	0x20
 #define GOODIX_HOTKNOT_EVENT	0x10
@@ -423,6 +426,8 @@ struct goodix_ts_hw_ops {
 	int (*check_hw)(struct goodix_ts_device *dev);
 	int (*suspend)(struct goodix_ts_device *dev);
 	int (*resume)(struct goodix_ts_device *dev);
+	int (*read_pid)(struct goodix_ts_device *dev,
+			struct goodix_ts_version *version);
 };
 
 /*
@@ -701,13 +706,13 @@ static inline u32 checksum_be32(u8 *data, u32 size)
 
 /* log macro */
 #define ts_info(fmt, arg...)\
-	pr_info("[GTP9xx-INF][%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
+	pr_info("[GT9886-INF][%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
 #define	ts_err(fmt, arg...)\
-	pr_info("[GTP9xx-ERR][%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
+	pr_info("[GT9886-ERR][%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
 #define boot_log(fmt, arg...)	g_info(fmt, ##arg)
 #ifdef CONFIG_GOODIX_DEBUG
 #define ts_debug(fmt, arg...)\
-	pr_info("[GTP9xx-DBG][%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
+	pr_info("[GT9886-DBG][%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
 #else
 #define ts_debug(fmt, arg...)	do {} while (0)
 #endif
@@ -787,5 +792,6 @@ extern int i2c_touch_suspend(void);
 extern int goodix_start_cfg_bin(struct goodix_ts_core *ts_core);
 int gt9886_touch_filter_register(void);
 int goodix_ts_core_init(void);
+extern atomic_t gt9886_tui_flag;
 
 #endif

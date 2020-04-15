@@ -31,22 +31,23 @@
 #define TS_DT_COMPATIBLE "goodix,gt9886"
 #define TS_DRIVER_NAME "GT9886"
 #define I2C_MAX_TRANSFER_SIZE	256
-#define TS_ADDR_LENGTH	2
-#define TS_DOZE_ENABLE_RETRY_TIMES		3
-#define TS_DOZE_DISABLE_RETRY_TIMES		9
+#define TS_ADDR_LENGTH		2
+#define TS_DOZE_ENABLE_RETRY_TIMES	3
+#define TS_DOZE_DISABLE_RETRY_TIMES	9
 #define TS_WAIT_CFG_READY_RETRY_TIMES	30
 #define TS_WAIT_CMD_FREE_RETRY_TIMES	10
 
 #define TS_REG_COORDS_BASE	0x824E
-#define TS_REG_CMD			0x8040
+#define TS_REG_CMD		0x8040
 #define TS_REG_REQUEST		0x8044
 #define TS_REG_VERSION		0x8240
 #define TS_REG_CFG_BASE		0x8050
 #define TS_REG_DOZE_CTRL	0x30F0
 #define TS_REG_DOZE_STAT	0x3100
 #define TS_REG_ESD_TICK_R	0x3103
+#define TS_REG_PID		0x4535
 
-#define CFG_XMAX_OFFSET (0x8052 - 0x8050)
+#define CFG_XMAX_OFFSET	(0x8052 - 0x8050)
 #define CFG_YMAX_OFFSET	(0x8054 - 0x8050)
 
 #define REQUEST_HANDLED	0x00
@@ -56,8 +57,8 @@
 #define REQUEST_MAINCLK	0x04
 #define REQUEST_IDLE	0x05
 
-#define COMMAND_SLEEP				0x05
-#define COMMAND_CLOSE_HID			0xaa
+#define COMMAND_SLEEP			0x05
+#define COMMAND_CLOSE_HID		0xaa
 #define COMMAND_START_SEND_CFG		0x80
 #define COMMAND_END_SEND_CFG		0x83
 #define COMMAND_SEND_SMALL_CFG		0x81
@@ -65,10 +66,10 @@
 #define COMMAND_START_READ_CFG		0x86
 #define COMMAND_READ_CFG_PREPARE_OK	0x85
 
-#define BYTES_PER_COORD 8
-#define TS_MAX_SENSORID	5
-#define TS_CFG_MAX_LEN	1024
-#define TS_CFG_HEAD_LEN	4
+#define BYTES_PER_COORD		8
+#define TS_MAX_SENSORID		5
+#define TS_CFG_MAX_LEN		1024
+#define TS_CFG_HEAD_LEN		4
 #define TS_CFG_BAG_NUM_INDEX	2
 #define TS_CFG_BAG_START_INDEX	4
 #if TS_CFG_MAX_LEN > GOODIX_CFG_MAX_SIZE
@@ -78,8 +79,8 @@
 #define TAG_I2C ""
 #define TS_DOZE_DISABLE_DATA	0xAA
 #define TS_DOZE_CLOSE_OK_DATA	0xBB
-#define TS_DOZE_ENABLE_DATA		0xCC
-#define	TS_CMD_REG_READY		0xFF
+#define TS_DOZE_ENABLE_DATA	0xCC
+#define	TS_CMD_REG_READY	0xFF
 
 /***********for config & firmware*************/
 const char *gt9886_firmware_buf;
@@ -851,6 +852,31 @@ int goodix_send_command(struct goodix_ts_device *dev,
 	return ret;
 }
 
+static int goodix_read_pid(struct goodix_ts_device *dev,
+		struct goodix_ts_version *version)
+{
+	u8 buffer[12] = {0};
+	int r, retry;
+	u8 pid_read_len = 4;
+
+	for (retry = 0; retry < GOODIX_CHIPID_RETRY_TIMES; retry++) {
+		/*read pid*/
+		r = goodix_i2c_read(dev, TS_REG_PID,
+				buffer, pid_read_len);
+		if (!r)
+			break;
+		ts_info("Touch id = %s, retry = %d", buffer, retry);
+	}
+
+	if (strcmp(buffer, GOODIX_TS_PID_GT9886) == 0)
+		ts_info("Touch id = GT9886");
+	else {
+		ts_err("Touch id = %s", buffer);
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static int goodix_read_version(struct goodix_ts_device *dev,
 		struct goodix_ts_version *version)
@@ -2172,6 +2198,7 @@ static const struct goodix_ts_hw_ops hw_i2c_ops = {
 	.suspend = goodix_hw_suspend,
 	.resume = goodix_hw_resume,
 	.check_hw = goodix_esd_check,
+	.read_pid = goodix_read_pid,
 };
 
 static struct platform_device *goodix_pdev;

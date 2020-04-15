@@ -17,22 +17,10 @@
   * General Public License for more details.
   *
   */
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/interrupt.h>
 #include <linux/of_platform.h>
-#include <linux/completion.h>
-#include <linux/debugfs.h>
-#include <linux/of_irq.h>
 #include <uapi/linux/sched/types.h>
 #ifdef CONFIG_DRM_MEDIATEK
 #include "mtk_panel_ext.h"
-#endif
-#ifdef CONFIG_FB
-#include <linux/notifier.h>
-#include <linux/fb.h>
 #endif
 #define TAG_CORE ""
 #include "goodix_ts_core.h"
@@ -42,9 +30,9 @@
 #define INPUT_TYPE_B_PROTOCOL
 #endif
 
-#define GOOIDX_INPUT_PHYS		"goodix_ts/input0"
+#define GOOIDX_INPUT_PHYS	"goodix_ts/input0"
 
-static struct goodix_ts_core *resume_core_data;
+struct goodix_ts_core *resume_core_data;
 static struct task_struct *gt9886_polling_thread;
 static int goodix_ts_event_polling(void *arg);
 
@@ -1472,7 +1460,7 @@ int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
 	core_data->input_dev = input_dev;
 	input_set_drvdata(input_dev, core_data);
 
-	input_dev->name = GOODIX_CORE_DRIVER_NAME;
+	input_dev->name = GOODIX_INPUT_DEV_NAME;
 	input_dev->phys = GOOIDX_INPUT_PHYS;
 	input_dev->id.product = 0xDEAD;
 	input_dev->id.vendor = 0xBEEF;
@@ -1930,7 +1918,6 @@ out:
 static void resume_workqueue_callback(struct work_struct *work)
 {
 	goodix_ts_resume(resume_core_data);
-	touch_suspend_flag = 0;
 }
 
 #ifdef CONFIG_FB
@@ -1960,6 +1947,7 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 						ts_err("start resume_workqueue failed\n");
 						return err;
 					}
+					touch_suspend_flag = 0;
 				}
 			} else if (*blank == FB_BLANK_POWERDOWN) {
 				if (!touch_suspend_flag) {
@@ -1968,8 +1956,8 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 					if (!err)
 						ts_err("cancel resume_workqueue failed\n");
 					goodix_ts_suspend(core_data);
+					touch_suspend_flag = 1;
 				}
-				touch_suspend_flag = 1;
 			}
 		}
 	}
@@ -2079,7 +2067,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	struct goodix_ts_device *ts_device;
 	struct goodix_ts_board_data *ts_bdata;
 	int r;
-	u8 read_val = 0;
 #ifdef CONFIG_DRM_MEDIATEK
 	void **ret = NULL;
 #endif
@@ -2149,15 +2136,15 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	if (r < 0)
 		goto err;
 
-	usleep_range(50000, 51000);
+	msleep(50);
 
 	/*i2c test*/
-	r = ts_device->hw_ops->read_trans(ts_device, 0x3100,
-			&read_val, 1);
+	r = ts_device->hw_ops->read_pid(ts_device,
+			&ts_device->chip_version);
 	if (!r)
-		ts_info("i2c test SUCCESS");
+		ts_info("i2c test SUCCESS!!!");
 	else {
-		ts_err("i2c test FAILED");
+		ts_err("i2c test FAILED!!!");
 		goto err;
 	}
 
