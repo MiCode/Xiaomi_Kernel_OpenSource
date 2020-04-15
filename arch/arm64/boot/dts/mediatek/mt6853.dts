@@ -3511,7 +3511,7 @@
 		ccu_step2 = <364 1 9 21>;
 		ccu_step3 = <229 1 9 19>;
 
-		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
+		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 
 		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
 		vopp_steps = <0 1 2 3>;
