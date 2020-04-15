@@ -3616,17 +3616,14 @@ static inline void
 enqueue_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
 	struct sched_avg *sa = &se->avg;
-	int rm_rq_util;
 
 	cfs_rq->runnable_load_avg += sa->load_avg;
 	cfs_rq->runnable_load_sum += sa->load_sum;
 
-	rm_rq_util = get_sched_rm_util();
-	if (!sa->last_update_time || (rm_rq_util && se->rm_util)) {
+	if (!sa->last_update_time) {
 		attach_entity_load_avg(cfs_rq, se);
 		update_tg_load_avg(cfs_rq, 0);
 	}
-	se->rm_util = rm_rq_util;
 
 #ifdef CONFIG_SCHED_HMP
 	if (sched_feat(SCHED_HMP) && entity_is_task(se))
@@ -3643,10 +3640,6 @@ dequeue_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	cfs_rq->runnable_load_sum =
 		max_t(s64,  cfs_rq->runnable_load_sum - se->avg.load_sum, 0);
 
-	if (se->rm_util) {
-		detach_entity_load_avg(cfs_rq, se);
-		update_tg_load_avg(cfs_rq, 0);
-	}
 #ifdef CONFIG_SCHED_HMP
 	if (sched_feat(SCHED_HMP) && entity_is_task(se))
 		hmp_dequeue_entity_load_avg(cfs_rq, se);
@@ -3706,11 +3699,8 @@ void remove_entity_load_avg(struct sched_entity *se)
 	 */
 
 	sync_entity_load_avg(se);
-
-	if (!se->rm_util) {
-		atomic_long_add(se->avg.load_avg, &cfs_rq->removed_load_avg);
-		atomic_long_add(se->avg.util_avg, &cfs_rq->removed_util_avg);
-	}
+	atomic_long_add(se->avg.load_avg, &cfs_rq->removed_load_avg);
+	atomic_long_add(se->avg.util_avg, &cfs_rq->removed_util_avg);
 }
 
 static inline unsigned long cfs_rq_runnable_load_avg(struct cfs_rq *cfs_rq)
