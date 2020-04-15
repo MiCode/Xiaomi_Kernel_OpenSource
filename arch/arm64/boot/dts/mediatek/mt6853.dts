@@ -1222,6 +1222,10 @@
 	touch:touch {
 	};
 
+	goodix_fp: fingerprint {
+		compatible = "mediatek,goodix-fp";
+	};
+
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
 	};
