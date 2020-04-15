@@ -6,6 +6,7 @@ Required properties :
 
 			"qcom,sdm845-videocc"
 			"qcom,lahaina-videocc"
+			"qcom,shima-videocc"
 
 - reg : shall contain base register location and length
 - #clock-cells : from common clock binding, shall contain 1.
