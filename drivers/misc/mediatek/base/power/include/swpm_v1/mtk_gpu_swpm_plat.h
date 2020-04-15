@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -20,6 +20,10 @@
 
 #if defined(CONFIG_MACH_MT6873)
 #include "subsys/mtk_gpu_swpm_mt6873.h"
+#endif
+
+#if defined(CONFIG_MACH_MT6853)
+#include "subsys/mtk_gpu_swpm_mt6853.h"
 #endif
 
 #endif
