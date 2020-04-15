@@ -153,7 +153,7 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	unsigned char cinst_const_mode[NR_CINST_CPU];
 	unsigned char cinst_ls_idx_sel[NR_CINST_CPU];
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
-	unsigned int cinst_cfg;
+	unsigned int cinst_cfg = CINST_RW_REG_READ << 4;
 	unsigned char is_reg_status_valid;
 
 	/* check free page valid or not */

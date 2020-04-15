@@ -27,7 +27,6 @@
 /************************************************
  * Register addr, offset, bits range
  ************************************************/
-static DEFINE_SPINLOCK(drcc_spinlock);
 #define DRCC_BASE 0x0C530000
 #define CPU0_DRCC_A0_CONFIG	(DRCC_BASE + 0xB000)
 #define CPU0_DRCC_CFG_REG0	(DRCC_BASE + 0x0280)

@@ -230,6 +230,7 @@ static int ptp3_reg_w_proc_show(struct seq_file *m, void *v)
 static ssize_t ptp3_reg_w_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
+	int ret;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	char *addr, *val;
 
@@ -249,9 +250,9 @@ static ssize_t ptp3_reg_w_proc_write(struct file *file,
 	val = strsep(&buf, " ");
 	ptp3_msg("addr(%s) val(%s)\n", addr, val);
 	if (addr)
-		kstrtou32(addr, 16, (unsigned int *)&ptp3_addr_w);
+		ret = kstrtou32(addr, 16, (unsigned int *)&ptp3_addr_w);
 	if (val)
-		kstrtou32(val, 16, (unsigned int *)&ptp3_value_w);
+		ret = kstrtou32(val, 16, (unsigned int *)&ptp3_value_w);
 	ptp3_msg("ptp3_addr_w(0x%08x) ptp3_value_w(0x%08x)\n",
 		ptp3_addr_w, ptp3_value_w);
 
@@ -282,6 +283,7 @@ static int ptp3_reg_r_proc_show(struct seq_file *m, void *v)
 static ssize_t ptp3_reg_r_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
+	int ret;
 	char *buf = (char *) __get_free_page(GFP_USER);
 	char *addr;
 
@@ -300,7 +302,7 @@ static ssize_t ptp3_reg_r_proc_write(struct file *file,
 	addr = strsep(&buf, " ");
 	ptp3_msg("addr(%s)\n", addr);
 	if (addr)
-		kstrtou32(addr, 16, (unsigned int *)&ptp3_addr_r);
+		ret = kstrtou32(addr, 16, (unsigned int *)&ptp3_addr_r);
 
 	ptp3_msg("ptp3_addr_r(0x%08x)\n", ptp3_addr_r);
 out:

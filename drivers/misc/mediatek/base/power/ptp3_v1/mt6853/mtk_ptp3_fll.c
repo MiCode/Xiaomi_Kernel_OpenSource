@@ -225,7 +225,7 @@ static unsigned int fll_smc_handle(
 	unsigned int cfg = (rw << 15) | (shift << 10) | (bits << 4) | cpu;
 
 	fll_msg("[%s]:cpu(%d) group(%d) shift(%d) bits(%d) val(%d)\n",
-		__func__, group, shift, bits, val);
+		__func__, cpu, group, shift, bits, val);
 
 	/* update atf via smc */
 	ret = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
@@ -251,7 +251,7 @@ static void fll_ipi_handle(unsigned int cpu, unsigned int group,
 	fll_data.u.fll.val = val;
 
 	fll_msg("[%s]:cpu(%d) group(%d) shift(%d) bits(%d) val(%d)\n",
-		__func__, group, shift, bits, val);
+		__func__, cpu, group, shift, bits, val);
 
 	/* update mcupm or cpueb via ipi */
 	while (ptp3_ipi_handle(&fll_data) != 0)
@@ -565,6 +565,7 @@ static int fll_kpki_proc_show(struct seq_file *m, void *v)
 static ssize_t fll_reg_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
+	int ret;
 	/* parameter input */
 	char *cpu_str, *fll_group_str, *bits_str, *shift_str, *value_str;
 	unsigned int cpu, fll_group, bits, shift, value;
@@ -595,15 +596,15 @@ static ssize_t fll_reg_proc_write(struct file *file,
 		cpu_str, fll_group_str, bits_str, shift_str, value_str);
 
 	if (cpu_str)
-		kstrtou32(cpu_str, 10, (unsigned int *)&cpu);
+		ret = kstrtou32(cpu_str, 10, (unsigned int *)&cpu);
 	if (fll_group_str)
-		kstrtou32(fll_group_str, 10, (unsigned int *)&fll_group);
+		ret = kstrtou32(fll_group_str, 10, (unsigned int *)&fll_group);
 	if (bits_str)
-		kstrtou32(bits_str, 10, (unsigned int *)&bits);
+		ret = kstrtou32(bits_str, 10, (unsigned int *)&bits);
 	if (shift_str)
-		kstrtou32(shift_str, 10, (unsigned int *)&shift);
+		ret = kstrtou32(shift_str, 10, (unsigned int *)&shift);
 	if (value_str)
-		kstrtou32(value_str, 16, (unsigned int *)&value);
+		ret = kstrtou32(value_str, 16, (unsigned int *)&value);
 
 	fll_msg("cpu(%d) fll_group(%d) bits(%d) shift(%d) value(0x%08x)\n",
 		cpu, fll_group, bits, shift, value);

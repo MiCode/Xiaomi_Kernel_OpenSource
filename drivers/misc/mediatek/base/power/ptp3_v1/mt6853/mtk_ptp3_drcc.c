@@ -88,6 +88,7 @@
 /************************************************
  * DRCC spinlock
  ************************************************/
+static DEFINE_SPINLOCK(drcc_spinlock);
 #ifdef TIME_LOG
 static long long drcc_get_current_time_us(void)
 {
@@ -130,7 +131,6 @@ static void mtk_drcc_unlock(unsigned long *flags)
 /************************************************
  * static Variable
  ************************************************/
-// static DEFINE_SPINLOCK(drcc_spinlock);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
@@ -183,7 +183,7 @@ int drcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	enum DRCC_TRIGGER_STAGE drcc_tri_stage)
 {
 	int str_len = 0;
-	unsigned int i, value, drcc_n = 0;
+	unsigned int i, value, drcc_n = 0, reg_value;
 
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
@@ -197,18 +197,19 @@ int drcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	/* collect dump info */
 	for (drcc_n = 0; drcc_n < DRCC_NUM; drcc_n++) {
+		reg_value = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
+					PTP3_FEATURE_DRCC,
+					DRCC_GROUP_READ,
+					CPU0_DRCC_A0_CONFIG
+						+ ((u64)0x200 * drcc_n),
+					0);
 		str_len +=
 			snprintf(aee_log_buf + str_len,
 			(unsigned long long)drcc_mem_size - str_len,
 			"CPU(%d)_DRCC_AO_CONFIG reg=0x%llx,\t value=0x%x\n",
 			drcc_n,
 			CPU0_DRCC_A0_CONFIG + ((u64)0x200 * drcc_n),
-			mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
-					PTP3_FEATURE_DRCC,
-					DRCC_GROUP_READ,
-					CPU0_DRCC_A0_CONFIG
-						+ ((u64)0x200 * drcc_n),
-					0));
+			reg_value);
 
 		str_len +=
 			snprintf(aee_log_buf + str_len,
