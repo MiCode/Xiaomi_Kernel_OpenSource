@@ -107,6 +107,9 @@
 	((FASTRPC_CTX_MAX - 1) << FASTRPC_CTX_TABLE_IDX_POS)
 #define FASTRPC_ASYNC_JOB_MASK   (1)
 
+#define GET_TABLE_IDX_FROM_CTXID(ctxid) \
+	((ctxid & FASTRPC_CTX_TABLE_IDX_MASK) >> FASTRPC_CTX_TABLE_IDX_POS)
+
 /* Reserve few entries in context table for critical kernel RPC calls
  * to avoid user invocations from exhausting all entries.
  */
@@ -1485,7 +1488,7 @@ static void context_save_interrupted(struct smq_invoke_ctx *ctx)
 
 static void context_free(struct smq_invoke_ctx *ctx)
 {
-	int i;
+	uint32_t i = 0;
 	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
@@ -1493,11 +1496,19 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	struct fastrpc_channel_ctx *chan = &me->channel[cid];
 	unsigned long irq_flags = 0;
 
+	i = (uint32_t)GET_TABLE_IDX_FROM_CTXID(ctx->ctxid);
+
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
-	for (i = 0; i < FASTRPC_CTX_MAX; i++) {
-		if (chan->ctxtable[i] == ctx) {
-			chan->ctxtable[i] = NULL;
-			break;
+	if (i < FASTRPC_CTX_MAX && chan->ctxtable[i] == ctx) {
+		chan->ctxtable[i] = NULL;
+	} else {
+		pr_warn("adsprpc: %s: %s: encoded table ID %u is invalid (handle 0x%x, sc 0x%x)\n",
+			current->comm, __func__, i, ctx->handle, ctx->sc);
+		for (i = 0; i < FASTRPC_CTX_MAX; i++) {
+			if (chan->ctxtable[i] == ctx) {
+				chan->ctxtable[i] = NULL;
+				break;
+			}
 		}
 	}
 	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
@@ -1512,7 +1523,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	mutex_unlock(&ctx->fl->map_mutex);
 
 	fastrpc_buf_free(ctx->buf, 1);
-	if (!(ctx->copybuf == ctx->buf))
+	if (ctx->copybuf != ctx->buf)
 		fastrpc_buf_free(ctx->copybuf, 1);
 	kfree(ctx->lrpra);
 	ctx->lrpra = NULL;
@@ -3810,6 +3821,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
 	struct smq_invoke_rspv2 *rspv2 = NULL;
+	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rsp_flags = 0, early_wake_time = 0;
 	int err = 0, cid = -1;
@@ -3836,21 +3848,19 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
 		rsp->retval, rsp_flags, early_wake_time);
 
-	index = (uint32_t)((rsp->ctx & FASTRPC_CTX_TABLE_IDX_MASK)
-					>> FASTRPC_CTX_TABLE_IDX_POS);
+	index = (uint32_t)GET_TABLE_IDX_FROM_CTXID(rsp->ctx);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
 	if (err)
 		goto bail;
 
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
-	VERIFY(err, !IS_ERR_OR_NULL(chan->ctxtable[index]));
+	ctx = chan->ctxtable[index];
+	VERIFY(err, !IS_ERR_OR_NULL(ctx));
 	if (err)
 		goto bail_unlock;
 
-	VERIFY(err, ((chan->ctxtable[index]->ctxid ==
-		(rsp->ctx & ~CONTEXT_PD_CHECK)) &&
-			chan->ctxtable[index]->magic ==
-				FASTRPC_CTX_MAGIC));
+	VERIFY(err, ((ctx->ctxid == (rsp->ctx & ~CONTEXT_PD_CHECK)) &&
+			ctx->magic == FASTRPC_CTX_MAGIC));
 	if (err)
 		goto bail_unlock;
 
@@ -3859,8 +3869,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		if (err)
 			goto bail_unlock;
 	}
-	context_notify_user(chan->ctxtable[index], rsp->retval,
-				 rsp_flags, early_wake_time);
+	context_notify_user(ctx, rsp->retval, rsp_flags, early_wake_time);
 bail_unlock:
 	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 bail:
