@@ -800,7 +800,7 @@ static ssize_t debug_ctl_store(struct kobject *kobj,
 	u32 onoff = 0;
 	char cmd[32] = {'\0'};
 
-	if ((sscanf(buf, "%31s %x", cmd, onoff) != 2))
+	if ((sscanf(buf, "%31s %x", cmd, &onoff) != 2))
 		return -EPERM;
 
 	if (!strcmp(cmd, "MORE_MSG")) {
