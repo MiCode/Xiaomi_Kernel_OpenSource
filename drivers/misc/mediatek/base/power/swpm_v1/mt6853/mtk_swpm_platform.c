@@ -692,23 +692,19 @@ static void swpm_core_thermal_cb(void)
 {
 #ifdef CONFIG_THERMAL
 #if CFG_THERM_LVTS
-	int temp, infra_temp, cam_temp;
+	int top_temp;
 
 	if (!core_ptr)
 		return;
 
-	infra_temp = get_immediate_tslvts6_0_wrap();
-	cam_temp = get_immediate_tslvts6_1_wrap();
-
-	temp = (infra_temp + cam_temp) / 2;
+	top_temp = get_immediate_tslvts3_2_wrap();
 
 	/* truncate negative deg */
-	temp = (temp < 0) ? 0 : temp;
-	core_ptr->thermal = (unsigned int)temp;
+	top_temp = (top_temp < 0) ? 0 : top_temp;
+	core_ptr->thermal = (unsigned int)top_temp;
 
 #if SWPM_TEST
-	swpm_err("swpm_core infra lvts6_0 = %d\n", infra_temp);
-	swpm_err("swpm_core cam lvts6_1 = %d\n", cam_temp);
+	swpm_err("swpm_core top lvts3_2 = %d\n", top_temp);
 	swpm_err("swpm_core cpuL = %d\n", get_immediate_cpuL_wrap());
 	swpm_err("swpm_core cpuB = %d\n", get_immediate_cpuB_wrap());
 #endif
