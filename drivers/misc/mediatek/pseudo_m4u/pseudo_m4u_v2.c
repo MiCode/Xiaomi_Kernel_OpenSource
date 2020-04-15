@@ -2439,6 +2439,7 @@ void pseudo_m4u_db_debug(unsigned int m4uid,
 		for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
 			mtk_dump_main_tlb(m4uid, i, s);
 		mtk_dump_pfh_tlb(m4uid, s);
+		mtk_dump_victim_tlb(m4uid, s);
 		__mtk_dump_reg_for_hang_issue(m4uid, s);
 		M4U_PRINT_SEQ(s,
 			      "=========================iommu%d finish HW register dump============================\n",
@@ -2451,6 +2452,7 @@ void pseudo_m4u_db_debug(unsigned int m4uid,
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
 				mtk_dump_main_tlb(i, j, s);
 			mtk_dump_pfh_tlb(i, s);
+			mtk_dump_victim_tlb(i, s);
 			__mtk_dump_reg_for_hang_issue(i, s);
 			M4U_PRINT_SEQ(s,
 				      "====================================iommu%d finish HW register dump==============================\n",

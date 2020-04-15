@@ -64,20 +64,22 @@ struct mmu_tlb_t {
 	unsigned int desc;
 };
 
+#if 0
 struct mmu_pfh_tlb_t {
-	unsigned int va;
-	unsigned int va_msk;
+	unsigned long va;
+	unsigned long va_msk;
 	char layer;
-	char x16;
 	char sec;
 	char pfh;
 	char valid;
 	unsigned int desc[32];
 	int set;
 	int way;
+	int bank;
 	unsigned int page_size;
 	unsigned int tag;
 };
+#endif
 
 extern phys_addr_t mtkfb_get_fb_base(void);
 size_t mtkfb_get_fb_size(void);
@@ -213,6 +215,8 @@ char *mtk_iommu_get_mm_port_name(unsigned int m4uid,
 int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id,
 		struct seq_file *s);
 int mtk_dump_pfh_tlb(int m4u_id,
+		struct seq_file *s);
+int mtk_dump_victim_tlb(int m4u_id,
 		struct seq_file *s);
 int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
 		unsigned int end, char *user);
