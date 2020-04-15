@@ -4089,28 +4089,28 @@
 		#iommu-cells = <1>;
 	};
 
-	iommu0_bank1: m4u@1401e000 {
+	iommu0_bank1: m4u@14017000 {
 		cell-index = <0>;
 		compatible = "mediatek,bank1_m4u0";
 		reg = <0 0x14017000 0 0x1000>;
 		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	iommu0_bank2: m4u@1401f000 {
+	iommu0_bank2: m4u@14018000 {
 		cell-index = <0>;
 		compatible = "mediatek,bank2_m4u0";
 		reg = <0 0x14018000 0 0x1000>;
 		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	iommu0_bank3: m4u@14020000 {
+	iommu0_bank3: m4u@14019000 {
 		cell-index = <0>;
 		compatible = "mediatek,bank3_m4u0";
 		reg = <0 0x14019000 0 0x1000>;
 		interrupts = <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	iommu0_sec: m4u@14021000 {
+	iommu0_sec: m4u@1401a000 {
 		cell-index = <0>;
 		compatible = "mediatek,sec_m4u0";
 		reg = <0 0x1401a000 0 0x1000>;
