@@ -97,8 +97,9 @@ static void __iomem *gpio_base;
 static struct pm_qos_request dvfsrc_scp_vcore_req;
 #endif
 
-unsigned int slp_ipi_ackdata0, slp_ipi_ackdata1;
+unsigned int slp_ipi_ackdata0;
 int slp_ipi_init_done;
+unsigned int sleep_block_cnt[NR_REASONS];
 
 void scp_slp_ipi_init(void)
 {
@@ -108,11 +109,6 @@ void scp_slp_ipi_init(void)
 			NULL, NULL, &slp_ipi_ackdata0);
 	if (ret)
 		pr_err("scp0 sleep ipi_register fail, ret %d\n", ret);
-
-	ret = mtk_ipi_register(&scp_ipidev, IPI_OUT_C_SLEEP_1,
-			NULL, NULL, &slp_ipi_ackdata1);
-	if (ret)
-		pr_err("scp1 sleep ipi_register fail, ret %d\n", ret);
 
 	slp_ipi_init_done = 1;
 }
@@ -159,15 +155,6 @@ int scp_resource_req(unsigned int req_type)
 #endif
 	return ret;
 }
-
-#if 0
-int __attribute__((weak))
-get_vcore_uv_table(int vcore_opp)
-{
-	pr_err("ERROR: %s is not buildin by VCORE DVFS\n", __func__);
-	return 0;
-}
-#endif
 
 uint32_t scp_get_freq(void)
 {
@@ -467,7 +454,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 /****************************
  * show SCP state
  *****************************/
-static int mt_scp_dvfs_state_proc_show(struct seq_file *m, void *v)
+static int mt_scp_state_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int scp_state;
 
@@ -701,6 +688,40 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 	return count;
 }
 
+/****************************
+ * show scp sleep block reason
+ *****************************/
+static int mt_scp_sleep_block_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+	int ret;
+	unsigned int ipi_data;
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	for (i = 0; i < NR_REASONS; i++) {
+		sleep_block_cnt[i] = 0;
+		ipi_data = SLP_DBG_CMD_BLOCK_BY_TIMER_CNT + i;
+
+		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+		if (ret != IPI_ACTION_DONE)
+			seq_printf(m, "ipi fail, ret = %d\n", ret);
+		else
+			sleep_block_cnt[i] = slp_ipi_ackdata0;
+	}
+
+	seq_printf(m, "no sleep reasons: tmr=%u, build=%u, sema=%u, lock=%u, ipi=%u, irq=%u, flag=%u, slpbusy=%u, hard1=%u\n",
+		sleep_block_cnt[BY_TIMER], sleep_block_cnt[BY_COMPILER],
+		sleep_block_cnt[BY_SEMAPHORE], sleep_block_cnt[BY_WAKELOCK],
+		sleep_block_cnt[BY_IPI_BUSY], sleep_block_cnt[BY_PENDING_IRQ],
+		sleep_block_cnt[BY_SLP_DISABLED], sleep_block_cnt[BY_SLP_BUSY],
+		sleep_block_cnt[BY_HARD1_BUSY]);
+
+	return 0;
+}
+
 #define PROC_FOPS_RW(name) \
 static int mt_ ## name ## _proc_open(\
 					struct inode *inode, \
@@ -739,10 +760,11 @@ static const struct file_operations mt_ ## name ## _proc_fops = {\
 
 #define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
 
-PROC_FOPS_RO(scp_dvfs_state);
+PROC_FOPS_RO(scp_state);
 PROC_FOPS_RW(scp_dvfs_ctrl);
 PROC_FOPS_RW(scp_sleep_ctrl0);
 PROC_FOPS_RW(scp_sleep_cnt0);
+PROC_FOPS_RO(scp_sleep_block);
 
 static int mt_scp_dvfs_create_procfs(void)
 {
@@ -755,10 +777,11 @@ static int mt_scp_dvfs_create_procfs(void)
 	};
 
 	const struct pentry entries[] = {
-		PROC_ENTRY(scp_dvfs_state),
+		PROC_ENTRY(scp_state),
 		PROC_ENTRY(scp_dvfs_ctrl),
 		PROC_ENTRY(scp_sleep_ctrl0),
 		PROC_ENTRY(scp_sleep_cnt0),
+		PROC_ENTRY(scp_sleep_block),
 	};
 
 	dir = proc_mkdir("scp_dvfs", NULL);
@@ -949,7 +972,6 @@ void mt_pmic_sshub_init(void)
 #ifdef CONFIG_PM
 static int mt_scp_dump_sleep_count(void)
 {
-#if 0
 	int ret;
 	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
 
@@ -964,7 +986,6 @@ static int mt_scp_dump_sleep_count(void)
 	else
 		printk_deferred("[name:scp&][%s:%d] - scp_sleep_cnt_0 = %d\n",
 		__func__, __LINE__, slp_ipi_ackdata0);
-#endif
 
 	return 0;
 }
