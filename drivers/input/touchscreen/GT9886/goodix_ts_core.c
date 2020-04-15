@@ -1729,7 +1729,10 @@ static int goodix_ts_power_on_reinit(void)
 
 	ts_info("%s start!\n", __func__);
 
+#ifdef GT9886_ESD_ENABLE
 	goodix_ts_esd_off(core_data);
+#endif
+
 	goodix_ts_irq_enable(core_data, false);
 	goodix_ts_power_off(core_data);
 	/* release all the touch IDs */
@@ -1741,7 +1744,10 @@ static int goodix_ts_power_on_reinit(void)
 	if (atomic_cmpxchg(&touch_need_resume_200Hz, true, false))
 		goodix_ts_enable(ts_dev, true);
 	goodix_ts_irq_enable(core_data, true);
+
+#ifdef GT9886_ESD_ENABLE
 	goodix_ts_esd_on(core_data);
+#endif
 
 	ts_info("%s end\n", __func__);
 	return 0;
