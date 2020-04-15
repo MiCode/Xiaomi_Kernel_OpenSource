@@ -300,8 +300,8 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 {
 	int ret = 0;
-	char time_stmp[32];
 #if !BYPASS_POWER_OFF
+	char time_stmp[32];
 	struct power_device *pwr_dev = NULL;
 #if TIME_PROFILING
 	struct profiling_timestamp power_profiling;
