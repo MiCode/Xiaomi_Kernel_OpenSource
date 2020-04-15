@@ -996,14 +996,15 @@ static void get_current_power_info(void *param, int force)
 			(unsigned long)info->id, rem_nsec / 1000);
 		#ifdef APUPWR_TAG_TP
 		trace_apupwr_pwr(
-			info->vvpu, info->vcore, info->vsram,
-			info->dsp1_freq, info->dsp2_freq,
+			info->vvpu, 0, info->vcore, info->vsram,
+			info->dsp1_freq, info->dsp2_freq, 0,
 			info->dsp_freq, info->ipuif_freq,
 			time_id);
 		trace_apupwr_rpc(
 			info->spm_wakeup, info->rpc_intf_rdy,
 			info->vcore_cg_stat, info->conn_cg_stat,
-			info->vpu0_cg_stat, info->vpu1_cg_stat);
+			info->vpu0_cg_stat, info->vpu1_cg_stat,
+			0xdb);
 		#endif
 	} else {
 		snprintf(log_str, sizeof(log_str),
@@ -1014,8 +1015,8 @@ static void get_current_power_info(void *param, int force)
 			(unsigned long)info->id, rem_nsec/1000);
 		#ifdef APUPWR_TAG_TP
 		trace_apupwr_pwr(
-			info->vvpu, info->vcore, info->vsram,
-			info->dsp1_freq, info->dsp2_freq,
+			info->vvpu, 0, info->vcore, info->vsram,
+			info->dsp1_freq, info->dsp2_freq, 0,
 			info->dsp_freq, info->ipuif_freq,
 			time_id);
 		#endif
