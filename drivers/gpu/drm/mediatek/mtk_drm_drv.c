@@ -1123,12 +1123,12 @@ static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main[] = {
 static const enum mtk_ddp_comp_id mt6853_mtk_ddp_third[] = {
 	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_WDMA0,
 };
-
+#if 0
 static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_minor[] = {
 	DDP_COMPONENT_OVL0_2L,       DDP_COMPONENT_OVL0,
 	DDP_COMPONENT_WDMA0,
 };
-
+#endif
 static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_minor_sub[] = {
 	DDP_COMPONENT_RDMA0,
 	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
@@ -1137,11 +1137,11 @@ static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_minor_sub[] = {
 	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
 };
-
+#if 0
 static const enum mtk_ddp_comp_id mt6853_mtk_ddp_main_wb_path[] = {
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_WDMA0,
 };
-
+#endif
 static const struct mtk_addon_scenario_data mt6853_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
 				.module_num = 0,
@@ -1295,10 +1295,10 @@ static const struct mtk_crtc_path_data mt6853_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6853_mtk_ddp_main,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6853_mtk_ddp_main),
 	.path_req_hrt[DDP_MAJOR][0] = true,
-	.wb_path[DDP_MAJOR] = mt6853_mtk_ddp_main_wb_path,
-	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6853_mtk_ddp_main_wb_path),
-	.path[DDP_MINOR][0] = mt6853_mtk_ddp_main_minor,
-	.path_len[DDP_MINOR][0] = ARRAY_SIZE(mt6853_mtk_ddp_main_minor),
+	.wb_path[DDP_MAJOR] = NULL,
+	.wb_path_len[DDP_MAJOR] = 0,
+	.path[DDP_MINOR][0] = NULL,
+	.path_len[DDP_MINOR][0] = 0,
 	.path_req_hrt[DDP_MINOR][0] = false,
 	.path[DDP_MINOR][1] = mt6853_mtk_ddp_main_minor_sub,
 	.path_len[DDP_MINOR][1] = ARRAY_SIZE(mt6853_mtk_ddp_main_minor_sub),
