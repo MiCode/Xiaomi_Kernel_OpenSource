@@ -65,6 +65,11 @@ static u64 get_md_sleep_time(void)
 
 	share_mem = (u32 *)get_smem_start_addr(MD_SYS1,
 		SMEM_USER_LOW_POWER, NULL);
+	if (share_mem == NULL) {
+		printk_deferred("[name:spm&][%s:%d] - No MD share mem\n",
+			 __func__, __LINE__);
+		return 0;
+	}
 	share_mem = share_mem + MD_SLEEP_INFO_SMEM_OFFEST;
 	memset(&md_data, 0, sizeof(struct md_sleep_status));
 	memcpy(&md_data, share_mem, sizeof(struct md_sleep_status));
