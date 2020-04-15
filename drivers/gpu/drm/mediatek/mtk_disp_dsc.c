@@ -33,6 +33,7 @@
 	#define DSC_IN_SRC_SEL BIT(3)
 	#define DSC_BYPASS BIT(4)
 	#define DSC_RELAY BIT(5)
+	#define DSC_EMPTY_FLAG_SEL		0xC000
 	#define DSC_UFOE_SEL BIT(16)
 	#define CON_FLD_DSC_EN		REG_FLD_MSB_LSB(0, 0)
 	#define CON_FLD_DISP_DSC_BYPASS		REG_FLD_MSB_LSB(4, 4)
@@ -61,6 +62,7 @@
 
 #define DISP_REG_DSC_DBG_CON		0x0060
 	#define DSC_CKSM_CAL_EN BIT(9)
+#define DISP_REG_DSC_OBUF			0x0070
 #define DISP_REG_DSC_PPS0			0x0080
 #define DISP_REG_DSC_PPS1			0x0084
 #define DISP_REG_DSC_PPS2			0x0088
@@ -121,9 +123,18 @@ static void mtk_dsc_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write_mask(comp, DSC_FORCE_COMMIT,
 		DISP_REG_DSC_SHADOW, DSC_FORCE_COMMIT, handle);
 
-	if (dsc->enable)
+	if (dsc->enable) {
 		mtk_ddp_write_mask(comp, DSC_EN, DISP_REG_DSC_CON,
 				DSC_EN, handle);
+
+		/* DSC Empty flag always high */
+		mtk_ddp_write_mask(comp, 0x4000, DISP_REG_DSC_CON,
+				DSC_EMPTY_FLAG_SEL, handle);
+
+		/* DSC output buffer as FHD(plus) */
+		mtk_ddp_write_mask(comp, 0x800002C2, DISP_REG_DSC_OBUF,
+				0xFFFFFFFF, handle);
+	}
 
 	DDPINFO("%s, dsc_start:0x%x\n",
 		mtk_dump_comp_str(comp), readl(baddr + DISP_REG_DSC_CON));

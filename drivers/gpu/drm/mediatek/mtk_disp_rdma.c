@@ -460,27 +460,6 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* In order to fix MM bw question, need to raise rdma urgent
-	 * when timing is 120HZ.
-	 */
-	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-
-	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
-		struct mtk_panel_params *params;
-		u32 vrefresh = 0;
-
-		params = mtk_crtc->panel_ext->params;
-		if (params->dyn_fps.vact_timing_fps != 0)
-			vrefresh = params->dyn_fps.vact_timing_fps;
-
-		if (vrefresh == 120) {
-			urgent_low_us = 130;
-			urgent_high_us = 150;
-		}
-	}
-#endif
-
 	switch (cfg->bpc) {
 	case 8:
 		/* 888 */
