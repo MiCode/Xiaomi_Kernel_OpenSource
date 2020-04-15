@@ -3744,10 +3744,6 @@ static ssize_t mt6853_debugfs_read(struct file *file, char __user *buf,
 		return -ENOMEM;
 
 	n += scnprintf(buffer + n, size - n,
-		       "mtkaif_calibration_ok %d\n",
-		       afe_priv->mtkaif_calibration_ok);
-
-	n += scnprintf(buffer + n, size - n,
 		       "mtkaif calibration phase %d, %d, %d, %d\n",
 		       afe_priv->mtkaif_chosen_phase[0],
 		       afe_priv->mtkaif_chosen_phase[1],
