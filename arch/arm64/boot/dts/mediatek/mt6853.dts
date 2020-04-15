@@ -1812,8 +1812,10 @@
 		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "ssusb_mac";
 		clocks = <&infracfg_ao CLK_IFRAO_SSUSB>,
-			   <&apmixed CLK_APMIXED_USBPLL>;
-		clock-names = "sys_ck", "rel_clk";
+			   <&apmixed CLK_APMIXED_USBPLL>,
+			   <&infracfg_ao CLK_IFRAO_AP_DMA>,
+			   <&infracfg_ao CLK_IFRAO_SSUSB_XHCI>;
+		clock-names = "sys_ck", "rel_clk", "dma_ck", "host_ck";
 		phy-cells = <1>;
 		phys = <&usb0phy 0>;
 		phy-names = "port0_phy";

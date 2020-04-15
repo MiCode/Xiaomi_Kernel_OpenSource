@@ -65,17 +65,32 @@ static int ssusb_sysclk_on(struct ssusb_mtk *ssusb)
 	if (ret)
 		dev_info(ssusb->dev, "failed to enable sys_clk\n");
 
+	ret = clk_prepare_enable(ssusb->host_clk);
+	if (ret)
+		dev_info(ssusb->dev, "failed to enable host_clk\n");
+
 	ret = clk_prepare_enable(ssusb->ref_clk);
 	if (ret)
 		dev_info(ssusb->dev, "failed to enable ref_clk\n");
+
+	ret = clk_prepare_enable(ssusb->mcu_clk);
+	if (ret)
+		dev_info(ssusb->dev, "failed to enable mcu_clk\n");
+
+	ret = clk_prepare_enable(ssusb->dma_clk);
+	if (ret)
+		dev_info(ssusb->dev, "failed to enable dma_clk\n");
 
 	return ret;
 }
 
 static void ssusb_sysclk_off(struct ssusb_mtk *ssusb)
 {
-	clk_disable_unprepare(ssusb->sys_clk);
+	clk_disable_unprepare(ssusb->dma_clk);
+	clk_disable_unprepare(ssusb->mcu_clk);
 	clk_disable_unprepare(ssusb->ref_clk);
+	clk_disable_unprepare(ssusb->host_clk);
+	clk_disable_unprepare(ssusb->sys_clk);
 }
 
 int ssusb_clk_on(struct ssusb_mtk *ssusb, int host_mode)
