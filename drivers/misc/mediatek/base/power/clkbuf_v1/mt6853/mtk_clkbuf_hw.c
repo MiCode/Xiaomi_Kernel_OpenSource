@@ -1411,7 +1411,7 @@ static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
 	char cmd[32] = {'\0'};
 	int ret = 0;
 
-	if ((sscanf(buf, "%31s %x", cmd, onoff) != 2))
+	if ((sscanf(buf, "%31s %x", cmd, &onoff) != 2))
 		return -EPERM;
 
 	pr_info("cmd = %s, bblpm input = %d\n", cmd, onoff);
