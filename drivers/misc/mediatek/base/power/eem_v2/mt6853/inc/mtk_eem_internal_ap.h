@@ -157,22 +157,22 @@ struct eemsn_devinfo {
 	unsigned int CPU_L_LO_MDES:8;
 
 	/* M_HW_RES7 */
-	unsigned int CCI_MTDES:8;
-	unsigned int CCI_INITEN:1;
-	unsigned int CCI_MONEN:1;
-	unsigned int CCI_DVFS_LOW:3;
-	unsigned int CCI_SPEC:3;
-	unsigned int CCI_BDES:8;
-	unsigned int CCI_MDES:8;
+	unsigned int CCI_HI_MTDES:8;
+	unsigned int CCI_HI_INITEN:1;
+	unsigned int CCI_HI_MONEN:1;
+	unsigned int CCI_HI_DVFS_LOW:3;
+	unsigned int CCI_HI_SPEC:3;
+	unsigned int CCI_HI_BDES:8;
+	unsigned int CCI_HI_MDES:8;
 
 	/* M_HW_RES8 */
-	unsigned int GPU_MTDES:8;
-	unsigned int GPU_INITEN:1;
-	unsigned int GPU_MONEN:1;
-	unsigned int GPU_DVFS_LOW:3;
-	unsigned int GPU_SPEC:3;
-	unsigned int GPU_BDES:8;
-	unsigned int GPU_MDES:8;
+	unsigned int CCI_LO_MTDES:8;
+	unsigned int CCI_LO_INITEN:1;
+	unsigned int CCI_LO_MONEN:1;
+	unsigned int CCI_LO_DVFS_LOW:3;
+	unsigned int CCI_LO_SPEC:3;
+	unsigned int CCI_LO_BDES:8;
+	unsigned int CCI_LO_MDES:8;
 
 	/* M_HW_RES9 */
 	unsigned int GPU_HI_MTDES:8;
@@ -217,11 +217,10 @@ struct eemsn_devinfo {
 	unsigned int CPU_L_HI_DCMDET:8;
 
 	/* M_HW_RES16 */
-	unsigned int GPU_DCBDET:8;
-	unsigned int GPU_DCMDET:8;
-	unsigned int CCI_DCBDET:8;
-	unsigned int CCI_DCMDET:8;
-
+	unsigned int CCI_LO_DCBDET:8;
+	unsigned int CCI_LO_DCMDET:8;
+	unsigned int CCI_HI_DCBDET:8;
+	unsigned int CCI_HI_DCMDET:8;
 
 	/* M_HW_RES17 */
 	unsigned int GPU_LO_DCBDET:8;
@@ -287,7 +286,6 @@ struct eemsn_det {
 	/* dvfs */
 	unsigned int max_freq_khz;
 	unsigned int mid_freq_khz;
-	unsigned int turn_freq;
 	unsigned int cur_volt;
 	unsigned int *p_sn_cpu_coef;
 	struct sn_param *p_sn_cpu_param;
@@ -458,6 +456,7 @@ struct eemsn_log {
 	struct sn_param sn_cpu_param[NR_SN_DET];
 	struct eemsn_devinfo efuse_devinfo;
 	unsigned int efuse_sv;
+	unsigned int efuse_sv2;
 	unsigned int picachu_sn_mem_base_phys;
 	unsigned char init2_v_ready;
 	unsigned char init_vboot_done;

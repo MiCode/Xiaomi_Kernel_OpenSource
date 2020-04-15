@@ -99,7 +99,7 @@ void get_freq_table_cpu(struct eemsn_det *det)
 	}
 
 #if 0
-	eem_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
+	eem_error("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
 			det->name+8, det->num_freq_tbl, det->max_freq_khz,
 			det->turn_pt);
 
@@ -136,7 +136,7 @@ void get_freq_table_cpu(struct eemsn_det *det)
 		for (i = det->turn_pt; i < det->num_freq_tbl; i++) {
 			det->freq_tbl[i] =
 			PERCENT(mt_cpufreq_get_freq_by_idx(cpudvfsindex, i),
-			det->turn_freq);
+			det->mid_freq_khz);
 		}
 	}
 

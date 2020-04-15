@@ -62,12 +62,14 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.det_id    = EEMSN_DET_L,
 		.features	= FEA_INIT01 | FEA_INIT02 | FEA_MON | FEA_SEN,
 		.max_freq_khz = L_FREQ_BASE,
+		.mid_freq_khz = L_M_FREQ_BASE,
 		.volt_offset = 0,
 
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
+		.isSupLoo	= 1,
 
 	},
 
@@ -84,10 +86,6 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
-
-		.loo_role	= LOW_BANK,
-		.turn_pt	= BANK_B_TURN_PT,
-		.turn_freq = B_M_FREQ_BASE,
 		.isSupLoo	= 1,
 
 	},
@@ -98,12 +96,14 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.det_id    = EEMSN_DET_CCI,
 		.features	= FEA_INIT02 | FEA_MON,
 		.max_freq_khz = CCI_FREQ_BASE, /* 1248Mhz */
+		.mid_freq_khz = CCI_M_FREQ_BASE,
 		.volt_offset = 0,
 
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
+		.isSupLoo	= 1,
 	},
 
 };

@@ -559,7 +559,7 @@ static int get_devinfo(void)
 	val[20] = DEVINFO_23;
 	val[21] = DEVINFO_24;
 	val[22] = DEVINFO_25;
-	val[23] = DEVINFO_26;
+	val[23] = DEVINFO_27;
 
 #endif
 
@@ -569,7 +569,7 @@ static int get_devinfo(void)
 
 #ifdef CONFIG_EEM_AEE_RR_REC
 	aee_rr_rec_ptp_e0((unsigned int)val[0]);
-	aee_rr_rec_ptp_e1((unsigned int)val[1]);
+	aee_rr_rec_ptp_e1((unsigned int)val[23]);
 	aee_rr_rec_ptp_e2((unsigned int)val[2]);
 	aee_rr_rec_ptp_e3((unsigned int)val[3]);
 	aee_rr_rec_ptp_e4((unsigned int)val[4]);
@@ -600,15 +600,11 @@ static int get_devinfo(void)
 		}
 	}
 
-	for (i = IDX_HW_RES_SN; i < NR_HW_RES_FOR_BANK; i++) {
-		if (i == 20)
-			continue;
-		else if (val[i] == 0) {
-			sn_safeEfuse = 1;
-			eem_error("No SN EFUSE (val[%d])\n", i);
-			break;
-		}
+	if (val[IDX_HW_RES_SN] == 0) {
+		sn_safeEfuse = 1;
+		eem_error("No SN EFUSE (val[%d])\n", i);
 	}
+
 
 #if (EEM_FAKE_EFUSE)
 	eem_checkEfuse = 1;
@@ -644,15 +640,20 @@ static int get_devinfo(void)
 		val[20] = DEVINFO_23;
 		val[21] = DEVINFO_24;
 		val[22] = DEVINFO_25;
-		val[23] = DEVINFO_26;
+		val[23] = DEVINFO_27;
 	}
 #if FAKE_SN_DVT_EFUSE_FOR_DE
+
 		val[18] = 0x65786E64;
 		val[19] = 0x0000796F;
 		val[20] = 0x013C6764;
 		val[21] = 0x3B673B66;
 		val[22] = 0x39693969;
+#if VMIN_PREDICT_ENABLE
+		val[23] = 0x706F6968;
+#else
 		val[23] = 0x756A7767;
+#endif
 #endif
 
 	FUNC_EXIT(FUNC_LV_HELP);
@@ -2077,19 +2078,22 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 #endif
 		oppidx = eemsn_log->sn_log.sd[i].cur_oppidx;
 		seq_printf(m, "cur_opp:%d, dst_volt_pmic:0x%x, footprint:0x%x\n",
-			eemsn_log->sn_log.sd[i].cur_oppidx,
+			oppidx,
 			eemsn_log->sn_log.sd[i].dst_volt_pmic,
 			eemsn_log->sn_log.footprint[i]);
-		seq_printf(m, "[%d]cur_volt:%d, new dst_volt_pmic:%d, cur temp:%d, ",
+		seq_printf(m,
+			"[%d]cur_volt:%d, new dst_volt_pmic:%d, cur temp:%d, ",
 			seq++, eemsn_log->sn_log.sd[i].cur_volt,
 			det->ops->pmic_2_volt(det,
-				eemsn_log->sn_log.sd[i].dst_volt_pmic),
+			eemsn_log->sn_log.sd[i].dst_volt_pmic),
 			eemsn_log->sn_log.sd[i].cur_temp);
 		seq_printf(m, "cur_volt_ptp:%d\n",
 			det->ops->pmic_2_volt(det,
 			eemsn_log->det_log[det->det_id].volt_tbl_pmic[oppidx]
 			));
 	}
+
+
 	seq_printf(m, "allfp:0x%x\n",
 		eemsn_log->sn_log.allfp);
 
@@ -2112,7 +2116,8 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	ipi_ret = eem_to_cpueb(IPI_EEMSN_AGING_DUMP_PROC_SHOW, &eem_data);
 
-	seq_printf(m, "efuse_sv:0x%x\n", eemsn_log->efuse_sv);
+	seq_printf(m, "efuse_sv:0x%x, sv2:0x%x\n", eemsn_log->efuse_sv,
+		 eemsn_log->efuse_sv2);
 
 	seq_printf(m, "T_SVT_HV_LCPU:%d %d %d %d\n",
 		eem_devinfo.T_SVT_HV_LCPU,
@@ -2915,9 +2920,10 @@ struct eemsn_det *det;
 #if defined(MC50_LOAD)
 	/* for MC50 */
 	spare1_phys = ioremap(EEM_PHY_TEMPSPARE1, 0);
-	if ((void __iomem *)spare1_phys != NULL)
+	if ((void __iomem *)spare1_phys != NULL) {
 		eem_write(spare1_phys, SPARE1_VAL);
-	else
+		eem_write(spare1_phys + 4, SPARE2_VAL);
+	} else
 		eem_error("incorrect spare1_phys:0x%x", spare1_phys);
 #endif
 	/* get original volt from cpu dvfs before init01 */
