@@ -139,8 +139,8 @@ static const struct file_operations apusys_dbg_fops_devinfo = {
 // mem dump
 static int apusys_dbg_dump_mem(struct seq_file *s, void *unused)
 {
+	//apusys_user_print_log();
 	apusys_user_show_log(s);
-
 	return 0;
 }
 
