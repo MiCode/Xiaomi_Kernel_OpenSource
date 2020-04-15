@@ -908,10 +908,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 	if (power == POWER_ON) {
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_1);
-/*
+
 		if (buck == BUCK_ON)
 			mt_gpufreq_buck_control(power);
-*/
+
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_2);
 
 		if (mtcmos == MTCMOS_ON)
@@ -954,10 +954,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			mt_gpufreq_mtcmos_control(power);
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_7);
-/*
+
 		if (buck == BUCK_OFF)
 			mt_gpufreq_buck_control(power);
-*/
+
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_8);
 	}
 
