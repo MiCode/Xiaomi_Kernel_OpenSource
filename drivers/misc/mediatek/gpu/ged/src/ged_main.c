@@ -62,7 +62,8 @@ static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 static GED_LOG_BUF_HANDLE ghLogBuf_HWC_ERR;
 #define GED_LOG_BUF_COMMON_FENCE "FENCE"
 static GED_LOG_BUF_HANDLE ghLogBuf_FENCE;
-static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
+// fence_trace is IMG gpu only
+//static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
 #endif
 
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
@@ -472,8 +473,9 @@ static int ged_init(void)
 	ghLogBuf_HWC = ged_log_buf_alloc(4096, 128 * 4096,
 			GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC, NULL);
 	ghLogBuf_FENCE = ged_log_buf_alloc(256, 128 * 256, GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_FENCE, NULL);
-	ghLogBuf_ftrace = ged_log_buf_alloc(1024*32, 1024*1024, GED_LOG_BUF_TYPE_RINGBUFFER,
-						"fence_trace", "fence_trace");
+	// fence_trace is IMG gpu only
+	//ghLogBuf_ftrace = ged_log_buf_alloc(1024*32, 1024*1024,
+	//	GED_LOG_BUF_TYPE_RINGBUFFER, "fence_trace", "fence_trace");
 
 #ifdef GED_DVFS_DEBUG_BUF
 	ghLogBuf_DVFS =  ged_log_buf_alloc(20*60, 20*60*100
