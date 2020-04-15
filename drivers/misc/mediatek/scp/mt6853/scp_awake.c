@@ -87,7 +87,7 @@ int scp_awake_lock(void *_scp_id)
 	/*set a direct IPI to awake SCP */
 	/*pr_debug("scp_awake_lock: try to awake %s\n", core_id);*/
 	writel(0xA0 | (1 << AP_AWAKE_LOCK), INFRA_IRQ_SET);
-	pr_notice("scp INFRA_IRQ_SET %x\n",  readl(INFRA_IRQ_SET));
+
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
 #if SCP_RECOVERY_SUPPORT
