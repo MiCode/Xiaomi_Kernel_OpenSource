@@ -113,6 +113,8 @@ static void __iomem *infracfg_base;/* infracfg_ao */
 static void __iomem *spm_base;/* spm */
 static void __iomem *infra_base;/* infra */
 static void __iomem *infra_pdn_base;/* infra_pdn */
+static void __iomem *apu_vcore_base;
+static void __iomem *apu_conn_base;
 
 #define INFRACFG_REG(offset)		(infracfg_base + offset)
 #define SPM_REG(offset)			(spm_base + offset)
@@ -461,6 +463,11 @@ static void __iomem *infra_pdn_base;/* infra_pdn */
 #define CAM_RAWB_SRAM_PDN                (0x1 << 8)
 #define CAM_RAWB_SRAM_PDN_ACK            (0x1 << 12)
 #define CAM_RAWB_SRAM_PDN_ACK_BIT0       (0x1 << 12)
+
+#define APU_VCORE_CG_CON		(apu_vcore_base + 0x0000)
+#define APU_CONN_CG_CON		(apu_conn_base + 0x0000)
+#define APU_VCORE_CG_CLR		(apu_vcore_base + 0x0008)
+#define APU_CONN_CG_CLR			(apu_conn_base + 0x0008)
 
 static struct subsys syss[] =	/* NR_SYSS */
 {
@@ -850,6 +857,51 @@ static void ram_console_update(void)
 		aee_rr_rec_clk(j, data[j]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
+}
+
+#ifdef CONFIG_OF
+static void __iomem *find_and_iomap(char *comp_str)
+{
+	void __iomem *ret;
+	struct device_node *node = of_find_compatible_node(NULL, NULL,
+								comp_str);
+
+	if (!node) {
+		pr_debug("[CCF] PG: find node %s failed\n", comp_str);
+		return NULL;
+	}
+	ret = of_iomap(node, 0);
+	if (!ret) {
+		pr_debug("[CCF] iomap base %s failed\n", comp_str);
+		return NULL;
+	}
+	return ret;
+}
+
+static void iomap_apu(void)
+{
+	apu_vcore_base = find_and_iomap("mediatek,apu_vcore");
+	if (!apu_vcore_base) {
+		pr_notice("cannot get apu vcore base\n");
+
+		return;
+	}
+
+	apu_conn_base = find_and_iomap("mediatek,apu_conn");
+	if (!apu_conn_base) {
+		pr_notice("cannot get apu conn base\n");
+
+		return;
+	}
+}
+#endif
+
+static void enable_subsys_hwcg(enum subsys_id id)
+{
+	if (id == SYS_VPU) {
+		clk_writel(APU_VCORE_CG_CLR, 0xFFFFFFFF);
+		clk_writel(APU_CONN_CG_CLR, 0xFFFFFFFF);
+	}
 }
 
 /* auto-gen begin*/
@@ -3546,6 +3598,8 @@ int spm_mtcmos_ctrl_vpu_pwr(int state)
 				(0x1UL << 5))
 			ram_console_update();
 		INCREASE_STEPS;
+
+		enable_subsys_hwcg(SYS_VPU);
 	}
 	INCREASE_STEPS;
 	ram_console_update();
@@ -4605,10 +4659,10 @@ struct cg_list cam_ra_cg = {.cg = {"cam_ra_larbx"},};
 
 struct cg_list cam_rb_cg = {.cg = {"cam_rb_larbx"},};
 
-struct cg_list vpu_cg2 = {
+struct cg_list vpu_cg1 = {
 	.cg = {
-		"apu0_jtag",
-		"apu1_jtag",
+		"ipu_if_sel",
+		"dsp_sel",
 	},
 };
 
@@ -4655,7 +4709,7 @@ struct mtk_power_gate scp_clks[] = {
 	PGATE(SCP_SYS_CAM_RAWB, "PG_CAM_RAWB", "PG_CAM", NULL,
 			&cam_rb_cg, SYS_CAM_RAWB),
 	/* Gary Wang: no need to turn on disp mtcmos*/
-	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, NULL, &vpu_cg2, SYS_VPU),
+	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, &vpu_cg1, NULL, SYS_VPU),
 };
 
 static void init_clk_scpsys(struct clk_onecell_data *clk_data)
@@ -4734,41 +4788,6 @@ static void __iomem *get_reg(struct device_node *np, int index)
 #endif
 }
 
-#if 0
-static void __init mt_scpsys_init(struct device_node *node)
-{
-	struct clk_onecell_data *clk_data;
-	int r;
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init begin\n", __func__);
-#endif
-	infracfg_base = get_reg(node, 0);
-	spm_base = get_reg(node, 1);
-	infra_base = get_reg(node, 2);
-	infra_pdn_base = get_reg(node, 3);
-
-	if (!infracfg_base || !spm_base || !infra_base || !infra_pdn_base) {
-		pr_err("clk-pg-mt6853: missing reg\n");
-		return;
-	}
-
-	syss[SYS_VPU].sta_addr = OTHER_PWR_STATUS;
-	clk_data = alloc_clk_data(SCP_NR_SYSS);
-	init_clk_scpsys(clk_data);
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-	if (r)
-		pr_err("[CCF] %s:could not register clock provide\n",
-			__func__);
-
-#if MT_CCF_BRINGUP
-	pr_notice("%s init end\n", __func__);
-#endif
-}
-CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,mt6853-scpsys", mt_scpsys_init);
-
-#else
-
 static int clk_mt6853_scpsys_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -4796,6 +4815,8 @@ static int clk_mt6853_scpsys_probe(struct platform_device *pdev)
 		pr_err("[CCF] %s:could not register clock provide\n",
 			__func__);
 
+	iomap_apu();
+
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif
@@ -4819,7 +4840,6 @@ static int __init clk_mt6853_scpsys_init(void)
 	return platform_driver_register(&clk_mt6853_scpsys_drv);
 }
 arch_initcall_sync(clk_mt6853_scpsys_init);
-#endif
 
 /* for suspend LDVT only */
 void mtcmos_force_off(void)
