@@ -2250,6 +2250,17 @@ config UNUSED_KSYMS_WHITELIST
 	  one per line. The path can be absolute, or relative to the kernel
 	  source tree.
 
+config UNUSED_KSYMS_WHITELIST_ONLY
+	bool "Export ONLY the symbols that are a part of whitelist"
+	depends on UNUSED_KSYMS_WHITELIST != ""
+	help
+	  Keep ONLY the symbols that are defined in the whitelist. The
+	  CONFIG works on top of CONFIG_UNUSED_KSYMS_WHITELIST which takes
+	  whitelist file(s) as its settings, and would export only the
+	  symbols listed in these file(s).
+	  This is mainly used to detect if drivers are using the symbols
+	  outside of the whitelist.
+
 endif # MODULES
 
 config MODULES_TREE_LOOKUP
