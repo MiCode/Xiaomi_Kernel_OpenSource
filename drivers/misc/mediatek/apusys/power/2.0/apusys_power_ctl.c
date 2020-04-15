@@ -1026,6 +1026,7 @@ int apusys_power_off(enum DVFS_USER user)
 	ret = hal_config_power(PWR_CMD_SET_SHUT_DOWN, user, (void *)&pwr_mask);
 
 	if (ret == 0) {
+		/* PWR_CMD_SET_SHUT_DOWN pass */
 		if (user < APUSYS_DVFS_USER_NUM) {
 			buck_domain = apusys_user_to_buck_domain[user];
 			apusys_opps.cur_opp_index[buck_domain] =
@@ -1066,7 +1067,8 @@ int apusys_power_off(enum DVFS_USER user)
 			}
 		}
 	}
-	}
+	} else /* PWR_CMD_SET_SHUT_DOWN fail */
+		mutex_unlock(&power_dvfs_mtx);
 
 	return ret;
 }
