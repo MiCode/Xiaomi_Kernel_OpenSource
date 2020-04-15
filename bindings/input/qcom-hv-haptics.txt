@@ -70,11 +70,34 @@ Properties:
 		or if it's defined as an array with all zeros, then manual
 		brake is disabled.
 
+- qcom,fifo-empty-threshold:
+  Usage:	optional
+  Value type:	<u32>
+  Definition:	Specifies the FIFO empty threshold. The "fifo-empty" IRQ will be
+		triggered when the number of the samples in the FIFO is less
+		than the threshold. For PM8350B v1, allowed value is 1 - 103
+		and the default value is 48. For PM8350B v2, allowed value is
+		1 - 639 and the default value is 280.
+
 - qcom,use-erm:
   Usage:	optional
   Value type:	<bool>
   Definition:	Specifies if the hardware is driving an ERM actuator. If it's
 		not defined, then LRA actuator is used.
+
+- nvmem-cell-names:
+  Usage:	optional
+  Value type:	<string>
+  Definition:	The nvmem cell name of the SDAM module where the closed-loop
+		brake calibration settings can be stored. It must be
+		"hap_cl_brake".
+
+- nvmem-cells:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the nvmem cell to store the closed-loop brake
+		calibration settings. Please refer to nvmem bindings as
+		described in bindings/nvmem/nvmem.txt.
 
 The following properties are only required when LRA actuator is used:
 
@@ -222,6 +245,8 @@ Example:
 		reg = <0xf000>, <0xf100>;
 		interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_BOTH>;
 		interrupt-names = "fifo-empty";
+		nvmem-cell-names = "hap_cl_brake";
+		nvmem-cells = <&hap_cl_brake>;
 		qcom,vmax-mv = <900>;
 		qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
 		qcom,brake-pattern = /bits/ 8 <0xff 0x3f 0x1f>;
