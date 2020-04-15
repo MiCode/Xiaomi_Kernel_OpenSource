@@ -221,7 +221,7 @@ static void mtk_lp_plat_cpuhp_init(void)
 #define DEPD_COND_TYPE_BOOTIME	(1<<0u)
 #define DEPD_COND_TYPE_MCU	(1<<1u)
 
-static __mtk_lp_plat_wait_depd_condition(int type, void *arg)
+static int __mtk_lp_plat_wait_depd_condition(int type, void *arg)
 {
 	struct timespec uptime;
 	bool mcupm_rdy = false;
