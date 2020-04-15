@@ -544,6 +544,7 @@ config MACH_MT6853
 	select MTK_LOW_POWER_MODULE
 	select MTK_SPMTWAM
 	select MTK_LPM_MT6853
+	select MTK_SWPM
 	select MTK_TIMER_SYSTIMER
 	select OVERLAY_FS
 	select EXT4_FS
