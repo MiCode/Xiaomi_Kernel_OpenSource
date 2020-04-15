@@ -263,34 +263,6 @@ int enable_apu_device_clksrc(enum DVFS_USER user)
 	return ret_all;
 }
 
-int enable_apu_conn_vcore_clock(void)
-{
-	int ret = 0;
-	int ret_all = 0;
-
-	ENABLE_CLK(clk_apusys_vcore_ahb_cg);
-	ENABLE_CLK(clk_apusys_vcore_axi_cg);
-	ENABLE_CLK(clk_apusys_vcore_qos_cg);
-
-	ENABLE_CLK(clk_apu_conn_ahb_cg);
-	ENABLE_CLK(clk_apu_conn_axi_cg);
-	ENABLE_CLK(clk_apu_conn_isp_cg);
-	ENABLE_CLK(clk_apu_conn_emi_26m_cg);
-	ENABLE_CLK(clk_apu_conn_vpu_udi_cg);
-	ENABLE_CLK(clk_apu_conn_mnoc_cg);
-	ENABLE_CLK(clk_apu_conn_tcm_cg);
-	ENABLE_CLK(clk_apu_conn_md32_cg);
-	ENABLE_CLK(clk_apu_conn_iommu_0_cg);
-	ENABLE_CLK(clk_apu_conn_md32_32k_cg);
-
-	if (ret_all)
-		LOG_ERR("%s, ret = %d\n", __func__, ret_all);
-	else
-		LOG_DBG("%s, ret = %d\n", __func__, ret_all);
-
-	return ret_all;
-}
-
 //per user
 int enable_apu_device_clock(enum DVFS_USER user)
 {
@@ -320,25 +292,6 @@ int enable_apu_device_clock(enum DVFS_USER user)
 		LOG_DBG("%s for DVFS_USER: %d, ret = %d\n",
 						__func__, user, ret_all);
 	return ret_all;
-}
-
-void disable_apu_conn_vcore_clock(void)
-{
-	DISABLE_CLK(clk_apu_conn_ahb_cg);
-	DISABLE_CLK(clk_apu_conn_axi_cg);
-	DISABLE_CLK(clk_apu_conn_isp_cg);
-	DISABLE_CLK(clk_apu_conn_emi_26m_cg);
-	DISABLE_CLK(clk_apu_conn_vpu_udi_cg);
-	DISABLE_CLK(clk_apu_conn_mnoc_cg);
-	DISABLE_CLK(clk_apu_conn_tcm_cg);
-	DISABLE_CLK(clk_apu_conn_md32_cg);
-	DISABLE_CLK(clk_apu_conn_iommu_0_cg);
-	DISABLE_CLK(clk_apu_conn_md32_32k_cg);
-
-	DISABLE_CLK(clk_apusys_vcore_ahb_cg);
-	DISABLE_CLK(clk_apusys_vcore_axi_cg);
-	DISABLE_CLK(clk_apusys_vcore_qos_cg);
-	LOG_DBG("%s\n", __func__);
 }
 
 //per user

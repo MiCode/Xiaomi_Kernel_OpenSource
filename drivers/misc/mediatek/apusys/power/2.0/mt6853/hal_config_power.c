@@ -338,12 +338,44 @@ static void hw_init_setting(void)
 	udelay(100);
 
 #if !BYPASS_POWER_OFF
-	// sleep request enable
+	/*
+	 * IOMMU will use below flow to enable VCORE/CONN
+	 *	(a) IOMMU enable SCP_SYS_VPU.
+	 *		then triggering CCF to
+	 *		(1) enable clk of ipu_if_sel/dsp_sel
+	 *		(2) clear BUCK_ISOLATION  bit[0] and bit[5]
+	 *		(3) set SPM_CROSS_WAKE_M01_REQ = 1
+	 *		(4) write VCORE/CONN_CG_CLR to un-gated inner CG
+	 *	(b) IOMMU un-gated CCF nodes, CLK_APUC_IOMMU_0.
+	 *
+	 * Then IOMMU will use below flow to disable VCORE/CONN
+	 *	(c) IOMMU disable SCP_SYS_VPU
+	 *		then triggering CCF to:
+	 *		(5) disable clk of ipu_if_sel/dsp_sel
+	 *		(6) set SPM_CROSS_WAKE_M01_REQ = 0
+	 *	(d) IOMMU gated CCF nodes, CLK_APUC_IOMMU_0.
+	 *
+	 * PS:
+	 *    Above (b) is unnecessary, since CCF do that in (3).
+	 *    Above (d) is paired with (b) for CCF enable/disable counter match.
+	 */
+
+	/*
+	 * Above (6) is just set SPM_CROSS_WAKE_M01_REQ = 0,
+	 * and APU conn/core is disalbed only if by below sleep request enable
+	 *
+	 * Meanwhile, above (4) will keep sleep protect CG, VCORE_AXI_CG and
+	 * VCONN_AXI_CG un-gated.
+	 *
+	 * That is why can direct call sleep protect as below.
+	 */
 	regValue = DRV_Reg32(APU_RPC_TOP_CON);
 	regValue |= 0x1;
 	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
 
 	rpc_power_status_check(0, 0);
+
+	/* After sleep request, all conn/core CGs will be auto-gated by HW. */
 	LOG_WRN("%s done and request to enter sleep\n", __func__);
 #else
 	LOG_WRN("%s done\n", __func__);
@@ -795,9 +827,6 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// wait for conn mtcmos enable ready
 			ret |= rpc_power_status_check(0, 1);
 
-			// clear inner dummy CG (true enable but bypass disable)
-			ret |= enable_apu_conn_vcore_clock();
-
 			force_pwr_on = 0;
 			conn_mtcmos_on = 1;
 		}
@@ -854,9 +883,6 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		 * call spm api to disable wake up signal
 		 * for apu_conn/apu_vcore
 		 */
-			// inner dummy cg won't be gated when you call disable
-			disable_apu_conn_vcore_clock();
-
 			ret |= enable_apu_mtcmos(0);
 			//udelay(100);
 
@@ -1039,13 +1065,20 @@ static int buck_control(enum DVFS_USER user, int level)
 
 	if (level == 3) {
 		/*
-		 * Release buck isolation and since mt6853 vvpu/vsrarm
-		 * are always on no need to turn on/off them
+		 * In mt6853 vvpu/vsrarm are always on,
+		 * no need to turn on again.
+		 *
+		 * That is why mark below src.
+		 *
+		 * enable_regulator(VPU_BUCK);
+		 * enable_regulator(SRAM_BUCK);
 		 */
+
+		/* Release buck isolation */
 		DRV_ClearBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
 
-	} else if (level == 2) { // default voltage
-
+	} else if (level == 2) {
+		/* default voltage */
 		vcore_volt_data.target_buck = VCORE_BUCK;
 		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(VPU0, (void *)&vcore_volt_data);
@@ -1108,11 +1141,20 @@ static int buck_control(enum DVFS_USER user, int level)
 			ret |= set_power_voltage(user, (void *)&vpu_volt_data);
 
 		} else {
-			/*
-			 * Enable buck isolation and since mt6853 vvpu/vsrarm
-			 * are always on no need to turn on/off them
-			 */
+
+			/* Enable buck isolation */
 			DRV_SetBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
+
+			/*
+			 * In mt6853, vsrarm is shared with vcore
+			 * and cannot be turn off.
+			 * Meanwhile, vvpu is always on.
+			 *
+			 * That is why mark below src.
+			 *
+			 * disable_regulator(SRAM_BUCK);
+			 * disable_regulator(VPU_BUCK);
+			 */
 		}
 	}
 
