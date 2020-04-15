@@ -536,6 +536,16 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		dds, pll, parking);
 
 	if (parking) {
+#if CCF_SET_RATE
+		/*
+		 * If current npupll_rate is exactly what domain wants,
+		 * don't park again and switch domain mux's parent as npulll.
+		 * (for freq meter accuracy, use 5k for tolerance)
+		 */
+		if (abs(clk_get_rate(clk_apmixed_npupll_rate) - scaled_freq)
+				< 5000)
+			goto out;
+#endif
 		for (domain_idx = V_VPU0; domain_idx < V_VPU0 + APUSYS_VPU_NUM;
 			domain_idx++) {
 			clk_target = find_clk_by_domain(domain_idx);
@@ -554,6 +564,7 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		}
 #if CCF_SET_RATE
 		ret |= clk_set_rate(clk_apmixed_npupll_rate, scaled_freq);
+out:
 #else
 		DRV_WriteReg32(NPUPLL_CON1, pll);
 #endif
