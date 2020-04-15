@@ -342,4 +342,6 @@ int unload_fw(struct npu_device *npu_dev);
 int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab);
 int npu_process_kevent(struct npu_client *client, struct npu_kevent *kevt);
 int npu_notify_cdsprm_cxlimit_activity(struct npu_device *npu_dev, bool enable);
+int npu_bridge_mbox_send_data(struct npu_host_ctx *host_ctx,
+	struct npu_mbox *mbox, void *data);
 #endif /* _NPU_COMMON_H */
