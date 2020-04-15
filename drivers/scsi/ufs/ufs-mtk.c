@@ -1186,10 +1186,6 @@ static int ufs_mtk_init_mphy(struct ufs_hba *hba)
 
 static int ufs_mtk_enable_crypto(struct ufs_hba *hba)
 {
-	/* avoid resetting host during resume flow or when link is not off */
-	if (hba->pm_op_in_progress || !ufshcd_is_link_off(hba))
-		return 0;
-
 	/* restore vendor crypto setting by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
 
