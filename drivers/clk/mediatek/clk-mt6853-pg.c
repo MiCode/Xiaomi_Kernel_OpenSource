@@ -4666,6 +4666,8 @@ struct cg_list vpu_cg1 = {
 	},
 };
 
+struct cg_list vpu_cg2 = {.cg = {"apuc_iommu_0"},};
+
 struct mtk_power_gate {
 	int id;
 	const char *name;
@@ -4709,7 +4711,7 @@ struct mtk_power_gate scp_clks[] = {
 	PGATE(SCP_SYS_CAM_RAWB, "PG_CAM_RAWB", "PG_CAM", NULL,
 			&cam_rb_cg, SYS_CAM_RAWB),
 	/* Gary Wang: no need to turn on disp mtcmos*/
-	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, &vpu_cg1, NULL, SYS_VPU),
+	PGATE(SCP_SYS_VPU, "PG_VPU", NULL, &vpu_cg1, &vpu_cg2, SYS_VPU),
 };
 
 static void init_clk_scpsys(struct clk_onecell_data *clk_data)
