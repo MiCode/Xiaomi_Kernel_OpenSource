@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012, 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2015-2021, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
@@ -136,18 +136,32 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 
 void vbif_lock(struct platform_device *parent_pdev)
 {
+#ifdef CONFIG_FB_MSM_MDSS
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	if (mdata && mdata->vbif_reg_lock)
+		mdata->vbif_reg_lock();
+#else
 	if (!parent_pdev)
 		return;
 
-//	mdp_vbif_lock(parent_pdev, true);
+	mdp_vbif_lock(parent_pdev, true);
+#endif
 }
 
 void vbif_unlock(struct platform_device *parent_pdev)
 {
+#ifdef CONFIG_FB_MSM_MDSS
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	if (mdata && mdata->vbif_reg_unlock)
+		mdata->vbif_reg_unlock();
+#else
 	if (!parent_pdev)
 		return;
 
-//	mdp_vbif_lock(parent_pdev, false);
+	mdp_vbif_lock(parent_pdev, false);
+#endif
 }
 
 void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
