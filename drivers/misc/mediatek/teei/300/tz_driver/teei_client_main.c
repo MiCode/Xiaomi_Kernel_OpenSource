@@ -124,10 +124,12 @@ DECLARE_SEMA(tui_notify_sema, 0);
 #endif
 DECLARE_COMPLETION(boot_decryto_lock);
 
+#define TEEI_SWITCH_BIG_CORE
+
 #ifdef TEEI_FIND_PREFER_CORE_AUTO
 int TZ_PREFER_BIND_CORE;
 #else
-#define TZ_PREFER_BIND_CORE (4)
+#define TZ_PREFER_BIND_CORE (6)
 #endif
 
 enum {
