@@ -77,7 +77,15 @@ static u64 get_md_sleep_time(void)
 
 static inline int mt6853_suspend_common_enter(unsigned int *susp_status)
 {
-	return -1;
+	unsigned int status = PLAT_VCORE_LP_MODE
+				| PLAT_PMIC_VCORE_SRCLKEN0
+				| PLAT_SUSPEND;
+
+	/* maybe need to stop sspm/mcupm mcdi task here */
+	if (susp_status)
+		*susp_status = status;
+
+	return 0;
 }
 
 
