@@ -2697,6 +2697,9 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		return -EINVAL;
 	}
 
+	if (atomic_inc_return(&host_ctx->network_execute_cnt) == 1)
+		npu_notify_cdsprm_cxlimit_activity(npu_dev, true);
+
 	if (!network->is_active) {
 		NPU_ERR("network is not active\n");
 		ret = -EINVAL;
@@ -2846,6 +2849,9 @@ exec_v2_done:
 		NPU_ERR("Error handling after execution failure\n");
 		host_error_hdlr(npu_dev, true);
 	}
+
+	if (atomic_dec_return(&host_ctx->network_execute_cnt) == 0)
+		npu_notify_cdsprm_cxlimit_activity(npu_dev, false);
 
 	return ret;
 }
