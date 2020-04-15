@@ -72,6 +72,8 @@ SUPPORT_MMP := true
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
