@@ -154,6 +154,10 @@ int apu_power_power_stress(int type, int device, int opp)
 #endif
 		LOG_WRN("%s, BINNING_VOLTAGE_SUPPORT : %d\n",
 				__func__, BINNING_VOLTAGE_SUPPORT);
+#ifdef CCF_SET_RATE
+		LOG_WRN("%s, CCF_SET_RATE : %d\n",
+				__func__, CCF_SET_RATE);
+#endif
 		LOG_WRN("%s, g_pwr_log_level : %d\n",
 				__func__, g_pwr_log_level);
 		LOG_WRN("%s, power_on_off_stress : %d\n",
