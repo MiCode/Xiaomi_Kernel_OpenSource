@@ -561,6 +561,10 @@ config MACH_MT6853
 	select MTK_SYSTRACKER_V2
 	select MTK_DBGTOP
 	select MTK_CPU_MSSV
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
