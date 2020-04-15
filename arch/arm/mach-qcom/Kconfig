@@ -51,7 +51,6 @@ config ARCH_SDXLEMUR
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_CORTEX_A7
 	select PINCTRL
-	select PCI
 	select QCOM_SCM if SMP
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select PM_DEVFREQ
