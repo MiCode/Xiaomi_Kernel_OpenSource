@@ -4699,7 +4699,7 @@
 		vvpu-supply = <&mt_pmic_vproc2_buck_reg>;
 		vvpu_6315-supply = <&mt6315_3_vbuck3>;
 		vsram_apu-supply = <&mt_pmic_vsram_others_ldo_reg>;
-		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
+		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 
 		clocks = <&topckgen CLK_TOP_DSP_SEL>,	    /* CONN */
 			<&topckgen CLK_TOP_DSP1_SEL>,	        /* VPU_CORE0 */
