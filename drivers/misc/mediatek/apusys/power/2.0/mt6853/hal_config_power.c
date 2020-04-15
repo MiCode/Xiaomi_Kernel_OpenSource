@@ -1155,6 +1155,15 @@ static int buck_control(enum DVFS_USER user, int level)
 			 * disable_regulator(SRAM_BUCK);
 			 * disable_regulator(VPU_BUCK);
 			 */
+
+			/*
+			 * Even done't disable Vvpu, but for power saving,
+			 * here try to set Vvpu as default voltage, 575mv
+			 */
+			vpu_volt_data.target_buck = VPU_BUCK;
+			vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
+			ret |= set_power_voltage(user,
+						 (void *)&vpu_volt_data);
 		}
 	}
 
