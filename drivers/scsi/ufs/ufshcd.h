@@ -432,14 +432,13 @@ enum clk_gating_state {
 struct ufs_clk_gating {
 #ifdef CONFIG_SCSI_UFSHCD_QTI
 	struct hrtimer gate_hrtimer;
-	struct work_struct gate_work;
 	unsigned long delay_ms_pwr_save;
 	unsigned long delay_ms_perf;
 	struct device_attribute delay_pwr_save_attr;
 	struct device_attribute delay_perf_attr;
-#else
-	struct delayed_work gate_work;
 #endif
+	struct delayed_work gate_work;
+
 	struct work_struct ungate_work;
 	enum clk_gating_state state;
 	unsigned long delay_ms;
@@ -511,19 +510,6 @@ struct ufshcd_cmd_log {
 	struct ufshcd_cmd_log_entry *entries;
 	int pos;
 	u32 seq_num;
-};
-
-#define UIC_ERR_REG_HIST_LENGTH 20
-/**
- * struct ufs_uic_err_reg_hist - keeps history of uic errors
- * @pos: index to indicate cyclic buffer position
- * @reg: cyclic buffer for registers value
- * @tstamp: cyclic buffer for time stamp
- */
-struct ufs_uic_err_reg_hist {
-	int pos;
-	u32 reg[UIC_ERR_REG_HIST_LENGTH];
-	ktime_t tstamp[UIC_ERR_REG_HIST_LENGTH];
 };
 
 /* UFS Host Controller debug print bitmask */
@@ -647,21 +633,15 @@ struct ufs_stats {
 	u32 power_mode_change_cnt;
 	struct ufshcd_clk_ctx clk_hold;
 	struct ufshcd_clk_ctx clk_rel;
-	struct ufs_uic_err_reg_hist pa_err;
-	struct ufs_uic_err_reg_hist dl_err;
-	struct ufs_uic_err_reg_hist nl_err;
-	struct ufs_uic_err_reg_hist tl_err;
-	struct ufs_uic_err_reg_hist dme_err;
 	u32 last_intr_status;
 	ktime_t last_intr_ts;
-#else
+#endif
 	/* uic specific errors */
 	struct ufs_err_reg_hist pa_err;
 	struct ufs_err_reg_hist dl_err;
 	struct ufs_err_reg_hist nl_err;
 	struct ufs_err_reg_hist tl_err;
 	struct ufs_err_reg_hist dme_err;
-#endif
 
 	/* fatal errors */
 	struct ufs_err_reg_hist auto_hibern8_err;
@@ -1245,18 +1225,6 @@ void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit);
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
-
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-void ufshcd_scsi_block_requests(struct ufs_hba *hba);
-void ufshcd_scsi_unblock_requests(struct ufs_hba *hba);
-int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us);
-int ufshcd_change_power_mode(struct ufs_hba *hba,
-			     struct ufs_pa_layer_attr *pwr_mode);
-
-extern void ufshcd_apply_pm_quirks(struct ufs_hba *hba);
-extern int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up);
-extern int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
-#endif
 
 int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 	int *desc_length);

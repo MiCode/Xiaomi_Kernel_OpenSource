@@ -7219,6 +7219,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async)
 	int ret;
 	ktime_t start = ktime_get();
 
+	dev_err(hba->dev, "*** This is %s ***\n", __FILE__);
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;

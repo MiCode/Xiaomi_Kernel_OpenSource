@@ -8214,7 +8214,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	int ret;
 	ktime_t start = ktime_get();
 
-	dev_err(hba->dev, "*** This is %s ***\n", __FILE__);
+	dev_err(hba->dev, "Using %s: Move to upstream ufs core --\n", __FILE__);
+	return -EPERM;
 
 	ret = ufshcd_link_startup(hba);
 	if (ret)
