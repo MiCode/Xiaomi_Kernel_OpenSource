@@ -152,6 +152,8 @@ static int mt6362_spmi_reg_read(void *context,
 {
 	struct mt6362_data *data = context;
 	ktime_t current_time, avail_access_time;
+	u8 regval;
+	int ret;
 
 	if (reg == data->last_access_reg) {
 		avail_access_time = ktime_add_us(data->last_access_time, 3);
@@ -163,7 +165,11 @@ static int mt6362_spmi_reg_read(void *context,
 			udelay(ktime_us_delta(avail_access_time, current_time));
 		}
 	}
-	return spmi_ext_register_readl(data->sdev, reg, (u8 *)val, 1);
+	ret = spmi_ext_register_readl(data->sdev, reg, &regval, 1);
+	if (ret < 0)
+		return ret;
+	*val = regval;
+	return 0;
 }
 
 static int mt6362_spmi_reg_write(void *context,

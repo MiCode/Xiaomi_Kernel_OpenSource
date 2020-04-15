@@ -16,18 +16,22 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
 
+#define MT6362_REG_DEVINFO	(0x00)
+#define MT6362_REG_TMINFO	(0x0F)
 #define MT6362_REG_ADCCFG1	(0xA4)
 #define MT6362_REG_ADCCFG3	(0xA6)
 #define MT6362_REG_ADCEN1	(0xA7)
 #define MT6362_CHRPT_BASEADDR	(0xAA)
 
-#define MT6362_REG_CHGAICR	(0x22)
-#define MT6362_IAICR_MASK	(0x7F)
-#define MT6362_IAICR_525mA	(0x13)
+#define MT6362_CHIPREV_MASK	(0x0F)
+#define MT6362_CHIPREV_E2	(0x2)
+#define MT6362_TMID3_MASK	BIT(4)
 
 #define MT6362_TIMEMS_PERCH	(1)
 #define MT6362_DESIRECH_SHIFT	(4)
 #define MT6362_IRQRPTCH_SHIFT	(0)
+
+#define MT6362_ADCIBAT_OFFSET	(160 * 1000)
 
 #define MT6362_CHRPT_ADDR(_idx) (MT6362_CHRPT_BASEADDR + ((_idx) - 1) * 2)
 
@@ -36,6 +40,7 @@ struct mt6362_adc_data {
 	struct regmap *regmap;
 	struct mutex adc_lock;
 	struct completion adc_comp;
+	bool ibat_offset_flag;
 };
 
 static const int mt6362_adcch_offsets[] = {
@@ -125,15 +130,10 @@ direct_read:
 	case IIO_CHAN_INFO_PROCESSED:
 		*val = mt6362_adcch_offsets[chan->scan_index];
 		*val += (raw * mt6362_adcch_times[chan->scan_index]);
-		if (chan->scan_index == MT6362_ADCCH_IBUS) {
-			rv = regmap_bulk_read(data->regmap,
-					      MT6362_REG_CHGAICR, &raw, 1);
-			if (rv)
-				goto out_read;
-			/* if iaicr < 525mA, additional gain is 0.76 */
-			if ((raw & MT6362_IAICR_MASK) < MT6362_IAICR_525mA)
-				*val = *val * 76 / 100;
-		}
+
+		if (chan->scan_index == MT6362_ADCCH_IBAT &&
+			data->ibat_offset_flag)
+			*val -= MT6362_ADCIBAT_OFFSET;
 		break;
 	default:
 		rv = -EINVAL;
@@ -227,6 +227,26 @@ static int mt6362_adc_init(struct mt6362_adc_data *data)
 				 adc_configs, sizeof(adc_configs));
 }
 
+static int mt6362_adc_init_offset_flags(struct mt6362_adc_data *data)
+{
+	unsigned int devinfo, tminfo;
+	int rv;
+
+	rv = regmap_read(data->regmap, MT6362_REG_DEVINFO, &devinfo);
+	if (rv)
+		return rv;
+	rv = regmap_read(data->regmap, MT6362_REG_TMINFO, &tminfo);
+	if (rv)
+		return rv;
+
+	/* if rev > e2 or tmid3 == 1, no need ibat offset, otherwise yes */
+	if ((devinfo & MT6362_CHIPREV_MASK) > MT6362_CHIPREV_E2 ||
+		(tminfo & MT6362_TMID3_MASK))
+		data->ibat_offset_flag = true;
+
+	return 0;
+}
+
 static int mt6362_adc_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev;
@@ -247,6 +267,12 @@ static int mt6362_adc_probe(struct platform_device *pdev)
 	if (!data->regmap) {
 		dev_err(&pdev->dev, "failed to allocate regmap\n");
 		return -ENODEV;
+	}
+
+	rv = mt6362_adc_init_offset_flags(data);
+	if (rv) {
+		dev_notice(&pdev->dev, "failed to init adc offset flags\n");
+		return rv;
 	}
 
 	rv = mt6362_adc_init(data);

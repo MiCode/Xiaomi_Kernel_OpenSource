@@ -10,6 +10,7 @@ ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/subpmic
 
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
 

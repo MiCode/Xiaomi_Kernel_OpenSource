@@ -6560,9 +6560,9 @@
 		dbg {
 			compatible = "mediatek,mt6362-dbg";
 		};
-		subpmic-oc-dbg {
-			compatible = "mediatek,subpmic-oc-dbg";
-			status = "disabled";
+		buck-manager {
+			compatible = "mediatek,mt6362-buck-manager";
+			status = "okay";
 		};
 	};
 #endif

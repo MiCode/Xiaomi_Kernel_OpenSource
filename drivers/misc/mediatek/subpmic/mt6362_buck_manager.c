@@ -105,9 +105,9 @@ void mt6362_vmd1_pmic_setting_on(void)
 	struct mt6362_buck_manager_data *data = g_data;
 	int ret;
 
+	pr_info("%s\n", __func__);
 	if (!data) {
-		dev_err(data->dev,
-			"%s: data uninitialize, adjust probe order\n",
+		pr_notice("%s: data uninitialize, adjust probe order\n",
 			__func__);
 		return;
 	}
@@ -151,6 +151,7 @@ void mt6362_vmd1_pmic_setting_on(void)
 				 MT6362_MASK_MD_SPMI_CFG, 0xff);
 	if (ret < 0)
 		dev_err(data->dev, "%s: recover spmi_p ctrl fail\n", __func__);
+	pr_info("%s: reset vosel done\n", __func__);
 }
 
 static int mt6362_buck_manager_probe(struct platform_device *pdev)
@@ -160,6 +161,7 @@ static int mt6362_buck_manager_probe(struct platform_device *pdev)
 	struct regulator *reg;
 	int i, ret;
 
+	dev_info(&pdev->dev, "%s\n", __func__);
 	if (!of_device_is_available(pdev->dev.of_node)) {
 		dev_info(&pdev->dev,
 			 "this project no need to enable OC debug\n");
@@ -204,6 +206,7 @@ static int mt6362_buck_manager_probe(struct platform_device *pdev)
 				   "register regulator notifier failed\n");
 		}
 	}
+	dev_info(&pdev->dev, "%s: successfully\n", __func__);
 	return ret;
 }
 

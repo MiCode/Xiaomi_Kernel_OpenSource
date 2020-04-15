@@ -24,6 +24,7 @@
 #define MT6362_CHG_DRV_VERSION		"1.0.1_MTK"
 
 static bool dbg_log_en;
+module_param(dbg_log_en, bool, 0644);
 #define mt_dbg(dev, fmt, ...) \
 	do { \
 		if (dbg_log_en) \
@@ -828,8 +829,8 @@ static int mt6362_enable_otg_parameter(struct mt6362_chg_data *data, bool en)
 			ret = __mt6362_enable_otg_parameter(data, en);
 			if (ret < 0)
 				goto err;
-			data->otg_mode_cnt--;
 		}
+		data->otg_mode_cnt--;
 	}
 	goto out;
 err:
@@ -1111,7 +1112,7 @@ static int mt6362_charger_get_property(struct power_supply *psy,
 	struct mt6362_chg_data *data = power_supply_get_drvdata(psy);
 	int ret = 0;
 
-	dev_dbg(data->dev, "%s: prop = %d\n", __func__, psp);
+	mt_dbg(data->dev, "%s: prop = %d, val = %d\n", __func__, psp, *val);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6362_charger_get_online(data, val);
@@ -1162,7 +1163,7 @@ static int mt6362_charger_set_property(struct power_supply *psy,
 	struct mt6362_chg_data *data = power_supply_get_drvdata(psy);
 	int ret;
 
-	dev_dbg(data->dev, "%s: prop = %d\n", __func__, psp);
+	mt_dbg(data->dev, "%s: prop = %d, val = %d\n", __func__, psp, *val);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6362_charger_set_online(data, val);
@@ -2026,7 +2027,7 @@ static int mt6362_dump_registers(struct charger_device *chg_dev)
 	bool chg_en = false;
 	u32 adc_vals[5];
 	u8 chg_stat[2], chg_top[2];
-	u32 chg_eoc;
+	u32 chg_eoc = 0;
 
 	ret = mt6362_get_ichg(chg_dev, &ichg);
 	ret |= mt6362_get_aicr(chg_dev, &aicr);
