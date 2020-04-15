@@ -25,6 +25,8 @@
 #include <linux/of_address.h>
 #include <linux/delay.h>
 
+extern unsigned int mt_get_ckgen_freq(int ID);
+
 #define DISP_PWM_EN		0x00
 
 #define PWM_CLKDIV_SHIFT	16
@@ -62,6 +64,7 @@ struct mtk_disp_pwm {
 	void __iomem *base;
 	void __iomem *pmw_src_addr;
 	bool pwm_src_enabled;
+	u32 source_rate;
 };
 
 static inline struct mtk_disp_pwm *to_mtk_disp_pwm(struct pwm_chip *chip)
@@ -79,6 +82,28 @@ static void mtk_disp_pwm_update_bits(struct mtk_disp_pwm *mdp, u32 offset,
 	value &= ~mask;
 	value |= data;
 	writel(value, address);
+}
+
+static int get_pwm_src_rate(struct device *dev, struct mtk_disp_pwm *mdp)
+{
+	int ret = 0;
+	u32 pwm_src_base = 0;
+
+	mdp->source_rate = 0;
+
+	ret = of_property_read_u32(dev->of_node, "pwm_src_fmeter_id",
+		&pwm_src_base);
+	if (ret < 0)
+		return -1;
+
+	mdp->source_rate = mt_get_ckgen_freq(pwm_src_base)*1000;
+
+	if (mdp->source_rate == 0) {
+		dev_notice(mdp->chip.dev,
+			"get freq fail %d\n", mdp->source_rate);
+	}
+
+	return ret;
 }
 
 static int get_pwm_src_base(struct device *dev, struct mtk_disp_pwm *mdp)
@@ -171,12 +196,15 @@ static int mtk_disp_pwm_config_impl(struct mtk_disp_pwm *mdp,
 	 * high_width = (PWM_CLK_RATE * duty_ns) / (10^9 * (clk_div + 1))
 	 */
 	dev_notice(mdp->chip.dev, "duty=%d period=%d\n", duty_ns, period_ns);
-	rate = clk_get_rate(mdp->clk_main);
+	rate = mdp->source_rate;
+	if (rate == 0)
+		rate = clk_get_rate(mdp->clk_main);
+
 	clk_div = div_u64(rate * period_ns, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
 	if (clk_div > PWM_CLKDIV_MAX)
 		return -EINVAL;
-	dev_dbg(mdp->chip.dev, "rate=%lld clk_div=%d\n", rate, clk_div);
+	dev_notice(mdp->chip.dev, "rate=%lld clk_div=%d\n", rate, clk_div);
 
 	div = NSEC_PER_SEC * (clk_div + 1);
 	period = div64_u64(rate * period_ns, div);
@@ -319,14 +347,17 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto disable_clk_main;
 
+	clk_enable(g_mdp->clk_mm);
 	pwm_src = devm_clk_get(&pdev->dev, "pwm_src");
 	if (!IS_ERR(pwm_src)) {
-		clk_enable(g_mdp->clk_mm);
 		clk_set_parent(g_mdp->clk_mm, pwm_src);
-		clk_disable(g_mdp->clk_mm);
 		dev_info(&pdev->dev, "select clk_mm with pwm_src\n");
 	}
+
+	get_pwm_src_rate(&pdev->dev, g_mdp);
+	clk_disable(g_mdp->clk_mm);
 	get_pwm_src_base(&pdev->dev, g_mdp);
+
 
 	g_mdp->chip.dev = &pdev->dev;
 	g_mdp->chip.ops = &mtk_disp_pwm_ops;
