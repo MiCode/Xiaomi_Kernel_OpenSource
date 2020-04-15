@@ -282,3 +282,16 @@ const char *cmdq_util_hw_name(void *chan)
 {
 	return "GCE";
 }
+
+bool cmdq_thread_ddr_user_check(const s32 thread)
+{
+	switch (thread) {
+	case 0 ... 6:
+	case 8 ... 9:
+	case 15:
+		return false;
+	default:
+		return true;
+	}
+}
+EXPORT_SYMBOL(cmdq_thread_ddr_user_check);

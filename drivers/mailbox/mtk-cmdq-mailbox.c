@@ -286,7 +286,8 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			writel(cmdq->prefetch,
 				cmdq->base + CMDQ_PREFETCH_GSIZE);
 		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) || \
+	IS_ENABLED(CONFIG_MACH_MT6853)
 		writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
 		writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
 #endif
@@ -325,7 +326,8 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) || \
+	IS_ENABLED(CONFIG_MACH_MT6853)
 		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
 #endif
 		/* now allow pm suspend */
@@ -466,7 +468,8 @@ static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 #endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) || \
+	IS_ENABLED(CONFIG_MACH_MT6853)
 	if (cmdq_thread_ddr_user_check(thread->idx)) {
 		unsigned long flags;
 
@@ -675,7 +678,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			&task->pa_base, pkt->cmd_buf_size, thread->base,
 			thread->idx);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+#if IS_ENABLED(CONFIG_MACH_MT6873) || \
+	IS_ENABLED(CONFIG_MACH_MT6853)
 		if (cmdq_thread_ddr_user_check(thread->idx)) {
 			unsigned long flags;
 
@@ -1853,6 +1857,9 @@ static int cmdq_probe(struct platform_device *pdev)
 	spin_lock_init(&cmdq->lock);
 	clk_enable(cmdq->clock);
 	cmdq_init(cmdq);
+#if IS_ENABLED(CONFIG_MACH_MT6853)
+	writel(0x7, cmdq->base + GCE_GCTL_VALUE);
+#endif
 	clk_disable(cmdq->clock);
 
 #ifdef CONFIG_MTK_CMDQ_MBOX_EXT
