@@ -69,13 +69,12 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_data[] = {
 	0x17000004,	0x00000111,	0x00000000,/* VENCSYS_CG_SET */
 	0x17000008,	0x00000111,	0x00000111,/* VENCSYS_CG_CLR */
 	0x1A000000,	0x00001FC3,	0x00001FC3,/* CAMSYS_CG_CON */
-	0xA00C0F00,	0x80030000,	0x00000000/* PTPCORESEL */
 };
 
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_dpidle =
 		AP_CG_Golden_Setting_tcl_gs_dpidle_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len = 153;
+unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len = 150;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 /*      Address     Mask        Golden Setting Value */
@@ -132,13 +131,12 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 	0x17000004,	0x00000111,	0x00000000,/* VENCSYS_CG_SET */
 	0x17000008,	0x00000111,	0x00000111,/* VENCSYS_CG_CLR */
 	0x1A000000,	0x00001FC3,	0x00001FC3,	/* CAMSYS_CG_CON */
-	0xA00C0F00,	0x80030000,	0x00000000/* PTPCORESEL */
 };
 
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_suspend =
 		AP_CG_Golden_Setting_tcl_gs_suspend_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 162;
+unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 159;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_sodi_data[] = {
 /*      Address     Mask        Golden Setting Value */
