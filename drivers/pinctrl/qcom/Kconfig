@@ -2,11 +2,17 @@
 if (ARCH_QCOM || COMPILE_TEST)
 
 config PINCTRL_MSM
-	bool
+	tristate "Qualcomm generic pin controller driver"
 	select PINMUX
 	select PINCONF
 	select GENERIC_PINCONF
 	select GPIOLIB_IRQCHIP
+	help
+          This is Qualcomm Technologies, Inc msm platform TLMM
+	  generic driver. This provides interfaces to chipset specific
+	  clients drivers use the TLMM block.
+	  Say yes here to enable Qualcomm TLMM driver.
+
 
 config PINCTRL_APQ8064
 	tristate "Qualcomm APQ8064 pin controller driver"
