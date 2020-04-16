@@ -43,6 +43,7 @@ struct vdec_vcu_inst {
 	wait_queue_head_t wq;
 	ipi_handler_t handler;
 	bool abort;
+	int daemon_pid;
 };
 
 /**
@@ -98,8 +99,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv);
 int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out);
 int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id,
 					  void *param, unsigned int size);
-int vcu_dec_set_ctx_for_gce(struct vdec_vcu_inst *vcu);
-int vcu_dec_clear_ctx_for_gce(struct vdec_vcu_inst *vcu);
+int vcu_dec_set_ctx(struct vdec_vcu_inst *vcu);
+int vcu_dec_clear_ctx(struct vdec_vcu_inst *vcu);
 int get_mapped_fd(struct dma_buf *dmabuf);
 void close_mapped_fd(unsigned int target_fd);
 

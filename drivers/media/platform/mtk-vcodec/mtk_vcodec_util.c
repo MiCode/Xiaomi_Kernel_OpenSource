@@ -116,23 +116,24 @@ void mtk_vcodec_mem_free(struct mtk_vcodec_ctx *data,
 EXPORT_SYMBOL(mtk_vcodec_mem_free);
 
 void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
-	struct mtk_vcodec_ctx *ctx)
+	struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->irqlock, flags);
-	dev->curr_ctx = ctx;
+	dev->curr_dec_ctx[hw_id] = ctx;
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 }
 EXPORT_SYMBOL(mtk_vcodec_set_curr_ctx);
 
-struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev)
+struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
+	int hw_id)
 {
 	unsigned long flags;
 	struct mtk_vcodec_ctx *ctx;
 
 	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
+	ctx = dev->curr_dec_ctx[hw_id];
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 	return ctx;
 }
@@ -143,7 +144,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 {
 	struct vb2_buffer *dst_buf, *src_buf;
 	struct vdec_fb *pfb;
-	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
+	struct mtk_video_dec_buf *dst_buf_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	int i;
 
@@ -155,11 +156,10 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 	/* for getting timestamp*/
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	src_vb2_v4l2 = container_of(src_buf, struct vb2_v4l2_buffer, vb2_buf);
-	src_buf_info = container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	mtk_v4l2_debug_enter();
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
-	if (dst_buf != NULL && src_buf_info != NULL) {
+	if (dst_buf != NULL) {
 		dst_vb2_v4l2 = container_of(
 			dst_buf, struct vb2_v4l2_buffer, vb2_buf);
 		dst_buf_info = container_of(
@@ -183,18 +183,16 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		}
 
 		pfb->status = 0;
-		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x",
+		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
 				ctx->id, dst_buf->index, pfb,
 				pfb->fb_base[0].va,
 				&pfb->fb_base[0].dma_addr,
 				&pfb->fb_base[1].dma_addr,
 				pfb->fb_base[0].size,
-				dst_buf->planes[0].m.fd);
+				dst_buf->planes[0].m.fd,
+				pfb->dma_general_buf,
+				pfb->general_buf_fd);
 
-		dst_buf_info->vb.vb2_buf.timestamp
-			= src_buf_info->vb.vb2_buf.timestamp;
-		dst_buf_info->vb.timecode
-			= src_buf_info->vb.timecode;
 		mutex_lock(&ctx->buf_lock);
 		dst_buf_info->used = true;
 		mutex_unlock(&ctx->buf_lock);
@@ -212,4 +210,26 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 	return pfb;
 }
 EXPORT_SYMBOL(mtk_vcodec_get_fb);
+
+
+void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
+		void *vbuf)
+{
+	struct v4l2_m2m_buffer *b = container_of(vbuf,
+				struct v4l2_m2m_buffer, vb);
+	mtk_v4l2_debug(8, "[Debug] b %p b->list.next %p prev %p %p %p\n",
+		b, b->list.next, b->list.prev,
+		LIST_POISON1, LIST_POISON2);
+
+	if (WARN_ON(IS_ERR_OR_NULL(m2m_ctx) ||
+		(b->list.next != LIST_POISON1 && b->list.next) ||
+		(b->list.prev != LIST_POISON2 && b->list.prev))) {
+		v4l2_aee_print("b %p next %p prev %p already in rdyq %p %p\n",
+			b, b->list.next, b->list.prev,
+			LIST_POISON1, LIST_POISON2);
+		return;
+	}
+	v4l2_m2m_buf_queue(m2m_ctx, vbuf);
+}
+EXPORT_SYMBOL(v4l2_m2m_buf_queue_check);
 

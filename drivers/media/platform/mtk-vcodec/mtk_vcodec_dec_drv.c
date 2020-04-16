@@ -120,6 +120,7 @@ static int fops_vcodec_open(struct file *file)
 	}
 
 	list_add(&ctx->list, &dev->ctx_list);
+	dev->dec_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
 	mtk_v4l2_debug(0, "%s decoder [%d]", dev_name(&dev->plat_dev->dev),
@@ -169,6 +170,8 @@ static int fops_vcodec_release(struct file *file)
 	list_del_init(&ctx->list);
 	kfree(ctx->dec_flush_buf);
 	kfree(ctx);
+	if (dev->dec_cnt > 0)
+		dev->dec_cnt--;
 	mutex_unlock(&dev->dev_mutex);
 	return 0;
 }
@@ -222,9 +225,10 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 	mtk_v4l2_debug(1, "action = %ld", action);
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
+		vdec_dev->is_codec_suspending = 1;
 		for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
-			vdec_dev->is_codec_suspending = 1;
-			do {
+			val = down_trylock(&vdec_dev->dec_sem[i]);
+			while (val == 1) {
 				usleep_range(10000, 20000);
 				wait_cnt++;
 				/* Current task is still not finished, don't
@@ -233,8 +237,9 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 				if (wait_cnt > 5) {
 					mtk_v4l2_err("waiting fail");
 					return NOTIFY_DONE;
-				} val = down_trylock(&vdec_dev->dec_sem[i]);
-			} while (val == 1);
+				}
+				val = down_trylock(&vdec_dev->dec_sem[i]);
+			}
 			up(&vdec_dev->dec_sem[i]);
 		}
 		return NOTIFY_OK;
@@ -286,7 +291,8 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			ret = PTR_ERR((__force void *)dev->dec_reg_base[i]);
 			goto err_res;
 		}
-		mtk_v4l2_debug(2, "reg[%d] base=%p", i, dev->dec_reg_base[i]);
+		mtk_v4l2_debug(2, "reg[%d] base=0x%px",
+			i, dev->dec_reg_base[i]);
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -354,12 +360,27 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		goto err_event_workq;
 	}
 
-	ret = video_register_device(vfd_dec, VFL_TYPE_GRABBER, 0);
+	ret = video_register_device(vfd_dec, VFL_TYPE_GRABBER, -1);
 	if (ret) {
 		mtk_v4l2_err("Failed to register video device");
 		goto err_dec_reg;
 	}
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
+	if (dev->io_domain == NULL) {
+		mtk_v4l2_err("Failed to get io_domain\n");
+		return -EPROBE_DEFER;
+	}
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_info(&pdev->dev, "64-bit DMA enable failed\n");
+			return ret;
+		}
+	}
+#endif
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 				   vfd_dec->num);
 
@@ -367,6 +388,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	mtk_prepare_vdec_emi_bw();
 	pm_notifier(mtk_vcodec_dec_suspend_notifier, 0);
 	dev->is_codec_suspending = 0;
+	dev->dec_cnt = 0;
 	vdec_dev = dev;
 
 	return 0;
@@ -389,7 +411,9 @@ static const struct of_device_id mtk_vcodec_match[] = {
 	{.compatible = "mediatek,mt2712-vcodec-dec",},
 	{.compatible = "mediatek,mt8167-vcodec-dec",},
 	{.compatible = "mediatek,mt6771-vcodec-dec",},
-	{.compatible = "mediatek,vdec_gcon",},
+	{.compatible = "mediatek,mt6885-vcodec-dec",},
+	{.compatible = "mediatek,mt6873-vcodec-dec",},
+	{.compatible = "mediatek,mt6853-vcodec-dec",},
 	{},
 };
 

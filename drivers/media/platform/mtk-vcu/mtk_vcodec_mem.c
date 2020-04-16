@@ -33,8 +33,6 @@ struct mtk_vcu_queue *mtk_vcu_dec_init(struct device *dev)
 	vcu_queue->mem_ops = &vb2_dma_contig_memops;
 	vcu_queue->dev = dev;
 	vcu_queue->num_buffers = 0;
-	vcu_queue->map_buf = 0;
-	vcu_queue->map_type = 0;
 	mutex_init(&vcu_queue->mmap_lock);
 
 	return vcu_queue;
@@ -93,7 +91,7 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 	vcu_queue->num_buffers++;
 	mutex_unlock(&vcu_queue->mmap_lock);
 
-	pr_debug("Num_buffers = %d iova = %x va = %llx size = %d mem_priv = %lx\n",
+	pr_debug("Num_buffers = %d iova = %llx va = %llx size = %d mem_priv = %lx\n",
 			 vcu_queue->num_buffers, mem_buff_data->iova,
 			 mem_buff_data->va,
 			 (unsigned int)vcu_buffer->size,
@@ -127,7 +125,7 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 			if (mem_buff_data->va == (unsigned long)cook &&
 			mem_buff_data->iova == *(dma_addr_t *)dma_addr &&
 				mem_buff_data->len == vcu_buffer->size) {
-				pr_debug("Free buff = %d iova = %x va = %llx, queue_num = %d\n",
+				pr_debug("Free buff = %d iova = %llx va = %llx, queue_num = %d\n",
 						 buffer, mem_buff_data->iova,
 						 mem_buff_data->va,
 						 num_buffers);
@@ -147,7 +145,7 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 	mutex_unlock(&vcu_queue->mmap_lock);
 
 	if (ret != 0)
-		pr_info("Can not free memory va %llx iova %x len %u!\n",
+		pr_info("Can not free memory va %llx iova %llx len %u!\n",
 			   mem_buff_data->va, mem_buff_data->iova,
 			   mem_buff_data->len);
 
@@ -170,7 +168,7 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 				vcu_queue->mem_ops->cookie(
 					vcu_buffer->mem_priv);
 			cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
-			pr_debug("Cache flush buffer=%d, iova=%lx, va=%p, size=%d, Q_num = %d\n",
+			pr_debug("Cache flush buffer=%d, iova=%llx, va=%p, size=%d, Q_num = %d\n",
 				buffer, *(unsigned int long *)dma_addr,
 				vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv),
 				(unsigned int)vcu_buffer->size, num_buffers);
@@ -210,7 +208,7 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 			}
 		}
 		if (buffer == num_buffers) {
-			pr_info("Cache %s buffer fail, iova = %p, size = %d\n, Not VCU allocated",
+			pr_info("Cache %s buffer fail, iova = %p, size = %d, Not VCU allocated\n",
 				(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
 				(void *)dma_addr, (unsigned int)size);
 		}

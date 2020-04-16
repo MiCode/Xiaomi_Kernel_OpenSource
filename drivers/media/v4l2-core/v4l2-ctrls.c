@@ -994,6 +994,12 @@ const char *v4l2_ctrl_get_name(u32 id)
 		return "Video fix buffers for svp";
 	case V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT:
 		return "Video queued frame buf count";
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_I_FRAME_QP:
+		return "I-Frame QP Value";
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_P_FRAME_QP:
+		return "P-Frame QP Value";
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_B_FRAME_QP:
+		return "B-Frame QP Value";
 	default:
 		return NULL;
 	}

@@ -166,13 +166,12 @@ static int venc_encode_header(struct venc_inst *inst,
 		inst->vsi->venc.venc_bs_va = (u64)(uintptr_t)bs_buf;
 
 	inst->vsi->venc.venc_fb_va = 0;
-	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_SEQ_HDR, NULL,
-						 bs_buf, bs_size);
-	if (ret)
-		return ret;
 
 	mtk_vcodec_debug(inst, "vsi venc_bs_va 0x%llx",
 			 inst->vsi->venc.venc_bs_va);
+
+	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_SEQ_HDR, NULL,
+						 bs_buf, bs_size);
 
 	return ret;
 }
@@ -227,7 +226,10 @@ static int venc_encode_frame_final(struct venc_inst *inst,
 {
 	int ret = 0;
 
-	mtk_vcodec_debug_enter(inst);
+	mtk_v4l2_debug(0, "check inst->vsi %p +", inst->vsi);
+	if (inst == NULL || inst->vsi == NULL)
+		return -EINVAL;
+
 	if (bs_buf == NULL)
 		inst->vsi->venc.venc_bs_va = 0;
 	else
@@ -256,8 +258,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	u32 fourcc = ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
-	if (!inst)
+	if (!inst) {
+		*handle = (unsigned long)NULL;
 		return -ENOMEM;
+	}
 
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
@@ -302,6 +306,7 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	}
 
 	inst->hw_base = mtk_vcodec_get_enc_reg_addr(inst->ctx, VENC_SYS);
+	inst->vcu_inst.handler = vcu_enc_ipi_handler;
 
 	mtk_vcodec_debug_enter(inst);
 
@@ -311,9 +316,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	mtk_vcodec_debug_leave(inst);
 
-	if (ret)
+	if (ret) {
 		kfree(inst);
-	else
+		(*handle) = (unsigned long)NULL;
+	} else
 		(*handle) = (unsigned long)inst;
 
 	return ret;
@@ -328,10 +334,10 @@ static int venc_encode(unsigned long handle,
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
 
-	mtk_vcodec_debug(inst, "opt %d ->", opt);
+	if (inst == NULL || inst->vsi == NULL)
+		return -EINVAL;
 
-	if (inst->ctx->use_gce)
-		vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
+	mtk_vcodec_debug(inst, "opt %d ->", opt);
 
 	switch (opt) {
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
@@ -347,7 +353,11 @@ static int venc_encode(unsigned long handle,
 	}
 
 	case VENC_START_OPT_ENCODE_FRAME: {
-
+		/* only run @ worker then send ipi
+		 * VPU flush cmd binding ctx & handle
+		 * or cause cmd calllback ctx error
+		 */
+		vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
 		ret = venc_encode_frame(inst, frm_buf, bs_buf,
 			&result->bs_size);
 		if (ret)
@@ -477,7 +487,7 @@ static int venc_set_param(unsigned long handle,
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
 
-	if (inst == NULL)
+	if (inst == NULL || inst->vsi == NULL)
 		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "->type=%d, ipi_id=%d", type, inst->vcu_inst.id);
@@ -501,6 +511,17 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.heif_grid_size = enc_prm->heif_grid_size;
 		inst->vsi->config.max_w = enc_prm->max_w;
 		inst->vsi->config.max_h = enc_prm->max_h;
+		inst->vsi->config.num_b_frame = enc_prm->num_b_frame;
+		inst->vsi->config.slbc_ready = enc_prm->slbc_ready;
+		inst->vsi->config.i_qp = enc_prm->i_qp;
+		inst->vsi->config.p_qp = enc_prm->p_qp;
+		inst->vsi->config.b_qp = enc_prm->b_qp;
+
+		if (enc_prm->color_desc) {
+			memcpy(&inst->vsi->config.color_desc,
+				enc_prm->color_desc,
+				sizeof(struct mtk_color_desc));
+		}
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
@@ -529,14 +550,21 @@ static int venc_set_param(unsigned long handle,
 			mtk_vcodec_debug(inst, "sizeimage[%d] size=0x%x", i,
 							 enc_prm->sizeimage[i]);
 		}
+		inst->ctx->async_mode = !(inst->vsi->sync_mode);
 
 		break;
 	case VENC_SET_PARAM_PREPEND_HEADER:
 		inst->prepend_hdr = 1;
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		break;
+	case VENC_SET_PARAM_COLOR_DESC:
+		memcpy(&inst->vsi->config.color_desc, enc_prm->color_desc,
+			sizeof(struct mtk_color_desc));
+		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
+		break;
 	default:
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
+		inst->ctx->async_mode = !(inst->vsi->sync_mode);
 		break;
 	}
 
@@ -554,8 +582,7 @@ static int venc_deinit(unsigned long handle)
 
 	ret = vcu_enc_deinit(&inst->vcu_inst);
 
-	if (inst->ctx->use_gce)
-		vcu_enc_clear_ctx_for_gce(&inst->vcu_inst);
+	vcu_enc_clear_ctx_for_gce(&inst->vcu_inst);
 
 	mtk_vcodec_debug_leave(inst);
 	kfree(inst);

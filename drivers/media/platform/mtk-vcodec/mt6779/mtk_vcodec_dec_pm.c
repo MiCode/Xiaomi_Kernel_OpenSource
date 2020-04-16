@@ -368,20 +368,20 @@ static void mtk_vdec_emi_bw_end(void)
 #endif
 }
 
-void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	add_job(&ctx->id, &vdec_jobs);
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 }
 
-void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	mtk_vdec_dvfs_begin(ctx);
 	mtk_vdec_emi_bw_begin(ctx);
 }
 
-void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	mtk_vdec_dvfs_end(ctx);
 	mtk_vdec_emi_bw_end();

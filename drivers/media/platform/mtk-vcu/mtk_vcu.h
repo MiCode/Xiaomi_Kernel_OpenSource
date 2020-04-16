@@ -155,7 +155,7 @@ enum ipi_id {
 	IPI_MDP_1,
 	IPI_MDP_2,
 	IPI_MDP_3,
-	IPI_CAMERA = 20,
+	IPI_CAMERA,
 	IPI_MAX = 50,
 };
 
@@ -198,7 +198,7 @@ int vcu_ipi_register(struct platform_device *pdev, enum ipi_id id,
  **/
 int vcu_ipi_send(struct platform_device *pdev,
 				 enum ipi_id id, void *buf,
-				 unsigned int len);
+				 unsigned int len, void *priv);
 
 /**
  * vcu_get_plat_device - get VCU's platform device
@@ -282,14 +282,21 @@ void vcu_get_task(struct task_struct **task, struct files_struct **f,
 		int reset);
 void vcu_get_file_lock(void);
 void vcu_put_file_lock(void);
+int vcu_get_sig_lock(unsigned long flags);
+void vcu_put_sig_lock(unsigned long flags);
+int vcu_check_vpud_alive(void);
 extern void smp_inner_dcache_flush_all(void);
 int vcu_set_codec_ctx(struct platform_device *pdev,
-		 void *codec_ctx, unsigned long type);
+		 void *codec_ctx, void *codec_dev, unsigned long type);
 int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type);
 extern void venc_encode_prepare(void *ctx_prepare,
 		int core_id, unsigned long *flags);
 extern void venc_encode_unprepare(void *ctx_prepare,
 		int core_id, unsigned long *flags);
-
+extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
+		int core_id, int job_cnt);
+extern void venc_encode_pmqos_gce_end(void *ctx_end,
+		int core_id, int job_cnt);
+extern void mtk_vcodec_gce_timeout_dump(void *ctx);
 #endif /* _MTK_VCU_H */

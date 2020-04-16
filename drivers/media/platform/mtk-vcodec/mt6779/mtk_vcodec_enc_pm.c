@@ -59,7 +59,7 @@ static struct mm_qos_request venc_ref_chroma;
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-	ctx->use_gce = 0;
+	ctx->async_mode = 0;
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -128,9 +128,14 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	free_all_bw(&venc_bw);
 }
 
-void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
+void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
+{
+}
+
+void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
+	struct mtk_vcodec_pm *pm = ctx->dev->pm;
 	int ret;
 
 	smi_bus_prepare_enable(SMI_LARB3_REG_INDX, "VENC", true);
@@ -140,9 +145,10 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 #endif
 }
 
-void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id)
+void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
+	struct mtk_vcodec_pm *pm = ctx->dev->pm;
 	clk_disable_unprepare(pm->clk_MT_CG_VENC);
 	smi_bus_disable_unprepare(SMI_LARB3_REG_INDX, "VENC", true);
 #endif
@@ -247,7 +253,7 @@ void mtk_venc_dvfs_end(struct mtk_vcodec_ctx *ctx)
 	venc_cur_job = venc_jobs;
 	if (venc_cur_job != 0 && (venc_cur_job->handle == &ctx->id)) {
 		venc_cur_job->end = get_time_us();
-		if (ctx->use_gce == 0) {
+		if (ctx->async_mode == 0) {
 			update_hist(venc_cur_job, &venc_hists, 0);
 		} else {
 			/* Set allowed time for slowmotion 4 buffer pack */
@@ -287,7 +293,7 @@ void mtk_venc_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 
 	cur_bw = add_bw_by_id(&venc_bw, ctx->id);
 
-	if (ctx->use_gce == 1 ||
+	if (ctx->async_mode == 1 ||
 		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||
 		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_HEIF) {
 		boost_perc = 100;

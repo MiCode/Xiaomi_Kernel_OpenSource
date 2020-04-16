@@ -17,9 +17,9 @@
 #ifndef __UAPI_MTK_VCU_CONTROLS_H__
 #define __UAPI_MTK_VCU_CONTROLS_H__
 
-#define SHARE_BUF_SIZE 64
+#define SHARE_BUF_SIZE 72
 #define LOG_INFO_SIZE 1024
-#define VCODEC_CMDQ_CMD_MAX           (1024)
+#define VCODEC_CMDQ_CMD_MAX           (2048)
 
 /**
  * struct mem_obj - memory buffer allocated in kernel
@@ -30,7 +30,7 @@
  * @va: kernel virtual address
  */
 struct mem_obj {
-	u32 iova;
+	u64 iova;
 	u32 len;
 	u64 pa;
 	u64 va;
@@ -151,7 +151,24 @@ enum gce_event_id {
 	VDEC_EVENT_13,   /* reserved */
 	VDEC_EVENT_14,   /* reserved */
 	VDEC_EVENT_15,   /* Queue Counter OP threshold */
-	VENC_EOF,
+	VDEC_LAT_EVENT_0,
+	VDEC_LAT_EVENT_1,
+	VDEC_LAT_EVENT_2,
+	VDEC_LAT_EVENT_3,
+	VDEC_LAT_EVENT_4,
+	VDEC_LAT_EVENT_5,
+	VDEC_LAT_EVENT_6,
+	VDEC_LAT_EVENT_7,
+	VDEC_LAT_EVENT_8,
+	VDEC_LAT_EVENT_9,
+	VDEC_LAT_EVENT_10,
+	VDEC_LAT_EVENT_11,
+	VDEC_LAT_EVENT_12,
+	VDEC_LAT_EVENT_13,
+	VDEC_LAT_EVENT_14,
+	VDEC_LAT_EVENT_15,
+	VDEC_EVENT_COUNT,
+	VENC_EOF = VDEC_EVENT_COUNT,
 	VENC_CMDQ_PAUSE_DONE,
 	VENC_MB_DONE,
 	VENC_128BYTE_CNT_DONE,
@@ -188,7 +205,7 @@ enum gce_event_id {
 
 #if IS_ENABLED(CONFIG_COMPAT)
 struct compat_mem_obj {
-	u32 iova;
+	u64 iova;
 	u32 len;
 	compat_u64 pa;
 	compat_u64 va;

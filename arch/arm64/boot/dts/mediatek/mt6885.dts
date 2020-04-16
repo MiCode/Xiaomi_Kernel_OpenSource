@@ -5267,6 +5267,9 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x16000000 0 0x40000>,	    /* VDEC_BASE */
 			 <0 0x17020000 0 0x10000>,  /* VENC_BASE */
 			 <0 0x17820000 0 0x10000>;  /* VENC_C1_BASE */
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT_MDP>;
+#endif
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mediatek,dec_gce_th_num = <1>;
 		mediatek,enc_gce_th_num = <2>;
