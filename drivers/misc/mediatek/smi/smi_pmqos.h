@@ -17,7 +17,8 @@
 #include <smi_port.h>
 
 #define SMI_PMQOS_BWL_MAX	(0xfff)
-#define SMI_PMQOS_BWL_MASK(b)	((b) & (SMI_PMQOS_BWL_MAX))
+#define SMI_PMQOS_BWL_MASK(b) \
+	((b) > (SMI_PMQOS_BWL_MAX) ? (SMI_PMQOS_BWL_MAX) : (b))
 
 #if IS_ENABLED(PMQOS_USE_IOMMU_PORT)
 #define SMI_PMQOS_PORT_MASK(p)	MTK_IOMMU_TO_PORT(p)
