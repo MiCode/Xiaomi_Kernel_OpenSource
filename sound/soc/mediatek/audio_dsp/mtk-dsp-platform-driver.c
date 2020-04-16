@@ -618,10 +618,15 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 	dump_rbuf_s("1 mtk_dsp_dl_handler",
 				&dsp_mem->ring_buf);
 #endif
-	sync_ringbuf_readidx(
+	ret = sync_ringbuf_readidx(
 		&dsp_mem->ring_buf,
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
+
+	if (ret) {
+		pr_info("%s sync_ringbuf_readidx underflow\n", __func__);
+		return -1;
+	}
 
 #ifdef DEBUG_VERBOSE
 	pr_info("%s id = %d reg_ofs_base = %d reg_ofs_cur = %d pcm_ptr_bytes = %d pcm_remap_ptr_bytes = %d\n",
@@ -651,8 +656,7 @@ static void mtk_dsp_dl_handler(struct mtk_base_dsp *dsp,
 		goto DSP_IRQ_HANDLER_ERR;
 	}
 
-	if (dsp->dsp_mem[id].substream->runtime->status->state
-	    != SNDRV_PCM_STATE_RUNNING) {
+	if (!snd_pcm_running(dsp->dsp_mem[id].substream)) {
 		pr_info("%s = state[%d]\n", __func__,
 			 dsp->dsp_mem[id].substream->runtime->status->state);
 		goto DSP_IRQ_HANDLER_ERR;
@@ -664,6 +668,58 @@ DSP_IRQ_HANDLER_ERR:
 	return;
 }
 
+static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
+			       struct ipi_msg_t *ipi_msg, int id)
+{
+	unsigned long flags;
+	void *ipi_audio_buf;
+
+	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
+
+	if (!dsp->dsp_mem[id].substream) {
+		pr_info("%s substream NULL\n", __func__);
+		return;
+	}
+
+	if (!snd_pcm_running(dsp->dsp_mem[id].substream)) {
+		pr_info("%s = state[%d]\n", __func__,
+			 dsp->dsp_mem[id].substream->runtime->status->state);
+		return;
+	}
+
+	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
+	/* upadte for write index*/
+	ipi_audio_buf = (void *)dsp_mem->msg_dtoa_share_buf.va_addr;
+
+	memcpy((void *)&dsp_mem->adsp_work_buf, (void *)ipi_audio_buf,
+	       sizeof(struct audio_hw_buffer));
+
+	dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge.pRead =
+	    dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge.pRead;
+
+#ifdef DEBUG_VERBOSE_IRQ
+	dump_rbuf_s("dl_consume", &dsp->dsp_mem[id].ring_buf);
+#endif
+
+	sync_ringbuf_readidx(
+		&dsp->dsp_mem[id].ring_buf,
+		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
+
+	if (ipi_msg && ipi_msg->param2) {
+		pr_info("%s adsp resert id = %d\n", __func__, id);
+		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+	}
+
+	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
+
+#ifdef DEBUG_VERBOSE_IRQ
+	pr_info("%s id = %d\n", __func__, id);
+	dump_rbuf_s("dl_consume", &dsp->dsp_mem[id].ring_buf);
+#endif
+	/* notify subsream */
+	snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
+}
+
 static void mtk_dsp_ul_handler(struct mtk_base_dsp *dsp,
 			       struct ipi_msg_t *ipi_msg, int id)
 {
@@ -671,8 +727,13 @@ static void mtk_dsp_ul_handler(struct mtk_base_dsp *dsp,
 	void *ipi_audio_buf;
 	unsigned long flags;
 
-	if (dsp->dsp_mem[id].substream->runtime->status->state
-	    != SNDRV_PCM_STATE_RUNNING) {
+	if (!dsp->dsp_mem[id].substream) {
+		pr_info("%s substream NULL\n", __func__);
+		return;
+	}
+
+
+	if (!snd_pcm_running(dsp->dsp_mem[id].substream)) {
 		pr_info("%s = state[%d]\n", __func__,
 			 dsp->dsp_mem[id].substream->runtime->status->state);
 		goto DSP_IRQ_HANDLER_ERR;
@@ -835,9 +896,12 @@ static int mtk_dsp_pcm_close(struct snd_pcm_substream *substream)
 		return 0;
 
 	/* send to task with close information */
-	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
+	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_CLOSE, 0, 0,
 			 NULL);
+
+	if (ret)
+		pr_info("%s ret[%d]\n", __func__, ret);
 
 	mtk_dsp_deregister_feature(dsp_feature_id);
 
@@ -949,9 +1013,12 @@ static int mtk_dsp_pcm_hw_free(struct snd_pcm_substream *substream)
 	gen_pool_dsp = mtk_get_adsp_dram_gen_pool(id);
 
 	/* send to task with free status */
-	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
+	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_HWFREE, 1, 0,
 			 NULL);
+
+	if (ret)
+		pr_info("%s ret[%d]\n", __func__, ret);
 
 	if (gen_pool_dsp != NULL && substream->dma_buffer.area) {
 		ret = mtk_adsp_genpool_free_sharemem_ring
@@ -1010,8 +1077,6 @@ static int mtk_dsp_start(struct snd_pcm_substream *substream)
 			       1, 0, NULL);
 	return ret;
 }
-
-static int copy_count;
 static int mtk_dsp_stop(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -1021,7 +1086,7 @@ static int mtk_dsp_stop(struct snd_pcm_substream *substream)
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_STOP,
 			       1, 0, NULL);
-	copy_count = 0;
+
 	return ret;
 }
 

@@ -100,6 +100,15 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 
 	if (is_adsp_ready(ADSP_A_ID) != 1) {
 		pr_info("%s(), is_adsp_ready send false\n", __func__);
+		send_result = -1;
+		return send_result;
+	}
+
+	if (get_task_attr(get_dspdaiid_by_dspscene(task_scene),
+			  ADSP_TASK_ATTR_DEFAULT) == 0) {
+		pr_info("%s() task_scene[%d] not enable\n",
+			__func__, task_scene);
+		send_result = -1;
 		return send_result;
 	}
 
@@ -110,7 +119,8 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 		(char *)payload);
 
 	if (send_result)
-		pr_info("%s(), scp_ipi send fail\n", __func__);
+		pr_info("%s(),scp_ipi send fail\n",
+			__func__);
 
 	return send_result;
 }

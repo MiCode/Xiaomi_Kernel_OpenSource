@@ -985,6 +985,7 @@ int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 	if (task_ring_buf->pRead == task_ring_buf->pWrite &&
 	    task_ring_buf->datacount == 0) {
 		AUD_LOG_D("%s task_ring_buf empty", __func__);
+		return -1;
 	}
 
 	readidx = task_ring_buf->pBufBase +
