@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- *Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ *Copyright (c) 2018,2020 The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM hyp_core_ctl
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH .
+#undef TRACE_INCLUDE_FILE
+#define TRACE_INCLUDE_FILE hyp_core_ctl_trace
 
 #if !defined(_TRACE_HYP_CORE_CTL_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HYP_CORE_CTL_H
