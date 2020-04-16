@@ -362,6 +362,8 @@ enum mhi_cmd_type {
 #define MHI_RSCTRE_DATA_DWORD0(cookie) (cookie)
 #define MHI_RSCTRE_DATA_DWORD1 (MHI_PKT_TYPE_COALESCING << 16)
 
+#define MHI_RSC_MIN_CREDITS (8)
+
 enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
 	MHI_CMD_START_CHAN,
@@ -539,10 +541,10 @@ enum MHI_ER_TYPE {
 enum mhi_er_priority {
 	MHI_ER_PRIORITY_HIGH,
 	MHI_ER_PRIORITY_MEDIUM,
-	MHI_ER_PRIORITY_LOW,
+	MHI_ER_PRIORITY_SPECIAL,
 };
 
-#define IS_MHI_ER_PRIORITY_LOW(ev) (ev->priority >= MHI_ER_PRIORITY_LOW)
+#define IS_MHI_ER_PRIORITY_SPECIAL(ev) (ev->priority >= MHI_ER_PRIORITY_SPECIAL)
 #define IS_MHI_ER_PRIORITY_HIGH(ev) (ev->priority == MHI_ER_PRIORITY_HIGH)
 
 enum mhi_er_data_type {
@@ -695,6 +697,9 @@ struct mhi_chan {
 	struct completion completion;
 	rwlock_t lock;
 	struct list_head node;
+
+	/* stats */
+	u64 mode_change;
 };
 
 struct tsync_node {
@@ -747,8 +752,8 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 			       enum MHI_ST_TRANSITION state);
 void mhi_pm_st_worker(struct work_struct *work);
 void mhi_fw_load_worker(struct work_struct *work);
+void mhi_special_purpose_work(struct work_struct *work);
 void mhi_process_sys_err(struct mhi_controller *mhi_cntrl);
-void mhi_low_priority_worker(struct work_struct *work);
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl);
 void mhi_ctrl_ev_task(unsigned long data);
 int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl);
@@ -911,6 +916,7 @@ void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl);
 int mhi_dtr_init(void);
 void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 		      struct image_info *img_info);
+void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl);
 int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 			struct mhi_chan *mhi_chan);
 void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl);
