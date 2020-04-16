@@ -1481,8 +1481,10 @@ static void fstb_fps_stats(struct work_struct *work)
 			fpsgo_systrace_c_fstb(iter->pid,
 				iter->target_fps_margin_dbnc_b,
 				"target_fps_margin_dbnc_b");
+#ifdef CONFIG_MTK_GPU_SUPPORT
 			ged_kpi_set_target_FPS_margin(iter->bufid,
 				iter->target_fps, iter->target_fps_margin);
+#endif
 			mtk_fstb_dprintk_always(
 			"%s pid:%d target_fps:%d\n",
 			__func__, iter->pid,
