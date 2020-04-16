@@ -496,7 +496,7 @@ static void sysstats_build(struct sys_memstats *stats)
 	stats->version = SYSSTATS_VERSION;
 	stats->memtotal = K(i.totalram);
 	stats->reclaimable =
-		global_node_page_state(NR_INDIRECTLY_RECLAIMABLE_BYTES) >> 10;
+		global_node_page_state(NR_KERNEL_MISC_RECLAIMABLE) << 2;
 	stats->swap_used = K(i.totalswap - i.freeswap);
 	stats->swap_total = K(i.totalswap);
 	stats->vmalloc_total = K(vmalloc_nr_pages());
