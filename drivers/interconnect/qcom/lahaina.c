@@ -36,7 +36,7 @@ DEFINE_QNODE_QOS(qhm_qdss_bam, 2, 0, 1, 98304);
 DEFINE_QNODE_QOS(qhm_qup0, 2, 0, 1, 102400);
 DEFINE_QNODE_QOS(qhm_qup2, 2, 0, 1, 106496);
 DEFINE_QNODE_QOS(qxm_crypto, 2, 1, 1, 118784);
-DEFINE_QNODE_QOS(qxm_ipa, 2, 1, 0, 65536);
+DEFINE_QNODE_QOS(qxm_ipa, 2, 1, 1, 65536);
 DEFINE_QNODE_QOS(xm_pcie3_0, 2, 0, 1, 77824);
 DEFINE_QNODE_QOS(xm_pcie3_1, 2, 0, 1, 81920);
 DEFINE_QNODE_QOS(xm_qdss_etr, 2, 0, 1, 86016);
@@ -46,8 +46,8 @@ DEFINE_QNODE_QOS(alm_gpu_tcu, 1, 0, 1, 655360);
 DEFINE_QNODE_QOS(alm_sys_tcu, 6, 0, 1, 659456);
 DEFINE_QNODE_QOS(qnm_cmpnoc, 0, 1, 2, 135168, 397312);
 DEFINE_QNODE_QOS(qnm_gpu, 0, 0, 2, 139264, 401408);
-DEFINE_QNODE_QOS(qnm_mnoc_hf, 0, 1, 1, 143360, 405504);
-DEFINE_QNODE_QOS(qnm_mnoc_sf, 0, 1, 1, 147456, 409600);
+DEFINE_QNODE_QOS(qnm_mnoc_hf, 0, 1, 2, 143360, 405504);
+DEFINE_QNODE_QOS(qnm_mnoc_sf, 0, 1, 2, 147456, 409600);
 DEFINE_QNODE_QOS(qnm_pcie, 2, 1, 1, 663552);
 DEFINE_QNODE_QOS(qnm_snoc_gc, 0, 1, 1, 667648);
 DEFINE_QNODE_QOS(qnm_snoc_sf, 0, 1, 1, 671744);
@@ -669,7 +669,7 @@ static struct qcom_icc_node *gem_noc_nodes[] = {
 	[MASTER_GFX3D] = &qnm_gpu,
 	[MASTER_MNOC_HF_MEM_NOC] = &qnm_mnoc_hf,
 	[MASTER_MNOC_SF_MEM_NOC] = &qnm_mnoc_sf,
-	[MASTER_GEM_NOC_PCIE_SNOC] = &qnm_pcie,
+	[MASTER_ANOC_PCIE_GEM_NOC] = &qnm_pcie,
 	[MASTER_SNOC_GC_MEM_NOC] = &qnm_snoc_gc,
 	[MASTER_SNOC_SF_MEM_NOC] = &qnm_snoc_sf,
 	[SLAVE_MSS_PROC_MS_MPU_CFG] = &qhs_mdsp_ms_mpu_cfg,
