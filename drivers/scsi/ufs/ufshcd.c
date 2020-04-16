@@ -2273,6 +2273,8 @@ static void ufshcd_gate_work(struct work_struct *work)
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->clk_gating.state == CLKS_OFF)
+		goto rel_lock;
 	/*
 	 * In case you are here to cancel this work the gating state
 	 * would be marked as REQ_CLKS_ON. In this case save time by
