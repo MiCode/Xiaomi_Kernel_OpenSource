@@ -215,12 +215,6 @@ extern void mt_ppm_sysboost_set_freq_limit(enum ppm_sysboost_user user,
 extern bool spm_resource_req(unsigned int user, unsigned int req_mask);
 #endif
 
-#ifdef CONFIG_ARM64
-extern void __flush_dcache_area(void *addr, size_t len);
-#else
-extern void v7_flush_kern_dcache_area(void *addr, size_t len);
-#endif
-
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp);
 void connectivity_export_dump_thread_state(const char *name);
 void connectivity_export_tracing_record_cmdline(struct task_struct *tsk);
@@ -240,9 +234,6 @@ void connectivity_export_mt_ppm_sysboost_set_freq_limit(
 bool connectivity_export_spm_resource_req(unsigned int user,
 				unsigned int req_mask);
 #endif
-void connectivity_flush_dcache_area(void *addr, size_t len);
-void connectivity_arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
-				     struct iommu_ops *iommu, bool coherent);
 
 /*********************************************
  * copy from
