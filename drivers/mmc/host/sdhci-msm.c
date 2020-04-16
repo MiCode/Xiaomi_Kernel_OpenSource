@@ -1281,6 +1281,45 @@ void sdhci_msm_mm_dbg_configure(struct sdhci_host *host, u32 mask,
 	readl_relaxed(host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
 }
 
+static ssize_t store_mask_and_match(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	unsigned long value;
+	char *token;
+	int i = 0;
+	u32 mask, match, bit_shift, testbus;
+
+	char *temp = (char *)buf;
+
+	if (!host)
+		return -EINVAL;
+
+	while ((token = strsep(&temp, " "))) {
+		kstrtoul(token, 0, &value);
+		if (i == 0)
+			mask = value;
+		else if (i == 1)
+			match = value;
+		else if (i == 2)
+			bit_shift = value;
+		else if (i == 3) {
+			testbus = value;
+			break;
+		}
+		i++;
+	}
+
+	pr_info("%s: M&M parameter passed are: %d %d %d %d\n",
+		mmc_hostname(host->mmc), mask, match, bit_shift, testbus);
+	pm_runtime_get_sync(dev);
+	sdhci_msm_mm_dbg_configure(host, mask, match, bit_shift, testbus);
+	pm_runtime_put_sync(dev);
+
+	pr_debug("%s: M&M debug enabled.\n", mmc_hostname(host->mmc));
+	return count;
+}
+
 /* Enter sdcc debug mode */
 void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
 {
@@ -5689,6 +5728,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		pr_err("%s: %s: failed creating auto-cmd21 attr: %d\n",
 		       mmc_hostname(host->mmc), __func__, ret);
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
+	}
+
+	if (IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
+				SDCC_IP_CATALOG)) >= 2) {
+		msm_host->mask_and_match.store = store_mask_and_match;
+		sysfs_attr_init(&msm_host->mask_and_match.attr);
+		msm_host->mask_and_match.attr.name = "mask_and_match";
+		msm_host->mask_and_match.attr.mode = 0644;
+		ret = device_create_file(&pdev->dev,
+					&msm_host->mask_and_match);
+		if (ret) {
+			pr_err("%s: %s: failed creating M&M attr: %d\n",
+					mmc_hostname(host->mmc), __func__, ret);
+		}
 	}
 
 	if (sdhci_msm_is_bootdevice(&pdev->dev))
