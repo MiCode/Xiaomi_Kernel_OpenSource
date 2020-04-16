@@ -98,6 +98,10 @@ dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 endif
 endif
 
+dtb-$(CONFIG_ARCH_SDXLEMUR) += sdxlemur-rumi.dtb \
+	sdxlemur-cdp.dtb \
+	sdxlemur-mtp.dtb
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo

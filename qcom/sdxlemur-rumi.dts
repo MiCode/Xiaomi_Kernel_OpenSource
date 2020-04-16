@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR RUMI";
+	compatible = "qcom,sdxlemur-rumi",
+		"qcom,sdxlemur", "qcom,rumi";
+	qcom,board-id = <0x0F 0>;
+};
