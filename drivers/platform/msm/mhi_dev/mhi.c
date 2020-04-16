@@ -3355,7 +3355,8 @@ static void mhi_dev_enable(struct work_struct *work)
 			"Cleared reset before waiting for M0\n");
 	}
 
-	while (state != MHI_DEV_M0_STATE && max_cnt < MHI_SUSPEND_TIMEOUT) {
+	while (state != MHI_DEV_M0_STATE &&
+		((max_cnt < MHI_SUSPEND_TIMEOUT) || mhi->no_m0_timeout)) {
 		/* Wait for Host to set the M0 state */
 		msleep(MHI_SUSPEND_MIN);
 		rc = mhi_dev_mmio_get_mhi_state(mhi, &state, &mhi_reset);
@@ -3623,6 +3624,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	mhi->enable_m2 = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,enable-m2");
+
+	mhi->no_m0_timeout = of_property_read_bool((&pdev->dev)->of_node,
+		"qcom,no-m0-timeout");
 
 	mhi_log(MHI_MSG_VERBOSE, "acquiring wakelock\n");
 
