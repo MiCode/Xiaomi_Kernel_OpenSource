@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -637,6 +637,12 @@ int mhi_dev_net_interface_init(void)
 	int ret_val = 0;
 	int index = 0;
 	struct mhi_dev_net_client *mhi_net_client = NULL;
+
+	if (mhi_net_ctxt.client_handle) {
+		mhi_dev_net_log(MHI_INFO,
+			"MHI Netdev interface already initialized\n");
+		return ret_val;
+	}
 
 	mhi_net_client = kzalloc(sizeof(struct mhi_dev_net_client), GFP_KERNEL);
 	if (!mhi_net_client)
