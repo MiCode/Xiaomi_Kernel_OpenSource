@@ -973,7 +973,12 @@ int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,
 	 * general bias control.
 	 */
 	if (err == -ENOTSUPP) {
-		if (hw->soc->bias_set) {
+		if (hw->soc->bias_set_combo) {
+			err = hw->soc->bias_set_combo(hw,
+				desc, pullup, MTK_ENABLE);
+			if (err)
+				return err;
+		} else if (hw->soc->bias_set) {
 			err = hw->soc->bias_set(hw, desc, pullup);
 			if (err)
 				return err;
@@ -998,7 +1003,9 @@ int mtk_pinconf_adv_pull_get(struct mtk_pinctrl *hw,
 	 * general bias control.
 	 */
 	if (err == -ENOTSUPP) {
-		if (hw->soc->bias_get) {
+		if (hw->soc->bias_get_combo) {
+			/* do nothing */
+		} else if (hw->soc->bias_get) {
 			err = hw->soc->bias_get(hw, desc, pullup, val);
 			if (err)
 				return err;
@@ -1023,6 +1030,71 @@ int mtk_pinconf_adv_pull_get(struct mtk_pinctrl *hw,
 		return err;
 
 	*val = (t | t2 << 1) & 0x7;
+
+	return 0;
+}
+
+int mtk_pinconf_adv_drive_set(struct mtk_pinctrl *hw,
+			      const struct mtk_pin_desc *desc, u32 arg)
+{
+	int err;
+	int en = arg & 1;
+	int e0 = !!(arg & 2);
+	int e1 = !!(arg & 4);
+
+	/*
+	 * Only one will be exist EH table or EN,E0,E1 table
+	 * Check EH table first
+	 */
+	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, arg);
+	if (!err)
+		return 0;
+
+	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV_EN, en);
+	if (err)
+		return err;
+
+	if (!en)
+		return err;
+
+	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV_E0, e0);
+	if (err)
+		return err;
+
+	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV_E1, e1);
+	if (err)
+		return err;
+
+	return err;
+}
+
+int mtk_pinconf_adv_drive_get(struct mtk_pinctrl *hw,
+			      const struct mtk_pin_desc *desc, u32 *val)
+{
+	u32 en, e0, e1;
+	int err;
+
+	/*
+	 * Only one will be exist EH table or EN,E0,E1 table
+	 * Check EH table first
+	 */
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_EH, val);
+	if (!err)
+		return 0;
+
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_EN, &en);
+	if (err)
+		return err;
+
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_E0, &e0);
+	if (err)
+		return err;
+
+	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV_E1, &e1);
+	if (err)
+		return err;
+
+	*val = (en | e0 << 1 | e1 << 2) & 0x7;
 
 	return 0;
 }
