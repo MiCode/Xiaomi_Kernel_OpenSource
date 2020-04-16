@@ -2268,7 +2268,7 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 		ipa3_ctx->uc_wdi_ctx.stats_notify = NULL;
 	else
 		IPADBG("uc_wdi_ctx.stats_notify already null\n");
-	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_5 ||
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ))
 		ipa3_uc_debug_stats_dealloc(IPA_HW_PROTOCOL_WDI);
@@ -2653,7 +2653,7 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 	}
 	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
 	/* start uC gsi dbg stats monitor */
-	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_5 ||
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)) {
 		if (IPA_CLIENT_IS_PROD(ep->client)) {
@@ -2831,7 +2831,7 @@ retry_gsi_stop:
 	}
 	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
 	/* stop uC gsi dbg stats monitor */
-	if (ipa3_ctx->ipa_hw_type > IPA_HW_v4_5 ||
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 ||
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)) {
 		if (IPA_CLIENT_IS_PROD(ep->client)) {
