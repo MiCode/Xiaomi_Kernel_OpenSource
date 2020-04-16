@@ -920,8 +920,13 @@ static void virtio_gpu_cmd_resource_create_cb(struct virtio_gpu_device *vgdev,
 	 */
 	vbuf->data_buf = NULL;
 
-	if (resp_type != VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO)
+	switch (resp_type) {
+	case VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO:
+	case VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO_LEGACY:
+		break;
+	default:
 		goto finish_pending;
+	}
 
 	obj->num_planes = le32_to_cpu(resp->num_planes);
 	obj->format_modifier = le64_to_cpu(resp->format_modifier);
@@ -955,8 +960,11 @@ static void virtio_gpu_cmd_allocation_metadata_cb(struct virtio_gpu_device *vgde
 	if (!response)
 		return;
 
-	if (resp_type == VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA)
+	switch (resp_type) {
+	case VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA:
+	case VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA_LEGACY:
 		memcpy(&response->info, resp, total_size);
+	}
 
 	response->callback_done = true;
 	wake_up_all(&vgdev->resp_wq);
