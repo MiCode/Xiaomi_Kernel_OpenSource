@@ -112,7 +112,8 @@ do
 	done
 
 	if [ "$warn" = 1 ]; then
-		echo "warning: $INFILE: leak $c to user-space" >&2
+		echo "error: $INFILE: leak $c to user-space" >&2
+		exit 1
 	fi
 done
 
