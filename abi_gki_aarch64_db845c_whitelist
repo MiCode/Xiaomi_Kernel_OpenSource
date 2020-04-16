@@ -55,6 +55,7 @@
   dev_get_regmap
   device_create_file
   device_init_wakeup
+  device_match_fwnode
   device_property_present
   device_property_read_string
   device_property_read_u32_array
@@ -91,6 +92,7 @@
   devm_reset_controller_register
   devm_usb_get_phy_by_phandle
   devm_watchdog_register_device
+  _dev_notice
   dev_set_name
   _dev_warn
   disable_irq
@@ -136,6 +138,7 @@
   extcon_register_notifier
   extcon_unregister_notifier
   find_next_bit
+  find_next_zero_bit
   finish_wait
   fput
   free_irq
@@ -161,11 +164,17 @@
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
+  iommu_present
   __ioremap
   iounmap
+  irq_chip_mask_parent
+  irq_chip_set_type_parent
+  irq_chip_unmask_parent
   __irq_domain_add
+  irq_domain_free_irqs_common
   irq_domain_remove
   irq_find_mapping
+  irq_find_matching_fwspec
   irq_modify_status
   irq_of_parse_and_map
   irq_set_chained_handler_and_data
@@ -220,18 +229,22 @@
   of_get_next_available_child
   of_get_next_child
   of_graph_get_remote_node
+  of_iomap
+  of_irq_find_parent
   of_match_device
   of_match_node
   of_parse_phandle
   of_phy_simple_xlate
   of_platform_depopulate
   of_platform_populate
+  of_property_count_elems_of_size
   of_property_read_string
   of_property_read_u32_index
   of_property_read_variable_u32_array
   param_ops_bool
   param_ops_int
   param_ops_uint
+  pci_bus_type
   pci_dev_put
   pci_match_id
   pci_read_config_byte
@@ -253,6 +266,7 @@
   pinctrl_pm_select_default_state
   pinctrl_pm_select_sleep_state
   pinctrl_utils_free_map
+  platform_bus_type
   platform_device_add
   platform_device_add_properties
   platform_device_add_resources
@@ -284,7 +298,6 @@
   printk
   put_device
   __put_task_struct
-  qcom_scm_is_available
   queue_delayed_work_on
   queue_work_on
   radix_tree_delete
@@ -344,6 +357,7 @@
   strlen
   strncmp
   __sw_hweight32
+  __sw_hweight64
   synchronize_irq
   syscon_node_to_regmap
   syscon_regmap_lookup_by_phandle
@@ -513,6 +527,9 @@
   gpiod_set_debounce
   gpiod_to_irq
   system_power_efficient_wq
+
+# required by qcom-scm-64.ko
+  __arm_smccc_smc
 
 # required by lt9611.ko
   __devm_regmap_init_i2c
@@ -742,7 +759,6 @@
   drm_universal_plane_init
   drm_vblank_init
   fd_install
-  find_next_zero_bit
   flush_workqueue
   get_pid_task
   get_unused_fd_flags
@@ -762,7 +778,6 @@
   iommu_domain_alloc
   iommu_domain_free
   iommu_map_sg
-  iommu_present
   iommu_set_fault_handler
   iommu_unmap
   irq_domain_xlate_onecell
@@ -805,13 +820,8 @@
   of_icc_get
   of_property_read_string_helper
   param_ops_charp
-  platform_bus_type
   put_pid
   put_unused_fd
-  qcom_scm_hdcp_available
-  qcom_scm_hdcp_req
-  qcom_scm_pas_auth_and_reset
-  qcom_scm_set_remote_state
   _raw_read_lock
   _raw_read_unlock
   _raw_write_lock
@@ -828,7 +838,6 @@
   shmem_truncate_range
   strncpy
   strstr
-  __sw_hweight64
   sync_file_create
   sync_file_get_fence
   timespec64_to_jiffies
@@ -857,7 +866,6 @@
   of_machine_is_compatible
 
 # required by i2c-qup.ko
-  _dev_notice
   __usecs_to_jiffies
 
 # required by pm8941-pwrkey.ko
@@ -877,6 +885,49 @@
   of_icc_xlate_onecell
   rpmh_invalidate
   rpmh_write_batch
+
+# required by arm_smmu.ko
+  alloc_io_pgtable_ops
+  amba_bustype
+  bus_set_iommu
+  device_link_add
+  devm_free_irq
+  driver_find_device
+  free_io_pgtable_ops
+  generic_device_group
+  iommu_alloc_resv_region
+  iommu_device_link
+  iommu_device_register
+  iommu_device_sysfs_add
+  iommu_device_sysfs_remove
+  iommu_device_unlink
+  iommu_device_unregister
+  iommu_dma_get_resv_regions
+  iommu_fwspec_add_ids
+  iommu_fwspec_free
+  iommu_get_dma_cookie
+  iommu_group_get_for_dev
+  iommu_group_put
+  iommu_group_ref_get
+  iommu_group_remove_device
+  iommu_put_dma_cookie
+  of_dma_is_coherent
+  pci_device_group
+  __udelay
+
+# required by qcom-pdc.ko
+  irq_chip_disable_parent
+  irq_chip_enable_parent
+  irq_chip_eoi_parent
+  irq_chip_get_parent_state
+  irq_chip_retrigger_hierarchy
+  irq_chip_set_affinity_parent
+  irq_chip_set_parent_state
+  irq_chip_set_vcpu_affinity_parent
+  irq_domain_alloc_irqs_parent
+  irq_domain_create_hierarchy
+  irq_domain_set_hwirq_and_chip
+  irq_domain_update_bus_token
 
 # required by qcom-spmi-pmic.ko
   __spmi_driver_register
@@ -938,14 +989,12 @@
 # required by phy-qcom-qmp.ko
   of_clk_get_by_name
   of_clk_hw_simple_get
-  of_iomap
   __of_reset_control_get
 
 # required by phy-qcom-qusb2.ko
   devm_nvmem_cell_get
 
 # required by phy-qcom-usb-hs.ko
-  of_property_count_elems_of_size
   of_property_read_variable_u8_array
   reset_control_reset
 
@@ -956,12 +1005,7 @@
   device_get_match_data
   gpiochip_populate_parent_fwspec_fourcell
   irq_chip_ack_parent
-  irq_chip_mask_parent
-  irq_chip_set_type_parent
   irq_chip_set_wake_parent
-  irq_chip_unmask_parent
-  irq_find_matching_fwspec
-  of_irq_find_parent
 
 # required by pinctrl-spmi-mpp.ko
   platform_irq_count
@@ -1016,8 +1060,6 @@
   ufshcd_uic_hibern8_exit
 
 # required by mdt_loader.ko
-  qcom_scm_pas_init_image
-  qcom_scm_pas_mem_setup
   request_firmware_into_buf
 
 # required by rmtfs_mem.ko
@@ -1031,7 +1073,6 @@
   device_initialize
   devm_memremap
   of_reserved_mem_lookup
-  qcom_scm_assign_mem
   remap_pfn_range
   unregister_chrdev_region
 
@@ -1051,7 +1092,6 @@
 
 # required by spmi-pmic-arb.ko
   handle_edge_irq
-  irq_domain_free_irqs_common
   irq_domain_set_info
   spmi_controller_add
   spmi_controller_alloc
@@ -1172,7 +1212,6 @@
 
 # required by xhci-plat-hcd.ko
   of_usb_host_tpl_support
-  pci_bus_type
   __usb_create_hcd
 
 # required by roles.ko
@@ -1180,7 +1219,6 @@
   class_destroy
   class_find_device
   device_connection_find_match
-  device_match_fwnode
   device_match_name
   fwnode_connection_find_match
   fwnode_get_parent
