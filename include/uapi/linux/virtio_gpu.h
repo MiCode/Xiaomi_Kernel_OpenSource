@@ -87,6 +87,7 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_RESP_OK_CAPSET_INFO,
 	VIRTIO_GPU_RESP_OK_CAPSET,
 	VIRTIO_GPU_RESP_OK_EDID,
+	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO,
 
 	/* error responses */
 	VIRTIO_GPU_RESP_ERR_UNSPEC = 0x1200,
@@ -314,6 +315,15 @@ struct virtio_gpu_resp_edid {
 	__le32 size;
 	__le32 padding;
 	__u8 edid[1024];
+};
+
+/* VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO */
+struct virtio_gpu_resp_resource_plane_info {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__le32 num_planes;
+	__le64 format_modifier;
+	__le32 strides[4];
+	__le32 offsets[4];
 };
 
 #define VIRTIO_GPU_EVENT_DISPLAY (1 << 0)

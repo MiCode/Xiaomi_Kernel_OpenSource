@@ -116,7 +116,13 @@ struct drm_virtgpu_resource_info {
 	__u32 bo_handle;
 	__u32 res_handle;
 	__u32 size;
-	__u32 stride;
+	union {
+		__u32 stride;
+		__u32 strides[4]; /* strides[0] is accessible with stride. */
+	};
+	__u32 num_planes;
+	__u32 offsets[4];
+	__u64 format_modifier;
 };
 
 struct drm_virtgpu_3d_box {
