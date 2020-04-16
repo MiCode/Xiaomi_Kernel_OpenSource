@@ -572,6 +572,24 @@ copy_exit:
 	return 0;
 }
 
+static int virtio_gpu_resource_create_v2_ioctl(struct drm_device *dev,
+				void *data, struct drm_file *file)
+{
+	return 0;
+}
+
+static int virtio_gpu_allocation_metadata_request_ioctl(struct drm_device *dev,
+				void *data, struct drm_file *file)
+{
+	return 0;
+}
+
+static int virtio_gpu_allocation_metadata_response_ioctl(struct drm_device *dev,
+					void *data, struct drm_file *file)
+{
+	return 0;
+}
+
 struct drm_ioctl_desc virtio_gpu_ioctls[DRM_VIRTIO_NUM_IOCTLS] = {
 	DRM_IOCTL_DEF_DRV(VIRTGPU_MAP, virtio_gpu_map_ioctl,
 			  DRM_AUTH | DRM_RENDER_ALLOW),
@@ -603,5 +621,17 @@ struct drm_ioctl_desc virtio_gpu_ioctls[DRM_VIRTIO_NUM_IOCTLS] = {
 			  DRM_AUTH | DRM_RENDER_ALLOW),
 
 	DRM_IOCTL_DEF_DRV(VIRTGPU_GET_CAPS, virtio_gpu_get_caps_ioctl,
+			  DRM_AUTH | DRM_RENDER_ALLOW),
+
+	DRM_IOCTL_DEF_DRV(VIRTGPU_RESOURCE_CREATE_V2,
+			  virtio_gpu_resource_create_v2_ioctl,
+			  DRM_AUTH | DRM_RENDER_ALLOW),
+
+	DRM_IOCTL_DEF_DRV(VIRTGPU_ALLOCATION_METADATA_REQUEST,
+			  virtio_gpu_allocation_metadata_request_ioctl,
+			  DRM_AUTH | DRM_RENDER_ALLOW),
+
+	DRM_IOCTL_DEF_DRV(VIRTGPU_ALLOCATION_METADATA_RESPONSE,
+			  virtio_gpu_allocation_metadata_response_ioctl,
 			  DRM_AUTH | DRM_RENDER_ALLOW),
 };
