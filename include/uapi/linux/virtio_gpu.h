@@ -50,20 +50,24 @@
  * VIRTIO_GPU_CMD_GET_EDID
  */
 #define VIRTIO_GPU_F_EDID                1
+/*
+ * VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID
+ */
+#define VIRTIO_GPU_F_RESOURCE_UUID       2
 
 /*
  * VIRTIO_GPU_CMD_ALLOCATION_METADATA
  * VIRTIO_GPU_CMD_RESOURCE_CREATE_V2
  */
-#define VIRTIO_GPU_F_RESOURCE_V2         2
+#define VIRTIO_GPU_F_RESOURCE_V2         3
 /*
  * Ability to turn guest pages into host buffers.
  */
-#define VIRTIO_GPU_F_SHARED_GUEST        3
+#define VIRTIO_GPU_F_SHARED_GUEST        4
 /*
  * Can inject host pages into guest.
  */
-#define VIRTIO_GPU_F_HOST_COHERENT       4
+#define VIRTIO_GPU_F_HOST_COHERENT       5
 enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_UNDEFINED = 0,
 
@@ -79,6 +83,7 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_GET_CAPSET_INFO,
 	VIRTIO_GPU_CMD_GET_CAPSET,
 	VIRTIO_GPU_CMD_GET_EDID,
+	VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID,
 
 	/* 3d commands */
 	VIRTIO_GPU_CMD_CTX_CREATE = 0x0200,
@@ -103,6 +108,7 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_RESP_OK_CAPSET_INFO,
 	VIRTIO_GPU_RESP_OK_CAPSET,
 	VIRTIO_GPU_RESP_OK_EDID,
+	VIRTIO_GPU_RESP_OK_RESOURCE_UUID,
 
 	/* CHROMIUM: legacy responses */
 	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO_LEGACY = 0x1104,
@@ -439,6 +445,19 @@ enum virtio_gpu_formats {
 
 	VIRTIO_GPU_FORMAT_A8B8G8R8_UNORM  = 121,
 	VIRTIO_GPU_FORMAT_R8G8B8X8_UNORM  = 134,
+};
+
+/* VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID */
+struct virtio_gpu_resource_assign_uuid {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__le32 resource_id;
+	__le32 padding;
+};
+
+/* VIRTIO_GPU_RESP_OK_RESOURCE_UUID */
+struct virtio_gpu_resp_resource_uuid {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__u8 uuid[16];
 };
 
 #endif
