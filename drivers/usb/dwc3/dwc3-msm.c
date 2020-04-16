@@ -4322,6 +4322,9 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		mdwc->dpdm_nb.notifier_call = NULL;
 	}
 
+	if (mdwc->usb_psy)
+		power_supply_put(mdwc->usb_psy);
+
 	/*
 	 * In case of system suspend, pm_runtime_get_sync fails.
 	 * Hence turn ON the clocks manually.
@@ -4730,16 +4733,17 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	union power_supply_propval pval = {0};
 	int ret;
 
-	if (!mdwc->usb_psy) {
-		mdwc->usb_psy = devm_power_supply_get_by_phandle(mdwc->dev,
-				"qcom,usb-charger");
-		if (IS_ERR_OR_NULL(mdwc->usb_psy)) {
-			dev_info(mdwc->dev, "Could not get usb psy\n");
+	if (!mdwc->usb_psy && of_property_read_bool(mdwc->dev->of_node,
+					"qcom,usb-charger")) {
+		mdwc->usb_psy = power_supply_get_by_name("usb");
+		if (!mdwc->usb_psy) {
+			dev_err(mdwc->dev, "Could not get usb psy\n");
 			return -ENODEV;
 		}
-	} else if (IS_ERR(mdwc->usb_psy)) {
-		return 0;
 	}
+
+	if (!mdwc->usb_psy)
+		return 0;
 
 	if (mdwc->max_power == mA)
 		return 0;
