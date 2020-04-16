@@ -694,13 +694,89 @@ err_free_obj:
 static int virtio_gpu_allocation_metadata_request_ioctl(struct drm_device *dev,
 				void *data, struct drm_file *file)
 {
+	void *request;
+	uint32_t request_id;
+	struct drm_virtgpu_allocation_metadata_request *amr = data;
+	struct virtio_gpu_device *vgdev = dev->dev_private;
+	struct virtio_gpu_allocation_metadata_response *response;
+	void __user *params = u64_to_user_ptr(amr->request);
+
+	if (!amr->request_size)
+		return -EINVAL;
+
+	request = kzalloc(amr->request_size, GFP_KERNEL);
+	if (!request) {
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(request, params,
+			   amr->request_size)) {
+		kfree(request);
+		return -EFAULT;
+	}
+
+	if (amr->response_size) {
+		response = kzalloc(sizeof(struct virtio_gpu_allocation_metadata_response) +
+			           amr->response_size, GFP_KERNEL);
+		if (!response) {
+			kfree(request);
+			return -ENOMEM;
+		}
+
+		response->callback_done = false;
+		idr_preload(GFP_KERNEL);
+		spin_lock(&vgdev->request_idr_lock);
+		request_id = idr_alloc(&vgdev->request_idr, response, 1, 0,
+				       GFP_NOWAIT);
+		spin_unlock(&vgdev->request_idr_lock);
+		idr_preload_end();
+		amr->request_id = request_id;
+	}
+
+	virtio_gpu_cmd_allocation_metadata(vgdev, request_id,
+					   amr->request_size,
+					   amr->response_size,
+					   request,
+					   NULL);
 	return 0;
 }
 
 static int virtio_gpu_allocation_metadata_response_ioctl(struct drm_device *dev,
 					void *data, struct drm_file *file)
 {
-	return 0;
+	int ret = -EINVAL;
+	struct virtio_gpu_allocation_metadata_response *response;
+	struct virtio_gpu_device *vgdev = dev->dev_private;
+	struct drm_virtgpu_allocation_metadata_response *rcr = data;
+	void __user *user_data = u64_to_user_ptr(rcr->response);
+
+	spin_lock(&vgdev->request_idr_lock);
+	response = idr_find(&vgdev->request_idr, rcr->request_id);
+	spin_unlock(&vgdev->request_idr_lock);
+
+	if (!response)
+		goto out;
+
+	ret = wait_event_interruptible(vgdev->resp_wq,
+				       response->callback_done);
+	if (ret)
+		goto out_remove;
+
+	if (copy_to_user(user_data, &response->response_data,
+			 rcr->response_size)) {
+		ret = -EFAULT;
+		goto out_remove;
+	}
+
+	ret = 0;
+
+out_remove:
+	spin_lock(&vgdev->request_idr_lock);
+	response = idr_remove(&vgdev->request_idr, rcr->request_id);
+	spin_unlock(&vgdev->request_idr_lock);
+	kfree(response);
+out:
+	return ret;
 }
 
 struct drm_ioctl_desc virtio_gpu_ioctls[DRM_VIRTIO_NUM_IOCTLS] = {

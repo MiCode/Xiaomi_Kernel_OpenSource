@@ -937,6 +937,31 @@ finish_pending:
 	wake_up_all(&vgdev->resp_wq);
 }
 
+static void virtio_gpu_cmd_allocation_metadata_cb(struct virtio_gpu_device *vgdev,
+						  struct virtio_gpu_vbuffer *vbuf)
+{
+	struct virtio_gpu_allocation_metadata_response *response;
+	struct virtio_gpu_resp_allocation_metadata *resp =
+		(struct virtio_gpu_resp_allocation_metadata *)vbuf->resp_buf;
+	uint32_t resp_type = le32_to_cpu(resp->hdr.type);
+	uint32_t handle = le32_to_cpu(resp->request_id);
+	size_t total_size = sizeof(struct virtio_gpu_resp_allocation_metadata) +
+			    le32_to_cpu(resp->response_size);
+
+	spin_lock(&vgdev->request_idr_lock);
+	response = idr_find(&vgdev->request_idr, handle);
+	spin_unlock(&vgdev->request_idr_lock);
+
+	if (!response)
+		return;
+
+	if (resp_type == VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA)
+		memcpy(&response->info, resp, total_size);
+
+	response->callback_done = true;
+	wake_up_all(&vgdev->resp_wq);
+}
+
 int
 virtio_gpu_cmd_resource_create_3d(struct virtio_gpu_device *vgdev,
 				  struct virtio_gpu_object *bo,
@@ -978,6 +1003,47 @@ virtio_gpu_cmd_resource_create_3d(struct virtio_gpu_device *vgdev,
 	virtio_gpu_queue_fenced_ctrl_buffer(vgdev, vbuf, &cmd_p->hdr, fence);
 	bo->created = true;
 
+	return 0;
+}
+
+int
+virtio_gpu_cmd_allocation_metadata(struct virtio_gpu_device *vgdev,
+				   uint32_t request_id,
+				   uint32_t request_size,
+				   uint32_t response_size,
+				   void *request,
+				   struct virtio_gpu_fence *fence)
+{
+	struct virtio_gpu_vbuffer *vbuf;
+	struct virtio_gpu_allocation_metadata *cmd_p;
+
+	if (response_size) {
+		struct virtio_gpu_resp_allocation_metadata *resp_buf;
+		size_t resp_size = sizeof(struct virtio_gpu_resp_allocation_metadata) +
+				   response_size;
+		resp_buf = kzalloc(resp_size, GFP_KERNEL);
+		if (!resp_buf)
+			return -ENOMEM;
+
+		cmd_p = virtio_gpu_alloc_cmd_resp(vgdev,
+				&virtio_gpu_cmd_allocation_metadata_cb, &vbuf,
+				sizeof(*cmd_p), resp_size,
+				resp_buf);
+		resp_buf->request_id = cpu_to_le32(request_id);
+	} else {
+		cmd_p = virtio_gpu_alloc_cmd(vgdev, &vbuf, sizeof(*cmd_p));
+	}
+
+	memset(cmd_p, 0, sizeof(*cmd_p));
+	cmd_p->hdr.type = cpu_to_le32(VIRTIO_GPU_CMD_ALLOCATION_METADATA);
+	cmd_p->request_id = cpu_to_le32(request_id);
+	cmd_p->request_size = request_size;
+	cmd_p->response_size = response_size;
+
+	vbuf->data_buf = request;
+	vbuf->data_size = request_size;
+
+	virtio_gpu_queue_fenced_ctrl_buffer(vgdev, vbuf, &cmd_p->hdr, fence);
 	return 0;
 }
 

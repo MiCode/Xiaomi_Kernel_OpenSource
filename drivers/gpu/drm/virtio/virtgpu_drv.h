@@ -201,6 +201,12 @@ struct virtio_gpu_drv_cap_cache {
 	atomic_t is_valid;
 };
 
+struct virtio_gpu_allocation_metadata_response {
+	bool callback_done;
+	struct virtio_gpu_resp_allocation_metadata info;
+	uint32_t response_data[];
+};
+
 struct virtio_gpu_device {
 	struct device *dev;
 	struct drm_device *ddev;
@@ -379,6 +385,13 @@ void
 virtio_gpu_cmd_resource_v2_unref(struct virtio_gpu_device *vgdev,
 			    uint32_t resource_id,
 			    struct virtio_gpu_fence *fence);
+int
+virtio_gpu_cmd_allocation_metadata(struct virtio_gpu_device *vgdev,
+				   uint32_t request_id,
+				   uint32_t request_size,
+				   uint32_t response_size,
+				   void *request,
+				   struct virtio_gpu_fence *fence);
 void virtio_gpu_ctrl_ack(struct virtqueue *vq);
 void virtio_gpu_cursor_ack(struct virtqueue *vq);
 void virtio_gpu_fence_ack(struct virtqueue *vq);
