@@ -178,9 +178,8 @@ static unsigned int features[] = {
 	VIRTIO_GPU_F_VIRGL,
 #endif
 	VIRTIO_GPU_F_EDID,
-	VIRTIO_GPU_F_RESOURCE_V2,
-	VIRTIO_GPU_F_SHARED_GUEST,
-	VIRTIO_GPU_F_HOST_COHERENT,
+	VIRTIO_GPU_F_RESOURCE_BLOB,
+	VIRTIO_GPU_F_HOST_VISIBLE,
 };
 static struct virtio_driver virtio_gpu_driver = {
 	.feature_table = features,

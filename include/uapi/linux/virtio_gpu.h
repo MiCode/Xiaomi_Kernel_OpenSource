@@ -54,20 +54,20 @@
  * VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID
  */
 #define VIRTIO_GPU_F_RESOURCE_UUID       2
+/*
+ * VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB
+ */
+#define VIRTIO_GPU_F_RESOURCE_BLOB       3
+/*
+ * VIRTIO_GPU_CMD_RESOURCE_MAP
+ * VIRTIO_GPU_CMD_RESOURCE_UMAP
+ */
+#define VIRTIO_GPU_F_HOST_VISIBLE        4
+/*
+ * VIRTIO_GPU_CMD_CTX_CREATE_V2
+ */
+#define VIRTIO_GPU_F_VULKAN              5
 
-/*
- * VIRTIO_GPU_CMD_ALLOCATION_METADATA
- * VIRTIO_GPU_CMD_RESOURCE_CREATE_V2
- */
-#define VIRTIO_GPU_F_RESOURCE_V2         3
-/*
- * Ability to turn guest pages into host buffers.
- */
-#define VIRTIO_GPU_F_SHARED_GUEST        4
-/*
- * Can inject host pages into guest.
- */
-#define VIRTIO_GPU_F_HOST_COHERENT       5
 enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_UNDEFINED = 0,
 
@@ -94,9 +94,9 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_TRANSFER_TO_HOST_3D,
 	VIRTIO_GPU_CMD_TRANSFER_FROM_HOST_3D,
 	VIRTIO_GPU_CMD_SUBMIT_3D,
-	VIRTIO_GPU_CMD_RESOURCE_CREATE_V2,
-	VIRTIO_GPU_CMD_RESOURCE_CREATE_V2_UNREF,
-	VIRTIO_GPU_CMD_ALLOCATION_METADATA,
+	VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB,
+	VIRTIO_GPU_CMD_RESOURCE_MAP,
+	VIRTIO_GPU_CMD_RESOURCE_UNMAP,
 
 	/* cursor commands */
 	VIRTIO_GPU_CMD_UPDATE_CURSOR = 0x0300,
@@ -109,14 +109,13 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_RESP_OK_CAPSET,
 	VIRTIO_GPU_RESP_OK_EDID,
 	VIRTIO_GPU_RESP_OK_RESOURCE_UUID,
+	VIRTIO_GPU_RESP_OK_MAP_INFO,
 
 	/* CHROMIUM: legacy responses */
 	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO_LEGACY = 0x1104,
-	VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA_LEGACY = 0x1106,
 
 	/* CHROMIUM: success responses */
 	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO = 0x11FF,
-	VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA = 0x11FE,
 
 	/* error responses */
 	VIRTIO_GPU_RESP_ERR_UNSPEC = 0x1200,
@@ -126,30 +125,6 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_RESP_ERR_INVALID_CONTEXT_ID,
 	VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER,
 	VIRTIO_GPU_RESP_ERR_INVALID_MEMORY_ID,
-};
-
-enum virtio_gpu_memory_type {
-	VIRTIO_GPU_MEMORY_UNDEFINED = 0,
-
-	/*
-	 * Traditional virtio-gpu memory.
-	 * Has both host and guest side storage.
-	 *
-	 * VIRTIO_GPU_CMD_TRANSFER_* commands are used
-	 * to copy between guest and host storage.
-	 *
-	 * Created using VIRTIO_GPU_CMD_RESOURCE_CREATE_V2.
-	 */
-	VIRTIO_GPU_MEMORY_TRANSFER,
-	VIRTIO_GPU_MEMORY_SHARED_GUEST,
-	VIRTIO_GPU_MEMORY_HOST_COHERENT,
-};
-
-enum virtio_gpu_caching_type {
-	VIRTIO_GPU_UNDEFINED_CACHING = 0,
-	VIRTIO_GPU_CACHED,
-	VIRTIO_GPU_WRITE_COMBINE,
-	VIRTIO_GPU_UNCACHED,
 };
 
 #define VIRTIO_GPU_FLAG_FENCE (1 << 0)
@@ -287,7 +262,6 @@ struct virtio_gpu_transfer_host_3d {
 struct virtio_gpu_resource_create_3d {
 	struct virtio_gpu_ctrl_hdr hdr;
 	__le32 resource_id;
-	/* memory_type is VIRTIO_GPU_MEMORY_TRANSFER */
 	__le32 target;
 	__le32 format;
 	__le32 bind;
@@ -326,47 +300,6 @@ struct virtio_gpu_cmd_submit {
 	struct virtio_gpu_ctrl_hdr hdr;
 	__le32 size;
 	__le32 padding;
-};
-
-/* VIRTIO_GPU_CMD_RESOURCE_CREATE_V2 */
-struct virtio_gpu_resource_create_v2 {
-	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 resource_id;
-	__le32 guest_memory_type;
-	__le32 caching_type;
-	__le32 pad;
-	__le64 size;
-	__le64 pci_addr;
-	__le32 args_size;
-	__le32 nr_entries;
-	/* ('nr_entries' * struct virtio_gpu_mem_entry) + 'args_size'
-	 * bytes follow here.
-	 */
-};
-
-/* VIRTIO_GPU_CMD_RESOURCE_CREATE_V2_UNREF */
-struct virtio_gpu_resource_v2_unref {
-	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 resource_id;
-	__le32 padding;
-};
-
-/* VIRTIO_GPU_CMD_RESOURCE_CREATE_V2 */
-struct virtio_gpu_allocation_metadata {
-	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 request_id;
-	__le32 pad;
-	__le32 request_size;
-	__le32 response_size;
-	/* 'request_size' bytes go here */
-};
-
-/* VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA */
-struct virtio_gpu_resp_allocation_metadata {
-	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 request_id;
-	__le32 response_size;
-	/* 'response_size' bytes go here */
 };
 
 #define VIRTIO_GPU_CAPSET_VIRGL 1
@@ -458,6 +391,61 @@ struct virtio_gpu_resource_assign_uuid {
 struct virtio_gpu_resp_resource_uuid {
 	struct virtio_gpu_ctrl_hdr hdr;
 	__u8 uuid[16];
+};
+
+
+/* VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB */
+struct virtio_gpu_resource_create_blob {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__le32 resource_id;
+#define VIRTIO_GPU_RES_BLOB_GUEST_MASK   0x000f
+#define VIRTIO_GPU_RES_BLOB_GUEST_NONE   0x0000
+#define VIRTIO_GPU_RES_BLOB_GUEST_SYSTEM 0x0001
+
+#define VIRTIO_GPU_RES_BLOB_HOST_MASK 0x00f0
+#define VIRTIO_GPU_RES_BLOB_HOST_NONE 0x0000
+#define VIRTIO_GPU_RES_BLOB_HOST      0x0010
+
+#define VIRTIO_GPU_RES_BLOB_USE_MASK         0x0f00
+#define VIRTIO_GPU_RES_BLOB_USE_NONE         0x0000
+#define VIRTIO_GPU_RES_BLOB_USE_MAPPABLE     0x0100
+#define VIRTIO_GPU_RES_BLOB_USE_SHAREABLE    0x0200
+#define VIRTIO_GPU_RES_BLOB_USE_CROSS_DEVICE 0x0400
+	__le32 flags;
+	__le64 size;
+	__le64 memory_id;
+	__le32 nr_entries;
+	__le32 padding;
+	/*
+	 * sizeof(nr_entries * virtio_gpu_mem_entry) bytes follow
+	 */
+};
+
+/* VIRTIO_GPU_CMD_RESOURCE_MAP */
+struct virtio_gpu_resource_map {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__le32 resource_id;
+	__le32 padding;
+	__le64 offset;
+};
+
+/* VIRTIO_GPU_RESP_OK_MAP_INFO */
+#define VIRTIO_GPU_MAP_CACHE_MASK      0x0f
+#define VIRTIO_GPU_MAP_CACHE_NONE      0x00
+#define VIRTIO_GPU_MAP_CACHE_CACHED    0x01
+#define VIRTIO_GPU_MAP_CACHE_UNCACHED  0x02
+#define VIRTIO_GPU_MAP_CACHE_WC        0x03
+struct virtio_gpu_resp_map_info {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__u32 map_flags;
+	__u32 padding;
+};
+
+/* VIRTIO_GPU_CMD_RESOURCE_UNMAP */
+struct virtio_gpu_resource_unmap {
+	struct virtio_gpu_ctrl_hdr hdr;
+	__le32 resource_id;
+	__le32 padding;
 };
 
 #endif

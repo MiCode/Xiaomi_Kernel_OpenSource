@@ -46,9 +46,7 @@ extern "C" {
 #define DRM_VIRTGPU_TRANSFER_TO_HOST 0x07
 #define DRM_VIRTGPU_WAIT     0x08
 #define DRM_VIRTGPU_GET_CAPS  0x09
-#define DRM_VIRTGPU_RESOURCE_CREATE_V2 0x0a
-#define DRM_VIRTGPU_ALLOCATION_METADATA_REQUEST  0x0b
-#define DRM_VIRTGPU_ALLOCATION_METADATA_RESPONSE 0x0c
+#define DRM_VIRTGPU_RESOURCE_CREATE_BLOB 0x0a
 
 #define VIRTGPU_EXECBUF_FENCE_FD_IN	0x01
 #define VIRTGPU_EXECBUF_FENCE_FD_OUT	0x02
@@ -74,19 +72,8 @@ struct drm_virtgpu_execbuffer {
 
 #define VIRTGPU_PARAM_3D_FEATURES 1 /* do we have 3D features in the hw */
 #define VIRTGPU_PARAM_CAPSET_QUERY_FIX 2 /* do we have the capset fix */
-#define VIRTGPU_PARAM_RESOURCE_V2 3
-#define VIRTGPU_PARAM_SHARED_GUEST 4
-#define VIRTGPU_PARAM_HOST_COHERENT 5
-
-#define VIRTGPU_MEMORY_UNDEFINED 0
-#define VIRTGPU_MEMORY_TRANSFER 1
-#define VIRTGPU_MEMORY_SHARED_GUEST 2
-#define VIRTGPU_MEMORY_HOST_COHERENT 3
-
-#define VIRTGPU_UNDEFINED_CACHING 0
-#define VIRTGPU_CACHED 1
-#define VIRTGPU_WRITE_COMBINE 2
-#define VIRTGPU_UNCACHED 3
+#define VIRTGPU_PARAM_RESOURCE_BLOB 3 /* DRM_VIRTGPU_RESOURCE_CREATE_BLOB */
+#define VIRTGPU_PARAM_HOST_VISIBLE 4
 
 struct drm_virtgpu_getparam {
 	__u64 param;
@@ -162,29 +149,27 @@ struct drm_virtgpu_get_caps {
 	__u32 pad;
 };
 
-struct drm_virtgpu_resource_create_v2 {
-	__u32 resource_id;
-	__u32 guest_memory_type;
-	__u32 caching_type;
-	__u32 args_size;
-	__u32 gem_handle;
+struct drm_virtgpu_resource_create_blob {
+#define VIRTGPU_RES_BLOB_GUEST_MASK   0x000f
+#define VIRTGPU_RES_BLOB_GUEST_NONE   0x0000
+#define VIRTGPU_RES_BLOB_GUEST_SYSTEM 0x0001
+
+#define VIRTGPU_RES_BLOB_HOST_MASK 0x00f0
+#define VIRTGPU_RES_BLOB_HOST_NONE 0x0000
+#define VIRTGPU_RES_BLOB_HOST      0x0010
+
+#define VIRTGPU_RES_BLOB_USE_MASK         0x0f00
+#define VIRTGPU_RES_BLOB_USE_NONE         0x0000
+#define VIRTGPU_RES_BLOB_USE_MAPPABLE     0x0100
+#define VIRTGPU_RES_BLOB_USE_SHAREABLE    0x0200
+#define VIRTGPU_RES_BLOB_USE_CROSS_DEVICE 0x0400
+	__u32 flags;
+	__u32 bo_handle;
+	__u32 res_handle;
+	__u32 cmd_size;
+	__u64 cmd;
 	__u64 size;
-	__u64 args; /* void */
-};
-
-struct drm_virtgpu_allocation_metadata_request {
-	__u32 request_id;
-	__u32 pad;
-	__u32 request_size;
-	__u32 response_size;
-	__u64 request; /* void */
-};
-
-struct drm_virtgpu_allocation_metadata_response {
-	__u32 request_id;
-	__u32 pad;
-	__u32 response_size;
-	__u64 response; /* void */
+	__u64 memory_id;
 };
 
 #define DRM_IOCTL_VIRTGPU_MAP \
@@ -222,17 +207,9 @@ struct drm_virtgpu_allocation_metadata_response {
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_VIRTGPU_GET_CAPS, \
 	struct drm_virtgpu_get_caps)
 
-#define DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_V2 \
-	DRM_IOWR(DRM_COMMAND_BASE + DRM_VIRTGPU_RESOURCE_CREATE_V2, \
-	struct drm_virtgpu_resource_create_v2)
-
-#define DRM_IOCTL_VIRTGPU_ALLOCATION_METADATA_REQUEST \
-	DRM_IOWR(DRM_COMMAND_BASE + DRM_VIRTGPU_ALLOCATION_METADATA_REQUEST, \
-	struct drm_virtgpu_allocation_metadata_request)
-
-#define DRM_IOCTL_VIRTGPU_ALLOCATION_METADATA_RESPONSE \
-	DRM_IOWR(DRM_COMMAND_BASE + DRM_VIRTGPU_ALLOCATION_METADATA_RESPONSE, \
-	struct drm_virtgpu_allocation_metadata_response)
+#define DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_BLOB				\
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_VIRTGPU_RESOURCE_CREATE_BLOB,	\
+		struct drm_virtgpu_resource_create_blob)
 
 #if defined(__cplusplus)
 }
