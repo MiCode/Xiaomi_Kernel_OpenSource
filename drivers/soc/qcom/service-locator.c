@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "servloc: %s: " fmt, __func__
@@ -30,7 +30,7 @@
 #define LOCATOR_NOT_PRESENT	0
 #define LOCATOR_PRESENT		1
 
-static u32 locator_status = LOCATOR_NOT_PRESENT;
+static u32 locator_status = LOCATOR_PRESENT;
 static bool service_inited;
 
 module_param_named(enable, locator_status, uint, 0644);
