@@ -418,7 +418,7 @@ class MT8695(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'gpio', GpioObj_whitney())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6799())
         ChipObj.refresh_eintGpioMap(self)
 
     def parse(self):
