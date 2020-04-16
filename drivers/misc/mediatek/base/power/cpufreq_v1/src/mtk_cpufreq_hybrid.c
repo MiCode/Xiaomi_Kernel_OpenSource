@@ -1088,6 +1088,10 @@ int cpuhvfs_set_init_volt(void)
 
 int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 {
+#ifdef ENABLE_CLUSTER_ONOFF_SRAM
+	csram_write((OFFS_CLUSTER_ONOFF_S + (cluster_id * 4)),
+			state ? CPUDVFS_CLUSTER_ON : CPUDVFS_CLUSTER_OFF);
+#else
 	struct cdvfs_data cdvfs_d;
 
 	/* Cluster, ON:1/OFF:0 */
@@ -1099,6 +1103,7 @@ int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 	dvfs_to_mcupm_command(IPI_SET_CLUSTER_ON_OFF, &cdvfs_d);
 #else
 	dvfs_to_spm2_command(IPI_SET_CLUSTER_ON_OFF, &cdvfs_d);
+#endif
 #endif
 	return 0;
 }
