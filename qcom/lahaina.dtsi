@@ -3067,7 +3067,7 @@
 					0x2C010800 0x80040868>;
 
 		iommus = <&apps_smmu 0x4a0 0x0>;
-		qcom,iommu-dma = "bypass";
+		dma-coherent;
 
 		status = "disabled";
 	};
