@@ -427,5 +427,9 @@ extern int _atomic_dec_and_lock_irqsafe(atomic_t *atomic, spinlock_t *lock,
 #define atomic_dec_and_lock_irqsafe(atomic, lock, flags) \
 			__cond_lock(lock, _atomic_dec_and_lock_irqsafe(atomic, \
 								lock, flags))
+extern int _atomic_dec_and_lock_irqsave(atomic_t *atomic, spinlock_t *lock,
+					unsigned long *flags);
+#define atomic_dec_and_lock_irqsave(atomic, lock, flags) \
+		__cond_lock(lock, _atomic_dec_and_lock_irqsave(atomic, lock, &(flags)))
 
 #endif /* __LINUX_SPINLOCK_H */

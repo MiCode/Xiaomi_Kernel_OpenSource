@@ -69,6 +69,14 @@
 
 #define RTC_AL_SEC		0x0018
 
+#define RTC_AL_SEC_MASK		0x003f
+#define RTC_AL_MIN_MASK		0x003f
+#define RTC_AL_HOU_MASK		0x001f
+#define RTC_AL_DOM_MASK		0x001f
+#define RTC_AL_DOW_MASK		0x0007
+#define RTC_AL_MTH_MASK		0x000f
+#define RTC_AL_YEA_MASK		0x007f
+
 #define RTC_PDN2		0x002e
 #define RTC_PDN1		0x002c
 #define RTC_SPAR0		0x0030
@@ -452,7 +460,7 @@ static irqreturn_t mtk_rtc_irq_handler_thread(int irq, void *data)
 		irqen = irqsta & ~RTC_IRQ_EN_AL;
 
 		if (regmap_write(rtc->regmap, rtc->addr_base + RTC_IRQ_EN,
-				 irqen) >= 0)
+				 irqen) == 0)
 			mtk_rtc_write_trigger(rtc);
 		mutex_unlock(&rtc->lock);
 
@@ -780,29 +788,29 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	struct rtc_time *tm = &alm->time;
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
-	u16 data[RTC_OFFSET_COUNT], data_b[RTC_OFFSET_COUNT];
+	u16 data[RTC_OFFSET_COUNT];
 	u32 irqsta, irqen, pdn2;
 
 	tm->tm_year -= RTC_MIN_YEAR_OFFSET;
 	tm->tm_mon++;
 
 	ret = regmap_bulk_read(rtc->regmap, rtc->addr_base + RTC_AL_SEC,
-			       data_b, RTC_OFFSET_COUNT);
+			       data, RTC_OFFSET_COUNT);
 	if (ret < 0)
 		goto exit;
 
-	data[RTC_OFFSET_SEC] = ((data_b[RTC_OFFSET_SEC] & ~(RTC_AL_SEC_MASK))
-				| (tm->tm_sec & RTC_AL_SEC_MASK));
-	data[RTC_OFFSET_MIN] = ((data_b[RTC_OFFSET_MIN] & ~(RTC_AL_MIN_MASK))
-				| (tm->tm_min & RTC_AL_MIN_MASK));
-	data[RTC_OFFSET_HOUR] = ((data_b[RTC_OFFSET_HOUR] & ~(RTC_AL_HOU_MASK))
-				| (tm->tm_hour & RTC_AL_HOU_MASK));
-	data[RTC_OFFSET_DOM] = ((data_b[RTC_OFFSET_DOM] & ~(RTC_AL_DOM_MASK))
-				| (tm->tm_mday & RTC_AL_DOM_MASK));
-	data[RTC_OFFSET_MTH] = ((data_b[RTC_OFFSET_MTH] & ~(RTC_AL_MTH_MASK))
-				| (tm->tm_mon & RTC_AL_MTH_MASK));
-	data[RTC_OFFSET_YEAR] = ((data_b[RTC_OFFSET_YEAR] & ~(RTC_AL_YEA_MASK))
-				| (tm->tm_year & RTC_AL_YEA_MASK));
+	data[RTC_OFFSET_SEC] = ((data[RTC_OFFSET_SEC] & ~(RTC_AL_SEC_MASK)) |
+				(tm->tm_sec & RTC_AL_SEC_MASK));
+	data[RTC_OFFSET_MIN] = ((data[RTC_OFFSET_MIN] & ~(RTC_AL_MIN_MASK)) |
+				(tm->tm_min & RTC_AL_MIN_MASK));
+	data[RTC_OFFSET_HOUR] = ((data[RTC_OFFSET_HOUR] & ~(RTC_AL_HOU_MASK)) |
+				(tm->tm_hour & RTC_AL_HOU_MASK));
+	data[RTC_OFFSET_DOM] = ((data[RTC_OFFSET_DOM] & ~(RTC_AL_DOM_MASK)) |
+				(tm->tm_mday & RTC_AL_DOM_MASK));
+	data[RTC_OFFSET_MTH] = ((data[RTC_OFFSET_MTH] & ~(RTC_AL_MTH_MASK)) |
+				(tm->tm_mon & RTC_AL_MTH_MASK));
+	data[RTC_OFFSET_YEAR] = ((data[RTC_OFFSET_YEAR] & ~(RTC_AL_YEA_MASK)) |
+				(tm->tm_year & RTC_AL_YEA_MASK));
 
 	dev_notice(rtc->dev,
 		   "set al time = %04d/%02d/%02d %02d:%02d:%02d (%d)\n",
@@ -916,6 +924,10 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	mt_rtc = rtc;
 	platform_set_drvdata(pdev, rtc);
 
+	rtc->rtc_dev = devm_rtc_allocate_device(rtc->dev);
+	if (IS_ERR(rtc->rtc_dev))
+		return PTR_ERR(rtc->rtc_dev);
+
 	ret = request_threaded_irq(rtc->irq, NULL,
 				   mtk_rtc_irq_handler_thread,
 				   IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
@@ -928,11 +940,11 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 1);
 
-	rtc->rtc_dev = rtc_device_register("mt6397-rtc", &pdev->dev,
-					   &mtk_rtc_ops, THIS_MODULE);
-	if (IS_ERR(rtc->rtc_dev)) {
+	rtc->rtc_dev->ops = &mtk_rtc_ops;
+
+	ret = rtc_register_device(rtc->rtc_dev);
+	if (ret) {
 		dev_err(&pdev->dev, "register rtc device failed\n");
-		ret = PTR_ERR(rtc->rtc_dev);
 		goto out_free_irq;
 	}
 
@@ -949,7 +961,6 @@ static int mtk_rtc_remove(struct platform_device *pdev)
 {
 	struct mt6397_rtc *rtc = platform_get_drvdata(pdev);
 
-	rtc_device_unregister(rtc->rtc_dev);
 	free_irq(rtc->irq, rtc->rtc_dev);
 	irq_dispose_mapping(rtc->irq);
 
