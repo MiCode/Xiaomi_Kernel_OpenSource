@@ -36,6 +36,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
 	-I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/include \
+	-I$(srctree)/include/memory/mediatek/ \
 
 # main
 obj-y += mtk_cm_mgr_platform.o

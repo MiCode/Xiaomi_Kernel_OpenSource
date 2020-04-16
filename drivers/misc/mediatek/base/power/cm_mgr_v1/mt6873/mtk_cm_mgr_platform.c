@@ -304,9 +304,9 @@ void debug_stall_all(void)
 
 static int cm_mgr_check_dram_type(void)
 {
-#ifdef CONFIG_MTK_DRAMC
-	int ddr_type = get_ddr_type();
-	int ddr_hz = dram_steps_freq(0);
+#ifdef CONFIG_MEDIATEK_DRAMC
+	int ddr_type = mtk_dramc_get_ddr_type();
+	int ddr_hz = mtk_dramc_get_steps_freq(0);
 
 	if (ddr_type == TYPE_LPDDR4X || ddr_type == TYPE_LPDDR4)
 		cm_mgr_idx = CM_MGR_LP4;
@@ -314,9 +314,9 @@ static int cm_mgr_check_dram_type(void)
 			__func__, __LINE__, ddr_type, ddr_hz, cm_mgr_idx);
 #else
 	cm_mgr_idx = 0;
-	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC !!! set cm_mgr_idx to 0x%x\n",
+	pr_info("#@# %s(%d) NO CONFIG_MEDIATEK_DRAMC !!! set cm_mgr_idx to 0x%x\n",
 			__func__, __LINE__, cm_mgr_idx);
-#endif /* CONFIG_MTK_DRAMC */
+#endif /* CONFIG_MEDIATEK_DRAMC */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	if (cm_mgr_idx >= 0)

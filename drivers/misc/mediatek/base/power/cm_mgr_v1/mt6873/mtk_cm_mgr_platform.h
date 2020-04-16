@@ -14,9 +14,9 @@
 #ifndef __MTK_CM_MGR_PLATFORM_H__
 #define __MTK_CM_MGR_PLATFORM_H__
 
-#ifdef CONFIG_MTK_DRAMC
-#include <mtk_dramc.h>
-#endif /* CONFIG_MTK_DRAMC */
+#ifdef CONFIG_MEDIATEK_DRAMC
+#include <dramc.h>
+#endif /* CONFIG_MEDIATEK_DRAMC */
 
 #define PER_CPU_STALL_RATIO
 #define LIGHT_LOAD
