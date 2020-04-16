@@ -557,6 +557,7 @@ struct cam_ife_csid_hw {
 	uint32_t                         hbi;
 	uint32_t                         vbi;
 	uint32_t                         vc_info[CAM_IFE_CSID_RDI_MAX];
+	uint32_t                         df_info[CAM_IFE_CSID_RDI_MAX];
 	bool                             ipp_cfg;
 	bool                             sof_irq_triggered;
 	uint32_t                         irq_debug_cnt;
