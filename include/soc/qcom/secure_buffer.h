@@ -45,7 +45,7 @@ enum vmid {
 	VMID_CP_CDSP = 0x2A,
 	VMID_CP_DSP_EXT = 0x2E,
 	VMID_NAV = 0x2B,
-	VMID_LAST,
+	VMID_LAST = 0x2F,
 	VMID_INVAL = -1
 };
 
