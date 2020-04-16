@@ -22,7 +22,10 @@
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
 #include "power_supply.h"
-
+#ifdef CONFIG_DEBUG_USB
+#undef dev_dbg
+#define dev_dbg dev_err
+#endif
 /* exported for the APM Power driver, APM emulation */
 struct class *power_supply_class;
 EXPORT_SYMBOL_GPL(power_supply_class);

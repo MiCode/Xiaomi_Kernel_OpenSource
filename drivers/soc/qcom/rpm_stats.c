@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +29,7 @@
 
 #define GET_PDATA_OF_ATTR(attr) \
 	(container_of(attr, struct msm_rpmstats_kobj_attr, ka)->pd)
-
+static void __iomem *reg_base;
 struct msm_rpmstats_record {
 	char name[32];
 	u32 id;
@@ -219,6 +220,25 @@ uint64_t get_sleep_exit_time(void)
 }
 EXPORT_SYMBOL(get_sleep_exit_time);
 
+void rpmh_status_print_enabled(void)
+{
+	int i;
+	struct msm_rpm_stats_data data;
+	char stat_type[5];
+	for (i = 0; i < 3; i++) {
+		stat_type[4] = 0;
+		data.stat_type = msm_rpmstats_read_long_register(reg_base, i,
+				offsetof(struct msm_rpm_stats_data,
+					stat_type));
+		data.count = msm_rpmstats_read_long_register(reg_base, i,
+				offsetof(struct msm_rpm_stats_data, count));
+		memcpy(stat_type, &data.stat_type, sizeof(u32));
+		pr_info("RPM Mode:%s----count:%d\n",stat_type, data.count);
+	}
+
+}
+EXPORT_SYMBOL_GPL(rpmh_status_print_enabled);
+
 static ssize_t rpmstats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
@@ -324,6 +344,8 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 
 	msm_rpmstats_create_sysfs(pdev, pdata);
 	gpdata = pdata;
+	reg_base = ioremap_nocache(pdata->phys_addr_base,
+					pdata->phys_size);
 
 	return 0;
 }

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -355,6 +356,7 @@ int qg_write_monotonic_soc(struct qpnp_qg *chip, int msoc)
 int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 {
 	int rc = 0;
+	int last_temp = 0;
 
 	if (chip->battery_missing) {
 		*temp = 250;
@@ -366,6 +368,21 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
 		return rc;
 	}
+
+	last_temp = *temp;
+	rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
+	if (rc < 0) {
+		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
+		return rc;
+	}
+	if (abs(last_temp - *temp) > 50) {
+		rc = iio_read_channel_processed(chip->batt_therm_chan, temp);
+		if (rc < 0) {
+			pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	pr_debug("batt_temp = %d\n", *temp);
 
 	return 0;
@@ -398,6 +415,11 @@ int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 
 	last_ibat = sign_extend32(last_ibat, 15);
 	*ibat_ua = qg_iraw_to_ua(chip, last_ibat);
+	if (*ibat_ua < 0) {
+		pr_err("ibat_ua =%d", *ibat_ua);
+		chip->sdam_data[SDAM_IBAT_UA] = 0;
+	} else
+		chip->sdam_data[SDAM_IBAT_UA] =  (chip->sdam_data[SDAM_IBAT_UA] != 0) ? (chip->sdam_data[SDAM_IBAT_UA] * 9 + *ibat_ua) / 10 :  *ibat_ua;
 
 release:
 	/* release */

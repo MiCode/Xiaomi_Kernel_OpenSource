@@ -1,7 +1,8 @@
 /*
- *  Airplane mode button for HP & Xiaomi laptops
+ *  Airplane mode button for HP laptops
  *
  *  Copyright (C) 2014-2017 Alex Hung <alex.hung@canonical.com>
+ *  Copyright (C) 2020 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

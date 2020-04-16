@@ -1,0 +1,9 @@
+config TOUCHSCREEN_AAABBB_TOUCHFEATURE
+	tristate "Touch Feature"
+	depends on INPUT_TOUCHSCREEN
+	help
+	  Say Y here if you enable feature.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here:

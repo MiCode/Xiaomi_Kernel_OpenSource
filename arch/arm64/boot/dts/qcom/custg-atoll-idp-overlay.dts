@@ -1,0 +1,88 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "atoll-idp.dtsi"
+#include "atoll-wcd937x-idp-audio-overlay.dtsi"
+#include "custg-atoll-camera-sensor-idp.dtsi"
+
+/ {
+	model = "wcd937x Audio Codec IDP GRAM";
+	compatible = "qcom,atoll-idp", "qcom,atoll", "qcom,idp";
+	qcom,msm-id = <407 0x0>;
+	qcom,board-id = <0x60022 1>;
+};
+
+&dsi_ft8756_huaxing_video {
+	qcom,dsi-display-active;
+};
+&dsi_nt36675_tianma_video {
+	qcom,dsi-display-active;
+};
+&sdhc_2 {
+	cd-gpios = <&tlmm 69 0>;
+};
+
+&soc {
+	onewire_gpio: onewire_gpio {
+		compatible = "aaabbb,onewire_gpio";
+		label = "xm_onewire";
+		aaabbb,version = <1>;
+		aaabbb,ow_gpio = <&tlmm 93 0x00>;
+		aaabbb,gpio_number = <93>;
+		mi,onewire-gpio-cfg-addr = <0x0395D000 0x4>;
+		pinctrl-names = "onewire_active", "onewire_sleep";
+		pinctrl-0 = <&onewire_gpio_active>;
+		pinctrl-1 = <&onewire_gpio_sleep>;
+		status = "ok";
+	};
+
+	maxim_ds28e16: maxim_ds28e16 {
+		compatible = "maxim,ds28e16";
+		label = "max_ds28e16";
+		maxim,version = <1>;
+		status = "ok";
+	};
+};
+
+&tlmm {
+	onewire_gpio_active: onewire_gpio_active {
+		mux {
+			pins = "gpio93";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio93";
+			drive-strength = <2>;
+			bias-pull-up; /* No PULL */
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep {
+		mux {
+			pins = "gpio93";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio93";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+};

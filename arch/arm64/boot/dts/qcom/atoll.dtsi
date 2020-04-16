@@ -1,4 +1,5 @@
 /* Copyright (c) 2019, The Linux Foundation.All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +51,7 @@
 		sdhc1 = &sdhc_1; /* eMMC */
 		sdhc2 = &sdhc_2; /* SD Card */
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		spi0 = &qupv3_se10_spi;
 		swr0 = &swr0;
 		swr1 = &swr1;
 		swr2 = &swr2;
@@ -490,7 +492,7 @@
 			compatible = "android,firmware";
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,boot,system,vendor,dtbo,recovery";
 			};
 			fstab {
 				compatible = "android,fstab";
@@ -499,7 +501,7 @@
 					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect,avb";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 			};
@@ -667,6 +669,16 @@
 			size = <0 0x2000000>;
 			linux,cma-default;
 		};
+		/* reserve for pstore */
+		ramoops_mem: ramoops@9d800000 {
+			compatible = "ramoops";
+			reg = <0x0 0x9d800000 0x0 0x00400000>;
+
+			record-size = <0x80000>;
+			pmsg-size = <0x200000>;
+			console-size = <0x100000>;
+		};
+
 	};
 
 	chosen {
@@ -696,6 +708,13 @@
 		interrupt-parent = <&intc>;
 	};
 
+	sn_fuse: snfuse@0x00786134 {
+        compatible = "qcom,sn-fuse";
+        reg = <0x00786134 0x4>,
+              <0x0078607c 0x4>;
+        reg-names = "sn-base","fuse-state";
+       };
+	
 	pdc: interrupt-controller@b220000 {
 		compatible = "qcom,pdc-atoll";
 		reg = <0xb220000 0x400>;
@@ -1424,7 +1443,7 @@
 		reg-names = "wdt-base";
 		interrupts = <GIC_SPI 0 IRQ_TYPE_NONE>,
 				<GIC_SPI 1 IRQ_TYPE_NONE>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <15000>;
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
@@ -4050,6 +4069,7 @@
 		label = "smb1390_therm";
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
+		qcom,scale-fn-type = <15>;
 	};
 
 	chg_skin_therm {
@@ -4059,7 +4079,6 @@
 		qcom,hw-settle-time = <200>;
 		qcom,pre-scaling = <1 1>;
 	};
-
 	conn_therm {
 		reg = <ADC_AMUX_THM3_PU2>;
 		label = "conn_therm";

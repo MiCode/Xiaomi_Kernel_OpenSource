@@ -44,7 +44,7 @@
 #ifdef CONFIG_HIBERNATION
 #include <linux/notifier.h>
 #endif
-
+#include <linux/wakeup_reason.h>
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
 
@@ -1980,6 +1980,7 @@ static void msm_pinctrl_resume(void)
 				name = desc->action->name;
 
 			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+			log_wakeup_reason(irq);
 		}
 	}
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);

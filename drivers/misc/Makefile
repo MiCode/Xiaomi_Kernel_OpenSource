@@ -3,6 +3,11 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 
+#board id
+obj-y += board_id.o
+
+obj-$(CONFIG_DRV2624_HAPTIC) += drv2624_haptic/
+obj-$(CONFIG_AW8624_HAPTIC) += aw8624_haptic/
 obj-$(CONFIG_IBM_ASM)		+= ibmasm/
 obj-$(CONFIG_AD525X_DPOT)	+= ad525x_dpot.o
 obj-$(CONFIG_AD525X_DPOT_I2C)	+= ad525x_dpot-i2c.o
@@ -91,3 +96,5 @@ $(obj)/lkdtm_rodata_objcopy.o: $(obj)/lkdtm_rodata.o FORCE
 obj-$(CONFIG_OKL4_USER_VIPC)    += okl4-vipc.o
 obj-$(CONFIG_OKL4_GUEST)        += okl4-panic.o
 obj-$(CONFIG_OKL4_LINK_SHBUF)    += okl4-link-shbuf.o
+obj-$(CONFIG_ANT_CHECK)		+= ant_check.o
+obj-$(CONFIG_ANT_CHECK_DIV)		+= ant_check_div.o

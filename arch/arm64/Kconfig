@@ -834,6 +834,18 @@ config ARCH_HAS_CACHE_LINE_SIZE
 
 source "mm/Kconfig"
 
+config KERNEL_CUSTOM_FACTORY
+        default n
+        bool "Custom for hardware FACTORY_pcb"
+        help
+        Custom for FACTORY_pcb.
+
+config THERMAL_SWITCH
+        default n
+        bool "Support themral config switch"
+        help
+        Support themral config switch.
+    
 config ARM64_DMA_USE_IOMMU
 	bool "ARM64 DMA iommu integration"
 	select ARM_HAS_SG_CHAIN
@@ -1382,6 +1394,13 @@ config KRYO_PMU_WORKAROUND
 
 	  Enable this flag for effect SoCs.
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"
 	depends on OF
@@ -1433,6 +1452,11 @@ config ARCH_HIBERNATION_HEADER
 config ARCH_SUSPEND_POSSIBLE
 	def_bool y
 
+config DEBUG_USB
+	def_bool n
+	help
+	  Open debug log for usb.
+          
 endmenu
 
 menu "CPU Power Management"

@@ -5,7 +5,6 @@ However, if you have problem communicating in English you can also ask the
 Chinese maintainer for help.  Contact the Chinese maintainer, if this
 translation is outdated or there is problem with translation.
 
-Chinese maintainer: Liang Xie <xieliang@xiaomi.com>
 ---------------------------------------------------------------------
 Documentation/basic_profiling的中文翻译
 

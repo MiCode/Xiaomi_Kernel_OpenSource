@@ -5,6 +5,17 @@
 
 # Each configuration option enables a list of files.
 
+
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += lct_tp_info.o
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += lct_tp_selftest.o
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += lct_tp_gesture.o
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += lct_tp_grip_area.o
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += lct_tp_work.o
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += lct_tp_palm.o
+obj-$(CONFIG_TOUCHSCREEN_COMMON)                += aaabbb/
+obj-$(CONFIG_TOUCHSCREEN_FTS)                   += ft8756_spi/
+obj-$(CONFIG_TOUCHSCREEN_NT36xxx_HOSTDL_SPI)    += nt36xxx_spi/
+
 wm97xx-ts-y := wm97xx-core.o
 
 obj-$(CONFIG_TOUCHSCREEN_PROPERTIES)	+= of_touchscreen.o

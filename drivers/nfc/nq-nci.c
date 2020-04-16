@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -561,7 +562,8 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 	int r = 0;
 	struct nqx_dev *nqx_dev = filp->private_data;
 
-	if (arg == 0) {
+	/*NFC MW send command MODE_NFC_ENABLED&MODE_NFC_DISABLED failed caused force download nfc fw.*/
+	if (arg == 0 || arg == 8) {
 		/*
 		 * We are attempting a hardware reset so let us disable
 		 * interrupts to avoid spurious notifications to upper
@@ -596,7 +598,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 				dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
 		}
 		nqx_dev->nfc_ven_enabled = false;
-	} else if (arg == 1) {
+	} else if (arg == 1 || arg == 7) {
 		nqx_enable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
 			"gpio_set_value enable: %s: info: %p\n",
@@ -793,6 +795,7 @@ static const struct file_operations nfc_dev_fops = {
 #endif
 };
 
+#if 0
 /* Check for availability of NQ_ NFC controller hardware */
 static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
@@ -1007,6 +1010,7 @@ done:
 
 	return ret;
 }
+#endif
 
 /*
  * Routine to enable clock.
@@ -1333,6 +1337,8 @@ static int nqx_probe(struct i2c_client *client,
 	}
 	nqx_disable_irq(nqx_dev);
 
+	/* Do not perform nfcc_hw_check, make sure that nfcc is present */
+#if 0
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1345,6 +1351,7 @@ static int nqx_probe(struct i2c_client *client,
 		/* We don't think there is hardware switch NFC OFF */
 		goto err_request_hw_check_failed;
 	}
+#endif
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);
@@ -1510,11 +1517,60 @@ static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
 	return NOTIFY_OK;
 }
 
+#define LC_NFC_CHECK
+
+#ifdef LC_NFC_CHECK
+
+#include <linux/board_id.h>
+
+static int lct_check_hwversion()
+{
+	int ret = 0;
+	int project_number = 0;
+	int major_number = 0;
+
+	//get hwversion number
+	project_number = board_id_get_hwversion_product_num();
+	major_number = board_id_get_hwversion_major_num();
+
+	//check project
+	switch(project_number) {
+	case 1: //custa
+		if (major_number%10 == 3) // if (CN version)
+			ret = 0;
+		else
+			ret = -1;
+		break;
+	case 2: //custe
+		ret = -1;
+		break;
+	case 3: //custd
+		ret = 0;
+		break;
+	case 4: //custj
+		ret = 0;
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
+#endif //LC_NFC_CHECK
+
 /*
  * module load/unload record keeping
  */
 static int __init nqx_dev_init(void)
 {
+#ifdef LC_NFC_CHECK
+	if (lct_check_hwversion()) {
+		pr_err("[nq-nci] NFC not supported on the board!\n");
+		return -ENODEV;
+	}
+	pr_info("[nq-nci] the board supports NFC\n");
+#endif //LC_NFC_CHECK
 	return i2c_add_driver(&nqx);
 }
 module_init(nqx_dev_init);

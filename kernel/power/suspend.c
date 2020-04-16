@@ -382,6 +382,8 @@ void __weak arch_suspend_enable_irqs(void)
 	local_irq_enable();
 }
 
+extern void system_sleep_status_print_enabled(void);
+extern void rpmh_status_print_enabled(void);
 /**
  * suspend_enter - Make the system enter the given sleep state.
  * @state: System sleep state to enter.
@@ -438,6 +440,8 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Enable_cpus;
 	}
 
+	rpmh_status_print_enabled();
+	system_sleep_status_print_enabled();
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 

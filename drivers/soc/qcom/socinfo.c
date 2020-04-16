@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,6 +475,7 @@ static char *msm_read_hardware_id(void)
 	static char msm_soc_str[256] = "Qualcomm Technologies, Inc ";
 	static bool string_generated;
 	int ret = 0;
+	char get_soc_info[8] = "";
 
 	if (string_generated)
 		return msm_soc_str;
@@ -482,8 +484,19 @@ static char *msm_read_hardware_id(void)
 	if (!cpu_of_id[socinfo->v0_1.id].soc_id_string)
 		goto err_path;
 
-	ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v0_1.id].soc_id_string,
+	if (strncmp("ATOLL", cpu_of_id[socinfo->v0_1.id].soc_id_string,
+			strlen(cpu_of_id[socinfo->v0_1.id].soc_id_string)) == 0) {
+		strlcpy(get_soc_info, "SM6250", sizeof(get_soc_info));
+		ret = strlcat(msm_soc_str, get_soc_info,sizeof(msm_soc_str));
+	} else if (strncmp("ATOLL-AB", cpu_of_id[socinfo->v0_1.id].soc_id_string,
+			strlen(cpu_of_id[socinfo->v0_1.id].soc_id_string)) == 0) {
+		strlcpy(get_soc_info, "SM7125", sizeof(get_soc_info));
+		ret = strlcat(msm_soc_str, get_soc_info,sizeof(msm_soc_str));
+	} else {
+		ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v0_1.id].soc_id_string,
 			sizeof(msm_soc_str));
+	}
+
 	if (ret > sizeof(msm_soc_str))
 		goto err_path;
 
