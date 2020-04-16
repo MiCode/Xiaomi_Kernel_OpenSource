@@ -28,7 +28,7 @@
 #include <linux/sched/clock.h>
 #include <uapi/linux/sched/types.h>
 #include "disp_drv_platform.h"
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_ion.h"
 #include "ion_drv.h"
 #endif
@@ -142,7 +142,7 @@ static ktime_t cmd_mode_update_timer_period;
 static int is_fake_timer_inited;
 
 static struct task_struct *primary_display_switch_dst_mode_task;
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 static struct task_struct *present_fence_release_worker_task;
 #endif
 static struct task_struct *primary_path_aal_task;
@@ -1840,7 +1840,7 @@ void disp_enable_emi_force_on(unsigned int enable, void *cmdq_handle)
 {
 }
 
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 static struct ion_client *ion_client;
 static struct ion_handle *sec_ion_handle;
 #endif
@@ -1848,7 +1848,7 @@ static u32 sec_mva;
 
 static int sec_buf_ion_alloc(int buf_size)
 {
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	size_t mva_size = 0;
 	unsigned long int sec_hnd = 0;
 	/* ion_phys_addr_t sec_hnd = 0; */
@@ -1876,14 +1876,13 @@ static int sec_buf_ion_alloc(int buf_size)
 	}
 
 	/* Query (PA/mva addr)/ sec_hnd */
-	/* 1. config buffer param for ion debug */
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = sec_ion_handle;
-	mm_data.config_buffer_param.module_id = DISP_M4U_PORT_DISP_WDMA0;
-	mm_data.config_buffer_param.security = 1;
-	mm_data.config_buffer_param.coherent = 0;
+	/* use get_iova replace config_buffer & get_phys*/
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.kernel_handle = sec_ion_handle;
+	mm_data.get_phys_param.module_id = DISP_M4U_PORT_DISP_WDMA0;
+	mm_data.get_phys_param.security = 1;
 
-	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA_SEC,
+	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data) < 0) {
 		DISPERR("ion_test_drv: Config buffer failed.\n");
 		ion_free(ion_client, sec_ion_handle);
@@ -1915,7 +1914,7 @@ static int sec_buf_ion_alloc(int buf_size)
 
 static int sec_buf_ion_free(void)
 {
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	ion_free(ion_client, sec_ion_handle);
 	ion_client_destroy(ion_client);
 #endif
@@ -1998,7 +1997,7 @@ static int _DL_switch_to_DC_fast(int block)
 
 	/* 3.modify interface path handle to new scenario(rdma->dsi) */
 	old_scenario = dpmgr_get_scenario(pgc->dpmgr_handle);
-	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP;
+	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0;
 
 	dpmgr_modify_path_power_on_new_modules(pgc->dpmgr_handle,
 		new_scenario, 0);
@@ -2411,7 +2410,7 @@ static int DL_switch_to_rdma_mode(struct cmdqRecStruct *handle, int block)
 	}
 
 	old_scenario = dpmgr_get_scenario(pgc->dpmgr_handle);
-	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP;
+	new_scenario = DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0;
 	dpmgr_modify_path_power_on_new_modules(pgc->dpmgr_handle,
 		new_scenario, 0);
 	dpmgr_modify_path(pgc->dpmgr_handle, new_scenario, handle,
@@ -2508,10 +2507,8 @@ static int rdma_mode_switch_to_DL(struct cmdqRecStruct *handle, int block)
 static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 {
 	struct disp_internal_buffer_info *buf_info = NULL;
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	void *buffer_va = NULL;
-	size_t mva_size = 0;
-	ion_phys_addr_t buffer_mva = 0;
 	struct ion_mm_data mm_data;
 	struct ion_client *client = NULL;
 	struct ion_handle *handle = NULL;
@@ -2542,8 +2539,10 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 			return NULL;
 		}
 
-		mm_data.config_buffer_param.kernel_handle = handle;
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+		/* use get_iova replace config_buffer & get_phys*/
+		mm_data.get_phys_param.module_id = 0; //default value
+		mm_data.get_phys_param.kernel_handle = handle;
+		mm_data.mm_cmd = ION_MM_GET_IOVA;
 		if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 			(unsigned long)&mm_data) < 0) {
 			DISPERR("ion_test_drv: Config buffer failed.\n");
@@ -2553,8 +2552,7 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 			return NULL;
 		}
 
-		ion_phys(client, handle, &buffer_mva, &mva_size);
-		if (buffer_mva == 0) {
+		if (mm_data.get_phys_param.phy_addr == 0) {
 			DISPERR("Fatal Error, get mva failed\n");
 			ion_free(client, handle);
 			ion_client_destroy(client);
@@ -2563,8 +2561,8 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 		}
 
 		buf_info->handle = handle;
-		buf_info->mva = (uint32_t)buffer_mva;
-		buf_info->size = mva_size;
+		buf_info->mva = (uint32_t)mm_data.get_phys_param.phy_addr;
+		buf_info->size = (size_t)mm_data.get_phys_param.len;
 		buf_info->va = buffer_va;
 	} else {
 		DISPERR("Fatal error, kzalloc internal buffer info failed!!\n");
@@ -3550,7 +3548,7 @@ static int primary_display_frame_update_kthread(void *data)
 	return 0;
 }
 
-#ifdef MTK_FB_ION_SUPPORT /* FIXME: remove when ION ready */
+#ifdef CONFIG_MTK_IOMMU_V2 /* FIXME: remove when ION ready */
 static int _present_fence_release_worker_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87 };
@@ -3685,7 +3683,7 @@ static int update_primary_intferface_module(void)
 
 	interface_module = _get_dst_module_by_lcm(pgc->plcm);
 	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_DISP, interface_module);
-	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0,
 		interface_module);
 	ddp_set_dst_module(DDP_SCENARIO_PRIMARY_RDMA0_DISP, interface_module);
 
@@ -3699,14 +3697,23 @@ static void replace_fb_addr_to_mva(void)
 #if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V2)
 	struct ddp_fb_info fb_info;
 	int i;
+#ifdef CONFIG_MTK_IOMMU_V2
+	int mode = 0x1;
+#else
+	int mode = 0x0;
+#endif
+
 	fb_info.fb_mva = pgc->framebuffer_mva;
 	fb_info.fb_pa = pgc->framebuffer_pa;
 	fb_info.fb_size = DISP_GetFBRamSize();
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 		DDP_OVL_MVA_REPLACEMENT, &fb_info);
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 15; i++) {
 		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
-			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, 0x1);
+			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, mode);
+		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
+			DISP_REG_SMI_LARB1_NON_SEC_CON + i * 4, mode);
+	}
 #endif
 }
 
@@ -4042,7 +4049,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 		wake_up_process(primary_od_trigger_task);
 	}
 
-#ifdef MTK_FB_ION_SUPPORT /* FIXME: remove when ION ready */
+#ifdef CONFIG_MTK_IOMMU_V2 /* FIXME: remove when ION ready */
 	if (disp_helper_get_option(DISP_OPT_PRESENT_FENCE)) {
 		init_waitqueue_head(&primary_display_present_fence_wq);
 		present_fence_release_worker_task =
@@ -4617,14 +4624,16 @@ int primary_display_suspend(void)
 	_display_set_lcm_refresh_rate(60);
 
 	/* restore to full roi */
-	suspend_to_full_roi();
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		suspend_to_full_roi();
 
 	/* need to leave share sram for suspend */
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		leave_share_sram(CMDQ_SYNC_RESOURCE_WROT1);
 
 	/* blocking flush before stop trigger loop */
-	_blocking_flush();
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		_blocking_flush();
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_PULSE, 0, 1);
 	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
@@ -4887,7 +4896,7 @@ int primary_display_resume(void)
 		 * in primary_display_switch_mode()
 		 */
 		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_ALL, NULL);
-		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+		ddp_disconnect_path(DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0,
 			NULL);
 		DISPCHECK("cmd/video mode=%d\n",
 			primary_display_is_video_mode());

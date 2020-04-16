@@ -37,7 +37,9 @@ unsigned long postmask_base_addr(enum DISP_MODULE_ENUM module)
 {
 	switch (module) {
 	case DISP_MODULE_POSTMASK0:
-		return DISPSYS_POSTMASK_BASE;
+		return DISPSYS_POSTMASK0_BASE;
+	case DISP_MODULE_POSTMASK1:
+		return DISPSYS_POSTMASK1_BASE;
 	default:
 		DDPERR("invalid postmask module=%d\n", module);
 		return -1;
@@ -132,23 +134,19 @@ static int postmask_dump(enum DISP_MODULE_ENUM module, int level)
 
 static int postmask_clock_on(enum DISP_MODULE_ENUM module, void *handle)
 {
-	ddp_clk_enable_by_module(module);
-
-	DDPMSG("%s CG:%d(0x%x)\n", __func__,
-		(DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1) >> 14) & 0x1,
-		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
-
+	DDPDBG("%s clock_on\n", ddp_get_module_name(module));
+#ifdef ENABLE_CLK_MGR
+	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
+#endif
 	return 0;
 }
 
 static int postmask_clock_off(enum DISP_MODULE_ENUM module, void *handle)
 {
-	ddp_clk_disable_by_module(module);
-
-	DDPMSG("%s CG:%d(0x%x)\n", __func__,
-		(DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1) >> 14) & 0x1,
-		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
-
+	DDPDBG("%s clock_off\n", ddp_get_module_name(module));
+#ifdef ENABLE_CLK_MGR
+	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
+#endif
 	return 0;
 }
 

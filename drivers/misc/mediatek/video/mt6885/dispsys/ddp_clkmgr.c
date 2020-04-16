@@ -54,21 +54,23 @@ static struct ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
 	{NULL, "MMSYS_DISP_COLOR0", 0, (1), DISP_MODULE_COLOR0},
 	{NULL, "MMSYS_DISP_CCORR0", 0, (1), DISP_MODULE_CCORR0},
 	{NULL, "MMSYS_DISP_AAL0", 0, (1), DISP_MODULE_AAL0},
+	{NULL, "MMSYS_DISP_MDP_AAL4", 0, (1), DISP_MODULE_MDP_AAL4},
 	{NULL, "MMSYS_DISP_GAMMA0", 0, (1), DISP_MODULE_GAMMA0},
 	{NULL, "MMSYS_DISP_POSTMASK0", 0, (1), DISP_MODULE_POSTMASK0},
 	{NULL, "MMSYS_DISP_DITHER0", 0, (1), DISP_MODULE_DITHER0},
 	{NULL, "MMSYS_DSI0_MM_CK", 0, (0), DISP_MODULE_UNKNOWN},
 	{NULL, "MMSYS_DSI0_IF_CK", 0, (0), DISP_MODULE_UNKNOWN},
-	{NULL, "MMSYS_IMG_DL_RELAY", 0, (0), DISP_MODULE_UNKNOWN},
 	{NULL, "MMSYS_26M", 0, (1), DISP_MODULE_UNKNOWN},
 	{NULL, "MMSYS_DISP_RSZ0", 0, (1), DISP_MODULE_RSZ0},
+	{NULL, "MMSYS_DISP_MUTEX0", 0, (1), DISP_MODULE_MUTEX},
 	{NULL, "APMIXED_MIPI_26M", 0, (0), DISP_MODULE_UNKNOWN},
 	{NULL, "TOP_MUX_DISP_PWM", 0, (0), DISP_MODULE_UNKNOWN},
 	{NULL, "DISP_PWM", 0, (1), DISP_MODULE_PWM0},
 	{NULL, "TOP_26M", 0, (0), DISP_MODULE_UNKNOWN},
-	{NULL, "TOP_UNIVPLL2_D4", 0, (0), DISP_MODULE_UNKNOWN},
-	{NULL, "TOP_ULPOSC1_D2", 0, (0), DISP_MODULE_UNKNOWN},
-	{NULL, "TOP_ULPOSC1_D8", 0, (0), DISP_MODULE_UNKNOWN},
+	{NULL, "TOP_UNIVPLL_D6_D4", 0, (0), DISP_MODULE_UNKNOWN},
+	{NULL, "TOP_OSC_D2", 0, (0), DISP_MODULE_UNKNOWN},
+	{NULL, "TOP_OSC_D4", 0, (0), DISP_MODULE_UNKNOWN},
+	{NULL, "TOP_OSC_D16", 0, (0), DISP_MODULE_UNKNOWN},
 };
 
 static void __iomem *ddp_apmixed_base;
@@ -298,6 +300,7 @@ int ddp_main_modules_clk_on(void)
 	ddp_clk_prepare_enable(CLK_SMI_INFRA);
 	ddp_clk_prepare_enable(CLK_SMI_IOMMU);
 	ddp_clk_prepare_enable(CLK_MM_26M);
+	ddp_clk_prepare_enable(CLK_DISP_MUTEX0);
 	/* --MODULE CLK-- */
 	for (i = 0; i < MAX_DISP_CLK_CNT; i++) {
 		if (!_is_main_module(&ddp_clks[i]))
@@ -377,6 +380,7 @@ int ddp_main_modules_clk_off(void)
 
 
 	/* --TOP CLK-- */
+	ddp_clk_disable_unprepare(CLK_DISP_MUTEX0);
 	ddp_clk_disable_unprepare(CLK_MM_26M);
 	ddp_clk_disable_unprepare(CLK_SMI_IOMMU);
 	ddp_clk_disable_unprepare(CLK_SMI_INFRA);
@@ -456,7 +460,9 @@ void ddp_clk_force_on(unsigned int on)
 		ddp_clk_prepare_enable(CLK_SMI_IOMMU);
 
 		ddp_clk_prepare_enable(CLK_MM_26M);
+		ddp_clk_prepare_enable(CLK_DISP_MUTEX0);
 	} else {
+		ddp_clk_disable_unprepare(CLK_DISP_MUTEX0);
 		ddp_clk_disable_unprepare(CLK_MM_26M);
 
 		ddp_clk_disable_unprepare(CLK_SMI_IOMMU);
@@ -493,6 +499,9 @@ int ddp_clk_enable_by_module(enum DISP_MODULE_ENUM module)
 	case DISP_MODULE_AAL0:
 		ddp_clk_prepare_enable(CLK_DISP_AAL0);
 		break;
+	case DISP_MODULE_MDP_AAL4:
+		ddp_clk_prepare_enable(CLK_DISP_MDP_AAL4);
+		break;
 	case DISP_MODULE_GAMMA0:
 		ddp_clk_prepare_enable(CLK_DISP_GAMMA0);
 		break;
@@ -501,6 +510,16 @@ int ddp_clk_enable_by_module(enum DISP_MODULE_ENUM module)
 		break;
 	case DISP_MODULE_RSZ0:
 		ddp_clk_prepare_enable(CLK_DISP_RSZ0);
+		break;
+	case DISP_MODULE_POSTMASK0:
+		ddp_clk_prepare_enable(CLK_DISP_POSTMASK0);
+		break;
+	case DISP_MODULE_MUTEX:
+		ddp_clk_prepare_enable(CLK_DISP_MUTEX0);
+		break;
+	case DISP_MODULE_DSI0:
+		ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
+		ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 		break;
 	default:
 		DDPERR("invalid module id=%d\n", module);
@@ -536,6 +555,9 @@ int ddp_clk_disable_by_module(enum DISP_MODULE_ENUM module)
 	case DISP_MODULE_AAL0:
 		ddp_clk_disable_unprepare(CLK_DISP_AAL0);
 		break;
+	case DISP_MODULE_MDP_AAL4:
+		ddp_clk_disable_unprepare(CLK_DISP_MDP_AAL4);
+		break;
 	case DISP_MODULE_GAMMA0:
 		ddp_clk_disable_unprepare(CLK_DISP_GAMMA0);
 		break;
@@ -544,6 +566,16 @@ int ddp_clk_disable_by_module(enum DISP_MODULE_ENUM module)
 		break;
 	case DISP_MODULE_RSZ0:
 		ddp_clk_disable_unprepare(CLK_DISP_RSZ0);
+		break;
+	case DISP_MODULE_POSTMASK0:
+		ddp_clk_disable_unprepare(CLK_DISP_POSTMASK0);
+		break;
+	case DISP_MODULE_MUTEX:
+		ddp_clk_disable_unprepare(CLK_DISP_MUTEX0);
+		break;
+	case DISP_MODULE_DSI0:
+		ddp_clk_disable_unprepare(CLK_DSI0_IF_CLK);
+		ddp_clk_disable_unprepare(CLK_DSI0_MM_CLK);
 		break;
 	default:
 		DDPERR("invalid module id=%d\n", module);

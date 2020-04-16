@@ -121,7 +121,7 @@ int wdma_start(enum DISP_MODULE_ENUM module, void *handle)
 	unsigned int idx = wdma_index(module);
 	unsigned int offset = idx * DISP_WDMA_INDEX_OFFSET;
 
-	DISP_REG_SET(handle, offset + DISP_REG_WDMA_INTEN, 0x03);
+	DISP_REG_SET(handle, offset + DISP_REG_WDMA_INTEN, 0x00);
 
 	DISP_REG_SET_FIELD(handle, WDMA_EN_FLD_ENABLE,
 		offset + DISP_REG_WDMA_EN, 0x1);
@@ -228,6 +228,9 @@ static int wdma_config(enum DISP_MODULE_ENUM module, unsigned int srcWidth,
 		clipY << 16 | clipX);
 	DISP_REG_SET(handle, idx_offst + DISP_REG_WDMA_CLIP_SIZE,
 		clipHeight << 16 | clipWidth);
+
+	DISP_REG_SET_FIELD(handle, CFG_FLD_UFO_DCP_ENABLE,
+		idx_offst + DISP_REG_WDMA_CFG, 0);
 	DISP_REG_SET_FIELD(handle, CFG_FLD_OUT_FORMAT,
 		idx_offst + DISP_REG_WDMA_CFG, out_fmt_reg);
 

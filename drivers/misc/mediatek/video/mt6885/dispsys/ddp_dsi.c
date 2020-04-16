@@ -188,9 +188,9 @@ static int def_dsi_hbp;
 static int dsi_currect_mode;
 static int dsi_force_config;
 static int dsi0_te_enable = 1;
-static struct LCM_UTIL_FUNCS lcm_utils_dsi0;
-static struct LCM_UTIL_FUNCS lcm_utils_dsi1;
-static struct LCM_UTIL_FUNCS lcm_utils_dsidual;
+static const struct LCM_UTIL_FUNCS lcm_utils_dsi0;
+static const struct LCM_UTIL_FUNCS lcm_utils_dsi1;
+static const struct LCM_UTIL_FUNCS lcm_utils_dsidual;
 static cmdqBackupSlotHandle _h_intstat;
 unsigned int impendance0[2] = { 0 }; /* MIPITX_DSI_IMPENDANCE0 */
 unsigned int impendance1[2] = { 0 }; /* MIPITX_DSI_IMPENDANCE1 */
@@ -3390,7 +3390,7 @@ int DSI_Send_ROI(enum DISP_MODULE_ENUM module, void *handle, unsigned int x,
 
 static void lcm_set_reset_pin(UINT32 value)
 {
-#if 1
+#if 0
 	DSI_OUTREG32(NULL, DISP_REG_CONFIG_MMSYS_LCM_RST_B, value);
 #else
 #if !defined(CONFIG_MTK_LEGACY)
@@ -3816,7 +3816,6 @@ int ddp_dsi_init(enum DISP_MODULE_ENUM module, void *cmdq)
 		if (module == DISP_MODULE_DSI0 ||
 			module == DISP_MODULE_DSIDUAL) {
 			ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
-			ddp_clk_prepare_enable(CLK_IMG_DL_RELAY);
 			ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 		}
 
@@ -4846,7 +4845,6 @@ int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
 		ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
-		ddp_clk_prepare_enable(CLK_IMG_DL_RELAY);
 		ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 	}
 
@@ -4876,12 +4874,12 @@ int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 		return DSI_STATUS_OK;
 
 	/* DSI_BackupRegisters(module, NULL); */
-	DSI_enter_ULPS(module);
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		DSI_enter_ULPS(module);
 
 #ifdef ENABLE_CLK_MGR
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
 		ddp_clk_disable_unprepare(CLK_DSI0_MM_CLK);
-		ddp_clk_disable_unprepare(CLK_IMG_DL_RELAY);
 		ddp_clk_disable_unprepare(CLK_DSI0_IF_CLK);
 	}
 #endif

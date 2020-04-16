@@ -44,7 +44,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0",
 	  0x14000000,
-	  253,
+	  285,
 	  14,
 	  0,
 	  0}
@@ -57,7 +57,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0_2l",
 	  0x14001000,
-	  254,
+	  286,
 	  14,
 	  0,
 	  0}
@@ -87,6 +87,56 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 {reg_magic,}
 	},
 
+	{DISP_MODULE_OVL1,
+	 DISP_T_OVL,
+	 "ovl1",
+	 1,
+	 &ddp_driver_ovl,
+	 {"mediatek,disp_ovl1",
+	  0x14100000,
+	  296,
+	  14,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_OVL1_2L,
+	 DISP_T_OVL,
+	 "ovl1_2l",
+	 1,
+	 &ddp_driver_ovl,
+	 {"mediatek,disp_ovl1_2l",
+	  0x14101000,
+	  297,
+	  14,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_OVL1_2L_VIRTUAL0,
+	 DISP_T_UNKNOWN,
+	 "ovl1_2l_virt",
+	 1,
+	 NULL,
+	 {reg_magic,}
+	},
+
+	{DISP_MODULE_OVL1_VIRTUAL0,
+	 DISP_T_UNKNOWN,
+	 "ovl1_virt",
+	 1,
+	 NULL,
+	 {reg_magic,}
+	},
+
+	{DISP_MODULE_RSZ1,
+	 DISP_T_RSZ,
+	 "rsz0",
+	 1,
+	 NULL,
+	 {reg_magic,}
+	},
+
 	{DISP_MODULE_RDMA0,
 	 DISP_T_RDMA,
 	 "rdma0",
@@ -94,7 +144,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_rdma,
 	 {"mediatek,disp_rdma0",
 	  0x14003000,
-	  255,
+	  287,
 	  7,
 	  0,
 	  0}
@@ -115,7 +165,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_wdma,
 	 {"mediatek,disp_wdma0",
 	  0x14006000,
-	  256,
+	  288,
 	  1,
 	  0,
 	  0}
@@ -128,7 +178,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_color,
 	 {"mediatek,disp_color0",
 	  0x14007000,
-	  257,
+	  289,
 	  0,
 	  0,
 	  0}
@@ -141,7 +191,67 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ccorr,
 	 {"mediatek,disp_ccorr0",
 	  0x14008000,
-	  258,
+	  290,
+	  1,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_RDMA1,
+	 DISP_T_RDMA,
+	 "rdma1",
+	 1,
+	 &ddp_driver_rdma,
+	 {"mediatek,disp_rdma1",
+	  0x14103000,
+	  298,
+	  7,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_RDMA1_VIRTUAL0,
+	 DISP_T_UNKNOWN,
+	 "rdma1_virt",
+	 1,
+	 NULL,
+	 {reg_magic,}
+	},
+
+	{DISP_MODULE_WDMA1,
+	 DISP_T_WDMA,
+	 "wdma1",
+	 1,
+	 &ddp_driver_wdma,
+	 {"mediatek,disp_wdma1",
+	  0x14106000,
+	  299,
+	  1,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_COLOR1,
+	 DISP_T_COLOR,
+	 "color1",
+	 1,
+	 &ddp_driver_color,
+	 {"mediatek,disp_color1",
+	  0x14107000,
+	  300,
+	  0,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_CCORR1,
+	 DISP_T_CCORR,
+	 "ccorr1",
+	 1,
+	 &ddp_driver_ccorr,
+	 {"mediatek,disp_ccorr1",
+	  0x14108000,
+	  301,
 	  1,
 	  0,
 	  0}
@@ -154,7 +264,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_aal,
 	 {"mediatek,disp_aal0",
 	  0x14009000,
-	  259,
+	  291,
 	  1,
 	  0,
 	  0}
@@ -163,9 +273,14 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	{DISP_MODULE_MDP_AAL4,
 	 DISP_T_UNKNOWN,
 	 "mdp_aal4",
-	 0,
-	 NULL,
-	 {reg_magic,}
+	 1,
+	 &ddp_driver_aal,
+	 {"mediatek,mdp_aal4",
+	  0x14010000,
+	  317,
+	  1,
+	  0,
+	  0}
 	},
 
 	{DISP_MODULE_GAMMA0,
@@ -175,7 +290,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_gamma,
 	 {"mediatek,disp_gamma0",
 	  0x1400a000,
-	  260,
+	  292,
 	  0,
 	  0,
 	  0}
@@ -188,7 +303,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_postmask,
 	 {"mediatek,disp_postmask0",
 	  0x1400d000,
-	  277,
+	  309,
 	  13,
 	  0,
 	  0}
@@ -201,7 +316,67 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_dither,
 	 {"mediatek,disp_dither0",
 	  0x1400b000,
-	  261,
+	  293,
+	  0,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_AAL1,
+	 DISP_T_AAL,
+	 "aal1",
+	 1,
+	 &ddp_driver_aal,
+	 {"mediatek,disp_aal1",
+	  0x14109000,
+	  302,
+	  1,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_MDP_AAL5,
+	 DISP_T_UNKNOWN,
+	 "mdp_aal5",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	},
+
+	{DISP_MODULE_GAMMA1,
+	 DISP_T_GAMMA,
+	 "gamma1",
+	 1,
+	 &ddp_driver_gamma,
+	 {"mediatek,disp_gamma1",
+	  0x1410a000,
+	  303,
+	  0,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_POSTMASK1,
+	 DISP_T_POSTMASK,
+	 "postmask1",
+	 1,
+	 &ddp_driver_postmask,
+	 {"mediatek,disp_postmask1",
+	  0x1410d000,
+	  310,
+	  13,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_DITHER1,
+	 DISP_T_DITHER,
+	 "dither1",
+	 1,
+	 &ddp_driver_dither,
+	 {"mediatek,disp_dither1",
+	  0x1410b000,
+	  304,
 	  0,
 	  0,
 	  0}
@@ -222,7 +397,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_dsi0,
 	 {"mediatek,dsi0",
 	  0x1400e000,
-	  262,
+	  294,
 	  15,
 	  0,
 	  0}
@@ -248,8 +423,13 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 DISP_T_PWM,
 	 "pwm0",
 	 0,
-	 NULL,
-	 {reg_magic,}
+	 &ddp_driver_pwm,
+	 {"mediatek,disp_pwm0",
+	  0x1100E000,
+	  151,
+	  0,
+	  0,
+	  0}
 	 },
 
 	{DISP_MODULE_CONFIG,
@@ -272,7 +452,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,
 	 {"mediatek,disp_mutex0",
 	  0x14117000,
-	  251,
+	  283,
 	  21,
 	  0,
 	  0}
@@ -322,7 +502,12 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "mipi0",
 	 0,
 	 NULL,
-	 {reg_magic,}
+	 {"mediatek,mipi_tx_config0",
+	  0x11e50000,
+	  0,
+	  0,
+	  0,
+	  0}
 	 },
 
 	{DISP_MODULE_MIPI1,
@@ -336,6 +521,122 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	{DISP_MODULE_DPI,
 	 DISP_T_DPI,
 	 "dpi",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	 {DISP_MODULE_OVL2_2L,
+	  DISP_T_OVL,
+	  "ovl2_2l",
+	  1,
+	  &ddp_driver_ovl,
+	  {"mediatek,disp_ovl2_2l",
+	   0x14002000,
+	   307,
+	   14,
+	   0,
+	   0}
+	 },
+
+	 {DISP_MODULE_OVL3_2L,
+	  DISP_T_OVL,
+	  "ovl3_2l",
+	  1,
+	  &ddp_driver_ovl,
+	  {"mediatek,disp_ovl3_2l",
+	   0x14102000,
+	   308,
+	   14,
+	   0,
+	   0}
+	 },
+
+	 {DISP_MODULE_RDMA4,
+	  DISP_T_OVL,
+	  "rdma4",
+	  1,
+	  &ddp_driver_rdma,
+	  {"mediatek,disp_rdma4",
+	   0x14005000,
+	   327,
+	   14,
+	   0,
+	   0}
+	 },
+
+	 {DISP_MODULE_RDMA5,
+	  DISP_T_OVL,
+	  "rdma5",
+	  1,
+	  &ddp_driver_rdma,
+	  {"mediatek,disp_rdma5",
+	   0x14105000,
+	   328,
+	   14,
+	   0,
+	   0}
+	 },
+
+	{DISP_MODULE_MDP_RDMA4,
+	 DISP_T_UNKNOWN,
+	 "mdp_rdma4",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_MDP_RDMA5,
+	 DISP_T_UNKNOWN,
+	 "mdp_rdma5",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_MDP_RSZ4,
+	 DISP_T_UNKNOWN,
+	 "mdp_rsz4",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_MDP_RSZ5,
+	 DISP_T_UNKNOWN,
+	 "mdp_rsz5",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_MERGE0,
+	 DISP_T_UNKNOWN,
+	 "merge0",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_MERGE1,
+	 DISP_T_UNKNOWN,
+	 "merge1",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_DP_INTF,
+	 DISP_T_UNKNOWN,
+	 "dp_intf",
+	 0,
+	 NULL,
+	 {reg_magic,}
+	 },
+
+	{DISP_MODULE_DSC,
+	 DISP_T_UNKNOWN,
+	 "dsc",
 	 0,
 	 NULL,
 	 {reg_magic,}
