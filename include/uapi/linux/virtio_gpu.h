@@ -52,12 +52,18 @@
 #define VIRTIO_GPU_F_EDID                1
 
 /*
- * VIRTIO_GPU_CMD_MEMORY_CREATE
- * VIRTIO_GPU_CMD_MEMORY_UNREF
+ * VIRTIO_GPU_CMD_ALLOCATION_METADATA
  * VIRTIO_GPU_CMD_RESOURCE_CREATE_V2
- * VIRTIO_GPU_CMD_RESOURCE_ATTACH_MEMORY
  */
-#define VIRTIO_GPU_F_MEMORY              2
+#define VIRTIO_GPU_F_RESOURCE_V2         2
+/*
+ * Ability to turn guest pages into host buffers.
+ */
+#define VIRTIO_GPU_F_SHARED_GUEST        3
+/*
+ * Can inject host pages into guest.
+ */
+#define VIRTIO_GPU_F_HOST_COHERENT       4
 enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_UNDEFINED = 0,
 
@@ -73,10 +79,6 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_GET_CAPSET_INFO,
 	VIRTIO_GPU_CMD_GET_CAPSET,
 	VIRTIO_GPU_CMD_GET_EDID,
-	VIRTIO_GPU_CMD_MEMORY_CREATE,
-	VIRTIO_GPU_CMD_MEMORY_UNREF,
-	VIRTIO_GPU_CMD_RESOURCE_ATTACH_MEMORY,
-	VIRTIO_GPU_CMD_RESOURCE_CREATE_V2,
 
 	/* 3d commands */
 	VIRTIO_GPU_CMD_CTX_CREATE = 0x0200,
@@ -87,6 +89,9 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_TRANSFER_TO_HOST_3D,
 	VIRTIO_GPU_CMD_TRANSFER_FROM_HOST_3D,
 	VIRTIO_GPU_CMD_SUBMIT_3D,
+	VIRTIO_GPU_CMD_RESOURCE_CREATE_V2,
+	VIRTIO_GPU_CMD_RESOURCE_CREATE_V2_UNREF,
+	VIRTIO_GPU_CMD_ALLOCATION_METADATA,
 
 	/* cursor commands */
 	VIRTIO_GPU_CMD_UPDATE_CURSOR = 0x0300,
@@ -99,7 +104,7 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_RESP_OK_CAPSET,
 	VIRTIO_GPU_RESP_OK_EDID,
 	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO,
-	VIRTIO_GPU_RESP_OK_RESOURCE_INFO,
+	VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA,
 
 	/* error responses */
 	VIRTIO_GPU_RESP_ERR_UNSPEC = 0x1200,
@@ -121,9 +126,18 @@ enum virtio_gpu_memory_type {
 	 * VIRTIO_GPU_CMD_TRANSFER_* commands are used
 	 * to copy between guest and host storage.
 	 *
-	 * Created using VIRTIO_GPU_CMD_MEMORY_CREATE.
+	 * Created using VIRTIO_GPU_CMD_RESOURCE_CREATE_V2.
 	 */
 	VIRTIO_GPU_MEMORY_TRANSFER,
+	VIRTIO_GPU_MEMORY_SHARED_GUEST,
+	VIRTIO_GPU_MEMORY_HOST_COHERENT,
+};
+
+enum virtio_gpu_caching_type {
+	VIRTIO_GPU_UNDEFINED_CACHING = 0,
+	VIRTIO_GPU_CACHED,
+	VIRTIO_GPU_WRITE_COMBINE,
+	VIRTIO_GPU_UNCACHED,
 };
 
 #define VIRTIO_GPU_FLAG_FENCE (1 << 0)
@@ -302,55 +316,45 @@ struct virtio_gpu_cmd_submit {
 	__le32 padding;
 };
 
-/* VIRTIO_GPU_CMD_MEMORY_CREATE */
-struct virtio_gpu_cmd_memory_create {
+/* VIRTIO_GPU_CMD_RESOURCE_CREATE_V2 */
+struct virtio_gpu_resource_create_v2 {
 	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 memory_id;
-	__le32 memory_type;
-	__le32 flags;
+	__le32 resource_id;
+	__le32 guest_memory_type;
+	__le32 caching_type;
+	__le32 pad;
+	__le64 size;
+	__le64 pci_addr;
+	__le32 args_size;
 	__le32 nr_entries;
-	/* struct virtio_gpu_mem_entry entries follow here */
+	/* ('nr_entries' * struct virtio_gpu_mem_entry) + 'args_size'
+	 * bytes follow here.
+	 */
 };
 
-/* VIRTIO_GPU_CMD_MEMORY_UNREF */
-struct virtio_gpu_cmd_memory_unref {
+/* VIRTIO_GPU_CMD_RESOURCE_CREATE_V2_UNREF */
+struct virtio_gpu_resource_v2_unref {
 	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 memory_id;
+	__le32 resource_id;
 	__le32 padding;
 };
 
-/* VIRTIO_GPU_CMD_RESOURCE_ATTACH_MEMORY */
-struct virtio_gpu_cmd_resource_attach_memory {
-	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 resource_id;
-	__le32 memory_id;
-	__le64 offset[4];
-};
-
 /* VIRTIO_GPU_CMD_RESOURCE_CREATE_V2 */
-struct virtio_gpu_cmd_resource_create_v2 {
+struct virtio_gpu_allocation_metadata {
 	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 resource_id;
-	__le32 memory_type;
-	__le32 format;
-	__le32 width;
-	__le32 height;
-	/* 3d only */
-	__le32 target;
-	__le32 bind;
-	__le32 depth;
-	__le32 array_size;
-	__le32 last_level;
-	__le32 nr_samples;
-	__le32 flags;
+	__le32 request_id;
+	__le32 pad;
+	__le32 request_size;
+	__le32 response_size;
+	/* 'request_size' bytes go here */
 };
 
-/* VIRTIO_GPU_RESP_OK_RESOURCE_INFO */
-struct virtio_gpu_resp_resource_info {
+/* VIRTIO_GPU_RESP_OK_ALLOCATION_METADATA */
+struct virtio_gpu_resp_allocation_metadata {
 	struct virtio_gpu_ctrl_hdr hdr;
-	__le32 align[4];
-	__le32 stride[4];
-	__le32 size[4];
+	__le32 request_id;
+	__le32 response_size;
+	/* 'response_size' bytes go here */
 };
 
 #define VIRTIO_GPU_CAPSET_VIRGL 1
