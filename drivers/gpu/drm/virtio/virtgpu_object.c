@@ -139,6 +139,9 @@ int virtio_gpu_object_create(struct virtio_gpu_device *vgdev,
 		return ret;
 	}
 	bo->dumb = params->dumb;
+	bo->resource_v2 = params->resource_v2;
+	bo->guest_memory_type = params->guest_memory_type;
+	bo->caching_type = params->caching_type;
 
 	if (params->virgl) {
 		virtio_gpu_cmd_resource_create_3d(vgdev, bo, params, fence);
