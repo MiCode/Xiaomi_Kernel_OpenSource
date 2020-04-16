@@ -379,6 +379,8 @@ static void ion_sc_heap_free(struct ion_buffer *buffer)
 		return;
 	}
 
+	if (hlos_accessible_buffer(buffer))
+		ion_buffer_zero(buffer);
 	ion_carveout_free(child, paddr, buffer->size);
 	sg_free_table(table);
 	kfree(table);
