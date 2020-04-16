@@ -298,11 +298,6 @@
 	status = "ok";
 };
 
-&qupv3_se8_i2c {
-	qcom,clk-freq-out = <400000>;
-	status = "ok";
-};
-
 &qupv3_se4_2uart {
 	status = "ok";
 };
