@@ -53,26 +53,12 @@
 #include <asm/sections.h>
 
 #include "lockdep_internals.h"
-#ifdef CONFIG_MTK_AEE_FEATURE
-#include <mt-plat/aee.h>
-#endif
-#ifdef MTK_LOCK_DEBUG
-#include "sched.h"
-#endif
-#ifdef MTK_LOCK_MONITOR
-#include <asm/stacktrace.h>
-#include <linux/sched/task_stack.h>
-#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/lock.h>
 
 #ifdef CONFIG_LOCKDEP_CROSSRELEASE
 #include <linux/slab.h>
-#endif
-
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
 #endif
 
 #ifdef CONFIG_PROVE_LOCKING
@@ -5522,6 +5508,7 @@ static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
 	}
 }
 
+#ifdef CONFIG_PROVE_LOCKING
 /*
  * Duplicate debug functions and print log to trace.
  * This prevents deadlock from some special locks.
@@ -5712,6 +5699,7 @@ trace_circular_bug(struct lock_list *this,
 
 	return 0;
 }
+#endif /* CONFIG_PROVE_LOCKING */
 
 #ifdef MTK_LOCK_MONITOR
 static inline struct lock_class *
@@ -6190,14 +6178,16 @@ static void show_debug_locks_state(void)
 
 	if (nr_lock_classes >= MAX_LOCKDEP_KEYS ||
 	    nr_list_entries >= MAX_LOCKDEP_ENTRIES ||
-	    nr_lock_chains >= MAX_LOCKDEP_CHAINS ||
-	    nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS ||
-	    nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1) {
-		pr_info("lock_classes[%lu] list_entries[%lu] lock_chains[%lu]\n",
-			nr_lock_classes, nr_list_entries, nr_lock_chains);
-		pr_info("chain_hlocks[%d] stack_trace_entries[%lu]\n",
-			nr_chain_hlocks, nr_stack_trace_entries);
-	}
+	    nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1)
+		pr_info("lock_classes[%lu] list_entries[%lu] stack_trace_entries[%lu]\n",
+			nr_lock_classes, nr_list_entries,
+			nr_stack_trace_entries);
+#ifdef CONFIG_PROVE_LOCKING
+	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS ||
+	    nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS)
+		pr_info("lock_chains[%lu] chain_hlocks[%d]\n",
+			nr_lock_chains, nr_chain_hlocks);
+#endif
 }
 
 static int lock_monitor_work(void *data)
@@ -6380,19 +6370,24 @@ void lock_monitor_init(void)
 	kthread_run(lock_monitor_work, NULL, "lock_monitor");
 }
 #else
+#ifdef CONFIG_LOCKDEP
 void check_held_locks(int force) {}
 void mt_aee_dump_held_locks(void) {}
 #endif
+#endif /* MTK_LOCK_MONITOR */
 
-#ifdef MTK_LOCK_DEBUG
+#ifdef CONFIG_PROVE_LOCKING
 static const char * const critical_lock_list[] = {
-	/* these locks are used by workqueue */
+	/* workqueue */
 	"&(&pool->lock)->rlock",
 	"works_lock",
-	/* the lock is used by console */
-	"&(&port->lock)->rlock",
-	/* the lock is used by backtrace */
-	"depot_lock"
+	/* kmalloc */
+	"&(&n->list_lock)->rlock",
+	"&(&zone->lock)->rlock",
+	/* stacktrace */
+	"depot_lock",
+	/* console */
+	"&(&port->lock)->rlock"
 };
 
 static bool is_critical_lock_held(void)
