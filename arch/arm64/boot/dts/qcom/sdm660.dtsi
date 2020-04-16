@@ -2172,7 +2172,6 @@
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
-		qcom,minidump-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,qdsp6v62-1-5;
 		memory-region = <&modem_fw_mem>;
