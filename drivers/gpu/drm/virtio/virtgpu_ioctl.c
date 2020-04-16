@@ -593,7 +593,7 @@ static int virtio_gpu_resource_create_v2_ioctl(struct drm_device *dev,
 	bool use_dma_api = !virtio_has_iommu_quirk(vgdev->vdev);
 	void __user *args = u64_to_user_ptr(rc_v2->args);
 
-	total_size = offset = 0;
+	ret = total_size = offset = 0;
 	params.size = rc_v2->size;
 	params.guest_memory_type = rc_v2->guest_memory_type;
 	params.resource_v2 = true;
@@ -604,7 +604,6 @@ static int virtio_gpu_resource_create_v2_ioctl(struct drm_device *dev,
 		return PTR_ERR(obj);
 
 	if (!obj->pages) {
-                int ret;
                 ret = virtio_gpu_object_get_sg_table(vgdev, obj);
                 if (ret)
 			goto err_free_obj;
@@ -695,7 +694,7 @@ static int virtio_gpu_allocation_metadata_request_ioctl(struct drm_device *dev,
 				void *data, struct drm_file *file)
 {
 	void *request;
-	uint32_t request_id;
+	uint32_t request_id = 0;
 	struct drm_virtgpu_allocation_metadata_request *amr = data;
 	struct virtio_gpu_device *vgdev = dev->dev_private;
 	struct virtio_gpu_allocation_metadata_response *response;

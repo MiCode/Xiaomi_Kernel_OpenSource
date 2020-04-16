@@ -1037,8 +1037,8 @@ virtio_gpu_cmd_allocation_metadata(struct virtio_gpu_device *vgdev,
 	memset(cmd_p, 0, sizeof(*cmd_p));
 	cmd_p->hdr.type = cpu_to_le32(VIRTIO_GPU_CMD_ALLOCATION_METADATA);
 	cmd_p->request_id = cpu_to_le32(request_id);
-	cmd_p->request_size = request_size;
-	cmd_p->response_size = response_size;
+	cmd_p->request_size = cpu_to_le32(request_size);
+	cmd_p->response_size = cpu_to_le32(response_size);
 
 	vbuf->data_buf = request;
 	vbuf->data_size = request_size;
