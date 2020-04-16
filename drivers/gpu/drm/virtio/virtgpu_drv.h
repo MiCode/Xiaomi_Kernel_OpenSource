@@ -234,12 +234,20 @@ struct virtio_gpu_device {
 
 	bool has_virgl_3d;
 	bool has_edid;
+	bool has_resource_v2;
+	bool has_shared_guest;
+	bool has_host_coherent;
 
 	struct work_struct config_changed_work;
 
 	struct virtio_gpu_drv_capset *capsets;
 	uint32_t num_capsets;
 	struct list_head cap_cache;
+
+	/* coherent memory */
+	int cbar;
+	unsigned long caddr;
+	unsigned long csize;
 };
 
 struct virtio_gpu_fpriv {
