@@ -791,6 +791,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	cmd->sc_status = kcalloc(BITS_TO_LONGS(cmd->hdr->num_sc),
 	sizeof(unsigned long), GFP_KERNEL);
 	if (cmd->sc_status == NULL) {
+
 		ret = -ENOMEM;
 		goto alloc_sc_status_fail;
 	}
@@ -798,6 +799,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	cmd->pdr_cnt_list = kcalloc(cmd->hdr->num_sc,
 		sizeof(int), GFP_KERNEL);
 	if (cmd->pdr_cnt_list == NULL) {
+
 		ret = -ENOMEM;
 		goto alloc_pdr_fail;
 	}
@@ -816,6 +818,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	cmd->pc_col.pack_status = kzalloc(sizeof(unsigned long) *
 		cmd->hdr->num_sc, GFP_KERNEL);
 	if (cmd->pc_col.pack_status == NULL) {
+
 		ret = -ENOMEM;
 		goto alloc_pc_status_fail;
 	}
@@ -849,6 +852,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	cmd->sc_list = kcalloc(cmd->hdr->num_sc,
 		sizeof(struct apusys_subcmd *), GFP_KERNEL);
 	if (cmd->sc_list == NULL) {
+
 		ret = -ENOMEM;
 		goto alloc_sc_list_fail;
 	}

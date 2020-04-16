@@ -50,6 +50,7 @@ u32 g_mdw_klog;
 u32 g_dbg_prop[DBG_PROP_MAX];
 
 u8 cfg_apusys_trace;
+
 EXPORT_SYMBOL(cfg_apusys_trace);
 
 enum {
@@ -138,8 +139,8 @@ static const struct file_operations apusys_dbg_fops_devinfo = {
 // mem dump
 static int apusys_dbg_dump_mem(struct seq_file *s, void *unused)
 {
+	//apusys_user_print_log();
 	apusys_user_show_log(s);
-
 	return 0;
 }
 
