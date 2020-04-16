@@ -248,6 +248,9 @@ struct virtio_gpu_device {
 	int cbar;
 	unsigned long caddr;
 	unsigned long csize;
+
+	struct idr request_idr;
+	spinlock_t request_idr_lock;
 };
 
 struct virtio_gpu_fpriv {

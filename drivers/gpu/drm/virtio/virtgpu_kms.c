@@ -158,6 +158,8 @@ int virtio_gpu_init(struct drm_device *dev)
 	idr_init(&vgdev->ctx_id_idr);
 	spin_lock_init(&vgdev->resource_idr_lock);
 	idr_init(&vgdev->resource_idr);
+	spin_lock_init(&vgdev->request_idr_lock);
+	idr_init(&vgdev->request_idr);
 	init_waitqueue_head(&vgdev->resp_wq);
 	virtio_gpu_init_vq(&vgdev->ctrlq, virtio_gpu_dequeue_ctrl_func);
 	virtio_gpu_init_vq(&vgdev->cursorq, virtio_gpu_dequeue_cursor_func);
