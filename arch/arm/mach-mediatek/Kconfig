@@ -1,0 +1,281 @@
+menuconfig ARCH_MEDIATEK
+	bool "Mediatek MT65xx & MT81xx SoC"
+	depends on ARCH_MULTI_V7
+	select ARM_GIC
+	select PINCTRL
+	select MTK_TIMER
+	select MFD_SYSCON
+	help
+	  Support for Mediatek MT65xx & MT81xx SoCs
+
+if ARCH_MEDIATEK
+
+config MACH_MT2701
+	bool "MediaTek MT2701 SoCs support"
+	default ARCH_MEDIATEK
+
+config MACH_MT6589
+	bool "MediaTek MT6589 SoCs support"
+	default ARCH_MEDIATEK
+
+config MACH_MT6592
+	bool "MediaTek MT6592 SoCs support"
+	default ARCH_MEDIATEK
+
+config MACH_MT7623
+	bool "MediaTek MT7623 SoCs support"
+	default ARCH_MEDIATEK
+
+config MACH_MT8127
+	bool "MediaTek MT8127 SoCs support"
+	default ARCH_MEDIATEK
+
+config MACH_MT8135
+	bool "MediaTek MT8135 SoCs support"
+	default ARCH_MEDIATEK
+
+config MACH_MT8167
+	bool "MediaTek MT8167"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select CPU_IDLE_GOV_MTK
+	select ARM_MTK_81XX_CPUIDLE
+	select PINCTRL
+	select PINCTRL_MT8167
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_EXT
+	select ARM_GIC_V3
+	select SMP
+	select POWER_SUPPLY
+	select POWER_RESET
+	select HAVE_ARM_ARCH_TIMER
+	select ARM_PSCI
+	select HAVE_MTK_IN_HOUSE_TEE_SUPPORT
+	select MTK_ICE_DEBUG
+	select VFP
+	select AEABI
+	select NEON
+	select KERNEL_MODE_NEON
+	select HAVE_FUTEX_CMPXCHG
+	select HIGHMEM
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select OVERLAY_FS
+	help
+	  This enables support for MediaTek MT8167
+	  If you need support for MediaTek MT8167, say Y here.
+	  This including the basic selections,
+	  But not all of them.
+
+config MACH_MT8168
+	bool "MediaTek MT8168"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT8168
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select MTK_SYSIRQ
+	select MTK_BOUNCING_CHECK if AEE_FEATURE
+	select MTK_SYS_CIRQ
+	select MTK_GIC_TARGET_ALL
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_L2C_PARITY_CHECK
+	select DEBUG_TIMEKEEPING
+	select HIGHMEM
+	select AEABI
+	select HAVE_ARM_ARCH_TIMER
+	select ARM_PSCI
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select SMP
+	select ARM_GIC_V3
+	select VFP
+	select NEON
+	select KERNEL_MODE_NEON
+	help
+	  This enables support for MediaTek MT8168.
+	  If you need support for MediaTek MT8168, say Y here.
+	  This including the basic selections,
+	  But not all of them.
+endif
+config MACH_MT6768
+	bool "MediaTek MT6768 SoCs support"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6768
+	select MFD_SYSCON
+	select CPU_IDLE
+	select NEON
+	select VFP
+	select KERNEL_MODE_NEON
+	select MTK_GIC_V3_EXT
+	select ARM_GIC_V3
+	select MTK_SYSIRQ
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_GIC_TARGET_ALL
+	select MTK_SYS_CIRQ
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_SYSTRACKER_V2
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select MTK_SYSTRACKER_V2
+	select MTK_LASTBUS_INTERFACE
+	select MTK_ION_CACHE_OPTIMIZATION
+	select MTK_TIMER_SYSTIMER
+	select MTK_EMI
+	select MTK_DRAMC
+	select MTK_BASE_POWER
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_CACHE_PARITY_CHECK
+	select MTK_DEBUG_LATCH
+	select MTK_SYSTRACKER_V2
+	select DEVAPC_LEGACY
+	select OVERLAY_FS
+
+config MACH_MT6739
+	bool "MediaTek MT6739"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select EXT4_FS
+	select EXT4_FS_ENCRYPTION
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select OVERLAY_FS
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select MTK_GIC_TARGET_ALL
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select KERNEL_MODE_NEON
+	select PINCTRL
+	select PINCTRL_MT6739
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select ARM_GIC_V3
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_SYSTRACKER_V2
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_SYSIRQ
+	select MTK_CQDMA
+	select MTK_FIQ_CACHE
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_TIMER_APXGPT
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select MTK_SECURITY_SW_SUPPORT
+	help
+	  This enables support for MediaTek MT6739
+	  Support for arm Architecture
+	  Support for 4 core archtecture
+	  Support for k39v1 related projects
+
+config MACH_MT6771
+	bool "MediaTek MT6771 SoCs support"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select HIE
+	select MTK_PID_MAP
+	select MTK_IO_BOOST
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6771
+	select MFD_SYSCON
+	select CPU_IDLE
+	select NEON
+	select VFP
+	select KERNEL_MODE_NEON
+	select MTK_BASE_POWER
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_GIC_V3_EXT
+	select ARM_GIC_V3
+	select MTK_SYSIRQ
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_SYS_CIRQ
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_SYSTRACKER_V2
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select MTK_SYSTRACKER_V2
+	select MTK_CACHE_FLUSH_BY_SF
+	select MTK_TIMER_APXGPT
+	select MTK_EMI
+	select MTK_DRAMC
+	select OVERLAY_FS
+	select MTK_SECURITY_SW_SUPPORT
+	help
+	  This enables support for MediaTek MT6771
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6771 related projects
+	  Support for mt6771 related projects
+

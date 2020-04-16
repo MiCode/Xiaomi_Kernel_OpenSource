@@ -1,0 +1,36 @@
+config MTK_APUSYS_SUPPORT
+	bool "APUSYS driver"
+	help
+	  For Mediatek APUSYS features, such as APUSYS driver
+	  APUSYS power, APUSYS QoS,
+	  CONFIG_MTK_APUSYS defines
+	  if the APUSYS driver should be
+	  built in or not
+
+config MTK_APUSYS_MDLA_SUPPORT
+	bool "MDLA driver"
+	help
+	  Support deep neural network calculation using
+	  hardware accelerator. Customers and third party
+	  could use MDLA to develop feature and algorithm
+	  by themselves.
+
+config MTK_APUSYS_VPU
+	bool "VPU driver"
+	select REMOTEPROC
+	help
+	  Support image processing using VPU hardware.
+	  Customers and third party could use VPU to develop
+	  feature and algorithm by themselves. There is better
+	  performance and power if image process algorithm
+	  land on VPU instead of CPU/GPU.
+
+config MTK_APUSYS_VPU_DEBUG
+	bool "VPU Debug"
+	depends on MTK_APUSYS_VPU
+	depends on DEBUG_FS
+	help
+	  Enable debug facilities of VPU, such as
+	  kernel logs, register dumps, device logs,
+	  VPU jtag functions, and MET trace.
+	  Disable, if you don't need them.

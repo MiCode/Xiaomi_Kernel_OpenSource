@@ -1,0 +1,44 @@
+# Copyright (C) 2018 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+#==========================================================================
+# Trusted Memory Subsystem Options
+#==========================================================================
+# Enable test cases support
+TCORE_UT_TESTS_SUPPORT := n
+
+# Enable profiling support
+TCORE_PROFILING_SUPPORT := n
+
+# Enable auto dump profiling result at regmgr region off
+TCORE_PROFILING_AUTO_DUMP := n
+
+# Enable memory leak detection
+TCORE_MEMORY_LEAK_DETECTION_SUPPORT := n
+
+#==========================================================================
+# Feature Dependency Auto Changes
+#==========================================================================
+# Force enable option for ENG build only
+ifeq ($(CONFIG_MTK_ENG_BUILD),y)
+TCORE_UT_TESTS_SUPPORT := y
+TCORE_PROFILING_SUPPORT := y
+TCORE_PROFILING_AUTO_DUMP := n
+TCORE_MEMORY_LEAK_DETECTION_SUPPORT := y
+endif
+
+#==========================================================================
+# Dump Option Settings
+#==========================================================================
+$(info TCORE_UT_TESTS_SUPPORT = $(TCORE_UT_TESTS_SUPPORT))
+$(info TCORE_PROFILING_SUPPORT = $(TCORE_PROFILING_SUPPORT))
+$(info TCORE_PROFILING_AUTO_DUMP = $(TCORE_PROFILING_AUTO_DUMP))
+$(info TCORE_MEMORY_LEAK_DETECTION_SUPPORT = $(TCORE_MEMORY_LEAK_DETECTION_SUPPORT))

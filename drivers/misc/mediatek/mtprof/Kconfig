@@ -1,0 +1,68 @@
+config MTPROF
+	bool "Enable MTK profiler/debugger tool"
+	help
+	  CONFIG_MTPROF define if mtk profiling tools should be built-in or
+	  not. It includes workqueue debugger, signal debugger, bootprof, and
+	  other misc tools. If you are not sure about whether to enable it or
+	  not, please set n.
+
+config BOOTPROF_THRESHOLD_MS
+        int "the print threshold of kernel driver init duration"
+        depends on MTK_ENG_BUILD
+        default 30
+        help
+          BOOTPROF_THRESHOLD_MS(unit: millisec)is the threshold for
+          bootprof log print out or not. If driver init duration is
+          greater than threshold, bootprof log is print. Opposite is not.
+          If you are not sure about whether to enable it or not,
+          please do not set
+
+if MTPROF
+
+config MTK_SCHED_MONITOR
+	bool "mt scheduler monitor"
+	default n
+	help
+	  MTK_SCHED_MONITOR is used to monitor ISR/SOFTIRQ/TASKLET/HRTIMER
+	  /STIMER/RCU processing duration and IRQ disabled duration. Say Y
+	  here to enable monitor. If you are not sure about whether to enable
+	  it or not, please set n.
+
+config PREEMPT_MONITOR
+	bool "mt preempt monitor"
+	depends on MTK_SCHED_MONITOR
+	default n
+	help
+	  PREEMPT_MONITOR is used to monitor preempt disable/enalbe duration
+	  and local irq disable/enable duration. Say Y here to enable PREEMPT
+	  and IRQ monitor. If you are not sure about whether to enable it or
+	  not, please set n.
+
+config MTK_SCHED_MON_DEFAULT_ENABLE
+	bool "default enable mt scheduler monitor"
+	depends on MTK_SCHED_MONITOR
+	default n
+	help
+	  MTK_SCHED_MON_DEFAULT_ENABLE is used to enable scheduler monitor
+	  for auto test system performance. Say Y here to enable auto test
+	  scheduler monitor. If you are not sure about whether to enable it
+	  or not, please set n.
+
+config MTK_WQ_DEBUG
+	bool "mtk workqueue debug"
+	help
+	  CONFIG_MTK_WQ_DEBUG define if workqueue debugging should be
+	  built-in or not. It will add logs to monitor work activation,
+	  queue, and execution. Say Y to enable mtk workqueue debug, or
+	  if you are not sure about this, please set n.
+
+config MTK_RCU_MONITOR
+	bool "mtk rcu callback list monitor"
+	default n
+	help
+	  MTK_RCU_MONITOR is used to monitor rcu callback list. Record all
+	  call_rcu callback information and invoke rcu callback information.
+	  Say Y here to enable rt throttle monitor. If you are not sure about
+	  whether to enable it or not, please set n.
+
+endif # MTPROF

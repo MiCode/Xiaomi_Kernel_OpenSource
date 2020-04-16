@@ -1,0 +1,264 @@
+config SND_SOC_MEDIATEK
+	tristate
+
+config SND_SOC_MTK_SRAM
+	tristate
+
+config SND_SOC_MTK_SMART_PHONE
+	tristate
+
+config SND_SOC_MT2701
+	tristate "ASoC support for Mediatek MT2701 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	help
+	  This adds ASoC driver for Mediatek MT2701 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT2701_CS42448
+	tristate "ASoc Audio driver for MT2701 with CS42448 codec"
+	depends on SND_SOC_MT2701 && I2C
+	select SND_SOC_CS42XX8_I2C
+	select SND_SOC_BT_SCO
+	help
+	  This adds ASoC driver for Mediatek MT2701 boards
+	  with the CS42448 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT2701_WM8960
+	tristate "ASoc Audio driver for MT2701 with WM8960 codec"
+	depends on SND_SOC_MT2701 && I2C
+	select SND_SOC_WM8960
+	help
+	  This adds ASoC driver for Mediatek MT2701 boards
+	  with the WM8960 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6768
+	tristate "ASoC support for Mediatek MT6768 chip"
+	select REGMAP_MMIO
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	help
+	  This adds ASoC driver for Mediatek MT6768 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6768_MT6358
+	tristate "ASoc Audio driver for MT6768 with MT6358 codec"
+	select SND_SOC_MT6768
+	select SND_SOC_MT6358
+	help
+	  This adds ASoC driver for Mediatek MT6768 boards
+	  with the MT6358 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6785
+	tristate "ASoC support for Mediatek MT6785 chip"
+	select REGMAP_MMIO
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	help
+	  This adds ASoC driver for Mediatek MT6785 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6785_MT6359
+	tristate "ASoc Audio driver for MT6785 with MT6359 codec"
+	select SND_SOC_MT6785
+	select SND_SOC_MT6359
+	help
+	  This adds ASoC driver for Mediatek MT6785 boards
+	  with the MT6359 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6885
+	tristate "ASoC support for Mediatek MT6885 chip"
+	select REGMAP_MMIO
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	help
+	  This adds ASoC driver for Mediatek MT6885 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6885_MT6359
+	tristate "ASoc Audio driver for MT6885 with MT6359 codec"
+	select SND_SOC_MT6885
+	select SND_SOC_MT6359
+	help
+	  This adds ASoC driver for Mediatek MT6885 boards
+	  with the MT6359 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT8168
+	tristate "ASoC support for Mediatek MT8168 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	help
+	  This adds ASoC platform driver support for Mediatek MT8168 chip
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  Ex: MT8168
+
+config SND_SOC_MT8168_FPGA
+	tristate "ASoC Audio driver for MT8168 Early Porting"
+	depends on SND_SOC_MT8168
+	help
+	  This adds ASoC driver for Mediatek MT8168 FPGA boards
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT8173
+	tristate "ASoC support for Mediatek MT8173 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	help
+	  This adds ASoC platform driver support for Mediatek MT8173 chip
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  Ex: MT8173
+
+config SND_SOC_MT8173_MAX98090
+	tristate "ASoC Audio driver for MT8173 with MAX98090 codec"
+	depends on SND_SOC_MT8173 && I2C
+	select SND_SOC_MAX98090
+	help
+	  This adds ASoC driver for Mediatek MT8173 boards
+	  with the MAX98090 audio codec.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT8173_RT5650
+	tristate "ASoC Audio driver for MT8173 with RT5650 codec"
+	depends on SND_SOC_MT8173 && I2C
+	select SND_SOC_RT5645
+	select SND_SOC_HDMI_CODEC
+	help
+	  This adds ASoC driver for Mediatek MT8173 boards
+	  with the RT5650 audio codec.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT8173_RT5650_RT5514
+	tristate "ASoC Audio driver for MT8173 with RT5650 RT5514 codecs"
+	depends on SND_SOC_MT8173 && I2C
+	select SND_SOC_RT5645
+	select SND_SOC_RT5514
+	help
+	  This adds ASoC driver for Mediatek MT8173 boards
+	  with the RT5650 and RT5514 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT8173_RT5650_RT5676
+	tristate "ASoC Audio driver for MT8173 with RT5650 RT5676 codecs"
+	depends on SND_SOC_MT8173 && I2C
+	select SND_SOC_RT5645
+	select SND_SOC_RT5677
+	select SND_SOC_HDMI_CODEC
+	help
+	  This adds ASoC driver for Mediatek MT8173 boards
+	  with the RT5650 and RT5676 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+
+config SND_SOC_MT8167
+	tristate
+
+config SND_SOC_MT8167_MT6392_MACH
+	tristate "ASoC Audio driver for MT8167 with internal codec"
+	depends on MACH_MT8167
+	select SND_SOC_MT8167
+	select SND_SOC_MT8167_CODEC
+	select SND_SOC_MT6392_CODEC
+	help
+	  This adds support for ASoC machine driver for Mediatek MT8167
+	  platforms with internal audio codec and speaker amplifier MT6392.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config MTK_SND_SOC_CODEC
+	string "String for Mediatek audio codec"
+	help
+	  Specify Mediatek audio codec.
+	  It depend on the string to choose the audio codec.
+	  Say "mt6351" if you have mt6351 audio codec.
+	  Say "mt6337" if you have mt6337 audio codec.
+	  Say "mt6355" if you have mt6355 audio codec.
+
+config MTK_SPEAKER
+	bool "MTK SPEAKER AMP"
+	help
+	  If you say Y, enable MTK_SPEAKER_AMP
+	  If the codec has internal speaker, enable this.
+	  This is a config for mediatek internal speaker amp.
+	  Generally you select "N", if unsupport it.
+
+config SND_SOC_MTK_BTCVSD
+	bool "MTK BT CVSD ALSA ARICHITECTURE"
+	default n
+	help
+	  If you say Y, enable SND_SOC_MTK_BTCVSD.
+	  This is for software BTCVSD. This enable
+	  the function for transferring/receiving
+	  BT encoded data to/from BT firmware.
+
+config SND_SOC_MTK_SCP_SMARTPA
+	bool "Smart Power Amplifier in Sensor Hub Processor"
+	help
+	  SmartPA(Smart Power Amplifie) provides speaker thermal
+	  and excursion protection. This configuration makes
+	  speaker protection processing in SCP(Sensor Hub Processor).
+	  Select Y to enable CONFIG_SND_SOC_MTK_SCP_SMARTPA for
+	  speaker protection in SCP.
+
+config MTK_SND_SOC_NEW_ARCH
+	bool "Support new audio architecture"
+	select REGMAP_MMIO
+	help
+	  If you say Y, enable MTK_SND_SOC_NEW_ARCH.
+	  Only enable this when you use refactored audio driver architecture.
+	  If new chip after mt6757, we will enable this config.
+	  Audio driver refactor to common folder and platform folder.
+
+config MTK_AUDIO_TUNNELING_SUPPORT
+	bool "Audio playback through dsp"
+	select SND_SOC_COMPRESS
+	help
+	  Only enable this when we have DSP.
+	  This makes audio output pass bitstream without any post processing.
+	  The decoding process is done in DSP.
+	  Select Y to enable MTK_AUDIO_TUNNELING_SUPPORT for DSP playback.
+
+config MTK_VOW_BARGE_IN_SUPPORT
+	bool "Support VOW barge-in"
+	help
+	  Only enable this when we support VOW and barge-in.
+	  This improves the hot word recognition accuracy by
+	  applying echo cancellation to remove speaker output signal.
+	  Select Y to enable CONFIG_MTK_VOW_BARGE_IN_SUPPORT for
+	  barge-in feature.
+
+config SND_SOC_MTK_AUDIO_DSP
+	bool "ASoC support for Mediatek audiodsp chip"
+	default n
+	help
+	  This adds dsp driver for Mediatek boards
+	  that can be used with other platforms
+	  Select Y if you have such device.
+	  If unsure select "N".
