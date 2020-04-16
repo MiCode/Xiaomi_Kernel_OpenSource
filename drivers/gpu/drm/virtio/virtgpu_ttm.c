@@ -274,6 +274,13 @@ static int virtio_gpu_ttm_vram_bind(struct ttm_tt *ttm,
 
 static int virtio_gpu_ttm_vram_unbind(struct ttm_tt *ttm)
 {
+	struct virtio_gpu_ttm_tt *gtt =
+		container_of(ttm, struct virtio_gpu_ttm_tt, ttm.ttm);
+	struct virtio_gpu_device *vgdev =
+		virtio_gpu_get_vgdev(gtt->obj->tbo.bdev);
+	struct virtio_gpu_object *obj = gtt->obj;
+
+	virtio_gpu_cmd_resource_v2_unref(vgdev, obj->hw_res_handle, NULL);
 	return 0;
 }
 

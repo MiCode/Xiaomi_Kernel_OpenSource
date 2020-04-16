@@ -365,6 +365,17 @@ virtio_gpu_cmd_resource_create_3d(struct virtio_gpu_device *vgdev,
 				  struct virtio_gpu_object *bo,
 				  struct virtio_gpu_object_params *params,
 				  struct virtio_gpu_fence *fence);
+void
+virtio_gpu_cmd_resource_create_v2(struct virtio_gpu_device *vgdev,
+			     uint32_t resource_id, uint32_t guest_memory_type,
+			     uint32_t caching_type, uint64_t size,
+			     uint64_t pci_addr, uint32_t nents,
+			     uint32_t args_size, void *data, uint32_t data_size,
+			     struct virtio_gpu_fence *fence);
+void
+virtio_gpu_cmd_resource_v2_unref(struct virtio_gpu_device *vgdev,
+			    uint32_t resource_id,
+			    struct virtio_gpu_fence *fence);
 void virtio_gpu_ctrl_ack(struct virtqueue *vq);
 void virtio_gpu_cursor_ack(struct virtqueue *vq);
 void virtio_gpu_fence_ack(struct virtqueue *vq);

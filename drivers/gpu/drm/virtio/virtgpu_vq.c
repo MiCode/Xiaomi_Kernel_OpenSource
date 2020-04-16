@@ -532,6 +532,54 @@ virtio_gpu_cmd_resource_attach_backing(struct virtio_gpu_device *vgdev,
 	virtio_gpu_queue_fenced_ctrl_buffer(vgdev, vbuf, &cmd_p->hdr, fence);
 }
 
+void
+virtio_gpu_cmd_resource_create_v2(struct virtio_gpu_device *vgdev,
+				  uint32_t resource_id,
+				  uint32_t guest_memory_type,
+				  uint32_t caching_type, uint64_t size,
+				  uint64_t pci_addr, uint32_t nents,
+				  uint32_t args_size, void *data,
+				  uint32_t data_size,
+				  struct virtio_gpu_fence *fence)
+{
+	struct virtio_gpu_resource_create_v2 *cmd_p;
+	struct virtio_gpu_vbuffer *vbuf;
+
+	cmd_p = virtio_gpu_alloc_cmd(vgdev, &vbuf, sizeof(*cmd_p));
+	memset(cmd_p, 0, sizeof(*cmd_p));
+
+	cmd_p->hdr.type = cpu_to_le32(VIRTIO_GPU_CMD_RESOURCE_CREATE_V2);
+	cmd_p->resource_id = cpu_to_le32(resource_id);
+	cmd_p->guest_memory_type = cpu_to_le32(guest_memory_type);
+	cmd_p->caching_type = cpu_to_le32(caching_type);
+	cmd_p->size = cpu_to_le64(size);
+	cmd_p->pci_addr = cpu_to_le64(pci_addr);
+	cmd_p->args_size = cpu_to_le32(args_size);
+	cmd_p->nr_entries = cpu_to_le32(nents);
+
+	vbuf->data_buf = data;
+	vbuf->data_size = data_size;
+
+	virtio_gpu_queue_fenced_ctrl_buffer(vgdev, vbuf, &cmd_p->hdr, fence);
+}
+
+void
+virtio_gpu_cmd_resource_v2_unref(struct virtio_gpu_device *vgdev,
+			         uint32_t resource_id,
+			         struct virtio_gpu_fence *fence)
+{
+	struct virtio_gpu_resource_v2_unref *cmd_p;
+	struct virtio_gpu_vbuffer *vbuf;
+
+	cmd_p = virtio_gpu_alloc_cmd(vgdev, &vbuf, sizeof(*cmd_p));
+	memset(cmd_p, 0, sizeof(*cmd_p));
+
+	cmd_p->hdr.type = cpu_to_le32(VIRTIO_GPU_CMD_RESOURCE_CREATE_V2_UNREF);
+	cmd_p->resource_id = cpu_to_le32(resource_id);
+
+	virtio_gpu_queue_fenced_ctrl_buffer(vgdev, vbuf, &cmd_p->hdr, fence);
+}
+
 static void virtio_gpu_cmd_get_display_info_cb(struct virtio_gpu_device *vgdev,
 					       struct virtio_gpu_vbuffer *vbuf)
 {
