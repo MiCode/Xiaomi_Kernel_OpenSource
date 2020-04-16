@@ -637,6 +637,25 @@ static int npu_notifier_cb(struct notifier_block *this, unsigned long code,
 	return ret;
 }
 
+static int npu_panic_handler(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+	int i;
+	struct npu_host_ctx *host_ctx =
+		container_of(this, struct npu_host_ctx, panic_nb);
+	struct npu_device *npu_dev = host_ctx->npu_dev;
+
+	NPU_INFO("Apps crashed\n");
+
+	for (i = 0; i < NPU_MAX_MBOX_NUM; i++)
+		if (npu_dev->mbox[i].send_data_pending)
+			npu_bridge_mbox_send_data(host_ctx,
+				&npu_dev->mbox[i], NULL);
+
+	host_ctx->app_crashed = true;
+	return NOTIFY_DONE;
+}
+
 static void npu_update_pwr_work(struct work_struct *work)
 {
 	int ret;
@@ -686,6 +705,14 @@ int npu_host_init(struct npu_device *npu_dev)
 		NPU_ERR("register event notification failed\n");
 		ret = PTR_ERR(host_ctx->notif_hdle);
 		host_ctx->notif_hdle = NULL;
+		goto fail;
+	}
+
+	host_ctx->panic_nb.notifier_call = npu_panic_handler;
+	ret = atomic_notifier_chain_register(&panic_notifier_list,
+		&host_ctx->panic_nb);
+	if (ret) {
+		NPU_ERR("register panic notifier failed\n");
 		goto fail;
 	}
 
@@ -1064,7 +1091,7 @@ static void npu_disable_fw_work(struct work_struct *work)
 	NPU_DBG("Exit disable fw work\n");
 }
 
-static int npu_bridge_mbox_send_data(struct npu_host_ctx *host_ctx,
+int npu_bridge_mbox_send_data(struct npu_host_ctx *host_ctx,
 	struct npu_mbox *mbox, void *data)
 {
 	NPU_DBG("Generating IRQ for client_id: %u; signal_id: %u\n",
