@@ -1424,18 +1424,20 @@ int set_qos_scenario(const char *val, const struct kernel_param *kp)
 	return 0;
 }
 
+#define MAX_DUMP (PAGE_SIZE - 1)
 int get_qos_scenario(char *buf, const struct kernel_param *kp)
 {
 	int i, off = 0;
 
 	for (i = 0; i < ARRAY_SIZE(qos_apply_profiles); i++) {
-		off += snprintf(buf + off, PAGE_SIZE - off,
+		off += snprintf(buf + off, MAX_DUMP - off,
 			"[%d]%s: %d / %d\n", i,
 			qos_apply_profiles[i].profile_name,
 			qos_apply_profiles[i].smi_scenario_id,
 			qos_apply_profiles[i].mask_opp);
 	}
-	buf[off] = '\0';
+	if (off >= MAX_DUMP)
+		off = MAX_DUMP - 1;
 	return off;
 }
 #endif
