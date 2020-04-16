@@ -41,7 +41,7 @@ bdaddr_t qca_bdaddr = { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff } };
 
 qca_enque_send_callback qca_enq_send_cb;
 
-u32 qca_bt_version;
+static u64 qca_bt_version;
 
 static int wait_for_sending(struct hci_dev *hdev, int count)
 {
@@ -57,7 +57,7 @@ static int wait_for_sending(struct hci_dev *hdev, int count)
 	return 0;
 }
 
-static int qca_patch_ver_req(struct hci_dev *hdev, u32 *qca_ver)
+static int qca_patch_ver_req(struct hci_dev *hdev, u64 *qca_ver)
 {
 	struct sk_buff *skb;
 	struct edl_hst_event_hdr *hst_edl;
@@ -104,8 +104,9 @@ static int qca_patch_ver_req(struct hci_dev *hdev, u32 *qca_ver)
 	BT_INFO("%s: ROM    :0x%08x", hdev->name, le16_to_cpu(ver->rome_ver));
 	BT_INFO("%s: SOC    :0x%08x", hdev->name, le32_to_cpu(ver->soc_id));
 
-	*qca_ver = (le32_to_cpu(ver->soc_id) << 16) |
-			(le16_to_cpu(ver->rome_ver) & 0x0000ffff);
+	*qca_ver = (((u64)(le32_to_cpu(ver->soc_id)) << 32) |
+		((u64)(le32_to_cpu(ver->product_id) & 0xffffffff) << 16) |
+		((u64)(le16_to_cpu(ver->rome_ver) & 0xffff)));
 
 out:
 	kfree_skb(skb);
@@ -203,7 +204,8 @@ static void qca_tlv_check_data(struct rome_config *config,
 					/* UART Baud Rate */
 					tlv_nvm->data[2] =
 						config->user_baud_rate;
-				} else if (qca_bt_version == HST_VER_2_0)
+				} else if (qca_bt_version == HST_VER_2_0 ||
+						qca_bt_version == GNA_VER_2_0)
 					tlv_nvm->data[1] =
 						config->user_baud_rate;
 				break;
@@ -218,7 +220,8 @@ static void qca_tlv_check_data(struct rome_config *config,
 				tlv_nvm->data[0] &= ~0x01;
 #endif
 				/* enable software inband sleep */
-				if (qca_bt_version == HST_VER_2_0)
+				if (qca_bt_version == HST_VER_2_0 ||
+					qca_bt_version == GNA_VER_2_0)
 #ifdef SUPPORT_BT_QCA_SIBS
 					tlv_nvm->data[1] |= 0x01;
 #else
@@ -551,7 +554,7 @@ static int qca_download_firmware(struct hci_dev *hdev,
 	qca_tlv_check_data(config, fw);
 	if (qca_bt_version == ROME_VER_3_2)
 		ret = rome_tlv_download_request(hdev, fw, config);
-	else if (qca_bt_version == HST_VER_2_0)
+	else if (qca_bt_version == HST_VER_2_0 || qca_bt_version == GNA_VER_2_0)
 		ret = hst_tlv_download_request(hdev, fw, config);
 
 	if (ret)
@@ -632,7 +635,7 @@ int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 				qca_enque_send_callback callback)
 {
 	struct rome_config config;
-	u32 qca_ver = 0;
+	u64 qca_ver = 0;
 	int err;
 
 	BT_DBG("%s: QCA setup on UART", hdev->name);
@@ -654,9 +657,8 @@ int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 		return err;
 	}
 
-	BT_INFO("%s: QCA controller version 0x%08x", hdev->name, qca_ver);
-
-	if (!(qca_ver == ROME_VER_3_2 || qca_ver == HST_VER_2_0)) {
+	if (!(qca_ver == ROME_VER_3_2 || qca_ver == HST_VER_2_0 ||
+			qca_ver == GNA_VER_2_0)) {
 		BT_ERR("%s: Not supported chip version 0x%x",
 						hdev->name, qca_ver);
 		return -EUNATCH;
@@ -667,10 +669,13 @@ int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 	config.type = TLV_TYPE_PATCH;
 	if (qca_ver == ROME_VER_3_2)
 		snprintf(config.fwname, sizeof(config.fwname),
-					"image/btfw32.tlv", qca_ver);
+					"image/btfw32.tlv");
 	else if (qca_ver == HST_VER_2_0)
 		snprintf(config.fwname, sizeof(config.fwname),
-					"image/htbtfw20.tlv", qca_ver);
+					"image/htbtfw20.tlv");
+	else if (qca_ver == GNA_VER_2_0)
+		snprintf(config.fwname, sizeof(config.fwname),
+					"image/gnbtfw20.tlv");
 
 	err = qca_download_firmware(hdev, &config);
 	if (err < 0) {
@@ -685,10 +690,13 @@ int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 	config.type = TLV_TYPE_NVM;
 	if (qca_ver == ROME_VER_3_2)
 		snprintf(config.fwname, sizeof(config.fwname),
-					"image/btnv32.bin", qca_ver);
+					"image/btnv32.bin");
 	else if (qca_ver == HST_VER_2_0)
 		snprintf(config.fwname, sizeof(config.fwname),
-					 "image/htnv20.bin", qca_ver);
+					 "image/htnv20.bin");
+	else if (qca_ver == GNA_VER_2_0)
+		snprintf(config.fwname, sizeof(config.fwname),
+					 "image/gnnv20.bin");
 
 	err = qca_download_firmware(hdev, &config);
 	if (err < 0) {
