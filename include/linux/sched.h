@@ -247,7 +247,7 @@ enum migrate_types {
 	RQ_TO_GROUP,
 };
 
-#ifdef CONFIG_HOTPLUG_CPU
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCHED_WALT)
 extern int sched_isolate_cpu(int cpu);
 extern int sched_unisolate_cpu(int cpu);
 extern int sched_unisolate_cpu_unlocked(int cpu);
