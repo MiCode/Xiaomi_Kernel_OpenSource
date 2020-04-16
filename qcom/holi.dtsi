@@ -367,3 +367,6 @@
 		#mbox-cells = <2>;
 	};
 };
+
+#include "holi-pinctrl.dtsi"
+#include "holi-stub-regulator.dtsi"
