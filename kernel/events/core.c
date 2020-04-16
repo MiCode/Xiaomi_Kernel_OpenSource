@@ -1250,6 +1250,7 @@ static void put_ctx(struct perf_event_context *ctx)
  *	      perf_event_context::lock
  *	    perf_event::mmap_mutex
  *	    mmap_sem
+ *	      perf_addr_filters_head::lock
  */
 static struct perf_event_context *
 perf_event_ctx_lock_nested(struct perf_event *event, int nesting)
@@ -2818,7 +2819,7 @@ static int perf_event_stop(struct perf_event *event, int restart)
  *
  * (p1) when userspace mappings change as a result of (1) or (2) or (3) below,
  *      we update the addresses of corresponding vmas in
- *	event::addr_filters_offs array and bump the event::addr_filters_gen;
+ *	event::addr_filter_ranges array and bump the event::addr_filters_gen;
  * (p2) when an event is scheduled in (pmu::add), it calls
  *      perf_event_addr_filters_sync() which calls pmu::addr_filters_sync()
  *      if the generation has changed since the previous call.
@@ -4384,7 +4385,7 @@ static void _free_event(struct perf_event *event)
 
 	perf_event_free_bpf_prog(event);
 	perf_addr_filters_splice(event, NULL);
-	kfree(event->addr_filters_offs);
+	kfree(event->addr_filter_ranges);
 
 	if (event->destroy)
 		event->destroy(event);
@@ -6624,8 +6625,9 @@ static void perf_event_addr_filters_exec(struct perf_event *event, void *data)
 
 	raw_spin_lock_irqsave(&ifh->lock, flags);
 	list_for_each_entry(filter, &ifh->list, entry) {
-		if (filter->inode) {
-			event->addr_filters_offs[count] = 0;
+		if (filter->path.dentry) {
+			event->addr_filter_ranges[count].start = 0;
+			event->addr_filter_ranges[count].size = 0;
 			restart++;
 		}
 
@@ -7291,7 +7293,7 @@ static bool perf_addr_filter_match(struct perf_addr_filter *filter,
 				     struct file *file, unsigned long offset,
 				     unsigned long size)
 {
-	if (filter->inode != file_inode(file))
+	if (d_inode(filter->path.dentry) != file_inode(file))
 		return false;
 
 	if (filter->offset > offset + size)
@@ -7303,28 +7305,47 @@ static bool perf_addr_filter_match(struct perf_addr_filter *filter,
 	return true;
 }
 
+static bool perf_addr_filter_vma_adjust(struct perf_addr_filter *filter,
+					struct vm_area_struct *vma,
+					struct perf_addr_filter_range *fr)
+{
+	unsigned long vma_size = vma->vm_end - vma->vm_start;
+	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
+	struct file *file = vma->vm_file;
+
+	if (!perf_addr_filter_match(filter, file, off, vma_size))
+		return false;
+
+	if (filter->offset < off) {
+		fr->start = vma->vm_start;
+		fr->size = min(vma_size, filter->size - (off - filter->offset));
+	} else {
+		fr->start = vma->vm_start + filter->offset - off;
+		fr->size = min(vma->vm_end - fr->start, filter->size);
+	}
+
+	return true;
+}
+
 static void __perf_addr_filters_adjust(struct perf_event *event, void *data)
 {
 	struct perf_addr_filters_head *ifh = perf_event_addr_filters(event);
 	struct vm_area_struct *vma = data;
-	unsigned long off = vma->vm_pgoff << PAGE_SHIFT, flags;
-	struct file *file = vma->vm_file;
 	struct perf_addr_filter *filter;
 	unsigned int restart = 0, count = 0;
+	unsigned long flags;
 
 	if (!has_addr_filter(event))
 		return;
 
-	if (!file)
+	if (!vma->vm_file)
 		return;
 
 	raw_spin_lock_irqsave(&ifh->lock, flags);
 	list_for_each_entry(filter, &ifh->list, entry) {
-		if (perf_addr_filter_match(filter, file, off,
-					     vma->vm_end - vma->vm_start)) {
-			event->addr_filters_offs[count] = vma->vm_start;
+		if (perf_addr_filter_vma_adjust(filter, vma,
+						&event->addr_filter_ranges[count]))
 			restart++;
-		}
 
 		count++;
 	}
@@ -8514,8 +8535,7 @@ static void free_filters_list(struct list_head *filters)
 	struct perf_addr_filter *filter, *iter;
 
 	list_for_each_entry_safe(filter, iter, filters, entry) {
-		if (filter->inode)
-			iput(filter->inode);
+		path_put(&filter->path);
 		list_del(&filter->entry);
 		kfree(filter);
 	}
@@ -8553,26 +8573,19 @@ static void perf_addr_filters_splice(struct perf_event *event,
  * @filter; if so, adjust filter's address range.
  * Called with mm::mmap_sem down for reading.
  */
-static unsigned long perf_addr_filter_apply(struct perf_addr_filter *filter,
-					    struct mm_struct *mm)
+static void perf_addr_filter_apply(struct perf_addr_filter *filter,
+				   struct mm_struct *mm,
+				   struct perf_addr_filter_range *fr)
 {
 	struct vm_area_struct *vma;
 
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
-		struct file *file = vma->vm_file;
-		unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
-		unsigned long vma_size = vma->vm_end - vma->vm_start;
-
-		if (!file)
+		if (!vma->vm_file)
 			continue;
 
-		if (!perf_addr_filter_match(filter, file, off, vma_size))
-			continue;
-
-		return vma->vm_start;
+		if (perf_addr_filter_vma_adjust(filter, vma, fr))
+			return;
 	}
-
-	return 0;
 }
 
 /*
@@ -8595,26 +8608,29 @@ static void perf_event_addr_filters_apply(struct perf_event *event)
 	if (task == TASK_TOMBSTONE)
 		return;
 
-	if (!ifh->nr_file_filters)
-		return;
+	if (ifh->nr_file_filters) {
+		mm = get_task_mm(event->ctx->task);
+		if (!mm)
+			goto restart;
 
-	mm = get_task_mm(event->ctx->task);
-	if (!mm)
-		goto restart;
-
-	down_read(&mm->mmap_sem);
+		down_read(&mm->mmap_sem);
+	}
 
 	raw_spin_lock_irqsave(&ifh->lock, flags);
 	list_for_each_entry(filter, &ifh->list, entry) {
-		event->addr_filters_offs[count] = 0;
+		if (filter->path.dentry) {
+			/*
+			 * Adjust base offset if the filter is associated to a
+			 * binary that needs to be mapped:
+			 */
+			event->addr_filter_ranges[count].start = 0;
+			event->addr_filter_ranges[count].size = 0;
 
-		/*
-		 * Adjust base offset if the filter is associated to a binary
-		 * that needs to be mapped:
-		 */
-		if (filter->inode)
-			event->addr_filters_offs[count] =
-				perf_addr_filter_apply(filter, mm);
+			perf_addr_filter_apply(filter, mm, &event->addr_filter_ranges[count]);
+		} else {
+			event->addr_filter_ranges[count].start = filter->offset;
+			event->addr_filter_ranges[count].size  = filter->size;
+		}
 
 		count++;
 	}
@@ -8622,9 +8638,11 @@ static void perf_event_addr_filters_apply(struct perf_event *event)
 	event->addr_filters_gen++;
 	raw_spin_unlock_irqrestore(&ifh->lock, flags);
 
-	up_read(&mm->mmap_sem);
+	if (ifh->nr_file_filters) {
+		up_read(&mm->mmap_sem);
 
-	mmput(mm);
+		mmput(mm);
+	}
 
 restart:
 	perf_event_stop(event, 1);
@@ -8685,7 +8703,6 @@ perf_event_parse_addr_filter(struct perf_event *event, char *fstr,
 {
 	struct perf_addr_filter *filter = NULL;
 	char *start, *orig, *filename = NULL;
-	struct path path;
 	substring_t args[MAX_OPT_ARGS];
 	int state = IF_STATE_ACTION, token;
 	unsigned int kernel = 0;
@@ -8789,19 +8806,18 @@ perf_event_parse_addr_filter(struct perf_event *event, char *fstr,
 					goto fail_free_name;
 
 				/* look up the path and grab its inode */
-				ret = kern_path(filename, LOOKUP_FOLLOW, &path);
+				ret = kern_path(filename, LOOKUP_FOLLOW,
+						&filter->path);
 				if (ret)
 					goto fail_free_name;
 
-				filter->inode = igrab(d_inode(path.dentry));
-				path_put(&path);
 				kfree(filename);
 				filename = NULL;
 
 				ret = -EINVAL;
-				if (!filter->inode ||
-				    !S_ISREG(filter->inode->i_mode))
-					/* free_filters_list() will iput() */
+				if (!filter->path.dentry ||
+				    !S_ISREG(d_inode(filter->path.dentry)
+					     ->i_mode))
 					goto fail;
 
 				event->addr_filters.nr_file_filters++;
@@ -9964,12 +9980,26 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 		goto err_pmu;
 
 	if (has_addr_filter(event)) {
-		event->addr_filters_offs = kcalloc(pmu->nr_addr_filters,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
-		if (!event->addr_filters_offs) {
+		event->addr_filter_ranges = kcalloc(pmu->nr_addr_filters,
+						    sizeof(struct perf_addr_filter_range),
+						    GFP_KERNEL);
+		if (!event->addr_filter_ranges) {
 			err = -ENOMEM;
 			goto err_per_task;
+		}
+
+		/*
+		 * Clone the parent's vma offsets: they are valid until exec()
+		 * even if the mm is not shared with the parent.
+		 */
+		if (event->parent) {
+			struct perf_addr_filters_head *ifh = perf_event_addr_filters(event);
+
+			raw_spin_lock_irq(&ifh->lock);
+			memcpy(event->addr_filter_ranges,
+			       event->parent->addr_filter_ranges,
+			       pmu->nr_addr_filters * sizeof(struct perf_addr_filter_range));
+			raw_spin_unlock_irq(&ifh->lock);
 		}
 
 		/* force hw sync on the address filters */
@@ -9990,7 +10020,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	return event;
 
 err_addr_filters:
-	kfree(event->addr_filters_offs);
+	kfree(event->addr_filter_ranges);
 
 err_per_task:
 	exclusive_event_destroy(event);

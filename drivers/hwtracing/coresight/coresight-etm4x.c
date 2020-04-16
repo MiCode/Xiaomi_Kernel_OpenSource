@@ -86,15 +86,23 @@ static int etm4_trace_id(struct coresight_device *csdev)
 	return drvdata->trcid;
 }
 
-static void etm4_enable_hw(void *info)
+struct etm4_enable_arg {
+	struct etmv4_drvdata *drvdata;
+	int rc;
+};
+
+static int etm4_enable_hw(struct etmv4_drvdata *drvdata)
 {
-	int i;
-	struct etmv4_drvdata *drvdata = info;
+	int i, rc;
 	struct etmv4_config *config = &drvdata->config;
 
 	CS_UNLOCK(drvdata->base);
 
 	etm4_os_unlock(drvdata);
+
+	rc = coresight_claim_device_unlocked(drvdata->base);
+	if (rc)
+		goto done;
 
 	/* Disable the trace unit before programming trace registers */
 	writel_relaxed(0, drvdata->base + TRCPRGCTLR);
@@ -137,8 +145,11 @@ static void etm4_enable_hw(void *info)
 			       drvdata->base + TRCCNTVRn(i));
 	}
 
-	/* Resource selector pair 0 is always implemented and reserved */
-	for (i = 0; i < drvdata->nr_resource * 2; i++)
+	/*
+	 * Resource selector pair 0 is always implemented and reserved.  As
+	 * such start at 2.
+	 */
+	for (i = 2; i < drvdata->nr_resource * 2; i++)
 		writel_relaxed(config->res_ctrl[i],
 			       drvdata->base + TRCRSCTLRn(i));
 
@@ -191,9 +202,106 @@ static void etm4_enable_hw(void *info)
 	dsb(sy);
 	isb();
 
+done:
 	CS_LOCK(drvdata->base);
 
-	dev_dbg(drvdata->dev, "cpu: %d enable smp call done\n", drvdata->cpu);
+	dev_dbg(drvdata->dev, "cpu: %d enable smp call done: %d\n",
+		drvdata->cpu, rc);
+	return rc;
+}
+
+static void etm4_enable_hw_smp_call(void *info)
+{
+	struct etm4_enable_arg *arg = info;
+
+	if (WARN_ON(!arg))
+		return;
+	arg->rc = etm4_enable_hw(arg->drvdata);
+}
+
+/*
+ * The goal of function etm4_config_timestamp_event() is to configure a
+ * counter that will tell the tracer to emit a timestamp packet when it
+ * reaches zero.  This is done in order to get a more fine grained idea
+ * of when instructions are executed so that they can be correlated
+ * with execution on other CPUs.
+ *
+ * To do this the counter itself is configured to self reload and
+ * TRCRSCTLR1 (always true) used to get the counter to decrement.  From
+ * there a resource selector is configured with the counter and the
+ * timestamp control register to use the resource selector to trigger the
+ * event that will insert a timestamp packet in the stream.
+ */
+static int etm4_config_timestamp_event(struct etmv4_drvdata *drvdata)
+{
+	int ctridx, ret = -EINVAL;
+	int counter, rselector;
+	u32 val = 0;
+	struct etmv4_config *config = &drvdata->config;
+
+	/* No point in trying if we don't have at least one counter */
+	if (!drvdata->nr_cntr)
+		goto out;
+
+	/* Find a counter that hasn't been initialised */
+	for (ctridx = 0; ctridx < drvdata->nr_cntr; ctridx++)
+		if (config->cntr_val[ctridx] == 0)
+			break;
+
+	/* All the counters have been configured already, bail out */
+	if (ctridx == drvdata->nr_cntr) {
+		pr_debug("%s: no available counter found\n", __func__);
+		ret = -ENOSPC;
+		goto out;
+	}
+
+	/*
+	 * Searching for an available resource selector to use, starting at
+	 * '2' since every implementation has at least 2 resource selector.
+	 * ETMIDR4 gives the number of resource selector _pairs_,
+	 * hence multiply by 2.
+	 */
+	for (rselector = 2; rselector < drvdata->nr_resource * 2; rselector++)
+		if (!config->res_ctrl[rselector])
+			break;
+
+	if (rselector == drvdata->nr_resource * 2) {
+		pr_debug("%s: no available resource selector found\n",
+			 __func__);
+		ret = -ENOSPC;
+		goto out;
+	}
+
+	/* Remember what counter we used */
+	counter = 1 << ctridx;
+
+	/*
+	 * Initialise original and reload counter value to the smallest
+	 * possible value in order to get as much precision as we can.
+	 */
+	config->cntr_val[ctridx] = 1;
+	config->cntrldvr[ctridx] = 1;
+
+	/* Set the trace counter control register */
+	val =  0x1 << 16	|  /* Bit 16, reload counter automatically */
+	       0x0 << 7		|  /* Select single resource selector */
+	       0x1;		   /* Resource selector 1, i.e always true */
+
+	config->cntr_ctrl[ctridx] = val;
+
+	val = 0x2 << 16		| /* Group 0b0010 - Counter and sequencers */
+	      counter << 0;	  /* Counter to use */
+
+	config->res_ctrl[rselector] = val;
+
+	val = 0x0 << 7		| /* Select single resource selector */
+	      rselector;	  /* Resource selector */
+
+	config->ts_ctrl = val;
+
+	ret = 0;
+out:
+	return ret;
 }
 
 static int etm4_parse_event_config(struct etmv4_drvdata *drvdata,
@@ -231,9 +339,29 @@ static int etm4_parse_event_config(struct etmv4_drvdata *drvdata,
 		/* TRM: Must program this for cycacc to work */
 		config->ccctlr = ETM_CYC_THRESHOLD_DEFAULT;
 	}
-	if (attr->config & BIT(ETM_OPT_TS))
+	if (attr->config & BIT(ETM_OPT_TS)) {
+		/*
+		 * Configure timestamps to be emitted at regular intervals in
+		 * order to correlate instructions executed on different CPUs
+		 * (CPU-wide trace scenarios).
+		 */
+		ret = etm4_config_timestamp_event(drvdata);
+
+		/*
+		 * No need to go further if timestamp intervals can't
+		 * be configured.
+		 */
+		if (ret)
+			goto out;
+
 		/* bit[11], Global timestamp tracing bit */
 		config->cfg |= BIT(11);
+	}
+
+	if (attr->config & BIT(ETM_OPT_CTXTID))
+		/* bit[6], Context ID tracing bit */
+		config->cfg |= BIT(ETM4_CFG_BIT_CTXTID);
+
 	/* return stack - enable if selected and supported */
 	if ((attr->config & BIT(ETM_OPT_RETSTK)) && drvdata->retstack)
 		/* bit[12], Return stack enable bit */
@@ -259,7 +387,7 @@ static int etm4_enable_perf(struct coresight_device *csdev,
 	if (ret)
 		goto out;
 	/* And enable it */
-	etm4_enable_hw(drvdata);
+	ret = etm4_enable_hw(drvdata);
 
 out:
 	return ret;
@@ -268,6 +396,7 @@ out:
 static int etm4_enable_sysfs(struct coresight_device *csdev)
 {
 	struct etmv4_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	struct etm4_enable_arg arg = { 0 };
 	int ret;
 
 	spin_lock(&drvdata->spinlock);
@@ -276,19 +405,17 @@ static int etm4_enable_sysfs(struct coresight_device *csdev)
 	 * Executing etm4_enable_hw on the cpu whose ETM is being enabled
 	 * ensures that register writes occur when cpu is powered.
 	 */
+	arg.drvdata = drvdata;
 	ret = smp_call_function_single(drvdata->cpu,
-				       etm4_enable_hw, drvdata, 1);
-	if (ret)
-		goto err;
-
-	drvdata->sticky_enable = true;
+				       etm4_enable_hw_smp_call, &arg, 1);
+	if (!ret)
+		ret = arg.rc;
+	if (!ret)
+		drvdata->sticky_enable = true;
 	spin_unlock(&drvdata->spinlock);
 
-	dev_info(drvdata->dev, "ETM tracing enabled\n");
-	return 0;
-
-err:
-	spin_unlock(&drvdata->spinlock);
+	if (!ret)
+		dev_dbg(drvdata->dev, "ETM tracing enabled\n");
 	return ret;
 }
 
@@ -351,6 +478,8 @@ static void etm4_disable_hw(void *info)
 	isb();
 	writel_relaxed(control, drvdata->base + TRCPRGCTLR);
 
+	coresight_disclaim_device_unlocked(drvdata->base);
+
 	CS_LOCK(drvdata->base);
 
 	dev_dbg(drvdata->dev, "cpu: %d disable smp call done\n", drvdata->cpu);
@@ -403,7 +532,7 @@ static void etm4_disable_sysfs(struct coresight_device *csdev)
 	spin_unlock(&drvdata->spinlock);
 	cpus_read_unlock();
 
-	dev_info(drvdata->dev, "ETM tracing disabled\n");
+	dev_dbg(drvdata->dev, "ETM tracing disabled\n");
 }
 
 static void etm4_disable(struct coresight_device *csdev,
