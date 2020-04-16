@@ -256,6 +256,7 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	 */
 	switch (mdata->mdss_version) {
 	case SDE_MDP_HW_REV_540:
+	case SDE_MDP_HW_REV_320:
 		if (is_yuv) {
 			if (res <= (RES_1080p * 30))
 				ot_lim = 2;
@@ -268,7 +269,6 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 		} else if (fmt->bpp == 4 && res <= (RES_WQXGA * 60)) {
 			ot_lim = 16;
 		}
-
 		break;
 	default:
 		if (res <= (RES_1080p * 30))
