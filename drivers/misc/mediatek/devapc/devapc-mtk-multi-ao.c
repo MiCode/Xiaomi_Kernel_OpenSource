@@ -317,10 +317,14 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 	uint32_t sramrom_vio_idx, mdp_vio_idx, disp2_vio_idx, mmsys_vio_idx;
 	const struct mtk_device_info **device_info;
 	const struct mtk_device_num *ndevices;
+	int sramrom_slv_type, mm2nd_slv_type;
 	bool mdp_vio, disp2_vio, mmsys_vio;
 	int i;
 
+	sramrom_slv_type = mtk_devapc_ctx->soc->vio_info->sramrom_slv_type;
 	sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
+
+	mm2nd_slv_type = mtk_devapc_ctx->soc->vio_info->mm2nd_slv_type;
 	mdp_vio_idx = mtk_devapc_ctx->soc->vio_info->mdp_vio_idx;
 	disp2_vio_idx = mtk_devapc_ctx->soc->vio_info->disp2_vio_idx;
 	mmsys_vio_idx = mtk_devapc_ctx->soc->vio_info->mmsys_vio_idx;
@@ -329,7 +333,7 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
 	/* check SRAMROM */
-	if (slave_type == SRAMROM_SLAVE_TYPE &&
+	if (slave_type == sramrom_slv_type &&
 			check_vio_status(slave_type, sramrom_vio_idx)) {
 
 		pr_info(PFX "SRAMROM violation is triggered\n");
@@ -345,7 +349,7 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 	}
 
 	/* check mm2nd */
-	if (slave_type == MM2ND_SLAVE_TYPE) {
+	if (slave_type == mm2nd_slv_type) {
 		mdp_vio = check_vio_status(slave_type, mdp_vio_idx) ==
 			VIOLATION_TRIGGERED;
 		disp2_vio = check_vio_status(slave_type, disp2_vio_idx) ==
