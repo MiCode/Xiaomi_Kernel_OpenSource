@@ -30,6 +30,8 @@ Optional property:
 		MHI device driver to map the control and data region with the
 		MHI driver on the host. This property is required if iatu
 		property qcom,mhi-config-iatu is present.
+  - qcom,enable-m2: If property is present M2 autonomous is enabled.
+  - qcom,no-m0-timeout: If property is present M0 timeout is not applied.
 
 MSM MHI DEV NET
 
