@@ -183,7 +183,6 @@ struct mt6785_afe_private {
 
 	/* adda */
 	int mtkaif_protocol;
-	bool mtkaif_calibration_ok;
 	int mtkaif_chosen_phase[4];
 	int mtkaif_phase_cycle[4];
 	int mtkaif_calibration_num_phase;
