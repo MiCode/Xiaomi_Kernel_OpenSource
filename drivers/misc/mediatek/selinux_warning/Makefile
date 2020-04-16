@@ -10,6 +10,4 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/selinux_warning_enable),)
-obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += mtk_selinux_warning.o
-endif
+obj-y += mtk_selinux_warning.o
