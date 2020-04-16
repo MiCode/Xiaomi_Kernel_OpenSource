@@ -33,10 +33,11 @@
 #ifdef CONFIG_RT_REGMAP
 #include <mt-plat/rt-regmap.h>
 #endif /* CONFIG_RT_REGMAP */
+#include <mt-plat/mtk_boot_common.h>
 
 #include "mtk_charger_intf.h"
 #include "rt9471.h"
-#define RT9471_DRV_VERSION	"1.0.11_MTK"
+#define RT9471_DRV_VERSION	"1.0.12_MTK"
 
 enum rt9471_stat_idx {
 	RT9471_STATIDX_STAT0 = 0,
@@ -258,7 +259,11 @@ static const u8 rt9471_reg_addr[] = {
 
 static int rt9471_read_device(void *client, u32 addr, int len, void *dst)
 {
-	return i2c_smbus_read_i2c_block_data(client, addr, len, dst);
+	int ret = 0;
+
+	ret = i2c_smbus_read_i2c_block_data(client, addr, len, dst);
+
+	return (ret < 0) ? ret : 0;
 }
 
 static int rt9471_write_device(void *client, u32 addr, int len,
@@ -1981,13 +1986,9 @@ static int rt9471_init_setting(struct rt9471_chip *chip)
 	int ret = 0;
 	struct rt9471_desc *desc = chip->desc;
 	u8 evt[RT9471_IRQIDX_MAX] = {0};
+	unsigned int boot_mode = get_boot_mode();
 
 	dev_info(chip->dev, "%s\n", __func__);
-
-	/* Disable WDT during IRQ masked period */
-	ret = __rt9471_set_wdt(chip, 0);
-	if (ret < 0)
-		dev_notice(chip->dev, "%s set wdt fail(%d)\n", __func__, ret);
 
 	/* Mask all IRQs */
 	ret = rt9471_i2c_block_write(chip, RT9471_REG_MASK0,
@@ -2004,7 +2005,7 @@ static int rt9471_init_setting(struct rt9471_chip *chip)
 
 	ret = __rt9471_set_vac_ovp(chip, desc->vac_ovp);
 	if (ret < 0)
-		dev_notice(chip->dev, "%s set vac_ovp fail(%d)\n",
+		dev_notice(chip->dev, "%s set vac ovp fail(%d)\n",
 				      __func__, ret);
 
 	ret = __rt9471_set_mivr(chip, desc->mivr);
@@ -2074,6 +2075,15 @@ static int rt9471_init_setting(struct rt9471_chip *chip)
 	if (ret < 0)
 		dev_notice(chip->dev, "%s dis bc12 fail(%d)\n", __func__, ret);
 
+	if ((boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT ||
+	     boot_mode == LOW_POWER_OFF_CHARGING_BOOT) &&
+	     strcmp(desc->chg_name, "primary_chg") == 0) {
+		dev_info(chip->dev,
+		"%s do not HZ=1 and CHG_EN=0 for primary_chg when KPOC\n",
+		__func__);
+		return 0;
+	}
+
 	/*
 	 * Customization for MTK platform
 	 * Primary charger: CHG_EN=1 at rt9471_plug_in()
@@ -2112,10 +2122,13 @@ static int rt9471_reset_register(struct rt9471_chip *chip)
 	if (ret < 0)
 		return ret;
 #ifdef CONFIG_RT_REGMAP
-	ret = rt_regmap_cache_reload(chip->rm_dev);
+	rt_regmap_cache_reload(chip->rm_dev);
 #endif /* CONFIG_RT_REGMAP */
+	ret = __rt9471_enable_autoaicr(chip, false);
+	if (ret < 0)
+		return ret;
 
-	return ret;
+	return __rt9471_set_wdt(chip, 0);
 }
 
 static bool rt9471_check_devinfo(struct rt9471_chip *chip)
@@ -2632,7 +2645,7 @@ static int rt9471_send_ta20_current_pattern(struct charger_device *chg_dev,
 	if (ret < 0)
 		return ret;
 
-	return rt9471_enable_pump_express(chip, false);
+	return rt9471_enable_pump_express(chip, true);
 }
 
 static int rt9471_reset_ta(struct charger_device *chg_dev)
@@ -2703,7 +2716,7 @@ static int rt9471_enable_cable_drop_comp(struct charger_device *chg_dev,
 	if (ret < 0)
 		return ret;
 
-	return rt9471_enable_pump_express(chip, false);
+	return rt9471_enable_pump_express(chip, true);
 }
 
 static struct charger_ops rt9471_chg_ops = {
@@ -2885,7 +2898,7 @@ static int rt9471_probe(struct i2c_client *client,
 		atomic_set(&chip->bc12_en_req_cnt, 0);
 		init_waitqueue_head(&chip->bc12_en_req);
 		chip->bc12_en_kthread =
-			kthread_run(rt9471_bc12_en_kthread, chip,
+			kthread_run(rt9471_bc12_en_kthread, chip, "%s",
 				    devm_kasprintf(chip->dev, GFP_KERNEL,
 				    "rt9471_bc12_en_kthread.%s",
 				    dev_name(chip->dev)));
@@ -2897,6 +2910,15 @@ static int rt9471_probe(struct i2c_client *client,
 		}
 	}
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
+
+	chip->chg_dev = charger_device_register(chip->desc->chg_name,
+			chip->dev, chip, &rt9471_chg_ops, &chip->chg_props);
+	if (IS_ERR_OR_NULL(chip->chg_dev)) {
+		ret = PTR_ERR(chip->chg_dev);
+		dev_notice(chip->dev, "%s register chg dev fail(%d)\n",
+				      __func__, ret);
+		goto err_register_chg_dev;
+	}
 
 	ret = rt9471_check_chg(chip);
 	if (ret < 0) {
@@ -2917,16 +2939,6 @@ static int rt9471_probe(struct i2c_client *client,
 		goto err_init_irq;
 	}
 
-	/* Register charger device */
-	chip->chg_dev = charger_device_register(chip->desc->chg_name,
-			chip->dev, chip, &rt9471_chg_ops, &chip->chg_props);
-	if (IS_ERR_OR_NULL(chip->chg_dev)) {
-		ret = PTR_ERR(chip->chg_dev);
-		dev_notice(chip->dev, "%s register chg dev fail(%d)\n",
-				      __func__, ret);
-		goto err_register_chg_dev;
-	}
-
 	ret = device_create_file(chip->dev, &dev_attr_shipping_mode);
 	if (ret < 0) {
 		dev_notice(chip->dev, "%s create file fail(%d)\n",
@@ -2939,11 +2951,11 @@ static int rt9471_probe(struct i2c_client *client,
 	return 0;
 
 err_create_file:
-	charger_device_unregister(chip->chg_dev);
-err_register_chg_dev:
 err_init_irq:
 err_register_irq:
 err_check_chg:
+	charger_device_unregister(chip->chg_dev);
+err_register_chg_dev:
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	if (chip->bc12_en_kthread) {
 		kthread_stop(chip->bc12_en_kthread);
@@ -2991,13 +3003,13 @@ static int rt9471_remove(struct i2c_client *client)
 #ifdef CONFIG_RT_REGMAP
 	rt_regmap_device_unregister(chip->rm_dev);
 #endif /* CONFIG_RT_REGMAP */
-	wakeup_source_trash(&chip->buck_dwork_ws);
 	mutex_destroy(&chip->io_lock);
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	mutex_destroy(&chip->bc12_lock);
 	mutex_destroy(&chip->bc12_en_lock);
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
 	mutex_destroy(&chip->hidden_mode_lock);
+	wakeup_source_trash(&chip->buck_dwork_ws);
 
 	return 0;
 }
@@ -3090,6 +3102,11 @@ MODULE_VERSION(RT9471_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.0.12
+ * (1) Disable Auto AICR and WDT after register reset
+ * (2) Fix PE20 chg_ops
+ * (3) Do not HZ=1 and CHG_EN=0 for primary_chg when KPOC
+ *
  * 1.0.11
  * (1) Add RT9471_REG_PUMPEXP to the reg lists
  * (2) Notify CHARGER_DEV_NOTIFY_EOC in rt9471_ieoc_irq_handler()
