@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -22,6 +22,7 @@
 #include <linux/compat.h>
 #endif
 #include <linux/jiffies.h>
+#include <linux/regulator/consumer.h>
 
 struct nqx_platform_data {
 	unsigned int irq_gpio;
@@ -29,6 +30,8 @@ struct nqx_platform_data {
 	unsigned int clkreq_gpio;
 	unsigned int firm_gpio;
 	unsigned int ese_gpio;
+	int vdd_levels[2];
+	int max_current;
 	const char *clk_src_name;
 	/* NFC_CLK pin voting state */
 	bool clk_pin_voting;
@@ -67,6 +70,8 @@ struct nqx_dev {
 	/* NFC_IRQ wake-up state */
 	bool			irq_wake_up;
 	bool			cold_reset_rsp_pending;
+	bool			is_vreg_enabled;
+	bool			is_ese_session_active;
 	uint8_t			cold_reset_status;
 	spinlock_t		irq_enabled_lock;
 	unsigned int		count_irq;
@@ -81,6 +86,7 @@ struct nqx_dev {
 	size_t kbuflen;
 	u8 *kbuf;
 	struct nqx_platform_data *pdata;
+	struct regulator *reg;
 };
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
@@ -455,6 +461,7 @@ static int sn100_ese_pwr(struct nqx_dev *nqx_dev, unsigned long arg)
 		} else {
 			dev_dbg(&nqx_dev->client->dev, "en_gpio already HIGH\n");
 		}
+		nqx_dev->is_ese_session_active = true;
 		r = 0;
 	} else if (arg == ESE_POWER_OFF) {
 		if (!nqx_dev->nfc_ven_enabled) {
@@ -465,6 +472,7 @@ static int sn100_ese_pwr(struct nqx_dev *nqx_dev, unsigned long arg)
 		} else {
 			dev_dbg(&nqx_dev->client->dev, "keep en_gpio high as NFC is enabled\n");
 		}
+		nqx_dev->is_ese_session_active = false;
 		r = 0;
 	} else if (arg == ESE_COLD_RESET) {
 		// set default value for status as failure
@@ -616,6 +624,123 @@ static int nqx_ese_pwr(struct nqx_dev *nqx_dev, unsigned long arg)
 		r = gpio_get_value(nqx_dev->ese_gpio);
 	}
 	return r;
+}
+
+/**
+ * nfc_ldo_vote()
+ * @nqx_dev: NFC device containing regulator handle
+ *
+ * LDO voting based on voltage and current entries in DT
+ *
+ * Return: 0 on success and -ve on failure
+ */
+static int nfc_ldo_vote(struct nqx_dev *nqx_dev)
+{
+	struct device *dev = &nqx_dev->client->dev;
+	int ret;
+
+	ret =  regulator_set_voltage(nqx_dev->reg,
+			nqx_dev->pdata->vdd_levels[0],
+			nqx_dev->pdata->vdd_levels[1]);
+	if (ret < 0) {
+		dev_err(dev, "%s:set voltage failed\n", __func__);
+		return ret;
+	}
+
+	/* pass expected current from NFC in uA */
+	ret = regulator_set_load(nqx_dev->reg, nqx_dev->pdata->max_current);
+	if (ret < 0) {
+		dev_err(dev, "%s:set load failed\n", __func__);
+		return ret;
+	}
+
+	ret = regulator_enable(nqx_dev->reg);
+	if (ret < 0)
+		dev_err(dev, "%s:regulator_enable failed\n", __func__);
+	else
+		nqx_dev->is_vreg_enabled = true;
+	return ret;
+}
+
+/**
+ * nfc_ldo_config()
+ * @client: I2C client instance, containing node to read DT entry
+ * @nqx_dev: NFC device containing regulator handle
+ *
+ * Configure LDO if entry is present in DT file otherwise
+ * with success as it's optional
+ *
+ * Return: 0 on success and -ve on failure
+ */
+static int nfc_ldo_config(struct i2c_client *client, struct nqx_dev *nqx_dev)
+{
+	int r;
+
+	if (of_get_property(client->dev.of_node, NFC_LDO_SUPPLY_NAME, NULL)) {
+		// Get the regulator handle
+		nqx_dev->reg = regulator_get(&client->dev,
+					NFC_LDO_SUPPLY_DT_NAME);
+		if (IS_ERR(nqx_dev->reg)) {
+			r = PTR_ERR(nqx_dev->reg);
+			nqx_dev->reg = NULL;
+			dev_err(&client->dev,
+				"%s: regulator_get failed, ret = %d\n",
+				__func__, r);
+			return r;
+		}
+	} else {
+		nqx_dev->reg = NULL;
+		dev_err(&client->dev,
+			"%s: regulator entry not present\n", __func__);
+		// return success as it's optional to configure LDO
+		return 0;
+	}
+
+	// LDO config supported by platform DT
+	r = nfc_ldo_vote(nqx_dev);
+	if (r < 0) {
+		dev_err(&client->dev,
+			"%s: LDO voting failed, ret = %d\n", __func__, r);
+		regulator_put(nqx_dev->reg);
+	}
+	return r;
+}
+
+/**
+ * nfc_ldo_unvote()
+ * @nqx_dev: NFC device containing regulator handle
+ *
+ * set voltage and load to zero and disable regulator
+ *
+ * Return: 0 on success and -ve on failure
+ */
+static int nfc_ldo_unvote(struct nqx_dev *nqx_dev)
+{
+	struct device *dev = &nqx_dev->client->dev;
+	int ret;
+
+	if (!nqx_dev->is_vreg_enabled) {
+		dev_err(dev, "%s: regulator already disabled\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = regulator_disable(nqx_dev->reg);
+	if (ret < 0) {
+		dev_err(dev, "%s:regulator_disable failed\n", __func__);
+		return ret;
+	}
+	nqx_dev->is_vreg_enabled = false;
+
+	ret =  regulator_set_voltage(nqx_dev->reg, 0, NFC_VDDIO_MAX);
+	if (ret < 0) {
+		dev_err(dev, "%s:set voltage failed\n", __func__);
+		return ret;
+	}
+
+	ret = regulator_set_load(nqx_dev->reg, 0);
+	if (ret < 0)
+		dev_err(dev, "%s:set load failed\n", __func__);
+	return ret;
 }
 
 static int nfc_open(struct inode *inode, struct file *filp)
@@ -1219,9 +1344,29 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 	else
 		pdata->clk_pin_voting = true;
 
+	// optional property
+	r = of_property_read_u32_array(np, NFC_LDO_VOL_DT_NAME,
+			(u32 *) pdata->vdd_levels,
+			ARRAY_SIZE(pdata->vdd_levels));
+	if (r) {
+		dev_err(dev, "error reading NFC VDDIO min and max value\n");
+		// set default as per datasheet
+		pdata->vdd_levels[0] = NFC_VDDIO_MIN;
+		pdata->vdd_levels[1] = NFC_VDDIO_MAX;
+	}
+
+	// optional property
+	r = of_property_read_u32(np, NFC_LDO_CUR_DT_NAME, &pdata->max_current);
+	if (r) {
+		dev_err(dev, "error reading NFC current value\n");
+		// set default as per datasheet
+		pdata->max_current = NFC_CURRENT_MAX;
+	}
+
 	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
 
-	return r;
+	// return success as above properties are optional
+	return 0;
 }
 
 static inline int gpio_input_init(const struct device * const dev,
@@ -1466,6 +1611,12 @@ static int nqx_probe(struct i2c_client *client,
 	}
 	nqx_disable_irq(nqx_dev);
 
+	r = nfc_ldo_config(client, nqx_dev);
+	if (r) {
+		dev_err(&client->dev, "%s: LDO config failed\n", __func__);
+		goto err_ldo_config_failed;
+	}
+
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1507,6 +1658,7 @@ static int nqx_probe(struct i2c_client *client,
 	nqx_dev->irq_wake_up = false;
 	nqx_dev->cold_reset_rsp_pending = false;
 	nqx_dev->nfc_enabled = false;
+	nqx_dev->is_ese_session_active = false;
 
 	dev_err(&client->dev,
 	"%s: probing NFCC NQxxx exited successfully\n",
@@ -1518,6 +1670,11 @@ err_clock_en_failed:
 	unregister_reboot_notifier(&nfcc_notifier);
 #endif
 err_request_hw_check_failed:
+	if (nqx_dev->reg) {
+		nfc_ldo_unvote(nqx_dev);
+		regulator_put(nqx_dev->reg);
+	}
+err_ldo_config_failed:
 	free_irq(client->irq, nqx_dev);
 err_request_irq_failed:
 	device_destroy(nqx_dev->nqx_class, nqx_dev->devno);
@@ -1568,6 +1725,13 @@ static int nqx_remove(struct i2c_client *client)
 		goto err;
 	}
 
+	gpio_set_value(nqx_dev->en_gpio, 0);
+	// HW dependent delay before LDO goes into LPM mode
+	usleep_range(10000, 10100);
+	if (nqx_dev->reg) {
+		ret = nfc_ldo_unvote(nqx_dev);
+		regulator_put(nqx_dev->reg);
+	}
 	unregister_reboot_notifier(&nfcc_notifier);
 	free_irq(client->irq, nqx_dev);
 	cdev_del(&nqx_dev->c_dev);
