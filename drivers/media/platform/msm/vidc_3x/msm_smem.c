@@ -429,10 +429,12 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 			goto fail_shared_mem_alloc;
 		}
 
+		if ((secure_flag == ION_FLAG_CP_PIXEL) && res->cma_status)
+			secure_flag = ION_FLAG_CP_CAMERA_ENCODE;
+
 		ion_flags |= ION_FLAG_SECURE | secure_flag;
 		if (res->cma_status) {
 			heap_mask = ION_HEAP(ION_VIDEO_HEAP_ID);
-			ion_flags |= ION_FLAG_CP_CAMERA_ENCODE;
 		} else {
 			heap_mask = ION_HEAP(ION_SECURE_HEAP_ID);
 		}
