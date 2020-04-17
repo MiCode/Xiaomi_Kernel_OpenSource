@@ -233,6 +233,18 @@ config ARCH_TRINKET
 	  This enables support for the TRINKET chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_SDM429W
+	bool "Enable Support for Qualcomm Technologies Inc. SDM429W"
+	depends on ARCH_QCOM
+	select CPU_FREQ_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	help
+	  This configuration option enables support to build kernel for
+	  SDM429W SoC.
+	  If you do not wish to build a kernel that runs on this chipset,
+	  say 'N' here.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help
