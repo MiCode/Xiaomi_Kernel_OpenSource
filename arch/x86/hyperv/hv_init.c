@@ -125,7 +125,7 @@ static int __init hv_pci_init(void)
  * 1. Setup the hypercall page.
  * 2. Register Hyper-V specific clocksource.
  */
-void hyperv_init(void)
+void __init hyperv_init(void)
 {
 	u64 guest_id, required_msrs;
 	union hv_x64_msr_hypercall_contents hypercall_msr;
