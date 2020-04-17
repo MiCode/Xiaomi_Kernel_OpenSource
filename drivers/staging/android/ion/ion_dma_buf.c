@@ -69,6 +69,7 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
 	a->table = table;
 	a->dev = attachment->dev;
 	INIT_LIST_HEAD(&a->list);
+	a->mapped = false;
 
 	attachment->priv = a;
 
@@ -115,6 +116,8 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 			      direction, attachment->dma_map_attrs))
 		return ERR_PTR(-ENOMEM);
 
+	a->mapped = true;
+
 	return table;
 }
 
@@ -124,6 +127,9 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
+	struct ion_dma_buf_attachment *a = attachment->priv;
+
+	a->mapped = false;
 
 	if (heap->buf_ops.unmap_dma_buf)
 		return heap->buf_ops.unmap_dma_buf(attachment, table,
@@ -169,6 +175,8 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
 		dma_sync_sg_for_cpu(a->dev, a->table->sgl, a->table->nents,
 				    direction);
 	}
@@ -211,6 +219,8 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 
 	ion_buffer_kmap_put(buffer);
 	list_for_each_entry(a, &buffer->attachments, list) {
+		if (!a->mapped)
+			continue;
 		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
 				       direction);
 	}
