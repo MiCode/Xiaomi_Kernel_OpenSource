@@ -2459,6 +2459,14 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 			(union mhi_dev_ring_ctx *)mhi->cmd_ctx_cache, mhi);
 }
 
+void mhi_dev_pm_relax(void)
+{
+	atomic_set(&mhi_ctx->mhi_dev_wake, 0);
+	pm_relax(mhi_ctx->dev);
+	mhi_log(MHI_MSG_VERBOSE, "releasing mhi wakelock\n");
+}
+EXPORT_SYMBOL(mhi_dev_pm_relax);
+
 int mhi_dev_suspend(struct mhi_dev *mhi)
 {
 	int ch_id = 0, rc = 0;
@@ -2492,10 +2500,6 @@ int mhi_dev_suspend(struct mhi_dev *mhi)
 				MHI_DEV_DMA_SYNC);
 
 	}
-
-	atomic_set(&mhi->mhi_dev_wake, 0);
-	pm_relax(mhi->dev);
-	mhi_log(MHI_MSG_VERBOSE, "releasing mhi wakelock\n");
 
 	mutex_unlock(&mhi_ctx->mhi_write_test);
 
