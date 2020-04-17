@@ -27,16 +27,12 @@
 #define KGSL_IOMMU_SVM_BASE32		0x300000
 #define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
 
-#define KGSL_IOMMU_VA_BASE64		0x500000000ULL
-#define KGSL_IOMMU_VA_END64		0x600000000ULL
-/*
- * Note: currently we only support 36 bit addresses,
- * but the CPU supports 39. Eventually this range
- * should change to high part of the 39 bit address
- * space just like the CPU.
- */
-#define KGSL_IOMMU_SVM_BASE64		0x700000000ULL
-#define KGSL_IOMMU_SVM_END64		0x800000000ULL
+/* The CPU supports 39 bit addresses */
+#define KGSL_IOMMU_SVM_BASE64		0x100000000ULL
+#define KGSL_IOMMU_SVM_END64		0x4000000000ULL
+#define KGSL_IOMMU_VA_BASE64		0x4000000000ULL
+#define KGSL_IOMMU_VA_END64		0x8000000000ULL
+
 #define CP_APERTURE_REG			0
 #define CP_SMMU_APERTURE_ID		0x1B
 
