@@ -344,6 +344,22 @@ struct ttm_bo_driver {
 					struct page *dummy_read_page);
 
 	/**
+	 * ttm_tt_create2
+	 *
+	 * @bo: pointer to a struct ttm_buffer_object
+	 * @page_flags: Page flags as identified by TTM_PAGE_FLAG_XX flags.
+	 * @dummy_read_page: See struct ttm_bo_device.
+	 *
+	 * Create a struct ttm_tt to back data with system memory pages.
+	 * No pages are actually allocated.
+	 * Returns:
+	 * NULL: Out of memory.
+	 */
+	struct ttm_tt *(*ttm_tt_create2)(struct ttm_buffer_object *bo,
+					 uint32_t page_flags,
+					 struct page *dummy_read_page);
+
+	/**
 	 * ttm_tt_populate
 	 *
 	 * @ttm: The struct ttm_tt to contain the backing pages.
