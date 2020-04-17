@@ -126,7 +126,21 @@ static void mhi_reg_write_enqueue(struct mhi_controller *mhi_cntrl,
 
 	mhi_cntrl->reg_write_q[q_index].reg_addr =  reg_addr;
 	mhi_cntrl->reg_write_q[q_index].val = val;
+
+	/*
+	 * prevent reordering to make sure val is set before valid is set to
+	 * true. This prevents offload worker running on another core to write
+	 * stale value to register with valid set to true.
+	 */
+	smp_wmb();
+
 	mhi_cntrl->reg_write_q[q_index].valid = true;
+
+	/*
+	 * make sure valid value is visible to other cores to prevent offload
+	 * worker from skipping the reg write.
+	 */
+	 smp_wmb();
 }
 
 void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
