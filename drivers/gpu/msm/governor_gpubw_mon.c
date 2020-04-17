@@ -236,6 +236,7 @@ static struct devfreq_governor devfreq_gpubw = {
 	.name = "gpubw_mon",
 	.get_target_freq = devfreq_gpubw_get_target,
 	.event_handler = devfreq_gpubw_event_handler,
+	.immutable = 1,
 };
 
 static int __init devfreq_gpubw_init(void)
