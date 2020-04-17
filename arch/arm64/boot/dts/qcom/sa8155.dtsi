@@ -698,6 +698,7 @@
 		clock-names = "emac_axi_clk", "emac_ptp_clk",
 			"emac_rgmii_clk", "emac_slv_ahb_clk";
 		qcom,phy-reset = <&tlmm 79 GPIO_ACTIVE_HIGH>;
+		qcom,phy-reset-delay-msecs = <10 50>;
 		qcom,phy-intr-redirect = <&tlmm 124 GPIO_ACTIVE_LOW>;
 		gdsc_emac-supply = <&emac_gdsc>;
 		pinctrl-names = "dev-emac-mdc",
