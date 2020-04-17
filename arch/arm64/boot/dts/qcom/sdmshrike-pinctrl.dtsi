@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2464,6 +2464,118 @@
 
 			config {
 				pins = "gpio33","gpio34";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci4_active: cci4_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio0","gpio1";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio0","gpio1";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci4_suspend: cci4_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio0","gpio1";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio0","gpio1";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci5_active: cci5_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio2","gpio3";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio2","gpio3";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci5_suspend: cci5_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio2","gpio3";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio2","gpio3";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci6_active: cci6_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio39","gpio40";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio39","gpio40";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci6_suspend: cci6_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio39","gpio40";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio39","gpio40";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci7_active: cci7_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio41","gpio42";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio41","gpio42";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci7_suspend: cci7_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio41","gpio42";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio41","gpio42";
 				bias-pull-down; /* PULL DOWN */
 				drive-strength = <2>; /* 2 MA */
 			};
