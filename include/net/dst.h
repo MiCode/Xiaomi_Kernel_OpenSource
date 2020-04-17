@@ -542,7 +542,16 @@ static inline void skb_dst_update_pmtu(struct sk_buff *skb, u32 mtu)
 	struct dst_entry *dst = skb_dst(skb);
 
 	if (dst && dst->ops->update_pmtu)
-		dst->ops->update_pmtu(dst, NULL, skb, mtu);
+		dst->ops->update_pmtu(dst, NULL, skb, mtu, true);
+}
+
+/* update dst pmtu but not do neighbor confirm */
+static inline void skb_dst_update_pmtu_no_confirm(struct sk_buff *skb, u32 mtu)
+{
+	struct dst_entry *dst = skb_dst(skb);
+
+	if (dst && dst->ops->update_pmtu)
+		dst->ops->update_pmtu(dst, NULL, skb, mtu, false);
 }
 
 #endif /* _NET_DST_H */
