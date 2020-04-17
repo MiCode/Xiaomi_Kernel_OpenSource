@@ -1505,6 +1505,7 @@ static const struct a6xx_protected_regs a660_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 32, 0x0f000, 0x0fbff, 1 },
 	{ A6XX_CP_PROTECT_REG + 33, 0x0fc00, 0x11bff, 0 },
 	{ A6XX_CP_PROTECT_REG + 47, 0x11c00, 0x11c00, 1 },
+	{ 0 },
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
