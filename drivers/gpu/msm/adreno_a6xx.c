@@ -482,7 +482,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 						0x00800060);
 		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_1,
 						0x40202016);
-		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000080);
+		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000020);
 	}
 
 	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
