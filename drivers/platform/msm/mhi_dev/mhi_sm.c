@@ -750,6 +750,7 @@ static void mhi_sm_dev_event_manager(struct work_struct *work)
 		res = mhi_sm_change_to_M3();
 		if (res)
 			MHI_SM_ERR("Failed switching to M3 state\n");
+		mhi_dev_pm_relax();
 		break;
 	case MHI_DEV_EVENT_HW_ACC_WAKEUP:
 	case MHI_DEV_EVENT_CORE_WAKEUP:
