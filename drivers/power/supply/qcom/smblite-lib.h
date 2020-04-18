@@ -310,6 +310,7 @@ struct smb_charger {
 	int			jeita_soft_fv[2];
 	int			aicl_5v_threshold_mv;
 	int			default_aicl_5v_threshold_mv;
+	int			cutoff_count;
 	bool			aicl_max_reached;
 	bool			pr_swap_in_progress;
 	bool			ldo_mode;

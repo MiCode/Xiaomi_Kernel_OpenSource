@@ -1963,13 +1963,14 @@ static bool is_charging_paused(struct smb_charger *chg)
 	return val & CHARGING_PAUSE_CMD_BIT;
 }
 
+#define CUTOFF_COUNT		3
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
 	bool usb_online, dc_online;
 	u8 stat;
-	int rc, suspend = 0;
+	int rc, suspend = 0, input_present = 0;
 
 	if (chg->fake_chg_status_on_debug_batt) {
 		rc = smblib_get_prop_from_bms(chg,
@@ -1997,6 +1998,28 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	if (pval.intval == POWER_SUPPLY_HEALTH_OVERVOLTAGE) {
 		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		return 0;
+	}
+
+	/*
+	 * If SOC = 0 and we are discharging with input connected, report
+	 * the battery status as DISCHARGING.
+	 */
+	smblib_is_input_present(chg, &input_present);
+	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (!rc && pval.intval == 0 && input_present) {
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
+		if (!rc && pval.intval > 0) {
+			if (chg->cutoff_count > CUTOFF_COUNT) {
+				val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+				return 0;
+			}
+			chg->cutoff_count++;
+		} else {
+			chg->cutoff_count = 0;
+		}
+	} else {
+		chg->cutoff_count = 0;
 	}
 
 	if (chg->dbc_usbov) {
