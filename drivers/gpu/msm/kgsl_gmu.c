@@ -282,6 +282,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 	struct platform_device *pdev = of_find_device_by_node(node);
 	struct device *dev;
 	int ret;
+	int no_stall = 1;
 
 	dev = &pdev->dev;
 	of_dma_configure(dev, node, true);
@@ -293,6 +294,14 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 			ctx->name);
 		return -ENODEV;
 	}
+
+	/*
+	 * Disable stall on fault for the GMU context bank.
+	 * This sets SCTLR.CFCFG = 0.
+	 * Also note that, the smmu driver sets SCTLR.HUPCF = 0 by default.
+	 */
+	iommu_domain_set_attr(ctx->domain,
+		DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &no_stall);
 
 	ret = iommu_attach_device(ctx->domain, dev);
 	if (ret) {
