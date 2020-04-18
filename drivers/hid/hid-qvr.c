@@ -314,15 +314,6 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	data->mx = imuData.my0;
 	data->my = imuData.mx0;
 	data->mz = imuData.mz0;
-	data->ax = imuData.ax0;
-	data->ay = imuData.ay0;
-	data->az = imuData.az0;
-	data->gx = imuData.gx0;
-	data->gy = imuData.gy0;
-	data->gz = imuData.gz0;
-	data->mx = imuData.my0;
-	data->my = imuData.mx0;
-	data->mz = imuData.mz0;
 	data->aNumerator = imuData.aNumerator;
 	data->aDenominator = imuData.aDenominator;
 	data->gNumerator = imuData.gNumerator;
