@@ -641,7 +641,7 @@ out:
 	return ret;
 }
 
-static int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
+int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
 {
 	struct irq_fwspec fwspec = {};
 
@@ -653,6 +653,7 @@ static int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
 
 	return irq_create_fwspec_mapping(&fwspec);
 }
+EXPORT_SYMBOL(hh_rm_virq_to_linux_irq);
 
 static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 {

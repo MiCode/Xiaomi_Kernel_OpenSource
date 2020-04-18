@@ -4,11 +4,15 @@
  *
  */
 
+#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
+#include <linux/spinlock.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <linux/haven/hh_irq_lend.h>
 #include <linux/haven/hh_rm_drv.h>
-#include <linux/spinlock.h>
+
+#include "hh_rm_drv_private.h"
 
 struct hh_irq_entry {
 	hh_vmid_t vmid;
@@ -116,22 +120,28 @@ static struct notifier_block hh_irq_lent_nb = {
  * hh_irq_lend: Lend a hardware interrupt to another VM
  * @label: vIRQ high-level label
  * @name: VM name to send interrupt to
- * @hw_irq: Hardware IRQ number to lend
+ * @irq: Linux IRQ number to lend
  * @on_release: callback to invoke when other VM returns the
  *              interrupt
  * @data: Argument to pass to on_release
  */
 int hh_irq_lend(enum hh_irq_label label, enum hh_vm_names name,
-		int hw_irq, hh_irq_handle_fn on_release, void *data)
+		int irq, hh_irq_handle_fn on_release, void *data)
 {
-	int ret;
+	int ret, virq;
 	unsigned long flags;
 	struct hh_irq_entry *entry;
+	struct irq_data *irq_data;
 
 	if (label >= HH_IRQ_LABEL_MAX || !on_release)
 		return -EINVAL;
 
 	entry = &hh_irq_entries[label];
+
+	irq_data = irq_get_irq_data(irq);
+	if (!irq_data)
+		return -EINVAL;
+	virq = irq_data->hwirq;
 
 	spin_lock_irqsave(&hh_irq_lend_lock, flags);
 	if (entry->state != HH_IRQ_STATE_NONE) {
@@ -151,7 +161,7 @@ int hh_irq_lend(enum hh_irq_label label, enum hh_vm_names name,
 	entry->state = HH_IRQ_STATE_WAIT_RELEASE;
 	spin_unlock_irqrestore(&hh_irq_lend_lock, flags);
 
-	return hh_rm_vm_irq_lend_notify(entry->vmid, hw_irq, label,
+	return hh_rm_vm_irq_lend_notify(entry->vmid, virq, label,
 		&entry->virq_handle);
 }
 EXPORT_SYMBOL(hh_irq_lend);
@@ -231,17 +241,18 @@ EXPORT_SYMBOL(hh_irq_wait_for_lend);
 /**
  * hh_irq_accept: Register to receive interrupts with a lent vIRQ
  * @label: vIRQ high-level label
- * @hw_irq: HWIRQ# to associate vIRQ with. If don't care, use -1
+ * @irq: Linux IRQ# to associate vIRQ with. If don't care, use -1
  *
- * If hw_irq is not -1, then returns 0 on success, <0 otherwise
- * If hw_irq is -1, then returns the HWIRQ# that vIRQ was registered
- * to or <0 for error.
+ * Returns the Linux IRQ# that vIRQ was registered to on success.
+ * Returns <0 on error
  * This function is not thread-safe w.r.t. IRQ lend state. Do not race with
  * with hh_irq_release or another hh_irq_accept with same label.
  */
-int hh_irq_accept(enum hh_irq_label label, int hw_irq)
+int hh_irq_accept(enum hh_irq_label label, int irq)
 {
 	struct hh_irq_entry *entry;
+	const struct irq_data *irq_data;
+	int virq;
 
 	if (label >= HH_IRQ_LABEL_MAX)
 		return -EINVAL;
@@ -251,7 +262,23 @@ int hh_irq_accept(enum hh_irq_label label, int hw_irq)
 	if (entry->state != HH_IRQ_STATE_LENT)
 		return -EINVAL;
 
-	return hh_rm_vm_irq_accept(entry->virq_handle, hw_irq);
+	if (irq != -1) {
+		irq_data = irq_get_irq_data(irq);
+		if (!irq_data)
+			return -EINVAL;
+		virq = irq_data->hwirq;
+	} else
+		virq = -1;
+
+	virq = hh_rm_vm_irq_accept(entry->virq_handle, virq);
+	if (virq < 0)
+		return virq;
+
+	if (irq == -1)
+		irq = hh_rm_virq_to_linux_irq(virq - 32, GIC_SPI,
+					      IRQ_TYPE_LEVEL_HIGH);
+
+	return irq;
 }
 EXPORT_SYMBOL(hh_irq_accept);
 
