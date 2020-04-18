@@ -1241,6 +1241,7 @@
 		qcom,pcie-aggregated-irq;
 		qcom,pcie-mhi-a7-irq;
 		qcom,phy-status-reg = <0x814>;
+		qcom,mhi-soc-reset-offset = <0xb01b8>;
 
 		qcom,phy-init = <0x1240 0x001 0x0 0x1
 				0x100c 0x002 0x0 0x1
