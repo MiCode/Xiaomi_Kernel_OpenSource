@@ -126,13 +126,15 @@ struct npu_host_ctx {
 	uint32_t fw_dbg_mode;
 	uint32_t exec_flags_override;
 	atomic_t ipc_trans_id;
-	atomic_t network_exeute_cnt;
+	atomic_t network_execute_cnt;
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
 	bool fw_error;
 	bool cancel_work;
+	bool app_crashed;
 	struct notifier_block nb;
+	struct notifier_block panic_nb;
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;
