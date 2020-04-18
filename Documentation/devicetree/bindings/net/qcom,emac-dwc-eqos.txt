@@ -11,6 +11,9 @@ emac_hw node:
 - interrupts: Interrupt number used by this controller
 - io-macro-info: Internal io-macro-info
 - emac_emb_smmu: Internal emac smmu node
+- qcom,phy-reset-delay-msecs  is for delays
+	The 1st cell is reset pulse in milli seconds.
+	The 2nd cell is reset post-delay in milli seconds.
 
 Optional:
 - qcom,msm-bus,name: String representing the client-name
@@ -69,6 +72,7 @@ soc {
 				"emac_rgmii_clk", "emac_slv_ahb_clk";
 			qcom,phy-reset = <&tlmm 79 GPIO_ACTIVE_HIGH>;
 			qcom,phy-intr-redirect = <&tlmm 124 GPIO_ACTIVE_LOW>;
+			qcom,phy-reset-delay-msecs = <10 50>;
 			gdsc_emac-supply = <&emac_gdsc>;
 
 			io-macro-info {

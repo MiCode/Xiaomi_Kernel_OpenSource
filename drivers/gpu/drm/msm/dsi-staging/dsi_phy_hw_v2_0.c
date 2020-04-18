@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -389,7 +389,7 @@ void dsi_phy_hw_v2_0_clamp_ctrl(struct dsi_phy_hw *phy, bool enable)
 }
 
 void dsi_phy_hw_v2_0_dyn_refresh_config(struct dsi_phy_hw *phy,
-		struct dsi_phy_cfg *cfg, bool is_master)
+		struct dsi_phy_cfg *cfg, bool is_master, bool is_cphy)
 {
 	u32 glbl_tst_cntrl;
 

@@ -1054,6 +1054,9 @@ static struct virtio_driver virtio_blk = {
 	.feature_table_size_legacy	= ARRAY_SIZE(features_legacy),
 	.driver.name			= KBUILD_MODNAME,
 	.driver.owner			= THIS_MODULE,
+#ifdef CONFIG_PLATFORM_AUTO
+	.driver.probe_type		= PROBE_PREFER_ASYNCHRONOUS,
+#endif
 	.id_table			= id_table,
 	.probe				= virtblk_probe,
 	.remove				= virtblk_remove,

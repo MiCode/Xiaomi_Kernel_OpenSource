@@ -497,6 +497,7 @@ Optional properties:
 - qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
 			   for any commands that we send.
 - qcom,mdss-dsi-force-clock-lane-hs:	Boolean to force dsi clock lanes to HS mode always.
+- qcom,panel-cphy-mode:			Boolean to specify whether panel is using cphy.
 
 - qcom,compression-mode:		Select compression mode for panel.
 					"fbc" - frame buffer compression
@@ -550,6 +551,8 @@ Optional properties:
 					is supported.
 - qcom,dsi-dyn-clk-list:		An u32 array which lists all the supported dsi bit clock
 					frequencies in Hz for the given panel.
+- qcom,dsi-dyn-clk-skip-timing-update:	Boolean to specify whether to skip phy timing parameter
+					update during dynamic clock switch.
 
 Required properties for sub-nodes:	None
 Optional properties:

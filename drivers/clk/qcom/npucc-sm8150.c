@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -679,6 +679,7 @@ static int npucc_sa8150_resume(struct device *dev)
 
 static const struct dev_pm_ops npucc_sa8150_pm_ops = {
 	.restore_early = npucc_sa8150_resume,
+	.thaw_early = npucc_sa8150_resume,
 };
 
 static void npu_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)

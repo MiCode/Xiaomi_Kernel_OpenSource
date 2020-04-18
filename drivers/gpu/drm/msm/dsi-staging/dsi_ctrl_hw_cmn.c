@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,6 +126,9 @@ void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
 	reg_value |= ((cfg->data_lanes & DSI_DATA_LANE_0) ? BIT(4) : 0);
 
 	DSI_W32(ctrl, DSI_CTRL, reg_value);
+
+	if (cfg->phy_type == DSI_PHY_TYPE_CPHY)
+		DSI_W32(ctrl, DSI_CPHY_MODE_CTRL, BIT(0));
 
 	if (ctrl->phy_isolation_enabled)
 		DSI_W32(ctrl, DSI_DEBUG_CTRL, BIT(28));

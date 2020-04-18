@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,7 +176,40 @@ static void dsi_phy_hw_v3_0_lane_swap_config(struct dsi_phy_hw *phy,
 		(lane_map->lane_map_v2[DSI_LOGICAL_LANE_3] << 4)));
 }
 
-static void dsi_phy_hw_v3_0_lane_settings(struct dsi_phy_hw *phy,
+static void dsi_phy_hw_v3_0_cphy_lane_settings(struct dsi_phy_hw *phy,
+			    struct dsi_phy_cfg *cfg)
+{
+	int i;
+
+	/* Strength ctrl settings */
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LOGICAL_LANE_3; i++) {
+		DSI_W32(phy, DSIPHY_LNX_LPTX_STR_CTRL(i),
+			cfg->strength.lane[i][0]);
+		/*
+		 * Disable LPRX and CDRX for all lanes. And later on, it will
+		 * be only enabled for the physical data lane corresponding
+		 * to the logical data lane 0
+		 */
+		DSI_W32(phy, DSIPHY_LNX_LPRX_CTRL(i), 0);
+		DSI_W32(phy, DSIPHY_LNX_PIN_SWAP(i), 0x0);
+		DSI_W32(phy, DSIPHY_LNX_HSTX_STR_CTRL(i), 0x88);
+	}
+	dsi_phy_hw_v3_0_config_lpcdrx(phy, cfg, true);
+
+	/* other settings */
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LOGICAL_LANE_3; i++) {
+		DSI_W32(phy, DSIPHY_LNX_CFG0(i), cfg->lanecfg.lane[i][0]);
+		DSI_W32(phy, DSIPHY_LNX_CFG1(i), cfg->lanecfg.lane[i][1]);
+		DSI_W32(phy, DSIPHY_LNX_CFG2(i), cfg->lanecfg.lane[i][2]);
+		DSI_W32(phy, DSIPHY_LNX_CFG3(i), 0x0A);
+		DSI_W32(phy, DSIPHY_LNX_OFFSET_TOP_CTRL(i), 0x0);
+		DSI_W32(phy, DSIPHY_LNX_OFFSET_BOT_CTRL(i), 0x0);
+	}
+
+	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x02);
+}
+
+static void dsi_phy_hw_v3_0_dphy_lane_settings(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
 	int i;
@@ -235,32 +268,82 @@ void dsi_phy_hw_v3_0_clamp_ctrl(struct dsi_phy_hw *phy, bool enable)
 }
 
 /**
- * enable() - Enable PHY hardware
+ * cphy_enable() - Enable CPHY hardware
  * @phy:      Pointer to DSI PHY hardware object.
  * @cfg:      Per lane configurations for timing, strength and lane
  *	      configurations.
  */
-void dsi_phy_hw_v3_0_enable(struct dsi_phy_hw *phy,
+static void dsi_phy_hw_cphy_enable(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
-	int rc = 0;
-	u32 status;
-	u32 const delay_us = 5;
-	u32 const timeout_us = 1000;
 	struct dsi_phy_per_lane_cfgs *timing = &cfg->timing;
 	u32 data;
 
-	if (dsi_phy_hw_v3_0_is_pll_on(phy))
-		pr_warn("PLL turned on before configuring PHY\n");
+	/* de-assert digital and pll power down */
+	data = BIT(6) | BIT(5);
+	DSI_W32(phy, DSIPHY_CMN_CTRL_0, data);
 
-	/* wait for REFGEN READY */
-	rc = readl_poll_timeout_atomic(phy->base + DSIPHY_CMN_PHY_STATUS,
-		status, (status & BIT(0)), delay_us, timeout_us);
-	if (rc) {
-		pr_err("Ref gen not ready. Aborting\n");
-		return;
+	/* Assert PLL core reset */
+	DSI_W32(phy, DSIPHY_CMN_PLL_CNTRL, 0x00);
+
+	/* turn off resync FIFO */
+	DSI_W32(phy, DSIPHY_CMN_RBUF_CTRL, 0x00);
+
+	DSI_W32(phy, DSIPHY_CMN_GLBL_CTRL, 0x40);
+
+	/* Enable LDO */
+	DSI_W32(phy, DSIPHY_CMN_VREG_CTRL, 0x59);
+
+	/* Configure PHY lane swap */
+	dsi_phy_hw_v3_0_lane_swap_config(phy, &cfg->lane_map);
+
+	/* DSI PHY timings */
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_0, timing->lane_v3[0]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_4, timing->lane_v3[4]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_5, timing->lane_v3[5]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_6, timing->lane_v3[6]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_7, timing->lane_v3[7]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_8, timing->lane_v3[8]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_9, timing->lane_v3[9]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_10, timing->lane_v3[10]);
+	DSI_W32(phy, DSIPHY_CMN_TIMING_CTRL_11, timing->lane_v3[11]);
+
+	/* Remove power down from all blocks */
+	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0x7f);
+
+	DSI_W32(phy, DSIPHY_CMN_LANE_CTRL0, 0x07);
+
+	switch (cfg->pll_source) {
+	case DSI_PLL_SOURCE_STANDALONE:
+	case DSI_PLL_SOURCE_NATIVE:
+		data = 0x0; /* internal PLL */
+		break;
+	case DSI_PLL_SOURCE_NON_NATIVE:
+		data = 0x1; /* external PLL */
+		break;
+	default:
+		break;
 	}
+	DSI_W32(phy, DSIPHY_CMN_CLK_CFG1, (data << 2)); /* set PLL src */
 
+	/* DSI lane settings */
+	dsi_phy_hw_v3_0_cphy_lane_settings(phy, cfg);
+
+	pr_debug("[DSI_%d]C-Phy enabled ", phy->index);
+}
+
+
+/**
+ * dphy_enable() - Enable DPHY hardware
+ * @phy:      Pointer to DSI PHY hardware object.
+ * @cfg:      Per lane configurations for timing, strength and lane
+ *	      configurations.
+ */
+static void dsi_phy_hw_dphy_enable(struct dsi_phy_hw *phy,
+			    struct dsi_phy_cfg *cfg)
+{
+	struct dsi_phy_per_lane_cfgs *timing = &cfg->timing;
+	u32 data;
 	/* de-assert digital and pll power down */
 	data = BIT(6) | BIT(5);
 	DSI_W32(phy, DSIPHY_CMN_CTRL_0, data);
@@ -321,9 +404,40 @@ void dsi_phy_hw_v3_0_enable(struct dsi_phy_hw *phy,
 	DSI_W32(phy, DSIPHY_CMN_CLK_CFG1, (data << 2)); /* set PLL src */
 
 	/* DSI lane settings */
-	dsi_phy_hw_v3_0_lane_settings(phy, cfg);
+	dsi_phy_hw_v3_0_dphy_lane_settings(phy, cfg);
 
-	pr_debug("[DSI_%d]Phy enabled ", phy->index);
+	pr_debug("[DSI_%d]D-Phy enabled", phy->index);
+}
+
+/**
+ * enable() - Enable PHY hardware
+ * @phy:      Pointer to DSI PHY hardware object.
+ * @cfg:      Per lane configurations for timing, strength and lane
+ *	      configurations.
+ */
+void dsi_phy_hw_v3_0_enable(struct dsi_phy_hw *phy,
+			    struct dsi_phy_cfg *cfg)
+{
+	int rc = 0;
+	u32 status;
+	u32 const delay_us = 5;
+	u32 const timeout_us = 1000;
+
+	if (dsi_phy_hw_v3_0_is_pll_on(phy))
+		pr_warn("PLL turned on before configuring PHY\n");
+
+	/* wait for REFGEN READY */
+	rc = readl_poll_timeout_atomic(phy->base + DSIPHY_CMN_PHY_STATUS,
+		status, (status & BIT(0)), delay_us, timeout_us);
+	if (rc) {
+		pr_err("Ref gen not ready. Aborting\n");
+		return;
+	}
+	if (cfg->phy_type == DSI_PHY_TYPE_CPHY)
+		dsi_phy_hw_cphy_enable(phy, cfg);
+	else /* Default PHY type is DPHY */
+		dsi_phy_hw_dphy_enable(phy, cfg);
+
 }
 
 /**
@@ -513,14 +627,14 @@ int dsi_phy_hw_timing_val_v3_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
 }
 
 void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
-					struct dsi_phy_cfg *cfg, bool is_master)
+			struct dsi_phy_cfg *cfg, bool is_master, bool is_cphy)
 {
 	u32 reg;
 
 	if (is_master) {
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL9,
 			  DSIPHY_CMN_GLBL_CTRL, DSIPHY_CMN_VREG_CTRL,
-			  0x10, 0x59);
+			  is_cphy ? 0x40 : 0x10, 0x59);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL10,
 			  DSIPHY_CMN_TIMING_CTRL_0, DSIPHY_CMN_TIMING_CTRL_1,
 			  cfg->timing.lane_v3[0], cfg->timing.lane_v3[1]);
@@ -541,7 +655,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 			  cfg->timing.lane_v3[10], cfg->timing.lane_v3[11]);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL16,
 			  DSIPHY_CMN_CTRL_0, DSIPHY_CMN_LANE_CTRL0,
-			  0x7f, 0x1f);
+			  0x7f, is_cphy ? 0x07 : 0x1f);
 	} else {
 		reg = DSI_R32(phy, DSIPHY_CMN_CLK_CFG0);
 		reg &= ~BIT(5);
@@ -550,7 +664,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 			  reg, 0x0);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL1,
 			  DSIPHY_CMN_RBUF_CTRL, DSIPHY_CMN_GLBL_CTRL,
-			  0x0, 0x10);
+			  0x0, is_cphy ? 0x40 : 0x10);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL2,
 			  DSIPHY_CMN_VREG_CTRL, DSIPHY_CMN_TIMING_CTRL_0,
 			  0x59, cfg->timing.lane_v3[0]);
@@ -574,7 +688,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 			  cfg->timing.lane_v3[11], 0x7f);
 		DSI_DYN_REF_REG_W(phy->dyn_pll_base, DSI_DYN_REFRESH_PLL_CTRL9,
 			  DSIPHY_CMN_LANE_CTRL0, DSIPHY_CMN_CTRL_2,
-			  0x1f, 0x40);
+			  is_cphy ? 0x07 : 0x1f, 0x40);
 		/*
 		 * fill with dummy register writes since controller will blindly
 		 * send these values to DSI PHY.
@@ -583,7 +697,7 @@ void dsi_phy_hw_v3_0_dyn_refresh_config(struct dsi_phy_hw *phy,
 		while (reg <= DSI_DYN_REFRESH_PLL_CTRL29) {
 			DSI_DYN_REF_REG_W(phy->dyn_pll_base, reg,
 				  DSIPHY_CMN_LANE_CTRL0, DSIPHY_CMN_CTRL_0,
-				  0x1f, 0x7f);
+				  is_cphy ? 0x07 : 0x1f, 0x7f);
 			reg += 0x4;
 		}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/qpnp/qpnp-misc.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -173,6 +174,7 @@ enum haptics_custom_effect_param {
 #define HAP_PLAY_BIT			BIT(7)
 
 #define REG_HAP_SEC_ACCESS		0xD0
+#define REG_HAP_PERPH_RESET_CTL3	0xDA
 
 struct qti_hap_effect {
 	int			id;
@@ -221,6 +223,7 @@ struct qti_hap_chip {
 	struct hrtimer			stop_timer;
 	struct hrtimer			hap_disable_timer;
 	struct dentry			*hap_debugfs;
+	struct notifier_block		twm_nb;
 	spinlock_t			bus_lock;
 	ktime_t				last_sc_time;
 	int				play_irq;
@@ -231,6 +234,20 @@ struct qti_hap_chip {
 	bool				perm_disable;
 	bool				play_irq_en;
 	bool				vdd_enabled;
+	bool				twm_state;
+	bool				haptics_ext_pin_twm;
+};
+
+struct hap_addr_val {
+	u16 addr;
+	u8  value;
+};
+
+static struct hap_addr_val twm_ext_cfg[] = {
+	{REG_HAP_PLAY, 0x00}, /* Stop playing haptics waveform */
+	{REG_HAP_PERPH_RESET_CTL3, 0x0D}, /* Disable SHUTDOWN1_RB reset */
+	{REG_HAP_SEL, 0x01}, /* Configure for external-pin mode */
+	{REG_HAP_EN_CTL1, 0x80}, /* Enable haptics driver */
 };
 
 static int wf_repeat[8] = {1, 2, 4, 8, 16, 32, 64, 128};
@@ -1038,6 +1055,24 @@ static void qti_haptics_set_gain(struct input_dev *dev, u16 gain)
 	qti_haptics_config_vmax(chip, play->vmax_mv);
 }
 
+static int qti_haptics_twm_config(struct qti_hap_chip *chip)
+{
+	int rc, i;
+
+	for (i = 0; i < ARRAY_SIZE(twm_ext_cfg); i++) {
+		rc = qti_haptics_write(chip, twm_ext_cfg[i].addr,
+					&twm_ext_cfg[i].value, 1);
+		if (rc < 0) {
+			dev_err(chip->dev, "Haptics TWM config failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+	pr_debug("Enabled haptics for TWM mode\n");
+
+	return 0;
+}
+
 static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 {
 	struct qti_hap_config *config = &chip->config;
@@ -1188,6 +1223,21 @@ static void verify_brake_setting(struct qti_hap_effect *effect)
 	effect->brake_en = (val != 0);
 }
 
+static int twm_notifier_cb(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	struct qti_hap_chip *chip = container_of(nb,
+				struct qti_hap_chip, twm_nb);
+
+	if (action != PMIC_TWM_CLEAR &&
+			action != PMIC_TWM_ENABLE)
+		pr_debug("Unsupported option %lu\n", action);
+	else
+		chip->twm_state = (u8)action;
+
+	return NOTIFY_OK;
+}
+
 static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 {
 	struct qti_hap_config *config = &chip->config;
@@ -1241,6 +1291,9 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 	if (!rc)
 		config->play_rate_us = (tmp >= HAP_PLAY_RATE_US_MAX) ?
 			HAP_PLAY_RATE_US_MAX : tmp;
+
+	chip->haptics_ext_pin_twm = of_property_read_bool(node,
+					"qcom,haptics-ext-pin-twm");
 
 	if (of_find_property(node, "qcom,external-waveform-source", NULL)) {
 		if (!of_property_read_string(node,
@@ -1897,6 +1950,11 @@ static int qti_haptics_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	chip->twm_nb.notifier_call = twm_notifier_cb;
+	rc = qpnp_misc_twm_notifier_register(&chip->twm_nb);
+	if (rc < 0)
+		pr_err("Failed to register twm_notifier_cb rc=%d\n", rc);
+
 	hrtimer_init(&chip->stop_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	chip->stop_timer.function = qti_hap_stop_timer;
 	hrtimer_init(&chip->hap_disable_timer, CLOCK_MONOTONIC,
@@ -1947,6 +2005,7 @@ static int qti_haptics_probe(struct platform_device *pdev)
 
 destroy_ff:
 	input_ff_destroy(chip->input_dev);
+	qpnp_misc_twm_notifier_unregister(&chip->twm_nb);
 	return rc;
 }
 
@@ -1958,6 +2017,7 @@ static int qti_haptics_remove(struct platform_device *pdev)
 	debugfs_remove_recursive(chip->hap_debugfs);
 #endif
 	input_ff_destroy(chip->input_dev);
+	qpnp_misc_twm_notifier_unregister(&chip->twm_nb);
 	dev_set_drvdata(chip->dev, NULL);
 
 	return 0;
@@ -1980,6 +2040,12 @@ static void qti_haptics_shutdown(struct platform_device *pdev)
 			return;
 		}
 		chip->vdd_enabled = false;
+	}
+
+	if (chip->twm_state == PMIC_TWM_ENABLE && chip->haptics_ext_pin_twm) {
+		rc = qti_haptics_twm_config(chip);
+		if (rc < 0)
+			pr_err("Haptics TWM config failed rc=%d\n", rc);
 	}
 }
 

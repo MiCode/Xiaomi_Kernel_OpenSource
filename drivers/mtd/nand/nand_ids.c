@@ -75,6 +75,9 @@ struct nand_flash_dev nand_flash_ids[] = {
 	{"XT61M2G8D2TA-B8B 2G 1.8V 8-bit",
 		{ .id = {0x98, 0xaa, 0x90, 0x15, 0x76, 0x00, 0x00, 0x00} },
 		SZ_2K, SZ_256, SZ_128K, 0, 5, 128, NAND_ECC_INFO(8, SZ_512)},
+	{"JSFCCE5QHAFGC-405 4G 1.8V 8-bit",
+		{ .id = {0xad, 0xac, 0x80, 0x16, 0x20, 0x00, 0x00, 0x00} },
+		SZ_4K, SZ_512, SZ_256K, 0, 5, 256, NAND_ECC_INFO(4, SZ_512)},
 
 	LEGACY_ID_NAND("NAND 4MiB 5V 8-bit",   0x6B, 4, SZ_8K, SP_OPTIONS),
 	LEGACY_ID_NAND("NAND 4MiB 3,3V 8-bit", 0xE3, 4, SZ_8K, SP_OPTIONS),

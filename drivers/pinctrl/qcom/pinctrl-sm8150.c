@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1980,6 +1980,8 @@ static int sm8150_pinctrl_dir_conn_probe(struct platform_device *pdev)
 
 	prop = of_get_property(pdev->dev.of_node, "dirconn-list",
 			&length);
+	if (!prop)
+		return -ENOENT;
 
 	dir_conn_length = length / sizeof(u32);
 

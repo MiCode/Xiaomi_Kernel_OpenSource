@@ -388,6 +388,8 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* qcs405 ID */
 	[352] = {MSM_CPU_QCS405, "QCS405"},
+	[451] = {MSM_CPU_QCS405, "SA2145P"},
+	[452] = {MSM_CPU_QCS405, "SA2150P"},
 
 	/* qcs404 ID */
 	[410] = {MSM_CPU_QCS404, "QCS404"},

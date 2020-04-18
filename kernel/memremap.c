@@ -19,6 +19,7 @@
 #include <linux/memory_hotplug.h>
 #include <linux/swap.h>
 #include <linux/swapops.h>
+#include <linux/kasan.h>
 
 #ifndef ioremap_cache
 /* temporary while we convert existing ioremap_cache users to memremap */
@@ -309,6 +310,7 @@ static void devm_memremap_pages_release(struct device *dev, void *data)
 
 	mem_hotplug_begin();
 	arch_remove_memory(align_start, align_size);
+	kasan_remove_zero_shadow(__va(align_start), align_size);
 	mem_hotplug_done();
 
 	untrack_pfn(NULL, PHYS_PFN(align_start), align_size);
@@ -444,6 +446,11 @@ void *devm_memremap_pages(struct device *dev, struct resource *res,
 		goto err_pfn_remap;
 
 	mem_hotplug_begin();
+	error = kasan_add_zero_shadow(__va(align_start), align_size);
+	if (error) {
+		mem_hotplug_done();
+		goto err_kasan;
+	}
 	error = arch_add_memory(nid, align_start, align_size, false);
 	if (!error)
 		move_pfn_range_to_zone(&NODE_DATA(nid)->node_zones[ZONE_DEVICE],
@@ -472,6 +479,8 @@ void *devm_memremap_pages(struct device *dev, struct resource *res,
 	return __va(res->start);
 
  err_add_memory:
+	kasan_remove_zero_shadow(__va(align_start), align_size);
+ err_kasan:
 	untrack_pfn(NULL, PHYS_PFN(align_start), align_size);
  err_pfn_remap:
  err_radix:

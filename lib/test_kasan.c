@@ -481,27 +481,147 @@ static noinline void __init copy_user_test(void)
 	kfree(kmem);
 }
 
-static noinline void __init use_after_scope_test(void)
+static noinline void __init kasan_alloca_oob_left(void)
 {
-	volatile char *volatile p;
+	volatile int i = 10;
+	char alloca_array[i];
+	char *p = alloca_array - 1;
 
-	pr_info("use-after-scope on int\n");
-	{
-		int local = 0;
+	pr_info("out-of-bounds to left on alloca\n");
+	*(volatile char *)p;
+}
 
-		p = (char *)&local;
+static noinline void __init kasan_alloca_oob_right(void)
+{
+	volatile int i = 10;
+	char alloca_array[i];
+	char *p = alloca_array + i;
+
+	pr_info("out-of-bounds to right on alloca\n");
+	*(volatile char *)p;
+}
+
+static noinline void __init kmem_cache_double_free(void)
+{
+	char *p;
+	size_t size = 200;
+	struct kmem_cache *cache;
+
+	cache = kmem_cache_create("test_cache", size, 0, 0, NULL);
+	if (!cache) {
+		pr_err("Cache allocation failed\n");
+		return;
 	}
-	p[0] = 1;
-	p[3] = 1;
-
-	pr_info("use-after-scope on array\n");
-	{
-		char local[1024] = {0};
-
-		p = local;
+	pr_info("double-free on heap object\n");
+	p = kmem_cache_alloc(cache, GFP_KERNEL);
+	if (!p) {
+		pr_err("Allocation failed\n");
+		kmem_cache_destroy(cache);
+		return;
 	}
-	p[0] = 1;
-	p[1023] = 1;
+
+	kmem_cache_free(cache, p);
+	kmem_cache_free(cache, p);
+	kmem_cache_destroy(cache);
+}
+
+static noinline void __init kmem_cache_invalid_free(void)
+{
+	char *p;
+	size_t size = 200;
+	struct kmem_cache *cache;
+
+	cache = kmem_cache_create("test_cache", size, 0, SLAB_TYPESAFE_BY_RCU,
+				  NULL);
+	if (!cache) {
+		pr_err("Cache allocation failed\n");
+		return;
+	}
+	pr_info("invalid-free of heap object\n");
+	p = kmem_cache_alloc(cache, GFP_KERNEL);
+	if (!p) {
+		pr_err("Allocation failed\n");
+		kmem_cache_destroy(cache);
+		return;
+	}
+
+	/* Trigger invalid free, the object doesn't get freed */
+	kmem_cache_free(cache, p + 1);
+
+	/*
+	 * Properly free the object to prevent the "Objects remaining in
+	 * test_cache on __kmem_cache_shutdown" BUG failure.
+	 */
+	kmem_cache_free(cache, p);
+
+	kmem_cache_destroy(cache);
+}
+
+static noinline void __init kasan_memchr(void)
+{
+	char *ptr;
+	size_t size = 24;
+
+	pr_info("out-of-bounds in memchr\n");
+	ptr = kmalloc(size, GFP_KERNEL | __GFP_ZERO);
+	if (!ptr)
+		return;
+
+	memchr(ptr, '1', size + 1);
+	kfree(ptr);
+}
+
+static noinline void __init kasan_memcmp(void)
+{
+	char *ptr;
+	size_t size = 24;
+	int arr[9];
+
+	pr_info("out-of-bounds in memcmp\n");
+	ptr = kmalloc(size, GFP_KERNEL | __GFP_ZERO);
+	if (!ptr)
+		return;
+
+	memset(arr, 0, sizeof(arr));
+	memcmp(ptr, arr, size+1);
+	kfree(ptr);
+}
+
+static noinline void __init kasan_strings(void)
+{
+	char *ptr;
+	size_t size = 24;
+
+	pr_info("use-after-free in strchr\n");
+	ptr = kmalloc(size, GFP_KERNEL | __GFP_ZERO);
+	if (!ptr)
+		return;
+
+	kfree(ptr);
+
+	/*
+	 * Try to cause only 1 invalid access (less spam in dmesg).
+	 * For that we need ptr to point to zeroed byte.
+	 * Skip metadata that could be stored in freed object so ptr
+	 * will likely point to zeroed byte.
+	 */
+	ptr += 16;
+	strchr(ptr, '1');
+
+	pr_info("use-after-free in strrchr\n");
+	strrchr(ptr, '1');
+
+	pr_info("use-after-free in strcmp\n");
+	strcmp(ptr, "2");
+
+	pr_info("use-after-free in strncmp\n");
+	strncmp(ptr, "2", 1);
+
+	pr_info("use-after-free in strlen\n");
+	strlen(ptr);
+
+	pr_info("use-after-free in strnlen\n");
+	strnlen(ptr, 1);
 }
 
 static noinline void __init kmem_cache_double_free(void)
@@ -584,11 +704,16 @@ static int __init kmalloc_tests_init(void)
 	memcg_accounted_kmem_cache();
 	kasan_stack_oob();
 	kasan_global_oob();
+	kasan_alloca_oob_left();
+	kasan_alloca_oob_right();
 	ksize_unpoisons_memory();
 	copy_user_test();
 	use_after_scope_test();
 	kmem_cache_double_free();
 	kmem_cache_invalid_free();
+	kasan_memchr();
+	kasan_memcmp();
+	kasan_strings();
 
 	kasan_restore_multi_shot(multishot);
 
