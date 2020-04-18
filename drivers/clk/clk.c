@@ -4018,6 +4018,14 @@ static inline void clk_debug_reparent(struct clk_core *core,
 static inline void clk_debug_unregister(struct clk_core *core)
 {
 }
+
+void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
+{
+}
+
+void clock_debug_print_enabled(void)
+{
+}
 #endif
 
 /**
