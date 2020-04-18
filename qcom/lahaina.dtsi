@@ -2778,6 +2778,12 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	jtag_mm0: jtagmm@7040000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x7040000 0x1000>;
