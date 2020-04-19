@@ -312,8 +312,8 @@ struct fastrpc_ioctl_control {
 	};
 };
 
-#define FASTRPC_MAX_DSP_ATTRIBUTES	(9)
-#define ASYNC_FASTRPC_CAP (8)
+#define FASTRPC_MAX_DSP_ATTRIBUTES	(10)
+#define ASYNC_FASTRPC_CAP (9)
 
 struct fastrpc_ioctl_remote_dsp_capability {
 	uint32_t domain;
