@@ -8,6 +8,7 @@
 #include <linux/delay.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
@@ -2768,6 +2769,21 @@ irqreturn_t smblite_usbin_ov_irq_handler(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 
 	smblite_lib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t smblite_usb_id_irq_handler(int irq, void *data)
+{
+	struct smb_charger *chg = data;
+	bool id_state;
+
+	id_state = gpio_get_value(chg->usb_id_gpio);
+
+	smblite_lib_dbg(chg, PR_INTERRUPT, "IRQ: %s, id_state=%d\n",
+					"usb-id-irq", id_state);
+
+	smblite_lib_notify_usb_host(chg, !id_state);
 
 	return IRQ_HANDLED;
 }
