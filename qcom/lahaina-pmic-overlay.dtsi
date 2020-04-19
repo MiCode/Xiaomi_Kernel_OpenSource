@@ -342,6 +342,18 @@
 	io-channel-names = "thermal";
 };
 
+&pmk8350_sdam_2 {
+	hap_cl_brake: cl_brake@7c {
+		reg = <0x7c 0x1>;
+		bits = <0 8>;
+	};
+};
+
+&pm8350b_haptics {
+	nvmem-cell-names = "hap_cl_brake";
+	nvmem-cells = <&hap_cl_brake>;
+};
+
 &pmr735a_tz {
 	io-channels = <&pmk8350_vadc PMR735A_ADC7_DIE_TEMP>;
 	io-channel-names = "thermal";
