@@ -1888,7 +1888,8 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport)
 					uport->icount.brk);
 			}
 
-			if (dma_rx_status & RX_EOT) {
+			if (dma_rx_status & RX_EOT ||
+					dma_rx_status & RX_DMA_DONE) {
 				msm_geni_serial_handle_dma_rx(uport,
 							drop_rx);
 				if (!(dma_rx_status & RX_GENI_CANCEL_IRQ)) {
@@ -3158,6 +3159,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 							__func__, ret);
 		goto exit_geni_serial_probe;
 	}
+	disable_irq(dev_port->uport.irq);
 
 	uport->private_data = (void *)drv;
 	platform_set_drvdata(pdev, dev_port);
@@ -3234,9 +3236,9 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 
 	wait_for_transfers_inflight(&port->uport);
 	/*
-	 * Disable Interrupt
 	 * Manual RFR On.
 	 * Stop Rx.
+	 * Disable Interrupt
 	 * Resources off
 	 */
 	stop_rx_sequencer(&port->uport);
@@ -3245,6 +3247,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	if ((geni_status & M_GENI_CMD_ACTIVE))
 		stop_tx_sequencer(&port->uport);
 
+	disable_irq(port->uport.irq);
 	ret = se_geni_resources_off(&port->serial_rsc);
 	if (ret) {
 		dev_err(dev, "%s: Error ret %d\n", __func__, ret);
@@ -3290,10 +3293,9 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	start_rx_sequencer(&port->uport);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();
-	/*
-	 * Do not enable irq before interrupt registration which happens
-	 * at port open time.
-	 */
+	/* Enable interrupt */
+	enable_irq(port->uport.irq);
+
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_resume:
 	return ret;
