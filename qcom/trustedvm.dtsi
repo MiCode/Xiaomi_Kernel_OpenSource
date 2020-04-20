@@ -38,6 +38,10 @@
 		method = "smc";
 	};
 
+	qcom-mem-buf {
+		compatible = "qcom,mem-buf";
+	};
+
 	memory@28000000 {
 		device_type = "memory";
 		reg = <0x0 0x28000000 0x0 0x8000000>; /* Temp S2 mapping */
