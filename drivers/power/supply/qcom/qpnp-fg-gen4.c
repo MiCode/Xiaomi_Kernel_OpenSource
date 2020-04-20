@@ -6373,12 +6373,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	/* Keep MEM_ATTN_IRQ disabled until we require it */
 	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 
-	rc = fg_debugfs_create(fg);
-	if (rc < 0) {
-		dev_err(fg->dev, "Error in creating debugfs entries, rc:%d\n",
-			rc);
-		goto exit;
-	}
+	fg_debugfs_create(fg);
 
 	rc = sysfs_create_groups(&fg->dev->kobj, fg_groups);
 	if (rc < 0) {
