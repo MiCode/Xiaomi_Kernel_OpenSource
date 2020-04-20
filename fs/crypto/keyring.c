@@ -44,11 +44,9 @@ static void free_master_key(struct fscrypt_master_key *mk)
 	wipe_master_key_secret(&mk->mk_secret);
 
 	for (i = 0; i <= __FSCRYPT_MODE_MAX; i++) {
-		crypto_free_skcipher(mk->mk_direct_tfms[i]);
-		crypto_free_skcipher(mk->mk_iv_ino_lblk_64_tfms[i]);
+		fscrypt_destroy_prepared_key(&mk->mk_direct_keys[i]);
+		fscrypt_destroy_prepared_key(&mk->mk_iv_ino_lblk_64_keys[i]);
 	}
-
-	fscrypt_evict_inline_crypt_keys(mk);
 
 	key_put(mk->mk_users);
 	kzfree(mk);
@@ -467,6 +465,112 @@ out_unlock:
 	return err;
 }
 
+static int fscrypt_provisioning_key_preparse(struct key_preparsed_payload *prep)
+{
+	const struct fscrypt_provisioning_key_payload *payload = prep->data;
+
+	if (prep->datalen < sizeof(*payload) + FSCRYPT_MIN_KEY_SIZE ||
+	    prep->datalen > sizeof(*payload) + FSCRYPT_MAX_KEY_SIZE)
+		return -EINVAL;
+
+	if (payload->type != FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR &&
+	    payload->type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER)
+		return -EINVAL;
+
+	if (payload->__reserved)
+		return -EINVAL;
+
+	prep->payload.data[0] = kmemdup(payload, prep->datalen, GFP_KERNEL);
+	if (!prep->payload.data[0])
+		return -ENOMEM;
+
+	prep->quotalen = prep->datalen;
+	return 0;
+}
+
+static void fscrypt_provisioning_key_free_preparse(
+					struct key_preparsed_payload *prep)
+{
+	kzfree(prep->payload.data[0]);
+}
+
+static void fscrypt_provisioning_key_describe(const struct key *key,
+					      struct seq_file *m)
+{
+	seq_puts(m, key->description);
+	if (key_is_positive(key)) {
+		const struct fscrypt_provisioning_key_payload *payload =
+			key->payload.data[0];
+
+		seq_printf(m, ": %u [%u]", key->datalen, payload->type);
+	}
+}
+
+static void fscrypt_provisioning_key_destroy(struct key *key)
+{
+	kzfree(key->payload.data[0]);
+}
+
+static struct key_type key_type_fscrypt_provisioning = {
+	.name			= "fscrypt-provisioning",
+	.preparse		= fscrypt_provisioning_key_preparse,
+	.free_preparse		= fscrypt_provisioning_key_free_preparse,
+	.instantiate		= generic_key_instantiate,
+	.describe		= fscrypt_provisioning_key_describe,
+	.destroy		= fscrypt_provisioning_key_destroy,
+};
+
+/*
+ * Retrieve the raw key from the Linux keyring key specified by 'key_id', and
+ * store it into 'secret'.
+ *
+ * The key must be of type "fscrypt-provisioning" and must have the field
+ * fscrypt_provisioning_key_payload::type set to 'type', indicating that it's
+ * only usable with fscrypt with the particular KDF version identified by
+ * 'type'.  We don't use the "logon" key type because there's no way to
+ * completely restrict the use of such keys; they can be used by any kernel API
+ * that accepts "logon" keys and doesn't require a specific service prefix.
+ *
+ * The ability to specify the key via Linux keyring key is intended for cases
+ * where userspace needs to re-add keys after the filesystem is unmounted and
+ * re-mounted.  Most users should just provide the raw key directly instead.
+ */
+static int get_keyring_key(u32 key_id, u32 type,
+			   struct fscrypt_master_key_secret *secret)
+{
+	key_ref_t ref;
+	struct key *key;
+	const struct fscrypt_provisioning_key_payload *payload;
+	int err;
+
+	ref = lookup_user_key(key_id, 0, KEY_NEED_SEARCH);
+	if (IS_ERR(ref))
+		return PTR_ERR(ref);
+	key = key_ref_to_ptr(ref);
+
+	if (key->type != &key_type_fscrypt_provisioning)
+		goto bad_key;
+	payload = key->payload.data[0];
+
+	/* Don't allow fscrypt v1 keys to be used as v2 keys and vice versa. */
+	if (payload->type != type)
+		goto bad_key;
+
+	secret->size = key->datalen - sizeof(*payload);
+	memcpy(secret->raw, payload->raw, secret->size);
+	err = 0;
+	goto out_put;
+
+bad_key:
+	err = -EKEYREJECTED;
+out_put:
+	key_ref_put(ref);
+	return err;
+}
+
+/* Size of software "secret" derived from hardware-wrapped key */
+#define RAW_SECRET_SIZE 32
+
 /*
  * Add a master encryption key to the filesystem, causing all files which were
  * encrypted with it to appear "unlocked" (decrypted) when accessed.
@@ -497,6 +601,9 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 	struct fscrypt_add_key_arg __user *uarg = _uarg;
 	struct fscrypt_add_key_arg arg;
 	struct fscrypt_master_key_secret secret;
+	u8 _kdf_key[RAW_SECRET_SIZE];
+	u8 *kdf_key;
+	unsigned int kdf_key_size;
 	int err;
 
 	if (copy_from_user(&arg, uarg, sizeof(arg)))
@@ -505,18 +612,25 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 	if (!valid_key_spec(&arg.key_spec))
 		return -EINVAL;
 
-	if (arg.raw_size < FSCRYPT_MIN_KEY_SIZE ||
-	    arg.raw_size > FSCRYPT_MAX_KEY_SIZE)
-		return -EINVAL;
-
 	if (memchr_inv(arg.__reserved, 0, sizeof(arg.__reserved)))
 		return -EINVAL;
 
 	memset(&secret, 0, sizeof(secret));
-	secret.size = arg.raw_size;
-	err = -EFAULT;
-	if (copy_from_user(secret.raw, uarg->raw, secret.size))
-		goto out_wipe_secret;
+	if (arg.key_id) {
+		if (arg.raw_size != 0)
+			return -EINVAL;
+		err = get_keyring_key(arg.key_id, arg.key_spec.type, &secret);
+		if (err)
+			goto out_wipe_secret;
+	} else {
+		if (arg.raw_size < FSCRYPT_MIN_KEY_SIZE ||
+		    arg.raw_size > FSCRYPT_MAX_KEY_SIZE)
+			return -EINVAL;
+		secret.size = arg.raw_size;
+		err = -EFAULT;
+		if (copy_from_user(secret.raw, uarg->raw, secret.size))
+			goto out_wipe_secret;
+	}
 
 	switch (arg.key_spec.type) {
 	case FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR:
@@ -528,17 +642,36 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 		err = -EACCES;
 		if (!capable(CAP_SYS_ADMIN))
 			goto out_wipe_secret;
+
+		err = -EINVAL;
+		if (arg.__flags)
+			goto out_wipe_secret;
 		break;
 	case FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER:
-		err = fscrypt_init_hkdf(&secret.hkdf, secret.raw, secret.size);
+		err = -EINVAL;
+		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
+			goto out_wipe_secret;
+		if (arg.__flags & __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED) {
+			kdf_key = _kdf_key;
+			kdf_key_size = RAW_SECRET_SIZE;
+			err = fscrypt_derive_raw_secret(sb, secret.raw,
+							secret.size,
+							kdf_key, kdf_key_size);
+			if (err)
+				goto out_wipe_secret;
+			secret.is_hw_wrapped = true;
+		} else {
+			kdf_key = secret.raw;
+			kdf_key_size = secret.size;
+		}
+		err = fscrypt_init_hkdf(&secret.hkdf, kdf_key, kdf_key_size);
+		/*
+		 * Now that the HKDF context is initialized, the raw HKDF
+		 * key is no longer needed.
+		 */
+		memzero_explicit(kdf_key, kdf_key_size);
 		if (err)
 			goto out_wipe_secret;
-
-		/*
-		 * Now that the HKDF context is initialized, the raw key is no
-		 * longer needed.
-		 */
-		memzero_explicit(secret.raw, secret.size);
 
 		/* Calculate the key identifier and return it to userspace. */
 		err = fscrypt_hkdf_expand(&secret.hkdf,
@@ -1002,8 +1135,14 @@ int __init fscrypt_init_keyring(void)
 	if (err)
 		goto err_unregister_fscrypt;
 
+	err = register_key_type(&key_type_fscrypt_provisioning);
+	if (err)
+		goto err_unregister_fscrypt_user;
+
 	return 0;
 
+err_unregister_fscrypt_user:
+	unregister_key_type(&key_type_fscrypt_user);
 err_unregister_fscrypt:
 	unregister_key_type(&key_type_fscrypt);
 	return err;
