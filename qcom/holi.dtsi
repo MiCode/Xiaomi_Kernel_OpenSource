@@ -800,6 +800,15 @@
 			qcom,glinkpkt-dev-name = "smd11";
 		};
 	};
+
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		label = "core";
+		qcom,threshold-arr = <0x0F800058 0x0F810058 0x0F820058 0x0F830058
+			0x0F840058 0x0F850058 0x0F860058 0x0F870058>;
+		qcom,config-arr = <0x0F800060 0x0F810060 0x0F820060 0x0F830060
+			0x0F840060 0x0F850060 0x0F860060 0x0F870060>;
+	};
 };
 
 #define PMK8350_SID	6
