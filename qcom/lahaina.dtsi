@@ -409,7 +409,17 @@
 
 		pil_trustedvm_mem: pil_trustedvm_region@d0800000 {
 			no-map;
-			reg = <0x0 0xd0800000 0x0 0x8000000>;
+			reg = <0x0 0xd0800000 0x0 0x7700000>;
+		};
+
+		chan0_shbuf: neuron_block@0 {
+			no-map;
+			reg = <0x0 0xd7f00000 0x0 0x80000>;
+		};
+
+		chan1_shbuf: neuron_block@1 {
+			no-map;
+			reg = <0x0 0xd7f80000 0x0 0x80000>;
 		};
 
 		trustedvm_trace_buffer: trustedvm_trace_region@d8800000 {
@@ -2091,6 +2101,42 @@
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		#mbox-cells = <2>;
+	};
+
+	qcom,svm_neuron_block {
+		compatible = "qcom,neuron-service";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		protocol {
+			compatible = "qcom,neuron-protocol-block";
+			processes = "server";
+		};
+
+		application {
+			compatible = "qcom,neuron-block-server";
+		};
+
+		channel@0 {
+			compatible = "qcom,neuron-channel-haven-shmem";
+			reg = <0>;
+			class = "message-queue";
+			direction = "receive";
+			max-size = <0 65536>;
+			shared-buffer = <&chan0_shbuf>;
+			qcom,primary;
+			haven-label = <1>;
+		};
+
+		channel@1 {
+			compatible = "qcom,neuron-channel-haven-shmem";
+			reg = <1>;
+			class = "message-queue";
+			direction = "send";
+			max-size = <0 65536>;
+			shared-buffer = <&chan1_shbuf>;
+			qcom,primary;
+			haven-label = <2>;
+		};
 	};
 
 	qcom,qsee_ipc_irq_bridge {
