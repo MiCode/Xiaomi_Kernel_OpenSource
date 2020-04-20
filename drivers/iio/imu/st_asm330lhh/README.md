@@ -10,7 +10,7 @@ Index
 
 Introduction
 ==============
-This repository contains asm330lhh IMU STMicroelectronics MEMS sensor linux driver support for kernel version 4.14.
+This repository contains asm330lhh IMU STMicroelectronics MEMS sensor linux driver support for kernel version 4.19.
 
 Data collected by asm330lhh STM sensor are pushed to userland through the kernel buffers of Linux IIO framework. User space applications can get sensor events by reading the related IIO devices created in the /dev directory (*/dev/iio{x}*). Please see [IIO][1] for more information.
 

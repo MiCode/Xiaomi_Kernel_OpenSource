@@ -1,7 +1,7 @@
 /*
  * STMicroelectronics st_asm330lhh spi driver
  *
- * Copyright 2018 STMicroelectronics Inc.
+ * Copyright 2020 STMicroelectronics Inc.
  *
  * Lorenzo Bianconi <lorenzo.bianconi@st.com>
  *
@@ -50,7 +50,7 @@ static int st_asm330lhh_spi_read(struct device *dev, u8 addr, int len,
 }
 
 static int st_asm330lhh_spi_write(struct device *dev, u8 addr, int len,
-				u8 *data)
+				const u8 *data)
 {
 	struct st_asm330lhh_hw *hw;
 	struct spi_device *spi;
@@ -96,7 +96,7 @@ static struct spi_driver st_asm330lhh_driver = {
 	.driver = {
 		.name = "st_asm330lhh_spi",
 		.pm = &st_asm330lhh_pm_ops,
-		.of_match_table = of_match_ptr(st_asm330lhh_spi_of_match),
+		.of_match_table = st_asm330lhh_spi_of_match,
 	},
 	.probe = st_asm330lhh_spi_probe,
 	.id_table = st_asm330lhh_spi_id_table,
