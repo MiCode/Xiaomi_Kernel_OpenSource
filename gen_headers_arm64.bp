@@ -641,6 +641,7 @@ gen_headers_out_arm64 = [
     "misc/fastrpc.h",
     "misc/habanalabs.h",
     "misc/ocxl.h",
+    "misc/wigig_sensing_uapi.h",
     "misc/xilinx_sdfec.h",
     "mtd/inftl-user.h",
     "mtd/mtd-abi.h",
