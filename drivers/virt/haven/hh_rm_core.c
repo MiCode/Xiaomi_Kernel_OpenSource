@@ -19,6 +19,7 @@
 #include <linux/sched.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include <linux/haven/hh_dbl.h>
 #include <linux/haven/hh_msgq.h>
 #include <linux/haven/hh_errno.h>
 #include <linux/haven/hh_common.h>
@@ -65,7 +66,7 @@ SRCU_NOTIFIER_HEAD_STATIC(hh_rm_notifier);
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work);
 static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
 
-static int hh_rm_populate_hyp_res(void);
+static int hh_rm_populate_hyp_res(hh_vmid_t vmid);
 
 static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
 {
@@ -133,7 +134,7 @@ static int hh_rm_process_notif_vm_status(void *recv_buff, size_t recv_buff_size)
 	 * populate to other entities such as MessageQ and DBL
 	 */
 	if (vm_status_payload->vm_status == HH_RM_OS_STATUS_BOOT)
-		return hh_rm_populate_hyp_res();
+		return hh_rm_populate_hyp_res(vm_status_payload->vmid);
 
 	return 0;
 }
@@ -661,7 +662,7 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 	/* For resources, such as DBL source, there's no IRQ. The virq_handle
 	 * wouldn't be defined for such cases. Hence ignore such cases
 	 */
-	if (!res_entry->virq_handle)
+	if (!res_entry->virq_handle && !virq)
 		return 0;
 
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
@@ -675,20 +676,29 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 		if (ret < 0)
 			return ret;
 
+		/* Add 32 offset to make interrupt as hwirq */
+		virq += 32;
+
 		/* Bind the vIRQ */
 		ret = hh_rm_vm_irq_accept(res_entry->virq_handle, virq);
 		if (ret < 0)
 			goto err;
+	} else if ((virq - 32) < 0) {
+		/* Sanity check to make sure hypervisor is passing the correct
+		 * interrupt numbers.
+		 */
+		return -EINVAL;
 	}
 
-	return hh_rm_virq_to_linux_irq(virq, GIC_SPI, IRQ_TYPE_LEVEL_HIGH);
+	return hh_rm_virq_to_linux_irq(virq - 32, GIC_SPI,
+				       IRQ_TYPE_EDGE_RISING);
 
 err:
-	ida_free(&hh_rm_free_virq_ida, virq);
+	ida_free(&hh_rm_free_virq_ida, virq - 32);
 	return ret;
 }
 
-static int hh_rm_populate_hyp_res(void)
+static int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 {
 	struct hh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	int linux_irq, ret = 0;
@@ -696,11 +706,25 @@ static int hh_rm_populate_hyp_res(void)
 	hh_label_t label;
 	u32 n_res, i;
 
-	res_entries = hh_rm_vm_get_hyp_res(0, &n_res);
+	res_entries = hh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
 		return PTR_ERR(res_entries);
 
+	pr_debug("%s: %d Resources are associated with vmid %d\n",
+		 __func__, n_res, vmid);
+
 	for (i = 0; i < n_res; i++) {
+		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x\n",
+			__func__, i,
+			res_entries[i].res_type,
+			res_entries[i].partner_vmid,
+			res_entries[i].resource_handle,
+			res_entries[i].resource_label,
+			res_entries[i].cap_id_low,
+			res_entries[i].cap_id_high,
+			res_entries[i].virq_handle,
+			res_entries[i].virq);
+
 		ret = linux_irq = hh_rm_get_irq(&res_entries[i]);
 		if (ret < 0)
 			goto out;
@@ -710,7 +734,6 @@ static int hh_rm_populate_hyp_res(void)
 		label = res_entries[i].resource_label;
 
 		/* Populate MessageQ & DBL's cap tables */
-		/* TODO: Handle DBL */
 		switch (res_entries[i].res_type) {
 		case HH_RM_RES_TYPE_MQ_TX:
 			ret = hh_msgq_populate_cap_info(label, cap_id,
@@ -724,8 +747,12 @@ static int hh_rm_populate_hyp_res(void)
 			ret = hh_vcpu_populate_affinity_info(label, cap_id);
 			break;
 		case HH_RM_RES_TYPE_DB_TX:
+			ret = hh_dbl_populate_cap_info(label, cap_id,
+					HH_MSGQ_DIRECTION_TX, linux_irq);
 			break;
 		case HH_RM_RES_TYPE_DB_RX:
+			ret = hh_dbl_populate_cap_info(label, cap_id,
+					HH_MSGQ_DIRECTION_RX, linux_irq);
 			break;
 		default:
 			pr_err("%s: Unknown resource type: %u\n",
@@ -744,7 +771,15 @@ out:
 
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 {
-	hh_rm_populate_hyp_res();
+	hh_vmid_t vmid;
+	int ret;
+
+	ret = hh_rm_get_vmid(HH_PRIMARY_VM, &vmid);
+	if (ret)
+		pr_err("%s: Unable to get VMID for VM label %d\n",
+						__func__, HH_PRIMARY_VM);
+	else
+		hh_rm_populate_hyp_res(vmid);
 }
 
 static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)
