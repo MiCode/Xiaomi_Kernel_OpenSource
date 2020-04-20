@@ -489,6 +489,9 @@ static int cpufreq_get_hwregs(struct platform_device *pdev)
 		return -ENOMEM;
 
 	prop = of_find_property(pdev->dev.of_node, "qcom,freq-hw-domain", NULL);
+	if (!prop)
+		return -EINVAL;
+
 	hw_regs->domain_cnt = prop->length / (2 * sizeof(prop->length));
 
 	for (i = 0; i < hw_regs->domain_cnt; i++) {
@@ -520,7 +523,7 @@ static int enable_cpufreq_hw_trace_debug(struct platform_device *pdev,
 {
 	struct resource *res;
 	void *base;
-	int ret;
+	int ret, debug_only, epss_debug_only;
 
 	ret = cpufreq_get_hwregs(pdev);
 	if (ret < 0) {
@@ -538,8 +541,12 @@ static int enable_cpufreq_hw_trace_debug(struct platform_device *pdev,
 		hw_regs->debugfs_base, NULL, &cpufreq_debug_register_fops))
 		goto debugfs_fail;
 
-	if (!is_secure || of_device_is_compatible(pdev->dev.of_node,
-						"qcom,cpufreq-hw-epss-debug"))
+	debug_only = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,cpufreq-hw-debug");
+	epss_debug_only = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,cpufreq-hw-epss-debug");
+
+	if (!is_secure || epss_debug_only || debug_only)
 		return 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "domain-top");
@@ -593,6 +600,8 @@ static int qcom_cpufreq_hw_debug_remove(struct platform_device *pdev)
 
 static const struct of_device_id qcom_cpufreq_hw_debug_trace_match[] = {
 	{ .compatible = "qcom,cpufreq-hw-debug-trace",
+					.data = &cpufreq_qcom_std_data },
+	{ .compatible = "qcom,cpufreq-hw-debug",
 					.data = &cpufreq_qcom_std_data },
 	{ .compatible = "qcom,cpufreq-hw-epss-debug",
 					.data = &cpufreq_qcom_std_epss_data },
