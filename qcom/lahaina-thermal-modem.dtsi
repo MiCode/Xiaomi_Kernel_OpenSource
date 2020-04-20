@@ -1,92 +1,90 @@
-&soc {
-	qmi-tmd-devices {
-		compatible = "qcom,qmi-cooling-devices";
+&qmi_tmd {
+	modem {
+		qcom,instance-id = <QMI_MODEM_INST_ID>;
 
-		modem {
-			qcom,instance-id = <QMI_MODEM_INST_ID>;
+		modem_pa_dsc: modem_pa_dsc {
+			qcom,qmi-dev-name = "pa_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_pa_dsc: modem_pa_dsc {
-				qcom,qmi-dev-name = "pa_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_pa_fr1_dsc: modem_pa_fr1_dsc {
+			qcom,qmi-dev-name = "pa_fr1_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_pa_fr1_dsc: modem_pa_fr1_dsc {
-				qcom,qmi-dev-name = "pa_fr1_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_tj: modem_tj {
+			qcom,qmi-dev-name = "modem";
+			#cooling-cells = <2>;
+		};
 
-			modem_tj: modem_tj {
-				qcom,qmi-dev-name = "modem";
-				#cooling-cells = <2>;
-			};
+		modem_skin_lte_dsc: modem_skin_lte_dsc {
+			qcom,qmi-dev-name = "modem_skin_lte_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_skin_lte_dsc: modem_skin_lte_dsc {
-				qcom,qmi-dev-name = "modem_skin_lte_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_skin_nr_dsc: modem_skin_nr_dsc {
+			qcom,qmi-dev-name = "modem_skin_nr_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_skin_nr_dsc: modem_skin_nr_dsc {
-				qcom,qmi-dev-name = "modem_skin_nr_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_mmw_skin0_dsc: modem_mmw_skin0_dsc {
+			qcom,qmi-dev-name = "mmw_skin0_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw_skin0_dsc: modem_mmw_skin0_dsc {
-				qcom,qmi-dev-name = "mmw_skin0_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_mmw_skin1_dsc: modem_mmw_skin1_dsc {
+			qcom,qmi-dev-name = "mmw_skin1_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw_skin1_dsc: modem_mmw_skin1_dsc {
-				qcom,qmi-dev-name = "mmw_skin1_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_mmw_skin2_dsc: modem_mmw_skin2_dsc {
+			qcom,qmi-dev-name = "mmw_skin2_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw_skin2_dsc: modem_mmw_skin2_dsc {
-				qcom,qmi-dev-name = "mmw_skin2_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_mmw_skin3_dsc: modem_mmw_skin3_dsc {
+			qcom,qmi-dev-name = "mmw_skin3_dsc";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw_skin3_dsc: modem_mmw_skin3_dsc {
-				qcom,qmi-dev-name = "mmw_skin3_dsc";
-				#cooling-cells = <2>;
-			};
+		modem_mmw0: modem_mmw0 {
+			qcom,qmi-dev-name = "mmw0";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw0: modem_mmw0 {
-				qcom,qmi-dev-name = "mmw0";
-				#cooling-cells = <2>;
-			};
+		modem_mmw1: modem_mmw1 {
+			qcom,qmi-dev-name = "mmw1";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw1: modem_mmw1 {
-				qcom,qmi-dev-name = "mmw1";
-				#cooling-cells = <2>;
-			};
+		modem_mmw2: modem_mmw2 {
+			qcom,qmi-dev-name = "mmw2";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw2: modem_mmw2 {
-				qcom,qmi-dev-name = "mmw2";
-				#cooling-cells = <2>;
-			};
+		modem_mmw3: modem_mmw3 {
+			qcom,qmi-dev-name = "mmw3";
+			#cooling-cells = <2>;
+		};
 
-			modem_mmw3: modem_mmw3 {
-				qcom,qmi-dev-name = "mmw3";
-				#cooling-cells = <2>;
-			};
+		modem_bcl: modem_bcl {
+			qcom,qmi-dev-name = "vbatt_low";
+			#cooling-cells = <2>;
+		};
 
-			modem_bcl: modem_bcl {
-				qcom,qmi-dev-name = "vbatt_low";
-				#cooling-cells = <2>;
-			};
+		modem_charge_state: modem_charge_state {
+			qcom,qmi-dev-name = "charge_state";
+			#cooling-cells = <2>;
+		};
 
-			modem_charge_state: modem_charge_state {
-				qcom,qmi-dev-name = "charge_state";
-				#cooling-cells = <2>;
-			};
-
-			modem_wlan: modem_wlan {
-				qcom,qmi-dev-name = "wlan";
-				#cooling-cells = <2>;
-			};
+		modem_wlan: modem_wlan {
+			qcom,qmi-dev-name = "wlan";
+			#cooling-cells = <2>;
 		};
 	};
+};
 
+&soc {
 	qmi_sensor: qmi-ts-sensors {
 		compatible = "qcom,qmi-sensors";
 		#thermal-sensor-cells = <1>;
