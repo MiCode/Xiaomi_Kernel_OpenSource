@@ -254,7 +254,7 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 		goto fail_commit_hdr;
 	}
 	tx.num_props = 2;
-	memset(tx_prop, 0, sizeof(*tx_prop));
+	memset(tx_prop, 0, sizeof(*tx_prop) * IPA_TX_MAX_INTF_PROP);
 	tx.prop = tx_prop;
 
 	tx_prop[0].ip = IPA_IP_v4;
@@ -286,7 +286,7 @@ int ipa_wdi_reg_intf(struct ipa_wdi_reg_intf_in_params *in)
 		goto fail_commit_hdr;
 	}
 	rx.num_props = 2;
-	memset(rx_prop, 0, sizeof(*rx_prop));
+	memset(rx_prop, 0, sizeof(*rx_prop) * IPA_RX_MAX_INTF_PROP);
 	rx.prop = rx_prop;
 	rx_prop[0].ip = IPA_IP_v4;
 	if (!ipa3_ctx->ipa_wdi3_over_gsi)
