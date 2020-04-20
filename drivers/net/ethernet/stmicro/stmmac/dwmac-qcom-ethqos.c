@@ -23,12 +23,16 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/rtnetlink.h>
+#include <linux/syscalls.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
 #include "stmmac_ptp.h"
 #include "dwmac-qcom-ipa-offload.h"
+
+/* Customer can use this path to configure mac address */
+#define MAC_ADDR_CFG_FPATH "/etc/data/emac_config.ini"
 
 static unsigned long tlmm_central_base_addr;
 bool phy_intr_en;
@@ -38,12 +42,14 @@ struct qcom_ethqos *pethqos;
 struct stmmac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx = {0};
 static unsigned char dev_addr[ETH_ALEN] = {
 	0, 0x55, 0x7b, 0xb5, 0x7d, 0xf7};
+static unsigned char config_dev_addr[ETH_ALEN] = {0};
 
 void *ipc_stmmac_log_ctxt;
 static struct qmp_pkt pkt;
 static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
 static struct ip_params pparams = {"", "", "", ""};
 
+static int retry_count;
 static inline unsigned int dwmac_qcom_get_eth_type(unsigned char *buf)
 {
 	return
@@ -1560,6 +1566,54 @@ static void ethqos_is_ipv4_NW_stack_ready(struct work_struct *work)
 	flush_delayed_work(&ethqos->ipv4_addr_assign_wq);
 }
 
+static int ethqos_read_mac_addr_from_config(struct stmmac_priv *priv,
+					    struct qcom_ethqos *ethqos)
+{
+	int ret = -ENOENT;
+	void *data = NULL;
+	char *file_path = MAC_ADDR_CFG_FPATH;
+	loff_t size = 0;
+	loff_t max_size = 30;
+	char mac_str[30] = {0};
+
+	ETHQOSINFO("Enter\n");
+
+	ret = kernel_read_file_from_path(file_path, &data, &size,
+					 max_size, READING_POLICY);
+
+	if (ret < 0) {
+		ETHQOSINFO("unable to open file: %s (%d)\n", file_path, ret);
+		goto ret;
+	}
+
+	/* Copy Mac address as NUll terminating string */
+	memcpy(mac_str, (char *)data, size);
+
+	if (!mac_pton(mac_str, config_dev_addr)) {
+		ETHQOSERR("Invalid mac addr found in emac_config.ini\n");
+		goto ret;
+	}
+
+	if (!is_valid_ether_addr(config_dev_addr)) {
+		ETHQOSERR("Multcast mac addr found in emac_config.ini\n");
+		goto ret;
+	}
+
+	ETHQOSINFO("mac address read from config.ini successfully\n");
+	ether_addr_copy(dev_addr, config_dev_addr);
+	memcpy(priv->dev->dev_addr, dev_addr, ETH_ALEN);
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	place_marker("M - Ethernet custom mac address added");
+#endif
+
+ret:
+	if (data)
+		vfree(data);
+
+	return ret;
+}
+
 static void ethqos_is_ipv6_NW_stack_ready(struct work_struct *work)
 {
 	struct delayed_work *dwork;
@@ -1624,6 +1678,49 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 		memcpy(priv->dev->dev_addr, dev_addr, ETH_ALEN);
 	}
 	return ret;
+}
+
+static void ethqos_is_file_system_ready(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct qcom_ethqos *ethqos;
+	struct stmmac_priv *priv = NULL;
+
+	dwork = container_of(work, struct delayed_work, work);
+	ethqos = container_of(dwork, struct qcom_ethqos, mac_addr_assign_wq);
+
+	if (!ethqos)
+		return;
+
+	priv = qcom_ethqos_get_priv(ethqos);
+
+	if (!priv)
+		return;
+
+	if (ethqos_configure_mac_address(priv, ethqos))
+		return;
+
+	ETHQOSINFO("release work\n");
+
+	cancel_delayed_work_sync(&ethqos->mac_addr_assign_wq);
+	flush_delayed_work(&ethqos->mac_addr_assign_wq);
+}
+
+int ethqos_configure_mac_address(struct stmmac_priv *priv,
+				 struct qcom_ethqos *ethqos)
+{
+	int fd = 0;
+
+	fd = ethqos_read_mac_addr_from_config(priv, ethqos);
+	retry_count++;
+	if (fd < false && retry_count <= 10) {
+		INIT_DELAYED_WORK(&ethqos->mac_addr_assign_wq,
+				  ethqos_is_file_system_ready);
+		schedule_delayed_work(&ethqos->mac_addr_assign_wq,
+				      msecs_to_jiffies(500));
+		return true;
+	}
+	return false;
 }
 
 static int qcom_ethqos_probe(struct platform_device *pdev)
@@ -1809,7 +1906,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		queue_work(system_wq, &ethqos->early_eth);
 		/*Set early eth parameters*/
 		ethqos_set_early_eth_param(priv, ethqos);
+	} else {
+		/* Configure custom mac address if ini file */
+		ethqos_configure_mac_address(priv, ethqos);
 	}
+
 #ifdef CONFIG_ETH_IPA_OFFLOAD
 	ethqos->ipa_enabled = true;
 	priv->rx_queue[IPA_DMA_RX_CH].skip_sw = true;
