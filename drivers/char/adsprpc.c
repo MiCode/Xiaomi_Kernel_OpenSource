@@ -4168,6 +4168,11 @@ bail:
 	return err;
 }
 
+/*
+ *	fastrpc_internal_munmap_fd can only be used for buffers
+ *	mapped with persist attributes. This can only be called
+ *	once for any persist buffer
+ */
 static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_munmap_fd *ud)
 {
@@ -4177,7 +4182,7 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 	VERIFY(err, (fl && ud));
 	if (err) {
 		err = -EINVAL;
-		goto bail;
+		return err;
 	}
 	VERIFY(err, fl->dsp_proc_init == 1);
 	if (err) {
@@ -4185,8 +4190,9 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 			"user application %s trying to unmap without initialization\n",
 			current->comm);
 		err = -EHOSTDOWN;
-		goto bail;
+		return err;
 	}
+	mutex_lock(&fl->internal_map_mutex);
 	mutex_lock(&fl->map_mutex);
 	err = fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map);
 	if (err) {
@@ -4197,10 +4203,13 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 		mutex_unlock(&fl->map_mutex);
 		goto bail;
 	}
-	if (map)
+	if (map && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
+		map->attr = map->attr & (~FASTRPC_ATTR_KEEP_MAP);
 		fastrpc_mmap_free(map, 0);
+	}
 	mutex_unlock(&fl->map_mutex);
 bail:
+	mutex_unlock(&fl->internal_map_mutex);
 	return err;
 }
 
@@ -4320,7 +4329,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 			"user application %s trying to map without initialization\n",
 			current->comm);
 		err = -EHOSTDOWN;
-		goto bail;
+		return err;
 	}
 	mutex_lock(&fl->internal_map_mutex);
 	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||
