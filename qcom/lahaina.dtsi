@@ -409,7 +409,12 @@
 
 		pil_trustedvm_mem: pil_trustedvm_region@d0800000 {
 			no-map;
-			reg = <0x0 0xd0800000 0x0 0x7700000>;
+			reg = <0x0 0xd0800000 0x0 0x76f7000>;
+		};
+
+		qrtr_shbuf: qrtr-shmem {
+			no-map;
+			reg = <0x0 0xd7ef7000 0x0 0x9000>;
 		};
 
 		chan0_shbuf: neuron_block@0 {
@@ -2150,6 +2155,13 @@
 				      IRQ_TYPE_EDGE_RISING>;
 			label = "spss";
 		};
+	};
+
+	qrtr-haven {
+		compatible = "qcom,qrtr-haven";
+		qcom,master;
+		haven-label = <3>;
+		shared-buffer = <&qrtr_shbuf>;
 	};
 
 	jtag_mm0: jtagmm@7040000 {
