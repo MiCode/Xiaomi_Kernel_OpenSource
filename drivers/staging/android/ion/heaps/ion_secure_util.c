@@ -31,6 +31,11 @@ bool is_secure_vmid_valid(int vmid)
 		(!ret && vmid == trusted_vm_vmid));
 }
 
+bool is_secure_allocation(unsigned long flags)
+{
+	return !!(flags & (ION_FLAGS_CP_MASK | ION_FLAG_SECURE));
+}
+
 int get_secure_vmid(unsigned long flags)
 {
 	int ret;
