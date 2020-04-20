@@ -4,10 +4,14 @@ QPNP OLEDB module provides AVDD voltage rail output for bias and QPNP AB/IBB
 module provides ELVDD/ELVSS voltage rail output to power up AMOLED panels.
 
 For PM8150A, allowed voltage levels are as below:
-AVDD - Programmable output from 4.925 V to 8.1 V.
-ELVDD  - Programmable output from 4.6 V to 6.1 V.
+AVDD - Programmable output from 5 V to 8 V.
+ELVDD  - Programmable output from 4.6 V to 5.2 V.
 ELVSS  - Programmable output from -0.8 V to -5.4 V.
 
+For PM8350B, allowed voltage levels are as below:
+AVDD - Programmable output from 5 V to 8 V.
+ELVDD  - Programmable output from 4.6 V to 5.2 V.
+ELVSS  - Programmable output from -1.4 V to -6.6 V.
 
 This document describes the bindings for AMOLED regulator devices.
 
@@ -76,8 +80,8 @@ pm8150a_amoled: oledb@e000 {
 		reg = <0xe000>;
 		reg-names = "oledb_base";
 		regulator-name = "oledb_vreg";
-		regulator-min-microvolt = <4925000>;
-		regulator-max-microvolt = <8100000>;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <8000000>;
 		qcom,swire-control;
 	};
 
@@ -86,7 +90,7 @@ pm8150a_amoled: oledb@e000 {
 		reg-names = "ab_base";
 		regulator-name = "ab_vreg";
 		regulator-min-microvolt = <4600000>;
-		regulator-max-microvolt = <6100000>;
+		regulator-max-microvolt = <5200000>;
 		qcom,swire-control;
 		qcom,aod-pd-control;
 	};

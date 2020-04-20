@@ -177,8 +177,8 @@
 				reg = <0xfa00>;
 				reg-names = "oledb_base";
 				regulator-name = "oledb";
-				regulator-min-microvolt = <4925000>;
-				regulator-max-microvolt = <8100000>;
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <8000000>;
 				qcom,swire-control;
 			};
 
@@ -187,7 +187,7 @@
 				reg-names = "ab_base";
 				regulator-name = "ab";
 				regulator-min-microvolt = <4600000>;
-				regulator-max-microvolt = <6100000>;
+				regulator-max-microvolt = <5200000>;
 				qcom,swire-control;
 			};
 
@@ -195,8 +195,8 @@
 				reg = <0xf800>;
 				reg-names = "ibb_base";
 				regulator-name = "ibb";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <5400000>;
+				regulator-min-microvolt = <1400000>;
+				regulator-max-microvolt = <6600000>;
 				qcom,swire-control;
 				regulator-allow-set-load;
 			};
