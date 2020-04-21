@@ -631,18 +631,17 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 #else
 	unsigned int lv = CPU_LEVEL_2;
 #endif
-#if 0
-	int val = (get_devinfo_with_index(7) & 0xFF);
+#if 1
+	int val = (get_devinfo_with_index(62) & 0x300);
 
+	val = val >> 8;
 	switch (val) {
 	case 0:
-		lv = CPU_LEVEL_0;
 		break;
 	case 1:
-		lv = CPU_LEVEL_1;
+		lv += 2;
 		break;
 	default:
-		lv = CPU_LEVEL_0;
 		break;
 	}
 	turbo_flag = 0;
