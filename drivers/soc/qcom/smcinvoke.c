@@ -986,12 +986,11 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	 * we need not worry that server_info will be deleted because as long
 	 * as this CBObj is served by this server, srvr_info will be valid.
 	 */
-	if (wq_has_sleeper(&srvr_info->req_wait_q)) {
-		wake_up_interruptible_all(&srvr_info->req_wait_q);
-		ret = wait_event_interruptible(srvr_info->rsp_wait_q,
-			(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
-			(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT));
-	}
+	wake_up_interruptible_all(&srvr_info->req_wait_q);
+	ret = wait_event_interruptible(srvr_info->rsp_wait_q,
+		(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
+		(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT));
+
 out:
 	/*
 	 * we could be here because of either: a. Req is PROCESSED
