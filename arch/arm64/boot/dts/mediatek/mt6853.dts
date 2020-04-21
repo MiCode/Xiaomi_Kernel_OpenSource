@@ -3283,7 +3283,7 @@ page_owner=on";
 		reg = <0 0x1602e000 0 0x1000>;
 		mediatek,larb-id = <4>;
 		clocks = <&scpsys SCP_SYS_VDEC>,
-			<&vdec_gcon CLK_VDEC_LARB1_CKEN>;
+			<&vdec_gcon CLK_VDEC_CKEN>;
 		clock-names = "scp-vdec", "vdec-larb";
 		mediatek,smi-id = <4>;
 	};
