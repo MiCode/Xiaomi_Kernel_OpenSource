@@ -87,6 +87,16 @@ struct tcpc_desc {
 	uint8_t vconn_supply;
 	int notifier_supply_num;
 	char *name;
+#ifdef CONFIG_WATER_DETECTION
+	u32 wd_sbu_calib_init;
+	u32 wd_sbu_pl_bound;
+	u32 wd_sbu_ph_auddev;
+	u32 wd_sbu_ph_lbound;
+	u32 wd_sbu_ph_lbound1_c2c;
+	u32 wd_sbu_ph_ubound1_c2c;
+	u32 wd_sbu_ph_ubound2_c2c;
+	u32 wd_sbu_aud_ubound;
+#endif /* CONFIG_WATER_DETECTION */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -159,9 +169,6 @@ struct tcpc_desc {
 #define TCPC_FLAGS_WATCHDOG_EN			(1<<8)
 #define TCPC_FLAGS_WATER_DETECTION		(1<<9)
 #define TCPC_FLAGS_CABLE_TYPE_DETECTION		(1<<10)
-#define TCPC_FLAGS_FOREIGN_OBJECT_DETECTION	(1<<11)
-#define TCPC_FLAGS_TYPEC_OTP			(1<<12)
-#define TCPC_FLAGS_FLOATING_GROUND		(1<<13)
 
 enum tcpc_cc_pull {
 	TYPEC_CC_RA = 0,
@@ -219,14 +226,6 @@ struct tcpc_ops {
 	int (*set_water_protection)(struct tcpc_device *tcpc, bool en);
 	int (*set_usbid_polling)(struct tcpc_device *tcpc, bool en);
 #endif /* CONFIG_WATER_DETECTION */
-
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-	int (*set_cc_hidet)(struct tcpc_device *tcpc, bool en);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPE_OTP */
-
-#ifdef CONFIG_FLOATING_GROUND
-	int (*set_floating_ground)(struct tcpc_device *tcpc, bool en);
-#endif /* CONFIG_FLOATING_GROUND */
 
 #ifdef CONFIG_TCPC_LOW_POWER_MODE
 	int (*is_low_power_mode)(struct tcpc_device *tcpc);
@@ -496,16 +495,10 @@ struct tcpc_device {
 #ifdef CONFIG_WATER_DETECTION
 	int usbid_calib;
 #endif /* CONFIG_WATER_DETECTION */
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	enum tcpc_fod_status typec_fod;
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	enum tcpc_cable_type typec_cable_type;
 	enum tcpc_cable_type pre_typec_cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
-#ifdef CONFIG_TYPEC_OTP
-	bool typec_otp;
-#endif /* CONFIG_TYPEC_OTP */
 };
 
 

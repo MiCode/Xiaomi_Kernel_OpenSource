@@ -106,26 +106,9 @@ int tcpci_set_usbid_polling(struct tcpc_device *tcpc, bool en);
 int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-int tcpci_notify_fod_status(struct tcpc_device *tcpc);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
-
-#ifdef CONFIG_TYPEC_OTP
-int tcpci_notify_typec_otp(struct tcpc_device *tcpc);
-#endif /* CONFIG_TYPEC_OTP */
-
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en);
-int tcpci_notify_plug_out(struct tcpc_device *tcpc);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
-
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 int tcpci_notify_cable_type(struct tcpc_device *tcpc);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
-
-#ifdef CONFIG_FLOATING_GROUND
-int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en);
-#endif /* CONFIG_FLOATING_GROUND */
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 

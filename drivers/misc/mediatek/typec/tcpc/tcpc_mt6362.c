@@ -70,6 +70,7 @@
 #define MT6362_REG_SYSCTRL3	(0xB0)
 #define MT6362_REG_TCPCCTRL1	(0xB1)
 #define MT6362_REG_TCPCCTRL2	(0xB2)
+#define MT6362_REG_TCPCCTRL3	(0xB3)
 #define MT6362_REG_LPWRCTRL3	(0xBB)
 #define MT6362_REG_WATCHDOGCTRL	(0xBE)
 #define MT6362_REG_HILOCTRL9	(0xC8)
@@ -92,8 +93,11 @@
 
 /* RT2 */
 #define MT6362_REG_WDSET2	(0x20)
+#define MT6362_REG_WDSET3	(0x21)
 #define MT6362_REG_WD1MISCSET	(0x22)
+#define MT6362_REG_WD1VOLCMP	(0x23)
 #define MT6362_REG_WD2MISCSET	(0x28)
+#define MT6362_REG_WD2VOLCMP	(0x29)
 
 #define MT6362_MSK_OPEN40MS_EN	BIT(4)
 #define MT6362_MSK_WAKEUP	BIT(0)
@@ -165,6 +169,15 @@
 #define MT6362_SFT_WDLDO_SEL	(6)
 #define MT6362_MSK_WD0MODE_EN	BIT(4)
 #define MT6362_MSK_WD0PULL_STS	BIT(7)
+#define MT6362_MASK_WD_TDET	(0x07)
+#define MT6362_SHFT_WD_TDET	(0)
+
+/* for Rust Protect DPDM */
+#define MT6362_REG_DPDM_CTRL1	(0x53)
+#define MT6362_MSK_MANUAL_MODE	BIT(7)
+
+#define MT6362_WD_TDET_10MS	(0x04)
+#define MT6362_WD_TDET_1MS	(0x01)
 
 enum mt6362_vend_int {
 	MT6362_VEND_INT1 = 0,
@@ -228,8 +241,8 @@ static const u8 mt6362_vend_alert_maskall[MT6362_VEND_INT_NUM] = {
 
 /* reg0x20 ~ reg0x2D */
 static const u8 mt6362_rt2_wd_init_setting[] = {
-	0x50, 0x14, 0x40, 0xCB, 0x68, 0x02, 0x20, 0x03,
-	0x40, 0xCB, 0x68, 0x02, 0x20, 0x03,
+	0x50, 0x34, 0x44, 0xCA, 0x68, 0x02, 0x20, 0x03,
+	0x44, 0xCA, 0x68, 0x02, 0x20, 0x03,
 };
 
 static const bool mt6362_wd_chan_en[MT6362_WD_CHAN_NUM] = {
@@ -257,9 +270,14 @@ static const u8 mt6362_wd_rpull_reg[MT6362_WD_CHAN_NUM] = {
 	MT6362_REG_WD2MISCSET
 };
 
-static const u8 mt6362_wd_ipull_reg[MT6362_WD_CHAN_NUM] = {
+static const u8 __maybe_unused mt6362_wd_ipull_reg[MT6362_WD_CHAN_NUM] = {
 	MT6362_REG_WD1MISCSET,
 	MT6362_REG_WD2MISCSET
+};
+
+static const u8 mt6362_wd_volcmp_reg[MT6362_WD_CHAN_NUM] = {
+	MT6362_REG_WD1VOLCMP,
+	MT6362_REG_WD2VOLCMP,
 };
 
 static const u8 mt6362_wd_polling_path[MT6362_WD_CHAN_NUM] = {
@@ -272,16 +290,6 @@ static const u8 mt6362_wd_protection_path[MT6362_WD_CHAN_NUM] = {
 	MT6362_MSK_WDCC1_EN | MT6362_MSK_WDCC2_EN,
 	MT6362_MSK_WDSBU1_EN | MT6362_MSK_WDSBU2_EN |
 	MT6362_MSK_WDCC1_EN | MT6362_MSK_WDCC2_EN,
-};
-
-enum mt6362_wd_adc_channel {
-	MT6362_WD_ADCCH_PDSBU1DIV4,
-	MT6362_WD_ADCCH_PDSBU2DIV4,
-};
-
-static const u8 mt6362_wd_adc_chan[MT6362_WD_CHAN_NUM] = {
-	MT6362_WD_ADCCH_PDSBU1DIV4,
-	MT6362_WD_ADCCH_PDSBU2DIV4,
 };
 
 struct mt6362_tcpc_data {
@@ -299,6 +307,10 @@ struct mt6362_tcpc_data {
 	atomic_t cpu_poll_count;
 	struct delayed_work cpu_poll_dwork;
 
+#ifdef CONFIG_WATER_DETECTION
+	atomic_t wd_protect_rty;
+#endif /* CONFIG_WATER_DETECTION */
+
 #ifdef CONFIG_WD_POLLING_ONLY
 	struct delayed_work wd_poll_dwork;
 #endif /* CONFIG_WD_POLLING_ONLY */
@@ -308,15 +320,6 @@ struct mt6362_tcpc_data {
 	enum tcpc_cable_type init_cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	bool handle_init_fod;
-	enum tcpc_fod_status init_fod;
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
-
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-	struct alarm hidet_debtimer;
-	struct delayed_work hidet_dwork;
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
 };
 
 static inline int mt6362_write8(struct mt6362_tcpc_data *tdata, u32 reg,
@@ -445,8 +448,6 @@ static int mt6362_init_vend_mask(struct mt6362_tcpc_data *tdata)
 {
 	u8 mask[MT6362_VEND_INT_NUM] = {0};
 
-	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP)
-		mask[MT6362_VEND_INT1] |= MT6362_MSK_OTDFLAG;
 #ifdef CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mask[MT6362_VEND_INT1] |= MT6362_MSK_VBUS80;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
@@ -461,11 +462,6 @@ static int mt6362_init_vend_mask(struct mt6362_tcpc_data *tdata)
 
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION)
 		mask[MT6362_VEND_INT3] |= MT6362_MSK_CTD;
-
-	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_FOREIGN_OBJECT_DETECTION)
-		mask[MT6362_VEND_INT4] |= MT6362_MSK_FOD_DONE |
-					  MT6362_MSK_FOD_OV |
-					  MT6362_MSK_FOD_DISCHGF;
 
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION)
 		mask[MT6362_VEND_INT7] |= MT6362_MSK_WD12_STFALL |
@@ -495,6 +491,13 @@ static int mt6362_init_alert_mask(struct mt6362_tcpc_data *tdata)
 	return mt6362_write16(tdata, TCPC_V10_REG_ALERT_MASK, mask);
 }
 
+static int __mt6362_set_cc(struct mt6362_tcpc_data *tdata, int rp_lvl, int pull)
+{
+	return mt6362_write8(tdata, TCPC_V10_REG_ROLE_CTRL,
+			     TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull,
+			     pull));
+}
+
 static int mt6362_enable_force_discharge(struct mt6362_tcpc_data *tdata,
 					 bool en)
 {
@@ -510,7 +513,8 @@ static int mt6362_enable_vsafe0v_detect(struct mt6362_tcpc_data *tdata, bool en)
 }
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-static int mt6362_enable_rpdet_auto(struct mt6362_tcpc_data *tdata, bool en)
+static int __maybe_unused mt6362_enable_rpdet_auto(
+					struct mt6362_tcpc_data *tdata, bool en)
 {
 	return (en ? mt6362_clr_bits : mt6362_set_bits)
 		(tdata, MT6362_REG_SHIELDCTRL1, MT6362_MSK_RPDET_AUTO);
@@ -535,140 +539,6 @@ static int mt6362_vend_alert_status_clear(struct mt6362_tcpc_data *tdata,
 	return mt6362_write16(tdata, TCPC_V10_REG_ALERT,
 			      TCPC_V10_REG_ALERT_VENDOR_DEFINED);
 }
-
-static int mt6362_enable_typec_otp_fwen(struct mt6362_tcpc_data *tdata, bool en)
-{
-	return (en ? mt6362_set_bits : mt6362_clr_bits)
-		(tdata, MT6362_REG_TYPECOTPCTRL, MT6362_MSK_TYPECOTP_FWEN);
-}
-
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-static int mt6362_hidet_is_plugout(struct mt6362_tcpc_data *tdata, bool *out)
-{
-	int ret;
-	u8 data;
-
-	ret = mt6362_read8(tdata, MT6362_REG_MTST5, &data);
-	if (ret < 0)
-		return ret;
-	data &= MT6362_MSK_HIDET_CC;
-	*out = (data == MT6362_MSK_HIDET_CC) ? true : false;
-	return 0;
-}
-
-static void mt6362_enable_hidet_debtimer(struct mt6362_tcpc_data *tdata,
-					 bool en)
-{
-	if (en)
-		alarm_start_relative(&tdata->hidet_debtimer,
-				     ktime_set(0, 100000000));
-	else
-		alarm_cancel(&tdata->hidet_debtimer);
-}
-
-static void mt6362_hidet_dwork_handler(struct work_struct *work)
-{
-	int ret;
-	bool plugout;
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct mt6362_tcpc_data *tdata = container_of(dwork,
-						      struct mt6362_tcpc_data,
-						      hidet_dwork);
-
-	tcpci_lock_typec(tdata->tcpc);
-	ret = mt6362_hidet_is_plugout(tdata, &plugout);
-	if (ret < 0)
-		goto out;
-	if (!plugout)
-		goto out;
-	MT6362_DBGINFO("plug out confirmed\n");
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	tcpc_typec_handle_fod(tdata->tcpc, TCPC_FOD_NONE);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
-	tcpci_notify_plug_out(tdata->tcpc);
-out:
-	tcpci_unlock_typec(tdata->tcpc);
-}
-
-static enum alarmtimer_restart
-mt6362_hidet_debtimer_handler(struct alarm *alarm, ktime_t now)
-{
-	struct mt6362_tcpc_data *tdata = container_of(alarm,
-						      struct mt6362_tcpc_data,
-						      hidet_debtimer);
-
-	pm_wakeup_event(tdata->dev, 1000);
-	schedule_delayed_work(&tdata->hidet_dwork, 0);
-	return ALARMTIMER_NORESTART;
-}
-
-static int mt6362_hidet_cc_evt_process(struct mt6362_tcpc_data *tdata)
-{
-	int ret;
-	bool plugout;
-
-	ret = mt6362_hidet_is_plugout(tdata, &plugout);
-	if (ret < 0)
-		return ret;
-	mt6362_enable_hidet_debtimer(tdata, plugout);
-	return 0;
-}
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
-
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-static int mt6362_get_fod_status(struct mt6362_tcpc_data *tdata,
-				 enum tcpc_fod_status *fod)
-{
-	int ret;
-	u8 data;
-
-	ret = mt6362_read8(tdata, MT6362_REG_MTST4, &data);
-	if (ret < 0)
-		return ret;
-	data &= MT6362_MSK_FOD_ALL;
-
-	/* LR possesses the highest priority */
-	if (data & MT6362_MSK_FOD_LR)
-		*fod = TCPC_FOD_LR;
-	else if (data & MT6362_MSK_FOD_HR)
-		*fod = TCPC_FOD_HR;
-	else if (data & MT6362_MSK_FOD_DISCHGF)
-		*fod = TCPC_FOD_DISCHG_FAIL;
-	else if (data & MT6362_MSK_FOD_OV)
-		*fod = TCPC_FOD_OV;
-	else if (data & MT6362_MSK_FOD_DONE)
-		*fod = TCPC_FOD_NORMAL;
-	else
-		*fod = TCPC_FOD_NONE;
-	return 0;
-}
-
-static int mt6362_fod_evt_process(struct mt6362_tcpc_data *tdata)
-{
-	int ret;
-	enum tcpc_fod_status fod;
-
-	/* Init fod is not handled yet */
-	if (tdata->handle_init_fod)
-		return 0;
-	ret = mt6362_get_fod_status(tdata, &fod);
-	if (ret < 0)
-		return ret;
-	if (tcpc_typec_ignore_fod(tdata->tcpc)) {
-		MT6362_DBGINFO("%s ignore fod %d\n", __func__, fod);
-		return 0;
-	}
-	tcpc_typec_handle_fod(tdata->tcpc, fod);
-
-	/* In case ctd irq comes after fod */
-#ifdef CONFIG_CABLE_TYPE_DETECTION
-	if (tdata->tcpc->typec_fod == TCPC_FOD_LR &&
-	    tdata->tcpc->typec_cable_type == TCPC_CABLE_TYPE_NONE)
-		tcpc_typec_handle_ctd(tdata->tcpc, TCPC_CABLE_TYPE_C2C);
-#endif /* CONFIG_CABLE_TYPE_DETECTION */
-	return 0;
-}
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 static int mt6362_get_cable_type(struct mt6362_tcpc_data *tdata,
@@ -704,23 +574,17 @@ static int mt6362_init_fod_ctd(struct mt6362_tcpc_data *tdata)
 	if (ctd_evt & MT6362_MSK_CTD)
 		mt6362_get_cable_type(tdata, &tdata->init_cable_type);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
-
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	tdata->tcpc->typec_fod = TCPC_FOD_NONE;
-	tdata->handle_init_fod = true;
-	mt6362_get_fod_status(tdata, &tdata->init_fod);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 	return ret;
 }
 
-#if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_FLOATING_GROUND)
+#ifdef CONFIG_WATER_DETECTION
 static int mt6362_set_wd_ldo(struct mt6362_tcpc_data *tdata,
 			     enum mt6362_wd_ldo ldo)
 {
 	return mt6362_update_bits(tdata, MT6362_REG_WDSET, MT6362_MSK_WDLDO_SEL,
 				  ldo << MT6362_SFT_WDLDO_SEL);
 }
-#endif /* CONFIG_WATER_DETECTION || CONFIG_FLOATING_GROUND */
+#endif /* CONFIG_WATER_DETECTION */
 
 #ifdef CONFIG_WATER_DETECTION
 static int mt6362_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2);
@@ -776,9 +640,9 @@ static int mt6362_set_wd_rpull(struct mt6362_tcpc_data *tdata,
 				      rpull << MT6362_SFT_WDRPULL_SEL);
 }
 
-static int mt6362_set_wd_ipull(struct mt6362_tcpc_data *tdata,
-			       enum mt6362_wd_chan chan,
-			       enum mt6362_wd_ipull ipull)
+static int  __maybe_unused mt6362_set_wd_ipull(struct mt6362_tcpc_data *tdata,
+					       enum mt6362_wd_chan chan,
+					       enum mt6362_wd_ipull ipull)
 {
 	return mt6362_update_bits_rt2(tdata, mt6362_wd_ipull_reg[chan],
 				      MT6362_MSK_WDIPULL_SEL,
@@ -829,11 +693,15 @@ static int mt6362_set_wd_protection_parameter(struct mt6362_tcpc_data *tdata,
 {
 	int ret;
 
-	ret = mt6362_set_wd_ipull(tdata, chan, MT6362_WD_IPULL_5UA);
+	ret = mt6362_set_wd_rpull(tdata, chan, MT6362_WD_RPULL_75K);
+	if (ret < 0)
+		return ret;
+	/* set wd protection threshold 1.44V to 1.54V */
+	ret = mt6362_write8(tdata, mt6362_wd_volcmp_reg[chan], 0xCA);
 	if (ret < 0)
 		return ret;
 	ret = mt6362_write8(tdata, mt6362_wd_miscctrl_reg[chan],
-			    MT6362_MSK_WDIPULL_EN | MT6362_MSK_WDDISCHG_EN);
+			    MT6362_MSK_WDRPULL_EN | MT6362_MSK_WDDISCHG_EN);
 	if (ret < 0)
 		return ret;
 	return mt6362_set_wd_protection_path(tdata, chan);
@@ -853,6 +721,7 @@ static int mt6362_check_wd_status(struct mt6362_tcpc_data *tdata,
 	ret = mt6362_get_wd_path(tdata, chan, &path);
 	if (ret < 0)
 		return ret;
+	*error = false;
 	for (i = 0; i < MT6362_WD_STATUS_NUM; i++) {
 		if (path & data[i])
 			*error = true;
@@ -917,8 +786,7 @@ static int mt6362_get_wd_adc(struct mt6362_tcpc_data *tdata,
 {
 	int ret;
 
-	ret = iio_read_channel_processed(
-		&tdata->adc_iio[mt6362_wd_adc_chan[chan]], val);
+	ret = iio_read_channel_processed(&tdata->adc_iio[chan], val);
 	if (ret < 0)
 		return ret;
 	*val /= 1000;
@@ -928,9 +796,10 @@ static int mt6362_get_wd_adc(struct mt6362_tcpc_data *tdata,
 static bool mt6362_is_wd_audio_device(struct mt6362_tcpc_data *tdata,
 				      enum mt6362_wd_chan chan, int wd_adc)
 {
+	struct tcpc_desc *desc = tdata->desc;
 	int ret;
 
-	if (wd_adc >= CONFIG_WD_SBU_PH_AUDDEV)
+	if (wd_adc >= desc->wd_sbu_ph_auddev)
 		return false;
 
 	/* Pull high with 1K resistor */
@@ -946,7 +815,7 @@ static bool mt6362_is_wd_audio_device(struct mt6362_tcpc_data *tdata,
 		goto not_auddev;
 	}
 
-	if (wd_adc >= CONFIG_WD_SBU_AUD_UBOUND)
+	if (wd_adc >= desc->wd_sbu_aud_ubound)
 		goto not_auddev;
 	return true;
 
@@ -958,9 +827,10 @@ not_auddev:
 static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
 				      enum mt6362_wd_chan chan, bool *wd)
 {
-	int ret, wd_adc, i, usbid;
-	u32 lb = CONFIG_WD_SBU_PH_LBOUND;
-	u32 ub = CONFIG_WD_SBU_CALIB_INIT * 110 / 100;
+	int ret, wd_adc, i;
+	struct tcpc_desc *desc = tdata->desc;
+	u32 lb = desc->wd_sbu_ph_lbound;
+	u32 ub = desc->wd_sbu_calib_init * 110 / 100;
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	enum tcpc_cable_type cable_type;
 	u8 ctd_evt;
@@ -987,7 +857,7 @@ static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
 				       ret);
 			goto out;
 		}
-		if (usbid <= CONFIG_WD_SBU_PL_BOUND)
+		if (wd_adc <= desc->wd_sbu_pl_bound)
 			break;
 	}
 	if (i == CONFIG_WD_SBU_PL_RETRY) {
@@ -1007,8 +877,8 @@ static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
 			MT6362_DBGINFO("get chan%d adc fail(%d)\n", chan, ret);
 			goto out;
 		}
-		MT6362_DBGINFO("chan%d pull high %dmV(lb %d, ub %d)\n",
-			       chan, wd_adc, lb, ub);
+		MT6362_DBGINFO("chan%d pull high %dmV(lb %d, ub %d)\n", chan,
+			       wd_adc, lb, ub);
 		if (wd_adc >= lb && wd_adc <= ub) {
 			*wd = false;
 			goto out;
@@ -1024,9 +894,9 @@ static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
 			ret = mt6362_get_cable_type(tdata, &cable_type);
 	}
 	if (cable_type == TCPC_CABLE_TYPE_C2C) {
-		if (((wd_adc >= CONFIG_WD_SBU_PH_LBOUND1_C2C) &&
-		    (wd_adc <= CONFIG_WD_SBU_PH_UBOUND1_C2C)) ||
-		    (wd_adc > CONFIG_WD_SBU_PH_UBOUND2_C2C)) {
+		if (((wd_adc >= desc->wd_sbu_ph_lbound1_c2c) &&
+		    (wd_adc <= desc->wd_sbu_ph_ubound1_c2c)) ||
+		    (wd_adc > desc->wd_sbu_ph_ubound2_c2c)) {
 			MT6362_DBGINFO("ignore water for C2C\n");
 			*wd = false;
 			goto out;
@@ -1056,10 +926,23 @@ static int mt6362_enable_wd_polling(struct mt6362_tcpc_data *tdata, bool en)
 		ret = mt6362_set_wd_ldo(tdata, MT6362_WD_LDO_1_8V);
 		if (ret < 0)
 			return ret;
+		/* set wd detect time interval base 10ms */
+		ret = mt6362_update_bits_rt2(tdata,
+					     MT6362_REG_WDSET3,
+					     MT6362_MASK_WD_TDET,
+					     MT6362_WD_TDET_10MS <<
+						MT6362_SHFT_WD_TDET);
+		if (ret < 0)
+			return ret;
 		for (i = 0; i < MT6362_WD_CHAN_NUM; i++) {
 			if (!mt6362_wd_chan_en[i])
 				continue;
 			ret = mt6362_set_wd_polling_parameter(tdata, i);
+			if (ret < 0)
+				return ret;
+			/* set wd detect threshold 1.44V */
+			ret = mt6362_write8(tdata, mt6362_wd_volcmp_reg[i],
+					    0xCB);
 			if (ret < 0)
 				return ret;
 		}
@@ -1070,15 +953,29 @@ static int mt6362_enable_wd_polling(struct mt6362_tcpc_data *tdata, bool en)
 
 static int mt6362_enable_wd_protection(struct mt6362_tcpc_data *tdata, bool en)
 {
-	int i;
+	int i, ret;
 
+	MT6362_DBGINFO("%s: en = %d\n", __func__, en);
 	if (en) {
+		/* set wd detect time interval base 1ms */
+		ret = mt6362_update_bits_rt2(tdata,
+					     MT6362_REG_WDSET3,
+					     MT6362_MASK_WD_TDET,
+					     MT6362_WD_TDET_1MS <<
+						MT6362_SHFT_WD_TDET);
+		if (ret < 0)
+			return ret;
 		for (i = 0; i < MT6362_WD_CHAN_NUM; i++) {
 			if (!mt6362_wd_chan_en[i])
 				continue;
 			mt6362_set_wd_protection_parameter(tdata, i);
 		}
 	}
+	/* set DPDM manual/auto mode */
+	ret = regmap_update_bits(tdata->regmap, MT6362_REG_DPDM_CTRL1,
+				 MT6362_MSK_MANUAL_MODE, en ? 0xff : 0);
+	if (ret < 0)
+		return ret;
 	return mt6362_write8(tdata, MT6362_REG_WD12MODECTRL,
 			     en ?
 			     MT6362_MSK_WD12MODE_EN | MT6362_MSK_WD12PROT : 0);
@@ -1119,7 +1016,7 @@ static int mt6362_wd_polling_evt_process(struct mt6362_tcpc_data *tdata)
 static int mt6362_wd_protection_evt_process(struct mt6362_tcpc_data *tdata)
 {
 	int i, ret;
-	bool error[2], protection = false;
+	bool error[2] = {false, false}, protection = false;
 
 	for (i = 0; i < MT6362_WD_CHAN_NUM; i++) {
 		if (!mt6362_wd_chan_en[i])
@@ -1130,16 +1027,21 @@ static int mt6362_wd_protection_evt_process(struct mt6362_tcpc_data *tdata)
 		ret = __mt6362_is_water_detected(tdata, i, &error[1]);
 		if (ret < 0)
 			goto out;
+		MT6362_DBGINFO("%s: err1:%d, err2:%d\n",
+			       __func__, error[0], error[1]);
 		if (!error[0] && !error[1])
 			continue;
 out:
 		protection = true;
 		break;
 	}
-	if (protection)
-		mt6362_enable_wd_protection(tdata, true);
-	else
+	MT6362_DBGINFO("%s: retry cnt = %d\n", __func__, tdata->wd_protect_rty);
+	if (!protection && atomic_dec_and_test(&tdata->wd_protect_rty)) {
 		tcpc_typec_handle_wd(tdata->tcpc, false);
+		atomic_set(&tdata->wd_protect_rty,
+			   CONFIG_WD_PROTECT_RETRY_COUNT);
+	} else
+		mt6362_enable_wd_protection(tdata, true);
 	return 0;
 }
 
@@ -1177,14 +1079,6 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	if (ret < 0)
 		return ret;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
-	ret = mt6362_enable_rpdet_auto(tdata, true);
-	if (ret < 0)
-		return ret;
-	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP) {
-		ret = mt6362_enable_typec_otp_fwen(tdata, false);
-		if (ret < 0)
-			return ret;
-	}
 	/* Set LDO to 2V */
 	ret = mt6362_write8(tdata, MT6362_REG_LPWRCTRL3, 0xD9);
 	if (ret < 0)
@@ -1207,69 +1101,6 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 #endif /* CONFIG_WD_SBU_POLLING */
 	return 0;
 }
-
-#ifdef CONFIG_FLOATING_GROUND
-static int mt6362_is_floating_ground_enabled(struct mt6362_tcpc_data *tdata,
-					     bool *en)
-{
-	int ret;
-	u8 data;
-
-	ret = mt6362_read8(tdata, MT6362_REG_WD0MODECTRL, &data);
-	if (ret < 0)
-		return ret;
-	*en = (data & MT6362_MSK_WD0MODE_EN) ? true : false;
-	return 0;
-}
-
-static int mt6362_enable_floating_ground(struct mt6362_tcpc_data *tdata,
-					 bool en)
-{
-	int ret;
-
-	if (en) {
-		ret = tcpci_set_cc(tdata->tcpc, TYPEC_CC_RD);
-		if (ret < 0)
-			return ret;
-		ret = mt6362_set_wd_ldo(tdata, MT6362_WD_LDO_0_6V);
-		if (ret < 0)
-			return ret;
-	}
-	ret = (en ? mt6362_set_bits : mt6362_clr_bits)
-		(tdata, MT6362_REG_WD0MODECTRL, MT6362_MSK_WD0MODE_EN);
-	if (!en) {
-		ret = mt6362_set_wd_ldo(tdata, MT6362_WD_LDO_1_8V);
-		if (ret < 0)
-			return ret;
-	}
-	return 0;
-}
-
-static int mt6362_floating_ground_evt_process(struct mt6362_tcpc_data *tdata)
-{
-	int ret;
-	bool en;
-	u8 data;
-	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(TYPEC_CC_DRP);
-
-	ret = mt6362_is_floating_ground_enabled(tdata, &en);
-	if (ret < 0 || !en)
-		return ret;
-	ret = mt6362_read8(tdata, MT6362_REG_WD0SET, &data);
-	if (ret < 0)
-		return ret;
-	if (data & MT6362_MSK_WD0PULL_STS) {
-		ret = mt6362_set_cc_toggling(tdata, rp_lvl);
-		if (ret < 0)
-			return ret;
-		return 0;
-	}
-#ifdef CONFIG_TCPC_LOW_POWER_MODE
-	tcpci_set_low_power_mode(tdata->tcpc, true, TYPEC_CC_DRP);
-#endif /* CONFIG_TCPC_LOW_POWER_MODE */
-	return tcpci_set_floating_ground(tdata->tcpc, true);
-}
-#endif /* CONFIG_FLOATING_GROUND */
 
 /*
  * ==================================================================
@@ -1304,7 +1135,7 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	 * DRP Duyt Ctrl : dcSRC / 1024
 	 */
 	mt6362_write8(tdata, MT6362_REG_TCPCCTRL2, 4);
-	mt6362_write16(tdata, MT6362_REG_TCPCCTRL2, TCPC_NORMAL_RP_DUTY);
+	mt6362_write16(tdata, MT6362_REG_TCPCCTRL3, TCPC_NORMAL_RP_DUTY);
 
 	/*
 	 * Transition toggle count = 7
@@ -1369,14 +1200,6 @@ static int mt6362_init_mask(struct tcpc_device *tcpc)
 	mt6362_init_fault_mask(tdata);
 	mt6362_init_ext_mask(tdata);
 	mt6362_init_vend_mask(tdata);
-
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	/* Init fod must be handled after init alert mask */
-	if (tdata->handle_init_fod) {
-		tdata->handle_init_fod = false;
-		tcpc_typec_handle_fod(tcpc, tdata->init_fod);
-	}
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	/* Init cable type must be done after fod */
@@ -1526,32 +1349,18 @@ static int mt6362_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 static int mt6362_set_cc(struct tcpc_device *tcpc, int pull)
 {
 	int ret;
-	u8 data;
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
 	pull = TYPEC_CC_PULL_GET_RES(pull);
 	if (pull == TYPEC_CC_DRP) {
-#ifdef CONFIG_FLOATING_GROUND
-		ret = mt6362_enable_floating_ground(tdata, true);
-#else
 		ret = mt6362_set_cc_toggling(tdata, pull);
-#endif /* CONFIG_FLOATING_GROUND */
 	} else {
 #ifdef CONFIG_WD_POLLING_ONLY
 		cancel_delayed_work_sync(&tdata->wd_poll_dwork);
 		mt6362_enable_wd_polling(tdata, false);
 #endif /* CONFIG_WD_POLLING_ONLY */
-		if (tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP) {
-			ret = mt6362_enable_typec_otp_fwen(tdata, true);
-			if (ret < 0)
-				return ret;
-		}
-		ret = mt6362_enable_rpdet_auto(tdata, false);
-		if (ret < 0)
-			return ret;
-		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull, pull);
-		ret = mt6362_write8(tdata, TCPC_V10_REG_ROLE_CTRL, data);
+		ret = __mt6362_set_cc(tdata, rp_lvl, pull);
 	}
 	return ret;
 }
@@ -1781,28 +1590,6 @@ static int mt6362_retransmit(struct tcpc_device *tcpc)
 }
 #endif /* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-static int mt6362_set_cc_hidet(struct tcpc_device *tcpc, bool en)
-{
-	int ret;
-	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
-
-	if (en)
-		mt6362_enable_rpdet_auto(tdata, false);
-	ret = (en ? mt6362_set_bits : mt6362_clr_bits)
-		(tdata, MT6362_REG_HILOCTRL10, MT6362_MSK_HIDET_CC_CMPEN);
-	if (ret < 0)
-		return ret;
-	ret = (en ? mt6362_set_bits : mt6362_clr_bits)
-		(tdata, MT6362_REG_MTMASK5, MT6362_MSK_HIDET_CC);
-	if (ret < 0)
-		return ret;
-	if (!en)
-		mt6362_enable_rpdet_auto(tdata, true);
-	return ret;
-}
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
-
 #ifdef CONFIG_WATER_DETECTION
 static int mt6362_is_water_detected(struct tcpc_device *tcpc)
 {
@@ -1844,15 +1631,6 @@ static int mt6362_set_wd_polling(struct tcpc_device *tcpc, bool en)
 }
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_FLOATING_GROUND
-static int mt6362_set_floating_ground(struct tcpc_device *tcpc, bool en)
-{
-	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
-
-	return mt6362_enable_floating_ground(tdata, en);
-}
-#endif /* CONFIG_FLOATING_GROUND */
-
 /*
  * ==================================================================
  * TCPC vendor irq handlers
@@ -1872,24 +1650,6 @@ static int mt6362_vsafe0v_irq_handler(struct mt6362_tcpc_data *tdata)
 }
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TYPEC_OTP
-static int mt6362_typec_otp_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	int ret;
-	u8 data;
-	bool otp;
-
-	ret = mt6362_read8(tdata, MT6362_REG_MTST1, &data);
-	if (ret < 0)
-		return ret;
-	otp = (data & MT6362_MSK_OTDFLAG) ? true : false;
-	if (otp)
-		mt6362_enable_typec_otp_fwen(tdata, true);
-	tcpc_typec_handle_otp(tdata->tcpc, otp);
-	return 0;
-}
-#endif /* CONFIG_TYPEC_OTP */
-
 #ifdef CONFIG_WATER_DETECTION
 static int mt6362_wd12_strise_irq_handler(struct mt6362_tcpc_data *tdata)
 {
@@ -1900,58 +1660,10 @@ static int mt6362_wd12_strise_irq_handler(struct mt6362_tcpc_data *tdata)
 static int mt6362_wd12_done_irq_handler(struct mt6362_tcpc_data *tdata)
 {
 	/* Oneshot or protect mode done */
+	MT6362_DBGINFO("%s\n", __func__);
 	return mt6362_wd_protection_evt_process(tdata);
 }
 #endif /* CONFIG_WATER_DETECTION */
-
-#ifdef CONFIG_FLOATING_GROUND
-static int mt6362_wd0_stfall_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	/* WD0_PULL_STS from 1 to 0 in normal polling mode */
-	return mt6362_floating_ground_evt_process(tdata);
-}
-
-static int mt6362_wd0_strise_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	/* WD0_PULL_STS from 0 to 1 in normal polling mode */
-	return mt6362_floating_ground_evt_process(tdata);
-}
-#endif /* CONFIG_FLOATING_GROUND */
-
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-static int mt6362_hidet_cc1_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	return mt6362_hidet_cc_evt_process(tdata);
-}
-
-static int mt6362_hidet_cc2_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	return mt6362_hidet_cc_evt_process(tdata);
-}
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
-
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-static int mt6362_fod_done_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	MT6362_DBGINFO("%s\n", __func__);
-	mt6362_fod_evt_process(tdata);
-	return 0;
-}
-
-static int mt6362_fod_ov_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	MT6362_DBGINFO("%s\n", __func__);
-	mt6362_fod_evt_process(tdata);
-	return 0;
-}
-
-static int mt6362_fod_dischgf_irq_handler(struct mt6362_tcpc_data *tdata)
-{
-	MT6362_DBGINFO("%s\n", __func__);
-	mt6362_fod_evt_process(tdata);
-	return 0;
-}
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 static int mt6362_ctd_irq_handler(struct mt6362_tcpc_data *tdata)
@@ -1983,30 +1695,10 @@ static struct irq_mapping_tbl mt6362_vend_irq_mapping_tbl[] = {
 	MT6362_IRQ_MAPPING(1, vsafe0v),
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TYPEC_OTP
-	MT6362_IRQ_MAPPING(2, typec_otp),
-#endif /* CONFIG_TYPEC_OTP */
-
 #ifdef CONFIG_WATER_DETECTION
 	MT6362_IRQ_MAPPING(49, wd12_strise),
 	MT6362_IRQ_MAPPING(50, wd12_done),
 #endif /* CONFIG_WATER_DETECTION */
-
-#ifdef CONFIG_FLOATING_GROUND
-	MT6362_IRQ_MAPPING(51, wd0_stfall),
-	MT6362_IRQ_MAPPING(52, wd0_strise),
-#endif /* CONFIG_FLOATING_GROUND */
-
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-	MT6362_IRQ_MAPPING(36, hidet_cc1),
-	MT6362_IRQ_MAPPING(37, hidet_cc2),
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
-
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	MT6362_IRQ_MAPPING(24, fod_done),
-	MT6362_IRQ_MAPPING(25, fod_ov),
-	MT6362_IRQ_MAPPING(30, fod_dischgf),
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	MT6362_IRQ_MAPPING(20, ctd),
@@ -2093,19 +1785,11 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 	.retransmit = mt6362_retransmit,
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-	.set_cc_hidet = mt6362_set_cc_hidet,
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
-
 #ifdef CONFIG_WATER_DETECTION
 	.is_water_detected = mt6362_is_water_detected,
 	.set_water_protection = mt6362_set_water_protection,
 	.set_usbid_polling = mt6362_set_wd_polling,
 #endif /* CONFIG_WATER_DETECTION */
-
-#ifdef CONFIG_FLOATING_GROUND
-	.set_floating_ground = mt6362_set_floating_ground,
-#endif /* CONFIG_FLOATING_GROUND */
 };
 
 static void mt6362_cpu_poll_ctrl(struct mt6362_tcpc_data *tdata)
@@ -2205,21 +1889,12 @@ static int mt6362_register_tcpcdev(struct mt6362_tcpc_data *tdata)
 		return -EINVAL;
 
 	/* Init tcpc_flags */
-#ifdef CONFIG_TYPEC_OTP
-	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_TYPEC_OTP;
-#endif /* CONFIG_TYPEC_OTP */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_CABLE_TYPE_DETECTION;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 #ifdef CONFIG_WATER_DETECTION
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #endif /* CONFIG_WATER_DETECTION */
-#ifdef CONFIG_FOREIGN_OBJECT_DETECTION
-	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_FOREIGN_OBJECT_DETECTION;
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION */
-#ifdef CONFIG_FLOATING_GROUND
-	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_FLOATING_GROUND;
-#endif /* CONFIG_FLOATING_GROUND */
 #ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 	tdata->tcpc->tcpc_flags |= TCPC_FLAGS_LPM_WAKEUP_WATCHDOG;
 #endif	/* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
@@ -2292,6 +1967,41 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 			desc->vconn_supply = val;
 	}
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
+
+#ifdef CONFIG_WATER_DETECTION
+	if (of_property_read_u32(np, "wd,sbu_calib_init", &val) < 0)
+		desc->wd_sbu_calib_init = CONFIG_WD_SBU_CALIB_INIT;
+	else
+		desc->wd_sbu_calib_init = val;
+	if (of_property_read_u32(np, "wd,sbu_pl_bound", &val) < 0)
+		desc->wd_sbu_pl_bound = CONFIG_WD_SBU_PL_BOUND;
+	else
+		desc->wd_sbu_pl_bound = val;
+	if (of_property_read_u32(np, "wd,sbu_ph_auddev", &val) < 0)
+		desc->wd_sbu_ph_auddev = CONFIG_WD_SBU_PH_AUDDEV;
+	else
+		desc->wd_sbu_ph_auddev = val;
+	if (of_property_read_u32(np, "wd,sbu_ph_lbound", &val) < 0)
+		desc->wd_sbu_ph_lbound = CONFIG_WD_SBU_PH_LBOUND;
+	else
+		desc->wd_sbu_ph_lbound = val;
+	if (of_property_read_u32(np, "wd,sbu_ph_lbound1_c2c", &val) < 0)
+		desc->wd_sbu_ph_lbound1_c2c = CONFIG_WD_SBU_PH_LBOUND1_C2C;
+	else
+		desc->wd_sbu_ph_lbound1_c2c = val;
+	if (of_property_read_u32(np, "wd,sbu_ph_ubound1_c2c", &val) < 0)
+		desc->wd_sbu_ph_ubound1_c2c = CONFIG_WD_SBU_PH_UBOUND1_C2C;
+	else
+		desc->wd_sbu_ph_ubound1_c2c = val;
+	if (of_property_read_u32(np, "wd,sbu_ph_ubound2_c2c", &val) < 0)
+		desc->wd_sbu_ph_ubound2_c2c = CONFIG_WD_SBU_PH_UBOUND2_C2C;
+	else
+		desc->wd_sbu_ph_ubound2_c2c = val;
+	if (of_property_read_u32(np, "wd,sbu_aud_ubound", &val) < 0)
+		desc->wd_sbu_aud_ubound = CONFIG_WD_SBU_AUD_UBOUND;
+	else
+		desc->wd_sbu_aud_ubound = val;
+#endif /* CONFIG_WATER_DETECTION */
 
 	of_property_read_string(np, "tcpc,name", (const char **)&desc->name);
 	tdata->desc = desc;
@@ -2411,14 +2121,13 @@ static int mt6362_tcpc_probe(struct platform_device *pdev)
 #endif /* TCPC_ENABLE_ANYMSG */
 	INIT_DELAYED_WORK(&tdata->cpu_poll_dwork,
 			  mt6362_cpu_poll_dwork_handler);
+
+#ifdef CONFIG_WATER_DETECTION
+	atomic_set(&tdata->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
 #ifdef CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&tdata->wd_poll_dwork, mt6362_wd_poll_dwork_handler);
 #endif /* CONFIG_WD_POLLING_ONLY */
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-	INIT_DELAYED_WORK(&tdata->hidet_dwork, mt6362_hidet_dwork_handler);
-	alarm_init(&tdata->hidet_debtimer, ALARM_REALTIME,
-		   mt6362_hidet_debtimer_handler);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
+#endif /* CONFIG_WATER_DETECTION */
 
 	ret = mt6362_parse_dt(tdata);
 	if (ret < 0) {
@@ -2474,9 +2183,6 @@ static int mt6362_tcpc_remove(struct platform_device *pdev)
 
 	if (!tdata)
 		return 0;
-#if defined(CONFIG_FOREIGN_OBJECT_DETECTION) || defined(CONFIG_TYPEC_OTP)
-	cancel_delayed_work_sync(&tdata->hidet_dwork);
-#endif /* CONFIG_FOREIGN_OBJECT_DETECTION || CONFIG_TYPEC_OTP */
 #ifdef CONFIG_WD_POLLING_ONLY
 	cancel_delayed_work_sync(&tdata->wd_poll_dwork);
 #endif /* CONFIG_WD_POLLING_ONLY */

@@ -6488,6 +6488,14 @@ page_owner=on";
 			interrupt-names = "pd_evt";
 			io-channels = <&mt6362_adc MT6362_ADCCH_PDSBU1DIV4>,
 				      <&mt6362_adc MT6362_ADCCH_PDSBU2DIV4>;
+			wd,sbu_calib_init = <1500>;	/* mV */
+			wd,sbu_pl_bound = <200>;	/* mV */
+			wd,sbu_ph_auddev = <100>;	/* mV */
+			wd,sbu_ph_lbound = <900>;	/* mV */
+			wd,sbu_ph_lbound1_c2c = <2850>;	/* mV */
+			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
+			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
+			wd,sbu_aud_ubound = <1600>;	/* mV */
 			pd-data {
 				/*
 				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
