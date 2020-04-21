@@ -527,7 +527,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-	/* setup support for time sync */
+	/* setup support for additional features (SFR, timesync, etc.) */
+	mhi_init_sfr(mhi_cntrl);
 	mhi_init_timesync(mhi_cntrl);
 
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
@@ -563,6 +564,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	struct mhi_cmd_ctxt *cmd_ctxt;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_event_ctxt *er_ctxt;
+	struct mhi_sfr_info *sfr_info = mhi_cntrl->mhi_sfr;
 	int ret, i;
 
 	MHI_LOG("Enter with from pm_state:%s MHI_STATE:%s to pm_state:%s\n",
@@ -654,6 +656,12 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	/* remove support for time sync */
 	mhi_destroy_timesync(mhi_cntrl);
+
+	if (sfr_info && sfr_info->buf_addr) {
+		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
+				  sfr_info->dma_addr);
+		sfr_info->buf_addr = NULL;
+	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -996,10 +1004,18 @@ EXPORT_SYMBOL(mhi_async_power_up);
 void mhi_control_error(struct mhi_controller *mhi_cntrl)
 {
 	enum MHI_PM_STATE cur_state, transition_state;
+	struct mhi_sfr_info *sfr_info = mhi_cntrl->mhi_sfr;
 
 	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+
+	/* copy subsystem failure reason string if supported */
+	if (sfr_info && sfr_info->buf_addr) {
+		memcpy(sfr_info->str, sfr_info->buf_addr, sfr_info->len);
+		pr_err("mhi: %s sfr: %s\n", mhi_cntrl->name,
+		       sfr_info->buf_addr);
+	}
 
 	/* link is not down if device is in RDDM */
 	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
@@ -1530,6 +1546,7 @@ void mhi_device_get(struct mhi_device *mhi_dev, int vote)
 	if (vote & MHI_VOTE_DEVICE) {
 		read_lock_bh(&mhi_cntrl->pm_lock);
 		mhi_cntrl->wake_get(mhi_cntrl, true);
+		MHI_LOG("dev_wake %d\n", atomic_read(&mhi_cntrl->dev_wake));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 		atomic_inc(&mhi_dev->dev_vote);
 	}
@@ -1583,6 +1600,7 @@ void mhi_device_put(struct mhi_device *mhi_dev, int vote)
 			mhi_trigger_resume(mhi_cntrl);
 
 		mhi_cntrl->wake_put(mhi_cntrl, false);
+		MHI_LOG("dev_wake %d\n", atomic_read(&mhi_cntrl->dev_wake));
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
 
