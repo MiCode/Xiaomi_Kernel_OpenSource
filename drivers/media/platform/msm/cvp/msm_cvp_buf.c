@@ -731,7 +731,7 @@ int msm_cvp_session_deinit_buffers(struct msm_cvp_inst *inst)
 		msm_cvp_unmap_smem(smem);
 		msm_cvp_smem_put_dma_buf(smem->dma_buf);
 		kmem_cache_free(cvp_driver->smem_cache, smem);
-		smem = NULL;
+		inst->dma_cache.entries[i] = NULL;
 	}
 	mutex_unlock(&inst->dma_cache.lock);
 
@@ -913,22 +913,8 @@ int cvp_release_arp_buffers(struct msm_cvp_inst *inst)
 			smem->dma_buf->name, buf->size);
 			msm_cvp_smem_free(smem);
 			kmem_cache_free(cvp_driver->smem_cache, smem);
-		} else if (buf->ownership == CLIENT) {
-			dprintk(CVP_MEM,
-			"%s: %x : fd %d %s size %d",
-			"unmap persist", hash32_ptr(inst->session),
-			buf->fd, smem->dma_buf->name, buf->size);
-
-			mutex_lock(&inst->dma_cache.lock);
-			if (atomic_read(&smem->refcount) == 0) {
-				list_del(&smem->list);
-				msm_cvp_unmap_smem(smem);
-				dma_buf_put(smem->dma_buf);
-				kfree(smem);
-				buf->smem = NULL;
-			}
-			mutex_unlock(&inst->dma_cache.lock);
 		}
+		buf->smem = NULL;
 		kmem_cache_free(cvp_driver->buf_cache, buf);
 	}
 	mutex_unlock(&inst->persistbufs.lock);
