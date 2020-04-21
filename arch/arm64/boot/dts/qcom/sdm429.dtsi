@@ -13,6 +13,8 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,gcc-sdm429w.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM429";
@@ -214,6 +216,45 @@
 		};
 	};
 
+	clocks {
+		xo_board {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <19200000>;
+			clock-output-names = "xo_board";
+		};
+	};
+
+	rpmcc: qcom,rpmcc {
+		compatible = "qcom,rpmcc-sdm429w";
+		#clock-cells = <1>;
+	};
+
+	gcc: qcom,gcc@1800000 {
+		compatible = "qcom,gcc-sdm429w", "syscon";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
+		clock-names = "bi_tcxo";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdm429w";
+		qcom,gcc = <&gcc>;
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		#clock-cells = <1>;
+	};
+
+	gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-sdm429w";
+		reg = <0x1800000 0x80000>;
+		#clock-cells = <1>;
+	};
+
 	cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <1 7 0xff00>;
@@ -320,4 +361,76 @@
 	};
 
 	thermal_zones: thermal-zones { };
+};
+
+#include "sdm429-gdsc.dtsi"
+
+&venus_gdsc {
+	clock-names = "bus_clk", "core_clk";
+	clocks = <&gcc GCC_VENUS0_AXI_CLK>,
+		<&gcc GCC_VENUS0_VCODEC0_CLK>;
+	status = "ok";
+};
+
+&venus_core0_gdsc {
+	qcom,support-hw-trigger;
+	clock-names ="core0_clk";
+	clocks = <&gcc GCC_VENUS0_CORE0_VCODEC0_CLK>;
+	status = "okay";
+};
+
+&mdss_gdsc {
+	clock-names = "core_clk", "bus_clk";
+	clocks = <&gcc GCC_MDSS_MDP_CLK>,
+		<&gcc GCC_MDSS_AXI_CLK>;
+	qcom,disallow-clear;
+	status = "okay";
+};
+
+&jpeg_gdsc {
+	clock-names = "core_clk", "bus_clk";
+	clocks = <&gcc GCC_CAMSS_JPEG0_CLK>,
+		<&gcc GCC_CAMSS_JPEG_AXI_CLK>;
+	status = "okay";
+};
+
+&vfe_gdsc {
+	clock-names = "core_clk", "bus_clk", "micro_clk",
+			"csi_clk";
+	clocks = <&gcc GCC_CAMSS_VFE0_CLK>,
+		<&gcc GCC_CAMSS_VFE_AXI_CLK>,
+		<&gcc GCC_CAMSS_MICRO_AHB_CLK>,
+		<&gcc GCC_CAMSS_CSI_VFE0_CLK>;
+	status = "okay";
+};
+
+&vfe1_gdsc {
+	clock-names = "core_clk", "bus_clk", "micro_clk",
+			"csi_clk";
+	clocks = <&gcc GCC_CAMSS_VFE1_CLK>,
+		<&gcc GCC_CAMSS_VFE1_AXI_CLK>,
+		<&gcc GCC_CAMSS_MICRO_AHB_CLK>,
+		<&gcc GCC_CAMSS_CSI_VFE1_CLK>;
+	status = "okay";
+};
+
+&cpp_gdsc {
+	clock-names = "core_clk", "bus_clk";
+	clocks = <&gcc GCC_CAMSS_CPP_CLK>,
+		<&gcc GCC_CAMSS_CPP_AXI_CLK>;
+	status = "okay";
+};
+
+&oxili_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks =<&gcc GFX3D_CLK_SRC>;
+	qcom,enable-root-clk;
+	qcom,clk-dis-wait-val = <0x5>;
+	status = "okay";
+};
+
+&oxili_cx_gdsc {
+	clock-names = "core_clk";
+	clocks = <&gcc GCC_OXILI_GFX3D_CLK>;
+	status = "okay";
 };
