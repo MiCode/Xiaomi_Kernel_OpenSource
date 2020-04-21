@@ -45,17 +45,13 @@
 #define PIN_OUT_C_SIZE_SLEEP_1	         1 /* the following will use mbox 3 */
 #define PIN_OUT_R_SIZE_SLEEP_1	         1 /* the following will use mbox 3 */
 #define PIN_OUT_SIZE_TEST_1		 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_ENABLE_1	 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_WAKEUP_1	 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_INIT_1	 2 /* the following will use mbox 3 */
+#define PIN_OUT_SIZE_LOGGER_CTRL	 6 /* the following will use mbox 3 */
 #define PIN_OUT_SIZE_SCPCTL_1		 2 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_SCP_LOG_FILTER_1	 2 /* the following will use mbox 3 */
 
 /* definition of slot size for received PINs */
 #define PIN_IN_SIZE_AUDIO_ULTRA_SND_1	 2 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_ERROR_INFO_1	10 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_LOGGER_WAKEUP_1	 1 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_LOGGER_INIT_1	 5 /* the following will use mbox 3 */
+#define PIN_IN_SIZE_LOGGER_CTRL		 6 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_READY_1		 1 /* the following will use mbox 3 */
 #define PIN_IN_SIZE_SCP_RAM_DUMP_1	 2 /* the following will use mbox 3 */
 /* ============================================================ */

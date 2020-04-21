@@ -58,21 +58,17 @@ enum {
 	IPI_OUT_DVFS_SET_FREQ_1   = 14,
 	IPI_OUT_C_SLEEP_1         = 15,
 	IPI_OUT_TEST_1            = 16,
-	IPI_OUT_LOGGER_ENABLE_1   = 17,
-	IPI_OUT_LOGGER_WAKEUP_1   = 18,
-	IPI_OUT_LOGGER_INIT_1     = 19,
-	IPI_OUT_SCPCTL_1          = 20,
-	IPI_OUT_SCP_LOG_FILTER_1  = 21,
-	IPI_IN_AUDIO_ULTRA_SND_1  = 22,
-	IPI_IN_SCP_ERROR_INFO_1   = 23,
-	IPI_IN_LOGGER_WAKEUP_1    = 24,
-	IPI_IN_LOGGER_INIT_1      = 25,
-	IPI_IN_SCP_READY_1        = 26,
-	IPI_IN_SCP_RAM_DUMP_1     = 27,
+	IPI_OUT_LOGGER_CTRL       = 17,
+	IPI_OUT_SCPCTL_1          = 18,
+	IPI_IN_AUDIO_ULTRA_SND_1  = 19,
+	IPI_IN_SCP_ERROR_INFO_1   = 20,
+	IPI_IN_LOGGER_CTRL        = 21,
+	IPI_IN_SCP_READY_1        = 22,
+	IPI_IN_SCP_RAM_DUMP_1     = 23,
 
 	/* the following will use mbox4 */
-	IPI_OUT_SCP_MPOOL_1       = 28,
-	IPI_IN_SCP_MPOOL_1        = 29,
+	IPI_OUT_SCP_MPOOL_1       = 24,
+	IPI_IN_SCP_MPOOL_1        = 25,
 	SCP_IPI_COUNT
 };
 
