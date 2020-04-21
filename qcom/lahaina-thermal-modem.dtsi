@@ -5,13 +5,13 @@
 		modem {
 			qcom,instance-id = <QMI_MODEM_INST_ID>;
 
-			modem_pa: modem_pa {
-				qcom,qmi-dev-name = "pa";
+			modem_pa_dsc: modem_pa_dsc {
+				qcom,qmi-dev-name = "pa_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_pa_fr1: modem_pa_fr1 {
-				qcom,qmi-dev-name = "pa_fr1";
+			modem_pa_fr1_dsc: modem_pa_fr1_dsc {
+				qcom,qmi-dev-name = "pa_fr1_dsc";
 				#cooling-cells = <2>;
 			};
 
@@ -20,33 +20,33 @@
 				#cooling-cells = <2>;
 			};
 
-			modem_current: modem_current {
-				qcom,qmi-dev-name = "modem_current";
+			modem_skin_lte_dsc: modem_skin_lte_dsc {
+				qcom,qmi-dev-name = "modem_skin_lte_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_skin: modem_skin {
-				qcom,qmi-dev-name = "modem_skin";
+			modem_skin_nr_dsc: modem_skin_nr_dsc {
+				qcom,qmi-dev-name = "modem_skin_nr_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_mmw_skin0: modem_mmw_skin0 {
-				qcom,qmi-dev-name = "mmw_skin0";
+			modem_mmw_skin0_dsc: modem_mmw_skin0_dsc {
+				qcom,qmi-dev-name = "mmw_skin0_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_mmw_skin1: modem_mmw_skin1 {
-				qcom,qmi-dev-name = "mmw_skin1";
+			modem_mmw_skin1_dsc: modem_mmw_skin1_dsc {
+				qcom,qmi-dev-name = "mmw_skin1_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_mmw_skin2: modem_mmw_skin2 {
-				qcom,qmi-dev-name = "mmw_skin2";
+			modem_mmw_skin2_dsc: modem_mmw_skin2_dsc {
+				qcom,qmi-dev-name = "mmw_skin2_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_mmw_skin3: modem_mmw_skin3 {
-				qcom,qmi-dev-name = "mmw_skin3";
+			modem_mmw_skin3_dsc: modem_mmw_skin3_dsc {
+				qcom,qmi-dev-name = "mmw_skin3_dsc";
 				#cooling-cells = <2>;
 			};
 
@@ -77,11 +77,6 @@
 
 			modem_charge_state: modem_charge_state {
 				qcom,qmi-dev-name = "charge_state";
-				#cooling-cells = <2>;
-			};
-
-			modem_vdd: modem_vdd {
-				qcom,qmi-dev-name = "cpuv_restriction_cold";
 				#cooling-cells = <2>;
 			};
 
