@@ -4674,16 +4674,13 @@ static void throttle_cfs_rq(struct cfs_rq *cfs_rq)
 			dequeue_entity(qcfs_rq, se, DEQUEUE_SLEEP);
 		qcfs_rq->h_nr_running -= task_delta;
 		qcfs_rq->idle_h_nr_running -= idle_task_delta;
-		walt_dec_throttled_cfs_rq_stats(&qcfs_rq->walt_stats, cfs_rq);
 
 		if (qcfs_rq->load.weight)
 			dequeue = 0;
 	}
 
-	if (!se) {
+	if (!se)
 		sub_nr_running(rq, task_delta);
-		walt_dec_throttled_cfs_rq_stats(&rq->walt_stats, cfs_rq);
-	}
 
 	cfs_rq->throttled = 1;
 	cfs_rq->throttled_clock = rq_clock(rq);
@@ -4717,7 +4714,6 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 	struct sched_entity *se;
 	int enqueue = 1;
 	long task_delta, idle_task_delta;
-	struct cfs_rq *tcfs_rq __maybe_unused = cfs_rq;
 
 	se = cfs_rq->tg->se[cpu_of(rq)];
 
@@ -4747,7 +4743,6 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 			enqueue_entity(cfs_rq, se, ENQUEUE_WAKEUP);
 		cfs_rq->h_nr_running += task_delta;
 		cfs_rq->idle_h_nr_running += idle_task_delta;
-		walt_inc_throttled_cfs_rq_stats(&cfs_rq->walt_stats, tcfs_rq);
 
 		if (cfs_rq_throttled(cfs_rq))
 			break;
@@ -4755,10 +4750,8 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 
 	assert_list_leaf_cfs_rq(rq);
 
-	if (!se) {
+	if (!se)
 		add_nr_running(rq, task_delta);
-		walt_inc_throttled_cfs_rq_stats(&rq->walt_stats, tcfs_rq);
-	}
 
 	/* Determine whether we need to wake up potentially idle CPU: */
 	if (rq->curr == rq->idle && rq->cfs.nr_running)
@@ -5149,7 +5142,6 @@ static void init_cfs_rq_runtime(struct cfs_rq *cfs_rq)
 {
 	cfs_rq->runtime_enabled = 0;
 	INIT_LIST_HEAD(&cfs_rq->throttled_list);
-	walt_init_cfs_rq_stats(cfs_rq);
 }
 
 void start_cfs_bandwidth(struct cfs_bandwidth *cfs_b)
@@ -5401,9 +5393,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	 */
 	util_est_enqueue(&rq->cfs, p);
 
-#ifdef CONFIG_SCHED_WALT
-	p->misfit = !task_fits_max(p, rq->cpu);
-#endif
 	/*
 	 * If in_iowait is set, the code below may not trigger any cpufreq
 	 * utilization updates, so do it here explicitly with the IOWAIT flag
@@ -5428,7 +5417,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 			break;
 		cfs_rq->h_nr_running++;
 		cfs_rq->idle_h_nr_running += idle_h_nr_running;
-		walt_inc_cfs_rq_stats(cfs_rq, p);
 
 		flags = ENQUEUE_WAKEUP;
 	}
@@ -5437,7 +5425,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cfs_rq = cfs_rq_of(se);
 		cfs_rq->h_nr_running++;
 		cfs_rq->idle_h_nr_running += idle_h_nr_running;
-		walt_inc_cfs_rq_stats(cfs_rq, p);
 
 		if (cfs_rq_throttled(cfs_rq))
 			break;
@@ -5448,6 +5435,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se) {
 		add_nr_running(rq, 1);
+#ifdef CONFIG_SCHED_WALT
+		p->misfit = !task_fits_max(p, rq->cpu);
+#endif
 		inc_rq_walt_stats(rq, p);
 		/*
 		 * Since new tasks are assigned an initial util_avg equal to
@@ -11439,7 +11429,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 	misfit = rq->misfit_task_load;
 
 	if (old_misfit != misfit) {
-		walt_fixup_nr_big_tasks(rq, curr, 1, misfit);
+		walt_adjust_nr_big_tasks(rq, 1, misfit);
 		curr->misfit = misfit;
 	}
 #endif
@@ -11961,7 +11951,7 @@ const struct sched_class fair_sched_class = {
 #endif
 
 #ifdef CONFIG_SCHED_WALT
-	.fixup_walt_sched_stats	= walt_fixup_sched_stats_fair,
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
 #endif
 };
 

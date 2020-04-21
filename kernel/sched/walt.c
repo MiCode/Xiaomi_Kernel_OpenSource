@@ -172,12 +172,6 @@ bool __weak early_detection_notify(struct rq *rq, u64 wallclock)
 
 void __weak note_task_waking(struct task_struct *p, u64 wallclock) { }
 
-void __weak walt_fixup_sched_stats_fair(struct rq *rq, struct task_struct *p,
-		u16 updated_demand_scaled, u16 updated_pred_demand_scaled) { }
-
-void __weak walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
-					int delta, bool inc) { }
-
 int __weak group_balance_cpu_not_isolated(struct sched_group *sg)
 {
 	return group_balance_cpu(sg);
@@ -193,10 +187,6 @@ void __weak walt_update_task_ravg(struct task_struct *p, struct rq *rq,
 
 void __weak fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 		u16 updated_demand_scaled, u16 updated_pred_demand_scaled) { }
-
-void __weak inc_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
-
-void __weak dec_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
 
 void __weak fixup_busy_time(struct task_struct *p, int new_cpu) { }
 

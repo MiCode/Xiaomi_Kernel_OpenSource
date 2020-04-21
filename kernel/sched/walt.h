@@ -69,8 +69,33 @@ extern void
 fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 					  u16 updated_demand_scaled,
 					  u16 updated_pred_demand_scaled);
-extern void inc_rq_walt_stats(struct rq *rq, struct task_struct *p);
-extern void dec_rq_walt_stats(struct rq *rq, struct task_struct *p);
+
+static inline void walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
+{
+	sched_update_nr_prod(cpu_of(rq), 0, true);
+	rq->walt_stats.nr_big_tasks += inc ? delta : -delta;
+
+	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
+}
+
+static inline void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
+{
+	if (p->misfit)
+		rq->walt_stats.nr_big_tasks++;
+
+	walt_inc_cumulative_runnable_avg(rq, p);
+}
+
+static inline void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
+{
+	if (p->misfit)
+		rq->walt_stats.nr_big_tasks--;
+
+	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
+
+	walt_dec_cumulative_runnable_avg(rq, p);
+}
+
 extern void fixup_busy_time(struct task_struct *p, int new_cpu);
 extern void init_new_task_load(struct task_struct *p);
 extern void mark_task_starting(struct task_struct *p);

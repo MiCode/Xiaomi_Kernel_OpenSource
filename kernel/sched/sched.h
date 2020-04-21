@@ -3134,13 +3134,6 @@ static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
 	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
-
-extern void walt_fixup_sched_stats_fair(struct rq *rq,
-					struct task_struct *p,
-					u16 updated_demand_scaled,
-					u16 updated_pred_demand_scaled);
-extern void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
-					int delta, bool inc);
 #else   /* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
