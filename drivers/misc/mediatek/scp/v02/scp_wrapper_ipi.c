@@ -176,6 +176,11 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	else
 		tmp_id = id;
 
+	if (is_scp_ready(scp_id) == 0) {
+		pr_err("[SCP] %s: %s not ready\n", __func__, core_ids[scp_id]);
+		return SCP_IPI_NOT_READY;
+	}
+
 	if (len > (scp_ipi_legacy_id[tmp_id].out_size - 2) * MBOX_SLOT_SIZE) {
 		pr_err("%s: len overflow\n", __func__);
 		return SCP_IPI_ERROR;
