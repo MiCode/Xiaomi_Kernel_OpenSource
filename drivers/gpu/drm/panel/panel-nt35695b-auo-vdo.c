@@ -1094,7 +1094,6 @@ static void check_is_need_fake_resolution(struct device *dev)
 		need_fake_resolution = true;
 	if (fake_width > 0 && fake_width < HAC)
 		need_fake_resolution = true;
-	need_fake_resolution = false;
 }
 
 static int lcm_probe(struct mipi_dsi_device *dsi)
