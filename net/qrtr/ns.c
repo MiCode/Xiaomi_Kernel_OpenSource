@@ -14,6 +14,9 @@
 
 #include "qrtr.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/qrtr.h>
+
 static RADIX_TREE(nodes, GFP_KERNEL);
 
 static struct {
@@ -107,8 +110,8 @@ static int service_announce_new(struct sockaddr_qrtr *dest,
 	struct msghdr msg = { };
 	struct kvec iv;
 
-	trace_printk("advertising new server [%d:%x]@[%d:%d]\n",
-		     srv->service, srv->instance, srv->node, srv->port);
+	trace_qrtr_ns_service_announce_new(srv->service, srv->instance,
+					   srv->node, srv->port);
 
 	iv.iov_base = &pkt;
 	iv.iov_len = sizeof(pkt);
@@ -134,8 +137,8 @@ static int service_announce_del(struct sockaddr_qrtr *dest,
 	struct kvec iv;
 	int ret;
 
-	trace_printk("advertising removal of server [%d:%x]@[%d:%d]\n",
-		     srv->service, srv->instance, srv->node, srv->port);
+	trace_qrtr_ns_service_announce_del(srv->service, srv->instance,
+					   srv->node, srv->port);
 
 	iv.iov_base = &pkt;
 	iv.iov_len = sizeof(pkt);
@@ -249,8 +252,8 @@ static struct qrtr_server *server_add(unsigned int service,
 
 	radix_tree_insert(&node->servers, port, srv);
 
-	trace_printk("add server [%d:%x]@[%d:%d]\n", srv->service,
-		     srv->instance, srv->node, srv->port);
+	trace_qrtr_ns_server_add(srv->service, srv->instance,
+				 srv->node, srv->port);
 
 	return srv;
 
@@ -638,9 +641,8 @@ static void qrtr_ns_worker(struct work_struct *work)
 		cmd = le32_to_cpu(pkt->cmd);
 		if (cmd < ARRAY_SIZE(qrtr_ctrl_pkt_strings) &&
 		    qrtr_ctrl_pkt_strings[cmd])
-			trace_printk("%s from %d:%d\n",
-				     qrtr_ctrl_pkt_strings[cmd], sq.sq_node,
-				     sq.sq_port);
+			trace_qrtr_ns_message(qrtr_ctrl_pkt_strings[cmd],
+					      sq.sq_node, sq.sq_port);
 
 		ret = 0;
 		switch (cmd) {
