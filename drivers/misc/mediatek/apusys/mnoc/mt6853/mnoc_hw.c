@@ -442,7 +442,9 @@ int mnoc_check_int_status(void)
 		/* additional check: sw triggered irq */
 		val = mnoc_read_field(MNOC_REG(grp_idx,
 			MISC_CTRL), 18:16);
+#ifdef MNOC_TAG_TP
 		sw_irq_val = val;
+#endif
 		if (val != 0) {
 			d->sw_irq_sta.reg_val = val;
 			d->sw_irq_sta.timestamp = cur_timestamp;
