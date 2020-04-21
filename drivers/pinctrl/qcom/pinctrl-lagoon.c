@@ -42,6 +42,7 @@
 		.intr_cfg_reg = REG_BASE + 0x8 + REG_SIZE * id,		\
 		.intr_status_reg = REG_BASE + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = REG_BASE + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = REG_BASE + 0xBF000,\
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -58,6 +59,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 		.wake_reg = REG_BASE + wake_off,	\
 		.wake_bit = bit,		\
 	}
@@ -1614,6 +1616,11 @@ static const struct msm_pingroup lagoon_groups[] = {
 	[163] = UFS_RESET(ufs_reset, 0xae000),
 };
 
+static struct msm_dir_conn lagoon_dir_conn[] = {
+	{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0},
+	{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}
+};
+
 static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
 	.pins = lagoon_pins,
 	.npins = ARRAY_SIZE(lagoon_pins),
@@ -1622,6 +1629,7 @@ static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
 	.groups = lagoon_groups,
 	.ngroups = ARRAY_SIZE(lagoon_groups),
 	.ngpios = 156,
+	.dir_conn = lagoon_dir_conn,
 };
 
 static int lagoon_pinctrl_probe(struct platform_device *pdev)
