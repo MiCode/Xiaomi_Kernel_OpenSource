@@ -2748,7 +2748,7 @@ page_owner=on";
 		compatible = "mediatek,snd_audio_dsp";
 		mtk_dsp_voip = <0x1f 0x1 0xffffffff 0xffffffff>;
 		mtk_dsp_primary = <0x1f 0x0 0xffffffff 0xffffffff>;
-		mtk_dsp_offload = <0x0 0x6 0xffffffff 0xffffffff>;
+		mtk_dsp_offload = <0x1d 0x6 0xffffffff 0xffffffff>;
 		mtk_dsp_deep = <0x5 0x3 0xffffffff 0xffffffff>;
 		mtk_dsp_playback = <0x1 0x4 0x10 0x14>;
 		mtk_dsp_music = <0x1 0xffffffff 0xffffffff 0xffffffff>;
@@ -2768,6 +2768,10 @@ page_owner=on";
 		prefer_mode = <0>;
 		mode_size = <0x12000 0x18000>;
 		block_size = <0x1000>;
+	};
+
+	mt_soc_playback_offload {
+		compatible = "mediatek,mt_soc_offload_common";
 	};
 
 	btcvsd_snd: mtk-btcvsd-snd@18050000 {
