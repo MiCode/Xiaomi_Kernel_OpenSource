@@ -568,6 +568,8 @@ config MACH_MT6853
 	select MTK_PLAT_SRAM_FLAG
 	select MTK_DEBUG_LATCH
 	select MTK_CACHE_PARITY_CHECK
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
