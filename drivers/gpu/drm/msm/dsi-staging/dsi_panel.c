@@ -1599,6 +1599,7 @@ static int dsi_panel_parse_panel_mode(struct dsi_panel *panel)
 {
 	int rc = 0;
 	struct dsi_parser_utils *utils = &panel->utils;
+	bool panel_mode_switch_enabled;
 	enum dsi_op_mode panel_mode;
 	const char *mode;
 
@@ -1617,7 +1618,12 @@ static int dsi_panel_parse_panel_mode(struct dsi_panel *panel)
 		goto error;
 	}
 
-	if (panel_mode == DSI_OP_VIDEO_MODE) {
+	panel_mode_switch_enabled = utils->read_bool(utils->data,
+			"qcom,mdss-dsi-panel-mode-switch");
+	pr_info("%s: panel operating mode switch feature %s\n", __func__,
+		(panel_mode_switch_enabled ? "enabled" : "disabled"));
+
+	if (panel_mode == DSI_OP_VIDEO_MODE || panel_mode_switch_enabled) {
 		rc = dsi_panel_parse_video_host_config(&panel->video_config,
 						       utils,
 						       panel->name);
@@ -1628,7 +1634,7 @@ static int dsi_panel_parse_panel_mode(struct dsi_panel *panel)
 		}
 	}
 
-	if (panel_mode == DSI_OP_CMD_MODE) {
+	if (panel_mode == DSI_OP_CMD_MODE || panel_mode_switch_enabled) {
 		rc = dsi_panel_parse_cmd_host_config(&panel->cmd_config,
 						     utils,
 						     panel->name);
@@ -1640,6 +1646,7 @@ static int dsi_panel_parse_panel_mode(struct dsi_panel *panel)
 	}
 
 	panel->panel_mode = panel_mode;
+	panel->panel_mode_switch_enabled = panel_mode_switch_enabled;
 error:
 	return rc;
 }
@@ -2911,6 +2918,31 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_display_mode *mode,
 	return rc;
 }
 
+static int dsi_panel_parse_panel_mode_caps(struct dsi_display_mode *mode,
+			struct dsi_parser_utils *utils)
+{
+	bool vid_mode_support, cmd_mode_support;
+
+	if (!mode || !mode->priv_info) {
+		pr_err("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	vid_mode_support = utils->read_bool(utils->data,
+				"qcom,mdss-dsi-video-mode");
+	cmd_mode_support = utils->read_bool(utils->data,
+				"qcom,mdss-dsi-cmd-mode");
+
+	if (cmd_mode_support)
+		mode->panel_mode = DSI_OP_CMD_MODE;
+	else if (vid_mode_support)
+		mode->panel_mode = DSI_OP_VIDEO_MODE;
+	else
+		return -EINVAL;
+
+	return 0;
+};
+
 static int dsi_panel_parse_dms_info(struct dsi_panel *panel)
 {
 	int dms_enabled;
@@ -3472,9 +3504,12 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel)
 		goto error;
 	}
 
-	/* No multiresolution support is available for video mode panels */
+	/* No multiresolution support is available for video mode panels.
+	 * Multi-mode is supported for video mode during POMS is enabled.
+	 */
 	if (panel->panel_mode != DSI_OP_CMD_MODE &&
-		!panel->host_config.ext_bridge_num)
+		!panel->host_config.ext_bridge_num &&
+		!panel->panel_mode_switch_enabled)
 		count = SINGLE_MODE_SUPPORT;
 
 	panel->num_timing_nodes = count;
@@ -3626,6 +3661,17 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 		 */
 		if (prv_info->dsc_enabled || prv_info->roi_caps.enabled)
 			prv_info->overlap_pixels = 0;
+
+		if (panel->panel_mode_switch_enabled) {
+			rc = dsi_panel_parse_panel_mode_caps(mode, utils);
+			if (rc) {
+				pr_err("PMS: failed to parse panel mode\n");
+				rc = 0;
+				mode->panel_mode = panel->panel_mode;
+			}
+		} else {
+			mode->panel_mode = panel->panel_mode;
+		}
 	}
 	goto done;
 
@@ -4020,6 +4066,79 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 	dsi_panel_destroy_cmd_packets(set);
 	dsi_panel_dealloc_cmd_packets(set);
 
+	return rc;
+}
+
+int dsi_panel_pre_mode_switch_to_video(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_CMD_TO_VID_SWITCH);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_CMD_TO_VID_SWITCH cmds, rc=%d\n",
+			panel->name, rc);
+	mutex_unlock(&panel->panel_lock);
+
+	return rc;
+}
+
+int dsi_panel_pre_mode_switch_to_cmd(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_VID_TO_CMD_SWITCH);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_VID_TO_CMD_SWITCH cmds, rc=%d\n",
+			panel->name, rc);
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_mode_switch_to_cmd(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_POST_VID_TO_CMD_SWITCH);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_POST_VID_TO_CMD_SWITCH cmds, rc=%d\n",
+			panel->name, rc);
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_mode_switch_to_vid(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_POST_CMD_TO_VID_SWITCH);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_POST_CMD_TO_VID_SWITCH cmds, rc=%d\n",
+			panel->name, rc);
+	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
