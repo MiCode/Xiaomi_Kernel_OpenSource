@@ -343,7 +343,9 @@ static int venc_encode(unsigned long handle,
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
 		unsigned int bs_size_hdr = 0;
 
+		vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
 		ret = venc_encode_header(inst, bs_buf, &bs_size_hdr);
+		vcu_enc_clear_ctx_for_gce(&inst->vcu_inst);
 		if (ret)
 			goto encode_err;
 
