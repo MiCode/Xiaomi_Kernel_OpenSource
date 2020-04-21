@@ -66,6 +66,9 @@
 #define SUBSYS_PWR_DOWN		0
 #define SUBSYS_PWR_ON		1
 
+static spinlock_t pgcb_lock;
+LIST_HEAD(pgcb_list);
+
 struct subsys;
 
 struct subsys_ops {
@@ -625,13 +628,17 @@ static struct subsys syss[] =	/* NR_SYSS */
 			},
 };
 
-LIST_HEAD(pgcb_list);
-
 struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 {
+	unsigned long spinlock_save_flags;
+
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
+
 	INIT_LIST_HEAD(&pgcb->list);
 
 	list_add(&pgcb->list, &pgcb_list);
+
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return pgcb;
 }
@@ -705,6 +712,7 @@ static int DBG_STEP;
  */
 static void ram_console_update(void)
 {
+	unsigned long spinlock_save_flags;
 	struct pg_callbacks *pgcb;
 	u32 data[8] = {0x0};
 	u32 i = 0;
@@ -847,10 +855,12 @@ static void ram_console_update(void)
 				DBG_STA ? "pwron":"pdn",
 				DBG_STEP);
 
+		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
+		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	for (j = 0; j <= i; j++)
@@ -4269,6 +4279,7 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 {
 	int r = 0;
 	unsigned long flags;
+	unsigned long spinlock_save_flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
@@ -4302,10 +4313,12 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 	mtk_clk_unlock(flags);
 
 	if (action == MTCMOS_BUS_PROT) {
+		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry(pgcb, &pgcb_list, list) {
 			if (pgcb->after_on)
 				pgcb->after_on(id);
 		}
+		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
 
 	return r;
@@ -4315,6 +4328,7 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 {
 	int r = 0;
 	unsigned long flags;
+	unsigned long spinlock_save_flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
@@ -4339,10 +4353,12 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
 	if (action == MTCMOS_BUS_PROT) {
+		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->before_off)
 				pgcb->before_off(id);
 		}
+		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
 
 	mtk_clk_lock(flags);
@@ -4819,6 +4835,7 @@ static int clk_mt6853_scpsys_probe(struct platform_device *pdev)
 
 	iomap_apu();
 
+	spin_lock_init(&pgcb_lock);
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif

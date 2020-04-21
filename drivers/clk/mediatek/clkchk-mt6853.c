@@ -501,7 +501,6 @@ static const char * const off_pll_names[] = {
 	"univpll",
 	"msdcpll",
 	"mmpll",
-	"adsppll",
 	"tvdpll",
 	"apll1",
 	"apll2",
@@ -510,15 +509,24 @@ static const char * const off_pll_names[] = {
 	NULL
 };
 
+static const char * const notice_pll_names[] = {
+	"adsppll",
+	NULL
+};
+
 static const char * const off_mtcmos_names[] = {
 	"PG_DIS",
+	"PG_MFG0",
+	"PG_MFG1",
+	"PG_MFG2",
+	"PG_MFG3",
+	"PG_MFG5",
 	"PG_ISP",
 	"PG_ISP2",
 	"PG_IPE",
 	"PG_VDEC",
 	"PG_VENC",
 	"PG_AUDIO",
-	"PG_ADSP",
 	"PG_CAM",
 	"PG_CAM_RAWA",
 	"PG_CAM_RAWB",
@@ -529,11 +537,7 @@ static const char * const off_mtcmos_names[] = {
 static const char * const notice_mtcmos_names[] = {
 	"PG_MD1",
 	"PG_CONN",
-	"PG_MFG0",
-	"PG_MFG1",
-	"PG_MFG2",
-	"PG_MFG3",
-	"PG_MFG5",
+	"PG_ADSP",
 	NULL
 };
 
@@ -652,6 +656,41 @@ static void check_pll_off(void)
 		WARN_ON(1);
 #endif
 	}
+}
+
+static void check_pll_notice(void)
+{
+	static struct clk *off_plls[ARRAY_SIZE(notice_pll_names)];
+
+	struct clk **c;
+	int invalid = 0;
+	char buf[128] = {0};
+	int n = 0;
+
+	if (!off_plls[0]) {
+		const char * const *pn;
+
+		for (pn = notice_pll_names, c = off_plls; *pn; pn++, c++)
+			*c = __clk_lookup(*pn);
+	}
+
+	for (c = off_plls; *c; c++) {
+		struct clk_hw *c_hw = __clk_get_hw(*c);
+
+		if (!c_hw)
+			continue;
+
+		if (!clk_hw_is_enabled(c_hw))
+			continue;
+
+		pr_notice("suspend warning[0m: %s is on\n",
+				clk_hw_get_name(c_hw));
+
+		invalid++;
+	}
+
+	if (invalid)
+		print_enabled_clks();
 }
 
 static void check_mtcmos_off(void)

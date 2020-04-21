@@ -1997,24 +1997,12 @@ static const struct mtk_gate_regs ifrao7_cg_regs = {
 
 static const struct mtk_gate ifrao_clks[] = {
 	/* IFRAO0 */
-	GATE_IFRAO0(CLK_IFRAO_INFRA_DCM_RG_FORCE, "ifrao_infra_force",
-			"axi_ck"/* parent */, 2),
 	/* IFRAO1 */
-	GATE_IFRAO1(CLK_IFRAO_PERI_DCM_RG_FORCE, "ifrao_peri_force",
-			"axi_ck"/* parent */, 2),
 	/* IFRAO2 */
 	GATE_IFRAO2(CLK_IFRAO_PMIC_TMR, "ifrao_pmic_tmr",
 			"fpwrap_ulposc_ck"/* parent */, 0),
 	GATE_IFRAO2(CLK_IFRAO_PMIC_AP, "ifrao_pmic_ap",
 			"fpwrap_ulposc_ck"/* parent */, 1),
-	GATE_IFRAO2(CLK_IFRAO_PMIC_MD, "ifrao_pmic_md",
-			"fpwrap_ulposc_ck"/* parent */, 2),
-	GATE_IFRAO2(CLK_IFRAO_PMIC_CONN, "ifrao_pmic_conn",
-			"fpwrap_ulposc_ck"/* parent */, 3),
-	GATE_IFRAO2(CLK_IFRAO_SEJ, "ifrao_sej",
-			"axi_ck"/* parent */, 5),
-	GATE_IFRAO2(CLK_IFRAO_APXGPT, "ifrao_apxgpt",
-			"axi_ck"/* parent */, 6),
 	GATE_IFRAO2(CLK_IFRAO_GCE, "ifrao_gce",
 			"axi_ck"/* parent */, 8),
 	GATE_IFRAO2(CLK_IFRAO_GCE2, "ifrao_gce2",
@@ -2060,10 +2048,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 4),
 	GATE_IFRAO3(CLK_IFRAO_MSDC0_SRC, "ifrao_msdc0_clk",
 			"msdc50_0_ck"/* parent */, 6),
-	GATE_IFRAO3(CLK_IFRAO_DVFSRC, "ifrao_dvfsrc",
-			"f26m_ck"/* parent */, 7),
-	GATE_IFRAO3(CLK_IFRAO_TRNG, "ifrao_trng",
-			"axi_ck"/* parent */, 9),
 	GATE_IFRAO3(CLK_IFRAO_AUXADC, "ifrao_auxadc",
 			"f26m_ck"/* parent */, 10),
 	GATE_IFRAO3(CLK_IFRAO_CPUM, "ifrao_cpum",
@@ -2072,8 +2056,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 12),
 	GATE_IFRAO3(CLK_IFRAO_CCIF1_MD, "ifrao_ccif1_md",
 			"axi_ck"/* parent */, 13),
-	GATE_IFRAO3(CLK_IFRAO_AUXADC_MD, "ifrao_auxadc_md",
-			"f26m_ck"/* parent */, 14),
 	GATE_IFRAO3(CLK_IFRAO_PCIE_TL_26M, "ifrao_pcie_tl_26m",
 			"axi_ck"/* parent */, 15),
 	GATE_IFRAO3(CLK_IFRAO_MSDC1_SRC, "ifrao_msdc1_clk",
@@ -2088,20 +2070,12 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 20),
 	GATE_IFRAO3(CLK_IFRAO_CCIF_AP, "ifrao_ccif_ap",
 			"axi_ck"/* parent */, 23),
-	GATE_IFRAO3(CLK_IFRAO_DEBUGSYS, "ifrao_debugsys",
-			"axi_ck"/* parent */, 24),
 	GATE_IFRAO3(CLK_IFRAO_AUDIO, "ifrao_audio",
 			"axi_ck"/* parent */, 25),
 	GATE_IFRAO3(CLK_IFRAO_CCIF_MD, "ifrao_ccif_md",
 			"axi_ck"/* parent */, 26),
 	GATE_IFRAO3(CLK_IFRAO_DXCC_SEC_CORE, "ifrao_secore",
 			"dxcc_ck"/* parent */, 27),
-	GATE_IFRAO3(CLK_IFRAO_DXCC_AO, "ifrao_dxcc_ao",
-			"dxcc_ck"/* parent */, 28),
-	GATE_IFRAO3(CLK_IFRAO_DBG_TRACE, "ifrao_dbg_trace",
-			"axi_ck"/* parent */, 29),
-	GATE_IFRAO3(CLK_IFRAO_DRAMC_F26M, "ifrao_dramc26",
-			"f26m_ck"/* parent */, 31),
 	/* IFRAO4 */
 	GATE_IFRAO4(CLK_IFRAO_SSUSB, "ifrao_ssusb",
 			"fusb_top_ck"/* parent */, 1),
@@ -2111,8 +2085,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 3),
 	GATE_IFRAO4(CLK_IFRAO_AUDIO_26M_BCLK, "ifrao_audio26m",
 			"f26m_ck"/* parent */, 4),
-	GATE_IFRAO4(CLK_IFRAO_MODEM_TEMP_SHARE, "ifrao_mdtemp",
-			"f26m_ck"/* parent */, 5),
 	GATE_IFRAO4(CLK_IFRAO_SPI1, "ifrao_spi1",
 			"spi_ck"/* parent */, 6),
 	GATE_IFRAO4(CLK_IFRAO_SPI2, "ifrao_spi2",
@@ -2121,14 +2093,8 @@ static const struct mtk_gate ifrao_clks[] = {
 			"spi_ck"/* parent */, 10),
 	GATE_IFRAO4(CLK_IFRAO_UNIPRO_SYSCLK, "ifrao_unipro_sysclk",
 			"ufs_ck"/* parent */, 11),
-	GATE_IFRAO4(CLK_IFRAO_UNIPRO_TICK, "ifrao_unipro_tick",
-			"f26m_ck"/* parent */, 12),
 	GATE_IFRAO4(CLK_IFRAO_UFS_MP_SAP_BCLK, "ifrao_ufs_bclk",
 			"f26m_ck"/* parent */, 13),
-	GATE_IFRAO4(CLK_IFRAO_FSSPM, "ifrao_fsspm",
-			"sspm_ck"/* parent */, 15),
-	GATE_IFRAO4(CLK_IFRAO_SSPM_BUS_HCLK, "ifrao_sspm_hclk",
-			"axi_ck"/* parent */, 17),
 	GATE_IFRAO4(CLK_IFRAO_SPI4, "ifrao_spi4",
 			"spi_ck"/* parent */, 25),
 	GATE_IFRAO4(CLK_IFRAO_SPI5, "ifrao_spi5",
@@ -2139,8 +2105,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"ufs_ck"/* parent */, 28),
 	GATE_IFRAO4(CLK_IFRAO_AES, "ifrao_aes",
 			"aes_ufsfde_ck"/* parent */, 29),
-	GATE_IFRAO4(CLK_IFRAO_UFS_TICK, "ifrao_ufs_tick",
-			"ufs_ck"/* parent */, 30),
 	GATE_IFRAO4(CLK_IFRAO_SSUSB_XHCI, "ifrao_ssusb_xhci",
 			"fssusb_xhci_ck"/* parent */, 31),
 	/* IFRAO5 */
@@ -2150,10 +2114,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"msdc50_0_ck"/* parent */, 1),
 	GATE_IFRAO5(CLK_IFRAO_MSDC2_SELF, "ifrao_msdc2sf",
 			"msdc50_0_ck"/* parent */, 2),
-	GATE_IFRAO5(CLK_IFRAO_SSPM_26M_SELF, "ifrao_sspm_26m",
-			"f26m_ck"/* parent */, 3),
-	GATE_IFRAO5(CLK_IFRAO_SSPM_32K_SELF, "ifrao_sspm_32k",
-			"frtc_ck"/* parent */, 4),
 	GATE_IFRAO5(CLK_IFRAO_AP_MSDC0, "ifrao_ap_msdc0",
 			"msdc50_0_ck"/* parent */, 7),
 	GATE_IFRAO5(CLK_IFRAO_MD_MSDC0, "ifrao_md_msdc0",
@@ -2168,16 +2128,8 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 16),
 	GATE_IFRAO5(CLK_IFRAO_CCIF2_MD, "ifrao_ccif2_md",
 			"axi_ck"/* parent */, 17),
-	GATE_IFRAO5(CLK_IFRAO_CCIF3_AP, "ifrao_ccif3_ap",
-			"axi_ck"/* parent */, 18),
-	GATE_IFRAO5(CLK_IFRAO_CCIF3_MD, "ifrao_ccif3_md",
-			"axi_ck"/* parent */, 19),
-	GATE_IFRAO5(CLK_IFRAO_SEJ_F13M, "ifrao_sej_f13m",
-			"f26m_ck"/* parent */, 20),
 	GATE_IFRAO5(CLK_IFRAO_FBIST2FPC, "ifrao_fbist2fpc",
 			"msdc50_0_ck"/* parent */, 24),
-	GATE_IFRAO5(CLK_IFRAO_DEVICE_APC_SYNC, "ifrao_dapc_sync",
-			"axi_ck"/* parent */, 25),
 	GATE_IFRAO5(CLK_IFRAO_DPMAIF_MAIN, "ifrao_dpmaif_main",
 			"dpmaif_main_ck"/* parent */, 26),
 	GATE_IFRAO5(CLK_IFRAO_CCIF4_AP, "ifrao_ccif4_ap",
@@ -2192,10 +2144,6 @@ static const struct mtk_gate ifrao_clks[] = {
 	GATE_IFRAO6(CLK_IFRAO_AP_DMA, "ifrao_ap_dma",
 			"apdma_pseudo"/* parent */, 31),
 	/* IFRAO7 */
-	GATE_IFRAO7(CLK_IFRAO_133M_MCLK_CK, "ifrao_133m_mclk_ck",
-			"spi_ck"/* parent */, 0),
-	GATE_IFRAO7(CLK_IFRAO_66M_MCLK_CK, "ifrao_66m_mclk_ck",
-			"axi_ck"/* parent */, 1),
 	GATE_IFRAO7(CLK_IFRAO_66M_PERI_BUS_MCLK_CK, "ifrao_66m_peri_mclk",
 			"axi_ck"/* parent */, 2),
 	GATE_IFRAO7(CLK_IFRAO_INFRA_FREE_DCM_133M, "ifrao_infra_133m",
@@ -2228,8 +2176,6 @@ static const struct mtk_gate_regs peri_cg_regs = {
 	}
 
 static const struct mtk_gate peri_clks[] = {
-	GATE_PERI(CLK_PERIAXI_DISABLE, "periaxi_disable",
-			"axi_ck"/* parent */, 31),
 };
 
 static const struct mtk_gate_regs apmixed_cg_regs = {
@@ -2248,12 +2194,6 @@ static const struct mtk_gate_regs apmixed_cg_regs = {
 	}
 
 static const struct mtk_gate apmixed_clks[] = {
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPIC0_26M_EN, "mipic0",
-			"f26m_ck"/* parent */, 6),
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPIC1_26M_EN, "mipic1",
-			"f26m_ck"/* parent */, 11),
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPID0_26M_EN, "mipid0",
-			"f26m_ck"/* parent */, 16),
 };
 
 
