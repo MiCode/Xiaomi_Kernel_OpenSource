@@ -78,67 +78,22 @@ void get_freq_table_cpu(struct eemsn_det *det)
 #ifdef CONFIG_MTK_CPU_FREQ
 	int i = 0;
 	enum mt_cpu_dvfs_id cpudvfsindex;
-//#if !DVT
-	unsigned int curfreq = 0;
-//#endif
-
 
 	cpudvfsindex = detid_to_dvfsid(det);
 
-
-	/* Find 2line turn point */
-	if (det->isSupLoo) {
-		for (i = 0; i < NR_FREQ; i++) {
-			curfreq = mt_cpufreq_get_freq_by_idx
-			(cpudvfsindex, i);
-			if (curfreq <= det->mid_freq_khz) {
-				det->turn_pt = i;
-				break;
-			}
-		}
-	}
-
-#if 0
-	eem_error("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
-			det->name+8, det->num_freq_tbl, det->max_freq_khz,
-			det->turn_pt);
-
-#endif
-#if DVT
 	for (i = 0; i < NR_FREQ; i++) {
-		det->freq_tbl[i] = dvtfreq[i];
+		det->freq_tbl[i] =
+			mt_cpufreq_get_freq_by_idx(cpudvfsindex, i) / 1000;
+#if 0
+		eem_error("id:%d, idx:%d, freq_tbl=%d, orgfreq:%d,\n",
+			det->det_id, i, det->freq_tbl[i],
+			mt_cpufreq_get_freq_by_idx(cpudvfsindex, i));
+#endif
 		if (det->freq_tbl[i] == 0)
 			break;
 	}
-#else
-
-	if (det->max_freq_khz != 0) {
-		for (i = 0; i < NR_FREQ; i++) {
-			det->freq_tbl[i] = PERCENT(
-				mt_cpufreq_get_freq_by_idx(cpudvfsindex, i),
-				det->max_freq_khz);
-#if 0
-			eem_error("id:%d, idx:%d, freq_tbl=%d, orgfreq:%d,\n",
-				det->det_id, i, det->freq_tbl[i],
-				mt_cpufreq_get_freq_by_idx(cpudvfsindex, i));
-#endif
-			if (det->freq_tbl[i] == 0)
-				break;
-		}
-	}
-
-#endif
 
 	det->num_freq_tbl = i;
-
-	/* Find 2line freq tbl for low bank */
-	if ((det->isSupLoo)) {
-		for (i = det->turn_pt; i < det->num_freq_tbl; i++) {
-			det->freq_tbl[i] =
-			PERCENT(mt_cpufreq_get_freq_by_idx(cpudvfsindex, i),
-			det->mid_freq_khz);
-		}
-	}
 
 #endif
 }

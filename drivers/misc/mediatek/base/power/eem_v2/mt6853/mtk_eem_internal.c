@@ -61,16 +61,11 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.ops        = &big_det_ops,
 		.det_id    = EEMSN_DET_L,
 		.features	= FEA_INIT01 | FEA_INIT02 | FEA_MON | FEA_SEN,
-		.max_freq_khz = L_FREQ_BASE,
-		.mid_freq_khz = L_M_FREQ_BASE,
 		.volt_offset = 0,
-
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
-		.isSupLoo	= 1,
-
 	},
 
 	[EEMSN_DET_B] = {
@@ -78,16 +73,11 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.ops        = &big_det_ops,
 		.det_id    = EEMSN_DET_B,
 		.features	= FEA_INIT01 | FEA_INIT02 | FEA_MON | FEA_SEN,
-		.max_freq_khz = B_FREQ_BASE,
-		.mid_freq_khz = B_M_FREQ_BASE,
 		.volt_offset = 0,
-
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
-		.isSupLoo	= 1,
-
 	},
 
 	[EEMSN_DET_CCI] = {
@@ -95,15 +85,11 @@ struct eemsn_det eemsn_detectors[NR_EEMSN_DET] = {
 		.ops        = &big_det_ops,
 		.det_id    = EEMSN_DET_CCI,
 		.features	= FEA_INIT02 | FEA_MON,
-		.max_freq_khz = CCI_FREQ_BASE, /* 1248Mhz */
-		.mid_freq_khz = CCI_M_FREQ_BASE,
 		.volt_offset = 0,
-
 		.eemsn_v_base    = EEMSN_V_BASE,
 		.eemsn_step   = EEMSN_STEP,
 		.pmic_base    = CPU_PMIC_BASE,
 		.pmic_step    = CPU_PMIC_STEP,
-		.isSupLoo	= 1,
 	},
 
 };
@@ -139,5 +125,127 @@ unsigned short sn_mcysys_reg_dump_off[SIZE_SN_MCUSYS_REG] = {
 	0x540,
 	0x544
 };
+
+#if 0
+struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
+	[0] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2000, 1500, 650},
+		.pi_volt_tbl	  = {0x54, 0x38, 0x20},
+	},
+	[1] = {
+#if 1
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2210, 1650, 725},
+		.pi_volt_tbl	  = {0x5F, 0x44, 0x20},
+#endif
+#if 0
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1900, 1650, 725},
+		.pi_volt_tbl	  = {0x53, 0x44, 0x20},
+#endif
+#if 0
+		.pi_vf_num			= 4,
+		.pi_freq_tbl		= {2600, 2210, 1650, 725},
+		.pi_volt_tbl	  = {0x66, 0x5F, 0x44, 0x20},
+#endif
+	},
+	[2] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1400, 1050, 450},
+		.pi_volt_tbl	  = {0x54, 0x39, 0x20},
+	},
+};
+#endif
+#if 0
+struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
+	[0] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2000, 1500, 650},
+		.pi_volt_tbl	  = {0x57, 0x40, 0x18},
+	},
+	[1] = {
+#if 0
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2210, 1650, 725},
+		.pi_volt_tbl	  = {0x62, 0x46, 0x18},
+#endif
+#if 0
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1900, 1650, 725},
+		.pi_volt_tbl	  = {0x53, 0x44, 0x20},
+#endif
+#if 1
+		.pi_vf_num			= 4,
+		.pi_freq_tbl		= {2600, 2210, 1650, 725},
+		.pi_volt_tbl	  = {0x65, 0x5F, 0x44, 0x20},
+#endif
+	},
+	[2] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1400, 1050, 450},
+		.pi_volt_tbl	  = {0x55, 0x40, 0x18},
+	},
+};
+#endif
+#if defined(MC50_LOAD)
+
+#if defined(MT6853) //2.0GHz
+struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
+	[0] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2000, 1500, 650},
+		.pi_volt_tbl	  = {0x54, 0x38, 0x20},
+	},
+	[1] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2210, 1650, 725},
+		.pi_volt_tbl	  = {0x5F, 0x44, 0x20},
+	},
+	[2] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1400, 1050, 450},
+		.pi_volt_tbl	  = {0x54, 0x39, 0x20},
+	},
+};
+#elif defined(MT6875) //2.2GHz
+struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
+	[0] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2000, 1500, 650},
+		.pi_volt_tbl	  = {0x54, 0x38, 0x20},
+	},
+	[1] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2210, 1650, 725},
+		.pi_volt_tbl	  = {0x5F, 0x44, 0x20},
+	},
+	[2] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1400, 1050, 450},
+		.pi_volt_tbl	  = {0x54, 0x39, 0x20},
+	},
+};
+
+#elif defined(MT6875T) //#2.6GHz
+struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
+	[0] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2000, 1500, 650},
+		.pi_volt_tbl	  = {0x54, 0x38, 0x20},
+	},
+	[1] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {2210, 1650, 725},
+		.pi_volt_tbl	  = {0x5F, 0x44, 0x20},
+	},
+	[2] = {
+		.pi_vf_num			= 3,
+		.pi_freq_tbl		= {1400, 1050, 450},
+		.pi_volt_tbl	  = {0x54, 0x39, 0x20},
+	},
+};
+#endif
+#endif
 
 #undef __MT_EEM_INTERNAL_C__

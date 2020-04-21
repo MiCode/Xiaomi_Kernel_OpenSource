@@ -119,6 +119,8 @@ static unsigned int eem_to_cpueb(unsigned int cmd,
 	struct eem_ipi_data *eem_data);
 
 static int create_procfs(void);
+static int eem_aging_dump_proc_show(struct seq_file *m, void *v);
+
 #if UPDATE_TO_UPOWER
 static void eem_update_init2_volt_to_upower
 	(struct eemsn_det *det, unsigned int *pmic_volt);
@@ -137,12 +139,13 @@ static unsigned int record_tbl_locked[NR_FREQ];
 
 #define WAIT_TIME	(2500000)
 #define FALL_NUM        (3)
-#define EEM_PHY_TEMPSPARE0		0x112788F0
 
 #if SUPPORT_PICACHU
 #define PICACHU_SIG					(0xA5)
 #define PICACHU_SIGNATURE_SHIFT_BIT	(24)
+#define EEM_PHY_TEMPSPARE0		0x112788F0
 #define EEM_PHY_TEMPSPARE1		0x112788F4
+#define EEM_PHY_TEMPSPARE2		0x112788F8
 
 #endif
 /******************************************
@@ -405,21 +408,21 @@ static struct eemsn_det *id_to_eem_det(enum eemsn_det_id id)
 }
 
 #if SUPPORT_PICACHU
-#ifndef MC50_LOAD
-#if !EEM_FAKE_EFUSE
 static void get_picachu_efuse(void)
 {
-	int *val;
+	/* int *val; */
 	phys_addr_t picachu_mem_base_phys;
 	phys_addr_t picachu_mem_size;
 	phys_addr_t picachu_mem_base_virt = 0;
-	unsigned int i, cnt, sig;
+	unsigned int sig;
 	void __iomem *addr_ptr;
+	void __iomem *spare1phys;
 
-	val = (int *)&eem_devinfo;
+	/* val = (int *)&eem_devinfo; */
 
 	picachu_mem_size = 0x80000;
-	picachu_mem_base_phys = eem_read(EEM_TEMPSPARE0);
+	spare1phys = ioremap(EEM_PHY_TEMPSPARE0, 0);
+	picachu_mem_base_phys = eem_read(spare1phys);
 	if ((void __iomem *)picachu_mem_base_phys != NULL)
 		picachu_mem_base_virt =
 			(phys_addr_t)(uintptr_t)ioremap_wc(
@@ -442,11 +445,12 @@ static void get_picachu_efuse(void)
 			PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
 
 		if (sig == PICACHU_SIG) {
-			cnt = eem_read(addr_ptr) & 0xff;
-			if (cnt > IDX_HW_RES_SN)
-				cnt = IDX_HW_RES_SN;
+			ctrl_agingload_enable = eem_read(addr_ptr) & 0x1;
 			addr_ptr += 4;
+			memcpy(eemsn_log->vf_tbl_det,
+				addr_ptr, sizeof(eemsn_log->vf_tbl_det));
 
+#if 0
 			/* check efuse data */
 			for (i = 1; i < cnt; i++) {
 				if (((i == 3) || (i == 4) || (i == 7)) &&
@@ -459,12 +463,11 @@ static void get_picachu_efuse(void)
 
 			for (i = 1; i < cnt; i++)
 				val[i] = eem_read(addr_ptr + i * 4);
-
+#endif
 		}
 	}
 }
-#endif
-#endif
+
 #endif
 static int get_devinfo(void)
 {
@@ -1421,13 +1424,6 @@ static int eem_probe(struct platform_device *pdev)
 	}
 	eem_debug("Set EEM IRQ OK.\n");
 #endif
-#if SUPPORT_PICACHU
-#ifndef MC50_LOAD
-#if !EEM_FAKE_EFUSE
-	get_picachu_efuse();
-#endif
-#endif
-#endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC
 	_mt_eem_aee_init();
@@ -2013,6 +2009,9 @@ static int eem_dump_proc_show(struct seq_file *m, void *v)
 	ipi_ret = eem_to_cpueb(IPI_EEMSN_DUMP_PROC_SHOW, &eem_data);
 	seq_printf(m, "ipi_ret:%d\n", ipi_ret);
 
+	/* Print initial data */
+	eem_aging_dump_proc_show(m, v);
+
 	seq_printf(m, "[%d]========Start sn_trigger_sensing!\n", seq++);
 
 	while (1) {
@@ -2109,15 +2108,21 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 	int ipi_ret = 0;
 	unsigned char lock;
 	unsigned int locklimit = 0;
-	enum sn_det_id i;
+	enum sn_det_id i, j;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	ipi_ret = eem_to_cpueb(IPI_EEMSN_AGING_DUMP_PROC_SHOW, &eem_data);
 
-	seq_printf(m, "efuse_sv:0x%x, sv2:0x%x\n", eemsn_log->efuse_sv,
-		 eemsn_log->efuse_sv2);
+	for (i = 0; i < NR_EEMSN_DET; i++) {
+		seq_printf(m, "id:%d, vf_tbl_det pi_vf_num:%d\n",
+		i, eemsn_log->vf_tbl_det[i].pi_vf_num);
+		for (j = 0; j < eemsn_log->vf_tbl_det[i].pi_vf_num; j++)
+			seq_printf(m, "idx:%d, f:%d, v:0x%x\n",
+			j, eemsn_log->vf_tbl_det[i].pi_freq_tbl[j],
+			eemsn_log->vf_tbl_det[i].pi_volt_tbl[j]);
+	}
 
 	seq_printf(m, "T_SVT_HV_LCPU:%d %d %d %d\n",
 		eem_devinfo.T_SVT_HV_LCPU,
@@ -2864,10 +2869,10 @@ struct eemsn_det *det;
 #endif
 	int err = 0;
 #if defined(MC50_LOAD)
-	void __iomem *spare1_phys;
+	/* d __iomem *spare1_phys; */
 #endif
 #if SUPPORT_PI_LOG_AREA
-	void __iomem *spare0_phys;
+	void __iomem *spare2phys;
 #endif
 
 	eem_debug("[EEM] ctrl_EEMSN_Enable=%d\n", ctrl_EEMSN_Enable);
@@ -2895,14 +2900,13 @@ struct eemsn_det *det;
 	eem_data.u.data.arg[1] = eem_log_size;
 
 #if SUPPORT_PI_LOG_AREA
-	spare0_phys = ioremap(EEM_PHY_TEMPSPARE0, 0);
-	if ((void __iomem *)spare0_phys != NULL)
-		//eem_read(spare1_phys);
+	spare2phys = ioremap(EEM_PHY_TEMPSPARE2, 0);
+	if ((void __iomem *)spare2phys != NULL)
 		picachu_sn_mem_base_phys =
-		(eem_read(spare0_phys)
+		(eem_read(spare2_phys)
 		+ 0x60000);
 	else
-		eem_error("incorrect spare1_phys:0x%x", spare0_phys);
+		eem_error("incorrect spare1_phys:0x%x", spare2_phys);
 
 
 	eemsn_log->picachu_sn_mem_base_phys =
@@ -2917,23 +2921,28 @@ struct eemsn_det *det;
 			& 0xFF;
 	/* eemsn_log->efuse_sv = eem_read(EEM_TEMPSPARE1); */
 
-#if defined(MC50_LOAD)
-	/* for MC50 */
-	spare1_phys = ioremap(EEM_PHY_TEMPSPARE1, 0);
-	if ((void __iomem *)spare1_phys != NULL) {
-		eem_write(spare1_phys, SPARE1_VAL);
-		eem_write(spare1_phys + 4, SPARE2_VAL);
-	} else
-		eem_error("incorrect spare1_phys:0x%x", spare1_phys);
+#if SUPPORT_PICACHU
+	get_picachu_efuse();
 #endif
+#if 0
+	/* force set freq table */
+	memcpy(eemsn_log->vf_tbl_det,
+		mc50_tbl, sizeof(eemsn_log->vf_tbl_det));
+#endif
+
+#if defined(MC50_LOAD)
+	/* force set freq table */
+	memcpy(eemsn_log->vf_tbl_det,
+		mc50_tbl, sizeof(eemsn_log->vf_tbl_det));
+#endif
+
 	/* get original volt from cpu dvfs before init01 */
 	for_each_det(det) {
 
 		get_freq_table_cpu(det);
 		memcpy(eemsn_log->det_log[det->det_id].freq_tbl,
 			det->freq_tbl, sizeof(det->freq_tbl));
-		eemsn_log->det_log[det->det_id].turn_pt =
-			det->turn_pt;
+
 		eemsn_log->det_log[det->det_id].num_freq_tbl =
 			det->num_freq_tbl;
 
@@ -2941,6 +2950,7 @@ struct eemsn_det *det;
 		memcpy(eemsn_log->det_log[det->det_id].volt_tbl_orig,
 			det->volt_tbl_orig, sizeof(det->volt_tbl_orig));
 	}
+	/* eemsn_log->det_log[1].freq_tbl[0] = 2600; */
 
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,

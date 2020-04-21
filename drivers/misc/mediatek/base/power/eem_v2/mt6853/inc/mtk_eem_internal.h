@@ -166,6 +166,7 @@ extern struct eemsn_det eemsn_detectors[NR_EEMSN_DET];
 extern struct eemsn_det_ops eem_det_base_ops;
 extern unsigned int sn_mcysys_reg_base[NUM_SN_CPU];
 extern unsigned short sn_mcysys_reg_dump_off[SIZE_SN_MCUSYS_REG];
+extern struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET];
 
 
 /* define common operations in mtk_eem_internal.c */

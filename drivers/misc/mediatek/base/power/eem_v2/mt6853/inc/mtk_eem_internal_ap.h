@@ -284,8 +284,6 @@ struct eemsn_det {
 	int temp; /* det temperature */
 
 	/* dvfs */
-	unsigned int max_freq_khz;
-	unsigned int mid_freq_khz;
 	unsigned int cur_volt;
 	unsigned int *p_sn_cpu_coef;
 	struct sn_param *p_sn_cpu_param;
@@ -304,7 +302,7 @@ struct eemsn_det {
 	short cpe_volt_total_mar;
 
 	/* dvfs */
-	unsigned char freq_tbl[NR_FREQ];
+	unsigned short freq_tbl[NR_FREQ];
 	//unsigned char volt_tbl[NR_FREQ]; /* eem value */
 	unsigned char volt_tbl_init2[NR_FREQ]; /* eem value */
 	unsigned char volt_tbl_orig[NR_FREQ]; /* pmic value */
@@ -315,15 +313,11 @@ struct eemsn_det {
 	unsigned char cur_phase;
 	unsigned char cur_oppidx;
 
-	unsigned char SPEC;
-
 	const char *name;
 
 	unsigned char disabled; /* Disabled by error or sysfs */
 	unsigned char num_freq_tbl;
 
-	unsigned char loo_role;
-	unsigned char loo_couple;
 	unsigned char turn_pt;
 	unsigned char vmin_high;
 	unsigned char vmin_mid;
@@ -335,8 +329,6 @@ struct eemsn_det {
 	unsigned int delta_ir:4;
 	unsigned int delta_vdppm:5;
 
-	unsigned int isSupLoo:1;
-
 #if UPDATE_TO_UPOWER
 	/* only when init2, eemsn need to set volt to upower */
 	unsigned int set_volt_to_upower:1;
@@ -345,11 +337,11 @@ struct eemsn_det {
 
 struct eemsn_log_det {
 	unsigned int temp;
+	unsigned short freq_tbl[NR_FREQ];
 	unsigned short volt_tbl_pmic[NR_FREQ];
 	unsigned char volt_tbl_orig[NR_FREQ];
 	unsigned char volt_tbl_init2[NR_FREQ];
 	/* unsigned char volt_tbl[NR_FREQ]; */
-	unsigned char freq_tbl[NR_FREQ];
 	unsigned char num_freq_tbl;
 	unsigned char lock;
 	unsigned char features;
@@ -438,19 +430,14 @@ struct sn_log_cal_data {
 	uint8_t T_SVT_LV_RT;
 };
 
-struct sn_ring_buf {
-	unsigned int curidx:8;
-	unsigned int magicword:24;
-	struct sn_log_cal_data sn_cal_data[NR_SN_DET];
-	struct sn_log_data sn_dbg[TOTEL_SN_DBG_NUM];
+struct dvfs_vf_tbl {
+	unsigned short pi_freq_tbl[NR_PI_VF];
+	unsigned char pi_volt_tbl[NR_PI_VF];
+	unsigned char pi_vf_num;
 };
 
-
-/* even if vcore ptp is not enabled, we still need to reserve
- * a mem block for vcore dvfs to store voltages
- */
 struct eemsn_log {
-	struct eemsn_log_det det_log[NR_EEMSN_DET_LOG_ID];
+	struct eemsn_log_det det_log[NR_EEMSN_DET];
 	struct sn_log_data sn_log;
 	struct sn_log_cal_data sn_cal_data[NR_SN_DET];
 	struct sn_param sn_cpu_param[NR_SN_DET];
@@ -465,6 +452,7 @@ struct eemsn_log {
 	unsigned char ctrl_aging_Enable;
 	unsigned char segCode;
 	unsigned char lock;
+	struct dvfs_vf_tbl vf_tbl_det[NR_EEMSN_DET];
 #if ENABLE_COUNT_SNTEMP
 	unsigned int sn_temp_cnt[NR_SN_DET][5];
 #endif
@@ -475,6 +463,7 @@ struct eemsn_log {
 
 
 
+#if 0
 /*********************************************
  *extern variables defined at mtk_eem.c
  *********************************************
@@ -486,7 +475,7 @@ extern struct mutex record_mutex;
 
 extern void mt_record_lock(unsigned long *flags);
 extern void mt_record_unlock(unsigned long *flags);
-
+#endif
 
 /**************************************************
  *extern variables and operations defined at mtk_eem_platform.c
@@ -494,20 +483,10 @@ extern void mt_record_unlock(unsigned long *flags);
  */
 
 extern struct eemsn_det_ops big_det_ops;
-//extern struct eemsn_det_ops cci_det_ops;
-
 extern void get_freq_table_cpu(struct eemsn_det *det);
 extern void get_orig_volt_table_cpu(struct eemsn_det *det);
 extern int get_volt_cpu(struct eemsn_det *det);
-#if 0
-extern int set_volt_cpu(struct eemsn_det *det);
-extern void restore_default_volt_cpu(struct eemsn_det *det);
-extern int get_volt_gpu(struct eemsn_det *det);
-extern int set_volt_gpu(struct eemsn_det *det);
-extern void restore_default_volt_gpu(struct eemsn_det *det);
-extern void get_freq_table_gpu(struct eemsn_det *det);
-extern void get_orig_volt_table_gpu(struct eemsn_det *det);
-#endif
+
 
 
 /*********************************************
