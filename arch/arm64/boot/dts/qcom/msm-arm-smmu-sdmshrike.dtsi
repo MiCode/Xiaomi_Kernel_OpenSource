@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -441,4 +441,25 @@
 		iommus = <&apps_smmu 0x23 0>;
 		dma-coherent;
 	};
+};
+
+&kgsl_smmu {
+	qcom,actlr =
+		/* All CBs of GFX: +15 deep PF */
+		<0x0 0x3ff 0x303>,
+		<0x400 0x3ff 0x303>,
+		<0x800 0x3ff 0x303>,
+		<0xc00 0x3ff 0x303>;
+};
+
+&apps_smmu {
+	qcom,actlr =
+		/* HF0/1, SF TBU +3 PF */
+		<0x800 0x3ff 0x103>,
+		<0xc00 0x3ff 0x103>,
+		<0x2000 0x3ff 0x103>,
+
+		/* NPU SIDs: +15 deep PF */
+		<0x1480 0x7 0x303>,
+		<0x1080 0x7 0x303>;
 };
