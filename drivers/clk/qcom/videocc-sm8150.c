@@ -337,7 +337,6 @@ static int video_cc_sa8150_resume(struct device *dev)
 
 static const struct dev_pm_ops video_cc_sa8150_pm_ops = {
 	.restore_early = video_cc_sa8150_resume,
-	.thaw_early = video_cc_sa8150_resume,
 };
 
 static void video_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)

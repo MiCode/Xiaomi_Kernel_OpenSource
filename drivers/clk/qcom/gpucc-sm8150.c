@@ -455,7 +455,6 @@ static int gpucc_sa8150_resume(struct device *dev)
 
 static const struct dev_pm_ops gpucc_sa8150_pm_ops = {
 	.restore_early = gpucc_sa8150_resume,
-	.thaw_early = gpucc_sa8150_resume,
 };
 
 static void gpu_cc_sm8150_fixup_sdmshrike(void)
