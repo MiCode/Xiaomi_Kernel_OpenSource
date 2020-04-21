@@ -74,6 +74,9 @@ FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true
+SKIP_SMI_CONFIG := false
+QOS_BOUND_DETECT := true
+ccflags-y += -DCHECK_OSTD_UPDATE
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
