@@ -198,7 +198,6 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 
 #define PLL_OPMODE_STANDBY	0x0
 #define PLL_OPMODE_RUN		0x1
-
 #define PLL_OUT_MASK	0x7
 #define PLL_OUT_RATE_MARGIN	500
 
@@ -218,6 +217,9 @@ EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 
 /* FABIA PLL specific settings */
 #define FABIA_PLL_CAL_VAL		0x3F
+
+/* TRION PLL specific settings */
+#define TRION_PCAL_DONE			BIT(26)
 
 #define pll_alpha_width(p)					\
 		((PLL_ALPHA_VAL_U(p) - PLL_ALPHA_VAL(p) == 4) ?	\
@@ -847,6 +849,85 @@ static int trion_pll_is_enabled(struct clk_alpha_pll *pll,
 				(mode_regval & PLL_OUTCTRL));
 }
 
+int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config)
+{
+	int ret;
+
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
+
+	if (trion_pll_is_enabled(pll, regmap)) {
+		pr_warn("PLL is already enabled. Skipping configuration.\n");
+		return 0;
+	}
+
+	if (config->l)
+		regmap_write(regmap, PLL_L_VAL(pll), config->l);
+
+	regmap_write(regmap, PLL_CAL_L_VAL(pll), LUCID_PLL_CAL_VAL);
+
+	if (config->alpha)
+		regmap_write(regmap, PLL_ALPHA_VAL(pll), config->alpha);
+
+	if (config->config_ctl_val)
+		regmap_write(regmap, PLL_CONFIG_CTL(pll),
+						config->config_ctl_val);
+
+	if (config->config_ctl_hi_val)
+		regmap_write(regmap, PLL_CONFIG_CTL_U(pll),
+						config->config_ctl_hi_val);
+
+	if (config->config_ctl_hi1_val)
+		regmap_write(regmap, PLL_CONFIG_CTL_U1(pll),
+						config->config_ctl_hi1_val);
+
+	if (config->user_ctl_val)
+		regmap_write(regmap, PLL_USER_CTL(pll),
+						config->user_ctl_val);
+
+	if (config->user_ctl_hi_val)
+		regmap_write(regmap, PLL_USER_CTL_U(pll),
+						config->user_ctl_hi_val);
+
+	if (config->user_ctl_hi1_val)
+		regmap_write(regmap, PLL_USER_CTL_U1(pll),
+						config->user_ctl_hi1_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, PLL_TEST_CTL(pll),
+						config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, PLL_TEST_CTL_U(pll),
+						config->test_ctl_hi_val);
+
+	if (config->test_ctl_hi1_val)
+		regmap_write(regmap, PLL_TEST_CTL_U1(pll),
+						config->test_ctl_hi1_val);
+
+	regmap_update_bits(regmap, + PLL_MODE(pll), PLL_UPDATE_BYPASS,
+						PLL_UPDATE_BYPASS);
+
+	/* Disable PLL output */
+	ret = regmap_update_bits(regmap, PLL_MODE(pll), PLL_OUTCTRL, 0);
+	if (ret)
+		return ret;
+
+	/* Set operation mode to OFF */
+	regmap_write(regmap, PLL_OPMODE(pll), PLL_OPMODE_STANDBY);
+
+	/* PLL should be in OFF mode before continuing */
+	wmb();
+
+	/* Place the PLL in STANDBY mode */
+	ret = regmap_update_bits(regmap, PLL_MODE(pll), PLL_RESET_N,
+							PLL_RESET_N);
+	return ret;
+}
+
 static int clk_trion_pll_is_enabled(struct clk_hw *hw)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
@@ -934,6 +1015,160 @@ clk_trion_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	regmap_read(pll->clkr.regmap, PLL_ALPHA_VAL(pll), &frac);
 
 	return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
+}
+
+static int clk_trion_pll_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long prate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long rrate;
+	u32 regval, l, cal_val, alpha_width = pll_alpha_width(pll);
+	u64 a;
+	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(pll->clkr.regmap, PLL_CAL_L_VAL(pll), &cal_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L or CAL value, needs reconfiguration */
+	if (!l || !cal_val) {
+		ret = clk_trion_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
+	}
+
+	rrate = alpha_pll_round_rate(rate, prate, &l, &a, alpha_width);
+	/*
+	 * Due to a limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (rrate > (rate + PLL_OUT_RATE_MARGIN) || rrate < rate) {
+		pr_err("Call set rate on the PLL with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	regmap_write(pll->clkr.regmap, PLL_L_VAL(pll), l);
+	regmap_write(pll->clkr.regmap, PLL_ALPHA_VAL(pll), a);
+
+	/* Latch the PLL input */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+					PLL_UPDATE, PLL_UPDATE);
+	if (ret)
+		return ret;
+
+	/* Wait for 2 reference cycles before checking the ACK bit. */
+	udelay(1);
+	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
+	if (!(regval & ALPHA_PLL_ACK_LATCH)) {
+		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		return -EINVAL;
+	}
+
+	/* Return the latch input to 0 */
+	ret = regmap_update_bits(pll->clkr.regmap, PLL_MODE(pll),
+						PLL_UPDATE, 0);
+	if (ret)
+		return ret;
+
+	if (clk_hw_is_enabled(hw)) {
+		ret = wait_for_pll_enable_lock(pll);
+		if (ret)
+			return ret;
+	}
+
+	/* Wait for PLL output to stabilize */
+	udelay(100);
+	return 0;
+}
+
+static int clk_trion_pll_prepare(struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 regval;
+	int ret;
+
+	ret = clk_prepare_regmap(hw);
+	if (ret)
+		return ret;
+
+	/* Return early if calibration is not needed. */
+	regmap_read(pll->clkr.regmap, PLL_STATUS(pll), &regval);
+	if (regval & TRION_PCAL_DONE)
+		return ret;
+
+	ret = clk_trion_pll_enable(hw);
+	if (ret)
+		return ret;
+
+	clk_trion_pll_disable(hw);
+
+	return 0;
+}
+
+static void clk_trion_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", PLL_OFF_MODE},
+		{"PLL_L_VAL", PLL_OFF_L_VAL},
+		{"PLL_CAL_L_VAL", PLL_OFF_CAL_L_VAL},
+		{"PLL_USER_CTL", PLL_OFF_USER_CTL},
+		{"PLL_USER_CTL_U", PLL_OFF_USER_CTL_U},
+		{"PLL_USER_CTL_U1", PLL_OFF_USER_CTL_U1},
+		{"PLL_CONFIG_CTL", PLL_OFF_CONFIG_CTL},
+		{"PLL_CONFIG_CTL_U", PLL_OFF_CONFIG_CTL_U},
+		{"PLL_CONFIG_CTL_U1", PLL_OFF_CONFIG_CTL_U1},
+		{"PLL_TEST_CTL", PLL_OFF_TEST_CTL},
+		{"PLL_TEST_CTL_U", PLL_OFF_TEST_CTL_U},
+		{"PLL_TEST_CTL_U1", PLL_OFF_TEST_CTL_U1},
+		{"PLL_STATUS", PLL_OFF_STATUS},
+		{"PLL_OPMODE", PLL_OFF_MODE},
+		{"PLL_ALPHA_VAL", PLL_OFF_ALPHA_VAL},
+	};
+
+	static struct clk_register_data data1[] = {
+		{"APSS_PLL_VOTE", 0x0},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->offset +
+					pll->regs[data[i].offset], &val);
+		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset + pll->regs[data[0].offset],
+								&val);
+
+	if (val & PLL_FSM_ENA) {
+		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
+				data1[0].offset, &val);
+		seq_printf(f, "%20s: 0x%.8x\n", data1[0].name, val);
+	}
+}
+
+static struct clk_regmap_ops clk_trion_pll_regmap_ops = {
+	.list_registers = &clk_trion_pll_list_registers,
+};
+
+static void clk_trion_pll_init(struct clk_hw *hw)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	if (!rclk->ops)
+		rclk->ops = &clk_trion_pll_regmap_ops;
 }
 
 static int __zonda_pll_is_enabled(struct clk_alpha_pll *pll,
@@ -1468,6 +1703,25 @@ const struct clk_ops clk_alpha_pll_hwfsm_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_hwfsm_ops);
 
+const struct clk_ops clk_trion_pll_ops = {
+	.prepare = clk_trion_pll_prepare,
+	.unprepare = clk_unprepare_regmap,
+	.pre_rate_change = clk_pre_change_regmap,
+	.post_rate_change = clk_post_change_regmap,
+	.enable = clk_trion_pll_enable,
+	.disable = clk_trion_pll_disable,
+	.is_enabled = clk_trion_pll_is_enabled,
+	.recalc_rate = clk_trion_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = clk_trion_pll_set_rate,
+	.debug_init = clk_common_debug_init,
+	.init = clk_trion_pll_init,
+#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
+	.list_rate_vdd_level = clk_list_rate_vdd_level,
+#endif
+};
+EXPORT_SYMBOL_GPL(clk_trion_pll_ops);
+
 const struct clk_ops clk_trion_fixed_pll_ops = {
 	.prepare = clk_prepare_regmap,
 	.unprepare = clk_unprepare_regmap,
@@ -1478,6 +1732,8 @@ const struct clk_ops clk_trion_fixed_pll_ops = {
 	.is_enabled = clk_trion_pll_is_enabled,
 	.recalc_rate = clk_trion_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.debug_init = clk_common_debug_init,
+	.init = clk_trion_pll_init,
 #ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
 	.list_rate_vdd_level = clk_list_rate_vdd_level,
 #endif
