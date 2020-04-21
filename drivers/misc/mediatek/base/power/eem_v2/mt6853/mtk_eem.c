@@ -2107,8 +2107,8 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 	struct eem_ipi_data eem_data;
 	int ipi_ret = 0;
 	unsigned char lock;
+	unsigned char i, j;
 	unsigned int locklimit = 0;
-	enum sn_det_id i, j;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
