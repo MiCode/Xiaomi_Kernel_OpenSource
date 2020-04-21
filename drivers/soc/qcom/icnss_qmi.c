@@ -1232,7 +1232,6 @@ int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data)
 		ret = -ENODEV;
 		goto out;
 	}
-	set_bit(ICNSS_WLFW_EXISTS, &priv->state);
 
 	sq.sq_family = AF_QIPCRTR;
 	sq.sq_node = event_data->node;
