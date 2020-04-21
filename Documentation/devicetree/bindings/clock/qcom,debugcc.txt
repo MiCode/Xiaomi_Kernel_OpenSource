@@ -11,6 +11,7 @@ Required properties :
 		"qcom,atoll-debugcc",
 		"qcom,debugcc-sdmshrike".
 		"qcom,gcc-debug-sdm660".
+		"qcom,sdm429w-debugcc".
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.
 - qcom,camcc: phandle to the Camera CC device node.
