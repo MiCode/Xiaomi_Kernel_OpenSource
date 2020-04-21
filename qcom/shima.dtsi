@@ -245,6 +245,7 @@
 		};
 
 		cmd_db: reserved-memory@80860000 {
+			compatible = "qcom,cmd-db";
 			no-map;
 			reg = <0x0 0x80860000 0x0 0x20000>;
 		};
