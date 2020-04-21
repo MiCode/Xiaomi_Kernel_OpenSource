@@ -28,7 +28,7 @@
  * (0, 0) -> DVFS disable
  **************************************************/
 #define MT_GPUFREQ_DVFS_ENABLE          1
-#define MT_GPUFREQ_CUST_CONFIG          1
+#define MT_GPUFREQ_CUST_CONFIG          0
 #define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment_1[8].gpufreq_khz)
 
 /**************************************************
@@ -95,7 +95,7 @@
 /**************************************************
  * Battery Over Current Protect
  **************************************************/
-#define MT_GPUFREQ_BATT_OC_PROTECT              0
+#define MT_GPUFREQ_BATT_OC_PROTECT              1
 #define MT_GPUFREQ_BATT_OC_LIMIT_FREQ           (485000)        /* KHz */
 
 /**************************************************
@@ -107,7 +107,7 @@
 /**************************************************
  * Low Battery Volume Protect
  **************************************************/
-#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        0
+#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        1
 #define MT_GPUFREQ_LOW_BATT_VOLT_LIMIT_FREQ     (485000)        /* KHz */
 
 /**************************************************
