@@ -2413,6 +2413,11 @@
 		qcom,proxy-consumer-enable;
 	};
 
+	gcc_apcs_gdsc_vote_ctrl: syscon@152128 {
+		compatible = "syscon";
+		reg = <0x152128 0x4>;
+	};
+
 	/* GCC GDSCs */
 	gcc_pcie_0_gdsc: qcom,gdsc@16b004 {
 		compatible = "qcom,gdsc";
@@ -2422,6 +2427,7 @@
 		parent-supply = <&VDD_CX_LEVEL>;
 		qcom,retain-regs;
 		qcom,no-status-check-on-disable;
+		qcom,collapse-vote = <&gcc_apcs_gdsc_vote_ctrl 0>;
 	};
 
 	gcc_pcie_1_gdsc: qcom,gdsc@18d004 {
@@ -2432,6 +2438,7 @@
 		parent-supply = <&VDD_CX_LEVEL>;
 		qcom,retain-regs;
 		qcom,no-status-check-on-disable;
+		qcom,collapse-vote = <&gcc_apcs_gdsc_vote_ctrl 1>;
 	};
 
 	gcc_ufs_card_gdsc: qcom,gdsc@175004 {
