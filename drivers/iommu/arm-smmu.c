@@ -5218,7 +5218,7 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 					  smmu_domain);
 		if (!pgtbl_ops) {
 			dev_err(smmu->dev, "failed to allocate page tables during pm restore for cxt %d\n",
-				idx, dev_name(dev));
+				idx);
 			return -ENOMEM;
 		}
 		smmu_domain->pgtbl_ops = pgtbl_ops;
@@ -5903,7 +5903,7 @@ static ssize_t arm_smmu_debug_testbus_read(struct file *file,
 							testbus_version);
 		arm_smmu_power_off(pwr);
 
-		snprintf(buf, buf_len, "0x%0x\n", val);
+		snprintf(buf, buf_len, "0x%0lx\n", val);
 	} else {
 
 		struct arm_smmu_device *smmu = file->private_data;
@@ -6317,7 +6317,7 @@ static ssize_t arm_smmu_debug_capturebus_config_read(struct file *file,
 		snprintf(buf + strlen(buf), buf_len - strlen(buf),
 				"Match_%d : 0x%0llx\n", i+1, match[i]);
 	}
-	snprintf(buf + strlen(buf), buf_len - strlen(buf), "0x%0x\n", val);
+	snprintf(buf + strlen(buf), buf_len - strlen(buf), "0x%0lx\n", val);
 
 	buflen = min(count, strlen(buf));
 	if (copy_to_user(ubuf, buf, buflen)) {
@@ -6397,7 +6397,7 @@ static irqreturn_t arm_smmu_debug_capture_bus_match(int irq, void *dev)
 	arm_smmu_power_off(tbu->pwr);
 	arm_smmu_power_off(smmu->pwr);
 
-	dev_info(tbu->dev, "TNX_TCR_CNTL : 0x%0llx\n", val);
+	dev_info(tbu->dev, "TNX_TCR_CNTL : 0x%0x\n", val);
 
 	for (i = 0; i < NO_OF_MASK_AND_MATCH; ++i) {
 		dev_info(tbu->dev,
