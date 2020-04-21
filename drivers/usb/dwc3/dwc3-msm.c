@@ -1351,7 +1351,7 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	dwc3_msm_write_reg_field(mdwc->base,
 			GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
 			~0x0, (u32)mdwc->dummy_gsi_db_dma);
-	dev_dbg(mdwc->dev, "Dummy DB Addr %pK: %llx %llx (LSB)\n",
+	dev_dbg(mdwc->dev, "Dummy DB Addr %pK: %llx %x (LSB)\n",
 		&mdwc->dummy_gsi_db, mdwc->dummy_gsi_db_dma,
 		(u32)mdwc->dummy_gsi_db_dma);
 
