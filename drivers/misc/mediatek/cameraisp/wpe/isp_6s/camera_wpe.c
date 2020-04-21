@@ -119,6 +119,9 @@ struct WPE_CLK_STRUCT {
 	struct clk *CG_IMGSYS_LARB11;
 	struct clk *CG_IMGSYS_WPE_B;
 #endif
+#ifdef FORCE_IMG1_ON
+	struct clk *CG_IMGSYS1;
+#endif
 };
 struct WPE_CLK_STRUCT wpe_clk;
 
@@ -2877,6 +2880,13 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_WPE_A clock\n");
+
+#ifdef FORCE_IMG1_ON
+	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS1);
+	if (ret)
+		LOG_ERR("cannot prepare and enable IMGSYS1 clock\n");
+#endif
+
 #if (MTK_WPE_COUNT == 2)
 	smi_bus_prepare_enable(SMI_LARB11, WPE_DEV_NAME);
 
@@ -2932,6 +2942,9 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:*/
 	/*WPE clk -> CG_SCP_SYS_ISP -> */
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
+#ifdef FORCE_IMG1_ON
+	clk_disable_unprepare(wpe_clk.CG_IMGSYS1);
+#endif
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB9);
 
@@ -3469,7 +3482,6 @@ static signed int WPE_WaitIrq(struct WPE_WAIT_IRQ_STRUCT *WaitIrq)
 
 
 EXIT:
-
 
 	return Ret;
 }
@@ -5163,6 +5175,17 @@ static signed int WPE_probe(struct platform_device *pDev)
 			LOG_ERR("cannot get CG_IMGSYS_WPE_A clock\n");
 			return PTR_ERR(wpe_clk.CG_IMGSYS_WPE_A);
 		}
+
+#ifdef FORCE_IMG1_ON
+		wpe_clk.CG_IMGSYS1 =
+			devm_clk_get(&pDev->dev, "WPE_CLK_IMG");
+		LOG_INF("devm_clk_get CG_IMGSYS1");
+
+		if (IS_ERR(wpe_clk.CG_IMGSYS1)) {
+			LOG_ERR("cannot get CG_IMGSYS1 clock\n");
+			return PTR_ERR(wpe_clk.CG_IMGSYS1);
+		}
+#endif
 #endif
 		/* Create class register */
 		pWPEClass = class_create(THIS_MODULE, "WPEdrv");

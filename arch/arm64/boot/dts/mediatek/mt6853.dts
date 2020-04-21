@@ -4364,10 +4364,13 @@ page_owner=on";
 		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
 		clocks =
 				<&imgsys2 CLK_IMGSYS2_LARB9>,
-				<&imgsys2 CLK_IMGSYS2_WPE>;
+				<&imgsys2 CLK_IMGSYS2_WPE>,
+				<&scpsys SCP_SYS_ISP>;
+
 		clock-names =
 				"WPE_CLK_IMG_LARB9",
-				"WPE_CLK_IMG_WPE_A";
+				"WPE_CLK_IMG_WPE_A",
+				"WPE_CLK_IMG";
 	};
 
 	dip_b0@15821000 {
