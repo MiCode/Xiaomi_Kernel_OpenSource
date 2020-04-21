@@ -161,6 +161,8 @@ page_owner=on";
 				core5 {
 					cpu = <&cpu5>;
 				};
+				doe_dvfs_cl0: doe {
+				};
 			};
 
 			cluster1 {
@@ -169,6 +171,8 @@ page_owner=on";
 				};
 				core1 {
 					cpu = <&cpu7>;
+				};
+				doe_dvfs_cl1: doe {
 				};
 			};
 		};
