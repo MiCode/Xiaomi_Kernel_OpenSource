@@ -240,7 +240,7 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
 
 	/* dram support? */
-	if ((int)(scp_region_info->ap_dram_size) <= 0) {
+	if ((int)(scp_region_info_copy.ap_dram_size) <= 0) {
 		pr_notice("[scp] ap_dram_size <=0\n");
 	} else {
 		dram_start = scp_region_info_copy.ap_dram_start;

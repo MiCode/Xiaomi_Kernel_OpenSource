@@ -49,7 +49,7 @@
 
 
 #define R_CORE0_DBG_CTRL	(scpreg.cfg_core0 + 0x0010)
-	#define M_CORE_TBUF_DBG_SEL	(0x001f001f)
+	#define M_CORE_TBUF_DBG_SEL	(0xfff0ff0f)
 	#define S_CORE_TBUF_S		(4)
 	#define S_CORE_TBUF1_S		(16)
 #define R_CORE0_WDT_IRQ		(scpreg.cfg_core0 + 0x0030)
