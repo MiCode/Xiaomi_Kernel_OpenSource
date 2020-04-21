@@ -2027,7 +2027,8 @@ static kal_uint32 set_video_mode(UINT16 framerate)
 
 static kal_uint32 set_auto_flicker_mode(kal_bool enable, UINT16 framerate)
 {
-	LOG_INF("enable = %d, framerate = %d\n", enable, framerate);
+	if (enable != imgsensor.autoflicker_en)
+		LOG_INF("enable = %d, framerate = %d\n", enable, framerate);
 	spin_lock(&imgsensor_drv_lock);
 	if (enable) /* enable auto flicker */
 		imgsensor.autoflicker_en = KAL_TRUE;
