@@ -93,6 +93,8 @@ void connectivity_export_clk_buf_show_status_info(void);
 	connectivity_export_pmic_ldo_vcn13_lp
 #define KERNEL_pmic_ldo_vcn18_lp \
 	connectivity_export_pmic_ldo_vcn18_lp
+#define KERNEL_pmic_ldo_vfe28_lp \
+	connectivity_export_pmic_ldo_vfe28_lp
 #define KERNEL_pmic_ldo_vcn33_1_lp \
 	connectivity_export_pmic_ldo_vcn33_1_lp
 #define KERNEL_pmic_ldo_vcn33_2_lp \
@@ -108,6 +110,7 @@ void connectivity_export_pmic_read_interface(unsigned int RegNum,
 						unsigned int SHIFT);
 void connectivity_export_pmic_set_register_value(int flagname,
 						unsigned int val);
+
 unsigned short connectivity_export_pmic_get_register_value(int flagname);
 void connectivity_export_upmu_set_reg_value(unsigned int reg,
 						unsigned int reg_val);
@@ -116,6 +119,8 @@ void connectivity_export_upmu_set_reg_value(unsigned int reg,
 int connectivity_export_pmic_ldo_vcn13_lp(int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg);
 int connectivity_export_pmic_ldo_vcn18_lp(int user,
+		int op_mode, unsigned char op_en, unsigned char op_cfg);
+void connectivity_export_pmic_ldo_vfe28_lp(unsigned int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg);
 int connectivity_export_pmic_ldo_vcn33_1_lp(int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg);
