@@ -3155,6 +3155,12 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct stmmac_tx_queue *tx_q;
 	unsigned int enh_desc;
 	unsigned int des, int_mod;
+	unsigned int eth_type;
+
+	GET_ETH_TYPE(skb->data, eth_type);
+
+	if (eth_type == ETH_P_IP || eth_type == ETH_P_IPV6)
+		skb_orphan(skb);
 
 	tx_q = &priv->tx_queue[queue];
 
