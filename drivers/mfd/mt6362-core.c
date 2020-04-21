@@ -14,6 +14,9 @@
 #include <dt-bindings/mfd/mt6362.h>
 
 #define MT6362_IRQ_SET			(0x0D)
+#define MT6362_REG_TM_PASCODE1		(0x07)
+#define MT6362_REG_SPMIM_RCS1		(0x68)
+#define MT6362_REG_SPMIM_RCS2		(0x69)
 #define MT6362_CHG_IRQ0			(0xD0)
 #define MT6362_PD_IRQ			(0xDF)
 #define MT6362_IRQ_REGS			(MT6362_PD_IRQ - MT6362_CHG_IRQ0 + 1)
@@ -27,11 +30,32 @@
 struct mt6362_data {
 	struct spmi_device *sdev;
 	struct device *dev;
+	struct regmap *regmap;
 	struct regmap_irq_chip_data *irq_data;
 	struct regmap_irq_chip irq_chip;
 	unsigned int last_access_reg;
 	ktime_t last_access_time;
 	int irq;
+};
+
+struct init_table {
+	u16 addr;
+	u8 mask;
+	u8 val;
+	bool hidden_flag;
+};
+
+static const struct init_table mt6362_init_table[] = {
+	/* PMIC PART */
+	{0X120, 0X77, 0X11, false},
+	{0X130, 0X77, 0X11, false},
+	{0X140, 0X77, 0X22, false},
+	/* BUCK PART */
+	{0X21D, 0X77, 0X55, false},
+	{0X221, 0X77, 0X55, false},
+	{0X223, 0X77, 0X55, false},
+	/* LDO PART */
+	{0X310, 0X77, 0X11, false},
 };
 
 static const struct regmap_irq spmi_regmap_irqs[] = {
@@ -196,27 +220,50 @@ static const struct regmap_config spmi_regmap_config = {
 	.reg_write	= mt6362_spmi_reg_write,
 };
 
-#if 0 /* only use in FPGA shell */
-static int mt6362_spmi_rcs_init(struct device *dev)
+#ifdef CONFIG_FPGA_EARLY_PORTING
+static int mt6362_spmi_rcs_init(struct mt6362_data *data)
 {
-	struct regmap *regmap;
+	struct regmap *regmap = data->regmap;
 	int ret;
 
 	dev_info(dev, "%s\n", __func__);
-	regmap = dev_get_regmap(dev->parent, NULL);
-	if (!regmap) {
-		dev_err(dev, "%s: failed to allocate regmap\n", __func__);
-		return -ENODEV;
-	}
-
 	/* rcs_enable[7], rcs_a[6], rcs_cmd[5:4], rcs_id[3:0] */
-	ret = regmap_write(regmap, 0x68, 0x91);
+	ret = regmap_write(regmap, MT6362_REG_SPMIM_RCS1, 0x91);
 	if (ret < 0)
 		return ret;
 	/* rcs_addr */
-	return regmap_write(regmap, 0x69, 0x09);
+	return regmap_write(regmap, MT6362_REG_SPMIM_RCS2, 0x09);
 }
-#endif
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+
+static int mt6362_enable_hidden_mode(struct mt6362_data *data, bool en)
+{
+	return regmap_write(data->regmap,
+			    MT6362_REG_TM_PASCODE1, en ? 0x69 : 0);
+}
+
+static int mt6362_init_setting(struct mt6362_data *data)
+{
+	int i, ret;
+
+	/* initial setting */
+	for (i = 0; i < ARRAY_SIZE(mt6362_init_table); i++) {
+		if (mt6362_init_table[i].hidden_flag) {
+			ret = mt6362_enable_hidden_mode(data, true);
+			if (ret < 0)
+				return ret;
+		}
+		ret = regmap_update_bits(data->regmap,
+					 mt6362_init_table[i].addr,
+					 mt6362_init_table[i].mask,
+					 mt6362_init_table[i].val);
+		if (mt6362_init_table[i].hidden_flag)
+			mt6362_enable_hidden_mode(data, false);
+		if (ret < 0)
+			return ret;
+	}
+	return ret;
+}
 
 static int mt6362_probe(struct spmi_device *sdev)
 {
@@ -237,14 +284,21 @@ static int mt6362_probe(struct spmi_device *sdev)
 	regmap = devm_regmap_init(&sdev->dev, NULL, data, &spmi_regmap_config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
+	data->regmap = regmap;
 
-#if 0 /* only use in FPGA shell */
-	rv = mt6362_spmi_rcs_init(&sdev->dev);
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	rv = mt6362_spmi_rcs_init(data);
 	if (rv < 0) {
 		dev_err(&sdev->dev, "%s: spmi rcs init failed\n", __func__);
 		return rv;
 	}
-#endif
+#endif /* CONFIG_FPGA_EARLY_PORTING */
+
+	rv = mt6362_init_setting(data);
+	if (rv) {
+		dev_err(&sdev->dev, "Failed to set initial setting(%d)\n", rv);
+		return rv;
+	}
 
 	data->irq = of_irq_get(np, 0);
 	if (data->irq < 0) {
