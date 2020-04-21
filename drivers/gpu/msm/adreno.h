@@ -1299,7 +1299,9 @@ void adreno_context_debugfs_init(struct adreno_device *adreno_dev,
 static inline void adreno_debugfs_init(struct adreno_device *adreno_dev) { }
 static inline void adreno_context_debugfs_init(struct adreno_device *device,
 						struct adreno_context *context)
-						{ }
+{
+	context->debug_root = NULL;
+}
 #endif
 
 /**
