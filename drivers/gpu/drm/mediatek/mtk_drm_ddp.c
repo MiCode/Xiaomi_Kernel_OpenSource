@@ -4008,18 +4008,40 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 #endif
 
 }
+
 void mtk_ddp_insert_dsc_prim_MT6853(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
-	/*TODO*/
+	unsigned int addr, value;
+
+	/* DISP_DITHER0_MOUT -> DISP_DSC_WRAP0 */
+	addr = MT6853_DISP_REG_CONFIG_DISP_SPR0_MOUT_EN;
+	value = SPR0_MOUT_TO_DISP_DSC0_SEL;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr = MT6853_DISP_REG_CONFIG_DSI0_SEL_IN;
+	value = SEL_IN_FROM_DISP_DSC0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
 
 void mtk_ddp_remove_dsc_prim_MT6853(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
-	/*TODO*/
-}
+	unsigned int addr, value;
 
+	/* DISP_DITHER0_MOUT -> DISP_DSC_WRAP0 */
+	addr = MT6853_DISP_REG_CONFIG_DISP_SPR0_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr = MT6853_DISP_REG_CONFIG_DSI0_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+}
 
 void mtk_ddp_insert_dsc_prim_MT6873(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
