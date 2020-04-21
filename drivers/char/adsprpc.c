@@ -3270,6 +3270,7 @@ static int fastrpc_unmap_on_dsp(struct fastrpc_file *fl,
 	ioctl.fds = NULL;
 	ioctl.attrs = NULL;
 	ioctl.crc = NULL;
+	ioctl.job = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 	if (err)
