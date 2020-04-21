@@ -802,6 +802,22 @@
 			clock-output-names = "chip_sleep_clk";
 			#clock-cells = <1>;
 		};
+
+		scc_pll_out_aux2: scc_pll_out_aux2 {
+			compatible = "fixed-clock";
+			clock-frequency = <600000000>;
+			clock-output-names = "scc_pll_out_aux2";
+			#clock-cells = <0>;
+		};
+
+		scc_pll_out_aux: scc_pll_out_aux {
+			compatible = "fixed-factor-clock";
+			clock-output-names = "scc_pll_out_aux";
+			clocks = <&scc_pll_out_aux2>;
+			clock-mult = <1>;
+			clock-div = <2>;
+			#clock-cells = <0>;
+		};
 	};
 
 	clock_rpmh: qcom,rpmhclk {

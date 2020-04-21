@@ -1017,6 +1017,24 @@
 		};
 	};
 
+	clocks {
+		scc_pll: scc_pll {
+			compatible = "fixed-clock";
+			clock-frequency = <600000000>;
+			clock-output-names = "scc_pll";
+			#clock-cells = <0>;
+		};
+
+		scc_pll_out_even: scc_pll_out_even {
+			compatible = "fixed-factor-clock";
+			clock-output-names = "scc_pll_out_even";
+			clocks = <&scc_pll>;
+			clock-mult = <1>;
+			clock-div = <2>;
+			#clock-cells = <0>;
+		};
+	};
+
 	llcc_pmu: llcc-pmu@90cc000 {
 		compatible = "qcom,qcom-llcc-pmu";
 		reg = <0x090cc000 0x300>;
