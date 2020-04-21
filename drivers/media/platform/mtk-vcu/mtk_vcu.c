@@ -1326,7 +1326,6 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	else if (strcmp(current->comm, "mdpd") == 0)
 		vcuid = 1;
 	else if (strcmp(current->comm, "vpud") == 0) {
-		get_task_struct(current);
 		vcud_task = current;
 		files = vcud_task->files;
 		vcuid = 0;
@@ -1377,7 +1376,6 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
 	}
 
-	put_task_struct(current);
 	return 0;
 }
 
@@ -2019,10 +2017,6 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
 		vcu_ptr->vpud_is_going_down = 1;
 		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
-
-		// VPUD is going to be killed. stop next map/unmap fd
-		vcud_task = NULL;
-		files = NULL;
 	}
 }
 
