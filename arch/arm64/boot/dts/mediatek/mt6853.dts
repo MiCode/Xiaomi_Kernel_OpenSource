@@ -5269,6 +5269,8 @@ page_owner=on";
 			<CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
 		dip2_cq_thread23_frame_done =
 			<CMDQ_EVENT_IMG2_MSS_DONE_LINK_MISC>;
+		wpe_b_frame_done =
+			<CMDQ_EVENT_IMG2_WPE_A_DONE_LINK_MISC>;
 		mdp_rdma0_sof = <256>;
 		mdp_rdma1_sof = <257>;
 		mdp_aal_sof = <258>;
