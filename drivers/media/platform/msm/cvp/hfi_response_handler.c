@@ -569,7 +569,7 @@ static void hfi_process_sys_get_prop_image_version(
 		else
 			cvp_driver->fw_version[i] = ' ';
 	}
-	cvp_driver->fw_version[i] = '\0';
+	cvp_driver->fw_version[i - 1] = '\0';
 	dprintk(CVP_HFI, "F/W version: %s\n", cvp_driver->fw_version);
 }
 
