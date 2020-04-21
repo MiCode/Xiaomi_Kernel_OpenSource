@@ -258,7 +258,8 @@ struct mtk_panel_funcs {
 		unsigned int mode);
 	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
-
+	int (*get_virtual_heigh)(void);
+	int (*get_virtual_width)(void);
 	/**
 	 * @doze_enable_start:
 	 *

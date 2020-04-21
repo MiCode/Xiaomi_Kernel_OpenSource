@@ -1073,7 +1073,19 @@ static void _mtk_crtc_atmoic_addon_module_disconnect(
 		    addon_module->module == DISP_RSZ_v2)) {
 			int w = crtc->state->adjusted_mode.hdisplay;
 			int h = crtc->state->adjusted_mode.vdisplay;
+			struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+			struct mtk_ddp_comp *output_comp;
 			struct mtk_rect rsz_roi = {0, 0, w, h};
+
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (output_comp) {
+				rsz_roi.width = mtk_ddp_comp_io_cmd(
+					output_comp, NULL,
+					DSI_GET_VIRTUAL_WIDTH, NULL);
+				rsz_roi.height = mtk_ddp_comp_io_cmd(
+					output_comp, NULL,
+					DSI_GET_VIRTUAL_HEIGH, NULL);
+			}
 
 			addon_config.addon_rsz_config.rsz_src_roi = rsz_roi;
 			addon_config.addon_rsz_config.rsz_dst_roi = rsz_roi;
@@ -2972,9 +2984,18 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_config cfg;
 	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *output_comp;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	cfg.w = crtc->state->adjusted_mode.hdisplay;
 	cfg.h = crtc->state->adjusted_mode.vdisplay;
+	if (output_comp) {
+		cfg.w = mtk_ddp_comp_io_cmd(output_comp, NULL,
+					DSI_GET_VIRTUAL_WIDTH, NULL);
+		cfg.h = mtk_ddp_comp_io_cmd(output_comp, NULL,
+					DSI_GET_VIRTUAL_HEIGH, NULL);
+	}
 	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
 		mtk_crtc->panel_ext->params->dyn_fps.switch_en == 1
 		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps != 0)
@@ -3484,9 +3505,18 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_comp *comp;
 	struct mtk_ddp_config cfg = {0};
 	int i, j;
+	struct mtk_ddp_comp *output_comp;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	cfg.w = crtc->mode.hdisplay;
 	cfg.h = crtc->mode.vdisplay;
+	if (output_comp) {
+		cfg.w = mtk_ddp_comp_io_cmd(output_comp, NULL,
+					DSI_GET_VIRTUAL_WIDTH, NULL);
+		cfg.h = mtk_ddp_comp_io_cmd(output_comp, NULL,
+					DSI_GET_VIRTUAL_HEIGH, NULL);
+	}
 	cfg.p_golden_setting_context =
 			__get_golden_setting_context(mtk_crtc);
 

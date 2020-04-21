@@ -172,6 +172,39 @@ config DRM_PANEL_SAMSUNG_AMS601NN04_CMD
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
+config DRM_PANEL_NT35695B_AUO_VDO
+	tristate "NT35695B AUO vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for HX83112B DPHY
+	  vdo mode Full HD panel. The panel has a 1080x1920
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_AUO_HX83112B_VDO
+	tristate "HX83112B AUO vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for HX83112B DPHY
+	  vdo mode Full HD Plus panel. The panel has a 1080x2160
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_OTM1911A_AUO_VDO
+	tristate "OTM1911A AUO vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for OTM1911A DPHY
+	  vdo mode Full HD Plus panel. The panel has a 1080x2160
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_TRULY_TD4330_VDO
 	tristate "TRULY  FHD+ video mode panel"
 	depends on OF
