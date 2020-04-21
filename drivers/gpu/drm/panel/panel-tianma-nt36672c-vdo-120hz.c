@@ -33,6 +33,40 @@
 #include "../mediatek/mtk_drm_graphics_base.h"
 #endif
 
+#define PANEL_CLOCK 361519
+#define PANEL_WIDTH  1080
+#define PANEL_HEIGHT 2340
+
+#define PHYSICAL_WIDTH 68364
+#define PHYSICAL_HEIGHT 152300
+
+
+#define DATA_RATE 1070
+
+#define HSA 20
+#define HBP 80
+#define VSA 10
+#define VBP 25
+
+/*Parameter setting for mode 0 Start*/
+#define MODE_0_FPS 120
+#define MODE_0_VFP 16
+#define MODE_0_HFP 75
+/*Parameter setting for mode 0 End*/
+
+/*Parameter setting for mode 1 Start*/
+#define MODE_1_FPS 90
+#define MODE_1_VFP 810
+#define MODE_1_HFP 75
+/*Parameter setting for mode 1 End*/
+
+/*Parameter setting for mode 2 Start*/
+#define MODE_2_FPS 60
+#define MODE_2_VFP 2380
+#define MODE_2_HFP 75
+/*Parameter setting for mode 2 End*/
+
+
 /* enable this to check panel self -bist pattern */
 /* #define PANEL_BIST_PATTERN */
 
@@ -454,47 +488,47 @@ static int tianma_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 361519,
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 80,
-	.hsync_end = 1080 + 80 + 20,
-	.htotal = 1080 + 80 + 20 + 80,
-	.vdisplay = 2340,
-	.vsync_start = 2340 + 16,
-	.vsync_end = 2340 + 16 + 10,
-	.vtotal = 2340 + 16 + 10 + 25,
-	.vrefresh = 120,
+
+	.clock       = PANEL_CLOCK,
+	.hdisplay    = PANEL_WIDTH,
+	.hsync_start = PANEL_WIDTH  + MODE_0_HFP,
+	.hsync_end   = PANEL_WIDTH  + MODE_0_HFP + HSA,
+	.htotal      = PANEL_WIDTH  + MODE_0_HFP + HSA + HBP,
+	.vdisplay    = PANEL_HEIGHT,
+	.vsync_start = PANEL_HEIGHT + MODE_0_VFP,
+	.vsync_end   = PANEL_HEIGHT + MODE_0_VFP + VSA,
+	.vtotal      = PANEL_HEIGHT + MODE_0_VFP + VSA + VBP,
+	.vrefresh    = MODE_0_FPS,
 };
 
 static const struct drm_display_mode performance_mode_90hz = {
-	.clock = 361519,
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 80,
-	.hsync_end = 1080 + 80 + 20,
-	.htotal = 1080 + 80 + 20 + 80,
-	.vdisplay = 2340,
-	.vsync_start = 2340 + 790,
-	.vsync_end = 2340 + 790 + 10,
-	.vtotal = 2340 + 790 + 10 + 25,
-	.vrefresh = 90,
 
-
+	.clock       = PANEL_CLOCK,
+	.hdisplay    = PANEL_WIDTH,
+	.hsync_start = PANEL_WIDTH  + MODE_1_HFP,
+	.hsync_end   = PANEL_WIDTH  + MODE_1_HFP + HSA,
+	.htotal      = PANEL_WIDTH  + MODE_1_HFP + HSA + HBP,
+	.vdisplay    = PANEL_HEIGHT,
+	.vsync_start = PANEL_HEIGHT + MODE_1_VFP,
+	.vsync_end   = PANEL_HEIGHT + MODE_1_VFP + VSA,
+	.vtotal      = PANEL_HEIGHT + MODE_1_VFP + VSA + VBP,
+	.vrefresh    = MODE_1_FPS,
 };
 
 static const struct drm_display_mode performance_mode_60hz = {
-	.clock = 361519,
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 80,
-	.hsync_end = 1080 + 80 + 20,
-	.htotal = 1080 + 80 + 20 + 80,
-	.vdisplay = 2340,
-	.vsync_start = 2340 + 2378,
-	.vsync_end = 2340 + 2378 + 10,
-	.vtotal = 2340 + 2378 + 10 + 25,
-	.vrefresh = 60,
 
-
+	.clock       = PANEL_CLOCK,
+	.hdisplay    = PANEL_WIDTH,
+	.hsync_start = PANEL_WIDTH  + MODE_2_HFP,
+	.hsync_end   = PANEL_WIDTH  + MODE_2_HFP + HSA,
+	.htotal      = PANEL_WIDTH  + MODE_2_HFP + HSA + HBP,
+	.vdisplay    = PANEL_HEIGHT,
+	.vsync_start = PANEL_HEIGHT + MODE_2_VFP,
+	.vsync_end   = PANEL_HEIGHT + MODE_2_VFP + VSA,
+	.vtotal      = PANEL_HEIGHT + MODE_2_VFP + VSA + VBP,
+	.vrefresh    = MODE_2_FPS,
 };
+
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 
@@ -506,8 +540,8 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
-	.physical_width_um = 68364,
-	.physical_height_um = 152300,
+	.physical_width_um = PHYSICAL_WIDTH,
+	.physical_height_um = PHYSICAL_HEIGHT,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 	.enable = 1,
@@ -520,8 +554,8 @@ static struct mtk_panel_params ext_params = {
 	.dsc_line_buf_depth = 9,
 	.bp_enable = 1,
 	.bit_per_pixel = 128,  //128
-	.pic_height = 2340,
-	.pic_width = 1080,
+	.pic_height = PANEL_HEIGHT,
+	.pic_width = PANEL_WIDTH,
 	.slice_height = 20,
 	.slice_width = 540,
 	.chunk_size = 540,
@@ -546,14 +580,14 @@ static struct mtk_panel_params ext_params = {
 	},
 	.dyn = {
 		.switch_en = 1,
-		.data_rate = 1070,
+		.data_rate = DATA_RATE,
 		.hbp = 84,
 	},
 	.dyn_fps = {
 		.switch_en = 1,
-		.vact_timing_fps = 120,
+		.vact_timing_fps = MODE_0_FPS,
 	},
-	.data_rate = 1070,
+	.data_rate = DATA_RATE,
 };
 
 static struct mtk_panel_params ext_params_90hz = {
@@ -564,8 +598,8 @@ static struct mtk_panel_params ext_params_90hz = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
-	.physical_width_um = 68364,
-	.physical_height_um = 152300,
+	.physical_width_um = PHYSICAL_WIDTH,
+	.physical_height_um = PHYSICAL_HEIGHT,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 	.enable = 1,
@@ -578,8 +612,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	.dsc_line_buf_depth = 9,
 	.bp_enable = 1,
 	.bit_per_pixel = 128,  //128
-	.pic_height = 2340,
-	.pic_width = 1080,
+	.pic_height = PANEL_HEIGHT,
+	.pic_width = PANEL_WIDTH,
 	.slice_height = 20,
 	.slice_width = 540,
 	.chunk_size = 540,
@@ -604,15 +638,15 @@ static struct mtk_panel_params ext_params_90hz = {
 	},
 	.dyn = {
 		.switch_en = 1,
-		.data_rate = 1070,
+		.data_rate = DATA_RATE,
 
 		.hbp = 84,
 	},
 	.dyn_fps = {
 		.switch_en = 1,
-		.vact_timing_fps = 90,
+		.vact_timing_fps = MODE_1_FPS,
 	},
-	.data_rate = 1070,
+	.data_rate = DATA_RATE,
 };
 
 static struct mtk_panel_params ext_params_60hz = {
@@ -623,8 +657,8 @@ static struct mtk_panel_params ext_params_60hz = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
-	.physical_width_um = 68364,
-	.physical_height_um = 152300,
+	.physical_width_um = PHYSICAL_WIDTH,
+	.physical_height_um = PHYSICAL_HEIGHT,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 	.enable = 1,
@@ -637,8 +671,8 @@ static struct mtk_panel_params ext_params_60hz = {
 	.dsc_line_buf_depth = 9,
 	.bp_enable = 1,
 	.bit_per_pixel = 128,  //128
-	.pic_height = 2340,
-	.pic_width = 1080,
+	.pic_height = PANEL_HEIGHT,
+	.pic_width = PANEL_WIDTH,
 	.slice_height = 20,
 	.slice_width = 540,
 	.chunk_size = 540,
@@ -663,14 +697,14 @@ static struct mtk_panel_params ext_params_60hz = {
 	},
 	.dyn = {
 		.switch_en = 1,
-		.data_rate = 1070,
+		.data_rate = DATA_RATE,
 		.hbp = 84,
 	},
 	.dyn_fps = {
 		.switch_en = 1,
-		.vact_timing_fps = 60,
+		.vact_timing_fps = MODE_2_FPS,
 	},
-	.data_rate = 1070,
+	.data_rate = DATA_RATE,
 };
 
 static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
