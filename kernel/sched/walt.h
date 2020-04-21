@@ -65,11 +65,6 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 		walt_fixup_cum_window_demand(rq, -(s64)p->ravg.demand_scaled);
 }
 
-extern void
-fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
-					  u16 updated_demand_scaled,
-					  u16 updated_pred_demand_scaled);
-
 static inline void walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
 {
 	sched_update_nr_prod(cpu_of(rq), 0, true);
@@ -255,13 +250,6 @@ inc_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
 
 static inline void
 dec_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
-			      u16 updated_demand_scaled,
-			      u16 updated_pred_demand_scaled)
-{
-}
 
 static inline u64 sched_irqload(int cpu)
 {

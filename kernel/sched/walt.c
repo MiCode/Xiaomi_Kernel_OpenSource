@@ -185,9 +185,6 @@ void __weak attach_tasks_core(struct list_head *tasks, struct rq *rq) { }
 void __weak walt_update_task_ravg(struct task_struct *p, struct rq *rq,
 				int event, u64 wallclock, u64 irqtime) { }
 
-void __weak fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
-		u16 updated_demand_scaled, u16 updated_pred_demand_scaled) { }
-
 void __weak fixup_busy_time(struct task_struct *p, int new_cpu) { }
 
 void __weak init_new_task_load(struct task_struct *p) { }
