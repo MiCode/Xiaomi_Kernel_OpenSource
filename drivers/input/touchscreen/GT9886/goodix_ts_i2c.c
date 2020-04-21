@@ -329,23 +329,8 @@ static int goodix_parse_dt(struct device_node *node,
 	}
 
 	ts_info("read lcm name : %s", videolfb_tag->lcmname);
-	if (strcmp("td4330_fhdp_dsi_vdo_auo_rt5081_drv",
+	if (strcmp("hx83112b_fhdp_dsi_vdo_fhd_auo_rt4801_drv",
 		videolfb_tag->lcmname) == 0) {
-		r = of_property_read_string(node,
-				"goodix,firmware-version",
-				&gt9886_firmware_buf);
-		if (r < 0)
-			ts_err("Invalid firmware version in dts : %d", r);
-
-		r = of_property_read_string(node,
-				"goodix,config-version",
-				&gt9886_config_buf);
-		if (r < 0) {
-			ts_err("Invalid config version in dts : %d", r);
-			return -EINVAL;
-		}
-		board_data->flag_use_fhdp = false;
-	} else {
 		r = of_property_read_string(node,
 				"goodix,firmware-version-fhdp",
 				&gt9886_firmware_buf);
@@ -360,6 +345,22 @@ static int goodix_parse_dt(struct device_node *node,
 			return -EINVAL;
 		}
 		board_data->flag_use_fhdp = true;
+
+	} else {
+		r = of_property_read_string(node,
+				"goodix,firmware-version",
+				&gt9886_firmware_buf);
+		if (r < 0)
+			ts_err("Invalid firmware version in dts : %d", r);
+
+		r = of_property_read_string(node,
+				"goodix,config-version",
+				&gt9886_config_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
+		board_data->flag_use_fhdp = false;
 	}
 
 	board_data->avdd_name = "vtouch";
