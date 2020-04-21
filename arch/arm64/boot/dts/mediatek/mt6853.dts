@@ -6352,7 +6352,6 @@ page_owner=on";
 				interrupts = <MT6362_BUCK5_OC_SDN_EVT>,
 					     <MT6362_BUCK5_PGB_EVT>;
 				interrupt-names = "oc_evt", "pgb_evt";
-				regulator-always-on;
 			};
 			buck6 {
 				regulator-name = "MD_VRF13";
@@ -6366,7 +6365,6 @@ page_owner=on";
 				interrupts = <MT6362_BUCK6_OC_SDN_EVT>,
 					     <MT6362_BUCK6_PGB_EVT>;
 				interrupt-names = "oc_evt", "pgb_evt";
-				regulator-always-on;
 			};
 			mt_pmic_vfp_ldo_reg: ldo1 {
 				regulator-name = "mt6362-ldo1";
