@@ -995,6 +995,7 @@
 				"tsens_tm_physical";
 		interrupts = <0 163 0>, <0 165 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		tsens-reinit-wa;
 		#thermal-sensor-cells = <1>;
 	};
 
