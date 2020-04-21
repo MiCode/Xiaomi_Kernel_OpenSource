@@ -11612,7 +11612,8 @@ static bool silver_has_big_tasks(void)
 	for_each_possible_cpu(cpu) {
 		if (!is_min_capacity_cpu(cpu))
 			break;
-		if (cpu_rq(cpu)->walt_stats.nr_big_tasks)
+
+		if (walt_big_tasks(cpu))
 			return true;
 	}
 
