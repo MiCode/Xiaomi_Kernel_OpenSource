@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -222,8 +222,11 @@ static int qrtr_mhi_dev_probe(struct platform_device *pdev)
 	mutex_init(&qep->out_lock);
 	init_completion(&qep->out_tre);
 	qep->ep.xmit = qrtr_mhi_dev_send;
+	/* HOST init TX first followed by RX, so register for endpoint TX
+	 * which makes both channel ready by checking one channel state.
+	 */
 	rc = mhi_register_state_cb(qrtr_mhi_dev_state_cb, qep,
-				   QRTR_MHI_DEV_IN);
+				   QRTR_MHI_DEV_OUT);
 	if (rc)
 		return rc;
 
