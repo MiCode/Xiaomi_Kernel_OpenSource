@@ -126,7 +126,7 @@ mtk_get_pdata(struct platform_device *pdev,
 	struct mtk_composite_v4l2_device *pfdev)
 {
 	struct device_node *endpoint = NULL;
-	struct v4l2_async_subdev *pdata[MISC_MAX_SUBDEVS];
+	struct v4l2_async_subdev *pdata[MISC_MAX_SUBDEVS] = {0};
 	struct v4l2_async_notifier *notifier;
 	unsigned int i;
 
@@ -273,7 +273,7 @@ static int mtk_composite_probe(struct platform_device *dev)
 mdev_end:
 	kzfree(pfdev->vdev);
 vdec_end:
-	kzfree(pfdev);
+	kfree(pfdev);
 
 	return rc;
 }
