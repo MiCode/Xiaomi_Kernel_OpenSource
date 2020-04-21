@@ -32,6 +32,7 @@
 #include "mnoc_api.h"
 #include "mnoc_pmu.h"
 #include "mnoc_option.h"
+#include "mnoc_tag.h"
 
 static unsigned int mnoc_addr_phy;
 
@@ -498,8 +499,12 @@ static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 
 static int mnoc_int_sta_dump_show(struct seq_file *m, void *v)
 {
-	seq_puts(m, "Print interrupt count and last snapshot\n");
+	seq_puts(m, "Print interrupt count and last snapshot:\n");
 	print_int_sta(m);
+#ifdef MNOC_TAG_TP
+	seq_puts(m, "Dump mnoc tag:\n");
+	mnoc_tags_show(m);
+#endif
 
 	return 0;
 }

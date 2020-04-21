@@ -330,6 +330,12 @@ int mnoc_check_int_status(void)
 	int grp_idx, int_idx, ni_idx;
 	struct mnoc_int_dump *d;
 	uint64_t cur_timestamp;
+#ifdef MNOC_TAG_TP
+	uint32_t mni_int_val[NR_MNI_INT_STA];
+	uint32_t sni_int_val[NR_SNI_INT_STA];
+	uint32_t rt_int_val[NR_RT_INT_STA];
+	uint32_t sw_irq_val;
+#endif
 
 	LOG_DEBUG("+\n");
 
@@ -356,6 +362,9 @@ int mnoc_check_int_status(void)
 		for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 			val = mnoc_read(MNOC_REG(grp_idx,
 				mni_int_sta_offset[int_idx]));
+#ifdef MNOC_TAG_TP
+			mni_int_val[int_idx] = val;
+#endif
 			if ((val & 0xFFFF) != 0) {
 				d->mni_int_sta[int_idx].reg_val = val;
 				d->mni_int_sta[int_idx].timestamp =
@@ -379,6 +388,9 @@ int mnoc_check_int_status(void)
 		for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
 			val = mnoc_read(MNOC_REG(grp_idx,
 				sni_int_sta_offset[int_idx]));
+#ifdef MNOC_TAG_TP
+			sni_int_val[int_idx] = val;
+#endif
 			if ((val & 0xFFFF) != 0) {
 				d->sni_int_sta[int_idx].reg_val = val;
 				d->sni_int_sta[int_idx].timestamp =
@@ -402,6 +414,9 @@ int mnoc_check_int_status(void)
 		for (int_idx = 0; int_idx < NR_RT_INT_STA; int_idx++) {
 			val = mnoc_read(MNOC_REG(grp_idx,
 				rt_int_sta_offset[int_idx]));
+#ifdef MNOC_TAG_TP
+			rt_int_val[int_idx] = val;
+#endif
 			if ((val & 0x1F) != 0) {
 				d->rt_int_sta[int_idx].reg_val = val;
 				d->rt_int_sta[int_idx].timestamp =
@@ -427,6 +442,7 @@ int mnoc_check_int_status(void)
 		/* additional check: sw triggered irq */
 		val = mnoc_read_field(MNOC_REG(grp_idx,
 			MISC_CTRL), 18:16);
+		sw_irq_val = val;
 		if (val != 0) {
 			d->sw_irq_sta.reg_val = val;
 			d->sw_irq_sta.timestamp = cur_timestamp;
@@ -438,23 +454,23 @@ int mnoc_check_int_status(void)
 		}
 #ifdef MNOC_TAG_TP
 		trace_mnoc_excep(grp_idx,
-			d->sw_irq_sta.reg_val,
-			d->mni_int_sta[MNOC_INT_MNI_QOS_IRQ_FLAG].reg_val,
-			d->mni_int_sta[MNOC_INT_ADDR_DEC_ERR_FLAG].reg_val,
-			d->mni_int_sta[MNOC_INT_MST_PARITY_ERR_FLAG].reg_val,
-			d->mni_int_sta[MNOC_INT_MST_MISRO_ERR_FLAG].reg_val,
-			d->mni_int_sta[MNOC_INT_MST_CRDT_ERR_FLAG].reg_val,
-			d->sni_int_sta[MNOC_INT_SLV_PARITY_ERR_FLA].reg_val,
-			d->sni_int_sta[MNOC_INT_SLV_MISRO_ERR_FLAG].reg_val,
-			d->sni_int_sta[MNOC_INT_SLV_CRDT_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_REQRT_MISRO_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_RSPRT_MISRO_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_REQRT_TO_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_RSPRT_TO_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_REQRT_CBUF_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_RSPRT_CBUF_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_REQRT_CRDT_ERR_FLAG].reg_val,
-			d->rt_int_sta[MNOC_INT_RSPRT_CRDT_ERR_FLAG].reg_val);
+			sw_irq_val,
+			mni_int_val[MNOC_INT_MNI_QOS_IRQ_FLAG],
+			mni_int_val[MNOC_INT_ADDR_DEC_ERR_FLAG],
+			mni_int_val[MNOC_INT_MST_PARITY_ERR_FLAG],
+			mni_int_val[MNOC_INT_MST_MISRO_ERR_FLAG],
+			mni_int_val[MNOC_INT_MST_CRDT_ERR_FLAG],
+			sni_int_val[MNOC_INT_SLV_PARITY_ERR_FLA],
+			sni_int_val[MNOC_INT_SLV_MISRO_ERR_FLAG],
+			sni_int_val[MNOC_INT_SLV_CRDT_ERR_FLAG],
+			rt_int_val[MNOC_INT_REQRT_MISRO_ERR_FLAG],
+			rt_int_val[MNOC_INT_RSPRT_MISRO_ERR_FLAG],
+			rt_int_val[MNOC_INT_REQRT_TO_ERR_FLAG],
+			rt_int_val[MNOC_INT_RSPRT_TO_ERR_FLAG],
+			rt_int_val[MNOC_INT_REQRT_CBUF_ERR_FLAG],
+			rt_int_val[MNOC_INT_RSPRT_CBUF_ERR_FLAG],
+			rt_int_val[MNOC_INT_REQRT_CRDT_ERR_FLAG],
+			rt_int_val[MNOC_INT_RSPRT_CRDT_ERR_FLAG]);
 #endif
 	}
 
