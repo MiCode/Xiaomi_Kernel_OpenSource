@@ -30,6 +30,8 @@ struct fmeter_clk {
 	enum FMETER_TYPE type;
 	u32 id;
 	const char *name;
+	u32 ofs;
+	u32 pdn;
 };
 
 struct regbase {
