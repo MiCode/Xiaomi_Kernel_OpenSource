@@ -322,9 +322,6 @@ static enum Tfa98xx_Error tfa9912_specific(struct tfa_device *tfa)
 
 		/* PLMA5505: MTP key open makes vulanable for MTP corruption */
 		tfa9912_faim_protect(tfa, 0);
-	} else {
-		pr_info("Warning: Optimal settings not found for device with revid = 0x%x\n",
-			tfa->rev);
 	}
 
 	return error;
@@ -347,34 +344,18 @@ static enum Tfa98xx_Error tfa9912_factory_trimmer(struct tfa_device *tfa)
 		result = TFA_GET_BF(tfa, DCMCCSB);
 		if (result == 0) {
 			/* Do not exceed the maximum value of 15 */
-			if (currentValue + delta < 15) {
+			if (currentValue + delta < 15)
 				TFA_SET_BF_VOLATILE(tfa, DCMCC,
 						    currentValue + delta);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: %d\n",
-						currentValue + delta);
-			} else {
+			else
 				TFA_SET_BF_VOLATILE(tfa, DCMCC, 15);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: 15\n");
-			}
 		} else if (result == 1) {
 			/* Do not exceed the minimum value of 0 */
-			if (currentValue - delta > 0) {
+			if (currentValue - delta > 0)
 				TFA_SET_BF_VOLATILE(tfa, DCMCC,
 						    currentValue - delta);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: %d\n",
-						currentValue - delta);
-			} else {
+			else
 				TFA_SET_BF_VOLATILE(tfa, DCMCC, 0);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: 0\n");
-			}
 		}
 	}
 
@@ -472,13 +453,8 @@ static uint16_t tfa9912_vboost_fixup(struct tfa_device *tfa, uint16_t dcdc_cnt6)
 	tfa_set_bf_value(TFA9912_BF_DCVOS, boost_v_2nd, &new_dcdc_cnt6);
 
 	/* Change register value only when it's necessary */
-	if (new_dcdc_cnt6 != dcdc_cnt6) {
-		if (tfa->verbose)
-			pr_debug(
-				"tfa9912: V boost fixup applied. Old 0x%04x, new 0x%04x\n",
-				dcdc_cnt6, new_dcdc_cnt6);
+	if (new_dcdc_cnt6 != dcdc_cnt6)
 		dcdc_cnt6 = new_dcdc_cnt6;
-	}
 
 	return dcdc_cnt6;
 }
@@ -884,9 +860,6 @@ static enum Tfa98xx_Error tfa9888_specific(struct tfa_device *tfa)
 		tfa_reg_write(tfa, 0x71, 0x1074); // POR=0x3074
 		tfa_reg_write(tfa, 0x83, 0x0014); // POR=0x0013
 		/* ----- generated code end   ----- */
-	} else {
-		pr_info("Warning: Optimal settings not found for device with revid = 0x%x\n",
-			tfa->rev);
 	}
 
 	patch_version = tfa_cnt_get_patch_version(tfa);
@@ -977,34 +950,18 @@ static enum Tfa98xx_Error tfa9888_factory_trimmer(struct tfa_device *tfa)
 		result = TFA_GET_BF(tfa, DCMCCSB);
 		if (result == 0) {
 			/* Do not exceed the maximum value of 15 */
-			if (currentValue + delta < 15) {
+			if (currentValue + delta < 15)
 				TFA_SET_BF_VOLATILE(tfa, DCMCC,
 						    currentValue + delta);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: %d\n",
-						currentValue + delta);
-			} else {
+			else
 				TFA_SET_BF_VOLATILE(tfa, DCMCC, 15);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: 15\n");
-			}
 		} else if (result == 1) {
 			/* Do not exceed the minimum value of 0 */
-			if (currentValue - delta > 0) {
+			if (currentValue - delta > 0)
 				TFA_SET_BF_VOLATILE(tfa, DCMCC,
 						    currentValue - delta);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: %d\n",
-						currentValue - delta);
-			} else {
+			else
 				TFA_SET_BF_VOLATILE(tfa, DCMCC, 0);
-				if (tfa->verbose)
-					pr_debug(
-						"Max coil current is set to: 0\n");
-			}
 		}
 	}
 
