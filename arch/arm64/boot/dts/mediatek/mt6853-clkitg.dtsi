@@ -21,33 +21,6 @@
 			/* MTCMOS */
 
 			/* CLOCK */
-			<&apmixed CLK_APMIXED_PLL_MIPID0_26M_EN>,
-			<&infracfg_ao CLK_IFRAO_INFRA_DCM_RG_FORCE>,
-			<&infracfg_ao CLK_IFRAO_PMIC_MD>,
-			<&infracfg_ao CLK_IFRAO_PMIC_CONN>,
-			<&infracfg_ao CLK_IFRAO_SEJ>,
-			<&infracfg_ao CLK_IFRAO_APXGPT>,
-			<&infracfg_ao CLK_IFRAO_THERM>,
-			<&infracfg_ao CLK_IFRAO_DVFSRC>,
-			<&infracfg_ao CLK_IFRAO_TRNG>,
-			<&infracfg_ao CLK_IFRAO_AUXADC_MD>,
-			<&infracfg_ao CLK_IFRAO_DEBUGSYS>,
-			<&infracfg_ao CLK_IFRAO_DXCC_AO>,
-			<&infracfg_ao CLK_IFRAO_DBG_TRACE>,
-			<&infracfg_ao CLK_IFRAO_DRAMC_F26M>,
-			<&infracfg_ao CLK_IFRAO_MODEM_TEMP_SHARE>,
-			<&infracfg_ao CLK_IFRAO_UNIPRO_TICK>,
-			<&infracfg_ao CLK_IFRAO_FSSPM>,
-			<&infracfg_ao CLK_IFRAO_SSPM_BUS_HCLK>,
-			<&infracfg_ao CLK_IFRAO_SSPM_26M_SELF>,
-			<&infracfg_ao CLK_IFRAO_SSPM_32K_SELF>,
-			<&infracfg_ao CLK_IFRAO_CCIF3_AP>,
-			<&infracfg_ao CLK_IFRAO_CCIF3_MD>,
-			<&infracfg_ao CLK_IFRAO_SEJ_F13M>,
-			<&infracfg_ao CLK_IFRAO_DEVICE_APC_SYNC>,
-			<&infracfg_ao CLK_IFRAO_133M_MCLK_CK>,
-			<&infracfg_ao CLK_IFRAO_66M_MCLK_CK>,
-			<&infracfg_ao CLK_IFRAO_PERI_DCM_RG_FORCE>,
-			<&pericfg CLK_PERIAXI_DISABLE>;
+			<&clk26m>;
 	};
 };
