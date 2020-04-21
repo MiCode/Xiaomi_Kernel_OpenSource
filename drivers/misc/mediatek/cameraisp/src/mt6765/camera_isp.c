@@ -7961,7 +7961,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			#if (TIMESTAMP_QUEUE_EN == 1)
 			struct S_START_T tstp;
 			unsigned int dma_id = DebugFlag[1];
-
+                        if (DebugFlag[0] < ISP_IRQ_TYPE_INT_CAM_A_ST || DebugFlag[0] > ISP_IRQ_TYPE_INT_UNI_A_ST) {
+                                Ret = -EFAULT;
+                                break;
+                        }
+                        if (DebugFlag[2] < 0 || DebugFlag[2] > cam_max) {
+                                Ret = -EFAULT;
+                                break;
+                        }
 			if (_cam_max_ == DebugFlag[1]) {
 				/* only for wait timestamp to ready */
 				Ret = ISP_WaitTimestampReady(DebugFlag[0],
