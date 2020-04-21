@@ -1205,6 +1205,7 @@ page_owner=on";
 	};
 
 	touch:touch {
+		compatible = "goodix,touch";
 	};
 
 	goodix_fp: fingerprint {

@@ -220,11 +220,18 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 	if (r)
 		err = -ENOENT;
 
-	r = of_property_read_u32(node, "goodix,panel-max-y",
+	if (board_data->flag_use_fhdp == true) {
+		r = of_property_read_u32(node,
+				"goodix,panel-max-y-fhdp",
 				&board_data->panel_max_y);
-	if (r)
-		err = -ENOENT;
-
+		if (r)
+			err = -ENOENT;
+	} else {
+		r = of_property_read_u32(node, "goodix,panel-max-y",
+					&board_data->panel_max_y);
+		if (r)
+			err = -ENOENT;
+	}
 	/* For unreal lcm test */
 	r = of_property_read_u32(node, "goodix,input-max-x",
 				 &board_data->input_max_x);
@@ -254,7 +261,6 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 
 	board_data->y2y = of_property_read_bool(node,
 			"goodix,y2y");
-
 	return 0;
 }
 
@@ -264,11 +270,22 @@ static int goodix_parse_dt_resolution(struct device_node *node,
  * @board_data: pointer to board data structure
  * return: 0 - no error, <0 error
  */
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1];
+};
+
 static int goodix_parse_dt(struct device_node *node,
 	struct goodix_ts_board_data *board_data)
 {
 	struct property *prop;
 	int r;
+	struct device_node *lcm_name_node;
+	struct tag_videolfb *videolfb_tag = NULL;
+	unsigned long size = 0;
 
 	if (!board_data) {
 		ts_err("Invalid board data");
@@ -300,16 +317,49 @@ static int goodix_parse_dt(struct device_node *node,
 		return -EINVAL;
 	}
 
-	r = of_property_read_string(node, "goodix,firmware-version",
-			&gt9886_firmware_buf);
-	if (r < 0)
-		ts_err("Invalid firmware version in dts : %d", r);
+	ts_info("start to parse lcm name");
+	lcm_name_node = of_find_node_by_path("/chosen");
+	if (lcm_name_node) {
+		videolfb_tag = (struct tag_videolfb *)
+			of_get_property(lcm_name_node,
+			"atag,videolfb",
+			(int *)&size);
+		if (!videolfb_tag)
+			ts_err("Invalid lcm name");
+	}
 
-	r = of_property_read_string(node, "goodix,config-version",
-			&gt9886_config_buf);
-	if (r < 0) {
-		ts_err("Invalid config version in dts : %d", r);
-		return -EINVAL;
+	ts_info("read lcm name : %s", videolfb_tag->lcmname);
+	if (strcmp("td4330_fhdp_dsi_vdo_auo_rt5081_drv",
+		videolfb_tag->lcmname) == 0) {
+		r = of_property_read_string(node,
+				"goodix,firmware-version",
+				&gt9886_firmware_buf);
+		if (r < 0)
+			ts_err("Invalid firmware version in dts : %d", r);
+
+		r = of_property_read_string(node,
+				"goodix,config-version",
+				&gt9886_config_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
+		board_data->flag_use_fhdp = false;
+	} else {
+		r = of_property_read_string(node,
+				"goodix,firmware-version-fhdp",
+				&gt9886_firmware_buf);
+		if (r < 0)
+			ts_err("Invalid firmware version in dts : %d", r);
+
+		r = of_property_read_string(node,
+				"goodix,config-version-fhdp",
+				&gt9886_config_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
+		board_data->flag_use_fhdp = true;
 	}
 
 	board_data->avdd_name = "vtouch";
@@ -1707,10 +1757,11 @@ static void goodix_swap_coords(struct goodix_ts_device *dev,
 			coords->x = coords->y;
 			coords->y = temp;
 		}
+
 		if (bdata->x2x)
-			coords->x = bdata->input_max_x - coords->x;
+			coords->x = bdata->panel_max_x - coords->x;
 		if (bdata->y2y)
-			coords->y = bdata->input_max_y - coords->y;
+			coords->y = bdata->panel_max_y - coords->y;
 		coords++;
 	}
 }

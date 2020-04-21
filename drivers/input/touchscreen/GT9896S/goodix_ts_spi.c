@@ -1020,9 +1020,9 @@ static void gt9896s_swap_coords(struct gt9896s_ts_device *dev,
 	}
 
 	if (!bdata->x2x)
-		*coor_x = bdata->input_max_x - *coor_x;
+		*coor_x = bdata->panel_max_x - *coor_x;
 	if (!bdata->y2y)
-		*coor_y = bdata->input_max_y - *coor_y;
+		*coor_y = bdata->panel_max_y - *coor_y;
 }
 
 static void gt9896s_parse_finger_ys(struct gt9896s_ts_device *dev,

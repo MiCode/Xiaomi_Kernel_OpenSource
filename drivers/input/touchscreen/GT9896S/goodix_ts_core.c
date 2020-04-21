@@ -1524,8 +1524,8 @@ static int gt9896s_ts_pen_dev_config(struct gt9896s_ts_core *core_data)
 	__set_bit(BTN_TOUCH, pen_dev->keybit);
 	__set_bit(BTN_TOOL_PEN, pen_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, pen_dev->propbit);
-	input_set_abs_params(pen_dev, ABS_X, 0, ts_bdata->panel_max_x, 0, 0);
-	input_set_abs_params(pen_dev, ABS_Y, 0, ts_bdata->panel_max_y, 0, 0);
+	input_set_abs_params(pen_dev, ABS_X, 0, ts_bdata->input_max_x, 0, 0);
+	input_set_abs_params(pen_dev, ABS_Y, 0, ts_bdata->input_max_y, 0, 0);
 	input_set_abs_params(pen_dev, ABS_PRESSURE, 0,
 			     GOODIX_PEN_MAX_PRESSURE, 0, 0);
 

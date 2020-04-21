@@ -203,6 +203,7 @@ struct goodix_ts_board_data {
 	bool pen_enable;
 	unsigned int tp_key_num;
 	/*add end*/
+	unsigned int flag_use_fhdp;
 
 	const char *fw_name;
 	const char *cfg_bin_name;
