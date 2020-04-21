@@ -3441,13 +3441,12 @@ page_owner=on";
 
 	mmdvfs_pmqos {
 		compatible = "mediatek,mmdvfs_pmqos";
-		larb_groups = <0 1 2 4 5 7 9 11 13 14 16 17 18 19 20>;
-		larb0 = <8 7 8 8 9 8>;
-		larb1 = <7 7 8 8 7 8 9 8>;
+		larb_groups = <0 1 2 4 7 9 11 13 14 16 17 19 20>;
+		larb0 = <8 7 8 8>;
+		larb1 = <7 8 8 9 8>;
 		larb2 = <7 7 8 8 8>;
-		larb4 = <6 7 8 7 7 7 7 7 7 6 7>;
-		larb5 = <7 7 6 7 7 8 7 7>;
-		larb7 = <7 8 8 8 7 7 7 7 7 7 7 7 8 7 8>;
+		larb4 = <8 7 8 9 9 9 9 7 7 8 7 6>;
+		larb7 = <9 8 8 8 7 7 7 7 7 7 7 7 8>;
 		larb9 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
 			7 7 7 7 7 7 8 8 8 8 7>;
 		larb11 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7
@@ -3456,11 +3455,10 @@ page_owner=on";
 		larb14 = <7 8 8 8 7 8>;
 		larb16 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
 		larb17 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
-		larb18 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
 		larb19 = <7 8 7 8>;
 		larb20 = <7 7 8 8 7 8>;
 		/* include SMI common CCU */
-		cam_larb = <13 14 16 17 18 23 24>;
+		cam_larb = <13 14 16 17 23 24>;
 		max_ostd_larb = <0 1>;
 		max_ostd = <40>;
 		comm_freq = "disp_freq";
