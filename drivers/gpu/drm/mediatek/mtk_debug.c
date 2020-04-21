@@ -56,6 +56,7 @@ bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
 bool g_trace_log;
+unsigned int mipi_volt;
 
 struct logger_buffer {
 	char **buffer_ptr;
@@ -1455,6 +1456,18 @@ static void process_dbg_opt(const char *opt)
 		DDPMSG("read_ddic_test:%d\n", case_num);
 
 		ddic_dsi_read_cmd_test(case_num);
+	} else if (strncmp(opt, "mipi_volt:", 10) == 0) {
+		char *p = (char *)opt + 10;
+		int ret;
+
+		ret = kstrtouint(p, 0, &mipi_volt);
+		if (ret) {
+			DDPMSG("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		DDPMSG("mipi_volt change :%d\n",
+		       mipi_volt);
 	}
 }
 

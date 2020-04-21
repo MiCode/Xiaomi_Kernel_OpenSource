@@ -24,6 +24,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_panel_ext.h"
 #include "mtk_dump.h"
+#include "mtk_mipi_tx.h"
 
 #define MIPITX_DSI_CON 0x00
 #define RG_DSI_LDOCORE_EN BIT(0)
@@ -137,6 +138,7 @@
 
 #define MIPITX_LANE_CON (0x000CUL)
 #define MIPITX_VOLTAGE_SEL (0x0010UL)
+#define FLD_RG_DSI_HSTX_LDO_REF_SEL (0xf << 6)
 #define MIPITX_PRESERVED (0x0014UL)
 #define MIPITX_PLL_PWR (0x0028UL)
 #define AD_DSI_PLL_SDM_PWR_ON BIT(0)
@@ -1019,6 +1021,13 @@ static int mtk_mipi_tx_pll_prepare_mt6873(struct clk_hw *hw)
 	/* TODO: should write bit8 to set SW_ANA_CK_EN here */
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 
+	if (mipi_volt) {
+		/* set mipi_tx voltage */
+		DDPMSG(" %s+ mipi_volt change: %d\n", __func__, mipi_volt);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL,
+			FLD_RG_DSI_HSTX_LDO_REF_SEL, mipi_volt << 6);
+	}
+
 	DDPDBG("%s-\n", __func__);
 
 	return 0;
@@ -1067,6 +1076,14 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6873(struct clk_hw *hw)
 	}
 	/*set volate*/
 	writel(0x4444236A, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
+
+	/* change the mipi_volt */
+	if (mipi_volt) {
+		DDPMSG("%s+ mipi_volt change: %d\n", __func__, mipi_volt);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL,
+			FLD_RG_DSI_HSTX_LDO_REF_SEL, mipi_volt<<6);
+	}
+
 	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED);
 	/* step 0 */
 	/* BG_LPF_EN / BG_CORE_EN */
