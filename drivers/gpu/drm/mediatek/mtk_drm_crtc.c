@@ -51,6 +51,8 @@
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
 #include "mtk_disp_ccorr.h"
+/* *****Panel_Master*********** */
+#include "mtk_fbconfig_kdebug.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -6266,3 +6268,34 @@ int MMPathTraceCrtcPlanes(struct drm_crtc *crtc,
 
 	return n;
 }
+
+/* ************   Panel Master   **************** */
+
+void mtk_crtc_start_for_pm(struct drm_crtc *crtc)
+{
+	int i, j;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *cmdq_handle;
+	/* start trig loop */
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_start_trig_loop(crtc);
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	/*if VDO mode start DSI MODE */
+	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
+		mtk_crtc_is_connector_enable(mtk_crtc)) {
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				DSI_START_VDO_MODE, NULL);
+		}
+	}
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		mtk_ddp_comp_start(comp, cmdq_handle);
+	}
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+}
+
+/* ***********  Panel Master end ************** */

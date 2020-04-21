@@ -53,7 +53,8 @@
 #include "mtk_disp_gamma.h"
 #include "mtk_disp_aal.h"
 #include "mtk_drm_mmp.h"
-
+/* *******Panel Master******** */
+#include "mtk_fbconfig_kdebug.h"
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -2284,6 +2285,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	mtk_drm_debugfs_init(drm, private);
 #endif
 	disp_dbg_init(drm);
+	PanelMaster_Init(drm);
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_drm_mmdvfs_init();
 #endif
@@ -2316,6 +2318,7 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	drm_mode_config_cleanup(drm);
 
 	disp_dbg_deinit();
+	PanelMaster_Deinit();
 }
 
 static const struct drm_ioctl_desc mtk_ioctls[] = {
@@ -2665,7 +2668,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	int i;
 
 	disp_dbg_probe();
-
+	PanelMaster_probe();
 	DDPINFO("%s+\n", __func__);
 
 	drm_debug = 0x2; /* DRIVER messages */

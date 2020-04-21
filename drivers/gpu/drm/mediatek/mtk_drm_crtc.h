@@ -721,12 +721,13 @@ unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 	char *stringbuf, int buf_len);
 char *mtk_crtc_index_spy(int crtc_index);
 
-/********************** Legacy DISP API ****************************/
+/* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);
 
 void mtk_crtc_disable_secure_state(struct drm_crtc *crtc);
 struct golden_setting_context *
 	__get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc);
-
+/***********************  PanelMaster  ********************************/
+void mtk_crtc_start_for_pm(struct drm_crtc *crtc);
 #endif /* MTK_DRM_CRTC_H */
