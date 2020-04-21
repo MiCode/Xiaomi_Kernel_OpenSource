@@ -2804,26 +2804,29 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	return 0;
 }
 
-static void sde_encoder_virt_mode_switch(enum sde_intf_mode intf_mode,
-					struct sde_encoder_virt *sde_enc,
-					struct drm_display_mode *adj_mode)
+static void sde_encoder_virt_mode_switch(struct drm_encoder *drm_enc,
+	enum sde_intf_mode intf_mode, struct drm_display_mode *adj_mode)
 {
 	int i = 0;
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+
+	if (intf_mode == INTF_MODE_CMD)
+		sde_enc->disp_info.curr_panel_mode = MSM_DISPLAY_VIDEO_MODE;
+	else if (intf_mode == INTF_MODE_VIDEO)
+		sde_enc->disp_info.curr_panel_mode = MSM_DISPLAY_CMD_MODE;
+
+	_sde_encoder_resource_control_rsc_update(drm_enc, true);
 
 	if (intf_mode == INTF_MODE_CMD) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
 			sde_enc->phys_encs[i] = sde_enc->phys_vid_encs[i];
-		sde_enc->disp_info.curr_panel_mode = MSM_DISPLAY_VIDEO_MODE;
 		SDE_DEBUG_ENC(sde_enc, "switch to video physical encoder\n");
 		SDE_EVT32(DRMID(&sde_enc->base), intf_mode,
 			msm_is_mode_seamless_poms(adj_mode),
 			SDE_EVTLOG_FUNC_CASE1);
-	}
-
-	if (intf_mode == INTF_MODE_VIDEO) {
+	} else if (intf_mode == INTF_MODE_VIDEO) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
 			sde_enc->phys_encs[i] = sde_enc->phys_cmd_encs[i];
-		sde_enc->disp_info.curr_panel_mode = MSM_DISPLAY_CMD_MODE;
 		SDE_EVT32(DRMID(&sde_enc->base), intf_mode,
 			msm_is_mode_seamless_poms(adj_mode),
 			SDE_EVTLOG_FUNC_CASE2);
@@ -2890,10 +2893,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	}
 	intf_mode = sde_encoder_get_intf_mode(drm_enc);
 
-	/* Switch pysical encoder */
-	if (msm_is_mode_seamless_poms(adj_mode))
-		sde_encoder_virt_mode_switch(intf_mode, sde_enc, adj_mode);
-
 	/* release resources before seamless mode change */
 	if (msm_is_mode_seamless_dms(adj_mode) ||
 			(msm_is_mode_seamless_dyn_clk(adj_mode) &&
@@ -2913,6 +2912,10 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		 * to guarantee that previous kickoff finished.
 		 */
 		_sde_encoder_dsc_disable(sde_enc);
+	} else if (msm_is_mode_seamless_poms(adj_mode)) {
+		_sde_encoder_modeset_helper_locked(drm_enc,
+			SDE_ENC_RC_EVENT_PRE_MODESET);
+		sde_encoder_virt_mode_switch(drm_enc, intf_mode, adj_mode);
 	}
 
 	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */
@@ -2992,6 +2995,9 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 			is_cmd_mode))
 		sde_encoder_resource_control(&sde_enc->base,
 						SDE_ENC_RC_EVENT_POST_MODESET);
+	else if (msm_is_mode_seamless_poms(adj_mode))
+		_sde_encoder_modeset_helper_locked(drm_enc,
+			SDE_ENC_RC_EVENT_POST_MODESET);
 }
 
 void sde_encoder_control_te(struct drm_encoder *drm_enc, bool enable)

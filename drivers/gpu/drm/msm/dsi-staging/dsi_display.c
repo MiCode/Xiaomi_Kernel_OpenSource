@@ -6090,47 +6090,9 @@ error:
 	return rc;
 }
 
-static int dsi_display_get_mode_count_no_lock(struct dsi_display *display,
-			u32 *count)
-{
-	struct dsi_dfps_capabilities dfps_caps;
-	struct dsi_dyn_clk_caps *dyn_clk_caps;
-	int num_dfps_rates, num_bit_clks, rc = 0;
-
-	if (!display || !display->panel) {
-		pr_err("invalid display:%d panel:%d\n", display != NULL,
-				display ? display->panel != NULL : 0);
-		return -EINVAL;
-	}
-
-	*count = display->panel->num_timing_nodes;
-
-	rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
-	if (rc) {
-		pr_err("[%s] failed to get dfps caps from panel\n",
-				display->name);
-		return rc;
-	}
-
-	num_dfps_rates = !dfps_caps.dfps_support ? 1 : dfps_caps.dfps_list_len;
-
-	dyn_clk_caps = &(display->panel->dyn_clk_caps);
-
-	num_bit_clks = !dyn_clk_caps->dyn_clk_support ? 1 :
-					dyn_clk_caps->bit_clk_list_len;
-
-	/* Inflate num_of_modes by fps and bit clks in dfps */
-	*count = display->panel->num_timing_nodes *
-				num_dfps_rates * num_bit_clks;
-
-	return 0;
-}
-
 int dsi_display_get_mode_count(struct dsi_display *display,
 			u32 *count)
 {
-	int rc;
-
 	if (!display || !display->panel) {
 		pr_err("invalid display:%d panel:%d\n", display != NULL,
 				display ? display->panel != NULL : 0);
@@ -6138,7 +6100,7 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 	}
 
 	mutex_lock(&display->display_lock);
-	rc = dsi_display_get_mode_count_no_lock(display, count);
+	*count = display->panel->num_display_modes;
 	mutex_unlock(&display->display_lock);
 
 	return 0;
@@ -6230,7 +6192,7 @@ static void _dsi_display_populate_bit_clks(struct dsi_display *display,
 	if (cfg->data_lanes & DSI_DATA_LANE_3)
 		lanes++;
 
-	dsi_display_get_mode_count_no_lock(display, &total_modes);
+	total_modes = display->panel->num_display_modes;
 
 	for (i = start; i < end; i++) {
 		src = &display->modes[i];
@@ -6284,8 +6246,8 @@ int dsi_display_get_modes(struct dsi_display *display,
 {
 	struct dsi_dfps_capabilities dfps_caps;
 	struct dsi_host_common_cfg *host = &display->panel->host_config;
-	bool is_split_link;
-	u32 num_dfps_rates, panel_mode_count, total_mode_count;
+	bool is_split_link, is_cmd_mode;
+	u32 num_dfps_rates, timing_mode_count, display_mode_count;
 	u32 sublinks_count, mode_idx, array_idx = 0;
 	struct dsi_dyn_clk_caps *dyn_clk_caps;
 	int i, start, end, rc = -EINVAL;
@@ -6302,11 +6264,9 @@ int dsi_display_get_modes(struct dsi_display *display,
 	if (display->modes)
 		goto exit;
 
-	rc = dsi_display_get_mode_count_no_lock(display, &total_mode_count);
-	if (rc)
-		goto error;
+	display_mode_count = display->panel->num_display_modes;
 
-	display->modes = kcalloc(total_mode_count, sizeof(*display->modes),
+	display->modes = kcalloc(display_mode_count, sizeof(*display->modes),
 			GFP_KERNEL);
 	if (!display->modes) {
 		rc = -ENOMEM;
@@ -6324,46 +6284,52 @@ int dsi_display_get_modes(struct dsi_display *display,
 
 	num_dfps_rates = !dfps_caps.dfps_support ? 1 : dfps_caps.dfps_list_len;
 
-	panel_mode_count = display->panel->num_timing_nodes;
+	timing_mode_count = display->panel->num_timing_nodes;
 
-	for (mode_idx = 0; mode_idx < panel_mode_count; mode_idx++) {
-		struct dsi_display_mode panel_mode;
+	for (mode_idx = 0; mode_idx < timing_mode_count; mode_idx++) {
+		struct dsi_display_mode display_mode;
 		int topology_override = NO_OVERRIDE;
 
 		if (display->cmdline_timing == mode_idx)
 			topology_override = display->cmdline_topology;
 
-		memset(&panel_mode, 0, sizeof(panel_mode));
+		memset(&display_mode, 0, sizeof(display_mode));
 
 		rc = dsi_panel_get_mode(display->panel, mode_idx,
-						&panel_mode, topology_override);
+						&display_mode,
+						topology_override);
 		if (rc) {
 			pr_err("[%s] failed to get mode idx %d from panel\n",
 				   display->name, mode_idx);
 			goto error;
 		}
 
+		is_cmd_mode = (display_mode.panel_mode == DSI_OP_CMD_MODE);
+
 		is_split_link = host->split_link.split_link_enabled;
 		sublinks_count = host->split_link.num_sublinks;
 		if (is_split_link && sublinks_count > 1) {
-			panel_mode.timing.h_active *= sublinks_count;
-			panel_mode.timing.h_front_porch *= sublinks_count;
-			panel_mode.timing.h_sync_width *= sublinks_count;
-			panel_mode.timing.h_back_porch *= sublinks_count;
-			panel_mode.timing.h_skew *= sublinks_count;
-			panel_mode.pixel_clk_khz *= sublinks_count;
+			display_mode.timing.h_active *= sublinks_count;
+			display_mode.timing.h_front_porch *= sublinks_count;
+			display_mode.timing.h_sync_width *= sublinks_count;
+			display_mode.timing.h_back_porch *= sublinks_count;
+			display_mode.timing.h_skew *= sublinks_count;
+			display_mode.pixel_clk_khz *= sublinks_count;
 		} else {
-			panel_mode.timing.h_active *= display->ctrl_count;
-			panel_mode.timing.h_front_porch *= display->ctrl_count;
-			panel_mode.timing.h_sync_width *= display->ctrl_count;
-			panel_mode.timing.h_back_porch *= display->ctrl_count;
-			panel_mode.timing.h_skew *= display->ctrl_count;
-			panel_mode.pixel_clk_khz *= display->ctrl_count;
+			display_mode.timing.h_active *= display->ctrl_count;
+			display_mode.timing.h_front_porch *=
+						display->ctrl_count;
+			display_mode.timing.h_sync_width *=
+						display->ctrl_count;
+			display_mode.timing.h_back_porch *=
+						display->ctrl_count;
+			display_mode.timing.h_skew *= display->ctrl_count;
+			display_mode.pixel_clk_khz *= display->ctrl_count;
 		}
 
 		/* pixel overlap is not supported for single dsi panels */
 		if (display->ctrl_count == 1)
-			panel_mode.priv_info->overlap_pixels = 0;
+			display_mode.priv_info->overlap_pixels = 0;
 
 		start = array_idx;
 
@@ -6378,10 +6344,10 @@ int dsi_display_get_modes(struct dsi_display *display,
 				goto error;
 			}
 
-			memcpy(sub_mode, &panel_mode, sizeof(panel_mode));
+			memcpy(sub_mode, &display_mode, sizeof(display_mode));
 			array_idx++;
 
-			if (!dfps_caps.dfps_support)
+			if (!dfps_caps.dfps_support || is_cmd_mode)
 				continue;
 
 			curr_refresh_rate = sub_mode->timing.refresh_rate;
@@ -6422,12 +6388,9 @@ int dsi_display_get_panel_vfp(void *dsi_display,
 	if (!display)
 		return -EINVAL;
 
-	rc = dsi_display_get_mode_count(display, &count);
-	if (rc)
-		return rc;
-
 	mutex_lock(&display->display_lock);
 
+	count = display->panel->num_display_modes;
 	if (display->panel && display->panel->cur_mode)
 		refresh_rate = display->panel->cur_mode->timing.refresh_rate;
 
@@ -6474,9 +6437,9 @@ int dsi_display_find_mode(struct dsi_display *display,
 
 	*out_mode = NULL;
 
-	rc = dsi_display_get_mode_count(display, &count);
-	if (rc)
-		return rc;
+	mutex_lock(&display->display_lock);
+	count = display->panel->num_display_modes;
+	mutex_unlock(&display->display_lock);
 
 	if (!display->modes) {
 		struct dsi_display_mode *m;
@@ -6560,7 +6523,8 @@ int dsi_display_validate_mode_change(struct dsi_display *display,
 	mutex_lock(&display->display_lock);
 	dyn_clk_caps = &(display->panel->dyn_clk_caps);
 	if ((cur_mode->timing.v_active == adj_mode->timing.v_active) &&
-		(cur_mode->timing.h_active == adj_mode->timing.h_active)) {
+		(cur_mode->timing.h_active == adj_mode->timing.h_active) &&
+		(cur_mode->panel_mode == adj_mode->panel_mode)) {
 		/* dfps and dynamic clock with const fps use case */
 		if (dsi_display_mode_switch_dfps(cur_mode, adj_mode)) {
 			dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
