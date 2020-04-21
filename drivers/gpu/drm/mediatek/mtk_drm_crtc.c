@@ -1293,6 +1293,9 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int bw = overlap_to_bw(crtc, frame_weight);
 
+	DDPINFO("%s bw=%d, last_hrt_req=%d\n",
+		__func__, bw, mtk_crtc->qos_ctx->last_hrt_req);
+
 	/* Only update HRT information on path with HRT comp */
 	if (bw > mtk_crtc->qos_ctx->last_hrt_req) {
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -1307,6 +1310,8 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
 			       bw, ~0);
 	}
+
+	mtk_crtc->qos_ctx->last_hrt_req = bw;
 
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_IDX,
@@ -1987,13 +1992,18 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 	wake_up(&mtk_crtc->qos_ctx->hrt_cond_wq);
 	cur_hrt_bw = *(unsigned int *)(cmdq_buf->va_base +
 				DISP_SLOT_CUR_HRT_LEVEL);
-	if (cur_hrt_bw != NO_PENDING_HRT) {
-		DDPINFO("release HRT %u %u\n", cur_hrt_bw,
-				mtk_crtc->qos_ctx->last_hrt_req);
+	if (cur_hrt_bw != NO_PENDING_HRT &&
+		cur_hrt_bw <= mtk_crtc->qos_ctx->last_hrt_req) {
+
+		DDPINFO("cur:%u last:%u, release HRT to last_hrt_req:%u\n",
+			cur_hrt_bw,	mtk_crtc->qos_ctx->last_hrt_req,
+			mtk_crtc->qos_ctx->last_hrt_req);
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
-		mtk_disp_set_hrt_bw(mtk_crtc, cur_hrt_bw);
+		mtk_disp_set_hrt_bw(mtk_crtc,
+				mtk_crtc->qos_ctx->last_hrt_req);
 #endif
-		mtk_crtc->qos_ctx->last_hrt_req = cur_hrt_bw;
+
 		*(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_CUR_HRT_LEVEL) =
 				NO_PENDING_HRT;
 	}
@@ -2051,6 +2061,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	session_id = mtk_get_session_id(crtc);
 
 	id = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(id, frame_cfg, 0, 0);
+
 	if (id == 0) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
@@ -2105,6 +2118,8 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
+
+	CRTC_MMP_EVENT_END(id, frame_cfg, 0, 0);
 }
 
 #else
