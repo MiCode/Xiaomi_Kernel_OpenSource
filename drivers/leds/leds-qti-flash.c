@@ -19,6 +19,8 @@
 
 #include "leds.h"
 
+#define FLASH_PERPH_SUBTYPE		0x05
+
 #define FLASH_LED_STATUS1		0x06
 
 #define FLASH_LED_STATUS2		0x07
@@ -58,6 +60,9 @@
 #define FLASH_EN_LED_CTRL		0x4E
 #define  FLASH_LED_ENABLE(id)			BIT(id)
 #define  FLASH_LED_DISABLE		0
+
+#define FORCE_TORCH_MODE		0x68
+#define FORCE_TORCH			BIT(0)
 
 #define MAX_IRES_LEVELS		2
 #define IRES_12P5_MAX_CURR_MA	1500
@@ -139,6 +144,7 @@ struct qti_flash_led {
 	u16			base;
 	u8		max_channels;
 	u8		ref_count;
+	u8		subtype;
 };
 
 static const u32 flash_led_max_ires_values[MAX_IRES_LEVELS] = {
@@ -336,6 +342,13 @@ static int qti_flash_led_enable(struct flash_node_data *fnode)
 			goto out;
 	}
 
+	if (fnode->type == FLASH_LED_TYPE_TORCH && led->subtype == 0x6) {
+		rc = qti_flash_led_masked_write(led, FORCE_TORCH_MODE,
+					FORCE_TORCH, FORCE_TORCH);
+		if (rc < 0)
+			goto out;
+	}
+
 	fnode->configured = true;
 
 	if ((fnode->strobe_sel == HW_STROBE) &&
@@ -367,6 +380,13 @@ static int qti_flash_led_disable(struct flash_node_data *fnode)
 		FLASH_LED_SAFETY_TIMER_EN_MASK, 0);
 	if (rc < 0)
 		goto out;
+
+	if (fnode->type == FLASH_LED_TYPE_TORCH && led->subtype == 0x6) {
+		rc = qti_flash_led_masked_write(led, FORCE_TORCH_MODE,
+						FORCE_TORCH, 0);
+		if (rc < 0)
+			goto out;
+	}
 
 	fnode->current_ma = 0;
 
@@ -1200,6 +1220,12 @@ static int qti_flash_led_probe(struct platform_device *pdev)
 	rc = qti_flash_led_register_device(led, node);
 	if (rc < 0) {
 		pr_err("Failed to parse and register LED devices rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qti_flash_led_read(led, FLASH_PERPH_SUBTYPE, &led->subtype, 1);
+	if (rc < 0) {
+		pr_err("Failed to read flash-perph subtype rc=%d\n", rc);
 		return rc;
 	}
 

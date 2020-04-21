@@ -22,6 +22,7 @@
 /* RTC_CTRL register bit fields */
 #define PM8xxx_RTC_ENABLE		BIT(7)
 #define PM8xxx_RTC_ALARM_CLEAR		BIT(0)
+#define PM8xxx_RTC_ALARM_ENABLE		BIT(7)
 
 #define NUM_8_BIT_RTC_REGS		0x4
 
@@ -296,6 +297,14 @@ static int pm8xxx_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		alarm->time.tm_hour, alarm->time.tm_min,
 		alarm->time.tm_sec, alarm->time.tm_mday,
 		alarm->time.tm_mon, alarm->time.tm_year);
+
+	rc = regmap_bulk_read(rtc_dd->regmap, regs->alarm_ctrl, value, 1);
+	if (rc) {
+		dev_err(dev, "Read from ALARM CTRL1 failed\n");
+		return rc;
+	}
+
+	alarm->enabled = !!(value[0] & PM8xxx_RTC_ALARM_ENABLE);
 
 	return 0;
 }

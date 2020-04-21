@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_TSENS_H__
@@ -214,6 +214,7 @@ struct tsens_device {
 	struct workqueue_struct		*tsens_reinit_work;
 	struct work_struct		therm_fwk_notify;
 	bool				tsens_reinit_wa;
+	int				tsens_reinit_cnt;
 	struct tsens_sensor             sensor[0];
 };
 

@@ -1070,6 +1070,10 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		}
 		trace_fastrpc_dma_map(fl->cid, fd, map->phys, map->size,
 			len, mflags, map->attach->dma_map_attrs);
+		if (map->size < len) {
+			err = -EFAULT;
+			goto bail;
+		}
 
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (!sess->smmu.enabled && !vmid) {
@@ -4113,6 +4117,9 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		else
 			fl->ws_timeout = cp->pm.timeout;
 		fastrpc_pm_awake(fl);
+		break;
+	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
+		(void)fastrpc_release_current_dsp_process(fl);
 		break;
 	default:
 		err = -EBADRQC;

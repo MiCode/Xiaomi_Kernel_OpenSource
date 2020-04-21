@@ -1753,11 +1753,11 @@ static int smblite_show_charger_status(struct smblite *chip)
 	}
 	batt_charge_type = val.intval;
 
-	pr_info("SMBLITE: Mode=%s Conn=%s USB Present=%d Batt preset=%d health=%d charge=%d\n",
+	pr_info("SMBLITE: Mode=%s Conn=%s USB Present=%d Battery present=%d health=%d charge=%d\n",
 		chg->ldo_mode ? "LDO" : "SMBC",
 		(chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC) ?
-			"TYPEC" : "uUSB", batt_present, batt_health,
-		batt_charge_type);
+			"TYPEC" : "uUSB", usb_present, batt_present,
+			batt_health, batt_charge_type);
 	return rc;
 }
 

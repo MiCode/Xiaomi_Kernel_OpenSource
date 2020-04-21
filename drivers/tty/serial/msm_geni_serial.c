@@ -2024,9 +2024,6 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 		wait_for_transfers_inflight(uport);
 	}
 
-	msm_geni_serial_stop_tx(uport);
-	msm_geni_serial_stop_rx(uport);
-
 	if (!uart_console(uport)) {
 		if (msm_port->ioctl_count) {
 			int i;

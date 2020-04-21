@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_H_
@@ -350,18 +350,28 @@ struct ipa_ep_cfg_holb {
  * struct ipa_ep_cfg_deaggr - deaggregation configuration in IPA end-point
  * @deaggr_hdr_len: Deaggregation Header length in bytes. Valid only for Input
  *	Pipes, which are configured for 'Generic' deaggregation.
+ * @syspipe_err_detection - If set to 1, enables error detection for
+ *	de-aggregration. Valid only for Input Pipes, which are configured
+ *	for 'Generic' deaggregation.
+ *	Note: if this bit is set, de-aggregated frames must be contiguous
+ *	in memory.
  * @packet_offset_valid: - 0: PACKET_OFFSET is not used, 1: PACKET_OFFSET is
  *	used.
  * @packet_offset_location: Location of packet offset field, which specifies
  *	the offset to the packet from the start of the packet offset field.
+ * @ignore_min_pkt_err - Ignore packets smaller than header. This is intended
+ *	for use in RNDIS de-aggregated pipes, to silently ignore a redundant
+ *	1-byte trailer in MSFT implementation.
  * @max_packet_len: DEAGGR Max Packet Length in Bytes. A Packet with higher
  *	size wil be treated as an error. 0 - Packet Length is not Bound,
  *	IPA should not check for a Max Packet Length.
  */
 struct ipa_ep_cfg_deaggr {
 	u32 deaggr_hdr_len;
+	bool syspipe_err_detection;
 	bool packet_offset_valid;
 	u32 packet_offset_location;
+	bool ignore_min_pkt_err;
 	u32 max_packet_len;
 };
 

@@ -1513,11 +1513,12 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	    (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
 	     && drvdata->byte_cntr->sw_usb)) {
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
-		if (!ret) {
-			drvdata->mode = CS_MODE_SYSFS;
-			atomic_inc(csdev->refcnt);
-		}
+		if (ret)
+			goto out;
 	}
+
+	drvdata->mode = CS_MODE_SYSFS;
+	atomic_inc(csdev->refcnt);
 
 	drvdata->enable = true;
 out:
@@ -1527,11 +1528,11 @@ out:
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
-		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
-
-	if (!ret)
+	if (!ret) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_start(drvdata->byte_cntr);
 		dev_info(drvdata->dev, "TMC-ETR enabled\n");
+	}
 
 	return ret;
 }
@@ -1996,12 +1997,22 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev)
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
 	if (drvdata->mode != CS_MODE_DISABLED) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-			__tmc_etr_disable_to_bam(drvdata);
-			spin_unlock_irqrestore(&drvdata->spinlock, flags);
-			tmc_etr_bam_disable(drvdata);
-			usb_qdss_close(drvdata->usbch);
-			drvdata->mode = CS_MODE_DISABLED;
-			goto out;
+			if (!drvdata->byte_cntr->sw_usb) {
+				__tmc_etr_disable_to_bam(drvdata);
+				spin_unlock_irqrestore(&drvdata->spinlock,
+					flags);
+				tmc_etr_bam_disable(drvdata);
+				usb_qdss_close(drvdata->usbch);
+				drvdata->usbch = NULL;
+				drvdata->mode = CS_MODE_DISABLED;
+				goto out;
+			} else {
+				spin_unlock_irqrestore(&drvdata->spinlock,
+					flags);
+				usb_qdss_close(drvdata->usbch);
+				spin_lock_irqsave(&drvdata->spinlock, flags);
+				tmc_etr_disable_hw(drvdata);
+			}
 		} else {
 			tmc_etr_disable_hw(drvdata);
 		}
@@ -2020,6 +2031,7 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev)
 		&& drvdata->byte_cntr->sw_usb) {
 		usb_bypass_stop(drvdata->byte_cntr);
 		flush_workqueue(drvdata->byte_cntr->usb_wq);
+		drvdata->usbch = NULL;
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 		/* Free memory outside the spinlock if need be */

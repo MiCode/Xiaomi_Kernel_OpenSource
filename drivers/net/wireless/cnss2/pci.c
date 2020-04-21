@@ -74,6 +74,9 @@ static DEFINE_SPINLOCK(time_sync_lock);
 
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
 
+#define CNSS_DEBUG_DUMP_SRAM_START		0x1403D58
+#define CNSS_DEBUG_DUMP_SRAM_SIZE		10
+
 static struct cnss_pci_reg ce_src[] = {
 	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
 	{ "SRC_RING_BASE_MSB", QCA6390_CE_SRC_RING_BASE_MSB_OFFSET },
@@ -356,7 +359,7 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
 
-static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
+int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
 
@@ -1324,6 +1327,7 @@ static int cnss_pci_start_time_sync_update(struct cnss_pci_data *pci_priv)
 
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
+	case QCA6490_DEVICE_ID:
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -1343,6 +1347,7 @@ static void cnss_pci_stop_time_sync_update(struct cnss_pci_data *pci_priv)
 {
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
+	case QCA6490_DEVICE_ID:
 		break;
 	default:
 		return;
@@ -2071,6 +2076,10 @@ register_driver:
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
 				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE,
 				     driver_ops);
+	if (ret == -EINTR) {
+		cnss_pr_dbg("Register driver work is killed\n");
+		del_timer(&plat_priv->fw_boot_timer);
+	}
 
 	return ret;
 }
@@ -2125,6 +2134,11 @@ int cnss_pci_register_driver_hdlr(struct cnss_pci_data *pci_priv,
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore register driver\n");
+		return -EINVAL;
+	}
 
 	set_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 	pci_priv->driver_ops = data;
@@ -3659,6 +3673,19 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 	}
 }
 
+static void cnss_pci_dump_sram_mem(struct cnss_pci_data *pci_priv)
+{
+	int i;
+	u32 mem_addr, val;
+
+	for (i = 0; i < CNSS_DEBUG_DUMP_SRAM_SIZE; i++) {
+		mem_addr = CNSS_DEBUG_DUMP_SRAM_START + i * 4;
+		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
+			return;
+		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
+	}
+}
+
 static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
 {
 	cnss_pr_dbg("Start to dump debug registers\n");
@@ -3667,6 +3694,7 @@ static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
 		return;
 
 	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+	cnss_pci_dump_sram_mem(pci_priv);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_COMMON);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_09);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_10);

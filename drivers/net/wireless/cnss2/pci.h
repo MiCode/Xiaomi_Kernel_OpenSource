@@ -162,6 +162,7 @@ static inline int cnss_pci_get_drv_connected(void *bus_priv)
 	return atomic_read(&pci_priv->drv_connected);
 }
 
+int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv);
 int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_pci_init(struct cnss_plat_data *plat_priv);

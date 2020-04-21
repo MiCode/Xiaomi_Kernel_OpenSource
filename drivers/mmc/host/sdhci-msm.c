@@ -2725,7 +2725,7 @@ static int sdhci_msm_vreg_enable(struct sdhci_msm_reg_data *vreg)
 
 	if (!vreg->is_enabled) {
 		/* Set voltage level */
-		ret = sdhci_msm_vreg_set_voltage(vreg, vreg->high_vol_level,
+		ret = sdhci_msm_vreg_set_voltage(vreg, vreg->low_vol_level,
 						vreg->high_vol_level);
 		if (ret)
 			return ret;
@@ -5977,8 +5977,7 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 		goto skip_ice_resume;
 	}
 
-	if (host->mmc &&
-			(host->mmc->ios.timing == MMC_TIMING_MMC_HS400))
+	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400)
 		sdhci_msm_toggle_fifo_write_clk(host);
 
 	if (host->is_crypto_en) {

@@ -627,6 +627,20 @@ struct ufshcd_clk_ctx {
 	enum ufshcd_ctx ctx;
 };
 
+enum ufshcd_scsi_host_busy_ctxt {
+	SCALING_BUSY,
+	EH_IN_PROGRESS,
+	UFS_RESET_OR_EH_SCHEDULED,
+	LRB_IN_USE,
+	UFSHCD_HOLD,
+	UFSHCD_HIBERN8_HOLD,
+};
+
+struct ufshcd_blk_ctx {
+	ktime_t ts;
+	enum ufshcd_scsi_host_busy_ctxt busy_ctx;
+};
+
 /**
  * struct ufs_stats - keeps usage/err statistics
  * @enabled: enable tag stats for debugfs
@@ -659,6 +673,7 @@ struct ufs_stats {
 	ktime_t last_intr_ts;
 	struct ufshcd_clk_ctx clk_hold;
 	struct ufshcd_clk_ctx clk_rel;
+	struct ufshcd_blk_ctx scsi_blk_reqs;
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
 	u32 power_mode_change_cnt;

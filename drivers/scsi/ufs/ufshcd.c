@@ -2271,6 +2271,8 @@ static void ufshcd_gate_work(struct work_struct *work)
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->clk_gating.state == CLKS_OFF)
+		goto rel_lock;
 	/*
 	 * In case you are here to cancel this work the gating state
 	 * would be marked as REQ_CLKS_ON. In this case save time by
@@ -3702,8 +3704,11 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 			cmd->scsi_done(cmd);
 			return 0;
 		}
-		if (err == -EAGAIN)
+		if (err == -EAGAIN) {
+			hba->ufs_stats.scsi_blk_reqs.ts = ktime_get();
+			hba->ufs_stats.scsi_blk_reqs.busy_ctx = SCALING_BUSY;
 			return SCSI_MLQUEUE_HOST_BUSY;
+		}
 	} else if (err == 1) {
 		has_read_lock = true;
 	}
@@ -3719,6 +3724,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	/* if error handling is in progress, return host busy */
 	if (ufshcd_eh_in_progress(hba)) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		hba->ufs_stats.scsi_blk_reqs.ts = ktime_get();
+		hba->ufs_stats.scsi_blk_reqs.busy_ctx = EH_IN_PROGRESS;
 		goto out_unlock;
 	}
 
@@ -3728,6 +3735,9 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	case UFSHCD_STATE_EH_SCHEDULED:
 	case UFSHCD_STATE_RESET:
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		hba->ufs_stats.scsi_blk_reqs.ts = ktime_get();
+		hba->ufs_stats.scsi_blk_reqs.busy_ctx =
+			UFS_RESET_OR_EH_SCHEDULED;
 		goto out_unlock;
 	case UFSHCD_STATE_ERROR:
 		set_host_byte(cmd, DID_ERROR);
@@ -3753,6 +3763,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		 * completion.
 		 */
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		hba->ufs_stats.scsi_blk_reqs.ts = ktime_get();
+		hba->ufs_stats.scsi_blk_reqs.busy_ctx = LRB_IN_USE;
 		goto out;
 	}
 
@@ -3760,6 +3772,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	err = ufshcd_hold(hba, true);
 	if (err) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		hba->ufs_stats.scsi_blk_reqs.ts = ktime_get();
+		hba->ufs_stats.scsi_blk_reqs.busy_ctx = UFSHCD_HOLD;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		goto out;
 	}
@@ -3770,6 +3784,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		hba->ufs_stats.scsi_blk_reqs.ts = ktime_get();
+		hba->ufs_stats.scsi_blk_reqs.busy_ctx = UFSHCD_HIBERN8_HOLD;
 		hba->ufs_stats.clk_rel.ctx = QUEUE_CMD;
 		ufshcd_release(hba, true);
 		goto out;
@@ -6499,7 +6515,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
-			clear_bit_unlock(index, &hba->lrb_in_use);
 			lrbp->compl_time_stamp = ktime_get();
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
@@ -6518,6 +6533,8 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 				ufshcd_vops_crypto_engine_cfg_end(hba,
 					lrbp, cmd->request);
 			}
+
+			clear_bit_unlock(index, &hba->lrb_in_use);
 
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -6569,7 +6586,6 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			/* Clear pending transfer requests */
 			ufshcd_clear_cmd(hba, index);
 			ufshcd_outstanding_req_clear(hba, index);
-			clear_bit_unlock(index, &hba->lrb_in_use);
 			lrbp->compl_time_stamp = ktime_get();
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
@@ -6586,6 +6602,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 				ufshcd_vops_crypto_engine_cfg_end(hba,
 						lrbp, cmd->request);
 			}
+			clear_bit_unlock(index, &hba->lrb_in_use);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
@@ -10543,10 +10560,21 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufshcd_wb_buf_flush_disable(hba);
 	if (!ufshcd_is_ufs_dev_active(hba)) {
 		ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
-		if (ret)
-			goto set_old_link_state;
+		if (ret) {
+			/*
+			 * In the case of SSU timeout, err_handler must have
+			 * recovered the uic link and dev state to active so
+			 * we can proceed after checking the link and
+			 * dev state.
+			 */
+			if ((host_byte(ret) == DID_TIME_OUT) &&
+			    ufshcd_is_ufs_dev_active(hba) &&
+			    ufshcd_is_link_active(hba))
+				ret = 0;
+			else
+				goto set_old_link_state;
+		}
 	}
-
 	if (ufshcd_keep_autobkops_enabled_except_suspend(hba))
 		ufshcd_enable_auto_bkops(hba);
 	else

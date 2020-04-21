@@ -1569,6 +1569,8 @@ static int mmc_blk_cqe_issue_flush(struct mmc_queue *mq, struct request *req)
 static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 {
 	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
+	struct mmc_card *card = mq->card;
+	struct mmc_host *host = card->host;
 	int err = 0;
 
 	mmc_blk_data_prep(mq, mqrq, 0, NULL, NULL);
@@ -1576,9 +1578,27 @@ static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 
 	mmc_deferred_scaling(mq->card->host);
 	mmc_cqe_clk_scaling_start_busy(mq, mq->card->host, true);
+	/*
+	 * When voltage corner in LSVS on low load scenario and
+	 * there is sudden burst of requests device queue all
+	 * slots are filled and it is needed to wait till all
+	 * requests are completed to scale up frequency. This
+	 * is leading to delay in scaling and impacting performance.
+	 * Fix this issue by only allowing one request in request queue
+	 * when device is running with lower speed mode.
+	 */
+	if (host->clk_scaling.state == MMC_LOAD_LOW) {
+		err = host->cqe_ops->cqe_wait_for_idle(host);
+		if (err) {
+			pr_err("%s: %s: CQE went in recovery path.\n",
+				mmc_hostname(host), __func__);
+			goto stop_scaling;
+		}
+	}
 
 	err =  mmc_blk_cqe_start_req(mq->card->host, &mqrq->brq.mrq);
 
+stop_scaling:
 	if (err)
 		mmc_cqe_clk_scaling_stop_busy(mq->card->host, true, false);
 
