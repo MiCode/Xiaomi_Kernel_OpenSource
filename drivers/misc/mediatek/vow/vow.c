@@ -183,6 +183,7 @@ static struct
 	bool                 split_dumpfile_flag;
 	bool                 mcps_flag;
 	unsigned int         scp_dual_mic_switch;
+	unsigned int         mtkif_type;
 } vowserv;
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
@@ -506,6 +507,7 @@ static void vow_service_Init(void)
 		bargein_dump_info_flag = false;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
+		vowserv.mtkif_type = 0;
 	} else {
 		/*Initialization*/
 		vowserv.voicddata_scp_ptr =
@@ -2111,9 +2113,16 @@ void VowDrv_SetDmicLowPower(bool enable)
 	VowDrv_SetFlag(VOW_FLAG_DMIC_LOWPOWER, enable);
 }
 
-void VowDrv_SetMtkifType(unsigned int type)
+static bool VowDrv_SetMtkifType(unsigned int type)
 {
-	VowDrv_SetFlag(VOW_FLAG_MTKIF_TYPE, type);
+	bool ret = false;
+
+	if (type == 0)
+		VOWDRV_DEBUG("error, wrong MTKIF Type\n\r");
+	vowserv.mtkif_type = type;
+	ret = VowDrv_SetFlag(VOW_FLAG_MTKIF_TYPE, type);
+
+	return ret;
 }
 
 void VowDrv_SetPeriodicEnable(bool enable)
@@ -2988,6 +2997,10 @@ static int vow_scp_recover_event(struct notifier_block *this,
 			VOWDRV_DEBUG("fail: vow recover4\n");
 			break;
 		}
+
+		if (!VowDrv_SetMtkifType(vowserv.mtkif_type))
+			VOWDRV_DEBUG("fail: vow_SetMtkifType\n");
+
 		if (!vow_service_Enable())
 			VOWDRV_DEBUG("fail: vow_service_Enable\n");
 
