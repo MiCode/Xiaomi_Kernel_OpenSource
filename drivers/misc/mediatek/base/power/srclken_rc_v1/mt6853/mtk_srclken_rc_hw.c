@@ -213,6 +213,8 @@ static ssize_t __subsys_ctl_show(char *buf, enum sys_id id)
 	u32 cmd_ok;
 	int len = 0, shift = 0;
 
+	len = strlen(buf);
+
 	/* fix reg shift */
 	if (id > 0)
 		shift = 1;
@@ -369,6 +371,7 @@ static int __srclken_dump_last_sta(char *buf, u8 idx)
 	unsigned int loffset = idx * 8;
 	unsigned int moffset = idx * 8;
 
+	len = strlen(buf);
 	loffset = (idx > 2)?(loffset + 8):(idx > 0)?(loffset + 4):loffset;
 	moffset = (idx > 1)?(moffset + 8):(idx > 0)?(moffset + 4):moffset;
 
