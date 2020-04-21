@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,14 +177,13 @@ static int virtio_i2c_master_xfer(struct i2c_adapter *adap,
 	struct virtio_i2c_req *i2c_req = &vi2c->i2c_req;
 
 	if (num < 1) {
-		dev_err(&vi2c->vdev->dev,
-		"error on number of msgs(%d) received\n", num);
+		dev_err(&vi2c->vdev->dev, "Invalid message number(%d)\n", num);
 		return -EINVAL;
 	}
 
 	if (IS_ERR_OR_NULL(msgs)) {
-		dev_err(&vi2c->vdev->dev, " error no msgs Accessing invalid pointer location\n");
-		return PTR_ERR(msgs);
+		dev_err(&vi2c->vdev->dev, "Invalid message pointer\n");
+		return -EINVAL;
 	}
 
 	for (i = 0; i < num; i++) {
