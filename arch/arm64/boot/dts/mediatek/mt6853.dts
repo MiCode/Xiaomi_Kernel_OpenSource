@@ -45,7 +45,6 @@
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
 firmware_class.path=/vendor/firmware \
-memblock=debug \
 page_owner=on";
 	};
 
