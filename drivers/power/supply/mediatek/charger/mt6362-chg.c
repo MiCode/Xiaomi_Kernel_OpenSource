@@ -2031,6 +2031,11 @@ static int mt6362_dump_registers(struct charger_device *chg_dev)
 	u8 chg_stat[2], chg_top[2];
 	u32 chg_eoc = 0;
 
+	ret = mt6362_kick_wdt(chg_dev);
+	if (ret < 0) {
+		dev_notice(data->dev, "%s: kick wdt fail\n", __func__);
+		return ret;
+	}
 	ret = mt6362_get_ichg(chg_dev, &ichg);
 	ret |= mt6362_get_aicr(chg_dev, &aicr);
 	ret |= mt6362_get_mivr(chg_dev, &mivr);
