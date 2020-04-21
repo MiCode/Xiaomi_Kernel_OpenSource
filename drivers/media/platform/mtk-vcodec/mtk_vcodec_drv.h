@@ -90,6 +90,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_ROI_ON = (1 << 12),
 	MTK_ENCODE_PARAM_GRID_SIZE = (1 << 13),
 	MTK_ENCODE_PARAM_COLOR_DESC = (1 << 14),
+	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 15)
 };
 
 /*
@@ -225,6 +226,7 @@ struct mtk_enc_params {
 	unsigned int    max_w;
 	unsigned int    max_h;
 	unsigned int    slbc_ready;
+	unsigned int    svp_mode;
 };
 
 /*
@@ -271,6 +273,7 @@ struct venc_enc_param {
 	unsigned int max_h;
 	unsigned int num_b_frame;
 	unsigned int slbc_ready;
+	unsigned int svp_mode;
 };
 
 /*

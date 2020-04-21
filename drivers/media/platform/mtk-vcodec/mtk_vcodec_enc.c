@@ -249,6 +249,13 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->bitrate = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_BITRATE;
 		break;
+	case V4L2_CID_MPEG_MTK_SEC_ENCODE:
+		p->svp_mode = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_SEC_ENCODE;
+		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_ENCODE id %d val %d array[0] %d array[1] %d",
+			ctx->id, ctrl->id, ctrl->val,
+		ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
+		break;
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_B_FRAMES val = %d",
 			       ctrl->val);
@@ -987,6 +994,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->max_h = enc_params->max_h;
 	param->num_b_frame = enc_params->num_b_frame;
 	param->slbc_ready = ctx->use_slbc;
+	param->svp_mode = enc_params->svp_mode;
 
 }
 
@@ -1851,6 +1859,15 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					 VENC_SET_PARAM_ADJUST_BITRATE,
 					 &enc_prm);
 	}
+	if (mtk_buf->param_change & MTK_ENCODE_PARAM_SEC_ENCODE) {
+		enc_prm.svp_mode = mtk_buf->enc_params.svp_mode;
+		mtk_v4l2_debug(0, "[%d] change param svp=%d",
+				ctx->id,
+				enc_prm.svp_mode);
+		ret |= venc_if_set_param(ctx,
+					 VENC_SET_PARAM_SEC_MODE,
+					 &enc_prm);
+	}
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_FRAMERATE) {
 		enc_prm.frm_rate = mtk_buf->enc_params.framerate_num /
 				   mtk_buf->enc_params.framerate_denom;
@@ -2374,6 +2391,8 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE,
 			  1, 400000000, 1, 20000000);
+	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_SEC_ENCODE,
+			0, 2, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_B_FRAMES,
 			  0, 3, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,

@@ -513,6 +513,7 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.max_h = enc_prm->max_h;
 		inst->vsi->config.num_b_frame = enc_prm->num_b_frame;
 		inst->vsi->config.slbc_ready = enc_prm->slbc_ready;
+		inst->vsi->config.svp_mode = enc_prm->svp_mode;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,

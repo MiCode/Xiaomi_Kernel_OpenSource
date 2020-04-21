@@ -106,6 +106,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_ROI_ON,
 	VENC_SET_PARAM_HEIF_GRID_SIZE,
 	VENC_SET_PARAM_COLOR_DESC,
+	VENC_SET_PARAM_SEC_MODE,
 };
 
 /**
@@ -397,6 +398,7 @@ struct venc_vcu_config {
 	__u32 max_h;
 	__u32 num_b_frame;
 	__u32 slbc_ready;
+	__u32 svp_mode;
 };
 
 /**
