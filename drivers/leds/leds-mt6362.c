@@ -79,6 +79,7 @@ enum {
 #define MT6362_FLED2CSEN_MASK	BIT(0)
 #define MT6362_FLEDITORCH_MASK	(0x1f)
 #define MT6362_FLEDISTRB_MASK	(0x7f)
+#define MT6362_FLEDUISTRB_MASK	BIT(7)
 #define MT6362_FLEDSTRBTO_MASK	(0x7f)
 #define MT6362_FLEDSTRBEN_MASK	BIT(2)
 #define MT6362_FLEDTORCHEN_MASK	BIT(3)
@@ -86,9 +87,12 @@ enum {
 #define MT6362_TORCHCURR_MIN	(25000)
 #define MT6362_TORCHCURR_STEP	(12500)
 #define MT6362_TORCHCURR_MAX	(400000)
-#define MT6362_STRBCURR_MIN	(50000)
-#define MT6362_STRBCURR_STEP	(12500)
+#define MT6362_STRBCURR_MIN	(25000)
+#define MT6362_STRBCURR_STEP	(6250)
 #define MT6362_STRBCURR_MAX	(1500000)
+#define MT6362_STRBUISTRB_BOUND	(50000)
+/* (STRBUISTRB_BOUND - STRBCURR_MIN) / STRBCURR_STEP */
+#define MT6362_STRBUSTRB_BDSTEP	(4)
 #define MT6362_STRBTIMEOUT_MIN	(64000)
 #define MT6362_STRBTIMEOUT_STEP	(32000)
 #define MT6362_STRBTIMEOUT_MAX	(2432000)
@@ -342,14 +346,14 @@ static enum led_brightness mt6362_fled_brightness_get(struct led_classdev *cdev)
 	return (val + 1);
 }
 
-static int mt6362_fled_flash_brightness_set(struct led_classdev_flash *flcdev,
+static int _mt6362_fled_flash_brightness_set(struct led_classdev_flash *flcdev,
 					    u32 brightness)
 {
 	struct led_classdev *lcdev = &flcdev->led_cdev;
 	struct mt6362_leds_data *data = dev_get_drvdata(lcdev->dev->parent);
 	struct mt6362_flash_cdev *mtcdev = (void *)flcdev;
 	const struct led_flash_setting *fs = &flcdev->brightness;
-	int shift = ffs(mtcdev->strobe_bright_mask) - 1, val;
+	int val;
 
 	dev_info(lcdev->dev, "%s brightness:%d\n", __func__, brightness);
 	if (brightness > fs->max)
@@ -357,33 +361,20 @@ static int mt6362_fled_flash_brightness_set(struct led_classdev_flash *flcdev,
 
 	val = (brightness - fs->min) / fs->step;
 
-	return regmap_update_bits(data->regmap, mtcdev->strobe_bright_reg,
-				  mtcdev->strobe_bright_mask, val << shift);
+	if (val < MT6362_STRBUSTRB_BDSTEP)
+		val |= MT6362_FLEDUISTRB_MASK;
+	else
+		val = (val - MT6362_STRBUSTRB_BDSTEP + 1) / 2;
+
+	return regmap_write(data->regmap, mtcdev->strobe_bright_reg, val);
 }
 
-static int mt6362_fled_flash_brightness_get(struct led_classdev_flash *flcdev,
-					    u32 *brightness)
+static int mt6362_fled_flash_brightness_set(struct led_classdev_flash *flcdev,
+					    u32 brightness)
 {
 	struct led_classdev *lcdev = &flcdev->led_cdev;
-	struct mt6362_leds_data *data = dev_get_drvdata(lcdev->dev->parent);
-	struct mt6362_flash_cdev *mtcdev = (void *)flcdev;
-	const struct led_flash_setting *fs = &flcdev->brightness;
-	unsigned int val = 0;
-	int rv, shift = ffs(mtcdev->strobe_bright_mask) - 1;
 
-	rv = regmap_read(data->regmap, mtcdev->strobe_bright_reg, &val);
-	if (rv)
-		return rv;
-
-	val &= mtcdev->strobe_bright_mask;
-	val >>= shift;
-
-	val = (val * fs->step) + fs->min;
-	if (val > fs->max)
-		val = fs->max;
-
-	*brightness = val;
-
+	dev_info(lcdev->dev, "%s brightness:%d\n", __func__, brightness);
 	return 0;
 }
 
@@ -391,6 +382,7 @@ static int mt6362_fled_strobe_set(struct led_classdev_flash *flcdev, bool state)
 {
 	struct led_classdev *lcdev = &flcdev->led_cdev;
 	struct mt6362_leds_data *data = dev_get_drvdata(lcdev->dev->parent);
+	const struct led_flash_setting *fs = &flcdev->brightness;
 	struct mt6362_flash_cdev *mtcdev = (void *)flcdev;
 	int rv;
 
@@ -416,36 +408,55 @@ static int mt6362_fled_strobe_set(struct led_classdev_flash *flcdev, bool state)
 		return 0;
 	}
 #endif
-
 	rv = regmap_update_bits(data->regmap, mtcdev->source_enable_reg,
 				mtcdev->source_enable_mask,
 				state ? mtcdev->source_enable_mask : 0);
 	if (rv)
 		return rv;
 
-#ifdef MTK_CHARGER
-	rv = charger_dev_enable_bleed_discharge(data->chg_dev, state);
-	if (rv)
-		return rv;
-#endif
-
-	rv = regmap_update_bits(data->regmap, MT6362_REG_FLEDEN,
-				MT6362_FLEDSTRBEN_MASK,
-				state ? MT6362_FLEDSTRBEN_MASK : 0);
-	if (rv)
-		return rv;
-
 	if (state) {
-		if (!data->fl_strb_flags)
+		rv = _mt6362_fled_flash_brightness_set(flcdev, fs->val);
+		if (rv)
+			return rv;
+
+		if (!data->fl_strb_flags) {
+#ifdef MTK_CHARGER
+			rv = charger_dev_enable_bleed_discharge(data->chg_dev,
+								true);
+			if (rv)
+				return rv;
+#endif
+			rv = regmap_update_bits(data->regmap, MT6362_REG_FLEDEN,
+						MT6362_FLEDSTRBEN_MASK,
+						MT6362_FLEDSTRBEN_MASK);
+			if (rv)
+				return rv;
 			usleep_range(5000, 6000);
+		}
 
 		mtcdev->faults = 0;
 		set_bit(mtcdev->idx, &data->fl_strb_flags);
 	} else {
 		clear_bit(mtcdev->idx, &data->fl_strb_flags);
 
-		if (!data->fl_strb_flags)
+		if (!data->fl_strb_flags) {
+			rv = regmap_update_bits(data->regmap, MT6362_REG_FLEDEN,
+						MT6362_FLEDSTRBEN_MASK, 0);
+			if (rv)
+				return rv;
 			usleep_range(400, 500);
+#ifdef MTK_CHARGER
+			rv = charger_dev_enable_bleed_discharge(data->chg_dev,
+								false);
+			if (rv)
+				return rv;
+#endif
+		}
+
+		rv = _mt6362_fled_flash_brightness_set(flcdev, fs->min);
+		if (rv)
+			return rv;
+
 	}
 
 	return 0;
@@ -492,7 +503,6 @@ static int mt6362_fled_fault_get(struct led_classdev_flash *flcdev, u32 *fault)
 
 static const struct led_flash_ops mt6362_fled_ctrl_ops = {
 	.flash_brightness_set	= mt6362_fled_flash_brightness_set,
-	.flash_brightness_get	= mt6362_fled_flash_brightness_get,
 	.strobe_set		= mt6362_fled_strobe_set,
 	.strobe_get		= mt6362_fled_strobe_get,
 	.timeout_set		= mt6362_fled_timeout_set,
@@ -997,6 +1007,12 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 		struct mt6362_flash_cdev *mtcdev = data->flashleds + i;
 		struct led_classdev_flash *flcdev = &mtcdev->flash;
 		struct v4l2_flash_config v4l2_config;
+
+		/* config strobe default bright to mininum 25mA */
+		rv = regmap_write(data->regmap, mtcdev->strobe_bright_reg,
+				  MT6362_FLEDUISTRB_MASK);
+		if (rv)
+			return rv;
 
 		mt6362_init_flash_config(flcdev);
 
