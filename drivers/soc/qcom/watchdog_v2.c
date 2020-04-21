@@ -105,9 +105,11 @@ struct msm_watchdog_data {
 	unsigned long long thread_start;
 	unsigned long long ping_start[NR_CPUS];
 	unsigned long long ping_end[NR_CPUS];
+	struct work_struct irq_counts_work;
 	struct irq_info irq_counts[NR_TOP_HITTERS];
 	struct irq_info ipi_counts[NR_IPI];
 	unsigned int tot_irq_count[NR_CPUS];
+	atomic_t irq_counts_running;
 };
 
 /*
@@ -498,7 +500,7 @@ static void print_irq_stat(struct msm_watchdog_data *wdog_dd)
 	pr_cont("\n");
 }
 
-static void compute_irq_stat(struct msm_watchdog_data *wdog_dd)
+static void compute_irq_stat(struct work_struct *work)
 {
 	unsigned int count;
 	int index = 0, cpu, irq;
@@ -506,7 +508,19 @@ static void compute_irq_stat(struct msm_watchdog_data *wdog_dd)
 	struct irq_info *pos;
 	struct irq_info *start;
 	struct irq_info key = {0};
+	unsigned int running;
+	struct msm_watchdog_data *wdog_dd = container_of(work,
+					    struct msm_watchdog_data,
+					    irq_counts_work);
+
 	size_t arr_size = ARRAY_SIZE(wdog_dd->irq_counts);
+
+	/* avoid parallel execution from bark handler and queued
+	 * irq_counts_work.
+	 */
+	running = atomic_xchg(&wdog_dd->irq_counts_running, 1);
+	if (running)
+		return;
 
 	/* per irq counts */
 	rcu_read_lock();
@@ -582,6 +596,7 @@ static void compute_irq_stat(struct msm_watchdog_data *wdog_dd)
 	}
 
 	print_irq_stat(wdog_dd);
+	atomic_xchg(&wdog_dd->irq_counts_running, 0);
 }
 
 static __ref int watchdog_kthread(void *arg)
@@ -622,7 +637,7 @@ static __ref int watchdog_kthread(void *arg)
 		 * Could have been changed on other cpu
 		 */
 		mod_timer(&wdog_dd->pet_timer, jiffies + delay_time);
-		compute_irq_stat(wdog_dd);
+		queue_work(system_unbound_wq, &wdog_dd->irq_counts_work);
 	}
 	return 0;
 }
@@ -670,6 +685,7 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	dev_info(wdog_dd->dev, "MSM Watchdog Exit - Deactivated\n");
 	del_timer_sync(&wdog_dd->pet_timer);
 	kthread_stop(wdog_dd->watchdog_task);
+	flush_work(&wdog_dd->irq_counts_work);
 	kfree(wdog_dd);
 	return 0;
 }
@@ -679,7 +695,7 @@ void msm_trigger_wdog_bite(void)
 	if (!wdog_data)
 		return;
 
-	compute_irq_stat(wdog_data);
+	compute_irq_stat(&wdog_data->irq_counts_work);
 	pr_info("Causing a watchdog bite!");
 	__raw_writel(1, wdog_data->base + WDT0_BITE_TIME);
 	/* Mke sure bite time is written before we reset */
@@ -789,6 +805,9 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 			return;
 		}
 	}
+
+	INIT_WORK(&wdog_dd->irq_counts_work, compute_irq_stat);
+	atomic_set(&wdog_dd->irq_counts_running, 0);
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 	wdog_dd->min_slack_ticks = UINT_MAX;
 	wdog_dd->min_slack_ns = ULLONG_MAX;
