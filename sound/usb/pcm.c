@@ -820,12 +820,13 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 	subs->need_setup_ep = true;
 	/* add the qos request and set the latency */
 	if (pm_qos_request_active(&subs->pm_qos)) {
-		pm_qos_update_request(&subs->pm_qos, US_PER_FRAME);
+		pm_qos_update_request(&subs->pm_qos,
+					US_PER_FRAME * PM_QOS_COUNT);
 		pr_info("%s: (pm_qos @%p) update\n",
 			   __func__, &subs->pm_qos);
 	} else {
 		pm_qos_add_request(&subs->pm_qos,
-			   PM_QOS_CPU_DMA_LATENCY, US_PER_FRAME);
+			   PM_QOS_CPU_DMA_LATENCY, US_PER_FRAME * PM_QOS_COUNT);
 		pr_info("%s: (pm_qos @%p) request\n",
 			   __func__, &subs->pm_qos);
 	}

@@ -11,6 +11,7 @@
 #define MAX_QUEUE_HS	30	/* try not to exceed this queue length, in ms */
 #define LOW_LATENCY_MAX_QUEUE   6 /* for low latency case queue length */
 #define US_PER_FRAME	125	/* high speed has 125 us per (micro) frame */
+#define PM_QOS_COUNT	8	/* pm qos requested count */
 
 struct audioformat {
 	struct list_head list;
