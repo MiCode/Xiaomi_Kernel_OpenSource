@@ -1693,6 +1693,7 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	u32 val = SWITCHABLE_SIGNALING_VOLTAGE;
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
+	struct mmc_host *mmc = host->mmc;
 
 	pr_debug("%s: %s: request %d curr_pwr_state %x curr_io_level %x\n",
 			mmc_hostname(host->mmc), __func__, req_type,
@@ -1729,6 +1730,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 				mmc_hostname(host->mmc), req_type);
 		return;
 	}
+
+	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc)) {
+		pr_debug("%s: card is not present. Do not wait for pwr irq\n",
+				mmc_hostname(host->mmc));
+		return;
+	}
+
 	if ((req_type & msm_host->curr_pwr_state) ||
 			(req_type & msm_host->curr_io_level))
 		done = true;
@@ -2090,11 +2098,12 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 
 	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
-		irq_status & (CORE_PWRCTL_BUS_ON | CORE_PWRCTL_IO_HIGH |
-			CORE_PWRCTL_IO_LOW)) {
+		irq_status & CORE_PWRCTL_BUS_ON) {
+		irq_ack = CORE_PWRCTL_BUS_FAIL;
+		msm_host_writel(msm_host, irq_ack, host,
+				msm_offset->core_pwrctl_ctl);
 		return;
 	}
-
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
 		ret = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
@@ -2206,7 +2215,6 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	sdhci_msm_handle_pwr_irq(host, irq);
 	msm_host->pwr_irq_flag = 1;
 	sdhci_msm_complete_pwr_irq_wait(msm_host);
-
 
 	return IRQ_HANDLED;
 }
