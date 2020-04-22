@@ -896,6 +896,42 @@ config MSM_PERFORMANCE
 	when requested by the userspace by changing the cpufreq policy
 	fmin and fmax.
 
+config MSM_DRM_NOTIFY
+	bool
+	depends on !DRM_MSM
+	help
+	  This driver can register and receive notification for MSM_DRM
+	  power event in external module. When display power state is
+	  updated, any modules registered to the block chain will get
+	  notified.
+
+config MSM_DRM_TECHPACK
+	bool "Enable MSM DRM from techpack"
+	depends on DRM
+	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
+	depends on OF
+	depends on MMU
+	depends on !DRM_MSM
+	select QCOM_MDT_LOADER if ARCH_QCOM
+	select REGULATOR
+	select DRM_KMS_HELPER
+	select DRM_PANEL
+	select SHMEM
+	select TMPFS
+	select QCOM_SCM
+	select SND_SOC_HDMI_CODEC if SND_SOC
+	select SYNC_FILE
+	select MSM_EXT_DISPLAY
+	select PM_GENERIC_DOMAINS
+	select V4L2_MEM2MEM_DEV
+	select DRM_MIPI_DSI
+	select MSM_DRM_NOTIFY
+	help
+	  The DRM MSM TECHPACK will select modules that are required by
+	  DRM MSM module. This option is only used when DRM MSM is loaded
+	  from external techpack, and is mutually exclusive with builtin
+	  DRM MSM module.
+
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
 	depends on DEBUG_FS
