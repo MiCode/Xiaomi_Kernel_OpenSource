@@ -17,6 +17,40 @@
 
 struct synx_device *synx_dev;
 
+static int synx_validate_callback(
+	struct synx_coredata *synx_obj,
+	s32 sync_id,
+	void *data)
+{
+	u32 i;
+	int rc = -EINVAL;
+	struct synx_bind_desc *bind_desc = NULL;
+
+	if (!synx_obj)
+		return -EINVAL;
+
+	/* need to validate the callback
+	 * as it could be dispatched and/or
+	 * scheduled late, after the handle
+	 * has been released and re-allocated.
+	 */
+	spin_lock_bh(&synx_obj->lock);
+	for (i = 0; i < synx_obj->num_bound_synxs; i++) {
+		bind_desc = &synx_obj->bound_synxs[i];
+		if ((sync_id ==
+			bind_desc->external_desc.id[0]) &&
+			(data == bind_desc->external_data)) {
+			rc = 0;
+			pr_debug("callback validation success %d\n",
+				sync_id);
+			break;
+		}
+	}
+	spin_unlock_bh(&synx_obj->lock);
+
+	return rc;
+}
+
 void synx_external_callback(s32 sync_obj, int status, void *data)
 {
 	struct synx_coredata *synx_obj;
@@ -30,8 +64,11 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 	}
 
 	client = synx_get_client(bind_data->session_id);
-	if (!client)
+	if (!client) {
+		pr_err("invalid payload content from sync external obj %d\n",
+			sync_obj);
 		goto free;
+	}
 
 	synx_obj = synx_util_acquire_object(client, bind_data->h_synx);
 	if (!synx_obj) {
@@ -40,12 +77,19 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 		goto fail;
 	}
 
+	if (synx_validate_callback(synx_obj, sync_obj, data)) {
+		pr_err("[sess: %u] stale callback from external obj %d handle %d\n",
+			client->id, sync_obj, bind_data->h_synx);
+		goto release;
+	}
+
 	pr_debug("[sess: %u] external callback from %d on handle %d\n",
 		client->id, sync_obj, bind_data->h_synx);
 	if (synx_signal_core(synx_obj, status, true, sync_obj))
 		pr_err("[sess: %u] signal callback failed for handle %d\n",
 			client->id, bind_data->h_synx);
 
+release:
 	synx_util_release_object(client, bind_data->h_synx);
 fail:
 	synx_put_client(client);
