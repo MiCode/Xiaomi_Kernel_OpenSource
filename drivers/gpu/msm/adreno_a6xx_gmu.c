@@ -2098,12 +2098,15 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	icc_set_bw(pwr->icc_path, 0, 0);
 
+	gmu->fault = false;
+
 	return 0;
 
 err:
-	a6xx_gmu_suspend(adreno_dev);
-
-	return ret;
+	if (gmu->fault) {
+		a6xx_gmu_suspend(adreno_dev);
+		return ret;
+	}
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -2168,12 +2171,15 @@ static int a6xx_gmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	gmu->fault = false;
+
 	return 0;
 
 err:
-	a6xx_gmu_suspend(adreno_dev);
-
-	return ret;
+	if (gmu->fault) {
+		a6xx_gmu_suspend(adreno_dev);
+		return ret;
+	}
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -3142,6 +3148,24 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
 	timer_setup(&device->idle_timer, gmu_idle_timer, 0);
 
 	return 0;
+}
+
+int a6xx_gmu_restart(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	a6xx_hfi_stop(adreno_dev);
+
+	disable_gpu_irq(adreno_dev);
+
+	/* Hard reset the gmu and gpu */
+	a6xx_gmu_suspend(adreno_dev);
+
+	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+
+	/* Attempt to reboot the gmu and gpu */
+	return a6xx_boot(adreno_dev);
 }
 
 static int a6xx_gmu_bind(struct device *dev, struct device *master, void *data)

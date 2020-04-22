@@ -266,4 +266,12 @@ void a6xx_gmu_device_snapshot(struct kgsl_device *device,
  */
 int a6xx_gmu_device_probe(struct platform_device *pdev,
 	u32 chipid, const struct adreno_gpu_core *gpucore);
+
+/**
+ * a6xx_gmu_restart - Reset and restart the gmu
+ * @device: Pointer to the kgsl device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_gmu_restart(struct kgsl_device *device);
 #endif

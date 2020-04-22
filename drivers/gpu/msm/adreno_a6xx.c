@@ -1080,23 +1080,15 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
  * a6xx_reset() - Helper function to reset the GPU
  * @device: Pointer to the KGSL device structure for the GPU
  *
- * Try to reset the GPU to recover from a fault.  First, try to do a low latency
- * soft reset.  If the soft reset fails for some reason, then bring out the big
- * guns and toggle the footswitch.
+ * Try to reset the GPU to recover from a fault for targets without
+ * a GMU.
  */
 static int a6xx_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
-	/*
-	 * GMU devices transition to KGSL_STATE_RESET, non GMU devices go
-	 * directly to KGSL_STATE_INIT
-	 */
-	if (gmu_core_isenabled(device))
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
-	else
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 
 	/* since device is officially off now clear start bit */
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
@@ -2702,7 +2694,7 @@ struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
-	.reset = a6xx_reset,
+	.reset = a6xx_gmu_restart,
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
 	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
 	.preemption_init = a6xx_preemption_init,
