@@ -4131,6 +4131,18 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 			  sizeof(plat_priv->firmware_name), FW_V2_FILE_NAME);
 		mhi_ctrl->fw_image = plat_priv->firmware_name;
 		break;
+	case QCA6490_DEVICE_ID:
+		switch (plat_priv->device_version.major_version) {
+		case FW_V2_NUMBER:
+			scnprintf(plat_priv->firmware_name,
+				  sizeof(plat_priv->firmware_name),
+				  FW_V2_FILE_NAME);
+			break;
+		default:
+			break;
+		}
+
+		break;
 	default:
 		break;
 	}
