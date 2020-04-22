@@ -178,8 +178,8 @@ static int protocol_block_client_thread(void *data)
 	skb_req = NULL;
 
 	/* Wait for the channels to start */
+	wakeup_mask = 0;
 	while (!kthread_should_stop()) {
-		wakeup_mask = 0;
 		if (!channel_dev->max_size || !channel_dev->queue_length)
 			wakeup_mask |= CHANNEL_BIT(C_IN);
 
@@ -190,8 +190,13 @@ static int protocol_block_client_thread(void *data)
 			break;
 
 		wait_event_killable(kdata->wait_q,
-				    kthread_should_stop() ||
-				    (kdata->wakeups & wakeup_mask));
+				    (kdata->wakeups &&
+				    channel_dev->max_size &&
+				    channel_dev->queue_length &&
+				    channel_dev_r->max_size &&
+				    channel_dev_r->queue_length) ||
+				    kthread_should_stop());
+		wakeup_mask = 0;
 	}
 	if (kthread_should_stop())
 		return 0;
