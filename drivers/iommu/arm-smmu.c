@@ -1820,15 +1820,10 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	unsigned long quirks = 0;
 	struct iommu_group *group;
+	struct io_pgtable *iop;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	if (smmu_domain->smmu)
-		goto out_unlock;
-
-	group = iommu_group_get(dev);
-	ret = iommu_logger_register(&smmu_domain->logger, domain, group);
-	iommu_group_put(group);
-	if (ret)
 		goto out_unlock;
 
 	if (domain->type == IOMMU_DOMAIN_DMA) {
@@ -1836,7 +1831,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		if (ret) {
 			dev_err(dev, "%s: default domain setup failed\n",
 				__func__);
-			goto out_logger;
+			goto out_unlock;
 		}
 	}
 
@@ -1893,7 +1888,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_NONE) {
 		ret = -EINVAL;
-		goto out_logger;
+		goto out_unlock;
 	}
 
 	switch (smmu_domain->stage) {
@@ -1941,7 +1936,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		break;
 	default:
 		ret = -EINVAL;
-		goto out_logger;
+		goto out_unlock;
 	}
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
@@ -1955,7 +1950,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	ret = arm_smmu_alloc_cb(domain, smmu, dev);
 	if (ret < 0)
-		goto out_logger;
+		goto out_unlock;
 
 	cfg->cbndx = ret;
 
@@ -1985,6 +1980,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_clear_smmu;
 	}
 
+	group = iommu_group_get_for_dev(smmu_domain->dev);
+	iop = container_of(smmu_domain->pgtbl_ops, struct io_pgtable, ops);
+	ret = iommu_logger_register(&smmu_domain->logger, domain, group, iop);
+	iommu_group_put(group);
+	if (ret)
+		goto out_clear_smmu;
+
 	/*
 	 * assign any page table memory that might have been allocated
 	 * during alloc_io_pgtable_ops
@@ -1998,23 +2000,23 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	domain->geometry.aperture_end = (1UL << ias) - 1;
 	ret = arm_smmu_adjust_domain_geometry(dev, domain);
 	if (ret)
-		goto out_clear_smmu;
+		goto out_logger;
 	domain->geometry.force_aperture = true;
 
 	if (domain->type == IOMMU_DOMAIN_DMA) {
 		ret = arm_smmu_get_dma_cookie(dev, smmu_domain);
 		if (ret)
-			goto out_clear_smmu;
+			goto out_logger;
 	}
 
 	/* Assign an asid */
 	ret = arm_smmu_init_asid(domain, smmu);
 	if (ret)
-		goto out_clear_smmu;
+		goto out_logger;
 
 	ret = arm_smmu_setup_context_bank(smmu_domain, smmu, dev);
 	if (ret)
-		goto out_clear_smmu;
+		goto out_logger;
 
 	strlcpy(smmu_domain->domain.name, dev_name(dev),
 		sizeof(smmu_domain->domain.name));
@@ -2022,12 +2024,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	return 0;
 
-out_clear_smmu:
-	arm_smmu_destroy_domain_context(domain);
-	smmu_domain->smmu = NULL;
 out_logger:
 	iommu_logger_unregister(smmu_domain->logger);
 	smmu_domain->logger = NULL;
+out_clear_smmu:
+	arm_smmu_destroy_domain_context(domain);
+	smmu_domain->smmu = NULL;
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
