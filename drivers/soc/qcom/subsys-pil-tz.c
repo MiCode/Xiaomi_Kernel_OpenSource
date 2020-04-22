@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -10,6 +10,7 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
@@ -81,8 +82,10 @@ struct reg_info {
  * @subsys: subsystem device pointer
  * @subsys_desc: subsystem descriptor
  * @u32 bits_arr[2]: array of bit positions in SCSR registers
+ * @boot_enabled: true if subsystem is brough of reset during the bootloader.
  */
 struct pil_tz_data {
+	struct device *dev;
 	struct reg_info *regs;
 	struct reg_info *proxy_regs;
 	struct clk **clks;
@@ -96,8 +99,10 @@ struct pil_tz_data {
 	void *minidump_dev;
 	u32 pas_id;
 	struct icc_path *bus_client;
+	bool boot_enabled;
 	bool enable_bus_scaling;
 	bool keep_proxy_regs_on;
+	struct completion err_ready;
 	struct completion stop_ack;
 	struct completion shutdown_ack;
 	struct pil_desc desc;
@@ -109,6 +114,15 @@ struct pil_tz_data {
 	void __iomem *err_status;
 	void __iomem *err_status_spare;
 	u32 bits_arr[2];
+	int err_fatal_irq;
+	int err_ready_irq;
+	int stop_ack_irq;
+	int wdog_bite_irq;
+	int generic_irq;
+	int ramdump_disable_irq;
+	int shutdown_ack_irq;
+	int force_stop_bit;
+	struct qcom_smem_state *state;
 };
 
 enum pas_id {
@@ -129,6 +143,35 @@ enum pas_id {
 static struct icc_path *scm_perf_client;
 static int scm_pas_bw_count;
 static DEFINE_MUTEX(scm_pas_bw_mutex);
+
+static void subsys_disable_all_irqs(struct pil_tz_data *d);
+static void subsys_enable_all_irqs(struct pil_tz_data *d);
+static bool generic_read_status(struct pil_tz_data *d);
+
+static int enable_debug;
+module_param(enable_debug, int, 0644);
+
+static int wait_for_err_ready(struct pil_tz_data *d)
+{
+	int ret;
+
+	/*
+	 * If subsys is using generic_irq in which case err_ready_irq will be 0,
+	 * don't return.
+	 */
+	if ((d->generic_irq <= 0 && !d->err_ready_irq) ||
+				enable_debug == 1 || pil_is_timeout_disabled())
+		return 0;
+
+	ret = wait_for_completion_interruptible_timeout(&d->err_ready,
+					  msecs_to_jiffies(10000));
+	if (!ret) {
+		pr_err("[%s]: Error ready timed out\n", d->desc.name);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
 
 static int scm_pas_enable_bw(void)
 {
@@ -711,20 +754,21 @@ static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
 	int ret;
 
 	if (!subsys_get_crash_status(d->subsys) && force_stop &&
-						subsys->state) {
-		qcom_smem_state_update_bits(subsys->state,
-				BIT(subsys->force_stop_bit),
-				BIT(subsys->force_stop_bit));
+						d->state) {
+		qcom_smem_state_update_bits(d->state,
+				BIT(d->force_stop_bit),
+				BIT(d->force_stop_bit));
 		ret = wait_for_completion_timeout(&d->stop_ack,
 				msecs_to_jiffies(STOP_ACK_TIMEOUT_MS));
 		if (!ret)
 			pr_warn("Timed out on stop ack from %s.\n",
 							subsys->name);
-		qcom_smem_state_update_bits(subsys->state,
-				BIT(subsys->force_stop_bit), 0);
+		qcom_smem_state_update_bits(d->state,
+				BIT(d->force_stop_bit), 0);
 	}
 
 	pil_shutdown(&d->desc);
+	subsys_disable_all_irqs(d);
 	return 0;
 }
 
@@ -733,12 +777,57 @@ static int subsys_powerup(const struct subsys_desc *subsys)
 	struct pil_tz_data *d = subsys_to_data(subsys);
 	int ret = 0;
 
-	if (subsys->stop_ack_irq)
+	reinit_completion(&d->err_ready);
+
+	if (d->stop_ack_irq)
 		reinit_completion(&d->stop_ack);
 
 	d->desc.fw_name = subsys->fw_name;
 	ret = pil_boot(&d->desc);
+	if (ret) {
+		pr_err("pil_boot failed for %s\n",  d->subsys_desc.name);
+		return ret;
+	}
 
+	pr_info("pil_boot is successful from %s and waiting for error ready\n",
+				d->subsys_desc.name);
+	subsys_enable_all_irqs(d);
+	ret = wait_for_err_ready(d);
+	if (ret) {
+		pr_err("%s failed to get error ready for %s\n", __func__,
+			d->subsys_desc.name);
+		pil_shutdown(&d->desc);
+		subsys_disable_all_irqs(d);
+	}
+
+	return ret;
+}
+
+static int subsys_powerup_boot_enabled(const struct subsys_desc *subsys)
+{
+	struct pil_tz_data *d = subsys_to_data(subsys);
+	int ret = 0;
+
+	if (generic_read_status(d)) {
+		pr_info("%s: subsystem %s is alive at during device bootup\n",
+			 __func__, d->subsys_desc.name);
+		subsys_enable_all_irqs(d);
+		ret = wait_for_err_ready(d);
+		if (ret) {
+			pr_err("%s failed to get error ready for %s\n",
+				__func__, d->subsys_desc.name);
+			pil_shutdown(&d->desc);
+			subsys_disable_all_irqs(d);
+		}
+	} else {
+		pil_shutdown(&d->desc);
+		ret = -EAGAIN;
+		pr_err("%s: subsystem %s is crashed while device booting\n",
+			 __func__, d->subsys_desc.name);
+	}
+
+	/* Update the .powerup call back to regular subsys powerup function.*/
+	d->subsys_desc.powerup = subsys_powerup;
 	return ret;
 }
 
@@ -763,17 +852,28 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 {
 	struct pil_tz_data *d = subsys_to_data(subsys);
 
-	if (subsys->state && !subsys_get_crash_status(d->subsys)) {
-		qcom_smem_state_update_bits(subsys->state,
-			BIT(subsys->force_stop_bit),
-			BIT(subsys->force_stop_bit));
+	if (d->state && !subsys_get_crash_status(d->subsys)) {
+		qcom_smem_state_update_bits(d->state,
+			BIT(d->force_stop_bit),
+			BIT(d->force_stop_bit));
 		mdelay(CRASH_STOP_ACK_TO_MS);
 	}
 }
 
-static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
+
+static irqreturn_t subsys_err_ready_intr_handler(int irq, void *drv_data)
 {
-	struct pil_tz_data *d = subsys_to_data(dev_id);
+	struct pil_tz_data *d = drv_data;
+
+	pr_info("Subsystem error monitoring/handling services are up from%s\n",
+					d->subsys_desc.name);
+	complete(&d->err_ready);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *drv_data)
+{
+	struct pil_tz_data *d = drv_data;
 
 	pr_err("Fatal error on %s!\n", d->subsys_desc.name);
 	if (subsys_get_crash_status(d->subsys)) {
@@ -788,9 +888,9 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *dev_id)
+static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *drv_data)
 {
-	struct pil_tz_data *d = subsys_to_data(dev_id);
+	struct pil_tz_data *d = drv_data;
 
 	if (subsys_get_crash_status(d->subsys))
 		return IRQ_HANDLED;
@@ -806,18 +906,18 @@ static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t subsys_stop_ack_intr_handler(int irq, void *dev_id)
+static irqreturn_t subsys_stop_ack_intr_handler(int irq, void *drv_data)
 {
-	struct pil_tz_data *d = subsys_to_data(dev_id);
+	struct pil_tz_data *d = drv_data;
 
 	pr_info("Received stop ack interrupt from %s\n", d->subsys_desc.name);
 	complete(&d->stop_ack);
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t subsys_shutdown_ack_intr_handler(int irq, void *dev_id)
+static irqreturn_t subsys_shutdown_ack_intr_handler(int irq, void *drv_data)
 {
-	struct pil_tz_data *d = subsys_to_data(dev_id);
+	struct pil_tz_data *d = drv_data;
 
 	pr_info("Received stop shutdown interrupt from %s\n",
 			d->subsys_desc.name);
@@ -825,9 +925,9 @@ static irqreturn_t subsys_shutdown_ack_intr_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t subsys_ramdump_disable_intr_handler(int irq, void *dev_id)
+static irqreturn_t subsys_ramdump_disable_intr_handler(int irq, void *drv_data)
 {
-	struct pil_tz_data *d = subsys_to_data(dev_id);
+	struct pil_tz_data *d = drv_data;
 
 	pr_info("Received ramdump disable interrupt from %s\n",
 			d->subsys_desc.name);
@@ -876,7 +976,7 @@ static void clear_err_ready(struct pil_tz_data *d)
 		d->subsys_desc.name);
 
 	__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
-	complete_err_ready(d->subsys);
+	complete(&d->err_ready);
 }
 
 static void clear_sw_init_done_error(struct pil_tz_data *d, int err)
@@ -914,9 +1014,27 @@ static void clear_wdog(struct pil_tz_data *d)
 	}
 }
 
-static irqreturn_t subsys_generic_handler(int irq, void *dev_id)
+static bool generic_read_status(struct pil_tz_data *d)
 {
-	struct pil_tz_data *d = subsys_to_data(dev_id);
+	uint32_t status_val, err_value;
+
+	err_value =  __raw_readl(d->err_status_spare);
+	status_val = __raw_readl(d->irq_status);
+
+	if (status_val & BIT(d->bits_arr[ERR_READY])) {
+		if (err_value == 0x44554d50) {
+			pr_err("wdog bite is pending\n");
+			__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static irqreturn_t subsys_generic_handler(int irq, void *drv_data)
+{
+	struct pil_tz_data *d = drv_data;
 	uint32_t status_val, err_value;
 
 	err_value =  __raw_readl(d->err_status_spare);
@@ -940,10 +1058,245 @@ static irqreturn_t subsys_generic_handler(int irq, void *dev_id)
 static void mask_scsr_irqs(struct pil_tz_data *d)
 {
 	uint32_t mask_val;
-	/* Masking all interrupts not handled by HLOS */
+
+	/* Masking all interrupts from subsystem */
+	mask_val = ~0;
+	__raw_writel(mask_val, d->irq_mask);
+}
+
+static void unmask_scsr_irqs(struct pil_tz_data *d)
+{
+	uint32_t mask_val;
+
+	/* Un masking interrupts from subsystem to be handled by HLOS */
 	mask_val = ~0;
 	__raw_writel(mask_val & ~BIT(d->bits_arr[ERR_READY]) &
 			~BIT(d->bits_arr[PBL_DONE]), d->irq_mask);
+}
+
+static void subsys_enable_all_irqs(struct pil_tz_data *d)
+{
+	if (d->err_ready_irq)
+		enable_irq(d->err_ready_irq);
+	if (d->wdog_bite_irq) {
+		enable_irq(d->wdog_bite_irq);
+		irq_set_irq_wake(d->wdog_bite_irq, 1);
+	}
+	if (d->err_fatal_irq)
+		enable_irq(d->err_fatal_irq);
+	if (d->stop_ack_irq)
+		enable_irq(d->stop_ack_irq);
+	if (d->shutdown_ack_irq)
+		enable_irq(d->shutdown_ack_irq);
+	if (d->ramdump_disable_irq)
+		enable_irq(d->ramdump_disable_irq);
+	if (d->generic_irq) {
+		unmask_scsr_irqs(d);
+		enable_irq(d->generic_irq);
+		irq_set_irq_wake(d->generic_irq, 1);
+	}
+}
+
+static void subsys_disable_all_irqs(struct pil_tz_data *d)
+{
+	if (d->err_ready_irq)
+		disable_irq(d->err_ready_irq);
+	if (d->wdog_bite_irq) {
+		disable_irq(d->wdog_bite_irq);
+		irq_set_irq_wake(d->wdog_bite_irq, 0);
+	}
+	if (d->err_fatal_irq)
+		disable_irq(d->err_fatal_irq);
+	if (d->stop_ack_irq)
+		disable_irq(d->stop_ack_irq);
+	if (d->shutdown_ack_irq)
+		disable_irq(d->shutdown_ack_irq);
+	if (d->generic_irq) {
+		mask_scsr_irqs(d);
+		irq_set_irq_wake(d->generic_irq, 0);
+		disable_irq(d->generic_irq);
+	}
+}
+
+static int __get_irq(struct platform_device *pdev, const char *prop,
+		unsigned int *irq)
+{
+	int irql = 0;
+	struct device_node *dnode = pdev->dev.of_node;
+
+	if (of_property_match_string(dnode, "interrupt-names", prop) < 0)
+		return -ENOENT;
+
+	irql = of_irq_get_byname(dnode, prop);
+	if (irql < 0) {
+		pr_err("[%s]: Error getting IRQ \"%s\"\n", pdev->name,
+		prop);
+		return irql;
+	}
+	*irq = irql;
+	return 0;
+}
+
+static int __get_smem_state(struct pil_tz_data *d, const char *prop,
+		int *smem_bit)
+{
+	struct device_node *dnode = d->dev->of_node;
+
+	if (of_find_property(dnode, "qcom,smem-states", NULL)) {
+		d->state = qcom_smem_state_get(d->dev, prop, smem_bit);
+		if (IS_ERR_OR_NULL(d->state)) {
+			pr_err("Could not get smem-states %s\n", prop);
+			return PTR_ERR(d->state);
+		}
+		return 0;
+	}
+	return -ENOENT;
+}
+
+
+static int subsys_parse_irqs(struct platform_device *pdev)
+{
+	int ret;
+	struct pil_tz_data *d = platform_get_drvdata(pdev);
+
+	ret = __get_irq(pdev, "qcom,err-fatal", &d->err_fatal_irq);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_irq(pdev, "qcom,err-ready", &d->err_ready_irq);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_irq(pdev, "qcom,stop-ack", &d->stop_ack_irq);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_irq(pdev, "qcom,ramdump-disabled",
+			&d->ramdump_disable_irq);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_irq(pdev, "qcom,shutdown-ack", &d->shutdown_ack_irq);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_irq(pdev, "qcom,wdog", &d->wdog_bite_irq);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_smem_state(d, "qcom,force-stop", &d->force_stop_bit);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,pil-generic-irq-handler")) {
+		ret = platform_get_irq(pdev, 0);
+		if (ret > 0)
+			d->generic_irq = ret;
+	}
+
+	return 0;
+}
+
+static int subsys_setup_irqs(struct platform_device *pdev)
+{
+	int ret;
+	struct pil_tz_data *d = platform_get_drvdata(pdev);
+
+	if (d->err_fatal_irq) {
+		ret = devm_request_threaded_irq(&pdev->dev, d->err_fatal_irq,
+				NULL, subsys_err_fatal_intr_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				d->desc.name, d);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "[%s]: Unable to register error fatal IRQ handler: %d, irq is %d\n",
+				d->desc.name, ret, d->err_fatal_irq);
+			return ret;
+		}
+		disable_irq(d->err_fatal_irq);
+	}
+
+	if (d->stop_ack_irq) {
+		ret = devm_request_threaded_irq(&pdev->dev, d->stop_ack_irq,
+				NULL, subsys_stop_ack_intr_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				d->desc.name, d);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "[%s]: Unable to register stop ack handler: %d\n",
+				d->desc.name, ret);
+			return ret;
+		}
+		disable_irq(d->stop_ack_irq);
+	}
+
+	if (d->wdog_bite_irq) {
+		ret = devm_request_irq(&pdev->dev, d->wdog_bite_irq,
+			subsys_wdog_bite_irq_handler,
+			IRQF_TRIGGER_RISING, d->desc.name, d);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "[%s]: Unable to register wdog bite handler: %d\n",
+				d->desc.name, ret);
+			return ret;
+		}
+		disable_irq(d->wdog_bite_irq);
+	}
+
+	if (d->shutdown_ack_irq) {
+		ret = devm_request_threaded_irq(&pdev->dev,
+				d->shutdown_ack_irq,
+				NULL, subsys_shutdown_ack_intr_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				d->desc.name, d);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "[%s]: Unable to register shutdown ack handler: %d\n",
+				d->desc.name, ret);
+			return ret;
+		}
+		disable_irq(d->shutdown_ack_irq);
+	}
+
+	if (d->ramdump_disable_irq) {
+		ret = devm_request_threaded_irq(d->dev,
+				d->ramdump_disable_irq,
+				NULL, subsys_ramdump_disable_intr_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				d->desc.name, d);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "[%s]: Unable to register shutdown ack handler: %d\n",
+				d->desc.name, ret);
+			return ret;
+		}
+		disable_irq(d->ramdump_disable_irq);
+	}
+
+	if (d->generic_irq) {
+		ret = devm_request_irq(&pdev->dev, d->generic_irq,
+			subsys_generic_handler,
+			IRQF_TRIGGER_HIGH, d->desc.name, d);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "[%s]: Unable to register generic irq handler: %d\n",
+				d->desc.name, ret);
+			return ret;
+		}
+		disable_irq(d->generic_irq);
+	}
+
+	if (d->err_ready_irq) {
+		ret = devm_request_threaded_irq(d->dev,
+				d->err_ready_irq,
+				NULL, subsys_err_ready_intr_handler,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				"error_ready_interrupt", d);
+		if (ret < 0) {
+			dev_err(&pdev->dev,
+				"[%s]: Unable to register err ready handler\n",
+				d->desc.name);
+			return ret;
+		}
+		disable_irq(d->err_ready_irq);
+	}
+
+	return 0;
 }
 
 static int pil_tz_generic_probe(struct platform_device *pdev)
@@ -966,10 +1319,14 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, d);
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,pil-no-auth"))
 		d->subsys_desc.no_auth = true;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,boot-enabled"))
+		d->boot_enabled = true;
 
 	d->keep_proxy_regs_on = of_property_read_bool(pdev->dev.of_node,
 						"qcom,keep-proxy-regs-on");
@@ -992,11 +1349,16 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 		}
 	}
 
+	d->dev = &pdev->dev;
 	d->desc.dev = &pdev->dev;
 	d->desc.owner = THIS_MODULE;
 	d->desc.ops = &pil_ops_trusted;
 
 	d->desc.proxy_timeout = PROXY_TIMEOUT_MS;
+	rc = subsys_parse_irqs(pdev);
+	if (rc)
+		return rc;
+
 	d->desc.clear_fw_region = true;
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,proxy-timeout-ms",
@@ -1023,17 +1385,28 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 		goto err_deregister_bus;
 
 	init_completion(&d->stop_ack);
+	init_completion(&d->err_ready);
+
 	d->subsys_desc.name = d->desc.name;
 	d->subsys_desc.owner = THIS_MODULE;
 	d->subsys_desc.dev = &pdev->dev;
 	d->subsys_desc.shutdown = subsys_shutdown;
 	d->subsys_desc.powerup = subsys_powerup;
+
+	/*
+	 * If subsystem is already bought out reset during the bootloader stage,
+	 * instead of doing regular power need to check subsystem status.
+	 * So override power up function to check subsystem crash status.
+	 */
+	if (d->boot_enabled)
+		d->subsys_desc.powerup = subsys_powerup_boot_enabled;
+
 	d->subsys_desc.ramdump = subsys_ramdump;
 	d->subsys_desc.free_memory = subsys_free_memory;
 	d->subsys_desc.crash_shutdown = subsys_crash_shutdown;
 	if (of_property_read_bool(pdev->dev.of_node,
 					"qcom,pil-generic-irq-handler")) {
-		d->subsys_desc.generic_handler = subsys_generic_handler;
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"sp2soc_irq_status");
 		d->irq_status = devm_ioremap_resource(&pdev->dev, res);
@@ -1089,17 +1462,8 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 			goto err_ramdump;
 		}
 		mask_scsr_irqs(d);
-
-	} else {
-		d->subsys_desc.err_fatal_handler =
-						subsys_err_fatal_intr_handler;
-		d->subsys_desc.wdog_bite_handler = subsys_wdog_bite_irq_handler;
-		d->subsys_desc.stop_ack_handler = subsys_stop_ack_intr_handler;
-		d->subsys_desc.shutdown_ack_handler =
-			subsys_shutdown_ack_intr_handler;
-		d->subsys_desc.ramdump_disable_handler =
-			subsys_ramdump_disable_intr_handler;
 	}
+
 	d->desc.signal_aop = of_property_read_bool(pdev->dev.of_node,
 						"qcom,signal-aop");
 	if (d->desc.signal_aop) {
@@ -1136,6 +1500,12 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 	d->subsys = subsys_register(&d->subsys_desc);
 	if (IS_ERR(d->subsys)) {
 		rc = PTR_ERR(d->subsys);
+		goto err_subsys;
+	}
+
+	rc = subsys_setup_irqs(pdev);
+	if (rc) {
+		subsys_unregister(d->subsys);
 		goto err_subsys;
 	}
 
