@@ -3194,16 +3194,26 @@ static void dwc3_resume_work(struct work_struct *w)
 	union extcon_property_value val;
 	unsigned int extcon_id;
 	struct extcon_dev *edev = NULL;
+	const char *edev_name;
+	char *eud_str;
 	int ret = 0;
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
-
 	if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
 		extcon_id = EXTCON_USB;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
 	} else if (mdwc->extcon && mdwc->id_state == DWC3_ID_GROUND) {
 		extcon_id = EXTCON_USB_HOST;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
+	}
+
+	if (edev) {
+		edev_name = extcon_get_edev_name(edev);
+		dbg_log_string("edev:%s\n", edev_name);
+		/* Skip querying speed and cc_state for EUD edev */
+		eud_str = strnstr(edev_name, "eud", strlen(edev_name));
+		if (eud_str)
+			goto skip_update;
 	}
 
 	/* Check speed and Type-C polarity values in order to configure PHY */
@@ -3237,6 +3247,7 @@ static void dwc3_resume_work(struct work_struct *w)
 		dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 	}
 
+skip_update:
 	/*
 	 * Skip scheduling sm work if no work is pending. When boot-up
 	 * with USB cable connected, usb state m/c is skipped to avoid
