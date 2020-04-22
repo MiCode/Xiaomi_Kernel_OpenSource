@@ -333,6 +333,9 @@ struct dwc3_msm {
 
 	struct device_node *dwc3_node;
 	struct property *num_gsi_eps;
+
+	/* Enable remote wakeup during system suspend */
+	bool			enable_wakeup;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2470,7 +2473,8 @@ static int dwc3_msm_update_bus_bw(struct dwc3_msm *mdwc, enum bus_vote bv)
 	return ret;
 }
 
-static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
+static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
+					bool enable_wakeup)
 {
 	int ret;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
@@ -2566,7 +2570,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		((mdwc->hs_phy->flags & (PHY_HSFS_MODE | PHY_LS_MODE)) &&
 			!dwc3_msm_is_superspeed(mdwc)));
 	can_suspend_ssphy = dwc->maximum_speed >= USB_SPEED_SUPER &&
-			(!mdwc->use_pwr_event_for_wakeup || no_active_ss);
+			(!mdwc->use_pwr_event_for_wakeup || no_active_ss ||
+			 !enable_wakeup);
 	/* Suspend SS PHY */
 	if (can_suspend_ssphy) {
 		if (mdwc->in_host_mode) {
@@ -3931,10 +3936,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	/*
 	 * On platforms with SS PHY that do not support ss_phy_irq for wakeup
 	 * events, use pwr_event_irq for wakeup events in superspeed mode.
+	 * But some of these platforms do not need SS wakeup events in system
+	 * suspend scenario. Accommodate that case as well.
 	 */
 	mdwc->use_pwr_event_for_wakeup = dwc->maximum_speed >= USB_SPEED_SUPER
 					&& !mdwc->wakeup_irq[SS_PHY_IRQ].irq;
-
+	mdwc->enable_wakeup = !of_property_read_bool(node,
+				"qcom,no-wakeup-from-pm-suspend");
 
 	/* IOMMU will be reattached upon each resume/connect */
 	if (mdwc->iommu_map)
@@ -4850,7 +4858,7 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 		return 0;
 	}
 
-	ret = dwc3_msm_suspend(mdwc, false);
+	ret = dwc3_msm_suspend(mdwc, false, mdwc->enable_wakeup);
 	if (!ret)
 		atomic_set(&mdwc->pm_suspended, 1);
 
@@ -4927,7 +4935,7 @@ static int dwc3_msm_pm_freeze(struct device *dev)
 	 * Power collapse the core. Hence call dwc3_msm_suspend with
 	 * 'force_power_collapse' set to 'true'.
 	 */
-	ret = dwc3_msm_suspend(mdwc, true);
+	ret = dwc3_msm_suspend(mdwc, true, mdwc->enable_wakeup);
 	if (!ret)
 		atomic_set(&mdwc->pm_suspended, 1);
 
@@ -4995,7 +5003,7 @@ static int dwc3_msm_runtime_suspend(struct device *dev)
 	dev_dbg(dev, "DWC3-msm runtime suspend\n");
 	dbg_event(0xFF, "RT Sus", 0);
 
-	return dwc3_msm_suspend(mdwc, false);
+	return dwc3_msm_suspend(mdwc, false, false);
 }
 
 static int dwc3_msm_runtime_resume(struct device *dev)
