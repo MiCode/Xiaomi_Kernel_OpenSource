@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,8 @@
 static const char *qcs403_dt_match[] __initconst = {
 	"qcom,qcs403",
 	"qcom,qcs404",
+	"qcom,qcs405",
+	"qcom,qcs407",
 	NULL
 };
 
