@@ -12,6 +12,20 @@
 
 #include "qcs405.dtsi"
 
+&tlmm {
+	pinctrl-0 = <&status_gpio>;
+	pinctrl-names = "default";
+	status_gpio: status_gpio {
+		ap2mdm_status {
+			pins = "gpio80";
+			function = "gpio";
+			drive-strength = <8>;
+			bias-pull-up;
+			output-high;
+		};
+	};
+};
+
 &pcie0_perst_default {
 	mux {
 		pins = "gpio107";
