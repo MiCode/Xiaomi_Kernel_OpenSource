@@ -3037,6 +3037,9 @@ static int a6xx_gmu_active_count_get(struct adreno_device *adreno_dev)
 	if (WARN_ON(!mutex_is_locked(&device->mutex)))
 		return -EINVAL;
 
+	if (test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags))
+		return -EINVAL;
+
 	if ((atomic_read(&device->active_cnt) == 0) &&
 		!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		ret = a6xx_boot(adreno_dev);
@@ -3050,11 +3053,67 @@ static int a6xx_gmu_active_count_get(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static int a6xx_gmu_pm_suspend(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	int ret;
+
+	if (test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags))
+		return 0;
+
+	/* Halt any new submissions */
+	reinit_completion(&device->halt_gate);
+
+	/* wait for active count so device can be put in slumber */
+	ret = kgsl_active_count_wait(device, 0);
+	if (ret) {
+		dev_err(device->dev,
+			"Timed out waiting for the active count\n");
+		goto err;
+	}
+
+	ret = adreno_idle(device);
+	if (ret)
+		goto err;
+
+	if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		a6xx_power_off(adreno_dev);
+
+	set_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
+
+	adreno_dispatcher_halt(device);
+
+	return 0;
+err:
+	adreno_dispatcher_start(device);
+	return ret;
+}
+
+static void a6xx_gmu_pm_resume(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	if (!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags)) {
+		dev_err(device->dev, "resume invoked without a suspend\n");
+		return;
+	}
+
+	adreno_dispatcher_unhalt(device);
+
+	adreno_dispatcher_start(device);
+
+	clear_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
+}
+
 const struct adreno_power_ops a6xx_gmu_power_ops = {
 	.first_open = a6xx_gmu_first_open,
 	.last_close = a6xx_gmu_last_close,
 	.active_count_get = a6xx_gmu_active_count_get,
 	.active_count_put = a6xx_gmu_active_count_put,
+	.pm_suspend = a6xx_gmu_pm_suspend,
+	.pm_resume = a6xx_gmu_pm_resume,
 };
 
 int a6xx_gmu_device_probe(struct platform_device *pdev,

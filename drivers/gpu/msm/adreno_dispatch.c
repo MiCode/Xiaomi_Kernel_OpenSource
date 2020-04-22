@@ -2908,7 +2908,7 @@ int adreno_dispatcher_idle(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret;
 
-	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
+	if (device->state != KGSL_STATE_ACTIVE)
 		return 0;
 
 	/*
