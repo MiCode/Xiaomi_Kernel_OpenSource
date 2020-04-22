@@ -4853,6 +4853,7 @@
 		qcom,signal-aop;
 		qcom,complete-ramdump;
 
+		qcom,boot-enabled;
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "spss";
@@ -4918,6 +4919,7 @@
 		/* soc2sp rmb shared register physical address */
 		qcom,spcom-soc2sp-rmb-reg-addr = <0x01881030>;
 		qcom,spcom-soc2sp-rmb-sp-ssr-bit = <0>;
+		qcom,boot-enabled;
 		status = "ok";
 	};
 
