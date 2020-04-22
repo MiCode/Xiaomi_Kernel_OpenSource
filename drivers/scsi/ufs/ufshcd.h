@@ -802,6 +802,12 @@ struct ufs_hba {
 	 * inline crypto engine, if it is present
 	 */
 #define UFSHCD_CAP_CRYPTO (1 << 7)
+	/*
+	 * This capability allows the host controller driver to turn-on
+	 * WriteBooster, if the underlying device supports it and is
+	 * provisioned to be used. This would increase the write performance.
+	 */
+#define	UFSHCD_CAP_WB_EN (1 << 8)
 
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;
@@ -826,6 +832,8 @@ struct ufs_hba {
 	void *crypto_DO_NOT_USE[8];
 #endif /* CONFIG_SCSI_UFS_CRYPTO */
 
+	bool wb_buf_flush_enabled;
+	bool wb_enabled;
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
@@ -876,6 +884,11 @@ static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
 static inline bool ufshcd_is_auto_hibern8_enabled(struct ufs_hba *hba)
 {
 	return FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK, hba->ahit) ? true : false;
+}
+
+static inline bool ufshcd_is_wb_allowed(struct ufs_hba *hba)
+{
+	return hba->caps & UFSHCD_CAP_WB_EN;
 }
 
 #define ufshcd_writel(hba, val, reg)	\
