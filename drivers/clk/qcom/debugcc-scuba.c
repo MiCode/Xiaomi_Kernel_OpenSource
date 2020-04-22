@@ -205,6 +205,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_vs_ctrl_clk",
 	"gcc_wcss_vs_clk",
 	"gpu_cc_debug_mux",
+	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
@@ -315,6 +316,7 @@ static int gcc_debug_mux_sels[] = {
 	0xBC,		/* gcc_vs_ctrl_clk */
 	0xC0,		/* gcc_wcss_vs_clk */
 	0xE3,		/* gpu_cc_debug_mux */
+	0x9B,		/* mc_cc_debug_mux */
 	0x19,		/* measure_only_cnoc_clk */
 	0xC2,		/* measure_only_ipa_2x_clk */
 	0x7,		/* measure_only_snoc_clk */
