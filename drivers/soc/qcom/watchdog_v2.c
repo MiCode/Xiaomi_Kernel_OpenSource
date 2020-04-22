@@ -31,6 +31,10 @@
 #include <linux/sched/clock.h>
 #include <linux/cpumask.h>
 #include <uapi/linux/sched/types.h>
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+#include <linux/kallsyms.h>
+#include <linux/math64.h>
+#endif
 
 #define MODULE_NAME "msm_watchdog"
 #define WDT0_ACCSCSSNBARK_INT 0
@@ -54,6 +58,15 @@
 #define COMPARE_RET		-1
 
 typedef int (*compare_t) (const void *lhs, const void *rhs);
+
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+#define LOGBUF_TIMEOUT		100000U
+
+static struct delayed_work log_buf_work;
+static char *init_log_buf;
+static unsigned int *log_buf_size;
+static dma_addr_t log_buf_paddr;
+#endif
 
 static struct msm_watchdog_data *wdog_data;
 
@@ -666,6 +679,17 @@ static struct notifier_block wdog_cpu_pm_nb = {
 	.notifier_call = wdog_cpu_pm_notify,
 };
 
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+static void log_buf_remove(void)
+{
+	flush_delayed_work(&log_buf_work);
+	dma_free_coherent(wdog_data->dev, *log_buf_size,
+			  init_log_buf, log_buf_paddr);
+}
+#else
+static void log_buf_remove(void) { return; }
+#endif
+
 static int msm_watchdog_remove(struct platform_device *pdev)
 {
 	struct msm_watchdog_data *wdog_dd =
@@ -686,6 +710,7 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	del_timer_sync(&wdog_dd->pet_timer);
 	kthread_stop(wdog_dd->watchdog_task);
 	flush_work(&wdog_dd->irq_counts_work);
+	log_buf_remove();
 	kfree(wdog_dd);
 	return 0;
 }
@@ -766,6 +791,65 @@ static int init_watchdog_sysfs(struct msm_watchdog_data *wdog_dd)
 
 	return error;
 }
+
+#ifdef CONFIG_QCOM_INITIAL_LOGBUF
+static void minidump_reg_init_log_buf(void)
+{
+	struct md_region md_entry;
+
+	/* Register init_log_buf info to minidump table */
+	strlcpy(md_entry.name, "KBOOT_LOG", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)init_log_buf;
+	md_entry.phys_addr = log_buf_paddr;
+	md_entry.size = *log_buf_size;
+	md_entry.id = MINIDUMP_DEFAULT_ID;
+	if (msm_minidump_add_region(&md_entry))
+		pr_err("Failed to add init_log_buf in Minidump\n");
+}
+
+static void log_buf_work_fn(struct work_struct *work)
+{
+	char **addr = NULL;
+
+	addr = (char **)kallsyms_lookup_name("log_buf");
+	if (!addr) {
+		dev_err(wdog_data->dev, "log_buf symbol not found\n");
+		goto out;
+	}
+
+	log_buf_size = (unsigned int *)kallsyms_lookup_name("log_buf_len");
+	if (!log_buf_size) {
+		dev_err(wdog_data->dev, "log_buf_len symbol not found\n");
+		goto out;
+	}
+
+	init_log_buf = dma_alloc_coherent(wdog_data->dev, *log_buf_size,
+					  &log_buf_paddr, GFP_KERNEL);
+	if (!init_log_buf) {
+		dev_err(wdog_data->dev, "log_buf dma_alloc_coherent failed\n");
+		goto out;
+	}
+
+	minidump_reg_init_log_buf();
+	memcpy(init_log_buf, *addr, (size_t)(*log_buf_size));
+	pr_info("boot log copy done\n");
+out:
+	return;
+}
+
+static void log_buf_init(void)
+{
+	/* keep granularity of milli seconds */
+	unsigned int curr_time_msec = div_u64(sched_clock(), NSEC_PER_MSEC);
+	unsigned int timeout_msec = LOGBUF_TIMEOUT - curr_time_msec;
+
+	INIT_DELAYED_WORK(&log_buf_work, log_buf_work_fn);
+	queue_delayed_work(system_unbound_wq, &log_buf_work,
+			   msecs_to_jiffies(timeout_msec));
+}
+#else
+static void log_buf_init(void)  { return; }
+#endif
 
 static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 {
@@ -956,6 +1040,8 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 		goto err;
 	}
 	init_watchdog_data(wdog_dd);
+
+	log_buf_init();
 
 	/* Add wdog info to minidump table */
 	strlcpy(md_entry.name, "KWDOGDATA", sizeof(md_entry.name));
