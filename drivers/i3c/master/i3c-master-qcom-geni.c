@@ -274,6 +274,7 @@ struct geni_i3c_dev {
 	struct workqueue_struct *hj_wq;
 	struct work_struct hj_wd;
 	struct wakeup_source hj_wl;
+	struct pinctrl_state *i3c_gpio_disable;
 };
 
 struct geni_i3c_i2c_dev_data {
@@ -735,7 +736,7 @@ static int _i3c_geni_execute_command
 {
 	dma_addr_t tx_dma = 0;
 	dma_addr_t rx_dma = 0;
-	int ret, time_remaining = 0;
+	int ret = 0, time_remaining = 0;
 	enum i3c_trans_dir rnw = gi3c->cur_rnw;
 	u32 len = gi3c->cur_len;
 
@@ -816,10 +817,12 @@ static int _i3c_geni_execute_command
 		geni_se_tx_dma_unprep(gi3c->se.i3c_rsc.wrapper_dev,
 				tx_dma, len);
 	}
-	ret = gi3c->err;
-	if (gi3c->err)
+
+	if (gi3c->err) {
+		ret = (gi3c->err == -EBUSY) ? I3C_ERROR_M2 : gi3c->err;
 		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
 			"I3C transaction error :%d\n", gi3c->err);
+	}
 
 	gi3c->cur_buf = NULL;
 	gi3c->cur_len = gi3c->cur_idx = 0;
@@ -1523,10 +1526,8 @@ static int geni_i3c_master_request_ibi(struct i3c_dev_desc *dev,
 	return -ENOSPC;
 }
 
-static int qcom_deallocate_ibi_table_entry(struct i3c_dev_desc *dev)
+static int qcom_deallocate_ibi_table_entry(struct geni_i3c_dev *gi3c)
 {
-	struct i3c_master_controller *m = i3c_dev_get_master(dev);
-	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
 	u32 i, timeout;
 
 	for (i = 0; i < gi3c->ibi.num_slots; i++) {
@@ -1558,16 +1559,14 @@ static int qcom_deallocate_ibi_table_entry(struct i3c_dev_desc *dev)
 	return 0;
 }
 
-static void qcom_geni_i3c_ibi_unconf(struct i3c_dev_desc *dev)
+static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
 {
-	struct i3c_master_controller *m = i3c_dev_get_master(dev);
-	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
 	u32 val, timeout;
 	int ret = 0;
 
 	val = geni_read_reg(gi3c->se.ibi_base, IBI_ALLOCATED_ENTRIES_GPII(0));
 	if (val) {
-		ret = qcom_deallocate_ibi_table_entry(dev);
+		ret = qcom_deallocate_ibi_table_entry(gi3c);
 		if (ret)
 			return;
 	}
@@ -1619,7 +1618,7 @@ static void geni_i3c_master_free_ibi(struct i3c_dev_desc *dev)
 	if (!gi3c->ibi.hw_support && !gi3c->ibi.is_init)
 		return;
 
-	qcom_geni_i3c_ibi_unconf(dev);
+	qcom_geni_i3c_ibi_unconf(gi3c);
 
 	spin_lock_irqsave(&gi3c->ibi.lock, flags);
 	gi3c->ibi.slots[data->ibi] = NULL;
@@ -1775,6 +1774,14 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
 			"Error no pinctrl sleep config specified\n");
 		ret = PTR_ERR(gi3c->se.i3c_rsc.geni_gpio_sleep);
+		return ret;
+	}
+	gi3c->i3c_gpio_disable =
+		pinctrl_lookup_state(gi3c->se.i3c_rsc.geni_pinctrl, "disable");
+	if (IS_ERR(gi3c->i3c_gpio_disable)) {
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
+			"Error no pinctrl disable config specified\n");
+		ret = PTR_ERR(gi3c->i3c_gpio_disable);
 		return ret;
 	}
 
@@ -1976,23 +1983,38 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	ret = i3c_master_register(&gi3c->ctrlr, &pdev->dev,
 		&geni_i3c_master_ops, false);
 	if (ret)
-		return ret;
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
+			"i3c_master_register failed:%d\n", ret);
+
 	//enable hot-join IRQ also
 	geni_write_reg(~0u, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
 
 	GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "I3C probed\n");
 
-	return ret;
+	return 0;
 }
 
 static int geni_i3c_remove(struct platform_device *pdev)
 {
 	struct geni_i3c_dev *gi3c = platform_get_drvdata(pdev);
-	int ret = 0;
+	int ret = 0, val = 0;
 
+	//Disable hot-join, until next probe happens
+	val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+	val &= ~HOT_JOIN_IRQ_EN;
+	geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+
+	if (gi3c->ibi.is_init)
+		qcom_geni_i3c_ibi_unconf(gi3c);
 	destroy_workqueue(gi3c->hj_wq);
 	wakeup_source_trash(&gi3c->hj_wl);
-	pm_runtime_disable(gi3c->se.dev);
+	/*force suspend to avoid the auto suspend caused by driver removal*/
+	pm_runtime_force_suspend(gi3c->se.dev);
+	ret = pinctrl_select_state(gi3c->se.i3c_rsc.geni_pinctrl,
+			gi3c->i3c_gpio_disable);
+	if (ret)
+		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			" i3c: pinctrl_select_state failed\n");
 	ret = i3c_master_unregister(&gi3c->ctrlr);
 	if (gi3c->ipcl)
 		ipc_log_context_destroy(gi3c->ipcl);
@@ -2004,7 +2026,7 @@ static int geni_i3c_resume_noirq(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int geni_i3c_runtime_suspend(struct device *dev)
 {
 	struct geni_i3c_dev *gi3c = dev_get_drvdata(dev);
@@ -2080,7 +2102,18 @@ static struct platform_driver geni_i3c_master = {
 	},
 };
 
-module_platform_driver(geni_i3c_master);
+static int __init i3c_dev_init(void)
+{
+	return platform_driver_register(&geni_i3c_master);
+}
+
+static void __exit i3c_dev_exit(void)
+{
+	platform_driver_unregister(&geni_i3c_master);
+}
+
+module_init(i3c_dev_init);
+module_exit(i3c_dev_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:geni_i3c_master");
