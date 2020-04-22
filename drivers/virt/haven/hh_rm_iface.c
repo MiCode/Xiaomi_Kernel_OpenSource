@@ -506,13 +506,13 @@ int hh_rm_vm_start(int vmid)
 				&resp_payload_size, &reply_err_code);
 	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
 		err = PTR_ERR(resp_payload);
-		pr_err("%s: VM_ALLOCATE failed with err: %d\n",
+		pr_err("%s: VM_START failed with err: %d\n",
 			__func__, err);
 		return err;
 	}
 
 	if (resp_payload_size != sizeof(*resp_payload)) {
-		pr_err("%s: Invalid size received for VM_IRQ_ACCEPT: %u\n",
+		pr_err("%s: Invalid size received for VM_START: %u\n",
 			__func__, resp_payload_size);
 		kfree(resp_payload);
 		return -EINVAL;

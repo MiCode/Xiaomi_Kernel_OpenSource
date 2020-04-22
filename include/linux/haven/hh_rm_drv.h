@@ -130,11 +130,14 @@ struct hh_notify_vmid_desc {
 #define HH_RM_NOTIF_VM_IRQ_RELEASED	0x56100012
 
 #define HH_RM_VM_STATUS_NO_STATE	0
-#define HH_RM_VM_STATUS_RUNNING		1
-#define HH_RM_VM_STATUS_PAUSED		2
-#define HH_RM_VM_STATUS_SHUTDOWN	3
-#define HH_RM_VM_STATUS_SHUTOFF		4
-#define HH_RM_VM_STATUS_CRASHED		5
+#define HH_RM_VM_STATUS_INIT		1
+#define HH_RM_VM_STATUS_READY		2
+#define HH_RM_VM_STATUS_RUNNING		3
+#define HH_RM_VM_STATUS_PAUSED		4
+#define HH_RM_VM_STATUS_SHUTDOWN	5
+#define HH_RM_VM_STATUS_SHUTOFF		6
+#define HH_RM_VM_STATUS_CRASHED		7
+#define HH_RM_VM_STATUS_INIT_FAILED	8
 
 #define HH_RM_OS_STATUS_NONE		0
 #define HH_RM_OS_STATUS_EARLY_BOOT	1
@@ -189,6 +192,9 @@ int hh_rm_vm_alloc_vmid(enum hh_vm_names vm_name);
 int hh_rm_get_vmid(enum hh_vm_names vm_name, hh_vmid_t *vmid);
 int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name);
 int hh_rm_vm_start(int vmid);
+
+/* Client APIs for VM query */
+int hh_rm_populate_hyp_res(hh_vmid_t vmid);
 
 /* Client APIs for VM Services */
 int hh_rm_console_open(hh_vmid_t vmid);
@@ -269,6 +275,12 @@ static inline int hh_rm_get_vm_name(hh_vmid_t vmid, enum hh_vm_names *vm_name)
 }
 
 static inline int hh_rm_vm_start(int vmid)
+{
+	return -EINVAL;
+}
+
+/* Client APIs for VM query */
+static inline int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 {
 	return -EINVAL;
 }

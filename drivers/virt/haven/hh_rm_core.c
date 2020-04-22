@@ -23,6 +23,7 @@
 #include <linux/haven/hh_msgq.h>
 #include <linux/haven/hh_errno.h>
 #include <linux/haven/hh_common.h>
+#include <linux/haven/hh_rm_drv.h>
 
 #include "hh_rm_drv_private.h"
 
@@ -65,8 +66,6 @@ SRCU_NOTIFIER_HEAD_STATIC(hh_rm_notifier);
 
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work);
 static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
-
-static int hh_rm_populate_hyp_res(hh_vmid_t vmid);
 
 static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
 {
@@ -123,21 +122,6 @@ int hh_rm_unregister_notifier(struct notifier_block *nb)
 	return srcu_notifier_chain_unregister(&hh_rm_notifier, nb);
 }
 EXPORT_SYMBOL(hh_rm_unregister_notifier);
-
-static int hh_rm_process_notif_vm_status(void *recv_buff, size_t recv_buff_size)
-{
-	struct hh_rm_notif_vm_status_payload *vm_status_payload;
-
-	vm_status_payload = recv_buff + sizeof(struct hh_rm_rpc_hdr);
-
-	/* The VM is now booting. Collect it's info and
-	 * populate to other entities such as MessageQ and DBL
-	 */
-	if (vm_status_payload->vm_status == HH_RM_OS_STATUS_BOOT)
-		return hh_rm_populate_hyp_res(vm_status_payload->vmid);
-
-	return 0;
-}
 
 static struct hh_rm_connection *
 hh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
@@ -214,8 +198,6 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			ret = -EINVAL;
 			goto err;
 		}
-
-		ret = hh_rm_process_notif_vm_status(recv_buff, recv_buff_size);
 		break;
 	case HH_RM_NOTIF_VM_IRQ_LENT:
 		if (recv_buff_size != sizeof(*hdr) +
@@ -698,7 +680,14 @@ err:
 	return ret;
 }
 
-static int hh_rm_populate_hyp_res(hh_vmid_t vmid)
+/**
+ * hh_rm_populate_hyp_res: Query Resource Manager VM to get hyp resources.
+ * @vmid: The vmid of resources to be queried.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 {
 	struct hh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	int linux_irq, ret = 0;
@@ -768,6 +757,7 @@ out:
 	kfree(res_entries);
 	return ret;
 }
+EXPORT_SYMBOL(hh_rm_populate_hyp_res);
 
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 {
