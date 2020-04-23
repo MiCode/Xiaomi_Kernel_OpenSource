@@ -12,6 +12,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
@@ -24,417 +25,233 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <fdrv.h>
-#include "nt_smc_call.h"
+#include <linux/vmalloc.h>
+#include "switch_queue.h"
 #include "utdriver_macro.h"
 #include "sched_status.h"
 #include "teei_log.h"
 #include "teei_common.h"
 #include "teei_client_main.h"
-#include "global_function.h"
 #include "backward_driver.h"
 #include "irq_register.h"
 #include "teei_smc_call.h"
 #include "teei_cancel_cmd.h"
+
+#include "teei_task_link.h"
 #ifdef TUI_SUPPORT
 #include "utr_tui_cmd.h"
 #endif
 
+#include <notify_queue.h>
 #include <teei_secure_api.h>
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 
-struct switch_head_struct {
-	struct list_head head;
-};
+struct completion teei_switch_comp;
 
-struct switch_call_struct {
-	int switch_type;
-	unsigned long buff_addr;
-};
-
-static void switch_fn(struct kthread_work *work);
-
-static struct switch_call_struct *create_switch_call_struct(void)
-{
-	struct switch_call_struct *tmp_entry = NULL;
-
-	tmp_entry = kmalloc(sizeof(struct switch_call_struct), GFP_KERNEL);
-
-	if (tmp_entry == NULL)
-		IMSG_ERROR("[%s][%d] kmalloc failed!!!\n", __func__, __LINE__);
-
-	return tmp_entry;
-}
-
-static int init_switch_call_struct(struct switch_call_struct *ent,
-					int work_type, unsigned long buff)
-{
-	if (ent == NULL) {
-		IMSG_ERROR("[%s][%d] the paraments are wrong!\n",
-						__func__, __LINE__);
-		return -EINVAL;
-	}
-
-	ent->switch_type = work_type;
-	ent->buff_addr = buff;
-
-	return 0;
-}
-
-static int destroy_switch_call_struct(struct switch_call_struct *ent)
-{
-	kfree(ent);
-
-	return 0;
-}
-
-struct ut_smc_call_work {
-	struct kthread_work work;
-	void *data;
-};
-
-static int ut_smc_call(void *buff)
-{
-	struct ut_smc_call_work usc_work = {
-		KTHREAD_WORK_INIT(usc_work.work, switch_fn),
-		.data = buff,
-	};
-
-	if (!kthread_queue_work(&ut_fastcall_worker, &usc_work.work))
-		return -1;
-	kthread_flush_work(&usc_work.work);
-	return 0;
-}
-
-static int check_work_type(int work_type)
-{
-	switch (work_type) {
-	case NEW_CAPI_CALL:
-	case CAPI_CALL:
-	case FDRV_CALL:
-	case BDRV_CALL:
-	case SCHED_CALL:
-	case LOAD_FUNC:
-	case INIT_CMD_CALL:
-	case BOOT_STAGE1:
-	case BOOT_STAGE2:
-	case INVOKE_FASTCALL:
-	case LOAD_TEE:
-	case LOCK_PM_MUTEX:
-	case UNLOCK_PM_MUTEX:
-	case SWITCH_CORE:
-	case MOVE_CORE:
-	case NT_DUMP_T:
-#ifdef TUI_SUPPORT
-	case POWER_DOWN_CALL:
+#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+static int last_cpu_id;
 #endif
-		return 0;
-	default:
-		return -EINVAL;
-	}
-}
 
-int handle_dump_call(void *buff)
+static int add_entry_to_task_link(struct task_entry_struct *entry)
 {
-	IMSG_DEBUG("[%s][%d] begin.\n", __func__, __LINE__);
-	teei_secure_call(NT_SCHED_T, 0x9527, 0, 0);
-	IMSG_DEBUG("[%s][%d] end.\n", __func__, __LINE__);
-	return 0;
-}
-
-void handle_lock_pm_mutex(struct mutex *lock)
-{
-	if (ut_pm_count == 0)
-		mutex_lock(lock);
-
-	ut_pm_count++;
-}
-
-
-void handle_unlock_pm_mutex(struct mutex *lock)
-{
-	ut_pm_count--;
-
-	if (ut_pm_count == 0)
-		mutex_unlock(lock);
-}
-
-int add_work_entry(int work_type, unsigned long buff)
-{
-	struct switch_call_struct *work_entry = NULL;
 	int retVal = 0;
 
-	retVal = check_work_type(work_type);
-	if (retVal != 0) {
-		IMSG_ERROR("[%s][%d] with wrong work_type!\n",
-						__func__, __LINE__);
-		return retVal;
-	}
-
-	work_entry = create_switch_call_struct();
-	if (work_entry == NULL) {
-		IMSG_ERROR("[%s][%d] There is no enough memory!\n",
-							__func__, __LINE__);
-		return -ENOMEM;
-	}
-
-	retVal = init_switch_call_struct(work_entry, work_type, buff);
-	if (retVal != 0) {
-		IMSG_ERROR("[%s][%d] init_switch_call_struct failed!\n",
-							__func__, __LINE__);
-		destroy_switch_call_struct(work_entry);
-		return retVal;
-	}
-
-	retVal = ut_smc_call((void *)work_entry);
+	retVal = teei_add_to_task_link(&(entry->c_link));
 
 	return retVal;
 }
 
-int get_call_type(struct switch_call_struct *ent)
+
+int add_work_entry(unsigned long long work_type, unsigned long long x0,
+		unsigned long long x1, unsigned long long x2,
+		unsigned long long x3)
 {
-	if (ent == NULL)
-		return -EINVAL;
-	return ent->switch_type;
-}
+	struct task_entry_struct *task_entry = NULL;
+	int retVal = 0;
 
-int handle_sched_call(void *buff)
-{
-	unsigned long smc_type = 2;
-
-	smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-
-	return 0;
-}
-
-
-int handle_capi_call(void *buff)
-{
-	struct smc_call_struct *cd = NULL;
-
-	cd = (struct smc_call_struct *)buff;
-
-	/* with a rmb() */
-	rmb();
-
-	cd->retVal = __teei_smc_call(cd->local_cmd,
-			cd->teei_cmd_type,
-			cd->dev_file_id,
-			cd->svc_id,
-			cd->cmd_id,
-			cd->context,
-			cd->enc_id,
-			cd->cmd_buf,
-			cd->cmd_len,
-			cd->resp_buf,
-			cd->resp_len,
-			cd->meta_data,
-			cd->info_data,
-			cd->info_len,
-			cd->ret_resp_len,
-			cd->error_code,
-			cd->psema);
-
-	/* with a wmb() */
-	wmb();
-
-	return 0;
-}
-
-int handle_fdrv_call(void *buff)
-{
-	struct fdrv_call_struct *cd = NULL;
-
-	cd = (struct fdrv_call_struct *)buff;
-
-	/* with a rmb() */
-	rmb();
-
-	switch (cd->fdrv_call_type) {
-	case CANCEL_SYS_NO:
-		cd->retVal = __send_cancel_command(cd->fdrv_call_buff_size);
-		break;
-#ifdef TUI_SUPPORT
-	case TUI_DISPLAY_SYS_NO:
-		cd->retVal = __send_tui_display_command(
-						cd->fdrv_call_buff_size);
-		break;
-	case TUI_NOTICE_SYS_NO:
-		cd->retVal = __send_tui_notice_command(cd->fdrv_call_buff_size);
-		break;
-#endif
-	default:
-		cd->retVal = __call_fdrv(cd);
+	task_entry = vmalloc(sizeof(struct task_entry_struct));
+	if (task_entry == NULL) {
+		IMSG_ERROR("Failed to vmalloc task_entry_struct!\n");
+		return -ENOMEM;
 	}
 
-	/* with a wmb() */
-	wmb();
+	memset(task_entry, 0, sizeof(struct task_entry_struct));
 
-	return 0;
-}
+	task_entry->work_type = work_type;
+	task_entry->x0 = x0;
+	task_entry->x1 = x1;
+	task_entry->x2 = x2;
+	task_entry->x3 = x3;
 
-struct bdrv_call_struct {
-	int bdrv_call_type;
-	struct service_handler *handler;
-	int retVal;
-};
+	INIT_LIST_HEAD(&(task_entry->c_link));
 
-int handle_bdrv_call(void *buff)
-{
-	struct bdrv_call_struct *cd = NULL;
-
-	cd = (struct bdrv_call_struct *)buff;
-
-	/* with a rmb() */
-	rmb();
-
-	switch (cd->bdrv_call_type) {
-	case VFS_SYS_NO:
-		cd->retVal = __vfs_handle(cd->handler);
-		kfree(buff);
-		break;
-	case REETIME_SYS_NO:
-		cd->retVal = __reetime_handle(cd->handler);
-		kfree(buff);
-		break;
-	default:
-		cd->retVal = -EINVAL;
+	retVal = add_entry_to_task_link(task_entry);
+	if (retVal != 0) {
+		IMSG_ERROR("Failed to insert the entry to link!\n");
+		vfree(task_entry);
+		return retVal;
 	}
 
-	/* with a wmb() */
-	wmb();
-
-	return 0;
-}
-
-int handle_switch_call(void *buff)
-{
-	unsigned long smc_type = 2;
-
-	smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-
-	return 0;
+	return retVal;
 }
 
 #ifdef TUI_SUPPORT
 int handler_power_down_call(void *buff)
 {
-	unsigned long smc_type = 5;
+	int retVal = 0;
 
-	smc_type = teei_secure_call(NT_CANCEL_T_TUI, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
+	retVal = teei_smc(NT_CANCEL_T_TUI, 0, 0, 0);
+
+	return retVal;
+}
+#endif
+
+#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+static int teei_bind_current_cpu(void)
+{
+	struct cpumask mask = { CPU_BITS_NONE };
+	int cpu_id = 0;
+
+	/* Get current CPU ID */
+	cpu_id = smp_processor_id();
+
+	cpumask_clear(&mask);
+	cpumask_set_cpu(cpu_id, &mask);
+	set_cpus_allowed_ptr(teei_switch_task, &mask);
+
+	if (last_cpu_id != cpu_id) {
+		teei_move_cpu_context(cpu_id, last_cpu_id);
+		last_cpu_id = cpu_id;
+	}
+
+	return 0;
+}
+
+static int teei_bind_all_cpu(void)
+{
+	struct cpumask mask = { CPU_BITS_NONE };
+
+	/* Set the affinity of teei_switch_task to all CPUs */
+
+	if (switch_input_index == switch_output_index) {
+		cpumask_clear(&mask);
+		cpumask_setall(&mask);
+		set_cpus_allowed_ptr(teei_switch_task, &mask);
+	}
 
 	return 0;
 }
 #endif
 
-static void switch_fn(struct kthread_work *work)
+static int handle_one_switch_task(struct task_entry_struct *entry)
 {
-	struct ut_smc_call_work *switch_work = NULL;
-	struct switch_call_struct *switch_ent = NULL;
-	int call_type = 0;
 	int retVal = 0;
-	struct tz_driver_state *s = get_tz_drv_state();
 
-	KATRACE_BEGIN("teei_switch_fn");
-
-	switch_work = container_of(work, struct ut_smc_call_work, work);
-
-	switch_ent = (struct switch_call_struct *)switch_work->data;
-
-	call_type = get_call_type(switch_ent);
-	switch (call_type) {
-	case LOAD_FUNC:
-		secondary_load_func();
+	switch (entry->work_type) {
+	case SMC_CALL_TYPE:
+		retVal = teei_smc(entry->x0, entry->x1, entry->x2, entry->x3);
 		break;
-	case BOOT_STAGE1:
-		secondary_boot_stage1((void *)(switch_ent->buff_addr));
-		break;
-	case INIT_CMD_CALL:
-		secondary_init_cmdbuf((void *)(switch_ent->buff_addr));
-		break;
-	case BOOT_STAGE2:
-		secondary_boot_stage2(NULL);
-		break;
-	case INVOKE_FASTCALL:
-		secondary_invoke_fastcall(NULL);
-		break;
-	case LOAD_TEE:
-		secondary_load_tee(NULL);
-		break;
-	case CAPI_CALL:
-		retVal = handle_capi_call((void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle ClientAPI!\n",
-							__func__, __LINE__);
-		break;
-	case NEW_CAPI_CALL:
-		retVal = handle_new_capi_call((void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle new ClientAPI!\n",
-							__func__, __LINE__);
-		break;
-	case FDRV_CALL:
-		retVal = handle_fdrv_call((void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle F-driver!\n",
-							__func__, __LINE__);
-		break;
-	case BDRV_CALL:
-		retVal = handle_bdrv_call((void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle B-driver!\n",
-							__func__, __LINE__);
-		break;
-	case SCHED_CALL:
-		retVal = handle_sched_call((void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle sched-Call!\n",
-							__func__, __LINE__);
-		break;
-	case LOCK_PM_MUTEX:
-		handle_lock_pm_mutex((struct mutex *)(switch_ent->buff_addr));
-		break;
-	case UNLOCK_PM_MUTEX:
-		handle_unlock_pm_mutex((struct mutex *)(switch_ent->buff_addr));
-		break;
-#ifdef TUI_SUPPORT
-	case POWER_DOWN_CALL:
-		retVal = handler_power_down_call(
-				(void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle power_down-Call!\n",
-							__func__, __LINE__);
+#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+	case SWITCH_CORE_TYPE:
+		retVal = handle_switch_core((int)(entry->x0));
 		break;
 #endif
-	case SWITCH_CORE:
-		handle_switch_core((int)(switch_ent->buff_addr));
-		break;
-	case MOVE_CORE:
-		handle_move_core((int)(switch_ent->buff_addr));
-		break;
-	case NT_DUMP_T:
-		retVal = handle_dump_call((void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle dump-Call!\n",
-							__func__, __LINE__);
-		break;
 	default:
-		IMSG_ERROR("switch fn handles a undefined call!\n");
+		retVal = -EINVAL;
 		break;
 	}
 
-	atomic_notifier_call_chain(&s->notifier, TZ_CALL_RETURNED, NULL);
-	retVal = destroy_switch_call_struct(switch_ent);
-	if (retVal != 0)
-		IMSG_ERROR("[%s][%d] destroy_switch_call_struct failed %d!\n",
-						__func__, __LINE__, retVal);
+	return retVal;
+}
 
-	KATRACE_END("teei_switch_fn");
+
+static int handle_all_switch_task(void)
+{
+	struct task_entry_struct *entry = NULL;
+	struct tz_driver_state *s = get_tz_drv_state();
+	int retVal = 0;
+
+	while (1) {
+		entry = teei_get_task_from_link();
+		if (entry == NULL)
+			return 0;
+
+		retVal = handle_one_switch_task(entry);
+		if (retVal != 0) {
+			IMSG_ERROR("Failed to handle the task %d\n", retVal);
+			return retVal;
+		}
+
+		vfree(entry);
+
+		atomic_notifier_call_chain(&s->notifier,
+						TZ_CALL_RETURNED, NULL);
+	}
+
+	return 0;
+}
+
+int teei_switch_fn(void *work)
+{
+	int retVal = 0;
+
+	while (1) {
+		/*
+		 * Block the switch thread and
+		 * wait for the new task
+		 */
+		retVal = wait_for_completion_interruptible(&teei_switch_comp);
+		if (retVal != 0)
+			continue;
+
+		/*
+		 * Check if the task link is empty
+		 */
+		retVal = is_teei_task_link_empty();
+		if (retVal == 1)
+			continue;
+
+#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+		/* Bind the teei switch thread to current CPU */
+		retVal = teei_bind_current_cpu();
+		if (retVal != 0) {
+			IMSG_ERROR("TEEI: Failed to bind current CPU!\n");
+			return retVal;
+		}
+#endif
+
+		retVal = handle_all_switch_task();
+		if (retVal != 0) {
+			IMSG_ERROR("TEEI: Failed to handle the task link!\n");
+			return retVal;
+		}
+
+#ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
+		retVal = teei_bind_all_cpu();
+		if (retVal != 0) {
+			IMSG_ERROR("TEEI: Failed to bind all CPUs!\n");
+			return retVal;
+		}
+#endif
+	}
+
+	IMSG_PRINTK("TEEI: teei_switch_thread will be exit! (%d)\n", retVal);
+
+	return retVal;
+}
+
+int teei_notify_switch_fn(void)
+{
+	complete(&teei_switch_comp);
+
+	return 0;
+}
+
+int init_teei_switch_comp(void)
+{
+	init_completion(&teei_switch_comp);
+
+	return 0;
 }

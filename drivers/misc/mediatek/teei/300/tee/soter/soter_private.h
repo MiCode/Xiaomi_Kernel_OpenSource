@@ -68,4 +68,6 @@ extern uint32_t tzdriver_dynamical_debug_flag;
 #define REE_DYNAMICAL_STOP  2
 #endif
 
+extern unsigned long teei_capi_ready;
+
 #endif

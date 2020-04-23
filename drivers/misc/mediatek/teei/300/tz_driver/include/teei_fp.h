@@ -15,9 +15,6 @@
 #ifndef TEEI_FP_H
 #define TEEI_FP_H
 
-extern unsigned long fp_buff_addr;
 extern struct TEEC_UUID uuid_fp;
-
-unsigned long create_fp_fdrv(int buff_size);
 
 #endif  /* end of TEEI_FP_H */

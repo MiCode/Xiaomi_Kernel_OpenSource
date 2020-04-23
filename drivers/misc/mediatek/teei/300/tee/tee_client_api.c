@@ -137,7 +137,7 @@ TEEC_Result TEEC_InitializeContext(const char *name, struct TEEC_Context *ctx)
 		return TEEC_ERROR_BAD_PARAMETERS;
 
 	for (n = 0; n < TEEC_MAX_DEV_SEQ; n++) {
-		snprintf(devname, sizeof(devname), "/dev/tee%zu", n);
+		snprintf(devname, sizeof(devname), "/dev/isee_tee%zu", n);
 		fd = teec_open_dev(devname, name);
 		if (!IS_ERR_OR_NULL(fd)) {
 			ctx->fd = fd;

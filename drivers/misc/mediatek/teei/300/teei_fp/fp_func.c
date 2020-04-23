@@ -31,7 +31,6 @@
 #include "fp_func.h"
 #include "../tz_driver/include/teei_fp.h"
 #include "../tz_driver/include/teei_id.h"
-#include "../tz_driver/include/tz_service.h"
 #include "../tz_driver/include/nt_smc_call.h"
 #include "../tz_driver/include/utdriver_macro.h"
 #include "../tz_driver/include/teei_client_main.h"
@@ -134,30 +133,18 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		args_len = *((unsigned int *)(args + 12));
 
 		if (args_len + 16 > MICROTRUST_FP_SIZE) {
-			IMSG_ERROR("args_len is invalid!.\n");
+			IMSG_ERROR("args_len is invalid %d!.\n", args_len);
 			up(&fp_api_lock);
 			return -EFAULT;
 		}
 
-		if (copy_from_user((void *)fp_buff_addr, (void *)arg,
-				args_len + 16)) {
-			IMSG_ERROR("copy from user failed.\n");
-			up(&fp_api_lock);
-			return -EFAULT;
-		}
-
-		ret  = send_fp_command((void *)fp_buff_addr, args_len + 16);
+		ret  = send_fp_command((void *)arg, args_len + 16);
 		if (ret) {
 			IMSG_ERROR("transfer data to ta failed.\n");
 			up(&fp_api_lock);
 			return -EFAULT;
 		}
-		if (copy_to_user((void *)arg, (void *)fp_buff_addr,
-						args_len + 16)) {
-			IMSG_ERROR("copy from user failed.\n");
-			up(&fp_api_lock);
-			return -EFAULT;
-		}
+
 		break;
 	case CMD_FP_LOAD_TEE:
 #ifdef FP_DEBUG
