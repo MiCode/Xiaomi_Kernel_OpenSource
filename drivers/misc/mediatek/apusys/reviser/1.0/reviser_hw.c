@@ -28,7 +28,8 @@
 #include "apusys_power.h"
 
 #define FAKE_CONTEX_REG_NUM 9
-#define FAKE_REMAP_REG_NUM 13
+//#define FAKE_REMAP_REG_NUM 13
+#define FAKE_REMAP_REG_NUM VLM_REMAP_TABLE_MAX
 
 #define UNKNOWN_INT_MAX (500000)
 
@@ -280,9 +281,12 @@ void reviser_print_error(void *drvinfo, void *s_file)
 void reviser_print_boundary(void *drvinfo, void *s_file)
 {
 	struct reviser_dev_info *reviser_device = NULL;
-	uint32_t reg[FAKE_CONTEX_REG_NUM];
+	uint32_t mdla[VLM_CTXT_MDLA_MAX];
+	uint32_t vpu[VLM_CTXT_VPU_MAX];
+	uint32_t edma[VLM_CTXT_EDMA_MAX];
 	uint32_t offset = 0;
 	struct seq_file *s = (struct seq_file *)s_file;
+	int i;
 
 	DEBUG_TAG;
 
@@ -294,60 +298,43 @@ void reviser_print_boundary(void *drvinfo, void *s_file)
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 
+	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++) {
+		offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, i);
+		if (offset == REVISER_FAIL)
+			goto fail_offset;
+		mdla[i] = _reviser_ctrl_reg_read(reviser_device, offset) &
+				VLM_CTXT_BDY_SELECT;
+	}
 
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 0);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[0] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
+	for (i = 0; i < VLM_CTXT_VPU_MAX; i++) {
+		offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, i);
+		if (offset == REVISER_FAIL)
+			goto fail_offset;
+		vpu[i] = _reviser_ctrl_reg_read(reviser_device, offset) &
+				VLM_CTXT_BDY_SELECT;
 
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 1);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[1] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
+	}
 
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 0);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[2] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 1);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[3] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 2);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[4] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 0);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[5] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 1);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[6] = _reviser_ctrl_reg_read(reviser_device, offset) &
-			VLM_CTXT_BDY_SELECT;
+	for (i = 0; i < VLM_CTXT_EDMA_MAX; i++) {
+		offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, i);
+		if (offset == REVISER_FAIL)
+			goto fail_offset;
+		edma[i] = _reviser_ctrl_reg_read(reviser_device, offset) &
+				VLM_CTXT_BDY_SELECT;
+	}
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser driver boundary info\n");
 	LOG_CON(s, "-----------------------------\n");
 
-	LOG_CON(s, "MDLA0: %.8x\n", reg[0]);
-	LOG_CON(s, "MDLA1: %.8x\n", reg[1]);
-	LOG_CON(s, "VPU0:  %.8x\n", reg[2]);
-	LOG_CON(s, "VPU1:  %.8x\n", reg[3]);
-	LOG_CON(s, "VPU2:  %.8x\n", reg[4]);
-	LOG_CON(s, "EDMA0: %.8x\n", reg[5]);
-	LOG_CON(s, "EDMA1: %.8x\n", reg[6]);
+	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++)
+		LOG_CON(s, "MDLA%d: %.8x\n", i, mdla[i]);
+
+	for (i = 0; i < VLM_CTXT_VPU_MAX; i++)
+		LOG_CON(s, "VPU%d: %.8x\n", i, vpu[i]);
+
+	for (i = 0; i < VLM_CTXT_EDMA_MAX; i++)
+		LOG_CON(s, "EDMA%d: %.8x\n", i, edma[i]);
 
 	LOG_CON(s, "=============================\n");
 	return;
@@ -358,9 +345,12 @@ fail_offset:
 void reviser_print_context_ID(void *drvinfo, void *s_file)
 {
 	struct reviser_dev_info *reviser_device = NULL;
-	uint32_t reg[FAKE_CONTEX_REG_NUM];
 	uint32_t offset = 0;
 	struct seq_file *s = (struct seq_file *)s_file;
+	uint32_t mdla[VLM_CTXT_MDLA_MAX];
+	uint32_t vpu[VLM_CTXT_VPU_MAX];
+	uint32_t edma[VLM_CTXT_EDMA_MAX];
+	int i;
 
 	DEBUG_TAG;
 
@@ -371,60 +361,47 @@ void reviser_print_context_ID(void *drvinfo, void *s_file)
 
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 0);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[0] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 1);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[1] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 0);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[2] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 1);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[3] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
-
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 2);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[4] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
+	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++) {
+		offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, i);
+		if (offset == REVISER_FAIL)
+			goto fail_offset;
+		mdla[i] = (_reviser_ctrl_reg_read(reviser_device, offset)
+				& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
+	}
 
 
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 0);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[5] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
+	for (i = 0; i < VLM_CTXT_VPU_MAX; i++) {
+		offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, i);
+		if (offset == REVISER_FAIL)
+			goto fail_offset;
+		vpu[i] = (_reviser_ctrl_reg_read(reviser_device, offset)
+				& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
+	}
 
-	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 1);
-	if (offset == REVISER_FAIL)
-		goto fail_offset;
-	reg[6] = (_reviser_ctrl_reg_read(reviser_device, offset)
-			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
+
+	for (i = 0; i < VLM_CTXT_EDMA_MAX; i++) {
+		offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, i);
+		if (offset == REVISER_FAIL)
+			goto fail_offset;
+		edma[i] = (_reviser_ctrl_reg_read(reviser_device, offset)
+				& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
+	}
+
+
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser driver ID info\n");
 	LOG_CON(s, "-----------------------------\n");
 
-	LOG_CON(s, "MDLA0: %.8x\n", reg[0]);
-	LOG_CON(s, "MDLA1: %.8x\n", reg[1]);
-	LOG_CON(s, "VPU0:  %.8x\n", reg[2]);
-	LOG_CON(s, "VPU1:  %.8x\n", reg[3]);
-	LOG_CON(s, "VPU2:  %.8x\n", reg[4]);
-	LOG_CON(s, "EDMA0: %.8x\n", reg[5]);
-	LOG_CON(s, "EDMA1: %.8x\n", reg[6]);
+	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++)
+		LOG_CON(s, "MDLA%d: %.8x\n", i, mdla[i]);
+
+	for (i = 0; i < VLM_CTXT_VPU_MAX; i++)
+		LOG_CON(s, "VPU%d: %.8x\n", i, vpu[i]);
+
+	for (i = 0; i < VLM_CTXT_EDMA_MAX; i++)
+		LOG_CON(s, "EDMA%d: %.8x\n", i, edma[i]);
+
 
 	LOG_CON(s, "=============================\n");
 	return;
