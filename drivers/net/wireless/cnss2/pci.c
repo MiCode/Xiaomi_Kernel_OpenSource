@@ -240,6 +240,7 @@ static struct cnss_misc_reg pcie_reg_access_seq[] = {
 	{0, QCA6390_WFSS_PMM_WFSS_PMM_R0_PMM_WLAN1_CFG_REG1, 0},
 	{0, QCA6390_WFSS_PMM_WFSS_PMM_R0_WLAN2_APS_STATUS_REG1, 0},
 	{0, QCA6390_WFSS_PMM_WFSS_PMM_R0_WLAN1_APS_STATUS_REG1, 0},
+	{0, QCA6390_PCIE_PCIE_BHI_EXECENV_REG, 0},
 };
 
 static struct cnss_misc_reg wlaon_reg_access_seq[] = {
@@ -3684,6 +3685,8 @@ static void cnss_pci_dump_sram_mem(struct cnss_pci_data *pci_priv)
 	int i;
 	u32 mem_addr, val;
 
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
 	for (i = 0; i < CNSS_DEBUG_DUMP_SRAM_SIZE; i++) {
 		mem_addr = CNSS_DEBUG_DUMP_SRAM_START + i * 4;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
@@ -3700,7 +3703,6 @@ static void cnss_pci_dump_registers(struct cnss_pci_data *pci_priv)
 		return;
 
 	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
-	cnss_pci_dump_sram_mem(pci_priv);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_COMMON);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_09);
 	cnss_pci_dump_ce_reg(pci_priv, CNSS_CE_10);
@@ -3725,6 +3727,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
+	cnss_pci_dump_sram_mem(pci_priv);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
@@ -3861,6 +3864,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
+	cnss_pci_dump_sram_mem(pci_priv);
 
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
