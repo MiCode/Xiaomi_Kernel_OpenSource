@@ -12,22 +12,10 @@
 #include "qmi.h"
 #include "debug.h"
 
-static struct icnss_vreg_cfg icnss_vreg_list[] = {
-	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0, false},
-	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0, false},
-	{"vdd-wlan-xtal-aon", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2, 0, false},
-	{"vdd-wlan", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-ctrl1", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-ctrl2", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0, 0, false},
-	{"wlan-ant-switch", 1800000, 1800000, 0, 0, 0, false},
-	{"wlan-soc-swreg", 1200000, 1200000, 0, 0, 0, false},
-	{"vdd-wlan-aon", 950000, 950000, 0, 0, 0, false},
-	{"vdd-wlan-dig", 950000, 952000, 0, 0, 0, false},
-	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0, 0, false},
-	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0, 0, false},
-	{"vdd-wlan-en", 0, 0, 0, 10, 0, false},
+static struct icnss_vreg_cfg icnss_wcn6750_vreg_list[] = {
+	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false},
+	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false},
+	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false},
 };
 
 static struct icnss_vreg_cfg icnss_adrestea_vreg_list[] = {
@@ -46,7 +34,7 @@ static struct icnss_clk_cfg icnss_adrestea_clk_list[] = {
 	{"cxo_ref_clk_pin", 0, 0},
 };
 
-#define ICNSS_VREG_LIST_SIZE		ARRAY_SIZE(icnss_vreg_list)
+#define ICNSS_VREG_LIST_SIZE		ARRAY_SIZE(icnss_wcn6750_vreg_list)
 #define ICNSS_VREG_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_vreg_list)
 #define ICNSS_CLK_LIST_SIZE		ARRAY_SIZE(icnss_clk_list)
 #define ICNSS_CLK_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_clk_list)
@@ -286,7 +274,7 @@ static struct icnss_vreg_cfg *get_vreg_list(u32 *vreg_list_size,
 	switch (device_id) {
 	case WCN6750_DEVICE_ID:
 		*vreg_list_size = ICNSS_VREG_LIST_SIZE;
-		return icnss_vreg_list;
+		return icnss_wcn6750_vreg_list;
 
 	case ADRASTEA_DEVICE_ID:
 		*vreg_list_size = ICNSS_VREG_ADRESTEA_LIST_SIZE;
