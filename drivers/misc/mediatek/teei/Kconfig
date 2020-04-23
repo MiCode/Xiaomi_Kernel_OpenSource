@@ -43,6 +43,17 @@ config MICROTRUST_TZ_DRIVER
 	  Say Y if you would like to enable the driver.
 	  If unsure, say Y.
 
+config MICROTRUST_DYNAMIC_CORE
+	tristate "Microtrust TEEI Dynamic Core"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	---help---
+	  Enables the support of Microtrust trustzone linux driver.
+	  This driver in charge of all initial process, creating
+	  communication channels and connections with secure world.
+	  Say Y if you would like to enable the driver.
+	  If unsure, say Y.
+
 config MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
 	bool "Enable MTK bootprof to track boot progress of TEEI"
 	depends on MICROTRUST_TZ_DRIVER
