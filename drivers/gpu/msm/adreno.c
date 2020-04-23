@@ -1646,27 +1646,25 @@ int adreno_clear_pending_transactions(struct kgsl_device *device)
 
 	if (adreno_has_gbif(adreno_dev)) {
 
-		/* This is taken care by GMU firmware if GMU is enabled */
-		if (!gmu_core_gpmu_isenabled(device)) {
-			/* Halt GBIF GX traffic and poll for halt ack */
-			if (adreno_is_a615_family(adreno_dev)) {
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_RBBM_GPR0_CNTL,
-					GBIF_HALT_REQUEST);
-				ret = adreno_wait_for_halt_ack(device,
-					A6XX_RBBM_VBIF_GX_RESET_STATUS,
-					VBIF_RESET_ACK_MASK);
-			} else {
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_RBBM_GBIF_HALT,
-					gpudev->gbif_gx_halt_mask);
-				ret = adreno_wait_for_halt_ack(device,
-					ADRENO_REG_RBBM_GBIF_HALT_ACK,
-					gpudev->gbif_gx_halt_mask);
-			}
-			if (ret)
-				return ret;
+		/* Halt GBIF GX traffic and poll for halt ack */
+		if (adreno_is_a615_family(adreno_dev)) {
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_GPR0_CNTL,
+				GBIF_HALT_REQUEST);
+			ret = adreno_wait_for_halt_ack(device,
+				A6XX_RBBM_VBIF_GX_RESET_STATUS,
+				VBIF_RESET_ACK_MASK);
+		} else {
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_GBIF_HALT,
+				gpudev->gbif_gx_halt_mask);
+			ret = adreno_wait_for_halt_ack(device,
+				ADRENO_REG_RBBM_GBIF_HALT_ACK,
+				gpudev->gbif_gx_halt_mask);
 		}
+
+		if (ret)
+			return ret;
 
 		/* Halt new client requests */
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
@@ -1733,10 +1731,6 @@ static int adreno_init(struct kgsl_device *device)
 		if (ret)
 			return ret;
 	}
-
-	ret = gmu_core_init(device);
-	if (ret)
-		return ret;
 
 	/* Put the GPU in a responsive state */
 	if (ADRENO_GPUREV(adreno_dev) < 600) {
@@ -2120,20 +2114,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	status = kgsl_mmu_start(device);
 	if (status)
-		goto error_boot_oob_clear;
-
-	/* Send OOB request to turn on the GX */
-	status = gmu_core_dev_oob_set(device, oob_gpu);
-	if (status) {
-		gmu_core_snapshot(device);
-		goto error_oob_clear;
-	}
-
-	status = gmu_core_dev_hfi_start_msg(device);
-	if (status) {
-		gmu_core_snapshot(device);
-		goto error_oob_clear;
-	}
+		goto error_pwr_off;
 
 	adreno_get_bus_counters(adreno_dev);
 
@@ -2157,7 +2138,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	status = gpudev->rb_start(adreno_dev);
 	if (status)
-		goto error_oob_clear;
+		goto error_pwr_off;
 
 	/*
 	 * At this point it is safe to assume that we recovered. Setting
@@ -2174,21 +2155,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-	/* Send OOB request to allow IFPC */
-	gmu_core_dev_oob_clear(device, oob_gpu);
-
-	/* If we made it this far, the BOOT OOB was sent to the GMU */
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		gmu_core_dev_oob_clear(device, oob_boot_slumber);
-
 	return 0;
-
-error_oob_clear:
-	gmu_core_dev_oob_clear(device, oob_gpu);
-
-error_boot_oob_clear:
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		gmu_core_dev_oob_clear(device, oob_boot_slumber);
 
 error_pwr_off:
 	/* set the state back to original state */
@@ -2231,14 +2198,6 @@ static int adreno_stop(struct kgsl_device *device)
 	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
 		return 0;
 
-	error = gmu_core_dev_oob_set(device, oob_gpu);
-	if (error) {
-		gmu_core_dev_oob_clear(device, oob_gpu);
-			gmu_core_snapshot(device);
-			error = -EINVAL;
-			goto no_gx_power;
-	}
-
 	kgsl_pwrscale_update_stats(device);
 
 	adreno_irqctrl(adreno_dev, 0);
@@ -2249,24 +2208,8 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
-	gmu_core_dev_prepare_stop(device);
-	gmu_core_dev_oob_clear(device, oob_gpu);
-
-	/*
-	 * Saving perfcounters will use an OOB to put the GMU into
-	 * active state. Before continuing, we should wait for the
-	 * GMU to return to the lowest idle level. This is
-	 * because some idle level transitions require VBIF and MMU.
-	 */
-
-	if (!error && gmu_core_dev_wait_for_lowest_idle(device)) {
-		gmu_core_snapshot(device);
-		error = -EINVAL;
-	}
-
 	adreno_clear_pending_transactions(device);
 
-no_gx_power:
 	adreno_dispatcher_stop(adreno_dev);
 
 	adreno_ringbuffer_stop(adreno_dev);
@@ -2276,16 +2219,6 @@ no_gx_power:
 
 	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
 		llcc_slice_deactivate(adreno_dev->gpuhtw_llc_slice);
-
-	/*
-	 * The halt is not cleared in the above function if we have GBIF.
-	 * Clear it here if GMU is enabled as GMU stop needs access to
-	 * system memory to stop. For non-GMU targets, we don't need to
-	 * clear it as it will get cleared automatically once headswitch
-	 * goes OFF immediately after adreno_stop.
-	 */
-	if (gmu_core_gpmu_isenabled(device))
-		adreno_deassert_gbif_halt(adreno_dev);
 
 	adreno_set_active_ctxs_null(adreno_dev);
 
@@ -2887,15 +2820,7 @@ void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	/*
-	 * If CP is stuck, gmu may not perform as expected. So force a gmu
-	 * snapshot which captures entire state as well as sets the gmu fault
-	 * because things need to be reset anyway.
-	 */
-	if (gmu_core_isenabled(device))
-		gmu_core_snapshot(device);
-	else
-		kgsl_device_snapshot(device, NULL, false);
+	kgsl_device_snapshot(device, NULL, false);
 }
 
 /**
@@ -3088,47 +3013,6 @@ static void adreno_regwrite(struct kgsl_device *device,
 	 */
 	wmb();
 	__raw_writel(value, reg);
-}
-
-/**
- * adreno_gmu_clear_and_unmask_irqs() - Clear pending IRQs and Unmask IRQs
- * @adreno_dev: Pointer to the Adreno device that owns the GMU
- */
-void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-
-	/* Clear any pending IRQs before unmasking on GMU */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
-			0xFFFFFFFF);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
-			0xFFFFFFFF);
-
-	/* Unmask needed IRQs on GMU */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-			(unsigned int) ~(gmu_dev_ops->gmu2host_intr_mask));
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
-			(unsigned int) ~(gmu_dev_ops->gmu_ao_intr_mask));
-}
-
-/**
- * adreno_gmu_mask_and_clear_irqs() - Mask all IRQs and clear pending IRQs
- * @adreno_dev: Pointer to the Adreno device that owns the GMU
- */
-void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev)
-{
-	/* Mask all IRQs on GMU */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
-			0xFFFFFFFF);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-			0xFFFFFFFF);
-
-	/* Clear any pending IRQs before disabling */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
-			0xFFFFFFFF);
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
-			0xFFFFFFFF);
 }
 
 /*

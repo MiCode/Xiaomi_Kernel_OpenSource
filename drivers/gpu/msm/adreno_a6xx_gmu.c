@@ -779,11 +779,19 @@ static void a6xx_gmu_oob_clear(struct kgsl_device *device,
 
 static void a6xx_gmu_irq_enable(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct a6xx_hfi *hfi = &gmu->hfi;
 
 	/* Clear pending IRQs and Unmask needed IRQs */
-	adreno_gmu_clear_and_unmask_irqs(adreno_dev);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, 0xffffffff);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_CLR, 0xffffffff);
+
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK,
+		(unsigned int)~HFI_IRQ_MASK);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK,
+		(unsigned int)~GMU_AO_INT_MASK);
+
 
 	/* Enable all IRQs on host */
 	enable_irq(hfi->irq);
@@ -792,6 +800,7 @@ static void a6xx_gmu_irq_enable(struct adreno_device *adreno_dev)
 
 static void a6xx_gmu_irq_disable(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct a6xx_hfi *hfi = &gmu->hfi;
 
@@ -800,7 +809,12 @@ static void a6xx_gmu_irq_disable(struct adreno_device *adreno_dev)
 	disable_irq(hfi->irq);
 
 	/* Mask all IRQs and clear pending IRQs */
-	adreno_gmu_mask_and_clear_irqs(adreno_dev);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xffffffff);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK, 0xffffffff);
+
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, 0xffffffff);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_CLR, 0xffffffff);
+
 }
 
 static int a6xx_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
@@ -1864,11 +1878,6 @@ static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)
 	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
 }
 
-static u64 a6xx_gmu_read_alwayson(struct kgsl_device *device)
-{
-	return a6xx_read_alwayson(ADRENO_DEVICE(device));
-}
-
 static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
@@ -2239,9 +2248,6 @@ static struct gmu_dev_ops a6xx_gmudev = {
 	.snapshot = a6xx_gmu_device_snapshot,
 	.cooperative_reset = a6xx_gmu_cooperative_reset,
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
-	.read_alwayson = a6xx_gmu_read_alwayson,
-	.gmu2host_intr_mask = HFI_IRQ_MASK,
-	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
 	.scales_bandwidth = a6xx_gmu_scales_bandwidth,
 };
 

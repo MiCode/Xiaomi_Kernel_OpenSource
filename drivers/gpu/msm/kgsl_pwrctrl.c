@@ -174,10 +174,6 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 
 	new_level = kgsl_pwrctrl_adjust_pwrlevel(device, new_level);
 
-	if (new_level == old_level &&
-		!test_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags))
-		return;
-
 	kgsl_pwrscale_update_stats(device);
 
 	/*
@@ -1657,14 +1653,6 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
 
-	if (gmu_core_gpmu_isenabled(device)) {
-		int ret = gmu_core_start(device);
-
-		if (!ret)
-			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
-		return ret;
-	}
-
 	/* Order pwrrail/clk sequence based upon platform */
 	status = kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
 	if (status)
@@ -1684,11 +1672,6 @@ static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 	else
 		dev_err(device->dev, "Could not clear l3_vote: %d\n",
 			     status);
-
-	if (gmu_core_gpmu_isenabled(device)) {
-		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
-		return gmu_core_stop(device);
-	}
 
 	/* Order pwrrail/clk sequence based upon platform */
 	device->ftbl->regulator_disable(device);
@@ -1722,18 +1705,6 @@ static int _init(struct kgsl_device *device)
 	int status = 0;
 
 	switch (device->state) {
-	case KGSL_STATE_RESET:
-		if (gmu_core_isenabled(device)) {
-			/*
-			 * If we fail a INIT -> AWARE transition, we will
-			 * transition back to INIT. However, we must hard reset
-			 * the GMU as we go back to INIT. This is done by
-			 * forcing a RESET -> INIT transition.
-			 */
-			gmu_core_suspend(device);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
-		}
-		break;
 	case KGSL_STATE_NAP:
 		/* Force power on to do the stop */
 		status = kgsl_pwrctrl_enable(device);
@@ -1843,12 +1814,6 @@ _aware(struct kgsl_device *device)
 	int status = 0;
 
 	switch (device->state) {
-	case KGSL_STATE_RESET:
-		if (!gmu_core_gpmu_isenabled(device))
-			break;
-		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-		status = gmu_core_start(device);
-		break;
 	case KGSL_STATE_INIT:
 		status = kgsl_pwrctrl_enable(device);
 		break;
@@ -1868,18 +1833,7 @@ _aware(struct kgsl_device *device)
 		status = -EINVAL;
 	}
 
-	if (status && gmu_core_isenabled(device))
-		/*
-		 * If a SLUMBER/INIT -> AWARE fails, we transition back to
-		 * SLUMBER/INIT state. We must hard reset the GMU while
-		 * transitioning back to SLUMBER/INIT. A RESET -> AWARE
-		 * transition is different. It happens when dispatcher is
-		 * attempting reset/recovery as part of fault handling. If it
-		 * fails, we should still transition back to RESET in case
-		 * we want to attempt another reset/recovery.
-		 */
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
-	else
+	if (!status)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 
 	return status;
@@ -1911,8 +1865,6 @@ _nap(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
 		/* fallthrough */
 	case KGSL_STATE_SLUMBER:
-	case KGSL_STATE_RESET:
-		break;
 	case KGSL_STATE_AWARE:
 		dev_warn(device->dev,
 			"transition AWARE -> NAP is not permitted\n");
@@ -1957,13 +1909,6 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_AWARE:
 		kgsl_pwrctrl_disable(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
-		break;
-	case KGSL_STATE_RESET:
-		if (gmu_core_isenabled(device)) {
-			 /* Reset the GMU if we failed to boot the GMU */
-			gmu_core_suspend(device);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
-		}
 		break;
 	default:
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
@@ -2053,9 +1998,6 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 	case KGSL_STATE_SUSPEND:
 		status = _suspend(device);
 		break;
-	case KGSL_STATE_RESET:
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
-		break;
 	default:
 		dev_err(device->dev, "bad state request 0x%x\n", state);
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
@@ -2106,8 +2048,6 @@ const char *kgsl_pwrstate_to_str(unsigned int state)
 		return "SUSPEND";
 	case KGSL_STATE_SLUMBER:
 		return "SLUMBER";
-	case KGSL_STATE_RESET:
-		return "RESET";
 	default:
 		break;
 	}

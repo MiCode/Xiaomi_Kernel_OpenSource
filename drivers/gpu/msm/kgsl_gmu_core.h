@@ -101,28 +101,14 @@ struct kgsl_device;
 struct kgsl_snapshot;
 
 struct gmu_core_ops {
-	int (*init)(struct kgsl_device *device);
-	int (*start)(struct kgsl_device *device);
-	void (*stop)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device);
-	int (*suspend)(struct kgsl_device *device);
 	int (*acd_set)(struct kgsl_device *device, bool val);
 };
 
 struct gmu_dev_ops {
-	int (*load_firmware)(struct kgsl_device *device);
 	int (*oob_set)(struct kgsl_device *device, enum oob_request req);
 	void (*oob_clear)(struct kgsl_device *device, enum oob_request req);
-	void (*bcl_config)(struct kgsl_device *device, bool on);
-	void (*irq_enable)(struct kgsl_device *device);
-	void (*irq_disable)(struct kgsl_device *device);
-	int (*hfi_start_msg)(struct kgsl_device *device);
-	int (*rpmh_gpu_pwrctrl)(struct kgsl_device *device, unsigned int ops,
-			unsigned int arg1, unsigned int arg2);
-	int (*wait_for_lowest_idle)(struct kgsl_device *device);
-	int (*wait_for_gmu_idle)(struct kgsl_device *device);
 	bool (*gx_is_on)(struct kgsl_device *device);
-	void (*prepare_stop)(struct kgsl_device *device);
 	int (*ifpc_store)(struct kgsl_device *device, unsigned int val);
 	unsigned int (*ifpc_show)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device,
@@ -131,9 +117,6 @@ struct gmu_dev_ops {
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct kgsl_device *device);
 	bool (*scales_bandwidth)(struct kgsl_device *device);
-	u64 (*read_alwayson)(struct kgsl_device *device);
-	const unsigned int gmu2host_intr_mask;
-	const unsigned int gmu_ao_intr_mask;
 };
 
 /**
@@ -166,10 +149,6 @@ extern struct platform_driver a6xx_rgmu_driver;
 void __init gmu_core_register(void);
 void __exit gmu_core_unregister(void);
 
-int gmu_core_init(struct kgsl_device *device);
-int gmu_core_start(struct kgsl_device *device);
-void gmu_core_stop(struct kgsl_device *device);
-int gmu_core_suspend(struct kgsl_device *device);
 void gmu_core_snapshot(struct kgsl_device *device);
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
 bool gmu_core_scales_bandwidth(struct kgsl_device *device);
@@ -200,16 +179,12 @@ void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req);
 void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req);
-int gmu_core_dev_hfi_start_msg(struct kgsl_device *device);
-int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device);
 void gmu_core_dev_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot);
 bool gmu_core_dev_gx_is_on(struct kgsl_device *device);
 int gmu_core_dev_ifpc_show(struct kgsl_device *device);
 int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val);
-void gmu_core_dev_prepare_stop(struct kgsl_device *device);
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device);
 void gmu_core_dev_cooperative_reset(struct kgsl_device *device);
-u64 gmu_core_dev_read_alwayson(struct kgsl_device *device);
 
 #endif /* __KGSL_GMU_CORE_H */

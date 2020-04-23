@@ -160,8 +160,8 @@ static int a6xx_hfi_queue_write(struct adreno_device *adreno_dev,
 	wmb();
 
 	/* Send interrupt to GMU to receive the message */
-	adreno_write_gmureg(adreno_dev,
-		ADRENO_REG_GMU_HOST2GMU_INTR_SET, 0x1);
+	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_HOST2GMU_INTR_SET,
+		0x1);
 
 	return 0;
 }
@@ -274,29 +274,29 @@ static int receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
 	(((hdr) & 0xFFFFF) | ((num) << 20))
 
-static int poll_adreno_gmu_reg(struct adreno_device *adreno_dev,
-	enum adreno_regs offset_name, unsigned int expected_val,
+static int poll_gmu_reg(struct adreno_device *adreno_dev,
+	u32 offsetdwords, unsigned int expected_val,
 	unsigned int mask, unsigned int timeout_ms)
 {
 	unsigned int val;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
 	u64 ao_pre_poll, ao_post_poll;
 
-	ao_pre_poll = gmu_core_dev_read_alwayson(device);
+	ao_pre_poll = a6xx_read_alwayson(adreno_dev);
 
 	while (time_is_after_jiffies(timeout)) {
-		adreno_read_gmureg(adreno_dev, offset_name, &val);
+		gmu_core_regread(device, offsetdwords, &val);
 		if ((val & mask) == expected_val)
 			return 0;
 		usleep_range(10, 100);
 	}
 
-	ao_post_poll = gmu_core_dev_read_alwayson(device);
+	ao_post_poll = a6xx_read_alwayson(adreno_dev);
 
 	/* Check one last time */
-	adreno_read_gmureg(adreno_dev, offset_name, &val);
+	gmu_core_regread(device, offsetdwords, &val);
 	if ((val & mask) == expected_val)
 		return 0;
 
@@ -325,7 +325,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 	if (rc)
 		return rc;
 
-	rc = poll_adreno_gmu_reg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
+	rc = poll_gmu_reg(adreno_dev, A6XX_GMU_GMU2HOST_INTR_INFO,
 		HFI_IRQ_MSGQ_MASK, HFI_IRQ_MSGQ_MASK, HFI_RSP_TIMEOUT);
 
 	if (rc) {
@@ -337,7 +337,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 	}
 
 	/* Clear the interrupt */
-	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_GMU2HOST_INTR_CLR,
 		HFI_IRQ_MSGQ_MASK);
 
 	rc = a6xx_hfi_process_queue(gmu, HFI_MSG_ID, ret_cmd);
@@ -841,14 +841,11 @@ int a6xx_hfi_send_req(struct adreno_device *adreno_dev, unsigned int id,
 irqreturn_t a6xx_hfi_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(ADRENO_DEVICE(device));
 	unsigned int status = 0;
 
-	adreno_read_gmureg(adreno_dev,
-			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
-	adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, HFI_IRQ_MASK);
+	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, HFI_IRQ_MASK);
 
 	if (status & HFI_IRQ_DBGQ_MASK)
 		a6xx_hfi_process_queue(gmu, HFI_DBG_ID, NULL);

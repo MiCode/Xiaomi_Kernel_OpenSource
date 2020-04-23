@@ -64,44 +64,6 @@ bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 	return false;
 }
 
-int gmu_core_init(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->init)
-		return gmu_core_ops->init(device);
-
-	return 0;
-}
-
-int gmu_core_start(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->start)
-		return gmu_core_ops->start(device);
-
-	return -EINVAL;
-}
-
-void gmu_core_stop(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->stop)
-		gmu_core_ops->stop(device);
-}
-
-int gmu_core_suspend(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->suspend)
-		return gmu_core_ops->suspend(device);
-
-	return -EINVAL;
-}
-
 void gmu_core_snapshot(struct kgsl_device *device)
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
@@ -220,26 +182,6 @@ void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req)
 		ops->oob_clear(device, req);
 }
 
-int gmu_core_dev_hfi_start_msg(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->hfi_start_msg)
-		return ops->hfi_start_msg(device);
-
-	return 0;
-}
-
-int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->wait_for_lowest_idle)
-		return ops->wait_for_lowest_idle(device);
-
-	return 0;
-}
-
 void gmu_core_dev_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
@@ -288,30 +230,12 @@ int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val)
 	return -EINVAL;
 }
 
-void gmu_core_dev_prepare_stop(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->prepare_stop)
-		ops->prepare_stop(device);
-}
-
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 {
 	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);
-
-	return 0;
-}
-
-u64 gmu_core_dev_read_alwayson(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->read_alwayson)
-		return ops->read_alwayson(device);
 
 	return 0;
 }

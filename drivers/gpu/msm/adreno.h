@@ -709,23 +709,9 @@ enum adreno_regs {
 	ADRENO_REG_VBIF_VERSION,
 	ADRENO_REG_GBIF_HALT,
 	ADRENO_REG_GBIF_HALT_ACK,
-	ADRENO_REG_GMU_AO_INTERRUPT_EN,
-	ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
 	ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
-	ADRENO_REG_GMU_PWR_COL_KEEPALIVE,
 	ADRENO_REG_GMU_AHB_FENCE_STATUS,
-	ADRENO_REG_GMU_RPMH_POWER_STATE,
-	ADRENO_REG_GMU_HFI_CTRL_STATUS,
-	ADRENO_REG_GMU_HFI_VERSION_INFO,
-	ADRENO_REG_GMU_HFI_SFR_ADDR,
-	ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
-	ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
 	ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
-	ADRENO_REG_GMU_HOST2GMU_INTR_SET,
-	ADRENO_REG_GMU_HOST2GMU_INTR_CLR,
-	ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
-	ADRENO_REG_GMU_NMI_CONTROL_STATUS,
-	ADRENO_REG_GMU_CM3_CFG,
 	ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
 	ADRENO_REG_REGISTER_MAX,
 };
@@ -1762,9 +1748,6 @@ static inline void adreno_reg_offset_init(u32 *reg_offsets)
 	}
 }
 
-
-void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
-void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);

@@ -218,9 +218,16 @@ static void a6xx_rgmu_bcl_config(struct kgsl_device *device, bool on)
 static void a6xx_rgmu_irq_enable(struct adreno_device *adreno_dev)
 {
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	/* Clear pending IRQs and Unmask needed IRQs */
-	adreno_gmu_clear_and_unmask_irqs(adreno_dev);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, 0xffffffff);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_CLR, 0xffffffff);
+
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK,
+		~((unsigned int)RGMU_OOB_IRQ_MASK));
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK,
+		(unsigned int)~RGMU_AO_IRQ_MASK);
 
 	/* Enable all IRQs on host */
 	enable_irq(rgmu->oob_interrupt_num);
@@ -230,13 +237,18 @@ static void a6xx_rgmu_irq_enable(struct adreno_device *adreno_dev)
 static void a6xx_rgmu_irq_disable(struct adreno_device *adreno_dev)
 {
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	/* Disable all IRQs on host */
 	disable_irq(rgmu->rgmu_interrupt_num);
 	disable_irq(rgmu->oob_interrupt_num);
 
 	/* Mask all IRQs and clear pending IRQs */
-	adreno_gmu_mask_and_clear_irqs(adreno_dev);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xffffffff);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_MASK, 0xffffffff);
+
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, 0xffffffff);
+	gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_CLR, 0xffffffff);
 }
 
 static int a6xx_rgmu_ifpc_store(struct kgsl_device *device,
@@ -1163,8 +1175,6 @@ static struct gmu_dev_ops a6xx_rgmudev = {
 	.ifpc_store = a6xx_rgmu_ifpc_store,
 	.ifpc_show = a6xx_rgmu_ifpc_show,
 	.snapshot = a6xx_rgmu_device_snapshot,
-	.gmu2host_intr_mask = RGMU_OOB_IRQ_MASK,
-	.gmu_ao_intr_mask = RGMU_AO_IRQ_MASK,
 };
 
 static struct gmu_core_ops a6xx_rgmu_ops = {
