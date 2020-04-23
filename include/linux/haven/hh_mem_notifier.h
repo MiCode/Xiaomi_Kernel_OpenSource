@@ -13,6 +13,7 @@
 #include <linux/types.h>
 
 enum hh_mem_notifier_tag {
+	HH_MEM_NOTIFIER_TAG_DISPLAY,
 	HH_MEM_NOTIFIER_TAG_MAX
 };
 
