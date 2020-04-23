@@ -270,6 +270,11 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 297 IRQ_TYPE_EDGE_RISING>;
 	};
 
+	tee_sanity {
+		compatible = "mediatek,tee_sanity";
+		interrupts = <GIC_SPI 298 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	/* Microtrust SW IRQ number 299(331) ~ 304(336) */
 	utos {
 		compatible = "microtrust,utos";
