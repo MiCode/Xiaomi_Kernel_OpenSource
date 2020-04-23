@@ -283,12 +283,17 @@ int teei_move_cpu_context(int target_cpu_id, int original_cpu_id)
 	return 0;
 }
 
-#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+void set_current_cpuid(int cpu)
+{
+	current_cpu_id = cpu;
+}
 
 int get_current_cpuid(void)
 {
 	return current_cpu_id;
 }
+
+#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
 
 static bool is_prefer_core(int cpu)
 {

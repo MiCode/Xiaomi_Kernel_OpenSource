@@ -65,6 +65,7 @@ extern struct list_head g_block_link;
 
 extern struct task_struct *teei_switch_task;
 
+void set_current_cpuid(int cpu);
 int get_current_cpuid(void);
 
 void *tz_malloc_shared_mem(size_t size, int flags);
