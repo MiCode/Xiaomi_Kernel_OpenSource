@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _A6XX_REG_H
@@ -1055,6 +1055,7 @@
 /* GPUCC registers */
 #define A6XX_GPU_CC_GX_GDSCR                   0x24403
 #define A6XX_GPU_CC_GX_DOMAIN_MISC		0x24542
+#define A6XX_GPU_CC_CX_GDSCR                   0x2441B
 
 /* GPU RSC sequencer registers */
 #define A6XX_GPU_RSCC_RSC_STATUS0_DRV0			0x00004

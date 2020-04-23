@@ -1468,8 +1468,9 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 }
 
 #define CX_GDSC_TIMEOUT	5000	/* ms */
-static int gmu_disable_gdsc(struct gmu_device *gmu)
+static int gmu_disable_gdsc(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int ret;
 	unsigned long t;
 
@@ -1491,13 +1492,13 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	 */
 	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
 	do {
-		if (!regulator_is_enabled(gmu->cx_gdsc))
+		if (!gmu_core_dev_cx_is_on(device))
 			return 0;
 		usleep_range(10, 100);
 
 	} while (!(time_after(jiffies, t)));
 
-	if (!regulator_is_enabled(gmu->cx_gdsc))
+	if (!gmu_core_dev_cx_is_on(device))
 		return 0;
 
 	dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
@@ -1525,7 +1526,7 @@ static int gmu_suspend(struct kgsl_device *device)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
 
-	gmu_disable_gdsc(gmu);
+	gmu_disable_gdsc(device);
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
@@ -1700,7 +1701,7 @@ static void gmu_stop(struct kgsl_device *device)
 
 	gmu_dev_ops->rpmh_gpu_pwrctrl(device, GMU_FW_STOP, 0, 0);
 	gmu_disable_clks(device);
-	gmu_disable_gdsc(gmu);
+	gmu_disable_gdsc(device);
 
 	msm_bus_scale_client_update_request(gmu->pcl, 0);
 	return;

@@ -822,6 +822,18 @@ static bool a6xx_gmu_gx_is_on(struct kgsl_device *device)
 }
 
 /*
+ * a6xx_gmu_cx_is_on() - Check if CX is on using GPUCC register
+ * @device - Pointer to KGSL device struct
+ */
+static bool a6xx_gmu_cx_is_on(struct kgsl_device *device)
+{
+	unsigned int val;
+
+	gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+	return (val & BIT(31));
+}
+
+/*
  * a6xx_gmu_sptprac_is_on() - Check if SPTP is on using pwr status register
  * @adreno_dev - Pointer to adreno_device
  * This check should only be performed if the keepalive bit is set or it
@@ -1741,6 +1753,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.enable_lm = a6xx_gmu_enable_lm,
 	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
 	.gx_is_on = a6xx_gmu_gx_is_on,
+	.cx_is_on = a6xx_gmu_cx_is_on,
 	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
 	.ifpc_store = a6xx_gmu_ifpc_store,
