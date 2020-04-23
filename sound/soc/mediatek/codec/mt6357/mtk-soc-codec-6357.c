@@ -1075,6 +1075,7 @@ static void mtk_read_hp_detection_parameter(struct mtk_hpdet_param *hpdet_param)
 	hpdet_param->resistance_second_threshold = 1000;
 	/* Resistance Threshold of phase 1 and phase 0 */
 }
+
 static int mtk_calculate_impedance_formula(int pcm_offset, int aux_diff)
 {
 	/* The formula is from DE programming guide */
@@ -1082,8 +1083,11 @@ static int mtk_calculate_impedance_formula(int pcm_offset, int aux_diff)
 	/* R = V /I */
 	/* V = auxDiff * (1800mv /auxResolution)  /TrimBufGain */
 	/* I =  pcmOffset * DAC_constant * Gsdm * Gibuf */
-	return DIV_ROUND_CLOSEST(3600000 / pcm_offset * aux_diff, 7832);
+	long val = 3600000 / pcm_offset * aux_diff;
+
+	return (int)DIV_ROUND_CLOSEST(val, 7832);
 }
+
 static int mtk_calculate_hp_impedance(int dc_init, int dc_input,
 				      short pcm_offset,
 				      const unsigned int detect_times)
