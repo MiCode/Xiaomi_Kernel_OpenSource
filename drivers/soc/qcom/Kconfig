@@ -768,7 +768,7 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 
 config MSM_SPCOM
          depends on QCOM_GLINK
-         bool "Secure Processor Communication over RPMSG"
+         tristate "Secure Processor Communication over RPMSG"
          help
 	   SPCOM driver allows loading Secure Processor Applications and sending
 	   messages to Secure Processor Applications. SPCOM implements logic of RPMSG
