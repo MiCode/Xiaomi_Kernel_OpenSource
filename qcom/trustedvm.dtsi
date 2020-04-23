@@ -42,9 +42,71 @@
 		compatible = "qcom,mem-buf";
 	};
 
-	memory@28000000 {
+	memory@28800000 {
 		device_type = "memory";
-		reg = <0x0 0x28000000 0x0 0x8000000>; /* Temp S2 mapping */
+		reg = <0x0 0x28800000 0x0 0x76f7000>; /* Temp S2 mapping */
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		qrtr_shbuf: qrtr-shmem {
+			no-map;
+			reg = <0x0 0x2fef7000 0x0 0x9000>;
+		};
+
+		chan0_shbuf: neuron-block@0 {
+			no-map;
+			reg = <0x0 0x2ff00000 0x0 0x80000>;
+		};
+
+		chan1_shbuf: neuron-block@1 {
+			no-map;
+			reg = <0x0 0x2ff80000 0x0 0x80000>;
+		};
+	};
+
+	neuron-client-block {
+		compatible = "qcom,neuron-service";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		protocol {
+			compatible = "qcom,neuron-protocol-block";
+			processes = "client";
+		};
+
+		application {
+			compatible = "qcom,neuron-block-client";
+		};
+
+		channel@0 {
+			reg = <0>;
+			compatible = "qcom,neuron-channel-haven-shmem";
+			class = "message-queue";
+			direction = "send";
+			max-size = <0 65536>;
+			shared-buffer = <&chan0_shbuf>;
+			haven-label = <1>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			compatible = "qcom,neuron-channel-haven-shmem";
+			class = "message-queue";
+			direction = "receive";
+			max-size = <0 65536>;
+			shared-buffer = <&chan1_shbuf>;
+			haven-label = <2>;
+		};
+	};
+
+	qrtr-haven {
+		compatible = "qcom,qrtr-haven";
+		haven-label = <3>;
+		shared-buffer = <&qrtr_shbuf>;
 	};
 
 	qcom,vm-config {
