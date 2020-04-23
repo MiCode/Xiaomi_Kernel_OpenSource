@@ -6070,9 +6070,6 @@ tracing_entries_write(struct file *filp, const char __user *ubuf,
 	struct inode *inode = file_inode(filp);
 	struct trace_array *tr = inode->i_private;
 	unsigned long val;
-#ifdef CONFIG_MTK_SCHED_TRACERS
-	bool do_drop_cache = false;
-#endif
 	int ret;
 
 	ret = kstrtoul_from_user(ubuf, cnt, 10, &val);
@@ -6085,20 +6082,9 @@ tracing_entries_write(struct file *filp, const char __user *ubuf,
 
 	/* value is in KB */
 	val <<= 10;
-#ifdef CONFIG_MTK_SCHED_TRACERS
-resize_ring_buffer:
-	ret = tracing_resize_ring_buffer(tr, val, tracing_get_cpu(inode));
-	if (ret == -ENOMEM && !do_drop_cache) {
-		do_drop_cache = true;
-		/* drop_pagecache(); */
-		goto resize_ring_buffer;
-	} else if (ret < 0)
-		return ret;
-#else
 	ret = tracing_resize_ring_buffer(tr, val, tracing_get_cpu(inode));
 	if (ret < 0)
 		return ret;
-#endif
 	*ppos += cnt;
 
 	return cnt;
