@@ -349,7 +349,7 @@ static struct ttm_tt *virtio_gpu_ttm_tt_create2(struct ttm_buffer_object *bo,
 	struct virtio_gpu_device *vgdev;
 	struct virtio_gpu_object *obj;
 	struct virtio_gpu_ttm_tt *gtt;
-	uint32_t guest;
+	uint32_t has_guest;
 
 	vgdev = virtio_gpu_get_vgdev(bo->bdev);
 	obj = container_of(bo, struct virtio_gpu_object, tbo);
@@ -358,9 +358,10 @@ static struct ttm_tt *virtio_gpu_ttm_tt_create2(struct ttm_buffer_object *bo,
 	if (gtt == NULL)
 		return NULL;
 	gtt->obj = obj;
-	guest = (obj->blob_flags & VIRTGPU_RES_BLOB_GUEST_MASK);
+	has_guest = (obj->blob_mem == VIRTGPU_BLOB_MEM_GUEST ||
+		     obj->blob_mem == VIRTGPU_BLOB_MEM_HOST_GUEST);
 
-	if (!guest && obj->blob) {
+	if (!has_guest && obj->blob) {
 		gtt->ttm.ttm.func = &virtio_gpu_vram_func;
 		if (ttm_tt_init(&gtt->ttm.ttm, bo->bdev, size, page_flags,
 				dummy_read_page)) {

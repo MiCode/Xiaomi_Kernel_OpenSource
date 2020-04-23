@@ -95,18 +95,19 @@ static void virtio_gpu_ttm_bo_destroy(struct ttm_buffer_object *tbo)
 }
 
 // define internally for testing purposes
-#define VIRTGPU_RESOURCE_CACHE_MASK      0xf000
-#define VIRTGPU_RESOURCE_CACHE_CACHED    0x1000
-#define VIRTGPU_RESOURCE_CACHE_UNCACHED  0x2000
-#define VIRTGPU_RESOURCE_CACHE_WC        0x3000
+#define VIRTGPU_BLOB_MEM_CACHE_MASK      0xf000
+#define VIRTGPU_BLOB_MEM_CACHE_CACHED    0x1000
+#define VIRTGPU_BLOB_MEM_CACHE_UNCACHED  0x2000
+#define VIRTGPU_BLOB_MEM_CACHE_WC        0x3000
 
 static void virtio_gpu_init_ttm_placement(struct virtio_gpu_object *vgbo)
 {
 	u32 c = 1;
 	u32 ttm_caching_flags = 0;
 
-	u32 cache_type = (vgbo->blob_flags & VIRTGPU_RESOURCE_CACHE_MASK);
-	u32 guest = (vgbo->blob_flags & VIRTGPU_RES_BLOB_GUEST_MASK);
+	u32 cache_type = (vgbo->blob_mem & VIRTGPU_BLOB_MEM_CACHE_MASK);
+	bool has_guest = (vgbo->blob_mem == VIRTGPU_BLOB_MEM_GUEST ||
+			  vgbo->blob_mem == VIRTGPU_BLOB_MEM_HOST_GUEST);
 
 	vgbo->placement.placement = &vgbo->placement_code;
 	vgbo->placement.busy_placement = &vgbo->placement_code;
@@ -114,20 +115,20 @@ static void virtio_gpu_init_ttm_placement(struct virtio_gpu_object *vgbo)
 	vgbo->placement_code.lpfn = 0;
 
 	switch (cache_type) {
-	case VIRTGPU_RESOURCE_CACHE_CACHED:
+	case VIRTGPU_BLOB_MEM_CACHE_CACHED:
 		ttm_caching_flags = TTM_PL_FLAG_CACHED;
 		break;
-	case VIRTGPU_RESOURCE_CACHE_WC:
+	case VIRTGPU_BLOB_MEM_CACHE_WC:
 		ttm_caching_flags = TTM_PL_FLAG_WC;
 		break;
-	case VIRTGPU_RESOURCE_CACHE_UNCACHED:
+	case VIRTGPU_BLOB_MEM_CACHE_UNCACHED:
 		ttm_caching_flags = TTM_PL_FLAG_UNCACHED;
 		break;
 	default:
 		ttm_caching_flags = TTM_PL_MASK_CACHING;
 	}
 
-	if (!guest && vgbo->blob) {
+	if (!has_guest && vgbo->blob) {
 		vgbo->placement_code.flags =
 			ttm_caching_flags | TTM_PL_FLAG_VRAM |
 			TTM_PL_FLAG_NO_EVICT;
@@ -172,11 +173,11 @@ int virtio_gpu_object_create(struct virtio_gpu_device *vgdev,
 	}
 	bo->dumb = params->dumb;
 	bo->blob = params->blob;
-	bo->blob_flags = params->blob_flags;
+	bo->blob_mem = params->blob_mem;
 
 	if (params->virgl) {
 		virtio_gpu_cmd_resource_create_3d(vgdev, bo, params, fence);
-	} else {
+	} else if (params->dumb) {
 		virtio_gpu_cmd_create_resource(vgdev, bo, params, fence);
 	}
 

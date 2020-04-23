@@ -84,6 +84,9 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_GET_CAPSET,
 	VIRTIO_GPU_CMD_GET_EDID,
 	VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID,
+	VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB,
+	VIRTIO_GPU_CMD_RESOURCE_MAP,
+	VIRTIO_GPU_CMD_RESOURCE_UNMAP,
 
 	/* 3d commands */
 	VIRTIO_GPU_CMD_CTX_CREATE = 0x0200,
@@ -94,9 +97,6 @@ enum virtio_gpu_ctrl_type {
 	VIRTIO_GPU_CMD_TRANSFER_TO_HOST_3D,
 	VIRTIO_GPU_CMD_TRANSFER_FROM_HOST_3D,
 	VIRTIO_GPU_CMD_SUBMIT_3D,
-	VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB,
-	VIRTIO_GPU_CMD_RESOURCE_MAP,
-	VIRTIO_GPU_CMD_RESOURCE_UNMAP,
 
 	/* cursor commands */
 	VIRTIO_GPU_CMD_UPDATE_CURSOR = 0x0300,
@@ -113,7 +113,6 @@ enum virtio_gpu_ctrl_type {
 
 	/* CHROMIUM: legacy responses */
 	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO_LEGACY = 0x1104,
-
 	/* CHROMIUM: success responses */
 	VIRTIO_GPU_RESP_OK_RESOURCE_PLANE_INFO = 0x11FF,
 
@@ -303,6 +302,7 @@ struct virtio_gpu_cmd_submit {
 };
 
 #define VIRTIO_GPU_CAPSET_VIRGL 1
+#define VIRTIO_GPU_CAPSET_VIRGL2 2
 
 /* VIRTIO_GPU_CMD_GET_CAPSET_INFO */
 struct virtio_gpu_get_capset_info {
@@ -393,29 +393,25 @@ struct virtio_gpu_resp_resource_uuid {
 	__u8 uuid[16];
 };
 
-
 /* VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB */
 struct virtio_gpu_resource_create_blob {
 	struct virtio_gpu_ctrl_hdr hdr;
 	__le32 resource_id;
-#define VIRTIO_GPU_RES_BLOB_GUEST_MASK   0x000f
-#define VIRTIO_GPU_RES_BLOB_GUEST_NONE   0x0000
-#define VIRTIO_GPU_RES_BLOB_GUEST_SYSTEM 0x0001
+#define VIRTIO_GPU_BLOB_MEM_GUEST             0x0001
+#define VIRTIO_GPU_BLOB_MEM_HOST3D            0x0002
+#define VIRTIO_GPU_BLOB_MEM_HOST3D_GUEST      0x0003
+#define VIRTIO_GPU_BLOB_MEM_HOSTSYS           0x0004
+#define VIRTIO_GPU_BLOB_MEM_HOSTSYS_GUEST     0x0005
 
-#define VIRTIO_GPU_RES_BLOB_HOST_MASK 0x00f0
-#define VIRTIO_GPU_RES_BLOB_HOST_NONE 0x0000
-#define VIRTIO_GPU_RES_BLOB_HOST      0x0010
-
-#define VIRTIO_GPU_RES_BLOB_USE_MASK         0x0f00
-#define VIRTIO_GPU_RES_BLOB_USE_NONE         0x0000
-#define VIRTIO_GPU_RES_BLOB_USE_MAPPABLE     0x0100
-#define VIRTIO_GPU_RES_BLOB_USE_SHAREABLE    0x0200
-#define VIRTIO_GPU_RES_BLOB_USE_CROSS_DEVICE 0x0400
-	__le32 flags;
+#define VIRTIO_GPU_BLOB_FLAG_USE_MAPPABLE     0x0001
+#define VIRTIO_GPU_BLOB_FLAG_USE_SHAREABLE    0x0002
+#define VIRTIO_GPU_BLOB_FLAG_USE_CROSS_DEVICE 0x0004
+	/* zero is invalid blob mem */
+	__le32 blob_mem;
+	__le32 blob_flags;
+	__le64 blob_id;
 	__le64 size;
-	__le64 memory_id;
 	__le32 nr_entries;
-	__le32 padding;
 	/*
 	 * sizeof(nr_entries * virtio_gpu_mem_entry) bytes follow
 	 */

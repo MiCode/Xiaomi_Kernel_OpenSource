@@ -70,6 +70,7 @@ struct drm_virtgpu_execbuffer {
 	__s32 fence_fd; /* in/out fence fd (see VIRTGPU_EXECBUF_FENCE_FD_IN/OUT) */
 };
 
+
 #define VIRTGPU_PARAM_3D_FEATURES 1 /* do we have 3D features in the hw */
 #define VIRTGPU_PARAM_CAPSET_QUERY_FIX 2 /* do we have the capset fix */
 #define VIRTGPU_PARAM_RESOURCE_BLOB 3 /* DRM_VIRTGPU_RESOURCE_CREATE_BLOB */
@@ -150,26 +151,28 @@ struct drm_virtgpu_get_caps {
 };
 
 struct drm_virtgpu_resource_create_blob {
-#define VIRTGPU_RES_BLOB_GUEST_MASK   0x000f
-#define VIRTGPU_RES_BLOB_GUEST_NONE   0x0000
-#define VIRTGPU_RES_BLOB_GUEST_SYSTEM 0x0001
+#define VIRTGPU_BLOB_MEM_GUEST              0x0001
+#define VIRTGPU_BLOB_MEM_HOST               0x0002
+#define VIRTGPU_BLOB_MEM_HOST_GUEST         0x0003
 
-#define VIRTGPU_RES_BLOB_HOST_MASK 0x00f0
-#define VIRTGPU_RES_BLOB_HOST_NONE 0x0000
-#define VIRTGPU_RES_BLOB_HOST      0x0010
-
-#define VIRTGPU_RES_BLOB_USE_MASK         0x0f00
-#define VIRTGPU_RES_BLOB_USE_NONE         0x0000
-#define VIRTGPU_RES_BLOB_USE_MAPPABLE     0x0100
-#define VIRTGPU_RES_BLOB_USE_SHAREABLE    0x0200
-#define VIRTGPU_RES_BLOB_USE_CROSS_DEVICE 0x0400
-	__u32 flags;
+#define VIRTGPU_BLOB_FLAG_MAPPABLE          0x0001
+#define VIRTGPU_BLOB_FLAG_SHAREABLE         0x0002
+#define VIRTGPU_BLOB_FLAG_CROSS_DEVICE      0x0004
+	/* zero is invalid blob_mem */
+	__u32 blob_mem;
+	__u32 blob_flags;
 	__u32 bo_handle;
 	__u32 res_handle;
+	__u64 size;
+
+	/*
+	 * for 3D contexts with VIRTGPU_BLOB_MEM_HOSTGUEST and
+	 * VIRTGPU_BLOB_MEM_HOST otherwise, must be zero.
+	 */
+	__u32 pad;
 	__u32 cmd_size;
 	__u64 cmd;
-	__u64 size;
-	__u64 memory_id;
+	__u64 blob_id;
 };
 
 #define DRM_IOCTL_VIRTGPU_MAP \

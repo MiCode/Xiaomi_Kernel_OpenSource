@@ -185,20 +185,24 @@ int virtio_gpu_init(struct drm_device *dev)
 	}
 
 	if (virtio_has_feature(vgdev->vdev, VIRTIO_GPU_F_RESOURCE_BLOB)) {
-		if (virtio_has_feature(vgdev->vdev, VIRTIO_GPU_F_HOST_VISIBLE)) {
-			vgdev->cbar = 4;
-			vgdev->caddr = pci_resource_start(dev->pdev, vgdev->cbar);
-			vgdev->csize = pci_resource_len(dev->pdev, vgdev->cbar);
-			ret = pci_request_region(dev->pdev, vgdev->cbar, "virtio-gpu-coherent");
-			if (ret != 0) {
-				DRM_WARN("Cannot request coherent memory bar\n");
-			} else {
-				DRM_INFO("coherent host resources enabled, using %s bar %d,"
-					 "at 0x%lx, size %ld MB", dev_name(&dev->pdev->dev),
-					vgdev->cbar, vgdev->caddr, vgdev->csize >> 20);
-
-				vgdev->has_host_visible = true;
-			}
+		vgdev->cbar = 4;
+		vgdev->caddr = pci_resource_start(dev->pdev, vgdev->cbar);
+		vgdev->csize = pci_resource_len(dev->pdev, vgdev->cbar);
+		ret = pci_request_region(
+			dev->pdev,
+			vgdev->cbar,
+			"virtio-gpu-coherent");
+		if (ret != 0) {
+			DRM_WARN("Cannot request coherent memory bar\n");
+		} else {
+			DRM_INFO("coherent host resources enabled\n");
+			DRM_INFO(
+				"using %s bar %d, at 0x%lx, size %ld MB\n",
+				dev_name(&dev->pdev->dev),
+				vgdev->cbar,
+				vgdev->caddr,
+				vgdev->csize >> 20);
+			vgdev->has_host_visible = true;
 		}
 
 		vgdev->has_resource_blob = true;

@@ -1150,9 +1150,9 @@ void virtio_gpu_cmd_unmap(struct virtio_gpu_device *vgdev,
 void
 virtio_gpu_cmd_resource_create_blob(struct virtio_gpu_device *vgdev,
 				    struct virtio_gpu_object *bo,
-				    uint32_t ctx_id, uint32_t flags,
-				    uint64_t size, uint64_t memory_id,
-				    uint32_t nents,
+				    uint32_t ctx_id, uint32_t blob_mem,
+				    uint32_t blob_flags, uint64_t blob_id,
+				    uint64_t size, uint32_t nents,
 				    struct virtio_gpu_mem_entry *ents)
 {
 	struct virtio_gpu_resource_create_blob *cmd_p;
@@ -1164,9 +1164,10 @@ virtio_gpu_cmd_resource_create_blob(struct virtio_gpu_device *vgdev,
 	cmd_p->hdr.type = cpu_to_le32(VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB);
 	cmd_p->hdr.ctx_id = cpu_to_le32(ctx_id);
 	cmd_p->resource_id = cpu_to_le32(bo->hw_res_handle);
-	cmd_p->flags = cpu_to_le32(flags);
+	cmd_p->blob_mem = cpu_to_le32(blob_mem);
+	cmd_p->blob_flags = cpu_to_le32(blob_flags);
+	cmd_p->blob_id = cpu_to_le64(blob_id);
 	cmd_p->size = cpu_to_le64(size);
-	cmd_p->memory_id = cpu_to_le64(memory_id);
 	cmd_p->nr_entries = cpu_to_le32(nents);
 
 	vbuf->data_buf = ents;

@@ -59,7 +59,7 @@ struct virtio_gpu_object_params {
 	/* 3d */
 	bool virgl;
 	bool blob;
-	uint32_t blob_flags;
+	uint32_t blob_mem;
 	uint32_t target;
 	uint32_t bind;
 	uint32_t depth;
@@ -90,7 +90,7 @@ struct virtio_gpu_object {
 	struct ttm_buffer_object	tbo;
 	struct ttm_bo_kmap_obj		kmap;
 	bool created;
-	uint32_t blob_flags;
+	uint32_t blob_mem;
 };
 #define gem_to_virtio_gpu_obj(gobj) \
 	container_of((gobj), struct virtio_gpu_object, gem_base)
@@ -369,9 +369,9 @@ virtio_gpu_cmd_resource_create_3d(struct virtio_gpu_device *vgdev,
 void
 virtio_gpu_cmd_resource_create_blob(struct virtio_gpu_device *vgdev,
 				    struct virtio_gpu_object *bo,
-				    uint32_t ctx_id, uint32_t flags,
-				    uint64_t size, uint64_t memory_id,
-				    uint32_t nents,
+				    uint32_t ctx_id, uint32_t blob_mem,
+				    uint32_t blob_flags, uint64_t blob_id,
+				    uint64_t size, uint32_t nents,
 				    struct virtio_gpu_mem_entry *ents);
 
 void virtio_gpu_cmd_map(struct virtio_gpu_device *vgdev,
