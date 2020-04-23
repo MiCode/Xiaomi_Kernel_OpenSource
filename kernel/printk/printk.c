@@ -49,6 +49,7 @@
 #include <linux/sched/debug.h>
 #include <linux/sched/task_stack.h>
 #include <mt-plat/aee.h>
+#include <mt-plat/mtk_printk_ctrl.h>
 #include <linux/proc_fs.h>
 
 #include <linux/uaccess.h>
@@ -61,49 +62,10 @@
 #include "braille.h"
 #include "internal.h"
 
-/*
- * 0: uart printk enable
- * 1: uart printk disable
- * 2: uart printk always enable
- */
-int printk_disable_uart;
 #ifdef CONFIG_PRINTK_MT_PREFIX
 /* declare a variable for save the status of irqs_disabled() */
 static int isIrqsDisabled;
-#endif
-module_param_named(disable_uart, printk_disable_uart, int, 0644);
 
-bool mt_get_uartlog_status(void)
-{
-	if (printk_disable_uart == 1)
-		return false;
-	else if ((printk_disable_uart == 0) || (printk_disable_uart == 2))
-		return true;
-	return true;
-}
-
-void set_uartlog_status(bool value)
-{
-#ifdef CONFIG_MTK_ENG_BUILD
-	printk_disable_uart = value ? 0 : 1;
-	pr_info("set uart log status %d.\n", value);
-#endif
-}
-
-#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
-void mt_disable_uart(void)
-{
-	/* uart print not always enable */
-	if ((mt_need_uart_console != 1) && (printk_disable_uart != 2))
-		printk_disable_uart = 1;
-}
-void mt_enable_uart(void)
-{
-	printk_disable_uart = 0;
-}
-#endif
-
-#ifdef CONFIG_PRINTK_MT_PREFIX
 static DEFINE_PER_CPU(char, printk_state);
 #endif
 
@@ -1482,7 +1444,7 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 
 #ifdef CONFIG_PRINTK_MT_PREFIX
 	/* if uart printk enabled */
-	if (syslog == false && printk_disable_uart != 1) {
+	if (syslog == false && mt_get_uartlog_status()) {
 		if (buf)
 			len += sprintf(buf+len, "<%d>", smp_processor_id());
 		else
@@ -1953,7 +1915,7 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 
 	for_each_console(con) {
 		/* if uart printk disabled */
-		if ((printk_disable_uart == 1) && (con->flags & CON_CONSDEV))
+		if (!mt_get_uartlog_status() && (con->flags & CON_CONSDEV))
 			continue;
 		if (exclusive_console && con != exclusive_console)
 			continue;
@@ -2173,7 +2135,7 @@ int vprintk_store(int facility, int level,
 		this_cpu_write(printk_state, '-');
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	/* if uart printk enabled */
-	else if (printk_disable_uart != 1)
+	else if (mt_get_uartlog_status())
 		this_cpu_write(printk_state, '.');
 #endif
 	else
