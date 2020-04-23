@@ -124,6 +124,7 @@
 #define IPA_IOCTL_FNR_COUNTER_QUERY             76
 #define IPA_IOCTL_GET_NAT_IN_SRAM_INFO          77
 #define IPA_IOCTL_APP_CLOCK_VOTE                78
+#define IPA_IOCTL_PDN_CONFIG                    80
 
 /**
  * max size of the header to be inserted
@@ -703,7 +704,15 @@ enum ipa_peripheral_event {
 #define WIGIG_FST_SWITCH (WIGIG_CLIENT_CONNECT + 1)
 #define WIGIG_EVENT_MAX (WIGIG_FST_SWITCH + 1)
 
-#define IPA_EVENT_MAX_NUM (WIGIG_EVENT_MAX)
+enum ipa_pdn_config_event {
+	IPA_PDN_DEFAULT_MODE_CONFIG = WIGIG_EVENT_MAX, /* Default mode. */
+	IPA_PDN_IP_COLLISION_MODE_CONFIG, /* IP Collision detected. */
+	IPA_PDN_IP_PASSTHROUGH_MODE_CONFIG, /* IP Passthrough mode. */
+	IPA_PDN_CONFIG_EVENT_MAX
+#define IPA_PDN_CONFIG_EVENT_MAX IPA_PDN_CONFIG_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_PDN_CONFIG_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -2577,6 +2586,39 @@ struct ipa_odl_modem_config {
 	 __u8 config_status;
 };
 
+/**
+ * struct ipa_ioc_pdn_config - provide pdn configuration
+ * @dev_name: PDN interface name
+ * @pdn_cfg_type: type of the pdn config applied.
+ * @enable: enable/disable pdn config type.
+ * @u.collison_cfg.pdn_ip_addr: pdn_ip_address used in collision config.
+ * @u.passthrough_cfg.pdn_ip_addr: pdn_ip_address used in passthrough config.
+ * @u.passthrough_cfg.device_type: Device type of the client.
+ * @u.passthrough_cfg.vlan_id: VLAN ID of the client.
+ * @u.passthrough_cfg.client_mac_addr: client mac for which passthough
+ *	is enabled.
+ * @u.passthrough_cfg.skip_nat: skip NAT processing.
+ */
+struct ipa_ioc_pdn_config {
+	char dev_name[IPA_RESOURCE_NAME_MAX];
+	enum ipa_pdn_config_event pdn_cfg_type;
+	uint8_t enable;
+	union {
+
+		struct ipa_pdn_ip_collision_cfg {
+			uint32_t pdn_ip_addr;
+		} collison_cfg;
+
+		struct ipa_pdn_ip_passthrough_cfg {
+			uint32_t pdn_ip_addr;
+			enum ipacm_per_client_device_type device_type;
+			uint16_t vlan_id;
+			uint8_t client_mac_addr[IPA_MAC_ADDR_SIZE];
+			uint8_t skip_nat;
+		} passthrough_cfg;
+	} u;
+};
+
 
 /**
  *   actual IOCTLs supported by IPA driver
@@ -2835,6 +2877,9 @@ struct ipa_odl_modem_config {
 				IPA_IOCTL_APP_CLOCK_VOTE, \
 				uint32_t)
 
+#define IPA_IOC_PDN_CONFIG _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_PDN_CONFIG, \
+				struct ipa_ioc_pdn_config)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
