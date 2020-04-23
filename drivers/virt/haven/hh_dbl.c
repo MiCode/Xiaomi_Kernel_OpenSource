@@ -36,6 +36,7 @@ struct hh_dbl_cap_table {
 	void *rx_priv_data;
 };
 
+static bool hh_dbl_initialized;
 static struct hh_dbl_cap_table hh_dbl_cap_table[HH_DBL_LABEL_MAX];
 
 /**
@@ -278,6 +279,9 @@ void *hh_dbl_tx_register(enum hh_dbl_label label)
 	if (label < 0 || label >= HH_DBL_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
+	if (!hh_dbl_initialized)
+		return ERR_PTR(-EPROBE_DEFER);
+
 	cap_table_entry = &hh_dbl_cap_table[label];
 
 	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
@@ -338,6 +342,9 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 	if (label < 0 || label >= HH_DBL_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
+	if (!hh_dbl_initialized)
+		return ERR_PTR(-EPROBE_DEFER);
+
 	cap_table_entry = &hh_dbl_cap_table[label];
 
 	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
@@ -364,20 +371,6 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 
 	cap_table_entry->rx_callback = rx_cb;
 	cap_table_entry->rx_priv_data = priv;
-
-	ret = request_threaded_irq(cap_table_entry->rx_irq,
-				   NULL,
-				   hh_dbl_rx_callback_thread,
-				   IRQF_ONESHOT,
-				   cap_table_entry->rx_irq_name,
-				   cap_table_entry);
-
-	if (ret < 0) {
-		pr_err("%s: IRQ registration failed\n", __func__);
-		cap_table_entry->rx_callback = NULL;
-		cap_table_entry->rx_priv_data = NULL;
-		goto err;
-	}
 
 	cap_table_entry->rx_reg_done = 1;
 
@@ -407,7 +400,7 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 	struct hh_dbl_desc *client_desc = dbl_client_desc;
 	struct hh_dbl_cap_table *cap_table_entry;
 
-	if (!client_desc)
+	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
@@ -458,7 +451,7 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 	struct hh_dbl_desc *client_desc = dbl_client_desc;
 	struct hh_dbl_cap_table *cap_table_entry;
 
-	if (!client_desc)
+	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
@@ -537,6 +530,19 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		}
 		cap_table_entry->rx_cap_id = cap_id;
 		cap_table_entry->rx_irq = rx_irq;
+
+		ret = request_threaded_irq(cap_table_entry->rx_irq,
+				   NULL,
+				   hh_dbl_rx_callback_thread,
+				   IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+				   cap_table_entry->rx_irq_name,
+				   cap_table_entry);
+
+		if (ret < 0) {
+			pr_err("%s: IRQ registration failed\n", __func__);
+			goto err;
+		}
+
 		pr_debug("%s: label: %d; rx_cap_id: %llu; dir: %d; rx_irq: %d\n",
 			__func__, label, cap_id, direction, rx_irq);
 		break;
@@ -583,6 +589,8 @@ static int __init hh_dbl_init(void)
 			goto err;
 		}
 	}
+
+	hh_dbl_initialized = true;
 
 	return 0;
 
