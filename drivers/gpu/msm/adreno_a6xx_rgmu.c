@@ -220,16 +220,9 @@ static int a6xx_rgmu_ifpc_store(struct kgsl_device *device,
 	if (requested_idle_level == rgmu->idle_level)
 		return 0;
 
-	mutex_lock(&device->mutex);
-
-	/* Power down the GPU before changing the idle level */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	rgmu->idle_level = requested_idle_level;
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-
-	return 0;
+	/* Power cycle the GPU for changes to take effect */
+	return adreno_power_cycle_u32(adreno_dev, &rgmu->idle_level,
+		requested_idle_level);
 }
 
 static unsigned int a6xx_rgmu_ifpc_show(struct kgsl_device *device)

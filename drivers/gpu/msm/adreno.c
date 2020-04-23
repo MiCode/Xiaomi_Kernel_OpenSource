@@ -1546,11 +1546,10 @@ static void adreno_unbind(struct device *dev)
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 }
 
-static int adreno_pm_resume(struct device *dev)
+static void adreno_resume(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = dev_get_drvdata(dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
 		adreno_dispatcher_unhalt(device);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
@@ -1565,19 +1564,41 @@ static int adreno_pm_resume(struct device *dev)
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 		dev_err(device->dev, "resume invoked without a suspend\n");
 	}
+}
+
+static int adreno_pm_resume(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	mutex_lock(&device->mutex);
+	ops->pm_resume(adreno_dev);
 	mutex_unlock(&device->mutex);
+
 	return 0;
+}
+
+static int adreno_suspend(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+
+	if (!status && device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
+
+	return status;
 }
 
 static int adreno_pm_suspend(struct device *dev)
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
 	int status;
 
 	mutex_lock(&device->mutex);
-	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	if (!status && device->state == KGSL_STATE_SUSPEND)
-		adreno_dispatcher_halt(device);
+	status = ops->pm_suspend(adreno_dev);
 	mutex_unlock(&device->mutex);
 
 	return status;
@@ -1825,14 +1846,15 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 	}
 }
 
-static int adreno_first_open(struct kgsl_device *device)
+static int adreno_open(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	/*
 	 * active_cnt special case: we are starting up for the first
 	 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
-	 * which will be called by kgsl_active_count_get().
+	 * which will be called by adreno_active_count_get().
 	 */
 	atomic_inc(&device->active_cnt);
 
@@ -1850,7 +1872,7 @@ static int adreno_first_open(struct kgsl_device *device)
 
 	complete_all(&device->hwaccess_gate);
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
-	kgsl_active_count_put(device);
+	adreno_active_count_put(adreno_dev);
 
 	return 0;
 err:
@@ -1860,8 +1882,18 @@ err:
 	return ret;
 }
 
-static int adreno_last_close(struct kgsl_device *device)
+static int adreno_first_open(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	return ops->first_open(adreno_dev);
+}
+
+static int adreno_close(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
 	/*
 	 * Wait up to 1 second for the active count to go low
 	 * and then start complaining about it
@@ -1876,6 +1908,84 @@ static int adreno_last_close(struct kgsl_device *device)
 	}
 
 	return kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+}
+
+static int adreno_last_close(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	return ops->last_close(adreno_dev);
+}
+
+static int adreno_pwrctrl_active_count_get(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret = 0;
+
+	if (WARN_ON(!mutex_is_locked(&device->mutex)))
+		return -EINVAL;
+
+	if ((atomic_read(&device->active_cnt) == 0) &&
+		(device->state != KGSL_STATE_ACTIVE)) {
+		mutex_unlock(&device->mutex);
+		wait_for_completion(&device->hwaccess_gate);
+		mutex_lock(&device->mutex);
+		device->pwrctrl.superfast = true;
+		ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+	}
+	if (ret == 0)
+		atomic_inc(&device->active_cnt);
+	trace_kgsl_active_count(device,
+		(unsigned long) __builtin_return_address(0));
+	return ret;
+}
+
+static void adreno_pwrctrl_active_count_put(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (WARN_ON(!mutex_is_locked(&device->mutex)))
+		return;
+
+	if (WARN(atomic_read(&device->active_cnt) == 0,
+			"Unbalanced get/put calls to KGSL active count\n"))
+		return;
+
+	if (atomic_dec_and_test(&device->active_cnt)) {
+		bool nap_on = !(device->pwrctrl.ctrl_flags &
+			BIT(KGSL_PWRFLAGS_NAP_OFF));
+		if (nap_on && device->state == KGSL_STATE_ACTIVE &&
+			device->requested_state == KGSL_STATE_NONE) {
+			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
+			kgsl_schedule_work(&device->idle_check_ws);
+		} else if (!nap_on) {
+			kgsl_pwrscale_update_stats(device);
+			kgsl_pwrscale_update(device);
+		}
+
+		mod_timer(&device->idle_timer,
+			jiffies + device->pwrctrl.interval_timeout);
+	}
+
+	trace_kgsl_active_count(device,
+		(unsigned long) __builtin_return_address(0));
+
+	wake_up(&device->active_cnt_wq);
+}
+
+int adreno_active_count_get(struct adreno_device *adreno_dev)
+{
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	return ops->active_count_get(adreno_dev);
+}
+
+void adreno_active_count_put(struct adreno_device *adreno_dev)
+{
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	ops->active_count_put(adreno_dev);
 }
 
 /**
@@ -2597,9 +2707,9 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 			if (enable) {
 				device->pwrctrl.ctrl_flags = 0;
 
-				if (!kgsl_active_count_get(device)) {
+				if (!adreno_active_count_get(adreno_dev)) {
 					adreno_fault_detect_start(adreno_dev);
-					kgsl_active_count_put(device);
+					adreno_active_count_put(adreno_dev);
 				}
 
 				kgsl_pwrscale_enable(device);
@@ -3662,6 +3772,67 @@ static void adreno_drawctxt_sched(struct kgsl_device *device,
 	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
 }
 
+int adreno_power_cycle(struct adreno_device *adreno_dev,
+	void (*callback)(struct adreno_device *adreno_dev, void *priv),
+	void *priv)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+	int ret;
+
+	mutex_lock(&device->mutex);
+	ret = ops->pm_suspend(adreno_dev);
+
+	if (!ret) {
+		callback(adreno_dev, priv);
+		ops->pm_resume(adreno_dev);
+	}
+
+	mutex_unlock(&device->mutex);
+
+	return ret;
+}
+
+int adreno_power_cycle_bool(struct adreno_device *adreno_dev,
+	bool *flag, bool val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+	int ret;
+
+	mutex_lock(&device->mutex);
+	ret = ops->pm_suspend(adreno_dev);
+
+	if (!ret) {
+		*flag = val;
+		ops->pm_resume(adreno_dev);
+	}
+
+	mutex_unlock(&device->mutex);
+
+	return ret;
+}
+
+int adreno_power_cycle_u32(struct adreno_device *adreno_dev,
+	u32 *flag, u32 val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+	int ret;
+
+	mutex_lock(&device->mutex);
+	ret = ops->pm_suspend(adreno_dev);
+
+	if (!ret) {
+		*flag = val;
+		ops->pm_resume(adreno_dev);
+	}
+
+	mutex_unlock(&device->mutex);
+
+	return ret;
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3710,6 +3881,15 @@ static const struct kgsl_functable adreno_functable = {
 static const struct component_master_ops adreno_ops = {
 	.bind = adreno_bind,
 	.unbind = adreno_unbind,
+};
+
+const struct adreno_power_ops adreno_power_operations = {
+	.first_open = adreno_open,
+	.last_close = adreno_close,
+	.active_count_get = adreno_pwrctrl_active_count_get,
+	.active_count_put = adreno_pwrctrl_active_count_put,
+	.pm_suspend = adreno_suspend,
+	.pm_resume = adreno_resume,
 };
 
 static const struct of_device_id adreno_gmu_match[] = {

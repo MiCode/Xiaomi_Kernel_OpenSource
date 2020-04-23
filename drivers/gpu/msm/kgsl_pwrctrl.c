@@ -46,8 +46,6 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
 static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
 static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 				unsigned int state);
-static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
-				unsigned int state);
 static int _isense_clk_set_rate(struct kgsl_pwrctrl *pwr, int level);
 static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
 				const char *name);
@@ -2116,7 +2114,7 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 	spin_unlock(&device->submit_lock);
 }
 
-static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
+void kgsl_pwrctrl_request_state(struct kgsl_device *device,
 				unsigned int state)
 {
 	if (state != KGSL_STATE_NONE && state != device->requested_state)
@@ -2147,82 +2145,6 @@ const char *kgsl_pwrstate_to_str(unsigned int state)
 		break;
 	}
 	return "UNKNOWN";
-}
-
-
-/**
- * kgsl_active_count_get() - Increase the device active count
- * @device: Pointer to a KGSL device
- *
- * Increase the active count for the KGSL device and turn on
- * clocks if this is the first reference. Code paths that need
- * to touch the hardware or wait for the hardware to complete
- * an operation must hold an active count reference until they
- * are finished. An error code will be returned if waking the
- * device fails. The device mutex must be held while *calling
- * this function.
- */
-int kgsl_active_count_get(struct kgsl_device *device)
-{
-	int ret = 0;
-
-	if (WARN_ON(!mutex_is_locked(&device->mutex)))
-		return -EINVAL;
-
-	if ((atomic_read(&device->active_cnt) == 0) &&
-		(device->state != KGSL_STATE_ACTIVE)) {
-		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->hwaccess_gate);
-		mutex_lock(&device->mutex);
-		device->pwrctrl.superfast = true;
-		ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
-	}
-	if (ret == 0)
-		atomic_inc(&device->active_cnt);
-	trace_kgsl_active_count(device,
-		(unsigned long) __builtin_return_address(0));
-	return ret;
-}
-
-/**
- * kgsl_active_count_put() - Decrease the device active count
- * @device: Pointer to a KGSL device
- *
- * Decrease the active count for the KGSL device and turn off
- * clocks if there are no remaining references. This function will
- * transition the device to NAP if there are no other pending state
- * changes. It also completes the suspend gate.  The device mutex must
- * be held while calling this function.
- */
-void kgsl_active_count_put(struct kgsl_device *device)
-{
-	if (WARN_ON(!mutex_is_locked(&device->mutex)))
-		return;
-
-	if (WARN(atomic_read(&device->active_cnt) == 0,
-			"Unbalanced get/put calls to KGSL active count\n"))
-		return;
-
-	if (atomic_dec_and_test(&device->active_cnt)) {
-		bool nap_on = !(device->pwrctrl.ctrl_flags &
-			BIT(KGSL_PWRFLAGS_NAP_OFF));
-		if (nap_on && device->state == KGSL_STATE_ACTIVE &&
-			device->requested_state == KGSL_STATE_NONE) {
-			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
-			kgsl_schedule_work(&device->idle_check_ws);
-		} else if (!nap_on) {
-			kgsl_pwrscale_update_stats(device);
-			kgsl_pwrscale_update(device);
-		}
-
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
-	}
-
-	trace_kgsl_active_count(device,
-		(unsigned long) __builtin_return_address(0));
-
-	wake_up(&device->active_cnt_wq);
 }
 
 static int _check_active_count(struct kgsl_device *device, int count)

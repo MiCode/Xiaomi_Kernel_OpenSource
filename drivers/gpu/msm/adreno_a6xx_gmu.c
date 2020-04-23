@@ -1927,16 +1927,9 @@ static int a6xx_gmu_ifpc_store(struct kgsl_device *device,
 			requested_idle_level = GPU_HW_ACTIVE;
 	}
 
-	mutex_lock(&device->mutex);
-
 	/* Power down the GPU before changing the idle level */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	gmu->idle_level = requested_idle_level;
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-
-	return 0;
+	return adreno_power_cycle_u32(adreno_dev, &gmu->idle_level,
+		requested_idle_level);
 }
 
 static unsigned int a6xx_gmu_ifpc_show(struct kgsl_device *device)
@@ -2569,11 +2562,24 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	return ret;
 }
 
+static void set_acd(struct adreno_device *adreno_dev, void *priv)
+{
+	struct a6xx_gmu_device *gmu = A6XX_GMU_DEVICE(KGSL_DEVICE(adreno_dev));
+	int ret;
+
+	adreno_dev->acd_enabled = *((bool *)priv);
+
+	ret = a6xx_gmu_aop_send_acd_state(gmu->mailbox.channel,
+		adreno_dev->acd_enabled);
+	if (ret)
+		dev_err(&gmu->pdev->dev,
+				"AOP mbox send message failed: %d\n", ret);
+}
+
 static int a6xx_gmu_acd_set(struct kgsl_device *device, bool val)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = A6XX_GMU_DEVICE(device);
-	int ret;
 
 	if (IS_ERR_OR_NULL(gmu->mailbox.channel))
 		return -EINVAL;
@@ -2582,21 +2588,8 @@ static int a6xx_gmu_acd_set(struct kgsl_device *device, bool val)
 	if (adreno_dev->acd_enabled == val)
 		return 0;
 
-	mutex_lock(&device->mutex);
-
-	/* Power down the GPU before enabling or disabling ACD */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-
-	adreno_dev->acd_enabled = val;
-	ret = a6xx_gmu_aop_send_acd_state(gmu->mailbox.channel, val);
-	if (ret)
-		dev_err(&gmu->pdev->dev,
-				"AOP mbox send message failed: %d\n", ret);
-
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-	return 0;
+	/* Power cycle the GPU for changes to take effect */
+	return adreno_power_cycle(adreno_dev, set_acd, &val);
 }
 
 static struct gmu_dev_ops a6xx_gmudev = {

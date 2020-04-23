@@ -27,6 +27,12 @@
 /* ADRENO_GPU_DEVICE - Given an adreno device return the GPU specific struct */
 #define ADRENO_GPU_DEVICE(_a) ((_a)->gpucore->gpudev)
 
+/*
+ * ADRENO_POWER_OPS - Given an adreno device return the GPU specific power
+ * ops
+ */
+#define ADRENO_POWER_OPS(_a) ((_a)->gpucore->gpudev->power_ops)
+
 #define ADRENO_CHIPID_CORE(_id) (((_id) >> 24) & 0xFF)
 #define ADRENO_CHIPID_MAJOR(_id) (((_id) >> 16) & 0xFF)
 #define ADRENO_CHIPID_MINOR(_id) (((_id) >> 8) & 0xFF)
@@ -320,6 +326,37 @@ struct adreno_reglist {
 	u32 offset;
 	/** @value: Default value of the register to write */
 	u32 value;
+};
+
+/**
+ * struct adreno_power_ops - Container for target specific power up/down
+ * sequences
+ */
+struct adreno_power_ops {
+	/**
+	 * @first_open: Target specific function triggered when first kgsl
+	 * instance is opened
+	 */
+	int (*first_open)(struct adreno_device *adreno_dev);
+	/**
+	 * @last_close: Target specific function triggered when last kgsl
+	 * instance is closed
+	 */
+	int (*last_close)(struct adreno_device *adreno_dev);
+	/**
+	 * @active_count_get: Target specific function to keep gpu from power
+	 * collapsing
+	 */
+	int (*active_count_get)(struct adreno_device *adreno_dev);
+	/**
+	 * @active_count_put: Target specific function to allow gpu to power
+	 * collapse
+	 */
+	void (*active_count_put)(struct adreno_device *adreno_dev);
+	/** @pm_suspend: Target specific function to suspend the driver */
+	int (*pm_suspend)(struct adreno_device *adreno_dev);
+	/** @pm_resume: Target specific function to resume the driver */
+	void (*pm_resume)(struct adreno_device *adreno_dev);
 };
 
 /**
@@ -794,6 +831,11 @@ struct adreno_gpudev {
 				bool update_reg);
 	/** @read_alwayson: Return the current value of the alwayson counter */
 	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
+	/**
+	 * @power_ops: Target specific function pointers to power up/down the
+	 * gpu
+	 */
+	const struct adreno_power_ops *power_ops;
 };
 
 /**
@@ -855,6 +897,7 @@ struct adreno_ft_perf_counters {
 	unsigned int countable;
 };
 
+extern const struct adreno_power_ops adreno_power_operations;
 extern unsigned int *adreno_ft_regs;
 extern unsigned int adreno_ft_regs_num;
 extern unsigned int *adreno_ft_regs_val;
@@ -949,6 +992,30 @@ void adreno_isense_regread(struct adreno_device *adreno_dev,
  * Returns: true if interrupts are pending on the device
  */
 bool adreno_irq_pending(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_active_count_get - Wrapper for target specific active count get
+ * @adreno_dev: pointer to the adreno device
+ *
+ * Increase the active count for the KGSL device and execute slumber exit
+ * sequence if this is the first reference. Code paths that need to touch the
+ * hardware or wait for the hardware to complete an operation must hold an
+ * active count reference until they are finished. The device mutex must be held
+ * while calling this function.
+ *
+ * Return: 0 on success or negative error on failure to wake up the device
+ */
+int adreno_active_count_get(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_active_count_put - Wrapper for target specific active count put
+ * @adreno_dev: pointer to the adreno device
+ *
+ * Decrease the active or the KGSL device and schedule the idle thread to
+ * execute the slumber sequence if there are no remaining references. The
+ * device mutex must be held while calling this function.
+ */
+void adreno_active_count_put(struct adreno_device *adreno_dev);
 
 #define ADRENO_TARGET(_name, _id) \
 static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \
@@ -1556,28 +1623,33 @@ static inline unsigned int counter_delta(struct kgsl_device *device,
 	return ret;
 }
 
-static inline int adreno_perfcntr_active_oob_get(struct kgsl_device *device)
+static inline int adreno_perfcntr_active_oob_get(
+	struct adreno_device *adreno_dev)
 {
-	int ret = kgsl_active_count_get(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret = adreno_active_count_get(adreno_dev);
 
 	if (!ret) {
 		ret = gmu_core_dev_oob_set(device, oob_perfcntr);
 		if (ret) {
 			gmu_core_snapshot(device);
-			adreno_set_gpu_fault(ADRENO_DEVICE(device),
+			adreno_set_gpu_fault(adreno_dev,
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 			adreno_dispatcher_schedule(device);
-			kgsl_active_count_put(device);
+			adreno_active_count_put(adreno_dev);
 		}
 	}
 
 	return ret;
 }
 
-static inline void adreno_perfcntr_active_oob_put(struct kgsl_device *device)
+static inline void adreno_perfcntr_active_oob_put(
+	struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
 	gmu_core_dev_oob_clear(device, oob_perfcntr);
-	kgsl_active_count_put(device);
+	adreno_active_count_put(adreno_dev);
 }
 
 static inline bool adreno_has_sptprac_gdsc(struct adreno_device *adreno_dev)
@@ -1740,4 +1812,49 @@ irqreturn_t adreno_irq_callbacks(struct adreno_device *adreno_dev,
 int adreno_device_probe(struct platform_device *pdev,
 		struct adreno_device *adreno_dev);
 
+/**
+ * adreno_power_cycle - Suspend and resume the device
+ * @adreno_dev: Pointer to the adreno device
+ * @callback: Function that needs to be executed
+ * @priv: Argument to be passed to the callback
+ *
+ * Certain properties that can be set via sysfs need to power
+ * cycle the device to take effect. This function suspends
+ * the device, executes the callback, and resumes the device.
+ *
+ * Return: 0 on success or negative on failure
+ */
+int adreno_power_cycle(struct adreno_device *adreno_dev,
+	void (*callback)(struct adreno_device *adreno_dev, void *priv),
+	void *priv);
+
+/**
+ * adreno_power_cycle_bool - Power cycle the device to change device setting
+ * @adreno_dev: Pointer to the adreno device
+ * @flag: Flag that needs to be set
+ * @val: The value flag should be set to
+ *
+ * Certain properties that can be set via sysfs need to power cycle the device
+ * to take effect. This function suspends the device, sets the flag, and
+ * resumes the device.
+ *
+ * Return: 0 on success or negative on failure
+ */
+int adreno_power_cycle_bool(struct adreno_device *adreno_dev,
+	bool *flag, bool val);
+
+/**
+ * adreno_power_cycle_u32 - Power cycle the device to change device setting
+ * @adreno_dev: Pointer to the adreno device
+ * @flag: Flag that needs to be set
+ * @val: The value flag should be set to
+ *
+ * Certain properties that can be set via sysfs need to power cycle the device
+ * to take effect. This function suspends the device, sets the flag, and
+ * resumes the device.
+ *
+ * Return: 0 on success or negative on failure
+ */
+int adreno_power_cycle_u32(struct adreno_device *adreno_dev,
+	u32 *flag, u32 val);
 #endif /*__ADRENO_H */

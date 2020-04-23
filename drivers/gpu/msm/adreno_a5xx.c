@@ -1449,7 +1449,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Enable ISDB mode if requested */
 	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv)) {
-		if (!kgsl_active_count_get(device)) {
+		if (!adreno_active_count_get(adreno_dev)) {
 			/*
 			 * Disable ME/PFP split timeouts when the debugger is
 			 * enabled because the CP doesn't know when a shader is
@@ -3011,4 +3011,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.clk_set_options = a5xx_clk_set_options,
 	.read_alwayson = a5xx_read_alwayson,
 	.hw_isidle = a5xx_hw_isidle,
+	.power_ops = &adreno_power_operations,
 };

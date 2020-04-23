@@ -1434,4 +1434,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.clk_set_options = a3xx_clk_set_options,
 	.read_alwayson = a3xx_read_alwayson,
 	.hw_isidle = a3xx_hw_isidle,
+	.power_ops = &adreno_power_operations,
 };

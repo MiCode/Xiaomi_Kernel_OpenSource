@@ -197,12 +197,17 @@ kgsl_pwrctrl_active_freq(struct kgsl_pwrctrl *pwr)
 	return pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq;
 }
 
-int __must_check kgsl_active_count_get(struct kgsl_device *device);
-void kgsl_active_count_put(struct kgsl_device *device);
 int kgsl_active_count_wait(struct kgsl_device *device, int count);
 void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 			struct kgsl_pwr_constraint *pwrc, uint32_t id);
 int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device);
+
+/**
+ * kgsl_pwrctrl_request_state - Request a specific power state
+ * @device: Pointer to the kgsl device
+ * @state: Power state requested
+ */
+void kgsl_pwrctrl_request_state(struct kgsl_device *device, u32 state);
 
 #endif /* __KGSL_PWRCTRL_H */

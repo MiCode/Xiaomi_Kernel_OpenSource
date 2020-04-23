@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -68,7 +68,7 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 	 * active count inside that function.
 	 */
 
-	result = adreno_perfcntr_active_oob_get(device);
+	result = adreno_perfcntr_active_oob_get(adreno_dev);
 	if (result) {
 		mutex_unlock(&device->mutex);
 		return (long)result;
@@ -87,7 +87,7 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 				get->countable, PERFCOUNTER_FLAG_NONE);
 	}
 
-	adreno_perfcntr_active_oob_put(device);
+	adreno_perfcntr_active_oob_put(adreno_dev);
 
 	mutex_unlock(&device->mutex);
 

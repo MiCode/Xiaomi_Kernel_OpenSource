@@ -557,7 +557,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	if (dispatcher->inflight == 1 &&
 			!test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
 		/* Time to make the donuts.  Turn on the GPU */
-		ret = kgsl_active_count_get(device);
+		ret = adreno_active_count_get(adreno_dev);
 		if (ret) {
 			dispatcher->inflight--;
 			dispatch_q->inflight--;
@@ -608,7 +608,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 			kgsl_pwrscale_midframe_timer_restart(device);
 
 		} else {
-			kgsl_active_count_put(device);
+			adreno_active_count_put(adreno_dev);
 			clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 		}
 	}
@@ -2500,7 +2500,7 @@ static void _dispatcher_power_down(struct adreno_device *adreno_dev)
 	del_timer_sync(&dispatcher->fault_timer);
 
 	if (test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
-		kgsl_active_count_put(device);
+		adreno_active_count_put(adreno_dev);
 		clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 	}
 

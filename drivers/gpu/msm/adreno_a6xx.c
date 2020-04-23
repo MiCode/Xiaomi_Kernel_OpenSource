@@ -2677,4 +2677,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #endif
 	.clk_set_options = a6xx_clk_set_options,
 	.read_alwayson = a6xx_read_alwayson,
+	.power_ops = &adreno_power_operations,
 };
