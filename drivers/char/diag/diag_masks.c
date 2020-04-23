@@ -893,7 +893,7 @@ static int diag_cmd_get_build_mask(unsigned char *src_buf, int src_len,
 		if (src_len < sizeof(struct diag_build_mask_req_sub_t))
 			goto fail;
 		req_sub = (struct diag_build_mask_req_sub_t *)src_buf;
-		rsp_sub.header.cmd_code = DIAG_CMD_MSG_CONFIG;
+		rsp_sub.header.cmd_code = req_sub->header.cmd_code;
 		rsp_sub.sub_cmd = DIAG_CMD_OP_GET_BUILD_MASK;
 		rsp_sub.ssid_first = req_sub->ssid_first;
 		rsp_sub.ssid_last = req_sub->ssid_last;

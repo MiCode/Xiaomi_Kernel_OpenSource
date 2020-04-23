@@ -1474,13 +1474,16 @@ static void _tmc_disable_etr_sink(struct coresight_device *csdev)
 			if (!drvdata->byte_cntr->sw_usb) {
 				__tmc_etr_disable_to_bam(drvdata);
 				spin_unlock_irqrestore(&drvdata->spinlock,
-								flags);
+					flags);
 				tmc_etr_bam_disable(drvdata);
 				usb_qdss_close(drvdata->usbch);
 				drvdata->mode = CS_MODE_DISABLED;
 				goto out;
 			} else {
+				spin_unlock_irqrestore(&drvdata->spinlock,
+					flags);
 				usb_qdss_close(drvdata->usbch);
+				spin_lock_irqsave(&drvdata->spinlock, flags);
 				tmc_etr_disable_hw(drvdata);
 			}
 		} else {

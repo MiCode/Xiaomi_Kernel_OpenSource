@@ -58,6 +58,10 @@
 
 #define IPA_SUSPEND_BUSY_TIMEOUT (msecs_to_jiffies(10))
 
+#define DEFAULT_MPM_RING_SIZE_UL 6
+#define DEFAULT_MPM_RING_SIZE_DL 16
+#define DEFAULT_MPM_TETH_AGGR_SIZE 24
+#define DEFAULT_MPM_UC_THRESH_SIZE 4
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
  */
@@ -6572,6 +6576,40 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->do_ram_collection_on_crash =
 		resource_p->do_ram_collection_on_crash;
 	ipa3_ctx->lan_rx_napi_enable = resource_p->lan_rx_napi_enable;
+	ipa3_ctx->mpm_ring_size_ul_cache = DEFAULT_MPM_RING_SIZE_UL;
+	ipa3_ctx->mpm_ring_size_ul = DEFAULT_MPM_RING_SIZE_UL;
+	ipa3_ctx->mpm_ring_size_dl_cache = DEFAULT_MPM_RING_SIZE_DL;
+	ipa3_ctx->mpm_ring_size_dl = DEFAULT_MPM_RING_SIZE_DL;
+	ipa3_ctx->mpm_teth_aggr_size = DEFAULT_MPM_TETH_AGGR_SIZE;
+	ipa3_ctx->mpm_uc_thresh = DEFAULT_MPM_UC_THRESH_SIZE;
+
+	if (resource_p->gsi_fw_file_name) {
+		ipa3_ctx->gsi_fw_file_name =
+			kzalloc(((strlen(resource_p->gsi_fw_file_name)+1) *
+				sizeof(const char)), GFP_KERNEL);
+		if (ipa3_ctx->gsi_fw_file_name == NULL) {
+			IPAERR_RL("Failed to alloc GSI FW file name\n");
+			result = -ENOMEM;
+			goto fail_gsi_file_alloc;
+		}
+		memcpy(ipa3_ctx->gsi_fw_file_name,
+				(void const *)resource_p->gsi_fw_file_name,
+				strlen(resource_p->gsi_fw_file_name));
+	}
+
+	if (resource_p->uc_fw_file_name) {
+		ipa3_ctx->uc_fw_file_name =
+			kzalloc(((strlen(resource_p->uc_fw_file_name)+1) *
+				sizeof(const char)), GFP_KERNEL);
+		if (ipa3_ctx->uc_fw_file_name == NULL) {
+			IPAERR_RL("Failed to alloc uC FW file name\n");
+			result = -ENOMEM;
+			goto fail_uc_file_alloc;
+		}
+		memcpy(ipa3_ctx->uc_fw_file_name,
+			(void const *)resource_p->uc_fw_file_name,
+			strlen(resource_p->uc_fw_file_name));
+	}
 
 	if (resource_p->gsi_fw_file_name) {
 		ipa3_ctx->gsi_fw_file_name =

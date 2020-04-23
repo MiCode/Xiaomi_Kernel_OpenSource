@@ -157,7 +157,7 @@ struct fts_ts_data {
 	struct mutex bus_lock;
 	int irq;
 	int log_level;
-	int fw_is_running;      /* confirm fw is running when using spi:default 0 */
+	int fw_is_running; /* confirm fw is running when using spi:default 0 */
 	int dummy_byte;
 	bool suspended;
 	bool fw_loading;
@@ -166,7 +166,9 @@ struct fts_ts_data {
 	bool glove_mode;
 	bool cover_mode;
 	bool charger_mode;
-	bool gesture_mode;      /* gesture enable or disable, default: disable */
+	bool gesture_mode; /* gesture enable or disable, default: disable */
+	int report_rate;
+
 	/* multi-touch */
 	struct ts_event *events;
 	u8 *bus_tx_buf;

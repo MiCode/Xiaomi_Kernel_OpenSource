@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -1548,6 +1548,37 @@ static void ipareg_construct_endp_init_deaggr_n(
 	IPA_SETFIELD_IN_REG(*val, ep_deaggr->packet_offset_location,
 		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_SHFT,
 		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_deaggr->max_packet_len,
+		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_BMSK);
+}
+
+static void ipareg_construct_endp_init_deaggr_n_v4_5(
+		enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipa_ep_cfg_deaggr *ep_deaggr =
+		(struct ipa_ep_cfg_deaggr *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, ep_deaggr->deaggr_hdr_len,
+		IPA_ENDP_INIT_DEAGGR_n_DEAGGR_HDR_LEN_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_DEAGGR_HDR_LEN_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_deaggr->syspipe_err_detection,
+		IPA_ENDP_INIT_DEAGGR_n_SYSPIPE_ERR_DETECTION_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_SYSPIPE_ERR_DETECTION_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_deaggr->packet_offset_valid,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_VALID_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_VALID_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_deaggr->packet_offset_location,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_deaggr->ignore_min_pkt_err,
+		IPA_ENDP_INIT_DEAGGR_n_IGNORE_MIN_PKT_ERR_SHFT,
+		IPA_ENDP_INIT_DEAGGR_n_IGNORE_MIN_PKT_ERR_BMSK);
 
 	IPA_SETFIELD_IN_REG(*val, ep_deaggr->max_packet_len,
 		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_SHFT,
@@ -3167,7 +3198,7 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_init_cfg_n, ipareg_parse_dummy,
 		0x00000808, 0x70, 0, 30, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_DEAGGR_n] = {
-		ipareg_construct_endp_init_deaggr_n,
+		ipareg_construct_endp_init_deaggr_n_v4_5,
 		ipareg_parse_dummy,
 		0x00000834, 0x70, 0, 12, 1},
 	[IPA_HW_v4_5][IPA_ENDP_INIT_CTRL_n] = {
