@@ -497,7 +497,7 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 		gadget->cdev.desc.bDeviceProtocol = (u8)val;
 
 	/* Check if pid passed via cmdline which takes precedence */
-	if (usb_pid_string != NULL) {
+	if (usb_pid_string[0] != NULL) {
 		ret = kstrtoint(usb_pid_string, 16, &val);
 		if (ret)
 			return ret;
