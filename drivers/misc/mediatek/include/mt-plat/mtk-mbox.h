@@ -19,9 +19,8 @@
 #include <linux/spinlock.h>
 
 /*
- * mbox slot size defination
+ * mbox slot size definition
  * 1 slot for 4 bytes
- *
  */
 #define MBOX_SLOT_SIZE 4
 
@@ -163,8 +162,7 @@ struct mtk_mbox_device {
 	unsigned int send_count;
 	void (*memcpy_to_tiny)(void __iomem *dest, const void *src, int size);
 	void (*memcpy_from_tiny)(void *dest, const void __iomem *src, int size);
-	void (*ipi_cb)(struct mtk_mbox_pin_recv *pin_recv);
-
+	mbox_ipi_cb_t ipi_cb;
 	void *ipi_priv;
 	mbox_rx_cb_t pre_cb;
 	mbox_rx_cb_t post_cb;
@@ -173,7 +171,7 @@ struct mtk_mbox_device {
 };
 
 /*
- * mbox callback function context defination
+ * mbox callback function context definition
  * 0: isr context, 1:process context
  */
 enum MBOX_PIN_CTX {
@@ -182,7 +180,7 @@ enum MBOX_PIN_CTX {
 };
 
 /*
- * mbox buffer full action defination
+ * mbox buffer full action definition
  * 0:drop, 1:assert, 2:overwrite
  */
 enum MBOX_BUF_OPT {
@@ -194,15 +192,12 @@ enum MBOX_BUF_OPT {
 };
 
 /*
- * mbox recv action defination
- * 0:for recv, 1:for response
+ * mbox recv action definition
  * 0:receive message, 1:receive ack
  */
 enum MBOX_RECV_OPT {
-	MBOX_RECV         = 0,
-	MBOX_RECV_MESSAGE  = MBOX_RECV,
-	MBOX_RESPONSE     = 1,
-	MBOX_RECV_ACK     = MBOX_RESPONSE,
+	MBOX_RECV_MESSAGE  = 0,
+	MBOX_RECV_ACK      = 1,
 };
 
 /*
@@ -216,10 +211,10 @@ enum MBOX_RECV_OPT {
  * enable :mbox status, 0:disable, 1: enable
  * is64d  :mbox is64d status, 0:32d, 1: 64d
  * base   :mbox base address
- * set_irq_reg  : mbox set irq register
- * clr_irq_reg  : mbox clear irq register
- * init_base_reg: mbox initialize register
- * mbox lock    : lock of mbox
+ * set_irq_reg  :mbox set irq register
+ * clr_irq_reg  :mbox clear irq register
+ * init_base_reg:mbox initialize register
+ * mbox lock    :lock of mbox
  * record       :mbox record information
  */
 struct mtk_mbox_info {
@@ -241,18 +236,15 @@ struct mtk_mbox_info {
 };
 
 /*
- * mbox return value defination
+ * mbox return value definition
  */
 enum MBOX_RETURN {
 	MBOX_READ_SZ_ERR  = -6,
 	MBOX_WRITE_SZ_ERR = -5,
 	MBOX_PARA_ERR     = -4,
-	MBOX_CONFIG_ERROR = -3,
-	MBOX_CONFIG_ERR   = MBOX_CONFIG_ERROR,
-	MBOX_IRQ_ERROR    = -2,
-	MBOX_IRQ_ERR      = MBOX_IRQ_ERROR,
-	MBOX_PARA_ERROR   = -1,
-	MBOX_PLT_ERR      = MBOX_PARA_ERROR,
+	MBOX_CONFIG_ERR   = -3,
+	MBOX_IRQ_ERR      = -2,
+	MBOX_PLT_ERR      = -1,
 	MBOX_DONE         = 0,
 	MBOX_PIN_BUSY     = 1,
 };
@@ -303,7 +295,7 @@ int mtk_mbox_clr_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int irq);
 int mtk_mbox_trigger_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int irq);
-unsigned int mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
+unsigned int mtk_mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
 		unsigned int mbox);
 int mtk_mbox_set_base_addr(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		unsigned int addr);
@@ -319,7 +311,6 @@ int mtk_smem_init(struct platform_device *pdev, struct mtk_mbox_device *mbdev,
 		unsigned int mbox, void __iomem *base,
 		void __iomem *set_irq_reg, void __iomem *clr_irq_reg,
 		void __iomem *send_status_reg, void __iomem *recv_status_reg);
-void mtk_mbox_info_dump(struct mtk_mbox_device *mbdev);
 void mtk_mbox_dump_all(struct mtk_mbox_device *mbdev);
 void mtk_mbox_dump_recv(struct mtk_mbox_device *mbdev, unsigned int pin);
 void mtk_mbox_dump_recv_pin(struct mtk_mbox_device *mbdev,
