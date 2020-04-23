@@ -35,6 +35,7 @@
 
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
+#include "mtk_gpufreq_common.h"
 
 #include "clk-fmeter.h"
 
@@ -277,6 +278,13 @@ void mt_gpufreq_dump_infra_status(void)
 	unsigned int start, offset;
 
 	gpufreq_pr_info("====\n");
+	gpufreq_pr_info(
+		"clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+		mt_get_ckgen_freq(hf_fmfg_ck),
+		g_cur_opp_freq,
+		g_cur_opp_vgpu,
+		g_cur_opp_vsram_gpu);
+
 	// 0x1020E
 	if (g_infracfg_base) {
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
@@ -835,6 +843,25 @@ void mt_gpufreq_software_trigger_dfd(void)
 #endif
 }
 
+/*
+ * general kernelAPI db when dfd is triggerd in probe function
+ * we need dump debug register information
+ */
+static void __mt_gpufreq_dfd_debug_exception(void)
+{
+#if MT_GPUFREQ_DFD_ENABLE
+	unsigned int status = readl(g_infracfg_ao + 0x600);
+
+	//0x1000700C WDT_STA
+	//0x10007030 WDT_REQ_MODE
+	gpu_assert(!(status & 0x80000), GPU_DFD_PROBE_TRIGGERED,
+		"[GPU_DFD] gpu dfd is triggered at probe\n"
+		"[GPU_DFD] dfd status 0x%x, WDT_STA 0x%x, WDT_REQ_MODE 0x%x\n",
+		status, readl(g_toprgu + 0x00C), readl(g_toprgu + 0x030));
+
+#endif // MT_GPUFREQ_DFD_ENABLE
+}
+
 static int __mt_gpufreq_is_dfd_triggered(void)
 {
 #if MT_GPUFREQ_DFD_ENABLE
@@ -912,7 +939,7 @@ static void __mt_gpufreq_config_dfd(bool enable)
 		// [8] enable
 		writel(0x0F101100, g_mfg_base + 0xA00);
 
-		mtk_dbgtop_dfd_timeout(0x5dc0);
+		mtk_dbgtop_dfd_timeout(0x3E8); // 500 ms
 
 	} else {
 		writel(0x00000000, g_mfg_base + 0xA00);
@@ -963,8 +990,12 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 	if (power == POWER_ON)
 		g_power_count++;
 	else {
+		check_pending_info();
+
 		g_power_count--;
-		gpu_assert(g_power_count >= 0);
+		gpu_assert(g_power_count >= 0, GPU_FREQ_EXCEPTION,
+			"power=%d g_power_count=%d (todo cg: %d, mtcmos: %d, buck: %d)\n",
+			power, g_power_count, cg, mtcmos, buck);
 	}
 	gpu_dvfs_power_count_footprint(g_power_count);
 
@@ -1132,34 +1163,32 @@ void mt_gpufreq_update_volt_interpolation(void)
 		slope = (large_vgpu - small_vgpu) / (large_freq - small_freq);
 
 		if (slope < 0) {
-			gpufreq_pr_info("i %d, slope %d, largeOppIndex %d, smallOppIndex %d",
-				i, slope, largeOppIndex, smallOppIndex);
-			gpufreq_pr_info("large_vgpu %d, large_freq %d",
-				large_vgpu, large_freq);
-			gpufreq_pr_info("small_vgpu %d, small_freq %d",
-				small_vgpu, small_freq);
 			dump_stack();
+
+			gpu_assert(slope >= 0, GPU_OPP_PTPOD_SLOPE,
+				"i %d, slope %d, largeOppIndex %d, smallOppIndex %d\n"
+				"large_vgpu %d, large_freq %d\n"
+				"small_vgpu %d, small_freq %d\n",
+				i, slope, largeOppIndex, smallOppIndex,
+				large_vgpu, large_freq,
+				small_vgpu, small_freq);
 		}
-		gpu_assert(slope >= 0);
 
 		for (j = 1; j < range; j++) {
 			freq = g_opp_table[largeOppIndex + j].gpufreq_khz
 				/ 1000;
 			vnew = small_vgpu + slope * (freq - small_freq);
 			vnew = VOLT_NORMALIZATION(vnew);
-			gpu_assert(vnew >= small_vgpu);
+			gpu_assert(vnew >= small_vgpu && vnew <= large_vgpu,
+				GPU_FREQ_EXCEPTION,
+				"j %d, vnew %d, small_vgpu %d, large_vgpu %d\n",
+				j, vnew, small_vgpu, large_vgpu);
 
 			g_opp_table[largeOppIndex + j].gpufreq_vgpu = vnew;
 			g_opp_table[largeOppIndex + j].gpufreq_vsram =
 				__mt_gpufreq_get_vsram_gpu_by_vgpu(vnew);
 		}
 	}
-
-	// check all voltage >= lower bound
-	lower_bound = opp_table[NUM_OF_OPP_IDX - 1].gpufreq_vgpu;
-	for (i = 0; i < NUM_OF_OPP_IDX; i++)
-		gpu_assert(g_opp_table[i].gpufreq_vgpu >= lower_bound);
-
 }
 
 void mt_gpufreq_apply_aging(bool apply)
@@ -2453,6 +2482,9 @@ static void __mt_gpufreq_set(
 
 	/* update "g_cur_opp_idx" when "Vgpu old" and "Vgpu new" is the same */
 	g_cur_opp_idx = idx_new;
+	g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+	g_cur_opp_vgpu = __mt_gpufreq_get_cur_vgpu();
+	g_cur_opp_vsram_gpu = __mt_gpufreq_get_cur_vsram_gpu();
 
 	gpu_dvfs_oppidx_footprint(idx_new);
 
@@ -3581,6 +3613,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #if MT_GPUFREQ_DFD_ENABLE
 	/* if dfd is triggered, power off BUCK to cleare it */
 	if (__mt_gpufreq_is_dfd_triggered()) {
+		//__mt_gpufreq_dfd_debug_exception();
 		gpufreq_pr_info("[GPU_DFD] gpu dfd is triggered, clear it.\n");
 		__mt_gpufreq_gpu_dfd_clear();
 	}
