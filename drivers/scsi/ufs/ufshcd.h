@@ -359,6 +359,7 @@ struct ufs_hba_crypto_variant_ops {
 				    struct scsi_cmnd *cmd,
 				    struct ufshcd_lrb *lrbp);
 	void *priv;
+	void *crypto_DO_NOT_USE[8];
 };
 
 /* clock gating state  */
@@ -740,6 +741,7 @@ struct ufs_hba {
 	union ufs_crypto_cap_entry *crypto_cap_array;
 	u32 crypto_cfg_register;
 	struct keyslot_manager *ksm;
+	void *crypto_DO_NOT_USE[8];
 #endif /* CONFIG_SCSI_UFS_CRYPTO */
 };
 
