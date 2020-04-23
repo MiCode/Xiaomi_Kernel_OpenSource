@@ -201,7 +201,6 @@ enum geni_i3c_err_code {
 #define TLMM_I3C_MODE	0x24
 #define IBI_SW_RESET_MIN_SLEEP 1000
 #define IBI_SW_RESET_MAX_SLEEP 2000
-#define I3C_OD_CLK_RATE 370000
 
 enum i3c_trans_dir {
 	WRITE_TRANSACTION = 0,
@@ -345,9 +344,10 @@ to_geni_i3c_master(struct i3c_master_controller *master)
  */
 static const struct geni_i3c_clk_fld geni_i3c_clk_map[] = {
 	{ KHZ(100),    19200,  7, 10, 11,  0,  0,  26},
-	{ KHZ(400),    19200,  2,  5, 12,  0,  0,  24},
+	{ KHZ(400),    19200,  1, 72, 168, 6,  7, 300},
 	{ KHZ(1000),   19200,  1,  3,  9,  7,  0,  18},
 	{ KHZ(1920),   19200,  1,  4,  9,  7,  8,  19},
+	{ KHZ(3500),   19200,  1, 72, 168, 3, 4,  300},
 	{ KHZ(370),   100000, 20,  4,  7,  8, 14,  14},
 	{ KHZ(12500), 100000,  1, 72, 168, 6,  7, 300},
 };
@@ -366,7 +366,7 @@ static int geni_i3c_clk_map_idx(struct geni_i3c_dev *gi3c)
 			gi3c->clk_fld = itr;
 		}
 
-		if (itr->clk_freq_out == I3C_OD_CLK_RATE)
+		if (itr->clk_freq_out == bus->scl_rate.i2c)
 			gi3c->clk_od_fld = itr;
 	}
 
@@ -423,10 +423,9 @@ static void qcom_geni_i3c_conf(struct geni_i3c_dev *gi3c,
 	if (bus_phase == OPEN_DRAIN_MODE)
 		itr = gi3c->clk_od_fld;
 
-	if (gi3c->dfs_idx > DFS_INDEX_MAX)
-		ret = geni_se_clk_freq_match(&gi3c->se.i3c_rsc,
-				KHZ(itr->clk_src_freq),
-				&gi3c->dfs_idx, &freq, false);
+	ret = geni_se_clk_freq_match(&gi3c->se.i3c_rsc,
+			KHZ(itr->clk_src_freq),
+			&gi3c->dfs_idx, &freq, false);
 	if (ret)
 		gi3c->dfs_idx = 0;
 
