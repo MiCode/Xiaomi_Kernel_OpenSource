@@ -15,6 +15,15 @@
 
 #define MAX_RGMU_CLKS  8
 
+enum {
+	/* @RGMU_PRIV_FIRST_BOOT_DONE: The very first ggpu boot is done */
+	RGMU_PRIV_FIRST_BOOT_DONE,
+	/* @RGMU_PRIV_GPU_STARTED: GPU has been started */
+	RGMU_PRIV_GPU_STARTED,
+	/* @RGMU_PRIV_PM_SUSPEND: The rgmu driver is suspended */
+	RGMU_PRIV_PM_SUSPEND,
+};
+
 /**
  * struct a6xx_rgmu_device - rGMU device structure
  * @ver: RGMU firmware version
@@ -47,8 +56,28 @@ struct a6xx_rgmu_device {
 	struct clk *rgmu_clk;
 	unsigned int idle_level;
 	unsigned int fault_count;
+	/** @fault: to track whether we encountered a rgmu fault */
+	bool fault;
+	/** @flags: rgmu internal flags */
+	unsigned long flags;
 };
 
-#define A6XX_RGMU_DEVICE(_a)  ((struct a6xx_rgmu_device *)((_a)->gmu_core.ptr))
+/**
+ * a6xx_rgmu_device_probe - Probe a6xx rgmu resources
+ * @pdev: Pointer to the platform device
+ * @chipid: Chipid of the target
+ * @gpucore: Pointer to the gpucore
+ *
+ * The target specific probe function for rgmu based a6xx targets.
+ */
+int a6xx_rgmu_device_probe(struct platform_device *pdev,
+	u32 chipid, const struct adreno_gpu_core *gpucore);
 
-#endif /* __ADRENO_A6XX_RGMU_H */
+/**
+ * a6xx_rgmu_restart - Reset and restart the rgmu
+ * @device: Pointer to the kgsl device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_rgmu_restart(struct kgsl_device *device);
+#endif

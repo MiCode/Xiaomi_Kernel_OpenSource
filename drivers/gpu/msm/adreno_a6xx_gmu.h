@@ -274,4 +274,18 @@ int a6xx_gmu_device_probe(struct platform_device *pdev,
  * Return: 0 on success or negative error on failure
  */
 int a6xx_gmu_restart(struct kgsl_device *device);
+
+/**
+ * a6xx_enable_gpu_irq - Enable gpu interrupt
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_disable_gpu_irq - Disable gpu interrupt
+ * @adreno_dev: Pointer to the adreno device
+ */
+void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev);
+
+
 #endif

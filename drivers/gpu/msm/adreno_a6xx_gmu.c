@@ -2706,7 +2706,7 @@ error:
 	return ret;
 }
 
-static void enable_gpu_irq(struct adreno_device *adreno_dev)
+void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -2717,7 +2717,7 @@ static void enable_gpu_irq(struct adreno_device *adreno_dev)
 	trace_kgsl_irq(device, 1);
 }
 
-static void disable_gpu_irq(struct adreno_device *adreno_dev)
+void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -2769,11 +2769,11 @@ static int a6xx_gpu_boot(struct adreno_device *adreno_dev)
 	/* Clear FSR here in case it is set from a previous pagefault */
 	kgsl_mmu_clear_fsr(&device->mmu);
 
-	enable_gpu_irq(adreno_dev);
+	a6xx_enable_gpu_irq(adreno_dev);
 
 	ret = a6xx_rb_start(adreno_dev);
 	if (ret) {
-		disable_gpu_irq(adreno_dev);
+		a6xx_disable_gpu_irq(adreno_dev);
 		goto oob_clear;
 	}
 
@@ -2953,7 +2953,7 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 	a6xx_gmu_oob_clear(device, oob_gpu);
 
 no_gx_power:
-	disable_gpu_irq(adreno_dev);
+	a6xx_disable_gpu_irq(adreno_dev);
 
 	a6xx_gmu_power_off(adreno_dev);
 
@@ -3157,7 +3157,7 @@ int a6xx_gmu_restart(struct kgsl_device *device)
 
 	a6xx_hfi_stop(adreno_dev);
 
-	disable_gpu_irq(adreno_dev);
+	a6xx_disable_gpu_irq(adreno_dev);
 
 	/* Hard reset the gmu and gpu */
 	a6xx_gmu_suspend(adreno_dev);

@@ -11,8 +11,10 @@
 
 #include "a6xx_reg.h"
 #include "adreno_a6xx_gmu.h"
+#include "adreno_a6xx_rgmu.h"
 
 extern const struct adreno_power_ops a6xx_gmu_power_ops;
+extern const struct adreno_power_ops a6xx_rgmu_power_ops;
 
 /**
  * struct a6xx_device - Container for the a6xx_device
@@ -20,6 +22,8 @@ extern const struct adreno_power_ops a6xx_gmu_power_ops;
 struct a6xx_device {
 	/** @gmu: Container for the a6xx GMU device */
 	struct a6xx_gmu_device gmu;
+	/** @rgmu: Container for the a6xx rGMU device */
+	struct a6xx_rgmu_device rgmu;
 	/** @adreno_dev: Container for the generic adreno device */
 	struct adreno_device adreno_dev;
 };
