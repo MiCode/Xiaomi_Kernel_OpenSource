@@ -310,6 +310,7 @@
 	};
 
 	usb1: ssusb@a800000 {
+		status="disabled";
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xa800000 0x100000>;
 		reg-names = "core_base";
