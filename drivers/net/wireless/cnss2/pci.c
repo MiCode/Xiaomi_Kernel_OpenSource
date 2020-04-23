@@ -375,7 +375,7 @@ static struct cnss_bus_bw_cfg cnss_bus_bw_table[] = {
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
 
-static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
+int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
 
@@ -3296,6 +3296,34 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
 {
 	pci_priv->iommu_domain = NULL;
+}
+
+int cnss_pci_get_iova(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!pci_priv->smmu_iova_len)
+		return -EINVAL;
+
+	*addr = pci_priv->smmu_iova_start;
+	*size = pci_priv->smmu_iova_len;
+
+	return 0;
+}
+
+int cnss_pci_get_iova_ipa(struct cnss_pci_data *pci_priv, u64 *addr, u64 *size)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!pci_priv->smmu_iova_ipa_len)
+		return -EINVAL;
+
+	*addr = pci_priv->smmu_iova_ipa_start;
+	*size = pci_priv->smmu_iova_ipa_len;
+
+	return 0;
 }
 
 struct iommu_domain *cnss_smmu_get_domain(struct device *dev)
