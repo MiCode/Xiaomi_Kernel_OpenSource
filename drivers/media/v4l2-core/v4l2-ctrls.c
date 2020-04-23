@@ -341,35 +341,28 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"5.1",
 		NULL,
 	};
-	static const char * const mpeg_h265_level[] = {
-		"Main 1",
-		"High 1",
-		"Main 2.0",
-		"High 2.0",
-		"Main 2.1",
-		"High 2.1",
-		"Main 3.0",
-		"High 3.0",
-		"Main 3.1",
-		"High 3.1",
-		"Main 4.0",
-		"High 4.0",
-		"Main 4.1",
-		"High 4.1",
-		"Main 5.0",
-		"High 5.0",
-		"Main 5.1",
-		"High 5.1",
-		"Main 5.2",
-		"High 5.2",
-		"Main 6.0",
-		"High 6.0",
-		"Main 6.1",
-		"High 6.1",
-		"Main 6.2",
-		"High 6.2",
+	static const char * const mpeg_hevc_level[] = {
+		"1",
+		"2.0",
+		"2.1",
+		"3.0",
+		"3.1",
+		"4.0",
+		"4.1",
+		"5.0",
+		"5.1",
+		"5.2",
+		"6.0",
+		"6.1",
+		"6.2",
 		NULL,
 	};
+	static const char * const mpeg_hevc_tier[] = {
+		"Main",
+		"High",
+		NULL,
+	};
+
 	static const char * const h264_loop_filter[] = {
 		"Enabled",
 		"Disabled",
@@ -396,10 +389,10 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"Multiview High",
 		NULL,
 	};
-	static const char * const h265_profile[] = {
+	static const char * const hevc_profile[] = {
 		"Main",
+		"Still Pic",
 		"Main10",
-		"Still Image",
 		NULL,
 	};
 	static const char * const vui_sar_idc[] = {
@@ -583,14 +576,16 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		return entropy_mode;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		return mpeg_h264_level;
-	case V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL:
-		return mpeg_h265_level;
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+		return mpeg_hevc_level;
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
+		return mpeg_hevc_tier;
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
 		return h264_loop_filter;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		return h264_profile;
-	case V4L2_CID_MPEG_VIDEO_H265_PROFILE:
-		return h265_profile;
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
+		return hevc_profile;
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC:
 		return vui_sar_idc;
 	case V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE:
@@ -758,14 +753,16 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:		return "H264 Entropy Mode";
 	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:			return "H264 I-Frame Period";
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:			return "H264 Level";
-	case V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL:
-		return "H265 Level";
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+		return "HEVC Level";
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
+		return "HEVC Tier";
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA:	return "H264 Loop Filter Alpha Offset";
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA:		return "H264 Loop Filter Beta Offset";
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:		return "H264 Loop Filter Mode";
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:			return "H264 Profile";
-	case V4L2_CID_MPEG_VIDEO_H265_PROFILE:
-		return "H265 Profile";
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
+		return "HEVC Profile";
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT:	return "Vertical Size of SAR";
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH:	return "Horizontal Size of SAR";
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE:		return "Aspect Ratio VUI Enable";
@@ -1143,10 +1140,11 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-	case V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_H265_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC:
 	case V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE:
 	case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
