@@ -262,7 +262,8 @@ int reviser_table_init_tcm(void *drvinfo)
 
 	mutex_lock(&reviser_device->mutex_tcm);
 
-	bitmap_zero(table_tcm, TABLE_TCM_MAX);
+	if (TABLE_TCM_MAX != 0)
+		bitmap_zero(table_tcm, TABLE_TCM_MAX);
 	g_tcm_free = TABLE_TCM_MAX;
 
 	mutex_unlock(&reviser_device->mutex_tcm);
