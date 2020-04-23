@@ -552,6 +552,10 @@
 		compatible = "simple-bus";
 	};
 
+	qcom-secure-buffer {
+		compatible = "qcom,secure-buffer";
+	};
+
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
@@ -749,6 +753,13 @@
 	};
 };
 
+&firmware {
+	scm {
+		compatible = "qcom,scm";
+	};
+};
+
+#include "sm8150-ion.dtsi"
 #include "sm8150-pinctrl.dtsi"
 #include "sm8150-regulator.dtsi"
 #include "sm8150-pm.dtsi"
