@@ -67,7 +67,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 	 * There are no doorbell setup for Tx or Rx
 	 */
 	if (dir == HH_DBL_DIRECTION_RX) {
-		if (!cap_table_entry->rx_cap_id ||
+		if ((cap_table_entry->rx_cap_id == HH_CAPID_INVAL) ||
 		    !cap_table_entry->rx_reg_done) {
 			pr_err("%s: label: %d; rx_cap_id: %llu; dir: %d rx_done: %d\n",
 				__func__, client_desc->label,
@@ -76,7 +76,7 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 			return -EAGAIN;
 		}
 	} else {
-		if (!cap_table_entry->tx_cap_id ||
+		if ((cap_table_entry->tx_cap_id == HH_CAPID_INVAL) ||
 		    !cap_table_entry->tx_reg_done) {
 			pr_err("%s: label: %d; tx_cap_id: %llu; dir: %d tx_done: %d\n",
 				__func__, client_desc->label,
@@ -575,6 +575,8 @@ static int __init hh_dbl_init(void)
 	for (i = 0; i < HH_DBL_LABEL_MAX; i++) {
 		entry = &hh_dbl_cap_table[i];
 		mutex_init(&entry->cap_entry_lock);
+		entry->tx_cap_id = HH_CAPID_INVAL;
+		entry->rx_cap_id = HH_CAPID_INVAL;
 		entry->rx_irq_name = kasprintf(GFP_KERNEL, "hh_dbl_rx_%d", i);
 		if (!entry->rx_irq_name) {
 			ret = -ENOMEM;
