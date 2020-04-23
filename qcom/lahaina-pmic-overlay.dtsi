@@ -222,7 +222,7 @@
 			L3J: pm8008j_l3: regulator@4200 {
 				reg = <0x4200>;
 				regulator-name = "pm8008j_l3";
-				regulator-min-microvolt = <1800000>;
+				regulator-min-microvolt = <1728000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <70000>;
 			};
@@ -230,7 +230,7 @@
 			L4J: pm8008j_l4: regulator@4300 {
 				reg = <0x4300>;
 				regulator-name = "pm8008j_l4";
-				regulator-min-microvolt = <1800000>;
+				regulator-min-microvolt = <1728000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <70000>;
 			};
@@ -254,7 +254,7 @@
 			L7J: pm8008j_l7: regulator@4600 {
 				reg = <0x4600>;
 				regulator-name = "pm8008j_l7";
-				regulator-min-microvolt = <3000000>;
+				regulator-min-microvolt = <2808000>;
 				regulator-max-microvolt = <3600000>;
 				qcom,min-dropout-voltage = <200000>;
 			};
