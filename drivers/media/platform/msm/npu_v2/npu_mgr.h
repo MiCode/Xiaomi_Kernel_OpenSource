@@ -136,7 +136,9 @@ struct npu_host_ctx {
 	uint32_t wdg_irq_sts;
 	bool fw_error;
 	bool cancel_work;
+	bool app_crashed;
 	struct notifier_block nb;
+	struct notifier_block panic_nb;
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;
