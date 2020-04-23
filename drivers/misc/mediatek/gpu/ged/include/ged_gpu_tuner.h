@@ -10,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
+
 #ifndef __GED_GPU_TUNER_H__
 
 #define __GED_GPU_TUNER_H__
@@ -18,7 +19,7 @@
 #include <linux/kernel.h>
 #include <ged_bridge.h>
 #include "ged_type.h"
-#include "mtk_gpu_utility.h"
+#include <mt-plat/mtk_gpu_utility.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -46,9 +47,6 @@ GED_ERROR ged_gpu_get_stauts_by_packagename(char *packagename,
 	struct GED_GPU_TUNER_ITEM *status);
 GED_ERROR ged_gpu_tuner_init(void);
 GED_ERROR ged_gpu_tuner_exit(void);
-
-int ged_bridge_gpu_tuner_status(struct GED_BRIDGE_IN_GPU_TUNER_STATUS *in,
-	struct GED_BRIDGE_OUT_GPU_TUNER_STATUS *out);
 
 #if defined(__cplusplus)
 }
