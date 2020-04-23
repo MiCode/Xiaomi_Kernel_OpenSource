@@ -13,7 +13,7 @@
 #ifndef _AUTOK_CUST_H_
 #define _AUTOK_CUST_H_
 
-#define AUTOK_VERSION                   (0x17080217)
+#define AUTOK_VERSION                   (0x18110817)
 
 struct AUTOK_PLAT_PARA_TX {
 	unsigned int chip_hw_ver;
@@ -239,12 +239,12 @@ struct AUTOK_PLAT_FUNC {
 		autok_para_rx.old_stop_sdr104 = 6; \
 		autok_para_rx.old_water_hs = 8; \
 		autok_para_rx.old_stop_hs = 3; \
-		autok_para_rx.read_dat_cnt_hs400 = 1; \
-		autok_para_rx.read_dat_cnt_ddr208 = 1; \
-		autok_para_rx.end_bit_chk_cnt_hs400 = 3; \
-		autok_para_rx.end_bit_chk_cnt_ddr208 = 3; \
-		autok_para_rx.latchck_switch_cnt_hs400 = 4; \
-		autok_para_rx.latchck_switch_cnt_ddr208 = 5; \
+		autok_para_rx.read_dat_cnt_hs400 = 7; \
+		autok_para_rx.read_dat_cnt_ddr208 = 0; \
+		autok_para_rx.end_bit_chk_cnt_hs400 = 14; \
+		autok_para_rx.end_bit_chk_cnt_ddr208 = 0; \
+		autok_para_rx.latchck_switch_cnt_hs400 = 6; \
+		autok_para_rx.latchck_switch_cnt_ddr208 = 0; \
 		autok_para_rx.ds_dly3_hs400 = 20; \
 		autok_para_rx.ds_dly3_ddr208 = 0; \
 	} while (0)
@@ -276,6 +276,10 @@ struct AUTOK_PLAT_FUNC {
 		autok_para_func.new_path_hs = 1; \
 		autok_para_func.multi_sync = 1; \
 		autok_para_func.rx_enhance = 1; \
+		autok_para_func.r1b_check = 1; \
+		autok_para_func.ddr50_fix = 1; \
+		autok_para_func.fifo_1k = 1; \
+		autok_para_func.latch_enhance = 1; \
 		autok_para_func.msdc0_bypass_duty_modify = 1; \
 		autok_para_func.msdc1_bypass_duty_modify = 0; \
 		autok_para_func.msdc2_bypass_duty_modify = 0; \

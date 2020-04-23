@@ -1635,6 +1635,7 @@ static unsigned int msdc_command_start(struct msdc_host   *host,
 	}
 
 	dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
+	dbg_add_sd_log(host->mmc, 0, cmd->opcode, cmd->arg);
 
 	sdc_send_cmd(rawcmd, cmd->arg);
 
@@ -1780,6 +1781,7 @@ skip_cmd_resp_polling:
 			break;
 		}
 		dbg_add_host_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
+		dbg_add_sd_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
 	} else if (intsts & MSDC_INT_RSPCRCERR) {
 		cmd->error = (unsigned int)-EILSEQ;
 		if ((cmd->opcode != 19) && (cmd->opcode != 21)) {
@@ -3645,14 +3647,17 @@ int msdc_error_tuning(struct mmc_host *mmc,  struct mmc_request *mrq)
 		goto recovery;
 
 start_tune:
-	msdc_pmic_force_vcore_pwm(true);
 
 	switch (mmc->ios.timing) {
 	case MMC_TIMING_UHS_SDR104:
 	case MMC_TIMING_UHS_SDR50:
 		pr_notice("msdc%d: SD UHS_SDR104/UHS_SDR50 re-autok %d times\n",
 			host->id, ++host->reautok_times);
+#ifndef SD_RUNTIME_AUTOK_MERGE
 		ret = autok_execute_tuning(host, NULL);
+#else
+		ret = sd_runtime_autok_merge(host);
+#endif
 		/* ret = sd_execute_dvfs_autok(host, MMC_SEND_TUNING_BLOCK); */
 		break;
 	case MMC_TIMING_MMC_HS200:
@@ -3666,8 +3671,14 @@ start_tune:
 				emmc_execute_dvfs_autok(host, MMC_SEND_STATUS);
 			else
 #endif
-				emmc_execute_dvfs_autok(host,
-					MMC_SEND_TUNING_BLOCK_HS200);
+			{
+				if (host->hw->host_function == MSDC_EMMC)
+					emmc_execute_dvfs_autok(host,
+						MMC_SEND_TUNING_BLOCK_HS200);
+				else if (host->hw->host_function == MSDC_SD)
+					sd_execute_dvfs_autok(host,
+						MMC_SEND_TUNING_BLOCK_HS200);
+			}
 			break;
 		}
 		/* fall through */
@@ -3680,8 +3691,6 @@ start_tune:
 		autok_low_speed_switch_edge(host, &mmc->ios, autok_err_type);
 		break;
 	}
-
-	msdc_pmic_force_vcore_pwm(false);
 
 	if (ret) {
 		/* FIX ME, consider to use msdc_dump_info() to replace all */
@@ -4149,8 +4158,6 @@ int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	host->tuning_in_progress = true;
 
-	msdc_pmic_force_vcore_pwm(true);
-
 	if (host->hw->host_function == MSDC_SD)
 		ret = sd_execute_dvfs_autok(host, opcode);
 	else if (host->hw->host_function == MSDC_EMMC)
@@ -4158,7 +4165,6 @@ int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	else if (host->hw->host_function == MSDC_SDIO)
 		sdio_execute_dvfs_autok(host);
 
-	msdc_pmic_force_vcore_pwm(false);
 	host->tuning_in_progress = false;
 	if (ret)
 		msdc_dump_info(NULL, 0, NULL, host->id);
@@ -4269,7 +4275,9 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * Save timing setting if leaving current timing for restore
 	 * using.
 	 */
-	if (host->hw->host_function == MSDC_EMMC && host->timing != ios->timing
+	if ((host->hw->host_function == MSDC_EMMC ||
+		(mmc->caps2 & MMC_CAP2_NMCARD))
+			&& host->timing != ios->timing
 			&& ios->timing == MMC_TIMING_LEGACY)
 		msdc_save_timing_setting(host);
 
@@ -4336,6 +4344,9 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			} else if (host->timing == MMC_TIMING_UHS_DDR50) {
 				host->hw->driving_applied =
 					&host->hw->driving_ddr50;
+			} else if (host->timing == MMC_TIMING_MMC_HS200) {
+				host->hw->driving_applied =
+					&host->hw->driving_hs200;
 			}
 			msdc_set_driving(host, host->hw->driving_applied);
 		}
@@ -4357,7 +4368,8 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		 * Only restore tune setting on resumming for saving
 		 * time.
 		 */
-		if (host->hw->host_function == MSDC_EMMC
+		if ((host->hw->host_function == MSDC_EMMC ||
+			(mmc->caps2 & MMC_CAP2_NMCARD))
 		&& mmc->card && mmc_card_suspended(mmc->card)
 		&& ios->timing != MMC_TIMING_LEGACY) {
 			msdc_restore_timing_setting(host);
@@ -4416,12 +4428,12 @@ static int msdc_ops_get_cd(struct mmc_host *mmc)
  end:
 	/* enable msdc register dump */
 	sd_register_zone[host->id] = 1;
-	INFO_MSG(
-	"Card insert<%d> Block bad card<%d>, mrq<%p> claimed<%d> pwrcnt<%d>",
+	INIT_MSG(
+	"Card insert<%d> Block bad card<%d>, mrq<%p> claimed<%d> pwrcnt<%d> trigger card event<%d>",
 		host->card_inserted,
 		host->block_bad_card,
 		host->mrq, mmc->claimed,
-		host->power_cycle_cnt);
+		host->power_cycle_cnt, mmc->trigger_card_event);
 
 	/* spin_unlock_irqrestore(&host->lock, flags); */
 
@@ -4682,6 +4694,7 @@ static struct mmc_host_ops mt_msdc_ops = {
 	.hw_reset                      = msdc_card_reset,
 	.card_busy                     = msdc_card_busy,
 	.prepare_hs400_tuning          = msdc_prepare_hs400_tuning,
+	.remove_bad_sdcard	       = msdc_ops_set_bad_card_and_remove,
 };
 
 static void msdc_irq_cmd_complete(struct msdc_host *host)
@@ -5216,13 +5229,16 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (host->hw->host_function == MSDC_EMMC)
 		mmc->caps |= MMC_CAP_CMD23;
 #endif
-	if (host->hw->host_function == MSDC_SD)
+	if (host->hw->host_function == MSDC_SD) {
 		mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
-
+#ifdef NMCARD_SUPPORT
+		mmc->caps2 |= MMC_CAP2_NMCARD;
+#endif
+	}
 	mmc->caps |= MMC_CAP_ERASE;
 
 #ifdef CONFIG_MTK_EMMC_HW_CQ
-	if (check_enable_cqe())
+	if (check_enable_cqe() && host->hw->host_function == MSDC_EMMC)
 		mmc->caps2 |= MMC_CAP2_CQE;
 #endif
 
@@ -5446,6 +5462,12 @@ static int msdc_drv_remove(struct platform_device *pdev)
 	if (host->aes_clk_ctl)
 		clk_unprepare(host->aes_clk_ctl);
 #endif
+	if (host->axi_clk_ctl)
+		clk_unprepare(host->axi_clk_ctl);
+	if (host->ahb2axi_brg_clk_ctl)
+		clk_unprepare(host->ahb2axi_brg_clk_ctl);
+	if (host->pclk_ctl)
+		clk_unprepare(host->pclk_ctl);
 #endif
 	pm_qos_remove_request(&host->msdc_pm_qos_req);
 	pm_runtime_disable(&pdev->dev);
@@ -5471,9 +5493,6 @@ static int msdc_drv_remove(struct platform_device *pdev)
 static int msdc_runtime_suspend(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-	unsigned long flags;
-#endif
 
 	/* mclk = 0 means core layer suspend has disabled clk. */
 	if (host->mclk)
@@ -5484,6 +5503,12 @@ static int msdc_runtime_suspend(struct device *dev)
 		clk_unprepare(host->aes_clk_ctl);
 	if (host->hclk_ctl)
 		clk_unprepare(host->hclk_ctl);
+	if (host->axi_clk_ctl)
+		clk_unprepare(host->axi_clk_ctl);
+	if (host->ahb2axi_brg_clk_ctl)
+		clk_unprepare(host->ahb2axi_brg_clk_ctl);
+	if (host->pclk_ctl)
+		clk_unprepare(host->pclk_ctl);
 
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
@@ -5497,6 +5522,12 @@ static int msdc_runtime_resume(struct device *dev)
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
+	if (host->pclk_ctl)
+		(void)clk_prepare(host->pclk_ctl);
+	if (host->axi_clk_ctl)
+		(void)clk_prepare(host->axi_clk_ctl);
+	if (host->ahb2axi_brg_clk_ctl)
+		(void)clk_prepare(host->ahb2axi_brg_clk_ctl);
 	(void)clk_prepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
 		(void)clk_prepare(host->aes_clk_ctl);

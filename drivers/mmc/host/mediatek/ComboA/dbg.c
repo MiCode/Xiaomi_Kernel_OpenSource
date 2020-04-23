@@ -211,6 +211,7 @@ static void msdc_init_dma_latest_address(void)
 #endif
 
 #define dbg_max_cnt (4000)
+#define sd_dbg_max_cnt (1000)
 #ifdef CONFIG_MTK_MMC_DEBUG
 #ifdef MTK_MSDC_LOW_IO_DEBUG
 #define dbg_max_cnt_low_io (5000)
@@ -250,6 +251,8 @@ struct dbg_dma_cmd_log {
 };
 
 static struct dbg_run_host_log dbg_run_host_log_dat[dbg_max_cnt];
+/* for sdcard cmd */
+static struct dbg_run_host_log dbg_run_sd_log_dat[dbg_max_cnt];
 
 #ifdef MTK_MSDC_LOW_IO_DEBUG
 static struct dbg_run_host_log_low_io
@@ -260,7 +263,7 @@ static int dbg_host_cnt_low_io;
 static struct dbg_dma_cmd_log dbg_dma_cmd_log_dat;
 static struct dbg_task_log dbg_task_log_dat[32];
 char msdc_aee_buffer[MSDC_AEE_BUFFER_SIZE];
-static int dbg_host_cnt;
+static int dbg_host_cnt, dbg_sd_cnt;
 
 static unsigned int printk_cpu_test = UINT_MAX;
 
@@ -410,6 +413,79 @@ inline void __dbg_add_host_log(struct mmc_host *mmc, int type,
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	spin_unlock_irqrestore(&host->cmd_dump_lock, flags);
 #endif
+}
+
+/*
+ * for sdcard cmd dump
+ * type 0: cmd; type 1: rsp;
+ */
+inline void __dbg_add_sd_log(struct mmc_host *mmc, int type,
+			int cmd, int arg)
+{
+	unsigned long long t, tn;
+	unsigned long long nanosec_rem;
+	static int last_cmd, last_arg, skip;
+	int l_skip = 0;
+	struct msdc_host *host = mmc_priv(mmc);
+	static int tag = -1;
+
+	/* only log msdc1 */
+	if (!host || host->id == 0)
+		return;
+
+	t = cpu_clock(printk_cpu_test);
+
+	switch (type) {
+	case 0: /* normal - cmd */
+		tn = t;
+		nanosec_rem = do_div(t, 1000000000)/1000;
+
+		dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
+		dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
+		dbg_run_sd_log_dat[dbg_sd_cnt].type = type;
+		dbg_run_sd_log_dat[dbg_sd_cnt].cmd = cmd;
+		dbg_run_sd_log_dat[dbg_sd_cnt].arg = arg;
+		dbg_run_sd_log_dat[dbg_sd_cnt].skip = l_skip;
+		dbg_sd_cnt++;
+		if (dbg_sd_cnt >= sd_dbg_max_cnt)
+			dbg_sd_cnt = 0;
+		break;
+	case 1: /* normal -rsp */
+		nanosec_rem = do_div(t, 1000000000)/1000;
+		/*skip log if last cmd rsp are the same*/
+		if (last_cmd == cmd &&
+			last_arg == arg && cmd == 13) {
+			skip++;
+			if (dbg_sd_cnt == 0)
+				dbg_sd_cnt = sd_dbg_max_cnt;
+			/*remove type = 0, command*/
+			dbg_sd_cnt--;
+			break;
+		}
+		last_cmd = cmd;
+		last_arg = arg;
+		l_skip = skip;
+		skip = 0;
+
+		dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
+		dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
+		dbg_run_sd_log_dat[dbg_sd_cnt].type = type;
+		dbg_run_sd_log_dat[dbg_sd_cnt].cmd = cmd;
+		dbg_run_sd_log_dat[dbg_sd_cnt].arg = arg;
+		dbg_run_sd_log_dat[dbg_sd_cnt].skip = l_skip;
+		dbg_sd_cnt++;
+		if (dbg_sd_cnt >= sd_dbg_max_cnt)
+			dbg_sd_cnt = 0;
+		break;
+	default:
+		break;
+	}
+}
+
+void dbg_add_sd_log(struct mmc_host *mmc, int type,
+		int cmd, int arg)
+{
+	__dbg_add_sd_log(mmc, type, cmd, arg);
 }
 
 /* all cases which except softirq of IO */
@@ -589,6 +665,55 @@ void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		mmc->claimer ? mmc->claimer->comm : "NULL");
 }
 
+void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
+	struct mmc_host *mmc, u32 latest_cnt)
+{
+	int i, j;
+	int tag = -1;
+	int is_read, is_rel, is_fprg;
+	unsigned long long time_sec, time_usec;
+	int type, cmd, arg, skip, cnt, cpu;
+	unsigned long active_reqs;
+	struct msdc_host *host;
+	u32 dump_cnt;
+
+	if (!mmc || !mmc->card)
+		return;
+	/* only dump msdc1 */
+	host = mmc_priv(mmc);
+	if (!host || host->id == 0)
+		return;
+
+	dump_cnt = min_t(u32, latest_cnt, sd_dbg_max_cnt);
+
+	i = dbg_sd_cnt - 1;
+	if (i < 0)
+		i = sd_dbg_max_cnt - 1;
+
+	for (j = 0; j < dump_cnt; j++) {
+		time_sec = dbg_run_sd_log_dat[i].time_sec;
+		time_usec = dbg_run_sd_log_dat[i].time_usec;
+		type = dbg_run_sd_log_dat[i].type;
+		cmd = dbg_run_sd_log_dat[i].cmd;
+		arg = dbg_run_sd_log_dat[i].arg;
+		skip = dbg_run_sd_log_dat[i].skip;
+
+		SPREAD_PRINTF(buff, size, m,
+		"%03d [%5llu.%06llu]%2d %3d %08x (%d)\n",
+			j, time_sec, time_usec,
+			type, cmd, arg, skip);
+		i--;
+		if (i < 0)
+			i = sd_dbg_max_cnt - 1;
+	}
+
+	SPREAD_PRINTF(buff, size, m,
+		"claimed(%d), claim_cnt(%d), claimer pid(%d), comm %s\n",
+		mmc->claimed, mmc->claim_cnt,
+		mmc->claimer ? mmc->claimer->pid : 0,
+		mmc->claimer ? mmc->claimer->comm : "NULL");
+}
+
 void msdc_dump_host_state(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host)
 {
@@ -649,7 +774,10 @@ static void msdc_proc_dump(struct seq_file *m, u32 id)
 	}
 
 	msdc_dump_host_state(NULL, NULL, m, host);
-	mmc_cmd_dump(NULL, NULL, m, host->mmc, dbg_max_cnt);
+	if (id == 0)
+		mmc_cmd_dump(NULL, NULL, m, host->mmc, dbg_max_cnt);
+	else if (id == 1)
+		sd_cmd_dump(NULL, NULL, m, host->mmc, sd_dbg_max_cnt);
 	mmc_low_io_dump(NULL, NULL, m, host->mmc);
 }
 
@@ -657,24 +785,45 @@ void get_msdc_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
 	struct msdc_host *host = mtk_msdc_host[0];
 	unsigned long free_size = MSDC_AEE_BUFFER_SIZE;
-	char *buff;
+	char *buff = msdc_aee_buffer;
 
 	if (host == NULL) {
-		pr_info("====== Null msdc, dump skipped ======\n");
-		return;
+		pr_info("====== Null msdc0, dump skipped ======\n");
+		goto msdc1_dump;
 	}
 
-	buff = msdc_aee_buffer;
+	pr_info("====== msdc0 dump ======\n");
 	msdc_dump_host_state(&buff, &free_size, NULL, host);
 	mmc_cmd_dump(&buff, &free_size, NULL, host->mmc, dbg_max_cnt);
 	mmc_low_io_dump(&buff, &free_size, NULL, host->mmc);
+
+msdc1_dump:
+	host = mtk_msdc_host[1];
+	if (host == NULL) {
+		pr_info("====== Null msdc1, dump skipped ======\n");
+		goto exit;
+	}
+
+	pr_info("====== msdc1 dump ======\n");
+	sd_cmd_dump(&buff, &free_size, NULL, host->mmc, sd_dbg_max_cnt);
+
+exit:
 	/* retrun start location */
 	*vaddr = (unsigned long)msdc_aee_buffer;
 	*size = MSDC_AEE_BUFFER_SIZE - free_size;
 }
 EXPORT_SYMBOL(get_msdc_aee_buffer);
 #else
+inline void dbg_add_sd_log(struct mmc_host *mmc, int type, int cmd, int arg)
+{
+	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
+}
 inline void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg)
+{
+	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
+}
+inline void dbg_add_sirq_log(struct mmc_host *mmc, int type,
+		int cmd, int arg, int cpu, unsigned long active_reqs)
 {
 	//pr_info("config MTK_MMC_DEBUG is not set: %s!\n",__func__);
 }
@@ -2280,10 +2429,12 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 			goto invalid_host_id;
 
 		host = mtk_msdc_host[id];
+		mmc_claim_host(host->mmc);
 		if (cmd == SD_TOOL_REG_ACCESS) {
 			base = host->base;
 			if ((offset == 0x18 || offset == 0x1C) && p1 != 4) {
 				seq_puts(m, "[SD_Debug] Err: Accessing TXDATA and RXDATA is forbidden\n");
+				mmc_release_host(host->mmc);
 				goto out;
 			}
 		} else {
@@ -2293,6 +2444,7 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 		if (p1 == 0) {
 			if (offset > 0x1000) {
 				seq_puts(m, "invalid register offset\n");
+				mmc_release_host(host->mmc);
 				goto out;
 			}
 			reg_value = p4;
@@ -2313,6 +2465,7 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 		} else if (p1 == 5) {
 			msdc_dump_info(NULL, 0, NULL, host->id);
 		}
+		mmc_release_host(host->mmc);
 	} else if (cmd == SD_TOOL_SET_DRIVING) {
 		char *device_str, *get_set_str;
 
@@ -2723,6 +2876,7 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 
 #endif
 		msdc_proc_dump(m, 0);
+		msdc_proc_dump(m, 1);
 	}
 
 out:
