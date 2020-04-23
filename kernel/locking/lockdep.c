@@ -3231,8 +3231,8 @@ EXPORT_SYMBOL(trace_hardirqs_on_caller);
 
 void trace_hardirqs_on(void)
 {
-	trace_hardirqs_on_time();
 	trace_hardirqs_on_caller(CALLER_ADDR0);
+	trace_hardirqs_on_time();
 }
 EXPORT_SYMBOL(trace_hardirqs_on);
 
@@ -3270,8 +3270,8 @@ EXPORT_SYMBOL(trace_hardirqs_off_caller);
 
 void trace_hardirqs_off(void)
 {
-	trace_hardirqs_off_time();
 	trace_hardirqs_off_caller(CALLER_ADDR0);
+	trace_hardirqs_off_time();
 }
 EXPORT_SYMBOL(trace_hardirqs_off);
 
