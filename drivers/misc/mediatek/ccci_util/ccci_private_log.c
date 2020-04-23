@@ -1165,3 +1165,16 @@ void get_ccci_aee_buffer(unsigned long *vaddr, unsigned long *size)
 
 }
 EXPORT_SYMBOL(get_ccci_aee_buffer);
+
+void get_md_aee_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	unsigned long data_size = reg_dump_ctlb[0].data_size;
+
+	if (data_size > reg_dump_ctlb[0].buf_size)
+		data_size = reg_dump_ctlb[0].buf_size;
+
+	*vaddr = (unsigned long)reg_dump_ctlb[0].buffer;
+	*size = data_size;
+
+}
+EXPORT_SYMBOL(get_md_aee_buffer);
