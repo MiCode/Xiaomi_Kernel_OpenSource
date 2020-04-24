@@ -52,10 +52,10 @@ module_param_string(manufacturer, manufacturer_string,
 		    sizeof(manufacturer_string), 0644);
 MODULE_PARM_DESC(quirks, "String representing name of manufacturer");
 
-static char product_string[256] = "USB_device_SN:12345";
+static char product_string[256] = "USB_device!_SN:12345";
 module_param_string(product, product_string,
 		    sizeof(product_string), 0644);
-MODULE_PARM_DESC(quirks, "String representing product name");
+MODULE_PARM_DESC(quirks, "String representing product string");
 
 static char serialno_string[256] = "12345";
 
@@ -521,6 +521,13 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 		start += strlen("androidboot.serialno=");
 		strlcpy(serialno_string, start, (end - start)+1);
 	}
+
+	/* Product string contains a space but in kernel
+	 * cmdline it will be passed with a special character
+	 * '!' instead of space to maintain the design of
+	 * cmdline parameters
+	 */
+	strreplace(product_string, '!', ' ');
 
 	/* Go through all the child nodes and find matching pid */
 	while ((child = of_get_next_child(dev->of_node, child)) != NULL) {
