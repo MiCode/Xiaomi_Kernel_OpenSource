@@ -429,4 +429,13 @@ config SM_CAMCC_SHIMA
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SM_GPUCC_SHIMA
+	tristate "SHIMA Graphics Clock Controller"
+	depends on SM_GCC_SHIMA
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  SHIMA devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif
