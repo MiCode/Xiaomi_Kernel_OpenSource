@@ -43,6 +43,7 @@
 #include "qmi.h"
 #include "debug.h"
 #include "power.h"
+#include "genl.h"
 
 #define MAX_PROP_SIZE			32
 #define NUM_LOG_PAGES			10
@@ -163,6 +164,12 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "IDLE_RESTART";
 	case ICNSS_DRIVER_EVENT_FW_INIT_DONE_IND:
 		return "FW_INIT_DONE";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
+		return "QDSS_TRACE_REQ_MEM";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
+		return "QDSS_TRACE_SAVE";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
+		return "QDSS_TRACE_FREE";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -728,6 +735,159 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 	return ret;
 }
 
+int icnss_alloc_qdss_mem(struct icnss_priv *priv)
+{
+	struct platform_device *pdev = priv->pdev;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int i, j;
+
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		if (!qdss_mem[i].va && qdss_mem[i].size) {
+			qdss_mem[i].va =
+				dma_alloc_coherent(&pdev->dev,
+						   qdss_mem[i].size,
+						   &qdss_mem[i].pa,
+						   GFP_KERNEL);
+			if (!qdss_mem[i].va) {
+				icnss_pr_err("Failed to allocate QDSS memory for FW, size: 0x%zx, type: %u, chuck-ID: %d\n",
+					     qdss_mem[i].size,
+					     qdss_mem[i].type, i);
+				break;
+			}
+		}
+	}
+
+	/* Best-effort allocation for QDSS trace */
+	if (i < priv->qdss_mem_seg_len) {
+		for (j = i; j < priv->qdss_mem_seg_len; j++) {
+			qdss_mem[j].type = 0;
+			qdss_mem[j].size = 0;
+		}
+		priv->qdss_mem_seg_len = i;
+	}
+
+	return 0;
+}
+
+void icnss_free_qdss_mem(struct icnss_priv *priv)
+{
+	struct platform_device *pdev = priv->pdev;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int i;
+
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		if (qdss_mem[i].va && qdss_mem[i].size) {
+			icnss_pr_dbg("Freeing memory for QDSS: pa: %pa, size: 0x%zx, type: %u\n",
+				     &qdss_mem[i].pa, qdss_mem[i].size,
+				     qdss_mem[i].type);
+			dma_free_coherent(&pdev->dev,
+					  qdss_mem[i].size, qdss_mem[i].va,
+					  qdss_mem[i].pa);
+			qdss_mem[i].va = NULL;
+			qdss_mem[i].pa = 0;
+			qdss_mem[i].size = 0;
+			qdss_mem[i].type = 0;
+		}
+	}
+	priv->qdss_mem_seg_len = 0;
+}
+
+static int icnss_qdss_trace_req_mem_hdlr(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = icnss_alloc_qdss_mem(priv);
+	if (ret < 0)
+		return ret;
+
+	return wlfw_qdss_trace_mem_info_send_sync(priv);
+}
+
+static void *icnss_qdss_trace_pa_to_va(struct icnss_priv *priv,
+				       u64 pa, u32 size, int *seg_id)
+{
+	int i = 0;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	u64 offset = 0;
+	void *va = NULL;
+	u64 local_pa;
+	u32 local_size;
+
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		local_pa = (u64)qdss_mem[i].pa;
+		local_size = (u32)qdss_mem[i].size;
+		if (pa == local_pa && size <= local_size) {
+			va = qdss_mem[i].va;
+			break;
+		}
+		if (pa > local_pa &&
+		    pa < local_pa + local_size &&
+		    pa + size <= local_pa + local_size) {
+			offset = pa - local_pa;
+			va = qdss_mem[i].va + offset;
+			break;
+		}
+	}
+
+	*seg_id = i;
+	return va;
+}
+
+static int icnss_qdss_trace_save_hdlr(struct icnss_priv *priv,
+				      void *data)
+{
+	struct icnss_qmi_event_qdss_trace_save_data *event_data = data;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int ret = 0;
+	int i;
+	void *va = NULL;
+	u64 pa;
+	u32 size;
+	int seg_id = 0;
+
+	if (!priv->qdss_mem_seg_len) {
+		icnss_pr_err("Memory for QDSS trace is not available\n");
+		return -ENOMEM;
+	}
+
+	if (event_data->mem_seg_len == 0) {
+		for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+			ret = icnss_genl_send_msg(qdss_mem[i].va,
+						  ICNSS_GENL_MSG_TYPE_QDSS,
+						  event_data->file_name,
+						  qdss_mem[i].size);
+			if (ret < 0) {
+				icnss_pr_err("Fail to save QDSS data: %d\n",
+					     ret);
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < event_data->mem_seg_len; i++) {
+			pa = event_data->mem_seg[i].addr;
+			size = event_data->mem_seg[i].size;
+			va = icnss_qdss_trace_pa_to_va(priv, pa,
+						       size, &seg_id);
+			if (!va) {
+				icnss_pr_err("Fail to find matching va for pa %pa\n",
+					     &pa);
+				ret = -EINVAL;
+				break;
+			}
+			ret = icnss_genl_send_msg(va, ICNSS_GENL_MSG_TYPE_QDSS,
+						  event_data->file_name, size);
+			if (ret < 0) {
+				icnss_pr_err("Fail to save QDSS data: %d\n",
+					     ret);
+				break;
+			}
+		}
+	}
+
+	kfree(data);
+	return ret;
+}
+
 static int icnss_driver_event_register_driver(struct icnss_priv *priv,
 							 void *data)
 {
@@ -955,6 +1115,13 @@ static int icnss_driver_event_idle_restart(struct icnss_priv *priv,
 	return ret;
 }
 
+static int icnss_qdss_trace_free_hdlr(struct icnss_priv *priv)
+{
+	icnss_free_qdss_mem(priv);
+
+	return 0;
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_priv *priv =
@@ -1017,6 +1184,16 @@ static void icnss_driver_event_work(struct work_struct *work)
 		case ICNSS_DRIVER_EVENT_FW_INIT_DONE_IND:
 			ret = icnss_driver_event_fw_init_done(priv,
 							      event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
+			ret = icnss_qdss_trace_req_mem_hdlr(priv);
+			break;
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
+			ret = icnss_qdss_trace_save_hdlr(priv,
+							 event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
+			ret = icnss_qdss_trace_free_hdlr(priv);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -2486,6 +2663,10 @@ static int icnss_probe(struct platform_device *pdev)
 
 	init_completion(&priv->unblock_shutdown);
 
+	ret = icnss_genl_init();
+	if (ret < 0)
+		icnss_pr_err("ICNSS genl init failed %d\n", ret);
+
 	icnss_pr_info("Platform driver probed successfully\n");
 
 	return 0;
@@ -2505,6 +2686,8 @@ static int icnss_remove(struct platform_device *pdev)
 	struct icnss_priv *priv = dev_get_drvdata(&pdev->dev);
 
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
+
+	icnss_genl_exit();
 
 	device_init_wakeup(&priv->pdev->dev, false);
 

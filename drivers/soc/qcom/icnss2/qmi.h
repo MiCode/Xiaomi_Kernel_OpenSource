@@ -6,6 +6,21 @@
 #ifndef __ICNSS_QMI_H__
 #define __ICNSS_QMI_H__
 
+#define QDSS_TRACE_SEG_LEN_MAX 32
+#define QDSS_TRACE_FILE_NAME_MAX 16
+
+struct icnss_mem_seg {
+	u64 addr;
+	u32 size;
+};
+
+struct icnss_qmi_event_qdss_trace_save_data {
+	u32 total_size;
+	u32 mem_seg_len;
+	struct icnss_mem_seg mem_seg[QDSS_TRACE_SEG_LEN_MAX];
+	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
+};
+
 #ifndef CONFIG_ICNSS2_QMI
 
 static inline int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
@@ -108,6 +123,11 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 {
 	return 0;
 }
+
+int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
+{
+	return 0;
+}
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
 int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data);
@@ -142,6 +162,7 @@ int wlfw_device_info_send_msg(struct icnss_priv *priv);
 int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 				 enum wlfw_driver_mode_enum_v01 mode);
 int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type);
+int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv);
 #endif
 
 #endif /* __ICNSS_QMI_H__*/
