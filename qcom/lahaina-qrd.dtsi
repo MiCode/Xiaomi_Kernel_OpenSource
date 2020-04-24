@@ -48,7 +48,7 @@
 
 	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
 
-	status = "disabled";
+	status = "ok";
 };
 
 &swr_dmic_01 {
