@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGFWD_CNTL_H
@@ -90,6 +90,10 @@
 
 #define MAX_DIAGID_STR_LEN	30
 #define MIN_DIAGID_STR_LEN	5
+
+#define BITMASK_DIAGID_FMASK		0x0001
+#define BITMASK_HW_ACCEL_STM_V1		0x0002
+#define BITMASK_HW_ACCEL_ATB_V1		0x0004
 
 struct diag_ctrl_pkt_header_t {
 	uint32_t pkt_id;
