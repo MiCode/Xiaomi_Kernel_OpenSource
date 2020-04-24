@@ -522,7 +522,7 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
-		usb_qdss_alloc_req(ch, USB_BUF_NUM, 0);
+		usb_qdss_alloc_req(ch, USB_BUF_NUM);
 		usb_bypass_start(drvdata);
 		queue_work(drvdata->usb_wq, &(drvdata->read_work));
 		break;
