@@ -11,6 +11,7 @@
 
 #include <linux/gpio/driver.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <dt-bindings/pinctrl/mt65xx.h>
 #include "pinctrl-paris.h"
 
@@ -90,7 +91,8 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 {
 	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
 	u32 param = pinconf_to_config_param(*config);
-	int pullup, err, reg, ret = 1;
+	int err, reg, ret = 1;
+	int pullup;
 	const struct mtk_pin_desc *desc;
 
 	if (pin >= hw->soc->npins) {
@@ -699,6 +701,7 @@ static int mtk_pmx_set_mux(struct pinctrl_dev *pctldev,
 	const struct mtk_func_desc *desc_func;
 	const struct mtk_pin_desc *desc;
 	bool ret;
+	int err;
 
 	ret = mtk_pctrl_is_function_valid(hw, grp->pin, function);
 	if (!ret) {
@@ -712,15 +715,15 @@ static int mtk_pmx_set_mux(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[grp->pin];
-	ret = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_MODE,
+	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_MODE,
 		desc_func->muxval);
-	if (ret)
-		return ret;
+	if (err)
+		return err;
 
 	if (hw->soc->eh_pin_pinmux) {
-		ret = mtk_eh_ctrl(hw, desc, desc_func->muxval);
-		if (ret)
-			return ret;
+		err = mtk_eh_ctrl(hw, desc, desc_func->muxval);
+		if (err)
+			return err;
 	}
 
 	return 0;
@@ -836,7 +839,7 @@ static void mtk_gpio_set(struct gpio_chip *chip, unsigned int gpio, int value)
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
 
-	mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DO, !!value);
+	(void)mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DO, !!value);
 }
 
 static int mtk_gpio_direction_input(struct gpio_chip *chip, unsigned int gpio)
@@ -1068,6 +1071,7 @@ const struct dev_pm_ops mtk_paris_pinctrl_pm_ops = {
 	.suspend_noirq = mtk_paris_pinctrl_suspend,
 	.resume_noirq = mtk_paris_pinctrl_resume,
 };
+EXPORT_SYMBOL_GPL(mtk_paris_pinctrl_pm_ops);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek Pinctrl Common Driver V2 Paris");

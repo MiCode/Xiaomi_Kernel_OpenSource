@@ -88,9 +88,7 @@ config PINCTRL_MT2712
 
 config PINCTRL_MT6765
 	tristate "Mediatek MT6765 pin control"
-	depends on OF
-	depends on ARM64 || COMPILE_TEST
-	default ARM64 && ARCH_MEDIATEK
+	depends on OF || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT6779
@@ -113,10 +111,8 @@ config PINCTRL_MT6797
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT6873
-	bool "Mediatek MT6873 pin control"
-	depends on OF
-	depends on ARM64 || COMPILE_TEST
-	default ARM64 && ARCH_MEDIATEK
+	tristate "Mediatek MT6873 pin control"
+	depends on OF || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT7622
