@@ -313,6 +313,22 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
 #if IS_ENABLED(CONFIG_QCOM_CX_IPEAK)
+static int kgsl_pwr_cx_ipeak_freq_limit(void *ptr, unsigned int freq)
+{
+	struct kgsl_pwr_limit *cx_ipeak_pwr_limit = ptr;
+
+	if (IS_ERR_OR_NULL(cx_ipeak_pwr_limit))
+		return -EINVAL;
+
+	/* CX-ipeak safe interrupt to remove freq limit */
+	if (freq == 0) {
+		kgsl_pwr_limits_set_default(cx_ipeak_pwr_limit);
+		return 0;
+	}
+
+	return kgsl_pwr_limits_set_freq(cx_ipeak_pwr_limit, freq);
+}
+
 static int kgsl_pwrctrl_cx_ipeak_vote(struct kgsl_device *device,
 		u64 old_freq, u64 new_freq)
 {
@@ -423,6 +439,29 @@ static int kgsl_pwrctrl_cx_ipeak_init(struct kgsl_device *device)
 		}
 
 		++i;
+	}
+
+	/* cx_ipeak limits for GPU freq throttling */
+	pwr->cx_ipeak_pwr_limit = kgsl_pwr_limits_add(KGSL_DEVICE_3D0);
+	if (IS_ERR_OR_NULL(pwr->cx_ipeak_pwr_limit)) {
+		dev_err(device->dev,
+				"Failed to get cx_ipeak power limit\n");
+		of_node_put(child);
+		goto error;
+	}
+
+	cx_ipeak_client = &pwr->gpu_ipeak_client[0];
+	if (!IS_ERR_OR_NULL(cx_ipeak_client->client)) {
+		ret = cx_ipeak_victim_register(cx_ipeak_client->client,
+				kgsl_pwr_cx_ipeak_freq_limit,
+				pwr->cx_ipeak_pwr_limit);
+		if (ret) {
+			dev_err(device->dev,
+					"Failed to register GPU-CX-Ipeak victim\n");
+			kgsl_pwr_limits_del(pwr->cx_ipeak_pwr_limit);
+			of_node_put(child);
+			goto error;
+		}
 	}
 
 	of_node_put(node);
@@ -2379,6 +2418,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		}
 	}
 
+	INIT_LIST_HEAD(&pwr->limits);
+	spin_lock_init(&pwr->limits_lock);
+
 	result = kgsl_pwrctrl_cx_ipeak_init(device);
 	if (result)
 		goto error_cleanup_bus_ib;
@@ -2386,8 +2428,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	INIT_WORK(&pwr->thermal_cycle_ws, kgsl_thermal_cycle);
 	timer_setup(&pwr->thermal_timer, kgsl_thermal_timer, 0);
 
-	INIT_LIST_HEAD(&pwr->limits);
-	spin_lock_init(&pwr->limits_lock);
 	pwr->sysfs_pwr_limit = kgsl_pwr_limits_add(KGSL_DEVICE_3D0);
 
 	kgsl_pwrctrl_vbif_init(device);
@@ -2417,6 +2457,12 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int i;
+
+	kgsl_pwr_limits_del(pwr->cx_ipeak_pwr_limit);
+	pwr->cx_ipeak_pwr_limit = NULL;
+
+	if (!IS_ERR_OR_NULL(pwr->gpu_ipeak_client[0].client))
+		cx_ipeak_victim_unregister(pwr->gpu_ipeak_client[0].client);
 
 	for (i = 0; i < ARRAY_SIZE(pwr->gpu_ipeak_client); i++) {
 		if (!IS_ERR_OR_NULL(pwr->gpu_ipeak_client[i].client)) {
