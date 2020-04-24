@@ -942,6 +942,7 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 				if (!nskb)
 					break;
 
+				count_rx(ndev, nskb->len);
 				nskb->dev = ndev;
 				netif_rx(nskb);
 			} else if (ether_addr_equal_64bits(hdr->h_dest,
@@ -949,6 +950,7 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 				/* HW offload enabled, divert skb */
 				skb->dev = ndev;
 				skb->pkt_type = PACKET_HOST;
+				count_rx(ndev, skb->len);
 				ret = RX_HANDLER_ANOTHER;
 				goto out;
 			} else if (is_multicast_ether_addr_64bits(hdr->h_dest)) {
@@ -963,6 +965,7 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 				else
 					nskb->pkt_type = PACKET_MULTICAST;
 
+				count_rx(ndev, nskb->len);
 				netif_rx(nskb);
 			}
 			continue;
