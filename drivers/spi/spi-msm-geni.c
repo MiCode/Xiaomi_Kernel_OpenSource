@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 
@@ -83,7 +83,6 @@
 #define TIMESTAMP_AFTER		BIT(3)
 #define POST_CMD_DELAY		BIT(4)
 
-#define SPI_CORE2X_VOTE		(5000)
 /* GSI CONFIG0 TRE Params */
 /* Flags bit fields */
 #define GSI_LOOPBACK_EN		(BIT(0))
