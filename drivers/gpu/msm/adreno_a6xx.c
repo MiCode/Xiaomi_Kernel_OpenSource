@@ -2338,6 +2338,7 @@ static int a6xx_probe(struct platform_device *pdev,
 {
 	struct adreno_device *adreno_dev;
 	struct adreno_gpudev *gpudev = gpucore->gpudev;
+	struct kgsl_device *device;
 
 	adreno_dev = (struct adreno_device *)
 		of_device_get_match_data(&pdev->dev);
@@ -2384,6 +2385,12 @@ static int a6xx_probe(struct platform_device *pdev,
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
 		adreno_dev->perfctr_ifpc_lo =
 			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
+
+	device = KGSL_DEVICE(adreno_dev);
+
+	timer_setup(&device->idle_timer, kgsl_timer, 0);
+
+	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
 	return adreno_device_probe(pdev, adreno_dev);
 }

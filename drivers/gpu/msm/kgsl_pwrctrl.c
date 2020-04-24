@@ -1483,8 +1483,6 @@ static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
 	return ret;
 }
 
-static void kgsl_idle_check(struct work_struct *work);
-
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
 	int i, result, freq;
@@ -1514,7 +1512,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		return -EINVAL;
 	}
 
-	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 	init_waitqueue_head(&device->active_cnt_wq);
 
 	/* Initialize the user and thermal clock constraints */
@@ -1573,12 +1570,7 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	pm_runtime_disable(&device->pdev->dev);
 }
 
-/*
- * This function is called for work that is queued by the interrupt
- * handler or the idle timer. It attempts to transition to a clocks
- * off state if the active_cnt is 0 and the hardware is idle.
- */
-static void kgsl_idle_check(struct work_struct *work)
+void kgsl_idle_check(struct work_struct *work)
 {
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 							idle_check_ws);

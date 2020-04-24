@@ -1868,8 +1868,6 @@ static int adreno_open(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	timer_setup(&device->idle_timer, kgsl_timer, 0);
-
 	complete_all(&device->hwaccess_gate);
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
 	adreno_active_count_put(adreno_dev);
