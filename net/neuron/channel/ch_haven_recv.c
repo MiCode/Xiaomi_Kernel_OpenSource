@@ -94,7 +94,7 @@ static inline int channel_hh_kick(struct neuron_mq_data_priv *priv)
 	hh_dbl_flags_t dbl_mask = CH_DBL_MASK;
 	int ret;
 
-	ret = hh_dbl_send(priv->tx_dbl, &dbl_mask);
+	ret = hh_dbl_send(priv->tx_dbl, &dbl_mask, 0);
 	if (ret)
 		pr_err("failed to raise virq to the sender %d\n", ret);
 
