@@ -455,7 +455,7 @@ static void usb_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
-		usb_qdss_alloc_req(ch, drvdata->nr_trbs, 0);
+		usb_qdss_alloc_req(ch, drvdata->nr_trbs);
 		mhi_queue_read(drvdata);
 		break;
 

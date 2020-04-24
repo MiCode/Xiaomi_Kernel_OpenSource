@@ -50,7 +50,6 @@ struct f_qdss {
 	bool debug_inface_enabled;
 	struct usb_request *endless_req;
 	struct usb_qdss_ch ch;
-	struct list_head ctrl_read_pool;
 	struct list_head ctrl_write_pool;
 
 	/* for mdm channel SW path */
