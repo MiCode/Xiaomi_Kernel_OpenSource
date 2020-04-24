@@ -3124,46 +3124,55 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
  */
 static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
 	/* Flush processing any pending events before handling new ones */
 	flush_delayed_work(&mdwc->sm_work);
 
+	dbg_log_string("enter: mdwc->inputs:%x hs_phy_flags:%x\n",
+				mdwc->inputs, mdwc->hs_phy->flags);
 	if (mdwc->id_state == DWC3_ID_FLOAT) {
-		dev_dbg(mdwc->dev, "XCVR: ID set\n");
+		dbg_log_string("XCVR: ID set\n");
 		set_bit(ID, &mdwc->inputs);
 	} else {
-		dev_dbg(mdwc->dev, "XCVR: ID clear\n");
+		dbg_log_string("XCVR: ID clear\n");
 		clear_bit(ID, &mdwc->inputs);
 	}
 
 	if (mdwc->vbus_active && !mdwc->in_restart) {
-		dev_dbg(mdwc->dev, "XCVR: BSV set\n");
-		set_bit(B_SESS_VLD, &mdwc->inputs);
+		if (mdwc->hs_phy->flags & EUD_SPOOF_DISCONNECT) {
+			dbg_log_string("XCVR: BSV clear\n");
+			clear_bit(B_SESS_VLD, &mdwc->inputs);
+		} else {
+			dbg_log_string("XCVR: BSV set\n");
+			set_bit(B_SESS_VLD, &mdwc->inputs);
+		}
 	} else {
-		dev_dbg(mdwc->dev, "XCVR: BSV clear\n");
+		dbg_log_string("XCVR: BSV clear\n");
 		clear_bit(B_SESS_VLD, &mdwc->inputs);
 	}
 
 	if (mdwc->suspend) {
-		dev_dbg(mdwc->dev, "XCVR: SUSP set\n");
+		dbg_log_string("XCVR: SUSP set\n");
 		set_bit(B_SUSPEND, &mdwc->inputs);
 	} else {
-		dev_dbg(mdwc->dev, "XCVR: SUSP clear\n");
+		dbg_log_string("XCVR: SUSP clear\n");
 		clear_bit(B_SUSPEND, &mdwc->inputs);
 	}
 
 	if (mdwc->check_eud_state) {
 		mdwc->hs_phy->flags &=
 			~(EUD_SPOOF_CONNECT | EUD_SPOOF_DISCONNECT);
-		dev_dbg(mdwc->dev, "eud: state:%d active:%d hs_phy_flags:0x%x\n",
+		dbg_log_string("eud: state:%d active:%d hs_phy_flags:0x%x\n",
 			mdwc->check_eud_state, mdwc->eud_active,
 			mdwc->hs_phy->flags);
 		if (mdwc->eud_active) {
 			mdwc->hs_phy->flags |= EUD_SPOOF_CONNECT;
-			dev_dbg(mdwc->dev, "EUD: XCVR: BSV set\n");
+			dbg_log_string("EUD: XCVR: BSV set\n");
 			set_bit(B_SESS_VLD, &mdwc->inputs);
 		} else {
 			mdwc->hs_phy->flags |= EUD_SPOOF_DISCONNECT;
-			dev_dbg(mdwc->dev, "EUD: XCVR: BSV clear\n");
+			dbg_log_string("EUD: XCVR: BSV clear\n");
 			clear_bit(B_SESS_VLD, &mdwc->inputs);
 		}
 
@@ -3171,7 +3180,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 	}
 
 
-	dev_dbg(mdwc->dev, "eud: state:%d active:%d hs_phy_flags:0x%x\n",
+	dbg_log_string("eud: state:%d active:%d hs_phy_flags:0x%x\n",
 		mdwc->check_eud_state, mdwc->eud_active, mdwc->hs_phy->flags);
 
 	/* handle case of USB cable disconnect after USB spoof disconnect */
@@ -3184,6 +3193,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		return;
 	}
 
+	dbg_log_string("exit: mdwc->inputs:%x\n", mdwc->inputs);
 	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 }
 
@@ -3199,6 +3209,7 @@ static void dwc3_resume_work(struct work_struct *w)
 	int ret = 0;
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
+	dbg_log_string("resume_work: ext_idx:%d\n", mdwc->ext_idx);
 	if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
 		extcon_id = EXTCON_USB;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
