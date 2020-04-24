@@ -943,6 +943,7 @@
 #include "holi-regulators.dtsi"
 #include "holi-gdsc.dtsi"
 #include "holi-ion.dtsi"
+#include "msm-arm-smmu-holi.dtsi"
 #include "holi-usb.dtsi"
 #include "holi-pm.dtsi"
 
