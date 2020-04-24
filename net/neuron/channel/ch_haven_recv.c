@@ -251,6 +251,11 @@ static int channel_sync_thread(void *data)
 	struct neuron_shmem_channel_header *hdr;
 	struct neuron_mq_data_priv *priv = (struct neuron_mq_data_priv *)data;
 
+	/* Init the shared memory header and local message queue. */
+	if (msgq_init(priv)) {
+		pr_err("%s: msgq_init failed\n", __func__);
+		return 0;
+	}
 	hdr = (struct neuron_shmem_channel_header *)priv->base;
 
 	/* Waiting for head being updated by the sender. */
@@ -380,12 +385,7 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 		goto fail_rx_dbl;
 	}
 
-	/* Init the shared memory header and local message queue. */
-	ret = msgq_init(priv);
-	if (ret)
-		goto fail_mask;
 	init_waitqueue_head(&priv->wait_q);
-
 	/* Start the thread for syncing with the sender. */
 	priv->sync_thread = kthread_run(channel_sync_thread, priv,
 					"recv_sync_thread");
@@ -394,8 +394,6 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 
 	return 0;
 
-fail_mask:
-	hh_dbl_rx_unregister(priv->rx_dbl);
 fail_rx_dbl:
 	hh_dbl_tx_unregister(priv->tx_dbl);
 fail_tx_dbl:
