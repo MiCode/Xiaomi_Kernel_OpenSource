@@ -1856,7 +1856,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	p->ravg.pred_demand = pred_demand;
 	p->ravg.pred_demand_scaled = pred_demand_scaled;
 
-	if (demand_scaled > sched_task_filter_util)
+	if (demand_scaled > sysctl_sched_min_task_util_for_colocation)
 		p->unfilter = sysctl_sched_task_unfilter_period;
 	else
 		if (p->unfilter)
