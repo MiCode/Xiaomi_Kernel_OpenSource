@@ -101,33 +101,6 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 }
 
 /**
- * kgsl_clk_set_rate() - set GPU clock rate
- * @device: Pointer to the kgsl_device struct
- * @pwrlevel: power level in pwrlevels[] table
- */
-int kgsl_clk_set_rate(struct kgsl_device *device,
-		unsigned int pwrlevel)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct kgsl_pwrlevel *pl = &pwr->pwrlevels[pwrlevel];
-	int ret = 0;
-
-	/* GMU scales GPU freq */
-	if (gmu_core_gpmu_isenabled(device))
-		ret = gmu_core_dcvs_set(device, pwrlevel, INVALID_DCVS_IDX);
-	else
-		/* Linux clock driver scales GPU freq */
-		ret = kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[0],
-			pl->gpu_freq, clocks[0]);
-
-	if (ret)
-		dev_err(device->dev, "GPU clk freq set failure: %d\n",
-			     ret);
-
-	return ret;
-}
-
-/**
  * kgsl_pwrctrl_pwrlevel_change_settings() - Program h/w during powerlevel
  * transitions
  * @device: Pointer to the kgsl_device struct
@@ -232,7 +205,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 	/* Change register settings if any  BEFORE pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
-	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
+	device->ftbl->gpu_clock_set(device, pwr->active_pwrlevel);
 	_isense_clk_set_rate(pwr, pwr->active_pwrlevel);
 
 	trace_kgsl_pwrlevel(device,
@@ -1215,7 +1188,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 				(requested_state != KGSL_STATE_NAP)) {
 				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 					clk_unprepare(pwr->grp_clks[i]);
-				kgsl_clk_set_rate(device,
+				device->ftbl->gpu_clock_set(device,
 						pwr->num_pwrlevels - 1);
 				_isense_clk_set_rate(pwr,
 					pwr->num_pwrlevels - 1);
@@ -1228,7 +1201,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				clk_unprepare(pwr->grp_clks[i]);
 			if ((pwr->pwrlevels[0].gpu_freq > 0)) {
-				kgsl_clk_set_rate(device,
+				device->ftbl->gpu_clock_set(device,
 						pwr->num_pwrlevels - 1);
 				_isense_clk_set_rate(pwr,
 					pwr->num_pwrlevels - 1);
@@ -1242,7 +1215,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			/* High latency clock maintenance. */
 			if (device->state != KGSL_STATE_NAP) {
 				if (pwr->pwrlevels[0].gpu_freq > 0) {
-					kgsl_clk_set_rate(device,
+					device->ftbl->gpu_clock_set(device,
 							pwr->active_pwrlevel);
 					_isense_clk_set_rate(pwr,
 						pwr->active_pwrlevel);
@@ -1532,7 +1505,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			pwr->pwrlevels[i].gpu_freq = freq;
 	}
 
-	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
+	clk_set_rate(pwr->grp_clks[0],
+		pwr->pwrlevels[pwr->num_pwrlevels - 1].gpu_freq);
 
 	freq = clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ);
 	if (freq > 0)
@@ -2196,5 +2170,5 @@ int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device)
 	pwr->previous_pwrlevel = old_level;
 
 	/* Request adjusted DCVS level */
-	return kgsl_clk_set_rate(device, pwr->active_pwrlevel);
+	return device->ftbl->gpu_clock_set(device, pwr->active_pwrlevel);
 }

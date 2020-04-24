@@ -18,6 +18,7 @@
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
@@ -1669,10 +1670,10 @@ static void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 	gmu->fault = false;
 }
 
-static int a6xx_gmu_dcvs_set(struct kgsl_device *device,
+static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
 		int gpu_pwrlevel, int bus_level)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct hfi_dcvstable_cmd *table = &gmu->hfi.dcvs_table;
@@ -1726,6 +1727,11 @@ static int a6xx_gmu_dcvs_set(struct kgsl_device *device,
 	}
 
 	return ret;
+}
+
+static int a6xx_gmu_clock_set(struct adreno_device *adreno_dev, u32 pwrlevel)
+{
+	return a6xx_gmu_dcvs_set(adreno_dev, pwrlevel, INVALID_DCVS_IDX);
 }
 
 static int a6xx_gmu_ifpc_store(struct kgsl_device *device,
@@ -2238,19 +2244,19 @@ static struct gmu_dev_ops a6xx_gmudev = {
 };
 
 static struct gmu_core_ops a6xx_gmu_ops = {
-	.dcvs_set = a6xx_gmu_dcvs_set,
 	.snapshot = a6xx_gmu_snapshot,
 	.acd_set = a6xx_gmu_acd_set,
 };
 
-static int a6xx_gmu_bus_set(struct kgsl_device *device, int buslevel,
+static int a6xx_gmu_bus_set(struct adreno_device *adreno_dev, int buslevel,
 	u32 ab)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
 
 	if (buslevel != pwr->cur_buslevel) {
-		ret = a6xx_gmu_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
+		ret = a6xx_gmu_dcvs_set(adreno_dev, INVALID_DCVS_IDX, buslevel);
 		if (ret)
 			return ret;
 
@@ -2528,7 +2534,6 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct a6xx_hfi *hfi = &gmu->hfi;
 	int ret;
 
@@ -2602,9 +2607,6 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 	/* We cannot use irq_disable because it writes registers */
 	disable_irq(gmu->irq);
 	disable_irq(gmu->hfi.irq);
-
-	if (a6xx_gmu_scales_bandwidth(device))
-		pwr->bus_set = a6xx_gmu_bus_set;
 
 	return 0;
 
@@ -3159,6 +3161,19 @@ const struct adreno_power_ops a6xx_gmu_power_ops = {
 	.pm_suspend = a6xx_gmu_pm_suspend,
 	.pm_resume = a6xx_gmu_pm_resume,
 	.touch_wakeup = a6xx_gmu_touch_wakeup,
+	.gpu_clock_set = a6xx_gmu_clock_set,
+	.gpu_bus_set = a6xx_gmu_bus_set,
+};
+
+const struct adreno_power_ops a630_gmu_power_ops = {
+	.first_open = a6xx_gmu_first_open,
+	.last_close = a6xx_gmu_last_close,
+	.active_count_get = a6xx_gmu_active_count_get,
+	.active_count_put = a6xx_gmu_active_count_put,
+	.pm_suspend = a6xx_gmu_pm_suspend,
+	.pm_resume = a6xx_gmu_pm_resume,
+	.touch_wakeup = a6xx_gmu_touch_wakeup,
+	.gpu_clock_set = a6xx_gmu_clock_set,
 };
 
 int a6xx_gmu_device_probe(struct platform_device *pdev,

@@ -6,6 +6,7 @@
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/input.h>
+#include <linux/interconnect.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -3799,6 +3800,55 @@ int adreno_power_cycle_u32(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static int adreno_gpu_clock_set(struct kgsl_device *device, u32 pwrlevel)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct kgsl_pwrlevel *pl = &pwr->pwrlevels[pwrlevel];
+	int ret;
+
+	if (ops->gpu_clock_set)
+		return ops->gpu_clock_set(adreno_dev, pwrlevel);
+
+	ret = clk_set_rate(pwr->grp_clks[0], pl->gpu_freq);
+	if (ret)
+		dev_err(device->dev, "GPU clk freq set failure: %d\n", ret);
+
+	return ret;
+}
+
+static int adreno_interconnect_bus_set(struct adreno_device *adreno_dev,
+	int level, u32 ab)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	if ((level == pwr->cur_buslevel) && (ab == pwr->cur_ab))
+		return 0;
+
+	pwr->cur_buslevel = level;
+	pwr->cur_ab = ab;
+
+	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
+		kBps_to_icc(pwr->ddr_table[level]));
+
+	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level);
+
+	return 0;
+}
+
+static int adreno_gpu_bus_set(struct kgsl_device *device, int level, u32 ab)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	if (ops->gpu_bus_set)
+		return ops->gpu_bus_set(adreno_dev, level, ab);
+
+	return adreno_interconnect_bus_set(adreno_dev, level, ab);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3842,6 +3892,8 @@ static const struct kgsl_functable adreno_functable = {
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
 	.query_property_list = adreno_query_property_list,
 	.is_hwcg_on = adreno_is_hwcg_on,
+	.gpu_clock_set = adreno_gpu_clock_set,
+	.gpu_bus_set = adreno_gpu_bus_set,
 };
 
 static const struct component_master_ops adreno_ops = {

@@ -17,6 +17,7 @@
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_rgmu.h"
 #include "adreno_snapshot.h"
+#include "kgsl_bus.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
@@ -706,10 +707,11 @@ static void a6xx_rgmu_power_off(struct adreno_device *adreno_dev)
 
 }
 
-static int a6xx_rgmu_dcvs_set(struct kgsl_device *device,
-		int pwrlevel, int bus_level)
+static int a6xx_rgmu_clock_set(struct adreno_device *adreno_dev,
+		u32 pwrlevel)
 {
-	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(ADRENO_DEVICE(device));
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 	int ret;
 	unsigned long rate;
 
@@ -1161,7 +1163,6 @@ static struct gmu_dev_ops a6xx_rgmudev = {
 };
 
 static struct gmu_core_ops a6xx_rgmu_ops = {
-	.dcvs_set = a6xx_rgmu_dcvs_set,
 	.snapshot = a6xx_rgmu_snapshot,
 };
 
@@ -1244,6 +1245,7 @@ const struct adreno_power_ops a6xx_rgmu_power_ops = {
 	.pm_suspend = a6xx_rgmu_pm_suspend,
 	.pm_resume = a6xx_rgmu_pm_resume,
 	.touch_wakeup = a6xx_rgmu_touch_wakeup,
+	.gpu_clock_set = a6xx_rgmu_clock_set,
 };
 
 int a6xx_rgmu_device_probe(struct platform_device *pdev,

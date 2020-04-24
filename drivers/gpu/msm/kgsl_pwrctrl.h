@@ -154,8 +154,6 @@ struct kgsl_pwrctrl {
 	int cur_buslevel;
 	/** @bus_max: The maximum bandwidth available to the device */
 	unsigned long bus_max;
-	/** @bus_set: Function for setting the bus constraints */
-	int (*bus_set)(struct kgsl_device *device, int buslevel, u32 ab);
 	struct kgsl_pwr_constraint constraint;
 	bool superfast;
 	unsigned int gpu_bimc_int_clk_freq;
@@ -175,8 +173,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	unsigned int level);
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
 int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state);
-int kgsl_clk_set_rate(struct kgsl_device *device,
-	unsigned int pwrlevel);
+
 unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
 	unsigned int new_level);
 

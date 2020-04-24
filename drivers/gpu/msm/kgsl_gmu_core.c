@@ -110,17 +110,6 @@ void gmu_core_snapshot(struct kgsl_device *device)
 		gmu_core_ops->snapshot(device);
 }
 
-int gmu_core_dcvs_set(struct kgsl_device *device, int gpu_pwrlevel,
-		int bus_level)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->dcvs_set)
-		return gmu_core_ops->dcvs_set(device, gpu_pwrlevel, bus_level);
-
-	return -EINVAL;
-}
-
 int gmu_core_acd_set(struct kgsl_device *device, bool val)
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);

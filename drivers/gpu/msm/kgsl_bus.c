@@ -10,24 +10,6 @@
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 
-static int interconnect_bus_set(struct kgsl_device *device, int level,
-		u32 ab)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	if ((level == pwr->cur_buslevel) && (ab == pwr->cur_ab))
-		return 0;
-
-	pwr->cur_buslevel = level;
-	pwr->cur_ab = ab;
-
-	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
-		kBps_to_icc(pwr->ddr_table[level]));
-
-	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level);
-
-	return 0;
-}
 
 static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 		u32 ib)
@@ -78,7 +60,7 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 	/* buslevel is the IB vote, update the AB */
 	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
 
-	pwr->bus_set(device, buslevel, ab);
+	device->ftbl->gpu_bus_set(device, buslevel, ab);
 }
 
 static void validate_pwrlevels(struct kgsl_device *device, u32 *ibs,
@@ -175,8 +157,6 @@ done:
 		kfree(pwr->ddr_table);
 		return PTR_ERR(pwr->icc_path);
 	}
-
-	pwr->bus_set = interconnect_bus_set;
 
 	return 0;
 }

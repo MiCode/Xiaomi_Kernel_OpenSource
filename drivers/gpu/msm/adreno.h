@@ -361,6 +361,11 @@ struct adreno_power_ops {
 	 * @touch_wakeup: Target specific function to start gpu on touch event
 	 */
 	void (*touch_wakeup)(struct adreno_device *adreno_dev);
+	/** @gpu_clock_set: Target specific function to set gpu frequency */
+	int (*gpu_clock_set)(struct adreno_device *adreno_dev, u32 pwrlevel);
+	/** @gpu_bus_set: Target specific function to set gpu bandwidth */
+	int (*gpu_bus_set)(struct adreno_device *adreno_dev, int bus_level,
+		u32 ab);
 };
 
 /**
@@ -911,6 +916,7 @@ extern struct adreno_gpudev adreno_a5xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gmu_gpudev;
 extern struct adreno_gpudev adreno_a6xx_rgmu_gpudev;
+extern struct adreno_gpudev adreno_a630_gpudev;
 
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;

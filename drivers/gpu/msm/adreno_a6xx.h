@@ -15,6 +15,7 @@
 
 extern const struct adreno_power_ops a6xx_gmu_power_ops;
 extern const struct adreno_power_ops a6xx_rgmu_power_ops;
+extern const struct adreno_power_ops a630_gmu_power_ops;
 
 /**
  * struct a6xx_device - Container for the a6xx_device

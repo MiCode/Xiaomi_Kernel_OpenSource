@@ -782,7 +782,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a630v2 = {
 		.features = ADRENO_RPMH | ADRENO_IFPC |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION |
 			ADRENO_IOCOHERENT | ADRENO_PREEMPTION,
-		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.gpudev = &adreno_a630_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_1M,
 		.bus_width = 32,
@@ -881,7 +881,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a615 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.gpudev = &adreno_a630_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -908,7 +908,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a618 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.gpudev = &adreno_a630_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -935,7 +935,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.gpudev = &adreno_a630_gpudev,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
 	},
@@ -1080,7 +1080,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
 			ADRENO_APRIV,
-		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.gpudev = &adreno_a630_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -1407,7 +1407,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a616 = {
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
-		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.gpudev = &adreno_a630_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,

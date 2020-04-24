@@ -168,6 +168,10 @@ struct kgsl_functable {
 	int (*query_property_list)(struct kgsl_device *device, u32 *list,
 		u32 count);
 	bool (*is_hwcg_on)(struct kgsl_device *device);
+	/** @gpu_clock_set: Target specific function to set gpu frequency */
+	int (*gpu_clock_set)(struct kgsl_device *device, u32 pwrlevel);
+	/** @gpu_bus_set: Target specific function to set gpu bandwidth */
+	int (*gpu_bus_set)(struct kgsl_device *device, int bus_level, u32 ab);
 };
 
 struct kgsl_ioctl {
