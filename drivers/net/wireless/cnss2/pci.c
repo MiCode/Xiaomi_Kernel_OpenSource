@@ -2078,6 +2078,7 @@ register_driver:
 	if (ret == -EINTR) {
 		cnss_pr_dbg("Register driver work is killed\n");
 		del_timer(&plat_priv->fw_boot_timer);
+		pci_priv->driver_ops = NULL;
 	}
 
 	return ret;
