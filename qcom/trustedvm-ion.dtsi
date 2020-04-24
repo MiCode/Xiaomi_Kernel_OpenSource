@@ -9,7 +9,7 @@
 		tui_heap: qcom,ion-heap-tui { /* TRUSTED UI CARVEOUT HEAP */
 			reg = <ION_TUI_CARVEOUT_HEAP_ID>;
 			qcom,dynamic-heap;
-			qcom,ion-heap-type = "CARVEOUT";
+			qcom,ion-heap-type = "MSM_CARVEOUT";
 		};
 	};
 };
