@@ -2910,12 +2910,6 @@ static int syna_tcm_resume(struct device *dev)
 				"Failed to enable regulators\n");
 	}
 
-	retval = syna_tcm_enable_regulator(tcm_hcd, true);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to enable regulators\n");
-	}
-
 	retval = pinctrl_select_state(
 			tcm_hcd->ts_pinctrl,
 			tcm_hcd->pinctrl_state_active);

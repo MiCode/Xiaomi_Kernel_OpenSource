@@ -6611,34 +6611,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 			strlen(resource_p->uc_fw_file_name));
 	}
 
-	if (resource_p->gsi_fw_file_name) {
-		ipa3_ctx->gsi_fw_file_name =
-			kzalloc(((strlen(resource_p->gsi_fw_file_name)+1) *
-				sizeof(const char)), GFP_KERNEL);
-		if (ipa3_ctx->gsi_fw_file_name == NULL) {
-			IPAERR_RL("Failed to alloc GSI FW file name\n");
-			result = -ENOMEM;
-			goto fail_gsi_file_alloc;
-		}
-		memcpy(ipa3_ctx->gsi_fw_file_name,
-				(void const *)resource_p->gsi_fw_file_name,
-				strlen(resource_p->gsi_fw_file_name));
-	}
-
-	if (resource_p->uc_fw_file_name) {
-		ipa3_ctx->uc_fw_file_name =
-			kzalloc(((strlen(resource_p->uc_fw_file_name)+1) *
-				sizeof(const char)), GFP_KERNEL);
-		if (ipa3_ctx->uc_fw_file_name == NULL) {
-			IPAERR_RL("Failed to alloc uC FW file name\n");
-			result = -ENOMEM;
-			goto fail_uc_file_alloc;
-		}
-		memcpy(ipa3_ctx->uc_fw_file_name,
-			(void const *)resource_p->uc_fw_file_name,
-			strlen(resource_p->uc_fw_file_name));
-	}
-
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
 			ipa3_ctx->sd_state = SD_ENABLED;
