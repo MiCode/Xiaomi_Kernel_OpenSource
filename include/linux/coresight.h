@@ -343,8 +343,6 @@ static inline int coresight_enable_reg_clk(struct coresight_device *csdev)
 {
 	return -EINVAL;
 }
-static void coresight_disable_all_source_link(void) {};
-static void coresight_enable_all_source_link(void) {};
 #endif
 
 extern int coresight_get_cpu(struct device *dev);
