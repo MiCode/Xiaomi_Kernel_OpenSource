@@ -5,6 +5,7 @@
  *
  */
 
+#include <linux/module.h>
 #include "pinctrl-mtk-mt6873.h"
 #include "pinctrl-paris.h"
 
@@ -1377,12 +1378,10 @@ static const struct mtk_pin_soc mt6873_data = {
 	.race_free_access = true,
 	.eh_pin_pinmux = mt6873_eh_pin_pinmux_list,
 	.neh_pins = ARRAY_SIZE(mt6873_eh_pin_pinmux_list),
-	.bias_disable_set = mtk_pinconf_bias_disable_set,
-	.bias_disable_get = mtk_pinconf_bias_disable_get,
-	.bias_set = mtk_pinconf_bias_set,
-	.bias_get = mtk_pinconf_bias_get,
-	.drive_set = mtk_pinconf_drive_set_direct_val,
-	.drive_get = mtk_pinconf_drive_get_direct_val,
+	.bias_set_combo = mtk_pinconf_bias_set_combo,
+	.bias_get_combo = mtk_pinconf_bias_get_combo,
+	.drive_set = mtk_pinconf_drive_set_raw,
+	.drive_get = mtk_pinconf_drive_get_raw,
 	.adv_pull_get = mtk_pinconf_adv_pull_get,
 	.adv_pull_set = mtk_pinconf_adv_pull_set,
 };
@@ -1411,3 +1410,6 @@ static int __init mt6873_pinctrl_init(void)
 	return platform_driver_register(&mt6873_pinctrl_driver);
 }
 arch_initcall(mt6873_pinctrl_init);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek MT6873 Pinctrl Driver");
