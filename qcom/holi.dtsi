@@ -452,6 +452,10 @@
 };
 
 #include "holi-pinctrl.dtsi"
+#include "pm6350.dtsi"
+#include "pm7250b.dtsi"
+#include "pm6150l.dtsi"
+#include "pmk8350.dtsi"
 #include "holi-stub-regulator.dtsi"
 #include "holi-gdsc.dtsi"
 
