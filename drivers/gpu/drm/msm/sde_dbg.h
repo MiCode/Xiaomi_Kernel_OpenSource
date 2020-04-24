@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -368,6 +368,15 @@ void sde_rsc_debug_dump(u32 mux_sel);
 void dsi_ctrl_debug_dump(u32 *entries, u32 size);
 
 #else
+static inline
+int sde_dbg_reg_register_cb(const char *name, void (*cb)(void *), void *ptr)
+{
+	return 0;
+}
+static inline
+void sde_dbg_reg_unregister_cb(const char *name, void (*cb)(void *), void *ptr)
+{
+}
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
 	return NULL;
