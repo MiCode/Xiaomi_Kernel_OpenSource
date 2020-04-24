@@ -107,6 +107,8 @@ static int __try_pair_device(struct ipa_eth_device *eth_dev,
 		"Offload driver %s successfully paired with device from %s",
 		od->name, eth_dev->nd->name);
 
+	ipa_eth_device_refresh_sched(eth_dev);
+
 	return 0;
 }
 

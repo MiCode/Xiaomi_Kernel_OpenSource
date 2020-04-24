@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,14 +36,14 @@
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
-				<&pcm_noirq>;
+				<&pcm_noirq>, <&pcie>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-compr-dsp",
-				"msm-pcm-dsp-noirq";
+				"msm-pcm-dsp-noirq", "msm-pcm-pcie";
 		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
 				<&dai_mi2s0>, <&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
@@ -58,6 +58,7 @@
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
+				<&proxy_rx>, <&proxy_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
@@ -82,6 +83,7 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
 				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
 				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
+				"msm-dai-q6-dev.8194", "msm-dai-q6-dev.8195",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
@@ -97,14 +99,14 @@
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
-				<&pcm_noirq>;
+				<&pcm_noirq>, <&pcie>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-compr-dsp",
-				"msm-pcm-dsp-noirq";
+				"msm-pcm-dsp-noirq", "msm-pcm-pcie";
 		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
 				<&dai_mi2s0>, <&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
@@ -119,6 +121,7 @@
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
+				<&proxy_rx>, <&proxy_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
@@ -144,6 +147,7 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
 				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
 				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
+				"msm-dai-q6-dev.8194", "msm-dai-q6-dev.8195",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",

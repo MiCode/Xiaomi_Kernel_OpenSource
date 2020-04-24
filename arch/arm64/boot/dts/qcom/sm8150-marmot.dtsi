@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include "sm8150-audio-overlay.dtsi"
 
 &mdm3 {
 	compatible = "qcom,ext-marmot";
@@ -82,19 +83,19 @@
 		};
 
 		mhi_chan@100 {
-			 mhi,event-ring = <6>;
+			mhi,event-ring = <6>;
 		};
 
 		mhi_chan@101 {
-			 mhi,event-ring = <7>;
+			mhi,event-ring = <7>;
 		};
 
 		mhi_chan@102 {
-			 mhi,event-ring = <8>;
+			mhi,event-ring = <8>;
 		};
 
 		mhi_chan@103 {
-			 mhi,event-ring = <9>;
+			mhi,event-ring = <9>;
 		};
 
 		mhi_chan@104 {
@@ -283,4 +284,129 @@
 
 &glink_modem {
 	status = "disabled";
+};
+
+&pil_modem_mem {
+	reg = <0x0 0x8d800000 0x0 0x3200000>;
+};
+
+&pil_video_mem {
+	reg = <0x0 0x90a00000 0x0 0x500000>;
+};
+
+&pil_slpi_mem {
+	reg = <0x0 0x90f00000 0x0 0x1500000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0x0 0x92400000 0x0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0x0 0x92410000 0x0 0xa000>;
+};
+
+&pil_gpu_mem {
+	reg = <0x0 0x9241a000 0x0 0x2000>;
+};
+
+&pil_spss_mem {
+	reg = <0x0 0x92500000 0x0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0x0 0x92600000 0x0 0x1400000>;
+};
+
+&snd_934x {
+	compatible = "qcom,sm8150-asoc-snd-pcie";
+	qcom,model = "sm8150-pcie-snd-card";
+};
+
+&soc {
+	ipa_hw: qcom,ipa@1e00000 {
+		qcom,platform-type = <2>; /* APQ platform */
+		qcom,entire-ipa-block-size = <0x100000>;
+		qcom,register-collection-on-crash;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
+		qcom,secure-debug-check-action = <0>;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <5>;
+		qcom,msm-bus,num-paths = <6>;
+		qcom,msm-bus,vectors-KBps =
+		/* No vote */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF 0 0>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC 0 0>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 0 0>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 0 0>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 0 0>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 0>,
+
+		/* SVS2 */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 750000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 4789750>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 150000 1800000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 80000 350000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 40000 40000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 125>,
+
+		/* SVS */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 1500000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 7429000>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 625000 3070000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 80000 640000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 80000 80000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 250>,
+
+		/* NOMINAL */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 3000000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 8797500>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 1250000 6220000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 206000 960000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 206000 160000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 500>,
+
+		/* TURBO */
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_SNOC_GEM_NOC_SF
+			150000 4000000>,
+		<MSM_BUS_MASTER_SNOC_SF_MEM_NOC MSM_BUS_SLAVE_LLCC
+			150000 15640000>,
+		<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0 2000000 7219000>,
+		<MSM_BUS_MASTER_IPA MSM_BUS_SLAVE_OCIMEM 206000 1600000>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_IPA_CFG 206000 300000>,
+		<MSM_BUS_MASTER_IPA_CORE MSM_BUS_SLAVE_IPA_CORE 0 600>;
+
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+		"TURBO";
+
+		qcom,throughput-threshold = <600 2500 5000>;
+		qcom,scaling-exceptions = "wdi", "0", "600", "1200",
+			"USB DPL", "0", "2500", "5000", "ODL", "0",
+			"2500", "5000";
+	};
+
+	qcom,ipa_fws {
+		memory-region = <&pil_ipa_gsi_mem>;
+	};
+
+	qcom,ipa_uc {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0x1B>;
+		qcom,firmware-name = "ipa_uc";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
+	};
+	ipa_mpm: qcom,ipa-mpm {
+		compatible = "qcom,ipa-mpm";
+		qcom,mhi-chdb-base = <0x40300300>;
+		qcom,mhi-erdb-base = <0x40300700>;
+		qcom,iova-mapping = <0x10000000 0x0FFFFFFF>;
+	 };
 };

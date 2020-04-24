@@ -2519,6 +2519,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 10, 13, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_MHI][IPA_CLIENT_MHI_LOW_LAT_PROD] = {
+			true, IPA_v4_5_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_PCIE,
+			{ 3, 5, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	/* Only for test purpose */
 	[IPA_4_5_MHI][IPA_CLIENT_TEST_PROD]           = {
 			true, QMB_MASTER_SELECT_DDR,
@@ -2605,7 +2611,18 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
 			{ 22, 2, 5, 5, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
-
+	[IPA_4_5_MHI][IPA_CLIENT_MHI_LOW_LAT_CONS] = {
+			true, IPA_v4_5_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 30, 6, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+	[IPA_4_5_MHI][IPA_CLIENT_MHI_QDSS_CONS] = {
+			true, IPA_v4_5_MHI_GROUP_PCIE,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 24, 3, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_5_MHI][IPA_CLIENT_DUMMY_CONS]          = {
 			true, QMB_MASTER_SELECT_DDR,
@@ -3004,6 +3021,7 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	    client == IPA_CLIENT_USB_DPL_CONS ||
 	    client == IPA_CLIENT_MHI_CONS     ||
 	    client == IPA_CLIENT_MHI_DPL_CONS ||
+	    client == IPA_CLIENT_MHI_QDSS_CONS ||
 	    client == IPA_CLIENT_HSIC1_CONS   ||
 	    client == IPA_CLIENT_WLAN1_CONS   ||
 	    client == IPA_CLIENT_WLAN2_CONS   ||
@@ -4896,19 +4914,23 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
-		ep_holb);
-
-	/* IPA4.5 issue requires HOLB_EN to be written twice */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+	if (ep_holb->en == IPA_HOLB_TMR_DIS) {
 		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 			clnt_hdl, ep_holb);
+		goto success;
+	}
+
+	/* Follow HPG sequence to DIS_HOLB, Configure Timer, and HOLB_EN */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ipa3_ctx->ep[clnt_hdl].holb.en = IPA_HOLB_TMR_DIS;
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
+	}
 
 	/* Configure timer */
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2) {
 		ipa3_cal_ep_holb_scale_base_val(ep_holb->tmr_val,
-				&ipa3_ctx->ep[clnt_hdl].holb);
-		goto success;
+			&ipa3_ctx->ep[clnt_hdl].holb);
 	}
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
 		int res;
@@ -4924,9 +4946,19 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 		}
 	}
 
-success:
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
 		clnt_hdl, &ipa3_ctx->ep[clnt_hdl].holb);
+
+	/* Enable HOLB */
+	ipa3_ctx->ep[clnt_hdl].holb.en = IPA_HOLB_TMR_EN;
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+		clnt_hdl, ep_holb);
+	/* IPA4.5 issue requires HOLB_EN to be written twice */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
+
+success:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
 		ep_holb->tmr_val);

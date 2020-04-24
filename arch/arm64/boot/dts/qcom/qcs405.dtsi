@@ -300,6 +300,153 @@
 		clock-frequency = <32768>;
 	};
 
+	pdm_pwm0: pdm_pwm@600000 {
+		compatible = "qcom,pdm-pwm";
+		reg = <0x600000 0xc000>;
+		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
+			<&clock_gcc GCC_PWM0_XO512_CLK>;
+		clock-names = "pdm_ahb_clk", "pwm_core_clk";
+		#pwm-cells = <2>;
+		pwm@0{
+			frame-index = <0>;
+			frame-offset = <0x1000>;
+		};
+		pwm@1{
+			frame-index = <1>;
+			frame-offset = <0x2000>;
+		};
+		pwm@2{
+			frame-index = <2>;
+			frame-offset = <0x3000>;
+		};
+		pwm@3{
+			frame-index = <3>;
+			frame-offset = <0x4000>;
+		};
+		pwm@4{
+			frame-index = <4>;
+			frame-offset = <0x5000>;
+		};
+		pwm@5{
+			frame-index = <5>;
+			frame-offset = <0x6000>;
+		};
+		pwm@6{
+			frame-index = <6>;
+			frame-offset = <0x7000>;
+		};
+		pwm@7{
+			frame-index = <7>;
+			frame-offset = <0x8000>;
+		};
+		pwm@8{
+			frame-index = <8>;
+			frame-offset = <0x9000>;
+		};
+		pwm@9{
+			frame-index = <9>;
+			frame-offset = <0xA000>;
+		};
+	};
+
+	pdm_pwm1: pdm_pwm@614000 {
+		compatible = "qcom,pdm-pwm";
+		reg = <0x614000 0xc000>;
+		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
+			<&clock_gcc GCC_PWM1_XO512_CLK>;
+		clock-names = "pdm_ahb_clk", "pwm_core_clk";
+		#pwm-cells = <2>;
+		pwm@0{
+			frame-index = <0>;
+			frame-offset = <0x1000>;
+		};
+		pwm@1{
+			frame-index = <1>;
+			frame-offset = <0x2000>;
+		};
+		pwm@2{
+			frame-index = <2>;
+			frame-offset = <0x3000>;
+		};
+		pwm@3{
+			frame-index = <3>;
+			frame-offset = <0x4000>;
+		};
+		pwm@4{
+			frame-index = <4>;
+			frame-offset = <0x5000>;
+		};
+		pwm@5{
+			frame-index = <5>;
+			frame-offset = <0x6000>;
+		};
+		pwm@6{
+			frame-index = <6>;
+			frame-offset = <0x7000>;
+		};
+		pwm@7{
+			frame-index = <7>;
+			frame-offset = <0x8000>;
+		};
+		pwm@8{
+			frame-index = <8>;
+			frame-offset = <0x9000>;
+		};
+		pwm@9{
+			frame-index = <9>;
+			frame-offset = <0xA000>;
+		};
+	};
+
+	pdm_pwm2: pdm_pwm@628000 {
+		compatible = "qcom,pdm-pwm";
+		reg = <0x628000 0xc000>;
+		clocks = <&clock_gcc GCC_PDM_AHB_CLK>,
+			<&clock_gcc GCC_PWM2_XO512_CLK>;
+		clock-names = "pdm_ahb_clk", "pwm_core_clk";
+		#pwm-cells = <2>;
+		pwm@0{
+			frame-index = <0>;
+			frame-offset = <0x1000>;
+		};
+		pwm@1{
+			frame-index = <1>;
+			frame-offset = <0x2000>;
+		};
+		pwm@2{
+			frame-index = <2>;
+			frame-offset = <0x3000>;
+		};
+		pwm@3{
+			frame-index = <3>;
+			frame-offset = <0x4000>;
+		};
+		pwm@4{
+			frame-index = <4>;
+			frame-offset = <0x5000>;
+		};
+		pwm@5{
+			frame-index = <5>;
+			frame-offset = <0x6000>;
+		};
+		pwm@6{
+			frame-index = <6>;
+			frame-offset = <0x7000>;
+		};
+		pwm@7{
+			frame-index = <7>;
+			frame-offset = <0x8000>;
+		};
+		pwm@8{
+			frame-index = <8>;
+			frame-offset = <0x9000>;
+		};
+		pwm@9{
+			frame-index = <9>;
+			frame-offset = <0xA000>;
+		};
+	};
+
 	clock_rpmcc: qcom,rpmcc {
 		compatible = "qcom,rpmcc-qcs405";
 		#clock-cells = <1>;

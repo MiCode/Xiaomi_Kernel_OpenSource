@@ -2290,3 +2290,22 @@ Example:
            qcom,model = "sm8150-hana55-snd-card";
            qcom,quat-mi2s-gpios = <&quat_mi2s_gpios>;
     };
+
+
+* msm-pcm-pcie
+
+Required properties:
+ - compatible : "qcom,msm-pcm-pcie"
+
+* PCIE ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,sm8150-asoc-snd-pcie".
+- qcom,model : The user-visible name of this sound card.
+
+Example:
+
+snd_934x {
+»       compatible = "qcom,sm8150-asoc-snd-pcie";
+»       qcom,model = "sm8150-pcie-snd-card";
+};

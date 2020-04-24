@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,9 +133,10 @@ enum mhi_client_channel {
 	MHI_CLIENT_IP_HW_0_OUT = 100,
 	MHI_CLIENT_IP_HW_0_IN = 101,
 	MHI_CLIENT_ADPL_IN = 102,
-	MHI_CLIENT_RESERVED_2_LOWER = 102,
-	MHI_CLIENT_RESERVED_2_UPPER = 127,
-	MHI_MAX_CHANNELS = 102,
+	MHI_CLIENT_IP_HW_QDSS = 103,
+	MHI_CLIENT_QMAP_FLOW_CTRL_OUT = 109,
+	MHI_CLIENT_QMAP_FLOW_CTRL_IN = 110,
+	MHI_MAX_CHANNELS = 255,
 	MHI_CLIENT_INVALID = 0xFFFFFFFF
 };
 

@@ -441,6 +441,16 @@
 			qcom,msm-dai-q6-dev-id = <32770>;
 		};
 
+		proxy_rx: qcom,msm-dai-q6-proxy-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <8194>;
+		};
+
+		proxy_tx: qcom,msm-dai-q6-proxy-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <8195>;
+		};
+
 		usb_audio_rx: qcom,msm-dai-q6-usb-audio-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <28672>;
@@ -814,5 +824,9 @@
 	afe_loopback_tx: qcom,msm-dai-q6-afe-loopback-tx {
 		compatible = "qcom,msm-dai-q6-dev";
 		qcom,msm-dai-q6-dev-id = <24577>;
+	};
+
+	pcie: qcom,msm-pcm-pcie {
+		compatible = "qcom,msm-pcm-pcie";
 	};
 };

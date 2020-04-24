@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,8 +63,8 @@
 #define IPA_MHI_SUSPEND_SLEEP_MIN 900
 #define IPA_MHI_SUSPEND_SLEEP_MAX 1100
 
-#define IPA_MHI_MAX_UL_CHANNELS 1
-#define IPA_MHI_MAX_DL_CHANNELS 2
+#define IPA_MHI_MAX_UL_CHANNELS 2
+#define IPA_MHI_MAX_DL_CHANNELS 4
 
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_CLIENT_HOST_ADDR_COND(addr) \

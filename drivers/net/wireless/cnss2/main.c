@@ -1942,6 +1942,17 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
 }
 
+static void cnss_get_wlaon_pwr_ctrl_info(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+
+	plat_priv->set_wlaon_pwr_ctrl =
+		of_property_read_bool(dev->of_node, "qcom,set-wlaon-pwr-ctrl");
+
+	cnss_pr_dbg("set_wlaon_pwr_ctrl is %d\n",
+		    plat_priv->set_wlaon_pwr_ctrl);
+}
+
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
@@ -2050,6 +2061,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
 
+	cnss_get_wlaon_pwr_ctrl_info(plat_priv);
 	cnss_init_control_params(plat_priv);
 
 	ret = cnss_get_resources(plat_priv);

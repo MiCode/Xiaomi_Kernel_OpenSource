@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -231,6 +231,7 @@ enum cnss_debug_quirks {
 	ENABLE_PCI_LINK_DOWN_PANIC,
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
+	IGNORE_PCI_LINK_FAILURE,
 };
 
 enum cnss_bdf_type {
@@ -315,6 +316,7 @@ struct cnss_plat_data {
 	struct cnss_control_params ctrl_params;
 	u32 is_converged_dt;
 	struct device_node *dev_node;
+	u8 set_wlaon_pwr_ctrl;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);

@@ -2095,10 +2095,8 @@ static int arm_iommu_init_mapping(struct device *dev,
 	int s1_bypass = 0, is_fast = 0, is_bitmap = 0;
 	dma_addr_t iova_end;
 
-	if (mapping->init) {
-		kref_get(&mapping->kref);
+	if (mapping->init)
 		return 0;
-	}
 
 	iova_end = mapping->base + (mapping->bits << PAGE_SHIFT) - 1;
 	if (iova_end > dma_get_mask(dev)) {

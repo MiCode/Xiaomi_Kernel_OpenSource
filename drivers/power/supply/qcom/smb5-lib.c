@@ -5947,6 +5947,26 @@ static void smblib_lpd_clear_ra_open_work(struct smb_charger *chg)
 	vote(chg->awake_votable, LPD_VOTER, false, 0);
 }
 
+static int smblib_role_switch_failure(struct smb_charger *chg)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chg->use_extcon)
+		return 0;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return rc;
+	}
+
+	if (pval.intval)
+		smblib_notify_device_mode(chg, true);
+
+	return rc;
+}
+
 irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -5990,6 +6010,13 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			typec_src_insertion(chg);
 		}
 
+		if (chg->typec_role_swap_failed) {
+			rc = smblib_role_switch_failure(chg);
+			if (rc < 0)
+				pr_err("Failed to role switch rc=%d\n", rc);
+
+			chg->typec_role_swap_failed = false;
+		}
 	} else {
 		switch (chg->sink_src_mode) {
 		case SRC_MODE:
@@ -6016,9 +6043,11 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			 * swap is not in progress, to ensure forced sink or src
 			 * mode configuration is reset properly.
 			 */
-			if (chg->dual_role)
+			if (chg->dual_role) {
 				smblib_force_dr_mode(chg,
 						DUAL_ROLE_PROP_MODE_NONE);
+				chg->typec_role_swap_failed = false;
+			}
 		}
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
@@ -7289,28 +7318,6 @@ int smblib_force_dr_mode(struct smb_charger *chg, int mode)
 	return rc;
 }
 
-static int smblib_role_switch_failure(struct smb_charger *chg, int mode)
-{
-	int rc = 0;
-	union power_supply_propval pval = {0, };
-
-	if (!chg->use_extcon)
-		return 0;
-
-	rc = smblib_get_prop_usb_present(chg, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get usb presence status rc=%d\n", rc);
-		return rc;
-	}
-
-	if (pval.intval) {
-		if (mode == DUAL_ROLE_PROP_MODE_DFP)
-			smblib_notify_device_mode(chg, true);
-	}
-
-	return rc;
-}
-
 static void smblib_dual_role_check_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -7337,15 +7344,13 @@ static void smblib_dual_role_check_work(struct work_struct *work)
 				chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
 			smblib_dbg(chg, PR_MISC, "Role reversal not latched to DFP in %d msecs. Resetting to DRP mode\n",
 				ROLE_REVERSAL_DELAY_MS);
+			chg->pr_swap_in_progress = false;
+			chg->typec_role_swap_failed = true;
 			rc = smblib_force_dr_mode(chg,
 						DUAL_ROLE_PROP_MODE_NONE);
 			if (rc < 0)
 				pr_err("Failed to set DRP mode, rc=%d\n", rc);
 
-			rc = smblib_role_switch_failure(chg,
-						DUAL_ROLE_PROP_MODE_DFP);
-			if (rc < 0)
-				pr_err("Failed to role switch rc=%d\n", rc);
 		}
 		chg->pr_swap_in_progress = false;
 		break;
