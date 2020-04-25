@@ -747,7 +747,7 @@ int a6xx_hfi_start(struct adreno_device *adreno_dev)
 		goto err;
 
 	/* Request default BW vote */
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	result = kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
 
 err:
 	if (result)

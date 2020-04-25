@@ -1248,26 +1248,28 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	}
 }
 
-void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
+int kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->ctrl_flags))
-		return;
+		return 0;
 
 	if (state == KGSL_PWRFLAGS_OFF) {
 		if (test_and_clear_bit(KGSL_PWRFLAGS_AXI_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
-			kgsl_bus_update(device, false);
+			return kgsl_bus_update(device, false);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
-			kgsl_bus_update(device, true);
+			return kgsl_bus_update(device, true);
 		}
 	}
+
+	return 0;
 }
 
 static int enable_regulator(struct device *dev, struct regulator *regulator,

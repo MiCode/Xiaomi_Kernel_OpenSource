@@ -31,7 +31,7 @@ static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 }
 
 
-void kgsl_bus_update(struct kgsl_device *device, bool on)
+int kgsl_bus_update(struct kgsl_device *device, bool on)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	/* FIXME: this might be wrong? */
@@ -41,7 +41,7 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 
 	/* the bus should be ON to update the active frequency */
 	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
-		return;
+		return 0;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
 	 * otherwise request bus level 0, off.
@@ -60,7 +60,7 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 	/* buslevel is the IB vote, update the AB */
 	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
 
-	device->ftbl->gpu_bus_set(device, buslevel, ab);
+	return device->ftbl->gpu_bus_set(device, buslevel, ab);
 }
 
 static void validate_pwrlevels(struct kgsl_device *device, u32 *ibs,

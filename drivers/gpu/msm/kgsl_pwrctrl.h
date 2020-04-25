@@ -214,8 +214,10 @@ void kgsl_pwrctrl_request_state(struct kgsl_device *device, u32 state);
  *
  * This function will propagate the default bus vote when coming out of
  * slumber and set bus bandwidth to 0 when going into slumber
+ *
+ * Return: 0 on success or negative error on failure
  */
-void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
+int kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
 
 /**
  * kgsl_idle_check - kgsl idle function

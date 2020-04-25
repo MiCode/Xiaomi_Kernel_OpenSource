@@ -815,7 +815,9 @@ static int a6xx_rgmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	ret = kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+	if (ret)
+		goto err;
 
 	rgmu->fault = false;
 
