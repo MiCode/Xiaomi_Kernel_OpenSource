@@ -1877,4 +1877,12 @@ void adreno_get_bus_counters(struct adreno_device *adreno_dev);
  * power up the gpu
  */
 void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev);
+
+/**
+ * gmu_fault_snapshot - Set gmu fault and trigger snapshot
+ * @device: Pointer to the kgsl device
+ *
+ * Set the gmu fault and take snapshot when we hit a gmu fault
+ */
+void gmu_fault_snapshot(struct kgsl_device *device);
 #endif /*__ADRENO_H */

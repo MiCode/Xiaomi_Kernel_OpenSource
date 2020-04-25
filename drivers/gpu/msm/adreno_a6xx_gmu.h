@@ -286,9 +286,13 @@ void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev);
 void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev);
 
 /**
- * a6xx_gmu_snapshot - Send nmi to gmu and take snapshot
- * @device: Pointer to the kgsl device
+ * a6xx_gmu_snapshot- Take snapshot for gmu targets
+ * @adreno_dev: Pointer to the adreno device
+ * @snapshot: Pointer to the snapshot structure
  *
+ * Send an NMI to gmu if we hit a gmu fault. Then take gmu
+ * snapshot and carry on with rest of the a6xx snapshot
  */
-void a6xx_gmu_snapshot(struct kgsl_device *device);
+void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot);
 #endif

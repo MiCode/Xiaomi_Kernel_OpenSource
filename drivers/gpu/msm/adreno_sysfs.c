@@ -261,7 +261,7 @@ static bool _acd_show(struct adreno_device *adreno_dev)
 
 static int _acd_store(struct adreno_device *adreno_dev, bool val)
 {
-	return gmu_core_acd_set(KGSL_DEVICE(adreno_dev), val);
+	return gmu_core_dev_acd_set(KGSL_DEVICE(adreno_dev), val);
 }
 
 static ssize_t _sysfs_store_u32(struct device *dev,

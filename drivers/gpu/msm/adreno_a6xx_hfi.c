@@ -245,6 +245,7 @@ static int receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 	struct pending_cmd *ret_cmd)
 {
 	struct adreno_device *adreno_dev = a6xx_gmu_to_adreno(gmu);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	uint32_t *ack = rcvd;
 	uint32_t hdr = ack[0];
 	uint32_t req_hdr = ack[1];
@@ -266,7 +267,7 @@ static int receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 		"HFI ACK: Cannot find sender for 0x%8.8x Waiter: 0x%8.8x\n",
 		req_hdr, ret_cmd->sent_hdr);
 
-	a6xx_gmu_snapshot(KGSL_DEVICE(adreno_dev));
+	gmu_fault_snapshot(device);
 
 	return -ENODEV;
 }
@@ -310,6 +311,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 	uint32_t queue_idx, void *data, struct pending_cmd *ret_cmd)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int rc;
 	uint32_t *cmd = data;
 	struct a6xx_hfi *hfi = &gmu->hfi;
@@ -329,7 +331,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 		HFI_IRQ_MSGQ_MASK, HFI_IRQ_MSGQ_MASK, HFI_RSP_TIMEOUT);
 
 	if (rc) {
-		a6xx_gmu_snapshot(KGSL_DEVICE(adreno_dev));
+		gmu_fault_snapshot(device);
 		dev_err(&gmu->pdev->dev,
 		"Timed out waiting on ack for 0x%8.8x (id %d, sequence %d)\n",
 		cmd[0], MSG_HDR_GET_ID(*cmd), MSG_HDR_GET_SEQNUM(*cmd));
@@ -337,7 +339,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 	}
 
 	/* Clear the interrupt */
-	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_GMU2HOST_INTR_CLR,
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR,
 		HFI_IRQ_MSGQ_MASK);
 
 	rc = a6xx_hfi_process_queue(gmu, HFI_MSG_ID, ret_cmd);
@@ -359,8 +361,9 @@ static int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
 
 	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
 		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-		a6xx_gmu_snapshot(KGSL_DEVICE(adreno_dev));
+		gmu_fault_snapshot(device);
 		dev_err(&gmu->pdev->dev, "HFI ACK failure: Req 0x%8.8X\n",
 						ret_cmd.results[1]);
 		return -EINVAL;

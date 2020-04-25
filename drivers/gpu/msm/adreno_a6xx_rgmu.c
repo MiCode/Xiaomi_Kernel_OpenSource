@@ -42,8 +42,6 @@ static const unsigned int a6xx_rgmu_registers[] = {
 	0x26000, 0x26002,
 };
 
-static void a6xx_rgmu_snapshot(struct kgsl_device *device);
-
 static struct a6xx_rgmu_device *to_a6xx_rgmu(struct adreno_device *adreno_dev)
 {
 	struct a6xx_device *a6xx_dev = container_of(adreno_dev,
@@ -167,7 +165,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 		dev_err(&rgmu->pdev->dev,
 				"Timed out while setting OOB req:%s status:0x%x\n",
 				oob_to_str(req), status);
-		a6xx_rgmu_snapshot(device);
+		gmu_fault_snapshot(device);
 		return ret;
 	}
 
@@ -368,7 +366,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 			reg[7], reg[8], reg[9]);
 
 	WARN_ON(1);
-	a6xx_rgmu_snapshot(device);
+	gmu_fault_snapshot(device);
 	return -ETIMEDOUT;
 }
 
@@ -452,7 +450,7 @@ static int a6xx_rgmu_fw_start(struct adreno_device *adreno_dev,
 		gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &status);
 		dev_err(&rgmu->pdev->dev,
 				"rgmu boot Failed. status:%08x\n", status);
-		a6xx_rgmu_snapshot(device);
+		gmu_fault_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -522,19 +520,11 @@ static int a6xx_rgmu_disable_gdsc(struct adreno_device *adreno_dev)
 
 static void a6xx_rgmu_halt_execution(struct kgsl_device *device);
 
-static void a6xx_rgmu_snapshot(struct kgsl_device *device)
+void a6xx_rgmu_snapshot(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
-
-	if (device->gmu_fault)
-		return;
-
-	/* Mask so there's no interrupt caused by NMI */
-	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
-
-	/* Make sure the interrupt is masked */
-	wmb();
 
 	/*
 	 * Halt RGMU execution so that GX will not
@@ -542,15 +532,17 @@ static void a6xx_rgmu_snapshot(struct kgsl_device *device)
 	 */
 	a6xx_rgmu_halt_execution(device);
 
-	kgsl_device_snapshot(device, NULL, true);
+	adreno_snapshot_registers(device, snapshot, a6xx_rgmu_registers,
+			ARRAY_SIZE(a6xx_rgmu_registers) / 2);
+
+	a6xx_snapshot(adreno_dev, snapshot);
 
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, 0xffffffff);
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK,
 		RGMU_OOB_IRQ_MASK);
 
-	rgmu->fault_count++;
-
-	device->gmu_fault = true;
+	if (device->gmu_fault)
+		rgmu->fault_count++;
 }
 
 static void a6xx_rgmu_suspend(struct adreno_device *adreno_dev)
@@ -644,6 +636,15 @@ static void a6xx_rgmu_halt_execution(struct kgsl_device *device)
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(ADRENO_DEVICE(device));
 	unsigned int index, status, fence;
 
+	if (!device->gmu_fault)
+		return;
+
+	/* Mask so there's no interrupt caused by NMI */
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+	/* Make sure the interrupt is masked */
+	wmb();
+
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &index);
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_STATUS, &status);
 	gmu_core_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &fence);
@@ -664,22 +665,6 @@ static void a6xx_rgmu_halt_execution(struct kgsl_device *device)
 	 */
 	gmu_core_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 
-}
-
-/*
- * a6xx_rgmu_snapshot() - A6XX GMU snapshot function
- * @adreno_dev: Device being snapshotted
- * @snapshot: Pointer to the snapshot instance
- *
- * This is where all of the A6XX GMU specific bits and pieces are grabbed
- * into the snapshot memory
- */
-static void a6xx_rgmu_device_snapshot(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot)
-{
-
-	adreno_snapshot_registers(device, snapshot, a6xx_rgmu_registers,
-					ARRAY_SIZE(a6xx_rgmu_registers) / 2);
 }
 
 static void halt_gbif_arb(struct adreno_device *adreno_dev)
@@ -1174,11 +1159,6 @@ static struct gmu_dev_ops a6xx_rgmudev = {
 	.gx_is_on = a6xx_rgmu_gx_is_on,
 	.ifpc_store = a6xx_rgmu_ifpc_store,
 	.ifpc_show = a6xx_rgmu_ifpc_show,
-	.snapshot = a6xx_rgmu_device_snapshot,
-};
-
-static struct gmu_core_ops a6xx_rgmu_ops = {
-	.snapshot = a6xx_rgmu_snapshot,
 };
 
 static int a6xx_rgmu_irq_probe(struct kgsl_device *device)
@@ -1345,7 +1325,6 @@ static int a6xx_rgmu_probe(struct kgsl_device *device,
 		rgmu->idle_level = GPU_HW_ACTIVE;
 
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
-	device->gmu_core.core_ops = &a6xx_rgmu_ops;
 	device->gmu_core.dev_ops = &a6xx_rgmudev;
 
 	return 0;

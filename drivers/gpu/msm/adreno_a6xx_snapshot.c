@@ -1784,9 +1784,6 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	unsigned int i, roq_size;
 	u32 hi, lo;
 
-	/* GMU TCM data dumped through AHB */
-	gmu_core_dev_snapshot(device, snapshot);
-
 	/*
 	 * Dump debugbus data here to capture it for both
 	 * GMU and GPU snapshot. Debugbus data can be accessed

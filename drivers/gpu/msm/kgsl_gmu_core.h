@@ -7,7 +7,6 @@
 
 /* GMU_DEVICE - Given an KGSL device return the GMU specific struct */
 #define GMU_DEVICE_OPS(_a) ((_a)->gmu_core.dev_ops)
-#define GMU_CORE_OPS(_a) ((_a)->gmu_core.core_ops)
 
 #define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
@@ -100,23 +99,17 @@ struct device_node;
 struct kgsl_device;
 struct kgsl_snapshot;
 
-struct gmu_core_ops {
-	void (*snapshot)(struct kgsl_device *device);
-	int (*acd_set)(struct kgsl_device *device, bool val);
-};
-
 struct gmu_dev_ops {
 	int (*oob_set)(struct kgsl_device *device, enum oob_request req);
 	void (*oob_clear)(struct kgsl_device *device, enum oob_request req);
 	bool (*gx_is_on)(struct kgsl_device *device);
 	int (*ifpc_store)(struct kgsl_device *device, unsigned int val);
 	unsigned int (*ifpc_show)(struct kgsl_device *device);
-	void (*snapshot)(struct kgsl_device *device,
-		struct kgsl_snapshot *shapshot);
 	void (*cooperative_reset)(struct kgsl_device *device);
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct kgsl_device *device);
 	bool (*scales_bandwidth)(struct kgsl_device *device);
+	int (*acd_set)(struct kgsl_device *device, bool val);
 };
 
 /**
@@ -127,7 +120,6 @@ struct gmu_dev_ops {
  *	gmu registers using offset defined in GPU register space.
  * @reg_len: GMU registers length
  * @reg_virt: GMU CSR virtual address
- * @core_ops: Pointer to gmu core operations
  * @dev_ops: Pointer to gmu device operations
  * @flags: GMU flags
  */
@@ -136,7 +128,6 @@ struct gmu_core_device {
 	unsigned int gmu2gpu_offset;
 	unsigned int reg_len;
 	void __iomem *reg_virt;
-	struct gmu_core_ops *core_ops;
 	struct gmu_dev_ops *dev_ops;
 	unsigned long flags;
 };
@@ -149,11 +140,10 @@ extern struct platform_driver a6xx_rgmu_driver;
 void __init gmu_core_register(void);
 void __exit gmu_core_unregister(void);
 
-void gmu_core_snapshot(struct kgsl_device *device);
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device);
 bool gmu_core_scales_bandwidth(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);
-int gmu_core_acd_set(struct kgsl_device *device, bool val);
+int gmu_core_dev_acd_set(struct kgsl_device *device, bool val);
 bool gmu_core_is_register_offset(struct kgsl_device *device,
 				unsigned int offsetwords);
 void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
@@ -179,8 +169,6 @@ void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req);
 void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req);
-void gmu_core_dev_snapshot(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot);
 bool gmu_core_dev_gx_is_on(struct kgsl_device *device);
 int gmu_core_dev_ifpc_show(struct kgsl_device *device);
 int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val);

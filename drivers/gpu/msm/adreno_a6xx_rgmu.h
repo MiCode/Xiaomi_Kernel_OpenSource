@@ -78,4 +78,15 @@ int a6xx_rgmu_device_probe(struct platform_device *pdev,
  * Return: 0 on success or negative error on failure
  */
 int a6xx_rgmu_restart(struct kgsl_device *device);
+
+/**
+ * a6xx_rgmu_snapshot - Take snapshot for rgmu based targets
+ * @adreno_dev: Pointer to the adreno device
+ * @snapshot: Pointer to the snapshot
+ *
+ * This function halts rgmu execution if we hit a rgmu
+ * fault. And then, it takes rgmu and gpu snapshot.
+ */
+void a6xx_rgmu_snapshot(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot);
 #endif

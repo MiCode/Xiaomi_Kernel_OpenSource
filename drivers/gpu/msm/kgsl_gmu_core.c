@@ -51,7 +51,7 @@ bool gmu_core_isenabled(struct kgsl_device *device)
 
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 {
-	return (device->gmu_core.core_ops != NULL);
+	return (device->gmu_core.dev_ops != NULL);
 }
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)
@@ -64,20 +64,12 @@ bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 	return false;
 }
 
-void gmu_core_snapshot(struct kgsl_device *device)
+int gmu_core_dev_acd_set(struct kgsl_device *device, bool val)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
-	if (gmu_core_ops && gmu_core_ops->snapshot)
-		gmu_core_ops->snapshot(device);
-}
-
-int gmu_core_acd_set(struct kgsl_device *device, bool val)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->acd_set)
-		return gmu_core_ops->acd_set(device, val);
+	if (ops && ops->acd_set)
+		return ops->acd_set(device, val);
 
 	return -EINVAL;
 }
@@ -180,15 +172,6 @@ void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req)
 
 	if (ops && ops->oob_clear)
 		ops->oob_clear(device, req);
-}
-
-void gmu_core_dev_snapshot(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->snapshot)
-		ops->snapshot(device, snapshot);
 }
 
 void gmu_core_dev_cooperative_reset(struct kgsl_device *device)
