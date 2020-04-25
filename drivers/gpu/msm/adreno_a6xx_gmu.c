@@ -1670,8 +1670,6 @@ static void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
-
-	gmu->fault = false;
 }
 
 static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
@@ -1936,7 +1934,7 @@ void a6xx_gmu_snapshot(struct kgsl_device *device)
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
 	/* Abstain from sending another nmi or over-writing snapshot */
-	if (gmu->fault)
+	if (device->gmu_fault)
 		return;
 
 	/* make sure we're reading the latest cm3_fault */
@@ -1961,7 +1959,7 @@ void a6xx_gmu_snapshot(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_MASK,
 		HFI_IRQ_MASK);
 
-	gmu->fault = true;
+	device->gmu_fault = true;
 
 }
 
@@ -2108,12 +2106,12 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	icc_set_bw(pwr->icc_path, 0, 0);
 
-	gmu->fault = false;
+	device->gmu_fault = false;
 
 	return 0;
 
 err:
-	if (gmu->fault) {
+	if (device->gmu_fault) {
 		a6xx_gmu_suspend(adreno_dev);
 		return ret;
 	}
@@ -2181,12 +2179,12 @@ static int a6xx_gmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	gmu->fault = false;
+	device->gmu_fault = false;
 
 	return 0;
 
 err:
-	if (gmu->fault) {
+	if (device->gmu_fault) {
 		a6xx_gmu_suspend(adreno_dev);
 		return ret;
 	}
@@ -2669,9 +2667,10 @@ static int halt_gbif(struct adreno_device *adreno_dev)
 static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret = 0;
 
-	if (gmu->fault)
+	if (device->gmu_fault)
 		goto error;
 
 	/* Wait for the lowest idle level we requested */

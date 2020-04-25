@@ -320,6 +320,8 @@ struct kgsl_device {
 	rwlock_t event_groups_lock;
 	/** @speed_bin: Speed bin for the GPU device if applicable */
 	u32 speed_bin;
+	/** @gmu_fault: Set when a gmu or rgmu fault is encountered */
+	bool gmu_fault;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -485,7 +487,6 @@ struct kgsl_device_private {
  * @process: the process that caused the hang, if known.
  * @sysfs_read: Count of current reads via sysfs
  * @first_read: True until the snapshot read is started
- * @gmu_fault: Snapshot collected when GMU fault happened
  * @recovered: True if GPU was recovered after previous snapshot
  */
 struct kgsl_snapshot {
@@ -509,7 +510,6 @@ struct kgsl_snapshot {
 	struct kgsl_process_private *process;
 	unsigned int sysfs_read;
 	bool first_read;
-	bool gmu_fault;
 	bool recovered;
 	struct kgsl_device *device;
 };

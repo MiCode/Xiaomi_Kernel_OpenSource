@@ -56,8 +56,6 @@ struct a6xx_rgmu_device {
 	struct clk *rgmu_clk;
 	unsigned int idle_level;
 	unsigned int fault_count;
-	/** @fault: to track whether we encountered a rgmu fault */
-	bool fault;
 	/** @flags: rgmu internal flags */
 	unsigned long flags;
 };

@@ -515,7 +515,7 @@ static void a6xx_rgmu_snapshot(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 
-	if (rgmu->fault)
+	if (device->gmu_fault)
 		return;
 
 	/* Mask so there's no interrupt caused by NMI */
@@ -538,7 +538,7 @@ static void a6xx_rgmu_snapshot(struct kgsl_device *device)
 
 	rgmu->fault_count++;
 
-	rgmu->fault = true;
+	device->gmu_fault = true;
 }
 
 static void a6xx_rgmu_suspend(struct adreno_device *adreno_dev)
@@ -687,13 +687,12 @@ static void halt_gbif_arb(struct adreno_device *adreno_dev)
 /* Caller shall ensure GPU is ready for SLUMBER */
 static void a6xx_rgmu_power_off(struct adreno_device *adreno_dev)
 {
-	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 
-	if (rgmu->fault)
+	if (device->gmu_fault)
 		return a6xx_rgmu_suspend(adreno_dev);
 
 	/* Wait for the lowest idle level we requested */
@@ -795,7 +794,6 @@ err:
 
 static int a6xx_rgmu_boot(struct adreno_device *adreno_dev)
 {
-	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
@@ -824,7 +822,7 @@ static int a6xx_rgmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	rgmu->fault = false;
+	device->gmu_fault = false;
 
 	return 0;
 

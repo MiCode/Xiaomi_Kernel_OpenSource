@@ -201,8 +201,6 @@ struct a6xx_gmu_device {
 	void *itcm_shadow;
 	/** @flags: Internal gmu flags */
 	unsigned long flags;
-	/** @fault: To track if we hit a gmu fault */
-	bool fault;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */
