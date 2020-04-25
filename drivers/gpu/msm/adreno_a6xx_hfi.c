@@ -40,7 +40,7 @@ struct hfi_queue_table {
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
 #define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
 
-static void a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
+static int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 		uint32_t queue_idx, struct pending_cmd *ret_cmd);
 
 /* Size in below functions are in unit of dwords */
@@ -241,7 +241,7 @@ int a6xx_hfi_init(struct adreno_device *adreno_dev)
 #define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
 	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
 
-static void receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
+static int receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 	struct pending_cmd *ret_cmd)
 {
 	struct adreno_device *adreno_dev = a6xx_gmu_to_adreno(gmu);
@@ -250,7 +250,7 @@ static void receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 	uint32_t req_hdr = ack[1];
 
 	if (ret_cmd == NULL)
-		return;
+		return -EINVAL;
 
 	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
 		MSG_HDR_GET_SIZE(req_hdr),
@@ -258,7 +258,7 @@ static void receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 
 	if (HDR_CMP_SEQNUM(ret_cmd->sent_hdr, req_hdr)) {
 		memcpy(&ret_cmd->results, ack, MSG_HDR_GET_SIZE(hdr) << 2);
-		return;
+		return 0;
 	}
 
 	/* Didn't find the sender, list the waiter */
@@ -266,8 +266,9 @@ static void receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 		"HFI ACK: Cannot find sender for 0x%8.8x Waiter: 0x%8.8x\n",
 		req_hdr, ret_cmd->sent_hdr);
 
-	adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+	a6xx_gmu_snapshot(KGSL_DEVICE(adreno_dev));
+
+	return -ENODEV;
 }
 
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
@@ -328,6 +329,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 		HFI_IRQ_MSGQ_MASK, HFI_IRQ_MSGQ_MASK, HFI_RSP_TIMEOUT);
 
 	if (rc) {
+		a6xx_gmu_snapshot(KGSL_DEVICE(adreno_dev));
 		dev_err(&gmu->pdev->dev,
 		"Timed out waiting on ack for 0x%8.8x (id %d, sequence %d)\n",
 		cmd[0], MSG_HDR_GET_ID(*cmd), MSG_HDR_GET_SEQNUM(*cmd));
@@ -338,7 +340,7 @@ static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
 	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
 		HFI_IRQ_MSGQ_MASK);
 
-	a6xx_hfi_process_queue(gmu, HFI_MSG_ID, ret_cmd);
+	rc = a6xx_hfi_process_queue(gmu, HFI_MSG_ID, ret_cmd);
 
 	return rc;
 }
@@ -358,6 +360,7 @@ static int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
 	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
 		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
+		a6xx_gmu_snapshot(KGSL_DEVICE(adreno_dev));
 		dev_err(&gmu->pdev->dev, "HFI ACK failure: Req 0x%8.8X\n",
 						ret_cmd.results[1]);
 		return -EINVAL;
@@ -550,7 +553,7 @@ static void a6xx_hfi_v1_receiver(struct a6xx_gmu_device *gmu, uint32_t *rcvd,
 	}
 }
 
-static void a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
+static int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 		uint32_t queue_idx, struct pending_cmd *ret_cmd)
 {
 	uint32_t rcvd[MAX_RCVD_SIZE];
@@ -564,7 +567,10 @@ static void a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 
 		/* V2 ACK Handler */
 		if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
-			receive_ack_cmd(gmu, rcvd, ret_cmd);
+			int ret = receive_ack_cmd(gmu, rcvd, ret_cmd);
+
+			if (ret)
+				return ret;
 			continue;
 		}
 
@@ -583,6 +589,8 @@ static void a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 			break;
 		}
 	}
+
+	return 0;
 }
 
 static int a6xx_hfi_verify_fw_version(struct adreno_device *adreno_dev)

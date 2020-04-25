@@ -287,5 +287,10 @@ void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev);
  */
 void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev);
 
-
+/**
+ * a6xx_gmu_snapshot - Send nmi to gmu and take snapshot
+ * @device: Pointer to the kgsl device
+ *
+ */
+void a6xx_gmu_snapshot(struct kgsl_device *device);
 #endif

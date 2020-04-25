@@ -444,6 +444,7 @@ static int a6xx_gmu_device_start(struct adreno_device *adreno_dev)
 			A6XX_GMU_CM3_DTCM_START + (0x3fdc >> 2), &val);
 		dev_err(&gmu->pdev->dev, "GMU doesn't boot: 0x%x\n", val);
 
+		a6xx_gmu_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -467,6 +468,7 @@ static int a6xx_gmu_hfi_start(struct adreno_device *adreno_dev)
 			GMU_START_TIMEOUT,
 			BIT(0))) {
 		dev_err(&gmu->pdev->dev, "GMU HFI init failed\n");
+		a6xx_gmu_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -743,6 +745,7 @@ static int a6xx_gmu_oob_set(struct kgsl_device *device,
 	if (timed_poll_check(device, A6XX_GMU_GMU2HOST_INTR_INFO, check,
 		GPU_START_TIMEOUT, check)) {
 		ret = -ETIMEDOUT;
+		a6xx_gmu_snapshot(device);
 		WARN(1, "OOB request %s timed out\n", oob_to_str(req));
 	}
 
@@ -897,6 +900,7 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 			SPTPRAC_CTRL_TIMEOUT,
 			SPTPRAC_POWERON_STATUS_MASK)) {
 		dev_err(&gmu->pdev->dev, "power on SPTPRAC fail\n");
+		a6xx_gmu_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
@@ -1926,7 +1930,7 @@ static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
 }
 
 
-static void a6xx_gmu_snapshot(struct kgsl_device *device)
+void a6xx_gmu_snapshot(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);

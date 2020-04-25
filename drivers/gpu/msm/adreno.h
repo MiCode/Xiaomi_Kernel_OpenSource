@@ -1644,7 +1644,6 @@ static inline int adreno_perfcntr_active_oob_get(
 	if (!ret) {
 		ret = gmu_core_dev_oob_set(device, oob_perfcntr);
 		if (ret) {
-			gmu_core_snapshot(device);
 			adreno_set_gpu_fault(adreno_dev,
 				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 			adreno_dispatcher_schedule(device);

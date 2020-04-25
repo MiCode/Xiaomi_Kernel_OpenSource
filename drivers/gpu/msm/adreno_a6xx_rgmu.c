@@ -42,6 +42,8 @@ static const unsigned int a6xx_rgmu_registers[] = {
 	0x26000, 0x26002,
 };
 
+static void a6xx_rgmu_snapshot(struct kgsl_device *device);
+
 static struct a6xx_rgmu_device *to_a6xx_rgmu(struct adreno_device *adreno_dev)
 {
 	struct a6xx_device *a6xx_dev = container_of(adreno_dev,
@@ -165,6 +167,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 		dev_err(&rgmu->pdev->dev,
 				"Timed out while setting OOB req:%s status:0x%x\n",
 				oob_to_str(req), status);
+		a6xx_rgmu_snapshot(device);
 		return ret;
 	}
 
@@ -353,6 +356,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 			reg[7], reg[8], reg[9]);
 
 	WARN_ON(1);
+	a6xx_rgmu_snapshot(device);
 	return -ETIMEDOUT;
 }
 
@@ -436,6 +440,7 @@ static int a6xx_rgmu_fw_start(struct adreno_device *adreno_dev,
 		gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &status);
 		dev_err(&rgmu->pdev->dev,
 				"rgmu boot Failed. status:%08x\n", status);
+		a6xx_rgmu_snapshot(device);
 		return -ETIMEDOUT;
 	}
 
