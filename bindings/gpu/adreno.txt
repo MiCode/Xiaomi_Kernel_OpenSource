@@ -3,7 +3,9 @@ Qualcomm Technologies, Inc. GPU
 Qualcomm Technologies, Inc. Adreno GPU
 
 Required properties:
-- compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
+- compatible:		Must be "qcom,kgsl-3d0".
+			May also includes "qcom,adreno-gpu-*" for few targets.
+			Must include "qcom,adreno-gpu-a619-holi" for Holi target.
 - reg:			Specifies the list of register regions for the device.
 - reg-names:		Resource names used for the register regions specified
 			in reg.
