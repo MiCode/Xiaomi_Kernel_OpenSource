@@ -527,7 +527,9 @@
 		};
 	};
 
-	chosen { };
+	chosen {
+		bootargs = "log_buf_len=256K";
+	};
 };
 
 &soc {
