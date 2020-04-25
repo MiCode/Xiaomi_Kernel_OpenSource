@@ -64,6 +64,9 @@
 #define IPA_UC_WAII_MAX_SLEEP 1200
 #define IPA_HOLB_TMR_DIS 0x0
 #define IPA_HOLB_TMR_EN 0x1
+#define IPA_MPM_MAX_RING_LEN 64
+#define IPA_MAX_TETH_AGGR_BYTE_LIMIT 24
+#define IPA_MPM_MAX_UC_THRESH 4
 /*
  * The transport descriptor size was changed to GSI_CHAN_RE_SIZE_16B, but
  * IPA users still use sps_iovec size as FIFO element size.
@@ -1821,6 +1824,12 @@ struct ipa3_app_clock_vote {
  * @uc_wigig_ctx: WIGIG specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
+ * @mpm_ring_size_dl_cache: To cache the dl ring size configured previously
+ * @mpm_ring_size_dl: MHIP all DL pipe's ring size
+ * @mpm_ring_size_ul_cache: To cache the ul ring size configured previously
+ * @mpm_ring_size_ul: MHIP all UL pipe's ring size
+ * @mpm_teth_aggr_size: MHIP teth aggregation byte size
+ * @mpm_uc_thresh: uc threshold for enabling uc flow control
  * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
  * @gsi_ch20_wa: Indicates whether to apply GSI physical channel 20 workaround
@@ -1958,6 +1967,12 @@ struct ipa3_context {
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
+	int mpm_ring_size_dl_cache;
+	int mpm_ring_size_dl;
+	int mpm_ring_size_ul_cache;
+	int mpm_ring_size_ul;
+	int mpm_teth_aggr_size;
+	int mpm_uc_thresh;
 	unsigned long gsi_dev_hdl;
 	u32 ee;
 	bool apply_rg10_wa;
@@ -3208,4 +3223,5 @@ int ipa3_uc_send_enable_flow_control(uint16_t gsi_chid,
 int ipa3_uc_send_disable_flow_control(void);
 int ipa3_uc_send_update_flow_control(uint32_t bitmask,
 	uint8_t  add_delete);
+int ipa3_qmi_reg_dereg_for_bw(bool bw_reg);
 #endif /* _IPA3_I_H_ */

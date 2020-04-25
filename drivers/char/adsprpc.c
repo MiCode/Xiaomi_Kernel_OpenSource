@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -1871,7 +1871,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	}
 	PERF_END);
 	for (i = bufs; rpra && i < bufs + handles; i++) {
-		rpra[i].dma.fd = ctx->fds[i];
+		if (ctx->fds)
+			rpra[i].dma.fd = ctx->fds[i];
 		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
 		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
@@ -3417,10 +3418,9 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rspFlags = 0, earlyWakeTime = 0;
-	int err = 0, cid;
-	struct fastrpc_channel_ctx *chan = 0;
+	int err = 0, cid = -1;
+	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
-	bool is_ctxtable_locked = false;
 
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
@@ -3454,31 +3454,28 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	if (rspFlags == COMPLETE_SIGNAL) {
-		spin_lock_irqsave(&chan->ctxlock, irq_flags);
-		is_ctxtable_locked = true;
-	}
+	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	VERIFY(err, !IS_ERR_OR_NULL(chan->ctxtable[index]));
 	if (err)
-		goto bail;
+		goto bail_unlock;
 
 	VERIFY(err, ((chan->ctxtable[index]->ctxid ==
 		(rsp->ctx & ~CONTEXT_PD_CHECK)) &&
 			chan->ctxtable[index]->magic ==
 				FASTRPC_CTX_MAGIC));
 	if (err)
-		goto bail;
+		goto bail_unlock;
 
 	if (rspv2) {
 		VERIFY(err, rspv2->version == FASTRPC_RSP_VERSION2);
 		if (err)
-			goto bail;
+			goto bail_unlock;
 	}
 	context_notify_user(chan->ctxtable[index], rsp->retval,
 				 rspFlags, earlyWakeTime);
+bail_unlock:
+	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 bail:
-	if (rspFlags == COMPLETE_SIGNAL && is_ctxtable_locked)
-		spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 	if (err)
 		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
 				__func__, data, len, err);

@@ -51,12 +51,13 @@
 	}
 
 static struct llcc_slice_config lagoon_data[] =  {
-	SCT_ENTRY(LLCC_CPUSS,    1, 768, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
-	SCT_ENTRY(LLCC_MDM,      8, 256, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_CPUSS,    1,  768, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
+	SCT_ENTRY(LLCC_MDM,      8,  512, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_GPUHTW,   11, 256, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_GPU,      12, 256, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDMPNG,   21, 768, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_GPU,      12, 512, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMPNG,   21, 768, 0, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_NPU,      23, 768, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MODEMVPE, 29,  64, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 };
 
 static int lagoon_qcom_llcc_probe(struct platform_device *pdev)

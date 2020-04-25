@@ -395,6 +395,8 @@ static struct fg_sram_param pm8150b_v1_sram_params[] = {
 		0, NULL, fg_decode_voltage_15b),
 	PARAM(IBAT_FINAL, IBAT_FINAL_WORD, IBAT_FINAL_OFFSET, 2, 1000, 488282,
 		0, NULL, fg_decode_current_16b),
+	PARAM(RCONN, RCONN_WORD, RCONN_OFFSET, 2, 1000, 122070, 0,
+		fg_encode_default, fg_decode_value_16b),
 	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
 		fg_decode_value_16b),
 	PARAM(ESR_MDL, ESR_MDL_WORD, ESR_MDL_OFFSET, 2, 1000, 244141, 0,
@@ -495,6 +497,8 @@ static struct fg_sram_param pm8150b_v2_sram_params[] = {
 		0, NULL, fg_decode_current_16b),
 	PARAM(IBAT_FLT, IBAT_FLT_WORD, IBAT_FLT_OFFSET, 4, 10000, 19073, 0,
 		NULL, fg_decode_current_24b),
+	PARAM(RCONN, RCONN_WORD, RCONN_OFFSET, 2, 1000, 122070, 0,
+		fg_encode_default, fg_decode_value_16b),
 	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
 		fg_decode_value_16b),
 	PARAM(ESR_MDL, ESR_MDL_WORD, ESR_MDL_OFFSET, 2, 1000, 244141, 0,
@@ -5454,8 +5458,7 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 
 		if (!buf[0] && !buf[1]) {
-			/* Rconn has same encoding as ESR */
-			fg_encode(fg->sp, FG_SRAM_ESR, chip->dt.rconn_uohms,
+			fg_encode(fg->sp, FG_SRAM_RCONN, chip->dt.rconn_uohms,
 				buf);
 			rc = fg_sram_write(fg, RCONN_WORD, RCONN_OFFSET, buf, 2,
 					FG_IMA_DEFAULT);

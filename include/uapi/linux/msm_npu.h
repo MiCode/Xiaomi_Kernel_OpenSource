@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_NPU_H_
@@ -87,6 +87,7 @@
 #define MSM_NPU_PROP_ID_CLK_GATING_MODE (MSM_NPU_FW_PROP_ID_START + 2)
 #define MSM_NPU_PROP_ID_HW_VERSION (MSM_NPU_FW_PROP_ID_START + 3)
 #define MSM_NPU_PROP_ID_FW_VERSION (MSM_NPU_FW_PROP_ID_START + 4)
+#define MSM_NPU_PROP_ID_FW_GETCAPS (MSM_NPU_FW_PROP_ID_START + 5)
 
 /* features supported by driver */
 #define MSM_NPU_FEATURE_MULTI_EXECUTE  0x1

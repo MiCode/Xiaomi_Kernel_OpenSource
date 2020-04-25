@@ -1618,8 +1618,6 @@ static int handle3_egress_format(struct net_device *dev,
 			rc = ipa3_qmi_set_aggr_info(DATA_AGGR_TYPE_QMAP_V01);
 		}
 		rmnet_ipa3_ctx->ipa_mhi_aggr_formet_set = true;
-		/* register Q6 indication */
-		rc = ipa3_qmi_req_ind();
 		return rc;
 	}
 
@@ -2102,7 +2100,7 @@ static void ipa3_wwan_setup(struct net_device *dev)
 	dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
 	dev->needed_headroom = HEADROOM_FOR_QMAP;
 	dev->needed_tailroom = TAILROOM;
-	dev->watchdog_timeo = 1000;
+	dev->watchdog_timeo = msecs_to_jiffies(10000);
 }
 
 /**

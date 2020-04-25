@@ -138,6 +138,10 @@ struct npu_host_ctx {
 	bool bridge_mbox_pwr_on;
 	void *ipc_msg_buf;
 	struct list_head misc_cmd_list;
+
+	struct msm_npu_property fw_caps;
+	bool fw_caps_valid;
+	uint32_t fw_caps_err_code;
 };
 
 struct npu_device;

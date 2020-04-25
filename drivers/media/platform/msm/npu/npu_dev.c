@@ -1355,12 +1355,6 @@ static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int rc = 0;
 
-	if (host_ctx->network_num > 0) {
-		NPU_ERR("Need to unload network first\n");
-		mutex_unlock(&npu_dev->dev_lock);
-		return -EINVAL;
-	}
-
 	if (enable) {
 		NPU_DBG("enable fw\n");
 		rc = enable_fw(npu_dev);
@@ -1370,9 +1364,6 @@ static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 			host_ctx->npu_init_cnt++;
 			NPU_DBG("npu_init_cnt %d\n",
 				host_ctx->npu_init_cnt);
-			/* set npu to lowest power level */
-			if (npu_set_uc_power_level(npu_dev, 1))
-				NPU_WARN("Failed to set uc power level\n");
 		}
 	} else if (host_ctx->npu_init_cnt > 0) {
 		NPU_DBG("disable fw\n");
@@ -1469,7 +1460,7 @@ static int npu_get_property(struct npu_client *client,
 	default:
 		ret = npu_host_get_fw_property(client->npu_dev, &prop);
 		if (ret) {
-			NPU_ERR("npu_host_set_fw_property failed\n");
+			NPU_ERR("npu_host_get_fw_property failed\n");
 			return ret;
 		}
 		break;
