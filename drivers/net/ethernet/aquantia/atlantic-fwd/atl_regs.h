@@ -1,10 +1,12 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #ifndef _ATL_REGS_H_
@@ -38,10 +40,13 @@
 #define ATL_GLOBAL_MDIO_WDATA 0x288
 #define ATL_GLOBAL_MDIO_ADDR 0x28c
 #define ATL_GLOBAL_MDIO_RDATA 0x290
+#define ATL2_MIF_BOOT_READ_REQ_ADR 0x328
+#define ATL2_MIF_BOOT_READ_REQ_LEN 0x32c
 #define ATL2_MIF_BOOT_REG_ADR 0x3040
 #define ATL2_MCP_HOST_REQ_INT 0x0F00
 #define ATL2_MCP_HOST_REQ_INT_CLR 0x0F08
 #define ATL2_MCP_HOST_REQ_INT_MASK(idx) ATL_REG_STRIDE(0x0f0c, 4, (idx))
+#define ATL2_MIF_SHARED_BUFFER_BOOT(idx) ATL_REG_STRIDE(0x00010000, 0x4, (idx))
 #define ATL2_MIF_SHARED_BUFFER_IN(idx) ATL_REG_STRIDE(0x00012000, 0x4, (idx))
 #define ATL2_MIF_SHARED_BUFFER_OUT(idx) ATL_REG_STRIDE(0x00013000, 0x4, (idx))
 #define ATL2_MIF_HOST_FINISHED_WRITE 0x0e00
@@ -88,6 +93,7 @@ enum mcp_scratchpad {
 
 /* MPI @ 0x4000 */
 #define ATL_MPI_CTRL1 0x4000
+#define ATL_MPI_MSM_CTRL 0x4018
 #define ATL_MPI_MSM_ADDR 0x4400
 #define ATL_MPI_MSM_WR 0x4404
 #define ATL_MPI_MSM_RD 0x4408

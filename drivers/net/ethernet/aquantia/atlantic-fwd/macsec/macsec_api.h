@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Atlantic Network Driver
  *
- * Copyright (C) 2020 Marvell International Ltd.
+ * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -323,5 +324,11 @@ int aq_mss_get_egress_sa_threshold_expired(struct atl_hw *hw,
 int aq_mss_set_egress_sa_expired(struct atl_hw *hw, u32 expired);
 /*!  Set Egress SA threshold expired. */
 int aq_mss_set_egress_sa_threshold_expired(struct atl_hw *hw, u32 expired);
+
+/*!  Set Drop IGPRC miss packets */
+int aq_mss_set_drop_igprc_miss_packets(struct atl_hw *hw, bool drop);
+
+/*!  Set Packet Edit Control register */
+int aq_mss_set_packet_edit_control(struct atl_hw *hw, u32 control);
 
 #endif /* __MACSEC_API_H__ */
