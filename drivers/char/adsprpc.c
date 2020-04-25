@@ -65,14 +65,17 @@
 #define UL_SIZE 25
 #define PID_SIZE 10
 
+#define AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME        "qcom,fastrpc-adsp-audio-pdr"
 #define AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME   "audio_pdr_adsprpc"
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
 #define ADSP_AUDIOPD_NAME                        "msm/adsp/audio_pd"
 
+#define SENSORS_PDR_ADSP_DTSI_PROPERTY_NAME        "qcom,fastrpc-adsp-sensors-pdr"
 #define SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME   "sensors_pdr_adsprpc"
 #define SENSORS_PDR_ADSP_SERVICE_NAME              "tms/servreg"
 #define ADSP_SENSORPD_NAME                       "msm/adsp/sensor_pd"
 
+#define SENSORS_PDR_SLPI_DTSI_PROPERTY_NAME      "qcom,fastrpc-slpi-sensors-pdr"
 #define SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
 #define SENSORS_PDR_SLPI_SERVICE_NAME            SENSORS_PDR_ADSP_SERVICE_NAME
 #define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
@@ -199,6 +202,12 @@
 		(((offset >= 0) && (offset < PERF_KEY_MAX)) ?\
 			(int64_t *)(perf_ptr + offset)\
 				: (int64_t *)NULL) : (int64_t *)NULL)
+
+/* Macro for comparing local client and PD names with those from callback */
+#define COMPARE_SERVICE_LOCATOR_NAMES(cb_client, local_client, \
+	cb_pdname, local_pdname) \
+		((!strcmp(cb_client, local_client)) \
+		&& (!strcmp(cb_pdname, local_pdname)))
 
 #define IS_ASYNC_FASTRPC_AVAILABLE (1)
 
@@ -2706,29 +2715,24 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl);
 static int fastrpc_channel_open(struct fastrpc_file *fl);
 static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl);
 
-static void fastrpc_check_privileged_process(struct fastrpc_file *fl,
-				struct fastrpc_ioctl_init_attrs *uproc)
-{
-	unsigned int gid = sorted_lists_intersection(fl->gidlist.gids,
-		fl->gidlist.gidcount, gfa.gidlist.gids, gfa.gidlist.gidcount);
-
-	/* disregard any privilege bits from userspace */
-	uproc->attrs &= (~FASTRPC_MODE_PRIVILEGED);
-	if (gid) {
-		pr_info("adsprpc: %s: %s (PID %d, GID %u) is a privileged process\n",
-				__func__, current->comm, fl->tgid, gid);
-		uproc->attrs |= FASTRPC_MODE_PRIVILEGED;
-	}
-}
-
+/*
+ * This function makes a call to create a thread group in the root
+ * process or static process on the remote subsystem.
+ * Examples:
+ *		- guestOS daemons on all DSPs
+ *		- sensors daemon on sensorsPD on SLPI/ADSP
+ */
 static int fastrpc_init_attach_process(struct fastrpc_file *fl,
 					struct fastrpc_ioctl_init *init)
 {
-	int err = 0;
+	int err = 0, tgid = fl->tgid;
 	remote_arg_t ra[1];
 	struct fastrpc_ioctl_invoke_async ioctl;
-	int tgid = fl->tgid;
 
+	/*
+	 * Prepare remote arguments for creating thread group
+	 * in guestOS/staticPD on the remote subsystem.
+	 */
 	ra[0].buf.pv = (void *)&tgid;
 	ra[0].buf.len = sizeof(tgid);
 	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
@@ -2738,6 +2742,7 @@ static int fastrpc_init_attach_process(struct fastrpc_file *fl,
 	ioctl.attrs = NULL;
 	ioctl.crc = NULL;
 	ioctl.job = NULL;
+
 	if (init->flags == FASTRPC_INIT_ATTACH)
 		fl->pd = 0;
 	else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
@@ -2747,256 +2752,164 @@ static int fastrpc_init_attach_process(struct fastrpc_file *fl,
 		else if (fl->cid == SDSP_DOMAIN_ID)
 			fl->servloc_name =
 			SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME;
+		/* Setting to 2 will route the message to sensorsPD */
 		fl->pd = 2;
 	}
-	VERIFY(err, !(err = fastrpc_internal_invoke(fl,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+
+	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, 1, &ioctl);
 	if (err)
 		goto bail;
 bail:
 	return err;
 }
-static int fastrpc_init_process(struct fastrpc_file *fl,
+
+/*
+ * This function makes a call to spawn a dynamic process
+ * on the remote subsystem.
+ * Example: all compute offloads to CDSP
+ */
+static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
-	int err = 0, rh_hyp_done = 0;
-	struct fastrpc_apps *me = &gfa;
+	int err = 0, memlen = 0, mflags = 0;
 	struct fastrpc_ioctl_invoke_async ioctl;
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	struct smq_phy_page pages[1];
-	struct fastrpc_mmap *file = NULL, *mem = NULL;
+	struct fastrpc_mmap *file = NULL;
 	struct fastrpc_buf *imem = NULL;
 	unsigned long imem_dma_attr = 0;
-	char *proc_name = NULL;
+	remote_arg_t ra[6];
+	int fds[6];
+	unsigned int gid = 0, one_mb = 1024*1024;
+	struct {
+		int pgid;
+		unsigned int namelen;
+		unsigned int filelen;
+		unsigned int pageslen;
+		int attrs;
+		int siglen;
+	} inbuf;
 
-	VERIFY(err, init->filelen >= 0 &&
-			init->filelen < INIT_FILELEN_MAX);
+	inbuf.pgid = fl->tgid;
+	inbuf.namelen = strlen(current->comm) + 1;
+	inbuf.filelen = init->filelen;
+	fl->pd = 1;
+
+	/* Check if file memory passed by userspace is valid */
+	VERIFY(err, access_ok((void __user *)init->file, init->filelen));
 	if (err)
 		goto bail;
-	VERIFY(err, init->memlen >= 0 &&
-			init->memlen < INIT_MEMLEN_MAX);
-	if (err)
-		goto bail;
-	VERIFY(err, 0 == (err = fastrpc_channel_open(fl)));
-	if (err)
-		goto bail;
-	if (init->flags == FASTRPC_INIT_ATTACH ||
-			init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
-		VERIFY(err, !(err = fastrpc_init_attach_process(fl, init)));
+	if (init->filelen) {
+		/* Map the shell file buffer to remote subsystem */
+		mutex_lock(&fl->map_mutex);
+		err = fastrpc_mmap_create(fl, init->filefd, 0,
+			init->file, init->filelen, mflags, &file);
+		mutex_unlock(&fl->map_mutex);
 		if (err)
 			goto bail;
-	} else if (init->flags == FASTRPC_INIT_CREATE) {
-		int memlen;
+	}
+	inbuf.pageslen = 1;
 
-		remote_arg_t ra[6];
-		int fds[6];
-		int mflags = 0;
-		struct {
-			int pgid;
-			unsigned int namelen;
-			unsigned int filelen;
-			unsigned int pageslen;
-			int attrs;
-			int siglen;
-		} inbuf;
+	/* Disregard any privilege bits from userspace */
+	uproc->attrs &= (~FASTRPC_MODE_PRIVILEGED);
 
-		inbuf.pgid = fl->tgid;
-		inbuf.namelen = strlen(current->comm) + 1;
-		inbuf.filelen = init->filelen;
-		fl->pd = 1;
+	/*
+	 * Check if the primary or supplementary group(s) of the process is
+	 * one of the 'privileged' fastrpc GIDs stored in the device-tree.
+	 */
+	gid = sorted_lists_intersection(fl->gidlist.gids,
+		fl->gidlist.gidcount, gfa.gidlist.gids, gfa.gidlist.gidcount);
+	if (gid) {
+		pr_info("adsprpc: %s: %s (PID %d, GID %u) is a privileged process\n",
+				__func__, current->comm, fl->tgid, gid);
+		uproc->attrs |= FASTRPC_MODE_PRIVILEGED;
+	}
 
-		VERIFY(err, access_ok((void __user *)init->file,
-			init->filelen));
-		if (err)
-			goto bail;
-		if (init->filelen) {
-			mutex_lock(&fl->map_mutex);
-			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
-				init->file, init->filelen, mflags, &file));
-			mutex_unlock(&fl->map_mutex);
-			if (err)
-				goto bail;
-		}
-		inbuf.pageslen = 1;
-
-		fastrpc_check_privileged_process(fl, uproc);
-
-		VERIFY(err, !init->mem);
-		if (err) {
-			err = -EINVAL;
-			pr_err("adsprpc: %s: %s: ERROR: donated memory allocated in userspace\n",
-				current->comm, __func__);
-			goto bail;
-		}
-		memlen = ALIGN(max(1024*1024*3, (int)init->filelen * 4),
-						1024*1024);
-		imem_dma_attr = DMA_ATTR_EXEC_MAPPING |
-						DMA_ATTR_DELAYED_UNMAP |
-						DMA_ATTR_NO_KERNEL_MAPPING;
-		err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
-		if (err)
-			goto bail;
-		if (fl->init_mem)
-			fastrpc_buf_free(fl->init_mem, 0);
-
-		fl->init_mem = imem;
-		inbuf.pageslen = 1;
-		ra[0].buf.pv = (void *)&inbuf;
-		ra[0].buf.len = sizeof(inbuf);
-		fds[0] = -1;
-
-		ra[1].buf.pv = (void *)current->comm;
-		ra[1].buf.len = inbuf.namelen;
-		fds[1] = -1;
-
-		ra[2].buf.pv = (void *)init->file;
-		ra[2].buf.len = inbuf.filelen;
-		fds[2] = init->filefd;
-
-		pages[0].addr = imem->phys;
-		pages[0].size = imem->size;
-		ra[3].buf.pv = (void *)pages;
-		ra[3].buf.len = 1 * sizeof(*pages);
-		fds[3] = -1;
-
-		inbuf.attrs = uproc->attrs;
-		ra[4].buf.pv = (void *)&(inbuf.attrs);
-		ra[4].buf.len = sizeof(inbuf.attrs);
-		fds[4] = -1;
-
-		inbuf.siglen = uproc->siglen;
-		ra[5].buf.pv = (void *)&(inbuf.siglen);
-		ra[5].buf.len = sizeof(inbuf.siglen);
-		fds[5] = -1;
-
-		ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(6, 4, 0);
-		if (uproc->attrs)
-			ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 6, 0);
-		ioctl.inv.pra = ra;
-		ioctl.fds = fds;
-		ioctl.attrs = NULL;
-		ioctl.crc = NULL;
-		ioctl.job = NULL;
-		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
-			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
-		if (err)
-			goto bail;
-	} else if (init->flags == FASTRPC_INIT_CREATE_STATIC) {
-		remote_arg_t ra[3];
-		uint64_t phys = 0;
-		size_t size = 0;
-		int fds[3];
-		struct {
-			int pgid;
-			unsigned int namelen;
-			unsigned int pageslen;
-		} inbuf;
-
-		if (!init->filelen)
-			goto bail;
-
-		proc_name = kzalloc(init->filelen, GFP_KERNEL);
-		VERIFY(err, !IS_ERR_OR_NULL(proc_name));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == copy_from_user((void *)proc_name,
-			(void __user *)init->file, init->filelen));
-		if (err)
-			goto bail;
-
-		fl->pd = 1;
-		inbuf.pgid = current->tgid;
-		inbuf.namelen = init->filelen;
-		inbuf.pageslen = 0;
-
-		if (!strcmp(proc_name, "audiopd")) {
-			fl->servloc_name =
-				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
-			VERIFY(err, !fastrpc_mmap_remove_pdr(fl));
-			if (err)
-				goto bail;
-		}
-
-		if (!me->staticpd_flags && !(me->legacy_remote_heap)) {
-			inbuf.pageslen = 1;
-			mutex_lock(&fl->map_mutex);
-			err = fastrpc_mmap_create(fl, -1, 0, init->mem,
-				 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR,
-				 &mem);
-			mutex_unlock(&fl->map_mutex);
-			if (err)
-				goto bail;
-			phys = mem->phys;
-			size = mem->size;
-			if (me->channel[fl->cid].rhvm.vmid) {
-				err = hyp_assign_phys(phys,
-					(uint64_t)size, hlosvm, 1,
-					me->channel[fl->cid].rhvm.vmid,
-					me->channel[fl->cid].rhvm.vmperm,
-					me->channel[fl->cid].rhvm.vmcount);
-				if (err) {
-					pr_err("adsprpc: %s: rh hyp assign failed with %d for phys 0x%llx, size %zd\n",
-						__func__, err, phys, size);
-					goto bail;
-				}
-				rh_hyp_done = 1;
-			}
-			me->staticpd_flags = 1;
-		}
-
-		ra[0].buf.pv = (void *)&inbuf;
-		ra[0].buf.len = sizeof(inbuf);
-		fds[0] = -1;
-
-		ra[1].buf.pv = (void *)proc_name;
-		ra[1].buf.len = inbuf.namelen;
-		fds[1] = -1;
-
-		pages[0].addr = phys;
-		pages[0].size = size;
-
-		ra[2].buf.pv = (void *)pages;
-		ra[2].buf.len = sizeof(*pages);
-		fds[2] = -1;
-		ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(8, 3, 0);
-		ioctl.inv.pra = ra;
-		ioctl.fds = NULL;
-		ioctl.attrs = NULL;
-		ioctl.crc = NULL;
-		ioctl.job = NULL;
-		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
-			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
-		if (err)
-			goto bail;
-	} else {
-		err = -ENOTTY;
+	/*
+	 * Userspace client should try to allocate the initial memory donated
+	 * to remote subsystem as only the kernel and DSP should have access
+	 * to that memory.
+	 */
+	VERIFY(err, !init->mem);
+	if (err) {
+		err = -EINVAL;
+		pr_err("adsprpc: %s: %s: ERROR: donated memory allocated in userspace\n",
+			current->comm, __func__);
 		goto bail;
 	}
-	fl->dsp_proc_init = 1;
-bail:
-	kfree(proc_name);
-	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
-		me->staticpd_flags = 0;
-	if (mem && err) {
-		if (mem->flags == ADSP_MMAP_REMOTE_HEAP_ADDR
-			&& me->channel[fl->cid].rhvm.vmid && rh_hyp_done) {
-			int hyp_err = 0;
+	/* Free any previous donated memory */
+	if (fl->init_mem)
+		fastrpc_buf_free(fl->init_mem, 0);
 
-			hyp_err = hyp_assign_phys(mem->phys,
-					(uint64_t)mem->size,
-					me->channel[fl->cid].rhvm.vmid,
-					me->channel[fl->cid].rhvm.vmcount,
-					hlosvm, hlosvmperm, 1);
-			if (hyp_err)
-				pr_warn("adsprpc: %s: %s: rh hyp unassign failed with %d for phys 0x%llx of size %zd\n",
-						__func__, current->comm,
-						hyp_err, mem->phys, mem->size);
-		}
+	/* Allocate DMA buffer in kernel for donating to remote process */
+	memlen = ALIGN(max(3*one_mb, init->filelen * 4), one_mb);
+	imem_dma_attr = DMA_ATTR_EXEC_MAPPING |
+					DMA_ATTR_DELAYED_UNMAP |
+					DMA_ATTR_NO_KERNEL_MAPPING;
+	err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
+	if (err)
+		goto bail;
+	fl->init_mem = imem;
+
+	/*
+	 * Prepare remote arguments for dynamic process create
+	 * call to remote subsystem.
+	 */
+	inbuf.pageslen = 1;
+	ra[0].buf.pv = (void *)&inbuf;
+	ra[0].buf.len = sizeof(inbuf);
+	fds[0] = -1;
+
+	ra[1].buf.pv = (void *)current->comm;
+	ra[1].buf.len = inbuf.namelen;
+	fds[1] = -1;
+
+	ra[2].buf.pv = (void *)init->file;
+	ra[2].buf.len = inbuf.filelen;
+	fds[2] = init->filefd;
+
+	pages[0].addr = imem->phys;
+	pages[0].size = imem->size;
+	ra[3].buf.pv = (void *)pages;
+	ra[3].buf.len = 1 * sizeof(*pages);
+	fds[3] = -1;
+
+	inbuf.attrs = uproc->attrs;
+	ra[4].buf.pv = (void *)&(inbuf.attrs);
+	ra[4].buf.len = sizeof(inbuf.attrs);
+	fds[4] = -1;
+
+	inbuf.siglen = uproc->siglen;
+	ra[5].buf.pv = (void *)&(inbuf.siglen);
+	ra[5].buf.len = sizeof(inbuf.siglen);
+	fds[5] = -1;
+
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	/*
+	 * Choose appropriate remote method ID depending on whether the
+	 * HLOS process has any attributes enabled (like unsignedPD,
+	 * critical process, adaptive QoS, CRC checks etc).
+	 */
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(6, 4, 0);
+	if (uproc->attrs)
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 6, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = fds;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	ioctl.job = NULL;
+	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, 1, &ioctl);
+	if (err)
+		goto bail;
+bail:
+	/*
+	 * Shell is loaded into the donated memory on remote subsystem. So, the
+	 * original file buffer can be DMA unmapped. In case of a failure also,
+	 * the mapping needs to be removed.
+	 */
+	if (file) {
 		mutex_lock(&fl->map_mutex);
-		fastrpc_mmap_free(mem, 0);
+		fastrpc_mmap_free(file, 0);
 		mutex_unlock(&fl->map_mutex);
 	}
 	if (err) {
@@ -3005,11 +2918,176 @@ bail:
 			fl->init_mem = NULL;
 		}
 	}
-	if (file) {
+	return err;
+}
+
+/*
+ * This function makes a call to create a thread group in the static
+ * process on the remote subsystem.
+ * Example: audio daemon 'adsprpcd' on audioPD on ADSP
+ */
+static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
+				struct fastrpc_ioctl_init *init)
+{
+	int err = 0, rh_hyp_done = 0;
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_ioctl_invoke_async ioctl;
+	struct smq_phy_page pages[1];
+	struct fastrpc_mmap *mem = NULL;
+	char *proc_name = NULL;
+	remote_arg_t ra[3];
+	uint64_t phys = 0;
+	size_t size = 0;
+	int fds[3];
+	struct secure_vm *rhvm = &me->channel[fl->cid].rhvm;
+	struct {
+		int pgid;
+		unsigned int namelen;
+		unsigned int pageslen;
+	} inbuf;
+
+	if (!init->filelen)
+		goto bail;
+
+	proc_name = kzalloc(init->filelen, GFP_KERNEL);
+	VERIFY(err, !IS_ERR_OR_NULL(proc_name));
+	if (err)
+		goto bail;
+	err = copy_from_user((void *)proc_name,
+		(void __user *)init->file, init->filelen);
+	if (err)
+		goto bail;
+
+	fl->pd = 1;
+	inbuf.pgid = fl->tgid;
+	inbuf.namelen = init->filelen;
+	inbuf.pageslen = 0;
+
+	if (!strcmp(proc_name, "audiopd")) {
+		fl->servloc_name = AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
+		/*
+		 * Remove any previous mappings in case process is trying
+		 * to reconnect after a PD restart on remote subsystem.
+		 */
+		err = fastrpc_mmap_remove_pdr(fl);
+		if (err)
+			goto bail;
+	}
+
+	if (!me->staticpd_flags && !me->legacy_remote_heap) {
+		inbuf.pageslen = 1;
 		mutex_lock(&fl->map_mutex);
-		fastrpc_mmap_free(file, 0);
+		err = fastrpc_mmap_create(fl, -1, 0, init->mem,
+			 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR, &mem);
+		mutex_unlock(&fl->map_mutex);
+		if (err)
+			goto bail;
+		phys = mem->phys;
+		size = mem->size;
+		/*
+		 * If remote-heap VMIDs are defined in DTSI, then do
+		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
+		 */
+		if (rhvm->vmid) {
+			err = hyp_assign_phys(phys, (uint64_t)size,
+				hlosvm, 1,
+				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
+			if (err) {
+				pr_err("adsprpc: %s: %s: rh hyp assign failed with %d for phys 0x%llx, size %zu\n",
+					__func__, current->comm,
+					err, phys, size);
+				goto bail;
+			}
+			rh_hyp_done = 1;
+		}
+		me->staticpd_flags = 1;
+	}
+
+	/*
+	 * Prepare remote arguments for static process create
+	 * call to remote subsystem.
+	 */
+	ra[0].buf.pv = (void *)&inbuf;
+	ra[0].buf.len = sizeof(inbuf);
+	fds[0] = -1;
+
+	ra[1].buf.pv = (void *)proc_name;
+	ra[1].buf.len = inbuf.namelen;
+	fds[1] = -1;
+
+	pages[0].addr = phys;
+	pages[0].size = size;
+
+	ra[2].buf.pv = (void *)pages;
+	ra[2].buf.len = sizeof(*pages);
+	fds[2] = -1;
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(8, 3, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	ioctl.job = NULL;
+	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, 1, &ioctl);
+	if (err)
+		goto bail;
+bail:
+	kfree(proc_name);
+	if (err) {
+		me->staticpd_flags = 0;
+		if (rh_hyp_done) {
+			int hyp_err = 0;
+
+			/* Assign memory back to HLOS in case of errors */
+			hyp_err = hyp_assign_phys(phys, (uint64_t)size,
+					rhvm->vmid, rhvm->vmcount,
+					hlosvm, hlosvmperm, 1);
+			if (hyp_err)
+				pr_warn("adsprpc: %s: %s: rh hyp unassign failed with %d for phys 0x%llx of size %zu\n",
+						__func__, current->comm,
+						hyp_err, phys, size);
+		}
+		mutex_lock(&fl->map_mutex);
+		fastrpc_mmap_free(mem, 0);
 		mutex_unlock(&fl->map_mutex);
 	}
+	return err;
+}
+
+static int fastrpc_init_process(struct fastrpc_file *fl,
+				struct fastrpc_ioctl_init_attrs *uproc)
+{
+	int err = 0;
+	struct fastrpc_ioctl_init *init = &uproc->init;
+
+	VERIFY(err, init->filelen < INIT_FILELEN_MAX
+			&& init->memlen < INIT_MEMLEN_MAX);
+	if (err)
+		goto bail;
+	err = fastrpc_channel_open(fl);
+	if (err)
+		goto bail;
+
+	switch (init->flags) {
+	case FASTRPC_INIT_ATTACH:
+	case FASTRPC_INIT_ATTACH_SENSORS:
+		err = fastrpc_init_attach_process(fl, init);
+		break;
+	case FASTRPC_INIT_CREATE:
+		err = fastrpc_init_create_dynamic_process(fl, uproc);
+		break;
+	case FASTRPC_INIT_CREATE_STATIC:
+		err = fastrpc_init_create_static_process(fl, init);
+		break;
+	default:
+		err = -ENOTTY;
+		break;
+	}
+	if (err)
+		goto bail;
+	fl->dsp_proc_init = 1;
+bail:
 	return err;
 }
 
@@ -4882,35 +4960,44 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 	return NOTIFY_DONE;
 }
 
+/*
+ * The service locator callback function where the PDR notification
+ * callback functions are registered.
+ * (like audioPD on ADSP, sensorPD on SLPI/ADSP)
+ */
 static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 				unsigned long opcode, void *data)
 {
 	struct fastrpc_static_pd *spd;
 	struct pd_qmi_client_data *pdr = data;
 	int curr_state = 0, i = 0;
+	char *cb_pdname = NULL, *subsys = NULL;
+	uint32_t instance_id = 0;
 
 	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
+	subsys = gcinfo[spd->cid].subsys;
 	if (opcode == LOCATOR_DOWN) {
 		pr_warn("adsprpc: %s: PDR notifier locator for %s is down for %s\n",
-				__func__, gcinfo[spd->cid].subsys,
-				spd->servloc_name);
+				__func__, subsys, spd->servloc_name);
 		return NOTIFY_DONE;
 	}
 	for (i = 0; i < pdr->total_domains; i++) {
-		if ((!strcmp(spd->servloc_name,
-				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
-				&& (!strcmp(pdr->domain_list[i].name,
-				ADSP_AUDIOPD_NAME))) {
-			goto pdr_register;
-		} else if ((!strcmp(spd->servloc_name,
-				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME))
-				&& (!strcmp(pdr->domain_list[i].name,
-				ADSP_SENSORPD_NAME))) {
-			goto pdr_register;
-		} else if ((!strcmp(spd->servloc_name,
-				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME))
-				&& (!strcmp(pdr->domain_list[i].name,
-				SLPI_SENSORPD_NAME))) {
+		cb_pdname = pdr->domain_list[i].name;
+		instance_id = pdr->domain_list[i].instance_id;
+
+		/* Check the client and staticPD in the callback */
+		if (COMPARE_SERVICE_LOCATOR_NAMES(spd->servloc_name,
+				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				cb_pdname, ADSP_AUDIOPD_NAME) ||
+
+			COMPARE_SERVICE_LOCATOR_NAMES(spd->servloc_name,
+				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
+				cb_pdname, ADSP_SENSORPD_NAME) ||
+
+			COMPARE_SERVICE_LOCATOR_NAMES(spd->servloc_name,
+				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
+				cb_pdname, SLPI_SENSORPD_NAME)) {
+
 			goto pdr_register;
 		}
 	}
@@ -4918,35 +5005,28 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 
 pdr_register:
 	if (!spd->pdrhandle) {
-		spd->pdrhandle =
-			service_notif_register_notifier(
-			pdr->domain_list[i].name,
-			pdr->domain_list[i].instance_id,
-			&spd->pdrnb, &curr_state);
+		/* Register the PDR notifier callback function */
+		spd->pdrhandle = service_notif_register_notifier(cb_pdname,
+			instance_id, &spd->pdrnb, &curr_state);
 		if (IS_ERR_OR_NULL(spd->pdrhandle))
 			pr_warn("adsprpc: %s: PDR notifier for %s register failed for %s (%s) with err %ld\n",
-				__func__, gcinfo[spd->cid].subsys,
-				pdr->domain_list[i].name, spd->servloc_name,
+				__func__, subsys, cb_pdname, spd->servloc_name,
 				PTR_ERR(spd->pdrhandle));
 		else
 			pr_info("adsprpc: %s: PDR notifier for %s registered for %s (%s)\n",
-			__func__, gcinfo[spd->cid].subsys,
-			pdr->domain_list[i].name, spd->servloc_name);
+			__func__, subsys, cb_pdname, spd->servloc_name);
 	} else {
 		pr_warn("adsprpc: %s: %s (%s) notifier is already registered for %s\n",
-			__func__, pdr->domain_list[i].name,
-			spd->servloc_name, gcinfo[spd->cid].subsys);
+			__func__, cb_pdname, spd->servloc_name, subsys);
 	}
 
 	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
 		pr_info("adsprpc: %s: %s (%s) PDR service for %s is up\n",
-			__func__, spd->servloc_name, pdr->domain_list[i].name,
-			gcinfo[spd->cid].subsys);
+			__func__, spd->servloc_name, cb_pdname, subsys);
 		spd->ispdup = 1;
 	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
 		pr_info("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
-			__func__, spd->servloc_name, pdr->domain_list[i].name,
-			gcinfo[spd->cid].subsys);
+			__func__, spd->servloc_name, cb_pdname, subsys);
 	}
 	return NOTIFY_DONE;
 }
@@ -5146,6 +5226,36 @@ static void configure_secure_channels(uint32_t secure_domains)
 	}
 }
 
+/*
+ * This function is used to create the service locator required for
+ * registering for remote process restart (PDR) notifications if that
+ * PDR property has been enabled in the fastrpc node on the DTSI.
+ */
+static int fastrpc_setup_service_locator(struct device *dev,
+	const char *propname, char *client_name, char *service_name)
+{
+	int err = 0, session = -1, cid = -1;
+	struct fastrpc_apps *me = &gfa;
+
+	if (of_property_read_bool(dev->of_node, propname)) {
+		err = fastrpc_get_spd_session(client_name, &session, &cid);
+		if (err)
+			goto bail;
+		/* Register the service locator's callback function */
+		me->channel[cid].spd[session].get_service_nb.notifier_call =
+					fastrpc_get_service_location_notify;
+		err = get_service_location(client_name, service_name,
+				&me->channel[cid].spd[session].get_service_nb);
+		if (err)
+			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
+				__func__, err, service_name, client_name);
+		else
+			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
+				__func__, service_name, client_name);
+	}
+bail:
+	return err;
+}
 
 static int fastrpc_probe(struct platform_device *pdev)
 {
@@ -5153,8 +5263,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 	struct fastrpc_apps *me = &gfa;
 	struct device *dev = &pdev->dev;
 	int ret = 0;
-	uint32_t secure_domains;
-	int session = -1, cid = -1;
+	uint32_t secure_domains = 0;
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
@@ -5192,70 +5301,17 @@ static int fastrpc_probe(struct platform_device *pdev)
 	}
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-legacy-remote-heap");
-	if (of_property_read_bool(dev->of_node,
-					"qcom,fastrpc-adsp-audio-pdr")) {
-		err = fastrpc_get_spd_session(
-			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
-		if (err)
-			goto spdbail;
-		me->channel[cid].spd[session].get_service_nb.notifier_call =
-					fastrpc_get_service_location_notify;
-		ret = get_service_location(
-				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
-				AUDIO_PDR_ADSP_SERVICE_NAME,
-				&me->channel[cid].spd[session].get_service_nb);
-		if (ret)
-			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
-				__func__, ret, AUDIO_PDR_ADSP_SERVICE_NAME,
-				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
-				__func__, AUDIO_PDR_ADSP_SERVICE_NAME,
-				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-	}
-	if (of_property_read_bool(dev->of_node,
-					"qcom,fastrpc-adsp-sensors-pdr")) {
-		err = fastrpc_get_spd_session(
-		SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
-		if (err)
-			goto spdbail;
-		me->channel[cid].spd[session].get_service_nb.notifier_call =
-					fastrpc_get_service_location_notify;
-		ret = get_service_location(
-				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
-				SENSORS_PDR_ADSP_SERVICE_NAME,
-				&me->channel[cid].spd[session].get_service_nb);
-		if (ret)
-			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
-				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
-		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
-				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
-	}
-	if (of_property_read_bool(dev->of_node,
-					"qcom,fastrpc-slpi-sensors-pdr")) {
-		err = fastrpc_get_spd_session(
-		SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
-		if (err)
-			goto spdbail;
-		me->channel[cid].spd[session].get_service_nb.notifier_call =
-					fastrpc_get_service_location_notify;
-		ret = get_service_location(
-				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
-				SENSORS_PDR_SLPI_SERVICE_NAME,
-				&me->channel[cid].spd[session].get_service_nb);
-		if (ret)
-			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
-				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
-		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
-				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
-				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
-	}
-spdbail:
+
+	fastrpc_setup_service_locator(dev, AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME,
+		AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
+		AUDIO_PDR_ADSP_SERVICE_NAME);
+	fastrpc_setup_service_locator(dev, SENSORS_PDR_ADSP_DTSI_PROPERTY_NAME,
+		SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME,
+		SENSORS_PDR_ADSP_SERVICE_NAME);
+	fastrpc_setup_service_locator(dev, SENSORS_PDR_SLPI_DTSI_PROPERTY_NAME,
+		SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME,
+		SENSORS_PDR_SLPI_SERVICE_NAME);
+
 	err = of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
 					  NULL, &pdev->dev);
