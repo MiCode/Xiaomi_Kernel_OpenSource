@@ -61,11 +61,22 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		 * on other end from IPA hw.
 		 */
 		if ((ep->client == IPA_CLIENT_USB_DPL_CONS) ||
-				(ep->client == IPA_CLIENT_MHI_DPL_CONS))
+				(ep->client == IPA_CLIENT_MHI_DPL_CONS)) {
+			holb_cfg.tmr_val = 0;
 			holb_cfg.en = IPA_HOLB_TMR_EN;
-		else
+		} else if ((ipa3_ctx->ipa_hw_type == IPA_HW_v4_2 ||
+			ipa3_ctx->ipa_hw_type == IPA_HW_v4_7) &&
+			(ep->client == IPA_CLIENT_WLAN1_CONS ||
+				ep->client == IPA_CLIENT_USB_CONS)) {
+			holb_cfg.en = IPA_HOLB_TMR_EN;
+			if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5)
+				holb_cfg.tmr_val = IPA_HOLB_TMR_VAL;
+			else
+				holb_cfg.tmr_val = IPA_HOLB_TMR_VAL_4_5;
+		} else {
 			holb_cfg.en = IPA_HOLB_TMR_DIS;
-		holb_cfg.tmr_val = 0;
+			holb_cfg.tmr_val = 0;
+		}
 		res = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 
@@ -1400,8 +1411,6 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_disable_data_path(clnt_hdl);
-
 	if (!IPA_CLIENT_IS_CONS(ep->client)) {
 		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
 			clnt_hdl, ep->client);
@@ -1425,6 +1434,9 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 			goto stop_chan_fail;
 		}
 	}
+
+	ipa3_disable_data_path(clnt_hdl);
+
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("exit\n");
