@@ -755,8 +755,8 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
 
-	/* Adjust the IB based on the max speed of the slave.*/
-	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
+	/* Adjust the IB based on the max speed of the slave in kHz.*/
+	rsc->ib = (max_speed * DEFAULT_BUS_WIDTH) / 1000;
 	if (mas->shared_se) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
