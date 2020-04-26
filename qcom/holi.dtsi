@@ -517,6 +517,10 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
 
+	system_pm_rpm {
+		compatible = "qcom,system-pm-rpm";
+	};
+
 	ipcc_mproc: qcom,ipcc@208000 {
 		compatible = "qcom,ipcc";
 		reg = <0x208000 0x1000>;
