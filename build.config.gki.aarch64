@@ -11,5 +11,6 @@ abi_gki_aarch64_goldfish_whitelist
 abi_gki_aarch64_hikey960_whitelist
 abi_gki_aarch64_qcom_whitelist
 abi_gki_aarch64_unisoc_whitelist
+abi_gki_aarch64_sunxi_whitelist
 "
 TRIM_NONLISTED_KMI=1
