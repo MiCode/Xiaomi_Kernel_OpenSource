@@ -55,6 +55,7 @@ struct hh_rm_notif_mem_shared_payload {
 	u16 owner_vmid;
 	u16 reserved2;
 	u32 label;
+	hh_label_t mem_info_tag;
 	/* TODO: How to arrange multiple variable length struct arrays? */
 } __packed;
 
@@ -78,6 +79,7 @@ struct hh_rm_notif_mem_released_payload {
 	u32 mem_handle;
 	u16 participant_vmid;
 	u16 reserved;
+	hh_label_t mem_info_tag;
 } __packed;
 
 struct hh_acl_entry {
@@ -217,6 +219,7 @@ int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
 		   struct hh_mem_attr_desc *mem_attr_desc,
 		   hh_memparcel_handle_t *handle);
 int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
+		     hh_label_t mem_info_tag,
 		     struct hh_notify_vmid_desc *vmid_desc);
 #else
 /* RM client register notifications APIs */
@@ -342,7 +345,8 @@ static inline int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
 }
 
 static inline int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
-		     struct hh_notify_vmid_desc *vmid_desc)
+				   hh_label_t mem_info_tag,
+				   struct hh_notify_vmid_desc *vmid_desc)
 {
 	return -EINVAL;
 }
