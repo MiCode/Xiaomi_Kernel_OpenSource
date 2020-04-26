@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2016, 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018-2020, The Linux Foundation. All rights reserved.
  */
 /*
  * Process Domain Service Locator API header
@@ -63,7 +63,7 @@ struct notifier_block;
  * by the service locator.
  * Returns 0 on success; otherwise a value < 0 if no valid subsystem is found.
  */
-int get_service_location(char *client_name, char *service_name,
+int get_service_location(const char *client_name, const char *service_name,
 		struct notifier_block *locator_nb);
 
 /*
@@ -77,8 +77,8 @@ int find_subsys(const char *pd_path, char *subsys);
 
 #else
 
-static inline int get_service_location(char *client_name,
-		char *service_name, struct notifier_block *locator_nb)
+static inline int get_service_location(const char *client_name,
+		const char *service_name, struct notifier_block *locator_nb)
 {
 	return -ENODEV;
 }

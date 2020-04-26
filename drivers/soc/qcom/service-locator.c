@@ -295,7 +295,7 @@ inited:
 	return rc;
 }
 
-int get_service_location(char *client_name, char *service_name,
+int get_service_location(const char *client_name, const char *service_name,
 				struct notifier_block *locator_nb)
 {
 	struct pd_qmi_client_data *pqcd;
