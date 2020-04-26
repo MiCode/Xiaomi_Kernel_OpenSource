@@ -26,24 +26,21 @@ static struct measure_clk_data debug_mux_priv = {
 };
 
 static const char *const apcs_debug_mux_parent_names[] = {
-	"perfcl_clk",
 	"pwrcl_clk",
 };
 
 static int apcs_debug_mux_sels[] = {
-	0x1,		/* perfcl_clk */
 	0x0,		/* pwrcl_clk */
 };
 
 static int apcs_debug_mux_pre_divs[] = {
-	0x8,		/* perfcl_clk */
 	0x8,		/* pwrcl_clk */
 };
 
 static struct clk_debug_mux apcs_debug_mux = {
 	.priv = &debug_mux_priv,
-	.debug_offset = 0x1C,
-	.post_div_offset = 0x1C,
+	.debug_offset = 0x0,
+	.post_div_offset = 0x0,
 	.cbcr_offset = 0x0,
 	.src_sel_mask = 0x3FF00,
 	.src_sel_shift = 8,
@@ -211,6 +208,12 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_cnoc_clk",
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
+	"measure_only_qpic_clk",
+	"measure_only_qpic_ahb_clk",
+	"measure_only_hwkm_km_core_clk",
+	"measure_only_hwkm_ahb_clk",
+	"measure_only_pka_core_clk",
+	"measure_only_pka_ahb_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -315,6 +318,12 @@ static int gcc_debug_mux_sels[] = {
 	0x19,		/* measure_only_cnoc_clk */
 	0xC2,		/* measure_only_ipa_2x_clk */
 	0x7,		/* measure_only_snoc_clk */
+	0x9C,		/* measure_only_qpic_clk */
+	0x9E,		/* measure_only_qpic_ahb_clk */
+	0xA0,		/* measure_only_hwkm_km_core_clk */
+	0xA2,		/* measure_only_hwkm_ahb_clk */
+	0xA3,		/* measure_only_pka_core_clk */
+	0xA4,		/* measure_only_pka_ahb_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -403,7 +412,7 @@ static struct clk_debug_mux mc_cc_debug_mux = {
 };
 
 static struct mux_regmap_names mux_list[] = {
-	{ .mux = &apcs_debug_mux, .regmap_name = "qcom,apcs" },
+	{ .mux = &apcs_debug_mux, .regmap_name = "qcom,cpucc" },
 	{ .mux = &disp_cc_debug_mux, .regmap_name = "qcom,dispcc" },
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 	{ .mux = &gpu_cc_debug_mux, .regmap_name = "qcom,gpucc" },
@@ -418,18 +427,10 @@ static struct clk_dummy measure_only_mccc_clk = {
 	},
 };
 
-static struct clk_dummy measure_only_apcs_gold_post_acd_clk = {
+static struct clk_dummy pwrcl_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_apcs_gold_post_acd_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-static struct clk_dummy measure_only_apcs_silver_post_acd_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_apcs_silver_post_acd_clk",
+		.name = "pwrcl_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
@@ -458,13 +459,66 @@ static struct clk_dummy measure_only_snoc_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_qpic_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_qpic_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_qpic_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_qpic_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_hwkm_km_core_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_hwkm_km_core_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_hwkm_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_hwkm_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_pka_core_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_pka_core_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_pka_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_pka_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_hw *debugcc_scuba_hws[] = {
-	&measure_only_apcs_gold_post_acd_clk.hw,
-	&measure_only_apcs_silver_post_acd_clk.hw,
+	&pwrcl_clk.hw,
 	&measure_only_cnoc_clk.hw,
 	&measure_only_ipa_2x_clk.hw,
 	&measure_only_mccc_clk.hw,
 	&measure_only_snoc_clk.hw,
+	&measure_only_qpic_clk.hw,
+	&measure_only_qpic_ahb_clk.hw,
+	&measure_only_hwkm_km_core_clk.hw,
+	&measure_only_hwkm_ahb_clk.hw,
+	&measure_only_pka_core_clk.hw,
+	&measure_only_pka_ahb_clk.hw,
 };
 
 static const struct of_device_id clk_debug_match_table[] = {

@@ -486,8 +486,9 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 
 	if (chip->catch_up_soc > chip->msoc && input_present &&
 			(chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
-			chip->charge_status != POWER_SUPPLY_STATUS_FULL))
-		/* USB is present, but not charging */
+			chip->charge_status != POWER_SUPPLY_STATUS_FULL
+			&& chip->msoc != 0))
+		/* USB is present, but not charging. Ignore when msoc = 0 */
 		return false;
 
 	return true;

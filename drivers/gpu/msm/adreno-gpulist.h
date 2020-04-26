@@ -1477,7 +1477,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a702 = {
 		.busy_mask = 0xfffffffe,
 		.bus_width = 32,
 	},
-	.prim_fifo_threshold = 0x00080000,
+	.prim_fifo_threshold = 0x0000c000,
 	.sqefw_name = "a702_sqe.fw",
 	.zap_name = "a702_zap",
 	.hwcg = a702_hwcg_regs,

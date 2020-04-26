@@ -861,6 +861,8 @@ DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, ln_bb_clk2, ln_bb_clk2_a, 0x2);
 DEFINE_CLK_SMD_RPM_XO_BUFFER(scuba, rf_clk3, rf_clk3_a, 6);
 
 DEFINE_CLK_SMD_RPM(scuba, qpic_clk, qpic_a_clk, QCOM_SMD_RPM_QPIC_CLK, 0);
+DEFINE_CLK_SMD_RPM(scuba, hwkm_clk, hwkm_a_clk, QCOM_SMD_RPM_HWKM_CLK, 0);
+DEFINE_CLK_SMD_RPM(scuba, pka_clk, pka_a_clk, QCOM_SMD_RPM_PKA_CLK, 0);
 
 /* Scuba */
 static struct clk_hw *scuba_clks[] = {
@@ -946,11 +948,15 @@ static struct clk_hw *scuba_clks[] = {
 	[CXO_SMD_WLAN_CLK] = &bi_tcxo_wlan_clk.hw,
 	[CXO_SMD_PIL_LPASS_CLK] = &bi_tcxo_pil_lpass_clk.hw,
 	[CXO_SMD_PIL_CDSP_CLK] = &bi_tcxo_pil_cdsp_clk.hw,
+	[RPM_SMD_HWKM_CLK] = &scuba_hwkm_clk.hw,
+	[RPM_SMD_HWKM_A_CLK] = &scuba_hwkm_a_clk.hw,
+	[RPM_SMD_PKA_CLK] = &scuba_pka_clk.hw,
+	[RPM_SMD_PKA_A_CLK] = &scuba_pka_a_clk.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_scuba = {
 	.clks = scuba_clks,
-	.num_rpm_clks = RPM_SMD_CE1_A_CLK,
+	.num_rpm_clks = RPM_SMD_PKA_A_CLK,
 	.num_clks = ARRAY_SIZE(scuba_clks),
 };
 
