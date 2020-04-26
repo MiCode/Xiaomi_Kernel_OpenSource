@@ -1,0 +1,33 @@
+#include <dt-bindings/interconnect/qcom,shima.h>
+
+&soc {
+	/* QUPv3_0 wrapper instance */
+	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x9c0000 0x2000>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-bus-ids =
+			<MASTER_QUP_CORE_0 SLAVE_QUP_CORE_0>,
+			<MASTER_QUP_0 SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x4c3 0x0>;
+		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
+		qcom,iommu-dma = "fastmap";
+	};
+
+	/* Debug UART Instance */
+	qupv3_se13_2uart: qcom,qup_uart@994000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x994000 0x4000>;
+		reg-names = "se_phys";
+		interrupts = <GIC_SPI 606 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&gcc GCC_QUPV3_WRAP0_S5_CLK>,
+			<&gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se13_2uart_active>;
+		pinctrl-1 = <&qupv3_se13_2uart_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "ok";
+	};
+};
