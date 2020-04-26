@@ -524,9 +524,6 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	uint32_t min_residency, max_residency;
 	struct power_params *pwr_params;
 
-	/* Read the timer from the CPU that is entering idle */
-	cpu->next_hrtimer = tick_nohz_get_next_hrtimer();
-
 	if (lpm_disallowed(sleep_us, dev->cpu))
 		goto done_select;
 
@@ -1261,6 +1258,9 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	ktime_t start = ktime_get();
 	uint64_t start_time = ktime_to_ns(start), end_time;
 	int ret = -EBUSY;
+
+	/* Read the timer from the CPU that is entering idle */
+	cpu->next_hrtimer = tick_nohz_get_next_hrtimer();
 
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, true, start_time);
