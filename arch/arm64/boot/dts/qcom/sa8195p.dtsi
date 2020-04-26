@@ -274,10 +274,12 @@
 
 &usb0 {
 	qcom,default-mode-none;
+	qcom,ignore-wakeup-src-in-hostmode;
 };
 
 &usb1 {
 	qcom,default-mode-host;
+	qcom,ignore-wakeup-src-in-hostmode;
 	status = "ok";
 };
 
