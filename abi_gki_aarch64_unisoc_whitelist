@@ -243,6 +243,7 @@
   hid_input_report
   hid_report_raw_event
   __hid_request
+  hid_validate_values
   i2c_del_driver
   i2c_register_driver
   i2c_smbus_read_byte_data
@@ -487,6 +488,8 @@
   power_supply_powers
   power_supply_put
   ppp_input
+  ppp_register_compressor
+  ppp_unregister_compressor
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
@@ -2162,9 +2165,23 @@
   sysfs_create_files
 
 # required by wcn_bsp.ko
-  kernel_read
-  kernel_write
   memdup_user
+  pci_disable_device
+  pci_disable_msi
+  pci_disable_msix
+  pcie_capability_read_dword
+  pcie_capability_read_word
+  pci_enable_msix_range
+  pci_enable_wake
+  pci_find_ext_capability
+  pci_load_and_free_saved_state
+  pci_msi_vec_count
+  pci_read_config_byte
+  pci_read_config_dword
+  pci_release_regions
+  pci_store_saved_state
+  pci_write_config_byte
+  pci_write_config_dword
   register_chrdev_region
   request_firmware_direct
 
@@ -2489,3 +2506,78 @@
 # required by xfrm4_tunnel.ko
   xfrm4_tunnel_deregister
   xfrm4_tunnel_register
+
+# required by ppp_mppe.ko
+  crypto_has_ahash
+  crypto_shash_final
+  crypto_shash_update
+
+# required by pptp.ko
+  find_next_zero_bit
+  gre_add_protocol
+  gre_del_protocol
+  __ip_select_ident
+  security_sk_classify_flow
+  skb_set_owner_w
+  sk_setup_caps
+  sock_no_recvmsg
+  sock_no_sendmsg
+
+# required by gtco.ko
+  __usb_get_extra_descriptor
+
+# required by l2tp_ppp.ko
+  l2tp_session_create
+  l2tp_session_delete
+  l2tp_session_free
+  l2tp_session_get_nth
+  l2tp_session_register
+  l2tp_session_set_header_len
+  l2tp_tunnel_create
+  l2tp_tunnel_delete
+  l2tp_tunnel_free
+  l2tp_tunnel_get
+  l2tp_tunnel_get_nth
+  l2tp_tunnel_get_session
+  l2tp_tunnel_register
+  l2tp_udp_encap_recv
+  l2tp_xmit_skb
+  ppp_dev_name
+
+# required by ppp_generic.ko
+  arch_bpf_jit_check_func
+  bpf_prog_create
+  bpf_prog_destroy
+  bpf_stats_enabled_key
+  iov_iter_init
+  netdev_printk
+  netif_rx
+  ns_capable
+  rtnl_link_register
+  rtnl_link_unregister
+  skb_queue_head
+  skb_scrub_packet
+  slhc_compress
+  slhc_free
+  slhc_init
+  slhc_remember
+  slhc_toss
+  slhc_uncompress
+  unregister_netdevice_many
+
+# required by pppox.ko
+  sock_register
+  sock_unregister
+
+# required by ppp_deflate.ko
+  zlib_deflate
+  zlib_deflateEnd
+  zlib_deflateInit2
+  zlib_deflateReset
+  zlib_deflate_workspacesize
+  zlib_inflate
+  zlib_inflateEnd
+  zlib_inflateIncomp
+  zlib_inflateInit2
+  zlib_inflateReset
+  zlib_inflate_workspacesize
