@@ -6877,16 +6877,19 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	struct rpmsg_device *rpdev = pcie_drv.rpdev;
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
-	u32 current_link_speed;
+	u32 current_link_speed, clkreq_override_en = 0;
 	int ret, i;
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	mutex_lock(&pcie_dev->setup_lock);
 
 	/* if rpdev is NULL then DRV subsystem is powered down */
-	if (rpdev)
-		msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
+	if (rpdev) {
+		ret = msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
 					&drv_info->drv_disable_l1ss_sleep);
+		if (ret)
+			rpdev = NULL;
+	}
 
 	msm_pcie_vreg_init(pcie_dev);
 
@@ -6906,10 +6909,59 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 		if (clk_info->hdl && !clk_info->suppressible)
 			clk_prepare_enable(clk_info->hdl);
 
+	/*
+	 * if DRV subsystem did not respond to previous rpmsg command, check if
+	 * PCIe CLKREQ override is still enabled
+	 */
+	if (!rpdev) {
+		clkreq_override_en = readl_relaxed(pcie_dev->parf +
+					PCIE20_PARF_CLKREQ_OVERRIDE) &
+					PCIE20_PARF_CLKREQ_IN_ENABLE;
+		if (clkreq_override_en)
+			PCIE_DBG(pcie_dev,
+				"PCIe: RC%d: CLKREQ Override detected\n",
+				pcie_dev->rc_idx);
+	}
+
+	/*
+	 * if PCIe CLKREQ override is still enabled, then make sure PCIe mux is
+	 * set to PCIe PIPE before enabling PCIe PIPE CLK.
+	 * APPS votes for mux was PCIe PIPE before DRV suspend. In order to vote
+	 * for PCIe PIPE, need to first set mux to XO then PCIe PIPE or else
+	 * clock driver will short the request.
+	 */
+	if (clkreq_override_en && pcie_dev->pipe_clk_mux) {
+		if (pcie_dev->ref_clk_src) {
+			PCIE_DBG(pcie_dev,
+				"PCIe: RC%d: setting PCIe PIPE MUX to XO\n",
+				pcie_dev->rc_idx);
+			clk_set_parent(pcie_dev->pipe_clk_mux,
+					pcie_dev->ref_clk_src);
+		}
+
+		if (pcie_dev->pipe_clk_ext_src) {
+			PCIE_DBG(pcie_dev,
+				"PCIe: RC%d: setting PCIe PIPE MUX to PCIe PIPE\n",
+				pcie_dev->rc_idx);
+			clk_set_parent(pcie_dev->pipe_clk_mux,
+					pcie_dev->pipe_clk_ext_src);
+		}
+	}
+
 	clk_info = pcie_dev->pipeclk;
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++, clk_info++)
 		if (clk_info->hdl && !clk_info->suppressible)
 			clk_prepare_enable(clk_info->hdl);
+
+	if (clkreq_override_en) {
+		/* remove CLKREQ override */
+		msm_pcie_write_reg_field(pcie_dev->parf,
+					PCIE20_PARF_CLKREQ_OVERRIDE,
+					PCIE20_PARF_CLKREQ_IN_ENABLE, 0);
+		msm_pcie_write_reg_field(pcie_dev->parf,
+					PCIE20_PARF_CLKREQ_OVERRIDE,
+					PCIE20_PARF_CLKREQ_IN_VALUE, 0);
+	}
 
 	/* if rpdev is NULL then DRV subsystem is powered down */
 	if (rpdev)
@@ -6923,14 +6975,6 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 				PCI_EXP_LNKSTA_CLS);
 
 	msm_pcie_scale_link_bandwidth(pcie_dev, current_link_speed);
-
-	/* always ungate clkreq */
-	msm_pcie_write_reg_field(pcie_dev->parf,
-				PCIE20_PARF_CLKREQ_OVERRIDE,
-				PCIE20_PARF_CLKREQ_IN_ENABLE, 0);
-	msm_pcie_write_reg_field(pcie_dev->parf,
-				PCIE20_PARF_CLKREQ_OVERRIDE,
-				PCIE20_PARF_CLKREQ_IN_VALUE, 0);
 
 	pcie_dev->user_suspend = false;
 	spin_lock_irq(&pcie_dev->cfg_lock);
