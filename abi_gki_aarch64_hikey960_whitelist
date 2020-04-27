@@ -987,7 +987,6 @@
   param_set_int
   pci_device_is_present
   pci_disable_device
-  pcie_aspm_enabled
   pci_enable_device_mem
   pci_free_irq
   pci_load_saved_state
@@ -1126,7 +1125,6 @@
   thermal_zone_device_update
 
 # required by 8250_dw.ko
-  dw8250_setup_port
   of_device_is_big_endian
   serial8250_clear_and_reinit_fifos
   serial8250_do_pm
