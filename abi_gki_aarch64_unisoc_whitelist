@@ -191,7 +191,6 @@
   extcon_get_edev_by_phandle
   extcon_get_state
   fb_mode_option
-  fb_notifier_call_chain
   __find_get_block
   find_next_bit
   finish_wait
@@ -1870,24 +1869,9 @@
   hwspin_lock_unregister
 
 # required by sprd_ipa.ko
-  debug_dma_mapping_error
   skb_to_sgvec
   irq_set_affinity_hint
-  napi_gro_receivenetif_tx_napi_add
-  skb_reserve
-  dma_unmap_sg
-  __dev_alloc_skb
-  dev_kfree_skb_any
   napi_gro_receive
-  list_for_each_entry
-  list_splice_tail_init
-  list_first_entry_or_null
-  list_move_tail
-  napi_schedule
-  kcalloc
-  skb_reset_mac_header
-  dma_alloc_coherent
-  skb_set_network_header
 
 # required by sprd-saudio.ko
   snd_card_free
