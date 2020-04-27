@@ -1857,4 +1857,22 @@ int adreno_power_cycle_bool(struct adreno_device *adreno_dev,
  */
 int adreno_power_cycle_u32(struct adreno_device *adreno_dev,
 	u32 *flag, u32 val);
+
+/**
+ * adreno_get_bus_counters - Allocate the bus dcvs counters
+ * @adreno_dev: Adreno GPU device handle
+ *
+ * This function allocates the various gpu counters to measure
+ * gpu bus usage for bus dcvs
+ */
+void adreno_get_bus_counters(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_clear_dcvs_counters - Clear the dcvs measurements
+ * @adreno_dev: Adreno GPU device handle
+ *
+ * The various dcvs statistics need to be cleared everytime we
+ * power up the gpu
+ */
+void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev);
 #endif /*__ADRENO_H */

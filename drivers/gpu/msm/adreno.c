@@ -1986,6 +1986,94 @@ void adreno_active_count_put(struct adreno_device *adreno_dev)
 	ops->active_count_put(adreno_dev);
 }
 
+void adreno_get_bus_counters(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!device->pwrctrl.bus_control)
+		return;
+
+	/* VBIF waiting for RAM */
+	if (adreno_dev->starved_ram_lo == 0)
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
+			&adreno_dev->starved_ram_lo, NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+
+	/* VBIF DDR cycles */
+	if (!adreno_has_gbif(adreno_dev) && (adreno_dev->ram_cycles_lo == 0)) {
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF,
+			VBIF_AXI_TOTAL_BEATS,
+			&adreno_dev->ram_cycles_lo, NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+		return;
+	}
+
+	if (adreno_dev->starved_ram_lo_ch1 == 0)
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
+			&adreno_dev->starved_ram_lo_ch1, NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+
+	if (adreno_dev->ram_cycles_lo == 0)
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF,
+			GBIF_AXI0_READ_DATA_TOTAL_BEATS,
+			&adreno_dev->ram_cycles_lo, NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+
+	if (adreno_dev->ram_cycles_lo_ch1_read == 0)
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF,
+			GBIF_AXI1_READ_DATA_TOTAL_BEATS,
+			&adreno_dev->ram_cycles_lo_ch1_read,
+			NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+
+	if (adreno_dev->ram_cycles_lo_ch0_write == 0)
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF,
+			GBIF_AXI0_WRITE_DATA_TOTAL_BEATS,
+			&adreno_dev->ram_cycles_lo_ch0_write,
+			NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+
+	if (adreno_dev->ram_cycles_lo_ch1_write == 0)
+		if (adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_VBIF,
+			GBIF_AXI1_WRITE_DATA_TOTAL_BEATS,
+			&adreno_dev->ram_cycles_lo_ch1_write,
+			NULL,
+			PERFCOUNTER_FLAG_KERNEL))
+			goto err;
+
+	return;
+err:
+	dev_err(KGSL_DEVICE(adreno_dev)->dev,
+		"Unable to get perf counters for bus DCVS\n");
+
+}
+
+void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev)
+{
+	/* Clear the busy_data stats - we're starting over from scratch */
+	adreno_dev->busy_data.gpu_busy = 0;
+	adreno_dev->busy_data.bif_ram_cycles = 0;
+	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
+	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
+	adreno_dev->busy_data.bif_starved_ram = 0;
+	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
+	adreno_dev->busy_data.num_ifpc = 0;
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1997,7 +2085,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int status = -EINVAL, ret;
+	int status;
 	unsigned int state = device->state;
 	bool regulator_left_on;
 
@@ -2055,120 +2143,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		goto error_oob_clear;
 	}
 
-	if (device->pwrctrl.bus_control) {
-		/* VBIF waiting for RAM */
-		if (adreno_dev->starved_ram_lo == 0) {
-			ret = adreno_perfcounter_get(adreno_dev,
-				KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
-				&adreno_dev->starved_ram_lo, NULL,
-				PERFCOUNTER_FLAG_KERNEL);
+	adreno_get_bus_counters(adreno_dev);
 
-			if (ret) {
-				dev_err(device->dev,
-					     "Unable to get perf counters for bus DCVS\n");
-				adreno_dev->starved_ram_lo = 0;
-			}
-		}
-
-		if (adreno_has_gbif(adreno_dev)) {
-			if (adreno_dev->starved_ram_lo_ch1 == 0) {
-				ret = adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 1,
-					&adreno_dev->starved_ram_lo_ch1, NULL,
-					PERFCOUNTER_FLAG_KERNEL);
-
-				if (ret) {
-					dev_err(device->dev,
-						     "Unable to get perf counters for bus DCVS\n");
-					adreno_dev->starved_ram_lo_ch1 = 0;
-				}
-			}
-
-			if (adreno_dev->ram_cycles_lo == 0) {
-				ret = adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF,
-					GBIF_AXI0_READ_DATA_TOTAL_BEATS,
-					&adreno_dev->ram_cycles_lo, NULL,
-					PERFCOUNTER_FLAG_KERNEL);
-
-				if (ret) {
-					dev_err(device->dev,
-						     "Unable to get perf counters for bus DCVS\n");
-					adreno_dev->ram_cycles_lo = 0;
-				}
-			}
-
-			if (adreno_dev->ram_cycles_lo_ch1_read == 0) {
-				ret = adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF,
-					GBIF_AXI1_READ_DATA_TOTAL_BEATS,
-					&adreno_dev->ram_cycles_lo_ch1_read,
-					NULL,
-					PERFCOUNTER_FLAG_KERNEL);
-
-				if (ret) {
-					dev_err(device->dev,
-						     "Unable to get perf counters for bus DCVS\n");
-					adreno_dev->ram_cycles_lo_ch1_read = 0;
-				}
-			}
-
-			if (adreno_dev->ram_cycles_lo_ch0_write == 0) {
-				ret = adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF,
-					GBIF_AXI0_WRITE_DATA_TOTAL_BEATS,
-					&adreno_dev->ram_cycles_lo_ch0_write,
-					NULL,
-					PERFCOUNTER_FLAG_KERNEL);
-
-				if (ret) {
-					dev_err(device->dev,
-						     "Unable to get perf counters for bus DCVS\n");
-					adreno_dev->ram_cycles_lo_ch0_write = 0;
-				}
-			}
-
-			if (adreno_dev->ram_cycles_lo_ch1_write == 0) {
-				ret = adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF,
-					GBIF_AXI1_WRITE_DATA_TOTAL_BEATS,
-					&adreno_dev->ram_cycles_lo_ch1_write,
-					NULL,
-					PERFCOUNTER_FLAG_KERNEL);
-
-				if (ret) {
-					dev_err(device->dev,
-						     "Unable to get perf counters for bus DCVS\n");
-					adreno_dev->ram_cycles_lo_ch1_write = 0;
-				}
-			}
-		} else {
-			/* VBIF DDR cycles */
-			if (adreno_dev->ram_cycles_lo == 0) {
-				ret = adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF,
-					VBIF_AXI_TOTAL_BEATS,
-					&adreno_dev->ram_cycles_lo, NULL,
-					PERFCOUNTER_FLAG_KERNEL);
-
-				if (ret) {
-					dev_err(device->dev,
-						     "Unable to get perf counters for bus DCVS\n");
-					adreno_dev->ram_cycles_lo = 0;
-				}
-			}
-		}
-	}
-
-	/* Clear the busy_data stats - we're starting over from scratch */
-	adreno_dev->busy_data.gpu_busy = 0;
-	adreno_dev->busy_data.bif_ram_cycles = 0;
-	adreno_dev->busy_data.bif_ram_cycles_read_ch1 = 0;
-	adreno_dev->busy_data.bif_ram_cycles_write_ch0 = 0;
-	adreno_dev->busy_data.bif_ram_cycles_write_ch1 = 0;
-	adreno_dev->busy_data.bif_starved_ram = 0;
-	adreno_dev->busy_data.bif_starved_ram_ch1 = 0;
-	adreno_dev->busy_data.num_ifpc = 0;
+	adreno_clear_dcvs_counters(adreno_dev);
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
