@@ -122,7 +122,7 @@ static void patch_alternative(struct alt_instr *alt,
 	}
 }
 
-static void __apply_alternatives(void *alt_region, bool use_linear_alias)
+static void __nocfi __apply_alternatives(void *alt_region, bool use_linear_alias)
 {
 	struct alt_instr *alt;
 	struct alt_region *region = alt_region;

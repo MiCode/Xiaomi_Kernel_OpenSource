@@ -4411,10 +4411,10 @@ static int __ufshcd_query_descriptor(struct ufs_hba *hba,
 		goto out_unlock;
 	}
 
-	hba->dev_cmd.query.descriptor = NULL;
 	*buf_len = be16_to_cpu(response->upiu_res.length);
 
 out_unlock:
+	hba->dev_cmd.query.descriptor = NULL;
 	mutex_unlock(&hba->dev_cmd.lock);
 out:
 	ufshcd_release_all(hba);
@@ -5326,8 +5326,8 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 			__func__, ret);
 
 		/*
-		 * If link recovery fails then return error code (-ENOLINK)
-		 * returned ufshcd_link_recovery().
+		 * If link recovery fails then return error code returned from
+		 * ufshcd_link_recovery().
 		 * If link recovery succeeds then return -EAGAIN to attempt
 		 * hibern8 enter retry again.
 		 */

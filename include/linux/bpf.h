@@ -255,6 +255,58 @@ int bpf_prog_test_run_xdp(struct bpf_prog *prog, const union bpf_attr *kattr,
 int bpf_prog_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
 			  union bpf_attr __user *uattr);
 
+/* an array of programs to be executed under rcu_lock.
+ *
+ * Typical usage:
+ * ret = BPF_PROG_RUN_ARRAY(&bpf_prog_array, ctx, BPF_PROG_RUN);
+ *
+ * the structure returned by bpf_prog_array_alloc() should be populated
+ * with program pointers and the last pointer must be NULL.
+ * The user has to keep refcnt on the program and make sure the program
+ * is removed from the array before bpf_prog_put().
+ * The 'struct bpf_prog_array *' should only be replaced with xchg()
+ * since other cpus are walking the array of pointers in parallel.
+ */
+struct bpf_prog_array {
+	struct rcu_head rcu;
+	struct bpf_prog *progs[0];
+};
+
+struct bpf_prog_array __rcu *bpf_prog_array_alloc(u32 prog_cnt, gfp_t flags);
+void bpf_prog_array_free(struct bpf_prog_array __rcu *progs);
+
+void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
+				struct bpf_prog *old_prog);
+int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
+			struct bpf_prog *exclude_prog,
+			struct bpf_prog *include_prog,
+			struct bpf_prog_array **new_array);
+
+#define __BPF_PROG_RUN_ARRAY(array, ctx, func, check_non_null)	\
+	({						\
+		struct bpf_prog **_prog, *__prog;	\
+		struct bpf_prog_array *_array;		\
+		u32 _ret = 1;				\
+		rcu_read_lock();			\
+		_array = rcu_dereference(array);	\
+		if (unlikely(check_non_null && !_array))\
+			goto _out;			\
+		_prog = _array->progs;			\
+		while ((__prog = READ_ONCE(*_prog))) {	\
+			_ret &= func(__prog, ctx);	\
+			_prog++;			\
+		}					\
+_out:							\
+		rcu_read_unlock();			\
+		_ret;					\
+	 })
+
+#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
+	__BPF_PROG_RUN_ARRAY(array, ctx, func, false)
+
+#define BPF_PROG_RUN_ARRAY_CHECK(array, ctx, func)	\
+	__BPF_PROG_RUN_ARRAY(array, ctx, func, true)
+
 #ifdef CONFIG_BPF_SYSCALL
 DECLARE_PER_CPU(int, bpf_prog_active);
 
