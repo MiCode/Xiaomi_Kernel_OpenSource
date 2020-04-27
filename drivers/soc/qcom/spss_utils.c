@@ -825,9 +825,8 @@ static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
 		writel_relaxed(cmac[i], reg + i*sizeof(u32));
 		pr_debug("cmac[%d] [0x%x]\n", i, cmac[i]);
 	}
-	reg += cmac_size;
-	iounmap(cmac_mem);
 
+	reg += cmac_size;
 	return 0;
 }
 
@@ -1060,6 +1059,11 @@ static int spss_remove(struct platform_device *pdev)
 
 	kfree(spss_utils_dev);
 	spss_utils_dev = 0;
+
+	if (cmac_mem != NULL) {
+		iounmap(cmac_mem);
+		cmac_mem = NULL;
+	}
 
 	return 0;
 }
