@@ -34,13 +34,13 @@
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)
 
-#define IBB_DUAL_PHASE_CTL(chip)		(chip->ibb_base + 0x70)
+#define IBB_DUAL_PHASE_CTL(chip)	(chip->ibb_base + 0x70)
 
 /* IBB_DUAL_PHASE_CTL */
 #define IBB_DUAL_PHASE_CTL_MASK		GENMASK(2, 0)
-#define AUTO_DUAL_PHASE_BIT			BIT(2)
-#define FORCE_DUAL_PHASE_BIT			BIT(1)
-#define FORCE_SINGLE_PHASE_BIT			BIT(0)
+#define AUTO_DUAL_PHASE_BIT		BIT(2)
+#define FORCE_DUAL_PHASE_BIT		BIT(1)
+#define FORCE_SINGLE_PHASE_BIT		BIT(0)
 
 struct amoled_regulator {
 	struct regulator_desc	rdesc;
@@ -290,7 +290,7 @@ static unsigned int qpnp_ab_ibb_regulator_get_mode(struct regulator_dev *rdev)
 	return chip->ibb.vreg.mode;
 }
 
-#define SINGLE_PHASE_LIMIT_UA	30000000
+#define SINGLE_PHASE_ILIMIT_UA	30000
 
 static int qpnp_ibb_regulator_set_load(struct regulator_dev *rdev,
 				int load_uA)
@@ -303,8 +303,8 @@ static int qpnp_ibb_regulator_set_load(struct regulator_dev *rdev,
 
 	if (load_uA < 0)
 		return -EINVAL;
-	else if (load_uA <= SINGLE_PHASE_LIMIT_UA)
-		ibb_phase = FORCE_SINGLE_PHASE_BIT;
+	else if (load_uA <= SINGLE_PHASE_ILIMIT_UA)
+		ibb_phase = AUTO_DUAL_PHASE_BIT;
 	else
 		ibb_phase = FORCE_DUAL_PHASE_BIT;
 
