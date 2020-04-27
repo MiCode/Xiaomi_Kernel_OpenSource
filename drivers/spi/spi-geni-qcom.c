@@ -104,6 +104,10 @@
 #define MAX_TX_SG		(3)
 #define NUM_SPI_XFER		(8)
 
+#define SPI_ERROR_BITS		(M_CMD_OVERRUN_EN | M_ILLEGAL_CMD_EN | \
+				M_RX_FIFO_RD_ERR_EN | M_RX_FIFO_WR_ERR_EN | \
+				M_TX_FIFO_RD_ERR_EN | M_TX_FIFO_WR_ERR_EN)
+
 struct gsi_desc_cb {
 	struct spi_master *spi;
 	struct spi_transfer *xfer;
@@ -1463,6 +1467,14 @@ static irqreturn_t geni_spi_irq(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 	m_irq = geni_read_reg(mas->base, SE_GENI_M_IRQ_STATUS);
+
+	if (SPI_ERROR_BITS &  m_irq) {
+		dev_err_ratelimited(mas->dev, "%s: Error m_irq status:0x%x\n",
+			__func__, m_irq);
+		GENI_SE_ERR(mas->ipc, false, mas->dev,
+			"%s: Error m_irq status:0x%x\n", __func__, m_irq);
+		goto exit_geni_spi_irq;
+	}
 
 	if (mas->cur_xfer_mode == FIFO_MODE) {
 		if ((m_irq & M_RX_FIFO_WATERMARK_EN) ||
