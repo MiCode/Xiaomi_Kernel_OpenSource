@@ -4245,7 +4245,6 @@ static int gcc_sa8150_resume(struct device *dev)
 
 static const struct dev_pm_ops gcc_sa8150_pm_ops = {
 	.restore_early = gcc_sa8150_resume,
-	.thaw_early = gcc_sa8150_resume,
 };
 
 static void gcc_sm8150_fixup_sm8150v2(struct regmap *regmap)
