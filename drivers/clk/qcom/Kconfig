@@ -672,3 +672,11 @@ config SM_DEBUGCC_ATOLL
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  ATOLL devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config SDM_GCC_429W
+        tristate "SDM429W Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on SDM429W devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SDCC, Display, Camera, Video etc.
