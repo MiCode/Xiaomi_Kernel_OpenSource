@@ -1979,6 +1979,7 @@ static ssize_t shutdown_store(struct kobject *kobj,
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 		del_timer(&plat_priv->fw_boot_timer);
 		complete_all(&plat_priv->power_up_complete);
+		complete_all(&plat_priv->cal_complete);
 	}
 
 	cnss_pr_dbg("Received shutdown notification\n");
@@ -2120,6 +2121,7 @@ static int cnss_reboot_notifier(struct notifier_block *nb,
 	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 	del_timer(&plat_priv->fw_boot_timer);
 	complete_all(&plat_priv->power_up_complete);
+	complete_all(&plat_priv->cal_complete);
 	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
 
 	return NOTIFY_DONE;

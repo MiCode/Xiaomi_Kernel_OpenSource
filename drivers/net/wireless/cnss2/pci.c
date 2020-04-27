@@ -2065,7 +2065,8 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 					  msecs_to_jiffies(timeout) << 2);
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
-		CNSS_ASSERT(0);
+		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
+			CNSS_ASSERT(0);
 
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 		if (!cal_info)
@@ -2075,6 +2076,11 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
 				       0, cal_info);
+	}
+
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore register driver\n");
+		return -EINVAL;
 	}
 
 register_driver:
@@ -2134,7 +2140,7 @@ skip_wait_power_up:
 skip_wait_recovery:
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
-			       CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
+			       CNSS_EVENT_SYNC_UNKILLABLE, NULL);
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
