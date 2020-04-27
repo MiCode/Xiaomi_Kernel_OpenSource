@@ -766,7 +766,7 @@ struct key_parse {
 	struct key_params p;
 	int idx;
 	int type;
-	bool def, defmgmt;
+	bool def, defmgmt, defbeacon;
 	bool def_uni, def_multi;
 };
 
@@ -780,12 +780,13 @@ static int nl80211_parse_key_new(struct nlattr *key, struct key_parse *k)
 
 	k->def = !!tb[NL80211_KEY_DEFAULT];
 	k->defmgmt = !!tb[NL80211_KEY_DEFAULT_MGMT];
+	k->defbeacon = !!tb[NL80211_KEY_DEFAULT_BEACON];
 
 	if (k->def) {
 		k->def_uni = true;
 		k->def_multi = true;
 	}
-	if (k->defmgmt)
+	if (k->defmgmt || k->defbeacon)
 		k->def_multi = true;
 
 	if (tb[NL80211_KEY_IDX])
@@ -893,10 +894,11 @@ static int nl80211_parse_key(struct genl_info *info, struct key_parse *k)
 	if (err)
 		return err;
 
-	if (k->def && k->defmgmt)
+	if ((k->def ? 1 : 0) + (k->defmgmt ? 1 : 0) +
+	    (k->defbeacon ? 1 : 0) > 1)
 		return -EINVAL;
 
-	if (k->defmgmt) {
+	if (k->defmgmt || k->defbeacon) {
 		if (k->def_uni || !k->def_multi)
 			return -EINVAL;
 	}
@@ -905,11 +907,14 @@ static int nl80211_parse_key(struct genl_info *info, struct key_parse *k)
 		if (k->defmgmt) {
 			if (k->idx < 4 || k->idx > 5)
 				return -EINVAL;
+		} else if (k->defbeacon) {
+			if (k->idx < 6 || k->idx > 7)
+				return -EINVAL;
 		} else if (k->def) {
 			if (k->idx < 0 || k->idx > 3)
 				return -EINVAL;
 		} else {
-			if (k->idx < 0 || k->idx > 5)
+			if (k->idx < 0 || k->idx > 7)
 				return -EINVAL;
 		}
 	}
@@ -3192,10 +3197,15 @@ static int nl80211_get_key(struct sk_buff *skb, struct genl_info *info)
 	void *hdr;
 	struct sk_buff *msg;
 
-	if (info->attrs[NL80211_ATTR_KEY_IDX])
+	if (info->attrs[NL80211_ATTR_KEY_IDX]) {
 		key_idx = nla_get_u8(info->attrs[NL80211_ATTR_KEY_IDX]);
+		if (key_idx > 5 &&
+		    !wiphy_ext_feature_isset(&rdev->wiphy,
+			    NL80211_EXT_FEATURE_BEACON_PROTECTION))
+			return -EINVAL;
+	}
 
-	if (key_idx > 5)
+	if (key_idx > 7)
 		return -EINVAL;
 
 	if (info->attrs[NL80211_ATTR_MAC])
@@ -3272,7 +3282,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 		return -EINVAL;
 
 	/* only support setting default key */
-	if (!key.def && !key.defmgmt)
+	if (!key.def && !key.defmgmt && !key.defbeacon)
 		return -EINVAL;
 
 	wdev_lock(dev->ieee80211_ptr);
@@ -3296,7 +3306,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 #ifdef CONFIG_CFG80211_WEXT
 		dev->ieee80211_ptr->wext.default_key = key.idx;
 #endif
-	} else {
+	} else if (key.defmgmt)  {
 		if (key.def_uni || !key.def_multi) {
 			err = -EINVAL;
 			goto out;
@@ -3318,6 +3328,24 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 #ifdef CONFIG_CFG80211_WEXT
 		dev->ieee80211_ptr->wext.default_mgmt_key = key.idx;
 #endif
+	} else if (key.defbeacon) {
+		if (key.def_uni || !key.def_multi) {
+			err = -EINVAL;
+			goto out;
+		}
+
+		if (!rdev->ops->set_default_beacon_key) {
+			err = -EOPNOTSUPP;
+			goto out;
+		}
+
+		err = nl80211_key_allowed(dev->ieee80211_ptr);
+		if (err)
+			goto out;
+
+		err = rdev_set_default_beacon_key(rdev, dev, key.idx);
+		if (err)
+			goto out;
 	}
 
  out:
