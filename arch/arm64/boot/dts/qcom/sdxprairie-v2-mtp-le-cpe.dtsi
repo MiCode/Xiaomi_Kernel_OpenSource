@@ -103,3 +103,7 @@
 		status = "disabled";
 	};
 };
+
+&mhi_device {
+	qcom,no-m0-timeout;
+};

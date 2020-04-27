@@ -593,6 +593,13 @@ struct mhi_dev {
 	/*Register for interrupt*/
 	bool				mhi_int;
 	bool				mhi_int_en;
+
+	/* Enable M2 autonomous mode from MHI */
+	bool				enable_m2;
+
+	/* Dont timeout waiting for M0 */
+	bool				no_m0_timeout;
+
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
 	/* Tx, Rx DMA channels */
