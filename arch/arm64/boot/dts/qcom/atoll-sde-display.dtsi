@@ -360,10 +360,13 @@
 	qcom,mdss-dsi-panel-status-value = <0x9c>;
 	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,dsi-supported-dfps-list = <60 90 50>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 16 06 05 20 1F 06
-				06 06 03 02 04];
+			qcom,mdss-dsi-panel-phy-timings = [00 23 09 09 26 24 09
+				09 09 06 02 04];
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
 		};
