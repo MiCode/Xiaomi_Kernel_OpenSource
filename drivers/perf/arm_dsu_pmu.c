@@ -805,6 +805,9 @@ static int dsu_pmu_cpu_online(unsigned int cpu, struct hlist_node *node)
 	struct dsu_pmu *dsu_pmu = hlist_entry_safe(node, struct dsu_pmu,
 						   cpuhp_node);
 
+	if (!dsu_pmu)
+		return 0;
+
 	if (!cpumask_test_cpu(cpu, &dsu_pmu->associated_cpus))
 		return 0;
 
