@@ -22,16 +22,22 @@
 #define MT6362_REG_ADCCFG3	(0xA6)
 #define MT6362_REG_ADCEN1	(0xA7)
 #define MT6362_CHRPT_BASEADDR	(0xAA)
+#define MT6362_CHG_STAT2	(0xE2)
 
 #define MT6362_CHIPREV_MASK	(0x0F)
 #define MT6362_CHIPREV_E2	(0x2)
 #define MT6362_TMID3_MASK	BIT(4)
+#define MT6362_STSYSMIN_MASK	BIT(1)
 
-#define MT6362_TIMEMS_PERCH	(1)
+/* ADC conversion time in microseconds */
+#define MT6362_TIME_PERCH	(1300)
+#define MT6362_LTIME_PERCH	(2200)
 #define MT6362_DESIRECH_SHIFT	(4)
 #define MT6362_IRQRPTCH_SHIFT	(0)
+#define MT6362_VSYSMINST_CNT	(3)
 
 #define MT6362_ADCIBAT_OFFSET	(160 * 1000)
+#define MT6362_ADCSYSMIN_OFFSET	(50 * 1000)
 
 #define MT6362_CHRPT_ADDR(_idx) (MT6362_CHRPT_BASEADDR + ((_idx) - 1) * 2)
 
@@ -41,6 +47,7 @@ struct mt6362_adc_data {
 	struct mutex adc_lock;
 	struct completion adc_comp;
 	bool ibat_offset_flag;
+	bool conv_ltime_flag;
 };
 
 static const int mt6362_adcch_offsets[] = {
@@ -56,6 +63,27 @@ static const int mt6362_adcch_times[] = {
 	1250,
 };
 
+static int mt6362_adc_is_sysmin_state(struct mt6362_adc_data *data, bool *state)
+{
+	unsigned int val = 0;
+	int i, rv;
+
+	*state = true;
+	for (i = 0; i < MT6362_VSYSMINST_CNT; i++) {
+		rv = regmap_read(data->regmap, MT6362_CHG_STAT2, &val);
+		if (rv)
+			return rv;
+
+		/* either one is not in vsys min, treat as VBAT>VSYSMIN */
+		if (!(val & MT6362_STSYSMIN_MASK)) {
+			*state = false;
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int mt6362_adc_read_raw(struct iio_dev *indio_dev,
 			       struct iio_chan_spec const *chan,
 			       int *val, int *val2, long mask)
@@ -64,27 +92,16 @@ static int mt6362_adc_read_raw(struct iio_dev *indio_dev,
 	u8 oneshot_ch;
 	u16 raw = 0;
 	ktime_t start_t, end_t;
+	unsigned int conv_time =
+		data->conv_ltime_flag ? MT6362_LTIME_PERCH : MT6362_TIME_PERCH;
+	bool state;
 	int rv;
 
 	mutex_lock(&data->adc_lock);
 	if (chan->scan_index == MT6362_ADCCH_ZCV)
 		goto direct_read;
-	/* read all channels enable flag first */
-	rv = regmap_bulk_read(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
-	if (rv)
-		goto out_read;
 
-	raw = le16_to_cpu(raw);
-	raw &= (~(1 << chan->channel));
-	raw = cpu_to_le16(raw);
-
-	/* disable this channel first */
-	rv = regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
-	if (rv)
-		goto out_read;
-
-	/* whatever, after disable this channel, enable all channels */
-	raw = 0xffff;
+	/* write all channels to be disabled first */
 	rv = regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
 	if (rv)
 		goto out_read;
@@ -96,14 +113,22 @@ static int mt6362_adc_read_raw(struct iio_dev *indio_dev,
 	if (rv)
 		goto out_read;
 
+	raw |= (1 << chan->channel);
+	raw = cpu_to_le16(raw);
+
+	/* enable the desired channel */
+	rv = regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
+	if (rv)
+		goto out_read;
+
 	start_t = ktime_get();
 adc_rerun:
 	reinit_completion(&data->adc_comp);
 	wait_for_completion_timeout(&data->adc_comp,
-				    msecs_to_jiffies(2 * MT6362_TIMEMS_PERCH));
+				    usecs_to_jiffies(2 * conv_time));
 
 	end_t = ktime_get();
-	if (ktime_ms_delta(end_t, start_t) < MT6362_TIMEMS_PERCH) {
+	if (ktime_us_delta(end_t, start_t) < conv_time) {
 		dev_dbg(&indio_dev->dev, "wait for next conversion\n");
 		goto adc_rerun;
 	}
@@ -132,13 +157,23 @@ direct_read:
 		*val += (raw * mt6362_adcch_times[chan->scan_index]);
 
 		if (chan->scan_index == MT6362_ADCCH_IBAT &&
-			data->ibat_offset_flag)
+				data->ibat_offset_flag) {
+			rv = mt6362_adc_is_sysmin_state(data, &state);
+			if (rv)
+				goto out_read;
+			if (state)
+				*val += MT6362_ADCSYSMIN_OFFSET;
+
 			*val -= MT6362_ADCIBAT_OFFSET;
+		}
 		break;
 	default:
 		rv = -EINVAL;
 	}
 out_read:
+	/* write all channels to be disabled */
+	raw = 0;
+	regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
 	mutex_unlock(&data->adc_lock);
 
 	return rv ? : IIO_VAL_INT;
@@ -220,8 +255,8 @@ static irqreturn_t mt6362_adc_donei_irq(int irq, void *devid)
 
 static int mt6362_adc_init(struct mt6362_adc_data *data)
 {
-	/* adc en = 1, zcv = 0, all channels to be enabled */
-	const u8 adc_configs[] = { 0x80, 0x00, 0x00, 0xff, 0xff };
+	/* adc en = 1, zcv = 0, all channels to be disabled */
+	const u8 adc_configs[] = { 0x80, 0x00, 0x00, 0x00, 0x00 };
 
 	return regmap_bulk_write(data->regmap, MT6362_REG_ADCCFG1,
 				 adc_configs, sizeof(adc_configs));
@@ -239,9 +274,13 @@ static int mt6362_adc_init_offset_flags(struct mt6362_adc_data *data)
 	if (rv)
 		return rv;
 
-	/* if rev > e2 or tmid3 == 1, no need ibat offset, otherwise yes */
+	/* if rev > e2, adc convert time will be another one */
+	if ((devinfo & MT6362_CHIPREV_MASK) > MT6362_CHIPREV_E2)
+		data->conv_ltime_flag = true;
+
+	/* if rev > e2 or tmid3 == 1, need ibat offset, otherwise not */
 	if ((devinfo & MT6362_CHIPREV_MASK) > MT6362_CHIPREV_E2 ||
-		(tminfo & MT6362_TMID3_MASK))
+			(tminfo & MT6362_TMID3_MASK))
 		data->ibat_offset_flag = true;
 
 	return 0;
