@@ -26,7 +26,7 @@
 #include "clk-mt6853-fmeter.h"
 
 #define DUMP_INIT_STATE		0
-#define CHECK_VCORE_FREQ		0
+#define CHECK_VCORE_FREQ		1
 
 int __attribute__((weak)) get_sw_req_vcore_opp(void)
 {
@@ -324,7 +324,8 @@ struct mtk_vf {
 	int freq_table[4];
 };
 
-#define MTK_VF_TABLE(_freq0, _freq1, _freq2, _freq3) {		\
+#define MTK_VF_TABLE(_n, _freq0, _freq1, _freq2, _freq3) {		\
+		.name = _n,		\
 		.freq_table = {_freq0, _freq1, _freq2, _freq3},	\
 	}
 
@@ -336,65 +337,65 @@ struct mtk_vf {
  */
 static struct mtk_vf vf_table[] = {
 	/* Opp0, Opp1, Opp2, Opp3 */
-	MTK_VF_TABLE(156000, 156000, 156000, 156000), /* axi_sel */
-	MTK_VF_TABLE(78000, 78000, 78000, 78000), /* spm_sel */
-	MTK_VF_TABLE(624000, 416000, 364000, 273000), /* scp_sel */
-	MTK_VF_TABLE(364000, 273000, 273000, 218400), /* bus_aximem_sel */
-	MTK_VF_TABLE(546000, 416000, 312000, 208000), /* disp_sel */
-	MTK_VF_TABLE(594000, 436800, 343750, 275000), /* mdp_sel */
-	MTK_VF_TABLE(624000, 458333, 343750, 275000), /* img1_sel */
-	MTK_VF_TABLE(624000, 458333, 343750, 275000), /* img2_sel */
-	MTK_VF_TABLE(546000, 416000, 312000, 275000), /* ipe_sel */
-	MTK_VF_TABLE(546000, 458333, 364000, 249600), /* dpe_sel */
-	MTK_VF_TABLE(624000, 499200, 392857, 273000), /* cam_sel */
-	MTK_VF_TABLE(499200, 392857, 364000, 275000), /* ccu_sel */
-	MTK_VF_TABLE(728000, 728000, 499200, 242666), /* dsp_sel */
-	MTK_VF_TABLE(624000, 624000, 546000, 273000), /* dsp1_sel */
-	MTK_VF_TABLE(624000, 624000, 546000, 273000), /* dsp2_sel */
-	MTK_VF_TABLE(546000, 416000, 312000, 208000), /* ipu_if_sel */
-	MTK_VF_TABLE(416000, 416000, 416000, 416000), /* mfg_ref_sel */
-	MTK_VF_TABLE(52000, 52000, 52000, 52000), /* camtg_sel */
-	MTK_VF_TABLE(52000, 52000, 52000, 52000), /* camtg2_sel */
-	MTK_VF_TABLE(52000, 52000, 52000, 52000), /* camtg3_sel */
-	MTK_VF_TABLE(52000, 52000, 52000, 52000), /* camtg4_sel */
-	MTK_VF_TABLE(52000, 52000, 52000, 52000), /* camtg5_sel */
-	MTK_VF_TABLE(52000, 52000, 52000, 52000), /* uart_sel */
-	MTK_VF_TABLE(109200, 109200, 109200, 109200), /* spi_sel */
-	MTK_VF_TABLE(273000, 273000, 273000, 273000), /* msdc50_0_hclk_sel */
-	MTK_VF_TABLE(384000, 384000, 384000, 384000), /* msdc50_0_sel */
-	MTK_VF_TABLE(208000, 208000, 208000, 208000), /* msdc30_1_sel */
-	MTK_VF_TABLE(54600, 54600, 54600, 54600), /* audio_sel */
-	MTK_VF_TABLE(136500, 136500, 136500, 136500), /* aud_intbus_sel */
-	MTK_VF_TABLE(65000, 65000, 65000, 65000), /* pwrap_ulposc_sel */
-	MTK_VF_TABLE(273000, 273000, 273000, 273000), /* atb_sel */
-	MTK_VF_TABLE(364000, 312000, 273000, 242666), /* sspm_sel */
-	MTK_VF_TABLE(109200, 109200, 109200, 109200), /* scam_sel */
-	MTK_VF_TABLE(130000, 130000, 130000, 130000), /* disp_pwm_sel */
-	MTK_VF_TABLE(124800, 124800, 124800, 124800), /* usb_top_sel */
-	MTK_VF_TABLE(124800, 124800, 124800, 124800), /* ssusb_xhci_sel */
-	MTK_VF_TABLE(124800, 124800, 124800, 124800), /* i2c_sel */
-	MTK_VF_TABLE(499200, 499200, 392857, 273000), /* seninf_sel */
-	MTK_VF_TABLE(499200, 499200, 392857, 273000), /* seninf1_sel */
-	MTK_VF_TABLE(499200, 499200, 392857, 273000), /* seninf2_sel */
-	MTK_VF_TABLE(273000, 273000, 273000, 273000), /* dxcc_sel */
-	MTK_VF_TABLE(45158, 45158, 45158, 45158), /* aud_engen1_sel */
-	MTK_VF_TABLE(49152, 49152, 49152, 49152), /* aud_engen2_sel */
-	MTK_VF_TABLE(546000, 546000, 546000, 416000), /* aes_ufsfde_sel */
-	MTK_VF_TABLE(192000, 192000, 192000, 192000), /* ufs_sel */
-	MTK_VF_TABLE(180633, 180633, 180633, 180633), /* aud_1_sel */
-	MTK_VF_TABLE(196608, 196608, 196608, 196608), /* aud_2_sel */
-	MTK_VF_TABLE(750000, 750000, 750000, 750000), /* adsp_sel */
-	MTK_VF_TABLE(364000, 364000, 364000, 273000), /* dpmaif_main_sel */
-	MTK_VF_TABLE(624000, 458333, 364000, 249600), /* venc_sel */
-	MTK_VF_TABLE(546000, 416000, 312000, 218400), /* vdec_sel */
-	MTK_VF_TABLE(208000, 208000, 208000, 208000), /* camtm_sel */
-	MTK_VF_TABLE(78000, 78000, 78000, 78000), /* pwm_sel */
-	MTK_VF_TABLE(196608, 196608, 196608, 196608), /* audio_h_sel */
-	MTK_VF_TABLE(32500, 32500, 32500, 32500), /* spmi_mst_sel */
-	MTK_VF_TABLE(26000, 26000, 26000, 26000), /* dvfsrc_sel */
-	MTK_VF_TABLE(416000, 416000, 416000, 416000), /* aes_msdcfde_sel */
-	MTK_VF_TABLE(182000, 182000, 182000, 182000), /* mcupm_sel */
-	MTK_VF_TABLE(62400, 62400, 62400, 62400), /* sflash_sel */
+	MTK_VF_TABLE("axi_sel", 156000, 156000, 156000, 156000),
+	MTK_VF_TABLE("spm_sel", 78000, 78000, 78000, 78000),
+	MTK_VF_TABLE("scp_sel", 624000, 416000, 364000, 273000),
+	MTK_VF_TABLE("bus_aximem_sel", 364000, 273000, 273000, 218400),
+	MTK_VF_TABLE("disp_sel", 546000, 416000, 312000, 208000),
+	MTK_VF_TABLE("mdp_sel", 594000, 436800, 343750, 275000),
+	MTK_VF_TABLE("img1_sel", 624000, 458333, 343750, 275000),
+	MTK_VF_TABLE("img2_sel", 624000, 458333, 343750, 275000),
+	MTK_VF_TABLE("ipe_sel", 546000, 416000, 312000, 275000),
+	MTK_VF_TABLE("dpe_sel", 546000, 458333, 364000, 249600),
+	MTK_VF_TABLE("cam_sel", 624000, 499200, 392857, 273000),
+	MTK_VF_TABLE("ccu_sel", 499200, 392857, 364000, 275000),
+	MTK_VF_TABLE("dsp_sel", 728000, 728000, 499200, 242666),
+	MTK_VF_TABLE("dsp1_sel", 624000, 624000, 546000, 273000),
+	MTK_VF_TABLE("dsp2_sel", 624000, 624000, 546000, 273000),
+	MTK_VF_TABLE("ipu_if_sel", 546000, 416000, 312000, 208000),
+	MTK_VF_TABLE("mfg_ref_sel", 416000, 416000, 416000, 416000),
+	MTK_VF_TABLE("camtg_sel", 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg2_sel", 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg3_sel", 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg4_sel", 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("camtg5_sel", 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("uart_sel", 52000, 52000, 52000, 52000),
+	MTK_VF_TABLE("spi_sel", 109200, 109200, 109200, 109200),
+	MTK_VF_TABLE("msdc50_0_hclk_sel", 273000, 273000, 273000, 273000),
+	MTK_VF_TABLE("msdc50_0_sel", 384000, 384000, 384000, 384000),
+	MTK_VF_TABLE("msdc30_1_sel", 208000, 208000, 208000, 208000),
+	MTK_VF_TABLE("audio_sel", 54600, 54600, 54600, 54600),
+	MTK_VF_TABLE("aud_intbus_sel", 136500, 136500, 136500, 136500),
+	MTK_VF_TABLE("pwrap_ulposc_sel", 65000, 65000, 65000, 65000),
+	MTK_VF_TABLE("atb_sel", 273000, 273000, 273000, 273000),
+	MTK_VF_TABLE("sspm_sel", 364000, 312000, 273000, 242666),
+	MTK_VF_TABLE("scam_sel", 109200, 109200, 109200, 109200),
+	MTK_VF_TABLE("disp_pwm_sel", 130000, 130000, 130000, 130000),
+	MTK_VF_TABLE("usb_top_sel", 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("ssusb_xhci_sel", 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("i2c_sel", 124800, 124800, 124800, 124800),
+	MTK_VF_TABLE("seninf_sel", 499200, 499200, 392857, 273000),
+	MTK_VF_TABLE("seninf1_sel", 499200, 499200, 392857, 273000),
+	MTK_VF_TABLE("seninf2_sel", 499200, 499200, 392857, 273000),
+	MTK_VF_TABLE("dxcc_sel", 273000, 273000, 273000, 273000),
+	MTK_VF_TABLE("aud_engen1_sel", 45158, 45158, 45158, 45158),
+	MTK_VF_TABLE("aud_engen2_sel", 49152, 49152, 49152, 49152),
+	MTK_VF_TABLE("aes_ufsfde_sel", 546000, 546000, 546000, 416000),
+	MTK_VF_TABLE("ufs_sel", 192000, 192000, 192000, 192000),
+	MTK_VF_TABLE("aud_1_sel", 180633, 180633, 180633, 180633),
+	MTK_VF_TABLE("aud_2_sel", 196608, 196608, 196608, 196608),
+	MTK_VF_TABLE("adsp_sel", 750000, 750000, 750000, 750000),
+	MTK_VF_TABLE("dpmaif_main_sel", 364000, 364000, 364000, 273000),
+	MTK_VF_TABLE("venc_sel", 624000, 458333, 364000, 249600),
+	MTK_VF_TABLE("vdec_sel", 546000, 416000, 312000, 218400),
+	MTK_VF_TABLE("camtm_sel", 208000, 208000, 208000, 208000),
+	MTK_VF_TABLE("pwm_sel", 78000, 78000, 78000, 78000),
+	MTK_VF_TABLE("audio_h_sel", 196608, 196608, 196608, 196608),
+	MTK_VF_TABLE("spmi_mst_sel", 32500, 32500, 32500, 32500),
+	MTK_VF_TABLE("dvfsrc_sel", 26000, 26000, 26000, 26000),
+	MTK_VF_TABLE("aes_msdcfde_sel", 416000, 416000, 416000, 416000),
+	MTK_VF_TABLE("mcupm_sel", 182000, 182000, 182000, 182000),
+	MTK_VF_TABLE("sflash_sel", 62400, 62400, 62400, 62400),
 	{},
 };
 
@@ -624,7 +625,7 @@ static int mtk_mux2id(const char **mux_name)
 {
 	int i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(vf_table); i++) {
+	for (i = 0; i < ARRAY_SIZE(vf_table) && vf_table[i].name; i++) {
 		if (strcmp(*mux_name, vf_table[i].name) == 0)
 			return i;
 	}
@@ -663,9 +664,9 @@ int mtk_clk_check_muxes(const struct mtk_mux *muxes,
 		return -ENOMEM;
 
 	for (i = 0; i < num; i++) {
-		vf_table[i].name = muxes[i].name;
+		const struct mtk_mux *mux = &muxes[i];
 
-		clk = __clk_lookup(muxes[i].name);
+		clk = __clk_lookup(mux->name);
 		clk_notifier_register(clk, &mtk_clk_notifier);
 	}
 #else
