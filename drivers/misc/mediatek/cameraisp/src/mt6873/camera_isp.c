@@ -3924,8 +3924,8 @@ static void ISP_ion_init(void)
 	if (!pIon_client && g_ion_device)
 		pIon_client = ion_client_create(g_ion_device, "camera_isp");
 
-	if (!pIon_client) {
-		LOG_NOTICE("invalid ion client!\n");
+	if (IS_ERR(pIon_client)) {
+		LOG_NOTICE("%s invalid ion client!\n", __func__);
 		return;
 	}
 
@@ -3938,8 +3938,8 @@ static void ISP_ion_init(void)
  ******************************************************************************/
 static void ISP_ion_uninit(void)
 {
-	if (!pIon_client) {
-		LOG_NOTICE("invalid ion client!\n");
+	if (IS_ERR(pIon_client)) {
+		LOG_NOTICE("%s invalid ion client!\n", __func__);
 		return;
 	}
 
@@ -3959,7 +3959,7 @@ static struct ion_handle *ISP_ion_import_handle(struct ion_client *client,
 {
 	struct ion_handle *handle = NULL;
 
-	if (!client) {
+	if (IS_ERR(client)) {
 		LOG_NOTICE("invalid ion client!\n");
 		return handle;
 	}
@@ -3989,7 +3989,7 @@ static struct ion_handle *ISP_ion_import_handle(struct ion_client *client,
 static void ISP_ion_free_handle(struct ion_client *client,
 				struct ion_handle *handle)
 {
-	if (!client) {
+	if (IS_ERR(client)) {
 		LOG_NOTICE("invalid ion client!\n");
 		return;
 	}
@@ -4999,7 +4999,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct T_ION_TBL *ptbl = NULL;
 			unsigned int jump;
 
-			if (!pIon_client) {
+			if (IS_ERR(pIon_client)) {
 				LOG_NOTICE("ion_import: invalid ion client!\n");
 				Ret = -EFAULT;
 				break;
@@ -5126,7 +5126,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct T_ION_TBL *ptbl = NULL;
 			unsigned int jump;
 
-			if (!pIon_client) {
+			if (IS_ERR(pIon_client)) {
 				LOG_NOTICE("ion_free: invalid ion client!\n");
 				Ret = -EFAULT;
 				break;
