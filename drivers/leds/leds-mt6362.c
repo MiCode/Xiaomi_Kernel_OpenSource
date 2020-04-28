@@ -819,6 +819,11 @@ static int mt6362_ioctl(unsigned int cmd, unsigned long arg)
 	}
 
 	flcdev = mt6362_flash_class[channel];
+	if (flcdev == NULL) {
+		pr_info("Get flcdev failed\n");
+		return -EINVAL;
+	}
+
 	mtcdev = (void *)flcdev;
 	data = dev_get_drvdata(lcdev->dev->parent);
 	lcdev = &flcdev->led_cdev;
@@ -1066,6 +1071,21 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int mt6362_leds_remove(struct platform_device *pdev)
+{
+#ifdef CONFIG_MTK_FLASHLIGHT
+	struct mt6362_leds_data *data = platform_get_drvdata(pdev);
+	struct mt6362_flash_cdev *mtcdev;
+
+	mtcdev = data->flashleds + MT6362_FLASH_LED1;
+	flashlight_dev_unregister_by_device_id(&mtcdev->dev_id);
+
+	mtcdev = data->flashleds + MT6362_FLASH_LED2;
+	flashlight_dev_unregister_by_device_id(&mtcdev->dev_id);
+#endif
+	return 0;
+}
+
 static const struct of_device_id __maybe_unused mt6362_leds_ofid_tbls[] = {
 	{ .compatible = "mediatek,mt6362-leds", },
 	{ },
@@ -1078,6 +1098,7 @@ static struct platform_driver mt6362_leds_driver = {
 		.of_match_table = of_match_ptr(mt6362_leds_ofid_tbls),
 	},
 	.probe = mt6362_leds_probe,
+	.remove = mt6362_leds_remove,
 };
 module_platform_driver(mt6362_leds_driver);
 
