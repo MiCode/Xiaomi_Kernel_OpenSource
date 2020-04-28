@@ -2615,7 +2615,7 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 		mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
 #endif
 #if defined(CONFIG_MACH_MT6853)
-		//TODO
+		mtk_ddp_remove_dsc_prim_MT6853(mtk_crtc, handle);
 #endif
 		mtk_disp_mutex_remove_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			handle, 0);
@@ -2649,6 +2649,7 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 	struct mtk_ddp_comp *dsc_comp;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct mtk_ddp_comp *output_comp;
 
 	if (panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
@@ -2658,6 +2659,15 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
 		cfg.h = crtc->state->adjusted_mode.vdisplay;
+		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (output_comp) {
+			cfg.w = mtk_ddp_comp_io_cmd(
+					output_comp, NULL,
+					DSI_GET_VIRTUAL_WIDTH, NULL);
+			cfg.h = mtk_ddp_comp_io_cmd(
+					output_comp, NULL,
+					DSI_GET_VIRTUAL_HEIGH, NULL);
+		}
 		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
 			struct mtk_panel_params *params;
 
