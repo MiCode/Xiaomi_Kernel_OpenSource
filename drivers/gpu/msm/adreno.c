@@ -2319,7 +2319,7 @@ int adreno_reset(struct kgsl_device *device, int fault)
 	int i;
 
 	if (gpudev->reset)
-		return gpudev->reset(device, fault);
+		return gpudev->reset(device);
 
 	/*
 	 * Try soft reset first Do not do soft reset for a IOMMU fault (because

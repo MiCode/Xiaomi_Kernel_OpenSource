@@ -1093,13 +1093,12 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 /**
  * a6xx_reset() - Helper function to reset the GPU
  * @device: Pointer to the KGSL device structure for the GPU
- * @fault: Type of fault. Needed to skip soft reset for MMU fault
  *
  * Try to reset the GPU to recover from a fault.  First, try to do a low latency
  * soft reset.  If the soft reset fails for some reason, then bring out the big
  * guns and toggle the footswitch.
  */
-static int a6xx_reset(struct kgsl_device *device, int fault)
+static int a6xx_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
