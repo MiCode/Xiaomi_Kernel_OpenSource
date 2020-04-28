@@ -35,6 +35,9 @@ struct cpuidle_state_usage {
 	unsigned long long	time; /* in US */
 	unsigned long long	above; /* Number of times it's been too deep */
 	unsigned long long	below; /* Number of times it's been too shallow */
+#ifdef CONFIG_QGKI_CPUIDLE_FAILED_STAT
+	unsigned long long	failed; /* Number of times it failed to enter */
+#endif
 #ifdef CONFIG_SUSPEND
 	unsigned long long	s2idle_usage;
 	unsigned long long	s2idle_time; /* in US */

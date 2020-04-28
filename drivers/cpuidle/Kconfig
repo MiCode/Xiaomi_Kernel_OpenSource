@@ -18,6 +18,17 @@ if CPU_IDLE
 config CPU_IDLE_MULTIPLE_DRIVERS
         bool
 
+config QGKI_CPUIDLE_FAILED_STAT
+	bool "Record failed attempts at entering idle states"
+	depends on QGKI
+	help
+	  CPU idle maintains statistics for successful entry to each idle
+	  state. It is also useful to record statistics of failure to
+	  enter each idle state.
+
+	  Save and report the failed statistics in sysfs along with usage
+	  statistics.
+
 config CPU_IDLE_GOV_LADDER
 	bool "Ladder governor (for periodic timer tick)"
 
