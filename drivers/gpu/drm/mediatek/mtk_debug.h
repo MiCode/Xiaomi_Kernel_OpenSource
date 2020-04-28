@@ -36,6 +36,8 @@ extern int mtk_disp_hrt_bw_dbg(void);
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *drm_dev);
 void disp_dbg_deinit(void);
+int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
+
 #endif
 
 #endif

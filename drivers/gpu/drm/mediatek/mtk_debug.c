@@ -58,6 +58,10 @@ bool g_detail_log;
 bool g_trace_log;
 unsigned int mipi_volt;
 
+int gCaptureOVLEn;
+int gCapturePriLayerDownX = 20;
+int gCapturePriLayerDownY = 20;
+
 struct logger_buffer {
 	char **buffer_ptr;
 	unsigned int len;
@@ -1109,6 +1113,18 @@ done:
 	DDPMSG("%s end -\n", __func__);
 }
 
+int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
+{
+	if (gCaptureOVLEn) {
+		mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
+			gCapturePriLayerDownY);
+		return 0;
+	}
+	DDPINFO("%s, gCapturePriLayerEnable is %d\n",
+		__func__, gCaptureOVLEn);
+	return -1;
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -1468,6 +1484,24 @@ static void process_dbg_opt(const char *opt)
 
 		DDPMSG("mipi_volt change :%d\n",
 		       mipi_volt);
+	} else if (strncmp(opt, "dump_layer:", 11) == 0) {
+		int ret;
+		unsigned int dump_en;
+		unsigned int downSampleX, downSampleY;
+
+		DDPMSG("get dump\n");
+		ret = sscanf(opt, "dump_layer:%d,%d,%d\n", &dump_en,
+			     &downSampleX, &downSampleY);
+		if (ret != 3) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+		gCaptureOVLEn = dump_en;
+
+		if (!downSampleX)
+			gCapturePriLayerDownX = downSampleX;
+		if (!downSampleY)
+			gCapturePriLayerDownY = downSampleY;
 	}
 }
 

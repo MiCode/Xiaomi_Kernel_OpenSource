@@ -37,6 +37,7 @@
 #endif
 #include "cmdq-sec.h"
 #include "mtk_layer_layout_trace.h"
+#include "mtk_drm_mmp.h"
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))
@@ -1556,6 +1557,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->fbdc_bw += temp_bw;
 		else
 			comp->qos_bw += temp_bw;
+
+		mtk_dprec_mmp_dump_ovl_layer(state);
+
 	}
 }
 

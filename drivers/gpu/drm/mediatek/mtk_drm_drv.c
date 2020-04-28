@@ -2657,6 +2657,56 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DMDP_AAL},
 	{} };
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static struct disp_iommu_device disp_iommu;
+static struct platform_device mydev;
+
+struct disp_iommu_device *disp_get_iommu_dev(void)
+{
+	struct device_node *larb_node[DISP_LARB_COUNT];
+	struct platform_device *larb_pdev[DISP_LARB_COUNT];
+	int larb_idx = 0;
+	struct device_node *np;
+
+	if (disp_iommu.inited)
+		return &disp_iommu;
+
+	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++) {
+
+		larb_node[larb_idx] = of_parse_phandle(mydev.dev.of_node,
+						"mediatek,larb", larb_idx);
+		if (!larb_node[larb_idx]) {
+			DDPINFO("disp driver get larb %d fail\n", larb_idx);
+			return NULL;
+		}
+		larb_pdev[larb_idx] =
+			of_find_device_by_node(larb_node[larb_idx]);
+		of_node_put(larb_node[larb_idx]);
+		if ((!larb_pdev[larb_idx]) ||
+		    (!larb_pdev[larb_idx]->dev.driver)) {
+			if (!larb_pdev[larb_idx])
+				DDPINFO("earlier than SMI, larb_pdev null\n");
+			else
+				DDPINFO("earlier than SMI, larb drv null\n");
+		}
+
+		disp_iommu.larb_pdev[larb_idx] = larb_pdev[larb_idx];
+	}
+	/* add for mmp dump mva->pa */
+	np = of_find_compatible_node(NULL, NULL, "mediatek,mt-pseudo_m4u-port");
+	if (np == NULL) {
+		DDPINFO("DT,mediatek,mt-pseudo_m4u-port is not found\n");
+	} else {
+		disp_iommu.iommu_pdev = of_find_device_by_node(np);
+		of_node_put(np);
+		if (!disp_iommu.iommu_pdev)
+			DDPINFO("get iommu device failed\n");
+	}
+	disp_iommu.inited = 1;
+	return &disp_iommu;
+}
+#endif
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2810,6 +2860,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	DDPINFO("%s-\n", __func__);
 
 	disp_dts_gpio_init(dev, private);
+	memcpy(&mydev, pdev, sizeof(mydev));
 
 	return 0;
 

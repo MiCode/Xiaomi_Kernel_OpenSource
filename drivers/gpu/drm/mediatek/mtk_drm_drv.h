@@ -195,6 +195,15 @@ struct lcm_fps_ctx_t {
 	unsigned long long array[LCM_FPS_ARRAY_SIZE];
 };
 
+#define DISP_LARB_COUNT 1
+struct disp_iommu_device {
+	struct platform_device *larb_pdev[DISP_LARB_COUNT];
+	struct platform_device *iommu_pdev;
+	unsigned int inited;
+};
+
+struct disp_iommu_device *disp_get_iommu_dev(void);
+
 extern struct platform_driver mtk_ddp_driver;
 extern struct platform_driver mtk_disp_color_driver;
 extern struct platform_driver mtk_disp_ccorr_driver;
