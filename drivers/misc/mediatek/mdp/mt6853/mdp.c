@@ -748,12 +748,12 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 		-1,	/* bit 11 : mdp_mutex0 */
 		CMDQ_ENG_MDP_WROT1,	/* bit 12 : MDP_WROT1 */
 		CMDQ_ENG_MDP_RSZ1,	/* bit 13 : MDP_RSZ1 */
-		-1,	/* bit 14 : MDP_HDR1 */
-		-1,			/* bit 15 : mdp_fake_eng0*/
-		CMDQ_ENG_MDP_AAL0,	/* bit 16 : MDP_AAL0 */
-		CMDQ_ENG_MDP_AAL1,	/* bit 17 : MDP_AAL1 */
-		CMDQ_ENG_MDP_COLOR0,	/* bit 18 : MDP_COLOR0  */
-		-1,	/* bit 19 : MDP_COLOR1  */
+		-1,			/* bit 14 : mdp_fake_eng0*/
+		CMDQ_ENG_MDP_AAL0,	/* bit 15 : MDP_AAL0 */
+		CMDQ_ENG_MDP_AAL1,	/* bit 16 : MDP_AAL1 */
+		CMDQ_ENG_MDP_COLOR0,	/* bit 17 : MDP_COLOR0  */
+		-1,	/* bit 18 : empty18 */
+		-1,	/* bit 19 : empty19  */
 		-1,			/* bit 20 : empty20 */
 		-1,			/* bit 21 : empty21 */
 		-1,			/* bit 22 : empty22 */
