@@ -656,7 +656,7 @@ static inline int mt6362_get_pwr_rdy_stat(struct mt6362_chg_data *data,
 					  bool *pwr_rdy)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_STAT0, &regval);
 	if (ret < 0)
@@ -669,7 +669,7 @@ static int mt6362_get_charging_status(struct mt6362_chg_data *data,
 				      enum mt6362_ic_stat *ic_stat)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_STAT, &regval);
 	if (ret < 0)
@@ -939,7 +939,7 @@ static int mt6362_charger_get_ichg(struct mt6362_chg_data *data,
 				   union power_supply_propval *val)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_ICHG, &regval);
 	if (ret < 0)
@@ -961,7 +961,7 @@ static int mt6362_charger_get_cv(struct mt6362_chg_data *data,
 				 union power_supply_propval *val)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_VCHG, &regval);
 	if (ret < 0)
@@ -983,7 +983,7 @@ static int mt6362_charger_get_aicr(struct mt6362_chg_data *data,
 				   union power_supply_propval *val)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_AICR, &regval);
 	if (ret < 0)
@@ -1017,7 +1017,7 @@ static int mt6362_charger_get_ieoc(struct mt6362_chg_data *data,
 				   union power_supply_propval *val)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_EOC, &regval);
 	if (ret < 0)
@@ -1375,7 +1375,7 @@ static int mt6362_get_min_aicr(struct charger_device *chg_dev, u32 *uA)
 static int mt6362_get_ieoc(struct mt6362_chg_data *data, u32 *uA)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_EOC, &regval);
 	if (ret < 0)
@@ -1415,7 +1415,7 @@ static inline int mt6362_get_mivr(struct charger_device *chg_dev, u32 *uV)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_MIVR, &regval);
 	if (ret < 0)
@@ -1431,7 +1431,7 @@ static int mt6362_get_mivr_state(struct charger_device *chg_dev, bool *in_loop)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_STAT1, &regval);
 	if (ret < 0)
@@ -1621,7 +1621,7 @@ out:
 static int mt6362_get_aicc(struct mt6362_chg_data *data, u32 *aicc_val)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 	u8 aicc_sel;
 
 	ret = regmap_read(data->regmap, MT6362_REG_CHG_AICC2, &regval);
@@ -2476,7 +2476,7 @@ static irqreturn_t mt6362_fl_bc12_dn_evt_handler(int irq, void *data)
 	struct mt6362_chg_data *cdata = data;
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 	enum mt6362_chg_type port_stat;
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
 
