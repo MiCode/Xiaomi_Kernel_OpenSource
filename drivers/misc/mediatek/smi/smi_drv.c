@@ -49,7 +49,7 @@
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 #include <sspm_define.h>
 #include <sspm_reservedmem_define.h>
-#if IS_ENABLED(SMI_5G)
+#if IS_ENABLED(SMI_SSPM)
 #include <sspm_ipi_id.h>
 static bool smi_sspm_ipi_register;
 #else
@@ -1013,7 +1013,7 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 
 	ipi_data.cmd = SMI_IPI_ENABLE;
 	ipi_data.u.logger.enable = smi_subsys_on;
-#if IS_ENABLED(SMI_5G)
+#if IS_ENABLED(SMI_SSPM)
 	if (!smi_sspm_ipi_register)
 		return;
 
@@ -1094,7 +1094,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 #endif
 }
 
-#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(SMI_5G)
+#if !IS_ENABLED(SMI_CCF_NO_DUMP)
 static void smi_subsys_debug_dump(enum subsys_id sys)
 {
 	if (!smi_subsys_to_larbs[sys])
@@ -1106,7 +1106,7 @@ static void smi_subsys_debug_dump(enum subsys_id sys)
 static struct pg_callbacks smi_clk_subsys_handle = {
 	.after_on = smi_subsys_after_on,
 	.before_off = smi_subsys_before_off,
-#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(SMI_5G)
+#if !IS_ENABLED(SMI_CCF_NO_DUMP)
 	.debug_dump = smi_subsys_debug_dump,
 #endif
 };
@@ -1299,7 +1299,7 @@ static inline void smi_dram_init(void)
 	struct smi_ipi_data_s ipi_data;
 	s32 ret;
 
-#if IS_ENABLED(SMI_5G)
+#if IS_ENABLED(SMI_SSPM)
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_SMI, NULL, NULL,
 		(void *)&smi_dram.ackdata);
 	if (ret) {
@@ -1317,7 +1317,7 @@ static inline void smi_dram_init(void)
 	ipi_data.cmd = SMI_IPI_INIT;
 	ipi_data.u.ctrl.phys = phys;
 	ipi_data.u.ctrl.size = smi_dram.size;
-#if IS_ENABLED(SMI_5G)
+#if IS_ENABLED(SMI_SSPM)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
@@ -1330,7 +1330,7 @@ static inline void smi_dram_init(void)
 #endif
 	ipi_data.cmd = SMI_IPI_ENABLE;
 	ipi_data.u.logger.enable = (smi_dram.dump << 31) | smi_subsys_on;
-#if IS_ENABLED(SMI_5G)
+#if IS_ENABLED(SMI_SSPM)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
@@ -1383,7 +1383,7 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 		ipi_data.cmd = SMI_IPI_ENABLE;
 		ipi_data.u.logger.enable =
 			(smi_dram.dump << 31) | smi_subsys_on;
-#if IS_ENABLED(SMI_5G)
+#if IS_ENABLED(SMI_SSPM)
 		mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_WAIT,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
