@@ -27,6 +27,12 @@
 #define MT6362_REGMAP_IRQ_REG(_irq_evt) \
 	REGMAP_IRQ_REG(_irq_evt, (_irq_evt) / 8, BIT((_irq_evt) % 8))
 
+#define MT6362_SPMIMST_RCSCLR
+#define MT6362_SPMIMST_STARTADDR	(0x10029000)
+#define MT6362_SPMIMST_ENDADDR		(0x100290FF)
+#define MT6362_REG_SPMIMST_RCSCLR	(0x28)
+#define MT6362_MSK_SPMIMST_RCSCLR	(0xFF00)
+
 struct mt6362_data {
 	struct spmi_device *sdev;
 	struct device *dev;
@@ -36,6 +42,9 @@ struct mt6362_data {
 	unsigned int last_access_reg;
 	ktime_t last_access_time;
 	int irq;
+#ifdef MT6362_SPMIMST_RCSCLR
+	__iomem void *spmimst_base;
+#endif /* MT6362_SPMIMST_RCSCLR */
 };
 
 struct init_table {
@@ -150,12 +159,24 @@ static const struct regmap_irq spmi_regmap_irqs[] = {
 	MT6362_REGMAP_IRQ_REG(MT6362_PD_EVT),
 };
 
+#ifdef MT6362_SPMIMST_RCSCLR
+static inline void mt6362_clear_spmimst_rcs(struct mt6362_data *data)
+{
+	writel(MT6362_MSK_SPMIMST_RCSCLR,
+	       (data->spmimst_base + MT6362_REG_SPMIMST_RCSCLR));
+}
+#endif /* MT6362_SPMIMST_RCSCLR */
+
 static int mt6362_handle_post_irq(void *irq_drv_data)
 {
-	struct regmap *regmap = irq_drv_data;
+	struct mt6362_data *data = irq_drv_data;
+	struct regmap *regmap = data->regmap;
 
-	return regmap_update_bits(regmap, MT6362_IRQ_SET,
-				  MT6362_INT_RETRIG, MT6362_INT_RETRIG);
+#ifdef MT6362_SPMIMST_RCSCLR
+	mt6362_clear_spmimst_rcs(data);
+#endif /* MT6362_SPMIMST_RCSCLR */
+	return regmap_update_bits(regmap, MT6362_IRQ_SET, MT6362_INT_RETRIG,
+				  MT6362_INT_RETRIG);
 }
 
 static const struct regmap_irq_chip spmi_regmap_irq_chip = {
@@ -265,6 +286,15 @@ static int mt6362_init_setting(struct mt6362_data *data)
 	return ret;
 }
 
+#ifdef MT6362_SPMIMST_RCSCLR
+static struct resource spmimst_resource = {
+	.start = MT6362_SPMIMST_STARTADDR,
+	.end = MT6362_SPMIMST_ENDADDR,
+	.flags = IORESOURCE_MEM,
+	.name = "spmimst",
+};
+#endif /* MT6362_SPMIMST_RCSCLR */
+
 static int mt6362_probe(struct spmi_device *sdev)
 {
 	struct mt6362_data *data;
@@ -300,6 +330,17 @@ static int mt6362_probe(struct spmi_device *sdev)
 		return rv;
 	}
 
+#ifdef MT6362_SPMIMST_RCSCLR
+	data->spmimst_base = devm_ioremap(&sdev->dev, spmimst_resource.start,
+					  resource_size(&spmimst_resource));
+	if (!data->spmimst_base) {
+		dev_notice(&sdev->dev,
+			   "Failed to ioremap spmi master address\n");
+		return -EINVAL;
+	}
+	mt6362_clear_spmimst_rcs(data);
+#endif /* MT6362_SPMIMST_RCSCLR */
+
 	data->irq = of_irq_get(np, 0);
 	if (data->irq < 0) {
 		dev_err(&sdev->dev, "Failed to get irq(%d)\n", data->irq);
@@ -307,7 +348,7 @@ static int mt6362_probe(struct spmi_device *sdev)
 	}
 
 	memcpy(&data->irq_chip, &spmi_regmap_irq_chip, sizeof(data->irq_chip));
-	data->irq_chip.irq_drv_data = regmap;
+	data->irq_chip.irq_drv_data = data;
 	rv = devm_regmap_add_irq_chip(&sdev->dev, regmap, data->irq,
 				      IRQF_ONESHOT, 0, &data->irq_chip,
 				      &data->irq_data);
