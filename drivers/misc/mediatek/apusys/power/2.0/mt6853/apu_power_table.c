@@ -18,8 +18,8 @@
 // FIXME: update vpu power table in DVT stage
 /* opp, mW */
 struct apu_opp_info vpu_power_table[APU_OPP_NUM] = {
-	{APU_OPP_0, 226},
-	{APU_OPP_1, 226},
+	{APU_OPP_0, 212},
+	{APU_OPP_1, 212},
 	{APU_OPP_2, 176},
 	{APU_OPP_3, 133},
 	{APU_OPP_4, 98},
