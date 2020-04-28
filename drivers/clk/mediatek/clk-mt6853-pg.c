@@ -716,9 +716,6 @@ static void ram_console_update(void)
 	struct pg_callbacks *pgcb;
 	u32 data[8] = {0x0};
 	u32 i = 0;
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	u32  j = 0;
-#endif
 	static u32 pre_data;
 	static int k;
 	static bool print_once = true;
@@ -750,7 +747,7 @@ static void ram_console_update(void)
 
 		print_enabled_clks_once();
 
-		for (i = 0; i < 8; i++)
+		for (i = 0; i < ARRAY_SIZE(data); i++)
 			pr_notice("%s: data[%i]=%08x\n", __func__, i, data[i]);
 
 		/* The code based on  clkdbg/clkdbg-mt6873. */
@@ -863,8 +860,8 @@ static void ram_console_update(void)
 		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
 #ifdef CONFIG_MTK_RAM_CONSOLE
-	for (j = 0; j <= i; j++)
-		aee_rr_rec_clk(j, data[j]);
+	for (i = 0; i < ARRAY_SIZE(data); i++)
+		aee_rr_rec_clk(i, data[i]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
 }

@@ -31,6 +31,7 @@ static int bring_up_probe(struct platform_device *pdev)
 {
 	struct clk *clk;
 	int clk_con, i;
+	int ret = 0;
 
 	clk_con = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
@@ -48,11 +49,16 @@ static int bring_up_probe(struct platform_device *pdev)
 		} else {
 			pr_notice("get clk [%d]: %s ok\n", i,
 					__clk_get_name(clk));
-			clk_prepare_enable(clk);
+			ret = clk_prepare_enable(clk);
+			if (ret) {
+				pr_err("cannot force-on bringup clk node\n");
+				goto fail;
+			}
 		}
 	}
 
-	return 0;
+fail:
+	return ret;
 }
 
 static int bring_up_remove(struct platform_device *pdev)
