@@ -46,10 +46,6 @@ int reviser_set_remap_table(void *drvinfo,
 		uint8_t dst_page);
 int reviser_dram_remap_init(void *drvinfo);
 int reviser_dram_remap_destroy(void *drvinfo);
-void reviser_init_mem(void);
-void reviser_destroy_mem(void);
-int reviser_alloc_mem(void *usr);
-int reviser_free_mem(void *usr);
 int reviser_set_default_iova(void *drvinfo);
 int reviser_get_interrupt_offset(void *drvinfo);
 int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type);

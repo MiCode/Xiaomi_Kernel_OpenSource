@@ -22,6 +22,7 @@
 #define VLM_SIZE                 (0x200000)
 #define VLM_BANK_SIZE            (0x40000)
 #define REMAP_DRAM_SIZE          (0x4000000)
+#define REMAP_DRAM_BASE          (0x4000000)
 #define VLM_DRAM_BANK_MAX        (8)
 #define VLM_TCM_BANK_MAX         (0)
 #define VLM_CTXT_DRAM_OFFSET     (0x200000)
@@ -32,8 +33,10 @@
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
 #define BOUNDARY_APUSYS          (3)
+#define BOUNDARY_MASK            (0x300000000ULL)
 #else
 #define BOUNDARY_APUSYS          (0)
+#define BOUNDARY_MASK            (0x000000000ULL)
 #endif
 
 #define REVISER_FAIL             (0xFFFFFFFF)
@@ -78,6 +81,7 @@
 #define VLM_CTXT_EDMA_0          (VLM_CTXT_BASE + 0x1C)
 #define VLM_CTXT_EDMA_1          (VLM_CTXT_BASE + 0x20)
 
+#define VLM_CTXT_UP_MAX          (1)
 
 #define AXI_EXCEPTION_MD32       (0x0400)
 #define AXI_EXCEPTION_MDLA_0     (0x0408)
@@ -103,7 +107,10 @@
 #define VLM_CTXT_CTX_ID          (0x03E00000)
 #define VLM_CTXT_CTX_ID_OFFSET   (21)
 #define VLM_CTXT_CTX_ID_MAX      (32)
-
+#define VLM_CTXT_CTX_ID_COUNT (VLM_CTXT_MDLA_MAX + \
+							VLM_CTXT_VPU_MAX + \
+							VLM_CTXT_EDMA_MAX + \
+							VLM_CTXT_UP_MAX)
 
 #define VLM_REMAP_TABLE_SRC_MAX  (7)
 #define VLM_REMAP_TABLE_DST_MAX  (0xC)

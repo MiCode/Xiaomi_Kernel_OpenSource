@@ -14,6 +14,8 @@
 #ifndef __APUSYS_REVISER_MEM_DEF_H__
 #define __APUSYS_REVISER_MEM_DEF_H__
 
+#include <linux/scatterlist.h>
+#include <linux/dma-mapping.h>
 
 struct reviser_mem {
 	uint64_t uva;
@@ -26,6 +28,8 @@ struct reviser_mem {
 	uint32_t type;
 
 	uint64_t handle;
+	struct sg_table sgt;
+
 };
 
 #endif
