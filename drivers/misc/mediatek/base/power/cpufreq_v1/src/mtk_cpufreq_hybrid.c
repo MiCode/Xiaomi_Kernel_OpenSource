@@ -346,7 +346,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 {
 #define OPT				(0) /* reserve for extensibility */
 #define DVFS_D_LEN		(4) /* # of cmd + arg0 + arg1 + ... */
-	int ack_data = 0;
 	unsigned int ret = 0;
 
 	/* cpufreq_ver("#@# %s(%d) cmd %x\n", __func__, __LINE__, cmd); */
@@ -365,10 +364,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
@@ -386,10 +381,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
@@ -416,16 +407,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 #endif
-		} else if (ack_data < 0) {
-			tag_pr_notice
-			("ret = %d, set cluster%d ON/OFF state to %d\n",
-			ret, cdvfs_d->u.set_fv.arg[0],
-			cdvfs_d->u.set_fv.arg[1]);
-#if 0
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
-#endif
 		}
 		aee_record_cpu_dvfs_cb(8);
 		break;
@@ -442,10 +423,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
@@ -461,10 +438,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
@@ -477,16 +450,10 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
 				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
-		cpufreq_ver("Get volt = %d\n", ack_data);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
-		ret = ack_data;
 		break;
 
 	case IPI_GET_FREQ:
@@ -498,16 +465,10 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
 				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
-		cpufreq_ver("Get freq = %d\n", ack_data);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
-		ret = ack_data;
 		break;
 #endif
 	case IPI_TURBO_MODE:
@@ -523,10 +484,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
@@ -543,10 +500,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
@@ -566,10 +519,6 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
-			__func__, __LINE__, cmd, ret);
 		}
 		break;
 
