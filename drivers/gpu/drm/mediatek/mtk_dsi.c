@@ -2557,7 +2557,12 @@ static int mtk_dsi_is_busy(struct mtk_ddp_comp *comp)
 
 bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 {
-	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct mtk_dsi *dsi;
+
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_WDMA)
+		return true;
+
+	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
 		return false;
