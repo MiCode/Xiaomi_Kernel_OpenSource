@@ -4829,6 +4829,9 @@ page_owner=on";
 			  <0 0x1d000000 0 0x100000>,	/* TCM          */
 			  <0 0x19001000 0 0x1000>;		/* apusys int */
 		interrupts = <GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu1 M4U_PORT_L21_APU_FAKE_VLM>;
+#endif
 	};
 
 	vpu_core0@19030000 {
