@@ -180,12 +180,7 @@ static void init_log_buffer(void)
 	if (is_buffer_init)
 		return;
 
-	/*1. Allocate debug buffer. This buffer used to store the output data.*/
-	debug_buffer = kzalloc(sizeof(char) * DEBUG_BUFFER_SIZE, GFP_KERNEL);
-	if (!debug_buffer)
-		goto err;
-
-	/*2. Allocate Error, Fence, Debug and Dump log buffer slot*/
+	/*1. Allocate Error, Fence, Debug and Dump log buffer slot*/
 	err_buffer = kzalloc(sizeof(char *) * ERROR_BUFFER_COUNT, GFP_KERNEL);
 	if (!err_buffer)
 		goto err;
@@ -202,13 +197,13 @@ static void init_log_buffer(void)
 	if (!status_buffer)
 		goto err;
 
-	/*3. Allocate log ring buffer.*/
+	/*2. Allocate log ring buffer.*/
 	buf_size = sizeof(char) * (DEBUG_BUFFER_SIZE - 4096);
 	temp_buf = kzalloc(buf_size, GFP_KERNEL);
 	if (!temp_buf)
 		goto err;
 
-	/*4. Dispatch log ring buffer to each buffer slot*/
+	/*3. Dispatch log ring buffer to each buffer slot*/
 	buf_idx = 0;
 	for (i = 0; i < ERROR_BUFFER_COUNT; i++) {
 		err_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
@@ -1530,6 +1525,14 @@ static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count,
 	if (*ppos != 0 || !is_buffer_init)
 		goto out;
 
+	if (!debug_buffer) {
+		debug_buffer = vmalloc(sizeof(char) * DEBUG_BUFFER_SIZE);
+		if (!debug_buffer)
+			return -ENOMEM;
+
+		memset(debug_buffer, 0, sizeof(char) * DEBUG_BUFFER_SIZE);
+	}
+
 	debug_bufmax = DEBUG_BUFFER_SIZE - 1;
 	n = debug_get_info(debug_buffer, debug_bufmax);
 
@@ -1634,6 +1637,8 @@ void disp_dbg_init(struct drm_device *dev)
 
 void disp_dbg_deinit(void)
 {
+	if (debug_buffer)
+		vfree(debug_buffer);
 	debugfs_remove(mtkfb_dbgfs);
 }
 
