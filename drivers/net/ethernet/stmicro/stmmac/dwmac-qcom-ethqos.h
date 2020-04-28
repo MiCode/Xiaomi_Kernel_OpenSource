@@ -419,6 +419,7 @@ struct qcom_ethqos {
 	struct work_struct early_eth;
 	struct delayed_work ipv4_addr_assign_wq;
 	struct delayed_work ipv6_addr_assign_wq;
+	struct delayed_work mac_addr_assign_wq;
 	bool early_eth_enabled;
 
 	int disable_ctile_pc;
@@ -482,6 +483,9 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
 bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
 void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
+int ethqos_configure_mac_address(struct stmmac_priv *priv,
+				 struct qcom_ethqos *ethqos);
+
 
 int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg);
 
