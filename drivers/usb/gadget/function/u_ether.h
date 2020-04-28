@@ -78,6 +78,7 @@ struct eth_dev {
 	struct work_struct	work;
 	struct work_struct	rx_work;
 	struct work_struct	rx_work1;
+	struct work_struct	rps_map_work;
 	unsigned long		todo;
 #define	WORK_RX_MEMORY		0
 
