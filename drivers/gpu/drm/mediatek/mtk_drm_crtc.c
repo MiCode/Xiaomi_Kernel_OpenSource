@@ -3165,7 +3165,8 @@ skip:
 
 	/* 5. Set HRT BW to 0 */
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	mtk_disp_set_hrt_bw(mtk_crtc, 0);
+	if (drm_crtc_index(crtc) == 0)
+		mtk_disp_set_hrt_bw(mtk_crtc, 0);
 #endif
 
 	/* 6. stop trig loop  */
