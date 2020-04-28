@@ -190,14 +190,14 @@ static struct mtk_device_info mt6853_devices_infra[] = {
 	{1, 78, 146, "VDECSYS", true},
 	{1, 79, 147, "VDECSYS", true},
 	{1, 80, 148, "VDECSYS", true},
-	{1, 81, 149, "VDECSYS", true},
+	{1, 81, 149, "SMI", true},
 	{1, 82, 150, "VDECSYS", true},
 	{1, 83, 151, "VDECSYS", true},
 
 	/* 150 */
 	{1, 84, 152, "VDECSYS", true},
 	{1, 85, 153, "VENCSYS", true},
-	{1, 86, 154, "VENCSYS", true},
+	{1, 86, 154, "SMI", true},
 	{1, 87, 155, "VENCSYS", true},
 	{1, 88, 156, "VENCSYS", true},
 	{1, 89, 157, "VENCSYS", true},
