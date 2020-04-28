@@ -710,7 +710,7 @@ static ssize_t cinst_en_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &value)) {
+	if (kstrtou32((const char *)buf, 0, &value)) {
 		cinst_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -753,7 +753,7 @@ static ssize_t cinst_const_mode_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &value)) {
+	if (kstrtou32((const char *)buf, 0, &value)) {
 		cinst_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -791,7 +791,7 @@ static ssize_t cinst_ls_idx_sel_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &value)) {
+	if (kstrtou32((const char *)buf, 0, &value)) {
 		cinst_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
