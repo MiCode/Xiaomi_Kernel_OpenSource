@@ -47,8 +47,8 @@ struct init_table {
 
 static const struct init_table mt6362_init_table[] = {
 	/* PMIC PART */
-	{0X120, 0X77, 0X11, false},
-	{0X130, 0X77, 0X11, false},
+	{0X120, 0X77, 0X55, false},
+	{0X130, 0X77, 0X55, false},
 	{0X140, 0X77, 0X22, false},
 	/* BUCK PART */
 	{0X21D, 0X77, 0X55, false},
