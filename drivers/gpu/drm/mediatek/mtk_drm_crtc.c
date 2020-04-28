@@ -1080,7 +1080,8 @@ static void _mtk_crtc_atmoic_addon_module_disconnect(
 			struct mtk_rect rsz_roi = {0, 0, w, h};
 
 			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-			if (output_comp) {
+			if (output_comp &&
+				drm_crtc_index(crtc) == 0) {
 				rsz_roi.width = mtk_ddp_comp_io_cmd(
 					output_comp, NULL,
 					DSI_GET_VIRTUAL_WIDTH, NULL);
@@ -2673,7 +2674,7 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
 		cfg.h = crtc->state->adjusted_mode.vdisplay;
 		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-		if (output_comp) {
+		if (output_comp && drm_crtc_index(crtc) == 0) {
 			cfg.w = mtk_ddp_comp_io_cmd(
 					output_comp, NULL,
 					DSI_GET_VIRTUAL_WIDTH, NULL);
@@ -3030,7 +3031,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 
 	cfg.w = crtc->state->adjusted_mode.hdisplay;
 	cfg.h = crtc->state->adjusted_mode.vdisplay;
-	if (output_comp) {
+	if (output_comp && drm_crtc_index(crtc) == 0) {
 		cfg.w = mtk_ddp_comp_io_cmd(output_comp, NULL,
 					DSI_GET_VIRTUAL_WIDTH, NULL);
 		cfg.h = mtk_ddp_comp_io_cmd(output_comp, NULL,
@@ -3551,7 +3552,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 
 	cfg.w = crtc->mode.hdisplay;
 	cfg.h = crtc->mode.vdisplay;
-	if (output_comp) {
+	if (output_comp && drm_crtc_index(crtc) == 0) {
 		cfg.w = mtk_ddp_comp_io_cmd(output_comp, NULL,
 					DSI_GET_VIRTUAL_WIDTH, NULL);
 		cfg.h = mtk_ddp_comp_io_cmd(output_comp, NULL,

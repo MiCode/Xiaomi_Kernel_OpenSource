@@ -799,7 +799,7 @@ static int mtk_dsi_get_virtual_heigh(struct mtk_dsi *dsi,
 
 	if (!virtual_heigh)
 		virtual_heigh = crtc->mode.vdisplay;
-	DDPINFO("%s,virtual_heigh %d", __func__, virtual_heigh);
+	DDPINFO("%s,virtual_heigh %d\n", __func__, virtual_heigh);
 	return virtual_heigh;
 }
 
@@ -818,7 +818,7 @@ static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
 		virtual_width = panel_ext->funcs->get_virtual_width();
 	if (!virtual_width)
 		virtual_width = crtc->mode.hdisplay;
-	DDPINFO("%s,virtual_width %d", __func__, virtual_width);
+	DDPINFO("%s,virtual_width %d\n", __func__, virtual_width);
 	return virtual_width;
 }
 
