@@ -698,12 +698,17 @@ void dcm_set_hotplug_nb(void)
 
 int dcm_smc_get_cnt(int type_id)
 {
+#if 0
 	return dcm_smc_read_cnt(type_id);
+#endif
+	return 0;
 }
 
 void dcm_smc_msg_send(unsigned int msg)
 {
+#if 0
 	dcm_smc_msg(msg);
+#endif
 }
 
 // TODO: <autogen TODO: delete>
