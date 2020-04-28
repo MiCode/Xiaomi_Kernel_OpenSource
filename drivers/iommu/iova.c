@@ -51,6 +51,9 @@ init_iova_domain(struct iova_domain *iovad, unsigned long granule,
 	rb_link_node(&iovad->anchor.node, NULL, &iovad->rbroot.rb_node);
 	rb_insert_color(&iovad->anchor.node, &iovad->rbroot);
 	iovad->best_fit = false;
+#ifdef CONFIG_DMA_CONFIGURE_ALIGNMENT
+	iovad->force_no_align = false;
+#endif
 	init_iova_rcaches(iovad);
 }
 EXPORT_SYMBOL_GPL(init_iova_domain);
@@ -384,6 +387,11 @@ alloc_iova(struct iova_domain *iovad, unsigned long size,
 	new_iova = alloc_iova_mem();
 	if (!new_iova)
 		return NULL;
+
+#ifdef CONFIG_DMA_CONFIGURE_ALIGNMENT
+	if (iovad->force_no_align)
+		size_aligned = false;
+#endif
 
 	if (iovad->best_fit) {
 		ret = __alloc_and_insert_iova_best_fit(iovad, size,

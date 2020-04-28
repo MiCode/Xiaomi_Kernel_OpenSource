@@ -58,6 +58,16 @@ int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
 
 int iommu_dma_enable_best_fit_algo(struct device *dev);
 
+#ifdef CONFIG_DMA_CONFIGURE_ALIGNMENT
+int iommu_dma_configure_alignment(struct device *dev, bool force_no_align);
+#else /* CONFIG_DMA_CONFIGURE_ALIGNMENT */
+static inline int iommu_dma_configure_alignment(struct device *dev,
+						bool force_no_align)
+{
+	return -ENOTSUPP;
+}
+#endif
+
 #else /* CONFIG_IOMMU_DMA */
 
 struct iommu_domain;
@@ -106,6 +116,12 @@ static inline int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
 }
 
 static inline int iommu_dma_enable_best_fit_algo(struct device *dev)
+{
+	return -ENODEV;
+}
+
+static inline int iommu_dma_configure_alignment(struct device *dev,
+						bool force_no_align)
 {
 	return -ENODEV;
 }
