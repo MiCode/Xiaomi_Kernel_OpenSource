@@ -24,7 +24,6 @@
 #define SOC_CPE_DETECT
 
 #define AGING_VALUE 12500
-#define RISING_VALUE 25000
 
 #define V_VMODE_SHIFT 0
 #define V_AGING_SHIFT 4
@@ -254,10 +253,6 @@ static int __init dvfsrc_opp_init(void)
 		vcore_opp_1_uv -= AGING_VALUE;
 		vcore_opp_2_uv -= AGING_VALUE;
 		vcore_opp_3_uv -= AGING_VALUE;
-	} else {
-		vcore_opp_1_uv += RISING_VALUE;
-		vcore_opp_2_uv += RISING_VALUE;
-		vcore_opp_3_uv += RISING_VALUE;
 	}
 
 
