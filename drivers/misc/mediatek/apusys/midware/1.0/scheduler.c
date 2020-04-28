@@ -471,11 +471,9 @@ void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 		mdw_flw_debug("apusys cmd(0x%llx) done\n",
 			cmd->cmd_id);
 		mdw_flw_debug("wakeup user context thread\n");
-		mutex_unlock(&cmd->mtx);
 		complete(&cmd->comp);
-	} else {
-		mutex_unlock(&cmd->mtx);
 	}
+	mutex_unlock(&cmd->mtx);
 }
 
 static int multicore_get_cmd_idx(struct apusys_subcmd *sc, int dev_idx)
