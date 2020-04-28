@@ -631,8 +631,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 #else
 	unsigned int lv = CPU_LEVEL_2;
 #endif
-#if 1
 	int val = (get_devinfo_with_index(62) & 0x300);
+#if 0
 
 	val = val >> 8;
 	switch (val) {
@@ -645,9 +645,9 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		break;
 	}
 	turbo_flag = 0;
+#endif
 	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
-#endif
 	return lv;
 }
 #ifdef DFD_WORKAROUND
