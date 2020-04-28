@@ -4237,6 +4237,24 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	return bw_base;
 }
 
+/******************************************************************************
+ * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ ******************************************************************************/
+unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate_refined(
+		struct mtk_drm_crtc *mtk_crtc,
+		struct mtk_dsi *dsi)
+{
+	static unsigned long long bw_base;
+	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
+
+	bw_base = hact * vrefresh * 4 * vtotal;
+	bw_base = bw_base / 1000000;
+	DDPDBG("Frame Bw:%llu",	bw_base);
+
+	return bw_base;
+}
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -4582,8 +4600,12 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned long long *base_bw =
 			(unsigned long long *)params;
-
+#if defined(CONFIG_MACH_MT6885)
+		*base_bw = mtk_dsi_get_frame_hrt_bw_base_by_datarate_refined
+			(crtc, dsi);
+#else
 		*base_bw = mtk_dsi_get_frame_hrt_bw_base_by_datarate(crtc, dsi);
+#endif
 	}
 		break;
 	case DSI_SEND_DDIC_CMD:
