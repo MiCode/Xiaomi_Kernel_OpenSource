@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/device.h>
+#include <linux/sched/clock.h>
 #include <mt-plat/aee.h>
 #include <cache_parity.h>
 
@@ -72,6 +73,7 @@ static unsigned int version;
 static struct parity_irq_record_t *parity_irq_record;
 static bool cache_error_happened;
 static unsigned int cache_error_times;
+static u64 cache_error_timestamp;
 
 static irqreturn_t (*custom_parity_isr)(int irq, void *dev_id);
 static int cache_parity_probe(struct platform_device *pdev);
@@ -112,8 +114,8 @@ static ssize_t cache_status_show(struct device_driver *driver,
 {
 
 	if (cache_error_happened)
-		return snprintf(buf, PAGE_SIZE, "True, %u times\n",
-				cache_error_times);
+		return snprintf(buf, PAGE_SIZE, "True, %u times (%llu ns)\n",
+				cache_error_times, cache_error_timestamp);
 	else
 		return snprintf(buf, PAGE_SIZE, "False\n");
 }
@@ -182,16 +184,17 @@ static void handle_error(struct work_struct *w)
 			"status", wd->data.v1.status,
 			"CRDISPATCH_KEY:Cache Parity Issue");
 	} else if (wd->version == 2) {
-		char error_type[3];
+		char error_type[ERROR_TYPE_BUF_LENGTH];
+		int ret;
 
 		if (cache_parity_wd.data.v2.status_el1 & ECC_UE_BIT)
-			strcpy(error_type, "UE");
+			ret = snprintf(error_type, ERROR_TYPE_BUF_LENGTH, "UE");
 		else if (cache_parity_wd.data.v2.status_el1 & ECC_CE_BIT)
-			strcpy(error_type, "CE");
+			ret = snprintf(error_type, ERROR_TYPE_BUF_LENGTH, "CE");
 		else if (cache_parity_wd.data.v2.status_el1 & ECC_DE_BIT)
-			strcpy(error_type, "DE");
+			ret = snprintf(error_type, ERROR_TYPE_BUF_LENGTH, "DE");
 		else
-			strcpy(error_type, "NA");
+			ret = snprintf(error_type, ERROR_TYPE_BUF_LENGTH, "NA");
 
 		aee_kernel_exception("cache parity",
 			"ecc error(%s), %s:%d, %s:%016llx, %s:%016llx\n\n%s\n",
@@ -234,6 +237,9 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 
 	/* OK, can start a worker to generate error report */
 	schedule_work(&cache_parity_wd.work);
+
+	/* get current kernel time in nanosecond */
+	cache_error_timestamp = local_clock();
 
 	ECC_LOG("ecc error,%s:%d, %s: 0x%016llx, %s: 0x%016llx\n",
 	       "irq_index", cache_parity_wd.data.v2.irq_index,
