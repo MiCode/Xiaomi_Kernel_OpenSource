@@ -108,19 +108,13 @@ struct ipa_eth_upper_device {
 	struct net_device *net_dev;
 	struct ipa_eth_device *eth_dev;
 
-	bool linked; /* upper device is linked to real device */
-	bool watching; /* registered netdevice notifier */
+	bool up; /* interface is up */
 	bool registered; /* registered with IPA */
-
-	struct notifier_block netdevice_nb;
-
-	struct kref refcount;
 };
 
 struct ipa_eth_device_private {
 	struct ipa_eth_device *eth_dev;
 
-	struct mutex upper_mutex;
 	struct list_head upper_devices;
 
 	struct notifier_block panic_nb;
@@ -199,8 +193,8 @@ int ipa_eth_offload_complete_reset(struct ipa_eth_device *eth_dev, void *data);
 
 int ipa_eth_net_register_driver(struct ipa_eth_net_driver *nd);
 void ipa_eth_net_unregister_driver(struct ipa_eth_net_driver *nd);
-int ipa_eth_net_watch_upper(struct ipa_eth_device *eth_dev);
-int ipa_eth_net_unwatch_upper(struct ipa_eth_device *eth_dev);
+int ipa_eth_net_register_upper(struct ipa_eth_device *eth_dev);
+int ipa_eth_net_unregister_upper(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_net_open_device(struct ipa_eth_device *eth_dev);
 void ipa_eth_net_close_device(struct ipa_eth_device *eth_dev);
