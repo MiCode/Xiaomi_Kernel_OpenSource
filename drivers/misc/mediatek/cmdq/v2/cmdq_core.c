@@ -3380,13 +3380,6 @@ static bool cmdq_core_check_instr_valid(const uint64_t instr)
 		if (!argA && argB == 0x8)
 			return true;
 		break;
-	case CMDQ_CODE_READ_S:
-	case CMDQ_CODE_WRITE_S:
-	case CMDQ_CODE_WRITE_S_W_MASK:
-	case CMDQ_CODE_LOGIC:
-	case CMDQ_CODE_JUMP_C_ABSOLUTE:
-	case CMDQ_CODE_JUMP_C_RELATIVE:
-		break;
 	default:
 		return true;
 	}
