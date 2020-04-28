@@ -824,6 +824,9 @@ static int dsu_pmu_cpu_teardown(unsigned int cpu, struct hlist_node *node)
 	struct dsu_pmu *dsu_pmu = hlist_entry_safe(node, struct dsu_pmu,
 						   cpuhp_node);
 
+	if (!dsu_pmu)
+		return 0;
+
 	if (!cpumask_test_and_clear_cpu(cpu, &dsu_pmu->active_cpu))
 		return 0;
 
