@@ -595,19 +595,19 @@ static ssize_t fll_reg_proc_write(struct file *file,
 		"cpu_str(%s) fll_group_str(%s) bits_str(%s) shift_str(%s) value_str(%s)\n",
 		cpu_str, fll_group_str, bits_str, shift_str, value_str);
 
-	if (cpu_str)
+	if ((cpu_str != 0) && (fll_group_str != 0) &&
+		(bits_str != 0) && (shift_str != 0) &&
+		(value_str != 0)) {
 		ret = kstrtou32(cpu_str, 10, (unsigned int *)&cpu);
-	if (fll_group_str)
 		ret = kstrtou32(fll_group_str, 10, (unsigned int *)&fll_group);
-	if (bits_str)
 		ret = kstrtou32(bits_str, 10, (unsigned int *)&bits);
-	if (shift_str)
 		ret = kstrtou32(shift_str, 10, (unsigned int *)&shift);
-	if (value_str)
 		ret = kstrtou32(value_str, 16, (unsigned int *)&value);
 
-	fll_msg("cpu(%d) fll_group(%d) bits(%d) shift(%d) value(0x%08x)\n",
-		cpu, fll_group, bits, shift, value);
+		fll_msg(
+			"cpu(%d) fll_group(%d) bits(%d) shift(%d) value(0x%08x)\n",
+			cpu, fll_group, bits, shift, value);
+	}
 
 	/* sync parameter with trust-zoon */
 	mtk_fll((unsigned int)cpu, (unsigned int)fll_group,

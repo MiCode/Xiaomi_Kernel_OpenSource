@@ -211,23 +211,6 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 			(cinst_bcpu_cfg[cpu_tmp] == REG_DEFAULT)
 			);
 
-		/* Check BCPU reg status */
-		if (cinst_bcpu_cfg[cpu_tmp] == REG_INVALID) {
-			str_len +=
-				snprintf(aee_log_buf + str_len,
-				ptp3_mem_size - str_len,
-				"cpu%d core-off, register status invalid (0x%08x)\n",
-				cpu, REG_INVALID);
-			continue;
-		} else if (cinst_bcpu_cfg[cpu_tmp] == REG_DEFAULT) {
-			str_len +=
-				snprintf(aee_log_buf + str_len,
-				ptp3_mem_size - str_len,
-				"cpu%d core-on, register status in HW default value (0x%08x)\n",
-				cpu, REG_DEFAULT);
-			continue;
-		}
-
 		/* Get AO reg status */
 		cinst_ao_cfg[cpu_tmp] =
 			mt_secure_call(
@@ -243,37 +226,69 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 			cinst_bcpu_cfg[cpu_tmp],
 			cinst_ao_cfg[cpu_tmp]);
 
-		/* LS */
-		cinst_info[cpu_tmp][0][CINST_CFG_PERIOD] =
-			GET_BITS_VAL(7:5, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][0][CINST_CFG_CREDIT] =
-			GET_BITS_VAL(4:0, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][0][CINST_CFG_LOW_PWR_PERIOD] =
-			GET_BITS_VAL(10:8, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][0][CINST_CFG_LOW_PWR_ENABLE] =
-			GET_BITS_VAL(11:11, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][0][CINST_CFG_ENABLE] =
-			GET_BITS_VAL(15:15, cinst_ao_cfg[cpu_tmp]);
+		/* if BCPUx in core off, return default status */
+		if ((cinst_bcpu_cfg[cpu_tmp] == REG_INVALID)
+			|| (cinst_bcpu_cfg[cpu_tmp] == REG_DEFAULT)) {
+			/* LS */
+			cinst_info[cpu_tmp][0][CINST_CFG_PERIOD] =
+				GET_BITS_VAL(7:5, REG_DEFAULT);
+			cinst_info[cpu_tmp][0][CINST_CFG_CREDIT] =
+				GET_BITS_VAL(4:0, REG_DEFAULT);
+			cinst_info[cpu_tmp][0][CINST_CFG_LOW_PWR_PERIOD] =
+				GET_BITS_VAL(10:8, REG_DEFAULT);
+			cinst_info[cpu_tmp][0][CINST_CFG_LOW_PWR_ENABLE] =
+				GET_BITS_VAL(11:11, REG_DEFAULT);
+			cinst_info[cpu_tmp][0][CINST_CFG_ENABLE] = 0;
 
-		/* VX */
-		cinst_info[cpu_tmp][1][CINST_CFG_PERIOD] =
-			GET_BITS_VAL(23:21, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][1][CINST_CFG_CREDIT] =
-			GET_BITS_VAL(20:16, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][1][CINST_CFG_LOW_PWR_PERIOD] =
-			GET_BITS_VAL(26:24, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][1][CINST_CFG_LOW_PWR_ENABLE] =
-			GET_BITS_VAL(27:27, cinst_bcpu_cfg[cpu_tmp]);
-		cinst_info[cpu_tmp][1][CINST_CFG_ENABLE] =
-			GET_BITS_VAL(18:18, cinst_ao_cfg[cpu_tmp]);
+			/* VX */
+			cinst_info[cpu_tmp][1][CINST_CFG_PERIOD] =
+				GET_BITS_VAL(23:21, REG_DEFAULT);
+			cinst_info[cpu_tmp][1][CINST_CFG_CREDIT] =
+				GET_BITS_VAL(20:16, REG_DEFAULT);
+			cinst_info[cpu_tmp][1][CINST_CFG_LOW_PWR_PERIOD] =
+				GET_BITS_VAL(26:24, REG_DEFAULT);
+			cinst_info[cpu_tmp][1][CINST_CFG_LOW_PWR_ENABLE] =
+				GET_BITS_VAL(27:27, REG_DEFAULT);
+			cinst_info[cpu_tmp][1][CINST_CFG_ENABLE] = 0;
 
-		/* Const mode */
-		cinst_const_mode[cpu_tmp] =
-			GET_BITS_VAL(31:31, cinst_bcpu_cfg[cpu_tmp]);
+			/* Const mode */
+			cinst_const_mode[cpu_tmp] =
+				GET_BITS_VAL(31:31, REG_DEFAULT);
 
-		/* LS index select */
-		cinst_ls_idx_sel[cpu_tmp] =
-			GET_BITS_VAL(17:17, cinst_ao_cfg[cpu_tmp]);
+			/* LS index select */
+			cinst_ls_idx_sel[cpu_tmp] = 0;
+		} else {
+			cinst_info[cpu_tmp][0][CINST_CFG_PERIOD] =
+				GET_BITS_VAL(7:5, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][0][CINST_CFG_CREDIT] =
+				GET_BITS_VAL(4:0, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][0][CINST_CFG_LOW_PWR_PERIOD] =
+				GET_BITS_VAL(10:8, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][0][CINST_CFG_LOW_PWR_ENABLE] =
+				GET_BITS_VAL(11:11, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][0][CINST_CFG_ENABLE] =
+				GET_BITS_VAL(15:15, cinst_ao_cfg[cpu_tmp]);
+
+			/* VX */
+			cinst_info[cpu_tmp][1][CINST_CFG_PERIOD] =
+				GET_BITS_VAL(23:21, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][1][CINST_CFG_CREDIT] =
+				GET_BITS_VAL(20:16, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][1][CINST_CFG_LOW_PWR_PERIOD] =
+				GET_BITS_VAL(26:24, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][1][CINST_CFG_LOW_PWR_ENABLE] =
+				GET_BITS_VAL(27:27, cinst_bcpu_cfg[cpu_tmp]);
+			cinst_info[cpu_tmp][1][CINST_CFG_ENABLE] =
+				GET_BITS_VAL(18:18, cinst_ao_cfg[cpu_tmp]);
+
+			/* Const mode */
+			cinst_const_mode[cpu_tmp] =
+				GET_BITS_VAL(31:31, cinst_bcpu_cfg[cpu_tmp]);
+
+			/* LS index select */
+			cinst_ls_idx_sel[cpu_tmp] =
+				GET_BITS_VAL(17:17, cinst_ao_cfg[cpu_tmp]);
+		}
 
 		str_len +=
 			snprintf(aee_log_buf + str_len,
