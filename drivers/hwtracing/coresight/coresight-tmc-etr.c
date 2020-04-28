@@ -249,6 +249,20 @@ void tmc_free_sg_table(struct tmc_sg_table *sg_table)
 	tmc_free_data_pages(sg_table);
 }
 
+long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
+{
+	struct etr_buf *etr_buf = drvdata->etr_buf;
+	struct etr_sg_table *etr_table = etr_buf->private;
+	struct tmc_sg_table *table = etr_table->sg_table;
+	u64 rwp;
+	long w_offset;
+
+	rwp = tmc_read_rwp(drvdata);
+	w_offset = tmc_sg_get_data_page_offset(table, rwp);
+
+	return w_offset;
+}
+
 /*
  * Alloc pages for the table. Since this will be used by the device,
  * allocate the pages closer to the device (i.e, dev_to_node(dev)
@@ -1431,11 +1445,28 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			 */
 			/* Allocate memory with the locks released */
 			free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
-			if (IS_ERR(new_buf)) {
+			if (IS_ERR(new_buf))
 				return -ENOMEM;
-			}
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
 			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+		} else if (drvdata->byte_cntr->sw_usb) {
+			if (!drvdata->etr_buf) {
+				free_buf = new_buf =
+				tmc_etr_setup_sysfs_buf(drvdata);
+				if (IS_ERR(new_buf))
+					return -ENOMEM;
+			}
+			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+
+			drvdata->usbch = usb_qdss_open("qdss_mdm",
+						drvdata->byte_cntr,
+						usb_bypass_notifier);
+			if (IS_ERR_OR_NULL(drvdata->usbch)) {
+				dev_err(&csdev->dev, "usb_qdss_open failed\n");
+				return -ENODEV;
+			}
+
 		} else {
 			drvdata->usbch = usb_qdss_open("qdss", drvdata,
 								usb_notifier);
@@ -1471,7 +1502,9 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		free_buf = sysfs_buf;
 		drvdata->sysfs_buf = new_buf;
 	}
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+		(drvdata->out_mode == TMC_ETR_OUT_MODE_USB
+	     && drvdata->byte_cntr->sw_usb)) {
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
 	}
 	if (!ret) {
@@ -1956,13 +1989,22 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 	WARN_ON_ONCE(drvdata->mode == CS_MODE_DISABLED);
 	if (drvdata->mode != CS_MODE_DISABLED) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-			__tmc_etr_disable_to_bam(drvdata);
-			spin_unlock_irqrestore(&drvdata->spinlock, flags);
-			tmc_etr_bam_disable(drvdata);
-			usb_qdss_close(drvdata->usbch);
-			drvdata->usbch = NULL;
-			drvdata->mode = CS_MODE_DISABLED;
-			goto out;
+			if (!drvdata->byte_cntr->sw_usb) {
+				__tmc_etr_disable_to_bam(drvdata);
+				spin_unlock_irqrestore(&drvdata->spinlock,
+					flags);
+				tmc_etr_bam_disable(drvdata);
+				usb_qdss_close(drvdata->usbch);
+				drvdata->usbch = NULL;
+				drvdata->mode = CS_MODE_DISABLED;
+				goto out;
+			} else {
+				spin_unlock_irqrestore(&drvdata->spinlock,
+					flags);
+				usb_qdss_close(drvdata->usbch);
+				spin_lock_irqsave(&drvdata->spinlock, flags);
+				tmc_etr_disable_hw(drvdata);
+			}
 		} else {
 			tmc_etr_disable_hw(drvdata);
 		}
@@ -1976,13 +2018,23 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-	tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
-	coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
-	coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-	/* Free memory outside the spinlock if need be */
-	if (drvdata->etr_buf) {
-		tmc_etr_free_sysfs_buf(drvdata->etr_buf);
-		drvdata->etr_buf = NULL;
+	if ((drvdata->out_mode == TMC_ETR_OUT_MODE_USB
+		&& drvdata->byte_cntr->sw_usb)
+		|| drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+		else {
+			usb_bypass_stop(drvdata->byte_cntr);
+			flush_workqueue(drvdata->byte_cntr->usb_wq);
+			drvdata->usbch = NULL;
+		}
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+		/* Free memory outside the spinlock if need be */
+		if (drvdata->etr_buf) {
+			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
+			drvdata->etr_buf = NULL;
+		}
 	}
 out:
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");
