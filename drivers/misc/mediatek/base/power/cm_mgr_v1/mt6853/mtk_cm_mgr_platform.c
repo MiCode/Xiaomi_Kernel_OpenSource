@@ -890,8 +890,17 @@ int cm_mgr_register_init(void)
 #ifdef USE_CPU_TO_DRAM_MAP
 static void cm_mgr_add_cpu_opp_to_ddr_req(void)
 {
+	char owner[20] = "cm_mgr_cpu_to_dram";
+
 	pm_qos_add_request(&ddr_opp_req_by_cpu_opp, PM_QOS_DDR_OPP,
 			PM_QOS_DDR_OPP_DEFAULT_VALUE);
+
+	strncpy(ddr_opp_req_by_cpu_opp.owner,
+			owner, sizeof(ddr_opp_req_by_cpu_opp.owner) - 1);
+
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	cm_mgr_cpu_map_update_table();
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 }
 #endif /* USE_CPU_TO_DRAM_MAP */
 
@@ -1015,24 +1024,24 @@ int cm_mgr_get_bw(void)
 }
 
 #ifdef USE_CPU_TO_DRAM_MAP
-static int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE] = {
+int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE] = {
 /* start from cpu opp 0 */
-	0,
-	0,
-	0,
-	0,
-	1,
-	1,
-	1,
-	1,
-	1,
-	2,
-	2,
-	2,
-	2,
-	2,
-	2,
-	2,
+	DDR_OPP_1,
+	DDR_OPP_1,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
+	PM_QOS_DDR_OPP_DEFAULT_VALUE,
 };
 
 static void cm_mgr_process(struct work_struct *work)
@@ -1044,6 +1053,11 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 {
 	int ret = 0;
 	int dram_opp = 0;
+
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	if (!cm_mgr_cpu_map_dram_enable)
+		return;
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 
 	if (!is_dvfsrc_enabled())
 		return;

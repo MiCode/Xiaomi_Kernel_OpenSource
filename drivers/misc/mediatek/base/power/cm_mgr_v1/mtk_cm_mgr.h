@@ -70,6 +70,13 @@ extern int light_load_cps;
 extern int cm_mgr_loading_level;
 extern int cm_mgr_loading_enable;
 extern int cm_mgr_emi_demand_check;
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+extern int cm_mgr_cpu_map_dram_enable;
+extern int cm_mgr_cpu_map_emi_opp;
+extern int cm_mgr_cpu_map_skip_cpu_opp;
+extern int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE];
+extern void cm_mgr_cpu_map_update_table(void);
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);

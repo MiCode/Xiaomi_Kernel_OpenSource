@@ -819,6 +819,20 @@ void __weak dbg_cm_mgr_platform_show(struct seq_file *m) {}
 void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
 {}
 
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+void cm_mgr_cpu_map_update_table(void)
+{
+	int i;
+
+	for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++) {
+		if (i < cm_mgr_cpu_map_skip_cpu_opp)
+			cm_mgr_cpu_opp_to_dram[i] = cm_mgr_cpu_map_emi_opp;
+		else
+			cm_mgr_cpu_opp_to_dram[i] =
+				PM_QOS_DDR_OPP_DEFAULT_VALUE;
+	}
+}
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 
 static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 {
@@ -841,6 +855,19 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 			cm_mgr_perf_timer_enable);
 	seq_printf(m, "cm_mgr_perf_force_enable %d\n",
 			cm_mgr_perf_force_enable);
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	seq_printf(m, "cm_mgr_cpu_map_dram_enable %d\n",
+			cm_mgr_cpu_map_dram_enable);
+	seq_printf(m, "cm_mgr_cpu_map_emi_opp %d\n",
+			cm_mgr_cpu_map_emi_opp);
+	seq_printf(m, "cm_mgr_cpu_map_skip_cpu_opp %d\n",
+			cm_mgr_cpu_map_skip_cpu_opp);
+	seq_puts(m, "cm_mgr_cpu_opp_to_dram table");
+	for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++)
+		seq_printf(m, " %d", cm_mgr_cpu_opp_to_dram[i]);
+	seq_puts(m, "\n");
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
+
 	seq_printf(m, "cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	seq_printf(m, "light_load_cps %d\n", light_load_cps);
 	seq_printf(m, "total_bw_value %d\n", total_bw_value);
@@ -1274,6 +1301,16 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
+		cm_mgr_cpu_map_dram_enable = !!val_1;
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_skip_cpu_opp")) {
+		cm_mgr_cpu_map_skip_cpu_opp = val_1;
+		cm_mgr_cpu_map_update_table();
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_emi_opp")) {
+		cm_mgr_cpu_map_emi_opp = val_1;
+		cm_mgr_cpu_map_update_table();
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
