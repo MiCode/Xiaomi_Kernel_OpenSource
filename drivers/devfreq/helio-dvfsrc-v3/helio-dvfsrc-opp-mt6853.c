@@ -173,7 +173,7 @@ static int __init dvfsrc_opp_init(void)
 	set_pwrap_cmd(VCORE_OPP_0, 0);
 	set_pwrap_cmd(VCORE_OPP_1, 1);
 	set_pwrap_cmd(VCORE_OPP_2, 2);
-	set_pwrap_cmd(VCORE_OPP_3, 4);
+	set_pwrap_cmd(VCORE_OPP_3, 3);
 
 	vcore_opp_0_uv = 725000;
 	vcore_opp_1_uv = 650000;

@@ -94,7 +94,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00034800 },
 #ifdef DVFSRC_FB_MD_TABLE_SWITCH
 		{ DVFSRC_95MD_SCEN_BW0_T,    0x40444440 },
-		{ DVFSRC_95MD_SCEN_BW1_T,    0x44444444 },
+		{ DVFSRC_95MD_SCEN_BW1_T,    0x22244444 },
 		{ DVFSRC_95MD_SCEN_BW2_T,    0x00400444 },
 		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW0,      0x20222220 },
@@ -105,7 +105,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_RSRV_5,             0x00000001 },
 #else
 		{ DVFSRC_95MD_SCEN_BW0_T,    0x40444440 },
-		{ DVFSRC_95MD_SCEN_BW1_T,    0x44444444},
+		{ DVFSRC_95MD_SCEN_BW1_T,    0x22244444},
 		{ DVFSRC_95MD_SCEN_BW2_T,    0x00400444 },
 		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW0,      0x20222220 },
@@ -420,7 +420,7 @@ static void dvfsrc_update_md_scenario(bool blank)
 	if (blank)
 		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x22244444);
 	else
-		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x22244444);
 #endif
 }
 
