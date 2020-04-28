@@ -2876,14 +2876,9 @@ err_node:
 static void mtk_drm_shutdown(struct platform_device *pdev)
 {
 	struct mtk_drm_private *private = platform_get_drvdata(pdev);
-	struct drm_crtc *crtc = private->crtc[0];
 	struct drm_device *drm = private->drm;
 
 	if (drm) {
-		if (crtc->funcs->destroy)
-			crtc->funcs->destroy(crtc);
-
-		mtk_drm_set_idlemgr(crtc, 0, 0);
 		DDPMSG("%s\n", __func__);
 		drm_atomic_helper_shutdown(drm);
 	}
