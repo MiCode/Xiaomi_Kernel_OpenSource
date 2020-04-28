@@ -570,6 +570,7 @@ config MACH_MT6853
 	select MTK_CACHE_PARITY_CHECK
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
+	select MTK_DFD_INTERNAL_DUMP
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
