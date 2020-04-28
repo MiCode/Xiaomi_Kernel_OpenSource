@@ -6,6 +6,10 @@
 #ifndef __ADSP_RESERVEDMEM_DEFINE_H__
 #define __ADSP_RESERVEDMEM_DEFINE_H__
 
+#include <linux/platform_device.h>
+
+//#define MEM_DEBUG
+
 /* emi mpu define*/
 #define MPU_PROCT_REGION_ADSP_SHARED      30
 #define MPU_PROCT_D0_AP                   0
@@ -15,14 +19,11 @@
 enum adsp_reserve_mem_id_t {
 	ADSP_A_IPI_DMA_MEM_ID = 0,
 	ADSP_A_LOGGER_MEM_ID,
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	ADSP_AUDIO_COMMON_MEM_ID,
-	ADSP_OFFLOAD_MEM_ID,
-	ADSP_CALL_FINAL_MEM_ID,
-	ADSP_PHONE_CALL_MEM_ID,
-#endif
 	ADSP_A_DEBUG_DUMP_MEM_ID,
 	ADSP_A_CORE_DUMP_MEM_ID,
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	ADSP_AUDIO_COMMON_MEM_ID,
+#endif
 	ADSP_NUMS_MEM_ID,
 };
 
@@ -30,6 +31,7 @@ struct adsp_reserve_mblock {
 	phys_addr_t phys_addr;
 	void *virt_addr;
 	size_t size;
+	char *name;
 };
 
 struct adsp_mpu_info_t {
@@ -43,6 +45,7 @@ struct adsp_priv;
 phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id);
 void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id);
 size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id);
+int adsp_mem_device_probe(struct platform_device *pdev);
 void adsp_init_reserve_memory(void);
 ssize_t adsp_reserve_memory_dump(char *buffer, int size);
 
