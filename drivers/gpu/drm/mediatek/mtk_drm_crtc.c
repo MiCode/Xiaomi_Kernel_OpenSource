@@ -1486,6 +1486,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				      struct mtk_crtc_state *crtc_state,
 				      struct cmdq_pkt *cmdq_handle)
 {
+	struct mtk_crtc_state *old_mtk_state =
+		to_mtk_crtc_state(old_crtc_state);
 	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
 	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
 	int index = drm_crtc_index(crtc);
@@ -1497,6 +1499,17 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
 	if (index == 0 && prop_lye_idx == 0) {
+		DDPINFO("%s prop_lye_idx is 0, mode switch from %u to %u\n",
+			__func__,
+			old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+			crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+		/*
+		 * prop_lye_idx is 0 when suspend. Update display mode to avoid
+		 * the dsi params not sync with the mode of new crtc state.
+		 */
+		mtk_crtc_disp_mode_switch_begin(crtc,
+			old_crtc_state, crtc_state,
+			cmdq_handle);
 		mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight,
 			cmdq_handle);
 	}
