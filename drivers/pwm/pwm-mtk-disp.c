@@ -353,7 +353,12 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 
 	pwm_src = devm_clk_get(&pdev->dev, "pwm_src");
 	if (!IS_ERR(pwm_src)) {
-		clk_set_parent(g_mdp->clk_mm, pwm_src);
+		ret = clk_set_parent(g_mdp->clk_mm, pwm_src);
+		if (ret < 0) {
+			clk_disable(g_mdp->clk_mm);
+			goto disable_clk_mm;
+		}
+
 		dev_info(&pdev->dev, "select clk_mm with pwm_src\n");
 	}
 
