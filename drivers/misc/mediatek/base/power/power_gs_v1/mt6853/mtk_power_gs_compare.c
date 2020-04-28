@@ -49,9 +49,12 @@ void mt_power_gs_suspend_compare(unsigned int dump_flag)
 	}
 	if (dump_flag & GS_PMIC_6315) {
 		pr_debug("Power_gs : %s\n", __func__);
+#ifdef CONFIG_MT6360_PMIC
+#else
 		dump_pmic(1, "Suspend",
 			AP_PMIC_REG_MT6362_gs_suspend_32kless,
 			AP_PMIC_REG_MT6362_gs_suspend_32kless_len);
+#endif
 	}
 	if (dump_flag & GS_CG) {
 		mt_power_gs_compare("Suspend ", "CG  ",
@@ -80,9 +83,12 @@ void mt_power_gs_dpidle_compare(unsigned int dump_flag)
 
 	if (dump_flag & GS_PMIC_6315) {
 		pr_debug("Power_gs : %s\n", __func__);
+#ifdef CONFIG_MT6360_PMIC
+#else
 		dump_pmic(1, "DPIdle  ",
 			AP_PMIC_REG_MT6362_gs_deepidle___lp_mp3_32kless,
 			AP_PMIC_REG_MT6362_gs_deepidle___lp_mp3_32kless_len);
+#endif
 	}
 
 	if (dump_flag & GS_CG) {
@@ -112,9 +118,12 @@ void mt_power_gs_sodi_compare(unsigned int dump_flag)
 
 	if (dump_flag & GS_PMIC_6315) {
 		pr_debug("Power_gs : %s\n", __func__);
+#ifdef CONFIG_MT6360_PMIC
+#else
 		dump_pmic(1, "SODI    ",
 			AP_PMIC_REG_MT6362_gs_sodi3p0_32kless,
 			AP_PMIC_REG_MT6362_gs_sodi3p0_32kless_len);
+#endif
 	}
 
 	if (dump_flag & GS_CG) {
