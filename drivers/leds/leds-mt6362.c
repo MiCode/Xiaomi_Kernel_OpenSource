@@ -11,7 +11,7 @@
 #include <linux/interrupt.h>
 #include <linux/led-class-flash.h>
 #include <media/v4l2-flash-led-class.h>
-#ifdef MTK_CHARGER
+#ifdef CONFIG_MTK_CHARGER
 #include <mt-plat/charger_class.h>
 #endif
 
@@ -420,7 +420,7 @@ static int mt6362_fled_strobe_set(struct led_classdev_flash *flcdev, bool state)
 			return rv;
 
 		if (!data->fl_strb_flags) {
-#ifdef MTK_CHARGER
+#ifdef CONFIG_MTK_CHARGER
 			rv = charger_dev_enable_bleed_discharge(data->chg_dev,
 								true);
 			if (rv)
@@ -445,7 +445,7 @@ static int mt6362_fled_strobe_set(struct led_classdev_flash *flcdev, bool state)
 			if (rv)
 				return rv;
 			usleep_range(400, 500);
-#ifdef MTK_CHARGER
+#ifdef CONFIG_MTK_CHARGER
 			rv = charger_dev_enable_bleed_discharge(data->chg_dev,
 								false);
 			if (rv)
@@ -1060,7 +1060,7 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 		return rv;
 	}
 
-#ifdef MTK_CHARGER
+#ifdef CONFIG_MTK_CHARGER
 	data->chg_dev = get_charger_by_name("primary_chg");
 	if (!data->chg_dev)
 		dev_err(&pdev->dev,

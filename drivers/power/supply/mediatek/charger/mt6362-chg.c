@@ -2109,16 +2109,25 @@ static int mt6362_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 
 static int mt6362_handle_bleed_discharge(struct mt6362_chg_data *data)
 {
+	int ret;
+
 	/* Decrease UUG leakage to vbus */
-	if (data->bd_flag)
+	if (data->bd_flag) {
+		ret = mt6362_enable_discharge(data->chg_dev, true);
+		if (ret < 0)
+			return ret;
 		return regmap_update_bits(data->regmap,
 					  MT6362_PD_I2C_TO_RST_CTRL,
 					  MT6362_MASK_BLEEDDIS_EN, 0xff);
-	else
+	} else {
+		ret = mt6362_enable_discharge(data->chg_dev, false);
+		if (ret < 0)
+			return ret;
 		return regmap_update_bits(data->regmap,
 					  MT6362_PD_I2C_TO_RST_CTRL,
 					  MT6362_MASK_BLEEDDIS_EN,
 					  data->pwr_rdy ? 0 : 0xff);
+	}
 }
 
 static int mt6362_enable_bleed_discharge(struct charger_device *chg_dev,
@@ -2897,6 +2906,13 @@ static int mt6362_chg_probe(struct platform_device *pdev)
 		goto out_chgdev;
 	}
 
+	mt6362_get_pwr_rdy_stat(data, &data->pwr_rdy);
+	rc = mt6362_handle_bleed_discharge(data);
+	if (rc < 0) {
+		dev_notice(&pdev->dev, "failed to handle bleed discharge\n");
+		goto out_chgdev;
+	}
+
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	data->bc12_task = kthread_run(mt6362_bc12_thread, data, "bc12_thread");
 	if (IS_ERR(data->bc12_task)) {
@@ -2904,7 +2920,6 @@ static int mt6362_chg_probe(struct platform_device *pdev)
 		goto out_chgdev;
 	}
 #ifndef CONFIG_TCPC_CLASS
-	mt6362_get_pwr_rdy_stat(data, &data->pwr_rdy);
 	mt6362_run_bc12_thread(data, data->pwr_rdy);
 #endif /* !CONFIG_TCPC_CLASS */
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
