@@ -1219,6 +1219,33 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
 	gpu_perf_counter.counter[VINSTR_GPU_LOADING] = pm_gpu_loading;
+#if defined(CONFIG_MACH_MT6853)
+	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];
+	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_FMA] = kernel_dump[219];
+	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_CVT] = kernel_dump[220];
+	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_SFU] = kernel_dump[221];
+	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_MSG] = kernel_dump[222];
+	gpu_perf_counter.counter[VINSTR_EXEC_CORE_ACTIVE] = kernel_dump[346];
+	gpu_perf_counter.counter[VINSTR_FRAG_ACTIVE] = kernel_dump[388];
+	gpu_perf_counter.counter[VINSTR_TILER_ACTIVE] = kernel_dump[68];
+	gpu_perf_counter.counter[VINSTR_VARY_SLOT_32] = kernel_dump[242];
+	gpu_perf_counter.counter[VINSTR_VARY_SLOT_16] = kernel_dump[243];
+	gpu_perf_counter.counter[VINSTR_TEX_FILT_NUM_OPERATIONS] = kernel_dump[231];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_READ_FULL] = kernel_dump[236];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_WRITE_FULL] = kernel_dump[238];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_READ_SHORT] = kernel_dump[237];
+	gpu_perf_counter.counter[VINSTR_LS_MEM_WRITE_SHORT] = kernel_dump[239];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_WRITE_BEATS] = kernel_dump[175];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_READ_BEATS] = kernel_dump[160];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_0_127] = kernel_dump[165] ;
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_128_191] = kernel_dump[166];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_192_255] = kernel_dump[167];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_256_319] = kernel_dump[168];
+	gpu_perf_counter.counter[VINSTR_L2_EXT_RRESP_320_383] = kernel_dump[169];
+	gpu_perf_counter.counter[VINSTR_L2_ANY_LOOKUP] = kernel_dump[153];
+	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
+	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
+#else
 	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_FMA] = kernel_dump[411];
 	gpu_perf_counter.counter[VINSTR_EXEC_INSTR_CVT] = kernel_dump[412];
@@ -1244,6 +1271,7 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_L2_ANY_LOOKUP] = kernel_dump[153] + kernel_dump[217] + kernel_dump[281] + kernel_dump[345];
 	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
 	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
+#endif
 	mtk_GPU_STALL_RAW(stall_counter, 4);
 	gpu_perf_counter.counter[VINSTR_STALL0] = stall_counter[0];
 	gpu_perf_counter.counter[VINSTR_STALL1] = stall_counter[1];
