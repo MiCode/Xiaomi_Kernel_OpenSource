@@ -17,6 +17,10 @@
 #include "../../codecs/mt6359.h"
 #include "../common/mtk-sp-spk-amp.h"
 
+#ifdef CONFIG_SND_SOC_AW87339
+#include "aw87339.h"
+#endif
+
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -91,9 +95,15 @@ static int mt6853_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+#ifdef CONFIG_SND_SOC_AW87339
+		aw87339_spk_enable_set(true);
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+#ifdef CONFIG_SND_SOC_AW87339
+		aw87339_spk_enable_set(false);
+#endif
 		break;
 	default:
 		break;
