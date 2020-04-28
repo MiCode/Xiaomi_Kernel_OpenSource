@@ -636,7 +636,7 @@ static int scp_logger_init_handler(struct SCP_LOG_INFO *log_info)
  * @param data:  IPI data
  * @param len: IPI data length
  */
-static void scp_logger_ctrl_handler(int id, void *prdata, void *data,
+static int scp_logger_ctrl_handler(unsigned int id, void *prdata, void *data,
 				    unsigned int len)
 {
 	struct scp_logger_ctrl_msg msg = *(struct scp_logger_ctrl_msg *)data;
@@ -651,6 +651,8 @@ static void scp_logger_ctrl_handler(int id, void *prdata, void *data,
 	default:
 		break;
 	}
+
+	return 0;
 }
 
 /*
