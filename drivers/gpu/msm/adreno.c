@@ -779,14 +779,11 @@ static const struct of_device_id adreno_match_table[] = {
 /* Dynamically build the OPP table for the GPU device */
 static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
 {
-	struct opp_table *table;
 	int i;
 
-	table = dev_pm_opp_get_opp_table(dev);
-	if (table) {
-		dev_pm_opp_put_opp_table(table);
+	/* Skip if the table has already been populated */
+	if (dev_pm_opp_get_opp_count(dev) > 0)
 		return;
-	}
 
 	/* Add all the supported frequencies into the tree */
 	for (i = 0; i < pwr->num_pwrlevels; i++)
