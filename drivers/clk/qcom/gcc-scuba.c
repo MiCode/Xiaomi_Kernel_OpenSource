@@ -2465,19 +2465,6 @@ static struct clk_branch gcc_gpu_throttle_core_clk = {
 	},
 };
 
-static struct clk_branch gcc_gpu_throttle_xo_clk = {
-	.halt_reg = 0x36044,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x36044,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_gpu_throttle_xo_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_pdm2_clk = {
 	.halt_reg = 0x2000c,
 	.halt_check = BRANCH_HALT,
@@ -3192,7 +3179,6 @@ static struct clk_regmap *gcc_scuba_clocks[] = {
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_GPU_THROTTLE_CORE_CLK] = &gcc_gpu_throttle_core_clk.clkr,
-	[GCC_GPU_THROTTLE_XO_CLK] = &gcc_gpu_throttle_xo_clk.clkr,
 	[GCC_PDM2_CLK] = &gcc_pdm2_clk.clkr,
 	[GCC_PDM2_CLK_SRC] = &gcc_pdm2_clk_src.clkr,
 	[GCC_PDM_AHB_CLK] = &gcc_pdm_ahb_clk.clkr,
