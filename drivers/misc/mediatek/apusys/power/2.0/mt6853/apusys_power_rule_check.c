@@ -40,12 +40,11 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int default_freq;
 	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
 
-	/* TODO for MOUTON */
-	/* need to add Vvpu, Vsram anad Vcore's constrain */
-#if 0
+
+	/* Vvpu, Vsram anad Vcore's constrain */
 	int vvpu = info->vvpu * info->dump_div;
 	int vsram = info->vsram * info->dump_div;
-#endif
+	int vcore = info->vcore * info->dump_div;
 
 #if 1
 	/* Get VPU0/1 default freq */
@@ -119,22 +118,23 @@ void apu_power_assert_check(struct apu_power_info *info)
 				ipuif_freq, info->ipuif_freq)
 	}
 #endif
+	/*
+	 * Vvpu, Vcore, Vsram anad Vcore's constrain.
+	 * If (Vvpu or Vcore) > 0.75v
+	 *	Vsram has to be 0.8v
+	 *
+	 * If (Vvpu And Vcore) <= 0.75v
+	 *	Vsram has to be 0.75v
+	 */
+	if ((vvpu > VSRAM_TRANS_VOLT || vcore > VSRAM_TRANS_VOLT)
+			&& vsram == VSRAM_LOW_VOLT)
+		LOG_WRN("ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
+				vvpu, vcore, vsram);
 
-	/* TODO for MOUTON */
-	/* need to add Vvpu, Vsram anad Vcore's constrain */
-#if 0
-	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
-			&& vsram == VSRAM_LOW_VOLT) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-				vvpu, vmdla, vsram);
-	}
-
-	if ((vvpu < VSRAM_TRANS_VOLT && vmdla < VSRAM_TRANS_VOLT)
-			&& vsram == VSRAM_HIGH_VOLT) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-				vvpu, vmdla, vsram);
-	}
-#endif
+	if ((vvpu <= VSRAM_TRANS_VOLT && vcore <= VSRAM_TRANS_VOLT)
+			&& vsram == VSRAM_HIGH_VOLT)
+		LOG_WRN("ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
+				vvpu, vcore, vsram);
 }
 
 void constraints_check_stress(int opp)
@@ -180,22 +180,26 @@ void voltage_constraint_check(void)
 	struct apu_power_info info = {0};
 
 	dump_voltage(&info);
-	/* TODO for MOUTON */
-	/* need to add Vvpu, Vsram anad Vcore's constrain */
-#if 0
-	if ((info.vvpu > VSRAM_TRANS_VOLT || info.vmdla > VSRAM_TRANS_VOLT)
+	/*
+	 * Vvpu, Vcore, Vsram anad Vcore's constrain.
+	 * If (Vvpu or Vcore) > 0.75v
+	 *	Vsram has to be 0.8v
+	 *
+	 * If (Vvpu And Vcore) <= 0.75v
+	 *	Vsram has to be 0.75v
+	 */
+	if ((info.vvpu > VSRAM_TRANS_VOLT || info.vcore > VSRAM_TRANS_VOLT)
 			&& info.vsram == VSRAM_LOW_VOLT) {
 		apu_aee_warn("APU PWR Constraint",
-				"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-				info.vvpu, info.vmdla, info.vsram);
+				"ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
+				info.vvpu, info.vcore, info.vsram);
 	}
 
-	if ((info.vvpu < VSRAM_TRANS_VOLT && info.vmdla < VSRAM_TRANS_VOLT)
+	if ((info.vvpu <= VSRAM_TRANS_VOLT && info.vcore <= VSRAM_TRANS_VOLT)
 			&& info.vsram == VSRAM_HIGH_VOLT) {
 		apu_aee_warn("APU PWR Constraint",
-				"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-				info.vvpu, info.vmdla, info.vsram);
+				"ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
+				info.vvpu, info.vcore, info.vsram);
 	}
-#endif
 }
 
