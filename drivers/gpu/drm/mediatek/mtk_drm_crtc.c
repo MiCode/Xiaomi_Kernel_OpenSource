@@ -114,9 +114,8 @@ static void mtk_drm_finish_page_flip(struct mtk_drm_crtc *mtk_crtc)
 static void mtk_drm_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-
 	mtk_disp_mutex_put(mtk_crtc->mutex[0]);
-
+	mtk_disp_chk_recover_deinit(crtc);
 	drm_crtc_cleanup(crtc);
 }
 
