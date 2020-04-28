@@ -927,8 +927,6 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
 	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
