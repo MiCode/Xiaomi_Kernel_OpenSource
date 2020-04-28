@@ -478,12 +478,15 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			continue;
 		}
 
-		/* 1. esd check & recovery */
-		if (!esd_ctx->chk_active)
-			continue;
-
 		mutex_lock(&private->commit.lock);
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		/* 1. esd check & recovery */
+		if (!esd_ctx->chk_active) {
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			continue;
+		}
 
 		i = 0; /* repeat */
 		do {
