@@ -539,10 +539,9 @@ static int set_power_voltage(enum DVFS_USER user, void *param)
 	target_volt = ((struct hal_param_volt *)param)->target_volt;
 
 	if (buck < APUSYS_BUCK_NUM) {
+		LOG_DBG("%s set %s to %d\n", __func__,
+					buck_str[buck], target_volt);
 		if (buck != VCORE_BUCK) {
-			LOG_DBG("%s set buck %d to %d\n", __func__,
-						buck, target_volt);
-
 			if (target_volt >= 0) {
 				ret = config_normal_regulator(
 						buck, target_volt);

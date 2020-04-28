@@ -131,7 +131,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 		LOG_WRN("ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
 				vvpu, vcore, vsram);
 
-	if ((vvpu <= VSRAM_TRANS_VOLT && vcore <= VSRAM_TRANS_VOLT)
+	if ((vvpu < VSRAM_TRANS_VOLT && vcore < VSRAM_TRANS_VOLT)
 			&& vsram == VSRAM_HIGH_VOLT)
 		LOG_WRN("ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
 				vvpu, vcore, vsram);
@@ -195,7 +195,7 @@ void voltage_constraint_check(void)
 				info.vvpu, info.vcore, info.vsram);
 	}
 
-	if ((info.vvpu <= VSRAM_TRANS_VOLT && info.vcore <= VSRAM_TRANS_VOLT)
+	if ((info.vvpu < VSRAM_TRANS_VOLT && info.vcore < VSRAM_TRANS_VOLT)
 			&& info.vsram == VSRAM_HIGH_VOLT) {
 		apu_aee_warn("APU PWR Constraint",
 				"ASSERT vvpu=%d, vcore=%d, vsram=%d\n",
