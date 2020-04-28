@@ -3328,4 +3328,15 @@ AU0828_DEVICE(0x2040, 0x7270, "Hauppauge", "HVR-950Q"),
 	}
 },
 
+{
+	/*
+	 * Mi Dual Driver Earphone Type-C
+	 * enabled QUIRK_SETUP_FMT_AFTER_RESUME.
+	 */
+	USB_DEVICE(0x2717, 0x3802),
+	.driver_info = (unsigned long) & (const struct snd_usb_audio_quirk) {
+		.ifnum = QUIRK_ANY_INTERFACE,
+		.type = QUIRK_SETUP_FMT_AFTER_RESUME
+	}
+},
 #undef USB_DEVICE_VENDOR_SPEC
