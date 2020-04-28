@@ -45,7 +45,7 @@
 #define APUSYS_SETTLE_TIME_TEST (0)
 #define SUPPORT_VCORE_TO_IPUIF	(1)
 
-#define APUSYS_MAX_NUM_OPPS                (6)
+#define APUSYS_MAX_NUM_OPPS                (5)
 #define APUSYS_PATH_USER_NUM               (3)   // num of DVFS_XXX_PATH
 #define APUSYS_DVFS_CONSTRAINT_NUM			(1)
 #define APUSYS_VPU_NUM						(2)
