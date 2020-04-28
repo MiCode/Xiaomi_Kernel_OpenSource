@@ -60,6 +60,22 @@
 };
 
 &soc {
+	bluetooth: bt_qca6390 {
+		compatible = "qca,qca6390";
+		qca,bt-reset-gpio = <&pmxprairie_gpios 6 0>;
+		qca,bt-vdd-vl-supply = <&pmxprairie_s3>;
+		qca,bt-vdd-vm-supply = <&pmxprairie_s2>;
+		qca,bt-vdd-vh-supply = <&pmxprairie_s4>;
+		qca,bt-vdd-vl-voltage-level = <1000000 1000000>;
+		qca,bt-vdd-vm-voltage-level = <1370000 1370000>;
+		qca,bt-vdd-vh-voltage-level = <1904000 1904000>;
+		qca,bt-vdd-vl-current-level = <0>;
+		qca,bt-vdd-vm-current-level = <0>;
+		qca,bt-vdd-vh-current-level = <450000>;
+	};
+};
+
+&soc {
 	cnss_pcie: qcom,cnss-qca-converged{
 		compatible = "qcom,cnss-qca-converged";
 
