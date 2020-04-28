@@ -10,7 +10,6 @@
 #include <dt-bindings/mfd/mt6362.h>
 #include <linux/mutex.h>
 #include <linux/completion.h>
-#include <linux/ktime.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/triggered_buffer.h>
@@ -28,6 +27,7 @@
 #define MT6362_CHIPREV_E2	(0x2)
 #define MT6362_TMID3_MASK	BIT(4)
 #define MT6362_STSYSMIN_MASK	BIT(1)
+#define MT6362_ADCEN_MASK	BIT(7)
 
 /* ADC conversion time in microseconds */
 #define MT6362_TIME_PERCH	(1300)
@@ -36,8 +36,8 @@
 #define MT6362_IRQRPTCH_SHIFT	(0)
 #define MT6362_VSYSMINST_CNT	(3)
 
-#define MT6362_ADCIBAT_OFFSET	(160 * 1000)
-#define MT6362_ADCSYSMIN_OFFSET	(50 * 1000)
+#define MT6362_ADCIBAT_OFFSET	(100 * 1000)
+#define MT6362_ADCSYSMIN_OFFSET	(150 * 1000)
 
 #define MT6362_CHRPT_ADDR(_idx) (MT6362_CHRPT_BASEADDR + ((_idx) - 1) * 2)
 
@@ -91,7 +91,6 @@ static int mt6362_adc_read_raw(struct iio_dev *indio_dev,
 	struct mt6362_adc_data *data = iio_priv(indio_dev);
 	u8 oneshot_ch;
 	u16 raw = 0;
-	ktime_t start_t, end_t;
 	unsigned int conv_time =
 		data->conv_ltime_flag ? MT6362_LTIME_PERCH : MT6362_TIME_PERCH;
 	bool state;
@@ -101,8 +100,9 @@ static int mt6362_adc_read_raw(struct iio_dev *indio_dev,
 	if (chan->scan_index == MT6362_ADCCH_ZCV)
 		goto direct_read;
 
-	/* write all channels to be disabled first */
-	rv = regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
+	/* change ADC_EN=0 to prevent the other channels routine task */
+	rv = regmap_update_bits(data->regmap,
+				MT6362_REG_ADCCFG1, MT6362_ADCEN_MASK, 0);
 	if (rv)
 		goto out_read;
 
@@ -113,33 +113,23 @@ static int mt6362_adc_read_raw(struct iio_dev *indio_dev,
 	if (rv)
 		goto out_read;
 
-	raw |= (1 << chan->channel);
-	raw = cpu_to_le16(raw);
-
-	/* enable the desired channel */
-	rv = regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
+	/* change ADC_EN=1 to start oneshot channel as the first run */
+	rv = regmap_update_bits(data->regmap, MT6362_REG_ADCCFG1,
+				MT6362_ADCEN_MASK, MT6362_ADCEN_MASK);
 	if (rv)
 		goto out_read;
 
-	start_t = ktime_get();
-adc_rerun:
 	reinit_completion(&data->adc_comp);
 	wait_for_completion_timeout(&data->adc_comp,
 				    usecs_to_jiffies(2 * conv_time));
-
-	end_t = ktime_get();
-	if (ktime_us_delta(end_t, start_t) < conv_time) {
-		dev_dbg(&indio_dev->dev, "wait for next conversion\n");
-		goto adc_rerun;
-	}
 
 	/* clear oneshot channel and irq report channel */
 	rv = regmap_write(data->regmap, MT6362_REG_ADCCFG3, 0);
 	if (rv)
 		goto out_read;
 direct_read:
-	/* dummy write then read */
-	rv = regmap_bulk_write(data->regmap, chan->address, &raw, 2);
+	/* dummy write high byte then read */
+	rv = regmap_write(data->regmap, chan->address, 0);
 	if (rv)
 		goto out_read;
 	rv = regmap_bulk_read(data->regmap, chan->address, &raw, 2);
@@ -171,9 +161,6 @@ direct_read:
 		rv = -EINVAL;
 	}
 out_read:
-	/* write all channels to be disabled */
-	raw = 0;
-	regmap_bulk_write(data->regmap, MT6362_REG_ADCEN1, &raw, 2);
 	mutex_unlock(&data->adc_lock);
 
 	return rv ? : IIO_VAL_INT;
