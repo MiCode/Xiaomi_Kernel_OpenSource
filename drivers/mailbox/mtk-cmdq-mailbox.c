@@ -895,8 +895,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 			mmprofile_log_ex(cmdq->mmp.irq, MMPROFILE_FLAG_PULSE,
-				thread->idx,
-				task ? (unsigned long)task->pkt : 0);
+				thread->idx, task->pkt);
 #endif
 
 			cmdq_task_exec_done(task, 0);
@@ -908,8 +907,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 			mmprofile_log_ex(cmdq->mmp.irq_err,
-				MMPROFILE_FLAG_PULSE, thread->idx,
-				task ? (unsigned long)task->pkt : 0);
+				MMPROFILE_FLAG_PULSE, thread->idx, task->pkt);
 #endif
 
 			cmdq_task_exec_done(task, err);
