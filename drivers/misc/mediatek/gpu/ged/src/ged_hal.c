@@ -307,7 +307,7 @@ static void *ged_gpu_freq_hint_seq_next(struct seq_file *psSeqFile, void *pvData
 static int ged_gpu_freq_hint_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
 	if (pvData != NULL)	{
-		unsigned int ui32BoostGpuFreqLevel;
+		unsigned int ui32BoostGpuFreqLevel = 0;
 
 		if (false == mtk_gpu_get_freq_hint(&ui32BoostGpuFreqLevel))
 			ui32BoostGpuFreqLevel = 0;
