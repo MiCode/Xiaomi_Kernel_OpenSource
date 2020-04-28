@@ -26,7 +26,6 @@
   call_rcu
   cancel_delayed_work_sync
   cancel_work_sync
-  capable
   __cfi_slowpath
   __check_object_size
   __class_create
@@ -58,16 +57,13 @@
   devm_request_threaded_irq
   dev_queue_xmit
   dev_set_mtu
-  dev_set_name
   _dev_warn
   dma_alloc_attrs
   dma_fence_context_alloc
   dma_fence_init
   dma_fence_release
   dma_fence_signal_locked
-  dma_fence_wait_timeout
   dma_free_attrs
-  dma_resv_add_excl_fence
   dma_set_coherent_mask
   dma_set_mask
   ether_setup
@@ -82,7 +78,6 @@
   find_next_bit
   finish_wait
   flush_work
-  flush_workqueue
   fput
   free_irq
   free_netdev
@@ -104,16 +99,12 @@
   input_event
   input_free_device
   input_register_device
-  input_set_abs_params
   input_unregister_device
-  __ioremap
   iounmap
   jiffies
   jiffies_to_msecs
-  kasprintf
   kfree
   kfree_skb
-  kimage_vaddr
   kimage_voffset
   __kmalloc
   kmalloc_caches
@@ -127,10 +118,10 @@
   kobject_create_and_add
   kobject_del
   kobject_init
-  kobject_init_and_add
   kobject_put
   kobject_uevent
   kstrdup
+  kstrndup
   kstrtouint
   kstrtoull
   ktime_get_mono_fast_ns
@@ -240,7 +231,6 @@
   __rcu_read_unlock
   refcount_dec_and_test_checked
   refcount_inc_checked
-  refcount_inc_not_zero_checked
   regcache_sync
   register_blkdev
   register_netdev
@@ -269,7 +259,6 @@
   scnprintf
   seq_printf
   set_disk_ro
-  set_page_dirty
   sg_init_one
   sg_init_table
   simple_strtoul
@@ -291,7 +280,6 @@
   snprintf
   sort
   sprintf
-  sscanf
   __stack_chk_fail
   __stack_chk_guard
   strchr
@@ -356,8 +344,6 @@
   wait_for_completion
   __wake_up
   __warn_printk
-  ww_mutex_lock_interruptible
-  ww_mutex_unlock
   xdp_convert_zc_to_xdp_frame
   xdp_do_flush_map
   xdp_do_redirect
@@ -393,7 +379,7 @@
   ipv6_stub
   is_skb_forwardable
   jiffies_to_clock_t
-  kstrndup
+  kobject_init_and_add
   mac_pton
   mod_delayed_work_on
   ndo_dflt_fdb_dump
@@ -466,6 +452,8 @@
   usb_remove_hcd
 
 # required by goldfish_address_space.ko
+  __ioremap
+  kimage_vaddr
   kzfree
   memremap
   memunmap
@@ -478,12 +466,10 @@
 
 # required by goldfish_pipe.ko
   get_user_pages_fast
+  set_page_dirty
   tasklet_init
   tasklet_kill
   __tasklet_schedule
-
-# required by goldfish_rotary.ko
-  devm_input_allocate_device
 
 # required by goldfish_sync.ko
   __close_fd
@@ -495,6 +481,7 @@
   dev_remove_pack
   kfree_call_rcu
   pskb_trim_rcsum_slow
+  refcount_inc_not_zero_checked
 
 # required by mac80211_hwsim.ko
   __cfg80211_alloc_event_skb
@@ -586,10 +573,12 @@
   blk_sync_queue
   blk_unregister_region
   bmap
+  capable
   check_disk_change
   fget
   file_path
   flush_signals
+  flush_workqueue
   free_buffer_head
   int_pow
   invalidate_bdev
@@ -814,6 +803,8 @@
   device_add
   device_del
   device_initialize
+  dev_set_name
+  kasprintf
   krealloc
   kstrtoint
   pm_runtime_get_if_in_use
@@ -860,65 +851,6 @@
   vfree
   vmalloc
 
-# required by ttm.ko
-  clear_page
-  copy_page
-  dev_driver_string
-  devres_add
-  devres_alloc_node
-  devres_destroy
-  devres_free
-  dma_direct_map_page
-  dma_direct_unmap_page
-  dma_fence_enable_sw_signaling
-  dma_fence_signal
-  dma_resv_add_shared_fence
-  dma_resv_copy_fences
-  dma_resv_fini
-  dma_resv_init
-  dma_resv_reserve_shared
-  dma_resv_test_signaled_rcu
-  dma_resv_wait_timeout_rcu
-  drm_class_device_register
-  drm_class_device_unregister
-  drm_clflush_pages
-  drm_mm_init
-  drm_mm_insert_node_in_range
-  drm_mm_print
-  drm_mm_remove_node
-  drm_mm_takedown
-  drm_printf
-  __drm_printfn_debug
-  drm_vma_offset_add
-  drm_vma_offset_lookup_locked
-  drm_vma_offset_manager_destroy
-  drm_vma_offset_manager_init
-  drm_vma_offset_remove
-  mark_page_accessed
-  __memcpy_fromio
-  __memcpy_toio
-  __memset_io
-  mutex_is_locked
-  nr_swap_pages
-  _raw_read_lock
-  _raw_read_unlock
-  register_shrinker
-  reservation_ww_class
-  shmem_file_setup
-  shmem_read_mapping_page_gfp
-  si_mem_available
-  si_meminfo
-  unmap_mapping_range
-  unregister_shrinker
-  up_read
-  vmalloc_to_page
-  vmap
-  vmf_insert_mixed
-  vmf_insert_pfn
-  vm_get_page_prot
-  vunmap
-  ww_mutex_lock
-
 # required by veth.ko
   bpf_redirect_info
   __dev_forward_skb
@@ -940,6 +872,8 @@
   dma_direct_sync_sg_for_device
   dma_direct_unmap_sg
   dma_fence_match_context
+  dma_fence_wait_timeout
+  dma_resv_add_excl_fence
   drm_add_edid_modes
   drm_add_modes_noedid
   drm_atomic_helper_check
@@ -1025,6 +959,28 @@
   sg_next
   sync_file_get_fence
   __tracepoint_dma_fence_emit
+  ttm_bo_add_to_lru
+  ttm_bo_del_sub_from_lru
+  ttm_bo_device_init
+  ttm_bo_device_release
+  ttm_bo_dma_acc_size
+  ttm_bo_eviction_valuable
+  ttm_bo_init
+  ttm_bo_init_mm
+  ttm_bo_kmap
+  ttm_bo_kunmap
+  ttm_bo_mmap
+  ttm_bo_move_to_lru_tail
+  ttm_bo_put
+  ttm_bo_validate
+  ttm_bo_wait
+  ttm_dma_tt_fini
+  ttm_dma_tt_init
+  ttm_eu_backoff_reservation
+  ttm_eu_fence_buffer_objects
+  ttm_eu_reserve_buffers
+  ww_mutex_lock_interruptible
+  ww_mutex_unlock
 
 # required by virtio-rng.ko
   hwrng_register
@@ -1093,6 +1049,7 @@
 # required by virtio_input.ko
   input_alloc_absinfo
   input_mt_init_slots
+  input_set_abs_params
 
 # required by virtio_mmio.ko
   device_for_each_child
@@ -1101,6 +1058,7 @@
   iomem_resource
   memparse
   platform_device_register_full
+  sscanf
 
 # required by virtio_net.ko
   bpf_prog_add
