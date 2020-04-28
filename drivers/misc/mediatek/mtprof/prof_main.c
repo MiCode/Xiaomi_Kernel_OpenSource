@@ -30,7 +30,6 @@
 
 //#define MTK_FORK_EXIT_LOG
 #define MTK_DEATH_SIGNAL_LOG
-#define SIGNAL_LOG_THRESHOLD 500000000ULL /*500ms (unit is ns) */
 
 #ifdef CONFIG_MTK_ENG_BUILD
 
@@ -240,7 +239,6 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		struct task_struct *task, int _group, int result)
 {
 	struct signal_struct *signal = task->signal;
-	unsigned long long Ts, Td;
 	unsigned int state;
 	int group;
 
@@ -283,17 +281,10 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 
 		state = task->state ? __ffs(task->state) + 1 : 0;
 
-		Ts = sched_clock();
 		printk_deferred("[signal][%d:%s]send death sig %d to[%d:%s:%c]\n",
 			 current->pid, current->comm,
 			 sig, task->pid, task->comm,
 			 state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
-		Td = sched_clock() - Ts;
-		if (Td > SIGNAL_LOG_THRESHOLD) {
-			trace_printk("[signal] warn:[%d:%s] print death sig %d to[%d:%s] take %lld ns\n",
-				current->pid, current->comm,
-				sig, task->pid, task->comm, Td);
-		}
 	} else if ((sig_kernel_stop(sig) && result == TRACE_SIGNAL_DELIVERED) ||
 		   sig == SIGCONT) {
 
