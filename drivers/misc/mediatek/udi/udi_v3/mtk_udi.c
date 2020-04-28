@@ -421,9 +421,9 @@ static ssize_t udi_reg_proc_write(struct file *file,
 static int udi_pinmux_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "CPU UDI pinmux reg[0x%lx] = 0x%x.\n",
-		udipin_mux1, udi_read(udipin_mux1));
+		(unsigned long)udipin_mux1, udi_read(udipin_mux1));
 	seq_printf(m, "CPU UDI pinmux reg[0x%lx] = 0x%x.\n",
-		udipin_mux2, udi_read(udipin_mux2));
+		(unsigned long)udipin_mux2, udi_read(udipin_mux2));
 	return 0;
 }
 
@@ -741,8 +741,9 @@ static void write_ERXPFGCTLR_EL1(u64 v)
 
 static int ecc_test_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "ECC UE(1)/DE(2)/CE(3)= %d (0x%x)\n",
-			func_lv_trig_ecc, read_ERXPFGCTLR_EL1());
+	seq_printf(m, "ECC UE(1)/DE(2)/CE(3)= %d (0x%lx)\n",
+			func_lv_trig_ecc,
+			(unsigned long)read_ERXPFGCTLR_EL1());
 
 	return 0;
 }
@@ -761,25 +762,27 @@ static ssize_t ecc_test_proc_write(struct file *file,
 
 		write_ERXSELR_EL1(0x0);
 		write_ERR0CTLR_EL1(read_ERR0CTLR_EL1() | ECC_ENABE);
-		udi_info("ecc read_ERR0CTLR_EL1: 0x%x\n", read_ERR0CTLR_EL1());
+		udi_info("ecc read_ERR0CTLR_EL1: 0x%lx\n",
+				(unsigned long)read_ERR0CTLR_EL1());
 		write_ERXPFGCDNR_EL1(ECC_PFG_COUNTER);
-		udi_info("ecc write_ERXPFGCDNR_EL1: 0x%x\n", ECC_PFG_COUNTER);
+		udi_info("ecc write_ERXPFGCDNR_EL1: 0x%x\n",
+				ECC_PFG_COUNTER);
 
 		if (dbg_lv == 1) {
 			write_ERXPFGCTLR_EL1(read_ERXPFGCTLR_EL1() |
 								ECC_UE_TRIGGER);
-			udi_info("ecc read_ERXPFGCTLR_EL1 UE: 0x%x\n",
-					read_ERXPFGCTLR_EL1());
+			udi_info("ecc read_ERXPFGCTLR_EL1 UE: 0x%lx\n",
+					(unsigned long)read_ERXPFGCTLR_EL1());
 		} else if (dbg_lv == 2) {
 			write_ERXPFGCTLR_EL1(read_ERXPFGCTLR_EL1() |
 								ECC_DE_TRIGGER);
-			udi_info("ecc read_ERXPFGCTLR_EL1 DE: 0x%x\n",
-					read_ERXPFGCTLR_EL1());
+			udi_info("ecc read_ERXPFGCTLR_EL1 DE: 0x%lx\n",
+					(unsigned long)read_ERXPFGCTLR_EL1());
 		} else if (dbg_lv == 3) {
 			write_ERXPFGCTLR_EL1(read_ERXPFGCTLR_EL1() |
 								ECC_CE_TRIGGER);
-			udi_info("ecc read_ERXPFGCTLR_EL1 CE: 0x%x\n",
-					read_ERXPFGCTLR_EL1());
+			udi_info("ecc read_ERXPFGCTLR_EL1 CE: 0x%lx\n",
+					(unsigned long)read_ERXPFGCTLR_EL1());
 		}
 	} else
 		udi_info("echo dbg_lv (dec) > /proc/ecc/ecc_test\n");
