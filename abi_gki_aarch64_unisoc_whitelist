@@ -1143,11 +1143,27 @@
   of_fwnode_ops
   pci_assign_unassigned_bus_resources
   pci_bus_add_devices
+  pci_check_and_mask_intx
+  pci_check_and_unmask_intx
+  pci_clear_master
   pcie_bus_configure_settings
+  pci_enable_msi
+  pci_intx
+  pci_ioremap_bar
+  pci_ioremap_wc_bar
   pci_lock_rescan_remove
+  pci_reset_function
   pci_scan_child_bus
   pci_stop_and_remove_bus_device
   pci_unlock_rescan_remove
+  sdio_claim_irq
+  sdio_f0_readb
+  sdio_f0_writeb
+  sdio_get_host_pm_caps
+  sdio_readw
+  sdio_release_irq
+  sdio_set_host_pm_flags
+  sdio_writew
 
 # required by phy-sprd-sharkl3.ko
   usb_add_phy_dev
