@@ -310,6 +310,8 @@ void apusys_user_print_log(void)
 
 			u_tmp.open_pid = user->open_pid;
 		} else {
+			if (u == NULL)
+				goto free_mutex;
 			u->iova_size = u->iova_size + user->iova_size;
 			u->iova_size_max =
 					u->iova_size_max + user->iova_size_max;
@@ -326,8 +328,13 @@ void apusys_user_print_log(void)
 		list_for_each_safe(list_ptr, tmp, &g_user_stat.list) {
 			u = list_entry(list_ptr, struct apusys_user, list);
 
-			percentage = (uint64_t) u->iova_size * 100
+			if (total_size != 0) {
+				percentage = (uint64_t) u->iova_size * 100
 					/ (uint64_t)total_size;
+			} else {
+				percentage = 0;
+			}
+
 			mdw_drv_err("%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
 				u->comm, u->id, u->open_pid,
 				u->open_tgid, u->iova_size,
