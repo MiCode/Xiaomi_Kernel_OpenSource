@@ -179,10 +179,12 @@ static void ubsan_epilogue(unsigned long *flags)
 	rq = cpu_rq(cpu);
 	if (!raw_spin_is_locked(&rq->lock)) {
 		/* AEE Kernel API Dump for UBSan */
+		pr_err("%s: test 1\n", __FILE__);
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 			"UBSan error",
 			"[UBSan report]");
 	} else {
+		pr_err("%s: test 2\n", __FILE__);
 		BUG();
 	}
 }
