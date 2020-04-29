@@ -189,6 +189,15 @@
 #define VFE0_CLK_SRC			171
 #define VFE1_CLK_SRC			172
 #define VSYNC_CLK_SRC			173
+#define GCC_APSS_TCU_CLK		174
+#define GCC_CPP_TBU_CLK			175
+#define GCC_JPEG_TBU_CLK		176
+#define GCC_MDP_TBU_CLK			177
+#define GCC_SMMU_CFG_CLK		178
+#define GCC_VENUS_TBU_CLK		179
+#define GCC_VFE_TBU_CLK			180
+#define GCC_VFE1_TBU_CLK		181
+#define GCC_QDSS_DAP_CLK		182
 
 /* GCC resets */
 #define GCC_CAMSS_MICRO_BCR			0
