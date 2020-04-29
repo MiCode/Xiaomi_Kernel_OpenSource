@@ -330,6 +330,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		goto dealloc_usb2_hcd;
 
 	device_enable_async_suspend(&pdev->dev);
+	device_wakeup_enable(&xhci->shared_hcd->self.root_hub->dev);
+	device_wakeup_enable(&hcd->self.root_hub->dev);
 
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
