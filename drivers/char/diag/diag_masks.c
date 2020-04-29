@@ -809,7 +809,7 @@ static int diag_cmd_get_ssid_range(unsigned char *src_buf, int src_len,
 		write_len += sizeof(rsp_ms);
 		if (rsp_ms.id_valid) {
 			sub_index = diag_check_subid_mask_index(rsp_ms.sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
 				sub_index);
 			if (!ms_ptr)
@@ -1004,11 +1004,17 @@ static int diag_cmd_get_msg_mask(unsigned char *src_buf, int src_len,
 		req_sub = (struct diag_msg_build_mask_sub_t *)src_buf;
 		rsp_sub = *req_sub;
 		rsp_sub.status = MSG_STATUS_FAIL;
-		sub_index = diag_check_subid_mask_index(req_sub->sub_id, pid);
-		ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr, sub_index);
-		if (!ms_ptr)
-			goto err;
-		mask = (struct diag_msg_mask_t *)ms_ptr->sub_ptr;
+		if (req_sub->id_valid) {
+			sub_index = diag_check_subid_mask_index(req_sub->sub_id,
+				0);
+			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
+				sub_index);
+			if (!ms_ptr)
+				goto err;
+			mask = (struct diag_msg_mask_t *)ms_ptr->sub_ptr;
+		} else {
+			mask = (struct diag_msg_mask_t *)mask_info->ptr;
+		}
 		ssid_range.ssid_first = req_sub->ssid_first;
 		ssid_range.ssid_last = req_sub->ssid_last;
 		header_len = sizeof(rsp_sub);
@@ -1103,7 +1109,7 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 		header_len = sizeof(struct diag_msg_build_mask_sub_t);
 		if (req_sub->id_valid) {
 			sub_index = diag_check_subid_mask_index(req_sub->sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
 				sub_index);
 			if (!ms_ptr)
@@ -1304,7 +1310,7 @@ static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 		header_len = sizeof(struct diag_msg_config_rsp_sub_t);
 		if (req_sub->id_valid) {
 			sub_index = diag_check_subid_mask_index(req_sub->sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
 				sub_index);
 			if (!ms_ptr)
@@ -1454,7 +1460,7 @@ copy_mask:
 	if (!cmd_ver || !req->id_valid)
 		memcpy(dest_buf + write_len, event_mask.ptr, mask_size);
 	else {
-		sub_index = diag_check_subid_mask_index(req->sub_id, pid);
+		sub_index = diag_check_subid_mask_index(req->sub_id, 0);
 		ms_ptr = diag_get_ms_ptr_index(event_mask.ms_ptr, sub_index);
 		if (!ms_ptr || !ms_ptr->sub_ptr)
 			return 0;
@@ -1516,7 +1522,7 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 		goto err;
 	}
 	if (cmd_ver && req_sub->id_valid) {
-		sub_index = diag_check_subid_mask_index(req_sub->sub_id, pid);
+		sub_index = diag_check_subid_mask_index(req_sub->sub_id, 0);
 		if (sub_index < 0) {
 			ret = sub_index;
 			goto err;
@@ -1631,7 +1637,7 @@ static int diag_cmd_toggle_events(unsigned char *src_buf, int src_len,
 		preset = req->preset_id;
 	}
 	if (cmd_ver && req->id_valid) {
-		sub_index = diag_check_subid_mask_index(req->sub_id, pid);
+		sub_index = diag_check_subid_mask_index(req->sub_id, 0);
 		if (sub_index < 0) {
 			ret = sub_index;
 			goto err;
@@ -1751,7 +1757,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 		req_sub = (struct diag_log_config_rsp_sub_t *)src_buf;
 		if (req_sub->id_valid) {
 			sub_index = diag_check_subid_mask_index(req_sub->sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
 				sub_index);
 			if (!ms_ptr) {
@@ -1875,7 +1881,7 @@ static int diag_cmd_get_log_range(unsigned char *src_buf, int src_len,
 		req = (struct diag_log_config_req_sub_t *)src_buf;
 		if (req->id_valid) {
 			sub_index = diag_check_subid_mask_index(req->sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(log_mask.ms_ptr,
 				sub_index);
 			if (!ms_ptr)
@@ -1963,7 +1969,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 		read_len += sizeof(struct diag_log_config_rsp_sub_t);
 		if (req_sub->id_valid) {
 			sub_index = diag_check_subid_mask_index(req_sub->sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
 				sub_index);
 			if (!ms_ptr) {
@@ -2170,7 +2176,7 @@ static int diag_cmd_disable_log_mask(unsigned char *src_buf, int src_len,
 		req = (struct diag_log_config_rsp_sub_t *)src_buf;
 		if (req->id_valid) {
 			sub_index = diag_check_subid_mask_index(req->sub_id,
-				pid);
+				0);
 			ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr,
 				sub_index);
 			if (!ms_ptr) {
@@ -3425,7 +3431,9 @@ int diag_process_apps_masks(unsigned char *buf, int len, int pid)
 			subid = *(uint32_t *)(buf +
 				sizeof(struct diag_pkt_header_t) +
 				2*sizeof(uint8_t));
+			mutex_lock(&driver->md_session_lock);
 			subid_index = diag_check_subid_mask_index(subid, pid);
+			mutex_unlock(&driver->md_session_lock);
 		}
 		if (subid_valid && (subid_index < 0))
 			return 0;
@@ -3608,8 +3616,8 @@ int diag_check_subid_mask_index(uint32_t subid, int pid)
 
 	diag_subid_info[i] = subid;
 
-	mutex_lock(&driver->md_session_lock);
-	info = diag_md_session_get_pid(pid);
+	if (pid)
+		info = diag_md_session_get_pid(pid);
 
 	err = diag_multisim_msg_mask_init(i, info);
 	if (err)
@@ -3621,10 +3629,8 @@ int diag_check_subid_mask_index(uint32_t subid, int pid)
 	if (err)
 		goto fail;
 
-	mutex_unlock(&driver->md_session_lock);
 	return i;
 fail:
-	mutex_unlock(&driver->md_session_lock);
 	pr_err("diag: Could not initialize diag mask for subid: %d buffers\n",
 		subid);
 	return -ENOMEM;
