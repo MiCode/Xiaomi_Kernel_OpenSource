@@ -309,11 +309,11 @@
 				"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 758 0
-				0 0 0 1 &intc 0 748 0
-				0 0 0 2 &intc 0 747 0
-				0 0 0 3 &intc 0 746 0
-				0 0 0 4 &intc 0 745 0>;
+		interrupt-map = <0 0 0 0 &intc 0 757 0
+				0 0 0 1 &intc 0 747 0
+				0 0 0 2 &intc 0 746 0
+				0 0 0 3 &intc 0 745 0
+				0 0 0 4 &intc 0 744 0>;
 
 		qcom,tcsr = <0x0 0x0>;
 		qcom,phy-sequence = <0x0a40 0x03 0x0
@@ -616,11 +616,11 @@
 				"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 744 0
-				0 0 0 1 &intc 0 664 0
-				0 0 0 2 &intc 0 663 0
-				0 0 0 3 &intc 0 662 0
-				0 0 0 4 &intc 0 661 0>;
+		interrupt-map = <0 0 0 0 &intc 0 743 0
+				0 0 0 1 &intc 0 663 0
+				0 0 0 2 &intc 0 662 0
+				0 0 0 3 &intc 0 661 0
+				0 0 0 4 &intc 0 660 0>;
 
 		qcom,tcsr = <0x0 0x0>;
 		qcom,phy-sequence = <0x0a40 0x03 0x0

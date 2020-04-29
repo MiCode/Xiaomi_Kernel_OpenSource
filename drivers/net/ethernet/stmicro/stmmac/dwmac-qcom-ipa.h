@@ -35,9 +35,6 @@ static char * const IPA_OFFLOAD_EVENT_string[] = {
 	"EV_IPA_OFFLOAD_MAX"
 };
 
-/* VLAN ids range for IPA offload */
-#define MIN_VLAN_ID 1
-#define MAX_VLAN_ID 409
 
 #define GET_VALUE(data, lbit, lbit2, hbit) ((data >> lbit) & \
 		(~(~0 << (hbit - lbit2 + 1))))

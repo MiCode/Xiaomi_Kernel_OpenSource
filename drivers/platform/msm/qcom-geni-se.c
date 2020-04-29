@@ -1986,8 +1986,10 @@ static int geni_se_probe(struct platform_device *pdev)
 			return ret;
 		}
 
-		sysfs_create_file(&geni_se_dev->dev->kobj,
+		ret = sysfs_create_file(&geni_se_dev->dev->kobj,
 			 &dev_attr_ssc_qup_state.attr);
+		if (ret)
+			dev_err(dev, "Unable to create sysfs file\n");
 	}
 
 	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,

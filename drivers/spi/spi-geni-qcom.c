@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/interrupt.h>
 #include <linux/ipc_logging.h>
 #include <linux/io.h>
+#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -1037,10 +1038,11 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 		if (count < 0)
 			GENI_SE_ERR(mas->ipc, false, NULL,
 				"suspend usage count mismatch:%d", count);
-	} else {
+	} else if (!pm_runtime_suspended(mas->dev)) {
 		pm_runtime_mark_last_busy(mas->dev);
 		pm_runtime_put_autosuspend(mas->dev);
 	}
+
 	return 0;
 }
 
@@ -1179,16 +1181,22 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	mb();
 }
 
-static void handle_fifo_timeout(struct spi_geni_master *mas,
+static void handle_fifo_timeout(struct spi_master *spi,
 					struct spi_transfer *xfer)
 {
+	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	unsigned long timeout;
 
 	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
-	reinit_completion(&mas->xfer_done);
-	geni_cancel_m_cmd(mas->base);
+
 	if (mas->cur_xfer_mode == FIFO_MODE)
 		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
+
+	if (spi->slave)
+		goto dma_unprep;
+
+	reinit_completion(&mas->xfer_done);
+	geni_cancel_m_cmd(mas->base);
 	/* Ensure cmd cancel is written */
 	mb();
 	timeout = wait_for_completion_timeout(&mas->xfer_done, HZ);
@@ -1203,6 +1211,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 			dev_err(mas->dev,
 				"Failed to cancel/abort m_cmd\n");
 	}
+dma_unprep:
 	if (mas->cur_xfer_mode == SE_DMA) {
 		if (xfer->tx_buf)
 			geni_se_tx_dma_unprep(mas->wrapper_dev,
@@ -1211,6 +1220,8 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 			geni_se_rx_dma_unprep(mas->wrapper_dev,
 					xfer->rx_dma, xfer->len);
 	}
+	if (spi->slave && !mas->dis_autosuspend)
+		pm_runtime_put_sync_suspend(mas->dev);
 
 }
 
@@ -1319,10 +1330,7 @@ err_gsi_geni_transfer_one:
 	mutex_unlock(&mas->spi_ssr.ssr_lock);
 	return ret;
 err_fifo_geni_transfer_one:
-	if (!spi->slave)
-		handle_fifo_timeout(mas, xfer);
-	if (spi->slave)
-		geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
+	handle_fifo_timeout(spi, xfer);
 err_ssr_transfer_one:
 	mutex_unlock(&mas->spi_ssr.ssr_lock);
 	return ret;
@@ -1675,6 +1683,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 		ret = geni_mas->irq;
 		goto spi_geni_probe_unmap;
 	}
+	irq_set_status_flags(geni_mas->irq, IRQ_NOAUTOEN);
 	ret = devm_request_irq(&pdev->dev, geni_mas->irq, geni_spi_irq,
 			       IRQF_TRIGGER_HIGH, "spi_geni", geni_mas);
 	if (ret) {
@@ -1754,6 +1763,7 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	disable_irq(geni_mas->irq);
 	if (geni_mas->shared_se) {
 		ret = se_geni_clks_off(&geni_mas->spi_rsc);
 		if (ret)
@@ -1785,6 +1795,7 @@ static int spi_geni_runtime_resume(struct device *dev)
 	} else {
 		ret = se_geni_resources_on(&geni_mas->spi_rsc);
 	}
+	enable_irq(geni_mas->irq);
 	return ret;
 }
 
@@ -1849,7 +1860,6 @@ static int ssr_spi_force_suspend(struct device *dev)
 
 	mutex_lock(&mas->spi_ssr.ssr_lock);
 	mas->spi_ssr.xfer_prepared = false;
-	disable_irq(mas->irq);
 	mas->spi_ssr.is_ssr_down = true;
 	complete(&mas->xfer_done);
 
@@ -1877,7 +1887,6 @@ static int ssr_spi_force_resume(struct device *dev)
 
 	mutex_lock(&mas->spi_ssr.ssr_lock);
 	mas->spi_ssr.is_ssr_down = false;
-	enable_irq(mas->irq);
 	GENI_SE_DBG(mas->ipc, false, mas->dev, "force resume done\n");
 	mutex_unlock(&mas->spi_ssr.ssr_lock);
 

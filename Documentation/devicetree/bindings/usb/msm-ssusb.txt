@@ -93,6 +93,9 @@ Optional properties :
 	capable DWC3 which does not have extcon handle.
 - qcom,default-mode-host: If present, start host mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
+- qcom,no-wakeup-from-pm-suspend: If present, there is no need of SS wakeup events via
+	pwr_event_irq in system suspend scenario. So in system suspend and hibernation,
+	we can suspend the SSPHY.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".

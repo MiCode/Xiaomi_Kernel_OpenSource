@@ -1079,6 +1079,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	}
 
 	memset(csid_hw->vc_info, 0xff, sizeof(csid_hw->vc_info));
+	memset(csid_hw->df_info, 0xff, sizeof(csid_hw->df_info));
 
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_UP;
 	/* Reset CSID top */
@@ -2191,13 +2192,18 @@ static int cam_ife_csid_init_config_rdi_path(
 		csid_hw->hw_intf->hw_idx == 1) && path_data->crop_enable &&
 		csid_hw->ipp_cfg == false) {
 		for (i = 0; i < CAM_IFE_PIX_PATH_RES_RDI_3; i++) {
-			/*checking for multiple streams of same VC*/
-			if (csid_hw->vc_info[i] == path_data->vc) {
+			/*checking for multiple streams of same VC and DF*/
+			if (csid_hw->vc_info[i] == path_data->vc &&
+				csid_hw->df_info[i] == path_format) {
 				tmp = path_format <<
 					csid_reg->cmn_reg->fmt_shift_val;
 
 				cam_io_w_mb(tmp, soc_info->reg_map[0].mem_base +
 					csid_reg->ipp_reg->csid_pxl_cfg0_addr);
+
+				CAM_DBG(CAM_ISP,
+					"Set decode fmt %d for ipp cfg0",
+					path_format);
 
 				csid_hw->ipp_cfg = true;
 				break;
@@ -2206,6 +2212,7 @@ static int cam_ife_csid_init_config_rdi_path(
 	}
 
 	csid_hw->vc_info[id] = path_data->vc;
+	csid_hw->df_info[id] = path_format;
 
 	val |= (1 << csid_reg->cmn_reg->path_en_shift_val);
 
@@ -2262,6 +2269,7 @@ static int cam_ife_csid_deinit_rdi_path(
 	struct cam_isp_resource_node    *res)
 {
 	int rc = 0, i = 0;
+	int check_cnt =  0;
 	uint32_t id, val, format_measure_addr;
 	const struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info                    *soc_info;
@@ -2299,15 +2307,23 @@ static int cam_ife_csid_deinit_rdi_path(
 			format_measure_addr);
 	}
 
-	csid_hw->vc_info[id] = 0xff;
 
-	for (i = 0; i < CAM_IFE_PIX_PATH_RES_RDI_3; i++) {
-		if (csid_hw->vc_info[i] == path_data->vc &&
-			csid_hw->ipp_cfg == true) {
-			csid_hw->ipp_cfg = false;
-			break;
+
+	if (csid_hw->ipp_cfg) {
+		for (i = 0; i < CAM_IFE_PIX_PATH_RES_RDI_3; i++) {
+			if (id != i &&
+				csid_hw->vc_info[i] == csid_hw->vc_info[id] &&
+				csid_hw->df_info[i] == csid_hw->df_info[id])
+				check_cnt++;
 		}
+
+		if (check_cnt <= 1)
+			csid_hw->ipp_cfg = false;
 	}
+
+
+	csid_hw->vc_info[id] = 0xff;
+	csid_hw->df_info[id] = 0xff;
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	return rc;

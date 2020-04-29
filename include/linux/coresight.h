@@ -47,6 +47,7 @@ enum coresight_dev_type {
 	CORESIGHT_DEV_TYPE_LINK,
 	CORESIGHT_DEV_TYPE_LINKSINK,
 	CORESIGHT_DEV_TYPE_SOURCE,
+	CORESIGHT_DEV_TYPE_HELPER,
 };
 
 enum coresight_dev_subtype_sink {
@@ -69,19 +70,30 @@ enum coresight_dev_subtype_source {
 	CORESIGHT_DEV_SUBTYPE_SOURCE_SOFTWARE,
 };
 
+enum coresight_dev_subtype_helper {
+	CORESIGHT_DEV_SUBTYPE_HELPER_NONE,
+	CORESIGHT_DEV_SUBTYPE_HELPER_CATU,
+};
+
 /**
- * struct coresight_dev_subtype - further characterisation of a type
+ * union coresight_dev_subtype - further characterisation of a type
  * @sink_subtype:	type of sink this component is, as defined
-			by @coresight_dev_subtype_sink.
+ *			by @coresight_dev_subtype_sink.
  * @link_subtype:	type of link this component is, as defined
-			by @coresight_dev_subtype_link.
+ *			by @coresight_dev_subtype_link.
  * @source_subtype:	type of source this component is, as defined
-			by @coresight_dev_subtype_source.
+ *			by @coresight_dev_subtype_source.
+ * @helper_subtype:	type of helper this component is, as defined
+ *			by @coresight_dev_subtype_helper.
  */
-struct coresight_dev_subtype {
-	enum coresight_dev_subtype_sink sink_subtype;
-	enum coresight_dev_subtype_link link_subtype;
+union coresight_dev_subtype {
+	/* We have some devices which acts as LINK and SINK */
+	struct {
+		enum coresight_dev_subtype_sink sink_subtype;
+		enum coresight_dev_subtype_link link_subtype;
+	};
 	enum coresight_dev_subtype_source source_subtype;
+	enum coresight_dev_subtype_helper helper_subtype;
 };
 
 /**
@@ -138,7 +150,7 @@ struct coresight_platform_data {
  */
 struct coresight_desc {
 	enum coresight_dev_type type;
-	struct coresight_dev_subtype subtype;
+	union coresight_dev_subtype subtype;
 	const struct coresight_ops *ops;
 	struct coresight_platform_data *pdata;
 	struct device *dev;
@@ -176,25 +188,27 @@ struct coresight_connection {
  * @orphan:	true if the component has connections that haven't been linked.
  * @enable:	'true' if component is currently part of an active path.
  * @activated:	'true' only if a _sink_ has been activated.  A sink can be
-		activated but not yet enabled.  Enabling for a _sink_
-		happens when a source has been selected for that it.
- * @abort:     captures sink trace on abort.
+ *		activated but not yet enabled.  Enabling for a _sink_
+ *		happens when a source has been selected for that it.
  * @reg_clk:	as defined by @coresight_reg_clk.
+ * @ea:		Device attribute for sink representation under PMU directory.
  */
 struct coresight_device {
 	struct coresight_connection *conns;
 	int nr_inport;
 	int nr_outport;
 	enum coresight_dev_type type;
-	struct coresight_dev_subtype subtype;
+	union coresight_dev_subtype subtype;
 	const struct coresight_ops *ops;
 	struct device dev;
 	atomic_t *refcnt;
 	struct coresight_path *node;
 	bool orphan;
 	bool enable;	/* true only if configured as part of a path */
+	/* sink specific fields */
 	bool activated;	/* true only if a sink is part of a path */
 	struct coresight_reg_clk *reg_clk;
+	struct dev_ext_attribute *ea;
 };
 
 #define to_coresight_device(d) container_of(d, struct coresight_device, dev)
@@ -202,6 +216,7 @@ struct coresight_device {
 #define source_ops(csdev)	csdev->ops->source_ops
 #define sink_ops(csdev)		csdev->ops->sink_ops
 #define link_ops(csdev)		csdev->ops->link_ops
+#define helper_ops(csdev)	csdev->ops->helper_ops
 
 /**
  * struct coresight_ops_sink - basic operations for a sink
@@ -210,23 +225,16 @@ struct coresight_device {
  * @disable:		disables the sink.
  * @alloc_buffer:	initialises perf's ring buffer for trace collection.
  * @free_buffer:	release memory allocated in @get_config.
- * @set_buffer:		initialises buffer mechanic before a trace session.
- * @reset_buffer:	finalises buffer mechanic after a trace session.
  * @update_buffer:	update buffer pointers after a trace session.
  */
 struct coresight_ops_sink {
-	int (*enable)(struct coresight_device *csdev, u32 mode);
-	void (*disable)(struct coresight_device *csdev);
-	void *(*alloc_buffer)(struct coresight_device *csdev, int cpu,
-			      void **pages, int nr_pages, bool overwrite);
+	int (*enable)(struct coresight_device *csdev, u32 mode, void *data);
+	int (*disable)(struct coresight_device *csdev);
+	void *(*alloc_buffer)(struct coresight_device *csdev,
+			      struct perf_event *event, void **pages,
+			      int nr_pages, bool overwrite);
 	void (*free_buffer)(void *config);
-	int (*set_buffer)(struct coresight_device *csdev,
-			  struct perf_output_handle *handle,
-			  void *sink_config);
-	unsigned long (*reset_buffer)(struct coresight_device *csdev,
-				      struct perf_output_handle *handle,
-				      void *sink_config);
-	void (*update_buffer)(struct coresight_device *csdev,
+	unsigned long (*update_buffer)(struct coresight_device *csdev,
 			      struct perf_output_handle *handle,
 			      void *sink_config);
 	void (*abort)(struct coresight_device *csdev);
@@ -262,10 +270,25 @@ struct coresight_ops_source {
 			struct perf_event *event);
 };
 
+/**
+ * struct coresight_ops_helper - Operations for a helper device.
+ *
+ * All operations could pass in a device specific data, which could
+ * help the helper device to determine what to do.
+ *
+ * @enable	: Enable the device
+ * @disable	: Disable the device
+ */
+struct coresight_ops_helper {
+	int (*enable)(struct coresight_device *csdev, void *data);
+	int (*disable)(struct coresight_device *csdev, void *data);
+};
+
 struct coresight_ops {
 	const struct coresight_ops_sink *sink_ops;
 	const struct coresight_ops_link *link_ops;
 	const struct coresight_ops_source *source_ops;
+	const struct coresight_ops_helper *helper_ops;
 };
 
 #ifdef CONFIG_CORESIGHT
@@ -279,6 +302,14 @@ extern int coresight_timeout(void __iomem *addr, u32 offset,
 extern void coresight_abort(void);
 extern void coresight_disable_reg_clk(struct coresight_device *csdev);
 extern int coresight_enable_reg_clk(struct coresight_device *csdev);
+
+extern int coresight_claim_device(void __iomem *base);
+extern int coresight_claim_device_unlocked(void __iomem *base);
+
+extern void coresight_disclaim_device(void __iomem *base);
+extern void coresight_disclaim_device_unlocked(void __iomem *base);
+
+extern bool coresight_loses_context_with_cpu(struct device *dev);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -293,6 +324,23 @@ static inline void coresight_disable_reg_clk(struct coresight_device *csdev) {}
 static inline int coresight_enable_reg_clk(struct coresight_device *csdev)
 {
 	return -EINVAL;
+}
+static inline int coresight_claim_device_unlocked(void __iomem *base)
+{
+	return -EINVAL;
+}
+
+static inline int coresight_claim_device(void __iomem *base)
+{
+	return -EINVAL;
+}
+
+static inline void coresight_disclaim_device(void __iomem *base) {}
+static inline void coresight_disclaim_device_unlocked(void __iomem *base) {}
+
+static inline bool coresight_loses_context_with_cpu(struct device *dev)
+{
+	return false;
 }
 #endif
 

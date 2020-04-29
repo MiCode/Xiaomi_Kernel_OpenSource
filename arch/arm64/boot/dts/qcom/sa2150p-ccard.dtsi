@@ -146,6 +146,7 @@
 
 &usb3 {
 	qcom,ignore-wakeup-src-in-hostmode;
+	qcom,no-wakeup-from-pm-suspend;
 };
 
 &usb3_extcon {

@@ -15,6 +15,8 @@
 #include <linux/property.h>
 #include <linux/usb/composite.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/kernel.h>
 
 struct qti_usb_function {
 	struct usb_function_instance *fi;
@@ -40,6 +42,7 @@ struct qti_usb_gadget {
 	struct usb_composite_driver composite;
 
 	const char *composition_funcs;
+	bool enabled;
 	struct device *dev;
 };
 
@@ -57,6 +60,10 @@ static char serialno_string[256] = "12345";
 module_param_string(serialno, serialno_string,
 		    sizeof(serialno_string), 0644);
 MODULE_PARM_DESC(quirks, "String representing name of manufacturer");
+
+static char usb_pid_string[256];
+module_param_string(usb_pid, usb_pid_string, sizeof(usb_pid_string), 0644);
+MODULE_PARM_DESC(quirks, "String representing product id");
 
 /* String Table */
 static struct usb_string strings_dev[] = {
@@ -413,6 +420,9 @@ static int qti_gadget_register(struct qti_usb_gadget *qg)
 {
 	int ret;
 
+	if (qg->enabled)
+		return -EINVAL;
+
 	ret = qti_usb_configs_make(qg, qg->composition_funcs);
 	if (ret)
 		return ret;
@@ -437,6 +447,8 @@ static int qti_gadget_register(struct qti_usb_gadget *qg)
 	if (ret)
 		goto free_name;
 
+	qg->enabled = true;
+
 	return 0;
 
 free_name:
@@ -449,28 +461,21 @@ free_configs:
 
 static void qti_gadget_unregister(struct qti_usb_gadget *qg)
 {
+	if (!qg->enabled)
+		return;
+
 	usb_gadget_unregister_driver(&qg->composite.gadget_driver);
 	kfree(qg->composite.gadget_driver.function);
 	qti_cleanup_configs_funcs(qg);
+
+	qg->enabled = false;
 }
 
 static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 {
 	struct device *dev = gadget->dev;
-	int ret, val;
-
-	ret = device_property_read_string(dev, "qcom,composition",
-				    &gadget->composition_funcs);
-	if (ret) {
-		dev_err(dev, "USB gadget composition not specified\n");
-		return ret;
-	}
-
-	/* bail out if ffs is specified and let userspace handle it */
-	if (strstr(gadget->composition_funcs, "ffs.")) {
-		dev_err(dev, "user should enable ffs\n");
-		return -EINVAL;
-	}
+	struct device_node *child = NULL;
+	int ret = 0, val = 0, pid = 0;
 
 	ret = device_property_read_u32(dev, "qcom,vid", &val);
 	if (ret) {
@@ -478,13 +483,6 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 		return ret;
 	}
 	gadget->cdev.desc.idVendor = (u16)val;
-
-	ret = device_property_read_u32(dev, "qcom,pid", &val);
-	if (ret) {
-		dev_err(dev, "USB gadget idProduct not specified\n");
-		return ret;
-	}
-	gadget->cdev.desc.idProduct = (u16)val;
 
 	ret = device_property_read_u32(dev, "qcom,class", &val);
 	if (!ret)
@@ -498,8 +496,74 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 	if (!ret)
 		gadget->cdev.desc.bDeviceProtocol = (u8)val;
 
+	/* Check if pid passed via cmdline which takes precedence */
+	if (usb_pid_string[0] != NULL) {
+		ret = kstrtoint(usb_pid_string, 16, &val);
+		if (ret)
+			return ret;
+	} else {
+		ret = device_property_read_u32(dev, "qcom,default-pid", &val);
+		if (ret) {
+			dev_dbg(dev, "USB gadget default-pid not specified\n");
+			return ret;
+		}
+	}
+
+	pid = val;
+
+	/* Go through all the child nodes and find matching pid */
+	while ((child = of_get_next_child(dev->of_node, child)) != NULL) {
+		of_property_read_u32(child, "qcom,pid", &val);
+		if (val == pid) {
+			of_property_read_string(child, "qcom,composition",
+					&gadget->composition_funcs);
+			break;
+		}
+	}
+
+	/* Check if couldn't find a matching composition */
+	if (gadget->composition_funcs == NULL)
+		return -EINVAL;
+
+	/* bail out if ffs is specified and let userspace handle it */
+	if (strstr(gadget->composition_funcs, "ffs.")) {
+		dev_err(dev, "user should enable ffs\n");
+		return -EINVAL;
+	}
+
+	gadget->cdev.desc.idProduct = (u16)pid;
+
 	return 0;
 }
+
+static ssize_t enabled_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qti_usb_gadget *qg = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%c\n",
+			qg->enabled ? 'Y' : 'N');
+}
+
+static ssize_t enabled_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct qti_usb_gadget *qg = dev_get_drvdata(dev);
+	bool enable;
+	int ret;
+
+	ret = strtobool(buf, &enable);
+	if (ret)
+		return ret;
+
+	if (enable)
+		qti_gadget_register(qg);
+	else
+		qti_gadget_unregister(qg);
+
+	return count;
+}
+static DEVICE_ATTR_RW(enabled);
 
 static int qti_gadget_probe(struct platform_device *pdev)
 {
@@ -524,6 +588,8 @@ static int qti_gadget_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	device_create_file(&pdev->dev, &dev_attr_enabled);
+
 	return 0;
 }
 
@@ -531,6 +597,7 @@ static int qti_gadget_remove(struct platform_device *pdev)
 {
 	struct qti_usb_gadget *qg = platform_get_drvdata(pdev);
 
+	device_remove_file(&pdev->dev, &dev_attr_enabled);
 	qti_gadget_unregister(qg);
 
 	return 0;

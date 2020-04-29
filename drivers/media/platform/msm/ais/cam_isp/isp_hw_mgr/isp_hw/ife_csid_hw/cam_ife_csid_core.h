@@ -18,7 +18,7 @@
 #include "cam_ife_csid_soc.h"
 #include "cam_csid_ppi_core.h"
 
-#define CAM_IFE_CSID_HW_RES_MAX      4
+#define CAM_IFE_CSID_HW_RES_MAX      8
 #define CAM_IFE_CSID_CID_RES_MAX     4
 #define CAM_IFE_CSID_RDI_MAX         4
 #define CAM_CSID_WORKQ_NUM_TASK      10
@@ -557,6 +557,7 @@ struct cam_ife_csid_hw {
 	uint32_t                         hbi;
 	uint32_t                         vbi;
 	uint32_t                         vc_info[CAM_IFE_CSID_RDI_MAX];
+	uint32_t                         df_info[CAM_IFE_CSID_RDI_MAX];
 	bool                             ipp_cfg;
 	bool                             sof_irq_triggered;
 	uint32_t                         irq_debug_cnt;

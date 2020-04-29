@@ -971,9 +971,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 				&binfo->device_addr[i]);
 	}
 
-	rc = qbuf_cache_operations(inst, binfo);
-	if (rc)
-		return rc;
+	qbuf_cache_operations(inst, binfo);
 
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_qbuf(instance, b);

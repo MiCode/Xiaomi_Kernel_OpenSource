@@ -607,6 +607,19 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 								0, BIT(0));
 	}
 
+	/* Update offset to AXI address for Host initiated SOC reset */
+	if (dev->mhi_soc_reset_en) {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Updating SOC reset offset with val:0x%x\n",
+				dev->rev, dev->mhi_soc_reset_offset);
+		ep_pcie_write_reg(dev->parf, PCIE20_BUS_DISCONNECT_STATUS,
+				dev->mhi_soc_reset_offset);
+		val = readl_relaxed(dev->parf +
+					PCIE20_BUS_DISCONNECT_STATUS);
+		EP_PCIE_DBG(dev,
+			"PCIe V%d:SOC reset offset val:0x%x\n", dev->rev, val);
+	}
+
 	if (!configured) {
 		/* Configure PCIe to endpoint mode */
 		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
@@ -1915,16 +1928,10 @@ checkbme:
 		ep_pcie_bar0_address =
 			readl_relaxed(dev->dm_core + PCIE20_BAR0);
 	} else {
-		if (!(opt & EP_PCIE_OPT_ENUM_ASYNC))
-			EP_PCIE_ERR(dev,
-				"PCIe V%d: PCIe link is up but BME is still disabled after max waiting time\n",
-				dev->rev);
-		if (!ep_pcie_debug_keep_resource &&
-				!(opt&EP_PCIE_OPT_ENUM_ASYNC)) {
-			ret = EP_PCIE_ERROR;
-			dev->link_status = EP_PCIE_LINK_DISABLED;
-			goto link_fail;
-		}
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PCIe link is up but BME is disabled; current SW link status:%d\n",
+			dev->rev, dev->link_status);
+		dev->link_status = EP_PCIE_LINK_UP;
 	}
 
 	dev->suspending = false;
@@ -3126,6 +3133,19 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: MHI M2 autonomous is %s enabled\n",
 		ep_pcie_dev.rev, ep_pcie_dev.m2_autonomous ? "" : "not");
+
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,mhi-soc-reset-offset",
+				&ep_pcie_dev.mhi_soc_reset_offset);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: qcom,mhi-soc-reset does not exist\n",
+			ep_pcie_dev.rev);
+	} else {
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: soc-reset-offset:0x%x\n",
+			ep_pcie_dev.rev, ep_pcie_dev.mhi_soc_reset_offset);
+		ep_pcie_dev.mhi_soc_reset_en = true;
+	}
 
 	memcpy(ep_pcie_dev.vreg, ep_pcie_vreg_info,
 				sizeof(ep_pcie_vreg_info));

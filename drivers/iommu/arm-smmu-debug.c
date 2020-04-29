@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,7 +93,7 @@ static void arm_smmu_debug_dump_tbu_qns4_testbus(struct device *dev,
 		reg = (reg & ~GENMASK(4, 0)) | i << 0;
 		arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
 				testbus_version, WRITE, reg);
-		dev_info(dev, "testbus_sel: 0x%lx Index: %d val: 0x%llx\n",
+		dev_info(dev, "testbus_sel: 0x%x Index: %d val: 0x%x\n",
 			arm_smmu_debug_tbu_testbus_select(tbu_base, tcu_base,
 				testbus_version, READ, 0), i,
 			arm_smmu_debug_tbu_testbus_output(tbu_base,
@@ -156,7 +156,7 @@ void arm_smmu_debug_dump_tbu_testbus(struct device *dev, void __iomem *tbu_base,
 		arm_smmu_debug_program_tbu_testbus(tbu_base, tcu_base,
 				testbus_version,
 				TBU_MULTIMASTER_QCHANNEL_TESTBUS);
-		dev_info(dev, "testbus_sel: 0x%lx val: 0x%llx\n",
+		dev_info(dev, "testbus_sel: 0x%x val: 0x%x\n",
 			arm_smmu_debug_tbu_testbus_select(tbu_base,
 				tcu_base, testbus_version, READ, 0),
 			arm_smmu_debug_tbu_testbus_output(tbu_base,
@@ -180,7 +180,7 @@ static void arm_smmu_debug_program_tcu_testbus(struct device *dev,
 		arm_smmu_debug_tcu_testbus_select(base, tcu_base,
 				PTW_AND_CACHE_TESTBUS, WRITE, reg);
 		if (print)
-			dev_info(dev, "testbus_sel: 0x%lx Index: %d val: 0x%lx\n",
+			dev_info(dev, "testbus_sel: 0x%x Index: %d val: 0x%x\n",
 				 arm_smmu_debug_tcu_testbus_select(base,
 				 tcu_base, PTW_AND_CACHE_TESTBUS, READ, 0),
 				 i, arm_smmu_debug_tcu_testbus_output(base));
@@ -217,7 +217,7 @@ void arm_smmu_debug_dump_tcu_testbus(struct device *dev, void __iomem *base,
 			arm_smmu_debug_program_tcu_testbus(dev, base, tcu_base,
 					~GENMASK(1, 0), TCU_PTW_TESTBUS_SEL2,
 					TCU_PTW_TESTBUS_SEL2 + 1, 0, false);
-			dev_info(dev, "testbus_sel: 0x%lx Index: %d val: 0x%lx\n",
+			dev_info(dev, "testbus_sel: 0x%x Index: %d val: 0x%x\n",
 				 arm_smmu_debug_tcu_testbus_select(base,
 				 tcu_base, PTW_AND_CACHE_TESTBUS, READ, 0),
 				 i, arm_smmu_debug_tcu_testbus_output(base));

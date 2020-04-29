@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2020, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -57,7 +57,7 @@
 #define BRIDGE_RX_QUEUE_SIZE	8
 #define BRIDGE_RX_BUF_SIZE	2048
 #define BRIDGE_TX_QUEUE_SIZE	8
-#define BRIDGE_TX_BUF_SIZE	2048
+#define BRIDGE_TX_BUF_SIZE	(50 * 1024)
 
 #define GS_LOG2_NOTIFY_INTERVAL		5  /* 1 << 5 == 32 msec */
 #define GS_NOTIFY_MAXPACKET		10 /* notification + 2 bytes */
@@ -147,6 +147,7 @@ struct f_cdev_opts {
 	struct f_cdev *port;
 	char *func_name;
 	u8 port_num;
+	u8 proto;
 };
 
 static int major, minors;
@@ -169,8 +170,8 @@ static struct usb_interface_descriptor cser_interface_desc = {
 	/* .bInterfaceNumber = DYNAMIC */
 	.bNumEndpoints =	3,
 	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
-	.bInterfaceSubClass =	0,
-	.bInterfaceProtocol =	0,
+	.bInterfaceSubClass =	USB_SUBCLASS_VENDOR_SPEC,
+	/* .bInterfaceProtocol = DYNAMIC */
 	/* .iInterface = DYNAMIC */
 };
 
@@ -786,6 +787,8 @@ static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
 	struct f_cdev *port = func_to_port(f);
 	int status;
 	struct usb_ep *ep;
+	struct f_cdev_opts *opts =
+			container_of(f->fi, struct f_cdev_opts, func_inst);
 
 	if (cser_string_defs[0].id == 0) {
 		status = usb_string_id(c->cdev);
@@ -799,6 +802,7 @@ static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
 		goto fail;
 	port->port_usb.data_id = status;
 	cser_interface_desc.bInterfaceNumber = status;
+	cser_interface_desc.bInterfaceProtocol = opts->proto;
 
 	status = -ENODEV;
 	ep = usb_ep_autoconfig(cdev->gadget, &cser_fs_in_desc);
@@ -2010,6 +2014,9 @@ static int cser_set_inst_name(struct usb_function_instance *f, const char *name)
 		port->port_usb.send_modem_ctrl_bits = dun_cser_send_ctrl_bits;
 		port->port_usb.disconnect = dun_cser_disconnect;
 		port->port_usb.send_break = dun_cser_send_break;
+		opts->proto = 0x40;
+	} else {
+		opts->proto = 0x60;
 	}
 
 	return 0;

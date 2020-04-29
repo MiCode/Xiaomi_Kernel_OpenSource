@@ -179,6 +179,7 @@ struct dsi_display_ext_bridge {
  * @cmdline_topology: Display topology shared from kernel command line.
  * @cmdline_timing:   Display timing shared from kernel command line.
  * @is_tpg_enabled:   TPG state.
+ * @poms_pending;      Flag indicating the pending panel operating mode switch.
  * @ulps_enabled:     ulps state.
  * @clamp_enabled:    clamp state.
  * @phy_idle_power_off:   PHY power state.
@@ -240,6 +241,7 @@ struct dsi_display {
 	int cmdline_topology;
 	int cmdline_timing;
 	bool is_tpg_enabled;
+	bool poms_pending;
 	bool ulps_enabled;
 	bool clamp_enabled;
 	bool phy_idle_power_off;

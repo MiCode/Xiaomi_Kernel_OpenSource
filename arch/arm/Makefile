@@ -46,7 +46,10 @@ KBUILD_CFLAGS	+= $(call cc-option,-mno-unaligned-access)
 endif
 
 ifeq ($(CONFIG_FRAME_POINTER),y)
-KBUILD_CFLAGS	+=-fno-omit-frame-pointer $(call cc-option,-mapcs,) $(call cc-option,-mno-sched-prolog,)
+KBUILD_CFLAGS	+=-fno-omit-frame-pointer
+ifeq ($(cc-name),gcc)
+KBUILD_CFLAGS += $(call cc-option,-mapcs,) $(call cc-option,-mno-sched-prolog,)
+endif
 endif
 
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)

@@ -1182,7 +1182,6 @@ int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data)
 		ret = -ENODEV;
 		goto out;
 	}
-	set_bit(ICNSS_WLFW_EXISTS, &priv->state);
 
 	sq.sq_family = AF_QIPCRTR;
 	sq.sq_node = event_data->node;
@@ -1218,10 +1217,16 @@ int icnss_clear_server(struct icnss_priv *priv)
 static int wlfw_new_server(struct qmi_handle *qmi,
 			   struct qmi_service *service)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 	struct icnss_event_server_arrive_data *event_data;
 
 	icnss_pr_dbg("WLFW server arrive: node %u port %u\n",
 		     service->node, service->port);
+
+	if (test_bit(ICNSS_MODEM_SHUTDOWN, &priv->state)) {
+		icnss_pr_dbg("WLFW server arrive: Modem is down");
+		return -EINVAL;
+	}
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (event_data == NULL)

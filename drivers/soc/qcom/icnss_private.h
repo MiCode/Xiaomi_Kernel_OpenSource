@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +168,7 @@ enum icnss_driver_state {
 	ICNSS_CLK_UP,
 	ICNSS_ESOC_OFF,
 	ICNSS_MODEM_CRASHED,
+	ICNSS_MODEM_SHUTDOWN,
 };
 
 struct ce_irq_list {
