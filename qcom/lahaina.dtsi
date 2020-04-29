@@ -4418,6 +4418,11 @@
 		qcom,lan-rx-napi;
 		qcom,wan-use-skb-page;
 		qcom,rmnet-ctl-enable;
+		qcom,ipa-uc-holb-monitor;
+		qcom,ipa-holb-monitor-poll-period = <5>;
+		qcom,ipa-holb-monitor-max-cnt-wlan = <10>;
+		qcom,ipa-holb-monitor-max-cnt-usb = <10>;
+		qcom,ipa-holb-monitor-max-cnt-11ad = <10>;
 		qcom,tx-wrapper-cache-max-size = <400>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpmh RPMH_IPA_CLK>;

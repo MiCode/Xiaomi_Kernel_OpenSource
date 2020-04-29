@@ -28,6 +28,11 @@ Optional:
 				 if set to zero then the feature is disabled.
 - qcom,tx-napi: Enable usage of NAPI in the TX data path.
 - qcom,lan-rx-napi: Enable NAPI in the LAN RX data path.
+- qcom,ipa-uc-holb-monitor: Enable uC HOLB monitor feature.
+- qcom,ipa-holb-monitor-poll-period: Poll period for HOLB monitor feature.
+- qcom,holb-monitor-max-cnt-wlan: Max stuck count for HOLB on WLAN channel.
+- qcom,holb-monitor-max-cnt-usb: Max stuck count for HOLB on USB channel.
+- qcom,holb-monitor-max-cnt-11ad: Max stuck count for HOLB on 11AD channel.
 - qcom,wan-rx-ring-size: size of WAN rx ring, default is 192
 - qcom,lan-rx-ring-size: size of LAN rx ring, default is 192
 - qcom,arm-smmu: SMMU is present and ARM SMMU driver is used
