@@ -518,7 +518,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 	switch (direction) {
 	case HH_DBL_DIRECTION_TX:
 		/* No interrupt should associated with Tx doorbell*/
-		if (rx_irq >= 0) {
+		if (rx_irq > 0) {
 			pr_err("%s: No IRQ associated for Tx doorbell!\n",
 				__func__);
 			ret = -ENXIO;
@@ -526,7 +526,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		}
 		cap_table_entry->tx_cap_id = cap_id;
 		pr_debug("%s: label: %d; tx_cap_id: %llu; dir: %d; rx_irq: %d\n",
-			label, cap_id, direction, rx_irq);
+			__func__, label, cap_id, direction, rx_irq);
 		break;
 	case HH_DBL_DIRECTION_RX:
 		if (rx_irq <= 0) {
@@ -538,7 +538,7 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		cap_table_entry->rx_cap_id = cap_id;
 		cap_table_entry->rx_irq = rx_irq;
 		pr_debug("%s: label: %d; rx_cap_id: %llu; dir: %d; rx_irq: %d\n",
-			label, cap_id, direction, rx_irq);
+			__func__, label, cap_id, direction, rx_irq);
 		break;
 	default:
 		pr_err("%s: Invalid direction(%d) for doorbell\n",

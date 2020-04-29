@@ -7,6 +7,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
@@ -474,6 +475,55 @@ err:
 	return ret;
 }
 EXPORT_SYMBOL(hh_msgq_populate_cap_info);
+
+static int hh_msgq_probe_direction(struct platform_device *pdev,
+			enum hh_msgq_label label, int direction, int idx)
+{
+	int irq, ret;
+	u64 capid;
+
+	irq = platform_get_irq(pdev, idx);
+	if (irq < 0) {
+		dev_err(&pdev->dev, "Failed to get the IRQ%d. ret: %d\n",
+			idx, irq);
+		return irq;
+	}
+
+	ret = of_property_read_u64_index(pdev->dev.of_node, "reg", idx, &capid);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to get capid[%d]\n", idx);
+		return ret;
+	}
+
+	return hh_msgq_populate_cap_info(label, capid, direction, irq);
+}
+
+int hh_msgq_probe(struct platform_device *pdev, enum hh_msgq_label label)
+{
+	int ret, idx = 0;
+	struct device_node *node = pdev->dev.of_node;
+	bool duplex;
+
+	duplex = of_property_read_bool(node, "qcom,is-full-duplex");
+
+	if (duplex || of_property_read_bool(node, "qcom,is-sender")) {
+		ret = hh_msgq_probe_direction(pdev, label, HH_MSGQ_DIRECTION_TX,
+					      idx);
+		if (ret)
+			return ret;
+		idx++;
+	}
+
+	if (duplex || of_property_read_bool(node, "qcom,is-receiver")) {
+		ret = hh_msgq_probe_direction(pdev, label, HH_MSGQ_DIRECTION_RX,
+					      idx);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(hh_msgq_probe);
 
 static void hh_msgq_cleanup(int begin_idx)
 {

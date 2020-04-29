@@ -8,6 +8,7 @@
 #define __HH_MSGQ_H
 
 #include <linux/types.h>
+#include <linux/platform_device.h>
 
 #include "hh_common.h"
 
@@ -37,6 +38,7 @@ int hh_msgq_recv(void *msgq_client_desc,
 
 int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
 				int direction, int irq);
+int hh_msgq_probe(struct platform_device *pdev, enum hh_msgq_label label);
 #else
 static inline void *hh_msgq_register(enum hh_msgq_label label)
 {
@@ -67,6 +69,12 @@ static inline int hh_msgq_populate_cap_info(enum hh_msgq_label label,
 					    int irq)
 {
 	return -EINVAL;
+}
+
+static inline int hh_msgq_probe(struct platform_device *pdev,
+				enum hh_msgq_label label)
+{
+	return -ENODEV;
 }
 #endif
 #endif
