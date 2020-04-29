@@ -238,6 +238,12 @@ extern int __qcom_scm_tsens_reinit(struct device *dev, int *tsens_ret);
 extern int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
 					   size_t len);
 #define QCOM_SCM_FEAT_LOG_ID		0x0a
+#define QCOM_SCM_QUERY_ENCR_LOG_FEAT_ID	0x0b
+extern int __qcom_scm_query_encrypted_log_feature(struct device *dev,
+						u64 *enabled);
+#define QCOM_SCM_REQUEST_ENCR_LOG_ID	0x0c
+extern int __qcom_scm_request_encrypted_log(struct device *dev, phys_addr_t buf,
+					   size_t len, uint32_t log_id);
 
 #define QCOM_SCM_SVC_KEYSTORE		0x05
 #define QCOM_SCM_ICE_RESTORE_KEY_ID	0x06
