@@ -28,6 +28,7 @@
 
 #if defined CONFIG_BT_SLIM_QCA6390 || defined CONFIG_BTFM_SLIM_WCN3990
 #include "btfm_slim.h"
+#include "btfm_slim_slave.h"
 #endif
 #include <linux/fs.h>
 
@@ -846,6 +847,18 @@ int get_chipset_version(void)
 	return soc_id;
 }
 
+int bt_disable_asd(void)
+{
+	int rc = 0;
+	if (bt_power_pdata->bt_vdd_asd) {
+		BT_PWR_INFO("Disabling ASD regulator");
+		rc = bt_vreg_disable(bt_power_pdata->bt_vdd_asd);
+	} else {
+		BT_PWR_INFO("ASD regulator is not configured");
+	}
+	return rc;
+}
+
 static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, pwr_cntrl = 0;
@@ -882,6 +895,11 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		BT_PWR_ERR("BT_CMD_CHIP_VERS soc_version:%x", chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
+			if (soc_id == QCA_HSP_SOC_ID_0100 ||
+				soc_id == QCA_HSP_SOC_ID_0110 ||
+				soc_id == QCA_HSP_SOC_ID_0200) {
+				ret = bt_disable_asd();
+			}
 		} else {
 			BT_PWR_ERR("got invalid soc version");
 			soc_id = 0;
