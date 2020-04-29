@@ -11,6 +11,8 @@
   bcmp
   cancel_delayed_work_sync
   capable
+  cfg80211_inform_bss_data
+  cfg80211_put_bss
   __cfi_slowpath
   __check_object_size
   __const_udelay
@@ -65,6 +67,8 @@
   kmem_cache_free
   kmemdup
   kstrdup
+  kstrtoull
+  ktime_get
   __list_add_valid
   __list_del_entry_valid
   __local_bh_enable_ip
@@ -105,6 +109,7 @@
   pci_iomap
   pci_read_config_dword
   __pci_register_driver
+  pci_request_region
   pci_set_master
   pci_unregister_driver
   perf_trace_buf_alloc
@@ -166,6 +171,8 @@
   strcpy
   strlcpy
   strlen
+  strncpy
+  strsep
   strstr
   synchronize_irq
   synchronize_net
@@ -261,7 +268,6 @@
   device_find_child
   device_match_name
   platform_bus_type
-  strsep
 
 # required by gnss-serial.ko
   gnss_allocate_device
@@ -362,7 +368,6 @@
   kern_path
   kill_anon_super
   kstrtouint
-  kstrtoull
   lockref_get
   lock_rename
   lookup_one_len_unlocked
@@ -423,7 +428,6 @@
   strcat
 
 # required by snd-intel8x0.ko
-  ktime_get
   param_ops_bint
   pci_release_regions
   pci_request_regions
@@ -506,8 +510,6 @@
 # required by virt_wifi.ko
   cfg80211_connect_done
   cfg80211_disconnected
-  cfg80211_inform_bss_data
-  cfg80211_put_bss
   cfg80211_scan_done
   __dev_get_by_index
   dev_printk
@@ -524,8 +526,14 @@
   wiphy_register
   wiphy_unregister
 
+# required by virt_wifi_sim.ko
+  ieee80211_get_channel
+  release_firmware
+  request_firmware
+
 # required by virtio-gpu.ko
   bpf_trace_run2
+  dma_buf_get_uuid
   dma_direct_map_sg
   dma_direct_sync_sg_for_device
   dma_direct_unmap_sg
@@ -591,6 +599,7 @@
   drm_gem_object_lookup
   drm_gem_object_put_unlocked
   drm_gem_object_release
+  drm_gem_prime_export
   drm_gem_prime_fd_to_handle
   drm_gem_prime_handle_to_fd
   drm_gem_prime_mmap
@@ -621,7 +630,6 @@
   __sg_alloc_table_from_pages
   sg_free_table
   sg_next
-  strncpy
   sync_file_create
   sync_file_get_fence
   __tracepoint_dma_fence_emit
@@ -635,6 +643,7 @@
   ttm_bo_init_mm
   ttm_bo_kmap
   ttm_bo_kunmap
+  ttm_bo_manager_func
   ttm_bo_mmap
   ttm_bo_move_to_lru_tail
   ttm_bo_put
@@ -645,6 +654,7 @@
   ttm_eu_backoff_reservation
   ttm_eu_fence_buffer_objects
   ttm_eu_reserve_buffers
+  ttm_tt_init
   vmemmap
   ww_mutex_lock_interruptible
   ww_mutex_unlock
@@ -803,7 +813,6 @@
   pci_read_config_byte
   pci_release_region
   pci_release_selected_regions
-  pci_request_region
   pci_request_selected_regions
   virtio_device_freeze
   virtio_device_restore
