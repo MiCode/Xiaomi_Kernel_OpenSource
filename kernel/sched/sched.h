@@ -2687,6 +2687,11 @@ extern void add_new_task_to_grp(struct task_struct *new);
 #define RESTRAINED_BOOST_DISABLE -3
 #define MAX_NUM_BOOST_TYPE (RESTRAINED_BOOST+1)
 
+static inline bool is_asym_cap_cpu(int cpu)
+{
+	return cpumask_test_cpu(cpu, &asym_cap_sibling_cpus);
+}
+
 static inline int asym_cap_siblings(int cpu1, int cpu2)
 {
 	return (cpumask_test_cpu(cpu1, &asym_cap_sibling_cpus) &&
@@ -2995,6 +3000,8 @@ static inline struct sched_cluster *rq_cluster(struct rq *rq)
 {
 	return NULL;
 }
+
+static inline bool is_asym_cap_cpu(int cpu) { return false; }
 
 static inline int asym_cap_siblings(int cpu1, int cpu2) { return 0; }
 
