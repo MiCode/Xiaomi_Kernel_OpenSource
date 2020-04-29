@@ -17,6 +17,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
+#include <linux/regulator/proxy-consumer.h>
 #include <soc/qcom/rpm-smd.h>
 #include <linux/debugfs.h>
 /* Debug Definitions */
@@ -1233,6 +1234,7 @@ static int rpm_vreg_device_remove(struct platform_device *pdev)
 		rpm_vreg = reg->rpm_vreg;
 		rpm_vreg_lock(rpm_vreg);
 		regulator_unregister(reg->rdev);
+		devm_regulator_proxy_consumer_unregister(dev);
 		list_del(&reg->list);
 		kfree(reg);
 		rpm_vreg_unlock(rpm_vreg);
@@ -1557,6 +1559,11 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 		goto fail_remove_from_list;
 	}
 
+	rc = devm_regulator_proxy_consumer_register(dev, node);
+	if (rc)
+		vreg_err(reg, "failed to register proxy consumer, rc=%d\n",
+			rc);
+
 	platform_set_drvdata(pdev, reg);
 
 	rpm_vreg_create_debugfs(reg);
@@ -1734,6 +1741,7 @@ static struct platform_driver rpm_vreg_device_driver = {
 	.driver = {
 		.name = "qcom,rpm-smd-regulator",
 		.of_match_table = rpm_vreg_match_table_device,
+		.sync_state = regulator_proxy_consumer_sync_state,
 	},
 };
 
