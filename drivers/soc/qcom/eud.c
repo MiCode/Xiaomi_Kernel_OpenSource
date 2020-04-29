@@ -297,6 +297,17 @@ static void eud_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	/* Nothing to set */
 }
 
+static unsigned int eud_get_mctrl(struct uart_port *port)
+{
+	return 0;
+}
+
+static void eud_set_termios(struct uart_port *port, struct ktermios *new,
+				struct ktermios *old)
+{
+	/* Nothing to do here, but to satisfy the serial core */
+}
+
 static void eud_stop_tx(struct uart_port *port)
 {
 	/* Disable Tx interrupt */
@@ -377,6 +388,8 @@ static int eud_verify_port(struct uart_port *port,
 static const struct uart_ops eud_uart_ops = {
 	.tx_empty	= eud_tx_empty,
 	.set_mctrl	= eud_set_mctrl,
+	.get_mctrl	= eud_get_mctrl,
+	.set_termios	= eud_set_termios,
 	.stop_tx	= eud_stop_tx,
 	.start_tx	= eud_start_tx,
 	.stop_rx	= eud_stop_rx,
