@@ -109,6 +109,11 @@
 		qcom,slv-addr-space-size = <0x4000000>;
 		qcom,ep-latency = <10>;
 
+		qcom,phy-manage-pll = <1>;
+		qcom,phy-resetsm-cntrl2 = <0xa0>;
+		qcom,phy-core-pll-en-mux = <7>;
+		qcom,phy-c-ready-status = <0x178>;
+
 		qcom,pcie-phy-ver = <10971>;
 		qcom,phy-status-offset = <0x214>;
 		qcom,phy-status-bit = <6>;
