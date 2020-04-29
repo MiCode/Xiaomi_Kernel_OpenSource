@@ -2664,6 +2664,10 @@
 	thermal_zones: thermal-zones {
 	};
 
+	qmi_tmd: qmi-tmd-devices {
+		compatible = "qcom,qmi-cooling-devices";
+	};
+
 	cache-controller@9200000 {
 		compatible = "qcom,lahaina-llcc", "qcom,llcc-v2";
 		reg = <0x9200000 0x1d0000> , <0x9600000 0x50000>;
