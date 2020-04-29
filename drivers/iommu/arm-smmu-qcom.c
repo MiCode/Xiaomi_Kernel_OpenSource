@@ -243,7 +243,7 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	u32 tbu_inv_pending = 0, tbu_sync_pending = 0;
 	u32 tbu_inv_acked = 0, tbu_sync_acked = 0;
 	u32 tcu_inv_pending = 0, tcu_sync_pending = 0;
-	u32 tbu_ids = 0;
+	unsigned long tbu_ids = 0;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	int ret;
 
@@ -304,8 +304,8 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 			tcu_inv_pending?"pending":"completed",
 			tcu_sync_pending?"pending":"completed");
 
-		for_each_set_bit(tbu_id, (unsigned long *) &tbu_ids,
-				 sizeof(tbu_ids) * BITS_PER_BYTE) {
+		for_each_set_bit(tbu_id, &tbu_ids, sizeof(tbu_ids) *
+				 BITS_PER_BYTE) {
 
 			struct qsmmuv500_tbu_device *tbu;
 
