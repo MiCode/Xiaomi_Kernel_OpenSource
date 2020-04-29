@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -404,6 +404,7 @@ enum a6xx_debugbus_id {
 	A6XX_DBGBUS_RAS          = 0xc,
 	A6XX_DBGBUS_VSC          = 0xd,
 	A6XX_DBGBUS_COM          = 0xe,
+	A6XX_DBGBUS_COM_1        = 0xf,
 	A6XX_DBGBUS_LRZ          = 0x10,
 	A6XX_DBGBUS_A2D          = 0x11,
 	A6XX_DBGBUS_CCUFCHE      = 0x12,
@@ -513,6 +514,11 @@ static const struct adreno_debugbus_block a650_dbgc_debugbus_blocks[] = {
 	{ A6XX_DBGBUS_SPTP_3, 0x100, },
 	{ A6XX_DBGBUS_SPTP_4, 0x100, },
 	{ A6XX_DBGBUS_SPTP_5, 0x100, },
+};
+
+static const struct adreno_debugbus_block a702_dbgc_debugbus_blocks[] = {
+	{ A6XX_DBGBUS_COM_1, 0x100, },
+	{ A6XX_DBGBUS_SPTP_0, 0x100, },
 };
 
 #define A6XX_NUM_SHADER_BANKS 3
@@ -1525,6 +1531,15 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot, a6xx_snapshot_dbgc_debugbus_block,
 				(void *) &a650_dbgc_debugbus_blocks[i]);
+		}
+	}
+
+	if (adreno_is_a702(adreno_dev)) {
+		for (i = 0; i < ARRAY_SIZE(a702_dbgc_debugbus_blocks); i++) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, a6xx_snapshot_dbgc_debugbus_block,
+				(void *) &a702_dbgc_debugbus_blocks[i]);
 		}
 	}
 
