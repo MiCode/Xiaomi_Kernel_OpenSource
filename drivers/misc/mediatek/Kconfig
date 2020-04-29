@@ -1,3 +1,7 @@
 menu "Storage"
 source "drivers/misc/mediatek/pidmap/Kconfig"
 endmenu # Storage
+
+menu "Power, PMIC, Battery & Low Power"
+source "drivers/misc/mediatek/cm_mgr/Kconfig"
+endmenu # Power
