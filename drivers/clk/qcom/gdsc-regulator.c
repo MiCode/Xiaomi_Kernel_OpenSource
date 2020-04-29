@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,7 @@ struct gdsc {
 	int			reset_count;
 	int			root_clk_idx;
 	u32			gds_timeout;
+	bool			skip_disable_before_enable;
 };
 
 enum gdscr_status {
@@ -423,6 +424,8 @@ end:
 		sc->is_bus_enabled = false;
 	}
 
+	sc->skip_disable_before_enable = false;
+
 	if (ret && sc->parent_regulator)
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
@@ -434,6 +437,16 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
+
+	/*
+	 * Protect GDSC against late_init disabling when the GDSC is enabled
+	 * by an entity outside external to HLOS.
+	 */
+	if (sc->skip_disable_before_enable) {
+		dev_dbg(&rdev->dev, "Skip Disabling: %s\n", sc->rdesc.name);
+		sc->skip_disable_before_enable = false;
+		return 0;
+	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -993,6 +1006,9 @@ static int gdsc_probe(struct platform_device *pdev)
 		else
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
 	}
+
+	sc->skip_disable_before_enable = of_property_read_bool(
+		pdev->dev.of_node, "qcom,skip-disable-before-sw-enable");
 
 	reg_config.dev = &pdev->dev;
 	reg_config.init_data = init_data;
