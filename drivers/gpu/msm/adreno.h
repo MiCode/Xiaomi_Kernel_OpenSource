@@ -340,6 +340,11 @@ struct adreno_reglist {
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
 	unsigned int core, major, minor, patchid;
+	/**
+	 * @compatible: If specified, use the compatible string to match the
+	 * device
+	 */
+	const char *compatible;
 	unsigned long features;
 	struct adreno_gpudev *gpudev;
 	unsigned long gmem_base;
