@@ -156,7 +156,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_gpu_memnoc_gfx_clk",
 	"gcc_gpu_snoc_dvm_gfx_clk",
 	"gcc_gpu_throttle_core_clk",
-	"gcc_gpu_throttle_xo_clk",
 	"gcc_mss_vs_clk",
 	"gcc_pdm2_clk",
 	"gcc_pdm_ahb_clk",
@@ -267,7 +266,6 @@ static int gcc_debug_mux_sels[] = {
 	0xE4,		/* gcc_gpu_memnoc_gfx_clk */
 	0xE6,		/* gcc_gpu_snoc_dvm_gfx_clk */
 	0xEB,		/* gcc_gpu_throttle_core_clk */
-	0xEA,		/* gcc_gpu_throttle_xo_clk */
 	0xBE,		/* gcc_mss_vs_clk */
 	0x72,		/* gcc_pdm2_clk */
 	0x70,		/* gcc_pdm_ahb_clk */
