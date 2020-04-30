@@ -195,7 +195,6 @@
 #define GCC_VIDEO_VENUS_CLK_SRC			186
 #define GCC_VIDEO_VENUS_CTL_CLK			187
 #define GCC_VIDEO_XO_CLK			188
-#define GCC_VSENSOR_CLK_SRC			189
 
 /* GCC power domains */
 #define GCC_CAMSS_TOP_GDSC			0
