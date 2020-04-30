@@ -1294,6 +1294,11 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	switch (type) {
 	case MHI_DEV_RING_EL_RESET:
 	case MHI_DEV_RING_EL_STOP:
+		if ((chid-HW_CHANNEL_BASE) > NUM_HW_CHANNELS) {
+			pr_err("Invalid Channel ID = 0x%X\n", chid);
+			return -EINVAL;
+		}
+
 		rc = ipa_mhi_disconnect_pipe(
 			mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
 		if (rc)
@@ -1303,6 +1308,16 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
+
+		if (chid > HW_CHANNEL_END) {
+			pr_err("Channel DB for %d not enabled\n", chid);
+			return -EINVAL;
+		}
+
+		if ((chid-HW_CHANNEL_BASE) > NUM_HW_CHANNELS) {
+			pr_err("Invalid Channel = 0x%X\n", chid);
+			return -EINVAL;
+		}
 
 		rc = ipa_mhi_connect_pipe(&connect_params,
 			&mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
