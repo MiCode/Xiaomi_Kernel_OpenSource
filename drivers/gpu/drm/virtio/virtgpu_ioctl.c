@@ -584,7 +584,6 @@ copy_exit:
 static int virtio_gpu_resource_create_blob_ioctl(struct drm_device *dev,
 				void *data, struct drm_file *file)
 {
-	void *buf;
 	uint32_t device_blob_mem = 0;
 	int ret, si, nents;
 	uint32_t handle = 0;
@@ -620,7 +619,7 @@ static int virtio_gpu_resource_create_blob_ioctl(struct drm_device *dev,
 			device_blob_mem = VIRTIO_GPU_BLOB_MEM_HOSTSYS_GUEST;
 	}
 
-	if (rc_blob->cmd_size && vfpriv) {
+	if (rc_blob->cmd_size) {
 		void *buf;
 		void __user *cmd = u64_to_user_ptr(rc_blob->cmd);
 
@@ -672,7 +671,7 @@ static int virtio_gpu_resource_create_blob_ioctl(struct drm_device *dev,
 	fence = virtio_gpu_fence_alloc(vgdev);
 	if (!fence) {
 		ret = -ENOMEM;
-		goto err_free_buf;
+		goto err_free_obj;
 	}
 
 	virtio_gpu_cmd_resource_create_blob(vgdev, obj, vfpriv->ctx_id,
@@ -705,8 +704,6 @@ static int virtio_gpu_resource_create_blob_ioctl(struct drm_device *dev,
 
 err_fence_put:
 	dma_fence_put(&fence->f);
-err_free_buf:
-	kfree(buf);
 err_free_obj:
 	drm_gem_object_release(&obj->gem_base);
 	return ret;
