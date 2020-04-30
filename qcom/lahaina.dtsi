@@ -3762,6 +3762,22 @@
 		operating-points-v2 = <&ddr_bw_opp_table>;
 	};
 
+	cpu4_cpu_llcc_latfloor: qcom,cpu4-cpu-llcc-latfloor {
+		compatible = "qcom,devfreq-icc";
+		governor = "performance";
+		interconnects = <&gem_noc MASTER_APPSS_PROC &gem_noc SLAVE_LLCC>;
+		qcom,active-only;
+		operating-points-v2 = <&llcc_bw_opp_table>;
+	};
+
+	cpu7_cpu_ddr_latfloor: qcom,cpu7-cpu-ddr-latfloor {
+		compatible = "qcom,devfreq-icc-ddr";
+		governor = "performance";
+		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
+		qcom,active-only;
+		operating-points-v2 = <&ddr_bw_opp_table>;
+	};
+
 	cpu4_cpu_ddr_qoslat: qcom,cpu4-cpu-ddr-qoslat {
 		compatible = "qcom,devfreq-qoslat";
 		governor = "powersave";
@@ -3961,15 +3977,41 @@
 				qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
 				qcom,core-dev-table =
 					< 1804800 MHZ_TO_MBPS( 200, 4) >,
-					< 2304000 MHZ_TO_MBPS(1017, 4) >,
-					< 2400000 MHZ_TO_MBPS(2133, 4) >;
+					< 2400000 MHZ_TO_MBPS(1017, 4) >;
 			};
 
 			ddr5-map {
 				qcom,ddr-type = <DDR_TYPE_LPDDR5>;
 				qcom,core-dev-table =
 					< 1804800 MHZ_TO_MBPS( 200, 4) >,
-					< 2303000 MHZ_TO_MBPS(1555, 4) >,
+					< 2400000 MHZ_TO_MBPS(1555, 4) >;
+			};
+		};
+
+		cpu4_llcc_computemon: qcom,cpu4-llcc-computemon {
+			compatible = "qcom,arm-compute-mon";
+			qcom,target-dev = <&cpu4_cpu_llcc_latfloor>;
+			qcom,core-dev-table =
+				< 1804800 MHZ_TO_MBPS( 150, 16) >,
+				< 2400000 MHZ_TO_MBPS( 600, 16) >;
+		};
+
+		cpu7_llcc_ddr_latmon: qcom,cpu7-llcc-ddr-latmon {
+			compatible = "qcom,arm-memlat-mon";
+			qcom,cpulist = <&CPU7>;
+			qcom,target-dev = <&cpu7_cpu_ddr_latfloor>;
+			qcom,cachemiss-ev = <0x1000>;
+			ddr4-map {
+				qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+				qcom,core-dev-table =
+					< 2304000 MHZ_TO_MBPS( 200, 4) >,
+					< 2400000 MHZ_TO_MBPS(2133, 4) >;
+			};
+
+			ddr5-map {
+				qcom,ddr-type = <DDR_TYPE_LPDDR5>;
+				qcom,core-dev-table =
+					< 2304000 MHZ_TO_MBPS( 200, 4) >,
 					< 2400000 MHZ_TO_MBPS(3196, 4) >;
 			};
 		};
