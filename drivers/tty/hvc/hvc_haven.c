@@ -226,24 +226,21 @@ static int __init hvc_hh_console_init(void)
 {
 	int ret;
 
+	/* Need to call RM CONSOLE_OPEN before console can be used */
+	ret = hh_rm_console_open(0);
+	if (ret)
+		return ret;
+
 	ret = hvc_instantiate(hh_vm_name_to_vtermno(HH_SELF_VM), 0,
 			      &hh_hv_ops);
 
 	return ret < 0 ? -ENODEV : 0;
-}
-
-static void __init hh_hvc_console_post_init(void)
-{
-	/* Need to call RM CONSOLE_OPEN before console can be used */
-	hh_hvc_notify_add(hh_hvc_data[HH_SELF_VM].hvc, HH_SELF_VM);
 }
 #else
 static int __init hvc_hh_console_init(void)
 {
 	return 0;
 }
-
-static void __init hh_hvc_console_post_init(void) { }
 #endif /* CONFIG_HVC_HAVEN_CONSOLE */
 
 static int __init hvc_hh_init(void)
@@ -275,8 +272,6 @@ static int __init hvc_hh_init(void)
 	ret = hh_rm_register_notifier(&hh_hvc_nb);
 	if (ret)
 		goto bail;
-
-	hh_hvc_console_post_init();
 
 	return 0;
 bail:
