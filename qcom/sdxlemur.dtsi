@@ -1,3 +1,7 @@
+#include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/clock/qcom,apsscc-sdxlemur.h>
+#include <dt-bindings/clock/qcom,gcc-sdxlemur.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -188,6 +192,79 @@
 			compatible = "qcom,msm-imem-diag-dload";
 			reg = <0xc8 0xc8>;
 		};
+	};
+
+	clocks {
+		xo_board: xo-board {
+			compatible = "fixed-clock";
+			clock-frequency = <38400000>;
+			clock-output-names = "xo_board";
+			#clock-cells = <0>;
+		};
+
+		sleep_clk: sleep-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32764>;
+			clock-output-names = "sleep_clk";
+			#clock-cells = <0>;
+		};
+	};
+
+	bi_tcxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	bi_tcxo_ao: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	aopcc: clock-controller@0 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "aopcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	rpmhcc: clock-controller@1 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmhcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	gcc: clock-controller@100000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	apsscc: clock-controller@17808000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "apsscc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	 /* GCC GDSCs */
+	gcc_pcie_gdsc: qcom,gdsc@143004 {
+		compatible = "regulator-fixed";
+		reg = <0x143004 0x4>;
+		regulator-name = "gcc_pcie_gdsc";
+	};
+
+	gcc_usb30_gdsc: qcom,gdsc@117004 {
+		compatible = "regulator-fixed";
+		reg = <0x117004 0x4>;
+		regulator-name = "gcc_usb30_gdsc";
 	};
 };
 
