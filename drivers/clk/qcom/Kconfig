@@ -317,6 +317,15 @@ config SM_GPUCC_8150
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SM_VIDEOCC_8150
+	tristate "SM8150 Video Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 config SPMI_PMIC_CLKDIV
 	tristate "SPMI PMIC clkdiv Support"
 	depends on SPMI || COMPILE_TEST
