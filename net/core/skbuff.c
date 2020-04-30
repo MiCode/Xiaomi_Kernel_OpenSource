@@ -340,6 +340,9 @@ static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
 	unsigned long flags;
 	void *data;
 
+	if (IS_ENABLED(CONFIG_FORCE_ALLOC_FROM_DMA_ZONE))
+		gfp_mask |= GFP_DMA;
+
 	local_irq_save(flags);
 	nc = this_cpu_ptr(&netdev_alloc_cache);
 	data = page_frag_alloc(nc, fragsz, gfp_mask);
