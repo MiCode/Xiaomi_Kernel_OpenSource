@@ -1905,12 +1905,6 @@ struct sched_class {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_change_group)(struct task_struct *p, int type);
 #endif
-
-#ifdef CONFIG_SCHED_WALT
-	void (*fixup_walt_sched_stats)(struct rq *rq, struct task_struct *p,
-					u16 updated_demand_scaled,
-					u16 updated_pred_demand_scaled);
-#endif
 };
 
 
@@ -2881,7 +2875,6 @@ struct related_thread_group {
 
 extern struct sched_cluster *sched_cluster[NR_CPUS];
 
-extern unsigned int __weak sched_disable_window_stats;
 extern unsigned int max_possible_capacity;
 extern unsigned int __weak min_max_possible_capacity;
 extern unsigned int __read_mostly __weak sched_init_task_load_windows;
@@ -3135,13 +3128,6 @@ static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
 	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
-
-extern void walt_fixup_sched_stats_fair(struct rq *rq,
-					struct task_struct *p,
-					u16 updated_demand_scaled,
-					u16 updated_pred_demand_scaled);
-extern void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
-					int delta, bool inc);
 #else   /* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;

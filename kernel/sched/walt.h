@@ -14,7 +14,8 @@
 #define EXITING_TASK_MARKER	0xdeaddead
 
 extern unsigned int __weak walt_rotation_enabled;
-
+extern int __read_mostly __weak num_sched_clusters;
+extern cpumask_t __read_mostly __weak **cpu_array;
 extern void
 walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
@@ -24,9 +25,6 @@ fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
 			      s64 demand_scaled_delta,
 			      s64 pred_demand_scaled_delta)
 {
-	if (sched_disable_window_stats)
-		return;
-
 	stats->cumulative_runnable_avg_scaled += demand_scaled_delta;
 	BUG_ON((s64)stats->cumulative_runnable_avg_scaled < 0);
 
@@ -37,9 +35,6 @@ fixup_cumulative_runnable_avg(struct walt_sched_stats *stats,
 static inline void
 walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	if (sched_disable_window_stats)
-		return;
-
 	fixup_cumulative_runnable_avg(&rq->walt_stats, p->ravg.demand_scaled,
 				      p->ravg.pred_demand_scaled);
 
@@ -57,9 +52,6 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 static inline void
 walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	if (sched_disable_window_stats)
-		return;
-
 	fixup_cumulative_runnable_avg(&rq->walt_stats,
 				      -(s64)p->ravg.demand_scaled,
 				      -(s64)p->ravg.pred_demand_scaled);
@@ -73,12 +65,32 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 		walt_fixup_cum_window_demand(rq, -(s64)p->ravg.demand_scaled);
 }
 
-extern void
-fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
-					  u16 updated_demand_scaled,
-					  u16 updated_pred_demand_scaled);
-extern void inc_rq_walt_stats(struct rq *rq, struct task_struct *p);
-extern void dec_rq_walt_stats(struct rq *rq, struct task_struct *p);
+static inline void walt_adjust_nr_big_tasks(struct rq *rq, int delta, bool inc)
+{
+	sched_update_nr_prod(cpu_of(rq), 0, true);
+	rq->walt_stats.nr_big_tasks += inc ? delta : -delta;
+
+	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
+}
+
+static inline void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
+{
+	if (p->misfit)
+		rq->walt_stats.nr_big_tasks++;
+
+	walt_inc_cumulative_runnable_avg(rq, p);
+}
+
+static inline void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
+{
+	if (p->misfit)
+		rq->walt_stats.nr_big_tasks--;
+
+	BUG_ON(rq->walt_stats.nr_big_tasks < 0);
+
+	walt_dec_cumulative_runnable_avg(rq, p);
+}
+
 extern void fixup_busy_time(struct task_struct *p, int new_cpu);
 extern void init_new_task_load(struct task_struct *p);
 extern void mark_task_starting(struct task_struct *p);
@@ -238,13 +250,6 @@ inc_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
 
 static inline void
 dec_rq_walt_stats(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
-			      u16 updated_demand_scaled,
-			      u16 updated_pred_demand_scaled)
-{
-}
 
 static inline u64 sched_irqload(int cpu)
 {
