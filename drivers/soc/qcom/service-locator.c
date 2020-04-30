@@ -388,5 +388,6 @@ int find_subsys(const char *pd_path, char *subsys)
 }
 EXPORT_SYMBOL(find_subsys);
 
+MODULE_SOFTDEP("pre: qrtr");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Service Locator driver");
