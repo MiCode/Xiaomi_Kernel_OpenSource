@@ -940,6 +940,24 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 	}
 	phys = virt_to_phys(virt);
 
+	/*
+	 * A previous test might have made it so that the next IOVA that we
+	 * start to search from is not 0, so map the entire IOVA space, and
+	 * then unmap it to reset the starting IOVA to search from to address
+	 * 0.
+	 */
+	dma_addr = dma_map_single_attrs(dev, virt, SZ_1G * 4ULL, DMA_TO_DEVICE,
+					DMA_ATTR_SKIP_CPU_SYNC);
+	if (dma_mapping_error(dev, dma_addr)) {
+		dev_err_ratelimited(dev,
+				    "Failed to map all of the IOVA space\n");
+		ret = -ENOMEM;
+		goto out_free_pages;
+	}
+
+	dma_unmap_single_attrs(dev, dma_addr, SZ_1G * 4ULL, DMA_TO_DEVICE,
+			       DMA_ATTR_SKIP_CPU_SYNC);
+
 	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
 		unsigned long expected = iova;
 
@@ -991,6 +1009,7 @@ out:
 	for (iova = 0; iova < max; iova += size)
 		dma_unmap_single(dev, (dma_addr_t)iova, size, DMA_TO_DEVICE);
 
+out_free_pages:
 	free_pages((unsigned long)virt, get_order(size));
 	return ret;
 }
