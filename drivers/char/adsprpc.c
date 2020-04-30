@@ -5126,8 +5126,6 @@ static int fastrpc_cb_probe(struct device *dev)
 	}
 
 	chan->sesscount++;
-	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
-							NULL, &debugfs_fops);
 bail:
 	return err;
 }
@@ -5375,6 +5373,8 @@ static int __init fastrpc_device_init(void)
 	int err = 0, i;
 
 	debugfs_root = debugfs_create_dir("adsprpc", NULL);
+	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
+							NULL, &debugfs_fops);
 	memset(me, 0, sizeof(*me));
 	fastrpc_init(me);
 	me->dev = NULL;
