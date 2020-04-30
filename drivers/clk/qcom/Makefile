@@ -77,6 +77,7 @@ obj-$(CONFIG_SM_GCC_SHIMA) += gcc-shima.o
 obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
 obj-$(CONFIG_SM_GPUCC_HOLI) += gpucc-holi.o
 obj-$(CONFIG_SM_GPUCC_SHIMA) += gpucc-shima.o
+obj-$(CONFIG_SM_NPUCC_8150) += npucc-sm8150.o
 obj-$(CONFIG_SM_VIDEOCC_8150) += videocc-sm8150.o
 obj-$(CONFIG_SM_VIDEOCC_SHIMA) += videocc-shima.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
