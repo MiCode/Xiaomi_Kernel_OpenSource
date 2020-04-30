@@ -2079,13 +2079,8 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 register_driver:
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
-				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE,
+				     CNSS_EVENT_SYNC_UNKILLABLE,
 				     driver_ops);
-	if (ret == -EINTR) {
-		cnss_pr_dbg("Register driver work is killed\n");
-		del_timer(&plat_priv->fw_boot_timer);
-		pci_priv->driver_ops = NULL;
-	}
 
 	return ret;
 }
