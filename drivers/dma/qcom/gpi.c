@@ -134,6 +134,11 @@ enum EV_PRIORITY {
 #define STATE_IGNORE (U32_MAX)
 #define REQ_OF_DMA_ARGS (5) /* # of arguments required from client */
 
+#define NOOP_TRE_MASK(link_rx, bei, ieot, ieob, ch) \
+	((0x0 << 20) | (0x0 << 16) | (link_rx << 11) | (bei << 10) | \
+	(ieot << 9) | (ieob << 8) | ch)
+#define NOOP_TRE (0x0 << 20 | 0x1 << 16)
+
 struct __packed gpi_error_log_entry {
 	u32 routine : 4;
 	u32 type : 4;
@@ -445,6 +450,7 @@ struct gpi_dev {
 	u32 ipc_log_lvl;
 	u32 klog_lvl;
 	struct dentry *dentry;
+	bool is_le_vm;
 };
 
 static struct gpi_dev *gpi_dev_dbg[5];
@@ -544,6 +550,8 @@ struct gpii_chan {
 	u32 dir;
 	struct gpi_ring ch_ring;
 	struct gpi_client_info client_info;
+	u32 lock_tre_set;
+	u32 num_tre;
 };
 
 struct gpii {
@@ -1663,7 +1671,8 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 			return;
 		}
 	} else if (compl_event->code == MSM_GPI_TCE_EOB) {
-		goto gpi_free_desc;
+		if (!(gpii_chan->num_tre == 1 && gpii_chan->lock_tre_set))
+			goto gpi_free_desc;
 	}
 
 	tx_cb_param = vd->tx.callback_param;
@@ -2199,6 +2208,7 @@ int gpi_terminate_all(struct dma_chan *chan)
 {
 	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
 	struct gpii *gpii = gpii_chan->gpii;
+	struct gpi_dev *gpi_dev = gpii->gpi_dev;
 	int schid, echid, i;
 	int ret = 0;
 
@@ -2213,21 +2223,22 @@ int gpi_terminate_all(struct dma_chan *chan)
 	echid = (gpii->protocol == SE_PROTOCOL_UART) ? schid + 1 :
 		MAX_CHANNELS_PER_GPII;
 
-	/* stop the channel */
-	for (i = schid; i < echid; i++) {
-		gpii_chan = &gpii->gpii_chan[i];
+	if (!gpi_dev->is_le_vm) {
+		/* stop the channel */
+		for (i = schid; i < echid; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
 
-		/* disable ch state so no more TRE processing */
-		write_lock_irq(&gpii->pm_lock);
-		gpii_chan->pm_state = PREPARE_TERMINATE;
-		write_unlock_irq(&gpii->pm_lock);
+			/* disable ch state so no more TRE processing */
+			write_lock_irq(&gpii->pm_lock);
+			gpii_chan->pm_state = PREPARE_TERMINATE;
+			write_unlock_irq(&gpii->pm_lock);
 
-		/* send command to Stop the channel */
-		ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_STOP);
-		if (ret)
-			GPII_ERR(gpii, gpii_chan->chid,
-				 "Error Stopping Channel:%d resetting anyway\n",
-				 ret);
+			/* send command to Stop the channel */
+			ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_STOP);
+			if (ret)
+				GPII_ERR(gpii, gpii_chan->chid,
+				"Error Stopping Chan:%d resetting\n", ret);
+		}
 	}
 
 	/* reset the channels (clears any pending tre) */
@@ -2267,6 +2278,44 @@ terminate_exit:
 	return ret;
 }
 
+static void gpi_noop_tre(struct gpii_chan *gpii_chan)
+{
+	struct gpii *gpii = gpii_chan->gpii;
+	struct gpi_ring *ch_ring = &gpii_chan->ch_ring;
+	phys_addr_t local_rp, local_wp;
+	void *cntxt_rp;
+	u32 noop_mask, noop_tre;
+	struct msm_gpi_tre *tre;
+
+	GPII_INFO(gpii, gpii_chan->chid, "Enter\n");
+
+	local_rp = to_physical(ch_ring, ch_ring->rp);
+	local_wp = to_physical(ch_ring, ch_ring->wp);
+	cntxt_rp = ch_ring->rp;
+
+	GPII_INFO(gpii, gpii_chan->chid,
+		"local_rp:0x%0llx local_wp:0x%0llx\n", local_rp, local_wp);
+
+	noop_mask = NOOP_TRE_MASK(1, 0, 0, 0, 1);
+	noop_tre = NOOP_TRE;
+
+	while (local_rp != local_wp) {
+		tre = (struct msm_gpi_tre *)cntxt_rp;
+		tre->dword[3] &= noop_mask;
+		tre->dword[3] |= noop_tre;
+		local_rp += ch_ring->el_size;
+		cntxt_rp += ch_ring->el_size;
+		if (cntxt_rp >= (ch_ring->base + ch_ring->len)) {
+			cntxt_rp = ch_ring->base;
+			local_rp = to_physical(ch_ring, ch_ring->base);
+		}
+		GPII_INFO(gpii, gpii_chan->chid,
+			"local_rp:0x%0llx\n", local_rp);
+	}
+
+	GPII_INFO(gpii, gpii_chan->chid, "exit\n");
+}
+
 /* pause dma transfer for all channels */
 static int gpi_pause(struct dma_chan *chan)
 {
@@ -2277,38 +2326,41 @@ static int gpi_pause(struct dma_chan *chan)
 	GPII_INFO(gpii, gpii_chan->chid, "Enter\n");
 	mutex_lock(&gpii->ctrl_lock);
 
-	/*
-	 * pause/resume are per gpii not per channel, so
-	 * client needs to call pause only once
-	 */
-	if (gpii->pm_state == PAUSE_STATE) {
-		GPII_INFO(gpii, gpii_chan->chid,
-			  "channel is already paused\n");
-		mutex_unlock(&gpii->ctrl_lock);
-		return 0;
-	}
-
 	/* send stop command to stop the channels */
 	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
-		ret = gpi_send_cmd(gpii, &gpii->gpii_chan[i], GPI_CH_CMD_STOP);
+		gpii_chan = &gpii->gpii_chan[i];
+		/* disable ch state so no more TRE processing */
+		write_lock_irq(&gpii->pm_lock);
+		gpii_chan->pm_state = PREPARE_TERMINATE;
+		write_unlock_irq(&gpii->pm_lock);
+			/* send command to Stop the channel */
+		ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_STOP);
 		if (ret) {
 			GPII_ERR(gpii, gpii->gpii_chan[i].chid,
 				 "Error stopping chan, ret:%d\n", ret);
+			mutex_unlock(&gpii->ctrl_lock);
+			return -ECONNRESET;
+		}
+	}
+
+	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+		gpii_chan = &gpii->gpii_chan[i];
+		gpi_noop_tre(gpii_chan);
+	}
+
+	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+		gpii_chan = &gpii->gpii_chan[i];
+
+		ret = gpi_start_chan(gpii_chan);
+		if (ret) {
+			GPII_ERR(gpii, gpii_chan->chid,
+				 "Error Starting Channel ret:%d\n", ret);
 			mutex_unlock(&gpii->ctrl_lock);
 			return ret;
 		}
 	}
 
-	disable_irq(gpii->irq);
-
-	/* Wait for threads to complete out */
-	tasklet_kill(&gpii->ev_task);
-
-	write_lock_irq(&gpii->pm_lock);
-	gpii->pm_state = PAUSE_STATE;
-	write_unlock_irq(&gpii->pm_lock);
 	mutex_unlock(&gpii->ctrl_lock);
-
 	return 0;
 }
 
@@ -2378,6 +2430,7 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
 	u32 tre_type;
+	gpii_chan->num_tre = sg_len;
 
 	GPII_VERB(gpii, gpii_chan->chid, "enter\n");
 
@@ -2414,6 +2467,12 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	for_each_sg(sgl, sg, sg_len, i) {
 		tre = sg_virt(sg);
 
+		if (sg_len == 1) {
+			tre_type =
+			MSM_GPI_TRE_TYPE(((struct msm_gpi_tre *)tre));
+			gpii_chan->lock_tre_set =
+			tre_type == MSM_GPI_TRE_LOCK ? true : false;
+		}
 		/* Check if last tre is an unlock tre */
 		if (i == sg_len - 1) {
 			tre_type =
@@ -2940,6 +2999,11 @@ static int gpi_probe(struct platform_device *pdev)
 				GFP_KERNEL);
 	if (!gpi_dev->gpiis)
 		return -ENOMEM;
+
+	gpi_dev->is_le_vm = of_property_read_bool(pdev->dev.of_node,
+			"qcom,le-vm");
+	if (gpi_dev->is_le_vm)
+		GPI_LOG(gpi_dev, "LE-VM usecase\n");
 
 	/* setup all the supported gpii */
 	INIT_LIST_HEAD(&gpi_dev->dma_device.channels);
