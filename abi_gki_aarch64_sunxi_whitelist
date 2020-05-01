@@ -158,8 +158,6 @@
   v4l2_spi_new_subdev
   v4l_bound_align_image
   media_create_pad_link
-  sunxi_periph_reset_assert
-  sunxi_periph_reset_deassert
   v4l2_ctrl_subscribe_event
   vb2_fop_mmap
   vb2_fop_poll
