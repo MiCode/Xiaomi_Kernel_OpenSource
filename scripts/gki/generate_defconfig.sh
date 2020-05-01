@@ -18,12 +18,20 @@ fi
 
 SCRIPTS_ROOT=$(readlink -f $(dirname $0)/)
 
-PLATFORM_NAME=`echo $1 | sed -r "s/(-gki_defconfig|-qgki_defconfig|-qgki-debug_defconfig)$//"`
+TEMP_DEF_NAME=`echo $1 | sed -r "s/_defconfig$//"`
+DEF_VARIANT=`echo ${TEMP_DEF_NAME} | sed -r "s/.*-//"`
+PLATFORM_NAME=`echo ${TEMP_DEF_NAME} | sed -r "s/-.*$//"`
 
 PLATFORM_NAME=`echo $PLATFORM_NAME | sed "s/vendor\///g"`
 
+REQUIRED_DEFCONFIG=`echo $1 | sed "s/vendor\///g"`
+
 # We should be in the kernel root after the envsetup
-source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME
+if [[  "${REQUIRED_DEFCONFIG}" != *"gki"* ]]; then
+	source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME generic_defconfig
+else
+	source ${SCRIPTS_ROOT}/envsetup.sh $PLATFORM_NAME
+fi
 
 KERN_MAKE_ARGS="ARCH=$ARCH \
 		CROSS_COMPILE=$CROSS_COMPILE \
@@ -38,12 +46,12 @@ KERN_MAKE_ARGS="ARCH=$ARCH \
 # Allyes fragment temporarily created on GKI config fragment
 QCOM_GKI_ALLYES_FRAG=${CONFIGS_DIR}/${PLATFORM_NAME}_ALLYES_GKI.config
 
+if [[ "${REQUIRED_DEFCONFIG}" == *"gki"* ]]; then
 if [ ! -f "${QCOM_GKI_FRAG}" ]; then
 	echo "Error: Invalid input"
 	usage
 fi
-
-REQUIRED_DEFCONFIG=`echo $1 | sed "s/vendor\///g"`
+fi
 
 FINAL_DEFCONFIG_BLEND=""
 
@@ -58,7 +66,13 @@ case "$REQUIRED_DEFCONFIG" in
 		;;
 	${PLATFORM_NAME}-gki_defconfig )
 		FINAL_DEFCONFIG_BLEND+=" $QCOM_GKI_FRAG "
+		;;
+	${PLATFORM_NAME}-debug_defconfig )
+		FINAL_DEFCONFIG_BLEND+=" $QCOM_GENERIC_DEBUG_FRAG "
 		;&
+	${PLATFORM_NAME}_defconfig )
+		FINAL_DEFCONFIG_BLEND+=" $QCOM_GENERIC_PERF_FRAG "
+		;;
 esac
 
 FINAL_DEFCONFIG_BLEND+=${BASE_DEFCONFIG}
