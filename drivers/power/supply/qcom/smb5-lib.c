@@ -1963,13 +1963,14 @@ static bool is_charging_paused(struct smb_charger *chg)
 	return val & CHARGING_PAUSE_CMD_BIT;
 }
 
+#define CUTOFF_COUNT		3
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
 	bool usb_online, dc_online;
 	u8 stat;
-	int rc, suspend = 0;
+	int rc, suspend = 0, input_present = 0;
 
 	if (chg->fake_chg_status_on_debug_batt) {
 		rc = smblib_get_prop_from_bms(chg,
@@ -1981,6 +1982,44 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 			return 0;
 		}
+	}
+
+	rc = smblib_get_prop_batt_health(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get batt health rc=%d\n", rc);
+		return rc;
+	}
+	/*
+	 * The charger status register shows charging even though the battery
+	 * is discharging when the over voltage condition is hit. Report power
+	 * supply state as NOT_CHARGING when the battery health reports
+	 * over voltage.
+	 */
+	if (pval.intval == POWER_SUPPLY_HEALTH_OVERVOLTAGE) {
+		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		return 0;
+	}
+
+	/*
+	 * If SOC = 0 and we are discharging with input connected, report
+	 * the battery status as DISCHARGING.
+	 */
+	smblib_is_input_present(chg, &input_present);
+	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (!rc && pval.intval == 0 && input_present) {
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
+		if (!rc && pval.intval > 0) {
+			if (chg->cutoff_count > CUTOFF_COUNT) {
+				val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+				return 0;
+			}
+			chg->cutoff_count++;
+		} else {
+			chg->cutoff_count = 0;
+		}
+	} else {
+		chg->cutoff_count = 0;
 	}
 
 	if (chg->dbc_usbov) {
@@ -6125,6 +6164,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
 	int sec_charger;
+	u8 val[2] = {0};
 
 	sec_charger = chg->sec_pl_present ? POWER_SUPPLY_CHARGER_SEC_PL :
 				POWER_SUPPLY_CHARGER_SEC_NONE;
@@ -6214,6 +6254,18 @@ static void typec_src_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg, "Couldn't write float charger options rc=%d\n",
 			rc);
+
+	if (chg->sdam_base) {
+		rc = smblib_write(chg,
+			chg->sdam_base + SDAM_QC_DET_STATUS_REG, 0);
+		if (rc < 0)
+			pr_err("Couldn't clear SDAM QC status rc=%d\n", rc);
+
+		rc = smblib_batch_write(chg,
+			chg->sdam_base + SDAM_QC_ADC_LSB_REG, val, 2);
+		if (rc < 0)
+			pr_err("Couldn't clear SDAM ADC status rc=%d\n", rc);
+	}
 
 	if (!chg->pr_swap_in_progress) {
 		rc = smblib_usb_pd_adapter_allowance_override(chg, FORCE_NULL);

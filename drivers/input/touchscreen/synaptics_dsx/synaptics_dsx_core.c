@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -3637,7 +3637,7 @@ static int synaptics_rmi4_gpio_setup(int gpio, bool config, int dir, int state)
 	unsigned char buf[16];
 
 	if (config) {
-		snprintf(buf, PAGE_SIZE, "dsx_gpio_%u\n", gpio);
+		snprintf(buf, sizeof(buf), "dsx_gpio_%u\n", gpio);
 
 		retval = gpio_request(gpio, buf);
 		if (retval) {

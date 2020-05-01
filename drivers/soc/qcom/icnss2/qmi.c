@@ -383,6 +383,12 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 		req->fw_init_done_enable = 1;
 		req->cal_done_enable_valid = 1;
 		req->cal_done_enable = 1;
+		req->qdss_trace_req_mem_enable_valid = 1;
+		req->qdss_trace_req_mem_enable = 1;
+		req->qdss_trace_save_enable_valid = 1;
+		req->qdss_trace_save_enable = 1;
+		req->qdss_trace_free_enable_valid = 1;
+		req->qdss_trace_free_enable = 1;
 	}
 
 	priv->stats.ind_register_req++;
@@ -1317,6 +1323,82 @@ void icnss_handle_rejuvenate(struct icnss_priv *priv)
 				0, event_data);
 }
 
+int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
+{
+	struct wlfw_qdss_trace_mem_info_req_msg_v01 *req;
+	struct wlfw_qdss_trace_mem_info_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int ret = 0;
+	int i;
+
+	icnss_pr_dbg("Sending QDSS trace mem info, state: 0x%lx\n",
+		     priv->state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->mem_seg_len = priv->qdss_mem_seg_len;
+	for (i = 0; i < req->mem_seg_len; i++) {
+		icnss_pr_dbg("Memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx, type: %u\n",
+			     qdss_mem[i].va, &qdss_mem[i].pa,
+			     qdss_mem[i].size, qdss_mem[i].type);
+
+		req->mem_seg[i].addr = qdss_mem[i].pa;
+		req->mem_seg[i].size = qdss_mem[i].size;
+		req->mem_seg[i].type = qdss_mem[i].type;
+	}
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_qdss_trace_mem_info_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_pr_err("Fail to initialize txn for QDSS trace mem request: err %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_QDSS_TRACE_MEM_INFO_REQ_V01,
+			       WLFW_QDSS_TRACE_MEM_INFO_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_qdss_trace_mem_info_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send QDSS trace mem info request: err %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("Fail to wait for response of QDSS trace mem info request, err %d\n",
+			     ret);
+		goto out;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QDSS trace mem info request failed, result: %d, err: %d\n",
+			     resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
 static void fw_ready_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			    struct qmi_txn *txn, const void *data)
 {
@@ -1449,6 +1531,118 @@ static void fw_init_done_ind_cb(struct qmi_handle *qmi,
 				0, NULL);
 }
 
+static void wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi,
+					   struct sockaddr_qrtr *sq,
+					   struct qmi_txn *txn,
+					   const void *data)
+{
+	struct icnss_priv *priv =
+		container_of(qmi, struct icnss_priv, qmi);
+	const struct wlfw_qdss_trace_req_mem_ind_msg_v01 *ind_msg = data;
+	int i;
+
+	icnss_pr_dbg("Received QMI WLFW QDSS trace request mem indication\n");
+
+	if (!txn) {
+		icnss_pr_err("Spurious indication\n");
+		return;
+	}
+
+	if (priv->qdss_mem_seg_len) {
+		icnss_pr_err("Ignore double allocation for QDSS trace, current len %u\n",
+			     priv->qdss_mem_seg_len);
+		return;
+	}
+
+	priv->qdss_mem_seg_len = ind_msg->mem_seg_len;
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		icnss_pr_dbg("QDSS requests for memory, size: 0x%x, type: %u\n",
+			     ind_msg->mem_seg[i].size,
+			     ind_msg->mem_seg[i].type);
+		priv->qdss_mem[i].type = ind_msg->mem_seg[i].type;
+		priv->qdss_mem[i].size = ind_msg->mem_seg[i].size;
+	}
+
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
+				0, NULL);
+}
+
+static void wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi,
+					struct sockaddr_qrtr *sq,
+					struct qmi_txn *txn,
+					const void *data)
+{
+	struct icnss_priv *priv =
+		container_of(qmi, struct icnss_priv, qmi);
+	const struct wlfw_qdss_trace_save_ind_msg_v01 *ind_msg = data;
+	struct icnss_qmi_event_qdss_trace_save_data *event_data;
+	int i = 0;
+
+	icnss_pr_dbg("Received QMI WLFW QDSS trace save indication\n");
+
+	if (!txn) {
+		icnss_pr_err("Spurious indication\n");
+		return;
+	}
+
+	icnss_pr_dbg("QDSS_trace_save info: source %u, total_size %u, file_name_valid %u, file_name %s\n",
+		     ind_msg->source, ind_msg->total_size,
+		     ind_msg->file_name_valid, ind_msg->file_name);
+
+	if (ind_msg->source == 1)
+		return;
+
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+	if (!event_data)
+		return;
+
+	if (ind_msg->mem_seg_valid) {
+		if (ind_msg->mem_seg_len > QDSS_TRACE_SEG_LEN_MAX) {
+			icnss_pr_err("Invalid seg len %u\n",
+				     ind_msg->mem_seg_len);
+			goto free_event_data;
+		}
+		icnss_pr_dbg("QDSS_trace_save seg len %u\n",
+			     ind_msg->mem_seg_len);
+		event_data->mem_seg_len = ind_msg->mem_seg_len;
+		for (i = 0; i < ind_msg->mem_seg_len; i++) {
+			event_data->mem_seg[i].addr = ind_msg->mem_seg[i].addr;
+			event_data->mem_seg[i].size = ind_msg->mem_seg[i].size;
+			icnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
+				     i, ind_msg->mem_seg[i].addr,
+				     ind_msg->mem_seg[i].size);
+		}
+	}
+
+	event_data->total_size = ind_msg->total_size;
+
+	if (ind_msg->file_name_valid)
+		strlcpy(event_data->file_name, ind_msg->file_name,
+			QDSS_TRACE_FILE_NAME_MAX + 1);
+	else
+		strlcpy(event_data->file_name, "qdss_trace",
+			QDSS_TRACE_FILE_NAME_MAX + 1);
+
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
+				0, event_data);
+
+	return;
+
+free_event_data:
+	kfree(event_data);
+}
+
+static void wlfw_qdss_trace_free_ind_cb(struct qmi_handle *qmi,
+					struct sockaddr_qrtr *sq,
+					struct qmi_txn *txn,
+					const void *data)
+{
+	struct icnss_priv *priv =
+		container_of(qmi, struct icnss_priv, qmi);
+
+	icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
+				0, NULL);
+}
 static struct qmi_msg_handler wlfw_msg_handlers[] = {
 	{
 		.type = QMI_INDICATION,
@@ -1492,6 +1686,30 @@ static struct qmi_msg_handler wlfw_msg_handlers[] = {
 		.ei = wlfw_fw_init_done_ind_msg_v01_ei,
 		.decoded_size = sizeof(struct wlfw_fw_init_done_ind_msg_v01),
 		.fn = fw_init_done_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_QDSS_TRACE_REQ_MEM_IND_V01,
+		.ei = wlfw_qdss_trace_req_mem_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct wlfw_qdss_trace_req_mem_ind_msg_v01),
+		.fn = wlfw_qdss_trace_req_mem_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_QDSS_TRACE_SAVE_IND_V01,
+		.ei = wlfw_qdss_trace_save_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct wlfw_qdss_trace_save_ind_msg_v01),
+		.fn = wlfw_qdss_trace_save_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_QDSS_TRACE_FREE_IND_V01,
+		.ei = wlfw_qdss_trace_free_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct wlfw_qdss_trace_free_ind_msg_v01),
+		.fn = wlfw_qdss_trace_free_ind_cb
 	},
 	{}
 };

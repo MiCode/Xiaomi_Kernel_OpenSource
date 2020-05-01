@@ -175,7 +175,6 @@ unsigned int sched_capacity_margin_down[NR_CPUS] = {
 unsigned int sysctl_sched_min_task_util_for_boost = 51;
 /* 0.68ms default for 20ms window size scaled to 1024 */
 unsigned int sysctl_sched_min_task_util_for_colocation = 35;
-unsigned int sched_task_filter_util = 35;
 __read_mostly unsigned int sysctl_sched_prefer_spread;
 #endif
 unsigned int sched_small_task_threshold = 102;
@@ -11613,7 +11612,8 @@ static bool silver_has_big_tasks(void)
 	for_each_possible_cpu(cpu) {
 		if (!is_min_capacity_cpu(cpu))
 			break;
-		if (cpu_rq(cpu)->walt_stats.nr_big_tasks)
+
+		if (walt_big_tasks(cpu))
 			return true;
 	}
 

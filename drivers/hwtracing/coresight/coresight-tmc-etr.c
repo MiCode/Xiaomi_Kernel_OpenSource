@@ -1016,7 +1016,7 @@ static void __tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 
 	writel_relaxed(TMC_FFCR_EN_FMT | TMC_FFCR_EN_TI |
 		       TMC_FFCR_FON_FLIN | TMC_FFCR_FON_TRIG_EVT |
-		       TMC_FFCR_TRIGON_TRIGIN,
+		       TMC_FFCR_TRIGON_TRIGIN | TMC_FFCR_STOP_ON_FLUSH,
 		       drvdata->base + TMC_FFCR);
 	writel_relaxed(drvdata->trigger_cntr, drvdata->base + TMC_TRG);
 	tmc_enable_hw(drvdata);
@@ -1162,7 +1162,7 @@ static int tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
 		data_fifo_iova = dma_map_resource(drvdata->dev,
 			bamdata->data_fifo.phys_base, bamdata->data_fifo.size,
 			DMA_BIDIRECTIONAL, 0);
-		if (!data_fifo_iova)
+		if (dma_mapping_error(drvdata->dev, data_fifo_iova))
 			return -ENOMEM;
 		dev_dbg(drvdata->dev, "%s:data p_addr:%pa,iova:%pad,size:%x\n",
 			__func__, &(bamdata->data_fifo.phys_base),
@@ -1171,7 +1171,7 @@ static int tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
 		desc_fifo_iova = dma_map_resource(drvdata->dev,
 			bamdata->desc_fifo.phys_base, bamdata->desc_fifo.size,
 			DMA_BIDIRECTIONAL, 0);
-		if (!desc_fifo_iova)
+		if (dma_mapping_error(drvdata->dev, desc_fifo_iova))
 			return -ENOMEM;
 		dev_dbg(drvdata->dev, "%s:desc p_addr:%pa,iova:%pad,size:%x\n",
 			__func__, &(bamdata->desc_fifo.phys_base),
@@ -1243,7 +1243,7 @@ static int get_usb_bam_iova(struct device *dev, unsigned long usb_bam_handle,
 		return ret;
 	}
 	*iova = dma_map_resource(dev, p_addr, bam_size, DMA_BIDIRECTIONAL, 0);
-	if (!(*iova))
+	if (dma_mapping_error(dev, *iova))
 		return -ENOMEM;
 	return 0;
 }
@@ -1454,7 +1454,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 				return -ENOMEM;
 			}
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
 		} else if (drvdata->byte_cntr->sw_usb) {
 			if (!drvdata->etr_buf) {
 				free_buf = new_buf =
@@ -1464,7 +1464,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 				}
 			}
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
 
 			drvdata->usbch = usb_qdss_open("qdss_mdm",
 						drvdata->byte_cntr,

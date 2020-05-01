@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/fs.h>
@@ -114,6 +114,7 @@ int ipa3_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 			kfree(intf);
 			return -ENOMEM;
 		}
+		memcpy(intf->tx, tx->prop, len);
 	}
 
 	if (rx) {

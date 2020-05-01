@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -339,6 +339,16 @@ bool gmu_core_dev_gx_is_on(struct kgsl_device *device)
 
 	if (ops && ops->gx_is_on)
 		return ops->gx_is_on(device);
+
+	return true;
+}
+
+bool gmu_core_dev_cx_is_on(struct kgsl_device *device)
+{
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+
+	if (ops && ops->cx_is_on)
+		return ops->cx_is_on(device);
 
 	return true;
 }

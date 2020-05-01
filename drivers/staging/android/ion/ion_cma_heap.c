@@ -3,7 +3,7 @@
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
  *
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -25,6 +25,11 @@ struct ion_cma_heap {
 
 #define to_cma_heap(x) container_of(x, struct ion_cma_heap, heap)
 
+static bool ion_heap_is_cma_heap_type(enum ion_heap_type type)
+{
+	return type == ION_HEAP_TYPE_DMA;
+}
+
 /* ION CMA heap operations functions */
 static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 			    unsigned long len,
@@ -39,6 +44,13 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	int ret;
 	struct device *dev = heap->priv;
 
+	if (ion_heap_is_cma_heap_type(buffer->heap->type) &&
+	    is_secure_allocation(buffer->flags)) {
+		pr_err("%s: CMA heap doesn't support secure allocations\n",
+		       __func__);
+		return -EINVAL;
+	}
+
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
 
@@ -46,7 +58,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	if (!pages)
 		return -ENOMEM;
 
-	if (!(flags & ION_FLAG_SECURE)) {
+	if (hlos_accessible_buffer(buffer)) {
 		if (PageHighMem(pages)) {
 			unsigned long nr_clear_pages = nr_pages;
 			struct page *page = pages;
@@ -65,7 +77,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 
 	if (MAKE_ION_ALLOC_DMA_READY ||
-	    (flags & ION_FLAG_SECURE) ||
+	    (!hlos_accessible_buffer(buffer)) ||
 	     (!ion_buffer_cached(buffer)))
 		ion_pages_sync_for_device(dev, pages, size,
 					  DMA_BIDIRECTIONAL);
