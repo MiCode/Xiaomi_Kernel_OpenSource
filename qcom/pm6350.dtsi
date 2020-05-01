@@ -61,6 +61,15 @@
 			clock-names = "xo";
 			status = "disabled";
 		};
+
+		pm6350_gpios: pinctrl@c000 {
+			compatible = "qcom,pm6350-gpio";
+			reg = <0xc000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 	qcom,pm6350@1 {

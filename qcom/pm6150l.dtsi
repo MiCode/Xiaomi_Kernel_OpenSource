@@ -100,6 +100,15 @@
 			clock-names = "xo";
 			status = "disabled";
 		};
+
+		pm6150l_gpios: pinctrl@c000 {
+			compatible = "qcom,pm6150l-gpio";
+			reg = <0xc000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 	qcom,pm6150l@5 {
@@ -118,7 +127,7 @@
 		};
 
 		pm6150l_lcdb: qcom,lcdb@ec00 {
-			compatible = "qcom,qpnp-lcdb-regulator";
+			compatible = "qcom,lcdb-pm6150l";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0xec00>;

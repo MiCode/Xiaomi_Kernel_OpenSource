@@ -175,6 +175,15 @@
 						"bcl-lvl2";
 			#thermal-sensor-cells = <1>;
 		};
+
+		pm7250b_gpios: pinctrl@c000 {
+			compatible = "qcom,pm7250b-gpio";
+			reg = <0xc000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
 	};
 
 	qcom,pm7250b@3 {
