@@ -408,21 +408,29 @@ static ssize_t mhi_uci_read(struct file *file,
 	}
 
 	uci_buf = uci_chan->cur_buf;
-	spin_unlock_bh(&uci_chan->lock);
 
 	/* Copy the buffer to user space */
 	to_copy = min_t(size_t, count, uci_chan->rx_size);
 	ptr = uci_buf->data + (uci_buf->len - uci_chan->rx_size);
+	spin_unlock_bh(&uci_chan->lock);
+
 	ret = copy_to_user(buf, ptr, to_copy);
 	if (ret)
 		return ret;
+
+	spin_lock_bh(&uci_chan->lock);
+	/* Buffer already queued from diff thread while we dropped lock ? */
+	if (to_copy && !uci_chan->rx_size) {
+		MSG_VERB("Bailout as buffer already queued (%lu %lu)\n",
+			 to_copy, uci_chan->rx_size);
+		goto read_error;
+	}
 
 	MSG_VERB("Copied %lu of %lu bytes\n", to_copy, uci_chan->rx_size);
 	uci_chan->rx_size -= to_copy;
 
 	/* we finished with this buffer, queue it back to hardware */
 	if (!uci_chan->rx_size) {
-		spin_lock_bh(&uci_chan->lock);
 		uci_chan->cur_buf = NULL;
 
 		if (uci_dev->enabled)
@@ -437,9 +445,8 @@ static ssize_t mhi_uci_read(struct file *file,
 			kfree(uci_buf->data);
 			goto read_error;
 		}
-
-		spin_unlock_bh(&uci_chan->lock);
 	}
+	spin_unlock_bh(&uci_chan->lock);
 
 	MSG_VERB("Returning %lu bytes\n", to_copy);
 
