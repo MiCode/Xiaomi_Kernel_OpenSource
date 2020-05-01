@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -608,9 +608,9 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	/* Encoder Parameters */
 	int width, height, fps, lcu_size, bitrate, lcu_per_frame,
 		collocated_bytes_per_lcu, tnbr_per_lcu, dpb_bpp,
-		original_color_format, vertical_tile_width;
+		original_color_format, vertical_tile_width, rotation;
 	bool work_mode_1, original_compression_enabled,
-		low_power, rotation, cropping_or_scaling,
+		low_power, cropping_or_scaling,
 		b_frames_enabled = false,
 		llc_ref_chroma_cache_enabled = false,
 		llc_top_line_buf_enabled = false,
