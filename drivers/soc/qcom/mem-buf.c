@@ -423,7 +423,6 @@ static int mem_buf_assign_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	int *dst_vmids, *dst_perms;
 	u32 src_vmid = VMID_HLOS;
-	u32 nr_acl_entries = xfer_mem->acl_desc.n_acl_entries;
 	int ret;
 
 	if (!xfer_mem)
@@ -435,7 +434,7 @@ static int mem_buf_assign_mem(struct mem_buf_xfer_mem *xfer_mem)
 		return ret;
 
 	ret = hyp_assign_table(xfer_mem->mem_sgt, &src_vmid, 1, dst_vmids,
-			       dst_perms, nr_acl_entries);
+			       dst_perms, xfer_mem->acl_desc.n_acl_entries);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
 		       __func__, ret);
@@ -450,15 +449,18 @@ static int mem_buf_unassign_mem(struct mem_buf_xfer_mem *xfer_mem)
 	int dst_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int *src_vmids;
 	int ret;
-	u32 nr_acl_entries = xfer_mem->acl_desc.n_acl_entries;
+
+	if (!xfer_mem)
+		return -EINVAL;
 
 	ret = mem_buf_hh_acl_desc_to_vmid_perm_list(&xfer_mem->acl_desc,
 						    &src_vmids, NULL);
 	if (ret < 0)
 		return ret;
 
-	ret = hyp_assign_table(xfer_mem->mem_sgt, src_vmids, nr_acl_entries,
-			       &dst_vmid, &dst_perms, 1);
+	ret = hyp_assign_table(xfer_mem->mem_sgt, src_vmids,
+			       xfer_mem->acl_desc.n_acl_entries, &dst_vmid,
+			       &dst_perms, 1);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
 		       __func__, ret);
