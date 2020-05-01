@@ -4,6 +4,10 @@
 	#cooling-cells = <2>;
 };
 
+&battery_charger {
+	#cooling-cells = <2>;
+};
+
 &thermal_zones {
 	socd {
 		cooling-maps {
